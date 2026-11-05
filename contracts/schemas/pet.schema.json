@@ -2,76 +2,221 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://argos.local/contracts/schemas/pet.schema.json",
   "title": "PetProfileSchema",
-  "description": "Contrato formal de perfil de mascota y reglas de cupo [REQ-PET-001,REQ-PET-002,INV-PET-001,INV-PET-002,INV-PET-004]",
+  "description": "Perfil de mascota con dueño; sin cupo de cantidad ni de especie [REQ-PET-001..005, INV-OWN-001]",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "status": "LOCKED",
-    "traceability": ["REQ-PET-001", "REQ-PET-002", "REQ-PET-003", "INV-PET-001", "INV-PET-002", "INV-PET-004", "STATE-PET-QUOTA-001"]
+    "supersedes": "1.0.0",
+    "traceability": [
+      "REQ-PET-001",
+      "REQ-PET-002",
+      "REQ-PET-003",
+      "REQ-PET-004",
+      "REQ-PET-005",
+      "INV-PET-002",
+      "INV-PET-006",
+      "INV-OWN-001",
+      "INV-REC-006"
+    ]
   },
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "name", "species", "breed", "birthDate", "sex", "avatarUrl", "createdAt"],
+  "required": [
+    "id",
+    "ownerUserId",
+    "name",
+    "species",
+    "breed",
+    "birthDate",
+    "sex",
+    "avatarUrl",
+    "createdAt",
+    "updatedAt"
+  ],
   "properties": {
     "id": {
-      "type": "string",
-      "format": "uuid",
-      "description": "UUID v4 generado vía IdGeneratorPort"
+      "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+    },
+    "ownerUserId": {
+      "allOf": [
+        {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        }
+      ],
+      "description": "Usuario dueño; inmutable vía API [INV-OWN-001]"
     },
     "name": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 50,
-      "pattern": "^\\S(.*\\S)?$",
-      "description": "Nombre de la mascota sin espacios iniciales/finales vacíos [INV-REC-006]"
+      "allOf": [
+        {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+        }
+      ],
+      "maxLength": 50
     },
     "species": {
-      "type": "string",
-      "enum": ["DOG", "CAT"],
-      "description": "Especie cerrada: máximo 2 DOG y 2 CAT en el sistema [INV-PET-001]"
+      "$ref": "#/$defs/Species"
     },
     "breed": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 60,
-      "pattern": "^\\S(.*\\S)?$"
+      "allOf": [
+        {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+        }
+      ],
+      "maxLength": 60
     },
     "birthDate": {
-      "type": "string",
-      "format": "date",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-      "description": "Fecha de nacimiento ISO-8601 (YYYY-MM-DD), no posterior a ClockPort.todayIsoDate() [INV-PET-002]"
+      "allOf": [
+        {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        }
+      ],
+      "description": "<= ClockPort.todayIsoDate() [INV-PET-002] y <= fecha del registro más antiguo [INV-PET-006]"
     },
     "sex": {
-      "type": "string",
-      "enum": ["MALE", "FEMALE"]
+      "$ref": "#/$defs/Sex"
     },
     "avatarUrl": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "maxLength": 2048,
-      "description": "URI o Data-URL opcional para foto/avatar de la mascota"
+      "pattern": "^(https?://|data:image/(png|jpeg|webp);base64,)",
+      "description": "Solo http(s) o data-URL de imagen (previene javascript: URLs)"
     },
     "createdAt": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Timestamp ISO-8601 UTC provisto por ClockPort.nowIsoTimestamp()"
+      "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+    },
+    "updatedAt": {
+      "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
     }
   },
   "$defs": {
+    "Species": {
+      "type": "string",
+      "enum": [
+        "DOG",
+        "CAT"
+      ]
+    },
+    "Sex": {
+      "type": "string",
+      "enum": [
+        "MALE",
+        "FEMALE"
+      ]
+    },
     "ComputedAge": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["years", "months", "totalDays"],
+      "required": [
+        "years",
+        "months",
+        "totalDays"
+      ],
       "properties": {
-        "years": { "type": "integer", "minimum": 0 },
-        "months": { "type": "integer", "minimum": 0, "maximum": 11 },
-        "totalDays": { "type": "integer", "minimum": 0 }
+        "years": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "months": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 11
+        },
+        "totalDays": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "description": "[REQ-PET-002] aniversario en último día del mes cuando el día no existe"
+    },
+    "CreatePetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "species",
+        "breed",
+        "birthDate",
+        "sex"
+      ],
+      "properties": {
+        "name": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 50
+        },
+        "species": {
+          "$ref": "#/$defs/Species"
+        },
+        "breed": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        },
+        "birthDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "sex": {
+          "$ref": "#/$defs/Sex"
+        },
+        "avatarUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2048,
+          "pattern": "^(https?://|data:image/(png|jpeg|webp);base64,)"
+        }
       }
     },
-    "PetQuotaCollection": {
-      "type": "array",
-      "maxItems": 4,
-      "items": { "$ref": "#" },
-      "description": "Colección máxima de 4 mascotas (máximo 2 DOG y 2 CAT) [INV-PET-001]"
+    "UpdatePetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "name": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 50
+        },
+        "species": {
+          "$ref": "#/$defs/Species"
+        },
+        "breed": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        },
+        "birthDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "sex": {
+          "$ref": "#/$defs/Sex"
+        },
+        "avatarUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2048,
+          "pattern": "^(https?://|data:image/(png|jpeg|webp);base64,)"
+        }
+      },
+      "description": "ownerUserId e id no son editables [INV-OWN-001]"
     }
   }
 }

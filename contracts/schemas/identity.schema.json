@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/identity.schema.json",
+  "title": "IdentitySchema",
+  "description": "Usuarios, sesiones y hogares compartidos [REQ-AUTH-*, REQ-HOUSE-*]",
+  "x-sdd-metadata": {
+    "version": "2.0.0",
+    "status": "LOCKED",
+    "traceability": [
+      "REQ-AUTH-001",
+      "REQ-AUTH-002",
+      "REQ-AUTH-003",
+      "REQ-AUTH-004",
+      "REQ-HOUSE-001",
+      "REQ-HOUSE-002",
+      "REQ-HOUSE-003",
+      "REQ-HOUSE-004",
+      "REQ-HOUSE-005",
+      "INV-AUTH-001",
+      "INV-AUTH-002",
+      "INV-AUTH-003",
+      "INV-AUTH-004",
+      "INV-HOUSE-001",
+      "INV-HOUSE-003",
+      "INV-HOUSE-005",
+      "STATE-AUTH-SESSION-001",
+      "STATE-HOUSE-MEMBERSHIP-001"
+    ]
+  },
+  "$defs": {
+    "Username": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 30,
+      "pattern": "^[a-z0-9._-]+$",
+      "description": "Normalizado a minúsculas antes de validar; único [INV-AUTH-001]"
+    },
+    "DisplayName": {
+      "allOf": [
+        {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+        }
+      ],
+      "maxLength": 60
+    },
+    "Password": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "allOf": [
+        {
+          "pattern": "[A-Za-z]"
+        },
+        {
+          "pattern": "[0-9]"
+        }
+      ],
+      "writeOnly": true,
+      "description": "Solo en entradas; nunca en salidas [INV-AUTH-002, INV-AUTH-003]"
+    },
+    "UserPublicProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "username",
+        "displayName",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "username": {
+          "$ref": "#/$defs/Username"
+        },
+        "displayName": {
+          "$ref": "#/$defs/DisplayName"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      }
+    },
+    "RegisterUserInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username",
+        "displayName",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "$ref": "#/$defs/Username"
+        },
+        "displayName": {
+          "$ref": "#/$defs/DisplayName"
+        },
+        "password": {
+          "$ref": "#/$defs/Password"
+        }
+      }
+    },
+    "LoginInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "password": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "writeOnly": true
+        }
+      },
+      "description": "Validación laxa a propósito: errores de login siempre genéricos [ERR-AUTH-INVALID-CREDENTIALS]"
+    },
+    "SessionView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user",
+        "expiresAt"
+      ],
+      "properties": {
+        "user": {
+          "$ref": "#/$defs/UserPublicProfile"
+        },
+        "expiresAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      },
+      "description": "El token de sesión viaja solo en la cookie HttpOnly argos_session, nunca en el cuerpo [INV-AUTH-003]"
+    },
+    "HouseholdRole": {
+      "type": "string",
+      "enum": [
+        "OWNER",
+        "MEMBER"
+      ]
+    },
+    "MembershipStatus": {
+      "type": "string",
+      "enum": [
+        "INVITED",
+        "ACTIVE",
+        "DECLINED",
+        "CANCELLED",
+        "LEFT",
+        "REMOVED"
+      ],
+      "description": "[STATE-HOUSE-MEMBERSHIP-001]"
+    },
+    "Household": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "ownerUserId",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "name": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        },
+        "ownerUserId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      }
+    },
+    "HouseholdMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "householdId",
+        "userId",
+        "role",
+        "status",
+        "invitedByUserId",
+        "invitedAt",
+        "joinedAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "householdId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "userId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "role": {
+          "$ref": "#/$defs/HouseholdRole"
+        },
+        "status": {
+          "$ref": "#/$defs/MembershipStatus"
+        },
+        "invitedByUserId": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null para el OWNER creador"
+        },
+        "invitedAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "joinedAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Momento de paso a ACTIVE; base del orden de INV-HOUSE-005"
+        },
+        "updatedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      }
+    },
+    "CreateHouseholdInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        }
+      }
+    },
+    "InviteMemberInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username"
+      ],
+      "properties": {
+        "username": {
+          "$ref": "#/$defs/Username"
+        }
+      }
+    },
+    "OwnerTag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "userId",
+        "displayName",
+        "colorToken"
+      ],
+      "properties": {
+        "userId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "displayName": {
+          "$ref": "#/$defs/DisplayName"
+        },
+        "colorToken": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OwnerColorToken"
+        }
+      },
+      "description": "Distinción visual del dueño de una mascota [REQ-UI-007, INV-HOUSE-005]"
+    }
+  }
+}

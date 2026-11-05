@@ -1,8 +1,15 @@
 ---
 document_id: CONSTITUTION-ARGOS-001
-version: 1.0.0
+version: 2.0.0
 status: LOCKED
 last_updated: 2026-11-05
+supersedes: 1.0.0
+change_type: MAJOR
+change_summary: >
+  Eliminación del cupo fijo de mascotas (2 perros / 2 gatos), incorporación de cuentas de usuario
+  (registro/login), hogares compartidos, servidor API local con SQLite preparado para migración Cloud,
+  generación real de validadores desde contratos y toolchain de pruebas oficial (sin harness propio).
+approved_by: Arquitecto humano (Nivel 2) — 2026-11-05
 ---
 
 # CONSTITUCIÓN ARQUITECTÓNICA — PROYECTO ARGOS (PET HEALTH TRACKER)
@@ -10,43 +17,80 @@ last_updated: 2026-11-05
 Esta Constitución define las invariantes técnicas, tecnológicas y operativas no negociables del **Proyecto Argos**. Ningún plan, tarea o línea de código en `src/` o `tests/` puede contradecir este documento.
 
 ## 1. DEFINICIÓN Y PROPÓSITO DEL SISTEMA
-Argos es una aplicación web local, ligera y 100% determinista diseñada para administrar el expediente clínico, físico y sanitario de **exactamente hasta 4 mascotas (máximo 2 perros y 2 gatos)**, garantizando aislamiento estricto de datos por mascota, alertas sanitarias calculadas mediante máquinas de estados finitos y respaldo/restauración atómica en formato JSON.
+Argos es una plataforma web **multi-usuario** y determinista para administrar el expediente clínico, físico y sanitario de mascotas (`DOG` | `CAT`) **sin límite de cantidad**. Garantiza:
+- **Propiedad individual:** cada mascota pertenece exactamente a un usuario (`ownerUserId`); cada usuario gestiona solo lo suyo.
+- **Hogares compartidos:** un usuario puede crear hogares e invitar a otros usuarios; los miembros activos de un hogar ven las mascotas de todos los miembros, siempre distinguiendo visualmente a su dueño. Solo el dueño puede modificar una mascota y sus registros.
+- Alertas sanitarias calculadas mediante máquinas de estados finitos y respaldo/restauración atómica en JSON por usuario.
+
+### 1.1 Fases de despliegue
+- **Fase actual — Local:** API y web se ejecutan en el computador del arquitecto (`127.0.0.1`), con base de datos en un archivo SQLite local. No se expone a la red.
+- **Fase futura — Cloud:** se migrará a la plataforma Cloud del arquitecto **sustituyendo únicamente adaptadores de `src/infrastructure/`** (persistencia, configuración, cookies `Secure`). `src/domain/` y `src/application/` no deben requerir cambios para esa migración (`INV-ARCH-005`).
 
 ## 2. STACK TECNOLÓGICO INMUTABLE
-Para evitar decisiones heurísticas durante la implementación, se fija el siguiente stack ligero y sin dependencias pesadas de servidor externo:
-- **Lenguaje y Compilador:** TypeScript 5.x bajo configuración de máxima rigurosidad (`strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`, `noImplicitReturns: true`).
-- **Runtime & Bundler Web:** Vite + React 18+ con Tailwind CSS para interfaz responsiva (Desktop y Mobile).
-- **Persistencia Local Transaccional:** Almacenamiento local estructurado mediante adaptador `StoragePort` implementado sobre **IndexedDB transaccional / LocalStorage atómico con snapshot de rollback en memoria** (y adaptador en memoria `InMemoryStorageAdapter` para pruebas unitarias y de propiedades).
-- **Validación de Contratos en Runtime:** Validación declarativa estricta (`additionalProperties: false`) derivada de los esquemas de `contracts/schemas/` y expuesta a través de `src/generated/`.
-- **Suite de Pruebas (The Test Gate):**
-  - Unitarias e Integración de Contratos: **Vitest**.
-  - Pruebas Basadas en Propiedades (Property-Based Testing): **fast-check** con semilla (`seed`) fija reproducible.
-  - Pruebas de Mutación: **Stryker Mutator** (`tests/mutation/stryker.conf.json`).
-  - Pruebas E2E y Accesibilidad: **Playwright** + **axe-core** (`@axe-core/playwright`).
+- **Lenguaje y Compilador:** TypeScript **5.x** (fijado `~5.6`; prohibido TS 6/7) con `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`, `noImplicitReturns: true`. `src/` y `tests/` deben compilar con `tsc --noEmit` sin errores (incluye `@types/node`).
+- **Runtime:** Node.js **22 LTS**, idéntico en local y CI (`.nvmrc` + `engines` en `package.json`).
+- **Frontend (SPA):** Vite 5 + React 18 + Tailwind CSS 3, con JSX real. Punto de entrada `index.html` → `src/presentation/web/main.tsx`.
+- **Backend local (API HTTP):** Fastify 5 en `src/infrastructure/http/`, escuchando en `127.0.0.1:3000`. En desarrollo, Vite hace proxy de `/api` hacia el servidor. Un único comando (`npm run dev`) levanta API + web.
+- **Persistencia:** SQLite en archivo local (`./data/argos.sqlite`, ignorado por git) mediante `better-sqlite3`, detrás de puertos de repositorio. Migraciones SQL versionadas y aplicadas al arranque en `src/infrastructure/persistence/migrations/`. Adaptador en memoria para pruebas unitarias y de propiedades.
+- **Autenticación:** hash de contraseñas con `scrypt` de `node:crypto` (N=2^15, r=8, p=1, salt 16 bytes, keylen 64). Sesiones opacas de 32 bytes (base64url) almacenadas en BD solo como SHA-256, entregadas en cookie `argos_session` (`HttpOnly`, `SameSite=Strict`, `Path=/`; `Secure` obligatorio en Cloud). TTL 7 días.
+- **Generación desde contratos (real, no plantillas):** `scripts/compile-contracts.sh` debe **derivar** de `contracts/`:
+  - Validadores runtime con **Ajv 8 en modo standalone** + `ajv-formats` desde `contracts/schemas/` y los `components.schemas` de `contracts/openapi/`.
+  - Tipos estáticos con `json-schema-to-typescript` (schemas) y `openapi-typescript` (API).
+  - Catálogo de errores y tipos de máquinas de estado leídos de `contracts/errors/` y `contracts/state-machines/`.
+  Cambiar un valor en un contrato **debe** cambiar `src/generated/`. Prohibido escribir reglas de validación a mano en plantillas del generador.
+- **Suite de Pruebas (The Test Gate) — herramientas oficiales obligatorias, prohibidos harness propios que las emulen:**
+  - Unitarias, propiedades e integración: **Vitest 2** (cobertura `@vitest/coverage-v8`).
+  - Property-Based Testing: **fast-check 3** con `seed: 20261105`.
+  - Mutación: **Stryker Mutator** con `@stryker-mutator/vitest-runner` (`tests/mutation/stryker.conf.json`).
+  - E2E, visual y accesibilidad: **Playwright** + **`@axe-core/playwright`** contra la aplicación real levantada (API + SPA).
 
 ## 3. REGLAS DE PUREZA Y AISLAMIENTO DE ENTROPÍA (DETERMINISMO TOTAL)
-1. **Prohibición de Reloj Global (`INV-ARCH-001`):** Queda estrictamente prohibido invocar `new Date()`, `Date.now()` o `performance.now()` dentro de `src/domain/` y `src/application/`. Toda operación dependiente del tiempo (cálculo de edad de la mascota, validación de fechas futuras, evaluación de alertas `UP_TO_DATE` / `DUE_SOON` / `OVERDUE`) debe recibir una instancia de `ClockPort`:
+1. **Prohibición de Reloj Global (`INV-ARCH-001`):** prohibido `new Date()`, `Date.now()` o `performance.now()` en `src/domain/` y `src/application/`. Todo cálculo temporal (edad, fechas futuras, alertas, expiración de sesión, bloqueo de login) recibe `ClockPort`:
    - `interface ClockPort { todayIsoDate(): string; nowIsoTimestamp(): string; }`
-2. **Prohibición de Generadores Aleatorios Directos (`INV-ARCH-002`):** Queda prohibido invocar `Math.random()` o `crypto.randomUUID()` directamente en `src/domain/` y `src/application/`. La creación de identificadores debe inyectarse vía `IdGeneratorPort`:
-   - `interface IdGeneratorPort { nextId(): string; }`
-3. **Inmutabilidad de `src/generated/` (`INV-ARCH-003`):** Todo tipo de datos de contrato, esquema validador y catálogo de códigos de error reside en `src/generated/` y proviene de `scripts/compile-contracts.sh`. Ningún desarrollador o agente puede editar manualmente archivos bajo `src/generated/`.
+   - `todayIsoDate()` devuelve la fecha calendario en la zona horaria configurada (`APP_TIMEZONE`, por defecto `America/Bogota`). `nowIsoTimestamp()` devuelve UTC canónico `YYYY-MM-DDTHH:mm:ss.sssZ`.
+2. **Prohibición de Entropía Directa (`INV-ARCH-002`):** prohibido `Math.random()`, `crypto.randomUUID()`, `crypto.randomBytes()` o equivalentes en `src/domain/` y `src/application/`. Se inyectan:
+   - `interface IdGeneratorPort { nextId(): string; }` (UUID v4)
+   - `interface SecureTokenPort { nextSessionToken(): string; }`
+   - `interface PasswordHasherPort { hash(plain: string): Promise<string>; verify(plain: string, hash: string): Promise<boolean>; }`
+3. **Inmutabilidad de `src/generated/` (`INV-ARCH-003`):** todo artefacto de contrato reside en `src/generated/` y proviene exclusivamente de `scripts/compile-contracts.sh`. Prohibida la edición manual.
 4. **Regla de Dependencia Concéntrica (`INV-ARCH-004`):**
-   - `src/domain/` depende únicamente de `src/generated/` (tipos puros y códigos de error). No importa nada de `application`, `infrastructure`, `presentation` ni librerías de UI/IO.
-   - `src/application/` depende únicamente de `src/domain/` y `src/generated/`. Define los puertos (`ClockPort`, `IdGeneratorPort`, `PetRepositoryPort`, `MedicalRecordRepositoryPort`, `BackupStoragePort`).
-   - `src/infrastructure/` implementa los puertos definidos en `src/application/` y ejecuta validación de esquemas en runtime antes de persistir o devolver datos.
-   - `src/presentation/` consume únicamente casos de uso de `src/application/` y tipos de `src/generated/`. Prohibido incluir reglas de negocio o cálculos de fechas directamente en componentes JSX/TSX.
+   - `src/domain/` depende únicamente de `src/generated/`.
+   - `src/application/` depende únicamente de `src/domain/` y `src/generated/`, y define los puertos.
+   - `src/infrastructure/` implementa los puertos (persistencia SQLite/memoria, HTTP Fastify, hashing, tokens, reloj, configuración) y valida en runtime contra `src/generated/` en toda frontera.
+   - `src/presentation/` consume la API HTTP mediante un cliente tipado generado de `contracts/openapi/` y tipos de `src/generated/`. Prohibidas reglas de negocio o aritmética de fechas en componentes.
+5. **Puertos asíncronos y listos para Cloud (`INV-ARCH-005`):** todos los puertos de repositorio devuelven `Promise` y exponen una operación transaccional `runInTransaction(fn)`. Sustituir SQLite local por la base de datos Cloud no puede requerir cambios en `domain/` ni `application/`.
+6. **Configuración aislada (`INV-ARCH-006`):** `process.env` solo puede leerse en `src/infrastructure/config/`, validado contra un esquema. Ningún secreto se versiona; existe `.env.example` sin valores sensibles.
 
 ## 4. ESTÁNDAR DE TRAZABILIDAD (LINEAGE IDS)
-Todo artefacto del repositorio debe mantener trazabilidad cruzada verificable mediante `scripts/verify-traceability.sh`:
-- **Requisitos Funcionales:** `REQ-PET-001`..`003`, `REQ-REC-001`..`006`, `REQ-UI-001`..`004`, `REQ-BACKUP-001`..`002`.
-- **Invariantes de Dominio:** `INV-PET-001`..`004`, `INV-REC-001`..`006`, `INV-SORT-001`, `INV-BACKUP-001`.
-- **Máquinas de Estado:** `STATE-ALERT-001`, `STATE-BACKUP-001`, `STATE-PET-QUOTA-001`.
-- **Catálogo de Errores:** `ERR-PET-*`, `ERR-REC-*`, `ERR-BACKUP-*`, `ERR-SCHEMA-*`.
+Fuente de verdad de IDs: `.specify/specs/pet-health-tracker.md` v2.0.0 y `contracts/`.
+- **Requisitos:** `REQ-AUTH-001`..`004`, `REQ-PET-001`..`005`, `REQ-REC-001`..`006`, `REQ-HOUSE-001`..`005`, `REQ-UI-001`..`007`, `REQ-BACKUP-001`..`002`.
+- **Invariantes:** `INV-PET-002`, `INV-PET-003`, `INV-PET-005`, `INV-PET-006`, `INV-OWN-001`, `INV-ACC-001`, `INV-ACC-002`, `INV-AUTH-001`..`005`, `INV-HOUSE-001`..`005`, `INV-REC-001`..`006`, `INV-SORT-001`, `INV-BACKUP-001`, `INV-ARCH-001`..`006`.
+- **Máquinas de Estado:** `STATE-ALERT-001`, `STATE-BACKUP-001`, `STATE-AUTH-SESSION-001`, `STATE-HOUSE-MEMBERSHIP-001`.
+- **Errores:** todos los códigos de `contracts/errors/error-catalog.json` v2.0.0.
+- **IDs retirados (no deben aparecer en código nuevo; solo en historial):** `INV-PET-001`, `INV-PET-004`, `STATE-PET-QUOTA-001`, `ERR-PET-QUOTA-EXCEEDED`.
 
-Cada función o clase en `src/` debe incluir en su comentario JSDoc los IDs que implementa (ej. `@implements REQ-PET-001, INV-PET-001`), y cada bloque `describe` o `it` en `tests/` debe incluir explícitamente el ID verificado en su título (ej. `it('[INV-PET-001][ERR-PET-QUOTA-EXCEEDED] rechaza el registro de un tercer perro', ...)`).
+Cada función o clase en `src/` incluye en su JSDoc los IDs que implementa (`@implements ...`), y cada `describe`/`it` en `tests/` incluye entre corchetes el ID verificado. La trazabilidad cuenta como cumplida **solo** si el ID aparece en un `@implements` de `src/` fuera de `src/generated/` **y** en el título de un `it`/`test` de `tests/`.
 
 ## 5. UMBRALES NO NEGOCIABLES DEL TEST GATE
-- **Cobertura de Trazabilidad:** 100% de los IDs declarados en `.specify/specs/pet-health-tracker.md` y `contracts/errors/error-catalog.json` deben estar referenciados en `src/` y probados en `tests/`.
-- **Cobertura de Líneas y Ramas en `src/domain/` y `src/application/`:** Mínimo 95%.
-- **Puntuación de Mutación (Mutation Score):** Mínimo 85% en `src/domain/` y `src/application/` (bloqueante por debajo de 80%).
-- **Cero Weak Oracles:** Prohibido el uso de aserciones débiles (`toBeDefined()`, `toBeTruthy()` aislados sin comprobar el valor o código de error exacto), verificado por `scripts/verify-oracles.sh`.
+- **Cobertura de Trazabilidad:** 100% de los IDs vigentes de la sección 4.
+- **Cobertura de Líneas y Ramas en `src/domain/` y `src/application/`:** mínimo 95% (medida por Vitest).
+- **Mutation Score:** mínimo 85% en `src/domain/` y `src/application/` (bloqueante por debajo de 80%), medido por Stryker en CI.
+- **Cero Weak Oracles:** prohibido `toBeDefined()`, `toBeTruthy()`, `toBeFalsy()`, `not.toBeNull()` o `toThrow()` sin argumento como aserción principal; verificado por `scripts/verify-oracles.sh`.
+- **Accesibilidad:** cero violaciones `critical`/`serious` de axe-core en todas las pantallas (login, registro, mis mascotas, hogar, ficha, respaldo) a 320px y 1280px.
+- **Seguridad:** `tests/security/` debe cubrir al menos: acceso cruzado entre usuarios (IDOR), acceso a hogares ajenos, rutas sin sesión, sesión expirada, CSRF, enumeración de usuarios en login, XSS almacenado en campos de texto e importación de backup maliciosa (prototype pollution, tamaño excesivo).
+- **CI reproducible:** `test-gate.yml` debe pasar desde un checkout limpio con `npm ci` (lockfile versionado) en Node 22.
+
+## 6. SEGURIDAD Y PRIVACIDAD
+1. Las contraseñas nunca se almacenan en claro, nunca se registran en logs, nunca se devuelven en respuestas ni se incluyen en respaldos (`INV-AUTH-003`).
+2. Los errores de login son genéricos (`ERR-AUTH-INVALID-CREDENTIALS`) para impedir la enumeración de usuarios.
+3. Toda petición que modifica estado exige sesión válida y la cabecera `X-Argos-Request: 1` (defensa CSRF junto a `SameSite=Strict`).
+4. Un usuario sin permiso de lectura sobre una mascota u hogar recibe `404` (no `403`) para no revelar su existencia.
+5. Las respuestas de error siguen RFC 9457 (`application/problem+json`) y nunca incluyen trazas internas.
+6. Ningún usuario ve datos de otro si no existe una membresía `ACTIVE` compartida en un hogar, aceptada explícitamente por el invitado.
+
+## 7. ESTRUCTURA DEL REPOSITORIO
+Se aplica el **Estándar de Código / Software Production-Grade (SDD)**. Los archivos de la raíz y de `scripts/` adicionales al árbol estándar están **autorizados únicamente** en esta lista:
+- Raíz: `package.json`, `package-lock.json`, `tsconfig.json`, `vite.config.ts`, `playwright.config.ts`, `tailwind.config.ts`, `postcss.config.js`, `index.html`, `.gitignore`, `.nvmrc`, `.env.example`.
+- `scripts/codegen.mjs`: auxiliar invocado exclusivamente por `scripts/compile-contracts.sh`.
+- Subcarpetas de `src/` por responsabilidad (p. ej. `src/infrastructure/http/`, `src/infrastructure/persistence/`, `src/presentation/web/`) siempre dentro de la capa correcta.
+Queda prohibido crear carpetas fuera del árbol estándar (p. ej. `tests/support/`); los auxiliares compartidos de prueba van en `tests/fixtures/`. Toda carpeta vacía del estándar conserva su `.gitkeep`.

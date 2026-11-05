@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/common.schema.json",
+  "title": "CommonPrimitives",
+  "description": "Primitivas compartidas por todos los contratos [INV-REC-006, INV-SORT-001]",
+  "x-sdd-metadata": {
+    "version": "2.0.0",
+    "status": "LOCKED",
+    "traceability": [
+      "INV-REC-006",
+      "INV-SORT-001",
+      "INV-ARCH-001"
+    ]
+  },
+  "$defs": {
+    "Uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUID v4 en minúsculas generado vía IdGeneratorPort"
+    },
+    "IsoDate": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "IsoTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "UTC canónico con milisegundos; garantiza orden lexicográfico = cronológico [INV-SORT-001]"
+    },
+    "NonEmptyTrimmedString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(.*\\S)?$"
+    },
+    "OptionalNotes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "OwnerColorToken": {
+      "type": "string",
+      "enum": [
+        "OWNER_COLOR_1",
+        "OWNER_COLOR_2",
+        "OWNER_COLOR_3",
+        "OWNER_COLOR_4",
+        "OWNER_COLOR_5",
+        "OWNER_COLOR_6",
+        "OWNER_COLOR_7",
+        "OWNER_COLOR_8"
+      ],
+      "description": "[INV-HOUSE-005]"
+    }
+  }
+}

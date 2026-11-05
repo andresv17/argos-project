@@ -1,17 +1,35 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "id": "argos-state-machines",
-  "version": "1.0.0",
+  "id": "STATE-ALERT-001",
+  "version": "2.0.0",
   "status": "LOCKED",
+  "supersedes": "1.0.0",
+  "x-sdd-metadata": {
+    "version": "2.0.0",
+    "status": "LOCKED",
+    "traceability": [
+      "STATE-ALERT-001",
+      "REQ-REC-003",
+      "REQ-REC-004",
+      "REQ-UI-003"
+    ],
+    "change_note": "MAJOR: el archivo contiene solo STATE-ALERT-001; STATE-BACKUP-001 se movió a backup-import.machine.json; STATE-PET-QUOTA-001 retirado."
+  },
   "machines": {
     "STATE-ALERT-001": {
-      "description": "Máquina de estados determinista para alertas sanitarias de Vacunación y Desparasitación",
+      "description": "Evaluación determinista de alertas sanitarias para Vacunación y Desparasitación",
       "initial": "EVALUATING",
       "context": {
         "targetDate": "YYYY-MM-DD (nextBoosterAt o nextSuggestedDoseAt)",
-        "currentDate": "YYYY-MM-DD provisto por ClockPort.todayIsoDate()",
-        "hasNewerRecordOfSameKey": "boolean (mismo vaccineName normalizado o mismo dewormingType para el mismo petId)"
+        "currentDate": "YYYY-MM-DD de ClockPort.todayIsoDate()",
+        "hasNewerRecordOfSameKey": "boolean: existe registro posterior (orden INV-SORT-001) para la misma mascota con mismo vaccineName.trim().toLowerCase() o mismo dewormingType"
       },
+      "evaluationOrder": [
+        "SUPERSEDED",
+        "OVERDUE",
+        "DUE_SOON",
+        "UP_TO_DATE"
+      ],
       "states": {
         "SUPERSEDED": {
           "guard": "hasNewerRecordOfSameKey === true",
@@ -20,75 +38,23 @@
           "isActiveAlert": false
         },
         "OVERDUE": {
-          "guard": "hasNewerRecordOfSameKey === false && diffInCalendarDays(targetDate, currentDate) < 0",
+          "guard": "hasNewerRecordOfSameKey === false && daysRemaining < 0",
           "uiBadge": "DANGER_RED",
           "label": "Vencida",
           "isActiveAlert": true
         },
         "DUE_SOON": {
-          "guard": "hasNewerRecordOfSameKey === false && diffInCalendarDays(targetDate, currentDate) >= 0 && diffInCalendarDays(targetDate, currentDate) <= 15",
+          "guard": "hasNewerRecordOfSameKey === false && daysRemaining >= 0 && daysRemaining <= 15",
           "uiBadge": "WARNING_AMBER",
           "label": "Próxima a vencer (<= 15 días)",
           "isActiveAlert": true
         },
         "UP_TO_DATE": {
-          "guard": "hasNewerRecordOfSameKey === false && diffInCalendarDays(targetDate, currentDate) > 15",
+          "guard": "hasNewerRecordOfSameKey === false && daysRemaining > 15",
           "uiBadge": "SUCCESS_GREEN",
           "label": "Al día",
           "isActiveAlert": false
         }
-      }
-    },
-    "STATE-BACKUP-001": {
-      "description": "Máquina de estados transaccional para la importación atómica de Backup JSON",
-      "initial": "IDLE",
-      "states": {
-        "IDLE": {
-          "on": { "START_IMPORT": "PARSING_JSON" }
-        },
-        "PARSING_JSON": {
-          "on": {
-            "PARSE_SUCCESS": "VALIDATING_VERSION_AND_SCHEMA",
-            "PARSE_FAILURE": { "target": "ROLLED_BACK", "error": "ERR-BACKUP-MALFORMED-JSON" }
-          }
-        },
-        "VALIDATING_VERSION_AND_SCHEMA": {
-          "on": {
-            "VERSION_MISMATCH": { "target": "ROLLED_BACK", "error": "ERR-BACKUP-VERSION-UNSUPPORTED" },
-            "SCHEMA_INVALID": { "target": "ROLLED_BACK", "error": "ERR-BACKUP-SCHEMA-INVALID" },
-            "SCHEMA_VALID": "CHECKING_DOMAIN_INVARIANTS"
-          }
-        },
-        "CHECKING_DOMAIN_INVARIANTS": {
-          "on": {
-            "ORPHAN_RECORD_OR_DUPLICATE_ID": { "target": "ROLLED_BACK", "error": "ERR-BACKUP-REFERENTIAL-INTEGRITY" },
-            "DOMAIN_INVARIANT_VIOLATED": { "target": "ROLLED_BACK", "error": "Propagate Specific ERR-PET-* or ERR-REC-*" },
-            "INVARIANTS_VALID": "COMMITTING_SNAPSHOT"
-          }
-        },
-        "COMMITTING_SNAPSHOT": {
-          "on": {
-            "COMMIT_SUCCESS": "COMPLETED",
-            "STORAGE_ERROR": { "target": "ROLLED_BACK", "error": "ERR-BACKUP-ATOMIC-ROLLBACK" }
-          }
-        },
-        "COMPLETED": { "type": "final" },
-        "ROLLED_BACK": {
-          "type": "final",
-          "postCondition": "El estado en StorageRepositoryPort es idéntico byte por byte al snapshot previo a START_IMPORT"
-        }
-      }
-    },
-    "STATE-PET-QUOTA-001": {
-      "description": "Estado del cupo de registro de mascotas (2 Perros + 2 Gatos)",
-      "states": {
-        "EMPTY": { "guard": "dogsCount === 0 && catsCount === 0", "canAddDog": true, "canAddCat": true },
-        "PARTIAL": {
-          "guard": "(dogsCount + catsCount) > 0 && (dogsCount < 2 || catsCount < 2)",
-          "canAddDog": "dogsCount < 2",
-          "canAddCat": "catsCount < 2"
-        },
-        "FULL_QUOTA": { "guard": "dogsCount === 2 && catsCount === 2", "canAddDog": false, "canAddCat": false }
       }
     }
   }

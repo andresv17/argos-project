@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "STATE-BACKUP-001",
+  "version": "2.0.0",
+  "status": "LOCKED",
+  "x-sdd-metadata": {
+    "version": "2.0.0",
+    "status": "LOCKED",
+    "traceability": [
+      "STATE-BACKUP-001",
+      "REQ-BACKUP-002",
+      "INV-BACKUP-001"
+    ]
+  },
+  "machines": {
+    "STATE-BACKUP-001": {
+      "description": "Importación atómica del respaldo JSON de un usuario. Ninguna escritura ocurre antes de COMMITTING_SNAPSHOT; el commit es una única transacción (UnitOfWorkPort.runInTransaction).",
+      "initial": "IDLE",
+      "states": {
+        "IDLE": {
+          "on": {
+            "START_IMPORT": "CHECKING_PAYLOAD_SIZE"
+          }
+        },
+        "CHECKING_PAYLOAD_SIZE": {
+          "on": {
+            "SIZE_OK": "PARSING_JSON",
+            "SIZE_EXCEEDED": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-PAYLOAD-TOO-LARGE"
+            }
+          },
+          "guard": "bytes <= 10485760"
+        },
+        "PARSING_JSON": {
+          "on": {
+            "PARSE_SUCCESS": "VALIDATING_VERSION_AND_SCHEMA",
+            "PARSE_FAILURE": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-MALFORMED-JSON"
+            }
+          }
+        },
+        "VALIDATING_VERSION_AND_SCHEMA": {
+          "on": {
+            "VERSION_MISMATCH": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-VERSION-UNSUPPORTED",
+              "guard": "schemaVersion not in ['1.0.0','2.0.0']"
+            },
+            "SCHEMA_INVALID": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-SCHEMA-INVALID"
+            },
+            "LEGACY_V1_VALID": "MIGRATING_LEGACY_ENVELOPE",
+            "SCHEMA_V2_VALID": "CHECKING_DOMAIN_INVARIANTS"
+          }
+        },
+        "MIGRATING_LEGACY_ENVELOPE": {
+          "description": "Transformación pura v1→v2: ownerUserId = usuario autenticado, exportedByUserId = usuario autenticado, updatedAt = createdAt, timestamps normalizados a UTC canónico; luego revalidación como v2.",
+          "on": {
+            "MIGRATION_SUCCESS": "CHECKING_DOMAIN_INVARIANTS",
+            "MIGRATION_SCHEMA_INVALID": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-SCHEMA-INVALID"
+            }
+          }
+        },
+        "CHECKING_DOMAIN_INVARIANTS": {
+          "description": "ownerUserId de cada mascota se reasigna al usuario autenticado antes de validar.",
+          "on": {
+            "ORPHAN_DUPLICATE_OR_FOREIGN_ID": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-REFERENTIAL-INTEGRITY"
+            },
+            "DOMAIN_INVARIANT_VIOLATED": {
+              "target": "ROLLED_BACK",
+              "error": "PROPAGATE_SPECIFIC",
+              "allowedErrors": [
+                "ERR-PET-FUTURE-BIRTHDATE",
+                "ERR-REC-DATE-BEFORE-BIRTH",
+                "ERR-REC-FUTURE-EVENT-DATE",
+                "ERR-REC-WEIGHT-OUT-OF-RANGE",
+                "ERR-REC-MEASUREMENT-OUT-OF-RANGE",
+                "ERR-REC-INVALID-BOOSTER-DATE",
+                "ERR-REC-INVALID-NEXT-DOSE-DATE",
+                "ERR-SCHEMA-VALIDATION-FAILED"
+              ]
+            },
+            "INVARIANTS_VALID": "COMMITTING_SNAPSHOT"
+          }
+        },
+        "COMMITTING_SNAPSHOT": {
+          "description": "En una transacción: borra todas las mascotas (y registros por cascada) del usuario autenticado e inserta las del sobre.",
+          "on": {
+            "COMMIT_SUCCESS": "COMPLETED",
+            "STORAGE_ERROR": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-ATOMIC-ROLLBACK"
+            }
+          }
+        },
+        "COMPLETED": {
+          "type": "final"
+        },
+        "ROLLED_BACK": {
+          "type": "final",
+          "postCondition": "Los datos del usuario son idénticos byte a byte al estado previo a START_IMPORT; los datos de otros usuarios nunca se tocan; el error reportado es siempre el de la transición que llevó a ROLLED_BACK."
+        }
+      }
+    }
+  }
+}

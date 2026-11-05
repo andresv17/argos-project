@@ -1,140 +1,723 @@
 openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
-  title: Argos Pet Health & Biometric Tracker Contract API
-  version: 1.0.0
+  title: Argos Pet Health & Biometric Tracker API
+  version: 2.0.0
   description: >
-    Contrato formal de operaciones de casos de uso y frontera de aplicación bajo SDD.
-    Estado del contrato: LOCKED.
+    Contrato formal de la API HTTP local (127.0.0.1:3000, prefijo /api) bajo SDD.
+    Cambio MAJOR respecto a 1.0.0: autenticación por sesión, propiedad de mascotas,
+    hogares compartidos, eliminación de mascotas, sin cupo y respaldo por usuario.
+    Todas las respuestas de error usan application/problem+json (RFC 9457).
   x-sdd-status: LOCKED
-  x-sdd-traceability:
-    - REQ-PET-001
-    - REQ-PET-002
-    - REQ-PET-003
-    - REQ-REC-001
-    - REQ-REC-002
-    - REQ-REC-003
-    - REQ-REC-004
-    - REQ-REC-005
-    - REQ-REC-006
-    - REQ-BACKUP-001
-    - REQ-BACKUP-002
+  x-sdd-metadata:
+    version: 2.0.0
+    status: LOCKED
+    supersedes: 1.0.0
+    traceability:
+      - REQ-AUTH-001
+      - REQ-AUTH-002
+      - REQ-AUTH-003
+      - REQ-AUTH-004
+      - REQ-PET-001
+      - REQ-PET-002
+      - REQ-PET-003
+      - REQ-PET-004
+      - REQ-PET-005
+      - REQ-REC-001
+      - REQ-REC-002
+      - REQ-REC-003
+      - REQ-REC-004
+      - REQ-REC-005
+      - REQ-REC-006
+      - REQ-HOUSE-001
+      - REQ-HOUSE-002
+      - REQ-HOUSE-003
+      - REQ-HOUSE-004
+      - REQ-HOUSE-005
+      - REQ-BACKUP-001
+      - REQ-BACKUP-002
+      - INV-ACC-001
+      - INV-ACC-002
+servers:
+  - url: http://127.0.0.1:3000/api
+    description: Servidor local (fase actual)
+security:
+  - sessionCookie: []
+tags:
+  - name: auth
+  - name: pets
+  - name: records
+  - name: households
+  - name: backup
+
 paths:
-  /pets:
-    get:
-      operationId: listPets
-      summary: Lista las hasta 4 mascotas registradas con su edad calculada y resumen de alertas
+  /auth/register:
+    post:
+      tags: [auth]
+      operationId: registerUser
+      summary: Registra un usuario e inicia sesión [REQ-AUTH-001]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/identity.schema.json#/$defs/RegisterUserInput' }
+      responses:
+        '201':
+          description: Usuario creado y sesión iniciada (cookie argos_session)
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/SessionCookie' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Inicia sesión [REQ-AUTH-002, INV-AUTH-005]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/identity.schema.json#/$defs/LoginInput' }
       responses:
         '200':
-          description: Lista determinista de perfiles de mascotas
+          description: Sesión iniciada
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/SessionCookie' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /auth/logout:
     post:
+      tags: [auth]
+      operationId: logout
+      summary: Cierra la sesión actual (idempotente) [REQ-AUTH-003]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Sesión revocada y cookie eliminada
+        '403': { $ref: '#/components/responses/Problem' }
+  /auth/me:
+    get:
+      tags: [auth]
+      operationId: getCurrentSession
+      summary: Usuario autenticado actual [REQ-AUTH-004]
+      responses:
+        '200':
+          description: Sesión vigente
+          content:
+            application/json:
+              schema: { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
+        '401': { $ref: '#/components/responses/Problem' }
+
+  /pets:
+    get:
+      tags: [pets]
+      operationId: listMyPets
+      summary: Lista las mascotas del usuario autenticado, sin límite [REQ-PET-005]
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 50 }
+          description: Filtro por subcadena del nombre (sin distinguir mayúsculas ni tildes)
+        - name: species
+          in: query
+          required: false
+          schema: { $ref: '../schemas/pet.schema.json#/$defs/Species' }
+      responses:
+        '200':
+          description: Tarjetas de mascotas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PetCardView' }
+        '401': { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [pets]
       operationId: registerPet
-      summary: Registra una nueva mascota respetando INV-PET-001 (máx 4 total, 2 DOG, 2 CAT)
+      summary: Registra una mascota del usuario autenticado (sin cupo) [REQ-PET-001]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/pet.schema.json#/$defs/CreatePetInput' }
       responses:
         '201':
           description: Mascota creada
-        '409':
-          description: Violación de cupo (ERR-PET-QUOTA-EXCEEDED)
-        '422':
-          description: Fecha de nacimiento futura o esquema inválido (ERR-PET-FUTURE-BIRTHDATE, ERR-SCHEMA-VALIDATION-FAILED)
-  /pets/{petId}/dashboard:
-    get:
-      operationId: getPetDashboard
-      summary: Obtiene la ficha técnica aislada de una mascota con sus 6 módulos ordenados (INV-SORT-001)
+          content:
+            application/json:
+              schema: { $ref: '../schemas/pet.schema.json' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /pets/{petId}:
+    parameters:
+      - $ref: '#/components/parameters/PetId'
+    patch:
+      tags: [pets]
+      operationId: updatePet
+      summary: Edita una mascota propia [REQ-PET-001, INV-PET-006, INV-ACC-002]
       parameters:
-        - name: petId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/pet.schema.json#/$defs/UpdatePetInput' }
       responses:
         '200':
-          description: Ficha técnica completa aislada por mascota
-        '404':
-          description: Mascota inexistente (ERR-PET-NOT-FOUND)
+          description: Mascota actualizada
+          content:
+            application/json:
+              schema: { $ref: '../schemas/pet.schema.json' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    delete:
+      tags: [pets]
+      operationId: deletePet
+      summary: Elimina una mascota propia y todos sus registros en cascada [REQ-PET-004, INV-PET-005]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Mascota y registros eliminados atómicamente
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /pets/{petId}/dashboard:
+    parameters:
+      - $ref: '#/components/parameters/PetId'
+    get:
+      tags: [pets]
+      operationId: getPetDashboard
+      summary: Ficha técnica aislada (dueño o miembro ACTIVE de hogar compartido) [REQ-PET-003, INV-ACC-001]
+      responses:
+        '200':
+          description: Ficha completa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PetDashboardView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+
   /pets/{petId}/records/weights:
+    parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
+      tags: [records]
       operationId: addWeightRecord
-      summary: Registra control de peso en kg [REQ-REC-001, INV-REC-002]
+      summary: Registra peso [REQ-REC-001, INV-REC-002]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/medical-records.schema.json#/$defs/CreateWeightInput' }
       responses:
         '201':
-          description: Peso registrado con deltaKg calculado
-        '404':
-          description: ERR-PET-NOT-FOUND
-        '422':
-          description: ERR-REC-WEIGHT-OUT-OF-RANGE | ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+          description: Peso registrado con deltaKg
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WeightEntryView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/records/measurements:
+    parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
+      tags: [records]
       operationId: addBodyMeasurementRecord
-      summary: Registra medidas corporales (cuello, pecho, lomo, cintura en cm) [REQ-REC-002, INV-REC-003]
+      summary: Registra medidas corporales [REQ-REC-002, INV-REC-003]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/medical-records.schema.json#/$defs/CreateBodyMeasurementInput' }
       responses:
         '201':
-          description: Medidas corporales registradas
-        '404':
-          description: ERR-PET-NOT-FOUND
-        '422':
-          description: ERR-REC-MEASUREMENT-OUT-OF-RANGE | ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+          description: Medidas registradas
+          content:
+            application/json:
+              schema: { $ref: '../schemas/medical-records.schema.json#/$defs/BodyMeasurementRecord' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/records/vaccinations:
+    parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
+      tags: [records]
       operationId: addVaccinationRecord
       summary: Registra vacuna y evalúa STATE-ALERT-001 [REQ-REC-003, INV-REC-004]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/medical-records.schema.json#/$defs/CreateVaccinationInput' }
       responses:
         '201':
           description: Vacunación registrada
-        '404':
-          description: ERR-PET-NOT-FOUND
-        '422':
-          description: ERR-REC-INVALID-BOOSTER-DATE | ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VaccinationEntryView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/records/dewormings:
+    parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
+      tags: [records]
       operationId: addDewormingRecord
-      summary: Registra desparasitación interna/externa y evalúa STATE-ALERT-001 [REQ-REC-004, INV-REC-005]
+      summary: Registra desparasitación y evalúa STATE-ALERT-001 [REQ-REC-004, INV-REC-005]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/medical-records.schema.json#/$defs/CreateDewormingInput' }
       responses:
         '201':
           description: Desparasitación registrada
-        '404':
-          description: ERR-PET-NOT-FOUND
-        '422':
-          description: ERR-REC-INVALID-NEXT-DOSE-DATE | ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DewormingEntryView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/records/visits:
+    parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
+      tags: [records]
       operationId: addMedicalVisitRecord
-      summary: Registra cita o control médico [REQ-REC-005, INV-REC-001]
+      summary: Registra consulta médica [REQ-REC-005]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/medical-records.schema.json#/$defs/CreateMedicalVisitInput' }
       responses:
         '201':
-          description: Consulta médica registrada
-        '404':
-          description: ERR-PET-NOT-FOUND
-        '422':
-          description: ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+          description: Consulta registrada
+          content:
+            application/json:
+              schema: { $ref: '../schemas/medical-records.schema.json#/$defs/MedicalVisitRecord' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/records/custom-parameters:
+    parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
+      tags: [records]
       operationId: addCustomParameterRecord
-      summary: Registra parámetro o evento adicional libre categorizado [REQ-REC-006, INV-REC-001]
+      summary: Registra parámetro adicional [REQ-REC-006]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/medical-records.schema.json#/$defs/CreateCustomParameterInput' }
       responses:
         '201':
-          description: Evento adicional registrado
-        '404':
-          description: ERR-PET-NOT-FOUND
-        '422':
-          description: ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+          description: Evento registrado
+          content:
+            application/json:
+              schema: { $ref: '../schemas/medical-records.schema.json#/$defs/CustomParameterRecord' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+
+  /households:
+    get:
+      tags: [households]
+      operationId: listMyHouseholds
+      summary: Hogares donde el usuario es miembro ACTIVE [REQ-HOUSE-005, INV-HOUSE-004]
+      responses:
+        '200':
+          description: Hogares
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/HouseholdView' }
+        '401': { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [households]
+      operationId: createHousehold
+      summary: Crea un hogar; el creador queda como OWNER ACTIVE [REQ-HOUSE-001]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/identity.schema.json#/$defs/CreateHouseholdInput' }
+      responses:
+        '201':
+          description: Hogar creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HouseholdView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /households/{householdId}:
+    parameters:
+      - $ref: '#/components/parameters/HouseholdId'
+    get:
+      tags: [households]
+      operationId: getHousehold
+      summary: Detalle del hogar con miembros e invitaciones [REQ-HOUSE-004]
+      responses:
+        '200':
+          description: Hogar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HouseholdView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    delete:
+      tags: [households]
+      operationId: deleteHousehold
+      summary: Elimina el hogar (solo OWNER); las mascotas no se modifican [REQ-HOUSE-004, INV-HOUSE-002]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Hogar eliminado
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /households/{householdId}/invitations:
+    parameters:
+      - $ref: '#/components/parameters/HouseholdId'
+      - $ref: '#/components/parameters/CsrfHeader'
+    post:
+      tags: [households]
+      operationId: inviteMember
+      summary: Invita a un usuario existente por username (solo OWNER) [REQ-HOUSE-002, INV-HOUSE-002, INV-HOUSE-003]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/identity.schema.json#/$defs/InviteMemberInput' }
+      responses:
+        '201':
+          description: Membresía INVITED creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HouseholdMemberView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /households/{householdId}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/HouseholdId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/CsrfHeader'
+    delete:
+      tags: [households]
+      operationId: removeOrLeaveMembership
+      summary: >
+        Si userId es el propio usuario y es MEMBER → LEFT. Si el actor es OWNER y userId es otro miembro →
+        REMOVED (o CANCELLED si estaba INVITED) [REQ-HOUSE-004, STATE-HOUSE-MEMBERSHIP-001]
+      responses:
+        '204':
+          description: Membresía finalizada
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /households/{householdId}/pets:
+    parameters:
+      - $ref: '#/components/parameters/HouseholdId'
+    get:
+      tags: [households]
+      operationId: getHouseholdPets
+      summary: Mascotas de todos los miembros ACTIVE con distinción de dueño [REQ-HOUSE-005, REQ-UI-007, INV-HOUSE-005]
+      responses:
+        '200':
+          description: Vista agregada del hogar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HouseholdPetsView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /invitations:
+    get:
+      tags: [households]
+      operationId: listMyInvitations
+      summary: Invitaciones INVITED dirigidas al usuario [REQ-HOUSE-003]
+      responses:
+        '200':
+          description: Invitaciones pendientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/InvitationView' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /invitations/{householdId}/accept:
+    parameters:
+      - $ref: '#/components/parameters/HouseholdId'
+      - $ref: '#/components/parameters/CsrfHeader'
+    post:
+      tags: [households]
+      operationId: acceptInvitation
+      summary: Acepta la invitación (INVITED → ACTIVE) [REQ-HOUSE-003]
+      responses:
+        '200':
+          description: Membresía activa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HouseholdMemberView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /invitations/{householdId}/decline:
+    parameters:
+      - $ref: '#/components/parameters/HouseholdId'
+      - $ref: '#/components/parameters/CsrfHeader'
+    post:
+      tags: [households]
+      operationId: declineInvitation
+      summary: Rechaza la invitación (INVITED → DECLINED) [REQ-HOUSE-003]
+      responses:
+        '204':
+          description: Invitación rechazada
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+
   /backup/export:
     get:
+      tags: [backup]
       operationId: exportBackupJson
-      summary: Exporta toda la base de datos validada contra backup-envelope.schema.json [REQ-BACKUP-001]
+      summary: Exporta solo los datos del usuario autenticado (sobre 2.0.0) [REQ-BACKUP-001]
       responses:
         '200':
-          description: Sobre JSON versión 1.0.0
+          description: Archivo JSON descargable
+          headers:
+            Content-Disposition:
+              schema: { type: string, pattern: '^attachment; filename="argos-backup-\d{4}-\d{2}-\d{2}\.json"$' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/backup-envelope.schema.json#/$defs/BackupEnvelopeV2' }
+        '401': { $ref: '#/components/responses/Problem' }
   /backup/import:
     post:
+      tags: [backup]
       operationId: importBackupJson
-      summary: Importa un sobre JSON de forma atómica con rollback total ante error [REQ-BACKUP-002, INV-BACKUP-001]
+      summary: Importa atómicamente un sobre 2.0.0 o 1.0.0 (≤ 10 MB) reemplazando solo los datos del usuario [REQ-BACKUP-002, STATE-BACKUP-001]
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Cuerpo crudo; se valida dentro de STATE-BACKUP-001 (no por el validador de request)
       responses:
         '200':
-          description: Estado restaurado exitosamente
-        '400':
-          description: ERR-BACKUP-MALFORMED-JSON
-        '409':
-          description: ERR-BACKUP-REFERENTIAL-INTEGRITY | ERR-PET-QUOTA-EXCEEDED
-        '422':
-          description: ERR-BACKUP-VERSION-UNSUPPORTED | ERR-BACKUP-SCHEMA-INVALID
+          description: Importación completada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportBackupResult' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_session
+      description: Token opaco HttpOnly, SameSite=Strict, TTL 7 días [INV-AUTH-004]
+  headers:
+    SessionCookie:
+      description: argos_session=<token>; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800 (Secure en Cloud)
+      schema: { type: string }
+  parameters:
+    CsrfHeader:
+      name: X-Argos-Request
+      in: header
+      required: true
+      description: Obligatoria en toda petición mutante; si falta → ERR-AUTH-CSRF-REJECTED
+      schema: { type: string, const: '1' }
+    PetId:
+      name: petId
+      in: path
+      required: true
+      schema: { $ref: '../schemas/common.schema.json#/$defs/Uuid' }
+    HouseholdId:
+      name: householdId
+      in: path
+      required: true
+      schema: { $ref: '../schemas/common.schema.json#/$defs/Uuid' }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { $ref: '../schemas/common.schema.json#/$defs/Uuid' }
+  responses:
+    Problem:
+      description: Error tipado del catálogo contracts/errors/error-catalog.json
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      type: object
+      additionalProperties: false
+      required: [type, code, title, status, detail, invariantRef]
+      properties:
+        type: { type: string, pattern: '^urn:argos:error:ERR-[A-Z0-9-]+$' }
+        code: { type: string, pattern: '^ERR-[A-Z0-9-]+$' }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: string }
+        invariantRef: { type: string }
+        field: { type: [string, 'null'] }
+        instance: { type: [string, 'null'] }
+    AlertStateMetadata:
+      type: object
+      additionalProperties: false
+      required: [status, uiBadge, label, isActiveAlert, daysRemaining]
+      properties:
+        status: { $ref: '../schemas/medical-records.schema.json#/$defs/AlertStatus' }
+        uiBadge: { type: string, enum: [NEUTRAL_GRAY, DANGER_RED, WARNING_AMBER, SUCCESS_GREEN] }
+        label: { type: string }
+        isActiveAlert: { type: boolean }
+        daysRemaining: { type: integer }
+    ActiveSanitaryAlertsSummary:
+      type: object
+      additionalProperties: false
+      required: [overdueCount, dueSoonCount, upToDateCount, totalActiveAlerts]
+      properties:
+        overdueCount: { type: integer, minimum: 0 }
+        dueSoonCount: { type: integer, minimum: 0 }
+        upToDateCount: { type: integer, minimum: 0 }
+        totalActiveAlerts: { type: integer, minimum: 0 }
+    WeightEntryView:
+      type: object
+      additionalProperties: false
+      required: [record, deltaKg, deltaPercent]
+      properties:
+        record: { $ref: '../schemas/medical-records.schema.json#/$defs/WeightRecord' }
+        deltaKg: { type: [number, 'null'], description: 'null para la primera medición; 2 decimales' }
+        deltaPercent: { type: [number, 'null'], description: 'Variación porcentual con 2 decimales respecto a la anterior [REQ-UI-002]' }
+    VaccinationEntryView:
+      type: object
+      additionalProperties: false
+      required: [record, alert]
+      properties:
+        record: { $ref: '../schemas/medical-records.schema.json#/$defs/VaccinationRecord' }
+        alert: { $ref: '#/components/schemas/AlertStateMetadata' }
+    DewormingEntryView:
+      type: object
+      additionalProperties: false
+      required: [record, alert]
+      properties:
+        record: { $ref: '../schemas/medical-records.schema.json#/$defs/DewormingRecord' }
+        alert: { $ref: '#/components/schemas/AlertStateMetadata' }
+    PetCardView:
+      type: object
+      additionalProperties: false
+      required: [profile, owner, canEdit, computedAge, alertsSummary, latestWeightKg]
+      properties:
+        profile: { $ref: '../schemas/pet.schema.json' }
+        owner: { $ref: '../schemas/identity.schema.json#/$defs/OwnerTag' }
+        canEdit: { type: boolean, description: 'true solo si el usuario es el dueño [INV-ACC-002]' }
+        computedAge: { $ref: '../schemas/pet.schema.json#/$defs/ComputedAge' }
+        alertsSummary: { $ref: '#/components/schemas/ActiveSanitaryAlertsSummary' }
+        latestWeightKg: { type: [number, 'null'] }
+    PetDashboardView:
+      type: object
+      additionalProperties: false
+      required: [profile, owner, canEdit, computedAge, alertsSummary, weights, bodyMeasurements, vaccinations, dewormings, medicalVisits, customParameters]
+      properties:
+        profile: { $ref: '../schemas/pet.schema.json' }
+        owner: { $ref: '../schemas/identity.schema.json#/$defs/OwnerTag' }
+        canEdit: { type: boolean }
+        computedAge: { $ref: '../schemas/pet.schema.json#/$defs/ComputedAge' }
+        alertsSummary: { $ref: '#/components/schemas/ActiveSanitaryAlertsSummary' }
+        weights: { type: array, items: { $ref: '#/components/schemas/WeightEntryView' } }
+        bodyMeasurements: { type: array, items: { $ref: '../schemas/medical-records.schema.json#/$defs/BodyMeasurementRecord' } }
+        vaccinations: { type: array, items: { $ref: '#/components/schemas/VaccinationEntryView' } }
+        dewormings: { type: array, items: { $ref: '#/components/schemas/DewormingEntryView' } }
+        medicalVisits: { type: array, items: { $ref: '../schemas/medical-records.schema.json#/$defs/MedicalVisitRecord' } }
+        customParameters: { type: array, items: { $ref: '../schemas/medical-records.schema.json#/$defs/CustomParameterRecord' } }
+    HouseholdMemberView:
+      type: object
+      additionalProperties: false
+      required: [membership, user]
+      properties:
+        membership: { $ref: '../schemas/identity.schema.json#/$defs/HouseholdMember' }
+        user: { $ref: '../schemas/identity.schema.json#/$defs/UserPublicProfile' }
+        colorToken:
+          oneOf:
+            - $ref: '../schemas/common.schema.json#/$defs/OwnerColorToken'
+            - type: 'null'
+          description: Solo para miembros ACTIVE [INV-HOUSE-005]
+    HouseholdView:
+      type: object
+      additionalProperties: false
+      required: [household, myRole, members]
+      properties:
+        household: { $ref: '../schemas/identity.schema.json#/$defs/Household' }
+        myRole: { $ref: '../schemas/identity.schema.json#/$defs/HouseholdRole' }
+        members:
+          type: array
+          description: Miembros ACTIVE e INVITED (las invitaciones solo las ve el OWNER)
+          items: { $ref: '#/components/schemas/HouseholdMemberView' }
+    HouseholdPetsView:
+      type: object
+      additionalProperties: false
+      required: [household, pets]
+      properties:
+        household: { $ref: '../schemas/identity.schema.json#/$defs/Household' }
+        pets: { type: array, items: { $ref: '#/components/schemas/PetCardView' } }
+    InvitationView:
+      type: object
+      additionalProperties: false
+      required: [household, invitedBy, invitedAt]
+      properties:
+        household: { $ref: '../schemas/identity.schema.json#/$defs/Household' }
+        invitedBy: { $ref: '../schemas/identity.schema.json#/$defs/UserPublicProfile' }
+        invitedAt: { $ref: '../schemas/common.schema.json#/$defs/IsoTimestamp' }
+    ImportBackupResult:
+      type: object
+      additionalProperties: false
+      required: [finalState, sourceSchemaVersion, importedPetsCount, importedRecordsCount]
+      properties:
+        finalState: { type: string, const: COMPLETED }
+        sourceSchemaVersion: { type: string, enum: ['1.0.0', '2.0.0'] }
+        importedPetsCount: { type: integer, minimum: 0 }
+        importedRecordsCount: { type: integer, minimum: 0 }

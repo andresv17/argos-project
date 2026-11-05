@@ -2,10 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://argos.local/contracts/schemas/medical-records.schema.json",
   "title": "MedicalRecordsSchema",
-  "description": "Contratos formales para los 6 módulos de registro histórico [REQ-REC-001..006, INV-REC-001..006]",
+  "description": "6 módulos de registro histórico [REQ-REC-001..006, INV-REC-001..006]",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "status": "LOCKED",
+    "supersedes": "1.0.0",
     "traceability": [
       "REQ-REC-001",
       "REQ-REC-002",
@@ -24,140 +25,583 @@
     ]
   },
   "$defs": {
-    "IsoDate": {
-      "type": "string",
-      "format": "date",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-    },
-    "NonEmptyTrimmedString": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^\\S(.*\\S)?$"
-    },
-    "OptionalNotes": {
-      "type": ["string", "null"],
-      "maxLength": 1000
-    },
     "AlertStatus": {
       "type": "string",
-      "enum": ["UP_TO_DATE", "DUE_SOON", "OVERDUE", "SUPERSEDED"]
+      "enum": [
+        "UP_TO_DATE",
+        "DUE_SOON",
+        "OVERDUE",
+        "SUPERSEDED"
+      ]
     },
     "WeightRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "petId", "recordedAt", "weightKg", "notes", "createdAt"],
+      "required": [
+        "id",
+        "petId",
+        "recordedAt",
+        "weightKg",
+        "notes",
+        "createdAt"
+      ],
       "properties": {
-        "id": { "type": "string", "format": "uuid" },
-        "petId": { "type": "string", "format": "uuid" },
-        "recordedAt": { "$ref": "#/$defs/IsoDate" },
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
         "weightKg": {
           "type": "number",
           "minimum": 0.05,
           "maximum": 150.0,
           "multipleOf": 0.01,
-          "description": "Peso en kilogramos [INV-REC-002]"
+          "description": "[INV-REC-002]"
         },
-        "notes": { "$ref": "#/$defs/OptionalNotes" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
       }
+    },
+    "CreateWeightInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedAt",
+        "weightKg"
+      ],
+      "properties": {
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 150.0,
+          "multipleOf": 0.01,
+          "description": "[INV-REC-002]"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort"
     },
     "BodyMeasurementRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "petId", "recordedAt", "neckCm", "chestCm", "backLengthCm", "waistCm", "notes", "createdAt"],
+      "required": [
+        "id",
+        "petId",
+        "recordedAt",
+        "neckCm",
+        "chestCm",
+        "backLengthCm",
+        "waistCm",
+        "notes",
+        "createdAt"
+      ],
       "properties": {
-        "id": { "type": "string", "format": "uuid" },
-        "petId": { "type": "string", "format": "uuid" },
-        "recordedAt": { "$ref": "#/$defs/IsoDate" },
-        "neckCm": { "type": "number", "minimum": 1.0, "maximum": 250.0, "multipleOf": 0.01 },
-        "chestCm": { "type": "number", "minimum": 1.0, "maximum": 250.0, "multipleOf": 0.01 },
-        "backLengthCm": { "type": "number", "minimum": 1.0, "maximum": 250.0, "multipleOf": 0.01 },
-        "waistCm": { "type": "number", "minimum": 1.0, "maximum": 250.0, "multipleOf": 0.01 },
-        "notes": { "$ref": "#/$defs/OptionalNotes" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "neckCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01
+        },
+        "chestCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01
+        },
+        "backLengthCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01
+        },
+        "waistCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
       }
+    },
+    "CreateBodyMeasurementInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedAt",
+        "neckCm",
+        "chestCm",
+        "backLengthCm",
+        "waistCm"
+      ],
+      "properties": {
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "neckCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01
+        },
+        "chestCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01
+        },
+        "backLengthCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01
+        },
+        "waistCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort"
     },
     "VaccinationRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "petId", "vaccineName", "appliedAt", "nextBoosterAt", "batchOrClinic", "notes", "createdAt"],
+      "required": [
+        "id",
+        "petId",
+        "vaccineName",
+        "appliedAt",
+        "nextBoosterAt",
+        "batchOrClinic",
+        "notes",
+        "createdAt"
+      ],
       "properties": {
-        "id": { "type": "string", "format": "uuid" },
-        "petId": { "type": "string", "format": "uuid" },
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
         "vaccineName": {
-          "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }],
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
           "maxLength": 100
         },
-        "appliedAt": { "$ref": "#/$defs/IsoDate" },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
         "nextBoosterAt": {
-          "$ref": "#/$defs/IsoDate",
-          "description": "Debe ser estrictamente mayor que appliedAt [INV-REC-004]"
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ],
+          "description": "> appliedAt [INV-REC-004]"
         },
         "batchOrClinic": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "maxLength": 120
         },
-        "notes": { "$ref": "#/$defs/OptionalNotes" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
       }
+    },
+    "CreateVaccinationInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vaccineName",
+        "appliedAt",
+        "nextBoosterAt"
+      ],
+      "properties": {
+        "vaccineName": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 100
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextBoosterAt": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ],
+          "description": "> appliedAt [INV-REC-004]"
+        },
+        "batchOrClinic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort"
     },
     "DewormingRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "petId", "productBrand", "dewormingType", "appliedAt", "nextSuggestedDoseAt", "notes", "createdAt"],
+      "required": [
+        "id",
+        "petId",
+        "productBrand",
+        "dewormingType",
+        "appliedAt",
+        "nextSuggestedDoseAt",
+        "notes",
+        "createdAt"
+      ],
       "properties": {
-        "id": { "type": "string", "format": "uuid" },
-        "petId": { "type": "string", "format": "uuid" },
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
         "productBrand": {
-          "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }],
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
           "maxLength": 100
         },
         "dewormingType": {
           "type": "string",
-          "enum": ["INTERNAL", "EXTERNAL"]
+          "enum": [
+            "INTERNAL",
+            "EXTERNAL"
+          ]
         },
-        "appliedAt": { "$ref": "#/$defs/IsoDate" },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
         "nextSuggestedDoseAt": {
-          "$ref": "#/$defs/IsoDate",
-          "description": "Debe ser estrictamente mayor que appliedAt [INV-REC-005]"
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ],
+          "description": "> appliedAt [INV-REC-005]"
         },
-        "notes": { "$ref": "#/$defs/OptionalNotes" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
       }
+    },
+    "CreateDewormingInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "productBrand",
+        "dewormingType",
+        "appliedAt",
+        "nextSuggestedDoseAt"
+      ],
+      "properties": {
+        "productBrand": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 100
+        },
+        "dewormingType": {
+          "type": "string",
+          "enum": [
+            "INTERNAL",
+            "EXTERNAL"
+          ]
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextSuggestedDoseAt": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ],
+          "description": "> appliedAt [INV-REC-005]"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort"
     },
     "MedicalVisitRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "petId", "visitDate", "reason", "diagnosis", "treatment", "clinicOrVet", "observations", "createdAt"],
+      "required": [
+        "id",
+        "petId",
+        "visitDate",
+        "reason",
+        "diagnosis",
+        "treatment",
+        "clinicOrVet",
+        "observations",
+        "createdAt"
+      ],
       "properties": {
-        "id": { "type": "string", "format": "uuid" },
-        "petId": { "type": "string", "format": "uuid" },
-        "visitDate": { "$ref": "#/$defs/IsoDate" },
-        "reason": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 200 },
-        "diagnosis": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 500 },
-        "treatment": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 500 },
-        "clinicOrVet": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 120 },
-        "observations": { "$ref": "#/$defs/OptionalNotes" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "visitDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "reason": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 200
+        },
+        "diagnosis": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "treatment": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "clinicOrVet": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "observations": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
       }
+    },
+    "CreateMedicalVisitInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visitDate",
+        "reason",
+        "diagnosis",
+        "treatment",
+        "clinicOrVet"
+      ],
+      "properties": {
+        "visitDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "reason": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 200
+        },
+        "diagnosis": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "treatment": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "clinicOrVet": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "observations": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort"
     },
     "CustomParameterRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "petId", "recordedAt", "category", "title", "description", "notes", "createdAt"],
+      "required": [
+        "id",
+        "petId",
+        "recordedAt",
+        "category",
+        "title",
+        "description",
+        "notes",
+        "createdAt"
+      ],
       "properties": {
-        "id": { "type": "string", "format": "uuid" },
-        "petId": { "type": "string", "format": "uuid" },
-        "recordedAt": { "$ref": "#/$defs/IsoDate" },
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
         "category": {
           "type": "string",
-          "enum": ["DIET_CHANGE", "ALLERGY", "SURGERY", "BEHAVIOR", "OTHER"]
+          "enum": [
+            "DIET_CHANGE",
+            "ALLERGY",
+            "SURGERY",
+            "BEHAVIOR",
+            "OTHER"
+          ]
         },
-        "title": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 120 },
-        "description": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 1000 },
-        "notes": { "$ref": "#/$defs/OptionalNotes" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "title": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "description": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 1000
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
       }
+    },
+    "CreateCustomParameterInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedAt",
+        "category",
+        "title",
+        "description"
+      ],
+      "properties": {
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "DIET_CHANGE",
+            "ALLERGY",
+            "SURGERY",
+            "BEHAVIOR",
+            "OTHER"
+          ]
+        },
+        "title": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "description": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 1000
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort"
     }
   }
 }

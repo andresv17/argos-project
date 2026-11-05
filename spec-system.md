@@ -67,4 +67,4 @@ Para cada instrucción de desarrollo, el agente debe seguir estrictamente este f
 4. Seleccionar la siguiente tarea pendiente en `.specify/tasks/[feature]-tasks.md` verificando los IDs de trazabilidad objetivo (`REQ-`, `INV-`, `STATE-`, `ERR-`).
 5. Generar el código determinista mínimo necesario en `src/` (`domain/`, `application/`, `infrastructure/`, `presentation/`) y sus pruebas exhaustivas en `tests/` (`unit/`, `property/`, `integration/contracts/`, `e2e/`).
 6. Ejecutar la validación del Test Gate, incluyendo `scripts/verify-traceability.sh`, `scripts/verify-oracles.sh`, `.specify/checklists/code-review.md` y `.specify/checklists/oracle-validation.md`.
-7. Esperar la validación y el aval del arquitecto humano antes de marcar la tarea como completada y avanzar a la siguiente.
+7. Esperar la validación y el aval del arquitecto humano antes de marcar la tarea como completada y pasar a la siguiente.

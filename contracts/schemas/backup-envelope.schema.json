@@ -2,69 +2,248 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://argos.local/contracts/schemas/backup-envelope.schema.json",
   "title": "BackupEnvelopeSchema",
-  "description": "Sobre formal de exportación e importación atómica JSON [REQ-BACKUP-001, REQ-BACKUP-002, INV-BACKUP-001, STATE-BACKUP-001]",
+  "description": "Sobre de exportación/importación atómica de los datos de UN usuario [REQ-BACKUP-001, REQ-BACKUP-002, INV-BACKUP-001, STATE-BACKUP-001]",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "status": "LOCKED",
-    "traceability": ["REQ-BACKUP-001", "REQ-BACKUP-002", "INV-BACKUP-001", "STATE-BACKUP-001"]
+    "supersedes": "1.0.0",
+    "traceability": [
+      "REQ-BACKUP-001",
+      "REQ-BACKUP-002",
+      "INV-BACKUP-001",
+      "STATE-BACKUP-001"
+    ]
   },
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["schemaVersion", "exportedAt", "pets", "records"],
-  "properties": {
-    "schemaVersion": {
-      "type": "string",
-      "const": "1.0.0",
-      "description": "Versión exacta del esquema; cualquier otra versión dispara ERR-BACKUP-VERSION-UNSUPPORTED"
+  "oneOf": [
+    {
+      "$ref": "#/$defs/BackupEnvelopeV2"
     },
-    "exportedAt": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "pets": {
-      "type": "array",
-      "maxItems": 4,
-      "items": {
-        "$ref": "https://argos.local/contracts/schemas/pet.schema.json"
-      }
-    },
-    "records": {
+    {
+      "$ref": "#/$defs/BackupEnvelopeV1Legacy"
+    }
+  ],
+  "$defs": {
+    "BackupEnvelopeV2": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "weights",
-        "bodyMeasurements",
-        "vaccinations",
-        "dewormings",
-        "medicalVisits",
-        "customParameters"
+        "schemaVersion",
+        "exportedAt",
+        "exportedByUserId",
+        "pets",
+        "records"
       ],
       "properties": {
-        "weights": {
-          "type": "array",
-          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/WeightRecord" }
+        "schemaVersion": {
+          "type": "string",
+          "const": "2.0.0"
         },
-        "bodyMeasurements": {
-          "type": "array",
-          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/BodyMeasurementRecord" }
+        "exportedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
         },
-        "vaccinations": {
-          "type": "array",
-          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/VaccinationRecord" }
+        "exportedByUserId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
         },
-        "dewormings": {
+        "pets": {
           "type": "array",
-          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/DewormingRecord" }
+          "items": {
+            "$ref": "https://argos.local/contracts/schemas/pet.schema.json"
+          },
+          "description": "Sin límite de cantidad. Todos con ownerUserId == exportedByUserId."
         },
-        "medicalVisits": {
-          "type": "array",
-          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/MedicalVisitRecord" }
+        "records": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "weights",
+            "bodyMeasurements",
+            "vaccinations",
+            "dewormings",
+            "medicalVisits",
+            "customParameters"
+          ],
+          "properties": {
+            "weights": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/WeightRecord"
+              }
+            },
+            "bodyMeasurements": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/BodyMeasurementRecord"
+              }
+            },
+            "vaccinations": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/VaccinationRecord"
+              }
+            },
+            "dewormings": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/DewormingRecord"
+              }
+            },
+            "medicalVisits": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/MedicalVisitRecord"
+              }
+            },
+            "customParameters": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/CustomParameterRecord"
+              }
+            }
+          }
+        }
+      },
+      "description": "Nunca contiene usuarios, hogares, sesiones ni credenciales [INV-AUTH-003]"
+    },
+    "LegacyPetProfileV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "species",
+        "breed",
+        "birthDate",
+        "sex",
+        "avatarUrl",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
         },
-        "customParameters": {
-          "type": "array",
-          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/CustomParameterRecord" }
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "species": {
+          "type": "string",
+          "enum": [
+            "DOG",
+            "CAT"
+          ]
+        },
+        "breed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "birthDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "sex": {
+          "type": "string",
+          "enum": [
+            "MALE",
+            "FEMALE"
+          ]
+        },
+        "avatarUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2048
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
         }
       }
+    },
+    "BackupEnvelopeV1Legacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "exportedAt",
+        "pets",
+        "records"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "1.0.0"
+        },
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LegacyPetProfileV1"
+          }
+        },
+        "records": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "weights",
+            "bodyMeasurements",
+            "vaccinations",
+            "dewormings",
+            "medicalVisits",
+            "customParameters"
+          ],
+          "properties": {
+            "weights": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "description": "Registro v1 de WeightRecord: misma forma que v2 pero createdAt admite formato ISO no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+              }
+            },
+            "bodyMeasurements": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "description": "Registro v1 de BodyMeasurementRecord: misma forma que v2 pero createdAt admite formato ISO no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+              }
+            },
+            "vaccinations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "description": "Registro v1 de VaccinationRecord: misma forma que v2 pero createdAt admite formato ISO no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+              }
+            },
+            "dewormings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "description": "Registro v1 de DewormingRecord: misma forma que v2 pero createdAt admite formato ISO no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+              }
+            },
+            "medicalVisits": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "description": "Registro v1 de MedicalVisitRecord: misma forma que v2 pero createdAt admite formato ISO no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+              }
+            },
+            "customParameters": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "description": "Registro v1 de CustomParameterRecord: misma forma que v2 pero createdAt admite formato ISO no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+              }
+            }
+          }
+        }
+      },
+      "description": "Formato v1.0.0 aceptado solo para migración: se asigna ownerUserId = usuario actual, updatedAt = createdAt y createdAt se normaliza a UTC canónico; luego se valida como v2 completo."
     }
   }
 }

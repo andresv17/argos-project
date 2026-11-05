@@ -1,19 +1,96 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalog",
-  "version": "1.0.0",
+  "x-sdd-metadata": {
+    "version": "2.0.0",
+    "status": "LOCKED",
+    "supersedes": "1.0.0",
+    "change_type": "MAJOR",
+    "removed": [
+      "ERR-PET-QUOTA-EXCEEDED"
+    ],
+    "traceability": [
+      "ERR-SCHEMA-VALIDATION-FAILED",
+      "ERR-AUTH-USERNAME-TAKEN",
+      "ERR-AUTH-WEAK-PASSWORD",
+      "ERR-AUTH-INVALID-CREDENTIALS",
+      "ERR-AUTH-UNAUTHENTICATED",
+      "ERR-AUTH-TOO-MANY-ATTEMPTS",
+      "ERR-AUTH-CSRF-REJECTED",
+      "ERR-AUTH-USER-NOT-FOUND",
+      "ERR-ACC-FORBIDDEN",
+      "ERR-PET-NOT-FOUND",
+      "ERR-PET-FUTURE-BIRTHDATE",
+      "ERR-PET-BIRTHDATE-AFTER-RECORDS",
+      "ERR-REC-DATE-BEFORE-BIRTH",
+      "ERR-REC-FUTURE-EVENT-DATE",
+      "ERR-REC-WEIGHT-OUT-OF-RANGE",
+      "ERR-REC-MEASUREMENT-OUT-OF-RANGE",
+      "ERR-REC-INVALID-BOOSTER-DATE",
+      "ERR-REC-INVALID-NEXT-DOSE-DATE",
+      "ERR-HOUSE-NOT-FOUND",
+      "ERR-HOUSE-MEMBER-ALREADY-EXISTS",
+      "ERR-HOUSE-OWNER-CANNOT-LEAVE",
+      "ERR-HOUSE-INVITATION-NOT-FOUND",
+      "ERR-BACKUP-MALFORMED-JSON",
+      "ERR-BACKUP-PAYLOAD-TOO-LARGE",
+      "ERR-BACKUP-VERSION-UNSUPPORTED",
+      "ERR-BACKUP-SCHEMA-INVALID",
+      "ERR-BACKUP-REFERENTIAL-INTEGRITY",
+      "ERR-BACKUP-ATOMIC-ROLLBACK",
+      "ERR-INTERNAL-UNEXPECTED"
+    ]
+  },
+  "version": "2.0.0",
   "status": "LOCKED",
   "problemDetailsSchema": {
     "type": "object",
     "additionalProperties": false,
-    "required": ["code", "title", "status", "detail", "invariantRef"],
+    "required": [
+      "type",
+      "code",
+      "title",
+      "status",
+      "detail",
+      "invariantRef"
+    ],
+    "description": "RFC 9457 Problem Details (application/problem+json)",
     "properties": {
-      "code": { "type": "string", "pattern": "^ERR-[A-Z0-9-]+$" },
-      "title": { "type": "string" },
-      "status": { "type": "integer" },
-      "detail": { "type": "string" },
-      "invariantRef": { "type": "string" },
-      "field": { "type": ["string", "null"] }
+      "type": {
+        "type": "string",
+        "pattern": "^urn:argos:error:ERR-[A-Z0-9-]+$"
+      },
+      "code": {
+        "type": "string",
+        "pattern": "^ERR-[A-Z0-9-]+$"
+      },
+      "title": {
+        "type": "string"
+      },
+      "status": {
+        "type": "integer",
+        "minimum": 400,
+        "maximum": 599
+      },
+      "detail": {
+        "type": "string"
+      },
+      "invariantRef": {
+        "type": "string"
+      },
+      "field": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "instance": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Ruta de la petición"
+      }
     }
   },
   "errors": {
@@ -23,17 +100,59 @@
       "invariantRef": "INV-REC-006",
       "detailTemplate": "El payload incumple el esquema formal o contiene propiedades no autorizadas."
     },
-    "ERR-PET-QUOTA-EXCEEDED": {
+    "ERR-AUTH-USERNAME-TAKEN": {
       "status": 409,
-      "title": "Cupo máximo de mascotas alcanzado",
-      "invariantRef": "INV-PET-001",
-      "detailTemplate": "El sistema solo permite un máximo de 4 mascotas en total (2 perros y 2 gatos)."
+      "title": "Nombre de usuario no disponible",
+      "invariantRef": "INV-AUTH-001",
+      "detailTemplate": "Ya existe una cuenta con ese nombre de usuario."
+    },
+    "ERR-AUTH-WEAK-PASSWORD": {
+      "status": 422,
+      "title": "Contraseña insegura",
+      "invariantRef": "INV-AUTH-002",
+      "detailTemplate": "La contraseña debe tener entre 8 y 128 caracteres e incluir al menos una letra y un dígito."
+    },
+    "ERR-AUTH-INVALID-CREDENTIALS": {
+      "status": 401,
+      "title": "Credenciales inválidas",
+      "invariantRef": "INV-AUTH-002",
+      "detailTemplate": "Usuario o contraseña incorrectos."
+    },
+    "ERR-AUTH-UNAUTHENTICATED": {
+      "status": 401,
+      "title": "Sesión requerida",
+      "invariantRef": "INV-AUTH-004",
+      "detailTemplate": "Debes iniciar sesión para continuar."
+    },
+    "ERR-AUTH-TOO-MANY-ATTEMPTS": {
+      "status": 429,
+      "title": "Demasiados intentos",
+      "invariantRef": "INV-AUTH-005",
+      "detailTemplate": "Demasiados intentos fallidos. Intenta de nuevo en 15 minutos."
+    },
+    "ERR-AUTH-CSRF-REJECTED": {
+      "status": 403,
+      "title": "Petición rechazada",
+      "invariantRef": "INV-ACC-002",
+      "detailTemplate": "La petición no incluye la cabecera de protección X-Argos-Request."
+    },
+    "ERR-AUTH-USER-NOT-FOUND": {
+      "status": 404,
+      "title": "Usuario no encontrado",
+      "invariantRef": "INV-HOUSE-003",
+      "detailTemplate": "No existe ningún usuario con ese nombre de usuario."
+    },
+    "ERR-ACC-FORBIDDEN": {
+      "status": 403,
+      "title": "Acción no permitida",
+      "invariantRef": "INV-ACC-002",
+      "detailTemplate": "Puedes ver este recurso pero solo su dueño o el propietario del hogar puede modificarlo."
     },
     "ERR-PET-NOT-FOUND": {
       "status": 404,
       "title": "Mascota no encontrada",
-      "invariantRef": "INV-PET-003",
-      "detailTemplate": "No existe ninguna mascota registrada con el identificador proporcionado."
+      "invariantRef": "INV-ACC-001",
+      "detailTemplate": "No existe ninguna mascota accesible con el identificador proporcionado."
     },
     "ERR-PET-FUTURE-BIRTHDATE": {
       "status": 422,
@@ -41,21 +160,27 @@
       "invariantRef": "INV-PET-002",
       "detailTemplate": "La fecha de nacimiento no puede ser posterior a la fecha actual del sistema."
     },
+    "ERR-PET-BIRTHDATE-AFTER-RECORDS": {
+      "status": 422,
+      "title": "Fecha de nacimiento incompatible con el historial",
+      "invariantRef": "INV-PET-006",
+      "detailTemplate": "La nueva fecha de nacimiento es posterior a uno o más registros existentes de la mascota."
+    },
     "ERR-REC-DATE-BEFORE-BIRTH": {
       "status": 422,
       "title": "Fecha de evento anterior al nacimiento",
       "invariantRef": "INV-REC-001",
-      "detailTemplate": "La fecha del registro médico o biométrico no puede ser anterior a la fecha de nacimiento de la mascota."
+      "detailTemplate": "La fecha del registro no puede ser anterior a la fecha de nacimiento de la mascota."
     },
     "ERR-REC-FUTURE-EVENT-DATE": {
       "status": 422,
-      "title": "Fecha de evento clínico en el futuro",
+      "title": "Fecha de evento en el futuro",
       "invariantRef": "INV-REC-001",
-      "detailTemplate": "La fecha de aplicación, medición o consulta ocurrida no puede ser posterior a la fecha actual."
+      "detailTemplate": "La fecha de aplicación, medición o consulta no puede ser posterior a la fecha actual."
     },
     "ERR-REC-WEIGHT-OUT-OF-RANGE": {
       "status": 422,
-      "title": "Peso fuera del rango fisiológico permitido",
+      "title": "Peso fuera del rango permitido",
       "invariantRef": "INV-REC-002",
       "detailTemplate": "El peso debe situarse entre 0.05 kg y 150.00 kg con máximo 2 decimales."
     },
@@ -63,19 +188,43 @@
       "status": 422,
       "title": "Medida corporal fuera del rango permitido",
       "invariantRef": "INV-REC-003",
-      "detailTemplate": "Todas las medidas corporales (cuello, pecho, lomo, cintura) deben situarse entre 1.00 cm y 250.00 cm."
+      "detailTemplate": "Todas las medidas corporales deben situarse entre 1.00 cm y 250.00 cm con máximo 2 decimales."
     },
     "ERR-REC-INVALID-BOOSTER-DATE": {
       "status": 422,
-      "title": "Fecha de próximo refuerzo de vacuna inválida",
+      "title": "Fecha de próximo refuerzo inválida",
       "invariantRef": "INV-REC-004",
-      "detailTemplate": "La fecha de próximo refuerzo (nextBoosterAt) debe ser estrictamente posterior a la fecha de aplicación (appliedAt)."
+      "detailTemplate": "nextBoosterAt debe ser estrictamente posterior a appliedAt."
     },
     "ERR-REC-INVALID-NEXT-DOSE-DATE": {
       "status": 422,
-      "title": "Fecha de próxima dosis de desparasitación inválida",
+      "title": "Fecha de próxima dosis inválida",
       "invariantRef": "INV-REC-005",
-      "detailTemplate": "La fecha de próxima dosis sugerida (nextSuggestedDoseAt) debe ser estrictamente posterior a la fecha de aplicación (appliedAt)."
+      "detailTemplate": "nextSuggestedDoseAt debe ser estrictamente posterior a appliedAt."
+    },
+    "ERR-HOUSE-NOT-FOUND": {
+      "status": 404,
+      "title": "Hogar no encontrado",
+      "invariantRef": "INV-HOUSE-004",
+      "detailTemplate": "No existe ningún hogar accesible con el identificador proporcionado."
+    },
+    "ERR-HOUSE-MEMBER-ALREADY-EXISTS": {
+      "status": 409,
+      "title": "El usuario ya pertenece o está invitado",
+      "invariantRef": "INV-HOUSE-003",
+      "detailTemplate": "El usuario ya es miembro activo o tiene una invitación pendiente en este hogar."
+    },
+    "ERR-HOUSE-OWNER-CANNOT-LEAVE": {
+      "status": 409,
+      "title": "El propietario no puede abandonar el hogar",
+      "invariantRef": "INV-HOUSE-001",
+      "detailTemplate": "El propietario no puede abandonar su hogar; puede eliminarlo."
+    },
+    "ERR-HOUSE-INVITATION-NOT-FOUND": {
+      "status": 404,
+      "title": "Invitación no encontrada",
+      "invariantRef": "INV-HOUSE-003",
+      "detailTemplate": "No tienes una invitación pendiente para este hogar."
     },
     "ERR-BACKUP-MALFORMED-JSON": {
       "status": 400,
@@ -83,29 +232,41 @@
       "invariantRef": "INV-BACKUP-001",
       "detailTemplate": "El contenido importado no es un documento JSON sintácticamente válido."
     },
+    "ERR-BACKUP-PAYLOAD-TOO-LARGE": {
+      "status": 413,
+      "title": "Archivo de respaldo demasiado grande",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "El archivo de respaldo supera el tamaño máximo de 10 MB."
+    },
     "ERR-BACKUP-VERSION-UNSUPPORTED": {
       "status": 422,
-      "title": "Versión de esquema de respaldo no soportada",
+      "title": "Versión de respaldo no soportada",
       "invariantRef": "INV-BACKUP-001",
-      "detailTemplate": "La versión del archivo de respaldo no coincide con schemaVersion 1.0.0."
+      "detailTemplate": "La versión del archivo de respaldo debe ser 2.0.0 (o 1.0.0 para migración)."
     },
     "ERR-BACKUP-SCHEMA-INVALID": {
       "status": 422,
-      "title": "Estructura del respaldo JSON inválida",
+      "title": "Estructura del respaldo inválida",
       "invariantRef": "INV-BACKUP-001",
-      "detailTemplate": "El archivo de respaldo incumple el contrato formal backup-envelope.schema.json."
+      "detailTemplate": "El archivo de respaldo incumple el contrato backup-envelope.schema.json."
     },
     "ERR-BACKUP-REFERENTIAL-INTEGRITY": {
       "status": 409,
-      "title": "Violación de integridad referencial o duplicidad en respaldo",
+      "title": "Integridad referencial del respaldo violada",
       "invariantRef": "INV-BACKUP-001",
-      "detailTemplate": "El respaldo contiene IDs duplicados o registros clínicos asociados a un petId inexistente en el archivo."
+      "detailTemplate": "El respaldo contiene IDs duplicados, registros huérfanos o IDs que pertenecen a otro usuario."
     },
     "ERR-BACKUP-ATOMIC-ROLLBACK": {
       "status": 500,
       "title": "Fallo de persistencia con rollback ejecutado",
       "invariantRef": "INV-BACKUP-001",
       "detailTemplate": "Se abortó la importación y se restauró el estado previo intacto."
+    },
+    "ERR-INTERNAL-UNEXPECTED": {
+      "status": 500,
+      "title": "Error interno inesperado",
+      "invariantRef": "INV-ARCH-004",
+      "detailTemplate": "Ocurrió un error inesperado. No se realizaron cambios parciales."
     }
   }
 }

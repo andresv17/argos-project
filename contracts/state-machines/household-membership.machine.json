@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "STATE-HOUSE-MEMBERSHIP-001",
+  "version": "2.0.0",
+  "status": "LOCKED",
+  "x-sdd-metadata": {
+    "version": "2.0.0",
+    "status": "LOCKED",
+    "traceability": [
+      "STATE-HOUSE-MEMBERSHIP-001",
+      "REQ-HOUSE-001",
+      "REQ-HOUSE-002",
+      "REQ-HOUSE-003",
+      "REQ-HOUSE-004",
+      "INV-HOUSE-001",
+      "INV-HOUSE-002",
+      "INV-HOUSE-003",
+      "INV-HOUSE-004"
+    ]
+  },
+  "machines": {
+    "STATE-HOUSE-MEMBERSHIP-001": {
+      "description": "Membresía de un usuario en un hogar. Solo ACTIVE otorga visibilidad (INV-HOUSE-004).",
+      "initialStates": {
+        "OWNER": "ACTIVE",
+        "MEMBER": "INVITED"
+      },
+      "states": {
+        "INVITED": {
+          "isVisible": false,
+          "on": {
+            "ACCEPT": {
+              "target": "ACTIVE",
+              "actor": "INVITEE",
+              "effect": "joinedAt = now"
+            },
+            "DECLINE": {
+              "target": "DECLINED",
+              "actor": "INVITEE"
+            },
+            "CANCEL": {
+              "target": "CANCELLED",
+              "actor": "OWNER"
+            }
+          }
+        },
+        "ACTIVE": {
+          "isVisible": true,
+          "on": {
+            "LEAVE": {
+              "target": "LEFT",
+              "actor": "SELF",
+              "guard": "role === 'MEMBER'",
+              "errorIfGuardFails": "ERR-HOUSE-OWNER-CANNOT-LEAVE"
+            },
+            "REMOVE": {
+              "target": "REMOVED",
+              "actor": "OWNER",
+              "guard": "role === 'MEMBER'"
+            }
+          }
+        },
+        "DECLINED": {
+          "type": "final",
+          "isVisible": false
+        },
+        "CANCELLED": {
+          "type": "final",
+          "isVisible": false
+        },
+        "LEFT": {
+          "type": "final",
+          "isVisible": false
+        },
+        "REMOVED": {
+          "type": "final",
+          "isVisible": false
+        }
+      },
+      "rules": {
+        "reinvite": "Desde DECLINED, CANCELLED, LEFT o REMOVED el OWNER puede crear una nueva membresía INVITED (INV-HOUSE-003 solo prohíbe duplicar INVITED/ACTIVE).",
+        "householdDeletion": "Eliminar el hogar finaliza todas sus membresías; las mascotas no se modifican.",
+        "unauthorizedActor": "ERR-ACC-FORBIDDEN si el actor es miembro ACTIVE sin rol requerido; ERR-HOUSE-NOT-FOUND si no es miembro ACTIVE; ERR-HOUSE-INVITATION-NOT-FOUND si ACCEPT/DECLINE sin invitación INVITED."
+      }
+    }
+  }
+}
