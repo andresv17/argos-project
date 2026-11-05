@@ -1,15 +1,16 @@
 ---
 document_id: CONSTITUTION-ARGOS-001
-version: 2.1.0
-status: LOCKED
+version: 2.2.0
+status: REVIEW
 last_updated: 2026-11-05
-supersedes: 2.0.0
+supersedes: 2.1.0
 change_type: MINOR
 change_summary: >
+  v2.2.0: autorización explícita del stack de §2 (incluido `@types/node`) y de la lista de dependencias adicionales, por luz verde de Andrés (Nivel 2) el 2026-11-05 (D-10).
   Eliminación del cupo fijo de mascotas (2 perros / 2 gatos), incorporación de cuentas de usuario
   (registro/login), hogares compartidos, servidor API local con SQLite preparado para migración Cloud,
   generación real de validadores desde contratos y toolchain de pruebas oficial (sin harness propio). v2.1.0: dependencias adicionales autorizadas (§2), umbral de mutación de 85 % (§5), compuerta por tarea (§5) e INV-AUTH-006 (§4).
-approved_by: Andrés (Nivel 2) — 2026-11-05
+approved_by: pendiente (Nivel 2, Andrés) — autorización verbal del 2026-11-05 sin firma formal
 ---
 
 # CONSTITUCIÓN ARQUITECTÓNICA — PROYECTO ARGOS (PET HEALTH TRACKER)
@@ -43,6 +44,8 @@ Argos es una plataforma web **multi-usuario** y determinista para administrar el
   - Property-Based Testing: **fast-check 3** con `seed: 20261105`.
   - Mutación: **Stryker Mutator** con `@stryker-mutator/vitest-runner` (`tests/mutation/stryker.conf.json`).
   - E2E, visual y accesibilidad: **Playwright** + **`@axe-core/playwright`** contra la aplicación real levantada (API + SPA).
+- **Stack autorizado explícitamente (v2.2.0, Nivel 2, Andrés, 2026-11-05; pendiente de firma formal):** TypeScript `~5.6`, Node 22, Vite 5, React 18, Tailwind 3, Fastify 5, better-sqlite3, Ajv 8 (standalone) con ajv-formats, json-schema-to-typescript, openapi-typescript, openapi-fetch, Vitest 2, fast-check 3, Stryker, Playwright con @axe-core/playwright, y `@types/node` para `tsc --noEmit` sobre `src/` y `tests/`.
+- **Solicitud pendiente de autorización (Nivel 2, Andrés; H-03):** `@vitest/coverage-v8`, necesaria para la cobertura ≥ 95 % de TASK-115. No autorizada hasta firma formal.
 - **Dependencias adicionales autorizadas (v2.1.0, Nivel 2, aprobadas por Andrés el 2026-11-05):** `@fastify/cookie`, `react-router-dom`, `openapi-fetch`, `yaml` (solo si el generador lo importa, declarada explícitamente), `tsx` (solo desarrollo; aprobado sin condiciones por Andrés (Nivel 2), 2026-11-05), `concurrently` (solo desarrollo), `@vitejs/plugin-react`, `postcss`, `autoprefixer`, `@types/react`, `@types/react-dom`, `@types/better-sqlite3`, `@stryker-mutator/typescript-checker`. SAST en CI: **Semgrep** fijado por versión (herramienta de CI, sin dependencia npm).
 
 ## 3. REGLAS DE PUREZA Y AISLAMIENTO DE ENTROPÍA (DETERMINISMO TOTAL)
@@ -63,11 +66,11 @@ Argos es una plataforma web **multi-usuario** y determinista para administrar el
 6. **Configuración aislada (`INV-ARCH-006`):** `process.env` solo puede leerse en `src/infrastructure/config/`, validado contra un esquema. Ningún secreto se versiona; existe `.env.example` sin valores sensibles.
 
 ## 4. ESTÁNDAR DE TRAZABILIDAD (LINEAGE IDS)
-Fuente de verdad de IDs: `.specify/specs/pet-health-tracker.md` v2.1.0, `contracts/` y los `INV-ARCH-*` declarados en esta constitución (§3).
+Fuente de verdad de IDs: `.specify/specs/pet-health-tracker.md` v2.2.0, `contracts/` y los `INV-ARCH-*` declarados en esta constitución (§3).
 - **Requisitos:** `REQ-AUTH-001`..`004`, `REQ-PET-001`..`005`, `REQ-REC-001`..`006`, `REQ-HOUSE-001`..`005`, `REQ-UI-001`..`007`, `REQ-BACKUP-001`..`002`.
-- **Invariantes:** `INV-PET-002`, `INV-PET-003`, `INV-PET-005`, `INV-PET-006`, `INV-OWN-001`, `INV-ACC-001`, `INV-ACC-002`, `INV-AUTH-001`..`006`, `INV-HOUSE-001`..`005`, `INV-REC-001`..`006`, `INV-SORT-001`, `INV-BACKUP-001`, `INV-ARCH-001`..`006`.
+- **Invariantes:** `INV-PET-002`, `INV-PET-003`, `INV-PET-005`, `INV-PET-006`, `INV-OWN-001`, `INV-ACC-001`, `INV-ACC-002`, `INV-AUTH-001`..`007`, `INV-HOUSE-001`..`005`, `INV-REC-001`..`006`, `INV-SORT-001`, `INV-BACKUP-001`, `INV-ARCH-001`..`006`.
 - **Máquinas de Estado:** `STATE-ALERT-001`, `STATE-BACKUP-001`, `STATE-AUTH-SESSION-001`, `STATE-HOUSE-MEMBERSHIP-001`.
-- **Errores:** todos los códigos de `contracts/errors/error-catalog.json` v2.1.0.
+- **Errores:** todos los códigos de `contracts/errors/error-catalog.json` v2.1.1.
 - **IDs retirados (no deben aparecer en código nuevo; solo en historial):** `INV-PET-001`, `INV-PET-004`, `STATE-PET-QUOTA-001`, `ERR-PET-QUOTA-EXCEEDED`.
 
 Cada función o clase en `src/` incluye en su JSDoc los IDs que implementa (`@implements ...`), y cada `describe`/`it` en `tests/` incluye entre corchetes el ID verificado. La trazabilidad cuenta como cumplida **solo** si el ID aparece en un `@implements` de `src/` fuera de `src/generated/` **y** en el título de un `it`/`test` de `tests/`.

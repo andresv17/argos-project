@@ -1,17 +1,18 @@
 ---
 document_id: CHECKLIST-SPEC-REVIEW
-version: 2.1.0
-status: APPROVED
-applies_to: SPEC-ARGOS-001 v2.1.0
-audited_by: Auditor SDD — 2026-11-05 (re-auditoría v2.1.0 verificada en disco; las marcas de v2.0.0 quedan sin validez, C11)
-human_signature: Andrés — 2026-11-05
+version: 2.2.0
+status: REVIEW
+applies_to: SPEC-ARGOS-001 v2.2.0
+audited_by: pendiente (Auditor SDD, re-auditoría de v2.2.0)
+human_signature: pendiente (Andrés)
+note: v2.1.0 quedó firmada en 42e9f0d; las marcas de v2.1.0 no aplican a v2.2.0. Los ítems 3 y 4 de la auditoría v2.1.0 eran falsos y deben re-verificarse.
 ---
 
 # Checklist de Compuerta Fase 1 -> Fase 2: Revisión de Especificación (`spec-review.md`)
 
 Ninguna especificación en `.specify/specs/` puede pasar a estado `APPROVED` ni habilitar el diseño en `.specify/plans/` sin cumplir el 100% de los siguientes criterios deterministas. Cada ítem debe citar su evidencia.
 
-## Auditoría Aplicada a `SPEC-ARGOS-001` v2.1.0 (`pet-health-tracker.md`)
+## Auditoría Aplicada a `SPEC-ARGOS-001` v2.2.0 (`pet-health-tracker.md`)
 
 - [x] **1. Cero Prosa Abierta o Subjetiva:** umbrales exactos para alertas (`0..15` días), biometría (`0.05..150.00` kg, `1.00..250.00` cm), credenciales (username 3–30, password 8–128), bloqueo (5 intentos en ventana deslizante de 15 min, `INV-AUTH-005`; tiempo uniforme, `INV-AUTH-006`), sesión (7 días), backup (≤ 10 MB) y regla de edad en fin de mes / 29-feb. *Evidencia: spec §2–§3.* *Verificado: los 11 umbrales están presentes en la spec v2.1.0.*
 - [x] **2. Identificadores Inmutables de Trazabilidad:** `REQ-AUTH-001..004`, `REQ-PET-001..005`, `REQ-REC-001..006`, `REQ-HOUSE-001..005`, `REQ-UI-001..007`, `REQ-BACKUP-001..002` e invariantes de §3 con IDs únicos; IDs retirados listados explícitamente. *Evidencia: spec §0 y §2–§3.* *Verificado: 55 IDs REQ/INV en tablas, sin duplicados; 4 IDs retirados listados.*

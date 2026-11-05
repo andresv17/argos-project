@@ -1,15 +1,15 @@
 ---
 document_id: PLAN-ARGOS-001
-version: 2.1.0
-status: APPROVED
-supersedes: 2.0.0
+version: 2.2.0
+status: REVIEW
+supersedes: 2.1.0
 change_type: MINOR
-spec_ref: .specify/specs/pet-health-tracker.md (v2.1.0)
-constitution_ref: .specify/constitution/constitution.md (v2.1.0)
-approved_by: Andrés (Nivel 2) — 2026-11-05
+spec_ref: .specify/specs/pet-health-tracker.md (v2.2.0)
+constitution_ref: .specify/constitution/constitution.md (v2.2.0)
+approved_by: pendiente (Nivel 2, Andrés)
 ---
 
-# Plan de Arquitectura Técnica: Argos Pet Health & Biometric Tracker (v2.1.0)
+# Plan de Arquitectura Técnica: Argos Pet Health & Biometric Tracker (v2.2.0)
 
 ## 0. Vista General
 ```
@@ -32,7 +32,7 @@ Para Cloud solo se sustituyen adaptadores en `src/infrastructure/` (persistencia
 | `contracts/state-machines/*.machine.json` | `machines/*.types.ts` + constantes de estados/transiciones | codegen.mjs (lee el JSON) | domain, application, presentation |
 | `contracts/errors/error-catalog.json` | `errors/error-codes.ts` (`ErrorCode`, `ERROR_CATALOG`, `DomainError`) | codegen.mjs (lee el JSON) | todas las capas |
 
-Reglas de generación (v2.1.0):
+Reglas de generación (v2.2.0):
 - **`problemDetailsSchema` es la única definición de `ProblemDetails`** (`contracts/errors/error-catalog.json`). El OpenAPI la referencia con `$ref` externo y no la duplica. TASK-102 verifica que openapi-typescript y Ajv resuelven esa referencia.
 - **`x-sdd-error`** (anotación por campo en los JSON Schema, C1) se registra como keyword de metadatos en Ajv. El generador deriva el mapa campo→código; no existe tabla escrita a mano.
 - **`multipleOfPrecision: 2`** en la configuración de Ajv (C6). El contrato no cambia.
@@ -65,7 +65,7 @@ Reglas de generación (v2.1.0):
 ## 4. Infraestructura (`src/infrastructure/`)
 - `config/app-config.ts`: única lectura de `process.env` (`PORT`, `HOST=127.0.0.1`, `DATABASE_PATH`, `APP_TIMEZONE`, `COOKIE_SECURE`), validada con esquema (`INV-ARCH-006`).
 - `adapters/`: `SystemClockAdapter` (zona `APP_TIMEZONE` vía `Intl.DateTimeFormat`), `FixedClockAdapter`, `CryptoUuidAdapter`, `DeterministicIdAdapter`, `CryptoSecureTokenAdapter`, `ScryptPasswordHasherAdapter` (incluye el hash ficticio de `INV-AUTH-006`).
-- `persistence/memory/`: repositorios en memoria. **Se crean en TASK-108** (v2.1.0), porque los tests unitarios de casos de uso los necesitan antes de SQLite.
+- `persistence/memory/`: repositorios en memoria. **Se crean en TASK-108** (v2.2.0), porque los tests unitarios de casos de uso los necesitan antes de SQLite.
 - `persistence/sqlite/`: repositorios `better-sqlite3`, `SqliteUnitOfWork`, `migrations/0001_init.sql` (tablas `users`, `sessions`, `login_attempts`, `pets`, 6 tablas de registros con `ON DELETE CASCADE`, `households`, `household_members` con `membershipId` y `firstJoinedAt`), runner de migraciones al arranque. Borrado de hogar en cascada (C5).
 - `http/`: `server.ts` (Fastify, bind `127.0.0.1`), `routes/*.ts` (una por tag OpenAPI), `plugins/session-auth.ts`, `plugins/csrf-guard.ts` (orden de `§5.1` de la spec), `plugins/problem-details.ts` (mapea `DomainError` → RFC 9457 con `finalState` cuando aplica, oculta trazas), validación de request/response con los validadores generados, límite de cuerpo 10 MB en importación. Cookies con `@fastify/cookie`.
 - Legado: `LocalStorageTransactionalRepository` se elimina.

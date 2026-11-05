@@ -1,9 +1,9 @@
 {
-  "description": "Fixtures canónicos válidos e inválidos v2.1.0 para validación de contratos y pruebas",
+  "description": "Fixtures canónicos válidos e inválidos v2.2.0 para validación de contratos y pruebas",
   "x-sdd-metadata": {
-    "version": "2.1.0",
-    "status": "LOCKED",
-    "supersedes": "2.0.0",
+    "version": "2.2.0",
+    "status": "REVIEW",
+    "supersedes": "2.1.0",
     "traceability": [
       "REQ-AUTH-001",
       "REQ-PET-001",
@@ -574,7 +574,7 @@
     {
       "caseId": "EDGE-012-LOGIN-ENUMERATION",
       "expectedError": "ERR-AUTH-INVALID-CREDENTIALS",
-      "invariant": "INV-AUTH-005",
+      "invariant": "INV-AUTH-006",
       "description": "Usuario inexistente y contraseña errónea devuelven el mismo código, status y detail."
     },
     {
@@ -610,7 +610,7 @@
     {
       "caseId": "EDGE-018-CSRF",
       "expectedError": "ERR-AUTH-CSRF-REJECTED",
-      "invariant": "INV-ACC-002",
+      "invariant": "INV-AUTH-007",
       "description": "POST /api/pets sin cabecera X-Argos-Request.",
       "expectedStatus": 403
     },
@@ -650,7 +650,7 @@
     {
       "caseId": "EDGE-024-JAVASCRIPT-AVATAR",
       "expectedError": "ERR-SCHEMA-VALIDATION-FAILED",
-      "invariant": "INV-REC-006",
+      "invariant": "REQ-PET-001",
       "payload": {
         "avatarUrl": "javascript:alert(1)"
       },
@@ -873,9 +873,9 @@
       "expectedError": "ERR-AUTH-INVALID-CREDENTIALS",
       "expectedStatus": 401,
       "expectedDetail": "Usuario o contraseña incorrectos.",
-      "check": "PasswordHasherPort.verify se invoca en ambas ramas (usuario inexistente → hash ficticio) y la diferencia de tiempo media entre ramas, sobre N=20 ejecuciones, es ≤ 25 %.",
-      "calibrationNote": "El umbral de 25 % es provisional: se calibra en TASK-113 con scrypt real; no se fija sin medición.",
-      "description": "Usuario inexistente y contraseña errónea: mismo código, status, detail y tiempo uniforme."
+      "check": "Espía sobre PasswordHasherPort.verify: exactamente una invocación en ambas ramas (usuario inexistente → hash ficticio; usuario existente → hash real). Sin umbral temporal (D-02).",
+      "description": "Usuario inexistente y contraseña errónea: mismo código, status, detail y tiempo uniforme.",
+      "benchmark": "Medición de tiempo informativa, no bloqueante; no fija umbral."
     },
     {
       "caseId": "EDGE-033-IMPORT-ROLLED-BACK-DOMAIN-ERROR",
@@ -886,6 +886,93 @@
       "actor": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
       "payload": "validBackupEnvelopeV2 con records.weights[0].recordedAt = 2022-05-09 (Argos nació el 2022-05-10). El esquema es válido; solo el dominio detecta la violación.",
       "description": "Un fallo de dominio propagado en CHECKING_DOMAIN_INVARIANTS lleva finalState ROLLED_BACK y el estado previo queda intacto byte a byte (INV-BACKUP-001, STATE-BACKUP-001)."
+    },
+    {
+      "caseId": "EDGE-034-DELTA-KG-EXACT",
+      "invariant": "REQ-REC-001",
+      "expectedResult": {
+        "deltaKg": {
+          "3240->3285": 0.45,
+          "3285->3240": -0.45
+        }
+      },
+      "description": "deltaKg se calcula en centésimas enteras (sin Math.round sobre flotantes): 32.40 kg → 32.85 kg = +0.45; inverso = -0.45."
+    },
+    {
+      "caseId": "EDGE-035-DELTA-PERCENT-ROUNDING",
+      "invariant": "REQ-REC-001",
+      "expectedResult": {
+        "deltaPercent": {
+          "3240->3285": 1.39,
+          "3285->3240": -1.37,
+          "800->801": 0.13,
+          "800->799": -0.13
+        }
+      },
+      "description": "deltaPercent redondea half-away-from-zero a 2 decimales sobre centésimas enteras; 800→801 y 800→799 son empates exactos (0.125 %). Valores expresados en centésimas de kg (800 = 8.00 kg)."
+    },
+    {
+      "caseId": "EDGE-036-ALERT-SUPERSEDED-VS-UP-TO-DATE",
+      "invariant": "STATE-ALERT-001",
+      "expectedResult": {
+        "records": [
+          {
+            "vaccineName": "VacunaEjemplo (dato ilustrativo)",
+            "appliedAt": "2025-11-12",
+            "nextBoosterAt": "2026-11-12",
+            "state": "SUPERSEDED",
+            "daysRemaining": 7
+          },
+          {
+            "vaccineName": "VacunaEjemplo (dato ilustrativo)",
+            "appliedAt": "2026-10-20",
+            "nextBoosterAt": "2027-10-20",
+            "state": "UP_TO_DATE",
+            "daysRemaining": 349
+          }
+        ]
+      },
+      "referenceDate": "2026-11-05",
+      "description": "El registro antiguo queda SUPERSEDED aunque su fecha esté a 7 días; solo el más reciente del mismo vaccineName se evalúa por fecha."
+    },
+    {
+      "caseId": "EDGE-037-INVITED-HOUSEHOLD-404",
+      "invariant": "INV-HOUSE-004",
+      "expectedError": "ERR-HOUSE-NOT-FOUND",
+      "expectedStatus": 404,
+      "actor": "Carlos (INVITED)",
+      "request": "GET /households/{H1}",
+      "description": "Un usuario INVITED no puede leer el hogar: recibe 404 y no 403 (D-01)."
+    },
+    {
+      "caseId": "EDGE-038-MEMBERS-VISIBILITY",
+      "invariant": "INV-HOUSE-004",
+      "expectedResult": {
+        "ownerAndrés": [
+          "ACTIVE",
+          "ACTIVE",
+          "INVITED"
+        ],
+        "memberMaría": [
+          "ACTIVE",
+          "ACTIVE"
+        ]
+      },
+      "description": "El OWNER ve las membresías INVITED en members; un MEMBER activo solo ve ACTIVE (D-01)."
+    },
+    {
+      "caseId": "EDGE-039-SEARCH-ACCENT-INSENSITIVE",
+      "invariant": "REQ-PET-005",
+      "expectedResult": {
+        "q": "lucia",
+        "matches": [
+          "Lucía"
+        ],
+        "nonMatches": [
+          "Lucas"
+        ]
+      },
+      "description": "El filtro q=\"lucia\" encuentra \"Lucía\" (NFD sin marcas combinantes) y no encuentra \"Lucas\" (REQ-PET-005, D-03)."
     }
   ]
 }

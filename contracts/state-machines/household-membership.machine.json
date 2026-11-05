@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-HOUSE-MEMBERSHIP-001",
-  "version": "2.1.0",
-  "status": "LOCKED",
+  "version": "2.2.0",
+  "status": "REVIEW",
   "x-sdd-metadata": {
-    "version": "2.1.0",
-    "status": "LOCKED",
+    "version": "2.2.0",
+    "status": "REVIEW",
     "traceability": [
       "STATE-HOUSE-MEMBERSHIP-001",
       "REQ-HOUSE-001",
@@ -17,7 +17,7 @@
       "INV-HOUSE-003",
       "INV-HOUSE-004"
     ],
-    "supersedes": "2.0.0",
+    "supersedes": "2.1.0",
     "change_type": "MINOR"
   },
   "machines": {
@@ -63,26 +63,51 @@
           }
         },
         "DECLINED": {
-          "type": "final",
-          "isVisible": false
+          "isVisible": false,
+          "on": {
+            "INVITE": {
+              "target": "INVITED",
+              "actor": "OWNER",
+              "effect": "nueva fila con membershipId nuevo; firstJoinedAt heredado del par"
+            }
+          }
         },
         "CANCELLED": {
-          "type": "final",
-          "isVisible": false
+          "isVisible": false,
+          "on": {
+            "INVITE": {
+              "target": "INVITED",
+              "actor": "OWNER",
+              "effect": "nueva fila con membershipId nuevo; firstJoinedAt heredado del par"
+            }
+          }
         },
         "LEFT": {
-          "type": "final",
-          "isVisible": false
+          "isVisible": false,
+          "on": {
+            "INVITE": {
+              "target": "INVITED",
+              "actor": "OWNER",
+              "effect": "nueva fila con membershipId nuevo; firstJoinedAt heredado del par"
+            }
+          }
         },
         "REMOVED": {
-          "type": "final",
-          "isVisible": false
+          "isVisible": false,
+          "on": {
+            "INVITE": {
+              "target": "INVITED",
+              "actor": "OWNER",
+              "effect": "nueva fila con membershipId nuevo; firstJoinedAt heredado del par"
+            }
+          }
         }
       },
       "rules": {
         "reinvite": "Desde DECLINED, CANCELLED, LEFT o REMOVED el OWNER crea una nueva fila con nuevo membershipId en INVITED (INV-HOUSE-003 solo prohíbe duplicar INVITED/ACTIVE). La nueva fila hereda firstJoinedAt del par si existía.",
         "householdDeletion": "Eliminar el hogar borra físicamente el hogar y todas sus membresías (ON DELETE CASCADE). Las mascotas no se modifican. No existe estado final de eliminación.",
-        "unauthorizedActor": "ERR-ACC-FORBIDDEN si el actor es miembro ACTIVE sin rol requerido; ERR-HOUSE-NOT-FOUND si el actor no es miembro ACTIVE; ERR-HOUSE-MEMBERSHIP-NOT-FOUND si el userId objetivo de REMOVE/LEAVE no tiene membresía INVITED o ACTIVE; ERR-HOUSE-INVITATION-NOT-FOUND si ACCEPT/DECLINE no tienen invitación INVITED. ACCEPT y DECLINE nunca devuelven 403."
+        "unauthorizedActor": "ERR-ACC-FORBIDDEN si el actor es miembro ACTIVE sin rol requerido; ERR-HOUSE-NOT-FOUND si el actor no es miembro ACTIVE; ERR-HOUSE-MEMBERSHIP-NOT-FOUND si el userId objetivo de REMOVE/LEAVE no tiene membresía INVITED o ACTIVE; ERR-HOUSE-INVITATION-NOT-FOUND si ACCEPT/DECLINE no tienen invitación INVITED. ACCEPT y DECLINE nunca devuelven 403.",
+        "closedStates": "DECLINED, CANCELLED, LEFT y REMOVED no son finales: admiten INVITE del OWNER (H-05)."
       }
     }
   }

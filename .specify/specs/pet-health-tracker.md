@@ -1,12 +1,12 @@
 ---
 document_id: SPEC-ARGOS-001
-version: 2.1.0
-status: APPROVED
+version: 2.2.0
+status: REVIEW
 feature: pet-health-tracker
-supersedes: 2.0.0
+supersedes: 2.1.0
 change_type: MINOR
-approved_by: Andrés (Nivel 2) — 2026-11-05
-spec_review: .specify/checklists/spec-review.md (re-auditoría v2.1.0 firmada por Andrés — 2026-11-05)
+approved_by: pendiente (Nivel 2, Andrés)
+spec_review: .specify/checklists/spec-review.md (re-auditoría v2.2.0 pendiente de firma)
 contracts_ref:
   - contracts/schemas/identity.schema.json
   - contracts/schemas/pet.schema.json
@@ -21,7 +21,7 @@ contracts_ref:
   - contracts/examples/canonical-fixtures.json
 ---
 
-# Especificación Funcional: Argos Pet Health & Biometric Tracker (v2.0.0)
+# Especificación Funcional: Argos Pet Health & Biometric Tracker (v2.2.0)
 
 ## 0. Registro de cambios respecto a v1.0.0
 | Cambio | Detalle | IDs afectados |
@@ -30,9 +30,12 @@ contracts_ref:
 | Eliminación de mascotas | Nueva operación de borrado con cascada atómica. | Nuevos: `REQ-PET-004`, `INV-PET-005` |
 | Cuentas de usuario | Registro, login, logout y sesión. | Nuevos: `REQ-AUTH-*`, `INV-AUTH-*`, `STATE-AUTH-SESSION-001`, `ERR-AUTH-*` |
 | Propiedad y hogares | Cada mascota tiene dueño; hogares compartidos con invitación aceptada. | Nuevos: `REQ-HOUSE-*`, `INV-OWN-001`, `INV-ACC-*`, `INV-HOUSE-*`, `STATE-HOUSE-MEMBERSHIP-001`, `ERR-HOUSE-*`, `ERR-ACC-FORBIDDEN` |
+| **v2.2.0 (MINOR): resolución del reporte del Desarrollador (D-01…D-12) y defectos de contratos.** Visibilidad de hogar: un `INVITED` recibe `404` y el `OWNER` ve las membresías `INVITED` en `members` (D-01); `INV-AUTH-006` se verifica con espía sobre `PasswordHasherPort`, sin umbral temporal (D-02); búsqueda por `q` sin distinguir tildes (D-03); `LOGOUT` idempotente (D-04); re-invitación como evento `INVITE` con fila nueva (D-05); referencias de catálogo corregidas (D-09); `STATE-ALERT-001` sin estado inicial transitorio; esquemas explícitos para registros v1 del respaldo; `finalState` documentado como regla de la máquina de importación. | `INV-HOUSE-004`, `REQ-PET-005`, `INV-AUTH-006`, `REQ-AUTH-003`, `REQ-HOUSE-002`, `REQ-HOUSE-003`, `STATE-ALERT-001`, `STATE-BACKUP-001`, `STATE-AUTH-SESSION-001`, `STATE-HOUSE-MEMBERSHIP-001`, `ERR-AUTH-INVALID-CREDENTIALS`, `ERR-AUTH-CSRF-REJECTED`, §4, §5 |
 | Correcciones de auditoría | Regla de edad en fin de mes / 29-feb, `birthDate` vs. registros existentes, `createdAt` canónico, zona horaria, nombres de estados de backup alineados al contrato, `ERR-BACKUP-ATOMIC-ROLLBACK` documentado, propagación de errores de dominio en importación. | `REQ-PET-002`, `INV-PET-006`, `INV-SORT-001`, `STATE-BACKUP-001`, `INV-BACKUP-001` |
 | Respaldo por usuario | El respaldo exporta/importa solo los datos del usuario autenticado; sobre v2.0.0 con migración desde v1.0.0. | `REQ-BACKUP-001`, `REQ-BACKUP-002`, `INV-BACKUP-001` |
 | **v2.1.0 (MINOR): correcciones tras auditoría de contratos.** Precedencia de validación en frontera y mapa campo→código (C1); bloqueo de login con ventana deslizante, reinicio en éxito y tiempo uniforme (C2, anti-enumeración); `finalState: ROLLED_BACK` en todo error de importación que termina en rollback (C3; la máquina de backup se transcribe completa); `colorToken` solo en contexto de hogar (C4); una fila por invitación, `firstJoinedAt` y borrado físico de hogar (C5); redondeo de deltas (C13); edición y borrado de registros fuera de alcance. | `INV-AUTH-005`, `INV-AUTH-006` (nuevo), `INV-HOUSE-005`, `REQ-AUTH-002`, `REQ-HOUSE-003`, `REQ-HOUSE-004`, `REQ-HOUSE-005`, `REQ-REC-001`, `REQ-UI-002`, `REQ-UI-004`, `STATE-BACKUP-001`, `STATE-HOUSE-MEMBERSHIP-001`, §5.1 (nuevo), `ERR-HOUSE-MEMBERSHIP-NOT-FOUND` (nuevo) |
+
+**Justificación de SemVer (v2.2.0, MINOR).** Los cambios de visibilidad y de máquinas se fijan antes de implementación y sin datos persistidos en producción; el cambio es MINOR por la misma razón que v2.1.0. Si se implementara v2.1.0 antes de aprobar v2.2.0, el cambio pasaría a MAJOR con migración.
 
 **Justificación de SemVer (MINOR, no MAJOR), v2.1.0.** `HouseholdMember` gana `membershipId` y `firstJoinedAt` como campos obligatorios y nuevos. No es un cambio incompatible porque no existe implementación ni datos persistidos de la v2.0.0: la v1.0.0 no tiene hogares y la v2.0.0 no se ha implementado. Ningún consumidor ni migración depende de la forma anterior. Si esa premisa cambiara antes de la implementación, el cambio pasa a MAJOR con estrategia de migración (`spec-system.md` §1).
 
@@ -62,7 +65,7 @@ El sistema calcula la edad y el estado de vacunas/desparasitaciones con reglas d
 | `REQ-PET-002` | Cálculo Determinista de Edad | Calcula `{ years, months, totalDays }` entre `birthDate` y `ClockPort.todayIsoDate()`. `years`/`months` cuentan aniversarios completos; si el día de nacimiento no existe en el mes evaluado (29-feb, día 31), el aniversario cae en el **último día** de ese mes. Ej.: `2024-02-29` → `2025-02-28` = `{1, 0, 365}`; `2026-01-31` → `2026-02-28` = `{0, 1, 28}`. | `birthDate`, `currentDate` | `ComputedAge` |
 | `REQ-PET-003` | Ficha Técnica Individual | Devuelve el perfil, la edad, el dueño (`owner`) y las 6 colecciones ordenadas (`INV-SORT-001`) con resumen de alertas activas, aislando 100% los datos de esa mascota. Accesible para el dueño y para miembros activos de un hogar compartido con el dueño (`INV-ACC-001`); `canEdit = true` solo para el dueño. | `petId`, sesión, `ClockPort` | `PetDashboardView` |
 | `REQ-PET-004` | Eliminación de Mascota | El dueño elimina una mascota y, en la misma transacción, sus 6 colecciones (`INV-PET-005`). La UI exige confirmación escribiendo el nombre de la mascota. Operación irreversible (se recomienda exportar respaldo antes). | `petId`, sesión | `204` |
-| `REQ-PET-005` | Listado de Mis Mascotas | Lista todas las mascotas del usuario autenticado con edad, peso más reciente y contadores de alertas, ordenadas por `name` ASC (comparación `localeCompare` con locale `es`, sensibilidad `base`), desempate por `createdAt` ASC e `id` ASC. Sin paginación obligatoria; filtro opcional por texto en `name` y por `species`. | sesión, `ClockPort`, filtros opcionales | `PetCardView[]` |
+| `REQ-PET-005` | Listado de Mis Mascotas | Lista todas las mascotas del usuario autenticado con edad, peso más reciente y contadores de alertas, ordenadas por `name` ASC (comparación `localeCompare` con locale `es`, sensibilidad `base`), desempate por `createdAt` ASC e `id` ASC. Sin paginación obligatoria; filtro opcional por texto en `name` y por `species`. El filtro de texto no distingue mayúsculas ni tildes: ambas cadenas se normalizan a NFD y se eliminan las marcas combinantes (`\p{M}`) antes de comparar por subcadena (D-03). | sesión, `ClockPort`, filtros opcionales | `PetCardView[]` |
 
 ### 2.3 Registros Históricos (`REQ-REC`)
 Todas las operaciones de escritura exigen que el usuario autenticado sea el dueño de la mascota (`INV-ACC-002`).
@@ -118,11 +121,12 @@ Todas las operaciones de escritura exigen que el usuario autenticado sea el due�
 | `INV-AUTH-003` | Secreto de Credenciales | La contraseña solo existe como hash `scrypt` con salt; ningún contrato de salida, log ni respaldo contiene `password`, hash ni token de sesión en claro. | N/A (verificado en `tests/security/`) |
 | `INV-AUTH-004` | Vigencia de Sesión | Una sesión es válida si no fue revocada y `ClockPort.nowIsoTimestamp() < expiresAt`, con `expiresAt = createdAt + 7 días`. | `ERR-AUTH-UNAUTHENTICATED` |
 | `INV-AUTH-005` | Bloqueo por Intentos Fallidos | Ventana deslizante de 15 minutos: si existen 5 o más fallos registrados de ese `username` en los últimos 15 minutos, el login se rechaza sin verificar la contraseña. Los intentos rechazados no se registran. Un login exitoso elimina los fallos registrados de ese `username`. Aplica también a usuarios inexistentes. | `ERR-AUTH-TOO-MANY-ATTEMPTS` |
-| `INV-AUTH-006` | Tiempo Uniforme en Login | El tiempo de respuesta de `LoginUseCase` no depende de que el `username` exista: si no existe, se ejecuta `PasswordHasherPort.verify` contra un hash ficticio de igual coste. Verificado en `tests/security/` (anti-enumeración). | `ERR-AUTH-INVALID-CREDENTIALS` (respuesta idéntica) |
+| `INV-AUTH-006` | Tiempo Uniforme en Login | El tiempo de respuesta de `LoginUseCase` no depende de que el `username` exista: si no existe, se ejecuta `PasswordHasherPort.verify` contra un hash ficticio de igual coste. Verificado con espía sobre `PasswordHasherPort` (una invocación en ambas ramas), sin umbral temporal (D-02). | `ERR-AUTH-INVALID-CREDENTIALS` (respuesta idéntica) |
+| `INV-AUTH-007` | Protección CSRF en Peticiones Mutantes | Toda petición que modifica estado exige la cabecera `X-Argos-Request: 1`, validada antes que la sesión (§5.1; constitución §6, regla 3). | `ERR-AUTH-CSRF-REJECTED` |
 | `INV-HOUSE-001` | Propietario Único del Hogar | Todo hogar tiene exactamente un miembro con rol `OWNER` y estado `ACTIVE` (su creador). | `ERR-HOUSE-OWNER-CANNOT-LEAVE` |
 | `INV-HOUSE-002` | Gestión Exclusiva del Propietario | Solo el `OWNER` invita, cancela invitaciones, retira miembros o elimina el hogar. | `ERR-ACC-FORBIDDEN` |
 | `INV-HOUSE-003` | Membresía Única | Por cada par (`householdId`, `userId`) existe a lo sumo una membresía en estado `INVITED` o `ACTIVE`. Invitar a un usuario inexistente falla. | `ERR-HOUSE-MEMBER-ALREADY-EXISTS` / `ERR-AUTH-USER-NOT-FOUND` |
-| `INV-HOUSE-004` | Visibilidad Solo por Membresía Activa | Un hogar y sus mascotas solo son visibles para miembros `ACTIVE`. Un invitado (`INVITED`) solo ve el nombre del hogar y quién lo invita. | `ERR-HOUSE-NOT-FOUND` |
+| `INV-HOUSE-004` | Visibilidad Solo por Membresía Activa | Un hogar y sus mascotas solo son visibles para miembros `ACTIVE`. Un invitado (`INVITED`) recibe `404` `ERR-HOUSE-NOT-FOUND` al leer el hogar o sus mascotas, sin datos del hogar. En `members` se devuelven solo membresías `ACTIVE`, salvo para el `OWNER`, que además recibe las `INVITED` (D-01). | `ERR-HOUSE-NOT-FOUND` |
 | `INV-HOUSE-005` | Color Determinista de Dueño | `colorToken = OWNER_COLOR_{(i mod 8) + 1}` donde `i` es la posición (base 0) del dueño en la lista de miembros `ACTIVE` ordenada por `firstJoinedAt` ASC, `userId` ASC. Fuera de contexto de hogar, `colorToken = null`. | N/A |
 | `INV-REC-001` | Ventana Temporal de Eventos | `pet.birthDate <= eventDate <= ClockPort.todayIsoDate()`. | `ERR-REC-DATE-BEFORE-BIRTH` / `ERR-REC-FUTURE-EVENT-DATE` |
 | `INV-REC-002` | Rango de Peso | `0.05 <= weightKg <= 150.00`, máx. 2 decimales. | `ERR-REC-WEIGHT-OUT-OF-RANGE` |
@@ -131,16 +135,16 @@ Todas las operaciones de escritura exigen que el usuario autenticado sea el due�
 | `INV-REC-005` | Próxima Desparasitación | `nextSuggestedDoseAt > appliedAt`. | `ERR-REC-INVALID-NEXT-DOSE-DATE` |
 | `INV-REC-006` | Textos No Vacíos | Todo string obligatorio (`name`, `breed`, `displayName`, `vaccineName`, `productBrand`, `reason`, `diagnosis`, `treatment`, `clinicOrVet`, `title`, `description`, `household.name`) cumple `trim().length >= 1` y no tiene espacios extremos. | `ERR-SCHEMA-VALIDATION-FAILED` |
 | `INV-SORT-001` | Orden Cronológico Determinista | Todo historial se ordena por fecha de evento DESC, luego `createdAt` DESC, luego `id` ASC. `createdAt` es **siempre** UTC canónico `YYYY-MM-DDTHH:mm:ss.sssZ` (garantiza que la comparación lexicográfica equivale a la cronológica). | N/A (propiedad en `tests/property/`) |
-| `INV-BACKUP-001` | Atomicidad e Integridad del Backup | El sobre importado no puede contener IDs duplicados, registros con `petId` ausente de `pets[]`, IDs que ya pertenezcan a entidades de **otro** usuario, ni violar `INV-PET-*` / `INV-REC-*`. Cualquier violación aborta en `ROLLED_BACK` propagando el código específico (`ERR-BACKUP-*`, `ERR-PET-*` o `ERR-REC-*`). Un fallo de persistencia durante el commit produce `ERR-BACKUP-ATOMIC-ROLLBACK`. El rollback nunca reemplaza el error original. | `ERR-BACKUP-*`, `ERR-PET-*`, `ERR-REC-*` |
+| `INV-BACKUP-001` | Atomicidad e Integridad del Backup | El sobre importado no puede contener IDs duplicados, registros con `petId` ausente de `pets[]`, IDs que ya pertenezcan a entidades de **otro** usuario, ni violar `INV-PET-*` / `INV-REC-*`. Cualquier violación aborta en `ROLLED_BACK` propagando el código específico (`ERR-BACKUP-*`, `ERR-PET-*` o `ERR-REC-*`). Un fallo de persistencia durante el commit produce `ERR-BACKUP-ATOMIC-ROLLBACK`. El rollback nunca reemplaza el error original. Excepción: si el rollback del almacenamiento falla, la postcondición de byte-identidad no está garantizada; se reporta `ERR-INTERNAL-UNEXPECTED` con `finalState: "UNKNOWN"` y se registra como incidente (H-06). | `ERR-BACKUP-*`, `ERR-PET-*`, `ERR-REC-*` |
 
 ## 4. Máquinas de Estado y Flujos (`STATE-XXX`)
 1. **`STATE-ALERT-001`** (`contracts/state-machines/sanitary-alert.machine.json`). Sea `daysRemaining = diffInCalendarDays(targetDate, ClockPort.todayIsoDate())`: `SUPERSEDED` si existe un registro posterior de la misma clave (`vaccineName` normalizado con `trim().toLowerCase()`, o mismo `dewormingType`) para la misma mascota; si no, `OVERDUE` si `< 0`, `DUE_SOON` si `0..15`, `UP_TO_DATE` si `> 15`.
-2. **`STATE-BACKUP-001`** (`contracts/state-machines/backup-import.machine.json`): `IDLE` → `CHECKING_PAYLOAD_SIZE` (≤ 10 MB; si no, `ROLLED_BACK` con `ERR-BACKUP-PAYLOAD-TOO-LARGE`) → `PARSING_JSON` (si falla, `ROLLED_BACK` con `ERR-BACKUP-MALFORMED-JSON`) → `VALIDATING_VERSION_AND_SCHEMA` (versión no soportada → `ERR-BACKUP-VERSION-UNSUPPORTED`; esquema inválido → `ERR-BACKUP-SCHEMA-INVALID`) → [`MIGRATING_LEGACY_ENVELOPE` si `schemaVersion == "1.0.0"`] → `CHECKING_DOMAIN_INVARIANTS` (IDs huérfanos, duplicados o ajenos → `ERR-BACKUP-REFERENTIAL-INTEGRITY`; otras violaciones → código específico propagado) → `COMMITTING_SNAPSHOT` (fallo de almacenamiento → `ERR-BACKUP-ATOMIC-ROLLBACK`) → `COMPLETED` | `ROLLED_BACK`. Ningún cambio se persiste antes de `COMMITTING_SNAPSHOT`; el commit es una única transacción. Todo error de importación que termina en `ROLLED_BACK` se devuelve con `finalState: "ROLLED_BACK"` (§5.1), sea `ERR-BACKUP-*`, `ERR-PET-*`, `ERR-REC-*` o `ERR-SCHEMA-VALIDATION-FAILED` propagado.
-3. **`STATE-AUTH-SESSION-001`** (`contracts/state-machines/auth-session.machine.json`): `ANONYMOUS` → `AUTHENTICATED` → `EXPIRED` | `LOGGED_OUT`.
-4. **`STATE-HOUSE-MEMBERSHIP-001`** (`contracts/state-machines/household-membership.machine.json`): `INVITED` → `ACTIVE` | `DECLINED` | `CANCELLED`; `ACTIVE` → `LEFT` | `REMOVED`. El `OWNER` nace en `ACTIVE` y no puede transitar a `LEFT`. Cada invitación es una fila con `membershipId` propio; `firstJoinedAt` se fija en el primer paso a `ACTIVE` del par y no cambia al reingresar; `joinedAt` registra el último paso a `ACTIVE` de la fila. Eliminar el hogar borra físicamente sus membresías.
+2. **`STATE-BACKUP-001`** (`contracts/state-machines/backup-import.machine.json`): `IDLE` → `CHECKING_PAYLOAD_SIZE` (≤ 10 MB; si no, `ROLLED_BACK` con `ERR-BACKUP-PAYLOAD-TOO-LARGE`) → `PARSING_JSON` (si falla, `ROLLED_BACK` con `ERR-BACKUP-MALFORMED-JSON`) → `VALIDATING_VERSION_AND_SCHEMA` (versión no soportada → `ERR-BACKUP-VERSION-UNSUPPORTED`; esquema inválido → `ERR-BACKUP-SCHEMA-INVALID`) → [`MIGRATING_LEGACY_ENVELOPE` si `schemaVersion == "1.0.0"`] → `CHECKING_DOMAIN_INVARIANTS` (IDs huérfanos, duplicados o ajenos → `ERR-BACKUP-REFERENTIAL-INTEGRITY`; otras violaciones → código específico propagado) → `COMMITTING_SNAPSHOT` (fallo de almacenamiento → `ERR-BACKUP-ATOMIC-ROLLBACK`) → `COMPLETED` | `ROLLED_BACK`. Ningún cambio se persiste antes de `COMMITTING_SNAPSHOT`; el commit es una única transacción. Todo error de importación que termina en `ROLLED_BACK` se devuelve con `finalState: "ROLLED_BACK"` (§5.1), sea `ERR-BACKUP-*`, `ERR-PET-*`, `ERR-REC-*` o `ERR-SCHEMA-VALIDATION-FAILED` propagado. Si el propio rollback del almacenamiento falla (`ROLLBACK_FAILED`), la respuesta es `ERR-INTERNAL-UNEXPECTED` con `finalState: "UNKNOWN"` (H-06).
+3. **`STATE-AUTH-SESSION-001`** (`contracts/state-machines/auth-session.machine.json`): `ANONYMOUS` → `AUTHENTICATED` → `EXPIRED` | `LOGGED_OUT`. `LOGOUT` responde `204` en cualquier estado sin cambiar el estado ni registrar error (idempotente, D-04). `EXPIRED` y `LOGGED_OUT` no son estados finales: admiten `LOGOUT` (H-05).
+4. **`STATE-HOUSE-MEMBERSHIP-001`** (`contracts/state-machines/household-membership.machine.json`): `INVITED` → `ACTIVE` | `DECLINED` | `CANCELLED`; `ACTIVE` → `LEFT` | `REMOVED`. Desde `DECLINED`, `CANCELLED`, `LEFT` o `REMOVED` el `OWNER` reinvita mediante el evento `INVITE`, que crea una fila nueva con `membershipId` nuevo y hereda `firstJoinedAt` del par (D-05). `DECLINED`, `CANCELLED`, `LEFT` y `REMOVED` no son estados finales: admiten `INVITE` del `OWNER` (H-05). El `OWNER` nace en `ACTIVE` y no puede transitar a `LEFT`. Cada invitación es una fila con `membershipId` propio; `firstJoinedAt` se fija en el primer paso a `ACTIVE` del par y no cambia al reingresar; `joinedAt` registra el último paso a `ACTIVE` de la fila. Eliminar el hogar borra físicamente sus membresías.
 
 ## 5. Catálogo de Casos de Borde y Errores (`ERR-XXX`)
-Formalizados en `contracts/errors/error-catalog.json` v2.0.0 (RFC 9457):
+Formalizados en `contracts/errors/error-catalog.json` v2.1.1 (RFC 9457):
 
 | Código | HTTP | Causa |
 | :--- | :--- | :--- |
@@ -178,7 +182,7 @@ Formalizados en `contracts/errors/error-catalog.json` v2.0.0 (RFC 9457):
 **Retirado en v2.0.0:** `ERR-PET-QUOTA-EXCEEDED`.
 
 ### 5.1 Precedencia de validación en la frontera (C1)
-1. Cabecera `X-Argos-Request: 1` en peticiones que modifican estado → `ERR-AUTH-CSRF-REJECTED` (403).
+1. Cabecera `X-Argos-Request: 1` en peticiones que modifican estado → `ERR-AUTH-CSRF-REJECTED` (403) [INV-AUTH-007; constitución §6, regla 3].
 2. Sesión, si la ruta la exige → `ERR-AUTH-UNAUTHENTICATED` (401).
 3. Normalización de `username` (recortar espacios y pasar a minúsculas) antes de validar.
 4. Esquema formal. El alcance de `x-sdd-error` es el valor del campo anotado: un fallo de `type`, `minimum`, `maximum`, `multipleOf`, `pattern`, `minLength` o `maxLength` sobre ese campo devuelve el código anotado (p. ej. `weightKg` → `ERR-REC-WEIGHT-OUT-OF-RANGE`; `password` → `ERR-AUTH-WEAK-PASSWORD`). Un campo obligatorio ausente o una propiedad no autorizada (`additionalProperties: false`) devuelve `ERR-SCHEMA-VALIDATION-FAILED` (422), aunque el campo esté anotado. Cualquier otro fallo sin anotación devuelve también `ERR-SCHEMA-VALIDATION-FAILED`.

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-AUTH-SESSION-001",
-  "version": "2.1.0",
-  "status": "LOCKED",
+  "version": "2.2.0",
+  "status": "REVIEW",
   "x-sdd-metadata": {
-    "version": "2.1.0",
-    "status": "LOCKED",
+    "version": "2.2.0",
+    "status": "REVIEW",
     "traceability": [
       "STATE-AUTH-SESSION-001",
       "REQ-AUTH-001",
@@ -16,7 +16,7 @@
       "INV-AUTH-005",
       "INV-AUTH-006"
     ],
-    "supersedes": "2.0.0",
+    "supersedes": "2.1.0",
     "change_type": "MINOR"
   },
   "machines": {
@@ -50,6 +50,10 @@
             "ACCESS_PROTECTED": {
               "target": "ANONYMOUS",
               "error": "ERR-AUTH-UNAUTHENTICATED"
+            },
+            "LOGOUT": {
+              "target": "ANONYMOUS",
+              "response": 204
             }
           }
         },
@@ -67,19 +71,31 @@
           }
         },
         "EXPIRED": {
-          "type": "final",
-          "onAccess": "ERR-AUTH-UNAUTHENTICATED"
+          "onAccess": "ERR-AUTH-UNAUTHENTICATED",
+          "on": {
+            "LOGOUT": {
+              "target": "EXPIRED",
+              "response": 204
+            }
+          }
         },
         "LOGGED_OUT": {
-          "type": "final",
-          "onAccess": "ERR-AUTH-UNAUTHENTICATED"
+          "onAccess": "ERR-AUTH-UNAUTHENTICATED",
+          "on": {
+            "LOGOUT": {
+              "target": "LOGGED_OUT",
+              "response": 204
+            }
+          }
         }
       },
       "rules": {
         "lockoutWindow": "Ventana deslizante de LOCKOUT_WINDOW_MINUTES contada desde el instante de cada fallo registrado [INV-AUTH-005]",
         "blockedAttemptsRecorded": false,
         "successResetsCounter": "Un LOGIN_SUCCESS elimina los fallos registrados de ese username",
-        "userExistence": "El bloqueo aplica igual a usernames inexistentes (anti-enumeración)"
+        "userExistence": "El bloqueo aplica igual a usernames inexistentes (anti-enumeración)",
+        "logoutIdempotent": "LOGOUT responde 204 en cualquier estado, incluido ANONYMOUS, EXPIRED y LOGGED_OUT, sin cambiar el estado ni registrar error (D-04).",
+        "sessionTerminalStates": "EXPIRED y LOGGED_OUT no son finales: solo admiten LOGOUT idempotente (H-05)."
       }
     }
   }

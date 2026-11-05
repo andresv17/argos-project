@@ -1,8 +1,9 @@
 ---
 document_id: CHECKLIST-CODE-REVIEW
-version: 2.0.1
-status: APPROVED
-applies_to: TASKS-ARGOS-001 v2.1.0
+version: 2.2.0
+status: REVIEW
+applies_to: TASKS-ARGOS-001 v2.2.0
+note: re-versionado por el Arquitecto (D-07) a v2.2.0 en REVIEW; el Auditor debe re-validar sobre TASKS v2.2.0 antes de APPROVED.
 ---
 
 # Checklist de Compuerta Fase 4: Revisión Arquitectónica de Código (`code-review.md`)

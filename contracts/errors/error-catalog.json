@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalog",
   "x-sdd-metadata": {
-    "version": "2.1.0",
-    "status": "LOCKED",
-    "supersedes": "2.0.0",
-    "change_type": "MINOR",
+    "version": "2.1.1",
+    "status": "REVIEW",
+    "supersedes": "2.1.0",
+    "change_type": "PATCH",
     "removed": [
       "ERR-PET-QUOTA-EXCEEDED"
     ],
@@ -45,8 +45,8 @@
       "ERR-HOUSE-MEMBERSHIP-NOT-FOUND"
     ]
   },
-  "version": "2.1.0",
-  "status": "LOCKED",
+  "version": "2.1.1",
+  "status": "REVIEW",
   "problemDetailsSchema": {
     "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
   },
@@ -72,7 +72,7 @@
     "ERR-AUTH-INVALID-CREDENTIALS": {
       "status": 401,
       "title": "Credenciales inválidas",
-      "invariantRef": "INV-AUTH-002",
+      "invariantRef": "INV-AUTH-006",
       "detailTemplate": "Usuario o contraseña incorrectos."
     },
     "ERR-AUTH-UNAUTHENTICATED": {
@@ -90,7 +90,7 @@
     "ERR-AUTH-CSRF-REJECTED": {
       "status": 403,
       "title": "Petición rechazada",
-      "invariantRef": "INV-ACC-002",
+      "invariantRef": "INV-AUTH-007",
       "detailTemplate": "La petición no incluye la cabecera de protección X-Argos-Request."
     },
     "ERR-AUTH-USER-NOT-FOUND": {

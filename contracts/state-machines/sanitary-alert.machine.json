@@ -1,12 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-ALERT-001",
-  "version": "2.0.0",
-  "status": "LOCKED",
-  "supersedes": "1.0.0",
+  "version": "2.0.1",
+  "status": "REVIEW",
+  "supersedes": "2.0.0",
   "x-sdd-metadata": {
-    "version": "2.0.0",
-    "status": "LOCKED",
+    "version": "2.0.1",
+    "status": "REVIEW",
+    "change_type": "PATCH",
+    "change_note": "PATCH: se elimina initial EVALUATING (estado transitorio no definido en states). La evaluación es función pura: primer estado cuyo guard es verdadero en evaluationOrder.",
     "traceability": [
       "STATE-ALERT-001",
       "REQ-REC-003",
@@ -18,7 +20,7 @@
   "machines": {
     "STATE-ALERT-001": {
       "description": "Evaluación determinista de alertas sanitarias para Vacunación y Desparasitación",
-      "initial": "EVALUATING",
+      "evaluation": "Función pura: devuelve el primer estado cuyo guard es verdadero, en el orden de evaluationOrder. No hay estado transitorio ni estado inicial.",
       "context": {
         "targetDate": "YYYY-MM-DD (nextBoosterAt o nextSuggestedDoseAt)",
         "currentDate": "YYYY-MM-DD de ClockPort.todayIsoDate()",

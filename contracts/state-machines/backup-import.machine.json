@@ -1,11 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-BACKUP-001",
-  "version": "2.0.0",
-  "status": "LOCKED",
+  "version": "2.1.0",
+  "status": "REVIEW",
   "x-sdd-metadata": {
-    "version": "2.0.0",
-    "status": "LOCKED",
+    "version": "2.1.0",
+    "status": "REVIEW",
+    "supersedes": "2.0.0",
+    "change_type": "MINOR",
     "traceability": [
       "STATE-BACKUP-001",
       "REQ-BACKUP-002",
@@ -97,6 +99,11 @@
             "STORAGE_ERROR": {
               "target": "ROLLED_BACK",
               "error": "ERR-BACKUP-ATOMIC-ROLLBACK"
+            },
+            "ROLLBACK_FAILED": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-INTERNAL-UNEXPECTED",
+              "finalState": "UNKNOWN"
             }
           }
         },
@@ -105,8 +112,11 @@
         },
         "ROLLED_BACK": {
           "type": "final",
-          "postCondition": "Los datos del usuario son idénticos byte a byte al estado previo a START_IMPORT; los datos de otros usuarios nunca se tocan; el error reportado es siempre el de la transición que llevó a ROLLED_BACK."
+          "postCondition": "Los datos del usuario son idénticos byte a byte al estado previo a START_IMPORT; los datos de otros usuarios nunca se tocan; el error reportado es siempre el de la transición que llevó a ROLLED_BACK. Excepción: tras ROLLBACK_FAILED la postcondición no está garantizada (finalState UNKNOWN; H-06)."
         }
+      },
+      "rules": {
+        "finalState": "Todo error que lleve a ROLLED_BACK incluye finalState: \"ROLLED_BACK\" en ProblemDetails (enum de common.schema.json). ERR-BACKUP-ATOMIC-ROLLBACK nunca reemplaza el error original de la transición que falló. Si el rollback del almacenamiento falla (ROLLBACK_FAILED), la respuesta es ERR-INTERNAL-UNEXPECTED con finalState \"UNKNOWN\", se registra como incidente y es el único caso en que la postcondición de byte-identidad no se garantiza."
       }
     }
   }

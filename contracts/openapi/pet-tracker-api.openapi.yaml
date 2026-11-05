@@ -2,17 +2,17 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API
-  version: 2.1.0
+  version: 2.2.0
   description: >
     Contrato formal de la API HTTP local (127.0.0.1:3000, prefijo /api) bajo SDD.
-    Cambio MAJOR respecto a 1.0.0: autenticación por sesión, propiedad de mascotas,
+    Las versiones 2.x son MINOR entre sí; respecto a 1.0.0 el cambio es MAJOR: autenticación por sesión, propiedad de mascotas,
     hogares compartidos, eliminación de mascotas, sin cupo y respaldo por usuario.
     Todas las respuestas de error usan application/problem+json (RFC 9457).
-  x-sdd-status: LOCKED
+  x-sdd-status: REVIEW
   x-sdd-metadata:
-    version: 2.1.0
-    status: LOCKED
-    supersedes: 2.0.0
+    version: 2.2.0
+    status: REVIEW
+    supersedes: 2.1.0
     change_type: MINOR
     traceability:
       - REQ-AUTH-001
@@ -135,7 +135,7 @@ paths:
           in: query
           required: false
           schema: { type: string, maxLength: 50 }
-          description: Filtro por subcadena del nombre (sin distinguir mayúsculas ni tildes)
+          description: Filtro por subcadena del nombre; sin distinguir mayúsculas ni tildes (REQ-PET-005, normalización NFD con eliminación de marcas \p{M})
         - name: species
           in: query
           required: false
@@ -388,7 +388,7 @@ paths:
     get:
       tags: [households]
       operationId: getHousehold
-      summary: Detalle del hogar con miembros e invitaciones [REQ-HOUSE-004]
+      summary: Detalle del hogar. Un INVITED recibe 404 ERR-HOUSE-NOT-FOUND; el OWNER ve las membresías INVITED en members [REQ-HOUSE-004, INV-HOUSE-004]
       responses:
         '200':
           description: Hogar
@@ -683,7 +683,7 @@ components:
         myRole: { $ref: '../schemas/identity.schema.json#/$defs/HouseholdRole' }
         members:
           type: array
-          description: Miembros ACTIVE e INVITED (las invitaciones solo las ve el OWNER)
+          description: Miembros ACTIVE para cualquier miembro activo; el OWNER además recibe membresías INVITED (INV-HOUSE-004)
           items: { $ref: '#/components/schemas/HouseholdMemberView' }
     HouseholdPetsView:
       type: object

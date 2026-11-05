@@ -4,9 +4,11 @@
   "title": "PetProfileSchema",
   "description": "Perfil de mascota con dueño; sin cupo de cantidad ni de especie [REQ-PET-001..005, INV-OWN-001]",
   "x-sdd-metadata": {
-    "version": "2.0.0",
-    "status": "LOCKED",
-    "supersedes": "1.0.0",
+    "version": "2.0.1",
+    "status": "REVIEW",
+    "supersedes": "2.0.0",
+    "change_type": "PATCH",
+    "change_note": "PATCH: sin cambios estructurales; entra en la misma revisión de v2.2.0 (H-04).",
     "traceability": [
       "REQ-PET-001",
       "REQ-PET-002",
