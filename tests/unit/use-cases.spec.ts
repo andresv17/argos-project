@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, it, expect } from '../support/test-harness.ts';
+import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/generated/index.ts';
 import {
   GetPetDashboardUseCase,

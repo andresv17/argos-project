@@ -1,4 +1,4 @@
-import { describe, it, expect } from '../support/test-harness.ts';
+import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/generated/index.ts';
 import {
   computeWeightEvolutionSeries,

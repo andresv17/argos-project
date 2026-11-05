@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, it, expect, fc } from '../../support/test-harness.ts';
+import fc from 'fast-check';
+import { describe, expect, it } from 'vitest';
 import { DomainError, type BackupEnvelope } from '../../../src/generated/index.ts';
 import {
   ExportBackupUseCase,

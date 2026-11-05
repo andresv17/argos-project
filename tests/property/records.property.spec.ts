@@ -1,4 +1,5 @@
-import { describe, it, expect, fc } from '../support/test-harness.ts';
+import fc from 'fast-check';
+import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/generated/index.ts';
 import {
   validateBodyMeasurementsInvariants,

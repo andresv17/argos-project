@@ -4,30 +4,54 @@
   "private": true,
   "type": "module",
   "description": "Argos — Pet Health & Biometric Tracker (SDD Deterministic Edition)",
+  "engines": {
+    "node": ">=22 <23"
+  },
   "scripts": {
+    "dev": "concurrently -n api,web \"tsx watch src/infrastructure/http/server.ts\" \"vite\"",
+    "dev:web": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
     "compile:contracts": "bash scripts/compile-contracts.sh",
     "verify:traceability": "bash scripts/verify-traceability.sh",
     "verify:oracles": "bash scripts/verify-oracles.sh",
-    "test": "node scripts/run-tests.mjs",
-    "test:gate": "bash scripts/compile-contracts.sh && bash scripts/verify-traceability.sh && bash scripts/verify-oracles.sh && npm test"
+    "test": "vitest run",
+    "test:mutation": "stryker run tests/mutation/stryker.conf.json",
+    "test:e2e": "playwright test",
+    "test:gate": "bash scripts/compile-contracts.sh && bash scripts/verify-traceability.sh && bash scripts/verify-oracles.sh && tsc --noEmit && vitest run"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "@fastify/cookie": "11.1.5",
+    "better-sqlite3": "13.0.3",
+    "fastify": "5.12.8",
+    "openapi-fetch": "0.17.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.30.6"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.10.0",
-    "@playwright/test": "^1.48.0",
-    "@stryker-mutator/core": "^8.6.0",
-    "@stryker-mutator/typescript-checker": "^8.6.0",
-    "@stryker-mutator/vitest-runner": "^8.6.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.3",
-    "fast-check": "^3.22.0",
-    "tailwindcss": "^3.4.14",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.10",
-    "vitest": "^2.1.4"
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.65.0",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/typescript-checker": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "22.20.5",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "4.7.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "autoprefixer": "10.6.2",
+    "concurrently": "10.0.6",
+    "fast-check": "3.23.2",
+    "json-schema-to-typescript": "16.0.0",
+    "openapi-typescript": "7.13.0",
+    "postcss": "8.5.32",
+    "tailwindcss": "3.4.19",
+    "tsx": "4.23.15",
+    "typescript": "~5.6.3",
+    "vite": "5.4.21",
+    "vitest": "2.1.9"
   }
 }

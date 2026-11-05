@@ -1,0 +1,22 @@
+# Dependencias y artefactos de build
+node_modules/
+dist/
+
+# Datos locales (SQLite) y configuración con secretos
+data/
+.env
+.env.*
+!.env.example
+
+# Reportes de pruebas
+coverage/
+reports/
+.stryker-tmp/
+test-results/
+playwright-report/
+blob-report/
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+*.log

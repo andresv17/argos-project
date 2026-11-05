@@ -1,4 +1,5 @@
-import { describe, it, expect, fc } from '../support/test-harness.ts';
+import fc from 'fast-check';
+import { describe, expect, it } from 'vitest';
 import { sortHistoricalRecords } from '../../src/domain/sorting/deterministic-sorter.ts';
 
 const PROPERTY_SEED = 20261105;

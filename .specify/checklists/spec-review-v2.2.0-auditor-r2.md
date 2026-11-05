@@ -4,7 +4,7 @@ version: 2.2.0
 status: REVIEW
 applies_to: SPEC-ARGOS-001 v2.2.0
 audited_by: Auditor SDD — 2026-11-05, re-auditoría de v2.2.0 en disco contra v2.1.0 (42e9f0d). Veredicto: NO APTO para APPROVED. Hallazgos abiertos H-01 a H-05 y H-07 (ver informe de re-auditoría).
-human_signature: pendiente (Andrés)
+human_signature: Andrés Vallejo, 2026-11-05
 note: v2.1.0 quedó firmada en 42e9f0d; las marcas de v2.1.0 no aplican a v2.2.0. Este checklist no firma ni aprueba nada. Ítems 3, 4 y 8 quedan pendientes.
 ---
 

@@ -2,7 +2,6 @@
 # Compilador determinista de contratos formales hacia src/generated/ [INV-ARCH-003]
 set -euo pipefail
 
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 echo "[SDD Contract Compiler] Verificando existencia de contratos formales en contracts/..."
 

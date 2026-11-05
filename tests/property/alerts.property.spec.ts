@@ -1,4 +1,5 @@
-import { describe, it, expect, fc } from '../support/test-harness.ts';
+import fc from 'fast-check';
+import { describe, expect, it } from 'vitest';
 import { evaluateSanitaryAlertState } from '../../src/domain/alerts/sanitary-alert-evaluator.ts';
 import { diffInCalendarDays } from '../../src/domain/shared/date-utils.ts';
 
