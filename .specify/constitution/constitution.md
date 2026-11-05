@@ -1,11 +1,12 @@
 ---
 document_id: CONSTITUTION-ARGOS-001
-version: 2.2.0
+version: 2.3.0
 status: LOCKED
 last_updated: 2026-11-05
-supersedes: 2.1.0
+supersedes: 2.2.0
 change_type: MINOR
 change_summary: >
+  v2.3.0: autorización nueva de `@vitest/coverage-v8` (proveedor de cobertura de Vitest 2, gratuito; condición: solo dependencias y servicios gratuitos) por Andrés el 2026-11-05 (H-03). Se retira 'pendiente de firma formal' del stack (ya firmado por Andrés, D-10) y se fija la versión exacta de Node (`.nvmrc` 22.23.4; `engines` >=22.18 <23), aceptada por el Auditor en TASK-101.
   v2.2.0: autorización explícita del stack de §2 (incluido `@types/node`) y de la lista de dependencias adicionales, por luz verde de Andrés (Nivel 2) el 2026-11-05 (D-10).
   Eliminación del cupo fijo de mascotas (2 perros / 2 gatos), incorporación de cuentas de usuario
   (registro/login), hogares compartidos, servidor API local con SQLite preparado para migración Cloud,
@@ -29,7 +30,7 @@ Argos es una plataforma web **multi-usuario** y determinista para administrar el
 
 ## 2. STACK TECNOLÓGICO INMUTABLE
 - **Lenguaje y Compilador:** TypeScript **5.x** (fijado `~5.6`; prohibido TS 6/7) con `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`, `noImplicitReturns: true`. `src/` y `tests/` deben compilar con `tsc --noEmit` sin errores (incluye `@types/node`).
-- **Runtime:** Node.js **22 LTS**, idéntico en local y CI (`.nvmrc` + `engines` en `package.json`).
+- **Runtime:** Node.js **22 LTS**, idéntico en local y CI. Versión exacta: `.nvmrc` = `22.23.4`; `engines` en `package.json` = `>=22.18 <23` (TASK-101).
 - **Frontend (SPA):** Vite 5 + React 18 + Tailwind CSS 3, con JSX real. Punto de entrada `index.html` → `src/presentation/web/main.tsx`.
 - **Backend local (API HTTP):** Fastify 5 en `src/infrastructure/http/`, escuchando en `127.0.0.1:3000`. En desarrollo, Vite hace proxy de `/api` hacia el servidor. Un único comando (`npm run dev`) levanta API + web.
 - **Persistencia:** SQLite en archivo local (`./data/argos.sqlite`, ignorado por git) mediante `better-sqlite3`, detrás de puertos de repositorio. Migraciones SQL versionadas y aplicadas al arranque en `src/infrastructure/persistence/migrations/`. Adaptador en memoria para pruebas unitarias y de propiedades.
@@ -44,8 +45,8 @@ Argos es una plataforma web **multi-usuario** y determinista para administrar el
   - Property-Based Testing: **fast-check 3** con `seed: 20261105`.
   - Mutación: **Stryker Mutator** con `@stryker-mutator/vitest-runner` (`tests/mutation/stryker.conf.json`).
   - E2E, visual y accesibilidad: **Playwright** + **`@axe-core/playwright`** contra la aplicación real levantada (API + SPA).
-- **Stack autorizado explícitamente (v2.2.0, Nivel 2, Andrés, 2026-11-05; pendiente de firma formal):** TypeScript `~5.6`, Node 22, Vite 5, React 18, Tailwind 3, Fastify 5, better-sqlite3, Ajv 8 (standalone) con ajv-formats, json-schema-to-typescript, openapi-typescript, openapi-fetch, Vitest 2, fast-check 3, Stryker, Playwright con @axe-core/playwright, y `@types/node` para `tsc --noEmit` sobre `src/` y `tests/`.
-- **Solicitud pendiente de autorización (Nivel 2, Andrés; H-03):** `@vitest/coverage-v8`, necesaria para la cobertura ≥ 95 % de TASK-115. No autorizada hasta firma formal.
+- **Stack autorizado explícitamente (v2.2.0, Nivel 2, Andrés, firmado 2026-11-05):** TypeScript `~5.6`, Node 22, Vite 5, React 18, Tailwind 3, Fastify 5, better-sqlite3, Ajv 8 (standalone) con ajv-formats, json-schema-to-typescript, openapi-typescript, openapi-fetch, Vitest 2, fast-check 3, Stryker, Playwright con @axe-core/playwright, y `@types/node` para `tsc --noEmit` sobre `src/` y `tests/`.
+- **Autorizada (Nivel 2, Andrés, 2026-11-05; H-03):** `@vitest/coverage-v8`, proveedor de cobertura de Vitest 2, necesario para el umbral ≥ 95 % de TASK-115. Condición: solo dependencias y servicios gratuitos; cualquier opción de pago requiere nueva autorización de Andrés.
 - **Dependencias adicionales autorizadas (v2.1.0, Nivel 2, aprobadas por Andrés el 2026-11-05):** `@fastify/cookie`, `react-router-dom`, `openapi-fetch`, `yaml` (solo si el generador lo importa, declarada explícitamente), `tsx` (solo desarrollo; aprobado sin condiciones por Andrés (Nivel 2), 2026-11-05), `concurrently` (solo desarrollo), `@vitejs/plugin-react`, `postcss`, `autoprefixer`, `@types/react`, `@types/react-dom`, `@types/better-sqlite3`, `@stryker-mutator/typescript-checker`. SAST en CI: **Semgrep** fijado por versión (herramienta de CI, sin dependencia npm).
 
 ## 3. REGLAS DE PUREZA Y AISLAMIENTO DE ENTROPÍA (DETERMINISMO TOTAL)
