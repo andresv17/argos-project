@@ -1,7 +1,7 @@
 ---
 document_id: CONSTITUTION-ARGOS-001
 version: 2.2.0
-status: REVIEW
+status: LOCKED
 last_updated: 2026-11-05
 supersedes: 2.1.0
 change_type: MINOR
