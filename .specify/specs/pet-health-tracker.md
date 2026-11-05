@@ -5,7 +5,7 @@ status: REVIEW
 feature: pet-health-tracker
 supersedes: 2.1.0
 change_type: MINOR
-approved_by: pendiente (Nivel 2, Andrés)
+approved_by: Andrés Vallejo, 2026-11-05
 spec_review: .specify/checklists/spec-review.md (re-auditoría v2.2.0 pendiente de firma)
 contracts_ref:
   - contracts/schemas/identity.schema.json
