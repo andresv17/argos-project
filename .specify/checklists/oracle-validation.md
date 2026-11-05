@@ -1,8 +1,8 @@
 ---
 document_id: CHECKLIST-ORACLE-VALIDATION
-version: 2.0.0
+version: 2.0.1
 status: APPROVED
-applies_to: TASKS-ARGOS-001 v2.0.0
+applies_to: TASKS-ARGOS-001 v2.1.0
 ---
 
 # Checklist de Compuerta Fase 5: Validación de Oráculos de Prueba (`oracle-validation.md`)

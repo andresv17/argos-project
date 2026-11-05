@@ -1,15 +1,15 @@
 ---
 document_id: CONSTITUTION-ARGOS-001
-version: 2.0.0
+version: 2.1.0
 status: LOCKED
 last_updated: 2026-11-05
-supersedes: 1.0.0
-change_type: MAJOR
+supersedes: 2.0.0
+change_type: MINOR
 change_summary: >
   Eliminación del cupo fijo de mascotas (2 perros / 2 gatos), incorporación de cuentas de usuario
   (registro/login), hogares compartidos, servidor API local con SQLite preparado para migración Cloud,
-  generación real de validadores desde contratos y toolchain de pruebas oficial (sin harness propio).
-approved_by: Arquitecto humano (Nivel 2) — 2026-11-05
+  generación real de validadores desde contratos y toolchain de pruebas oficial (sin harness propio). v2.1.0: dependencias adicionales autorizadas (§2), umbral de mutación de 85 % (§5), compuerta por tarea (§5) e INV-AUTH-006 (§4).
+approved_by: Andrés (Nivel 2) — 2026-11-05
 ---
 
 # CONSTITUCIÓN ARQUITECTÓNICA — PROYECTO ARGOS (PET HEALTH TRACKER)
@@ -43,6 +43,7 @@ Argos es una plataforma web **multi-usuario** y determinista para administrar el
   - Property-Based Testing: **fast-check 3** con `seed: 20261105`.
   - Mutación: **Stryker Mutator** con `@stryker-mutator/vitest-runner` (`tests/mutation/stryker.conf.json`).
   - E2E, visual y accesibilidad: **Playwright** + **`@axe-core/playwright`** contra la aplicación real levantada (API + SPA).
+- **Dependencias adicionales autorizadas (v2.1.0, Nivel 2, aprobadas por Andrés el 2026-11-05):** `@fastify/cookie`, `react-router-dom`, `openapi-fetch`, `yaml` (solo si el generador lo importa, declarada explícitamente), `tsx` (solo desarrollo; aprobado sin condiciones por Andrés (Nivel 2), 2026-11-05), `concurrently` (solo desarrollo), `@vitejs/plugin-react`, `postcss`, `autoprefixer`, `@types/react`, `@types/react-dom`, `@types/better-sqlite3`, `@stryker-mutator/typescript-checker`. SAST en CI: **Semgrep** fijado por versión (herramienta de CI, sin dependencia npm).
 
 ## 3. REGLAS DE PUREZA Y AISLAMIENTO DE ENTROPÍA (DETERMINISMO TOTAL)
 1. **Prohibición de Reloj Global (`INV-ARCH-001`):** prohibido `new Date()`, `Date.now()` o `performance.now()` en `src/domain/` y `src/application/`. Todo cálculo temporal (edad, fechas futuras, alertas, expiración de sesión, bloqueo de login) recibe `ClockPort`:
@@ -62,22 +63,22 @@ Argos es una plataforma web **multi-usuario** y determinista para administrar el
 6. **Configuración aislada (`INV-ARCH-006`):** `process.env` solo puede leerse en `src/infrastructure/config/`, validado contra un esquema. Ningún secreto se versiona; existe `.env.example` sin valores sensibles.
 
 ## 4. ESTÁNDAR DE TRAZABILIDAD (LINEAGE IDS)
-Fuente de verdad de IDs: `.specify/specs/pet-health-tracker.md` v2.0.0 y `contracts/`.
+Fuente de verdad de IDs: `.specify/specs/pet-health-tracker.md` v2.1.0, `contracts/` y los `INV-ARCH-*` declarados en esta constitución (§3).
 - **Requisitos:** `REQ-AUTH-001`..`004`, `REQ-PET-001`..`005`, `REQ-REC-001`..`006`, `REQ-HOUSE-001`..`005`, `REQ-UI-001`..`007`, `REQ-BACKUP-001`..`002`.
-- **Invariantes:** `INV-PET-002`, `INV-PET-003`, `INV-PET-005`, `INV-PET-006`, `INV-OWN-001`, `INV-ACC-001`, `INV-ACC-002`, `INV-AUTH-001`..`005`, `INV-HOUSE-001`..`005`, `INV-REC-001`..`006`, `INV-SORT-001`, `INV-BACKUP-001`, `INV-ARCH-001`..`006`.
+- **Invariantes:** `INV-PET-002`, `INV-PET-003`, `INV-PET-005`, `INV-PET-006`, `INV-OWN-001`, `INV-ACC-001`, `INV-ACC-002`, `INV-AUTH-001`..`006`, `INV-HOUSE-001`..`005`, `INV-REC-001`..`006`, `INV-SORT-001`, `INV-BACKUP-001`, `INV-ARCH-001`..`006`.
 - **Máquinas de Estado:** `STATE-ALERT-001`, `STATE-BACKUP-001`, `STATE-AUTH-SESSION-001`, `STATE-HOUSE-MEMBERSHIP-001`.
-- **Errores:** todos los códigos de `contracts/errors/error-catalog.json` v2.0.0.
+- **Errores:** todos los códigos de `contracts/errors/error-catalog.json` v2.1.0.
 - **IDs retirados (no deben aparecer en código nuevo; solo en historial):** `INV-PET-001`, `INV-PET-004`, `STATE-PET-QUOTA-001`, `ERR-PET-QUOTA-EXCEEDED`.
 
 Cada función o clase en `src/` incluye en su JSDoc los IDs que implementa (`@implements ...`), y cada `describe`/`it` en `tests/` incluye entre corchetes el ID verificado. La trazabilidad cuenta como cumplida **solo** si el ID aparece en un `@implements` de `src/` fuera de `src/generated/` **y** en el título de un `it`/`test` de `tests/`.
 
 ## 5. UMBRALES NO NEGOCIABLES DEL TEST GATE
-- **Cobertura de Trazabilidad:** 100% de los IDs vigentes de la sección 4.
+- **Cobertura de Trazabilidad:** 100% de los IDs vigentes de la sección 4 en la compuerta final (TASK-115); en cada tarea, 100% de los IDs de su columna "IDs de Trazabilidad" (`verify-traceability.sh` acotado por tarea).
 - **Cobertura de Líneas y Ramas en `src/domain/` y `src/application/`:** mínimo 95% (medida por Vitest).
-- **Mutation Score:** mínimo 85% en `src/domain/` y `src/application/` (bloqueante por debajo de 80%), medido por Stryker en CI.
+- **Mutation Score:** mínimo 85% en `src/domain/` y `src/application/` (bloqueante por debajo de 85%; umbral `break` de Stryker = 85), medido por Stryker en CI.
 - **Cero Weak Oracles:** prohibido `toBeDefined()`, `toBeTruthy()`, `toBeFalsy()`, `not.toBeNull()` o `toThrow()` sin argumento como aserción principal; verificado por `scripts/verify-oracles.sh`.
 - **Accesibilidad:** cero violaciones `critical`/`serious` de axe-core en todas las pantallas (login, registro, mis mascotas, hogar, ficha, respaldo) a 320px y 1280px.
-- **Seguridad:** `tests/security/` debe cubrir al menos: acceso cruzado entre usuarios (IDOR), acceso a hogares ajenos, rutas sin sesión, sesión expirada, CSRF, enumeración de usuarios en login, XSS almacenado en campos de texto e importación de backup maliciosa (prototype pollution, tamaño excesivo).
+- **Seguridad:** `tests/security/` debe cubrir al menos: acceso cruzado entre usuarios (IDOR), acceso a hogares ajenos, rutas sin sesión, sesión expirada, CSRF, enumeración de usuarios en login y tiempo de respuesta uniforme (`INV-AUTH-006`), XSS almacenado en campos de texto e importación de backup maliciosa (prototype pollution, tamaño excesivo).
 - **CI reproducible:** `test-gate.yml` debe pasar desde un checkout limpio con `npm ci` (lockfile versionado) en Node 22.
 
 ## 6. SEGURIDAD Y PRIVACIDAD

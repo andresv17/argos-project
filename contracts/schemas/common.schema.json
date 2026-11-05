@@ -4,13 +4,15 @@
   "title": "CommonPrimitives",
   "description": "Primitivas compartidas por todos los contratos [INV-REC-006, INV-SORT-001]",
   "x-sdd-metadata": {
-    "version": "2.0.0",
+    "version": "2.1.0",
     "status": "LOCKED",
     "traceability": [
       "INV-REC-006",
       "INV-SORT-001",
       "INV-ARCH-001"
-    ]
+    ],
+    "supersedes": "2.0.0",
+    "change_type": "MINOR"
   },
   "$defs": {
     "Uuid": {
@@ -55,6 +57,64 @@
         "OWNER_COLOR_8"
       ],
       "description": "[INV-HOUSE-005]"
+    },
+    "ProblemDetails": {
+      "$anchor": "ProblemDetails",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "code",
+        "title",
+        "status",
+        "detail",
+        "invariantRef"
+      ],
+      "description": "RFC 9457 Problem Details (application/problem+json). Fuente única; referenciada por error-catalog.json y el OpenAPI.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "pattern": "^urn:argos:error:ERR-[A-Z0-9-]+$"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^ERR-[A-Z0-9-]+$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599
+        },
+        "detail": {
+          "type": "string"
+        },
+        "invariantRef": {
+          "type": "string"
+        },
+        "field": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "instance": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Ruta de la petición"
+        },
+        "finalState": {
+          "type": "string",
+          "enum": [
+            "ROLLED_BACK"
+          ],
+          "description": "Presente cuando el error se devuelve durante una importación de respaldo que termina en ROLLED_BACK (STATE-BACKUP-001), sea ERR-BACKUP-*, ERR-PET-*, ERR-REC-* o ERR-SCHEMA-VALIDATION-FAILED propagados. Ausente en el resto de errores."
+        }
+      }
     }
   }
 }

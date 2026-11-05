@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalog",
   "x-sdd-metadata": {
-    "version": "2.0.0",
+    "version": "2.1.0",
     "status": "LOCKED",
-    "supersedes": "1.0.0",
-    "change_type": "MAJOR",
+    "supersedes": "2.0.0",
+    "change_type": "MINOR",
     "removed": [
       "ERR-PET-QUOTA-EXCEEDED"
     ],
@@ -32,6 +32,7 @@
       "ERR-HOUSE-MEMBER-ALREADY-EXISTS",
       "ERR-HOUSE-OWNER-CANNOT-LEAVE",
       "ERR-HOUSE-INVITATION-NOT-FOUND",
+      "ERR-HOUSE-MEMBERSHIP-NOT-FOUND",
       "ERR-BACKUP-MALFORMED-JSON",
       "ERR-BACKUP-PAYLOAD-TOO-LARGE",
       "ERR-BACKUP-VERSION-UNSUPPORTED",
@@ -39,59 +40,15 @@
       "ERR-BACKUP-REFERENTIAL-INTEGRITY",
       "ERR-BACKUP-ATOMIC-ROLLBACK",
       "ERR-INTERNAL-UNEXPECTED"
+    ],
+    "added": [
+      "ERR-HOUSE-MEMBERSHIP-NOT-FOUND"
     ]
   },
-  "version": "2.0.0",
+  "version": "2.1.0",
   "status": "LOCKED",
   "problemDetailsSchema": {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "type",
-      "code",
-      "title",
-      "status",
-      "detail",
-      "invariantRef"
-    ],
-    "description": "RFC 9457 Problem Details (application/problem+json)",
-    "properties": {
-      "type": {
-        "type": "string",
-        "pattern": "^urn:argos:error:ERR-[A-Z0-9-]+$"
-      },
-      "code": {
-        "type": "string",
-        "pattern": "^ERR-[A-Z0-9-]+$"
-      },
-      "title": {
-        "type": "string"
-      },
-      "status": {
-        "type": "integer",
-        "minimum": 400,
-        "maximum": 599
-      },
-      "detail": {
-        "type": "string"
-      },
-      "invariantRef": {
-        "type": "string"
-      },
-      "field": {
-        "type": [
-          "string",
-          "null"
-        ]
-      },
-      "instance": {
-        "type": [
-          "string",
-          "null"
-        ],
-        "description": "Ruta de la petición"
-      }
-    }
+    "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
   },
   "errors": {
     "ERR-SCHEMA-VALIDATION-FAILED": {
@@ -225,6 +182,12 @@
       "title": "Invitación no encontrada",
       "invariantRef": "INV-HOUSE-003",
       "detailTemplate": "No tienes una invitación pendiente para este hogar."
+    },
+    "ERR-HOUSE-MEMBERSHIP-NOT-FOUND": {
+      "status": 404,
+      "title": "Membresía no encontrada",
+      "invariantRef": "INV-HOUSE-004",
+      "detailTemplate": "El usuario indicado no tiene una membresía activa ni una invitación pendiente en este hogar."
     },
     "ERR-BACKUP-MALFORMED-JSON": {
       "status": 400,

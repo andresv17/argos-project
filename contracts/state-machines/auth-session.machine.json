@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-AUTH-SESSION-001",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "status": "LOCKED",
   "x-sdd-metadata": {
-    "version": "2.0.0",
+    "version": "2.1.0",
     "status": "LOCKED",
     "traceability": [
       "STATE-AUTH-SESSION-001",
@@ -13,8 +13,11 @@
       "REQ-AUTH-003",
       "REQ-AUTH-004",
       "INV-AUTH-004",
-      "INV-AUTH-005"
-    ]
+      "INV-AUTH-005",
+      "INV-AUTH-006"
+    ],
+    "supersedes": "2.0.0",
+    "change_type": "MINOR"
   },
   "machines": {
     "STATE-AUTH-SESSION-001": {
@@ -31,7 +34,8 @@
             "REGISTER_SUCCESS": "AUTHENTICATED",
             "LOGIN_SUCCESS": {
               "target": "AUTHENTICATED",
-              "guard": "!isLockedOut(username, now)"
+              "guard": "!isLockedOut(username, now)",
+              "effect": "resetFailedAttempts(username)"
             },
             "LOGIN_FAILURE": {
               "target": "ANONYMOUS",
@@ -70,6 +74,12 @@
           "type": "final",
           "onAccess": "ERR-AUTH-UNAUTHENTICATED"
         }
+      },
+      "rules": {
+        "lockoutWindow": "Ventana deslizante de LOCKOUT_WINDOW_MINUTES contada desde el instante de cada fallo registrado [INV-AUTH-005]",
+        "blockedAttemptsRecorded": false,
+        "successResetsCounter": "Un LOGIN_SUCCESS elimina los fallos registrados de ese username",
+        "userExistence": "El bloqueo aplica igual a usernames inexistentes (anti-enumeración)"
       }
     }
   }

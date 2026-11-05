@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API
-  version: 2.0.0
+  version: 2.1.0
   description: >
     Contrato formal de la API HTTP local (127.0.0.1:3000, prefijo /api) bajo SDD.
     Cambio MAJOR respecto a 1.0.0: autenticación por sesión, propiedad de mascotas,
@@ -10,9 +10,10 @@ info:
     Todas las respuestas de error usan application/problem+json (RFC 9457).
   x-sdd-status: LOCKED
   x-sdd-metadata:
-    version: 2.0.0
+    version: 2.1.0
     status: LOCKED
-    supersedes: 1.0.0
+    supersedes: 2.0.0
+    change_type: MINOR
     traceability:
       - REQ-AUTH-001
       - REQ-AUTH-002
@@ -399,7 +400,7 @@ paths:
     delete:
       tags: [households]
       operationId: deleteHousehold
-      summary: Elimina el hogar (solo OWNER); las mascotas no se modifican [REQ-HOUSE-004, INV-HOUSE-002]
+      summary: Elimina el hogar (solo OWNER) con borrado físico en cascada de sus membresías; las mascotas no se modifican [REQ-HOUSE-004, INV-HOUSE-002]
       parameters:
         - $ref: '#/components/parameters/CsrfHeader'
       responses:
@@ -442,7 +443,7 @@ paths:
       operationId: removeOrLeaveMembership
       summary: >
         Si userId es el propio usuario y es MEMBER → LEFT. Si el actor es OWNER y userId es otro miembro →
-        REMOVED (o CANCELLED si estaba INVITED) [REQ-HOUSE-004, STATE-HOUSE-MEMBERSHIP-001]
+        REMOVED (o CANCELLED si estaba INVITED) [REQ-HOUSE-004, STATE-HOUSE-MEMBERSHIP-001]. 404 ERR-HOUSE-MEMBERSHIP-NOT-FOUND si userId no tiene membresía INVITED/ACTIVE; 404 ERR-HOUSE-NOT-FOUND si el actor no es miembro ACTIVE; 409 ERR-HOUSE-OWNER-CANNOT-LEAVE si el OWNER intenta abandonar
       responses:
         '204':
           description: Membresía finalizada
@@ -486,7 +487,7 @@ paths:
     post:
       tags: [households]
       operationId: acceptInvitation
-      summary: Acepta la invitación (INVITED → ACTIVE) [REQ-HOUSE-003]
+      summary: Acepta la invitación (INVITED → ACTIVE). Sin invitación INVITED → 404 ERR-HOUSE-INVITATION-NOT-FOUND; nunca 403 [REQ-HOUSE-003]
       responses:
         '200':
           description: Membresía activa
@@ -494,7 +495,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/HouseholdMemberView' }
         '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
   /invitations/{householdId}/decline:
     parameters:
@@ -503,12 +503,11 @@ paths:
     post:
       tags: [households]
       operationId: declineInvitation
-      summary: Rechaza la invitación (INVITED → DECLINED) [REQ-HOUSE-003]
+      summary: Rechaza la invitación (INVITED → DECLINED). Sin invitación INVITED → 404 ERR-HOUSE-INVITATION-NOT-FOUND; nunca 403 [REQ-HOUSE-003]
       responses:
         '204':
           description: Invitación rechazada
         '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
 
   /backup/export:
@@ -594,18 +593,7 @@ components:
           schema: { $ref: '#/components/schemas/ProblemDetails' }
   schemas:
     ProblemDetails:
-      type: object
-      additionalProperties: false
-      required: [type, code, title, status, detail, invariantRef]
-      properties:
-        type: { type: string, pattern: '^urn:argos:error:ERR-[A-Z0-9-]+$' }
-        code: { type: string, pattern: '^ERR-[A-Z0-9-]+$' }
-        title: { type: string }
-        status: { type: integer, minimum: 400, maximum: 599 }
-        detail: { type: string }
-        invariantRef: { type: string }
-        field: { type: [string, 'null'] }
-        instance: { type: [string, 'null'] }
+      $ref: '../schemas/common.schema.json#/$defs/ProblemDetails'
     AlertStateMetadata:
       type: object
       additionalProperties: false
@@ -631,8 +619,8 @@ components:
       required: [record, deltaKg, deltaPercent]
       properties:
         record: { $ref: '../schemas/medical-records.schema.json#/$defs/WeightRecord' }
-        deltaKg: { type: [number, 'null'], description: 'null para la primera medición; 2 decimales' }
-        deltaPercent: { type: [number, 'null'], description: 'Variación porcentual con 2 decimales respecto a la anterior [REQ-UI-002]' }
+        deltaKg: { type: [number, 'null'], description: 'null para la primera medición; diferencia exacta en centésimas de kg, sin redondeo [REQ-REC-001]' }
+        deltaPercent: { type: [number, 'null'], description: 'null sin medición anterior; redondeo half-away-from-zero a 2 decimales, incluidos los negativos, calculado sobre centésimas enteras [REQ-UI-002]' }
     VaccinationEntryView:
       type: object
       additionalProperties: false

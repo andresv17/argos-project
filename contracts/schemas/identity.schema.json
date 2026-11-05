@@ -4,7 +4,7 @@
   "title": "IdentitySchema",
   "description": "Usuarios, sesiones y hogares compartidos [REQ-AUTH-*, REQ-HOUSE-*]",
   "x-sdd-metadata": {
-    "version": "2.0.0",
+    "version": "2.1.0",
     "status": "LOCKED",
     "traceability": [
       "REQ-AUTH-001",
@@ -25,7 +25,9 @@
       "INV-HOUSE-005",
       "STATE-AUTH-SESSION-001",
       "STATE-HOUSE-MEMBERSHIP-001"
-    ]
+    ],
+    "supersedes": "2.0.0",
+    "change_type": "MINOR"
   },
   "$defs": {
     "Username": {
@@ -56,7 +58,8 @@
         }
       ],
       "writeOnly": true,
-      "description": "Solo en entradas; nunca en salidas [INV-AUTH-002, INV-AUTH-003]"
+      "description": "Solo en entradas; nunca en salidas [INV-AUTH-002, INV-AUTH-003]",
+      "x-sdd-error": "ERR-AUTH-WEAK-PASSWORD"
     },
     "UserPublicProfile": {
       "type": "object",
@@ -193,6 +196,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "membershipId",
         "householdId",
         "userId",
         "role",
@@ -200,9 +204,14 @@
         "invitedByUserId",
         "invitedAt",
         "joinedAt",
+        "firstJoinedAt",
         "updatedAt"
       ],
       "properties": {
+        "membershipId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid",
+          "description": "Identificador de la fila de membresía; una fila por invitación [STATE-HOUSE-MEMBERSHIP-001]"
+        },
         "householdId": {
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
         },
@@ -245,7 +254,18 @@
               "type": "null"
             }
           ],
-          "description": "Momento de paso a ACTIVE; base del orden de INV-HOUSE-005"
+          "description": "Último paso a ACTIVE de esta membresía"
+        },
+        "firstJoinedAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Primer paso a ACTIVE del par (householdId, userId); inmutable tras su asignación; define el orden y el color [INV-HOUSE-005]"
         },
         "updatedAt": {
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
@@ -297,10 +317,18 @@
           "$ref": "#/$defs/DisplayName"
         },
         "colorToken": {
-          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OwnerColorToken"
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OwnerColorToken"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null fuera del contexto de un hogar; dentro de un hogar, color según INV-HOUSE-005"
         }
       },
-      "description": "Distinción visual del dueño de una mascota [REQ-UI-007, INV-HOUSE-005]"
+      "description": "Distinción visual del dueño de una mascota en contexto de hogar [REQ-UI-007, INV-HOUSE-005]"
     }
   }
 }

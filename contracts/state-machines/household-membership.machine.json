@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-HOUSE-MEMBERSHIP-001",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "status": "LOCKED",
   "x-sdd-metadata": {
-    "version": "2.0.0",
+    "version": "2.1.0",
     "status": "LOCKED",
     "traceability": [
       "STATE-HOUSE-MEMBERSHIP-001",
@@ -16,7 +16,9 @@
       "INV-HOUSE-002",
       "INV-HOUSE-003",
       "INV-HOUSE-004"
-    ]
+    ],
+    "supersedes": "2.0.0",
+    "change_type": "MINOR"
   },
   "machines": {
     "STATE-HOUSE-MEMBERSHIP-001": {
@@ -32,7 +34,7 @@
             "ACCEPT": {
               "target": "ACTIVE",
               "actor": "INVITEE",
-              "effect": "joinedAt = now"
+              "effect": "joinedAt = now; firstJoinedAt = firstJoinedAt del par si existe, si no now"
             },
             "DECLINE": {
               "target": "DECLINED",
@@ -78,9 +80,9 @@
         }
       },
       "rules": {
-        "reinvite": "Desde DECLINED, CANCELLED, LEFT o REMOVED el OWNER puede crear una nueva membresía INVITED (INV-HOUSE-003 solo prohíbe duplicar INVITED/ACTIVE).",
-        "householdDeletion": "Eliminar el hogar finaliza todas sus membresías; las mascotas no se modifican.",
-        "unauthorizedActor": "ERR-ACC-FORBIDDEN si el actor es miembro ACTIVE sin rol requerido; ERR-HOUSE-NOT-FOUND si no es miembro ACTIVE; ERR-HOUSE-INVITATION-NOT-FOUND si ACCEPT/DECLINE sin invitación INVITED."
+        "reinvite": "Desde DECLINED, CANCELLED, LEFT o REMOVED el OWNER crea una nueva fila con nuevo membershipId en INVITED (INV-HOUSE-003 solo prohíbe duplicar INVITED/ACTIVE). La nueva fila hereda firstJoinedAt del par si existía.",
+        "householdDeletion": "Eliminar el hogar borra físicamente el hogar y todas sus membresías (ON DELETE CASCADE). Las mascotas no se modifican. No existe estado final de eliminación.",
+        "unauthorizedActor": "ERR-ACC-FORBIDDEN si el actor es miembro ACTIVE sin rol requerido; ERR-HOUSE-NOT-FOUND si el actor no es miembro ACTIVE; ERR-HOUSE-MEMBERSHIP-NOT-FOUND si el userId objetivo de REMOVE/LEAVE no tiene membresía INVITED o ACTIVE; ERR-HOUSE-INVITATION-NOT-FOUND si ACCEPT/DECLINE no tienen invitación INVITED. ACCEPT y DECLINE nunca devuelven 403."
       }
     }
   }

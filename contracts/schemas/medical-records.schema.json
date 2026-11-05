@@ -4,9 +4,9 @@
   "title": "MedicalRecordsSchema",
   "description": "6 módulos de registro histórico [REQ-REC-001..006, INV-REC-001..006]",
   "x-sdd-metadata": {
-    "version": "2.0.0",
+    "version": "2.1.0",
     "status": "LOCKED",
-    "supersedes": "1.0.0",
+    "supersedes": "2.0.0",
     "traceability": [
       "REQ-REC-001",
       "REQ-REC-002",
@@ -22,7 +22,8 @@
       "INV-REC-005",
       "INV-REC-006",
       "INV-SORT-001"
-    ]
+    ],
+    "change_type": "MINOR"
   },
   "$defs": {
     "AlertStatus": {
@@ -60,7 +61,8 @@
           "minimum": 0.05,
           "maximum": 150.0,
           "multipleOf": 0.01,
-          "description": "[INV-REC-002]"
+          "description": "[INV-REC-002]",
+          "x-sdd-error": "ERR-REC-WEIGHT-OUT-OF-RANGE"
         },
         "notes": {
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
@@ -86,7 +88,8 @@
           "minimum": 0.05,
           "maximum": 150.0,
           "multipleOf": 0.01,
-          "description": "[INV-REC-002]"
+          "description": "[INV-REC-002]",
+          "x-sdd-error": "ERR-REC-WEIGHT-OUT-OF-RANGE"
         },
         "notes": {
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
@@ -122,25 +125,29 @@
           "type": "number",
           "minimum": 1.0,
           "maximum": 250.0,
-          "multipleOf": 0.01
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
         },
         "chestCm": {
           "type": "number",
           "minimum": 1.0,
           "maximum": 250.0,
-          "multipleOf": 0.01
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
         },
         "backLengthCm": {
           "type": "number",
           "minimum": 1.0,
           "maximum": 250.0,
-          "multipleOf": 0.01
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
         },
         "waistCm": {
           "type": "number",
           "minimum": 1.0,
           "maximum": 250.0,
-          "multipleOf": 0.01
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
         },
         "notes": {
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
@@ -168,25 +175,29 @@
           "type": "number",
           "minimum": 1.0,
           "maximum": 250.0,
-          "multipleOf": 0.01
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
         },
         "chestCm": {
           "type": "number",
           "minimum": 1.0,
           "maximum": 250.0,
-          "multipleOf": 0.01
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
         },
         "backLengthCm": {
           "type": "number",
           "minimum": 1.0,
           "maximum": 250.0,
-          "multipleOf": 0.01
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
         },
         "waistCm": {
           "type": "number",
           "minimum": 1.0,
           "maximum": 250.0,
-          "multipleOf": 0.01
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
         },
         "notes": {
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"

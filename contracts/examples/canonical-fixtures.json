@@ -1,9 +1,9 @@
 {
-  "description": "Fixtures canónicos válidos e inválidos v2.0.0 para validación de contratos y pruebas",
+  "description": "Fixtures canónicos válidos e inválidos v2.1.0 para validación de contratos y pruebas",
   "x-sdd-metadata": {
-    "version": "2.0.0",
+    "version": "2.1.0",
     "status": "LOCKED",
-    "supersedes": "1.0.0",
+    "supersedes": "2.0.0",
     "traceability": [
       "REQ-AUTH-001",
       "REQ-PET-001",
@@ -16,13 +16,23 @@
       "INV-ACC-001",
       "INV-ACC-002",
       "STATE-ALERT-001",
-      "STATE-HOUSE-MEMBERSHIP-001"
-    ]
+      "STATE-HOUSE-MEMBERSHIP-001",
+      "INV-AUTH-005",
+      "INV-AUTH-006",
+      "STATE-AUTH-SESSION-001",
+      "ERR-HOUSE-MEMBERSHIP-NOT-FOUND",
+      "INV-HOUSE-003",
+      "INV-HOUSE-004",
+      "INV-REC-002",
+      "ERR-AUTH-CSRF-REJECTED"
+    ],
+    "change_type": "MINOR"
   },
   "referenceClock": {
     "todayIsoDate": "2026-11-05",
     "nowIsoTimestamp": "2026-11-05T12:00:00.000Z",
-    "timezone": "America/Bogota"
+    "timezone": "America/Bogota",
+    "note": "Los timestamps de EDGE-028..032 son instantes de la línea temporal del caso; referenceClock aplica al resto."
   },
   "users": [
     {
@@ -42,13 +52,20 @@
       "username": "carlos_88",
       "displayName": "Carlos",
       "createdAt": "2026-01-03T09:00:00.000Z"
+    },
+    {
+      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa04",
+      "username": "lucia.r",
+      "displayName": "Lucía",
+      "createdAt": "2026-01-04T09:00:00.000Z"
     }
   ],
   "credentialsForTestsOnly": {
     "description": "Contraseñas de prueba; nunca usar fuera de tests",
     "andres": "Argos2026a",
     "maria.v": "Luna2026b",
-    "carlos_88": "Carlos2026c"
+    "carlos_88": "Carlos2026c",
+    "lucia.r": "Lucia2026d"
   },
   "household": {
     "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01",
@@ -58,6 +75,7 @@
   },
   "householdMembers": [
     {
+      "membershipId": "cccccccc-cccc-4ccc-8ccc-cccccccccc01",
       "householdId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01",
       "userId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
       "role": "OWNER",
@@ -65,9 +83,11 @@
       "invitedByUserId": null,
       "invitedAt": null,
       "joinedAt": "2026-02-01T10:00:00.000Z",
+      "firstJoinedAt": "2026-02-01T10:00:00.000Z",
       "updatedAt": "2026-02-01T10:00:00.000Z"
     },
     {
+      "membershipId": "cccccccc-cccc-4ccc-8ccc-cccccccccc02",
       "householdId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01",
       "userId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02",
       "role": "MEMBER",
@@ -75,9 +95,11 @@
       "invitedByUserId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
       "invitedAt": "2026-02-01T10:05:00.000Z",
       "joinedAt": "2026-02-02T08:00:00.000Z",
+      "firstJoinedAt": "2026-02-02T08:00:00.000Z",
       "updatedAt": "2026-02-02T08:00:00.000Z"
     },
     {
+      "membershipId": "cccccccc-cccc-4ccc-8ccc-cccccccccc03",
       "householdId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01",
       "userId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03",
       "role": "MEMBER",
@@ -85,6 +107,7 @@
       "invitedByUserId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
       "invitedAt": "2026-02-03T10:00:00.000Z",
       "joinedAt": null,
+      "firstJoinedAt": null,
       "updatedAt": "2026-02-03T10:00:00.000Z"
     }
   ],
@@ -103,7 +126,7 @@
     }
   ],
   "expectedHouseholdView": {
-    "description": "Vista de Casa Vallejo para Andrés: mascotas de Andrés (OWNER_COLOR_1, canEdit=true) seguidas de las de María (OWNER_COLOR_2, canEdit=false). Carlos (INVITED) no aporta mascotas ni ve el hogar.",
+    "description": "Vista de Casa Vallejo para Andrés: mascotas de Andrés (OWNER_COLOR_1, canEdit=true) seguidas de las de María (OWNER_COLOR_2, canEdit=false). Carlos (INVITED) no aporta mascotas ni ve el hogar. Lucía no es miembro.",
     "ownerColorTokens": {
       "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01": "OWNER_COLOR_1",
       "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02": "OWNER_COLOR_2"
@@ -116,7 +139,20 @@
       "11111111-1111-4111-8111-111111111105",
       "11111111-1111-4111-8111-111111111201"
     ],
-    "petOrderNote": "Andrés por nombre ASC (Argos, Kira, Milo, Nyx, Toby), luego María (Luna)"
+    "petOrderNote": "Andrés por nombre ASC (Argos, Kira, Milo, Nyx, Toby), luego María (Luna)",
+    "ownerOrder": [
+      {
+        "userId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
+        "firstJoinedAt": "2026-02-01T10:00:00.000Z",
+        "colorToken": "OWNER_COLOR_1"
+      },
+      {
+        "userId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02",
+        "firstJoinedAt": "2026-02-02T08:00:00.000Z",
+        "colorToken": "OWNER_COLOR_2"
+      }
+    ],
+    "ownerOrderRule": "Dueños por firstJoinedAt ASC y userId ASC (REQ-HOUSE-005, INV-HOUSE-005)"
   },
   "expectedAges": [
     {
@@ -481,13 +517,15 @@
       "caseId": "EDGE-005-ORPHAN-BACKUP-RECORD",
       "expectedError": "ERR-BACKUP-REFERENTIAL-INTEGRITY",
       "invariant": "INV-BACKUP-001",
-      "description": "Registro de peso cuyo petId no existe en pets[]."
+      "description": "Registro de peso cuyo petId no existe en pets[].",
+      "expectedFinalState": "ROLLED_BACK"
     },
     {
       "caseId": "EDGE-006-FOREIGN-ID-IN-BACKUP",
       "expectedError": "ERR-BACKUP-REFERENTIAL-INTEGRITY",
       "invariant": "INV-BACKUP-001",
-      "description": "Andrés importa un sobre que contiene el id de Luna (mascota de María)."
+      "description": "Andrés importa un sobre que contiene el id de Luna (mascota de María).",
+      "expectedFinalState": "ROLLED_BACK"
     },
     {
       "caseId": "EDGE-007-BIRTHDATE-AFTER-RECORDS",
@@ -573,25 +611,29 @@
       "caseId": "EDGE-018-CSRF",
       "expectedError": "ERR-AUTH-CSRF-REJECTED",
       "invariant": "INV-ACC-002",
-      "description": "POST /api/pets sin cabecera X-Argos-Request."
+      "description": "POST /api/pets sin cabecera X-Argos-Request.",
+      "expectedStatus": 403
     },
     {
       "caseId": "EDGE-019-BACKUP-TOO-LARGE",
       "expectedError": "ERR-BACKUP-PAYLOAD-TOO-LARGE",
       "invariant": "INV-BACKUP-001",
-      "description": "Cuerpo de 10 MB + 1 byte."
+      "description": "Cuerpo de 10 MB + 1 byte.",
+      "expectedFinalState": "ROLLED_BACK"
     },
     {
       "caseId": "EDGE-020-BACKUP-COMMIT-FAILURE",
       "expectedError": "ERR-BACKUP-ATOMIC-ROLLBACK",
       "invariant": "INV-BACKUP-001",
-      "description": "La transacción falla en COMMITTING_SNAPSHOT; estado previo intacto y finalState ROLLED_BACK."
+      "description": "La transacción falla en COMMITTING_SNAPSHOT; estado previo intacto byte a byte; el problema lleva finalState ROLLED_BACK (§5.1).",
+      "expectedFinalState": "ROLLED_BACK"
     },
     {
       "caseId": "EDGE-021-MALFORMED-WHILE-STORAGE-DOWN",
       "expectedError": "ERR-BACKUP-MALFORMED-JSON",
       "invariant": "INV-BACKUP-001",
-      "description": "JSON malformado con el almacenamiento caído: el error original no se enmascara."
+      "description": "JSON malformado con el almacenamiento caído: el error original no se enmascara.",
+      "expectedFinalState": "ROLLED_BACK"
     },
     {
       "caseId": "EDGE-022-DELETE-CASCADE",
@@ -611,7 +653,239 @@
       "invariant": "INV-REC-006",
       "payload": {
         "avatarUrl": "javascript:alert(1)"
-      }
+      },
+      "expectedStatus": 422,
+      "description": "avatarUrl no está anotado con x-sdd-error: el fallo de patrón devuelve el código por defecto (§5.1, punto 4)."
+    },
+    {
+      "caseId": "EDGE-025-MEMBERSHIP-NOT-FOUND",
+      "expectedError": "ERR-HOUSE-MEMBERSHIP-NOT-FOUND",
+      "expectedStatus": 404,
+      "invariant": "INV-HOUSE-004",
+      "actor": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
+      "request": "DELETE /api/households/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01/members/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa04",
+      "description": "Andrés (OWNER) intenta retirar a Lucía, que no tiene membresía INVITED ni ACTIVE en Casa Vallejo."
+    },
+    {
+      "caseId": "EDGE-026-ACCEPT-WITHOUT-INVITATION",
+      "expectedError": "ERR-HOUSE-INVITATION-NOT-FOUND",
+      "expectedStatus": 404,
+      "invariant": "INV-HOUSE-003",
+      "actor": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa04",
+      "request": "POST /api/invitations/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01/accept",
+      "description": "Lucía acepta Casa Vallejo sin invitación INVITED. Nunca 403 (REQ-HOUSE-003)."
+    },
+    {
+      "caseId": "EDGE-027-DECLINE-WITHOUT-INVITATION",
+      "expectedError": "ERR-HOUSE-INVITATION-NOT-FOUND",
+      "expectedStatus": 404,
+      "invariant": "INV-HOUSE-003",
+      "actor": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02",
+      "request": "POST /api/invitations/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01/decline",
+      "description": "María (ACTIVE, sin invitación INVITED) rechaza Casa Vallejo. Nunca 403."
+    },
+    {
+      "caseId": "EDGE-028-LOGIN-SUCCESS-RESETS-COUNTER",
+      "invariant": "INV-AUTH-005",
+      "timeline": [
+        {
+          "at": "2026-11-05T12:00:00.000Z",
+          "username": "maria.v",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:01.000Z",
+          "username": "maria.v",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:02.000Z",
+          "username": "maria.v",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:03.000Z",
+          "username": "maria.v",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:04.000Z",
+          "username": "maria.v",
+          "password": "Luna2026b",
+          "expectedResult": "SUCCESS"
+        },
+        {
+          "at": "2026-11-05T12:00:05.000Z",
+          "username": "maria.v",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:06.000Z",
+          "username": "maria.v",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:07.000Z",
+          "username": "maria.v",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:08.000Z",
+          "username": "maria.v",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        }
+      ],
+      "description": "4 fallos, éxito (reinicia el contador), luego 4 fallos más. Ningún intento queda bloqueado: 4 < 5 en la ventana tras el reinicio."
+    },
+    {
+      "caseId": "EDGE-029-BLOCKED-ATTEMPT-NOT-RECORDED",
+      "invariant": "INV-AUTH-005",
+      "timeline": [
+        {
+          "at": "2026-11-05T12:00:00.000Z",
+          "username": "andres",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:01.000Z",
+          "username": "andres",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:02.000Z",
+          "username": "andres",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:03.000Z",
+          "username": "andres",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:00:04.000Z",
+          "username": "andres",
+          "password": "wrong-1234",
+          "expectedError": "ERR-AUTH-INVALID-CREDENTIALS"
+        },
+        {
+          "at": "2026-11-05T12:12:00.000Z",
+          "username": "andres",
+          "password": "Argos2026a",
+          "expectedError": "ERR-AUTH-TOO-MANY-ATTEMPTS",
+          "note": "Bloqueado: no se registra"
+        },
+        {
+          "at": "2026-11-05T12:13:00.000Z",
+          "username": "andres",
+          "password": "Argos2026a",
+          "expectedError": "ERR-AUTH-TOO-MANY-ATTEMPTS",
+          "note": "Bloqueado: no se registra"
+        },
+        {
+          "at": "2026-11-05T12:14:00.000Z",
+          "username": "andres",
+          "password": "Argos2026a",
+          "expectedError": "ERR-AUTH-TOO-MANY-ATTEMPTS",
+          "note": "Bloqueado: no se registra"
+        },
+        {
+          "at": "2026-11-05T12:15:01.000Z",
+          "username": "andres",
+          "password": "Argos2026a",
+          "expectedResult": "SUCCESS",
+          "note": "A las 12:15:01 solo quedan 4 fallos en la ventana (12:00:01–12:00:04). Si los intentos bloqueados se hubieran registrado, habría 7 y el login seguiría bloqueado."
+        }
+      ],
+      "description": "Los intentos rechazados por bloqueo no se registran (STATE-AUTH-SESSION-001, rules.blockedAttemptsRecorded=false)."
+    },
+    {
+      "caseId": "EDGE-030-MIS-MASCOTAS-NULL-COLOR",
+      "invariant": "INV-HOUSE-005",
+      "actor": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
+      "request": "GET /api/pets",
+      "expectedOwner": {
+        "userId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
+        "displayName": "Andrés",
+        "colorToken": null
+      },
+      "expectedCanEdit": true,
+      "description": "En 'Mis mascotas' (sin contexto de hogar) el owner tiene colorToken null (REQ-UI-007, identity.schema OwnerTag)."
+    },
+    {
+      "caseId": "EDGE-031-REINVITE-KEEPS-FIRST-JOINED",
+      "invariant": "INV-HOUSE-005",
+      "steps": [
+        {
+          "at": "2026-11-05T12:00:00.000Z",
+          "actor": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
+          "action": "REMOVE maria.v",
+          "result": "membresía cccccccc-cccc-4ccc-8ccc-cccccccccc02 → REMOVED"
+        },
+        {
+          "at": "2026-11-05T12:05:00.000Z",
+          "actor": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
+          "action": "INVITE maria.v",
+          "result": "nueva fila membershipId cccccccc-cccc-4ccc-8ccc-cccccccccc04 en INVITED; firstJoinedAt = 2026-02-02T08:00:00.000Z heredado del par"
+        },
+        {
+          "at": "2026-11-05T12:20:00.000Z",
+          "actor": "maria.v",
+          "action": "ACCEPT",
+          "result": "cccccccc-cccc-4ccc-8ccc-cccccccccc04 → ACTIVE; joinedAt = 2026-11-05T12:20:00.000Z; firstJoinedAt sin cambios"
+        }
+      ],
+      "expectedOwnerOrder": [
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02"
+      ],
+      "expectedColorToken": {
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02": "OWNER_COLOR_2"
+      },
+      "description": "Reinvitar a María no cambia su color ni su posición: firstJoinedAt se conserva en la nueva fila."
+    },
+    {
+      "caseId": "EDGE-032-UNIFORM-LOGIN-TIMING",
+      "invariant": "INV-AUTH-006",
+      "cases": [
+        {
+          "username": "nadie.x",
+          "password": "wrong-1234",
+          "note": "usuario inexistente"
+        },
+        {
+          "username": "andres",
+          "password": "wrong-1234",
+          "note": "usuario existente, contraseña errónea"
+        }
+      ],
+      "expectedError": "ERR-AUTH-INVALID-CREDENTIALS",
+      "expectedStatus": 401,
+      "expectedDetail": "Usuario o contraseña incorrectos.",
+      "check": "PasswordHasherPort.verify se invoca en ambas ramas (usuario inexistente → hash ficticio) y la diferencia de tiempo media entre ramas, sobre N=20 ejecuciones, es ≤ 25 %.",
+      "calibrationNote": "El umbral de 25 % es provisional: se calibra en TASK-113 con scrypt real; no se fija sin medición.",
+      "description": "Usuario inexistente y contraseña errónea: mismo código, status, detail y tiempo uniforme."
+    },
+    {
+      "caseId": "EDGE-033-IMPORT-ROLLED-BACK-DOMAIN-ERROR",
+      "expectedError": "ERR-REC-DATE-BEFORE-BIRTH",
+      "expectedStatus": 422,
+      "expectedFinalState": "ROLLED_BACK",
+      "invariant": "INV-REC-001",
+      "actor": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
+      "payload": "validBackupEnvelopeV2 con records.weights[0].recordedAt = 2022-05-09 (Argos nació el 2022-05-10). El esquema es válido; solo el dominio detecta la violación.",
+      "description": "Un fallo de dominio propagado en CHECKING_DOMAIN_INVARIANTS lleva finalState ROLLED_BACK y el estado previo queda intacto byte a byte (INV-BACKUP-001, STATE-BACKUP-001)."
     }
   ]
 }
