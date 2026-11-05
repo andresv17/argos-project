@@ -1,0 +1,1 @@
+# Reglas SAST para Detectar Uso Directo de Date, Math.random, crypto.randomUUID o any en Dominio

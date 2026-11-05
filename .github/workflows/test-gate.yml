@@ -1,0 +1,39 @@
+name: SDD Test Gate (The Architecture Type System)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Contract Compilation & Zero Generated Drift
+        run: |
+          bash scripts/compile-contracts.sh
+          git diff --exit-code src/generated/
+
+      - name: Verify Traceability & Domain Purity (INV-ARCH-001 / INV-ARCH-002)
+        run: bash scripts/verify-traceability.sh
+
+      - name: Verify Test Oracles (Zero Weak Oracles)
+        run: bash scripts/verify-oracles.sh
+
+      - name: Run Unit, Property-Based & Contract Integration Tests
+        run: npm test -- --run
+
+      - name: Run Mutation Testing Gate (Stryker)
+        run: npx stryker run tests/mutation/stryker.conf.json

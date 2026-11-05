@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/medical-records.schema.json",
+  "title": "MedicalRecordsSchema",
+  "description": "Contratos formales para los 6 módulos de registro histórico [REQ-REC-001..006, INV-REC-001..006]",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "LOCKED",
+    "traceability": [
+      "REQ-REC-001",
+      "REQ-REC-002",
+      "REQ-REC-003",
+      "REQ-REC-004",
+      "REQ-REC-005",
+      "REQ-REC-006",
+      "INV-PET-003",
+      "INV-REC-001",
+      "INV-REC-002",
+      "INV-REC-003",
+      "INV-REC-004",
+      "INV-REC-005",
+      "INV-REC-006",
+      "INV-SORT-001"
+    ]
+  },
+  "$defs": {
+    "IsoDate": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "NonEmptyTrimmedString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(.*\\S)?$"
+    },
+    "OptionalNotes": {
+      "type": ["string", "null"],
+      "maxLength": 1000
+    },
+    "AlertStatus": {
+      "type": "string",
+      "enum": ["UP_TO_DATE", "DUE_SOON", "OVERDUE", "SUPERSEDED"]
+    },
+    "WeightRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "petId", "recordedAt", "weightKg", "notes", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "petId": { "type": "string", "format": "uuid" },
+        "recordedAt": { "$ref": "#/$defs/IsoDate" },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 150.0,
+          "multipleOf": 0.01,
+          "description": "Peso en kilogramos [INV-REC-002]"
+        },
+        "notes": { "$ref": "#/$defs/OptionalNotes" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "BodyMeasurementRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "petId", "recordedAt", "neckCm", "chestCm", "backLengthCm", "waistCm", "notes", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "petId": { "type": "string", "format": "uuid" },
+        "recordedAt": { "$ref": "#/$defs/IsoDate" },
+        "neckCm": { "type": "number", "minimum": 1.0, "maximum": 250.0, "multipleOf": 0.01 },
+        "chestCm": { "type": "number", "minimum": 1.0, "maximum": 250.0, "multipleOf": 0.01 },
+        "backLengthCm": { "type": "number", "minimum": 1.0, "maximum": 250.0, "multipleOf": 0.01 },
+        "waistCm": { "type": "number", "minimum": 1.0, "maximum": 250.0, "multipleOf": 0.01 },
+        "notes": { "$ref": "#/$defs/OptionalNotes" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "VaccinationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "petId", "vaccineName", "appliedAt", "nextBoosterAt", "batchOrClinic", "notes", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "petId": { "type": "string", "format": "uuid" },
+        "vaccineName": {
+          "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }],
+          "maxLength": 100
+        },
+        "appliedAt": { "$ref": "#/$defs/IsoDate" },
+        "nextBoosterAt": {
+          "$ref": "#/$defs/IsoDate",
+          "description": "Debe ser estrictamente mayor que appliedAt [INV-REC-004]"
+        },
+        "batchOrClinic": {
+          "type": ["string", "null"],
+          "maxLength": 120
+        },
+        "notes": { "$ref": "#/$defs/OptionalNotes" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DewormingRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "petId", "productBrand", "dewormingType", "appliedAt", "nextSuggestedDoseAt", "notes", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "petId": { "type": "string", "format": "uuid" },
+        "productBrand": {
+          "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }],
+          "maxLength": 100
+        },
+        "dewormingType": {
+          "type": "string",
+          "enum": ["INTERNAL", "EXTERNAL"]
+        },
+        "appliedAt": { "$ref": "#/$defs/IsoDate" },
+        "nextSuggestedDoseAt": {
+          "$ref": "#/$defs/IsoDate",
+          "description": "Debe ser estrictamente mayor que appliedAt [INV-REC-005]"
+        },
+        "notes": { "$ref": "#/$defs/OptionalNotes" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "MedicalVisitRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "petId", "visitDate", "reason", "diagnosis", "treatment", "clinicOrVet", "observations", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "petId": { "type": "string", "format": "uuid" },
+        "visitDate": { "$ref": "#/$defs/IsoDate" },
+        "reason": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 200 },
+        "diagnosis": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 500 },
+        "treatment": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 500 },
+        "clinicOrVet": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 120 },
+        "observations": { "$ref": "#/$defs/OptionalNotes" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "CustomParameterRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "petId", "recordedAt", "category", "title", "description", "notes", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "petId": { "type": "string", "format": "uuid" },
+        "recordedAt": { "$ref": "#/$defs/IsoDate" },
+        "category": {
+          "type": "string",
+          "enum": ["DIET_CHANGE", "ALLERGY", "SURGERY", "BEHAVIOR", "OTHER"]
+        },
+        "title": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 120 },
+        "description": { "allOf": [{ "$ref": "#/$defs/NonEmptyTrimmedString" }], "maxLength": 1000 },
+        "notes": { "$ref": "#/$defs/OptionalNotes" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

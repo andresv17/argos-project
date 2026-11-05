@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/pet.schema.json",
+  "title": "PetProfileSchema",
+  "description": "Contrato formal de perfil de mascota y reglas de cupo [REQ-PET-001,REQ-PET-002,INV-PET-001,INV-PET-002,INV-PET-004]",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "LOCKED",
+    "traceability": ["REQ-PET-001", "REQ-PET-002", "REQ-PET-003", "INV-PET-001", "INV-PET-002", "INV-PET-004", "STATE-PET-QUOTA-001"]
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "species", "breed", "birthDate", "sex", "avatarUrl", "createdAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID v4 generado vía IdGeneratorPort"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50,
+      "pattern": "^\\S(.*\\S)?$",
+      "description": "Nombre de la mascota sin espacios iniciales/finales vacíos [INV-REC-006]"
+    },
+    "species": {
+      "type": "string",
+      "enum": ["DOG", "CAT"],
+      "description": "Especie cerrada: máximo 2 DOG y 2 CAT en el sistema [INV-PET-001]"
+    },
+    "breed": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60,
+      "pattern": "^\\S(.*\\S)?$"
+    },
+    "birthDate": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Fecha de nacimiento ISO-8601 (YYYY-MM-DD), no posterior a ClockPort.todayIsoDate() [INV-PET-002]"
+    },
+    "sex": {
+      "type": "string",
+      "enum": ["MALE", "FEMALE"]
+    },
+    "avatarUrl": {
+      "type": ["string", "null"],
+      "maxLength": 2048,
+      "description": "URI o Data-URL opcional para foto/avatar de la mascota"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp ISO-8601 UTC provisto por ClockPort.nowIsoTimestamp()"
+    }
+  },
+  "$defs": {
+    "ComputedAge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["years", "months", "totalDays"],
+      "properties": {
+        "years": { "type": "integer", "minimum": 0 },
+        "months": { "type": "integer", "minimum": 0, "maximum": 11 },
+        "totalDays": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "PetQuotaCollection": {
+      "type": "array",
+      "maxItems": 4,
+      "items": { "$ref": "#" },
+      "description": "Colección máxima de 4 mascotas (máximo 2 DOG y 2 CAT) [INV-PET-001]"
+    }
+  }
+}

@@ -1,0 +1,140 @@
+openapi: 3.1.0
+info:
+  title: Argos Pet Health & Biometric Tracker Contract API
+  version: 1.0.0
+  description: >
+    Contrato formal de operaciones de casos de uso y frontera de aplicación bajo SDD.
+    Estado del contrato: LOCKED.
+  x-sdd-status: LOCKED
+  x-sdd-traceability:
+    - REQ-PET-001
+    - REQ-PET-002
+    - REQ-PET-003
+    - REQ-REC-001
+    - REQ-REC-002
+    - REQ-REC-003
+    - REQ-REC-004
+    - REQ-REC-005
+    - REQ-REC-006
+    - REQ-BACKUP-001
+    - REQ-BACKUP-002
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: Lista las hasta 4 mascotas registradas con su edad calculada y resumen de alertas
+      responses:
+        '200':
+          description: Lista determinista de perfiles de mascotas
+    post:
+      operationId: registerPet
+      summary: Registra una nueva mascota respetando INV-PET-001 (máx 4 total, 2 DOG, 2 CAT)
+      responses:
+        '201':
+          description: Mascota creada
+        '409':
+          description: Violación de cupo (ERR-PET-QUOTA-EXCEEDED)
+        '422':
+          description: Fecha de nacimiento futura o esquema inválido (ERR-PET-FUTURE-BIRTHDATE, ERR-SCHEMA-VALIDATION-FAILED)
+  /pets/{petId}/dashboard:
+    get:
+      operationId: getPetDashboard
+      summary: Obtiene la ficha técnica aislada de una mascota con sus 6 módulos ordenados (INV-SORT-001)
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ficha técnica completa aislada por mascota
+        '404':
+          description: Mascota inexistente (ERR-PET-NOT-FOUND)
+  /pets/{petId}/records/weights:
+    post:
+      operationId: addWeightRecord
+      summary: Registra control de peso en kg [REQ-REC-001, INV-REC-002]
+      responses:
+        '201':
+          description: Peso registrado con deltaKg calculado
+        '404':
+          description: ERR-PET-NOT-FOUND
+        '422':
+          description: ERR-REC-WEIGHT-OUT-OF-RANGE | ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+  /pets/{petId}/records/measurements:
+    post:
+      operationId: addBodyMeasurementRecord
+      summary: Registra medidas corporales (cuello, pecho, lomo, cintura en cm) [REQ-REC-002, INV-REC-003]
+      responses:
+        '201':
+          description: Medidas corporales registradas
+        '404':
+          description: ERR-PET-NOT-FOUND
+        '422':
+          description: ERR-REC-MEASUREMENT-OUT-OF-RANGE | ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+  /pets/{petId}/records/vaccinations:
+    post:
+      operationId: addVaccinationRecord
+      summary: Registra vacuna y evalúa STATE-ALERT-001 [REQ-REC-003, INV-REC-004]
+      responses:
+        '201':
+          description: Vacunación registrada
+        '404':
+          description: ERR-PET-NOT-FOUND
+        '422':
+          description: ERR-REC-INVALID-BOOSTER-DATE | ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+  /pets/{petId}/records/dewormings:
+    post:
+      operationId: addDewormingRecord
+      summary: Registra desparasitación interna/externa y evalúa STATE-ALERT-001 [REQ-REC-004, INV-REC-005]
+      responses:
+        '201':
+          description: Desparasitación registrada
+        '404':
+          description: ERR-PET-NOT-FOUND
+        '422':
+          description: ERR-REC-INVALID-NEXT-DOSE-DATE | ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+  /pets/{petId}/records/visits:
+    post:
+      operationId: addMedicalVisitRecord
+      summary: Registra cita o control médico [REQ-REC-005, INV-REC-001]
+      responses:
+        '201':
+          description: Consulta médica registrada
+        '404':
+          description: ERR-PET-NOT-FOUND
+        '422':
+          description: ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+  /pets/{petId}/records/custom-parameters:
+    post:
+      operationId: addCustomParameterRecord
+      summary: Registra parámetro o evento adicional libre categorizado [REQ-REC-006, INV-REC-001]
+      responses:
+        '201':
+          description: Evento adicional registrado
+        '404':
+          description: ERR-PET-NOT-FOUND
+        '422':
+          description: ERR-REC-DATE-BEFORE-BIRTH | ERR-REC-FUTURE-EVENT-DATE
+  /backup/export:
+    get:
+      operationId: exportBackupJson
+      summary: Exporta toda la base de datos validada contra backup-envelope.schema.json [REQ-BACKUP-001]
+      responses:
+        '200':
+          description: Sobre JSON versión 1.0.0
+  /backup/import:
+    post:
+      operationId: importBackupJson
+      summary: Importa un sobre JSON de forma atómica con rollback total ante error [REQ-BACKUP-002, INV-BACKUP-001]
+      responses:
+        '200':
+          description: Estado restaurado exitosamente
+        '400':
+          description: ERR-BACKUP-MALFORMED-JSON
+        '409':
+          description: ERR-BACKUP-REFERENTIAL-INTEGRITY | ERR-PET-QUOTA-EXCEEDED
+        '422':
+          description: ERR-BACKUP-VERSION-UNSUPPORTED | ERR-BACKUP-SCHEMA-INVALID

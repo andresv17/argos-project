@@ -1,0 +1,20 @@
+name: SDD Continuous Drift Detection
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  drift-detection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Audit Spec-to-Contract-to-Code Lineage
+        run: |
+          bash scripts/compile-contracts.sh
+          git diff --exit-code src/generated/
+          bash scripts/verify-traceability.sh
+          bash scripts/verify-oracles.sh

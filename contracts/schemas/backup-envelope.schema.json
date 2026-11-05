@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/backup-envelope.schema.json",
+  "title": "BackupEnvelopeSchema",
+  "description": "Sobre formal de exportación e importación atómica JSON [REQ-BACKUP-001, REQ-BACKUP-002, INV-BACKUP-001, STATE-BACKUP-001]",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "LOCKED",
+    "traceability": ["REQ-BACKUP-001", "REQ-BACKUP-002", "INV-BACKUP-001", "STATE-BACKUP-001"]
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "exportedAt", "pets", "records"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Versión exacta del esquema; cualquier otra versión dispara ERR-BACKUP-VERSION-UNSUPPORTED"
+    },
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pets": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "$ref": "https://argos.local/contracts/schemas/pet.schema.json"
+      }
+    },
+    "records": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "weights",
+        "bodyMeasurements",
+        "vaccinations",
+        "dewormings",
+        "medicalVisits",
+        "customParameters"
+      ],
+      "properties": {
+        "weights": {
+          "type": "array",
+          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/WeightRecord" }
+        },
+        "bodyMeasurements": {
+          "type": "array",
+          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/BodyMeasurementRecord" }
+        },
+        "vaccinations": {
+          "type": "array",
+          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/VaccinationRecord" }
+        },
+        "dewormings": {
+          "type": "array",
+          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/DewormingRecord" }
+        },
+        "medicalVisits": {
+          "type": "array",
+          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/MedicalVisitRecord" }
+        },
+        "customParameters": {
+          "type": "array",
+          "items": { "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/CustomParameterRecord" }
+        }
+      }
+    }
+  }
+}

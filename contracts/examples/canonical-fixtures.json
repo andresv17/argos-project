@@ -1,0 +1,177 @@
+{
+  "description": "Fixtures canónicos válidos e inválidos para validación de contratos y pruebas [LOCKED v1.0.0]",
+  "referenceClock": {
+    "todayIsoDate": "2026-11-05",
+    "nowIsoTimestamp": "2026-11-05T12:00:00.000Z"
+  },
+  "validBackupEnvelope": {
+    "schemaVersion": "1.0.0",
+    "exportedAt": "2026-11-05T12:00:00.000Z",
+    "pets": [
+      {
+        "id": "11111111-1111-4111-8111-111111111101",
+        "name": "Argos",
+        "species": "DOG",
+        "breed": "Pastor Alemán",
+        "birthDate": "2022-05-10",
+        "sex": "MALE",
+        "avatarUrl": null,
+        "createdAt": "2026-01-01T10:00:00.000Z"
+      },
+      {
+        "id": "11111111-1111-4111-8111-111111111102",
+        "name": "Kira",
+        "species": "DOG",
+        "breed": "Border Collie",
+        "birthDate": "2023-08-20",
+        "sex": "FEMALE",
+        "avatarUrl": null,
+        "createdAt": "2026-01-01T10:05:00.000Z"
+      },
+      {
+        "id": "11111111-1111-4111-8111-111111111103",
+        "name": "Nyx",
+        "species": "CAT",
+        "breed": "Bombay",
+        "birthDate": "2021-11-05",
+        "sex": "FEMALE",
+        "avatarUrl": null,
+        "createdAt": "2026-01-01T10:10:00.000Z"
+      },
+      {
+        "id": "11111111-1111-4111-8111-111111111104",
+        "name": "Milo",
+        "species": "CAT",
+        "breed": "Europeo Común",
+        "birthDate": "2024-02-14",
+        "sex": "MALE",
+        "avatarUrl": null,
+        "createdAt": "2026-01-01T10:15:00.000Z"
+      }
+    ],
+    "records": {
+      "weights": [
+        {
+          "id": "22222222-2222-4222-8222-222222222201",
+          "petId": "11111111-1111-4111-8111-111111111101",
+          "recordedAt": "2026-10-01",
+          "weightKg": 32.4,
+          "notes": "Peso estable de primavera",
+          "createdAt": "2026-10-01T09:00:00.000Z"
+        },
+        {
+          "id": "22222222-2222-4222-8222-222222222202",
+          "petId": "11111111-1111-4111-8111-111111111101",
+          "recordedAt": "2026-11-01",
+          "weightKg": 32.85,
+          "notes": "Incremento muscular tras actividad",
+          "createdAt": "2026-11-01T09:00:00.000Z"
+        }
+      ],
+      "bodyMeasurements": [
+        {
+          "id": "33333333-3333-4333-8333-333333333301",
+          "petId": "11111111-1111-4111-8111-111111111101",
+          "recordedAt": "2026-11-01",
+          "neckCm": 46.5,
+          "chestCm": 78.0,
+          "backLengthCm": 65.0,
+          "waistCm": 58.5,
+          "notes": "Medición con cinta ergonómica",
+          "createdAt": "2026-11-01T09:10:00.000Z"
+        }
+      ],
+      "vaccinations": [
+        {
+          "id": "44444444-4444-4444-8444-444444444401",
+          "petId": "11111111-1111-4111-8111-111111111101",
+          "vaccineName": "Séxtuple Canina",
+          "appliedAt": "2025-11-12",
+          "nextBoosterAt": "2026-11-12",
+          "batchOrClinic": "Lote A-992 / Clínica VetCentral",
+          "notes": "Sin reacciones adversas (Estado esperado el 2026-11-05: DUE_SOON a 7 días)",
+          "createdAt": "2025-11-12T15:00:00.000Z"
+        },
+        {
+          "id": "44444444-4444-4444-8444-444444444402",
+          "petId": "11111111-1111-4111-8111-111111111103",
+          "vaccineName": "Triple Felina",
+          "appliedAt": "2025-10-01",
+          "nextBoosterAt": "2026-10-01",
+          "batchOrClinic": "Clínica Felina Norte",
+          "notes": "Estado esperado el 2026-11-05: OVERDUE (-35 días)",
+          "createdAt": "2025-10-01T11:00:00.000Z"
+        }
+      ],
+      "dewormings": [
+        {
+          "id": "55555555-5555-4555-8555-555555555501",
+          "petId": "11111111-1111-4111-8111-111111111102",
+          "productBrand": "NexGard Spectra",
+          "dewormingType": "EXTERNAL",
+          "appliedAt": "2026-11-01",
+          "nextSuggestedDoseAt": "2026-12-01",
+          "notes": "Estado esperado el 2026-11-05: UP_TO_DATE (+26 días)",
+          "createdAt": "2026-11-01T12:00:00.000Z"
+        }
+      ],
+      "medicalVisits": [
+        {
+          "id": "66666666-6666-4666-8666-666666666601",
+          "petId": "11111111-1111-4111-8111-111111111104",
+          "visitDate": "2026-09-15",
+          "reason": "Control anual y profilaxis dental",
+          "diagnosis": "Paciente normopeso con leve gingivitis marginal",
+          "treatment": "Gel antiséptico oral cada 24h por 10 días",
+          "clinicOrVet": "Dra. Sofía Méndez — VetCare",
+          "observations": "Repetir revisión en 6 meses",
+          "createdAt": "2026-09-15T16:30:00.000Z"
+        }
+      ],
+      "customParameters": [
+        {
+          "id": "77777777-7777-4777-8777-777777777701",
+          "petId": "11111111-1111-4111-8111-111111111101",
+          "recordedAt": "2026-10-15",
+          "category": "DIET_CHANGE",
+          "title": "Transición a dieta alta en proteína de salmón",
+          "description": "Se realizó transición gradual de 7 días (25/50/75/100%) por sensibilidad digestiva al pollo.",
+          "notes": "Excelente tolerancia fecal",
+          "createdAt": "2026-10-15T18:00:00.000Z"
+        }
+      ]
+    }
+  },
+  "invalidEdgeCases": [
+    {
+      "caseId": "EDGE-001-THIRD-DOG",
+      "expectedError": "ERR-PET-QUOTA-EXCEEDED",
+      "invariant": "INV-PET-001",
+      "description": "Intentar agregar un 3er perro cuando ya existen Argos y Kira"
+    },
+    {
+      "caseId": "EDGE-002-NEGATIVE-WEIGHT",
+      "expectedError": "ERR-REC-WEIGHT-OUT-OF-RANGE",
+      "invariant": "INV-REC-002",
+      "payload": { "weightKg": -2.5 }
+    },
+    {
+      "caseId": "EDGE-003-BOOSTER-BEFORE-APPLIED",
+      "expectedError": "ERR-REC-INVALID-BOOSTER-DATE",
+      "invariant": "INV-REC-004",
+      "payload": { "appliedAt": "2026-11-01", "nextBoosterAt": "2026-11-01" }
+    },
+    {
+      "caseId": "EDGE-004-EVENT-BEFORE-BIRTH",
+      "expectedError": "ERR-REC-DATE-BEFORE-BIRTH",
+      "invariant": "INV-REC-001",
+      "payload": { "petBirthDate": "2024-02-14", "recordedAt": "2023-12-01" }
+    },
+    {
+      "caseId": "EDGE-005-ORPHAN-BACKUP-RECORD",
+      "expectedError": "ERR-BACKUP-REFERENTIAL-INTEGRITY",
+      "invariant": "INV-BACKUP-001",
+      "description": "Backup con un registro de peso cuyo petId no existe en el array pets[]"
+    }
+  ]
+}

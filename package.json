@@ -1,0 +1,33 @@
+{
+  "name": "argos-pet-health-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Argos — Pet Health & Biometric Tracker (SDD Deterministic Edition)",
+  "scripts": {
+    "compile:contracts": "bash scripts/compile-contracts.sh",
+    "verify:traceability": "bash scripts/verify-traceability.sh",
+    "verify:oracles": "bash scripts/verify-oracles.sh",
+    "test": "node scripts/run-tests.mjs",
+    "test:gate": "bash scripts/compile-contracts.sh && bash scripts/verify-traceability.sh && bash scripts/verify-oracles.sh && npm test"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.48.0",
+    "@stryker-mutator/core": "^8.6.0",
+    "@stryker-mutator/typescript-checker": "^8.6.0",
+    "@stryker-mutator/vitest-runner": "^8.6.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "fast-check": "^3.22.0",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}

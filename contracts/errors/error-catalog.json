@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArgosDeterministicErrorCatalog",
+  "version": "1.0.0",
+  "status": "LOCKED",
+  "problemDetailsSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["code", "title", "status", "detail", "invariantRef"],
+    "properties": {
+      "code": { "type": "string", "pattern": "^ERR-[A-Z0-9-]+$" },
+      "title": { "type": "string" },
+      "status": { "type": "integer" },
+      "detail": { "type": "string" },
+      "invariantRef": { "type": "string" },
+      "field": { "type": ["string", "null"] }
+    }
+  },
+  "errors": {
+    "ERR-SCHEMA-VALIDATION-FAILED": {
+      "status": 422,
+      "title": "Violación de contrato de esquema de datos",
+      "invariantRef": "INV-REC-006",
+      "detailTemplate": "El payload incumple el esquema formal o contiene propiedades no autorizadas."
+    },
+    "ERR-PET-QUOTA-EXCEEDED": {
+      "status": 409,
+      "title": "Cupo máximo de mascotas alcanzado",
+      "invariantRef": "INV-PET-001",
+      "detailTemplate": "El sistema solo permite un máximo de 4 mascotas en total (2 perros y 2 gatos)."
+    },
+    "ERR-PET-NOT-FOUND": {
+      "status": 404,
+      "title": "Mascota no encontrada",
+      "invariantRef": "INV-PET-003",
+      "detailTemplate": "No existe ninguna mascota registrada con el identificador proporcionado."
+    },
+    "ERR-PET-FUTURE-BIRTHDATE": {
+      "status": 422,
+      "title": "Fecha de nacimiento futura inválida",
+      "invariantRef": "INV-PET-002",
+      "detailTemplate": "La fecha de nacimiento no puede ser posterior a la fecha actual del sistema."
+    },
+    "ERR-REC-DATE-BEFORE-BIRTH": {
+      "status": 422,
+      "title": "Fecha de evento anterior al nacimiento",
+      "invariantRef": "INV-REC-001",
+      "detailTemplate": "La fecha del registro médico o biométrico no puede ser anterior a la fecha de nacimiento de la mascota."
+    },
+    "ERR-REC-FUTURE-EVENT-DATE": {
+      "status": 422,
+      "title": "Fecha de evento clínico en el futuro",
+      "invariantRef": "INV-REC-001",
+      "detailTemplate": "La fecha de aplicación, medición o consulta ocurrida no puede ser posterior a la fecha actual."
+    },
+    "ERR-REC-WEIGHT-OUT-OF-RANGE": {
+      "status": 422,
+      "title": "Peso fuera del rango fisiológico permitido",
+      "invariantRef": "INV-REC-002",
+      "detailTemplate": "El peso debe situarse entre 0.05 kg y 150.00 kg con máximo 2 decimales."
+    },
+    "ERR-REC-MEASUREMENT-OUT-OF-RANGE": {
+      "status": 422,
+      "title": "Medida corporal fuera del rango permitido",
+      "invariantRef": "INV-REC-003",
+      "detailTemplate": "Todas las medidas corporales (cuello, pecho, lomo, cintura) deben situarse entre 1.00 cm y 250.00 cm."
+    },
+    "ERR-REC-INVALID-BOOSTER-DATE": {
+      "status": 422,
+      "title": "Fecha de próximo refuerzo de vacuna inválida",
+      "invariantRef": "INV-REC-004",
+      "detailTemplate": "La fecha de próximo refuerzo (nextBoosterAt) debe ser estrictamente posterior a la fecha de aplicación (appliedAt)."
+    },
+    "ERR-REC-INVALID-NEXT-DOSE-DATE": {
+      "status": 422,
+      "title": "Fecha de próxima dosis de desparasitación inválida",
+      "invariantRef": "INV-REC-005",
+      "detailTemplate": "La fecha de próxima dosis sugerida (nextSuggestedDoseAt) debe ser estrictamente posterior a la fecha de aplicación (appliedAt)."
+    },
+    "ERR-BACKUP-MALFORMED-JSON": {
+      "status": 400,
+      "title": "Archivo de respaldo JSON malformado",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "El contenido importado no es un documento JSON sintácticamente válido."
+    },
+    "ERR-BACKUP-VERSION-UNSUPPORTED": {
+      "status": 422,
+      "title": "Versión de esquema de respaldo no soportada",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "La versión del archivo de respaldo no coincide con schemaVersion 1.0.0."
+    },
+    "ERR-BACKUP-SCHEMA-INVALID": {
+      "status": 422,
+      "title": "Estructura del respaldo JSON inválida",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "El archivo de respaldo incumple el contrato formal backup-envelope.schema.json."
+    },
+    "ERR-BACKUP-REFERENTIAL-INTEGRITY": {
+      "status": 409,
+      "title": "Violación de integridad referencial o duplicidad en respaldo",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "El respaldo contiene IDs duplicados o registros clínicos asociados a un petId inexistente en el archivo."
+    },
+    "ERR-BACKUP-ATOMIC-ROLLBACK": {
+      "status": 500,
+      "title": "Fallo de persistencia con rollback ejecutado",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "Se abortó la importación y se restauró el estado previo intacto."
+    }
+  }
+}
