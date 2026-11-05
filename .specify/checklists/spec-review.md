@@ -2,25 +2,27 @@
 document_id: CHECKLIST-SPEC-REVIEW
 version: 2.2.0
 status: REVIEW
-applies_to: SPEC-ARGOS-001 v2.2.0
-audited_by: pendiente (Auditor SDD, re-auditoría de v2.2.0)
-human_signature: pendiente (Andrés)
-note: v2.1.0 quedó firmada en 42e9f0d; las marcas de v2.1.0 no aplican a v2.2.0. Los ítems 3 y 4 de la auditoría v2.1.0 eran falsos y deben re-verificarse.
+applies_to: SPEC-ARGOS-001 v2.2.0 (revisión 2 de contratos, rama spec/v2.2.0-review)
+audited_by: Auditor SDD — 2026-11-05, re-auditoría de revisión 2 verificada en disco. Criterios 1, 2, 4, 5, 6, 7, 8 verificados; criterio 3 pendiente (ver abajo). No aprobado.
+human_signature: pendiente (Andrés). Este checklist no registra firma humana.
+note: Las marcas `[x]` de v2.1.0 fueron eliminadas (H-13). v2.1.0 quedó firmada en 42e9f0d. Esta versión no sustituye la firma de Andrés sobre D-10 (constitución §2, "pendiente de firma formal").
 ---
 
 # Checklist de Compuerta Fase 1 -> Fase 2: Revisión de Especificación (`spec-review.md`)
 
-Ninguna especificación en `.specify/specs/` puede pasar a estado `APPROVED` ni habilitar el diseño en `.specify/plans/` sin cumplir el 100% de los siguientes criterios deterministas. Cada ítem debe citar su evidencia.
+Ninguna especificación en `.specify/specs/` puede pasar a `APPROVED` ni habilitar el diseño en `.specify/plans/` sin cumplir el 100 % de estos criterios deterministas.
 
-## Auditoría Aplicada a `SPEC-ARGOS-001` v2.2.0 (`pet-health-tracker.md`)
+## Auditoría de `SPEC-ARGOS-001` v2.2.0, revisión 2
 
-- [x] **1. Cero Prosa Abierta o Subjetiva:** umbrales exactos para alertas (`0..15` días), biometría (`0.05..150.00` kg, `1.00..250.00` cm), credenciales (username 3–30, password 8–128), bloqueo (5 intentos en ventana deslizante de 15 min, `INV-AUTH-005`; tiempo uniforme, `INV-AUTH-006`), sesión (7 días), backup (≤ 10 MB) y regla de edad en fin de mes / 29-feb. *Evidencia: spec §2–§3.* *Verificado: los 11 umbrales están presentes en la spec v2.1.0.*
-- [x] **2. Identificadores Inmutables de Trazabilidad:** `REQ-AUTH-001..004`, `REQ-PET-001..005`, `REQ-REC-001..006`, `REQ-HOUSE-001..005`, `REQ-UI-001..007`, `REQ-BACKUP-001..002` e invariantes de §3 con IDs únicos; IDs retirados listados explícitamente. *Evidencia: spec §0 y §2–§3.* *Verificado: 55 IDs REQ/INV en tablas, sin duplicados; 4 IDs retirados listados.*
-- [x] **3. Clausura de Contratos de Datos:** toda entidad y entrada/salida tiene JSON Schema o `components.schemas` con `additionalProperties: false`. *Evidencia: `contracts/schemas/*.json` v2.1.0, `contracts/openapi/` v2.1.0.* *Verificado: 0 objetos sin `additionalProperties: false` en los 5 esquemas y en `components.schemas`; los 5 esquemas pasan el metaesquema 2020-12.*
-- [x] **4. Modelado Formal de Estados:** `STATE-ALERT-001`, `STATE-BACKUP-001`, `STATE-AUTH-SESSION-001`, `STATE-HOUSE-MEMBERSHIP-001`, un archivo por máquina; nombres de estados idénticos entre spec y contrato. *Evidencia: `contracts/state-machines/` v2.1.0 (incluido `INV-AUTH-006` en `auth-session`).* *Verificado: los 4 IDs de máquina y todos sus estados aparecen literalmente en la spec.*
-- [x] **5. Taxonomía Exhaustiva de Errores:** cada invariante violable tiene código `ERR-*` en el catálogo y en spec §5 (30 códigos en v2.1.0, incluidos `ERR-BACKUP-ATOMIC-ROLLBACK` y `ERR-HOUSE-MEMBERSHIP-NOT-FOUND`). *Evidencia: `contracts/errors/error-catalog.json` v2.1.0 y `contracts/schemas/common.schema.json#/$defs/ProblemDetails` v2.1.0.* *Verificado: 30 códigos idénticos entre catálogo y spec §5; `ProblemDetails` resuelve desde el catálogo.*
-- [x] **6. Aislamiento de Entropía Especificado:** toda regla temporal referencia `ClockPort` (con zona horaria definida); identidad, tokens y hashing referencian `IdGeneratorPort`, `SecureTokenPort` y `PasswordHasherPort`. *Evidencia: constitución §3, spec §2.* *Verificado: los 4 puertos y `APP_TIMEZONE` en la constitución.*
-- [x] **7. Seguridad y Autorización Especificadas:** reglas de lectura/escritura (`INV-ACC-*`), anti-enumeración, CSRF y secreto de credenciales definidos. *Evidencia: spec §3, constitución §6.* *Verificado: `INV-ACC-001/002`, `INV-AUTH-003/006` y `X-Argos-Request` en la spec.*
-- [x] **8. Estrategia de Migración para Cambios MAJOR:** respaldo v1.0.0 importable vía `MIGRATING_LEGACY_ENVELOPE`. *Evidencia: `backup-import.machine.json`.* *Verificado: estado `MIGRATING_LEGACY_ENVELOPE` y fixture v1.0.0 válido contra el esquema legado.*
+- [x] **1. Cero prosa abierta o subjetiva.** Umbrales numéricos sin cambios frente a v2.1.0. `INV-AUTH-006` sin umbral temporal (D-02). *Verificado en disco (revisión anterior).*
+- [x] **2. Identificadores inmutables de trazabilidad.** Sin altas ni bajas de IDs REQ/INV/STATE. Nuevo `INV-AUTH-007` (CSRF). *Verificado en disco.*
+- [ ] **3. Clausura de contratos de datos.** **Verificado:** en `contracts/schemas/*.json` ningún objeto con `properties` carece de `additionalProperties: false` (recorrido recursivo, 0 casos). **No verificado:** la validación contra el metaesquema 2020-12. El entorno del Auditor solo tiene `jsonschema` 3.2, que implementa draft-07, y no hay acceso de red para instalar un validador 2020-12. `check_schema` draft-07 pasa en los cinco esquemas, pero no equivale a la validación 2020-12. Pendiente: salida literal de `Draft202012Validator.check_schema` (o Ajv 2020) con la versión de la librería, ejecutada en el entorno del Arquitecto o del Desarrollador.
+- [x] **4. Modelado formal de estados.** Verificado en disco: en `auth-session.machine.json` y `household-membership.machine.json` no queda ningún estado `"type": "final"`. Los únicos `final` son `COMPLETED` y `ROLLED_BACK` en `backup-import.machine.json`, sin transiciones salientes. La spec §4 (líneas 143–144) describe las mismas transiciones. Salvedad: `ROLLBACK_FAILED` aparece como clave en `backup-import.machine.json` (línea 103), fuera de `states`; no es un estado. Su `finalState: UNKNOWN` está admitido en `common.schema.json`.
+- [x] **5. Taxonomía exhaustiva de errores.** Catálogo y spec §5 coinciden. `CONST-6.3` ya no aparece en `.specify` ni en `contracts`. `ERR-PET-FUTURE-BIRTHDATE` está trazado en TASK-104. Verificado en disco.
+- [x] **6. Aislamiento de entropía especificado.** Constitución §3 sin cambios desde v2.1.0; puertos y `APP_TIMEZONE` presentes. *Verificado por diff.*
+- [x] **7. Seguridad y autorización especificadas.** `INV-AUTH-007` aparece en spec §3 (línea 125) y §5.1 (línea 185), en el catálogo (`ERR-AUTH-CSRF-REJECTED.invariantRef`, línea 93) y en EDGE-018 (línea 613). Constitución §4 (línea 71) lo cubre por rango `INV-AUTH-001..007`, sin ID explícito. Verificado en disco.
+- [x] **8. Migración para cambios MAJOR.** El fixture `validLegacyBackupEnvelopeV1` pasa contra `BackupEnvelopeV1Legacy` con 0 errores, y un campo extra sí se rechaza (control negativo). **Salvedad:** la validación se hizo con draft-07 (aproximación; el esquema no usa palabras clave exclusivas de 2020-12 en esa rama). La confirmación 2020-12 queda cubierta por el pendiente del criterio 3.
 
-**Resultado de la re-auditoría:** 8/8 criterios cumplidos. Fixtures canónicos: 11/11 objetos válidos contra los esquemas. Firmado por Andrés el 2026-11-05; SPEC-ARGOS-001 v2.1.0 en `APPROVED`.
+**Resultado:** 7 de 8 criterios verificados (1, 2, 4, 5, 6, 7, 8); criterio 3 pendiente. No se firma. No se aprueba.
+
+**Para pasar a APPROVED faltan:** (a) salida 2020-12 del criterio 3; (b) firma formal de Andrés sobre D-10 (dependencias, constitución §2) y su registro en `approved_by`.

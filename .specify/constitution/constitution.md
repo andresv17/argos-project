@@ -10,7 +10,7 @@ change_summary: >
   Eliminación del cupo fijo de mascotas (2 perros / 2 gatos), incorporación de cuentas de usuario
   (registro/login), hogares compartidos, servidor API local con SQLite preparado para migración Cloud,
   generación real de validadores desde contratos y toolchain de pruebas oficial (sin harness propio). v2.1.0: dependencias adicionales autorizadas (§2), umbral de mutación de 85 % (§5), compuerta por tarea (§5) e INV-AUTH-006 (§4).
-approved_by: pendiente (Nivel 2, Andrés) — autorización verbal del 2026-11-05 sin firma formal
+approved_by: Andrés Vallejo, 2026-11-05
 ---
 
 # CONSTITUCIÓN ARQUITECTÓNICA — PROYECTO ARGOS (PET HEALTH TRACKER)
