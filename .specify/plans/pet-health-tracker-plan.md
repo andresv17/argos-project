@@ -1,7 +1,7 @@
 ---
 document_id: PLAN-ARGOS-001
 version: 2.2.0
-status: REVIEW
+status: APPROVED
 supersedes: 2.1.0
 change_type: MINOR
 spec_ref: .specify/specs/pet-health-tracker.md (v2.2.0)
