@@ -6,7 +6,7 @@ supersedes: 2.1.0
 change_type: MINOR
 spec_ref: .specify/specs/pet-health-tracker.md (v2.2.0)
 constitution_ref: .specify/constitution/constitution.md (v2.2.0)
-approved_by: pendiente (Nivel 2, Andrés)
+approved_by: Andrés Vallejo, 2026-11-05
 ---
 
 # Plan de Arquitectura Técnica: Argos Pet Health & Biometric Tracker (v2.2.0)
