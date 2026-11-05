@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Argos — Pet Health & Biometric Tracker (SDD Deterministic Edition)",
   "engines": {
-    "node": ">=22 <23"
+    "node": ">=22.18 <23"
   },
   "scripts": {
     "dev": "concurrently -n api,web \"tsx watch src/infrastructure/http/server.ts\" \"vite\"",
