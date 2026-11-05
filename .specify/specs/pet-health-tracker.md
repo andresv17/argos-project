@@ -1,7 +1,7 @@
 ---
 document_id: SPEC-ARGOS-001
 version: 2.2.0
-status: REVIEW
+status: APPROVED
 feature: pet-health-tracker
 supersedes: 2.1.0
 change_type: MINOR
