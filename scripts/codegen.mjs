@@ -142,7 +142,10 @@ const ajv = new Ajv2020({
   strictTypes: true,
   allowUnionTypes: true,
   allErrors: true,
-  multipleOfPrecision: 2,
+  // DEUDA-VAL-001 (TASK-108): con 2, Ajv tolera restos de hasta 0.01 centésimas y acepta p. ej. weightKg 32.85001.
+  // Con 10 rechaza toda desviación >= 1e-12 dentro de los rangos del contrato (|v| <= 250) y no rechaza ninguna
+  // centésima válida hasta |v| = 6990.72 (11 ya rechaza 874.06). El dominio cierra el resto (INV-REC-002/003).
+  multipleOfPrecision: 10,
   code: { source: true, optimize: true },
 });
 addFormats(ajv);

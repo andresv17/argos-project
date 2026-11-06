@@ -138,19 +138,22 @@ describe('TASK-107: peso y medidas (INV-REC-002, INV-REC-003)', () => {
     ]);
   });
 
-  it('[INV-REC-002][ERR-REC-WEIGHT-OUT-OF-RANGE] más de 2 decimales se rechaza, también 32.85001 que el esquema generado tolera', () => {
-    expect(validateCreateWeightInput({ recordedAt: '2026-11-01', weightKg: 32.85001 })).toBe(true);
+  it('[INV-REC-002][ERR-REC-WEIGHT-OUT-OF-RANGE] más de 2 decimales se rechaza: 32.85001 ya en el esquema (DEUDA-VAL-001) y 32.85 + 1e-13, que el esquema tolera, en el dominio', () => {
+    const residual = 32.85 + 1e-13;
+    expect(validateCreateWeightInput({ recordedAt: '2026-11-01', weightKg: 32.85001 })).toBe(false);
+    expect(validateCreateWeightInput({ recordedAt: '2026-11-01', weightKg: residual })).toBe(true);
     expect(recordCode('weights', { weightKg: 12.345 })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
     expect(recordCode('weights', { weightKg: 32.85001 })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
-    expect(inputCode('weights', { weightKg: 32.85001 })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
-    const err = errorOf(() => validateRecord('weights', { ...baseRecord('weights'), weightKg: 32.85001 }, birthFor('weights'), TODAY));
+    expect(recordCode('weights', { weightKg: residual })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
+    expect(inputCode('weights', { weightKg: residual })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
+    const err = errorOf(() => validateRecord('weights', { ...baseRecord('weights'), weightKg: residual }, birthFor('weights'), TODAY));
     expect(err.message).toBe('[ERR-REC-WEIGHT-OUT-OF-RANGE] weightKg admite como máximo 2 decimales.');
     expect(err.status).toBe(422);
   });
 
   it('[REQ-REC-002][INV-REC-003][ERR-REC-MEASUREMENT-OUT-OF-RANGE] cada una de las 4 medidas acepta 1.00 y 250.00 y rechaza 0.99, 250.01 y 3 decimales con su campo', () => {
     for (const field of ['neckCm', 'chestCm', 'backLengthCm', 'waistCm']) {
-      expect([1, 250, 0.99, 250.01, 46.555, 46.50001].map((v) => recordCode('bodyMeasurements', { [field]: v }))).toEqual([
+      expect([1, 250, 0.99, 250.01, 46.555, 46.5 + 1e-13].map((v) => recordCode('bodyMeasurements', { [field]: v }))).toEqual([
         'OK',
         'OK',
         `ERR-REC-MEASUREMENT-OUT-OF-RANGE@${field}`,
@@ -177,7 +180,7 @@ describe('TASK-107: peso y medidas (INV-REC-002, INV-REC-003)', () => {
 
   it('[REQ-REC-001][INV-REC-002][ERR-REC-DATE-BEFORE-BIRTH] spec §5.1: el esquema va antes que el dominio (peso fuera de rango y fecha anterior al nacimiento da el error de peso)', () => {
     expect(recordCode('weights', { weightKg: 0.01, recordedAt: '2022-05-09' })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
-    expect(recordCode('weights', { weightKg: 32.85001, recordedAt: '2022-05-09' })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
+    expect(recordCode('weights', { weightKg: 32.85 + 1e-13, recordedAt: '2022-05-09' })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
     expect(recordCode('weights', { recordedAt: '2022-05-09' })).toBe('ERR-REC-DATE-BEFORE-BIRTH@recordedAt');
   });
 });
