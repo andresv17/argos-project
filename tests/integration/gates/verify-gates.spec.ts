@@ -90,6 +90,19 @@ describe('TASK-103: compuerta de trazabilidad (scripts/verify-traceability.sh)',
     expect(res.status).toBe(0);
   });
 
+  it('lista todos los archivos de src/ y tests/ que declaran el ID y lo cuenta con que aparezca en al menos uno', () => {
+    const res = run(TRACEABILITY, {
+      ...BASE,
+      'src/application/a.ts': `/** ${IMPL} REQ-DEMO-001 */\nexport const a = 1;\n`,
+      'src/domain/z.ts': `export const z = 1;\n/**\n * ${IMPL} REQ-DEMO-001\n */\nexport const z2 = 2;\n/** ${IMPL} REQ-DEMO-001 */\n`,
+      'tests/unit/otro.spec.ts': `\n${IT}('[REQ-DEMO-001] otro caso', () => {});\n`,
+    }, ['--task', 'TASK-900']);
+    expect(res.output).toContain('  OK    REQ-DEMO-001\n          src (3): src/application/a.ts:1, src/domain/demo.ts:2, src/domain/z.ts:3\n          tests (2): tests/unit/demo.spec.ts:1, tests/unit/otro.spec.ts:2');
+    expect(res.output).toContain('  OK    ERR-DEMO-FAILED\n          src (1): src/domain/demo.ts:2\n          tests (1): tests/unit/demo.spec.ts:1');
+    expect(res.output).toContain('IDs trazados: 2/2');
+    expect(res.status).toBe(0);
+  });
+
   it('falla si el ID solo aparece en un comentario suelto de src/', () => {
     const res = run(TRACEABILITY, {
       ...BASE,

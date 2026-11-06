@@ -8,6 +8,8 @@
 #
 # Un ID cuenta como trazado solo si aparece en un @implements de src/ fuera de src/generated/
 # y en el título de un it/test de tests/. Los comentarios sueltos y los títulos de describe no cuentan.
+# En la compuerta por tarea se listan todos los archivos que declaran cada ID (primera línea de cada archivo);
+# basta con que aparezca en al menos uno de src/ y en al menos uno de tests/.
 # IDs vigentes = spec + contracts/ (REQ/INV/STATE) + constitución §3 y §4 + códigos de error-catalog.json, menos los retirados de §4.
 # IDs retirados: fallan la compuerta final; en la compuerta por tarea se avisan (RETIRED WARN) sin fallar.
 #
@@ -145,9 +147,14 @@ if (taskId === '') {
 // 3. Evidencia en src/ y tests/
 // ---------------------------------------------------------------------------
 const isGenerated = (path) => path === join('src', 'generated') || path.startsWith(join('src', 'generated') + '/');
-const record = (map, id, where) => {
-  if (!map.has(id)) map.set(id, where);
+// Primera aparición de cada ID por archivo: Map<id, Map<archivo, "archivo:línea">>.
+const record = (map, id, file, line) => {
+  if (!map.has(id)) map.set(id, new Map());
+  const byFile = map.get(id);
+  if (!byFile.has(file)) byFile.set(file, `${file}:${line}`);
 };
+const first = (map, id) => map.get(id)?.values().next().value;
+const all = (map, id) => [...(map.get(id)?.values() ?? [])].join(', ');
 const implemented = new Map();
 const looseInSrc = new Map();
 const inGenerated = new Map();
@@ -155,12 +162,11 @@ const srcFiles = walk('src').filter((f) => CODE_EXT.test(f));
 for (const file of srcFiles) {
   const lines = readFileSync(file, 'utf8').split('\n');
   lines.forEach((line, i) => {
-    const where = `${file}:${i + 1}`;
     const ids = idsIn(line);
     if (ids.length === 0) return;
     const target = isGenerated(file) ? inGenerated : /@implements\b/.test(line) ? implemented : looseInSrc;
     const scope = target === implemented ? idsIn(line.slice(line.indexOf('@implements'))) : ids;
-    for (const id of scope) record(target, id, where);
+    for (const id of scope) record(target, id, file, i + 1);
   });
 }
 
@@ -171,34 +177,38 @@ const testFiles = walk('tests').filter((f) => CODE_EXT.test(f));
 for (const file of testFiles) {
   const text = readFileSync(file, 'utf8');
   for (const m of text.matchAll(TITLE('it|test'))) {
-    for (const id of idsIn(m[2])) record(tested, id, `${file}:${lineOf(text, m.index)}`);
+    for (const id of idsIn(m[2])) record(tested, id, file, lineOf(text, m.index));
   }
   for (const m of text.matchAll(TITLE('describe'))) {
-    for (const id of idsIn(m[2])) record(inDescribe, id, `${file}:${lineOf(text, m.index)}`);
+    for (const id of idsIn(m[2])) record(inDescribe, id, file, lineOf(text, m.index));
   }
 }
 
 let traced = 0;
 for (const id of required) {
-  const src = implemented.get(id);
-  const test = tested.get(id);
+  const src = implemented.has(id);
+  const test = tested.has(id);
   if (src && test) {
     traced += 1;
-    if (taskId !== '') out(`  OK    ${id}  src: ${src}  tests: ${test}`);
+    if (taskId !== '') {
+      out(`  OK    ${id}`);
+      out(`          src (${implemented.get(id).size}): ${all(implemented, id)}`);
+      out(`          tests (${tested.get(id).size}): ${all(tested, id)}`);
+    }
     continue;
   }
   failed = true;
   const reasons = [];
   if (!src) {
     const hint = looseInSrc.has(id)
-      ? ` (solo fuera de @implements: ${looseInSrc.get(id)})`
+      ? ` (solo fuera de @implements: ${first(looseInSrc, id)})`
       : inGenerated.has(id)
-        ? ` (solo en src/generated, excluido: ${inGenerated.get(id)})`
+        ? ` (solo en src/generated, excluido: ${first(inGenerated, id)})`
         : '';
     reasons.push(`sin @implements en src/${hint}`);
   }
   if (!test) {
-    const hint = inDescribe.has(id) ? ` (solo en título de describe: ${inDescribe.get(id)})` : '';
+    const hint = inDescribe.has(id) ? ` (solo en título de describe: ${first(inDescribe, id)})` : '';
     reasons.push(`sin título it/test en tests/${hint}`);
   }
   err(`  FAIL  ${id}  ${reasons.join('; ')}`);

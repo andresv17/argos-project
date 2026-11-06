@@ -2,7 +2,7 @@
  * Application Use Cases for the 6 Clinical & Biometric Historical Record Modules.
  * Strictly isolated per petId and free of direct clock or random entropy [INV-ARCH-001, INV-ARCH-002, INV-PET-003].
  *
- * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-PET-003, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, STATE-ALERT-001, ERR-PET-NOT-FOUND, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004
+ * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-PET-003, INV-REC-001, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, STATE-ALERT-001, ERR-PET-NOT-FOUND, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004
  */
 
 import {
@@ -56,7 +56,7 @@ function requireExistingPet(repository: StorageRepositoryPort, petId: string): P
 /**
  * Use Case 1: Control de Peso (Weight Record) [REQ-REC-001, INV-REC-001, INV-REC-002, INV-PET-003].
  *
- * @implements REQ-REC-001, INV-PET-003, INV-REC-002, ERR-PET-NOT-FOUND, ERR-REC-WEIGHT-OUT-OF-RANGE, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-REC-001, INV-PET-003, INV-REC-001, INV-REC-002, ERR-PET-NOT-FOUND, ERR-REC-WEIGHT-OUT-OF-RANGE, INV-ARCH-001, INV-ARCH-002
  */
 export class AddWeightRecordUseCase {
   private readonly repository: StorageRepositoryPort;
@@ -106,7 +106,7 @@ export class AddWeightRecordUseCase {
  * Use Case 2: Medidas Corporales (Body Measurements: neckCm, chestCm, backLengthCm, waistCm)
  * [REQ-REC-002, INV-REC-001, INV-REC-003, INV-PET-003].
  *
- * @implements REQ-REC-002, INV-PET-003, INV-REC-003, ERR-PET-NOT-FOUND, ERR-REC-MEASUREMENT-OUT-OF-RANGE, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-REC-002, INV-PET-003, INV-REC-001, INV-REC-003, ERR-PET-NOT-FOUND, ERR-REC-MEASUREMENT-OUT-OF-RANGE, INV-ARCH-001, INV-ARCH-002
  */
 export class AddBodyMeasurementUseCase {
   private readonly repository: StorageRepositoryPort;
@@ -149,7 +149,7 @@ export class AddBodyMeasurementUseCase {
  * Use Case 3: Vacunación (Vaccination Record + STATE-ALERT-001 evaluation)
  * [REQ-REC-003, INV-REC-001, INV-REC-004, INV-REC-006, STATE-ALERT-001].
  *
- * @implements REQ-REC-003, INV-PET-003, INV-REC-004, INV-REC-006, STATE-ALERT-001, ERR-PET-NOT-FOUND, ERR-REC-INVALID-BOOSTER-DATE, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-REC-003, INV-PET-003, INV-REC-001, INV-REC-004, INV-REC-006, STATE-ALERT-001, ERR-PET-NOT-FOUND, ERR-REC-INVALID-BOOSTER-DATE, INV-ARCH-001, INV-ARCH-002
  */
 export class AddVaccinationUseCase {
   private readonly repository: StorageRepositoryPort;
@@ -196,7 +196,7 @@ export class AddVaccinationUseCase {
  * Use Case 4: Desparasitación (Deworming Record + STATE-ALERT-001 evaluation)
  * [REQ-REC-004, INV-REC-001, INV-REC-005, INV-REC-006, STATE-ALERT-001].
  *
- * @implements REQ-REC-004, INV-PET-003, INV-REC-005, INV-REC-006, STATE-ALERT-001, ERR-PET-NOT-FOUND, ERR-REC-INVALID-NEXT-DOSE-DATE, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-REC-004, INV-PET-003, INV-REC-001, INV-REC-005, INV-REC-006, STATE-ALERT-001, ERR-PET-NOT-FOUND, ERR-REC-INVALID-NEXT-DOSE-DATE, INV-ARCH-001, INV-ARCH-002
  */
 export class AddDewormingUseCase {
   private readonly repository: StorageRepositoryPort;
@@ -243,7 +243,7 @@ export class AddDewormingUseCase {
  * Use Case 5: Citas y Controles Médicos (Medical Visit Record)
  * [REQ-REC-005, INV-REC-001, INV-REC-006, INV-PET-003].
  *
- * @implements REQ-REC-005, INV-PET-003, INV-REC-006, ERR-PET-NOT-FOUND, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-REC-005, INV-PET-003, INV-REC-001, INV-REC-006, ERR-PET-NOT-FOUND, INV-ARCH-001, INV-ARCH-002
  */
 export class AddMedicalVisitUseCase {
   private readonly repository: StorageRepositoryPort;
@@ -286,7 +286,7 @@ export class AddMedicalVisitUseCase {
  * Use Case 6: Parámetros Adicionales (Custom Parameter Record)
  * [REQ-REC-006, INV-REC-001, INV-REC-006, INV-PET-003].
  *
- * @implements REQ-REC-006, INV-PET-003, INV-REC-006, ERR-PET-NOT-FOUND, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-REC-006, INV-PET-003, INV-REC-001, INV-REC-006, ERR-PET-NOT-FOUND, INV-ARCH-001, INV-ARCH-002
  */
 export class AddCustomParameterUseCase {
   private readonly repository: StorageRepositoryPort;
