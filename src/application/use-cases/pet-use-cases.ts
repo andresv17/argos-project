@@ -2,7 +2,7 @@
  * Application Use Cases for Pet Profile Management and Individual Pet Dashboard.
  * Strictly depends only on Domain and Generated Contracts via injected Ports [INV-ARCH-001, INV-ARCH-002, INV-ARCH-004].
  *
- * @implements REQ-PET-001, REQ-PET-002, REQ-PET-003, INV-PET-001, INV-PET-002, INV-PET-003, INV-PET-004, INV-REC-006, INV-SORT-001, STATE-PET-QUOTA-001, STATE-ALERT-001, ERR-PET-QUOTA-EXCEEDED, ERR-PET-NOT-FOUND, ERR-PET-FUTURE-BIRTHDATE, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004
+ * @implements REQ-PET-001, REQ-PET-003, INV-PET-001, INV-PET-003, INV-PET-004, INV-REC-006, STATE-PET-QUOTA-001, STATE-ALERT-001, ERR-PET-QUOTA-EXCEEDED, ERR-PET-NOT-FOUND, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004
  */
 
 import {
@@ -41,7 +41,7 @@ import type { StorageRepositoryPort } from '../ports/storage-repository.port.ts'
 /**
  * Registers a new pet enforcing the 4-pet total quota (max 2 DOG, max 2 CAT) and non-future birthDate.
  *
- * @implements REQ-PET-001, INV-PET-001, INV-PET-002, INV-REC-006, STATE-PET-QUOTA-001, ERR-PET-QUOTA-EXCEEDED, ERR-PET-FUTURE-BIRTHDATE, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-PET-001, INV-PET-001, INV-REC-006, STATE-PET-QUOTA-001, ERR-PET-QUOTA-EXCEEDED, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-002
  */
 export class RegisterPetUseCase {
   private readonly repository: StorageRepositoryPort;
@@ -87,7 +87,7 @@ export class RegisterPetUseCase {
 /**
  * Updates an existing pet profile enforcing species quota (INV-PET-004) and birthDate consistency.
  *
- * @implements REQ-PET-001, INV-PET-001, INV-PET-002, INV-PET-003, INV-PET-004, INV-REC-006, ERR-PET-NOT-FOUND, ERR-PET-QUOTA-EXCEEDED, ERR-PET-FUTURE-BIRTHDATE, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001
+ * @implements REQ-PET-001, INV-PET-001, INV-PET-003, INV-PET-004, INV-REC-006, ERR-PET-NOT-FOUND, ERR-PET-QUOTA-EXCEEDED, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001
  */
 export class UpdatePetUseCase {
   private readonly repository: StorageRepositoryPort;
@@ -146,7 +146,7 @@ export class UpdatePetUseCase {
  * Retrieves the complete isolated technical dashboard for a single pet, including computed age,
  * active sanitary alerts summary, and the 6 deterministically sorted historical record collections.
  *
- * @implements REQ-PET-002, REQ-PET-003, INV-PET-003, INV-SORT-001, STATE-ALERT-001, ERR-PET-NOT-FOUND, INV-ARCH-001
+ * @implements REQ-PET-003, INV-PET-003, STATE-ALERT-001, ERR-PET-NOT-FOUND, INV-ARCH-001
  */
 export class GetPetDashboardUseCase {
   private readonly repository: StorageRepositoryPort;
@@ -215,7 +215,7 @@ export class GetPetDashboardUseCase {
  * Lists all registered pets (up to 4) along with global quota state, computed age, and alert counters
  * for the PetSelectorBar UI.
  *
- * @implements REQ-PET-002, REQ-PET-003, REQ-UI-001, STATE-PET-QUOTA-001, STATE-ALERT-001, INV-ARCH-001
+ * @implements REQ-PET-003, REQ-UI-001, STATE-PET-QUOTA-001, STATE-ALERT-001, INV-ARCH-001
  */
 export class ListPetsOverviewUseCase {
   private readonly repository: StorageRepositoryPort;

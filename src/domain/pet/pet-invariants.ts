@@ -2,7 +2,7 @@
  * Pure domain invariants and quota state machine for Pet Profiles.
  * Enforces max 4 pets total: max 2 DOG and max 2 CAT.
  *
- * @implements REQ-PET-001, INV-PET-001, INV-PET-002, INV-PET-004, INV-REC-006, STATE-PET-QUOTA-001, ERR-PET-QUOTA-EXCEEDED, ERR-PET-FUTURE-BIRTHDATE, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-004
+ * @implements REQ-PET-001, INV-PET-001, INV-PET-004, INV-REC-006, STATE-PET-QUOTA-001, ERR-PET-QUOTA-EXCEEDED, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-004
  */
 
 import {
@@ -126,7 +126,7 @@ export function assertCanUpdatePetSpecies(
  * Validates that an entire collection of pets satisfies INV-PET-001 (<= 4 total, <= 2 DOG, <= 2 CAT)
  * and INV-PET-002 (birthDate <= currentDate).
  *
- * @implements REQ-PET-001, INV-PET-001, INV-PET-002, ERR-PET-QUOTA-EXCEEDED, ERR-PET-FUTURE-BIRTHDATE
+ * @implements REQ-PET-001, INV-PET-001, ERR-PET-QUOTA-EXCEEDED
  */
 export function validatePetCollectionInvariants(
   pets: readonly PetProfile[],

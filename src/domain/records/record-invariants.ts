@@ -7,7 +7,7 @@
  * 5. Medical Visits (REQ-REC-005, INV-REC-001, INV-REC-006)
  * 6. Custom Parameters (REQ-REC-006, INV-REC-001, INV-REC-006)
  *
- * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-REC-001, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-004
+ * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-004
  */
 
 import {
@@ -166,7 +166,7 @@ export function validateDewormingNextDoseDate(
 /**
  * Validates a complete WeightRecord against domain invariants and schema contract.
  *
- * @implements REQ-REC-001, INV-REC-001, INV-REC-002
+ * @implements REQ-REC-001, INV-REC-002
  */
 export function validateWeightRecordDomain(
   record: WeightRecord,
@@ -181,7 +181,7 @@ export function validateWeightRecordDomain(
 /**
  * Validates a complete BodyMeasurementRecord against domain invariants and schema contract.
  *
- * @implements REQ-REC-002, INV-REC-001, INV-REC-003
+ * @implements REQ-REC-002, INV-REC-003
  */
 export function validateBodyMeasurementRecordDomain(
   record: BodyMeasurementRecord,
@@ -201,7 +201,7 @@ export function validateBodyMeasurementRecordDomain(
 /**
  * Validates a complete VaccinationRecord against domain invariants and schema contract.
  *
- * @implements REQ-REC-003, INV-REC-001, INV-REC-004, INV-REC-006
+ * @implements REQ-REC-003, INV-REC-004, INV-REC-006
  */
 export function validateVaccinationRecordDomain(
   record: VaccinationRecord,
@@ -217,7 +217,7 @@ export function validateVaccinationRecordDomain(
 /**
  * Validates a complete DewormingRecord against domain invariants and schema contract.
  *
- * @implements REQ-REC-004, INV-REC-001, INV-REC-005, INV-REC-006
+ * @implements REQ-REC-004, INV-REC-005, INV-REC-006
  */
 export function validateDewormingRecordDomain(
   record: DewormingRecord,
@@ -233,7 +233,7 @@ export function validateDewormingRecordDomain(
 /**
  * Validates a complete MedicalVisitRecord against domain invariants and schema contract.
  *
- * @implements REQ-REC-005, INV-REC-001, INV-REC-006
+ * @implements REQ-REC-005, INV-REC-006
  */
 export function validateMedicalVisitRecordDomain(
   record: MedicalVisitRecord,
@@ -251,7 +251,7 @@ export function validateMedicalVisitRecordDomain(
 /**
  * Validates a complete CustomParameterRecord against domain invariants and schema contract.
  *
- * @implements REQ-REC-006, INV-REC-001, INV-REC-006
+ * @implements REQ-REC-006, INV-REC-006
  */
 export function validateCustomParameterRecordDomain(
   record: CustomParameterRecord,
@@ -269,7 +269,7 @@ export function validateCustomParameterRecordDomain(
  * where each record's deltaKg is the exact 2-decimal difference relative to the immediately
  * preceding chronological measurement (or null for the earliest measurement).
  *
- * @implements REQ-REC-001, INV-REC-002, INV-SORT-001
+ * @implements REQ-REC-001, INV-REC-002
  */
 export function computeWeightEvolutionSeries(records: readonly WeightRecord[]): WeightEntryView[] {
   const sortedDesc = sortHistoricalRecords(records);

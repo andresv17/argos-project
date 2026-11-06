@@ -84,7 +84,7 @@ export function normalizeVaccineKey(vaccineName: string): string {
  * Evaluates a collection of vaccination records for a single pet, sorting them deterministically
  * (INV-SORT-001) and marking older records of the same normalized vaccineName as SUPERSEDED.
  *
- * @implements STATE-ALERT-001, REQ-REC-003, INV-SORT-001
+ * @implements STATE-ALERT-001, REQ-REC-003
  */
 export function evaluateVaccinationAlerts(
   records: readonly VaccinationRecord[],
@@ -109,7 +109,7 @@ export function evaluateVaccinationAlerts(
  * Evaluates a collection of deworming records for a single pet, sorting them deterministically
  * (INV-SORT-001) and marking older records of the same dewormingType (INTERNAL / EXTERNAL) as SUPERSEDED.
  *
- * @implements STATE-ALERT-001, REQ-REC-004, INV-SORT-001
+ * @implements STATE-ALERT-001, REQ-REC-004
  */
 export function evaluateDewormingAlerts(
   records: readonly DewormingRecord[],
