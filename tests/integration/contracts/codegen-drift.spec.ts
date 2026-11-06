@@ -96,7 +96,7 @@ describe('TASK-102: deriva y determinismo del generador', () => {
     schema.$defs.CreateWeightInput.properties.weightKg['x-sdd-error'] = 'ERR-NO-EXISTE';
     writeFileSync(schemaPath, JSON.stringify(schema, null, 2), 'utf8');
 
-    expect(() => runCodegen(contracts, makeTempDir())).toThrow();
+    expect(() => runCodegen(contracts, makeTempDir())).toThrow(/ERR-NO-EXISTE/);
   });
 
   it('INV-ARCH-003: la salida generada no contiene IDs retirados', () => {
