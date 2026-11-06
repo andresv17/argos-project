@@ -5,6 +5,15 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: 'Compuerta por tarea (TASK-NNN). Vacío = compuerta final con todos los IDs vigentes.'
+        required: false
+        default: ''
+
+env:
+  SEMGREP_VERSION: '1.184.0'
 
 jobs:
   test-gate:
@@ -13,27 +22,53 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js (.nvmrc)
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version-file: '.nvmrc'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify Contract Compilation & Zero Generated Drift
+      - name: Verify Contract Compilation & Zero Generated Drift (INV-ARCH-003)
         run: |
           bash scripts/compile-contracts.sh
           git diff --exit-code src/generated/
 
-      - name: Verify Traceability & Domain Purity (INV-ARCH-001 / INV-ARCH-002)
-        run: bash scripts/verify-traceability.sh
+      - name: Verify Traceability & Layer Purity (INV-ARCH-001 / INV-ARCH-002 / INV-ARCH-006)
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+        run: |
+          if [[ -n "$TASK_ID" ]]; then
+            bash scripts/verify-traceability.sh --task "$TASK_ID"
+          else
+            bash scripts/verify-traceability.sh
+          fi
 
       - name: Verify Test Oracles (Zero Weak Oracles)
         run: bash scripts/verify-oracles.sh
 
-      - name: Run Unit, Property-Based & Contract Integration Tests
-        run: npm test -- --run
+      - name: Setup Python for Semgrep
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-      - name: Run Mutation Testing Gate (Stryker)
-        run: npx stryker run tests/mutation/stryker.conf.json
+      - name: SAST (Semgrep fijado por versión; reglas en tests/security/sast-rules/)
+        run: |
+          python -m pip install "semgrep==${SEMGREP_VERSION}"
+          semgrep --version
+          if find tests/security/sast-rules -type f \( -name '*.yml' -o -name '*.yaml' \) | grep -q .; then
+            semgrep scan --config tests/security/sast-rules --error --metrics=off src/
+          else
+            echo "[SDD SAST] Sin reglas en tests/security/sast-rules/ (se crean en TASK-113); Semgrep instalado y sin análisis."
+          fi
+
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: Run Unit, Property-Based & Contract Integration Tests
+        run: npm test
+
+      - name: Run Mutation Testing Gate (Stryker, break 85)
+        run: npm run test:mutation
