@@ -1,11 +1,11 @@
 ---
 document_id: SPEC-ARGOS-001
-version: 2.2.0
+version: 2.2.1
 status: APPROVED
 feature: pet-health-tracker
-supersedes: 2.1.0
-change_type: MINOR
-approved_by: Andrés Vallejo, 2026-11-05
+supersedes: 2.2.0
+change_type: PATCH
+approved_by: Arquitecto, 2026-11-06, tras veredicto del Auditor sobre hash 1dc7d096… (delegación de Andrés, 2026-11-06; firma de v2.2.0: Andrés Vallejo, 2026-11-05)
 spec_review: .specify/checklists/spec-review.md (re-auditoría v2.2.0 pendiente de firma)
 contracts_ref:
   - contracts/schemas/identity.schema.json
@@ -21,7 +21,7 @@ contracts_ref:
   - contracts/examples/canonical-fixtures.json
 ---
 
-# Especificación Funcional: Argos Pet Health & Biometric Tracker (v2.2.0)
+# Especificación Funcional: Argos Pet Health & Biometric Tracker (v2.2.1)
 
 ## 0. Registro de cambios respecto a v1.0.0
 | Cambio | Detalle | IDs afectados |
@@ -31,6 +31,7 @@ contracts_ref:
 | Cuentas de usuario | Registro, login, logout y sesión. | Nuevos: `REQ-AUTH-*`, `INV-AUTH-*`, `STATE-AUTH-SESSION-001`, `ERR-AUTH-*` |
 | Propiedad y hogares | Cada mascota tiene dueño; hogares compartidos con invitación aceptada. | Nuevos: `REQ-HOUSE-*`, `INV-OWN-001`, `INV-ACC-*`, `INV-HOUSE-*`, `STATE-HOUSE-MEMBERSHIP-001`, `ERR-HOUSE-*`, `ERR-ACC-FORBIDDEN` |
 | **v2.2.0 (MINOR): resolución del reporte del Desarrollador (D-01…D-12) y defectos de contratos.** Visibilidad de hogar: un `INVITED` recibe `404` y el `OWNER` ve las membresías `INVITED` en `members` (D-01); `INV-AUTH-006` se verifica con espía sobre `PasswordHasherPort`, sin umbral temporal (D-02); búsqueda por `q` sin distinguir tildes (D-03); `LOGOUT` idempotente (D-04); re-invitación como evento `INVITE` con fila nueva (D-05); referencias de catálogo corregidas (D-09); `STATE-ALERT-001` sin estado inicial transitorio; esquemas explícitos para registros v1 del respaldo; `finalState` documentado como regla de la máquina de importación. | `INV-HOUSE-004`, `REQ-PET-005`, `INV-AUTH-006`, `REQ-AUTH-003`, `REQ-HOUSE-002`, `REQ-HOUSE-003`, `STATE-ALERT-001`, `STATE-BACKUP-001`, `STATE-AUTH-SESSION-001`, `STATE-HOUSE-MEMBERSHIP-001`, `ERR-AUTH-INVALID-CREDENTIALS`, `ERR-AUTH-CSRF-REJECTED`, §4, §5 |
+| **v2.2.1 (PATCH): aclaración de dos órdenes no fijados en v2.2.0.** Orden de `members` en la vista de hogar (D-106-6, `INV-HOUSE-004`) y orden de las comprobaciones de dominio de registros (D-107-2, §5.1 punto 5). Sin cambios de contrato ni de código: el comportamiento ya implementado en TASK-106/TASK-107 queda escrito. | `INV-HOUSE-004`, §5.1 |
 | Correcciones de auditoría | Regla de edad en fin de mes / 29-feb, `birthDate` vs. registros existentes, `createdAt` canónico, zona horaria, nombres de estados de backup alineados al contrato, `ERR-BACKUP-ATOMIC-ROLLBACK` documentado, propagación de errores de dominio en importación. | `REQ-PET-002`, `INV-PET-006`, `INV-SORT-001`, `STATE-BACKUP-001`, `INV-BACKUP-001` |
 | Respaldo por usuario | El respaldo exporta/importa solo los datos del usuario autenticado; sobre v2.0.0 con migración desde v1.0.0. | `REQ-BACKUP-001`, `REQ-BACKUP-002`, `INV-BACKUP-001` |
 | **v2.1.0 (MINOR): correcciones tras auditoría de contratos.** Precedencia de validación en frontera y mapa campo→código (C1); bloqueo de login con ventana deslizante, reinicio en éxito y tiempo uniforme (C2, anti-enumeración); `finalState: ROLLED_BACK` en todo error de importación que termina en rollback (C3; la máquina de backup se transcribe completa); `colorToken` solo en contexto de hogar (C4); una fila por invitación, `firstJoinedAt` y borrado físico de hogar (C5); redondeo de deltas (C13); edición y borrado de registros fuera de alcance. | `INV-AUTH-005`, `INV-AUTH-006` (nuevo), `INV-HOUSE-005`, `REQ-AUTH-002`, `REQ-HOUSE-003`, `REQ-HOUSE-004`, `REQ-HOUSE-005`, `REQ-REC-001`, `REQ-UI-002`, `REQ-UI-004`, `STATE-BACKUP-001`, `STATE-HOUSE-MEMBERSHIP-001`, §5.1 (nuevo), `ERR-HOUSE-MEMBERSHIP-NOT-FOUND` (nuevo) |
@@ -126,7 +127,7 @@ Todas las operaciones de escritura exigen que el usuario autenticado sea el due�
 | `INV-HOUSE-001` | Propietario Único del Hogar | Todo hogar tiene exactamente un miembro con rol `OWNER` y estado `ACTIVE` (su creador). | `ERR-HOUSE-OWNER-CANNOT-LEAVE` |
 | `INV-HOUSE-002` | Gestión Exclusiva del Propietario | Solo el `OWNER` invita, cancela invitaciones, retira miembros o elimina el hogar. | `ERR-ACC-FORBIDDEN` |
 | `INV-HOUSE-003` | Membresía Única | Por cada par (`householdId`, `userId`) existe a lo sumo una membresía en estado `INVITED` o `ACTIVE`. Invitar a un usuario inexistente falla. | `ERR-HOUSE-MEMBER-ALREADY-EXISTS` / `ERR-AUTH-USER-NOT-FOUND` |
-| `INV-HOUSE-004` | Visibilidad Solo por Membresía Activa | Un hogar y sus mascotas solo son visibles para miembros `ACTIVE`. Un invitado (`INVITED`) recibe `404` `ERR-HOUSE-NOT-FOUND` al leer el hogar o sus mascotas, sin datos del hogar. En `members` se devuelven solo membresías `ACTIVE`, salvo para el `OWNER`, que además recibe las `INVITED` (D-01). | `ERR-HOUSE-NOT-FOUND` |
+| `INV-HOUSE-004` | Visibilidad Solo por Membresía Activa | Un hogar y sus mascotas solo son visibles para miembros `ACTIVE`. Un invitado (`INVITED`) recibe `404` `ERR-HOUSE-NOT-FOUND` al leer el hogar o sus mascotas, sin datos del hogar. En `members` se devuelven solo membresías `ACTIVE`, salvo para el `OWNER`, que además recibe las `INVITED` (D-01). **Orden de `members` (D-106-6, v2.2.1):** primero las `ACTIVE`, en el orden de `INV-HOUSE-005` (`firstJoinedAt` ASC, `userId` ASC); después, solo para el `OWNER`, las `INVITED` por `invitedAt` ASC y `userId` ASC. | `ERR-HOUSE-NOT-FOUND` |
 | `INV-HOUSE-005` | Color Determinista de Dueño | `colorToken = OWNER_COLOR_{(i mod 8) + 1}` donde `i` es la posición (base 0) del dueño en la lista de miembros `ACTIVE` ordenada por `firstJoinedAt` ASC, `userId` ASC. Fuera de contexto de hogar, `colorToken = null`. | N/A |
 | `INV-REC-001` | Ventana Temporal de Eventos | `pet.birthDate <= eventDate <= ClockPort.todayIsoDate()`. | `ERR-REC-DATE-BEFORE-BIRTH` / `ERR-REC-FUTURE-EVENT-DATE` |
 | `INV-REC-002` | Rango de Peso | `0.05 <= weightKg <= 150.00`, máx. 2 decimales. | `ERR-REC-WEIGHT-OUT-OF-RANGE` |
@@ -186,6 +187,6 @@ Formalizados en `contracts/errors/error-catalog.json` v2.1.1 (RFC 9457):
 2. Sesión, si la ruta la exige → `ERR-AUTH-UNAUTHENTICATED` (401).
 3. Normalización de `username` (recortar espacios y pasar a minúsculas) antes de validar.
 4. Esquema formal. El alcance de `x-sdd-error` es el valor del campo anotado: un fallo de `type`, `minimum`, `maximum`, `multipleOf`, `pattern`, `minLength` o `maxLength` sobre ese campo devuelve el código anotado (p. ej. `weightKg` → `ERR-REC-WEIGHT-OUT-OF-RANGE`; `password` → `ERR-AUTH-WEAK-PASSWORD`). Un campo obligatorio ausente o una propiedad no autorizada (`additionalProperties: false`) devuelve `ERR-SCHEMA-VALIDATION-FAILED` (422), aunque el campo esté anotado. Cualquier otro fallo sin anotación devuelve también `ERR-SCHEMA-VALIDATION-FAILED`.
-5. Dominio: invariantes `INV-*` con sus códigos específicos.
+5. Dominio: invariantes `INV-*` con sus códigos específicos. **Orden entre invariantes de un mismo registro (D-107-2, v2.2.1):** (a) decimales máximos de `INV-REC-002` / `INV-REC-003`; (b) ventana temporal de `INV-REC-001` (`birthDate ≤ fecha del evento ≤ hoy`); (c) fecha siguiente de `INV-REC-004` / `INV-REC-005`. Si la petición incumple varias, se devuelve el primer fallo de esta lista.
 
 Si una misma petición incumple varias reglas, se devuelve el primer fallo en este orden. Todo error devuelto durante una importación que termina en `ROLLED_BACK` incluye `finalState: "ROLLED_BACK"` en el problema, sea `ERR-BACKUP-*`, `ERR-PET-*`, `ERR-REC-*` o `ERR-SCHEMA-VALIDATION-FAILED`. La definición única de `ProblemDetails` está en `contracts/schemas/common.schema.json#/$defs/ProblemDetails`; `error-catalog.json` la referencia. Durante una importación de respaldo la anotación `x-sdd-error` no se aplica: cualquier fallo de esquema del sobre devuelve `ERR-BACKUP-SCHEMA-INVALID` (manda `STATE-BACKUP-001`).

@@ -27,3 +27,28 @@ Ninguna especificación en `.specify/specs/` puede pasar a `APPROVED` ni habilit
 - [x] **8. Migración para cambios MAJOR.** El fixture `validLegacyBackupEnvelopeV1` pasa contra `BackupEnvelopeV1Legacy` con 0 errores, y un campo extra sí se rechaza (control negativo). Validación hecha con draft-07 por el Auditor; la confirmación 2020-12 queda cubierta por el criterio 3.
 
 **Resultado:** 8 de 8 criterios cumplidos. La spec queda lista para `APPROVED` en cuanto Andrés confirme la firma en `human_signature`. Este checklist no firma por Andrés.
+
+## Auditoría de `SPEC-ARGOS-001` v2.2.1 (PATCH), veredicto del Auditor 2026-11-06
+
+Spec verificada en disco: `.specify/specs/pet-health-tracker.md`, SHA-256 `8c264a03072f3d443a6caf4c6ed59e93b1e5e2cf9a45cdd276e36f5c6ec88825`, sin commit (`M` frente a HEAD `56f0ac6`).
+
+- [x] **i. D-106-6 coincide con `householdView`.** `members` = `ACTIVE` ordenados por `firstJoinedAt` ASC, `userId` ASC; después, solo para el OWNER, `INVITED` por `invitedAt` ASC, `userId` ASC. *Verificado en `src/domain/households/household-policies.ts`, líneas 336–362 y 301–305.*
+- [x] **ii. D-107-2 coincide con `assertDomainRules`.** Orden: (a) decimales, (b) ventana temporal, (c) fecha siguiente. *Verificado en `src/domain/records/record-invariants.ts`, líneas 183–198.*
+- [x] **iii. Sin cambios en contratos ni en `src/`.** `git diff --stat HEAD -- contracts src tests scripts` vacío. El único archivo modificado es la spec.
+- [ ] **iv. Cabecera e historial.** El historial (fila v2.2.1) y el front matter (`version: 2.2.1`, `status: REVIEW`, `change_type: PATCH`, `supersedes: 2.2.0`) son correctos. **Pendiente: la línea 24 sigue diciendo `(v2.2.0)` en el título.** El Arquitecto la corrige a `(v2.2.1)` antes de pasar a `APPROVED`. Falta además una justificación SemVer para 2.2.1, opcional.
+
+**Veredicto: 3 de 4 criterios cumplidos. Corrección menor pendiente en la línea 24.** Tras corregirla, el Auditor vuelve a verificar el hash. Esta sección no firma ni aprueba nada: el paso a `APPROVED` lo decide el Arquitecto.
+
+### Addendum del Auditor, 2026-11-06 (hash nuevo)
+
+Spec verificada en disco: SHA-256 `1dc7d096d5d353fea8999d1dc090ea4b4fad56fd76c0cd6ce0921ea20bab26d7`. El cambio desde la versión anterior (`8c264a03…`) es solo la línea 24: `(v2.2.0)` → `(v2.2.1)`. Diff frente a HEAD: 9 inserciones, 8 eliminaciones, con los mismos hunks que antes más el de la línea 24. `contracts/`, `src/`, `tests/` y `scripts/` sin cambios.
+
+- [x] **iv. Cabecera e historial.** Corregido. Título, front matter e historial coherentes con 2.2.1.
+
+**Veredicto: 4 de 4 criterios cumplidos** para el hash `1dc7d096…`. Esta sección no aprueba: el paso a `APPROVED` lo decide el Arquitecto.
+
+### Addendum del Auditor, 2026-11-06 (hash final, APPROVED)
+
+Spec verificada en disco: SHA-256 `135a67c72dccbe5338ae4c672a109c5d886251daada4ec1e24bd98543bbfad29`. Respecto del hash validado `1dc7d096…`, solo cambian el front matter (`status` y `approved_by`). El cuerpo es idéntico: título (línea 24), historial, `INV-HOUSE-004`, §5.1 punto 5 y resto del contenido. Diff frente a HEAD: 8 inserciones, 7 eliminaciones. `status: APPROVED` coincide con HEAD; el cambio de estado respecto a la versión de trabajo es lo que hizo el Arquitecto.
+
+**Veredicto final: 4 de 4 criterios cumplidos** para el hash `135a67c7…`. El paso a `APPROVED` lo ejecuta el Arquitecto; el Auditor no aprueba.
