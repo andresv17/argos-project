@@ -563,7 +563,7 @@ export interface components {
         /** @description Normalizado a minúsculas antes de validar; único [INV-AUTH-001] */
         Username: string;
         NonEmptyTrimmedString: string;
-        DisplayName: components["schemas"]["NonEmptyTrimmedString"];
+        DisplayName: string & components["schemas"]["NonEmptyTrimmedString"];
         /** @description Solo en entradas; nunca en salidas [INV-AUTH-002, INV-AUTH-003] */
         Password: string & (unknown & unknown);
         RegisterUserInput: {
@@ -611,9 +611,9 @@ export interface components {
             id: components["schemas"]["Uuid"];
             /** @description Usuario dueño; inmutable vía API [INV-OWN-001] */
             ownerUserId: components["schemas"]["Uuid"];
-            name: components["schemas"]["NonEmptyTrimmedString"];
+            name: string & components["schemas"]["NonEmptyTrimmedString"];
             species: components["schemas"]["Species"];
-            breed: components["schemas"]["NonEmptyTrimmedString"];
+            breed: string & components["schemas"]["NonEmptyTrimmedString"];
             /** @description <= ClockPort.todayIsoDate() [INV-PET-002] y <= fecha del registro más antiguo [INV-PET-006] */
             birthDate: components["schemas"]["IsoDate"];
             sex: components["schemas"]["Sex"];
@@ -633,18 +633,18 @@ export interface components {
                     totalDays: number;
                 };
                 CreatePetInput: {
-                    name: components["schemas"]["NonEmptyTrimmedString"];
+                    name: string & components["schemas"]["NonEmptyTrimmedString"];
                     species: components["schemas"]["Species"];
-                    breed: components["schemas"]["NonEmptyTrimmedString"];
+                    breed: string & components["schemas"]["NonEmptyTrimmedString"];
                     birthDate: components["schemas"]["IsoDate"];
                     sex: components["schemas"]["Sex"];
                     avatarUrl?: string | null;
                 };
                 /** @description ownerUserId e id no son editables [INV-OWN-001] */
                 UpdatePetInput: {
-                    name?: components["schemas"]["NonEmptyTrimmedString"];
+                    name?: string & components["schemas"]["NonEmptyTrimmedString"];
                     species?: components["schemas"]["Species"];
-                    breed?: components["schemas"]["NonEmptyTrimmedString"];
+                    breed?: string & components["schemas"]["NonEmptyTrimmedString"];
                     birthDate?: components["schemas"]["IsoDate"];
                     sex?: components["schemas"]["Sex"];
                     avatarUrl?: string | null;
@@ -670,18 +670,18 @@ export interface components {
             totalDays: number;
         };
         CreatePetInput: {
-            name: components["schemas"]["NonEmptyTrimmedString"];
+            name: string & components["schemas"]["NonEmptyTrimmedString"];
             species: components["schemas"]["Species"];
-            breed: components["schemas"]["NonEmptyTrimmedString"];
+            breed: string & components["schemas"]["NonEmptyTrimmedString"];
             birthDate: components["schemas"]["IsoDate"];
             sex: components["schemas"]["Sex"];
             avatarUrl?: string | null;
         };
         /** @description ownerUserId e id no son editables [INV-OWN-001] */
         UpdatePetInput: {
-            name?: components["schemas"]["NonEmptyTrimmedString"];
+            name?: string & components["schemas"]["NonEmptyTrimmedString"];
             species?: components["schemas"]["Species"];
-            breed?: components["schemas"]["NonEmptyTrimmedString"];
+            breed?: string & components["schemas"]["NonEmptyTrimmedString"];
             birthDate?: components["schemas"]["IsoDate"];
             sex?: components["schemas"]["Sex"];
             avatarUrl?: string | null;
@@ -710,7 +710,7 @@ export interface components {
         VaccinationRecord: {
             id: components["schemas"]["Uuid"];
             petId: components["schemas"]["Uuid"];
-            vaccineName: components["schemas"]["NonEmptyTrimmedString"];
+            vaccineName: string & components["schemas"]["NonEmptyTrimmedString"];
             appliedAt: components["schemas"]["IsoDate"];
             /** @description > appliedAt [INV-REC-004] */
             nextBoosterAt: components["schemas"]["IsoDate"];
@@ -723,7 +723,7 @@ export interface components {
         DewormingRecord: {
             id: components["schemas"]["Uuid"];
             petId: components["schemas"]["Uuid"];
-            productBrand: components["schemas"]["NonEmptyTrimmedString"];
+            productBrand: string & components["schemas"]["NonEmptyTrimmedString"];
             /** @enum {string} */
             dewormingType: "INTERNAL" | "EXTERNAL";
             appliedAt: components["schemas"]["IsoDate"];
@@ -736,10 +736,10 @@ export interface components {
             id: components["schemas"]["Uuid"];
             petId: components["schemas"]["Uuid"];
             visitDate: components["schemas"]["IsoDate"];
-            reason: components["schemas"]["NonEmptyTrimmedString"];
-            diagnosis: components["schemas"]["NonEmptyTrimmedString"];
-            treatment: components["schemas"]["NonEmptyTrimmedString"];
-            clinicOrVet: components["schemas"]["NonEmptyTrimmedString"];
+            reason: string & components["schemas"]["NonEmptyTrimmedString"];
+            diagnosis: string & components["schemas"]["NonEmptyTrimmedString"];
+            treatment: string & components["schemas"]["NonEmptyTrimmedString"];
+            clinicOrVet: string & components["schemas"]["NonEmptyTrimmedString"];
             observations: components["schemas"]["OptionalNotes"];
             createdAt: components["schemas"]["IsoTimestamp"];
         };
@@ -749,8 +749,8 @@ export interface components {
             recordedAt: components["schemas"]["IsoDate"];
             /** @enum {string} */
             category: "DIET_CHANGE" | "ALLERGY" | "SURGERY" | "BEHAVIOR" | "OTHER";
-            title: components["schemas"]["NonEmptyTrimmedString"];
-            description: components["schemas"]["NonEmptyTrimmedString"];
+            title: string & components["schemas"]["NonEmptyTrimmedString"];
+            description: string & components["schemas"]["NonEmptyTrimmedString"];
             notes: components["schemas"]["OptionalNotes"];
             createdAt: components["schemas"]["IsoTimestamp"];
         };
@@ -772,7 +772,7 @@ export interface components {
         };
         /** @description petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort */
         CreateVaccinationInput: {
-            vaccineName: components["schemas"]["NonEmptyTrimmedString"];
+            vaccineName: string & components["schemas"]["NonEmptyTrimmedString"];
             appliedAt: components["schemas"]["IsoDate"];
             /** @description > appliedAt [INV-REC-004] */
             nextBoosterAt: components["schemas"]["IsoDate"];
@@ -781,7 +781,7 @@ export interface components {
         };
         /** @description petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort */
         CreateDewormingInput: {
-            productBrand: components["schemas"]["NonEmptyTrimmedString"];
+            productBrand: string & components["schemas"]["NonEmptyTrimmedString"];
             /** @enum {string} */
             dewormingType: "INTERNAL" | "EXTERNAL";
             appliedAt: components["schemas"]["IsoDate"];
@@ -792,10 +792,10 @@ export interface components {
         /** @description petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort */
         CreateMedicalVisitInput: {
             visitDate: components["schemas"]["IsoDate"];
-            reason: components["schemas"]["NonEmptyTrimmedString"];
-            diagnosis: components["schemas"]["NonEmptyTrimmedString"];
-            treatment: components["schemas"]["NonEmptyTrimmedString"];
-            clinicOrVet: components["schemas"]["NonEmptyTrimmedString"];
+            reason: string & components["schemas"]["NonEmptyTrimmedString"];
+            diagnosis: string & components["schemas"]["NonEmptyTrimmedString"];
+            treatment: string & components["schemas"]["NonEmptyTrimmedString"];
+            clinicOrVet: string & components["schemas"]["NonEmptyTrimmedString"];
             observations?: components["schemas"]["OptionalNotes"];
         };
         /** @description petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort */
@@ -803,13 +803,13 @@ export interface components {
             recordedAt: components["schemas"]["IsoDate"];
             /** @enum {string} */
             category: "DIET_CHANGE" | "ALLERGY" | "SURGERY" | "BEHAVIOR" | "OTHER";
-            title: components["schemas"]["NonEmptyTrimmedString"];
-            description: components["schemas"]["NonEmptyTrimmedString"];
+            title: string & components["schemas"]["NonEmptyTrimmedString"];
+            description: string & components["schemas"]["NonEmptyTrimmedString"];
             notes?: components["schemas"]["OptionalNotes"];
         };
         Household: {
             id: components["schemas"]["Uuid"];
-            name: components["schemas"]["NonEmptyTrimmedString"];
+            name: string & components["schemas"]["NonEmptyTrimmedString"];
             ownerUserId: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["IsoTimestamp"];
         };
@@ -837,7 +837,7 @@ export interface components {
             updatedAt: components["schemas"]["IsoTimestamp"];
         };
         CreateHouseholdInput: {
-            name: components["schemas"]["NonEmptyTrimmedString"];
+            name: string & components["schemas"]["NonEmptyTrimmedString"];
         };
         InviteMemberInput: {
             username: components["schemas"]["Username"];

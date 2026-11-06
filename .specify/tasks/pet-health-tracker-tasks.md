@@ -60,6 +60,6 @@ Aceptada por Andrés al dejar TASK-102 en `REVIEW`. Origen: código y pruebas v1
 | ID | Tarea | Criterio original | Cambio | Motivo | Decide |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | CC-102-D3 | TASK-102 | "Validadores `.js` con `.d.ts`" | Validadores generados como `src/generated/schemas/validators.cjs` con `validators.d.cts` | `package.json` declara `"type": "module"`; el código standalone de Ajv es CommonJS y un `.js` se interpretaría como ESM y fallaría. Los consumidores importan igual desde `src/generated/index.ts`. | Desarrollador, a petición del Auditor (2026-11-05) |
-| CC-102-D1 | TASK-102 | Ajv en modo estricto | `strictTypes: false`; el resto del modo estricto sigue activo | `pet.schema.json` (`name`, `breed`) combina `allOf:[{$ref}]` con `maxLength` sin `type` local; el tipo lo aporta el `$ref`. Se evita tocar `contracts/`. Alcance: solo desactiva la regla `strictTypes`. | Desarrollador, a petición del Auditor (2026-11-05) |
+| CC-102-D1 | TASK-102 | Ajv en modo estricto (criterio original del Desarrollador: `strictTypes: false`) | **RECHAZADA** por el Arquitecto (2026-11-05). Se mantiene `strictTypes: true` en `scripts/codegen.mjs`, que es lo que corre. Los contratos declaran `"type": "string"` local junto a `maxLength` en `pet` 2.0.2, `backup-envelope` 2.1.1, `identity` 2.1.1 y `medical-records` 2.1.1. | El tipo ya no depende del `$ref`. | Arquitecto (2026-11-05): rechazada, `strictTypes: true` queda como estado final. |
 
-Revisión: si el Arquitecto prefiere corregir el contrato (añadir `type: "string"` local en `name` y `breed`), D1 se revierte volviendo a `strictTypes: true` en `scripts/codegen.mjs`.
+Estado: revertida. `strictTypes: true` en `scripts/codegen.mjs`, aprobado como estado final por el Arquitecto (2026-11-05).

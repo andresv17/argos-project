@@ -4,9 +4,9 @@
   "title": "MedicalRecordsSchema",
   "description": "6 módulos de registro histórico [REQ-REC-001..006, INV-REC-001..006]",
   "x-sdd-metadata": {
-    "version": "2.1.0",
-    "status": "LOCKED",
-    "supersedes": "2.0.0",
+    "version": "2.1.1",
+    "status": "REVIEW",
+    "supersedes": "2.1.0",
     "traceability": [
       "REQ-REC-001",
       "REQ-REC-002",
@@ -226,6 +226,7 @@
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
         },
         "vaccineName": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -269,6 +270,7 @@
       ],
       "properties": {
         "vaccineName": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -321,6 +323,7 @@
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
         },
         "productBrand": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -365,6 +368,7 @@
       ],
       "properties": {
         "productBrand": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -421,6 +425,7 @@
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
         },
         "reason": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -429,6 +434,7 @@
           "maxLength": 200
         },
         "diagnosis": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -437,6 +443,7 @@
           "maxLength": 500
         },
         "treatment": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -445,6 +452,7 @@
           "maxLength": 500
         },
         "clinicOrVet": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -475,6 +483,7 @@
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
         },
         "reason": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -483,6 +492,7 @@
           "maxLength": 200
         },
         "diagnosis": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -491,6 +501,7 @@
           "maxLength": 500
         },
         "treatment": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -499,6 +510,7 @@
           "maxLength": 500
         },
         "clinicOrVet": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -546,6 +558,7 @@
           ]
         },
         "title": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -554,6 +567,7 @@
           "maxLength": 120
         },
         "description": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -593,6 +607,7 @@
           ]
         },
         "title": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -601,6 +616,7 @@
           "maxLength": 120
         },
         "description": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"

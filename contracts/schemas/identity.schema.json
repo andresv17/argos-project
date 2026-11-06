@@ -4,8 +4,8 @@
   "title": "IdentitySchema",
   "description": "Usuarios, sesiones y hogares compartidos [REQ-AUTH-*, REQ-HOUSE-*]",
   "x-sdd-metadata": {
-    "version": "2.1.0",
-    "status": "LOCKED",
+    "version": "2.1.1",
+    "status": "REVIEW",
     "traceability": [
       "REQ-AUTH-001",
       "REQ-AUTH-002",
@@ -26,7 +26,7 @@
       "STATE-AUTH-SESSION-001",
       "STATE-HOUSE-MEMBERSHIP-001"
     ],
-    "supersedes": "2.0.0",
+    "supersedes": "2.1.0",
     "change_type": "MINOR"
   },
   "$defs": {
@@ -38,6 +38,7 @@
       "description": "Normalizado a minúsculas antes de validar; único [INV-AUTH-001]"
     },
     "DisplayName": {
+      "type": "string",
       "allOf": [
         {
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -177,6 +178,7 @@
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
         },
         "name": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -280,6 +282,7 @@
       ],
       "properties": {
         "name": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"

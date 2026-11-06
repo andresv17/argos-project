@@ -135,11 +135,11 @@ const openapiDoc = parseYaml(readFileSync(openapiPath, 'utf8'));
 // ---------------------------------------------------------------------------
 // 2. Ajv standalone (todos los esquemas registrados por $id antes de compilar)
 // ---------------------------------------------------------------------------
-// strictTypes desactivado: los contratos combinan allOf:[{$ref}] con maxLength sin "type" local;
-// el tipo lo aporta el $ref. El resto del modo estricto (palabras desconocidas, tuplas) sigue activo.
+// strictTypes: true (explícito). Los contratos de TASK-102 declaran "type" local junto a maxLength;
+// no se desactiva la validación estricta de tipos. Ver CC-102-D1 (revertido).
 const ajv = new Ajv2020({
   strict: true,
-  strictTypes: false,
+  strictTypes: true,
   allowUnionTypes: true,
   allErrors: true,
   multipleOfPrecision: 2,

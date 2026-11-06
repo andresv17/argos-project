@@ -4,9 +4,9 @@
   "title": "PetProfileSchema",
   "description": "Perfil de mascota con dueño; sin cupo de cantidad ni de especie [REQ-PET-001..005, INV-OWN-001]",
   "x-sdd-metadata": {
-    "version": "2.0.1",
+    "version": "2.0.2",
     "status": "REVIEW",
-    "supersedes": "2.0.0",
+    "supersedes": "2.0.1",
     "change_type": "PATCH",
     "change_note": "PATCH: sin cambios estructurales; entra en la misma revisión de v2.2.0 (H-04).",
     "traceability": [
@@ -48,6 +48,7 @@
       "description": "Usuario dueño; inmutable vía API [INV-OWN-001]"
     },
     "name": {
+      "type": "string",
       "allOf": [
         {
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -59,6 +60,7 @@
       "$ref": "#/$defs/Species"
     },
     "breed": {
+      "type": "string",
       "allOf": [
         {
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -145,6 +147,7 @@
       ],
       "properties": {
         "name": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -156,6 +159,7 @@
           "$ref": "#/$defs/Species"
         },
         "breed": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -185,6 +189,7 @@
       "minProperties": 1,
       "properties": {
         "name": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
@@ -196,6 +201,7 @@
           "$ref": "#/$defs/Species"
         },
         "breed": {
+          "type": "string",
           "allOf": [
             {
               "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
