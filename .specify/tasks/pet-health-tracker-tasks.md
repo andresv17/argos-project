@@ -54,3 +54,12 @@ Aceptada por Andrés al dejar TASK-102 en `REVIEW`. Origen: código y pruebas v1
 | DEUDA-TSC-001 | 83 errores de `tsc --noEmit` en código v1: `src/application` 22, `src/domain` 21, `src/presentation` 17, `tests/integration` 10, `src/infrastructure` 7, `tests/unit` 6. 0 en `src/generated`. | `claude/evidencia-task-102-2026-11-05.md` §4 y §12 | Dominio: TASK-104 y TASK-105. Aplicación e infraestructura: TASK-106 y siguientes. Presentación (17): TASK-112. | `tsc --noEmit` en 0 al cerrar TASK-106 para `src/domain`, `src/application` y `tests/`; global al cerrar TASK-112 |
 | DEUDA-TEST-001 | `npm test`: 27 fallos de 44 (8 de 11 archivos), por los mismos símbolos y fixtures v1. | ídem §6 y §12 | TASK-104 (fechas, orden), TASK-105 (mascotas, alertas), TASK-106 en adelante (casos de uso y respaldo) | Suite en verde al cerrar TASK-106 |
 | DEUDA-GATE-001 | `npm run test:gate` falla en el paso `tsc --noEmit`; `vitest run` queda sin ejecutar dentro del gate. Los pasos compile, trazabilidad y oráculos pasan. | ídem §12 | Se cierra al cerrar DEUDA-TSC-001 y DEUDA-TEST-001; `verify-*.sh` se rehacen en TASK-103 | Al cerrar TASK-112 |
+
+## Cambios de criterio registrados (2026-11-05)
+
+| ID | Tarea | Criterio original | Cambio | Motivo | Decide |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| CC-102-D3 | TASK-102 | "Validadores `.js` con `.d.ts`" | Validadores generados como `src/generated/schemas/validators.cjs` con `validators.d.cts` | `package.json` declara `"type": "module"`; el código standalone de Ajv es CommonJS y un `.js` se interpretaría como ESM y fallaría. Los consumidores importan igual desde `src/generated/index.ts`. | Desarrollador, a petición del Auditor (2026-11-05) |
+| CC-102-D1 | TASK-102 | Ajv en modo estricto | `strictTypes: false`; el resto del modo estricto sigue activo | `pet.schema.json` (`name`, `breed`) combina `allOf:[{$ref}]` con `maxLength` sin `type` local; el tipo lo aporta el `$ref`. Se evita tocar `contracts/`. Alcance: solo desactiva la regla `strictTypes`. | Desarrollador, a petición del Auditor (2026-11-05) |
+
+Revisión: si el Arquitecto prefiere corregir el contrato (añadir `type: "string"` local en `name` y `breed`), D1 se revierte volviendo a `strictTypes: true` en `scripts/codegen.mjs`.
