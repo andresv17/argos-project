@@ -1,11 +1,11 @@
 ---
 document_id: SPEC-ARGOS-001
 version: 2.3.0
-status: REVIEW
+status: APPROVED
 feature: pet-health-tracker
 supersedes: 2.2.1
 change_type: MINOR
-approved_by: Arquitecto, 2026-11-06 (v2.2.1 APPROVED; v2.3.0 en REVIEW, pendiente de validación del Auditor; delegación de Andrés, 2026-11-06; firma de v2.2.0: Andrés Vallejo, 2026-11-05)
+approved_by: Arquitecto, 2026-11-06 (v2.3.0 APPROVED tras validación por hash 18a004a6… del Auditor, sobre el mismo contenido; único cambio posterior: línea `status`; delegación de Andrés, 2026-11-06; firma de v2.2.0: Andrés Vallejo, 2026-11-05)
 spec_review: .specify/checklists/spec-review.md (re-auditoría v2.2.0 pendiente de firma)
 contracts_ref:
   - contracts/schemas/identity.schema.json
