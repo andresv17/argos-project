@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-BACKUP-001",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "status": "REVIEW",
   "x-sdd-metadata": {
-    "version": "2.1.0",
+    "version": "2.2.0",
     "status": "REVIEW",
-    "supersedes": "2.0.0",
+    "supersedes": "2.1.0",
     "change_type": "MINOR",
     "traceability": [
       "STATE-BACKUP-001",
@@ -74,6 +74,10 @@
             "ORPHAN_DUPLICATE_OR_FOREIGN_ID": {
               "target": "ROLLED_BACK",
               "error": "ERR-BACKUP-REFERENTIAL-INTEGRITY"
+            },
+            "STORAGE_READ_FAILED": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-INTERNAL-UNEXPECTED"
             },
             "DOMAIN_INVARIANT_VIOLATED": {
               "target": "ROLLED_BACK",
