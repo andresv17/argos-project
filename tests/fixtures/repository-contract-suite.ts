@@ -189,6 +189,21 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       expect(after).toEqual([{ weights: [], bodyMeasurements: [], vaccinations: [], dewormings: [], medicalVisits: [], customParameters: [] }, 1]);
     });
 
+    it('[INV-ARCH-005][INV-BACKUP-001] registros: findPetIdOfRecord devuelve el petId del registro en cualquiera de los 6 módulos y null si no existe', async () => {
+      const uow = createUnitOfWork();
+      await seed(uow, async (r) => {
+        for (const module of Object.keys(envelope.records) as Array<keyof typeof envelope.records>) {
+          for (const record of envelope.records[module]) await r.records.add(module, record as never);
+        }
+      });
+      const all = Object.values(envelope.records).flat() as Array<{ id: string; petId: string }>;
+      const found = await read(uow, async (r) => Promise.all(all.map((x) => r.records.findPetIdOfRecord(x.id))));
+      expect(found).toEqual(all.map((x) => x.petId));
+      expect(await read(uow, (r) => r.records.findPetIdOfRecord(ARGOS.id))).toBe(null);
+      await seed(uow, (r) => r.records.deleteForPet(ARGOS.id));
+      expect(await read(uow, (r) => r.records.findPetIdOfRecord(envelope.records.weights[0]!.id))).toBe(null);
+    });
+
     it('[INV-ARCH-005] hogares: membresías por hogar y por usuarios, saveMembership reemplaza por membershipId y deleteWithMemberships borra ambos', async () => {
       const uow = createUnitOfWork();
       const other = { ...HOUSEHOLD, id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb02', name: 'Otro' };

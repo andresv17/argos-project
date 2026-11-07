@@ -124,6 +124,13 @@ function recordRepository(state: MemoryState): MedicalRecordRepositoryPort {
       }
       return result;
     },
+    async findPetIdOfRecord(recordId) {
+      for (const module of RECORD_MODULE_NAMES) {
+        const found = (state.records[module] as Array<{ id: string; petId: string }>).find((r) => r.id === recordId);
+        if (found !== undefined) return found.petId;
+      }
+      return null;
+    },
     async add<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const collection = state.records[module] as Array<RecordOf<M>>;
       if (collection.some((r) => r.id === record.id)) {

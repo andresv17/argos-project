@@ -49,6 +49,11 @@ export interface PetRepositoryPort {
 export interface MedicalRecordRepositoryPort {
   /** Las 6 colecciones de la mascota; vacías si no tiene registros. */
   listForPet(petId: string): Promise<PetRecordCollections>;
+  /**
+   * petId del registro con ese id en cualquiera de los 6 módulos, o null si no existe. Lo usa la importación de
+   * respaldo para detectar IDs de registro que pertenecen a otro usuario (INV-BACKUP-001, TASK-109).
+   */
+  findPetIdOfRecord(recordId: string): Promise<string | null>;
   /** Falla si el id ya existe en el módulo. */
   add<M extends RecordModule>(module: M, record: RecordOf<M>): Promise<void>;
   deleteForPet(petId: string): Promise<void>;

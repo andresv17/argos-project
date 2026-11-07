@@ -12,12 +12,12 @@ import type {
   DewormingRecord,
   MedicalVisitRecord,
   CustomParameterRecord,
-  BackupRecordsCollection,
+  BackupEnvelopeV2,
 } from '../../generated/index.ts';
 
 export interface DatabaseSnapshot {
   readonly pets: readonly PetProfile[];
-  readonly records: BackupRecordsCollection;
+  readonly records: BackupEnvelopeV2['records'];
 }
 
 export interface StorageRepositoryPort {
