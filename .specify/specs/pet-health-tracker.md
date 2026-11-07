@@ -21,7 +21,7 @@ contracts_ref:
   - contracts/examples/canonical-fixtures.json
 ---
 
-# Especificación Funcional: Argos Pet Health & Biometric Tracker (v2.2.1)
+# Especificación Funcional: Argos Pet Health & Biometric Tracker (v2.2.2)
 
 ## 0. Registro de cambios respecto a v1.0.0
 | Cambio | Detalle | IDs afectados |
