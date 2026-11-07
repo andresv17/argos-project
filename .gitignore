@@ -16,6 +16,10 @@ test-results/
 playwright-report/
 blob-report/
 
+# Temporales de Vite y carpeta de archivos pendientes de borrar (CC-109-C7)
+vite.config.ts.timestamp-*.mjs
+_to_delete/
+
 # Sistema operativo y editores
 .DS_Store
 Thumbs.db
