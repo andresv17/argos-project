@@ -1,11 +1,11 @@
 ---
 document_id: SPEC-ARGOS-001
-version: 2.3.0
+version: 2.3.1
 status: APPROVED
 feature: pet-health-tracker
-supersedes: 2.2.1
-change_type: MINOR
-approved_by: Arquitecto, 2026-11-06 (v2.3.0 APPROVED tras validación por hash 18a004a6… del Auditor, sobre el mismo contenido; único cambio posterior: línea `status`; delegación de Andrés, 2026-11-06; firma de v2.2.0: Andrés Vallejo, 2026-11-05)
+supersedes: 2.3.0
+change_type: PATCH
+approved_by: Arquitecto, 2026-11-09 (v2.3.1 APPROVED tras validación por hash b016da99… del Auditor, sobre el mismo contenido; únicos cambios posteriores: líneas `status` y `approved_by`). Anterior: Arquitecto, 2026-11-06 (v2.3.0 APPROVED tras validación por hash 18a004a6… del Auditor, sobre el mismo contenido; único cambio posterior: línea `status`; delegación de Andrés, 2026-11-06; firma de v2.2.0: Andrés Vallejo, 2026-11-05)
 spec_review: .specify/checklists/spec-review.md (re-auditoría v2.2.0 pendiente de firma)
 contracts_ref:
   - contracts/schemas/identity.schema.json
@@ -21,7 +21,7 @@ contracts_ref:
   - contracts/examples/canonical-fixtures.json
 ---
 
-# Especificación Funcional: Argos Pet Health & Biometric Tracker (v2.3.0)
+# Especificación Funcional: Argos Pet Health & Biometric Tracker (v2.3.1)
 
 ## 0. Registro de cambios respecto a v1.0.0
 | Cambio | Detalle | IDs afectados |
@@ -33,6 +33,7 @@ contracts_ref:
 | **v2.2.0 (MINOR): resolución del reporte del Desarrollador (D-01…D-12) y defectos de contratos.** Visibilidad de hogar: un `INVITED` recibe `404` y el `OWNER` ve las membresías `INVITED` en `members` (D-01); `INV-AUTH-006` se verifica con espía sobre `PasswordHasherPort`, sin umbral temporal (D-02); búsqueda por `q` sin distinguir tildes (D-03); `LOGOUT` idempotente (D-04); re-invitación como evento `INVITE` con fila nueva (D-05); referencias de catálogo corregidas (D-09); `STATE-ALERT-001` sin estado inicial transitorio; esquemas explícitos para registros v1 del respaldo; `finalState` documentado como regla de la máquina de importación. | `INV-HOUSE-004`, `REQ-PET-005`, `INV-AUTH-006`, `REQ-AUTH-003`, `REQ-HOUSE-002`, `REQ-HOUSE-003`, `STATE-ALERT-001`, `STATE-BACKUP-001`, `STATE-AUTH-SESSION-001`, `STATE-HOUSE-MEMBERSHIP-001`, `ERR-AUTH-INVALID-CREDENTIALS`, `ERR-AUTH-CSRF-REJECTED`, §4, §5 |
 | **v2.2.1 (PATCH): aclaración de dos órdenes no fijados en v2.2.0.** Orden de `members` en la vista de hogar (D-106-6, `INV-HOUSE-004`) y orden de las comprobaciones de dominio de registros (D-107-2, §5.1 punto 5). Sin cambios de contrato ni de código: el comportamiento ya implementado en TASK-106/TASK-107 queda escrito. | `INV-HOUSE-004`, §5.1 |
 | **v2.3.0 (MINOR): reglas de importación de respaldo no fijadas en v2.2.1.** `schemaVersion` ausente o raíz que no es objeto (C-4); unicidad de IDs en todo el sobre y orden de comprobaciones (D-109-1, D-109-2); límite en bytes UTF-8 y normalización de la migración v1 (D-109-3, D-109-5). Sin cambios en los datos del contrato. La máquina `STATE-BACKUP-001` gana un evento de fallo de lectura en `CHECKING_DOMAIN_INVARIANTS` (contrato 2.2.0, ver CC-109-C5). | `INV-BACKUP-001`, `REQ-BACKUP-002`, `ERR-BACKUP-VERSION-UNSUPPORTED`, `STATE-BACKUP-001` |
+| **v2.3.1 (PATCH): precedencia del acceso por recurso escrita en §5.1 (D-108-4, DEUDA-CONTRATO-001 b).** Tras la sesión y antes del esquema del cuerpo, en mascotas (incluidos PATCH y DELETE), registros e invitaciones: `404` si el recurso no existe o no es visible, y después `403` si no hay permiso. Sin cambios de comportamiento. Acompaña al contrato OpenAPI 2.3.0 (MINOR), que declara las respuestas 422, 500 y 403 CSRF que la API ya produce. | §5.1, `contracts/openapi/pet-tracker-api.openapi.yaml` |
 | Correcciones de auditoría | Regla de edad en fin de mes / 29-feb, `birthDate` vs. registros existentes, `createdAt` canónico, zona horaria, nombres de estados de backup alineados al contrato, `ERR-BACKUP-ATOMIC-ROLLBACK` documentado, propagación de errores de dominio en importación. | `REQ-PET-002`, `INV-PET-006`, `INV-SORT-001`, `STATE-BACKUP-001`, `INV-BACKUP-001` |
 | Respaldo por usuario | El respaldo exporta/importa solo los datos del usuario autenticado; sobre v2.0.0 con migración desde v1.0.0. | `REQ-BACKUP-001`, `REQ-BACKUP-002`, `INV-BACKUP-001` |
 | **v2.1.0 (MINOR): correcciones tras auditoría de contratos.** Precedencia de validación en frontera y mapa campo→código (C1); bloqueo de login con ventana deslizante, reinicio en éxito y tiempo uniforme (C2, anti-enumeración); `finalState: ROLLED_BACK` en todo error de importación que termina en rollback (C3; la máquina de backup se transcribe completa); `colorToken` solo en contexto de hogar (C4); una fila por invitación, `firstJoinedAt` y borrado físico de hogar (C5); redondeo de deltas (C13); edición y borrado de registros fuera de alcance. | `INV-AUTH-005`, `INV-AUTH-006` (nuevo), `INV-HOUSE-005`, `REQ-AUTH-002`, `REQ-HOUSE-003`, `REQ-HOUSE-004`, `REQ-HOUSE-005`, `REQ-REC-001`, `REQ-UI-002`, `REQ-UI-004`, `STATE-BACKUP-001`, `STATE-HOUSE-MEMBERSHIP-001`, §5.1 (nuevo), `ERR-HOUSE-MEMBERSHIP-NOT-FOUND` (nuevo) |
@@ -189,5 +190,7 @@ Formalizados en `contracts/errors/error-catalog.json` v2.1.1 (RFC 9457):
 3. Normalización de `username` (recortar espacios y pasar a minúsculas) antes de validar.
 4. Esquema formal. El alcance de `x-sdd-error` es el valor del campo anotado: un fallo de `type`, `minimum`, `maximum`, `multipleOf`, `pattern`, `minLength` o `maxLength` sobre ese campo devuelve el código anotado (p. ej. `weightKg` → `ERR-REC-WEIGHT-OUT-OF-RANGE`; `password` → `ERR-AUTH-WEAK-PASSWORD`). Un campo obligatorio ausente o una propiedad no autorizada (`additionalProperties: false`) devuelve `ERR-SCHEMA-VALIDATION-FAILED` (422), aunque el campo esté anotado. Cualquier otro fallo sin anotación devuelve también `ERR-SCHEMA-VALIDATION-FAILED`.
 5. Dominio: invariantes `INV-*` con sus códigos específicos. **Orden entre invariantes de un mismo registro (D-107-2, v2.2.1):** (a) decimales máximos de `INV-REC-002` / `INV-REC-003`; (b) ventana temporal de `INV-REC-001` (`birthDate ≤ fecha del evento ≤ hoy`); (c) fecha siguiente de `INV-REC-004` / `INV-REC-005`. Si la petición incumple varias, se devuelve el primer fallo de esta lista.
+
+**Acceso por recurso (D-108-4, v2.3.1).** En las rutas con identificador de mascota, registro, hogar o invitación, la comprobación de acceso al recurso va después de la sesión (punto 2) y antes del esquema del cuerpo (punto 4): si el recurso no existe o no es visible para el actor, `404`; si es visible pero el actor no tiene permiso, `403`. Por eso un cuerpo inválido sobre una mascota ajena da `403` y sobre una inexistente da `404`. Esta regla se sitúa entre los puntos 2 y 4 sin renumerarlos.
 
 Si una misma petición incumple varias reglas, se devuelve el primer fallo en este orden. Todo error devuelto durante una importación que termina en `ROLLED_BACK` incluye `finalState: "ROLLED_BACK"` en el problema, sea `ERR-BACKUP-*`, `ERR-PET-*`, `ERR-REC-*` o `ERR-SCHEMA-VALIDATION-FAILED`. La definición única de `ProblemDetails` está en `contracts/schemas/common.schema.json#/$defs/ProblemDetails`; `error-catalog.json` la referencia. Durante una importación de respaldo la anotación `x-sdd-error` no se aplica: cualquier fallo de esquema del sobre devuelve `ERR-BACKUP-SCHEMA-INVALID` (manda `STATE-BACKUP-001`).

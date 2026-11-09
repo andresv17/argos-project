@@ -2,17 +2,17 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API
-  version: 2.2.0
+  version: 2.3.0
   description: >
     Contrato formal de la API HTTP local (127.0.0.1:3000, prefijo /api) bajo SDD.
     Las versiones 2.x son MINOR entre sí; respecto a 1.0.0 el cambio es MAJOR: autenticación por sesión, propiedad de mascotas,
     hogares compartidos, eliminación de mascotas, sin cupo y respaldo por usuario.
     Todas las respuestas de error usan application/problem+json (RFC 9457).
-  x-sdd-status: REVIEW
+  x-sdd-status: APPROVED
   x-sdd-metadata:
-    version: 2.2.0
-    status: REVIEW
-    supersedes: 2.1.0
+    version: 2.3.0
+    status: APPROVED
+    supersedes: 2.2.0
     change_type: MINOR
     traceability:
       - REQ-AUTH-001
@@ -76,6 +76,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /auth/login:
     post:
       tags: [auth]
@@ -99,7 +100,9 @@ paths:
               schema: { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
         '429': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /auth/logout:
     post:
       tags: [auth]
@@ -112,6 +115,7 @@ paths:
         '204':
           description: Sesión revocada y cookie eliminada
         '403': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /auth/me:
     get:
       tags: [auth]
@@ -124,6 +128,7 @@ paths:
             application/json:
               schema: { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
         '401': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
 
   /pets:
     get:
@@ -149,6 +154,8 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/PetCardView' }
         '401': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
     post:
       tags: [pets]
       operationId: registerPet
@@ -169,6 +176,7 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /pets/{petId}:
     parameters:
       - $ref: '#/components/parameters/PetId'
@@ -193,6 +201,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
     delete:
       tags: [pets]
       operationId: deletePet
@@ -205,6 +214,7 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/dashboard:
     parameters:
       - $ref: '#/components/parameters/PetId'
@@ -220,6 +230,7 @@ paths:
               schema: { $ref: '#/components/schemas/PetDashboardView' }
         '401': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
 
   /pets/{petId}/records/weights:
     parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
@@ -242,6 +253,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/records/measurements:
     parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
@@ -263,6 +275,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/records/vaccinations:
     parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
@@ -284,6 +297,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/records/dewormings:
     parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
@@ -305,6 +319,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/records/visits:
     parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
@@ -326,6 +341,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /pets/{petId}/records/custom-parameters:
     parameters: [ { $ref: '#/components/parameters/PetId' }, { $ref: '#/components/parameters/CsrfHeader' } ]
     post:
@@ -347,6 +363,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
 
   /households:
     get:
@@ -362,6 +379,7 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/HouseholdView' }
         '401': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
     post:
       tags: [households]
       operationId: createHousehold
@@ -382,6 +400,7 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /households/{householdId}:
     parameters:
       - $ref: '#/components/parameters/HouseholdId'
@@ -397,6 +416,7 @@ paths:
               schema: { $ref: '#/components/schemas/HouseholdView' }
         '401': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
     delete:
       tags: [households]
       operationId: deleteHousehold
@@ -409,6 +429,7 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /households/{householdId}/invitations:
     parameters:
       - $ref: '#/components/parameters/HouseholdId'
@@ -433,6 +454,7 @@ paths:
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /households/{householdId}/members/{userId}:
     parameters:
       - $ref: '#/components/parameters/HouseholdId'
@@ -451,6 +473,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /households/{householdId}/pets:
     parameters:
       - $ref: '#/components/parameters/HouseholdId'
@@ -466,6 +489,7 @@ paths:
               schema: { $ref: '#/components/schemas/HouseholdPetsView' }
         '401': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /invitations:
     get:
       tags: [households]
@@ -480,6 +504,7 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/InvitationView' }
         '401': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /invitations/{householdId}/accept:
     parameters:
       - $ref: '#/components/parameters/HouseholdId'
@@ -495,7 +520,9 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/HouseholdMemberView' }
         '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /invitations/{householdId}/decline:
     parameters:
       - $ref: '#/components/parameters/HouseholdId'
@@ -508,7 +535,9 @@ paths:
         '204':
           description: Invitación rechazada
         '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
 
   /backup/export:
     get:
@@ -525,6 +554,7 @@ paths:
             application/json:
               schema: { $ref: '../schemas/backup-envelope.schema.json#/$defs/BackupEnvelopeV2' }
         '401': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /backup/import:
     post:
       tags: [backup]
