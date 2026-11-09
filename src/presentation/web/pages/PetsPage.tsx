@@ -134,11 +134,11 @@ export function PetsPage(): JSX.Element {
 
   const activeOption = options.find((o) => o.id === contextId);
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <h1 className="sr-only">Mascotas</h1>
       <ContextSelector options={options} activeId={contextId} onSelect={onSelectContext} />
-      <div id={PET_PANEL_ID} role="tabpanel" aria-labelledby={`context-tab-${contextId}`} className="grid gap-4 lg:grid-cols-[22rem_1fr]">
-        <section aria-label={`Mascotas de ${activeOption?.label ?? 'Mis mascotas'}`} className="grid content-start gap-3">
+      <div id={PET_PANEL_ID} role="tabpanel" aria-labelledby={`context-tab-${contextId}`} className="grid grid-cols-1 gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
+        <section aria-label={`Mascotas de ${activeOption?.label ?? 'Mis mascotas'}`} className="grid grid-cols-1 content-start gap-3">
           <PetFilter
             q={q}
             species={species}
@@ -157,7 +157,7 @@ export function PetsPage(): JSX.Element {
             setMode('VIEW');
           }} />
         </section>
-        <section aria-label="Ficha de la mascota" className="grid content-start gap-3">
+        <section aria-label="Ficha de la mascota" className="grid grid-cols-1 content-start gap-3">
           <FormError message={error} />
           {mode === 'CREATE' ? <PetForm profile={null} onSubmit={createPet} onCancel={() => setMode('VIEW')} /> : null}
           {mode === 'EDIT' && dashboard !== null && dashboard.canEdit ? (

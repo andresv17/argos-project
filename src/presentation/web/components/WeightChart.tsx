@@ -33,7 +33,7 @@ export function WeightChart({ entries }: { readonly entries: readonly WeightEntr
 export function WeightTable({ entries }: { readonly entries: readonly WeightEntryView[] }): JSX.Element {
   const rows = weightRows(entries);
   return (
-    <div className="overflow-x-auto">
+    <div role="region" aria-label="Evolución de peso (desplazable)" tabIndex={0} className="overflow-x-auto focus:outline focus:outline-2 focus:outline-blue-700">
       <table className="min-w-full text-left text-sm">
         <caption className="sr-only">Evolución de peso</caption>
         <thead>

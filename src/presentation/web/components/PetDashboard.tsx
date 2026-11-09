@@ -31,7 +31,7 @@ function ModuleContent({ module, dashboard }: { readonly module: RecordModule; r
   switch (module) {
     case 'weights':
       return (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <WeightChart entries={dashboard.weights} />
           <WeightTable entries={dashboard.weights} />
         </div>
@@ -40,7 +40,7 @@ function ModuleContent({ module, dashboard }: { readonly module: RecordModule; r
       return dashboard.bodyMeasurements.length === 0 ? (
         <Empty />
       ) : (
-        <div className="overflow-x-auto">
+        <div role="region" aria-label="Medidas corporales (desplazable)" tabIndex={0} className="overflow-x-auto focus:outline focus:outline-2 focus:outline-blue-700">
           <table className="min-w-full text-left text-sm">
             <caption className="sr-only">Medidas corporales</caption>
             <thead>
@@ -183,7 +183,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
     if (spec !== undefined) onTabChange(spec.id);
   };
   return (
-    <article aria-labelledby="pet-title" data-pet-id={profile.id} className="grid gap-4">
+    <article aria-labelledby="pet-title" data-pet-id={profile.id} className="grid grid-cols-1 gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3 rounded border border-slate-300 bg-white p-4">
         <div className="grid gap-1">
           <h2 id="pet-title" className="text-xl font-bold text-slate-900">
