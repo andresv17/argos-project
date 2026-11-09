@@ -3,14 +3,17 @@ import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright: E2E, visual y accesibilidad contra la app real (TASK-114). `webServer` arranca `npm run dev`
- * (API Fastify en 127.0.0.1:3000 y SPA Vite en 127.0.0.1:5173 con proxy `/api`) sobre una base SQLite nueva
- * en cada ejecución: la ruta se fija una vez en el proceso principal y los workers la heredan por entorno.
- * Se espera a `/api/auth/me` a través del proxy: responde 401 solo cuando la SPA y la API están levantadas.
+ * Playwright: E2E, visual y accesibilidad contra la app real (TASK-114). `webServer` arranca la API Fastify en
+ * 127.0.0.1:3000 y la SPA Vite en 127.0.0.1:5173 (proxy `/api`) sobre una base SQLite nueva en cada ejecución:
+ * la ruta se fija una vez en el proceso principal y los workers la heredan por entorno.
+ * Cada servidor tiene su URL y `reuseExistingServer: false`: si el puerto 3000 o el 5173 ya responde (por ejemplo,
+ * un `npm run dev` previo con otra base), Playwright se detiene antes de ejecutar pruebas (H-114-4, TASK-115).
+ * La API se espera en `/api/auth/me` directo (401) y la SPA en el mismo recurso a través del proxy.
  */
 process.env['ARGOS_E2E_DATABASE'] ??= join(tmpdir(), `argos-e2e-${process.pid}.sqlite`);
 
 export const E2E_BASE_URL = 'http://127.0.0.1:5173';
+const API_BASE_URL = 'http://127.0.0.1:3000';
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -28,17 +31,25 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    command: 'npm run dev',
-    url: `${E2E_BASE_URL}/api/auth/me`,
-    reuseExistingServer: false,
-    timeout: 120_000,
-    env: {
-      DATABASE_PATH: process.env['ARGOS_E2E_DATABASE'],
-      PORT: '3000',
-      HOST: '127.0.0.1',
-      APP_TIMEZONE: 'America/Bogota',
-      COOKIE_SECURE: 'false',
+  webServer: [
+    {
+      command: 'npx tsx src/infrastructure/http/server.ts',
+      url: `${API_BASE_URL}/api/auth/me`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        DATABASE_PATH: process.env['ARGOS_E2E_DATABASE'],
+        PORT: '3000',
+        HOST: '127.0.0.1',
+        APP_TIMEZONE: 'America/Bogota',
+        COOKIE_SECURE: 'false',
+      },
     },
-  },
+    {
+      command: 'npx vite',
+      url: `${E2E_BASE_URL}/api/auth/me`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+  ],
 });
