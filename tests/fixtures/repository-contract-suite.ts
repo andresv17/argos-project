@@ -8,6 +8,7 @@ import { ANDRES_PETS, HOUSEHOLD, LUNA, MEMBERSHIPS, envelope, fixtures } from '.
 /**
  * Suite de contratos de los puertos de repositorio (INV-ARCH-005). TASK-108 la ejecuta con los repositorios en
  * memoria; TASK-110 debe ejecutarla también con SQLite. Cada prueba parte de una unidad de trabajo vacía.
+ * TASK-110: los registros se guardan después de su mascota, porque SQLite exige la referencia (INV-PET-005).
  */
 const ANDRES: UserAccount = { ...fixtures.users[0], passwordHash: 'h-andres' };
 const MARIA: UserAccount = { ...fixtures.users[1], passwordHash: 'h-maria' };
@@ -176,6 +177,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     it('[INV-ARCH-005] registros: listForPet devuelve las 6 colecciones de la mascota, add rechaza ids repetidos y deleteForPet borra solo esa mascota', async () => {
       const uow = createUnitOfWork();
       await seed(uow, async (r) => {
+        for (const pet of envelope.pets) await r.pets.save(pet);
         for (const module of Object.keys(envelope.records) as Array<keyof typeof envelope.records>) {
           for (const record of envelope.records[module]) await r.records.add(module, record as never);
         }
@@ -192,6 +194,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     it('[INV-ARCH-005][INV-BACKUP-001] registros: findPetIdOfRecord devuelve el petId del registro en cualquiera de los 6 módulos y null si no existe', async () => {
       const uow = createUnitOfWork();
       await seed(uow, async (r) => {
+        for (const pet of envelope.pets) await r.pets.save(pet);
         for (const module of Object.keys(envelope.records) as Array<keyof typeof envelope.records>) {
           for (const record of envelope.records[module]) await r.records.add(module, record as never);
         }

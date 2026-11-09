@@ -1,0 +1,115 @@
+import { describe, expect, it } from 'vitest';
+import { CryptoSecureTokenAdapter } from '../../src/infrastructure/adapters/crypto-secure-token.adapter.ts';
+import { CryptoUuidAdapter } from '../../src/infrastructure/adapters/crypto-uuid.adapter.ts';
+import { ScryptPasswordHasherAdapter } from '../../src/infrastructure/adapters/scrypt-password-hasher.adapter.ts';
+import { SystemClockAdapter, isSupportedTimeZone } from '../../src/infrastructure/adapters/system-clock.adapter.ts';
+import * as reExports from '../../src/infrastructure/adapters/deterministic-adapters.ts';
+
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const at = (iso: string) => () => new Date(iso);
+
+describe('TASK-110: SystemClockAdapter (src/infrastructure/adapters/system-clock.adapter.ts)', () => {
+  it.each([
+    ['2026-11-05T23:59:59.999Z', 'America/Bogota', '2026-11-05'],
+    ['2026-11-06T00:00:00.000Z', 'America/Bogota', '2026-11-05'],
+    ['2026-11-06T04:59:59.999Z', 'America/Bogota', '2026-11-05'],
+    ['2026-11-06T05:00:00.000Z', 'America/Bogota', '2026-11-06'],
+    ['2026-11-06T00:00:00.000Z', 'UTC', '2026-11-06'],
+    ['2026-11-05T13:30:00.000Z', 'Asia/Tokyo', '2026-11-05'],
+    ['2026-11-05T15:00:00.000Z', 'Asia/Tokyo', '2026-11-06'],
+    ['2024-02-29T12:00:00.000Z', 'America/Bogota', '2024-02-29'],
+  ])('[INV-ARCH-001] F6: a %s en %s, todayIsoDate es %s (fecha local de APP_TIMEZONE, no la del proceso)', (instant, zone, expected) => {
+    expect(new SystemClockAdapter(zone, at(instant)).todayIsoDate()).toBe(expected);
+  });
+
+  it('[INV-ARCH-001] F6: a las 19:00 en Bogotá, createdAt (UTC) cae en el día siguiente pero todayIsoDate sigue en el día local', () => {
+    const clock = new SystemClockAdapter('America/Bogota', at('2026-11-06T00:00:00.000Z'));
+    expect([clock.todayIsoDate(), clock.nowIsoTimestamp()]).toEqual(['2026-11-05', '2026-11-06T00:00:00.000Z']);
+  });
+
+  it('[INV-ARCH-001] la zona por defecto es America/Bogota y nowIsoTimestamp es UTC canónico con milisegundos', () => {
+    const clock = new SystemClockAdapter(undefined, at('2026-01-02T03:04:05.006Z'));
+    expect([clock.timeZone, clock.nowIsoTimestamp(), clock.todayIsoDate()]).toEqual(['America/Bogota', '2026-01-02T03:04:05.006Z', '2026-01-01']);
+  });
+
+  it('[INV-ARCH-001] sin reloj inyectado usa el reloj del sistema y devuelve formatos válidos', () => {
+    const clock = new SystemClockAdapter();
+    expect([/^\d{4}-\d{2}-\d{2}$/.test(clock.todayIsoDate()), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(clock.nowIsoTimestamp())]).toEqual([true, true]);
+  });
+
+  it.each(['', 'Marte/Olympus', 'America/NoExiste', ' '])('[INV-ARCH-001] una zona horaria inválida (%j) se rechaza al construir', (zone) => {
+    expect(isSupportedTimeZone(zone)).toBe(false);
+    expect(() => new SystemClockAdapter(zone)).toThrow(RangeError);
+  });
+
+  it('[INV-ARCH-004] deterministic-adapters.ts re-exporta los cuatro adaptadores de reloj e IDs desde sus archivos', () => {
+    expect(Object.keys(reExports).sort()).toEqual(['CryptoUuidAdapter', 'DeterministicIdAdapter', 'FixedClockAdapter', 'SystemClockAdapter']);
+  });
+});
+
+describe('TASK-110: CryptoUuidAdapter y CryptoSecureTokenAdapter', () => {
+  it('[INV-ARCH-002] CryptoUuidAdapter devuelve UUID v4 en minúsculas, distintos entre sí', () => {
+    const ids = Array.from({ length: 200 }, () => new CryptoUuidAdapter().nextId());
+    expect([ids.every((id) => UUID_V4.test(id)), new Set(ids).size]).toEqual([true, 200]);
+  });
+
+  it('[INV-AUTH-003] CryptoSecureTokenAdapter devuelve tokens base64url de 32 bytes (43 caracteres), distintos entre sí', () => {
+    const adapter = new CryptoSecureTokenAdapter();
+    const tokens = Array.from({ length: 200 }, () => adapter.nextSessionToken());
+    expect([tokens.every((t) => /^[A-Za-z0-9_-]{43}$/.test(t)), new Set(tokens).size, Buffer.from(tokens[0]!, 'base64url').length]).toEqual([true, 200, 32]);
+  });
+});
+
+describe('TASK-110: ScryptPasswordHasherAdapter (src/infrastructure/adapters/scrypt-password-hasher.adapter.ts)', () => {
+  const hasher = new ScryptPasswordHasherAdapter();
+
+  it('[INV-AUTH-003] el hash es scrypt con salt aleatorio: formato scrypt$N$r$p$salt$hash, sin la contraseña y distinto en cada llamada', async () => {
+    const plain = 'Contraseña-Segura-123';
+    const [first, second] = [await hasher.hash(plain), await hasher.hash(plain)];
+    const parts = first.split('$');
+    expect([
+      parts.slice(0, 4),
+      Buffer.from(parts[4]!, 'base64').length,
+      Buffer.from(parts[5]!, 'base64').length,
+      first.includes(plain),
+      first === second,
+    ]).toEqual([['scrypt', '16384', '8', '1'], 16, 64, false, false]);
+  });
+
+  it('[INV-AUTH-003] verify acepta la contraseña correcta (también en otra normalización Unicode) y rechaza cualquier otra', async () => {
+    const hash = await hasher.hash('café-Ñandú-1');
+    const results = await Promise.all([
+      hasher.verify('café-Ñandú-1', hash),
+      hasher.verify('café-Ñandú-1', hash),
+      hasher.verify('café-Ñandú-2', hash),
+      hasher.verify('', hash),
+    ]);
+    expect(results).toEqual([true, true, false, false]);
+  });
+
+  it.each([
+    ['vacío', ''],
+    ['hash falso de pruebas', 'fake-scrypt$Contraseña-Segura-123'],
+    ['otro algoritmo', 'bcrypt$10$abc$def'],
+    ['N no es potencia de 2', 'scrypt$1000$8$1$c2FsdHNhbHRzYWx0c2FsdA==$aGFzaA=='],
+    ['N excesivo para la memoria', 'scrypt$1073741824$8$1$c2FsdHNhbHRzYWx0c2FsdA==$aGFzaA=='],
+    ['base64 inválido', 'scrypt$16384$8$1$***$***'],
+  ])('[INV-AUTH-003] verify devuelve false, sin lanzar, ante un hash con formato inválido (%s)', async (_case, hash) => {
+    expect(await hasher.verify('Contraseña-Segura-123', hash)).toBe(false);
+  });
+
+  it('[INV-AUTH-006] createDummyHash produce un hash scrypt real con el mismo coste, que no verifica ninguna contraseña conocida', async () => {
+    const dummy = await hasher.createDummyHash();
+    expect([dummy.split('$').slice(0, 4), await hasher.verify('', dummy), await hasher.verify('Contraseña-Segura-123', dummy)]).toEqual([
+      ['scrypt', '16384', '8', '1'],
+      false,
+      false,
+    ]);
+  });
+
+  it('[INV-AUTH-003] verify usa los parámetros guardados en el hash, no los del adaptador', async () => {
+    const light = new ScryptPasswordHasherAdapter({ N: 1024, r: 8, p: 1 });
+    const hash = await light.hash('Otra-Clave-456');
+    expect([hash.split('$')[1], await hasher.verify('Otra-Clave-456', hash)]).toEqual(['1024', true]);
+  });
+});
