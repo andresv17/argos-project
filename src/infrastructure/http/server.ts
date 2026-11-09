@@ -18,6 +18,13 @@ import { SqliteUnitOfWork } from '../persistence/sqlite/sqlite-unit-of-work.ts';
 import { buildApp } from './app.ts';
 
 /**
+ * Opciones del logger de producción: `cookie` de la petición y `set-cookie` de la respuesta se ocultan (INV-AUTH-003).
+ * Se exportan para que `tests/security/` las ejerza con una salida capturada (H-113-5).
+ * @implements INV-AUTH-003
+ */
+export const PRODUCTION_LOGGER_OPTIONS = { level: 'info', redact: ['req.headers.cookie', 'res.headers["set-cookie"]'] } as const;
+
+/**
  * Compone la aplicación con los adaptadores de producción sobre la base de `config.databasePath`.
  * @implements INV-AUTH-003, INV-AUTH-006
  */
@@ -35,7 +42,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   const app = await buildApp({
     deps,
     cookieSecure: config.cookieSecure,
-    logger: logger && { level: 'info', redact: ['req.headers.cookie', 'res.headers["set-cookie"]'] },
+    logger: logger && { ...PRODUCTION_LOGGER_OPTIONS, redact: [...PRODUCTION_LOGGER_OPTIONS.redact] },
   });
   app.addHook('onClose', async () => db.close());
   return app;
