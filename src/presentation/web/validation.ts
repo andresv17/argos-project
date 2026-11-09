@@ -1,9 +1,10 @@
 /**
  * Validación en cliente derivada de los contratos: usa los validadores Ajv generados en `src/generated/`
  * y el mapa campo → código de `x-sdd-error`. Los mensajes salen del catálogo de errores (REQ-UI-005).
- * La API valida de nuevo; esta capa solo evita peticiones que el contrato ya rechaza.
+ * La API valida de nuevo; esta capa solo evita peticiones que el contrato ya rechaza. No hay esquemas escritos a mano:
+ * todo validador sale de `scripts/compile-contracts.sh` (INV-ARCH-003).
  *
- * @implements REQ-UI-002, REQ-UI-005, REQ-UI-006, ERR-SCHEMA-VALIDATION-FAILED, ERR-AUTH-WEAK-PASSWORD, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE
+ * @implements INV-ARCH-003, REQ-UI-002, REQ-UI-005, REQ-UI-006, ERR-SCHEMA-VALIDATION-FAILED, ERR-AUTH-WEAK-PASSWORD, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE
  */
 import { ERROR_CATALOG } from '../../generated/errors/error-codes.ts';
 import { resolveFieldErrorCode } from '../../generated/errors/field-errors.ts';
