@@ -1,0 +1,23 @@
+# SAST TASK-113 (plan §5; constitución §3, INV-ARCH-001/002): la entropía (azar y reloj) solo entra por los
+# adaptadores de src/infrastructure/adapters/ detrás de ClockPort, IdGeneratorPort y SecureTokenPort.
+rules:
+  - id: argos-no-entropy-outside-adapters
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Fuente de entropía directa fuera de src/infrastructure/adapters/. Inyecta ClockPort, IdGeneratorPort o
+      SecureTokenPort (INV-ARCH-001, INV-ARCH-002).
+    paths:
+      exclude:
+        - /src/infrastructure/adapters/
+        - /src/generated/
+    pattern-either:
+      - pattern: Math.random()
+      - pattern: Date.now()
+      - pattern: new Date()
+      - pattern: crypto.randomUUID()
+      - pattern: crypto.getRandomValues(...)
+      - pattern: randomUUID()
+      - pattern: randomBytes(...)
+      - pattern: randomInt(...)
+      - pattern: performance.now()

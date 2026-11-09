@@ -1,0 +1,15 @@
+# SAST TASK-113 (plan §5; constitución §3.6, INV-ARCH-006): la configuración se lee solo en
+# src/infrastructure/config/ (loadAppConfig valida y convierte las variables).
+rules:
+  - id: argos-no-process-env-outside-config
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      process.env fuera de src/infrastructure/config/. Recibe la configuración ya validada de loadAppConfig
+      (INV-ARCH-006).
+    paths:
+      exclude:
+        - /src/infrastructure/config/
+    pattern-either:
+      - pattern: process.env
+      - pattern: import.meta.env
