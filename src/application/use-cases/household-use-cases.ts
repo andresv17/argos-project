@@ -32,7 +32,9 @@ import {
   requireActiveMembership,
   requireOwner,
 } from '../../domain/households/household-policies.ts';
+import { matchesPetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
+import type { PetListQuery } from './pet-use-cases.ts';
 import {
   assertMatchesSchema,
   buildPetCard,
@@ -226,17 +228,24 @@ export class GetHouseholdUseCase {
   }
 }
 
-/** @implements REQ-HOUSE-005 */
+/**
+ * Mascotas del hogar con el filtro opcional de REQ-PET-005 (`q`, `species`; OpenAPI 2.4.0, DEUDA-UI-FILTRO-001).
+ * La membresía ACTIVE se comprueba antes de filtrar y los colores de dueño salen de todos los miembros ACTIVE,
+ * así que el filtro no cambia el color de ninguna tarjeta.
+ * @implements REQ-HOUSE-005, REQ-PET-005, REQ-UI-001, INV-HOUSE-004
+ */
 export class GetHouseholdPetsUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, householdId: string): Promise<HouseholdPetsView> {
+  async execute(userId: string, householdId: string, query: PetListQuery = {}): Promise<HouseholdPetsView> {
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
       const memberships = await repositories.households.listMemberships(householdId);
       const activeIds = activeMembersInOrder(memberships, householdId).map((m) => m.userId);
       const users = await publicProfilesById(repositories, activeIds);
-      const entries = householdPets(householdId, memberships, await repositories.pets.listByOwners(activeIds), users, userId);
+      const entries = householdPets(householdId, memberships, await repositories.pets.listByOwners(activeIds), users, userId).filter((entry) =>
+        matchesPetListFilter(entry.pet, query),
+      );
       const pets = [];
       for (const entry of entries) {
         pets.push(buildPetCard(entry.pet, entry.owner, entry.canEdit, await repositories.records.listForPet(entry.pet.id), today));

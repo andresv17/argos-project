@@ -50,6 +50,38 @@ describe('TASK-111: hogares por HTTP (src/infrastructure/http/routes/households.
     ]);
   });
 
+  it('[REQ-PET-005][REQ-UI-001] DEUDA-UI-FILTRO-001: GET /households/{id}/pets filtra por q (sin mayúsculas ni tildes) y species sin cambiar los colores de dueño', async () => {
+    api = await createApi();
+    const cookie = await api.login('maria.v');
+    const view = async (query: string) =>
+      ((await api.call('GET', `/api/households/${H1}/pets${query}`, { cookie })).json as { pets: Array<{ profile: { name: string }; owner: { colorToken: string } }> }).pets.map(
+        (p) => `${p.profile.name}:${p.owner.colorToken}`,
+      );
+    expect([await view('?q=LÚNA'), await view('?species=CAT'), await view('?q=y&species=CAT'), await view('?q=zz')]).toEqual([
+      ['Luna:OWNER_COLOR_2'],
+      ['Milo:OWNER_COLOR_1', 'Nyx:OWNER_COLOR_1', 'Luna:OWNER_COLOR_2'],
+      ['Nyx:OWNER_COLOR_1'],
+      [],
+    ]);
+  });
+
+  it('[REQ-PET-005][ERR-SCHEMA-VALIDATION-FAILED] consulta inválida en el hogar → 422 para un miembro; quien no ve el hogar recibe 404 antes (D-108-4)', async () => {
+    api = await createApi();
+    const member = await api.login('maria.v');
+    const invited = await api.login('carlos_88');
+    const results = [];
+    for (const query of [`?q=${'a'.repeat(51)}`, '?species=BIRD', '?otro=1', '?q=a&q=b']) {
+      results.push([
+        query.slice(0, 12),
+        problemOf(await api.call('GET', `/api/households/${H1}/pets${query}`, { cookie: member })),
+        problemOf(await api.call('GET', `/api/households/${H1}/pets${query}`, { cookie: invited })),
+      ]);
+    }
+    expect(results).toEqual(
+      ['?q=aaaaaaaaa', '?species=BIR', '?otro=1', '?q=a&q=b'].map((q) => [q, { status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' }, { status: 404, code: 'ERR-HOUSE-NOT-FOUND' }]),
+    );
+  });
+
   it('[REQ-HOUSE-002] invitar: 201 INVITED; usuario inexistente → 404; ya INVITED → 409 (EDGE-016); un MEMBER no puede invitar → 403', async () => {
     api = await createApi();
     const andres = await api.login('andres');

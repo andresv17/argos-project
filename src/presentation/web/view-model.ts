@@ -222,16 +222,6 @@ export function nextFocusIndex(key: string, current: number, count: number): num
   }
 }
 
-/**
- * Filtro de tarjetas en contexto de hogar, donde `getHouseholdPets` no admite `q` ni `species` (H-112-2).
- * Misma normalización textual que REQ-PET-005 (NFD sin marcas, sin mayúsculas). En "Mis mascotas" filtra la API.
- */
-export function filterHouseholdCards(cards: readonly PetCardView[], q: string, species: Species | ''): PetCardView[] {
-  const fold = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  const needle = fold(q.trim());
-  return cards.filter((c) => (species === '' || c.profile.species === species) && fold(c.profile.name).includes(needle));
-}
-
 // ---------------------------------------------------------------------------
 // REQ-UI-005: guardia de rutas
 // ---------------------------------------------------------------------------

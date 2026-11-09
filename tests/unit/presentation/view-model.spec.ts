@@ -5,7 +5,6 @@ import {
   alertCounters,
   canDeleteHousehold,
   contextOptions,
-  filterHouseholdCards,
   formatAge,
   invitationsLabel,
   isDeleteConfirmed,
@@ -127,16 +126,6 @@ describe('TASK-112: modelo de presentación puro', () => {
       ['mine', 'Mis mascotas', 'MINE'],
       [household('OWNER').household.id, 'Casa', 'HOUSEHOLD'],
     ]);
-  });
-
-  it('[REQ-UI-001] el filtro en contexto de hogar compara sin mayúsculas ni tildes y por especie (H-112-2)', () => {
-    const cards = [card('a', 'Ñandú', { species: 'CAT' }), card('b', 'Argos'), card('c', 'Ánima', { species: 'CAT' })];
-    expect([
-      filterHouseholdCards(cards, 'NANDU', '').map((c) => c.profile.name),
-      filterHouseholdCards(cards, '', 'CAT').map((c) => c.profile.name),
-      filterHouseholdCards(cards, 'an', 'CAT').map((c) => c.profile.name),
-      filterHouseholdCards(cards, 'zz', '').length,
-    ]).toEqual([['Ñandú'], ['Ñandú', 'Ánima'], ['Ñandú', 'Ánima'], 0]);
   });
 
   it('[REQ-UI-005] las rutas protegidas redirigen a /login sin sesión y las públicas a / con sesión', () => {

@@ -5,7 +5,7 @@ import { createApi, type Api } from '../api/api-harness.ts';
 import { ARGOS_ID, H1 } from '../api/api-fixtures.ts';
 import { ApiProblem, createWebApi, CSRF_PARAMS, unwrap, type ApiClient } from '../../../src/presentation/web/api.ts';
 import { addRecord } from '../../../src/presentation/web/records.ts';
-import { filterHouseholdCards, ownerBadge } from '../../../src/presentation/web/view-model.ts';
+import { ownerBadge } from '../../../src/presentation/web/view-model.ts';
 
 /**
  * TASK-112: la SPA usa el cliente generado contra la API real (Fastify escuchando en 127.0.0.1).
@@ -50,12 +50,11 @@ describe('TASK-112: cliente generado de la SPA contra la API real', () => {
     ]).toEqual([true, true, true]);
   });
 
-  it('[REQ-UI-001] el filtro de "Mis mascotas" lo aplica la API y el del hogar coincide con la misma normalización', async () => {
+  it('[REQ-UI-001] el filtro lo aplica la API en los dos contextos: "Mis mascotas" y el hogar (DEUDA-UI-FILTRO-001), con la misma normalización', async () => {
     const client = await loggedClient();
-    const all = await unwrap(client.GET('/pets'));
-    const needle = all[0]!.profile.name.slice(0, 3).toUpperCase();
-    const byApi = await unwrap(client.GET('/pets', { params: { query: { q: needle } } }));
-    expect([byApi.length > 0, byApi.map((c) => c.profile.id)]).toEqual([true, filterHouseholdCards(all, needle, '').map((c) => c.profile.id)]);
+    const mine = await unwrap(client.GET('/pets', { params: { query: { q: 'ÁRG' } } }));
+    const house = await unwrap(client.GET('/households/{householdId}/pets', { params: { path: { householdId: H1 }, query: { q: 'luná', species: 'CAT' } } }));
+    expect([mine.map((c) => c.profile.name), house.pets.map((c) => [c.profile.name, c.owner.colorToken])]).toEqual([['Argos'], [['Luna', 'OWNER_COLOR_2']]]);
   });
 
   it('[REQ-UI-002] un alta desde los formularios de la ficha llega a la API y la ficha devuelve la serie con variación', async () => {

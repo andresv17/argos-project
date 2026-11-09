@@ -15,7 +15,6 @@ import { addRecord, type RecordModule } from '../records.ts';
 import { useSession } from '../session.tsx';
 import {
   contextOptions,
-  filterHouseholdCards,
   MINE_CONTEXT_ID,
   type ContextOption,
   type PetCardView,
@@ -53,16 +52,13 @@ export function PetsPage(): JSX.Element {
     const ticket = ++cardsRequest.current;
     const context = options.find((o) => o.id === contextId)?.context ?? { kind: 'MINE' as const };
     try {
-      let next: PetCardView[];
-      if (context.kind === 'MINE') {
-        const query: { q?: string; species?: Species } = {};
-        if (q.trim() !== '') query.q = q.trim();
-        if (species !== '') query.species = species;
-        next = await unwrap(api.GET('/pets', { params: { query } }));
-      } else {
-        const view = await unwrap(api.GET('/households/{householdId}/pets', { params: { path: { householdId: context.householdId } } }));
-        next = filterHouseholdCards(view.pets, q, species);
-      }
+      const query: { q?: string; species?: Species } = {};
+      if (q.trim() !== '') query.q = q.trim();
+      if (species !== '') query.species = species;
+      const next: PetCardView[] =
+        context.kind === 'MINE'
+          ? await unwrap(api.GET('/pets', { params: { query } }))
+          : (await unwrap(api.GET('/households/{householdId}/pets', { params: { path: { householdId: context.householdId }, query } }))).pets;
       if (ticket !== cardsRequest.current) return;
       setCards(next);
       setActivePetId((current) => (current !== null && next.some((c) => c.profile.id === current) ? current : (next[0]?.profile.id ?? null)));

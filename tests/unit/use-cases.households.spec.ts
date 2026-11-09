@@ -212,6 +212,20 @@ describe('TASK-108: hogares (src/application/use-cases/household-use-cases.ts)',
     expect([await outcome(pets.execute(CARLOS, H)), await outcome(pets.execute(LUCIA, H))]).toEqual(Array(2).fill(`${edge('EDGE-017-').expectedError}@householdId`));
   });
 
+  it('[REQ-PET-005][REQ-HOUSE-005] DEUDA-UI-FILTRO-001: el filtro del hogar conserva orden y colores; un no miembro recibe 404 aunque el filtro no deje nada', async () => {
+    const { deps } = createHarness();
+    const pets = new GetHouseholdPetsUseCase(deps);
+    const view = async (query: { q?: string; species?: 'DOG' | 'CAT' }) => (await pets.execute(MARIA, H, query)).pets.map((p) => [p.profile.name, p.owner.colorToken, p.canEdit]);
+    expect([await view({ q: '  ARGOS ' }), await view({ species: 'CAT' }), await view({ q: 'o', species: 'DOG' }), await view({ q: 'zz' }), await view({})]).toEqual([
+      [['Argos', 'OWNER_COLOR_1', false]],
+      [['Milo', 'OWNER_COLOR_1', false], ['Nyx', 'OWNER_COLOR_1', false], ['Luna', 'OWNER_COLOR_2', true]],
+      [['Argos', 'OWNER_COLOR_1', false], ['Toby', 'OWNER_COLOR_1', false]],
+      [],
+      [['Argos', 'OWNER_COLOR_1', false], ['Kira', 'OWNER_COLOR_1', false], ['Milo', 'OWNER_COLOR_1', false], ['Nyx', 'OWNER_COLOR_1', false], ['Toby', 'OWNER_COLOR_1', false], ['Luna', 'OWNER_COLOR_2', true]],
+    ]);
+    expect([await outcome(pets.execute(CARLOS, H, { q: 'zz' })), await outcome(pets.execute(LUCIA, H, { species: 'CAT' }))]).toEqual(Array(2).fill('ERR-HOUSE-NOT-FOUND@householdId'));
+  });
+
   it('[REQ-HOUSE-005] Mis hogares se ordenan por createdAt del hogar y luego id, aunque el repositorio los devuelva en otro orden', async () => {
     const state = canonicalState();
     const extra = (id: string, name: string, createdAt: string) => {

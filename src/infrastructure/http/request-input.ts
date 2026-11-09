@@ -30,7 +30,8 @@ export function rawBody(body: unknown): Uint8Array {
 }
 
 /**
- * Consulta de `GET /pets`: `q` texto de hasta 50 caracteres y `species` del enumerado; repetidos o inválidos → 422.
+ * Consulta de `GET /pets` y `GET /households/{id}/pets`: `q` texto de hasta 50 caracteres y `species` del
+ * enumerado; repetidos, desconocidos o inválidos → 422.
  * @implements REQ-PET-005
  */
 export function petListQuery(query: unknown): PetListQuery {

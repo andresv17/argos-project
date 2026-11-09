@@ -2,13 +2,17 @@
  * Rutas `households` del OpenAPI. Todas exigen sesión. Visibilidad (D-01): un INVITED recibe 404 al leer el hogar
  * (EDGE-037); el OWNER ve las membresías INVITED en `members` y un MEMBER solo las ACTIVE (EDGE-038). La baja de
  * `DELETE /households/{id}/members/{userId}` es abandono si `userId` es el propio actor y retirada si no. Un id con
- * formato inválido no existe: responde el 404 que declara el OpenAPI para la ruta.
+ * formato inválido no existe: responde el 404 que declara el OpenAPI para la ruta. `GET /households/{id}/pets` admite
+ * `q` y `species` (OpenAPI 2.4.0, DEUDA-UI-FILTRO-001) con las reglas de `GET /pets`; como en toda ruta con
+ * identificador de hogar (spec §5.1, D-108-4), el acceso se comprueba antes que la consulta: quien no ve el hogar
+ * recibe 404 aunque la consulta sea inválida.
  *
  * @implements REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND
  */
 
 import type { FastifyInstance } from 'fastify';
-import { jsonBody } from '../request-input.ts';
+import { jsonBody, petListQuery } from '../request-input.ts';
+import type { PetListQuery } from '../../../application/use-cases/pet-use-cases.ts';
 import { requireSession } from '../plugins/session-auth.ts';
 import type { RouteContext } from './use-cases.ts';
 
@@ -45,9 +49,17 @@ export function registerHouseholdRoutes(app: FastifyInstance, { useCases }: Rout
     return reply.status(204).send();
   });
 
-  app.get<HouseholdParams>('/api/households/:householdId/pets', { onRequest }, async (request) =>
-    useCases.householdPets.execute(request.userId, request.params.householdId),
-  );
+  app.get<HouseholdParams>('/api/households/:householdId/pets', { onRequest }, async (request) => {
+    const { householdId } = request.params;
+    let query: PetListQuery;
+    try {
+      query = petListQuery(request.query);
+    } catch (invalidQuery) {
+      await useCases.householdPets.execute(request.userId, householdId); // D-108-4: 404 antes que el 422
+      throw invalidQuery;
+    }
+    return useCases.householdPets.execute(request.userId, householdId, query);
+  });
 
   app.get('/api/invitations', { onRequest }, async (request) => useCases.listMyInvitations.execute(request.userId));
 
