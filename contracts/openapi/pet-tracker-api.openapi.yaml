@@ -2,17 +2,17 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API
-  version: 2.3.0
+  version: 2.4.0
   description: >
     Contrato formal de la API HTTP local (127.0.0.1:3000, prefijo /api) bajo SDD.
     Las versiones 2.x son MINOR entre sí; respecto a 1.0.0 el cambio es MAJOR: autenticación por sesión, propiedad de mascotas,
     hogares compartidos, eliminación de mascotas, sin cupo y respaldo por usuario.
     Todas las respuestas de error usan application/problem+json (RFC 9457).
-  x-sdd-status: APPROVED
+  x-sdd-status: REVIEW
   x-sdd-metadata:
-    version: 2.3.0
-    status: APPROVED
-    supersedes: 2.2.0
+    version: 2.4.0
+    status: REVIEW
+    supersedes: 2.3.0
     change_type: MINOR
     traceability:
       - REQ-AUTH-001
@@ -480,7 +480,17 @@ paths:
     get:
       tags: [households]
       operationId: getHouseholdPets
-      summary: Mascotas de todos los miembros ACTIVE con distinción de dueño [REQ-HOUSE-005, REQ-UI-007, INV-HOUSE-005]
+      summary: Mascotas de todos los miembros ACTIVE con distinción de dueño [REQ-HOUSE-005, REQ-UI-007, INV-HOUSE-005, REQ-UI-001]
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 50 }
+          description: Filtro por subcadena del nombre sobre las mascotas del hogar; sin distinguir mayúsculas ni tildes (REQ-PET-005, normalización NFD con eliminación de marcas \p{M}). Misma regla que en GET /pets.
+        - name: species
+          in: query
+          required: false
+          schema: { $ref: '../schemas/pet.schema.json#/$defs/Species' }
       responses:
         '200':
           description: Vista agregada del hogar
@@ -489,6 +499,7 @@ paths:
               schema: { $ref: '#/components/schemas/HouseholdPetsView' }
         '401': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
         '500': { $ref: '#/components/responses/Problem' }
   /invitations:
     get:
