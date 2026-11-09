@@ -1,0 +1,62 @@
+/**
+ * Rutas `households` del OpenAPI. Todas exigen sesión. Visibilidad (D-01): un INVITED recibe 404 al leer el hogar
+ * (EDGE-037); el OWNER ve las membresías INVITED en `members` y un MEMBER solo las ACTIVE (EDGE-038). La baja de
+ * `DELETE /households/{id}/members/{userId}` es abandono si `userId` es el propio actor y retirada si no. Un id con
+ * formato inválido no existe: responde el 404 que declara el OpenAPI para la ruta.
+ *
+ * @implements REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND
+ */
+
+import type { FastifyInstance } from 'fastify';
+import { jsonBody } from '../request-input.ts';
+import { requireSession } from '../plugins/session-auth.ts';
+import type { RouteContext } from './use-cases.ts';
+
+type HouseholdParams = { Params: { householdId: string } };
+type MemberParams = { Params: { householdId: string; userId: string } };
+
+/** @implements REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND */
+export function registerHouseholdRoutes(app: FastifyInstance, { useCases }: RouteContext): void {
+  const onRequest = requireSession(useCases.authenticate);
+
+  app.get('/api/households', { onRequest }, async (request) => useCases.listMyHouseholds.execute(request.userId));
+
+  app.post('/api/households', { onRequest }, async (request, reply) =>
+    reply.status(201).send(await useCases.createHousehold.execute(request.userId, jsonBody(request.body))),
+  );
+
+  app.get<HouseholdParams>('/api/households/:householdId', { onRequest }, async (request) =>
+    useCases.getHousehold.execute(request.userId, request.params.householdId),
+  );
+
+  app.delete<HouseholdParams>('/api/households/:householdId', { onRequest }, async (request, reply) => {
+    await useCases.deleteHousehold.execute(request.userId, request.params.householdId);
+    return reply.status(204).send();
+  });
+
+  app.post<HouseholdParams>('/api/households/:householdId/invitations', { onRequest }, async (request, reply) =>
+    reply.status(201).send(await useCases.inviteMember.execute(request.userId, request.params.householdId, jsonBody(request.body))),
+  );
+
+  app.delete<MemberParams>('/api/households/:householdId/members/:userId', { onRequest }, async (request, reply) => {
+    const { householdId, userId: target } = request.params;
+    if (target === request.userId) await useCases.leaveHousehold.execute(request.userId, householdId);
+    else await useCases.removeMember.execute(request.userId, householdId, target);
+    return reply.status(204).send();
+  });
+
+  app.get<HouseholdParams>('/api/households/:householdId/pets', { onRequest }, async (request) =>
+    useCases.householdPets.execute(request.userId, request.params.householdId),
+  );
+
+  app.get('/api/invitations', { onRequest }, async (request) => useCases.listMyInvitations.execute(request.userId));
+
+  app.post<HouseholdParams>('/api/invitations/:householdId/accept', { onRequest }, async (request) =>
+    useCases.respondInvitation.execute(request.userId, request.params.householdId, 'ACCEPT'),
+  );
+
+  app.post<HouseholdParams>('/api/invitations/:householdId/decline', { onRequest }, async (request, reply) => {
+    await useCases.respondInvitation.execute(request.userId, request.params.householdId, 'DECLINE');
+    return reply.status(204).send();
+  });
+}
