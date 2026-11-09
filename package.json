@@ -18,7 +18,8 @@
     "test": "vitest run",
     "test:mutation": "stryker run tests/mutation/stryker.conf.json",
     "test:e2e": "playwright test",
-    "test:gate": "bash scripts/compile-contracts.sh && bash scripts/verify-traceability.sh && bash scripts/verify-oracles.sh && tsc --noEmit && vitest run"
+    "test:coverage": "vitest run --coverage",
+    "test:gate": "bash scripts/compile-contracts.sh && bash scripts/verify-traceability.sh && bash scripts/verify-oracles.sh && tsc --noEmit && vitest run --coverage && npm run test:mutation && playwright test"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.5",
@@ -42,6 +43,7 @@
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "4.7.0",
+    "@vitest/coverage-v8": "2.1.9",
     "autoprefixer": "10.6.2",
     "concurrently": "10.0.6",
     "fast-check": "3.23.2",

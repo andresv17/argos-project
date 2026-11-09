@@ -28,5 +28,13 @@ export default defineConfig({
       'tests/integration/**/*.spec.ts',
       'tests/security/**/*.spec.ts',
     ],
+    // Constitución §5: líneas y ramas ≥ 95 % en src/domain/ y src/application/ (TASK-115).
+    coverage: {
+      provider: 'v8',
+      include: ['src/domain/**', 'src/application/**'],
+      reporter: ['text-summary', 'json-summary'],
+      reportsDirectory: 'coverage',
+      thresholds: { lines: 95, branches: 95 },
+    },
   },
 });
