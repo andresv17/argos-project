@@ -84,7 +84,7 @@ npm run test:gate
 | Mutación | `npm run test:mutation` (Stryker) | Mutation score ≥ 85 % (`break`) |
 | E2E y accesibilidad | `playwright test` | Flujos reales con `webServer`; 0 violaciones `critical`/`serious` de axe-core a 320, 1024 y 1280 px |
 
-Playwright arranca la API y la SPA con una base nueva en el directorio temporal. Si el puerto 3000 o el 5173 ya están en uso (por ejemplo, por un `npm run dev` abierto), se detiene antes de ejecutar pruebas: cierra ese proceso y repite.
+Playwright arranca la API y la SPA con una base nueva en el directorio temporal. Si el puerto 3000 o el 5173 ya están en uso (por ejemplo, por un `npm run dev` abierto), se detiene antes de ejecutar pruebas: cierra ese proceso y repite. Ejecuta las pruebas con una configuración regional UTF-8 (`LANG=C.UTF-8`, la habitual en macOS y en Ubuntu): con `POSIX`/`C`, Chromium no abre archivos cuya ruta lleva tildes y la prueba de importación de respaldo de `wcag.spec.ts` se queda esperando.
 
 Otros comandos: `npm test` (Vitest sin cobertura), `npm run test:coverage`, `npm run test:e2e`, `npm run typecheck`, `npm run build`, `npm run verify:traceability`, `npm run verify:oracles`. El análisis SAST con Semgrep (reglas en `tests/security/sast-rules/`) corre en CI (`.github/workflows/test-gate.yml`).
 
