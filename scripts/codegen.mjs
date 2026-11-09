@@ -137,7 +137,8 @@ const openapiDoc = parseYaml(readFileSync(openapiPath, 'utf8'));
 // ---------------------------------------------------------------------------
 // strictTypes: true (explícito). Los contratos de TASK-102 declaran "type" local junto a maxLength;
 // no se desactiva la validación estricta de tipos. Ver CC-102-D1 (revertido).
-const ajv = new Ajv2020({
+function createAjv(esm) {
+  const instance = new Ajv2020({
   strict: true,
   strictTypes: true,
   allowUnionTypes: true,
@@ -146,16 +147,20 @@ const ajv = new Ajv2020({
   // Con 10 rechaza toda desviación >= 1e-12 dentro de los rangos del contrato (|v| <= 250) y no rechaza ninguna
   // centésima válida hasta |v| = 6990.72 (11 ya rechaza 874.06). El dominio cierra el resto (INV-REC-002/003).
   multipleOfPrecision: 10,
-  code: { source: true, optimize: true },
+  code: { source: true, optimize: true, esm },
 });
-addFormats(ajv);
-ajv.addKeyword({ keyword: 'x-sdd-metadata', schemaType: 'object' });
-ajv.addKeyword({ keyword: 'x-sdd-status', schemaType: 'string' });
-ajv.addKeyword({ keyword: 'x-sdd-error', schemaType: 'string' });
+addFormats(instance);
+instance.addKeyword({ keyword: 'x-sdd-metadata', schemaType: 'object' });
+instance.addKeyword({ keyword: 'x-sdd-status', schemaType: 'string' });
+instance.addKeyword({ keyword: 'x-sdd-error', schemaType: 'string' });
 // $anchor (common.schema.json#ProblemDetails) es solo anotación: ningún $ref lo usa, todos usan punteros JSON.
-ajv.addKeyword({ keyword: '$anchor', schemaType: 'string' });
+instance.addKeyword({ keyword: '$anchor', schemaType: 'string' });
 
-for (const { doc } of schemas) ajv.addSchema(doc, doc.$id);
+for (const { doc } of schemas) instance.addSchema(doc, doc.$id);
+  return instance;
+}
+
+const ajv = createAjv(false);
 
 // Nombres de tipos y validadores: cada $defs y cada raíz con "type".
 const typeRegistry = new Map(); // nombre -> { ref, file }
@@ -177,9 +182,40 @@ for (const [name, { ref }] of [...typeRegistry.entries()].sort(([a], [b]) => a.l
   validatorRefs[`validate${name}`] = ref;
 }
 
+/**
+ * H-112-1: Ajv standalone en modo ESM deja `require("<paquete CJS>")` en el código de las
+ * funciones de formato y de longitud UCS-2. En un módulo ESM eso no existe: se sustituye por
+ * imports por defecto de los mismos módulos, con la misma forma de acceso (`.fullFormats`, `.default`).
+ */
+function toEsmStandalone(code) {
+  const modules = [];
+  // ESM exige la extensión: "ajv-formats/dist/formats" -> "ajv-formats/dist/formats.js".
+  // Interop: según el entorno (Node, Vitest, Vite) el `default` de un CJS es el objeto exports o el
+  // propio export con __esModule; se desempaqueta para que `__modN.fullFormats` y `__modN.default` funcionen.
+  const body = code.replace(/require\(("[^"]+")\)/g, (_, spec) => {
+    let index = modules.indexOf(spec);
+    if (index < 0) {
+      modules.push(spec);
+      index = modules.length - 1;
+    }
+    return `__mod${index}`;
+  });
+  const lines = modules.map((spec, index) => {
+    const path = spec.slice(1, -1);
+    const file = path.endsWith('.js') ? path : `${path}.js`;
+    return [
+      `import * as __cjs${index} from ${JSON.stringify(file)};`,
+      `const __mod${index} = typeof __cjs${index}.default === 'object' && __cjs${index}.default !== null ? __cjs${index}.default : __cjs${index};`,
+    ].join('\n');
+  });
+  return modules.length ? `${lines.join('\n')}\n${body}` : body;
+}
+
 let validatorsCode;
+let validatorsEsmCode;
 try {
   validatorsCode = standaloneCode(ajv, validatorRefs);
+  validatorsEsmCode = toEsmStandalone(standaloneCode(createAjv(true), validatorRefs));
 } catch (error) {
   fail(`Ajv no pudo generar los validadores: ${error.message}`);
 }
@@ -190,6 +226,11 @@ const schemaSources = schemas.map(({ rel, doc }) => sourceLabel(rel, doc));
 emit(
   'schemas/validators.cjs',
   `${banner({ sources: schemaSources, implementsIds: allTraceability })}\n${validatorsCode}`,
+);
+// H-112-1: variante ESM para el cliente Vite (vite dev no carga exports nombrados de CJS).
+emit(
+  'schemas/validators.mjs',
+  `${banner({ sources: schemaSources, implementsIds: allTraceability })}\n${validatorsEsmCode}`,
 );
 
 const typeNames = [...typeRegistry.keys()].sort();
@@ -208,6 +249,7 @@ emit(
     ...typeNames.map((n) => `export declare const validate${n}: ValidatorFunction<${n}>;`),
   ].join('\n'),
 );
+emitted.set('schemas/validators.d.mts', emitted.get('schemas/validators.d.cts'));
 
 // ---------------------------------------------------------------------------
 // 3. Tipos desde los esquemas (json-schema-to-typescript, un único paquete de tipos)
@@ -464,14 +506,30 @@ try {
   mkdirSync(join(openapiWorkDir, 'schemas'), { recursive: true });
   cpSync(openapiDir, join(openapiWorkDir, 'openapi'), { recursive: true });
   for (const { file, doc } of schemas) {
-    const text = JSON.stringify(doc).replace(
-      /("\$ref":")https:\/\/argos\.local\/contracts\/schemas\//g,
-      '$1./',
-    );
-    writeFileSync(join(openapiWorkDir, 'schemas', file), text, 'utf8');
+    // H-112-5: los $defs no se vuelcan dentro del tipo del esquema raíz (p. ej. pet.schema).
+    // Van a un fichero hermano <stem>.defs.json y las referencias internas "#/$defs/X" apuntan a él.
+    const stem = basename(file, '.json');
+    const text = JSON.stringify(doc)
+      .replace(/("\$ref":")https:\/\/argos\.local\/contracts\/schemas\//g, '$1./')
+      .replace(/("\$ref":"\.\/[\w.-]+?)\.json#\/\$defs\//g, '$1.defs.json#/$defs/')
+      .replace(/("\$ref":")#\/\$defs\//g, `$1./${stem}.defs.json#/$defs/`);
+    const { $defs, ...root } = JSON.parse(text);
+    writeFileSync(join(openapiWorkDir, 'schemas', file), JSON.stringify(root), 'utf8');
+    if ($defs) {
+      writeFileSync(join(openapiWorkDir, 'schemas', `${stem}.defs.json`), JSON.stringify({ $defs }), 'utf8');
+    }
   }
+  // Las $ref del OpenAPI a $defs de un esquema apuntan ahora al fichero hermano (H-112-5).
+  const openapiCopy = join(openapiWorkDir, 'openapi', openapiFile);
+  writeFileSync(
+    openapiCopy,
+    readFileSync(openapiCopy, 'utf8').replace(/(\.\.\/schemas\/[\w.-]+?)\.json#\/\$defs\//g, '$1.defs.json#/$defs/'),
+    'utf8',
+  );
   const openapiAst = await openapiTS(pathToFileURL(join(openapiWorkDir, 'openapi', openapiFile)));
   openapiTypes = astToString(openapiAst);
+  // H-112-5: openapi-typescript emite un alias `$defs` vacío de nivel superior que no pertenece al contrato.
+  openapiTypes = openapiTypes.replace('export type $defs = Record<string, never>;\n', '');
 } finally {
   rmSync(openapiWorkDir, { recursive: true, force: true });
 }

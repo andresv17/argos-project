@@ -24,7 +24,7 @@ describe('TASK-112: arquitectura de la presentación', () => {
   it('[INV-ARCH-004][REQ-UI-002] src/presentation/web solo importa de sí misma, de módulos concretos de src/generated y de react, react-dom y react-router-dom', () => {
     const allowed = (target: string): boolean =>
       target.startsWith('presentation/web/') ||
-      ['generated/api/client.ts', 'generated/api/openapi-types.ts', 'generated/errors/error-codes.ts', 'generated/errors/field-errors.ts', 'generated/schemas/validators.cjs', 'generated/machines/sanitary-alert.machine.ts'].includes(target) ||
+      ['generated/api/client.ts', 'generated/api/openapi-types.ts', 'generated/errors/error-codes.ts', 'generated/errors/field-errors.ts', 'generated/schemas/validators.cjs', 'generated/schemas/validators.mjs', 'generated/machines/sanitary-alert.machine.ts'].includes(target) ||
       ['paquete:react', 'paquete:react-dom/client', 'paquete:react-router-dom'].includes(target);
     const offending = sources.flatMap((f) => importsOf(f).filter((t) => !allowed(t)).map((t) => `${f} -> ${t}`));
     expect([sources.length > 10, offending]).toEqual([true, []]);

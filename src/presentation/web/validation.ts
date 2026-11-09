@@ -21,7 +21,7 @@ import {
   validateRegisterUserInput,
   validateUpdatePetInput,
   type ValidatorFunction,
-} from '../../generated/schemas/validators.cjs';
+} from '../../generated/schemas/validators.mjs';
 
 const VALIDATORS = {
   RegisterUserInput: validateRegisterUserInput,
