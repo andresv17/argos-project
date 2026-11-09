@@ -39,7 +39,7 @@ export function TextField({ id, label, name, value, onChange, errors, type = 'te
         aria-invalid={error === undefined ? undefined : true}
         aria-describedby={error === undefined ? undefined : errorId}
         onChange={(e) => onChange(name, e.target.value)}
-        className="rounded border border-slate-500 px-3 py-2 text-slate-900"
+        className="w-full rounded border border-slate-500 px-3 py-2 text-slate-900"
       />
       {error === undefined ? null : (
         <p id={errorId} className="text-sm text-red-800">
@@ -75,7 +75,7 @@ export function SelectField({ id, label, name, value, options, onChange, errors 
         aria-invalid={error === undefined ? undefined : true}
         aria-describedby={error === undefined ? undefined : errorId}
         onChange={(e) => onChange(name, e.target.value)}
-        className="rounded border border-slate-500 px-3 py-2 text-slate-900"
+        className="w-full rounded border border-slate-500 px-3 py-2 text-slate-900"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
