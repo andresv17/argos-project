@@ -1,6 +1,5 @@
 /**
  * Puertos de la capa de aplicación, con los nombres del plan §3 y la constitución §3.
- * `storage-repository.port.ts` (v1, síncrono) no se exporta: solo lo usa `backup-use-cases.ts` hasta TASK-109.
  * @implements INV-ARCH-004, INV-ARCH-005
  */
 
