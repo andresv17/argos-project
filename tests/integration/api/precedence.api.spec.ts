@@ -114,7 +114,7 @@ describe('TASK-111: ProblemDetails desde el catálogo (src/infrastructure/http/p
     api = await createApi();
     const cookie = await api.login('andres');
     api.db.exec('DROP TABLE weights');
-    // 500 no está declarado en GET /pets/{petId}/dashboard: se registra como hueco del contrato (H-111-2).
+    // 500 no está declarado en GET /pets/{petId}/dashboard: se registra como hueco del contrato (H-111-1).
     const r = await api.call('GET', `/api/pets/${ARGOS_ID}/dashboard`, { cookie, contract: false });
     expect([r.status, r.headers['content-type'], (r.json as { code: string }).code, (r.json as { detail: string }).detail, /weights|sqlite|at |\.ts/i.test(r.text)]).toEqual([
       500,
