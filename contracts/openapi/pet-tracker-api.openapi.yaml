@@ -8,10 +8,10 @@ info:
     Las versiones 2.x son MINOR entre sí; respecto a 1.0.0 el cambio es MAJOR: autenticación por sesión, propiedad de mascotas,
     hogares compartidos, eliminación de mascotas, sin cupo y respaldo por usuario.
     Todas las respuestas de error usan application/problem+json (RFC 9457).
-  x-sdd-status: REVIEW
+  x-sdd-status: APPROVED
   x-sdd-metadata:
     version: 2.4.0
-    status: REVIEW
+    status: APPROVED
     supersedes: 2.3.0
     change_type: MINOR
     traceability:
