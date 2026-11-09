@@ -25,7 +25,7 @@ describe('TASK-111: conformidad de la API con contracts/openapi/pet-tracker-api.
       checkResponse('GET', '/api/auth/me', 401, 'application/json', {}).errors,
       checkResponse('GET', '/api/nada', 200, 'application/json', {}).errors,
     ]).toEqual([
-      ['getCurrentSession: estado 418 no declarado (200, 401)'],
+      ['getCurrentSession: estado 418 no declarado (200, 401, 500)'],
       true,
       ['getCurrentSession: content-type application/json en vez de application/problem+json'],
       ['sin operación en el OpenAPI para GET /api/nada'],

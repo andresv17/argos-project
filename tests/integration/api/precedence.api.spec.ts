@@ -114,8 +114,7 @@ describe('TASK-111: ProblemDetails desde el catálogo (src/infrastructure/http/p
     api = await createApi();
     const cookie = await api.login('andres');
     api.db.exec('DROP TABLE weights');
-    // 500 no está declarado en GET /pets/{petId}/dashboard: se registra como hueco del contrato (H-111-1).
-    const r = await api.call('GET', `/api/pets/${ARGOS_ID}/dashboard`, { cookie, contract: false });
+    const r = await api.call('GET', `/api/pets/${ARGOS_ID}/dashboard`, { cookie });
     expect([r.status, r.headers['content-type'], (r.json as { code: string }).code, (r.json as { detail: string }).detail, /weights|sqlite|at |\.ts/i.test(r.text)]).toEqual([
       500,
       'application/problem+json; charset=utf-8',
@@ -129,7 +128,7 @@ describe('TASK-111: ProblemDetails desde el catálogo (src/infrastructure/http/p
     api = await createApi();
     const cookie = await api.login('andres');
     api.db.prepare('UPDATE pets SET data = ? WHERE id = ?').run('{corrupto', ARGOS_ID);
-    const broken = await api.call('GET', '/api/pets', { cookie, contract: false });
+    const broken = await api.call('GET', '/api/pets', { cookie });
     const stillUp = await api.call('GET', '/api/auth/me', { cookie });
     expect([problemOf(broken), stillUp.status]).toEqual([{ status: 500, code: 'ERR-INTERNAL-UNEXPECTED' }, 200]);
   });

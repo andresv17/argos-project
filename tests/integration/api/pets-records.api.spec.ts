@@ -34,8 +34,7 @@ describe('TASK-111: mascotas por HTTP (src/infrastructure/http/routes/pets.route
   it('[REQ-PET-005] una consulta inválida (q de más de 50 caracteres, species desconocida, parámetro extra o q repetido) → 422', async () => {
     api = await createApi();
     const cookie = await api.login('andres');
-    // GET /pets no declara 422 en el OpenAPI: hueco registrado como H-111-1.
-    const calls = ['q=' + 'a'.repeat(51), 'species=DRAGON', 'orden=asc', 'q=a&q=b'].map((qs) => api.call('GET', `/api/pets?${qs}`, { cookie, contract: false }));
+    const calls = ['q=' + 'a'.repeat(51), 'species=DRAGON', 'orden=asc', 'q=a&q=b'].map((qs) => api.call('GET', `/api/pets?${qs}`, { cookie }));
     const fields = (await Promise.all(calls)).map((r) => [r.status, (r.json as { code: string; field: string }).code, (r.json as { field: string }).field]);
     expect(fields).toEqual([
       [422, 'ERR-SCHEMA-VALIDATION-FAILED', 'q'],
