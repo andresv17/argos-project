@@ -16,9 +16,11 @@ export function PetFilter({ q, species, onChange }: {
   return (
     <form role="search" aria-label="Filtrar mascotas" className="flex flex-wrap gap-3" onSubmit={(e) => e.preventDefault()}>
       <label className="flex flex-col text-sm font-medium text-slate-800">
-        Nombre
+        Buscar mascota
         <input
           type="search"
+          placeholder="Escribe un nombre"
+          aria-label="Buscar mascota por nombre"
           value={q}
           maxLength={50}
           onChange={(e) => onChange(e.target.value, species)}
@@ -26,7 +28,7 @@ export function PetFilter({ q, species, onChange }: {
         />
       </label>
       <label className="flex flex-col text-sm font-medium text-slate-800">
-        Especie
+        Filtrar por especie
         <select
           value={species}
           onChange={(e) => onChange(q, e.target.value as Species | '')}

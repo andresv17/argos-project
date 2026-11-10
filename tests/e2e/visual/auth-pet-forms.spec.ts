@@ -73,4 +73,22 @@ test.describe('formularios de autenticación y mascota (tests/e2e/visual)', () =
     await expect(nameInputs(page)).toHaveCount(1);
     expect(warnings).toEqual([]);
   });
+
+  test('[REQ-UI-001][REQ-UI-002] la barra de búsqueda y el alta tienen etiquetas distintas y el alta abre vacía tras escribir en el filtro', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel('Usuario').fill(USER.username);
+    await page.getByLabel('Contraseña').fill(USER.password);
+    await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    await expect(page).toHaveURL(/\/$/);
+
+    const filtro = page.getByRole('search').getByLabel('Buscar mascota por nombre');
+    await expect(filtro).toHaveAttribute('placeholder', 'Escribe un nombre');
+    await expect(page.getByRole('search').getByText('Filtrar por especie')).toBeVisible();
+    await filtro.fill('Arg');
+
+    await page.getByRole('button', { name: 'Nueva mascota' }).click();
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveCount(1);
+    await expect(page.locator('#new-pet-name')).toHaveValue('');
+    await expect(page.getByRole('search').getByLabel('Nombre', { exact: true })).toHaveCount(0);
+  });
 });
