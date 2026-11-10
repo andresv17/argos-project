@@ -12,14 +12,14 @@ Previene pruebas tautológicas o *Weak Oracles*. Se audita automáticamente con 
 
 | # | Regla | Evidencia requerida | Estado | Firma humana |
 | :--- | :--- | :--- | :--- | :--- |
-| 1 | **Sin aserciones superficiales aisladas**: ningún test tiene como aserción principal `toBeDefined()`, `toBeTruthy()`, `toBeFalsy()` o `not.toBeNull()`. | Salida de `verify-oracles.sh` + test negativo del propio script. | [x] | [ ] |
-| 2 | **Código de error exacto**: toda prueba de fallo verifica `code` y `status` (`ERR-*` + HTTP). Prohibido `toThrow()` sin argumento. | `grep` de `toThrow(` y revisión de muestra. | [x] | [ ] |
-| 3 | **Determinismo**: `FixedClockAdapter` (`2026-11-05T12:00:00.000Z`, zona `America/Bogota`), `DeterministicIdAdapter` y `seed: 20261105` en fast-check en `unit/`, `property/` e `integration/`. | `grep` de `seed` y de adaptadores. | [x] | [ ] |
-| 4 | **Estado intacto tras rollback (`INV-BACKUP-001`)**: además del `ERR-*`, una lectura posterior devuelve exactamente el mismo snapshot previo (comparación serializada), incluido el caso de fallo en el commit. | Tests en `tests/integration/api/`. | [x] | [ ] |
-| 5 | **Trazabilidad en el nombre**: todo `it`/`test` incluye entre corchetes el ID que valida. | Salida de `verify-traceability.sh`. | [x] | [ ] |
-| 6 | **Herramientas oficiales**: Vitest, fast-check, Stryker, Playwright y `@axe-core/playwright` reales; ningún harness propio ni auditoría de accesibilidad por expresiones regulares. | `package.json` + `package-lock.json` + salida de Playwright. | [x] | [ ] |
-| 7 | **Mutación**: Mutation Score ≥ 85% en `src/domain/` y `src/application/`; mutantes sobrevivientes revisados. | Reporte HTML de Stryker. | [x] | [ ] |
-| 8 | **Pruebas negativas de seguridad**: cada caso de `tests/security/exploits/` falla si se elimina la defensa correspondiente (verificado al menos una vez manualmente). | Nota del revisor. | [x] | [ ] |
+| 1 | **Sin aserciones superficiales aisladas**: ningún test tiene como aserción principal `toBeDefined()`, `toBeTruthy()`, `toBeFalsy()` o `not.toBeNull()`. | Salida de `verify-oracles.sh` + test negativo del propio script. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 2 | **Código de error exacto**: toda prueba de fallo verifica `code` y `status` (`ERR-*` + HTTP). Prohibido `toThrow()` sin argumento. | `grep` de `toThrow(` y revisión de muestra. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 3 | **Determinismo**: `FixedClockAdapter` (`2026-11-05T12:00:00.000Z`, zona `America/Bogota`), `DeterministicIdAdapter` y `seed: 20261105` en fast-check en `unit/`, `property/` e `integration/`. | `grep` de `seed` y de adaptadores. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 4 | **Estado intacto tras rollback (`INV-BACKUP-001`)**: además del `ERR-*`, una lectura posterior devuelve exactamente el mismo snapshot previo (comparación serializada), incluido el caso de fallo en el commit. | Tests en `tests/integration/api/`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 5 | **Trazabilidad en el nombre**: todo `it`/`test` incluye entre corchetes el ID que valida. | Salida de `verify-traceability.sh`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 6 | **Herramientas oficiales**: Vitest, fast-check, Stryker, Playwright y `@axe-core/playwright` reales; ningún harness propio ni auditoría de accesibilidad por expresiones regulares. | `package.json` + `package-lock.json` + salida de Playwright. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 7 | **Mutación**: Mutation Score ≥ 85% en `src/domain/` y `src/application/`; mutantes sobrevivientes revisados. | Reporte HTML de Stryker. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 8 | **Pruebas negativas de seguridad**: cada caso de `tests/security/exploits/` falla si se elimina la defensa correspondiente (verificado al menos una vez manualmente). | Nota del revisor. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
 
 ## Evidencia por ítem: compuerta final TASK-115 (Desarrollador, 2026-11-09)
 
