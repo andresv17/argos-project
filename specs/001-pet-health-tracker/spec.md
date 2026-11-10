@@ -6,7 +6,7 @@ feature: pet-health-tracker
 supersedes: 2.3.1
 change_type: MINOR
 approved_by: pendiente (v2.4.0 en REVIEW, 2026-11-09: contenido derivado (US1–US6, SC) pendiente de revisión)
-spec_review: specs/001-pet-health-tracker/checklists/spec-review.md (re-auditoría v2.2.0 pendiente de firma); calidad de spec según Spec Kit en specs/001-pet-health-tracker/checklists/requirements.md
+spec_review: .specify/memory/audits/spec-review.md (re-auditoría v2.2.0 pendiente de firma); calidad de spec según Spec Kit en specs/001-pet-health-tracker/checklists/requirements.md
 contracts_ref:
   - contracts/schemas/identity.schema.json
   - contracts/schemas/pet.schema.json
