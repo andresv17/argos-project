@@ -5,7 +5,7 @@ status: REVIEW
 applies_to: SPEC-ARGOS-001 v2.2.0 (revisión 2 de contratos, rama spec/v2.2.0-review)
 approved_by: Andrés Vallejo, 2026-11-05 (en frontmatter de la spec)
 audited_by: Auditor SDD — 2026-11-05. Re-auditoría de la revisión 2 verificada en disco: criterios 1 a 8 cumplidos. Pendiente solo la firma humana en human_signature.
-human_signature: pendiente de confirmación de Andrés (el campo anterior registraba 2026-11-05, pero su nota indicaba que no había firma confirmada)
+human_signature: Andres Vallejo 
 note: v2.3.0 (2026-11-09): migrado a la plantilla `checklist-template.md` de GitHub Spec Kit; se añade un `CHK###` a cada ítem sin cambiar su texto, estado ni firmas. Requiere revalidación del Auditor. Nota anterior: Las marcas `[x]` de v2.1.0 fueron eliminadas (H-13). v2.1.0 quedó firmada en 42e9f0d. Este checklist no registra firma humana hasta que Andrés la confirme.
 ---
 
