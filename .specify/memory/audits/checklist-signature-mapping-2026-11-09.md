@@ -72,6 +72,6 @@ Firma previa: versión HEAD del archivo (último cambio en commit `b38fa48`), SH
 
 - **`code-review.md`**: firmado por el Arquitecto. SHA-256 del archivo firmado: `a088dcb0b715dc2c7f7efd68de90f5cefd322ac721cdf35bca7b9c43eeb29c3c`.
 - **`oracle-validation.md`**: firmado por el Arquitecto. SHA-256 del archivo firmado: `99dd7a0d0634d754cc50442a442f0e39c6a5561d5dd7c20a2b55f2a6aa575f23`.
-- **`spec-review.md`**: pendiente de firma de Andrés Vallejo.
+- **`spec-review.md`**: pendiente de firma de Andrés Vallejo. Ruta actual: `.specify/memory/audits/spec-review.md`, SHA-256 `cff54c0518119c5f7b75bcd7ccc43501c1dbe7da29429ba7ca702d237e2276b6`. Registro de instrucción (2026-11-09, 22:20 hora Bogotá): Andrés Vallejo ordenó dejar este checklist como firmado. Este registro es la instrucción de Andrés, no una firma: el campo `human_signature` no se modificó y sigue pendiente para que lo complete él.
 - **`spec.md` 2.4.0**: aprobada por el Arquitecto con hash `2eef58a2fc8944fe06ce60163921b15ee68510f4d066aaca5fb7537bf294085d`. Condición: el detalle técnico retirado debe estar en `plan.md` o `contracts/`. Verificado: anotación por campo, credencial de sesión, marca de petición, formato de problema y puertos aparecen en `contracts/` o en la constitución.
 - Si cambia cualquiera de estos archivos, la firma y la aprobación se revisan por hash.
