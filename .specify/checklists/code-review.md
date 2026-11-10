@@ -12,16 +12,16 @@ Lo completa el agente **con evidencia por ítem** (archivo, comando y salida) al
 
 | # | Criterio | Evidencia requerida | Estado | Firma humana |
 | :--- | :--- | :--- | :--- | :--- |
-| 1 | **Inmutabilidad de `src/generated/` (`INV-ARCH-003`)**: nada editado a mano; regenerar produce `git diff` vacío; los validadores derivan de `contracts/` (no de plantillas). | Salida de `compile-contracts.sh && git diff --exit-code src/generated/` + test de deriva. | [x] | [ ] |
-| 2 | **Cero entropía directa (`INV-ARCH-001`, `INV-ARCH-002`)** en `src/domain/` y `src/application/` (`Date`, `performance.now`, `Math.random`, `crypto.*`). | Salida de `verify-traceability.sh`. | [x] | [ ] |
-| 3 | **Fronteras concéntricas (`INV-ARCH-004`)**: `domain` solo importa `generated`; `presentation` solo usa el cliente API y tipos; sin reglas de negocio en componentes. | Regla SAST de imports en `tests/security/sast-rules/` en verde. | [x] | [ ] |
-| 4 | **Puertos asíncronos y Cloud-ready (`INV-ARCH-005`)**: los mismos tests de contrato pasan con adaptador en memoria y SQLite. | Salida de la suite de repositorios para ambos adaptadores. | [x] | [ ] |
-| 5 | **Configuración aislada (`INV-ARCH-006`)**: `process.env` solo en `src/infrastructure/config/`; sin secretos versionados; `.env.example` presente. | `grep` + regla SAST. | [x] | [ ] |
-| 6 | **Validación estricta en fronteras**: toda request/response HTTP, lectura de BD e importación validadas con los validadores generados (`additionalProperties: false`). | Tests en `tests/integration/contracts/`. | [x] | [ ] |
-| 7 | **Autorización (`INV-ACC-001`, `INV-ACC-002`)** aplicada en cada caso de uso antes de leer/escribir. | Tests IDOR en `tests/security/exploits/`. | [x] | [ ] |
-| 8 | **Anotaciones `@implements`** con los IDs de la tarea en cada función/clase exportada. | Salida de `verify-traceability.sh`. | [x] | [ ] |
-| 9 | **Tipado estricto sin escapes**: cero `any`, `@ts-ignore`, `@ts-expect-error`, y aserciones no nulas `!` justificadas; `tsc --noEmit` limpio en `src/` y `tests/`. | Salida de `npx tsc --noEmit`. | [ ] | [ ] |
-| 10 | **Estructura de repositorio** idéntica al estándar más la lista autorizada (constitución §7); `.gitkeep` presentes. | Árbol de `find . -not -path './node_modules/*'`. | [x] | [ ] |
+| 1 | **Inmutabilidad de `src/generated/` (`INV-ARCH-003`)**: nada editado a mano; regenerar produce `git diff` vacío; los validadores derivan de `contracts/` (no de plantillas). | Salida de `compile-contracts.sh && git diff --exit-code src/generated/` + test de deriva. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 2 | **Cero entropía directa (`INV-ARCH-001`, `INV-ARCH-002`)** en `src/domain/` y `src/application/` (`Date`, `performance.now`, `Math.random`, `crypto.*`). | Salida de `verify-traceability.sh`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 3 | **Fronteras concéntricas (`INV-ARCH-004`)**: `domain` solo importa `generated`; `presentation` solo usa el cliente API y tipos; sin reglas de negocio en componentes. | Regla SAST de imports en `tests/security/sast-rules/` en verde. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 4 | **Puertos asíncronos y Cloud-ready (`INV-ARCH-005`)**: los mismos tests de contrato pasan con adaptador en memoria y SQLite. | Salida de la suite de repositorios para ambos adaptadores. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 5 | **Configuración aislada (`INV-ARCH-006`)**: `process.env` solo en `src/infrastructure/config/`; sin secretos versionados; `.env.example` presente. | `grep` + regla SAST. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 6 | **Validación estricta en fronteras**: toda request/response HTTP, lectura de BD e importación validadas con los validadores generados (`additionalProperties: false`). | Tests en `tests/integration/contracts/`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 7 | **Autorización (`INV-ACC-001`, `INV-ACC-002`)** aplicada en cada caso de uso antes de leer/escribir. | Tests IDOR en `tests/security/exploits/`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 8 | **Anotaciones `@implements`** con los IDs de la tarea en cada función/clase exportada. | Salida de `verify-traceability.sh`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+| 9 | **Tipado estricto sin escapes**: cero `any`, `@ts-ignore`, `@ts-expect-error`, y aserciones no nulas `!` justificadas; `tsc --noEmit` limpio en `src/` y `tests/`. | Salida de `npx tsc --noEmit`. | [ ] | Arquitecto, 2026-11-09: aceptado con DEUDA-TIPADO-001 (estado `[ ]` hasta cerrar la deuda) |
+| 10 | **Estructura de repositorio** idéntica al estándar más la lista autorizada (constitución §7); `.gitkeep` presentes. | Árbol de `find . -not -path './node_modules/*'`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
 
 ## Evidencia por ítem: compuerta final TASK-115 (Desarrollador, 2026-11-09)
 
