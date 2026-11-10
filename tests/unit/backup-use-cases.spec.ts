@@ -263,10 +263,11 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
     expect([r.code, r.field, r.path]).toEqual(['ERR-BACKUP-SCHEMA-INVALID', '/pets/0/extra', [...UNTIL_VALIDATION, 'SCHEMA_INVALID>ROLLED_BACK']]);
   });
 
+  type LegacyEnvelopeV1 = { pets: Array<Record<string, unknown>> };
   it.each([
-    ['un nombre con espacios extremos', (l: any) => (l.pets[0].name = ' Argos'), '/pets/0/name'],
-    ['un avatarUrl javascript:', (l: any) => (l.pets[0].avatarUrl = 'javascript:alert(1)'), '/pets/0/avatarUrl'],
-    ['un UUID que no es v4', (l: any) => (l.pets[0].id = '11111111-1111-1111-8111-111111111101'), '/pets/0/id'],
+    ['un nombre con espacios extremos', (l: LegacyEnvelopeV1) => (l.pets[0]!.name = ' Argos'), '/pets/0/name'],
+    ['un avatarUrl javascript:', (l: LegacyEnvelopeV1) => (l.pets[0]!.avatarUrl = 'javascript:alert(1)'), '/pets/0/avatarUrl'],
+    ['un UUID que no es v4', (l: LegacyEnvelopeV1) => (l.pets[0]!.id = '11111111-1111-1111-8111-111111111101'), '/pets/0/id'],
   ])('[ERR-BACKUP-SCHEMA-INVALID][STATE-BACKUP-001] v1 válido con %s no cumple v2 tras migrar: MIGRATION_SCHEMA_INVALID', async (_case, mutate, field) => {
     const legacy = structuredClone(fixtures.validLegacyBackupEnvelopeV1);
     mutate(legacy);

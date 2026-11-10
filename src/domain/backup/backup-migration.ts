@@ -34,7 +34,8 @@ const RFC3339_DATE_TIME = /^(\d{4}-\d{2}-\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.
  */
 export function normalizeToCanonicalUtc(value: string): string {
   const match = RFC3339_DATE_TIME.exec(value);
-  if (match === null || !isIsoCalendarDate(match[1]!)) return value;
+  const calendarDate = match?.[1];
+  if (match === null || calendarDate === undefined || !isIsoCalendarDate(calendarDate)) return value;
   const [, date, hours, minutes, seconds, fraction, sign, offsetHours, offsetMinutes] = match as unknown as [
     string,
     string,
