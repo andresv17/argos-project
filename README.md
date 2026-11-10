@@ -6,20 +6,18 @@ Plataforma web multiusuario y determinista para la gestión clínica, biométric
 
 Versiones leídas de la cabecera de cada artefacto. La release v2.2.0 agrupa la cola de tareas v2.2.0; la spec y los contratos recibieron después parches aprobados (spec 2.3.1, OpenAPI 2.4.0).
 
-**Migración a GitHub Spec Kit (2026-11-09, rama `001-pet-health-tracker`).** La capa SDD adopta la estructura y las plantillas de Spec Kit 1.3.4.dev0. Los documentos migrados suben de versión y quedan en `REVIEW` hasta la validación del Auditor y la aprobación del Arquitecto; sus requisitos, identificadores, tareas y estados de tarea no cambian, y `src/` y `contracts/` no se tocan. Tabla de equivalencias y reporte: [`.specify/memory/speckit-migration-2026-11-09.md`](./.specify/memory/speckit-migration-2026-11-09.md).
-
 | Fase | Artefacto | Versión | Estado |
 | :--- | :--- | :--- | :--- |
-| 0. Gobernanza | `.specify/memory/constitution.md` | 2.4.0 | `REVIEW` (migración de formato; anterior: 2.3.0 `LOCKED`) |
-| 0. Plano de control | `spec-system.md` | 2.4.0 | Rutas actualizadas a Spec Kit, pendiente de aprobación |
-| 1. Specify | `specs/001-pet-health-tracker/spec.md` | 2.4.0 | `REVIEW` (migración de formato; requisitos idénticos a 2.3.1 `APPROVED`) |
-| 1.5. Contratos | `contracts/openapi/pet-tracker-api.openapi.yaml` | 2.4.0 | `APPROVED` |
-| 1.5. Contratos | `contracts/schemas/*.schema.json`, `contracts/errors/error-catalog.json` | 2.0.2 – 2.2.0 (cabecera `x-sdd-metadata` de cada archivo) | — |
-| 2. Plan | `specs/001-pet-health-tracker/plan.md` (con `research.md`, `data-model.md`, `quickstart.md`) | 2.3.0 | `REVIEW` (migración de formato; anterior: 2.2.0 `APPROVED`) |
-| 3. Tasks | `specs/001-pet-health-tracker/tasks.md` | 2.3.0 | `REVIEW` (migración de formato; anterior: 2.2.0 `APPROVED`): TASK-100 a TASK-115 `COMPLETED` |
+| 0. Gobernanza | `.specify/memory/constitution.md` | 3.0.0 | `REVIEW` |
+| 0. Plano de control | `spec-system.md` | 2.4.0 | — |
+| 1. Specify | `specs/001-pet-health-tracker/spec.md` | 3.0.0 | `REVIEW` |
+| 1.5. Contratos | `specs/001-pet-health-tracker/contracts/openapi/pet-tracker-api.openapi.yaml` | 2.4.0 | `APPROVED` |
+| 1.5. Contratos | `specs/001-pet-health-tracker/contracts/schemas/*.schema.json`, `specs/001-pet-health-tracker/contracts/errors/error-catalog.json` | 2.0.2 – 2.2.0 (cabecera `x-sdd-metadata` de cada archivo) | — |
+| 2. Plan | `specs/001-pet-health-tracker/plan.md` (con `research.md`, `data-model.md`, `quickstart.md`) | 3.0.0 | `REVIEW` |
+| 3. Tasks | `specs/001-pet-health-tracker/tasks.md` | 3.0.0 | `REVIEW`: T001–T055 marcadas, T056–T057 abiertas |
 | 4–5. Implement / Test Gate | `src/`, `tests/` | v2.2.0 | `npm run test:gate` en verde (ver «Compuerta») |
 
-Los checklists `specs/001-pet-health-tracker/checklists/code-review.md` y `oracle-validation.md` llevan la evidencia por ítem de TASK-115. La firma humana del Arquitecto corresponde a la versión anterior (commits `e54b9de` y `76a31bf`). Tras la migración a ítems `CHK###` la versión nueva no tiene firma: queda en `REVIEW` para revalidación del Auditor y re-firma. El mapeo está en `.specify/memory/audits/checklist-signature-mapping-2026-11-09.md`. El ítem 9 de `code-review.md` sigue abierto con DEUDA-TIPADO-001.
+Los checklists `specs/001-pet-health-tracker/checklists/code-review.md` y `oracle-validation.md` llevan la evidencia por ítem de la compuerta final (T055). El ítem CHK009 de `code-review.md` sigue abierto y se cierra con T056.
 
 ## Mapa de artefactos de verdad
 
@@ -27,15 +25,15 @@ Los checklists `specs/001-pet-health-tracker/checklists/code-review.md` y `oracl
 2. **Constitución:** [`.specify/memory/constitution.md`](./.specify/memory/constitution.md)
 3. **Especificación funcional:** [`specs/001-pet-health-tracker/spec.md`](./specs/001-pet-health-tracker/spec.md)
 4. **Contratos formales:**
-   - Identidad (usuarios, sesiones, hogares): [`contracts/schemas/identity.schema.json`](./contracts/schemas/identity.schema.json)
-   - Mascotas: [`contracts/schemas/pet.schema.json`](./contracts/schemas/pet.schema.json)
-   - Registros médicos: [`contracts/schemas/medical-records.schema.json`](./contracts/schemas/medical-records.schema.json)
-   - Tipos comunes y `ProblemDetails`: [`contracts/schemas/common.schema.json`](./contracts/schemas/common.schema.json)
-   - Respaldo JSON (v2 + v1 legado): [`contracts/schemas/backup-envelope.schema.json`](./contracts/schemas/backup-envelope.schema.json)
-   - API OpenAPI 3.1: [`contracts/openapi/pet-tracker-api.openapi.yaml`](./contracts/openapi/pet-tracker-api.openapi.yaml)
-   - Máquinas de estado: [`contracts/state-machines/`](./contracts/state-machines/) (`sanitary-alert`, `backup-import`, `auth-session`, `household-membership`)
-   - Catálogo de errores: [`contracts/errors/error-catalog.json`](./contracts/errors/error-catalog.json)
-   - Fixtures canónicos: [`contracts/examples/canonical-fixtures.json`](./contracts/examples/canonical-fixtures.json)
+   - Identidad (usuarios, sesiones, hogares): [`specs/001-pet-health-tracker/contracts/schemas/identity.schema.json`](./specs/001-pet-health-tracker/contracts/schemas/identity.schema.json)
+   - Mascotas: [`specs/001-pet-health-tracker/contracts/schemas/pet.schema.json`](./specs/001-pet-health-tracker/contracts/schemas/pet.schema.json)
+   - Registros médicos: [`specs/001-pet-health-tracker/contracts/schemas/medical-records.schema.json`](./specs/001-pet-health-tracker/contracts/schemas/medical-records.schema.json)
+   - Tipos comunes y `ProblemDetails`: [`specs/001-pet-health-tracker/contracts/schemas/common.schema.json`](./specs/001-pet-health-tracker/contracts/schemas/common.schema.json)
+   - Respaldo JSON (v2 + v1 legado): [`specs/001-pet-health-tracker/contracts/schemas/backup-envelope.schema.json`](./specs/001-pet-health-tracker/contracts/schemas/backup-envelope.schema.json)
+   - API OpenAPI 3.1: [`specs/001-pet-health-tracker/contracts/openapi/pet-tracker-api.openapi.yaml`](./specs/001-pet-health-tracker/contracts/openapi/pet-tracker-api.openapi.yaml)
+   - Máquinas de estado: [`specs/001-pet-health-tracker/contracts/state-machines/`](./specs/001-pet-health-tracker/contracts/state-machines/) (`sanitary-alert`, `backup-import`, `auth-session`, `household-membership`)
+   - Catálogo de errores: [`specs/001-pet-health-tracker/contracts/errors/error-catalog.json`](./specs/001-pet-health-tracker/contracts/errors/error-catalog.json)
+   - Fixtures canónicos: [`specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json`](./specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json)
 5. **Plan técnico:** [`specs/001-pet-health-tracker/plan.md`](./specs/001-pet-health-tracker/plan.md), con [`research.md`](./specs/001-pet-health-tracker/research.md), [`data-model.md`](./specs/001-pet-health-tracker/data-model.md), [`quickstart.md`](./specs/001-pet-health-tracker/quickstart.md) y el [índice de contratos](./specs/001-pet-health-tracker/contracts/README.md)
 6. **Cola de tareas:** [`specs/001-pet-health-tracker/tasks.md`](./specs/001-pet-health-tracker/tasks.md)
 7. **Checklists de compuerta:** [`specs/001-pet-health-tracker/checklists/`](./specs/001-pet-health-tracker/checklists/) (`requirements.md`, `code-review.md`, `oracle-validation.md`). La compuerta `spec-review.md` vive en [`.specify/memory/audits/`](./.specify/memory/audits/spec-review.md) porque no es un artefacto de Spec Kit.
@@ -81,8 +79,8 @@ npm run test:gate
 
 | Paso | Comando | Umbral |
 | :--- | :--- | :--- |
-| Contratos | `scripts/compile-contracts.sh` | Regenera `src/generated/` desde `contracts/` (en CI, además, `git diff --exit-code src/generated/`) |
-| Trazabilidad y pureza | `scripts/verify-traceability.sh` | 100 % de los IDs vigentes de constitución §4; 0 violaciones de pureza |
+| Contratos | `scripts/compile-contracts.sh` | Regenera `src/generated/` desde `specs/001-pet-health-tracker/contracts/` (en CI, además, `git diff --exit-code src/generated/`) |
+| Trazabilidad y pureza | `scripts/verify-traceability.sh` | 100 % de los IDs vigentes de la constitución (Principio III); 0 violaciones de pureza |
 | Oráculos | `scripts/verify-oracles.sh` | 0 oráculos débiles |
 | Tipos | `tsc --noEmit` | 0 errores |
 | Unitarias, propiedades, integración y seguridad, con cobertura | `vitest run --coverage` | Líneas y ramas ≥ 95 % en `src/domain/` y `src/application/` |
