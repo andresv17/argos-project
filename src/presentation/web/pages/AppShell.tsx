@@ -13,18 +13,20 @@ import { invitationsLabel } from '../view-model.ts';
 
 interface InvitationsState {
   readonly count: number;
+  readonly householdCount: number;
   refresh(): void;
 }
 
-const InvitationsContext = createContext<InvitationsState>({ count: 0, refresh: () => undefined });
+const InvitationsContext = createContext<InvitationsState>({ count: 0, householdCount: 0, refresh: () => undefined });
 
 export function useInvitations(): InvitationsState {
   return useContext(InvitationsContext);
 }
 
-export function ShellHeader({ displayName, pendingInvitations, onLogout }: {
+export function ShellHeader({ displayName, pendingInvitations, householdCount = 0, onLogout }: {
   readonly displayName: string;
   readonly pendingInvitations: number;
+  readonly householdCount?: number;
   readonly onLogout: () => void;
 }): JSX.Element {
   const link = ({ isActive }: { isActive: boolean }): string =>
@@ -42,6 +44,10 @@ export function ShellHeader({ displayName, pendingInvitations, onLogout }: {
           </NavLink>
           <NavLink to="/households" className={link}>
             Hogares{' '}
+            <span data-household-count={householdCount} className="ml-1 rounded-full bg-slate-200 px-2 text-xs font-bold text-slate-900">
+              <span aria-hidden="true">{householdCount}</span>
+              <span className="sr-only">{householdCount === 1 ? '1 hogar' : `${householdCount} hogares`}</span>
+            </span>
             <span data-pending-invitations={pendingInvitations} className="ml-1 rounded-full bg-amber-300 px-2 text-xs font-bold text-slate-900">
               <span aria-hidden="true">{pendingInvitations}</span>
               <span className="sr-only">{invitationsLabel(pendingInvitations)}</span>
@@ -66,19 +72,23 @@ export function AppShell({ children }: { readonly children: ReactNode }): JSX.El
   const session = useSession();
   const navigate = useNavigate();
   const [count, setCount] = useState(0);
+  const [householdCount, setHouseholdCount] = useState(0);
   const refresh = useCallback(() => {
     unwrap(session.api.GET('/invitations'))
       .then((list) => setCount(list.length))
       .catch(() => setCount(0));
+    unwrap(session.api.GET('/households'))
+      .then((list) => setHouseholdCount(list.length))
+      .catch(() => setHouseholdCount(0));
   }, [session.api]);
   useEffect(refresh, [refresh]);
   const onLogout = (): void => {
     void session.logout().then(() => navigate('/login', { replace: true }));
   };
   return (
-    <InvitationsContext.Provider value={{ count, refresh }}>
+    <InvitationsContext.Provider value={{ count, householdCount, refresh }}>
       <div className="min-h-screen bg-slate-100 text-slate-900">
-        <ShellHeader displayName={session.user?.displayName ?? ''} pendingInvitations={count} onLogout={onLogout} />
+        <ShellHeader displayName={session.user?.displayName ?? ''} pendingInvitations={count} householdCount={householdCount} onLogout={onLogout} />
         <main id="main-content" tabIndex={-1} className="mx-auto max-w-7xl p-4">
           {children}
         </main>
