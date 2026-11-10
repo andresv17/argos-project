@@ -1,6 +1,6 @@
 # Mapeo de firmas de checklists a ítems CHK###
 
-**Fecha:** 2026-11-09 · **Estado:** `REVIEW` (pendiente de validación del Auditor)
+**Fecha:** 2026-11-09 · **Estado:** `APPROVED` para `code-review` y `oracle-validation` (firma del Arquitecto, 2026-11-09). `spec-review` pendiente de Andrés.
 
 Propósito: demostrar que cada ítem `CHK###` conserva el número, estado y criterio del ítem anterior de la tabla firmada. Los hashes son del archivo firmado en su último commit de firma humana. Verificación de texto hecha por el Reconstructor, contra HEAD: en `code-review` y `oracle-validation`, el criterio y la evidencia de cada ítem anterior están completos dentro de su `CHK###`; en `spec-review`, el texto de cada ítem es idéntico tras normalizar formato, salvo el prefijo `CHK###`. La validación final la hace el Auditor.
 
@@ -66,3 +66,12 @@ Firma previa: versión HEAD del archivo (último cambio en commit `b38fa48`), SH
 | CHK013 | iv. Cabecera e historial | [x] | [x] | sí |
 
 Ítems HEAD: 13; ítems CHK: 13. Todas las coincidencias de estado: sí.
+
+
+## Decisión del Arquitecto (2026-11-09)
+
+- **`code-review.md`**: firmado por el Arquitecto. SHA-256 del archivo firmado: `a088dcb0b715dc2c7f7efd68de90f5cefd322ac721cdf35bca7b9c43eeb29c3c`.
+- **`oracle-validation.md`**: firmado por el Arquitecto. SHA-256 del archivo firmado: `99dd7a0d0634d754cc50442a442f0e39c6a5561d5dd7c20a2b55f2a6aa575f23`.
+- **`spec-review.md`**: pendiente de firma de Andrés Vallejo.
+- **`spec.md` 2.4.0**: aprobada por el Arquitecto con hash `2eef58a2fc8944fe06ce60163921b15ee68510f4d066aaca5fb7537bf294085d`. Condición: el detalle técnico retirado debe estar en `plan.md` o `contracts/`. Verificado: anotación por campo, credencial de sesión, marca de petición, formato de problema y puertos aparecen en `contracts/` o en la constitución.
+- Si cambia cualquiera de estos archivos, la firma y la aprobación se revisan por hash.

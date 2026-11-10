@@ -186,3 +186,12 @@ El único conteo oficial es el de la compuerta `scripts/verify-traceability.sh`,
 La lista de retirados de la constitución §4 tiene 4 IDs; `ERR-PET-QUOTA-EXCEEDED` no está en el catálogo, por eso la resta es 3. Los 4 retirados aparecen en `spec.md` solo dentro de notas de retiro (fila de historial y «Retirado en v2.0.0»), no como requisitos vigentes.
 
 Los números 114, 131, 104 y 106 que aparecieron antes en el proceso de validación miden otra cosa y no deben citarse como conteo de la migración.
+
+## Decisiones del Arquitecto (2026-11-09)
+
+1. Re-firma de `code-review.md` y `oracle-validation.md` en forma `CHK###`: firmada. Detalle en `.specify/memory/audits/checklist-signature-mapping-2026-11-09.md`.
+2. `spec.md` 2.4.0: aprobada con hash `2eef58a2fc8944fe`. Condición cumplida: el detalle técnico retirado está en `plan.md` o `contracts/`.
+3. Commit `3ed71e2` (Nivel 2): ratificado, incluido el alias `--task T###` en `verify-traceability.sh`.
+4. Principios IV y VI de la constitución: aceptados sin identificador de lineage; remiten a §5 y a §2/§7.
+5. `tasks.md` 2.3.0 con líneas `T###` y alias `TASK-NNN`: aprobado. `[x]` solo para tareas `COMPLETED`.
+6. `spec-review.md`: firma pendiente de Andrés Vallejo.
