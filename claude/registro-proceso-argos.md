@@ -68,3 +68,46 @@
 - 2026-11-10 Oracle: veredicto PASS CON OBSERVACIONES sobre bugs 1, 3 y 4. Sin commit (decisión de Neo). e2e pendiente de corrida local. Scrypt timeout preexistente. Siguiente: Architect para hallazgo 6 y backlog Feature 002.
 - 2026-11-10 Architect: hallazgo 6 (audits/hallazgo-6-traduccion-errores.md) y backlog Feature 002 (.specify/memory/backlog-feature-002.md) escritos; pendientes decisiones D1/D2 y preguntas de Neo. Sin commit.
 - 2026-11-10 Architect: entrega diseño del hallazgo 6 (solo presentación, `.specify/memory/audits/hallazgo-6-traduccion-errores.md`) y backlog de Feature 002 (`.specify/memory/backlog-feature-002.md`). Pendientes para Neo: D1 (contrato para 422 del servidor) y D2 (lectura de REQ-UI-005).
+- 2026-11-10 Morpheus/Neo: commits locales `cea2bf6` (UI) y `5bc48e4` (docs), sin push. Hallazgo 3 real = filtro "Nombre" con la misma etiqueta que el alta. Despacho a Keymaker para renombrar filtro. Pendiente: D1 y D2 de Architect.
+- 2026-11-10 Keymaker: checkpoint hallazgo 3, renombrar etiquetas del filtro de mascotas (solo presentación); sin commit.
+- 2026-11-10 Morpheus: Keymaker renombra filtros (PetCards.tsx) y añade prueba e2e; e2e no ejecutada por puerto 3000 ocupado (PID 73667, no tocado). Despacho a Oracle.
+2026-11-10 | Oracle | Auditoria filtro Buscar mascota: PASS CON OBSERVACIONES (e2e pendiente de corrida por Neo)
+- 2026-11-10 Oracle: filtros renombrados en PetCards.tsx, PASS CON OBSERVACIONES. E2E pendiente de corrida por Neo; commit pendiente de autorización.
+- 2026-11-10 Neo: D1 aprobada (hallazgo 6 solo en presentación). D2 en espera de explicación.
+- 2026-11-10 Morpheus/Neo: Fase 2 solicitada. Spec v2.1 (docx) conflicta con spec 001 Approved (email/SSO, CANINE/FELINE, roles distintos). Decisión Nivel 2 pendiente: ¿v2.1 reemplaza 001 o es 002? Despacho a Keymaker (bugs 1 y 2) y Architect (brecha y hoja de ruta).
+- 2026-11-10 Neo (Nivel 2): Opción 2. 001 intacta (solo fallos reportados). Spec v2.1 = Feature 002 (Fase 2). Hoja de ruta bajo esa línea.
+- 2026-11-10 Architect: Fase 2 entregada en .specify/memory/audits/fase-2-analisis-v21.md (brecha A, hallazgos 3-6 B, rutas C, hoja de ruta D). Recomienda Ruta 2 (Feature 002). Pendiente decisión Nivel 2 de Neo. Sin commit.
+- 2026-11-10 Neo: D2 = A. Commit local de PetCards.tsx + e2e (sin push). Architect Fase 2 entregado (Ruta 2 recomendada).
+- 2026-11-10 Keymaker: puertos e2e configurables (E2E_API_PORT/E2E_WEB_PORT) en playwright.config.ts y vite.config.ts; defaults 3000/5173. En curso, sin commit.
+- 2026-11-10 Keymaker: bugs 1 y 2 no reproducibles en código (API OK); causa probable de entorno: Grafana en :3000 detrás del proxy de Vite. Añado 3 pruebas de regresión.
+- 2026-11-10 Neo (Nivel 2): respondidas las 6 decisiones de la Feature 002 (username, timeout 30m/24h, especies aprobadas, matriz v2.1 para Cuidador, SSO/correo/PDF a 003, bloqueo de eliminación con hogar compartido). Hoja de ruta de la 002 en curso. `specs/002-*` requiere autorización aparte.
+- 2026-11-10 Keymaker: puertos e2e listos; e2e 4 OK / 1 FALLA (auth-pet-forms.spec.ts:81, botón 'Entrar' vs 'Iniciar sesión'). Pruebas intactas. Sin commit.
+- 2026-11-10 Keymaker: puertos e2e configurables; 4/5 pasan con Chrome del sistema en 3200/5273; falla un selector de la prueba nueva ("Entrar", no "Iniciar sesión"). Hay tres archivos de prueba modificados fuera de su alcance, por revisar.
+- 2026-11-10 Keymaker: corrigiendo selector botón 'Iniciar sesión' -> 'Entrar' en auth-pet-forms.spec.ts:81 (solo ese archivo).
+- 2026-11-10 Neo: confirma 6-A y 6-B como hallazgos separados. Despacho a Keymaker para diagnosticar 6-B.
+- 2026-11-10 Keymaker: selector corregido (línea 81 'Entrar'); e2e 4 OK / 1 FALLA ahora en línea 90 (getByLabel('Nombre',{exact:true}) = 0; la etiqueta visible es 'Nombre *'). Aserciones intactas; config temporal borrada.
+- 2026-11-10 Architect: hoja de ruta Feature 002 escrita en .specify/memory/audits/hoja-de-ruta-feature-002.md (fases F0–F8, rebanadas, sustitución de pruebas). Pendientes: 6-A/6-B, D1/D2, F2 clarify. Sin commit.
+- 2026-11-10 Keymaker: editando aserción línea 90 de auth-pet-forms.spec.ts (selector form[aria-labelledby] input[name="name"]); verificando en puertos 3200/5273.
+- 2026-11-10 Keymaker: línea 90 corregida; e2e auth-pet-forms 5/5 pasan (puertos 3200/5273). Config temporal borrada.
+- 2026-11-10 Morpheus: hoja de ruta de la 002 entregada (F0–F8). Pendientes de Neo: autorizaciones [N2] y lista de fallos de la 001 antes de F0.
+- 2026-11-10 keymaker: hallazgo 6-B, escribiendo e2e tests/e2e/visual/household-counter.spec.ts (REQ-HOUSE-001/REQ-UI-006) y luego contador de hogares en AppShell/HouseholdsPage.
+- 2026-11-10 Neo: autoriza mover la API de desarrollo a otro puerto. Confirma que la API estaba caída al fallar el login (Grafana en 3000). Keymaker se despacha tras la validación de Oracle.
+- 2026-11-10 oracle: auditoria sin commit (puertos E2E, selectores, 3 regresiones) PASS CON OBSERVACIONES; compuertas verdes; household-counter.spec.ts nuevo sin src asociado.
+- 2026-11-10 keymaker: e2e household-counter falla antes (sin contador de hogares); editando AppShell.tsx (householdCount en contexto/encabezado).
+- 2026-11-10 Oracle: validación de puertos, e2e y regresiones PASS CON OBSERVACIONES. Excluido household-counter.spec.ts. Keymaker despachado para mover la API a 3100.
+- 2026-11-10 keymaker: editando puerto por defecto de API 3000 -> 3100 (app-config, vite, playwright, app-config.spec).
+- 2026-11-10 Neo: autoriza F0 completo, T057 (react-router v7) y D2 = A. COMPLETED, push y etiqueta siguen siendo de Neo tras el veredicto verde de Oracle.
+- 2026-11-10 keymaker: T057 en curso, migrando react-router-dom 6.30.6 -> ^7 (package.json, lock, src/presentation/web).
+- 2026-11-10 keymaker: 6-B cerrado en REVIEW: AppShell.tsx (contador hogares) + tests/e2e/visual/household-counter.spec.ts; e2e 30/30, tsc/trazabilidad/oráculos OK.
+- 2026-11-10 architect: añadiendo T058 (traducción de errores de esquema, solo presentación) a tasks.md; queda [ ] pendiente de Oracle/Neo.
+- 2026-11-10 keymaker: editando T056 (any en backup-use-cases.spec.ts y ! en backup-migration.ts).
+- 2026-11-10 Architect: T058 (6-A) añadida a tasks.md como pendiente. Trazabilidad 6/6. Falta validación de Oracle antes de implementar.
+- 2026-11-10 keymaker: API dev/e2e movida a 3100 (app-config, vite, playwright, .env.example, app-config.spec); tsc, unit, integration y e2e 5/5 verdes. Pendiente decision de Neo sobre README/quickstart.
+- 2026-11-10 Keymaker: 6-B reproducido. El "0" es el contador de invitaciones, no de hogares. Se añade contador neutro de hogares con e2e (30/30). Falta validación de Oracle.
+- 2026-11-10 Morpheus: T056, puerto 3100 y 6-B listos para validación de Oracle. T057 en curso. T058 pendiente.
+- 2026-11-10 keymaker: T057 listo para Oracle: react-router-dom ^7.18.5, audit 0 vulnerabilidades, tsc/presentation/trazabilidad OK, e2e auth-pet-forms 5/5 (Chrome, 3300/5299).
+- 2026-11-10 Keymaker: T057 lista (react-router v7, npm audit 0). Pendiente validación de Oracle.
+- 2026-11-10 oracle: auditados T056, puerto 3100 y contador 6-B → PASS/PASS CON OBS; compuertas verdes (tsc, vitest 215/215, trazabilidad 96/96, oráculos 0 débiles). Ver claude/log-oracle.md
+- 2026-11-10 oracle: T057 react-router v7 -> PASS CON OBS (rango ^ vs pin exacto); archivos: package.json, package-lock.json. Ver claude/log-oracle.md
+- 2026-11-10 Morpheus: commits locales F0 (sin push): 42bfd0d, c1b7186, a3af27d, 232fb72, 372f635. T058 y bitácoras sin commit.
+- 2026-11-10 Morpheus: react-router fijado exacto (7.18.5); README y quickstart en 3100. Sin commit. Neo marca T056/T057 y hace push.
