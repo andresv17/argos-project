@@ -47,7 +47,7 @@ Requisitos: **Node.js 22** (`.nvmrc` fija `22.23.4`; `engines` admite `>=22.18 <
 ```bash
 nvm use                  # opcional: Node 22.23.4 de .nvmrc
 npm ci                   # dependencias exactas del lockfile
-npm run dev              # API Fastify en http://127.0.0.1:3000 y SPA Vite en http://127.0.0.1:5173
+npm run dev              # API Fastify en http://127.0.0.1:3100 y SPA Vite en http://127.0.0.1:5173
 ```
 
 Abre `http://127.0.0.1:5173`, crea una cuenta con «Crear cuenta» y entra. La SPA llama a la API por el proxy `/api` de Vite.
@@ -56,7 +56,7 @@ Abre `http://127.0.0.1:5173`, crea una cuenta con «Crear cuenta» y entra. La S
 
 | Variable | Valor por defecto | Regla |
 | :--- | :--- | :--- |
-| `PORT` | `3000` | 1–65535. El proxy de Vite apunta a `127.0.0.1:3000`: si lo cambias, la SPA deja de llegar a la API. |
+| `PORT` | `3100` | 1–65535. El proxy de Vite apunta a `127.0.0.1:3100`: si lo cambias, la SPA deja de llegar a la API. |
 | `HOST` | `127.0.0.1` | Solo `127.0.0.1`. |
 | `DATABASE_PATH` | `./data/argos.sqlite` | La carpeta se crea al arrancar; `data/` no se versiona. |
 | `APP_TIMEZONE` | `America/Bogota` | Zona IANA válida. |
@@ -87,7 +87,7 @@ npm run test:gate
 | Mutación | `npm run test:mutation` (Stryker) | Mutation score ≥ 85 % (`break`) |
 | E2E y accesibilidad | `playwright test` | Flujos reales con `webServer`; 0 violaciones `critical`/`serious` de axe-core a 320, 1024 y 1280 px |
 
-Playwright arranca la API y la SPA con una base nueva en el directorio temporal. Si el puerto 3000 o el 5173 ya están en uso (por ejemplo, por un `npm run dev` abierto), se detiene antes de ejecutar pruebas: cierra ese proceso y repite. Ejecuta las pruebas con una configuración regional UTF-8 (`LANG=C.UTF-8`, la habitual en macOS y en Ubuntu): con `POSIX`/`C`, Chromium no abre archivos cuya ruta lleva tildes y la prueba de importación de respaldo de `wcag.spec.ts` se queda esperando.
+Playwright arranca la API y la SPA con una base nueva en el directorio temporal. Si el puerto 3100 o el 5173 ya están en uso (por ejemplo, por un `npm run dev` abierto), se detiene antes de ejecutar pruebas: cierra ese proceso y repite. Ejecuta las pruebas con una configuración regional UTF-8 (`LANG=C.UTF-8`, la habitual en macOS y en Ubuntu): con `POSIX`/`C`, Chromium no abre archivos cuya ruta lleva tildes y la prueba de importación de respaldo de `wcag.spec.ts` se queda esperando.
 
 Otros comandos: `npm test` (Vitest sin cobertura), `npm run test:coverage`, `npm run test:e2e`, `npm run typecheck`, `npm run build`, `npm run verify:traceability`, `npm run verify:oracles`. El análisis SAST con Semgrep (reglas en `tests/security/sast-rules/`) corre en CI (`.github/workflows/test-gate.yml`).
 

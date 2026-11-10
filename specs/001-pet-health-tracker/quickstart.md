@@ -23,7 +23,7 @@ npm ci         # dependencias exactas del lockfile
 ## Run
 
 ```bash
-npm run dev    # API en http://127.0.0.1:3000 y SPA en http://127.0.0.1:5173
+npm run dev    # API en http://127.0.0.1:3100 y SPA en http://127.0.0.1:5173
 ```
 
 ## Validation Scenarios
@@ -54,5 +54,5 @@ bash scripts/verify-traceability.sh                  # compuerta final de trazab
 bash scripts/verify-traceability.sh --task T019      # compuerta de una tarea de tasks.md
 bash scripts/verify-oracles.sh                       # oráculos débiles
 npm test                                             # Vitest sin cobertura
-npm run test:e2e                                     # Playwright (requiere los puertos 3000 y 5173 libres)
+npm run test:e2e                                     # Playwright (requiere los puertos 3100 y 5173 libres)
 ```

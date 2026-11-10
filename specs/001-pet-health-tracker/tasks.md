@@ -205,8 +205,9 @@
 - [x] T053 Cubrir los recorridos E2E y la accesibilidad en `tests/e2e/visual/` y `tests/e2e/accessibility/wcag.spec.ts` a 320, 1024 y 1280 px
 - [x] T054 [P] Documentar el arranque local y la compuerta en `README.md` y validar los escenarios de quickstart.md
 - [x] T055 Pasar la compuerta final `npm run test:gate` desde un checkout limpio con todos los IDs vigentes de la constitución trazados
-- [ ] T056 Retirar los 3 `any` de `tests/unit/backup-use-cases.spec.ts` y la aserción no nula de `src/domain/backup/backup-migration.ts` (`checklists/code-review.md`, CHK009)
-- [ ] T057 Migrar `react-router-dom` a la versión 7 en `package.json` y `src/presentation/web/App.tsx` hasta dejar `npm audit --omit=dev` sin avisos de ese paquete
+- [x] T056 Retirar los 3 `any` de `tests/unit/backup-use-cases.spec.ts` y la aserción no nula de `src/domain/backup/backup-migration.ts` (`checklists/code-review.md`, CHK009)
+- [x] T057 Migrar `react-router-dom` a la versión 7 en `package.json` y `src/presentation/web/App.tsx` hasta dejar `npm audit --omit=dev` sin avisos de ese paquete
+- [ ] T058 Traducir los errores de esquema a mensajes humanos en español solo en la capa de presentación: crear `src/presentation/web/schema-messages.ts` (etiquetas por campo y `humanizeSchemaError`) y usarlo en `src/presentation/web/validation.ts`, `src/presentation/web/api.ts` y `src/presentation/web/use-contract-form.ts`, sin cambiar el código `ERR-SCHEMA-VALIDATION-FAILED` ni el catálogo (REQ-UI-005 opción A; INV-ARCH-003; REQ-UI-001, REQ-UI-002, REQ-UI-004; diseño en `.specify/memory/audits/hallazgo-6-traduccion-errores.md`)
 
 ---
 
@@ -228,6 +229,7 @@
 - **User Story 5 (P5)**: necesita cuentas (US1) y mascotas (US2)
 - **User Story 6 (P6)**: necesita mascotas (US2); respalda también los registros de US3
 - **T056 y T057**: deuda técnica posterior a la compuerta final T055; dependen de ella y no la bloquean
+- **T058**: mejora de presentación posterior a T055; depende de los esquemas generados (INV-ARCH-003) y de los formularios de US1–US3, y no bloquea la compuerta final
 
 ### Within Each User Story
 
