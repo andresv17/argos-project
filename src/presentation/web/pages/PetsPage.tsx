@@ -161,7 +161,7 @@ export function PetsPage(): JSX.Element {
           <FormError message={error} />
           {mode === 'CREATE' ? <PetForm profile={null} onSubmit={createPet} onCancel={() => setMode('VIEW')} /> : null}
           {mode === 'EDIT' && dashboard !== null && dashboard.canEdit ? (
-            <PetForm key={dashboard.profile.id} profile={dashboard.profile} onSubmit={editPet} onCancel={() => setMode('VIEW')} />
+            <PetForm key={`edit-${dashboard.profile.id}`} profile={dashboard.profile} onSubmit={editPet} onCancel={() => setMode('VIEW')} />
           ) : null}
           {mode === 'DELETE' && dashboard !== null && dashboard.canEdit ? (
             <DeletePetDialog petName={dashboard.profile.name} onConfirm={() => void deletePet()} onCancel={() => setMode('VIEW')} />
@@ -170,7 +170,7 @@ export function PetsPage(): JSX.Element {
             <p className="text-slate-700">Selecciona una mascota para ver su ficha.</p>
           ) : (
             <PetDashboard
-              key={dashboard.profile.id}
+              key={`dashboard-${dashboard.profile.id}`}
               dashboard={dashboard}
               activeTab={activeTab}
               onTabChange={setActiveTab}

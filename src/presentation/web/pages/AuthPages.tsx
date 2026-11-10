@@ -5,7 +5,7 @@
  * @implements REQ-UI-005, REQ-UI-004, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS
  */
 import { Link, useNavigate } from 'react-router-dom';
-import { Button, FormError, TextField } from '../components/Field.tsx';
+import { Button, FormError, PasswordField, TextField } from '../components/Field.tsx';
 import { useSession } from '../session.tsx';
 import { useContractForm } from '../use-contract-form.ts';
 import type { Schemas } from '../view-model.ts';
@@ -35,7 +35,7 @@ export function LoginPage(): JSX.Element {
     <AuthLayout title="Iniciar sesión">
       <form noValidate aria-label="Iniciar sesión" onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded border border-slate-300 bg-white p-4">
         <TextField id="login-username" label="Usuario" name="username" autoComplete="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
-        <TextField id="login-password" label="Contraseña" name="password" type="password" autoComplete="current-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
+        <PasswordField id="login-password" label="Contraseña" name="password" autoComplete="current-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
         <FormError errors={form.errors} message={form.message} />
         <Button type="submit" disabled={form.busy}>
           Entrar
@@ -67,7 +67,7 @@ export function RegisterPage(): JSX.Element {
       <form noValidate aria-label="Crear cuenta" onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded border border-slate-300 bg-white p-4">
         <TextField id="register-username" label="Usuario (minúsculas, números, . _ -)" name="username" autoComplete="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
         <TextField id="register-displayName" label="Nombre visible" name="displayName" autoComplete="name" required value={form.values.displayName ?? ''} onChange={form.onChange} errors={form.errors} />
-        <TextField id="register-password" label="Contraseña (8 a 128, con letra y dígito)" name="password" type="password" autoComplete="new-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
+        <PasswordField id="register-password" label="Contraseña (8 a 128, con letra y dígito)" name="password" autoComplete="new-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
         <FormError errors={form.errors} message={form.message} />
         <Button type="submit" disabled={form.busy}>
           Registrarme

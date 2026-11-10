@@ -3,7 +3,7 @@
  *
  * @implements REQ-UI-004, REQ-UI-005
  */
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { FORM_ERROR_KEY, type FieldErrors } from '../validation.ts';
 
 interface FieldProps {
@@ -41,6 +41,54 @@ export function TextField({ id, label, name, value, onChange, errors, type = 'te
         onChange={(e) => onChange(name, e.target.value)}
         className="w-full rounded border border-slate-500 px-3 py-2 text-slate-900"
       />
+      {error === undefined ? null : (
+        <p id={errorId} className="text-sm text-red-800">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Campo de contraseña con botón "Mostrar contraseña" (alterna `type`); el botón (nombre accesible visible
+ * "Mostrar contraseña", estado en `aria-pressed`, sin `aria-label` para no duplicar el campo en `getByLabel`).
+ *
+ * @implements REQ-UI-005, REQ-UI-004
+ */
+export function PasswordField({ id, label, name, value, onChange, errors, required = false, autoComplete }: Omit<FieldProps, 'type' | 'step'>): JSX.Element {
+  const [visible, setVisible] = useState(false);
+  const error = errors[name];
+  const errorId = `${id}-error`;
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-medium text-slate-800">
+        {label}
+        {required ? <span aria-hidden="true"> *</span> : null}
+      </label>
+      <div className="flex gap-2">
+        <input
+          id={id}
+          name={name}
+          type={visible ? 'text' : 'password'}
+          value={value}
+          required={required}
+          {...(autoComplete === undefined ? {} : { autoComplete })}
+          aria-invalid={error === undefined ? undefined : true}
+          aria-describedby={error === undefined ? undefined : errorId}
+          onChange={(e) => onChange(name, e.target.value)}
+          className="w-0 min-w-0 flex-1 rounded border border-slate-500 px-3 py-2 text-slate-900"
+        />
+        <button
+          type="button"
+          aria-pressed={visible}
+          aria-controls={id}
+          onClick={() => setVisible((v) => !v)}
+          className="shrink-0 rounded border border-slate-600 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        >
+          Mostrar contraseña
+        </button>
+      </div>
       {error === undefined ? null : (
         <p id={errorId} className="text-sm text-red-800">
           {error}
