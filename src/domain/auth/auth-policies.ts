@@ -64,7 +64,7 @@ export function nextSessionState(state: StateAuthSession001State, event: StateAu
   };
 }
 
-/** Normalización de username antes de validar (spec §5.1 regla 3): recortar espacios y pasar a minúsculas. */
+/** Normalización de username antes de validar: recortar espacios y pasar a minúsculas. */
 export function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
 }
@@ -78,7 +78,7 @@ export function isPasswordCompliant(password: string): boolean {
 }
 
 /**
- * REQ-AUTH-001: valida RegisterUserInput con el username ya normalizado. Según la spec §5.1 regla 4, un fallo
+ * REQ-AUTH-001: valida RegisterUserInput con el username ya normalizado. Según la regla 4, un fallo
  * sobre el valor de password da ERR-AUTH-WEAK-PASSWORD (x-sdd-error del contrato); un campo obligatorio ausente,
  * una propiedad no autorizada o cualquier otro fallo da ERR-SCHEMA-VALIDATION-FAILED.
  * @implements REQ-AUTH-001, INV-AUTH-002, ERR-AUTH-WEAK-PASSWORD

@@ -6,9 +6,9 @@ import type { SessionRecord } from '../../src/domain/auth/auth-policies.ts';
 import { ANDRES_PETS, HOUSEHOLD, LUNA, MEMBERSHIPS, envelope, fixtures } from './application-harness.ts';
 
 /**
- * Suite de contratos de los puertos de repositorio (INV-ARCH-005). TASK-108 la ejecuta con los repositorios en
- * memoria; TASK-110 debe ejecutarla también con SQLite. Cada prueba parte de una unidad de trabajo vacía.
- * TASK-110: los registros se guardan después de su mascota, porque SQLite exige la referencia (INV-PET-005).
+ * Suite de contratos de los puertos de repositorio (INV-ARCH-005). la ejecuta con los repositorios en
+ * memoria; debe ejecutarla también con SQLite. Cada prueba parte de una unidad de trabajo vacía.
+ *: los registros se guardan después de su mascota, porque SQLite exige la referencia (INV-PET-005).
  */
 const ANDRES: UserAccount = { ...fixtures.users[0], passwordHash: 'h-andres' };
 const MARIA: UserAccount = { ...fixtures.users[1], passwordHash: 'h-maria' };
@@ -30,7 +30,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
   const seed = async (uow: UnitOfWorkPort, work: (r: RepositorySet) => Promise<void>) => uow.runInTransaction(work);
   const read = <T>(uow: UnitOfWorkPort, work: (r: RepositorySet) => Promise<T>) => uow.runInTransaction(work);
 
-  describe(`TASK-108: suite de contratos de repositorio (${adapterName})`, () => {
+  describe(`suite de contratos de repositorio (${adapterName})`, () => {
     it('[INV-ARCH-005] runInTransaction devuelve una Promise y cada operación de repositorio también', async () => {
       const uow = createUnitOfWork();
       const pending = uow.runInTransaction(async (r) => {

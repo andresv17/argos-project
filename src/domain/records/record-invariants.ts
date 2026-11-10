@@ -2,7 +2,7 @@
  * Invariantes puras de los 6 módulos de registros clínicos y biométricos (v2).
  * - REQ-REC-001 Peso, REQ-REC-002 Medidas, REQ-REC-003 Vacunación, REQ-REC-004 Desparasitación,
  *   REQ-REC-005 Citas y controles, REQ-REC-006 Parámetros adicionales.
- * - Precedencia (spec §5.1, reglas 4 y 5): primero el esquema generado; un fallo sobre el valor de un campo con
+ * - Precedencia: primero el esquema generado; un fallo sobre el valor de un campo con
  *   x-sdd-error devuelve su código (weightKg → ERR-REC-WEIGHT-OUT-OF-RANGE; medidas → ERR-REC-MEASUREMENT-OUT-OF-RANGE);
  *   un campo ausente, una propiedad no autorizada o cualquier otro fallo, ERR-SCHEMA-VALIDATION-FAILED (incluye
  *   INV-REC-006 vía NonEmptyTrimmedString). Después el dominio: máx. 2 decimales exactos (INV-REC-002/003),
@@ -86,7 +86,7 @@ export interface RecordModuleRules {
 const ref = (name: string, validate: unknown): SchemaRef => ({ name, validate: validate as ValidatorWithErrors });
 const MEASUREMENT_FIELDS = ['neckCm', 'chestCm', 'backLengthCm', 'waistCm'] as const;
 
-/** Reglas por módulo, leídas de medical-records.schema.json y de la spec (§2.3 y §3). */
+/** Reglas por módulo, leídas de medical-records.schema.json y de la spec. */
 export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> = {
   weights: {
     record: ref('WeightRecord', validateWeightRecord),
@@ -139,7 +139,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
 };
 
 /**
- * Regla 4 de la spec §5.1: el código anotado solo se aplica a fallos sobre el valor del campo anotado.
+ * Regla 4 de la: el código anotado solo se aplica a fallos sobre el valor del campo anotado.
  * Ajv siempre llena `errors` cuando la validación falla.
  * @implements INV-REC-002, INV-REC-003, INV-REC-006, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE
  */
@@ -276,7 +276,7 @@ export function validateCustomParameterRecordDomain(
 }
 
 /**
- * INV-REC-006 para textos obligatorios fuera de los esquemas de registros (lo usa la capa de aplicación v1 hasta TASK-108):
+ * INV-REC-006 para textos obligatorios fuera de los esquemas de registros (lo usa la capa de aplicación v1 hasta):
  * trim().length >= 1, sin espacios extremos y como máximo maxLength caracteres.
  * @implements INV-REC-006
  */

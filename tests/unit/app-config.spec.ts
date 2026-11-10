@@ -12,7 +12,7 @@ function configError(env: Record<string, string | undefined>): readonly string[]
   return ['sin error'];
 }
 
-describe('TASK-110: configuración (src/infrastructure/config/app-config.ts)', () => {
+describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   it('[INV-ARCH-006] sin variables se usan los valores por defecto, que coinciden con .env.example', () => {
     const example = Object.fromEntries(
       readFileSync('.env.example', 'utf8')

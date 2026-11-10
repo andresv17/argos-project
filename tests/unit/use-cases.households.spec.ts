@@ -45,7 +45,7 @@ async function outcome(promise: Promise<unknown>): Promise<string> {
 
 const rowsOf = (memberships: readonly HouseholdMember[], userId: string) => memberships.filter((m) => m.householdId === H && m.userId === userId).map((m) => m.status);
 
-describe('TASK-108: hogares (src/application/use-cases/household-use-cases.ts)', () => {
+describe('hogares (src/application/use-cases/household-use-cases.ts)', () => {
   it('[REQ-HOUSE-001][INV-ARCH-002] Lucía crea un hogar: queda como OWNER ACTIVE con OWNER_COLOR_1 y los ids salen de IdGeneratorPort', async () => {
     const { deps, uow } = createHarness();
     const view = await new CreateHouseholdUseCase(deps).execute(LUCIA, { name: 'Casa Lucía' });

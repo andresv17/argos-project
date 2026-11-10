@@ -1,5 +1,5 @@
 /**
- * Defensa CSRF (spec §5.1 regla 1, constitución §6.3): toda petición que modifica estado debe traer
+ * Defensa CSRF: toda petición que modifica estado debe traer
  * `X-Argos-Request: 1`; si no, ERR-AUTH-CSRF-REJECTED (403). Se comprueba en `onRequest`, antes que la sesión, el
  * cuerpo y el esquema, y también en las rutas públicas (registro, login, logout).
  *

@@ -1,5 +1,5 @@
 /**
- * Respaldo por usuario sobre UnitOfWorkPort (REQ-BACKUP-001, REQ-BACKUP-002), sin HTTP ni SQLite (TASK-109).
+ * Respaldo por usuario sobre UnitOfWorkPort (REQ-BACKUP-001, REQ-BACKUP-002), sin HTTP ni SQLite.
  * - Exportación: solo las mascotas del usuario autenticado y sus 6 colecciones, en un sobre 2.0.0 validado contra
  *   backup-envelope.schema.json. Nunca incluye usuarios, hogares, sesiones ni credenciales (INV-AUTH-003).
  * - Importación: recorre STATE-BACKUP-001 tal como lo define contracts/state-machines/backup-import.machine.json. El

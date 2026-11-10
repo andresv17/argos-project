@@ -1,9 +1,9 @@
-# SAST TASK-113 (plan §5, constitución §6): sin evaluación dinámica de código.
+# SAST: sin evaluación dinámica de código.
 rules:
   - id: argos-no-dynamic-code
     languages: [typescript]
     severity: ERROR
-    message: Evaluación dinámica de código (eval, new Function o temporizador con texto). Prohibida en Argos (constitución §6; TASK-113).
+    message: Evaluación dinámica de código (eval, new Function o temporizador con texto). Prohibida en Argos.
     pattern-either:
       - pattern: eval(...)
       - pattern: new Function(...)

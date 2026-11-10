@@ -31,7 +31,7 @@ import {
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 
 const fixtures = JSON.parse(
-  readFileSync(resolve(process.cwd(), 'contracts/examples/canonical-fixtures.json'), 'utf8'),
+  readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 );
 const envelope: BackupEnvelopeV2 = fixtures.validBackupEnvelopeV2;
 const [argos, kira] = envelope.pets as [PetProfile, PetProfile];
@@ -67,7 +67,7 @@ const create = (input: unknown, ownerUserId = ANDRES, id = NEW_PET_ID) =>
 const update = (input: unknown, recordEventDates: readonly string[] = []) =>
   updatePetProfile({ pet: argos, input, today: TODAY, nowIsoTimestamp: '2026-11-05T13:00:00.000Z', recordEventDates });
 
-describe('TASK-105: perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
+describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
   it('[REQ-PET-001][INV-OWN-001] el alta asigna como dueño al usuario autenticado y fija createdAt y updatedAt', () => {
     const pet = create(VALID_INPUT);
     expect(pet).toEqual({
@@ -95,7 +95,7 @@ describe('TASK-105: perfil de mascota (src/domain/pet/pet-invariants.ts)', () =>
     expect(new Set(pets.map((p) => p.species))).toEqual(new Set(['DOG']));
   });
 
-  it('[REQ-PET-001] los módulos de TASK-105 no contienen referencias al cupo ni a IDs retirados', () => {
+  it('[REQ-PET-001] los módulos de no contienen referencias al cupo ni a IDs retirados', () => {
     const retired = /INV-PET-001|INV-PET-004|STATE-PET-QUOTA-001|ERR-PET-QUOTA-EXCEEDED|quota|cupo|MAX_(TOTAL|DOGS|CATS)/i;
     for (const dir of ['src/domain/pet', 'src/domain/access', 'src/domain/alerts']) {
       for (const file of readdirSync(dir)) {
@@ -233,7 +233,7 @@ describe('TASK-105: perfil de mascota (src/domain/pet/pet-invariants.ts)', () =>
   });
 });
 
-describe('TASK-105: eliminación en cascada (src/domain/pet/pet-deletion.ts)', () => {
+describe('eliminación en cascada (src/domain/pet/pet-deletion.ts)', () => {
   it('[REQ-PET-004][INV-PET-005] borrar Argos quita sus 2 pesos, 1 medida, 1 vacuna y 1 parámetro y nada más (EDGE-022)', () => {
     const state = deepFreeze(structuredClone({ pets: envelope.pets, records: envelope.records }));
     const result = deletePetCascade(state, argos.id);
@@ -285,7 +285,7 @@ const deworming = (id: string, dewormingType: 'INTERNAL' | 'EXTERNAL', appliedAt
 });
 const uuid = (n: number) => `33333333-3333-4333-8333-${String(n).padStart(12, '0')}`;
 
-describe('TASK-105: alertas sanitarias (src/domain/alerts/sanitary-alert-evaluator.ts)', () => {
+describe('alertas sanitarias (src/domain/alerts/sanitary-alert-evaluator.ts)', () => {
   it('[STATE-ALERT-001] umbrales exactos: -1 OVERDUE, 0 y 15 DUE_SOON, 16 UP_TO_DATE, con los datos del contrato', () => {
     const states = STATE_ALERT_001.states;
     expect(evaluateSanitaryAlertState('2026-11-04', TODAY, false)).toEqual({ status: 'OVERDUE', ...pick(states.OVERDUE), daysRemaining: -1 });

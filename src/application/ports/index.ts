@@ -1,5 +1,5 @@
 /**
- * Puertos de la capa de aplicación, con los nombres del plan §3 y la constitución §3.
+ * Puertos de la capa de aplicación, con los nombres del y la
  * @implements INV-ARCH-004, INV-ARCH-005
  */
 

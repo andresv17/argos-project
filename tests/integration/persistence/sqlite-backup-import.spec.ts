@@ -7,7 +7,7 @@ import { ANDRES, ARGOS, LUNA } from '../../fixtures/application-harness.ts';
 import { UNTIL_COMMIT, V2_UNTIL_INVARIANTS, failure, path, v2 } from '../../fixtures/backup-harness.ts';
 import { dumpSqlite, seedSqlite } from '../../fixtures/sqlite-harness.ts';
 
-/** Importación de respaldo (TASK-109) sobre la unidad de trabajo SQLite: C-1, C-5 y la convención de rollback. */
+/** Importación de respaldo sobre la unidad de trabajo SQLite: C-1, C-5 y la convención de rollback. */
 const opened: SqliteDatabase[] = [];
 afterEach(() => {
   for (const db of opened.splice(0)) db.close();
@@ -23,7 +23,7 @@ async function setup() {
   return { db, uow, steps, run: (payload: string) => importer.execute(ANDRES, payload, (s) => steps.push(s)) };
 }
 
-describe('TASK-110: importación de respaldo sobre SqliteUnitOfWork', () => {
+describe('importación de respaldo sobre SqliteUnitOfWork', () => {
   it('[INV-PET-005] el sobre canónico se importa sobre SQLite: los datos del usuario se reemplazan y los de otros usuarios no cambian', async () => {
     const { uow, steps, run } = await setup();
     const result = await run(JSON.stringify(v2()));

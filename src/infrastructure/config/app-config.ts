@@ -1,5 +1,5 @@
 /**
- * Configuración de la aplicación (constitución §3.6, plan §4). Único lugar de `src/` que lee `process.env`
+ * Configuración de la aplicación. Único lugar de `src/` que lee `process.env`
  * (INV-ARCH-006). Las variables se validan contra `APP_CONFIG_SCHEMA` (JSON Schema, Ajv) antes de convertirse.
  * - `PORT` 1–65535 (3000), `HOST` solo `127.0.0.1`, `DATABASE_PATH` no vacía (`./data/argos.sqlite`),
  *   `APP_TIMEZONE` zona IANA válida (`America/Bogota`, F6), `COOKIE_SECURE` `true` o `false` (`false`).

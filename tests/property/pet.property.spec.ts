@@ -11,7 +11,7 @@ const DAY_MS = 86_400_000;
 const BASE_MS = Date.UTC(2020, 0, 1);
 const iso = (day: number) => new Date(BASE_MS + day * DAY_MS).toISOString().slice(0, 10);
 const envelope: BackupEnvelopeV2 = JSON.parse(
-  readFileSync(resolve(process.cwd(), 'contracts/examples/canonical-fixtures.json'), 'utf8'),
+  readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 ).validBackupEnvelopeV2;
 type Collections = BackupEnvelopeV2['records'];
 
@@ -25,7 +25,7 @@ function outcome(action: () => void): string {
   }
 }
 
-describe('TASK-105: propiedades de mascota', () => {
+describe('propiedades de mascota', () => {
   it('[INV-PET-006][ERR-PET-BIRTHDATE-AFTER-RECORDS] falla si y solo si birthDate es posterior al registro más antiguo', () => {
     fc.assert(
       fc.property(fc.integer({ min: 0, max: 2500 }), fc.array(fc.integer({ min: 0, max: 2500 }), { maxLength: 10 }), (birth, events) => {

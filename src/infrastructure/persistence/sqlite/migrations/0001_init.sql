@@ -1,4 +1,4 @@
--- Esquema inicial de Argos en SQLite (plan §4, TASK-110).
+-- Esquema inicial de Argos en SQLite.
 -- Cada tabla guarda en `data` el objeto del contrato en JSON (validado contra src/generated/ al escribir y al leer)
 -- y en columnas propias las claves, referencias y campos de búsqueda o de unicidad.
 -- INV-PET-005: los 6 módulos de registros se borran en cascada con su mascota.

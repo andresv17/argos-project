@@ -46,7 +46,7 @@ const domainFields = (error: unknown) =>
 
 defineRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 
-describe('TASK-110: migraciones y apertura de SQLite (src/infrastructure/persistence/sqlite/sqlite-database.ts)', () => {
+describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlite/sqlite-database.ts)', () => {
   it('[INV-PET-005] la migración 0001 crea las 13 tablas, activa foreign_keys y queda registrada una sola vez', () => {
     const dir = tempDir();
     const path = join(dir, 'datos', 'argos.sqlite');
@@ -114,7 +114,7 @@ describe('TASK-110: migraciones y apertura de SQLite (src/infrastructure/persist
   });
 });
 
-describe('TASK-110: particularidades de SqliteUnitOfWork y los repositorios SQLite', () => {
+describe('particularidades de SqliteUnitOfWork y los repositorios SQLite', () => {
   it('[INV-PET-005] borrar la mascota borra en cascada, en la misma sentencia, sus registros de los 6 módulos y nada más', async () => {
     const db = memoryDb();
     const uow = new SqliteUnitOfWork(db);

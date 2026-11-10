@@ -1,10 +1,10 @@
 /**
- * Casos de uso de hogares compartidos (plan §3, más GetHouseholdUseCase para la operación getHousehold del OpenAPI).
+ * Casos de uso de hogares compartidos.
  * Las reglas son las de household-policies (STATE-HOUSE-MEMBERSHIP-001, INV-HOUSE-001..005); aquí se cargan y
  * guardan las membresías en una transacción.
- * - Visibilidad: sin membresía ACTIVE, ERR-HOUSE-NOT-FOUND (INV-HOUSE-004, constitución §6.4).
+ * - Visibilidad: sin membresía ACTIVE, ERR-HOUSE-NOT-FOUND (INV-HOUSE-004,).
  * - InviteMemberUseCase comprueba primero que el actor sea OWNER y después valida la entrada (normalización del
- *   username, spec §5.1 regla 3), igual que el acceso precede al esquema en mascotas y registros.
+ *   username regla 3), igual que el acceso precede al esquema en mascotas y registros.
  * - ListMyHouseholdsUseCase ordena por createdAt del hogar y luego id (la spec no fija el orden).
  *
  * @implements REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-ARCH-001, INV-ARCH-002

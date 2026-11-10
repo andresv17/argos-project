@@ -1,5 +1,5 @@
 /**
- * Hashing de contraseñas con scrypt y salt aleatorio (INV-AUTH-003, plan §4).
+ * Hashing de contraseñas con scrypt y salt aleatorio (INV-AUTH-003).
  * - Formato: `scrypt$<N>$<r>$<p>$<salt base64>$<hash base64>`; salt de 16 bytes y clave de 64 bytes.
  * - `verify` recalcula con los parámetros guardados en el hash y compara en tiempo constante; un hash con formato
  *   inválido devuelve false (sin lanzar).

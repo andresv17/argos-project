@@ -51,7 +51,7 @@ Compuertas parciales:
 
 ```bash
 bash scripts/verify-traceability.sh                  # compuerta final de trazabilidad y pureza
-bash scripts/verify-traceability.sh --task TASK-105  # compuerta de una tarea de tasks.md
+bash scripts/verify-traceability.sh --task T019      # compuerta de una tarea de tasks.md
 bash scripts/verify-oracles.sh                       # oráculos débiles
 npm test                                             # Vitest sin cobertura
 npm run test:e2e                                     # Playwright (requiere los puertos 3000 y 5173 libres)

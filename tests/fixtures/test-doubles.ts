@@ -1,7 +1,7 @@
 import type { PasswordHasherPort } from '../../src/application/ports/password-hasher.port.ts';
 import type { SecureTokenPort } from '../../src/application/ports/secure-token.port.ts';
 
-/** Prefijo de los hashes falsos; el scrypt real se prueba en integración y seguridad (plan §3). */
+/** Prefijo de los hashes falsos; el scrypt real se prueba en integración y seguridad. */
 export const FAKE_HASH_PREFIX = 'fake-scrypt$';
 export const DUMMY_PASSWORD_HASH = `${FAKE_HASH_PREFIX}__argos_dummy_hash__`;
 

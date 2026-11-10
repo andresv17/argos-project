@@ -21,7 +21,7 @@ const opArb = fc.record({
   target: fc.integer({ min: 0, max: 4 }),
 });
 
-describe('TASK-106: propiedades de hogares', () => {
+describe('propiedades de hogares', () => {
   it('[INV-HOUSE-001][INV-HOUSE-003][STATE-HOUSE-MEMBERSHIP-001] tras cualquier secuencia de operaciones: un único OWNER ACTIVE, a lo sumo una fila abierta por usuario y firstJoinedAt inmutable', () => {
     fc.assert(
       fc.property(fc.array(opArb, { maxLength: 40 }), (ops) => {

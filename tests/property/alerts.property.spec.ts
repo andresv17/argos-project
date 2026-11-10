@@ -60,7 +60,7 @@ function newestIds(records: readonly VaccinationRecord[]): Set<string> {
   return new Set([...best.values()].map((r) => r.id));
 }
 
-describe('TASK-105: propiedades de STATE-ALERT-001', () => {
+describe('propiedades de STATE-ALERT-001', () => {
   it('[STATE-ALERT-001] el estado coincide con un oráculo independiente para cualquier fecha y bandera', () => {
     fc.assert(
       fc.property(offsetArb, fc.boolean(), (offset, superseded) => {

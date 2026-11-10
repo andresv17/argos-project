@@ -1,5 +1,5 @@
 /**
- * Tokens de sesión de producción (constitución §3.2, REQ-AUTH-002): 32 bytes aleatorios en base64url (43 caracteres).
+ * Tokens de sesión de producción: 32 bytes aleatorios en base64url (43 caracteres).
  * El token solo viaja en la cookie; el repositorio SQLite guarda su SHA-256 (INV-AUTH-003).
  *
  * @implements INV-ARCH-002, INV-ARCH-004, INV-AUTH-003

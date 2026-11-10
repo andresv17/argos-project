@@ -8,7 +8,7 @@ import { addRecord } from '../../../src/presentation/web/records.ts';
 import { ownerBadge } from '../../../src/presentation/web/view-model.ts';
 
 /**
- * TASK-112: la SPA usa el cliente generado contra la API real (Fastify escuchando en 127.0.0.1).
+ *: la SPA usa el cliente generado contra la API real (Fastify escuchando en 127.0.0.1).
  * En Node no hay almacén de cookies: un middleware reenvía la cookie de sesión, como haría el navegador.
  */
 let api: Api | null = null;
@@ -38,7 +38,7 @@ async function loggedClient(): Promise<ApiClient> {
   return client;
 }
 
-describe('TASK-112: cliente generado de la SPA contra la API real', () => {
+describe('cliente generado de la SPA contra la API real', () => {
   it('[REQ-UI-007] en "Mis mascotas" colorToken es null y en el hogar cada tarjeta trae su colorToken', async () => {
     const client = await loggedClient();
     const mine = await unwrap(client.GET('/pets'));

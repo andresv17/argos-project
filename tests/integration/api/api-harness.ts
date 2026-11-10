@@ -14,7 +14,7 @@ import { checkResponse } from '../contracts/openapi-contract.ts';
 
 /**
  * API real (Fastify `inject`) sobre SQLite en memoria con el estado canónico, reloj fijo (2026-11-05T12:00:00Z),
- * IDs y tokens deterministas y hasher espía (TASK-111). Cada respuesta se comprueba contra el OpenAPI salvo que la
+ * IDs y tokens deterministas y hasher espía. Cada respuesta se comprueba contra el OpenAPI salvo que la
  * prueba lo desactive con `contract: false` (y lo justifique).
  */
 export interface CallOptions {

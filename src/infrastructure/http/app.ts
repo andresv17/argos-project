@@ -1,5 +1,5 @@
 /**
- * Aplicación Fastify de la API (plan §4). Orden de la frontera (spec §5.1): CSRF (`onRequest` global) → sesión
+ * Aplicación Fastify de la API. Orden de la frontera: CSRF (`onRequest` global) → sesión
  * (`onRequest` de la ruta) → cuerpo → esquema y dominio (casos de uso). Los cuerpos se leen como bytes, en cualquier
  * tipo de contenido, y se decodifican en UTF-8 estricto; los errores salen como `application/problem+json`.
  *

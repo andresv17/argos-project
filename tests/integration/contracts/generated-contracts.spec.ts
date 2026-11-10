@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import errorCatalog from '../../../contracts/errors/error-catalog.json';
-import fixtures from '../../../contracts/examples/canonical-fixtures.json';
+import errorCatalog from '../../../specs/001-pet-health-tracker/contracts/errors/error-catalog.json';
+import fixtures from '../../../specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json';
 import * as generated from '../../../src/generated/index.ts';
 import {
   DomainError,
@@ -34,7 +34,7 @@ function firstErrorPath(validate: AjvValidator, field: string): string | undefin
   return validate.errors?.find((e) => e.instancePath === field)?.instancePath;
 }
 
-describe('TASK-102: contratos generados', () => {
+describe('contratos generados', () => {
   it('INV-ARCH-003: los fixtures canónicos válidos pasan sus validadores generados', () => {
     for (const user of fixtures.users) expectValid(validateUserPublicProfile, user);
     expectValid(validateHousehold, fixtures.household);

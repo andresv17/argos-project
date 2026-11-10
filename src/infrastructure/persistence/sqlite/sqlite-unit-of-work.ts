@@ -1,9 +1,9 @@
 /**
- * UnitOfWorkPort sobre una conexión better-sqlite3 (plan §4, TASK-110).
+ * UnitOfWorkPort sobre una conexión better-sqlite3.
  * - Las transacciones se ejecutan en serie, en orden de llegada: la conexión es una sola y `work` es asíncrono.
  * - `BEGIN IMMEDIATE` al empezar; `COMMIT` si `work` termina. Si `work` lanza o el `COMMIT` falla, `ROLLBACK` y la
  *   promesa se rechaza con el error original (INV-ARCH-005).
- * - Convención de UnitOfWorkPort (TASK-109 C-6): si el `ROLLBACK` falla, los cambios pueden haber quedado
+ * - Convención de UnitOfWorkPort (C-6): si el `ROLLBACK` falla, los cambios pueden haber quedado
  *   confirmados; la promesa se rechaza con DomainError ERR-INTERNAL-UNEXPECTED y `finalState` `UNKNOWN`.
  * - C-5: un fallo de lectura dentro de `work` (p. ej. un dato corrupto) es un rechazo normal de la transacción; el
  *   caso de uso de importación lo traduce a `STORAGE_READ_FAILED` si ocurre en CHECKING_DOMAIN_INVARIANTS.

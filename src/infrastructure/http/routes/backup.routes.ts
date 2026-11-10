@@ -1,7 +1,7 @@
 /**
  * Rutas `backup` del OpenAPI. La exportación devuelve el sobre 2.0.0 del usuario como archivo descargable; la
  * importación pasa los bytes crudos a STATE-BACKUP-001 (≤ 10 MB; el límite del cuerpo deja llegar 10 MB + 1 byte
- * para que lo rechace la máquina). Los errores llevan `finalState` (spec §5.1).
+ * para que lo rechace la máquina). Los errores llevan `finalState`.
  *
  * @implements REQ-BACKUP-001, REQ-BACKUP-002, INV-BACKUP-001
  */

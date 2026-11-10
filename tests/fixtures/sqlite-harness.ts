@@ -4,7 +4,7 @@ import type { MemoryState } from '../../src/infrastructure/persistence/memory/in
 import type { SqliteDatabase } from '../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 import { canonicalState } from './application-harness.ts';
 
-/** Guarda en la unidad de trabajo (SQLite o memoria) el estado dado; por defecto, el estado canónico. TASK-110. */
+/** Guarda en la unidad de trabajo (SQLite o memoria) el estado dado; por defecto, el estado canónico.. */
 export async function seedSqlite(uow: UnitOfWorkPort, state: MemoryState = canonicalState()): Promise<void> {
   await uow.runInTransaction(async (r) => {
     for (const user of state.users) await r.users.insert(user);

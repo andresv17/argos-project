@@ -1,7 +1,7 @@
 /**
- * Errores HTTP como RFC 9457 (`application/problem+json`) desde el catálogo (plan §4, spec §5).
+ * Errores HTTP como RFC 9457 (`application/problem+json`) desde el catálogo.
  * - `DomainError` → su `status` y `toProblemDetails(ruta)`, incluido `finalState` cuando la importación terminó en
- *   `ROLLED_BACK` o `UNKNOWN` (spec §5.1).
+ *   `ROLLED_BACK` o `UNKNOWN`.
  * - Errores de Fastify de la petición (cuerpo demasiado grande, URL inválida…) → ERR-SCHEMA-VALIDATION-FAILED (422);
  *   en `POST /api/backup/import`, el cuerpo demasiado grande es ERR-BACKUP-PAYLOAD-TOO-LARGE con `finalState`
  *   `ROLLED_BACK`, igual que si lo rechazara STATE-BACKUP-001.

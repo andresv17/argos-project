@@ -1,5 +1,5 @@
 /**
- * Puertos de repositorio (plan §3, INV-ARCH-005). Todas las operaciones devuelven Promise. Los repositorios solo
+ * Puertos de repositorio. Todas las operaciones devuelven Promise. Los repositorios solo
  * se obtienen dentro de `UnitOfWorkPort.runInTransaction`, de modo que toda lectura y escritura es transaccional.
  * Ninguna lista garantiza orden: los casos de uso ordenan con las reglas de dominio (INV-SORT-001, REQ-PET-005,
  * INV-HOUSE-005).
@@ -51,7 +51,7 @@ export interface MedicalRecordRepositoryPort {
   listForPet(petId: string): Promise<PetRecordCollections>;
   /**
    * petId del registro con ese id en cualquiera de los 6 módulos, o null si no existe. Lo usa la importación de
-   * respaldo para detectar IDs de registro que pertenecen a otro usuario (INV-BACKUP-001, TASK-109).
+   * respaldo para detectar IDs de registro que pertenecen a otro usuario (INV-BACKUP-001).
    */
   findPetIdOfRecord(recordId: string): Promise<string | null>;
   /** Falla si el id ya existe en el módulo. */

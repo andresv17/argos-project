@@ -1,6 +1,6 @@
 import type { HouseholdMemberView, HouseholdView, PetCardView, PetDashboardView, Schemas } from '../../../src/presentation/web/view-model.ts';
 
-/** Vistas del contrato para las pruebas de presentación de TASK-112 (formas de contracts/openapi). */
+/** Vistas del contrato para las pruebas de presentación de (formas de contracts/openapi). */
 export const ME = '22222222-2222-4222-8222-222222222201';
 export const OTHER = '22222222-2222-4222-8222-222222222202';
 export const INVITEE = '22222222-2222-4222-8222-222222222203';

@@ -14,7 +14,7 @@ import {
 import { DUMMY_PASSWORD_HASH, FAKE_HASH_PREFIX, SequentialTokenAdapter, SpyPasswordHasher } from './test-doubles.ts';
 
 /** Datos canónicos de contracts/examples/canonical-fixtures.json. */
-export const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'contracts/examples/canonical-fixtures.json'), 'utf8'));
+export const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
 export const envelope: BackupEnvelopeV2 = fixtures.validBackupEnvelopeV2;
 export const USERS: UserPublicProfile[] = fixtures.users;
 export const [ANDRES, MARIA, CARLOS, LUCIA] = USERS.map((u) => u.id) as [string, string, string, string];

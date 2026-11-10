@@ -6,8 +6,6 @@
 
 **Feature**: [spec.md](../spec.md)
 
-**Note**: Evaluación de `spec.md` v2.4.0 contra los criterios de calidad de `/speckit.specify`, hecha durante la migración a GitHub Spec Kit. No sustituye a `.specify/memory/audits/spec-review.md`, que es la compuerta de aprobación del proyecto. Pendiente de revisión del Arquitecto.
-
 ## Content Quality
 
 - [x] CHK001 No implementation details (languages, frameworks, APIs)
@@ -35,7 +33,6 @@
 
 ## Notes
 
-- CHK001, CHK003 y CHK016 se marcan tras retirar de la spec los detalles técnicos (puertos, cookie, cabeceras, códigos HTTP, JSON, RFC 9457, OpenAPI). Esos detalles viven ahora en `plan.md` (sección «Detalles técnicos trasladados desde la spec») y en `contracts/`.
-- CHK009 y CHK014 se apoyan en las historias US1 a US6. Su trazabilidad a IDs existentes está comprobada; la revisión de contenido sigue en `REVIEW`.
-- CHK015 se apoya en la evidencia de la compuerta final de TASK-115 (`oracle-validation.md`).
-- Los ítems marcados requieren revalidación del Auditor antes de pasar a `APPROVED`.
+- CHK001, CHK003 y CHK016: los detalles técnicos (puertos, cookie, cabeceras, códigos HTTP, formato del respaldo, contrato de API) están en `plan.md`, `research.md` y `contracts/`, no en la especificación.
+- CHK009 y CHK014 se apoyan en las historias US1 a US6.
+- CHK015 se apoya en la evidencia de la compuerta final (`oracle-validation.md`).

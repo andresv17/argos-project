@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # Compuerta de trazabilidad (Lineage IDs) y pureza de capas.
-# Constitución §3 (INV-ARCH-001, INV-ARCH-002, INV-ARCH-006), §4 (IDs vigentes y retirados) y §5 (compuerta por tarea).
+# Constitución, principio II (INV-ARCH-001, INV-ARCH-002, INV-ARCH-006), principio III (IDs vigentes y retirados)
+# y principio IV (compuerta por tarea).
 #
 # Uso:
-#   bash scripts/verify-traceability.sh                  compuerta final: todos los IDs vigentes (TASK-115)
-#   bash scripts/verify-traceability.sh --task TASK-NNN  compuerta por tarea: IDs de la columna "IDs de Trazabilidad"
-#   bash scripts/verify-traceability.sh --task T###      igual, resuelto con la tabla de alias de tasks.md
+#   bash scripts/verify-traceability.sh              compuerta final: todos los IDs vigentes
+#   bash scripts/verify-traceability.sh --task T###  compuerta por tarea: IDs citados en la línea "- [ ] T### ..." de tasks.md
 #
 # Un ID cuenta como trazado solo si aparece en un @implements de src/ fuera de src/generated/
 # y en el título de un it/test de tests/. Los comentarios sueltos y los títulos de describe no cuentan.
 # En la compuerta por tarea se listan todos los archivos que declaran cada ID (primera línea de cada archivo);
 # basta con que aparezca en al menos uno de src/ y en al menos uno de tests/.
-# IDs vigentes = spec + contracts/ (REQ/INV/STATE) + constitución §3 y §4 + códigos de error-catalog.json, menos los retirados de §4.
+# IDs vigentes = spec + contracts/ de la feature (REQ/INV/STATE) + constitución, principios II y III + códigos de
+# error-catalog.json, menos los retirados del principio III.
 # IDs retirados: fallan la compuerta final; en la compuerta por tarea se avisan (RETIRED WARN) sin fallar.
 #
 # Salida: 0 = cumple; 1 = incumple; 2 = uso inválido o fuente ausente.
@@ -21,8 +22,8 @@ TASK_ID=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --task)
-      if [[ $# -lt 2 || ! "$2" =~ ^(TASK-[0-9]{3}|T[0-9]{3})$ ]]; then
-        echo "[SDD Traceability Gate] Uso: --task TASK-NNN | T###" >&2
+      if [[ $# -lt 2 || ! "$2" =~ ^T[0-9]{3}$ ]]; then
+        echo "[SDD Traceability Gate] Uso: --task T###" >&2
         exit 2
       fi
       TASK_ID="$2"
@@ -35,15 +36,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$TASK_ID" =~ ^T[0-9]{3}$ ]]; then
-  ALIAS=$(grep -m1 -E "^\| TASK-[0-9]{3} \| ${TASK_ID} \|" specs/001-pet-health-tracker/tasks.md | awk -F'|' '{gsub(/ /,"",$2); print $2}' || true)
-  if [[ -z "$ALIAS" ]]; then
-    echo "[SDD Traceability Gate] ${TASK_ID} no tiene alias TASK-NNN en la tabla de tasks.md" >&2
-    exit 2
-  fi
-  TASK_ID="$ALIAS"
-fi
-
 export SDD_TASK_ID="$TASK_ID"
 exec node --input-type=module - <<'JS'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -52,8 +44,8 @@ import { join, relative } from 'node:path';
 const SPEC = 'specs/001-pet-health-tracker/spec.md';
 const CONSTITUTION = '.specify/memory/constitution.md';
 const TASKS = 'specs/001-pet-health-tracker/tasks.md';
-const CONTRACTS = 'contracts';
-const CATALOG = 'contracts/errors/error-catalog.json';
+const CONTRACTS = 'specs/001-pet-health-tracker/contracts';
+const CATALOG = 'specs/001-pet-health-tracker/contracts/errors/error-catalog.json';
 const CODE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
 const NUM_ID = /\b(?:REQ|INV|STATE)-[A-Z]+(?:-[A-Z]+)*-\d{3}\b/g;
 const ERR_ID = /\bERR-[A-Z]+(?:-[A-Z0-9]+)+\b/g;
@@ -84,10 +76,11 @@ const walk = (dir, skip = () => false) => {
 };
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 const isCommentLine = (line) => /^\s*(?:\/\/|\/\*|\*)/.test(line);
-const section = (lines, n) => {
-  const start = lines.findIndex((l) => l.startsWith(`## ${n}.`));
+// Cuerpo de un principio de la constitución: desde "### <romano>. " hasta el siguiente encabezado "###" o "##".
+const section = (lines, roman) => {
+  const start = lines.findIndex((l) => l.startsWith(`### ${roman}. `));
   if (start === -1) return [];
-  const end = lines.findIndex((l, i) => i > start && l.startsWith('## '));
+  const end = lines.findIndex((l, i) => i > start && (l.startsWith('### ') || l.startsWith('## ')));
   return lines.slice(start, end === -1 ? undefined : end);
 };
 
@@ -96,7 +89,7 @@ const section = (lines, n) => {
 // ---------------------------------------------------------------------------
 const constitutionLines = readFileSync(CONSTITUTION, 'utf8').split('\n');
 const retiredLine = constitutionLines.find((l) => l.includes('IDs retirados'));
-if (!retiredLine) usage(`No se encontró la línea "IDs retirados" en ${CONSTITUTION} §4`);
+if (!retiredLine) usage(`No se encontró la línea "IDs retirados" en ${CONSTITUTION} (principio III)`);
 const retired = new Set(idsIn(retiredLine));
 
 const candidates = new Set();
@@ -104,10 +97,10 @@ for (const id of readFileSync(SPEC, 'utf8').match(NUM_ID) ?? []) candidates.add(
 for (const file of walk(CONTRACTS)) {
   for (const id of readFileSync(file, 'utf8').match(NUM_ID) ?? []) candidates.add(id);
 }
-for (const line of section(constitutionLines, 3)) {
+for (const line of section(constitutionLines, 'II')) {
   for (const id of line.match(NUM_ID) ?? []) candidates.add(id);
 }
-for (const line of section(constitutionLines, 4)) {
+for (const line of section(constitutionLines, 'III')) {
   if (line === retiredLine) continue;
   for (const id of line.match(NUM_ID) ?? []) candidates.add(id);
   for (const m of line.matchAll(/`((?:REQ|INV|STATE)-[A-Z]+(?:-[A-Z]+)*-)(\d{3})`\.\.`(\d{3})`/g)) {
@@ -133,24 +126,20 @@ if (taskId === '') {
   out(`[SDD Traceability Gate] Modo: compuerta final (${required.length} IDs vigentes; ${retired.size} retirados excluidos)`);
 } else {
   const rows = readFileSync(TASKS, 'utf8').split('\n');
-  const header = rows.find((l) => l.startsWith('|') && l.includes('IDs de Trazabilidad'));
-  if (!header) usage(`No se encontró la cabecera "IDs de Trazabilidad" en ${TASKS}`);
-  const column = header.split('|').map((c) => c.trim()).indexOf('IDs de Trazabilidad');
-  const row = rows.find((l) => l.startsWith(`| \`${taskId}\` |`));
+  const row = rows.find((l) => new RegExp(`^- \\[[ xX]\\] ${taskId} `).test(l));
   if (!row) usage(`${taskId} no existe en ${TASKS}`);
-  const cell = (row.split('|')[column] ?? '').trim();
-  if (cell.startsWith('Todos los IDs vigentes')) {
+  if (/todos los IDs vigentes/i.test(row)) {
     required = [...current];
   } else {
-    required = [...new Set(idsIn(cell))];
+    required = [...new Set(idsIn(row))];
     for (const id of required) {
       if (!current.has(id)) {
-        err(`[TRACEABILITY FAIL] ${id}: listado en la columna de ${taskId} pero no es un ID vigente (${retired.has(id) ? 'retirado' : 'desconocido'})`);
+        err(`[TRACEABILITY FAIL] ${id}: citado en ${taskId} pero no es un ID vigente (${retired.has(id) ? 'retirado' : 'desconocido'})`);
         failed = true;
       }
     }
   }
-  out(`[SDD Traceability Gate] Modo: compuerta por tarea ${taskId} (${required.length} IDs en su columna)`);
+  out(`[SDD Traceability Gate] Modo: compuerta por tarea ${taskId} (${required.length} IDs)`);
 }
 
 // ---------------------------------------------------------------------------
@@ -226,7 +215,7 @@ for (const id of required) {
 out(`[SDD Traceability Gate] IDs trazados: ${traced}/${required.length}`);
 
 // ---------------------------------------------------------------------------
-// 4. IDs retirados (constitución §4)
+// 4. IDs retirados (constitución, principio III)
 // ---------------------------------------------------------------------------
 const retiredHits = [];
 for (const file of srcFiles) {
@@ -259,7 +248,7 @@ if (retiredHits.length > 0) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Pureza (constitución §3)
+// 5. Pureza (constitución, principio II)
 // ---------------------------------------------------------------------------
 out('[SDD Purity Gate] Verificando entropía en src/domain/ y src/application/, y process.env fuera de src/infrastructure/config/...');
 const PURE = [

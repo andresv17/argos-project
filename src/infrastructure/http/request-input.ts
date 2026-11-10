@@ -1,5 +1,5 @@
 /**
- * Entrada HTTP antes de los casos de uso (spec §5.1 regla 4): cuerpo JSON en UTF-8 estricto y consulta de
+ * Entrada HTTP antes de los casos de uso: cuerpo JSON en UTF-8 estricto y consulta de
  * `GET /pets`. Todo fallo es ERR-SCHEMA-VALIDATION-FAILED (422) con el campo afectado. Los esquemas
  * de los cuerpos los validan los casos de uso (con `x-sdd-error`); la importación recibe los bytes crudos
  * (STATE-BACKUP-001 decide).

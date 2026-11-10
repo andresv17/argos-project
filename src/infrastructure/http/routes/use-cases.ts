@@ -1,5 +1,5 @@
 /**
- * Casos de uso que sirve la API, construidos una vez con las dependencias de aplicación (plan §3 y §4).
+ * Casos de uso que sirve la API, construidos una vez con las dependencias de aplicación.
  *
  * @implements INV-ARCH-004
  */

@@ -34,7 +34,7 @@ function domainErrorOf(fn: () => unknown): DomainError {
   throw new Error('se esperaba un DomainError');
 }
 
-describe('TASK-104: edad (src/domain/shared/date-utils.ts)', () => {
+describe('edad (src/domain/shared/date-utils.ts)', () => {
   it('[REQ-PET-002] cumple los dos ejemplos de la spec: 29-feb y día 31', () => {
     expect(calculatePetAge('2024-02-29', '2025-02-28')).toEqual({ years: 1, months: 0, totalDays: 365 });
     expect(calculatePetAge('2026-01-31', '2026-02-28')).toEqual({ years: 0, months: 1, totalDays: 28 });
@@ -94,7 +94,7 @@ describe('TASK-104: edad (src/domain/shared/date-utils.ts)', () => {
   });
 });
 
-describe('TASK-104: calendario gregoriano (src/domain/shared/date-utils.ts)', () => {
+describe('calendario gregoriano (src/domain/shared/date-utils.ts)', () => {
   it('[REQ-PET-002] aplica la regla gregoriana de bisiestos, incluidos los siglos', () => {
     expect([1900, 2000, 2023, 2024, 2100, 2400].map(isLeapYear)).toEqual([false, true, false, true, false, true]);
     expect(isIsoCalendarDate('1900-02-29')).toBe(false);
@@ -150,7 +150,7 @@ describe('TASK-104: calendario gregoriano (src/domain/shared/date-utils.ts)', ()
   });
 });
 
-describe('TASK-104: ventana temporal de eventos (src/domain/shared/date-utils.ts)', () => {
+describe('ventana temporal de eventos (src/domain/shared/date-utils.ts)', () => {
   it('[INV-REC-001][ERR-REC-DATE-BEFORE-BIRTH] rechaza un evento anterior al nacimiento (EDGE-004)', () => {
     const error = domainErrorOf(() => validateEventDateWindow('2023-12-01', '2024-02-14', '2026-11-05', 'recordedAt'));
     expect(error.code).toBe('ERR-REC-DATE-BEFORE-BIRTH');
@@ -187,7 +187,7 @@ describe('TASK-104: ventana temporal de eventos (src/domain/shared/date-utils.ts
   });
 });
 
-describe('TASK-104: orden de historiales (src/domain/sorting/deterministic-sorter.ts)', () => {
+describe('orden de historiales (src/domain/sorting/deterministic-sorter.ts)', () => {
   it('[INV-SORT-001] ordena por fecha de evento DESC, createdAt DESC e id ASC sin modificar la entrada', () => {
     const unsorted = [
       { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', recordedAt: '2026-10-15', createdAt: '2026-10-15T10:00:00.000Z' },
@@ -235,7 +235,7 @@ describe('TASK-104: orden de historiales (src/domain/sorting/deterministic-sorte
   });
 });
 
-describe('TASK-104: listado de mascotas (src/domain/sorting/deterministic-sorter.ts)', () => {
+describe('listado de mascotas (src/domain/sorting/deterministic-sorter.ts)', () => {
   const pet = (id: string, name: string, createdAt = '2026-01-01T00:00:00.000Z') => ({
     id: `${id.repeat(8)}-${id.repeat(4)}-4${id.repeat(3)}-8${id.repeat(3)}-${id.repeat(12)}`,
     name,
@@ -282,7 +282,7 @@ describe('TASK-104: listado de mascotas (src/domain/sorting/deterministic-sorter
   });
 });
 
-describe('TASK-104: adaptadores deterministas (src/infrastructure/adapters/)', () => {
+describe('adaptadores deterministas (src/infrastructure/adapters/)', () => {
   it('[INV-ARCH-001] FixedClockAdapter devuelve la fecha y el timestamp fijados y cambia solo con setClock', () => {
     const clock = new FixedClockAdapter();
     expect([clock.todayIsoDate(), clock.nowIsoTimestamp()]).toEqual(['2026-11-05', '2026-11-05T12:00:00.000Z']);

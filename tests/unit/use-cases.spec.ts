@@ -66,7 +66,7 @@ async function failure(promise: Promise<unknown>): Promise<DomainError> {
   throw new Error('se esperaba un DomainError');
 }
 
-describe('TASK-108: autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
+describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
   it('[REQ-AUTH-001][INV-ARCH-002] registra con el username normalizado, guarda solo el hash y abre una sesión de 7 días', async () => {
     const { deps, uow, hasher } = createHarness();
     const result = await new RegisterUserUseCase(deps).execute({ username: '  Sofia.M ', displayName: 'Sofía', password: 'Clave2026x' });
@@ -85,7 +85,7 @@ describe('TASK-108: autenticación (src/application/use-cases/auth-use-cases.ts)
     expect(uow.snapshot()).toEqual(canonicalState());
   });
 
-  it('[REQ-AUTH-001] contraseña débil da ERR-AUTH-WEAK-PASSWORD; contraseña ausente, ERR-SCHEMA-VALIDATION-FAILED (spec §5.1)', async () => {
+  it('[REQ-AUTH-001] contraseña débil da ERR-AUTH-WEAK-PASSWORD; contraseña ausente, ERR-SCHEMA-VALIDATION-FAILED', async () => {
     const { deps, uow, hasher } = createHarness();
     const register = new RegisterUserUseCase(deps);
     expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo', password: 'sindigitos' }))).toBe('ERR-AUTH-WEAK-PASSWORD@password');
@@ -202,7 +202,7 @@ describe('TASK-108: autenticación (src/application/use-cases/auth-use-cases.ts)
   });
 });
 
-describe('TASK-108: mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
+describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
   const ROCKY = { name: 'Rocky', species: 'DOG', breed: 'Mestizo', birthDate: '2024-06-01', sex: 'MALE' };
 
   it('[REQ-PET-001][INV-ARCH-001][INV-ARCH-002] registra una 6.ª mascota sin cupo (EDGE-001) con id, dueño y fechas de los puertos', async () => {
@@ -324,7 +324,7 @@ describe('TASK-108: mascotas (src/application/use-cases/pet-use-cases.ts)', () =
   });
 });
 
-describe('TASK-108: registros de los 6 módulos (src/application/use-cases/record-use-cases.ts)', () => {
+describe('registros de los 6 módulos (src/application/use-cases/record-use-cases.ts)', () => {
   const INPUTS = {
     weights: { recordedAt: '2026-11-05', weightKg: 33.1 },
     bodyMeasurements: { recordedAt: '2026-11-05', neckCm: 47, chestCm: 79.5, backLengthCm: 65, waistCm: 58 },

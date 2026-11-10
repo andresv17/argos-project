@@ -11,7 +11,7 @@ import {
 } from '../../src/domain/access/access-policy.ts';
 
 const fixtures = JSON.parse(
-  readFileSync(resolve(process.cwd(), 'contracts/examples/canonical-fixtures.json'), 'utf8'),
+  readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 );
 const [andres, maria, carlos, lucia] = fixtures.users as Array<{ id: string }>;
 const members: HouseholdMember[] = fixtures.householdMembers;
@@ -36,7 +36,7 @@ const membership = (userId: string, householdId: string, status: AccessMembershi
   status,
 });
 
-describe('TASK-105: política de acceso (src/domain/access/access-policy.ts)', () => {
+describe('política de acceso (src/domain/access/access-policy.ts)', () => {
   it('[INV-ACC-001] el dueño lee su mascota aunque no tenga ningún hogar', () => {
     expect(canRead(andres!, argos, [])).toBe(true);
     expect(argos.ownerUserId).toBe(andres!.id);

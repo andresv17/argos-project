@@ -1,7 +1,7 @@
 /**
- * Dependencias y piezas comunes de los casos de uso (plan §3).
+ * Dependencias y piezas comunes de los casos de uso.
  * - Todo caso de uso autenticado recibe el userId como primer argumento y aplica access-policy antes de leer o
- *   escribir (INV-ACC-001, INV-ACC-002): sin lectura, ERR-PET-NOT-FOUND (404, constitución §6.4); con lectura pero
+ *   escribir (INV-ACC-001, INV-ACC-002): sin lectura, ERR-PET-NOT-FOUND (404,); con lectura pero
  *   sin escritura, ERR-ACC-FORBIDDEN (403).
  * - Fechas e identificadores salen solo de ClockPort e IdGeneratorPort (INV-ARCH-001, INV-ARCH-002).
  *
@@ -50,7 +50,7 @@ interface ValidatorWithErrors {
 }
 
 /**
- * Regla 4 de la spec §5.1 para las entradas que valida la capa de aplicación (LoginInput, InviteMemberInput), que no
+ * Regla 4 de la para las entradas que valida la capa de aplicación (LoginInput, InviteMemberInput), que no
  * tienen campos con x-sdd-error: todo fallo de esquema es ERR-SCHEMA-VALIDATION-FAILED con el campo afectado.
  * Ajv siempre llena `errors` cuando la validación falla.
  */

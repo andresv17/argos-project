@@ -1,5 +1,5 @@
 /**
- * Transformación pura del sobre de respaldo v1.0.0 al v2.0.0 (plan §2, estado MIGRATING_LEGACY_ENVELOPE de
+ * Transformación pura del sobre de respaldo v1.0.0 al v2.0.0 (, estado MIGRATING_LEGACY_ENVELOPE de
  * STATE-BACKUP-001, contracts/state-machines/backup-import.machine.json):
  * - ownerUserId de cada mascota y exportedByUserId = usuario autenticado;
  * - updatedAt = createdAt;

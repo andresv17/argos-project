@@ -1,6 +1,6 @@
 /**
- * Casos de uso de autenticación (plan §3): registro, login, logout, sesión actual y autenticación de peticiones.
- * - Precedencia (spec §5.1): normalización del username (regla 3), esquema (regla 4) y dominio (regla 5).
+ * Casos de uso de autenticación: registro, login, logout, sesión actual y autenticación de peticiones.
+ * - Precedencia: normalización del username (regla 3), esquema (regla 4) y dominio (regla 5).
  * - INV-AUTH-006: si el username no existe, LoginUseCase verifica la contraseña contra el hash ficticio, de modo
  *   que PasswordHasherPort.verify se invoca exactamente una vez en ambas ramas. Un intento bloqueado no verifica
  *   ni se registra (INV-AUTH-005, EDGE-029).
@@ -26,12 +26,12 @@ import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import { assertMatchesSchema, toPublicProfile, type ApplicationDeps } from './use-case-support.ts';
 
 export interface AuthenticatedSession {
-  /** Valor de la cookie argos_session; la capa HTTP lo envía con Set-Cookie (TASK-111). */
+  /** Valor de la cookie argos_session; la capa HTTP lo envía con Set-Cookie. */
   readonly sessionToken: string;
   readonly session: SessionView;
 }
 
-/** Spec §5.1 reglas 3 y 4 para LoginInput (sin x-sdd-error: todo fallo de esquema es ERR-SCHEMA-VALIDATION-FAILED). */
+/** Reglas del esquema de LoginInput (sin x-sdd-error: todo fallo de esquema es ERR-SCHEMA-VALIDATION-FAILED). */
 function parseLoginInput(input: unknown): LoginInput {
   const username = (input as { username?: unknown } | null)?.username;
   const candidate = typeof username === 'string' ? { ...(input as object), username: normalizeUsername(username) } : input;

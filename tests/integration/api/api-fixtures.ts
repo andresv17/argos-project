@@ -1,6 +1,6 @@
 import { ANDRES, CARLOS, HOUSEHOLD, LUCIA, MARIA } from '../../fixtures/application-harness.ts';
 
-/** Datos de las pruebas HTTP de TASK-111 (sobre el estado canónico de contracts/examples/canonical-fixtures.json). */
+/** Datos de las pruebas HTTP de (sobre el estado canónico de contracts/examples/canonical-fixtures.json). */
 export const H1 = HOUSEHOLD.id;
 export const ARGOS_ID = '11111111-1111-4111-8111-111111111101';
 export const KIRA_ID = '11111111-1111-4111-8111-111111111102';

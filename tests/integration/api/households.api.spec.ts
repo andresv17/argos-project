@@ -2,13 +2,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createApi, problemOf, type Api } from './api-harness.ts';
 import { H1, USERS_BY_NAME } from './api-fixtures.ts';
 
-/** TASK-111: rutas `households` sobre la API real y SQLite. Casa Vallejo: Andrés OWNER, María ACTIVE, Carlos INVITED. */
+/**: rutas `households` sobre la API real y SQLite. Casa Vallejo: Andrés OWNER, María ACTIVE, Carlos INVITED. */
 let api: Api;
 afterEach(async () => api.close());
 
 const statuses = (json: unknown) => (json as { members: Array<{ membership: { status: string } }> }).members.map((m) => m.membership.status);
 
-describe('TASK-111: hogares por HTTP (src/infrastructure/http/routes/households.routes.ts)', () => {
+describe('hogares por HTTP (src/infrastructure/http/routes/households.routes.ts)', () => {
   it('[REQ-HOUSE-001] crear un hogar → 201 con el creador como OWNER ACTIVE; aparece en GET /households', async () => {
     api = await createApi();
     const cookie = await api.login('lucia.r');

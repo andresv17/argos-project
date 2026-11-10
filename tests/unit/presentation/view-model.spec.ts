@@ -33,7 +33,7 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-describe('TASK-112: modelo de presentación puro', () => {
+describe('modelo de presentación puro', () => {
   it('[STATE-ALERT-001][REQ-UI-003] cada estado de la máquina se mapea 1:1 a su uiBadge del contrato y a Rojo, Ámbar, Verde o Gris', () => {
     const cases = [
       alert('OVERDUE', -3, 'Vencida', 'DANGER_RED'),

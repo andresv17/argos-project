@@ -1,5 +1,5 @@
 /**
- * Repositorios SQLite detrás de los puertos de aplicación (plan §4, TASK-110). Solo se usan dentro de
+ * Repositorios SQLite detrás de los puertos de aplicación. Solo se usan dentro de
  * `SqliteUnitOfWork.runInTransaction`.
  * - Cada fila guarda el objeto del contrato en `data` (JSON) y repite en columnas las claves y referencias.
  * - Frontera validada (INV-ARCH-004): al escribir y al leer, el objeto se valida con los validadores generados y las

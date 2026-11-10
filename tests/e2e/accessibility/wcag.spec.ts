@@ -1,5 +1,5 @@
 /**
- * Accesibilidad (TASK-114, REQ-UI-004, constitución §5): `@axe-core/playwright` con WCAG 2.1 A/AA en todas las
+ * Accesibilidad (REQ-UI-004,): `@axe-core/playwright` con WCAG 2.1 A/AA en todas las
  * pantallas y en sus estados con contenido (formularios con errores, diálogos, los 6 módulos de la ficha con las
  * cuatro insignias del semáforo, hogar con miembros e invitaciones, contexto de hogar), a 320, 1024 y 1280 px.
  * Cero violaciones `critical`/`serious` y sin desbordamiento horizontal. Los datos se crean por la API real.
@@ -48,7 +48,7 @@ test.afterAll(async () => {
   await Promise.all([anonymous.close(), ownerContext.close(), memberContext.close()]);
 });
 
-test.describe('TASK-114: axe-core a 320, 1024 y 1280 px (tests/e2e/accessibility)', () => {
+test.describe('axe-core a 320, 1024 y 1280 px (tests/e2e/accessibility)', () => {
   test('[REQ-UI-004][REQ-UI-005] login, vacío y con el error genérico de credenciales', async () => {
     const page = await anonymous.newPage();
     await page.goto('/login');

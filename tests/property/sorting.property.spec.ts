@@ -37,7 +37,7 @@ const permutationOf = <T>(items: readonly T[]) =>
     items.map((item, i) => ({ item, key: keys[i] ?? 0 })).sort((a, b) => a.key - b.key).map(({ item }) => item),
   );
 
-describe('TASK-104: propiedades de edad, orden de historiales y orden de mascotas', () => {
+describe('propiedades de edad, orden de historiales y orden de mascotas', () => {
   it('[REQ-PET-002] la edad coincide con un oráculo independiente para cualquier par birthDate <= hoy', () => {
     fc.assert(
       fc.property(dayArb, fc.integer({ min: 0, max: 20 * 366 }), (birthDay, offset) => {

@@ -1,5 +1,5 @@
 /**
- * Sesión por cookie (spec §5.1 regla 2, INV-AUTH-004): `argos_session` HttpOnly, SameSite=Strict, Path=/,
+ * Sesión por cookie: `argos_session` HttpOnly, SameSite=Strict, Path=/,
  * Max-Age de 7 días y `Secure` según `COOKIE_SECURE`. Las rutas protegidas resuelven el usuario en `onRequest`
  * (después de CSRF y antes de leer el cuerpo); sin sesión vigente, ERR-AUTH-UNAUTHENTICATED (401).
  *

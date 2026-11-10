@@ -44,7 +44,7 @@ function writeOutcome(user: string, owner: string, memberships: readonly AccessM
   }
 }
 
-describe('TASK-105: propiedades de la política de acceso', () => {
+describe('propiedades de la política de acceso', () => {
   it('[INV-ACC-001] canRead coincide con el oráculo para cualquier combinación generada y no depende del orden', () => {
     fc.assert(
       fc.property(scenarioArb, ({ user, owner, memberships }) => {

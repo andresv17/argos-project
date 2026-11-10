@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApi, problemOf, type Api } from './api-harness.ts';
 
-/** TASK-111: rutas `auth` sobre la API real y SQLite. */
+/**: rutas `auth` sobre la API real y SQLite. */
 let api: Api;
 afterEach(async () => api.close());
 
-describe('TASK-111: autenticación por HTTP (src/infrastructure/http/routes/auth.routes.ts)', () => {
+describe('autenticación por HTTP (src/infrastructure/http/routes/auth.routes.ts)', () => {
   it('[REQ-AUTH-001] el registro responde 201 con SessionView y la cookie argos_session HttpOnly, SameSite=Strict, Path=/ y Max-Age de 7 días', async () => {
     api = await createApi();
     const r = await api.call('POST', '/api/auth/register', { body: { username: '  Nueva.Usuaria ', displayName: 'Nueva', password: 'Clave2026x' } });

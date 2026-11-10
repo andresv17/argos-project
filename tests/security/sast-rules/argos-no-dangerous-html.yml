@@ -1,4 +1,4 @@
-# SAST TASK-113 (plan §5, constitución §6): la SPA nunca inyecta HTML sin escapar (XSS almacenado).
+# SAST: la SPA nunca inyecta HTML sin escapar (XSS almacenado).
 # React escapa el texto; estas APIs lo saltan. Se ejecuta en CI: semgrep scan --config tests/security/sast-rules src/
 rules:
   - id: argos-no-dangerously-set-inner-html
@@ -6,7 +6,7 @@ rules:
     severity: ERROR
     message: >-
       dangerouslySetInnerHTML desactiva el escape de React y abre XSS almacenado. Pinta el texto como hijo del
-      elemento (constitución §6; TASK-113).
+      elemento.
     patterns:
       - pattern-either:
           - pattern: <$EL dangerouslySetInnerHTML={...} />
@@ -17,7 +17,7 @@ rules:
     languages: [typescript]
     severity: ERROR
     message: >-
-      Escritura de HTML crudo en el DOM (innerHTML, outerHTML, insertAdjacentHTML o document.write). Usa nodos de texto o JSX (constitución §6; TASK-113).
+      Escritura de HTML crudo en el DOM (innerHTML, outerHTML, insertAdjacentHTML o document.write). Usa nodos de texto o JSX.
     pattern-either:
       - pattern: $X.innerHTML = $V
       - pattern: $X.outerHTML = $V

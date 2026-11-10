@@ -15,7 +15,7 @@ const DAY_MS = 86_400_000;
 const BASE_MS = Date.UTC(2020, 0, 1);
 const iso = (day: number) => new Date(BASE_MS + day * DAY_MS).toISOString().slice(0, 10);
 const envelope: BackupEnvelopeV2 = JSON.parse(
-  readFileSync(resolve(process.cwd(), 'contracts/examples/canonical-fixtures.json'), 'utf8'),
+  readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 ).validBackupEnvelopeV2;
 const baseWeight = envelope.records.weights[0]!;
 const baseVaccination = envelope.records.vaccinations[0]!;
@@ -42,7 +42,7 @@ function percentOracle(previous: number, current: number): number {
 
 const hundredths = fc.integer({ min: 5, max: 15000 });
 
-describe('TASK-107: propiedades de registros', () => {
+describe('propiedades de registros', () => {
   it('[REQ-REC-001] deltaKg es exactamente (b - a) / 100 sobre centésimas y deltaPercent coincide con un oráculo BigInt (EDGE-034, EDGE-035)', () => {
     fc.assert(
       fc.property(hundredths, hundredths, (a, b) => {

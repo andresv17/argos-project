@@ -13,12 +13,12 @@ import {
 } from '../../../src/generated/index.ts';
 
 /**
- * DEUDA-VAL-001 (TASK-108): prueba de frontera. Los validadores generados son los que usa la frontera de la API
- * (constitución §3.4); deben rechazar weightKg y las medidas con más de 2 decimales con el código del campo.
+ * DEUDA-VAL-001: prueba de frontera. Los validadores generados son los que usa la frontera de la API
+ *; deben rechazar weightKg y las medidas con más de 2 decimales con el código del campo.
  */
 const PROPERTY_SEED = 20261105;
 const envelope: BackupEnvelopeV2 = JSON.parse(
-  readFileSync(resolve(process.cwd(), 'contracts/examples/canonical-fixtures.json'), 'utf8'),
+  readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 ).validBackupEnvelopeV2;
 
 interface Validator {
@@ -32,14 +32,14 @@ const weightRecord = (weightKg: number) => ({ ...envelope.records.weights[0]!, w
 const measureInput = (field: string, value: number) => ({ recordedAt: '2026-11-01', neckCm: 46.5, chestCm: 78, backLengthCm: 65, waistCm: 58.5, [field]: value });
 const measureRecord = (field: string, value: number) => ({ ...envelope.records.bodyMeasurements[0]!, [field]: value });
 
-/** Código que devuelve la frontera según la spec §5.1 regla 4, o OK. */
+/** Código que devuelve la frontera según la regla 4, o OK. */
 function boundaryCode(schemaName: string, validate: Validator, payload: unknown): string {
   if (validate(payload)) return 'OK';
   const error = validate.errors![0]!;
   return `${error.keyword}:${resolveFieldErrorCode(schemaName, error.instancePath) ?? 'ERR-SCHEMA-VALIDATION-FAILED'}@${error.instancePath}`;
 }
 
-describe('TASK-108: frontera de 2 decimales (DEUDA-VAL-001, scripts/codegen.mjs multipleOfPrecision)', () => {
+describe('frontera de 2 decimales (DEUDA-VAL-001, scripts/codegen.mjs multipleOfPrecision)', () => {
   it('[INV-REC-002][ERR-REC-WEIGHT-OUT-OF-RANGE] la frontera rechaza 32.85001, 32.855 y 32.8500001 en weightKg con el código del campo, como entrada y como registro', () => {
     for (const value of [32.85001, 32.855, 32.8500001, 0.051, 149.999]) {
       expect(boundaryCode('CreateWeightInput', validateCreateWeightInput as Validator, weightInput(value))).toBe('multipleOf:ERR-REC-WEIGHT-OUT-OF-RANGE@/weightKg');

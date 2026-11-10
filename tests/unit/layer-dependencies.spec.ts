@@ -3,8 +3,8 @@ import { dirname, join, normalize, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * INV-ARCH-004 (constitución §3.4): regla de dependencia concéntrica, comprobada sobre los imports reales de src/.
- * Presentación queda fuera: su reescritura es de TASK-112 (DEUDA-PRES-001).
+ * INV-ARCH-004: regla de dependencia concéntrica, comprobada sobre los imports reales de src/.
+ * Presentación queda fuera: su reescritura es de (DEUDA-PRES-001).
  */
 const SRC = 'src';
 const IMPORT = /(?:^|\n)\s*(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)|(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g;
@@ -35,7 +35,7 @@ function violations(layer: string, allowed: readonly string[]): string[] {
   );
 }
 
-describe('TASK-110: regla de dependencia concéntrica sobre los imports de src/', () => {
+describe('regla de dependencia concéntrica sobre los imports de src/', () => {
   it('[INV-ARCH-004] src/domain solo importa de src/domain y src/generated', () => {
     expect(violations('domain', ['domain', 'generated'])).toEqual([]);
   });

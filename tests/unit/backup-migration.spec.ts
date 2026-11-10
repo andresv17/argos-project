@@ -5,7 +5,7 @@ import { ANDRES, fixtures } from '../fixtures/application-harness.ts';
 
 const legacy: BackupEnvelopeV1Legacy = fixtures.validLegacyBackupEnvelopeV1;
 
-describe('TASK-109: migración v1 → v2 (src/domain/backup/backup-migration.ts)', () => {
+describe('migración v1 → v2 (src/domain/backup/backup-migration.ts)', () => {
   it.each([
     ['2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z'],
     ['2026-01-01T10:00:00Z', '2026-01-01T10:00:00.000Z'],

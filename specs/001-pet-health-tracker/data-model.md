@@ -4,7 +4,7 @@
 
 **Date**: 2026-11-09
 
-Resumen de entidades, relaciones y ciclos de vida. La definición normativa de cada estructura es su contrato en `contracts/` (índice en [contracts/README.md](./contracts/README.md)); este documento remite a él y no lo sustituye. Los campos listados se leyeron de los esquemas el 2026-11-09. Las reglas de validación se citan por su identificador de [spec.md](./spec.md).
+Resumen de entidades, relaciones y ciclos de vida. La definición normativa de cada estructura es su contrato en [`contracts/`](./contracts/); este documento remite a él y no lo sustituye. Las reglas de validación se citan por su identificador de [spec.md](./spec.md).
 
 ## Entities
 
@@ -63,7 +63,7 @@ Contrato: `contracts/schemas/medical-records.schema.json`. Todo registro tiene `
 ### Error
 
 - **Contrato**: `ProblemDetails` (`type`, `code`, `title`, `status`, `detail`, `invariantRef`, y opcionales `field`, `instance`, `finalState`) en `contracts/schemas/common.schema.json`; códigos en `contracts/errors/error-catalog.json`
-- **Reglas**: precedencia de validación de spec §5.1
+- **Reglas**: precedencia de validación en la frontera ([spec.md](./spec.md), «Edge Cases»)
 
 ## State Transitions
 
@@ -74,8 +74,8 @@ Contrato: `contracts/schemas/medical-records.schema.json`. Todo registro tiene `
 | `STATE-ALERT-001` | `SUPERSEDED`, `OVERDUE`, `DUE_SOON`, `UP_TO_DATE` (evaluación en ese orden) | `contracts/state-machines/sanitary-alert.machine.json` |
 | `STATE-BACKUP-001` | `IDLE` → `CHECKING_PAYLOAD_SIZE` → `PARSING_JSON` → `VALIDATING_VERSION_AND_SCHEMA` → [`MIGRATING_LEGACY_ENVELOPE`] → `CHECKING_DOMAIN_INVARIANTS` → `COMMITTING_SNAPSHOT` → `COMPLETED` \| `ROLLED_BACK` | `contracts/state-machines/backup-import.machine.json` |
 
-Las guardas, eventos y casos límite de cada máquina están en spec §4.
+Las guardas, eventos y casos límite de cada máquina están en [spec.md](./spec.md), «Functional Requirements», y en su contrato.
 
 ## Persistence
 
-SQLite local con las tablas `users`, `sessions`, `login_attempts`, `pets`, seis tablas de registros con `ON DELETE CASCADE`, `households` y `household_members` (plan.md, §4). Las migraciones están en `src/infrastructure/persistence/sqlite/migrations/`.
+SQLite local con las tablas `users`, `sessions`, `login_attempts`, `pets`, seis tablas de registros con `ON DELETE CASCADE`, `households` y `household_members`. Las migraciones están en `src/infrastructure/persistence/sqlite/migrations/`.

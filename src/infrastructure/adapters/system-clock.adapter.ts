@@ -1,5 +1,5 @@
 /**
- * Reloj de producción (constitución §3.1, plan §4, F6).
+ * Reloj de producción.
  * - `todayIsoDate()`: fecha calendario en `APP_TIMEZONE` (por defecto America/Bogota), calculada con
  *   `Intl.DateTimeFormat`, no con la zona del proceso. A las 19:00 en Bogotá (00:00 UTC del día siguiente) sigue
  *   devolviendo el día local.

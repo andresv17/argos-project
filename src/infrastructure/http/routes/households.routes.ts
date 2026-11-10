@@ -4,7 +4,7 @@
  * `DELETE /households/{id}/members/{userId}` es abandono si `userId` es el propio actor y retirada si no. Un id con
  * formato inválido no existe: responde el 404 que declara el OpenAPI para la ruta. `GET /households/{id}/pets` admite
  * `q` y `species` (OpenAPI 2.4.0, DEUDA-UI-FILTRO-001) con las reglas de `GET /pets`; como en toda ruta con
- * identificador de hogar (spec §5.1, D-108-4), el acceso se comprueba antes que la consulta: quien no ve el hogar
+ * identificador de hogar, el acceso se comprueba antes que la consulta: quien no ve el hogar
  * recibe 404 aunque la consulta sea inválida.
  *
  * @implements REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND

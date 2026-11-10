@@ -8,7 +8,7 @@ import * as reExports from '../../src/infrastructure/adapters/deterministic-adap
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const at = (iso: string) => () => new Date(iso);
 
-describe('TASK-110: SystemClockAdapter (src/infrastructure/adapters/system-clock.adapter.ts)', () => {
+describe('SystemClockAdapter (src/infrastructure/adapters/system-clock.adapter.ts)', () => {
   it.each([
     ['2026-11-05T23:59:59.999Z', 'America/Bogota', '2026-11-05'],
     ['2026-11-06T00:00:00.000Z', 'America/Bogota', '2026-11-05'],
@@ -47,7 +47,7 @@ describe('TASK-110: SystemClockAdapter (src/infrastructure/adapters/system-clock
   });
 });
 
-describe('TASK-110: CryptoUuidAdapter y CryptoSecureTokenAdapter', () => {
+describe('CryptoUuidAdapter y CryptoSecureTokenAdapter', () => {
   it('[INV-ARCH-002] CryptoUuidAdapter devuelve UUID v4 en minúsculas, distintos entre sí', () => {
     const ids = Array.from({ length: 200 }, () => new CryptoUuidAdapter().nextId());
     expect([ids.every((id) => UUID_V4.test(id)), new Set(ids).size]).toEqual([true, 200]);
@@ -60,7 +60,7 @@ describe('TASK-110: CryptoUuidAdapter y CryptoSecureTokenAdapter', () => {
   });
 });
 
-describe('TASK-110: ScryptPasswordHasherAdapter (src/infrastructure/adapters/scrypt-password-hasher.adapter.ts)', () => {
+describe('ScryptPasswordHasherAdapter (src/infrastructure/adapters/scrypt-password-hasher.adapter.ts)', () => {
   const hasher = new ScryptPasswordHasherAdapter();
 
   it('[INV-AUTH-003] el hash es scrypt con salt aleatorio: formato scrypt$N$r$p$salt$hash, sin la contraseña y distinto en cada llamada', async () => {

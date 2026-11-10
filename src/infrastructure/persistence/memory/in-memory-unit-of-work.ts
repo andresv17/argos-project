@@ -1,5 +1,5 @@
 /**
- * Repositorios en memoria detrás de UnitOfWorkPort (plan §4, creados en TASK-108 para los tests de casos de uso).
+ * Repositorios en memoria detrás de UnitOfWorkPort.
  * - Cada transacción trabaja sobre una copia profunda del estado; si `work` termina y `beforeCommit` no lanza, la
  *   copia reemplaza al estado; si no, se descarta y la promesa se rechaza con el error original (INV-ARCH-005).
  * - Las transacciones se ejecutan en serie, en orden de llegada.

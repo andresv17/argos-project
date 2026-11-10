@@ -1,5 +1,5 @@
 /**
- * Reloj inyectado (constitución §3.1). Prohíbe relojes globales en domain/ y application/.
+ * Reloj inyectado. Prohíbe relojes globales en domain/ y application/.
  * - todayIsoDate(): fecha calendario YYYY-MM-DD en APP_TIMEZONE (por defecto America/Bogota).
  * - nowIsoTimestamp(): UTC canónico YYYY-MM-DDTHH:mm:ss.sssZ.
  *

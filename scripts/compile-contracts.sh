@@ -2,21 +2,21 @@
 # Compilador determinista de contratos formales hacia src/generated/ [INV-ARCH-003]
 set -euo pipefail
 
-echo "[SDD Contract Compiler] Verificando existencia de contratos en contracts/..."
+echo "[SDD Contract Compiler] Verificando existencia de contratos en specs/001-pet-health-tracker/contracts/..."
 
 REQUIRED_CONTRACTS=(
-  "contracts/schemas/common.schema.json"
-  "contracts/schemas/identity.schema.json"
-  "contracts/schemas/pet.schema.json"
-  "contracts/schemas/medical-records.schema.json"
-  "contracts/schemas/backup-envelope.schema.json"
-  "contracts/openapi/pet-tracker-api.openapi.yaml"
-  "contracts/state-machines/auth-session.machine.json"
-  "contracts/state-machines/household-membership.machine.json"
-  "contracts/state-machines/sanitary-alert.machine.json"
-  "contracts/state-machines/backup-import.machine.json"
-  "contracts/errors/error-catalog.json"
-  "contracts/examples/canonical-fixtures.json"
+  "specs/001-pet-health-tracker/contracts/schemas/common.schema.json"
+  "specs/001-pet-health-tracker/contracts/schemas/identity.schema.json"
+  "specs/001-pet-health-tracker/contracts/schemas/pet.schema.json"
+  "specs/001-pet-health-tracker/contracts/schemas/medical-records.schema.json"
+  "specs/001-pet-health-tracker/contracts/schemas/backup-envelope.schema.json"
+  "specs/001-pet-health-tracker/contracts/openapi/pet-tracker-api.openapi.yaml"
+  "specs/001-pet-health-tracker/contracts/state-machines/auth-session.machine.json"
+  "specs/001-pet-health-tracker/contracts/state-machines/household-membership.machine.json"
+  "specs/001-pet-health-tracker/contracts/state-machines/sanitary-alert.machine.json"
+  "specs/001-pet-health-tracker/contracts/state-machines/backup-import.machine.json"
+  "specs/001-pet-health-tracker/contracts/errors/error-catalog.json"
+  "specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json"
 )
 
 for contract in "${REQUIRED_CONTRACTS[@]}"; do

@@ -5,13 +5,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadAppConfig } from '../../../src/infrastructure/config/app-config.ts';
 import { createProductionApp } from '../../../src/infrastructure/http/server.ts';
 
-/** TASK-111: composición de producción (SQLite en archivo, scrypt real, tokens aleatorios, reloj de APP_TIMEZONE). */
+/**: composición de producción (SQLite en archivo, scrypt real, tokens aleatorios, reloj de APP_TIMEZONE). */
 const dirs: string[] = [];
 afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-describe('TASK-111: arranque de producción (src/infrastructure/http/server.ts)', () => {
+describe('arranque de producción (src/infrastructure/http/server.ts)', () => {
   it('[REQ-AUTH-001][REQ-AUTH-002] con la configuración validada: registro, login con scrypt real y sesión; el hash nunca sale por la API', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'argos-server-'));
     dirs.push(dir);

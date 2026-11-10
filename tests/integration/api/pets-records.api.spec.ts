@@ -2,13 +2,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createApi, problemOf, type Api } from './api-harness.ts';
 import { ARGOS_ID, KIRA_ID, LUNA_ID, NEW_PET, RECORD_INPUTS } from './api-fixtures.ts';
 
-/** TASK-111: rutas `pets` y `records` sobre la API real y SQLite. */
+/**: rutas `pets` y `records` sobre la API real y SQLite. */
 let api: Api;
 afterEach(async () => api.close());
 
 const names = (json: unknown) => (json as Array<{ profile: { name: string } }>).map((c) => c.profile.name);
 
-describe('TASK-111: mascotas por HTTP (src/infrastructure/http/routes/pets.routes.ts)', () => {
+describe('mascotas por HTTP (src/infrastructure/http/routes/pets.routes.ts)', () => {
   it('[REQ-PET-005] GET /pets lista solo las mascotas propias, ordenadas, con colorToken nulo fuera de hogar (EDGE-030)', async () => {
     api = await createApi();
     const r = await api.call('GET', '/api/pets', { cookie: await api.login('andres') });
@@ -109,7 +109,7 @@ describe('TASK-111: mascotas por HTTP (src/infrastructure/http/routes/pets.route
   });
 });
 
-describe('TASK-111: registros por HTTP', () => {
+describe('registros por HTTP', () => {
   it.each([
     ['weights', 'REQ-REC-001'],
     ['measurements', 'REQ-REC-002'],

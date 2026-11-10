@@ -4,14 +4,14 @@ import { createApi, type Api } from '../api/api-harness.ts';
 import { ARGOS_ID, H1, NEW_PET, RECORD_INPUTS } from '../api/api-fixtures.ts';
 import { OPERATIONS, checkResponse } from './openapi-contract.ts';
 
-/** TASK-111: cada operación del OpenAPI está implementada y sus respuestas reales cumplen el contrato. */
+/**: cada operación del OpenAPI está implementada y sus respuestas reales cumplen el contrato. */
 let api: Api | null = null;
 afterEach(async () => {
   await api?.close();
   api = null;
 });
 
-describe('TASK-111: conformidad de la API con contracts/openapi/pet-tracker-api.openapi.yaml', () => {
+describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.yaml', () => {
   it('[REQ-AUTH-001][REQ-PET-001][REQ-HOUSE-001][REQ-BACKUP-001] cada una de las 27 operaciones del OpenAPI tiene su ruta en Fastify', async () => {
     api = await createApi();
     const missing = OPERATIONS.filter((op) => !api!.app.hasRoute({ method: op.method as 'GET', url: op.path.replace(/\{([^}]+)\}/g, ':$1') }));

@@ -1,4 +1,4 @@
-# SAST TASK-113 (plan §5; constitución §3, INV-ARCH-001/002): la entropía (azar y reloj) solo entra por los
+# SAST: la entropía (azar y reloj) solo entra por los
 # adaptadores de src/infrastructure/adapters/ detrás de ClockPort, IdGeneratorPort y SecureTokenPort.
 rules:
   - id: argos-no-entropy-outside-adapters

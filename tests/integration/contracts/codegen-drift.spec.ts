@@ -41,7 +41,7 @@ function readTree(dir: string): Record<string, string> {
 
 function copyContracts(): string {
   const dir = makeTempDir();
-  cpSync(join(ROOT, 'contracts'), dir, { recursive: true });
+  cpSync(join(ROOT, 'specs/001-pet-health-tracker/contracts'), dir, { recursive: true });
   return dir;
 }
 
@@ -56,18 +56,18 @@ afterAll(() => {
   for (const dir of workDirs) rmSync(dir, { recursive: true, force: true });
 });
 
-describe('TASK-102: deriva y determinismo del generador', () => {
+describe('deriva y determinismo del generador', () => {
   it('INV-ARCH-003: src/generated coincide con una regeneración limpia desde contracts/', { timeout: SLOW }, () => {
     const out = makeTempDir();
-    runCodegen(join(ROOT, 'contracts'), out);
+    runCodegen(join(ROOT, 'specs/001-pet-health-tracker/contracts'), out);
     expect(readTree(GENERATED)).toEqual(readTree(out));
   });
 
   it('INV-ARCH-003: dos generaciones consecutivas producen salida idéntica', { timeout: SLOW }, () => {
     const first = makeTempDir();
     const second = makeTempDir();
-    runCodegen(join(ROOT, 'contracts'), first);
-    runCodegen(join(ROOT, 'contracts'), second);
+    runCodegen(join(ROOT, 'specs/001-pet-health-tracker/contracts'), first);
+    runCodegen(join(ROOT, 'specs/001-pet-health-tracker/contracts'), second);
     expect(readTree(first)).toEqual(readTree(second));
   });
 

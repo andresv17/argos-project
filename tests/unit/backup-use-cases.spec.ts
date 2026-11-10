@@ -54,7 +54,7 @@ async function rejected(payload: string | Uint8Array, harness = createHarness())
   return { ...error, path: path(steps) };
 }
 
-describe('TASK-109: exportación de respaldo (src/application/use-cases/backup-use-cases.ts)', () => {
+describe('exportación de respaldo (src/application/use-cases/backup-use-cases.ts)', () => {
   it('[REQ-BACKUP-001] Andrés exporta sus 5 mascotas y sus registros en un sobre 2.0.0 válido, en el orden de REQ-PET-005 e INV-SORT-001', async () => {
     const h = createHarness();
     const before = json(h.uow.snapshot());
@@ -98,7 +98,7 @@ describe('TASK-109: exportación de respaldo (src/application/use-cases/backup-u
   });
 });
 
-describe('TASK-109: importación de respaldo, caminos de éxito (STATE-BACKUP-001)', () => {
+describe('importación de respaldo, caminos de éxito (STATE-BACKUP-001)', () => {
   it('[REQ-BACKUP-002][STATE-BACKUP-001] reimportar el propio respaldo recorre la máquina hasta COMPLETED y una nueva exportación sale idéntica', async () => {
     const h = createHarness();
     const exported = await new ExportBackupUseCase(h.deps).execute(ANDRES);
@@ -158,7 +158,7 @@ describe('TASK-109: importación de respaldo, caminos de éxito (STATE-BACKUP-00
   });
 });
 
-describe('TASK-109: importación de respaldo, salidas a ROLLED_BACK con el estado intacto byte a byte (INV-BACKUP-001)', () => {
+describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto byte a byte (INV-BACKUP-001)', () => {
   it('[STATE-BACKUP-001][ERR-BACKUP-PAYLOAD-TOO-LARGE] el límite es el de la guarda de la máquina, 10 485 760 bytes', () => {
     expect([MAX_IMPORT_BYTES, STATE_BACKUP_001.states.CHECKING_PAYLOAD_SIZE.guard]).toEqual([10_485_760, 'bytes <= 10485760']);
   });
@@ -251,7 +251,7 @@ describe('TASK-109: importación de respaldo, salidas a ROLLED_BACK con el estad
     expect(({} as Record<string, unknown>)['isAdmin']).toBe(undefined);
   });
 
-  it('[ERR-BACKUP-SCHEMA-INVALID] durante la importación x-sdd-error no se aplica: un peso de 999 kg es ERR-BACKUP-SCHEMA-INVALID (spec §5.1)', async () => {
+  it('[ERR-BACKUP-SCHEMA-INVALID] durante la importación x-sdd-error no se aplica: un peso de 999 kg es ERR-BACKUP-SCHEMA-INVALID', async () => {
     const r = await rejected(json(v2((e) => (e.records.weights[0]!.weightKg = 999))));
     expect([r.code, r.field]).toEqual(['ERR-BACKUP-SCHEMA-INVALID', '/records/weights/0/weightKg']);
   });
@@ -429,7 +429,7 @@ describe('TASK-109: importación de respaldo, salidas a ROLLED_BACK con el estad
   });
 });
 
-describe('TASK-109: conformidad con contracts/state-machines/backup-import.machine.json', () => {
+describe('conformidad con contracts/state-machines/backup-import.machine.json', () => {
   type Definition = string | { target: string };
   const machine = STATE_BACKUP_001.states as unknown as Record<string, { on?: Record<string, Definition> }>;
   const defined = Object.entries(machine).flatMap(([state, def]) => Object.entries(def.on ?? {}).map(([event, t]) => ({ state, event, t })));

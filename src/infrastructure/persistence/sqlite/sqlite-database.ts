@@ -1,5 +1,5 @@
 /**
- * Apertura de la base SQLite y migraciones al arranque (plan §4, TASK-110).
+ * Apertura de la base SQLite y migraciones al arranque.
  * - `openSqliteDatabase(path)` crea la carpeta si falta, abre la base con `foreign_keys` activo (necesario para los
  *   `ON DELETE CASCADE` de INV-PET-005 y C5) y aplica las migraciones pendientes.
  * - Cada migración (`migrations/NNNN_nombre.sql`) se aplica en su propia transacción y queda anotada en

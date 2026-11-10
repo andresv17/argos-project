@@ -6,11 +6,11 @@ import type { ValidateFunction } from 'ajv';
 import { parse as parseYaml } from 'yaml';
 
 /**
- * El OpenAPI de contracts/openapi/ como validador de respuestas reales (plan §6, `integration/contracts/`).
+ * El OpenAPI de contracts/openapi/ como validador de respuestas reales.
  * Los $ref relativos ('../schemas/x.schema.json#/$defs/Y') se resuelven contra el $id de cada esquema
  * (https://argos.local/contracts/schemas/...), con el documento OpenAPI publicado en https://argos.local/contracts/openapi/.
  */
-export const OPENAPI_PATH = 'contracts/openapi/pet-tracker-api.openapi.yaml';
+export const OPENAPI_PATH = 'specs/001-pet-health-tracker/contracts/openapi/pet-tracker-api.openapi.yaml';
 const OPENAPI_ID = 'https://argos.local/contracts/openapi/pet-tracker-api.openapi.yaml';
 export const API_PREFIX = '/api';
 const METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
@@ -35,7 +35,7 @@ export const OPERATIONS: readonly Operation[] = Object.entries(openapi.paths).fl
 
 const ajv = new Ajv2020({ strict: false, allErrors: true });
 addFormats(ajv);
-for (const file of readdirSync('contracts/schemas')) ajv.addSchema(JSON.parse(readFileSync(join('contracts/schemas', file), 'utf8')));
+for (const file of readdirSync('specs/001-pet-health-tracker/contracts/schemas')) ajv.addSchema(JSON.parse(readFileSync(join('specs/001-pet-health-tracker/contracts/schemas', file), 'utf8')));
 ajv.addSchema({ ...openapi, $id: OPENAPI_ID });
 
 const pointer = (...parts: string[]) => parts.map((p) => p.replace(/~/g, '~0').replace(/\//g, '~1')).join('/');

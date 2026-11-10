@@ -1,6 +1,6 @@
 /**
- * Casos de uso de mascotas (plan §3). Orden de comprobación: acceso (INV-ACC-001/002, 404 antes que 403), luego
- * esquema y dominio dentro de las funciones de pet-invariants (spec §5.1 reglas 4 y 5).
+ * Casos de uso de mascotas. Orden de comprobación: acceso (INV-ACC-001/002, 404 antes que 403), luego
+ * esquema y dominio dentro de las funciones de pet-invariants.
  * - UpdatePetUseCase aplica INV-PET-006 con las fechas de todos los registros de la mascota.
  * - DeletePetUseCase borra la mascota y sus 6 colecciones en una sola transacción (REQ-PET-004).
  * - ListMyPetsUseCase devuelve solo las mascotas propias, sin cupo, con el filtro y el orden de REQ-PET-005;

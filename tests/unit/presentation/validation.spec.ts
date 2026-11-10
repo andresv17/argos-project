@@ -4,7 +4,7 @@ import { FORM_ERROR_KEY, formValues, validateInput } from '../../../src/presenta
 
 const msg = (code: keyof typeof ERROR_CATALOG): string => ERROR_CATALOG[code].detailTemplate;
 
-describe('TASK-112: validación en cliente derivada de los contratos', () => {
+describe('validación en cliente derivada de los contratos', () => {
   it('[REQ-UI-005][ERR-AUTH-WEAK-PASSWORD] el registro con contraseña débil muestra el mensaje del catálogo en el campo', () => {
     expect(validateInput('RegisterUserInput', { username: 'andres', displayName: 'Andrés', password: 'corta' })).toEqual({ password: msg('ERR-AUTH-WEAK-PASSWORD') });
   });

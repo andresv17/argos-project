@@ -18,11 +18,11 @@ import {
 } from '../../../src/generated/index.ts';
 
 /**
- * contracts/examples/canonical-fixtures.json contra los validadores generados en src/generated/ (TASK-111, reescritura de
+ * contracts/examples/canonical-fixtures.json contra los validadores generados en src/generated/ (reescritura de
  * DEUDA-TEST-001 sobre la API generada v2: validateX en vez de validateXSchema, sobre v2 y v1 heredado, catálogo v2.1.1).
  */
-const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'contracts/examples/canonical-fixtures.json'), 'utf8'));
-const catalog = JSON.parse(readFileSync(resolve(process.cwd(), 'contracts/errors/error-catalog.json'), 'utf8'));
+const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
+const catalog = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/errors/error-catalog.json'), 'utf8'));
 
 interface Validator {
   (data: unknown): boolean;
@@ -36,7 +36,7 @@ function firstError(validate: Validator, value: unknown): string {
   return `${e.keyword} ${e.instancePath || '/'}${property ? ` (${property})` : ''}`;
 }
 
-describe('TASK-111: contracts/examples/canonical-fixtures.json -> src/generated/', () => {
+describe('contracts/examples/canonical-fixtures.json -> src/generated/', () => {
   it('[INV-ARCH-003][REQ-BACKUP-001][REQ-BACKUP-002] el sobre v2 canónico es válido: 5 mascotas de Andrés y los 6 módulos; el sobre v1 heredado también', () => {
     const v2 = fixtures.validBackupEnvelopeV2;
     const counts = Object.fromEntries(Object.entries(v2.records).map(([module, list]) => [module, (list as unknown[]).length]));

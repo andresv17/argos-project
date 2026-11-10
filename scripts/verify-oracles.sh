@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compuerta de oráculos débiles (constitución §5, "Cero Weak Oracles").
+# Compuerta de oráculos débiles.
 # Rechaza en tests/: toBeDefined(), toBeTruthy(), toBeFalsy(), not.toBeNull() y toThrow()/toThrowError() sin argumento,
 # además de it/test/describe con .skip, .todo u .only. Se ignoran las líneas que son solo comentario.
 # Criterio estricto: cualquier aparición falla (no se distingue aserción principal de secundaria).

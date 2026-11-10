@@ -7,8 +7,8 @@ import { createApi, problemOf, type Api } from './api-harness.ts';
 import { LUNA_ID, USERS_BY_NAME } from './api-fixtures.ts';
 
 /**
- * TASK-111 (reescritura de DEUDA-TEST-001): respaldo por HTTP sobre SQLite. Exportación del usuario, importación v2 y
- * v1, errores con finalState (spec §5.1), rollback byte a byte con fallo real en el commit y orden de comprobaciones
+ * (reescritura de DEUDA-TEST-001): respaldo por HTTP sobre SQLite. Exportación del usuario, importación v2 y
+ * v1, errores con finalState, rollback byte a byte con fallo real en el commit y orden de comprobaciones
  * de INV-BACKUP-001 (DEUDA-BACKUP-ORDER-001).
  */
 let api: Api;
@@ -18,7 +18,7 @@ const IMPORT = '/api/backup/import';
 const importAs = async (cookie: string, payload: string | Uint8Array) => api.call('POST', IMPORT, { cookie, raw: payload });
 const lunaOf = () => api.db.prepare('SELECT data FROM pets WHERE id = ?').pluck().get(LUNA_ID);
 
-describe('TASK-111: exportación por HTTP (GET /api/backup/export)', () => {
+describe('exportación por HTTP (GET /api/backup/export)', () => {
   it('[REQ-BACKUP-001] exporta el sobre 2.0.0 válido solo con los datos del usuario, como archivo argos-backup-AAAA-MM-DD.json', async () => {
     api = await createApi();
     const r = await api.call('GET', '/api/backup/export', { cookie: await api.login('andres') });
@@ -42,7 +42,7 @@ describe('TASK-111: exportación por HTTP (GET /api/backup/export)', () => {
   });
 });
 
-describe('TASK-111: importación por HTTP (POST /api/backup/import)', () => {
+describe('importación por HTTP (POST /api/backup/import)', () => {
   it('[REQ-BACKUP-002] exportar e importar el mismo sobre v2 → 200 COMPLETED y el estado queda igual; los datos de otro usuario no se tocan', async () => {
     api = await createApi();
     const cookie = await api.login('andres');
@@ -113,7 +113,7 @@ describe('TASK-111: importación por HTTP (POST /api/backup/import)', () => {
     expect(problemOf(r)).toEqual({ status: 400, code: 'ERR-BACKUP-MALFORMED-JSON', finalState: 'ROLLED_BACK' });
   });
 
-  it('[INV-BACKUP-001] la importación exige CSRF y sesión antes de leer el cuerpo (§5.1)', async () => {
+  it('[INV-BACKUP-001] la importación exige CSRF y sesión antes de leer el cuerpo', async () => {
     api = await createApi();
     const noCsrf = await api.call('POST', IMPORT, { csrf: false, raw: '{roto' });
     const noSession = await api.call('POST', IMPORT, { raw: ' '.repeat(MAX_IMPORT_BYTES + 10) });
@@ -124,7 +124,7 @@ describe('TASK-111: importación por HTTP (POST /api/backup/import)', () => {
   });
 });
 
-describe('TASK-111: orden de comprobaciones de INV-BACKUP-001 (DEUDA-BACKUP-ORDER-001)', () => {
+describe('orden de comprobaciones de INV-BACKUP-001 (DEUDA-BACKUP-ORDER-001)', () => {
   it('[INV-BACKUP-001] con cuatro violaciones a la vez se informa primero duplicados y huérfanos, después INV-PET-*, después INV-REC-* y por último IDs de otros usuarios', async () => {
     api = await createApi();
     const cookie = await api.login('andres');

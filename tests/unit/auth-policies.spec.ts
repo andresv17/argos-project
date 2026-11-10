@@ -31,7 +31,7 @@ import {
 import { addMillis, fromEpochMillis, toEpochMillis } from '../../src/domain/auth/utc-timestamp.ts';
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 
-const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'contracts/examples/canonical-fixtures.json'), 'utf8'));
+const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
 const edge = (prefix: string) => fixtures.invalidEdgeCases.find((c: { caseId: string }) => c.caseId.startsWith(prefix));
 const passwords: Record<string, string> = fixtures.credentialsForTestsOnly;
 const usernames: string[] = fixtures.users.map((u: { username: string }) => u.username);
@@ -50,7 +50,7 @@ function catchDomainError(action: () => unknown): DomainError {
 }
 
 type Expected = [StateAuthSession001State, string | null, number | null];
-/** Oráculo escrito a mano a partir de la spec §4.3 y D-04, independiente del contrato generado. */
+/** Oráculo escrito a mano a partir de la y D-04, independiente del contrato generado. */
 const SESSION_TABLE: Partial<Record<StateAuthSession001State, Partial<Record<StateAuthSession001Event, Expected>>>> = {
   ANONYMOUS: {
     REGISTER_SUCCESS: ['AUTHENTICATED', null, null],
@@ -69,7 +69,7 @@ const SESSION_TABLE: Partial<Record<StateAuthSession001State, Partial<Record<Sta
   LOGGED_OUT: { LOGOUT: ['LOGGED_OUT', null, 204] },
 };
 
-describe('TASK-106: máquina STATE-AUTH-SESSION-001 (src/domain/auth/auth-policies.ts)', () => {
+describe('máquina STATE-AUTH-SESSION-001 (src/domain/auth/auth-policies.ts)', () => {
   it('[STATE-AUTH-SESSION-001] las 11 transiciones válidas coinciden con la spec y las 21 restantes se rechazan', () => {
     let valid = 0;
     let invalid = 0;
@@ -96,8 +96,8 @@ describe('TASK-106: máquina STATE-AUTH-SESSION-001 (src/domain/auth/auth-polici
   });
 });
 
-describe('TASK-106: registro (REQ-AUTH-001)', () => {
-  it('[REQ-AUTH-001][INV-AUTH-001] normaliza el username (recorta espacios y pasa a minúsculas) antes de validar (§5.1 regla 3)', () => {
+describe('registro (REQ-AUTH-001)', () => {
+  it('[REQ-AUTH-001][INV-AUTH-001] normaliza el username (recorta espacios y pasa a minúsculas) antes de validar', () => {
     expect(normalizeUsername('  MaRiA.V ')).toBe('maria.v');
     expect(parseRegisterUserInput({ username: ' Lucia.R ', displayName: 'Lucía', password: 'Lucia2026d' }).username).toBe('lucia.r');
     expect(parseRegisterUserInput({ username: 'Nuevo_1', displayName: 'Nuevo', password: 'Clave2026x' })).toEqual({
@@ -133,7 +133,7 @@ describe('TASK-106: registro (REQ-AUTH-001)', () => {
     expect(cases.map(([p]) => isPasswordCompliant(p))).toEqual(cases.map(([, ok]) => ok));
   });
 
-  it('[REQ-AUTH-001] los demás fallos, y una contraseña ausente, dan ERR-SCHEMA-VALIDATION-FAILED con el campo (§5.1 regla 4)', () => {
+  it('[REQ-AUTH-001] los demás fallos, y una contraseña ausente, dan ERR-SCHEMA-VALIDATION-FAILED con el campo', () => {
     const cases: Array<[unknown, string | null]> = [
       [{ username: 'a b', displayName: 'X', password: 'Clave2026x' }, 'username'],
       [{ username: 'ab', displayName: 'X', password: 'Clave2026x' }, 'username'],
@@ -160,7 +160,7 @@ describe('TASK-106: registro (REQ-AUTH-001)', () => {
   });
 });
 
-describe('TASK-106: sesión (REQ-AUTH-002..004, INV-AUTH-004)', () => {
+describe('sesión (REQ-AUTH-002..004, INV-AUTH-004)', () => {
   it('[REQ-AUTH-002][INV-AUTH-004] una sesión nueva vence a los 7 días exactos de su creación', () => {
     expect(openSession(ANDRES_ID, NOW)).toEqual({
       userId: ANDRES_ID,
@@ -201,7 +201,7 @@ describe('TASK-106: sesión (REQ-AUTH-002..004, INV-AUTH-004)', () => {
   });
 });
 
-describe('TASK-106: login y bloqueo (REQ-AUTH-002, INV-AUTH-005)', () => {
+describe('login y bloqueo (REQ-AUTH-002, INV-AUTH-005)', () => {
   type Step = { at: string; username: string; password: string; expectedError?: string; expectedResult?: string };
 
   function runTimeline(steps: Step[], verifyCalls: { count: number }): Array<string | null> {
@@ -271,7 +271,7 @@ describe('TASK-106: login y bloqueo (REQ-AUTH-002, INV-AUTH-005)', () => {
   });
 });
 
-describe('TASK-106: timestamps UTC (src/domain/auth/utc-timestamp.ts)', () => {
+describe('timestamps UTC (src/domain/auth/utc-timestamp.ts)', () => {
   it('[INV-AUTH-004] convierte timestamps canónicos a milisegundos y de vuelta, incluso antes de 1970 y en bisiestos', () => {
     expect(toEpochMillis('1970-01-01T00:00:00.000Z')).toBe(0);
     expect(toEpochMillis('2026-11-05T12:00:00.000Z')).toBe(1_793_880_000_000);

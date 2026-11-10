@@ -33,7 +33,7 @@ import {
   requireOwner,
 } from '../../src/domain/households/household-policies.ts';
 
-const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'contracts/examples/canonical-fixtures.json'), 'utf8'));
+const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
 const edge = (prefix: string) => fixtures.invalidEdgeCases.find((c: { caseId: string }) => c.caseId.startsWith(prefix));
 const users: UserPublicProfile[] = fixtures.users;
 const [andres, maria, carlos, lucia] = users as [UserPublicProfile, UserPublicProfile, UserPublicProfile, UserPublicProfile];
@@ -63,7 +63,7 @@ const replace = (rows: readonly HouseholdMember[], row: HouseholdMember) =>
   rows.some((r) => r.membershipId === row.membershipId) ? rows.map((r) => (r.membershipId === row.membershipId ? row : r)) : [...rows, row];
 
 type Expected = [StateHouseMembership001State, string];
-/** Oráculo escrito a mano a partir de la spec §4.4 y D-05, independiente del contrato generado. */
+/** Oráculo escrito a mano a partir de la y D-05, independiente del contrato generado. */
 const MEMBERSHIP_TABLE: Partial<Record<StateHouseMembership001State, Partial<Record<StateHouseMembership001Event, Expected>>>> = {
   INVITED: { ACCEPT: ['ACTIVE', 'INVITEE'], DECLINE: ['DECLINED', 'INVITEE'], CANCEL: ['CANCELLED', 'OWNER'] },
   ACTIVE: { LEAVE: ['LEFT', 'SELF'], REMOVE: ['REMOVED', 'OWNER'] },
@@ -73,7 +73,7 @@ const MEMBERSHIP_TABLE: Partial<Record<StateHouseMembership001State, Partial<Rec
   REMOVED: { INVITE: ['INVITED', 'OWNER'] },
 };
 
-describe('TASK-106: máquina STATE-HOUSE-MEMBERSHIP-001 (src/domain/households/household-policies.ts)', () => {
+describe('máquina STATE-HOUSE-MEMBERSHIP-001 (src/domain/households/household-policies.ts)', () => {
   it('[STATE-HOUSE-MEMBERSHIP-001] las 9 transiciones válidas coinciden con la spec y las 27 restantes se rechazan', () => {
     let valid = 0;
     let invalid = 0;
@@ -100,7 +100,7 @@ describe('TASK-106: máquina STATE-HOUSE-MEMBERSHIP-001 (src/domain/households/h
   });
 });
 
-describe('TASK-106: crear hogar (REQ-HOUSE-001, INV-HOUSE-001)', () => {
+describe('crear hogar (REQ-HOUSE-001, INV-HOUSE-001)', () => {
   it('[REQ-HOUSE-001][INV-HOUSE-001] el creador queda como único OWNER en ACTIVE', () => {
     const { household, ownerMembership } = createHousehold({
       householdId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb09',
@@ -147,7 +147,7 @@ describe('TASK-106: crear hogar (REQ-HOUSE-001, INV-HOUSE-001)', () => {
   });
 });
 
-describe('TASK-106: invitar (REQ-HOUSE-002, INV-HOUSE-002, INV-HOUSE-003)', () => {
+describe('invitar (REQ-HOUSE-002, INV-HOUSE-002, INV-HOUSE-003)', () => {
   const invite = (actorUserId: string, invitee: { id: string } | null, rows = members) =>
     inviteMember({ memberships: rows, householdId: H1, actorUserId, invitee, membershipId: mid(4), nowIsoTimestamp: NOW });
 
@@ -238,7 +238,7 @@ describe('TASK-106: invitar (REQ-HOUSE-002, INV-HOUSE-002, INV-HOUSE-003)', () =
   });
 });
 
-describe('TASK-106: responder invitación (REQ-HOUSE-003)', () => {
+describe('responder invitación (REQ-HOUSE-003)', () => {
   it('[REQ-HOUSE-003] Carlos acepta: INVITED a ACTIVE con joinedAt y firstJoinedAt = now', () => {
     expect(acceptInvitation(members, H1, carlos.id, NOW)).toEqual({ ...members[2], status: 'ACTIVE', joinedAt: NOW, firstJoinedAt: NOW, updatedAt: NOW });
   });
@@ -264,7 +264,7 @@ describe('TASK-106: responder invitación (REQ-HOUSE-003)', () => {
   });
 });
 
-describe('TASK-106: gestionar membresías (REQ-HOUSE-004)', () => {
+describe('gestionar membresías (REQ-HOUSE-004)', () => {
   it('[INV-HOUSE-001][ERR-HOUSE-OWNER-CANNOT-LEAVE] el OWNER no puede abandonar su hogar (EDGE-015)', () => {
     const e = catchDomainError(() => removeOrLeave(members, H1, andres.id, andres.id, NOW));
     expect([e.code, e.status, e.invariantRef, e.field]).toEqual([edge('EDGE-015').expectedError, 409, 'INV-HOUSE-001', 'userId']);
@@ -300,7 +300,7 @@ describe('TASK-106: gestionar membresías (REQ-HOUSE-004)', () => {
   });
 });
 
-describe('TASK-106: visibilidad, color y vista de hogar (REQ-HOUSE-005, INV-HOUSE-004, INV-HOUSE-005)', () => {
+describe('visibilidad, color y vista de hogar (REQ-HOUSE-005, INV-HOUSE-004, INV-HOUSE-005)', () => {
   it('[INV-HOUSE-004][ERR-HOUSE-NOT-FOUND] un INVITED no lee el hogar ni sus mascotas: 404 (EDGE-017, EDGE-037)', () => {
     const view = catchDomainError(() => householdView(casa, members, usersById, carlos.id));
     expect([view.code, view.status, view.invariantRef]).toEqual([edge('EDGE-037').expectedError, 404, 'INV-HOUSE-004']);

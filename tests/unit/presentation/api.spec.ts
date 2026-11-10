@@ -5,7 +5,7 @@ import { importProblemText, importResultText } from '../../../src/presentation/w
 
 const ok = (status: number): Response => new Response(null, { status });
 
-describe('TASK-112: errores de la API en la SPA', () => {
+describe('errores de la API en la SPA', () => {
   it('[INV-AUTH-007] las operaciones mutantes envían X-Argos-Request: 1 con el cliente generado', () => {
     expect(CSRF_PARAMS).toEqual({ header: { 'X-Argos-Request': '1' } });
   });

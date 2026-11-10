@@ -17,7 +17,7 @@ const count = (markup: string, re: RegExp): number => (markup.match(new RegExp(r
 const noop = (): void => undefined;
 const asyncNoop = async (): Promise<void> => undefined;
 
-describe('TASK-112: componentes de la SPA (render estático)', () => {
+describe('componentes de la SPA (render estático)', () => {
   it('[REQ-UI-001] las tarjetas forman un listbox con una sola opción enfocable y la activa marcada', () => {
     const markup = html(h(PetCardList, { cards: [card('p1', 'Argos'), card('p2', 'Kira')], activePetId: 'p2', onSelect: noop }));
     expect([count(markup, /role="listbox"/), count(markup, /role="option"/), count(markup, /tabindex="0"/), count(markup, /aria-selected="true"/), /data-pet-id="p2"[^>]*>/.test(markup)]).toEqual([1, 2, 1, 1, true]);

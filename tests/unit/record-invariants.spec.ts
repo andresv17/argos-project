@@ -27,7 +27,7 @@ import {
 } from '../../src/domain/records/record-invariants.ts';
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 
-const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'contracts/examples/canonical-fixtures.json'), 'utf8'));
+const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
 const envelope: BackupEnvelopeV2 = fixtures.validBackupEnvelopeV2;
 const edge = (prefix: string) => fixtures.invalidEdgeCases.find((c: { caseId: string }) => c.caseId.startsWith(prefix));
 const TODAY = new FixedClockAdapter().todayIsoDate();
@@ -81,7 +81,7 @@ const weight = (id: string, recordedAt: string, weightKg: number, createdAt = `$
   createdAt,
 });
 
-describe('TASK-107: los 6 módulos con los registros canónicos (src/domain/records/record-invariants.ts)', () => {
+describe('los 6 módulos con los registros canónicos (src/domain/records/record-invariants.ts)', () => {
   it('[REQ-REC-001][REQ-REC-002][REQ-REC-003][REQ-REC-004][REQ-REC-005][REQ-REC-006] el primer registro canónico de cada módulo es válido como registro y como entrada', () => {
     expect(MODULES).toEqual(Object.keys(envelope.records));
     for (const module of MODULES) {
@@ -124,7 +124,7 @@ describe('TASK-107: los 6 módulos con los registros canónicos (src/domain/reco
   });
 });
 
-describe('TASK-107: peso y medidas (INV-REC-002, INV-REC-003)', () => {
+describe('peso y medidas (INV-REC-002, INV-REC-003)', () => {
   it('[REQ-REC-001][INV-REC-002][ERR-REC-WEIGHT-OUT-OF-RANGE] acepta 0.05 y 150.00 exactos y rechaza 0.04, 150.01 y el peso negativo de EDGE-002', () => {
     const negative = edge('EDGE-002-').payload.weightKg as number;
     expect(edge('EDGE-002-').expectedError).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE');
@@ -165,7 +165,7 @@ describe('TASK-107: peso y medidas (INV-REC-002, INV-REC-003)', () => {
     }
   });
 
-  it('[REQ-REC-001][INV-REC-002] spec §5.1: un tipo erróneo en weightKg da el código anotado; ausente o propiedad extra, ERR-SCHEMA-VALIDATION-FAILED', () => {
+  it('[REQ-REC-001][INV-REC-002]: un tipo erróneo en weightKg da el código anotado; ausente o propiedad extra, ERR-SCHEMA-VALIDATION-FAILED', () => {
     const { weightKg: _w, ...withoutWeight } = baseInput('weights');
     expect(recordCode('weights', { weightKg: '32.85' })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
     expect(errorOf(() => validateRecordInput('weights', withoutWeight, birthFor('weights'), TODAY)).message).toBe(
@@ -178,14 +178,14 @@ describe('TASK-107: peso y medidas (INV-REC-002, INV-REC-003)', () => {
     );
   });
 
-  it('[REQ-REC-001][INV-REC-002][ERR-REC-DATE-BEFORE-BIRTH] spec §5.1: el esquema va antes que el dominio (peso fuera de rango y fecha anterior al nacimiento da el error de peso)', () => {
+  it('[REQ-REC-001][INV-REC-002][ERR-REC-DATE-BEFORE-BIRTH]: el esquema va antes que el dominio (peso fuera de rango y fecha anterior al nacimiento da el error de peso)', () => {
     expect(recordCode('weights', { weightKg: 0.01, recordedAt: '2022-05-09' })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
     expect(recordCode('weights', { weightKg: 32.85 + 1e-13, recordedAt: '2022-05-09' })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
     expect(recordCode('weights', { recordedAt: '2022-05-09' })).toBe('ERR-REC-DATE-BEFORE-BIRTH@recordedAt');
   });
 });
 
-describe('TASK-107: ventana temporal y fechas siguientes (INV-REC-001, INV-REC-004, INV-REC-005)', () => {
+describe('ventana temporal y fechas siguientes (INV-REC-001, INV-REC-004, INV-REC-005)', () => {
   it('[ERR-REC-DATE-BEFORE-BIRTH][ERR-REC-FUTURE-EVENT-DATE] en los 6 módulos la ventana incluye nacimiento y hoy, y excluye un día antes y un día después', () => {
     const rows = MODULES.map((module) => {
       const field = RECORD_MODULES[module].eventDateField;
@@ -241,7 +241,7 @@ describe('TASK-107: ventana temporal y fechas siguientes (INV-REC-001, INV-REC-0
   });
 });
 
-describe('TASK-107: textos obligatorios y enumerados (INV-REC-006)', () => {
+describe('textos obligatorios y enumerados (INV-REC-006)', () => {
   const TEXTS: Array<[RecordModule, string, number]> = [
     ['vaccinations', 'vaccineName', 100],
     ['dewormings', 'productBrand', 100],
@@ -293,7 +293,7 @@ describe('TASK-107: textos obligatorios y enumerados (INV-REC-006)', () => {
   });
 });
 
-describe('TASK-107: evolución de peso (REQ-REC-001, EDGE-034, EDGE-035)', () => {
+describe('evolución de peso (REQ-REC-001, EDGE-034, EDGE-035)', () => {
   it('[REQ-REC-001] EDGE-034: deltaKg exacto en centésimas, 32.40 → 32.85 = 0.45 y 32.85 → 32.40 = -0.45', () => {
     const expected = edge('EDGE-034-').expectedResult.deltaKg;
     const up = computeWeightEvolutionSeries([weight('a1', '2026-10-01', 32.4), weight('a2', '2026-11-01', 32.85)]);

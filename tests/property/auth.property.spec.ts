@@ -8,7 +8,7 @@ const BASE = Date.UTC(2026, 10, 5, 12);
 const iso = (ms: number) => new Date(ms).toISOString();
 const MINUTE = 60_000;
 
-describe('TASK-106: propiedades de autenticación', () => {
+describe('propiedades de autenticación', () => {
   it('[INV-AUTH-005][ERR-AUTH-TOO-MANY-ATTEMPTS] el resultado de cada intento coincide con un oráculo de ventana deslizante', () => {
     const attemptArb = fc.record({ gapMs: fc.integer({ min: 0, max: 6 * MINUTE }), correct: fc.boolean() });
     fc.assert(

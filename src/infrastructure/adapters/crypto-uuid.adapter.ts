@@ -1,5 +1,5 @@
 /**
- * Generador de UUID v4 de producción (constitución §3.2). La entropía solo se lee aquí, en infraestructura.
+ * Generador de UUID v4 de producción. La entropía solo se lee aquí, en infraestructura.
  *
  * @implements INV-ARCH-002, INV-ARCH-004
  */

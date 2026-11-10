@@ -1,28 +1,18 @@
----
-document_id: CHECKLIST-CODE-REVIEW
-version: 2.3.0
-status: REVIEW
-applies_to: TASKS-ARGOS-001 v2.2.0
-note: v2.3.0 (2026-11-09): migrado a la plantilla `checklist-template.md` de GitHub Spec Kit; la tabla pasa a ítems `CHK###` sin cambiar criterios, estados, evidencias ni firmas registradas. Requiere revalidación del Auditor. Nota anterior: re-versionado por el Arquitecto (D-07) a v2.2.0 en REVIEW; el Auditor debe re-validar sobre TASKS v2.2.0 antes de APPROVED.
----
-
 # Code Review Checklist: Argos Pet Health & Biometric Tracker
 
-**Purpose**: Compuerta de la Fase 4 (Implement). Lo completa el agente **con evidencia por ítem** (archivo, comando y salida) al pasar cada tarea a `REVIEW`. Solo el arquitecto humano firma y marca la tarea `COMPLETED`. Prohibido marcar `[x]` sin evidencia verificable.
+**Purpose**: Compuerta de `/speckit-implement`. Lo completa el agente **con evidencia por ítem** (archivo, comando y salida) al entregar cada tarea a revisión. Solo el arquitecto humano firma y marca la tarea `[x]`. Prohibido marcar `[x]` sin evidencia verificable.
 
 **Created**: 2026-11-05
 
-**Feature**: [spec.md](../spec.md) · [tasks.md](../tasks.md) (TASKS-ARGOS-001)
-
-**Note**: Título anterior: «Checklist de Compuerta Fase 4: Revisión Arquitectónica de Código (`code-review.md`)». Criterio y numeración originales conservados: `CHK00N` es el ítem N de la tabla anterior.
+**Feature**: [spec.md](../spec.md) · [tasks.md](../tasks.md)
 
 **Review Ownership**: Checklist de compuerta propiedad del revisor. Un ítem se marca `[x]` solo cuando existe evidencia verificable y, donde aplica, firma humana.
 
-**Marker Semantics**: `[x]` significa que el criterio fue revisado y cumplido. `[ ]` significa pendiente, en revisión o aceptado como deuda abierta; `/speckit.implement` lee estas casillas como compuerta y no debe modificarlas.
+**Marker Semantics**: `[x]` significa que el criterio fue revisado y cumplido. `[ ]` significa pendiente, en revisión o aceptado como deuda abierta; `/speckit-implement` lee estas casillas como compuerta y no debe modificarlas.
 
-## Compuerta Fase 4: Revisión Arquitectónica de Código
+## Revisión Arquitectónica de Código
 
-- [x] CHK001 **Inmutabilidad de `src/generated/` (`INV-ARCH-003`)**: nada editado a mano; regenerar produce `git diff` vacío; los validadores derivan de `contracts/` (no de plantillas). **Evidencia requerida:** Salida de `compile-contracts.sh && git diff --exit-code src/generated/` + test de deriva. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK001 **Inmutabilidad de `src/generated/` (`INV-ARCH-003`)**: nada editado a mano; regenerar produce `git diff` vacío; los validadores derivan de `specs/001-pet-health-tracker/contracts/` (no de plantillas). **Evidencia requerida:** Salida de `compile-contracts.sh && git diff --exit-code src/generated/` + test de deriva. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
 - [x] CHK002 **Cero entropía directa (`INV-ARCH-001`, `INV-ARCH-002`)** en `src/domain/` y `src/application/` (`Date`, `performance.now`, `Math.random`, `crypto.*`). **Evidencia requerida:** Salida de `verify-traceability.sh`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
 - [x] CHK003 **Fronteras concéntricas (`INV-ARCH-004`)**: `domain` solo importa `generated`; `presentation` solo usa el cliente API y tipos; sin reglas de negocio en componentes. **Evidencia requerida:** Regla SAST de imports en `tests/security/sast-rules/` en verde. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
 - [x] CHK004 **Puertos asíncronos y Cloud-ready (`INV-ARCH-005`)**: los mismos tests de contrato pasan con adaptador en memoria y SQLite. **Evidencia requerida:** Salida de la suite de repositorios para ambos adaptadores. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
@@ -30,14 +20,14 @@ note: v2.3.0 (2026-11-09): migrado a la plantilla `checklist-template.md` de Git
 - [x] CHK006 **Validación estricta en fronteras**: toda request/response HTTP, lectura de BD e importación validadas con los validadores generados (`additionalProperties: false`). **Evidencia requerida:** Tests en `tests/integration/contracts/`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
 - [x] CHK007 **Autorización (`INV-ACC-001`, `INV-ACC-002`)** aplicada en cada caso de uso antes de leer/escribir. **Evidencia requerida:** Tests IDOR en `tests/security/exploits/`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
 - [x] CHK008 **Anotaciones `@implements`** con los IDs de la tarea en cada función/clase exportada. **Evidencia requerida:** Salida de `verify-traceability.sh`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
-- [ ] CHK009 **Tipado estricto sin escapes**: cero `any`, `@ts-ignore`, `@ts-expect-error`, y aserciones no nulas `!` justificadas; `tsc --noEmit` limpio en `src/` y `tests/`. **Evidencia requerida:** Salida de `npx tsc --noEmit`. **Firma humana:** Arquitecto, 2026-11-09: aceptado con DEUDA-TIPADO-001 (estado `[ ]` hasta cerrar la deuda)
-- [x] CHK010 **Estructura de repositorio** idéntica al estándar más la lista autorizada (constitución §7); `.gitkeep` presentes. **Evidencia requerida:** Árbol de `find . -not -path './node_modules/*'`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [ ] CHK009 **Tipado estricto sin escapes**: cero `any`, `@ts-ignore`, `@ts-expect-error`, y aserciones no nulas `!` justificadas; `tsc --noEmit` limpio en `src/` y `tests/`. **Evidencia requerida:** Salida de `npx tsc --noEmit`. **Firma humana:** Arquitecto, 2026-11-09: aceptado como desviación (estado `[ ]` hasta cerrar la tarea T056)
+- [x] CHK010 **Estructura de repositorio** idéntica al estándar más la lista autorizada (constitución, «Technology Stack & Repository Structure»); `.gitkeep` presentes. **Evidencia requerida:** Árbol de `find . -not -path './node_modules/*'`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
 
 ## Notes
 
-### Evidencia por ítem: compuerta final TASK-115 (Desarrollador, 2026-11-09)
+**Evidencia por ítem de la compuerta final (T055, 2026-11-09)**
 
-Base: rama `spec/v2.2.0-review`, cambios de TASK-115 sobre `c774e3b`. Node 22.23.4. La columna «Estado» la marca el Desarrollador solo donde la evidencia cumple el criterio literal; `[ ]` con nota indica evidencia parcial o distinta de la pedida, para decisión del firmante. **La columna «Firma humana» queda vacía.**
+Base: rama `spec/v2.2.0-review`, cambios de la compuerta final sobre `c774e3b`. Node 22.23.4. La columna «Estado» la marca el Desarrollador solo donde la evidencia cumple el criterio literal; `[ ]` con nota indica evidencia parcial o distinta de la pedida, para decisión del firmante. **La columna «Firma humana» queda vacía.**
 
 1. **INV-ARCH-003.** `bash scripts/compile-contracts.sh` (exit 0) y `git diff --exit-code src/generated/` vacío en un clon limpio de `origin` (`f7c590c`). Árbol `src/generated` (`find . -type f | sort | xargs sha256sum | sha256sum`): `1f320a2cda003bf013a0e37e15eb76b1f285996fca76d03b86a9e6fa3365a964`, sin cambio. Pruebas de deriva: `tests/integration/contracts/codegen-drift.spec.ts`, 5/5 (regeneración limpia, determinismo, cambio de `maximum` en copia temporal, `x-sdd-error` inexistente detiene la generación, sin IDs retirados). Traza fuera de `src/generated`: `@implements INV-ARCH-003` en `src/presentation/web/validation.ts` (consume solo validadores generados).
 2. **Entropía.** `verify-traceability.sh`: «Violaciones de pureza: 0». Semgrep 1.184.0, regla `argos-no-entropy-outside-adapters`: 0 hallazgos en `src/`.
@@ -47,5 +37,5 @@ Base: rama `spec/v2.2.0-review`, cambios de TASK-115 sobre `c774e3b`. Node 22.23
 6. **Validación en fronteras.** `tests/integration/contracts/` (`generated-contracts`, `openapi-conformance`, `canonical-fixtures`, `decimal-precision-boundary`, `codegen-drift`) y `tests/integration/api/**`, en verde. Lectura de BD validada: `sqlite-repositories.spec.ts` («un dato corrupto … produce ERR-INTERNAL-UNEXPECTED»; «un objeto que incumple el contrato no se escribe»).
 7. **Autorización (INV-ACC-001/002).** `tests/security/exploits/access-control.security.spec.ts` (IDOR y hogares ajenos: quien no puede leer recibe 404 idéntico al de un recurso inexistente) en verde; la precedencia 404 antes que 422 para no miembros está en `tests/integration/api/households.api.spec.ts`; Stryker sobre `src/domain/access/access-policy.ts`: 100 % (31 eliminados).
 8. **`@implements`.** `bash scripts/verify-traceability.sh` (compuerta final): «IDs trazados: 96/96 … Resultado: CUMPLE».
-9. **Tipado.** `npx tsc --noEmit`: exit 0, 0 errores en `src/` y `tests/`. `[ ]` por el resto del criterio: `grep` encuentra 3 `any` explícitos en `tests/unit/backup-use-cases.spec.ts:267-269` (mutadores de un sobre en una tabla de casos) y 1 aserción no nula en `src/domain/backup/backup-migration.ts:37` (`match[1]!` tras comprobar `match === null`, justificable por `noUncheckedIndexedAccess`). Cero `@ts-ignore`, `@ts-expect-error` y `@ts-nocheck`. Fuera del alcance de archivos de TASK-115; decide el firmante. **Aceptado por el Arquitecto como DEUDA-TIPADO-001** (`.specify/tasks/pet-health-tracker-tasks.md`); el ítem queda `[ ]` hasta que se cierre esa deuda.
-10. **Estructura.** `git ls-files` en la raíz: solo los archivos autorizados en constitución §7 más `README.md` y `spec-system.md`; `scripts/`: `codegen.mjs`, `compile-contracts.sh`, `verify-oracles.sh`, `verify-traceability.sh`; `tests/` con `e2e`, `fixtures`, `integration`, `mutation`, `property`, `security`, `unit`; los 13 `.gitkeep` del estándar presentes.
+9. **Tipado.** `npx tsc --noEmit`: exit 0, 0 errores en `src/` y `tests/`. `[ ]` por el resto del criterio: `grep` encuentra 3 `any` explícitos en `tests/unit/backup-use-cases.spec.ts:267-269` (mutadores de un sobre en una tabla de casos) y 1 aserción no nula en `src/domain/backup/backup-migration.ts:37` (`match[1]!` tras comprobar `match === null`, justificable por `noUncheckedIndexedAccess`). Cero `@ts-ignore`, `@ts-expect-error` y `@ts-nocheck`. Fuera del alcance de archivos de la compuerta final; decide el firmante. **Aceptado por el Arquitecto como desviación** (plan.md, «Complexity Tracking»); el ítem queda `[ ]` hasta que se cierre la tarea T056 de tasks.md.
+10. **Estructura.** `git ls-files` en la raíz: solo los archivos autorizados en la constitución más `README.md` y `spec-system.md`; `scripts/`: `codegen.mjs`, `compile-contracts.sh`, `verify-oracles.sh`, `verify-traceability.sh`; `tests/` con `e2e`, `fixtures`, `integration`, `mutation`, `property`, `security`, `unit`; los 13 `.gitkeep` del estándar presentes.

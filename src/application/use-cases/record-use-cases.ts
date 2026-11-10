@@ -1,7 +1,7 @@
 /**
- * Casos de uso de alta de los 6 módulos de registros (plan §3). Orden de comprobación: acceso de escritura
+ * Casos de uso de alta de los 6 módulos de registros. Orden de comprobación: acceso de escritura
  * (INV-PET-003 e INV-ACC-001/002: mascota inexistente o no legible, ERR-PET-NOT-FOUND; legible sin ser dueño,
- * ERR-ACC-FORBIDDEN), luego esquema y dominio con validateRecordInput (spec §5.1 reglas 4 y 5). El id y createdAt
+ * ERR-ACC-FORBIDDEN), luego esquema y dominio con validateRecordInput. El id y createdAt
  * salen de los puertos solo si la entrada es válida; los opcionales ausentes se guardan como null.
  * Las respuestas siguen el OpenAPI: WeightEntryView, VaccinationEntryView y DewormingEntryView para peso, vacuna y
  * desparasitación; el registro tal cual para los demás.

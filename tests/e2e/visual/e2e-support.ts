@@ -1,5 +1,5 @@
 /**
- * Soporte común de los E2E de TASK-114: altas por la API real (misma sesión que el navegador, con la cabecera CSRF)
+ * Soporte común de los E2E de: altas por la API real (misma sesión que el navegador, con la cabecera CSRF)
  * y la auditoría de accesibilidad con `@axe-core/playwright` a 320, 1024 y 1280 px (REQ-UI-004). No hay reglas
  * propias: se usan las de axe-core con las etiquetas WCAG 2.1 A/AA y solo se filtra por impacto.
  *

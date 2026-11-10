@@ -1,5 +1,5 @@
 /**
- * Arranque de la API local (plan §0 y §4): lee la configuración (INV-ARCH-006), abre SQLite con sus migraciones,
+ * Arranque de la API local: lee la configuración (INV-ARCH-006), abre SQLite con sus migraciones,
  * compone los adaptadores de producción y escucha solo en 127.0.0.1. Los registros de Fastify ocultan cookies.
  *
  * @implements INV-ARCH-004, INV-ARCH-006, INV-AUTH-003, INV-AUTH-006

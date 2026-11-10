@@ -3,11 +3,11 @@ import { ERROR_CATALOG } from '../../../src/generated/index.ts';
 import { createApi, problemOf, type Api } from './api-harness.ts';
 import { ARGOS_ID, NEW_PET } from './api-fixtures.ts';
 
-/** TASK-111: precedencia de la frontera (spec §5.1) y ProblemDetails desde el catálogo. */
+/**: precedencia de la frontera y ProblemDetails desde el catálogo. */
 let api: Api;
 afterEach(async () => api.close());
 
-describe('TASK-111: precedencia de validación en la frontera HTTP (spec §5.1)', () => {
+describe('precedencia de validación en la frontera HTTP', () => {
   it('[INV-AUTH-007][ERR-AUTH-CSRF-REJECTED] regla 1: sin X-Argos-Request: 1 → 403 antes que la sesión, el cuerpo y el esquema (EDGE-018)', async () => {
     api = await createApi();
     const noHeader = await api.call('POST', '/api/pets', { csrf: false, raw: '{roto' });
@@ -90,7 +90,7 @@ describe('TASK-111: precedencia de validación en la frontera HTTP (spec §5.1)'
   });
 });
 
-describe('TASK-111: ProblemDetails desde el catálogo (src/infrastructure/http/plugins/problem-details.ts)', () => {
+describe('ProblemDetails desde el catálogo (src/infrastructure/http/plugins/problem-details.ts)', () => {
   it('[ERR-AUTH-CSRF-REJECTED] el problema es application/problem+json con type, title, status e invariantRef del catálogo e instance sin consulta', async () => {
     api = await createApi();
     const r = await api.call('POST', '/api/pets?x=1', { csrf: false, body: NEW_PET });

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Generador determinista de src/generated/ desde contracts/ [INV-ARCH-003, TASK-102].
+ * Generador determinista de src/generated/ desde specs/001-pet-health-tracker/contracts/ [INV-ARCH-003].
+ * Las etiquetas `contracts/...` de las cabeceras generadas son relativas al directorio de la feature.
  *
  * Entradas (solo lectura): contracts/schemas/*.schema.json, contracts/errors/error-catalog.json,
  * contracts/state-machines/*.machine.json, contracts/openapi/*.openapi.yaml.
@@ -34,7 +35,7 @@ function argValue(flag, fallback) {
   return i >= 0 && process.argv[i + 1] ? resolve(process.argv[i + 1]) : fallback;
 }
 
-const contractsDir = argValue('--contracts', join(repoRoot, 'contracts'));
+const contractsDir = argValue('--contracts', join(repoRoot, 'specs/001-pet-health-tracker/contracts'));
 const outDir = argValue('--out', join(repoRoot, 'src/generated'));
 
 /** IDs retirados que no deben aparecer en ninguna salida generada (v2.2.0). */
@@ -135,7 +136,7 @@ const openapiDoc = parseYaml(readFileSync(openapiPath, 'utf8'));
 // ---------------------------------------------------------------------------
 // 2. Ajv standalone (todos los esquemas registrados por $id antes de compilar)
 // ---------------------------------------------------------------------------
-// strictTypes: true (explícito). Los contratos de TASK-102 declaran "type" local junto a maxLength;
+// strictTypes: true (explícito). Los contratos declaran "type" local junto a maxLength;
 // no se desactiva la validación estricta de tipos. Ver CC-102-D1 (revertido).
 function createAjv(esm) {
   const instance = new Ajv2020({
@@ -143,7 +144,7 @@ function createAjv(esm) {
   strictTypes: true,
   allowUnionTypes: true,
   allErrors: true,
-  // DEUDA-VAL-001 (TASK-108): con 2, Ajv tolera restos de hasta 0.01 centésimas y acepta p. ej. weightKg 32.85001.
+  // DEUDA-VAL-001: con 2, Ajv tolera restos de hasta 0.01 centésimas y acepta p. ej. weightKg 32.85001.
   // Con 10 rechaza toda desviación >= 1e-12 dentro de los rangos del contrato (|v| <= 250) y no rechaza ninguna
   // centésima válida hasta |v| = 6990.72 (11 ya rechaza 874.06). El dominio cierra el resto (INV-REC-002/003).
   multipleOfPrecision: 10,

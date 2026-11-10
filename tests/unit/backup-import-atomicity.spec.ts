@@ -19,7 +19,7 @@ const CORRUPTIONS: ReadonlyArray<{ readonly code: string; readonly apply: (e: Ba
   { code: 'ERR-PET-FUTURE-BIRTHDATE', apply: (e, _m, i) => (e.pets[i % e.pets.length]!.birthDate = '2027-01-01') },
 ];
 
-describe('TASK-109: atomicidad de la importación (propiedad, seed 20261105)', () => {
+describe('atomicidad de la importación (propiedad, seed 20261105)', () => {
   it('[INV-BACKUP-001][STATE-BACKUP-001] cualquier corrupción de un sobre válido termina en ROLLED_BACK con su código y deja los datos idénticos byte a byte', async () => {
     await fc.assert(
       fc.asyncProperty(

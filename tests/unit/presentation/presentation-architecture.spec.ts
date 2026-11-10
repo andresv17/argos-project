@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, normalize, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-/** TASK-112: reglas de capa de src/presentation (constitución §3.4) sobre el código real. */
+/** reglas de capa de src/presentation sobre el código real. */
 const WEB = 'src/presentation/web';
 const IMPORT = /(?:^|\n)\s*(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)|(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g;
 
@@ -20,7 +20,7 @@ const importsOf = (file: string): string[] =>
     return spec.startsWith('.') ? relative('src', normalize(join(dirname(file), spec))) : `paquete:${spec}`;
   });
 
-describe('TASK-112: arquitectura de la presentación', () => {
+describe('arquitectura de la presentación', () => {
   it('[INV-ARCH-004][REQ-UI-002] src/presentation/web solo importa de sí misma, de módulos concretos de src/generated y de react, react-dom y react-router-dom', () => {
     const allowed = (target: string): boolean =>
       target.startsWith('presentation/web/') ||

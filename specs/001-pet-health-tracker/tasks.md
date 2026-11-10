@@ -1,57 +1,56 @@
----
-document_id: TASKS-ARGOS-001
-version: 2.3.0
-status: REVIEW
-supersedes: 2.2.0
-change_type: MINOR
-plan_ref: specs/001-pet-health-tracker/plan.md (v2.3.0)
-spec_ref: specs/001-pet-health-tracker/spec.md (cola alineada a la spec v2.2.0 y a sus parches v2.2.1–v2.3.1; spec vigente v2.4.0)
-approved_by: pendiente (v2.3.0 en REVIEW, 2026-11-09: migración de formato a T### con alias, pendiente de revisión)
----
-
 # Tasks: Argos Pet Health & Biometric Tracker
 
 **Input**: Design documents from `/specs/001-pet-health-tracker/`
 
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: obligatorias. La constitución §5 exige pruebas unitarias, de propiedades, de contrato, de seguridad, de mutación y E2E; cada tarea incluye sus pruebas entre sus archivos objetivo y se cierra con su compuerta.
+**Tests**: obligatorias. La constitución (principio IV) exige pruebas unitarias, de propiedades, de contrato, de seguridad, de mutación y E2E, y cada prueba lleva en su título el identificador que verifica.
 
-**Organization**: la cola v2.2.0 se ejecutó por capas (dominio → aplicación → infraestructura → presentación) y en orden numérico, no por historia de usuario. Las fases de abajo la reagrupan según la plantilla de Spec Kit: cada tarea aparece una vez, en la fase de la historia a la que sirve principalmente o, si sirve a varias, en la fase transversal final. El registro canónico de cada tarea (dependencias, archivos, IDs de trazabilidad, hallazgos y criterio de aceptación) es la tabla «Cola v2.2.0», que `scripts/verify-traceability.sh` lee de forma literal. La asignación de tareas a historias es derivada y está pendiente de revisión del Arquitecto.
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
 ## Format: `[ID] [P?] [Story] Description`
 
-- **ID**: `T###` (formato Spec Kit). Cada línea conserva el alias `(TASK-NNN)` al final, porque esos identificadores están citados en commits, checklists y documentos de decisión. La tabla de alias está al final de este archivo.
-- **[P]**: Can run in parallel (different files, no dependencies). Ninguna tarea de esta cola lo lleva: se ejecutó en estricto orden secuencial («Reglas de ejecución»).
-- **[Story]**: Which user story this task belongs to (US1 a US6 de spec.md). Solo en las fases de historia.
-- **Casilla**: `[x]` equivale al estado `COMPLETED` de la tabla, que solo concede el arquitecto humano; cualquier otro estado es `[ ]`.
+- **[P]**: Can run in parallel (different files, no dependencies)
+- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
+- Los identificadores entre paréntesis al final de una tarea son los que verifica su compuerta: `bash scripts/verify-traceability.sh --task T###`
 
 ## Path Conventions
 
 - **Single project**: `src/`, `tests/` at repository root
-- Contratos formales en `contracts/`; código generado en `src/generated/`; compuertas en `scripts/`
+- Contratos formales en `specs/001-pet-health-tracker/contracts/`; código generado en `src/generated/`; compuertas en `scripts/`
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: alinear los artefactos SDD y sanear el repositorio y la cadena de herramientas
+**Purpose**: Project initialization and basic structure
 
-- [x] T001 Alinear spec, plan, tareas, constitución, checklists y contratos a v2.1.0 en `.specify/**` y `contracts/**` (responsable: Arquitecto) (TASK-100)
-- [x] T002 Sanear repositorio y toolchain en `package.json`, `tsconfig.json`, `vite.config.ts`, `playwright.config.ts`, `tests/mutation/stryker.conf.json` y `.github/workflows/test-gate.yml` (TASK-101)
+- [x] T001 Crear la estructura por capas de `src/` (`generated`, `domain`, `application`, `infrastructure`, `presentation`) y de `tests/` (`unit`, `property`, `integration`, `security`, `e2e`, `mutation`, `fixtures`) definida en plan.md
+- [x] T002 Inicializar el proyecto TypeScript 5.6 sobre Node 22 con sus dependencias en `package.json`, `package-lock.json`, `.nvmrc` y `tsconfig.json`
+- [x] T003 [P] Configurar Vite, Tailwind y PostCSS en `vite.config.ts`, `tailwind.config.ts`, `postcss.config.js` e `index.html`
+- [x] T004 [P] Configurar Playwright y Stryker en `playwright.config.ts` y `tests/mutation/stryker.conf.json`
+- [x] T005 [P] Configurar `.gitignore` y `.env.example` sin secretos (INV-ARCH-006)
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: generación desde contratos, compuertas de verificación y utilidades de dominio que usan todas las historias
+**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T003 Generar validadores, tipos y cliente desde los contratos con `scripts/compile-contracts.sh` y `scripts/codegen.mjs` hacia `src/generated/**` (TASK-102)
-- [x] T004 Implementar las compuertas en `scripts/verify-traceability.sh`, `scripts/verify-oracles.sh`, `.github/workflows/test-gate.yml` y `.github/workflows/drift-detection.yml` (TASK-103)
-- [x] T005 Implementar fechas, edad y orden determinista en `src/domain/shared/date-utils.ts` y `src/domain/sorting/deterministic-sorter.ts`, con los adaptadores de prueba de `src/infrastructure/adapters/` (TASK-104)
+- [x] T006 Definir los contratos formales de la feature en `specs/001-pet-health-tracker/contracts/` (`schemas/`, `openapi/`, `state-machines/`, `errors/`, `examples/`)
+- [x] T007 Generar validadores, tipos y cliente con `scripts/compile-contracts.sh` y `scripts/codegen.mjs` hacia `src/generated/`, con pruebas en `tests/integration/contracts/codegen-drift.spec.ts` y `tests/integration/contracts/generated-contracts.spec.ts` (INV-ARCH-003, ERR-SCHEMA-VALIDATION-FAILED)
+- [x] T008 Implementar las compuertas `scripts/verify-traceability.sh` y `scripts/verify-oracles.sh`, sus pruebas en `tests/integration/gates/verify-gates.spec.ts` y los flujos `.github/workflows/test-gate.yml` y `.github/workflows/drift-detection.yml` (INV-ARCH-001, INV-ARCH-002)
+- [x] T009 [P] Implementar fechas, edad y orden determinista en `src/domain/shared/date-utils.ts` y `src/domain/sorting/deterministic-sorter.ts`, con pruebas en `tests/unit/date-and-sort.spec.ts` y `tests/property/sorting.property.spec.ts` (INV-SORT-001, INV-REC-001)
+- [x] T010 [P] Definir los puertos asíncronos en `src/application/ports/` y el soporte común en `src/application/use-cases/use-case-support.ts` (INV-ARCH-005)
+- [x] T011 [P] Implementar los adaptadores de reloj, identificadores, token y hash en `src/infrastructure/adapters/`, con pruebas en `tests/unit/infrastructure-adapters.spec.ts` (INV-ARCH-001, INV-ARCH-002)
+- [x] T012 [P] Implementar la configuración validada en `src/infrastructure/config/app-config.ts`, con pruebas en `tests/unit/app-config.spec.ts` (INV-ARCH-006)
+- [x] T013 Implementar los repositorios en memoria en `src/infrastructure/persistence/memory/in-memory-unit-of-work.ts` y SQLite en `src/infrastructure/persistence/sqlite/` (migración `migrations/0001_init.sql`), con la suite `tests/fixtures/repository-contract-suite.ts` ejecutada en `tests/unit/use-cases.memory-repositories.spec.ts` y `tests/integration/persistence/sqlite-repositories.spec.ts` (INV-ARCH-005, INV-PET-005, ERR-INTERNAL-UNEXPECTED)
+- [x] T014 Implementar el servidor HTTP y sus plugins en `src/infrastructure/http/app.ts`, `server.ts`, `request-input.ts` y `plugins/` (`csrf-guard.ts`, `session-auth.ts`, `problem-details.ts`), con pruebas en `tests/integration/api/server.api.spec.ts` y `tests/integration/api/precedence.api.spec.ts` (INV-AUTH-007, ERR-AUTH-CSRF-REJECTED, ERR-AUTH-UNAUTHENTICATED)
+- [x] T015 Implementar la base de la SPA en `src/presentation/web/main.tsx`, `App.tsx`, `api.ts`, `session.tsx`, `validation.ts`, `use-contract-form.ts`, `view-model.ts`, `styles.css`, `components/Field.tsx` y `pages/AppShell.tsx`, con pruebas en `tests/unit/presentation/` (REQ-UI-004, INV-ARCH-003)
+- [x] T016 [P] Verificar la dependencia concéntrica entre capas en `tests/unit/layer-dependencies.spec.ts` y `tests/unit/presentation/presentation-architecture.spec.ts` (INV-ARCH-004)
 
-**Checkpoint**: Foundation ready - user story implementation can now begin
+**Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
 ---
 
@@ -61,11 +60,21 @@ approved_by: pendiente (v2.3.0 en REVIEW, 2026-11-09: migración de formato a T#
 
 **Independent Test**: recorrido registro → sesión → cierre de sesión → inicio de sesión, sin crear mascotas
 
+### Tests for User Story 1
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [x] T017 [P] [US1] Pruebas de las políticas de autenticación y sesión en `tests/unit/auth-policies.spec.ts` y `tests/property/auth.property.spec.ts` (INV-AUTH-001, INV-AUTH-002, INV-AUTH-004, INV-AUTH-005, STATE-AUTH-SESSION-001)
+- [x] T018 [P] [US1] Pruebas de la API de autenticación en `tests/integration/api/auth.api.spec.ts` (REQ-AUTH-001, REQ-AUTH-002, REQ-AUTH-003, REQ-AUTH-004)
+
 ### Implementation for User Story 1
 
-- [x] T007 [US1] Implementar políticas de autenticación y sesión en `src/domain/auth/` (la misma tarea entrega el dominio de hogares de US5 en `src/domain/households/`) (TASK-106)
+- [x] T019 [US1] Implementar las políticas de autenticación y sesión en `src/domain/auth/auth-policies.ts` y `src/domain/auth/utc-timestamp.ts` (INV-AUTH-001, INV-AUTH-002, INV-AUTH-004, INV-AUTH-005, STATE-AUTH-SESSION-001, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-WEAK-PASSWORD, ERR-AUTH-TOO-MANY-ATTEMPTS)
+- [x] T020 [US1] Implementar los casos de uso de registro, inicio, cierre y sesión actual en `src/application/use-cases/auth-use-cases.ts`, con pruebas en `tests/unit/use-cases.spec.ts` (REQ-AUTH-001, REQ-AUTH-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH-003, INV-AUTH-006, ERR-AUTH-INVALID-CREDENTIALS)
+- [x] T021 [US1] Implementar las rutas de autenticación en `src/infrastructure/http/routes/auth.routes.ts` y registrarlas en `src/infrastructure/http/routes/use-cases.ts`
+- [x] T022 [US1] Implementar las pantallas de registro e inicio de sesión en `src/presentation/web/pages/AuthPages.tsx` (REQ-UI-005)
 
-**Checkpoint**: el dominio de US1 queda probado; la historia es demostrable de extremo a extremo al cerrar TASK-108, TASK-110, TASK-111 y TASK-112
+**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
 ---
 
@@ -75,11 +84,21 @@ approved_by: pendiente (v2.3.0 en REVIEW, 2026-11-09: migración de formato a T#
 
 **Independent Test**: crear dos mascotas, comprobar orden y filtro, abrir una ficha, editarla y eliminar una escribiendo su nombre
 
+### Tests for User Story 2
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [x] T023 [P] [US2] Pruebas de invariantes de mascota y de la política de acceso en `tests/unit/pet-and-alerts.spec.ts`, `tests/unit/access-policy.spec.ts`, `tests/property/pet.property.spec.ts` y `tests/property/access.property.spec.ts` (INV-PET-002, INV-PET-006, INV-OWN-001, INV-ACC-001, INV-ACC-002)
+- [x] T024 [P] [US2] Pruebas de la API de mascotas en `tests/integration/api/pets-records.api.spec.ts` (REQ-PET-001, REQ-PET-003, REQ-PET-004, REQ-PET-005)
+
 ### Implementation for User Story 2
 
-- [x] T006 [US2] Implementar invariantes de mascota, propiedad y política de acceso en `src/domain/pet/` y `src/domain/access/` (la misma tarea entrega el evaluador de alertas de US4 en `src/domain/alerts/`) (TASK-105)
+- [x] T025 [US2] Implementar las invariantes de mascota, la eliminación en cascada y la política de acceso en `src/domain/pet/pet-invariants.ts`, `src/domain/pet/pet-deletion.ts` y `src/domain/access/access-policy.ts` (REQ-PET-002, INV-PET-002, INV-PET-005, INV-PET-006, INV-OWN-001, INV-ACC-001, INV-ACC-002, ERR-PET-FUTURE-BIRTHDATE, ERR-PET-BIRTHDATE-AFTER-RECORDS, ERR-ACC-FORBIDDEN)
+- [x] T026 [US2] Implementar los casos de uso de mascotas en `src/application/use-cases/pet-use-cases.ts` (REQ-PET-001, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-PET-003, ERR-PET-NOT-FOUND)
+- [x] T027 [US2] Implementar las rutas de mascotas en `src/infrastructure/http/routes/pets.routes.ts`
+- [x] T028 [US2] Implementar la lista, el formulario y la ficha de mascotas en `src/presentation/web/pages/PetsPage.tsx`, `components/PetCards.tsx`, `components/PetForm.tsx`, `components/PetDashboard.tsx` y `components/ContextSelector.tsx` (REQ-UI-001)
 
-**Checkpoint**: el dominio de US2 queda probado
+**Checkpoint**: At this point, User Story 2 should be fully functional and testable independently
 
 ---
 
@@ -89,11 +108,21 @@ approved_by: pendiente (v2.3.0 en REVIEW, 2026-11-09: migración de formato a T#
 
 **Independent Test**: dar de alta un registro en cada módulo y comprobar el orden de cada historial y la variación de peso
 
+### Tests for User Story 3
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [x] T029 [P] [US3] Pruebas de las invariantes de registros en `tests/unit/record-invariants.spec.ts` y `tests/property/records.property.spec.ts` (INV-REC-001, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006)
+- [x] T030 [P] [US3] Prueba de precisión decimal en la frontera en `tests/integration/contracts/decimal-precision-boundary.spec.ts` (INV-REC-002, INV-REC-003)
+
 ### Implementation for User Story 3
 
-- [x] T008 [US3] Implementar las invariantes de los 6 módulos y los deltas de peso en `src/domain/records/record-invariants.ts` (TASK-107)
+- [x] T031 [US3] Implementar las invariantes de los 6 módulos y las variaciones de peso en `src/domain/records/record-invariants.ts` (INV-REC-001, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE)
+- [x] T032 [US3] Implementar los casos de uso de alta de registros en `src/application/use-cases/record-use-cases.ts` (REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006)
+- [x] T033 [US3] Implementar las rutas de registros de una mascota en `src/infrastructure/http/routes/pets.routes.ts`
+- [x] T034 [US3] Implementar los formularios de registro y la evolución de peso en `src/presentation/web/components/RecordForm.tsx`, `components/WeightChart.tsx` y `records.ts` (REQ-UI-002)
 
-**Checkpoint**: el dominio de US3 queda probado
+**Checkpoint**: At this point, User Story 3 should be fully functional and testable independently
 
 ---
 
@@ -103,9 +132,18 @@ approved_by: pendiente (v2.3.0 en REVIEW, 2026-11-09: migración de formato a T#
 
 **Independent Test**: registrar vacunas con refuerzos en fechas distintas y comprobar el estado de cada insignia
 
+### Tests for User Story 4
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [x] T035 [P] [US4] Pruebas del evaluador de alertas en `tests/unit/pet-and-alerts.spec.ts` y `tests/property/alerts.property.spec.ts` (STATE-ALERT-001)
+
 ### Implementation for User Story 4
 
-Sin tarea propia en la cola v2.2.0. El evaluador de alertas se entregó en TASK-105 (`src/domain/alerts/sanitary-alert-evaluator.ts`) y las insignias en TASK-112 (`src/presentation/web/components/`).
+- [x] T036 [US4] Implementar el evaluador de alertas sanitarias en `src/domain/alerts/sanitary-alert-evaluator.ts` (STATE-ALERT-001)
+- [x] T037 [US4] Implementar las insignias de alerta y los contadores de las tarjetas en `src/presentation/web/components/AlertBadge.tsx` y `src/presentation/web/view-model.ts` (REQ-UI-003)
+
+**Checkpoint**: At this point, User Story 4 should be fully functional and testable independently
 
 ---
 
@@ -115,9 +153,21 @@ Sin tarea propia en la cola v2.2.0. El evaluador de alertas se entregó en TASK-
 
 **Independent Test**: con dos usuarios en navegadores separados, crear un hogar, invitar y comprobar qué ve cada uno antes y después de aceptar
 
+### Tests for User Story 5
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [x] T038 [P] [US5] Pruebas de las políticas de hogar en `tests/unit/household-policies.spec.ts` y `tests/property/households.property.spec.ts` (INV-HOUSE-001, INV-HOUSE-002, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, STATE-HOUSE-MEMBERSHIP-001)
+- [x] T039 [P] [US5] Pruebas de la API de hogares en `tests/integration/api/households.api.spec.ts` y de sus casos de uso en `tests/unit/use-cases.households.spec.ts` (REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005)
+
 ### Implementation for User Story 5
 
-Sin tarea propia en la cola v2.2.0. Las políticas de hogar se entregaron en TASK-106 (`src/domain/households/household-policies.ts`); los casos de uso, la API y la pantalla, en las tareas transversales de la última fase.
+- [x] T040 [US5] Implementar las políticas de hogar y membresía en `src/domain/households/household-policies.ts` (INV-HOUSE-001, INV-HOUSE-002, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, STATE-HOUSE-MEMBERSHIP-001, ERR-HOUSE-OWNER-CANNOT-LEAVE, ERR-HOUSE-MEMBER-ALREADY-EXISTS)
+- [x] T041 [US5] Implementar los casos de uso de hogares en `src/application/use-cases/household-use-cases.ts` (REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-AUTH-USER-NOT-FOUND, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-INVITATION-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND)
+- [x] T042 [US5] Implementar las rutas de hogares e invitaciones en `src/infrastructure/http/routes/households.routes.ts`
+- [x] T043 [US5] Implementar la gestión de hogares y la distinción del dueño en `src/presentation/web/pages/HouseholdsPage.tsx` y `src/presentation/web/components/OwnerBadge.tsx` (REQ-UI-006, REQ-UI-007)
+
+**Checkpoint**: At this point, User Story 5 should be fully functional and testable independently
 
 ---
 
@@ -127,25 +177,36 @@ Sin tarea propia en la cola v2.2.0. Las políticas de hogar se entregaron en TAS
 
 **Independent Test**: exportar, importar de nuevo y comparar; importar un archivo inválido y comprobar que los datos no cambian
 
+### Tests for User Story 6
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [x] T044 [P] [US6] Pruebas de la migración y de los casos de uso de respaldo en `tests/unit/backup-migration.spec.ts`, `tests/unit/backup-use-cases.spec.ts` y `tests/unit/backup-import-atomicity.spec.ts` (INV-BACKUP-001, STATE-BACKUP-001)
+- [x] T045 [P] [US6] Pruebas de atomicidad sobre la API y SQLite en `tests/integration/api/backup-atomicity.spec.ts` y `tests/integration/persistence/sqlite-backup-import.spec.ts` (REQ-BACKUP-001, REQ-BACKUP-002, INV-BACKUP-001)
+
 ### Implementation for User Story 6
 
-- [x] T010 [US6] Implementar exportación, importación y migración v1 en `src/application/use-cases/backup-use-cases.ts` y `src/domain/backup/backup-migration.ts` (TASK-109)
+- [x] T046 [US6] Implementar la migración pura del sobre 1.0.0 al 2.0.0 en `src/domain/backup/backup-migration.ts` (STATE-BACKUP-001)
+- [x] T047 [US6] Implementar la exportación y la importación atómica en `src/application/use-cases/backup-use-cases.ts` (REQ-BACKUP-001, REQ-BACKUP-002, INV-BACKUP-001, STATE-BACKUP-001, ERR-BACKUP-MALFORMED-JSON, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-BACKUP-VERSION-UNSUPPORTED, ERR-BACKUP-SCHEMA-INVALID, ERR-BACKUP-REFERENTIAL-INTEGRITY, ERR-BACKUP-ATOMIC-ROLLBACK)
+- [x] T048 [US6] Implementar las rutas de exportación e importación con límite de 10 MB en `src/infrastructure/http/routes/backup.routes.ts`
+- [x] T049 [US6] Implementar la pantalla de respaldo en `src/presentation/web/pages/BackupPage.tsx`
 
-**Checkpoint**: la lógica de US6 queda probada sin HTTP ni SQLite; las pruebas de atomicidad sobre la API se cierran en TASK-111
+**Checkpoint**: At this point, User Story 6 should be fully functional and testable independently
 
 ---
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-**Purpose**: capas que entregan varias historias a la vez (aplicación, persistencia, API y SPA) y compuertas finales de seguridad, accesibilidad y entrega
+**Purpose**: Improvements that affect multiple user stories
 
-- [x] T009 Implementar puertos, casos de uso y repositorios en memoria en `src/application/ports/**`, `src/application/use-cases/**` y `src/infrastructure/persistence/memory/**` (US1 a US5) (TASK-108)
-- [x] T011 Implementar persistencia SQLite, adaptadores de producción y configuración en `src/infrastructure/persistence/sqlite/**`, `src/infrastructure/adapters/**` y `src/infrastructure/config/**` (TASK-110)
-- [x] T012 Implementar la API HTTP y sus pruebas en `src/infrastructure/http/**`, `tests/integration/api/**` y `tests/integration/contracts/**` (US1 a US6) (TASK-111)
-- [x] T013 Implementar la SPA en `index.html` y `src/presentation/web/**` (US1 a US6) (TASK-112)
-- [x] T014 Cubrir la batería de seguridad en `tests/security/exploits/**` y `tests/security/sast-rules/**` (TASK-113)
-- [x] T015 Cubrir E2E, visual y accesibilidad en `tests/e2e/visual/**` y `tests/e2e/accessibility/**` (TASK-114)
-- [x] T016 Pasar la compuerta final `npm run test:gate` desde un checkout limpio y actualizar `README.md` y los checklists de `specs/001-pet-health-tracker/checklists/` (TASK-115)
+- [x] T050 [P] Validar las respuestas reales de la API contra el contrato OpenAPI y los fixtures canónicos en `tests/integration/contracts/openapi-conformance.spec.ts` y `tests/integration/contracts/canonical-fixtures.spec.ts`
+- [x] T051 [P] Probar el cliente web contra la API en `tests/integration/presentation/web-client.spec.ts`
+- [x] T052 Cubrir la batería de seguridad en `tests/security/exploits/` y las reglas Semgrep de `tests/security/sast-rules/` (INV-ACC-001, INV-ACC-002, INV-AUTH-003, INV-AUTH-006, INV-AUTH-007, INV-HOUSE-004, ERR-BACKUP-PAYLOAD-TOO-LARGE)
+- [x] T053 Cubrir los recorridos E2E y la accesibilidad en `tests/e2e/visual/` y `tests/e2e/accessibility/wcag.spec.ts` a 320, 1024 y 1280 px
+- [x] T054 [P] Documentar el arranque local y la compuerta en `README.md` y validar los escenarios de quickstart.md
+- [x] T055 Pasar la compuerta final `npm run test:gate` desde un checkout limpio con todos los IDs vigentes de la constitución trazados
+- [ ] T056 Retirar los 3 `any` de `tests/unit/backup-use-cases.spec.ts` y la aserción no nula de `src/domain/backup/backup-migration.ts` (`checklists/code-review.md`, CHK009)
+- [ ] T057 Migrar `react-router-dom` a la versión 7 en `package.json` y `src/presentation/web/App.tsx` hasta dejar `npm audit --omit=dev` sin avisos de ese paquete
 
 ---
 
@@ -153,31 +214,45 @@ Sin tarea propia en la cola v2.2.0. Las políticas de hogar se entregaron en TAS
 
 ### Phase Dependencies
 
-- El orden real de ejecución fue el numérico, de TASK-100 a TASK-115, según la columna «Depende de» de la tabla.
-- **Setup (Phase 1)**: TASK-100 → TASK-101.
-- **Foundational (Phase 2)**: TASK-101 → TASK-102 → TASK-103 → TASK-104. Bloquea todas las historias.
-- **User Stories (Phase 3 a 8)**: dominio en TASK-105 (tras TASK-104), TASK-106 (tras TASK-105) y TASK-107 (tras TASK-104); respaldo en TASK-109 (tras TASK-108).
-- **Polish & Cross-Cutting (Phase 9)**: TASK-108 depende de TASK-106 y TASK-107; TASK-110 de TASK-109; TASK-111 de TASK-110 y TASK-102; TASK-112 de TASK-102 y TASK-111; TASK-113 de TASK-111 y TASK-112; TASK-114 de TASK-112 y TASK-113; TASK-115 de TASK-114.
+- **Setup (Phase 1)**: No dependencies - can start immediately
+- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
+- **User Stories (Phase 3+)**: All depend on Foundational phase completion
+- **Polish (Final Phase)**: Depends on all desired user stories being complete
 
 ### User Story Dependencies
 
-- **User Story 1 (P1)**: sin dependencias de otras historias.
-- **User Story 2 (P2)**: necesita la sesión de US1.
-- **User Story 3 (P3)**: necesita mascotas (US2).
-- **User Story 4 (P4)**: necesita registros de vacunación y desparasitación (US3).
-- **User Story 5 (P5)**: necesita cuentas (US1) y mascotas (US2).
-- **User Story 6 (P6)**: necesita mascotas (US2); respalda también los registros de US3.
+- **User Story 1 (P1)**: Can start after Foundational (Phase 2) - No dependencies on other stories
+- **User Story 2 (P2)**: necesita la sesión de US1
+- **User Story 3 (P3)**: necesita mascotas (US2)
+- **User Story 4 (P4)**: necesita registros de vacunación y desparasitación (US3)
+- **User Story 5 (P5)**: necesita cuentas (US1) y mascotas (US2)
+- **User Story 6 (P6)**: necesita mascotas (US2); respalda también los registros de US3
+- **T056 y T057**: deuda técnica posterior a la compuerta final T055; dependen de ella y no la bloquean
 
 ### Within Each User Story
 
-- Las pruebas de cada tarea se escriben con ella y llevan en el título el ID que verifican.
-- Dominio antes que casos de uso; casos de uso antes que API; API antes que SPA.
-- Cada tarea pasa a `REVIEW` con evidencia y solo el arquitecto humano la marca `COMPLETED`.
+- Tests MUST be written and FAIL before implementation
+- Dominio antes que casos de uso
+- Casos de uso antes que rutas HTTP
+- Rutas HTTP antes que pantallas
+- Story complete before moving to next priority
 
 ### Parallel Opportunities
 
-- La cola se ejecutó en secuencia y ninguna tarea lleva `[P]`.
-- Por dependencias declaradas, TASK-107 solo requería TASK-104, igual que TASK-105.
+- All Setup tasks marked [P] can run in parallel
+- All Foundational tasks marked [P] can run in parallel (within Phase 2)
+- All tests for a user story marked [P] can run in parallel
+- US3 y US5 pueden avanzar en paralelo una vez completa US2
+
+---
+
+## Parallel Example: User Story 1
+
+```bash
+# Launch all tests for User Story 1 together:
+Task: "Pruebas de las políticas de autenticación y sesión en tests/unit/auth-policies.spec.ts y tests/property/auth.property.spec.ts"
+Task: "Pruebas de la API de autenticación en tests/integration/api/auth.api.spec.ts"
+```
 
 ---
 
@@ -185,146 +260,28 @@ Sin tarea propia en la cola v2.2.0. Las políticas de hogar se entregaron en TAS
 
 ### MVP First (User Story 1 Only)
 
-La cola v2.2.0 no entregó un MVP por historia: al construirse por capas, ninguna historia es demostrable de extremo a extremo hasta cerrar la SPA en TASK-112. US1 queda marcada como MVP por ser la condición de las demás.
+1. Complete Phase 1: Setup
+2. Complete Phase 2: Foundational (CRITICAL - blocks all stories)
+3. Complete Phase 3: User Story 1
+4. **STOP and VALIDATE**: Test User Story 1 independently
 
 ### Incremental Delivery
 
-1. Setup y Foundational (TASK-100 a TASK-104).
-2. Dominio por historia (TASK-105 a TASK-107) y lógica de respaldo (TASK-109).
-3. Capas transversales (TASK-108, TASK-110, TASK-111, TASK-112).
-4. Seguridad, E2E y compuerta final (TASK-113 a TASK-115).
-
-Las features posteriores a esta migración se desglosan por historia de usuario, con una fase por historia, como pide la plantilla.
+1. Complete Setup + Foundational → Foundation ready
+2. Add User Story 1 → Test independently (MVP)
+3. Add User Story 2 → Test independently
+4. Add User Story 3 y User Story 4 → Test independently
+5. Add User Story 5 y User Story 6 → Test independently
+6. Polish: seguridad, E2E, accesibilidad y compuerta final
 
 ---
 
 ## Notes
 
-- Cada tarea se verifica con su compuerta: `bash scripts/verify-traceability.sh --task TASK-NNN`.
-- La compuerta final es `npm run test:gate`.
-- Las secciones siguientes («Reglas de ejecución», «Historial», «Cola v2.2.0», «Deuda técnica registrada» y «Cambios de criterio registrados») son el registro de TASKS-ARGOS-001 v2.2.0 y conservan su texto.
-- La deuda abierta (DEUDA-TIPADO-001 y DEUDA-DEP-001) está resumida en «Complexity Tracking» de plan.md.
-
----
-
-## Reglas de ejecución
-- Ejecutar **en estricto orden secuencial** y respetar la columna "Depende de". Al terminar cada tarea: correr el Test Gate de esa tarea, marcarla `REVIEW` (nunca `COMPLETED`) y reportar evidencia literal. Solo el arquitecto humano la pasa a `COMPLETED` (SOP paso 7).
-- Estados válidos: `PENDING` → `IN_PROGRESS` → `REVIEW` → `COMPLETED` | `REJECTED`.
-- **Responsable:** `Arquitecto` (TASK-100, no la ejecuta el desarrollador) o `Desarrollador`.
-- Columna "Hallazgos" = IDs del informe de auditoría del 2026-11-05 (`.specify/memory/audits/pet-health-tracker-audit-2026-11-05.md`), decisiones C1–C14 de v2.1.0 y discrepancias D-01…D-12 del reporte del Desarrollador (2026-11-05), que la tarea debe cerrar.
-- **Trazabilidad explícita (v2.2.0):** la columna "IDs de Trazabilidad" lista IDs completos, sin comodines ni rangos, para que `verify-traceability.sh` los lea de forma determinista.
-- **Autorizaciones Nivel 2 para esta cola:** el stack de la constitución v2.2.0 §2 (incluido `@types/node`) y la lista de dependencias adicionales de §2; modificación de `scripts/` (`compile-contracts.sh`, `codegen.mjs`, `verify-*.sh`), `.github/workflows/` y `tests/mutation/stryker.conf.json` en las tareas indicadas; registro de `x-sdd-error` en Ajv y de `multipleOfPrecision: 2` (TASK-102). Cualquier otra dependencia o cambio de contrato requiere consulta previa.
-
-## Historial
-- `TASK-001`..`TASK-008` (v1.0.0) → **`SUPERSEDED`**. Su código puede reutilizarse solo si cumple v2.2.0.
-- v2.1.0 (2026-11-05): TASK-100 añadida; columnas "Responsable" y "Depende de"; adaptadores en memoria movidos a TASK-108; pruebas de respaldo movidas a TASK-111; TASK-113 depende de TASK-111 y TASK-112.
-- v2.2.0 (2026-11-05): resolución de D-01…D-12 del reporte del Desarrollador y de los defectos de contratos detectados por el Arquitecto. Cambios: (a) IDs de trazabilidad explícitos en todas las filas (sin `*`, sin rangos); (b) `INV-PET-003` asignado a TASK-108 (cobertura de TASK-115); (c) adaptadores de prueba `FixedClockAdapter` y `DeterministicIdAdapter` movidos a TASK-104 (D-11; ver (g)); (d) criterios de logout idempotente (D-04), re-invitación (D-05), visibilidad de hogar para INVITED y OWNER (D-01), búsqueda sin tildes (D-03), verificación de `INV-AUTH-006` por espía sin umbral temporal (D-02); (e) TASK-102 y TASK-103 exigen eliminar IDs retirados y leer cada máquina de su propio archivo; (f) TASK-104 incluye `calculatePetAge` corregido (REQ-PET-002). (g) Revisión 2 (H-02, H-05, H-06, H-07): adaptadores de prueba movidos a TASK-104 (antes de su uso en TASK-106); `INV-AUTH-007` formaliza la regla CSRF que se citaba como `CONST-6.3`; `ERR-PET-FUTURE-BIRTHDATE` trazado en TASK-104. TASK-100 conserva su texto de v2.1.0; la cola v2.2.0 requiere la firma de Andrés (H-10).
-- v2.3.0 (2026-11-09): migración a la plantilla `tasks-template.md` de GitHub Spec Kit. El archivo pasa de `.specify/tasks/pet-health-tracker-tasks.md` a `specs/001-pet-health-tracker/tasks.md`. Se añaden las fases de la plantilla con una línea por tarea; la tabla «Cola v2.2.0», la deuda y los cambios de criterio conservan su texto. Ninguna tarea cambia de estado, alcance ni identificador. Las rutas `.specify/specs/`, `.specify/plans/`, `.specify/tasks/`, `.specify/checklists/` y `.specify/constitution/` que aparecen en filas e historial son las vigentes cuando se escribió cada registro; su equivalencia actual está en `.specify/memory/migration-speckit-2026-11-09.md`.
-
-## Cola v2.2.0
-
-| Task ID | Estado | Responsable | Depende de | Fase / Capa | Archivos Objetivo | IDs de Trazabilidad | Hallazgos | Criterio de Aceptación |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `TASK-100` | `COMPLETED` | Arquitecto | — | Alineación de artefactos (v2.1.0) | `.specify/**` (spec, plan, tareas, constitución, checklists, informe de auditoría), `contracts/**` (errors, openapi, schemas, state-machines) | Todos los IDs modificados en v2.1.0 | C1–C14 | Spec, plan, tareas y constitución en `REVIEW` con v2.1.0 registrada. `spec-review.md` firmado. Informe de auditoría versionado. Aprobada por Andrés. |
-| `TASK-101` | `COMPLETED` | Desarrollador | TASK-100 | Saneamiento de repositorio y toolchain | `package.json`, `package-lock.json`, `.nvmrc`, `.gitignore`, `.env.example`, `tsconfig.json` (`"types": ["node"]`), `vite.config.ts` (plugin React y proxy `/api` a `127.0.0.1:3000`), `playwright.config.ts`, `tailwind.config.ts`, `postcss.config.js`, `index.html`, `.gitkeep` faltantes, `scripts/compile-contracts.sh` (sin `export PATH` local), `tests/mutation/stryker.conf.json` (`break: 85`), `.github/workflows/test-gate.yml` (Node 22) | INV-ARCH-003, INV-ARCH-006 | A1, A2, A4, A5, B3, B4, D1, D5, D-10, §3 del reporte (`package.json`, `tsconfig`, `vite`, Stryker, Node 20) | Árbol idéntico al estándar y a la lista de constitución §7. Eliminados `tests/support/`, `scripts/run-tests.mjs`, `scripts/tsx-loader.mjs` y el `export PATH` local. `.DS_Store` excluido por `.gitignore` (su retirada del índice la ejecuta Andrés en el commit). Antes de instalar el resto: verificar que `better-sqlite3` instala su binario nativo para Node 22 en macOS. Dependencias del stack y de la lista adicional instaladas con lockfile (autorizadas en constitución v2.2.0 §2). `npm ci && npx tsc --noEmit` sin errores en `src/` y `tests/`. Reporte de espacio en disco confirmado antes de instalar. |
-| `TASK-102` | `COMPLETED` | Desarrollador | TASK-101 | Generación real desde contratos (`src/generated/`) | `scripts/compile-contracts.sh`, `scripts/codegen.mjs`, `src/generated/**` | INV-ARCH-003, ERR-SCHEMA-VALIDATION-FAILED, ERR-AUTH-WEAK-PASSWORD, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE | C1, C6, C7, B7, §3 del reporte (`codegen.mjs` lee STATE-PET-QUOTA-001 retirado) | Validadores con Ajv standalone y tipos derivados de `contracts/`. Keyword `x-sdd-error` registrada en Ajv y mapa campo→código generado. `multipleOfPrecision: 2`. `ProblemDetails` resuelto por `$ref` externo desde `error-catalog.json` (v2.1.1), verificado en openapi-typescript y Ajv. Cada máquina se lee de su propio archivo; ninguna lectura de STATE-PET-QUOTA-001. Los ítems v1 del sobre (`LegacyWeightRecordV1`…`LegacyCustomParameterRecordV1`) se validan con `additionalProperties: false`. Cliente `src/generated/api/client.ts`. Validadores `.js` con `.d.ts`. Prueba de deriva: cambiar `maximum` de `weightKg` en una copia temporal altera el validador generado. `@implements` desde `x-sdd-metadata.traceability`. |
-| `TASK-103` | `COMPLETED` | Desarrollador | TASK-102 | Compuertas de verificación y CI | `scripts/verify-traceability.sh`, `scripts/verify-oracles.sh`, `.github/workflows/test-gate.yml`, `.github/workflows/drift-detection.yml`, `tests/mutation/stryker.conf.json` | INV-ARCH-001, INV-ARCH-002, INV-ARCH-003 | D2, D3, D4, C8, C9, §3 del reporte (REQUIRED_IDS) | `verify-traceability.sh` extrae los IDs de spec, contratos y constitución §4 (no lista fija); elimina de `REQUIRED_IDS` los IDs retirados (INV-PET-001, INV-PET-004, STATE-PET-QUOTA-001, ERR-PET-QUOTA-EXCEEDED) y añade INV-AUTH, INV-HOUSE e INV-ARCH; acotado a la columna de la tarea en la compuerta por tarea; excluye `src/generated/` y comentarios sueltos (exige `@implements` en `src/` y ID en título `it`/`test`). Amplía la pureza a `performance.now`, `process.env`, `crypto.randomBytes`. `verify-oracles.sh` rechaza `toBeDefined`, `toBeTruthy`, `toBeFalsy`, `not.toBeNull` como aserción principal. Stryker: `thresholds: { high: 90, low: 85, break: 85 }`. Semgrep fijado por versión en CI. Test negativo: cada script falla ante un caso plantado. |
-| `TASK-104` | `COMPLETED` | Desarrollador | TASK-103 | Dominio: fechas, edad y orden | `src/domain/shared/date-utils.ts`, `src/domain/sorting/deterministic-sorter.ts`, `tests/unit/date-and-sort.spec.ts`, `tests/property/sorting.property.spec.ts`, `src/infrastructure/adapters/fixed-clock.adapter.ts`, `src/infrastructure/adapters/deterministic-id.adapter.ts` (extraídos de `deterministic-adapters.ts`) | REQ-PET-002, REQ-PET-005, INV-PET-002, INV-REC-001, INV-SORT-001, INV-ARCH-001, ERR-PET-FUTURE-BIRTHDATE | F3, G (edad), §3 del reporte (`calculatePetAge` incorrecto) | `calculatePetAge` cumple REQ-PET-002: `2024-02-29 → 2025-02-28` = `{1,0,365}`; `2026-01-31 → 2026-02-28` = `{0,1,28}` (el reporte midió `{0,11,365}` y `{0,0,28}`). Orden de REQ-PET-005 con `localeCompare` `es`. `createdAt` canónico. `FixedClockAdapter` y `DeterministicIdAdapter` se crean aquí, antes de TASK-106 (H-02, D-11). `ERR-PET-FUTURE-BIRTHDATE` (422) se devuelve para `birthDate` futura y tiene prueba con `FixedClockAdapter` (H-07). |
-| `TASK-105` | `COMPLETED` | Desarrollador | TASK-104 | Dominio: mascotas, propiedad, acceso y alertas | `src/domain/pet/`, `src/domain/access/`, `src/domain/alerts/`, tests unitarios y de propiedades | REQ-PET-001, REQ-PET-004, INV-PET-005, INV-PET-006, INV-OWN-001, INV-ACC-001, INV-ACC-002, STATE-ALERT-001, ERR-PET-BIRTHDATE-AFTER-RECORDS, ERR-ACC-FORBIDDEN | F1, G, §3 del reporte (cuota retirada en `pet-invariants.ts`) | Cero referencias a cupo o a IDs retirados. `canRead`/`canWrite` correctos para cualquier combinación generada. `STATE-ALERT-001` evalúa por orden de `evaluationOrder` sin estado inicial, con caso SUPERSEDED y caso UP_TO_DATE de EDGE-036. |
-| `TASK-106` | `COMPLETED` | Desarrollador | TASK-105 | Dominio: autenticación y hogares | `src/domain/auth/`, `src/domain/households/`, tests | REQ-AUTH-001, REQ-AUTH-002, REQ-AUTH-003, REQ-AUTH-004, REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-AUTH-001, INV-AUTH-002, INV-AUTH-004, INV-AUTH-005, INV-HOUSE-001, INV-HOUSE-002, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, STATE-AUTH-SESSION-001, STATE-HOUSE-MEMBERSHIP-001, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-WEAK-PASSWORD, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-UNAUTHENTICATED, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-USER-NOT-FOUND, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBER-ALREADY-EXISTS, ERR-HOUSE-OWNER-CANNOT-LEAVE, ERR-HOUSE-INVITATION-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND | C2, C4, C5, D-01, D-04, D-05 | Todas las transiciones válidas e inválidas de ambas máquinas. `LOGOUT` devuelve 204 y no cambia estado desde ANONYMOUS, EXPIRED ni LOGGED_OUT (D-04). Re-invitación desde DECLINED, CANCELLED, LEFT o REMOVED crea fila nueva con `membershipId` nuevo y hereda `firstJoinedAt` (D-05). Visibilidad: INVITED recibe ERR-HOUSE-NOT-FOUND; `members` solo ACTIVE salvo para OWNER (D-01). `INV-AUTH-005` con `FixedClockAdapter`: ventana deslizante 5/15, intentos bloqueados no registrados, éxito reinicia el contador. `firstJoinedAt` se conserva al reingresar; `colorToken` nulo fuera de hogar. `REMOVE`/`LEAVE` sin membresía → ERR-HOUSE-MEMBERSHIP-NOT-FOUND; `ACCEPT`/`DECLINE` nunca 403. |
-| `TASK-107` | `COMPLETED` | Desarrollador | TASK-104 | Dominio: invariantes de los 6 módulos | `src/domain/records/record-invariants.ts`, tests | REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE | C13, §3 del reporte (`deltaKg` con Math.round; sin deltaPercent) | Límites exactos. `deltaKg` exacto en centésimas, sin Math.round sobre flotantes (EDGE-034). `deltaPercent` con redondeo half-away-from-zero a 2 decimales sobre centésimas enteras, incluidos negativos y empates (EDGE-035). |
-| `TASK-108` | `COMPLETED` | Desarrollador | TASK-106, TASK-107 | Aplicación: puertos, casos de uso y adaptadores en memoria y de prueba | `src/application/ports/**`, `src/application/use-cases/**`, `src/infrastructure/persistence/memory/**`, `tests/unit/use-cases*.spec.ts`, `tests/fixtures/**` (dobles de prueba) | REQ-AUTH-001, REQ-AUTH-002, REQ-AUTH-003, REQ-AUTH-004, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-PET-003, INV-ACC-001, INV-ACC-002, INV-AUTH-006, INV-ARCH-001, INV-ARCH-002, INV-ARCH-005, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN | B5, F1, C2, D-11, §3 del reporte (`GetPetDashboardUseCase` sin autorización) | Puertos asíncronos con `runInTransaction`. Nombres de puertos idénticos a la constitución. `UpdatePet` aplica INV-PET-006 y `GetPetDashboard` aplica INV-ACC-001/002. `INV-PET-003`: todo registro referencia una mascota existente, si no ERR-PET-NOT-FOUND. `DeletePet` en una transacción. `LoginUseCase` ejecuta el hash ficticio de INV-AUTH-006 cuando el usuario no existe; verificado con espía sobre `PasswordHasherPort` (una invocación en ambas ramas), sin umbral temporal (D-02). Los adaptadores de prueba (`FixedClockAdapter`, `DeterministicIdAdapter`) se importan desde TASK-104 (D-11, H-02). Repositorios en memoria pasan la suite de contratos. |
-| `TASK-109` | `COMPLETED` | Desarrollador | TASK-108 | Aplicación: respaldo v2 y migración v1 (sin HTTP ni SQLite) | `src/application/use-cases/backup-use-cases.ts`, `src/domain/backup/backup-migration.ts`, `tests/unit/backup-*.spec.ts` | REQ-BACKUP-001, REQ-BACKUP-002, INV-BACKUP-001, STATE-BACKUP-001, ERR-BACKUP-MALFORMED-JSON, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-BACKUP-VERSION-UNSUPPORTED, ERR-BACKUP-SCHEMA-INVALID, ERR-BACKUP-REFERENTIAL-INTEGRITY, ERR-BACKUP-ATOMIC-ROLLBACK | F2, D6, G, C3, §3 del reporte (`ExportBackupUseCase` escribe 1.0.0 y exporta todo el repositorio; `ImportBackupUseCase` sin límite de 10 MB ni `finalState`) | Exportación solo del usuario autenticado, `schemaVersion` `2.0.0` validado contra el esquema. Transiciones idénticas a `backup-import.machine.json` (v2.1.0), incluido `CHECKING_PAYLOAD_SIZE` (10 485 760 bytes). Fallo simulado en commit con UoW en memoria → `ROLLED_BACK` + ERR-BACKUP-ATOMIC-ROLLBACK con `finalState`. El error original nunca se enmascara (EDGE-021). Estado previo idéntico byte a byte. Importación v1 canónica migra correctamente (EDGE-023). Solo afecta datos del usuario. Error de dominio propagado con `finalState` (EDGE-033). |
-| `TASK-110` | `COMPLETED` | Desarrollador | TASK-109 | Infraestructura: persistencia SQLite, adaptadores de producción y configuración | `src/infrastructure/persistence/sqlite/**`, `src/infrastructure/adapters/**` (excepto `fixed-clock.adapter.ts` y `deterministic-id.adapter.ts`, que son de TASK-104), `src/infrastructure/config/**` | INV-ARCH-004, INV-ARCH-006, INV-AUTH-003, INV-PET-005, INV-HOUSE-003, ERR-INTERNAL-UNEXPECTED | F4, F5, F6, C5, D-11 | SQLite con migraciones, `ON DELETE CASCADE` (incluido hogar → membresías) y `membershipId`/`firstJoinedAt`. Datos corruptos producen ERR-INTERNAL-UNEXPECTED controlado, sin caída. Reloj con `APP_TIMEZONE` (fecha local correcta a las 19:00 en Bogotá, F6). La suite de contratos de repositorio pasa con memoria y con SQLite. Se elimina `LocalStorageTransactionalRepository`. |
-| `TASK-111` | `COMPLETED` | Desarrollador | TASK-110, TASK-102 | Infraestructura: API HTTP Fastify y pruebas de respaldo | `src/infrastructure/http/**`, `tests/integration/api/**`, `tests/integration/contracts/**` | REQ-AUTH-001, REQ-AUTH-002, REQ-AUTH-003, REQ-AUTH-004, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, REQ-BACKUP-001, REQ-BACKUP-002, INV-BACKUP-001, INV-AUTH-007, ERR-AUTH-CSRF-REJECTED, ERR-INTERNAL-UNEXPECTED, ERR-HOUSE-MEMBERSHIP-NOT-FOUND, ERR-HOUSE-NOT-FOUND | C1, C3, C13, D-01, D-03, D-04 | Cada operación del OpenAPI implementada. Precedencia de §5.1 probada (CSRF → sesión → normalización → esquema → dominio). `ProblemDetails` desde el catálogo, con `finalState` en rollbacks. Pruebas de respaldo v1/v2 y rollback byte a byte con fallo en commit. Visibilidad de hogar: INVITED recibe 404 (EDGE-037); OWNER ve INVITED en `members`, MEMBER solo ACTIVE (EDGE-038). `POST /auth/logout` devuelve 204 también sin sesión (D-04). `GET /pets?q=` aplica la normalización de REQ-PET-005 (D-03). Cookies con `@fastify/cookie`. Bind `127.0.0.1`. |
-| `TASK-112` | `COMPLETED` | Desarrollador | TASK-102, TASK-111 | Presentación: SPA React | `index.html`, `src/presentation/web/**` | REQ-UI-001, REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-005, REQ-UI-006, REQ-UI-007, STATE-ALERT-001 | E1, E2, E3, E4 | App navegable: registro, login, logout, mis mascotas (alta, edición, eliminación con confirmación), ficha con 6 módulos y formularios, gráfico de peso, hogares e invitaciones, distinción de dueño, respaldo con descarga y subida de archivo. Cliente desde `src/generated/api/client.ts`. `colorToken` nulo fuera de hogar. Sin lógica de negocio en componentes. Sin dependencias de tiempo medido en la UI. |
-| `TASK-113` | `COMPLETED` | Desarrollador | TASK-111, TASK-112 | Seguridad | `tests/security/exploits/**`, `tests/security/sast-rules/**`, `src/application/use-cases/household-use-cases.ts`, `src/infrastructure/http/request-input.ts`, `src/infrastructure/http/routes/households.routes.ts`, `src/presentation/web/pages/PetsPage.tsx`, `src/presentation/web/view-model.ts`, `tests/integration/api/households.api.spec.ts`, `tests/integration/presentation/web-client.spec.ts`, `tests/unit/presentation/view-model.spec.ts`, `tests/unit/use-cases.households.spec.ts` (`b22d572`, ratificado por el Arquitecto: DEUDA-UI-FILTRO-001) | INV-ACC-001, INV-ACC-002, INV-AUTH-001, INV-AUTH-002, INV-AUTH-003, INV-AUTH-004, INV-AUTH-005, INV-AUTH-006, INV-AUTH-007, INV-HOUSE-004, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-AUTH-CSRF-REJECTED, ERR-AUTH-INVALID-CREDENTIALS | A3, C2, D-02, D-09 | Casos mínimos de la constitución §5 en verde: IDOR, hogares ajenos, sin sesión, sesión expirada, CSRF, enumeración, prototype pollution, payload > 10 MB, XSS almacenado. Enumeración por tiempo (INV-AUTH-006) verificada con espía de una invocación por rama (sin umbral temporal). `avatarUrl` con `javascript:` devuelve ERR-SCHEMA-VALIDATION-FAILED (EDGE-024). Reglas Semgrep ejecutadas en CI. Medición de tiempo informativa, no bloqueante (benchmark). |
-| `TASK-114` | `COMPLETED` | Desarrollador | TASK-112, TASK-113 | E2E, visual y accesibilidad | `tests/e2e/visual/**`, `tests/e2e/accessibility/**`, `playwright.config.ts`, `src/presentation/web/pages/PetsPage.tsx`, `src/presentation/web/components/PetDashboard.tsx`, `src/presentation/web/components/WeightChart.tsx` (`7b98792`, ratificado por el Arquitecto: corrección de axe a 320 px, H-114-1) | REQ-UI-001, REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-005, REQ-UI-006, REQ-UI-007, REQ-AUTH-001, REQ-AUTH-002, REQ-AUTH-003, REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005 | D1, C14, D-01 | Playwright con `webServer` real. Flujo de 2 usuarios y un hogar, incluido INVITED sin acceso al hogar (404). axe-core sin violaciones `critical`/`serious` en todas las pantallas a 320 px, 1024 px y 1280 px. Sin harness propio de accesibilidad. |
-| `TASK-115` | `COMPLETED` | Desarrollador | TASK-114 | Compuerta final y entrega | `README.md`, `.specify/checklists/code-review.md`, `.specify/checklists/oracle-validation.md`, `playwright.config.ts`, `package.json`, `package-lock.json`, `vite.config.ts`, `src/infrastructure/http/server.ts`, `src/presentation/web/validation.ts`, `src/presentation/web/components/Field.tsx`, `tests/security/exploits/log-redaction.security.spec.ts`, `.github/workflows/test-gate.yml` (commits `0a9f9a6`, `f8286aa`, `317bc54`, `d457341`, `685db08`, `dd9cbef` ratificados por el Arquitecto; CI, H-115-5) | Todos los IDs vigentes de constitución §4 (lista generada por `verify-traceability.sh`, incluido INV-PET-003) | B1, B2, B6, D-08 | `npm run test:gate` en verde desde checkout limpio: trazabilidad 100 %, cobertura ≥ 95 %, mutación ≥ 85 %, axe sin violaciones. README actualizado a v2.2.0 con instrucciones de arranque local (D-08). Checklists con evidencia por ítem, entregados para firma humana. Todas las tareas en `REVIEW`. |
-
-## Deuda técnica registrada (2026-11-05)
-
-Aceptada por Andrés al dejar TASK-102 en `REVIEW`. Origen: código y pruebas v1 que dependían de símbolos que el generador anterior escribía a mano. No se corrige en TASK-102.
-
-| ID | Descripción | Evidencia | Se cierra en | Fecha límite |
-| :--- | :--- | :--- | :--- | :--- |
-| DEUDA-TSC-001 | 17 errores de `tsc --noEmit`, todos en `src/presentation` (`App.tsx` y componentes que usan la API v1): tras TASK-111, `src/application` 0, `src/infrastructure` 0 y `tests/integration` 0. 0 en `src/domain`, `src/generated` y `tests/unit`. Los errores de `src/presentation` de DEUDA-PRES-001 se cuentan aparte; los de `tests/e2e` están en DEUDA-E2E-001. | `claude/evidencia-task-102-2026-11-05.md` §4 y §12; `claude/evidencia-task-107-2026-11-06.md` §8; `claude/evidencia-task-108-2026-11-06.md`; `claude/evidencia-task-110-2026-11-09.md` §5; `claude/evidencia-task-111-2026-11-09.md` §5 | **Cerrada en TASK-112** (`569bf3f`): `src/presentation` en 0; `storage-repository.port.ts` eliminado (CC-110-3). | `tsc --noEmit` en 0 para `src/presentation` al cerrar TASK-112 |
-| DEUDA-PRES-001 | 19 errores de `tsc --noEmit` en `src/presentation` atribuidos a TASK-108: 12 de H-108-2 (`PetCardView`, `PetDashboardView`, `HouseholdPetsView`, `profile` con `Omit`) y 7 de `App.tsx` por la API v1 de respaldo (CC-109-C3). | `claude/evidencia-task-108-2026-11-06.md`; `claude/decisiones-arquitecto-task-109-2026-11-06.md` | **Cerrada en TASK-112** (`569bf3f`), junto con DEUDA-TSC-001 | `tsc --noEmit` en 0 para `src/presentation` al cerrar TASK-112 |
-| DEUDA-TEST-001 | **Cerrada en TASK-111** (`c76cf7c`). `backup-atomicity.spec.ts` reescrito (18 pruebas sobre HTTP y SQLite) y `canonical-fixtures.spec.ts` reescrito (5 pruebas sobre la API generada v2). Suite completa: 486 pruebas, 0 fallos, sin "Unhandled Errors". | `claude/evidencia-task-111-2026-11-09.md` §4 | — | Cerrada |
-| DEUDA-E2E-001 | 4 errores de `tsc --noEmit` en `tests/e2e` (2 por archivo): `tests/e2e/accessibility/wcag.spec.ts` y `tests/e2e/visual/pet-dashboard.spec.ts` importan `src/infrastructure/storage/transactional-repository.ts`, eliminado en TASK-110 (H-110-3), y `src/presentation/App.tsx` v1, eliminado en TASK-112 (H-112-3). Pasa de 2 a 4 en TASK-112 (`569bf3f`). Vitest no ejecuta estos archivos. Fuera de DEUDA-TSC-001. | `claude/evidencia-task-110-2026-11-09.md` §5 y §7; `claude/evidencia-task-112-2026-11-09.md` §5 y §8 (H-112-3) | **Cerrada en TASK-114** (`9750b1b`): los dos specs v1 se sustituyen por specs de Playwright contra la SPA | `tsc --noEmit` en 0 para `tests/e2e`: cumplido con `9750b1b` (`tsc` 0 en todo el repo) |
-| DEUDA-CONTRATO-001 | **Cerrada en TASK-111** (`a8db6a3`; OpenAPI 2.3.0 y spec 2.3.1 en `2a1ab14`; `src/generated` regenerado en `cb7d3b7`). Contrato y spec incompletos para la frontera HTTP (H-111-1 y H-111-4): (a) el OpenAPI no declara respuestas que la API produce: 422 en `GET /pets` y `POST /auth/login`; 500 `ERR-INTERNAL-UNEXPECTED` en todas las operaciones salvo la importación; 403 de CSRF en `accept` y `decline`. Las pruebas de `openapi-conformance.spec.ts` desactivan la comprobación en 3 llamadas, comentadas. (b) §5.1 no dice que el acceso por recurso (404/403) se comprueba antes que el esquema del cuerpo, como implementa TASK-108 (D-108-4). | `claude/evidencia-task-111-2026-11-09.md` §7; `claude/decisiones-arquitecto-task-111-2026-11-09.md` | — | Cerrada |
-| DEUDA-GATE-001 | `npm run test:gate` falla. Tras TASK-112 (H-112-4) falla en el paso de trazabilidad final (95/96: INV-ARCH-003 solo en `src/generated`; 2 IDs retirados STATE-PET-QUOTA-001 en `tests/e2e/visual/pet-dashboard.spec.ts`) y, después, en `tsc --noEmit` por DEUDA-E2E-001; `vitest run` queda sin ejecutar dentro del gate. DEUDA-TSC-001 y DEUDA-TEST-001 ya no lo bloquean. | `claude/evidencia-task-102-2026-11-05.md` §12; `claude/evidencia-task-112-2026-11-09.md` §6 y §8 (H-112-4) | **Cerrada en TASK-115** (`0a9f9a6`: INV-ARCH-003 trazado en `src/presentation/web/validation.ts`; `d457341`: cobertura y `test:gate` completo). Responsable: Desarrollador | `npm run test:gate` en verde al cerrar TASK-115: **cumplido** desde checkout limpio con `npm ci` (árbol `0f99ea81…`): exit 0; trazabilidad 96/96, oráculos 0, `tsc` 0, Vitest 580/580 con cobertura 99,57 % líneas y 99,70 % ramas, mutación 99,69 %, Playwright 24/24 |
-| DEUDA-UI-FILTRO-001 | Filtro de tarjetas en cliente en contexto de hogar (H-112-2): `getHouseholdPets` no admite `q` ni `species`, y REQ-UI-001 pide el filtro en todo contexto. En "Mis mascotas" filtra la API; en hogar filtra `filterHouseholdCards` (`src/presentation/web/view-model.ts`) con la normalización de REQ-PET-005. `tests/integration/presentation/web-client.spec.ts` comprueba que da el mismo resultado que la API. | `claude/evidencia-task-112-2026-11-09.md` §8 (H-112-2); `claude/veredicto-auditor-task-112-2026-11-09.md` | **Decidida (Arquitecto, 2026-11-09):** `q` y `species` añadidos a `getHouseholdPets` (OpenAPI 2.4.0 REVIEW, MINOR). TASK-113: la SPA filtra por la API y se retira `filterHouseholdCards`. | **Cerrada en TASK-113** (`b22d572`): la SPA filtra por la API y se retiran `filterHouseholdCards` y su prueba. OpenAPI 2.4.0 validado en `173d2a4`. |
-| DEUDA-TIPADO-001 | 3 `any` en `tests/unit/backup-use-cases.spec.ts:267-269` y 1 `!` (aserción no nula) en `src/domain/backup/backup-migration.ts:37`. Ítem 9 (CHK009) de `specs/001-pet-health-tracker/checklists/code-review.md`. Aceptada por el Arquitecto para no bloquear TASK-115 (H-115-6). | `claude/decisiones-arquitecto-task-115-2026-11-09.md`; `claude/evidencia-task-115-2026-11-09.md` §6 | Desarrollador, siguiente tarea de mantenimiento | Sin `any` ni `!` en esos archivos; `tsc --noEmit` y `verify-oracles.sh` en verde. |
-| DEUDA-DEP-001 | `react-router-dom` 6.30.6 con 2 avisos moderados de `npm audit` en runtime (redirección abierta con barra invertida y una inyección de hidratación SSR que la app no usa). Desde TASK-101. La corrección exige react-router 7, cambio mayor del stack (H-115-8). Aceptada por el Arquitecto; el límite pasa de «antes de TASK-115» a «antes de la siguiente versión». | `claude/evidencia-task-115-2026-11-09.md` §6; `claude/evidencia-task-101-2026-11-05.md` | Desarrollador, tarea propia de migración a react-router 7 | `npm audit --omit=dev` sin avisos de `react-router-dom`. |
-| DEUDA-BACKUP-ORDER-001 | **Cerrada en TASK-111** (`c76cf7c`). `backup-atomicity.spec.ts` fuerza el orden de INV-BACKUP-001 con sobres que violan una regla cada vez: duplicado → INV-PET → INV-REC → ID ajeno → COMPLETED, y huérfano antes que INV-PET e INV-REC. | `claude/evidencia-task-111-2026-11-09.md` §3 | — | Cerrada |
-| DEUDA-VAL-001 | `multipleOfPrecision: 2` en `scripts/codegen.mjs:145` acepta `weightKg` y las medidas con más de 2 decimales (p. ej. `32.85001`) en la frontera de validación. El dominio sí los rechaza con el código del campo (INV-REC-002/003). | `claude/evidencia-task-107-2026-11-06.md` §3 (H-107-2); `claude/evidencia-task-108-2026-11-06.md` | Cerrada en TASK-108 (`8e218b6`): `multipleOfPrecision` 10 en `scripts/codegen.mjs:145` (D-108-8); prueba de frontera en `tests/integration/contracts/decimal-precision-boundary.spec.ts` (6 pruebas). | Cerrada en TASK-108 |
-
-## Cambios de criterio registrados (2026-11-05)
-
-| ID | Tarea | Criterio original | Cambio | Motivo | Decide |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| CC-102-D3 | TASK-102 | "Validadores `.js` con `.d.ts`" | Validadores generados como `src/generated/schemas/validators.cjs` con `validators.d.cts` | `package.json` declara `"type": "module"`; el código standalone de Ajv es CommonJS y un `.js` se interpretaría como ESM y fallaría. Los consumidores importan igual desde `src/generated/index.ts`. | Desarrollador, a petición del Auditor (2026-11-05) |
-| CC-102-D1 | TASK-102 | Ajv en modo estricto (criterio original del Desarrollador: `strictTypes: false`) | **RECHAZADA** por el Arquitecto (2026-11-05). Se mantiene `strictTypes: true` en `scripts/codegen.mjs`, que es lo que corre. Los contratos declaran `"type": "string"` local junto a `maxLength` en `pet` 2.0.2, `backup-envelope` 2.1.1, `identity` 2.1.1 y `medical-records` 2.1.1. | El tipo ya no depende del `$ref`. | Arquitecto (2026-11-05): rechazada, `strictTypes: true` queda como estado final. |
-| CC-108-H5 | TASK-108 | Pruebas de TASK-107 (`tests/unit/record-invariants.spec.ts`) aceptaban `32.85001` como válido con precisión 2 | Aserción cambiada a `false`; el límite se prueba con el residual `32.85+1e-13` (H-108-4). | Cierre de DEUDA-VAL-001 (D-108-8, 2026-11-06): `multipleOfPrecision` pasa de 2 a 10. | Arquitecto (H-108-5 aceptada, 2026-11-06) |
-
-Estado: revertida. `strictTypes: true` en `scripts/codegen.mjs`, aprobado como estado final por el Arquitecto (2026-11-05).
-
-## Cambios de criterio registrados (2026-11-06, TASK-109)
-
-Decide: Arquitecto, por escrito en `claude/decisiones-arquitecto-task-109-2026-11-06.md`. Los cambios que tocan archivos de TASK-108 son excepciones a la condición 4 del aval (`claude/aval-auditor-task-109-2026-11-06.md`); el Auditor las confirma en su validación de TASK-109.
-
-| ID | Tarea | Criterio original | Cambio | Motivo | Decide |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| CC-109-C1 | TASK-109 (toca `repositories.port.ts` de TASK-108) | `MedicalRecordRepositoryPort` sin búsqueda por id de registro | Se añade `findPetIdOfRecord(recordId)` a `src/application/ports/repositories.port.ts`. Archivos de TASK-108 que cambian para implementarlo: `src/infrastructure/persistence/memory/in-memory-unit-of-work.ts` (versión en memoria) y `tests/fixtures/repository-contract-suite.ts` (prueba en la suite de contratos). TASK-110 lo implementa en SQLite. | INV-BACKUP-001 (spec 2.3.0) exige rechazar IDs de otros usuarios con `ERR-BACKUP-REFERENTIAL-INTEGRITY`. Sin el método, el fallo llega tarde como `ERR-BACKUP-ATOMIC-ROLLBACK`. | Arquitecto (excepción a la condición 4 del aval; aceptada por el Auditor en `claude/veredicto-auditor-task-109-2026-11-06.md`) |
-| CC-109-C2 | TASK-109 (toca `storage-repository.port.ts`, asignado por H-108-1) | `readonly records: BackupRecordsCollection` (tipo v1) | `readonly records: BackupEnvelopeV2['records']` | DEUDA-TSC-001 exige `src/application` en 0 al cerrar TASK-109. | Arquitecto |
-| CC-109-C3 | TASK-109 | `tsc --noEmit` sin cambios fuera de `src/application` | Errores nuevos fuera de `src/application`: `src/presentation/App.tsx` +7 (DEUDA-PRES-001 pasa de 12 a 19; cierre TASK-112) y `tests/integration/api/backup-atomicity.spec.ts` +28 (`tests/integration` pasa de 10 a 38; cierre TASK-111). Total 52 → 81. | Ambos usan la API v1 de respaldo y se reescriben en TASK-112 y TASK-111. | Arquitecto (registro); el Auditor valida el recuento |
-| CC-109-C4 | TASK-109 | Spec 2.2.1 sin regla para `schemaVersion` ausente o raíz que no es objeto | Spec 2.3.0: ausente o raíz no objeto → `ERR-BACKUP-SCHEMA-INVALID`; presente con otro valor → `ERR-BACKUP-VERSION-UNSUPPORTED`. | Hueco detectado por el Desarrollador. | Arquitecto (spec 2.3.0 en REVIEW) |
-| CC-109-C5 | TASK-109 | `STATE-BACKUP-001` 2.1.0 sin evento de fallo de lectura en `CHECKING_DOMAIN_INVARIANTS` | Evento `STORAGE_READ_FAILED` → `ROLLED_BACK` con `ERR-INTERNAL-UNEXPECTED` (`finalState: ROLLED_BACK`). Máquina 2.2.0 en REVIEW. El Desarrollador regenera `src/generated` con el script de generación (no a mano) y ajusta la prueba de transiciones, que pasa de 17 a 18. | La máquina debe transcribir todos los fallos de la importación (`STATE-BACKUP-001`). | Arquitecto |
-| CC-109-C6 | TASK-109 (toca `unit-of-work.port.ts` de TASK-108; solo documentación) | `UnitOfWorkPort` sin convención para el fallo de rollback | JSDoc: rollback fallido → `ERR-INTERNAL-UNEXPECTED` con `finalState` `UNKNOWN`; otro fallo del commit → `STORAGE_ERROR`. Sin cambio de comportamiento. TASK-110 debe respetarlo. | H-06 y D-109 de la consulta. | Arquitecto |
-| CC-109-C7 | Fuera de TASK-109 (configuración raíz, TASK-101) | `.gitignore` sin patrones de archivos generados por Vite ni de `_to_delete/` | El Desarrollador añade `vite.config.ts.timestamp-*.mjs` y `_to_delete/`, en un commit propio y separado de TASK-109. | Pregunta del Auditor en el aval (condición 3). | Arquitecto |
-| CC-109-D | TASK-109 | Órdenes y reglas de la importación sin fijar en la spec | Aceptadas D-109-1 (IDs únicos en todo el sobre), D-109-2 (orden de comprobaciones), D-109-3 (normalización v1), D-109-4 (orden de exportación y `fileName`), D-109-5 (bytes UTF-8 y límite de 10 MB) y D-109-6 (códigos y `finalState` leídos de `STATE-BACKUP-001`). D-109-1, D-109-2, D-109-3 y D-109-5 quedan escritas en la spec 2.3.0. | Consulta del Desarrollador, 2026-11-06. | Arquitecto |
-
-Recuento de deuda tras TASK-109: DEUDA-TSC-001 pasa de 40 a 62 errores (`src/application` 6 → 0 al cerrar TASK-109; `tests/integration` 10 → 38 por CC-109-C3, cierre TASK-111; `src/infrastructure` 7 y `src/presentation` 17 sin cambios). DEUDA-PRES-001 pasa de 12 a 19 (+7 de `App.tsx`, cierre TASK-112). El total de `tsc --noEmit` pasa de 52 a 81 (62 de DEUDA-TSC-001 más 19 de DEUDA-PRES-001). DEUDA-TEST-001 se mantiene en 12 de 267 (`backup-atomicity.spec.ts` 7, `canonical-fixtures.spec.ts` 5; cierre TASK-111). DEUDA-GATE-001 sin cambios (TASK-112).
-
-## Cambios de criterio registrados (2026-11-09, TASK-110)
-
-Decide: Arquitecto, por escrito en `claude/decisiones-arquitecto-task-110-2026-11-09.md`.
-
-| ID | Tarea | Criterio original | Cambio | Motivo | Decide |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| CC-110-1 | TASK-110 (toca `tests/fixtures/repository-contract-suite.ts` de TASK-108) | Dos pruebas de la suite de contratos guardaban registros sin su mascota | Se añaden 3 líneas que siembran `envelope.pets` antes de los registros. Lo que se prueba no cambia; la versión en memoria pasa 13/13. | SQLite aplica la clave foránea de INV-PET-005 (H-110-1). | Arquitecto (excepción a la condición 4 del aval, igual que CC-109-C1) |
-| CC-110-2 | TASK-110 | `tsc` de `tests/integration` y `tests/e2e` | Ver DEUDA-TEST-001, DEUDA-TSC-001 y DEUDA-E2E-001. Total `tsc --noEmit` 81 → 77. | Eliminación de `transactional-repository.ts` (H-110-2 y H-110-3). | Arquitecto |
-| CC-110-3 | TASK-110 | `storage-repository.port.ts` (v1) sin uso en infraestructura | No se borra en TASK-110. Lo importa `src/presentation/App.tsx`, y se retira en TASK-112 (H-110-4). | Retirarlo ahora rompería `App.tsx` antes de TASK-112. | Arquitecto |
-
-## Cambios de criterio registrados (2026-11-09, TASK-111)
-
-Decide: Arquitecto, por escrito en `claude/decisiones-arquitecto-task-111-2026-11-09.md`.
-
-| ID | Tarea | Criterio original | Cambio | Motivo | Decide |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| CC-111-1 | TASK-111 | Contrato sin las respuestas que la frontera produce (H-111-1) | Se registra como DEUDA-CONTRATO-001 con cierre antes de TASK-112. Las 3 desactivaciones de `openapi-conformance.spec.ts` quedan documentadas hasta entonces. | Corregir el OpenAPI ahora obligaría a regenerar el cliente antes de tiempo. | Arquitecto |
-| CC-111-2 | TASK-111 | Parámetro de ruta con formato no UUID debería ser 422 (H-111-2) | Se acepta el 404 de la ruta (ERR-PET-NOT-FOUND, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-INVITATION-NOT-FOUND), que el OpenAPI ya declara. Un id no UUID no existe, y la spec trata la inexistencia como 404 (INV-ACC-001). | Coherente con INV-ACC-001 y con lo declarado. | Arquitecto |
-| CC-111-3 | TASK-111 | Ruta inexistente con `problem+json` (H-111-3) | Se acepta el 404 por defecto de Fastify (JSON simple). No es una operación del OpenAPI y el catálogo no tiene código genérico de "no encontrado". | Crear un código de catálogo para algo que no es operación de la API excede esta tarea. | Arquitecto |
-| CC-111-4 | TASK-111 | Precedencia de altas de registros y PATCH/DELETE de mascota (H-111-4) | Se acepta el orden de TASK-108 (acceso 404/403 antes que esquema del cuerpo). Se escribe en §5.1 junto con DEUDA-CONTRATO-001 (b). | D-108-4; ya implementado y probado. | Arquitecto |
-
-## Tabla de alias `TASK-NNN` → `T###`
-
-| TASK-NNN | T### |
-|---|---|
-| TASK-100 | T001 |
-| TASK-101 | T002 |
-| TASK-102 | T003 |
-| TASK-103 | T004 |
-| TASK-104 | T005 |
-| TASK-106 | T007 |
-| TASK-105 | T006 |
-| TASK-107 | T008 |
-| TASK-109 | T010 |
-| TASK-108 | T009 |
-| TASK-110 | T011 |
-| TASK-111 | T012 |
-| TASK-112 | T013 |
-| TASK-113 | T014 |
-| TASK-114 | T015 |
-| TASK-115 | T016 |
+- [P] tasks = different files, no dependencies
+- [Story] label maps task to specific user story for traceability
+- Each user story should be independently completable and testable
+- Verify tests fail before implementing
+- Commit after each task or logical group
+- Stop at any checkpoint to validate story independently
+- Una tarea se marca `[x]` solo con la aprobación del arquitecto humano (constitución, «Governance»)

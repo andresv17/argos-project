@@ -1,5 +1,5 @@
 /**
- * E2E de dos usuarios y un hogar en contextos de navegador separados (TASK-114, REQ-UI-006): crear, invitar,
+ * E2E de dos usuarios y un hogar en contextos de navegador separados (REQ-UI-006): crear, invitar,
  * INVITED sin acceso (404), aceptar, ver el hogar con distinción de dueño, abandonar, retirar, rechazar y eliminar.
  * Ana es la OWNER; Beto, el invitado.
  */
@@ -43,7 +43,7 @@ async function inviteGuest(): Promise<void> {
   await expect(owner.locator('[data-membership-status="INVITED"]')).toHaveCount(1);
 }
 
-test.describe('TASK-114: dos usuarios y un hogar (tests/e2e/visual)', () => {
+test.describe('dos usuarios y un hogar (tests/e2e/visual)', () => {
   test('[REQ-HOUSE-001][REQ-UI-006] Ana crea el hogar desde la pantalla de hogares y queda como OWNER ACTIVE', async () => {
     await owner.goto('/households');
     await owner.getByLabel('Nombre del nuevo hogar').fill(HOUSE);

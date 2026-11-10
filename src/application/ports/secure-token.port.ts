@@ -1,5 +1,5 @@
 /**
- * Generador de tokens de sesión inyectado (constitución §3.2).
+ * Generador de tokens de sesión inyectado.
  *
  * @implements INV-ARCH-002, INV-ARCH-004, REQ-AUTH-002
  */

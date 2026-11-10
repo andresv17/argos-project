@@ -1,4 +1,4 @@
-# SAST TASK-113 (plan §5; constitución §3.6, INV-ARCH-006): la configuración se lee solo en
+# SAST: la configuración se lee solo en
 # src/infrastructure/config/ (loadAppConfig valida y convierte las variables).
 rules:
   - id: argos-no-process-env-outside-config

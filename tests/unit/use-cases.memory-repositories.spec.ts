@@ -5,7 +5,7 @@ import { defineRepositoryContractSuite } from '../fixtures/repository-contract-s
 
 defineRepositoryContractSuite('memoria', () => new InMemoryUnitOfWork());
 
-describe('TASK-108: particularidades de InMemoryUnitOfWork (src/infrastructure/persistence/memory/in-memory-unit-of-work.ts)', () => {
+describe('particularidades de InMemoryUnitOfWork (src/infrastructure/persistence/memory/in-memory-unit-of-work.ts)', () => {
   it('[INV-ARCH-005] si beforeCommit lanza, la transacción se descarta y la siguiente funciona normalmente', async () => {
     let failNext = true;
     const uow = new InMemoryUnitOfWork(emptyMemoryState(), {

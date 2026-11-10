@@ -1,5 +1,5 @@
 /**
- * E2E de un usuario sobre la app real (TASK-114): registro, sesión, mascotas, ficha con sus módulos, semáforo de
+ * E2E de un usuario sobre la app real: registro, sesión, mascotas, ficha con sus módulos, semáforo de
  * alertas, filtro, respaldo y eliminación. Cada paso usa la SPA como lo haría una persona (roles y etiquetas
  * accesibles) y comprueba lo que devuelve la API real.
  */
@@ -27,7 +27,7 @@ test.afterAll(async () => {
 
 const petOptions = () => page.getByRole('listbox', { name: 'Mascotas' }).getByRole('option');
 
-test.describe('TASK-114: flujo de un usuario (tests/e2e/visual)', () => {
+test.describe('flujo de un usuario (tests/e2e/visual)', () => {
   test('[REQ-UI-005][REQ-AUTH-001] una ruta protegida lleva a /login; el registro valida en cliente con el catálogo y deja la sesión abierta', async () => {
     await page.goto('/backup');
     await expect(page).toHaveURL(/\/login$/);
