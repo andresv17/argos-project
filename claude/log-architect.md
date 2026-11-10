@@ -21,3 +21,8 @@
 - Contratos reubicados en la feature; scripts y tests actualizados; spec-system.md, README y CLAUDE.md con rutas nuevas.
 - Historia no canónica preservada en .specify/memory/history-001-pet-health-tracker.md.
 - Verificado: verify-traceability 96/96, verify-oracles OK, tsc limpio, vitest 580/580, src/generated idéntico.
+
+## 2026-11-10 — Hallazgo 6 y backlog Feature 002 (checkpoint)
+- Escrito `.specify/memory/audits/hallazgo-6-traduccion-errores.md`: diagnóstico, diseño solo en presentación (nuevo schema-messages.ts), archivos, REQ-UI-*, criterios. Decisiones para Neo: D1 (solo presentación vs cambio de contrato para 422 de servidor) y D2 (REQ-UI-005 dice "mensajes del catálogo").
+- Escrito `.specify/memory/backlog-feature-002.md` con hallazgos 2, 5 y 7 y preguntas abiertas. No se creó specs/002-*.
+- Sin cambios en specs/**, contracts/**, src/**, tests/**, tasks.md. Sin commit.

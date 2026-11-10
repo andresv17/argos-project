@@ -66,7 +66,7 @@ Todas las **24 skills tienen `haiku` como modelo por defecto** para que cualquie
 | :--- | :--- | :---: | :--- | :--- |
 | **`/trinity`** | Trinity | `haiku` → `sonnet` | **Seguridad y Criptografía:** Audita sesiones, Argon2id, CSRF, IDOR y reglas Semgrep. | `/trinity Revisa si el endpoint nuevo tiene riesgo de IDOR o CSRF.` |
 | **`/seraph`** | Seraph | `haiku` | **QA Avanzado:** Verifica calidad de tests (cero oráculos falsos), mutación Stryker y E2E Playwright. | `/seraph Verifica los oráculos de tests y corre verify-oracles.sh.` |
-| **`/tank`** | Tank (Operador) | `haiku` | **Cloud GCP y DevOps:** Prepara Docker, Cloud Run, Terraform IaC y GitHub Actions. | `/tank Prepara el Dockerfile y el plan de despliegue en Cloud Run.` |
+| **`/link`** | Link (Operador) | `haiku` | **Cloud GCP y DevOps:** Prepara Docker, Cloud Run, Terraform IaC y GitHub Actions. | `/link Prepara el Dockerfile y el plan de despliegue en Cloud Run.` |
 | **`/niobe`** | Capitana Niobe | `haiku` | **IoT y Proyecto Mirror:** Diseña la integración con collares GPS, comederos, areneros y **Mirror**. | `/niobe Diseña cómo recibiremos telemetría desde el proyecto Mirror.` |
 | **`/sati`** | Sati | `haiku` | **Diseño UX/UI:** Cuida componentes React, Tailwind, colores (`colorToken`), gráficas y accesibilidad. | `/sati Mejora la visualización de la curva de peso en el dashboard.` |
 | **`/hamann`** | Consejero Hamann | `haiku` | **Optimizador de Claude:** Ajusta tus skills y `CLAUDE.md` para gastar menos tokens. | `/hamann Revisa qué podemos optimizar para consumir menos tokens.` |
@@ -77,7 +77,7 @@ Todas las **24 skills tienen `haiku` como modelo por defecto** para que cualquie
 | :--- | :--- | :---: | :--- | :--- |
 | **`/zee`** | Zee | `haiku` | **Producto / Dueño (`OWNER`):** Evalúa si una función es fácil y útil para el dueño de la mascota. | `/zee Evalúa si el flujo de registrar una vacuna es claro para el dueño.` |
 | **`/kid`** | The Kid | `haiku` | **Usuario Invitado (`MEMBER`):** Revisa la experiencia del familiar o paseador invitado al hogar. | `/kid ¿Qué ve y qué puede hacer un invitado al entrar al hogar compartido?` |
-| **`/dozer`** | Dozer | `haiku` | **Veterinario:** Valida lógica clínica (vacunas, peso ideal, signos vitales, mascotas geriátricas +10 años). | `/dozer Valida si los rangos de alerta de peso geriátrico tienen sentido clínico.` |
+| **`/maggie`** | Maggie | `haiku` | **Veterinario:** Valida lógica clínica (vacunas, peso ideal, signos vitales, mascotas geriátricas +10 años). | `/maggie Valida si los rangos de alerta de peso geriátrico tienen sentido clínico.` |
 | **`/rama`** | Rama Kandra | `haiku` | **Privacidad y Backups:** Cuida que no salgan datos sensibles en logs y que los backups `.json` sean atómicos. | `/rama Verifica que el backup de 10 MB haga rollback completo si falla.` |
 | **`/lock`** | Comandante Lock | `haiku` | **Abogado del Diablo:** Busca casos borde (`EDGE-*`) y qué puede salir mal antes de programar. | `/lock Haz de abogado del diablo sobre esta propuesta y dime cómo podría fallar.` |
 | **`/mifune`** | Capitán Mifune | `haiku` | **Lente Pragmático:** Frena la sobre-ingeniería y propone la solución más simple y directa. | `/mifune Simplifica este diseño para entregarlo hoy sin complicarnos.` |

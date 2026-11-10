@@ -16,3 +16,8 @@
   - `.specify/memory/audits/spec-review.md`: Re-ubicado en el árbol de trabajo; pendiente de validación final en disco y firma de Nivel 2 de **Neo**.
 - **Siguiente Acción para `/oracle`:**
   - Verificar en disco los cambios pendientes de commit en la rama `001-pet-health-tracker` y presentar a **Neo** el veredicto consolidado para cerrar la migración Spec Kit y `TASK-115` (`T016`).
+
+## 2026-11-10 Oracle: auditoria bugs 1/3/4 (Keymaker)
+- Veredicto: PASS CON OBSERVACIONES. Solo cambian los 3 archivos de src y 2 pruebas listadas (mas logs/docs de skills). Sin commits nuevos ni stash. playwright.config.ts intacto.
+- Compuertas: tsc OK; auth-password.spec 2/2; vitest 581/582 (falla infrastructure-adapters scrypt por timeout, archivo fuera del diff: preexistente/entorno); traceability 96/96 CUMPLE; oracles 0 debiles CUMPLE.
+- Observaciones: e2e 28/28 no reproducido por Oracle (config temporal borrada); texto "Agregar" inexistente en src/presentation/web (boton es "Guardar").
