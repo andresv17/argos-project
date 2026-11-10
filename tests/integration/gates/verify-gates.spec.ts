@@ -26,8 +26,8 @@ const IT = 'i' + 't';
 const DESCRIBE = 'desc' + 'ribe';
 
 const BASE: Files = {
-  '.specify/specs/pet-health-tracker.md': '# Spec demo\nREQ-DEMO-001 e INV-DEMO-001.\n',
-  '.specify/constitution/constitution.md': [
+  'specs/001-pet-health-tracker/spec.md': '# Spec demo\nREQ-DEMO-001 e INV-DEMO-001.\n',
+  '.specify/memory/constitution.md': [
     '# Constitución demo',
     '## 3. PUREZA',
     '1. `INV-ARCH-001`: reloj inyectado.',
@@ -37,7 +37,7 @@ const BASE: Files = {
     '## 5. UMBRALES',
     '',
   ].join('\n'),
-  '.specify/tasks/pet-health-tracker-tasks.md': [
+  'specs/001-pet-health-tracker/tasks.md': [
     '| Task ID | Estado | Responsable | Depende de | Fase / Capa | Archivos Objetivo | IDs de Trazabilidad | Hallazgos | Criterio de Aceptación |',
     '| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |',
     '| `TASK-900` | `PENDING` | Desarrollador | — | Demo | `src/domain/demo.ts` | REQ-DEMO-001, ERR-DEMO-FAILED | — | — |',
@@ -139,7 +139,7 @@ describe('TASK-103: compuerta de trazabilidad (scripts/verify-traceability.sh)',
 
   it('sale con 2 si la tarea no existe en la cola', () => {
     const res = run(TRACEABILITY, BASE, ['--task', 'TASK-404']);
-    expect(res.output).toContain('TASK-404 no existe en .specify/tasks/pet-health-tracker-tasks.md');
+    expect(res.output).toContain('TASK-404 no existe en specs/001-pet-health-tracker/tasks.md');
     expect(res.status).toBe(2);
   });
 

@@ -5,6 +5,7 @@
 # Uso:
 #   bash scripts/verify-traceability.sh                  compuerta final: todos los IDs vigentes (TASK-115)
 #   bash scripts/verify-traceability.sh --task TASK-NNN  compuerta por tarea: IDs de la columna "IDs de Trazabilidad"
+#   bash scripts/verify-traceability.sh --task T###      igual, resuelto con la tabla de alias de tasks.md
 #
 # Un ID cuenta como trazado solo si aparece en un @implements de src/ fuera de src/generated/
 # y en el título de un it/test de tests/. Los comentarios sueltos y los títulos de describe no cuentan.
@@ -20,8 +21,8 @@ TASK_ID=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --task)
-      if [[ $# -lt 2 || ! "$2" =~ ^TASK-[0-9]{3}$ ]]; then
-        echo "[SDD Traceability Gate] Uso: --task TASK-NNN" >&2
+      if [[ $# -lt 2 || ! "$2" =~ ^(TASK-[0-9]{3}|T[0-9]{3})$ ]]; then
+        echo "[SDD Traceability Gate] Uso: --task TASK-NNN | T###" >&2
         exit 2
       fi
       TASK_ID="$2"
@@ -34,14 +35,23 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "$TASK_ID" =~ ^T[0-9]{3}$ ]]; then
+  ALIAS=$(grep -m1 -E "^\| TASK-[0-9]{3} \| ${TASK_ID} \|" specs/001-pet-health-tracker/tasks.md | awk -F'|' '{gsub(/ /,"",$2); print $2}' || true)
+  if [[ -z "$ALIAS" ]]; then
+    echo "[SDD Traceability Gate] ${TASK_ID} no tiene alias TASK-NNN en la tabla de tasks.md" >&2
+    exit 2
+  fi
+  TASK_ID="$ALIAS"
+fi
+
 export SDD_TASK_ID="$TASK_ID"
 exec node --input-type=module - <<'JS'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const SPEC = '.specify/specs/pet-health-tracker.md';
-const CONSTITUTION = '.specify/constitution/constitution.md';
-const TASKS = '.specify/tasks/pet-health-tracker-tasks.md';
+const SPEC = 'specs/001-pet-health-tracker/spec.md';
+const CONSTITUTION = '.specify/memory/constitution.md';
+const TASKS = 'specs/001-pet-health-tracker/tasks.md';
 const CONTRACTS = 'contracts';
 const CATALOG = 'contracts/errors/error-catalog.json';
 const CODE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;

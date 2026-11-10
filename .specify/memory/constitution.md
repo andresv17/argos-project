@@ -1,22 +1,108 @@
 ---
 document_id: CONSTITUTION-ARGOS-001
-version: 2.3.0
-status: LOCKED
-last_updated: 2026-11-05
-supersedes: 2.2.0
+version: 2.4.0
+status: REVIEW
+last_updated: 2026-11-09
+supersedes: 2.3.0
 change_type: MINOR
 change_summary: >
+  v2.4.0: migración al estándar GitHub Spec Kit (plantilla `constitution-template.md`, CLI 1.3.4.dev0). El archivo pasa de `.specify/constitution/constitution.md` a `.specify/memory/constitution.md`. Se añaden «Core Principles» (índice declarativo de §1–§7 y de `spec-system.md`), «Governance» y la línea de versión de la plantilla. §1–§6 conservan su texto; en §4 solo cambia la ruta de la spec. §7 autoriza el árbol de Spec Kit (`.specify/memory|templates|scripts|workflows|integrations/` y `specs/<NNN-feature>/`). Pendiente de aprobación de Andrés.
   v2.3.0: autorización nueva de `@vitest/coverage-v8` (proveedor de cobertura de Vitest 2, gratuito; condición: solo dependencias y servicios gratuitos) por Andrés el 2026-11-05 (H-03). Se retira 'pendiente de firma formal' del stack (ya firmado por Andrés, D-10) y se fija la versión exacta de Node (`.nvmrc` 22.23.4; `engines` >=22.18 <23), aceptada por el Auditor en TASK-101.
   v2.2.0: autorización explícita del stack de §2 (incluido `@types/node`) y de la lista de dependencias adicionales, por luz verde de Andrés (Nivel 2) el 2026-11-05 (D-10).
   Eliminación del cupo fijo de mascotas (2 perros / 2 gatos), incorporación de cuentas de usuario
   (registro/login), hogares compartidos, servidor API local con SQLite preparado para migración Cloud,
   generación real de validadores desde contratos y toolchain de pruebas oficial (sin harness propio). v2.1.0: dependencias adicionales autorizadas (§2), umbral de mutación de 85 % (§5), compuerta por tarea (§5) e INV-AUTH-006 (§4).
-approved_by: Andrés Vallejo, 2026-11-05
+approved_by: pendiente (v2.4.0 en REVIEW, 2026-11-09: contenido derivado pendiente de revisión)
 ---
 
-# CONSTITUCIÓN ARQUITECTÓNICA — PROYECTO ARGOS (PET HEALTH TRACKER)
+<!--
+SYNC IMPACT REPORT
+==================
+Version change: 2.3.0 -> 2.4.0
+Bump rationale: MINOR. Se añaden secciones (Core Principles, Governance, línea de versión) al adoptar
+  la plantilla constitution-template.md de GitHub Spec Kit. Ninguna regla de §1-§6 cambia de texto ni
+  de alcance; §7 amplía el árbol autorizado con la jerarquía de Spec Kit.
+
+Modified principles: ninguno (las reglas normativas siguen en §1-§7 con su numeración).
+Added sections:
+  - Core Principles (I-VI): enunciado declarativo de cada principio con remisión a su sección normativa.
+  - Governance: autoridad, enmiendas, versionado y revisión de cumplimiento (reglas ya vigentes en
+    spec-system.md y en la cabecera de los artefactos).
+  - Línea final Version | Ratified | Last Amended.
+  - §7: viñeta que autoriza el árbol de Spec Kit.
+Removed sections: ninguna.
+Path changes: .specify/constitution/constitution.md -> .specify/memory/constitution.md;
+  §4 cita specs/001-pet-health-tracker/spec.md.
+
+Templates reviewed for alignment:
+  - .specify/templates/plan-template.md: la sección "Constitution Check" se evalúa contra §2-§7
+    (ver specs/001-pet-health-tracker/plan.md).
+  - .specify/templates/spec-template.md, tasks-template.md, checklist-template.md: sin tokens
+    dependientes de la constitución.
+
+Compatibilidad con scripts/verify-traceability.sh: se conservan los encabezados "## 3." y "## 4." y la
+  línea de identificadores dados de baja dentro de §4, que el script lee de forma literal.
+
+Follow-up TODOs:
+  - Aprobación de Andrés Vallejo (Nivel 2) para pasar v2.4.0 de REVIEW a LOCKED.
+  - Validación del Auditor sobre el contenido migrado.
+-->
+
+# Proyecto Argos (Pet Health Tracker) Constitution
 
 Esta Constitución define las invariantes técnicas, tecnológicas y operativas no negociables del **Proyecto Argos**. Ningún plan, tarea o línea de código en `src/` o `tests/` puede contradecir este documento.
+
+## Core Principles
+
+Los principios enuncian las reglas no negociables del proyecto. El texto normativo completo de cada uno está en las secciones numeradas §1–§7 de este documento y en `spec-system.md`; ante cualquier diferencia de redacción prevalece la sección numerada.
+
+### I. Especificación y Contratos como Fuente de Verdad
+
+Las especificaciones (`specs/<NNN-feature>/spec.md`) y los contratos formales (`contracts/`) son la fuente de verdad; el código de `src/` es un derivado. Si la prosa de una spec y un contrato formal difieren, prevalece el contrato y se detiene la ejecución hasta reconciliarlos. Queda prohibido implementar código sin una tarea aprobada, vinculada a un plan, a contratos bloqueados y a una spec validada.
+
+**Texto normativo:** `spec-system.md` §1 y §4. **Motivo:** evita la deriva entre lo que se especifica y lo que se construye.
+
+**IDs de lineage:** `INV-ARCH-003` (`src/generated/` solo se regenera desde `contracts/`), `REQ-AUTH-001`.
+
+### II. Determinismo Total y Aislamiento de Entropía (NON-NEGOTIABLE)
+
+El dominio y la aplicación no leen el reloj, no generan aleatoriedad y no leen la configuración del entorno: reciben puertos inyectados. `src/generated/` solo cambia regenerando desde `contracts/`. Las capas dependen hacia adentro y los puertos de repositorio son asíncronos y transaccionales para que la migración a Cloud solo sustituya adaptadores.
+
+**Texto normativo:** §3 (invariantes de arquitectura 001 a 006). **Motivo:** el mismo dato y la misma fecha deben producir siempre el mismo resultado, en local, en CI y en Cloud.
+
+**IDs de lineage:** `INV-ARCH-001`, `INV-ARCH-002`.
+
+### III. Trazabilidad Verificable por Máquina
+
+Toda regla de negocio, invariante, máquina de estados y error tiene un identificador inmutable que aparece en la spec o en los contratos, en un `@implements` de `src/` y en el título de una prueba de `tests/`. Un identificador sin esas dos evidencias no cuenta como cumplido.
+
+**Texto normativo:** §4. **Motivo:** permite auditar por script, sin interpretación, que lo especificado está implementado y probado.
+
+**IDs de lineage:** `REQ-PET-001`, `INV-PET-002` (identificadores vigentes citados por la compuerta de trazabilidad).
+
+### IV. Test Gate con Umbrales Fijos (NON-NEGOTIABLE)
+
+Ninguna tarea se cierra sin pasar su compuerta: trazabilidad del 100 %, cobertura de líneas y ramas, puntuación de mutación, cero oráculos débiles, accesibilidad sin violaciones graves y la batería de seguridad. Las pruebas se ejecutan con las herramientas oficiales, nunca con sustitutos propios, y no se eliminan ni se relajan para obtener un resultado en verde.
+
+**Texto normativo:** §5 y §2 (suite de pruebas). **Motivo:** una compuerta que se puede rebajar deja de medir.
+
+**IDs de lineage:** ninguno: el umbral del test gate está en §5 y no tiene identificador de lineage.
+
+### V. Seguridad y Privacidad por Defecto
+
+Las credenciales nunca se almacenan ni se exponen en claro, los errores no revelan la existencia de usuarios ni de recursos ajenos, toda petición que modifica estado exige sesión y defensa CSRF, y ningún usuario ve datos de otro sin una membresía activa aceptada.
+
+**Texto normativo:** §6. **Motivo:** el sistema guarda datos personales de varios usuarios en una misma instalación.
+
+**IDs de lineage:** `INV-ACC-001`, `INV-ACC-002`, `INV-OWN-001`.
+
+### VI. Stack Autorizado y Estructura de Repositorio Estándar
+
+El stack tecnológico y el árbol de carpetas son los autorizados en este documento. Añadir o actualizar dependencias, crear carpetas fuera del árbol o cambiar contratos, CI o scripts de verificación requiere autorización humana previa (Nivel 2).
+
+**Texto normativo:** §2, §7 y `spec-system.md` §3. **Motivo:** mantiene reproducible el entorno y acotado el coste de mantenimiento.
+
+**IDs de lineage:** ninguno: la pila y la estructura están en §2 y §7 y no tienen identificador de lineage.
 
 ## 1. DEFINICIÓN Y PROPÓSITO DEL SISTEMA
 Argos es una plataforma web **multi-usuario** y determinista para administrar el expediente clínico, físico y sanitario de mascotas (`DOG` | `CAT`) **sin límite de cantidad**. Garantiza:
@@ -67,7 +153,7 @@ Argos es una plataforma web **multi-usuario** y determinista para administrar el
 6. **Configuración aislada (`INV-ARCH-006`):** `process.env` solo puede leerse en `src/infrastructure/config/`, validado contra un esquema. Ningún secreto se versiona; existe `.env.example` sin valores sensibles.
 
 ## 4. ESTÁNDAR DE TRAZABILIDAD (LINEAGE IDS)
-Fuente de verdad de IDs: `.specify/specs/pet-health-tracker.md` v2.2.0, `contracts/` y los `INV-ARCH-*` declarados en esta constitución (§3).
+Fuente de verdad de IDs: `specs/001-pet-health-tracker/spec.md` (SPEC-ARGOS-001; antes `.specify/specs/pet-health-tracker.md` v2.2.0), `contracts/` y los `INV-ARCH-*` declarados en esta constitución (§3).
 - **Requisitos:** `REQ-AUTH-001`..`004`, `REQ-PET-001`..`005`, `REQ-REC-001`..`006`, `REQ-HOUSE-001`..`005`, `REQ-UI-001`..`007`, `REQ-BACKUP-001`..`002`.
 - **Invariantes:** `INV-PET-002`, `INV-PET-003`, `INV-PET-005`, `INV-PET-006`, `INV-OWN-001`, `INV-ACC-001`, `INV-ACC-002`, `INV-AUTH-001`..`007`, `INV-HOUSE-001`..`005`, `INV-REC-001`..`006`, `INV-SORT-001`, `INV-BACKUP-001`, `INV-ARCH-001`..`006`.
 - **Máquinas de Estado:** `STATE-ALERT-001`, `STATE-BACKUP-001`, `STATE-AUTH-SESSION-001`, `STATE-HOUSE-MEMBERSHIP-001`.
@@ -98,4 +184,17 @@ Se aplica el **Estándar de Código / Software Production-Grade (SDD)**. Los arc
 - Raíz: `package.json`, `package-lock.json`, `tsconfig.json`, `vite.config.ts`, `playwright.config.ts`, `tailwind.config.ts`, `postcss.config.js`, `index.html`, `.gitignore`, `.nvmrc`, `.env.example`.
 - `scripts/codegen.mjs`: auxiliar invocado exclusivamente por `scripts/compile-contracts.sh`.
 - Subcarpetas de `src/` por responsabilidad (p. ej. `src/infrastructure/http/`, `src/infrastructure/persistence/`, `src/presentation/web/`) siempre dentro de la capa correcta.
+- **Árbol SDD de GitHub Spec Kit (v2.4.0, pendiente de aprobación):** `.specify/memory/` (esta constitución y artefactos de soporte: `audits/`, `legacy-templates/`, reporte de migración), `.specify/templates/`, `.specify/scripts/`, `.specify/workflows/`, `.specify/integrations/`, los archivos de estado de `.specify/` (`init-options.json`, `integration.json`, `feature.json`, `.gitignore`) y `specs/<NNN-feature>/` en la raíz (`spec.md`, `plan.md`, `tasks.md`, `research.md`, `data-model.md`, `quickstart.md`, `contracts/`, `checklists/`). Sustituye a `.specify/constitution/`, `.specify/specs/`, `.specify/plans/`, `.specify/tasks/` y `.specify/checklists/`. `README.md` y `spec-system.md` permanecen en la raíz.
 Queda prohibido crear carpetas fuera del árbol estándar (p. ej. `tests/support/`); los auxiliares compartidos de prueba van en `tests/fixtures/`. Toda carpeta vacía del estándar conserva su `.gitkeep`.
+
+## Governance
+
+Esta constitución prevalece sobre cualquier plan, tarea o línea de código. `spec-system.md` es el plano de control operativo que la aplica (jerarquía de verdad, límites de tres niveles y bucle de ejecución).
+
+- **Autoridad.** Los principios I–VI y las secciones §1–§7 son compuertas obligatorias. La sección «Constitution Check» de cada `plan.md` se evalúa contra ellas; un conflicto se resuelve cambiando la spec, el plan o las tareas, no rebajando la regla.
+- **Enmiendas.** Todo cambio de este documento requiere autorización humana previa (Nivel 2, `spec-system.md` §3), se registra en la cabecera (`version`, `supersedes`, `change_type`, `change_summary`, `approved_by`) y recorre el ciclo `DRAFT` → `REVIEW` → `APPROVED` → `LOCKED`. Ninguna fase posterior puede iniciarse con un artefacto anterior fuera de `APPROVED` o `LOCKED` (`spec-system.md` §1).
+- **Versionado.** SemVer: MAJOR para cambios incompatibles o retirada de una regla; MINOR para una regla o sección nueva; PATCH para aclaraciones sin cambio de alcance. Un cambio MAJOR en contratos exige estrategia de migración explícita.
+- **Evolución de las specs.** Un cambio de reglas de negocio se escribe primero en la spec y en los contratos, se regenera `src/generated/`, se ajustan plan y tareas, y solo entonces se modifica `src/` (`spec-system.md` §1, resolución de deriva). Una regresión de implementación se corrige en `src/`, nunca en la spec.
+- **Revisión de cumplimiento.** El agente ejecuta la compuerta y adjunta evidencia; el Auditor valida; solo el arquitecto humano firma los checklists y marca una tarea como completada (`spec-system.md` §4, paso 7). Las desviaciones aceptadas se registran como deuda con responsable y condición de cierre en `tasks.md` y en «Complexity Tracking» del plan.
+
+**Version**: 2.4.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-09
