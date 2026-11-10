@@ -9,7 +9,7 @@ Toda IA, agente automatizado o asistente generativo debe leer, interpretar y ali
 
 ## 1. PRINCIPIO DE INVERSIÓN ARQUITECTÓNICA Y JERARQUÍA DE VERDAD
 - **Jerarquía de Fuentes de Verdad (Precedencia Ejecutable):** Las especificaciones funcionales (`specs/<NNN-feature>/spec.md`) y los contratos formales (`contracts/`) constituyen la Fuente de Verdad del sistema. El código fuente (`src/`) es un derivado secundario y desechable ("Ambient Code"). Ante cualquier discrepancia entre la prosa narrativa de `specs/<NNN-feature>/spec.md` y un contrato formal ejecutable (`contracts/schemas/`, `contracts/openapi/`, `contracts/state-machines/`, `contracts/errors/`), **prevalece el contrato formal** y se detiene la ejecución hasta reconciliar ambos artefactos.
-- **Cero "Vibe Coding":** Queda estrictamente prohibido implementar código sin una tarea atómica (`specs/<NNN-feature>/tasks.md`) en estado `APPROVED`, vinculada a un plan técnico (`specs/<NNN-feature>/plan.md`), respaldada por contratos bloqueados (`contracts/` -> `src/generated/`) y derivada de una especificación (`specs/<NNN-feature>/spec.md`) validada con `specs/<NNN-feature>/checklists/spec-review.md`.
+- **Cero "Vibe Coding":** Queda estrictamente prohibido implementar código sin una tarea atómica (`specs/<NNN-feature>/tasks.md`) en estado `APPROVED`, vinculada a un plan técnico (`specs/<NNN-feature>/plan.md`), respaldada por contratos bloqueados (`contracts/` -> `src/generated/`) y derivada de una especificación (`specs/<NNN-feature>/spec.md`) validada con `.specify/memory/audits/spec-review.md`.
 - **Ciclo de Vida de los Artefactos SDD:** Todo documento SDD (`.specify/memory/`, `specs/`) y contrato en `contracts/` debe declarar en su cabecera su versión SemVer y su estado formal: `DRAFT` -> `REVIEW` -> `APPROVED` -> `LOCKED` (o `DEPRECATED` / `SUPERSEDED`). Ninguna fase downstream puede iniciarse si el artefacto upstream no se encuentra en estado `APPROVED` o `LOCKED`.
 - **Resolución de Deriva (Drift Resolution):**
   - *Caso A — Regresión de Implementación:* Si una prueba falla porque `src/` violó un contrato o especificación vigente en estado `LOCKED`, **está prohibido modificar la especificación o el contrato**; debe corregirse exclusivamente la implementación en `src/`.
@@ -25,7 +25,7 @@ Cualquier interacción debe consultar y respetar las siguientes rutas según la 
 | Fase | Directorio Base | Archivo / Plantilla Relevante | Función |
 | :--- | :--- | :--- | :--- |
 | **0. Gobernanza** | `.specify/memory/` | `constitution.md` | Invariantes arquitectónicas no negociables y límites de autoridad. |
-| **1. Specify** | `specs/<NNN-feature>/` | `spec.md` (plantilla `.specify/templates/spec-template.md`), `checklists/requirements.md`, `checklists/spec-review.md` | Requisitos funcionales, invariantes, casos de borde y compuerta de revisión de especificación (What/Why). |
+| **1. Specify** | `specs/<NNN-feature>/` | `spec.md` (plantilla `.specify/templates/spec-template.md`), `checklists/requirements.md`, `.specify/memory/audits/spec-review.md` | Requisitos funcionales, invariantes, casos de borde y compuerta de revisión de especificación (What/Why). |
 | **1.5. Contract Lock** | `contracts/` | `schemas/`, `openapi/`, `state-machines/`, `errors/`, `examples/` | Formalización declarativa de estructuras de datos, APIs, máquinas de estados, taxonomía de errores y ejemplos canónicos. |
 | **2. Plan** | `specs/<NNN-feature>/` | `plan.md` (plantilla `.specify/templates/plan-template.md`), `research.md`, `data-model.md`, `quickstart.md`, `contracts/` (índice de `contracts/` raíz) | Arquitectura técnica, diseño de componentes y mapeo de contratos (How). |
 | **3. Tasks** | `specs/<NNN-feature>/` | `tasks.md` (plantilla `.specify/templates/tasks-template.md`) | Descomposición de tareas atómicas secuenciales con IDs de trazabilidad. |
@@ -57,13 +57,13 @@ Toda acción del agente debe estar regulada por los siguientes niveles de autono
 - Modificar manualmente cualquier archivo dentro de `src/generated/` o directorios de dependencias del sistema (`node_modules/`, `vendor/`).
 - Invocar fuentes de entropía o efectos secundarios no deterministas directamente en `src/domain/` o `src/application/` (`Date.now()`, `new Date()`, `Math.random()`, `crypto.randomUUID()`, lectura directa de `process.env` o llamadas de red/disco sin abstraer mediante puertos inyectados).
 - Eliminar, comentar, relajar pruebas o emplear selección heurística/probabilística de tests para simular éxito en el Test Gate.
-- Generar código en `src/` sin contratos en estado `LOCKED`, sin haber aprobado `specs/<NNN-feature>/checklists/spec-review.md` y sin una tarea atómica validada en `specs/<NNN-feature>/tasks.md`.
+- Generar código en `src/` sin contratos en estado `LOCKED`, sin haber aprobado `.specify/memory/audits/spec-review.md` y sin una tarea atómica validada en `specs/<NNN-feature>/tasks.md`.
 
 ---
 
 ## 4. BUCLE DE CONTROL Y EJECUCIÓN (SOP)
 Para cada instrucción de desarrollo, el agente debe seguir estrictamente este flujo determinista:
-1. Validar que la feature cuenta con un documento en `specs/<NNN-feature>/spec.md` en estado `APPROVED` tras cumplir `specs/<NNN-feature>/checklists/spec-review.md`.
+1. Validar que la feature cuenta con un documento en `specs/<NNN-feature>/spec.md` en estado `APPROVED` tras cumplir `.specify/memory/audits/spec-review.md`.
 2. Verificar que los contratos formales correspondientes en `contracts/` (`schemas/`, `openapi/`, `state-machines/`, `errors/`, `examples/`) están en estado `LOCKED` y compilar los artefactos hacia `src/generated/` mediante `scripts/compile-contracts.sh`.
 3. Verificar que existe un blueprint técnico en `specs/<NNN-feature>/plan.md` en estado `APPROVED`.
 4. Seleccionar la siguiente tarea pendiente en `specs/<NNN-feature>/tasks.md` verificando los IDs de trazabilidad objetivo (`REQ-`, `INV-`, `STATE-`, `ERR-`).
