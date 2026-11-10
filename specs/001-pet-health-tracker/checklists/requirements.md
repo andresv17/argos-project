@@ -6,7 +6,7 @@
 
 **Feature**: [spec.md](../spec.md)
 
-**Note**: Evaluación de `spec.md` v2.4.0 contra los criterios de calidad de `/speckit.specify`, hecha durante la migración a GitHub Spec Kit. No sustituye a `spec-review.md`, que es la compuerta de aprobación del proyecto. Pendiente de revisión del Arquitecto.
+**Note**: Evaluación de `spec.md` v2.4.0 contra los criterios de calidad de `/speckit.specify`, hecha durante la migración a GitHub Spec Kit. No sustituye a `.specify/memory/audits/spec-review.md`, que es la compuerta de aprobación del proyecto. Pendiente de revisión del Arquitecto.
 
 ## Content Quality
 

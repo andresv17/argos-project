@@ -38,7 +38,7 @@ Los checklists `specs/001-pet-health-tracker/checklists/code-review.md` y `oracl
    - Fixtures canónicos: [`contracts/examples/canonical-fixtures.json`](./contracts/examples/canonical-fixtures.json)
 5. **Plan técnico:** [`specs/001-pet-health-tracker/plan.md`](./specs/001-pet-health-tracker/plan.md), con [`research.md`](./specs/001-pet-health-tracker/research.md), [`data-model.md`](./specs/001-pet-health-tracker/data-model.md), [`quickstart.md`](./specs/001-pet-health-tracker/quickstart.md) y el [índice de contratos](./specs/001-pet-health-tracker/contracts/README.md)
 6. **Cola de tareas:** [`specs/001-pet-health-tracker/tasks.md`](./specs/001-pet-health-tracker/tasks.md)
-7. **Checklists de compuerta:** [`specs/001-pet-health-tracker/checklists/`](./specs/001-pet-health-tracker/checklists/) (`requirements.md`, `spec-review.md`, `code-review.md`, `oracle-validation.md`)
+7. **Checklists de compuerta:** [`specs/001-pet-health-tracker/checklists/`](./specs/001-pet-health-tracker/checklists/) (`requirements.md`, `code-review.md`, `oracle-validation.md`). La compuerta `spec-review.md` vive en [`.specify/memory/audits/`](./.specify/memory/audits/spec-review.md) porque no es un artefacto de Spec Kit.
 8. **Plantillas y scripts de Spec Kit:** [`.specify/templates/`](./.specify/templates/) y [`.specify/scripts/bash/`](./.specify/scripts/bash/)
 9. **Artefactos de soporte:** [`.specify/memory/audits/`](./.specify/memory/audits/) (informes de auditoría) y [`.specify/memory/legacy-templates/`](./.specify/memory/legacy-templates/) (plantillas anteriores a la migración)
 

@@ -90,7 +90,6 @@ specs/001-pet-health-tracker/
 │   └── README.md
 ├── checklists/
 │   ├── requirements.md      # Calidad de la spec según Spec Kit
-│   ├── spec-review.md       # Compuerta Fase 1 -> Fase 2
 │   ├── code-review.md       # Compuerta Fase 4
 │   └── oracle-validation.md # Compuerta Fase 5
 └── tasks.md             # Cola de tareas (TASKS-ARGOS-001)
