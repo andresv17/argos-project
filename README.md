@@ -6,24 +6,26 @@ Plataforma web multiusuario y determinista para la gestión clínica, biométric
 
 Versiones leídas de la cabecera de cada artefacto. La release v2.2.0 agrupa la cola de tareas v2.2.0; la spec y los contratos recibieron después parches aprobados (spec 2.3.1, OpenAPI 2.4.0).
 
+**Migración a GitHub Spec Kit (2026-11-09, rama `001-pet-health-tracker`).** La capa SDD adopta la estructura y las plantillas de Spec Kit 1.3.4.dev0. Los documentos migrados suben de versión y quedan en `REVIEW` hasta la validación del Auditor y la aprobación del Arquitecto; sus requisitos, identificadores, tareas y estados de tarea no cambian, y `src/` y `contracts/` no se tocan. Tabla de equivalencias y reporte: [`.specify/memory/speckit-migration-2026-11-09.md`](./.specify/memory/speckit-migration-2026-11-09.md).
+
 | Fase | Artefacto | Versión | Estado |
 | :--- | :--- | :--- | :--- |
-| 0. Gobernanza | `.specify/constitution/constitution.md` | 2.3.0 | `LOCKED` |
-| 0. Plano de control | `spec-system.md` | 2.4.0 | — |
-| 1. Specify | `.specify/specs/pet-health-tracker.md` | 2.3.1 | `APPROVED` |
+| 0. Gobernanza | `.specify/memory/constitution.md` | 2.4.0 | `REVIEW` (migración de formato; anterior: 2.3.0 `LOCKED`) |
+| 0. Plano de control | `spec-system.md` | 2.4.0 | Rutas actualizadas a Spec Kit, pendiente de aprobación |
+| 1. Specify | `specs/001-pet-health-tracker/spec.md` | 2.4.0 | `REVIEW` (migración de formato; requisitos idénticos a 2.3.1 `APPROVED`) |
 | 1.5. Contratos | `contracts/openapi/pet-tracker-api.openapi.yaml` | 2.4.0 | `APPROVED` |
 | 1.5. Contratos | `contracts/schemas/*.schema.json`, `contracts/errors/error-catalog.json` | 2.0.2 – 2.2.0 (cabecera `x-sdd-metadata` de cada archivo) | — |
-| 2. Plan | `.specify/plans/pet-health-tracker-plan.md` | 2.2.0 | `APPROVED` |
-| 3. Tasks | `.specify/tasks/pet-health-tracker-tasks.md` | 2.2.0 | `APPROVED`: TASK-100 a TASK-114 `COMPLETED`; TASK-115 (compuerta final) en revisión |
+| 2. Plan | `specs/001-pet-health-tracker/plan.md` (con `research.md`, `data-model.md`, `quickstart.md`) | 2.3.0 | `REVIEW` (migración de formato; anterior: 2.2.0 `APPROVED`) |
+| 3. Tasks | `specs/001-pet-health-tracker/tasks.md` | 2.3.0 | `REVIEW` (migración de formato; anterior: 2.2.0 `APPROVED`): TASK-100 a TASK-115 `COMPLETED` |
 | 4–5. Implement / Test Gate | `src/`, `tests/` | v2.2.0 | `npm run test:gate` en verde (ver «Compuerta») |
 
-Los checklists `.specify/checklists/code-review.md` y `oracle-validation.md` llevan la evidencia por ítem de TASK-115 y esperan la firma humana.
+Los checklists `specs/001-pet-health-tracker/checklists/code-review.md` y `oracle-validation.md` llevan la evidencia por ítem de TASK-115. La firma humana del Arquitecto corresponde a la versión anterior (commits `e54b9de` y `76a31bf`). Tras la migración a ítems `CHK###` la versión nueva no tiene firma: queda en `REVIEW` para revalidación del Auditor y re-firma. El mapeo está en `.specify/memory/audits/checklist-signature-mapping-2026-11-09.md`. El ítem 9 de `code-review.md` sigue abierto con DEUDA-TIPADO-001.
 
 ## Mapa de artefactos de verdad
 
 1. **Plano de control raíz:** [`spec-system.md`](./spec-system.md)
-2. **Constitución:** [`.specify/constitution/constitution.md`](./.specify/constitution/constitution.md)
-3. **Especificación funcional:** [`.specify/specs/pet-health-tracker.md`](./.specify/specs/pet-health-tracker.md)
+2. **Constitución:** [`.specify/memory/constitution.md`](./.specify/memory/constitution.md)
+3. **Especificación funcional:** [`specs/001-pet-health-tracker/spec.md`](./specs/001-pet-health-tracker/spec.md)
 4. **Contratos formales:**
    - Identidad (usuarios, sesiones, hogares): [`contracts/schemas/identity.schema.json`](./contracts/schemas/identity.schema.json)
    - Mascotas: [`contracts/schemas/pet.schema.json`](./contracts/schemas/pet.schema.json)
@@ -34,8 +36,11 @@ Los checklists `.specify/checklists/code-review.md` y `oracle-validation.md` lle
    - Máquinas de estado: [`contracts/state-machines/`](./contracts/state-machines/) (`sanitary-alert`, `backup-import`, `auth-session`, `household-membership`)
    - Catálogo de errores: [`contracts/errors/error-catalog.json`](./contracts/errors/error-catalog.json)
    - Fixtures canónicos: [`contracts/examples/canonical-fixtures.json`](./contracts/examples/canonical-fixtures.json)
-5. **Plan técnico:** [`.specify/plans/pet-health-tracker-plan.md`](./.specify/plans/pet-health-tracker-plan.md)
-6. **Cola de tareas:** [`.specify/tasks/pet-health-tracker-tasks.md`](./.specify/tasks/pet-health-tracker-tasks.md)
+5. **Plan técnico:** [`specs/001-pet-health-tracker/plan.md`](./specs/001-pet-health-tracker/plan.md), con [`research.md`](./specs/001-pet-health-tracker/research.md), [`data-model.md`](./specs/001-pet-health-tracker/data-model.md), [`quickstart.md`](./specs/001-pet-health-tracker/quickstart.md) y el [índice de contratos](./specs/001-pet-health-tracker/contracts/README.md)
+6. **Cola de tareas:** [`specs/001-pet-health-tracker/tasks.md`](./specs/001-pet-health-tracker/tasks.md)
+7. **Checklists de compuerta:** [`specs/001-pet-health-tracker/checklists/`](./specs/001-pet-health-tracker/checklists/) (`requirements.md`, `spec-review.md`, `code-review.md`, `oracle-validation.md`)
+8. **Plantillas y scripts de Spec Kit:** [`.specify/templates/`](./.specify/templates/) y [`.specify/scripts/bash/`](./.specify/scripts/bash/)
+9. **Artefactos de soporte:** [`.specify/memory/audits/`](./.specify/memory/audits/) (informes de auditoría) y [`.specify/memory/legacy-templates/`](./.specify/memory/legacy-templates/) (plantillas anteriores a la migración)
 
 ## Arranque local
 
@@ -90,7 +95,7 @@ Otros comandos: `npm test` (Vitest sin cobertura), `npm run test:coverage`, `npm
 
 ## Protocolo de ejecución para agentes IA
 
-1. Leer `spec-system.md` y `.specify/constitution/constitution.md`.
-2. Tomar la siguiente tarea `PENDING` de `.specify/tasks/pet-health-tracker-tasks.md`.
+1. Leer `spec-system.md` y `.specify/memory/constitution.md`.
+2. Tomar la siguiente tarea `PENDING` de `specs/001-pet-health-tracker/tasks.md`.
 3. Ejecutarla respetando las capas (`src/generated/`, `src/domain/`, `src/application/`, `src/infrastructure/`, `src/presentation/`).
-4. Verificar con `scripts/verify-traceability.sh`, `scripts/verify-oracles.sh` y los checklists de `.specify/checklists/`, dejar la tarea en `REVIEW` con evidencia y esperar el aval humano.
+4. Verificar con `scripts/verify-traceability.sh`, `scripts/verify-oracles.sh` y los checklists de `specs/001-pet-health-tracker/checklists/`, dejar la tarea en `REVIEW` con evidencia y esperar el aval humano.

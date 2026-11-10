@@ -1,21 +1,217 @@
 ---
 document_id: TASKS-ARGOS-001
-version: 2.2.0
-status: APPROVED
-supersedes: 2.1.0
+version: 2.3.0
+status: REVIEW
+supersedes: 2.2.0
 change_type: MINOR
-plan_ref: .specify/plans/pet-health-tracker-plan.md (v2.2.0)
-spec_ref: .specify/specs/pet-health-tracker.md (v2.2.0)
-approved_by: Andrés Vallejo, 2026-11-05
+plan_ref: specs/001-pet-health-tracker/plan.md (v2.3.0)
+spec_ref: specs/001-pet-health-tracker/spec.md (cola alineada a la spec v2.2.0 y a sus parches v2.2.1–v2.3.1; spec vigente v2.4.0)
+approved_by: pendiente (v2.3.0 en REVIEW, 2026-11-09: migración de formato a T### con alias, pendiente de revisión)
 ---
 
-# Desglose de Tareas Atómicas: Argos Pet Health & Biometric Tracker (v2.2.0)
+# Tasks: Argos Pet Health & Biometric Tracker
+
+**Input**: Design documents from `/specs/001-pet-health-tracker/`
+
+**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
+
+**Tests**: obligatorias. La constitución §5 exige pruebas unitarias, de propiedades, de contrato, de seguridad, de mutación y E2E; cada tarea incluye sus pruebas entre sus archivos objetivo y se cierra con su compuerta.
+
+**Organization**: la cola v2.2.0 se ejecutó por capas (dominio → aplicación → infraestructura → presentación) y en orden numérico, no por historia de usuario. Las fases de abajo la reagrupan según la plantilla de Spec Kit: cada tarea aparece una vez, en la fase de la historia a la que sirve principalmente o, si sirve a varias, en la fase transversal final. El registro canónico de cada tarea (dependencias, archivos, IDs de trazabilidad, hallazgos y criterio de aceptación) es la tabla «Cola v2.2.0», que `scripts/verify-traceability.sh` lee de forma literal. La asignación de tareas a historias es derivada y está pendiente de revisión del Arquitecto.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **ID**: `T###` (formato Spec Kit). Cada línea conserva el alias `(TASK-NNN)` al final, porque esos identificadores están citados en commits, checklists y documentos de decisión. La tabla de alias está al final de este archivo.
+- **[P]**: Can run in parallel (different files, no dependencies). Ninguna tarea de esta cola lo lleva: se ejecutó en estricto orden secuencial («Reglas de ejecución»).
+- **[Story]**: Which user story this task belongs to (US1 a US6 de spec.md). Solo en las fases de historia.
+- **Casilla**: `[x]` equivale al estado `COMPLETED` de la tabla, que solo concede el arquitecto humano; cualquier otro estado es `[ ]`.
+- Include exact file paths in descriptions
+
+## Path Conventions
+
+- **Single project**: `src/`, `tests/` at repository root
+- Contratos formales en `contracts/`; código generado en `src/generated/`; compuertas en `scripts/`
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose**: alinear los artefactos SDD y sanear el repositorio y la cadena de herramientas
+
+- [x] T001 Alinear spec, plan, tareas, constitución, checklists y contratos a v2.1.0 en `.specify/**` y `contracts/**` (responsable: Arquitecto) (TASK-100)
+- [x] T002 Sanear repositorio y toolchain en `package.json`, `tsconfig.json`, `vite.config.ts`, `playwright.config.ts`, `tests/mutation/stryker.conf.json` y `.github/workflows/test-gate.yml` (TASK-101)
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: generación desde contratos, compuertas de verificación y utilidades de dominio que usan todas las historias
+
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+
+- [x] T003 Generar validadores, tipos y cliente desde los contratos con `scripts/compile-contracts.sh` y `scripts/codegen.mjs` hacia `src/generated/**` (TASK-102)
+- [x] T004 Implementar las compuertas en `scripts/verify-traceability.sh`, `scripts/verify-oracles.sh`, `.github/workflows/test-gate.yml` y `.github/workflows/drift-detection.yml` (TASK-103)
+- [x] T005 Implementar fechas, edad y orden determinista en `src/domain/shared/date-utils.ts` y `src/domain/sorting/deterministic-sorter.ts`, con los adaptadores de prueba de `src/infrastructure/adapters/` (TASK-104)
+
+**Checkpoint**: Foundation ready - user story implementation can now begin
+
+---
+
+## Phase 3: User Story 1 - Crear cuenta e iniciar sesión (Priority: P1) 🎯 MVP
+
+**Goal**: registro, inicio y cierre de sesión con bloqueo por intentos y respuesta uniforme
+
+**Independent Test**: recorrido registro → sesión → cierre de sesión → inicio de sesión, sin crear mascotas
+
+### Implementation for User Story 1
+
+- [x] T007 [US1] Implementar políticas de autenticación y sesión en `src/domain/auth/` (la misma tarea entrega el dominio de hogares de US5 en `src/domain/households/`) (TASK-106)
+
+**Checkpoint**: el dominio de US1 queda probado; la historia es demostrable de extremo a extremo al cerrar TASK-108, TASK-110, TASK-111 y TASK-112
+
+---
+
+## Phase 4: User Story 2 - Gestionar mis mascotas (Priority: P2)
+
+**Goal**: alta, edición, listado, ficha y eliminación de mascotas con propiedad y control de acceso
+
+**Independent Test**: crear dos mascotas, comprobar orden y filtro, abrir una ficha, editarla y eliminar una escribiendo su nombre
+
+### Implementation for User Story 2
+
+- [x] T006 [US2] Implementar invariantes de mascota, propiedad y política de acceso en `src/domain/pet/` y `src/domain/access/` (la misma tarea entrega el evaluador de alertas de US4 en `src/domain/alerts/`) (TASK-105)
+
+**Checkpoint**: el dominio de US2 queda probado
+
+---
+
+## Phase 5: User Story 3 - Registrar el historial clínico y biométrico (Priority: P3)
+
+**Goal**: alta de registros en los 6 módulos con sus rangos, ventanas de fecha y variación de peso
+
+**Independent Test**: dar de alta un registro en cada módulo y comprobar el orden de cada historial y la variación de peso
+
+### Implementation for User Story 3
+
+- [x] T008 [US3] Implementar las invariantes de los 6 módulos y los deltas de peso en `src/domain/records/record-invariants.ts` (TASK-107)
+
+**Checkpoint**: el dominio de US3 queda probado
+
+---
+
+## Phase 6: User Story 4 - Ver las alertas de vacunas y desparasitaciones (Priority: P4)
+
+**Goal**: semáforo de alertas por vacunación y desparasitación
+
+**Independent Test**: registrar vacunas con refuerzos en fechas distintas y comprobar el estado de cada insignia
+
+### Implementation for User Story 4
+
+Sin tarea propia en la cola v2.2.0. El evaluador de alertas se entregó en TASK-105 (`src/domain/alerts/sanitary-alert-evaluator.ts`) y las insignias en TASK-112 (`src/presentation/web/components/`).
+
+---
+
+## Phase 7: User Story 5 - Compartir mascotas en un hogar (Priority: P5)
+
+**Goal**: hogares con invitación aceptada, vista compartida y distinción del dueño
+
+**Independent Test**: con dos usuarios en navegadores separados, crear un hogar, invitar y comprobar qué ve cada uno antes y después de aceptar
+
+### Implementation for User Story 5
+
+Sin tarea propia en la cola v2.2.0. Las políticas de hogar se entregaron en TASK-106 (`src/domain/households/household-policies.ts`); los casos de uso, la API y la pantalla, en las tareas transversales de la última fase.
+
+---
+
+## Phase 8: User Story 6 - Respaldar y restaurar mis datos (Priority: P6)
+
+**Goal**: exportación por usuario e importación atómica con migración del formato 1.0.0
+
+**Independent Test**: exportar, importar de nuevo y comparar; importar un archivo inválido y comprobar que los datos no cambian
+
+### Implementation for User Story 6
+
+- [x] T010 [US6] Implementar exportación, importación y migración v1 en `src/application/use-cases/backup-use-cases.ts` y `src/domain/backup/backup-migration.ts` (TASK-109)
+
+**Checkpoint**: la lógica de US6 queda probada sin HTTP ni SQLite; las pruebas de atomicidad sobre la API se cierran en TASK-111
+
+---
+
+## Phase 9: Polish & Cross-Cutting Concerns
+
+**Purpose**: capas que entregan varias historias a la vez (aplicación, persistencia, API y SPA) y compuertas finales de seguridad, accesibilidad y entrega
+
+- [x] T009 Implementar puertos, casos de uso y repositorios en memoria en `src/application/ports/**`, `src/application/use-cases/**` y `src/infrastructure/persistence/memory/**` (US1 a US5) (TASK-108)
+- [x] T011 Implementar persistencia SQLite, adaptadores de producción y configuración en `src/infrastructure/persistence/sqlite/**`, `src/infrastructure/adapters/**` y `src/infrastructure/config/**` (TASK-110)
+- [x] T012 Implementar la API HTTP y sus pruebas en `src/infrastructure/http/**`, `tests/integration/api/**` y `tests/integration/contracts/**` (US1 a US6) (TASK-111)
+- [x] T013 Implementar la SPA en `index.html` y `src/presentation/web/**` (US1 a US6) (TASK-112)
+- [x] T014 Cubrir la batería de seguridad en `tests/security/exploits/**` y `tests/security/sast-rules/**` (TASK-113)
+- [x] T015 Cubrir E2E, visual y accesibilidad en `tests/e2e/visual/**` y `tests/e2e/accessibility/**` (TASK-114)
+- [x] T016 Pasar la compuerta final `npm run test:gate` desde un checkout limpio y actualizar `README.md` y los checklists de `specs/001-pet-health-tracker/checklists/` (TASK-115)
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- El orden real de ejecución fue el numérico, de TASK-100 a TASK-115, según la columna «Depende de» de la tabla.
+- **Setup (Phase 1)**: TASK-100 → TASK-101.
+- **Foundational (Phase 2)**: TASK-101 → TASK-102 → TASK-103 → TASK-104. Bloquea todas las historias.
+- **User Stories (Phase 3 a 8)**: dominio en TASK-105 (tras TASK-104), TASK-106 (tras TASK-105) y TASK-107 (tras TASK-104); respaldo en TASK-109 (tras TASK-108).
+- **Polish & Cross-Cutting (Phase 9)**: TASK-108 depende de TASK-106 y TASK-107; TASK-110 de TASK-109; TASK-111 de TASK-110 y TASK-102; TASK-112 de TASK-102 y TASK-111; TASK-113 de TASK-111 y TASK-112; TASK-114 de TASK-112 y TASK-113; TASK-115 de TASK-114.
+
+### User Story Dependencies
+
+- **User Story 1 (P1)**: sin dependencias de otras historias.
+- **User Story 2 (P2)**: necesita la sesión de US1.
+- **User Story 3 (P3)**: necesita mascotas (US2).
+- **User Story 4 (P4)**: necesita registros de vacunación y desparasitación (US3).
+- **User Story 5 (P5)**: necesita cuentas (US1) y mascotas (US2).
+- **User Story 6 (P6)**: necesita mascotas (US2); respalda también los registros de US3.
+
+### Within Each User Story
+
+- Las pruebas de cada tarea se escriben con ella y llevan en el título el ID que verifican.
+- Dominio antes que casos de uso; casos de uso antes que API; API antes que SPA.
+- Cada tarea pasa a `REVIEW` con evidencia y solo el arquitecto humano la marca `COMPLETED`.
+
+### Parallel Opportunities
+
+- La cola se ejecutó en secuencia y ninguna tarea lleva `[P]`.
+- Por dependencias declaradas, TASK-107 solo requería TASK-104, igual que TASK-105.
+
+---
+
+## Implementation Strategy
+
+### MVP First (User Story 1 Only)
+
+La cola v2.2.0 no entregó un MVP por historia: al construirse por capas, ninguna historia es demostrable de extremo a extremo hasta cerrar la SPA en TASK-112. US1 queda marcada como MVP por ser la condición de las demás.
+
+### Incremental Delivery
+
+1. Setup y Foundational (TASK-100 a TASK-104).
+2. Dominio por historia (TASK-105 a TASK-107) y lógica de respaldo (TASK-109).
+3. Capas transversales (TASK-108, TASK-110, TASK-111, TASK-112).
+4. Seguridad, E2E y compuerta final (TASK-113 a TASK-115).
+
+Las features posteriores a esta migración se desglosan por historia de usuario, con una fase por historia, como pide la plantilla.
+
+---
+
+## Notes
+
+- Cada tarea se verifica con su compuerta: `bash scripts/verify-traceability.sh --task TASK-NNN`.
+- La compuerta final es `npm run test:gate`.
+- Las secciones siguientes («Reglas de ejecución», «Historial», «Cola v2.2.0», «Deuda técnica registrada» y «Cambios de criterio registrados») son el registro de TASKS-ARGOS-001 v2.2.0 y conservan su texto.
+- La deuda abierta (DEUDA-TIPADO-001 y DEUDA-DEP-001) está resumida en «Complexity Tracking» de plan.md.
+
+---
 
 ## Reglas de ejecución
 - Ejecutar **en estricto orden secuencial** y respetar la columna "Depende de". Al terminar cada tarea: correr el Test Gate de esa tarea, marcarla `REVIEW` (nunca `COMPLETED`) y reportar evidencia literal. Solo el arquitecto humano la pasa a `COMPLETED` (SOP paso 7).
 - Estados válidos: `PENDING` → `IN_PROGRESS` → `REVIEW` → `COMPLETED` | `REJECTED`.
 - **Responsable:** `Arquitecto` (TASK-100, no la ejecuta el desarrollador) o `Desarrollador`.
-- Columna "Hallazgos" = IDs del informe de auditoría del 2026-11-05 (`.specify/tasks/pet-health-tracker-audit-2026-11-05.md`), decisiones C1–C14 de v2.1.0 y discrepancias D-01…D-12 del reporte del Desarrollador (2026-11-05), que la tarea debe cerrar.
+- Columna "Hallazgos" = IDs del informe de auditoría del 2026-11-05 (`.specify/memory/audits/pet-health-tracker-audit-2026-11-05.md`), decisiones C1–C14 de v2.1.0 y discrepancias D-01…D-12 del reporte del Desarrollador (2026-11-05), que la tarea debe cerrar.
 - **Trazabilidad explícita (v2.2.0):** la columna "IDs de Trazabilidad" lista IDs completos, sin comodines ni rangos, para que `verify-traceability.sh` los lea de forma determinista.
 - **Autorizaciones Nivel 2 para esta cola:** el stack de la constitución v2.2.0 §2 (incluido `@types/node`) y la lista de dependencias adicionales de §2; modificación de `scripts/` (`compile-contracts.sh`, `codegen.mjs`, `verify-*.sh`), `.github/workflows/` y `tests/mutation/stryker.conf.json` en las tareas indicadas; registro de `x-sdd-error` en Ajv y de `multipleOfPrecision: 2` (TASK-102). Cualquier otra dependencia o cambio de contrato requiere consulta previa.
 
@@ -23,6 +219,7 @@ approved_by: Andrés Vallejo, 2026-11-05
 - `TASK-001`..`TASK-008` (v1.0.0) → **`SUPERSEDED`**. Su código puede reutilizarse solo si cumple v2.2.0.
 - v2.1.0 (2026-11-05): TASK-100 añadida; columnas "Responsable" y "Depende de"; adaptadores en memoria movidos a TASK-108; pruebas de respaldo movidas a TASK-111; TASK-113 depende de TASK-111 y TASK-112.
 - v2.2.0 (2026-11-05): resolución de D-01…D-12 del reporte del Desarrollador y de los defectos de contratos detectados por el Arquitecto. Cambios: (a) IDs de trazabilidad explícitos en todas las filas (sin `*`, sin rangos); (b) `INV-PET-003` asignado a TASK-108 (cobertura de TASK-115); (c) adaptadores de prueba `FixedClockAdapter` y `DeterministicIdAdapter` movidos a TASK-104 (D-11; ver (g)); (d) criterios de logout idempotente (D-04), re-invitación (D-05), visibilidad de hogar para INVITED y OWNER (D-01), búsqueda sin tildes (D-03), verificación de `INV-AUTH-006` por espía sin umbral temporal (D-02); (e) TASK-102 y TASK-103 exigen eliminar IDs retirados y leer cada máquina de su propio archivo; (f) TASK-104 incluye `calculatePetAge` corregido (REQ-PET-002). (g) Revisión 2 (H-02, H-05, H-06, H-07): adaptadores de prueba movidos a TASK-104 (antes de su uso en TASK-106); `INV-AUTH-007` formaliza la regla CSRF que se citaba como `CONST-6.3`; `ERR-PET-FUTURE-BIRTHDATE` trazado en TASK-104. TASK-100 conserva su texto de v2.1.0; la cola v2.2.0 requiere la firma de Andrés (H-10).
+- v2.3.0 (2026-11-09): migración a la plantilla `tasks-template.md` de GitHub Spec Kit. El archivo pasa de `.specify/tasks/pet-health-tracker-tasks.md` a `specs/001-pet-health-tracker/tasks.md`. Se añaden las fases de la plantilla con una línea por tarea; la tabla «Cola v2.2.0», la deuda y los cambios de criterio conservan su texto. Ninguna tarea cambia de estado, alcance ni identificador. Las rutas `.specify/specs/`, `.specify/plans/`, `.specify/tasks/`, `.specify/checklists/` y `.specify/constitution/` que aparecen en filas e historial son las vigentes cuando se escribió cada registro; su equivalencia actual está en `.specify/memory/migration-speckit-2026-11-09.md`.
 
 ## Cola v2.2.0
 
@@ -58,7 +255,7 @@ Aceptada por Andrés al dejar TASK-102 en `REVIEW`. Origen: código y pruebas v1
 | DEUDA-CONTRATO-001 | **Cerrada en TASK-111** (`a8db6a3`; OpenAPI 2.3.0 y spec 2.3.1 en `2a1ab14`; `src/generated` regenerado en `cb7d3b7`). Contrato y spec incompletos para la frontera HTTP (H-111-1 y H-111-4): (a) el OpenAPI no declara respuestas que la API produce: 422 en `GET /pets` y `POST /auth/login`; 500 `ERR-INTERNAL-UNEXPECTED` en todas las operaciones salvo la importación; 403 de CSRF en `accept` y `decline`. Las pruebas de `openapi-conformance.spec.ts` desactivan la comprobación en 3 llamadas, comentadas. (b) §5.1 no dice que el acceso por recurso (404/403) se comprueba antes que el esquema del cuerpo, como implementa TASK-108 (D-108-4). | `claude/evidencia-task-111-2026-11-09.md` §7; `claude/decisiones-arquitecto-task-111-2026-11-09.md` | — | Cerrada |
 | DEUDA-GATE-001 | `npm run test:gate` falla. Tras TASK-112 (H-112-4) falla en el paso de trazabilidad final (95/96: INV-ARCH-003 solo en `src/generated`; 2 IDs retirados STATE-PET-QUOTA-001 en `tests/e2e/visual/pet-dashboard.spec.ts`) y, después, en `tsc --noEmit` por DEUDA-E2E-001; `vitest run` queda sin ejecutar dentro del gate. DEUDA-TSC-001 y DEUDA-TEST-001 ya no lo bloquean. | `claude/evidencia-task-102-2026-11-05.md` §12; `claude/evidencia-task-112-2026-11-09.md` §6 y §8 (H-112-4) | **Cerrada en TASK-115** (`0a9f9a6`: INV-ARCH-003 trazado en `src/presentation/web/validation.ts`; `d457341`: cobertura y `test:gate` completo). Responsable: Desarrollador | `npm run test:gate` en verde al cerrar TASK-115: **cumplido** desde checkout limpio con `npm ci` (árbol `0f99ea81…`): exit 0; trazabilidad 96/96, oráculos 0, `tsc` 0, Vitest 580/580 con cobertura 99,57 % líneas y 99,70 % ramas, mutación 99,69 %, Playwright 24/24 |
 | DEUDA-UI-FILTRO-001 | Filtro de tarjetas en cliente en contexto de hogar (H-112-2): `getHouseholdPets` no admite `q` ni `species`, y REQ-UI-001 pide el filtro en todo contexto. En "Mis mascotas" filtra la API; en hogar filtra `filterHouseholdCards` (`src/presentation/web/view-model.ts`) con la normalización de REQ-PET-005. `tests/integration/presentation/web-client.spec.ts` comprueba que da el mismo resultado que la API. | `claude/evidencia-task-112-2026-11-09.md` §8 (H-112-2); `claude/veredicto-auditor-task-112-2026-11-09.md` | **Decidida (Arquitecto, 2026-11-09):** `q` y `species` añadidos a `getHouseholdPets` (OpenAPI 2.4.0 REVIEW, MINOR). TASK-113: la SPA filtra por la API y se retira `filterHouseholdCards`. | **Cerrada en TASK-113** (`b22d572`): la SPA filtra por la API y se retiran `filterHouseholdCards` y su prueba. OpenAPI 2.4.0 validado en `173d2a4`. |
-| DEUDA-TIPADO-001 | 3 `any` en `tests/unit/backup-use-cases.spec.ts:267-269` y 1 `!` (aserción no nula) en `src/domain/backup/backup-migration.ts:37`. Ítem 9 de `.specify/checklists/code-review.md`. Aceptada por el Arquitecto para no bloquear TASK-115 (H-115-6). | `claude/decisiones-arquitecto-task-115-2026-11-09.md`; `claude/evidencia-task-115-2026-11-09.md` §6 | Desarrollador, siguiente tarea de mantenimiento | Sin `any` ni `!` en esos archivos; `tsc --noEmit` y `verify-oracles.sh` en verde. |
+| DEUDA-TIPADO-001 | 3 `any` en `tests/unit/backup-use-cases.spec.ts:267-269` y 1 `!` (aserción no nula) en `src/domain/backup/backup-migration.ts:37`. Ítem 9 (CHK009) de `specs/001-pet-health-tracker/checklists/code-review.md`. Aceptada por el Arquitecto para no bloquear TASK-115 (H-115-6). | `claude/decisiones-arquitecto-task-115-2026-11-09.md`; `claude/evidencia-task-115-2026-11-09.md` §6 | Desarrollador, siguiente tarea de mantenimiento | Sin `any` ni `!` en esos archivos; `tsc --noEmit` y `verify-oracles.sh` en verde. |
 | DEUDA-DEP-001 | `react-router-dom` 6.30.6 con 2 avisos moderados de `npm audit` en runtime (redirección abierta con barra invertida y una inyección de hidratación SSR que la app no usa). Desde TASK-101. La corrección exige react-router 7, cambio mayor del stack (H-115-8). Aceptada por el Arquitecto; el límite pasa de «antes de TASK-115» a «antes de la siguiente versión». | `claude/evidencia-task-115-2026-11-09.md` §6; `claude/evidencia-task-101-2026-11-05.md` | Desarrollador, tarea propia de migración a react-router 7 | `npm audit --omit=dev` sin avisos de `react-router-dom`. |
 | DEUDA-BACKUP-ORDER-001 | **Cerrada en TASK-111** (`c76cf7c`). `backup-atomicity.spec.ts` fuerza el orden de INV-BACKUP-001 con sobres que violan una regla cada vez: duplicado → INV-PET → INV-REC → ID ajeno → COMPLETED, y huérfano antes que INV-PET e INV-REC. | `claude/evidencia-task-111-2026-11-09.md` §3 | — | Cerrada |
 | DEUDA-VAL-001 | `multipleOfPrecision: 2` en `scripts/codegen.mjs:145` acepta `weightKg` y las medidas con más de 2 decimales (p. ej. `32.85001`) en la frontera de validación. El dominio sí los rechaza con el código del campo (INV-REC-002/003). | `claude/evidencia-task-107-2026-11-06.md` §3 (H-107-2); `claude/evidencia-task-108-2026-11-06.md` | Cerrada en TASK-108 (`8e218b6`): `multipleOfPrecision` 10 en `scripts/codegen.mjs:145` (D-108-8); prueba de frontera en `tests/integration/contracts/decimal-precision-boundary.spec.ts` (6 pruebas). | Cerrada en TASK-108 |
@@ -90,7 +287,6 @@ Decide: Arquitecto, por escrito en `claude/decisiones-arquitecto-task-109-2026-1
 
 Recuento de deuda tras TASK-109: DEUDA-TSC-001 pasa de 40 a 62 errores (`src/application` 6 → 0 al cerrar TASK-109; `tests/integration` 10 → 38 por CC-109-C3, cierre TASK-111; `src/infrastructure` 7 y `src/presentation` 17 sin cambios). DEUDA-PRES-001 pasa de 12 a 19 (+7 de `App.tsx`, cierre TASK-112). El total de `tsc --noEmit` pasa de 52 a 81 (62 de DEUDA-TSC-001 más 19 de DEUDA-PRES-001). DEUDA-TEST-001 se mantiene en 12 de 267 (`backup-atomicity.spec.ts` 7, `canonical-fixtures.spec.ts` 5; cierre TASK-111). DEUDA-GATE-001 sin cambios (TASK-112).
 
-
 ## Cambios de criterio registrados (2026-11-09, TASK-110)
 
 Decide: Arquitecto, por escrito en `claude/decisiones-arquitecto-task-110-2026-11-09.md`.
@@ -111,3 +307,24 @@ Decide: Arquitecto, por escrito en `claude/decisiones-arquitecto-task-111-2026-1
 | CC-111-2 | TASK-111 | Parámetro de ruta con formato no UUID debería ser 422 (H-111-2) | Se acepta el 404 de la ruta (ERR-PET-NOT-FOUND, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-INVITATION-NOT-FOUND), que el OpenAPI ya declara. Un id no UUID no existe, y la spec trata la inexistencia como 404 (INV-ACC-001). | Coherente con INV-ACC-001 y con lo declarado. | Arquitecto |
 | CC-111-3 | TASK-111 | Ruta inexistente con `problem+json` (H-111-3) | Se acepta el 404 por defecto de Fastify (JSON simple). No es una operación del OpenAPI y el catálogo no tiene código genérico de "no encontrado". | Crear un código de catálogo para algo que no es operación de la API excede esta tarea. | Arquitecto |
 | CC-111-4 | TASK-111 | Precedencia de altas de registros y PATCH/DELETE de mascota (H-111-4) | Se acepta el orden de TASK-108 (acceso 404/403 antes que esquema del cuerpo). Se escribe en §5.1 junto con DEUDA-CONTRATO-001 (b). | D-108-4; ya implementado y probado. | Arquitecto |
+
+## Tabla de alias `TASK-NNN` → `T###`
+
+| TASK-NNN | T### |
+|---|---|
+| TASK-100 | T001 |
+| TASK-101 | T002 |
+| TASK-102 | T003 |
+| TASK-103 | T004 |
+| TASK-104 | T005 |
+| TASK-106 | T007 |
+| TASK-105 | T006 |
+| TASK-107 | T008 |
+| TASK-109 | T010 |
+| TASK-108 | T009 |
+| TASK-110 | T011 |
+| TASK-111 | T012 |
+| TASK-112 | T013 |
+| TASK-113 | T014 |
+| TASK-114 | T015 |
+| TASK-115 | T016 |

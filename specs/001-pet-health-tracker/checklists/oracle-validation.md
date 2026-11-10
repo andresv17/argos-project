@@ -1,27 +1,39 @@
 ---
 document_id: CHECKLIST-ORACLE-VALIDATION
-version: 2.2.0
+version: 2.3.0
 status: REVIEW
 applies_to: TASKS-ARGOS-001 v2.2.0
-note: re-versionado por el Arquitecto (D-07) a v2.2.0 en REVIEW; el Auditor debe re-validar sobre TASKS v2.2.0 antes de APPROVED.
+note: v2.3.0 (2026-11-09): migrado a la plantilla `checklist-template.md` de GitHub Spec Kit; la tabla pasa a ítems `CHK###` sin cambiar criterios, estados, evidencias ni firmas registradas. Requiere revalidación del Auditor. Nota anterior: re-versionado por el Arquitecto (D-07) a v2.2.0 en REVIEW; el Auditor debe re-validar sobre TASKS v2.2.0 antes de APPROVED.
 ---
 
-# Checklist de Compuerta Fase 5: Validación de Oráculos de Prueba (`oracle-validation.md`)
+# Oracle Validation Checklist: Argos Pet Health & Biometric Tracker
 
-Previene pruebas tautológicas o *Weak Oracles*. Se audita automáticamente con `scripts/verify-oracles.sh` y **manualmente por el arquitecto humano**. El agente adjunta evidencia; no marca la firma humana.
+**Purpose**: Compuerta de la Fase 5 (Test Gate). Previene pruebas tautológicas o *Weak Oracles*. Se audita automáticamente con `scripts/verify-oracles.sh` y **manualmente por el arquitecto humano**. El agente adjunta evidencia; no marca la firma humana.
 
-| # | Regla | Evidencia requerida | Estado | Firma humana |
-| :--- | :--- | :--- | :--- | :--- |
-| 1 | **Sin aserciones superficiales aisladas**: ningún test tiene como aserción principal `toBeDefined()`, `toBeTruthy()`, `toBeFalsy()` o `not.toBeNull()`. | Salida de `verify-oracles.sh` + test negativo del propio script. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 2 | **Código de error exacto**: toda prueba de fallo verifica `code` y `status` (`ERR-*` + HTTP). Prohibido `toThrow()` sin argumento. | `grep` de `toThrow(` y revisión de muestra. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 3 | **Determinismo**: `FixedClockAdapter` (`2026-11-05T12:00:00.000Z`, zona `America/Bogota`), `DeterministicIdAdapter` y `seed: 20261105` en fast-check en `unit/`, `property/` e `integration/`. | `grep` de `seed` y de adaptadores. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 4 | **Estado intacto tras rollback (`INV-BACKUP-001`)**: además del `ERR-*`, una lectura posterior devuelve exactamente el mismo snapshot previo (comparación serializada), incluido el caso de fallo en el commit. | Tests en `tests/integration/api/`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 5 | **Trazabilidad en el nombre**: todo `it`/`test` incluye entre corchetes el ID que valida. | Salida de `verify-traceability.sh`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 6 | **Herramientas oficiales**: Vitest, fast-check, Stryker, Playwright y `@axe-core/playwright` reales; ningún harness propio ni auditoría de accesibilidad por expresiones regulares. | `package.json` + `package-lock.json` + salida de Playwright. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 7 | **Mutación**: Mutation Score ≥ 85% en `src/domain/` y `src/application/`; mutantes sobrevivientes revisados. | Reporte HTML de Stryker. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 8 | **Pruebas negativas de seguridad**: cada caso de `tests/security/exploits/` falla si se elimina la defensa correspondiente (verificado al menos una vez manualmente). | Nota del revisor. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+**Created**: 2026-11-05
 
-## Evidencia por ítem: compuerta final TASK-115 (Desarrollador, 2026-11-09)
+**Feature**: [spec.md](../spec.md) · [tasks.md](../tasks.md) (TASKS-ARGOS-001)
+
+**Note**: Título anterior: «Checklist de Compuerta Fase 5: Validación de Oráculos de Prueba (`oracle-validation.md`)». Regla y numeración originales conservados: `CHK00N` es el ítem N de la tabla anterior.
+
+**Review Ownership**: Checklist de compuerta propiedad del revisor. Un ítem se marca `[x]` solo cuando existe evidencia verificable y, donde aplica, firma humana.
+
+**Marker Semantics**: `[x]` significa que el criterio fue revisado y cumplido. `[ ]` significa pendiente, en revisión o aceptado como deuda abierta; `/speckit.implement` lee estas casillas como compuerta y no debe modificarlas.
+
+## Compuerta Fase 5: Validación de Oráculos de Prueba
+
+- [x] CHK001 **Sin aserciones superficiales aisladas**: ningún test tiene como aserción principal `toBeDefined()`, `toBeTruthy()`, `toBeFalsy()` o `not.toBeNull()`. **Evidencia requerida:** Salida de `verify-oracles.sh` + test negativo del propio script. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK002 **Código de error exacto**: toda prueba de fallo verifica `code` y `status` (`ERR-*` + HTTP). Prohibido `toThrow()` sin argumento. **Evidencia requerida:** `grep` de `toThrow(` y revisión de muestra. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK003 **Determinismo**: `FixedClockAdapter` (`2026-11-05T12:00:00.000Z`, zona `America/Bogota`), `DeterministicIdAdapter` y `seed: 20261105` en fast-check en `unit/`, `property/` e `integration/`. **Evidencia requerida:** `grep` de `seed` y de adaptadores. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK004 **Estado intacto tras rollback (`INV-BACKUP-001`)**: además del `ERR-*`, una lectura posterior devuelve exactamente el mismo snapshot previo (comparación serializada), incluido el caso de fallo en el commit. **Evidencia requerida:** Tests en `tests/integration/api/`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK005 **Trazabilidad en el nombre**: todo `it`/`test` incluye entre corchetes el ID que valida. **Evidencia requerida:** Salida de `verify-traceability.sh`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK006 **Herramientas oficiales**: Vitest, fast-check, Stryker, Playwright y `@axe-core/playwright` reales; ningún harness propio ni auditoría de accesibilidad por expresiones regulares. **Evidencia requerida:** `package.json` + `package-lock.json` + salida de Playwright. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK007 **Mutación**: Mutation Score ≥ 85% en `src/domain/` y `src/application/`; mutantes sobrevivientes revisados. **Evidencia requerida:** Reporte HTML de Stryker. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK008 **Pruebas negativas de seguridad**: cada caso de `tests/security/exploits/` falla si se elimina la defensa correspondiente (verificado al menos una vez manualmente). **Evidencia requerida:** Nota del revisor. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+
+## Notes
+
+### Evidencia por ítem: compuerta final TASK-115 (Desarrollador, 2026-11-09)
 
 Base: rama `spec/v2.2.0-review`, cambios de TASK-115 sobre `c774e3b`. **La columna «Firma humana» queda vacía**; la revisión manual es del arquitecto humano.
 

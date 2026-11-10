@@ -1,29 +1,41 @@
 ---
 document_id: CHECKLIST-CODE-REVIEW
-version: 2.2.0
+version: 2.3.0
 status: REVIEW
 applies_to: TASKS-ARGOS-001 v2.2.0
-note: re-versionado por el Arquitecto (D-07) a v2.2.0 en REVIEW; el Auditor debe re-validar sobre TASKS v2.2.0 antes de APPROVED.
+note: v2.3.0 (2026-11-09): migrado a la plantilla `checklist-template.md` de GitHub Spec Kit; la tabla pasa a ítems `CHK###` sin cambiar criterios, estados, evidencias ni firmas registradas. Requiere revalidación del Auditor. Nota anterior: re-versionado por el Arquitecto (D-07) a v2.2.0 en REVIEW; el Auditor debe re-validar sobre TASKS v2.2.0 antes de APPROVED.
 ---
 
-# Checklist de Compuerta Fase 4: Revisión Arquitectónica de Código (`code-review.md`)
+# Code Review Checklist: Argos Pet Health & Biometric Tracker
 
-Lo completa el agente **con evidencia por ítem** (archivo, comando y salida) al pasar cada tarea a `REVIEW`. Solo el arquitecto humano firma y marca la tarea `COMPLETED`. Prohibido marcar `[x]` sin evidencia verificable.
+**Purpose**: Compuerta de la Fase 4 (Implement). Lo completa el agente **con evidencia por ítem** (archivo, comando y salida) al pasar cada tarea a `REVIEW`. Solo el arquitecto humano firma y marca la tarea `COMPLETED`. Prohibido marcar `[x]` sin evidencia verificable.
 
-| # | Criterio | Evidencia requerida | Estado | Firma humana |
-| :--- | :--- | :--- | :--- | :--- |
-| 1 | **Inmutabilidad de `src/generated/` (`INV-ARCH-003`)**: nada editado a mano; regenerar produce `git diff` vacío; los validadores derivan de `contracts/` (no de plantillas). | Salida de `compile-contracts.sh && git diff --exit-code src/generated/` + test de deriva. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 2 | **Cero entropía directa (`INV-ARCH-001`, `INV-ARCH-002`)** en `src/domain/` y `src/application/` (`Date`, `performance.now`, `Math.random`, `crypto.*`). | Salida de `verify-traceability.sh`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 3 | **Fronteras concéntricas (`INV-ARCH-004`)**: `domain` solo importa `generated`; `presentation` solo usa el cliente API y tipos; sin reglas de negocio en componentes. | Regla SAST de imports en `tests/security/sast-rules/` en verde. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 4 | **Puertos asíncronos y Cloud-ready (`INV-ARCH-005`)**: los mismos tests de contrato pasan con adaptador en memoria y SQLite. | Salida de la suite de repositorios para ambos adaptadores. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 5 | **Configuración aislada (`INV-ARCH-006`)**: `process.env` solo en `src/infrastructure/config/`; sin secretos versionados; `.env.example` presente. | `grep` + regla SAST. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 6 | **Validación estricta en fronteras**: toda request/response HTTP, lectura de BD e importación validadas con los validadores generados (`additionalProperties: false`). | Tests en `tests/integration/contracts/`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 7 | **Autorización (`INV-ACC-001`, `INV-ACC-002`)** aplicada en cada caso de uso antes de leer/escribir. | Tests IDOR en `tests/security/exploits/`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 8 | **Anotaciones `@implements`** con los IDs de la tarea en cada función/clase exportada. | Salida de `verify-traceability.sh`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
-| 9 | **Tipado estricto sin escapes**: cero `any`, `@ts-ignore`, `@ts-expect-error`, y aserciones no nulas `!` justificadas; `tsc --noEmit` limpio en `src/` y `tests/`. | Salida de `npx tsc --noEmit`. | [ ] | Arquitecto, 2026-11-09: aceptado con DEUDA-TIPADO-001 (estado `[ ]` hasta cerrar la deuda) |
-| 10 | **Estructura de repositorio** idéntica al estándar más la lista autorizada (constitución §7); `.gitkeep` presentes. | Árbol de `find . -not -path './node_modules/*'`. | [x] | Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo) |
+**Created**: 2026-11-05
 
-## Evidencia por ítem: compuerta final TASK-115 (Desarrollador, 2026-11-09)
+**Feature**: [spec.md](../spec.md) · [tasks.md](../tasks.md) (TASKS-ARGOS-001)
+
+**Note**: Título anterior: «Checklist de Compuerta Fase 4: Revisión Arquitectónica de Código (`code-review.md`)». Criterio y numeración originales conservados: `CHK00N` es el ítem N de la tabla anterior.
+
+**Review Ownership**: Checklist de compuerta propiedad del revisor. Un ítem se marca `[x]` solo cuando existe evidencia verificable y, donde aplica, firma humana.
+
+**Marker Semantics**: `[x]` significa que el criterio fue revisado y cumplido. `[ ]` significa pendiente, en revisión o aceptado como deuda abierta; `/speckit.implement` lee estas casillas como compuerta y no debe modificarlas.
+
+## Compuerta Fase 4: Revisión Arquitectónica de Código
+
+- [x] CHK001 **Inmutabilidad de `src/generated/` (`INV-ARCH-003`)**: nada editado a mano; regenerar produce `git diff` vacío; los validadores derivan de `contracts/` (no de plantillas). **Evidencia requerida:** Salida de `compile-contracts.sh && git diff --exit-code src/generated/` + test de deriva. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK002 **Cero entropía directa (`INV-ARCH-001`, `INV-ARCH-002`)** en `src/domain/` y `src/application/` (`Date`, `performance.now`, `Math.random`, `crypto.*`). **Evidencia requerida:** Salida de `verify-traceability.sh`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK003 **Fronteras concéntricas (`INV-ARCH-004`)**: `domain` solo importa `generated`; `presentation` solo usa el cliente API y tipos; sin reglas de negocio en componentes. **Evidencia requerida:** Regla SAST de imports en `tests/security/sast-rules/` en verde. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK004 **Puertos asíncronos y Cloud-ready (`INV-ARCH-005`)**: los mismos tests de contrato pasan con adaptador en memoria y SQLite. **Evidencia requerida:** Salida de la suite de repositorios para ambos adaptadores. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK005 **Configuración aislada (`INV-ARCH-006`)**: `process.env` solo en `src/infrastructure/config/`; sin secretos versionados; `.env.example` presente. **Evidencia requerida:** `grep` + regla SAST. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK006 **Validación estricta en fronteras**: toda request/response HTTP, lectura de BD e importación validadas con los validadores generados (`additionalProperties: false`). **Evidencia requerida:** Tests en `tests/integration/contracts/`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK007 **Autorización (`INV-ACC-001`, `INV-ACC-002`)** aplicada en cada caso de uso antes de leer/escribir. **Evidencia requerida:** Tests IDOR en `tests/security/exploits/`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [x] CHK008 **Anotaciones `@implements`** con los IDs de la tarea en cada función/clase exportada. **Evidencia requerida:** Salida de `verify-traceability.sh`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+- [ ] CHK009 **Tipado estricto sin escapes**: cero `any`, `@ts-ignore`, `@ts-expect-error`, y aserciones no nulas `!` justificadas; `tsc --noEmit` limpio en `src/` y `tests/`. **Evidencia requerida:** Salida de `npx tsc --noEmit`. **Firma humana:** Arquitecto, 2026-11-09: aceptado con DEUDA-TIPADO-001 (estado `[ ]` hasta cerrar la deuda)
+- [x] CHK010 **Estructura de repositorio** idéntica al estándar más la lista autorizada (constitución §7); `.gitkeep` presentes. **Evidencia requerida:** Árbol de `find . -not -path './node_modules/*'`. **Firma humana:** Arquitecto, 2026-11-09 (autorizado por Andrés Vallejo)
+
+## Notes
+
+### Evidencia por ítem: compuerta final TASK-115 (Desarrollador, 2026-11-09)
 
 Base: rama `spec/v2.2.0-review`, cambios de TASK-115 sobre `c774e3b`. Node 22.23.4. La columna «Estado» la marca el Desarrollador solo donde la evidencia cumple el criterio literal; `[ ]` con nota indica evidencia parcial o distinta de la pedida, para decisión del firmante. **La columna «Firma humana» queda vacía.**
 
