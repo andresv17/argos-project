@@ -11,7 +11,7 @@
 Plataforma web multiusuario para el expediente clínico y biométrico de mascotas: una SPA React consume una API HTTP local que aplica casos de uso sobre un dominio puro y persiste en SQLite. Los tipos, los validadores y el cliente de la API se generan desde los contratos formales de `specs/001-pet-health-tracker/contracts/`, y el reloj y la entropía se inyectan por puertos para que todo cálculo sea determinista.
 
 ```text
-Navegador (React SPA, Vite :5173)  ──/api (proxy)──►  API Fastify (127.0.0.1:3000)  ──►  SQLite ./data/argos.sqlite
+Navegador (React SPA, Vite :5173)  ──/api (proxy)──►  API Fastify (127.0.0.1:3100)  ──►  SQLite ./data/argos.sqlite
         src/presentation/web/                          src/infrastructure/http/            src/infrastructure/persistence/
                      │                                           │
                      └──── cliente tipado generado (src/generated/api/client.ts) ──► src/application/ (casos de uso) ──► src/domain/
@@ -29,7 +29,7 @@ Para Cloud solo se sustituyen adaptadores de `src/infrastructure/` (persistencia
 
 **Testing**: Vitest 2 con `@vitest/coverage-v8`, fast-check 3 (`seed: 20261105`), Stryker con `vitest-runner`, Playwright con `@axe-core/playwright`, Semgrep en CI
 
-**Target Platform**: ejecución local en `127.0.0.1` (API Node en el puerto 3000 y SPA en navegador); fase Cloud posterior sustituyendo solo adaptadores de `src/infrastructure/`
+**Target Platform**: ejecución local en `127.0.0.1` (API Node en el puerto 3100 y SPA en navegador); fase Cloud posterior sustituyendo solo adaptadores de `src/infrastructure/`
 
 **Project Type**: aplicación web (SPA + API HTTP) en un único proyecto organizado por capas concéntricas
 

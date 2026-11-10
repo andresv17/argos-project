@@ -4,7 +4,7 @@ info:
   title: Argos Pet Health & Biometric Tracker API
   version: 2.4.0
   description: >
-    Contrato formal de la API HTTP local (127.0.0.1:3000, prefijo /api) bajo SDD.
+    Contrato formal de la API HTTP local (127.0.0.1:3100, prefijo /api) bajo SDD.
     Las versiones 2.x son MINOR entre sí; respecto a 1.0.0 el cambio es MAJOR: autenticación por sesión, propiedad de mascotas,
     hogares compartidos, eliminación de mascotas, sin cupo y respaldo por usuario.
     Todas las respuestas de error usan application/problem+json (RFC 9457).
@@ -40,7 +40,7 @@ info:
       - INV-ACC-001
       - INV-ACC-002
 servers:
-  - url: http://127.0.0.1:3000/api
+  - url: http://127.0.0.1:3100/api
     description: Servidor local (fase actual)
 security:
   - sessionCookie: []
