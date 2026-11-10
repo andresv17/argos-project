@@ -61,6 +61,16 @@ describe('autenticación por HTTP (src/infrastructure/http/routes/auth.routes.ts
     ]);
   });
 
+  it('[REQ-AUTH-002][REQ-AUTH-003] login → logout → login: la sesión nueva funciona y la anterior queda revocada (sin ERR-INTERNAL-UNEXPECTED)', async () => {
+    api = await createApi();
+    const first = await api.login('andres');
+    const out = await api.call('POST', '/api/auth/logout', { cookie: first });
+    const again = await api.call('POST', '/api/auth/login', { body: { username: 'andres', password: 'Argos2026a' } });
+    const me = await api.call('GET', '/api/auth/me', { cookie: again.cookie });
+    const stale = await api.call('GET', '/api/auth/me', { cookie: first });
+    expect([out.status, again.status, me.status, problemOf(stale)]).toEqual([204, 200, 200, { status: 401, code: 'ERR-AUTH-UNAUTHENTICATED' }]);
+  });
+
   it('[REQ-AUTH-004] /auth/me devuelve la sesión vigente; sin cookie, con token desconocido o con la sesión expirada (7 días, EDGE-014) → 401', async () => {
     api = await createApi();
     const cookie = await api.login('maria.v');

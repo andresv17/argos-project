@@ -6,6 +6,12 @@ import { importProblemText, importResultText } from '../../../src/presentation/w
 const ok = (status: number): Response => new Response(null, { status });
 
 describe('errores de la API en la SPA', () => {
+  it('[ERR-INTERNAL-UNEXPECTED] una respuesta que no es del catálogo (p. ej. otro servicio en el puerto del proxy) se muestra como ERR-INTERNAL-UNEXPECTED', async () => {
+    const foreign = { message: 'Unauthorized', messageId: 'auth.unauthorized', statusCode: 401 };
+    expect(toProblem(foreign).code).toBe('ERR-INTERNAL-UNEXPECTED');
+    await expect(unwrap(Promise.resolve({ error: foreign, response: new Response(null, { status: 401 }) }))).rejects.toMatchObject({ problem: { code: 'ERR-INTERNAL-UNEXPECTED' } });
+  });
+
   it('[INV-AUTH-007] las operaciones mutantes envían X-Argos-Request: 1 con el cliente generado', () => {
     expect(CSRF_PARAMS).toEqual({ header: { 'X-Argos-Request': '1' } });
   });

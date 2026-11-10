@@ -56,6 +56,16 @@ describe('mascotas por HTTP (src/infrastructure/http/routes/pets.routes.ts)', ()
     ]);
   });
 
+  it('[REQ-PET-001] PATCH con el cuerpo completo que envía el formulario de edición (sin avatarUrl vacío) → 200, también repetido', async () => {
+    api = await createApi();
+    const url = `/api/pets/${ARGOS_ID}`;
+    const cookie = await api.login('andres');
+    const body = { name: 'Argos', species: 'DOG', breed: 'Pastor alemán', birthDate: '2020-05-01', sex: 'MALE' };
+    const first = await api.call('PATCH', url, { cookie, body });
+    const second = await api.call('PATCH', url, { cookie, body: { ...body, name: 'Argos II' } });
+    expect([first.status, second.status, (second.json as { name: string }).name]).toEqual([200, 200, 'Argos II']);
+  });
+
   it('[REQ-PET-001] PATCH: el dueño edita (200); un miembro del hogar recibe 403; quien no la ve recibe 404; EDGE-007 → 422', async () => {
     api = await createApi();
     const url = `/api/pets/${ARGOS_ID}`;

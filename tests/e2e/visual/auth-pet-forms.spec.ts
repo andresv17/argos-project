@@ -78,7 +78,7 @@ test.describe('formularios de autenticación y mascota (tests/e2e/visual)', () =
     await page.goto('/login');
     await page.getByLabel('Usuario').fill(USER.username);
     await page.getByLabel('Contraseña').fill(USER.password);
-    await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+    await page.getByRole('button', { name: 'Entrar' }).click();
     await expect(page).toHaveURL(/\/$/);
 
     const filtro = page.getByRole('search').getByLabel('Buscar mascota por nombre');
@@ -87,7 +87,7 @@ test.describe('formularios de autenticación y mascota (tests/e2e/visual)', () =
     await filtro.fill('Arg');
 
     await page.getByRole('button', { name: 'Nueva mascota' }).click();
-    await expect(page.getByLabel('Nombre', { exact: true })).toHaveCount(1);
+    await expect(page.locator('form[aria-labelledby] input[name="name"]')).toHaveCount(1);
     await expect(page.locator('#new-pet-name')).toHaveValue('');
     await expect(page.getByRole('search').getByLabel('Nombre', { exact: true })).toHaveCount(0);
   });
