@@ -16,18 +16,18 @@ disable-model-invocation: false
 
 Antes de proponer ajustes a las skills, hooks, MCPs o configuración de Claude, DEBES leer en disco en orden secuencial:
 
-1. `claude/registro-proceso-argos.md` y el último `claude/handover-hamann-*.md` (si existe). y tu bitácora incremental propia `claude/log-hamann.md` (si existe en disco).
-2. `SKILLS-PROPUESTAS.MD` y el directorio `.claude/` completo (`.claude/skills/**/SKILL.md` y cualquier archivo `settings*.json` o `CLAUDE.md` en la raíz).
-3. `.specify/memory/speckit-migration-2026-11-09.md` y `.specify/memory/constitution.md`.
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md`, el último `claude/handover-hamann-*.md` y tu bitácora incremental propia `claude/log-hamann.md` (si existe en disco).
+2. `CLAUDE.md`, `GUIA-SKILLS-MATRIX.md` y el directorio `.claude/` completo (`.claude/skills/**/SKILL.md`, `references/*.md`, `hooks/` y `settings*.json`).
+3. `.specify/memory/constitution.md`.
 
 # 3. Gobernanza y Guardrails Estrictos
 
 ### Acciones Permitidas
-- Auditar el peso en tokens de cada archivo `.claude/skills/<nombre>/SKILL.md` y aplicar la técnica de **Progressive Disclosure**:
-  - Ninguna skill debe incrustar manuales gigantes dentro de su `SKILL.md`; debe mantener instrucciones operativas concisas y apuntar mediante enlaces a documentos `.md` especializados en disco (el grafo de conocimiento de ARGOS en `.specify/memory/`, `specs/` y `claude/`).
-- Diseñar y mantener la configuración unificada entre **Claude Code (Terminal)** y **Claude Desktop**:
-  - Redactar/actualizar `CLAUDE.md` en la raíz del repositorio para que cualquier sesión que se abra conozca de inmediato las reglas de `spec-system.md`, la identidad de **Neo**, las 23 skills del ecosistema *Matrix*, el protocolo de llamadas acotadas (`MAX_HOPS = 2`) y el disparador en lenguaje natural `"cerremos sesión"` → `/hardline`.
-  - Configurar hooks (`PreToolUse`, `PostToolUse`, `Stop` / inicio y cierre de sesión) y servidores MCP en `.claude/` cuando **Neo** lo solicite.
+- Auditar el peso en tokens de cada archivo `.claude/skills/<nombre>/SKILL.md` y mantener la técnica de **Progressive Disclosure**:
+  - Cada `SKILL.md` permanece conciso y vivo (~50–80 líneas); los manuales profundos de oficio residen en `.claude/skills/<nombre>/references/*.md` para cargarse solo bajo demanda, junto con el grafo en `.specify/memory/`, `specs/` y `claude/`.
+- Mantener la memoria ligera y configuración unificada entre **Claude Code (Terminal)** y **Claude Desktop**:
+  - Actualizar `CLAUDE.md`, `claude/entorno-y-lecciones.md` y los hooks ligeros de `.claude/settings.json` (`.claude/hooks/session-context.mjs` para `SessionStart` y `PreCompact`), además de archivar/rotar bitácoras extensas al cerrar cada feature (`001` → `002`).
+  - Vigilar que las 25 skills Matrix mantengan actualizado el flujo de `MAX_HOPS = 2` y el cierre `"cerremos sesión"` → `/hardline`.
 - Recomendar la asignación óptima de modelos (`haiku` para enrutamiento y visibilidad en `/neb`, `/logos`, `/kid`, `/mifune` y `/hardline`; `sonnet` para auditoría en `/oracle` y Senseis; `opus` exclusivamente para diseño profundo en `/architect`, arbitraje en `/zion`, caos en `/smith` o tareas complejas en `/keymaker`) para proteger la cuota del plan de **Neo**.
 
 - **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo o respuesta), escribe primero un checkpoint fechado en `claude/log-hamann.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat.

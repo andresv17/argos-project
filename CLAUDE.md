@@ -24,9 +24,11 @@ Cuando **Neo** escriba en lenguaje natural frases como ***"cerremos sesión"***,
 
 ## 3. Bitácora Incremental en Disco (`Write-Ahead Log`) — Cero Dependencia de la Ventana de Contexto
 La ventana de conversación es efímera; **el disco es la única fuente de verdad**:
-- Cada skill posee su propia bitácora incremental en `claude/log-<personaje>.md` y comparte el bus central `claude/registro-proceso-argos.md`.
-- **Al despertar:** Toda skill DEBE leer primero `claude/registro-proceso-argos.md` y su `claude/log-<personaje>.md`.
+- Cada skill posee su propia bitácora incremental en `claude/log-<personaje>.md`, comparte el bus central `claude/registro-proceso-argos.md` y consulta los hechos fijos en `claude/entorno-y-lecciones.md`.
+- **Hooks automáticos (`.claude/settings.json`):** `SessionStart` (`startup|resume|compact`) inyecta automáticamente el estado Git, `claude/entorno-y-lecciones.md` y las últimas entradas del bus al abrir o compactar sesión; `PreCompact` recuerda persistir checkpoints antes de comprimir contexto.
+- **Al despertar:** Toda skill DEBE leer primero `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md` y su `claude/log-<personaje>.md`.
 - **En cada micro-hito (en caliente):** Cada vez que una skill toma una decisión (`CC-*`), edita un archivo, crea un commit local, ejecuta una compuerta o emite un hallazgo (`H-*`), **primero añade un registro fechado de 3–5 líneas en `claude/log-<personaje>.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat**.
+- **Rotación entre features:** Al cerrar una feature (`001` → `002`), `/hamann` o `/morpheus` archivan las bitácoras extensas cerradas para evitar inflar el contexto de sesiones nuevas (*Progressive Disclosure*).
 
 ---
 
@@ -60,4 +62,4 @@ La ventana de conversación es efímera; **el disco es la única fuente de verda
 - **Checklists de Compuerta:** `specs/001-pet-health-tracker/checklists/{requirements,code-review,oracle-validation}.md` y `.specify/memory/audits/spec-review.md`
 - **Contratos Formales:** `specs/001-pet-health-tracker/contracts/{schemas,openapi,state-machines,errors}/` (compilados con `bash scripts/compile-contracts.sh` hacia `src/generated/`)
 - **Compuertas Automáticas:** `bash scripts/verify-traceability.sh`, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit`, `npm run test:gate`
-- **Bus de Memoria Viva:** `claude/registro-proceso-argos.md`, `claude/log-<personaje>.md`, `claude/handover-<personaje>-YYYY-MM-DD.md`
+- **Bus de Memoria Viva y Hooks:** `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md`, `claude/log-<personaje>.md`, `claude/handover-<personaje>-YYYY-MM-DD.md`, `.claude/settings.json`

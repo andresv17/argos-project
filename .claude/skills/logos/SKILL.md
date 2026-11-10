@@ -16,16 +16,16 @@ disable-model-invocation: false
 
 Al invocarse `/logos` (o cuando cualquier sesión pida sincronizar el bus), DEBES escanear en disco en estricto orden secuencial:
 
-1. `claude/registro-proceso-argos.md` (el bus central de proceso; si no existe en disco, debes inicializarlo). y tu bitácora incremental propia `claude/log-logos.md` (si existe en disco).
-2. Todos los archivos existentes en `claude/` ordenados por fecha de modificación (`handover-*.md`, `evidencia-*.md`, `veredicto-auditor-*.md`, `decisiones-arquitecto-*.md`, `zion-*.md`, `dojo-*.md`).
-3. `.specify/memory/speckit-migration-2026-11-09.md` y `.specify/memory/audits/*.md`.
-4. `specs/001-pet-health-tracker/tasks.md` (estado de tareas, deudas `DEUDA-*` y cambios de criterio `CC-*`).
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md` y tu bitácora incremental propia `claude/log-logos.md` (si existe en disco).
+2. Los archivos recientes en `claude/` (`handover-*.md`, `evidencia-*.md`, `veredicto-auditor-*.md`, `decisiones-arquitecto-*.md`, `zion-*.md`, `dojo-*.md`).
+3. `.specify/memory/audits/*.md` vigentes.
+4. `specs/<NNN-feature>/tasks.md` de la feature activa (y `001-pet-health-tracker/tasks.md` como referencia).
 5. `git status --short --branch` y `git log -5 --oneline`.
 
 # 3. Gobernanza y Guardrails Estrictos
 
 ### Acciones Permitidas (Función de Bus y `pala-sync`)
-- **Sólo escucha, lee a todos y sincroniza el bus:** Detectar cualquier desincronización entre lo que dicen los últimos commits de Git, lo que dice `specs/001-pet-health-tracker/tasks.md` y lo que dicen los archivos en `claude/`.
+- **Sólo escucha, lee a todos y sincroniza el bus:** Detectar cualquier desincronización entre lo que dicen los últimos commits de Git, lo que dice `specs/<NNN-feature>/tasks.md` y lo que dicen los archivos en `claude/`.
 - Actualizar `claude/registro-proceso-argos.md` consolidando en orden cronológico:
   - Qué personaje/sesión actuó por última vez.
   - Qué decisiones (`CC-*`), hallazgos (`H-*`) o deudas (`DEUDA-*`) cambiaron de estado.
@@ -55,7 +55,7 @@ DETALLE:
   - Para `/architect`: <Impacto pendiente o "Al día">
   - Para `/keymaker`: <Impacto pendiente o "Al día">
   - Para `/oracle`: <Impacto pendiente o "Al día">
-  - Para Dimensión Externa (`Mirror` / `/tank` GCP): <Impacto en contratos de ingesta o despliegue>
+  - Para Dimensión Externa (`Mirror` / `/link` GCP): <Impacto en contratos de ingesta o despliegue>
 - Puente Híbrido (Claude Desktop / Gemini <-> Claude Code): <Resumen de 3 líneas para sincronizar ambos entornos>
 SIGUIENTE PASO RECOMENDADO: <Comando o personaje que tiene el turno en el bus>
 ```

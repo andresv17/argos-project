@@ -16,16 +16,16 @@ disable-model-invocation: false
 
 Al invocarse `/lock`, DEBES leer en disco en orden secuencial:
 
-1. `claude/registro-proceso-argos.md` y la propuesta, especificación, contrato o código que se está sometiendo a escrutinio. y tu bitácora incremental propia `claude/log-lock.md` (si existe en disco).
-2. `specs/001-pet-health-tracker/spec.md` (específicamente la Matriz de Casos Borde `EDGE-001` a `EDGE-038`).
-3. `.specify/memory/audits/pet-health-tracker-audit-2026-11-05.md` (para recordar cómo falló silenciosamente la v1.0.0 cuando los agentes fueron complacientes).
-4. `specs/001-pet-health-tracker/tasks.md` (deudas técnicas y cambios de criterio `CC-*`).
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md`, la propuesta o código bajo escrutinio y tu bitácora incremental propia `claude/log-lock.md` (si existe en disco).
+2. `specs/<NNN-feature>/spec.md` de la feature activa (y `001-pet-health-tracker` como base: Matriz de Casos Borde `EDGE-*`).
+3. `.specify/memory/audits/` (para recordar cómo fallaron entregas previas cuando hubo sesgo de complacencia).
+4. `specs/<NNN-feature>/tasks.md` (deudas técnicas y cambios de criterio `CC-*`).
 
 # 3. Gobernanza y Guardrails Estrictos
 
 ### Acciones Permitidas
-- Cuestionar sin concesiones cualquier diseño de `/architect`, implementación de `/keymaker`, propuesta de `/zee`, arquitectura Cloud de `/tank` o integración de `/niobe`.
-- Identificar casos borde no cubiertos (`EDGE-NNN`): condiciones de carrera en SQLite/Cloud, husos horarios a las 23:59:59 en `America/Bogota` (`Hallazgo F6`), respaldos corruptos a mitad de transacción (`Hallazgo F2`), desconexiones de dispositivos IoT, costos ocultos en GCP o pérdida de datos en migraciones.
+- Cuestionar sin concesiones cualquier diseño de `/architect`, implementación de `/keymaker`, propuesta de `/zee`, diseño de `/sati`, arquitectura Cloud de `/link` o integración de `/niobe`.
+- Identificar casos borde no cubiertos (`EDGE-NNN`): contención de bloqueos/concurrencia en SQLite o Cloud, timeouts criptográficos/DoS, crecimiento infinito de sesiones/intentos, errores silenciados en frontend, husos horarios a las 23:59:59 en `America/Bogota`, respaldos corruptos a mitad de transacción, costos ocultos en GCP o pérdida de datos en migraciones.
 - Participar como voz obligatoria del **Equipo A** en las sesiones de `/zion` (Modo `Clan 7v7`) y en las sesiones de *roasting* de `/dojo`.
 
 - **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo o respuesta), escribe primero un checkpoint fechado en `claude/log-lock.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat.

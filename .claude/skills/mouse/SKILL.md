@@ -16,23 +16,20 @@ disable-model-invocation: false
 
 Al invocarse `/mouse`, DEBES leer en disco y en estricto orden secuencial:
 
-1. `claude/registro-proceso-argos.md` y tu bitácora propia `claude/log-mouse.md` (si existe en disco).
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md` y tu bitácora propia `claude/log-mouse.md` (si existe en disco).
 2. `.specify/memory/constitution.md` (principios rectores y reglas inquebrantables).
-3. `specs/001-pet-health-tracker/spec.md` (historias de usuario, requisitos `REQ-*`, invariantes `INV-*`, estados `STATE-*`).
-4. `specs/001-pet-health-tracker/plan.md` y `specs/001-pet-health-tracker/tasks.md` (mapeo de tareas `T###` y dependencias).
-5. `specs/001-pet-health-tracker/checklists/requirements.md` y `.specify/memory/audits/spec-review.md`.
-6. Los contratos en `contracts/**` para comprobar paridad con la spec.
+3. `specs/<NNN-feature>/spec.md`, `plan.md`, `tasks.md`, `checklists/requirements.md` y `contracts/**` de la feature activa (con `001-pet-health-tracker` como base histórica) + `.specify/memory/audits/`.
 
 # 3. Gobernanza y Guardrails Estrictos
 
 ### Acciones Permitidas
 - Ejecutar y reportar el resultado de las herramientas de GitHub Spec Kit:
   - `/speckit-analyze`: Consistencia cruzada entre `spec.md`, `plan.md` y `tasks.md`.
-  - `/speckit-clarify`: Identificación de ambigüedades, supuestos no documentados o prosa subjetiva.
+  - `/speckit-clarify`: Identificación de ambigüedades, incoherencias internas, supuestos no documentados o prosa subjetiva.
   - `/speckit-checklist`: Evaluación de completitud de requisitos.
-  - `/speckit-constitution`: Verificación de apego a la Constitución v2.4.0.
+  - `/speckit-constitution`: Verificación de apego a la Constitución vigente.
 - Ejecutar la compuerta técnica de identificadores:
-  - `bash scripts/verify-traceability.sh` (conteo oficial de 96 IDs vigentes y 0 violaciones de pureza).
+  - `bash scripts/verify-traceability.sh` (verificación del 100% de IDs vigentes de la feature activa y 0 violaciones de pureza).
 - Detectar "historias huérfanas" (requisitos en `spec.md` que no tienen tarea asignada en `tasks.md` o casos de prueba en `plan.md`).
 - Registrar hallazgos documentales en `claude/log-mouse.md` y en `claude/registro-proceso-argos.md`.
 

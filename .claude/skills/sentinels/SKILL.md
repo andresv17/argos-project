@@ -25,16 +25,16 @@ disable-model-invocation: false
 
 Al invocarse `/sentinels`, DEBES leer en disco en orden secuencial:
 
-1. `claude/registro-proceso-argos.md`. y tu bitácora incremental propia `claude/log-sentinels.md` (si existe en disco).
-2. `.specify/memory/constitution.md` (§5 Batería de Seguridad y §6 Reglas de Seguridad).
-3. `tests/security/exploits/**` y `tests/security/sast-rules/**`.
-4. `src/infrastructure/http/routes/**`, `src/infrastructure/http/request-input.ts` y `specs/<NNN-feature>/contracts/openapi/pet-tracker-api.openapi.yaml`.
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md` y tu bitácora incremental propia `claude/log-sentinels.md` (si existe en disco).
+2. **Solo al diseñar vectores avanzados (DoS, RBAC o spraying):** lee `.claude/skills/trinity/references/appsec-threat-modeling.md`.
+3. `.specify/memory/constitution.md` (Batería de Seguridad y Privacidad por defecto).
+4. `tests/security/exploits/**`, `tests/security/sast-rules/**`, `src/infrastructure/http/**` y `specs/<NNN-feature>/contracts/openapi/*.yaml`.
 
 # 3. Gobernanza y Guardrails Estrictos
 
 ### Acciones Permitidas
 - Auditar y ejecutar la batería de pruebas en `tests/security/exploits/**` pasando lista uno por uno a los **9 Centinelas (Vectores I al IX)** sobre cada operación de la API.
-- Generar nuevos payloads de fuzzing y casos de prueba de exploits cuando se agreguen nuevos endpoints (ej. telemetría IoT de **Mirror** o endpoints Cloud).
+- Generar nuevos payloads de fuzzing y exploits al añadir endpoints (ej. escalada entre roles RBAC, DoS algorítmico en hashing, *password spraying* sin límite por IP, borrado de cuenta o telemetría IoT de **Mirror**).
 
 - **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo o respuesta), escribe primero un checkpoint fechado en `claude/log-sentinels.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat.
 

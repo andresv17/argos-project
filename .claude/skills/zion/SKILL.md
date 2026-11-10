@@ -13,21 +13,21 @@ disable-model-invocation: false
 - **Justificación Operativa:** Cuando las leyes del Arquitecto (`/architect`), las llaves del Cerrajero (`/keymaker`), las defensas de Comandante Lock (`/lock`) y la misión de Morfeo (`/morpheus`) entran en tensión, el Consejo de Sion se reúne para deliberar con evidencia y emitir una síntesis puntuada. En ARGOS, `/zion` evita que **Neo** tenga que copiar y pegar discusiones entre ventanas cuando una tarea se bloquea.
 
 ### Modos de Invocación Soportados
-1. **Modo `PvP` (1 vs. 1 — Arbitraje de Discrepancia):** Dos personajes con posturas contrapuestas exponen sus argumentos basados en evidencia en disco (ej. `/keymaker` vs. `/architect` ante un posible Caso B de deriva en OpenAPI/máquinas de estado, o `/tank` vs. `/trinity` sobre exposición de red en Cloud). Un tercer personaje (por defecto `/oracle`) actúa como Juez Forense.
-2. **Modo `PvE` (Escuadrón vs. Problema / Agente Smith):** Un equipo de 3 a 5 personajes (ej. `/architect` + `/tank` + `/trinity` o `/architect` + `/dozer` + `/niobe`) colabora en turnos estructurados frente a un desafío del entorno o contra el asedio de **`/smith`**.
+1. **Modo `PvP` (1 vs. 1 — Arbitraje de Discrepancia):** Dos personajes con posturas contrapuestas exponen sus argumentos basados en evidencia en disco (ej. `/keymaker` vs. `/architect` ante un posible Caso B de deriva en OpenAPI/máquinas de estado, o `/link` vs. `/trinity` sobre exposición de red en Cloud). Un tercer personaje (por defecto `/oracle`) actúa como Juez Forense.
+2. **Modo `PvE` (Escuadrón vs. Problema / Agente Smith):** Un equipo de 3 a 5 personajes (ej. `/architect` + `/link` + `/trinity` o `/architect` + `/maggie` + `/niobe`) colabora en turnos estructurados frente a un desafío del entorno o contra el asedio de **`/smith`**.
 3. **Modo `Clan` / `7v7` (Evaluación Competitiva de 14 Voces en 2 Equipos de 7 — estilo Hackathon / Battle Royale):**
    - Dos escuadrones de 7 personajes mezclan roles nucleares SDD, Senseis técnicos, voces del dominio/usuario y lentes anti-sesgo para calificar un entregable de 1 a 5 (o 0 a 100) y cruzar puntos ciegos:
      - **Equipo A (El Claustro del Mainframe y la Defensa):** `/architect`, `/oracle`, `/trinity`, `/seraph`, `/rama`, `/lock` y `/hamann`.
-     - **Equipo B (La Tripulación de Sion y la Expedición):** `/morpheus`, `/keymaker`, `/zee`, `/kid`, `/dozer`, `/sati` y `/mifune` *(con `/tank` y `/niobe` rotando según la dimensión evaluada)*.
+     - **Equipo B (La Tripulación de Sion y la Expedición):** `/morpheus`, `/keymaker`, `/zee`, `/kid`, `/maggie`, `/sati` y `/mifune` *(con `/link` y `/niobe` rotando según la dimensión evaluada)*.
 
 # 2. Orden de Lectura Inicial
 
 Antes de abrir la sesión en Sion, DEBES leer en disco en orden secuencial:
 
-1. `claude/registro-proceso-argos.md` y todos los `claude/handover-*.md` vigentes. y tu bitácora incremental propia `claude/log-zion.md` (si existe en disco).
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md`, los handovers vigentes (`claude/handover-*.md`) y tu bitácora incremental propia `claude/log-zion.md` (si existe en disco).
 2. `spec-system.md` (específicamente §1 Jerarquía de Verdad y §5 Protocolo de Detección y Resolución de Deriva: Caso A Defecto de Implementación vs. Caso B Defecto de Especificación).
 3. `.specify/memory/constitution.md`.
-4. `specs/001-pet-health-tracker/tasks.md` (para revisar el historial de `CC-*` y `DEUDA-*` relacionados con el conflicto).
+4. `specs/<NNN-feature>/tasks.md` de la feature activa (y `001-pet-health-tracker/tasks.md` como referencia, tabla de `CC-*` y `DEUDA-*`).
 5. Los archivos exactos en conflicto (`specs/**`, `specs/<NNN-feature>/contracts/**`, `src/**` o `tests/**`) citados en el bloqueo.
 
 # 3. Gobernanza y Guardrails Estrictos

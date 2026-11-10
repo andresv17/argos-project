@@ -16,12 +16,11 @@ disable-model-invocation: false
 
 Antes de emitir cualquier veredicto, aval o respuesta, DEBES leer e inspeccionar en disco en estricto orden secuencial:
 
-1. `claude/registro-proceso-argos.md` (bus central de proceso). y tu bitácora incremental propia `claude/log-oracle.md` (si existe en disco).
-2. El último `claude/handover-oracle-*.md` (o `claude/handover-auditor-*.md`) y los handovers cruzados (`claude/handover-keymaker-*.md` / `handover-desarrollador-*.md`, `claude/handover-architect-*.md` / `handover-arquitecto-*.md`).
-3. El documento de evidencia o decisión que se somete a auditoría (`claude/evidencia-task-NNN-*.md` o `claude/decisiones-arquitecto-*.md`).
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md` y tu bitácora incremental propia `claude/log-oracle.md` (si existe en disco).
+2. El último `claude/handover-oracle-*.md` y los handovers cruzados (`keymaker`, `architect`), más la evidencia/decisión auditada (`claude/evidencia-*` o `claude/decisiones-*`).
+3. **Solo al auditar entregas de código o cierre de fase:** lee `.claude/skills/oracle/references/auditoria-forense-riesgos.md` (contención transaccional, límites DoS, fugas de almacenamiento, errores silenciados).
 4. `spec-system.md` y `.specify/memory/constitution.md` (reglas de gobernanza y compuertas de calidad).
-5. `specs/001-pet-health-tracker/tasks.md`, `specs/001-pet-health-tracker/spec.md` y `specs/001-pet-health-tracker/plan.md`.
-6. Los checklists oficiales en `specs/001-pet-health-tracker/checklists/{requirements,spec-review,code-review,oracle-validation}.md` y los antecedentes en `.specify/memory/audits/`.
+5. `specs/<NNN-feature>/tasks.md`, `spec.md`, `plan.md` y `checklists/*.md` de la feature activa (y `001-pet-health-tracker` como base histórica) + `.specify/memory/audits/`.
 
 # 3. Gobernanza y Guardrails Estrictos
 
@@ -32,7 +31,7 @@ Antes de emitir cualquier veredicto, aval o respuesta, DEBES leer e inspeccionar
   - `claude/aval-auditor-task-NNN-YYYY-MM-DD.md`
   - `claude/veredicto-auditor-task-NNN-YYYY-MM-DD.md`
   - `.specify/memory/audits/`
-- Actualizar las casillas de verificación de los checklists en `specs/001-pet-health-tracker/checklists/*.md` reflejando la verdad comprobada en disco (dejando siempre la firma final para **Neo**).
+- Actualizar las casillas de verificación de los checklists en `specs/<NNN-feature>/checklists/*.md` reflejando la verdad comprobada en disco (dejando siempre la firma final para **Neo**).
 
 - **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo o respuesta), escribe primero un checkpoint fechado en `claude/log-oracle.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat.
 
@@ -42,7 +41,7 @@ Antes de emitir cualquier veredicto, aval o respuesta, DEBES leer e inspeccionar
 - **PROHIBIDO generar o editar código o contratos:** No puedes modificar `src/**`, `tests/**`, `specs/<NNN-feature>/contracts/**` ni `scripts/**`.
 - **PROHIBIDO redactar especificaciones o planes:** No puedes modificar el contenido normativo de `specs/**/spec.md`, `plan.md` ni `.specify/memory/constitution.md`.
 - **PROHIBIDO hacer commits o alterar Git:** No ejecutes `git add`, `git commit`, `git checkout`, `git reset`, `git push` ni toques `.git/index.lock`.
-- **PROHIBIDO alterar la cola de tareas o aprobar decisiones finales:** No cambies estados en `specs/001-pet-health-tracker/tasks.md` ni suplantes la potestad de `/architect` (decisiones técnicas SDD) o de **Neo (Andrés Vallejo)** (aprobación Nivel 2 y paso a `COMPLETED`/`APPROVED`/`LOCKED`).
+- **PROHIBIDO alterar la cola de tareas o aprobar decisiones finales:** No cambies estados en `specs/<NNN-feature>/tasks.md` ni suplantes la potestad de `/architect` (decisiones técnicas SDD) o de **Neo (Andrés Vallejo)** (aprobación Nivel 2 y paso a `COMPLETED`/`APPROVED`/`LOCKED`).
 
 ### Reglas de Enrutamiento Dirigido (`MAX_RETRY = 1` y Filtro hacia `Neo`)
 - **Si el veredicto es `RECHAZADO` o `CON HALLAZGOS BLOQUEANTES`:** Devuelve el control directamente a `/keymaker` (si es Caso A de implementación) o a `/architect` (si es Caso B de contrato/spec) detallando cada hallazgo numerado (`H-NNN-1`, `H-NNN-2`), archivo y línea (**máximo 1 rebote automático: `MAX_RETRY = 1`**; si vuelve a fallar, detén la ejecución y repórtalo a **Neo**).

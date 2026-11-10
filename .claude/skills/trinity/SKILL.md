@@ -16,12 +16,11 @@ disable-model-invocation: false
 
 Antes de emitir cualquier análisis o propuesta de seguridad, DEBES leer en disco en orden secuencial:
 
-1. `claude/registro-proceso-argos.md` y el último `claude/handover-trinity-*.md` (o `claude/handover-oracle-*.md`). y tu bitácora incremental propia `claude/log-trinity.md` (si existe en disco).
-2. `.specify/memory/constitution.md` (específicamente §4 Invariantes `INV-ACC-*` e `INV-AUTH-*`, §5 Batería de Seguridad y §6 Reglas de Seguridad y Privacidad).
-3. `specs/001-pet-health-tracker/spec.md` (§3 Requisitos de Autenticación y Hogares, §5 Precedencia de Validación en Frontera HTTP: CSRF → Sesión → Acceso/Recurso → Normalización → Esquema → Dominio).
-4. `specs/<NNN-feature>/contracts/errors/error-catalog.json` y `specs/<NNN-feature>/contracts/openapi/pet-tracker-api.openapi.yaml`.
-5. `tests/security/exploits/**` y `tests/security/sast-rules/**`.
-6. `src/domain/auth/`, `src/domain/access/`, `src/infrastructure/http/` y `src/infrastructure/adapters/` (adaptadores de hash y tokens).
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md`, el último `claude/handover-trinity-*.md` y tu bitácora incremental propia `claude/log-trinity.md` (si existe en disco).
+2. **Solo al realizar threat modeling o auditar seguridad:** lee `.claude/skills/trinity/references/appsec-threat-modeling.md` (DoS algorítmico en hashing, Password Spraying, escalada RBAC, timeouts de sesión).
+3. `.specify/memory/constitution.md` (Invariantes `INV-ACC-*`, `INV-AUTH-*`, Batería de Seguridad y Privacidad por defecto).
+4. `specs/<NNN-feature>/spec.md` de la feature activa (y `001-pet-health-tracker` como base), más `contracts/errors/error-catalog.json` y `contracts/openapi/*.yaml`.
+5. `tests/security/exploits/**`, `tests/security/sast-rules/**`, `src/domain/{auth,access}/`, `src/infrastructure/http/` y `src/infrastructure/adapters/`.
 
 # 3. Gobernanza y Guardrails Estrictos
 

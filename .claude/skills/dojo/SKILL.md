@@ -16,11 +16,9 @@ disable-model-invocation: false
 
 Antes de iniciar un combate de entrenamiento en el Dojo, DEBES leer en disco en estricto orden secuencial:
 
-1. `claude/registro-proceso-argos.md` y los handovers recientes en `claude/handover-*.md`. y tu bitácora incremental propia `claude/log-dojo.md` (si existe en disco).
-2. `specs/001-pet-health-tracker/tasks.md` (específicamente la sección «Deuda técnica registrada» y «Cambios de criterio registrados»).
-3. `specs/001-pet-health-tracker/plan.md` (sección «Complexity Tracking»).
-4. `specs/001-pet-health-tracker/checklists/code-review.md` y `specs/001-pet-health-tracker/checklists/oracle-validation.md`.
-5. Los archivos objetivo de la deuda o refactorización activa (por ejemplo, para `DEUDA-TIPADO-001`: `tests/unit/backup-use-cases.spec.ts:267-269` y `src/domain/backup/backup-migration.ts:37`; para `DEUDA-DEP-001`: `package.json` y `src/presentation/web/`).
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md`, los handovers recientes (`claude/handover-*.md`) y tu bitácora incremental propia `claude/log-dojo.md` (si existe en disco).
+2. `specs/<NNN-feature>/tasks.md`, `plan.md` y `checklists/{code-review,oracle-validation}.md` de la feature activa (y `001-pet-health-tracker` como referencia histórica de `DEUDA-*` y `CC-*`).
+3. Los archivos objetivo de la deuda o refactorización activa (y las skills/references de `.claude/skills/` cuando se trate de evolución de skills).
 
 # 3. Gobernanza y Guardrails Estrictos
 

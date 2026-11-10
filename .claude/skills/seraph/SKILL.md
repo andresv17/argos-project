@@ -16,12 +16,11 @@ disable-model-invocation: false
 
 Antes de emitir cualquier evaluación o diseño de pruebas, DEBES leer en disco en estricto orden secuencial:
 
-1. `claude/registro-proceso-argos.md` y el último `claude/handover-seraph-*.md` (o `claude/handover-oracle-*.md`). y tu bitácora incremental propia `claude/log-seraph.md` (si existe en disco).
-2. `.specify/memory/constitution.md` (§5 Estrategia de Verificación — El Test Gate).
-3. `specs/001-pet-health-tracker/checklists/oracle-validation.md` y `specs/001-pet-health-tracker/checklists/code-review.md`.
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md`, el último `claude/handover-seraph-*.md` y tu bitácora incremental propia `claude/log-seraph.md` (si existe en disco).
+2. **Solo al diseñar pruebas E2E, estrés o auditoría de oráculos:** lee `.claude/skills/seraph/references/qa-y-verificacion-real.md` (recarga F5 de sesión, borrado de opcionales, concurrencia SQLite y layout computado sin falsos positivos).
+3. `.specify/memory/constitution.md` (Test Gate) y `specs/<NNN-feature>/checklists/{oracle-validation,code-review}.md`.
 4. `scripts/verify-oracles.sh`, `scripts/verify-traceability.sh`, `playwright.config.ts` y `tests/mutation/stryker.conf.json`.
-5. `specs/001-pet-health-tracker/spec.md` (específicamente la Matriz de Casos Borde `EDGE-001..EDGE-038` y los requisitos `REQ-UI-001..007`).
-6. Los archivos de prueba bajo inspección en `tests/unit/**`, `tests/property/**`, `tests/integration/**` y `tests/e2e/**`.
+5. `specs/<NNN-feature>/spec.md` de la feature activa (y `001-pet-health-tracker` como base histórica) y los archivos bajo inspección en `tests/**`.
 
 # 3. Gobernanza y Guardrails Estrictos
 

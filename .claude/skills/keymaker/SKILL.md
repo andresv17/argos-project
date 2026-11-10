@@ -16,12 +16,11 @@ disable-model-invocation: false
 
 Antes de escribir código, ejecutar comandos o emitir cualquier respuesta, DEBES leer en disco y en estricto orden secuencial:
 
-1. `claude/registro-proceso-argos.md` (bus central de proceso, si existe en disco). y tu bitácora incremental propia `claude/log-keymaker.md` (si existe en disco).
-2. El último archivo `claude/handover-keymaker-*.md` (o `claude/handover-desarrollador-*.md`) y los handovers/veredictos cruzados más recientes (`claude/handover-oracle-*.md` / `handover-auditor-*.md`, `claude/handover-architect-*.md` / `handover-arquitecto-*.md`, `claude/veredicto-auditor-*.md`, `claude/decisiones-arquitecto-*.md`).
-3. `specs/001-pet-health-tracker/tasks.md` para identificar la tarea activa (`T###`), sus dependencias, archivos objetivo, IDs de trazabilidad obligatorios, hallazgos a cerrar y deudas vigentes (`DEUDA-TIPADO-001`, `DEUDA-DEP-001`).
-4. `.specify/memory/constitution.md` (§2 Stack Autorizado, §3 Reglas Arquitectónicas Inquebrantables, §5 Test Gate).
-5. `specs/001-pet-health-tracker/spec.md` y `specs/001-pet-health-tracker/plan.md` en las secciones correspondientes a los IDs de la tarea activa.
-6. Los contratos fuente en `specs/<NNN-feature>/contracts/**` y los tipos generados en `src/generated/**` que consumirá la tarea.
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md` y tu bitácora incremental propia `claude/log-keymaker.md` (si existe).
+2. El último `claude/handover-keymaker-*.md`, `claude/veredicto-auditor-*.md` y `claude/decisiones-arquitecto-*.md` vigentes.
+3. **Solo al iniciar implementación o refactorización:** lee `.claude/skills/keymaker/references/oficio-de-ingenieria.md` (concurrencia, cero $N+1$, cotas criptográficas y React sin silenciamiento de fallos).
+4. `specs/<NNN-feature>/tasks.md` de la feature activa (y `001-pet-health-tracker` como referencia histórica) para identificar la `T###`, archivos objetivo, IDs de trazabilidad y deudas vigentes.
+5. `.specify/memory/constitution.md`, `specs/<NNN-feature>/spec.md`, `plan.md`, `contracts/**` y los tipos generados en `src/generated/**` que consumirá la tarea.
 
 # 3. Gobernanza y Guardrails Estrictos
 
@@ -81,5 +80,5 @@ Cuando **Neo** diga en lenguaje natural `"cerremos sesión"`, `"cerrar sesión"`
 1. **Alto al fuego inmediato:** No inicies ninguna nueva subtarea ni edites nuevos archivos de código.
 2. **Inspección de estado real en disco:** Ejecuta `git status --short`, `git diff --stat` y `git log -1 --oneline`. Verifica si el árbol de trabajo está limpio o si hay cambios locales sin commitear, y registra el último resultado real de `tsc --noEmit` y `vitest`.
 3. **Persistencia del Handover:** Crea o actualiza `claude/handover-keymaker-YYYY-MM-DD.md` con `T###` activa, porcentaje de avance, hash del último commit, decisiones `CC-*`, estado de deudas `DEUDA-*` y bloqueos pendientes.
-4. **Sincronización del Registro y Cola:** Actualiza `claude/registro-proceso-argos.md` y verifica que `specs/001-pet-health-tracker/tasks.md` refleje el estado actual sin adelantar jamás un estado no avalado.
+4. **Sincronización del Registro y Cola:** Actualiza `claude/registro-proceso-argos.md` y verifica que `specs/<NNN-feature>/tasks.md` refleje el estado actual sin adelantar jamás un estado no avalado.
 5. **Línea de Salida (`Hardline`):** Imprime el resumen compacto con el comando exacto para retomar la implementación en la siguiente sesión sin pérdida de contexto.

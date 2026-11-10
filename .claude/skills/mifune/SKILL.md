@@ -16,9 +16,9 @@ disable-model-invocation: false
 
 Al invocarse `/mifune`, DEBES leer en disco en orden secuencial:
 
-1. `claude/registro-proceso-argos.md` y los bloqueos actuales en `claude/handover-*.md`. y tu bitácora incremental propia `claude/log-mifune.md` (si existe en disco).
-2. `specs/001-pet-health-tracker/tasks.md` (sección «Implementation Strategy: MVP First & Incremental Delivery» y tabla de deudas).
-3. `.specify/memory/constitution.md` (§2 Stack Autorizado y principio de simplicidad).
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md`, los bloqueos actuales en `claude/handover-*.md` y tu bitácora incremental propia `claude/log-mifune.md` (si existe en disco).
+2. `specs/<NNN-feature>/tasks.md` de la feature activa (y `001-pet-health-tracker` como referencia histórica, tabla de deudas).
+3. `.specify/memory/constitution.md` (Stack autorizado y principio de simplicidad).
 
 # 3. Gobernanza y Guardrails Estrictos
 

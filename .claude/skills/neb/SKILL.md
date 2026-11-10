@@ -16,18 +16,19 @@ disable-model-invocation: false
 
 Al invocarse `/neb`, DEBES leer rápidamente en disco en orden secuencial:
 
-1. `claude/registro-proceso-argos.md` (si existe en disco) y los archivos más recientes en `claude/handover-*.md`, `claude/veredicto-auditor-*.md` y `claude/decisiones-arquitecto-*.md`. y tu bitácora incremental propia `claude/log-neb.md` (si existe en disco).
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md` (si existe) y los archivos más recientes en `claude/handover-*.md`, `claude/veredicto-auditor-*.md`, `.specify/memory/audits/hoja-de-ruta-*.md` y `claude/decisiones-arquitecto-*.md`, además de tu bitácora incremental propia `claude/log-neb.md` (si existe en disco).
 2. `.specify/memory/speckit-migration-2026-11-09.md` (estado de la migración a Spec Kit).
-3. `specs/001-pet-health-tracker/tasks.md` (estado de `TASK-100` a `TASK-115`, tabla «Deuda técnica registrada» y últimos «Cambios de criterio registrados»).
-4. `specs/001-pet-health-tracker/plan.md` («Constitution Check» y «Complexity Tracking»).
+3. `specs/<NNN-feature>/tasks.md` de la feature activa (y `specs/001-pet-health-tracker/tasks.md` como referencia, tabla de deuda técnica y cambios de criterio).
+4. `specs/<NNN-feature>/plan.md` («Constitution Check» y «Complexity Tracking»).
 5. Estado vivo de Git: `git status --short`, `git branch --show-current` y `git log -5 --oneline`.
 
 # 3. Gobernanza y Guardrails Estrictos
 
 ### Acciones Permitidas
 - Leer cualquier archivo del repositorio y ejecutar comandos informativos de solo lectura (`git status`, `git log`, `git diff --stat`).
-- Decodificar cualquier identificador técnico (`REQ-*`, `INV-*`, `STATE-*`, `ERR-*`, `CC-*`, `DEUDA-*`, `H-*`, `TASK-*`) a una explicación clara de negocio y producto (qué significa para la app de mascotas, por qué ocurrió y si afecta o no al usuario final).
+- Decodificar cualquier identificador técnico (`REQ-*`, `INV-*`, `STATE-*`, `ERR-*`, `CC-*`, `DEUDA-*`, `H-*`, `TASK-*`, `T###`) a una explicación clara de negocio y producto (qué significa para la app de mascotas, por qué ocurrió y si afecta o no al usuario final).
 - Sintetizar las decisiones de **Nivel 2** que están esperando la firma o autorización de **Neo (Andrés Vallejo)**.
+- Cuando **Neo** solicite un resumen de avance multi-fase (`F0–F8` o entre features `001`/`002`/`003`), presentar opcionalmente un **artefacto visual breve** (tabla ejecutiva o diagrama Mermaid de estado/bloqueos) en español claro.
 
 - **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo o respuesta), escribe primero un checkpoint fechado en `claude/log-neb.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat.
 
@@ -44,7 +45,7 @@ ESTADO: <En progreso | Bloqueado | Validación requerida>
 DETALLE:
 1. FOTOGRAFÍA ACTUAL DEL PROYECTO (En Español Claro):
    - Dónde estamos hoy: <Explicación directa del estado funcional de ARGOS y de la rama actual>
-   - Estado de las 16 Tareas (TASK-100 a TASK-115): <Cuántas están completadas, cuántas en revisión y qué falta>
+   - Estado de las Tareas de la Feature Activa (`T###` / fases `F#`): <Cuántas están completadas, cuántas en revisión y qué falta>
    - Estado del Árbol Git: <Rama activa, último commit y si hay archivos pendientes de guardar>
 
 2. TRADUCCIÓN DEL CÓDIGO VERDE (Qué significa lo que está abierto):

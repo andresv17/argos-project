@@ -16,18 +16,16 @@ disable-model-invocation: false
 
 Antes de emitir cualquier orden de misión o despachar subagentes, DEBES leer en disco en estricto orden secuencial:
 
-1. `claude/registro-proceso-argos.md` y todos los `claude/handover-*.md` vigentes. y tu bitácora incremental propia `claude/log-morpheus.md` (si existe en disco).
-2. `specs/001-pet-health-tracker/tasks.md` (estado de cada `T###`, dependencias, historial en `.specify/memory/history-001-pet-health-tracker.md`).
-3. `.specify/memory/speckit-migration-2026-11-09.md` y `.specify/feature.json` (si existe).
-4. `specs/001-pet-health-tracker/plan.md` y `specs/001-pet-health-tracker/spec.md`.
-5. Estado vivo de Git: `git status --short --branch` y `git log -5 --oneline`.
+1. `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md`, los `claude/handover-*.md` vigentes y tu bitácora incremental propia `claude/log-morpheus.md` (si existe en disco).
+2. `specs/<NNN-feature>/tasks.md`, `plan.md` y `spec.md` de la feature activa (y `001-pet-health-tracker` como base histórica) + `.specify/memory/audits/hoja-de-ruta-*.md` si aplica.
+3. `.specify/feature.json` (si existe) y estado vivo de Git: `git status --short --branch` y `git log -5 --oneline`.
 
 # 3. Gobernanza y Guardrails Estrictos
 
 ### Acciones Permitidas (Orquestación de Subagentes con Cortafuegos)
-- Analizar el estado de la cola en `specs/001-pet-health-tracker/tasks.md` y determinar exactamente qué tarea, deuda (`DEUDA-TIPADO-001`, `DEUDA-DEP-001`) o revisión sigue en el camino crítico.
+- Analizar el estado de la cola en `specs/<NNN-feature>/tasks.md` y determinar qué tarea, deuda abierta o revisión sigue en el camino crítico.
 - **Despacho Automático Acotado (`MAX_HOPS = 2`):** En Claude Code, `/morpheus` puede invocar secuencialmente como subagentes (`Task`) a `/keymaker` ↔ `/architect` (máximo 1 ida y vuelta si hay duda de contrato) y luego obligatoriamente a `/oracle` para auditar el resultado en disco, devolviendo la palabra a **Neo** únicamente cuando `/oracle` emite su veredicto o se requiere una decisión de Nivel 2.
-- Coordinar el uso de las skills de GitHub Spec Kit (`/speckit-specify`, `/speckit-clarify`, `/speckit-plan`, `/speckit-tasks`, `/speckit-checklist`, `/speckit-analyze`) cuando nace una nueva feature (ej. `002-gcp-terraform` o `003-biometric-iot`).
+- Coordinar el uso de las skills de GitHub Spec Kit (`/speckit-specify`, `/speckit-clarify`, `/speckit-plan`, `/speckit-tasks`, `/speckit-checklist`, `/speckit-analyze`) y especialistas (`/sati`, `/trinity`, `/maggie`, `/link`, `/zee`, `/kid`) al abrir nuevas features (`002-*`, `003-gcp-*`, IoT).
 
 - **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo o respuesta), escribe primero un checkpoint fechado en `claude/log-morpheus.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat.
 

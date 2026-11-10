@@ -20,8 +20,8 @@ Al activarse `/hardline` (o la frase en lenguaje natural `"cerremos sesión"`), 
    - `git status --short --branch`
    - `git log -3 --oneline`
    - `git diff --stat`
-2. `specs/001-pet-health-tracker/tasks.md` (y verificar si existe `.specify/tasks/pet-health-tracker-tasks.md` o `.specify/memory/speckit-migration-2026-11-09.md`).
-3. `claude/registro-proceso-argos.md` (si no existe el directorio `claude/` o el archivo en el checkout local, créalo siguiendo la estructura canónica del bus de proceso de ARGOS).
+2. `specs/<NNN-feature>/tasks.md` de la feature activa (y `001-pet-health-tracker/tasks.md` como referencia si aplica).
+3. `claude/registro-proceso-argos.md` y `claude/entorno-y-lecciones.md` (si no existen en el checkout local, créalos siguiendo la estructura canónica del bus de proceso de ARGOS).
 4. Los archivos `claude/handover-*.md`, `claude/evidencia-*.md`, `claude/veredicto-auditor-*.md` y `claude/decisiones-arquitecto-*.md` tocados o vigentes en la sesión.
 
 # 3. Gobernanza y Guardrails Estrictos
@@ -37,7 +37,7 @@ Al activarse `/hardline` (o la frase en lenguaje natural `"cerremos sesión"`), 
    - Recopila el resultado real de la última ejecución de pruebas o compuertas corrida en la sesión (sin inventar ni suponer que algo pasó si no se ejecutó).
 
 3. **PASO 3 — Generación / Actualización del Handover del Personaje Activo:**
-   - Crea o actualiza en disco `claude/handover-<personaje>-YYYY-MM-DD.md` (donde `<personaje>` es `architect`, `keymaker`, `oracle`, `morpheus`, `trinity`, `seraph`, `tank`, `niobe`, `sati`, `hamann`, `zee`, `kid`, `dozer`, `rama`, `lock`, `mifune` o `neb-crew` si intervinieron varios) con la siguiente estructura obligatoria:
+   - Crea o actualiza en disco `claude/handover-<personaje>-YYYY-MM-DD.md` (donde `<personaje>` es `architect`, `keymaker`, `oracle`, `morpheus`, `mouse`, `trinity`, `seraph`, `link`, `niobe`, `sati`, `hamann`, `merovingian`, `zee`, `kid`, `maggie`, `rama`, `lock`, `mifune`, `zion`, `dojo`, `logos`, `smith`, `sentinels` o `neb-crew` si intervinieron varios) con la siguiente estructura obligatoria:
      ```markdown
      ---
      handover_id: HANDOVER-<PERSONAJE>-YYYY-MM-DD
@@ -77,7 +77,7 @@ Al activarse `/hardline` (o la frase en lenguaje natural `"cerremos sesión"`), 
 
 4. **PASO 4 — Sincronización del Bus Central y Cola de Tareas:**
    - Añade una entrada cronológica al final de `claude/registro-proceso-argos.md` con fecha, personaje que cierra, commit `HEAD`, archivo de handover generado y estado de compuertas.
-   - Si durante la sesión se validó en disco una transición permitida o se registró una deuda/cambio de criterio (`DEUDA-*` / `CC-*`), actualiza `specs/001-pet-health-tracker/tasks.md` (respetando la regla inquebrantable de que solo **Neo** marca `COMPLETED` y solo se transiciona tras validación en disco de `/oracle`).
+   - Si durante la sesión se validó en disco una transición permitida o se registró una deuda/cambio de criterio (`DEUDA-*` / `CC-*`), actualiza `specs/<NNN-feature>/tasks.md` (respetando la regla inquebrantable de que solo **Neo** marca `COMPLETED` y solo se transiciona tras validación en disco de `/oracle`).
 
 5. **PASO 5 — Impresión del Bloque Compacto de Despertar (Wake-Up Prompt):**
    - Imprime en pantalla el bloque listo para copiar y pegar en la nueva ventana de conversación de Claude.
@@ -103,13 +103,13 @@ DETALLE:
 - Artefactos de Memoria Persistidos:
   - Handover escrito en: `claude/handover-<personaje>-YYYY-MM-DD.md`
   - Bus central actualizado en: `claude/registro-proceso-argos.md`
-  - Cola de tareas sincronizada en: `specs/001-pet-health-tracker/tasks.md`
+  - Cola de tareas sincronizada en: `specs/<NNN-feature>/tasks.md`
 - Tarea Activa y Avance: <T### — X% — Estado actual>
-- Deudas / Bloqueos Abiertos: <Resumen en 1 línea de DEUDA-TIPADO-001, DEUDA-DEP-001 y bloqueos activos>
+- Deudas / Bloqueos Abiertos: <Resumen en 1 línea de deudas y bloqueos activos>
 
 SIGUIENTE PASO RECOMENDADO (COPIAR Y PEGAR EN LA NUEVA CONVERSACIÓN):
 ------------------------------------------------------------------------
-/<personaje-siguiente> Despierta sesión en el proyecto ARGOS para Neo. Lee primero en disco `claude/registro-proceso-argos.md`, `claude/handover-<personaje>-YYYY-MM-DD.md` y `specs/001-pet-health-tracker/tasks.md`. Verifica que el commit HEAD en disco sea `<hash-corto>` en la rama `<rama>` y retoma exactamente desde: <acción inmediata específica>.
+/<personaje-siguiente> Despierta sesión en el proyecto ARGOS para Neo. Lee primero en disco `claude/registro-proceso-argos.md`, `claude/entorno-y-lecciones.md`, `claude/handover-<personaje>-YYYY-MM-DD.md` y `specs/<NNN-feature>/tasks.md`. Verifica que el commit HEAD en disco sea `<hash-corto>` en la rama `<rama>` y retoma exactamente desde: <acción inmediata específica>.
 ------------------------------------------------------------------------
 ```
 
