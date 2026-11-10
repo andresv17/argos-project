@@ -21,7 +21,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         .map((l) => l.split('=') as [string, string]),
     );
     expect([loadAppConfig({}), example]).toEqual([
-      { port: 3000, host: '127.0.0.1', databasePath: './data/argos.sqlite', appTimezone: 'America/Bogota', cookieSecure: false },
+      { port: 3100, host: '127.0.0.1', databasePath: './data/argos.sqlite', appTimezone: 'America/Bogota', cookieSecure: false },
       APP_CONFIG_DEFAULTS,
     ]);
   });

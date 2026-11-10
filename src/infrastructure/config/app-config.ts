@@ -1,7 +1,7 @@
 /**
  * Configuración de la aplicación. Único lugar de `src/` que lee `process.env`
  * (INV-ARCH-006). Las variables se validan contra `APP_CONFIG_SCHEMA` (JSON Schema, Ajv) antes de convertirse.
- * - `PORT` 1–65535 (3000), `HOST` solo `127.0.0.1`, `DATABASE_PATH` no vacía (`./data/argos.sqlite`),
+ * - `PORT` 1–65535 (3100), `HOST` solo `127.0.0.1`, `DATABASE_PATH` no vacía (`./data/argos.sqlite`),
  *   `APP_TIMEZONE` zona IANA válida (`America/Bogota`, F6), `COOKIE_SECURE` `true` o `false` (`false`).
  * - Una variable inválida produce `AppConfigError` con la lista de variables afectadas; no se arranca con valores
  *   por defecto silenciosos. Ningún valor es secreto (`.env.example`).
@@ -29,7 +29,7 @@ interface RawAppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: Readonly<RawAppConfig> = {
-  PORT: '3000',
+  PORT: '3100',
   HOST: '127.0.0.1',
   DATABASE_PATH: './data/argos.sqlite',
   APP_TIMEZONE: DEFAULT_APP_TIMEZONE,

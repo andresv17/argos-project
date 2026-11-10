@@ -6,11 +6,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '127.0.0.1',
-    port: 5173,
+    port: Number(process.env['E2E_WEB_PORT'] ?? 5173),
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3000',
+        // El 3000 puede estar ocupado por otro servicio (p. ej. Grafana); por eso la API de desarrollo usa el 3100.
+        target: `http://127.0.0.1:${process.env['E2E_API_PORT'] ?? 3100}`,
         changeOrigin: false,
       },
     },
