@@ -6,6 +6,7 @@
 # Uso:
 #   bash scripts/verify-traceability.sh              compuerta final: todos los IDs vigentes
 #   bash scripts/verify-traceability.sh --task T###  compuerta por tarea: IDs citados en la línea "- [ ] T### ..." de tasks.md
+#   bash scripts/verify-traceability.sh --feature NNN [--task T###]  feature a verificar (001 por defecto; 002 lee specs/002-*)
 #
 # Un ID cuenta como trazado solo si aparece en un @implements de src/ fuera de src/generated/
 # y en el título de un it/test de tests/. Los comentarios sueltos y los títulos de describe no cuentan.
@@ -13,14 +14,26 @@
 # basta con que aparezca en al menos uno de src/ y en al menos uno de tests/.
 # IDs vigentes = spec + contracts/ de la feature (REQ/INV/STATE) + constitución, principios II y III + códigos de
 # error-catalog.json, menos los retirados del principio III.
+# Feature 002 (T204): spec, contratos y tasks.md de specs/002-*; los IDs admiten dígitos en el segmento (REQ-AUTH2-001);
+# quedan fuera de los vigentes los que la tabla «Trazabilidad con la Feature 001» marca como reemplazados o absorbidos
+# y los retirados de la constitución; los rangos del principio III (001) no se toman hasta la enmienda 3.2.0.
 # IDs retirados: fallan la compuerta final; en la compuerta por tarea se avisan (RETIRED WARN) sin fallar.
 #
 # Salida: 0 = cumple; 1 = incumple; 2 = uso inválido o fuente ausente.
 set -euo pipefail
 
 TASK_ID=""
+FEATURE="001"
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --feature)
+      if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
+        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001 o 002)" >&2
+        exit 2
+      fi
+      FEATURE="$2"
+      shift 2
+      ;;
     --task)
       if [[ $# -lt 2 || ! "$2" =~ ^T[0-9]{3}$ ]]; then
         echo "[SDD Traceability Gate] Uso: --task T###" >&2
@@ -36,18 +49,34 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+FEATURE_DIR=""
+for candidate in specs/"$FEATURE"-*/; do
+  if [[ -d "$candidate" ]]; then
+    FEATURE_DIR="${candidate%/}"
+    break
+  fi
+done
+if [[ -z "$FEATURE_DIR" ]]; then
+  echo "[SDD Traceability Gate] Feature desconocida: $FEATURE (no existe specs/$FEATURE-*/)" >&2
+  exit 2
+fi
+
 export SDD_TASK_ID="$TASK_ID"
+export SDD_FEATURE="$FEATURE"
+export SDD_FEATURE_DIR="$FEATURE_DIR"
 exec node --input-type=module - <<'JS'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const SPEC = 'specs/001-pet-health-tracker/spec.md';
+const feature = process.env.SDD_FEATURE ?? '001';
+const featureDir = process.env.SDD_FEATURE_DIR ?? 'specs/001-pet-health-tracker';
+const SPEC = `${featureDir}/spec.md`;
 const CONSTITUTION = '.specify/memory/constitution.md';
-const TASKS = 'specs/001-pet-health-tracker/tasks.md';
-const CONTRACTS = 'specs/001-pet-health-tracker/contracts';
-const CATALOG = 'specs/001-pet-health-tracker/contracts/errors/error-catalog.json';
+const TASKS = `${featureDir}/tasks.md`;
+const CONTRACTS = `${featureDir}/contracts`;
+const CATALOG = `${featureDir}/contracts/errors/error-catalog.json`;
 const CODE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
-const NUM_ID = /\b(?:REQ|INV|STATE)-[A-Z]+(?:-[A-Z]+)*-\d{3}\b/g;
+const NUM_ID = /\b(?:REQ|INV|STATE)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g;
 const ERR_ID = /\bERR-[A-Z]+(?:-[A-Z0-9]+)+\b/g;
 const taskId = process.env.SDD_TASK_ID ?? '';
 
@@ -100,7 +129,24 @@ for (const file of walk(CONTRACTS)) {
 for (const line of section(constitutionLines, 'II')) {
   for (const id of line.match(NUM_ID) ?? []) candidates.add(id);
 }
-for (const line of section(constitutionLines, 'III')) {
+// Tabla «Trazabilidad con la Feature 001» de la spec (features posteriores): los IDs de la primera columna cuya
+// segunda columna dice «Reemplazad...» o «...absorbid...» dejan de ser vigentes (siguen existiendo en la 001).
+const superseded = new Set();
+if (feature !== '001') {
+  const specLines = readFileSync(SPEC, 'utf8').split('\n');
+  const head = specLines.findIndex((l) => /^#{2,4}\s+Trazabilidad con la Feature 001\b/.test(l));
+  if (head !== -1) {
+    for (const row of specLines.slice(head + 1)) {
+      if (/^#{1,4}\s/.test(row)) break;
+      const cells = row.split('|').map((c) => c.trim());
+      if (cells.length < 4 || !/^(?:Reemplazad|.*absorbid)/i.test(cells[2])) continue;
+      for (const id of cells[1].match(NUM_ID) ?? []) superseded.add(id);
+    }
+  }
+}
+
+// Los rangos del principio III describen los IDs de la 001; la 002 los toma de su spec y de sus contratos (T204a).
+for (const line of feature === '001' ? section(constitutionLines, 'III') : []) {
   if (line === retiredLine) continue;
   for (const id of line.match(NUM_ID) ?? []) candidates.add(id);
   for (const m of line.matchAll(/`((?:REQ|INV|STATE)-[A-Z]+(?:-[A-Z]+)*-)(\d{3})`\.\.`(\d{3})`/g)) {
@@ -113,8 +159,16 @@ try {
 } catch (e) {
   usage(`No se pudo leer ${CATALOG}: ${e.message}`);
 }
+// Errores que el catálogo de una feature posterior retira (x-sdd-metadata.removed) cuentan como retirados.
+if (feature !== '001') {
+  try {
+    for (const code of JSON.parse(readFileSync(CATALOG, 'utf8'))['x-sdd-metadata']?.removed ?? []) retired.add(code);
+  } catch {
+    // el error de lectura ya se informó arriba
+  }
+}
 for (const code of catalogCodes) candidates.add(code);
-const current = new Set([...candidates].filter((id) => !retired.has(id)).sort());
+const current = new Set([...candidates].filter((id) => !retired.has(id) && !superseded.has(id)).sort());
 
 // ---------------------------------------------------------------------------
 // 2. IDs exigidos (compuerta final o por tarea)
@@ -123,7 +177,11 @@ let required;
 let failed = false;
 if (taskId === '') {
   required = [...current];
-  out(`[SDD Traceability Gate] Modo: compuerta final (${required.length} IDs vigentes; ${retired.size} retirados excluidos)`);
+  out(
+    superseded.size === 0 && feature === '001'
+      ? `[SDD Traceability Gate] Modo: compuerta final (${required.length} IDs vigentes; ${retired.size} retirados excluidos)`
+      : `[SDD Traceability Gate] Modo: compuerta final, feature ${feature} (${required.length} IDs vigentes; ${retired.size} retirados y ${superseded.size} reemplazados excluidos)`,
+  );
 } else {
   const rows = readFileSync(TASKS, 'utf8').split('\n');
   const row = rows.find((l) => new RegExp(`^- \\[[ xX]\\] ${taskId} `).test(l));
@@ -134,7 +192,7 @@ if (taskId === '') {
     required = [...new Set(idsIn(row))];
     for (const id of required) {
       if (!current.has(id)) {
-        err(`[TRACEABILITY FAIL] ${id}: citado en ${taskId} pero no es un ID vigente (${retired.has(id) ? 'retirado' : 'desconocido'})`);
+        err(`[TRACEABILITY FAIL] ${id}: citado en ${taskId} pero no es un ID vigente (${retired.has(id) ? 'retirado' : superseded.has(id) ? 'reemplazado' : 'desconocido'})`);
         failed = true;
       }
     }

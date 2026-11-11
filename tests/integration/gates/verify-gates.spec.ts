@@ -274,3 +274,118 @@ describe('TASK-103: compuerta de oráculos (scripts/verify-oracles.sh)', () => {
     expect(res.status).toBe(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// T201 (F7): compuertas multi-feature. La 001 es el valor por defecto; la 002 lee su propia spec, contratos y tasks.md.
+// ---------------------------------------------------------------------------
+const SPEC_002 = [
+  '# Spec 002 demo',
+  'REQ-DEMO2-001, INV-DEMO2-001 y STATE-ACCOUNT-DELETE-001.',
+  '### Trazabilidad con la Feature 001',
+  '| Requisito de la 001 | Estado en la 002 |',
+  '|---|---|',
+  '| `REQ-DEMO-001` | Reemplazado por `REQ-DEMO2-001` |',
+  '| `REQ-DEMO-002` | Vigente |',
+  '| `INV-DEMO-009` | Gestión de miembros: absorbida por `REQ-DEMO2-001` |',
+  '### Fuera de alcance',
+  '',
+].join('\n');
+
+const FEATURE_002: Files = {
+  ...BASE,
+  '.specify/memory/constitution.md': `${BASE['.specify/memory/constitution.md']}### III bis\n- **Invariantes:** \`INV-LEGACY-001\`..\`002\`.\n`,
+  'specs/001-pet-health-tracker/spec.md': '# Spec 001 demo\nREQ-ONLY001-001.\n',
+  'specs/002-plataforma-v21/spec.md': SPEC_002,
+  'specs/002-plataforma-v21/tasks.md': [
+    '# Tasks 002',
+    '- [ ] T900 Demo en `src/domain/demo.ts` (REQ-DEMO2-001, INV-DEMO2-001, STATE-ACCOUNT-DELETE-001, ERR-DEMO-FAILED)',
+    '- [ ] T901 Cita un ID reemplazado (REQ-DEMO-001)',
+    '- [ ] T999 Compuerta final: todos los IDs vigentes de la constitución',
+    '',
+  ].join('\n'),
+  'specs/002-plataforma-v21/contracts/errors/error-catalog.json': JSON.stringify({ errors: { 'ERR-DEMO-FAILED': { status: 422 } } }),
+  'src/domain/demo.ts': `/**\n * ${IMPL} REQ-DEMO2-001, INV-DEMO2-001, STATE-ACCOUNT-DELETE-001, ERR-DEMO-FAILED\n */\nexport const demo = 1;\n`,
+  'tests/unit/demo.spec.ts': `${IT}('[REQ-DEMO2-001][INV-DEMO2-001][STATE-ACCOUNT-DELETE-001][ERR-DEMO-FAILED] demo', () => {});\n`,
+};
+
+describe('T201: compuertas multi-feature (scripts/verify-traceability.sh --feature)', () => {
+  it('[INV-ARCH-001] la 001 es el valor por defecto: --feature 001 da la misma salida que sin parámetro', () => {
+    const implicit = run(TRACEABILITY, BASE, ['--task', 'T900']);
+    const explicit = run(TRACEABILITY, BASE, ['--feature', '001', '--task', 'T900']);
+    expect(explicit.output).toBe(implicit.output);
+    expect(explicit.output).toContain('Resultado: CUMPLE');
+    expect(explicit.status).toBe(0);
+  });
+
+  it('[INV-ARCH-002] --feature 002 lee spec, tasks.md y catálogo de la 002 y admite dígitos en el segmento del ID', () => {
+    const res = run(TRACEABILITY, FEATURE_002, ['--feature', '002', '--task', 'T900']);
+    expect(res.output).toContain('Modo: compuerta por tarea T900 (4 IDs)');
+    expect(res.output).toContain('  OK    REQ-DEMO2-001');
+    expect(res.output).toContain('  OK    INV-DEMO2-001');
+    expect(res.output).toContain('  OK    STATE-ACCOUNT-DELETE-001');
+    expect(res.output).toContain('IDs trazados: 4/4');
+    expect(res.output).toContain('Resultado: CUMPLE');
+    expect(res.status).toBe(0);
+  });
+
+  it('[INV-ARCH-002] --feature 002 busca la tarea en el tasks.md de la 002', () => {
+    const res = run(TRACEABILITY, FEATURE_002, ['--feature', '002', '--task', 'T404']);
+    expect(res.output).toContain('T404 no existe en specs/002-plataforma-v21/tasks.md');
+    expect(res.status).toBe(2);
+  });
+
+  it('[INV-ARCH-002] los IDs que la tabla de trazabilidad marca como reemplazados o absorbidos no son vigentes', () => {
+    const res = run(TRACEABILITY, FEATURE_002, ['--feature', '002', '--task', 'T901']);
+    expect(res.output).toContain('[TRACEABILITY FAIL] REQ-DEMO-001: citado en T901 pero no es un ID vigente (reemplazado)');
+    expect(res.status).toBe(1);
+  });
+
+  it('[INV-ARCH-002] compuerta final de la 002: excluye reemplazados, conserva los vigentes de la tabla y no toma los rangos del principio III', () => {
+    const res = run(TRACEABILITY, FEATURE_002, ['--feature', '002']);
+    expect(res.output).toContain('Modo: compuerta final, feature 002 (6 IDs vigentes; 1 retirados y 2 reemplazados excluidos)');
+    expect(res.output).toContain('FAIL  REQ-DEMO-002');
+    expect(res.output).toContain('FAIL  INV-ARCH-001');
+    expect(res.output).not.toContain('FAIL  REQ-DEMO-001');
+    expect(res.output).not.toContain('INV-DEMO-009');
+    expect(res.output).not.toContain('INV-LEGACY');
+    expect(res.output).not.toContain('REQ-ONLY001-001');
+    expect(res.output).toContain('IDs trazados: 4/6');
+    expect(res.status).toBe(1);
+  });
+
+  it('[INV-ARCH-001] la pureza sigue vigilando src/ con --feature 002', () => {
+    const files = { ...FEATURE_002, 'src/domain/demo.ts': `${FEATURE_002['src/domain/demo.ts']}export const t = Date` + '.now();\n' };
+    const res = run(TRACEABILITY, files, ['--feature', '002', '--task', 'T900']);
+    expect(res.output).toContain('[PURITY FAIL] INV-ARCH-001: Date.now() en src/domain/demo.ts:');
+    expect(res.status).toBe(1);
+  });
+
+  it('[INV-ARCH-002] una feature sin carpeta en specs/ sale con código 2', () => {
+    const res = run(TRACEABILITY, FEATURE_002, ['--feature', '003']);
+    expect(res.output).toContain('Feature desconocida: 003');
+    expect(res.status).toBe(2);
+  });
+
+  it('[INV-ARCH-002] un valor de --feature que no son tres dígitos, o ausente, sale con código 2', () => {
+    const bad = run(TRACEABILITY, FEATURE_002, ['--feature', '2']);
+    expect(bad.output).toContain('Uso: --feature NNN');
+    expect(bad.status).toBe(2);
+    const missing = run(TRACEABILITY, FEATURE_002, ['--feature']);
+    expect(missing.output).toContain('Uso: --feature NNN');
+    expect(missing.status).toBe(2);
+  });
+});
+
+describe('T201: compuerta de oráculos con --feature (scripts/verify-oracles.sh)', () => {
+  it('[INV-ARCH-002] acepta --feature de una feature existente y analiza el mismo tests/', () => {
+    const res = run(ORACLES, { ...FEATURE_002, 'tests/unit/ok.spec.ts': 'expect(x).toBe(1);\n' }, ['--feature', '002']);
+    expect(res.output).toContain('oráculos débiles: 0');
+    expect(res.status).toBe(0);
+  });
+
+  it('[INV-ARCH-002] sale con 2 si la feature no existe en specs/', () => {
+    const res = run(ORACLES, { ...FEATURE_002, 'tests/unit/ok.spec.ts': 'expect(x).toBe(1);\n' }, ['--feature', '003']);
+    expect(res.output).toContain('Feature desconocida: 003');
+    expect(res.status).toBe(2);
+  });
+});

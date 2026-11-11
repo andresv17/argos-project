@@ -11,9 +11,15 @@ on:
         description: 'Compuerta por tarea (TASK-NNN). Vacío = compuerta final completa (npm run test:gate).'
         required: false
         default: ''
+      feature:
+        description: 'Feature a verificar (001 o 002). Vacío = 001.'
+        required: false
+        default: '001'
 
 env:
   SEMGREP_VERSION: '1.184.0'
+  # Multi-feature (T205): la 001 es el valor por defecto; solo la ejecución manual puede pedir otra.
+  FEATURE: ${{ inputs.feature || '001' }}
 
 jobs:
   test-gate:
@@ -38,14 +44,14 @@ jobs:
 
       - name: Verify Contract Compilation & Zero Generated Drift (INV-ARCH-003)
         run: |
-          bash scripts/compile-contracts.sh
+          bash scripts/compile-contracts.sh --feature "$FEATURE"
           git diff --exit-code src/generated/
 
       - name: Compuerta por tarea (solo con task_id)
         if: ${{ inputs.task_id != '' }}
         env:
           TASK_ID: ${{ inputs.task_id }}
-        run: bash scripts/verify-traceability.sh --task "$TASK_ID"
+        run: bash scripts/verify-traceability.sh --feature "$FEATURE" --task "$TASK_ID"
 
       - name: Setup Python for Semgrep
         uses: actions/setup-python@v5

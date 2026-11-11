@@ -1,5 +1,5 @@
-import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, relative, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -106,5 +106,76 @@ describe('deriva y determinismo del generador', () => {
         expect(content.includes(retired), `${file} contiene ${retired}`).toBe(false);
       }
     }
+  });
+});
+
+const CONTRACTS_002 = join(ROOT, 'specs/002-plataforma-v21/contracts');
+
+function runCompile(args: string[], cwd = ROOT): { status: number | null; output: string } {
+  const res = spawnSync('bash', [join(ROOT, 'scripts/compile-contracts.sh'), ...args], { cwd, encoding: 'utf8' });
+  return { status: res.status, output: `${res.stdout}${res.stderr}` };
+}
+
+describe('T201: contratos multi-feature (compile-contracts.sh --feature y codegen.mjs --contracts)', () => {
+  it('INV-ARCH-003: --feature 001 equivale al valor por defecto y regenera exactamente src/generated', { timeout: SLOW }, () => {
+    const out = makeTempDir();
+    const res = runCompile(['--feature', '001', '--out', out]);
+    expect(res.status).toBe(0);
+    expect(res.output).toContain('specs/001-pet-health-tracker/contracts/');
+    expect(readTree(out)).toEqual(readTree(GENERATED));
+  });
+
+  it('INV-ARCH-003: --feature 002 verifica los contratos de la 002 y genera en --out sin tocar src/generated', { timeout: SLOW }, () => {
+    const before = readTree(GENERATED);
+    const out = makeTempDir();
+    const res = runCompile(['--feature', '002', '--out', out]);
+    expect(res.status).toBe(0);
+    expect(res.output).toContain('specs/002-plataforma-v21/contracts/');
+    expect(res.output).toContain('13 contratos presentes');
+    expect(existsSync(join(out, 'index.ts'))).toBe(true);
+    expect(readTree(out)['errors/error-codes.ts']).toContain('ERR-AUTH-WEAK-PASSWORD');
+    expect(readTree(GENERATED)).toEqual(before);
+  });
+
+  it('ERR-SCHEMA-VALIDATION-FAILED: --feature 002 falla con código 1 si falta un contrato de la 002', () => {
+    const dir = makeTempDir();
+    cpSync(CONTRACTS_002, join(dir, 'specs/002-plataforma-v21/contracts'), { recursive: true });
+    rmSync(join(dir, 'specs/002-plataforma-v21/contracts/schemas/audit-entry.schema.json'));
+    const res = runCompile(['--feature', '002', '--out', join(dir, 'out')], dir);
+    expect(res.output).toContain('Contrato obligatorio faltante: specs/002-plataforma-v21/contracts/schemas/audit-entry.schema.json');
+    expect(res.status).toBe(1);
+  });
+
+  it('INV-ARCH-003: una feature desconocida o un valor mal formado sale con código 2', () => {
+    const unknown = runCompile(['--feature', '003']);
+    expect(unknown.output).toContain('Feature desconocida: 003');
+    expect(unknown.status).toBe(2);
+    const missing = runCompile(['--feature']);
+    expect(missing.output).toContain('Uso: --feature NNN');
+    expect(missing.status).toBe(2);
+  });
+
+  it('INV-ARCH-003: dos generaciones desde los contratos de la 002 producen salida idéntica', { timeout: SLOW }, () => {
+    const first = makeTempDir();
+    const second = makeTempDir();
+    runCodegen(CONTRACTS_002, first);
+    runCodegen(CONTRACTS_002, second);
+    expect(readTree(first)).toEqual(readTree(second));
+  });
+
+  it('ERR-SCHEMA-VALIDATION-FAILED: solo se registran x-sdd-metadata, x-sdd-status y x-sdd-error; otra palabra x-sdd-* detiene la generación', { timeout: SLOW }, () => {
+    const contracts = makeTempDir();
+    cpSync(CONTRACTS_002, contracts, { recursive: true });
+    const schemaPath = join(contracts, 'schemas/pet.schema.json');
+    const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+    schema['x-sdd-extra'] = 'no registrada';
+    writeFileSync(schemaPath, JSON.stringify(schema, null, 2), 'utf8');
+    expect(() => runCodegen(contracts, makeTempDir())).toThrow(/x-sdd-extra/);
+  });
+
+  it('ERR-SCHEMA-VALIDATION-FAILED: --contracts a una carpeta inexistente falla con un mensaje claro', () => {
+    const res = spawnSync(process.execPath, [join(ROOT, 'scripts/codegen.mjs'), '--contracts', join(ROOT, 'specs/999-no-existe/contracts'), '--out', makeTempDir()], { cwd: ROOT, encoding: 'utf8' });
+    expect(res.stderr).toContain('carpeta de contratos no existe');
+    expect(res.status).toBe(1);
   });
 });

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Generador determinista de src/generated/ desde specs/001-pet-health-tracker/contracts/ [INV-ARCH-003].
+ * Generador determinista de src/generated/ desde los contratos de una feature [INV-ARCH-003]
+ * (por defecto specs/001-pet-health-tracker/contracts/; la 002 usa --contracts specs/002-plataforma-v21/contracts).
  * Las etiquetas `contracts/...` de las cabeceras generadas son relativas al directorio de la feature.
  *
  * Entradas (solo lectura): contracts/schemas/*.schema.json, contracts/errors/error-catalog.json,
@@ -37,6 +38,18 @@ function argValue(flag, fallback) {
 
 const contractsDir = argValue('--contracts', join(repoRoot, 'specs/001-pet-health-tracker/contracts'));
 const outDir = argValue('--out', join(repoRoot, 'src/generated'));
+
+/**
+ * Palabras de anotación que Ajv acepta sin validar [INV-ARCH-003]: las tres x-sdd-* de los contratos y `$anchor`
+ * (solo anotación: common.schema.json lo usa en ProblemDetails; Ajv strict lo trata como desconocido sin registrarlo).
+ * Cualquier otra palabra desconocida detiene la generación (ERR-SCHEMA-VALIDATION-FAILED).
+ */
+const ANNOTATION_KEYWORDS = [
+  { keyword: 'x-sdd-metadata', schemaType: 'object' },
+  { keyword: 'x-sdd-status', schemaType: 'string' },
+  { keyword: 'x-sdd-error', schemaType: 'string' },
+  { keyword: '$anchor', schemaType: 'string' },
+];
 
 /** IDs retirados que no deben aparecer en ninguna salida generada (v2.2.0). */
 const RETIRED_IDS = ['STATE-PET-QUOTA-001', 'ERR-PET-QUOTA-EXCEEDED'];
@@ -101,6 +114,7 @@ function screamingSnake(id) {
 // ---------------------------------------------------------------------------
 // 1. Carga de contratos
 // ---------------------------------------------------------------------------
+if (!existsSync(contractsDir)) fail(`la carpeta de contratos no existe: ${contractsDir}`);
 const schemasDir = join(contractsDir, 'schemas');
 const schemaFiles = readdirSync(schemasDir)
   .filter((f) => f.endsWith('.schema.json'))
@@ -151,11 +165,7 @@ function createAjv(esm) {
   code: { source: true, optimize: true, esm },
 });
 addFormats(instance);
-instance.addKeyword({ keyword: 'x-sdd-metadata', schemaType: 'object' });
-instance.addKeyword({ keyword: 'x-sdd-status', schemaType: 'string' });
-instance.addKeyword({ keyword: 'x-sdd-error', schemaType: 'string' });
-// $anchor (common.schema.json#ProblemDetails) es solo anotación: ningún $ref lo usa, todos usan punteros JSON.
-instance.addKeyword({ keyword: '$anchor', schemaType: 'string' });
+for (const definition of ANNOTATION_KEYWORDS) instance.addKeyword(definition);
 
 for (const { doc } of schemas) instance.addSchema(doc, doc.$id);
   return instance;

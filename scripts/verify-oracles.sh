@@ -4,8 +4,31 @@
 # además de it/test/describe con .skip, .todo u .only. Se ignoran las líneas que son solo comentario.
 # Criterio estricto: cualquier aparición falla (no se distingue aserción principal de secundaria).
 #
-# Salida: 0 = cumple; 1 = incumple; 2 = falta tests/.
+# tests/ es común a todas las features. `--feature NNN` (opcional, para que los flujos de CI llamen igual a todas las
+# compuertas) solo comprueba que exista specs/NNN-*/; no cambia lo que se analiza.
+#
+# Salida: 0 = cumple; 1 = incumple; 2 = falta tests/, uso inválido o feature desconocida.
 set -euo pipefail
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --feature)
+      if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
+        echo "[SDD Oracle Gate] Uso: --feature NNN (tres dígitos, p. ej. 001 o 002)" >&2
+        exit 2
+      fi
+      if ! compgen -G "specs/$2-*/" > /dev/null; then
+        echo "[SDD Oracle Gate] Feature desconocida: $2 (no existe specs/$2-*/)" >&2
+        exit 2
+      fi
+      shift 2
+      ;;
+    *)
+      echo "[SDD Oracle Gate] Argumento desconocido: $1" >&2
+      exit 2
+      ;;
+  esac
+done
 
 if [[ ! -d tests ]]; then
   echo "[SDD Oracle Gate] Fuente ausente: tests/" >&2

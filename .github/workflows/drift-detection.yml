@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: '0 6 * * *'
   workflow_dispatch:
+    inputs:
+      feature:
+        description: 'Feature a verificar (001 o 002). Vacío = 001.'
+        required: false
+        default: '001'
+
+env:
+  # Multi-feature (T205): la 001 es el valor por defecto (también en la ejecución programada).
+  FEATURE: ${{ inputs.feature || '001' }}
 
 jobs:
   drift-detection:
@@ -23,7 +32,7 @@ jobs:
 
       - name: Audit Spec-to-Contract-to-Code Lineage
         run: |
-          bash scripts/compile-contracts.sh
+          bash scripts/compile-contracts.sh --feature "$FEATURE"
           git diff --exit-code src/generated/
-          bash scripts/verify-traceability.sh
-          bash scripts/verify-oracles.sh
+          bash scripts/verify-traceability.sh --feature "$FEATURE"
+          bash scripts/verify-oracles.sh --feature "$FEATURE"
