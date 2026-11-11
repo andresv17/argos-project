@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/audit-entry.schema.json",
+  "title": "AuditEntrySchema",
+  "description": "Entrada de auditoría de mutaciones, vista pública canónica y seudónimo HMAC [REQ-AUD-001, INV-AUD-001, SC-012, SC-014]",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "REVIEW",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "Contrato nuevo de la Feature 002. F4-M3: entityId de PET_ASSIGNMENT (ASSIGN/UNASSIGN) = HMAC-SHA256 de la clave compuesta petId:householdId.",
+    "traceability": [
+      "REQ-AUD-001",
+      "INV-AUD-001",
+      "REQ-ACC-002",
+      "REQ-OWN-001",
+      "REQ-MIG-001",
+      "REQ-BACKUP2-002",
+      "SC-012",
+      "SC-014"
+    ]
+  },
+  "$defs": {
+    "AuditMutationType": {
+      "type": "string",
+      "enum": [
+        "CREATE",
+        "UPDATE",
+        "DELETE",
+        "ROLE_CHANGE",
+        "ASSIGN",
+        "UNASSIGN",
+        "OWNERSHIP_TRANSFER",
+        "IMPORT",
+        "MIGRATION",
+        "ACCOUNT_DELETE"
+      ],
+      "description": "Valores cerrados de REQ-AUD-001. UPDATE incluye cambios de estado de membresía e invitación"
+    },
+    "AuditEntityType": {
+      "type": "string",
+      "enum": [
+        "USER",
+        "PET",
+        "WEIGHT_RECORD",
+        "BODY_MEASUREMENT",
+        "VACCINATION_RECORD",
+        "DEWORMING_RECORD",
+        "APPOINTMENT_RECORD",
+        "CUSTOM_PARAMETER",
+        "HOUSEHOLD",
+        "HOUSEHOLD_MEMBERSHIP",
+        "HOUSEHOLD_INVITATION",
+        "PET_ASSIGNMENT",
+        "SYSTEM"
+      ],
+      "description": "Valores cerrados de REQ-AUD-001"
+    },
+    "AuditExecutor": {
+      "oneOf": [
+        {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/HmacSha256Hex"
+        },
+        {
+          "type": "string",
+          "const": "SYSTEM"
+        }
+      ],
+      "description": "userId mientras la cuenta existe; HMAC-SHA256 tras eliminarla; SYSTEM en MIGRATION. Sin clave foránea a users [REQ-AUD-001, R1]"
+    },
+    "AuditEntityId": {
+      "oneOf": [
+        {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/HmacSha256Hex"
+        },
+        {
+          "type": "string",
+          "pattern": "^MIG-[A-Za-z0-9._-]{1,64}$"
+        }
+      ],
+      "description": "Identificador propio de la entidad; HMAC para ACCOUNT_DELETE, para filas USER del usuario eliminado y para PET_ASSIGNMENT (clave compuesta, ver regla); MIG-<versión> en MIGRATION. Nunca el userId eliminado en claro [REQ-AUD-001, N-A]. Regla PET_ASSIGNMENT (ASSIGN y UNASSIGN): entityId = HMAC-SHA256(ARGOS_AUDIT_HMAC_SECRET, '<petId>:<householdId>') en hexadecimal minúscula, con los dos UUID en minúsculas y el separador ':'; así el par no se expone en claro [F4-M3]"
+    },
+    "AuditEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "timestamp",
+        "executorUserId",
+        "mutationType",
+        "entityType",
+        "entityId",
+        "previousStateHash",
+        "newStateHash"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "timestamp": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "executorUserId": {
+          "$ref": "#/$defs/AuditExecutor"
+        },
+        "mutationType": {
+          "$ref": "#/$defs/AuditMutationType"
+        },
+        "entityType": {
+          "$ref": "#/$defs/AuditEntityType"
+        },
+        "entityId": {
+          "$ref": "#/$defs/AuditEntityId"
+        },
+        "previousStateHash": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Sha256Hex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "SHA-256 sin clave del JSON canónico de la vista pública; null en creación [REQ-AUD-001]"
+        },
+        "newStateHash": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Sha256Hex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Ídem; null en borrado [REQ-AUD-001]"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "mutationType": {
+                "const": "CREATE"
+              }
+            },
+            "required": [
+              "mutationType"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "previousStateHash": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "mutationType": {
+                "enum": [
+                  "DELETE",
+                  "ACCOUNT_DELETE"
+                ]
+              }
+            },
+            "required": [
+              "mutationType"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "newStateHash": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "mutationType": {
+                "const": "ACCOUNT_DELETE"
+              }
+            },
+            "required": [
+              "mutationType"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "entityType": {
+                "const": "USER"
+              },
+              "entityId": {
+                "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/HmacSha256Hex"
+              },
+              "executorUserId": {
+                "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/HmacSha256Hex"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "mutationType": {
+                "const": "MIGRATION"
+              }
+            },
+            "required": [
+              "mutationType"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "entityType": {
+                "const": "SYSTEM"
+              },
+              "executorUserId": {
+                "const": "SYSTEM"
+              },
+              "previousStateHash": {
+                "type": "null"
+              },
+              "newStateHash": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "entityType": {
+                "const": "PET_ASSIGNMENT"
+              }
+            },
+            "required": [
+              "entityType"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "entityId": {
+                "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/HmacSha256Hex"
+              }
+            }
+          }
+        }
+      ],
+      "description": "Una fila por operación del usuario sobre la entidad raíz; las entidades en cascada no generan fila, salvo una UNASSIGN por asignación podada. Nunca contiene contraseña, hash de contraseña, token ni cookie [REQ-AUD-001, INV-AUD-001]. $comment: el hash de las filas sigue calculándose sobre la vista canónica (AuditCanonicalViewRules)."
+    },
+    "AuditCanonicalViewRules": {
+      "const": {
+        "viewOf": "Representación de salida de la API de la entidad (sin secretos), con las exclusiones de excludedKeys aplicadas a cualquier profundidad",
+        "excludedKeys": [
+          "email",
+          "displayName",
+          "microchipId"
+        ],
+        "serialization": "JSON canónico: claves de objeto ordenadas por punto de código Unicode, sin espacios, UTF-8, arreglos en su orden lógico (importación: mascotas por id ASC y cada colección por id ASC), números como en JSON.stringify, sin claves con valor undefined, null conservado",
+        "hash": "SHA-256 sin clave, hexadecimal minúscula",
+        "importScope": "IMPORT: arreglo de las mascotas propias con sus 6 colecciones antes y después",
+        "note": "Si un UPDATE solo cambia claves excluidas (displayName, email, microchipId), previousStateHash y newStateHash coinciden y la fila se escribe igualmente [R2, T2]. Quedan fuera de la decisión R2 y se declaran como riesgo residual de baja entropía: username, inviteeUsername y el nombre de mascota."
+      },
+      "description": "Reglas de la vista pública canónica de REQ-AUD-001 con la decisión T2 + R2. No altera filas existentes; solo define el cálculo de hashes nuevos."
+    },
+    "AuditPseudonym": {
+      "const": {
+        "algorithm": "HMAC-SHA256",
+        "key": "ARGOS_AUDIT_HMAC_SECRET (decodificada, >= 32 bytes), recibida por parámetro en el puerto hmacUserId; el dominio nunca lee process.env",
+        "message": "userId en UTF-8, minúsculas con guiones",
+        "output": "hexadecimal minúscula de 64 caracteres",
+        "appliesTo": [
+          "executorUserId en todas las filas del usuario eliminado",
+          "entityId de ACCOUNT_DELETE",
+          "entityId de filas USER con entityId = userId"
+        ],
+        "keyVersioning": "Diferido (T1): sin columna auditKeyVersion en F4; rotar el secreto impide correlacionar hashes anteriores y se documenta en el runbook"
+      },
+      "description": "Seudonimización del usuario eliminado [REQ-AUD-001, SC-014, T1]"
+    },
+    "AuditRetentionPolicy": {
+      "const": {
+        "retentionMonths": 24,
+        "configName": "ARGOS_AUDIT_RETENTION_DAYS",
+        "purge": "trabajo de mantenimiento; registra solo un conteo, sin identificadores; no genera fila de auditoría",
+        "port": [
+          "append(entry)",
+          "pseudonymizeUser(userId, hmac)"
+        ],
+        "foreignKeyToUsers": false,
+        "readEndpointForUsers": false,
+        "configUnit": "días",
+        "defaultDays": 730,
+        "configNote": "Valor por defecto provisional (24 meses ≈ 730 días); la unidad de ARGOS_AUDIT_RETENTION_DAYS es días [F4-B1]"
+      },
+      "description": "Retención de 24 meses y forma del puerto AuditLogPort (R1). Sin FK a users, sin ON DELETE CASCADE ni SET NULL, sin endpoint de lectura para usuarios"
+    }
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "STATE-BACKUP-001",
+  "version": "2.3.0",
+  "status": "REVIEW",
+  "x-sdd-metadata": {
+    "version": "2.3.0",
+    "status": "REVIEW",
+    "supersedes": "2.2.0",
+    "change_type": "MINOR",
+    "change_note": "MINOR: reconoce 3.0.0, 2.0.0 y 1.0.0; previsualización sin persistencia; endurecimiento P-14; criterio de fallo inyectado (SC-004); housekeeping posterior al commit (R4); fila IMPORT en la misma transacción.",
+    "traceability": [
+      "STATE-BACKUP-001",
+      "REQ-BACKUP2-002",
+      "REQ-BACKUP2-001",
+      "INV-BACKUP-001",
+      "REQ-AUD-001",
+      "SC-003",
+      "SC-004"
+    ]
+  },
+  "machines": {
+    "STATE-BACKUP-001": {
+      "description": "Importación atómica por reemplazo del respaldo JSON de un usuario (3.0.0, 2.0.0 o 1.0.0). Ninguna escritura ocurre antes de COMMITTING_SNAPSHOT; el commit es una única transacción (UnitOfWorkPort.runInTransaction). La previsualización ejecuta la misma validación y no persiste nada.",
+      "initial": "IDLE",
+      "states": {
+        "IDLE": {
+          "on": {
+            "START_IMPORT": "CHECKING_PAYLOAD_SIZE",
+            "START_PREVIEW": "CHECKING_PAYLOAD_SIZE"
+          }
+        },
+        "CHECKING_PAYLOAD_SIZE": {
+          "on": {
+            "SIZE_OK": "PARSING_JSON",
+            "SIZE_EXCEEDED": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-PAYLOAD-TOO-LARGE"
+            }
+          },
+          "guard": "bytesRead <= 10485760 (medido sobre los bytes realmente leídos del flujo, con corte; no sobre Content-Length)"
+        },
+        "PARSING_JSON": {
+          "on": {
+            "PARSE_SUCCESS": "VALIDATING_VERSION_AND_SCHEMA",
+            "PARSE_FAILURE": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-MALFORMED-JSON"
+            }
+          }
+        },
+        "VALIDATING_VERSION_AND_SCHEMA": {
+          "on": {
+            "VERSION_MISMATCH": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-VERSION-UNSUPPORTED",
+              "guard": "schemaVersion not in ['1.0.0','2.0.0','3.0.0']"
+            },
+            "SCHEMA_INVALID": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-SCHEMA-INVALID"
+            },
+            "LEGACY_V1_VALID": "MIGRATING_LEGACY_ENVELOPE",
+            "LEGACY_V2_VALID": "MIGRATING_LEGACY_ENVELOPE",
+            "SCHEMA_V3_VALID": "CHECKING_DOMAIN_INVARIANTS",
+            "PARSE_HARDENING_REJECTED": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-SCHEMA-INVALID",
+              "guard": "claves __proto__, constructor o prototype, profundidad máxima superada o claves duplicadas"
+            }
+          }
+        },
+        "MIGRATING_LEGACY_ENVELOPE": {
+          "description": "Transformación pura 1.0.0 o 2.0.0 a 3.0.0: DOG a CANINE y CAT a FELINE, birthDateIsEstimate false, neutered y microchipId nulos, category derivada, veterinarianName/veterinarianLicense nulos; se descartan ownerUserId y exportedByUserId; luego la MISMA validación final que un 3.0.0 (no se salta; T7(f)).",
+          "on": {
+            "MIGRATION_SUCCESS": "CHECKING_DOMAIN_INVARIANTS",
+            "MIGRATION_SCHEMA_INVALID": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-SCHEMA-INVALID"
+            }
+          }
+        },
+        "CHECKING_DOMAIN_INVARIANTS": {
+          "description": "Orden fijo: IDs únicos en todo el sobre y sin huérfanos; INV-PET-* y luego INV-REC-* por colección; peso por especie (INV-REC2-002); microchip único por propietario dentro del archivo; IDs ajenos comprobados en la misma transacción que la escritura (I-5). ownerUserId = usuario autenticado siempre, sin asignaciones.",
+          "on": {
+            "ORPHAN_DUPLICATE_OR_FOREIGN_ID": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-REFERENTIAL-INTEGRITY"
+            },
+            "STORAGE_READ_FAILED": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-INTERNAL-UNEXPECTED"
+            },
+            "DOMAIN_INVARIANT_VIOLATED": {
+              "target": "ROLLED_BACK",
+              "error": "PROPAGATE_SPECIFIC",
+              "allowedErrors": [
+                "ERR-PET-FUTURE-BIRTHDATE",
+                "ERR-REC-DATE-BEFORE-BIRTH",
+                "ERR-REC-FUTURE-EVENT-DATE",
+                "ERR-REC-WEIGHT-OUT-OF-RANGE",
+                "ERR-REC-MEASUREMENT-OUT-OF-RANGE",
+                "ERR-REC-INVALID-BOOSTER-DATE",
+                "ERR-REC-INVALID-NEXT-DOSE-DATE",
+                "ERR-SCHEMA-VALIDATION-FAILED",
+                "ERR-PET-MICROCHIP-DUPLICATE"
+              ]
+            },
+            "INVARIANTS_VALID": {
+              "target": "COMMITTING_SNAPSHOT",
+              "guard": "mode === 'IMPORT' && header de confirmación == fileDigest de los bytes leídos",
+              "errorIfDigestMismatch": "ERR-SCHEMA-VALIDATION-FAILED"
+            },
+            "PREVIEW_VALID": {
+              "target": "PREVIEW_READY",
+              "guard": "mode === 'PREVIEW'"
+            }
+          }
+        },
+        "COMMITTING_SNAPSHOT": {
+          "description": "En una transacción con bloqueo de escritura: borra las mascotas propias con sus 6 colecciones y asignaciones; inserta las del sobre con ownerUserId = usuario autenticado y sin asignaciones; inserta 1 fila IMPORT (USER, entityId = userId) con hashes del JSON canónico antes y después; poscondiciones (conteos iguales a la previsualización, ninguna mascota del usuario con asignación, foreign_key_check, filas de otros usuarios sin variación).",
+          "on": {
+            "COMMIT_SUCCESS": "COMPLETED",
+            "STORAGE_ERROR": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-BACKUP-ATOMIC-ROLLBACK"
+            },
+            "ROLLBACK_FAILED": {
+              "target": "ROLLED_BACK",
+              "error": "ERR-INTERNAL-UNEXPECTED",
+              "finalState": "UNKNOWN"
+            }
+          }
+        },
+        "COMPLETED": {
+          "type": "final",
+          "postCondition": "Tras el COMMIT, fuera de la transacción: checkpoint del WAL con truncado; si falla se registra un aviso sin identificadores y se reintenta (R4). Con PRAGMA secure_delete = ON."
+        },
+        "ROLLED_BACK": {
+          "type": "final",
+          "postCondition": "Los datos del usuario son idénticos byte a byte al estado previo a START_IMPORT; los datos de otros usuarios nunca se tocan; el error reportado es siempre el de la transición que llevó a ROLLED_BACK. Excepción: tras ROLLBACK_FAILED la postcondición no está garantizada (finalState UNKNOWN; H-06)."
+        },
+        "PREVIEW_READY": {
+          "type": "final",
+          "postCondition": "Devuelve ImportPreviewResult (conteos, colisiones solo contra datos propios, mascotas compartidas afectadas y fileDigest). No se escribió nada: ni datos, ni auditoría, ni archivos temporales."
+        }
+      },
+      "rules": {
+        "finalState": "Todo error que lleve a ROLLED_BACK incluye finalState: \"ROLLED_BACK\" en ProblemDetails (enum de common.schema.json). ERR-BACKUP-ATOMIC-ROLLBACK nunca reemplaza el error original de la transición que falló. Si el rollback del almacenamiento falla (ROLLBACK_FAILED), la respuesta es ERR-INTERNAL-UNEXPECTED con finalState \"UNKNOWN\", se registra como incidente y es el único caso en que la postcondición de byte-identidad no se garantiza.",
+        "hardening": [
+          "Los campos de propiedad, rol y asignación del archivo nunca son autoridad: ownerUserId se fija a la sesión; V3 con ownerUserId, exportedByUserId, householdId, role o assignments se rechaza por additionalProperties false.",
+          "Rechazo de __proto__, constructor y prototype en cualquier nivel; sin fusiones recursivas.",
+          "Tope de 10 MB sobre bytes leídos.",
+          "Profundidad máxima de anidamiento y claves duplicadas rechazadas.",
+          "Las migraciones 1.0.0 y 2.0.0 a 3.0.0 ejecutan la misma validación final.",
+          "El rechazo por ID ajeno devuelve el mismo ERR-BACKUP-REFERENTIAL-INTEGRITY genérico, sin el ID ni el propietario."
+        ],
+        "injectedFailureCriterion": {
+          "scenario": "SC-004",
+          "description": "Parametrizada sobre cada escritura del commit (borrado de cada colección, de asignaciones y de mascotas; cada inserción de mascota y de registro; la fila IMPORT; el COMMIT), con un sobre válido de las 6 colecciones y mascotas asignadas a un hogar compartido.",
+          "passesOnlyIf": [
+            "error ERR-BACKUP-ATOMIC-ROLLBACK con finalState ROLLED_BACK, sin sustituir al error original",
+            "volcado lógico canónico del usuario idéntico, incluidas las asignaciones a hogares",
+            "cero filas de auditoría nuevas y mismo conteo",
+            "filas de otros usuarios y hogares con la misma suma de verificación",
+            "sin archivos temporales ni tablas de preparación residuales",
+            "una importación inmediata posterior con el mismo archivo tiene éxito",
+            "ningún mensaje de error ni log contiene datos del archivo ni identificadores de otro usuario"
+          ],
+          "extraCases": [
+            "fallo del rollback: ERR-INTERNAL-UNEXPECTED con finalState UNKNOWN e incidente",
+            "corte SIGKILL a mitad del commit: al reabrir, estado exactamente anterior o exactamente nuevo",
+            "carrera con otro usuario que crea un ID del sobre: ERR-BACKUP-REFERENTIAL-INTEGRITY con estado intacto"
+          ],
+          "byteIdentityMeaning": "'Byte a byte' (SC-004) se interpreta sobre el volcado lógico canónico, no sobre el archivo físico de SQLite."
+        },
+        "permissions": "Los cuatro roles de hogar pueden exportar e importar, solo sobre mascotas propias (REQ-RBAC-001, N-4)."
+      },
+      "modes": {
+        "IMPORT": "termina en COMPLETED o ROLLED_BACK",
+        "PREVIEW": "termina en PREVIEW_READY o ROLLED_BACK sin ninguna escritura"
+      }
+    }
+  }
+}

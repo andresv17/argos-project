@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "STATE-AUTH-SESSION-001",
+  "version": "3.0.0",
+  "status": "REVIEW",
+  "x-sdd-metadata": {
+    "version": "3.0.0",
+    "status": "REVIEW",
+    "supersedes": "2.2.0",
+    "change_type": "MAJOR",
+    "change_note": "MAJOR (T6): vigencia con inactividad de 30 min y tope absoluto de 24 h (sustituye TTL de 7 días), estados EXPIRED_IDLE y REVOKED separados de LOGGED_OUT, revocación por cambio de contraseña y por eliminación de cuenta. La spec la llama 'v2'; el archivo es 3.0.0 porque la 001 ya estaba en 2.2.0.",
+    "traceability": [
+      "STATE-AUTH-SESSION-001",
+      "REQ-AUTH2-001",
+      "REQ-AUTH2-002",
+      "REQ-AUTH2-003",
+      "REQ-AUTH-003",
+      "REQ-AUTH-004",
+      "REQ-ACC-002",
+      "INV-AUTH2-002",
+      "INV-AUTH-005",
+      "INV-AUTH-006",
+      "INV-AUTH-007",
+      "SC-009"
+    ]
+  },
+  "machines": {
+    "STATE-AUTH-SESSION-001": {
+      "description": "Ciclo de vida de una sesión: 30 min de inactividad y 24 h absolutas, evaluadas de forma perezosa en cada petición con ClockPort (INV-ARCH-001).",
+      "initial": "ANONYMOUS",
+      "constants": {
+        "SESSION_ABSOLUTE_TTL_HOURS": 24,
+        "SESSION_IDLE_TIMEOUT_MINUTES": 30,
+        "MAX_FAILED_ATTEMPTS": 5,
+        "LOCKOUT_WINDOW_MINUTES": 15
+      },
+      "context": {
+        "createdAt": "IsoTimestamp",
+        "lastActivityAt": "IsoTimestamp",
+        "revokedAt": "IsoTimestamp | null",
+        "userId": "Uuid"
+      },
+      "states": {
+        "ANONYMOUS": {
+          "on": {
+            "REGISTER_SUCCESS": {
+              "target": "AUTHENTICATED",
+              "effect": "crea sesión nueva con token nuevo; createdAt = lastActivityAt = now"
+            },
+            "LOGIN_SUCCESS": {
+              "target": "AUTHENTICATED",
+              "guard": "!isLockedOut(username, now)",
+              "effect": "resetFailedAttempts(username); crea sesión nueva con token nuevo e ignora cualquier cookie previa; createdAt = lastActivityAt = now"
+            },
+            "LOGIN_FAILURE": {
+              "target": "ANONYMOUS",
+              "error": "ERR-AUTH-INVALID-CREDENTIALS",
+              "effect": "recordFailedAttempt(username, now)"
+            },
+            "LOGIN_LOCKED": {
+              "target": "ANONYMOUS",
+              "error": "ERR-AUTH-TOO-MANY-ATTEMPTS",
+              "guard": "failedAttempts(username, last 15 min) >= 5"
+            },
+            "ACCESS_PROTECTED": {
+              "target": "ANONYMOUS",
+              "error": "ERR-AUTH-UNAUTHENTICATED"
+            },
+            "LOGOUT": {
+              "target": "ANONYMOUS",
+              "response": 204
+            }
+          }
+        },
+        "AUTHENTICATED": {
+          "on": {
+            "REQUEST": {
+              "target": "AUTHENTICATED",
+              "guard": "revokedAt === null && now < createdAt + 24h && now < lastActivityAt + 30min",
+              "effect": "lastActivityAt = now"
+            },
+            "ABSOLUTE_TTL_ELAPSED": {
+              "target": "EXPIRED",
+              "guard": "now >= createdAt + 24h",
+              "priority": 1
+            },
+            "IDLE_TIMEOUT": {
+              "target": "EXPIRED_IDLE",
+              "guard": "now < createdAt + 24h && now >= lastActivityAt + 30min",
+              "priority": 2
+            },
+            "LOGOUT": "LOGGED_OUT",
+            "PASSWORD_CHANGED": {
+              "target": "AUTHENTICATED",
+              "effect": "en la misma transacción que el cambio de hash: revokeOtherSessions(userId, currentSessionId); la sesión actual se conserva"
+            },
+            "REVOKED_BY_PASSWORD_CHANGE": {
+              "target": "REVOKED",
+              "actor": "EXTERNAL",
+              "note": "evento aplicado a las demás sesiones del usuario"
+            },
+            "ACCOUNT_DELETED": {
+              "target": "REVOKED",
+              "actor": "EXTERNAL",
+              "note": "las sesiones del usuario se borran en la transacción de eliminación (REQ-ACC-002)"
+            },
+            "PASSWORD_VERIFY_FAILURE": {
+              "target": "AUTHENTICATED",
+              "effect": "recordFailedAttempt(username, now); no renueva lastActivityAt",
+              "error": "ERR-AUTH-INVALID-CREDENTIALS",
+              "note": "contraseña actual incorrecta al cambiar la contraseña o eliminar la cuenta (T3)"
+            },
+            "PASSWORD_VERIFY_LOCKED": {
+              "target": "AUTHENTICATED",
+              "error": "ERR-AUTH-TOO-MANY-ATTEMPTS",
+              "guard": "failedAttempts(username, last 15 min) >= 5"
+            }
+          }
+        },
+        "EXPIRED_IDLE": {
+          "onAccess": "ERR-AUTH-UNAUTHENTICATED",
+          "description": "30 min sin petición autenticada válida",
+          "on": {
+            "LOGOUT": {
+              "target": "EXPIRED_IDLE",
+              "response": 204
+            }
+          }
+        },
+        "EXPIRED": {
+          "onAccess": "ERR-AUTH-UNAUTHENTICATED",
+          "description": "Tope absoluto de 24 h desde createdAt",
+          "on": {
+            "LOGOUT": {
+              "target": "EXPIRED",
+              "response": 204
+            }
+          }
+        },
+        "LOGGED_OUT": {
+          "onAccess": "ERR-AUTH-UNAUTHENTICATED",
+          "description": "La persona cerró sesión (revokedAt de esa sesión)",
+          "on": {
+            "LOGOUT": {
+              "target": "LOGGED_OUT",
+              "response": 204
+            }
+          }
+        },
+        "REVOKED": {
+          "onAccess": "ERR-AUTH-UNAUTHENTICATED",
+          "description": "Revocada por un evento externo (cambio de contraseña o eliminación de cuenta); separada de LOGGED_OUT para distinguir 'cerré yo' de 'me revocaron' en pruebas",
+          "on": {
+            "LOGOUT": {
+              "target": "REVOKED",
+              "response": 204
+            }
+          }
+        }
+      },
+      "rules": {
+        "ttlIsDerived": "EXPIRED y EXPIRED_IDLE no se persisten: se derivan en cada petición de createdAt, lastActivityAt y revokedAt. No hay temporizadores.",
+        "absoluteNotExtendable": "La actividad nunca mueve createdAt: la sesión expira a las 24 h aunque haya actividad reciente. Se evalúa primero la absoluta.",
+        "noRenewalOnRejected": "Peticiones rechazadas por CSRF (INV-AUTH-007, se valida antes que la sesión), con sesión caducada o revocada, o con contraseña actual errónea no modifican lastActivityAt.",
+        "sameErrorForAllReasons": "Sesión inexistente, revocada, expirada por inactividad o por tope absoluto responden siempre ERR-AUTH-UNAUTHENTICATED con el mismo cuerpo; el motivo solo se observa en pruebas, nunca en la respuesta (INV-AUTH-006).",
+        "reloadKeepsSession": "GET /auth/me cuenta como petición válida y renueva lastActivityAt; recargar dentro de la vigencia no cierra la sesión.",
+        "noPollingInUi": "La interfaz no hace peticiones autenticadas en segundo plano: cada una cuenta como actividad y anularía la expiración por inactividad (P-03/P-04 adoptadas, T8).",
+        "tokenStorage": "En la base solo SHA-256(token) en hexadecimal con índice único; el token de 32 bytes base64url viaja solo en la cookie argos_session (HttpOnly, SameSite=Strict, Path=/, Secure en Cloud).",
+        "passwordChangeAtomic": "El cambio de hash y la revocación de las demás sesiones ocurren en una sola transacción: nunca la contraseña nueva con sesiones viejas vivas.",
+        "logoutIdempotent": "LOGOUT responde 204 en cualquier estado sin cambiar el estado ni registrar error.",
+        "lockoutWindow": "Ventana deslizante de 15 min por username; los fallos de contraseña actual de cambio y eliminación cuentan igual que los del login (INV-AUTH-005, T3). Los intentos bloqueados no se registran.",
+        "purge": "Sesiones expiradas o revocadas con más de 7 días y tokens de confirmación vencidos se purgan con un trabajo de mantenimiento sin efecto funcional (T8, P-03).",
+        "reuseOfSecret": "ARGOS_AUDIT_HMAC_SECRET se usa únicamente para el HMAC de auditoría; nunca para tokens de sesión, token de respaldo ni CSRF (P-05)."
+      }
+    }
+  }
+}
