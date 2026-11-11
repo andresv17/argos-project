@@ -3,12 +3,9 @@ import { resolve } from 'node:path';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { DomainError, type BackupEnvelopeV3, type WeightRecord } from '../../src/generated/index.ts';
-import {
-  computeWeightEvolutionSeries,
-  deltaPercentFromHundredths,
-  toHundredths,
-  validateRecord,
-} from '../../src/domain/records/record-invariants.ts';
+import { computeWeightEvolutionSeries, validateRecord, validateRecordInput } from '../../src/domain/records/record-invariants.ts';
+import { SPECIES_WEIGHT_LIMITS, gramsToKg, weightKgToGrams } from '../../src/domain/records/weight-limits.ts';
+import { SPECIES } from '../../src/domain/pet/species.ts';
 
 const PROPERTY_SEED = 20261105;
 const DAY_MS = 86_400_000;
@@ -20,6 +17,10 @@ const envelope: BackupEnvelopeV3 = JSON.parse(
 const baseWeight = envelope.records.weights[0]!;
 const baseVaccination = envelope.records.vaccinations[0]!;
 const baseMeasurement = envelope.records.bodyMeasurements[0]!;
+/** Tabla de INV-REC2-002 leída del contrato 002: el oráculo no comparte código con la implementación. */
+const CONTRACT_LIMITS: Record<string, { minKg: number; maxKg: number; decimals: number }> = JSON.parse(
+  readFileSync(resolve(process.cwd(), 'specs/002-plataforma-v21/contracts/schemas/medical-records.schema.json'), 'utf8'),
+).$defs.SpeciesWeightLimits.const;
 
 function outcome(action: () => unknown): string {
   try {
@@ -31,36 +32,37 @@ function outcome(action: () => unknown): string {
   }
 }
 
-/** Oráculo independiente con BigInt: round-half-away-from-zero(|Δ|·10000 / anterior) = floor((2·|Δ|·10000 + anterior) / (2·anterior)). */
-function percentOracle(previous: number, current: number): number {
-  const delta = BigInt(current - previous);
-  const magnitude = delta < 0n ? -delta : delta;
-  const p = BigInt(previous);
-  const rounded = Number((2n * magnitude * 10000n + p) / (2n * p));
-  return rounded === 0 ? 0 : ((delta < 0n ? -1 : 1) * rounded) / 100;
-}
-
-const hundredths = fc.integer({ min: 5, max: 15000 });
+const grams = fc.integer({ min: 1, max: 150000 });
 
 describe('propiedades de registros', () => {
-  it('[REQ-REC-001] deltaKg es exactamente (b - a) / 100 sobre centésimas y deltaPercent coincide con un oráculo BigInt (EDGE-034, EDGE-035)', () => {
+  it('[REQ-REC2-001][SC-013] deltaKg es exactamente (b - a) / 1000 sobre gramos enteros y, para pesos en centésimas, (b - a) / 100 sin redondeo', () => {
     fc.assert(
-      fc.property(hundredths, hundredths, (a, b) => {
-        expect(toHundredths(a / 100)).toBe(a);
+      fc.property(grams, grams, (a, b) => {
+        expect(weightKgToGrams(a / 1000)).toBe(a);
+        expect(gramsToKg(a)).toBe(a / 1000);
+        const [latest] = computeWeightEvolutionSeries([
+          { ...baseWeight, id: 'p1', recordedAt: '2026-10-01', weightKg: a / 1000 },
+          { ...baseWeight, id: 'p2', recordedAt: '2026-11-01', weightKg: b / 1000 },
+        ]);
+        expect(latest!.deltaKg).toBe((b - a) / 1000);
+        expect(Object.keys(latest!).sort()).toEqual(['deltaKg', 'record']);
+      }),
+      { seed: PROPERTY_SEED, numRuns: 500 },
+    );
+    fc.assert(
+      fc.property(fc.integer({ min: 5, max: 15000 }), fc.integer({ min: 5, max: 15000 }), (a, b) => {
         const [latest] = computeWeightEvolutionSeries([
           { ...baseWeight, id: 'p1', recordedAt: '2026-10-01', weightKg: a / 100 },
           { ...baseWeight, id: 'p2', recordedAt: '2026-11-01', weightKg: b / 100 },
         ]);
         expect(latest!.deltaKg).toBe((b - a) / 100);
-        expect(latest!.deltaPercent).toBe(percentOracle(a, b));
-        expect(deltaPercentFromHundredths(a, b)).toBe(percentOracle(a, b));
       }),
       { seed: PROPERTY_SEED, numRuns: 500 },
     );
   });
 
-  it('[REQ-REC-001] cada entrada de la serie compara con la siguiente en orden INV-SORT-001 y solo la última lleva null', () => {
-    const entries = fc.uniqueArray(fc.record({ day: fc.integer({ min: 0, max: 60 }), h: hundredths, id: fc.integer({ min: 0, max: 999 }) }), {
+  it('[REQ-REC2-001] cada entrada de la serie compara con la siguiente en orden INV-SORT-001 y solo la última lleva null', () => {
+    const entries = fc.uniqueArray(fc.record({ day: fc.integer({ min: 0, max: 60 }), g: grams, id: fc.integer({ min: 0, max: 999 }) }), {
       selector: (e) => e.id,
       maxLength: 12,
     });
@@ -70,7 +72,7 @@ describe('propiedades de registros', () => {
           ...baseWeight,
           id: `w-${String(e.id).padStart(3, '0')}`,
           recordedAt: iso(e.day),
-          weightKg: e.h / 100,
+          weightKg: e.g / 1000,
           createdAt: `${iso(e.day)}T09:00:00.000Z`,
         }));
         const series = computeWeightEvolutionSeries(records);
@@ -78,11 +80,10 @@ describe('propiedades de registros', () => {
         series.forEach((entry, i) => {
           const previous = series[i + 1];
           if (previous === undefined) {
-            expect([entry.deltaKg, entry.deltaPercent]).toEqual([null, null]);
+            expect(entry.deltaKg).toBeNull();
           } else {
             expect(entry.record.recordedAt >= previous.record.recordedAt).toBe(true);
-            const [p, c] = [toHundredths(previous.record.weightKg), toHundredths(entry.record.weightKg)];
-            expect([entry.deltaKg, entry.deltaPercent]).toEqual([(c - p) / 100, percentOracle(p, c)]);
+            expect(entry.deltaKg).toBe((weightKgToGrams(entry.record.weightKg) - weightKgToGrams(previous.record.weightKg)) / 1000);
           }
         });
       }),
@@ -90,13 +91,44 @@ describe('propiedades de registros', () => {
     );
   });
 
-  it('[INV-REC-002][INV-REC-003][ERR-REC-WEIGHT-OUT-OF-RANGE][ERR-REC-MEASUREMENT-OUT-OF-RANGE] se acepta todo valor de centésimas enteras dentro del rango y se rechaza fuera de él', () => {
+  it('[INV-REC2-002][SC-013][ERR-REC-WEIGHT-OUT-OF-RANGE] cada especie acepta exactamente los gramos de su tabla (mínimo inclusivo, máximo inclusivo, múltiplos de su unidad) y rechaza el resto', () => {
+    expect(Object.keys(SPECIES_WEIGHT_LIMITS).sort()).toEqual([...SPECIES].sort());
+    fc.assert(
+      fc.property(fc.constantFrom(...SPECIES), fc.integer({ min: -2000, max: 160000 }), (species, g) => {
+        const limit = CONTRACT_LIMITS[species]!;
+        const unit = 10 ** (3 - limit.decimals);
+        const accepted = g >= limit.minKg * 1000 && g <= limit.maxKg * 1000 && g % unit === 0;
+        const value = g / 1000;
+        expect(outcome(() => validateRecordInput('weights', { recordedAt: '2026-11-01', weightKg: value }, '2022-05-10', '2026-11-05', species))).toBe(
+          accepted ? 'OK' : 'ERR-REC-WEIGHT-OUT-OF-RANGE',
+        );
+        expect(outcome(() => validateRecord('weights', { ...baseWeight, weightKg: value }, '2022-05-10', '2026-11-05', species))).toBe(
+          accepted ? 'OK' : 'ERR-REC-WEIGHT-OUT-OF-RANGE',
+        );
+      }),
+      { seed: PROPERTY_SEED, numRuns: 1500 },
+    );
+  });
+
+  it('[INV-REC2-002][SC-013] los límites exactos: 0.05 inclusivo para CANINE y FELINE, 0.001 inclusivo para las seis restantes y, debajo de cada mínimo, rechazo', () => {
+    const at = (species: string, kg: number) =>
+      outcome(() => validateRecordInput('weights', { recordedAt: '2026-11-01', weightKg: kg }, '2022-05-10', '2026-11-05', species as never));
+    for (const species of ['CANINE', 'FELINE']) {
+      expect([0.049, 0.04, 0.001, 0.05, 0.051, 0.06, 150, 150.01].map((kg) => at(species, kg))).toEqual([
+        'ERR-REC-WEIGHT-OUT-OF-RANGE', 'ERR-REC-WEIGHT-OUT-OF-RANGE', 'ERR-REC-WEIGHT-OUT-OF-RANGE', 'OK', 'ERR-REC-WEIGHT-OUT-OF-RANGE', 'OK', 'OK', 'ERR-REC-WEIGHT-OUT-OF-RANGE',
+      ]);
+    }
+    for (const species of ['RABBIT', 'FERRET', 'BIRD', 'REPTILE', 'SMALL_MAMMAL', 'OTHER']) {
+      expect([0, 0.0005, 0.001, 0.0015, 0.049, 0.051, 150, 150.001].map((kg) => at(species, kg))).toEqual([
+        'ERR-REC-WEIGHT-OUT-OF-RANGE', 'ERR-REC-WEIGHT-OUT-OF-RANGE', 'OK', 'ERR-REC-WEIGHT-OUT-OF-RANGE', 'OK', 'OK', 'OK', 'ERR-REC-WEIGHT-OUT-OF-RANGE',
+      ]);
+    }
+  });
+
+  it('[INV-REC-003][ERR-REC-MEASUREMENT-OUT-OF-RANGE] las medidas conservan su rango de 1.00 a 250.00 cm en centésimas enteras', () => {
     fc.assert(
       fc.property(fc.integer({ min: -2000, max: 30000 }), (h) => {
-        const value = h / 100;
-        const weight = outcome(() => validateRecord('weights', { ...baseWeight, weightKg: value }, '2022-05-10', '2026-11-05'));
-        const neck = outcome(() => validateRecord('bodyMeasurements', { ...baseMeasurement, neckCm: value }, '2022-05-10', '2026-11-05'));
-        expect(weight).toBe(h >= 5 && h <= 15000 ? 'OK' : 'ERR-REC-WEIGHT-OUT-OF-RANGE');
+        const neck = outcome(() => validateRecord('bodyMeasurements', { ...baseMeasurement, neckCm: h / 100 }, '2022-05-10', '2026-11-05'));
         expect(neck).toBe(h >= 100 && h <= 25000 ? 'OK' : 'ERR-REC-MEASUREMENT-OUT-OF-RANGE');
       }),
       { seed: PROPERTY_SEED, numRuns: 500 },

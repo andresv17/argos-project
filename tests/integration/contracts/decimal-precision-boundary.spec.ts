@@ -39,9 +39,9 @@ function boundaryCode(schemaName: string, validate: Validator, payload: unknown)
   return `${error.keyword}:${resolveFieldErrorCode(schemaName, error.instancePath) ?? 'ERR-SCHEMA-VALIDATION-FAILED'}@${error.instancePath}`;
 }
 
-describe('frontera de 2 decimales (DEUDA-VAL-001, scripts/codegen.mjs multipleOfPrecision)', () => {
-  it('[INV-REC-002][ERR-REC-WEIGHT-OUT-OF-RANGE] la frontera rechaza 32.85001, 32.855 y 32.8500001 en weightKg con el código del campo, como entrada y como registro', () => {
-    for (const value of [32.85001, 32.855, 32.8500001, 0.051, 149.999]) {
+describe('frontera de 3 decimales del peso y de 2 de las medidas (DEUDA-VAL-001, scripts/codegen.mjs multipleOfPrecision)', () => {
+  it('[INV-REC2-002][ERR-REC-WEIGHT-OUT-OF-RANGE] la frontera rechaza 32.8501, 32.85001 y 32.8500001 (más de 3 decimales) en weightKg con el código del campo, como entrada y como registro', () => {
+    for (const value of [32.8501, 32.85001, 32.8500001, 0.0511, 149.9991]) {
       expect(boundaryCode('CreateWeightInput', validateCreateWeightInput as Validator, weightInput(value))).toBe('multipleOf:ERR-REC-WEIGHT-OUT-OF-RANGE@/weightKg');
       expect(boundaryCode('WeightRecord', validateWeightRecord as Validator, weightRecord(value))).toBe('multipleOf:ERR-REC-WEIGHT-OUT-OF-RANGE@/weightKg');
     }
@@ -58,10 +58,10 @@ describe('frontera de 2 decimales (DEUDA-VAL-001, scripts/codegen.mjs multipleOf
     }
   });
 
-  it('[INV-REC-002][INV-REC-003] la frontera acepta todas las centésimas de [0.05, 150.00] en weightKg y de [1.00, 250.00] en cada medida', () => {
+  it('[INV-REC2-002][INV-REC-003] la frontera acepta todas las milésimas de [0.001, 150.000] en weightKg y las centésimas de [1.00, 250.00] en cada medida', () => {
     const rejectedWeights: number[] = [];
-    for (let h = 5; h <= 15000; h += 1) {
-      if (!validateCreateWeightInput(weightInput(h / 100)) || !validateWeightRecord(weightRecord(h / 100))) rejectedWeights.push(h / 100);
+    for (let g = 1; g <= 150000; g += 1) {
+      if (!validateCreateWeightInput(weightInput(g / 1000)) || !validateWeightRecord(weightRecord(g / 1000))) rejectedWeights.push(g / 1000);
     }
     const rejectedMeasures: string[] = [];
     for (const field of MEASUREMENTS) {
@@ -72,18 +72,18 @@ describe('frontera de 2 decimales (DEUDA-VAL-001, scripts/codegen.mjs multipleOf
     expect([rejectedWeights, rejectedMeasures]).toEqual([[], []]);
   });
 
-  it('[INV-REC-002][ERR-REC-WEIGHT-OUT-OF-RANGE] toda desviación de al menos 1e-11 sobre una centésima válida se rechaza en la frontera', () => {
+  it('[INV-REC2-002][ERR-REC-WEIGHT-OUT-OF-RANGE] toda desviación de al menos 1e-11 sobre una milésima válida se rechaza en la frontera', () => {
     fc.assert(
-      fc.property(fc.integer({ min: 5, max: 14999 }), fc.double({ min: 1e-11, max: 0.0099, noNaN: true }), (h, deviation) => {
-        const value = h / 100 + deviation;
+      fc.property(fc.integer({ min: 1, max: 149999 }), fc.double({ min: 1e-11, max: 0.00099, noNaN: true }), (g, deviation) => {
+        const value = g / 1000 + deviation;
         expect(boundaryCode('CreateWeightInput', validateCreateWeightInput as Validator, weightInput(value))).toBe('multipleOf:ERR-REC-WEIGHT-OUT-OF-RANGE@/weightKg');
       }),
       { seed: PROPERTY_SEED, numRuns: 1000 },
     );
   });
 
-  it('[INV-REC-002] la frontera todavía tolera desviaciones menores de 1e-12 (p. ej. 32.85 + 1e-13); las rechaza el dominio', () => {
-    expect(validateCreateWeightInput(weightInput(32.85 + 1e-13))).toBe(true);
+  it('[INV-REC2-002][INV-REC-003] la frontera todavía tolera desviaciones diminutas (peso 32.85 + 1e-14, medida 46.5 + 1e-13); las rechaza el dominio', () => {
+    expect(validateCreateWeightInput(weightInput(32.85 + 1e-14))).toBe(true);
     expect(validateCreateBodyMeasurementInput(measureInput('neckCm', 46.5 + 1e-13))).toBe(true);
   });
 

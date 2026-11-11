@@ -218,12 +218,12 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
 });
 
 describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
-  const ROCKY = { name: 'Rocky', species: 'DOG', breed: 'Mestizo', birthDate: '2024-06-01', sex: 'MALE' };
+  const ROCKY = { name: 'Rocky', species: 'CANINE', breed: 'Mestizo', birthDate: '2024-06-01', sex: 'MALE' };
 
   it('[REQ-PET-001][INV-ARCH-001][INV-ARCH-002] registra una 6.ª mascota sin cupo (EDGE-001) con id, dueño y fechas de los puertos', async () => {
     const { deps, uow } = createHarness();
     const pet = await new RegisterPetUseCase(deps).execute(ANDRES, ROCKY);
-    expect(pet).toEqual({ ...ROCKY, id: generatedId(1), ownerUserId: ANDRES, avatarUrl: null, createdAt: NOW, updatedAt: NOW });
+    expect(pet).toEqual({ ...ROCKY, id: generatedId(1), ownerUserId: ANDRES, speciesOther: null, birthDateIsEstimate: false, neutered: null, microchipId: null, avatarUrl: null, createdAt: NOW, updatedAt: NOW });
     expect(uow.snapshot().pets.filter((p) => p.ownerUserId === ANDRES).length).toBe(6);
   });
 
@@ -306,8 +306,8 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     state.pets.push({ ...ARGOS, id: '11111111-1111-4111-8111-111111111106', name: 'Ñandú' });
     const { deps } = createHarness(state);
     const list = new ListMyPetsUseCase(deps);
-    const names = async (q: { q?: string; species?: 'DOG' | 'CAT' }) => (await list.execute(ANDRES, q as never)).map((c) => c.profile.name);
-    expect([await names({ q: 'ARG' }), await names({ q: 'nandu' }), await names({ species: 'CAT' }), await names({ q: 'i', species: 'DOG' })]).toEqual([
+    const names = async (q: { q?: string; species?: 'CANINE' | 'FELINE' }) => (await list.execute(ANDRES, q as never)).map((c) => c.profile.name);
+    expect([await names({ q: 'ARG' }), await names({ q: 'nandu' }), await names({ species: 'FELINE' }), await names({ q: 'i', species: 'CANINE' })]).toEqual([
       ['Argos'],
       ['Ñandú'],
       ['Milo', 'Nyx'],
@@ -330,12 +330,77 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     const view = await new GetPetDashboardUseCase(deps).execute(ANDRES, ARGOS.id);
     const r = envelope.records;
     expect(view.weights).toEqual([
-      { record: r.weights[1], deltaKg: 0.45, deltaPercent: 1.39 },
-      { record: r.weights[0], deltaKg: null, deltaPercent: null },
+      { record: r.weights[1], deltaKg: 0.45 },
+      { record: r.weights[0], deltaKg: null },
     ]);
     expect(view.vaccinations.map((v) => [v.record.id, v.alert!.status, v.alert!.daysRemaining])).toEqual([[r.vaccinations[0]!.id, 'DUE_SOON', 7]]);
     expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements, [], [], r.customParameters]);
     expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([ARGOS, { years: 4, months: 5, totalDays: 1640 }, 1]);
+  });
+});
+
+describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-001, INV-PET2-001, INV-REC2-002)', () => {
+  const RABBIT = { name: 'Nube', species: 'RABBIT', breed: 'Cabeza de león', birthDate: '2024-01-10', sex: 'MALE' };
+  const CHIP = '981020000000001';
+
+  it('[INV-PET2-001][REQ-PET2-001] registra una mascota OTHER con speciesOther y neutered y la edita a otra especie limpiando speciesOther', async () => {
+    const { deps } = createHarness();
+    const pet = await new RegisterPetUseCase(deps).execute(ANDRES, { ...RABBIT, species: 'OTHER', speciesOther: 'Erizo africano', neutered: false });
+    expect([pet.species, pet.speciesOther, pet.neutered]).toEqual(['OTHER', 'Erizo africano', false]);
+    const back = await new UpdatePetUseCase(deps).execute(ANDRES, pet.id, { species: 'FERRET', speciesOther: null });
+    expect([back.species, back.speciesOther]).toEqual(['FERRET', null]);
+    expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, pet.id, { species: 'OTHER', speciesOther: null }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@speciesOther');
+  });
+
+  it('[REQ-PET2-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip repetido del mismo propietario se rechaza sin guardar nada; otra cuenta puede usarlo; editar la misma mascota no choca', async () => {
+    const { deps, uow } = createHarness();
+    const register = new RegisterPetUseCase(deps);
+    const first = await register.execute(ANDRES, { ...RABBIT, microchipId: CHIP });
+    const before = uow.snapshot();
+    expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Otra', microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
+    expect(uow.snapshot()).toEqual(before);
+    expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, ARGOS.id, { microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
+    expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, first.id, { microchipId: CHIP, name: 'Nube II' }))).toBe('OK');
+    expect(await outcome(register.execute(MARIA, { ...RABBIT, microchipId: CHIP }))).toBe('OK');
+    expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Sin chip' }))).toBe('OK');
+    expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Sin chip 2' }))).toBe('OK');
+  });
+
+  it('[REQ-PET2-001][INV-PET-006] estimatedAge usa ClockPort: el servidor convierte años y meses a birthDate y marca la estimación', async () => {
+    const { deps } = createHarness();
+    const { birthDate: _b, ...noBirth } = RABBIT;
+    const pet = await new RegisterPetUseCase(deps).execute(ANDRES, { ...noBirth, estimatedAge: { years: 1, months: 6 } });
+    expect([pet.birthDate, pet.birthDateIsEstimate]).toEqual(['2025-05-05', true]);
+  });
+
+  it('[REQ-PET2-002] el listado filtra por grupo (CANINE, FELINE, OTHERS, ALL) y por alertas activas, además de q', async () => {
+    const state = canonicalState();
+    state.pets.push({ ...ARGOS, id: '11111111-1111-4111-8111-111111111106', name: 'Nube', species: 'RABBIT' }, { ...ARGOS, id: '11111111-1111-4111-8111-111111111107', name: 'Piolín', species: 'BIRD' });
+    const { deps } = createHarness(state);
+    const list = new ListMyPetsUseCase(deps);
+    const names = async (q: object) => (await list.execute(ANDRES, q as never)).map((c) => c.profile.name);
+    expect([await names({ filter: 'OTHERS' }), await names({ filter: 'FELINE' }), await names({ filter: 'CANINE' }), (await names({ filter: 'ALL' })).length, await names({ filter: 'OTHERS', q: 'pio' })]).toEqual([
+      ['Nube', 'Piolín'],
+      ['Milo', 'Nyx'],
+      ['Argos', 'Kira', 'Toby'],
+      7,
+      ['Piolín'],
+    ]);
+    expect(await names({ filter: 'WITH_ALERTS' })).toEqual(['Argos', 'Nyx']);
+  });
+
+  it('[INV-REC2-002][SC-013][ERR-REC-WEIGHT-OUT-OF-RANGE] el peso se valida con la tabla de la especie de la mascota: CANINE no admite 0.028 y RABBIT sí', async () => {
+    const state = canonicalState();
+    const rabbit = { ...ARGOS, id: '11111111-1111-4111-8111-111111111106', name: 'Nube', species: 'RABBIT' } as typeof ARGOS;
+    state.pets.push(rabbit);
+    const { deps, uow } = createHarness(state);
+    const add = new AddWeightRecordUseCase(deps);
+    expect(await outcome(add.execute(ANDRES, ARGOS.id, { recordedAt: '2026-11-05', weightKg: 0.028 }))).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
+    const weightsBefore = uow.snapshot().records.weights.length;
+    const first = await add.execute(ANDRES, rabbit.id, { recordedAt: '2026-11-04', weightKg: 0.028 });
+    const second = await add.execute(ANDRES, rabbit.id, { recordedAt: '2026-11-05', weightKg: 1.275 });
+    expect([first.deltaKg, second.deltaKg, uow.snapshot().records.weights.length - weightsBefore]).toEqual([null, 1.247, 2]);
+    expect(await outcome(add.execute(ANDRES, rabbit.id, { recordedAt: '2026-11-05', weightKg: 0.0005 }))).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
   });
 });
 
@@ -360,10 +425,10 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
   const MODULES = Object.keys(INPUTS) as Array<keyof typeof INPUTS>;
   const stored = (module: keyof typeof INPUTS, extra: Record<string, unknown>) => ({ ...INPUTS[module], ...extra, id: generatedId(1), petId: ARGOS.id, createdAt: NOW });
 
-  it('[REQ-REC-001] peso: guarda el registro y responde WeightEntryView con delta respecto a la medición anterior (32.85 → 33.10)', async () => {
+  it('[REQ-REC2-001] peso: guarda el registro y responde WeightEntryView con delta respecto a la medición anterior (32.85 → 33.10)', async () => {
     const { deps, uow } = createHarness();
     const entry = await new AddWeightRecordUseCase(deps).execute(ANDRES, ARGOS.id, INPUTS.weights);
-    expect(entry).toEqual({ record: stored('weights', { notes: null }), deltaKg: 0.25, deltaPercent: 0.76 });
+    expect(entry).toEqual({ record: stored('weights', { notes: null }), deltaKg: 0.25 });
     expect(uow.snapshot().records.weights.at(-1)).toEqual(stored('weights', { notes: null }));
   });
 
@@ -406,7 +471,7 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const weight = await cases.weights.execute(ANDRES, ARGOS.id, { recordedAt: '2026-10-15', weightKg: 32.5 });
     const vaccine = await cases.vaccinations.execute(ANDRES, ARGOS.id, { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01' });
     const deworming = await cases.dewormings.execute(ANDRES, KIRA, { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-10-01', nextSuggestedDoseAt: '2026-10-31' });
-    expect([weight.record.id, weight.deltaKg, (weight as { deltaPercent?: number | null }).deltaPercent]).toEqual([generatedId(1), 0.1, 0.31]);
+    expect([weight.record.id, weight.deltaKg, 'deltaPercent' in weight]).toEqual([generatedId(1), 0.1, false]);
     expect([vaccine.record, vaccine.alert!.status]).toEqual([
       { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01', batchOrClinic: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
       'OVERDUE',

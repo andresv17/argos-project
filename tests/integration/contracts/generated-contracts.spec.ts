@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { upgradePet } from '../../fixtures/storage-upgrade.ts';
 import errorCatalog from '../../../specs/001-pet-health-tracker/contracts/errors/error-catalog.json';
 import fixtures from '../../../specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json';
 import * as generated from '../../../src/generated/index.ts';
@@ -39,16 +40,16 @@ describe('contratos generados', () => {
     for (const user of fixtures.users) expectValid(validateUserPublicProfile, user);
     expectValid(validateHousehold, fixtures.household);
     for (const member of fixtures.householdMembers) expectValid(validateHouseholdMember, member);
-    for (const pet of fixtures.otherUserPets) expectValid(validatePetProfile, pet);
+    for (const pet of fixtures.otherUserPets) expectValid(validatePetProfile, upgradePet(pet as never));
     expectValid(validateBackupEnvelopeV2Legacy, fixtures.validBackupEnvelopeV2);
     expectValid(validateBackupEnvelopeV1Legacy, fixtures.validLegacyBackupEnvelopeV1);
   });
 
-  it('INV-REC-002: el peso admite 0.05 a 150.00 con máximo 2 decimales y mapea ERR-REC-WEIGHT-OUT-OF-RANGE', () => {
-    for (const weightKg of [0.05, 0.1, 70.55, 150]) {
+  it('INV-REC2-002: la envolvente del peso admite 0.001 a 150 con máximo 3 decimales y mapea ERR-REC-WEIGHT-OUT-OF-RANGE (el dominio estrecha por especie)', () => {
+    for (const weightKg of [0.001, 0.028, 0.05, 0.1, 70.555, 150]) {
       expectValid(validateCreateWeightInput, { recordedAt: '2026-11-01', weightKg });
     }
-    for (const weightKg of [-2.5, 0, 0.04, 150.01, 70.555]) {
+    for (const weightKg of [-2.5, 0, 0.0005, 150.001, 70.5555]) {
       expect(validateCreateWeightInput({ recordedAt: '2026-11-01', weightKg }), `weightKg=${weightKg}`).toBe(false);
       const path = firstErrorPath(validateCreateWeightInput, '/weightKg');
       expect(path).toBe('/weightKg');
@@ -82,7 +83,7 @@ describe('contratos generados', () => {
   });
 
   it('INV-REC-006: additionalProperties=false rechaza propiedades no autorizadas, también en ítems legacy v1', () => {
-    const pet = { name: 'Luna', species: 'DOG', breed: 'Mestizo', birthDate: '2020-01-01', sex: 'FEMALE' };
+    const pet = { name: 'Luna', species: 'CANINE', breed: 'Mestizo', birthDate: '2020-01-01', sex: 'FEMALE' };
     expectValid(validateCreatePetInput, pet);
     expect(validateCreatePetInput({ ...pet, ownerUserId: fixtures.users[0]?.id })).toBe(false);
 

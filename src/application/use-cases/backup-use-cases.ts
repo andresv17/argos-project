@@ -235,7 +235,10 @@ export class ImportBackupUseCase {
     const today = this.deps.clock.todayIsoDate();
     try {
       for (const pet of envelope.pets) validateBirthDateNotFuture(pet.birthDate, today);
-      for (const { module, record } of recordsOf(envelope)) validateRecord(module, record, petsById.get(record.petId)!.birthDate, today);
+      for (const { module, record } of recordsOf(envelope)) {
+        const pet = petsById.get(record.petId)!;
+        validateRecord(module, record, pet.birthDate, today, pet.species);
+      }
     } catch (error) {
       // Las reglas de dominio solo lanzan DomainError.
       throw run.propagate(error as DomainError);

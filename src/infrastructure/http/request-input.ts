@@ -8,9 +8,10 @@
  */
 
 import { DomainError, validateSpecies, type Species } from '../../generated/index.ts';
-import type { PetListQuery } from '../../application/use-cases/pet-use-cases.ts';
+import type { PetListGroup, PetListQuery } from '../../application/use-cases/pet-use-cases.ts';
 
 const PET_QUERY_MAX_LENGTH = 50;
+const PET_LIST_FILTERS: readonly string[] = ['ALL', 'CANINE', 'FELINE', 'OTHERS', 'WITH_ALERTS'];
 
 /** Cuerpo JSON: sin cuerpo → undefined (el caso de uso lo rechaza por esquema); UTF-8 o JSON inválidos → 422. */
 export function jsonBody(body: unknown): unknown {
@@ -30,17 +31,24 @@ export function rawBody(body: unknown): Uint8Array {
 }
 
 /**
- * Consulta de `GET /pets` y `GET /households/{id}/pets`: `q` texto de hasta 50 caracteres y `species` del
- * enumerado; repetidos, desconocidos o inválidos → 422.
- * @implements REQ-PET-005
+ * Consulta de `GET /pets` y `GET /households/{id}/pets`: `q` texto de hasta 50 caracteres, `filter` (Todos, Perros,
+ * Gatos, Otros, Con alertas; REQ-PET2-002) y el alias heredado `species`; repetidos, desconocidos o inválidos → 422.
+ * @implements REQ-PET2-002, REQ-PET-005
  */
 export function petListQuery(query: unknown): PetListQuery {
-  const { q, species, ...rest } = (query ?? {}) as Record<string, unknown>;
+  const { q, species, filter, ...rest } = (query ?? {}) as Record<string, unknown>;
   const unknown = Object.keys(rest)[0];
   if (unknown !== undefined) throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `Parámetro de consulta no permitido: ${unknown}.`, unknown);
   if (q !== undefined && (typeof q !== 'string' || [...q].length > PET_QUERY_MAX_LENGTH)) {
     throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `q debe ser un texto de hasta ${PET_QUERY_MAX_LENGTH} caracteres.`, 'q');
   }
   if (species !== undefined && !validateSpecies(species)) throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'species no es una especie válida.', 'species');
-  return { ...(q === undefined ? {} : { q: q as string }), ...(species === undefined ? {} : { species: species as Species }) };
+  if (filter !== undefined && (typeof filter !== 'string' || !PET_LIST_FILTERS.includes(filter as PetListGroup))) {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `filter debe ser uno de ${PET_LIST_FILTERS.join(', ')}.`, 'filter');
+  }
+  return {
+    ...(q === undefined ? {} : { q: q as string }),
+    ...(species === undefined ? {} : { species: species as Species }),
+    ...(filter === undefined ? {} : { filter: filter as PetListGroup }),
+  };
 }

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { upgradePet } from '../../fixtures/storage-upgrade.ts';
 import {
   ERROR_CATALOG,
   validateBackupEnvelopeV1Legacy,
@@ -62,12 +63,12 @@ describe('contracts/examples/canonical-fixtures.json -> src/generated/', () => {
       fixtures.users.map((u: unknown) => validateUserPublicProfile(u)),
       validateHousehold(fixtures.household),
       fixtures.householdMembers.map((m: unknown) => validateHouseholdMember(m)),
-      fixtures.otherUserPets.map((p: unknown) => validatePetProfile(p)),
+      fixtures.otherUserPets.map((p: never) => validatePetProfile(upgradePet(p))),
     ]).toEqual([[true, true, true, true], true, [true, true, true], [true]]);
   });
 
   it('[REQ-PET-001] rechaza propiedades no autorizadas (additionalProperties: false) y textos con espacios laterales o vacíos', () => {
-    const pet = fixtures.validBackupEnvelopeV2.pets[0];
+    const pet = upgradePet(fixtures.validBackupEnvelopeV2.pets[0]);
     const vaccine = fixtures.validBackupEnvelopeV2.records.vaccinations[0];
     expect([
       firstError(validatePetProfile, { ...pet, unexpectedHackField: 'intrusion' }),

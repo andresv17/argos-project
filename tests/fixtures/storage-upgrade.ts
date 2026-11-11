@@ -4,8 +4,8 @@ import type { PetRecordCollections } from '../../src/domain/pet/pet-invariants.t
 /**
  * Adaptador de datos de la 001 al esquema 3.0.0 solo para poder sembrar SQLite y la suite de repositorios (T214): las
  * especies DOG y CAT pasan a CANINE y FELINE y los campos nuevos de mascotas y registros toman valores neutros. No decide
- * reglas de negocio: T226 (especies y peso) y T255 (registros) los sustituyen por los fixtures de la 002 y retiran este
- * adaptador. Las pruebas en memoria siguen usando los datos de la 001 tal cual.
+ * reglas de negocio. T226 ya usa `upgradePet` de forma permanente en el estado canónico de las pruebas (especies y campos de
+ * mascota); T255 (registros) sustituirá `upgradeRecords` por los fixtures de la 002. Las pruebas en memoria siguen usando los datos de la 001 tal cual.
  */
 const SPECIES_001_TO_002: Record<string, string> = { DOG: 'CANINE', CAT: 'FELINE' };
 

@@ -50,7 +50,7 @@ describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.ya
     const andres = (await step('POST', '/api/auth/login', { body: { username: 'andres', password: 'Argos2026a' } })).cookie!;
     const carlos = await api.login('carlos_88');
     await step('GET', '/api/auth/me', { cookie: andres });
-    await step('GET', '/api/pets?q=arg&species=DOG', { cookie: andres });
+    await step('GET', '/api/pets?q=arg&species=CANINE', { cookie: andres });
     const created = (await step('POST', '/api/pets', { cookie: andres, body: NEW_PET })).json as { id: string };
     await step('PATCH', `/api/pets/${created.id}`, { cookie: andres, body: { breed: 'Criolla' } });
     await step('GET', `/api/pets/${ARGOS_ID}/dashboard`, { cookie: andres });

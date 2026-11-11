@@ -9,7 +9,10 @@
  * que el formato v1 admitía).
  * Sin reloj ni entropía: solo aritmética de calendario (INV-ARCH-001, INV-ARCH-002).
  *
- * @implements STATE-BACKUP-001, REQ-BACKUP-002, INV-SORT-001, INV-ARCH-001, INV-ARCH-004
+ * Especie en la lectura de respaldos antiguos (T233, REQ-BACKUP2-002, INV-PET2-001): `DOG` se lee como `CANINE` y `CAT`
+ * como `FELINE`. El resto de la migración a 3.0.0 llega en T276.
+ *
+ * @implements STATE-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-002, INV-PET2-001, INV-SORT-001, INV-ARCH-001, INV-ARCH-004
  */
 
 import type { BackupEnvelopeV1Legacy, BackupEnvelopeV2Legacy, LegacyPetProfileV2 } from '../../generated/index.ts';
@@ -87,4 +90,28 @@ export function migrateLegacyEnvelope(legacy: BackupEnvelopeV1Legacy, userId: st
       customParameters: migrateRecords<'customParameters'>(legacy.records.customParameters),
     },
   };
+}
+
+const LEGACY_SPECIES_TO_V3: Readonly<Record<string, string>> = { DOG: 'CANINE', CAT: 'FELINE' };
+
+/**
+ * Especie de un respaldo 1.0.0 o 2.0.0 en el vocabulario 3.0.0: DOG → CANINE, CAT → FELINE. Cualquier otro valor se
+ * devuelve sin cambios, para que la validación final 3.0.0 lo acepte (ya es de las 8) o lo rechace (no lo es).
+ * @implements REQ-BACKUP2-002, INV-PET2-001
+ */
+export function mapLegacySpecies(species: string): string {
+  return Object.hasOwn(LEGACY_SPECIES_TO_V3, species) ? LEGACY_SPECIES_TO_V3[species]! : species;
+}
+
+/**
+ * Sobre 1.0.0 (ya migrado a 2.0.0) o 2.0.0 con la especie de cada mascota leída en 3.0.0. No muta la entrada ni toca
+ * ningún otro campo: los campos nuevos de la mascota y la forma 3.0.0 del sobre llegan con T276.
+ * T233 PENDIENTE: el tipo de `species` queda en el vocabulario heredado hasta que T276 produzca el sobre 3.0.0 completo.
+ * @implements REQ-BACKUP2-002, INV-PET2-001
+ */
+export function mapLegacyEnvelopeSpecies<E extends { readonly pets: ReadonlyArray<{ readonly species: string }> }>(
+  envelope: E,
+): Omit<E, 'pets'> & { readonly pets: ReadonlyArray<Omit<E['pets'][number], 'species'> & { readonly species: string }> } {
+  const { pets, ...rest } = envelope;
+  return { ...rest, pets: pets.map((pet) => ({ ...pet, species: mapLegacySpecies(pet.species) })) } as ReturnType<typeof mapLegacyEnvelopeSpecies<E>>;
 }

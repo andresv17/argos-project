@@ -52,7 +52,7 @@ const domainFields = (error: unknown) =>
 defineRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 
 describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlite/sqlite-database.ts)', () => {
-  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001 y 0002 crean las 16 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
+  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001, 0002 y 0003 crean las 16 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
     const dir = tempDir();
     const path = join(dir, 'datos', 'argos.sqlite');
     const db = openSqliteDatabase(path);
@@ -84,7 +84,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       1,
       'wal',
       [],
-      ['0001_init.sql', '0002_account_identity.sql'],
+      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql'],
     ]);
   });
 
@@ -113,7 +113,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       revoked_at: '2026-11-05T13:00:00.000Z',
       data: { userId: 'a0000000-0000-4000-8000-000000000001', createdAt: '2026-11-05T12:00:00.000Z', lastActivityAt: '2026-11-05T12:00:00.000Z', revokedAt: '2026-11-05T13:00:00.000Z' },
     });
-    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql']]);
+    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql']]);
   });
 
   it('[REQ-ACC-001][ERR-INTERNAL-UNEXPECTED] la base rechaza un idioma fuera de es/en/pt, un ámbito de frecuencia desconocido y un rol o estado de invitación inválido', () => {
@@ -158,6 +158,81 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       error = e;
     }
     expect(domainFields(error)).toEqual({ code: 'ERR-INTERNAL-UNEXPECTED', status: 500, finalState: null });
+  });
+});
+
+describe('mascotas multi-especie y peso en gramos sobre SQLite (REQ-MIG-001, INV-PET2-001, ADR-002-09)', () => {
+  const chip = '981020000000001';
+  const pet = (id: string, extra: Record<string, unknown> = {}) => ({ ...ARGOS, id, ...extra }) as typeof ARGOS;
+
+  it('[INV-PET2-001][REQ-PET2-001] cada una de las 8 especies, con speciesOther, neutered y microchip, se guarda y se lee igual y repite sus campos en columnas', async () => {
+    const db = memoryDb();
+    const uow = new SqliteUnitOfWork(db);
+    await seedSqlite(uow);
+    const species = ['CANINE', 'FELINE', 'RABBIT', 'FERRET', 'BIRD', 'REPTILE', 'SMALL_MAMMAL', 'OTHER'];
+    const pets = species.map((sp, i) =>
+      pet(`0000000${i}-0000-4000-8000-000000000000`, {
+        species: sp,
+        speciesOther: sp === 'OTHER' ? 'Erizo africano' : null,
+        neutered: i % 3 === 0 ? true : i % 3 === 1 ? false : null,
+        microchipId: sp === 'FELINE' ? null : `98102000000000${i}`,
+        birthDateIsEstimate: i % 2 === 0,
+      }),
+    );
+    await uow.runInTransaction(async (r) => {
+      for (const p of pets) await r.pets.save(p);
+    });
+    const ids = new Set(pets.map((p) => p.id));
+    const read = (await uow.runInTransaction((r) => r.pets.listByOwners([ARGOS.ownerUserId]))).filter((p) => ids.has(p.id));
+    expect([...read].sort((a, b) => a.id.localeCompare(b.id))).toEqual(pets);
+    const columns = db
+      .prepare(`SELECT species, species_other, neutered, microchip_id, birth_date_is_estimate FROM pets WHERE id IN (${pets.map(() => '?').join(',')}) ORDER BY id`)
+      .all(...pets.map((p) => p.id));
+    expect(columns).toEqual(
+      pets.map((p) => ({
+        species: p.species,
+        species_other: p.speciesOther,
+        neutered: p.neutered === null ? null : p.neutered ? 1 : 0,
+        microchip_id: p.microchipId,
+        birth_date_is_estimate: p.birthDateIsEstimate ? 1 : 0,
+      })),
+    );
+  });
+
+  it('[REQ-PET2-001][INV-PET2-001] el microchip repetido del mismo propietario lo rechaza el índice único; el de otro propietario se admite; editar la misma mascota no choca', async () => {
+    const uow = new SqliteUnitOfWork(memoryDb());
+    await seedSqlite(uow);
+    const a = pet('0000000a-0000-4000-8000-000000000000', { microchipId: chip });
+    await uow.runInTransaction((r) => r.pets.save(a));
+    await uow.runInTransaction((r) => r.pets.save({ ...a, name: 'Otro nombre' }));
+    const dup = pet('0000000b-0000-4000-8000-000000000000', { microchipId: chip });
+    expect(String(await rejectionOf(uow.runInTransaction((r) => r.pets.save(dup))))).toMatch(/UNIQUE constraint failed/);
+    await uow.runInTransaction((r) => r.pets.save({ ...dup, ownerUserId: fixtures.users[1].id }));
+    const owners = await uow.runInTransaction(async (r) => [(await r.pets.findById(dup.id))!.ownerUserId, (await r.pets.findById(a.id))!.name]);
+    expect(owners).toEqual([fixtures.users[1].id, 'Otro nombre']);
+  });
+
+  it('[ADR-002-09][INV-REC2-002] cada peso guarda weight_grams entero igual a su valor en kg por 1000 y la lectura rechaza una columna que no coincide con el objeto', async () => {
+    const db = memoryDb();
+    const uow = new SqliteUnitOfWork(db);
+    await seedSqlite(uow);
+    const base = envelope.records.weights[0]!;
+    const small = pet('0000000c-0000-4000-8000-000000000000', { species: 'RABBIT' });
+    await uow.runInTransaction(async (r) => {
+      await r.pets.save(small);
+      await r.records.add('weights', { ...base, id: '0000000d-0000-4000-8000-000000000000', petId: small.id, weightKg: 0.028 });
+      await r.records.add('weights', { ...base, id: '0000000e-0000-4000-8000-000000000000', petId: small.id, weightKg: 1.275 });
+    });
+    const grams = db.prepare('SELECT id, weight_grams FROM weights WHERE pet_id = ? ORDER BY id').all(small.id);
+    expect(grams).toEqual([
+      { id: '0000000d-0000-4000-8000-000000000000', weight_grams: 28 },
+      { id: '0000000e-0000-4000-8000-000000000000', weight_grams: 1275 },
+    ]);
+    db.prepare("UPDATE weights SET weight_grams = 29 WHERE id = '0000000d-0000-4000-8000-000000000000'").run();
+    const error = await rejectionOf(uow.runInTransaction((r) => r.records.listForPet(small.id)));
+    expect(domainFields(error)).toEqual({ code: 'ERR-INTERNAL-UNEXPECTED', status: 500, finalState: null });
+    db.prepare("UPDATE pets SET species = 'FELINE' WHERE id = ?").run(small.id);
+    expect(domainFields(await rejectionOf(uow.runInTransaction((r) => r.pets.findById(small.id))))).toEqual({ code: 'ERR-INTERNAL-UNEXPECTED', status: 500, finalState: null });
   });
 });
 

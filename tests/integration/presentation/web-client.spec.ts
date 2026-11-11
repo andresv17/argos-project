@@ -53,7 +53,7 @@ describe('cliente generado de la SPA contra la API real', () => {
   it('[REQ-UI-001] el filtro lo aplica la API en los dos contextos: "Mis mascotas" y el hogar (DEUDA-UI-FILTRO-001), con la misma normalización', async () => {
     const client = await loggedClient();
     const mine = await unwrap(client.GET('/pets', { params: { query: { q: 'ÁRG' } } }));
-    const house = await unwrap(client.GET('/households/{householdId}/pets', { params: { path: { householdId: H1 }, query: { q: 'luná', species: 'CAT' } } }));
+    const house = await unwrap(client.GET('/households/{householdId}/pets', { params: { path: { householdId: H1 }, query: { q: 'luná', species: 'FELINE' } } }));
     expect([mine.map((c) => c.profile.name), house.pets.map((c) => [c.profile.name, c.owner.colorToken])]).toEqual([['Argos'], [['Luna', 'OWNER_COLOR_2']]]);
   });
 
@@ -67,7 +67,7 @@ describe('cliente generado de la SPA contra la API real', () => {
       1,
       33.1,
       'number',
-      'number',
+      'undefined',
     ]);
   });
 

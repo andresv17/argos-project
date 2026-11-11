@@ -8,6 +8,7 @@
  */
 
 import { DomainError } from '../../generated/index.ts';
+import { speciesFilterGroup } from '../pet/species.ts';
 import { isIsoCalendarDate } from '../shared/date-utils.ts';
 
 const CANONICAL_UTC = /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}Z$/;
@@ -38,6 +39,8 @@ export interface FilterablePet {
 export interface PetListFilter {
   readonly q?: string;
   readonly species?: string;
+  /** Grupo del filtro de REQ-PET2-002: Todos, Perros (CANINE), Gatos (FELINE) y Otros (las otras seis especies). */
+  readonly group?: 'ALL' | 'CANINE' | 'FELINE' | 'OTHERS';
 }
 
 /**
@@ -126,11 +129,12 @@ export function normalizeForSearch(text: string): string {
 }
 
 /**
- * Filtro opcional de REQ-PET-005: subcadena en name sin distinguir mayúsculas ni tildes, y species exacta.
- * Un q ausente, vacío o solo con espacios no filtra (la subcadena vacía está en cualquier nombre).
- * @implements REQ-PET-005
+ * Filtro opcional de REQ-PET2-002: subcadena en name sin distinguir mayúsculas ni tildes, grupo de especie (Perros, Gatos,
+ * Otros) y, como alias heredado, species exacta. Un q ausente, vacío o solo con espacios no filtra.
+ * @implements REQ-PET2-002, REQ-PET-005
  */
 export function matchesPetListFilter(pet: FilterablePet, filter: PetListFilter = {}): boolean {
   if (filter.species !== undefined && pet.species !== filter.species) return false;
+  if (filter.group !== undefined && filter.group !== 'ALL' && speciesFilterGroup(pet.species) !== filter.group) return false;
   return normalizeForSearch(pet.name).includes(normalizeForSearch(filter.q?.trim() ?? ''));
 }

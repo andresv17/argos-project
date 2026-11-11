@@ -6,7 +6,10 @@
  *   `schema_migrations`; si falla, no queda nada a medias y la apertura se rechaza.
  * - Un archivo que no es una base SQLite o una migración fallida producen ERR-INTERNAL-UNEXPECTED (F4), sin trazas.
  *
- * @implements INV-ARCH-004, INV-PET-005, ERR-INTERNAL-UNEXPECTED
+ * - REQ-MIG-001 (T230): `0003_pets_species_and_weight_grams.sql` migra la base de la 001 sin pérdida (DOG a CANINE, CAT a FELINE,
+ *   pesos a gramos enteros) en una transacción y es repetible: `schema_migrations` impide aplicarla dos veces.
+ *
+ * @implements REQ-MIG-001, INV-ARCH-004, INV-PET-005, ERR-INTERNAL-UNEXPECTED
  */
 
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';

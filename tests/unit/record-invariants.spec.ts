@@ -11,9 +11,7 @@ import {
 import {
   RECORD_MODULES,
   computeWeightEvolutionSeries,
-  deltaPercentFromHundredths,
   hasAtMostTwoDecimals,
-  toHundredths,
   validateBodyMeasurementRecordDomain,
   validateCustomParameterRecordDomain,
   validateDewormingRecordDomain,
@@ -25,6 +23,7 @@ import {
   validateWeightRecordDomain,
   type RecordModule,
 } from '../../src/domain/records/record-invariants.ts';
+import { SPECIES_WEIGHT_LIMITS, assertWeightWithinSpeciesLimits, gramsToKg, weightKgToGrams } from '../../src/domain/records/weight-limits.ts';
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 
 const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
@@ -32,6 +31,8 @@ const envelope: BackupEnvelopeV3 = fixtures.validBackupEnvelopeV2;
 const edge = (prefix: string) => fixtures.invalidEdgeCases.find((c: { caseId: string }) => c.caseId.startsWith(prefix));
 const TODAY = new FixedClockAdapter().todayIsoDate();
 const MODULES = Object.keys(RECORD_MODULES) as RecordModule[];
+/** Argos es CANINE (DOG en la 001): el peso de sus registros se valida con la tabla de CANINE. */
+const ARGOS_SPECIES = 'CANINE' as const;
 
 const birthOf = (petId: string) => (envelope.pets as PetProfile[]).find((p) => p.id === petId)!.birthDate;
 const baseRecord = (module: RecordModule): Record<string, unknown> => ({ ...envelope.records[module][0]! });
@@ -55,7 +56,7 @@ function errorOf(action: () => unknown): DomainError {
 
 const recordCode = (module: RecordModule, patch: Record<string, unknown>, birth = birthFor(module)) => {
   try {
-    validateRecord(module, { ...baseRecord(module), ...patch }, birth, TODAY);
+    validateRecord(module, { ...baseRecord(module), ...patch }, birth, TODAY, ARGOS_SPECIES);
     return 'OK';
   } catch (error) {
     if (error instanceof DomainError) return `${error.code}@${String(error.field)}`;
@@ -64,7 +65,7 @@ const recordCode = (module: RecordModule, patch: Record<string, unknown>, birth 
 };
 const inputCode = (module: RecordModule, patch: Record<string, unknown>) => {
   try {
-    validateRecordInput(module, { ...baseInput(module), ...patch }, birthFor(module), TODAY);
+    validateRecordInput(module, { ...baseInput(module), ...patch }, birthFor(module), TODAY, ARGOS_SPECIES);
     return 'OK';
   } catch (error) {
     if (error instanceof DomainError) return `${error.code}@${String(error.field)}`;
@@ -85,21 +86,21 @@ describe('los 6 módulos con los registros canónicos (src/domain/records/record
   it('[REQ-REC-001][REQ-REC-002][REQ-REC-003][REQ-REC-004][REQ-REC-005][REQ-REC-006] el primer registro canónico de cada módulo es válido como registro y como entrada', () => {
     expect(MODULES).toEqual(Object.keys(envelope.records));
     for (const module of MODULES) {
-      expect(validateRecord(module, baseRecord(module), birthFor(module), TODAY)).toEqual(envelope.records[module][0]);
-      expect(validateRecordInput(module, baseInput(module), birthFor(module), TODAY)).toEqual(baseInput(module));
+      expect(validateRecord(module, baseRecord(module), birthFor(module), TODAY, ARGOS_SPECIES)).toEqual(envelope.records[module][0]);
+      expect(validateRecordInput(module, baseInput(module), birthFor(module), TODAY, ARGOS_SPECIES)).toEqual(baseInput(module));
     }
   });
 
   it('[REQ-REC-001][REQ-REC-002][REQ-REC-003][REQ-REC-004][REQ-REC-005][REQ-REC-006] los envoltorios por módulo devuelven el mismo registro que validateRecord', () => {
     const r = envelope.records;
-    expect(validateWeightRecordDomain(r.weights[0]!, birthFor('weights'), TODAY)).toBe(r.weights[0]);
+    expect(validateWeightRecordDomain(r.weights[0]!, birthFor('weights'), TODAY, ARGOS_SPECIES)).toBe(r.weights[0]);
     expect(validateBodyMeasurementRecordDomain(r.bodyMeasurements[0]!, birthFor('bodyMeasurements'), TODAY)).toBe(r.bodyMeasurements[0]);
     expect(validateVaccinationRecordDomain(r.vaccinations[0]!, birthFor('vaccinations'), TODAY)).toBe(r.vaccinations[0]);
     expect(validateDewormingRecordDomain(r.dewormings[0]!, birthFor('dewormings'), TODAY)).toBe(r.dewormings[0]);
     expect(validateMedicalVisitRecordDomain(r.medicalVisits[0]!, birthFor('medicalVisits'), TODAY)).toBe(r.medicalVisits[0]);
     expect(validateCustomParameterRecordDomain(r.customParameters[0]!, birthFor('customParameters'), TODAY)).toBe(r.customParameters[0]);
     const future = { ...r.weights[0]!, recordedAt: addDays(TODAY, 1) };
-    expect(errorOf(() => validateWeightRecordDomain(future, birthFor('weights'), TODAY)).code).toBe('ERR-REC-FUTURE-EVENT-DATE');
+    expect(errorOf(() => validateWeightRecordDomain(future, birthFor('weights'), TODAY, ARGOS_SPECIES)).code).toBe('ERR-REC-FUTURE-EVENT-DATE');
   });
 
   it('[REQ-REC-001] cada módulo usa los esquemas y el campo de fecha de su contrato', () => {
@@ -119,13 +120,13 @@ describe('los 6 módulos con los registros canónicos (src/domain/records/record
       '[ERR-SCHEMA-VALIDATION-FAILED] VaccinationRecord: vaccineName must NOT have fewer than 1 characters.',
       'vaccineName',
     ]);
-    const root = errorOf(() => validateRecord('weights', null, birthFor('weights'), TODAY));
+    const root = errorOf(() => validateRecord('weights', null, birthFor('weights'), TODAY, ARGOS_SPECIES));
     expect([root.code, root.message, root.field]).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', '[ERR-SCHEMA-VALIDATION-FAILED] WeightRecord: (raíz) must be object.', null]);
   });
 });
 
 describe('peso y medidas (INV-REC-002, INV-REC-003)', () => {
-  it('[REQ-REC-001][INV-REC-002][ERR-REC-WEIGHT-OUT-OF-RANGE] acepta 0.05 y 150.00 exactos y rechaza 0.04, 150.01 y el peso negativo de EDGE-002', () => {
+  it('[REQ-REC2-001][INV-REC2-002][ERR-REC-WEIGHT-OUT-OF-RANGE] CANINE acepta 0.05 y 150.00 exactos y rechaza 0.04, 150.01 y el peso negativo de EDGE-002', () => {
     const negative = edge('EDGE-002-').payload.weightKg as number;
     expect(edge('EDGE-002-').expectedError).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE');
     const results = [0.05, 150, 0.04, 150.01, negative].map((w) => [w, recordCode('weights', { weightKg: w }), inputCode('weights', { weightKg: w })]);
@@ -138,17 +139,49 @@ describe('peso y medidas (INV-REC-002, INV-REC-003)', () => {
     ]);
   });
 
-  it('[INV-REC-002][ERR-REC-WEIGHT-OUT-OF-RANGE] más de 2 decimales se rechaza: 32.85001 ya en el esquema (DEUDA-VAL-001) y 32.85 + 1e-13, que el esquema tolera, en el dominio', () => {
+  it('[REQ-REC2-001][INV-REC2-002][ERR-REC-WEIGHT-OUT-OF-RANGE] CANINE y FELINE admiten 2 decimales; el resto de especies admite 3 y un mínimo de 0.001', () => {
+    const run = (species: 'CANINE' | 'FELINE' | 'RABBIT' | 'BIRD' | 'OTHER', kg: number) => {
+      try {
+        validateRecordInput('weights', { recordedAt: '2026-11-01', weightKg: kg }, birthFor('weights'), TODAY, species);
+        return 'OK';
+      } catch (error) {
+        if (error instanceof DomainError) return `${error.code}@${String(error.field)}`;
+        throw error;
+      }
+    };
+    expect(['CANINE', 'FELINE'].map((sp) => run(sp as 'CANINE', 12.345))).toEqual(['ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg', 'ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg']);
+    expect(['RABBIT', 'BIRD', 'OTHER'].map((sp) => run(sp as 'RABBIT', 1.275))).toEqual(['OK', 'OK', 'OK']);
+    expect(['RABBIT', 'BIRD', 'OTHER'].map((sp) => run(sp as 'RABBIT', 0.028))).toEqual(['OK', 'OK', 'OK']);
+    expect(run('CANINE', 0.028)).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
+    expect(run('FELINE', 0.001)).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
+    expect(run('RABBIT', 0.0005)).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
+    expect(run('RABBIT', 150)).toBe('OK');
+    expect(run('RABBIT', 150.001)).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
+  });
+
+  it('[INV-REC2-002][ERR-REC-WEIGHT-OUT-OF-RANGE] más decimales de los de la especie se rechaza: 32.85001 ya en el esquema y 32.85 + 1e-13, que el dominio cierra aunque el esquema lo tolere', () => {
     const residual = 32.85 + 1e-13;
     expect(validateCreateWeightInput({ recordedAt: '2026-11-01', weightKg: 32.85001 })).toBe(false);
-    expect(validateCreateWeightInput({ recordedAt: '2026-11-01', weightKg: residual })).toBe(true);
     expect(recordCode('weights', { weightKg: 12.345 })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
     expect(recordCode('weights', { weightKg: 32.85001 })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
     expect(recordCode('weights', { weightKg: residual })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
     expect(inputCode('weights', { weightKg: residual })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
-    const err = errorOf(() => validateRecord('weights', { ...baseRecord('weights'), weightKg: residual }, birthFor('weights'), TODAY));
-    expect(err.message).toBe('[ERR-REC-WEIGHT-OUT-OF-RANGE] weightKg admite como máximo 2 decimales.');
+    const err = errorOf(() => validateRecord('weights', { ...baseRecord('weights'), weightKg: residual }, birthFor('weights'), TODAY, 'CANINE'));
     expect(err.status).toBe(422);
+    expect(err.field).toBe('weightKg');
+  });
+
+  it('[INV-REC2-002] weight-limits: la tabla por especie, la conversión exacta a gramos y el error con el campo', () => {
+    expect(SPECIES_WEIGHT_LIMITS['CANINE']).toMatchObject({ minGrams: 50, maxGrams: 150000, decimals: 2 });
+    expect(SPECIES_WEIGHT_LIMITS['FELINE']).toMatchObject({ minGrams: 50, maxGrams: 150000, decimals: 2 });
+    for (const species of ['RABBIT', 'FERRET', 'BIRD', 'REPTILE', 'SMALL_MAMMAL', 'OTHER'] as const) {
+      expect(SPECIES_WEIGHT_LIMITS[species]).toMatchObject({ minGrams: 1, maxGrams: 150000, decimals: 3, maxIsProvisional: true });
+    }
+    expect([0.001, 0.028, 1.275, 12.4, 150, 0.1, 0.29, 4.35].map(weightKgToGrams)).toEqual([1, 28, 1275, 12400, 150000, 100, 290, 4350]);
+    expect([1, 28, 1275, 150000].map(gramsToKg)).toEqual([0.001, 0.028, 1.275, 150]);
+    expect(assertWeightWithinSpeciesLimits('RABBIT', 1.275)).toBe(1275);
+    const err = errorOf(() => assertWeightWithinSpeciesLimits('FELINE', 0.049));
+    expect([err.code, err.field, err.status]).toEqual(['ERR-REC-WEIGHT-OUT-OF-RANGE', 'weightKg', 422]);
   });
 
   it('[REQ-REC-002][INV-REC-003][ERR-REC-MEASUREMENT-OUT-OF-RANGE] cada una de las 4 medidas acepta 1.00 y 250.00 y rechaza 0.99, 250.01 y 3 decimales con su campo', () => {
@@ -168,12 +201,12 @@ describe('peso y medidas (INV-REC-002, INV-REC-003)', () => {
   it('[REQ-REC-001][INV-REC-002]: un tipo erróneo en weightKg da el código anotado; ausente o propiedad extra, ERR-SCHEMA-VALIDATION-FAILED', () => {
     const { weightKg: _w, ...withoutWeight } = baseInput('weights');
     expect(recordCode('weights', { weightKg: '32.85' })).toBe('ERR-REC-WEIGHT-OUT-OF-RANGE@weightKg');
-    expect(errorOf(() => validateRecordInput('weights', withoutWeight, birthFor('weights'), TODAY)).message).toBe(
+    expect(errorOf(() => validateRecordInput('weights', withoutWeight, birthFor('weights'), TODAY, ARGOS_SPECIES)).message).toBe(
       "[ERR-SCHEMA-VALIDATION-FAILED] CreateWeightInput: weightKg must have required property 'weightKg'.",
     );
-    expect(errorOf(() => validateRecordInput('weights', withoutWeight, birthFor('weights'), TODAY)).field).toBe('weightKg');
+    expect(errorOf(() => validateRecordInput('weights', withoutWeight, birthFor('weights'), TODAY, ARGOS_SPECIES)).field).toBe('weightKg');
     expect(inputCode('weights', { id: '22222222-2222-4222-8222-222222222201' })).toBe('ERR-SCHEMA-VALIDATION-FAILED@id');
-    expect(errorOf(() => validateRecord('weights', { ...baseRecord('weights'), unit: 'kg' }, birthFor('weights'), TODAY)).message).toBe(
+    expect(errorOf(() => validateRecord('weights', { ...baseRecord('weights'), unit: 'kg' }, birthFor('weights'), TODAY, ARGOS_SPECIES)).message).toBe(
       '[ERR-SCHEMA-VALIDATION-FAILED] WeightRecord: unit must NOT have additional properties.',
     );
   });
@@ -303,52 +336,49 @@ describe('evolución de peso (REQ-REC-001, EDGE-034, EDGE-035)', () => {
     expect(32.85 - 32.4).not.toBe(0.45);
   });
 
-  it('[REQ-REC-001] EDGE-035: deltaPercent half-away-from-zero sobre centésimas enteras, con negativos y empates exactos', () => {
-    const expected: Record<string, number> = edge('EDGE-035-').expectedResult.deltaPercent;
-    const actual = Object.fromEntries(
-      Object.keys(expected).map((pair) => {
-        const [from, to] = pair.split('->').map(Number) as [number, number];
-        return [pair, deltaPercentFromHundredths(from, to)];
-      }),
-    );
-    expect(actual).toEqual(expected);
-    expect(deltaPercentFromHundredths(800, 800)).toBe(0);
-    expect(Object.is(deltaPercentFromHundredths(800, 800), -0)).toBe(false);
-    expect(deltaPercentFromHundredths(3, 4)).toBe(33.33);
-    expect(deltaPercentFromHundredths(3, 2)).toBe(-33.33);
-    expect(deltaPercentFromHundredths(6, 7)).toBe(16.67);
+  it('[REQ-REC2-001] la 002 retira deltaPercent: cada entrada de la serie lleva solo record y deltaKg', () => {
+    const series = computeWeightEvolutionSeries([weight('a1', '2026-10-01', 32.4), weight('a2', '2026-11-01', 32.85), weight('a0', '2026-09-01', 3)]);
+    expect(series.map((entry) => Object.keys(entry).sort())).toEqual([['deltaKg', 'record'], ['deltaKg', 'record'], ['deltaKg', 'record']]);
   });
 
-  it('[REQ-REC-001] la serie va en orden INV-SORT-001 y la primera medición cronológica lleva deltaKg y deltaPercent null', () => {
+  it('[REQ-REC2-001] la serie va en orden INV-SORT-001 y la primera medición cronológica lleva deltaKg null', () => {
     const series = computeWeightEvolutionSeries([
       weight('w1', '2026-09-01', 8),
       weight('w3', '2026-11-01', 7.99),
       weight('w2', '2026-10-01', 8.01),
     ]);
     expect(series).toEqual([
-      { record: weight('w3', '2026-11-01', 7.99), deltaKg: -0.02, deltaPercent: -0.25 },
-      { record: weight('w2', '2026-10-01', 8.01), deltaKg: 0.01, deltaPercent: 0.13 },
-      { record: weight('w1', '2026-09-01', 8), deltaKg: null, deltaPercent: null },
+      { record: weight('w3', '2026-11-01', 7.99), deltaKg: -0.02 },
+      { record: weight('w2', '2026-10-01', 8.01), deltaKg: 0.01 },
+      { record: weight('w1', '2026-09-01', 8), deltaKg: null },
     ]);
     expect(computeWeightEvolutionSeries([])).toEqual([]);
   });
 
-  it('[REQ-REC-001] con la misma fecha desempata por createdAt y luego id; pesos iguales dan delta 0', () => {
+  it('[REQ-REC2-001] deltaKg exacto en milésimas para especies pequeñas: 1.250 → 1.275 = 0.025 y 0.028 → 0.001 = -0.027', () => {
+    const [first, second] = computeWeightEvolutionSeries([weight('r1', '2026-05-01', 1.25), weight('r2', '2026-06-01', 1.275)]);
+    expect([first!.deltaKg, second!.deltaKg]).toEqual([0.025, null]);
+    const down = computeWeightEvolutionSeries([weight('b1', '2026-06-01', 0.028), weight('b2', '2026-07-01', 0.001)]);
+    expect(down[0]!.deltaKg).toBe(-0.027);
+    expect(1.275 - 1.25).not.toBe(0.025);
+  });
+
+  it('[REQ-REC2-001] con la misma fecha desempata por createdAt y luego id; pesos iguales dan delta 0', () => {
     const series = computeWeightEvolutionSeries([
       weight('w-b', '2026-11-01', 10, '2026-11-01T08:00:00.000Z'),
       weight('w-a', '2026-11-01', 10, '2026-11-01T08:00:00.000Z'),
       weight('w-c', '2026-11-01', 10.5, '2026-11-01T09:00:00.000Z'),
     ]);
-    expect(series.map((e) => [e.record.id, e.deltaKg, e.deltaPercent])).toEqual([
-      ['w-c', 0.5, 5],
-      ['w-a', 0, 0],
-      ['w-b', null, null],
+    expect(series.map((e) => [e.record.id, e.deltaKg])).toEqual([
+      ['w-c', 0.5],
+      ['w-a', 0],
+      ['w-b', null],
     ]);
     expect(Object.is(series[1]!.deltaKg, -0)).toBe(false);
   });
 
-  it('[REQ-REC-001][INV-REC-002] toHundredths y hasAtMostTwoDecimals trabajan sobre la representación decimal', () => {
-    expect([0.05, 0.29, 32.85, 150, 1.15, 4.35].map(toHundredths)).toEqual([5, 29, 3285, 15000, 115, 435]);
+  it('[REQ-REC2-001][INV-REC-003] weightKgToGrams y hasAtMostTwoDecimals trabajan sobre la representación decimal, no sobre flotantes', () => {
+    expect([0.05, 0.29, 32.85, 150, 1.15, 4.35].map(weightKgToGrams)).toEqual([50, 290, 32850, 150000, 1150, 4350]);
     expect([0.29 * 100, 1.15 * 100, 4.35 * 100].map(Number.isInteger)).toEqual([false, false, false]);
     expect([32.85, 0.05, 150, 32.855, 32.85001].map(hasAtMostTwoDecimals)).toEqual([true, true, true, false, false]);
   });

@@ -10,7 +10,11 @@
  * - `pets.save` y `households.saveMembership` usan UPSERT (no `INSERT OR REPLACE`), para que reemplazar una mascota
  *   no dispare el borrado en cascada de sus registros.
  *
- * @implements INV-ARCH-004, INV-ARCH-005, INV-AUTH-003, INV-PET-005, INV-HOUSE-003, ERR-INTERNAL-UNEXPECTED
+ * - Mascotas (0003): species, species_other, neutered, microchip_id y birth_date_is_estimate repiten el objeto en columnas
+ *   (CHECK de las 8 especies y de speciesOther solo con OTHER, microchip único por propietario); weights.weight_grams guarda
+ *   el peso en gramos enteros (ADR-002-09). La lectura comprueba que las columnas coinciden con `data`.
+ *
+ * @implements INV-ARCH-004, INV-ARCH-005, INV-AUTH-003, INV-PET-005, INV-HOUSE-003, INV-PET2-001, INV-REC2-002, ERR-INTERNAL-UNEXPECTED
  */
 
 import { createHash } from 'node:crypto';
@@ -47,6 +51,7 @@ import { isLegacyHouseholdMember, type LegacyHouseholdMember } from '../../../do
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
+import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 import { isCanonicalUtcTimestamp } from '../../../domain/sorting/deterministic-sorter.ts';
 import type Database from 'better-sqlite3';
 import type { SqliteDatabase } from './sqlite-database.ts';
@@ -142,14 +147,23 @@ interface KeyedRow {
   readonly owner_user_id: string;
   readonly data: string;
 }
+interface PetRow extends KeyedRow {
+  readonly species: string;
+  readonly species_other: string | null;
+  readonly neutered: number | null;
+  readonly microchip_id: string | null;
+  readonly birth_date_is_estimate: number;
+}
 interface RecordRow {
   readonly id: string;
   readonly pet_id: string;
   readonly data: string;
+  /** Solo en `weights` (ADR-002-09). */
+  readonly weight_grams?: number;
 }
 interface ModuleStatements {
   readonly byPet: Database.Statement<[string], RecordRow>;
-  readonly insert: Database.Statement<[string, string, string]>;
+  readonly insert: Database.Statement<(string | number)[]>;
   readonly removeForPet: Database.Statement<[string]>;
 }
 interface MembershipRow {
@@ -290,14 +304,32 @@ function loginAttemptRepository(db: SqliteDatabase): LoginAttemptRepositoryPort 
 
 /** @implements INV-ARCH-004, INV-PET-005, ERR-INTERNAL-UNEXPECTED */
 function petRepository(db: SqliteDatabase): PetRepositoryPort {
-  const byId = db.prepare<[string], KeyedRow>('SELECT id, owner_user_id, data FROM pets WHERE id = ?');
-  const byOwners = db.prepare<[string], KeyedRow>('SELECT id, owner_user_id, data FROM pets WHERE owner_user_id IN (SELECT value FROM json_each(?))');
+  const columns = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate';
+  const byId = db.prepare<[string], PetRow>(`SELECT ${columns} FROM pets WHERE id = ?`);
+  const byOwners = db.prepare<[string], PetRow>(`SELECT ${columns} FROM pets WHERE owner_user_id IN (SELECT value FROM json_each(?))`);
   const upsert = db.prepare(
-    'INSERT INTO pets (id, owner_user_id, data) VALUES (?, ?, ?) ON CONFLICT (id) DO UPDATE SET owner_user_id = excluded.owner_user_id, data = excluded.data',
+    `INSERT INTO pets (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET owner_user_id = excluded.owner_user_id, data = excluded.data, species = excluded.species,
+       species_other = excluded.species_other, neutered = excluded.neutered, microchip_id = excluded.microchip_id,
+       birth_date_is_estimate = excluded.birth_date_is_estimate`,
   );
   // INV-PET-005: ON DELETE CASCADE borra en la misma sentencia los registros de los 6 módulos.
   const remove = db.prepare('DELETE FROM pets WHERE id = ?');
-  const toPet = (row: KeyedRow): PetProfile => decode('pets', row.id, row.data, validatePetProfile, (p) => p.id === row.id && p.ownerUserId === row.owner_user_id);
+  const toPet = (row: PetRow): PetProfile =>
+    decode(
+      'pets',
+      row.id,
+      row.data,
+      validatePetProfile,
+      (p) =>
+        p.id === row.id &&
+        p.ownerUserId === row.owner_user_id &&
+        p.species === row.species &&
+        p.speciesOther === row.species_other &&
+        p.neutered === (row.neutered === null ? null : row.neutered === 1) &&
+        p.microchipId === row.microchip_id &&
+        p.birthDateIsEstimate === (row.birth_date_is_estimate === 1),
+    );
   return {
     async findById(petId) {
       const row = byId.get(petId);
@@ -307,7 +339,16 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
       return byOwners.all(list(ownerUserIds)).map(toPet);
     },
     async save(pet) {
-      upsert.run(pet.id, pet.ownerUserId, encode('pets', pet.id, pet, validatePetProfile));
+      upsert.run(
+        pet.id,
+        pet.ownerUserId,
+        encode('pets', pet.id, pet, validatePetProfile),
+        pet.species,
+        pet.speciesOther,
+        pet.neutered === null ? null : pet.neutered ? 1 : 0,
+        pet.microchipId,
+        pet.birthDateIsEstimate ? 1 : 0,
+      );
     },
     async delete(petId) {
       remove.run(petId);
@@ -321,8 +362,8 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
   for (const module of RECORD_MODULE_NAMES) {
     const { table } = RECORD_TABLES[module];
     statements[module] = {
-      byPet: db.prepare<[string], RecordRow>(`SELECT id, pet_id, data FROM ${table} WHERE pet_id = ?`),
-      insert: db.prepare<[string, string, string]>(`INSERT INTO ${table} (id, pet_id, data) VALUES (?, ?, ?)`),
+      byPet: db.prepare<[string], RecordRow>(`SELECT id, pet_id, data${table === 'weights' ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = ?`),
+      insert: db.prepare<[string, string, string]>(`INSERT INTO ${table} (id, pet_id, data${table === 'weights' ? ', weight_grams' : ''}) VALUES (?, ?, ?${table === 'weights' ? ', ?' : ''})`),
       removeForPet: db.prepare<[string]>(`DELETE FROM ${table} WHERE pet_id = ?`),
     };
   }
@@ -337,7 +378,11 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
         const { table, check } = RECORD_TABLES[module];
         result[module] = statements[module].byPet
           .all(petId)
-          .map((row) => decode(table, row.id, row.data, check as Check<{ id: string; petId: string }>, (r) => r.id === row.id && r.petId === row.pet_id));
+          .map((row) =>
+            decode(table, row.id, row.data, check as Check<{ id: string; petId: string; weightKg?: number }>, (r) =>
+              r.id === row.id && r.petId === row.pet_id && (table !== 'weights' || (row.weight_grams === weightKgToGrams(r.weightKg!))),
+            ),
+          );
       }
       return result as unknown as PetRecordCollections;
     },
@@ -349,7 +394,12 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
     },
     async add<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const { table, check } = RECORD_TABLES[module];
-      statements[module].insert.run(record.id, record.petId, encode(table, record.id, record, check as Check<RecordOf<M>>));
+      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
+      if (module === 'weights') {
+        statements[module].insert.run(record.id, record.petId, data, weightKgToGrams((record as RecordOf<'weights'>).weightKg));
+      } else {
+        statements[module].insert.run(record.id, record.petId, data);
+      }
     },
     async deleteForPet(petId) {
       for (const module of RECORD_MODULE_NAMES) statements[module].removeForPet.run(petId);

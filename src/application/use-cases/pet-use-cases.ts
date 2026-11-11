@@ -3,21 +3,22 @@
  * esquema y dominio dentro de las funciones de pet-invariants.
  * - UpdatePetUseCase aplica INV-PET-006 con las fechas de todos los registros de la mascota.
  * - DeletePetUseCase borra la mascota y sus 6 colecciones en una sola transacción (REQ-PET-004).
- * - ListMyPetsUseCase devuelve solo las mascotas propias, sin cupo, con el filtro y el orden de REQ-PET-005;
+ * - RegisterPet y UpdatePet comprueban que el microchip sea único entre las mascotas del mismo propietario (REQ-PET2-001).
+ * - ListMyPetsUseCase devuelve solo las mascotas propias, sin cupo, con el filtro (REQ-PET2-002) y el orden de REQ-PET-005;
  *   fuera de un hogar el colorToken del dueño es null (EDGE-030).
  * - GetPetDashboardUseCase aplica INV-ACC-001 y devuelve canEdit según INV-ACC-002.
  *
- * @implements REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
 import type { components, PetProfile, Species } from '../../generated/index.ts';
 import { canWrite } from '../../domain/access/access-policy.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import { ownerTag } from '../../domain/households/household-policies.ts';
-import { collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
+import { assertMicrochipUniqueForOwner, collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
-import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing } from '../../domain/sorting/deterministic-sorter.ts';
+import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import {
   buildPetCard,
   legacyRoleAndPermissions,
@@ -34,12 +35,35 @@ import {
  */
 export type PetDashboardView = Omit<components['schemas']['PetDashboardView'], 'profile'> & { profile: PetProfile };
 
+/** Filtro del listado de REQ-PET2-002 (parámetro `filter` del OpenAPI). */
+export type PetListGroup = 'ALL' | 'CANINE' | 'FELINE' | 'OTHERS' | 'WITH_ALERTS';
+
 export interface PetListQuery {
   readonly q?: string;
+  /**
+   * Alias heredado de la 001 (especie exacta). T228 PENDIENTE: el contrato 002 solo declara `filter`; `species` se
+   * conserva porque el cliente web y las rutas de hogar lo envían hasta T284 y T238.
+   */
   readonly species?: Species;
+  readonly filter?: PetListGroup;
 }
 
-/** @implements REQ-PET-001, INV-ARCH-001, INV-ARCH-002 */
+/** Parte del filtro que decide el dominio por mascota (nombre, especie y grupo); WITH_ALERTS necesita la tarjeta. */
+export function petListFilterOf(query: PetListQuery): PetListFilter {
+  const group = query.filter === undefined || query.filter === 'WITH_ALERTS' ? undefined : query.filter;
+  return {
+    ...(query.q === undefined ? {} : { q: query.q }),
+    ...(query.species === undefined ? {} : { species: query.species }),
+    ...(group === undefined ? {} : { group }),
+  };
+}
+
+/** WITH_ALERTS: solo las tarjetas con alertas sanitarias activas (REQ-PET2-002). */
+export function keepsCard(query: PetListQuery, card: Pick<PetCardView, 'alertsSummary'>): boolean {
+  return query.filter !== 'WITH_ALERTS' || card.alertsSummary.totalActiveAlerts > 0;
+}
+
+/** @implements REQ-PET2-001, ERR-PET-MICROCHIP-DUPLICATE, INV-ARCH-001, INV-ARCH-002 */
 export class RegisterPetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
@@ -52,13 +76,14 @@ export class RegisterPetUseCase {
         today: this.deps.clock.todayIsoDate(),
         nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
       });
+      assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([userId]), pet.microchipId, pet.id);
       await repositories.pets.save(pet);
       return pet;
     });
   }
 }
 
-/** @implements REQ-PET-001, INV-ACC-002, ERR-ACC-FORBIDDEN, ERR-PET-NOT-FOUND */
+/** @implements REQ-PET2-001, INV-ACC-002, ERR-ACC-FORBIDDEN, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND */
 export class UpdatePetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
@@ -73,6 +98,7 @@ export class UpdatePetUseCase {
         nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
         recordEventDates: collectRecordEventDates(petId, records),
       });
+      assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([pet.ownerUserId]), updated.microchipId, updated.id);
       await repositories.pets.save(updated);
       return updated;
     });
@@ -93,7 +119,7 @@ export class DeletePetUseCase {
   }
 }
 
-/** @implements REQ-PET-005, REQ-PET-002 */
+/** @implements REQ-PET2-002, REQ-PET-005, REQ-PET-002 */
 export class ListMyPetsUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
@@ -101,10 +127,12 @@ export class ListMyPetsUseCase {
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
       const owner = (await publicProfilesById(repositories, [userId])).get(userId)!;
-      const pets = sortPetsForListing((await repositories.pets.listByOwners([userId])).filter((pet) => matchesPetListFilter(pet, query)));
+      const filter = petListFilterOf(query);
+      const pets = sortPetsForListing((await repositories.pets.listByOwners([userId])).filter((pet) => matchesPetListFilter(pet, filter)));
       const cards: PetCardView[] = [];
       for (const pet of pets) {
-        cards.push(buildPetCard(pet, ownerTag(owner, null), true, await repositories.records.listForPet(pet.id), today));
+        const card = buildPetCard(pet, ownerTag(owner, null), true, await repositories.records.listForPet(pet.id), today);
+        if (keepsCard(query, card)) cards.push(card);
       }
       return cards;
     });

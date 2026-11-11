@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { validateBackupEnvelopeV2Legacy, type BackupEnvelopeV1Legacy } from '../../src/generated/index.ts';
-import { migrateLegacyEnvelope, normalizeToCanonicalUtc } from '../../src/domain/backup/backup-migration.ts';
+import { validateBackupEnvelopeV2Legacy, type BackupEnvelopeV1Legacy, type BackupEnvelopeV2Legacy } from '../../src/generated/index.ts';
+import { mapLegacyEnvelopeSpecies, mapLegacySpecies, migrateLegacyEnvelope, normalizeToCanonicalUtc } from '../../src/domain/backup/backup-migration.ts';
 import { ANDRES, fixtures } from '../fixtures/application-harness.ts';
 
 const legacy: BackupEnvelopeV1Legacy = fixtures.validLegacyBackupEnvelopeV1;
@@ -61,3 +61,41 @@ describe('migración v1 → v2 (src/domain/backup/backup-migration.ts)', () => {
     expect(validateBackupEnvelopeV2Legacy(migrated)).toBe(true);
   });
 });
+
+describe('especie en la lectura de respaldos 1.0.0 y 2.0.0 (REQ-BACKUP2-002, INV-PET2-001)', () => {
+  const v2: BackupEnvelopeV2Legacy = fixtures.validBackupEnvelopeV2;
+
+  it.each([
+    ['DOG', 'CANINE'],
+    ['CAT', 'FELINE'],
+  ])('[REQ-BACKUP2-002][INV-PET2-001] %s se lee como %s', (legacySpecies, expected) => {
+    expect(mapLegacySpecies(legacySpecies)).toBe(expected);
+  });
+
+  it.each(['CANINE', 'FELINE', 'RABBIT', 'OTHER', 'dog', 'Cat', '', 'DRAGON'])(
+    '[REQ-BACKUP2-002][INV-PET2-001] un valor distinto de DOG y CAT (%j) se devuelve sin cambios para que la validación 3.0.0 lo juzgue',
+    (value) => {
+      expect(mapLegacySpecies(value)).toBe(value);
+    },
+  );
+
+  it('[REQ-BACKUP2-002][INV-PET2-001] el sobre 1.0.0 migrado a 2.0.0 y el sobre 2.0.0 pasan DOG a CANINE y CAT a FELINE sin tocar nada más y sin mutar la entrada', () => {
+    const v1 = migrateLegacyEnvelope(legacy, ANDRES);
+    for (const envelope of [v1, v2]) {
+      const before = structuredClone(envelope);
+      const mapped = mapLegacyEnvelopeSpecies(envelope);
+      expect(mapped.pets.map((p) => p.species)).toEqual(envelope.pets.map((p) => (p.species === 'DOG' ? 'CANINE' : 'FELINE')));
+      expect(mapped.pets.map(({ species: _s, ...rest }) => rest)).toEqual(envelope.pets.map(({ species: _s, ...rest }) => rest));
+      expect([mapped.schemaVersion, mapped.exportedAt, mapped.records]).toEqual([envelope.schemaVersion, envelope.exportedAt, envelope.records]);
+      expect(envelope).toEqual(before);
+    }
+  });
+
+  it('[REQ-BACKUP2-002][INV-PET2-001] la lectura conserva el orden y el número de mascotas y deja 0 filas DOG o CAT', () => {
+    const mapped = mapLegacyEnvelopeSpecies(v2);
+    expect(mapped.pets.map((p) => p.id)).toEqual(v2.pets.map((p) => p.id));
+    expect(mapped.pets.filter((p) => ['DOG', 'CAT'].includes(p.species as string))).toEqual([]);
+    expect(new Set(mapped.pets.map((p) => p.species))).toEqual(new Set(['CANINE', 'FELINE']));
+  });
+});
+

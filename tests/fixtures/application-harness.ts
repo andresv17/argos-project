@@ -18,18 +18,26 @@ import {
   type InMemoryUnitOfWorkOptions,
   type MemoryState,
 } from '../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
+import { upgradePet } from './storage-upgrade.ts';
 import { DUMMY_PASSWORD_HASH, FAKE_HASH_PREFIX, SequentialTokenAdapter, SpyPasswordHasher } from './test-doubles.ts';
 
 /** Datos canónicos de contracts/examples/canonical-fixtures.json. */
 export const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
 
-export const envelope: BackupEnvelopeV3 = fixtures.validBackupEnvelopeV2;
+/**
+ * Las mascotas de la 001 pasan a la forma 3.0.0 (CANINE, FELINE, campos nuevos) porque las rutas y los repositorios de
+ * la 002 las validan (T226). Los registros siguen con la forma 001 hasta T255 (vacunas y desparasitaciones).
+ */
+export const envelope: BackupEnvelopeV3 = (() => {
+  const raw: BackupEnvelopeV3 = fixtures.validBackupEnvelopeV2;
+  return { ...raw, pets: (raw.pets as unknown as PetProfile[]).map(upgradePet) as unknown as BackupEnvelopeV3['pets'] };
+})();
 export const USERS: UserPublicProfile[] = fixtures.users;
 export const [ANDRES, MARIA, CARLOS, LUCIA] = USERS.map((u) => u.id) as [string, string, string, string];
 export const HOUSEHOLD: Household = fixtures.household;
 export const MEMBERSHIPS: HouseholdMember[] = fixtures.householdMembers;
 export const ANDRES_PETS = envelope.pets as PetProfile[];
-export const MARIA_PETS = fixtures.otherUserPets as PetProfile[];
+export const MARIA_PETS = (fixtures.otherUserPets as PetProfile[]).map(upgradePet);
 export const ARGOS = ANDRES_PETS.find((p) => p.name === 'Argos')!;
 export const LUNA = MARIA_PETS[0]!;
 export const PASSWORDS: Record<string, string> = fixtures.credentialsForTestsOnly;

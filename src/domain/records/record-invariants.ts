@@ -7,9 +7,11 @@
  *   un campo ausente, una propiedad no autorizada o cualquier otro fallo, ERR-SCHEMA-VALIDATION-FAILED (incluye
  *   INV-REC-006 vía NonEmptyTrimmedString). Después el dominio: máx. 2 decimales exactos (INV-REC-002/003),
  *   ventana temporal (INV-REC-001, en date-utils) y fecha siguiente estrictamente posterior (INV-REC-004/005).
- * - deltaKg y deltaPercent se calculan sobre centésimas enteras, sin Math.round sobre flotantes (EDGE-034, EDGE-035).
+ * - El peso (REQ-REC2-001, INV-REC2-002) se valida contra la tabla de su especie en gramos enteros (weight-limits.ts); por
+ *   eso validar un peso exige la especie de la mascota. deltaKg se calcula en gramos enteros, sin redondeo (EDGE-034);
+ *   la 002 retira deltaPercent del contrato.
  *
- * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE, INV-ARCH-001, INV-ARCH-004
+ * @implements REQ-REC2-001, INV-REC2-002, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE, INV-ARCH-001, INV-ARCH-004
  */
 
 import {
@@ -40,11 +42,13 @@ import {
   type DewormingRecord,
   type ErrorCode,
   type MedicalVisitRecord,
+  type Species,
   type VaccinationRecord,
   type WeightRecord,
 } from '../../generated/index.ts';
 import { validateEventDateWindow } from '../shared/date-utils.ts';
 import { sortHistoricalRecords } from '../sorting/deterministic-sorter.ts';
+import { assertWeightWithinSpeciesLimits, weightKgToGrams } from './weight-limits.ts';
 
 export type WeightEntryView = components['schemas']['WeightEntryView'];
 type RecordCollections = BackupEnvelopeV3['records'];
@@ -76,7 +80,9 @@ export interface RecordModuleRules {
   readonly input: SchemaRef;
   /** Fecha del evento sujeta a INV-REC-001. */
   readonly eventDateField: string;
-  /** Campos numéricos con máx. 2 decimales y el código de su invariante (INV-REC-002/003). */
+  /** Campo de peso en kg, validado por especie (INV-REC2-002); null en los módulos sin peso. */
+  readonly weightField: string | null;
+  /** Campos numéricos con máx. 2 decimales y el código de su invariante (INV-REC-003). */
   readonly decimalFields: readonly string[];
   readonly decimalError: ErrorCode | null;
   /** Fecha que debe ser estrictamente posterior a eventDateField y su código (INV-REC-004/005). */
@@ -92,14 +98,16 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     record: ref('WeightRecord', validateWeightRecord),
     input: ref('CreateWeightInput', validateCreateWeightInput),
     eventDateField: 'recordedAt',
-    decimalFields: ['weightKg'],
-    decimalError: 'ERR-REC-WEIGHT-OUT-OF-RANGE',
+    weightField: 'weightKg',
+    decimalFields: [],
+    decimalError: null,
     nextDate: null,
   },
   bodyMeasurements: {
     record: ref('BodyMeasurementRecord', validateBodyMeasurementRecord),
     input: ref('CreateBodyMeasurementInput', validateCreateBodyMeasurementInput),
     eventDateField: 'recordedAt',
+    weightField: null,
     decimalFields: MEASUREMENT_FIELDS,
     decimalError: 'ERR-REC-MEASUREMENT-OUT-OF-RANGE',
     nextDate: null,
@@ -108,6 +116,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     record: ref('VaccinationRecord', validateVaccinationRecord),
     input: ref('CreateVaccinationInput', validateCreateVaccinationInput),
     eventDateField: 'appliedAt',
+    weightField: null,
     decimalFields: [],
     decimalError: null,
     nextDate: { field: 'nextBoosterAt', error: 'ERR-REC-INVALID-BOOSTER-DATE' },
@@ -116,6 +125,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     record: ref('DewormingRecord', validateDewormingRecord),
     input: ref('CreateDewormingInput', validateCreateDewormingInput),
     eventDateField: 'appliedAt',
+    weightField: null,
     decimalFields: [],
     decimalError: null,
     nextDate: { field: 'nextSuggestedDoseAt', error: 'ERR-REC-INVALID-NEXT-DOSE-DATE' },
@@ -124,6 +134,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     record: ref('MedicalVisitRecord', validateMedicalVisitRecord),
     input: ref('CreateMedicalVisitInput', validateCreateMedicalVisitInput),
     eventDateField: 'visitDate',
+    weightField: null,
     decimalFields: [],
     decimalError: null,
     nextDate: null,
@@ -132,6 +143,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     record: ref('CustomParameterRecord', validateCustomParameterRecord),
     input: ref('CreateCustomParameterInput', validateCreateCustomParameterInput),
     eventDateField: 'recordedAt',
+    weightField: null,
     decimalFields: [],
     decimalError: null,
     nextDate: null,
@@ -159,28 +171,31 @@ function assertSchema(schema: SchemaRef, value: unknown): void {
 }
 
 /**
- * Convierte un número con máx. 2 decimales a centésimas enteras a partir de su representación decimal
- * (toFixed), sin multiplicar flotantes ni usar Math.round (EDGE-034).
- * @implements REQ-REC-001, INV-REC-002
- */
-export function toHundredths(value: number): number {
-  return Number(value.toFixed(2).replace('.', ''));
-}
-
-/**
  * Máx. 2 decimales exactos: el valor coincide con su redondeo a centésimas. El esquema generado usa
- * multipleOfPrecision 2, que tolera restos menores de 0.01 centésimas (p. ej. 32.85001), así que el dominio lo cierra.
- * @implements INV-REC-002, INV-REC-003
+ * multipleOfPrecision 2, que tolera restos menores de 0.01 centésimas (p. ej. 46.5 + 1e-13), así que el dominio lo cierra.
+ * @implements INV-REC-003
  */
 export function hasAtMostTwoDecimals(value: number): boolean {
   return Number(value.toFixed(2)) === value;
 }
 
 /**
- * Reglas de dominio de un registro o entrada ya válidos según su esquema.
- * @implements INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE
+ * Reglas de dominio de un registro o entrada ya válidos según su esquema. El peso exige la especie de la mascota.
+ * @implements INV-REC2-002, INV-REC-003, INV-REC-004, INV-REC-005, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE
  */
-function assertDomainRules(rules: RecordModuleRules, value: Record<string, unknown>, petBirthDate: string, currentDate: string): void {
+function assertDomainRules(
+  rules: RecordModuleRules,
+  value: Record<string, unknown>,
+  petBirthDate: string,
+  currentDate: string,
+  species: Species | undefined,
+): void {
+  if (rules.weightField !== null) {
+    if (species === undefined) {
+      throw new Error('El peso se valida con la especie de la mascota (INV-REC2-002): falta species.');
+    }
+    assertWeightWithinSpeciesLimits(species, value[rules.weightField] as number, rules.weightField);
+  }
   for (const field of rules.decimalFields) {
     if (!hasAtMostTwoDecimals(value[field] as number)) {
       throw new DomainError(rules.decimalError!, `${field} admite como máximo 2 decimales.`, field);
@@ -206,10 +221,11 @@ export function validateRecordInput<M extends RecordModule>(
   input: unknown,
   petBirthDate: string,
   currentDate: string,
+  species?: Species,
 ): RecordInputs[M] {
   const rules = RECORD_MODULES[module];
   assertSchema(rules.input, input);
-  assertDomainRules(rules, input as Record<string, unknown>, petBirthDate, currentDate);
+  assertDomainRules(rules, input as Record<string, unknown>, petBirthDate, currentDate, species);
   return input as RecordInputs[M];
 }
 
@@ -222,16 +238,17 @@ export function validateRecord<M extends RecordModule>(
   record: unknown,
   petBirthDate: string,
   currentDate: string,
+  species?: Species,
 ): RecordOf<M> {
   const rules = RECORD_MODULES[module];
   assertSchema(rules.record, record);
-  assertDomainRules(rules, record as Record<string, unknown>, petBirthDate, currentDate);
+  assertDomainRules(rules, record as Record<string, unknown>, petBirthDate, currentDate, species);
   return record as RecordOf<M>;
 }
 
-/** @implements REQ-REC-001, INV-REC-002 */
-export function validateWeightRecordDomain(record: WeightRecord, petBirthDate: string, currentDate: string): WeightRecord {
-  return validateRecord('weights', record, petBirthDate, currentDate);
+/** @implements REQ-REC2-001, INV-REC2-002 */
+export function validateWeightRecordDomain(record: WeightRecord, petBirthDate: string, currentDate: string, species: Species): WeightRecord {
+  return validateRecord('weights', record, petBirthDate, currentDate, species);
 }
 
 /** @implements REQ-REC-002, INV-REC-003 */
@@ -292,38 +309,19 @@ export function validateNonEmptyTrimmedField(value: string, fieldName: string, m
 }
 
 /**
- * Variación porcentual en centésimas de punto, redondeada half-away-from-zero sobre enteros (EDGE-035):
- * |Δ| · 10000 / anterior, con el resto comparado contra la mitad del divisor; el signo se aplica al final.
- * Con anterior <= 15000 y |Δ| >= 1, el resultado redondeado nunca es 0 salvo Δ = 0, donde Math.sign da +0.
- * @implements REQ-REC-001
+ * REQ-REC2-001: serie de evolución en el orden de INV-SORT-001 (más reciente primero). Cada entrada compara con la
+ * medición inmediata anterior en ese orden; la primera medición cronológica lleva deltaKg null. deltaKg se calcula con la
+ * diferencia de gramos enteros dividida por 1000, sin redondeo (equivale a la unidad más fina de la especie: centésimas
+ * para CANINE y FELINE, milésimas para las demás). La 002 retira deltaPercent del contrato.
+ * @implements REQ-REC2-001, INV-REC2-002
  */
-export function deltaPercentFromHundredths(previous: number, current: number): number {
-  const delta = current - previous;
-  const scaled = Math.abs(delta) * 10000;
-  const quotient = Math.floor(scaled / previous);
-  const rounded = 2 * (scaled - quotient * previous) >= previous ? quotient + 1 : quotient;
-  return (Math.sign(delta) * rounded) / 100;
-}
-
-/**
- * REQ-REC-001: serie de evolución en el orden de INV-SORT-001 (más reciente primero). Cada entrada compara con la
- * medición inmediata anterior en ese orden; la primera medición cronológica lleva deltaKg y deltaPercent null.
- * @implements REQ-REC-001, INV-REC-002
- */
-// T226 PENDIENTE: la 002 retira deltaPercent del contrato y calcula deltaKg en la unidad entera de la especie; se conserva el cálculo 001.
-export function computeWeightEvolutionSeries(records: readonly WeightRecord[]): Array<WeightEntryView & { deltaPercent: number | null }> {
+export function computeWeightEvolutionSeries(records: readonly WeightRecord[]): WeightEntryView[] {
   const sorted = sortHistoricalRecords(records);
   return sorted.map((record, index) => {
     const previous = sorted[index + 1];
     if (previous === undefined) {
-      return { record, deltaKg: null, deltaPercent: null };
+      return { record, deltaKg: null };
     }
-    const previousHundredths = toHundredths(previous.weightKg);
-    const currentHundredths = toHundredths(record.weightKg);
-    return {
-      record,
-      deltaKg: (currentHundredths - previousHundredths) / 100,
-      deltaPercent: deltaPercentFromHundredths(previousHundredths, currentHundredths),
-    };
+    return { record, deltaKg: (weightKgToGrams(record.weightKg) - weightKgToGrams(previous.weightKg)) / 1000 };
   });
 }

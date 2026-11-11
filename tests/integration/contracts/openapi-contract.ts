@@ -33,7 +33,8 @@ export const OPERATIONS: readonly Operation[] = Object.entries(openapi.paths).fl
   }),
 );
 
-const ajv = new Ajv2020({ strict: false, allErrors: true });
+// Mismas opciones numéricas que los validadores generados (scripts/codegen.mjs): sin multipleOfPrecision, 32.85 no es múltiplo de 0.001 por coma flotante (T226).
+const ajv = new Ajv2020({ strict: false, allErrors: true, multipleOfPrecision: 10 });
 addFormats(ajv);
 for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) ajv.addSchema(JSON.parse(readFileSync(join('specs/002-plataforma-v21/contracts/schemas', file), 'utf8')));
 ajv.addSchema({ ...openapi, $id: OPENAPI_ID });

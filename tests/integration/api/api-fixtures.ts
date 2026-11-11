@@ -7,7 +7,7 @@ export const KIRA_ID = '11111111-1111-4111-8111-111111111102';
 export const LUNA_ID = '11111111-1111-4111-8111-111111111201';
 export const USERS_BY_NAME = { andres: ANDRES, maria: MARIA, carlos: CARLOS, lucia: LUCIA } as const;
 
-export const NEW_PET = { name: 'Lucía', species: 'DOG', breed: 'Mestiza', birthDate: '2024-03-01', sex: 'FEMALE', avatarUrl: null };
+export const NEW_PET = { name: 'Lucía', species: 'CANINE', breed: 'Mestiza', birthDate: '2024-03-01', sex: 'FEMALE', avatarUrl: null };
 
 export const RECORD_INPUTS = {
   weights: { recordedAt: '2026-11-04', weightKg: 32.85, notes: null },

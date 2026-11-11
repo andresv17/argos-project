@@ -52,7 +52,7 @@ abstract class AddRecordUseCase<M extends RecordModule, View> {
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
       const { pet } = await requireWritablePet(repositories, userId, petId);
-      const valid = validateRecordInput(this.module, input, pet.birthDate, today);
+      const valid = validateRecordInput(this.module, input, pet.birthDate, today, pet.species);
       const record = {
         ...NULLABLE_DEFAULTS[this.module],
         ...valid,
@@ -67,7 +67,7 @@ abstract class AddRecordUseCase<M extends RecordModule, View> {
   }
 }
 
-/** @implements REQ-REC-001 */
+/** @implements REQ-REC2-001, INV-REC2-002, ERR-REC-WEIGHT-OUT-OF-RANGE */
 export class AddWeightRecordUseCase extends AddRecordUseCase<'weights', WeightEntryView> {
   constructor(deps: ApplicationDeps) {
     super(deps, 'weights');

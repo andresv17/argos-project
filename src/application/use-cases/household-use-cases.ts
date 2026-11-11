@@ -36,7 +36,7 @@ import {
 } from '../../domain/households/household-policies.ts';
 import { matchesPetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import type { InvitationRecord, RepositorySet } from '../ports/repositories.port.ts';
-import type { PetListQuery } from './pet-use-cases.ts';
+import { keepsCard, petListFilterOf, type PetListQuery } from './pet-use-cases.ts';
 import {
   assertMatchesSchema,
   buildPetCard,
@@ -306,11 +306,12 @@ export class GetHouseholdPetsUseCase {
       const activeIds = activeMembersInOrder(memberships, householdId).map((m) => m.userId);
       const users = await publicProfilesById(repositories, activeIds);
       const entries = householdPets(householdId, memberships, await repositories.pets.listByOwners(activeIds), users, userId).filter((entry) =>
-        matchesPetListFilter(entry.pet, query),
+        matchesPetListFilter(entry.pet, petListFilterOf(query)),
       );
       const pets = [];
       for (const entry of entries) {
-        pets.push(buildPetCard(entry.pet, entry.owner, entry.canEdit, await repositories.records.listForPet(entry.pet.id), today));
+        const card = buildPetCard(entry.pet, entry.owner, entry.canEdit, await repositories.records.listForPet(entry.pet.id), today);
+        if (keepsCard(query, card)) pets.push(card);
       }
       return { household: (await repositories.households.findById(householdId))!, pets };
     });

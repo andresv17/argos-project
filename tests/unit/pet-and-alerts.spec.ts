@@ -29,19 +29,25 @@ import {
   summarizeSanitaryAlerts,
 } from '../../src/domain/alerts/sanitary-alert-evaluator.ts';
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
+import { SPECIES, isOtherSpecies, assertSpeciesConsistency, speciesFilterGroup } from '../../src/domain/pet/species.ts';
+import { estimatedAgeToBirthDate } from '../../src/domain/pet/estimated-age.ts';
+import { assertMicrochipUniqueForOwner } from '../../src/domain/pet/pet-invariants.ts';
+import { upgradePet } from '../fixtures/storage-upgrade.ts';
+import { calculatePetAge } from '../../src/domain/shared/date-utils.ts';
 
 const fixtures = JSON.parse(
   readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 );
 const envelope: BackupEnvelopeV3 = fixtures.validBackupEnvelopeV2;
-const [argos, kira] = envelope.pets as [PetProfile, PetProfile];
+const [argos, kira] = (envelope.pets as unknown as PetProfile[]).map(upgradePet) as [PetProfile, PetProfile];
+const UPGRADED_PETS = (envelope.pets as unknown as PetProfile[]).map(upgradePet);
 const ANDRES = fixtures.users[0].id as string;
 const MARIA = fixtures.users[1].id as string;
 const clock = new FixedClockAdapter();
 const TODAY = clock.todayIsoDate();
 const NOW = clock.nowIsoTimestamp();
 const NEW_PET_ID = '22222222-2222-4222-8222-222222222201';
-const VALID_INPUT = { name: 'Rocky', species: 'DOG', breed: 'Mestizo', birthDate: '2024-06-01', sex: 'MALE' };
+const VALID_INPUT = { name: 'Rocky', species: 'CANINE', breed: 'Mestizo', birthDate: '2024-06-01', sex: 'MALE' };
 
 function catchDomainError(action: () => unknown): DomainError {
   try {
@@ -74,10 +80,14 @@ describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
       id: NEW_PET_ID,
       ownerUserId: ANDRES,
       name: 'Rocky',
-      species: 'DOG',
+      species: 'CANINE',
+      speciesOther: null,
       breed: 'Mestizo',
       birthDate: '2024-06-01',
+      birthDateIsEstimate: false,
       sex: 'MALE',
+      neutered: null,
+      microchipId: null,
       avatarUrl: null,
       createdAt: NOW,
       updatedAt: NOW,
@@ -88,11 +98,11 @@ describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
     );
   });
 
-  it('[REQ-PET-001] no hay límite de cantidad ni de especie: diez perros seguidos del mismo dueño', () => {
+  it('[REQ-PET2-001] no hay límite de cantidad ni de especie: diez perros seguidos del mismo dueño', () => {
     const ids = Array.from({ length: 10 }, (_, i) => `22222222-2222-4222-8222-2222222222${String(i).padStart(2, '0')}`);
     const pets = ids.map((id) => create(VALID_INPUT, ANDRES, id));
     expect(pets.map((p) => p.id)).toEqual(ids);
-    expect(new Set(pets.map((p) => p.species))).toEqual(new Set(['DOG']));
+    expect(new Set(pets.map((p) => p.species))).toEqual(new Set(['CANINE']));
   });
 
   it('[REQ-PET-001] los módulos de no contienen referencias al cupo ni a IDs retirados', () => {
@@ -113,7 +123,7 @@ describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
       [{ ...VALID_INPUT, name: '' }, 'name'],
       [{ ...VALID_INPUT, name: ' Rocky' }, 'name'],
       [{ ...VALID_INPUT, name: 'x'.repeat(51) }, 'name'],
-      [{ ...VALID_INPUT, species: 'BIRD' }, 'species'],
+      [{ ...VALID_INPUT, species: 'DRAGON' }, 'species'],
       [{ ...VALID_INPUT, sex: 'OTHER' }, 'sex'],
       [{ ...VALID_INPUT, breed: undefined }, 'breed'],
       [{ ...VALID_INPUT, avatarUrl: 'javascript:alert(1)' }, 'avatarUrl'],
@@ -130,7 +140,7 @@ describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
       expect(error.detail.startsWith(`CreatePetInput: ${field ?? '(raíz)'} `)).toBe(true);
       expect(error.detail).not.toContain('INV-OWN-001');
     }
-    const onUpdate = catchDomainError(() => update({ species: 'BIRD' }));
+    const onUpdate = catchDomainError(() => update({ species: 'DRAGON' }));
     expect(onUpdate.detail).toBe('UpdatePetInput: species must be equal to one of the allowed values.');
     const nullUpdate = catchDomainError(() => update(null));
     expect([nullUpdate.field, nullUpdate.detail]).toEqual([null, 'UpdatePetInput: (raíz) must be object.']);
@@ -235,7 +245,7 @@ describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
 
 describe('eliminación en cascada (src/domain/pet/pet-deletion.ts)', () => {
   it('[REQ-PET-004][INV-PET-005] borrar Argos quita sus 2 pesos, 1 medida, 1 vacuna y 1 parámetro y nada más (EDGE-022)', () => {
-    const state = deepFreeze(structuredClone({ pets: envelope.pets as unknown as PetProfile[], records: envelope.records })); // el sobre 3.0.0 no lleva ownerUserId (T226 PENDIENTE)
+    const state = deepFreeze(structuredClone({ pets: UPGRADED_PETS, records: envelope.records }));
     const result = deletePetCascade(state, argos.id);
     expect(result.removedPet).toEqual(argos);
     expect(result.removedRecords).toEqual({
@@ -251,14 +261,14 @@ describe('eliminación en cascada (src/domain/pet/pet-deletion.ts)', () => {
       const original = envelope.records[name as keyof BackupEnvelopeV3['records']] as Array<{ petId: string }>;
       expect(collection).toEqual(original.filter((r) => r.petId !== argos.id));
     }
-    expect(state).toEqual({ pets: envelope.pets, records: envelope.records });
+    expect(state).toEqual({ pets: UPGRADED_PETS, records: envelope.records });
   });
 
   it('[REQ-PET-004][INV-PET-005] una mascota inexistente da ERR-PET-NOT-FOUND y no se elimina nada', () => {
-    const state = deepFreeze(structuredClone({ pets: envelope.pets as unknown as PetProfile[], records: envelope.records })); // el sobre 3.0.0 no lleva ownerUserId (T226 PENDIENTE)
+    const state = deepFreeze(structuredClone({ pets: UPGRADED_PETS, records: envelope.records }));
     const error = catchDomainError(() => deletePetCascade(state, NEW_PET_ID));
     expect([error.code, error.status, error.field]).toEqual(['ERR-PET-NOT-FOUND', 404, 'petId']);
-    expect(state).toEqual({ pets: envelope.pets, records: envelope.records });
+    expect(state).toEqual({ pets: UPGRADED_PETS, records: envelope.records });
   });
 });
 
@@ -384,3 +394,144 @@ describe('alertas sanitarias (src/domain/alerts/sanitary-alert-evaluator.ts)', (
 function pick(state: { uiBadge: string; label: string; isActiveAlert: boolean }) {
   return { uiBadge: state.uiBadge, label: state.label, isActiveAlert: state.isActiveAlert };
 }
+
+const SPECIES_002 = ['CANINE', 'FELINE', 'RABBIT', 'FERRET', 'BIRD', 'REPTILE', 'SMALL_MAMMAL', 'OTHER'] as const;
+const inputFor = (species: string) => ({ ...VALID_INPUT, species, ...(species === 'OTHER' ? { speciesOther: 'Erizo africano' } : {}) });
+
+describe('especies (src/domain/pet/species.ts)', () => {
+  it('[INV-PET2-001] las 8 especies aprobadas, en el orden del contrato, y solo OTHER es «otra»', () => {
+    expect([...SPECIES]).toEqual([...SPECIES_002]);
+    expect(SPECIES_002.filter((s) => isOtherSpecies(s))).toEqual(['OTHER']);
+  });
+
+  it('[INV-PET2-001][REQ-PET2-001] el alta acepta cada especie; OTHER guarda speciesOther y las demás lo dejan en null', () => {
+    for (const species of SPECIES_002) {
+      const pet = create(inputFor(species));
+      expect([pet.species, pet.speciesOther, validatePetProfile(pet)]).toEqual([species, species === 'OTHER' ? 'Erizo africano' : null, true]);
+    }
+  });
+
+  it('[INV-PET2-001][ERR-SCHEMA-VALIDATION-FAILED] speciesOther es obligatorio solo con OTHER (1 a 60 caracteres, sin espacios extremos) y prohibido en el resto', () => {
+    const cases: Array<[string, Record<string, unknown>, string]> = [
+      ['OTHER sin speciesOther', { species: 'OTHER' }, 'speciesOther'],
+      ['OTHER con speciesOther nulo', { species: 'OTHER', speciesOther: null }, 'speciesOther'],
+      ['OTHER con speciesOther vacío', { species: 'OTHER', speciesOther: '' }, 'speciesOther'],
+      ['OTHER con espacios extremos', { species: 'OTHER', speciesOther: ' Erizo' }, 'speciesOther'],
+      ['OTHER con 61 caracteres', { species: 'OTHER', speciesOther: 'e'.repeat(61) }, 'speciesOther'],
+      ['CANINE con speciesOther', { species: 'CANINE', speciesOther: 'Lobo' }, 'speciesOther'],
+      ['BIRD con speciesOther', { species: 'BIRD', speciesOther: 'Loro' }, 'speciesOther'],
+    ];
+    for (const [label, patch, field] of cases) {
+      const error = catchDomainError(() => create({ ...VALID_INPUT, ...patch }));
+      expect({ label, code: error.code, field: error.field }).toEqual({ label, code: 'ERR-SCHEMA-VALIDATION-FAILED', field });
+    }
+    expect(create({ ...VALID_INPUT, species: 'OTHER', speciesOther: 'e'.repeat(60) }).speciesOther).toBe('e'.repeat(60));
+    expect(create({ ...VALID_INPUT, species: 'CANINE', speciesOther: null }).speciesOther).toBeNull();
+  });
+
+  it('[INV-PET2-001] assertSpeciesConsistency nombra speciesOther cuando falta y species cuando sobra', () => {
+    expect(assertSpeciesConsistency('OTHER', 'Erizo')).toBeUndefined();
+    expect(assertSpeciesConsistency('FERRET', null)).toBeUndefined();
+    const missing = catchDomainError(() => assertSpeciesConsistency('OTHER', null));
+    const extra = catchDomainError(() => assertSpeciesConsistency('FERRET', 'Hurón'));
+    expect([missing.code, missing.field, extra.code, extra.field]).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', 'speciesOther', 'ERR-SCHEMA-VALIDATION-FAILED', 'speciesOther']);
+  });
+
+  it('[INV-PET2-001][REQ-PET2-001] la edición valida el estado resultante: pasar a OTHER exige speciesOther y salir de OTHER lo exige nulo', () => {
+    expect(catchDomainError(() => update({ species: 'OTHER' })).field).toBe('speciesOther');
+    const other = update({ species: 'OTHER', speciesOther: 'Erizo' });
+    expect([other.species, other.speciesOther]).toEqual(['OTHER', 'Erizo']);
+    const backToCanine = catchDomainError(() => updatePetProfile({ pet: other, input: { species: 'CANINE' }, today: TODAY, nowIsoTimestamp: NOW, recordEventDates: [] }));
+    expect(backToCanine.field).toBe('speciesOther');
+    const cleared = updatePetProfile({ pet: other, input: { species: 'CANINE', speciesOther: null }, today: TODAY, nowIsoTimestamp: NOW, recordEventDates: [] });
+    expect([cleared.species, cleared.speciesOther]).toEqual(['CANINE', null]);
+    expect(update({ species: 'RABBIT' }).species).toBe('RABBIT');
+  });
+
+  it('[REQ-PET2-002] el filtro agrupa CANINE, FELINE y el resto en OTHERS (incluida OTHER)', () => {
+    expect(SPECIES_002.map((s) => speciesFilterGroup(s))).toEqual(['CANINE', 'FELINE', 'OTHERS', 'OTHERS', 'OTHERS', 'OTHERS', 'OTHERS', 'OTHERS']);
+  });
+});
+
+describe('edad estimada y edad real (src/domain/pet/estimated-age.ts)', () => {
+  it('[REQ-PET2-001][ADR-002-16] estimatedAge se convierte a birthDate con la fecha del reloj inyectado y marca birthDateIsEstimate', () => {
+    const pet = create({ name: 'Rocky', species: 'CANINE', breed: 'Mestizo', sex: 'MALE', estimatedAge: { years: 2, months: 3 } });
+    expect([pet.birthDate, pet.birthDateIsEstimate]).toEqual(['2024-08-05', true]);
+    expect(create({ name: 'Rocky', species: 'CANINE', breed: 'Mestizo', sex: 'MALE', estimatedAge: { years: 0, months: 0 } }).birthDate).toBe(TODAY);
+    const otherDay = createPetProfile({
+      id: NEW_PET_ID, ownerUserId: ANDRES, today: '2026-03-31', nowIsoTimestamp: NOW,
+      input: { name: 'Rocky', species: 'CANINE', breed: 'Mestizo', sex: 'MALE', estimatedAge: { years: 1, months: 1 } },
+    });
+    expect(otherDay.birthDate).toBe('2025-02-28');
+  });
+
+  it('[REQ-PET-002] el día que no existe en el mes destino cae en el último día de ese mes (29 de febrero y día 31)', () => {
+    expect(estimatedAgeToBirthDate('2026-03-31', { years: 0, months: 1 })).toBe('2026-02-28');
+    expect(estimatedAgeToBirthDate('2024-03-31', { years: 0, months: 1 })).toBe('2024-02-29');
+    expect(estimatedAgeToBirthDate('2024-02-29', { years: 1, months: 0 })).toBe('2023-02-28');
+    expect(estimatedAgeToBirthDate('2024-02-29', { years: 4, months: 0 })).toBe('2020-02-29');
+    expect(estimatedAgeToBirthDate('2026-01-15', { years: 0, months: 2 })).toBe('2025-11-15');
+    expect(estimatedAgeToBirthDate('2026-05-31', { years: 60, months: 11 })).toBe('1965-06-30');
+  });
+
+  it('[REQ-PET2-001] birthDate y estimatedAge son excluyentes y estimatedAge con birthDateIsEstimate false se rechaza', () => {
+    const base = { name: 'Rocky', species: 'CANINE', breed: 'Mestizo', sex: 'MALE' };
+    const both = catchDomainError(() => create({ ...base, birthDate: '2024-06-01', estimatedAge: { years: 1, months: 0 } }));
+    const neither = catchDomainError(() => create(base));
+    const contradictory = catchDomainError(() => create({ ...base, estimatedAge: { years: 1, months: 0 }, birthDateIsEstimate: false }));
+    expect([both.code, neither.code, contradictory.code, contradictory.field]).toEqual([
+      'ERR-SCHEMA-VALIDATION-FAILED', 'ERR-SCHEMA-VALIDATION-FAILED', 'ERR-SCHEMA-VALIDATION-FAILED', 'birthDateIsEstimate',
+    ]);
+    expect(create({ ...base, estimatedAge: { years: 1, months: 0 }, birthDateIsEstimate: true }).birthDateIsEstimate).toBe(true);
+    expect(create({ ...base, birthDate: '2024-06-01', birthDateIsEstimate: true }).birthDateIsEstimate).toBe(true);
+    for (const bad of [{ years: 61, months: 0 }, { years: 0, months: 12 }, { years: -1, months: 0 }, { years: 1.5, months: 0 }]) {
+      expect(catchDomainError(() => create({ ...base, estimatedAge: bad })).code).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+    }
+  });
+
+  it('[REQ-PET2-001][INV-PET-006] la edición con estimatedAge reemplaza birthDate, marca la estimación y respeta el registro más antiguo', () => {
+    const edited = update({ estimatedAge: { years: 1, months: 0 } });
+    expect([edited.birthDate, edited.birthDateIsEstimate]).toEqual(['2025-11-05', true]);
+    const afterRecords = catchDomainError(() => update({ estimatedAge: { years: 0, months: 1 } }, ['2025-11-12']));
+    expect([afterRecords.code, afterRecords.field]).toEqual(['ERR-PET-BIRTHDATE-AFTER-RECORDS', 'birthDate']);
+    const both = catchDomainError(() => update({ estimatedAge: { years: 1, months: 0 }, birthDate: '2024-01-01' }));
+    expect([both.code, both.field]).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', 'estimatedAge']);
+    expect(catchDomainError(() => update({ estimatedAge: { years: 1, months: 0 }, birthDateIsEstimate: false })).field).toBe('birthDateIsEstimate');
+  });
+
+  it('[REQ-PET-002] la edad es solo años reales (years, months, totalDays), sin años humanos equivalentes, para las 8 especies', () => {
+    for (const species of SPECIES_002) {
+      const pet = create({ ...inputFor(species), birthDate: '2023-11-05' });
+      const age = calculatePetAge(pet.birthDate, TODAY);
+      expect(age).toEqual({ years: 3, months: 0, totalDays: 1096 });
+      expect(Object.keys(age).sort()).toEqual(['months', 'totalDays', 'years']);
+    }
+  });
+});
+
+describe('microchip y esterilización (src/domain/pet/pet-invariants.ts)', () => {
+  const chip = '981020000000001';
+  const withChip = (id: string, microchipId: string | null) => ({ ...argos, id, microchipId });
+
+  it('[REQ-PET2-001] neutered es opcional y admite true, false y null; microchipId admite 15 dígitos o null', () => {
+    expect([true, false, null].map((neutered) => create({ ...VALID_INPUT, neutered }).neutered)).toEqual([true, false, null]);
+    expect(create(VALID_INPUT).neutered).toBeNull();
+    expect(create({ ...VALID_INPUT, microchipId: chip }).microchipId).toBe(chip);
+    for (const bad of ['98102000000000', '9810200000000011', '98102000000000a', ' 981020000000001', '']) {
+      const error = catchDomainError(() => create({ ...VALID_INPUT, microchipId: bad }));
+      expect([error.code, error.field]).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', 'microchipId']);
+    }
+  });
+
+  it('[REQ-PET2-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip es único entre las mascotas del mismo propietario', () => {
+    const owned = [withChip('p1', chip), withChip('p2', null)];
+    const error = catchDomainError(() => assertMicrochipUniqueForOwner(owned, chip, 'p3'));
+    expect([error.code, error.status, error.field]).toEqual(['ERR-PET-MICROCHIP-DUPLICATE', 409, 'microchipId']);
+    expect(error.detail).not.toContain(chip);
+    expect(assertMicrochipUniqueForOwner(owned, chip, 'p1')).toBeUndefined(); // la misma mascota al editar
+    expect(assertMicrochipUniqueForOwner(owned, '981020000000002', 'p3')).toBeUndefined();
+    expect(assertMicrochipUniqueForOwner(owned, null, 'p3')).toBeUndefined();
+    expect(assertMicrochipUniqueForOwner([withChip('p4', null), withChip('p5', null)], null, 'p6')).toBeUndefined();
+    expect(assertMicrochipUniqueForOwner([], chip, 'p3')).toBeUndefined(); // otro propietario: sin mascotas suyas con ese chip
+  });
+});

@@ -272,13 +272,31 @@ describe('listado de mascotas (src/domain/sorting/deterministic-sorter.ts)', () 
 
   it('[REQ-PET-005] el filtro q no distingue mayúsculas ni tildes (NFD sin \\p{M}) y species es exacta', () => {
     expect(normalizeForSearch('Ñandú ÁGATA')).toBe('nandu agata');
-    expect(matchesPetListFilter({ name: 'Ñandú', species: 'DOG' }, { q: 'NANDU' })).toBe(true);
-    expect(matchesPetListFilter({ name: 'Ágata', species: 'CAT' }, { q: 'gát' })).toBe(true);
-    expect(matchesPetListFilter({ name: 'Ágata', species: 'CAT' }, { q: 'bruno' })).toBe(false);
-    expect(matchesPetListFilter({ name: 'Ágata', species: 'CAT' }, { species: 'DOG' })).toBe(false);
-    expect(matchesPetListFilter({ name: 'Ágata', species: 'CAT' }, { q: 'aga', species: 'CAT' })).toBe(true);
-    expect(matchesPetListFilter({ name: 'Ágata', species: 'CAT' }, { q: '   ' })).toBe(true);
-    expect(matchesPetListFilter({ name: 'Ágata', species: 'CAT' })).toBe(true);
+    expect(matchesPetListFilter({ name: 'Ñandú', species: 'CANINE' }, { q: 'NANDU' })).toBe(true);
+    expect(matchesPetListFilter({ name: 'Ágata', species: 'FELINE' }, { q: 'gát' })).toBe(true);
+    expect(matchesPetListFilter({ name: 'Ágata', species: 'FELINE' }, { q: 'bruno' })).toBe(false);
+    expect(matchesPetListFilter({ name: 'Ágata', species: 'FELINE' }, { species: 'CANINE' })).toBe(false);
+    expect(matchesPetListFilter({ name: 'Ágata', species: 'FELINE' }, { q: 'aga', species: 'FELINE' })).toBe(true);
+    expect(matchesPetListFilter({ name: 'Ágata', species: 'FELINE' }, { q: '   ' })).toBe(true);
+    expect(matchesPetListFilter({ name: 'Ágata', species: 'FELINE' })).toBe(true);
+  });
+
+  it('[REQ-PET2-002][INV-PET2-001] el grupo del filtro: Todos, Perros (CANINE), Gatos (FELINE) y Otros (las otras 6 especies); se combina con q', () => {
+    const all = ['CANINE', 'FELINE', 'RABBIT', 'FERRET', 'BIRD', 'REPTILE', 'SMALL_MAMMAL', 'OTHER'];
+    const pick = (group: 'ALL' | 'CANINE' | 'FELINE' | 'OTHERS', q?: string) =>
+      all.filter((species) => matchesPetListFilter({ name: 'Nube', species }, { group, ...(q === undefined ? {} : { q }) }));
+    expect(pick('ALL')).toEqual(all);
+    expect(pick('CANINE')).toEqual(['CANINE']);
+    expect(pick('FELINE')).toEqual(['FELINE']);
+    expect(pick('OTHERS')).toEqual(['RABBIT', 'FERRET', 'BIRD', 'REPTILE', 'SMALL_MAMMAL', 'OTHER']);
+    expect(pick('OTHERS', 'zzz')).toEqual([]);
+    expect(pick('OTHERS', 'NUBE')).toHaveLength(6);
+  });
+
+  it('[REQ-PET2-002][INV-SORT-001] el orden del listado no depende de la especie: name, createdAt e id con las 8 especies', () => {
+    const species = ['OTHER', 'BIRD', 'CANINE', 'REPTILE'];
+    const pets = species.map((sp, i) => ({ ...pet(String.fromCharCode(97 + i), 'Luna', `2026-0${i + 1}-01T00:00:00.000Z`), species: sp }));
+    expect(sortPetsForListing([...pets].reverse()).map((p) => (p as { species: string }).species)).toEqual(species);
   });
 });
 

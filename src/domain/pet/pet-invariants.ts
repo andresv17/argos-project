@@ -1,11 +1,14 @@
 /**
- * Invariantes puras del perfil de mascota (v2: sin límite de cantidad ni de especie).
- * - REQ-PET-001: alta y edición del perfil; el dueño es el usuario autenticado.
+ * Invariantes puras del perfil de mascota (sin límite de cantidad; 8 especies).
+ * - REQ-PET2-001: alta y edición del perfil; el dueño es el usuario autenticado; la edad estimada (años y meses) se
+ *   convierte a birthDate con el reloj inyectado y marca birthDateIsEstimate (ADR-002-16).
+ * - INV-PET2-001: species de las 8 aprobadas y speciesOther solo con OTHER (esquema + estado resultante de la edición).
+ * - REQ-PET2-001 / ERR-PET-MICROCHIP-DUPLICATE: el microchip es único por propietario, no entre cuentas.
  * - INV-PET-002: birthDate <= ClockPort.todayIsoDate() (delegado en date-utils).
  * - INV-PET-006: al editar birthDate, no puede quedar después de ningún registro de la mascota.
  * - INV-OWN-001: un único ownerUserId, que referencia un usuario existente y no se edita vía API.
  *
- * @implements REQ-PET-001, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS, INV-ARCH-001, INV-ARCH-004
+ * @implements REQ-PET2-001, INV-PET2-001, REQ-PET-002, INV-PET-002, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS, ERR-PET-MICROCHIP-DUPLICATE, INV-ARCH-001, INV-ARCH-004
  */
 
 import {
@@ -19,6 +22,7 @@ import {
   type UpdatePetInput,
 } from '../../generated/index.ts';
 import { diffInCalendarDays, validateBirthDateNotFuture } from '../shared/date-utils.ts';
+import { estimatedAgeToBirthDate } from './estimated-age.ts';
 import { assertCanonicalCreatedAt, getRecordEventDate } from '../sorting/deterministic-sorter.ts';
 
 /** Las 6 colecciones de registros clínicos, con la forma del sobre de respaldo v3. */
@@ -47,12 +51,30 @@ function failSchema(schemaName: string, validator: ValidatorWithErrors): never {
 }
 
 /**
- * Lanza ERR-SCHEMA-VALIDATION-FAILED si el perfil no cumple el contrato PetProfile.
- * @implements REQ-PET-001, INV-OWN-001
+ * Lanza ERR-SCHEMA-VALIDATION-FAILED si el perfil no cumple el contrato PetProfile (incluye la coherencia
+ * species/speciesOther del estado resultante de una edición, INV-PET2-001).
+ * @implements REQ-PET2-001, INV-PET2-001, INV-OWN-001
  */
 export function assertValidPetProfile(pet: unknown): asserts pet is PetProfile {
   if (!validatePetProfile(pet)) {
     failSchema('PetProfile', validatePetProfile as ValidatorWithErrors);
+  }
+}
+
+/**
+ * ERR-PET-MICROCHIP-DUPLICATE: ninguna otra mascota del propietario lleva ese microchip. `ownedPets` son solo las
+ * mascotas de ese propietario (la unicidad es por propietario, no global); `exceptPetId` es la mascota que se guarda
+ * (una edición que conserva su propio chip no choca). Un microchip nulo nunca choca. El mensaje no repite el número.
+ * @implements REQ-PET2-001, ERR-PET-MICROCHIP-DUPLICATE
+ */
+export function assertMicrochipUniqueForOwner(
+  ownedPets: ReadonlyArray<{ readonly id: string; readonly microchipId: string | null }>,
+  microchipId: string | null | undefined,
+  exceptPetId: string,
+): void {
+  if (microchipId === null || microchipId === undefined) return;
+  if (ownedPets.some((other) => other.id !== exceptPetId && other.microchipId === microchipId)) {
+    throw new DomainError('ERR-PET-MICROCHIP-DUPLICATE', undefined, 'microchipId');
   }
 }
 
@@ -115,9 +137,10 @@ export interface CreatePetCommand {
 }
 
 /**
- * REQ-PET-001 (alta): valida CreatePetInput y birthDate (INV-PET-002); el dueño es el usuario autenticado.
- * No hay límite de cantidad ni de especie.
- * @implements REQ-PET-001, INV-OWN-001
+ * REQ-PET2-001 (alta): valida CreatePetInput y birthDate (INV-PET-002); el dueño es el usuario autenticado.
+ * Exactamente uno de birthDate o estimatedAge (lo exige el esquema); estimatedAge con birthDateIsEstimate = false se
+ * rechaza aquí. No hay límite de cantidad.
+ * @implements REQ-PET2-001, INV-PET2-001, INV-OWN-001, INV-PET-002
  */
 export function createPetProfile(command: CreatePetCommand): PetProfile {
   const { input } = command;
@@ -125,11 +148,20 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
     failSchema('CreatePetInput', validateCreatePetInput as ValidatorWithErrors);
   }
   const valid: CreatePetInput = input;
-  // T226 PENDIENTE: la edad estimada (estimatedAge) se convierte en birthDate en la rebanada de mascotas; hasta entonces se exige birthDate.
-  if (valid.birthDate === undefined) {
-    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'CreatePetInput: estimatedAge aún no está soportada (T226).', 'birthDate');
+  let birthDate: string;
+  let birthDateIsEstimate: boolean;
+  if (valid.estimatedAge !== undefined) {
+    if (valid.birthDateIsEstimate === false) {
+      throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'CreatePetInput: estimatedAge exige birthDateIsEstimate verdadero (REQ-PET2-001).', 'birthDateIsEstimate');
+    }
+    birthDate = estimatedAgeToBirthDate(command.today, valid.estimatedAge);
+    birthDateIsEstimate = true;
+  } else {
+    // El esquema (oneOf) garantiza birthDate cuando no hay estimatedAge.
+    birthDate = valid.birthDate!;
+    birthDateIsEstimate = valid.birthDateIsEstimate ?? false;
   }
-  validateBirthDateNotFuture(valid.birthDate, command.today);
+  validateBirthDateNotFuture(birthDate, command.today);
   assertCanonicalCreatedAt(command.nowIsoTimestamp, 'createdAt');
   const pet: PetProfile = {
     id: command.id,
@@ -138,8 +170,8 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
     species: valid.species,
     speciesOther: (valid.speciesOther ?? null) as PetProfile['speciesOther'], // el generador tipa el nulo como string
     breed: valid.breed,
-    birthDate: valid.birthDate,
-    birthDateIsEstimate: valid.birthDateIsEstimate ?? false,
+    birthDate,
+    birthDateIsEstimate,
     sex: valid.sex,
     neutered: valid.neutered ?? null,
     microchipId: valid.microchipId ?? null,
@@ -161,9 +193,12 @@ export interface UpdatePetCommand {
 }
 
 /**
- * REQ-PET-001 (edición): valida UpdatePetInput, rechaza id y ownerUserId (INV-OWN-001) y, si cambia birthDate,
- * aplica INV-PET-002 e INV-PET-006. Devuelve un perfil nuevo; la entrada no se modifica.
- * @implements REQ-PET-001, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS
+ * REQ-PET2-001 (edición): valida UpdatePetInput, rechaza id y ownerUserId (INV-OWN-001) y valida el estado resultante
+ * (species/speciesOther, INV-PET2-001). Si cambia birthDate (directo o por estimatedAge) aplica INV-PET-002 e INV-PET-006.
+ * Devuelve un perfil nuevo; la entrada no se modifica.
+ * T226 PENDIENTE: birthDate y estimatedAge a la vez se rechazan (el contrato solo declara la exclusión en el alta), y un
+ * birthDate editado sin birthDateIsEstimate conserva el indicador previo.
+ * @implements REQ-PET2-001, INV-PET2-001, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS
  */
 export function updatePetProfile(command: UpdatePetCommand): PetProfile {
   const { input } = command;
@@ -171,13 +206,22 @@ export function updatePetProfile(command: UpdatePetCommand): PetProfile {
     failSchema('UpdatePetInput', validateUpdatePetInput as ValidatorWithErrors);
   }
   const changes: UpdatePetInput = input;
-  if (changes.birthDate !== undefined) {
-    validateBirthDateNotFuture(changes.birthDate, command.today);
-    assertBirthDateNotAfterRecords(changes.birthDate, command.recordEventDates);
+  const { estimatedAge, ...profileChanges } = changes;
+  if (estimatedAge !== undefined) {
+    if (changes.birthDate !== undefined) {
+      throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'UpdatePetInput: birthDate y estimatedAge son excluyentes.', 'estimatedAge');
+    }
+    if (changes.birthDateIsEstimate === false) {
+      throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'UpdatePetInput: estimatedAge exige birthDateIsEstimate verdadero (REQ-PET2-001).', 'birthDateIsEstimate');
+    }
+    profileChanges.birthDate = estimatedAgeToBirthDate(command.today, estimatedAge);
+    profileChanges.birthDateIsEstimate = true;
+  }
+  if (profileChanges.birthDate !== undefined) {
+    validateBirthDateNotFuture(profileChanges.birthDate, command.today);
+    assertBirthDateNotAfterRecords(profileChanges.birthDate, command.recordEventDates);
   }
   assertCanonicalCreatedAt(command.nowIsoTimestamp, 'updatedAt');
-  // T226 PENDIENTE: estimatedAge no se aplica todavía; se ignora al fusionar.
-  const { estimatedAge: _estimatedAge, ...profileChanges } = changes;
   const updated: PetProfile = {
     ...command.pet,
     ...profileChanges,
@@ -185,7 +229,7 @@ export function updatePetProfile(command: UpdatePetCommand): PetProfile {
     ownerUserId: command.pet.ownerUserId,
     createdAt: command.pet.createdAt,
     updatedAt: command.nowIsoTimestamp,
-  };
+  } as PetProfile;
   assertValidPetProfile(updated);
   return updated;
 }
