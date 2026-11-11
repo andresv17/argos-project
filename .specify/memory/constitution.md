@@ -1,34 +1,34 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.4.0 -> 3.0.0
-Bump rationale: MAJOR. El documento adopta la estructura exacta de constitution-template.md de
-  GitHub Spec Kit y redefine cómo se declara el estado de los artefactos: desaparece la cabecera
-  YAML (document_id, version, status, approved_by) y las secciones numeradas 1 a 7. Ninguna regla
-  técnica cambia de alcance.
+Version change: 3.0.0 -> 3.1.0
+Bump rationale: MINOR. La Feature 002 amplía el dominio (8 especies), los roles de hogar, la
+  política de sesión y los anchos verificados. No crea principios ni retira o redefine los
+  principios I a VI; se trata como MINOR por interpretación declarada, firmada por Neo
+  (Andrés Vallejo, Nivel 2) el 2026-11-10.
 
-Modified principles (el texto normativo de cada sección numerada pasa al cuerpo de su principio):
-  - I. Especificación y Contratos como Fuente de Verdad (absorbe la jerarquía de verdad)
-  - II. Determinismo Total y Aislamiento de Entropía (antes sección 3; reglas 1 a 6 sin cambios)
-  - III. Trazabilidad Verificable por Máquina (antes sección 4)
-  - IV. Test Gate con Umbrales Fijos (antes sección 5 y la suite de pruebas de la sección 2)
-  - V. Seguridad y Privacidad por Defecto (antes sección 6; reglas 1 a 6 sin cambios)
-  - VI. Stack Autorizado y Estructura de Repositorio Estándar
-Added sections:
-  - Technology Stack & Repository Structure (antes secciones 1, 2 y 7)
-  - Development Workflow & Quality Gates
-Removed sections: las secciones numeradas 1 a 7 como encabezados (su contenido se conserva arriba).
-Path changes: los contratos formales pasan de contracts/ en la raíz a specs/<NNN-feature>/contracts/.
+Modified principles:
+  - IV. Test Gate con Umbrales Fijos: viñeta de accesibilidad (pantalla de cuenta; anchos 320,
+    768, 1024 y 1280 px).
+Modified sections:
+  - Technology Stack & Repository Structure, párrafo Sistema: especies DOG | CAT pasan a 8
+    especies (migración DOG -> CANINE, CAT -> FELINE); "solo el dueño puede modificar" pasa al
+    modelo de roles por membresía y asignación mascota-hogar por el Propietario Legal.
+  - Technology Stack & Repository Structure, viñeta Autenticación: TTL de 7 días pasa a 24 h
+    absolutas y 30 min de inactividad.
+Added sections: ninguna.
+Removed sections: ninguna.
 
 Templates reviewed for alignment:
-  - .specify/templates/plan-template.md: "Constitution Check" se evalúa contra los principios I a VI.
-  - .specify/templates/spec-template.md, tasks-template.md, checklist-template.md: sin tokens
-    dependientes de la constitución.
-  - scripts/verify-traceability.sh: lee los principios II y III por su encabezado "### II." y "### III."
-    y la línea de identificadores retirados del principio III.
+  - .specify/templates/{plan,spec,tasks,checklist,constitution}-template.md: sin referencias a
+    DOG | CAT, 7 días ni a los tres anchos; sin cambios.
+  - spec-system.md: sin referencias a los valores antiguos; sin cambios.
+  - scripts/verify-traceability.sh: lee el principio III y su línea de identificadores dados de baja; no cambia.
 
 Follow-up TODOs:
-  - Ninguno. Versión 3.0.0 aprobada por Andrés Vallejo (Nivel 2) el 2026-11-10.
+  - Los identificadores de la 002 (REQ-*2, etc.) se incorporan al principio III cuando existan
+    sus contratos (F4); esta enmienda no toca el principio III.
+  - Versión 3.1.0 firmada por Andrés Vallejo (Nivel 2) el 2026-11-10.
 -->
 
 # Proyecto Argos Constitution
@@ -101,7 +101,7 @@ Ninguna tarea se cierra sin pasar su compuerta. Las pruebas no se eliminan, no s
 - **Cobertura de líneas y ramas en `src/domain/` y `src/application/`:** mínimo 95 %, medida por Vitest.
 - **Mutation score:** mínimo 85 % en `src/domain/` y `src/application/` (umbral `break` de Stryker = 85), medido por Stryker en CI.
 - **Cero oráculos débiles:** prohibido `toBeDefined()`, `toBeTruthy()`, `toBeFalsy()`, `not.toBeNull()` o `toThrow()` sin argumento como aserción principal; verificado por `scripts/verify-oracles.sh`.
-- **Accesibilidad:** cero violaciones `critical`/`serious` de axe-core en todas las pantallas (login, registro, mis mascotas, hogar, ficha, respaldo) a 320 px, 1024 px y 1280 px.
+- **Accesibilidad:** cero violaciones `critical`/`serious` de axe-core en todas las pantallas (login, registro, mis mascotas, hogar, ficha, respaldo, cuenta) a 320 px, 768 px, 1024 px y 1280 px.
 - **Seguridad:** `tests/security/` cubre al menos: acceso cruzado entre usuarios (IDOR), acceso a hogares ajenos, rutas sin sesión, sesión expirada, CSRF, enumeración de usuarios en login y tiempo de respuesta uniforme (`INV-AUTH-006`), XSS almacenado en campos de texto e importación de respaldo maliciosa (prototype pollution, tamaño excesivo).
 - **CI reproducible:** `.github/workflows/test-gate.yml` pasa desde un checkout limpio con `npm ci` (lockfile versionado) en Node 22.
 
@@ -126,7 +126,7 @@ El stack tecnológico y el árbol de carpetas son los de la sección «Technolog
 
 ## Technology Stack & Repository Structure
 
-**Sistema.** Argos es una plataforma web multiusuario y determinista para administrar el expediente clínico, físico y sanitario de mascotas (`DOG` | `CAT`) sin límite de cantidad. Cada mascota pertenece exactamente a un usuario (`ownerUserId`) y cada usuario gestiona solo lo suyo. Un usuario puede crear hogares e invitar a otros; los miembros activos de un hogar ven las mascotas de todos los miembros, siempre con su dueño identificado, y solo el dueño puede modificar una mascota y sus registros. Las alertas sanitarias se calculan con máquinas de estados finitos y el respaldo y la restauración por usuario son atómicos.
+**Sistema.** Argos es una plataforma web multiusuario y determinista para administrar el expediente clínico, físico y sanitario de mascotas (`CANINE` | `FELINE` | `RABBIT` | `FERRET` | `BIRD` | `REPTILE` | `SMALL_MAMMAL` | `OTHER`; `speciesOther` obligatorio con `OTHER`; migración de la 001: `DOG` → `CANINE`, `CAT` → `FELINE`) sin límite de cantidad. Cada mascota tiene exactamente un Propietario Legal (`ownerUserId`), que decide a qué hogares la asigna; un usuario solo gestiona por sí mismo sus mascotas y las que un hogar le permite según su rol. Un usuario puede crear hogares e invitar a otros con un rol por membresía (Administrador, Cuidador o Lector; el propietario del hogar es siempre Administrador). Los miembros activos de un hogar ven únicamente las mascotas asignadas a ese hogar, siempre con su Propietario Legal identificado, y lo que pueden hacer sobre ellas lo decide su rol mediante una matriz de permisos; solo el Propietario Legal transfiere la propiedad o elimina la mascota. Las alertas sanitarias se calculan con máquinas de estados finitos y el respaldo y la restauración por usuario son atómicos.
 
 **Fases de despliegue.** En la fase actual, API y web se ejecutan en el computador del arquitecto (`127.0.0.1`) con una base SQLite en archivo local, sin exposición a la red. En la fase Cloud se sustituyen únicamente adaptadores de `src/infrastructure/` (persistencia, configuración, cookies `Secure`); `src/domain/` y `src/application/` no cambian (`INV-ARCH-005`).
 
@@ -137,7 +137,7 @@ El stack tecnológico y el árbol de carpetas son los de la sección «Technolog
 - **Frontend (SPA):** Vite 5 + React 18 + Tailwind CSS 3, con JSX real. Punto de entrada `index.html` → `src/presentation/web/main.tsx`.
 - **Backend local (API HTTP):** Fastify 5 en `src/infrastructure/http/`, escuchando en `127.0.0.1:3000`. En desarrollo, Vite hace proxy de `/api` hacia el servidor. Un único comando (`npm run dev`) levanta API y web.
 - **Persistencia:** SQLite en archivo local (`./data/argos.sqlite`, ignorado por git) mediante `better-sqlite3`, detrás de puertos de repositorio. Migraciones SQL versionadas y aplicadas al arranque en `src/infrastructure/persistence/sqlite/migrations/`. Adaptador en memoria para pruebas unitarias y de propiedades.
-- **Autenticación:** hash de contraseñas con `scrypt` de `node:crypto` (N=2^15, r=8, p=1, salt 16 bytes, keylen 64). Sesiones opacas de 32 bytes (base64url) almacenadas en la base solo como SHA-256, entregadas en cookie `argos_session` (`HttpOnly`, `SameSite=Strict`, `Path=/`; `Secure` obligatorio en Cloud). TTL de 7 días.
+- **Autenticación:** hash de contraseñas con `scrypt` de `node:crypto` (N=2^15, r=8, p=1, salt 16 bytes, keylen 64). Sesiones opacas de 32 bytes (base64url) almacenadas en la base solo como SHA-256, entregadas en cookie `argos_session` (`HttpOnly`, `SameSite=Strict`, `Path=/`; `Secure` obligatorio en Cloud). La sesión expira a las 24 horas absolutas desde su creación o a los 30 minutos sin actividad, lo que ocurra primero; recargar la página dentro de la vigencia no la cierra.
 - **Generación desde contratos (real, no plantillas):** `scripts/compile-contracts.sh` deriva de `specs/<NNN-feature>/contracts/`: validadores runtime con Ajv 8 en modo standalone y `ajv-formats` desde `schemas/` y los `components.schemas` de `openapi/`; tipos estáticos con `json-schema-to-typescript` y `openapi-typescript`; catálogo de errores y tipos de máquinas de estado leídos de `errors/` y `state-machines/`. Cambiar un valor en un contrato debe cambiar `src/generated/`. Prohibido escribir reglas de validación a mano en plantillas del generador.
 - **Dependencias autorizadas:** TypeScript `~5.6`, Node 22, Vite 5, React 18, Tailwind 3, Fastify 5, `better-sqlite3`, Ajv 8 (standalone) con `ajv-formats`, `json-schema-to-typescript`, `openapi-typescript`, `openapi-fetch`, Vitest 2, `@vitest/coverage-v8`, fast-check 3, Stryker con `@stryker-mutator/vitest-runner` y `@stryker-mutator/typescript-checker`, Playwright con `@axe-core/playwright`, `@types/node`, `@fastify/cookie`, `react-router-dom`, `yaml` (solo si el generador lo importa), `tsx` y `concurrently` (solo desarrollo), `@vitejs/plugin-react`, `postcss`, `autoprefixer`, `@types/react`, `@types/react-dom` y `@types/better-sqlite3`. SAST en CI con Semgrep fijado por versión, sin dependencia npm.
 
@@ -171,4 +171,4 @@ Esta constitución prevalece sobre cualquier plan, tarea o línea de código.
 - **Revisión de cumplimiento.** Toda revisión verifica el cumplimiento de estos principios. Una desviación aceptada se registra con responsable y condición de cierre en «Complexity Tracking» del plan y como tarea abierta en `tasks.md`.
 - **Guía operativa.** `spec-system.md` y `CLAUDE.md` son la guía de ejecución para agentes; ante una diferencia con este documento prevalece la constitución.
 
-**Version**: 3.0.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-10
+**Version**: 3.1.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-10
