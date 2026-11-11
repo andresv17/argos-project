@@ -33,7 +33,7 @@ describe('propiedades de hogares', () => {
           const now = new Date(BASE + (i + 1) * 60_000).toISOString();
           const actor = USERS[op.actor]!;
           const target = USERS[op.target]!;
-          let result: HouseholdMember;
+          let result: HouseholdMember | null;
           try {
             if (op.kind === 'INVITE' || op.kind === 'INVITE_MISSING') {
               const membershipId = `cccccccc-cccc-4ccc-8ccc-${String(i + 1).padStart(12, '0')}`;
@@ -50,9 +50,10 @@ describe('propiedades de hogares', () => {
             expect([403, 404, 409]).toContain(error.status);
             return;
           }
+          if (result === null) return; // invitación uniforme sin efecto (usuario inexistente o par ya abierto)
           expect(validateHouseholdMember(result)).toBe(true);
-          rows = rows.some((r) => r.membershipId === result.membershipId)
-            ? rows.map((r) => (r.membershipId === result.membershipId ? result : r))
+          rows = rows.some((r) => r.membershipId === result!.membershipId)
+            ? rows.map((r) => (r.membershipId === result!.membershipId ? result! : r))
             : [...rows, result];
           if (result.firstJoinedAt !== null) {
             expect(result.firstJoinedAt).toBe(firstJoined.get(result.userId) ?? result.firstJoinedAt);

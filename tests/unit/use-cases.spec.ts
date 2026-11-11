@@ -41,10 +41,12 @@ import {
 import { DUMMY_PASSWORD_HASH, FAKE_HASH_PREFIX } from '../fixtures/test-doubles.ts';
 
 const NOW = '2026-11-05T12:00:00.000Z';
-const IN_7_DAYS = '2026-11-12T12:00:00.000Z';
+const IDLE_AT = '2026-11-05T12:30:00.000Z';
+const ABSOLUTE_AT = '2026-11-06T12:00:00.000Z';
 const MISSING_PET = '11111111-1111-4111-8111-111111111999';
 const edge = (prefix: string) => fixtures.invalidEdgeCases.find((c: { caseId: string }) => c.caseId.startsWith(prefix));
 const publicUser = (id: string) => USERS.find((u) => u.id === id)!;
+const selfProfile = (id: string) => ({ ...publicUser(id), email: null, preferredLanguage: 'es', timezone: 'America/Bogota' });
 
 async function outcome(promise: Promise<unknown>): Promise<string> {
   try {
@@ -67,45 +69,53 @@ async function failure(promise: Promise<unknown>): Promise<DomainError> {
 }
 
 describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
-  it('[REQ-AUTH-001][INV-ARCH-002] registra con el username normalizado, guarda solo el hash y abre una sesión de 7 días', async () => {
+  it('[REQ-AUTH2-001][INV-ARCH-002] registra con el username exacto, guarda solo el hash y abre una sesión con lastActivityAt y tope de 24 h', async () => {
     const { deps, uow, hasher } = createHarness();
-    const result = await new RegisterUserUseCase(deps).execute({ username: '  Sofia.M ', displayName: 'Sofía', password: 'Clave2026x' });
+    const result = await new RegisterUserUseCase(deps).execute({ username: 'sofia.m', displayName: 'Sofía', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' });
     const sofia = { id: generatedId(1), username: 'sofia.m', displayName: 'Sofía', createdAt: NOW };
-    expect(result).toEqual({ sessionToken: 'token-0001', session: { user: sofia, expiresAt: IN_7_DAYS } });
+    expect(result).toEqual({
+      sessionToken: 'token-0001',
+      session: { user: { ...sofia, email: null, preferredLanguage: 'es', timezone: 'America/Bogota' }, createdAt: NOW, lastActivityAt: NOW, idleExpiresAt: IDLE_AT, absoluteExpiresAt: ABSOLUTE_AT },
+    });
     const state = uow.snapshot();
-    expect(state.users.find((u) => u.id === sofia.id)).toEqual({ ...sofia, passwordHash: `${FAKE_HASH_PREFIX}Clave2026x` });
-    expect(state.sessions['token-0001']).toEqual({ userId: sofia.id, createdAt: NOW, expiresAt: IN_7_DAYS, revokedAt: null });
-    expect(hasher.calls).toEqual([{ method: 'hash', plain: 'Clave2026x', hash: null }]);
+    expect(state.users.find((u) => u.id === sofia.id)).toEqual({ ...sofia, email: null, preferredLanguage: 'es', timezone: 'America/Bogota', passwordHash: `${FAKE_HASH_PREFIX}Clave2026x!` });
+    expect(state.sessions['token-0001']).toEqual({ userId: sofia.id, createdAt: NOW, lastActivityAt: NOW, revokedAt: null });
+    expect(hasher.calls).toEqual([{ method: 'hash', plain: 'Clave2026x!', hash: null }]);
   });
 
-  it('[REQ-AUTH-001][ERR-AUTH-USERNAME-TAKEN] EDGE-010: "ANDRES" choca con "andres" y no se guarda nada', async () => {
+  it('[REQ-AUTH2-001][ERR-AUTH-USERNAME-TAKEN] "andres" ya existe y no se guarda nada; "ANDRES" (EDGE-010) ya no se normaliza: es un error de esquema', async () => {
     const { deps, uow } = createHarness();
-    const { payload, expectedError } = edge('EDGE-010-');
-    expect(await outcome(new RegisterUserUseCase(deps).execute(payload))).toBe(`${expectedError}@username`);
+    const register = new RegisterUserUseCase(deps);
+    const password = { password: 'Clave2026x!', confirmPassword: 'Clave2026x!' };
+    expect(await outcome(register.execute({ username: 'andres', displayName: 'Otro', ...password }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
+    expect(await outcome(register.execute({ username: edge('EDGE-010-').payload.username, displayName: 'Otro', ...password }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@username');
     expect(uow.snapshot()).toEqual(canonicalState());
   });
 
-  it('[REQ-AUTH-001] contraseña débil da ERR-AUTH-WEAK-PASSWORD; contraseña ausente, ERR-SCHEMA-VALIDATION-FAILED', async () => {
+  it('[REQ-AUTH2-001] contraseña débil da ERR-AUTH-WEAK-PASSWORD; contraseña ausente o confirmación distinta, ERR-SCHEMA-VALIDATION-FAILED', async () => {
     const { deps, uow, hasher } = createHarness();
     const register = new RegisterUserUseCase(deps);
-    expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo', password: 'sindigitos' }))).toBe('ERR-AUTH-WEAK-PASSWORD@password');
+    expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo', password: 'sindigitos', confirmPassword: 'sindigitos' }))).toBe('ERR-AUTH-WEAK-PASSWORD@password');
     expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@password');
+    expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo', password: 'Clave2026x!', confirmPassword: 'Clave2026y!' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@confirmPassword');
     expect([uow.snapshot(), hasher.calls]).toEqual([canonicalState(), []]);
   });
 
-  it('[REQ-AUTH-002] login correcto con username normalizado: abre sesión y vacía los fallos previos', async () => {
+  it('[REQ-AUTH2-002] login correcto con el username exacto: abre sesión con lastActivityAt y vacía los fallos previos; "ANDRES" no entra', async () => {
     const state = canonicalState();
     state.loginFailures['andres'] = ['2026-11-05T11:58:00.000Z', '2026-11-05T11:59:00.000Z'];
     const { deps, uow } = createHarness(state);
-    const result = await new LoginUseCase(deps).execute({ username: ' ANDRES ', password: PASSWORDS['andres'] });
-    expect(result).toEqual({ sessionToken: 'token-0001', session: { user: publicUser(ANDRES), expiresAt: IN_7_DAYS } });
-    expect([uow.snapshot().loginFailures['andres'], uow.snapshot().sessions['token-0001']]).toEqual([
-      [],
-      { userId: ANDRES, createdAt: NOW, expiresAt: IN_7_DAYS, revokedAt: null },
-    ]);
+    const login = new LoginUseCase(deps);
+    expect(await outcome(login.execute({ username: 'ANDRES', password: PASSWORDS['andres'] }))).toBe('ERR-AUTH-INVALID-CREDENTIALS@null');
+    const result = await login.execute({ username: 'andres', password: PASSWORDS['andres'] });
+    expect(result).toEqual({
+      sessionToken: 'token-0001',
+      session: { user: selfProfile(ANDRES), createdAt: NOW, lastActivityAt: NOW, idleExpiresAt: IDLE_AT, absoluteExpiresAt: ABSOLUTE_AT },
+    });
+    expect([uow.snapshot().loginFailures['andres'], uow.snapshot().sessions['token-0001']]).toEqual([[], { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null }]);
   });
 
-  it('[INV-AUTH-006][REQ-AUTH-002] EDGE-012/EDGE-032: usuario inexistente y contraseña errónea dan el mismo error y una sola llamada a verify, la primera contra el hash ficticio', async () => {
+  it('[INV-AUTH-006][REQ-AUTH2-002] EDGE-012/EDGE-032: usuario inexistente y contraseña errónea dan el mismo error y una sola llamada a verify, la primera contra el hash ficticio', async () => {
     const { deps, hasher, uow } = createHarness();
     const login = new LoginUseCase(deps);
     const unknown = await failure(login.execute({ username: 'nadie.x', password: 'wrong-1234' }));
@@ -119,7 +129,7 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect([uow.snapshot().loginFailures['nadie.x'], uow.snapshot().loginFailures['andres'], uow.snapshot().sessions]).toEqual([[NOW], [NOW], {}]);
   });
 
-  it('[REQ-AUTH-002][INV-AUTH-006] EDGE-028: 4 fallos, éxito y 4 fallos más; ninguno se bloquea y los fallos quedan confirmados', async () => {
+  it('[REQ-AUTH2-002][INV-AUTH-006] EDGE-028: 4 fallos, éxito y 4 fallos más; ninguno se bloquea y los fallos quedan confirmados', async () => {
     const { deps, clock, uow } = createHarness();
     const login = new LoginUseCase(deps);
     const results: string[] = [];
@@ -131,7 +141,7 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect(uow.snapshot().loginFailures['maria.v']).toEqual(['2026-11-05T12:00:05.000Z', '2026-11-05T12:00:06.000Z', '2026-11-05T12:00:07.000Z', '2026-11-05T12:00:08.000Z']);
   });
 
-  it('[REQ-AUTH-002] EDGE-013/EDGE-029: con 5 fallos en 15 minutos el 6.º intento se bloquea aunque la contraseña sea correcta, sin verificar ni registrarse', async () => {
+  it('[REQ-AUTH2-002] EDGE-013/EDGE-029: con 5 fallos en 15 minutos el 6.º intento se bloquea aunque la contraseña sea correcta, sin verificar ni registrarse', async () => {
     const state = canonicalState();
     const failures = ['11:46:00', '11:50:00', '11:55:00', '11:58:00', '11:59:59'].map((t) => `2026-11-05T${t}.000Z`);
     state.loginFailures['andres'] = failures;
@@ -140,7 +150,7 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect([hasher.calls, uow.snapshot().loginFailures['andres'], uow.snapshot().sessions]).toEqual([[], failures, {}]);
   });
 
-  it('[REQ-AUTH-002] una entrada de login sin contraseña, con propiedades extra o con tipos erróneos es ERR-SCHEMA-VALIDATION-FAILED y no verifica', async () => {
+  it('[REQ-AUTH2-002] una entrada de login sin contraseña, con propiedades extra o con tipos erróneos es ERR-SCHEMA-VALIDATION-FAILED y no verifica', async () => {
     const { deps, hasher } = createHarness();
     const login = new LoginUseCase(deps);
     expect(await outcome(login.execute({ username: 'andres' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@password');
@@ -154,49 +164,54 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect(hasher.calls).toEqual([]);
   });
 
-  it('[INV-AUTH-006][REQ-AUTH-002] el hash ficticio nunca autentica: un username inexistente con la contraseña que coincide con él sigue siendo ERR-AUTH-INVALID-CREDENTIALS', async () => {
+  it('[INV-AUTH-006][REQ-AUTH2-002] el hash ficticio nunca autentica: un username inexistente con la contraseña que coincide con él sigue siendo ERR-AUTH-INVALID-CREDENTIALS', async () => {
     const { deps, hasher, uow } = createHarness();
     const dummyPlain = DUMMY_PASSWORD_HASH.slice(FAKE_HASH_PREFIX.length);
     expect(await outcome(new LoginUseCase(deps).execute({ username: 'nadie.x', password: dummyPlain }))).toBe('ERR-AUTH-INVALID-CREDENTIALS@null');
     expect([hasher.calls, uow.snapshot().sessions]).toEqual([[{ method: 'verify', plain: dummyPlain, hash: DUMMY_PASSWORD_HASH }], {}]);
   });
 
-  it('[REQ-AUTH-003] LOGOUT revoca la sesión vigente y responde 204; repetirlo, sin token, con token desconocido o expirado no cambia nada (D-04)', async () => {
+  it('[REQ-AUTH-003] LOGOUT revoca la sesión vigente y responde 204; repetirlo, sin token, con token desconocido, expirado o inactivo no cambia nada (D-04)', async () => {
     const state = canonicalState();
     state.sessions = {
-      vigente: { userId: ANDRES, createdAt: NOW, expiresAt: IN_7_DAYS, revokedAt: null },
-      expirada: { userId: MARIA, createdAt: '2026-10-29T12:00:00.000Z', expiresAt: NOW, revokedAt: null },
+      vigente: { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null },
+      expirada: { userId: MARIA, createdAt: '2026-11-03T12:00:00.000Z', lastActivityAt: '2026-11-05T11:59:00.000Z', revokedAt: null },
+      inactiva: { userId: MARIA, createdAt: '2026-11-05T10:00:00.000Z', lastActivityAt: '2026-11-05T10:00:00.000Z', revokedAt: null },
     };
     const { deps, uow } = createHarness(state);
     const logout = new LogoutUseCase(deps);
     expect(await logout.execute('vigente')).toBe(204);
     const afterFirst = uow.snapshot().sessions;
-    expect(afterFirst['vigente']).toEqual({ userId: ANDRES, createdAt: NOW, expiresAt: IN_7_DAYS, revokedAt: NOW });
-    expect([await logout.execute('vigente'), await logout.execute(null), await logout.execute('desconocido'), await logout.execute('expirada')]).toEqual([204, 204, 204, 204]);
+    expect(afterFirst['vigente']).toEqual({ userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: NOW });
+    expect([await logout.execute('vigente'), await logout.execute(null), await logout.execute('desconocido'), await logout.execute('expirada'), await logout.execute('inactiva')]).toEqual([204, 204, 204, 204, 204]);
     expect(uow.snapshot().sessions).toEqual(afterFirst);
   });
 
-  it('[REQ-AUTH-004][INV-ARCH-001] la sesión vale hasta 7 días exactos medidos con ClockPort; sin token, revocada o expirada es ERR-AUTH-UNAUTHENTICATED', async () => {
+  it('[REQ-AUTH-004][INV-AUTH2-002][INV-ARCH-001] la sesión vale 30 min deslizantes y 24 h absolutas medidos con ClockPort y solo la petición válida renueva; sin token, revocada o vencida es ERR-AUTH-UNAUTHENTICATED', async () => {
     const state = canonicalState();
     state.sessions = {
-      t1: { userId: ANDRES, createdAt: NOW, expiresAt: IN_7_DAYS, revokedAt: null },
-      revocada: { userId: ANDRES, createdAt: NOW, expiresAt: IN_7_DAYS, revokedAt: NOW },
+      t1: { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null },
+      revocada: { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: NOW },
     };
-    const { deps, clock } = createHarness(state);
+    const { deps, clock, uow } = createHarness(state);
     const authenticate = new AuthenticateRequestUseCase(deps);
     const current = new GetCurrentSessionUseCase(deps);
-    expect([await authenticate.execute('t1'), await current.execute('t1')]).toEqual([ANDRES, { user: publicUser(ANDRES), expiresAt: IN_7_DAYS }]);
-    clock.setClock('2026-11-12', '2026-11-12T11:59:59.999Z');
     expect(await authenticate.execute('t1')).toBe(ANDRES);
-    clock.setClock('2026-11-12', IN_7_DAYS);
-    expect(await Promise.all([authenticate.execute('t1'), current.execute('t1'), authenticate.execute(null), current.execute('revocada')].map(outcome))).toEqual(
-      Array(4).fill('ERR-AUTH-UNAUTHENTICATED@null'),
+    clock.setClock('2026-11-05', '2026-11-05T12:29:59.999Z');
+    expect(await authenticate.execute('t1')).toBe(ANDRES);
+    expect(uow.snapshot().sessions['t1']!.lastActivityAt).toBe('2026-11-05T12:29:59.999Z');
+    clock.setClock('2026-11-05', '2026-11-05T12:59:59.000Z');
+    expect(await current.execute('t1')).toEqual({ user: selfProfile(ANDRES), createdAt: NOW, lastActivityAt: '2026-11-05T12:29:59.999Z', idleExpiresAt: '2026-11-05T12:59:59.999Z', absoluteExpiresAt: ABSOLUTE_AT });
+    clock.setClock('2026-11-05', '2026-11-05T13:00:00.000Z');
+    expect(await Promise.all([authenticate.execute('t1'), current.execute('t1'), authenticate.execute(null), current.execute('revocada'), authenticate.execute('desconocido')].map(outcome))).toEqual(
+      Array(5).fill('ERR-AUTH-UNAUTHENTICATED@null'),
     );
+    expect(uow.snapshot().sessions['t1']!.lastActivityAt).toBe('2026-11-05T12:29:59.999Z');
   });
 
   it('[REQ-AUTH-004] una sesión cuyo usuario ya no existe no devuelve sesión actual', async () => {
     const state = canonicalState();
-    state.sessions = { huerfana: { userId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa99', createdAt: NOW, expiresAt: IN_7_DAYS, revokedAt: null } };
+    state.sessions = { huerfana: { userId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa99', createdAt: NOW, lastActivityAt: NOW, revokedAt: null } };
     const { deps } = createHarness(state);
     expect(await outcome(new GetCurrentSessionUseCase(deps).execute('huerfana'))).toBe('ERR-AUTH-UNAUTHENTICATED@null');
   });

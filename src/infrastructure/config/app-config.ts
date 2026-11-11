@@ -3,10 +3,12 @@
  * (INV-ARCH-006). Las variables se validan contra `APP_CONFIG_SCHEMA` (JSON Schema, Ajv) antes de convertirse.
  * - `PORT` 1–65535 (3100), `HOST` solo `127.0.0.1`, `DATABASE_PATH` no vacía (`./data/argos.sqlite`),
  *   `APP_TIMEZONE` zona IANA válida (`America/Bogota`, F6), `COOKIE_SECURE` `true` o `false` (`false`).
+ * - Límites de frecuencia (ADR-002-12, T216): `EXPORT_MAX_PER_WINDOW` (5), `EXPORT_WINDOW_MINUTES` (15),
+ *   `INVITE_MAX_PER_WINDOW` (20) e `INVITE_WINDOW_MINUTES` (15): enteros positivos de hasta 4 dígitos, sin ceros a la izquierda.
  * - Una variable inválida produce `AppConfigError` con la lista de variables afectadas; no se arranca con valores
  *   por defecto silenciosos. Ningún valor es secreto (`.env.example`).
  *
- * @implements INV-ARCH-006, INV-ARCH-004
+ * @implements INV-ARCH-006, INV-ARCH-004, ERR-RATE-LIMITED
  */
 
 import { Ajv, type JSONSchemaType } from 'ajv';
@@ -18,6 +20,10 @@ export interface AppConfig {
   readonly databasePath: string;
   readonly appTimezone: string;
   readonly cookieSecure: boolean;
+  readonly exportMaxPerWindow: number;
+  readonly exportWindowMinutes: number;
+  readonly inviteMaxPerWindow: number;
+  readonly inviteWindowMinutes: number;
 }
 
 interface RawAppConfig {
@@ -26,6 +32,10 @@ interface RawAppConfig {
   DATABASE_PATH: string;
   APP_TIMEZONE: string;
   COOKIE_SECURE: string;
+  EXPORT_MAX_PER_WINDOW: string;
+  EXPORT_WINDOW_MINUTES: string;
+  INVITE_MAX_PER_WINDOW: string;
+  INVITE_WINDOW_MINUTES: string;
 }
 
 export const APP_CONFIG_DEFAULTS: Readonly<RawAppConfig> = {
@@ -34,7 +44,13 @@ export const APP_CONFIG_DEFAULTS: Readonly<RawAppConfig> = {
   DATABASE_PATH: './data/argos.sqlite',
   APP_TIMEZONE: DEFAULT_APP_TIMEZONE,
   COOKIE_SECURE: 'false',
+  EXPORT_MAX_PER_WINDOW: '5',
+  EXPORT_WINDOW_MINUTES: '15',
+  INVITE_MAX_PER_WINDOW: '20',
+  INVITE_WINDOW_MINUTES: '15',
 };
+
+const POSITIVE_INTEGER = '^[1-9][0-9]{0,3}$';
 
 /** Esquema de las variables de entorno (todas llegan como texto). */
 export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
@@ -45,8 +61,12 @@ export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
     DATABASE_PATH: { type: 'string', minLength: 1, pattern: '\\S' },
     APP_TIMEZONE: { type: 'string', minLength: 1, pattern: '^[A-Za-z][A-Za-z0-9_+/-]*$' },
     COOKIE_SECURE: { type: 'string', enum: ['true', 'false'] },
+    EXPORT_MAX_PER_WINDOW: { type: 'string', pattern: POSITIVE_INTEGER },
+    EXPORT_WINDOW_MINUTES: { type: 'string', pattern: POSITIVE_INTEGER },
+    INVITE_MAX_PER_WINDOW: { type: 'string', pattern: POSITIVE_INTEGER },
+    INVITE_WINDOW_MINUTES: { type: 'string', pattern: POSITIVE_INTEGER },
   },
-  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE'],
+  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES'],
   additionalProperties: false,
 };
 
@@ -82,5 +102,9 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
     databasePath: raw.DATABASE_PATH,
     appTimezone: raw.APP_TIMEZONE,
     cookieSecure: raw.COOKIE_SECURE === 'true',
+    exportMaxPerWindow: Number(raw.EXPORT_MAX_PER_WINDOW),
+    exportWindowMinutes: Number(raw.EXPORT_WINDOW_MINUTES),
+    inviteMaxPerWindow: Number(raw.INVITE_MAX_PER_WINDOW),
+    inviteWindowMinutes: Number(raw.INVITE_WINDOW_MINUTES),
   };
 }

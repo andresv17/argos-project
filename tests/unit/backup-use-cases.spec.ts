@@ -74,7 +74,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
 
   it('[REQ-BACKUP-001][INV-AUTH-003] María exporta solo a Luna: sin datos de otros usuarios, hogares, hashes ni tokens', async () => {
     const h = createHarness();
-    await h.deps.uow.runInTransaction(async (r) => r.sessions.save('token-secreto', { userId: MARIA, createdAt: '2026-11-05T12:00:00.000Z', expiresAt: '2026-11-12T12:00:00.000Z', revokedAt: null }));
+    await h.deps.uow.runInTransaction(async (r) => r.sessions.save('token-secreto', { userId: MARIA, createdAt: '2026-11-05T12:00:00.000Z', lastActivityAt: '2026-11-05T12:00:00.000Z', revokedAt: null }));
     const result = await new ExportBackupUseCase(h.deps).execute(MARIA);
     expect([(result.envelope as unknown as { exportedByUserId?: string }).exportedByUserId, result.envelope.pets, result.envelope.records]).toEqual([
       MARIA,

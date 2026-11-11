@@ -3,6 +3,7 @@ import type { RecordModule } from '../../src/domain/records/record-invariants.ts
 import type { MemoryState } from '../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
 import type { SqliteDatabase } from '../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 import { canonicalState } from './application-harness.ts';
+import { upgradePet, upgradeRecords } from './storage-upgrade.ts';
 
 /** Guarda en la unidad de trabajo (SQLite o memoria) el estado dado; por defecto, el estado canónico.. */
 export async function seedSqlite(uow: UnitOfWorkPort, state: MemoryState = canonicalState()): Promise<void> {
@@ -10,9 +11,10 @@ export async function seedSqlite(uow: UnitOfWorkPort, state: MemoryState = canon
     for (const user of state.users) await r.users.insert(user);
     for (const [token, session] of Object.entries(state.sessions)) await r.sessions.save(token, session);
     for (const [username, failures] of Object.entries(state.loginFailures)) await r.loginAttempts.replaceFailures(username, failures);
-    for (const pet of state.pets) await r.pets.save(pet);
-    for (const module of Object.keys(state.records) as RecordModule[]) {
-      for (const record of state.records[module]) await r.records.add(module, record as never);
+    const records = upgradeRecords(state.records);
+    for (const pet of state.pets) await r.pets.save(upgradePet(pet));
+    for (const module of Object.keys(records) as RecordModule[]) {
+      for (const record of records[module]) await r.records.add(module, record as never);
     }
     for (const household of state.households) await r.households.insert(household);
     for (const membership of state.memberships) await r.households.saveMembership(membership);
@@ -32,6 +34,9 @@ const TABLES = [
   'custom_parameters',
   'households',
   'household_members',
+  'household_invitations',
+  'backup_confirmation_tokens',
+  'rate_limit_events',
 ];
 
 /** Volcado de todas las filas de todas las tablas, en orden estable: sirve para comparar el estado byte a byte. */

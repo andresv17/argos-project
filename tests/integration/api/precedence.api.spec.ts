@@ -39,11 +39,14 @@ describe('precedencia de validación en la frontera HTTP', () => {
     ]);
   });
 
-  it('[REQ-AUTH-001] reglas 3, 4 y 5: el username se normaliza antes del esquema y el esquema va antes del dominio', async () => {
+  it('[REQ-AUTH2-001] reglas 4 y 5: el username ya no se normaliza (mayúsculas o espacios → esquema) y el esquema va antes del dominio', async () => {
     api = await createApi();
-    const normalizedTaken = await api.call('POST', '/api/auth/register', { body: { username: '  ANDRES ', displayName: 'Otro', password: 'Clave2026x' } });
-    const schemaBeforeDomain = await api.call('POST', '/api/auth/register', { body: { username: '  ANDRES ', displayName: 'Otro', password: 'abcdefgh' } });
-    expect([problemOf(normalizedTaken), problemOf(schemaBeforeDomain)]).toEqual([
+    const body = (username: string, password: string) => ({ username, displayName: 'Otro', password, confirmPassword: password });
+    const notNormalized = await api.call('POST', '/api/auth/register', { body: body('  ANDRES ', 'Clave2026x!') });
+    const taken = await api.call('POST', '/api/auth/register', { body: body('andres', 'Clave2026x!') });
+    const schemaBeforeDomain = await api.call('POST', '/api/auth/register', { body: body('andres', 'abcdefghij') });
+    expect([problemOf(notNormalized), problemOf(taken), problemOf(schemaBeforeDomain)]).toEqual([
+      { status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' },
       { status: 409, code: 'ERR-AUTH-USERNAME-TAKEN' },
       { status: 422, code: 'ERR-AUTH-WEAK-PASSWORD' },
     ]);

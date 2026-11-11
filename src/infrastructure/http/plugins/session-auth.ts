@@ -1,9 +1,11 @@
 /**
  * Sesión por cookie: `argos_session` HttpOnly, SameSite=Strict, Path=/,
- * Max-Age de 7 días y `Secure` según `COOKIE_SECURE`. Las rutas protegidas resuelven el usuario en `onRequest`
- * (después de CSRF y antes de leer el cuerpo); sin sesión vigente, ERR-AUTH-UNAUTHENTICATED (401).
+ * Max-Age de 24 h (el tope absoluto de la sesión) y `Secure` según `COOKIE_SECURE`. Las rutas protegidas resuelven el usuario en `onRequest`
+ * (después de CSRF y antes de leer el cuerpo); sin sesión vigente (revocada, inactiva 30 min o pasadas 24 h),
+ * ERR-AUTH-UNAUTHENTICATED (401) sin escribir nada. Una petición con sesión vigente renueva `lastActivityAt`
+ * (INV-AUTH2-002); las rechazadas antes de este gancho (CSRF) no la renuevan.
  *
- * @implements REQ-AUTH-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH-003
+ * @implements REQ-AUTH2-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH2-002, INV-AUTH-003
  */
 
 import type { FastifyReply, FastifyRequest, onRequestAsyncHookHandler } from 'fastify';
@@ -29,7 +31,7 @@ export function requireSession(authenticate: AuthenticateRequestUseCase): onRequ
   };
 }
 
-/** @implements REQ-AUTH-002, INV-AUTH-003 */
+/** @implements REQ-AUTH2-002, INV-AUTH-003 */
 export function setSessionCookie(reply: FastifyReply, token: string, secure: boolean): void {
   reply.setCookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: 'strict', path: '/', maxAge: SESSION_MAX_AGE_SECONDS, secure });
 }

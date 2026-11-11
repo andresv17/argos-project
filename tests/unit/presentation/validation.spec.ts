@@ -6,23 +6,23 @@ const msg = (code: keyof typeof ERROR_CATALOG): string => ERROR_CATALOG[code].de
 
 describe('validación en cliente derivada de los contratos', () => {
   it('[REQ-UI-005][ERR-AUTH-WEAK-PASSWORD] el registro con contraseña débil muestra el mensaje del catálogo en el campo', () => {
-    expect(validateInput('RegisterUserInput', { username: 'andres', displayName: 'Andrés', password: 'corta' })).toEqual({ password: msg('ERR-AUTH-WEAK-PASSWORD') });
+    expect(validateInput('RegisterUserInput', { username: 'andres', displayName: 'Andrés', password: 'corta', confirmPassword: 'corta' })).toEqual({ password: msg('ERR-AUTH-WEAK-PASSWORD') });
   });
 
   it('[REQ-UI-005][ERR-SCHEMA-VALIDATION-FAILED] un campo obligatorio ausente o con formato inválido usa ERR-SCHEMA-VALIDATION-FAILED', () => {
     expect([
-      validateInput('RegisterUserInput', { displayName: 'Andrés', password: 'secreto123' }),
-      validateInput('RegisterUserInput', { username: 'Andrés!', displayName: 'Andrés', password: 'secreto123' }),
+      validateInput('RegisterUserInput', { displayName: 'Andrés', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' }),
+      validateInput('RegisterUserInput', { username: 'Andrés!', displayName: 'Andrés', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' }),
       validateInput('LoginInput', { username: 'andres' }),
     ]).toEqual([{ username: msg('ERR-SCHEMA-VALIDATION-FAILED') }, { username: msg('ERR-SCHEMA-VALIDATION-FAILED') }, { password: msg('ERR-SCHEMA-VALIDATION-FAILED') }]);
   });
 
   it('[REQ-UI-005] un input válido no produce errores', () => {
     expect([
-      validateInput('RegisterUserInput', { username: 'andres', displayName: 'Andrés', password: 'secreto123' }),
+      validateInput('RegisterUserInput', { username: 'andres', displayName: 'Andrés', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' }),
       validateInput('LoginInput', { username: 'andres', password: 'x' }),
       validateInput('CreateHouseholdInput', { name: 'Casa' }),
-      validateInput('InviteMemberInput', { username: 'maria' }),
+      validateInput('InviteMemberInput', { username: 'maria', roleOnJoin: 'READER' }),
     ]).toEqual([{}, {}, {}, {}]);
   });
 

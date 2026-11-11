@@ -24,8 +24,8 @@ test.beforeAll(async ({ browser }) => {
   memberContext = await browser.newContext();
   owner = await ownerContext.newPage();
   member = await memberContext.newPage();
-  await registerViaApi(ownerContext.request, 'axe.duena', 'Dueña Axe', 'AxeClave2026');
-  await registerViaApi(memberContext.request, 'axe.miembro', 'Miembro Axe', 'AxeClave2027');
+  await registerViaApi(ownerContext.request, 'axe.duena', 'Dueña Axe', 'AxeClave2026!');
+  await registerViaApi(memberContext.request, 'axe.miembro', 'Miembro Axe', 'AxeClave2027!');
   const petId = await createPetViaApi(ownerContext.request, 'Argos', 'DOG');
   await createPetViaApi(ownerContext.request, 'Nyx', 'CAT', '2021-07-07');
   await createPetViaApi(memberContext.request, 'Luna', 'CAT');
@@ -64,7 +64,8 @@ test.describe('axe-core a 320, 1024 y 1280 px (tests/e2e/accessibility)', () => 
     const page = await anonymous.newPage();
     await page.goto('/register');
     const empty = await accessibilityFindings(page, 'registro');
-    await page.getByLabel('Contraseña (8 a 128, con letra y dígito)').fill('corta');
+    await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill('corta');
+    await page.getByLabel('Confirmar contraseña').fill('corta');
     await page.getByRole('button', { name: 'Registrarme' }).click();
     await expect(page.getByText('La contraseña debe tener entre 8 y 128 caracteres')).toBeVisible();
     expect([...empty, ...(await accessibilityFindings(page, 'registro-errores'))]).toEqual([]);

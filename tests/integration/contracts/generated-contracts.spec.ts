@@ -69,15 +69,16 @@ describe('contratos generados', () => {
     }
   });
 
-  it('INV-AUTH-002: la contraseña exige 8 a 128 caracteres con letra y dígito y mapea ERR-AUTH-WEAK-PASSWORD', () => {
-    const user = { username: 'carlos_88', displayName: 'Carlos' };
-    expectValid(validateRegisterUserInput, { ...user, password: 'Abcdef12' });
-    for (const password of ['abcdefgh', '12345678', 'Ab1']) {
+  it('INV-AUTH2-001: la contraseña exige 10 a 128 caracteres con mayúscula, número y símbolo, y mapea ERR-AUTH-WEAK-PASSWORD', () => {
+    const user = { username: 'carlos_88', displayName: 'Carlos', password: 'Abcdef12!x', confirmPassword: 'Abcdef12!x' };
+    expectValid(validateRegisterUserInput, user);
+    for (const password of ['abcdefgh1!', 'Abcdefghi!', 'Abcdefghi1', 'Abcdef1!x', `A1!${'b'.repeat(126)}`]) {
       expect(validateRegisterUserInput({ ...user, password }), `password=${password}`).toBe(false);
       const path = firstErrorPath(validateRegisterUserInput, '/password');
       expect(path).toBe('/password');
       expect(resolveFieldErrorCode('RegisterUserInput', path ?? '')).toBe('ERR-AUTH-WEAK-PASSWORD');
     }
+    expect(validateRegisterUserInput({ ...user, username: 'Carlos_88' })).toBe(false);
   });
 
   it('INV-REC-006: additionalProperties=false rechaza propiedades no autorizadas, también en ítems legacy v1', () => {

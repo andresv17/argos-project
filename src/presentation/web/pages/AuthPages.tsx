@@ -1,8 +1,9 @@
 /**
  * Pantallas de registro e inicio de sesión con validación en cliente derivada de los contratos y mensajes
- * del catálogo. Tras registrarse, la sesión queda iniciada (REQ-AUTH-001).
+ * del catálogo. Tras registrarse, la sesión queda iniciada (REQ-AUTH2-001). El registro aplica la política de
+ * contraseña nueva (INV-AUTH2-001) con confirmación y correo opcional; el inicio de sesión no la aplica (REQ-AUTH2-002).
  *
- * @implements REQ-UI-005, REQ-UI-004, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS
+ * @implements REQ-UI-005, REQ-UI-004, REQ-AUTH2-001, INV-AUTH2-001, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-WEAK-PASSWORD
  */
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, FormError, PasswordField, TextField } from '../components/Field.tsx';
@@ -56,7 +57,7 @@ export function RegisterPage(): JSX.Element {
   const navigate = useNavigate();
   const form = useContractForm({
     schema: 'RegisterUserInput',
-    initial: { username: '', displayName: '', password: '' },
+    initial: { username: '', displayName: '', email: '', password: '', confirmPassword: '' },
     send: async (body) => {
       await session.register(body as Schemas['RegisterUserInput']);
       navigate('/', { replace: true });
@@ -67,7 +68,9 @@ export function RegisterPage(): JSX.Element {
       <form noValidate aria-label="Crear cuenta" onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded border border-slate-300 bg-white p-4">
         <TextField id="register-username" label="Usuario (minúsculas, números, . _ -)" name="username" autoComplete="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
         <TextField id="register-displayName" label="Nombre visible" name="displayName" autoComplete="name" required value={form.values.displayName ?? ''} onChange={form.onChange} errors={form.errors} />
-        <PasswordField id="register-password" label="Contraseña (8 a 128, con letra y dígito)" name="password" autoComplete="new-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
+        <TextField id="register-email" label="Correo (opcional)" name="email" type="email" autoComplete="email" value={form.values.email ?? ''} onChange={form.onChange} errors={form.errors} />
+        <PasswordField id="register-password" label="Contraseña (10 a 128, con mayúscula, número y símbolo)" name="password" autoComplete="new-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
+        <PasswordField id="register-confirmPassword" label="Confirmar contraseña" name="confirmPassword" autoComplete="new-password" required value={form.values.confirmPassword ?? ''} onChange={form.onChange} errors={form.errors} />
         <FormError errors={form.errors} message={form.message} />
         <Button type="submit" disabled={form.busy}>
           Registrarme

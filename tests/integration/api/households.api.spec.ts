@@ -82,20 +82,119 @@ describe('hogares por HTTP (src/infrastructure/http/routes/households.routes.ts)
     );
   });
 
-  it('[REQ-HOUSE-002] invitar: 201 INVITED; usuario inexistente → 404; ya INVITED → 409 (EDGE-016); un MEMBER no puede invitar → 403', async () => {
+  it('[REQ-HOUSE2-001][INV-AUTH-006][INV-HOUSE-003] invitar responde 202 {received:true} idéntico exista o no el username, ya sea miembro o ya invitado, sin revelar nada', async () => {
     api = await createApi();
     const andres = await api.login('andres');
-    const ok = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username: ' Lucia.R ' } });
-    const ghost = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username: 'nadie.x' } });
-    const duplicate = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username: 'carlos_88' } });
-    const byMember = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: await api.login('maria.v'), body: { username: 'lucia.r' } });
-    expect([ok.status, (ok.json as { membership: { status: string; userId: string } }).membership, problemOf(ghost), problemOf(duplicate), problemOf(byMember)]).toEqual([
-      201,
-      expect.objectContaining({ status: 'INVITED', userId: USERS_BY_NAME.lucia }),
-      { status: 404, code: 'ERR-AUTH-USER-NOT-FOUND' },
-      { status: 409, code: 'ERR-HOUSE-MEMBER-ALREADY-EXISTS' },
-      { status: 403, code: 'ERR-ACC-FORBIDDEN' },
+    const invite = (username: string) => api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username, roleOnJoin: 'CAREGIVER' } });
+    const responses = [await invite('lucia.r'), await invite('nadie.x'), await invite('maria.v'), await invite('carlos_88'), await invite('lucia.r')];
+    const shape = (r: (typeof responses)[number]) => [r.status, r.json, r.text, r.headers['content-type'], r.headers['set-cookie'] ?? null];
+    expect(shape(responses[0]!)).toEqual([202, { received: true }, '{"received":true}', 'application/json; charset=utf-8', null]);
+    for (const response of responses) expect(shape(response)).toEqual(shape(responses[0]!));
+  });
+
+  it('[REQ-HOUSE2-001][INV-AUTH-006] los errores de enumeración de la 001 ya no existen: ninguna respuesta de invitar es 404 de usuario ni 409 de miembro', async () => {
+    api = await createApi();
+    const andres = await api.login('andres');
+    const codes = new Set<string>();
+    for (const username of ['nadie.x', 'maria.v', 'carlos_88', 'lucia.r', 'andres']) {
+      const r = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username, roleOnJoin: 'READER' } });
+      codes.add(`${r.status}:${problemOf(r).code ?? 'ok'}`);
+    }
+    expect([...codes]).toEqual(['202:ok']);
+  });
+
+  it('[REQ-HOUSE2-001][INV-HOUSE-003] una cuenta real recibe su fila INVITED con el rol y un username inexistente deja una fila inerte (sin usuario) que nadie puede aceptar', async () => {
+    api = await createApi();
+    const andres = await api.login('andres');
+    await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username: 'lucia.r', roleOnJoin: 'ADMIN' } });
+    await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username: 'nadie.x', roleOnJoin: 'READER' } });
+    await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username: 'nadie.x', roleOnJoin: 'READER' } });
+    const rows = api.db
+      .prepare('SELECT household_id, invitee_username, invitee_user_id, invited_by_user_id, role_on_join, status, responded_at FROM household_invitations ORDER BY invitee_username')
+      .all();
+    expect(rows).toEqual([
+      { household_id: H1, invitee_username: 'lucia.r', invitee_user_id: USERS_BY_NAME.lucia, invited_by_user_id: USERS_BY_NAME.andres, role_on_join: 'ADMIN', status: 'INVITED', responded_at: null },
+      { household_id: H1, invitee_username: 'nadie.x', invitee_user_id: null, invited_by_user_id: USERS_BY_NAME.andres, role_on_join: 'READER', status: 'INVITED', responded_at: null },
     ]);
+  });
+
+  it('[REQ-HOUSE2-001][ERR-SCHEMA-VALIDATION-FAILED] se invita siempre por username con roleOnJoin: sin rol, rol inválido, correo o userId, y un username con mayúsculas o espacios → 422', async () => {
+    api = await createApi();
+    const andres = await api.login('andres');
+    const attempt = async (body: unknown) => problemOf(await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body }));
+    const schemaError = { status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' };
+    expect([
+      await attempt({ username: 'lucia.r' }),
+      await attempt({ username: 'lucia.r', roleOnJoin: 'OWNER' }),
+      await attempt({ email: 'lucia@example.com', roleOnJoin: 'READER' }),
+      await attempt({ userId: USERS_BY_NAME.lucia, roleOnJoin: 'READER' }),
+      await attempt({ username: ' Lucia.R ', roleOnJoin: 'READER' }),
+      await attempt({ username: 'lucia.r', roleOnJoin: 'READER', extra: 1 }),
+    ]).toEqual(Array(6).fill(schemaError));
+    expect(api.db.prepare('SELECT COUNT(*) AS n FROM household_invitations').get()).toEqual({ n: 0 });
+  });
+
+  it('[REQ-HOUSE2-001][INV-AUTH-006] el tiempo de respuesta es similar exista o no el username (medición con tolerancia amplia)', async () => {
+    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 1000, windowMinutes: 15 } } });
+    const andres = await api.login('andres');
+    const median = async (username: string) => {
+      const times: number[] = [];
+      for (let i = 0; i < 15; i += 1) {
+        const started = performance.now();
+        await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username, roleOnJoin: 'READER' }, contract: false });
+        times.push(performance.now() - started);
+      }
+      return times.sort((x, y) => x - y)[7]!;
+    };
+    const existing = await median('lucia.r');
+    const inert = await median('nadie.x');
+    expect(Math.abs(existing - inert)).toBeLessThan(100);
+  });
+
+  it('[REQ-HOUSE2-001][ERR-HOUSE-NOT-FOUND][ERR-ACC-FORBIDDEN] solo el propietario invita (T238 PENDIENTE: ADMIN): un miembro recibe 403 y quien no ve el hogar, 404; ninguno consume el límite', async () => {
+    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 1, windowMinutes: 15 } } });
+    const body = { username: 'lucia.r', roleOnJoin: 'READER' };
+    const byMember = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: await api.login('maria.v'), body });
+    const byStranger = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: await api.login('lucia.r'), body });
+    const byOwner = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: await api.login('andres'), body });
+    expect([problemOf(byMember), problemOf(byStranger), byOwner.status]).toEqual([
+      { status: 403, code: 'ERR-ACC-FORBIDDEN' },
+      { status: 404, code: 'ERR-HOUSE-NOT-FOUND' },
+      202,
+    ]);
+  });
+
+  it('[REQ-HOUSE2-001][ERR-RATE-LIMITED] al superar INVITE_MAX_PER_WINDOW → 429 con el mismo resultado para usernames reales e inexistentes; la ventana es deslizante y exacta a 15 min', async () => {
+    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 3, windowMinutes: 15 } } });
+    const andres = await api.login('andres');
+    const invite = (username: string) => api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username, roleOnJoin: 'READER' } });
+    const first = [await invite('lucia.r'), await invite('nadie.x'), await invite('maria.v')];
+    const realBlocked = await invite('lucia.r');
+    const ghostBlocked = await invite('nadie.x');
+    api.clock.setClock('2026-11-05', '2026-11-05T12:14:59.999Z');
+    const justBefore = await invite('lucia.r');
+    api.clock.setClock('2026-11-05', '2026-11-05T12:15:00.000Z');
+    const reopened = await invite('nadie.x');
+    expect([first.map((r) => r.status), problemOf(realBlocked), problemOf(ghostBlocked), realBlocked.text === ghostBlocked.text, problemOf(justBefore), reopened.status]).toEqual([
+      [202, 202, 202],
+      { status: 429, code: 'ERR-RATE-LIMITED' },
+      { status: 429, code: 'ERR-RATE-LIMITED' },
+      true,
+      { status: 429, code: 'ERR-RATE-LIMITED' },
+      202,
+    ]);
+  });
+
+  it('[REQ-HOUSE2-001][ERR-RATE-LIMITED] el límite es por actor: otra propietaria con su propio hogar no queda bloqueada por el consumo de Andrés', async () => {
+    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 1, windowMinutes: 15 } } });
+    const andres = await api.login('andres');
+    const lucia = await api.login('lucia.r');
+    const created = await api.call('POST', '/api/households', { cookie: lucia, body: { name: 'Casa Rivas' }, contract: false });
+    const ownHousehold = (created.json as { household: { id: string } }).household.id;
+    await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username: 'nadie.x', roleOnJoin: 'READER' } });
+    const blocked = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username: 'nadie.y', roleOnJoin: 'READER' } });
+    const other = await api.call('POST', `/api/households/${ownHousehold}/invitations`, { cookie: lucia, body: { username: 'nadie.y', roleOnJoin: 'READER' } });
+    expect([problemOf(blocked), other.status]).toEqual([{ status: 429, code: 'ERR-RATE-LIMITED' }, 202]);
   });
 
   it('[REQ-HOUSE-003] invitaciones: Carlos ve la suya, la acepta (200, ACTIVE) y luego ve el hogar; sin invitación → 404, nunca 403 (EDGE-026, EDGE-027)', async () => {

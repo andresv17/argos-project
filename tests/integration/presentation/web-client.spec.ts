@@ -77,13 +77,19 @@ describe('cliente generado de la SPA contra la API real', () => {
     expect(error instanceof ApiProblem ? [error.problem.status, error.problem.code] : null).toEqual([401, 'ERR-AUTH-UNAUTHENTICATED']);
   });
 
-  it('[REQ-UI-005] la sesión de la SPA: registro, sesión actual y logout por el cliente generado', async () => {
+  it('[REQ-UI-005][REQ-AUTH-004] la sesión de la SPA: registro con la política nueva, recarga con GET /auth/me y logout por el cliente generado', async () => {
     const client = createWebApi(await baseUrl());
-    const registered = await client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'nuevo', displayName: 'Nuevo', password: 'secreto123', confirmPassword: 'secreto123' } });
+    const registered = await client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'nuevo', displayName: 'Nuevo', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' } });
     const cookie = (registered.response.headers.get('set-cookie') ?? '').split(';')[0]!;
     const me = await client.GET('/auth/me', { headers: { cookie } });
     const out = await client.POST('/auth/logout', { params: CSRF_PARAMS, headers: { cookie } });
     const after = await client.GET('/auth/me', { headers: { cookie } });
-    expect([registered.response.status, me.data?.user.username, out.response.status, after.response.status]).toEqual([201, 'nuevo', 204, 401]);
+    expect([registered.response.status, me.data?.user.username, me.data?.user.preferredLanguage, out.response.status, after.response.status]).toEqual([201, 'nuevo', 'es', 204, 401]);
+  });
+
+  it('[REQ-UI-005][ERR-AUTH-WEAK-PASSWORD] el cliente generado recibe ERR-AUTH-WEAK-PASSWORD como ApiProblem con el campo password', async () => {
+    const client = createWebApi(await baseUrl());
+    const error = await unwrap(client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'debil', displayName: 'Débil', password: 'corta', confirmPassword: 'corta' } })).catch((e: unknown) => e);
+    expect(error instanceof ApiProblem ? [error.problem.status, error.problem.code, error.problem.field] : null).toEqual([422, 'ERR-AUTH-WEAK-PASSWORD', 'password']);
   });
 });

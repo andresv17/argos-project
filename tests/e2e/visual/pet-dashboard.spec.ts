@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { isoDateFromToday } from './e2e-support.ts';
 
-const USER = { username: 'duena.e2e', displayName: 'Dueña', password: 'Secreto2026a' };
+const USER = { username: 'duena.e2e', displayName: 'Dueña', password: 'Secreto2026a!' };
 
 test.describe.configure({ mode: 'serial' });
 
@@ -34,11 +34,13 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     await page.getByRole('link', { name: 'Regístrate' }).click();
     await page.getByLabel(/Usuario \(minúsculas/).fill(USER.username);
     await page.getByLabel('Nombre visible').fill(USER.displayName);
-    await page.getByLabel('Contraseña (8 a 128, con letra y dígito)').fill('corta');
+    await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill('corta');
+    await page.getByLabel('Confirmar contraseña').fill('corta');
     await page.getByRole('button', { name: 'Registrarme' }).click();
-    await expect(page.getByText('La contraseña debe tener entre 8 y 128 caracteres')).toBeVisible();
+    await expect(page.getByText('La contraseña debe tener entre 10 y 128 caracteres')).toBeVisible();
     await expect(page).toHaveURL(/\/register$/);
-    await page.getByLabel('Contraseña (8 a 128, con letra y dígito)').fill(USER.password);
+    await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill(USER.password);
+    await page.getByLabel('Confirmar contraseña').fill(USER.password);
     await page.getByRole('button', { name: 'Registrarme' }).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible();

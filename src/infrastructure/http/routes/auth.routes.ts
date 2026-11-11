@@ -2,7 +2,7 @@
  * Rutas `auth` del OpenAPI: registro (201), login (200), logout idempotente (204, también sin sesión, D-04) y
  * sesión actual (200). Registro y login envían la cookie `argos_session`; logout la borra.
  *
- * @implements REQ-AUTH-001, REQ-AUTH-002, REQ-AUTH-003, REQ-AUTH-004
+ * @implements REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH-003, REQ-AUTH-004
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -10,7 +10,7 @@ import { jsonBody } from '../request-input.ts';
 import { clearSessionCookie, requireSession, sessionTokenOf, setSessionCookie } from '../plugins/session-auth.ts';
 import type { RouteContext } from './use-cases.ts';
 
-/** @implements REQ-AUTH-001, REQ-AUTH-002, REQ-AUTH-003, REQ-AUTH-004 */
+/** @implements REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH2-002 */
 export function registerAuthRoutes(app: FastifyInstance, { useCases, cookieSecure }: RouteContext): void {
   app.post('/api/auth/register', async (request, reply) => {
     const { sessionToken, session } = await useCases.register.execute(jsonBody(request.body));

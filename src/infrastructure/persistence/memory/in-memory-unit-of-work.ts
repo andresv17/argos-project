@@ -12,10 +12,15 @@
 import type { Household, PetProfile } from '../../../generated/index.ts';
 import type { LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type {
+  ConfirmationTokenRepositoryPort,
   HouseholdRepositoryPort,
+  InvitationRecord,
+  InvitationRepositoryPort,
   LoginAttemptRepositoryPort,
   MedicalRecordRepositoryPort,
   PetRepositoryPort,
+  RateLimitEvent,
+  RateLimitRepositoryPort,
   RepositorySet,
   SessionRepositoryPort,
   UserAccount,
@@ -36,6 +41,17 @@ export interface MemoryState {
   records: PetRecordCollections;
   households: Household[];
   memberships: LegacyHouseholdMember[];
+  /** Token de confirmación de respaldo por usuario (una fila por usuario; solo el hash). */
+  confirmationTokens: Record<string, StoredConfirmationToken>;
+  rateEvents: RateLimitEvent[];
+  invitations: InvitationRecord[];
+}
+
+export interface StoredConfirmationToken {
+  readonly tokenHash: string;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+  readonly usedAt: string | null;
 }
 
 export interface InMemoryUnitOfWorkOptions {
@@ -52,6 +68,9 @@ export function emptyMemoryState(): MemoryState {
     records: { weights: [], bodyMeasurements: [], vaccinations: [], dewormings: [], medicalVisits: [], customParameters: [] },
     households: [],
     memberships: [],
+    confirmationTokens: {},
+    rateEvents: [],
+    invitations: [],
   };
 }
 
@@ -74,6 +93,26 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       }
       state.users.push(copy(user));
     },
+    async update(user) {
+      const index = state.users.findIndex((u) => u.id === user.id && u.username === user.username);
+      if (index < 0) throw new Error(`users: el usuario ${user.id} no existe`);
+      state.users[index] = copy(user);
+    },
+    async delete(userId) {
+      state.users = state.users.filter((u) => u.id !== userId);
+    },
+    async countReferences(userId) {
+      return (
+        state.users.filter((u) => u.id === userId).length +
+        state.pets.filter((p) => p.ownerUserId === userId).length +
+        state.households.filter((h) => h.ownerUserId === userId).length +
+        state.memberships.filter((m) => m.userId === userId).length +
+        Object.values(state.sessions).filter((session) => session.userId === userId).length +
+        state.invitations.filter((i) => i.invitedByUserId === userId || i.inviteeUserId === userId).length +
+        (state.confirmationTokens[userId] === undefined ? 0 : 1) +
+        state.rateEvents.filter((e) => e.userId === userId).length
+      );
+    },
   };
 }
 
@@ -85,6 +124,18 @@ function sessionRepository(state: MemoryState): SessionRepositoryPort {
     async save(token, session) {
       state.sessions[token] = copy(session);
     },
+    async revokeOthers(userId, keepToken, nowIsoTimestamp) {
+      let revoked = 0;
+      for (const [token, session] of Object.entries(state.sessions)) {
+        if (token === keepToken || session.userId !== userId || session.revokedAt !== null) continue;
+        state.sessions[token] = { ...session, revokedAt: nowIsoTimestamp };
+        revoked += 1;
+      }
+      return revoked;
+    },
+    async deleteByUser(userId) {
+      for (const [token, session] of Object.entries(state.sessions)) if (session.userId === userId) delete state.sessions[token];
+    },
   };
 }
 
@@ -95,6 +146,64 @@ function loginAttemptRepository(state: MemoryState): LoginAttemptRepositoryPort 
     },
     async replaceFailures(username, failures) {
       state.loginFailures[username] = [...failures];
+    },
+    async deleteFailures(username) {
+      delete state.loginFailures[username];
+    },
+  };
+}
+
+function confirmationTokenRepository(state: MemoryState): ConfirmationTokenRepositoryPort {
+  return {
+    async replaceForUser(userId, tokenHash, createdAt, expiresAt) {
+      state.confirmationTokens[userId] = { tokenHash, createdAt, expiresAt, usedAt: null };
+    },
+    async consume(userId, tokenHash, nowIsoTimestamp) {
+      const row = state.confirmationTokens[userId];
+      if (row === undefined || row.tokenHash !== tokenHash || row.usedAt !== null || !(row.expiresAt > nowIsoTimestamp)) return false;
+      state.confirmationTokens[userId] = { ...row, usedAt: nowIsoTimestamp };
+      return true;
+    },
+    async deleteForUser(userId) {
+      delete state.confirmationTokens[userId];
+    },
+  };
+}
+
+function rateLimitRepository(state: MemoryState): RateLimitRepositoryPort {
+  return {
+    async record(event) {
+      state.rateEvents.push(copy(event));
+    },
+    async countSince(scope, userId, sinceExclusive) {
+      return state.rateEvents.filter((e) => e.scope === scope && e.userId === userId && e.occurredAt > sinceExclusive).length;
+    },
+    async deleteForUser(userId) {
+      state.rateEvents = state.rateEvents.filter((e) => e.userId !== userId);
+    },
+  };
+}
+
+function invitationRepository(state: MemoryState): InvitationRepositoryPort {
+  return {
+    async findOpen(householdId, inviteeUsername) {
+      return copy(state.invitations.find((i) => i.householdId === householdId && i.inviteeUsername === inviteeUsername && i.status === 'INVITED') ?? null);
+    },
+    async save(invitation) {
+      const clash = state.invitations.some(
+        (i) => i.invitationId !== invitation.invitationId && invitation.status === 'INVITED' && i.status === 'INVITED' && i.householdId === invitation.householdId && i.inviteeUsername === invitation.inviteeUsername,
+      );
+      if (clash) throw new Error(`household_invitations: ya hay una invitación INVITED de ${invitation.inviteeUsername} en el hogar`);
+      state.invitations = [...state.invitations.filter((i) => i.invitationId !== invitation.invitationId), copy(invitation)];
+    },
+    async listByHousehold(householdId) {
+      return copy(state.invitations.filter((i) => i.householdId === householdId));
+    },
+    async deleteForUser(userId) {
+      state.invitations = state.invitations.filter((i) => i.invitedByUserId !== userId && i.inviteeUserId !== userId);
+    },
+    async deleteForHousehold(householdId) {
+      state.invitations = state.invitations.filter((i) => i.householdId !== householdId);
     },
   };
 }
@@ -171,6 +280,9 @@ function householdRepository(state: MemoryState): HouseholdRepositoryPort {
     async saveMembership(membership) {
       state.memberships = [...state.memberships.filter((m) => m.membershipId !== membership.membershipId), copy(membership)];
     },
+    async deleteMembershipsOfUser(userId) {
+      state.memberships = state.memberships.filter((m) => m.userId !== userId);
+    },
   };
 }
 
@@ -182,6 +294,9 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     pets: petRepository(state),
     records: recordRepository(state),
     households: householdRepository(state),
+    confirmationTokens: confirmationTokenRepository(state),
+    rateLimits: rateLimitRepository(state),
+    invitations: invitationRepository(state),
   };
 }
 

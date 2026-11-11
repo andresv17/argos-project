@@ -3,21 +3,21 @@
  * Las reglas son las de household-policies (STATE-HOUSE-MEMBERSHIP-001, INV-HOUSE-001..005); aquí se cargan y
  * guardan las membresías en una transacción.
  * - Visibilidad: sin membresía ACTIVE, ERR-HOUSE-NOT-FOUND (INV-HOUSE-004,).
- * - InviteMemberUseCase comprueba primero que el actor sea OWNER y después valida la entrada (normalización del
- *   username regla 3), igual que el acceso precede al esquema en mascotas y registros.
+ * - InviteMemberUseCase comprueba primero que el actor sea OWNER (T238 PENDIENTE: ADMIN), después valida la entrada
+ *   (el username no se normaliza), aplica el límite de frecuencia y responde siempre 202 {received:true} (REQ-HOUSE2-001).
  * - ListMyHouseholdsUseCase ordena por createdAt del hogar y luego id (la spec no fija el orden).
  *
- * @implements REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-ARCH-001, INV-ARCH-002
  */
 
 import {
+  DomainError,
   validateInviteMemberInput,
   type components,
   type Household,
   type UserPublicProfile,
   type InviteMemberInput,
 } from '../../generated/index.ts';
-import { normalizeUsername } from '../../domain/auth/auth-policies.ts';
 import {
   acceptInvitation,
   createHousehold,
@@ -35,13 +35,12 @@ import {
   requireOwner,
 } from '../../domain/households/household-policies.ts';
 import { matchesPetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
-import type { RepositorySet } from '../ports/repositories.port.ts';
+import type { InvitationRecord, RepositorySet } from '../ports/repositories.port.ts';
 import type { PetListQuery } from './pet-use-cases.ts';
 import {
   assertMatchesSchema,
   buildPetCard,
   publicProfilesById,
-  toPublicProfile,
   type ApplicationDeps,
   type PetCardView,
 } from './use-case-support.ts';
@@ -51,17 +50,11 @@ export type HouseholdMemberView = components['schemas']['HouseholdMemberView'];
 /** HouseholdPetsView con las tarjetas de PetCardView (profile como PetProfile, H-108-3). */
 export type HouseholdPetsView = Omit<components['schemas']['HouseholdPetsView'], 'pets'> & { pets: PetCardView[] };
 export type InvitationView = components['schemas']['InvitationView'];
-/** Respuesta heredada de la invitación (001); T212 la sustituye por InviteAccepted. */
-export interface LegacyInviteView {
-  readonly membership: LegacyHouseholdMember;
-  readonly user: UserPublicProfile;
-  readonly colorToken: null;
-}
+/** Cuerpo único de la respuesta de invitar, idéntico exista o no el username (REQ-HOUSE2-001). */
+export type InviteAccepted = components['schemas']['InviteAccepted'];
 
 function parseInviteMemberInput(input: unknown): InviteMemberInput {
-  const username = (input as { username?: unknown } | null)?.username;
-  const candidate = typeof username === 'string' ? { ...(input as object), username: normalizeUsername(username) } : input;
-  return assertMatchesSchema<InviteMemberInput>('InviteMemberInput', validateInviteMemberInput, candidate);
+  return assertMatchesSchema<InviteMemberInput>('InviteMemberInput', validateInviteMemberInput, input);
 }
 
 /**
@@ -144,28 +137,43 @@ export class CreateHouseholdUseCase {
   }
 }
 
-/** @implements REQ-HOUSE-002 */
+/**
+ * Invitación uniforme (REQ-HOUSE2-001, INV-HOUSE-003, INV-AUTH-006): exista o no el username, y ya sea miembro o ya
+ * invitado, la respuesta y el trabajo de almacenamiento son los mismos (202 {received:true}). Un username inexistente
+ * deja una invitación inerte (sin usuario) que nadie puede aceptar; `roleOnJoin` se guarda y su efecto llega con T247.
+ * El límite de frecuencia (INVITE_MAX_PER_WINDOW por INVITE_WINDOW_MINUTES y actor) se aplica después de la
+ * autorización y de la validación, y su rechazo (ERR-RATE-LIMITED) es igual para usernames reales e inexistentes.
+ * T238 PENDIENTE: la fila INVITED heredada de `household_members` se mantiene (doble escritura) mientras aceptar,
+ * rechazar y listar sigan leyendo el modelo de la 001; T238 los pasa a `household_invitations`.
+ * @implements REQ-HOUSE2-001, INV-HOUSE-003, INV-AUTH-006, ERR-RATE-LIMITED
+ */
 export class InviteMemberUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  // T212 PENDIENTE: la 002 responde 202 {received:true} uniforme; mientras tanto devuelve la fila heredada.
-  async execute(userId: string, householdId: string, input: unknown): Promise<LegacyInviteView> {
+  async execute(userId: string, householdId: string, input: unknown): Promise<InviteAccepted> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       const memberships = await repositories.households.listMemberships(householdId);
       requireOwner(memberships, householdId, userId);
-      const { username } = parseInviteMemberInput(input);
+      const { username, roleOnJoin } = parseInviteMemberInput(input);
+      const now = this.deps.clock.nowIsoTimestamp();
+      if (!(await this.deps.rateLimiter.tryConsume(repositories, 'INVITE', userId, now))) throw new DomainError('ERR-RATE-LIMITED');
       const invitee = await repositories.users.findByUsername(username);
-      const row = inviteMember({
-        memberships,
-        householdId,
-        actorUserId: userId,
-        invitee,
-        membershipId: this.deps.ids.nextId(),
-        nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
-      });
-      await repositories.households.saveMembership(row);
-      return { membership: row, user: toPublicProfile(invitee!), colorToken: null };
+      const row = inviteMember({ memberships, householdId, actorUserId: userId, invitee, membershipId: this.deps.ids.nextId(), nowIsoTimestamp: now });
+      const pending = await repositories.invitations.findOpen(householdId, username);
+      if (invitee === null) {
+        if (pending === null) await repositories.invitations.save(this.invitationOf(householdId, username, null, roleOnJoin, userId, now));
+      } else if (row !== null) {
+        // Una INVITED anterior sin su fila heredada es residuo de un rechazo o cancelación hechos por el modelo de la 001.
+        if (pending !== null) await repositories.invitations.save({ ...pending, status: 'CANCELLED', respondedAt: now });
+        await repositories.households.saveMembership(row);
+        await repositories.invitations.save(this.invitationOf(householdId, username, invitee.id, roleOnJoin, userId, now));
+      }
+      return { received: true };
     });
+  }
+
+  private invitationOf(householdId: string, username: string, inviteeUserId: string | null, roleOnJoin: InviteMemberInput['roleOnJoin'], invitedByUserId: string, now: string): InvitationRecord {
+    return { invitationId: this.deps.ids.nextId(), householdId, inviteeUsername: username, inviteeUserId, roleOnJoin, invitedByUserId, status: 'INVITED', createdAt: now, respondedAt: null };
   }
 }
 

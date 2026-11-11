@@ -9,3 +9,6 @@ export * from './secure-token.port.ts';
 export * from './password-hasher.port.ts';
 export * from './repositories.port.ts';
 export * from './unit-of-work.port.ts';
+export * from './rate-limiter.port.ts';
+export * from './backup-token.port.ts';
+export * from './audit-log.port.ts';

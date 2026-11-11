@@ -26,12 +26,12 @@ export async function apiPost<T = Record<string, unknown>>(request: APIRequestCo
   return (await response.json()) as T;
 }
 
-/** Registra al usuario desde el contexto del navegador: la cookie de sesión queda en ese contexto (REQ-AUTH-001). */
+/** Registra al usuario desde el contexto del navegador: la cookie de sesión queda en ese contexto (REQ-AUTH2-001). La contraseña debe cumplir INV-AUTH2-001. */
 export async function registerViaApi(request: APIRequestContext, username: string, displayName: string, password: string): Promise<void> {
-  await apiPost(request, '/auth/register', { username, displayName, password });
+  await apiPost(request, '/auth/register', { username, displayName, password, confirmPassword: password });
 }
 
-export async function createPetViaApi(request: APIRequestContext, name: string, species: 'DOG' | 'CAT', birthDate = '2020-05-01'): Promise<string> {
+export async function createPetViaApi(request: APIRequestContext, name: string, species: 'DOG' | 'CAT' | 'CANINE' | 'FELINE', birthDate = '2020-05-01'): Promise<string> {
   const pet = await apiPost<{ id: string }>(request, '/pets', { name, species, breed: 'Mestiza', birthDate, sex: 'MALE', avatarUrl: null });
   return pet.id;
 }

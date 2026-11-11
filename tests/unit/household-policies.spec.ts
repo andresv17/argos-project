@@ -147,11 +147,11 @@ describe('crear hogar (REQ-HOUSE-001, INV-HOUSE-001)', () => {
   });
 });
 
-describe('invitar (REQ-HOUSE-002, INV-HOUSE-002, INV-HOUSE-003)', () => {
+describe('invitar (REQ-HOUSE2-001, INV-HOUSE-002, INV-HOUSE-003)', () => {
   const invite = (actorUserId: string, invitee: { id: string } | null, rows = members) =>
     inviteMember({ memberships: rows, householdId: H1, actorUserId, invitee, membershipId: mid(4), nowIsoTimestamp: NOW });
 
-  it('[REQ-HOUSE-002] el OWNER invita a Lucía: fila nueva INVITED sin firstJoinedAt', () => {
+  it('[REQ-HOUSE2-001] el OWNER invita a Lucía: fila nueva INVITED sin firstJoinedAt', () => {
     const row = invite(andres.id, lucia);
     expect(row).toEqual({
       membershipId: mid(4),
@@ -168,16 +168,16 @@ describe('invitar (REQ-HOUSE-002, INV-HOUSE-002, INV-HOUSE-003)', () => {
     expect(validateHouseholdMember(row)).toBe(true);
   });
 
-  it('[INV-HOUSE-003][ERR-HOUSE-MEMBER-ALREADY-EXISTS] no se duplica una membresía INVITED o ACTIVE (EDGE-016)', () => {
-    expect(codeOf(() => invite(andres.id, carlos))).toEqual([edge('EDGE-016').expectedError, 409]);
-    expect(catchDomainError(() => invite(andres.id, carlos)).field).toBe('username');
-    expect(codeOf(() => invite(andres.id, maria))).toEqual(['ERR-HOUSE-MEMBER-ALREADY-EXISTS', 409]);
-    expect(codeOf(() => invite(andres.id, andres))).toEqual(['ERR-HOUSE-MEMBER-ALREADY-EXISTS', 409]);
+  it('[INV-HOUSE-003][REQ-HOUSE2-001] no se duplica una membresía INVITED o ACTIVE: la invitación es uniforme y no tiene efecto (EDGE-016), sin error que enumere miembros', () => {
+    expect(invite(andres.id, carlos)).toBeNull();
+    expect(edge('EDGE-016').expectedError).toBe('ERR-HOUSE-MEMBER-ALREADY-EXISTS'); // el fixture 001 conserva el error retirado; la 002 responde 202 uniforme
+    expect(invite(andres.id, maria)).toBeNull();
+    expect(invite(andres.id, andres)).toBeNull();
   });
 
-  it('[INV-HOUSE-003][ERR-AUTH-USER-NOT-FOUND] invitar a un username inexistente falla con 404', () => {
-    const e = catchDomainError(() => invite(andres.id, null));
-    expect([e.code, e.status, e.field, e.invariantRef]).toEqual(['ERR-AUTH-USER-NOT-FOUND', 404, 'username', 'INV-HOUSE-003']);
+  it('[INV-HOUSE-003][INV-AUTH-006][REQ-HOUSE2-001] invitar a un username inexistente no tiene efecto ni error: indistinguible de un miembro existente', () => {
+    expect(invite(andres.id, null)).toBeNull();
+    expect(invite(andres.id, carlos)).toEqual(invite(andres.id, null));
   });
 
   it('[INV-HOUSE-002][ERR-HOUSE-NOT-FOUND] solo el OWNER invita: MEMBER recibe 403; INVITED o ajeno, 404', () => {
@@ -190,14 +190,14 @@ describe('invitar (REQ-HOUSE-002, INV-HOUSE-002, INV-HOUSE-003)', () => {
     expect(requireOwner(members, H1, andres.id)).toBe(members[0]);
   });
 
-  it('[REQ-HOUSE-002][INV-HOUSE-005] re-invitar a María crea una fila nueva y conserva firstJoinedAt y su color (EDGE-031)', () => {
+  it('[REQ-HOUSE2-001][INV-HOUSE-005] re-invitar a María crea una fila nueva y conserva firstJoinedAt y su color (EDGE-031)', () => {
     const steps = edge('EDGE-031');
     const removed = removeOrLeave(members, H1, andres.id, maria.id, steps.steps[0].at);
     expect([removed.membershipId, removed.status]).toEqual([mid(2), 'REMOVED']);
     let rows = replace(members, removed);
     const reinvited = inviteMember({ memberships: rows, householdId: H1, actorUserId: andres.id, invitee: maria, membershipId: mid(4), nowIsoTimestamp: steps.steps[1].at });
-    expect([reinvited.membershipId, reinvited.status, reinvited.firstJoinedAt, reinvited.joinedAt]).toEqual([mid(4), 'INVITED', '2026-02-02T08:00:00.000Z', null]);
-    rows = replace(rows, reinvited);
+    expect([reinvited!.membershipId, reinvited!.status, reinvited!.firstJoinedAt, reinvited!.joinedAt]).toEqual([mid(4), 'INVITED', '2026-02-02T08:00:00.000Z', null]);
+    rows = replace(rows, reinvited!);
     expect(rows.find((r) => r.membershipId === mid(2))?.status).toBe('REMOVED');
     const accepted = acceptInvitation(rows, H1, maria.id, steps.steps[2].at);
     expect([accepted.status, accepted.joinedAt, accepted.firstJoinedAt, accepted.updatedAt]).toEqual([
@@ -211,15 +211,15 @@ describe('invitar (REQ-HOUSE-002, INV-HOUSE-002, INV-HOUSE-003)', () => {
     expect(ownerColorTokens(rows, H1).get(maria.id)).toBe(steps.expectedColorToken[maria.id]);
   });
 
-  it('[REQ-HOUSE-002][STATE-HOUSE-MEMBERSHIP-001] desde DECLINED, CANCELLED y LEFT el OWNER re-invita con fila nueva (D-05)', () => {
+  it('[REQ-HOUSE2-001][STATE-HOUSE-MEMBERSHIP-001] desde DECLINED, CANCELLED y LEFT el OWNER re-invita con fila nueva (D-05)', () => {
     const declined = replace(members, declineInvitation(members, H1, carlos.id, NOW));
-    expect(invite(andres.id, carlos, declined).status).toBe('INVITED');
+    expect(invite(andres.id, carlos, declined)!.status).toBe('INVITED');
     const cancelled = replace(members, removeOrLeave(members, H1, andres.id, carlos.id, NOW));
     expect(cancelled.find((r) => r.userId === carlos.id)?.status).toBe('CANCELLED');
-    expect(invite(andres.id, carlos, cancelled).membershipId).toBe(mid(4));
+    expect(invite(andres.id, carlos, cancelled)!.membershipId).toBe(mid(4));
     const left = replace(members, removeOrLeave(members, H1, maria.id, maria.id, NOW));
     expect(left.find((r) => r.userId === maria.id)?.status).toBe('LEFT');
-    expect(invite(andres.id, maria, left).firstJoinedAt).toBe('2026-02-02T08:00:00.000Z');
+    expect(invite(andres.id, maria, left)!.firstJoinedAt).toBe('2026-02-02T08:00:00.000Z');
   });
 
   it('[INV-HOUSE-005] firstJoinedAt del par es el primero no nulo, en cualquier orden de filas', () => {

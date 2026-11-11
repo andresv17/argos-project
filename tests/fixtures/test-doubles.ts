@@ -34,8 +34,16 @@ export class SpyPasswordHasher implements PasswordHasherPort {
 export class SequentialTokenAdapter implements SecureTokenPort {
   private counter = 0;
 
+  private confirmations = 0;
+
   nextSessionToken(): string {
     this.counter += 1;
     return `token-${String(this.counter).padStart(4, '0')}`;
+  }
+
+  /** Token de confirmación de respaldo de 43 caracteres base64url (ConfirmationToken): confirm-0001xxxxx... */
+  nextConfirmationToken(): string {
+    this.confirmations += 1;
+    return `confirm-${String(this.confirmations).padStart(4, '0')}`.padEnd(43, 'x');
   }
 }

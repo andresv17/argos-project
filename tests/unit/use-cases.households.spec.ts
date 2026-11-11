@@ -68,9 +68,9 @@ describe('hogares (src/application/use-cases/household-use-cases.ts)', () => {
     expect(await outcome(new CreateHouseholdUseCase(deps).execute(LUCIA, { name: ' ' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@name');
   });
 
-  it('[REQ-HOUSE-002] el OWNER invita a " LUCIA.R " (username normalizado): fila INVITED sin color', async () => {
+  it('[REQ-HOUSE2-001] el OWNER invita a "lucia.r" con rol: responde {received:true}, deja la fila INVITED sin color y guarda la invitación con roleOnJoin', async () => {
     const { deps, uow } = createHarness();
-    const view = await new InviteMemberUseCase(deps).execute(ANDRES, H, { username: ' LUCIA.R ' });
+    const view = await new InviteMemberUseCase(deps).execute(ANDRES, H, { username: 'lucia.r', roleOnJoin: 'CAREGIVER' });
     const row: HouseholdMember = {
       membershipId: generatedId(1),
       householdId: H,
@@ -83,35 +83,40 @@ describe('hogares (src/application/use-cases/household-use-cases.ts)', () => {
       firstJoinedAt: null,
       updatedAt: NOW,
     };
-    expect(view).toEqual({ membership: row, user: publicUser(LUCIA), colorToken: null });
+    expect(view).toEqual({ received: true });
     expect(uow.snapshot().memberships.at(-1)).toEqual(row);
+    expect(uow.snapshot().invitations).toEqual([
+      { invitationId: generatedId(2), householdId: H, inviteeUsername: 'lucia.r', inviteeUserId: LUCIA, roleOnJoin: 'CAREGIVER', invitedByUserId: ANDRES, status: 'INVITED', createdAt: NOW, respondedAt: null },
+    ]);
   });
 
-  it('[REQ-HOUSE-002] invitar: MEMBER 403, INVITED o ajeno 404 (antes de validar la entrada), username inexistente 404 y duplicado 409', async () => {
+  it('[REQ-HOUSE2-001] invitar: MEMBER 403, INVITED o ajeno 404 (antes de validar la entrada); username inexistente o ya invitado responden igual que uno nuevo (202), sin 404 ni 409', async () => {
     const { deps, uow } = createHarness();
     const invite = new InviteMemberUseCase(deps);
     expect(
       await Promise.all([
-        outcome(invite.execute(MARIA, H, { username: 'lucia.r' })),
+        outcome(invite.execute(MARIA, H, { username: 'lucia.r', roleOnJoin: 'READER' })),
         outcome(invite.execute(MARIA, H, {})),
-        outcome(invite.execute(CARLOS, H, { username: 'lucia.r' })),
-        outcome(invite.execute(LUCIA, H, { username: 'maria.v' })),
-        outcome(invite.execute(ANDRES, H, { username: 'nadie' })),
-        outcome(invite.execute(ANDRES, H, { username: 'carlos_88' })),
-        outcome(invite.execute(ANDRES, H, { username: 'lucia.r', role: 'OWNER' })),
+        outcome(invite.execute(CARLOS, H, { username: 'lucia.r', roleOnJoin: 'READER' })),
+        outcome(invite.execute(LUCIA, H, { username: 'maria.v', roleOnJoin: 'READER' })),
+        outcome(invite.execute(ANDRES, H, { username: 'nadie', roleOnJoin: 'READER' })),
+        outcome(invite.execute(ANDRES, H, { username: 'carlos_88', roleOnJoin: 'READER' })),
+        outcome(invite.execute(ANDRES, H, { username: 'lucia.r', roleOnJoin: 'READER', role: 'OWNER' })),
         outcome(invite.execute(ANDRES, H, null)),
-        outcome(invite.execute(ANDRES, H, { username: 5 })),
+        outcome(invite.execute(ANDRES, H, { username: 5, roleOnJoin: 'READER' })),
+        outcome(invite.execute(ANDRES, H, { username: 'lucia.r' })),
       ]),
     ).toEqual([
       'ERR-ACC-FORBIDDEN@householdId',
       'ERR-ACC-FORBIDDEN@householdId',
       'ERR-HOUSE-NOT-FOUND@householdId',
       'ERR-HOUSE-NOT-FOUND@householdId',
-      'ERR-AUTH-USER-NOT-FOUND@username',
-      `${edge('EDGE-016-').expectedError}@username`,
+      'OK',
+      'OK',
       'ERR-SCHEMA-VALIDATION-FAILED@role',
       'ERR-SCHEMA-VALIDATION-FAILED@null',
       'ERR-SCHEMA-VALIDATION-FAILED@username',
+      'ERR-SCHEMA-VALIDATION-FAILED@roleOnJoin',
     ]);
     let message = '';
     try {
@@ -120,7 +125,10 @@ describe('hogares (src/application/use-cases/household-use-cases.ts)', () => {
       message = (error as DomainError).message;
     }
     expect(message).toBe("[ERR-SCHEMA-VALIDATION-FAILED] InviteMemberInput: username must have required property 'username'.");
-    expect(uow.snapshot()).toEqual(canonicalState());
+    const after = uow.snapshot();
+    expect(after.memberships).toEqual(canonicalState().memberships);
+    expect(after.invitations.map((i) => [i.inviteeUsername, i.inviteeUserId])).toEqual([['nadie', null]]);
+    expect(after.rateEvents).toHaveLength(2);
   });
 
   it('[REQ-HOUSE-003] Carlos ve su invitación pendiente; al aceptarla queda ACTIVE con OWNER_COLOR_3 y ya ve el hogar', async () => {
@@ -251,10 +259,11 @@ describe('hogares (src/application/use-cases/household-use-cases.ts)', () => {
     expect([(await list.execute(MARIA)).map((v) => v.household.name), await list.execute(CARLOS), await list.execute(LUCIA)]).toEqual([['Casa Vallejo'], [], []]);
   });
 
-  it('[REQ-HOUSE-002][REQ-HOUSE-005] EDGE-031: retirar y volver a invitar a María crea una fila nueva y, al aceptar, conserva firstJoinedAt y OWNER_COLOR_2', async () => {
+  it('[REQ-HOUSE2-001][REQ-HOUSE-005] EDGE-031: retirar y volver a invitar a María crea una fila nueva y, al aceptar, conserva firstJoinedAt y OWNER_COLOR_2', async () => {
     const { deps, uow } = createHarness();
     await new RemoveMemberUseCase(deps).execute(ANDRES, H, MARIA);
-    const invited = await new InviteMemberUseCase(deps).execute(ANDRES, H, { username: 'maria.v' });
+    expect(await new InviteMemberUseCase(deps).execute(ANDRES, H, { username: 'maria.v', roleOnJoin: 'READER' })).toEqual({ received: true });
+    const invited = { membership: uow.snapshot().memberships.at(-1)! };
     const accepted = await new RespondInvitationUseCase(deps).execute(MARIA, H, 'ACCEPT');
     expect([invited.membership.membershipId, invited.membership.firstJoinedAt]).toEqual([generatedId(1), MARIA_ROW.firstJoinedAt]);
     expect(accepted).toEqual({

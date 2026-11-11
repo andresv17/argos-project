@@ -15,4 +15,9 @@ export class CryptoSecureTokenAdapter implements SecureTokenPort {
   public nextSessionToken(): string {
     return randomBytes(SESSION_TOKEN_BYTES).toString('base64url');
   }
+
+  /** Token de confirmación de respaldo (ConfirmationToken): mismos 32 bytes en base64url. */
+  public nextConfirmationToken(): string {
+    return randomBytes(SESSION_TOKEN_BYTES).toString('base64url');
+  }
 }

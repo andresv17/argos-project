@@ -11,6 +11,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { registerCsrfGuard } from './plugins/csrf-guard.ts';
 import { registerProblemDetails } from './plugins/problem-details.ts';
+import { registerAccountRoutes } from './routes/account.routes.ts';
 import { registerAuthRoutes } from './routes/auth.routes.ts';
 import { registerBackupRoutes } from './routes/backup.routes.ts';
 import { registerHouseholdRoutes } from './routes/households.routes.ts';
@@ -34,6 +35,7 @@ export async function buildApp({ deps, cookieSecure, logger = false }: HttpAppOp
   registerCsrfGuard(app);
   const context = { useCases: createUseCases(deps), cookieSecure };
   registerAuthRoutes(app, context);
+  registerAccountRoutes(app, context);
   registerPetRoutes(app, context);
   registerHouseholdRoutes(app, context);
   registerBackupRoutes(app, context);

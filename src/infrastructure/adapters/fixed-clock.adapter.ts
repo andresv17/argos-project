@@ -7,6 +7,7 @@
 import type { ClockPort } from '../../application/ports/clock.port.ts';
 import { isIsoCalendarDate } from '../../domain/shared/date-utils.ts';
 import { isCanonicalUtcTimestamp } from '../../domain/sorting/deterministic-sorter.ts';
+import { DEFAULT_APP_TIMEZONE } from './system-clock.adapter.ts';
 
 export const DEFAULT_FIXED_TODAY = '2026-11-05';
 export const DEFAULT_FIXED_NOW = '2026-11-05T12:00:00.000Z';
@@ -20,7 +21,11 @@ export class FixedClockAdapter implements ClockPort {
   private currentIsoDate: string;
   private currentIsoTimestamp: string;
 
-  constructor(todayIsoDate: string = DEFAULT_FIXED_TODAY, nowIsoTimestamp: string = DEFAULT_FIXED_NOW) {
+  constructor(
+    todayIsoDate: string = DEFAULT_FIXED_TODAY,
+    nowIsoTimestamp: string = DEFAULT_FIXED_NOW,
+    public readonly timeZone: string = DEFAULT_APP_TIMEZONE,
+  ) {
     FixedClockAdapter.check(todayIsoDate, nowIsoTimestamp);
     this.currentIsoDate = todayIsoDate;
     this.currentIsoTimestamp = nowIsoTimestamp;

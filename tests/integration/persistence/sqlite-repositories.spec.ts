@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { DomainError } from '../../../src/generated/index.ts';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
 import {
+  DEFAULT_MIGRATIONS_DIR,
   IN_MEMORY_DATABASE,
   openSqliteDatabase,
   runMigrations,
@@ -12,10 +13,14 @@ import {
 } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 import { sessionTokenHash } from '../../../src/infrastructure/persistence/sqlite/sqlite-repositories.ts';
 import { SqliteUnitOfWork } from '../../../src/infrastructure/persistence/sqlite/sqlite-unit-of-work.ts';
-import { ARGOS, HOUSEHOLD, MEMBERSHIPS, envelope, fixtures } from '../../fixtures/application-harness.ts';
+import { ARGOS as ARGOS_001, HOUSEHOLD, MEMBERSHIPS, envelope as envelope001, fixtures } from '../../fixtures/application-harness.ts';
+import { upgradeEnvelope, upgradePet } from '../../fixtures/storage-upgrade.ts';
 import { defineRepositoryContractSuite } from '../../fixtures/repository-contract-suite.ts';
 import { dumpSqlite, seedSqlite } from '../../fixtures/sqlite-harness.ts';
 
+// Datos de la 001 elevados al esquema 3.0.0 para SQLite, que valida al escribir (T214; T226 y T255 los sustituyen).
+const ARGOS = upgradePet(ARGOS_001);
+const envelope = upgradeEnvelope(envelope001);
 const opened: SqliteDatabase[] = [];
 const tempDirs: string[] = [];
 function memoryDb(): SqliteDatabase {
@@ -47,7 +52,7 @@ const domainFields = (error: unknown) =>
 defineRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 
 describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlite/sqlite-database.ts)', () => {
-  it('[INV-PET-005] la migración 0001 crea las 13 tablas, activa foreign_keys y queda registrada una sola vez', () => {
+  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001 y 0002 crean las 16 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
     const dir = tempDir();
     const path = join(dir, 'datos', 'argos.sqlite');
     const db = openSqliteDatabase(path);
@@ -59,14 +64,17 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
     reopened.close();
     expect([...state, versions]).toEqual([
       [
+        'backup_confirmation_tokens',
         'body_measurements',
         'custom_parameters',
         'dewormings',
+        'household_invitations',
         'household_members',
         'households',
         'login_attempts',
         'medical_visits',
         'pets',
+        'rate_limit_events',
         'schema_migrations',
         'sessions',
         'users',
@@ -76,8 +84,47 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       1,
       'wal',
       [],
-      ['0001_init.sql'],
+      ['0001_init.sql', '0002_account_identity.sql'],
     ]);
+  });
+
+  it('[REQ-ACC-001][INV-AUTH2-002][SC-010] la migración 0002 sobre una base de la 001 conserva cuentas y hashes, completa perfil y sesiones y es repetible', () => {
+    const dir = tempDir();
+    const only0001 = join(dir, 'solo-0001');
+    mkdirSync(only0001);
+    writeFileSync(join(only0001, '0001_init.sql'), readFileSync(join(DEFAULT_MIGRATIONS_DIR, '0001_init.sql'), 'utf8'));
+    const path = join(dir, 'argos.sqlite');
+    const legacy = openSqliteDatabase(path, { migrationsDir: only0001 });
+    const profile = JSON.stringify({ id: 'a0000000-0000-4000-8000-000000000001', username: 'cuenta.vieja', displayName: 'Vieja', createdAt: '2025-01-01T00:00:00.000Z' });
+    legacy.prepare('INSERT INTO users (id, username, password_hash, data) VALUES (?, ?, ?, ?)').run('a0000000-0000-4000-8000-000000000001', 'cuenta.vieja', 'scrypt$ocho-caracteres', profile);
+    const oldSession = JSON.stringify({ userId: 'a0000000-0000-4000-8000-000000000001', createdAt: '2026-11-05T12:00:00.000Z', expiresAt: '2026-11-12T12:00:00.000Z', revokedAt: '2026-11-05T13:00:00.000Z' });
+    legacy.prepare('INSERT INTO sessions (token_hash, user_id, data) VALUES (?, ?, ?)').run('hash-1', 'a0000000-0000-4000-8000-000000000001', oldSession);
+    legacy.close();
+    const migrated = openSqliteDatabase(path);
+    const user = migrated.prepare('SELECT username, password_hash, email, preferred_language, timezone FROM users').get();
+    const session = migrated.prepare('SELECT created_at, last_activity_at, revoked_at, data FROM sessions').get() as { data: string };
+    const repeated = runMigrations(migrated);
+    const versions = migrated.prepare('SELECT version FROM schema_migrations ORDER BY version').pluck().all();
+    migrated.close();
+    expect(user).toEqual({ username: 'cuenta.vieja', password_hash: 'scrypt$ocho-caracteres', email: null, preferred_language: 'es', timezone: 'America/Bogota' });
+    expect({ ...session, data: JSON.parse(session.data) }).toEqual({
+      created_at: '2026-11-05T12:00:00.000Z',
+      last_activity_at: '2026-11-05T12:00:00.000Z',
+      revoked_at: '2026-11-05T13:00:00.000Z',
+      data: { userId: 'a0000000-0000-4000-8000-000000000001', createdAt: '2026-11-05T12:00:00.000Z', lastActivityAt: '2026-11-05T12:00:00.000Z', revokedAt: '2026-11-05T13:00:00.000Z' },
+    });
+    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql']]);
+  });
+
+  it('[REQ-ACC-001][ERR-INTERNAL-UNEXPECTED] la base rechaza un idioma fuera de es/en/pt, un ámbito de frecuencia desconocido y un rol o estado de invitación inválido', () => {
+    const db = memoryDb();
+    const user = (extra: string) => db.exec(`INSERT INTO users (id, username, password_hash, data, preferred_language) VALUES ('u1', 'x', 'h', '{}', '${extra}')`);
+    expect(() => user('fr')).toThrow(/CHECK constraint failed/);
+    expect(() => db.exec("INSERT INTO rate_limit_events (id, scope, subject_user_id, occurred_at) VALUES ('1', 'OTRO', 'nadie', 'ahora')")).toThrow(/CHECK constraint failed/);
+    db.exec("INSERT INTO users (id, username, password_hash, data) VALUES ('u2', 'y', 'h', '{}')");
+    db.exec("INSERT INTO households (id, owner_user_id, data) VALUES ('h1', 'u2', '{}')");
+    expect(() => db.exec("INSERT INTO household_invitations (id, household_id, invitee_username, invitee_user_id, invited_by_user_id, role_on_join, status, created_at) VALUES ('i1', 'h1', 'z', NULL, 'u2', 'OWNER', 'INVITED', 'ahora')")).toThrow(/CHECK constraint failed/);
+    expect(() => db.exec("INSERT INTO household_invitations (id, household_id, invitee_username, invitee_user_id, invited_by_user_id, role_on_join, status, created_at) VALUES ('i1', 'h1', 'z', NULL, 'u2', 'READER', 'LEFT', 'ahora')")).toThrow(/CHECK constraint failed/);
   });
 
   it('[ERR-INTERNAL-UNEXPECTED] una migración que falla no deja nada a medias y la apertura se rechaza con ERR-INTERNAL-UNEXPECTED', () => {
@@ -184,10 +231,10 @@ describe('particularidades de SqliteUnitOfWork y los repositorios SQLite', () =>
     const db = openSqliteDatabase(path);
     const uow = new SqliteUnitOfWork(db);
     const token = 'token-secreto-de-prueba-0001';
-    const user = { ...fixtures.users[0], passwordHash: 'scrypt$16384$8$1$c2FsdA==$aGFzaA==' };
+    const user = { ...fixtures.users[0], email: null, preferredLanguage: 'es' as const, timezone: 'America/Bogota', passwordHash: 'scrypt$16384$8$1$c2FsdA==$aGFzaA==' };
     await uow.runInTransaction(async (r) => {
       await r.users.insert(user);
-      await r.sessions.save(token, { userId: user.id, createdAt: '2026-11-05T12:00:00.000Z', expiresAt: '2026-11-12T12:00:00.000Z', revokedAt: null });
+      await r.sessions.save(token, { userId: user.id, createdAt: '2026-11-05T12:00:00.000Z', lastActivityAt: '2026-11-05T12:00:00.000Z', revokedAt: null });
     });
     const rows = [db.prepare('SELECT token_hash FROM sessions').pluck().get(), (db.prepare('SELECT data FROM users').pluck().get() as string).includes('scrypt$')];
     const found = await uow.runInTransaction((r) => r.sessions.findByToken(token));

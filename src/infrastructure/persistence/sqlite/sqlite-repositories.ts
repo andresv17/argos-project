@@ -30,10 +30,14 @@ import {
   type UserPublicProfile,
 } from '../../../generated/index.ts';
 import type {
+  ConfirmationTokenRepositoryPort,
   HouseholdRepositoryPort,
+  InvitationRecord,
+  InvitationRepositoryPort,
   LoginAttemptRepositoryPort,
   MedicalRecordRepositoryPort,
   PetRepositoryPort,
+  RateLimitRepositoryPort,
   RepositorySet,
   SessionRepositoryPort,
   UserAccount,
@@ -65,10 +69,10 @@ const isSessionRecord: Check<SessionRecord> = (value): value is SessionRecord =>
   const v = value as Record<string, unknown>;
   const timestamp = (x: unknown) => typeof x === 'string' && isCanonicalUtcTimestamp(x);
   return (
-    Object.keys(v).sort().join(',') === 'createdAt,expiresAt,revokedAt,userId' &&
+    Object.keys(v).sort().join(',') === 'createdAt,lastActivityAt,revokedAt,userId' &&
     typeof v['userId'] === 'string' &&
     timestamp(v['createdAt']) &&
-    timestamp(v['expiresAt']) &&
+    timestamp(v['lastActivityAt']) &&
     (v['revokedAt'] === null || timestamp(v['revokedAt']))
   );
 };
@@ -110,7 +114,28 @@ interface UserRow {
   readonly id: string;
   readonly username: string;
   readonly password_hash: string;
+  readonly email: string | null;
+  readonly preferred_language: string;
+  readonly timezone: string;
   readonly data: string;
+}
+interface SessionRow {
+  readonly user_id: string;
+  readonly created_at: string | null;
+  readonly last_activity_at: string | null;
+  readonly revoked_at: string | null;
+  readonly data: string;
+}
+interface InvitationRow {
+  readonly id: string;
+  readonly household_id: string;
+  readonly invitee_username: string;
+  readonly invitee_user_id: string | null;
+  readonly invited_by_user_id: string;
+  readonly role_on_join: string;
+  readonly status: string;
+  readonly created_at: string;
+  readonly responded_at: string | null;
 }
 interface KeyedRow {
   readonly id: string;
@@ -136,17 +161,36 @@ interface MembershipRow {
   readonly data: string;
 }
 
-/** @implements INV-ARCH-004, INV-AUTH-003, ERR-INTERNAL-UNEXPECTED */
+/** @implements INV-ARCH-004, INV-AUTH-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED */
 function userRepository(db: SqliteDatabase): UserRepositoryPort {
-  const select = 'SELECT id, username, password_hash, data FROM users';
+  const select = 'SELECT id, username, password_hash, email, preferred_language, timezone, data FROM users';
   const byId = db.prepare<[string], UserRow>(`${select} WHERE id = ?`);
   const byUsername = db.prepare<[string], UserRow>(`${select} WHERE username = ?`);
   const byIds = db.prepare<[string], UserRow>(`${select} WHERE id IN (SELECT value FROM json_each(?))`);
-  const insert = db.prepare('INSERT INTO users (id, username, password_hash, data) VALUES (?, ?, ?, ?)');
+  const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const update = db.prepare('UPDATE users SET password_hash = ?, data = ?, email = ?, preferred_language = ?, timezone = ? WHERE id = ? AND username = ?');
+  const remove = db.prepare('DELETE FROM users WHERE id = ?');
+  const references = db.prepare<[string, string, string, string, string, string, string, string, string], { readonly n: number }>(
+    `SELECT (SELECT COUNT(*) FROM users WHERE id = ?)
+          + (SELECT COUNT(*) FROM pets WHERE owner_user_id = ?)
+          + (SELECT COUNT(*) FROM households WHERE owner_user_id = ?)
+          + (SELECT COUNT(*) FROM household_members WHERE user_id = ?)
+          + (SELECT COUNT(*) FROM sessions WHERE user_id = ?)
+          + (SELECT COUNT(*) FROM household_invitations WHERE invited_by_user_id = ?)
+          + (SELECT COUNT(*) FROM household_invitations WHERE invitee_user_id = ?)
+          + (SELECT COUNT(*) FROM backup_confirmation_tokens WHERE user_id = ?)
+          + (SELECT COUNT(*) FROM rate_limit_events WHERE subject_user_id = ?) AS n`,
+  );
   const toAccount = (row: UserRow): UserAccount => {
     const profile = decode('users', row.id, row.data, validateUserPublicProfile, (u) => u.id === row.id && u.username === row.username);
     if (typeof row.password_hash !== 'string' || row.password_hash === '') throw corruptData('users', row.id);
-    return { ...profile, passwordHash: row.password_hash };
+    if (row.preferred_language !== 'es' && row.preferred_language !== 'en' && row.preferred_language !== 'pt') throw corruptData('users', row.id);
+    return { ...profile, email: row.email, preferredLanguage: row.preferred_language, timezone: row.timezone, passwordHash: row.password_hash };
+  };
+  const split = (user: UserAccount) => {
+    const { passwordHash, email, preferredLanguage, timezone, ...profile } = user;
+    if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
+    return { passwordHash, email, preferredLanguage, timezone, data: encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile) };
   };
   return {
     async findById(userId) {
@@ -161,28 +205,66 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
       return byIds.all(list(userIds)).map(toAccount);
     },
     async insert(user) {
-      const { passwordHash, ...profile } = user;
-      if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
-      insert.run(user.id, user.username, passwordHash, encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile));
+      const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
+      insert.run(user.id, user.username, passwordHash, data, email, preferredLanguage, timezone);
+    },
+    async update(user) {
+      const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
+      if (update.run(passwordHash, data, email, preferredLanguage, timezone, user.id, user.username).changes !== 1) {
+        throw new DomainError('ERR-INTERNAL-UNEXPECTED', `El usuario ${user.id} no existe; no se actualiza.`);
+      }
+    },
+    async delete(userId) {
+      remove.run(userId);
+    },
+    async countReferences(userId) {
+      return references.get(userId, userId, userId, userId, userId, userId, userId, userId, userId)!.n;
     },
   };
 }
 
-/** @implements INV-AUTH-003, ERR-INTERNAL-UNEXPECTED */
+/** @implements INV-AUTH-003, INV-AUTH2-002, REQ-AUTH2-003, ERR-INTERNAL-UNEXPECTED */
 function sessionRepository(db: SqliteDatabase): SessionRepositoryPort {
-  const byHash = db.prepare<[string], { readonly user_id: string; readonly data: string }>('SELECT user_id, data FROM sessions WHERE token_hash = ?');
+  const byHash = db.prepare<[string], SessionRow>('SELECT user_id, created_at, last_activity_at, revoked_at, data FROM sessions WHERE token_hash = ?');
   const upsert = db.prepare(
-    'INSERT INTO sessions (token_hash, user_id, data) VALUES (?, ?, ?) ON CONFLICT (token_hash) DO UPDATE SET user_id = excluded.user_id, data = excluded.data',
+    `INSERT INTO sessions (token_hash, user_id, data, created_at, last_activity_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (token_hash) DO UPDATE SET user_id = excluded.user_id, data = excluded.data, created_at = excluded.created_at,
+       last_activity_at = excluded.last_activity_at, revoked_at = excluded.revoked_at`,
   );
+  const ofUser = db.prepare<[string], { readonly token_hash: string; readonly data: string }>('SELECT token_hash, data FROM sessions WHERE user_id = ? AND revoked_at IS NULL');
+  const revoke = db.prepare('UPDATE sessions SET revoked_at = ?, data = ? WHERE token_hash = ?');
+  const removeByUser = db.prepare('DELETE FROM sessions WHERE user_id = ?');
   return {
     async findByToken(token) {
       const hash = sessionTokenHash(token);
       const row = byHash.get(hash);
-      return row === undefined ? null : decode('sessions', hash.slice(0, 12), row.data, isSessionRecord, (s) => s.userId === row.user_id);
+      return row === undefined
+        ? null
+        : decode(
+            'sessions',
+            hash.slice(0, 12),
+            row.data,
+            isSessionRecord,
+            (s) => s.userId === row.user_id && s.createdAt === row.created_at && s.lastActivityAt === row.last_activity_at && s.revokedAt === row.revoked_at,
+          );
     },
     async save(token, session) {
       const hash = sessionTokenHash(token);
-      upsert.run(hash, session.userId, encode('sessions', hash.slice(0, 12), session, isSessionRecord));
+      upsert.run(hash, session.userId, encode('sessions', hash.slice(0, 12), session, isSessionRecord), session.createdAt, session.lastActivityAt, session.revokedAt);
+    },
+    async revokeOthers(userId, keepToken, nowIsoTimestamp) {
+      const keep = sessionTokenHash(keepToken);
+      let revoked = 0;
+      for (const row of ofUser.all(userId)) {
+        if (row.token_hash === keep) continue;
+        const session = decode('sessions', row.token_hash.slice(0, 12), row.data, isSessionRecord);
+        revoke.run(nowIsoTimestamp, encode('sessions', row.token_hash.slice(0, 12), { ...session, revokedAt: nowIsoTimestamp }, isSessionRecord), row.token_hash);
+        revoked += 1;
+      }
+      return revoked;
+    },
+    async deleteByUser(userId) {
+      removeByUser.run(userId);
     },
   };
 }
@@ -191,7 +273,11 @@ function sessionRepository(db: SqliteDatabase): SessionRepositoryPort {
 function loginAttemptRepository(db: SqliteDatabase): LoginAttemptRepositoryPort {
   const byUsername = db.prepare<[string], { readonly failures: string }>('SELECT failures FROM login_attempts WHERE username = ?');
   const upsert = db.prepare('INSERT INTO login_attempts (username, failures) VALUES (?, ?) ON CONFLICT (username) DO UPDATE SET failures = excluded.failures');
+  const remove = db.prepare('DELETE FROM login_attempts WHERE username = ?');
   return {
+    async deleteFailures(username) {
+      remove.run(username);
+    },
     async listFailures(username) {
       const row = byUsername.get(username);
       return row === undefined ? [] : decode('login_attempts', username, row.failures, isStringArray);
@@ -288,6 +374,7 @@ function householdRepository(db: SqliteDatabase): HouseholdRepositoryPort {
      ON CONFLICT (membership_id) DO UPDATE SET household_id = excluded.household_id, user_id = excluded.user_id,
        status = excluded.status, first_joined_at = excluded.first_joined_at, data = excluded.data`,
   );
+  const removeMembershipsOfUser = db.prepare('DELETE FROM household_members WHERE user_id = ?');
   const toHousehold = (row: KeyedRow): Household =>
     decode('households', row.id, row.data, validateHousehold, (h) => h.id === row.id && h.ownerUserId === row.owner_user_id);
   const toMembership = (row: MembershipRow): LegacyHouseholdMember =>
@@ -324,11 +411,109 @@ function householdRepository(db: SqliteDatabase): HouseholdRepositoryPort {
       const data = encode('household_members', membership.membershipId, membership, isLegacyHouseholdMember);
       upsertMembership.run(membership.membershipId, membership.householdId, membership.userId, membership.status, membership.firstJoinedAt, data);
     },
+    async deleteMembershipsOfUser(userId) {
+      removeMembershipsOfUser.run(userId);
+    },
+  };
+}
+
+/** @implements REQ-ACC-002, INV-AUTH-003, ERR-INTERNAL-UNEXPECTED */
+function confirmationTokenRepository(db: SqliteDatabase): ConfirmationTokenRepositoryPort {
+  const replace = db.prepare(
+    `INSERT INTO backup_confirmation_tokens (user_id, token_hash, created_at, expires_at, used_at) VALUES (?, ?, ?, ?, NULL)
+     ON CONFLICT (user_id) DO UPDATE SET token_hash = excluded.token_hash, created_at = excluded.created_at, expires_at = excluded.expires_at, used_at = NULL`,
+  );
+  const consume = db.prepare('UPDATE backup_confirmation_tokens SET used_at = ? WHERE token_hash = ? AND user_id = ? AND used_at IS NULL AND expires_at > ?');
+  const remove = db.prepare('DELETE FROM backup_confirmation_tokens WHERE user_id = ?');
+  return {
+    async replaceForUser(userId, tokenHash, createdAt, expiresAt) {
+      replace.run(userId, tokenHash, createdAt, expiresAt);
+    },
+    async consume(userId, tokenHash, nowIsoTimestamp) {
+      return consume.run(nowIsoTimestamp, tokenHash, userId, nowIsoTimestamp).changes === 1;
+    },
+    async deleteForUser(userId) {
+      remove.run(userId);
+    },
+  };
+}
+
+/** @implements ERR-RATE-LIMITED, ERR-INTERNAL-UNEXPECTED */
+function rateLimitRepository(db: SqliteDatabase): RateLimitRepositoryPort {
+  const insert = db.prepare('INSERT INTO rate_limit_events (id, scope, subject_user_id, occurred_at) VALUES (?, ?, ?, ?)');
+  const count = db.prepare<[string, string, string], { readonly n: number }>(
+    'SELECT COUNT(*) AS n FROM rate_limit_events WHERE scope = ? AND subject_user_id = ? AND occurred_at > ?',
+  );
+  const remove = db.prepare('DELETE FROM rate_limit_events WHERE subject_user_id = ?');
+  return {
+    async record(event) {
+      insert.run(event.id, event.scope, event.userId, event.occurredAt);
+    },
+    async countSince(scope, userId, sinceExclusive) {
+      return count.get(scope, userId, sinceExclusive)!.n;
+    },
+    async deleteForUser(userId) {
+      remove.run(userId);
+    },
+  };
+}
+
+/** @implements REQ-HOUSE2-001, INV-HOUSE-003, ERR-INTERNAL-UNEXPECTED */
+function invitationRepository(db: SqliteDatabase): InvitationRepositoryPort {
+  const columns = 'id, household_id, invitee_username, invitee_user_id, invited_by_user_id, role_on_join, status, created_at, responded_at';
+  const open = db.prepare<[string, string], InvitationRow>(`SELECT ${columns} FROM household_invitations WHERE household_id = ? AND invitee_username = ? AND status = 'INVITED'`);
+  const ofHousehold = db.prepare<[string], InvitationRow>(`SELECT ${columns} FROM household_invitations WHERE household_id = ?`);
+  const upsert = db.prepare(
+    `INSERT INTO household_invitations (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET household_id = excluded.household_id, invitee_username = excluded.invitee_username,
+       invitee_user_id = excluded.invitee_user_id, invited_by_user_id = excluded.invited_by_user_id, role_on_join = excluded.role_on_join,
+       status = excluded.status, created_at = excluded.created_at, responded_at = excluded.responded_at`,
+  );
+  const removeForUser = db.prepare('DELETE FROM household_invitations WHERE invited_by_user_id = ? OR invitee_user_id = ?');
+  const removeForHousehold = db.prepare('DELETE FROM household_invitations WHERE household_id = ?');
+  const toRecord = (row: InvitationRow): InvitationRecord => ({
+    invitationId: row.id,
+    householdId: row.household_id,
+    inviteeUsername: row.invitee_username,
+    inviteeUserId: row.invitee_user_id,
+    roleOnJoin: row.role_on_join as InvitationRecord['roleOnJoin'],
+    invitedByUserId: row.invited_by_user_id,
+    status: row.status as InvitationRecord['status'],
+    createdAt: row.created_at,
+    respondedAt: row.responded_at,
+  });
+  return {
+    async findOpen(householdId, inviteeUsername) {
+      const row = open.get(householdId, inviteeUsername);
+      return row === undefined ? null : toRecord(row);
+    },
+    async save(invitation) {
+      upsert.run(
+        invitation.invitationId,
+        invitation.householdId,
+        invitation.inviteeUsername,
+        invitation.inviteeUserId,
+        invitation.invitedByUserId,
+        invitation.roleOnJoin,
+        invitation.status,
+        invitation.createdAt,
+        invitation.respondedAt,
+      );
+    },
+    async listByHousehold(householdId) {
+      return ofHousehold.all(householdId).map(toRecord);
+    },
+    async deleteForUser(userId) {
+      removeForUser.run(userId, userId);
+    },
+    async deleteForHousehold(householdId) {
+      removeForHousehold.run(householdId);
+    },
   };
 }
 
 /**
- * Los 6 repositorios sobre una conexión. Las sentencias se preparan una vez.
+ * Los repositorios sobre una conexión. Las sentencias se preparan una vez.
  * @implements INV-ARCH-005
  */
 export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
@@ -339,5 +524,8 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     pets: petRepository(db),
     records: recordRepository(db),
     households: householdRepository(db),
+    confirmationTokens: confirmationTokenRepository(db),
+    rateLimits: rateLimitRepository(db),
+    invitations: invitationRepository(db),
   };
 }

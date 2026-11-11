@@ -21,7 +21,17 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         .map((l) => l.split('=') as [string, string]),
     );
     expect([loadAppConfig({}), example]).toEqual([
-      { port: 3100, host: '127.0.0.1', databasePath: './data/argos.sqlite', appTimezone: 'America/Bogota', cookieSecure: false },
+      {
+        port: 3100,
+        host: '127.0.0.1',
+        databasePath: './data/argos.sqlite',
+        appTimezone: 'America/Bogota',
+        cookieSecure: false,
+        exportMaxPerWindow: 5,
+        exportWindowMinutes: 15,
+        inviteMaxPerWindow: 20,
+        inviteWindowMinutes: 15,
+      },
       APP_CONFIG_DEFAULTS,
     ]);
   });
@@ -29,9 +39,14 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   it('[INV-ARCH-006] las variables válidas se convierten a sus tipos; las vacías toman el valor por defecto', () => {
     const config = loadAppConfig({ PORT: '65535', HOST: '127.0.0.1', DATABASE_PATH: '/tmp/argos/test.sqlite', APP_TIMEZONE: 'Europe/Madrid', COOKIE_SECURE: 'true', OTRA: 'x' });
     expect([config, loadAppConfig({ PORT: '', APP_TIMEZONE: '' })]).toEqual([
-      { port: 65535, host: '127.0.0.1', databasePath: '/tmp/argos/test.sqlite', appTimezone: 'Europe/Madrid', cookieSecure: true },
+      { ...loadAppConfig({}), port: 65535, databasePath: '/tmp/argos/test.sqlite', appTimezone: 'Europe/Madrid', cookieSecure: true },
       loadAppConfig({}),
     ]);
+  });
+
+  it('[INV-ARCH-006][ERR-RATE-LIMITED] los límites de frecuencia salen de EXPORT_MAX_PER_WINDOW, EXPORT_WINDOW_MINUTES, INVITE_MAX_PER_WINDOW e INVITE_WINDOW_MINUTES y se convierten a enteros', () => {
+    const config = loadAppConfig({ EXPORT_MAX_PER_WINDOW: '2', EXPORT_WINDOW_MINUTES: '60', INVITE_MAX_PER_WINDOW: '100', INVITE_WINDOW_MINUTES: '5' });
+    expect([config.exportMaxPerWindow, config.exportWindowMinutes, config.inviteMaxPerWindow, config.inviteWindowMinutes]).toEqual([2, 60, 100, 5]);
   });
 
   it.each([
@@ -45,6 +60,12 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     [{ APP_TIMEZONE: '../etc' }, ['APP_TIMEZONE']],
     [{ COOKIE_SECURE: 'yes' }, ['COOKIE_SECURE']],
     [{ PORT: 'x', HOST: 'localhost', COOKIE_SECURE: '1' }, ['PORT', 'HOST', 'COOKIE_SECURE']],
+    [{ EXPORT_MAX_PER_WINDOW: '0' }, ['EXPORT_MAX_PER_WINDOW']],
+    [{ EXPORT_WINDOW_MINUTES: '-5' }, ['EXPORT_WINDOW_MINUTES']],
+    [{ INVITE_MAX_PER_WINDOW: '2.5' }, ['INVITE_MAX_PER_WINDOW']],
+    [{ INVITE_WINDOW_MINUTES: 'quince' }, ['INVITE_WINDOW_MINUTES']],
+    [{ INVITE_MAX_PER_WINDOW: '010' }, ['INVITE_MAX_PER_WINDOW']],
+    [{ EXPORT_MAX_PER_WINDOW: '0', INVITE_WINDOW_MINUTES: '0' }, ['EXPORT_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES']],
   ])('[INV-ARCH-006] una variable inválida se rechaza con AppConfigError que la nombra: %j', (env, variables) => {
     expect(configError(env)).toEqual(variables);
   });

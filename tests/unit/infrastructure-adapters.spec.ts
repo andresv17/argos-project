@@ -4,6 +4,14 @@ import { CryptoUuidAdapter } from '../../src/infrastructure/adapters/crypto-uuid
 import { ScryptPasswordHasherAdapter } from '../../src/infrastructure/adapters/scrypt-password-hasher.adapter.ts';
 import { SystemClockAdapter, isSupportedTimeZone } from '../../src/infrastructure/adapters/system-clock.adapter.ts';
 import * as reExports from '../../src/infrastructure/adapters/deterministic-adapters.ts';
+import { NullAuditLogAdapter } from '../../src/infrastructure/adapters/null-audit-log.adapter.ts';
+import { Sha256BackupTokenAdapter } from '../../src/infrastructure/adapters/sha256-backup-token.adapter.ts';
+import { SlidingWindowRateLimiterAdapter } from '../../src/infrastructure/adapters/sliding-window-rate-limiter.adapter.ts';
+import { InMemoryUnitOfWork } from '../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
+import { DeterministicIdAdapter } from '../../src/infrastructure/adapters/deterministic-id.adapter.ts';
+import { RATE_EVENT_IDS } from '../fixtures/application-harness.ts';
+import { SequentialTokenAdapter } from '../fixtures/test-doubles.ts';
+import { ANA, ELENA, REFERENCE_NOW, USERS_FOR_ADAPTERS } from '../fixtures/identity-fixtures.ts';
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const at = (iso: string) => () => new Date(iso);
@@ -111,5 +119,89 @@ describe('ScryptPasswordHasherAdapter (src/infrastructure/adapters/scrypt-passwo
     const light = new ScryptPasswordHasherAdapter({ N: 1024, r: 8, p: 1 });
     const hash = await light.hash('Otra-Clave-456');
     expect([hash.split('$')[1], await hasher.verify('Otra-Clave-456', hash)]).toEqual(['1024', true]);
+  });
+});
+
+describe('SlidingWindowRateLimiterAdapter (src/infrastructure/adapters/sliding-window-rate-limiter.adapter.ts)', () => {
+  const at = (offsetMs: number) => new Date(Date.parse(REFERENCE_NOW) + offsetMs).toISOString();
+  const setup = (max = 3) => {
+    const uow = new InMemoryUnitOfWork({ ...USERS_FOR_ADAPTERS() });
+    const limiter = new SlidingWindowRateLimiterAdapter(new DeterministicIdAdapter(RATE_EVENT_IDS), { EXPORT: { maxPerWindow: 1, windowMinutes: 15 }, INVITE: { maxPerWindow: max, windowMinutes: 15 } });
+    const consume = (scope: 'EXPORT' | 'INVITE', userId: string, offsetMs: number) => uow.runInTransaction((r) => limiter.tryConsume(r, scope, userId, at(offsetMs)));
+    return { uow, consume };
+  };
+
+  it('[ERR-RATE-LIMITED][INV-ARCH-002] permite hasta INVITE_MAX_PER_WINDOW consumos y rechaza el siguiente sin registrarlo', async () => {
+    const { uow, consume } = setup();
+    expect([await consume('INVITE', ANA, 0), await consume('INVITE', ANA, 1000), await consume('INVITE', ANA, 2000), await consume('INVITE', ANA, 3000), await consume('INVITE', ANA, 4000)]).toEqual([true, true, true, false, false]);
+    expect(uow.snapshot().rateEvents).toHaveLength(3);
+  });
+
+  it('[ERR-RATE-LIMITED] la ventana es deslizante: el evento deja de contar justo a los 15 minutos y cada consumo rechazado no la prolonga', async () => {
+    const { consume } = setup(2);
+    await consume('INVITE', ANA, 0);
+    await consume('INVITE', ANA, 60_000);
+    expect(await consume('INVITE', ANA, 15 * 60_000 - 1)).toBe(false);
+    expect(await consume('INVITE', ANA, 15 * 60_000)).toBe(true);
+    expect(await consume('INVITE', ANA, 15 * 60_000 + 1)).toBe(false);
+    expect(await consume('INVITE', ANA, 16 * 60_000)).toBe(true);
+  });
+
+  it('[ERR-RATE-LIMITED] el límite es por ámbito y por actor: agotar INVITE no afecta a EXPORT ni a otra persona', async () => {
+    const { consume } = setup(1);
+    expect([await consume('INVITE', ANA, 0), await consume('INVITE', ANA, 1), await consume('EXPORT', ANA, 2), await consume('EXPORT', ANA, 3), await consume('INVITE', ELENA, 4)]).toEqual([true, false, true, false, true]);
+  });
+});
+
+describe('Sha256BackupTokenAdapter (src/infrastructure/adapters/sha256-backup-token.adapter.ts)', () => {
+  const at = (offsetMs: number) => new Date(Date.parse(REFERENCE_NOW) + offsetMs).toISOString();
+  const setup = () => {
+    const uow = new InMemoryUnitOfWork({ ...USERS_FOR_ADAPTERS() });
+    const adapter = new Sha256BackupTokenAdapter(new SequentialTokenAdapter());
+    return { uow, issue: (userId: string, offsetMs = 0) => uow.runInTransaction((r) => adapter.issue(r, userId, at(offsetMs))), consume: (userId: string, token: string, offsetMs: number) => uow.runInTransaction((r) => adapter.consume(r, userId, token, at(offsetMs))) };
+  };
+
+  it('[REQ-ACC-002][REQ-BACKUP2-001] emite un token de 43 caracteres base64url con caducidad a 10 minutos y guarda solo su SHA-256', async () => {
+    const { uow, issue } = setup();
+    const issued = await issue(ANA);
+    const stored = uow.snapshot().confirmationTokens[ANA]!;
+    expect([/^[A-Za-z0-9_-]{43}$/.test(issued.token), issued.expiresAt, stored.expiresAt, stored.tokenHash]).toEqual([true, at(10 * 60_000), at(10 * 60_000), expect.stringMatching(/^[0-9a-f]{64}$/)]);
+    expect(JSON.stringify(uow.snapshot().confirmationTokens)).not.toContain(issued.token);
+  });
+
+  it('[REQ-ACC-002] un token nuevo invalida el anterior, el consumo es de un solo uso y está ligado al usuario y a los 10 minutos exactos', async () => {
+    const { issue, consume } = setup();
+    const first = await issue(ANA);
+    const second = await issue(ANA, 1000);
+    const alien = await issue(ELENA, 1000);
+    expect([
+      await consume(ANA, first.token, 2000),
+      await consume(ANA, alien.token, 2000),
+      await consume(ELENA, second.token, 2000),
+      await consume(ANA, second.token, 1000 + 10 * 60_000),
+      await consume(ANA, second.token, 1000 + 10 * 60_000 - 1),
+      await consume(ANA, second.token, 1000 + 10 * 60_000 - 1),
+    ]).toEqual([false, false, false, false, true, false]);
+  });
+
+  it('[REQ-ACC-002] consume rechaza sin consultar nada una cadena que no tiene la forma de ConfirmationToken', async () => {
+    const { consume } = setup();
+    expect([await consume(ANA, '', 0), await consume(ANA, 'corto', 0), await consume(ANA, 'A'.repeat(44), 0)]).toEqual([false, false, false]);
+  });
+});
+
+describe('CryptoSecureTokenAdapter.nextConfirmationToken y NullAuditLogAdapter', () => {
+  it('[REQ-ACC-002][INV-ARCH-002] el token de confirmación son 32 bytes aleatorios en base64url (43 caracteres) y no se repiten', () => {
+    const adapter = new CryptoSecureTokenAdapter();
+    const tokens = Array.from({ length: 50 }, () => adapter.nextConfirmationToken());
+    expect([tokens.every((t) => /^[A-Za-z0-9_-]{43}$/.test(t)), new Set(tokens).size]).toEqual([true, 50]);
+  });
+
+  it('[REQ-ACC-002] el puerto de auditoría nulo (hasta T265) devuelve un seudónimo fijo de 64 hex y no escribe nada', async () => {
+    const uow = new InMemoryUnitOfWork({ ...USERS_FOR_ADAPTERS() });
+    const audit = new NullAuditLogAdapter();
+    const before = uow.snapshot();
+    await uow.runInTransaction((r) => audit.recordAccountDeletion(r, audit.pseudonymOf(ANA), REFERENCE_NOW));
+    expect([audit.pseudonymOf(ANA), audit.pseudonymOf(ELENA), uow.snapshot()]).toEqual(['0'.repeat(64), '0'.repeat(64), before]);
   });
 });

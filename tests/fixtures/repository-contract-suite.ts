@@ -4,17 +4,26 @@ import type { LegacyHouseholdMember as HouseholdMember } from '../../src/domain/
 import type { RepositorySet, UserAccount } from '../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.port.ts';
 import type { SessionRecord } from '../../src/domain/auth/auth-policies.ts';
-import { ANDRES_PETS, HOUSEHOLD, LUNA, MEMBERSHIPS, envelope, fixtures } from './application-harness.ts';
+import { ANDRES_PETS as ANDRES_PETS_001, HOUSEHOLD, LUNA as LUNA_001, MEMBERSHIPS, envelope as envelope001, fixtures } from './application-harness.ts';
+import { envelopePets, upgradeEnvelope, upgradePet } from './storage-upgrade.ts';
 
 /**
  * Suite de contratos de los puertos de repositorio (INV-ARCH-005). la ejecuta con los repositorios en
  * memoria; debe ejecutarla también con SQLite. Cada prueba parte de una unidad de trabajo vacía.
  *: los registros se guardan después de su mascota, porque SQLite exige la referencia (INV-PET-005).
  */
-const ANDRES: UserAccount = { ...fixtures.users[0], passwordHash: 'h-andres' };
-const MARIA: UserAccount = { ...fixtures.users[1], passwordHash: 'h-maria' };
+const account = (user: object, passwordHash: string): UserAccount => ({ ...user, email: null, preferredLanguage: 'es', timezone: 'America/Bogota', passwordHash }) as UserAccount;
+const ANDRES: UserAccount = account(fixtures.users[0], 'h-andres');
+const MARIA: UserAccount = account(fixtures.users[1], 'h-maria');
+// Los datos de la 001 se elevan al esquema 3.0.0 para que SQLite los valide (T214; T226 y T255 los sustituyen).
+const envelope = upgradeEnvelope(envelope001);
+const ANDRES_PETS = ANDRES_PETS_001.map(upgradePet);
+const LUNA = upgradePet(LUNA_001);
+const ENVELOPE_PETS = envelopePets(envelope);
 const ARGOS = ANDRES_PETS[0]!;
-const SESSION: SessionRecord = { userId: ANDRES.id, createdAt: '2026-11-05T12:00:00.000Z', expiresAt: '2026-11-12T12:00:00.000Z', revokedAt: null };
+const NOW = '2026-11-05T12:00:00.000Z';
+const SESSION: SessionRecord = { userId: ANDRES.id, createdAt: NOW, lastActivityAt: NOW, revokedAt: null };
+const at = (offsetMs: number) => new Date(Date.parse(NOW) + offsetMs).toISOString();
 const sortedIds = (items: ReadonlyArray<{ id: string }>) => items.map((i) => i.id).sort();
 const sortedMemberships = (items: readonly HouseholdMember[]) => items.map((m) => m.membershipId).sort();
 
@@ -30,6 +39,7 @@ async function rejection(promise: Promise<unknown>): Promise<string> {
 export function defineRepositoryContractSuite(adapterName: string, createUnitOfWork: () => UnitOfWorkPort): void {
   const seed = async (uow: UnitOfWorkPort, work: (r: RepositorySet) => Promise<void>) => uow.runInTransaction(work);
   const read = <T>(uow: UnitOfWorkPort, work: (r: RepositorySet) => Promise<T>) => uow.runInTransaction(work);
+  const seed2 = <T>(uow: UnitOfWorkPort, work: (r: RepositorySet) => Promise<T>) => uow.runInTransaction(work);
 
   describe(`suite de contratos de repositorio (${adapterName})`, () => {
     it('[INV-ARCH-005] runInTransaction devuelve una Promise y cada operación de repositorio también', async () => {
@@ -42,8 +52,12 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
           r.pets.findById(ARGOS.id),
           r.records.listForPet(ARGOS.id),
           r.households.findById(HOUSEHOLD.id),
+          r.confirmationTokens.consume(ANDRES.id, 'h', NOW),
+          r.rateLimits.countSince('INVITE', ANDRES.id, NOW),
+          r.invitations.findOpen(HOUSEHOLD.id, 'x'),
+          r.users.countReferences(ANDRES.id),
         ];
-        expect(results.map((p) => p instanceof Promise)).toEqual([true, true, true, true, true, true]);
+        expect(results.map((p) => p instanceof Promise)).toEqual([true, true, true, true, true, true, true, true, true, true]);
         await Promise.all(results);
         return 'ok';
       });
@@ -112,7 +126,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       const uow = createUnitOfWork();
       const pet: PetProfile = { ...ARGOS };
       await seed(uow, async (r) => {
-        await r.pets.save(pet as unknown as PetProfile); // el sobre 3.0.0 no lleva ownerUserId; el fixture 001 sí (T214 PENDIENTE)
+        await r.pets.save(pet);
         (pet as { name: string }).name = 'Cambiado tras guardar';
       });
       await read(uow, async (r) => {
@@ -155,7 +169,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     it('[INV-ARCH-005] mascotas: save inserta o reemplaza, listByOwners filtra por dueño y delete borra', async () => {
       const uow = createUnitOfWork();
       await seed(uow, async (r) => {
-        for (const pet of [...ANDRES_PETS, LUNA]) await r.pets.save(pet as unknown as PetProfile); // el sobre 3.0.0 no lleva ownerUserId; el fixture 001 sí (T214 PENDIENTE)
+        for (const pet of [...ANDRES_PETS, LUNA]) await r.pets.save(pet);
         await r.pets.save({ ...ARGOS, name: 'Argos II' });
         await r.pets.delete(ANDRES_PETS[1]!.id);
       });
@@ -178,7 +192,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     it('[INV-ARCH-005] registros: listForPet devuelve las 6 colecciones de la mascota, add rechaza ids repetidos y deleteForPet borra solo esa mascota', async () => {
       const uow = createUnitOfWork();
       await seed(uow, async (r) => {
-        for (const pet of envelope.pets) await r.pets.save(pet as unknown as PetProfile); // el sobre 3.0.0 no lleva ownerUserId; el fixture 001 sí (T214 PENDIENTE)
+        for (const pet of ENVELOPE_PETS) await r.pets.save(pet);
         for (const module of Object.keys(envelope.records) as Array<keyof typeof envelope.records>) {
           for (const record of envelope.records[module]) await r.records.add(module, record as never);
         }
@@ -195,7 +209,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     it('[INV-ARCH-005][INV-BACKUP-001] registros: findPetIdOfRecord devuelve el petId del registro en cualquiera de los 6 módulos y null si no existe', async () => {
       const uow = createUnitOfWork();
       await seed(uow, async (r) => {
-        for (const pet of envelope.pets) await r.pets.save(pet as unknown as PetProfile); // el sobre 3.0.0 no lleva ownerUserId; el fixture 001 sí (T214 PENDIENTE)
+        for (const pet of ENVELOPE_PETS) await r.pets.save(pet);
         for (const module of Object.keys(envelope.records) as Array<keyof typeof envelope.records>) {
           for (const record of envelope.records[module]) await r.records.add(module, record as never);
         }
@@ -234,6 +248,165 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       await seed(uow, (r) => r.households.deleteWithMemberships(HOUSEHOLD.id));
       const after = await read(uow, async (r) => [await r.households.findById(HOUSEHOLD.id), await r.households.listMemberships(HOUSEHOLD.id), (await r.households.findById(other.id))!.name, (await r.households.listMemberships(other.id)).length]);
       expect(after).toEqual([null, [], 'Otro', 1]);
+    });
+
+    it('[INV-AUTH-003][REQ-ACC-001] usuarios: email, idioma y zona horaria viajan completos; update reemplaza perfil y hash; delete borra solo esa cuenta', async () => {
+      const uow = createUnitOfWork();
+      await seed(uow, async (r) => {
+        await r.users.insert(ANDRES);
+        await r.users.insert(MARIA);
+        await r.users.update({ ...MARIA, displayName: 'María V.', email: 'maria@example.com', preferredLanguage: 'pt', timezone: 'Europe/Madrid', passwordHash: 'h-nuevo' });
+      });
+      const [maria, andres] = await read(uow, async (r) => [await r.users.findById(MARIA.id), await r.users.findById(ANDRES.id)]);
+      expect([maria, andres]).toEqual([{ ...MARIA, displayName: 'María V.', email: 'maria@example.com', preferredLanguage: 'pt', timezone: 'Europe/Madrid', passwordHash: 'h-nuevo' }, ANDRES]);
+      expect(await rejection(seed(uow, (r) => r.users.update({ ...MARIA, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa66', username: 'otro.mas' })))).not.toBe('resolved');
+      await seed(uow, (r) => r.users.delete(MARIA.id));
+      expect(await read(uow, async (r) => [await r.users.findById(MARIA.id), (await r.users.findById(ANDRES.id))?.username])).toEqual([null, 'andres']);
+    });
+
+    it('[INV-AUTH2-002][REQ-AUTH2-003] sesiones: lastActivityAt se guarda y se renueva; revokeOthers revoca las demás sesiones vigentes del usuario y conserva la actual; deleteByUser borra solo las suyas', async () => {
+      const uow = createUnitOfWork();
+      const maria: UserAccount = MARIA;
+      await seed(uow, async (r) => {
+        await r.users.insert(ANDRES);
+        await r.users.insert(maria);
+        await r.sessions.save('actual', SESSION);
+        await r.sessions.save('otra', SESSION);
+        await r.sessions.save('cerrada', { ...SESSION, revokedAt: at(1000) });
+        await r.sessions.save('ajena', { ...SESSION, userId: maria.id });
+        await r.sessions.save('actual', { ...SESSION, lastActivityAt: at(60_000) });
+      });
+      expect(await read(uow, (r) => r.sessions.findByToken('actual'))).toEqual({ ...SESSION, lastActivityAt: at(60_000) });
+      const revoked = await seed2(uow, (r) => r.sessions.revokeOthers(ANDRES.id, 'actual', at(120_000)));
+      const state = await read(uow, async (r) => Promise.all(['actual', 'otra', 'cerrada', 'ajena'].map((t) => r.sessions.findByToken(t))));
+      expect(revoked).toBe(1);
+      expect(state.map((x) => x?.revokedAt)).toEqual([null, at(120_000), at(1000), null]);
+      await seed(uow, (r) => r.sessions.deleteByUser(ANDRES.id));
+      expect(await read(uow, async (r) => Promise.all(['actual', 'otra', 'cerrada', 'ajena'].map(async (t) => (await r.sessions.findByToken(t)) !== null)))).toEqual([false, false, false, true]);
+    });
+
+    it('[INV-AUTH-005] intentos de login: deleteFailures borra los fallos del username', async () => {
+      const uow = createUnitOfWork();
+      await seed(uow, async (r) => {
+        await r.loginAttempts.replaceFailures('maria.v', ['a']);
+        await r.loginAttempts.replaceFailures('andres', ['b']);
+        await r.loginAttempts.deleteFailures('maria.v');
+      });
+      expect(await read(uow, async (r) => [await r.loginAttempts.listFailures('maria.v'), await r.loginAttempts.listFailures('andres')])).toEqual([[], ['b']]);
+    });
+
+    it('[REQ-ACC-002][INV-AUTH-003] tokens de confirmación: uno por usuario (el nuevo reemplaza al anterior), consumo condicional de un solo uso, caducidad exacta y ligado al usuario', async () => {
+      const uow = createUnitOfWork();
+      await seed(uow, async (r) => {
+        await r.users.insert(ANDRES);
+        await r.users.insert(MARIA);
+        await r.confirmationTokens.replaceForUser(ANDRES.id, 'hash-a1', NOW, at(600_000));
+        await r.confirmationTokens.replaceForUser(ANDRES.id, 'hash-a2', NOW, at(600_000));
+        await r.confirmationTokens.replaceForUser(MARIA.id, 'hash-m1', NOW, at(600_000));
+      });
+      const attempts = await seed2(uow, async (r) => [
+        await r.confirmationTokens.consume(ANDRES.id, 'hash-a1', at(1000)),
+        await r.confirmationTokens.consume(ANDRES.id, 'hash-m1', at(1000)),
+        await r.confirmationTokens.consume(MARIA.id, 'hash-m1', at(600_000)),
+        await r.confirmationTokens.consume(ANDRES.id, 'hash-a2', at(599_999)),
+        await r.confirmationTokens.consume(ANDRES.id, 'hash-a2', at(599_999)),
+      ]);
+      expect(attempts).toEqual([false, false, false, true, false]);
+      await seed(uow, (r) => r.confirmationTokens.deleteForUser(MARIA.id));
+      expect(await seed2(uow, (r) => r.confirmationTokens.consume(MARIA.id, 'hash-m1', at(1000)))).toBe(false);
+    });
+
+    it('[INV-ARCH-005] un consumo de token dentro de una transacción que falla se revierte y el token sigue vigente', async () => {
+      const uow = createUnitOfWork();
+      await seed(uow, async (r) => {
+        await r.users.insert(ANDRES);
+        await r.confirmationTokens.replaceForUser(ANDRES.id, 'hash-a1', NOW, at(600_000));
+      });
+      const outcome = await rejection(
+        uow.runInTransaction(async (r) => {
+          expect(await r.confirmationTokens.consume(ANDRES.id, 'hash-a1', at(1000))).toBe(true);
+          throw new Error('fallo posterior');
+        }),
+      );
+      expect(outcome).toBe('fallo posterior');
+      expect(await seed2(uow, (r) => r.confirmationTokens.consume(ANDRES.id, 'hash-a1', at(2000)))).toBe(true);
+    });
+
+    it('[ERR-RATE-LIMITED] eventos de frecuencia: countSince cuenta por ámbito y usuario con ventana abierta por la izquierda, y deleteForUser los borra', async () => {
+      const uow = createUnitOfWork();
+      await seed(uow, async (r) => {
+        await r.users.insert(ANDRES);
+        await r.users.insert(MARIA);
+        await r.rateLimits.record({ id: 'e1000000-0000-4000-8000-000000000001', scope: 'INVITE', userId: ANDRES.id, occurredAt: at(0) });
+        await r.rateLimits.record({ id: 'e1000000-0000-4000-8000-000000000002', scope: 'INVITE', userId: ANDRES.id, occurredAt: at(60_000) });
+        await r.rateLimits.record({ id: 'e1000000-0000-4000-8000-000000000003', scope: 'EXPORT', userId: ANDRES.id, occurredAt: at(60_000) });
+        await r.rateLimits.record({ id: 'e1000000-0000-4000-8000-000000000004', scope: 'INVITE', userId: MARIA.id, occurredAt: at(60_000) });
+      });
+      const counts = await read(uow, async (r) => [
+        await r.rateLimits.countSince('INVITE', ANDRES.id, at(-1)),
+        await r.rateLimits.countSince('INVITE', ANDRES.id, at(0)),
+        await r.rateLimits.countSince('INVITE', ANDRES.id, at(60_000)),
+        await r.rateLimits.countSince('EXPORT', ANDRES.id, at(0)),
+        await r.rateLimits.countSince('INVITE', MARIA.id, at(0)),
+      ]);
+      expect(counts).toEqual([2, 1, 0, 1, 1]);
+      await seed(uow, (r) => r.rateLimits.deleteForUser(ANDRES.id));
+      expect(await read(uow, async (r) => [await r.rateLimits.countSince('INVITE', ANDRES.id, at(-1)), await r.rateLimits.countSince('INVITE', MARIA.id, at(-1))])).toEqual([0, 1]);
+    });
+
+    it('[REQ-HOUSE2-001][INV-HOUSE-003] invitaciones: la inerte no tiene usuario, solo hay una INVITED por hogar y username, y deleteForUser / deleteForHousehold las retiran', async () => {
+      const uow = createUnitOfWork();
+      const invitation = (n: number, username: string, inviteeUserId: string | null, status: 'INVITED' | 'DECLINED' = 'INVITED') => ({
+        invitationId: `e2000000-0000-4000-8000-00000000000${n}`,
+        householdId: HOUSEHOLD.id,
+        inviteeUsername: username,
+        inviteeUserId,
+        roleOnJoin: 'READER' as const,
+        invitedByUserId: ANDRES.id,
+        status,
+        createdAt: NOW,
+        respondedAt: status === 'INVITED' ? null : at(1000),
+      });
+      await seed(uow, async (r) => {
+        await r.users.insert(ANDRES);
+        await r.users.insert(MARIA);
+        await r.households.insert(HOUSEHOLD);
+        await r.invitations.save(invitation(1, 'maria.v', MARIA.id));
+        await r.invitations.save(invitation(2, 'nadie.x', null));
+        await r.invitations.save(invitation(3, 'otra.x', null, 'DECLINED'));
+      });
+      const open = await read(uow, async (r) => [await r.invitations.findOpen(HOUSEHOLD.id, 'maria.v'), await r.invitations.findOpen(HOUSEHOLD.id, 'nadie.x'), await r.invitations.findOpen(HOUSEHOLD.id, 'otra.x')]);
+      expect(open).toEqual([invitation(1, 'maria.v', MARIA.id), invitation(2, 'nadie.x', null), null]);
+      expect(await rejection(seed(uow, (r) => r.invitations.save(invitation(4, 'nadie.x', null))))).not.toBe('resolved');
+      await seed(uow, (r) => r.invitations.save({ ...invitation(2, 'nadie.x', null), status: 'CANCELLED', respondedAt: at(2000) }));
+      await seed(uow, (r) => r.invitations.save(invitation(5, 'nadie.x', null)));
+      expect((await read(uow, (r) => r.invitations.listByHousehold(HOUSEHOLD.id))).map((i) => `${i.inviteeUsername}:${i.status}`).sort()).toEqual(['maria.v:INVITED', 'nadie.x:CANCELLED', 'nadie.x:INVITED', 'otra.x:DECLINED']);
+      await seed(uow, (r) => r.invitations.deleteForUser(MARIA.id));
+      expect((await read(uow, (r) => r.invitations.listByHousehold(HOUSEHOLD.id))).map((i) => i.inviteeUsername).sort()).toEqual(['nadie.x', 'nadie.x', 'otra.x']);
+      await seed(uow, (r) => r.invitations.deleteForHousehold(HOUSEHOLD.id));
+      expect(await read(uow, (r) => r.invitations.listByHousehold(HOUSEHOLD.id))).toEqual([]);
+    });
+
+    it('[REQ-ACC-002] households.deleteMembershipsOfUser borra las filas del usuario en todos los hogares y countReferences llega a 0 cuando no queda nada que lo referencie', async () => {
+      const uow = createUnitOfWork();
+      await seed(uow, async (r) => {
+        await r.users.insert(MARIA);
+        await r.households.insert(HOUSEHOLD);
+        for (const m of MEMBERSHIPS) await r.households.saveMembership(m);
+        await r.sessions.save('s', { ...SESSION, userId: MARIA.id });
+        await r.confirmationTokens.replaceForUser(MARIA.id, 'h', NOW, at(600_000));
+        await r.rateLimits.record({ id: 'e1000000-0000-4000-8000-000000000001', scope: 'EXPORT', userId: MARIA.id, occurredAt: NOW });
+      });
+      expect(await read(uow, (r) => r.users.countReferences(MARIA.id))).toBeGreaterThanOrEqual(4);
+      await seed(uow, async (r) => {
+        await r.households.deleteMembershipsOfUser(MARIA.id);
+        await r.sessions.deleteByUser(MARIA.id);
+        await r.confirmationTokens.deleteForUser(MARIA.id);
+        await r.rateLimits.deleteForUser(MARIA.id);
+      });
+      expect(await read(uow, (r) => r.users.countReferences(MARIA.id))).toBe(1);
+      await seed(uow, (r) => r.users.delete(MARIA.id));
+      expect(await read(uow, async (r) => [await r.users.countReferences(MARIA.id), (await r.households.listMemberships(HOUSEHOLD.id)).some((m) => m.userId === MARIA.id)])).toEqual([0, false]);
     });
   });
 }

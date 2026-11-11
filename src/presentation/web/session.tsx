@@ -2,18 +2,22 @@
  * Sesión de la SPA (STATE-AUTH-SESSION-001 visto desde el cliente): usuario actual de `GET /auth/me`,
  * registro, login y logout por la API. La cookie `argos_session` es HttpOnly; la SPA nunca la lee.
  *
- * @implements REQ-UI-005, REQ-AUTH-001, REQ-AUTH-002, REQ-AUTH-003, REQ-AUTH-004
+ * Al arrancar consulta `GET /auth/me` una sola vez (la recarga conserva la sesión mientras sea vigente). No hay sondeo,
+ * temporizadores ni renovación al recuperar el foco: solo la acción de la persona produce peticiones autenticadas, y
+ * cada una renueva la inactividad de 30 min en el servidor (INV-AUTH2-002).
+ *
+ * @implements REQ-UI-005, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH2-002, INV-ARCH-003
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ApiProblem, CSRF_PARAMS, unwrap, type ApiClient } from './api.ts';
 import type { Schemas } from './view-model.ts';
 
-export type UserPublicProfile = Schemas['UserPublicProfile'];
+export type UserSelfProfile = Schemas['UserSelfProfile'];
 export type SessionStatus = 'LOADING' | 'ANONYMOUS' | 'AUTHENTICATED';
 
 export interface SessionState {
   readonly status: SessionStatus;
-  readonly user: UserPublicProfile | null;
+  readonly user: UserSelfProfile | null;
   readonly api: ApiClient;
   register(input: Schemas['RegisterUserInput']): Promise<void>;
   login(input: Schemas['LoginInput']): Promise<void>;
@@ -23,7 +27,7 @@ export interface SessionState {
 const SessionContext = createContext<SessionState | null>(null);
 
 export function SessionProvider({ api, children }: { readonly api: ApiClient; readonly children: ReactNode }): JSX.Element {
-  const [user, setUser] = useState<UserPublicProfile | null>(null);
+  const [user, setUser] = useState<UserSelfProfile | null>(null);
   const [status, setStatus] = useState<SessionStatus>('LOADING');
 
   useEffect(() => {

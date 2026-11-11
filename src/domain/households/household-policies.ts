@@ -1,9 +1,10 @@
 /**
  * Políticas puras de hogares y membresías.
  * - REQ-HOUSE-001 / INV-HOUSE-001: el creador nace OWNER ACTIVE y es el único OWNER.
- * - REQ-HOUSE-002 / INV-HOUSE-002 / INV-HOUSE-003: solo el OWNER invita; el invitado debe existir; a lo sumo
- *   una membresía INVITED o ACTIVE por par (householdId, userId). La re-invitación crea una fila nueva y
- *   hereda firstJoinedAt del par (D-05).
+ * - REQ-HOUSE2-001 / INV-HOUSE-002 / INV-HOUSE-003: solo el OWNER invita (T238 PENDIENTE: ADMIN); la invitación es
+ *   uniforme: si el username no existe o el par ya tiene una membresía INVITED o ACTIVE no hay efecto y no se
+ *   distingue (INV-AUTH-006); a lo sumo una membresía INVITED o ACTIVE por par (householdId, userId). La
+ *   re-invitación crea una fila nueva y hereda firstJoinedAt del par (D-05).
  * - REQ-HOUSE-003: ACCEPT y DECLINE sin invitación INVITED dan ERR-HOUSE-INVITATION-NOT-FOUND, nunca 403.
  * - REQ-HOUSE-004: REMOVE / CANCEL (OWNER), LEAVE (MEMBER) y borrado del hogar; destino sin membresía
  *   INVITED o ACTIVE da ERR-HOUSE-MEMBERSHIP-NOT-FOUND.
@@ -11,7 +12,7 @@
  *   para el OWNER (D-01); color del dueño por firstJoinedAt ASC, userId ASC; colorToken nulo fuera del hogar.
  * - STATE-HOUSE-MEMBERSHIP-001: tabla de transiciones leída del contrato generado.
  *
- * @implements REQ-HOUSE-001, REQ-HOUSE-002, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-HOUSE-001, INV-HOUSE-002, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, STATE-HOUSE-MEMBERSHIP-001, ERR-AUTH-USER-NOT-FOUND, ERR-HOUSE-MEMBER-ALREADY-EXISTS, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-OWNER-CANNOT-LEAVE, ERR-HOUSE-INVITATION-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND, INV-ARCH-004
+ * @implements REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-HOUSE-001, INV-HOUSE-002, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, STATE-HOUSE-MEMBERSHIP-001, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-OWNER-CANNOT-LEAVE, ERR-HOUSE-INVITATION-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND, INV-ARCH-004
  */
 
 import {
@@ -212,20 +213,17 @@ export interface InviteCommand {
 }
 
 /**
- * REQ-HOUSE-002: el OWNER invita a un usuario existente. Orden de comprobación: OWNER (INV-HOUSE-002), usuario
- * existente (usuario inexistente, retirado en la 002; T212 PENDIENTE), sin fila INVITED o ACTIVE del par (INV-HOUSE-003). Crea siempre una fila
- * nueva en INVITED; desde DECLINED, CANCELLED, LEFT o REMOVED es el evento INVITE y hereda firstJoinedAt (D-05).
- * @implements REQ-HOUSE-002, INV-HOUSE-002, INV-HOUSE-003, ERR-AUTH-USER-NOT-FOUND, ERR-HOUSE-MEMBER-ALREADY-EXISTS
+ * REQ-HOUSE2-001: el OWNER invita a un usuario existente. Orden de comprobación: OWNER (INV-HOUSE-002), después la
+ * invitación es uniforme: devuelve null (sin efecto) si el usuario no existe o si ya hay una fila INVITED o ACTIVE del
+ * par (INV-HOUSE-003); la 001 respondía 404 y 409, que enumeraban cuentas y membresías y están retirados. Si procede,
+ * crea una fila nueva en INVITED; desde DECLINED, CANCELLED, LEFT o REMOVED es el evento INVITE y hereda
+ * firstJoinedAt (D-05).
+ * @implements REQ-HOUSE2-001, INV-HOUSE-002, INV-HOUSE-003
  */
-export function inviteMember(command: InviteCommand): LegacyHouseholdMember {
+export function inviteMember(command: InviteCommand): LegacyHouseholdMember | null {
   const { memberships, householdId, actorUserId, invitee, nowIsoTimestamp } = command;
   requireOwner(memberships, householdId, actorUserId);
-  if (invitee === null) {
-    throw new DomainError('ERR-HOUSE-MEMBERSHIP-NOT-FOUND', undefined, 'username') // T212 PENDIENTE: invitación uniforme (202 idéntica);
-  }
-  if (openRowOf(memberships, householdId, invitee.id) !== undefined) {
-    throw new DomainError('ERR-HOUSE-MEMBERSHIP-NOT-FOUND', undefined, 'username') // T212 PENDIENTE: invitación uniforme (202 idéntica);
-  }
+  if (invitee === null || openRowOf(memberships, householdId, invitee.id) !== undefined) return null;
   return {
     membershipId: command.membershipId,
     householdId,

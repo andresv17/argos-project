@@ -4,6 +4,7 @@
  * @implements INV-ARCH-004
  */
 
+import { ChangePasswordUseCase, DeleteAccountUseCase, UpdateProfileUseCase } from '../../../application/use-cases/account-use-cases.ts';
 import { AuthenticateRequestUseCase, GetCurrentSessionUseCase, LoginUseCase, LogoutUseCase, RegisterUserUseCase } from '../../../application/use-cases/auth-use-cases.ts';
 import { ExportBackupUseCase, ImportBackupUseCase } from '../../../application/use-cases/backup-use-cases.ts';
 import {
@@ -36,6 +37,9 @@ export function createUseCases(deps: ApplicationDeps) {
     logout: new LogoutUseCase(deps),
     authenticate: new AuthenticateRequestUseCase(deps),
     currentSession: new GetCurrentSessionUseCase(deps),
+    changePassword: new ChangePasswordUseCase(deps),
+    updateProfile: new UpdateProfileUseCase(deps),
+    deleteAccount: new DeleteAccountUseCase(deps),
     registerPet: new RegisterPetUseCase(deps),
     updatePet: new UpdatePetUseCase(deps),
     deletePet: new DeletePetUseCase(deps),

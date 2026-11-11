@@ -10,10 +10,12 @@
 
 import {
   DomainError,
+  resolveFieldErrorCode,
   type components,
   type OwnerTag,
   type PetProfile,
   type UserPublicProfile,
+  type UserSelfProfile,
 } from '../../generated/index.ts';
 import type { LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
 import { assertCanRead, assertCanWrite } from '../../domain/access/access-policy.ts';
@@ -21,9 +23,12 @@ import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAl
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
+import type { AuditLogPort } from '../ports/audit-log.port.ts';
+import type { BackupTokenPort } from '../ports/backup-token.port.ts';
 import type { ClockPort } from '../ports/clock.port.ts';
 import type { IdGeneratorPort } from '../ports/id-generator.port.ts';
 import type { PasswordHasherPort } from '../ports/password-hasher.port.ts';
+import type { RateLimiterPort } from '../ports/rate-limiter.port.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import type { SecureTokenPort } from '../ports/secure-token.port.ts';
 import type { UnitOfWorkPort } from '../ports/unit-of-work.port.ts';
@@ -42,6 +47,12 @@ export interface ApplicationDeps {
   readonly hasher: PasswordHasherPort;
   /** Hash ficticio con el coste de uno real; LoginUseCase lo verifica cuando el username no existe (INV-AUTH-006). */
   readonly dummyPasswordHash: string;
+  /** Límite de frecuencia de invitaciones y exportaciones (ADR-002-12). */
+  readonly rateLimiter: RateLimiterPort;
+  /** Token efímero de confirmación de respaldo (REQ-ACC-002). */
+  readonly backupTokens: BackupTokenPort;
+  /** Auditoría; nula hasta T265. */
+  readonly audit: AuditLogPort;
 }
 
 interface ValidatorWithErrors {
@@ -63,8 +74,30 @@ export function assertMatchesSchema<T>(schemaName: string, validator: unknown, v
   throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `${schemaName}: ${field ?? '(raíz)'} ${String(error.message)}.`, field);
 }
 
+/**
+ * Como `assertMatchesSchema`, pero un fallo sobre el valor de un campo con `x-sdd-error` (p. ej. `newPassword` de
+ * ChangePasswordInput) lanza el código anotado en lugar de ERR-SCHEMA-VALIDATION-FAILED (regla 4).
+ */
+export function assertMatchesAnnotatedSchema<T>(schemaName: string, validator: unknown, value: unknown): T {
+  const validate = validator as ValidatorWithErrors;
+  if (validate(value)) return value as T;
+  const error = validate.errors![0]!;
+  const named = (error.params['missingProperty'] ?? error.params['additionalProperty']) as string | undefined;
+  if (named === undefined) {
+    const annotated = resolveFieldErrorCode(schemaName, error.instancePath);
+    if (annotated !== undefined) throw new DomainError(annotated, undefined, error.instancePath.split('/')[1] ?? null);
+  }
+  const field = named ?? error.instancePath.split('/')[1] ?? null;
+  throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `${schemaName}: ${field ?? '(raíz)'} ${String(error.message)}.`, field);
+}
+
 export function toPublicProfile(account: UserAccount): UserPublicProfile {
   return { id: account.id, username: account.username, displayName: account.displayName, createdAt: account.createdAt };
+}
+
+/** Perfil propio (REQ-AUTH-004): añade correo, idioma y zona horaria; nunca el hash. Solo para el propio usuario. */
+export function toSelfProfile(account: UserAccount): UserSelfProfile {
+  return { ...toPublicProfile(account), email: account.email, preferredLanguage: account.preferredLanguage, timezone: account.timezone };
 }
 
 export async function publicProfilesById(repositories: RepositorySet, userIds: readonly string[]): Promise<Map<string, UserPublicProfile>> {

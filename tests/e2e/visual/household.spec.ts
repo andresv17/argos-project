@@ -23,8 +23,8 @@ test.beforeAll(async ({ browser }) => {
   owner = await ownerContext.newPage();
   guest = await guestContext.newPage();
   for (const p of [owner, guest]) p.on('pageerror', (error) => pageErrors.push(String(error)));
-  await registerViaApi(ownerContext.request, 'ana.e2e', 'Ana', 'AnaClave2026');
-  await registerViaApi(guestContext.request, 'beto.e2e', 'Beto', 'BetoClave2026');
+  await registerViaApi(ownerContext.request, 'ana.e2e', 'Ana', 'AnaClave2026!');
+  await registerViaApi(guestContext.request, 'beto.e2e', 'Beto', 'BetoClave2026!');
   await createPetViaApi(ownerContext.request, 'Argos', 'DOG');
   await createPetViaApi(guestContext.request, 'Bruma', 'CAT');
 });
