@@ -100,7 +100,7 @@ export function PetsPage(): JSX.Element {
   };
 
   const createPet = async (body: Record<string, string | number>): Promise<void> => {
-    const pet = await unwrap(api.POST('/pets', { params: CSRF_PARAMS, body: body as Schemas['CreatePetInput'] }));
+    const pet = await unwrap(api.POST('/pets', { params: CSRF_PARAMS, body: body as unknown as Schemas['CreatePetInput'] }));
     setMode('VIEW');
     setContextId(MINE_CONTEXT_ID);
     setActivePetId(pet.id);
@@ -160,10 +160,10 @@ export function PetsPage(): JSX.Element {
         <section aria-label="Ficha de la mascota" className="grid grid-cols-1 content-start gap-3">
           <FormError message={error} />
           {mode === 'CREATE' ? <PetForm profile={null} onSubmit={createPet} onCancel={() => setMode('VIEW')} /> : null}
-          {mode === 'EDIT' && dashboard !== null && dashboard.canEdit ? (
+          {mode === 'EDIT' && dashboard !== null && dashboard.permissions.editPetBasics ? (
             <PetForm key={`edit-${dashboard.profile.id}`} profile={dashboard.profile} onSubmit={editPet} onCancel={() => setMode('VIEW')} />
           ) : null}
-          {mode === 'DELETE' && dashboard !== null && dashboard.canEdit ? (
+          {mode === 'DELETE' && dashboard !== null && dashboard.permissions.editPetBasics ? (
             <DeletePetDialog petName={dashboard.profile.name} onConfirm={() => void deletePet()} onCancel={() => setMode('VIEW')} />
           ) : null}
           {dashboard === null ? (

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DomainError, type HouseholdMember } from '../../src/generated/index.ts';
+import { DomainError } from '../../src/generated/index.ts';
+import type { LegacyHouseholdMember as HouseholdMember } from '../../src/domain/households/household-policies.ts';
 import {
   CreateHouseholdUseCase,
   DeleteHouseholdUseCase,
@@ -181,7 +182,7 @@ describe('hogares (src/application/use-cases/household-use-cases.ts)', () => {
   it('[REQ-HOUSE-004] detalle del hogar: el OWNER ve también a Carlos (INVITED); María solo los ACTIVE; Carlos y Lucía reciben 404 (D-01)', async () => {
     const { deps } = createHarness();
     const get = new GetHouseholdUseCase(deps);
-    const members = async (userId: string) => (await get.execute(userId, H)).members.map((m) => [m.user.id, m.membership.status, m.colorToken]);
+    const members = async (userId: string) => (await get.execute(userId, H)).members.map((m) => [m.membership.userId, m.membership.status, m.colorToken]);
     expect(await members(ANDRES)).toEqual([
       [ANDRES, 'ACTIVE', 'OWNER_COLOR_1'],
       [MARIA, 'ACTIVE', 'OWNER_COLOR_2'],
@@ -201,13 +202,13 @@ describe('hogares (src/application/use-cases/household-use-cases.ts)', () => {
     const forAndres = await pets.execute(ANDRES, H);
     expect(forAndres.household).toEqual(HOUSEHOLD);
     expect(forAndres.pets.map((p) => p.profile.id)).toEqual(expected.petOrder);
-    expect(forAndres.pets.map((p) => [p.owner.colorToken, p.canEdit])).toEqual(
+    expect(forAndres.pets.map((p) => [p.owner.colorToken, p.permissions.editPetBasics])).toEqual(
       expected.petOrder.map((id: string) => {
         const owner = ANDRES_PETS.some((p) => p.id === id) ? ANDRES : MARIA;
         return [expected.ownerColorTokens[owner], owner === ANDRES];
       }),
     );
-    expect((await pets.execute(MARIA, H)).pets.map((p) => p.canEdit)).toEqual([false, false, false, false, false, true]);
+    expect((await pets.execute(MARIA, H)).pets.map((p) => p.permissions.editPetBasics)).toEqual([false, false, false, false, false, true]);
     expect(forAndres.pets[0]!.latestWeightKg).toBe(32.85);
     expect([await outcome(pets.execute(CARLOS, H)), await outcome(pets.execute(LUCIA, H))]).toEqual(Array(2).fill(`${edge('EDGE-017-').expectedError}@householdId`));
   });
@@ -215,7 +216,7 @@ describe('hogares (src/application/use-cases/household-use-cases.ts)', () => {
   it('[REQ-PET-005][REQ-HOUSE-005] DEUDA-UI-FILTRO-001: el filtro del hogar conserva orden y colores; un no miembro recibe 404 aunque el filtro no deje nada', async () => {
     const { deps } = createHarness();
     const pets = new GetHouseholdPetsUseCase(deps);
-    const view = async (query: { q?: string; species?: 'DOG' | 'CAT' }) => (await pets.execute(MARIA, H, query)).pets.map((p) => [p.profile.name, p.owner.colorToken, p.canEdit]);
+    const view = async (query: { q?: string; species?: 'DOG' | 'CAT' }) => (await pets.execute(MARIA, H, query as never)).pets.map((p) => [p.profile.name, p.owner.colorToken, p.permissions.editPetBasics]);
     expect([await view({ q: '  ARGOS ' }), await view({ species: 'CAT' }), await view({ q: 'o', species: 'DOG' }), await view({ q: 'zz' }), await view({})]).toEqual([
       [['Argos', 'OWNER_COLOR_1', false]],
       [['Milo', 'OWNER_COLOR_1', false], ['Nyx', 'OWNER_COLOR_1', false], ['Luna', 'OWNER_COLOR_2', true]],
@@ -223,7 +224,7 @@ describe('hogares (src/application/use-cases/household-use-cases.ts)', () => {
       [],
       [['Argos', 'OWNER_COLOR_1', false], ['Kira', 'OWNER_COLOR_1', false], ['Milo', 'OWNER_COLOR_1', false], ['Nyx', 'OWNER_COLOR_1', false], ['Toby', 'OWNER_COLOR_1', false], ['Luna', 'OWNER_COLOR_2', true]],
     ]);
-    expect([await outcome(pets.execute(CARLOS, H, { q: 'zz' })), await outcome(pets.execute(LUCIA, H, { species: 'CAT' }))]).toEqual(Array(2).fill('ERR-HOUSE-NOT-FOUND@householdId'));
+    expect([await outcome(pets.execute(CARLOS, H, { q: 'zz' })), await outcome(pets.execute(LUCIA, H, { species: 'CAT' } as never))]).toEqual(Array(2).fill('ERR-HOUSE-NOT-FOUND@householdId'));
   });
 
   it('[REQ-HOUSE-005] Mis hogares se ordenan por createdAt del hogar y luego id, aunque el repositorio los devuelva en otro orden', async () => {

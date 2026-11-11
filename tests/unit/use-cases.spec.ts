@@ -275,7 +275,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     const { deps } = createHarness();
     const cards = await new ListMyPetsUseCase(deps).execute(ANDRES);
     const expectedOwner = edge('EDGE-030-').expectedOwner;
-    expect(cards.map((c) => [c.profile.name, c.owner, c.canEdit])).toEqual(['Argos', 'Kira', 'Milo', 'Nyx', 'Toby'].map((n) => [n, expectedOwner, true]));
+    expect(cards.map((c) => [c.profile.name, c.owner, c.permissions.editPetBasics])).toEqual(['Argos', 'Kira', 'Milo', 'Nyx', 'Toby'].map((n) => [n, expectedOwner, true]));
     const argos = cards[0]!;
     expect([argos.computedAge, argos.alertsSummary, argos.latestWeightKg]).toEqual([
       { years: 4, months: 5, totalDays: 1640 },
@@ -291,7 +291,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     state.pets.push({ ...ARGOS, id: '11111111-1111-4111-8111-111111111106', name: 'Ñandú' });
     const { deps } = createHarness(state);
     const list = new ListMyPetsUseCase(deps);
-    const names = async (q: { q?: string; species?: 'DOG' | 'CAT' }) => (await list.execute(ANDRES, q)).map((c) => c.profile.name);
+    const names = async (q: { q?: string; species?: 'DOG' | 'CAT' }) => (await list.execute(ANDRES, q as never)).map((c) => c.profile.name);
     expect([await names({ q: 'ARG' }), await names({ q: 'nandu' }), await names({ species: 'CAT' }), await names({ q: 'i', species: 'DOG' })]).toEqual([
       ['Argos'],
       ['Ñandú'],
@@ -304,7 +304,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     const { deps } = createHarness();
     const dashboard = new GetPetDashboardUseCase(deps);
     const mine = await dashboard.execute(ANDRES, ARGOS.id);
-    expect([mine.canEdit, (await dashboard.execute(MARIA, ARGOS.id)).canEdit, mine.owner]).toEqual([true, false, { userId: ANDRES, displayName: 'Andrés', colorToken: null }]);
+    expect([mine.permissions.editPetBasics, (await dashboard.execute(MARIA, ARGOS.id)).permissions.editPetBasics, mine.owner]).toEqual([true, false, { userId: ANDRES, displayName: 'Andrés', colorToken: null }]);
     expect(
       await Promise.all([outcome(dashboard.execute(CARLOS, ARGOS.id)), outcome(dashboard.execute(LUCIA, ARGOS.id)), outcome(dashboard.execute(ANDRES, MISSING_PET))]),
     ).toEqual(Array(3).fill(`${edge('EDGE-008-').expectedError}@petId`));
@@ -318,7 +318,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
       { record: r.weights[1], deltaKg: 0.45, deltaPercent: 1.39 },
       { record: r.weights[0], deltaKg: null, deltaPercent: null },
     ]);
-    expect(view.vaccinations.map((v) => [v.record.id, v.alert.status, v.alert.daysRemaining])).toEqual([[r.vaccinations[0]!.id, 'DUE_SOON', 7]]);
+    expect(view.vaccinations.map((v) => [v.record.id, v.alert!.status, v.alert!.daysRemaining])).toEqual([[r.vaccinations[0]!.id, 'DUE_SOON', 7]]);
     expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements, [], [], r.customParameters]);
     expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([ARGOS, { years: 4, months: 5, totalDays: 1640 }, 1]);
   });
@@ -372,12 +372,12 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const cases = useCases(deps);
     const vaccine = await cases.vaccinations.execute(ANDRES, ARGOS.id, { ...INPUTS.vaccinations, batchOrClinic: 'Lote 7', notes: 'Sin reacción' });
     const deworming = await cases.dewormings.execute(ANDRES, ARGOS.id, INPUTS.dewormings);
-    expect([vaccine.record, vaccine.alert.status, vaccine.alert.daysRemaining]).toEqual([
+    expect([vaccine.record, vaccine.alert!.status, vaccine.alert!.daysRemaining]).toEqual([
       { ...INPUTS.vaccinations, batchOrClinic: 'Lote 7', notes: 'Sin reacción', id: generatedId(1), petId: ARGOS.id, createdAt: NOW },
       'UP_TO_DATE',
       365,
     ]);
-    expect([deworming.record, deworming.alert.status, deworming.alert.daysRemaining]).toEqual([
+    expect([deworming.record, deworming.alert!.status, deworming.alert!.daysRemaining]).toEqual([
       { ...INPUTS.dewormings, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
       'DUE_SOON',
       5,
@@ -391,12 +391,12 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const weight = await cases.weights.execute(ANDRES, ARGOS.id, { recordedAt: '2026-10-15', weightKg: 32.5 });
     const vaccine = await cases.vaccinations.execute(ANDRES, ARGOS.id, { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01' });
     const deworming = await cases.dewormings.execute(ANDRES, KIRA, { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-10-01', nextSuggestedDoseAt: '2026-10-31' });
-    expect([weight.record.id, weight.deltaKg, weight.deltaPercent]).toEqual([generatedId(1), 0.1, 0.31]);
-    expect([vaccine.record, vaccine.alert.status]).toEqual([
+    expect([weight.record.id, weight.deltaKg, (weight as { deltaPercent?: number | null }).deltaPercent]).toEqual([generatedId(1), 0.1, 0.31]);
+    expect([vaccine.record, vaccine.alert!.status]).toEqual([
       { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01', batchOrClinic: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
       'OVERDUE',
     ]);
-    expect([deworming.record.id, deworming.alert.status]).toEqual([generatedId(3), 'OVERDUE']);
+    expect([deworming.record.id, deworming.alert!.status]).toEqual([generatedId(3), 'OVERDUE']);
     expect(uow.snapshot().records.vaccinations.at(-1)).toEqual(vaccine.record);
   });
 

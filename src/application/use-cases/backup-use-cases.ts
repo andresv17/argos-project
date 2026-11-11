@@ -14,9 +14,8 @@
 import {
   DomainError,
   STATE_BACKUP_001,
-  validateBackupEnvelopeV1Legacy,
-  validateBackupEnvelopeV2,
-  type BackupEnvelopeV2,
+  validateBackupEnvelopeV3,
+  type BackupEnvelopeV3,
   type components,
   type ErrorCode,
   type PetProfile,
@@ -24,7 +23,6 @@ import {
   type StateBackup001Event,
   type StateBackup001State,
 } from '../../generated/index.ts';
-import { migrateLegacyEnvelope } from '../../domain/backup/backup-migration.ts';
 import { RECORD_MODULES, validateRecord, type RecordModule } from '../../domain/records/record-invariants.ts';
 import { validateBirthDateNotFuture } from '../../domain/shared/date-utils.ts';
 import { sortHistoricalRecords, sortPetsForListing } from '../../domain/sorting/deterministic-sorter.ts';
@@ -36,10 +34,11 @@ type SourceSchemaVersion = ImportBackupResult['sourceSchemaVersion'];
 type BackupDeps = Pick<ApplicationDeps, 'uow' | 'clock'>;
 
 const MODULES = Object.keys(RECORD_MODULES) as RecordModule[];
-const SUPPORTED_VERSIONS: readonly unknown[] = ['1.0.0', '2.0.0'] satisfies readonly SourceSchemaVersion[];
+// T233 PENDIENTE: 1.0.0 y 2.0.0 se aceptarán cuando exista la migración a 3.0.0; hasta entonces solo se admite 3.0.0.
+const SUPPORTED_VERSIONS: readonly unknown[] = ['3.0.0'] satisfies readonly SourceSchemaVersion[];
 
 /** Límite de CHECKING_PAYLOAD_SIZE, leído de la guarda de la máquina (`bytes <= 10485760`). */
-export const MAX_IMPORT_BYTES = Number(/bytes <= (\d+)/.exec(STATE_BACKUP_001.states.CHECKING_PAYLOAD_SIZE.guard)![1]);
+export const MAX_IMPORT_BYTES = Number(/bytesRead <= (\d+)/.exec(STATE_BACKUP_001.states.CHECKING_PAYLOAD_SIZE.guard)![1]);
 
 interface ErrorTransition {
   readonly target: StateBackup001State;
@@ -118,7 +117,10 @@ function schemaFailure(run: ImportRun, event: StateBackup001Event, validator: un
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const recordsOf = (envelope: BackupEnvelopeV2) =>
+/** Sobre 3.0.0 con las mascotas ya asignadas al usuario que importa (ownerUserId = usuario autenticado). */
+type OwnedEnvelope = Omit<BackupEnvelopeV3, 'pets'> & { readonly pets: PetProfile[] };
+
+const recordsOf = (envelope: BackupEnvelopeV3) =>
   MODULES.flatMap((module) => (envelope.records[module] as Array<{ id: string; petId: string }>).map((record) => ({ module, record })));
 
 /**
@@ -128,7 +130,7 @@ const recordsOf = (envelope: BackupEnvelopeV2) =>
 export class ExportBackupUseCase {
   constructor(private readonly deps: BackupDeps) {}
 
-  async execute(userId: string): Promise<{ readonly envelope: BackupEnvelopeV2; readonly json: string; readonly fileName: string }> {
+  async execute(userId: string): Promise<{ readonly envelope: BackupEnvelopeV3; readonly json: string; readonly fileName: string }> {
     const { pets, records } = await this.deps.uow.runInTransaction(async (repositories) => {
       const owned = await repositories.pets.listByOwners([userId]);
       const collected = Object.fromEntries(MODULES.map((module) => [module, [] as unknown[]])) as Record<RecordModule, unknown[]>;
@@ -139,14 +141,13 @@ export class ExportBackupUseCase {
       return { pets: owned, records: collected };
     });
     const envelope = {
-      schemaVersion: '2.0.0',
+      schemaVersion: '3.0.0',
       exportedAt: this.deps.clock.nowIsoTimestamp(),
-      exportedByUserId: userId,
-      pets: sortPetsForListing(pets),
+      pets: sortPetsForListing(pets).map(({ ownerUserId: _ownerUserId, ...pet }) => pet),
       records: Object.fromEntries(MODULES.map((module) => [module, sortHistoricalRecords(records[module] as never)])),
     };
-    if (!validateBackupEnvelopeV2(envelope)) {
-      throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'Los datos guardados del usuario no forman un respaldo 2.0.0 válido.');
+    if (!validateBackupEnvelopeV3(envelope)) {
+      throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'Los datos guardados del usuario no forman un respaldo 3.0.0 válido.');
     }
     return { envelope, json: JSON.stringify(envelope, null, 2), fileName: `argos-backup-${this.deps.clock.todayIsoDate()}.json` };
   }
@@ -184,8 +185,8 @@ export class ImportBackupUseCase {
     }
     run.fire('PARSE_SUCCESS');
 
-    const { envelope, sourceSchemaVersion } = this.validateVersionAndSchema(run, parsed, userId);
-    const owned: BackupEnvelopeV2 = { ...envelope, pets: envelope.pets.map((pet) => ({ ...pet, ownerUserId: userId })) };
+    const { envelope, sourceSchemaVersion } = this.validateVersionAndSchema(run, parsed);
+    const owned: OwnedEnvelope = { ...envelope, pets: envelope.pets.map((pet) => ({ ...pet, ownerUserId: userId })) };
     this.checkInvariantsWithoutStorage(run, owned);
     await this.commit(run, userId, owned);
     run.fire('COMMIT_SUCCESS');
@@ -201,29 +202,20 @@ export class ImportBackupUseCase {
   private validateVersionAndSchema(
     run: ImportRun,
     parsed: unknown,
-    userId: string,
-  ): { readonly envelope: BackupEnvelopeV2; readonly sourceSchemaVersion: SourceSchemaVersion } {
+  ): { readonly envelope: BackupEnvelopeV3; readonly sourceSchemaVersion: SourceSchemaVersion } {
     if (!isPlainObject(parsed)) throw run.fail('SCHEMA_INVALID', 'La raíz del respaldo debe ser un objeto JSON.');
     if (!Object.hasOwn(parsed, 'schemaVersion')) throw run.fail('SCHEMA_INVALID', 'Falta schemaVersion.', 'schemaVersion');
     const version = parsed['schemaVersion'];
     if (!SUPPORTED_VERSIONS.includes(version)) {
-      throw run.fail('VERSION_MISMATCH', `schemaVersion ${JSON.stringify(version)} no es 1.0.0 ni 2.0.0.`, 'schemaVersion');
+      throw run.fail('VERSION_MISMATCH', `schemaVersion ${JSON.stringify(version)} no es 3.0.0.`, 'schemaVersion');
     }
-    if (version === '2.0.0') {
-      if (!validateBackupEnvelopeV2(parsed)) throw schemaFailure(run, 'SCHEMA_INVALID', validateBackupEnvelopeV2);
-      run.fire('SCHEMA_V2_VALID');
-      return { envelope: parsed, sourceSchemaVersion: '2.0.0' };
-    }
-    if (!validateBackupEnvelopeV1Legacy(parsed)) throw schemaFailure(run, 'SCHEMA_INVALID', validateBackupEnvelopeV1Legacy);
-    run.fire('LEGACY_V1_VALID');
-    const migrated = migrateLegacyEnvelope(parsed, userId);
-    if (!validateBackupEnvelopeV2(migrated)) throw schemaFailure(run, 'MIGRATION_SCHEMA_INVALID', validateBackupEnvelopeV2);
-    run.fire('MIGRATION_SUCCESS');
-    return { envelope: migrated, sourceSchemaVersion: '1.0.0' };
+    if (!validateBackupEnvelopeV3(parsed)) throw schemaFailure(run, 'SCHEMA_INVALID', validateBackupEnvelopeV3);
+    run.fire('SCHEMA_V3_VALID');
+    return { envelope: parsed, sourceSchemaVersion: '3.0.0' };
   }
 
   /** CHECKING_DOMAIN_INVARIANTS sin almacenamiento: IDs duplicados (en todo el sobre) y huérfanos; INV-PET-002; INV-REC-*. */
-  private checkInvariantsWithoutStorage(run: ImportRun, envelope: BackupEnvelopeV2): void {
+  private checkInvariantsWithoutStorage(run: ImportRun, envelope: OwnedEnvelope): void {
     const seen = new Set<string>();
     const petsById = new Map<string, PetProfile>();
     for (const pet of envelope.pets) {
@@ -251,7 +243,7 @@ export class ImportBackupUseCase {
   }
 
   /** IDs ajenos y COMMITTING_SNAPSHOT en una sola transacción: borra los datos del usuario e inserta los del sobre. */
-  private async commit(run: ImportRun, userId: string, envelope: BackupEnvelopeV2): Promise<void> {
+  private async commit(run: ImportRun, userId: string, envelope: OwnedEnvelope): Promise<void> {
     try {
       await this.deps.uow.runInTransaction(async (repositories) => {
         await this.assertNoForeignIds(run, repositories, userId, envelope);
@@ -275,7 +267,7 @@ export class ImportBackupUseCase {
   }
 
   /** INV-BACKUP-001: ningún ID del sobre puede pertenecer ya a una mascota o un registro de otro usuario. */
-  private async assertNoForeignIds(run: ImportRun, repositories: RepositorySet, userId: string, envelope: BackupEnvelopeV2): Promise<void> {
+  private async assertNoForeignIds(run: ImportRun, repositories: RepositorySet, userId: string, envelope: OwnedEnvelope): Promise<void> {
     const ownedByOther = async (petId: string) => (await repositories.pets.findById(petId))?.ownerUserId !== userId;
     for (const pet of envelope.pets) {
       if ((await repositories.pets.findById(pet.id)) !== null && (await ownedByOther(pet.id))) {

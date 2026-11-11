@@ -4,8 +4,8 @@ import {
   STATE_BACKUP_001,
   STATE_BACKUP_001_EVENTS,
   STATE_BACKUP_001_STATES,
-  validateBackupEnvelopeV2,
-  type BackupEnvelopeV2,
+  validateBackupEnvelopeV3,
+  type BackupEnvelopeV3,
   type PetProfile,
 } from '../../src/generated/index.ts';
 import {
@@ -30,7 +30,7 @@ import {
   v2,
 } from '../fixtures/backup-harness.ts';
 
-type Module = keyof BackupEnvelopeV2['records'];
+type Module = keyof BackupEnvelopeV3['records'];
 const MODULES = Object.keys(envelope.records) as Module[];
 const RECORD_COUNT = MODULES.reduce((n, m) => n + envelope.records[m].length, 0);
 const json = (value: unknown) => JSON.stringify(value);
@@ -68,7 +68,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
     };
     expect(result).toEqual({ envelope: expected, json: JSON.stringify(expected, null, 2), fileName: 'argos-backup-2026-11-05.json' });
     expect(Object.keys(result.envelope)).toEqual(['schemaVersion', 'exportedAt', 'exportedByUserId', 'pets', 'records']);
-    expect(validateBackupEnvelopeV2(result.envelope)).toBe(true);
+    expect(validateBackupEnvelopeV3(result.envelope)).toBe(true);
     expect(json(h.uow.snapshot())).toBe(before);
   });
 
@@ -76,7 +76,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
     const h = createHarness();
     await h.deps.uow.runInTransaction(async (r) => r.sessions.save('token-secreto', { userId: MARIA, createdAt: '2026-11-05T12:00:00.000Z', expiresAt: '2026-11-12T12:00:00.000Z', revokedAt: null }));
     const result = await new ExportBackupUseCase(h.deps).execute(MARIA);
-    expect([result.envelope.exportedByUserId, result.envelope.pets, result.envelope.records]).toEqual([
+    expect([(result.envelope as unknown as { exportedByUserId?: string }).exportedByUserId, result.envelope.pets, result.envelope.records]).toEqual([
       MARIA,
       [LUNA],
       Object.fromEntries(MODULES.map((m) => [m, []])),
@@ -87,7 +87,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
 
   it('[REQ-BACKUP-001] un usuario sin mascotas exporta un sobre vacío y válido', async () => {
     const result = await new ExportBackupUseCase(createHarness().deps).execute(fixtures.users[3].id);
-    expect([result.envelope.pets, result.envelope.records, validateBackupEnvelopeV2(result.envelope)]).toEqual([[], Object.fromEntries(MODULES.map((m) => [m, []])), true]);
+    expect([result.envelope.pets, result.envelope.records, validateBackupEnvelopeV3(result.envelope)]).toEqual([[], Object.fromEntries(MODULES.map((m) => [m, []])), true]);
   });
 
   it('[REQ-BACKUP-001] si los datos guardados no forman un sobre válido, la exportación falla con ERR-INTERNAL-UNEXPECTED', async () => {
@@ -131,8 +131,8 @@ describe('importación de respaldo, caminos de éxito (STATE-BACKUP-001)', () =>
   it('[REQ-BACKUP-002][INV-BACKUP-001] el ownerUserId del sobre se reasigna al usuario autenticado antes de validar y guardar', async () => {
     const h = createHarness({ ...emptyMemoryState(), users: canonicalState().users });
     const fromMaria = v2((e) => {
-      e.exportedByUserId = MARIA;
-      e.pets = e.pets.map((p) => ({ ...p, ownerUserId: MARIA }));
+      (e as unknown as { exportedByUserId: string }).exportedByUserId = MARIA;
+      e.pets = e.pets.map((p) => ({ ...p, ownerUserId: MARIA })) as never;
     });
     expect((await importer(h.deps)(json(fromMaria)).promise).importedPetsCount).toBe(5);
     expect([...new Set(h.uow.snapshot().pets.map((p) => p.ownerUserId))]).toEqual([ANDRES]);
@@ -242,7 +242,7 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
   it.each([
     ['propiedad no autorizada en la raíz', v2((e) => Object.assign(e, { unexpected: 1 })), '/unexpected', '/unexpected: must NOT have additional properties.'],
     ['nombre con espacios extremos', v2((e) => (e.pets[0]!.name = ' Argos')), '/pets/0/name', '/pets/0/name: must match pattern "^\\S(.*\\S)?$".'],
-    ['falta records', v2((e) => delete (e as Partial<BackupEnvelopeV2>).records), '/records', "/records: must have required property 'records'."],
+    ['falta records', v2((e) => delete (e as Partial<BackupEnvelopeV3>).records), '/records', "/records: must have required property 'records'."],
     ['__proto__ en una mascota (prototype pollution)', null, '/pets/0/__proto__', '/pets/0/__proto__: must NOT have additional properties.'],
   ])('[ERR-BACKUP-SCHEMA-INVALID] v2 con %s: SCHEMA_INVALID con el puntero del primer fallo', async (_case, candidate, field, detail) => {
     const payload = candidate === null ? json(envelope).replace('"pets":[{', '"pets":[{"__proto__":{"isAdmin":true},') : json(candidate);
@@ -299,7 +299,7 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
   });
 
   it('[ERR-BACKUP-REFERENTIAL-INTEGRITY][INV-BACKUP-001] EDGE-006: Andrés importa un sobre con el id de Luna (mascota de María)', async () => {
-    const r = await rejected(json(v2((e) => e.pets.push({ ...LUNA, ownerUserId: ANDRES }))));
+    const r = await rejected(json(v2((e) => e.pets.push({ ...LUNA, ownerUserId: ANDRES } as never))));
     expect([r.code, r.field, r.detail, r.path]).toEqual([
       'ERR-BACKUP-REFERENTIAL-INTEGRITY',
       'pets',
@@ -324,13 +324,13 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
   });
 
   it.each([
-    ['ERR-REC-DATE-BEFORE-BIRTH', 'EDGE-033: un peso anterior al nacimiento de Argos', (e: BackupEnvelopeV2) => (e.records.weights[0]!.recordedAt = '2022-05-09'), 'recordedAt'],
-    ['ERR-PET-FUTURE-BIRTHDATE', 'una mascota nacida mañana', (e: BackupEnvelopeV2) => (e.pets[4]!.birthDate = '2026-11-06'), 'birthDate'],
-    ['ERR-REC-FUTURE-EVENT-DATE', 'una visita de mañana', (e: BackupEnvelopeV2) => (e.records.medicalVisits[0]!.visitDate = '2026-11-06'), 'visitDate'],
-    ['ERR-REC-WEIGHT-OUT-OF-RANGE', 'un peso con más de 2 decimales que la frontera tolera', (e: BackupEnvelopeV2) => (e.records.weights[1]!.weightKg = 32.85 + 1e-13), 'weightKg'],
-    ['ERR-REC-MEASUREMENT-OUT-OF-RANGE', 'una medida con más de 2 decimales que la frontera tolera', (e: BackupEnvelopeV2) => (e.records.bodyMeasurements[0]!.waistCm = 58.5 + 1e-13), 'waistCm'],
-    ['ERR-REC-INVALID-BOOSTER-DATE', 'un refuerzo el mismo día de la vacuna', (e: BackupEnvelopeV2) => (e.records.vaccinations[1]!.nextBoosterAt = e.records.vaccinations[1]!.appliedAt), 'nextBoosterAt'],
-    ['ERR-REC-INVALID-NEXT-DOSE-DATE', 'una próxima dosis anterior a la aplicación', (e: BackupEnvelopeV2) => (e.records.dewormings[0]!.nextSuggestedDoseAt = '2026-10-01'), 'nextSuggestedDoseAt'],
+    ['ERR-REC-DATE-BEFORE-BIRTH', 'EDGE-033: un peso anterior al nacimiento de Argos', (e: BackupEnvelopeV3) => (e.records.weights[0]!.recordedAt = '2022-05-09'), 'recordedAt'],
+    ['ERR-PET-FUTURE-BIRTHDATE', 'una mascota nacida mañana', (e: BackupEnvelopeV3) => (e.pets[4]!.birthDate = '2026-11-06'), 'birthDate'],
+    ['ERR-REC-FUTURE-EVENT-DATE', 'una visita de mañana', (e: BackupEnvelopeV3) => (e.records.medicalVisits[0]!.visitDate = '2026-11-06'), 'visitDate'],
+    ['ERR-REC-WEIGHT-OUT-OF-RANGE', 'un peso con más de 2 decimales que la frontera tolera', (e: BackupEnvelopeV3) => (e.records.weights[1]!.weightKg = 32.85 + 1e-13), 'weightKg'],
+    ['ERR-REC-MEASUREMENT-OUT-OF-RANGE', 'una medida con más de 2 decimales que la frontera tolera', (e: BackupEnvelopeV3) => (e.records.bodyMeasurements[0]!.waistCm = 58.5 + 1e-13), 'waistCm'],
+    ['ERR-REC-INVALID-BOOSTER-DATE', 'un refuerzo el mismo día de la vacuna', (e: BackupEnvelopeV3) => (e.records.vaccinations[1]!.nextBoosterAt = e.records.vaccinations[1]!.appliedAt), 'nextBoosterAt'],
+    ['ERR-REC-INVALID-NEXT-DOSE-DATE', 'una próxima dosis anterior a la aplicación', (e: BackupEnvelopeV3) => (e.records.dewormings[0]!.nextSuggestedDoseAt = '2026-10-01'), 'nextSuggestedDoseAt'],
   ])('[INV-BACKUP-001][STATE-BACKUP-001] %s (%s) se propaga con finalState ROLLED_BACK (DOMAIN_INVARIANT_VIOLATED)', async (code, _case, mutate, field) => {
     const r = await rejected(json(v2(mutate)));
     expect([r.code, r.status, r.field, r.finalState, r.path]).toEqual([code, 422, field, 'ROLLED_BACK', [...V2_UNTIL_INVARIANTS, 'DOMAIN_INVARIANT_VIOLATED>ROLLED_BACK']]);
@@ -347,7 +347,7 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
 
   it('[INV-BACKUP-001] las invariantes de dominio se comprueban antes que los IDs de otro usuario', async () => {
     const both = v2((e) => {
-      e.pets.push({ ...LUNA, ownerUserId: ANDRES });
+      e.pets.push({ ...LUNA, ownerUserId: ANDRES } as never);
       e.records.weights[0]!.recordedAt = '2022-05-09';
     });
     expect((await rejected(json(both))).code).toBe('ERR-REC-DATE-BEFORE-BIRTH');

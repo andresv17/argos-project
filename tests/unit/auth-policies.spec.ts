@@ -11,7 +11,7 @@ import {
 import {
   LOCKOUT_WINDOW_MINUTES,
   MAX_FAILED_ATTEMPTS,
-  SESSION_TTL_DAYS,
+  SESSION_ABSOLUTE_TTL_HOURS,
   assertAuthenticated,
   assertNotLockedOut,
   assertUsernameAvailable,
@@ -62,7 +62,7 @@ const SESSION_TABLE: Partial<Record<StateAuthSession001State, Partial<Record<Sta
   },
   AUTHENTICATED: {
     REQUEST: ['AUTHENTICATED', null, null],
-    TTL_ELAPSED: ['EXPIRED', null, null],
+    ABSOLUTE_TTL_ELAPSED: ['EXPIRED', null, null], // T208 PENDIENTE: eventos IDLE_TIMEOUT y estado EXPIRED_IDLE de la v3
     LOGOUT: ['LOGGED_OUT', null, null],
   },
   EXPIRED: { LOGOUT: ['EXPIRED', null, 204] },
@@ -92,7 +92,8 @@ describe('máquina STATE-AUTH-SESSION-001 (src/domain/auth/auth-policies.ts)', (
   });
 
   it('[STATE-AUTH-SESSION-001] las constantes salen del contrato: TTL 7 días, 5 fallos, ventana de 15 minutos', () => {
-    expect([SESSION_TTL_DAYS, MAX_FAILED_ATTEMPTS, LOCKOUT_WINDOW_MINUTES]).toEqual([7, 5, 15]);
+    // T208 PENDIENTE: la 001 fijaba 7 días; la 002 fija 24 h absolutas y 30 min de inactividad.
+    expect([SESSION_ABSOLUTE_TTL_HOURS, MAX_FAILED_ATTEMPTS, LOCKOUT_WINDOW_MINUTES]).toEqual([24, 5, 15]);
   });
 });
 

@@ -11,7 +11,7 @@ import { STATE_ALERT_001 } from '../../generated/machines/sanitary-alert.machine
 export type Schemas = components['schemas'];
 export type PetCardView = Schemas['PetCardView'];
 export type PetDashboardView = Schemas['PetDashboardView'];
-export type PetProfile = Schemas['pet.schema'];
+export type PetProfile = Schemas['PetProfile'];
 export type OwnerTag = Schemas['OwnerTag'];
 export type OwnerColorToken = Schemas['OwnerColorToken'];
 export type AlertStateMetadata = Schemas['AlertStateMetadata'];
@@ -19,7 +19,7 @@ export type AlertStatus = Schemas['AlertStatus'];
 export type WeightEntryView = Schemas['WeightEntryView'];
 export type HouseholdView = Schemas['HouseholdView'];
 export type HouseholdMemberView = Schemas['HouseholdMemberView'];
-export type MembershipStatus = Schemas['MembershipStatus'];
+export type MembershipStatus = HouseholdMemberView['membership']['status'];
 export type Species = Schemas['Species'];
 export type ComputedAge = Schemas['ComputedAge'];
 export type ActiveSanitaryAlertsSummary = Schemas['ActiveSanitaryAlertsSummary'];
@@ -108,7 +108,16 @@ export function petActions(view: { readonly canEdit: boolean }): { readonly canE
 // Textos de perfil
 // ---------------------------------------------------------------------------
 
-export const SPECIES_LABEL: Readonly<Record<Species, string>> = { DOG: 'Perro', CAT: 'Gato' };
+export const SPECIES_LABEL: Readonly<Record<Species, string>> = {
+  CANINE: 'Perro',
+  FELINE: 'Gato',
+  RABBIT: 'Conejo',
+  FERRET: 'Hurón',
+  BIRD: 'Ave',
+  REPTILE: 'Reptil',
+  SMALL_MAMMAL: 'Pequeño mamífero',
+  OTHER: 'Otro',
+};
 export const SEX_LABEL: Readonly<Record<PetProfile['sex'], string>> = { MALE: 'Macho', FEMALE: 'Hembra' };
 
 /** Edad calculada por la API (REQ-PET-002), solo formateada. */
@@ -146,7 +155,8 @@ export function weightRows(entries: readonly WeightEntryView[]): WeightRow[] {
     date: e.record.recordedAt,
     weight: formatKg(e.record.weightKg),
     deltaKg: e.deltaKg === null ? '—' : signed(e.deltaKg, 'kg'),
-    deltaPercent: e.deltaPercent === null ? '—' : signed(e.deltaPercent, '%'),
+    // T284 PENDIENTE: la 002 retira deltaPercent del contrato; la UI nueva decide cómo mostrar la variación.
+    deltaPercent: '—',
   }));
 }
 
@@ -241,10 +251,7 @@ export function routeRedirect(authenticated: boolean, path: string): string | nu
 // ---------------------------------------------------------------------------
 
 export const MEMBERSHIP_LABEL: Readonly<Record<MembershipStatus, string>> = {
-  INVITED: 'Invitación pendiente',
   ACTIVE: 'Activo',
-  DECLINED: 'Rechazada',
-  CANCELLED: 'Cancelada',
   LEFT: 'Abandonó',
   REMOVED: 'Retirado',
 };
@@ -262,10 +269,10 @@ export const MEMBER_ACTION_LABEL: Readonly<Record<MemberAction, string>> = {
  * lo que la API rechazaría.
  */
 export function memberActions(view: HouseholdView, member: HouseholdMemberView, myUserId: string): MemberAction[] {
-  const isMe = member.user.id === myUserId;
-  if (view.myRole === 'OWNER') {
+  const isMe = member.membership.userId === myUserId;
+  // T238 PENDIENTE: las invitaciones viven en view.pendingInvitations; CANCEL_INVITATION se atiende allí.
+  if (view.isHouseholdOwner) {
     if (isMe) return [];
-    if (member.membership.status === 'INVITED') return ['CANCEL_INVITATION'];
     if (member.membership.status === 'ACTIVE') return ['REMOVE'];
     return [];
   }
@@ -273,7 +280,7 @@ export function memberActions(view: HouseholdView, member: HouseholdMemberView, 
 }
 
 export function canDeleteHousehold(view: HouseholdView): boolean {
-  return view.myRole === 'OWNER';
+  return view.isHouseholdOwner;
 }
 
 export function invitationsLabel(count: number): string {

@@ -35,10 +35,11 @@ export function PetForm({ profile, onSubmit, onCancel }: {
         id={`${prefix}-species`}
         label="Especie"
         name="species"
-        value={form.values.species ?? 'DOG'}
+        value={form.values.species ?? 'CANINE'}
         options={[
-          { value: 'DOG', label: SPECIES_LABEL.DOG },
-          { value: 'CAT', label: SPECIES_LABEL.CAT },
+          // T284 PENDIENTE: las 8 especies de la 002 (y speciesOther) llegan con la pantalla nueva.
+          { value: 'CANINE', label: SPECIES_LABEL.CANINE },
+          { value: 'FELINE', label: SPECIES_LABEL.FELINE },
         ]}
         onChange={form.onChange}
         errors={form.errors}

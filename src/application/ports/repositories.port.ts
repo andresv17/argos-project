@@ -7,7 +7,8 @@
  * @implements INV-ARCH-004, INV-ARCH-005, INV-PET-003
  */
 
-import type { Household, HouseholdMember, PetProfile, UserPublicProfile } from '../../generated/index.ts';
+import type { Household, PetProfile, UserPublicProfile } from '../../generated/index.ts';
+import type { LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../domain/records/record-invariants.ts';
@@ -64,11 +65,11 @@ export interface HouseholdRepositoryPort {
   insert(household: Household): Promise<void>;
   /** Borra el hogar y todas sus membresías; las mascotas no se tocan (REQ-HOUSE-004). */
   deleteWithMemberships(householdId: string): Promise<void>;
-  listMemberships(householdId: string): Promise<HouseholdMember[]>;
+  listMemberships(householdId: string): Promise<LegacyHouseholdMember[]>;
   /** Todas las membresías (cualquier estado) de cualquiera de los usuarios, sin duplicados. */
-  listMembershipsOfUsers(userIds: readonly string[]): Promise<HouseholdMember[]>;
+  listMembershipsOfUsers(userIds: readonly string[]): Promise<LegacyHouseholdMember[]>;
   /** Inserta o reemplaza por membershipId. */
-  saveMembership(membership: HouseholdMember): Promise<void>;
+  saveMembership(membership: LegacyHouseholdMember): Promise<void>;
 }
 
 export interface RepositorySet {

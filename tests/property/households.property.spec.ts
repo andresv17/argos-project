@@ -1,6 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { DomainError, validateHouseholdMember, type HouseholdMember } from '../../src/generated/index.ts';
+import { DomainError, validateHouseholdMember } from '../../src/generated/index.ts';
+import type { LegacyHouseholdMember as HouseholdMember } from '../../src/domain/households/household-policies.ts';
 import {
   acceptInvitation,
   createHousehold,

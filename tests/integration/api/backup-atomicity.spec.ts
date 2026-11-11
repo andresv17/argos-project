@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { validateBackupEnvelopeV2, type BackupEnvelopeV2 } from '../../../src/generated/index.ts';
+import { validateBackupEnvelopeV3, type BackupEnvelopeV3 } from '../../../src/generated/index.ts';
 import { MAX_IMPORT_BYTES } from '../../../src/application/use-cases/backup-use-cases.ts';
 import { PASSWORDS, fixtures } from '../../fixtures/application-harness.ts';
 import { v2 } from '../../fixtures/backup-harness.ts';
@@ -22,14 +22,14 @@ describe('exportación por HTTP (GET /api/backup/export)', () => {
   it('[REQ-BACKUP-001] exporta el sobre 2.0.0 válido solo con los datos del usuario, como archivo argos-backup-AAAA-MM-DD.json', async () => {
     api = await createApi();
     const r = await api.call('GET', '/api/backup/export', { cookie: await api.login('andres') });
-    const envelope = r.json as BackupEnvelopeV2;
+    const envelope = r.json as BackupEnvelopeV3;
     expect([
       r.status,
       r.headers['content-disposition'],
-      validateBackupEnvelopeV2(envelope),
+      validateBackupEnvelopeV3(envelope),
       envelope.schemaVersion,
       envelope.pets.map((p) => p.name).sort(),
-      envelope.pets.every((p) => p.ownerUserId === USERS_BY_NAME.andres),
+      envelope.pets.every((p) => (p as unknown as { ownerUserId?: string }).ownerUserId === USERS_BY_NAME.andres),
     ]).toEqual([200, 'attachment; filename="argos-backup-2026-11-05.json"', true, '2.0.0', ['Argos', 'Kira', 'Milo', 'Nyx', 'Toby'], true]);
   });
 

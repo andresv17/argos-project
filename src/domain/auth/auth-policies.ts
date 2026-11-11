@@ -20,10 +20,11 @@ import {
   type StateAuthSession001Event,
   type StateAuthSession001State,
 } from '../../generated/index.ts';
-import { MS_PER_DAY, MS_PER_MINUTE, addMillis, toEpochMillis } from './utc-timestamp.ts';
+import { MS_PER_MINUTE, addMillis, toEpochMillis } from './utc-timestamp.ts';
 
 const SESSION_MACHINE = STATE_AUTH_SESSION_001;
-export const SESSION_TTL_DAYS: number = SESSION_MACHINE.constants.SESSION_TTL_DAYS;
+export const SESSION_ABSOLUTE_TTL_HOURS: number = SESSION_MACHINE.constants.SESSION_ABSOLUTE_TTL_HOURS;
+export const SESSION_IDLE_TIMEOUT_MINUTES: number = SESSION_MACHINE.constants.SESSION_IDLE_TIMEOUT_MINUTES;
 export const MAX_FAILED_ATTEMPTS: number = SESSION_MACHINE.constants.MAX_FAILED_ATTEMPTS;
 export const LOCKOUT_WINDOW_MINUTES: number = SESSION_MACHINE.constants.LOCKOUT_WINDOW_MINUTES;
 
@@ -116,14 +117,15 @@ export function assertUsernameAvailable(username: string, existingUsernames: Ite
 }
 
 /**
- * INV-AUTH-004: nueva sesión con expiresAt = createdAt + SESSION_TTL_DAYS.
+ * Nueva sesión con expiresAt = createdAt + SESSION_ABSOLUTE_TTL_HOURS (tope absoluto de 24 h).
+ * T208 PENDIENTE: la ventana deslizante de inactividad (SESSION_IDLE_TIMEOUT_MINUTES) y lastActivityAt no se aplican todavía.
  * @implements REQ-AUTH-002, INV-AUTH-004
  */
 export function openSession(userId: string, nowIsoTimestamp: string): SessionRecord {
   return {
     userId,
     createdAt: nowIsoTimestamp,
-    expiresAt: addMillis(nowIsoTimestamp, SESSION_TTL_DAYS * MS_PER_DAY),
+    expiresAt: addMillis(nowIsoTimestamp, SESSION_ABSOLUTE_TTL_HOURS * 60 * MS_PER_MINUTE),
     revokedAt: null,
   };
 }

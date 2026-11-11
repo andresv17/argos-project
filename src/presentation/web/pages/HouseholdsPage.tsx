@@ -3,7 +3,7 @@
  * invitaciones (con contador de pendientes), retirar miembros o cancelar invitaciones, abandonar y eliminar.
  * Las acciones visibles dependen de `myRole` de la API; la API aplica INV-HOUSE-002.
  *
- * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, ERR-HOUSE-MEMBER-ALREADY-EXISTS, ERR-AUTH-USER-NOT-FOUND, ERR-HOUSE-OWNER-CANNOT-LEAVE
+ * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, ERR-HOUSE-OWNER-CANNOT-LEAVE
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Button, FormError, TextField } from '../components/Field.tsx';
@@ -72,7 +72,7 @@ export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, invite
     <section aria-labelledby={titleId} data-household-id={view.household.id} className="grid gap-3 rounded border border-slate-300 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 id={titleId} className="text-lg font-semibold">
-          {view.household.name} <span className="text-sm font-normal text-slate-700">· tu rol: {view.myRole === 'OWNER' ? 'Propietario' : 'Miembro'}</span>
+          {view.household.name} <span className="text-sm font-normal text-slate-700">· tu rol: {view.isHouseholdOwner ? 'Propietario' : 'Miembro'}</span>
         </h3>
         {canDeleteHousehold(view) ? (
           <Button variant="danger" onClick={onDelete}>
@@ -82,26 +82,26 @@ export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, invite
       </div>
       <ul aria-label={`Miembros de ${view.household.name}`} className="divide-y divide-slate-200">
         {view.members.map((member) => {
-          const badge = ownerBadge({ userId: member.user.id, displayName: member.user.displayName, colorToken: member.colorToken ?? null });
+          const badge = ownerBadge({ userId: member.membership.userId, displayName: member.membership.displayName, colorToken: member.colorToken ?? null });
           return (
             <li key={member.membership.membershipId} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span className="flex flex-wrap items-center gap-2">
                 {badge.style === null ? (
-                  <span>{member.user.displayName}</span>
+                  <span>{member.membership.displayName}</span>
                 ) : (
                   <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={badge.style}>
-                    {member.user.displayName}
+                    {member.membership.displayName}
                   </span>
                 )}
-                <span className="text-sm text-slate-700">@{member.user.username}</span>
+                <span className="text-sm text-slate-700">@{member.membership.username}</span>
                 <span data-membership-status={member.membership.status} className="rounded border border-slate-500 px-2 py-0.5 text-xs font-semibold text-slate-800">
                   {MEMBERSHIP_LABEL[member.membership.status]}
                 </span>
-                {member.membership.role === 'OWNER' ? <span className="text-xs font-semibold text-slate-800">Propietario</span> : null}
+                {member.membership.isHouseholdOwner ? <span className="text-xs font-semibold text-slate-800">Propietario</span> : null}
               </span>
               <span className="flex gap-2">
                 {memberActions(view, member, myUserId).map((action) => (
-                  <Button key={action} variant={action === 'LEAVE' ? 'secondary' : 'danger'} onClick={() => onMemberAction(member.user.id, action)}>
+                  <Button key={action} variant={action === 'LEAVE' ? 'secondary' : 'danger'} onClick={() => onMemberAction(member.membership.userId, action)}>
                     {MEMBER_ACTION_LABEL[action]}
                   </Button>
                 ))}
@@ -212,7 +212,7 @@ export function HouseholdsPage(): JSX.Element {
             myUserId={user?.id ?? ''}
             onMemberAction={onMemberAction(view.household.id)}
             onDelete={() => setPendingDelete(view.household.id)}
-            inviteForm={view.myRole === 'OWNER' ? <InviteForm householdId={view.household.id} onInvited={load} /> : null}
+            inviteForm={view.isHouseholdOwner ? <InviteForm householdId={view.household.id} onInvited={load} /> : null}
           />
           {pendingDelete === view.household.id ? (
             <div role="alertdialog" aria-labelledby={`delete-${view.household.id}`} className="rounded border border-red-700 bg-red-50 p-3">

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { HouseholdMember, PetProfile } from '../../src/generated/index.ts';
+import type { PetProfile } from '../../src/generated/index.ts';
+import type { LegacyHouseholdMember as HouseholdMember } from '../../src/domain/households/household-policies.ts';
 import type { RepositorySet, UserAccount } from '../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.port.ts';
 import type { SessionRecord } from '../../src/domain/auth/auth-policies.ts';
@@ -111,7 +112,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       const uow = createUnitOfWork();
       const pet: PetProfile = { ...ARGOS };
       await seed(uow, async (r) => {
-        await r.pets.save(pet);
+        await r.pets.save(pet as unknown as PetProfile); // el sobre 3.0.0 no lleva ownerUserId; el fixture 001 sí (T214 PENDIENTE)
         (pet as { name: string }).name = 'Cambiado tras guardar';
       });
       await read(uow, async (r) => {
@@ -154,7 +155,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     it('[INV-ARCH-005] mascotas: save inserta o reemplaza, listByOwners filtra por dueño y delete borra', async () => {
       const uow = createUnitOfWork();
       await seed(uow, async (r) => {
-        for (const pet of [...ANDRES_PETS, LUNA]) await r.pets.save(pet);
+        for (const pet of [...ANDRES_PETS, LUNA]) await r.pets.save(pet as unknown as PetProfile); // el sobre 3.0.0 no lleva ownerUserId; el fixture 001 sí (T214 PENDIENTE)
         await r.pets.save({ ...ARGOS, name: 'Argos II' });
         await r.pets.delete(ANDRES_PETS[1]!.id);
       });
@@ -177,7 +178,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     it('[INV-ARCH-005] registros: listForPet devuelve las 6 colecciones de la mascota, add rechaza ids repetidos y deleteForPet borra solo esa mascota', async () => {
       const uow = createUnitOfWork();
       await seed(uow, async (r) => {
-        for (const pet of envelope.pets) await r.pets.save(pet);
+        for (const pet of envelope.pets) await r.pets.save(pet as unknown as PetProfile); // el sobre 3.0.0 no lleva ownerUserId; el fixture 001 sí (T214 PENDIENTE)
         for (const module of Object.keys(envelope.records) as Array<keyof typeof envelope.records>) {
           for (const record of envelope.records[module]) await r.records.add(module, record as never);
         }
@@ -194,7 +195,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     it('[INV-ARCH-005][INV-BACKUP-001] registros: findPetIdOfRecord devuelve el petId del registro en cualquiera de los 6 módulos y null si no existe', async () => {
       const uow = createUnitOfWork();
       await seed(uow, async (r) => {
-        for (const pet of envelope.pets) await r.pets.save(pet);
+        for (const pet of envelope.pets) await r.pets.save(pet as unknown as PetProfile); // el sobre 3.0.0 no lleva ownerUserId; el fixture 001 sí (T214 PENDIENTE)
         for (const module of Object.keys(envelope.records) as Array<keyof typeof envelope.records>) {
           for (const record of envelope.records[module]) await r.records.add(module, record as never);
         }

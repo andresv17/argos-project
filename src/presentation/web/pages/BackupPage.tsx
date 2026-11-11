@@ -33,7 +33,11 @@ export function BackupPage(): JSX.Element {
   const download = async (): Promise<void> => {
     setError(null);
     try {
-      const { data, error: problem, response } = await api.GET('/backup/export', { parseAs: 'blob' });
+      // T271 PENDIENTE: el contrato 3.0.0 exporta con POST (emite token de confirmación); el servidor sigue en GET hasta esa tarea.
+      const legacyApi = api as unknown as {
+        GET(path: string, init: { parseAs: 'blob' }): Promise<{ data?: unknown; error?: unknown; response: Response }>;
+      };
+      const { data, error: problem, response } = await legacyApi.GET('/backup/export', { parseAs: 'blob' });
       if (problem !== undefined || data === undefined || !response.ok) throw new ApiProblem(catalogProblem('ERR-INTERNAL-UNEXPECTED'));
       const url = URL.createObjectURL(data as Blob);
       const anchor = document.createElement('a');
@@ -55,7 +59,8 @@ export function BackupPage(): JSX.Element {
       const text = await file.text();
       const imported = await unwrap(
         api.POST('/backup/import', {
-          params: CSRF_PARAMS,
+          // T272 PENDIENTE: la confirmación real usa el fileDigest de la previsualización.
+          params: { header: { ...CSRF_PARAMS.header, 'X-Argos-Import-Confirm': '' } },
           body: text,
           bodySerializer: (body: unknown) => body as string,
           headers: { 'Content-Type': 'application/json' },

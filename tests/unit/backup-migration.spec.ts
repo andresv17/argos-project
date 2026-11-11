@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateBackupEnvelopeV2, type BackupEnvelopeV1Legacy } from '../../src/generated/index.ts';
+import { validateBackupEnvelopeV2Legacy, type BackupEnvelopeV1Legacy } from '../../src/generated/index.ts';
 import { migrateLegacyEnvelope, normalizeToCanonicalUtc } from '../../src/domain/backup/backup-migration.ts';
 import { ANDRES, fixtures } from '../fixtures/application-harness.ts';
 
@@ -44,7 +44,7 @@ describe('migración v1 → v2 (src/domain/backup/backup-migration.ts)', () => {
       pets: legacy.pets.map((pet) => ({ ...pet, ownerUserId: ANDRES, updatedAt: pet.createdAt })),
       records: legacy.records,
     });
-    expect(validateBackupEnvelopeV2(migrated)).toBe(true);
+    expect(validateBackupEnvelopeV2Legacy(migrated)).toBe(true);
     expect(legacy).toEqual(before);
   });
 
@@ -58,6 +58,6 @@ describe('migración v1 → v2 (src/domain/backup/backup-migration.ts)', () => {
     expect(migrated.exportedAt).toBe('2026-11-05T12:00:00.000Z');
     expect([migrated.pets[0]!.createdAt, migrated.pets[0]!.updatedAt]).toEqual(['2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z']);
     expect(modules.map((module) => migrated.records[module][0]!.createdAt)).toEqual(modules.map(() => '2026-01-02T07:00:00.700Z'));
-    expect(validateBackupEnvelopeV2(migrated)).toBe(true);
+    expect(validateBackupEnvelopeV2Legacy(migrated)).toBe(true);
   });
 });

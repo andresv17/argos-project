@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DomainError,
   validateCreateWeightInput,
-  type BackupEnvelopeV2,
+  type BackupEnvelopeV3,
   type PetProfile,
   type WeightRecord,
 } from '../../src/generated/index.ts';
@@ -28,7 +28,7 @@ import {
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 
 const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
-const envelope: BackupEnvelopeV2 = fixtures.validBackupEnvelopeV2;
+const envelope: BackupEnvelopeV3 = fixtures.validBackupEnvelopeV2;
 const edge = (prefix: string) => fixtures.invalidEdgeCases.find((c: { caseId: string }) => c.caseId.startsWith(prefix));
 const TODAY = new FixedClockAdapter().todayIsoDate();
 const MODULES = Object.keys(RECORD_MODULES) as RecordModule[];

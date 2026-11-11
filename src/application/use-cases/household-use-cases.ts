@@ -14,7 +14,7 @@ import {
   validateInviteMemberInput,
   type components,
   type Household,
-  type HouseholdMember,
+  type UserPublicProfile,
   type InviteMemberInput,
 } from '../../generated/index.ts';
 import { normalizeUsername } from '../../domain/auth/auth-policies.ts';
@@ -25,6 +25,8 @@ import {
   declineInvitation,
   householdPets,
   householdView,
+  isOwnerRow,
+  type LegacyHouseholdMember,
   inviteMember,
   ownerColorTokens,
   pendingInvitations,
@@ -49,6 +51,12 @@ export type HouseholdMemberView = components['schemas']['HouseholdMemberView'];
 /** HouseholdPetsView con las tarjetas de PetCardView (profile como PetProfile, H-108-3). */
 export type HouseholdPetsView = Omit<components['schemas']['HouseholdPetsView'], 'pets'> & { pets: PetCardView[] };
 export type InvitationView = components['schemas']['InvitationView'];
+/** Respuesta heredada de la invitación (001); T212 la sustituye por InviteAccepted. */
+export interface LegacyInviteView {
+  readonly membership: LegacyHouseholdMember;
+  readonly user: UserPublicProfile;
+  readonly colorToken: null;
+}
 
 function parseInviteMemberInput(input: unknown): InviteMemberInput {
   const username = (input as { username?: unknown } | null)?.username;
@@ -56,20 +64,64 @@ function parseInviteMemberInput(input: unknown): InviteMemberInput {
   return assertMatchesSchema<InviteMemberInput>('InviteMemberInput', validateInviteMemberInput, candidate);
 }
 
-/** Vista del hogar para el actor (lanza ERR-HOUSE-NOT-FOUND sin membresía ACTIVE). */
-async function viewOf(repositories: RepositorySet, household: Household, memberships: readonly HouseholdMember[], actorUserId: string): Promise<HouseholdView> {
+/**
+ * Fila heredada de la 001 proyectada al HouseholdMember 3.0.0.
+ * T237 PENDIENTE: OWNER -> ADMIN con isHouseholdOwner; MEMBER -> READER (conservador, sin permisos de escritura);
+ * el rol de Cuidador y el rol inicial de la invitación son decisiones de la rebanada 3.
+ */
+function toMemberDto(row: LegacyHouseholdMember, user: UserPublicProfile): HouseholdMemberView['membership'] {
+  const owner = isOwnerRow(row);
+  return {
+    membershipId: row.membershipId,
+    householdId: row.householdId,
+    userId: row.userId,
+    username: user.username,
+    displayName: user.displayName,
+    role: owner ? 'ADMIN' : row.role === 'MEMBER' ? 'READER' : (row.role as HouseholdMemberView['membership']['role']),
+    isHouseholdOwner: owner,
+    status: row.status as HouseholdMemberView['membership']['status'],
+    joinedAt: row.joinedAt!,
+    firstJoinedAt: row.firstJoinedAt!,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/**
+ * Vista del hogar para el actor (lanza ERR-HOUSE-NOT-FOUND sin membresía ACTIVE). Las filas INVITED salen en
+ * pendingInvitations; members trae solo ACTIVE.
+ */
+async function viewOf(repositories: RepositorySet, household: Household, memberships: readonly LegacyHouseholdMember[], actorUserId: string): Promise<HouseholdView> {
   const users = await publicProfilesById(repositories, memberships.map((m) => m.userId));
-  return householdView(household, memberships, users, actorUserId);
+  const view = householdView(household, memberships, users, actorUserId);
+  const invited = view.members.filter((entry) => entry.membership.status === 'INVITED');
+  return {
+    household: view.household,
+    myRole: isOwnerRow({ role: view.myRole, isHouseholdOwner: view.myRole === 'OWNER' }) ? 'ADMIN' : 'READER',
+    isHouseholdOwner: view.myRole === 'OWNER',
+    members: view.members
+      .filter((entry) => entry.membership.status === 'ACTIVE')
+      .map((entry) => ({ membership: toMemberDto(entry.membership, entry.user), colorToken: entry.colorToken })),
+    pendingInvitations: invited.map((entry) => ({
+      invitationId: entry.membership.membershipId,
+      householdId: entry.membership.householdId,
+      inviteeUsername: entry.user.username,
+      roleOnJoin: 'READER' as const,
+      invitedByUserId: entry.membership.invitedByUserId!,
+      status: 'INVITED' as const,
+      createdAt: entry.membership.invitedAt!,
+      respondedAt: null,
+    })),
+  };
 }
 
 /** Reemplaza la fila actualizada en la lista de membresías del hogar. */
-function withRow(memberships: readonly HouseholdMember[], row: HouseholdMember): HouseholdMember[] {
+function withRow(memberships: readonly LegacyHouseholdMember[], row: LegacyHouseholdMember): LegacyHouseholdMember[] {
   return memberships.map((m) => (m.membershipId === row.membershipId ? row : m));
 }
 
-async function memberView(repositories: RepositorySet, memberships: readonly HouseholdMember[], row: HouseholdMember): Promise<HouseholdMemberView> {
+async function memberView(repositories: RepositorySet, memberships: readonly LegacyHouseholdMember[], row: LegacyHouseholdMember): Promise<HouseholdMemberView> {
   const user = (await publicProfilesById(repositories, [row.userId])).get(row.userId)!;
-  return { membership: row, user, colorToken: ownerColorTokens(memberships, row.householdId).get(row.userId) ?? null };
+  return { membership: toMemberDto(row, user), colorToken: ownerColorTokens(memberships, row.householdId).get(row.userId) ?? null };
 }
 
 /** @implements REQ-HOUSE-001 */
@@ -96,7 +148,8 @@ export class CreateHouseholdUseCase {
 export class InviteMemberUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, householdId: string, input: unknown): Promise<HouseholdMemberView> {
+  // T212 PENDIENTE: la 002 responde 202 {received:true} uniforme; mientras tanto devuelve la fila heredada.
+  async execute(userId: string, householdId: string, input: unknown): Promise<LegacyInviteView> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       const memberships = await repositories.households.listMemberships(householdId);
       requireOwner(memberships, householdId, userId);
@@ -129,6 +182,7 @@ export class ListMyInvitationsUseCase {
         views.push({
           household: (await repositories.households.findById(invitation.householdId))!,
           invitedBy: inviters.get(invitation.invitedByUserId!)!,
+          roleOnJoin: 'READER' as const, // T237 PENDIENTE: rol inicial de la invitación
           invitedAt: invitation.invitedAt!,
         });
       }

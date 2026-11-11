@@ -5,7 +5,7 @@ import {
   DomainError,
   STATE_ALERT_001,
   validatePetProfile,
-  type BackupEnvelopeV2,
+  type BackupEnvelopeV3,
   type DewormingRecord,
   type PetProfile,
   type VaccinationRecord,
@@ -33,7 +33,7 @@ import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock
 const fixtures = JSON.parse(
   readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 );
-const envelope: BackupEnvelopeV2 = fixtures.validBackupEnvelopeV2;
+const envelope: BackupEnvelopeV3 = fixtures.validBackupEnvelopeV2;
 const [argos, kira] = envelope.pets as [PetProfile, PetProfile];
 const ANDRES = fixtures.users[0].id as string;
 const MARIA = fixtures.users[1].id as string;
@@ -235,7 +235,7 @@ describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
 
 describe('eliminación en cascada (src/domain/pet/pet-deletion.ts)', () => {
   it('[REQ-PET-004][INV-PET-005] borrar Argos quita sus 2 pesos, 1 medida, 1 vacuna y 1 parámetro y nada más (EDGE-022)', () => {
-    const state = deepFreeze(structuredClone({ pets: envelope.pets, records: envelope.records }));
+    const state = deepFreeze(structuredClone({ pets: envelope.pets as unknown as PetProfile[], records: envelope.records })); // el sobre 3.0.0 no lleva ownerUserId (T226 PENDIENTE)
     const result = deletePetCascade(state, argos.id);
     expect(result.removedPet).toEqual(argos);
     expect(result.removedRecords).toEqual({
@@ -248,14 +248,14 @@ describe('eliminación en cascada (src/domain/pet/pet-deletion.ts)', () => {
     });
     expect(result.state.pets.map((p) => p.name)).toEqual(['Kira', 'Nyx', 'Milo', 'Toby']);
     for (const [name, collection] of Object.entries(result.state.records)) {
-      const original = envelope.records[name as keyof BackupEnvelopeV2['records']] as Array<{ petId: string }>;
+      const original = envelope.records[name as keyof BackupEnvelopeV3['records']] as Array<{ petId: string }>;
       expect(collection).toEqual(original.filter((r) => r.petId !== argos.id));
     }
     expect(state).toEqual({ pets: envelope.pets, records: envelope.records });
   });
 
   it('[REQ-PET-004][INV-PET-005] una mascota inexistente da ERR-PET-NOT-FOUND y no se elimina nada', () => {
-    const state = deepFreeze(structuredClone({ pets: envelope.pets, records: envelope.records }));
+    const state = deepFreeze(structuredClone({ pets: envelope.pets as unknown as PetProfile[], records: envelope.records })); // el sobre 3.0.0 no lleva ownerUserId (T226 PENDIENTE)
     const error = catchDomainError(() => deletePetCascade(state, NEW_PET_ID));
     expect([error.code, error.status, error.field]).toEqual(['ERR-PET-NOT-FOUND', 404, 'petId']);
     expect(state).toEqual({ pets: envelope.pets, records: envelope.records });
@@ -272,7 +272,7 @@ const vaccine = (id: string, vaccineName: string, appliedAt: string, nextBooster
   notes: null,
   createdAt: `${appliedAt}T10:00:00.000Z`,
   ...extra,
-});
+} as unknown as VaccinationRecord); // T255 PENDIENTE: category y veterinarianName/License de la 002
 const deworming = (id: string, dewormingType: 'INTERNAL' | 'EXTERNAL', appliedAt: string, nextSuggestedDoseAt: string): DewormingRecord => ({
   id,
   petId: argos.id,
@@ -282,7 +282,7 @@ const deworming = (id: string, dewormingType: 'INTERNAL' | 'EXTERNAL', appliedAt
   nextSuggestedDoseAt,
   notes: null,
   createdAt: `${appliedAt}T10:00:00.000Z`,
-});
+} as unknown as DewormingRecord); // T255 PENDIENTE: veterinarianName/License de la 002
 const uuid = (n: number) => `33333333-3333-4333-8333-${String(n).padStart(12, '0')}`;
 
 describe('alertas sanitarias (src/domain/alerts/sanitary-alert-evaluator.ts)', () => {
@@ -314,7 +314,7 @@ describe('alertas sanitarias (src/domain/alerts/sanitary-alert-evaluator.ts)', (
     const [older, newer] = edge.expectedResult.records as Array<{ vaccineName: string; appliedAt: string; nextBoosterAt: string; state: string; daysRemaining: number }>;
     const records = [vaccine(uuid(1), older!.vaccineName, older!.appliedAt, older!.nextBoosterAt), vaccine(uuid(2), newer!.vaccineName, newer!.appliedAt, newer!.nextBoosterAt)];
     const views = evaluateVaccinationAlerts(records, edge.referenceDate);
-    expect(views.map((v) => [v.record.id, v.alert.status, v.alert.daysRemaining])).toEqual([
+    expect(views.map((v) => [v.record.id, v.alert!.status, v.alert!.daysRemaining])).toEqual([
       [uuid(2), newer!.state, newer!.daysRemaining],
       [uuid(1), older!.state, older!.daysRemaining],
     ]);
@@ -329,7 +329,7 @@ describe('alertas sanitarias (src/domain/alerts/sanitary-alert-evaluator.ts)', (
       vaccine(uuid(3), 'Moquillo', '2026-02-10', '2027-02-10'),
       vaccine(uuid(4), 'Rabia', '2026-03-10', '2027-03-10', { petId: kira.id }),
     ];
-    const status = Object.fromEntries(evaluateVaccinationAlerts(records, TODAY).map((v) => [v.record.id, v.alert.status]));
+    const status = Object.fromEntries(evaluateVaccinationAlerts(records, TODAY).map((v) => [v.record.id, v.alert!.status]));
     expect(status).toEqual({ [uuid(1)]: 'SUPERSEDED', [uuid(2)]: 'UP_TO_DATE', [uuid(3)]: 'UP_TO_DATE', [uuid(4)]: 'UP_TO_DATE' });
   });
 
@@ -340,7 +340,7 @@ describe('alertas sanitarias (src/domain/alerts/sanitary-alert-evaluator.ts)', (
       vaccine(uuid(3), 'Rabia', '2026-10-01', '2026-11-14', { createdAt: '2026-10-01T11:00:00.000Z' }),
     ];
     const views = evaluateVaccinationAlerts(records, TODAY);
-    expect(views.map((v) => [v.record.id, v.alert.status])).toEqual([
+    expect(views.map((v) => [v.record.id, v.alert!.status])).toEqual([
       [uuid(2), 'DUE_SOON'],
       [uuid(3), 'SUPERSEDED'],
       [uuid(1), 'SUPERSEDED'],
@@ -354,7 +354,7 @@ describe('alertas sanitarias (src/domain/alerts/sanitary-alert-evaluator.ts)', (
       deworming(uuid(3), 'EXTERNAL', '2026-06-01', '2026-11-15'),
     ];
     const views = evaluateDewormingAlerts(records, TODAY);
-    expect(views.map((v) => [v.record.id, v.alert.status, v.alert.daysRemaining])).toEqual([
+    expect(views.map((v) => [v.record.id, v.alert!.status, v.alert!.daysRemaining])).toEqual([
       [uuid(2), 'OVERDUE', -4],
       [uuid(3), 'DUE_SOON', 10],
       [uuid(1), 'SUPERSEDED', -96],

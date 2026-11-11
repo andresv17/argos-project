@@ -8,10 +8,10 @@
 
 import type { FastifyReply, FastifyRequest, onRequestAsyncHookHandler } from 'fastify';
 import type { AuthenticateRequestUseCase } from '../../../application/use-cases/auth-use-cases.ts';
-import { SESSION_TTL_DAYS } from '../../../domain/auth/auth-policies.ts';
+import { SESSION_ABSOLUTE_TTL_HOURS } from '../../../domain/auth/auth-policies.ts';
 
 export const SESSION_COOKIE = 'argos_session';
-export const SESSION_MAX_AGE_SECONDS = SESSION_TTL_DAYS * 24 * 60 * 60;
+export const SESSION_MAX_AGE_SECONDS = SESSION_ABSOLUTE_TTL_HOURS * 60 * 60;
 
 declare module 'fastify' {
   interface FastifyRequest {

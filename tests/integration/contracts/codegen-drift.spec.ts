@@ -58,8 +58,9 @@ afterAll(() => {
 
 describe('deriva y determinismo del generador', () => {
   it('INV-ARCH-003: src/generated coincide con una regeneración limpia desde contracts/', { timeout: SLOW }, () => {
+    // T207: src/generated se regenera desde los contratos 3.0.0 de la 002.
     const out = makeTempDir();
-    runCodegen(join(ROOT, 'specs/001-pet-health-tracker/contracts'), out);
+    runCodegen(join(ROOT, 'specs/002-plataforma-v21/contracts'), out);
     expect(readTree(GENERATED)).toEqual(readTree(out));
   });
 
@@ -117,12 +118,15 @@ function runCompile(args: string[], cwd = ROOT): { status: number | null; output
 }
 
 describe('T201: contratos multi-feature (compile-contracts.sh --feature y codegen.mjs --contracts)', () => {
-  it('INV-ARCH-003: --feature 001 equivale al valor por defecto y regenera exactamente src/generated', { timeout: SLOW }, () => {
+  it('INV-ARCH-003: --feature 001 equivale al valor por defecto', { timeout: SLOW }, () => {
+    // T207: src/generated ya es el de la 002, así que 001 se compara con el valor por defecto y no con src/generated.
     const out = makeTempDir();
     const res = runCompile(['--feature', '001', '--out', out]);
     expect(res.status).toBe(0);
     expect(res.output).toContain('specs/001-pet-health-tracker/contracts/');
-    expect(readTree(out)).toEqual(readTree(GENERATED));
+    const byDefault = makeTempDir();
+    expect(runCompile(['--out', byDefault]).status).toBe(0);
+    expect(readTree(out)).toEqual(readTree(byDefault));
   });
 
   it('INV-ARCH-003: --feature 002 verifica los contratos de la 002 y genera en --out sin tocar src/generated', { timeout: SLOW }, () => {
@@ -134,6 +138,7 @@ describe('T201: contratos multi-feature (compile-contracts.sh --feature y codege
     expect(res.output).toContain('13 contratos presentes');
     expect(existsSync(join(out, 'index.ts'))).toBe(true);
     expect(readTree(out)['errors/error-codes.ts']).toContain('ERR-AUTH-WEAK-PASSWORD');
+    expect(readTree(out)).toEqual(readTree(GENERATED)); // T207: src/generated es la salida de la 002
     expect(readTree(GENERATED)).toEqual(before);
   });
 

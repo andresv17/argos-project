@@ -35,8 +35,9 @@ export function PetFilter({ q, species, onChange }: {
           className="rounded border border-slate-500 px-3 py-2 text-slate-900"
         >
           <option value="">Todas</option>
-          <option value="DOG">{SPECIES_LABEL.DOG}</option>
-          <option value="CAT">{SPECIES_LABEL.CAT}</option>
+          {/* T284 PENDIENTE: filtros por las 8 especies de la 002; por ahora solo CANINE y FELINE. */}
+          <option value="CANINE">{SPECIES_LABEL.CANINE}</option>
+          <option value="FELINE">{SPECIES_LABEL.FELINE}</option>
         </select>
       </label>
     </form>
@@ -92,7 +93,7 @@ export function PetCardList({ cards, activePetId, onSelect }: {
               {SPECIES_LABEL[card.profile.species]} · {formatAge(card.computedAge)} · {formatKg(card.latestWeightKg)}
             </p>
             <p className="text-sm text-slate-700">Alertas: {alertCounters(card.alertsSummary)}</p>
-            <OwnerBadge owner={card.owner} canEdit={card.canEdit} />
+            <OwnerBadge owner={card.owner} canEdit={card.permissions.editPetBasics} />
           </li>
         );
       })}

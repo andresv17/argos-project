@@ -23,6 +23,8 @@ import {
   type SessionRecord,
 } from '../../domain/auth/auth-policies.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
+import { addMillis } from '../../domain/auth/utc-timestamp.ts';
+import { SESSION_IDLE_TIMEOUT_MINUTES } from '../../domain/auth/auth-policies.ts';
 import { assertMatchesSchema, toPublicProfile, type ApplicationDeps } from './use-case-support.ts';
 
 export interface AuthenticatedSession {
@@ -38,11 +40,26 @@ function parseLoginInput(input: unknown): LoginInput {
   return assertMatchesSchema<LoginInput>('LoginInput', validateLoginInput, candidate);
 }
 
+/**
+ * SessionView 3.0.0 a partir de la cuenta y la sesión persistida.
+ * T208 PENDIENTE: lastActivityAt = createdAt (no se renueva) y email, preferredLanguage y timezone con valores neutros
+ * hasta que T214 persista el perfil ampliado.
+ */
+function toSessionView(account: UserAccount, session: SessionRecord): SessionView {
+  return {
+    user: { ...toPublicProfile(account), email: null, preferredLanguage: 'es', timezone: 'UTC' },
+    createdAt: session.createdAt,
+    lastActivityAt: session.createdAt,
+    idleExpiresAt: addMillis(session.createdAt, SESSION_IDLE_TIMEOUT_MINUTES * 60_000),
+    absoluteExpiresAt: session.expiresAt,
+  };
+}
+
 async function startSession(deps: ApplicationDeps, repositories: RepositorySet, account: UserAccount, now: string): Promise<AuthenticatedSession> {
   const sessionToken = deps.tokens.nextSessionToken();
   const session = openSession(account.id, now);
   await repositories.sessions.save(sessionToken, session);
-  return { sessionToken, session: { user: toPublicProfile(account), expiresAt: session.expiresAt } };
+  return { sessionToken, session: toSessionView(account, session) };
 }
 
 async function currentSession(repositories: RepositorySet, sessionToken: string | null): Promise<SessionRecord | null> {
@@ -132,7 +149,7 @@ export class GetCurrentSessionUseCase {
       const session = assertAuthenticated(await currentSession(repositories, sessionToken), now);
       const account = await repositories.users.findById(session.userId);
       if (account === null) throw new DomainError('ERR-AUTH-UNAUTHENTICATED');
-      return { user: toPublicProfile(account), expiresAt: session.expiresAt };
+      return toSessionView(account, session);
     });
   }
 }

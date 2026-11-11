@@ -9,7 +9,8 @@
  * @implements INV-ARCH-004, INV-ARCH-005
  */
 
-import type { Household, HouseholdMember, PetProfile } from '../../../generated/index.ts';
+import type { Household, PetProfile } from '../../../generated/index.ts';
+import type { LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type {
   HouseholdRepositoryPort,
   LoginAttemptRepositoryPort,
@@ -34,7 +35,7 @@ export interface MemoryState {
   pets: PetProfile[];
   records: PetRecordCollections;
   households: Household[];
-  memberships: HouseholdMember[];
+  memberships: LegacyHouseholdMember[];
 }
 
 export interface InMemoryUnitOfWorkOptions {

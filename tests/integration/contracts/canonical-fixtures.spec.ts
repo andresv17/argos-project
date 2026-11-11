@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ERROR_CATALOG,
   validateBackupEnvelopeV1Legacy,
-  validateBackupEnvelopeV2,
+  validateBackupEnvelopeV2Legacy,
   validateBodyMeasurementRecord,
   validateCustomParameterRecord,
   validateDewormingRecord,
@@ -41,7 +41,7 @@ describe('contracts/examples/canonical-fixtures.json -> src/generated/', () => {
     const v2 = fixtures.validBackupEnvelopeV2;
     const counts = Object.fromEntries(Object.entries(v2.records).map(([module, list]) => [module, (list as unknown[]).length]));
     expect([
-      validateBackupEnvelopeV2(v2),
+      validateBackupEnvelopeV2Legacy(v2),
       v2.schemaVersion,
       v2.pets.map((p: { name: string }) => p.name),
       counts,

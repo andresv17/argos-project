@@ -286,7 +286,7 @@
     "AuditPseudonym": {
       "const": {
         "algorithm": "HMAC-SHA256",
-        "key": "ARGOS_AUDIT_HMAC_SECRET (decodificada, >= 32 bytes), recibida por parámetro en el puerto hmacUserId; el dominio nunca lee process.env",
+        "key": "ARGOS_AUDIT_HMAC_SECRET (decodificada, >= 32 bytes), recibida por parámetro en el puerto hmacUserId; el dominio nunca lee variables de entorno directamente",
         "message": "userId en UTF-8, minúsculas con guiones",
         "output": "hexadecimal minúscula de 64 caracteres",
         "appliesTo": [

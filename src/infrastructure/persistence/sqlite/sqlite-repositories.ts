@@ -20,14 +20,12 @@ import {
   validateCustomParameterRecord,
   validateDewormingRecord,
   validateHousehold,
-  validateHouseholdMember,
   validateMedicalVisitRecord,
   validatePetProfile,
   validateUserPublicProfile,
   validateVaccinationRecord,
   validateWeightRecord,
   type Household,
-  type HouseholdMember,
   type PetProfile,
   type UserPublicProfile,
 } from '../../../generated/index.ts';
@@ -41,6 +39,7 @@ import type {
   UserAccount,
   UserRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
+import { isLegacyHouseholdMember, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
@@ -291,12 +290,12 @@ function householdRepository(db: SqliteDatabase): HouseholdRepositoryPort {
   );
   const toHousehold = (row: KeyedRow): Household =>
     decode('households', row.id, row.data, validateHousehold, (h) => h.id === row.id && h.ownerUserId === row.owner_user_id);
-  const toMembership = (row: MembershipRow): HouseholdMember =>
-    decode(
+  const toMembership = (row: MembershipRow): LegacyHouseholdMember =>
+    decode<LegacyHouseholdMember>(
       'household_members',
       row.membership_id,
       row.data,
-      validateHouseholdMember,
+      isLegacyHouseholdMember,
       (m) =>
         m.membershipId === row.membership_id &&
         m.householdId === row.household_id &&
@@ -322,7 +321,7 @@ function householdRepository(db: SqliteDatabase): HouseholdRepositoryPort {
       return membershipsOfUsers.all(list(userIds)).map(toMembership);
     },
     async saveMembership(membership) {
-      const data = encode('household_members', membership.membershipId, membership, validateHouseholdMember);
+      const data = encode('household_members', membership.membershipId, membership, isLegacyHouseholdMember);
       upsertMembership.run(membership.membershipId, membership.householdId, membership.userId, membership.status, membership.firstJoinedAt, data);
     },
   };

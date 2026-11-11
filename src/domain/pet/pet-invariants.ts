@@ -13,7 +13,7 @@ import {
   validateCreatePetInput,
   validatePetProfile,
   validateUpdatePetInput,
-  type BackupEnvelopeV2,
+  type BackupEnvelopeV3,
   type CreatePetInput,
   type PetProfile,
   type UpdatePetInput,
@@ -21,8 +21,8 @@ import {
 import { diffInCalendarDays, validateBirthDateNotFuture } from '../shared/date-utils.ts';
 import { assertCanonicalCreatedAt, getRecordEventDate } from '../sorting/deterministic-sorter.ts';
 
-/** Las 6 colecciones de registros clínicos, con la forma del sobre de respaldo v2. */
-export type PetRecordCollections = BackupEnvelopeV2['records'];
+/** Las 6 colecciones de registros clínicos, con la forma del sobre de respaldo v3. */
+export type PetRecordCollections = BackupEnvelopeV3['records'];
 
 /** Campos que la API nunca permite editar (INV-OWN-001). */
 export const IMMUTABLE_PET_FIELDS = ['id', 'ownerUserId', 'createdAt', 'updatedAt'] as const;
@@ -125,6 +125,10 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
     failSchema('CreatePetInput', validateCreatePetInput as ValidatorWithErrors);
   }
   const valid: CreatePetInput = input;
+  // T226 PENDIENTE: la edad estimada (estimatedAge) se convierte en birthDate en la rebanada de mascotas; hasta entonces se exige birthDate.
+  if (valid.birthDate === undefined) {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'CreatePetInput: estimatedAge aún no está soportada (T226).', 'birthDate');
+  }
   validateBirthDateNotFuture(valid.birthDate, command.today);
   assertCanonicalCreatedAt(command.nowIsoTimestamp, 'createdAt');
   const pet: PetProfile = {
@@ -132,9 +136,13 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
     ownerUserId: command.ownerUserId,
     name: valid.name,
     species: valid.species,
+    speciesOther: (valid.speciesOther ?? null) as PetProfile['speciesOther'], // el generador tipa el nulo como string
     breed: valid.breed,
     birthDate: valid.birthDate,
+    birthDateIsEstimate: valid.birthDateIsEstimate ?? false,
     sex: valid.sex,
+    neutered: valid.neutered ?? null,
+    microchipId: valid.microchipId ?? null,
     avatarUrl: valid.avatarUrl ?? null,
     createdAt: command.nowIsoTimestamp,
     updatedAt: command.nowIsoTimestamp,
@@ -168,9 +176,11 @@ export function updatePetProfile(command: UpdatePetCommand): PetProfile {
     assertBirthDateNotAfterRecords(changes.birthDate, command.recordEventDates);
   }
   assertCanonicalCreatedAt(command.nowIsoTimestamp, 'updatedAt');
+  // T226 PENDIENTE: estimatedAge no se aplica todavía; se ignora al fusionar.
+  const { estimatedAge: _estimatedAge, ...profileChanges } = changes;
   const updated: PetProfile = {
     ...command.pet,
-    ...changes,
+    ...profileChanges,
     id: command.pet.id,
     ownerUserId: command.pet.ownerUserId,
     createdAt: command.pet.createdAt,

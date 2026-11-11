@@ -20,6 +20,7 @@ import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing } from '../../domain/sorting/deterministic-sorter.ts';
 import {
   buildPetCard,
+  legacyRoleAndPermissions,
   publicProfilesById,
   requireReadablePet,
   requireWritablePet,
@@ -125,13 +126,16 @@ export class GetPetDashboardUseCase {
       return {
         profile: pet,
         owner: ownerTag(owner, null),
-        canEdit: canWrite({ id: userId }, pet),
+        ...legacyRoleAndPermissions(canWrite({ id: userId }, pet)),
         computedAge: calculatePetAge(pet.birthDate, today),
         alertsSummary: summarizeSanitaryAlerts(vaccinations, dewormings),
         weights: computeWeightEvolutionSeries(records.weights),
         bodyMeasurements: sortHistoricalRecords(records.bodyMeasurements),
-        vaccinations,
-        dewormings,
+        // T255 PENDIENTE: separación vigentes/reemplazados según REQ-REC2-002.
+        vaccinations: vaccinations.filter((v) => v.alert?.status !== 'SUPERSEDED'),
+        supersededVaccinations: vaccinations.filter((v) => v.alert?.status === 'SUPERSEDED'),
+        dewormings: dewormings.filter((d) => d.alert?.status !== 'SUPERSEDED'),
+        supersededDewormings: dewormings.filter((d) => d.alert?.status === 'SUPERSEDED'),
         medicalVisits: sortHistoricalRecords(records.medicalVisits),
         customParameters: sortHistoricalRecords(records.customParameters),
       };

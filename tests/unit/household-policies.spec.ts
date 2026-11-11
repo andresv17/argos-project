@@ -8,7 +8,6 @@ import {
   validateHousehold,
   validateHouseholdMember,
   type Household,
-  type HouseholdMember,
   type PetProfile,
   type StateHouseMembership001Event,
   type StateHouseMembership001State,
@@ -32,6 +31,7 @@ import {
   removeOrLeave,
   requireOwner,
 } from '../../src/domain/households/household-policies.ts';
+import type { LegacyHouseholdMember as HouseholdMember } from '../../src/domain/households/household-policies.ts';
 
 const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
 const edge = (prefix: string) => fixtures.invalidEdgeCases.find((c: { caseId: string }) => c.caseId.startsWith(prefix));

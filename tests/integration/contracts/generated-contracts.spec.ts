@@ -11,7 +11,7 @@ import {
   STATE_BACKUP_001_STATES,
   STATE_HOUSE_MEMBERSHIP_001_STATES,
   validateBackupEnvelopeV1Legacy,
-  validateBackupEnvelopeV2,
+  validateBackupEnvelopeV2Legacy,
   validateCreateBodyMeasurementInput,
   validateCreatePetInput,
   validateCreateWeightInput,
@@ -40,7 +40,7 @@ describe('contratos generados', () => {
     expectValid(validateHousehold, fixtures.household);
     for (const member of fixtures.householdMembers) expectValid(validateHouseholdMember, member);
     for (const pet of fixtures.otherUserPets) expectValid(validatePetProfile, pet);
-    expectValid(validateBackupEnvelopeV2, fixtures.validBackupEnvelopeV2);
+    expectValid(validateBackupEnvelopeV2Legacy, fixtures.validBackupEnvelopeV2);
     expectValid(validateBackupEnvelopeV1Legacy, fixtures.validLegacyBackupEnvelopeV1);
   });
 

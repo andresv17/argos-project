@@ -12,7 +12,7 @@
  * @implements STATE-BACKUP-001, REQ-BACKUP-002, INV-SORT-001, INV-ARCH-001, INV-ARCH-004
  */
 
-import type { BackupEnvelopeV1Legacy, BackupEnvelopeV2, PetProfile } from '../../generated/index.ts';
+import type { BackupEnvelopeV1Legacy, BackupEnvelopeV2Legacy, LegacyPetProfileV2 } from '../../generated/index.ts';
 import { fromEpochMillis, MS_PER_DAY, MS_PER_MINUTE } from '../auth/utc-timestamp.ts';
 import { isIsoCalendarDate, toEpochDays } from '../shared/date-utils.ts';
 
@@ -55,7 +55,7 @@ export function normalizeToCanonicalUtc(value: string): string {
 }
 
 type LegacyRecords = BackupEnvelopeV1Legacy['records'];
-type V2Records = BackupEnvelopeV2['records'];
+type V2Records = BackupEnvelopeV2Legacy['records'];
 
 function migrateRecords<K extends keyof LegacyRecords>(records: LegacyRecords[K]): V2Records[K] {
   return records.map((record) => ({ ...record, createdAt: normalizeToCanonicalUtc(record.createdAt) })) as V2Records[K];
@@ -64,10 +64,12 @@ function migrateRecords<K extends keyof LegacyRecords>(records: LegacyRecords[K]
 /**
  * Sobre v1 → candidato v2 para el usuario autenticado. No muta la entrada.
  *
+ * T233 PENDIENTE: la migración 1.0.0 a 3.0.0 (DOG a CANINE, campos nuevos) sustituye a este paso; el resultado sigue en la forma 2.0.0 heredada.
+ *
  * @implements STATE-BACKUP-001, REQ-BACKUP-002, INV-SORT-001
  */
-export function migrateLegacyEnvelope(legacy: BackupEnvelopeV1Legacy, userId: string): BackupEnvelopeV2 {
-  const pets = legacy.pets.map((pet): PetProfile => {
+export function migrateLegacyEnvelope(legacy: BackupEnvelopeV1Legacy, userId: string): BackupEnvelopeV2Legacy {
+  const pets = legacy.pets.map((pet): LegacyPetProfileV2 => {
     const createdAt = normalizeToCanonicalUtc(pet.createdAt);
     return { ...pet, ownerUserId: userId, createdAt, updatedAt: createdAt };
   });

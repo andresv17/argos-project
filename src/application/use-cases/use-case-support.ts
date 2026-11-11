@@ -11,11 +11,11 @@
 import {
   DomainError,
   type components,
-  type HouseholdMember,
   type OwnerTag,
   type PetProfile,
   type UserPublicProfile,
 } from '../../generated/index.ts';
+import type { LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
 import { assertCanRead, assertCanWrite } from '../../domain/access/access-policy.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
@@ -74,7 +74,7 @@ export async function publicProfilesById(repositories: RepositorySet, userIds: r
 
 export interface PetAccess {
   readonly pet: PetProfile;
-  readonly memberships: HouseholdMember[];
+  readonly memberships: LegacyHouseholdMember[];
 }
 
 /** Mascota y membresías del usuario y del dueño; una mascota inexistente es ERR-PET-NOT-FOUND (INV-PET-003). */
@@ -107,14 +107,46 @@ export async function requireWritablePet(repositories: RepositorySet, userId: st
  * Tarjeta de mascota (PetCardView) con edad, resumen de alertas y último peso según INV-SORT-001.
  * @implements REQ-PET-002, REQ-PET-005
  */
+/**
+ * Rol efectivo y permisos de la 002 derivados del `canEdit` de la 001.
+ * T236 PENDIENTE: la matriz real de REQ-RBAC-001 (rol del Cuidador, Lector, Administrador) no se decide aquí; el
+ * propietario legal recibe todos los permisos y quien solo lee, ninguno (comportamiento conservador).
+ */
+export function legacyRoleAndPermissions(canEdit: boolean): { myRole: PetCardView['myRole']; permissions: PetCardView['permissions'] } {
+  return {
+    myRole: canEdit ? 'OWNER' : 'READER',
+    permissions: {
+      editPetBasics: canEdit,
+      deletePet: canEdit,
+      writeHealthEvents: canEdit,
+      deleteHealthEvents: canEdit,
+      writeWeightsAndMeasurements: canEdit,
+      writeAppointmentsAndParameters: canEdit,
+      deleteOtherRecords: canEdit,
+      transferPetOwnership: canEdit,
+      assignPetToHouseholds: canEdit,
+    },
+  };
+}
+
+/** Estado más grave entre vacunas y desparasitaciones; null si no hay registros evaluables (REQ-PET2-002). */
+export function globalAlertStatusOf(summary: PetCardView['alertsSummary']): PetCardView['globalAlertStatus'] {
+  if (summary.overdueCount > 0) return 'OVERDUE';
+  if (summary.dueSoonCount > 0) return 'DUE_SOON';
+  if (summary.upToDateCount > 0) return 'UP_TO_DATE';
+  return null;
+}
+
 export function buildPetCard(pet: PetProfile, owner: OwnerTag, canEdit: boolean, records: PetRecordCollections, today: string): PetCardView {
   const weights = computeWeightEvolutionSeries(records.weights);
+  const alertsSummary = summarizeSanitaryAlerts(evaluateVaccinationAlerts(records.vaccinations, today), evaluateDewormingAlerts(records.dewormings, today));
   return {
     profile: pet,
     owner,
-    canEdit,
+    ...legacyRoleAndPermissions(canEdit),
     computedAge: calculatePetAge(pet.birthDate, today),
-    alertsSummary: summarizeSanitaryAlerts(evaluateVaccinationAlerts(records.vaccinations, today), evaluateDewormingAlerts(records.dewormings, today)),
+    alertsSummary,
+    globalAlertStatus: globalAlertStatusOf(alertsSummary),
     latestWeightKg: weights[0]?.record.weightKg ?? null,
   };
 }

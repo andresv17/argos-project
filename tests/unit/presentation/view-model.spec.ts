@@ -147,7 +147,7 @@ describe('modelo de presentación puro', () => {
       memberView.members.map((m) => memberActions(memberView, m, OTHER)),
       canDeleteHousehold(owner),
       canDeleteHousehold(memberView),
-      owner.members.map((m) => m.user.id),
+      owner.members.map((m) => (m as unknown as { user: { id: string } }).user.id),
     ]).toEqual([[[], ['REMOVE'], ['CANCEL_INVITATION']], [[], ['LEAVE']], true, false, [ME, OTHER, INVITEE]]);
   });
 

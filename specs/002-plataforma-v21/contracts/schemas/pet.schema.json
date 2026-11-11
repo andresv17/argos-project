@@ -50,16 +50,20 @@
       ]
     },
     "SpeciesOther": {
-      "allOf": [
+      "oneOf": [
         {
-          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
         }
       ],
-      "type": [
-        "string",
-        "null"
-      ],
-      "maxLength": 60,
       "description": "1-60; obligatorio solo con species OTHER y nulo en el resto [INV-PET2-001]",
       "x-sdd-error": "ERR-SCHEMA-VALIDATION-FAILED"
     },

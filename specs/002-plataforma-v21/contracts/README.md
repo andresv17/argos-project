@@ -25,6 +25,6 @@ Contratos formales de la Feature 002 (estado `REVIEW`, redactados en F4). Los co
 ## Reglas de generación y cambio
 
 - Los `$id` de los esquemas se conservan: los de la 002 **sustituyen** a los de la 001 cuando se compila la 002. `scripts/compile-contracts.sh` y `scripts/codegen.mjs` hoy leen solo `specs/001-pet-health-tracker/contracts/`; apuntarlos a esta carpeta es un cambio de script que requiere autorización de Nivel 2 (constitución, principio VI) y pertenece a F6.
-- Los esquemas se escribieron para Ajv 8 en modo `strict` y `strictTypes`: solo usan las palabras clave `x-sdd-metadata`, `x-sdd-status` y `x-sdd-error` que `codegen.mjs` ya registra; las reglas explicativas viven en `description` y `$comment`.
+- Los esquemas se escribieron para Ajv 8 en modo `strict` y `strictTypes`: solo usan las palabras clave `$anchor`, `x-sdd-metadata`, `x-sdd-status` y `x-sdd-error`, que `codegen.mjs` registra (`$anchor` lo usa `common.schema.json` en la 001 y en la 002; sin registrarla, Ajv en modo `strict` falla); las reglas explicativas viven en `description` y `$comment`.
 - `x-sdd-error` de un campo se resuelve contra `errors/error-catalog.json`; no existe una tabla escrita a mano.
 - Crear, modificar o versionar un contrato sigue SemVer y requiere autorización humana previa (Nivel 2). Ningún agente cambia un contrato a `APPROVED` o `LOCKED`.

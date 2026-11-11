@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { DomainError, type MembershipStatus } from '../../src/generated/index.ts';
+import { DomainError, type StateHouseMembership001State as MembershipStatus } from '../../src/generated/index.ts';
 import {
   assertCanWrite,
   canRead,

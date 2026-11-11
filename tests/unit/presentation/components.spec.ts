@@ -117,7 +117,7 @@ describe('componentes de la SPA (render estático)', () => {
   });
 
   it('[REQ-UI-006] las invitaciones pendientes muestran contador y acciones de aceptar y rechazar', () => {
-    const invitation = { household: household('OWNER').household, invitedBy: household('OWNER').members[0]!.user, invitedAt: '2026-11-01T10:00:00.000Z' };
+    const invitation = { roleOnJoin: 'READER' as const, household: household('OWNER').household, invitedBy: (household('OWNER').members[0] as unknown as { user: { id: string; username: string; displayName: string; createdAt: string } }).user /* T284 PENDIENTE: fixture 001 */, invitedAt: '2026-11-01T10:00:00.000Z' };
     const markup = html(h(InvitationList, { invitations: [invitation], onAccept: noop, onDecline: noop }));
     const empty = html(h(InvitationList, { invitations: [], onAccept: noop, onDecline: noop }));
     expect([markup.includes('1 invitación pendiente'), markup.includes('>Aceptar<'), markup.includes('>Rechazar<'), empty.includes('No tienes invitaciones pendientes.')]).toEqual([true, true, true, true]);

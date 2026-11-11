@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { DomainError, type BackupEnvelopeV2 } from '../../src/generated/index.ts';
+import { DomainError, type BackupEnvelopeV3, type PetProfile } from '../../src/generated/index.ts';
 import { assertBirthDateNotAfterRecords } from '../../src/domain/pet/pet-invariants.ts';
 import { deletePetCascade } from '../../src/domain/pet/pet-deletion.ts';
 
@@ -10,10 +10,10 @@ const PROPERTY_SEED = 20261105;
 const DAY_MS = 86_400_000;
 const BASE_MS = Date.UTC(2020, 0, 1);
 const iso = (day: number) => new Date(BASE_MS + day * DAY_MS).toISOString().slice(0, 10);
-const envelope: BackupEnvelopeV2 = JSON.parse(
+const envelope: BackupEnvelopeV3 = JSON.parse(
   readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 ).validBackupEnvelopeV2;
-type Collections = BackupEnvelopeV2['records'];
+type Collections = BackupEnvelopeV3['records'];
 
 function outcome(action: () => void): string {
   try {
@@ -40,7 +40,7 @@ describe('propiedades de mascota', () => {
     const petIds = envelope.pets.map((p) => p.id);
     fc.assert(
       fc.property(fc.constantFrom(...petIds), fc.subarray(petIds, { minLength: 1 }), (target, kept) => {
-        const pets = envelope.pets.filter((p) => kept.includes(p.id) || p.id === target);
+        const pets = envelope.pets.filter((p) => kept.includes(p.id) || p.id === target) as unknown as PetProfile[]; // el sobre 3.0.0 no lleva ownerUserId (T226 PENDIENTE)
         const result = deletePetCascade({ pets, records: envelope.records }, target);
         expect(result.state.pets.map((p) => p.id)).toEqual(pets.filter((p) => p.id !== target).map((p) => p.id));
         let removed = 0;

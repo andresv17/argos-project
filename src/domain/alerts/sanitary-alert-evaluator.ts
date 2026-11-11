@@ -81,14 +81,17 @@ function evaluateByKey<T extends VaccinationRecord | DewormingRecord>(
   records: readonly T[],
   currentDate: string,
   keyOf: (record: T) => string,
-  targetOf: (record: T) => string,
-): Array<{ record: T; alert: AlertStateMetadata }> {
+  targetOf: (record: T) => string | null,
+): Array<{ record: T; alert: AlertStateMetadata | null }> {
   const seen = new Set<string>();
   return sortHistoricalRecords(records).map((record) => {
     const key = `${record.petId}\u0000${keyOf(record)}`;
     const hasNewer = seen.has(key);
     seen.add(key);
-    return { record, alert: evaluateSanitaryAlertState(targetOf(record), currentDate, hasNewer) };
+    // Sin próxima fecha el registro queda fuera de la evaluación (alert nula) salvo que lo reemplace uno posterior.
+    // T255 PENDIENTE: SUPERSEDED calculado e inmutabilidad de reemplazados de REQ-REC2-002/003.
+    const target = targetOf(record);
+    return { record, alert: target === null && !hasNewer ? null : evaluateSanitaryAlertState(target ?? currentDate, currentDate, hasNewer) };
   });
 }
 
@@ -124,6 +127,7 @@ export function summarizeSanitaryAlerts(
 ): ActiveSanitaryAlertsSummary {
   const summary = { overdueCount: 0, dueSoonCount: 0, upToDateCount: 0, totalActiveAlerts: 0 };
   for (const { alert } of [...vaccinations, ...dewormings]) {
+    if (alert === null) continue;
     if (alert.status === 'OVERDUE') summary.overdueCount += 1;
     if (alert.status === 'DUE_SOON') summary.dueSoonCount += 1;
     if (alert.status === 'UP_TO_DATE') summary.upToDateCount += 1;

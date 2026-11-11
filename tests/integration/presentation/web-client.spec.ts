@@ -46,7 +46,7 @@ describe('cliente generado de la SPA contra la API real', () => {
     expect([
       mine.length > 0 && mine.every((c) => c.owner.colorToken === null && ownerBadge(c.owner).style === null),
       house.pets.length > mine.length && house.pets.every((c) => c.owner.colorToken !== null && ownerBadge(c.owner).style !== null),
-      house.pets.some((c) => !c.canEdit),
+      house.pets.some((c) => !c.permissions.editPetBasics),
     ]).toEqual([true, true, true]);
   });
 
@@ -63,7 +63,7 @@ describe('cliente generado de la SPA contra la API real', () => {
     const before = await dashboard();
     await addRecord(client, 'weights', ARGOS_ID, { recordedAt: '2026-11-04', weightKg: 33.1 });
     const after = await dashboard();
-    expect([after.weights.length - before.weights.length, after.weights[0]?.record.weightKg, typeof after.weights[0]?.deltaKg, typeof after.weights[0]?.deltaPercent]).toEqual([
+    expect([after.weights.length - before.weights.length, after.weights[0]?.record.weightKg, typeof after.weights[0]?.deltaKg, typeof (after.weights[0] as { deltaPercent?: unknown } | undefined)?.deltaPercent]).toEqual([
       1,
       33.1,
       'number',
@@ -79,7 +79,7 @@ describe('cliente generado de la SPA contra la API real', () => {
 
   it('[REQ-UI-005] la sesión de la SPA: registro, sesión actual y logout por el cliente generado', async () => {
     const client = createWebApi(await baseUrl());
-    const registered = await client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'nuevo', displayName: 'Nuevo', password: 'secreto123' } });
+    const registered = await client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'nuevo', displayName: 'Nuevo', password: 'secreto123', confirmPassword: 'secreto123' } });
     const cookie = (registered.response.headers.get('set-cookie') ?? '').split(';')[0]!;
     const me = await client.GET('/auth/me', { headers: { cookie } });
     const out = await client.POST('/auth/logout', { params: CSRF_PARAMS, headers: { cookie } });

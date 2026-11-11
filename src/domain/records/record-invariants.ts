@@ -27,7 +27,7 @@ import {
   validateMedicalVisitRecord,
   validateVaccinationRecord,
   validateWeightRecord,
-  type BackupEnvelopeV2,
+  type BackupEnvelopeV3,
   type BodyMeasurementRecord,
   type components,
   type CreateBodyMeasurementInput,
@@ -47,8 +47,8 @@ import { validateEventDateWindow } from '../shared/date-utils.ts';
 import { sortHistoricalRecords } from '../sorting/deterministic-sorter.ts';
 
 export type WeightEntryView = components['schemas']['WeightEntryView'];
-type RecordCollections = BackupEnvelopeV2['records'];
-/** Las 6 colecciones del sobre v2: weights, bodyMeasurements, vaccinations, dewormings, medicalVisits, customParameters. */
+type RecordCollections = BackupEnvelopeV3['records'];
+/** Las 6 colecciones del sobre v3: weights, bodyMeasurements, vaccinations, dewormings, medicalVisits, customParameters. */
 export type RecordModule = keyof RecordCollections;
 export type RecordOf<M extends RecordModule> = RecordCollections[M][number];
 
@@ -310,7 +310,8 @@ export function deltaPercentFromHundredths(previous: number, current: number): n
  * medición inmediata anterior en ese orden; la primera medición cronológica lleva deltaKg y deltaPercent null.
  * @implements REQ-REC-001, INV-REC-002
  */
-export function computeWeightEvolutionSeries(records: readonly WeightRecord[]): WeightEntryView[] {
+// T226 PENDIENTE: la 002 retira deltaPercent del contrato y calcula deltaKg en la unidad entera de la especie; se conserva el cálculo 001.
+export function computeWeightEvolutionSeries(records: readonly WeightRecord[]): Array<WeightEntryView & { deltaPercent: number | null }> {
   const sorted = sortHistoricalRecords(records);
   return sorted.map((record, index) => {
     const previous = sorted[index + 1];

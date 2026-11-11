@@ -170,7 +170,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   readonly onDelete: () => void;
 }): JSX.Element {
   const { profile } = dashboard;
-  const actions = petActions(dashboard);
+  const actions = petActions({ canEdit: dashboard.permissions.editPetBasics });
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const activeIndex = Math.max(0, RECORD_MODULES.findIndex((m) => m.id === activeTab));
   const activeSpec = RECORD_MODULES[activeIndex] ?? RECORD_MODULES[0]!;
@@ -193,7 +193,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
             {SPECIES_LABEL[profile.species]} · {profile.breed} · {SEX_LABEL[profile.sex]} · {formatAge(dashboard.computedAge)} · nació {profile.birthDate}
           </p>
           <p className="text-sm text-slate-700">Alertas: {alertCounters(dashboard.alertsSummary)}</p>
-          <OwnerBadge owner={dashboard.owner} canEdit={dashboard.canEdit} />
+          <OwnerBadge owner={dashboard.owner} canEdit={dashboard.permissions.editPetBasics} />
         </div>
         {actions.canEdit ? (
           <div className="flex gap-2">

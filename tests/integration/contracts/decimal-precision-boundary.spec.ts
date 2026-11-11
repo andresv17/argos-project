@@ -4,12 +4,12 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   resolveFieldErrorCode,
-  validateBackupEnvelopeV2,
+  validateBackupEnvelopeV2Legacy,
   validateBodyMeasurementRecord,
   validateCreateBodyMeasurementInput,
   validateCreateWeightInput,
   validateWeightRecord,
-  type BackupEnvelopeV2,
+  type BackupEnvelopeV2Legacy,
 } from '../../../src/generated/index.ts';
 
 /**
@@ -17,7 +17,7 @@ import {
  *; deben rechazar weightKg y las medidas con más de 2 decimales con el código del campo.
  */
 const PROPERTY_SEED = 20261105;
-const envelope: BackupEnvelopeV2 = JSON.parse(
+const envelope: BackupEnvelopeV2Legacy = JSON.parse(
   readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 ).validBackupEnvelopeV2;
 
@@ -88,9 +88,9 @@ describe('frontera de 2 decimales (DEUDA-VAL-001, scripts/codegen.mjs multipleOf
   });
 
   it('[INV-REC-002] el sobre de respaldo v2 también rechaza un peso con más de 2 decimales', () => {
-    expect(validateBackupEnvelopeV2(envelope)).toBe(true);
+    expect(validateBackupEnvelopeV2Legacy(envelope)).toBe(true);
     const tampered = { ...envelope, records: { ...envelope.records, weights: [weightRecord(32.85001)] } };
-    expect(validateBackupEnvelopeV2(tampered)).toBe(false);
-    expect((validateBackupEnvelopeV2 as Validator).errors!.map((e) => `${e.keyword}@${e.instancePath}`)).toContain('multipleOf@/records/weights/0/weightKg');
+    expect(validateBackupEnvelopeV2Legacy(tampered)).toBe(false);
+    expect((validateBackupEnvelopeV2Legacy as Validator).errors!.map((e) => `${e.keyword}@${e.instancePath}`)).toContain('multipleOf@/records/weights/0/weightKg');
   });
 });

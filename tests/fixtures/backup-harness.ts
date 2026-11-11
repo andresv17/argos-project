@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { DomainError, type BackupEnvelopeV2 } from '../../src/generated/index.ts';
+import { DomainError, type BackupEnvelopeV3 } from '../../src/generated/index.ts';
 import type { RepositorySet } from '../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.port.ts';
 import type { BackupImportStep } from '../../src/application/use-cases/backup-use-cases.ts';
@@ -7,7 +7,7 @@ import { InMemoryUnitOfWork } from '../../src/infrastructure/persistence/memory/
 import { canonicalState, envelope } from './application-harness.ts';
 
 /** Copia del sobre v2 canónico, opcionalmente modificada. */
-export function v2(mutate: (e: BackupEnvelopeV2) => void = () => {}): BackupEnvelopeV2 {
+export function v2(mutate: (e: BackupEnvelopeV3) => void = () => {}): BackupEnvelopeV3 {
   const copy = structuredClone(envelope);
   mutate(copy);
   return copy;

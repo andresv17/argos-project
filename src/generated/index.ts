@@ -7,6 +7,7 @@ export * from './errors/error-codes.ts';
 export * from './errors/field-errors.ts';
 export type * from './schemas/types.ts';
 export * from './schemas/validators.cjs';
+export * from './machines/account-deletion.machine.ts';
 export * from './machines/auth-session.machine.ts';
 export * from './machines/backup-import.machine.ts';
 export * from './machines/household-membership.machine.ts';

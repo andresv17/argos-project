@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DomainError, type HouseholdMember, type PetProfile } from '../../src/generated/index.ts';
+import { DomainError, type PetProfile } from '../../src/generated/index.ts';
+import type { LegacyHouseholdMember as HouseholdMember } from '../../src/domain/households/household-policies.ts';
 import {
   assertCanRead,
   assertCanWrite,

@@ -7,7 +7,7 @@
  * @implements INV-ACC-001, INV-ACC-002, ERR-ACC-FORBIDDEN, INV-ARCH-004
  */
 
-import { DomainError, type HouseholdMember, type PetProfile } from '../../generated/index.ts';
+import { DomainError, type PetProfile } from '../../generated/index.ts';
 
 /** Usuario autenticado que pide el acceso. */
 export interface AccessSubject {
@@ -18,7 +18,11 @@ export interface AccessSubject {
 export type AccessTarget = Pick<PetProfile, 'id' | 'ownerUserId'>;
 
 /** Datos de la membresía que necesita la política. */
-export type AccessMembership = Pick<HouseholdMember, 'householdId' | 'userId' | 'status'>;
+export interface AccessMembership {
+  readonly householdId: string;
+  readonly userId: string;
+  readonly status: string;
+}
 
 function activeHouseholdsOf(userId: string, memberships: readonly AccessMembership[]): Set<string> {
   const households = new Set<string>();

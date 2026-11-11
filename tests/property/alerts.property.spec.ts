@@ -29,6 +29,7 @@ const recordArb = fc.record({
 
 type RecordSpec = typeof recordArb extends fc.Arbitrary<infer T> ? T : never;
 
+// T255 PENDIENTE: la 002 añade category, veterinarianName y veterinarianLicense a la vacuna; el fixture generado sigue siendo el de la 001.
 function buildRecords(specs: RecordSpec[]): VaccinationRecord[] {
   return specs.map((s, i) => {
     const appliedAt = isoFromUtc(todayMs + s.appliedOffset * DAY_MS);
@@ -41,7 +42,7 @@ function buildRecords(specs: RecordSpec[]): VaccinationRecord[] {
       batchOrClinic: null,
       notes: null,
       createdAt: `${appliedAt}T10:00:${String(s.createdSecond).padStart(2, '0')}.000Z`,
-    };
+    } as unknown as VaccinationRecord;
   });
 }
 
@@ -101,10 +102,10 @@ describe('propiedades de STATE-ALERT-001', () => {
         const views = evaluateVaccinationAlerts(records, TODAY);
         expect(views.length).toBe(records.length);
         for (const { record, alert } of views) {
-          expect(alert.status === 'SUPERSEDED').toBe(!newest.has(record.id));
+          expect(alert!.status === 'SUPERSEDED').toBe(!newest.has(record.id));
         }
         const reversed = evaluateVaccinationAlerts([...records].reverse(), TODAY);
-        expect(reversed.map((v) => [v.record.id, v.alert.status])).toEqual(views.map((v) => [v.record.id, v.alert.status]));
+        expect(reversed.map((v) => [v.record.id, v.alert!.status])).toEqual(views.map((v) => [v.record.id, v.alert!.status]));
       }),
       { seed: PROPERTY_SEED, numRuns: 300 },
     );
@@ -114,7 +115,7 @@ describe('propiedades de STATE-ALERT-001', () => {
     fc.assert(
       fc.property(fc.array(recordArb, { maxLength: 12 }), (specs) => {
         const views = evaluateVaccinationAlerts(buildRecords(specs), TODAY);
-        const count = (status: string) => views.filter((v) => v.alert.status === status).length;
+        const count = (status: string) => views.filter((v) => v.alert!.status === status).length;
         expect(summarizeSanitaryAlerts(views, [])).toEqual({
           overdueCount: count('OVERDUE'),
           dueSoonCount: count('DUE_SOON'),

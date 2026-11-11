@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { BackupEnvelopeV2, Household, HouseholdMember, PetProfile, UserPublicProfile } from '../../src/generated/index.ts';
+import type { BackupEnvelopeV3, Household, PetProfile, UserPublicProfile } from '../../src/generated/index.ts';
+import type { LegacyHouseholdMember as HouseholdMember } from '../../src/domain/households/household-policies.ts';
 import type { UserAccount } from '../../src/application/ports/repositories.port.ts';
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
 import { DeterministicIdAdapter } from '../../src/infrastructure/adapters/deterministic-id.adapter.ts';
@@ -15,7 +16,7 @@ import { DUMMY_PASSWORD_HASH, FAKE_HASH_PREFIX, SequentialTokenAdapter, SpyPassw
 
 /** Datos canónicos de contracts/examples/canonical-fixtures.json. */
 export const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
-export const envelope: BackupEnvelopeV2 = fixtures.validBackupEnvelopeV2;
+export const envelope: BackupEnvelopeV3 = fixtures.validBackupEnvelopeV2;
 export const USERS: UserPublicProfile[] = fixtures.users;
 export const [ANDRES, MARIA, CARLOS, LUCIA] = USERS.map((u) => u.id) as [string, string, string, string];
 export const HOUSEHOLD: Household = fixtures.household;

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { DomainError, type BackupEnvelopeV2, type WeightRecord } from '../../src/generated/index.ts';
+import { DomainError, type BackupEnvelopeV3, type WeightRecord } from '../../src/generated/index.ts';
 import {
   computeWeightEvolutionSeries,
   deltaPercentFromHundredths,
@@ -14,7 +14,7 @@ const PROPERTY_SEED = 20261105;
 const DAY_MS = 86_400_000;
 const BASE_MS = Date.UTC(2020, 0, 1);
 const iso = (day: number) => new Date(BASE_MS + day * DAY_MS).toISOString().slice(0, 10);
-const envelope: BackupEnvelopeV2 = JSON.parse(
+const envelope: BackupEnvelopeV3 = JSON.parse(
   readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 ).validBackupEnvelopeV2;
 const baseWeight = envelope.records.weights[0]!;
