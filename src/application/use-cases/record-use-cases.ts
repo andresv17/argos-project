@@ -41,8 +41,8 @@ const WRITE_ACTION: Readonly<Record<RecordModule, RbacAction>> = {
 const NULLABLE_DEFAULTS: Readonly<Record<RecordModule, Readonly<Record<string, string | null>>>> = {
   weights: { notes: null },
   bodyMeasurements: { notes: null },
-  vaccinations: { category: 'VACCINE', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
-  dewormings: { category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
+  vaccinations: { category: 'VACCINE', nextBoosterAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
+  dewormings: { category: 'DEWORMING', nextSuggestedDoseAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
   medicalVisits: { observations: null },
   customParameters: { notes: null },
 };

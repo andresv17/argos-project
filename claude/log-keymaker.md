@@ -308,3 +308,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Autorización Neo opción (a): NULLABLE_DEFAULTS de vacunas/desparasitaciones completado (category constante, clínicos null) en record-use-cases.ts.
 - idor-matrix 6 rojos -> 61/61; pets-records.api 6 -> 3 fallas (ajenas, GET /pets); unit 72 = base; tsc 0; oracles y traza CUMPLE.
 - Ajuste de 3 expectativas en tests/unit/use-cases.spec.ts a la forma 002. Evidencia en claude/evidencia-task-T251-2026-11-12.md.
+
+## 2026-11-12 — Checkpoint H-T251-2
+- Autorización Neo opción (a): nextBoosterAt: null y nextSuggestedDoseAt: null en NULLABLE_DEFAULTS (record-use-cases.ts).
+- Prueba nueva tests/unit/record-next-dose.spec.ts: rojo 500 ERR-INTERNAL-UNEXPECTED antes; verde después.
+- unit 72 rojos = base; idor 61/61; pets-records 32/35; tsc 0; oracles y traza CUMPLE. Evidencia en claude/evidencia-task-T251-2026-11-12.md.

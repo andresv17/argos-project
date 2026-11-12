@@ -125,3 +125,29 @@ index d0b99ef..cc3efd8 100644
      ]);
      expect([deworming.record.id, deworming.alert!.status]).toEqual([generatedId(3), 'OVERDUE']);
 ```
+
+## H-T251-2 (nextBoosterAt / nextSuggestedDoseAt omitidos -> 500) — 2026-11-12
+Autorización explícita de Neo (Nivel 2), opción (a). Solo dos defaults; sin otros campos ni cambios de autorización.
+
+### Diff exacto
+```diff
+--- a/src/application/use-cases/record-use-cases.ts
++++ b/src/application/use-cases/record-use-cases.ts
+-  vaccinations: { category: 'VACCINE', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
+-  dewormings: { category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
++  vaccinations: { category: 'VACCINE', nextBoosterAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
++  dewormings: { category: 'DEWORMING', nextSuggestedDoseAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
+```
+Prueba nueva (archivo nuevo): tests/unit/record-next-dose.spec.ts (2 pruebas, API real + SQLite: POST sin próxima fecha -> 201, campo null).
+
+### Antes del fix (rojo)
+Ambas pruebas: recibido [500, "ERR-INTERNAL-UNEXPECTED", undefined, undefined, undefined]; esperado [201, null, 'Rabia'|'Drontal', 'VACCINE'|'DEWORMING', null]. Test Files 1 failed, Tests 2 failed (2).
+
+### Después del fix
+- record-next-dose.spec.ts: Tests 2 passed (2).
+- npx vitest run tests/unit: Test Files 7 failed | 19 passed (26); Tests 72 failed | 471 passed (543). Los 72 rojos son la base previa (backup-use-cases 49, record-invariants 10, components 8, view-model 2, validation 1, backup-import-atomicity 1, infrastructure-adapters 1); la nueva prueba en verde, sin regresión.
+- idor-matrix.security.spec.ts: 61 passed (61).
+- pets-records.api.spec.ts: 3 failed | 32 passed (35) (las 3 de GET /pets, ajenas).
+- npx tsc --noEmit: sin salida (cero errores).
+- verify-oracles.sh: Archivos analizados: 83; oráculos débiles: 0; Resultado: CUMPLE.
+- verify-traceability.sh --feature 002 --task T251: IDs trazados: 2/2; Violaciones de pureza: 0; Resultado: CUMPLE.

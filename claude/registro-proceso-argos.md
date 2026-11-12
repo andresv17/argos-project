@@ -345,3 +345,5 @@
 - 2026-11-12 12:01 Morpheus: T250 firmada [x]. T251 a Sentinels.
 - 2026-11-12 Sentinels: T251 matriz IDOR 4 roles entregada (55/61 verdes; H-T251-1 vacunas/desparasitaciones 500, Media). Ver claude/evidencia-task-T251-2026-11-12.md
 - 2026-11-12 Keymaker: H-T251-1 corregido (NULLABLE_DEFAULTS vacunas/desparasitaciones), idor-matrix 61/61, gates OK; commit local, sin push.
+- 2026-11-12 Oracle: T251 CONDICIONADO (05b5267 conforme; residuo H-T251-2 nextBoosterAt/nextSuggestedDoseAt 500 pendiente Neo/Architect) -> claude/veredicto-auditor-task-T251-2026-11-12.md
+- 2026-11-12 Keymaker: H-T251-2 corregido (nextBoosterAt/nextSuggestedDoseAt null por defecto, 201), prueba record-next-dose.spec.ts, gates OK; commit local, sin push.
