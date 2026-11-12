@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { BackupEnvelopeV3, Household, PetProfile, UserPublicProfile } from '../../src/generated/index.ts';
 import { Sha256BackupTokenAdapter } from '../../src/infrastructure/adapters/sha256-backup-token.adapter.ts';
+import { HmacAuditPseudonymAdapter } from '../../src/infrastructure/adapters/hmac-audit-pseudonym.adapter.ts';
+import { RepositoryAuditLogAdapter } from '../../src/infrastructure/adapters/repository-audit-log.adapter.ts';
 import { NullAuditLogAdapter } from '../../src/infrastructure/adapters/null-audit-log.adapter.ts';
 import { SlidingWindowRateLimiterAdapter, type RateLimits } from '../../src/infrastructure/adapters/sliding-window-rate-limiter.adapter.ts';
 import type { ClockPort } from '../../src/application/ports/clock.port.ts';
@@ -18,6 +20,7 @@ import {
   type InMemoryUnitOfWorkOptions,
   type MemoryState,
 } from '../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
+import { AUDIT_SECRET_HEX } from './audit-fixtures.ts';
 import { upgradePet } from './storage-upgrade.ts';
 import { DUMMY_PASSWORD_HASH, FAKE_HASH_PREFIX, SequentialTokenAdapter, SpyPasswordHasher } from './test-doubles.ts';
 
@@ -76,9 +79,11 @@ export function canonicalState(): MemoryState {
 
 /** Zona horaria y límites de frecuencia de las pruebas (valores iniciales de ADR-002-12: 5 exportaciones y 20 invitaciones por 15 min). */
 export const TEST_RATE_LIMITS: RateLimits = { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 20, windowMinutes: 15 } };
+/** Ids de las filas de auditoría: secuencia aparte para no desplazar los ids de las entidades que esperan las pruebas. */
+export const AUDIT_ROW_IDS = Array.from({ length: 500 }, (_, i) => `a1000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`);
 export const RATE_EVENT_IDS = Array.from({ length: 500 }, (_, i) => `e1000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`);
 
-/** Dependencias de aplicación de pruebas: ids y tokens deterministas, límites configurables y auditoría nula (hasta T265). */
+/** Dependencias de aplicación de pruebas: ids y tokens deterministas, límites configurables y auditoría de mutaciones real (T262) y eliminación de cuenta aún nula (hasta T265). */
 export function createDeps(uow: UnitOfWorkPort, clock: ClockPort, hasher: PasswordHasherPort, rateLimits: RateLimits = TEST_RATE_LIMITS): ApplicationDeps {
   const tokens = new SequentialTokenAdapter();
   return {
@@ -91,6 +96,10 @@ export function createDeps(uow: UnitOfWorkPort, clock: ClockPort, hasher: Passwo
     rateLimiter: new SlidingWindowRateLimiterAdapter(new DeterministicIdAdapter(RATE_EVENT_IDS), rateLimits),
     backupTokens: new Sha256BackupTokenAdapter(tokens),
     audit: new NullAuditLogAdapter(),
+    auditLog: new RepositoryAuditLogAdapter(),
+    auditPseudonym: new HmacAuditPseudonymAdapter(),
+    auditHmacSecret: AUDIT_SECRET_HEX,
+    auditIds: new DeterministicIdAdapter(AUDIT_ROW_IDS),
   };
 }
 

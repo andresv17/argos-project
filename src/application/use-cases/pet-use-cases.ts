@@ -19,6 +19,7 @@ import { assertMicrochipUniqueForOwner, collectRecordEventDates, createPetProfil
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
+import { recordAudit } from './audit-support.ts';
 import {
   buildPetCard,
   listVisiblePets,
@@ -78,6 +79,7 @@ export class RegisterPetUseCase {
       });
       assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([userId]), pet.microchipId, pet.id);
       await repositories.pets.save(pet);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: pet });
       return pet;
     });
   }
@@ -100,6 +102,7 @@ export class UpdatePetUseCase {
       });
       assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([pet.ownerUserId]), updated.microchipId, updated.id);
       await repositories.pets.save(updated);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: pet, next: updated });
       return updated;
     });
   }
@@ -111,9 +114,10 @@ export class DeletePetUseCase {
 
   async execute(userId: string, petId: string): Promise<204> {
     return this.deps.uow.runInTransaction(async (repositories) => {
-      await requirePetAction(repositories, userId, petId, 'DELETE_PET');
+      const { pet } = await requirePetAction(repositories, userId, petId, 'DELETE_PET');
       await repositories.records.deleteForPet(petId);
       await repositories.pets.delete(petId);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'PET', entityId: petId, previous: pet, next: null });
       return 204 as const;
     });
   }

@@ -60,6 +60,8 @@ export async function createApi(
   const db = openSqliteDatabase(IN_MEMORY_DATABASE);
   const uow = new SqliteUnitOfWork(db);
   await seedSqlite(uow, state);
+  // La migración 0005 deja su fila MIGRATION (REQ-MIG-001); las pruebas de la API parten de una auditoría vacía (T254).
+  db.exec("DELETE FROM audit_log WHERE mutation_type = 'MIGRATION'");
   const clock = new FixedClockAdapter();
   const hasher = new SpyPasswordHasher();
   const deps = createDeps(uow, clock, hasher, options.rateLimits ?? TEST_RATE_LIMITS);

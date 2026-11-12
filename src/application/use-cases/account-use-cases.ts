@@ -31,6 +31,7 @@ import { assertIanaTimeZone } from '../../domain/account/profile-policy.ts';
 import { assertNotLockedOut, evaluateLoginAttempt, invalidCredentialsError } from '../../domain/auth/auth-policies.ts';
 import { sessionStateAt } from '../../domain/auth/session-policy.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
+import { recordAudit } from './audit-support.ts';
 import { assertMatchesAnnotatedSchema, assertMatchesSchema, toSelfProfile, type ApplicationDeps } from './use-case-support.ts';
 
 async function requireAccount(repositories: RepositorySet, userId: string): Promise<UserAccount> {
@@ -71,6 +72,7 @@ export class UpdateProfileUseCase {
         ...(patch.timezone === undefined ? {} : { timezone: patch.timezone }),
       };
       await repositories.users.update(updated);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'USER', entityId: userId, previous: account, next: updated });
       return toSelfProfile(updated);
     });
   }
@@ -87,7 +89,10 @@ export class ChangePasswordUseCase {
     const changed = await this.deps.uow.runInTransaction(async (repositories) => {
       const account = await requireAccount(repositories, userId);
       if (!(await verifyCurrentPassword(this.deps, repositories, account, valid.currentPassword, now))) return false;
-      await repositories.users.update({ ...account, passwordHash: await this.deps.hasher.hash(valid.newPassword) });
+      const changedAccount: UserAccount = { ...account, passwordHash: await this.deps.hasher.hash(valid.newPassword) };
+      await repositories.users.update(changedAccount);
+      // La vista canónica excluye passwordHash: la fila existe pero ambos hashes coinciden (INV-AUD-001).
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'USER', entityId: userId, previous: account, next: changedAccount });
       if (sessionToken !== null) await repositories.sessions.revokeOthers(userId, sessionToken, now);
       return true;
     });

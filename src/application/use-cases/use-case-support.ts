@@ -25,6 +25,8 @@ import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import type { AccountDeletionAuditPort } from '../ports/account-deletion-audit.port.ts';
+import type { AuditLogPort } from '../ports/audit-log.port.ts';
+import type { AuditPseudonymPort } from '../ports/audit-pseudonym.port.ts';
 import type { BackupTokenPort } from '../ports/backup-token.port.ts';
 import type { ClockPort } from '../ports/clock.port.ts';
 import type { IdGeneratorPort } from '../ports/id-generator.port.ts';
@@ -54,6 +56,14 @@ export interface ApplicationDeps {
   readonly backupTokens: BackupTokenPort;
   /** Auditoría de eliminación de cuenta (transitoria, nula hasta T265). */
   readonly audit: AccountDeletionAuditPort;
+  /** Auditoría de mutaciones (REQ-AUD-001): una fila por operación, en la transacción de la mutación (ADR-002-05). */
+  readonly auditLog: AuditLogPort;
+  /** Seudónimo HMAC del `entityId` de PET_ASSIGNMENT: `hmacUserId("<petId>:<householdId>", auditHmacSecret)`. */
+  readonly auditPseudonym: AuditPseudonymPort;
+  /** Clave hexadecimal (>= 32 bytes) de `ARGOS_AUDIT_HMAC_SECRET`; la entrega la composición, nunca el dominio (INV-ARCH-006). */
+  readonly auditHmacSecret: string;
+  /** Identificadores de las filas de auditoría: generador aparte para no alterar la secuencia de ids de las entidades. */
+  readonly auditIds: IdGeneratorPort;
 }
 
 interface ValidatorWithErrors {

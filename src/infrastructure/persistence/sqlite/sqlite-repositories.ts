@@ -29,11 +29,13 @@ import {
   validateUserPublicProfile,
   validateVaccinationRecord,
   validateWeightRecord,
+  type AuditEntry,
   type Household,
   type PetProfile,
   type UserPublicProfile,
 } from '../../../generated/index.ts';
 import type {
+  AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
   HouseholdRepositoryPort,
   InvitationRecord,
@@ -640,6 +642,27 @@ function invitationRepository(db: SqliteDatabase): InvitationRepositoryPort {
 }
 
 /**
+ * `audit_log` (data-model §2.12): sin claves foráneas; el CHECK de la tabla rechaza valores fuera de los enums cerrados.
+ * @implements REQ-AUD-001, INV-AUD-001, INV-ARCH-005
+ */
+function auditLogRepository(db: SqliteDatabase): AuditLogRepositoryPort {
+  const insert = db.prepare(
+    'INSERT INTO audit_log (id, timestamp, executor_user_id, mutation_type, entity_type, entity_id, previous_state_hash, new_state_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+  );
+  const pseudonymize = db.prepare(
+    'UPDATE audit_log SET executor_user_id = CASE WHEN executor_user_id = ?1 THEN ?2 ELSE executor_user_id END, entity_id = CASE WHEN entity_id = ?1 THEN ?2 ELSE entity_id END WHERE executor_user_id = ?1 OR entity_id = ?1',
+  );
+  return {
+    async insert(entry: AuditEntry) {
+      insert.run(entry.id, entry.timestamp, entry.executorUserId, entry.mutationType, entry.entityType, entry.entityId, entry.previousStateHash, entry.newStateHash);
+    },
+    async pseudonymizeUser(userId, hmac) {
+      pseudonymize.run(userId, hmac);
+    },
+  };
+}
+
+/**
  * Los repositorios sobre una conexión. Las sentencias se preparan una vez.
  * @implements INV-ARCH-005
  */
@@ -655,5 +678,6 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     rateLimits: rateLimitRepository(db),
     invitations: invitationRepository(db),
     assignments: assignmentRepository(db),
+    auditLog: auditLogRepository(db),
   };
 }

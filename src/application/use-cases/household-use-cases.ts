@@ -47,6 +47,7 @@ import {
 } from '../../domain/households/household-policies.ts';
 import { matchesPetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import type { InvitationRecord, RepositorySet } from '../ports/repositories.port.ts';
+import { recordAssignmentRemoved, recordAudit } from './audit-support.ts';
 import { keepsCard, petListFilterOf, type PetListQuery } from './pet-use-cases.ts';
 import {
   assertMatchesSchema,
@@ -156,6 +157,7 @@ export class CreateHouseholdUseCase {
       });
       await repositories.households.insert(household);
       await repositories.households.saveMembership(ownerMembership);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'HOUSEHOLD', entityId: household.id, previous: null, next: household });
       return viewOf(repositories, household, [ownerMembership], userId);
     });
   }
@@ -186,7 +188,9 @@ export class InviteMemberUseCase {
       const eligible = inviteMember({ memberships, householdId, actorUserId: userId, invitee, membershipId: this.deps.ids.nextId(), nowIsoTimestamp: now, roleOnJoin }) !== null;
       const pending = await repositories.invitations.findOpen(householdId, username);
       if (pending === null && (invitee === null || eligible)) {
-        await repositories.invitations.save(this.invitationOf(householdId, username, invitee?.id ?? null, roleOnJoin, userId, now));
+        const invitation = this.invitationOf(householdId, username, invitee?.id ?? null, roleOnJoin, userId, now);
+        await repositories.invitations.save(invitation);
+        await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'HOUSEHOLD_INVITATION', entityId: invitation.invitationId, previous: null, next: invitation });
       }
       return { received: true };
     });
@@ -230,13 +234,18 @@ export class RespondInvitationUseCase {
       const invitation = (await repositories.invitations.listOpenForUser(userId)).find((i) => i.householdId === householdId);
       if (invitation === undefined) throw new DomainError('ERR-HOUSE-INVITATION-NOT-FOUND', undefined, 'householdId');
       if (response === 'DECLINE') {
-        await repositories.invitations.save({ ...invitation, status: 'DECLINED', respondedAt: now });
+        const declined: InvitationRecord = { ...invitation, status: 'DECLINED', respondedAt: now };
+        await repositories.invitations.save(declined);
+        await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'HOUSEHOLD_INVITATION', entityId: invitation.invitationId, previous: invitation, next: declined });
         return 204 as const;
       }
       const memberships = await repositories.households.listMemberships(householdId);
       const row = membershipFromAcceptedInvitation({ memberships, invitation, userId, membershipId: this.deps.ids.nextId(), nowIsoTimestamp: now });
-      await repositories.invitations.save({ ...invitation, status: 'ACCEPTED', respondedAt: now });
+      const accepted: InvitationRecord = { ...invitation, status: 'ACCEPTED', respondedAt: now };
+      await repositories.invitations.save(accepted);
       await repositories.households.saveMembership(row);
+      // La membresía nace como consecuencia de aceptar: 1 sola fila UPDATE sobre la invitación (REQ-AUD-001).
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'HOUSEHOLD_INVITATION', entityId: invitation.invitationId, previous: invitation, next: accepted });
       return memberView(repositories, [...memberships, row], row);
     });
   }
@@ -258,7 +267,9 @@ async function endMembership(deps: ApplicationDeps, actorUserId: string, househo
       const invitation = (await repositories.invitations.listOpenForUser(targetUserId)).find((i) => i.householdId === householdId);
       if (invitation !== undefined) {
         requireManager(memberships, householdId, actorUserId);
-        await repositories.invitations.save({ ...invitation, status: 'CANCELLED', respondedAt: deps.clock.nowIsoTimestamp() });
+        const cancelled: InvitationRecord = { ...invitation, status: 'CANCELLED', respondedAt: deps.clock.nowIsoTimestamp() };
+        await repositories.invitations.save(cancelled);
+        await recordAudit(deps, repositories, { executorUserId: actorUserId, mutationType: 'UPDATE', entityType: 'HOUSEHOLD_INVITATION', entityId: invitation.invitationId, previous: invitation, next: cancelled });
         return 204 as const;
       }
     }
@@ -275,10 +286,17 @@ async function endMembership(deps: ApplicationDeps, actorUserId: string, househo
       targetUserId,
       nowIsoTimestamp: deps.clock.nowIsoTimestamp(),
     });
-    await saveChangedRows(repositories, memberships, result.memberships);
+    const changedRows = await saveChangedRows(repositories, memberships, result.memberships);
+    for (const row of changedRows) {
+      const previous = memberships.find((m) => m.membershipId === row.membershipId)!;
+      await recordAudit(deps, repositories, { executorUserId: actorUserId, mutationType: 'UPDATE', entityType: 'HOUSEHOLD_MEMBERSHIP', entityId: row.membershipId, previous, next: row });
+    }
     const kept = new Set(result.assignments.map((a) => a.petId));
     for (const assignment of assignments) {
-      if (!kept.has(assignment.petId)) await repositories.assignments.remove(assignment.petId, householdId);
+      if (kept.has(assignment.petId)) continue;
+      await repositories.assignments.remove(assignment.petId, householdId);
+      // Excepción de REQ-AUD-001: cada asignación podada genera su propia fila UNASSIGN.
+      await recordAssignmentRemoved(deps, repositories, actorUserId, assignment);
     }
     return 204 as const;
   });
@@ -298,6 +316,8 @@ export class ChangeMemberRoleUseCase {
       const out = changeMemberRole(memberships, householdId, actorUserId, input.userId, input.role, this.deps.clock.nowIsoTimestamp());
       await saveChangedRows(repositories, memberships, out.memberships);
       const row = out.memberships.find((m) => m.userId === input.userId && m.status === 'ACTIVE')!;
+      const previous = memberships.find((m) => m.membershipId === row.membershipId)!;
+      await recordAudit(this.deps, repositories, { executorUserId: actorUserId, mutationType: 'ROLE_CHANGE', entityType: 'HOUSEHOLD_MEMBERSHIP', entityId: row.membershipId, previous, next: row });
       return memberView(repositories, out.memberships, row);
     });
   }
@@ -319,7 +339,9 @@ export class TransferHouseholdOwnershipUseCase {
       const out = transferHouseholdOwnership(memberships, householdId, actorUserId, targetUserId, this.deps.clock.nowIsoTimestamp());
       await saveChangedRows(repositories, memberships, out.memberships);
       await repositories.households.updateOwner(householdId, out.household.ownerUserId);
-      const household = { ...(await repositories.households.findById(householdId))!, ownerUserId: out.household.ownerUserId };
+      const previousHousehold = (await repositories.households.findById(householdId))!;
+      const household = { ...previousHousehold, ownerUserId: out.household.ownerUserId };
+      await recordAudit(this.deps, repositories, { executorUserId: actorUserId, mutationType: 'OWNERSHIP_TRANSFER', entityType: 'HOUSEHOLD', entityId: householdId, previous: previousHousehold, next: household });
       return viewOf(repositories, household, out.memberships, actorUserId);
     });
   }
@@ -350,7 +372,9 @@ export class DeleteHouseholdUseCase {
   async execute(userId: string, householdId: string): Promise<204> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       requireOwner(await repositories.households.listMemberships(householdId), householdId, userId);
+      const household = (await repositories.households.findById(householdId))!;
       await repositories.households.deleteWithMemberships(householdId);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'HOUSEHOLD', entityId: householdId, previous: household, next: null });
       return 204 as const;
     });
   }

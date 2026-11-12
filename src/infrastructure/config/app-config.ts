@@ -97,6 +97,12 @@ export class AppConfigError extends Error {
   }
 }
 
+/**
+ * Clave fija de desarrollo y pruebas (REQ-AUD-001: «en desarrollo y pruebas se admite un valor fijo de prueba explícito»).
+ * Solo se usa cuando `ARGOS_AUDIT_HMAC_SECRET` falta fuera de producción; en producción la configuración exige la variable.
+ */
+export const DEVELOPMENT_AUDIT_HMAC_SECRET = 'de'.repeat(32);
+
 export type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 
 /**

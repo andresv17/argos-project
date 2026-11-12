@@ -21,6 +21,7 @@ import {
 } from '../../domain/auth/auth-policies.ts';
 import { assertAuthenticated, logout, openSession, renewSession, sessionExpiries, type SessionRecord } from '../../domain/auth/session-policy.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
+import { recordAudit } from './audit-support.ts';
 import { assertMatchesSchema, toSelfProfile, type ApplicationDeps } from './use-case-support.ts';
 
 export interface AuthenticatedSession {
@@ -74,6 +75,7 @@ export class RegisterUserUseCase {
         passwordHash: await this.deps.hasher.hash(valid.password),
       };
       await repositories.users.insert(account);
+      await recordAudit(this.deps, repositories, { executorUserId: account.id, mutationType: 'CREATE', entityType: 'USER', entityId: account.id, previous: null, next: account });
       return startSession(this.deps, repositories, account, now);
     });
   }

@@ -9,9 +9,10 @@
  * @implements INV-ARCH-004, INV-ARCH-005
  */
 
-import type { Household, PetProfile } from '../../../generated/index.ts';
+import type { AuditEntry, Household, PetProfile } from '../../../generated/index.ts';
 import type { LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type {
+  AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
   HouseholdRepositoryPort,
   InvitationRecord,
@@ -48,6 +49,8 @@ export interface MemoryState {
   rateEvents: RateLimitEvent[];
   invitations: InvitationRecord[];
   assignments: PetAssignmentRecord[];
+  /** Filas de auditoría en orden de inserción (REQ-AUD-001). */
+  auditLog: AuditEntry[];
 }
 
 export interface StoredConfirmationToken {
@@ -75,6 +78,7 @@ export function emptyMemoryState(): MemoryState {
     rateEvents: [],
     invitations: [],
     assignments: [],
+    auditLog: [],
   };
 }
 
@@ -341,6 +345,21 @@ function assignmentRepository(state: MemoryState): PetAssignmentRepositoryPort {
   };
 }
 
+function auditLogRepository(state: MemoryState): AuditLogRepositoryPort {
+  return {
+    async insert(entry) {
+      state.auditLog.push(copy(entry));
+    },
+    async pseudonymizeUser(userId, hmac) {
+      state.auditLog = state.auditLog.map((e) => ({
+        ...e,
+        executorUserId: e.executorUserId === userId ? hmac : e.executorUserId,
+        entityId: e.entityId === userId ? hmac : e.entityId,
+      }));
+    },
+  };
+}
+
 function repositoriesOver(state: MemoryState): RepositorySet {
   return {
     users: userRepository(state),
@@ -353,6 +372,7 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     rateLimits: rateLimitRepository(state),
     invitations: invitationRepository(state),
     assignments: assignmentRepository(state),
+    auditLog: auditLogRepository(state),
   };
 }
 

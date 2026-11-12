@@ -7,7 +7,7 @@
  * @implements INV-ARCH-004, INV-ARCH-005, INV-PET-003
  */
 
-import type { Household, HouseholdInvitation, PetProfile, UserSelfProfile } from '../../generated/index.ts';
+import type { AuditEntry, Household, HouseholdInvitation, PetProfile, UserSelfProfile } from '../../generated/index.ts';
 import type { LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
@@ -164,6 +164,16 @@ export interface PetAssignmentRepositoryPort {
   deleteForPet(petId: string): Promise<void>;
 }
 
+/**
+ * Almacén de la tabla `audit_log` (REQ-AUD-001, ADR-002-05). Solo inserta y seudonimiza: ni lectura de negocio, ni
+ * actualización, ni borrado (la purga de retención es de mantenimiento, T266). Lo usa `AuditLogPort`.
+ */
+export interface AuditLogRepositoryPort {
+  insert(entry: AuditEntry): Promise<void>;
+  /** Sustituye `userId` por `hmac` en `executor_user_id` y en `entity_id` de todas las filas donde aparezca. */
+  pseudonymizeUser(userId: string, hmac: string): Promise<void>;
+}
+
 export interface RepositorySet {
   readonly users: UserRepositoryPort;
   readonly sessions: SessionRepositoryPort;
@@ -175,4 +185,5 @@ export interface RepositorySet {
   readonly rateLimits: RateLimitRepositoryPort;
   readonly invitations: InvitationRepositoryPort;
   readonly assignments: PetAssignmentRepositoryPort;
+  readonly auditLog: AuditLogRepositoryPort;
 }

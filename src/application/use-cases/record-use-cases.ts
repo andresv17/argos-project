@@ -32,6 +32,7 @@ import {
 import type { RbacAction } from '../../domain/access/rbac.ts';
 import { assertRecordNotSuperseded } from '../../domain/records/superseded-guard.ts';
 import { DomainError } from '../../generated/index.ts';
+import { RECORD_ENTITY_TYPE, recordAudit } from './audit-support.ts';
 import { requirePetAction, type ApplicationDeps } from './use-case-support.ts';
 
 /** Acción de la matriz que autoriza el alta de cada módulo (REQ-RBAC-001, REQ-REC-002/005/006). */
@@ -80,6 +81,7 @@ abstract class AddRecordUseCase<M extends RecordModule, View> {
       } as unknown as RecordOf<M>;
       const existing = await repositories.records.listForPet(petId);
       await repositories.records.add(this.module, record);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: RECORD_ENTITY_TYPE[this.module], entityId: record.id, previous: null, next: record });
       return this.present(record, existing, today);
     });
   }
@@ -173,6 +175,7 @@ export class UpdateVaccinationUseCase {
       const status = evaluateVaccinationAlerts(existing.vaccinations, today).find((entry) => entry.record.id === recordId)?.alert?.status;
       assertRecordNotSuperseded(status ?? 'ACTIVE');
       await repositories.records.replace('vaccinations', updated);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'VACCINATION_RECORD', entityId: recordId, previous: current, next: updated });
       return updated;
     });
   }
@@ -188,7 +191,9 @@ export class DeleteVaccinationUseCase {
   async execute(userId: string, petId: string, recordId: string): Promise<void> {
     await this.deps.uow.runInTransaction(async (repositories) => {
       await requirePetAction(repositories, userId, petId, DELETE_ACTION.vaccinations);
+      const current = (await repositories.records.listForPet(petId)).vaccinations.find((r) => r.id === recordId);
       if (!(await repositories.records.remove('vaccinations', petId, recordId))) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'VACCINATION_RECORD', entityId: recordId, previous: current, next: null });
     });
   }
 }

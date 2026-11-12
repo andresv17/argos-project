@@ -10,12 +10,14 @@ import type { FastifyInstance } from 'fastify';
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { CryptoSecureTokenAdapter } from '../adapters/crypto-secure-token.adapter.ts';
 import { CryptoUuidAdapter } from '../adapters/crypto-uuid.adapter.ts';
+import { HmacAuditPseudonymAdapter } from '../adapters/hmac-audit-pseudonym.adapter.ts';
 import { NullAuditLogAdapter } from '../adapters/null-audit-log.adapter.ts';
+import { RepositoryAuditLogAdapter } from '../adapters/repository-audit-log.adapter.ts';
 import { Sha256BackupTokenAdapter } from '../adapters/sha256-backup-token.adapter.ts';
 import { SlidingWindowRateLimiterAdapter, rateLimitsFrom } from '../adapters/sliding-window-rate-limiter.adapter.ts';
 import { ScryptPasswordHasherAdapter } from '../adapters/scrypt-password-hasher.adapter.ts';
 import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
-import { loadAppConfig, type AppConfig } from '../config/app-config.ts';
+import { DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
 import { openSqliteDatabase } from '../persistence/sqlite/sqlite-database.ts';
 import { SqliteUnitOfWork } from '../persistence/sqlite/sqlite-unit-of-work.ts';
 import { buildApp } from './app.ts';
@@ -45,7 +47,11 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     dummyPasswordHash: await hasher.createDummyHash(),
     rateLimiter: new SlidingWindowRateLimiterAdapter(ids, rateLimitsFrom(config)),
     backupTokens: new Sha256BackupTokenAdapter(tokens),
-    audit: new NullAuditLogAdapter(), // T265 PENDIENTE: auditoría real (HMAC de ARGOS_AUDIT_HMAC_SECRET)
+    audit: new NullAuditLogAdapter(), // T265 PENDIENTE: la eliminación de cuenta pasa a AuditLogPort y se elimina este puerto
+    auditLog: new RepositoryAuditLogAdapter(),
+    auditPseudonym: new HmacAuditPseudonymAdapter(),
+    auditHmacSecret: config.auditHmacSecret ?? DEVELOPMENT_AUDIT_HMAC_SECRET,
+    auditIds: ids,
   };
   const app = await buildApp({
     deps,
