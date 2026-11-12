@@ -347,3 +347,10 @@
 - 2026-11-12 Keymaker: H-T251-1 corregido (NULLABLE_DEFAULTS vacunas/desparasitaciones), idor-matrix 61/61, gates OK; commit local, sin push.
 - 2026-11-12 Oracle: T251 CONDICIONADO (05b5267 conforme; residuo H-T251-2 nextBoosterAt/nextSuggestedDoseAt 500 pendiente Neo/Architect) -> claude/veredicto-auditor-task-T251-2026-11-12.md
 - 2026-11-12 Keymaker: H-T251-2 corregido (nextBoosterAt/nextSuggestedDoseAt null por defecto, 201), prueba record-next-dose.spec.ts, gates OK; commit local, sin push.
+- 2026-11-12 Oracle: T251 APTO (H-T251-1/2 cerrados en 05b5267+57b2083; residuo GET /pets fuera de T251; falta firma Neo) -> claude/veredicto-auditor-task-T251-final-2026-11-12.md
+- 2026-11-12 Oracle: T252 CONDICIONADO (tsc/oráculos/trazabilidad por tarea verdes; 5 fallos propios de rebanada 3: households.property, 2 de T242, INV-HOUSE-004, NOT_YET_SERVED; deuda ajena: GET /pets, B2, respaldo, 001) -> claude/veredicto-auditor-task-T252-2026-11-12.md
+
+- [2026-11-12] Keymaker: H-T252 aplicado en 3 specs; 2 fallos exportBackup (slice 5) pendientes de decision de Neo; sin commit.
+- 2026-11-12 Oracle: T252 revalidación CONDICIONADO (H-T252-1..3 verdes; pendiente Neo: desviación 2a y exportBackup rebanada 5) -> claude/veredicto-auditor-task-T252-revalidacion-2026-11-12.md
+- 2026-11-12 Keymaker: Decisiones de Neo T252 aplicadas (2 it.skip + comentario); access-control 11+2skip; verify-oracles FALLA por los skip; sin commit, pendiente Oracle/Neo.
+- 2026-11-12 Oracle: T252 final CONDICIONADO (apto REVIEW); gates verdes; deuda de rebanada 5 (POST export, 403 por rol) declarada. claude/veredicto-auditor-task-T252-final-2026-11-12.md

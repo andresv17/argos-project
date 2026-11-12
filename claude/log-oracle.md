@@ -217,3 +217,34 @@
 ## 2026-11-12 Oracle T250 (CONDICIONADO)
 - d4baaea solo tests + claude/; sin src/specs/contracts/tasks.md. Playwright 15 passed/1 failed (:310), tsc 0, oracles CUMPLE, trazabilidad 3/3 CUMPLE.
 - H-T250-1 y H-T250-2 confirmados como defectos de produccion; expect.soft legitimas. Veredicto: claude/veredicto-auditor-task-T250-2026-11-12.md
+
+## 2026-11-12 Checkpoint Oracle T250 final
+Audite cf1e68c: alcance limpio, requireManager = MANAGE_HOUSEHOLD_MEMBERS, Eliminar por deletePet, prueba ADMIN concreta.
+tsc 0; vitest 60/60 y 44/44; playwright 16/16; oracles 0 debiles; trazabilidad 3/3. Veredicto APTO.
+Obs: mensaje del commit menciona contador no presente en el diff.
+
+## 2026-11-12 — Checkpoint T251 (corrección 05b5267)
+- Auditado 05b5267: alcance limpio, NULLABLE_DEFAULTS conforme al esquema 002; 3 toEqual legítimos.
+- Corridas: idor 61/61, use-cases 36/36, pets-records 32/35, unit 72 (base), tsc 0, oracles y trazabilidad CUMPLE.
+- Hallazgo H-T251-2: POST sin nextBoosterAt/nextSuggestedDoseAt da 500 (record exige null). Veredicto CONDICIONADO. Ver claude/veredicto-auditor-task-T251-2026-11-12.md
+
+## 2026-11-12 — Checkpoint T251 final (57b2083)
+- Auditado 57b2083 sobre 05b5267: alcance limpio, 2 líneas de código, 2 pruebas toEqual estrictas, fallaban antes.
+- Corridas: record-next-dose 2/2, idor 61/61, pets-records 32/35 (GET /pets ajeno), unit 72 base, tsc 0, oracles y trazabilidad CUMPLE.
+- H-T251-1 y H-T251-2 cerrados. Veredicto APTO (REVIEW). Ver claude/veredicto-auditor-task-T251-final-2026-11-12.md
+
+## 2026-11-12 — Checkpoint T252 compuerta rebanada 3 (57b2083)
+- Trazabilidad T236..T251 16/16 CUMPLE; oráculos 83/0 débiles CUMPLE; tsc 0; trazabilidad global FALLA 88/96 (IDs 001).
+- vitest: 113 fallos = 72 unitarias base + 41 no unitarias (GET /pets 4, B2 1, respaldo 23, contratos 7, records.property 1, propios de rebanada 3: 5).
+- Propios: households.property (T237), 2 de T242, INV-HOUSE-004, NOT_YET_SERVED de session-csrf. T236-T242 siguen [ ].
+- Veredicto CONDICIONADO. Ver claude/veredicto-auditor-task-T252-2026-11-12.md
+
+## 2026-11-12 — T252 revalidación tras H-T252-1..3 (Oracle)
+- Diff de 3 archivos de prueba contra 57b2083; sin cambios en src/, contracts/, generated, migraciones.
+- households.property 3/3, session-csrf 14/14, household-policies 37/37, access-control 11/13 (2 por POST /api/backup/export 404, rebanada 5), tsc 0, oráculos CUMPLE, traza T242 CUMPLE.
+- Veredicto CONDICIONADO; decisiones de Neo: desviación 2a (404 sin código en 2 celdas deleteRecord), /dashboard, exportBackup. Detalle: claude/veredicto-auditor-task-T252-revalidacion-2026-11-12.md.
+
+## 2026-11-12 — Checkpoint T252 veredicto final (CONDICIONADO)
+- access-control 13/13, verify-oracles CUMPLE (0 debiles), tsc 0, session-csrf+households.property 17/17. tasks.md sin cambios en T236-T242/T252.
+- Pruebas de export con GET + contract:false: fuertes en contenido (200, solo LUNA, sin ARGOS, sin secretos; import ajeno 409 rollback) pero no ejercen POST 002 ni 401/403 de rol. Causa raiz de Neo confirmada (72e7e70).
+- Deuda D-T271-1..3 declarada. Detalle: claude/veredicto-auditor-task-T252-final-2026-11-12.md

@@ -313,3 +313,13 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Autorización Neo opción (a): nextBoosterAt: null y nextSuggestedDoseAt: null en NULLABLE_DEFAULTS (record-use-cases.ts).
 - Prueba nueva tests/unit/record-next-dose.spec.ts: rojo 500 ERR-INTERNAL-UNEXPECTED antes; verde después.
 - unit 72 rojos = base; idor 61/61; pets-records 32/35; tsc 0; oracles y traza CUMPLE. Evidencia en claude/evidencia-task-T251-2026-11-12.md.
+
+### [2026-11-12] Keymaker checkpoint H-T252
+- Pruebas corregidas (autorizacion Neo): households.property, access-control, session-csrf NOT_YET_SERVED. Sin tocar src/contratos.
+- Verde: property 3/3, session-csrf 14/14, tsc 0, oracles CUMPLE, traza T242 CUMPLE. access-control 11/13: restan 2 fallos exportBackup 404 (rebanada 5), no autorizados. Sin commit.
+- Evidencia: claude/evidencia-task-T252-2026-11-12.md
+
+### [2026-11-12] Keymaker checkpoint Decisiones de Neo (T252)
+- Aplicado it.skip (etiqueta [REBANADA-5][REQ-BACKUP2-001] ... T271) a exactamente 2 pruebas y comentario H-T252-2a/2b' reescrito en access-control.
+- access-control 11 passed | 2 skipped; property/csrf/unit 54/54; tsc 0; trazabilidad T242 CUMPLE; verify-oracles FALLA (marca los 2 it.skip, oráculos débiles: 2).
+- Sin commit (oracles no verde). Evidencia: claude/evidencia-task-T252-2026-11-12.md

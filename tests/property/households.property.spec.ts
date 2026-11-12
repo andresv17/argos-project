@@ -7,6 +7,7 @@ import {
   createHousehold,
   declineInvitation,
   inviteMember,
+  isLegacyHouseholdMember,
   isOwnerRow,
   ownerColorTokens,
   removeOrLeave,
@@ -91,7 +92,29 @@ describe('propiedades de hogares', () => {
           }
           expect(thrown).toBeNull();
           if (result === null) return; // invitación uniforme sin efecto (usuario inexistente o par ya abierto)
-          expect(validateHouseholdMember(result)).toBe(true);
+          // H-T252-1: en la 002 la invitación vive en household_invitations, no en household_members. La fila INVITED
+          // (o su cierre DECLINED/REMOVED sin haber ingresado, joinedAt === null) es una invitación (LegacyHouseholdMember con invitedAt/invitedByUserId); solo las filas
+          // de membresía (ACTIVE/LEFT/REMOVED) deben cumplir el esquema generado HouseholdMember.
+          if (result.joinedAt === null) {
+            expect([isLegacyHouseholdMember(result), result.invitedAt !== null && result.invitedAt !== undefined, result.invitedByUserId !== null && result.invitedByUserId !== undefined]).toEqual([true, true, true]);
+          } else {
+            // La fila de dominio no porta username/displayName (los aporta el modelo de lectura) ni los campos de invitación
+            // (additionalProperties: false); se valida su proyección de membresía con valores deterministas.
+            const membership = {
+              membershipId: result.membershipId,
+              householdId: result.householdId,
+              userId: result.userId,
+              username: `u${result.userId.slice(-2)}`,
+              displayName: `Usuario ${result.userId.slice(-2)}`,
+              role: result.role,
+              isHouseholdOwner: isOwnerRow(result),
+              status: result.status,
+              joinedAt: result.joinedAt,
+              firstJoinedAt: result.firstJoinedAt,
+              updatedAt: result.updatedAt,
+            };
+            expect(validateHouseholdMember(membership)).toBe(true);
+          }
           rows = rows.some((r) => r.membershipId === result!.membershipId)
             ? rows.map((r) => (r.membershipId === result!.membershipId ? result! : r))
             : [...rows, result];
