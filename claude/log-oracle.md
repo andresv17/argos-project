@@ -213,3 +213,7 @@
 ## 2026-11-12 Oracle H-T249-2 (APTO)
 - d193d9c solo toca 2 archivos de tests (+ claude/); sin src/migraciones/specs/contracts.
 - 37/37, 22/22, 26/26, tsc 0, oracles CUMPLE. Cobertura INVITED/INV-HOUSE-003 intacta. Veredicto: claude/veredicto-auditor-task-H-T249-2-2026-11-12.md
+
+## 2026-11-12 Oracle T250 (CONDICIONADO)
+- d4baaea solo tests + claude/; sin src/specs/contracts/tasks.md. Playwright 15 passed/1 failed (:310), tsc 0, oracles CUMPLE, trazabilidad 3/3 CUMPLE.
+- H-T250-1 y H-T250-2 confirmados como defectos de produccion; expect.soft legitimas. Veredicto: claude/veredicto-auditor-task-T250-2026-11-12.md

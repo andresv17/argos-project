@@ -5,7 +5,7 @@
  * - Visibilidad: sin membresía ACTIVE, ERR-HOUSE-NOT-FOUND (INV-HOUSE-004,).
  * - Las invitaciones viven solo en household_invitations (T246, resolución de Neo): household_members no guarda filas
  *   INVITED, y aceptar, rechazar, cancelar y listar leen y escriben ahí; al aceptar nace la membresía ACTIVE con roleOnJoin.
- * - InviteMemberUseCase comprueba primero que el actor sea OWNER (T238 PENDIENTE: ADMIN), después valida la entrada
+ * - InviteMemberUseCase comprueba primero que el actor sea gestor (OWNER o ADMIN, requireManager; REQ-HOUSE2-001), después valida la entrada
  *   (el username no se normaliza), aplica el límite de frecuencia y responde siempre 202 {received:true} (REQ-HOUSE2-001).
  * - ListMyHouseholdsUseCase ordena por createdAt del hogar y luego id (la spec no fija el orden).
  *
@@ -168,7 +168,7 @@ export class CreateHouseholdUseCase {
  * con el `roleOnJoin` de la entrada; household_members no recibe filas INVITED.
  * El límite de frecuencia (INVITE_MAX_PER_WINDOW por INVITE_WINDOW_MINUTES y actor) se aplica después de la
  * autorización y de la validación, y su rechazo (ERR-RATE-LIMITED) es igual para usernames reales e inexistentes.
- * T238 PENDIENTE: autorización de ADMIN para invitar.
+ * Autorización: OWNER o ADMIN activo pueden invitar (requireManager; MANAGE_HOUSEHOLD_MEMBERS de REQ-RBAC-001).
  * @implements REQ-HOUSE2-001, INV-HOUSE-003, INV-AUTH-006, ERR-RATE-LIMITED
  */
 export class InviteMemberUseCase {
@@ -177,7 +177,7 @@ export class InviteMemberUseCase {
   async execute(userId: string, householdId: string, input: unknown): Promise<InviteAccepted> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       const memberships = await repositories.households.listMemberships(householdId);
-      requireOwner(memberships, householdId, userId);
+      requireManager(memberships, householdId, userId);
       const { username, roleOnJoin } = parseInviteMemberInput(input);
       const now = this.deps.clock.nowIsoTimestamp();
       if (!(await this.deps.rateLimiter.tryConsume(repositories, 'INVITE', userId, now))) throw new DomainError('ERR-RATE-LIMITED');

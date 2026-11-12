@@ -297,3 +297,9 @@
 ## 2026-11-12 Keymaker H-T249-2 (REVIEW)
 - Autorizado por Neo: 3 pruebas con INVITED directo en household_members adaptadas (repository-contract-suite.ts x2, sqlite-repositories.spec.ts x1). Causa: CHECK status 0004.
 - sqlite-repositories 37/37; 22/22; 26/26; tsc 0; oracles CUMPLE; integracion 35->32. Evidencia: claude/evidencia-task-T249-2026-11-12.md
+
+### 2026-11-12 — H-T250-1/2 parcial
+Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 15/16: inviteMember del dominio (household-policies.ts:270) aún exige requireOwner (fuera de autorización). Detenido sin commit; evidencia en claude/evidencia-task-T250-2026-11-12.md.
+
+## 2026-11-12 Keymaker H-T250-3
+- inviteMember: requireOwner -> requireManager (autorizado por Neo N2) + prueba ADMIN invita. Compuertas verdes, E2E 16/16. Ver claude/evidencia-task-T250-2026-11-12.md. Commit local sin push.

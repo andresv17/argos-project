@@ -195,14 +195,18 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
           <p className="text-sm text-slate-700">Alertas: {alertCounters(dashboard.alertsSummary)}</p>
           <OwnerBadge owner={dashboard.owner} canEdit={dashboard.permissions.editPetBasics} />
         </div>
-        {actions.canEdit ? (
+        {actions.canEdit || dashboard.permissions.deletePet ? (
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={onEdit}>
-              Editar
-            </Button>
-            <Button variant="danger" onClick={onDelete}>
-              Eliminar
-            </Button>
+            {actions.canEdit ? (
+              <Button variant="secondary" onClick={onEdit}>
+                Editar
+              </Button>
+            ) : null}
+            {dashboard.permissions.deletePet ? (
+              <Button variant="danger" onClick={onDelete}>
+                Eliminar
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </header>

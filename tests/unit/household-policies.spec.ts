@@ -189,7 +189,7 @@ describe('invitar (REQ-HOUSE2-001, INV-HOUSE-002, INV-HOUSE-003)', () => {
     expect(invite(andres.id, carlos)).toEqual(invite(andres.id, null));
   });
 
-  it('[INV-HOUSE-002][ERR-HOUSE-NOT-FOUND] solo el OWNER invita: MEMBER recibe 403; INVITED o ajeno, 404', () => {
+  it('[INV-HOUSE-002][ERR-HOUSE-NOT-FOUND] solo el OWNER o ADMIN invita: MEMBER recibe 403; INVITED o ajeno, 404', () => {
     expect(codeOf(() => invite(maria.id, lucia))).toEqual(['ERR-ACC-FORBIDDEN', 403]);
     expect([catchDomainError(() => invite(maria.id, lucia)).field, catchDomainError(() => invite(carlos.id, lucia)).field]).toEqual(['householdId', 'householdId']);
     const otherHouse = { ...members[0]!, membershipId: mid(60), householdId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb02', userId: lucia.id };
@@ -197,6 +197,12 @@ describe('invitar (REQ-HOUSE2-001, INV-HOUSE-002, INV-HOUSE-003)', () => {
     expect(codeOf(() => invite(carlos.id, lucia))).toEqual(['ERR-HOUSE-NOT-FOUND', 404]);
     expect(codeOf(() => invite(lucia.id, null))).toEqual(['ERR-HOUSE-NOT-FOUND', 404]);
     expect(requireOwner(members, H1, andres.id)).toBe(members[0]);
+  });
+
+  it('[REQ-HOUSE2-001][REQ-RBAC-001][INV-HOUSE-002] un ADMIN activo no propietario puede invitar: fila nueva INVITED invitada por él', () => {
+    const adminRows = members.map((m) => (m.userId === maria.id ? { ...m, role: 'ADMIN' as const } : m));
+    const row = invite(maria.id, lucia, adminRows);
+    expect([row?.status, row?.userId, row?.invitedByUserId]).toEqual(['INVITED', lucia.id, maria.id]);
   });
 
   it('[REQ-HOUSE2-001][INV-HOUSE-005] re-invitar a María crea una fila nueva y conserva firstJoinedAt y su color (EDGE-031)', () => {

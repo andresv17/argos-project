@@ -338,3 +338,6 @@
 - 2026-11-12 Keymaker: H-T249-2 resuelto en REVIEW (3 pruebas adaptadas a ACTIVE/LEFT/invitaciones; sqlite-repositories 37/37, 22/22, 26/26, tsc 0, oracles CUMPLE). Evidencia: claude/evidencia-task-T249-2026-11-12.md
 - 2026-11-12 Oracle: H-T249-2 APTO tras d193d9c (37/37, 22/22, 26/26, tsc 0, oracles CUMPLE). Ver claude/veredicto-auditor-task-H-T249-2-2026-11-12.md
 - 2026-11-12 Kid: T250 en REVIEW (15 verdes, 1 roja por H-T250-1 backend: ADMIN no propietario no invita; H-T250-2 UI: Eliminar visible a ADMIN; tsc 0, oracles CUMPLE, trazabilidad CUMPLE). Evidencia: claude/evidencia-task-T250-2026-11-12.md
+- 2026-11-12 Oracle: T250 CONDICIONADO (pruebas validas, 15/16; rojo por H-T250-1 y H-T250-2 en src/; requiere decision de Neo). Ver claude/veredicto-auditor-task-T250-2026-11-12.md
+- 2026-11-12 Keymaker: H-T250-1/2 aplicados (sin commit); e2e 15/16, bloqueado por requireOwner en dominio inviteMember (H-T250-3 propuesto a Neo).
+- 2026-11-12 Keymaker: H-T250-3 (inviteMember requireManager) aplicado, E2E 16/16, commit local T250.
