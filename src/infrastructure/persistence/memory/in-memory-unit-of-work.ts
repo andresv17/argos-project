@@ -260,6 +260,19 @@ function recordRepository(state: MemoryState): MedicalRecordRepositoryPort {
       }
       collection.push(copy(record));
     },
+    async replace<M extends RecordModule>(module: M, record: RecordOf<M>) {
+      const collection = state.records[module] as Array<RecordOf<M>>;
+      const index = collection.findIndex((r) => r.id === record.id);
+      if (index < 0) throw new Error(`${module}: registro inexistente (${record.id})`);
+      collection[index] = copy(record);
+    },
+    async remove(module, petId, recordId) {
+      const collection = state.records[module] as Array<{ id: string; petId: string }>;
+      const index = collection.findIndex((r) => r.id === recordId && r.petId === petId);
+      if (index < 0) return false;
+      collection.splice(index, 1);
+      return true;
+    },
     async deleteForPet(petId) {
       for (const module of RECORD_MODULE_NAMES) {
         (state.records[module] as unknown[]) = (state.records[module] as Array<{ petId: string }>).filter((r) => r.petId !== petId);

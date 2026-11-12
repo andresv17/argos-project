@@ -27,6 +27,7 @@ import {
   validateCustomParameterRecord,
   validateDewormingRecord,
   validateMedicalVisitRecord,
+  validateUpdateVaccinationInput,
   validateVaccinationRecord,
   validateWeightRecord,
   type BackupEnvelopeV3,
@@ -227,6 +228,34 @@ export function validateRecordInput<M extends RecordModule>(
   assertSchema(rules.input, input);
   assertDomainRules(rules, input as Record<string, unknown>, petBirthDate, currentDate, species);
   return input as RecordInputs[M];
+}
+
+/** Módulos cuya edición parcial (PATCH) está implementada; el resto llega con T260-T263. */
+export type EditableRecordModule = 'vaccinations';
+const UPDATE_SCHEMAS: Readonly<Record<EditableRecordModule, { readonly collection: string; readonly schema: SchemaRef }>> = {
+  vaccinations: { collection: 'vaccinations', schema: ref('UpdateVaccinationInput', validateUpdateVaccinationInput) },
+};
+
+/**
+ * Edición parcial (REQ-REC2-003): valida el cuerpo contra UpdateXInput (la propiedad collection es obligatoria y debe ser la
+ * de la ruta; sin ella o con otra, ERR-SCHEMA-VALIDATION-FAILED), lo fusiona con el registro vigente y revalida el
+ * registro completo con las reglas de dominio (fecha del evento, próxima fecha posterior). El id y petId no cambian.
+ * @implements REQ-REC2-003, REQ-REC2-002, INV-REC-004
+ */
+export function applyRecordUpdate<M extends EditableRecordModule>(
+  module: M,
+  existing: RecordOf<M>,
+  input: unknown,
+  petBirthDate: string,
+  currentDate: string,
+): RecordOf<M> {
+  const { schema, collection } = UPDATE_SCHEMAS[module];
+  assertSchema(schema, input);
+  const { collection: declared, ...changes } = input as Record<string, unknown>;
+  if (declared !== collection) {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `${schema.name}: collection no coincide con la ruta.`, 'collection');
+  }
+  return validateRecord(module, { ...(existing as object), ...changes }, petBirthDate, currentDate);
 }
 
 /**

@@ -6,7 +6,10 @@
  * Las respuestas siguen el OpenAPI: WeightEntryView, VaccinationEntryView y DewormingEntryView para peso, vacuna y
  * desparasitación; el registro tal cual para los demás.
  *
- * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-PET-003, INV-ACC-002, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
+ * Edición y borrado de vacunas (REQ-REC2-003): un registro SUPERSEDED es inmutable con cualquier rol; borrar el posterior
+ * devuelve el anterior a vigente (SUPERSEDED se calcula, no se almacena).
+ *
+ * @implements REQ-REC2-003, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-PET-003, INV-ACC-002, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
 import type { BodyMeasurementRecord, CustomParameterRecord, MedicalVisitRecord } from '../../generated/index.ts';
@@ -18,13 +21,17 @@ import {
 } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import {
+  applyRecordUpdate,
   computeWeightEvolutionSeries,
   validateRecordInput,
+  type EditableRecordModule,
   type RecordModule,
   type RecordOf,
   type WeightEntryView,
 } from '../../domain/records/record-invariants.ts';
 import type { RbacAction } from '../../domain/access/rbac.ts';
+import { assertRecordNotSuperseded } from '../../domain/records/superseded-guard.ts';
+import { DomainError } from '../../generated/index.ts';
 import { requirePetAction, type ApplicationDeps } from './use-case-support.ts';
 
 /** Acción de la matriz que autoriza el alta de cada módulo (REQ-RBAC-001, REQ-REC-002/005/006). */
@@ -141,5 +148,47 @@ export class AddCustomParameterUseCase extends AddRecordUseCase<'customParameter
 
   protected present(record: CustomParameterRecord): CustomParameterRecord {
     return record;
+  }
+}
+
+/** Acción de la matriz que autoriza borrar cada módulo (REQ-RBAC-001). */
+const DELETE_ACTION: Readonly<Record<EditableRecordModule, RbacAction>> = { vaccinations: 'DELETE_HEALTH_EVENTS' };
+
+/**
+ * Edición parcial de un registro vigente. Orden: acceso (404 antes que 403), existencia del registro en la mascota
+ * (ERR-PET-NOT-FOUND), esquema y dominio, y por último la guarda de inmutabilidad (409).
+ * @implements REQ-REC2-003, REQ-RBAC-001, SC-015, ERR-REC-SUPERSEDED-IMMUTABLE
+ */
+export class UpdateVaccinationUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(userId: string, petId: string, recordId: string, input: unknown): Promise<RecordOf<'vaccinations'>> {
+    const today = this.deps.clock.todayIsoDate();
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION.vaccinations);
+      const existing = await repositories.records.listForPet(petId);
+      const current = existing.vaccinations.find((r) => r.id === recordId);
+      if (current === undefined) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
+      const updated = applyRecordUpdate('vaccinations', current, input, pet.birthDate, today);
+      const status = evaluateVaccinationAlerts(existing.vaccinations, today).find((entry) => entry.record.id === recordId)?.alert?.status;
+      assertRecordNotSuperseded(status ?? 'ACTIVE');
+      await repositories.records.replace('vaccinations', updated);
+      return updated;
+    });
+  }
+}
+
+/**
+ * Borra un registro de la mascota. Si era el posterior de su clave, el anterior vuelve a ser vigente.
+ * @implements REQ-REC2-003, REQ-RBAC-001
+ */
+export class DeleteVaccinationUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(userId: string, petId: string, recordId: string): Promise<void> {
+    await this.deps.uow.runInTransaction(async (repositories) => {
+      await requirePetAction(repositories, userId, petId, DELETE_ACTION.vaccinations);
+      if (!(await repositories.records.remove('vaccinations', petId, recordId))) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
+    });
   }
 }

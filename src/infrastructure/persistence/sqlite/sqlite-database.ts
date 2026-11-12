@@ -12,7 +12,10 @@
  * - REQ-MIG-001, INV-HOUSE2-001, REQ-HOUSE2-003 (T243): `0004_roles_and_pet_assignments.sql` aplica los roles de la
  *   membresía, el propietario del hogar y las asignaciones mascota-hogar en la misma transacción.
  *
- * @implements REQ-MIG-001, INV-ARCH-004, INV-PET-005, ERR-INTERNAL-UNEXPECTED, INV-HOUSE2-001, REQ-HOUSE2-003
+ * - REQ-AUD-001, REQ-MIG-001 (T258): `0005_audit_log_and_clinical_columns.sql` crea `audit_log` (sin claves foráneas) con la fila MIGRATION única;
+ *   `openSqliteDatabase` activa `PRAGMA secure_delete = ON` en cada conexión (R4).
+ *
+ * @implements REQ-AUD-001, REQ-MIG-001, INV-ARCH-004, INV-PET-005, ERR-INTERNAL-UNEXPECTED, INV-HOUSE2-001, REQ-HOUSE2-003
  */
 
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
@@ -67,6 +70,7 @@ export function openSqliteDatabase(path: string, options: OpenSqliteOptions = {}
     if (path !== IN_MEMORY_DATABASE) db.pragma('journal_mode = WAL');
     db.pragma('busy_timeout = 5000');
     db.pragma('foreign_keys = ON');
+    db.pragma('secure_delete = ON');
     runMigrations(db, options.migrationsDir);
     return db;
   } catch (error) {

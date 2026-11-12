@@ -5,10 +5,14 @@
  *   `APP_TIMEZONE` zona IANA válida (`America/Bogota`, F6), `COOKIE_SECURE` `true` o `false` (`false`).
  * - Límites de frecuencia (ADR-002-12, T216): `EXPORT_MAX_PER_WINDOW` (5), `EXPORT_WINDOW_MINUTES` (15),
  *   `INVITE_MAX_PER_WINDOW` (20) e `INVITE_WINDOW_MINUTES` (15): enteros positivos de hasta 4 dígitos, sin ceros a la izquierda.
+ * - `ARGOS_AUDIT_HMAC_SECRET` (REQ-AUD-001, SC-014): clave HMAC de la seudonimización de la auditoría, >= 32 bytes en
+ *   hexadecimal (64 o más caracteres, longitud par). Con `NODE_ENV=production` es obligatoria; fuera de producción puede
+ *   faltar (`auditHmacSecret` nulo), pero si está presente e inválida se rechaza. Su valor nunca aparece en el mensaje
+ *   del error, en logs ni en excepciones: `AppConfigError` solo nombra la variable.
  * - Una variable inválida produce `AppConfigError` con la lista de variables afectadas; no se arranca con valores
  *   por defecto silenciosos. Ningún valor es secreto (`.env.example`).
  *
- * @implements INV-ARCH-006, INV-ARCH-004, ERR-RATE-LIMITED
+ * @implements INV-ARCH-006, INV-ARCH-004, ERR-RATE-LIMITED, REQ-AUD-001
  */
 
 import { Ajv, type JSONSchemaType } from 'ajv';
@@ -24,6 +28,8 @@ export interface AppConfig {
   readonly exportWindowMinutes: number;
   readonly inviteMaxPerWindow: number;
   readonly inviteWindowMinutes: number;
+  /** Clave HMAC de auditoría en hexadecimal (>= 32 bytes) o null si falta fuera de producción. Es un secreto: no se registra. */
+  readonly auditHmacSecret: string | null;
 }
 
 interface RawAppConfig {
@@ -70,6 +76,10 @@ export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
   additionalProperties: false,
 };
 
+const AUDIT_SECRET_NAME = 'ARGOS_AUDIT_HMAC_SECRET';
+/** >= 32 bytes en hexadecimal: 64 o más caracteres hexadecimales, en número par. */
+const AUDIT_SECRET_PATTERN = /^(?:[0-9a-fA-F]{2}){32,}$/;
+
 const validateRawConfig = new Ajv({ allErrors: true }).compile(APP_CONFIG_SCHEMA);
 
 /** Configuración inválida: `variables` lista las variables de entorno rechazadas. */
@@ -95,7 +105,12 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
     for (const error of validateRawConfig.errors ?? []) invalid.add(error.instancePath.replace(/^\//, ''));
   }
   if (!invalid.has('APP_TIMEZONE') && !isSupportedTimeZone(raw.APP_TIMEZONE)) invalid.add('APP_TIMEZONE');
-  if (invalid.size > 0) throw new AppConfigError(keys.filter((key) => invalid.has(key)));
+  const rawSecret = env[AUDIT_SECRET_NAME];
+  const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
+  const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] === 'production' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret);
+  if (invalid.size > 0 || invalidSecret) {
+    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
+  }
   return {
     port: Number(raw.PORT),
     host: '127.0.0.1',
@@ -106,5 +121,6 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
     exportWindowMinutes: Number(raw.EXPORT_WINDOW_MINUTES),
     inviteMaxPerWindow: Number(raw.INVITE_MAX_PER_WINDOW),
     inviteWindowMinutes: Number(raw.INVITE_WINDOW_MINUTES),
+    auditHmacSecret,
   };
 }

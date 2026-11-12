@@ -333,3 +333,15 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Lista de secretos de Neo aplicada a T253 (tokenHash, token_hash, confirmationToken, confirmation_token; sessionId fuera). Rojo por modulo ausente.
 - Nuevas pruebas rojas: audit.api (no such table audit_log), account-deletion seudonimizacion, audit-pseudonym (config sin ARGOS_AUDIT_HMAC_SECRET), roles-migration fila MIGRATION, record-invariants (superseded-guard ausente), pets-records PATCH/DELETE sin ruta.
 - Fixtures 001 llevados a forma 002 en pruebas (10 rojos de base saneados). tsc: 6 TS2307 de T253; oracles CUMPLE. Evidencia: claude/evidencia-task-T254-T257-2026-11-12.md
+
+### [2026-11-12] Keymaker checkpoint T258-T259 (fase VERDE, sin commit)
+- T259: src/domain/audit/{canonical-json,canonical-view,state-hash,sha256}.ts y src/domain/records/superseded-guard.ts. CC-T259-1: SHA-256 puro en el dominio (domain no puede importar node:crypto por layer-dependencies). CC-T259-2: lista de secretos de Neo; sessionId visible.
+- T258: migracion 0005_audit_log_and_clinical_columns.sql (audit_log sin FK, CHECK enums/MIGRATION/hash, 3 indices, fila MIGRATION unica, columnas clinicas VIRTUAL anulables sobre data JSON, secure_delete ON; tambien al abrir conexion). CC-T258-1: columnas clinicas VIRTUAL porque los registros viven en data JSON.
+- Config: ARGOS_AUDIT_HMAC_SECRET (NODE_ENV=production obligatoria; >=32 bytes hex; error solo nombra la variable). app-config.spec ajustado (auditHmacSecret: null).
+- PATCH/DELETE /api/pets/:petId/records/vaccinations/:recordId (puerto replace/remove, UpdateVaccinationUseCase, DeleteVaccinationUseCase). CC-T260-parcial: registro inexistente -> ERR-PET-NOT-FOUND (el catalogo no tiene codigo de registro).
+- Ajustes de listas de migraciones en sqlite-repositories.spec y species-migration.spec (0005). tsc 0, oracles CUMPLE, trazabilidad T258/T259 CUMPLE. Pendiente: access-control.security.spec (excepcion H-T252-2a caduca; no editada, reportada).
+
+## 2026-11-12 — Decisión C1 de Neo: retiro de la excepción H-T252-2a para «eliminar evento sanitario»
+- Archivo: tests/security/exploits/access-control.security.spec.ts (prueba «cada celda "No"…», ~L231-249). Lista esperada ahora ['eliminar otro registro']; filtro isSlice4Unserved acotado a esa etiqueta; comentario actualizado (caducó por T258, DELETE vacunas responde 403 ERR-ACC-FORBIDDEN).
+- Sin cambios en src/, contratos, generated, tasks.md, logos. Sin commit ni push.
+- Compuertas: vitest access-control 13/13; tsc --noEmit exit 0; verify-oracles CUMPLE (88 archivos, 0 débiles).

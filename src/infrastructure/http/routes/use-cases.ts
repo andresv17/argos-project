@@ -31,6 +31,8 @@ import {
   AddMedicalVisitUseCase,
   AddVaccinationUseCase,
   AddWeightRecordUseCase,
+  DeleteVaccinationUseCase,
+  UpdateVaccinationUseCase,
 } from '../../../application/use-cases/record-use-cases.ts';
 import type { ApplicationDeps } from '../../../application/use-cases/use-case-support.ts';
 
@@ -55,6 +57,8 @@ export function createUseCases(deps: ApplicationDeps) {
     addDeworming: new AddDewormingUseCase(deps),
     addMedicalVisit: new AddMedicalVisitUseCase(deps),
     addCustomParameter: new AddCustomParameterUseCase(deps),
+    updateVaccination: new UpdateVaccinationUseCase(deps),
+    deleteVaccination: new DeleteVaccinationUseCase(deps),
     createHousehold: new CreateHouseholdUseCase(deps),
     inviteMember: new InviteMemberUseCase(deps),
     listMyInvitations: new ListMyInvitationsUseCase(deps),

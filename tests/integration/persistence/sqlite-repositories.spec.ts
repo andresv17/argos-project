@@ -52,7 +52,7 @@ const domainFields = (error: unknown) =>
 defineRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 
 describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlite/sqlite-database.ts)', () => {
-  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001, 0002, 0003 y 0004 crean las 17 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
+  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001, 0002, 0003, 0004 y 0005 crean las 18 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
     const dir = tempDir();
     const path = join(dir, 'datos', 'argos.sqlite');
     const db = openSqliteDatabase(path);
@@ -64,6 +64,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
     reopened.close();
     expect([...state, versions]).toEqual([
       [
+        'audit_log',
         'backup_confirmation_tokens',
         'body_measurements',
         'custom_parameters',
@@ -85,7 +86,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       1,
       'wal',
       [],
-      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql'],
+      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql'],
     ]);
   });
 
@@ -114,7 +115,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       revoked_at: '2026-11-05T13:00:00.000Z',
       data: { userId: 'a0000000-0000-4000-8000-000000000001', createdAt: '2026-11-05T12:00:00.000Z', lastActivityAt: '2026-11-05T12:00:00.000Z', revokedAt: '2026-11-05T13:00:00.000Z' },
     });
-    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql']]);
+    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql']]);
   });
 
   it('[REQ-ACC-001][ERR-INTERNAL-UNEXPECTED] la base rechaza un idioma fuera de es/en/pt, un ámbito de frecuencia desconocido y un rol o estado de invitación inválido', () => {

@@ -173,6 +173,8 @@ interface ModuleStatements {
   readonly byPet: Database.Statement<[string], RecordRow>;
   readonly insert: Database.Statement<(string | number)[]>;
   readonly removeForPet: Database.Statement<[string]>;
+  readonly update: Database.Statement<unknown[]>;
+  readonly removeOne: Database.Statement<[string, string]>;
 }
 interface MembershipRow {
   readonly membership_id: string;
@@ -373,6 +375,8 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
       byPet: db.prepare<[string], RecordRow>(`SELECT id, pet_id, data${table === 'weights' ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = ?`),
       insert: db.prepare<[string, string, string]>(`INSERT INTO ${table} (id, pet_id, data${table === 'weights' ? ', weight_grams' : ''}) VALUES (?, ?, ?${table === 'weights' ? ', ?' : ''})`),
       removeForPet: db.prepare<[string]>(`DELETE FROM ${table} WHERE pet_id = ?`),
+      update: db.prepare<(string | number)[]>(`UPDATE ${table} SET data = ?${table === 'weights' ? ', weight_grams = ?' : ''} WHERE id = ? AND pet_id = ?`),
+      removeOne: db.prepare<[string, string]>(`DELETE FROM ${table} WHERE id = ? AND pet_id = ?`),
     };
   }
   const petOfRecord = db
@@ -408,6 +412,16 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
       } else {
         statements[module].insert.run(record.id, record.petId, data);
       }
+    },
+    async replace<M extends RecordModule>(module: M, record: RecordOf<M>) {
+      const { table, check } = RECORD_TABLES[module];
+      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
+      const params = module === 'weights' ? [data, weightKgToGrams((record as RecordOf<'weights'>).weightKg)] : [data];
+      const result = statements[module].update.run(...(params as (string | number)[]), record.id, record.petId);
+      if (result.changes !== 1) throw corruptData(table, record.id);
+    },
+    async remove(module, petId, recordId) {
+      return statements[module].removeOne.run(recordId, petId).changes === 1;
     },
     async deleteForPet(petId) {
       for (const module of RECORD_MODULE_NAMES) statements[module].removeForPet.run(petId);

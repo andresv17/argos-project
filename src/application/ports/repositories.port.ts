@@ -122,6 +122,10 @@ export interface MedicalRecordRepositoryPort {
   findPetIdOfRecord(recordId: string): Promise<string | null>;
   /** Falla si el id ya existe en el módulo. */
   add<M extends RecordModule>(module: M, record: RecordOf<M>): Promise<void>;
+  /** Reemplaza el registro con ese id (REQ-REC2-003). Falla si no existe en el módulo. */
+  replace<M extends RecordModule>(module: M, record: RecordOf<M>): Promise<void>;
+  /** Borra el registro de la mascota con ese id; devuelve false si no existía (REQ-REC2-003). */
+  remove(module: RecordModule, petId: string, recordId: string): Promise<boolean>;
   deleteForPet(petId: string): Promise<void>;
 }
 
