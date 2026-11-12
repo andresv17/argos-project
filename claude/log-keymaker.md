@@ -323,3 +323,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Aplicado it.skip (etiqueta [REBANADA-5][REQ-BACKUP2-001] ... T271) a exactamente 2 pruebas y comentario H-T252-2a/2b' reescrito en access-control.
 - access-control 11 passed | 2 skipped; property/csrf/unit 54/54; tsc 0; trazabilidad T242 CUMPLE; verify-oracles FALLA (marca los 2 it.skip, oráculos débiles: 2).
 - Sin commit (oracles no verde). Evidencia: claude/evidencia-task-T252-2026-11-12.md
+
+### [2026-11-12] Keymaker checkpoint T253 (ROJO)
+- Creadas tests/unit/audit-canonical.spec.ts y tests/property/audit.property.spec.ts (fast-check, semilla 20261112). Sin tocar src/.
+- Rojo por módulo ausente (src/domain/audit/*); tsc: 6 TS2307 solo de estos archivos; oracles CUMPLE; traza INV-AUD-001 FALLA esperada (sin @implements).
+- Evidencia: claude/evidencia-task-T253-2026-11-12.md

@@ -354,3 +354,4 @@
 - 2026-11-12 Oracle: T252 revalidación CONDICIONADO (H-T252-1..3 verdes; pendiente Neo: desviación 2a y exportBackup rebanada 5) -> claude/veredicto-auditor-task-T252-revalidacion-2026-11-12.md
 - 2026-11-12 Keymaker: Decisiones de Neo T252 aplicadas (2 it.skip + comentario); access-control 11+2skip; verify-oracles FALLA por los skip; sin commit, pendiente Oracle/Neo.
 - 2026-11-12 Oracle: T252 final CONDICIONADO (apto REVIEW); gates verdes; deuda de rebanada 5 (POST export, 403 por rol) declarada. claude/veredicto-auditor-task-T252-final-2026-11-12.md
+- 2026-11-12 Keymaker: T253 ROJO (pruebas hash canonico/vista publica; falla por modulo ausente src/domain/audit/*); oracles CUMPLE; tasks.md sin marcar. claude/evidencia-task-T253-2026-11-12.md
