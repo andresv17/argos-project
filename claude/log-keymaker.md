@@ -303,3 +303,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 
 ## 2026-11-12 Keymaker H-T250-3
 - inviteMember: requireOwner -> requireManager (autorizado por Neo N2) + prueba ADMIN invita. Compuertas verdes, E2E 16/16. Ver claude/evidencia-task-T250-2026-11-12.md. Commit local sin push.
+
+### 2026-11-12 — Checkpoint H-T251-1 (Keymaker)
+- Autorización Neo opción (a): NULLABLE_DEFAULTS de vacunas/desparasitaciones completado (category constante, clínicos null) en record-use-cases.ts.
+- idor-matrix 6 rojos -> 61/61; pets-records.api 6 -> 3 fallas (ajenas, GET /pets); unit 72 = base; tsc 0; oracles y traza CUMPLE.
+- Ajuste de 3 expectativas en tests/unit/use-cases.spec.ts a la forma 002. Evidencia en claude/evidencia-task-T251-2026-11-12.md.

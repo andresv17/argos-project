@@ -38,11 +38,11 @@ const WRITE_ACTION: Readonly<Record<RecordModule, RbacAction>> = {
 };
 
 /** Opcionales que el registro persistido exige como null cuando la entrada no los trae. */
-const NULLABLE_DEFAULTS: Readonly<Record<RecordModule, Readonly<Record<string, null>>>> = {
+const NULLABLE_DEFAULTS: Readonly<Record<RecordModule, Readonly<Record<string, string | null>>>> = {
   weights: { notes: null },
   bodyMeasurements: { notes: null },
-  vaccinations: { batchOrClinic: null, notes: null },
-  dewormings: { notes: null },
+  vaccinations: { category: 'VACCINE', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
+  dewormings: { category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
   medicalVisits: { observations: null },
   customParameters: { notes: null },
 };

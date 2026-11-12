@@ -67,3 +67,61 @@ Las 17 fallas = 11 preexistentes (otros archivos: exportación/importación 500 
 - Fila «Invitar, expulsar y cambiar rol» (acción sobre el hogar; cubierta por roles.api.spec.ts y access-control T242) y exportar/importar respaldo (sin sesión de datos ajenos cubierto en access-control.security.spec.ts).
 - Los 11 fallos preexistentes del directorio no son de T251.
 - No se marcó tasks.md; T251 no es COMPLETED hasta firma de Neo.
+
+## H-T251-1 corrección (Keymaker, autorización de Neo opción (a), 2026-11-12)
+
+Causa: validateVaccinationRecord/validateDewormingRecord (esquema 002) exigen category, batchOrClinic, veterinarianName, veterinarianLicense en el registro persistido; NULLABLE_DEFAULTS no los traía. Corrección mínima: completar NULLABLE_DEFAULTS (category constante por tipo: 'VACCINE' / 'DEWORMING'; campos clínicos null). Sin valores clínicos inventados. Nota: nextBoosterAt y nextSuggestedDoseAt también son obligatorios-nulables en el esquema; no se añadieron (fuera de lo autorizado); la prueba IDOR los envía. Una alta que los omita seguiría dando 500: pendiente para Neo/Architect.
+
+Antes: idor-matrix 6 rojos / 55 verdes (500 ERR-INTERNAL-UNEXPECTED en vacunas y desparasitaciones OWNER/ADMIN/CAREGIVER).
+Después: idor-matrix 61/61; pets-records.api 3 fallas / 32 verdes (bajó de 6 a 3 en vacunas/desparasitaciones; quedan 3 de GET /pets, ajenas); tests/unit 72 fallas (base 72, sin regresión); tsc 0; verify-oracles CUMPLE; verify-traceability --feature 002 --task T251 CUMPLE.
+Ajuste de pruebas: 3 expectativas en tests/unit/use-cases.spec.ts pasaron a incluir los nuevos campos (category, veterinarianName/License null), pues comparaban la forma 001 con toEqual; sin debilitar oráculos.
+
+```diff
+diff --git a/src/application/use-cases/record-use-cases.ts b/src/application/use-cases/record-use-cases.ts
+index ba286fb..70265b2 100644
+--- a/src/application/use-cases/record-use-cases.ts
++++ b/src/application/use-cases/record-use-cases.ts
+@@ -38,11 +38,11 @@ const WRITE_ACTION: Readonly<Record<RecordModule, RbacAction>> = {
+ };
+ 
+ /** Opcionales que el registro persistido exige como null cuando la entrada no los trae. */
+-const NULLABLE_DEFAULTS: Readonly<Record<RecordModule, Readonly<Record<string, null>>>> = {
++const NULLABLE_DEFAULTS: Readonly<Record<RecordModule, Readonly<Record<string, string | null>>>> = {
+   weights: { notes: null },
+   bodyMeasurements: { notes: null },
+-  vaccinations: { batchOrClinic: null, notes: null },
+-  dewormings: { notes: null },
++  vaccinations: { category: 'VACCINE', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
++  dewormings: { category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
+   medicalVisits: { observations: null },
+   customParameters: { notes: null },
+ };
+diff --git a/tests/unit/use-cases.spec.ts b/tests/unit/use-cases.spec.ts
+index d0b99ef..cc3efd8 100644
+--- a/tests/unit/use-cases.spec.ts
++++ b/tests/unit/use-cases.spec.ts
+@@ -467,12 +467,12 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
+     const vaccine = await cases.vaccinations.execute(ANDRES, ARGOS.id, { ...INPUTS.vaccinations, batchOrClinic: 'Lote 7', notes: 'Sin reacción' });
+     const deworming = await cases.dewormings.execute(ANDRES, ARGOS.id, INPUTS.dewormings);
+     expect([vaccine.record, vaccine.alert!.status, vaccine.alert!.daysRemaining]).toEqual([
+-      { ...INPUTS.vaccinations, batchOrClinic: 'Lote 7', notes: 'Sin reacción', id: generatedId(1), petId: ARGOS.id, createdAt: NOW },
++      { ...INPUTS.vaccinations, category: 'VACCINE', veterinarianName: null, veterinarianLicense: null, batchOrClinic: 'Lote 7', notes: 'Sin reacción', id: generatedId(1), petId: ARGOS.id, createdAt: NOW },
+       'UP_TO_DATE',
+       365,
+     ]);
+     expect([deworming.record, deworming.alert!.status, deworming.alert!.daysRemaining]).toEqual([
+-      { ...INPUTS.dewormings, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
++      { ...INPUTS.dewormings, category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
+       'DUE_SOON',
+       5,
+     ]);
+@@ -487,7 +487,7 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
+     const deworming = await cases.dewormings.execute(ANDRES, KIRA, { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-10-01', nextSuggestedDoseAt: '2026-10-31' });
+     expect([weight.record.id, weight.deltaKg, 'deltaPercent' in weight]).toEqual([generatedId(1), 0.1, false]);
+     expect([vaccine.record, vaccine.alert!.status]).toEqual([
+-      { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01', batchOrClinic: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
++      { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01', category: 'VACCINE', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
+       'OVERDUE',
+     ]);
+     expect([deworming.record.id, deworming.alert!.status]).toEqual([generatedId(3), 'OVERDUE']);
+```

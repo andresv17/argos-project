@@ -467,12 +467,12 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const vaccine = await cases.vaccinations.execute(ANDRES, ARGOS.id, { ...INPUTS.vaccinations, batchOrClinic: 'Lote 7', notes: 'Sin reacción' });
     const deworming = await cases.dewormings.execute(ANDRES, ARGOS.id, INPUTS.dewormings);
     expect([vaccine.record, vaccine.alert!.status, vaccine.alert!.daysRemaining]).toEqual([
-      { ...INPUTS.vaccinations, batchOrClinic: 'Lote 7', notes: 'Sin reacción', id: generatedId(1), petId: ARGOS.id, createdAt: NOW },
+      { ...INPUTS.vaccinations, category: 'VACCINE', veterinarianName: null, veterinarianLicense: null, batchOrClinic: 'Lote 7', notes: 'Sin reacción', id: generatedId(1), petId: ARGOS.id, createdAt: NOW },
       'UP_TO_DATE',
       365,
     ]);
     expect([deworming.record, deworming.alert!.status, deworming.alert!.daysRemaining]).toEqual([
-      { ...INPUTS.dewormings, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
+      { ...INPUTS.dewormings, category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
       'DUE_SOON',
       5,
     ]);
@@ -487,7 +487,7 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const deworming = await cases.dewormings.execute(ANDRES, KIRA, { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-10-01', nextSuggestedDoseAt: '2026-10-31' });
     expect([weight.record.id, weight.deltaKg, 'deltaPercent' in weight]).toEqual([generatedId(1), 0.1, false]);
     expect([vaccine.record, vaccine.alert!.status]).toEqual([
-      { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01', batchOrClinic: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
+      { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01', category: 'VACCINE', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
       'OVERDUE',
     ]);
     expect([deworming.record.id, deworming.alert!.status]).toEqual([generatedId(3), 'OVERDUE']);
