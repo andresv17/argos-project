@@ -23,8 +23,8 @@ import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import {
   applyRecordUpdate,
   computeWeightEvolutionSeries,
+  moduleOfCollection,
   validateRecordInput,
-  type EditableRecordModule,
   type RecordModule,
   type RecordOf,
   type WeightEntryView,
@@ -153,47 +153,70 @@ export class AddCustomParameterUseCase extends AddRecordUseCase<'customParameter
   }
 }
 
-/** Acción de la matriz que autoriza borrar cada módulo (REQ-RBAC-001). */
-const DELETE_ACTION: Readonly<Record<EditableRecordModule, RbacAction>> = { vaccinations: 'DELETE_HEALTH_EVENTS' };
+/** Acción de la matriz que autoriza borrar cada módulo (REQ-RBAC-001): eventos de salud vs. el resto. */
+const DELETE_ACTION: Readonly<Record<RecordModule, RbacAction>> = {
+  weights: 'DELETE_OTHER_RECORDS',
+  bodyMeasurements: 'DELETE_OTHER_RECORDS',
+  vaccinations: 'DELETE_HEALTH_EVENTS',
+  dewormings: 'DELETE_HEALTH_EVENTS',
+  medicalVisits: 'DELETE_OTHER_RECORDS',
+  customParameters: 'DELETE_OTHER_RECORDS',
+};
+
+/** La colección de la ruta debe existir en el contrato (RecordCollection); si no, la ruta no existe: 404. */
+function moduleOrNotFound(collection: string): RecordModule {
+  const module = moduleOfCollection(collection);
+  if (module === undefined) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'collection');
+  return module;
+}
 
 /**
- * Edición parcial de un registro vigente. Orden: acceso (404 antes que 403), existencia del registro en la mascota
- * (ERR-PET-NOT-FOUND), esquema y dominio, y por último la guarda de inmutabilidad (409).
- * @implements REQ-REC2-003, REQ-RBAC-001, SC-015, ERR-REC-SUPERSEDED-IMMUTABLE
+ * Edición parcial de un registro de cualquiera de los 6 módulos. Orden: acceso (404 antes que 403) con la acción
+ * WRITE_* del módulo, existencia del registro en la mascota (ERR-PET-NOT-FOUND), esquema y dominio, y por último la
+ * guarda de inmutabilidad (409). Solo vacunas y desparasitaciones pueden estar SUPERSEDED.
+ * @implements REQ-REC2-003, REQ-RBAC-001, SC-015, ERR-REC-SUPERSEDED-IMMUTABLE, ERR-ACC-FORBIDDEN
  */
-export class UpdateVaccinationUseCase {
+export class UpdateRecordUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, petId: string, recordId: string, input: unknown): Promise<RecordOf<'vaccinations'>> {
+  async execute(userId: string, petId: string, collection: string, recordId: string, input: unknown): Promise<RecordOf<RecordModule>> {
+    const module = moduleOrNotFound(collection);
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
-      const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION.vaccinations);
+      const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION[module]);
       const existing = await repositories.records.listForPet(petId);
-      const current = existing.vaccinations.find((r) => r.id === recordId);
+      const current = (existing[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId) as RecordOf<RecordModule> | undefined;
       if (current === undefined) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
-      const updated = applyRecordUpdate('vaccinations', current, input, pet.birthDate, today);
-      const status = evaluateVaccinationAlerts(existing.vaccinations, today).find((entry) => entry.record.id === recordId)?.alert?.status;
-      assertRecordNotSuperseded(status ?? 'ACTIVE');
-      await repositories.records.replace('vaccinations', updated);
-      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'VACCINATION_RECORD', entityId: recordId, previous: current, next: updated });
+      const updated = applyRecordUpdate(module, current, input, pet.birthDate, today, pet.species);
+      assertRecordNotSuperseded(supersededStatus(module, existing, recordId, today));
+      await repositories.records.replace(module, updated);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: RECORD_ENTITY_TYPE[module], entityId: recordId, previous: current, next: updated });
       return updated;
     });
   }
 }
 
+/** Estado de alerta del registro; los módulos sin semáforo nunca están reemplazados. */
+function supersededStatus(module: RecordModule, existing: PetRecordCollections, recordId: string, today: string): string {
+  if (module === 'vaccinations') return evaluateVaccinationAlerts(existing.vaccinations, today).find((e) => e.record.id === recordId)?.alert?.status ?? 'ACTIVE';
+  if (module === 'dewormings') return evaluateDewormingAlerts(existing.dewormings, today).find((e) => e.record.id === recordId)?.alert?.status ?? 'ACTIVE';
+  return 'ACTIVE';
+}
+
 /**
  * Borra un registro de la mascota. Si era el posterior de su clave, el anterior vuelve a ser vigente.
- * @implements REQ-REC2-003, REQ-RBAC-001
+ * @implements REQ-REC2-003, REQ-RBAC-001, ERR-ACC-FORBIDDEN
  */
-export class DeleteVaccinationUseCase {
+export class DeleteRecordUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, petId: string, recordId: string): Promise<void> {
+  async execute(userId: string, petId: string, collection: string, recordId: string): Promise<void> {
+    const module = moduleOrNotFound(collection);
     await this.deps.uow.runInTransaction(async (repositories) => {
-      await requirePetAction(repositories, userId, petId, DELETE_ACTION.vaccinations);
-      const current = (await repositories.records.listForPet(petId)).vaccinations.find((r) => r.id === recordId);
-      if (!(await repositories.records.remove('vaccinations', petId, recordId))) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
-      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'VACCINATION_RECORD', entityId: recordId, previous: current, next: null });
+      await requirePetAction(repositories, userId, petId, DELETE_ACTION[module]);
+      const current = ((await repositories.records.listForPet(petId))[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId);
+      if (current === undefined || !(await repositories.records.remove(module, petId, recordId))) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: RECORD_ENTITY_TYPE[module], entityId: recordId, previous: current, next: null });
     });
   }
 }

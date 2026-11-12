@@ -18,6 +18,7 @@ import { registerAssignmentRoutes } from './routes/assignments.routes.ts';
 import { registerOwnershipRoutes } from './routes/ownership.routes.ts';
 import { registerHouseholdRoutes } from './routes/households.routes.ts';
 import { registerPetRoutes } from './routes/pets.routes.ts';
+import { registerRecordEditRoutes } from './routes/records-edit.routes.ts';
 import { createUseCases } from './routes/use-cases.ts';
 
 export interface HttpAppOptions {
@@ -39,6 +40,7 @@ export async function buildApp({ deps, cookieSecure, logger = false }: HttpAppOp
   registerAuthRoutes(app, context);
   registerAccountRoutes(app, context);
   registerPetRoutes(app, context);
+  registerRecordEditRoutes(app, context);
   registerHouseholdRoutes(app, context);
   registerAssignmentRoutes(app, context);
   registerOwnershipRoutes(app, context);

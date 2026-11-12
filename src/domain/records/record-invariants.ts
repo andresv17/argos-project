@@ -27,7 +27,12 @@ import {
   validateCustomParameterRecord,
   validateDewormingRecord,
   validateMedicalVisitRecord,
+  validateUpdateBodyMeasurementInput,
+  validateUpdateCustomParameterInput,
+  validateUpdateDewormingInput,
+  validateUpdateMedicalVisitInput,
   validateUpdateVaccinationInput,
+  validateUpdateWeightInput,
   validateVaccinationRecord,
   validateWeightRecord,
   type BackupEnvelopeV3,
@@ -230,11 +235,21 @@ export function validateRecordInput<M extends RecordModule>(
   return input as RecordInputs[M];
 }
 
-/** Módulos cuya edición parcial (PATCH) está implementada; el resto llega con T260-T263. */
-export type EditableRecordModule = 'vaccinations';
+/** Módulos con edición parcial (PATCH): los 6 (REQ-REC2-003). */
+export type EditableRecordModule = RecordModule;
 const UPDATE_SCHEMAS: Readonly<Record<EditableRecordModule, { readonly collection: string; readonly schema: SchemaRef }>> = {
+  weights: { collection: 'weights', schema: ref('UpdateWeightInput', validateUpdateWeightInput) },
+  bodyMeasurements: { collection: 'measurements', schema: ref('UpdateBodyMeasurementInput', validateUpdateBodyMeasurementInput) },
   vaccinations: { collection: 'vaccinations', schema: ref('UpdateVaccinationInput', validateUpdateVaccinationInput) },
+  dewormings: { collection: 'dewormings', schema: ref('UpdateDewormingInput', validateUpdateDewormingInput) },
+  medicalVisits: { collection: 'visits', schema: ref('UpdateMedicalVisitInput', validateUpdateMedicalVisitInput) },
+  customParameters: { collection: 'custom-parameters', schema: ref('UpdateCustomParameterInput', validateUpdateCustomParameterInput) },
 };
+
+/** Módulo de la colección de la ruta `/records/{collection}` (RecordCollection del contrato); undefined si no existe. */
+export function moduleOfCollection(collection: string): RecordModule | undefined {
+  return (Object.keys(UPDATE_SCHEMAS) as RecordModule[]).find((m) => UPDATE_SCHEMAS[m].collection === collection);
+}
 
 /**
  * Edición parcial (REQ-REC2-003): valida el cuerpo contra UpdateXInput (la propiedad collection es obligatoria y debe ser la
@@ -248,6 +263,7 @@ export function applyRecordUpdate<M extends EditableRecordModule>(
   input: unknown,
   petBirthDate: string,
   currentDate: string,
+  species?: Species,
 ): RecordOf<M> {
   const { schema, collection } = UPDATE_SCHEMAS[module];
   assertSchema(schema, input);
@@ -255,7 +271,7 @@ export function applyRecordUpdate<M extends EditableRecordModule>(
   if (declared !== collection) {
     throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `${schema.name}: collection no coincide con la ruta.`, 'collection');
   }
-  return validateRecord(module, { ...(existing as object), ...changes }, petBirthDate, currentDate);
+  return validateRecord(module, { ...(existing as object), ...changes }, petBirthDate, currentDate, species);
 }
 
 /**
