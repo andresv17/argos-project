@@ -289,3 +289,7 @@
 ## 2026-11-12 Keymaker T249 (REVIEW)
 - Parte 0: titulo de "Mis mascotas" actualizado. T249: rojo (3 pruebas, OK en vez de ERR-ACCOUNT-OWNS-SHARED-PETS), implementado B5/B6 + borrado de asignaciones en DeleteAccountUseCase y guarda planPetAssignmentsForDeletion; B4 ya releia en tx.
 - account-deletion 26/26, use-cases 36/36, unit 72 fallos (= base), tsc 0, oracles CUMPLE, trazabilidad 4/4. Integracion: 75 fallos (CHECK status SQLite preexistente). Evidencia: claude/evidencia-task-T249-2026-11-12.md. Sin commit.
+
+## 2026-11-12 Keymaker H-T249-1 (REVIEW)
+- Causa: identityState() (identity-fixtures.ts) sembraba INVITED de Carla en memberships; sqlite/application-harness ya estaban bien. Movida a state.invitations (CAREGIVER).
+- account-deletion.api + account.api 22/22; unit account-deletion 26/26; tsc 0; oracles CUMPLE; integracion 75 -> 35 fallos (documentados). Hallazgo H-T249-2: 3 fallos CHECK en sqlite-repositories.spec via repository-contract-suite:232.

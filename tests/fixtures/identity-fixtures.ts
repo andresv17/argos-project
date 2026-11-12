@@ -66,7 +66,19 @@ export function identityState(): MemoryState {
   const state = emptyMemoryState();
   state.users = [...base, OLD_ACCOUNT].map((u) => accountOf(u, IDENTITY_PASSWORDS[u.username]!));
   state.households = [HOUSEHOLD_ANA, HOUSEHOLD_ELENA];
-  state.memberships = structuredClone(IDENTITY_MEMBERSHIPS);
+  // H-T249-1 (T246): household_members no guarda INVITED; la invitación de Carla vive en household_invitations con roleOnJoin CAREGIVER.
+  state.memberships = structuredClone(IDENTITY_MEMBERSHIPS.filter((m) => m.status !== 'INVITED'));
+  state.invitations = IDENTITY_MEMBERSHIPS.filter((m) => m.status === 'INVITED').map((m) => ({
+    invitationId: m.membershipId,
+    householdId: m.householdId,
+    inviteeUsername: USERNAMES[m.userId]!,
+    inviteeUserId: m.userId,
+    roleOnJoin: 'CAREGIVER' as const,
+    invitedByUserId: m.invitedByUserId!,
+    status: 'INVITED' as const,
+    createdAt: m.invitedAt!,
+    respondedAt: null,
+  }));
   state.pets = [...structuredClone(ANA_PETS), structuredClone(ELENA_PET)];
   state.records = structuredClone(raw.entities.records);
   const weight = structuredClone(state.records.weights[0]!);

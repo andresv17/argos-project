@@ -31,3 +31,24 @@ bloqueo PETS con rollback (snapshot identico, token vigente, sin auditoria); hog
 
 ## Fuera de alcance
 Auditoria B7/B8 (T265), reasignacion assigned_by_user_id, fallos de integracion SQLite preexistentes, B2 audit_log (T264). Sin contradiccion spec/contrato.
+
+## H-T249-1 (Keymaker, 2026-11-12): 22 fallos de integracion de cuenta por sembrado INVITED
+**Causa real**: no eran sqlite-harness.ts ni application-harness.ts (ya separaban INVITED hacia household_invitations). El sembrado erroneo estaba en `tests/fixtures/identity-fixtures.ts` (`identityState()`), que metia la fila `row(4, ..., CARLA, 'MEMBER', 'INVITED', ELENA)` en `state.memberships`; `seedSqlite` la guardaba con `saveMembership` y la migracion 0004 la rechaza (CHECK status IN ACTIVE/LEFT/REMOVED). src, esquema y aserciones intactos.
+
+**Antes** (`npx vitest run` account-deletion.api + account.api): `Test Files 2 failed (2)`, `Tests 22 failed (22)`; errores `CHECK constraint failed: status IN ('ACTIVE', 'LEFT', 'REMOVED')` y `Cannot read properties of undefined (reading 'close')`.
+
+**Diff** (tests/fixtures/identity-fixtures.ts, identityState):
+```diff
+-  state.memberships = structuredClone(IDENTITY_MEMBERSHIPS);
++  // H-T249-1 (T246): household_members no guarda INVITED; la invitacion de Carla vive en household_invitations con roleOnJoin CAREGIVER.
++  state.memberships = structuredClone(IDENTITY_MEMBERSHIPS.filter((m) => m.status !== 'INVITED'));
++  state.invitations = IDENTITY_MEMBERSHIPS.filter((m) => m.status === 'INVITED').map((m) => ({
++    invitationId: m.membershipId, householdId: m.householdId, inviteeUsername: USERNAMES[m.userId]!, inviteeUserId: m.userId,
++    roleOnJoin: 'CAREGIVER' as const, invitedByUserId: m.invitedByUserId!, status: 'INVITED' as const, createdAt: m.invitedAt!, respondedAt: null,
++  }));
+```
+(IDENTITY_MEMBERSHIPS se conserva intacta: la usa account-deletion.spec.ts en pruebas de politica pura.)
+
+**Despues**: `Test Files 2 passed (2)`, `Tests 22 passed (22)`. tests/unit/account-deletion.spec.ts 26/26. `npx tsc --noEmit` 0 errores. verify-oracles.sh: `Archivos analizados: 81; oraculos debiles: 0 / Resultado: CUMPLE`.
+
+**tests/integration completo**: `Test Files 9 failed | 13 passed (22)`, `Tests 35 failed | 681 passed (716)` (antes 75 fallos tras T249). Restantes: backup-atomicity (11), pets-records (6), canonical-fixtures (4), sqlite-backup-import (4), generated-contracts (3), openapi-conformance (2), assignments-ownership (1), web-client (1) = documentados (B2 audit_log/OpenAPI/backup). **Hallazgo H-T249-2 (no corregido, fuera de alcance)**: 3 fallos CHECK status restantes en tests/integration/persistence/sqlite-repositories.spec.ts, via tests/fixtures/repository-contract-suite.ts:232 (saveMembership con INVITED directo: pruebas "[INV-ARCH-005] hogares", "[REQ-ACC-002] deleteMembershipsOfUser", "[INV-HOUSE-003] indice unico INVITED"). Son pruebas de comportamiento 001 que asumen INVITED en household_members; requieren decision/adaptacion (patron C1-C3) y no un cambio de sembrado.
