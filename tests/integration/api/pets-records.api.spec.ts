@@ -376,3 +376,88 @@ describe('peso por especie por HTTP (REQ-REC2-001, INV-REC2-002, SC-013)', () =>
     ]);
   });
 });
+
+// Feature 002 · T240 (rojo): permisos por rol sobre mascotas y registros por HTTP (REQ-RBAC-001, INV-ACC2-001, INV-ACC2-002).
+// Escenario propio: Andrés crea «Nala» y un hogar, invita a carlos_88 como CAREGIVER y a lucia.r como READER y asigna Nala.
+describe('permisos por rol sobre registros por HTTP (REQ-RBAC-001, INV-ACC2-001, INV-ACC2-002) · T240', () => {
+  async function caregiverAndReaderScenario(): Promise<{ pet: string; hid: string; andres: string }> {
+    const andres = await api.login('andres');
+    const created = await api.call('POST', '/api/pets', { cookie: andres, body: { ...NEW_PET, name: 'Nala' } });
+    const pet = (created.json as { id: string }).id;
+    const house = await api.call('POST', '/api/households', { cookie: andres, body: { name: 'Casa de Nala' } });
+    const hid = (house.json as { household: { id: string } }).household.id;
+    for (const [username, roleOnJoin] of [
+      ['carlos_88', 'CAREGIVER'],
+      ['lucia.r', 'READER'],
+    ] as const) {
+      await api.call('POST', `/api/households/${hid}/invitations`, { cookie: andres, body: { username, roleOnJoin } });
+      await api.call('POST', `/api/invitations/${hid}/accept`, { cookie: await api.login(username) });
+    }
+    await api.call('PUT', `/api/pets/${pet}/assignments/${hid}`, { cookie: andres });
+    return { pet, hid, andres };
+  }
+
+  it('[REQ-REC2-001][REQ-REC-002][INV-ACC2-002] el Cuidador registra un peso (201), una medida corporal (201) y un evento sanitario (201) de la mascota asignada', async () => {
+    api = await createApi();
+    const { pet } = await caregiverAndReaderScenario();
+    const cookie = await api.login('carlos_88');
+    const weight = await api.call('POST', `/api/pets/${pet}/records/weights`, { cookie, body: RECORD_INPUTS.weights });
+    const measure = await api.call('POST', `/api/pets/${pet}/records/measurements`, { cookie, body: RECORD_INPUTS.measurements });
+    const vaccine = await api.call('POST', `/api/pets/${pet}/records/vaccinations`, { cookie, body: RECORD_INPUTS.vaccinations });
+    expect([weight.status, measure.status, vaccine.status]).toEqual([201, 201, 201]);
+  });
+
+  it('[REQ-PET-004][REQ-PET2-003][INV-ACC2-002][ERR-ACC-FORBIDDEN] el Cuidador no edita el perfil ni elimina la mascota: 403 y la mascota sigue existiendo', async () => {
+    api = await createApi();
+    const { pet } = await caregiverAndReaderScenario();
+    const cookie = await api.login('carlos_88');
+    const edited = await api.call('PATCH', `/api/pets/${pet}`, { cookie, body: { ...NEW_PET, name: 'Robada' } });
+    const deleted = await api.call('DELETE', `/api/pets/${pet}`, { cookie });
+    const still = await api.call('GET', `/api/pets/${pet}/dashboard`, { cookie });
+    expect([problemOf(edited), problemOf(deleted), still.status]).toEqual([
+      { status: 403, code: 'ERR-ACC-FORBIDDEN' },
+      { status: 403, code: 'ERR-ACC-FORBIDDEN' },
+      200,
+    ]);
+  });
+
+  it('[REQ-REC-005][REQ-REC-006][INV-ACC2-002][ERR-ACC-FORBIDDEN] el Cuidador no registra citas médicas ni parámetros adicionales: 403 y no se guarda nada', async () => {
+    api = await createApi();
+    const { pet } = await caregiverAndReaderScenario();
+    const cookie = await api.login('carlos_88');
+    const visit = await api.call('POST', `/api/pets/${pet}/records/visits`, { cookie, body: RECORD_INPUTS.visits });
+    const param = await api.call('POST', `/api/pets/${pet}/records/custom-parameters`, { cookie, body: RECORD_INPUTS['custom-parameters'] });
+    expect([problemOf(visit), problemOf(param)]).toEqual([
+      { status: 403, code: 'ERR-ACC-FORBIDDEN' },
+      { status: 403, code: 'ERR-ACC-FORBIDDEN' },
+    ]);
+  });
+
+  it('[INV-ACC2-002][ERR-ACC-FORBIDDEN] el Lector lee la ficha (200) pero no muta: peso, vacuna y edición del perfil reciben 403 ERR-ACC-FORBIDDEN', async () => {
+    api = await createApi();
+    const { pet } = await caregiverAndReaderScenario();
+    const cookie = await api.login('lucia.r');
+    const read = await api.call('GET', `/api/pets/${pet}/dashboard`, { cookie });
+    const weight = await api.call('POST', `/api/pets/${pet}/records/weights`, { cookie, body: RECORD_INPUTS.weights });
+    const vaccine = await api.call('POST', `/api/pets/${pet}/records/vaccinations`, { cookie, body: RECORD_INPUTS.vaccinations });
+    const edit = await api.call('PATCH', `/api/pets/${pet}`, { cookie, body: { ...NEW_PET, name: 'Robada' } });
+    expect([read.status, problemOf(weight), problemOf(vaccine), problemOf(edit)]).toEqual([
+      200,
+      { status: 403, code: 'ERR-ACC-FORBIDDEN' },
+      { status: 403, code: 'ERR-ACC-FORBIDDEN' },
+      { status: 403, code: 'ERR-ACC-FORBIDDEN' },
+    ]);
+  });
+
+  it('[INV-ACC2-001][ERR-PET-NOT-FOUND] quien no puede leer la mascota recibe 404 ERR-PET-NOT-FOUND al escribir, no 403 (maria.v sin asignación)', async () => {
+    api = await createApi();
+    const { pet } = await caregiverAndReaderScenario();
+    const cookie = await api.login('maria.v');
+    const write = await api.call('POST', `/api/pets/${pet}/records/weights`, { cookie, body: RECORD_INPUTS.weights });
+    const read = await api.call('GET', `/api/pets/${pet}/dashboard`, { cookie });
+    expect([problemOf(write), problemOf(read)]).toEqual([
+      { status: 404, code: 'ERR-PET-NOT-FOUND' },
+      { status: 404, code: 'ERR-PET-NOT-FOUND' },
+    ]);
+  });
+});

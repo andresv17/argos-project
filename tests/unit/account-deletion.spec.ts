@@ -4,7 +4,7 @@ import type { AuditLogPort } from '../../src/application/ports/audit-log.port.ts
 import type { RepositorySet } from '../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.port.ts';
 import { DeleteAccountUseCase } from '../../src/application/use-cases/account-use-cases.ts';
-import { CONFIRMATION_PHRASE, isConfirmationTokenShape, planHouseholdsForDeletion } from '../../src/domain/account/account-deletion-guards.ts';
+import { CONFIRMATION_PHRASE, isConfirmationTokenShape, planHouseholdsForDeletion, planPetAssignmentsForDeletion } from '../../src/domain/account/account-deletion-guards.ts';
 import { InMemoryUnitOfWork, type MemoryState } from '../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
 import { createHarness, type Harness } from '../fixtures/application-harness.ts';
 import {
@@ -88,6 +88,15 @@ describe('guardas de la eliminación de cuenta (src/domain/account/account-delet
       expect(planHouseholdsForDeletion(ANA, others(status)), status).toEqual({ blockingHouseholdIds: [], cascadeHouseholdIds: [HOUSEHOLD_ANA.id] });
     }
   });
+  it('[REQ-ACC-002][ERR-ACCOUNT-OWNS-SHARED-PETS] planPetAssignmentsForDeletion: bloquea solo la asignación de una mascota propia a un hogar con otro ACTIVE; separa las ajenas en hogares en cascada', () => {
+    const own = { petId: 'p1', householdId: 'h1' };
+    const soleOwn = { petId: 'p1', householdId: 'h2' };
+    const foreign = { petId: 'p9', householdId: 'h2' };
+    const active = (householdId: string, userId: string) => ({ ...IDENTITY_MEMBERSHIPS[0]!, householdId, userId, status: 'ACTIVE' as const });
+    const memberships = [active('h1', 'u'), active('h1', 'o'), active('h2', 'u')];
+    expect(planPetAssignmentsForDeletion('u', ['p1'], [own, soleOwn, foreign], memberships, ['h2'])).toEqual({ blockingAssignments: [own], foreignAssignmentsInCascade: [foreign] });
+  });
+
 });
 
 describe('fase A de la eliminación de cuenta: sin escrituras (STATE-ACCOUNT-DELETE-001, A1 a A3)', () => {
@@ -226,6 +235,103 @@ describe('fase B de la eliminación de cuenta: una transacción atómica (STATE-
     expect([after.memberships.filter((m) => m.householdId === HOUSEHOLD_ANA.id).map((m) => m.userId), after.pets.filter((p) => p.ownerUserId === ANA).length]).toEqual([[ANA], ANA_PETS.length]);
   });
 
+  describe('T249: bloqueo por mascotas asignadas a un hogar con otros miembros ACTIVE y relectura dentro de la transacción (B4, B5)', () => {
+    const BRUNO_PET = { ...ELENA_PET, id: 'b0000000-0000-4000-8000-00000000000a', ownerUserId: BRUNO, name: 'Rocco' };
+    const assignment = (petId: string, householdId: string, assignedByUserId: string) => ({ petId, householdId, assignedByUserId, assignedAt: '2026-03-03T10:00:00.000Z' });
+    const brunoRequest = (token: string) => ({ confirmationPhrase: CONFIRMATION_PHRASE, password: IDENTITY_PASSWORDS['bruno.admin'], backupConfirmationToken: token });
+    /** Estado base: Bruno es Propietario Legal de Rocco, asignada al hogar de Ana (con Ana ACTIVE). */
+    function brunoState(householdId: string = HOUSEHOLD_ANA.id): MemoryState {
+      const state = identityState();
+      state.pets.push(structuredClone(BRUNO_PET));
+      state.assignments.push(assignment(BRUNO_PET.id, householdId, BRUNO));
+      return state;
+    }
+
+    it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001][SC-014][ERR-ACCOUNT-OWNS-SHARED-PETS] el Propietario Legal de una mascota asignada a un hogar con otro miembro ACTIVE no elimina la cuenta; el rollback deja todo idéntico y el token vigente', async () => {
+      const t = setup(brunoState());
+      await t.session(BRUNO, 'ses-bruno');
+      const token = await t.issueToken(BRUNO);
+      const before = t.uow.snapshot();
+      expect(await outcome(t.useCase.execute(BRUNO, 'ses-bruno', brunoRequest(token)))).toBe('ERR-ACCOUNT-OWNS-SHARED-PETS');
+      expect([t.uow.snapshot(), await t.tokenUsable(BRUNO, token), t.auditCalls.filter((c) => c.startsWith('recordAccountDeletion'))]).toEqual([before, true, []]);
+    });
+
+    it('[REQ-ACC-002][ERR-ACCOUNT-OWNS-SHARED-PETS] una asignación a un hogar ajeno (el usuario no es miembro) con otro miembro ACTIVE también bloquea', async () => {
+      const t = setup(brunoState(HOUSEHOLD_ELENA.id));
+      await t.session(BRUNO, 'ses-bruno');
+      const token = await t.issueToken(BRUNO);
+      expect(await outcome(t.useCase.execute(BRUNO, 'ses-bruno', brunoRequest(token)))).toBe('ERR-ACCOUNT-OWNS-SHARED-PETS');
+    });
+
+    it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001] la propietaria con otro miembro ACTIVE recibe primero el error de hogar (orden de errores de la máquina: B4 antes que B5)', async () => {
+      const state = identityState();
+      state.assignments.push(assignment(ANA_PETS[0]!.id, HOUSEHOLD_ANA.id, ANA));
+      const t = setup(state);
+      await t.session(ANA, 'ses-ana');
+      const token = await t.issueToken(ANA);
+      const request = { confirmationPhrase: CONFIRMATION_PHRASE, password: IDENTITY_PASSWORDS['ana.duena'], backupConfirmationToken: token };
+      expect(await outcome(t.useCase.execute(ANA, 'ses-ana', request))).toBe('ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD');
+    });
+
+    it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001] una asignación a un hogar donde el usuario es el único ACTIVE no bloquea: el hogar y sus asignaciones se eliminan con la cuenta', async () => {
+      const state = identityState();
+      state.assignments.push(assignment(ELENA_PET.id, HOUSEHOLD_ELENA.id, ELENA));
+      const t = setup(state);
+      await t.session(ELENA, 'ses');
+      const token = await t.issueToken(ELENA);
+      expect(await t.useCase.execute(ELENA, 'ses', input({ backupConfirmationToken: token }))).toBe(204);
+      const after = t.uow.snapshot();
+      expect([after.assignments, after.households.map((h) => h.id), after.pets.some((p) => p.id === ELENA_PET.id)]).toEqual([[], [HOUSEHOLD_ANA.id], false]);
+    });
+
+    it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001] si los demás miembros ya no están ACTIVE (LEFT), la asignación no bloquea y se borra con la mascota', async () => {
+      const state = brunoState();
+      state.memberships = state.memberships.map((m) => (m.userId === ANA ? { ...m, status: 'LEFT' as const } : m));
+      const t = setup(state);
+      await t.session(BRUNO, 'ses-bruno');
+      const token = await t.issueToken(BRUNO);
+      expect(await t.useCase.execute(BRUNO, 'ses-bruno', brunoRequest(token))).toBe(204);
+      const after = t.uow.snapshot();
+      expect([after.assignments, after.pets.some((p) => p.id === BRUNO_PET.id), after.users.some((u) => u.id === BRUNO)]).toEqual([[], false, false]);
+    });
+
+    it('[STATE-ACCOUNT-DELETE-001][ERR-INTERNAL-UNEXPECTED] B6: si un hogar en cascada contiene una asignación de una mascota de otra persona, aborta sin borrar datos ajenos', async () => {
+      const state = identityState();
+      state.assignments.push(assignment(ANA_PETS[0]!.id, HOUSEHOLD_ELENA.id, ANA));
+      const t = setup(state);
+      await t.session(ELENA, 'ses');
+      const token = await t.issueToken(ELENA);
+      const before = t.uow.snapshot();
+      expect(await outcome(t.useCase.execute(ELENA, 'ses', input({ backupConfirmationToken: token })))).toBe('ERR-INTERNAL-UNEXPECTED');
+      expect([t.uow.snapshot(), await t.tokenUsable(ELENA, token)]).toEqual([before, true]);
+    });
+
+    it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001][ERR-ACCOUNT-OWNS-SHARED-PETS] relectura en la transacción: si entre la fase A y la B otra persona pasa a ACTIVE en el hogar de la asignación, B5 la detecta y revierte', async () => {
+      const state = brunoState();
+      state.memberships = state.memberships.map((m) => (m.userId === ANA ? { ...m, status: 'LEFT' as const } : m));
+      let racing: RacingUnitOfWork | undefined;
+      const t = setup(state, (inner) => (racing = joinBetweenPhases(inner, HOUSEHOLD_ANA.id, ANA)));
+      await t.session(BRUNO, 'ses-bruno');
+      const token = await t.issueToken(BRUNO);
+      racing!.arm();
+      const before = t.uow.snapshot();
+      expect(await outcome(t.useCase.execute(BRUNO, 'ses-bruno', brunoRequest(token)))).toBe('ERR-ACCOUNT-OWNS-SHARED-PETS');
+      const after = t.uow.snapshot();
+      expect([after.pets, after.assignments, after.users, await t.tokenUsable(BRUNO, token)]).toEqual([before.pets, before.assignments, before.users, true]);
+    });
+
+    it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001][ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD] relectura en la transacción: si entre la fase A y la B una persona pasa a ACTIVE en el hogar de la propietaria, B4 la detecta y revierte', async () => {
+      let racing: RacingUnitOfWork | undefined;
+      const t = setup(identityState(), (inner) => (racing = joinBetweenPhases(inner, HOUSEHOLD_ELENA.id, DIEGO)));
+      await t.session(ELENA, 'ses');
+      const token = await t.issueToken(ELENA);
+      racing!.arm();
+      expect(await outcome(t.useCase.execute(ELENA, 'ses', input({ backupConfirmationToken: token })))).toBe('ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD');
+      const after = t.uow.snapshot();
+      expect([after.users.some((u) => u.id === ELENA), after.pets.some((p) => p.id === ELENA_PET.id), await t.tokenUsable(ELENA, token)]).toEqual([true, true, true]);
+    });
+  });
+
   it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001][ERR-INTERNAL-UNEXPECTED] una falla a mitad de la fase B revierte todo: estado idéntico, token vigente, sin fila de auditoría ni seudonimización parcial', async () => {
     for (const failAt of ['pets', 'memberships', 'households', 'users'] as const) {
       const t = setup(identityState(), (inner) => failingUow(inner, failAt));
@@ -275,5 +381,41 @@ function failingUow(inner: InMemoryUnitOfWork, failAt: 'pets' | 'memberships' | 
         const wrapped = { ...repositories, [repoKey]: guard(repositories[repoKey], methodOf[failAt]) } as RepositorySet;
         return work(wrapped);
       }),
+  };
+}
+
+interface RacingUnitOfWork extends UnitOfWorkPort {
+  /** A partir de aquí, la segunda transacción (fase B) se precede de la alta simultánea. */
+  arm(): void;
+}
+
+/**
+ * UnitOfWork que, justo antes de la segunda transacción posterior a `arm()` (la fase B de DeleteAccountUseCase tras
+ * la verificación de la fase A), deja ACTIVE a `userId` en `householdId` en una transacción propia: simula la petición simultánea.
+ */
+function joinBetweenPhases(inner: InMemoryUnitOfWork, householdId: string, userId: string): RacingUnitOfWork {
+  let armed = false;
+  let calls = 0;
+  return {
+    arm: () => {
+      armed = true;
+    },
+    runInTransaction: async <T>(work: (repositories: RepositorySet) => Promise<T>) => {
+      if (armed) {
+        calls += 1;
+        if (calls === 2) {
+          await inner.runInTransaction(async (r) => {
+            const rows = await r.households.listMemberships(householdId);
+            const existing = rows.find((m) => m.userId === userId);
+            await r.households.saveMembership(
+              existing === undefined
+                ? { membershipId: 'd0000000-0000-4000-8000-0000000000ff', householdId, userId, role: 'MEMBER', status: 'ACTIVE', invitedByUserId: null, invitedAt: null, joinedAt: REFERENCE_NOW, firstJoinedAt: REFERENCE_NOW, updatedAt: REFERENCE_NOW }
+                : { ...existing, status: 'ACTIVE' },
+            );
+          });
+        }
+      }
+      return inner.runInTransaction(work);
+    },
   };
 }

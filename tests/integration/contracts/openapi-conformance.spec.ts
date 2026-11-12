@@ -46,7 +46,7 @@ describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.ya
       statuses.push(r.status);
       return r;
     };
-    const lucia = (await step('POST', '/api/auth/register', { body: { username: 'Nueva.Usuaria', displayName: 'Nueva', password: 'Clave2026x' } })).cookie!;
+    const lucia = (await step('POST', '/api/auth/register', { body: { username: 'nueva.usuaria', displayName: 'Nueva', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' } })).cookie!;
     const andres = (await step('POST', '/api/auth/login', { body: { username: 'andres', password: 'Argos2026a' } })).cookie!;
     const carlos = await api.login('carlos_88');
     await step('GET', '/api/auth/me', { cookie: andres });
@@ -60,13 +60,13 @@ describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.ya
     const house = (await step('POST', '/api/households', { cookie: lucia, body: { name: 'Casa Nueva' } })).json as { household: { id: string } };
     await step('GET', `/api/households/${H1}`, { cookie: andres });
     await step('GET', `/api/households/${H1}/pets`, { cookie: andres });
-    await step('POST', `/api/households/${house.household.id}/invitations`, { cookie: lucia, body: { username: 'carlos_88' } });
+    await step('POST', `/api/households/${house.household.id}/invitations`, { cookie: lucia, body: { username: 'carlos_88', roleOnJoin: 'READER' } });
     await step('GET', '/api/invitations', { cookie: carlos });
     await step('POST', `/api/invitations/${H1}/accept`, { cookie: carlos });
     await step('POST', `/api/invitations/${house.household.id}/decline`, { cookie: carlos });
     await step('DELETE', `/api/households/${H1}/members/${canonicalState().users[2]!.id}`, { cookie: andres });
     await step('DELETE', `/api/households/${house.household.id}`, { cookie: lucia });
-    const exported = await step('GET', '/api/backup/export', { cookie: andres });
+    const exported = await step('POST', '/api/backup/export', { cookie: andres });
     await step('POST', '/api/backup/import', { cookie: andres, raw: exported.text });
     await step('POST', '/api/auth/logout', { cookie: andres });
     expect([[...seen].sort(), statuses.every((s) => s < 300)]).toEqual([OPERATIONS.map((op) => op.operationId).sort(), true]);

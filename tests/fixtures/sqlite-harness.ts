@@ -18,6 +18,8 @@ export async function seedSqlite(uow: UnitOfWorkPort, state: MemoryState = canon
     }
     for (const household of state.households) await r.households.insert(household);
     for (const membership of state.memberships) await r.households.saveMembership(membership);
+    for (const invitation of state.invitations) await r.invitations.save(invitation);
+    for (const assignment of state.assignments) await r.assignments.save(assignment);
   });
 }
 
@@ -35,6 +37,7 @@ const TABLES = [
   'households',
   'household_members',
   'household_invitations',
+  'pet_assignments',
   'backup_confirmation_tokens',
   'rate_limit_events',
 ];

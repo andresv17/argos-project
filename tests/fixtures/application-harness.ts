@@ -46,14 +46,31 @@ export const PASSWORDS: Record<string, string> = fixtures.credentialsForTestsOnl
 export const generatedId = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 export const GENERATED_IDS = Array.from({ length: 50 }, (_, i) => generatedId(i + 1));
 
-/** Estado canónico: 4 usuarios con hash falso de su contraseña, Casa Vallejo con sus 3 membresías, 6 mascotas y los registros del sobre v2. */
+/** Estado canónico: 4 usuarios con hash falso de su contraseña, Casa Vallejo con 2 membresías ACTIVE y la invitación de Carlos, 6 mascotas y los registros del sobre v2. */
 export function canonicalState(): MemoryState {
   const state = emptyMemoryState();
   state.users = USERS.map((u): UserAccount => ({ ...u, email: null, preferredLanguage: 'es', timezone: 'America/Bogota', passwordHash: `${FAKE_HASH_PREFIX}${PASSWORDS[u.username]}` }));
   state.pets = [...ANDRES_PETS, ...MARIA_PETS];
   state.records = structuredClone(envelope.records);
   state.households = [HOUSEHOLD];
-  state.memberships = [...MEMBERSHIPS];
+  // T246: household_members no guarda INVITED; la invitación de Carlos (fixture 001) vive en household_invitations con roleOnJoin CAREGIVER.
+  state.memberships = MEMBERSHIPS.filter((m) => m.status !== 'INVITED');
+  state.invitations = MEMBERSHIPS.filter((m) => m.status === 'INVITED').map((m) => ({
+    invitationId: m.membershipId,
+    householdId: m.householdId,
+    inviteeUsername: USERS.find((u) => u.id === m.userId)!.username,
+    inviteeUserId: m.userId,
+    roleOnJoin: 'CAREGIVER' as const,
+    invitedByUserId: m.invitedByUserId!,
+    status: 'INVITED' as const,
+    createdAt: m.invitedAt!,
+    respondedAt: null,
+  }));
+  // REQ-MIG-001: la migración 001→002 asigna cada mascota a los hogares donde su dueño es miembro ACTIVE (la visibilidad de la 001).
+  const activeHouseholdsOf = (userId: string) => state.memberships.filter((m) => m.userId === userId && m.status === 'ACTIVE').map((m) => m.householdId);
+  state.assignments = state.pets.flatMap((pet) =>
+    activeHouseholdsOf(pet.ownerUserId).map((householdId) => ({ petId: pet.id, householdId, assignedByUserId: pet.ownerUserId, assignedAt: pet.createdAt })),
+  );
   return state;
 }
 

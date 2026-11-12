@@ -18,10 +18,10 @@ const IMPORT = '/api/backup/import';
 const importAs = async (cookie: string, payload: string | Uint8Array) => api.call('POST', IMPORT, { cookie, raw: payload });
 const lunaOf = () => api.db.prepare('SELECT data FROM pets WHERE id = ?').pluck().get(LUNA_ID);
 
-describe('exportación por HTTP (GET /api/backup/export)', () => {
+describe('exportación por HTTP (POST /api/backup/export)', () => {
   it('[REQ-BACKUP-001] exporta el sobre 2.0.0 válido solo con los datos del usuario, como archivo argos-backup-AAAA-MM-DD.json', async () => {
     api = await createApi();
-    const r = await api.call('GET', '/api/backup/export', { cookie: await api.login('andres') });
+    const r = await api.call('POST', '/api/backup/export', { cookie: await api.login('andres') });
     const envelope = r.json as BackupEnvelopeV3;
     expect([
       r.status,
@@ -36,7 +36,7 @@ describe('exportación por HTTP (GET /api/backup/export)', () => {
   it('[REQ-BACKUP-001] el archivo no contiene contraseñas, hashes ni el token de sesión (INV-AUTH-003)', async () => {
     api = await createApi();
     const cookie = await api.login('andres');
-    const r = await api.call('GET', '/api/backup/export', { cookie });
+    const r = await api.call('POST', '/api/backup/export', { cookie });
     const secrets = [PASSWORDS['andres']!, 'fake-scrypt$', cookie.split('=')[1]!, 'passwordHash', 'password'];
     expect(secrets.filter((s) => r.text.includes(s))).toEqual([]);
   });
@@ -46,7 +46,7 @@ describe('importación por HTTP (POST /api/backup/import)', () => {
   it('[REQ-BACKUP-002] exportar e importar el mismo sobre v2 → 200 COMPLETED y el estado queda igual; los datos de otro usuario no se tocan', async () => {
     api = await createApi();
     const cookie = await api.login('andres');
-    const exported = await api.call('GET', '/api/backup/export', { cookie });
+    const exported = await api.call('POST', '/api/backup/export', { cookie });
     const before = api.dump();
     const r = await importAs(cookie, exported.text);
     expect([r.status, r.json, api.dump() === before]).toEqual([

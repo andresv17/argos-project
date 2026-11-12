@@ -28,7 +28,6 @@ import {
   ARGOS,
   CARLOS,
   LUCIA,
-  LUNA,
   MARIA,
   PASSWORDS,
   USERS,
@@ -286,19 +285,34 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     expect([caught, uow.snapshot()]).toEqual([commitFailure, canonicalState()]);
   });
 
-  it('[REQ-PET-005][REQ-PET-002] Mis mascotas: solo las propias, por nombre, con owner sin color (EDGE-030), edad, alertas y último peso', async () => {
+  it('[REQ-PET-005][REQ-PET-002] Mis mascotas: propias y visibles por asignación, por nombre, con owner sin color (EDGE-030), edad, alertas y último peso', async () => {
     const { deps } = createHarness();
     const cards = await new ListMyPetsUseCase(deps).execute(ANDRES);
     const expectedOwner = edge('EDGE-030-').expectedOwner;
-    expect(cards.map((c) => [c.profile.name, c.owner, c.permissions.editPetBasics])).toEqual(['Argos', 'Kira', 'Milo', 'Nyx', 'Toby'].map((n) => [n, expectedOwner, true]));
+    const mariaOwner = { userId: MARIA, displayName: 'María', colorToken: null };
+    expect(cards.map((c) => [c.profile.name, c.owner, c.myRole, c.permissions.editPetBasics])).toEqual([
+      ['Argos', expectedOwner, 'OWNER', true],
+      ['Kira', expectedOwner, 'OWNER', true],
+      ['Luna', mariaOwner, 'ADMIN', true],
+      ['Milo', expectedOwner, 'OWNER', true],
+      ['Nyx', expectedOwner, 'OWNER', true],
+      ['Toby', expectedOwner, 'OWNER', true],
+    ]);
     const argos = cards[0]!;
     expect([argos.computedAge, argos.alertsSummary, argos.latestWeightKg]).toEqual([
       { years: 4, months: 5, totalDays: 1640 },
       { overdueCount: 0, dueSoonCount: 1, upToDateCount: 0, totalActiveAlerts: 1 },
       32.85,
     ]);
-    expect(cards.map((c) => [c.alertsSummary.totalActiveAlerts, c.latestWeightKg])).toEqual([[1, 32.85], [0, null], [0, null], [1, null], [0, null]]);
-    expect((await new ListMyPetsUseCase(deps).execute(MARIA)).map((c) => c.profile.id)).toEqual([LUNA.id]);
+    expect(cards.map((c) => [c.alertsSummary.totalActiveAlerts, c.latestWeightKg])).toEqual([[1, 32.85], [0, null], [0, null], [0, null], [1, null], [0, null]]);
+    expect((await new ListMyPetsUseCase(deps).execute(MARIA)).map((c) => [c.profile.name, c.myRole, c.permissions.editPetBasics])).toEqual([
+      ['Argos', 'READER', false],
+      ['Kira', 'READER', false],
+      ['Luna', 'OWNER', true],
+      ['Milo', 'READER', false],
+      ['Nyx', 'READER', false],
+      ['Toby', 'READER', false],
+    ]);
   });
 
   it('[REQ-PET-005] el filtro q ignora mayúsculas y tildes y species filtra por especie', async () => {
@@ -310,7 +324,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     expect([await names({ q: 'ARG' }), await names({ q: 'nandu' }), await names({ species: 'FELINE' }), await names({ q: 'i', species: 'CANINE' })]).toEqual([
       ['Argos'],
       ['Ñandú'],
-      ['Milo', 'Nyx'],
+      ['Luna', 'Milo', 'Nyx'],
       ['Kira'],
     ]);
   });
@@ -381,9 +395,9 @@ describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-0
     const names = async (q: object) => (await list.execute(ANDRES, q as never)).map((c) => c.profile.name);
     expect([await names({ filter: 'OTHERS' }), await names({ filter: 'FELINE' }), await names({ filter: 'CANINE' }), (await names({ filter: 'ALL' })).length, await names({ filter: 'OTHERS', q: 'pio' })]).toEqual([
       ['Nube', 'Piolín'],
-      ['Milo', 'Nyx'],
+      ['Luna', 'Milo', 'Nyx'],
       ['Argos', 'Kira', 'Toby'],
-      7,
+      8,
       ['Piolín'],
     ]);
     expect(await names({ filter: 'WITH_ALERTS' })).toEqual(['Argos', 'Nyx']);
