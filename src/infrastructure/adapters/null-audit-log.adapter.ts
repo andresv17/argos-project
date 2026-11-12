@@ -5,12 +5,12 @@
  * @implements REQ-AUD-001, REQ-ACC-002
  */
 
-import type { AuditLogPort } from '../../application/ports/audit-log.port.ts';
+import type { AccountDeletionAuditPort } from '../../application/ports/account-deletion-audit.port.ts';
 import type { RepositorySet } from '../../application/ports/repositories.port.ts';
 
 export const NULL_PSEUDONYM = '0'.repeat(64);
 
-export class NullAuditLogAdapter implements AuditLogPort {
+export class NullAuditLogAdapter implements AccountDeletionAuditPort {
   pseudonymOf(_userId: string): string {
     return NULL_PSEUDONYM;
   }

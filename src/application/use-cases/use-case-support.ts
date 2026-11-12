@@ -24,7 +24,7 @@ import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAl
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
-import type { AuditLogPort } from '../ports/audit-log.port.ts';
+import type { AccountDeletionAuditPort } from '../ports/account-deletion-audit.port.ts';
 import type { BackupTokenPort } from '../ports/backup-token.port.ts';
 import type { ClockPort } from '../ports/clock.port.ts';
 import type { IdGeneratorPort } from '../ports/id-generator.port.ts';
@@ -52,8 +52,8 @@ export interface ApplicationDeps {
   readonly rateLimiter: RateLimiterPort;
   /** Token efímero de confirmación de respaldo (REQ-ACC-002). */
   readonly backupTokens: BackupTokenPort;
-  /** Auditoría; nula hasta T265. */
-  readonly audit: AuditLogPort;
+  /** Auditoría de eliminación de cuenta (transitoria, nula hasta T265). */
+  readonly audit: AccountDeletionAuditPort;
 }
 
 interface ValidatorWithErrors {

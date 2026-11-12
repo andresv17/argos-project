@@ -31,6 +31,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         exportWindowMinutes: 15,
         inviteMaxPerWindow: 20,
         inviteWindowMinutes: 15,
+        auditRetentionDays: 730,
         auditHmacSecret: null,
       },
       APP_CONFIG_DEFAULTS,

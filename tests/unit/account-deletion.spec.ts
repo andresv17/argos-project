@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/generated/index.ts';
-import type { AuditLogPort } from '../../src/application/ports/audit-log.port.ts';
+import type { AccountDeletionAuditPort } from '../../src/application/ports/account-deletion-audit.port.ts';
 import type { RepositorySet } from '../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.port.ts';
 import { DeleteAccountUseCase } from '../../src/application/use-cases/account-use-cases.ts';
@@ -34,7 +34,7 @@ function setup(state: MemoryState = identityState(), makeUow?: (inner: InMemoryU
   harness.clock.setClock(REFERENCE_TODAY, REFERENCE_NOW);
   const uow = makeUow === undefined ? harness.uow : makeUow(harness.uow);
   const auditCalls: string[] = [];
-  const audit: AuditLogPort = {
+  const audit: AccountDeletionAuditPort = {
     pseudonymOf: (userId) => {
       auditCalls.push(`pseudonymOf:${userId}`);
       return 'f'.repeat(64);

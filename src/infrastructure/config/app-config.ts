@@ -5,6 +5,8 @@
  *   `APP_TIMEZONE` zona IANA válida (`America/Bogota`, F6), `COOKIE_SECURE` `true` o `false` (`false`).
  * - Límites de frecuencia (ADR-002-12, T216): `EXPORT_MAX_PER_WINDOW` (5), `EXPORT_WINDOW_MINUTES` (15),
  *   `INVITE_MAX_PER_WINDOW` (20) e `INVITE_WINDOW_MINUTES` (15): enteros positivos de hasta 4 dígitos, sin ceros a la izquierda.
+ * - `ARGOS_AUDIT_RETENTION_DAYS` (REQ-AUD-001, INV-AUD-001): retención de la auditoría en días, entero positivo de hasta 4
+ *   dígitos sin ceros a la izquierda (730 = 24 meses). Inválida: `AppConfigError` nombra solo la variable, no el valor.
  * - `ARGOS_AUDIT_HMAC_SECRET` (REQ-AUD-001, SC-014): clave HMAC de la seudonimización de la auditoría, >= 32 bytes en
  *   hexadecimal (64 o más caracteres, longitud par). Con `NODE_ENV=production` es obligatoria; fuera de producción puede
  *   faltar (`auditHmacSecret` nulo), pero si está presente e inválida se rechaza. Su valor nunca aparece en el mensaje
@@ -12,7 +14,7 @@
  * - Una variable inválida produce `AppConfigError` con la lista de variables afectadas; no se arranca con valores
  *   por defecto silenciosos. Ningún valor es secreto (`.env.example`).
  *
- * @implements INV-ARCH-006, INV-ARCH-004, ERR-RATE-LIMITED, REQ-AUD-001
+ * @implements INV-ARCH-006, INV-ARCH-004, ERR-RATE-LIMITED, REQ-AUD-001, INV-AUD-001
  */
 
 import { Ajv, type JSONSchemaType } from 'ajv';
@@ -28,6 +30,8 @@ export interface AppConfig {
   readonly exportWindowMinutes: number;
   readonly inviteMaxPerWindow: number;
   readonly inviteWindowMinutes: number;
+  /** Retención de la auditoría en días (ARGOS_AUDIT_RETENTION_DAYS, 730 = 24 meses). */
+  readonly auditRetentionDays: number;
   /** Clave HMAC de auditoría en hexadecimal (>= 32 bytes) o null si falta fuera de producción. Es un secreto: no se registra. */
   readonly auditHmacSecret: string | null;
 }
@@ -42,6 +46,7 @@ interface RawAppConfig {
   EXPORT_WINDOW_MINUTES: string;
   INVITE_MAX_PER_WINDOW: string;
   INVITE_WINDOW_MINUTES: string;
+  ARGOS_AUDIT_RETENTION_DAYS: string;
 }
 
 export const APP_CONFIG_DEFAULTS: Readonly<RawAppConfig> = {
@@ -54,6 +59,7 @@ export const APP_CONFIG_DEFAULTS: Readonly<RawAppConfig> = {
   EXPORT_WINDOW_MINUTES: '15',
   INVITE_MAX_PER_WINDOW: '20',
   INVITE_WINDOW_MINUTES: '15',
+  ARGOS_AUDIT_RETENTION_DAYS: '730',
 };
 
 const POSITIVE_INTEGER = '^[1-9][0-9]{0,3}$';
@@ -71,8 +77,9 @@ export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
     EXPORT_WINDOW_MINUTES: { type: 'string', pattern: POSITIVE_INTEGER },
     INVITE_MAX_PER_WINDOW: { type: 'string', pattern: POSITIVE_INTEGER },
     INVITE_WINDOW_MINUTES: { type: 'string', pattern: POSITIVE_INTEGER },
+    ARGOS_AUDIT_RETENTION_DAYS: { type: 'string', pattern: POSITIVE_INTEGER },
   },
-  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES'],
+  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES', 'ARGOS_AUDIT_RETENTION_DAYS'],
   additionalProperties: false,
 };
 
@@ -121,6 +128,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
     exportWindowMinutes: Number(raw.EXPORT_WINDOW_MINUTES),
     inviteMaxPerWindow: Number(raw.INVITE_MAX_PER_WINDOW),
     inviteWindowMinutes: Number(raw.INVITE_WINDOW_MINUTES),
+    auditRetentionDays: Number(raw.ARGOS_AUDIT_RETENTION_DAYS),
     auditHmacSecret,
   };
 }

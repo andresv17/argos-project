@@ -349,3 +349,9 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ### [2026-11-12] Keymaker checkpoint T260 (sin cambios de codigo)
 - Pruebas de T260 ya en verde antes de tocar nada: record-invariants 32, records.property 7, pet-and-alerts 33, alerts.property 6 = 78/78. superseded-guard.ts (T259) y record-invariants.ts (T253-T259 + 002) ya satisfacen REQ-REC2-002/003, INV-REC-003..006, STATE-ALERT-001, ERR-REC-SUPERSEDED-IMMUTABLE.
 - Trazabilidad T260 CUMPLE 8/8; tsc 0; oracles CUMPLE. Sin src/ ni tests/ modificados. Sin commit.
+
+### [2026-11-12] Keymaker checkpoint T261 (sin rojo propio, sin commit)
+- No existian pruebas de los puertos nuevos (AuditLogPort append/pseudonymizeUser, AuditPseudonymPort, ARGOS_AUDIT_RETENTION_DAYS): T261 no tuvo rojo propio. No se invento prueba. Linea base previa: app-config 20/20, account-deletion 26/26, audit-pseudonym 4/4.
+- Nuevos: audit-log.port.ts (reescrito: append, pseudonymizeUser con RepositorySet), audit-pseudonym.port.ts, hmac-audit-pseudonym.adapter.ts (node:crypto solo en infra; error sin clave), app-config.ts (+auditRetentionDays, default 730, entero positivo <=4 digitos, .env.example).
+- CC-T261-1: la forma previa de AuditLogPort (pseudonymOf/recordAccountDeletion, consumida por DeleteAccountUseCase) se renombro AccountDeletionAuditPort (transitorio, account-deletion-audit.port.ts; T265 lo elimina). Ajustes de tipo en null-audit-log.adapter, use-case-support y import de tests/unit/account-deletion.spec.ts; app-config.spec esperado +auditRetentionDays:730.
+- tsc 0; oracles CUMPLE; traza T261 CUMPLE 4/4; vectores HMAC de audit-fixtures coinciden (verificacion ad hoc).
