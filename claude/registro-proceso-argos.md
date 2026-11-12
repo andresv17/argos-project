@@ -341,3 +341,6 @@
 - 2026-11-12 Oracle: T250 CONDICIONADO (pruebas validas, 15/16; rojo por H-T250-1 y H-T250-2 en src/; requiere decision de Neo). Ver claude/veredicto-auditor-task-T250-2026-11-12.md
 - 2026-11-12 Keymaker: H-T250-1/2 aplicados (sin commit); e2e 15/16, bloqueado por requireOwner en dominio inviteMember (H-T250-3 propuesto a Neo).
 - 2026-11-12 Keymaker: H-T250-3 (inviteMember requireManager) aplicado, E2E 16/16, commit local T250.
+- 2026-11-12 Oracle: veredicto final T250 APTO (cf1e68c); 16/16 playwright, gates CUMPLE. Ver claude/veredicto-auditor-task-T250-final-2026-11-12.md
+- 2026-11-12 12:01 Morpheus: T250 firmada [x]. T251 a Sentinels.
+- 2026-11-12 Sentinels: T251 matriz IDOR 4 roles entregada (55/61 verdes; H-T251-1 vacunas/desparasitaciones 500, Media). Ver claude/evidencia-task-T251-2026-11-12.md
