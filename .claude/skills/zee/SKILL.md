@@ -26,7 +26,7 @@ disable-model-invocation: false
 - Coordinar con `/maggie` (clínica/biometría), `/sati` (experiencia visual sin AI Slop) y `/niobe` (IoT/Mirror) la definición de producto de las próximas evoluciones del roadmap de ARGOS.
 - Evaluar la fricción de uso y claridad de mensajes humanos en todas las pantallas activas (`src/presentation/web/pages/`).
 
-- **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo o respuesta), escribe primero un checkpoint fechado en `claude/log-zee.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat.
+- **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo, análisis o respuesta), escribe primero un checkpoint fechado con tus notas detalladas en tu propia bitácora `claude/log-zee.md`, y una entrada cronológica de 1 línea en el bus central `claude/registro-proceso-<proyecto>.md` antes de responder en el chat. Si la carpeta `claude/` no existe por ser un proyecto nuevo, créala de inmediato junto con `claude/log-zee.md` y `claude/registro-proceso-<proyecto>.md`. Jamás vuelques las notas completas del personaje en el bus central sin mantener tu archivo `log-zee.md`.
 
 ### Prohibiciones Explícitas
 - **PROHIBIDO introducir requisitos subjetivos o abiertos:** Toda propuesta de producto debe entregarse con umbrales numéricos exactos, unidades de medida explícitas y estados finitos para que `/architect` pueda plasmarla en `specs/<NNN-feature>/contracts/` sin violar `spec-system.md`.

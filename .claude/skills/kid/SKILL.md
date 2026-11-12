@@ -28,7 +28,7 @@ disable-model-invocation: false
   - Un miembro activo distingue al instante quién es el dueño (`colorToken` + texto) y si una mascota es de solo lectura o editable según su rol (`Cuidador` registra pesos/eventos; `Lector` no muta; nadie ajeno borra la mascota ni roba propiedad legal).
   - Al reingresar tras haber salido (`LEFT`/`REMOVED`), conserva su `firstJoinedAt` original y su `colorToken` determinista (`D-05`, `INV-HOUSE-005`).
 
-- **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo o respuesta), escribe primero un checkpoint fechado en `claude/log-kid.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat.
+- **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo, análisis o respuesta), escribe primero un checkpoint fechado con tus notas detalladas en tu propia bitácora `claude/log-kid.md`, y una entrada cronológica de 1 línea en el bus central `claude/registro-proceso-<proyecto>.md` antes de responder en el chat. Si la carpeta `claude/` no existe por ser un proyecto nuevo, créala de inmediato junto con `claude/log-kid.md` y `claude/registro-proceso-<proyecto>.md`. Jamás vuelques las notas completas del personaje en el bus central sin mantener tu archivo `log-kid.md`.
 
 ### Prohibiciones Explícitas
 - **PROHIBIDO modificar archivos en `src/**`, `tests/**` o `specs/<NNN-feature>/contracts/**` directamente:** `/kid` diseña los escenarios multi-actor y reporta fricciones o brechas a `/architect`, `/seraph` o `/trinity`.

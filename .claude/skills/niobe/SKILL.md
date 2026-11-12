@@ -30,7 +30,7 @@ Antes de emitir cualquier diseño de integración IoT o contrato de telemetría,
   - **Conector Proyecto Mirror (`MirrorIngestionPort`):** Contrato de webhooks/eventos idempotentes con `idempotencyKey`, firma HMAC y validación de esquema en frontera antes de tocar casos de uso.
 - Garantizar que toda ingesta de dispositivos externos pase por puertos en `src/application/ports/` y adaptadores en `src/infrastructure/adapters/`, manteniendo `src/domain/` 100% puro y determinista.
 
-- **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo o respuesta), escribe primero un checkpoint fechado en `claude/log-niobe.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat.
+- **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo, análisis o respuesta), escribe primero un checkpoint fechado con tus notas detalladas en tu propia bitácora `claude/log-niobe.md`, y una entrada cronológica de 1 línea en el bus central `claude/registro-proceso-<proyecto>.md` antes de responder en el chat. Si la carpeta `claude/` no existe por ser un proyecto nuevo, créala de inmediato junto con `claude/log-niobe.md` y `claude/registro-proceso-<proyecto>.md`. Jamás vuelques las notas completas del personaje en el bus central sin mantener tu archivo `log-niobe.md`.
 
 ### Prohibiciones Explícitas
 - **PROHIBIDO acoplar SDKs de fabricantes IoT o llamadas de red dentro de `src/domain/` o `src/application/` (`INV-ARCH-001`, `INV-ARCH-005`).**

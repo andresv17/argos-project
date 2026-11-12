@@ -1,107 +1,126 @@
-# Guía Rápida de Skills — Proyecto ARGOS (*The Matrix* Edition)
+# Guía de Skills — Proyecto ARGOS (*The Matrix* Edition)
 
-> **Tu Rol en el Proyecto:** Eres **`Neo` (`Andrés Vallejo` — Autoridad Nivel 2)**.
-> Ningún agente puede sustituirte para:
-> 1. Marcar tareas como `COMPLETED` en `specs/001-pet-health-tracker/tasks.md`.
+> **Tu Rol Soberano:** Eres **`Neo` (`Andrés Vallejo` — Autoridad Nivel 2)**.
+> **The Source** opera por fuera en Google Antigravity (Gemini) gobernando la arquitectura global.
+> Toda la tripulación de Claude Code (*la Matrix*) te reconoce como el Elegido.
+> Ningún agente dentro de la Matrix puede sustituirte para:
+> 1. Marcar tareas como `COMPLETED` en `specs/<NNN-feature>/tasks.md`.
 > 2. Aprobar documentos finales (`APPROVED` o `LOCKED`).
-> 3. Autorizar librerías nuevas de Nivel 2 (`package.json`).
+> 3. Autorizar librerías nuevas de Nivel 2 en `package.json`.
 > 4. Hacer `git push`.
 
 ---
 
-## 1. Cómo trabajar en tu día a día (Flujo en 1 Sola Ventana)
+## 1. Arquitectura de Dos Capas de Skills en ARGOS
+
+En este proyecto conviven **dos niveles de skills** perfectamente integrados:
+
+```mermaid
+graph TD
+    subgraph Antigravity["Google Antigravity (Gemini) — Control Soberano"]
+        Source["/source<br/>Auditor Externo & Nivel 2 Soberano<br/>(~/.gemini/config/skills/source/)"]
+    end
+
+    subgraph ClaudeUniversal["Capa 1: Skills Universales (~/.claude/skills/)"]
+        UniversalCore["21 Roles de la Matrix:<br/>/architect, /mouse, /keymaker, /oracle, /morpheus<br/>/trinity, /seraph, /link, /sati, /hamann, /merovingian<br/>/lock, /rama, /mifune, /zion, /dojo, /neb, /logos<br/>/hardline, /smith, /sentinels"]
+        SpecKit["14 Comandos de GitHub Spec Kit:<br/>/speckit-specify, /speckit-plan, /speckit-tasks, etc."]
+    end
+
+    subgraph ClaudeLocal["Capa 2: Skills Locales de ARGOS (.claude/skills/)"]
+        LocalMaggie["/maggie<br/>Especialista Clínico Veterinario"]
+        LocalZee["/zee<br/>Producto & Voz del Dueño (OWNER)"]
+        LocalKid["/kid<br/>Invitado & Hogar Compartido (MEMBER)"]
+        LocalNiobe["/niobe<br/>Telemetría IoT & Conector Mirror"]
+    end
+
+    Source -.->|"Supervisa & Audita"| ClaudeUniversal
+    Source -.->|"Supervisa & Audita"| ClaudeLocal
+    ClaudeUniversal -->|"Orquesta & Colabora con"| ClaudeLocal
+```
+
+- **Capa 1 (Universal en `~/.claude/skills/`):** 21 personajes de *The Matrix* + 14 herramientas de SpecKit que están disponibles en **todos tus proyectos** sin duplicar archivos.
+- **Capa 2 (Local en `.claude/skills/`):** 4 personajes de dominio exclusivo de ARGOS (clínica veterinaria, mascotas, personas de hogar y telemetría de hardware).
+
+---
+
+## 2. Skills Locales Exclusivas de ARGOS (`.claude/skills/`)
+
+Estas skills viven dentro de la carpeta `.claude/skills/` de ARGOS porque contienen las reglas de negocio, biometría y personas exclusivas de este producto:
+
+| Comando | Personaje | Modelo | Especialidad en ARGOS | Ejemplo de Uso |
+| :--- | :--- | :---: | :--- | :--- |
+| **`/maggie`** | Maggie (Oficial Médica) | `haiku` | **Lógica Clínica Veterinaria:** Valida los 6 módulos clínicos (`REQ-REC-001..006`), rangos biométricos de peso según especie/raza/edad, alertas de mascotas geriátricas (+10 años) y calendario de vacunación/desparasitación. | `/maggie Valida si la curva de peso para un Golden Retriever geriátrico cumple los criterios clínicos.` |
+| **`/zee`** | Zee (Cuidadora) | `haiku` | **Voz del Dueño (`OWNER`):** Modela la experiencia del cuidador principal del hogar, recorre el Customer Journey (`US1..US6`) y evalúa si una función aporta valor real y sin fricciones en el hogar. | `/zee Evalúa si el flujo de registro de vacunas es claro y rápido para el dueño de la mascota.` |
+| **`/kid`** | The Kid (Co-cuidador) | `haiku` | **Persona Invitado / Hogar Compartido (`MEMBER`):** Modela al familiar, paseador o paseadora temporal en estados `INVITED`, `MEMBER`, `LEFT` o `REMOVED`. Verifica permisos multi-usuario y aislamiento de mascotas compartidas. | `/kid ¿Qué ve exactamente un paseador invitado al entrar al hogar compartido de la mascota?` |
+| **`/niobe`** | Capitana Niobe | `haiku` | **Telemetría IoT & Puente Mirror:** Diseña la ingesta de collares GPS (rutas, distancias, paseos), areneros inteligentes (frecuencia, peso) y el conector de datos idempotente con tu proyecto **Mirror**. | `/niobe Diseña el contrato del webhook para recibir eventos de telemetría desde el collar GPS y Mirror.` |
+
+---
+
+## 3. Skills Universales Activas en ARGOS (`~/.claude/skills/`)
+
+Al abrir Claude Code en ARGOS, tienes acceso automático a las **21 skills universales** heredadas desde `~/.claude/skills/`:
+
+### A. Escuadra Principal (Uso diario — 90% del tiempo)
+- **`/architect`** → Arquitecto de Soluciones & SDD. Diseña el blueprint técnico integral (topología de capas, arquitectura limpia/hexagonal, puertos, adaptadores, flujos de datos y ADRs), specs, constitución y contratos formales. Entrega planos claros a Keymaker. No toca código.
+- **`/mouse`** → Auditor Estructural de Spec Kit. Valida el formato de templates, checklists (`speckit-analyze`) y trazabilidad sintáctica de IDs **una sola vez** al terminar la spec antes de autorizar a Keymaker. No juzga lógica de negocio ni toca código.
+- **`/keymaker`** → Desarrollador SDD. Programa `src/` y `tests/`, compila contratos y ejecuta compuertas de pruebas.
+- **`/oracle`** → Auditor SDD en Disco. Verifica en disco `git diff`, tests reales y genera el veredicto final para la firma de **Neo**.
+- **`/morpheus`** → Capitán Tech Lead. Lee la cola `tasks.md`, coordina subagentes (`MAX_HOPS = 2`) y activa compuertas estratégicas oportunas (/trinity seguridad, /mifune anti-sobreingeniería, /lock abogado del diablo, /rama ciclo de vida de datos, /merovingian dependencias, /hamann sistémico).
+
+### B. Especialistas Técnicos
+- **`/trinity`** → Seguridad ofensiva/defensiva, sesiones seguras, CSRF, IDOR (404), scrypt y reglas Semgrep SAST.
+- **`/seraph`** → Guardián de Acceso, Autenticación & Desafío QA. Audita flujos de autenticación, sesiones Zero-Trust y recarga F5. Somete el código a combate riguroso (oráculos fuertes, mutación Stryker >= 85% y E2E Playwright multi-sesión).
+- **`/link`** → Cloud GCP, Docker, Cloud Run, Terraform IaC y pipelines de CI en GitHub Actions.
+- **`/sati`** → UI/UX, tokens de diseño CSS/Tailwind, accesibilidad WCAG 2.1 AA y cero AI Slop.
+- **`/hamann`** → Claude Sensei. Optimiza consumo de tokens, `CLAUDE.md` y prompts.
+- **`/merovingian`** → Causa-Efecto (RCA), grafo de impacto SDD y auditoría de dependencias (`package.json`).
+
+### C. Lentes de Criterio
+- **`/lock`** → Abogado del Diablo. Caza casos borde (`EDGE-*`), concurrencia en SQLite y supuestos frágiles.
+- **`/rama`** → Privacidad de datos (PII), redacción de logs y respaldos JSON atómicos con rollback completo.
+- **`/mifune`** → Lente pragmático anti-sobreingeniería. Propone la ruta más simple y directa para entregar hoy.
+
+### D. Consola, Espacios de Trabajo y Salida
+- **`/zion`** → Arena de debate multi-agente (`1v1`, `Escuadrón`, `Clan 7v7`) para destrabar decisiones difíciles.
+- **`/dojo`** → Refactorización continua y planes de limpieza de deudas técnicas (`DEUDA-*`).
+- **`/neb`** → Traductor del código verde. Explica en español sencillo en qué va el proyecto y qué firmas de Neo faltan.
+- **`/logos`** → Sincronizador del bus central `claude/registro-proceso-argos.md` entre sesiones.
+- **`/hardline`** → Cierre de sesión y extracción de contexto. *(Se dispara solo al decir **"cerremos sesión"**)*.
+
+### E. Red Team
+- **`/smith`** → Chaos Engineering. Simula caídas de SQLite, cortes a mitad de transacciones y fallos de disco.
+- **`/sentinels`** → Los 9 Centinelas. Evalúa los 9 vectores de exploit (IDOR, CSRF, XSS, fuerza bruta, >10 MB, etc.).
+
+---
+
+## 4. Cómo Operar en tu Día a Día
 
 ### Paso 1 — Arrancar sesión
-Abre Claude Code en la carpeta `Proyecto Argos` y escribe uno de estos comandos según lo que quieras hacer:
+```text
+/morpheus Despierta sesión en ARGOS. Lee claude/registro-proceso-argos.md y coordina el siguiente paso.
+```
+*(O usa `/neb` si quieres ver el estado general en español sin tecnicismos).*
 
-- **Para saber dónde estamos hoy en español sencillo (sin siglas técnicas):**
-  ```text
-  /neb Dame el resumen actual del proyecto y qué decisiones mías como Neo están pendientes.
-  ```
-- **Para continuar el trabajo de la cola de tareas automáticamente:**
-  ```text
-  /morpheus Despierta sesión en ARGOS. Lee claude/registro-proceso-argos.md y coordina el siguiente paso.
-  ```
-- **Para hablar directo con uno de los 3 roles principales:**
-  - `/architect` → Diseñar o ajustar specs y contratos.
-  - `/keymaker` → Programar código o correr pruebas.
-  - `/oracle` → Auditar en disco lo que se hizo antes de tu firma.
-
-### Paso 2 — Dejar que interactúen (sin copiar y pegar entre ventanas)
-- En la misma ventana, `/keymaker` y `/architect` pueden resolver dudas entre sí (máximo 1 ida y vuelta para no quedarse en bucle).
-- Al terminar una tarea o cambio, `/oracle` revisa el disco y te entrega el mensaje final con formato `DE: The Oracle / PARA: Neo` pidiendo tu autorización.
-- Cada rol guarda automáticamente su progreso en caliente dentro de la carpeta `claude/log-<personaje>.md` (no dependen de la memoria del chat).
+### Paso 2 — Flujo automático acotado
+- Morpheus despacha a `/architect` y `/keymaker` para trabajar en la tarea activa.
+- Si la tarea involucra reglas clínicas, convocan a `/maggie`.
+- Si involucra experiencia de usuario, convocan a `/zee` o `/kid`.
+- Al finalizar, `/oracle` audita en disco y te presenta el veredicto para tu firma como **Neo**.
 
 ### Paso 3 — Cerrar sesión
-Cuando termines una tarea o quieras parar de trabajar, solo escribe en lenguaje natural:
+Escribe simplemente:
 ```text
 cerremos sesión
 ```
-*(Esto activa automáticamente `/hardline`, guarda el handover del día en `claude/` y te imprime el texto exacto de 3 líneas para despertar en la próxima sesión).*
+*(Hardline congela el trabajo, actualiza `claude/registro-proceso-argos.md`, genera el handover fechado y emite el prompt de despertar).*
 
 ---
 
-## 2. Regla de Modelos en 3 Niveles (Ahorro Inteligente de Tokens)
-
-Todas las **24 skills tienen `haiku` como modelo por defecto** para que cualquier conversación sencilla, consulta o ejecución de scripts sea rápida y económica:
-- **Nivel 1 (`haiku` — Por defecto en las 24 skills):** Charlas sencillas, dudas rápidas, lectura de bitácoras, correr scripts (`verify-traceability.sh`, `tsc`) y coordinar entre roles.
-- **Nivel 2 (`sonnet` — Ejecución importante):** Se usa en `/architect`, `/keymaker`, `/oracle`, `/trinity` o `/zion` únicamente cuando van a redactar contratos/specs, programar código en `src/` y `tests/`, hacer auditoría profunda o debatir. Al terminar vuelven a `haiku`.
-- **Nivel 3 (`opus` — Máximo nivel):** Reservado solo para cirugía algorítmica o arquitectónica crítica donde `sonnet` no sea suficiente.
-
----
-
-## 3. Tabla Concreta de las 24 Skills y Cómo Usarlas
-
-### A. Escuadra Principal (Uso diario — 90% del tiempo)
-| Comando | Personaje | Modelo (Niveles) | Función Concreta | Ejemplo de uso |
-| :--- | :--- | :---: | :--- | :--- |
-| **`/architect`** | El Arquitecto | `haiku` → `sonnet` → `opus` | **Arquitecto SDD:** Diseña y edita `spec.md`, `plan.md`, `constitution.md` y `contracts/`. Resuelve dudas de diseño (`CC-*`). No toca código. | `/architect Revisa el contrato de mascotas y define el esquema para alertas.` |
-| **`/mouse`** | Mouse | `haiku` → `sonnet` | **Auditor de Specs & Spec Kit:** Valida la coherencia de especificaciones con `speckit-analyze`, `speckit-clarify` y compuertas de trazabilidad antes de programar. | `/mouse Ejecuta speckit-analyze y dime si hay huecos en la spec antes de aprobarla.` |
-| **`/keymaker`** | El Cerrajero | `haiku` → `sonnet` → `opus` | **Desarrollador SDD:** Programa `src/` y `tests/`, compila contratos, corre tests y hace commits locales. | `/keymaker Implementa TASK-115 y ejecuta npm run test:gate.` |
-| **`/oracle`** | El Oráculo | `haiku` → `sonnet` | **Auditor SDD en Disco:** Verifica en disco (git, hashes y tests reales) lo reportado por `/keymaker` y `/architect`. Filtro único antes de tu firma como **Neo**. | `/oracle Audita en disco los últimos cambios de la rama y dame tu veredicto.` |
-| **`/morpheus`** | Morfeo | `haiku` | **Tech Lead / Capitán:** Revisa la cola `tasks.md`, te dice qué tarea sigue y coordina a qué rol invocar. | `/morpheus ¿Qué tarea sigue en la cola y quién debe actuar?` |
-
-### B. Especialistas Técnicos (Bajo demanda según el tema)
-| Comando | Personaje | Modelo (Niveles) | Función Concreta | Ejemplo de uso |
-| :--- | :--- | :---: | :--- | :--- |
-| **`/trinity`** | Trinity | `haiku` → `sonnet` | **Seguridad y Criptografía:** Audita sesiones, Argon2id, CSRF, IDOR y reglas Semgrep. | `/trinity Revisa si el endpoint nuevo tiene riesgo de IDOR o CSRF.` |
-| **`/seraph`** | Seraph | `haiku` | **QA Avanzado:** Verifica calidad de tests (cero oráculos falsos), mutación Stryker y E2E Playwright. | `/seraph Verifica los oráculos de tests y corre verify-oracles.sh.` |
-| **`/link`** | Link (Operador) | `haiku` | **Cloud GCP y DevOps:** Prepara Docker, Cloud Run, Terraform IaC y GitHub Actions. | `/link Prepara el Dockerfile y el plan de despliegue en Cloud Run.` |
-| **`/niobe`** | Capitana Niobe | `haiku` | **IoT y Proyecto Mirror:** Diseña la integración con collares GPS, comederos, areneros y **Mirror**. | `/niobe Diseña cómo recibiremos telemetría desde el proyecto Mirror.` |
-| **`/sati`** | Sati | `haiku` | **Diseño UX/UI:** Cuida componentes React, Tailwind, colores (`colorToken`), gráficas y accesibilidad. | `/sati Mejora la visualización de la curva de peso en el dashboard.` |
-| **`/hamann`** | Consejero Hamann | `haiku` | **Optimizador de Claude:** Ajusta tus skills y `CLAUDE.md` para gastar menos tokens. | `/hamann Revisa qué podemos optimizar para consumir menos tokens.` |
-| **`/merovingian`** | El Merovingio | `haiku` | **Causa-Efecto y Librerías:** Calcula qué archivos se rompen si tocas un contrato y audita `package.json` (`npm audit`). | `/merovingian ¿Qué se afecta si cambio este esquema y cómo va DEUDA-DEP-001?` |
-
-### C. Producto, Dominio Mascotas y Lentes de Criterio
-| Comando | Personaje | Modelo (Niveles) | Función Concreta | Ejemplo de uso |
-| :--- | :--- | :---: | :--- | :--- |
-| **`/zee`** | Zee | `haiku` | **Producto / Dueño (`OWNER`):** Evalúa si una función es fácil y útil para el dueño de la mascota. | `/zee Evalúa si el flujo de registrar una vacuna es claro para el dueño.` |
-| **`/kid`** | The Kid | `haiku` | **Usuario Invitado (`MEMBER`):** Revisa la experiencia del familiar o paseador invitado al hogar. | `/kid ¿Qué ve y qué puede hacer un invitado al entrar al hogar compartido?` |
-| **`/maggie`** | Maggie | `haiku` | **Veterinario:** Valida lógica clínica (vacunas, peso ideal, signos vitales, mascotas geriátricas +10 años). | `/maggie Valida si los rangos de alerta de peso geriátrico tienen sentido clínico.` |
-| **`/rama`** | Rama Kandra | `haiku` | **Privacidad y Backups:** Cuida que no salgan datos sensibles en logs y que los backups `.json` sean atómicos. | `/rama Verifica que el backup de 10 MB haga rollback completo si falla.` |
-| **`/lock`** | Comandante Lock | `haiku` | **Abogado del Diablo:** Busca casos borde (`EDGE-*`) y qué puede salir mal antes de programar. | `/lock Haz de abogado del diablo sobre esta propuesta y dime cómo podría fallar.` |
-| **`/mifune`** | Capitán Mifune | `haiku` | **Lente Pragmático:** Frena la sobre-ingeniería y propone la solución más simple y directa. | `/mifune Simplifica este diseño para entregarlo hoy sin complicarnos.` |
-
-### D. Espacios de Trabajo, Consola, Bus y Salida
-| Comando | Personaje / Lugar | Modelo (Niveles) | Función Concreta | Ejemplo de uso |
-| :--- | :--- | :---: | :--- | :--- |
-| **`/zion`** | Consejo de Sion | `haiku` → `sonnet` | **Arena de Debate:** Pone a debatir a 2 o más roles (`1v1`, `Escuadrón` o `7v7`) para destrabar una decisión difícil. | `/zion Abre debate 1v1 entre /architect y /keymaker sobre este bloqueo.` |
-| **`/dojo`** | Dojo de Morfeo | `haiku` | **Mejora y Deuda Técnica:** Analiza y planifica cómo limpiar deudas (`DEUDA-*`) o subir cobertura de tests. | `/dojo Arma el plan para limpiar DEUDA-TIPADO-001 sin romper nada.` |
-| **`/neb`** | Consola Nabucodonosor | `haiku` | **Traductor a Español Claro:** Traduce las siglas y códigos del proyecto (`CC-*`, `INV-*`, `H-*`) a lenguaje normal. | `/neb Explícame en español sencillo en qué va el proyecto hoy.` |
-| **`/logos`** | Nave Logos | `haiku` | **Bus Mensajero:** Sincroniza `claude/registro-proceso-argos.md` si abres más de una ventana o conectas con **Mirror**. | `/logos Sincroniza el bus central con los últimos cambios en disco.` |
-| **`/hardline`** | Línea Telefónica | `haiku` | **Cierre de Sesión:** Guarda todo en disco y genera el prompt de despertar. *(Se activa sola al decir **"cerremos sesión"**)*. | `cerremos sesión` *(o `/hardline`)* |
-
-### E. Pruebas de Ataque y Caos (Red Team)
-| Comando | Personaje | Modelo (Niveles) | Función Concreta | Ejemplo de uso |
-| :--- | :--- | :---: | :--- | :--- |
-| **`/smith`** | Agente Smith | `haiku` → `sonnet` | **Chaos Engineering:** Simula caídas de SQLite, cortes a mitad de un backup o alta concurrencia. | `/smith Intenta romper la importación de backups simulando un fallo a mitad de camino.` |
-| **`/sentinels`** | Los 9 Centinelas | `haiku` | **Batería de 9 Exploits:** Lanza los 9 ataques obligatorios de la Constitución §5 (IDOR, CSRF, XSS, fuerza bruta, >10 MB). | `/sentinels Pasa lista a los 9 vectores de ataque sobre las rutas HTTP.` |
-
----
-
-## 4. Ubicación de Archivos Clave
-- **Esta guía rápida:** `GUIA-SKILLS-MATRIX.md`
-- **Skills activas (leídas por Claude Code):** `.claude/skills/<nombre>/SKILL.md`
-- **Reglas globales automáticas:** `CLAUDE.md`
+## 5. Ubicación de Archivos Clave en ARGOS
+- **Guía de Skills de ARGOS:** `GUIA-SKILLS-MATRIX.md`
+- **Guía Universal (Global):** `~/.claude/GUIA-SKILLS-MATRIX.md`
+- **Skills Locales (4):** `.claude/skills/{maggie,zee,kid,niobe}/SKILL.md`
+- **Skills Universales (21):** `~/.claude/skills/<nombre>/SKILL.md`
+- **Plano de Control Soberano:** `~/.gemini/config/skills/source/SKILL.md`
+- **Bitácora Soberana de Source:** `~/.gemini/config/skills/source/references/bitacoras/bitacora-<slug>.md` (ej. `bitacoras/bitacora-proyecto-argos.md`)
 - **Memoria viva y logs en disco:** `claude/registro-proceso-argos.md` y `claude/log-<personaje>.md`
-- **Especificación completo de las 24 skills:** `SKILLS-PROPUESTAS.MD`

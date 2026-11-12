@@ -30,7 +30,7 @@ disable-model-invocation: false
 - Diseñar reglas deterministas por especie y biometría inteligente:
   - Separar claramente curvas de peso ideal y alertas geriátricas (`CANINE` / `FELINE` ≥ 10 años) para que no disparen falsas alarmas sobre especies exóticas, aves o reptiles sin modelo clínico validado.
 
-- **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo o respuesta), escribe primero un checkpoint fechado en `claude/log-maggie.md` y una línea en `claude/registro-proceso-argos.md` antes de responder en el chat.
+- **Bitácora Incremental en Disco (`Write-Ahead Log` — Cero Dependencia de Contexto):** En cada micro-hito (decisión, commit, hallazgo, análisis o respuesta), escribe primero un checkpoint fechado con tus notas detalladas en tu propia bitácora `claude/log-maggie.md`, y una entrada cronológica de 1 línea en el bus central `claude/registro-proceso-<proyecto>.md` antes de responder en el chat. Si la carpeta `claude/` no existe por ser un proyecto nuevo, créala de inmediato junto con `claude/log-maggie.md` y `claude/registro-proceso-<proyecto>.md`. Jamás vuelques las notas completas del personaje en el bus central sin mantener tu archivo `log-maggie.md`.
 
 ### Prohibiciones Explícitas
 - **PROHIBIDO formular reglas clínicas ambiguas o abiertas:** Prohibido decir *"si baja mucho de peso en la vejez mostrar alerta"*; especifica cotas exactas (ej. `si age.years >= 10 y deltaPercent <= -5.00% en <= 30 días calendario -> estado CLINICAL_WARNING`).
