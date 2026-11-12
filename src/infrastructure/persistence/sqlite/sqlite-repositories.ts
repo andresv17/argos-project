@@ -40,6 +40,8 @@ import type {
   InvitationRepositoryPort,
   LoginAttemptRepositoryPort,
   MedicalRecordRepositoryPort,
+  PetAssignmentRecord,
+  PetAssignmentRepositoryPort,
   PetRepositoryPort,
   RateLimitRepositoryPort,
   RepositorySet,
@@ -47,7 +49,7 @@ import type {
   UserAccount,
   UserRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
-import { isLegacyHouseholdMember, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
+import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
@@ -141,6 +143,12 @@ interface InvitationRow {
   readonly status: string;
   readonly created_at: string;
   readonly responded_at: string | null;
+}
+interface AssignmentRow {
+  readonly pet_id: string;
+  readonly household_id: string;
+  readonly assigned_by_user_id: string;
+  readonly assigned_at: string;
 }
 interface KeyedRow {
   readonly id: string;
@@ -419,11 +427,15 @@ function householdRepository(db: SqliteDatabase): HouseholdRepositoryPort {
     `SELECT ${membershipColumns} FROM household_members WHERE user_id IN (SELECT value FROM json_each(?))`,
   );
   // INV-HOUSE-003: el índice único parcial rechaza una segunda membresía INVITED o ACTIVE del mismo par.
+  // Las columnas role e is_household_owner (0004) reflejan el rol de data; el índice único household_members_one_owner depende de ellas.
   const upsertMembership = db.prepare(
-    `INSERT INTO household_members (${membershipColumns}) VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO household_members (${membershipColumns}, role, is_household_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (membership_id) DO UPDATE SET household_id = excluded.household_id, user_id = excluded.user_id,
-       status = excluded.status, first_joined_at = excluded.first_joined_at, data = excluded.data`,
+       status = excluded.status, first_joined_at = excluded.first_joined_at, data = excluded.data,
+       role = excluded.role, is_household_owner = excluded.is_household_owner`,
   );
+  // households.data guarda ownerUserId; la columna y el JSON deben cambiar juntos (decode comprueba que coincidan).
+  const updateOwner = db.prepare(`UPDATE households SET owner_user_id = ?, data = json_set(data, '$.ownerUserId', ?) WHERE id = ?`);
   const removeMembershipsOfUser = db.prepare('DELETE FROM household_members WHERE user_id = ?');
   const toHousehold = (row: KeyedRow): Household =>
     decode('households', row.id, row.data, validateHousehold, (h) => h.id === row.id && h.ownerUserId === row.owner_user_id);
@@ -459,10 +471,55 @@ function householdRepository(db: SqliteDatabase): HouseholdRepositoryPort {
     },
     async saveMembership(membership) {
       const data = encode('household_members', membership.membershipId, membership, isLegacyHouseholdMember);
-      upsertMembership.run(membership.membershipId, membership.householdId, membership.userId, membership.status, membership.firstJoinedAt, data);
+      const owner = isOwnerRow(membership);
+      const role = owner ? 'ADMIN' : membership.role === 'MEMBER' ? 'READER' : membership.role;
+      upsertMembership.run(membership.membershipId, membership.householdId, membership.userId, membership.status, membership.firstJoinedAt, data, role, owner ? 1 : 0);
     },
     async deleteMembershipsOfUser(userId) {
       removeMembershipsOfUser.run(userId);
+    },
+    async updateOwner(householdId, ownerUserId) {
+      if (updateOwner.run(ownerUserId, ownerUserId, householdId).changes !== 1) throw new Error(`households: el hogar ${householdId} no existe`);
+    },
+  };
+}
+
+/** @implements REQ-HOUSE2-003, ERR-INTERNAL-UNEXPECTED */
+function assignmentRepository(db: SqliteDatabase): PetAssignmentRepositoryPort {
+  const columns = 'pet_id, household_id, assigned_by_user_id, assigned_at';
+  const ofHousehold = db.prepare<[string], AssignmentRow>(`SELECT ${columns} FROM pet_assignments WHERE household_id = ? ORDER BY pet_id`);
+  const ofPet = db.prepare<[string], AssignmentRow>(`SELECT ${columns} FROM pet_assignments WHERE pet_id = ? ORDER BY household_id`);
+  const upsert = db.prepare(
+    `INSERT INTO pet_assignments (${columns}) VALUES (?, ?, ?, ?)
+     ON CONFLICT (pet_id, household_id) DO UPDATE SET assigned_by_user_id = excluded.assigned_by_user_id, assigned_at = excluded.assigned_at`,
+  );
+  const remove = db.prepare('DELETE FROM pet_assignments WHERE pet_id = ? AND household_id = ?');
+  const removeForHousehold = db.prepare('DELETE FROM pet_assignments WHERE household_id = ?');
+  const removeForPet = db.prepare('DELETE FROM pet_assignments WHERE pet_id = ?');
+  const toRecord = (row: AssignmentRow): PetAssignmentRecord => ({
+    petId: row.pet_id,
+    householdId: row.household_id,
+    assignedByUserId: row.assigned_by_user_id,
+    assignedAt: row.assigned_at,
+  });
+  return {
+    async listByHousehold(householdId) {
+      return ofHousehold.all(householdId).map(toRecord);
+    },
+    async listByPet(petId) {
+      return ofPet.all(petId).map(toRecord);
+    },
+    async save(assignment) {
+      upsert.run(assignment.petId, assignment.householdId, assignment.assignedByUserId, assignment.assignedAt);
+    },
+    async remove(petId, householdId) {
+      remove.run(petId, householdId);
+    },
+    async deleteForHousehold(householdId) {
+      removeForHousehold.run(householdId);
+    },
+    async deleteForPet(petId) {
+      removeForPet.run(petId);
     },
   };
 }
@@ -513,6 +570,9 @@ function invitationRepository(db: SqliteDatabase): InvitationRepositoryPort {
   const columns = 'id, household_id, invitee_username, invitee_user_id, invited_by_user_id, role_on_join, status, created_at, responded_at';
   const open = db.prepare<[string, string], InvitationRow>(`SELECT ${columns} FROM household_invitations WHERE household_id = ? AND invitee_username = ? AND status = 'INVITED'`);
   const ofHousehold = db.prepare<[string], InvitationRow>(`SELECT ${columns} FROM household_invitations WHERE household_id = ?`);
+  const openForUser = db.prepare<[string], InvitationRow>(
+    `SELECT ${columns} FROM household_invitations WHERE invitee_user_id = ? AND status = 'INVITED' ORDER BY created_at ASC, household_id ASC`,
+  );
   const upsert = db.prepare(
     `INSERT INTO household_invitations (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (id) DO UPDATE SET household_id = excluded.household_id, invitee_username = excluded.invitee_username,
@@ -550,6 +610,9 @@ function invitationRepository(db: SqliteDatabase): InvitationRepositoryPort {
         invitation.respondedAt,
       );
     },
+    async listOpenForUser(userId) {
+      return openForUser.all(userId).map(toRecord);
+    },
     async listByHousehold(householdId) {
       return ofHousehold.all(householdId).map(toRecord);
     },
@@ -577,5 +640,6 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     confirmationTokens: confirmationTokenRepository(db),
     rateLimits: rateLimitRepository(db),
     invitations: invitationRepository(db),
+    assignments: assignmentRepository(db),
   };
 }

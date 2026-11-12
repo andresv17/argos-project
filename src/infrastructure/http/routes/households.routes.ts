@@ -7,11 +7,15 @@
  * identificador de hogar, el acceso se comprueba antes que la consulta: quien no ve el hogar
  * recibe 404 aunque la consulta sea inválida.
  *
- * @implements REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND
+ * PATCH .../members/{userId} cambia el rol (cuerpo ChangeRoleInput, 200 HouseholdMemberView) y POST .../ownership-transfer
+ * transfiere la propiedad (TransferHouseholdOwnershipInput, 200 HouseholdView); T246.
+ *
+ * @implements REQ-HOUSE-001, REQ-HOUSE2-002, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND
  */
 
 import type { FastifyInstance } from 'fastify';
 import { jsonBody, petListQuery } from '../request-input.ts';
+import { parseChangeRoleInput } from '../../../application/use-cases/household-use-cases.ts';
 import type { PetListQuery } from '../../../application/use-cases/pet-use-cases.ts';
 import { requireSession } from '../plugins/session-auth.ts';
 import type { RouteContext } from './use-cases.ts';
@@ -40,6 +44,16 @@ export function registerHouseholdRoutes(app: FastifyInstance, { useCases }: Rout
 
   app.post<HouseholdParams>('/api/households/:householdId/invitations', { onRequest }, async (request, reply) =>
     reply.status(202).send(await useCases.inviteMember.execute(request.userId, request.params.householdId, jsonBody(request.body))),
+  );
+
+  app.patch<MemberParams>('/api/households/:householdId/members/:userId', { onRequest }, async (request) => {
+    const { householdId, userId } = request.params;
+    const { role } = parseChangeRoleInput(jsonBody(request.body));
+    return useCases.changeMemberRole.execute(request.userId, householdId, { userId, role });
+  });
+
+  app.post<HouseholdParams>('/api/households/:householdId/ownership-transfer', { onRequest }, async (request) =>
+    useCases.transferHouseholdOwnership.execute(request.userId, request.params.householdId, jsonBody(request.body)),
   );
 
   app.delete<MemberParams>('/api/households/:householdId/members/:userId', { onRequest }, async (request, reply) => {

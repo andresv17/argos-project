@@ -14,6 +14,8 @@ import { registerProblemDetails } from './plugins/problem-details.ts';
 import { registerAccountRoutes } from './routes/account.routes.ts';
 import { registerAuthRoutes } from './routes/auth.routes.ts';
 import { registerBackupRoutes } from './routes/backup.routes.ts';
+import { registerAssignmentRoutes } from './routes/assignments.routes.ts';
+import { registerOwnershipRoutes } from './routes/ownership.routes.ts';
 import { registerHouseholdRoutes } from './routes/households.routes.ts';
 import { registerPetRoutes } from './routes/pets.routes.ts';
 import { createUseCases } from './routes/use-cases.ts';
@@ -38,6 +40,8 @@ export async function buildApp({ deps, cookieSecure, logger = false }: HttpAppOp
   registerAccountRoutes(app, context);
   registerPetRoutes(app, context);
   registerHouseholdRoutes(app, context);
+  registerAssignmentRoutes(app, context);
+  registerOwnershipRoutes(app, context);
   registerBackupRoutes(app, context);
   return app;
 }

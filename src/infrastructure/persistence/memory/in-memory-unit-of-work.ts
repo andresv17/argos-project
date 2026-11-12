@@ -16,6 +16,8 @@ import type {
   HouseholdRepositoryPort,
   InvitationRecord,
   InvitationRepositoryPort,
+  PetAssignmentRecord,
+  PetAssignmentRepositoryPort,
   LoginAttemptRepositoryPort,
   MedicalRecordRepositoryPort,
   PetRepositoryPort,
@@ -45,6 +47,7 @@ export interface MemoryState {
   confirmationTokens: Record<string, StoredConfirmationToken>;
   rateEvents: RateLimitEvent[];
   invitations: InvitationRecord[];
+  assignments: PetAssignmentRecord[];
 }
 
 export interface StoredConfirmationToken {
@@ -71,6 +74,7 @@ export function emptyMemoryState(): MemoryState {
     confirmationTokens: {},
     rateEvents: [],
     invitations: [],
+    assignments: [],
   };
 }
 
@@ -196,6 +200,13 @@ function invitationRepository(state: MemoryState): InvitationRepositoryPort {
       if (clash) throw new Error(`household_invitations: ya hay una invitación INVITED de ${invitation.inviteeUsername} en el hogar`);
       state.invitations = [...state.invitations.filter((i) => i.invitationId !== invitation.invitationId), copy(invitation)];
     },
+    async listOpenForUser(userId) {
+      return copy(
+        state.invitations
+          .filter((i) => i.inviteeUserId === userId && i.status === 'INVITED')
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.householdId.localeCompare(b.householdId)),
+      );
+    },
     async listByHousehold(householdId) {
       return copy(state.invitations.filter((i) => i.householdId === householdId));
     },
@@ -221,6 +232,7 @@ function petRepository(state: MemoryState): PetRepositoryPort {
     },
     async delete(petId) {
       state.pets = state.pets.filter((p) => p.id !== petId);
+      state.assignments = state.assignments.filter((a) => a.petId !== petId); // como ON DELETE CASCADE
     },
   };
 }
@@ -270,6 +282,8 @@ function householdRepository(state: MemoryState): HouseholdRepositoryPort {
     async deleteWithMemberships(householdId) {
       state.households = state.households.filter((h) => h.id !== householdId);
       state.memberships = state.memberships.filter((m) => m.householdId !== householdId);
+      state.invitations = state.invitations.filter((i) => i.householdId !== householdId); // como ON DELETE CASCADE
+      state.assignments = state.assignments.filter((a) => a.householdId !== householdId); // como ON DELETE CASCADE
     },
     async listMemberships(householdId) {
       return copy(state.memberships.filter((m) => m.householdId === householdId));
@@ -282,6 +296,34 @@ function householdRepository(state: MemoryState): HouseholdRepositoryPort {
     },
     async deleteMembershipsOfUser(userId) {
       state.memberships = state.memberships.filter((m) => m.userId !== userId);
+    },
+    async updateOwner(householdId, ownerUserId) {
+      const index = state.households.findIndex((h) => h.id === householdId);
+      if (index < 0) throw new Error(`households: el hogar ${householdId} no existe`);
+      state.households[index] = { ...state.households[index]!, ownerUserId };
+    },
+  };
+}
+
+function assignmentRepository(state: MemoryState): PetAssignmentRepositoryPort {
+  return {
+    async listByHousehold(householdId) {
+      return copy(state.assignments.filter((a) => a.householdId === householdId));
+    },
+    async listByPet(petId) {
+      return copy(state.assignments.filter((a) => a.petId === petId));
+    },
+    async save(assignment) {
+      state.assignments = [...state.assignments.filter((a) => !(a.petId === assignment.petId && a.householdId === assignment.householdId)), copy(assignment)];
+    },
+    async remove(petId, householdId) {
+      state.assignments = state.assignments.filter((a) => !(a.petId === petId && a.householdId === householdId));
+    },
+    async deleteForHousehold(householdId) {
+      state.assignments = state.assignments.filter((a) => a.householdId !== householdId);
+    },
+    async deleteForPet(petId) {
+      state.assignments = state.assignments.filter((a) => a.petId !== petId);
     },
   };
 }
@@ -297,6 +339,7 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     confirmationTokens: confirmationTokenRepository(state),
     rateLimits: rateLimitRepository(state),
     invitations: invitationRepository(state),
+    assignments: assignmentRepository(state),
   };
 }
 
