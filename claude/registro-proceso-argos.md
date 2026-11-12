@@ -337,3 +337,4 @@
 - 2026-11-12 Oracle: H-T249-1 APTO tras 497c12d (22/22, 26/26, tsc 0, oracles CUMPLE). H-T249-2 abierto. Ver claude/veredicto-auditor-task-H-T249-1-2026-11-12.md
 - 2026-11-12 Keymaker: H-T249-2 resuelto en REVIEW (3 pruebas adaptadas a ACTIVE/LEFT/invitaciones; sqlite-repositories 37/37, 22/22, 26/26, tsc 0, oracles CUMPLE). Evidencia: claude/evidencia-task-T249-2026-11-12.md
 - 2026-11-12 Oracle: H-T249-2 APTO tras d193d9c (37/37, 22/22, 26/26, tsc 0, oracles CUMPLE). Ver claude/veredicto-auditor-task-H-T249-2-2026-11-12.md
+- 2026-11-12 Kid: T250 en REVIEW (15 verdes, 1 roja por H-T250-1 backend: ADMIN no propietario no invita; H-T250-2 UI: Eliminar visible a ADMIN; tsc 0, oracles CUMPLE, trazabilidad CUMPLE). Evidencia: claude/evidencia-task-T250-2026-11-12.md

@@ -26,6 +26,27 @@ export async function apiPost<T = Record<string, unknown>>(request: APIRequestCo
   return (await response.json()) as T;
 }
 
+/** Respuesta de la API reducida a lo que comparan los E2E: estado HTTP, `code` del catálogo RFC 9457 (si es un problema) y cuerpo. */
+export interface ApiOutcome<T = unknown> {
+  readonly status: number;
+  readonly code: string | null;
+  readonly body: T;
+}
+
+/** Llamada a la API con la sesión del contexto; no afirma nada: la prueba compara `status` y `code`. Las escrituras llevan la cabecera CSRF. */
+export async function apiCall<T = unknown>(
+  request: APIRequestContext,
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  data?: unknown,
+): Promise<ApiOutcome<T>> {
+  const response = await request.fetch(`/api${path}`, { method, headers: method === 'GET' ? {} : CSRF, ...(data === undefined ? {} : { data }) });
+  const text = await response.text();
+  const body = (text === '' ? null : JSON.parse(text)) as T;
+  const code = typeof body === 'object' && body !== null && 'code' in body ? String((body as { code: unknown }).code) : null;
+  return { status: response.status(), code, body };
+}
+
 /** Registra al usuario desde el contexto del navegador: la cookie de sesión queda en ese contexto (REQ-AUTH2-001). La contraseña debe cumplir INV-AUTH2-001. */
 export async function registerViaApi(request: APIRequestContext, username: string, displayName: string, password: string): Promise<void> {
   await apiPost(request, '/auth/register', { username, displayName, password, confirmPassword: password });
