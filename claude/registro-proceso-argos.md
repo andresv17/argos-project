@@ -332,3 +332,4 @@
 - 2026-11-12 10:23 Morpheus: Neo firma T248 [x]. Despacho T249 + título O-2 a Keymaker sonnet.
 - 2026-11-12 Keymaker: T249 listo en REVIEW (bloqueo PETS B5 + B6 + relectura en tx; 26/26, unit 72=base, tsc 0, oracles CUMPLE, traz 4/4). Evidencia: claude/evidencia-task-T249-2026-11-12.md
 - 2026-11-12 Oracle: T249 APTO (B5/B6 en tx, 26/26, unit 72=base, tsc 0, oracles 0, traza 4/4). H-T249-1: 22 fallos account*.api no existen en HEAD (regresión del árbol T245-T248 en sembrado SQLite). Ver claude/veredicto-auditor-task-T249-2026-11-12.md
+- 2026-11-12 10:33 Morpheus: 5 commits locales en 002 (0cc6218..aad7b0c), sin push. H-T249-1 a Keymaker.
