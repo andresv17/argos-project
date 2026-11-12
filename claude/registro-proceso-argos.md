@@ -111,3 +111,224 @@
 - 2026-11-10 oracle: T057 react-router v7 -> PASS CON OBS (rango ^ vs pin exacto); archivos: package.json, package-lock.json. Ver claude/log-oracle.md
 - 2026-11-10 Morpheus: commits locales F0 (sin push): 42bfd0d, c1b7186, a3af27d, 232fb72, 372f635. T058 y bitácoras sin commit.
 - 2026-11-10 Morpheus: react-router fijado exacto (7.18.5); README y quickstart en 3100. Sin commit. Neo marca T056/T057 y hace push.
+- 2026-11-10 mouse: F2 clarificación Feature 002 -> .specify/memory/audits/f2-clarificacion-feature-002.md (27 incoherencias: a=5, b=15, c=7; 7 preguntas a Neo). Sin commit.
+- 2026-11-10 Neo: respuestas F2 (1A,2A,3A,4A,5B,6A,7B) y autorización de F3 (rama y specs/002-*, spec en REVIEW). Architect despachado.
+- 2026-11-10 architect: F3 inicio, rama 002-plataforma-v21 y specs/002-plataforma-v21/spec.md (DRAFT). Sin commit.
+- 2026-11-10 architect: F3 entregada, specs/002-plataforma-v21/spec.md DRAFT en rama 002-plataforma-v21. Sin commit.
+- 2026-11-10 Neo: acepta los 7 puntos de la spec 002. Autoriza F5 (`/mouse`). Spec en DRAFT hasta aprobación final.
+- 2026-11-10 mouse: F5 entregada, checklist en specs/002-plataforma-v21/checklists/requirements.md; 17 hallazgos (5 altos, 6 medios, 6 bajos); spec sigue DRAFT. Sin commit.
+- 2026-11-10 Mouse F5: 17 hallazgos (5 altos), checklist 27/40. Cinco preguntas N-1..N-5 para Neo. Architect aplica los cambios que no dependen de Neo.
+- 2026-11-10 architect: aplicando a spec 002 los cambios F5 de Mouse que no dependen de Neo (7-10, 12-17, poda del 6); N-1..N-5 quedan pendientes. Sin commit.
+- 2026-11-10 architect: aplicados en spec 002 los cambios 7-10, 12-17 y poda del 6; pendientes N-1..N-5. Estado DRAFT. Sin commit.
+- 2026-11-10 Neo: responde N-1 A (HMAC-SHA256 con secreto), N-2 A (token efímero), N-3 A (enmienda constitucional con firma), N-4 B (importar sobre propias), N-5 A (cascada). Architect aplica y prepara enmienda.
+- 2026-11-10 architect: aplicando N-1..N-5 en spec 002 y borrador de enmienda constitucional (pendiente de firma Neo). Sin commit.
+- 2026-11-10 architect: spec 002 con N-1..N-5 aplicados (sin pendientes); borrador de enmienda 3.1.0 en audits/enmienda-constitucion-002-borrador.md, pendiente de firma de Neo. Sin commit.
+- 2026-11-10 mouse: F5 bis de spec 002 hecha; checklist 38/40; 1 alto (borrador de enmienda), 1 medio, 3 bajos; spec DRAFT; sin commit.
+- 2026-11-10 architect: cerrando N-B, N-C, N-A, H-F5-05, N-E en spec 002 y borrador de enmienda; DRAFT; sin commit.
+- 2026-11-10 mouse: F5 ter hecha; checklist 40/40; 0 abiertos; spec y enmienda listas para firma de Neo (DRAFT); sin commit.
+- 2026-11-10 Mouse: reauditoría 40/40. Spec 002 y enmienda 3.1.0 listas para firma de Neo.
+- 2026-11-10 Neo: aprueba spec 002 (APPROVED), firma enmienda 3.1.0 y autoriza F4. Arranca constitución y luego plan y contratos.
+- 2026-11-10 architect: inicia aplicación de aprobación de Neo (spec 002 APPROVED y constitución 3.1.0); sin commit.
+- 2026-11-10 architect: spec 002 APPROVED; constitución 3.1.0 aplicada; verify-traceability CUMPLE 96/96; tsc 0 errores. Sin commit.
+- 2026-11-10 Architect: constitución 3.1.0 y spec 002 APPROVED aplicadas. Trazabilidad CUMPLE. F4: insumos de Maggie, Trinity y Rama en curso.
+- 2026-11-10 maggie: F4 insumo clínico de especies entregado en .specify/memory/audits/f4-insumo-maggie-especies.md (2/8 validadas, 6/8 provisionales); sin commit.
+- 2026-11-10 Maggie: insumo de especies entregado. 2 de 8 validadas; 6 provisionales con máximo de 150 kg. Pendiente decisión de Neo sobre el máximo.
+- 2026-11-10 Trinity: insumo F4 de seguridad entregado en .specify/memory/audits/f4-insumo-trinity-seguridad.md (14 propuestas, 7 vectores nuevos, 6 decisiones de Neo). Sin commit.
+- 2026-11-10 Trinity: insumo de seguridad entregado. Seis decisiones D1–D6 y bloque P-14 pendientes de Neo.
+- 2026-11-10 rama: F4 insumo de privacidad y respaldos entregado en .specify/memory/audits/f4-insumo-rama-privacidad.md (7 decisiones para Neo). Sin commit.
+- 2026-11-10 Rama: insumo de privacidad entregado (D-1..D-7). Morpheus consolida decisiones de Neo (Maggie, Trinity, Rama) antes de F4.
+- 2026-11-10 Neo: aprueba bloque recomendado de F4. Userid verificado. Architect redacta plan y contratos de la 002.
+- 2026-11-10 Architect: F4 inicia redacción de plan.md, data-model.md, quickstart.md y contratos de la 002 (specs/002-plataforma-v21/).
+- 2026-11-10 Architect: F4 completada (plan, data-model, quickstart y contratos de la 002 en REVIEW; 40 operaciones, 6 esquemas, 35 errores). Falta /mouse (analyze) y /oracle; 3 IDs pendientes y 1 autorización de scripts para Neo.
+- 2026-11-10 Architect: F4 entregada (contratos REVIEW). Mouse y Oracle auditando. Pendientes de Neo: scripts a la 002, IDs nuevos y topes de frecuencia.
+- 2026-11-10 Oracle: F4 (contratos 002) PASS CON OBSERVACIONES; Ajv strict OK, ERR e IDs OK salvo 3 pendientes declarados, prueba de seguridad de respaldo y auditoría OK.
+- 2026-11-10 Oracle: contratos F4 PASS CON OBSERVACIONES (ajv, JSON, OpenAPI, errores y seguridad de contrato verificados). Mouse pendiente.
+- 2026-11-10 Mouse: F4 analizada (checklists/f4-contratos.md): 3 altos, 5 medios, 7 bajos; decisiones de Neo aplicadas; pendiente corrección del arquitecto antes de F6.
+- 2026-11-10 Mouse: F4 con 3 altos, 5 medios, 7 bajos. Architect corrige A1–A3 y M1–M4. M5 (cambio de exportación a POST y cabecera) para Neo.
+- 2026-11-10 Architect: inicia corrección F4 (A1-A3, M1-M4, B1-B5); M5 y 3 IDs quedan para Neo.
+- 2026-11-10 Architect: corrección F4 aplicada (A1-A3, M1-M4, B1-B5); verificación Ajv/OpenAPI OK; pendiente Neo: M5 y 3 IDs; /mouse reverifica.
+- [2026-11-10] mouse F4 bis: reverificación F4; A1-A3, M1-M4, B1-B5 cerrados; abiertos M5 (Neo), B6, B7; Ajv 6/6 OK; cobertura 63/63; sin commit.
+- 2026-11-10 Neo: aprueba las 8 decisiones de F4. F4 cerrada. F6 arranca (tasks.md de la 002). Scripts autorizados para F7.
+- [2026-11-10] Architect F6 inicia: tasks.md 002 + sustitución de pruebas + borrador enmienda Principio III (solo docs nuevos).
+- [2026-11-10] Architect F6: tasks.md 002 (110 tareas) y tabla de sustitución creados; 93/93 IDs vigentes con tarea. Pendiente borrador Principio III.
+- [2026-11-10] Architect F6 cerrado: tasks.md (110), sustitución (22), borrador Principio III 3.2.0; sin commit; a la espera de /mouse.
+- 2026-11-10 Mouse: F6 analyze de tasks.md 002 entregado (cobertura completa, 110 tareas; 2 altos y 4 medios; D2/F4-M5 aparecen pendientes por error). Sin ediciones ni commit.
+- [2026-11-10 | Architect] INICIO: correcciones de Mouse (7 puntos) sobre specs/002-plataforma-v21/tasks.md.
+- [2026-11-10 | Architect] FIN: 7 correcciones aplicadas a tasks.md (nueva T204a firma Principio III); a la espera de aprobación de Neo.
+- 2026-11-10 Neo: aprueba tasks.md de la 002 (111), autoriza T204 y T205, versión de enmienda 3.2.0. Commit local 1ee7a21. F7 arranca.
+- [2026-11-10 | Keymaker] INICIO F7 (T201-T206): pruebas primero, luego scripts multi-feature; default 001 intacto; sin commit.
+- [2026-11-10 | Keymaker] T201 pruebas escritas y fallando (9 en gates, 5 en codegen-drift); ahora T202/T203 compile-contracts.sh y codegen.mjs.
+- [2026-11-10 | Keymaker] T202/T203 aplicadas (compile-contracts.sh --feature/--out, codegen.mjs lista de palabras x-sdd-* + $anchor); sigue T204 verify-traceability.sh.
+- [2026-11-10 | Keymaker] T204 aplicada (verify-traceability.sh --feature, regex con dígitos, reemplazados/removed excluidos) y verify-oracles.sh --feature; sigue T205 CI (Nivel 2 autorizado por Neo).
+- [2026-11-10 | Keymaker] T205 CI + T206 compuerta ejecutadas: tsc 0, 001 CUMPLE 96/96 idéntica, oráculos CUMPLE, compile 001 sin diff, vitest gates+layers 59/59 verde (incl. codegen-drift). Tareas siguen [ ]. Informe a Morpheus.
+- [2026-11-10 | Architect] F7-doc-fix iniciado: T220, T202, README contratos 002 (solo docs).
+- [2026-11-10 | Architect] F7-doc-fix terminado: T220/T202/README aplicados; pendiente /oracle.
+- 2026-11-10 Architect: corrige T220, T202 y README de contratos 002. Espera veredicto de Oracle sobre F7.
+- 2026-11-10 Oracle: F7 (T201-T206) PASS CON OBSERVACIONES; ver log-oracle.md.
+- 2026-11-10 Morpheus: F7 validada por Oracle (PASS CON OBSERVACIONES). Commit local 24fa17b, sin push. Pendiente COMPLETED de T201–T206 por Neo.
+- 2026-11-10 Neo: T201–T206 COMPLETED. CI se mantiene. Autoriza T207 con presentación previa del diff e impactos.
+- 2026-11-10 20:31 keymaker: T207 línea base OK (tsc 0, 113/113); iniciando regeneración --feature 002 sin adaptar código
+- 2026-11-10 20:32 keymaker: T207 regeneración ejecutada; tsc 67 errores; reporte a Morpheus; sin adaptar código
+- 2026-11-10 Keymaker: T207 ejecutada; rompe tsc (67), 6 suites y 4 pruebas; trazabilidad 001 y 002 en FALLA. Pendiente decisión de Neo sobre cómo adaptar.
+- 2026-11-10 Neo: transición A (adaptar por rebanadas) y falso positivo A (texto del contrato). Keymaker estabiliza para cerrar T207.
+- 2026-11-10 keymaker: T207 bloque 1 (pureza audit-entry + regex guarda backup); tsc inicial 205 errores
+- 2026-11-10 keymaker: T207 bloque 2 (respaldo V3, legacy rechazado hasta T233)
+- 2026-11-10 keymaker: T207 bloque 3 (sesión, alertas nulas, canEdit)
+- 2026-11-10 keymaker: T207 bloque 4 (hogares Legacy + proyección a contrato 002)
+- 2026-11-10 keymaker: T207 bloque 5 (presentación web a tipos 002)
+- 2026-11-10 keymaker: T207 bloque 6 (tests: ajustes de tipo para compilar; src en 0 errores)
+- 2026-11-10 keymaker: T207 tsc en 0 errores; ejecutando vitest presentation+api y compuertas
+- 2026-11-10 keymaker: T207 codegen-drift.spec actualizado a 002; ejecutando compuertas de trazabilidad 001 y 002
+- 2026-11-10 keymaker: T207 estabilizada en tsc (0 errores); vitest 260 fallan/342 pasan; trazabilidad 001 CUMPLE, 002 FALLA; informe a Morpheus
+- 2026-11-10 Keymaker: tsc en verde; 260 de 602 pruebas fallan por fixtures de la 001. T207 no cerrada. Pendiente de Neo: fixtures 002 (a) architect o (b) adaptador.
+- 2026-11-11 Neo: fixtures canónicos 002 por Architect (opción a). T207 se cierra al quedar en verde. Matriz RBAC en Rebanada 3.
+- 2026-11-11 architect: T207 inicia fixtures nativos 002 en contracts/examples/ (sin tocar src/tests/contratos)
+- 2026-11-11 architect: T207 fixtures 002 entregados (226 válidos/181 inválidos; 10 bloqueados por D-F8-01 SpeciesOther nulo). Contratos sin tocar; Morpheus decide
+- 2026-11-11 Architect: fixtures 002 entregados (226/181, 397 pasan). Defecto D-F8-01 en speciesOther bloquea 10 casos. Pendiente de Neo: corrección PATCH del contrato.
+- 2026-11-11 keymaker: T207 crea canonical-fixtures-002.spec.ts (fixtures 002 conectados a contrato; D-F8-01 en it.skip). Sin commit.
+- 2026-11-11 Neo: autoriza PATCH de SpeciesOther y cierre de T207 al estar en verde. Rebanada 1 autorizada tras T207.
+- 2026-11-11 Architect: inicio PATCH D-F8-01 en pet.schema.json (SpeciesOther).
+- 2026-11-11 Architect: PATCH D-F8-01 aplicado y verificado en pet.schema.json; pendiente /keymaker recompilar --feature 002 y cerrar T207.
+- 2026-11-11 Keymaker: recompila 002, retira 10 it.skip de T207 y corre compuertas.
+- 2026-11-11 Keymaker: sustituye 2 aserciones debiles en canonical-fixtures-002.spec.ts (autorizado por Morpheus).
+- 2026-11-11 Oracle: auditoria T207 PASS CON OBSERVACIONES (412/412, tsc 0, oraculos CUMPLE, 001 96/96); T207 sigue [ ].
+- 2026-11-11 Neo: aprueba adaptación de 26 pruebas de la 001 tras revisión semántica de Oracle. T201–T207 marcadas. Commit local tras veredicto; excluye skills y guía.
+- 2026-11-11 Oracle: revision semantica 27 pruebas adaptadas PASS CON OBSERVACIONES (0 C/D/E/F, it() sin cambios, tsc 0, oraculos CUMPLE, vitest 260 fallos pendientes de rebanadas).
+- 2026-11-11 Morpheus: T207 commit local tras veredicto de Oracle (sin push). Arranca Rebanada 1.
+- 2026-11-11 Keymaker: Rebanada 1 bloque A (T208-T213) pruebas primero; ver claude/log-keymaker.md
+- 2026-11-11 Keymaker: R1 bloque A cerrado (pruebas T208-T213 en rojo por modulo/funcionalidad ausente); sigue bloque B implementacion T214-T220
+- 2026-11-11 Keymaker: R1 bloque B (T214-T220 implementados; 68 pruebas de auth/cuenta/seguridad en verde); sigue T221-T225
+- 2026-11-11 Keymaker: R1 T208-T222 listas para /oracle (tsc 0, oraculos CUMPLE, trazabilidad por tarea CUMPLE, vitest 154 fallan de rebanadas 2-5 vs 260 en HEAD); T223/T224 pendientes de Sentinels-Trinity/Rama; T225 sin marcar
+- 2026-11-11 Keymaker: rebanada 1 entregada (T208–T222). Compuerta 001 baja a 89/96 por IDs retirados (decisión de Neo). Pendiente Oracle.
+- 2026-11-11 Oracle: auditoria rebanada 1 T208-T222 = PASS CON OBSERVACIONES (vitest 972/154 vs HEAD 754/260, 0 regresiones; ver log-oracle.md)
+- 2026-11-11 Morpheus: rebanada 1 validada por Oracle (PASS CON OBSERVACIONES). Commit local creado, sin push.
+- 2026-11-11 Architect: inicia correccion de ruta en texto de T219 (tasks.md).
+- 2026-11-11 Architect: T219 corregido a POST /api/account/deletion en tasks.md; estado [ ] intacto.
+- 2026-11-11 Architect: T219 corregida a POST /api/account/deletion. Trinity y Rama en curso.
+- 2026-11-11 Trinity: T223 ejecutado, 14/14 pasan, 2 mutation checks fallan como debe (3 y 4 vectores), src restaurado idéntico; queda [ ] para Neo.
+- 2026-11-11 Rama T224: 14/14 pasan, mutation check de logs falla como debe, src restaurado; brechas menores displayName y correo en export/hogar (ver log-rama.md).
+- 2026-11-11 Trinity: T223 (sesión y CSRF) 14/14, mutantes detectados. Sentinels pendiente. Rama en curso.
+- 2026-11-11 Rama: T224 (privacidad) 14/14, mutante detectado, brechas menores. Informe `rebanada-1-rama.md` se escribe por entregable de T224.
+- 2026-11-11 Keymaker: cerrando 3 brechas de privacidad R1 (displayName/username en logs, correo en export/hogar) y compuerta T225; ver log-keymaker.md.
+- 2026-11-11 Rama: inicia redacción de rebanada-1-rama.md (T224).
+- 2026-11-11 Rama: rebanada-1-rama.md entregado (5 secciones, brechas B1-B4 a T225); T224 lista para revisión de Neo.
+- 2026-11-11 Rama: informe rebanada-1-rama.md escrito. Cuatro brechas de gravedad baja a T225. Keymaker en curso.
+- 2026-11-11 Keymaker: brechas de privacidad cerradas y compuerta T225 ejecutada. Oracle valida la rebanada completa.
+- 2026-11-11 Oracle: auditoria rebanada 1 pasadas T223/T224 = PASS CON OBSERVACIONES (ver log-oracle).
+- 2026-11-11 Morpheus: commit local de privacidad de la rebanada 1 (sin push). Corregida cifra de fallos a 154 (suite completa).
+- 2026-11-11 Neo: cierre de rebanada 1 (T208–T225 COMPLETED). Commit de tasks.md (sin push). Arranca rebanada 2.
+- 2026-11-11 Keymaker: Rebanada 2 bloque A (pruebas T226-T229 escritas; rojo pendiente de verificar).
+- 2026-11-11 Keymaker: Rebanada 2 bloque B (T230-T233 implementadas en verde; falta compuerta T235).
+- 2026-11-11 Keymaker: Rebanada 2 T226-T233 hechas, compuerta T235 ejecutada (tsc 0, oracles 0 debiles, trazabilidad CUMPLE, sin deriva; vitest 121 fallan restantes de rebanadas 3-6). Pendiente T234 (Maggie) y firma de Neo.
+- 2026-11-11 Keymaker: rebanada 2 entregada (T226–T233). T234 de Maggie y validación de Oracle en curso.
+- 2026-11-11 Maggie: T234 en curso (informe clínico de rebanada 2).
+- 2026-11-11 Maggie: T234 entregado (rebanada-2-maggie.md); ADR-002-15 aceptado; P-1..P-5 abiertos. Pendiente Oracle y Neo.
+- 2026-11-11 Maggie: T234 entregada. Acepta ADR-002-15 con condición de interfaz. Cinco puntos para veterinario siguen abiertos.
+- 2026-11-11 oracle: Rebanada 2 (T226-T233) PASS CON OBSERVACIONES; vitest 1079/1200 (0 regresiones), T234 Maggie pendiente, T235 espera Neo.
+- 2026-11-11 architect: corrige redaccion fila 33 de sustitucion-pruebas-001.md (DRAGON no es especie; anade BIR->DRA). Sin commit.
+- 2026-11-11 Morpheus: commit local de la rebanada 2 (sin push). Espera firma de Neo para T226–T235.
+- 2026-11-11 HARDLINE (Morpheus): cierre de sesión. HEAD `9af6f0b` en `002-plataforma-v21`, sin push. Rebanadas 1 y 2 validadas por Oracle y commiteadas en local. Handover en `claude/handover-morpheus-2026-11-11.md`. Árbol con skills borradas en `.claude/skills/` (no nuestras, pendiente de Neo). Próxima acción: respuesta de Neo sobre firma T226–T235, rebanada 3, skills y compuerta 001.
+- 2026-11-11 Neb: consulta de estado (solo lectura). Hallazgos: [x] en T226-T235 sin firma de Neo en árbol de trabajo (H-NEB-01); skills borradas sin commit (H-NEB-02). Ver claude/log-neb.md.
+- 2026-11-11 Morpheus: arranque de sesión. Estado sin cambios; T236 espera autorización de Neo. Hallazgo: .specify/feature.json apunta a 001 con rama 002 (H-MOR-01). Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: Neo autoriza rebanada 3 (T236-T252) con TDD. T226-T235 quedan [x] por decisión de Neo. Pendientes aceptados: T231, T238, T265, T284. Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: H-MOR-01 resuelto (feature.json en 002). Skills borradas deliberadas. Despacho de Keymaker para T236 (solo pruebas en rojo). Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: T236 pruebas en rojo. tests/unit/permissions-matrix.spec.ts con 44 casos; vitest 44 fallan / 0 pasan por modulo rbac.ts ausente. Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: T236 entregado por Keymaker (44 pruebas en rojo, verificado en disco). Pendiente /oracle. Matices: MANAGE_HOUSEHOLD_MEMBERS y N-4 READER.
+- 2026-11-11 Morpheus: Neo autoriza despacho autónomo de tripulantes. Matices ratificados. Despacho de Oracle para T236 (parte 1 de 3). Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: T236 parte 1 (permissions-matrix) PASS CON OBSERVACIONES. 44/44 casos alineados con spec y fixtures; vitest 44 fallos por rbac.ts ausente. Pendiente Neo: tasks.md tiene T226-T235 en [x] sin commit; la fila 6 (access.property / access-policy) sigue sin hacer. Informe: .specify/memory/audits/oracle-T236-permissions-matrix.md.
+- 2026-11-11 Morpheus: Oracle PASS CON OBSERVACIONES en T236 parte 1. Despacho de Keymaker para fila 6 (pruebas en rojo). Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: T236 fila 6 (access.property / access-policy) en rojo: 15 pruebas 002 nuevas fallan por modulo ausente (effective-role.ts, rbac.ts); 2 de la 001 ya rojas en HEAD (INV-ACC vs INV-ACC2). Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: Keymaker entrega fila 6 de T236 (15 pruebas en rojo). Pendiente decisión de Neo sobre EDGE-008/009. Despacho de Oracle. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: T236 fila 6 (access.property / access-policy, 002) PASS CON OBSERVACIONES. 15 pruebas nuevas en rojo por módulo ausente; 0 borrados; 0 oráculos débiles; EDGE-008/009 de la 001 confirmados en rojo en HEAD. Pendiente Neo: (a) EDGE-008/009, (b) firma de effectiveRole. Informe: .specify/memory/audits/oracle-T236-fila6.md.
+- 2026-11-11 Morpheus: Oracle PASS CON OBSERVACIONES en fila 6 de T236. Decisiones pendientes de Neo: EDGE-008/009 y firma de effectiveRole. Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: Neo decide EDGE-008/009 → INV-ACC2 y confirma firma de effectiveRole. Encadenando T237–T249 con Keymaker/Oracle. Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: EDGE-008/009 corregidos a INV-ACC2-001/002 (pasan). T237–T242 escritos en rojo: 52 pruebas nuevas (47 fallan, 5 ya pasan), 170 pruebas en 9 archivos: 94 pasan / 76 fallan. Pendiente validación de Oracle. Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: Keymaker entrega T237-T242 (52 nuevas, 47 rojas, 5 verdes). Despacho de Oracle. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: FAIL en T237–T242 (B1–B9 devueltos a Keymaker, MAX_RETRY=1). 2 pruebas de 001 dan 500 sin explicar (pets-records vacunas/desparasitaciones). Informe en .specify/memory/audits/oracle-T237-T242.md. Ver claude/log-oracle.md.
+- 2026-11-11 Morpheus: Oracle FAIL en T237-T242 (B1-B9). Devuelvo a Keymaker una sola vez. Decisiones N-1 y N-2 pendientes de Neo. Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: corrección B1–B9 de T237–T242 aplicada en tests/. B1–B8 corregidos; B6 (500 vacunas/desparasitaciones) causa en src/ (campos required sin valor por defecto), prueba intacta. vitest 96/220, tsc solo TS2307. Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: Keymaker corrige B1-B9 en tests/. B6 requiere decisión de Architect o Neo. Despacho de Oracle para verificación final. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: verificación final T237–T242. FAIL (grupo e: 10 pruebas 001 sin sustituir, tabla C). B1–B9 verificados en disco; 96/124/220 coincide con Keymaker; tsc solo TS2307. Escalado a Neo. Informe: .specify/memory/audits/oracle-T237-T242-final.md.
+- 2026-11-11 Morpheus: Oracle FAIL final en T237-T242 (10 pruebas 001 sin sustituir). Escalado a Neo: D-1 a D-6. Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: Neo resuelve D-1 a D-6. Despacho de Keymaker para sustituir las 10 pruebas 001 (grupo e). Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: sustituidas 10 pruebas 001 (D-1) por versiones 002 en tests/ (6 en rojo, 4 en verde por implementación ya existente); exportaciones pasan a POST. Vitest 9 archivos: 55 fallan / 89 pasan; tsc sin errores nuevos. Pendiente de /oracle. Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: Keymaker sustituye las 10 pruebas 001 (4 en verde). H-MOR-02: filas ratificadas por Neo no están en la hoja de ruta. Despacho de Oracle. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: revalidación D-1 (T237–T242) → FAIL. 10/10 sustituciones en disco; bloqueantes nuevos: canEdit en household-policies:340-352 (e), roleOnJoin ausente en malicious-input:252 (f), username inválido en openapi-conformance:49 (f), verde por atajo en access-control:46 (b). H-MOR-02 confirmado. Informe: .specify/memory/audits/oracle-T237-T242-D1.md. PARA: Neo (Andrés Vallejo — Nivel 2).
+- 2026-11-11 Morpheus: Oracle D1 FAIL (e/f/b). MAX_RETRY consumido; escalado a Neo con 4 correcciones concretas y D-10. Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: Neo autoriza 4 correcciones en tests/, diferimiento de presentation a T284 y filas de tabla C. Despacho de Keymaker y Architect (docs). Ver claude/log-morpheus.md.
+- 2026-11-11 Architect: hoja de ruta actualizada (tabla C +2 filas, nota D-10, matriz 32→44 en `permissions-matrix`). Quedan 32 en A.4 y D.3(a) por decidir. Sin commit. PARA: Morpheus; siguiente: /oracle verifica tabla C y D-10.
+- 2026-11-11 Morpheus: Architect entrega tabla C, D-10 y 32→44. Pendiente de Neo: 32 residuales en A.4 y D.3(a). Keymaker D1 en curso. Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: Corrección D1 (4 defectos tests/) aplicada en household-policies, malicious-input, openapi-conformance y access-control. Vitest 15 archivos: 126/140/266; tsc 5 TS2307 + 2 TS2339 nuevos. Dos siguen rojos por src y uno verde por atajo legado (fixture 001). Pendiente de /oracle. Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: Keymaker D1 parcial (3 y 4 siguen defectuosos, 1 pasa a rojo por src). Cifras conciliadas 126/140/266. Oracle para veredicto final. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: veredicto final D1 T237–T242 = FAIL. Defectos de tests/ sin resolver: malicious-input:248,252 y openapi-conformance:49 (contraseña sin símbolo y sin confirmPassword, INV-AUTH2-001) y use-cases.households:78 (residuo MEMBER). A y D aceptables. Vitest 126/140/266 conciliado. Escalado a Neo. Ver .specify/memory/audits/oracle-T237-T242-final-D1.md.
+- 2026-11-11 Morpheus: Oracle FAIL final de fase T237-T242 (3 defectos de tests/). Escalado a Neo. Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: Neo autoriza última ronda (3 tests), 32->44 en hoja y aceptación hasta T244. Despacho de Keymaker y Architect. Ver claude/log-morpheus.md.
+- 2026-11-11 Architect: 32→44 líneas 18 y 96 de la hoja de ruta feature-002 (T236). Pendiente /oracle verifica la hoja de ruta.
+- 2026-11-11 Morpheus: Architect corrige 32->44 en hoja de ruta (líneas 18 y 96). Keymaker última ronda en curso. Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: Última ronda 3 correcciones tests/ (malicious-input:248, openapi-conformance:49, use-cases.households:78). vitest 3 archivos 20/14/34; tsc 7 (sin nuevos). Pendiente /oracle revalidación. Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: Keymaker última ronda aplicada. Oracle final de T237-T242. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: revalidación final T237–T242 = FAIL por T-1 (tests/unit/household-policies.spec.ts:323, myRole OWNER/MEMBER contra HouseholdRole 002). Puntos 1–3 cumplen; 140 fallos clasificados S1–S5. PARA: Neo (Nivel 2). Ver .specify/memory/audits/oracle-T237-T242-final-D2.md.
+- 2026-11-11 Morpheus: Oracle final D2: FAIL único por T-1 (una línea en household-policies:323). Escalado a Neo. Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: T-1: línea 323 a valores 002 ['ADMIN','READER'] aplicada; la prueba falla por src/fixture 001 (myRole devuelve OWNER/MEMBER). Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: T-1 aplicado; ROJO por src (d). Oracle para veredicto final de T237-T242. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: final T1 T237–T242 = FAIL. T-1 (household-policies:323) pasó de verde a rojo: entrada 001 con salida 002, clase (f) defecto de tests/. 141 fallos / 266 (D2 140). PARA: Neo (Nivel 2). Ver .specify/memory/audits/oracle-T237-T242-FINAL-T1.md.
+- 2026-11-11 Morpheus: Oracle FAIL (f) por línea 323 tras T-1. Neo decide (a) o (b). Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: Neo elige (a) para T-1. Keymaker reconstruye setup 002. Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: T-1 (a) aplicado en tests/unit/household-policies.spec.ts 309–387: entrada 002 local (ADMIN+isHouseholdOwner / READER). Línea 323 verde; household-policies 12 fallidos / 23 pasan / 35 (antes 13/22). tsc sin nuevos errores. Pendiente /oracle. Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: T-1 (a) aplicado; línea 323 verde. Oracle final de T237-T242 con verificación del flag isHouseholdOwner. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: veredicto T237–T242 tras T-1 (a) = PASS CON OBSERVACIONES. household-policies 12/23/35; 15 archivos 140/126/266; tsc 7; oráculos débiles 0. Línea 328 verde; isHouseholdOwner en contrato. Observaciones: O-1 (expectativa Andrés = true), O-2 (hoja l.68 obsoleta), firma de applyMembershipEvent supuesta. Pendiente Neo. Ver claude/log-oracle.md.
+- 2026-11-11 Morpheus: Oracle PASS CON OBSERVACIONES en T237-T242. Decisiones de Neo pendientes para T243. Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: Neo decide O-1, O-4 y aceptaciones. Despacho de Keymaker para T243 y T244 (implementación en verde). Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: T243 migración 0004 aplicada (roles, owner, pet_assignments, sesiones). roles-migration 5/7 (2 defectos de prueba); 4 pruebas fijas de 0001–0003 en rojo por diseño; trazabilidad CUMPLE. Ver claude/log-keymaker.md.
+- 2026-11-11 Keymaker: T244 can() y effectiveRole() implementados (rbac.ts, effective-role.ts). 3 archivos de la tarea 69/69; tsc 7 a 2 (restantes de T248); trazabilidad CUMPLE. Pendiente /oracle T243 y T244. Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: Keymaker T243 y T244 entregados (3 decisiones pendientes de Neo). Despacho de Oracle. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: T243 y T244 PASS CON OBSERVACIONES (74/76; 3 decisiones de Neo: INVITED, aserciones fijas, 2 defectos de roles-migration). Ver .specify/memory/audits/oracle-T243-T244.md.
+- 2026-11-11 Morpheus: Neo decide conversión INVITED, 4 aserciones fijas y corrección de roles-migration. Oracle T243-T244 PASS CON OBSERVACIONES. Despacho de Keymaker. Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: ajustes T243 (INVITED a household_invitations, aserciones fijas, roles-migration). Persistencia 3 archivos: 12 rojas por repositorio que aún guarda INVITED en household_members. Ver claude/log-keymaker.md.
+- 2026-11-11 Morpheus: ajustes T243 aplicados; conversión INVITED sube rojos de 164 a 321. Incidente git stash (restaurado). Escalado a Neo. Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: Neo mantiene conversión INVITED (absorber en T247/T248) y cierra incidente stash. Despacho de Oracle. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: revalidacion T243/T244 PASS CON OBSERVACIONES (oracle-T243-T244-revalidacion.md)
+- 2026-11-11 Morpheus: Oracle PASS CON OBSERVACIONES T243-T244. Neo decide cierre y T245. Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: Neo ordena cerrar T243 y T244 ([x]). Neo decide invitedByUserId nulo. T245 pendiente de orden. Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: 0004 relaja NOT NULL de household_invitations.invited_by_user_id (invitedByUserId nulo según data-model §2.10); vitest 20/20; REVIEW, falta /oracle.
+- 2026-11-11 Morpheus: 0004 con invitedByUserId anulable (Keymaker). Oracle revalida. Ver claude/log-morpheus.md.
+- 2026-11-11 Oracle: 0004 invitedBy nulo revalidada PASS CON OBSERVACIONES (oracle-T243-0004-invitedby.md).
+- 2026-11-11 Morpheus: Oracle PASS CON OBSERVACIONES en 0004. Neo confirma estado de T243/T244 ([x] vs REVIEW) y decide test del caso nulo. Ver claude/log-morpheus.md.
+- 2026-11-11 Morpheus: Neo mantiene [x] en T243-T244 y autoriza prueba del caso nulo. T245 pendiente. Ver claude/log-morpheus.md.
+- 2026-11-11 Keymaker: prueba caso invitedByUserId nulo en roles-migration.spec.ts (8/8 verde); pendiente /oracle.
+- 2026-11-11 Oracle: roles-migration.spec.ts:111 FAIL por oráculo débil en línea 120 (.not.toThrow()); resto PASS.
+- 2026-11-11 Keymaker: corregido oráculo débil roles-migration.spec.ts:120 (toContain MIGRATION_0004); verify-oracles CUMPLE, 8/8; pendiente /oracle.
+- 2026-11-11 Morpheus: roles-migration corregida y verificada (CUMPLE, 8/8). Pendiente de Neo: orden para T245. Ver claude/log-morpheus.md.
+- 2026-11-11 HARDLINE (Morpheus): cierre de sesión. HEAD 9af6f0b en 002-plataforma-v21, sin push, sin commit. T243 y T244 [x] por orden de Neo; T245 pendiente. Suite: 321 fallos (causa conocida INVITED en household_members, T247/T248). Handover en claude/handover-morpheus-2026-11-11.md.
+- 2026-11-12 07:32 Morpheus: handoff autónomo iniciado; directiva T245 recibida de Neo. Ver claude/log-morpheus.md.
+- 2026-11-12 07:35 Keymaker: T245 implementado (roles/propietario/poda/transferencia), gates T245 CUMPLE; 3 fallos fuera de alcance (T246-T248); evidencia claude/evidencia-task-T245-2026-11-12.md; pendiente /oracle.
+- 2026-11-12 07:36 Oracle: T245 CONDICIONADO (H-T245-1 fallback 1970, H-T245-2 poda silenciosa). Veredicto en claude/veredicto-auditor-task-T245-2026-11-12.md. Espera decisión de Neo.
+- 2026-11-12 07:42 Morpheus: modo automático detenido por Neo (PAUSA_NEO). T245 en espera de decisión A/B.
+- 2026-11-12 07:58 Morpheus: reanudado. Neo ratificó T245 (opción B) y ordena T246. Ver claude/log-morpheus.md.
+- 2026-11-12 07:59 Morpheus: T246 bloqueada (contradicción de forma de propietario y puertos faltantes). Espera decisión de Neo. Ver claude/log-morpheus.md.
+- 2026-11-12 08:02 Morpheus: T246 aprobada (A2 + B). Pendiente que Neo ejecute /model sonnet antes de despachar a Keymaker.
+- 2026-11-12 08:07 Morpheus: modo automático detenido por Neo. T246 espera /model sonnet.
+- 2026-11-12 08:17 Morpheus: reanudación bloqueada: modelo activo Haiku, se requiere Sonnet para T246. Bus PAUSA_NEO.
+- 2026-11-12 08:47 Morpheus: reanudado. Despacho T246 (A2+B) a Keymaker sonnet.
+- 2026-11-12 09:10 Keymaker: T246 listo para revision de Oracle (sin commit); ver claude/evidencia-task-T246-2026-11-12.md. Hallazgo: test creador contradice HouseholdMember.
+- 2026-11-12 09:30 Oracle: T246 CONDICIONADO (7 hallazgos; H-T246-1 roleOnJoin placeholders, H-2 ADMIN no expulsa, H-3 INVITED vs CHECK 0004). Ver claude/veredicto-auditor-task-T246-2026-11-12.md.
+- 2026-11-12 08:56 Morpheus: Oracle T246 CONDICIONADO. Decisiones pendientes de Neo: H-T246-4 y alcance de H-T246-3 (T238). Ver claude/veredicto-auditor-task-T246-2026-11-12.md.
+- 2026-11-12 09:05 Morpheus: modo automático detenido por Neo. T246 CONDICIONADO en espera de decisiones.
+- 2026-11-12 09:09 Morpheus: resoluciones de Neo para T246 recibidas. Despacho de rebote a Keymaker sonnet.
+- 2026-11-12 09:30 Keymaker: rebote T246 aplicado (invitaciones solo en household_invitations, roleOnJoin real, ADMIN expulsa, propietario protegido). 59/60 unit, API 26/29, 0 regresiones. Listo para Oracle.
+- 2026-11-12 Oracle: revalidación T246 APTO (59/60 unit, API 26/29; rojos son T247/T248). COMPLETED pendiente de Neo.
+- 2026-11-12 09:16 Morpheus: T246 APTO en revalidación de Oracle. Espera firma de Neo.
+- 2026-11-12 09:25 Morpheus: Neo firma T246 [x]. Despacho T247 a Keymaker sonnet.
+- 2026-11-12 Keymaker T247 en REVIEW parcial: asignaciones, transferencia de mascota, rutas y pruebas; bloqueo B1 (3 rojos de households.api modelo viejo) y B2 (audit_log T264) reportados. Ver claude/evidencia-task-T247-2026-11-12.md
+- 2026-11-12 Oracle: T247 CONDICIONADO (código conforme; Neo decide B1 adaptar 3 expectativas y B2 a T264; H-T247-1 a T248; H-T246-5 a Architect). Ver claude/veredicto-auditor-task-T247-2026-11-12.md
+- 2026-11-12 Keymaker: T247 B1 adaptado (3 aserciones households.api.spec, 29/29); B2 audit_log pendiente T264; sin commit; tasks.md intacto.
+- 2026-11-12 Oracle: T247 APTO en revalidación tras B1 (households 29/29, assignments 10/11 por B2, roles 13/13). Espera firma de Neo. Ver claude/veredicto-auditor-task-T247-revalidacion-2026-11-12.md
+- 2026-11-12 09:54 Morpheus: Neo firma T247 [x]. Despacho T248 a Keymaker sonnet.
+- 2026-11-12 Keymaker: T248 implementada (REVIEW), tsc 0; 5 pruebas 001 contradicen la matriz/REQ-PET2-002 (C1-C3), pendientes de decisión. Ver claude/evidencia-task-T248-2026-11-12.md
+- 2026-11-12 Oracle: T248 CONDICIONADO a decisión de Neo sobre C1-C3 (las tres contradicen la spec 002; adaptaciones correctas, C2 con hogar CAREGIVER/READER). Ver claude/veredicto-auditor-task-T248-2026-11-12.md
+- 2026-11-12 10:12 Morpheus: C1 sí, C2 A, C3 sí autorizados. Keymaker adapta pruebas de T248.
+- 2026-11-12 Keymaker: C1-C3 de T248 adaptadas en pruebas (sin tocar src); use-cases*/roles/households verdes, tsc 0, oracles CUMPLE. Pendiente B2 (T264). Evidencia en claude/evidencia-task-T248-2026-11-12.md
+- 2026-11-12 Oracle: T248 revalidación APTO (C1-C3 correctas; base 72 fallos unit preexistentes en HEAD; B2 a T264). Ver claude/veredicto-auditor-task-T248-revalidacion-2026-11-12.md
+- 2026-11-12 10:23 Morpheus: Neo firma T248 [x]. Despacho T249 + título O-2 a Keymaker sonnet.
+- 2026-11-12 Keymaker: T249 listo en REVIEW (bloqueo PETS B5 + B6 + relectura en tx; 26/26, unit 72=base, tsc 0, oracles CUMPLE, traz 4/4). Evidencia: claude/evidencia-task-T249-2026-11-12.md
+- 2026-11-12 Oracle: T249 APTO (B5/B6 en tx, 26/26, unit 72=base, tsc 0, oracles 0, traza 4/4). H-T249-1: 22 fallos account*.api no existen en HEAD (regresión del árbol T245-T248 en sembrado SQLite). Ver claude/veredicto-auditor-task-T249-2026-11-12.md
