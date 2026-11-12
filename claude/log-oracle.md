@@ -204,3 +204,12 @@
 - Diff de T249 confinado a guards + fase B + 9 pruebas; B4/B5/B6 releídos dentro de la transacción; código coincide con STATE-ACCOUNT-DELETE-001 (B4->B5->B6) y REQ-ACC-002/SC-014; regla "único ACTIVE no bloquea" en spec y máquina. joinBetweenPhases simula alta real entre fase A y B (2.ª runInTransaction).
 - account-deletion 26/26, use-cases 36/36, unit 72=base, tsc 0, oracles 0 débiles, traza 4/4. O-2 solo texto en el título.
 - H-T249-1: los 22 fallos de account*.api NO existen en HEAD (22/22 verdes en git archive); son regresión del árbol sin commit T245-T248 (CHECK status SQLite al sembrar). No bloquea T249. Ver claude/veredicto-auditor-task-T249-2026-11-12.md
+
+## 2026-11-12 Oracle H-T249-1: APTO (revalidacion 497c12d)
+- Commit solo toca identityState() en identity-fixtures.ts (+ bitacoras); src/migraciones/specs/aserciones intactos.
+- INVITED de Carla pasa a state.invitations; campos admitidos por household_invitations (0004). IDENTITY_MEMBERSHIPS intacto.
+- account*.api 22/22, account-deletion 26/26, tsc 0, oracles CUMPLE. H-T249-2 sigue abierto. Ver claude/veredicto-auditor-task-H-T249-1-2026-11-12.md
+
+## 2026-11-12 Oracle H-T249-2 (APTO)
+- d193d9c solo toca 2 archivos de tests (+ claude/); sin src/migraciones/specs/contracts.
+- 37/37, 22/22, 26/26, tsc 0, oracles CUMPLE. Cobertura INVITED/INV-HOUSE-003 intacta. Veredicto: claude/veredicto-auditor-task-H-T249-2-2026-11-12.md
