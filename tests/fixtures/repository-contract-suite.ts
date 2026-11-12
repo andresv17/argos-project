@@ -229,8 +229,10 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       await seed(uow, async (r) => {
         await r.households.insert(HOUSEHOLD);
         await r.households.insert(other);
-        for (const m of [...MEMBERSHIPS, otherOwner]) await r.households.saveMembership(m);
-        await r.households.saveMembership({ ...MEMBERSHIPS[2]!, status: 'DECLINED' });
+        // H-T249-2: household_members solo admite ACTIVE, LEFT y REMOVED; Carlos (INVITED en el fixture 001) se guarda ACTIVE y luego pasa a LEFT.
+        const carlosActive: HouseholdMember = { ...MEMBERSHIPS[2]!, status: 'ACTIVE' };
+        for (const m of [MEMBERSHIPS[0]!, MEMBERSHIPS[1]!, carlosActive, otherOwner]) await r.households.saveMembership(m);
+        await r.households.saveMembership({ ...carlosActive, status: 'LEFT' });
       });
       const result = await read(uow, async (r) => ({
         ofHousehold: sortedMemberships(await r.households.listMemberships(HOUSEHOLD.id)),
@@ -242,7 +244,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
         ofHousehold: sortedMemberships(MEMBERSHIPS),
         ofAndres: sortedMemberships([MEMBERSHIPS[0]!, otherOwner]),
         ofBoth: sortedMemberships([MEMBERSHIPS[0]!, MEMBERSHIPS[1]!, otherOwner]),
-        carlos: ['DECLINED'],
+        carlos: ['LEFT'],
       });
       expect(await rejection(seed(uow, (r) => r.households.insert(HOUSEHOLD)))).not.toBe('resolved');
       await seed(uow, (r) => r.households.deleteWithMemberships(HOUSEHOLD.id));
@@ -392,7 +394,8 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       await seed(uow, async (r) => {
         await r.users.insert(MARIA);
         await r.households.insert(HOUSEHOLD);
-        for (const m of MEMBERSHIPS) await r.households.saveMembership(m);
+        // H-T249-2: la fila INVITED del fixture 001 vive en household_invitations, no en household_members.
+        for (const m of MEMBERSHIPS.filter((x) => x.status !== 'INVITED')) await r.households.saveMembership(m);
         await r.sessions.save('s', { ...SESSION, userId: MARIA.id });
         await r.confirmationTokens.replaceForUser(MARIA.id, 'h', NOW, at(600_000));
         await r.rateLimits.record({ id: 'e1000000-0000-4000-8000-000000000001', scope: 'EXPORT', userId: MARIA.id, occurredAt: NOW });

@@ -52,3 +52,16 @@ Auditoria B7/B8 (T265), reasignacion assigned_by_user_id, fallos de integracion 
 **Despues**: `Test Files 2 passed (2)`, `Tests 22 passed (22)`. tests/unit/account-deletion.spec.ts 26/26. `npx tsc --noEmit` 0 errores. verify-oracles.sh: `Archivos analizados: 81; oraculos debiles: 0 / Resultado: CUMPLE`.
 
 **tests/integration completo**: `Test Files 9 failed | 13 passed (22)`, `Tests 35 failed | 681 passed (716)` (antes 75 fallos tras T249). Restantes: backup-atomicity (11), pets-records (6), canonical-fixtures (4), sqlite-backup-import (4), generated-contracts (3), openapi-conformance (2), assignments-ownership (1), web-client (1) = documentados (B2 audit_log/OpenAPI/backup). **Hallazgo H-T249-2 (no corregido, fuera de alcance)**: 3 fallos CHECK status restantes en tests/integration/persistence/sqlite-repositories.spec.ts, via tests/fixtures/repository-contract-suite.ts:232 (saveMembership con INVITED directo: pruebas "[INV-ARCH-005] hogares", "[REQ-ACC-002] deleteMembershipsOfUser", "[INV-HOUSE-003] indice unico INVITED"). Son pruebas de comportamiento 001 que asumen INVITED en household_members; requieren decision/adaptacion (patron C1-C3) y no un cambio de sembrado.
+
+## H-T249-2 (Keymaker, 2026-11-12) - autorizado por Neo (Nivel 2)
+
+**Antes** (`npx vitest run tests/integration/persistence/sqlite-repositories.spec.ts`): `Tests 3 failed | 34 passed (37)`. Causa en las 3: `SqliteError: CHECK constraint failed: status IN ('ACTIVE', 'LEFT', 'REMOVED')` en `saveMembership` (migracion 0004: household_members ya no admite INVITED/DECLINED/CANCELLED).
+
+**Adaptaciones** (solo tests; sin cambios en src, esquema ni migraciones):
+1. `[INV-ARCH-005] hogares...` (repository-contract-suite.ts ~232): Carlos (INVITED en fixture 001) se guarda ACTIVE y luego pasa a LEFT (antes DECLINED). Oraculo: `carlos: ['LEFT']` (antes `['DECLINED']`); ofHousehold/ofAndres/ofBoth intactos (mismos membershipId).
+2. `[REQ-ACC-002] deleteMembershipsOfUser...` (~395): se siembran solo las membresias no INVITED (`MEMBERSHIPS.filter(x => x.status !== 'INVITED')`); la INVITED de Carlos vive en household_invitations. Aserciones (`>=4`, `toBe(1)`, `[0,false]`) intactas.
+3. `[INV-HOUSE-003] indice unico...` (sqlite-repositories.spec.ts ~288): titulo ahora "segunda membresia ACTIVE del mismo par" (mismo ID); duplicate pasa a status ACTIVE; oraculo `['SQLITE_CONSTRAINT_UNIQUE', [active:LEFT, duplicate:ACTIVE].sort()]` (antes `:INVITED`). La unicidad de INVITED abierta la cubre ya la prueba REQ-HOUSE2-001 (household_invitations_one_open).
+
+Sin toBeDefined/toBeTruthy/toBeFalsy/any/skip/todo/only/toContain ni solo longitudes anadidos.
+
+**Despues**: sqlite-repositories.spec `Tests 37 passed (37)`; account-deletion.api + account.api `22 passed (22)`; unit account-deletion `26 passed (26)`; `npx tsc --noEmit` exit 0; verify-oracles.sh `Archivos analizados: 81; oraculos debiles: 0 / CUMPLE`. tests/integration: 35 -> 32 fallos (restantes documentados B2). tests/unit: 72 fallos (= base).

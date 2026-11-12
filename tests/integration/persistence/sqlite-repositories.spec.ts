@@ -285,11 +285,11 @@ describe('particularidades de SqliteUnitOfWork y los repositorios SQLite', () =>
     expect(counts).toEqual([0, 0, petsBefore]);
   });
 
-  it('[INV-HOUSE-003] el índice único rechaza una segunda membresía INVITED o ACTIVE del mismo par y admite otra si la anterior está cerrada', async () => {
+  it('[INV-HOUSE-003] el índice único rechaza una segunda membresía ACTIVE del mismo par y admite otra si la anterior está cerrada', async () => {
     const uow = new SqliteUnitOfWork(memoryDb());
     await seedSqlite(uow);
     const active = MEMBERSHIPS.find((m) => m.status === 'ACTIVE' && m.role === 'MEMBER') ?? MEMBERSHIPS[1]!;
-    const duplicate = { ...active, membershipId: 'dddddddd-dddd-4ddd-8ddd-dddddddddd01', status: 'INVITED' as const, joinedAt: null, firstJoinedAt: null };
+    const duplicate = { ...active, membershipId: 'dddddddd-dddd-4ddd-8ddd-dddddddddd01', status: 'ACTIVE' as const };
     const rejected = await rejectionOf(uow.runInTransaction((r) => r.households.saveMembership(duplicate)));
     await uow.runInTransaction(async (r) => {
       await r.households.saveMembership({ ...active, status: 'LEFT' });
@@ -298,7 +298,7 @@ describe('particularidades de SqliteUnitOfWork y los repositorios SQLite', () =>
     const statuses = await uow.runInTransaction(async (r) =>
       (await r.households.listMembershipsOfUsers([active.userId])).filter((m) => m.householdId === active.householdId).map((m) => `${m.membershipId}:${m.status}`).sort(),
     );
-    expect([(rejected as { code?: string }).code, statuses]).toEqual(['SQLITE_CONSTRAINT_UNIQUE', [`${active.membershipId}:LEFT`, `${duplicate.membershipId}:INVITED`].sort()]);
+    expect([(rejected as { code?: string }).code, statuses]).toEqual(['SQLITE_CONSTRAINT_UNIQUE', [`${active.membershipId}:LEFT`, `${duplicate.membershipId}:ACTIVE`].sort()]);
   });
 
   it('[INV-AUTH-003] el token de sesión se guarda como SHA-256 y el hash de la contraseña fuera de data; ninguno aparece en claro en la base', async () => {
