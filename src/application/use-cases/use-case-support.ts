@@ -1,8 +1,8 @@
 /**
  * Dependencias y piezas comunes de los casos de uso.
- * - Todo caso de uso autenticado recibe el userId como primer argumento y aplica access-policy antes de leer o
- *   escribir (INV-ACC-001, INV-ACC-002): sin lectura, ERR-PET-NOT-FOUND (404,); con lectura pero
- *   sin escritura, ERR-ACC-FORBIDDEN (403).
+ * - Todo caso de uso autenticado recibe el userId como primer argumento y aplica el rol efectivo y la matriz
+ *   (REQ-RBAC-001, INV-ACC2-001, INV-ACC2-002) antes de leer o escribir: sin visibilidad, ERR-PET-NOT-FOUND (404);
+ *   visible pero sin la acción, ERR-ACC-FORBIDDEN (403).
  * - Fechas e identificadores salen solo de ClockPort e IdGeneratorPort (INV-ARCH-001, INV-ARCH-002).
  *
  * @implements INV-ACC-001, INV-ACC-002, INV-PET-003, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN
@@ -17,8 +17,9 @@ import {
   type UserPublicProfile,
   type UserSelfProfile,
 } from '../../generated/index.ts';
-import type { LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
-import { assertCanRead, assertCanWrite } from '../../domain/access/access-policy.ts';
+import { effectiveRole } from '../../domain/access/effective-role.ts';
+import { can, petPermissionsFor, type RbacAction, type RbacRole } from '../../domain/access/rbac.ts';
+import { toRoleMembership } from '../../domain/households/household-policies.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
@@ -107,61 +108,80 @@ export async function publicProfilesById(repositories: RepositorySet, userIds: r
 
 export interface PetAccess {
   readonly pet: PetProfile;
-  readonly memberships: LegacyHouseholdMember[];
-}
-
-/** Mascota y membresías del usuario y del dueño; una mascota inexistente es ERR-PET-NOT-FOUND (INV-PET-003). */
-async function loadPetAccess(repositories: RepositorySet, userId: string, petId: string): Promise<PetAccess> {
-  const pet = await repositories.pets.findById(petId);
-  if (pet === null) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'petId');
-  return { pet, memberships: await repositories.households.listMembershipsOfUsers([userId, pet.ownerUserId]) };
+  /** Rol efectivo del usuario sobre la mascota (REQ-RBAC-001); nunca nulo: sin rol la mascota no es visible. */
+  readonly role: RbacRole;
 }
 
 /**
- * Mascota legible por el usuario (dueño o miembro ACTIVE de un hogar compartido con el dueño); si no existe o no es
- * legible, ERR-PET-NOT-FOUND (INV-PET-003, INV-ACC-001).
- * @implements INV-ACC-001, INV-PET-003, ERR-PET-NOT-FOUND
+ * Rol efectivo del usuario sobre una mascota ya cargada: Propietario Legal, o el mayor rol de sus membresías ACTIVE en
+ * los hogares donde la mascota está asignada (INV-ACC2-001). Null si no tiene acceso.
+ */
+export async function effectiveRoleOf(repositories: RepositorySet, userId: string, pet: PetProfile): Promise<RbacRole | null> {
+  if (pet.ownerUserId === userId) return 'OWNER';
+  const assignments = await repositories.assignments.listByPet(pet.id);
+  const memberships = (await repositories.households.listMembershipsOfUsers([userId])).map(toRoleMembership);
+  return effectiveRole({ id: userId }, pet, memberships, assignments);
+}
+
+/** Mascota visible con el rol efectivo del usuario. */
+export interface VisiblePet {
+  readonly pet: PetProfile;
+  readonly role: RbacRole;
+}
+
+/**
+ * Mascotas visibles: las propias y las asignadas a hogares donde el usuario es miembro ACTIVE (REQ-PET2-002,
+ * REQ-HOUSE2-004, INV-ACC2-001), cada una con su rol efectivo. Sin orden garantizado.
+ * @implements REQ-PET2-002, REQ-HOUSE2-004, INV-ACC2-001
+ */
+export async function listVisiblePets(repositories: RepositorySet, userId: string): Promise<VisiblePet[]> {
+  const pets = new Map<string, PetProfile>();
+  for (const pet of await repositories.pets.listByOwners([userId])) pets.set(pet.id, pet);
+  const memberships = await repositories.households.listMembershipsOfUsers([userId]);
+  for (const membership of memberships.filter((m) => m.status === 'ACTIVE')) {
+    for (const assignment of await repositories.assignments.listByHousehold(membership.householdId)) {
+      if (pets.has(assignment.petId)) continue;
+      const pet = await repositories.pets.findById(assignment.petId);
+      if (pet !== null) pets.set(pet.id, pet);
+    }
+  }
+  const roleRows = memberships.map(toRoleMembership);
+  const visible: VisiblePet[] = [];
+  for (const pet of pets.values()) {
+    const role = pet.ownerUserId === userId ? 'OWNER' : effectiveRole({ id: userId }, pet, roleRows, await repositories.assignments.listByPet(pet.id));
+    if (role !== null) visible.push({ pet, role });
+  }
+  return visible;
+}
+
+/**
+ * Mascota visible por el usuario (propietario o miembro ACTIVE de un hogar al que está asignada); si no existe o no es
+ * visible, ERR-PET-NOT-FOUND (INV-PET-003, INV-ACC2-001).
+ * @implements INV-ACC2-001, INV-PET-003, ERR-PET-NOT-FOUND
  */
 export async function requireReadablePet(repositories: RepositorySet, userId: string, petId: string): Promise<PetAccess> {
-  const { pet, memberships } = await loadPetAccess(repositories, userId, petId);
-  return { pet: assertCanRead({ id: userId }, pet, memberships), memberships };
+  const pet = await repositories.pets.findById(petId);
+  if (pet === null) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'petId');
+  const role = await effectiveRoleOf(repositories, userId, pet);
+  if (role === null) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'petId');
+  return { pet, role };
 }
 
 /**
- * Mascota escribible (solo el dueño, INV-ACC-002): no legible, ERR-PET-NOT-FOUND; legible sin ser dueño, ERR-ACC-FORBIDDEN.
- * @implements INV-ACC-002, INV-PET-003, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN
+ * Mascota sobre la que el usuario puede ejecutar la acción de la matriz: no visible, ERR-PET-NOT-FOUND (404 antes
+ * que 403); visible sin la acción, ERR-ACC-FORBIDDEN.
+ * @implements REQ-RBAC-001, INV-ACC2-001, INV-ACC2-002, INV-PET-003, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN
  */
-export async function requireWritablePet(repositories: RepositorySet, userId: string, petId: string): Promise<PetAccess> {
-  const { pet, memberships } = await loadPetAccess(repositories, userId, petId);
-  return { pet: assertCanWrite({ id: userId }, pet, memberships), memberships };
+export async function requirePetAction(repositories: RepositorySet, userId: string, petId: string, action: RbacAction): Promise<PetAccess> {
+  const access = await requireReadablePet(repositories, userId, petId);
+  if (!can(access.role, action)) throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'petId');
+  return access;
 }
 
 /**
  * Tarjeta de mascota (PetCardView) con edad, resumen de alertas y último peso según INV-SORT-001.
  * @implements REQ-PET-002, REQ-PET-005
  */
-/**
- * Rol efectivo y permisos de la 002 derivados del `canEdit` de la 001.
- * T236 PENDIENTE: la matriz real de REQ-RBAC-001 (rol del Cuidador, Lector, Administrador) no se decide aquí; el
- * propietario legal recibe todos los permisos y quien solo lee, ninguno (comportamiento conservador).
- */
-export function legacyRoleAndPermissions(canEdit: boolean): { myRole: PetCardView['myRole']; permissions: PetCardView['permissions'] } {
-  return {
-    myRole: canEdit ? 'OWNER' : 'READER',
-    permissions: {
-      editPetBasics: canEdit,
-      deletePet: canEdit,
-      writeHealthEvents: canEdit,
-      deleteHealthEvents: canEdit,
-      writeWeightsAndMeasurements: canEdit,
-      writeAppointmentsAndParameters: canEdit,
-      deleteOtherRecords: canEdit,
-      transferPetOwnership: canEdit,
-      assignPetToHouseholds: canEdit,
-    },
-  };
-}
-
 /** Estado más grave entre vacunas y desparasitaciones; null si no hay registros evaluables (REQ-PET2-002). */
 export function globalAlertStatusOf(summary: PetCardView['alertsSummary']): PetCardView['globalAlertStatus'] {
   if (summary.overdueCount > 0) return 'OVERDUE';
@@ -170,13 +190,14 @@ export function globalAlertStatusOf(summary: PetCardView['alertsSummary']): PetC
   return null;
 }
 
-export function buildPetCard(pet: PetProfile, owner: OwnerTag, canEdit: boolean, records: PetRecordCollections, today: string): PetCardView {
+export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, records: PetRecordCollections, today: string): PetCardView {
   const weights = computeWeightEvolutionSeries(records.weights);
   const alertsSummary = summarizeSanitaryAlerts(evaluateVaccinationAlerts(records.vaccinations, today), evaluateDewormingAlerts(records.dewormings, today));
   return {
     profile: pet,
     owner,
-    ...legacyRoleAndPermissions(canEdit),
+    myRole: role,
+    permissions: petPermissionsFor(role),
     computedAge: calculatePetAge(pet.birthDate, today),
     alertsSummary,
     globalAlertStatus: globalAlertStatusOf(alertsSummary),

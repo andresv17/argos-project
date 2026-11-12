@@ -9,10 +9,11 @@
  *   salvo el contador de fallos de contraseña; la fase B es una única transacción: consume el token, relee los
  *   bloqueos, borra de hoja a raíz, comprueba poscondiciones y confirma. Cualquier fallo de B revierte todo, incluido el
  *   consumo del token.
- * - T243 PENDIENTE: ERR-ACCOUNT-OWNS-SHARED-PETS y la aserción B6 llegan con las asignaciones mascota-hogar.
+ * - B4/B5/B6 se releen dentro de la transacción (T249): hogar compartido, mascotas asignadas a un hogar con otros
+ *   miembros ACTIVE y aserción de asignaciones ajenas en los hogares en cascada.
  * - T265 PENDIENTE: la fila ACCOUNT_DELETE y la seudonimización pasan por AuditLogPort (nulo en la rebanada 1).
  *
- * @implements REQ-ACC-001, REQ-ACC-002, REQ-AUTH2-003, REQ-TIME-001, STATE-ACCOUNT-DELETE-001, INV-AUTH2-001, INV-AUTH-005, INV-AUTH-003, INV-ARCH-001, INV-ARCH-005, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-INVALID-CREDENTIALS, ERR-ACCOUNT-CONFIRMATION-MISMATCH, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, ERR-INTERNAL-UNEXPECTED
+ * @implements REQ-ACC-001, REQ-ACC-002, REQ-AUTH2-003, REQ-TIME-001, STATE-ACCOUNT-DELETE-001, INV-AUTH2-001, INV-AUTH-005, INV-AUTH-003, INV-ARCH-001, INV-ARCH-005, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-INVALID-CREDENTIALS, ERR-ACCOUNT-CONFIRMATION-MISMATCH, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, ERR-ACCOUNT-OWNS-SHARED-PETS, ERR-INTERNAL-UNEXPECTED
  */
 
 import {
@@ -25,7 +26,7 @@ import {
   type UpdateProfileInput,
   type UserSelfProfile,
 } from '../../generated/index.ts';
-import { isConfirmationTokenShape, planHouseholdsForDeletion } from '../../domain/account/account-deletion-guards.ts';
+import { isConfirmationTokenShape, planHouseholdsForDeletion, planPetAssignmentsForDeletion } from '../../domain/account/account-deletion-guards.ts';
 import { assertIanaTimeZone } from '../../domain/account/profile-policy.ts';
 import { assertNotLockedOut, evaluateLoginAttempt, invalidCredentialsError } from '../../domain/auth/auth-policies.ts';
 import { sessionStateAt } from '../../domain/auth/session-policy.ts';
@@ -122,21 +123,40 @@ export class DeleteAccountUseCase {
       }
       // B3: consumo condicional del token; el rollback posterior lo revierte.
       if (!(await this.deps.backupTokens.consume(repositories, userId, token, now))) throw new DomainError('ERR-ACCOUNT-CONFIRMATION-MISMATCH');
-      // B4: bloqueo por hogar compartido; B5/B6 (mascotas asignadas) llegan con T243.
+      // B4: bloqueo por hogar compartido (releído dentro de la transacción).
       const own = await repositories.households.listMembershipsOfUsers([userId]);
       const householdIds = [...new Set(own.map((m) => m.householdId))];
       const memberships = (await Promise.all(householdIds.map((id) => repositories.households.listMemberships(id)))).flat();
       const plan = planHouseholdsForDeletion(userId, memberships);
       if (plan.blockingHouseholdIds.length > 0) throw new DomainError('ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD');
+      // B5: bloqueo por mascotas propias asignadas a un hogar con otro miembro ACTIVE; B6: aserción de seguridad.
+      const ownedPets = await repositories.pets.listByOwners([userId]);
+      const ownedPetIds = ownedPets.map((p) => p.id);
+      const assignmentLists = await Promise.all([
+        ...ownedPetIds.map((id) => repositories.assignments.listByPet(id)),
+        ...plan.cascadeHouseholdIds.map((id) => repositories.assignments.listByHousehold(id)),
+      ]);
+      const assignments = assignmentLists.flat();
+      const assignedHouseholdIds = [...new Set(assignments.map((a) => a.householdId))];
+      const assignedMemberships = (await Promise.all(assignedHouseholdIds.map((id) => repositories.households.listMemberships(id)))).flat();
+      const petPlan = planPetAssignmentsForDeletion(userId, ownedPetIds, assignments, assignedMemberships, plan.cascadeHouseholdIds);
+      if (petPlan.blockingAssignments.length > 0) throw new DomainError('ERR-ACCOUNT-OWNS-SHARED-PETS');
+      if (petPlan.foreignAssignmentsInCascade.length > 0) {
+        throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'Un hogar en cascada contiene asignaciones de mascotas de otra persona; se revierte sin borrar datos ajenos.');
+      }
       // B7 y B8: auditoría y seudonimización (nula en la rebanada 1).
       await this.deps.audit.recordAccountDeletion(repositories, pseudonym, now);
       // B9: de hoja a raíz.
-      for (const pet of await repositories.pets.listByOwners([userId])) {
+      for (const pet of ownedPets) {
         await repositories.records.deleteForPet(pet.id);
+        await repositories.assignments.deleteForPet(pet.id);
         await repositories.pets.delete(pet.id);
       }
       await repositories.invitations.deleteForUser(userId);
-      for (const householdId of plan.cascadeHouseholdIds) await repositories.invitations.deleteForHousehold(householdId);
+      for (const householdId of plan.cascadeHouseholdIds) {
+        await repositories.invitations.deleteForHousehold(householdId);
+        await repositories.assignments.deleteForHousehold(householdId);
+      }
       await repositories.households.deleteMembershipsOfUser(userId);
       for (const householdId of plan.cascadeHouseholdIds) await repositories.households.deleteWithMemberships(householdId);
       await repositories.sessions.deleteByUser(userId);

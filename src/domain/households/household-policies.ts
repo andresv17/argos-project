@@ -29,6 +29,8 @@ import {
   type StateHouseMembership001State,
   type UserPublicProfile,
 } from '../../generated/index.ts';
+import { effectiveRole, type PetHouseholdAssignment, type RoleMembership } from '../access/effective-role.ts';
+import { petPermissionsFor, type PetPermissions, type RbacRole } from '../access/rbac.ts';
 import { assertCanonicalCreatedAt, sortPetsForListing } from '../sorting/deterministic-sorter.ts';
 
 const MEMBERSHIP_MACHINE = STATE_HOUSE_MEMBERSHIP_001;
@@ -164,6 +166,46 @@ export function requireOwner(memberships: readonly LegacyHouseholdMember[], hous
   return row;
 }
 
+/**
+ * REQ-HOUSE2-002: el actor debe ser ACTIVE y propietario o ADMIN. No ACTIVE: ERR-HOUSE-NOT-FOUND; otro rol: ERR-ACC-FORBIDDEN.
+ * @implements REQ-HOUSE2-002, INV-HOUSE-004
+ */
+export function requireManager(memberships: readonly LegacyHouseholdMember[], householdId: string, actorUserId: string): LegacyHouseholdMember {
+  const row = requireActiveMembership(memberships, householdId, actorUserId);
+  if (!isOwnerRow(row) && row.role !== 'ADMIN') {
+    throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'householdId');
+  }
+  return row;
+}
+
+/**
+ * REQ-HOUSE2-002 / T246: ACCEPT sobre una invitación guardada en household_invitations (no hay fila INVITED en
+ * household_members). Devuelve la membresía ACTIVE nueva con el rol de la invitación; firstJoinedAt hereda el del par
+ * o es now (D-05).
+ * @implements REQ-HOUSE-003, REQ-HOUSE2-001, STATE-HOUSE-MEMBERSHIP-001
+ */
+export function membershipFromAcceptedInvitation(command: {
+  readonly memberships: readonly LegacyHouseholdMember[];
+  readonly invitation: { readonly householdId: string; readonly roleOnJoin: HouseholdRole; readonly invitedByUserId: string | null; readonly createdAt: string };
+  readonly userId: string;
+  readonly membershipId: string;
+  readonly nowIsoTimestamp: string;
+}): LegacyHouseholdMember {
+  const { memberships, invitation, userId, nowIsoTimestamp } = command;
+  return {
+    membershipId: command.membershipId,
+    householdId: invitation.householdId,
+    userId,
+    role: invitation.roleOnJoin,
+    status: nextMembershipState('INVITED', 'ACCEPT').target,
+    invitedByUserId: invitation.invitedByUserId,
+    invitedAt: invitation.createdAt,
+    joinedAt: nowIsoTimestamp,
+    firstJoinedAt: inheritedFirstJoinedAt(memberships, invitation.householdId, userId) ?? nowIsoTimestamp,
+    updatedAt: nowIsoTimestamp,
+  };
+}
+
 export interface CreateHouseholdCommand {
   readonly householdId: string;
   readonly membershipId: string;
@@ -191,7 +233,8 @@ export function createHousehold(command: CreateHouseholdCommand): { household: H
       membershipId: command.membershipId,
       householdId: command.householdId,
       userId: command.ownerUserId,
-      role: 'OWNER',
+      role: 'ADMIN',
+      isHouseholdOwner: true,
       status: MEMBERSHIP_MACHINE.initialStates.CREATE_HOUSEHOLD.target,
       invitedByUserId: null,
       invitedAt: null,
@@ -203,6 +246,8 @@ export function createHousehold(command: CreateHouseholdCommand): { household: H
 }
 
 export interface InviteCommand {
+  /** Rol con el que entrará el invitado al aceptar (REQ-HOUSE2-001); sin él, la fila heredada lleva MEMBER. */
+  readonly roleOnJoin?: HouseholdRole;
   readonly memberships: readonly LegacyHouseholdMember[];
   readonly householdId: string;
   readonly actorUserId: string;
@@ -228,7 +273,7 @@ export function inviteMember(command: InviteCommand): LegacyHouseholdMember | nu
     membershipId: command.membershipId,
     householdId,
     userId: invitee.id,
-    role: 'MEMBER',
+    role: command.roleOnJoin ?? 'MEMBER',
     status: MEMBERSHIP_MACHINE.initialStates.INVITE.target,
     invitedByUserId: actorUserId,
     invitedAt: nowIsoTimestamp,
@@ -281,7 +326,7 @@ export function declineInvitation(
  * REQ-HOUSE-004 (DELETE /households/{id}/members/{userId}):
  * - el actor debe ser ACTIVE (si no, ERR-HOUSE-NOT-FOUND);
  * - si el destino es el propio actor: LEAVE; un OWNER recibe ERR-HOUSE-OWNER-CANNOT-LEAVE (INV-HOUSE-001);
- * - si no, el actor debe ser OWNER (ERR-ACC-FORBIDDEN): INVITED → CANCEL, ACTIVE → REMOVE;
+ * - si no, el actor debe ser propietario o ADMIN (ERR-ACC-FORBIDDEN, REQ-HOUSE2-002) y el destino no puede ser el propietario (ERR-ACC-FORBIDDEN): INVITED → CANCEL, ACTIVE → REMOVE;
  * - destino sin fila INVITED o ACTIVE: ERR-HOUSE-MEMBERSHIP-NOT-FOUND.
  * @implements REQ-HOUSE-004, INV-HOUSE-001, INV-HOUSE-002, ERR-HOUSE-OWNER-CANNOT-LEAVE, ERR-HOUSE-MEMBERSHIP-NOT-FOUND
  */
@@ -299,10 +344,14 @@ export function removeOrLeave(
     }
     return transition(actor, 'LEAVE', nowIsoTimestamp);
   }
-  requireOwner(memberships, householdId, actorUserId);
+  requireManager(memberships, householdId, actorUserId);
   const target = openRowOf(memberships, householdId, targetUserId);
   if (target === undefined) {
     throw new DomainError('ERR-HOUSE-MEMBERSHIP-NOT-FOUND', undefined, 'userId');
+  }
+  // REQ-HOUSE2-002: nadie, ni un ADMIN, expulsa o cancela al propietario; el propietario sale solo transfiriendo (INV-HOUSE2-001).
+  if (isOwnerRow(target)) {
+    throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'userId');
   }
   return transition(target, target.status === 'INVITED' ? 'CANCEL' : 'REMOVE', nowIsoTimestamp);
 }
@@ -400,16 +449,37 @@ export function householdView(
   return { household, myRole: me.role, members };
 }
 
+/**
+ * Membresía con rol de la matriz (REQ-MIG-001): el propietario del hogar (OWNER de la 001 o isHouseholdOwner) es ADMIN
+ * y el MEMBER de la 001 es READER. Las filas INVITED no otorgan rol (effectiveRole solo cuenta las ACTIVE).
+ * @implements REQ-RBAC-001, INV-ACC2-001
+ */
+export function toRoleMembership(member: LegacyHouseholdMember): RoleMembership {
+  const role = isOwnerRow(member) ? 'ADMIN' : member.role === 'MEMBER' ? 'READER' : (member.role as RoleMembership['role']);
+  return { userId: member.userId, householdId: member.householdId, status: member.status, role };
+}
+
 export interface HouseholdPetEntry {
   readonly pet: PetProfile;
   readonly owner: OwnerTag;
-  readonly canEdit: boolean;
+  /** Rol efectivo del actor sobre la mascota (REQ-PET2-003). */
+  readonly myRole: RbacRole;
+  /** Permisos del actor sobre la mascota, de la matriz REQ-RBAC-001 (reemplaza canEdit). */
+  readonly permissions: PetPermissions;
+}
+
+/** Contexto de acceso completo del actor: todas sus membresías y todas las asignaciones de las mascotas listadas. */
+export interface HouseholdPetsAccess {
+  readonly memberships: readonly LegacyHouseholdMember[];
+  readonly assignments: readonly PetHouseholdAssignment[];
 }
 
 /**
- * REQ-HOUSE-005: mascotas de todos los miembros ACTIVE, por dueño (orden INV-HOUSE-005) y luego REQ-PET-005.
- * canEdit solo para las propias. Exige que el actor sea ACTIVE (INV-HOUSE-004).
- * @implements REQ-HOUSE-005, INV-HOUSE-004, INV-HOUSE-005
+ * REQ-HOUSE2-004: las mascotas recibidas (el llamador pasa SOLO las asignadas al hogar) por dueño ACTIVE
+ * (orden INV-HOUSE-005) y luego REQ-PET2-002, con owner (colorToken), myRole y permissions del actor.
+ * Sin `access`, se asume que cada mascota está asignada solo a este hogar y que las membresías son las del hogar.
+ * Exige que el actor sea ACTIVE (INV-HOUSE-004).
+ * @implements REQ-HOUSE2-004, REQ-HOUSE-005, REQ-RBAC-001, INV-HOUSE-004, INV-HOUSE-005, INV-ACC2-002
  */
 export function householdPets(
   householdId: string,
@@ -417,15 +487,212 @@ export function householdPets(
   pets: readonly PetProfile[],
   usersById: ReadonlyMap<string, UserPublicProfile>,
   actorUserId: string,
+  access?: HouseholdPetsAccess,
 ): HouseholdPetEntry[] {
   requireActiveMembership(memberships, householdId, actorUserId);
   const colors = ownerColorTokens(memberships, householdId);
+  const roleRows = (access?.memberships ?? memberships).map(toRoleMembership);
+  const assignments = access?.assignments ?? pets.map((pet) => ({ petId: pet.id, householdId }));
   return activeMembersInOrder(memberships, householdId).flatMap((member) => {
     const owner = ownerTag(usersById.get(member.userId)!, colors);
-    return sortPetsForListing(pets.filter((p) => p.ownerUserId === member.userId)).map((pet) => ({
-      pet,
-      owner,
-      canEdit: pet.ownerUserId === actorUserId,
-    }));
+    return sortPetsForListing(pets.filter((p) => p.ownerUserId === member.userId)).map((pet) => {
+      const role = effectiveRole({ id: actorUserId }, pet, roleRows, assignments) ?? 'READER';
+      return { pet, owner, myRole: role, permissions: petPermissionsFor(role) };
+    });
   });
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// T245 · Roles, propietario único, poda de asignaciones y transferencia del hogar (002).
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** Rol asignable a un miembro no propietario (REQ-HOUSE2-002). El propietario siempre es ADMIN (INV-HOUSE2-001). */
+export type AssignableMemberRole = 'ADMIN' | 'CAREGIVER' | 'READER';
+const ASSIGNABLE_ROLES: readonly AssignableMemberRole[] = ['ADMIN', 'CAREGIVER', 'READER'];
+
+/** Asignación mascota-hogar que consulta la poda (REQ-HOUSE2-003). */
+export interface HouseholdAssignmentRow {
+  readonly petId: string;
+  readonly householdId: string;
+}
+
+/** Mascota mínima para decidir la poda: solo hace falta su Propietario Legal. */
+export interface PetOwnerRef {
+  readonly id: string;
+  readonly ownerUserId: string;
+}
+
+/** Entrada de auditoría de una mutación de hogar (una fila por operación; las podas generan una fila cada una). */
+export type MembershipAuditKind = 'ROLE_CHANGE' | 'OWNERSHIP_TRANSFER' | 'UNASSIGN';
+export interface MembershipAuditEntry {
+  readonly kind: MembershipAuditKind;
+  readonly householdId: string;
+  readonly userId?: string;
+  readonly petId?: string;
+}
+
+export type MembershipEventInput =
+  | { readonly event: 'ACCEPT'; readonly householdId: string; readonly actorUserId: string; readonly targetUserId: string }
+  | { readonly event: 'DECLINE'; readonly householdId: string; readonly actorUserId: string; readonly targetUserId: string }
+  | { readonly event: 'LEAVE'; readonly householdId: string; readonly actorUserId: string; readonly targetUserId: string }
+  | { readonly event: 'REMOVE'; readonly householdId: string; readonly actorUserId: string; readonly targetUserId: string; readonly pets?: readonly PetOwnerRef[] }
+  | { readonly event: 'CHANGE_ROLE'; readonly householdId: string; readonly actorUserId: string; readonly targetUserId: string; readonly role: AssignableMemberRole }
+  | { readonly event: 'TRANSFER_OWNERSHIP'; readonly householdId: string; readonly actorUserId: string; readonly targetUserId: string }
+  | { readonly event: 'DELETE_HOUSEHOLD'; readonly householdId: string; readonly actorUserId: string };
+
+export interface MembershipEventCommand {
+  readonly event: MembershipEventInput['event'];
+  readonly memberships: readonly LegacyHouseholdMember[];
+  readonly assignments: readonly HouseholdAssignmentRow[];
+  readonly pets?: readonly PetOwnerRef[];
+  readonly householdId: string;
+  readonly actorUserId: string;
+  readonly targetUserId?: string;
+  readonly role?: AssignableMemberRole;
+  readonly nowIsoTimestamp?: string;
+}
+
+export interface MembershipEventResult {
+  readonly memberships: LegacyHouseholdMember[];
+  readonly assignments: HouseholdAssignmentRow[];
+  readonly audit: MembershipAuditEntry[];
+  /** Solo en TRANSFER_OWNERSHIP: el hogar con su nuevo propietario. */
+  readonly household?: { readonly id: string; readonly ownerUserId: string };
+}
+
+/** Sustituye una fila por su versión nueva (identidad por membershipId). */
+function replaceRow(rows: readonly LegacyHouseholdMember[], row: LegacyHouseholdMember): LegacyHouseholdMember[] {
+  return rows.map((r) => (r.membershipId === row.membershipId ? row : r));
+}
+
+/**
+ * REQ-HOUSE2-002 (CHANGE_ROLE): solo un ADMIN o el propietario cambia roles. El propietario no cambia de rol ni se
+ * le cambia el rol (INV-HOUSE2-001) y un no propietario no toca al propietario ni a sí mismo. Destino sin membresía
+ * ACTIVE: ERR-HOUSE-MEMBERSHIP-NOT-FOUND.
+ * @implements REQ-HOUSE2-002, INV-HOUSE2-001, STATE-HOUSE-MEMBERSHIP-001
+ */
+export function changeMemberRole(
+  memberships: readonly LegacyHouseholdMember[],
+  householdId: string,
+  actorUserId: string,
+  targetUserId: string,
+  role: AssignableMemberRole,
+  nowIsoTimestamp: string,
+): { memberships: LegacyHouseholdMember[]; audit: MembershipAuditEntry } {
+  const actor = requireActiveMembership(memberships, householdId, actorUserId);
+  if (!isOwnerRow(actor) && actor.role !== 'ADMIN') {
+    throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'householdId');
+  }
+  if (!ASSIGNABLE_ROLES.includes(role)) {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `role: ${String(role)} no es un rol asignable.`, 'role');
+  }
+  const target = rowsOf(memberships, householdId, targetUserId).find((m) => m.status === 'ACTIVE');
+  if (target === undefined) {
+    throw new DomainError('ERR-HOUSE-MEMBERSHIP-NOT-FOUND', undefined, 'userId');
+  }
+  if (isOwnerRow(target) || (!isOwnerRow(actor) && targetUserId === actorUserId)) {
+    throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'userId');
+  }
+  const changed: LegacyHouseholdMember = { ...target, role, updatedAt: nowIsoTimestamp };
+  return {
+    memberships: replaceRow(memberships as LegacyHouseholdMember[], changed),
+    audit: { kind: 'ROLE_CHANGE', householdId, userId: targetUserId },
+  };
+}
+
+/**
+ * REQ-HOUSE2-002 (TRANSFER_OWNERSHIP) / INV-HOUSE2-001: solo el propietario transfiere; el destino debe ser ACTIVE.
+ * El antiguo propietario pasa a ADMIN sin propiedad; el nuevo, a ADMIN con propiedad. Queda exactamente un propietario.
+ * @implements REQ-HOUSE2-002, INV-HOUSE2-001, STATE-HOUSE-MEMBERSHIP-001
+ */
+export function transferHouseholdOwnership(
+  memberships: readonly LegacyHouseholdMember[],
+  householdId: string,
+  actorUserId: string,
+  targetUserId: string,
+  nowIsoTimestamp: string,
+): { memberships: LegacyHouseholdMember[]; audit: MembershipAuditEntry; household: { id: string; ownerUserId: string } } {
+  requireOwner(memberships, householdId, actorUserId);
+  const target = rowsOf(memberships, householdId, targetUserId).find((m) => m.status === 'ACTIVE');
+  if (target === undefined) {
+    throw new DomainError('ERR-HOUSE-MEMBERSHIP-NOT-FOUND', undefined, 'userId');
+  }
+  if (targetUserId === actorUserId) {
+    throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'userId');
+  }
+  const demoted: LegacyHouseholdMember = { ...requireOwner(memberships, householdId, actorUserId), role: 'ADMIN', isHouseholdOwner: false, updatedAt: nowIsoTimestamp };
+  const promoted: LegacyHouseholdMember = { ...target, role: 'ADMIN', isHouseholdOwner: true, updatedAt: nowIsoTimestamp };
+  let rows = replaceRow(memberships as LegacyHouseholdMember[], demoted);
+  rows = replaceRow(rows, promoted);
+  return {
+    memberships: rows,
+    audit: { kind: 'OWNERSHIP_TRANSFER', householdId, userId: targetUserId },
+    household: { id: householdId, ownerUserId: targetUserId },
+  };
+}
+
+/**
+ * REQ-HOUSE2-003 / REQ-HOUSE2-002 (poda): al retirar a un miembro (REMOVE o LEAVE) se quitan solo las asignaciones
+ * de las mascotas de las que él es Propietario Legal en ese hogar; cada una genera una fila UNASSIGN.
+ * @implements REQ-HOUSE2-003, REQ-HOUSE2-002, INV-HOUSE-004
+ */
+export function pruneAssignmentsOf(
+  assignments: readonly HouseholdAssignmentRow[],
+  pets: readonly PetOwnerRef[],
+  householdId: string,
+  departingUserId: string,
+): { assignments: HouseholdAssignmentRow[]; audit: MembershipAuditEntry[] } {
+  const ownedHere = new Set(pets.filter((p) => p.ownerUserId === departingUserId).map((p) => p.id));
+  const removed = assignments.filter((a) => a.householdId === householdId && ownedHere.has(a.petId));
+  return {
+    assignments: assignments.filter((a) => !removed.includes(a)),
+    audit: removed.map((a) => ({ kind: 'UNASSIGN', householdId, petId: a.petId })),
+  };
+}
+
+/**
+ * Punto de entrada único de las transiciones de membresía de un hogar (STATE-HOUSE-MEMBERSHIP-001 + reglas 002).
+ * Valida cada evento con las funciones de arriba y devuelve el estado nuevo sin efectos laterales.
+ * @implements STATE-HOUSE-MEMBERSHIP-001, REQ-HOUSE2-002, REQ-HOUSE2-003, INV-HOUSE2-001, INV-HOUSE-004
+ */
+export function applyMembershipEvent(command: MembershipEventCommand): MembershipEventResult {
+  const now = command.nowIsoTimestamp ?? NOW_FALLBACK;
+  const { householdId, actorUserId, targetUserId } = command;
+  const base = { memberships: [...command.memberships], assignments: [...command.assignments], audit: [] as MembershipAuditEntry[] };
+
+  switch (command.event) {
+    case 'ACCEPT': {
+      const row = acceptInvitation(command.memberships, householdId, targetUserId!, now);
+      return { ...base, memberships: replaceRow(command.memberships, row) };
+    }
+    case 'DECLINE': {
+      const row = declineInvitation(command.memberships, householdId, targetUserId!, now);
+      return { ...base, memberships: replaceRow(command.memberships, row) };
+    }
+    case 'LEAVE':
+    case 'REMOVE': {
+      const row = removeOrLeave(command.memberships, householdId, actorUserId, targetUserId!, now);
+      const pruned = pruneAssignmentsOf(command.assignments, command.pets ?? [], householdId, row.userId);
+      return { memberships: replaceRow(command.memberships, row), assignments: pruned.assignments, audit: pruned.audit };
+    }
+    case 'CHANGE_ROLE': {
+      const out = changeMemberRole(command.memberships, householdId, actorUserId, targetUserId!, command.role!, now);
+      return { ...base, memberships: out.memberships, audit: [out.audit] };
+    }
+    case 'TRANSFER_OWNERSHIP': {
+      const out = transferHouseholdOwnership(command.memberships, householdId, actorUserId, targetUserId!, now);
+      return { ...base, memberships: out.memberships, audit: [out.audit], household: out.household };
+    }
+    case 'DELETE_HOUSEHOLD': {
+      const out = deleteHousehold([], command.memberships, householdId, actorUserId);
+      return {
+        memberships: out.memberships,
+        assignments: command.assignments.filter((a) => a.householdId !== householdId),
+        audit: [],
+      };
+    }
+  }
+}
+
+/** Marca de tiempo solo para llamadas sin `nowIsoTimestamp` (pruebas de transición pura). Nunca reloj real. */
+const NOW_FALLBACK = '1970-01-01T00:00:00.000Z';

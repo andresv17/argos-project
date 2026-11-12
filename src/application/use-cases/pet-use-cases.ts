@@ -4,15 +4,15 @@
  * - UpdatePetUseCase aplica INV-PET-006 con las fechas de todos los registros de la mascota.
  * - DeletePetUseCase borra la mascota y sus 6 colecciones en una sola transacción (REQ-PET-004).
  * - RegisterPet y UpdatePet comprueban que el microchip sea único entre las mascotas del mismo propietario (REQ-PET2-001).
- * - ListMyPetsUseCase devuelve solo las mascotas propias, sin cupo, con el filtro (REQ-PET2-002) y el orden de REQ-PET-005;
- *   fuera de un hogar el colorToken del dueño es null (EDGE-030).
- * - GetPetDashboardUseCase aplica INV-ACC-001 y devuelve canEdit según INV-ACC-002.
+ * - ListMyPetsUseCase devuelve las mascotas propias y las visibles por asignación a hogares, sin cupo, con el filtro
+ *   (REQ-PET2-002) y el orden de REQ-PET-005; fuera de un hogar el colorToken del dueño es null (EDGE-030).
+ * - GetPetDashboardUseCase aplica INV-ACC2-001 y devuelve myRole y permissions de la matriz REQ-RBAC-001 (reemplazan canEdit).
  *
  * @implements REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
 import type { components, PetProfile, Species } from '../../generated/index.ts';
-import { canWrite } from '../../domain/access/access-policy.ts';
+import { petPermissionsFor } from '../../domain/access/rbac.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import { ownerTag } from '../../domain/households/household-policies.ts';
 import { assertMicrochipUniqueForOwner, collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
@@ -21,10 +21,10 @@ import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import {
   buildPetCard,
-  legacyRoleAndPermissions,
+  listVisiblePets,
   publicProfilesById,
+  requirePetAction,
   requireReadablePet,
-  requireWritablePet,
   type ApplicationDeps,
   type PetCardView,
 } from './use-case-support.ts';
@@ -89,7 +89,7 @@ export class UpdatePetUseCase {
 
   async execute(userId: string, petId: string, input: unknown): Promise<PetProfile> {
     return this.deps.uow.runInTransaction(async (repositories) => {
-      const { pet } = await requireWritablePet(repositories, userId, petId);
+      const { pet } = await requirePetAction(repositories, userId, petId, 'EDIT_PET_BASICS');
       const records = await repositories.records.listForPet(petId);
       const updated = updatePetProfile({
         pet,
@@ -111,7 +111,7 @@ export class DeletePetUseCase {
 
   async execute(userId: string, petId: string): Promise<204> {
     return this.deps.uow.runInTransaction(async (repositories) => {
-      await requireWritablePet(repositories, userId, petId);
+      await requirePetAction(repositories, userId, petId, 'DELETE_PET');
       await repositories.records.deleteForPet(petId);
       await repositories.pets.delete(petId);
       return 204 as const;
@@ -126,12 +126,14 @@ export class ListMyPetsUseCase {
   async execute(userId: string, query: PetListQuery = {}): Promise<PetCardView[]> {
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
-      const owner = (await publicProfilesById(repositories, [userId])).get(userId)!;
       const filter = petListFilterOf(query);
-      const pets = sortPetsForListing((await repositories.pets.listByOwners([userId])).filter((pet) => matchesPetListFilter(pet, filter)));
+      const visible = await listVisiblePets(repositories, userId);
+      const roleOf = new Map(visible.map((v) => [v.pet.id, v.role]));
+      const owners = await publicProfilesById(repositories, visible.map((v) => v.pet.ownerUserId));
+      const pets = sortPetsForListing(visible.map((v) => v.pet).filter((pet) => matchesPetListFilter(pet, filter)));
       const cards: PetCardView[] = [];
       for (const pet of pets) {
-        const card = buildPetCard(pet, ownerTag(owner, null), true, await repositories.records.listForPet(pet.id), today);
+        const card = buildPetCard(pet, ownerTag(owners.get(pet.ownerUserId)!, null), roleOf.get(pet.id)!, await repositories.records.listForPet(pet.id), today);
         if (keepsCard(query, card)) cards.push(card);
       }
       return cards;
@@ -139,14 +141,14 @@ export class ListMyPetsUseCase {
   }
 }
 
-/** @implements REQ-PET-003, REQ-PET-002, INV-ACC-001, INV-ACC-002, ERR-PET-NOT-FOUND */
+/** @implements REQ-PET2-003, REQ-PET-003, REQ-PET-002, REQ-RBAC-001, INV-ACC2-001, INV-ACC-001, INV-ACC-002, ERR-PET-NOT-FOUND */
 export class GetPetDashboardUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(userId: string, petId: string): Promise<PetDashboardView> {
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
-      const { pet } = await requireReadablePet(repositories, userId, petId);
+      const { pet, role } = await requireReadablePet(repositories, userId, petId);
       const owner = (await publicProfilesById(repositories, [pet.ownerUserId])).get(pet.ownerUserId)!;
       const records = await repositories.records.listForPet(petId);
       const vaccinations = evaluateVaccinationAlerts(records.vaccinations, today);
@@ -154,7 +156,8 @@ export class GetPetDashboardUseCase {
       return {
         profile: pet,
         owner: ownerTag(owner, null),
-        ...legacyRoleAndPermissions(canWrite({ id: userId }, pet)),
+        myRole: role,
+        permissions: petPermissionsFor(role),
         computedAge: calculatePetAge(pet.birthDate, today),
         alertsSummary: summarizeSanitaryAlerts(vaccinations, dewormings),
         weights: computeWeightEvolutionSeries(records.weights),

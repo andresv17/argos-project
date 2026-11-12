@@ -4,10 +4,11 @@
  * - Plan de hogares (N-5): un hogar cuyo propietario es la persona y que tiene otro miembro ACTIVE bloquea la
  *   eliminación (ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD); si la persona es su único miembro ACTIVE, el hogar se elimina en
  *   cascada con sus membresías e invitaciones. Solo cuentan los miembros ACTIVE.
- * - T243 PENDIENTE: el bloqueo por mascotas asignadas a un hogar con otros miembros ACTIVE
- *   (ERR-ACCOUNT-OWNS-SHARED-PETS) y la aserción B6 sobre asignaciones llegan con las asignaciones (rebanada 3).
+ * - Plan de mascotas (B5): una mascota del usuario asignada a un hogar con otro miembro ACTIVE (distinto del usuario)
+ *   bloquea (ERR-ACCOUNT-OWNS-SHARED-PETS); la asignación a un hogar donde el usuario es el único ACTIVE no bloquea.
+ * - Aserción B6: en los hogares en cascada toda asignación debe ser de una mascota del usuario.
  *
- * @implements REQ-ACC-002, STATE-ACCOUNT-DELETE-001, ERR-ACCOUNT-CONFIRMATION-MISMATCH, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, INV-ARCH-004
+ * @implements REQ-ACC-002, STATE-ACCOUNT-DELETE-001, ERR-ACCOUNT-CONFIRMATION-MISMATCH, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, ERR-ACCOUNT-OWNS-SHARED-PETS, INV-ARCH-004
  */
 
 import { STATE_ACCOUNT_DELETE_001 } from '../../generated/index.ts';
@@ -43,4 +44,40 @@ export function planHouseholdsForDeletion(userId: string, memberships: readonly 
     (othersActive ? blocking : cascade).push(householdId);
   }
   return { blockingHouseholdIds: blocking, cascadeHouseholdIds: cascade };
+}
+
+/** Forma mínima de una asignación mascota-hogar que necesita la guarda (compatible con PetAssignmentRecord). */
+export interface AssignmentRef {
+  readonly petId: string;
+  readonly householdId: string;
+}
+
+export interface PetDeletionPlan<A extends AssignmentRef = AssignmentRef> {
+  /** Asignaciones de mascotas del usuario a hogares con otro miembro ACTIVE: bloquean (B5). */
+  readonly blockingAssignments: A[];
+  /** Asignaciones de otras mascotas dentro de hogares en cascada: violan la aserción B6. */
+  readonly foreignAssignmentsInCascade: A[];
+}
+
+/**
+ * Clasifica las asignaciones para la eliminación de cuenta.
+ * @param ownedPetIds mascotas de las que el usuario es Propietario Legal
+ * @param assignments todas las asignaciones de esas mascotas y de los hogares en cascada
+ * @param memberships todas las membresías de los hogares implicados
+ * @param cascadeHouseholdIds hogares que se eliminan con la cuenta (el usuario es su único ACTIVE)
+ * @implements REQ-ACC-002, STATE-ACCOUNT-DELETE-001, ERR-ACCOUNT-OWNS-SHARED-PETS
+ */
+export function planPetAssignmentsForDeletion<A extends AssignmentRef>(
+  userId: string,
+  ownedPetIds: readonly string[],
+  assignments: readonly A[],
+  memberships: readonly LegacyHouseholdMember[],
+  cascadeHouseholdIds: readonly string[],
+): PetDeletionPlan<A> {
+  const owned = new Set(ownedPetIds);
+  const blocking = assignments.filter(
+    (a) => owned.has(a.petId) && memberships.some((m) => m.householdId === a.householdId && m.status === 'ACTIVE' && m.userId !== userId),
+  );
+  const foreign = assignments.filter((a) => cascadeHouseholdIds.includes(a.householdId) && !owned.has(a.petId));
+  return { blockingAssignments: blocking, foreignAssignmentsInCascade: foreign };
 }

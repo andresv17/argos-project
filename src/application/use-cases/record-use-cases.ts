@@ -1,6 +1,6 @@
 /**
- * Casos de uso de alta de los 6 módulos de registros. Orden de comprobación: acceso de escritura
- * (INV-PET-003 e INV-ACC-001/002: mascota inexistente o no legible, ERR-PET-NOT-FOUND; legible sin ser dueño,
+ * Casos de uso de alta de los 6 módulos de registros. Orden de comprobación: acceso por la matriz
+ * (INV-PET-003, INV-ACC2-001/002: mascota inexistente o no visible, ERR-PET-NOT-FOUND; visible sin la acción del módulo,
  * ERR-ACC-FORBIDDEN), luego esquema y dominio con validateRecordInput. El id y createdAt
  * salen de los puertos solo si la entrada es válida; los opcionales ausentes se guardan como null.
  * Las respuestas siguen el OpenAPI: WeightEntryView, VaccinationEntryView y DewormingEntryView para peso, vacuna y
@@ -24,7 +24,18 @@ import {
   type RecordOf,
   type WeightEntryView,
 } from '../../domain/records/record-invariants.ts';
-import { requireWritablePet, type ApplicationDeps } from './use-case-support.ts';
+import type { RbacAction } from '../../domain/access/rbac.ts';
+import { requirePetAction, type ApplicationDeps } from './use-case-support.ts';
+
+/** Acción de la matriz que autoriza el alta de cada módulo (REQ-RBAC-001, REQ-REC-002/005/006). */
+const WRITE_ACTION: Readonly<Record<RecordModule, RbacAction>> = {
+  weights: 'WRITE_WEIGHTS_AND_MEASUREMENTS',
+  bodyMeasurements: 'WRITE_WEIGHTS_AND_MEASUREMENTS',
+  vaccinations: 'WRITE_HEALTH_EVENTS',
+  dewormings: 'WRITE_HEALTH_EVENTS',
+  medicalVisits: 'WRITE_APPOINTMENTS_AND_PARAMETERS',
+  customParameters: 'WRITE_APPOINTMENTS_AND_PARAMETERS',
+};
 
 /** Opcionales que el registro persistido exige como null cuando la entrada no los trae. */
 const NULLABLE_DEFAULTS: Readonly<Record<RecordModule, Readonly<Record<string, null>>>> = {
@@ -51,7 +62,7 @@ abstract class AddRecordUseCase<M extends RecordModule, View> {
   async execute(userId: string, petId: string, input: unknown): Promise<View> {
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
-      const { pet } = await requireWritablePet(repositories, userId, petId);
+      const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION[this.module]);
       const valid = validateRecordInput(this.module, input, pet.birthDate, today, pet.species);
       const record = {
         ...NULLABLE_DEFAULTS[this.module],

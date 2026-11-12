@@ -96,6 +96,8 @@ export interface InvitationRepositoryPort {
   findOpen(householdId: string, inviteeUsername: string): Promise<InvitationRecord | null>;
   /** Inserta o reemplaza por invitationId. Una segunda INVITED del mismo (hogar, username) se rechaza (INV-HOUSE-003). */
   save(invitation: InvitationRecord): Promise<void>;
+  /** Invitaciones INVITED dirigidas al usuario (inviteeUserId), por createdAt y householdId ASC. Las inertes (sin usuario) nunca salen. */
+  listOpenForUser(userId: string): Promise<InvitationRecord[]>;
   listByHousehold(householdId: string): Promise<InvitationRecord[]>;
   /** Borra las invitaciones emitidas o recibidas por el usuario. */
   deleteForUser(userId: string): Promise<void>;
@@ -135,6 +137,27 @@ export interface HouseholdRepositoryPort {
   saveMembership(membership: LegacyHouseholdMember): Promise<void>;
   /** Borra las membresías (cualquier estado) del usuario en todos los hogares (REQ-ACC-002). */
   deleteMembershipsOfUser(userId: string): Promise<void>;
+  /** Cambia el propietario del hogar (TRANSFER_OWNERSHIP, INV-HOUSE2-001). Falla si el hogar no existe. */
+  updateOwner(householdId: string, ownerUserId: string): Promise<void>;
+}
+
+/** Asignación de una mascota a un hogar (REQ-HOUSE2-003; tabla pet_assignments). */
+export interface PetAssignmentRecord {
+  readonly petId: string;
+  readonly householdId: string;
+  readonly assignedByUserId: string;
+  readonly assignedAt: string;
+}
+
+export interface PetAssignmentRepositoryPort {
+  listByHousehold(householdId: string): Promise<PetAssignmentRecord[]>;
+  listByPet(petId: string): Promise<PetAssignmentRecord[]>;
+  /** Inserta o reemplaza por (petId, householdId). */
+  save(assignment: PetAssignmentRecord): Promise<void>;
+  /** Borra la asignación (petId, householdId) si existe. */
+  remove(petId: string, householdId: string): Promise<void>;
+  deleteForHousehold(householdId: string): Promise<void>;
+  deleteForPet(petId: string): Promise<void>;
 }
 
 export interface RepositorySet {
@@ -147,4 +170,5 @@ export interface RepositorySet {
   readonly confirmationTokens: ConfirmationTokenRepositoryPort;
   readonly rateLimits: RateLimitRepositoryPort;
   readonly invitations: InvitationRepositoryPort;
+  readonly assignments: PetAssignmentRepositoryPort;
 }
