@@ -126,4 +126,39 @@ describe('propiedades de STATE-ALERT-001', () => {
       { seed: PROPERTY_SEED, numRuns: 200 },
     );
   });
+
+  it('[REQ-REC2-003][STATE-ALERT-001] eliminar el registro posterior de una clave devuelve el anterior a vigente: deja de ser SUPERSEDED y su estado vuelve a depender solo de su fecha', () => {
+    fc.assert(
+      fc.property(fc.array(recordArb, { minLength: 2, maxLength: 12 }), (specs) => {
+        const records = buildRecords(specs);
+        const newest = newestIds(records);
+        const views = evaluateVaccinationAlerts(records, TODAY);
+        const victim = views.find((v) => newest.has(v.record.id) && records.some((o) => o.id !== v.record.id && o.petId === v.record.petId && normalizeVaccineKey(o.vaccineName) === normalizeVaccineKey(v.record.vaccineName)));
+        if (victim === undefined) return;
+        const remaining = records.filter((r) => r.id !== victim.record.id);
+        const after = evaluateVaccinationAlerts(remaining, TODAY);
+        const nowNewest = newestIds(remaining);
+        for (const { record, alert } of after) expect(alert!.status === 'SUPERSEDED').toBe(!nowNewest.has(record.id));
+        const previous = after.filter((v) => v.record.petId === victim.record.petId && normalizeVaccineKey(v.record.vaccineName) === normalizeVaccineKey(victim.record.vaccineName) && nowNewest.has(v.record.id));
+        expect(previous).toHaveLength(1);
+        expect(['OVERDUE', 'DUE_SOON', 'UP_TO_DATE']).toContain(previous[0]!.alert!.status);
+      }),
+      { seed: PROPERTY_SEED, numRuns: 300 },
+    );
+  });
+
+  it('[REQ-REC2-002][STATE-ALERT-001] un registro vigente sin próxima fecha queda fuera del semáforo (alert nulo) y no cuenta en el resumen; uno con posterior de la misma clave es SUPERSEDED aunque no tenga fecha (FX-ALR-007)', () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 200 }), fc.constantFrom('Rabia', ' rabia', 'RABIA '), (appliedAgo, otherName) => {
+        const make = (id: string, offset: number, name: string): VaccinationRecord =>
+          ({ id, petId: '11111111-1111-4111-8111-111111111101', category: 'VACCINE', vaccineName: name, appliedAt: isoFromUtc(todayMs - offset * DAY_MS), nextBoosterAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, createdAt: `${isoFromUtc(todayMs - offset * DAY_MS)}T10:00:00.000Z` }) as unknown as VaccinationRecord;
+        const alone = evaluateVaccinationAlerts([make('44444444-4444-4444-8444-000000000001', appliedAgo, 'Rabia')], TODAY);
+        const pair = evaluateVaccinationAlerts([make('44444444-4444-4444-8444-000000000001', appliedAgo + 1, 'Rabia'), make('44444444-4444-4444-8444-000000000002', appliedAgo, otherName)], TODAY);
+        expect(alone.map((v) => v.alert)).toEqual([null]);
+        expect(summarizeSanitaryAlerts(alone, [])).toEqual({ overdueCount: 0, dueSoonCount: 0, upToDateCount: 0, totalActiveAlerts: 0 });
+        expect(pair.map((v) => [v.record.id.slice(-1), v.alert === null ? null : v.alert.status])).toEqual([['2', null], ['1', 'SUPERSEDED']]);
+      }),
+      { seed: PROPERTY_SEED, numRuns: 100 },
+    );
+  });
 });

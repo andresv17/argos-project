@@ -7,9 +7,10 @@ import { toCanonicalView } from '../../src/domain/audit/canonical-view.ts';
 
 /** T253 (fase ROJA) — propiedades de REQ-AUD-001, INV-AUD-001 y SC-012. */
 const PROPERTY_SEED = 20261112;
-const PUBLIC_KEYS = ['id', 'name', 'species', 'weightKg', 'birthDate', 'notes', 'role', 'status'] as const;
+/** sessionId NO es secreto (sessions.id es un UUID PK): es un campo público más. */
+const PUBLIC_KEYS = ['id', 'name', 'species', 'weightKg', 'birthDate', 'notes', 'role', 'status', 'sessionId'] as const;
 const EXCLUDED_KEYS = ['email', 'displayName', 'microchipId'] as const;
-const SECRET_KEYS = ['password', 'passwordHash', 'token', 'sessionId', 'cookie'] as const;
+const SECRET_KEYS = ['password', 'passwordHash', 'password_hash', 'token', 'tokenHash', 'token_hash', 'confirmationToken', 'confirmation_token', 'cookie'] as const;
 const ALL_KEYS = [...PUBLIC_KEYS, ...EXCLUDED_KEYS, ...SECRET_KEYS] as const;
 
 type Entries = ReadonlyArray<readonly [string, string | number | boolean | null]>;
@@ -50,7 +51,7 @@ describe('propiedades de auditoría canónica (REQ-AUD-001, INV-AUD-001, SC-012)
     );
   });
 
-  it('[INV-AUD-001] la vista nunca contiene password, passwordHash, token, sessionId ni cookie, ni siquiera anidados', () => {
+  it('[INV-AUD-001] la vista nunca contiene password, passwordHash, token, tokenHash, confirmationToken ni cookie (ni sus formas snake_case), ni siquiera anidados', () => {
     fc.assert(
       fc.property(entriesArb, (entries) => {
         const view = toCanonicalView({ outer: build(entries), list: [build(entries)] }) as { outer: Record<string, unknown>; list: Array<Record<string, unknown>> };
@@ -65,7 +66,7 @@ describe('propiedades de auditoría canónica (REQ-AUD-001, INV-AUD-001, SC-012)
     fc.assert(
       fc.property(entriesArb, fc.string({ maxLength: 10 }), (entries, noise) => {
         const original = build(entries);
-        const altered = { ...original, email: `${noise}@example.com`, displayName: noise, microchipId: noise, password: noise, token: noise };
+        const altered = { ...original, email: `${noise}@example.com`, displayName: noise, microchipId: noise, password: noise, token: noise, tokenHash: noise, token_hash: noise, confirmationToken: noise, confirmation_token: noise, cookie: noise };
         expect([stateHash(original), stateHash(altered)]).toEqual([sha256(canonicalJson(toCanonicalView(original))), sha256(canonicalJson(toCanonicalView(original)))]);
       }),
       { seed: PROPERTY_SEED, numRuns: 200 },

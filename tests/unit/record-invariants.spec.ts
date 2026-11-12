@@ -27,7 +27,14 @@ import { SPECIES_WEIGHT_LIMITS, assertWeightWithinSpeciesLimits, gramsToKg, weig
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 
 const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
-const envelope: BackupEnvelopeV3 = fixtures.validBackupEnvelopeV2;
+/** T255: el fixture de la 001 se lleva a la forma 002 (category, veterinarianName y veterinarianLicense en vacunas y desparasitaciones). */
+const envelope: BackupEnvelopeV3 = (() => {
+  const raw = structuredClone(fixtures.validBackupEnvelopeV2) as BackupEnvelopeV3;
+  const upgrade = (category: 'VACCINE' | 'DEWORMING') => (r: Record<string, unknown>) => ({ ...r, category, batchOrClinic: r['batchOrClinic'] ?? null, veterinarianName: null, veterinarianLicense: null });
+  (raw.records as Record<string, unknown>)['vaccinations'] = (raw.records.vaccinations as unknown as Array<Record<string, unknown>>).map(upgrade('VACCINE'));
+  (raw.records as Record<string, unknown>)['dewormings'] = (raw.records.dewormings as unknown as Array<Record<string, unknown>>).map(upgrade('DEWORMING'));
+  return raw;
+})();
 const edge = (prefix: string) => fixtures.invalidEdgeCases.find((c: { caseId: string }) => c.caseId.startsWith(prefix));
 const TODAY = new FixedClockAdapter().todayIsoDate();
 const MODULES = Object.keys(RECORD_MODULES) as RecordModule[];
@@ -38,6 +45,8 @@ const birthOf = (petId: string) => (envelope.pets as PetProfile[]).find((p) => p
 const baseRecord = (module: RecordModule): Record<string, unknown> => ({ ...envelope.records[module][0]! });
 const baseInput = (module: RecordModule): Record<string, unknown> => {
   const { id: _id, petId: _petId, createdAt: _createdAt, ...input } = baseRecord(module);
+  // En vacunas y desparasitaciones la categoría la fija el servidor (VACCINE o DEWORMING): no es parte de la entrada.
+  if (module === 'vaccinations' || module === 'dewormings') delete input['category'];
   return input;
 };
 const birthFor = (module: RecordModule) => birthOf(envelope.records[module][0]!.petId);
@@ -381,5 +390,105 @@ describe('evolución de peso (REQ-REC-001, EDGE-034, EDGE-035)', () => {
     expect([0.05, 0.29, 32.85, 150, 1.15, 4.35].map(weightKgToGrams)).toEqual([50, 290, 32850, 150000, 1150, 4350]);
     expect([0.29 * 100, 1.15 * 100, 4.35 * 100].map(Number.isInteger)).toEqual([false, false, false]);
     expect([32.85, 0.05, 150, 32.855, 32.85001].map(hasAtMostTwoDecimals)).toEqual([true, true, true, false, false]);
+  });
+});
+
+/**
+ * T255 (fase ROJA) — registros clínicos 002 en el dominio (REQ-REC2-002, REQ-REC2-003, INV-REC-004, INV-REC-005, INV-REC-006).
+ * Causa roja esperada: src/domain/records/superseded-guard.ts no existe (plan.md) y los esquemas de src/generated aún son los de la 001
+ * (no aceptan category, veterinarianName ni veterinarianLicense). El guard se importa de forma dinámica para no tumbar las pruebas anteriores.
+ * Contrato supuesto del guard: assertRecordNotSuperseded(status) lanza DomainError ERR-REC-SUPERSEDED-IMMUTABLE (409) cuando status es SUPERSEDED.
+ */
+const SUPERSEDED_GUARD_MODULE = '../../src/domain/records/superseded-guard.ts';
+
+describe('guarda de registros reemplazados (src/domain/records/superseded-guard.ts)', () => {
+  const load = async () => (await import(/* @vite-ignore */ SUPERSEDED_GUARD_MODULE)) as { assertRecordNotSuperseded: (status: string) => void };
+
+  it('[REQ-REC2-003][ERR-REC-SUPERSEDED-IMMUTABLE] un registro SUPERSEDED lanza DomainError 409 con su código, sin importar de quién venga la edición', async () => {
+    const { assertRecordNotSuperseded } = await load();
+    const err = errorOf(() => assertRecordNotSuperseded('SUPERSEDED'));
+    expect([err.code, err.status]).toEqual(['ERR-REC-SUPERSEDED-IMMUTABLE', 409]);
+  });
+
+  it('[REQ-REC2-003] los estados vigentes OVERDUE, DUE_SOON y UP_TO_DATE se pueden editar: la guarda no lanza', async () => {
+    const { assertRecordNotSuperseded } = await load();
+    expect(['OVERDUE', 'DUE_SOON', 'UP_TO_DATE'].map((status) => { assertRecordNotSuperseded(status); return status; })).toEqual(['OVERDUE', 'DUE_SOON', 'UP_TO_DATE']);
+  });
+});
+
+describe('vacunas y desparasitaciones 002 en el dominio (record-invariants.ts)', () => {
+  const vaccine = (patch: Record<string, unknown>) => ({
+    ...baseRecord('vaccinations'),
+    category: 'VACCINE',
+    batchOrClinic: null,
+    veterinarianName: null,
+    veterinarianLicense: null,
+    appliedAt: '2026-10-01',
+    nextBoosterAt: '2027-10-01',
+    ...patch,
+  });
+  const deworming = (patch: Record<string, unknown>) => ({
+    ...baseRecord('dewormings'),
+    category: 'DEWORMING',
+    batchOrClinic: null,
+    veterinarianName: null,
+    veterinarianLicense: null,
+    appliedAt: '2026-10-01',
+    nextSuggestedDoseAt: '2027-02-01',
+    ...patch,
+  });
+  const codeOf = (module: RecordModule, record: Record<string, unknown>) => {
+    try {
+      validateRecord(module, record, birthFor(module), TODAY);
+      return 'OK';
+    } catch (error) {
+      if (error instanceof DomainError) return `${error.code}@${String(error.field)}`;
+      throw error;
+    }
+  };
+
+  it('[REQ-REC2-002] una vacuna con lote, veterinario y colegiado es válida', () => {
+    expect(codeOf('vaccinations', vaccine({ batchOrClinic: 'Lote L-100', veterinarianName: 'Dra. Pardo', veterinarianLicense: 'COL-4521' }))).toBe('OK');
+  });
+
+  it('[REQ-REC2-002] lote ≤ 120, veterinario ≤ 120 y colegiado ≤ 60: el límite exacto es válido y un carácter más se rechaza con el campo', () => {
+    expect([
+      codeOf('vaccinations', vaccine({ batchOrClinic: 'B'.repeat(120) })),
+      codeOf('vaccinations', vaccine({ batchOrClinic: 'B'.repeat(121) })),
+      codeOf('vaccinations', vaccine({ veterinarianName: 'V'.repeat(120) })),
+      codeOf('vaccinations', vaccine({ veterinarianName: 'V'.repeat(121) })),
+      codeOf('vaccinations', vaccine({ veterinarianLicense: 'L'.repeat(60) })),
+      codeOf('vaccinations', vaccine({ veterinarianLicense: 'L'.repeat(61) })),
+    ]).toEqual([
+      'OK',
+      'ERR-SCHEMA-VALIDATION-FAILED@batchOrClinic',
+      'OK',
+      'ERR-SCHEMA-VALIDATION-FAILED@veterinarianName',
+      'OK',
+      'ERR-SCHEMA-VALIDATION-FAILED@veterinarianLicense',
+    ]);
+  });
+
+  it('[REQ-REC2-002] la próxima fecha es opcional: nula es válida en vacunas y desparasitaciones; con valor, debe ser estrictamente posterior a appliedAt', () => {
+    expect([
+      codeOf('vaccinations', vaccine({ nextBoosterAt: null })),
+      codeOf('dewormings', deworming({ nextSuggestedDoseAt: null })),
+      codeOf('vaccinations', vaccine({ nextBoosterAt: '2026-10-01' })),
+      codeOf('dewormings', deworming({ nextSuggestedDoseAt: '2026-10-01' })),
+      codeOf('dewormings', deworming({ nextSuggestedDoseAt: '2026-10-02' })),
+    ]).toEqual([
+      'OK',
+      'OK',
+      'ERR-REC-INVALID-BOOSTER-DATE@nextBoosterAt',
+      'ERR-REC-INVALID-NEXT-DOSE-DATE@nextSuggestedDoseAt',
+      'OK',
+    ]);
+  });
+
+  it('[REQ-REC2-002] category es VACCINE en vacunas y DEWORMING en desparasitaciones: la otra se rechaza', () => {
+    expect([codeOf('vaccinations', vaccine({ category: 'DEWORMING' })), codeOf('dewormings', deworming({ category: 'VACCINE' }))]).toEqual([
+      'ERR-SCHEMA-VALIDATION-FAILED@category',
+      'ERR-SCHEMA-VALIDATION-FAILED@category',
+    ]);
   });
 });

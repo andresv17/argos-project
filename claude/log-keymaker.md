@@ -328,3 +328,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creadas tests/unit/audit-canonical.spec.ts y tests/property/audit.property.spec.ts (fast-check, semilla 20261112). Sin tocar src/.
 - Rojo por módulo ausente (src/domain/audit/*); tsc: 6 TS2307 solo de estos archivos; oracles CUMPLE; traza INV-AUD-001 FALLA esperada (sin @implements).
 - Evidencia: claude/evidencia-task-T253-2026-11-12.md
+
+### [2026-11-12] Keymaker checkpoint T254-T257 (ROJO) + ajuste T253
+- Lista de secretos de Neo aplicada a T253 (tokenHash, token_hash, confirmationToken, confirmation_token; sessionId fuera). Rojo por modulo ausente.
+- Nuevas pruebas rojas: audit.api (no such table audit_log), account-deletion seudonimizacion, audit-pseudonym (config sin ARGOS_AUDIT_HMAC_SECRET), roles-migration fila MIGRATION, record-invariants (superseded-guard ausente), pets-records PATCH/DELETE sin ruta.
+- Fixtures 001 llevados a forma 002 en pruebas (10 rojos de base saneados). tsc: 6 TS2307 de T253; oracles CUMPLE. Evidencia: claude/evidencia-task-T254-T257-2026-11-12.md

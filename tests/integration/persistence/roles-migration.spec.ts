@@ -196,3 +196,68 @@ describe('migración de roles y asignaciones 0004 sobre una base de la 001 (REQ-
     expect(runMigrations(db)).toContain(MIGRATION_0004);
   });
 });
+
+/**
+ * T257 (fase ROJA): migración completa de la Feature 002 (REQ-MIG-001, REQ-AUD-001, SC-011).
+ * Causa roja esperada: la tabla audit_log aún no existe y ninguna migración inserta la fila MIGRATION ("no such table: audit_log").
+ * Contrato (data-model §2.12): 1 fila MIGRATION por ejecución de la migración, entity_type SYSTEM, executor_user_id SYSTEM,
+ * entity_id MIG-<versión> (patrón MIG-[A-Za-z0-9._-]{1,64}) y hashes nulos; sin filas por entidad convertida.
+ */
+const migrationRows = (db: SqliteDatabase) => db.prepare("SELECT * FROM audit_log WHERE mutation_type = 'MIGRATION'").all() as Array<Record<string, unknown>>;
+
+describe('migración completa: fila de auditoría MIGRATION y repetibilidad (REQ-MIG-001, REQ-AUD-001, SC-011) · T257', () => {
+  it('[REQ-MIG-001][REQ-AUD-001] migrar una base de la 001 deja exactamente 1 fila MIGRATION con executor SYSTEM, entidad SYSTEM, entityId MIG-<versión> y hashes nulos', () => {
+    const db = legacyDatabase();
+    runMigrations(db);
+    const rows = migrationRows(db);
+    expect(rows).toHaveLength(1);
+    expect({ ...rows[0]!, id: 'ID', timestamp: 'TS', entity_id: String(rows[0]!['entity_id']).replace(/^MIG-[A-Za-z0-9._-]{1,64}$/, 'MIG-OK') }).toEqual({
+      id: 'ID',
+      timestamp: 'TS',
+      executor_user_id: 'SYSTEM',
+      mutation_type: 'MIGRATION',
+      entity_type: 'SYSTEM',
+      entity_id: 'MIG-OK',
+      previous_state_hash: null,
+      new_state_hash: null,
+    });
+    expect(String(rows[0]!['timestamp'])).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/);
+  });
+
+  it('[REQ-MIG-001][REQ-AUD-001] es repetible sin duplicar: una segunda y una tercera ejecución no aplican nada y siguen siendo exactamente 1 fila MIGRATION', () => {
+    const db = legacyDatabase();
+    runMigrations(db);
+    const first = migrationRows(db);
+    expect([runMigrations(db), runMigrations(db)]).toEqual([[], []]);
+    expect(migrationRows(db)).toEqual(first);
+    expect(db.prepare('SELECT COUNT(*) FROM audit_log').pluck().get()).toBe(1);
+  });
+
+  it('[REQ-AUD-001][REQ-MIG-001] la conversión de roles, invitaciones y asignaciones no genera filas por entidad: audit_log contiene solo la fila MIGRATION', () => {
+    const db = legacyDatabase();
+    runMigrations(db);
+    expect(db.prepare('SELECT mutation_type, entity_type FROM audit_log').all()).toEqual([{ mutation_type: 'MIGRATION', entity_type: 'SYSTEM' }]);
+    expect(db.prepare('SELECT COUNT(*) FROM pet_assignments').pluck().get()).toBe(4);
+  });
+
+  it('[REQ-MIG-001][INV-AUD-001] la fila MIGRATION no contiene identificadores de usuario ni de mascota de la base migrada', () => {
+    const db = legacyDatabase();
+    runMigrations(db);
+    const text = JSON.stringify(db.prepare('SELECT * FROM audit_log').all());
+    expect([ANA, BRUNO, CARLA, ELENA, TOBY, MISU, PLUTO, 'hash-ana'].map((v) => text.includes(v))).toEqual([false, false, false, false, false, false, false, false]);
+  });
+
+  it('[REQ-AUD-001] audit_log nace sin claves foráneas, con las 8 columnas del data-model y restricciones CHECK de mutation_type y entity_type', () => {
+    const db = legacyDatabase();
+    runMigrations(db);
+    const columns = (db.prepare('PRAGMA table_info(audit_log)').all() as Array<{ name: string }>).map((c) => c.name);
+    expect([columns, db.prepare('PRAGMA foreign_key_list(audit_log)').all()]).toEqual([
+      ['id', 'timestamp', 'executor_user_id', 'mutation_type', 'entity_type', 'entity_id', 'previous_state_hash', 'new_state_hash'],
+      [],
+    ]);
+    const insert = (mutation: string, entity: string) =>
+      db.prepare("INSERT INTO audit_log (id, timestamp, executor_user_id, mutation_type, entity_type, entity_id) VALUES ('x-' || ?, '2026-11-11T12:00:00.000Z', 'SYSTEM', ?, ?, 'MIG-x')").run(mutation + entity, mutation, entity);
+    expect(() => insert('RENAME', 'SYSTEM')).toThrow(/CHECK/);
+    expect(() => insert('UPDATE', 'GALAXY')).toThrow(/CHECK/);
+  });
+});

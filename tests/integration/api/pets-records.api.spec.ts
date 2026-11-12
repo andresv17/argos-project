@@ -461,3 +461,132 @@ describe('permisos por rol sobre registros por HTTP (REQ-RBAC-001, INV-ACC2-001,
     ]);
   });
 });
+
+/**
+ * T255 (fase ROJA) — historial inmutable, próxima fecha opcional, lote, veterinario y colegiado, semáforo por HTTP
+ * (REQ-REC2-002, REQ-REC2-003, INV-REC-004, INV-REC-005, STATE-ALERT-001, SC-015).
+ * Causa roja esperada: PATCH y DELETE /api/pets/{petId}/records/{collection}/{recordId} aún no tienen ruta (404 genérico);
+ * el POST de vacunas aún no acepta batchOrClinic, veterinarianName ni veterinarianLicense (esquema 001 en src/generated).
+ * Reloj de las pruebas: 2026-11-05. El perfil de Argos es de andres; maria.v (ADMIN) y lucia.r (CAREGIVER) lo ven por un hogar con la mascota asignada.
+ */
+describe('registros clínicos 002 por HTTP (REQ-REC2-002, REQ-REC2-003, SC-015)', () => {
+  const SUPERSEDED = { status: 409, code: 'ERR-REC-SUPERSEDED-IMMUTABLE' };
+  const NAME = 'Leptospirosis';
+  const first = { vaccineName: NAME, appliedAt: '2026-06-01', nextBoosterAt: '2027-06-01', batchOrClinic: 'Lote L-100', veterinarianName: 'Dra. Pardo', veterinarianLicense: 'COL-4521', notes: null };
+  const second = { vaccineName: NAME, appliedAt: '2026-10-01', nextBoosterAt: '2027-10-01' };
+  const recordsUrl = (collection: string) => `/api/pets/${ARGOS_ID}/records/${collection}`;
+  const dashboard = async (cookie: string) => (await api.call('GET', `/api/pets/${ARGOS_ID}/dashboard`, { cookie })).json as {
+    vaccinations: Array<{ record: { id: string; vaccineName: string }; alert: { status: string; daysRemaining: number } | null }>;
+    supersededVaccinations: Array<{ record: { id: string }; alert: { status: string } | null }>;
+    alertsSummary: { overdueCount: number; dueSoonCount: number; upToDateCount: number; totalActiveAlerts: number };
+  };
+  const created = (r: { json: unknown }) => (r.json as { record: { id: string } }).record.id;
+
+  async function householdWithRoles(andres: string): Promise<{ maria: string; lucia: string }> {
+    const hid = ((await api.call('POST', '/api/households', { cookie: andres, body: { name: 'Casa clínica' } })).json as { household: { id: string } }).household.id;
+    for (const [username, roleOnJoin] of [['maria.v', 'ADMIN'], ['lucia.r', 'CAREGIVER']] as const) {
+      await api.call('POST', `/api/households/${hid}/invitations`, { cookie: andres, body: { username, roleOnJoin } });
+      await api.call('POST', `/api/invitations/${hid}/accept`, { cookie: await api.login(username) });
+    }
+    await api.call('PUT', `/api/pets/${ARGOS_ID}/assignments/${hid}`, { cookie: andres });
+    return { maria: await api.login('maria.v'), lucia: await api.login('lucia.r') };
+  }
+
+  it('[REQ-REC2-002] la vacuna acepta lote, veterinario y colegiado opcionales y los devuelve tal cual; sin ellos quedan en null', async () => {
+    api = await createApi();
+    const cookie = await api.login('andres');
+    const full = await api.call('POST', recordsUrl('vaccinations'), { cookie, body: first });
+    const bare = await api.call('POST', recordsUrl('vaccinations'), { cookie, body: { vaccineName: 'Parvovirus', appliedAt: '2026-10-01' } });
+    const pick = (r: { json: unknown }) => {
+      const x = (r.json as { record: Record<string, unknown> }).record;
+      return [x['batchOrClinic'], x['veterinarianName'], x['veterinarianLicense'], x['nextBoosterAt']];
+    };
+    expect([full.status, pick(full), bare.status, pick(bare)]).toEqual([201, ['Lote L-100', 'Dra. Pardo', 'COL-4521', '2027-06-01'], 201, [null, null, null, null]]);
+  });
+
+  it('[REQ-REC2-002][ERR-SCHEMA-VALIDATION-FAILED] el colegiado de 61 caracteres, el veterinario de 121 y el lote de 121 se rechazan con 422; 60, 120 y 120 se aceptan', async () => {
+    api = await createApi();
+    const cookie = await api.login('andres');
+    const post = (patch: Record<string, unknown>) => api.call('POST', recordsUrl('vaccinations'), { cookie, body: { vaccineName: 'Rabia', appliedAt: '2026-10-01', ...patch } });
+    const rejected = [await post({ veterinarianLicense: 'L'.repeat(61) }), await post({ veterinarianName: 'V'.repeat(121) }), await post({ batchOrClinic: 'B'.repeat(121) })];
+    const accepted = [await post({ veterinarianLicense: 'L'.repeat(60) }), await post({ veterinarianName: 'V'.repeat(120) }), await post({ batchOrClinic: 'B'.repeat(120) })];
+    expect([rejected.map(problemOf), accepted.map((r) => r.status)]).toEqual([Array(3).fill({ status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' }), [201, 201, 201]]);
+  });
+
+  it('[INV-REC-004][INV-REC-005][ERR-REC-INVALID-BOOSTER-DATE][ERR-REC-INVALID-NEXT-DOSE-DATE] la próxima fecha, cuando existe, debe ser estrictamente posterior: igual o anterior a appliedAt da 422; nula es válida', async () => {
+    api = await createApi();
+    const cookie = await api.login('andres');
+    const out = [
+      await api.call('POST', recordsUrl('vaccinations'), { cookie, body: { vaccineName: 'Rabia', appliedAt: '2026-10-01', nextBoosterAt: '2026-10-01' } }),
+      await api.call('POST', recordsUrl('vaccinations'), { cookie, body: { vaccineName: 'Rabia', appliedAt: '2026-10-01', nextBoosterAt: '2026-09-30' } }),
+      await api.call('POST', recordsUrl('dewormings'), { cookie, body: { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-10-01', nextSuggestedDoseAt: '2026-10-01' } }),
+      await api.call('POST', recordsUrl('dewormings'), { cookie, body: { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-10-01', nextSuggestedDoseAt: null } }),
+    ];
+    expect(out.map(problemOf).map((p) => [p.status, p.code ?? null])).toEqual([
+      [422, 'ERR-REC-INVALID-BOOSTER-DATE'],
+      [422, 'ERR-REC-INVALID-BOOSTER-DATE'],
+      [422, 'ERR-REC-INVALID-NEXT-DOSE-DATE'],
+      [201, null],
+    ]);
+  });
+
+  it('[STATE-ALERT-001][SC-015] semáforo: con hoy = 2026-11-05, próxima fecha en 5 días es DUE_SOON, vencida ayer es OVERDUE, en 16 días es UP_TO_DATE y sin próxima fecha no entra (alert nulo); el resumen suma solo OVERDUE y DUE_SOON', async () => {
+    api = await createApi();
+    const cookie = await api.login('andres');
+    const post = (vaccineName: string, nextBoosterAt: string | null) => api.call('POST', recordsUrl('vaccinations'), { cookie, body: { vaccineName, appliedAt: '2026-10-01', nextBoosterAt } });
+    for (const [name, next] of [['Alfa', '2026-11-10'], ['Beta', '2026-11-04'], ['Gamma', '2026-11-21'], ['Delta', null]] as const) await post(name, next);
+    const view = await dashboard(cookie);
+    const mine = ['Alfa', 'Beta', 'Gamma', 'Delta'].map((n) => {
+      const entry = view.vaccinations.find((v) => v.record.vaccineName === n)!;
+      return [n, entry.alert === null ? null : [entry.alert.status, entry.alert.daysRemaining]];
+    });
+    expect(mine).toEqual([['Alfa', ['DUE_SOON', 5]], ['Beta', ['OVERDUE', -1]], ['Gamma', ['UP_TO_DATE', 16]], ['Delta', null]]);
+  });
+
+  it('[REQ-REC2-003][SC-015][ERR-REC-SUPERSEDED-IMMUTABLE] editar un registro SUPERSEDED da 409 con el dueño, un ADMIN y un CAREGIVER; el registro no cambia y el vigente sí se puede editar (200)', async () => {
+    api = await createApi();
+    const andres = await api.login('andres');
+    const { maria, lucia } = await householdWithRoles(andres);
+    const v1 = created(await api.call('POST', recordsUrl('vaccinations'), { cookie: andres, body: first }));
+    const v2 = created(await api.call('POST', recordsUrl('vaccinations'), { cookie: andres, body: second }));
+    const view = await dashboard(andres);
+    expect([view.vaccinations.filter((v) => v.record.vaccineName === NAME).map((v) => v.record.id), view.supersededVaccinations.map((v) => [v.record.id, v.alert!.status]).filter(([id]) => id === v1)]).toEqual([[v2], [[v1, 'SUPERSEDED']]]);
+    const patch = (cookie: string, id: string) => api.call('PATCH', `${recordsUrl('vaccinations')}/${id}`, { cookie, body: { collection: 'vaccinations', notes: 'corregido' } });
+    const attempts = [await patch(andres, v1), await patch(maria, v1), await patch(lucia, v1)];
+    const current = await patch(andres, v2);
+    const after = await dashboard(andres);
+    expect(attempts.map(problemOf)).toEqual(Array(3).fill(SUPERSEDED));
+    expect(attempts.every((a) => !a.text.includes('corregido'))).toBe(true);
+    expect([current.status, (current.json as { notes: string }).notes, after.supersededVaccinations.find((v) => v.record.id === v1) !== undefined]).toEqual([200, 'corregido', true]);
+  });
+
+  it('[REQ-REC2-003] eliminar el registro posterior devuelve el anterior a vigente: reaparece en vaccinations con su semáforo, sale de supersededVaccinations y vuelve a ser editable', async () => {
+    api = await createApi();
+    const cookie = await api.login('andres');
+    const v1 = created(await api.call('POST', recordsUrl('vaccinations'), { cookie, body: first }));
+    const v2 = created(await api.call('POST', recordsUrl('vaccinations'), { cookie, body: second }));
+    const removed = await api.call('DELETE', `${recordsUrl('vaccinations')}/${v2}`, { cookie });
+    const view = await dashboard(cookie);
+    const back = view.vaccinations.find((v) => v.record.id === v1);
+    const edit = await api.call('PATCH', `${recordsUrl('vaccinations')}/${v1}`, { cookie, body: { collection: 'vaccinations', notes: 'ya editable' } });
+    expect([removed.status, back?.alert?.status, back?.alert?.daysRemaining, view.supersededVaccinations.some((v) => v.record.id === v1), edit.status]).toEqual([204, 'UP_TO_DATE', 208, false, 200]);
+  });
+
+  it('[REQ-REC2-003][REQ-RBAC-001] un lector (READER) no edita el registro vigente (403) y quien no ve la mascota recibe 404; el cuerpo debe declarar la colección de la ruta (422 si falta o no coincide)', async () => {
+    api = await createApi();
+    const andres = await api.login('andres');
+    const v = created(await api.call('POST', recordsUrl('vaccinations'), { cookie: andres, body: second }));
+    const url = `${recordsUrl('vaccinations')}/${v}`;
+    const body = { collection: 'vaccinations', notes: 'x' };
+    const reader = await api.call('PATCH', url, { cookie: await api.login('maria.v'), body });
+    const stranger = await api.call('PATCH', url, { cookie: await api.login('lucia.r'), body });
+    const noCollection = await api.call('PATCH', url, { cookie: andres, body: { notes: 'x' } });
+    const wrongCollection = await api.call('PATCH', url, { cookie: andres, body: { collection: 'dewormings', notes: 'x' } });
+    expect([reader.status, problemOf(stranger), problemOf(noCollection), problemOf(wrongCollection)]).toEqual([
+      403,
+      { status: 404, code: 'ERR-PET-NOT-FOUND' },
+      { status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' },
+      { status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' },
+    ]);
+  });
+});

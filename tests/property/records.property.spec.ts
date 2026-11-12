@@ -15,7 +15,8 @@ const envelope: BackupEnvelopeV3 = JSON.parse(
   readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'),
 ).validBackupEnvelopeV2;
 const baseWeight = envelope.records.weights[0]!;
-const baseVaccination = envelope.records.vaccinations[0]!;
+/** T255: el fixture de la 001 se lleva a la forma 002 (category, veterinarianName y veterinarianLicense). */
+const baseVaccination = { ...envelope.records.vaccinations[0]!, category: 'VACCINE', veterinarianName: null, veterinarianLicense: null } as unknown as BackupEnvelopeV3['records']['vaccinations'][number];
 const baseMeasurement = envelope.records.bodyMeasurements[0]!;
 /** Tabla de INV-REC2-002 leída del contrato 002: el oráculo no comparte código con la implementación. */
 const CONTRACT_LIMITS: Record<string, { minKg: number; maxKg: number; decimals: number }> = JSON.parse(
@@ -147,6 +148,34 @@ describe('propiedades de registros', () => {
         expect(actual).toBe(expected);
       }),
       { seed: PROPERTY_SEED, numRuns: 500 },
+    );
+  });
+
+  it('[REQ-REC2-002][INV-REC-004][SC-015] una vacuna 002 es válida si y solo si lote ≤ 120, veterinario ≤ 120, colegiado ≤ 60 y la próxima fecha es nula o posterior (oráculo de longitudes y fechas)', () => {
+    const len = fc.integer({ min: 0, max: 130 });
+    fc.assert(
+      fc.property(len, len, fc.integer({ min: 0, max: 70 }), fc.option(fc.integer({ min: -3, max: 3 }), { nil: null }), (batch, vet, license, nextDelta) => {
+        const applied = iso(2000);
+        const record = {
+          ...baseVaccination,
+          category: 'VACCINE',
+          appliedAt: applied,
+          nextBoosterAt: nextDelta === null ? null : iso(2000 + nextDelta),
+          batchOrClinic: batch === 0 ? null : 'b'.repeat(batch),
+          veterinarianName: vet === 0 ? null : 'v'.repeat(vet),
+          veterinarianLicense: license === 0 ? null : 'l'.repeat(license),
+        };
+        let actual = 'OK';
+        try {
+          validateRecord('vaccinations', record, '2019-01-01', '2026-11-05');
+        } catch (error) {
+          if (!(error instanceof DomainError)) throw error;
+          actual = error.code;
+        }
+        const expected = batch > 120 || vet > 120 || license > 60 ? 'ERR-SCHEMA-VALIDATION-FAILED' : nextDelta !== null && nextDelta <= 0 ? 'ERR-REC-INVALID-BOOSTER-DATE' : 'OK';
+        expect(actual).toBe(expected);
+      }),
+      { seed: PROPERTY_SEED, numRuns: 400 },
     );
   });
 });
