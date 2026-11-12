@@ -345,3 +345,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Archivo: tests/security/exploits/access-control.security.spec.ts (prueba «cada celda "No"…», ~L231-249). Lista esperada ahora ['eliminar otro registro']; filtro isSlice4Unserved acotado a esa etiqueta; comentario actualizado (caducó por T258, DELETE vacunas responde 403 ERR-ACC-FORBIDDEN).
 - Sin cambios en src/, contratos, generated, tasks.md, logos. Sin commit ni push.
 - Compuertas: vitest access-control 13/13; tsc --noEmit exit 0; verify-oracles CUMPLE (88 archivos, 0 débiles).
+
+### [2026-11-12] Keymaker checkpoint T260 (sin cambios de codigo)
+- Pruebas de T260 ya en verde antes de tocar nada: record-invariants 32, records.property 7, pet-and-alerts 33, alerts.property 6 = 78/78. superseded-guard.ts (T259) y record-invariants.ts (T253-T259 + 002) ya satisfacen REQ-REC2-002/003, INV-REC-003..006, STATE-ALERT-001, ERR-REC-SUPERSEDED-IMMUTABLE.
+- Trazabilidad T260 CUMPLE 8/8; tsc 0; oracles CUMPLE. Sin src/ ni tests/ modificados. Sin commit.
