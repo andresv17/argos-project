@@ -5,7 +5,7 @@ import { H1, LUNA_ID, NEW_PET, USERS_BY_NAME } from './api-fixtures.ts';
 /**
  * Feature 002 · T239 (rojo): asignación mascota-hogar, desasignación, poda por salida, expulsión o eliminación del hogar
  * y transferencia de propiedad legal por HTTP (REQ-HOUSE2-003, REQ-OWN-001, INV-OWN2-001, SC-016, SC-017).
- * Cada prueba crea sus mascotas y hogares con el flujo real. La fila de auditoría depende de T264 (pendiente).
+ * Cada prueba crea sus mascotas y hogares con el flujo real.
  * Cuerpos según pet.schema.json: TransferPetOwnershipInput {targetUserId}.
  * El OpenAPI no declara GET /pets/{petId}: el perfil y el dueño se leen del dashboard (profile.ownerUserId).
  */
@@ -151,7 +151,7 @@ describe('transferencia de propiedad legal por HTTP (REQ-OWN-001, SC-016, INV-OW
     expect(assignedHouseholds(list.json)).toEqual([hMaria]);
   });
 
-  it('[REQ-AUD-001][SC-016] la transferencia escribe una fila de auditoría OWNERSHIP_TRANSFER sobre la mascota (tabla audit_log, data-model.md §2.12; pendiente de T264)', async () => {
+  it('[REQ-AUD-001][SC-016] la transferencia escribe una fila de auditoría OWNERSHIP_TRANSFER sobre la mascota (tabla audit_log, data-model.md §2.12)', async () => {
     api = await createApi();
     const andres = await api.login('andres');
     const pet = await newPet(andres);
