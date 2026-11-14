@@ -11,6 +11,5 @@ export * from './repositories.port.ts';
 export * from './unit-of-work.port.ts';
 export * from './rate-limiter.port.ts';
 export * from './backup-token.port.ts';
-export * from './account-deletion-audit.port.ts';
 export * from './audit-log.port.ts';
 export * from './audit-pseudonym.port.ts';

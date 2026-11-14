@@ -32,6 +32,29 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
     return run;
   }
 
+  /**
+   * ADR-002-13 / plan.md:99: checkpoint del WAL con truncado tras el commit. `wal_checkpoint(TRUNCATE)` devuelve
+   * `{ busy, log, checkpointed }`; `busy !== 0` (o una excepción) es un fallo: se reintenta una vez y, si persiste, solo se
+   * emite un aviso sin identificadores. Nunca revierte nada.
+   */
+  async checkpointAfterCommit(): Promise<void> {
+    await this.queue;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      if (this.truncateWal()) return;
+    }
+    process.emitWarning('No se pudo truncar el WAL tras la eliminación; el borrado físico queda pendiente.');
+  }
+
+  /** true si el checkpoint terminó sin bloqueo (`busy === 0`). */
+  private truncateWal(): boolean {
+    try {
+      const rows = this.db.pragma('wal_checkpoint(TRUNCATE)') as Array<{ busy?: number }> | undefined;
+      return rows?.[0]?.busy === 0;
+    } catch {
+      return false;
+    }
+  }
+
   private async execute<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
     this.db.exec('BEGIN IMMEDIATE');
     try {

@@ -650,14 +650,14 @@ function auditLogRepository(db: SqliteDatabase): AuditLogRepositoryPort {
     'INSERT INTO audit_log (id, timestamp, executor_user_id, mutation_type, entity_type, entity_id, previous_state_hash, new_state_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   );
   const pseudonymize = db.prepare(
-    'UPDATE audit_log SET executor_user_id = CASE WHEN executor_user_id = ?1 THEN ?2 ELSE executor_user_id END, entity_id = CASE WHEN entity_id = ?1 THEN ?2 ELSE entity_id END WHERE executor_user_id = ?1 OR entity_id = ?1',
+    'UPDATE audit_log SET executor_user_id = CASE WHEN executor_user_id = @userId THEN @hmac ELSE executor_user_id END, entity_id = CASE WHEN entity_id = @userId THEN @hmac ELSE entity_id END WHERE executor_user_id = @userId OR entity_id = @userId',
   );
   return {
     async insert(entry: AuditEntry) {
       insert.run(entry.id, entry.timestamp, entry.executorUserId, entry.mutationType, entry.entityType, entry.entityId, entry.previousStateHash, entry.newStateHash);
     },
     async pseudonymizeUser(userId, hmac) {
-      pseudonymize.run(userId, hmac);
+      pseudonymize.run({ userId, hmac });
     },
   };
 }

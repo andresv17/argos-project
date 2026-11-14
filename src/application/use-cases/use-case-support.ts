@@ -24,7 +24,6 @@ import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAl
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
-import type { AccountDeletionAuditPort } from '../ports/account-deletion-audit.port.ts';
 import type { AuditLogPort } from '../ports/audit-log.port.ts';
 import type { AuditPseudonymPort } from '../ports/audit-pseudonym.port.ts';
 import type { BackupTokenPort } from '../ports/backup-token.port.ts';
@@ -54,8 +53,6 @@ export interface ApplicationDeps {
   readonly rateLimiter: RateLimiterPort;
   /** Token efímero de confirmación de respaldo (REQ-ACC-002). */
   readonly backupTokens: BackupTokenPort;
-  /** Auditoría de eliminación de cuenta (transitoria, nula hasta T265). */
-  readonly audit: AccountDeletionAuditPort;
   /** Auditoría de mutaciones (REQ-AUD-001): una fila por operación, en la transacción de la mutación (ADR-002-05). */
   readonly auditLog: AuditLogPort;
   /** Seudónimo HMAC del `entityId` de PET_ASSIGNMENT: `hmacUserId("<petId>:<householdId>", auditHmacSecret)`. */

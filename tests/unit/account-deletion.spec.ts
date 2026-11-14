@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/generated/index.ts';
-import type { AccountDeletionAuditPort } from '../../src/application/ports/account-deletion-audit.port.ts';
 import type { RepositorySet } from '../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.port.ts';
 import { DeleteAccountUseCase } from '../../src/application/use-cases/account-use-cases.ts';
 import { CONFIRMATION_PHRASE, isConfirmationTokenShape, planHouseholdsForDeletion, planPetAssignmentsForDeletion } from '../../src/domain/account/account-deletion-guards.ts';
 import { InMemoryUnitOfWork, type MemoryState } from '../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
+import { AUDIT_SECRET_HEX } from '../fixtures/audit-fixtures.ts';
 import { createHarness, type Harness } from '../fixtures/application-harness.ts';
 import {
   ANA,
@@ -33,25 +33,17 @@ function setup(state: MemoryState = identityState(), makeUow?: (inner: InMemoryU
   const harness: Harness = createHarness(state);
   harness.clock.setClock(REFERENCE_TODAY, REFERENCE_NOW);
   const uow = makeUow === undefined ? harness.uow : makeUow(harness.uow);
-  const auditCalls: string[] = [];
-  const audit: AccountDeletionAuditPort = {
-    pseudonymOf: (userId) => {
-      auditCalls.push(`pseudonymOf:${userId}`);
-      return 'f'.repeat(64);
-    },
-    recordAccountDeletion: async (_repositories, pseudonym) => {
-      auditCalls.push(`recordAccountDeletion:${pseudonym}`);
-    },
-  };
-  const deps = { ...harness.deps, uow, audit };
+  const deps = { ...harness.deps, uow };
   const useCase = new DeleteAccountUseCase(deps);
+  /** Filas ACCOUNT_DELETE reales del repositorio de auditoría (REQ-AUD-001). */
+  const deletionRows = () => harness.uow.snapshot().auditLog.filter((r) => r.mutationType === 'ACCOUNT_DELETE');
   const session = async (userId: string, token: string) => {
     await deps.uow.runInTransaction(async (r) => r.sessions.save(token, { userId, createdAt: REFERENCE_NOW, lastActivityAt: REFERENCE_NOW, revokedAt: null }));
     return token;
   };
   const issueToken = async (userId: string) => (await deps.uow.runInTransaction((r) => deps.backupTokens.issue(r, userId, deps.clock.nowIsoTimestamp()))).token;
   const tokenUsable = async (userId: string, token: string) => deps.uow.runInTransaction((r) => deps.backupTokens.consume(r, userId, token, deps.clock.nowIsoTimestamp()));
-  return { ...harness, uow: harness.uow, deps, useCase, auditCalls, session, issueToken, tokenUsable };
+  return { ...harness, uow: harness.uow, deps, useCase, deletionRows, session, issueToken, tokenUsable };
 }
 
 async function outcome(promise: Promise<unknown>): Promise<string> {
@@ -109,7 +101,7 @@ describe('fase A de la eliminación de cuenta: sin escrituras (STATE-ACCOUNT-DEL
     }
     expect(await outcome(t.useCase.execute(ELENA, 'ses', { password: ELENA_PASSWORD, backupConfirmationToken: token }))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
     expect(await outcome(t.useCase.execute(ELENA, 'ses', input({ extra: true, backupConfirmationToken: token })))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
-    expect([t.hasher.calls, t.uow.snapshot(), t.auditCalls]).toEqual([[], before, []]);
+    expect([t.hasher.calls, t.uow.snapshot(), t.deletionRows()]).toEqual([[], before, []]);
   });
 
   it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001][ERR-AUTH-INVALID-CREDENTIALS] contraseña incorrecta: el único cambio es el contador de fallos; el token no se consume y no hay auditoría', async () => {
@@ -119,7 +111,7 @@ describe('fase A de la eliminación de cuenta: sin escrituras (STATE-ACCOUNT-DEL
     const before = t.uow.snapshot();
     expect(await outcome(t.useCase.execute(ELENA, 'ses', input({ password: 'incorrecta', backupConfirmationToken: token })))).toBe('ERR-AUTH-INVALID-CREDENTIALS');
     expect(t.uow.snapshot()).toEqual({ ...before, loginFailures: { 'elena.solo': [REFERENCE_NOW] } });
-    expect([await t.tokenUsable(ELENA, token), t.auditCalls]).toEqual([true, []]);
+    expect([await t.tokenUsable(ELENA, token), t.deletionRows()]).toEqual([true, []]);
   });
 
   it('[REQ-ACC-002][INV-AUTH-005][ERR-AUTH-TOO-MANY-ATTEMPTS] los fallos cuentan para el limitador: con 5 en la ventana responde 429 sin verificar la contraseña', async () => {
@@ -140,7 +132,7 @@ describe('fase A de la eliminación de cuenta: sin escrituras (STATE-ACCOUNT-DEL
     for (const backupConfirmationToken of [undefined, null, 'corto', 'A'.repeat(44), 12, `${token}!`]) {
       expect(await outcome(t.useCase.execute(ELENA, 'ses', input({ backupConfirmationToken }))), String(backupConfirmationToken)).toBe('ERR-ACCOUNT-CONFIRMATION-MISMATCH');
     }
-    expect([t.uow.snapshot(), await t.tokenUsable(ELENA, token), t.auditCalls]).toEqual([before, true, []]);
+    expect([t.uow.snapshot(), await t.tokenUsable(ELENA, token), t.deletionRows()]).toEqual([before, true, []]);
   });
 
   it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001] el orden de errores respeta la máquina: la contraseña incorrecta se informa antes que un token ausente', async () => {
@@ -172,7 +164,9 @@ describe('fase B de la eliminación de cuenta: una transacción atómica (STATE-
     expect(JSON.stringify(after)).not.toContain(ELENA);
     expect(JSON.stringify(after)).not.toContain('elena.solo');
     expect(await t.tokenUsable(ELENA, token)).toBe(false);
-    expect(t.auditCalls).toEqual([`pseudonymOf:${ELENA}`, `recordAccountDeletion:${'f'.repeat(64)}`]);
+    const pseudonym = t.deps.auditPseudonym.hmacUserId(ELENA, AUDIT_SECRET_HEX);
+    expect(pseudonym).toMatch(/^[0-9a-f]{64}$/);
+    expect(t.deletionRows().map((r) => [r.mutationType, r.entityType, r.executorUserId, r.entityId])).toEqual([['ACCOUNT_DELETE', 'USER', pseudonym, pseudonym]]);
   });
 
   it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001] el token es de un solo uso: tras eliminar la cuenta, el mismo token ya no sirve ni siquiera a otra persona', async () => {
@@ -198,7 +192,7 @@ describe('fase B de la eliminación de cuenta: una transacción atómica (STATE-
     expect(await outcome(t.useCase.execute(ELENA, 'ses', input({ backupConfirmationToken: fresh })))).toBe('ERR-ACCOUNT-CONFIRMATION-MISMATCH');
     t.clock.setClock(REFERENCE_TODAY, new Date(Date.parse(REFERENCE_NOW) + 10 * MINUTE - 1).toISOString());
     expect(await t.useCase.execute(ELENA, 'ses', input({ backupConfirmationToken: fresh }))).toBe(204);
-    expect(t.auditCalls.filter((c) => c.startsWith('recordAccountDeletion'))).toHaveLength(1);
+    expect(t.deletionRows()).toHaveLength(1);
   });
 
   it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001][ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD] el propietario de un hogar con otro miembro ACTIVE no puede eliminar la cuenta y el rollback deja el token vigente', async () => {
@@ -208,7 +202,7 @@ describe('fase B de la eliminación de cuenta: una transacción atómica (STATE-
     const before = t.uow.snapshot();
     const ana = { confirmationPhrase: CONFIRMATION_PHRASE, password: IDENTITY_PASSWORDS['ana.duena'], backupConfirmationToken: token };
     expect(await outcome(t.useCase.execute(ANA, 'ses-ana', ana))).toBe('ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD');
-    expect([t.uow.snapshot(), await t.tokenUsable(ANA, token), t.auditCalls.filter((c) => c.startsWith('recordAccountDeletion'))]).toEqual([before, true, []]);
+    expect([t.uow.snapshot(), await t.tokenUsable(ANA, token), t.deletionRows()]).toEqual([before, true, []]);
   });
 
   it('[REQ-ACC-002][STATE-ACCOUNT-DELETE-001] cuando el hogar queda con la propietaria como único miembro ACTIVE, la misma solicitud ya procede y elimina el hogar en cascada', async () => {
@@ -253,7 +247,7 @@ describe('fase B de la eliminación de cuenta: una transacción atómica (STATE-
       const token = await t.issueToken(BRUNO);
       const before = t.uow.snapshot();
       expect(await outcome(t.useCase.execute(BRUNO, 'ses-bruno', brunoRequest(token)))).toBe('ERR-ACCOUNT-OWNS-SHARED-PETS');
-      expect([t.uow.snapshot(), await t.tokenUsable(BRUNO, token), t.auditCalls.filter((c) => c.startsWith('recordAccountDeletion'))]).toEqual([before, true, []]);
+      expect([t.uow.snapshot(), await t.tokenUsable(BRUNO, token), t.deletionRows()]).toEqual([before, true, []]);
     });
 
     it('[REQ-ACC-002][ERR-ACCOUNT-OWNS-SHARED-PETS] una asignación a un hogar ajeno (el usuario no es miembro) con otro miembro ACTIVE también bloquea', async () => {

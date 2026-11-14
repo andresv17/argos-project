@@ -4,7 +4,6 @@ import type { BackupEnvelopeV3, Household, PetProfile, UserPublicProfile } from 
 import { Sha256BackupTokenAdapter } from '../../src/infrastructure/adapters/sha256-backup-token.adapter.ts';
 import { HmacAuditPseudonymAdapter } from '../../src/infrastructure/adapters/hmac-audit-pseudonym.adapter.ts';
 import { RepositoryAuditLogAdapter } from '../../src/infrastructure/adapters/repository-audit-log.adapter.ts';
-import { NullAuditLogAdapter } from '../../src/infrastructure/adapters/null-audit-log.adapter.ts';
 import { SlidingWindowRateLimiterAdapter, type RateLimits } from '../../src/infrastructure/adapters/sliding-window-rate-limiter.adapter.ts';
 import type { ClockPort } from '../../src/application/ports/clock.port.ts';
 import type { PasswordHasherPort } from '../../src/application/ports/password-hasher.port.ts';
@@ -83,7 +82,7 @@ export const TEST_RATE_LIMITS: RateLimits = { EXPORT: { maxPerWindow: 5, windowM
 export const AUDIT_ROW_IDS = Array.from({ length: 500 }, (_, i) => `a1000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`);
 export const RATE_EVENT_IDS = Array.from({ length: 500 }, (_, i) => `e1000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`);
 
-/** Dependencias de aplicación de pruebas: ids y tokens deterministas, límites configurables y auditoría de mutaciones real (T262) y eliminación de cuenta aún nula (hasta T265). */
+/** Dependencias de aplicación de pruebas: ids y tokens deterministas, límites configurables y auditoría de mutaciones real (T262) y eliminación de cuenta con fila ACCOUNT_DELETE (T265). */
 export function createDeps(uow: UnitOfWorkPort, clock: ClockPort, hasher: PasswordHasherPort, rateLimits: RateLimits = TEST_RATE_LIMITS): ApplicationDeps {
   const tokens = new SequentialTokenAdapter();
   return {
@@ -95,7 +94,6 @@ export function createDeps(uow: UnitOfWorkPort, clock: ClockPort, hasher: Passwo
     dummyPasswordHash: DUMMY_PASSWORD_HASH,
     rateLimiter: new SlidingWindowRateLimiterAdapter(new DeterministicIdAdapter(RATE_EVENT_IDS), rateLimits),
     backupTokens: new Sha256BackupTokenAdapter(tokens),
-    audit: new NullAuditLogAdapter(),
     auditLog: new RepositoryAuditLogAdapter(),
     auditPseudonym: new HmacAuditPseudonymAdapter(),
     auditHmacSecret: AUDIT_SECRET_HEX,

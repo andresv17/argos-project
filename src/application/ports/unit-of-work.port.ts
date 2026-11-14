@@ -15,4 +15,10 @@ import type { RepositorySet } from './repositories.port.ts';
 
 export interface UnitOfWorkPort {
   runInTransaction<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T>;
+  /**
+   * Borrado físico (ADR-002-13): checkpoint del WAL con truncado, que se invoca DESPUÉS del commit de una eliminación.
+   * Nunca lanza: si falla no se revierte nada y el adaptador reintenta y avisa sin identificadores. Opcional: los
+   * almacenamientos sin WAL (memoria) lo omiten.
+   */
+  checkpointAfterCommit?(): Promise<void>;
 }

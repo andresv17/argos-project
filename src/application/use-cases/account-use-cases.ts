@@ -11,7 +11,7 @@
  *   consumo del token.
  * - B4/B5/B6 se releen dentro de la transacción (T249): hogar compartido, mascotas asignadas a un hogar con otros
  *   miembros ACTIVE y aserción de asignaciones ajenas en los hogares en cascada.
- * - T265 PENDIENTE: la fila ACCOUNT_DELETE y la seudonimización pasan por AuditLogPort (nulo en la rebanada 1).
+ * - T265: la fila ACCOUNT_DELETE (HMAC) y la seudonimización pasan por AuditLogPort/AuditPseudonymPort; el checkpoint del WAL va tras el commit (ADR-002-13).
  *
  * @implements REQ-ACC-001, REQ-ACC-002, REQ-AUTH2-003, REQ-TIME-001, STATE-ACCOUNT-DELETE-001, INV-AUTH2-001, INV-AUTH-005, INV-AUTH-003, INV-ARCH-001, INV-ARCH-005, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-INVALID-CREDENTIALS, ERR-ACCOUNT-CONFIRMATION-MISMATCH, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, ERR-ACCOUNT-OWNS-SHARED-PETS, ERR-INTERNAL-UNEXPECTED
  */
@@ -116,10 +116,10 @@ export class DeleteAccountUseCase {
     if (!verified) throw invalidCredentialsError();
     const token = request.backupConfirmationToken;
     if (!isConfirmationTokenShape(token)) throw new DomainError('ERR-ACCOUNT-CONFIRMATION-MISMATCH');
-    // A3: seudónimo del userId (cálculo puro).
-    const pseudonym = this.deps.audit.pseudonymOf(userId);
+    // A3: seudónimo HMAC-SHA256 del userId (cálculo puro, mismo secreto y formato para executorUserId y entityId).
+    const pseudonym = this.deps.auditPseudonym.hmacUserId(userId, this.deps.auditHmacSecret);
 
-    return this.deps.uow.runInTransaction(async (repositories) => {
+    await this.deps.uow.runInTransaction(async (repositories) => {
       // B2: la sesión y la cuenta siguen vigentes (petición simultánea).
       const account = await repositories.users.findById(userId);
       const session = sessionToken === null ? null : await repositories.sessions.findByToken(sessionToken);
@@ -149,8 +149,10 @@ export class DeleteAccountUseCase {
       if (petPlan.foreignAssignmentsInCascade.length > 0) {
         throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'Un hogar en cascada contiene asignaciones de mascotas de otra persona; se revierte sin borrar datos ajenos.');
       }
-      // B7 y B8: auditoría y seudonimización (nula en la rebanada 1).
-      await this.deps.audit.recordAccountDeletion(repositories, pseudonym, now);
+      // B7: una sola fila ACCOUNT_DELETE/USER con el HMAC en executorUserId y entityId (sin userId en claro).
+      await recordAudit(this.deps, repositories, { executorUserId: pseudonym, mutationType: 'ACCOUNT_DELETE', entityType: 'USER', entityId: pseudonym, previous: account, next: null });
+      // B8: el historial previo del usuario (executorUserId y entityId de filas USER) pasa a su HMAC.
+      await this.deps.auditLog.pseudonymizeUser(repositories, userId, pseudonym);
       // B9: de hoja a raíz.
       for (const pet of ownedPets) {
         await repositories.records.deleteForPet(pet.id);
@@ -173,7 +175,9 @@ export class DeleteAccountUseCase {
       if ((await repositories.users.countReferences(userId)) !== 0) {
         throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'La eliminación de la cuenta dejó filas que referencian al usuario; se revierte.');
       }
-      return 204 as const;
     });
+    // Tras el commit: checkpoint del WAL con truncado (ADR-002-13). Un fallo no revierte la eliminación.
+    await this.deps.uow.checkpointAfterCommit?.();
+    return 204;
   }
 }

@@ -4,7 +4,6 @@ import { CryptoUuidAdapter } from '../../src/infrastructure/adapters/crypto-uuid
 import { ScryptPasswordHasherAdapter } from '../../src/infrastructure/adapters/scrypt-password-hasher.adapter.ts';
 import { SystemClockAdapter, isSupportedTimeZone } from '../../src/infrastructure/adapters/system-clock.adapter.ts';
 import * as reExports from '../../src/infrastructure/adapters/deterministic-adapters.ts';
-import { NullAuditLogAdapter } from '../../src/infrastructure/adapters/null-audit-log.adapter.ts';
 import { Sha256BackupTokenAdapter } from '../../src/infrastructure/adapters/sha256-backup-token.adapter.ts';
 import { SlidingWindowRateLimiterAdapter } from '../../src/infrastructure/adapters/sliding-window-rate-limiter.adapter.ts';
 import { InMemoryUnitOfWork } from '../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
@@ -190,18 +189,10 @@ describe('Sha256BackupTokenAdapter (src/infrastructure/adapters/sha256-backup-to
   });
 });
 
-describe('CryptoSecureTokenAdapter.nextConfirmationToken y NullAuditLogAdapter', () => {
+describe('CryptoSecureTokenAdapter.nextConfirmationToken', () => {
   it('[REQ-ACC-002][INV-ARCH-002] el token de confirmación son 32 bytes aleatorios en base64url (43 caracteres) y no se repiten', () => {
     const adapter = new CryptoSecureTokenAdapter();
     const tokens = Array.from({ length: 50 }, () => adapter.nextConfirmationToken());
     expect([tokens.every((t) => /^[A-Za-z0-9_-]{43}$/.test(t)), new Set(tokens).size]).toEqual([true, 50]);
-  });
-
-  it('[REQ-ACC-002] el puerto de auditoría nulo (hasta T265) devuelve un seudónimo fijo de 64 hex y no escribe nada', async () => {
-    const uow = new InMemoryUnitOfWork({ ...USERS_FOR_ADAPTERS() });
-    const audit = new NullAuditLogAdapter();
-    const before = uow.snapshot();
-    await uow.runInTransaction((r) => audit.recordAccountDeletion(r, audit.pseudonymOf(ANA), REFERENCE_NOW));
-    expect([audit.pseudonymOf(ANA), audit.pseudonymOf(ELENA), uow.snapshot()]).toEqual(['0'.repeat(64), '0'.repeat(64), before]);
   });
 });
