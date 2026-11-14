@@ -589,3 +589,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-14 — Keymaker: commits LOCALES Rebanada 6 (autorización de Neo vía Logos, sin push)
 - Inventario hecho: (a) src/presentation/web/** + 5 pruebas de Rebanada 6 + 6 pruebas modificadas + este log -> commit 1. (b) ui_blueprint.md, ui_maqueta_v2.html, ui_maqueta_cuenta.html, ui_propuestas_estructura.md, spec.md y tasks.md (diff solo de la enmienda de navegación T287/T288/REQ-UI2-001) -> commit 2.
 - (c) excluido por orden: wcag.spec.ts, e2e-support.ts, web-client.spec.ts, CLAUDE.md, guías, logs ajenos, veredictos, logos, gate-T296-output.txt, .playwright-mcp/. Sin push. Nada COMPLETED.
+
+## 2026-11-14 — Commit 3 de cierre local de la rebanada 6
+- Autorización expresa de Neo (Nivel 2, vía Logos): commit local, sin push, sin --no-verify.
+- Marcadas en tasks.md: T284-T293 y T296 (solo la casilla). T294 y T295 siguen abiertas.
+- Stage explícito: 3 archivos de prueba, tasks.md, claude/veredicto-*, handover-*, log-*, archivo/. Excluidos: registro-proceso-argos.md, logos.json, gate-T296-output.txt, .playwright-mcp/.

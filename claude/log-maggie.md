@@ -12,3 +12,7 @@
 ## 2026-11-11 — T234 fin
 - Escrito .specify/memory/audits/rebanada-2-maggie.md. 2/8 cotas validadas, 6/8 provisionales; sin alertas de peso/edad (código leído).
 - ADR-002-15 ACEPTADO con condición de texto UI ("sin próxima fecha", nunca "al día"). P-1..P-5 siguen abiertos. Sin commit.
+
+## 2026-11-13 — T268 (Feature 002, rebanada 4)
+- Leídos spec REQ-REC2-002/003, STATE-ALERT-001, data-model:117, evaluator, superseded-guard, record-invariants y pruebas T255/T260/T263.
+- vitest: 107 pruebas, 104 pasan, 3 fallan (GET /pets, ajenas). Escrito .specify/memory/audits/rebanada-4-maggie.md: H-1 media (sin prueba de SUPERSEDED con fecha nula), H-2 baja, H-3 baja. Sin commit; no marco T268.

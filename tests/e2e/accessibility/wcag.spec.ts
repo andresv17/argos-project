@@ -6,7 +6,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { accessibilityFindings, apiCall, apiPost, createPetViaApi, isoDateFromToday, registerViaApi } from '../visual/e2e-support.ts';
+import { accessibilityFindings, accessibilityFindingsAt, apiCall, apiPost, createPetViaApi, isoDateFromToday, registerViaApi, VIEWPORT_WIDTHS_V21 } from '../visual/e2e-support.ts';
 
 const HOUSE = 'Casa Accesible';
 
@@ -140,5 +140,64 @@ test.describe('axe-core a 320, 1024 y 1280 px (tests/e2e/accessibility)', () => 
     await expect(owner.getByText(/No se modificó ningún dato/)).toBeVisible();
     findings.push(...(await accessibilityFindings(owner, 'respaldo-error')));
     expect(findings).toEqual([]);
+  });
+});
+
+/**
+ * T285 (Rebanada 6, REQ-UI2-008, REQ-UI2-004, SC-005): los cuatro anchos de la v2.1 (320, 768, 1024 y 1280 px) en todas las
+ * pantallas, `/cuenta` incluida, y sin desbordamiento horizontal a 320 px. El archivo es serial: la prueba de `/cuenta` (roja hasta T290) va la última para
+ * no ocultar el resultado de las demás.
+ */
+test.describe('axe-core a 320, 768, 1024 y 1280 px (Rebanada 6, T285)', () => {
+  const screens: ReadonlyArray<readonly [string, string]> = [
+    ['/', 'mascotas'],
+    ['/households', 'hogares'],
+    ['/backup', 'respaldo'],
+  ];
+
+  for (const [path, name] of screens) {
+    test(`[REQ-UI2-008][SC-005] ${name} (${path}) sin violaciones critical ni serious a 320, 768, 1024 y 1280 px`, async () => {
+      await owner.goto(path);
+      await expect(owner.getByRole('main')).toBeVisible();
+      expect(await accessibilityFindingsAt(owner, `${name}-v21`, VIEWPORT_WIDTHS_V21)).toEqual([]);
+    });
+  }
+
+  test('[REQ-UI2-008][REQ-UI2-004][SC-005] la ficha de la mascota a los cuatro anchos', async () => {
+    await owner.goto('/');
+    await owner.getByRole('option', { name: /Argos/ }).click();
+    await expect(owner.getByRole('heading', { name: 'Argos', level: 2 })).toBeVisible();
+    expect(await accessibilityFindingsAt(owner, 'ficha-v21', VIEWPORT_WIDTHS_V21)).toEqual([]);
+  });
+
+  test('[REQ-UI2-008][REQ-UI-005] login y registro a los cuatro anchos', async () => {
+    const page = await anonymous.newPage();
+    const findings: string[] = [];
+    for (const path of ['/login', '/register']) {
+      await page.goto(path);
+      await expect(page.getByRole('main')).toBeVisible();
+      findings.push(...(await accessibilityFindingsAt(page, `${path}-v21`, VIEWPORT_WIDTHS_V21)));
+    }
+    expect(findings).toEqual([]);
+  });
+
+  test('[REQ-UI2-008][SC-005] sin desbordamiento horizontal a 320 px en mascotas, hogares y respaldo (el de /cuenta lo cubre su propia prueba, que va al final)', async () => {
+    await owner.setViewportSize({ width: 320, height: 900 });
+    const overflow: string[] = [];
+    for (const path of ['/', '/households', '/backup']) {
+      await owner.goto(path);
+      expect(new URL(owner.url()).pathname, `la ruta ${path} debe existir`).toBe(path);
+      const { scrollWidth, innerWidth } = await owner.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
+      if (scrollWidth > innerWidth + 1) overflow.push(`${path}: scrollWidth ${scrollWidth} > ${innerWidth}`);
+    }
+    await owner.setViewportSize({ width: 1280, height: 900 });
+    expect(overflow).toEqual([]);
+  });
+
+  test('[REQ-UI2-004][REQ-UI2-008][SC-005] /cuenta existe, muestra la zona de peligro y no tiene violaciones critical ni serious a los cuatro anchos', async () => {
+    await owner.goto('/cuenta');
+    await expect(owner).toHaveURL(/\/cuenta$/);
+    await expect(owner.getByRole('heading', { name: 'Zona de peligro' })).toBeVisible();
+    expect(await accessibilityFindingsAt(owner, 'cuenta-v21', VIEWPORT_WIDTHS_V21)).toEqual([]);
   });
 });

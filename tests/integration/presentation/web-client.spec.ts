@@ -1,11 +1,14 @@
 import type { AddressInfo } from 'node:net';
+import { createElement as h } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ANDRES, PASSWORDS } from '../../fixtures/application-harness.ts';
 import { createApi, type Api } from '../api/api-harness.ts';
 import { ARGOS_ID, H1 } from '../api/api-fixtures.ts';
-import { ApiProblem, createWebApi, CSRF_PARAMS, unwrap, type ApiClient } from '../../../src/presentation/web/api.ts';
+import { ApiProblem, createWebApi, CSRF_PARAMS, problemMessage, unwrap, type ApiClient } from '../../../src/presentation/web/api.ts';
+import { PetCardList, PetFilter } from '../../../src/presentation/web/components/PetCards.tsx';
 import { addRecord } from '../../../src/presentation/web/records.ts';
-import { ownerBadge } from '../../../src/presentation/web/view-model.ts';
+import { ownerBadge, type Species } from '../../../src/presentation/web/view-model.ts';
 
 /**
  *: la SPA usa el cliente generado contra la API real (Fastify escuchando en 127.0.0.1).
@@ -91,5 +94,52 @@ describe('cliente generado de la SPA contra la API real', () => {
     const client = createWebApi(await baseUrl());
     const error = await unwrap(client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'debil', displayName: 'Débil', password: 'corta', confirmPassword: 'corta' } })).catch((e: unknown) => e);
     expect(error instanceof ApiProblem ? [error.problem.status, error.problem.code, error.problem.field] : null).toEqual([422, 'ERR-AUTH-WEAK-PASSWORD', 'password']);
+  });
+});
+
+/** T284 — la UI de la Rebanada 6 consume el contrato 002 real: permissions, colorToken, 8 especies y mensajes humanos. */
+describe('presentación de la Rebanada 6 contra la API real (T284)', () => {
+  const noop = (): void => undefined;
+  const NEW_SPECIES: ReadonlyArray<readonly [Species, string]> = [
+    ['RABBIT', 'Copito'],
+    ['FERRET', 'Hurón Uno'],
+    ['BIRD', 'Piolín'],
+    ['REPTILE', 'Rex'],
+    ['SMALL_MAMMAL', 'Hamtaro'],
+    ['OTHER', 'Axel'],
+  ];
+
+  it('[REQ-UI2-002][REQ-PET2-002] la UI ofrece los cinco filtros del contrato y la API real filtra por ellos con la misma semántica (Otros = resto de especies)', async () => {
+    const client = await loggedClient();
+    for (const [species, name] of NEW_SPECIES) {
+      const body = { name, species, speciesOther: species === 'OTHER' ? 'Axolote' : null, breed: 'Mestiza', birthDate: '2024-03-01', sex: 'FEMALE' as const, avatarUrl: null };
+      await unwrap(client.POST('/pets', { params: CSRF_PARAMS, body: body as never }));
+    }
+    const names = async (filter: 'ALL' | 'CANINE' | 'FELINE' | 'OTHERS' | 'WITH_ALERTS') => (await unwrap(client.GET('/pets', { params: { query: { filter } } }))).map((c) => c.profile.name);
+    const markup = renderToStaticMarkup(h(PetFilter, { q: '', species: '', onChange: noop }));
+    const texts = [...markup.matchAll(/>([^<>]+)</g)].map((m) => (m[1] ?? '').trim());
+    const labels = ['Todos', 'Perros', 'Gatos', 'Otros', 'Con alertas sanitarias'];
+    const otherNames = (await names('OTHERS')).sort();
+    expect({ offered: texts.filter((t) => labels.includes(t)), others: otherNames }).toEqual({ offered: labels, others: NEW_SPECIES.map(([, n]) => n).sort() });
+  });
+
+  it('[REQ-UI2-003][INV-HOUSE-005] las tarjetas reales del hogar muestran «Dueño: [Nombre]» con el color de la API y «Solo lectura» solo si todos los permisos de escritura son falsos', async () => {
+    const client = await loggedClient();
+    const house = await unwrap(client.GET('/households/{householdId}/pets', { params: { path: { householdId: H1 } } }));
+    const markup = renderToStaticMarkup(h(PetCardList, { cards: house.pets, activePetId: null, onSelect: noop }));
+    const isReadOnly = (c: (typeof house.pets)[number]): boolean => !c.permissions.editPetBasics && !c.permissions.writeHealthEvents && !c.permissions.writeWeightsAndMeasurements && !c.permissions.writeAppointmentsAndParameters;
+    const observed = house.pets.map((c) => {
+      const li = new RegExp(`data-pet-id="${c.profile.id}"[\\s\\S]*?</li>`).exec(markup)?.[0] ?? '';
+      return [c.profile.name, c.myRole, li.includes(`data-owner-badge="${c.owner.colorToken}"`), li.includes(`Dueño: ${c.owner.displayName}`), li.includes('Solo lectura')];
+    });
+    expect(observed).toEqual(house.pets.map((c) => [c.profile.name, c.myRole, true, true, isReadOnly(c)]));
+    expect(house.pets.map((c) => c.myRole)).toContain('ADMIN');
+  });
+
+  it('[REQ-UI-005][ERR-SCHEMA-VALIDATION-FAILED] el rechazo real del registro con un usuario inválido llega a la UI sin el texto técnico del esquema formal', async () => {
+    const client = createWebApi(await baseUrl());
+    const error = await unwrap(client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'Mayusculas', displayName: 'X', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' } })).catch((e: unknown) => e);
+    const shown = error instanceof ApiProblem ? [error.problem.code, problemMessage(error.problem).includes('El payload incumple el esquema formal')] : null;
+    expect(shown).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', false]);
   });
 });

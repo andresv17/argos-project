@@ -248,3 +248,125 @@ Obs: mensaje del commit menciona contador no presente en el diff.
 - access-control 13/13, verify-oracles CUMPLE (0 debiles), tsc 0, session-csrf+households.property 17/17. tasks.md sin cambios en T236-T242/T252.
 - Pruebas de export con GET + contract:false: fuertes en contenido (200, solo LUNA, sin ARGOS, sin secretos; import ajeno 409 rollback) pero no ejercen POST 002 ni 401/403 de rol. Causa raiz de Neo confirmada (72e7e70).
 - Deuda D-T271-1..3 declarada. Detalle: claude/veredicto-auditor-task-T252-final-2026-11-12.md
+
+## 2026-11-12 Oracle — T253 fase ROJA: APTO (condicion T259)
+- Commit 7c079e9 solo tests+bitacoras; vitest falla por modulo src/domain/audit/* ausente (no tests ejecutados); tsc 6x TS2307; verify-oracles CUMPLE; traceability falla solo INV-AUD-001 (esperado).
+- Lista de secretos: sessionId sobra vs spec (inocuo); faltan tokenHash/confirmationToken (data-model 2.2/2.4, common.schema ConfirmationToken). Condicion para T259.
+- Detalle: claude/veredicto-auditor-task-T253-2026-11-12.md
+
+## 2026-11-12 Oracle — T254-T257 fase ROJA: APTO
+- Commit d83cb77 solo tests+bitacoras; rojo por audit_log ausente, src/domain/audit y superseded-guard ausentes, rutas PATCH/DELETE de registros ausentes y config ARGOS_AUDIT_HMAC_SECRET sin validar. 3 fallas GET /pets de pets-records son de la base. tsc 6x TS2307; verify-oracles CUMPLE.
+- Secretos de T253 correctos (sessionId solo como no secreto). Saneamiento de fixtures 002 sin debilitar oraculos.
+- Supuestos verde: secreto de prueba, produccion 64 hex, superseded-guard 409, app-config.spec. Detalle: claude/veredicto-auditor-task-T254-T257-2026-11-12.md
+
+### [2026-11-12] Oracle checkpoint T258-T259
+- Veredicto CONDICIONADO: gates verdes; condiciones C1 (access-control:247), C2 (CC-T258-2), C3 (H-T258-O1). Ver claude/veredicto-auditor-task-T258-T259-2026-11-12.md
+- 2026-11-12 [oracle] Revalidación T258-T259: APTO. Filtro extra aprobado (más estricto: 'eliminar evento sanitario' exige 403).
+
+### [2026-11-12] Oracle veredicto T260: APTO (ver claude/veredicto-auditor-task-T260-2026-11-12.md)
+
+### [2026-11-12] Oracle veredicto T262: CONDICIONADO (ver claude/veredicto-auditor-task-T262-2026-11-12.md)
+
+### [2026-11-12] Oracle veredicto T263: CONDICIONADO (ver claude/veredicto-auditor-task-T263-2026-11-12.md)
+- Codigo sin bloqueantes; tests/contracts/generated sin cambios; 2 andamios caducados legitimamente, requieren autorizacion de Neo para retirarlos.
+
+### [2026-11-12] Oracle revalidación T263: APTO (ver claude/veredicto-auditor-task-T263-revalidacion-2026-11-12.md)
+- Solo cambian las 2 pruebas autorizadas; aserción [19, [], 'Nala'] más estricta, sin huérfanos; suite 102 fallos como se esperaba.
+
+### [2026-11-12] Oracle T264: CONDICIONADO (ver claude/veredicto-auditor-task-T264-2026-11-12.md)
+- audit.api:113 afirma OWNERSHIP_TRANSFER/PET + UNASSIGN con HMAC "petId:householdId"; la superviviente sin fila. Misma transacción por código; sin prueba de reversión específica (informativo).
+- tsc 0, oracles CUMPLE, traza CUMPLE, 4 rojos T265/T266, suite 102 fallos, sin cambios en src/tests.
+
+### [2026-11-13] Oracle T265 FINAL: APTO
+- Medido: traza 4/4, oraculos CUMPLE, tsc 0, account-deletion 26/26, checkpoint 4/4, suite 96/1485 (16 archivos), ninguno de T265 (solo scrypt timeout preexistente en infrastructure-adapters).
+- Diff: ACCOUNT_DELETE y pseudonymizeUser dentro de la transaccion; checkpoint tras commit; 0 residuos NULL_PSEUDONYM/puertos transitorios. Veredicto: claude/veredicto-auditor-task-T265-final-2026-11-13.md
+
+### [2026-11-13] Oracle T266: APTO (ver claude/veredicto-auditor-task-T266-2026-11-13.md)
+- Medido: traza CUMPLE, oraculos CUMPLE 0 debiles, tsc 0, audit.api 18/18, maintenance 3/3, suite 94/1488 (15 archivos), ninguno tocado por T266.
+- Diff: solo DELETE, una transaccion, checkpoint tras commit, sin Date. 6 decisiones a Neo (D1, D4, D5 sin respaldo pleno); H-T266-I1..I3 informativos.
+
+### [2026-11-13] Oracle T267: auditoria iniciada
+- Checkpoint WAL: verificando traza, oraculos, tsc, marker 5/5, suite y debilidad de aserciones sobre sqlite-migration-marker.spec.ts.
+
+### [2026-11-13] Oracle T267: APTO (ver claude/veredicto-auditor-task-T267-2026-11-13.md)
+- Medido: traza CUMPLE, oraculos 0 debiles, tsc 0, marker 5/5, suite 94/1493, ninguno tocado por T267. Solo se anade test; migracion 0005 ya cumple. H-T267-I1..I3 informativos.
+
+### [2026-11-13] Oracle T268: auditoria iniciada
+- Checkpoint WAL: diff solo 3 archivos (src solo comentario); verificando traza, oraculos, tsc, mutacion, H-3 en HEAD, suite.
+
+### [2026-11-13] Oracle T268: APTO CONDICIONADO
+- traza 3/3, oraculos 0 debiles, tsc 0, 107/110, suite 94/1496 (0 nuevos), mutacion tumba las 3 pruebas, H-3 ya fallaba en HEAD. Veredicto: claude/veredicto-auditor-task-T268-2026-11-13.md
+
+### [2026-11-13] Oracle T268/T269 revalidación D-1: auditoría iniciada
+- Checkpoint WAL: diff src/tests = 8 archivos esperados; verificando app-config, pruebas nuevas, ajustes, compuertas y suite.
+
+### [2026-11-13] Oracle revalidación D-1: T268 APTO, T269 APTO
+- Medido: traza T268 3/3 y T269 1/1 CUMPLE, oraculos 0 debiles, tsc 0, 4 archivos 31/31, suite 94/1502 (0 nuevos). Veredictos: claude/veredicto-auditor-task-T269-D1-2026-11-13.md, ...T268-revalidacion-D1-2026-11-13.md
+
+### [2026-11-13] Oracle T271/T272 FASE ROJA: auditoría
+- Medido: 25 rojas/0 verdes (23 = 404 no declarado en contrato exportBackup, 1 = 404 previewBackupImport, 1 = GET heredado devuelve 200), tsc 0, oráculos 0 débiles, traza T271 5/5 y T272 3/3 CUMPLE, src/tests solo 2 archivos nuevos.
+- Veredicto: APTO CONDICIONADO (H-T271-1..4, H-T272-1..2). Archivo: claude/veredicto-auditor-task-T271-T272-faseroja-2026-11-13.md
+
+### [2026-11-13] Oracle Rebanada 5 FRENTE ROJO T271-T275: auditoría
+- Medido: 83 nuevas rojas (19/38/26) + 52/14 backup-use-cases + 2 access-control + 12 preview, todas por funcionalidad ausente o heredado; tsc 0, oráculos 0 débiles, traza T271-T275 CUMPLE, src vacío, HEAD 45649fc.
+- Hallazgo clave: execute(userId,{role}) no existe y rbac concede EXPORT_IMPORT_BACKUP a 4 roles: prueba de 403 inalcanzable (decisión de Neo). 2 de 3 rojas T271 enmascaradas por ERR-INTERNAL-UNEXPECTED.
+- Veredicto: APTO CONDICIONADO (H-R5-1..6). Archivo: claude/veredicto-auditor-rebanada5-faseroja-2026-11-13.md
+
+### [2026-11-13] Oracle Rebanada 5 FASE VERDE T276-T279: inicio de auditoría
+- Alcance: diff sin commit sobre HEAD 37772a2; comparación de suite con worktree base; dictamen contradicciones A/B y BackupPage. Solo lectura.
+
+### [2026-11-13] Oracle R5 FASE VERDE T276-T279: veredicto
+- Medido: tsc 0; oráculos 102/0; traza T276-279 CUMPLE; suite base 208/1613 vs ahora 28/1656; regresiones 0; 26 heredadas idénticas + A + B. src dentro de lista; src/generated limpio.
+- A: prevalece T272 (Lucía), enmendar prueba T274. B: corregir prueba a SCHEMA-INVALID. BackupPage rota, no bloquea, deuda/T292.
+- Veredicto: T276/T278/T279 APTO CONDICIONADO, T277 APTO. Archivo: claude/veredicto-auditor-rebanada5-faseverde-2026-11-13.md
+
+### [2026-11-13] Oracle R5 ENMIENDAS H-A-2/H-B-1/I: inicio de auditoría
+- Alcance: diff sin commit sobre 37772a2; dictamen D1 (colisiones 5/5) y D2 (Web Crypto). Solo lectura.
+
+### [2026-11-13] Oracle R5 enmiendas H-A-2/H-B-1/I: veredicto
+- Medido: tsc 0; oráculos 103/0; traza T271-279 CUMPLE; 3 archivos 66/66; respaldo 265/265; presentación 11 fallos, todos heredados (base 11 idénticos). D1 y D2 aceptar. H-E-1, H-E-2 menores.
+- Veredicto: H-A-2 APTO, H-B-1 APTO, I APTO CONDICIONADO. Archivo: claude/veredicto-auditor-rebanada5-enmiendas-2026-11-13.md
+
+### [2026-11-13] Oracle R5 cierre (T280, T281, H-1, compuertas T282): INICIO
+- Alcance: backup-chaos.security.spec.ts + backup-chaos-child.ts (T280), rebanada-5-rama.md (T281), access-control H-1, compuertas de cierre R5 sin test:gate. Solo lectura; mutación H-1 en copia de trabajo.
+
+### [2026-11-13] Oracle R5 cierre: veredicto
+- Medido: chaos 10/10 x3; T281 4 archivos 76/76; respaldo 12 archivos 275/275; tsc 0; oráculos 105/0; traza T271-281 11/11; vitest completo 26 fallos heredados, ninguno de respaldo. Mutación H-1 en copia: roja; control 13/13.
+- Veredicto: T280 APTO; T281 APTO CONDICIONADO (H-R-1 cita desfasada :100 -> :106; H-1 ya liquidada); H-1 APTO; compuertas R5 CUMPLE. Archivo: claude/veredicto-auditor-rebanada5-cierre-2026-11-13.md
+
+### 2026-11-14 — Oracle: auditoría del rediseño visual. APTO CONDICIONADO. Sin cambios de código ni de Git.
+- Alcance, exports, atributos semánticos, [FIX B-1], blur, typecheck, build, Vitest (idéntico por archivo), E2E (mismos 23/2), axe en vivo (0), 31 pares de contraste (0 fallos).
+- Condición: la suite E2E del repo no ejecuta sus pruebas axe por seed 'DOG' (wcag.spec.ts:29) y el usuario duplicado (pet-dashboard.spec.ts). Requiere autorización para corregir la suite.
+
+### 2026-11-14 — Oracle: auditoría de ui_blueprint.md v2.0 + ui_maqueta_v2.html. NO APTO (corregible, 1 rebote a Sati).
+- Compuertas: (1) cobertura NO CUMPLE (riel pierde datos [UI] de tarjeta); (2) contraste y blur CUMPLEN (blur 0 en <640, 1 en >=640; reserva: activo solo por relleno lima 1.25:1); (3) E2E en riesgo/roto (pet-dashboard.spec.ts:112, D2 en :63-68/:82-87, rebanada6 grilla 1/2/3); (4) cero métricas inventadas, con D3 sin declarar como excepción.
+- Maqueta: id duplicado en <main> (pet-panel inexistente), axe aria-valid-attr-value critical (corrida propia, solo maqueta). E2E y axe del repo NO ejecutados.
+- Veredicto: claude/veredicto-auditor-blueprint-v2.md (11 hallazgos H-BP2-1..11). src/, tests/ y contratos intactos; logos.json no tocado.
+
+### 2026-11-14 — Oracle: reauditoría única de ui_blueprint.md v2.1 + maquetas v2 y cuenta. APTO CONDICIONADO.
+- Verificado en disco y Chromium (320/639/640/768/1024/1280): H-BP2-1,2,3,5,6,7 corregidos; 0 ids duplicados; pet-panel dentro de main; axe 0 violaciones; blur 0/<640 y 1/>=640; 1 "Nueva mascota"; contraste 41 pares OK (disabled exento).
+- /cuenta: todos los controles con endpoint (identity.schema.json, /account/*, /backup/export); sin Dead UI ni métricas.
+- Tabla de peso a 320 px: desborda su región (313 en 220) con scroll interno; página sin scroll horizontal: cumple la regla.
+- Elevado a Neo: H-BP2-12 enlace "Perfil" directo vs menú de avatar de REQ-UI2-001/T287 (decisión 7 no lo cubre). Bajos: H-BP2-13 (Apéndice A), H-BP2-14 asterisco, H-BP2-15.
+- Veredicto: claude/veredicto-auditor-blueprint-v2-reauditoria.md. src/, tests/, specs/, contratos y logos.json intactos.
+
+### 2026-11-14 — Oracle: auditoría Rebanada 6 (T284-T293). APTO CONDICIONADO.
+- Ejecutado en disco: tsc 0; vitest 26 fallos/1660 ok (= línea base 12+14, sin fallo nuevo); verify-oracles CUMPLE (111 archivos, 0 débiles); traza --feature 002 117/118 (INV-HOUSE-001 ajeno) y T284..T293 CUMPLE una a una; Playwright suite completa 52/52; sonda propia 320/639/640/1280 en /, /households, /backup, /cuenta: blur 0/0/1/1, 0 ids duplicados, 0 desbordamiento, 1 "Nueva mascota" en /.
+- H-K-1 validada (lista blanca de 2 archivos, sin peticiones en ellos); H-K-2 coherente, enmendar blueprint §4.3 l.346 y §4.6 l.440; H-K-3 medio (ratificar); H-K-4 cumple T286, enmendar §5.2 l.481; H-K-5 sin UI muerta (ratificar); H-K-7/8 cumplen.
+- Límite: test:gate no ejecutado. Veredicto: claude/veredicto-auditor-rebanada6-t284-t293.md. Sin tocar src/tests/specs/contratos/logos.json; sin commit.
+
+### 2026-11-14 — Oracle: auditoría documental ui_blueprint v2.2 y tasks.md T287/T288. APTO CONDICIONADO.
+- tasks.md: diff de exactamente 2 líneas (T287, T288); IDs, casillas y estados intactos. v2.1 archivada existe.
+- Blueprint: enmiendas H-K-3/4/5 coherentes con RBAC (architecture_spec §4.1) y REQ-UI2-001. L388 (registro condicionado a editPetBasics) dictaminada ALTA: contradice REQ-RBAC-001/SC-008 y el código (PetDashboard.tsx:285, records.ts:140) y choca con L374 (Registrar peso).
+- Medias: "Tres NavLink" con cuatro enlaces (L220), texto obsoleto L226/L240, escenarios obsoletos spec.md:154-155,361. Bajas: Apéndice C sin v2.2, disparador del aviso de sesión.
+- Veredicto: claude/veredicto-auditor-documental-v22.md. Sin tocar src/tests/specs/contratos/logos.json; sin commit.
+
+### 2026-11-14 — Oracle: reconfirmación documental v2.3 (H-V22-2/3/4/5). CUMPLE 4/4.
+- Grep "Tres .NavLink" y "decisión 7" = 0; L220 "Cuatro NavLink"; L31/L45/L226/L240 describen decisión cerrada.
+- spec.md: diff de 4 líneas (L154, L155, L263, L361), coherente con T287. Apéndice C ordenado con v2.2 y v2.3; bloque E de §8 lista "Perfil".
+- Nueva menor N-1: ui_blueprint.md:201 esquema ASCII sin "Perfil". Veredicto: claude/veredicto-auditor-documental-v22-reconfirmacion.md. Sin commits.
+
+### 2026-11-14 — Oracle: fallos test:gate T296, línea base vs actual
+- Worktree ff0fe62 vs proyecto, tests/unit/presentation + tests/integration/presentation: 12 fallos en ambos; 12/12 HEREDADOS, 0 NUEVOS (incl. web-client REQ-UI-007).
+- Reserva: línea base ya incluye la presentación 002 commiteada; 14 fallos restantes del gate sin comparar. Veredicto: claude/veredicto-auditor-fallos-gate-t296.md. Sin commits; worktree eliminado.
+- 2026-11-14 Oracle: comparados los 14 restantes del gate T296 contra ff0fe62 (worktree limpio, retirado): 14/14 HEREDADOS, 0 NUEVOS; veredicto CUMPLE con excepción B-11. Detalle en claude/veredicto-auditor-fallos-gate-t296.md.

@@ -19,3 +19,20 @@
 ## 2026-11-11 · T224 informe · checkpoint (fin)
 - Entregado .specify/memory/audits/rebanada-1-rama.md (5 secciones, 4 brechas B1-B4 hacia T225).
 - T224 no marcada; sin commit ni push.
+
+## 2026-11-13 · T269 revisión de la rebanada 4 · checkpoint (inicio)
+- Revisión de privacidad de T265-T267 en HEAD 14a9b3d: ACCOUNT_DELETE con HMAC, pseudonymizeUser, secure_delete + checkpoint WAL, purga ADR-002-14, fila MIGRATION.
+- Solo se escribe .specify/memory/audits/rebanada-4-rama.md; sin tocar src/tests/tasks/logos; T269 no se marca; sin commit ni push.
+
+## 2026-11-13 · T269 · checkpoint (fin)
+- Pruebas del alcance: 6 archivos, 68/68 pasan (incluye log-redaction 3/3). Prueba física propia (script en scratchpad): userId 20 apariciones en db tras commit, 0 tras wal_checkpoint(TRUNCATE).
+- Hallazgos: H-1 baja (ARGOS_AUDIT_RETENTION_DAYS configurada pero ignorada: purga fija en 24 meses); D-1 y D-2 decisiones para Neo (clave de desarrollo fija si NODE_ENV != production; secure_delete/UPDATE sin prueba de bytes en la suite). Fuera de alcance: 4 pruebas rojas en sqlite-backup-import.spec.ts (US7).
+- Informe entregado: .specify/memory/audits/rebanada-4-rama.md.
+
+## 2026-11-13 · T281 auditoría de exportación/respaldo (Rebanada 5) · checkpoint (inicio)
+- Auditoría de privacidad HEAD 304ed41: exportación sin datos ajenos, token solo en cabecera/hash, vista previa genérica, auditoría sin PII. Solo se escribe .specify/memory/audits/rebanada-5-rama.md; sin tocar src/tests/tasks/logos; T281 no se marca; sin commit ni push.
+
+## 2026-11-13 · T281 · checkpoint (fin)
+- 4 archivos, 76/76 en verde. 0 logs en archivos de respaldo. Token solo cabecera y SHA-256 en base. Vista previa sin oráculo de IDs ajenos.
+- H-1 baja: access-control.security.spec.ts:86-98 compara ownerUserId/exportedByUserId inexistentes (undefined=undefined, aserción vacua). O-1: 409 de importación confirma existencia de UUID ajeno (diseño de spec).
+- Informe entregado: .specify/memory/audits/rebanada-5-rama.md; sin commit, push ni [x].

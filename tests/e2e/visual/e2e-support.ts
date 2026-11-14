@@ -9,6 +9,8 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 export const VIEWPORT_WIDTHS = [320, 1024, 1280] as const;
+/** Anchos de la v2.1 (REQ-UI2-008, SC-005): se añade el de 768 px, donde cambia el app shell. */
+export const VIEWPORT_WIDTHS_V21 = [320, 768, 1024, 1280] as const;
 const CSRF = { 'X-Argos-Request': '1' } as const;
 
 /** Fecha YYYY-MM-DD en America/Bogota (la zona del servidor de desarrollo) desplazada `days` días desde hoy. */
@@ -85,3 +87,26 @@ export async function accessibilityFindings(page: Page, screen: string): Promise
   await page.setViewportSize({ width: 1280, height: 900 });
   return findings;
 }
+
+/**
+ * axe-core (WCAG 2.1 A/AA) en los anchos indicados (la Rebanada 6 usa `VIEWPORT_WIDTHS_V21`). Devuelve las violaciones `critical`/`serious` y el desbordamiento
+ * horizontal como texto legible; la prueba espera la lista vacía. Restaura el ancho de escritorio al terminar.
+ */
+export async function accessibilityFindingsAt(page: Page, screen: string, widths: readonly number[]): Promise<string[]> {
+  const findings: string[] = [];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    for (const violation of result.violations) {
+      if (violation.impact === 'critical' || violation.impact === 'serious') {
+        findings.push(`${screen}@${width}px ${violation.impact} ${violation.id}: ${violation.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+      }
+    }
+    if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) {
+      findings.push(`${screen}@${width}px desbordamiento horizontal`);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  return findings;
+}
+
