@@ -19,6 +19,7 @@ import { assertMicrochipUniqueForOwner, collectRecordEventDates, createPetProfil
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
+import { assignOwnedPetToHousehold } from './assignment-use-cases.ts';
 import { recordAudit } from './audit-support.ts';
 import {
   buildPetCard,
@@ -64,6 +65,12 @@ export function keepsCard(query: PetListQuery, card: Pick<PetCardView, 'alertsSu
   return query.filter !== 'WITH_ALERTS' || card.alertsSummary.totalActiveAlerts > 0;
 }
 
+/** Hogar base opcional del alta (REQ-HOUSE2-003): ya validado por createPetProfile; aquí solo se lee. */
+function baseHouseholdIdOf(input: unknown): string | undefined {
+  const value = (input as { readonly baseHouseholdId?: unknown }).baseHouseholdId;
+  return typeof value === 'string' ? value : undefined;
+}
+
 /** @implements REQ-PET2-001, ERR-PET-MICROCHIP-DUPLICATE, INV-ARCH-001, INV-ARCH-002 */
 export class RegisterPetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
@@ -80,6 +87,8 @@ export class RegisterPetUseCase {
       assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([userId]), pet.microchipId, pet.id);
       await repositories.pets.save(pet);
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: pet });
+      const baseHouseholdId = baseHouseholdIdOf(input);
+      if (baseHouseholdId !== undefined) await assignOwnedPetToHousehold(this.deps, repositories, userId, pet, baseHouseholdId);
       return pet;
     });
   }

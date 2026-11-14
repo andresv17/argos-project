@@ -86,8 +86,8 @@ function scheduleMaintenance(app: FastifyInstance, deps: ApplicationDeps): void 
 /** @implements INV-ARCH-006 */
 export async function startServer(config: AppConfig = loadAppConfig()): Promise<FastifyInstance> {
   const app = await createProductionApp(config);
-  await app.listen({ host: config.host, port: config.port });
   scheduleMaintenance(app, maintenanceDeps.get(app)!);
+  await app.listen({ host: config.host, port: config.port });
   return app;
 }
 

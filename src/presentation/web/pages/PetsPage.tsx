@@ -159,9 +159,17 @@ export function PetsPage(): JSX.Element {
         </section>
         <section aria-label="Ficha de la mascota" className="grid grid-cols-1 content-start gap-3">
           <FormError message={error} />
-          {mode === 'CREATE' ? <PetForm profile={null} onSubmit={createPet} onCancel={() => setMode('VIEW')} /> : null}
+          {mode === 'CREATE' ? (
+            <PetForm profile={null} households={options.flatMap((o) => (o.context.kind === 'HOUSEHOLD' ? [{ id: o.context.householdId, name: o.label }] : []))} onSubmit={createPet} onCancel={() => setMode('VIEW')} />
+          ) : null}
           {mode === 'EDIT' && dashboard !== null && dashboard.permissions.editPetBasics ? (
-            <PetForm key={`edit-${dashboard.profile.id}`} profile={dashboard.profile} onSubmit={editPet} onCancel={() => setMode('VIEW')} />
+            <PetForm
+              key={`edit-${dashboard.profile.id}`}
+              profile={dashboard.profile}
+              canAssign={dashboard.permissions.assignPetToHouseholds}
+              onSubmit={editPet}
+              onCancel={() => setMode('VIEW')}
+            />
           ) : null}
           {mode === 'DELETE' && dashboard !== null && dashboard.permissions.editPetBasics ? (
             <DeletePetDialog petName={dashboard.profile.name} onConfirm={() => void deletePet()} onCancel={() => setMode('VIEW')} />

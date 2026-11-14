@@ -4,13 +4,20 @@
  * @implements REQ-UI-002, REQ-UI-004, REQ-UI-007
  */
 import { Button, FormError, SelectField, TextField } from './Field.tsx';
+import { PetAssignments } from './PetAssignments.tsx';
 import { SEX_LABEL, SPECIES_LABEL, type PetProfile } from '../view-model.ts';
 import { useContractForm } from '../use-contract-form.ts';
+
+/** Hogares del usuario que el alta puede usar como hogar base (REQ-HOUSE2-003). */
+export interface HouseholdChoice {
+  readonly id: string;
+  readonly name: string;
+}
 
 export function petFormInitial(profile: PetProfile | null): Record<string, string> {
   return {
     name: profile?.name ?? '',
-    species: profile?.species ?? 'DOG',
+    species: profile?.species ?? 'CANINE',
     breed: profile?.breed ?? '',
     birthDate: profile?.birthDate ?? '',
     sex: profile?.sex ?? 'MALE',
@@ -18,12 +25,16 @@ export function petFormInitial(profile: PetProfile | null): Record<string, strin
   };
 }
 
-export function PetForm({ profile, onSubmit, onCancel }: {
+export function PetForm({ profile, households = [], canAssign = false, onSubmit, onCancel }: {
   readonly profile: PetProfile | null;
+  readonly households?: readonly HouseholdChoice[];
+  readonly canAssign?: boolean;
   readonly onSubmit: (body: Record<string, string | number>) => Promise<void>;
   readonly onCancel: () => void;
 }): JSX.Element {
-  const form = useContractForm({ schema: profile === null ? 'CreatePetInput' : 'UpdatePetInput', initial: petFormInitial(profile), send: onSubmit });
+  // En el alta, `baseHouseholdId` vacío no se envía (formValues omite los vacíos). En edición no existe ese campo (UpdatePetInput).
+  const initial = profile === null ? { ...petFormInitial(null), baseHouseholdId: '' } : petFormInitial(profile);
+  const form = useContractForm({ schema: profile === null ? 'CreatePetInput' : 'UpdatePetInput', initial, send: onSubmit });
   const prefix = profile === null ? 'new-pet' : `edit-pet-${profile.id}`;
   return (
     <form noValidate aria-labelledby={`${prefix}-title`} onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded border border-slate-300 bg-white p-4 sm:grid-cols-2">
@@ -59,6 +70,22 @@ export function PetForm({ profile, onSubmit, onCancel }: {
         errors={form.errors}
       />
       <TextField id={`${prefix}-avatarUrl`} label="URL del avatar (opcional)" name="avatarUrl" type="url" value={form.values.avatarUrl ?? ''} onChange={form.onChange} errors={form.errors} />
+      {profile === null ? (
+        <SelectField
+          id={`${prefix}-baseHouseholdId`}
+          label="Hogar base (opcional)"
+          name="baseHouseholdId"
+          value={form.values.baseHouseholdId ?? ''}
+          options={[{ value: '', label: 'Sin hogar base' }, ...households.map((h) => ({ value: h.id, label: h.name }))]}
+          onChange={form.onChange}
+          errors={form.errors}
+        />
+      ) : null}
+      {profile !== null && canAssign ? (
+        <div className="sm:col-span-2">
+          <PetAssignments petId={profile.id} />
+        </div>
+      ) : null}
       <div className="sm:col-span-2">
         <FormError errors={form.errors} message={form.message} />
       </div>

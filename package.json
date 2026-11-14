@@ -8,7 +8,7 @@
     "node": ">=22.18 <23"
   },
   "scripts": {
-    "dev": "concurrently -n api,web \"tsx watch src/infrastructure/http/server.ts\" \"vite\"",
+    "dev": "concurrently -n api,web \"tsx watch --env-file-if-exists=.env src/infrastructure/http/server.ts\" \"vite\"",
     "dev:web": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",

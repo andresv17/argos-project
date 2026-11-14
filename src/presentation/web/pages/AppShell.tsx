@@ -47,10 +47,12 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
             <span data-household-count={householdCount} className="ml-1 rounded-full bg-slate-200 px-2 text-xs font-bold text-slate-900">
               <span aria-hidden="true">{householdCount}</span>
               <span className="sr-only">{householdCount === 1 ? '1 hogar' : `${householdCount} hogares`}</span>
+              <span className="ml-1 font-normal" aria-hidden="true">hogares</span>
             </span>
             <span data-pending-invitations={pendingInvitations} className="ml-1 rounded-full bg-amber-300 px-2 text-xs font-bold text-slate-900">
               <span aria-hidden="true">{pendingInvitations}</span>
               <span className="sr-only">{invitationsLabel(pendingInvitations)}</span>
+              <span className="ml-1 font-normal" aria-hidden="true">invitaciones</span>
             </span>
           </NavLink>
           <NavLink to="/backup" className={link}>
