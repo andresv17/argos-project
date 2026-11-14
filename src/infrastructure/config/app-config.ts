@@ -18,6 +18,7 @@
  * @implements INV-ARCH-006, INV-ARCH-004, ERR-RATE-LIMITED, REQ-AUD-001, INV-AUD-001
  */
 
+import { createHash } from 'node:crypto';
 import { Ajv, type JSONSchemaType } from 'ajv';
 import { DEFAULT_APP_TIMEZONE, isSupportedTimeZone } from '../adapters/system-clock.adapter.ts';
 
@@ -104,6 +105,17 @@ export class AppConfigError extends Error {
  */
 export const DEVELOPMENT_AUDIT_HMAC_SECRET = 'de'.repeat(32);
 
+/**
+ * Denylist de secretos públicos (REQ-AUD-001, INV-AUD-001, SC-014): fuera de `NODE_ENV=test` se rechazan el secreto de los
+ * fixtures de prueba (comparado por huella SHA-256, sin copiar el valor en claro) y la clave fija de desarrollo.
+ */
+const FIXTURE_AUDIT_SECRET_SHA256 = 'eaa93b9fcd229b8446cacff0a963d1afe33fa3fd3b6f63343c3227c987f6c592';
+
+function isKnownPublicAuditSecret(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return normalized === DEVELOPMENT_AUDIT_HMAC_SECRET || createHash('sha256').update(normalized).digest('hex') === FIXTURE_AUDIT_SECRET_SHA256;
+}
+
 export type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 
 /**
@@ -121,7 +133,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
   if (!invalid.has('APP_TIMEZONE') && !isSupportedTimeZone(raw.APP_TIMEZONE)) invalid.add('APP_TIMEZONE');
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
-  const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret);
+  const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret) || (env['NODE_ENV'] !== 'test' && isKnownPublicAuditSecret(auditHmacSecret));
   if (invalid.size > 0 || invalidSecret) {
     throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
   }

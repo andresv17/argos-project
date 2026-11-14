@@ -380,3 +380,8 @@ Obs: mensaje del commit menciona contador no presente en el diff.
 - Medido en Chromium (320/768/1024/1280): orden visual = DOM (wordmark, nav, cuenta), 0 clases order-* en la cabecera; nav scrollWidth = clientWidth (256 a 320 px, 533 en el resto), 4 enlaces operables; palabras "hogares"/"invitaciones" visibles en todos los anchos; Tab: Mascotas, Hogares, Respaldo, Perfil, Cerrar sesión.
 - BackupPage:168 "Revertida" solo con ROLLED_BACK; stalled quita aria-current. D4 (styles.css:21, línea citada 20) y D8 (corePlugins:1500-1509) correctas. D-N1 sin campos inventados frente a ImportPreviewResult, REQ-UI2-007 y backup-import.machine.json.
 - Gates: tsc 0; vitest presentación 11/11 heredados; axe 14/14 (3230/5230, sin residuos). Veredicto APTO; cabecera de 260 px a 320 px = decisión de producto para Neo. Sin commits.
+
+### 2026-11-14 — Oracle: auditoría Fase 8 ola 1 (T297-T301) y V12
+- Leídos los 6 specs y el diff de app-config.ts; verify-oracles 0 débiles; tsc 0; security 264/264; presentación+scrypt 12 fallos heredados (11+1).
+- V12: mensaje sin valor, sin secretos nuevos (huella SHA-256), NODE_ENV=test intacto, validaciones previas intactas.
+- Latencia de invitación: aceptable (5/5 verdes), límite documentado. D1 (renovación con 4xx) escalada a Neo. Detalle en claude/veredicto-auditor-fase8-ola1.md.

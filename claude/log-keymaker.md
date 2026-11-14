@@ -611,3 +611,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-14 — Cierre T295 (autorización expresa de Neo, Nivel 2)
 - tasks.md: T295 marcada [x] (T294 ya venía [x] sin commit; T296 intacta). Commit local de cierre de la pieza; sin push.
 - Excluidos: logos.json, scripts/logos.py, gate-T296-output.txt, .playwright-mcp/, CLAUDE.md, GUIA-SKILLS-MATRIX.md, SKILLS-PROPUESTAS.MD, claude/registro-proceso-argos.md.
+
+## 2026-11-14 — Hallazgo V12 (T298, Caso A de Seraph): denylist de secretos públicos de auditoría
+- src/infrastructure/config/app-config.ts: con NODE_ENV != 'test' se rechaza ARGOS_AUDIT_HMAC_SECRET si es la clave de desarrollo o el secreto de los fixtures (huella SHA-256, sin valor en claro). AppConfigError nombra solo la variable.
+- Verificación: tsc 0; audit-secret 11/11 dos veces; tests/security 264/264; línea base 12 fallos heredados (11 presentación + 1 scrypt). Sin commit.
