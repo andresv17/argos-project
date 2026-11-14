@@ -212,9 +212,9 @@
 - [x] T277 [P] [US7] Implementar el inyector de fallos determinista en los repositorios de memoria y SQLite y la emisión del token de respaldo (32 bytes, solo `SHA-256` en base, 10 min, un solo uso) en `src/infrastructure/persistence/` y `src/infrastructure/adapters/` (STATE-BACKUP-001, SC-004, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED)
 - [x] T278 [US7] Implementar los casos de uso de exportar, previsualizar e importar en `src/application/use-cases/backup-use-cases.ts`: reemplazo atómico sobre mascotas propias, sin asignaciones, una fila de auditoría `IMPORT`, checkpoint del WAL (REQ-BACKUP2-001, REQ-BACKUP2-002, INV-BACKUP-001, STATE-BACKUP-001, REQ-AUD-001, SC-004, ERR-BACKUP-ATOMIC-ROLLBACK)
 - [x] T279 [US7] Implementar las rutas de exportación por `POST`, previsualización e importación con `X-Argos-Request`, `X-Argos-Import-Confirm` y `Cache-Control: no-store` en `src/infrastructure/http/routes/backup.routes.ts` (REQ-BACKUP2-001, REQ-BACKUP2-002, ERR-AUTH-CSRF-REJECTED, ERR-RATE-LIMITED)
-- [ ] T280 [P] [US7] Smith inyecta caos (caída a mitad de commit, corrupción de archivo, `SIGKILL`) y comprueba el estado idéntico byte a byte en `tests/security/` (SC-004, INV-BACKUP-001, STATE-BACKUP-001)
-- [ ] T281 [P] [US7] Rama revisa que la exportación no incluya datos de otros usuarios y entrega su informe sin hallazgos abiertos en `.specify/memory/audits/rebanada-5-rama.md` (REQ-BACKUP2-001, SC-003)
-- [ ] T282 [US7] Compuerta de la rebanada 5: `bash scripts/verify-traceability.sh --feature 002 --task T271` y cada tarea T272 a T279, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit` y `npm run test:gate` (INV-ARCH-001, INV-ARCH-002)
+- [x] T280 [P] [US7] Smith inyecta caos (caída a mitad de commit, corrupción de archivo, `SIGKILL`) y comprueba el estado idéntico byte a byte en `tests/security/` (SC-004, INV-BACKUP-001, STATE-BACKUP-001)
+- [x] T281 [P] [US7] Rama revisa que la exportación no incluya datos de otros usuarios y entrega su informe sin hallazgos abiertos en `.specify/memory/audits/rebanada-5-rama.md` (REQ-BACKUP2-001, SC-003)
+- [x] T282 [US7] Compuerta de la rebanada 5: `bash scripts/verify-traceability.sh --feature 002 --task T271` y cada tarea T272 a T279, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit` y `npm run test:gate` (INV-ARCH-001, INV-ARCH-002)
 
 **Checkpoint**: criterios (a) a (e) de la rebanada 5 verificables. Decisión cerrada de Neo (F4-M5, aprobada): la exportación por `POST`, `X-Argos-Import-Confirm` y `fileDigest` quedan como contrato vigente; T271 a T279 los implementan tal cual.
 
