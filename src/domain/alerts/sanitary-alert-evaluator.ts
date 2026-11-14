@@ -88,8 +88,8 @@ function evaluateByKey<T extends VaccinationRecord | DewormingRecord>(
     const key = `${record.petId}\u0000${keyOf(record)}`;
     const hasNewer = seen.has(key);
     seen.add(key);
-    // Sin próxima fecha el registro queda fuera de la evaluación (alert nula) salvo que lo reemplace uno posterior.
-    // T255 PENDIENTE: SUPERSEDED calculado e inmutabilidad de reemplazados de REQ-REC2-002/003.
+    // Sin próxima fecha el registro queda fuera de la evaluación (alert nula) salvo que lo reemplace uno posterior:
+    // entonces es SUPERSEDED (ADR-002-15). En ese caso daysRemaining se calcula contra hoy (0) y no tiene sentido clínico.
     const target = targetOf(record);
     return { record, alert: target === null && !hasNewer ? null : evaluateSanitaryAlertState(target ?? currentDate, currentDate, hasNewer) };
   });

@@ -371,6 +371,33 @@ describe('alertas sanitarias (src/domain/alerts/sanitary-alert-evaluator.ts)', (
     ]);
   });
 
+  it('[STATE-ALERT-001][ADR-002-15] una vacuna anterior sin próxima fecha con otra posterior de la misma clave queda SUPERSEDED (no nula); la posterior sin fecha y sin sucesora es nula', () => {
+    const records = [
+      vaccine(uuid(1), 'Rabia', '2026-05-01', '2026-12-01', { nextBoosterAt: null }),
+      vaccine(uuid(2), ' RABIA ', '2026-08-01', '2026-12-01', { nextBoosterAt: null }),
+    ];
+    const views = evaluateVaccinationAlerts(records, TODAY);
+    expect(views.map((v) => [v.record.id, v.alert === null ? null : v.alert.status])).toEqual([
+      [uuid(2), null],
+      [uuid(1), 'SUPERSEDED'],
+    ]);
+    expect(summarizeSanitaryAlerts(views, [])).toEqual({ overdueCount: 0, dueSoonCount: 0, upToDateCount: 0, totalActiveAlerts: 0 });
+  });
+
+  it('[STATE-ALERT-001][ADR-002-15] una desparasitación anterior sin próxima dosis con otra posterior del mismo tipo queda SUPERSEDED; otro tipo no la reemplaza', () => {
+    const records = [
+      { ...deworming(uuid(1), 'INTERNAL', '2026-05-01', '2026-08-01'), nextSuggestedDoseAt: null },
+      deworming(uuid(2), 'INTERNAL', '2026-08-01', '2026-11-15'),
+      { ...deworming(uuid(3), 'EXTERNAL', '2026-06-01', '2026-08-01'), nextSuggestedDoseAt: null },
+    ];
+    const views = evaluateDewormingAlerts(records, TODAY);
+    expect(views.map((v) => [v.record.id, v.alert === null ? null : v.alert.status])).toEqual([
+      [uuid(2), 'DUE_SOON'],
+      [uuid(3), null],
+      [uuid(1), 'SUPERSEDED'],
+    ]);
+  });
+
   it('[STATE-ALERT-001] el resumen cuenta OVERDUE, DUE_SOON y UP_TO_DATE, sin SUPERSEDED', () => {
     const vaccinations = evaluateVaccinationAlerts(
       [

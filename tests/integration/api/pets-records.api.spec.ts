@@ -560,6 +560,21 @@ describe('registros clínicos 002 por HTTP (REQ-REC2-002, REQ-REC2-003, SC-015)'
     expect([current.status, (current.json as { notes: string }).notes, after.supersededVaccinations.find((v) => v.record.id === v1) !== undefined]).toEqual([200, 'corregido', true]);
   });
 
+  it('[REQ-REC2-003][ADR-002-15][ERR-REC-SUPERSEDED-IMMUTABLE] un registro anterior sin próxima fecha con otro posterior de la misma clave queda SUPERSEDED (no nulo), aparece en supersededVaccinations y no se edita (409)', async () => {
+    api = await createApi();
+    const cookie = await api.login('andres');
+    const v1 = created(await api.call('POST', recordsUrl('vaccinations'), { cookie, body: { vaccineName: NAME, appliedAt: '2026-06-01', nextBoosterAt: null } }));
+    const v2 = created(await api.call('POST', recordsUrl('vaccinations'), { cookie, body: { vaccineName: NAME.toUpperCase(), appliedAt: '2026-10-01', nextBoosterAt: null } }));
+    const view = await dashboard(cookie);
+    const edit = await api.call('PATCH', `${recordsUrl('vaccinations')}/${v1}`, { cookie, body: { collection: 'vaccinations', notes: 'no debe guardarse' } });
+    expect([
+      view.vaccinations.filter((v) => v.record.vaccineName.toLowerCase() === NAME.toLowerCase()).map((v) => [v.record.id, v.alert]),
+      view.supersededVaccinations.map((v) => [v.record.id, v.alert?.status ?? null]),
+      problemOf(edit),
+      edit.text.includes('no debe guardarse'),
+    ]).toEqual([[[v2, null]], [[v1, 'SUPERSEDED']], SUPERSEDED, false]);
+  });
+
   it('[REQ-REC2-003] eliminar el registro posterior devuelve el anterior a vigente: reaparece en vaccinations con su semáforo, sale de supersededVaccinations y vuelve a ser editable', async () => {
     api = await createApi();
     const cookie = await api.login('andres');
