@@ -8,8 +8,9 @@
  * - `ARGOS_AUDIT_RETENTION_DAYS` (REQ-AUD-001, INV-AUD-001): retención de la auditoría en días, entero positivo de hasta 4
  *   dígitos sin ceros a la izquierda (730 = 24 meses). Inválida: `AppConfigError` nombra solo la variable, no el valor.
  * - `ARGOS_AUDIT_HMAC_SECRET` (REQ-AUD-001, SC-014): clave HMAC de la seudonimización de la auditoría, >= 32 bytes en
- *   hexadecimal (64 o más caracteres, longitud par). Con `NODE_ENV=production` es obligatoria; fuera de producción puede
- *   faltar (`auditHmacSecret` nulo), pero si está presente e inválida se rechaza. Su valor nunca aparece en el mensaje
+ *   hexadecimal (64 o más caracteres, longitud par). Es obligatoria en cualquier entorno salvo `NODE_ENV=test` (D-1 de Neo);
+ *   solo en pruebas puede faltar (`auditHmacSecret` nulo y el servidor usa la clave fija de prueba). Si está presente e
+ *   inválida se rechaza en todo entorno. Su valor nunca aparece en el mensaje
  *   del error, en logs ni en excepciones: `AppConfigError` solo nombra la variable.
  * - Una variable inválida produce `AppConfigError` con la lista de variables afectadas; no se arranca con valores
  *   por defecto silenciosos. Ningún valor es secreto (`.env.example`).
@@ -32,7 +33,7 @@ export interface AppConfig {
   readonly inviteWindowMinutes: number;
   /** Retención de la auditoría en días (ARGOS_AUDIT_RETENTION_DAYS, 730 = 24 meses). */
   readonly auditRetentionDays: number;
-  /** Clave HMAC de auditoría en hexadecimal (>= 32 bytes) o null si falta fuera de producción. Es un secreto: no se registra. */
+  /** Clave HMAC de auditoría en hexadecimal (>= 32 bytes) o null si falta con NODE_ENV=test. Es un secreto: no se registra. */
   readonly auditHmacSecret: string | null;
 }
 
@@ -99,7 +100,7 @@ export class AppConfigError extends Error {
 
 /**
  * Clave fija de desarrollo y pruebas (REQ-AUD-001: «en desarrollo y pruebas se admite un valor fijo de prueba explícito»).
- * Solo se usa cuando `ARGOS_AUDIT_HMAC_SECRET` falta fuera de producción; en producción la configuración exige la variable.
+ * Solo se usa cuando `ARGOS_AUDIT_HMAC_SECRET` falta con `NODE_ENV=test`; en cualquier otro entorno la configuración exige la variable.
  */
 export const DEVELOPMENT_AUDIT_HMAC_SECRET = 'de'.repeat(32);
 
@@ -120,7 +121,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
   if (!invalid.has('APP_TIMEZONE') && !isSupportedTimeZone(raw.APP_TIMEZONE)) invalid.add('APP_TIMEZONE');
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
-  const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] === 'production' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret);
+  const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret);
   if (invalid.size > 0 || invalidSecret) {
     throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
   }

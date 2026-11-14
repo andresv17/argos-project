@@ -33,8 +33,12 @@ describe('ARGOS_AUDIT_HMAC_SECRET en la configuración (src/infrastructure/confi
     expect(errorOf({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: AUDIT_SECRET_HEX })).toBe('sin error');
   });
 
-  it('[REQ-AUD-001][INV-ARCH-006] en desarrollo y pruebas se admite arrancar sin secreto (valor fijo de prueba explícito), pero un secreto presente e inválido se rechaza también fuera de producción', () => {
-    expect([errorOf({}), errorOf({ NODE_ENV: 'test' }), errorOf({ NODE_ENV: 'development' })]).toEqual(['sin error', 'sin error', 'sin error']);
+  it('[REQ-AUD-001][INV-ARCH-006] solo con NODE_ENV=test se admite arrancar sin secreto (valor fijo de prueba explícito); en development y sin NODE_ENV falta la variable y no arranca (D-1); un secreto presente e inválido se rechaza también en pruebas', () => {
+    expect([errorOf({ NODE_ENV: 'test' }), errorOf({ NODE_ENV: 'development' }), errorOf({})]).toEqual([
+      'sin error',
+      { variables: ['ARGOS_AUDIT_HMAC_SECRET'], leaked: false },
+      { variables: ['ARGOS_AUDIT_HMAC_SECRET'], leaked: false },
+    ]);
     expect(errorOf({ NODE_ENV: 'test', ARGOS_AUDIT_HMAC_SECRET: 'mal-secreto' })).toEqual({ variables: ['ARGOS_AUDIT_HMAC_SECRET'], leaked: false });
   });
 });

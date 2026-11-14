@@ -15,7 +15,7 @@ describe('arranque de producción (src/infrastructure/http/server.ts)', () => {
   it('[REQ-AUTH2-001][REQ-AUTH2-002] con la configuración validada: registro, login con scrypt real y sesión; el hash nunca sale por la API', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'argos-server-'));
     dirs.push(dir);
-    const config = loadAppConfig({ DATABASE_PATH: join(dir, 'datos', 'argos.sqlite') });
+    const config = loadAppConfig({ NODE_ENV: 'test', DATABASE_PATH: join(dir, 'datos', 'argos.sqlite') });
     const app = await createProductionApp(config, false);
     const post = (url: string, body: unknown, cookie?: string) =>
       app.inject({ method: 'POST', url, headers: { 'x-argos-request': '1', 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, payload: JSON.stringify(body) });
