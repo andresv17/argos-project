@@ -181,7 +181,7 @@
 - [x] T264 [US6] Cerrar las pruebas pendientes de la rebanada 3: una fila de auditoría en la transferencia de propiedad y una por asignación podada (REQ-OWN-001, REQ-AUD-001, SC-016, SC-012)
 - [x] T265 [US6] Sustituir el puerto de auditoría nulo de la eliminación de cuenta por la auditoría real: fila `ACCOUNT_DELETE` con HMAC, `pseudonymizeUser`, `secure_delete` y checkpoint del WAL tras el commit (REQ-ACC-002, REQ-AUD-001, INV-AUD-001, STATE-ACCOUNT-DELETE-001, SC-014)
 - [x] T266 [US6] Implementar el mantenimiento de ADR-002-14 (purga de sesiones, tokens, membresías terminales y auditoría de más de 24 meses) que registra solo conteos y no genera fila de auditoría (REQ-AUD-001, INV-AUD-001)
-- [ ] T267 [US6] Añadir a la migración la fila `MIGRATION` única y su prueba de repetibilidad (REQ-MIG-001, REQ-AUD-001, SC-011)
+- [x] T267 [US6] Añadir a la migración la fila `MIGRATION` única y su prueba de repetibilidad (REQ-MIG-001, REQ-AUD-001, SC-011)
 - [ ] T268 [P] [US5] Maggie valida que un registro sin próxima fecha con otro posterior de la misma clave queda `SUPERSEDED` (ADR-002-15) y los campos de lote, veterinario y colegiado, en `.specify/memory/audits/rebanada-4-maggie.md` (STATE-ALERT-001, REQ-REC2-002, REQ-REC2-003)
 - [ ] T269 [P] [US6] Rama revisa auditoría, seudonimización y eliminación y entrega su informe sin hallazgos abiertos en `.specify/memory/audits/rebanada-4-rama.md` (INV-AUD-001, SC-014)
 - [ ] T270 [US6] Compuerta de la rebanada 4: `bash scripts/verify-traceability.sh --feature 002 --task T253` y cada tarea T254 a T267, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit` y `npm run test:gate` (INV-ARCH-001, INV-ARCH-002)
