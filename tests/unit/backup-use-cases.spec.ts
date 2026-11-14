@@ -16,8 +16,11 @@ import {
   type BackupImportStep,
 } from '../../src/application/use-cases/backup-use-cases.ts';
 import { sortHistoricalRecords, sortPetsForListing } from '../../src/domain/sorting/deterministic-sorter.ts';
+import { DeleteAccountUseCase } from '../../src/application/use-cases/account-use-cases.ts';
+import { CONFIRMATION_PHRASE } from '../../src/domain/account/account-deletion-guards.ts';
 import { emptyMemoryState } from '../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
 import { ANDRES, ARGOS, LUNA, MARIA, HOUSEHOLD, canonicalState, createHarness, envelope, fixtures } from '../fixtures/application-harness.ts';
+import { ELENA, IDENTITY_PASSWORDS, REFERENCE_NOW, REFERENCE_TODAY, identityState } from '../fixtures/identity-fixtures.ts';
 import { DUMMY_PASSWORD_HASH, FAKE_HASH_PREFIX } from '../fixtures/test-doubles.ts';
 import {
   ScriptedUnitOfWork,
@@ -454,5 +457,57 @@ describe('conformidad con contracts/state-machines/backup-import.machine.json', 
     });
     expect(messages).toEqual(undefinedPairs.map(({ state, event }) => `STATE-BACKUP-001: el evento ${event} no está definido en ${state}`));
     expect(undefinedPairs.filter((p) => p.state === 'COMPLETED' || p.state === 'ROLLED_BACK').length).toBe(2 * STATE_BACKUP_001_EVENTS.length);
+  });
+});
+
+/**
+ * T271 (fase roja, REQ-BACKUP2-001, REQ-RBAC-001, REQ-ACC-002): la exportación 3.0.0 emite el token efímero y exige
+ * la acción EXPORT_IMPORT_BACKUP. Contrato supuesto (a confirmar en la fase verde): execute(userId, { role }) y
+ * resultado con `confirmationToken` (43 caracteres base64url, nunca dentro del archivo).
+ *
+ * @implements REQ-BACKUP2-001, REQ-RBAC-001, REQ-ACC-002, ERR-ACC-FORBIDDEN, ERR-ACCOUNT-CONFIRMATION-MISMATCH
+ */
+type TokenExport = { json: string; confirmationToken?: string };
+type RoleAwareExport = { execute(userId: string, options?: { role: string }): Promise<TokenExport> };
+const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
+
+describe('T271: exportación con token y rol (REQ-BACKUP2-001, REQ-RBAC-001, REQ-ACC-002)', () => {
+  it('[REQ-RBAC-001][ERR-ACC-FORBIDDEN] un rol sin EXPORT_IMPORT_BACKUP recibe 403 ERR-ACC-FORBIDDEN y no se emite token ni se escribe nada', async () => {
+    const h = createHarness();
+    const before = json(h.uow.snapshot());
+    const useCase = new ExportBackupUseCase(h.deps) as unknown as RoleAwareExport;
+    const error = await failure(useCase.execute(ANDRES, { role: 'SIN_ACCION_EXPORT' }));
+    expect([error.code, error.status, json(h.uow.snapshot()) === before]).toEqual(['ERR-ACC-FORBIDDEN', 403, true]);
+  });
+
+  it('[REQ-BACKUP2-001][REQ-ACC-002] el rol permitido exporta y recibe un token de 43 caracteres base64url que no aparece en el archivo', async () => {
+    const h = createHarness();
+    const result = await (new ExportBackupUseCase(h.deps) as unknown as RoleAwareExport).execute(ANDRES, { role: 'OWNER' });
+    const token = result.confirmationToken ?? '';
+    expect([TOKEN_SHAPE.test(token), token !== '' && result.json.includes(token)]).toEqual([true, false]);
+  });
+
+  it('[REQ-ACC-002][ERR-ACCOUNT-CONFIRMATION-MISMATCH] el token de una exportación reemplazada ya no sirve: la eliminación responde MISMATCH y no cambia nada; el último token sí se consume', async () => {
+    const h = createHarness(identityState());
+    h.clock.setClock(REFERENCE_TODAY, REFERENCE_NOW);
+    const exporter = new ExportBackupUseCase(h.deps) as unknown as RoleAwareExport;
+    const first = (await exporter.execute(ELENA)).confirmationToken ?? '';
+    const second = (await exporter.execute(ELENA)).confirmationToken ?? '';
+    await h.deps.uow.runInTransaction(async (r) => r.sessions.save('ses', { userId: ELENA, createdAt: REFERENCE_NOW, lastActivityAt: REFERENCE_NOW, revokedAt: null }));
+    const before = json(h.uow.snapshot());
+    const stale = await failure(
+      new DeleteAccountUseCase(h.deps).execute(ELENA, 'ses', { confirmationPhrase: CONFIRMATION_PHRASE, password: IDENTITY_PASSWORDS['elena.solo']!, backupConfirmationToken: first }),
+    );
+    const afterStale = json(h.uow.snapshot());
+    const lastUsable = await h.deps.uow.runInTransaction((r) => h.deps.backupTokens.consume(r, ELENA, second, h.deps.clock.nowIsoTimestamp()));
+    expect([TOKEN_SHAPE.test(first), TOKEN_SHAPE.test(second), first !== second, stale.code, stale.status, afterStale === before, lastUsable]).toEqual([
+      true,
+      true,
+      true,
+      'ERR-ACCOUNT-CONFIRMATION-MISMATCH',
+      409,
+      true,
+      true,
+    ]);
   });
 });

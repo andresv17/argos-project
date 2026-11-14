@@ -19,7 +19,7 @@ const sha256 = (text: string) => createHash('sha256').update(text).digest('hex')
 const preview = (cookie: string | null, raw: string, extra: { csrf?: boolean } = {}) =>
   api.call('POST', PREVIEW, { ...(cookie === null ? {} : { cookie }), raw, ...extra, ...(extra.csrf === false ? { contract: false } : {}) });
 const confirm = (cookie: string, raw: string, digest: string | null) =>
-  api.call('POST', IMPORT, { cookie, raw, ...(digest === null ? {} : { headers: { 'x-argos-import-confirm': digest } }), contract: false });
+  api.call('POST', IMPORT, { cookie, raw, ...(digest === null ? {} : { headers: { 'x-argos-import-confirm': digest } }) });
 const exportText = async (cookie: string) => (await api.call('POST', '/api/backup/export', { cookie })).text;
 
 describe('previsualización (REQ-BACKUP2-002, STATE-BACKUP-001)', () => {
