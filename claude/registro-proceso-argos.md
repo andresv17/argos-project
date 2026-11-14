@@ -355,3 +355,279 @@
 - 2026-11-12 Keymaker: Decisiones de Neo T252 aplicadas (2 it.skip + comentario); access-control 11+2skip; verify-oracles FALLA por los skip; sin commit, pendiente Oracle/Neo.
 - 2026-11-12 Oracle: T252 final CONDICIONADO (apto REVIEW); gates verdes; deuda de rebanada 5 (POST export, 403 por rol) declarada. claude/veredicto-auditor-task-T252-final-2026-11-12.md
 - 2026-11-12 Keymaker: T253 ROJO (pruebas hash canonico/vista publica; falla por modulo ausente src/domain/audit/*); oracles CUMPLE; tasks.md sin marcar. claude/evidencia-task-T253-2026-11-12.md
+- 2026-11-12 Oracle: T253 rojo APTO; condicion T259: ajustar lista de secretos (tokenHash, confirmationToken; sessionId sin respaldo de spec). claude/veredicto-auditor-task-T253-2026-11-12.md
+- 2026-11-12 Keymaker: T254-T257 ROJO + T253 ajustado (lista de secretos de Neo); rojo por tabla audit_log, modulo superseded-guard, rutas PATCH/DELETE de registros y config HMAC ausentes; oracles CUMPLE. claude/evidencia-task-T254-T257-2026-11-12.md
+- 2026-11-12 Oracle: T254-T257 rojo APTO (supuestos de fase verde declarados; 3 fallas GET /pets son de la base). claude/veredicto-auditor-task-T254-T257-2026-11-12.md
+- 2026-11-12 16:56 HARDLINE (Morpheus): cierre de sesión. HEAD d83cb77, 2 commits sin subir. Rebanada 3 cerrada y subida. Rebanada 4 en rojo aprobado (T253-T257). Pendiente Neo: autorizar fase verde T258-T259. Handover: claude/handover-morpheus-2026-11-12.md.
+- 2026-11-12 16:58 Morpheus: Logos encendida por orden de Neo. Mensaje a Neo: decidir fase verde T258-T259; estado rebanada 4 en rojo aprobado. Sin cambios en src.
+- 2026-11-12 17:00 Morpheus: Neo autoriza fase verde T258-T259 (Logos iter. 4). Pendiente despacho Keymaker y auditoría Oracle.
+- 2026-11-12 17:01 Morpheus: Logos APAGADA por orden de Neo. Modo manual. Pendiente despacho Keymaker T258-T259.
+- 2026-11-12 17:04 Morpheus: Logos reabierta. logos.json reiniciado (historial perdido). Pido reconfirmar fase verde T258-T259.
+- 2026-11-12 17:04 Morpheus: Neo reconfirma fase verde T258-T259 en Logos. Despacho a Keymaker (sonnet).
+- 2026-11-12 Keymaker: T258-T259 fase VERDE aplicada sin commit (audit-canonical/property 22/22, roles-migration, audit-pseudonym, superseded-guard, PATCH/DELETE vacunas; tsc 0, oracles CUMPLE, traza CUMPLE). Pendiente: auditoria Oracle y 1 regresion en access-control.security (excepcion H-T252-2a caduca). Ver claude/log-keymaker.md
+- 2026-11-12 17:11 Morpheus: Keymaker entrega verde T258-T259 sin commit; 1 regresión access-control:247. Despacho a Oracle.
+- 2026-11-12 Oracle: T258-T259 verde CONDICIONADO (74/74 y 63/63, tsc 0, oracles/traza CUMPLE; CC-T258-2 aceptable; regresion access-control:247 = correccion minima correcta, requiere visto bueno de Neo). claude/veredicto-auditor-task-T258-T259-2026-11-12.md
+- 2026-11-12 17:14 Morpheus: Oracle CONDICIONADO T258-T259 (veredicto-auditor-task-T258-T259-2026-11-12.md). Pendiente Neo C1 y C2.
+- 2026-11-12 17:14 Morpheus: Neo aprueba C1 y C2 (Logos). Keymaker aplica corrección access-control:247; luego Oracle revalida.
+- 2026-11-12 [keymaker] C1 aplicada en access-control.security.spec.ts (excepción H-T252-2a solo 'eliminar otro registro'); vitest 13/13, tsc 0, oracles CUMPLE; sin commit.
+- 2026-11-12 [oracle] Revalidación T258-T259 APTO (veredicto-auditor-task-T258-T259-revalidacion-2026-11-12.md): access-control 13/13, 87/87 en archivos T258-T259, tsc 0, oracles y trazabilidad CUMPLE.
+- 2026-11-12 17:16 Morpheus: Oracle revalidación APTO. Marco T258-T259 [x] (autorizado Neo) y commit local.
+- 2026-11-12 17:17 Morpheus: Push hecho por Neo (sincronizado en eec5a23). Despacho Keymaker a T260.
+- 2026-11-12 Keymaker: T260 sin rojo: ya cubierta por T259 (78/78, tsc 0, oracles y traza CUMPLE 8/8); sin cambios de codigo ni commit. Ver claude/log-keymaker.md
+- 2026-11-12 Oracle: T260 APTO (evidencia propia = rojo T255 d83cb77 -> verde guard en eec5a23; 78/78, tsc 0, oracles y traza 8/8); 3 observaciones no bloqueantes. Ver claude/veredicto-auditor-task-T260-2026-11-12.md
+- 2026-11-12 17:18 Morpheus: Oracle APTO T260 (veredicto-auditor-task-T260-2026-11-12.md). Firma pendiente de Neo.
+- 2026-11-12 17:19 Morpheus: T260 firmada por Neo (18c8754, sin push). Despacho Keymaker T261.
+- 2026-11-12 Keymaker: T261 hecho sin rojo propio (puertos AuditLogPort/AuditPseudonymPort, HmacAuditPseudonymAdapter, ARGOS_AUDIT_RETENTION_DAYS); tsc 0, oracles y traza CUMPLE; sin commit. Ver claude/log-keymaker.md
+- 2026-11-12 oracle: veredicto T261 APTO CONDICIONADO (CC-T261-1 y firma repositories aceptables como desviacion declarada; 50/50 tests, tsc/oracles/trazabilidad OK) -> claude/veredicto-auditor-task-T261-2026-11-12.md
+- 2026-11-12 17:23 Morpheus: Oracle CONDICIONADO T261 (veredicto-auditor-task-T261-2026-11-12.md). Pendiente firma Neo sobre CC-T261-1 y firma con repositories.
+- 2026-11-12 17:24 Morpheus: T261 firmada (d296cf2, sin push). Despacho Keymaker T262. Logos en iter. 9/10.
+- 2026-11-12 Keymaker: T262 verde sin commit (auditoria en casos de uso mutadores; audit.api 13/18, restan T263/T265/T266; suite 115->103 fallos, 0 nuevos). Ver claude/log-keymaker.md
+- 2026-11-12 Oracle: T262 CONDICIONADO (0 regresiones vs HEAD, 12 corregidas; D2 legítimo, D3/D4 ambiguas en spec, D5 sin filtración). Ver claude/veredicto-auditor-task-T262-2026-11-12.md
+- 2026-11-12 17:33 Morpheus: Oracle CONDICIONADO T262 (veredicto-auditor-task-T262-2026-11-12.md). Pendiente Neo: D2, D3/D4, CC-T262-1.
+- 2026-11-12 17:34 HARDLINE (Morpheus): cierre de sesión. HEAD d296cf2 (2 commits sin push: 18c8754, d296cf2). T258-T261 firmadas [x]. T262 en disco sin commit (Oracle CONDICIONADO; pendiente Neo: D2, D3/D4, CC-T262-1). T253-T257 sin firmar [ ]. Logos APAGADA. Handover: claude/handover-morpheus-2026-11-12.md.
+- 2026-11-12 (inicio de sesión) Morpheus: despertar en modo manual. HEAD d296cf2 (2 commits sin push). T262 en disco sin commit, pendiente decisiones de Neo (D2, D3/D4, CC-T262-1). Logos APAGADA. Ver claude/log-morpheus.md
+- 2026-11-12 Keymaker: T262 sin commit; audit.api.spec 5 rojos (T263/T265/T266), tsc/oracles/traza verdes; a la espera de decisión.
+- 2026-11-12 HARDLINE (Morpheus): cierre de sesión (reanudación). HEAD d296cf2 (sin push de 18c8754 y d296cf2). T262 en disco sin commit; pendiente Neo: D2, D3/D4, CC-T262-1. ALERTA: T253-T257 aparecen [x] en el árbol sin firma registrada; Neo confirma o revierte. Handover: claude/handover-morpheus-2026-11-12.md.
+- 2026-11-12 (inicio de sesión, /morpheus) Morpheus: despertar manual. HEAD d296cf2 (2 sin push). T253-T257 [x] en árbol sin firma: pendiente que Neo confirme o revierte. T262 pendiente D2, D3/D4, CC-T262-1. Logos APAGADA; no tocada.
+- 2026-11-12 18:50 Morpheus: Logos encendida por Neo. Commit local 21cde5a (T262 + [x] en tasks.md, sin push). Pendiente despacho T263 a Keymaker.
+- 2026-11-12 19:00 Morpheus: Neo ordena SIGUE (iter. 16). Keymaker despachado a T263 (sin commit ni [x]). Pendiente Oracle.
+- 2026-11-12 Keymaker: T263 implementada en árbol de trabajo (REVIEW, sin commit); suite 103->104 fallos por 2 andamios caducados de tests/security pendientes de decisión; ver claude/log-keymaker.md
+- 2026-11-12 19:10 Morpheus: Keymaker entrega T263 en disco (sin commit). Suite 104 fallos (2 andamios tests/security caducados). Oracle despachado a auditar T263.
+- 2026-11-12 [oracle] T263 veredicto CONDICIONADO: gates verdes (tsc 0, oraculos CUMPLE, traza CUMPLE, audit 14/4), suite 103->104 fallos (2 nuevos = andamios caducados, 1 corregido). Pendiente Neo: retirar NOT_YET_SERVED(2) y H-T252-2a. Ver claude/veredicto-auditor-task-T263-2026-11-12.md
+- 2026-11-12 19:30 Morpheus: Neo aprueba andamios (a) y (b) (iter. 18). Keymaker aplicando; luego Oracle revalida, commit T263 [x] y T264.
+- 2026-11-12 Keymaker: ajustes de prueba autorizados por Neo (NOT_YET_SERVED sin deleteRecord/updateRecord; H-T252-2a retirada); 27/27 verdes, tsc 0, suite 102 fallos; sin commit; pendiente revalidación Oracle.
+- 2026-11-12 Oracle: revalidación T263 APTO (27/27, tsc 0, oracles/trazabilidad CUMPLE, suite 102 fallos esperados; 4 rojos de backup en tests/security preexistentes, observación). Ver claude/veredicto-auditor-task-T263-revalidacion-2026-11-12.md
+- 2026-11-12 19:45 Morpheus: T263 commit local 26a245a (APTO Oracle revalidación, [x] por orden de Neo). Despacho T264 a Keymaker.
+- [2026-11-12] Keymaker T264: sin cambios de código; auditoría de transferencia y UNASSIGN podada ya cubierta por T262/T263 con pruebas verdes; tsc 0, oracles CUMPLE, traza CUMPLE, suite 102 fallos (0 nuevos). REVIEW, sin commit.
+- 2026-11-12 Oracle: T264 CONDICIONADO (pruebas reales y fuertes; condición: texto 'pendiente de T264' en assignments-ownership.api.spec.ts:8,:154; informativo: sin prueba de reversión de la transferencia). Ver claude/veredicto-auditor-task-T264-2026-11-12.md
+- 2026-11-12 19:55 Morpheus: T264 Oracle CONDICIONADO (cobertura existente verificada). Pendiente Neo: [x] T264, limpieza de texto en assignments-ownership, deuda opcional H-T264-1.
+- 2026-11-12 20:00 Morpheus: Logos APAGADA por orden de Neo. T264 CONDICIONADO pendiente de Neo (decisiones 1-3).
+- 2026-11-12 HARDLINE (Morpheus): cierre. HEAD 26a245a (4 commits sin push). T253-T263 [x]; T264 CONDICIONADO pendiente Neo (1: [x], 2: limpieza de texto, 3: deuda H-T264-1). Logos APAGADA (iter. 20). Handover: claude/handover-morpheus-2026-11-12.md.
+- 2026-11-13 18:42 Morpheus: inicio de sesión manual. HEAD 26a245a, T253-T263 [x], T264 pendiente de decisiones de Neo. Logos APAGADA.
+- 2026-11-13 18:43 Morpheus: Logos encendida por Neo. Directiva iter. 20 (T264 [x], limpieza de comentarios, despacho T265) en ejecución.
+- 2026-11-13 Keymaker: limpieza de texto «pendiente de T264» en assignments-ownership.api.spec.ts (L8, L154) autorizada por Neo; sin commit.
+- 2026-11-13 18:44 Morpheus: commit local 435dd98 (T264 [x] + limpieza). T265 en curso con Keymaker.
+- 2026-11-13 Keymaker: inicio T265 (auditoría real de eliminación de cuenta); base 102 fallos/1482; sin commit.
+- 2026-11-13 Keymaker: T265 implementado (REVIEW, sin commit). tsc 0, oracles 89/0, traza 4/4, suite 98/1482 (base 102); 2 unit obsoletos por puerto transitorio.
+- 2026-11-13 18:47 Morpheus: T265 entregada en disco (sin commit). 2 rojos nuevos en account-deletion.spec.ts pendientes de Neo. Oracle despachado.
+- 2026-11-13 Oracle: T265 CONDICIONADO (H-1 2 tests unit obsoletos, H-2 checkpoint ignora busy=1, H-3 sin pruebas del checkpoint, H-4 puerto transitorio vivo); tsc 0, oracles CUMPLE, traza CUMPLE, suite 98/1482. Ver claude/veredicto-auditor-task-T265-2026-11-13.md
+- 2026-11-13 18:49 Morpheus: Oracle T265 CONDICIONADO (H-1..H-4). Keymaker corrige H-2/H-3; H-1/H-4 requieren decisión de Neo.
+- 2026-11-13 Keymaker: corrigiendo T265 H-2 (busy del checkpoint) y H-3 (sqlite-checkpoint.spec.ts); sin commit.
+- 2026-11-13 Keymaker: H-2 (busy del checkpoint) y H-3 (sqlite-checkpoint.spec.ts, 4 pruebas verdes) corregidos; tsc 0, oracles CUMPLE 90/0, traza T265 4/4, suite 98 fallos/1486. Sin commit.
+- 2026-11-13 18:51 Morpheus: H-2/H-3 corregidos por Keymaker. Oracle revalida T265. H-1/H-4 esperan a Neo.
+- 2026-11-13 Oracle: T265 REVALIDADO APTO condicionado a Neo (H-2/H-3 cerrados; H-1/H-4 diferidos); tsc 0, oracles CUMPLE 90/0, traza 4/4, checkpoint 4/4, suite 98/1486. Ver claude/veredicto-auditor-task-T265-revalidacion-2026-11-13.md
+- 2026-11-13 18:52 Morpheus: T265 APTO condicionado a H-1/H-4. Informe a Neo en Logos (PAUSA_NEO).
+- 2026-11-13 18:58 Morpheus: Logos APAGADA por orden de Neo. T265 pendiente de H-1/H-4.
+- 2026-11-13 18:58 HARDLINE (Morpheus): cierre. HEAD 435dd98 (5 commits sin push). T264 [x] con commit; T265 REVIEW APTO condicionado a H-1/H-4 (decisiones de Neo) y commit pendiente. Logos APAGADA (iter. 22). Handover: claude/handover-morpheus-2026-11-13.md.
+- 2026-11-13 Morpheus: inicio de sesión en modo manual. HEAD 435dd98; T265 REVIEW esperando H-1/H-4 y decisión de commit de Neo.
+- 2026-11-13 Morpheus: Logos encendida por orden de Neo; estado de T265 (H-1/H-4 y commit) enviado al canal.
+- 2026-11-13 Morpheus: directiva de Neo recibida (H-1, H-4, commit T265 tras Oracle, despacho T266). Keymaker despachado para H-1/H-4.
+- 2026-11-13 Keymaker: H-1/H-4 de T265 aplicadas (NullAuditLogAdapter y audit? retirados; puerto transitorio pendiente de index.ts). tsc 0, suite 96 fallos (antes 98).
+- 2026-11-13 Morpheus: Keymaker reporta H-1 verde (26/26) y H-4 aplicado salvo el puerto account-deletion-audit.port.ts y su export en ports/index.ts:14. Autorizado por directiva de Neo (retiro definitivo de AccountDeletionAuditPort). Keymaker lo termina y reverifica; sin commit.
+- 2026-11-13 Keymaker: H-4 cerrada (puerto transitorio e index.ts:14 retirados, autorizado por Morpheus/Neo).
+- 2026-11-13 Morpheus: H-4 cerrada por Keymaker (puerto retirado, sin commit). Suite 96/1485, tsc 0, account-deletion 26/26, checkpoint 4/4. Despacho a Oracle para revalidación final de T265.
+- 2026-11-13 Oracle: T265 final APTO (traza 4/4, tsc 0, 26/26, 4/4, suite 96/1485 sin fallos de T265); pendiente firma de Neo. Veredicto: claude/veredicto-auditor-task-T265-final-2026-11-13.md
+- 2026-11-13 Morpheus: Oracle APTO T265 (veredicto claude/veredicto-auditor-task-T265-final-2026-11-13.md). Marco [x] T265 y commit local sin push, según directiva de Neo.
+- 2026-11-13 Morpheus: commit local 7b0820b T265 [x] (15 archivos, sin push). Despacho de T266 a Keymaker.
+- 2026-11-13 Keymaker: T266 en REVIEW (runMaintenance + purgeExpired SQLite + prueba nueva; audit.api 18/18, suite 94 fallos, 0 nuevos). Sin commit ni [x].
+- 2026-11-13 Morpheus: Keymaker entrega T266 en disco (REVIEW, sin commit). Suite 94/1488, 0 nuevos. 6 decisiones propias (frecuencia 24h, reglas de sesión/token/membresía, 24 meses calendario, auditRetentionDays sin usar). Despacho a Oracle.
+- 2026-11-13 [oracle] T266: APTO; 6 decisiones elevadas a Neo; veredicto claude/veredicto-auditor-task-T266-2026-11-13.md
+- 2026-11-13 Morpheus: Oracle APTO T266 (veredicto claude/veredicto-auditor-task-T266-2026-11-13.md, sin bloqueantes; H-T266-I1..I3 informativos). Decisiones D1, D4 (ACCEPTED y fecha de membresías), D5 (meses o días) elevadas a Neo por Logos. T266 sin [x] ni commit hasta su respuesta.
+- 2026-11-13 Morpheus: directiva de Neo: D1, D4 (incl. ACCEPTED 90 días), D5 (24 meses calendario, config en días diferida a dojo) aprobadas. Autoriza [x] T266 y commit local sin push. Despacho posterior de T267 a Keymaker.
+- 2026-11-13 Morpheus: commit local de T266 hecho (sin push). Despacho de T267 a Keymaker.
+- 2026-11-13 Keymaker: T267 checkpoint; migración 0005 ya trae fila MIGRATION, solo se añade prueba de repetibilidad (sqlite-migration-marker.spec.ts). Sin commit.
+- 2026-11-13 Keymaker: T267 REVIEW. Test nuevo 5/5, tsc 0, suite 94/1493 (0 nuevos). Sin commit.
+- 2026-11-13 Morpheus: Keymaker entrega T267 en disco (sin commit): la migración 0005 ya traía la fila MIGRATION; se añade prueba sqlite-migration-marker.spec.ts 5/5. Suite 94/1493. Despacho a Oracle.
+- 2026-11-13 Oracle: T267 auditoria iniciada (WAL en log-oracle).
+- 2026-11-13 Oracle: T267 APTO (veredicto-auditor-task-T267-2026-11-13.md); suite 94/1493 sin fallos nuevos.
+- 2026-11-13 Morpheus: Oracle APTO T267 (veredicto claude/veredicto-auditor-task-T267-2026-11-13.md; sin bloqueantes; H-T267-I1..I3 informativos). Informe a Neo por Logos pidiendo autorización de [x] y commit de T267.
+- 2026-11-13 Morpheus: directiva de Neo: T267 autorizada [x] y commit local (sin push). Despacho T268 (Maggie) y T269 (Rama).
+- 2026-11-13 Maggie: T268 informe .specify/memory/audits/rebanada-4-maggie.md (HALLAZGOS ABIERTOS H-1 media, H-2/H-3 bajas; 104/107 pruebas). Sin commit.
+- 2026-11-13 Morpheus: Maggie T268 con hallazgos abiertos (H-1 media: falta prueba SUPERSEDED sin fecha; H-2 baja: daysRemaining=0; H-3 baja: 3 fallos GET /pets). Despacho a Keymaker para H-1 (y H-2 solo si la spec lo respalda). Rama T269 aún en curso.
+- 2026-11-13 Rama: T269 informe .specify/memory/audits/rebanada-4-rama.md (HALLAZGOS ABIERTOS: H-1 baja, D-1/D-2 decisiones; 68/68 pruebas del alcance). Sin commit.
+- 2026-11-13 Morpheus: Rama T269 con hallazgos abiertos: H-1 baja (ARGOS_AUDIT_RETENTION_DAYS sin uso; purga fija 24 meses); D-1 (Neo): sin ARGOS_AUDIT_HMAC_SECRET y NODE_ENV distinto de production, clave pública de prueba; D-2 (Neo, informativa): sin prueba de bytes tras borrado. 4 fallos sqlite-backup-import (US7, fuera de T269). Consolidación a Neo tras reporte de Keymaker T268.
+- 2026-11-13 Keymaker: T268 H-1 (3 pruebas SUPERSEDED sin fecha) y H-2 (comentario) listos en REVIEW; suite 94/1496, 0 nuevos; sin commit.
+- 2026-11-13 Morpheus: Keymaker cierra H-1 (3 pruebas) y H-2 (comentario) de T268; H-3 previa. Suite 94/1496. Despacho a Oracle para revalidar T268. daysRemaining SUPERSEDED sin fecha = decisión de Neo.
+- 2026-11-13 Oracle: T268 auditoria iniciada (traza, oraculos, tsc, mutacion, H-3 en HEAD, suite).
+- 2026-11-13 Oracle: T268 APTO CONDICIONADO (traza 3/3, oraculos 0, tsc 0, suite 94/1496 sin nuevos, H-3 preexistente). claude/veredicto-auditor-task-T268-2026-11-13.md
+- 2026-11-13 Morpheus: Oracle APTO CONDICIONADO T268 (claude/veredicto-auditor-task-T268-2026-11-13.md; H-* informativos). Rama T269 con hallazgos abiertos (D-1, D-2, H-1). Consolidado a Neo por Logos, decisiones explícitas.
+- 2026-11-13 Morpheus: directiva de Neo: D-1 opción A (ARGOS_AUDIT_HMAC_SECRET obligatoria salvo NODE_ENV=test, AppConfigError sin valor); D-2 B (deuda menor); D-3 A (daysRemaining 0 se mantiene); D-4 B (retiro de ARGOS_AUDIT_RETENTION_DAYS diferido); autoriza [x] T268 y T269 tras revalidación de Oracle, commits locales sin push. Después compuerta T270.
+- 2026-11-13 Keymaker: T269/D-1 iniciada (secreto HMAC obligatorio salvo NODE_ENV=test); ver claude/log-keymaker.md
+- 2026-11-13 Keymaker: D-1 en app-config.ts hecha; 2 fallos nuevos esperados en audit-pseudonym.spec.ts y server.api.spec.ts (fuera de lista); suite 96/1502; espera decisión Morpheus
+- 2026-11-13 Keymaker: D-1 cerrada; 2 pruebas ajustadas con autorización; suite 94/1502, 0 nuevos
+- 2026-11-13 Morpheus: D-1 aplicada por Keymaker (app-config.ts + pruebas; 2 ajustes autorizados). Suite 94/1502, 0 nuevos. Despacho a Oracle para revalidar T268 y T269.
+- 2026-11-13 Oracle: revalidación T268/T269 tras D-1 iniciada (verificación en disco)
+- 2026-11-13 Oracle: T268 APTO, T269 APTO tras D-1 (suite 94/1502, 0 nuevos); veredictos en claude/
+- 2026-11-13 Morpheus: Oracle APTO T268 y T269 con D-1 (veredictos claude/veredicto-auditor-task-T269-D1 y T268-revalidacion-D1). Autorizados [x] y commits locales por tarea, sin push.
+- 2026-11-13 Morpheus: commits locales T268 (ab5aa00) y T269 (1f9cdd3) con [x] por orden de Neo, sin push. Ejecutando compuerta T270 (trazabilidad T253-T269, oráculos, tsc, test:gate).
+- 2026-11-13 Morpheus: T270 parcial. Trazabilidad por tarea T253-T269 CUMPLE; oráculos CUMPLE; tsc 0. npm run test:gate FALLA en verify-traceability global (feature 001: 88/96), PREVIO (mismo resultado en 435dd98). Cadena cortada antes de coverage/mutación/playwright. Informe a Neo por Logos.
+- 2026-11-13 Morpheus: directiva de Neo: T270 cumplida (E-1), DEUDA-001-TRACE-01 registrada (E-2), .env.example con ARGOS_AUDIT_HMAC_SECRET (E-3), [x] T270 y commit de cierre (E-4). Después Rebanada 5 en fase roja (T271-T272).
+- 2026-11-13 Keymaker: E-3 añade ARGOS_AUDIT_HMAC_SECRET (marcador, sin secreto) a .env.example; verificación tsc/vitest en curso.
+- 2026-11-13 Keymaker: E-3 cerrado (REVIEW). .env.example con variable comentada; app-config*.spec 26/26 verdes. tsc 500 errores PREVIOS ajenos (src/generated modificado en árbol), no de este cambio.
+- 2026-11-13 Morpheus: INCIDENTE: npm run test:gate (compile-contracts.sh) regeneró src/generated (tracked) desde contratos 001 y borró account-deletion.machine.ts; tsc pasó a 500 errores. Causa: efecto colateral de mi ejecución de test:gate. Restauro src/generated a HEAD (estaba limpio al inicio de sesión). Pipeline a reportar a Neo.
+- 2026-11-13 Morpheus: T270 commit 94fa123 (cierre Rebanada 4, [x] T270, .env.example). Keymaker en fase roja R5 (T271-T272), prohibido test:gate y compile-contracts. Informe a Neo del incidente y de la causa en compile-contracts (default 001).
+- 2026-11-13 Morpheus: directiva de Neo: autorizado corregir compile-contracts.sh y package.json (feature 002 por defecto, ARGOS_FEATURE) y test:gate con --feature 002; fase roja R5 (T271-T272) continúa. Verificar que compile-contracts no altere src/generated con HEAD.
+- 2026-11-13 Keymaker: R5 fase roja T271/T272 iniciada: nuevos backup-export.api.spec.ts y backup-import-preview.api.spec.ts (solo tests, sin commit).
+- 2026-11-13 Keymaker: corrigiendo default feature compile-contracts.sh (ARGOS_FEATURE, 002) y test:gate --feature 002; src/generated verificado limpio antes/después. Ver log-keymaker.
+- 2026-11-13 Morpheus: corrección de pipeline verificada en disco (compile-contracts 002 por defecto, test:gate --feature 002; src/generated limpio; tsc 0). Sin commit: pendiente de orden de Neo junto con fase roja R5.
+- 2026-11-13 Keymaker: R5 T271/T272 fase roja lista (25 rojas, 0 verdes, tsc 0, traza CUMPLE); sin commit ni [x].
+- 2026-11-13 Morpheus: fase roja R5 entregada: 25 pruebas rojas (backup-export.api.spec.ts 13 T271; backup-import-preview.api.spec.ts 12 T272), tsc 0, traza CUMPLE. Pendiente: D-T271-1 y D-T271-3 (modificar pruebas existentes de seguridad, requiere Neo). Despacho a Oracle para validar la fase roja.
+- 2026-11-13 Neb: consulta de estado de Neo; lectura en disco; 70/111 tareas [x], 40 abiertas (T271–T310), último commit 94fa123, 31 archivos sin commit. Sin cambios en specs ni código.
+- [2026-11-13] Oracle: T271/T272 fase roja APTO CONDICIONADO (25 rojas por 404/GET heredado; 6 hallazgos de cobertura/diseño) -> claude/veredicto-auditor-task-T271-T272-faseroja-2026-11-13.md
+- 2026-11-13 Morpheus: Oracle APTO CONDICIONADO fase roja R5 (25 rojas por funcionalidad ausente, sin oráculos débiles). H-T271-1 cobertura incompleta de T271. Informe consolidado a Neo por Logos.
+- 2026-11-13 Morpheus: directiva de Neo: A (commit pipeline y 2 specs fase roja), B (migrar access-control a POST, retirar contract:false, excepción deleteRecord), C (completar T271 con backup-use-cases y 403 rol y ERR-ACCOUNT-CONFIRMATION-MISMATCH), D (ruta tasks.md y retiro contract:false en confirm 200/422). Después fase roja T273-T275.
+- 2026-11-13 Morpheus: commit 45649fc (pipeline y fase roja T271-T272, A). tasks.md: ruta de backup-import-preview corregida (D, sin commit aún). Despacho paralelo: Keymaker B/C/D (T271-T272) y Keymaker fase roja T273-T275 (archivos nuevos).
+- 2026-11-13 Keymaker: R5 T271 B/C/D en curso (access-control a POST, describe nuevo en backup-use-cases.spec.ts, confirm() sin contract:false); sin commit ni [x].
+- 2026-11-13 Keymaker: R5 T273/T274/T275 fase ROJA iniciada (3 archivos nuevos en tests/, sin commit ni [x]).
+- 2026-11-13 Keymaker: R5 T271 B/C/D terminada (REVIEW): 3 archivos tocados, tsc 0, src vacío; sin commit ni [x].
+- 2026-11-13 Morpheus: Keymaker B/C/D entregados (sin commit). Dudas: (1) el 403 por rol no es alcanzable con la matriz (4 roles con EXPORT_IMPORT_BACKUP) y la prueba inventa una firma execute(userId,{role}) por cast; (2) el token viaja en cabecera X-Argos-Confirmation-Token según contrato (no campo del resultado). Escalar (1) a Neo; (2) se alinea en fase verde.
+- 2026-11-13 Keymaker: R5 T273/T274/T275 fase ROJA terminada: 3 archivos nuevos, 83 rojas/0 verdes, tsc 0, oracles CUMPLE, traza CUMPLE (sin commit ni [x]).
+- 2026-11-13 Morpheus: fase roja T273-T275 entregada: 3 archivos nuevos, 83 rojas, 0 verdes. T271-T272 B/C/D entregados (sin commit). Despacho a Oracle para validar el frente rojo completo de R5 (T271-T275). Pendiente Neo: 403 por rol.
+- 2026-11-13 Sati: sesión de T283 detenida por Neo antes de empezar. Artefacto privado de prueba (R45SHjsf…) borrado por orden de Neo. Sin cambios en specs, src ni tests. T283 queda pendiente hasta que Neo lo inicie.
+- [2026-11-13] Oracle: R5 frente rojo T271-T275 APTO CONDICIONADO (H-R5-1..6; 403 por rol inalcanzable, decisión de Neo). claude/veredicto-auditor-rebanada5-faseroja-2026-11-13.md
+- 2026-11-13 Morpheus: Oracle APTO CONDICIONADO frente rojo R5 (T271-T275; 153 pruebas; rojas por funcionalidad ausente). H-R5-1 decisión de Neo (403 por rol). Informe consolidado a Neo por Logos, con autorización de commit del frente rojo y de fase verde.
+- 2026-11-13 Morpheus: directiva de Neo: E opción (b) (matriz RBAC para 4 roles + 401 API), F commit local del frente rojo, G fase verde T276-T279 con Keymaker. Ejecuto F ahora.
+- 2026-11-13 Morpheus: commit 37772a2 (frente rojo R5, F). Despacho a Keymaker: E (matriz RBAC 4 roles + 401 API, fase roja) y G (fase verde T276-T279).
+- 2026-11-13 Keymaker: R5 fase verde T276-T279 iniciada (checkpoint en log-keymaker.md)
+- 2026-11-13 Keymaker: T276 verde (dominio backup: digest, hardening, migración V2→V3), tsc 0, 63/63
+- 2026-11-13 Keymaker: T277/T278/T279 en src implementados; migrando tests heredados; 2 contradicciones rojas por reportar (preview ID ajeno; peso 900 v2)
+- 2026-11-13 Keymaker: R5 verde T276-T279 REVIEW; suite 28/1656; 2 rojas R5 por contradiccion de aserciones (reportadas a Morpheus)
+- 2026-11-13 Morpheus: Keymaker entrega T276-T279 en REVIEW (sin commit, sin [x]). Suite 28 fallos de 1656. Contradicciones: A (preview vs ID ajeno, T274 vs T272) y B (peso 2.0.0 fuera de rango, T275 vs schema). Riesgo: BackupPage.tsx usa GET retirado. Despacho a Oracle.
+- 2026-11-13 Oracle: inicia auditoría fase verde R5 T276-T279 (worktree base, A/B, BackupPage)
+- 2026-11-13 Oracle: veredicto R5 fase verde T276-T279 (sin regresiones, 0 nuevas rojas; A/B dictaminadas; BackupPage deuda) -> claude/veredicto-auditor-rebanada5-faseverde-2026-11-13.md
+- 2026-11-13 Morpheus: Oracle T276-T279: APTO CONDICIONADO (T276 H-V5-1/2/4; T277 APTO; T278 H-V5-1/2; T279 H-V5-1/3). Sin regresiones vs 37772a2. Decisiones a Neo: A-2, B-1, BackupPage (deuda o fix mínimo), alcance de 26 heredadas. Informe por Logos.
+- 2026-11-13 Morpheus: directiva de Neo: H (A-2 y B-1), I (arreglo mínimo BackupPage), J (26 heredadas fuera de alcance R5), K ([x] T271-T279 y commits locales tras H e I). Despacho a Keymaker de H e I.
+- 2026-11-13 Keymaker: H-A-2, H-B-1 e I aplicados (T274/T275 verdes, BackupPage POST+digest, backup-client.spec nueva); tsc 0, oracles CUMPLE, traza T271-T279 CUMPLE. Sin commit.
+- 2026-11-13 Morpheus: Keymaker aplica H-A-2, H-B-1 e I (sin commit). Desvíos a aprobar por Neo: (1) preview con ID ajeno da colisiones 5/5 (propias), no 0/0; (2) digest en cliente por Web Crypto por INV-ARCH-004. Oracle despachado para validar antes de pedir K.
+- 2026-11-13 Oracle: inicio auditoría enmiendas R5 (H-A-2, H-B-1, I; D1, D2). Solo lectura.
+- 2026-11-13 Oracle: enmiendas R5 H-A-2 APTO, H-B-1 APTO, I APTO CONDICIONADO (H-E-1/2); D1 y D2 aceptar; 11 fallos presentación heredados. Veredicto en claude/veredicto-auditor-rebanada5-enmiendas-2026-11-13.md
+- 2026-11-13 Morpheus: Oracle enmiendas H-A-2 APTO, H-B-1 APTO, I APTO CONDICIONADO (H-E-1, H-E-2 menores). D1 (colisiones 5/5) ACEPTAR y D2 (Web Crypto) ACEPTAR. Escalo a Neo aprobar D1/D2 y orden K. Sin regresiones; presentación 11 fallos heredados (J).
+- 2026-11-13 Morpheus: directiva de Neo: L (D1 y D2 aprobados), M ([x] T271-T279 y commit local sin push). Ejecuto commit de la fase verde.
+- 2026-11-13 Morpheus: commit 304ed41 (fase verde R5, T271-T279 [x], sin push). Despacho de T280 (Smith) y T281 (Rama).
+- 2026-11-13 Rama: T281 inicio auditoría exportación/respaldo Rebanada 5 (informe rebanada-5-rama.md).
+- 2026-11-13 Smith: T280 inicio caos de respaldo (fallo por escritura, corrupción, SIGKILL, byte a byte) en tests/security/; bitácora claude/log-smith.md
+- 2026-11-13 Rama: T281 fin. 76/76 pruebas; 0 hallazgos de producción, H-1 baja (oráculo vacuo access-control.security.spec.ts:86-98). Informe: .specify/memory/audits/rebanada-5-rama.md
+- 2026-11-13 Morpheus: Rama T281 entregada: sin hallazgos de producción; H-1 baja (aserción vacía en access-control.security.spec.ts:86-98, campos ownerUserId/exportedByUserId ya no existen). Pendiente: Smith T280 y corrección de H-1 por Keymaker.
+- 2026-11-13 Smith: T280 entregada para validación: backup-chaos.security.spec.ts 10/10 verde, 0 grietas; tsc 0, oráculos CUMPLE, traza T280 CUMPLE; src/generated intacto. Siguiente: /oracle.
+- 2026-11-13 Morpheus: Smith T280 entregado: 10 pruebas verdes (tests/security/exploits/backup-chaos.security.spec.ts + backup-chaos-child.ts), sin hallazgos. Despacho a Keymaker de H-1 de Rama (aserción vacía en access-control:86-98). Después Oracle de T280/T281/H-1.
+- 2026-11-13 Keymaker: inicio H-1 Rama (access-control.security.spec.ts INV-ACC-001, aserción vacía); solo ese bloque.
+- 2026-11-13 Keymaker: H-1 corregido (access-control.security.spec.ts INV-ACC-001): afirma ausencia de ownerUserId/exportedByUserId en sobre y mascotas; 13/13 verde; mutación falla; tsc 0.
+- 2026-11-13 Morpheus: H-1 de Rama corregida por Keymaker (access-control 13/13, mutación detectada). Despacho a Oracle para T280, T281 y H-1, y compuertas de cierre R5 (T282).
+- 2026-11-13 Oracle: inicio auditoría de cierre R5 (T280, T281, H-1, compuertas T282); solo lectura.
+- 2026-11-13 Oracle: cierre R5 auditado: T280 APTO, T281 APTO CONDICIONADO (H-R-1 cita), H-1 APTO, compuertas CUMPLE; ver claude/veredicto-auditor-rebanada5-cierre-2026-11-13.md
+- 2026-11-13 Morpheus: Oracle T280 APTO, T281 APTO CONDICIONADO (nota documental), H-1 APTO, compuertas R5 CUMPLE. Informe a Neo: [x] T280-T281 y commit local; aviso sobre test:gate completo bloqueado por 26 fallos fuera de alcance.
+- 2026-11-13 Morpheus: Logos APAGADA por orden de Neo. Pendiente de Neo: N (commit T280-T281), O (cierre R5), P (test:gate).
+- 2026-11-13 HARDLINE (Morpheus): cierre de sesión. HEAD 304ed41 (14 commits sin push). T265-T279 [x] con commits. T280/T281 APTO sin commit ni [x]; T282 pendiente. Logos APAGADA. Pendientes de Neo: N, O, P. Handover: claude/handover-morpheus-2026-11-13.md (sección CIERRE HARDLINE).
+- 2026-11-14 Morpheus: T280, T281 y T282 marcadas [x] por Decisiones N y O de Neo; commit local 2af8558 (sin push). Compuertas T282 CUMPLE (test:gate omitido por Decisión P). Pausa para sesión previa de Neo con Sati; T283 sin despachar; logos.json sin escritura.
+- 2026-11-14 Keymaker: arranque local reparado (server.ts: mantenimiento antes de listen; package.json dev carga .env). tsc 0, 21 pruebas verdes. Sin commit; pendiente Oracle.
+- 2026-11-14 Oracle: veredicto APTO arranque local (server.ts + package.json, sin commit). claude/veredicto-auditor-arranque-local-2026-11-14.md
+- 2026-11-14 Keymaker: A corregido (species DOG→CANINE en PetForm.tsx; 422→201 verificado). B no es bug (insignias sin etiqueta). tsc 0; 15 fallos heredados sin cambio. Sin commit.
+- 2026-11-14 Keymaker: B (etiquetas Hogares) y C (panel Hogares de la mascota) listos; API asignación 200/200/204 verificada; tsc 0; sin cambio en fallos heredados. Sin commit.
+- 2026-11-14 Oracle: correcciones del portal APTO CONDICIONADO (components.spec importa PetForm/ShellHeader; fallos por fixture, recuento igual). claude/veredicto-auditor-correcciones-portal-2026-11-14.md
+- 2026-11-14 Architect: diseño asignación en alta/edición (claude/decisiones-arquitecto-task-asignacion-alta-2026-11-14.md). Defecto confirmado: RegisterPetUseCase ignora baseHouseholdId (201 sin asignación). Sin cambio de contrato.
+- 2026-11-14 Keymaker: alta con hogar base y panel en edición implementados; API verificada (201/403/204/200); tsc 0; 15 fallos heredados sin cambio. Sin commit.
+- 2026-11-14 Oracle: alta con hogar base APTO CONDICIONADO (backend APTO, API verificada; presentación condicionada por 15 heredados y navegador no verificado). claude/veredicto-auditor-alta-hogar-base-2026-11-14.md
+- 2026-11-14 Morpheus: Neo verificó el portal (alta con hogar base y edición con hogares). Commit 7b6e576 subido a origin. Pendientes: fixtures de presentación (tarea aparte) y diseño con Sati (T283).
+- 2026-11-14 Architect: architecture_spec.md generado (inventario de pantallas, contratos y brechas para el rediseño). Sin cambios de código. Hallazgo B-1: la invitación a hogares no puede completarse desde la UI (falta roleOnJoin).
+- 2026-11-14 Sati: ui_blueprint.md listo (tokens, layout 5 rutas, estados, brand kit). Contrastes verificados; lima solo como fondo. Pendiente aprobación de Neo (5 decisiones en Apéndice C).
+- 2026-11-14 Sati: ui_blueprint.md v1.1 auditado: cobertura 0 faltantes, contraste 59 pares 0 fallos, blur 1 capa (escritorio) / 0 (móvil), 2 comportamientos inventados eliminados. Sin cambios de código.
+- 2026-11-14 Sati: Neo aprobó los 5 puntos del Apéndice C de ui_blueprint.md v1.1. Orden: NO despachar a Keymaker todavía; implementación en pausa.
+- 2026-11-14 Morpheus: Neo aprobó architecture_spec.md (contrato) y ui_blueprint.md v1.1 (5/5). Orden: implementar rediseño visual con Keymaker (alcance: tailwind.config.ts, styles.css, src/presentation/web/**). Despacho a Keymaker.
+- 2026-11-14 Keymaker: rediseño visual implementado (sin commit). typecheck 0, build OK, vitest 26/1645 = línea base. E2E 23/25: 2 fallos preexistentes de la suite (seed DOG en wcag; usuario duplicado). axe fuera del repo 0 violaciones en 15 vistas. Pendiente Oracle.
+- 2026-11-14 Oracle: rediseño visual APTO CONDICIONADO (claude/veredicto-auditor-rediseno-visual-2026-11-14.md). Gates OK; axe en vivo 0 violaciones; E2E 2 fallos preexistentes (seed DOG en wcag bloquea 7 pruebas axe; usuario duplicado). Condición: corregir suite de test.
+- 2026-11-14 Morpheus: T283 [x] por orden de Neo (3A). Keymaker en curso para 1A. Commit local 2A y Oracle pendientes.
+2026-11-14 keymaker: OPCION 1A E2E fixes (wcag seed, pet-dashboard user); axe 2/7 ejecutadas, suite 26 pasan/2 fallan/10 sin ejecutar; ver log-keymaker
+- 2026-11-14 Morpheus: commit d8beed8 (diseño + T283, sin tests, sin push). Tests E2E de Keymaker sin commit; Oracle auditando su alcance y los fallos restantes.
+- 2026-11-14 Morpheus: Neo: 1A/2B/3A/4A. Keymaker aplicando 2B y 3A; Oracle y commit de tests (4A) después.
+- 2026-11-14 Keymaker: 2B/3A aplicados en tests/e2e; suite 29 ok/2 fallos/7 sin ejecutar (wcag:123, pet-dashboard:71). Ver log-keymaker.
+- 2026-11-14 Morpheus: suite 29/2/7 (no verde). Escalado a Neo en Logos: seed PUT asignación, Variación (%) 001 vs regresión, aserciones de 3A. Commit 4A en pausa.
+- 2026-11-14 Morpheus: Neo 1A/2A/3A/semáforo/4A (commit tests solo si verde). Keymaker despachado para aplicar; Oracle audita suite y luego commit 4A.
+- 2026-11-14 Keymaker: CAT->FELINE pet-dashboard.spec.ts:115; e2e 36 ok/1 falla (schemaVersion 2.0.0 vs 3.0.0, :157)/1 no ejecutada
+- 2026-11-14 Morpheus: suite 36/1/1; aplicado CAT→FELINE; schemaVersion 2.0.0→3.0.0 contra contrato const 3.0.0. Keymaker reejecutando. Commit 4A pendiente de verde y Oracle.
+- 2026-11-14 Morpheus: commits d8beed8 (diseño) y ff0fe62 (tests 38/38, Oracle APTO). Sin push. Informe a Neo en Logos.
+- 2026-11-14 Morpheus: Neo aprueba suite; sin push. Frente rojo Rebanada 6 (T284-T286) despachado a Keymaker: solo tests, rojo legítimo.
+- 2026-11-14 Keymaker: frente rojo Rebanada 6 T284-T286 escrito (solo tests); 10 unit/int + 1 wcag + 5 e2e rojos legítimos; sin commit
+- 2026-11-14 Morpheus: Oracle APTO CONDICIONADO frente rojo R6. Pendiente de Neo: respaldos spec, 12 pruebas antiguas, Sati 1280 px, hallazgo detail 422.
+- 2026-11-14 HARDLINE (Morpheus): cierre. HEAD ff0fe62, 0 commits sin push. Frente rojo R6 sin commit. Pendientes de Neo en Logos (4 decisiones + reorganización estructural). Handover: claude/handover-morpheus-2026-11-14.md.
+- 2026-11-14 Sati: propuestas A y B de estructura en ui_propuestas_estructura.md (recomienda A). Espera elección de Neo + 3 decisiones. Sin código.
+- 2026-11-14 Sati: Neo aprobó Propuesta A + D1 (data: / no-referrer + fallback iniciales) + D2 + D3 + nueva mascota única. Redacto ui_blueprint v2.0 (v1.1 archivada en claude/archivo/ui_blueprint-v1.1.md). src/ intacto.
+- 2026-11-14 Sati: ui_blueprint.md v2.0 y ui_maqueta_v2.html listos (320/1024/1280 verificados en Chromium, sin overflow). src/ intacto. Pendiente: auditoría /oracle y orden de Neo para Keymaker.
+- 2026-11-14 Sati: pre-verificación de compuertas para Oracle entregada a Neo (contraste 15/16 OK, el fallo es lima sobre blanco prohibido). Veredicto formal pendiente de /oracle.
+- 2026-11-14 Morpheus: Oracle despachado a auditar blueprint v2.0 + maqueta (4 compuertas). src/ congelado. Veredicto en claude/veredicto-auditor-blueprint-v2.md (pendiente).
+- 2026-11-14 Oracle: veredicto blueprint v2.0 + maqueta = NO APTO corregible (H-BP2-1..3 obligatorios; contraste y blur OK). Archivo: claude/veredicto-auditor-blueprint-v2.md. Pendiente: enmienda de Sati y decisión de Neo sobre H-BP2-4.
+- 2026-11-14 Morpheus: Oracle NO APTO corregible. Sati despachada a enmienda v2.1 (H-BP2-1..3 obligatorios; 5..11 recomendados). H-BP2-4 espera decisión de Neo. src/ congelado.
+- 2026-11-14 Morpheus: Neo decide OPCIÓN A (H-BP2-4). Sati recibe la decisión y las directivas v2.1 por mensaje a su sesión en curso. Pendiente entrega v2.1 y reauditoría Oracle. src/ congelado.
+- 2026-11-14 Sati: ui_blueprint.md v2.1 + ui_maqueta_v2.html + ui_maqueta_cuenta.html entregados (H-BP2-1..3,5..11 aplicados; H-BP2-4 cerrado por Neo = Opción A). Validación de Oracle requerida (solo puntos corregidos). Log: claude/log-sati.md.
+- 2026-11-14 Morpheus: v2.1 entregada por Sati. Oracle reaudita (rebote único) -> claude/veredicto-auditor-blueprint-v2-reauditoria.md. src/ congelado.
+- 2026-11-14 Oracle: reauditoría v2.1 APTO CONDICIONADO -> claude/veredicto-auditor-blueprint-v2-reauditoria.md. Un punto a Neo: enlace 'Perfil' directo vs menú de avatar (H-BP2-12). src/ congelado.
+- 2026-11-14 Morpheus: Oracle reauditoría APTO CONDICIONADO. Espera decisión de Neo H-BP2-12 (enlace Perfil vs menú avatar). src/ congelado; Keymaker no despachado.
+- 2026-11-14 Morpheus: Neo elige opción (a) Perfil directo. Architect enmienda REQ-UI2-001/T287; Sati corrige H-BP2-13..15. Keymaker autorizado después. src/ congelado.
+- 2026-11-14 Architect: REQ-UI2-001 y T287 enmendados (Perfil como 4.º enlace directo, sin menú avatar ni barra inferior). Estado REVIEW; contratos sin cambios.
+- 2026-11-14 Morpheus: enmienda Architect verificada (2 líneas, sin cambio de IDs). Trazabilidad 88/96 por brechas de 001 y REQ-UI2-008 sin código: no causadas por la enmienda. Espera Sati.
+- 2026-11-14 Sati: cerrados H-BP2-13/14/15 (blueprint L499/L672, maquetas v2 y cuenta); Chromium 320-1280 OK. Ver log-sati.md
+- 2026-11-14 Morpheus: Sati cerró H-BP2-13..15. Keymaker despachado a Rebanada 6 + T287 + enmienda de prueba de grilla (Opción A). Pendiente Oracle forense.
+- 2026-11-14 Keymaker: inicio Rebanada 6 verde (T284-T293 UI + T287 + enmienda Opción A). Conflictos: guarda de temporizadores en presentation-architecture.spec; «Solo lectura» blueprint vs T284. Sin commit.
+2026-11-14 Neb: consulta de estado en lenguaje llano. Rebanadas 1-5 cerradas; Rebanada 6 en frente rojo sin commit; 5 decisiones pendientes de Neo. Log: claude/log-neb.md.
+- 2026-11-14 Keymaker: R6 verde escrita (AppShell, riel, ficha, /cuenta, respaldo con fases, aviso de sesión) + enmienda Opción A; unit/int presentación 66 ok / 12 heredados. Pendiente: E2E y compuertas.
+- 2026-11-14 Keymaker: E2E completa 51 ok / 1 fallo (auth-pet-forms:63 doble clic en Editar; el hero se sustituye en EDIT por blueprint §4.6). Enmendada esa prueba.
+- 2026-11-14 Keymaker: compuertas R6: tsc 0; vitest 26 fallos/1660 ok (= línea base); oráculos CUMPLE; traza 002 117/118 (INV-HOUSE-001 ajeno), T284-T293 CUMPLE; Playwright 52/52; test:gate completo no ejecutado. T284-T293 propuestas REVIEW. Sin commit. Para Oracle.
+- 2026-11-14 Morpheus: Keymaker entrega T284-T293 en REVIEW (sin commit). Oracle forense en curso -> claude/veredicto-auditor-rebanada6-t284-t293.md. Requiere ratificación de Neo: H-K-3, H-K-4, H-K-5.
+- 2026-11-14 Oracle: auditoría R6 T284-T293 APTO CONDICIONADO (tsc 0; vitest 26/1660 = base; oráculos CUMPLE; traza T284-T293 CUMPLE; Playwright 52/52; estructura OK). Pendiente Neo: H-K-3, H-K-4, H-K-5. -> claude/veredicto-auditor-rebanada6-t284-t293.md
+- 2026-11-14 Morpheus: Oracle Rebanada 6 APTO CONDICIONADO. Neo debe decidir H-K-3/4/5; luego enmiendas documentales y test:gate (orden de Neo). Ninguna COMPLETED.
+- 2026-11-14 Morpheus: Logos encendida por orden de Neo. Mensaje para Neo con H-K-3/4/5 y test:gate en logos.json. Espera pasiva activa.
+- 2026-11-14 Morpheus: Neo aprueba H-K-3/4/5 (A) y test:gate. Despachados Architect (T288), Sati (blueprint v2.2) y Keymaker (test:gate T296) en paralelo.
+- 2026-11-14 Architect: T288 armonizada con Opción A (riel flex con scroll, listbox/option; sin grilla) por orden de Neo. Solo tasks.md. Sin commits.
+- 2026-11-14 Keymaker: test:gate T296 FALLA en verify-traceability (117/118, INV-HOUSE-001); cadena detenida. Detalle en log-keymaker y gate-T296-output.txt.
+- 2026-11-14 Sati: ui_blueprint.md v2.2 (H-K-3/4/5 aplicadas; v2.1 archivada). REVIEW, sin commits.
+- 2026-11-14 Morpheus: test:gate BLOQUEADO por INV-HOUSE-001 (117/118). Neo decide (a) autorizar cambio de test o (b) aceptar rojo. Sati pendiente.
+- 2026-11-14 Morpheus: blueprint v2.2 entregado; T288 armonizada. Oracle valida documental. Logos después del veredicto.
+- 2026-11-14 Oracle: auditoría documental blueprint v2.2 + T287/T288. APTO CONDICIONADO: tasks.md OK (2 líneas); H-V22-1 ALTA (L388 contradice RBAC/spec/código), H-V22-2/3/4 medias. Veredicto: claude/veredicto-auditor-documental-v22.md. Sin commits.
+- 2026-11-14 Morpheus: Oracle documental APTO CONDICIONADO. H-V22-1 pendiente de Neo. Sati (H-V22-2/3/5) y Architect (H-V22-4) despachados.
+- 2026-11-14 Architect: spec.md L154-155 y L361 armonizados con nav de 4 enlaces (H-V22-4); sin avatar ni barra inferior. Pendiente reconfirmación de Oracle.
+- 2026-11-14 Sati: ui_blueprint v2.3 (H-V22-2/3/5 corregidos; H-V22-1 pendiente de Neo). Sin commits.
+- 2026-11-14 Morpheus: H-V22-4 armonizada en spec.md (L154/155/361). Trazabilidad 117/118. Pendiente Sati y decisiones de Neo.
+- 2026-11-14 Morpheus: blueprint v2.3 entregado (H-V22-2/3/5). Oracle reconfirma 2/3/4/5. Pendientes Neo: INV-HOUSE-001 y H-V22-1.
+- 2026-11-14 Oracle: reconfirmación H-V22-2/3/4/5 = CUMPLE (4/4). Nueva menor N-1 (blueprint L201 sin Perfil). Veredicto: claude/veredicto-auditor-documental-v22-reconfirmacion.md. Pendientes Neo: H-V22-1, H-V22-6, INV-HOUSE-001.
+- 2026-11-14 Morpheus: Oracle reconfirma H-V22-2/3/4/5 CUMPLE. N-1 corregido por Sati. Pendientes Neo: H-V22-1, H-V22-6, INV-HOUSE-001.
+- 2026-11-14 Sati: N-1 cerrada (ui_blueprint.md L201 añade Perfil al nav del esquema). Sin commits.
+- 2026-11-14 Morpheus: Logos encendida. Neo: H-V22-1 A, INV-HOUSE-001 A, 26 fallos = B-11. Sati (§4.5 v2.4) y Keymaker (cita + test:gate) despachados.
+- 2026-11-14 Sati: ui_blueprint v2.4 (H-V22-1 A permisos granulares §4.5, B-3 retirada; H-V22-6 disparador del aviso). v2.3 archivada. Sin commits.
+- 2026-11-14 Morpheus: blueprint v2.4 entregado; mapeo de permisos verificado en records.ts. Pendiente Keymaker (INV-HOUSE-001 + test:gate).
+- 2026-11-14 Keymaker: INV-HOUSE-001 citado en household-policies.spec.ts:111; trazabilidad 118/118, tsc 0, oráculos CUMPLE; test:gate exit 1 con 26 fallos (=B-11 según Neo); salida en gate-T296-output.txt.
+- 2026-11-14 Morpheus: INV-HOUSE-001 citado, trazabilidad 118/118. test:gate exit 1 con 26 fallos; 12 en presentación de 002. Oracle compara contra línea base.
+- 2026-11-14 Oracle: fallos gate T296 (presentación) 12/12 heredados vs ff0fe62, 0 nuevos; CUMPLE con excepción B-11 (14 restantes sin comparar). Veredicto: claude/veredicto-auditor-fallos-gate-t296.md.
+- 2026-11-14 Morpheus: 12 fallos presentación = HEREDADOS (ff0fe62), 0 nuevos. Comparando los 14 restantes.
+- 2026-11-14 Oracle: 14 fallos restantes del gate T296 vs ff0fe62: 14/14 heredados, 0 nuevos; con los 12 de presentación, 26/26 heredados. CUMPLE con excepción B-11. Veredicto: claude/veredicto-auditor-fallos-gate-t296.md.
+- 2026-11-14 Morpheus: 26 fallos del gate = HEREDADOS en ff0fe62 (0 nuevos). Escalado a Neo en Logos: A (B-11) o B (corregir).
+- 2026-11-14 Morpheus: Neo acepta B-11 (A). Keymaker prepara 2 commits locales sin push. Pendiente veredicto de cierre.
+- 2026-11-14 Keymaker: preparados 2 commits locales de la Rebanada 6 (implementación/pruebas y docs de diseño); sin push, sin COMPLETED; detalle en log-keymaker.
+- 2026-11-14 Morpheus: veredicto de cierre Rebanada 6 emitido (claude/veredicto-cierre-rebanada6-2026-11-14.md). Commits 8da9bc1 y 0f9804d locales, sin push. Pendientes de Neo: commit 3 (tests c), spec.md en commit 2, cambios ajenos y versionado de artefactos.
+- 2026-11-14 Keymaker: commit 3 de cierre rebanada 6 (T284-T293, T296 marcadas; T294/T295 abiertas); local, sin push; este bus queda sin commit.
+- 2026-11-14 Morpheus: Neo aprueba cierre. Commit 3 en curso (Keymaker): marcado T284-T293 y T296; T294/T295 abiertas por no estar hechas. Sin push.
+- 2026-11-14 Morpheus: cierre Rebanada 6 ejecutado. Commit 425c006 (cierre), 8da9bc1, 0f9804d. tasks T284-T293 y T296 [x]; T294 y T295 abiertas. Sin push (ahead 3). Informe final en Logos; turno de Neo.
+- 2026-11-14 Morpheus: Neo ordena T294 (Seraph) y T295 (Sati). Sin push hasta revisión visual. Despachados en paralelo.
+- 2026-11-14 Seraph: T294 verificada, axe a 320/768/1024/1280 px, 14 passed, 0 critical/serious. Evidencia tests/e2e/accessibility/T294-evidencia-axe.md. Sin commit; T294 sin marcar.
+- 2026-11-14 Morpheus: T294 [x] con evidencia verificada (14/14, 4 anchos). T295 pendiente de Sati y revisión visual de Neo.
+- 2026-11-14 Sati: T295 revisada. Entrega claude/entrega-T295-pieza-sati.md (0 bloqueantes, 3 a corregir, 6 aceptables); recomendación: aprobar con correcciones. Sin commit; T295 abierta hasta aprobación de Neo.
+- 2026-11-14 Morpheus: T295 entregada por Sati (3 a corregir, 1 decisión blueprint v2.5). Pendiente aprobación visual de Neo.
+- 2026-11-14 Morpheus: Neo opción C. Keymaker corrige D1-D3; Sati redacta blueprint v2.5 (/backup, REQ-UI2-007). T295 abierta. Sin push.
+- 2026-11-14 Sati: ui_blueprint.md v2.5 (§5.3 /backup alineada con REQ-UI2-007, D4-D9 aceptadas); v2.4 archivada. REVIEW, pendiente de Oracle. Sin commit.
+- 2026-11-14 Morpheus: blueprint v2.5 entregado. Conflicto architecture_spec §3.6 vs REQ-UI2-007 (preview) pendiente de Neo. Keymaker en curso.
+- 2026-11-14 Keymaker: D1-D3 de T295 corregidos en src/presentation/web (AppShell, Field, PetDashboard); tsc 0, axe 14/14, medición Chromium OK; sin commit; pendiente verificación visual de Sati.
+- 2026-11-14 Morpheus: D1-D3 corregidos (Keymaker, sin commit). Oracle audita v2.5 + arreglos. Decisiones para Neo: conflicto preview §3.6 y nav a 320 px.
+- 2026-11-14 Oracle: audité blueprint v2.5 y arreglos D1-D3 (T295): APTO CONDICIONADO; H-V25-1 ALTA (orden de foco en nav < 1024 px); decisiones para Neo: §3.6 vs REQ-UI2-007 y nav a 320 px. Detalle en claude/veredicto-auditor-pieza-t295-v25.md.
+- 2026-11-14 Morpheus: Oracle v2.5 APTO CONDICIONADO. H-V25-1 ALTO (orden DOM de D1). Corrigiendo H-V25-4 y D4/D8. Decisiones Neo: D-N1 y D-N2.
+- 2026-11-14 Sati: corregidos D4 y D8 de §9 en ui_blueprint.md (H-V25-2, H-V25-3); v2.5 sin cambios, sin commit; pendiente Oracle.
+- 2026-11-14 Keymaker: H-V25-4 corregido en BackupPage.tsx (Revertida solo con finalState ROLLED_BACK); tsc 0, vitest 11 heredados; sin commit; pendiente Oracle.
+- 2026-11-14 Morpheus: Sati corrige D4 y D8 (justificaciones verificadas). Pendiente Keymaker H-V25-4 y decisiones D-N1/D-N2 de Neo.
+- 2026-11-14 Morpheus: H-V25-4 aplicado (Keymaker). Observación: en error sin ROLLED_BACK la fase queda en APPLYING (verificar con Sati/Oracle que no induce a error).
+- 2026-11-14 Neb: consulta de estado en lenguaje sencillo. Sin cambios en disco salvo esta bitácora. Pendientes de Neo: D-N1, D-N2 (T295) y firmas N2 (T204a, T310).
+- 2026-11-14 Morpheus: Neo resuelve D-N1 (A) y D-N2 (A). Architect y Keymaker despachados en paralelo. Oracle reconfirma después.
+- 2026-11-14 Architect: enmienda D-N1 opción A (decisión de Neo) aplicada en architecture_spec.md §3.6/§3.7; en REVIEW para Oracle. Sin commit.
+- 2026-11-14 Morpheus: Architect aplica D-N1 (architecture_spec §3.6/§3.7). Verificado. Pendiente Keymaker (D-N2) y Oracle.
+- 2026-11-14 Keymaker: D-N2 A (nav flex-wrap, orden DOM=visual), H-V25-6 palabras visibles, H-V25-4 sin aria-current en error; tsc 0, vitest 11 heredados, a11y 14/14. Sin commit. Pendiente Oracle H-V25-1..6.
+- 2026-11-14 Morpheus: D-N1 y D-N2 aplicados. Oracle reconfirma H-V25-1..6 y D-N1 (claude/veredicto-auditor-reconfirmacion-final-t295.md). Sin push.
+- 2026-11-14 Oracle: reconfirmación final T295 -> APTO (H-V25-1/5/6/4/2/3 y D-N1 cerrados; tsc 0, vitest presentación 11 heredados, axe 14/14). Cabecera 260 px a 320 px: cumple §3.2, decisión de producto para Neo. Ver claude/veredicto-auditor-reconfirmacion-final-t295.md
+- 2026-11-14 Morpheus: Neo aprueba T295 (A). Keymaker marca T295 y commit local de cierre de pieza. Sin push.
+- 2026-11-14 Keymaker: T295 marcada [x] y commit local de cierre preparado (sin push).
+- 2026-11-14 Morpheus: commit 99a959a (cierre T295) verificado en disco. Rama ahead 4, remoto sin cambios (ff0fe62). Pendiente decisión de Neo: versionar bus y autorizar push de feature 002.
