@@ -9,6 +9,7 @@
  * @implements INV-ARCH-004, INV-ARCH-005
  */
 
+import type { DeterministicFaultInjector } from '../fault-injector.ts';
 import type { AuditEntry, Household, PetProfile } from '../../../generated/index.ts';
 import type { LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type {
@@ -63,6 +64,8 @@ export interface StoredConfirmationToken {
 export interface InMemoryUnitOfWorkOptions {
   /** Se ejecuta justo antes de confirmar; si lanza, la transacción se descarta (simula un fallo de commit). */
   readonly beforeCommit?: () => void;
+  /** Fallo determinista de la escritura N de cada transacción (SC-004, T277). */
+  readonly faultInjector?: DeterministicFaultInjector;
 }
 
 export function emptyMemoryState(): MemoryState {
@@ -391,7 +394,9 @@ export class InMemoryUnitOfWork implements UnitOfWorkPort {
   runInTransaction<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
     const run = this.queue.then(async () => {
       const draft = copy(this.state);
-      const result = await work(repositoriesOver(draft));
+      this.options.faultInjector?.beginTransaction();
+      const repositories = repositoriesOver(draft);
+      const result = await work(this.options.faultInjector?.wrap(repositories) ?? repositories);
       this.options.beforeCommit?.();
       this.state = draft;
       return result;

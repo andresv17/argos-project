@@ -115,3 +115,41 @@ export function mapLegacyEnvelopeSpecies<E extends { readonly pets: ReadonlyArra
   const { pets, ...rest } = envelope;
   return { ...rest, pets: pets.map((pet) => ({ ...pet, species: mapLegacySpecies(pet.species) })) } as ReturnType<typeof mapLegacyEnvelopeSpecies<E>>;
 }
+
+/** Candidato 3.0.0: el resultado de una migración que el llamador debe validar con la MISMA validación final de un 3.0.0. */
+export interface BackupEnvelopeV3Candidate {
+  readonly schemaVersion: '3.0.0';
+  readonly exportedAt: string;
+  readonly pets: ReadonlyArray<Record<string, unknown>>;
+  readonly records: Readonly<Record<string, ReadonlyArray<Record<string, unknown>>>>;
+}
+
+/**
+ * Sobre 2.0.0 válido → candidato 3.0.0 (STATE-BACKUP-001, MIGRATING_LEGACY_ENVELOPE; T276):
+ * - DOG → CANINE, CAT → FELINE; `speciesOther` y `neutered` y `microchipId` nulos; `birthDateIsEstimate` false;
+ * - `category` derivada (`VACCINE` en vacunas, `DEWORMING` en desparasitaciones); `veterinarianName` y
+ *   `veterinarianLicense` nulos; `batchOrClinic` nulo en desparasitaciones (las vacunas ya lo traen);
+ * - se descartan `ownerUserId` de cada mascota y `exportedByUserId`: nada del archivo es autoridad de propiedad (P-14).
+ * No muta la entrada. El resultado no está validado: la capa de aplicación lo valida como 3.0.0 y, si no cumple, el
+ * evento es MIGRATION_SCHEMA_INVALID.
+ *
+ * @implements STATE-BACKUP-001, REQ-BACKUP2-002, INV-PET2-001, INV-BACKUP-001
+ */
+export function migrateEnvelopeV2ToV3(legacy: BackupEnvelopeV2Legacy): BackupEnvelopeV3Candidate {
+  const pets = legacy.pets.map((pet) => {
+    const { ownerUserId: _ownerUserId, ...rest } = pet as unknown as Record<string, unknown> & { species: string };
+    // Los campos nuevos van primero y el resto conserva su orden: el mismo orden de clave que un 3.0.0 equivalente.
+    return { speciesOther: null, birthDateIsEstimate: false, neutered: null, microchipId: null, ...rest, species: mapLegacySpecies(pet.species) };
+  });
+  const records = legacy.records as unknown as Record<string, ReadonlyArray<Record<string, unknown>>>;
+  return {
+    schemaVersion: '3.0.0',
+    exportedAt: legacy.exportedAt,
+    pets,
+    records: {
+      ...records,
+      vaccinations: (records['vaccinations'] ?? []).map((r) => ({ category: 'VACCINE', veterinarianName: null, veterinarianLicense: null, ...r })),
+      dewormings: (records['dewormings'] ?? []).map((r) => ({ category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, ...r })),
+    },
+  };
+}

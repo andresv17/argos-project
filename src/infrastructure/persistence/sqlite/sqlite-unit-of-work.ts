@@ -14,6 +14,7 @@
 import { DomainError } from '../../../generated/index.ts';
 import type { RepositorySet } from '../../../application/ports/repositories.port.ts';
 import type { MaintenanceCounts, MaintenanceCutoffs, UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
+import type { DeterministicFaultInjector } from '../fault-injector.ts';
 import type { SqliteDatabase } from './sqlite-database.ts';
 import { createSqliteRepositories } from './sqlite-repositories.ts';
 
@@ -22,7 +23,11 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
   private readonly repositories: RepositorySet;
   private queue: Promise<unknown> = Promise.resolve();
 
-  constructor(private readonly db: SqliteDatabase) {
+  /** `faultInjector`: fallo determinista de la escritura N de cada transacción (SC-004, T277); sin él, no cambia nada. */
+  constructor(
+    private readonly db: SqliteDatabase,
+    private readonly faultInjector?: DeterministicFaultInjector,
+  ) {
     this.repositories = createSqliteRepositories(db);
   }
 
@@ -83,7 +88,8 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
   private async execute<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
     this.db.exec('BEGIN IMMEDIATE');
     try {
-      const result = await work(this.repositories);
+      this.faultInjector?.beginTransaction();
+      const result = await work(this.faultInjector?.wrap(this.repositories) ?? this.repositories);
       this.db.exec('COMMIT');
       return result;
     } catch (error) {

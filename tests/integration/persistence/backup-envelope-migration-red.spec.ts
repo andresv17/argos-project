@@ -190,7 +190,7 @@ describe('la migración ejecuta la misma validación final que un 3.0.0 (STATE-B
     ['2.0.0 con assignments en la mascota (FX-BAK-022)', 422, 'ERR-BACKUP-SCHEMA-INVALID', () => legacyV2((e) => (e.pets[0].assignments = []))],
     ['1.0.0 con ownerUserId en la mascota (FX-BAK-023)', 422, 'ERR-BACKUP-SCHEMA-INVALID', () => legacyV1((e) => (e.pets[0].ownerUserId = MARIA))],
     ['1.0.0 con role en la mascota (FX-BAK-024)', 422, 'ERR-BACKUP-SCHEMA-INVALID', () => legacyV1((e) => (e.pets[0].role = 'OWNER'))],
-    ['2.0.0 con peso fuera de rango', 422, 'ERR-REC-WEIGHT-OUT-OF-RANGE', () => legacyV2((e) => (e.records.weights[0].weightKg = 900))],
+    ['2.0.0 con peso fuera de rango (900 kg > max 150 del esquema 2.0.0)', 422, 'ERR-BACKUP-SCHEMA-INVALID', () => legacyV2((e) => (e.records.weights[0].weightKg = 900))],
     ['2.0.0 con nacimiento futuro', 422, 'ERR-PET-FUTURE-BIRTHDATE', () => legacyV2((e) => (e.pets[0].birthDate = '2027-01-01'))],
     ['2.0.0 con un registro huérfano', 409, 'ERR-BACKUP-REFERENTIAL-INTEGRITY', () => legacyV2((e) => (e.records.weights[0].petId = '99999999-9999-4999-8999-999999999999'))],
     ['1.0.0 con una fecha sin forma RFC 3339', 422, 'ERR-BACKUP-SCHEMA-INVALID', () => legacyV1((e) => (e.pets[0].createdAt = 'ayer por la tarde'))],

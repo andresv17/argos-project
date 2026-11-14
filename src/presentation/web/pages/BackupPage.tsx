@@ -6,7 +6,7 @@
  */
 import { useState, type ChangeEvent } from 'react';
 import { Button, FormError } from '../components/Field.tsx';
-import { ApiProblem, attachmentFileName, CSRF_PARAMS, catalogProblem, problemMessage, unwrap, type ProblemDetails } from '../api.ts';
+import { ApiProblem, attachmentFileName, type ApiClient, CSRF_PARAMS, catalogProblem, problemMessage, unwrap, type ProblemDetails } from '../api.ts';
 import { useSession } from '../session.tsx';
 import type { Schemas } from '../view-model.ts';
 
@@ -23,6 +23,34 @@ export function importProblemText(problem: ProblemDetails): string {
   return `${problemMessage(problem)}${state}`;
 }
 
+/** SHA-256 hexadecimal en minúsculas de los bytes (mismo `fileDigest` que calcula el servidor; Web Crypto, sin importar domain). */
+export async function fileDigestOf(bytes: ArrayBuffer): Promise<string> {
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return Array.from(hash, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Exportación: POST /backup/export con X-Argos-Request; el token de confirmación llega en X-Argos-Confirmation-Token (T271). */
+export async function requestBackupExport(api: ApiClient): Promise<{ blob: Blob; fileName: string; token: string }> {
+  const { data, error: problem, response } = await api.POST('/backup/export', { params: { header: CSRF_PARAMS.header }, parseAs: 'blob' });
+  const token = response.headers.get('X-Argos-Confirmation-Token');
+  if (problem !== undefined || data === undefined || !response.ok || token === null) throw new ApiProblem(catalogProblem('ERR-INTERNAL-UNEXPECTED'));
+  return { blob: data as unknown as Blob, fileName: attachmentFileName(response.headers.get('Content-Disposition')), token };
+}
+
+/** Importación: bytes crudos con X-Argos-Import-Confirm = SHA-256 hexadecimal en minúsculas de esos bytes (T272). */
+export async function importBackupFile(api: ApiClient, file: Blob): Promise<ImportBackupResult> {
+  const bytes = await file.arrayBuffer();
+  const digest = await fileDigestOf(bytes);
+  return unwrap(
+    api.POST('/backup/import', {
+      params: { header: { ...CSRF_PARAMS.header, 'X-Argos-Import-Confirm': digest } },
+      body: bytes as unknown as string,
+      bodySerializer: (body: unknown) => body as BodyInit,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
+}
+
 export function BackupPage(): JSX.Element {
   const { api } = useSession();
   const [file, setFile] = useState<File | null>(null);
@@ -33,16 +61,11 @@ export function BackupPage(): JSX.Element {
   const download = async (): Promise<void> => {
     setError(null);
     try {
-      // T271 PENDIENTE: el contrato 3.0.0 exporta con POST (emite token de confirmación); el servidor sigue en GET hasta esa tarea.
-      const legacyApi = api as unknown as {
-        GET(path: string, init: { parseAs: 'blob' }): Promise<{ data?: unknown; error?: unknown; response: Response }>;
-      };
-      const { data, error: problem, response } = await legacyApi.GET('/backup/export', { parseAs: 'blob' });
-      if (problem !== undefined || data === undefined || !response.ok) throw new ApiProblem(catalogProblem('ERR-INTERNAL-UNEXPECTED'));
-      const url = URL.createObjectURL(data as Blob);
+      const { blob, fileName } = await requestBackupExport(api);
+      const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = attachmentFileName(response.headers.get('Content-Disposition'));
+      anchor.download = fileName;
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -56,17 +79,7 @@ export function BackupPage(): JSX.Element {
     setError(null);
     setResult(null);
     try {
-      const text = await file.text();
-      const imported = await unwrap(
-        api.POST('/backup/import', {
-          // T272 PENDIENTE: la confirmación real usa el fileDigest de la previsualización.
-          params: { header: { ...CSRF_PARAMS.header, 'X-Argos-Import-Confirm': '' } },
-          body: text,
-          bodySerializer: (body: unknown) => body as string,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
-      setResult(importResultText(imported));
+      setResult(importResultText(await importBackupFile(api, file)));
     } catch (e) {
       setError(importProblemText(e instanceof ApiProblem ? e.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED')));
     } finally {

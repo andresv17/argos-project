@@ -3,7 +3,7 @@
  * - `DomainError` → su `status` y `toProblemDetails(ruta)`, incluido `finalState` cuando la importación terminó en
  *   `ROLLED_BACK` o `UNKNOWN`.
  * - Errores de Fastify de la petición (cuerpo demasiado grande, URL inválida…) → ERR-SCHEMA-VALIDATION-FAILED (422);
- *   en `POST /api/backup/import`, el cuerpo demasiado grande es ERR-BACKUP-PAYLOAD-TOO-LARGE con `finalState`
+ *   en `POST /api/backup/import` y `/import/preview`, el cuerpo demasiado grande es ERR-BACKUP-PAYLOAD-TOO-LARGE con `finalState`
  *   `ROLLED_BACK`, igual que si lo rechazara STATE-BACKUP-001.
  * - Cualquier otro error → ERR-INTERNAL-UNEXPECTED (500) con el detalle del catálogo: sin mensaje ni traza internos.
  *
@@ -32,7 +32,7 @@ function isFastifyRequestError(error: unknown): error is FastifyError {
 export function toDomainError(error: unknown, request: FastifyRequest): DomainError {
   if (error instanceof DomainError) return error;
   if (isFastifyRequestError(error)) {
-    if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' && requestPath(request) === BACKUP_IMPORT_PATH) {
+    if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' && (requestPath(request) === BACKUP_IMPORT_PATH || requestPath(request) === `${BACKUP_IMPORT_PATH}/preview`)) {
       return new DomainError('ERR-BACKUP-PAYLOAD-TOO-LARGE', `El archivo supera el máximo de ${MAX_IMPORT_BYTES} bytes (10 MB).`, null, 'ROLLED_BACK');
     }
     return new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'La petición no cumple el formato esperado.');

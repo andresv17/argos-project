@@ -7,7 +7,7 @@
 import { ChangePasswordUseCase, DeleteAccountUseCase, UpdateProfileUseCase } from '../../../application/use-cases/account-use-cases.ts';
 import { AssignPetToHouseholdUseCase, ListPetAssignmentsUseCase, UnassignPetFromHouseholdUseCase } from '../../../application/use-cases/assignment-use-cases.ts';
 import { AuthenticateRequestUseCase, GetCurrentSessionUseCase, LoginUseCase, LogoutUseCase, RegisterUserUseCase } from '../../../application/use-cases/auth-use-cases.ts';
-import { ExportBackupUseCase, ImportBackupUseCase } from '../../../application/use-cases/backup-use-cases.ts';
+import { ExportBackupUseCase, ImportBackupUseCase, PreviewBackupImportUseCase } from '../../../application/use-cases/backup-use-cases.ts';
 import {
   ChangeMemberRoleUseCase,
   CreateHouseholdUseCase,
@@ -76,6 +76,7 @@ export function createUseCases(deps: ApplicationDeps) {
     unassignPetFromHousehold: new UnassignPetFromHouseholdUseCase(deps),
     transferPetOwnership: new TransferPetOwnershipUseCase(deps),
     exportBackup: new ExportBackupUseCase(deps),
+    previewBackupImport: new PreviewBackupImportUseCase(deps),
     importBackup: new ImportBackupUseCase(deps),
   };
 }

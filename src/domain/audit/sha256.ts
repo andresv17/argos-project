@@ -18,7 +18,11 @@ const rotr = (x: number, n: number): number => (x >>> n) | (x << (32 - n));
 
 /** SHA-256 hexadecimal minúscula (64 caracteres) del texto codificado en UTF-8. */
 export function sha256Hex(text: string): string {
-  const bytes = new TextEncoder().encode(text);
+  return sha256HexOfBytes(new TextEncoder().encode(text));
+}
+
+/** SHA-256 hexadecimal minúscula (64 caracteres) de los bytes tal cual (T276: `fileDigest` de los bytes leídos). */
+export function sha256HexOfBytes(bytes: Uint8Array): string {
   const bitLength = bytes.length * 8;
   const paddedLength = (((bytes.length + 8) >> 6) + 1) << 6;
   const data = new Uint8Array(paddedLength);

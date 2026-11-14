@@ -2,24 +2,32 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { validateBackupEnvelopeV3, type BackupEnvelopeV3 } from '../../../src/generated/index.ts';
 import { MAX_IMPORT_BYTES } from '../../../src/application/use-cases/backup-use-cases.ts';
 import { PASSWORDS, fixtures } from '../../fixtures/application-harness.ts';
-import { v2 } from '../../fixtures/backup-harness.ts';
+import { digestOf, v2, v3 } from '../../fixtures/backup-harness.ts';
 import { createApi, problemOf, type Api } from './api-harness.ts';
 import { LUNA_ID, USERS_BY_NAME } from './api-fixtures.ts';
 
 /**
- * (reescritura de DEUDA-TEST-001): respaldo por HTTP sobre SQLite. Exportación del usuario, importación v2 y
- * v1, errores con finalState, rollback byte a byte con fallo real en el commit y orden de comprobaciones
- * de INV-BACKUP-001 (DEUDA-BACKUP-ORDER-001).
+ * (reescritura de DEUDA-TEST-001; migrada a 3.0.0 en T278/T279): respaldo por HTTP sobre SQLite. Exportación del usuario,
+ * importación 3.0.0, 2.0.0 y 1.0.0 con X-Argos-Import-Confirm, errores con finalState, rollback byte a byte con fallo real en
+ * el commit y orden de comprobaciones de INV-BACKUP-001 (DEUDA-BACKUP-ORDER-001).
  */
 let api: Api;
 afterEach(async () => api.close());
 
 const IMPORT = '/api/backup/import';
-const importAs = async (cookie: string, payload: string | Uint8Array) => api.call('POST', IMPORT, { cookie, raw: payload });
+const importAs = async (cookie: string, payload: string | Uint8Array) =>
+  api.call('POST', IMPORT, { cookie, raw: payload, headers: { 'x-argos-import-confirm': digestOf(payload) } });
+/** Datos de mascotas y registros (sin tokens, cupo ni auditoría, que la exportación y la importación sí escriben). */
+const ownData = () =>
+  JSON.stringify(
+    ['pets', 'weights', 'body_measurements', 'vaccinations', 'dewormings', 'medical_visits', 'custom_parameters', 'pet_assignments'].map((t) =>
+      api.db.prepare(`SELECT * FROM ${t} ORDER BY 1, 2`).all(),
+    ),
+  );
 const lunaOf = () => api.db.prepare('SELECT data FROM pets WHERE id = ?').pluck().get(LUNA_ID);
 
 describe('exportación por HTTP (POST /api/backup/export)', () => {
-  it('[REQ-BACKUP-001] exporta el sobre 2.0.0 válido solo con los datos del usuario, como archivo argos-backup-AAAA-MM-DD.json', async () => {
+  it('[REQ-BACKUP2-001] exporta el sobre 3.0.0 válido solo con los datos del usuario y sin campos de propiedad, como archivo argos-backup-AAAA-MM-DD.json', async () => {
     api = await createApi();
     const r = await api.call('POST', '/api/backup/export', { cookie: await api.login('andres') });
     const envelope = r.json as BackupEnvelopeV3;
@@ -29,8 +37,8 @@ describe('exportación por HTTP (POST /api/backup/export)', () => {
       validateBackupEnvelopeV3(envelope),
       envelope.schemaVersion,
       envelope.pets.map((p) => p.name).sort(),
-      envelope.pets.every((p) => (p as unknown as { ownerUserId?: string }).ownerUserId === USERS_BY_NAME.andres),
-    ]).toEqual([200, 'attachment; filename="argos-backup-2026-11-05.json"', true, '2.0.0', ['Argos', 'Kira', 'Milo', 'Nyx', 'Toby'], true]);
+      envelope.pets.some((p) => 'ownerUserId' in p),
+    ]).toEqual([200, 'attachment; filename="argos-backup-2026-11-05.json"', true, '3.0.0', ['Argos', 'Kira', 'Milo', 'Nyx', 'Toby'], false]);
   });
 
   it('[REQ-BACKUP-001] el archivo no contiene contraseñas, hashes ni el token de sesión (INV-AUTH-003)', async () => {
@@ -43,16 +51,22 @@ describe('exportación por HTTP (POST /api/backup/export)', () => {
 });
 
 describe('importación por HTTP (POST /api/backup/import)', () => {
-  it('[REQ-BACKUP-002] exportar e importar el mismo sobre v2 → 200 COMPLETED y el estado queda igual; los datos de otro usuario no se tocan', async () => {
+  it('[REQ-BACKUP2-002] exportar e importar el mismo sobre 3.0.0 → 200 COMPLETED y los datos quedan iguales (sin asignaciones en las mascotas importadas); los datos de otro usuario no se tocan', async () => {
     api = await createApi();
     const cookie = await api.login('andres');
     const exported = await api.call('POST', '/api/backup/export', { cookie });
-    const before = api.dump();
+    const before = ownData();
+    const lunaBefore = lunaOf();
+    const assignedBefore = api.db.prepare('SELECT COUNT(*) FROM pet_assignments WHERE pet_id IN (SELECT id FROM pets WHERE owner_user_id = ?)').pluck().get(USERS_BY_NAME.andres) as number;
     const r = await importAs(cookie, exported.text);
-    expect([r.status, r.json, api.dump() === before]).toEqual([
+    const assignedAfter = api.db.prepare('SELECT COUNT(*) FROM pet_assignments WHERE pet_id IN (SELECT id FROM pets WHERE owner_user_id = ?)').pluck().get(USERS_BY_NAME.andres);
+    expect([r.status, r.json, lunaOf() === lunaBefore, assignedBefore > 0, assignedAfter, ownData() === before]).toEqual([
       200,
-      { finalState: 'COMPLETED', sourceSchemaVersion: '2.0.0', importedPetsCount: 5, importedRecordsCount: 8 },
+      { finalState: 'COMPLETED', sourceSchemaVersion: '3.0.0', importedPetsCount: 5, importedRecordsCount: 8 },
       true,
+      true,
+      0,
+      false,
     ]);
   });
 
@@ -67,7 +81,7 @@ describe('importación por HTTP (POST /api/backup/import)', () => {
   it.each([
     ['JSON malformado (EDGE-021 sin almacenamiento caído)', '{"schemaVersion":', 400, 'ERR-BACKUP-MALFORMED-JSON'],
     ['UTF-8 inválido', new Uint8Array([0x7b, 0x22, 0xff, 0x22, 0x3a, 0x31, 0x7d]), 400, 'ERR-BACKUP-MALFORMED-JSON'],
-    ['versión no soportada', JSON.stringify({ ...v2(), schemaVersion: '3.0.0' }), 422, 'ERR-BACKUP-VERSION-UNSUPPORTED'],
+    ['versión no soportada', JSON.stringify({ ...v3(), schemaVersion: '4.0.0' }), 422, 'ERR-BACKUP-VERSION-UNSUPPORTED'],
     ['sin schemaVersion', JSON.stringify({ pets: [] }), 422, 'ERR-BACKUP-SCHEMA-INVALID'],
     ['raíz que no es objeto', '[]', 422, 'ERR-BACKUP-SCHEMA-INVALID'],
     ['huérfano (EDGE-005)', JSON.stringify(v2((e) => e.records.weights.push({ ...e.records.weights[0]!, id: '22222222-2222-4222-8222-222222222299', petId: '99999999-9999-4999-8999-999999999999' }))), 409, 'ERR-BACKUP-REFERENTIAL-INTEGRITY'],
@@ -140,7 +154,7 @@ describe('orden de comprobaciones de INV-BACKUP-001 (DEUDA-BACKUP-ORDER-001)', (
     const outcome = async () => {
       const r = await importAs(cookie, JSON.stringify(envelope()));
       const p = r.json as { code?: string; detail?: string; finalState?: string };
-      return `${r.status} ${p.code ?? p.finalState} ${/duplicado/.test(p.detail ?? '') ? 'duplicado' : /otro usuario/.test(p.detail ?? '') ? 'ajeno' : ''}`.trim();
+      return `${r.status} ${p.code ?? p.finalState} ${/duplicado/.test(p.detail ?? '') ? 'duplicado' : /identificador que no se puede importar/.test(p.detail ?? '') ? 'ajeno' : ''}`.trim();
     };
     const steps = [await outcome()];
     violations.duplicate = false;
