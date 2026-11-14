@@ -13,7 +13,7 @@
 
 import { DomainError } from '../../../generated/index.ts';
 import type { RepositorySet } from '../../../application/ports/repositories.port.ts';
-import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
+import type { MaintenanceCounts, MaintenanceCutoffs, UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type { SqliteDatabase } from './sqlite-database.ts';
 import { createSqliteRepositories } from './sqlite-repositories.ts';
 
@@ -43,6 +43,31 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
       if (this.truncateWal()) return;
     }
     process.emitWarning('No se pudo truncar el WAL tras la eliminación; el borrado físico queda pendiente.');
+  }
+
+  /**
+   * ADR-002-14: purga de retención en una transacción. Las sentencias son definitivas (`secure_delete = ON` borra el
+   * contenido de las páginas) y solo se devuelven conteos. Tras el commit se trunca el WAL (ADR-002-13).
+   * @implements REQ-AUD-001, INV-AUD-001
+   */
+  async purgeExpired(cutoffs: MaintenanceCutoffs): Promise<MaintenanceCounts> {
+    const counts = await this.runInTransaction(async () => {
+      const at = (modifiers: string) => `strftime('%Y-%m-%dT%H:%M:%fZ', @now${modifiers})`;
+      const run = (sql: string) => this.db.prepare(sql).run(cutoffs).changes;
+      return {
+        sessionsPurged: run(
+          `DELETE FROM sessions WHERE revoked_at < ${at(", '-7 days'")} OR created_at < ${at(", '-7 days', '-24 hours'")} OR last_activity_at < ${at(", '-7 days', '-30 minutes'")}`,
+        ),
+        confirmationTokensPurged: run('DELETE FROM backup_confirmation_tokens WHERE expires_at < @now'),
+        membershipsPurged: run(`DELETE FROM household_members WHERE status IN ('LEFT', 'REMOVED') AND json_extract(data, '$.updatedAt') < ${at(", '-90 days'")}`),
+        invitationsPurged: run(
+          `DELETE FROM household_invitations WHERE status IN ('ACCEPTED', 'DECLINED', 'CANCELLED') AND COALESCE(responded_at, created_at) < ${at(", '-90 days'")}`,
+        ),
+        auditRowsPurged: run('DELETE FROM audit_log WHERE timestamp < @auditBefore'),
+      };
+    });
+    await this.checkpointAfterCommit();
+    return counts;
   }
 
   /** true si el checkpoint terminó sin bloqueo (`busy === 0`). */

@@ -19,6 +19,7 @@ import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
 import { DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
 import { openSqliteDatabase } from '../persistence/sqlite/sqlite-database.ts';
 import { SqliteUnitOfWork } from '../persistence/sqlite/sqlite-unit-of-work.ts';
+import { runMaintenance } from '../../application/use-cases/maintenance-use-cases.ts';
 import { buildApp } from './app.ts';
 
 /**
@@ -57,13 +58,36 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     logger: logger && { ...PRODUCTION_LOGGER_OPTIONS, redact: [...PRODUCTION_LOGGER_OPTIONS.redact] },
   });
   app.addHook('onClose', async () => db.close());
+  maintenanceDeps.set(app, deps);
   return app;
+}
+
+/** Dependencias de cada app de producción, para que `startServer` programe el mantenimiento sin tocar las pruebas. */
+const maintenanceDeps = new WeakMap<FastifyInstance, ApplicationDeps>();
+const MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * ADR-002-14: una pasada al arrancar y otra cada 24 h. Solo se registran conteos (nunca ids ni hashes) y un fallo no
+ * detiene el servidor.
+ * @implements REQ-AUD-001, INV-AUD-001
+ */
+function scheduleMaintenance(app: FastifyInstance, deps: ApplicationDeps): void {
+  const pass = () =>
+    runMaintenance(deps).then(
+      (counts) => app.log.info({ maintenance: counts }, 'mantenimiento ADR-002-14'),
+      () => app.log.warn('mantenimiento ADR-002-14 falló; se reintenta en la siguiente pasada'),
+    );
+  void pass();
+  const timer = setInterval(() => void pass(), MAINTENANCE_INTERVAL_MS);
+  timer.unref();
+  app.addHook('onClose', async () => clearInterval(timer));
 }
 
 /** @implements INV-ARCH-006 */
 export async function startServer(config: AppConfig = loadAppConfig()): Promise<FastifyInstance> {
   const app = await createProductionApp(config);
   await app.listen({ host: config.host, port: config.port });
+  scheduleMaintenance(app, maintenanceDeps.get(app)!);
   return app;
 }
 

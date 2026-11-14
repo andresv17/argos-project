@@ -13,6 +13,25 @@
 
 import type { RepositorySet } from './repositories.port.ts';
 
+/**
+ * Entradas del mantenimiento ADR-002-14 (UTC). El adaptador deriva de `now` las ventanas fijas (sesiones 7 días más su
+ * vida útil de 24 h o 30 min, tokens vencidos, terminales 90 días); `auditBefore` llega calculado en meses de calendario.
+ */
+export interface MaintenanceCutoffs {
+  readonly now: string;
+  /** Ahora menos 24 meses de calendario: se purgan las filas de auditoría con `timestamp` anterior. */
+  readonly auditBefore: string;
+}
+
+/** Conteos de filas borradas por el mantenimiento: nunca identificadores ni hashes (ADR-002-14, INV-AUD-001). */
+export interface MaintenanceCounts {
+  readonly sessionsPurged: number;
+  readonly confirmationTokensPurged: number;
+  readonly membershipsPurged: number;
+  readonly invitationsPurged: number;
+  readonly auditRowsPurged: number;
+}
+
 export interface UnitOfWorkPort {
   runInTransaction<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T>;
   /**
@@ -21,4 +40,9 @@ export interface UnitOfWorkPort {
    * almacenamientos sin WAL (memoria) lo omiten.
    */
   checkpointAfterCommit?(): Promise<void>;
+  /**
+   * Mantenimiento ADR-002-14: purga en una sola transacción y devuelve solo conteos. No es una mutación del usuario:
+   * no escribe filas de auditoría. Opcional: los almacenamientos sin purga física (memoria) lo omiten.
+   */
+  purgeExpired?(cutoffs: MaintenanceCutoffs): Promise<MaintenanceCounts>;
 }
