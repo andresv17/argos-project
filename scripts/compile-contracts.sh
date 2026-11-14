@@ -2,14 +2,14 @@
 # Compilador determinista de contratos formales hacia src/generated/ [INV-ARCH-003]
 #
 # Uso:
-#   bash scripts/compile-contracts.sh                      feature 001 (valor por defecto), salida en src/generated/
+#   bash scripts/compile-contracts.sh                      feature 002 por defecto (override: ARGOS_FEATURE=NNN), salida en src/generated/
 #   bash scripts/compile-contracts.sh --feature 001|002    elige la feature cuyos contratos se compilan
 #   bash scripts/compile-contracts.sh --out DIR            escribe en DIR en vez de src/generated/ (pruebas, comparaciones)
 #
 # Salida: 0 = compilado; 1 = falta un contrato o falla el generador; 2 = uso inválido o feature desconocida.
 set -euo pipefail
 
-FEATURE="001"
+FEATURE="${ARGOS_FEATURE:-002}"
 OUT_DIR=""
 while [[ $# -gt 0 ]]; do
   case "$1" in

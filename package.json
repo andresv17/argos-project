@@ -19,7 +19,7 @@
     "test:mutation": "stryker run tests/mutation/stryker.conf.json",
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage",
-    "test:gate": "bash scripts/compile-contracts.sh && bash scripts/verify-traceability.sh && bash scripts/verify-oracles.sh && tsc --noEmit && vitest run --coverage && npm run test:mutation && playwright test"
+    "test:gate": "bash scripts/compile-contracts.sh --feature 002 && bash scripts/verify-traceability.sh --feature 002 && bash scripts/verify-oracles.sh && tsc --noEmit && vitest run --coverage && npm run test:mutation && playwright test"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.5",
