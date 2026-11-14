@@ -1003,3 +1003,48 @@
 - Keymaker despachado a commits locales: commit 1 implementación y pruebas (T284-T293 incl. T287); commit 2 documentación (blueprint v2.4, maquetas, spec/tasks solo si su diff es de T287/T288/REQ-UI2-001). Stage explícito, sin git add -A. Archivos ajenos (CLAUDE.md, logs de otros personajes, logos, wcag.spec, e2e-support, web-client.spec previos) no se incluyen.
 - Morpheus no marca COMPLETED: la potestad es de Neo.
 - Pendiente: veredicto de cierre y cesión de turno en Logos.
+
+### 2026-11-14 — Morpheus: Neo aprueba cierre de Rebanada 6. Ordena commit 3 (3 pruebas + artefactos claude/ + marcado de tareas), tareas T284-T296 [x], sin push.
+- Ajuste conservador: T294 (Seraph, axe a 4 anchos) y T295 (revisión de Sati para aprobación de Neo) NO están hechas en esta rebanada. Se marcan T284-T293 y T296; T294 y T295 quedan abiertas y se señala a Neo.
+- registro-proceso-argos.md no se versiona (es bus, no log); se reporta.
+- Keymaker despachado para el commit 3 (sin push, sin --no-verify).
+
+### 2026-11-14 — Morpheus: Neo confirma commits 8da9bc1, 0f9804d, 425c006. Ordena T294 (Seraph, evidencia axe) y T295 (Sati, entrega para aprobación visual). Sin push hasta revisión visual. Bitácoras al commit documental de T294/T295.
+- Despachados en paralelo: Seraph (T294: suite de accesibilidad en 320/768/1024/1280 y evidencia en tests/e2e/accessibility/T294-evidencia-axe.md) y Sati (T295: comparación construido vs blueprint v2.4, capturas en .playwright-mcp/pieza-T295/ y entrega en claude/entrega-T295-pieza-sati.md).
+- Ninguno de los dos marca [x]: lo hago yo tras la evidencia y la aprobación visual de Neo.
+
+### 2026-11-14 — Morpheus: T294 verificada y marcada [x] (evidencia de Seraph: 14/14 pasan; 320/768/1024/1280 px vía VIEWPORT_WIDTHS_V21; 0 critical/serious). T295 sigue abierta hasta revisión visual de Neo.
+
+### 2026-11-14 — Morpheus: Sati entrega T295 (claude/entrega-T295-pieza-sati.md). 0 bloqueantes; 3 a corregir (D1 cabecera móvil 4 filas, D2 botón mostrar contraseña en /cuenta a 768, D3 avatar del hero a 320); contradicción §5.3 /backup vs REQ-UI2-007 (propone blueprint v2.5). Capturas en .playwright-mcp/pieza-T295/ (16). T295 sigue sin [x] hasta aprobación visual de Neo.
+
+### 2026-11-14 — Morpheus: Neo elige opción C (no aprobar T295 hasta resolver los problemas) y pide blueprint v2.5.
+- Keymaker despachado: D1 (cabecera móvil a 2 filas), D2 (botón contraseña en /cuenta a 768 px), D3 (avatar del hero a 320 px). Solo src/presentation/web/**. Sin commit.
+- Sati despachada: blueprint v2.5, §5.3 /backup alineado con REQ-UI2-007 (arrastre, previsualización, barra de fases) y desviaciones aceptadas D4-D9 documentadas. v2.4 archivada.
+- Interpretación: "todos los problemas" = D1, D2, D3 y la contradicción de /backup. D4-D9 quedan como desviaciones aceptadas documentadas; Neo puede pedir corregirlas.
+- T295 sigue sin [x].
+
+### 2026-11-14 — Morpheus: Sati entrega blueprint v2.5 (§5.3 /backup con arrastre, preview y fases; D4-D9 aceptadas en §9). Conflicto abierto: architecture_spec.md §3.6 dice que la vista previa "[CONTRATO], sin pantalla" y REQ-UI2-007 la exige. Decisión de Neo.
+- Subcampos de la previsualización tomados de BackupPage.tsx; Oracle debe cotejarlos con el schema de backup.
+- Keymaker sigue corrigiendo D1-D3. Oracle audita v2.5 y los arreglos cuando ambos estén listos.
+
+### 2026-11-14 — Morpheus: Keymaker entrega D1-D3 (sin commit). tsc 0; a11y 14/14; sin desbordamiento en 4 anchos. Limitación D1: a 320 px la nav de 4 enlaces se desplaza en su región (254 px disponibles, 389 px de contenido). Oracle audita v2.5 + D1-D3.
+- Conflicto abierto para Neo: architecture_spec §3.6 (preview "sin pantalla") frente a REQ-UI2-007.
+- Decisión para Neo: limitación de nav a 320 px (abreviar etiquetas o aceptar scroll interno).
+
+### 2026-11-14 — Morpheus: Oracle audita v2.5 + D1-D3 = APTO CONDICIONADO. Hallazgo ALTO H-V25-1: el order-* de D1 separa orden DOM y visual (WCAG 2.4.3). Mi aprobación de D1 fue un error: lo reconozco.
+- Medios: H-V25-5 (nav con scroll a 320 px contradice §3.2), H-V25-6 (faltan palabras visibles hogares/invitaciones < 640 px). Bajo: H-V25-4 (Revertida ante cualquier error). H-V25-2/3 (justificaciones D4/D8 imprecisas).
+- Despachados ya: Keymaker (H-V25-4) y Sati (texto D4/D8).
+- Decisiones para Neo: D-N1 (preview §3.6 vs REQ-UI2-007: A/B/C) y D-N2 (nav a 320 px: A recomendada por Oracle = flex-wrap según §3.2; ojo, reintroduce D1 de 4 filas; B = scroll + corregir orden de foco y registrar D10; C = aceptar).
+- Pendiente tras decisión de D-N2: H-V25-1 y H-V25-5/6 (Keymaker y Sati), y reconfirmación de Oracle.
+
+### 2026-11-14 — Morpheus: Neo resuelve D-N1 (A: enmendar architecture_spec §3.6/§3.7) y D-N2 (A: flex-wrap sin order-* ni scroll). Directiva H-V25-4: aria-current fuera de Aplicando en error.
+- Despachados en paralelo: Architect (architecture_spec.md §3.6 y §3.7) y Keymaker (AppShell.tsx: D-N2, H-V25-6 palabras visibles; BackupPage.tsx: aria-current en error).
+- Después: Oracle reconfirma H-V25-1 a H-V25-6 y D-N1. T295 sin marcar. Sin push.
+
+### 2026-11-14 — Morpheus: Keymaker aplica D-N2 A y H-V25-4/5/6 (AppShell flex-wrap sin order ni scroll; palabras visibles; stalled en BackupPage). Architect aplica D-N1 A. Oracle reconfirmación final despachada (claude/veredicto-auditor-reconfirmacion-final-t295.md).
+- Nota para Oracle: cabecera a 320 px de 260 px de alto (cuatro enlaces apilados). Riesgo de diseño, decisión de Neo si procede.
+- T295 sin marcar. Sin commit, sin push.
+
+### 2026-11-14 — Morpheus: Neo aprueba T295 (opción A para cabecera a 320 px). Autoriza marcar T295 [x] y commit local de cierre de pieza (sin push).
+- Keymaker despachado: marcado T295 en tasks.md, stage explícito de src (4 archivos), ui_blueprint v2.5, architecture_spec.md, bitácoras y veredictos. Excluidos: logos.json, gate outputs, .playwright-mcp, CLAUDE/GUIA/SKILLS, registro-proceso (bus).
+- Ahead, sin push.

@@ -594,3 +594,20 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Autorización expresa de Neo (Nivel 2, vía Logos): commit local, sin push, sin --no-verify.
 - Marcadas en tasks.md: T284-T293 y T296 (solo la casilla). T294 y T295 siguen abiertas.
 - Stage explícito: 3 archivos de prueba, tasks.md, claude/veredicto-*, handover-*, log-*, archivo/. Excluidos: registro-proceso-argos.md, logos.json, gate-T296-output.txt, .playwright-mcp/.
+
+## 2026-11-14 — Keymaker: correcciones D1-D3 de la pieza T295 (opción C de Neo)
+- D1 AppShell.tsx:41-75: cabecera en dos filas (order-1 wordmark, order-2 Cerrar sesión, order-3 nav w-full con scroll interno <lg); enlaces 48 px, px-3 y sufijos "hogares/invitaciones" ocultos <sm (siguen los sr-only y data-*). D2 Field.tsx:~67-83: contenedor flex-wrap y input con min-w-[14rem] (224 px). D3 PetDashboard.tsx:~323-348: sin flex-wrap, avatar en div shrink-0.
+- tsc 0; vitest presentación 11 fallos (igual a la línea base en árbol limpio); axe 14/14 con puertos 3200/5200. Sin commit.
+
+## 2026-11-14 — H-V25-4 (BackupPage, barra de fases)
+- Edición: `src/presentation/web/pages/BackupPage.tsx` catch de `upload` (línea ~165-168): fase `ROLLED_BACK` solo si `problem.finalState === 'ROLLED_BACK'`; en otro caso `APPLYING`. Textos y orden de fases intactos.
+- tsc exit 0; vitest tests/unit/presentation: 11 fallos heredados (components/validation/view-model), 0 nuevos. Sin commit.
+
+## 2026-11-14 — D-N2 opción A, H-V25-6, H-V25-5, H-V25-4 (sin commit)
+- AppShell.tsx: nav con `flex flex-wrap gap-1` (sin order-*, sin overflow-x-auto); wordmark y cuenta sin order-*; palabras «hogares»/«invitaciones» visibles en todos los anchos (sin `hidden sm:inline`), sr-only y data-* intactos.
+- BackupPage.tsx: PhaseBar recibe `stalled` (APPLYING con error): sin aria-current="step" en «Aplicando»; «Revertida» solo con ROLLED_BACK.
+- Verificación: tsc 0; vitest presentation 11 fallos heredados; 4 anchos x 4 rutas sin desbordamiento, nav 256/256 a 320 px; accesibilidad 14/14. Procesos 3220/5220 cerrados.
+
+## 2026-11-14 — Cierre T295 (autorización expresa de Neo, Nivel 2)
+- tasks.md: T295 marcada [x] (T294 ya venía [x] sin commit; T296 intacta). Commit local de cierre de la pieza; sin push.
+- Excluidos: logos.json, scripts/logos.py, gate-T296-output.txt, .playwright-mcp/, CLAUDE.md, GUIA-SKILLS-MATRIX.md, SKILLS-PROPUESTAS.MD, claude/registro-proceso-argos.md.

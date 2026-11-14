@@ -17,3 +17,8 @@
 - Hallazgo H-NEB-03: el conteo de casillas abiertas no cuadra entre métodos (grep 29; suma por fase 28). Se reporta como aproximado; no se corrige nada (solo lectura).
 - Rebanadas 1 a 5 cerradas en disco. Rebanada 6 con frente rojo escrito (22 pruebas en rojo: 10 esperadas, 12 obsoletas) y sin commit. Fase 8 sin iniciar. Cinco decisiones pendientes de Neo.
 - Sin edición de specs, código ni handovers.
+
+## 2026-11-14 — Consulta "cómo vamos, qué sigue, qué falta" (Neo, lenguaje sencillo)
+- Lectura en disco: git (rama 002-plataforma-v21, HEAD 425c006, 3 commits sin subir), tasks.md (95 [x], 16 [ ], 6 en REVIEW), handover-morpheus-2026-11-14.md, veredicto-auditor-pieza-t295-v25.md, entrega-T295-pieza-sati.md, bus registro-proceso-argos.md.
+- Hallazgo: T295 (revisión visual de Sati) abierta a la espera de decisiones D-N1 (conflicto de previsualización de respaldo) y D-N2 (menú de navegación en móvil) de Neo. H-V25-1 (orden de foco en nav < 1024 px) ALTO sin corregir.
+- Sin edición de specs, código ni handovers.

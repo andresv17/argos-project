@@ -34,8 +34,8 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
 }): JSX.Element {
   // Estado activo: relleno lima con texto oliva (7.32:1) y línea de 2 px oliva que evita depender solo del color (WCAG 1.4.11).
   const link = ({ isActive }: { isActive: boolean }): string =>
-    `relative flex min-h-12 items-center gap-1 rounded-full px-4 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
-      isActive ? 'bg-accent font-semibold after:absolute after:inset-x-4 after:bottom-1.5 after:h-0.5 after:bg-primary' : 'font-medium underline-offset-4 hover:underline'
+    `relative flex min-h-12 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 text-sm sm:px-4 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+      isActive ? 'bg-accent font-semibold after:absolute after:inset-x-3 sm:after:inset-x-4 after:bottom-1.5 after:h-0.5 after:bg-primary' : 'font-medium underline-offset-4 hover:underline'
     }`;
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pb-4">

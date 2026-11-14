@@ -65,3 +65,19 @@
 - Archivada v2.3 en claude/archivo/ui_blueprint-v2.3.md; cabecera a v2.4 (+ fila 2.4 en Apéndice C).
 - §4.5 L388: bloque de registro por permiso granular (weights/measurements -> writeWeightsAndMeasurements; vacunas/desparasitación -> writeHealthEvents; consultas/parámetros -> writeAppointmentsAndParameters), según architecture_spec §4.1 y RECORD_WRITE_PERMISSION. editPetBasics solo para editar mascota. B-3 retirada de §4.5 y del Apéndice A.
 - Fila del aviso de sesión: disparador = un temporizador en idle-notice.ts a 5 min de idleExpiresAt, sin sondeo, reinicia con actividad real. Sin commits.
+
+## 2026-11-14 — T295: revisión de lo construido contra el blueprint v2.4
+- Revisé App.tsx, AppShell, PetAvatar, PetsPage/PetCards/PetDashboard, Account, Households y Backup contra §3 a §6.
+- Verifiqué en navegador (API 3190, web 5190; 3180/5180 ocupados) 4 rutas a 320/768/1024/1280: sin desborde, 1 "Nueva mascota", blur 0 en 320 y 1 desde 768, 0 zonas táctiles < 48 px.
+- Resultado: 0 bloqueantes, 3 a corregir (D1 cabecera móvil, D2 campo de contraseña estrecho a 768, D3 avatar del hero a 320), 6 aceptables. Contradicción: blueprint §5.3 no recoge REQ-UI2-007 (reportada, sin editar).
+- Entrega: claude/entrega-T295-pieza-sati.md; capturas en .playwright-mcp/pieza-T295/. Recomendación: aprobar con correcciones. Sin commit; T295 sigue abierta.
+
+## 2026-11-14 — Blueprint v2.5 (§5.3 /backup, REQ-UI2-007)
+- v2.4 archivada en claude/archivo/ui_blueprint-v2.4.md. ui_blueprint.md sube a v2.5, REVIEW, por decisión de Neo (opción C de T295).
+- §5.3 reescrita: barra de fases (ol, aria-current, sin progressbar), zona de arrastre + selector por teclado, previsualización [UI] (sourceSchemaVersion, counts, collisions, affectedSharedPets; fileDigest no se muestra), role="status"/"alert" conservados.
+- Apéndice A: la fila "Vista previa de importación" contradecía §5.3; se cambió a "fileDigest no se muestra". §9: desviaciones aceptadas D4 a D9. Apéndice C: fila 2.5. Sin tocar specs, src, tests ni colores. Sin commit.
+
+## 2026-11-14 — Corrección H-V25-2 (D4) y H-V25-3 (D8) en §9
+- D4 reescrita con el dato del CSS real (styles.css:20, min-width 1024 px; §1.2 prevé 640 px; trazo 8 %, sin texto ni controles).
+- D8 reescrita: snap-x es proximity en Tailwind 3.4.19 (corePlugins.js:1501-1509), ajusta al soltar; sin efecto en teclado, WCAG ni contrato.
+- Solo esos dos textos; versión sigue v2.5, sin commit.

@@ -274,7 +274,7 @@ Definidas en `src/presentation/web/App.tsx`. La mascota activa, la pestaña de m
 
 #### 3.6 Pantalla `/backup` — Respaldo
 
-**Endpoints consumidos:** `POST /backup/export`, `POST /backup/import`.
+**Endpoints consumidos:** `POST /backup/export`, `POST /backup/import/preview`, `POST /backup/import`.
 
 **Lectura / respuestas**
 - Exportación: `200` con el sobre `BackupEnvelopeV3` como archivo adjunto (la UI lo trata como `blob`; el nombre sale de `Content-Disposition`, con respaldo `argos-backup.json`) y la cabecera `X-Argos-Confirmation-Token`. Si falta la cabecera o la respuesta no es correcta, la UI muestra `ERR-INTERNAL-UNEXPECTED`.
@@ -286,8 +286,8 @@ Definidas en `src/presentation/web/App.tsx`. La mascota activa, la pestaña de m
 - **Importar respaldo** — selector de archivo (`accept="application/json,.json"`) y botón "Importar respaldo", deshabilitado sin archivo o con envío en curso. La UI calcula el SHA-256 del archivo con Web Crypto y lo envía en `X-Argos-Import-Confirm` con el cuerpo crudo del archivo.
   - Reglas: tamaño máximo 10 MB (texto de la UI: "máximo 10 MB"); reemplaza todos los datos propios; si el archivo no es válido, no se cambia nada.
   - Errores: `400 ERR-BACKUP-MALFORMED-JSON`, `413 ERR-BACKUP-PAYLOAD-TOO-LARGE`, `422 ERR-BACKUP-SCHEMA-INVALID`, `422 ERR-BACKUP-VERSION-UNSUPPORTED`, `409 ERR-BACKUP-REFERENTIAL-INTEGRITY`, `409 ERR-ACCOUNT-CONFIRMATION-MISMATCH`, `500 ERR-BACKUP-ATOMIC-ROLLBACK`.
-- **[CONTRATO], sin pantalla:** `POST /backup/import/preview` (devuelve `ImportPreviewResult`: `sourceSchemaVersion`, `fileDigest`, `counts`, `collisions`, `affectedSharedPets`).
-- Máquina de estados STATE-BACKUP-001 (estados: `IDLE`, `CHECKING_PAYLOAD_SIZE`, `PARSING_JSON`, `VALIDATING_VERSION_AND_SCHEMA`, `MIGRATING_LEGACY_ENVELOPE`, `CHECKING_DOMAIN_INVARIANTS`, `COMMITTING_SNAPSHOT`, `COMPLETED`, `ROLLED_BACK`, `PREVIEW_READY`): la UI solo expone el resultado final.
+- **Previsualización antes de importar:** la UI consume `POST /backup/import/preview` (cuerpo crudo del archivo; no persiste nada) y muestra `sourceSchemaVersion`, `counts`, `collisions` y `affectedSharedPets` del `ImportPreviewResult`; `fileDigest` se usa internamente (prueba de que el archivo importado es el previsualizado) y no se muestra. (REQ-UI2-007; enmienda D-N1 opción A, decisión de Neo, 2026-11-14.)
+- Máquina de estados STATE-BACKUP-001 (estados: `IDLE`, `CHECKING_PAYLOAD_SIZE`, `PARSING_JSON`, `VALIDATING_VERSION_AND_SCHEMA`, `MIGRATING_LEGACY_ENVELOPE`, `CHECKING_DOMAIN_INVARIANTS`, `COMMITTING_SNAPSHOT`, `COMPLETED`, `ROLLED_BACK`, `PREVIEW_READY`): la UI lo resume como barra de fases sin porcentaje: Validando, Previsualizando, Aplicando, Terminada (`COMPLETED`) y Revertida (`ROLLED_BACK`).
 
 **Estados requeridos:** reposo; archivo seleccionado; importando (`busy`); éxito (`role="status"`: "Importación completada (versión X): N mascotas y M registros."); error (`role="alert"`).
 
@@ -297,7 +297,6 @@ Existen en la API y están cubiertas por pruebas de backend, pero **no hay inter
 - Cuenta: `POST /account/password` (`ChangePasswordInput`: `currentPassword`, `newPassword`), `PATCH /account/profile` (`UpdateProfileInput`: `displayName`, `email`, `preferredLanguage`, `timezone`), `POST /account/deletion` (`DeleteAccountInput`: `confirmationPhrase` = "ELIMINAR MI CUENTA", `password`, `backupConfirmationToken`; máquina STATE-ACCOUNT-DELETE-001, token de respaldo con vigencia de 10 minutos; errores `ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD` y `ERR-ACCOUNT-OWNS-SHARED-PETS`).
 - Mascotas: transferencia de propiedad; edición y eliminación de registros.
 - Hogares: cambio de rol de un miembro; cancelación de invitaciones enviadas; transferencia de propiedad del hogar; `GET /households/{id}`.
-- Respaldo: vista previa de importación.
 
 ---
 

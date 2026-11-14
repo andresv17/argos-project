@@ -370,3 +370,13 @@ Obs: mensaje del commit menciona contador no presente en el diff.
 - Worktree ff0fe62 vs proyecto, tests/unit/presentation + tests/integration/presentation: 12 fallos en ambos; 12/12 HEREDADOS, 0 NUEVOS (incl. web-client REQ-UI-007).
 - Reserva: línea base ya incluye la presentación 002 commiteada; 14 fallos restantes del gate sin comparar. Veredicto: claude/veredicto-auditor-fallos-gate-t296.md. Sin commits; worktree eliminado.
 - 2026-11-14 Oracle: comparados los 14 restantes del gate T296 contra ff0fe62 (worktree limpio, retirado): 14/14 HEREDADOS, 0 NUEVOS; veredicto CUMPLE con excepción B-11. Detalle en claude/veredicto-auditor-fallos-gate-t296.md.
+
+### 2026-11-14 — Oracle: auditoría ui_blueprint v2.5 + arreglos D1-D3 (T295)
+- §5.3 coincide con REQ-UI2-007; subcampos de ImportPreviewResult verificados contra schema y types generados (0 inventados). tsc 0; vitest presentación 11 fallos = ítems 1-11 heredados; axe 14/14 con puertos 3210/5210 (sin residuos).
+- Hallazgos: H-V25-1 ALTA (D1 order-* rompe foco=visual, 2.4.3); H-V25-5 MEDIA (nav con scroll a 320 px); H-V25-6 MEDIA (insignias sin palabra); H-V25-4/2/3 BAJAS (Revertida con UNKNOWN; D4 y D8 mal justificadas, snap-x = proximity).
+- Veredicto APTO CONDICIONADO: claude/veredicto-auditor-pieza-t295-v25.md. Decisiones para Neo: conflicto §3.6 vs REQ-UI2-007 y nav a 320 px. Sin commits.
+
+### 2026-11-14 — Oracle: reconfirmación final T295
+- Medido en Chromium (320/768/1024/1280): orden visual = DOM (wordmark, nav, cuenta), 0 clases order-* en la cabecera; nav scrollWidth = clientWidth (256 a 320 px, 533 en el resto), 4 enlaces operables; palabras "hogares"/"invitaciones" visibles en todos los anchos; Tab: Mascotas, Hogares, Respaldo, Perfil, Cerrar sesión.
+- BackupPage:168 "Revertida" solo con ROLLED_BACK; stalled quita aria-current. D4 (styles.css:21, línea citada 20) y D8 (corePlugins:1500-1509) correctas. D-N1 sin campos inventados frente a ImportPreviewResult, REQ-UI2-007 y backup-import.machine.json.
+- Gates: tsc 0; vitest presentación 11/11 heredados; axe 14/14 (3230/5230, sin residuos). Veredicto APTO; cabecera de 260 px a 320 px = decisión de producto para Neo. Sin commits.

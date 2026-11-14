@@ -320,7 +320,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
       {editSlot ?? (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-12">
-            <section className="col-span-2 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-7">
+            <section className="col-span-2 flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-7">
               <div className="grid min-w-0 gap-2">
                 <h2 id="pet-title" className="break-words text-4xl font-bold lg:text-5xl">
                   {profile.name}
@@ -344,7 +344,9 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                   </div>
                 ) : null}
               </div>
-              <PetAvatar name={profile.name} avatarUrl={profile.avatarUrl} colorToken={dashboard.owner.colorToken} size={96} />
+              <div className="shrink-0">
+                <PetAvatar name={profile.name} avatarUrl={profile.avatarUrl} colorToken={dashboard.owner.colorToken} size={96} />
+              </div>
             </section>
             <AlertsCard dashboard={dashboard} canRegisterWeight={permissions.writeWeightsAndMeasurements} onRegisterWeight={registerWeight} />
             <section aria-label="Edad" className={`${STAT_CARD} col-span-1 lg:col-span-3`}>

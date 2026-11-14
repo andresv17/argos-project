@@ -1,6 +1,6 @@
-# ARGOS — Blueprint de interfaz v2.4 (diseño visual, estructura y componentes)
+# ARGOS — Blueprint de interfaz v2.5 (diseño visual, estructura y componentes)
 
-- **Fecha:** 2026-11-14. **Autora:** Sati (Directora de Arte y Diseñadora de Producto). **Versión:** 2.4 (decisiones de Neo sobre H-V22-1 opción A, permisos granulares de registro en §4.5, y H-V22-6, disparador del aviso de expiración; v2.3 archivada en `claude/archivo/ui_blueprint-v2.3.md`, v2.2 en `claude/archivo/ui_blueprint-v2.2.md`, v2.1 en `claude/archivo/ui_blueprint-v2.1.md`, v2.0 en `claude/archivo/ui_blueprint-v2.0.md`). **Estado:** REVIEW (pendiente de reconfirmación de `/oracle` sobre §4.5 y la fila del aviso de sesión).
+- **Fecha:** 2026-11-14. **Autora:** Sati (Directora de Arte y Diseñadora de Producto). **Versión:** 2.5 (decisión de Neo, opción C de la pieza T295 y petición de v2.5: §5.3 `/backup` recoge REQ-UI2-007 con arrastre, previsualización y barra de fases, y se registran las desviaciones aceptadas D4 a D9 en §9; v2.4 archivada en `claude/archivo/ui_blueprint-v2.4.md`, v2.3 archivada en `claude/archivo/ui_blueprint-v2.3.md`, v2.2 en `claude/archivo/ui_blueprint-v2.2.md`, v2.1 en `claude/archivo/ui_blueprint-v2.1.md`, v2.0 en `claude/archivo/ui_blueprint-v2.0.md`). **Estado:** REVIEW (pendiente de que `/oracle` confirme que §5.3 coincide con REQ-UI2-007 y que las desviaciones aceptadas están bien justificadas).
 - **Sustituye a:** v1.1 (archivada en `claude/archivo/ui_blueprint-v1.1.md`). La v1.1 definía tokens y apéndices; sus tokens se conservan aquí sin cambio de valor. Los pares de contraste de v1.1 se consultan en ese archivo, no se citan por cifra.
 - **Decisión de estructura:** Propuesta A, "Riel y ficha" (`ui_propuestas_estructura.md`), aprobada por Neo el 2026-11-14 como arquitectura visual definitiva.
 - **Contrato funcional de entrada (inmutable):** `architecture_spec.md` (raíz del repositorio), secciones 2, 3 y 4.
@@ -488,8 +488,14 @@ La Opción B (riel en grilla de 1/2/3 columnas, con ancho de opción de 148 px a
 
 - **Escritorio y móvil:** una columna con `max-w-3xl`: dos tarjetas blancas.
 - **Exportar** (`aria-labelledby="export-title"`): texto "Descarga un archivo JSON con tus mascotas y sus registros. No incluye datos de otros usuarios ni de tus hogares." y "Descargar respaldo" (principal).
-- **Importar** (`aria-labelledby="import-title"`): advertencia "Reemplaza todos tus datos por los del archivo (máximo 10 MB). Si el archivo no es válido, no se cambia nada." Etiqueta "Archivo de respaldo (.json)" con `input type="file"` `accept="application/json,.json"` estilizado como botón secundario (`file:` utilities). "Importar respaldo" (principal), deshabilitado sin archivo o en envío.
-- Resultado `role="status"`: `rounded-2xl border border-emerald-700 bg-emerald-50 px-4 py-3 text-emerald-900`. Error `role="alert"`.
+- **Importar** (`aria-labelledby="import-title"`), de arriba abajo (REQ-UI2-007):
+  1. Advertencia "Reemplaza todos tus datos por los del archivo (máximo 10 MB). Si el archivo no es válido, no se cambia nada."
+  2. **Barra de fases** `[UI]`: lista ordenada `<ol aria-label="Fases de la importación">` con cuatro píldoras de texto: "Validando", "Previsualizando", "Aplicando" y "Terminada". La cuarta pasa a "Revertida" si el servidor revierte. El paso activo lleva `aria-current="step"`. **Sin porcentaje ni `progressbar`**, porque no existe estado parcial. Rejilla de 2 columnas en móvil y 4 desde `sm`. Estados no cromáticos: el activo con borde de 2 px (lima con texto `primary`, o `danger` con texto rojo oscuro si es "Revertida"), los alcanzados con borde `primary` y los pendientes en gris, y siempre con el texto de la fase. Los pares de color usan los de §2.6, sin valores nuevos.
+  3. **Zona de arrastre** `[UI]`: recuadro con borde discontinuo de 2 px y el texto "Arrastra aquí el archivo de respaldo o elígelo con el botón." Al arrastrar encima, borde `primary` y fondo `accent-soft`. Dentro, la etiqueta "Archivo de respaldo (.json)" con `input type="file"` `accept="application/json,.json"` estilizado como botón secundario (`file:` utilities): es la vía accesible por teclado y equivale al arrastre. Tras elegir o soltar, "Archivo seleccionado: [nombre]". Elegir o soltar un archivo inicia "Validando" y la previsualización; **nunca importa solo**.
+  4. **Previsualización** `[UI]` (resultado de `POST /backup/import/preview`, `ImportPreviewResult`), en un recuadro `role="status"` gris claro. Solo muestra: `sourceSchemaVersion` ("Previsualización (versión X): el archivo trae N mascotas."), el desglose de `counts` ("Pesos · Medidas · Vacunas · Desparasitaciones · Consultas · Parámetros"), `collisions` ("Se reemplazarán N mascotas propias actuales; M coinciden por identificador.") y `affectedSharedPets` (solo si hay mascotas compartidas afectadas: "N mascotas compartidas perderán su asignación en M hogares."). `fileDigest` no se muestra.
+  5. "Importar respaldo" (principal), deshabilitado sin archivo o en envío (`busy`). Al pulsarlo, la fase pasa a "Aplicando".
+- **Fases y máquina de estados:** las cuatro etiquetas son el resumen visible de `STATE-BACKUP-001`; la UI no expone sus estados internos (`CHECKING_PAYLOAD_SIZE`, `PARSING_JSON`, `COMMITTING_SNAPSHOT`, etc.). "Terminada" corresponde a `COMPLETED` y "Revertida" a `ROLLED_BACK`. Si falla la validación o la previsualización, el error aparece en el `role="alert"` y la barra queda en "Validando".
+- Resultado `role="status"`: `rounded-2xl border border-emerald-700 bg-emerald-50 px-4 py-3 text-emerald-900` ("Importación completada (versión X): N mascotas y M registros."). Error `role="alert"` (con "No se modificó ningún dato." o "Estado final desconocido: revisa tus datos." según `finalState`).
 
 ### 5.4 `/cuenta` (REQ-UI2-004, T290)
 
@@ -664,6 +670,15 @@ Sin scroll horizontal de página desde 320 px, verificado en 320, 768, 1024 y 12
 6. "Sin hogar base" (4.6): texto vigente sin respaldo literal en el contrato; Neo confirma si se conserva.
 7. `/cuenta`: la maqueta cubre estructura y campos; no se midieron estados de error ni el flujo con token.
 
+**Desviaciones aceptadas de la pieza T295** (decisión de Neo, opción C; el código se deja como está y el blueprint lo recoge)
+
+- **D4, `bg-deco` solo desde 1024 px en la implementación (§1.2 lo prevé desde 640 px):** en `src/presentation/web/styles.css` (línea 20) el bloque `@media (min-width: 1024px)` pinta los círculos en el `body`, es decir, en la capa L0 detrás del marco; de 640 a 1023 px queda solo el degradado `bg-app`. El trazo es `primary` al 8 % (`stroke-opacity='0.08'`) y la capa no contiene texto ni controles ni información, así que no afecta a WCAG 1.4.3 ni 1.4.11 ni al contrato.
+- **D5, "Cargando…" sin marco:** es un texto suelto breve y legible; no altera foco, contraste ni ruta del contrato.
+- **D6, glifo de especie siempre genérico:** ya admitido en el pendiente 2; el nombre y la especie van en texto, así que no se pierde información por color ni por icono.
+- **D7, orden de contexto y filtro en `/`:** el orden de foco sigue el visual (WCAG 2.4.3) y los mismos controles y roles del contrato.
+- **D8, `snap-x` de proximidad en la tira de mascotas:** en Tailwind 3.4.19 `snap-x` usa `proximity` por defecto (`corePlugins.js:1501-1509`; `PetCards.tsx:104`) y ajusta el desplazamiento de la tira al soltar; no afecta a teclado (las flechas, Inicio y Fin funcionan igual), ni a WCAG, ni al contrato.
+- **D9, `/backup` con arrastre, previsualización y barra de fases:** exigido por REQ-UI2-007 y descrito ahora en §5.3; el selector de archivo sigue siendo accesible por teclado, las fases son texto con `aria-current` y no hay `progressbar`, y solo se usa el contrato `POST /backup/import/preview`.
+
 ---
 
 ## Apéndice A — Elementos del contrato excluidos de este blueprint
@@ -674,7 +689,7 @@ Sin scroll horizontal de página desde 320 px, verificado en 320, 768, 1024 y 12
 | Transferencia de propiedad de mascota y de hogar | `[CONTRATO]`, sin pantalla hoy |
 | Cambio de rol de miembros y cancelación de invitaciones | `[CONTRATO]`, sin pantalla hoy |
 | Edición y eliminación de registros | `[CONTRATO]`, sin pantalla hoy |
-| Vista previa de importación | `[CONTRATO]`, sin pantalla hoy |
+| Campo `fileDigest` de la previsualización de importación | No se muestra (la vista previa en sí está en §5.3, REQ-UI2-007) |
 | `supersededVaccinations`, `supersededDewormings` | `[CONTRATO]`, no se renderizan (B-8) |
 | Especies 3 a 8, `speciesOther`, `estimatedAge`, `birthDateIsEstimate`, `neutered`, `microchipId` | B-5 (T284 pendiente) |
 | Redirección de sesión expirada | B-7 |
@@ -705,3 +720,4 @@ Sin scroll horizontal de página desde 320 px, verificado en 320, 768, 1024 y 12
 | 2.2 | 2026-11-14 | Enmiendas por orden de Neo (H-K-3, H-K-4, H-K-5): §4.3, §4.6, §5.2, §5.7. v2.1 archivada en `claude/archivo/ui_blueprint-v2.1.md` |
 | 2.3 | 2026-11-14 | Correcciones documentales de la auditoría de Oracle a v2.2: H-V22-2 (cuatro `NavLink`), H-V22-3 (decisión de navegación cerrada, sin discrepancia con REQ-UI2-001), H-V22-5 (Apéndice C ordenado y "Perfil" en Apéndice E). H-V22-1 pendiente de Neo. v2.2 archivada en `claude/archivo/ui_blueprint-v2.2.md` |
 | 2.4 | 2026-11-14 | Decisiones de Neo: H-V22-1 opción A (bloque de registro por permiso granular, §4.5; B-3 cerrada y retirada del Apéndice A) y H-V22-6 (disparador del aviso de sesión a 5 min de `idleExpiresAt`, §5). v2.3 archivada en `claude/archivo/ui_blueprint-v2.3.md` |
+| 2.5 | 2026-11-14 | Decisión de Neo (opción C de la pieza T295 y petición de v2.5): §5.3 `/backup` recoge REQ-UI2-007 (zona de arrastre, previsualización con `ImportPreviewResult`, barra de fases Validando, Previsualizando, Aplicando, Terminada o Revertida, sin porcentaje); Apéndice A ajustado; desviaciones aceptadas D4 a D9 en §9. v2.4 archivada en `claude/archivo/ui_blueprint-v2.4.md` |

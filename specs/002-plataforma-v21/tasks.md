@@ -249,8 +249,8 @@
 - [x] T290 [US8] Implementar la pantalla `/cuenta` con perfil, cambio de contraseña y la zona de peligro con el flujo de la eliminación (REQ-UI2-004, REQ-ACC-001, REQ-AUTH2-003, REQ-ACC-002)
 - [x] T291 [US8] Implementar la gestión de hogares con roles, asignación y transferencia, con la insignia de rol por miembro (REQ-UI2-005, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-OWN-001)
 - [x] T292 [US8] Implementar el Centro de Respaldos con arrastre, previsualización y barra de fases (Validando, Previsualizando, Aplicando, Terminada o Revertida) (REQ-UI2-007, REQ-BACKUP2-001, REQ-BACKUP2-002)
-- [ ] T294 [P] [US8] Seraph verifica a 320, 768, 1024 y 1280 px con axe-core y entrega evidencia en `tests/e2e/` (REQ-UI2-008, SC-005)
-- [ ] T295 [US8] [N2] Sati revisa lo construido contra su diseño y entrega a Neo la pieza para su aprobación (REQ-UI2-001, REQ-UI2-003, REQ-UI2-008)
+- [x] T294 [P] [US8] Seraph verifica a 320, 768, 1024 y 1280 px con axe-core y entrega evidencia en `tests/e2e/` (REQ-UI2-008, SC-005)
+- [x] T295 [US8] [N2] Sati revisa lo construido contra su diseño y entrega a Neo la pieza para su aprobación (REQ-UI2-001, REQ-UI2-003, REQ-UI2-008)
 - [x] T296 [US8] Compuerta de la rebanada 6: `bash scripts/verify-traceability.sh --feature 002 --task T284` y cada tarea T285 a T293, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit`, `npm run test:gate` y la suite E2E a los cuatro anchos (INV-ARCH-001, INV-ARCH-002, REQ-UI2-008)
 
 **Checkpoint**: criterios (a) a (e) de la rebanada 6 verificables; aprobación del diseño por Neo.

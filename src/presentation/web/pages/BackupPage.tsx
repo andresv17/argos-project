@@ -82,12 +82,13 @@ type Phase = 'IDLE' | 'VALIDATING' | 'PREVIEWING' | 'APPLYING' | 'DONE' | 'ROLLE
 const PHASE_LABELS = ['Validando', 'Previsualizando', 'Aplicando', 'Terminada'] as const;
 const CURRENT_STEP: Readonly<Record<Phase, number | null>> = { IDLE: null, VALIDATING: 0, PREVIEWING: 1, APPLYING: 2, DONE: 3, ROLLED_BACK: 3 };
 
-function PhaseBar({ phase }: { readonly phase: Phase }): JSX.Element {
+function PhaseBar({ phase, stalled = false }: { readonly phase: Phase; readonly stalled?: boolean }): JSX.Element {
   const current = CURRENT_STEP[phase];
   return (
     <ol aria-label="Fases de la importación" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {PHASE_LABELS.map((label, index) => {
-        const isCurrent = current === index;
+        // Error sin reversión confirmada: «Aplicando» deja de marcarse como paso activo (el role="alert" comunica el fallo).
+        const isCurrent = current === index && !stalled;
         const reached = current !== null && index <= current;
         const text = index === 3 && phase === 'ROLLED_BACK' ? 'Revertida' : label;
         const tone = isCurrent ? (phase === 'ROLLED_BACK' ? 'border-2 border-danger bg-red-50 text-red-900' : 'border-2 border-primary bg-accent text-primary') : reached ? 'border border-primary bg-white text-primary' : 'border border-border-strong bg-white text-text-muted';
@@ -162,8 +163,10 @@ export function BackupPage(): JSX.Element {
       setResult(importResultText(await importBackupFile(api, file)));
       setPhase('DONE');
     } catch (e) {
-      setError(importProblemText(e instanceof ApiProblem ? e.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED')));
-      setPhase('ROLLED_BACK');
+      const problem = e instanceof ApiProblem ? e.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED');
+      setError(importProblemText(problem));
+      // «Revertida» solo si el servidor confirma la reversión; con UNKNOWN o sin finalState la barra se queda en «Aplicando».
+      setPhase(problem.finalState === 'ROLLED_BACK' ? 'ROLLED_BACK' : 'APPLYING');
     } finally {
       setBusy(false);
     }
@@ -192,7 +195,7 @@ export function BackupPage(): JSX.Element {
           Importar
         </h2>
         <p className="max-w-prose text-sm text-text-muted">Reemplaza todos tus datos por los del archivo (máximo 10 MB). Si el archivo no es válido, no se cambia nada.</p>
-        <PhaseBar phase={phase} />
+        <PhaseBar phase={phase} stalled={phase === 'APPLYING' && error !== null} />
         <div
           onDragOver={(e) => {
             e.preventDefault();

@@ -66,7 +66,7 @@ export function PasswordField({ id, label, name, value, onChange, errors, requir
         {label}
         {required ? <span aria-hidden="true"> *</span> : null}
       </label>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <input
           id={id}
           name={name}
@@ -77,7 +77,7 @@ export function PasswordField({ id, label, name, value, onChange, errors, requir
           aria-invalid={error === undefined ? undefined : true}
           aria-describedby={error === undefined ? undefined : errorId}
           onChange={(e) => onChange(name, e.target.value)}
-          className="min-h-12 w-0 min-w-0 flex-1 rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="min-h-12 w-0 min-w-[14rem] flex-1 basis-56 rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         />
         <button
           type="button"
