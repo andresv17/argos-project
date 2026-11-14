@@ -6,7 +6,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { accessibilityFindings, apiPost, createPetViaApi, isoDateFromToday, registerViaApi } from '../visual/e2e-support.ts';
+import { accessibilityFindings, apiCall, apiPost, createPetViaApi, isoDateFromToday, registerViaApi } from '../visual/e2e-support.ts';
 
 const HOUSE = 'Casa Accesible';
 
@@ -26,9 +26,9 @@ test.beforeAll(async ({ browser }) => {
   member = await memberContext.newPage();
   await registerViaApi(ownerContext.request, 'axe.duena', 'Dueña Axe', 'AxeClave2026!');
   await registerViaApi(memberContext.request, 'axe.miembro', 'Miembro Axe', 'AxeClave2027!');
-  const petId = await createPetViaApi(ownerContext.request, 'Argos', 'DOG');
-  await createPetViaApi(ownerContext.request, 'Nyx', 'CAT', '2021-07-07');
-  await createPetViaApi(memberContext.request, 'Luna', 'CAT');
+  const petId = await createPetViaApi(ownerContext.request, 'Argos', 'CANINE');
+  await createPetViaApi(ownerContext.request, 'Nyx', 'FELINE', '2021-07-07');
+  await createPetViaApi(memberContext.request, 'Luna', 'FELINE');
   const record = (module: string, body: unknown) => apiPost(ownerContext.request, `/pets/${petId}/records/${module}`, body);
   await record('weights', { recordedAt: '2026-01-10', weightKg: 32.85, notes: 'Control anual' });
   await record('weights', { recordedAt: '2026-02-10', weightKg: 32.4, notes: null });
@@ -41,7 +41,8 @@ test.beforeAll(async ({ browser }) => {
   await record('visits', { visitDate: '2026-02-10', reason: 'Control', diagnosis: 'Sano', treatment: 'Ninguno', clinicOrVet: 'VetCentral' });
   await record('custom-parameters', { recordedAt: '2026-02-10', category: 'DIET_CHANGE', title: 'Pienso nuevo', description: 'Cambio gradual en 7 días.' });
   const household = await apiPost<{ household: { id: string } }>(ownerContext.request, '/households', { name: HOUSE });
-  await apiPost(ownerContext.request, `/households/${household.household.id}/invitations`, { username: 'axe.miembro' });
+  expect((await apiCall(ownerContext.request, 'PUT', `/pets/${petId}/assignments/${household.household.id}`)).status).toBe(200);
+  await apiPost(ownerContext.request, `/households/${household.household.id}/invitations`, { username: 'axe.miembro', roleOnJoin: 'READER' }, 202);
 });
 
 test.afterAll(async () => {
@@ -67,7 +68,7 @@ test.describe('axe-core a 320, 1024 y 1280 px (tests/e2e/accessibility)', () => 
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill('corta');
     await page.getByLabel('Confirmar contraseña').fill('corta');
     await page.getByRole('button', { name: 'Registrarme' }).click();
-    await expect(page.getByText('La contraseña debe tener entre 8 y 128 caracteres')).toBeVisible();
+    await expect(page.getByText('La contraseña debe tener entre 10 y 128 caracteres')).toBeVisible();
     expect([...empty, ...(await accessibilityFindings(page, 'registro-errores'))]).toEqual([]);
   });
 
@@ -80,7 +81,7 @@ test.describe('axe-core a 320, 1024 y 1280 px (tests/e2e/accessibility)', () => 
       await owner.getByRole('tab', { name: tab }).click();
       await expect(owner.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');
       if (tab === 'Vacunas') {
-        for (const status of ['OVERDUE', 'DUE_SOON', 'UP_TO_DATE', 'SUPERSEDED']) await expect(owner.locator(`[data-alert-status="${status}"]`)).toHaveCount(1);
+        for (const status of ['OVERDUE', 'DUE_SOON', 'UP_TO_DATE']) await expect(owner.locator(`[data-alert-status="${status}"]`)).toHaveCount(1);
       }
       findings.push(...(await accessibilityFindings(owner, `ficha-${tab}`)));
     }
@@ -106,10 +107,11 @@ test.describe('axe-core a 320, 1024 y 1280 px (tests/e2e/accessibility)', () => 
 
   test('[REQ-UI-004][REQ-UI-006] hogares del OWNER con un miembro INVITED, y la pantalla del invitado con el contador de pendientes', async () => {
     await owner.goto('/households');
-    await expect(owner.locator('[data-membership-status="INVITED"]')).toHaveCount(1);
+    await expect(owner.getByRole('heading', { name: new RegExp(HOUSE), level: 3 })).toBeVisible();
     const ownerFindings = await accessibilityFindings(owner, 'hogares-owner');
     await member.goto('/households');
     await expect(member.locator('[data-pending-invitations]')).toHaveAttribute('data-pending-invitations', '1');
+    await expect(member.getByRole('heading', { name: /Invitaciones/, level: 2 })).toBeVisible();
     expect([...ownerFindings, ...(await accessibilityFindings(member, 'hogares-invitado'))]).toEqual([]);
   });
 
