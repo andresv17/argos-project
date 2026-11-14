@@ -5,6 +5,7 @@
  * @implements REQ-UI-001, REQ-UI-002, REQ-UI-007, REQ-PET-004
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useDebouncedValue } from '../use-debounced-value.ts';
 import { ContextSelector, PET_PANEL_ID } from '../components/ContextSelector.tsx';
 import { Button, FormError } from '../components/Field.tsx';
 import { DeletePetDialog, PetDashboard } from '../components/PetDashboard.tsx';
@@ -19,8 +20,8 @@ import {
   type ContextOption,
   type PetCardView,
   type PetDashboardView,
+  type PetFilterValue,
   type Schemas,
-  type Species,
 } from '../view-model.ts';
 
 type Mode = 'VIEW' | 'CREATE' | 'EDIT' | 'DELETE';
@@ -32,7 +33,8 @@ export function PetsPage(): JSX.Element {
   const [options, setOptions] = useState<ContextOption[]>(contextOptions([]));
   const [contextId, setContextId] = useState(MINE_CONTEXT_ID);
   const [q, setQ] = useState('');
-  const [species, setSpecies] = useState<Species | ''>('');
+  const [species, setSpecies] = useState<PetFilterValue | ''>('');
+  const searchText = useDebouncedValue(q);
   const [cards, setCards] = useState<PetCardView[]>([]);
   const [activePetId, setActivePetId] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<PetDashboardView | null>(null);
@@ -52,9 +54,9 @@ export function PetsPage(): JSX.Element {
     const ticket = ++cardsRequest.current;
     const context = options.find((o) => o.id === contextId)?.context ?? { kind: 'MINE' as const };
     try {
-      const query: { q?: string; species?: Species } = {};
-      if (q.trim() !== '') query.q = q.trim();
-      if (species !== '') query.species = species;
+      const query: { q?: string; filter?: PetFilterValue } = {};
+      if (searchText.trim() !== '') query.q = searchText.trim();
+      if (species !== '') query.filter = species;
       const next: PetCardView[] =
         context.kind === 'MINE'
           ? await unwrap(api.GET('/pets', { params: { query } }))
@@ -65,7 +67,7 @@ export function PetsPage(): JSX.Element {
     } catch (e) {
       if (ticket === cardsRequest.current) setError(messageOf(e));
     }
-  }, [api, options, contextId, q, species]);
+  }, [api, options, contextId, searchText, species]);
 
   const loadDashboard = useCallback(async (): Promise<void> => {
     const ticket = ++dashboardRequest.current;
@@ -132,62 +134,75 @@ export function PetsPage(): JSX.Element {
     await refreshAll();
   };
 
-  const activeOption = options.find((o) => o.id === contextId);
+  const isMine = contextId === MINE_CONTEXT_ID;
+  const filtered = q.trim() !== '' || species !== '';
+  const emptyHint = filtered ? undefined : isMine ? 'Usa «Nueva mascota» para añadir la primera.' : 'Quien sea dueño puede asignar mascotas al hogar desde Editar.';
+  const householdChoices = options.flatMap((o) => (o.context.kind === 'HOUSEHOLD' ? [{ id: o.context.householdId, name: o.label }] : []));
   return (
-    <div className="grid grid-cols-1 gap-4">
+    <div className="grid min-w-0 grid-cols-1 gap-4">
       <h1 className="sr-only">Mascotas</h1>
       <ContextSelector options={options} activeId={contextId} onSelect={onSelectContext} />
-      <div id={PET_PANEL_ID} role="tabpanel" aria-labelledby={`context-tab-${contextId}`} className="grid grid-cols-1 gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
-        <section aria-label={`Mascotas de ${activeOption?.label ?? 'Mis mascotas'}`} className="grid grid-cols-1 content-start gap-3">
-          <PetFilter
-            q={q}
-            species={species}
-            onChange={(nextQ, nextSpecies) => {
-              setQ(nextQ);
-              setSpecies(nextSpecies);
-            }}
-          />
-          {contextId === MINE_CONTEXT_ID ? (
-            <div>
-              <Button onClick={() => setMode('CREATE')}>Nueva mascota</Button>
-            </div>
-          ) : null}
-          <PetCardList cards={cards} activePetId={activePetId} onSelect={(id) => {
-            setActivePetId(id);
-            setMode('VIEW');
-          }} />
-        </section>
-        <section aria-label="Ficha de la mascota" className="grid grid-cols-1 content-start gap-3">
-          <FormError message={error} />
-          {mode === 'CREATE' ? (
-            <PetForm profile={null} households={options.flatMap((o) => (o.context.kind === 'HOUSEHOLD' ? [{ id: o.context.householdId, name: o.label }] : []))} onSubmit={createPet} onCancel={() => setMode('VIEW')} />
-          ) : null}
-          {mode === 'EDIT' && dashboard !== null && dashboard.permissions.editPetBasics ? (
-            <PetForm
-              key={`edit-${dashboard.profile.id}`}
-              profile={dashboard.profile}
-              canAssign={dashboard.permissions.assignPetToHouseholds}
-              onSubmit={editPet}
-              onCancel={() => setMode('VIEW')}
+      <div id={PET_PANEL_ID} role="tabpanel" aria-labelledby={`context-tab-${contextId}`} className="grid min-w-0 grid-cols-1 gap-4">
+        <PetFilter
+          q={q}
+          species={species}
+          onChange={(nextQ, nextSpecies) => {
+            setQ(nextQ);
+            setSpecies(nextSpecies);
+          }}
+        />
+        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[156px_minmax(0,1fr)]">
+          <section aria-label="Mascotas del contexto" className="flex min-w-0 flex-col gap-3">
+            <PetCardList
+              cards={cards}
+              activePetId={activePetId}
+              {...(emptyHint === undefined ? {} : { emptyHint })}
+              onSelect={(id) => {
+                setActivePetId(id);
+                setMode('VIEW');
+              }}
             />
-          ) : null}
-          {mode === 'DELETE' && dashboard !== null && dashboard.permissions.editPetBasics ? (
-            <DeletePetDialog petName={dashboard.profile.name} onConfirm={() => void deletePet()} onCancel={() => setMode('VIEW')} />
-          ) : null}
-          {dashboard === null ? (
-            <p className="text-slate-700">Selecciona una mascota para ver su ficha.</p>
-          ) : (
-            <PetDashboard
-              key={`dashboard-${dashboard.profile.id}`}
-              dashboard={dashboard}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              onAddRecord={onAddRecord}
-              onEdit={() => setMode('EDIT')}
-              onDelete={() => setMode('DELETE')}
-            />
-          )}
-        </section>
+            {isMine ? (
+              <div>
+                <Button onClick={() => setMode('CREATE')}>Nueva mascota</Button>
+              </div>
+            ) : null}
+          </section>
+          <section aria-label="Ficha de la mascota" className="grid min-w-0 grid-cols-1 content-start gap-3">
+            <FormError message={error} />
+            {mode === 'CREATE' ? (
+              <PetForm profile={null} households={householdChoices} onSubmit={createPet} onCancel={() => setMode('VIEW')} />
+            ) : dashboard === null ? (
+              <p className="text-sm font-semibold text-slate-800">Selecciona una mascota para ver su ficha.</p>
+            ) : (
+              <PetDashboard
+                key={`dashboard-${dashboard.profile.id}`}
+                dashboard={dashboard}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                onAddRecord={onAddRecord}
+                onEdit={() => setMode('EDIT')}
+                onDelete={() => setMode('DELETE')}
+                {...(mode === 'EDIT' && dashboard.permissions.editPetBasics
+                  ? {
+                      editSlot: (
+                        <PetForm
+                          key={`edit-${dashboard.profile.id}`}
+                          profile={dashboard.profile}
+                          canAssign={dashboard.permissions.assignPetToHouseholds}
+                          onSubmit={editPet}
+                          onCancel={() => setMode('VIEW')}
+                        />
+                      ),
+                    }
+                  : {})}
+                {...(mode === 'DELETE' && dashboard.permissions.deletePet
+                  ? { deleteSlot: <DeletePetDialog petName={dashboard.profile.name} onConfirm={() => void deletePet()} onCancel={() => setMode('VIEW')} /> }
+                  : {})}
+              />
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

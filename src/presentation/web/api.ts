@@ -8,6 +8,8 @@
 import { CSRF_HEADER_NAME, CSRF_HEADER_VALUE, createApiClient } from '../../generated/api/client.ts';
 import type { components } from '../../generated/api/openapi-types.ts';
 import { ERROR_CATALOG, type ErrorCode } from '../../generated/errors/error-codes.ts';
+import { notifyActivity } from './activity.ts';
+import { humanSchemaMessage } from './schema-messages.ts';
 
 export type ProblemDetails = components['schemas']['ProblemDetails'];
 export type ApiClient = ReturnType<typeof createApiClient>;
@@ -52,8 +54,9 @@ export function toProblem(error: unknown): ProblemDetails {
   return catalogProblem('ERR-INTERNAL-UNEXPECTED');
 }
 
-/** Texto para el usuario: el `detailTemplate` del catálogo para el código recibido. */
+/** Texto para el usuario: el `detailTemplate` del catálogo para el código recibido; el de esquema formal se redacta en llano (T293). */
 export function problemMessage(problem: ProblemDetails): string {
+  if (problem.code === 'ERR-SCHEMA-VALIDATION-FAILED') return humanSchemaMessage(typeof problem.field === 'string' ? problem.field : undefined);
   return isCatalogCode(problem.code) ? ERROR_CATALOG[problem.code].detailTemplate : problem.detail;
 }
 
@@ -72,6 +75,7 @@ export async function unwrap<T>(request: Promise<FetchResult<T>>): Promise<T> {
     throw new ApiProblem(catalogProblem('ERR-INTERNAL-UNEXPECTED'));
   }
   if (result.error !== undefined || !result.response.ok) throw new ApiProblem(toProblem(result.error));
+  notifyActivity();
   return result.data as T;
 }
 

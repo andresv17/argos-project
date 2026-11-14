@@ -8,12 +8,15 @@ import { ERROR_CATALOG } from '../../../src/generated/errors/error-codes.ts';
 import { createWebApi } from '../../../src/presentation/web/api.ts';
 import { RegisterPage } from '../../../src/presentation/web/pages/AuthPages.tsx';
 import { SessionProvider } from '../../../src/presentation/web/session.tsx';
+import { humanSchemaMessage } from '../../../src/presentation/web/schema-messages.ts';
 import { validateInput } from '../../../src/presentation/web/validation.ts';
 
 /** T221: cliente web mínimo de la Rebanada 1 (REQ-UI-005, REQ-AUTH-004, INV-ARCH-003). */
 const WEB = 'src/presentation/web';
 const filesOf = (dir: string): string[] => readdirSync(dir).flatMap((e) => (statSync(join(dir, e)).isDirectory() ? filesOf(join(dir, e)) : /\.(?:ts|tsx)$/.test(e) ? [join(dir, e)] : []));
 const sources = filesOf(WEB).map((file) => ({ file, text: readFileSync(file, 'utf8') }));
+/** Módulos de presentación con temporizador autorizado (T288 debounce de búsqueda; T293 aviso previo de expiración). */
+const TIMER_MODULES = ['use-debounced-value.ts', 'idle-notice.ts'] as const;
 const msg = (code: keyof typeof ERROR_CATALOG): string => ERROR_CATALOG[code].detailTemplate;
 const registration = { username: 'nueva.usuaria', displayName: 'Nueva', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' };
 
@@ -27,9 +30,9 @@ describe('registro con la política de contraseña nueva (REQ-UI-005)', () => {
   });
 
   it('[REQ-UI-005][ERR-SCHEMA-VALIDATION-FAILED] un username con mayúsculas, la confirmación ausente o un correo inválido se rechazan en cliente sin normalizar', () => {
-    expect(validateInput('RegisterUserInput', { ...registration, username: 'Nueva.Usuaria' })).toEqual({ username: msg('ERR-SCHEMA-VALIDATION-FAILED') });
-    expect(validateInput('RegisterUserInput', { username: 'nueva', displayName: 'Nueva', password: 'Clave2026x!' })).toEqual({ confirmPassword: msg('ERR-SCHEMA-VALIDATION-FAILED') });
-    expect(validateInput('RegisterUserInput', { ...registration, email: 'no-es-correo' })).toEqual({ email: msg('ERR-SCHEMA-VALIDATION-FAILED') });
+    expect(validateInput('RegisterUserInput', { ...registration, username: 'Nueva.Usuaria' })).toEqual({ username: humanSchemaMessage('username') });
+    expect(validateInput('RegisterUserInput', { username: 'nueva', displayName: 'Nueva', password: 'Clave2026x!' })).toEqual({ confirmPassword: humanSchemaMessage('confirmPassword') });
+    expect(validateInput('RegisterUserInput', { ...registration, email: 'no-es-correo' })).toEqual({ email: humanSchemaMessage('email') });
     expect(validateInput('RegisterUserInput', { ...registration, email: 'nueva@example.com' })).toEqual({});
   });
 
@@ -53,7 +56,10 @@ describe('sesión de la SPA al arrancar (REQ-AUTH-004, INV-ARCH-003)', () => {
 
   it('[REQ-AUTH-004][INV-AUTH2-002] ninguna petición autenticada en segundo plano: sin temporizadores, sin sondeo y sin renovar al recuperar el foco o la conexión', () => {
     const background = /\bsetInterval\b|\bsetTimeout\b|requestIdleCallback|\bEventSource\b|\bWebSocket\b|addEventListener\(\s*['"](?:focus|visibilitychange|online|pageshow)['"]|navigator\.serviceWorker|sendBeacon/;
-    expect(sources.filter(({ text }) => background.test(text)).map(({ file }) => file)).toEqual([]);
+    // Enmienda T288/T293 (autorizada por Neo): el retardo de 300 ms de la búsqueda y el aviso previo de expiración son los únicos
+    // temporizadores permitidos y no tocan la API (se comprueba abajo); cualquier otro uso sigue prohibido.
+    expect(sources.filter(({ file, text }) => !TIMER_MODULES.some((m) => file.endsWith(m)) && background.test(text)).map(({ file }) => file)).toEqual([]);
+    expect(sources.filter(({ file, text }) => TIMER_MODULES.some((m) => file.endsWith(m)) && /\bfetch\b|\bapi\b|unwrap|\.(?:GET|POST|PUT|PATCH|DELETE)\(/.test(text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, ''))).map(({ file }) => file)).toEqual([]);
   });
 
   it('[REQ-UI-005][INV-ARCH-003] la sesión usa el contrato 3.0.0: el usuario es UserSelfProfile y el registro envía RegisterUserInput', () => {

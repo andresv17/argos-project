@@ -6,7 +6,7 @@
  */
 import { CSRF_PARAMS, unwrap, type ApiClient } from './api.ts';
 import type { InputSchema } from './validation.ts';
-import type { Schemas } from './view-model.ts';
+import type { PetPermissions, Schemas } from './view-model.ts';
 
 export type RecordModule = 'weights' | 'measurements' | 'vaccinations' | 'dewormings' | 'visits' | 'customParameters';
 
@@ -135,6 +135,26 @@ export const RECORD_MODULES: readonly RecordModuleSpec[] = [
     ],
   },
 ];
+
+/** Permiso de la matriz (REQ-RBAC-001) que habilita el formulario de alta de cada módulo; la validación real es del servidor. */
+export const RECORD_WRITE_PERMISSION: Readonly<Record<RecordModule, keyof PetPermissions>> = {
+  weights: 'writeWeightsAndMeasurements',
+  measurements: 'writeWeightsAndMeasurements',
+  vaccinations: 'writeHealthEvents',
+  dewormings: 'writeHealthEvents',
+  visits: 'writeAppointmentsAndParameters',
+  customParameters: 'writeAppointmentsAndParameters',
+};
+
+/** Texto del resumen del bloque de alta de cada módulo (blueprint §4.5). */
+export const RECORD_SUMMARY: Readonly<Record<RecordModule, string>> = {
+  weights: 'Registrar peso',
+  measurements: 'Registrar medidas',
+  vaccinations: 'Registrar vacuna',
+  dewormings: 'Registrar desparasitación',
+  visits: 'Registrar consulta',
+  customParameters: 'Registrar parámetro',
+};
 
 /** Valores iniciales del formulario: vacío, o la primera opción en los selectores. */
 export function initialRecordValues(spec: RecordModuleSpec): Record<string, string> {

@@ -1,13 +1,16 @@
 /**
- * Marco de las pantallas autenticadas: cabecera con navegación, contador de invitaciones pendientes y botón
- * de cierre de sesión siempre visible (REQ-UI-005). Layout adaptable desde 320 px.
+ * Marco de las pantallas autenticadas (T287, blueprint §3): un único marco con la cabecera dentro, navegación directa Mascotas,
+ * Hogares, Respaldo y Perfil en `<nav aria-label="Principal">`, sin menú del avatar ni barra inferior (en < 768 px la navegación
+ * va en el flujo superior, dentro del marco, para que el orden de foco coincida con el visual), contadores de hogares e
+ * invitaciones, botón de cierre de sesión siempre visible y aviso previo de expiración de sesión (REQ-UI-005).
  *
- * @implements REQ-UI-004, REQ-UI-005, REQ-UI-006
+ * @implements REQ-UI-004, REQ-UI-005, REQ-UI-006, REQ-UI2-001, REQ-UI2-008
  */
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Field.tsx';
 import { unwrap } from '../api.ts';
+import { useIdleNotice, WARNING_LEAD_MINUTES } from '../idle-notice.ts';
 import { useSession } from '../session.tsx';
 import { invitationsLabel } from '../view-model.ts';
 
@@ -29,42 +32,46 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
   readonly householdCount?: number;
   readonly onLogout: () => void;
 }): JSX.Element {
+  // Estado activo: relleno lima con texto oliva (7.32:1) y línea de 2 px oliva que evita depender solo del color (WCAG 1.4.11).
   const link = ({ isActive }: { isActive: boolean }): string =>
-    `flex min-h-12 items-center rounded-full px-4 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-primary ${isActive ? 'bg-accent text-primary' : 'text-white underline-offset-4 hover:underline'}`;
+    `relative flex min-h-12 items-center gap-1 rounded-full px-4 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+      isActive ? 'bg-accent font-semibold after:absolute after:inset-x-4 after:bottom-1.5 after:h-0.5 after:bg-primary' : 'font-medium underline-offset-4 hover:underline'
+    }`;
   return (
-    <header className="bg-primary text-white">
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:rounded-full focus:bg-white focus:px-4 focus:py-3 focus:text-primary">
+    <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pb-4">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-10 focus:rounded-full focus:bg-white focus:px-4 focus:py-3 focus:text-primary">
         Saltar al contenido
       </a>
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <p className="text-lg font-bold tracking-tight">Argos</p>
-        <nav aria-label="Principal" className="flex flex-wrap gap-1">
-          <NavLink to="/" end className={link}>
-            Mascotas
-          </NavLink>
-          <NavLink to="/households" className={link}>
-            Hogares{' '}
-            <span data-household-count={householdCount} className="ml-1 rounded-full bg-white px-2 text-xs font-bold text-primary">
-              <span aria-hidden="true">{householdCount}</span>
-              <span className="sr-only">{householdCount === 1 ? '1 hogar' : `${householdCount} hogares`}</span>
-              <span className="ml-1 font-normal" aria-hidden="true">hogares</span>
-            </span>
-            <span data-pending-invitations={pendingInvitations} className="ml-1 rounded-full bg-amber-300 px-2 text-xs font-bold text-slate-900">
-              <span aria-hidden="true">{pendingInvitations}</span>
-              <span className="sr-only">{invitationsLabel(pendingInvitations)}</span>
-              <span className="ml-1 font-normal" aria-hidden="true">invitaciones</span>
-            </span>
-          </NavLink>
-          <NavLink to="/backup" className={link}>
-            Respaldo
-          </NavLink>
-        </nav>
-        <div className="flex items-center gap-3">
-          <span className="sr-only text-sm min-[480px]:not-sr-only">{displayName}</span>
-          <Button variant="secondary" onClick={onLogout}>
-            Cerrar sesión
-          </Button>
-        </div>
+      <p className="text-lg font-bold tracking-tight text-primary">Argos</p>
+      <nav aria-label="Principal" className="flex flex-wrap gap-1">
+        <NavLink to="/" end className={link}>
+          Mascotas
+        </NavLink>
+        <NavLink to="/households" className={link}>
+          Hogares
+          <span data-household-count={householdCount} className="rounded-full bg-primary px-2 text-xs font-bold tabular-nums text-white">
+            <span aria-hidden="true">{householdCount}</span>
+            <span className="sr-only">{householdCount === 1 ? '1 hogar' : `${householdCount} hogares`}</span>
+            <span className="ml-1 font-normal" aria-hidden="true">hogares</span>
+          </span>
+          <span data-pending-invitations={pendingInvitations} className="rounded-full bg-amber-300 px-2 text-xs font-bold tabular-nums text-slate-900">
+            <span aria-hidden="true">{pendingInvitations}</span>
+            <span className="sr-only">{invitationsLabel(pendingInvitations)}</span>
+            <span className="ml-1 font-normal" aria-hidden="true">invitaciones</span>
+          </span>
+        </NavLink>
+        <NavLink to="/backup" className={link}>
+          Respaldo
+        </NavLink>
+        <NavLink to="/cuenta" className={link}>
+          Perfil
+        </NavLink>
+      </nav>
+      <div className="flex items-center gap-3">
+        <span className="sr-only text-sm text-text-primary min-[480px]:not-sr-only">{displayName}</span>
+        <Button variant="secondary" onClick={onLogout}>
+          Cerrar sesión
+        </Button>
       </div>
     </header>
   );
@@ -75,6 +82,7 @@ export function AppShell({ children }: { readonly children: ReactNode }): JSX.El
   const navigate = useNavigate();
   const [count, setCount] = useState(0);
   const [householdCount, setHouseholdCount] = useState(0);
+  const idleWarning = useIdleNotice(session.idleExpiresAt, session.lastActivityAt);
   const refresh = useCallback(() => {
     unwrap(session.api.GET('/invitations'))
       .then((list) => setCount(list.length))
@@ -89,16 +97,19 @@ export function AppShell({ children }: { readonly children: ReactNode }): JSX.El
   };
   return (
     <InvitationsContext.Provider value={{ count, householdCount, refresh }}>
-      <div className="min-h-screen text-text-primary">
-        <ShellHeader displayName={session.user?.displayName ?? ''} pendingInvitations={count} householdCount={householdCount} onLogout={onLogout} />
-        {/* Marco L1 de blur (ui_blueprint §1.4/§1.5): blur solo desde 640 px y con soporte; en móvil blanco 90 % sin blur. */}
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className="mx-4 mt-4 mb-6 max-w-7xl rounded-3xl border border-white/40 bg-white/90 p-4 shadow-glass sm:mx-6 sm:p-6 lg:mx-auto sm:supports-[backdrop-filter]:bg-white/70 sm:supports-[backdrop-filter]:backdrop-blur-md"
-        >
-          {children}
-        </main>
+      <div className="min-h-screen px-4 py-4 text-text-primary sm:px-6 sm:py-6">
+        {/* Marco L1 único (blueprint §2.5): blur solo desde 640 px y con soporte; en móvil, blanco 90 % sin backdrop-filter. */}
+        <div className="mx-auto max-w-7xl rounded-3xl border border-white/40 bg-white/90 p-4 shadow-glass sm:bg-white/70 sm:p-6 sm:supports-[backdrop-filter]:backdrop-blur-md">
+          <ShellHeader displayName={session.user?.displayName ?? ''} pendingInvitations={count} householdCount={householdCount} onLogout={onLogout} />
+          {idleWarning ? (
+            <p role="status" className="mb-4 rounded-2xl border border-amber-700 bg-amber-100 px-4 py-3 text-sm text-amber-900">
+              {`Tu sesión expira pronto por inactividad (en menos de ${WARNING_LEAD_MINUTES} minutos). Realiza cualquier acción para mantenerla abierta.`}
+            </p>
+          ) : null}
+          <main id="main-content" tabIndex={-1} className="min-w-0 focus:outline-none">
+            {children}
+          </main>
+        </div>
       </div>
     </InvitationsContext.Provider>
   );

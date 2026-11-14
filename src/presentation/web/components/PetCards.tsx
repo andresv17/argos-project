@@ -1,21 +1,40 @@
 /**
- * Tarjetas de mascota como `listbox` WAI-ARIA (foco itinerante, flechas, Inicio, Fin) con filtro por nombre y
- * especie. Cada tarjeta: especie, nombre, edad, dueño y contador de alertas OVERDUE/DUE_SOON. Escala con scroll.
+ * Directorio de mascotas: filtros por texto y por los cinco valores del contrato (Todos, Perros, Gatos, Otros y Con
+ * alertas sanitarias) y riel de opciones `listbox` WAI-ARIA con foco itinerante (flechas, Inicio, Fin, Enter, Espacio).
+ * El riel es un contenedor `flex` con scroll (Opción A de Neo, blueprint §4.8): horizontal bajo `lg`, vertical desde `lg`.
+ * Cada opción lleva los datos de la tarjeta del contrato y nunca los calcula.
  *
- * @implements REQ-UI-001, REQ-UI-004, REQ-UI-007
+ * @implements REQ-UI-001, REQ-UI-004, REQ-UI-007, REQ-UI2-002, REQ-UI2-003, REQ-PET2-002
  */
 import { useRef, type KeyboardEvent } from 'react';
 import { OwnerBadge } from './OwnerBadge.tsx';
-import { alertCounters, formatAge, formatKg, nextFocusIndex, SPECIES_LABEL, type PetCardView, type Species } from '../view-model.ts';
+import { PetAvatar } from './PetAvatar.tsx';
+import {
+  alertsLine,
+  alertTone,
+  formatAge,
+  formatKg,
+  isReadOnly,
+  nextFocusIndex,
+  PET_FILTER_OPTIONS,
+  SPECIES_LABEL,
+  type AlertTone,
+  type PetCardView,
+  type PetFilterValue,
+} from '../view-model.ts';
+
+const FIELD_CLASS =
+  'min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
 
 export function PetFilter({ q, species, onChange }: {
   readonly q: string;
-  readonly species: Species | '';
-  readonly onChange: (q: string, species: Species | '') => void;
+  /** Valor del filtro del contrato; vacío equivale a «Todos». */
+  readonly species: PetFilterValue | '';
+  readonly onChange: (q: string, species: PetFilterValue | '') => void;
 }): JSX.Element {
   return (
-    <form role="search" aria-label="Filtrar mascotas" className="flex flex-wrap gap-3" onSubmit={(e) => e.preventDefault()}>
-      <label className="flex flex-col text-sm font-medium text-slate-800">
+    <form role="search" aria-label="Filtrar mascotas" className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => e.preventDefault()}>
+      <label className="flex flex-col gap-1 text-sm font-semibold text-slate-800">
         Buscar mascota
         <input
           type="search"
@@ -24,34 +43,44 @@ export function PetFilter({ q, species, onChange }: {
           value={q}
           maxLength={50}
           onChange={(e) => onChange(e.target.value, species)}
-          className="rounded border border-slate-500 px-3 py-2 text-slate-900"
+          className={FIELD_CLASS}
         />
       </label>
-      <label className="flex flex-col text-sm font-medium text-slate-800">
+      <label className="flex flex-col gap-1 text-sm font-semibold text-slate-800">
         Filtrar por especie
-        <select
-          value={species}
-          onChange={(e) => onChange(q, e.target.value as Species | '')}
-          className="rounded border border-slate-500 px-3 py-2 text-slate-900"
-        >
-          <option value="">Todas</option>
-          {/* T284 PENDIENTE: filtros por las 8 especies de la 002; por ahora solo CANINE y FELINE. */}
-          <option value="CANINE">{SPECIES_LABEL.CANINE}</option>
-          <option value="FELINE">{SPECIES_LABEL.FELINE}</option>
+        <select value={species === '' ? 'ALL' : species} onChange={(e) => onChange(q, e.target.value === 'ALL' ? '' : (e.target.value as PetFilterValue))} className={FIELD_CLASS}>
+          {PET_FILTER_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
       </label>
     </form>
   );
 }
 
-export function PetCardList({ cards, activePetId, onSelect }: {
+const TONE_CLASS: Readonly<Record<AlertTone, string>> = {
+  DANGER: 'bg-red-100 text-red-900',
+  WARNING: 'bg-amber-100 text-amber-900',
+  NEUTRAL: 'bg-slate-100 text-slate-800',
+};
+
+export function PetCardList({ cards, activePetId, onSelect, emptyHint }: {
   readonly cards: readonly PetCardView[];
   readonly activePetId: string | null;
   readonly onSelect: (petId: string) => void;
+  /** Segunda línea del estado vacío (depende del contexto); sin ella solo se muestra la primera. */
+  readonly emptyHint?: string;
 }): JSX.Element {
   const refs = useRef<Array<HTMLLIElement | null>>([]);
   if (cards.length === 0) {
-    return <p className="text-slate-700">No hay mascotas en este contexto.</p>;
+    return (
+      <div className="text-sm text-slate-800">
+        <p className="font-semibold">No hay mascotas en este contexto.</p>
+        {emptyHint === undefined ? null : <p className="text-text-muted">{emptyHint}</p>}
+      </div>
+    );
   }
   const focusIndex = Math.max(0, cards.findIndex((c) => c.profile.id === activePetId));
   const onKeyDown = (event: KeyboardEvent<HTMLLIElement>, index: number): void => {
@@ -69,7 +98,11 @@ export function PetCardList({ cards, activePetId, onSelect }: {
     if (card !== undefined) onSelect(card.profile.id);
   };
   return (
-    <ul role="listbox" aria-label="Mascotas" className="grid max-h-[32rem] grid-cols-1 gap-3 overflow-y-auto p-1 sm:grid-cols-2 lg:grid-cols-1">
+    <ul
+      role="listbox"
+      aria-label="Mascotas"
+      className="flex snap-x gap-3 overflow-x-auto p-1 lg:max-h-[36rem] lg:snap-none lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden"
+    >
       {cards.map((card, index) => {
         const selected = card.profile.id === activePetId;
         return (
@@ -84,16 +117,16 @@ export function PetCardList({ cards, activePetId, onSelect }: {
             data-pet-id={card.profile.id}
             onClick={() => onSelect(card.profile.id)}
             onKeyDown={(e) => onKeyDown(e, index)}
-            className={`cursor-pointer rounded-lg border bg-white p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-              selected ? 'border-primary ring-1 ring-primary bg-accent-soft' : 'border-slate-300'
+            className={`flex min-h-12 w-[148px] shrink-0 cursor-pointer snap-start flex-col items-center gap-1 rounded-2xl p-2 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white lg:w-full ${
+              selected ? 'border-2 border-primary bg-accent-soft' : 'border-2 border-transparent bg-white hover:bg-meadow'
             }`}
           >
-            <p className="text-base font-semibold text-slate-900">{card.profile.name}</p>
-            <p className="text-sm text-slate-700">
-              {SPECIES_LABEL[card.profile.species]} · {formatAge(card.computedAge)} · {formatKg(card.latestWeightKg)}
-            </p>
-            <p className="text-sm text-slate-700">Alertas: {alertCounters(card.alertsSummary)}</p>
-            <OwnerBadge owner={card.owner} canEdit={card.permissions.editPetBasics} />
+            <PetAvatar name={card.profile.name} avatarUrl={card.profile.avatarUrl} colorToken={card.owner.colorToken} size={64} />
+            <span className="w-full truncate text-sm font-semibold text-text-primary">{card.profile.name}</span>
+            <span className="text-xs tabular-nums text-text-muted">{`${SPECIES_LABEL[card.profile.species]} · ${formatAge(card.computedAge)}`}</span>
+            <span className="text-xs tabular-nums text-text-muted">{formatKg(card.latestWeightKg)}</span>
+            <span className={`rounded-[10px] px-2 text-xs font-bold ${TONE_CLASS[alertTone(card.alertsSummary)]}`}>{alertsLine(card.alertsSummary)}</span>
+            <OwnerBadge owner={card.owner} readOnly={isReadOnly(card.permissions)} />
           </li>
         );
       })}

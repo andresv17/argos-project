@@ -32,7 +32,9 @@ describe('arquitectura de la presentación', () => {
 
   it('[REQ-UI-002] sin dependencias de tiempo medido ni entropía en la UI: ni Date, ni performance.now, ni temporizadores, ni Math.random', () => {
     const forbidden = /\bnew Date\b|\bDate\.now\b|\bperformance\.now\b|\bsetTimeout\b|\bsetInterval\b|\bMath\.random\b/;
-    expect(sources.filter((f) => forbidden.test(readFileSync(f, 'utf8')))).toEqual([]);
+    // Enmienda T288/T293 (autorizada por Neo): solo estos dos módulos pueden usar temporizadores (debounce de 300 ms y aviso previo de expiración).
+    const allowedTimers = ['use-debounced-value.ts', 'idle-notice.ts'];
+    expect(sources.filter((f) => !allowedTimers.some((m) => f.endsWith(m)) && forbidden.test(readFileSync(f, 'utf8')))).toEqual([]);
   });
 
   it('[REQ-UI-002][REQ-UI-007] sin lógica de negocio en componentes: ni capas interiores, ni cálculo de alertas, edades o colores de dueño', () => {

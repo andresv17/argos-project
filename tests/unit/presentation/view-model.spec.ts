@@ -45,7 +45,7 @@ describe('modelo de presentación puro', () => {
       ['OVERDUE', 'DANGER_RED', 'Rojo', 'Vencida · 3 días de retraso'],
       ['DUE_SOON', 'WARNING_AMBER', 'Ámbar', 'Próxima a vencer (<= 15 días) · vence hoy'],
       ['UP_TO_DATE', 'SUCCESS_GREEN', 'Verde', 'Al día · 40 días restantes'],
-      ['SUPERSEDED', 'NEUTRAL_GRAY', 'Gris', 'Histórico reemplazado · reemplazada por un registro posterior'],
+      ['SUPERSEDED', 'NEUTRAL_GRAY', 'Gris', 'Reemplazada por registro posterior'],
     ]);
     expect(cases.map((b) => b.uiBadge)).toEqual(cases.map((b) => STATE_ALERT_001.states[b.status].uiBadge));
   });

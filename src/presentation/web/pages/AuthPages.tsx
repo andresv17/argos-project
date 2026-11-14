@@ -12,12 +12,22 @@ import { useContractForm } from '../use-contract-form.ts';
 import type { Schemas } from '../view-model.ts';
 
 function AuthLayout({ title, children }: { readonly title: string; readonly children: JSX.Element[] }): JSX.Element {
+  // Marco L1 único de autenticación (blueprint §5.1): dos columnas desde 1024 px, apilado debajo; blur solo desde 640 px.
   return (
-    <main id="main-content" className="mx-4 mt-10 max-w-md rounded-3xl border border-white/40 bg-white/90 p-6 shadow-glass sm:mx-auto sm:supports-[backdrop-filter]:bg-white/70 sm:supports-[backdrop-filter]:backdrop-blur-md">
-      <h1 className="mb-1 text-2xl font-bold tracking-tight text-primary">Argos</h1>
-      <h2 className="mb-4 text-lg font-semibold text-text-primary">{title}</h2>
-      {children}
-    </main>
+    <div className="min-h-screen px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-4xl rounded-3xl border border-white/40 bg-white/90 p-6 shadow-glass sm:bg-white/70 sm:supports-[backdrop-filter]:backdrop-blur-md">
+        <main id="main-content" className="grid gap-6 lg:grid-cols-2 lg:items-center">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-primary">Argos</h1>
+            <p className="mt-1 text-sm text-text-muted">Pet Health Tracker</p>
+          </div>
+          <div>
+            <h2 className="mb-4 text-lg font-semibold text-text-primary">{title}</h2>
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }
 
@@ -34,7 +44,7 @@ export function LoginPage(): JSX.Element {
   });
   return (
     <AuthLayout title="Iniciar sesión">
-      <form noValidate aria-label="Iniciar sesión" onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded border border-slate-300 bg-white p-4">
+      <form noValidate aria-label="Iniciar sesión" onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <TextField id="login-username" label="Usuario" name="username" autoComplete="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
         <PasswordField id="login-password" label="Contraseña" name="password" autoComplete="current-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
         <FormError errors={form.errors} message={form.message} />
@@ -65,7 +75,7 @@ export function RegisterPage(): JSX.Element {
   });
   return (
     <AuthLayout title="Crear cuenta">
-      <form noValidate aria-label="Crear cuenta" onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded border border-slate-300 bg-white p-4">
+      <form noValidate aria-label="Crear cuenta" onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <TextField id="register-username" label="Usuario (minúsculas, números, . _ -)" name="username" autoComplete="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
         <TextField id="register-displayName" label="Nombre visible" name="displayName" autoComplete="name" required value={form.values.displayName ?? ''} onChange={form.onChange} errors={form.errors} />
         <TextField id="register-email" label="Correo (opcional)" name="email" type="email" autoComplete="email" value={form.values.email ?? ''} onChange={form.onChange} errors={form.errors} />

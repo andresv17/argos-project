@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ERROR_CATALOG } from '../../../src/generated/errors/error-codes.ts';
+import { GENERAL_SCHEMA_MESSAGE, humanSchemaMessage } from '../../../src/presentation/web/schema-messages.ts';
 import { FORM_ERROR_KEY, formValues, validateInput } from '../../../src/presentation/web/validation.ts';
 
 const msg = (code: keyof typeof ERROR_CATALOG): string => ERROR_CATALOG[code].detailTemplate;
@@ -9,12 +10,12 @@ describe('validación en cliente derivada de los contratos', () => {
     expect(validateInput('RegisterUserInput', { username: 'andres', displayName: 'Andrés', password: 'corta', confirmPassword: 'corta' })).toEqual({ password: msg('ERR-AUTH-WEAK-PASSWORD') });
   });
 
-  it('[REQ-UI-005][ERR-SCHEMA-VALIDATION-FAILED] un campo obligatorio ausente o con formato inválido usa ERR-SCHEMA-VALIDATION-FAILED', () => {
+  it('[REQ-UI-005][ERR-SCHEMA-VALIDATION-FAILED] un campo obligatorio ausente o con formato inválido usa ERR-SCHEMA-VALIDATION-FAILED con la redacción llana de T293', () => {
     expect([
       validateInput('RegisterUserInput', { displayName: 'Andrés', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' }),
       validateInput('RegisterUserInput', { username: 'Andrés!', displayName: 'Andrés', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' }),
       validateInput('LoginInput', { username: 'andres' }),
-    ]).toEqual([{ username: msg('ERR-SCHEMA-VALIDATION-FAILED') }, { username: msg('ERR-SCHEMA-VALIDATION-FAILED') }, { password: msg('ERR-SCHEMA-VALIDATION-FAILED') }]);
+    ]).toEqual([{ username: humanSchemaMessage('username') }, { username: humanSchemaMessage('username') }, { password: humanSchemaMessage('password') }]);
   });
 
   it('[REQ-UI-005] un input válido no produce errores', () => {
@@ -45,7 +46,7 @@ describe('validación en cliente derivada de los contratos', () => {
   });
 
   it('[REQ-UI-005] una propiedad no autorizada cae en el error general del formulario', () => {
-    expect(validateInput('CreateHouseholdInput', { name: 'Casa', extra: 1 })).toEqual({ [FORM_ERROR_KEY]: msg('ERR-SCHEMA-VALIDATION-FAILED') });
+    expect(validateInput('CreateHouseholdInput', { name: 'Casa', extra: 1 })).toEqual({ [FORM_ERROR_KEY]: GENERAL_SCHEMA_MESSAGE });
   });
 
   it('[REQ-UI-002] los valores de formulario omiten los vacíos y convierten solo los campos numéricos', () => {

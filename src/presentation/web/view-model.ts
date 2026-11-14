@@ -5,7 +5,7 @@
  *
  * @implements REQ-UI-001, REQ-UI-002, REQ-UI-003, REQ-UI-006, REQ-UI-007, STATE-ALERT-001, INV-ARCH-004
  */
-import type { components } from '../../generated/api/openapi-types.ts';
+import type { components, paths } from '../../generated/api/openapi-types.ts';
 import { STATE_ALERT_001 } from '../../generated/machines/sanitary-alert.machine.ts';
 
 export type Schemas = components['schemas'];
@@ -46,6 +46,9 @@ export interface AlertBadgeModel {
   readonly text: string;
 }
 
+/** Texto visible de una alerta reemplazada (T289, REQ-UI-003): el registro posterior la sustituye. */
+export const SUPERSEDED_TEXT = 'Reemplazada por registro posterior';
+
 const days = (n: number): string => `${n} ${n === 1 ? 'día' : 'días'}`;
 
 /** Insignia de una alerta: el `uiBadge` sale de la máquina STATE-ALERT-001 para el `status` recibido. */
@@ -53,19 +56,32 @@ export function alertBadge(alert: AlertStateMetadata): AlertBadgeModel {
   const uiBadge = STATE_ALERT_001.states[alert.status].uiBadge;
   const style = UI_BADGE_STYLE[uiBadge];
   const suffix =
-    alert.status === 'OVERDUE'
+    alert.status === 'SUPERSEDED'
+      ? SUPERSEDED_TEXT
+      : alert.status === 'OVERDUE'
       ? `${days(-alert.daysRemaining)} de retraso`
-      : alert.status === 'SUPERSEDED'
-        ? 'reemplazada por un registro posterior'
-        : alert.daysRemaining === 0
+      : alert.daysRemaining === 0
           ? 'vence hoy'
           : `${days(alert.daysRemaining)} ${alert.daysRemaining === 1 ? 'restante' : 'restantes'}`;
-  return { status: alert.status, uiBadge, color: style.color, className: style.className, text: `${alert.label} · ${suffix}` };
+  const text = alert.status === 'SUPERSEDED' ? suffix : `${alert.label} · ${suffix}`;
+  return { status: alert.status, uiBadge, color: style.color, className: style.className, text };
 }
 
 /** Contador de alertas de una tarjeta (REQ-UI-001): solo OVERDUE y DUE_SOON. */
 export function alertCounters(summary: ActiveSanitaryAlertsSummary): string {
   return `${summary.overdueCount} vencidas · ${summary.dueSoonCount} próximas`;
+}
+
+export type AlertTone = 'DANGER' | 'WARNING' | 'NEUTRAL';
+
+/** Línea de alertas de una opción del riel (blueprint §4.2): siempre ambos números, también con 0. */
+export function alertsLine(summary: ActiveSanitaryAlertsSummary): string {
+  return `Alertas: ${alertCounters(summary)}`;
+}
+
+/** Tono de la línea de alertas: rojo si hay vencidas, ámbar si solo hay próximas, neutro si no hay ninguna. */
+export function alertTone(summary: ActiveSanitaryAlertsSummary): AlertTone {
+  return summary.overdueCount > 0 ? 'DANGER' : summary.dueSoonCount > 0 ? 'WARNING' : 'NEUTRAL';
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +120,52 @@ export function petActions(view: { readonly canEdit: boolean }): { readonly canE
   return { canEdit: view.canEdit, readOnlyLabel: view.canEdit ? null : READ_ONLY_LABEL };
 }
 
+export type PetPermissions = Schemas['PetPermissions'];
+
+/** «Solo lectura» (REQ-UI2-003): ninguna de las escrituras de la matriz está permitida; el Cuidador, que registra, no lo ve. */
+export function isReadOnly(permissions: PetPermissions): boolean {
+  return !permissions.editPetBasics && !permissions.writeHealthEvents && !permissions.writeWeightsAndMeasurements && !permissions.writeAppointmentsAndParameters;
+}
+
+// ---------------------------------------------------------------------------
+// Avatar (D1): origen permitido de la imagen y letras iniciales
+// ---------------------------------------------------------------------------
+
+export type AvatarSource = { readonly kind: 'DATA'; readonly src: string } | { readonly kind: 'REMOTE'; readonly src: string } | { readonly kind: 'INITIALS' };
+
+/** `data:image/png|jpeg|webp;base64` directo; `http(s)` remoto con fallback; cualquier otro valor se ignora. */
+export function avatarSource(avatarUrl: string | null | undefined): AvatarSource {
+  if (avatarUrl === null || avatarUrl === undefined) return { kind: 'INITIALS' };
+  if (/^data:image\/(?:png|jpeg|webp);base64,/.test(avatarUrl)) return { kind: 'DATA', src: avatarUrl };
+  if (/^https?:\/\//.test(avatarUrl)) return { kind: 'REMOTE', src: avatarUrl };
+  return { kind: 'INITIALS' };
+}
+
+/** Primera letra de las dos primeras palabras del nombre, en mayúscula. */
+export function petInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter((word) => word !== '')
+    .slice(0, 2)
+    .map((word) => (word[0] ?? '').toLocaleUpperCase('es'))
+    .join('');
+}
+
+// ---------------------------------------------------------------------------
+// Filtros del directorio (REQ-UI2-002, REQ-PET2-002): los cinco valores del contrato
+// ---------------------------------------------------------------------------
+
+export type PetFilterValue = NonNullable<NonNullable<paths['/pets']['get']['parameters']['query']>['filter']>;
+
+/** Opciones en el orden del contrato: Todos, Perros, Gatos, Otros y Con alertas sanitarias. */
+export const PET_FILTER_OPTIONS: ReadonlyArray<{ readonly value: PetFilterValue; readonly label: string }> = [
+  { value: 'ALL', label: 'Todos' },
+  { value: 'CANINE', label: 'Perros' },
+  { value: 'FELINE', label: 'Gatos' },
+  { value: 'OTHERS', label: 'Otros' },
+  { value: 'WITH_ALERTS', label: 'Con alertas sanitarias' },
+];
+
 // ---------------------------------------------------------------------------
 // Textos de perfil
 // ---------------------------------------------------------------------------
@@ -118,6 +180,8 @@ export const SPECIES_LABEL: Readonly<Record<Species, string>> = {
   SMALL_MAMMAL: 'Pequeño mamífero',
   OTHER: 'Otro',
 };
+/** Rol dentro de un hogar (REQ-HOUSE2-001), tal como lo muestra la interfaz. */
+export const HOUSEHOLD_ROLE_LABEL: Readonly<Record<Schemas['HouseholdRole'], string>> = { ADMIN: 'Administrador', CAREGIVER: 'Cuidador', READER: 'Lector' };
 export const SEX_LABEL: Readonly<Record<PetProfile['sex'], string>> = { MALE: 'Macho', FEMALE: 'Hembra' };
 
 /** Edad calculada por la API (REQ-PET-002), solo formateada. */

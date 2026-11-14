@@ -18,7 +18,14 @@ export type SessionStatus = 'LOADING' | 'ANONYMOUS' | 'AUTHENTICATED';
 export interface SessionState {
   readonly status: SessionStatus;
   readonly user: UserSelfProfile | null;
+  /** Instantes de la sesión que entrega el servidor (`SessionView`), para el aviso previo de expiración. */
+  readonly idleExpiresAt: string | null;
+  readonly lastActivityAt: string | null;
   readonly api: ApiClient;
+  /** Sustituye el perfil visible tras actualizarlo en `/account/profile`. */
+  setUser(user: UserSelfProfile): void;
+  /** Cierra la sesión local sin llamar a la API (la cuenta ya fue eliminada y la cookie expiró). */
+  dropSession(): void;
   register(input: Schemas['RegisterUserInput']): Promise<void>;
   login(input: Schemas['LoginInput']): Promise<void>;
   logout(): Promise<void>;
@@ -29,6 +36,7 @@ const SessionContext = createContext<SessionState | null>(null);
 export function SessionProvider({ api, children }: { readonly api: ApiClient; readonly children: ReactNode }): JSX.Element {
   const [user, setUser] = useState<UserSelfProfile | null>(null);
   const [status, setStatus] = useState<SessionStatus>('LOADING');
+  const [times, setTimes] = useState<{ readonly idleExpiresAt: string; readonly lastActivityAt: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,6 +44,7 @@ export function SessionProvider({ api, children }: { readonly api: ApiClient; re
       .then((session) => {
         if (cancelled) return;
         setUser(session.user);
+        setTimes({ idleExpiresAt: session.idleExpiresAt, lastActivityAt: session.lastActivityAt });
         setStatus('AUTHENTICATED');
       })
       .catch(() => {
@@ -52,6 +61,7 @@ export function SessionProvider({ api, children }: { readonly api: ApiClient; re
     async (input: Schemas['RegisterUserInput']) => {
       const session = await unwrap(api.POST('/auth/register', { params: CSRF_PARAMS, body: input }));
       setUser(session.user);
+      setTimes({ idleExpiresAt: session.idleExpiresAt, lastActivityAt: session.lastActivityAt });
       setStatus('AUTHENTICATED');
     },
     [api],
@@ -61,6 +71,7 @@ export function SessionProvider({ api, children }: { readonly api: ApiClient; re
     async (input: Schemas['LoginInput']) => {
       const session = await unwrap(api.POST('/auth/login', { params: CSRF_PARAMS, body: input }));
       setUser(session.user);
+      setTimes({ idleExpiresAt: session.idleExpiresAt, lastActivityAt: session.lastActivityAt });
       setStatus('AUTHENTICATED');
     },
     [api],
@@ -73,10 +84,20 @@ export function SessionProvider({ api, children }: { readonly api: ApiClient; re
       if (!(error instanceof ApiProblem)) throw error;
     }
     setUser(null);
+    setTimes(null);
     setStatus('ANONYMOUS');
   }, [api]);
 
-  const value = useMemo<SessionState>(() => ({ status, user, api, register, login, logout }), [status, user, api, register, login, logout]);
+  const dropSession = useCallback(() => {
+    setUser(null);
+    setTimes(null);
+    setStatus('ANONYMOUS');
+  }, []);
+
+  const value = useMemo<SessionState>(
+    () => ({ status, user, idleExpiresAt: times?.idleExpiresAt ?? null, lastActivityAt: times?.lastActivityAt ?? null, api, setUser, dropSession, register, login, logout }),
+    [status, user, times, api, dropSession, register, login, logout],
+  );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 

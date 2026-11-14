@@ -355,3 +355,237 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Nuevos: audit-log.port.ts (reescrito: append, pseudonymizeUser con RepositorySet), audit-pseudonym.port.ts, hmac-audit-pseudonym.adapter.ts (node:crypto solo en infra; error sin clave), app-config.ts (+auditRetentionDays, default 730, entero positivo <=4 digitos, .env.example).
 - CC-T261-1: la forma previa de AuditLogPort (pseudonymOf/recordAccountDeletion, consumida por DeleteAccountUseCase) se renombro AccountDeletionAuditPort (transitorio, account-deletion-audit.port.ts; T265 lo elimina). Ajustes de tipo en null-audit-log.adapter, use-case-support y import de tests/unit/account-deletion.spec.ts; app-config.spec esperado +auditRetentionDays:730.
 - tsc 0; oracles CUMPLE; traza T261 CUMPLE 4/4; vectores HMAC de audit-fixtures coinciden (verificacion ad hoc).
+
+### [2026-11-12] Keymaker checkpoint T262 (fase verde, sin commit)
+- Rojo previo (7 archivos de auditoria/cuenta/asignaciones): 21 fallos de 90. Suite completa: 115 fallos de 1480 (base previa, mayoria rebanada 5).
+- Nuevo: audit-support.ts (recordAudit, UNASSIGN podada, HMAC de PET_ASSIGNMENT), RepositoryAuditLogAdapter + AuditLogRepositoryPort (SQLite y memoria, via RepositorySet.auditLog), deps auditLog/auditPseudonym/auditHmacSecret/auditIds, DEVELOPMENT_AUDIT_HMAC_SECRET (solo si falta la variable fuera de produccion).
+- Integrado en: pets (CREATE/UPDATE/DELETE), registros (alta, PATCH/DELETE vacuna), hogares (create, invitar, aceptar/rechazar/cancelar, leave/remove + UNASSIGN, ROLE_CHANGE, transferencia, delete), asignaciones, transferencia de mascota, registro de usuario, perfil, cambio de clave. IMPORT queda para T278 (backup deps).
+- CC-T262-1: audit ids con generador aparte (auditIds) para no desplazar ids de entidades. CC-T262-2: api-harness borra la fila MIGRATION tras sembrar (T254 asume audit_log vacio). Aceptar invitacion = 1 fila UPDATE sobre la invitacion.
+- Despues: suite 103 fallos (0 nuevos, 12 corregidos). Restan 5 de audit.api: DELETE weights (T263), 2 cuenta (T265), 2 purga (T266). tsc 0, oracles CUMPLE, traza T262 CUMPLE.
+
+## 2026-11-12 — T262 commit local NO realizado (compuerta roja)
+- tsc 0 errores; verify-oracles CUMPLE (89 archivos, 0 débiles); verify-traceability T262 CUMPLE (3/3).
+- vitest audit-log-adapter.spec.ts (2/2 verde) + audit.api.spec.ts: 5 fallos, 15 pasan.
+- Fallos: DELETE weight (contrato OpenAPI, ligado a T263), ACCOUNT_DELETE x2 (T265), purga 24 meses x2 (T266, falta maintenance-use-cases.ts).
+- Conforme a instrucción (rojo => no commit), no se añadió nada al índice. Pendiente decisión de Neo/Oracle.
+
+### 2026-11-12 — T263 [US5] updateRecord/deleteRecord genéricos (estado REVIEW, sin commit)
+- Editados: record-invariants.ts (UPDATE_SCHEMAS de los 6 módulos, moduleOfCollection, species en applyRecordUpdate), record-use-cases.ts (UpdateRecordUseCase/DeleteRecordUseCase con WRITE_*/DELETE_* por módulo, guarda SUPERSEDED en vacunas y desparasitaciones, auditoría en la misma transacción), use-cases.ts, app.ts, nuevo records-edit.routes.ts; las rutas de vacunas salieron de pets.routes.ts.
+- Compuertas: tsc 0 errores; verify-oracles CUMPLE; traceability T263 5/5 CUMPLE; audit.api.spec 14/18 (solo rojos T265/T266). Suite completa: base 103 fallos, ahora 104 (-1 DELETE peso, +2 andamios caducados en tests/security: NOT_YET_SERVED de session-csrf y la excepción H-T252-2a de access-control). No se tocaron pruebas.
+- Colección desconocida en la ruta: 404 ERR-PET-NOT-FOUND (ambigüedad reportada).
+
+## 2026-11-12 — Ajustes de prueba autorizados por Neo (post T263)
+- session-csrf.security.spec.ts: NOT_YET_SERVED retira deleteRecord y updateRecord; queda [cancelInvitation, exportBackup, previewBackupImport].
+- access-control.security.spec.ts: retirada formal de H-T252-2a (sin contract:false; espera [19, [], 'Nala']).
+- Evidencia: 2 specs 27/27 verdes, tsc 0, suite completa 102 fallos (línea base 103 menos el rojo de DELETE de peso; 0 nuevos). Sin commit ni tasks.md.
+
+### 2026-11-12 — T264 [US6] verificación de cierre (estado REVIEW, sin commit)
+- Sin código ni pruebas nuevas: la implementación vino con T262/T263 (ownership-use-cases.ts + audit-support.ts: OWNERSHIP_TRANSFER/PET y UNASSIGN/PET_ASSIGNMENT por asignación podada, misma transacción). Pruebas ya existentes y verdes: assignments-ownership.api.spec.ts:154 (11/11), audit.api.spec.ts:113 (transferencia + poda), ownership-transfer.spec.ts.
+- Compuertas: tsc 0; oracles CUMPLE (89, 0 débiles); traza T264 CUMPLE 2/2; audit.api 4 rojos solo T265/T266. Suite completa 102 fallos de 1482 (0 nuevos).
+- Solo falta el texto «pendiente de T264» en el comentario/título de la prueba (no editado: no se tocan pruebas).
+
+- 2026-11-13 Keymaker: checkpoint previo a limpieza autorizada por Neo (N2) de texto obsoleto «pendiente de T264».
+- Alcance: solo tests/integration/api/assignments-ownership.api.spec.ts línea 8 (JSDoc) y línea 154 (título del it). Sin cambios en aserciones, lógica, imports, src/, contratos ni tasks.md.
+- Sin commit ni push. Verificación: vitest run del archivo + tsc --noEmit.
+
+- 2026-11-13 Keymaker: checkpoint previo a T265 [US6] (sin commit, sin [x]).
+- Alcance: sustituir AccountDeletionAuditPort/NullAuditLogAdapter por AuditLogPort+AuditPseudonymPort en DeleteAccountUseCase (fila ACCOUNT_DELETE con HMAC, pseudonymizeUser, secure_delete, checkpoint WAL tras commit).
+- Línea base: suite 102 fallos/1482; trío audit/account-deletion/audit-pseudonym 8 fallos (6 de T265, 2 de T266 fuera de alcance).
+
+### 2026-11-13 — T265 [US6] implementado (estado REVIEW, sin commit)
+- DeleteAccountUseCase usa auditPseudonym.hmacUserId (A3), recordAudit ACCOUNT_DELETE/USER con HMAC en executor y entityId (B7), auditLog.pseudonymizeUser (B8) y checkpointAfterCommit tras el commit. UnitOfWorkPort gana checkpointAfterCommit? (SQLite: wal_checkpoint(TRUNCATE), 1 reintento, aviso sin ids).
+- Corregido bug latente T261: pseudonymize en SQLite usaba ?1/?2 repetidos (RangeError); ahora parámetros con nombre.
+- Gates: tsc 0; oracles CUMPLE 89/0; traza T265 CUMPLE 4/4; trío 34/36 (2 rojos = T266). Suite 98 fallos/1482 (base 102): -6 de T265, +2 en tests/unit/account-deletion.spec.ts (afirman el puerto transitorio audit), 1 scrypt preexistente.
+
+### 2026-11-13 — T265 corrección H-2/H-3 (Keymaker, sin commit)
+- Decisión: checkpointAfterCommit leerá {busy,log,checkpointed} de wal_checkpoint(TRUNCATE); busy!==0 = fallo, 1 reintento, luego process.emitWarning sin ids, sin revertir (plan.md:99, ADR-002-13).
+- Pruebas nuevas en tests/integration/persistence/sqlite-checkpoint.spec.ts (base en archivo temporal). No se tocan H-1 ni H-4 ni T266.
+- Resultado: sqlite-unit-of-work.ts lee busy; 4 pruebas nuevas verdes; tsc 0; oracles CUMPLE (90 archivos); traza T265 4/4; suite 98 fallos/1486 (1388 ok).
+
+### 2026-11-13 — T265 H-1 y H-4 aplicadas (Keymaker, sin commit)
+- H-1: tests/unit/account-deletion.spec.ts ya no usa el mock auditCalls; comprueba la fila ACCOUNT_DELETE/USER con HMAC (executorUserId = entityId) en snapshot().auditLog.
+- H-4: retirados AccountDeletionAuditPort de ApplicationDeps (use-case-support.ts), NullAuditLogAdapter (archivo borrado) y sus usos en application-harness, infrastructure-adapters.spec y log-redaction.security.spec. PENDIENTE: src/application/ports/account-deletion-audit.port.ts y su export en ports/index.ts:14 (fuera de lista cerrada).
+- Resultado: tsc 0; account-deletion 26/26; sqlite-checkpoint 4/4; suite 96 fallos/1485 (98 antes).
+
+### 2026-11-13 — H-4 cerrada (Keymaker, sin commit)
+- Borrado account-deletion-audit.port.ts y su export en ports/index.ts (autorizado por Morpheus/Neo).
+
+### 2026-11-13 — T266 [US6] mantenimiento ADR-002-14 implementado (Keymaker, REVIEW, sin commit)
+- Nuevo maintenance-use-cases.ts (runMaintenance, maintenanceCutoffs: auditoría = 24 meses de calendario con monthlyAnniversary, sin Date); UnitOfWorkPort.purgeExpired? (opcional) + SqliteUnitOfWork.purgeExpired (una transacción, ventanas en SQL, secure_delete ON, checkpoint WAL tras commit); server.ts programa pasada al arrancar y cada 24 h (solo conteos al log).
+- Pruebas nuevas: tests/integration/persistence/sqlite-maintenance.spec.ts (3). audit.api 18/18; tsc 0; oracles CUMPLE 91/0; traza T266 2/2 y pureza 0; suite 94 fallos de 1488 (base 96): -2 de T266, 0 nuevos.
+- Decisiones: sesión expirada = created_at+24h o last_activity+30min anterior a ahora-7d, o revoked_at anterior a ahora-7d; token vencido = expires_at < ahora; membresía terminal por data.updatedAt, invitación por COALESCE(responded_at, created_at). Frecuencia de ejecución no está en la spec (elegí inicio + 24 h).
+
+### 2026-11-13 — T267 [US6] checkpoint previo (Keymaker, sin commit, sin [x])
+- Hallazgo: 0005_audit_log_and_clinical_columns.sql (T258) ya inserta la fila MIGRATION (SYSTEM/SYSTEM/MIG-0005_..., hashes NULL, CHECK en tabla) y schema_migrations impide repetirla. Falta solo la prueba de repetibilidad.
+- Alcance: crear tests/integration/persistence/sqlite-migration-marker.spec.ts; no se toca la migración ni runMigrations. Línea base: 94 fallos/1488.
+
+### 2026-11-13 — T267 [US6] terminada (REVIEW, sin commit)
+- Creado tests/integration/persistence/sqlite-migration-marker.spec.ts (5 pruebas). Migración y runMigrations sin cambios (ya cumplían). Suite 94 fallos/1493 (base 94/1488), 0 nuevos.
+
+### 2026-11-13 — T268 H-1/H-2 (Keymaker, REVIEW, sin commit)
+- H-1: 3 pruebas nuevas fijan ADR-002-15 (anterior sin fecha + posterior misma clave = SUPERSEDED): 2 unitarias en tests/unit/pet-and-alerts.spec.ts (vacuna, desparasitación) y 1 API en pets-records.api.spec.ts (supersededVaccinations + PATCH 409).
+- H-2: comentario "T255 PENDIENTE" corregido en src/domain/alerts/sanitary-alert-evaluator.ts:92 (la ruta real es domain/alerts, no domain/records). daysRemaining=0 de SUPERSEDED sin fecha NO cambiado: la spec no lo fija; decisión abierta para Neo.
+- H-3: previo (src/tests sin cambios en el árbol antes de mi trabajo; 3 fallos de GET /pets idénticos). tsc 0; oracles CUMPLE 92/0; traza T268 3/3; suite 94 fallos/1496 (base 94/1493).
+
+### 2026-11-13 — T269/D-1 checkpoint previo (Keymaker, sin commit, sin [x])
+- Decisión de Neo D-1 A: ARGOS_AUDIT_HMAC_SECRET obligatoria salvo NODE_ENV=test; AppConfigError cita solo el nombre. Alcance: app-config.ts + tests/unit/app-config.spec.ts + archivo nuevo tests/unit/app-config-audit-secret.spec.ts.
+- Riesgo detectado: tests/integration/persistence/audit-pseudonym.spec.ts:37 y tests/integration/api/server.api.spec.ts:18 asumen carga sin secreto/sin NODE_ENV (fuera de lista cerrada). Línea base 94/1496.
+
+### 2026-11-13 — T269/D-1 implementada parcialmente (Keymaker, REVIEW condicionado, sin commit)
+- app-config.ts: invalidSecret = faltante && NODE_ENV !== 'test' (+docs). app-config.spec.ts ajustado (NODE_ENV=test); nuevo tests/unit/app-config-audit-secret.spec.ts (6 casos). tsc 0; traza T269 1/1, T268 3/3; oracles 93/0.
+- Suite 96 fallos/1502 (base 94/1496): 2 nuevos esperados y FUERA de lista cerrada: audit-pseudonym.spec.ts:37 (asume carga sin secreto en {} y development) y server.api.spec.ts:18 (loadAppConfig sin NODE_ENV). No se tocaron; requieren autorización.
+
+### 2026-11-13 — T269/D-1 cierre (Keymaker, REVIEW, sin commit)
+- Autorizado por Morpheus: audit-pseudonym.spec.ts (caso línea 37: test carga; development y {} lanzan AppConfigError) y server.api.spec.ts:18 (NODE_ENV:'test'). tsc 0; traza T268/T269 CUMPLE; oracles 93/0; suite 94 fallos/1502, 0 nuevos.
+
+### 2026-11-13 — E-3 .env.example ARGOS_AUDIT_HMAC_SECRET (Keymaker, REVIEW, sin commit)
+- Decisión E-3 de Neo. Leídos .env.example y app-config.ts (regla: >=32 bytes hex, 64+ caracteres pares, obligatoria salvo NODE_ENV=test).
+- Edición única: .env.example (marcador REEMPLAZAR, sin secreto real). Sin tocar logos.json ni scripts/logos.py.
+- Cierre E-3: línea comentada para no romper app-config.spec.ts:16 (regex ^[A-Z_]+=). Incidente: git stash accidental revertido de inmediato con pop (árbol íntegro).
+
+### 2026-11-13 — R5 T271/T272 fase ROJA checkpoint previo (Keymaker, sin commit, sin [x])
+- Alcance: crear tests/integration/api/backup-export.api.spec.ts (T271) y backup-import-preview.api.spec.ts (T272); solo pruebas, sin src/ ni contratos. Prohibido test:gate/compile-contracts. Ruta actual: GET export 2.0.0 y POST import sin preview.
+- Contrato: POST /api/backup/export (token en X-Argos-Confirmation-Token, no-store), POST /api/backup/import/preview (fileDigest), POST /api/backup/import con X-Argos-Import-Confirm.
+
+### 2026-11-13 — Corrección default feature en compile-contracts.sh / test:gate (Keymaker, autorizado por Neo, sin commit)
+- (a) git status --short -- src/generated vacío antes de tocar. Edición: scripts/compile-contracts.sh (FEATURE="${ARGOS_FEATURE:-002}") y package.json test:gate (--feature 002 en compile-contracts y verify-traceability).
+- verify-traceability.sh tiene default 001 (línea 26); NO se cambia. Prohibido --feature 001 en compile-contracts.
+
+### 2026-11-13 — R5 T271/T272 fase ROJA terminada (Keymaker, REVIEW, sin commit)
+- Creados backup-export.api.spec.ts (13 pruebas) y backup-import-preview.api.spec.ts (12). 25 rojas / 0 verdes: la API sirve GET export 2.0.0 y no tiene preview ni X-Argos-Import-Confirm (fallo del contrato OpenAPI/404). tsc 0; traza T271 y T272 CUMPLE.
+
+### 2026-11-13 — R5 T271 B/C/D checkpoint previo (Keymaker, sin commit, sin [x])
+- Autorizado por Neo (Logos): B) access-control.security.spec.ts -> POST /api/backup/export sin contract:false (líneas 85-102); C) pruebas T271 unitarias; D) quitar contract:false de confirm() en backup-import-preview.api.spec.ts (200 y 422 declarados en OpenAPI).
+- Hallazgos previos: tests/unit/backup-use-cases.spec.ts YA existe (458 líneas, versionado) -> se AÑADE un describe, no se crea; D-T271-3 (excepción deleteRecord) ya estaba retirada (línea 228), sin cambio.
+
+### 2026-11-13 — R5 T273/T274/T275 fase ROJA checkpoint previo (Keymaker, sin commit, sin [x])
+- Alcance: 3 archivos NUEVOS bajo tests/ (backup-atomicity-red, backup-hostile-input-red, backup-envelope-migration-red); solo pruebas; sin src/, contratos, logos ni test:gate/compile-contracts. No se tocan access-control.security, backup-use-cases.spec ni backup-import-preview.api.spec.
+- Contexto: import actual solo admite 3.0.0 (T233 pendiente), sin previsualización ni X-Argos-Import-Confirm, sin fila IMPORT de auditoría; el SIGKILL se prueba con un hijo node (transform-types) y una función SQL kill9.
+
+### 2026-11-13 — R5 T271 B/C/D terminada (Keymaker, REVIEW, sin commit, sin [x])
+- B: access-control.security.spec.ts líneas 85/88 y 99/102 -> POST sin contract:false (2 rojas por contrato 404; D-T271-3 ya retirada). C: describe T271 añadido a tests/unit/backup-use-cases.spec.ts (archivo ya existía; 3 pruebas rojas). D: confirm() sin contract:false (línea 22; 12/12 rojas).
+- tsc 0. Unit 52 rojas/14 verdes (49 heredadas de la API 2.0.0 + 3 nuevas); access-control 2/11; preview 12/0.
+
+### 2026-11-13 — R5 T273/T274/T275 fase ROJA terminada (Keymaker, REVIEW, sin commit, sin [x])
+- Creados: tests/integration/api/backup-atomicity-red.spec.ts (180 l, 19 pruebas), tests/security/exploits/backup-hostile-input-red.spec.ts (176 l, 38), tests/integration/persistence/backup-envelope-migration-red.spec.ts (219 l, 26). 83 rojas / 0 verdes.
+- Causas: sin fila IMPORT de auditoría, sin previsualización (404/422), sin X-Argos-Import-Confirm, import solo 3.0.0 (T233), sin finalState UNKNOWN, sin hardening (claves duplicadas, profundidad). tsc 0; oracles CUMPLE 0 débiles; traza T273 4/4, T274 6/6, T275 4/4 CUMPLE; git status -- src vacío.
+
+### 2026-11-13 — R5 FASE VERDE T276-T279 + E (rojo opción b) checkpoint previo (Keymaker, sin commit, sin [x])
+- Alcance: PARTE 1 tests nuevos unit rbac-export-permission + api 401 export; PARTE 2 T276..T279 en orden con tsc+vitest por tarea. Cierra H-R5-2/4/5/6. Sin tocar contratos, logos, test:gate ni compile --feature 001.
+- Parte 1 hecha: tests/unit/rbac-export-permission.spec.ts (5 verdes), tests/integration/api/backup-export-unauthenticated.api.spec.ts (roja solo por POST export ausente: 404).
+
+### 2026-11-13 — R5 T276 verde (Keymaker, REVIEW, sin commit)
+- Creados src/domain/backup/file-digest.ts, import-hardening.ts; ampliados backup-migration.ts (migrateEnvelopeV2ToV3) y domain/audit/sha256.ts (sha256HexOfBytes). Nuevo tests/unit/backup-import-hardening.spec.ts (22). tsc 0; vitest unit backup-import-hardening+migration+layers 63/63.
+- T277: creado src/infrastructure/persistence/fault-injector.ts (inyector determinista por Proxy) cableado opcionalmente en InMemoryUnitOfWork (faultInjector) y SqliteUnitOfWork(db, injector); tests/unit/fault-injector.spec.ts 3/3; el token SHA-256 de 32 bytes ya existía (sha256-backup-token.adapter, REQ-ACC-002) sin cambios.
+
+### 2026-11-13 — R5 T278/T279 implementados (Keymaker, REVIEW, sin commit)
+- backup-use-cases.ts reescrito: ExportBackupUseCase (3.0.0, rate limit EXPORT, token en headers), PreviewBackupImportUseCase nuevo, ImportBackupUseCase(userId,payload,confirmDigest,observer) con digest en INVARIANTS_VALID, fila IMPORT + checkpoint WAL. backup.routes.ts: POST export/preview/import, no-store, X-Argos-Import-Confirm. use-cases.ts: previewBackupImport. problem-details: 413 tambien en /preview.
+- Contradicciones de aserciones ROJAS (no tocadas): (A) hostile 'ID ajeno' exige preview 409 vs T272 Lucia exige preview 200 con IDs ajenos; (B) T275 2.0.0 peso 900 exige ERR-REC-WEIGHT-OUT-OF-RANGE pero el esquema 2.0.0 (max 150) da ERR-BACKUP-SCHEMA-INVALID segun maquina.
+- Falta: migrar tests heredados (backup-use-cases.spec 49, sqlite-backup-import, backup-atomicity, atomicity unit).
+
+### 2026-11-13 — R5 fase VERDE T276-T279 terminada (Keymaker, REVIEW, sin commit, sin [x])
+- tsc 0; oracles 102/0 CUMPLE; traza T276 4/4, T277 3/3, T278 6/6, T279 4/4 CUMPLE. Suite 28 fallos/1656 (base 94/1502): 26 heredados ajenos + 2 rojas R5 por contradiccion de aserciones (A: hostile ID ajeno preview 409 vs T272 Lucia preview 200; B: T275 2.0.0 peso 900 ERR-REC-WEIGHT-OUT-OF-RANGE vs esquema 2.0.0 -> SCHEMA-INVALID segun maquina). src/generated limpio.
+- Tests heredados migrados (H-R5-4/5): backup-use-cases, backup-import-atomicity, sqlite-backup-import, backup-atomicity, malicious-input (digest), session-csrf (NOT_YET_SERVED). Riesgo: BackupPage.tsx usa GET /backup/export (ya no existe).
+
+### 2026-11-13 — H-A-2, H-B-1 e I aplicados (Keymaker, REVIEW, sin commit, sin [x])
+- T274 hostile "ID ajeno": preview 200 con colisiones = baseline propio (no 0/0: Andrés tiene 5 mascotas; el ajeno no suma); import 409 ROLLED_BACK, detail único, sin fugas. T275 900 kg -> 422 ERR-BACKUP-SCHEMA-INVALID.
+- BackupPage.tsx: requestBackupExport (POST + X-Argos-Request, token en X-Argos-Confirmation-Token), importBackupFile (digest Web Crypto sobre bytes crudos). Nueva prueba tests/integration/presentation/backup-client.spec.ts (2 verdes).
+- tsc 0; 66/66 en las 3 specs; oracles 103/0; traza T271-T279 CUMPLE; src/generated limpio.
+
+### 2026-11-13 — H-1 de Rama (checkpoint de inicio, Keymaker)
+- Tarea: reparar aserción vacía INV-ACC-001 en tests/security/exploits/access-control.security.spec.ts (~86-98): el sobre 3.0.0 no tiene ownerUserId/exportedByUserId. Solo ese bloque; sin commit, sin [x], sin tocar src/ ni contracts.
+- H-1 aplicado y verificado (13/13, mutación detectada, copia temporal eliminada).
+
+### 2026-11-14 — Keymaker: regresión de arranque corregida (sin commit, para Oracle)
+- server.ts: scheduleMaintenance se programa antes de app.listen (startServer). Causa: fb165388 (T266) registraba addHook después de listen.
+- package.json script dev: `tsx watch --env-file-if-exists=.env ...` (carga .env; el flag va después de watch).
+- Verificado: tsc 0; audit.api.spec.ts 18/18; sqlite-maintenance.spec.ts 3/3; npm run dev levanta API 3100 (/api/auth/me 401) y web 5173 (200), proxy OK.
+
+### 2026-11-14 — Keymaker: defectos A y B reportados por Neo (sin commit)
+- A (guardar mascota): causa raíz = PetForm.tsx petFormInitial con species 'DOG' (no está en enum Species del contrato). Reproducido en API real: DOG → 422 ERR-SCHEMA-VALIDATION-FAILED (species); CANINE → 201. Corregido a 'CANINE'. El body solo envía campos del contrato (sin username/confirmPassword/frase).
+- B (contador Hogares): no es bug de datos. El encabezado muestra dos insignias sin etiqueta visible: [N hogares] y [N invitaciones pendientes]. "1 0" = 1 hogar, 0 invitaciones. Sin cambios.
+- Gates: tsc 0. Presentación + pets-records: 15 fallos ANTES y DESPUÉS del cambio (heredados, deuda legacy 'editPetBasics').
+- Dev: el proceso se cerró (SIGTERM, exit 143) y se reinició con npm run dev.
+
+### 2026-11-14 — Keymaker: B y C (sin commit)
+- B: AppShell.tsx, etiquetas visibles "hogares" e "invitaciones" junto a los contadores (aria-hidden; el texto accesible sr-only se mantiene).
+- C: nuevo src/presentation/web/components/PetAssignments.tsx (casillas por hogar; GET /households + GET /pets/{id}/assignments; PUT/DELETE asignación). Montado en PetsPage.tsx solo si dashboard.permissions.assignPetToHouseholds.
+- tsc 0; presentación + pets-records: 15 fallos heredados / 91 aciertos (sin cambio).
+- API real: PUT asignar 200, GET lista 200 con la asignación, DELETE 204, GET tras borrar [].
+- No verificado en navegador (solo API y tipos).
+
+### 2026-11-14 — Keymaker: alta con hogar base y panel en edición (sin commit)
+- Backend: regla de asignación extraída a assignOwnedPetToHousehold (assignment-use-cases.ts), usada por la asignación directa y por RegisterPetUseCase (pet-use-cases.ts) dentro de la misma transacción. Hogar ajeno → 403, sin mascota creada.
+- Presentación: PetForm.tsx selector "Hogar base (opcional)" en alta; PetAssignments dentro del formulario en edición (canAssign). PetsPage.tsx pasa hogares y canAssign; se quita el montaje bajo la ficha.
+- Pruebas nuevas: tests/integration/api/pet-create-household.api.spec.ts 3/3 verdes. assignments-ownership y use-cases en verde.
+- tsc 0. Presentación + pets-records: 15 fallos heredados, mismos 5 archivos. Sin fallos nuevos.
+- curl real: alta propio 201 y asignada; ajeno 403 y mascotas 1→1; DELETE 204; PUT 200.
+- No verificado en navegador.
+
+### 2026-11-14 — Keymaker: rediseño visual (ui_blueprint v1.1) implementado. Sin commit, para Oracle.
+- Archivos: tailwind.config.ts (tokens §1), src/presentation/web/styles.css (bg-app + bg-deco solo ≥1024px), AppShell.tsx (cabecera oliva, marco L1 glass con blur solo ≥640px y con soporte), Field.tsx (controles 48px, botones píldora, tokens), AuthPages.tsx (marco glass), ContextSelector/PetCards/PetDashboard/WeightChart (azul → tokens), HouseholdsPage.tsx ([FIX B-1] roleOnJoin).
+- typecheck 0; build OK; CSS generado con variantes arbitrarias verificadas.
+- vitest: 26 fallos / 1645 pases, idéntico recuento a la línea base (deuda heredada de contratos legados y fixtures).
+- E2E Playwright: 23 pasan, 2 fallan por causas PREEXISTENTES de la suite (no del diseño): (a) wcag.spec.ts beforeAll siembra mascota con species 'DOG' → 422 del contrato; al fallar el beforeAll no corre ninguna prueba axe de ese archivo; (b) pet-dashboard.spec.ts registra 'duena.e2e', ya creado por household-counter.spec.ts en la misma base.
+- axe-core fuera del repo sobre DOM real (5 rutas × 320/1024/1280 px, tags wcag2a/aa/21a/21aa): 0 violaciones, 0 desbordamiento horizontal, 0 errores de página. Verificado que la página es contenido real (h1 y nav presentes).
+- [FIX B-1] verificado en navegador: select id invite-<hid>-roleOnJoin, valor READER, opciones Administrador/Cuidador/Lector; envío ya no devuelve 422.
+
+### 2026-11-14 — Keymaker: OPCIÓN 1A (defectos de pruebas E2E, sin commit)
+- wcag.spec.ts: línea 29 'DOG'→'CANINE' (pedido). Mismo defecto de seed, necesarios para desbloquear el beforeAll: líneas 30-31 'CAT'→'FELINE'; línea 44 invitación con roleOnJoin 'READER' y esperado 202; línea 70 texto "entre 8 y 128" → "entre 10 y 128".
+- pet-dashboard.spec.ts línea 10: username 'duena.dashboard.e2e' (sin otras dependencias del nombre).
+- tsc 0. accessibility: 2 pasan, 1 falla (wcag.spec.ts:83, SUPERSEDED esperado 1, hay 0), 4 sin ejecutar (modo serial). Suite completa: 26 pasan, 2 fallan, 10 sin ejecutar.
+- Fallo 2: pet-dashboard.spec.ts:58 mensaje de peso fuera de rango obsoleto (límites 002 por especie). No tocado: requiere decisión de Neo.
+- Dev servers detenidos. No src/, contratos ni specs tocados.
+
+## 2026-11-14 — Keymaker: directivas Neo 2B/3A en tests/e2e
+- wcag.spec.ts: L83 ahora espera 3 insignias vigentes (OVERDUE, DUE_SOON, UP_TO_DATE); L107 INVITED sustituido por heading h3 del hogar (owner) y L110 añade heading Invitaciones (member) + contador data-pending-invitations existente. pet-dashboard.spec.ts L61 texto del catálogo 002.
+- tsc=0. Playwright: 29 pasan, 2 fallan, 7 no ejecutadas (serial). Fallos: wcag.spec.ts:123 (member no ve Argos: la semilla no asigna la mascota al hogar, PUT /pets/{petId}/assignments/{householdId}); pet-dashboard.spec.ts:71 (espera '−1.37 %', la UI muestra '—'). Sin commit.
+
+## 2026-11-14 — Directivas Neo e2e (1A/2A/Semáforo)
+- wcag.spec.ts: asignación PUT /pets/{petId}/assignments/{household.household.id} (200) antes de la invitación; import apiCall.
+- pet-dashboard.spec.ts: Variación '—'; semáforo a 3 vacunas vigentes; SUPERSEDED omitido hasta T289.
+- tsc=0; playwright: 34 pasan, 1 falla (pet-dashboard.spec.ts:115 selectOption('CAT') vs FELINE), 3 no ejecutadas. Sin commit.
+
+## 2026-11-14 — CAT→FELINE en pet-dashboard.spec.ts (ratificado por Neo 1A)
+- pet-dashboard.spec.ts:115 selectOption('CAT') -> 'FELINE'. Sin otros 'CAT' en el archivo. tsc=0.
+- Playwright: 36 pasan, 1 falla, 1 no ejecutada. Falla: pet-dashboard.spec.ts:155/157 espera schemaVersion '2.0.0', API da '3.0.0' (no tocado, pendiente Neo/Architect). Servidores detenidos.
+
+## 2026-11-14 — Checkpoint e2e (3.0.0)
+- tests/e2e/visual/pet-dashboard.spec.ts L157: '2.0.0' -> '3.0.0' (BackupEnvelopeV3). tsc=0. Playwright: 38 passed, 0 failed, 0 skipped. Dev servers terminados. Sin commit.
+
+## 2026-11-14 — Frente ROJO Rebanada 6 (T284, T285, T286) — solo pruebas, sin commit
+- T284: nuevos tests/unit/presentation/{rebanada6-fixtures.ts, rebanada6-permisos.spec.ts, rebanada6-directorio.spec.ts, rebanada6-mensajes.spec.ts} y 3 pruebas nuevas en tests/integration/presentation/web-client.spec.ts. Unit/integración: antes 12 fallan/51 pasan (63, rojos previos por fixtures 001); después 22 fallan/56 pasan (78): 15 nuevas = 10 rojas legítimas + 5 verdes (comportamiento ya existente).
+- T285: wcag.spec.ts amplía con describe a 320/768/1024/1280 (+ helper accessibilityFindingsAt y VIEWPORT_WIDTHS_V21 en e2e-support.ts, aditivo). Rojo: /cuenta (redirige a /). /cuenta va última porque el archivo es serial.
+- T286: tests/e2e/visual/rebanada6-recorridos.spec.ts (7 recorridos, 5 rojos legítimos, 2 verdes).
+- Errores de prueba corregidos: getByRole('option') contaba <option> del select (33 vs 30); locator .or() en modo estricto; writeFileSync(readFileSync(Buffer)) mal usado; /cuenta en medio de un describe serial ocultaba pruebas (reordenado).
+- tsc=0. Sin tocar src/, contratos ni specs. Servidores detenidos.
+
+## 2026-11-14 — Corrección de calidad frente ROJO (Oracle cond. b)
+- rebanada6-recorridos.spec.ts ~L126/135: eliminada aserción tautológica `user.username.length > 0`; ahora `await signedInPage(...)` sin variable y `expect(pets.body.map(p => p.profile.name)).toEqual(['Intacta'])` (comprueba que la importación fallida no alteró las mascotas). tsc=0. Playwright: 5 rojos / 2 verdes, igual que antes (UI sin implementar: faseras, aviso de sesión, directorio, mensaje de hogar). Servidores detenidos. Sin commit.
+
+## 2026-11-14 — Keymaker: INICIO Rebanada 6 verde (T284-T293 UI, T287) + enmienda Opción A (sin commit)
+- Autorización de Neo (Nivel 2): implementar sobre ui_blueprint v2.1 y enmendar rebanada6-recorridos.spec.ts:84-86 (riel flex, sin grilla 1/2/3).
+- Lectura previa hecha: registro, entorno, log, tasks T284-T296, blueprint v2.1 completo, src/presentation/web/**, pruebas rojas T284-T286.
+- Conflictos detectados antes de editar (se reportan a Morpheus): (1) presentation-architecture.spec.ts prohíbe setTimeout/Date.now en src/presentation/web, pero T288 pide búsqueda de 300 ms y T293 aviso de expiración sin sondeo: se enmienda esa guarda con lista blanca de 2 módulos; (2) blueprint §4.3 dice «Solo lectura» si !editPetBasics, pero la prueba T284 exige que el Cuidador NO lo vea: se usa la regla «ningún permiso de escritura».
+
+### 2026-11-14 — Keymaker: Rebanada 6 verde, código escrito (T284-T293 UI, T287) + enmienda Opción A
+- src/presentation/web: nuevos schema-messages.ts (T293 mensajes llanos), activity.ts + idle-notice.ts (aviso previo 5 min, sin sondeo), use-debounced-value.ts (300 ms), components/PetAvatar.tsx (D1), pages/AccountPage.tsx (/cuenta). Reescritos: AppShell (marco único, 4 enlaces, sin barra inferior), PetCards (filtro de 5 valores + riel flex), PetDashboard (hero, tarjeta oliva D3, bento, D2, acordeón «Registros anteriores»), PetsPage, BackupPage (previsualización + barra de fases + arrastre), HouseholdsPage (2 columnas, aviso de éxito, rol), AuthPages (marco §5.1), session.tsx (idleExpiresAt, setUser, dropSession), api.ts (problemMessage llano, notifyActivity), view-model.ts, records.ts, OwnerBadge, WeightChart, RecordForm.
+- tests: enmienda Opción A en rebanada6-recorridos.spec.ts (grilla -> teclado + selección + sin desbordamiento); guardas de temporizadores (presentation-architecture.spec, session-client.spec) con lista blanca de use-debounced-value.ts e idle-notice.ts y comprobación de que no tocan la API; validation.spec/session-client.spec/view-model.spec actualizados al texto llano T293 y a «Reemplazada por registro posterior».
+- Unit/integración presentación: 12 fallos (los 12 heredados de fixtures 001), 66 pasan; los 10 rojos legítimos de T284 pasan.
+
+### 2026-11-14 — Keymaker: compuertas Rebanada 6 (sin commit, estado propuesto REVIEW para T284-T293)
+- tsc 0. vitest completo 26 fallos / 1660 pases (1686): los mismos 26 de la línea base (12 de presentación con fixtures 001 + 14 de contratos/API heredados); los 10 rojos legítimos de T284 pasan. verify-oracles CUMPLE (0 débiles/111 archivos). verify-traceability: global 88/96 (sin cambio); --feature 002 117/118 (solo INV-HOUSE-001, ajeno); T284..T293 por tarea CUMPLE. Playwright (E2E_API_PORT=3180, E2E_WEB_PORT=5180, .env cargado): 52/52 tras enmendar auth-pet-forms:63 (51 ok + 1 corregido y verificado). Verificación temporal 320/639/640/768/1024/1280 en /, /households, /backup, /cuenta: blur 0 bajo 640 y 1 desde 640, 0 ids duplicados, 1 «Nueva mascota» en /, 0 desbordamiento. test:gate completo NO ejecutado (compile-contracts regenera src/generated; vitest --coverage y stryker fallarían/tardarían por los 26 heredados).
+- Hallazgos: H-K-1 guarda de temporizadores enmendada (lista blanca); H-K-2 «Solo lectura» blueprint §4.3 vs T284; H-K-3 auth-pet-forms:63 doble clic en Editar incompatible con blueprint §4.6; H-K-4 rol de hogar «Administrador» (T286) vs blueprint §5.2 «Propietario|Miembro»; H-K-5 aviso de sesión sin botón (blueprint no define control).
+
+### 2026-11-14 — Keymaker: compuerta final T296 (npm run test:gate, orden de Neo)
+- Ejecutado con .env cargado, E2E_API_PORT=3180/E2E_WEB_PORT=5180. Salida en gate-T296-output.txt. compile-contracts OK (13 contratos, regeneró src/generated). verify-traceability --feature 002 FALLA: 117/118, solo INV-HOUSE-001 (sin título it/test; solo en describe de tests/unit/household-policies.spec.ts:109). Por el encadenado &&, no corrieron oracles, tsc, vitest --coverage, Stryker ni Playwright dentro del gate. Sin commit.
+
+## 2026-11-14 — T296 compuerta final (autorización Neo, opción A)
+- Cita aplicada: tests/unit/household-policies.spec.ts:111, it "[REQ-HOUSE-001][INV-HOUSE-001][INV-HOUSE2-001] el creador queda como único propietario..." (única modificación de tests).
+- Trazabilidad 002: 118/118 CUMPLE; pureza 0 violaciones. tsc --noEmit: exit 0. verify-oracles: CUMPLE (111 archivos, 0 débiles).
+- test:gate (E2E_API_PORT=3180, E2E_WEB_PORT=5180, .env cargado): exit 1, 26 fallos / 1660 pasan (10 archivos fallan de 85). Salida en gate-T296-output.txt.
+- Archivos con fallo: pets-records.api(3), canonical-fixtures(4), codegen-drift(1), generated-contracts(3), openapi-conformance(2), web-client(1), infrastructure-adapters(1), components(8), validation(1), view-model(2). Nada marcado COMPLETED.
+
+## 2026-11-14 — Keymaker: commits LOCALES Rebanada 6 (autorización de Neo vía Logos, sin push)
+- Inventario hecho: (a) src/presentation/web/** + 5 pruebas de Rebanada 6 + 6 pruebas modificadas + este log -> commit 1. (b) ui_blueprint.md, ui_maqueta_v2.html, ui_maqueta_cuenta.html, ui_propuestas_estructura.md, spec.md y tasks.md (diff solo de la enmienda de navegación T287/T288/REQ-UI2-001) -> commit 2.
+- (c) excluido por orden: wcag.spec.ts, e2e-support.ts, web-client.spec.ts, CLAUDE.md, guías, logs ajenos, veredictos, logos, gate-T296-output.txt, .playwright-mcp/. Sin push. Nada COMPLETED.

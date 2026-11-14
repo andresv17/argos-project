@@ -7,7 +7,7 @@ import { alertBadge, type AlertStateMetadata } from '../view-model.ts';
 
 export function AlertBadge({ alert }: { readonly alert: AlertStateMetadata | null }): JSX.Element {
   // T255 PENDIENTE: sin próxima fecha la alerta es nula; la UI nueva decide el texto.
-  if (alert === null) return <span className="text-xs text-slate-700">Sin próxima fecha</span>;
+  if (alert === null) return <span className="text-xs text-text-muted">Sin próxima fecha</span>;
   const badge = alertBadge(alert);
   return (
     <span

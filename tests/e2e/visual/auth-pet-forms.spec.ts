@@ -60,7 +60,8 @@ test.describe('formularios de autenticación y mascota (tests/e2e/visual)', () =
 
     const editar = page.getByRole('button', { name: 'Editar', exact: true });
     await editar.click();
-    await editar.click();
+    // Blueprint v2.1 §4.6: en modo EDIT el formulario sustituye al hero; «Editar» desaparece, así que no puede apilar un segundo formulario.
+    await expect(editar).toHaveCount(0);
     await expect(editForms(page)).toHaveCount(1);
     await page.getByRole('button', { name: 'Cancelar' }).click();
     await expect(editForms(page)).toHaveCount(0);

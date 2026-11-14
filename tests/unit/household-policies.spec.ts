@@ -107,7 +107,7 @@ describe('máquina STATE-HOUSE-MEMBERSHIP-001 (src/domain/households/household-p
 });
 
 describe('crear hogar (REQ-HOUSE-001, INV-HOUSE-001)', () => {
-  it('[REQ-HOUSE-001][INV-HOUSE2-001] el creador queda como único propietario, con rol ADMIN, en ACTIVE', () => {
+  it('[REQ-HOUSE-001][INV-HOUSE-001][INV-HOUSE2-001] el creador queda como único propietario, con rol ADMIN, en ACTIVE', () => {
     const { household, ownerMembership } = createHousehold({
       householdId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb09',
       membershipId: mid(90),

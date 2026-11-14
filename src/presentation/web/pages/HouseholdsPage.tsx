@@ -3,7 +3,7 @@
  * invitaciones (con contador de pendientes), retirar miembros o cancelar invitaciones, abandonar y eliminar.
  * Las acciones visibles dependen de `myRole` de la API; la API aplica INV-HOUSE-002.
  *
- * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, ERR-HOUSE-OWNER-CANNOT-LEAVE
+ * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, REQ-UI2-005, REQ-HOUSE2-001, REQ-HOUSE2-002, ERR-HOUSE-OWNER-CANNOT-LEAVE
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Button, FormError, SelectField, TextField } from '../components/Field.tsx';
@@ -13,6 +13,7 @@ import { useContractForm } from '../use-contract-form.ts';
 import { useInvitations } from './AppShell.tsx';
 import {
   canDeleteHousehold,
+  HOUSEHOLD_ROLE_LABEL,
   invitationsLabel,
   MEMBER_ACTION_LABEL,
   MEMBERSHIP_LABEL,
@@ -33,17 +34,17 @@ export function InvitationList({ invitations, onAccept, onDecline }: {
   readonly onDecline: (householdId: string) => void;
 }): JSX.Element {
   return (
-    <section aria-labelledby="invitations-title" className="grid gap-2 rounded border border-slate-300 bg-white p-4">
+    <section aria-labelledby="invitations-title" className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 id="invitations-title" className="text-lg font-semibold">
-        Invitaciones <span className="text-sm font-normal text-slate-700">({invitationsLabel(invitations.length)})</span>
+        Invitaciones <span className="text-sm font-normal text-text-muted">({invitationsLabel(invitations.length)})</span>
       </h2>
       {invitations.length === 0 ? (
-        <p className="text-slate-700">No tienes invitaciones pendientes.</p>
+        <p className="text-sm text-text-muted">No tienes invitaciones pendientes.</p>
       ) : (
         <ul className="divide-y divide-slate-200">
           {invitations.map((inv) => (
             <li key={inv.household.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span>
+              <span className="min-w-0 break-words text-sm">
                 <strong>{inv.household.name}</strong> · invita {inv.invitedBy.displayName} (@{inv.invitedBy.username})
               </span>
               <span className="flex gap-2">
@@ -69,10 +70,14 @@ export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, invite
 }): JSX.Element {
   const titleId = `household-${view.household.id}-title`;
   return (
-    <section aria-labelledby={titleId} data-household-id={view.household.id} className="grid gap-3 rounded border border-slate-300 bg-white p-4">
+    <section aria-labelledby={titleId} data-household-id={view.household.id} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 id={titleId} className="text-lg font-semibold">
-          {view.household.name} <span className="text-sm font-normal text-slate-700">· tu rol: {view.isHouseholdOwner ? 'Propietario' : 'Miembro'}</span>
+          {view.household.name}{' '}
+          <span className="text-sm font-normal text-text-muted">
+            · tu rol: {HOUSEHOLD_ROLE_LABEL[view.myRole]}
+            {view.isHouseholdOwner ? ' (Propietario)' : ''}
+          </span>
         </h3>
         {canDeleteHousehold(view) ? (
           <Button variant="danger" onClick={onDelete}>
@@ -93,8 +98,11 @@ export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, invite
                     {member.membership.displayName}
                   </span>
                 )}
-                <span className="text-sm text-slate-700">@{member.membership.username}</span>
-                <span data-membership-status={member.membership.status} className="rounded border border-slate-500 px-2 py-0.5 text-xs font-semibold text-slate-800">
+                <span className="text-sm text-text-muted">@{member.membership.username}</span>
+                <span data-member-role={member.membership.role} className="rounded-full border border-border-strong bg-white px-2 py-0.5 text-xs font-semibold text-slate-800">
+                  {HOUSEHOLD_ROLE_LABEL[member.membership.role]}
+                </span>
+                <span data-membership-status={member.membership.status} className="rounded-full border border-border-strong bg-white px-2 py-0.5 text-xs font-semibold text-slate-800">
                   {MEMBERSHIP_LABEL[member.membership.status]}
                 </span>
                 {member.membership.isHouseholdOwner ? <span className="text-xs font-semibold text-slate-800">Propietario</span> : null}
@@ -160,6 +168,7 @@ export function HouseholdsPage(): JSX.Element {
   const [invitations, setInvitations] = useState<InvitationView[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -191,8 +200,9 @@ export function HouseholdsPage(): JSX.Element {
     initial: { name: '' },
     resetOnSuccess: true,
     send: async (body) => {
-      await unwrap(api.POST('/households', { params: CSRF_PARAMS, body: body as Schemas['CreateHouseholdInput'] }));
+      const created = await unwrap(api.POST('/households', { params: CSRF_PARAMS, body: body as Schemas['CreateHouseholdInput'] }));
       await load();
+      setNotice(`Hogar «${created.household.name}» creado. Tu rol: ${HOUSEHOLD_ROLE_LABEL[created.myRole]}.`);
     },
   });
 
@@ -201,56 +211,75 @@ export function HouseholdsPage(): JSX.Element {
   };
 
   return (
-    <div className="grid gap-4">
-      <h1 className="text-xl font-bold">Hogares</h1>
+    <div className="grid min-w-0 gap-4">
+      <h1 className="text-2xl font-bold">Hogares</h1>
       <FormError message={error} />
-      <InvitationList
-        invitations={invitations}
-        onAccept={(householdId) => void run(() => unwrap(api.POST('/invitations/{householdId}/accept', { params: { ...CSRF_PARAMS, path: { householdId } } })))}
-        onDecline={(householdId) => void run(() => unwrap(api.POST('/invitations/{householdId}/decline', { params: { ...CSRF_PARAMS, path: { householdId } } })))}
-      />
-      <form noValidate aria-label="Crear hogar" onSubmit={(e) => void createForm.onSubmit(e)} className="flex flex-wrap items-end gap-2 rounded border border-slate-300 bg-white p-4">
-        <TextField id="household-name" label="Nombre del nuevo hogar" name="name" required value={createForm.values.name ?? ''} onChange={createForm.onChange} errors={createForm.errors} />
-        <Button type="submit" disabled={createForm.busy}>
-          Crear hogar
-        </Button>
-        <div className="w-full">
-          <FormError errors={createForm.errors} message={createForm.message} />
-        </div>
-      </form>
-      {households.length === 0 ? <p className="text-slate-700">Aún no perteneces a ningún hogar.</p> : null}
-      {households.map((view) => (
-        <div key={view.household.id} className="grid gap-2">
-          <HouseholdCard
-            view={view}
-            myUserId={user?.id ?? ''}
-            onMemberAction={onMemberAction(view.household.id)}
-            onDelete={() => setPendingDelete(view.household.id)}
-            inviteForm={view.isHouseholdOwner ? <InviteForm householdId={view.household.id} onInvited={load} /> : null}
+      {notice === null ? null : (
+        <p role="status" className="rounded-2xl border border-emerald-700 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {notice}
+        </p>
+      )}
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+        <div className="grid min-w-0 content-start gap-4 lg:col-span-1">
+          <InvitationList
+            invitations={invitations}
+            onAccept={(householdId) => void run(() => unwrap(api.POST('/invitations/{householdId}/accept', { params: { ...CSRF_PARAMS, path: { householdId } } })))}
+            onDecline={(householdId) => void run(() => unwrap(api.POST('/invitations/{householdId}/decline', { params: { ...CSRF_PARAMS, path: { householdId } } })))}
           />
-          {pendingDelete === view.household.id ? (
-            <div role="alertdialog" aria-labelledby={`delete-${view.household.id}`} className="rounded border border-red-700 bg-red-50 p-3">
-              <p id={`delete-${view.household.id}`} className="text-sm text-red-900">
-                ¿Eliminar el hogar {view.household.name}? Las mascotas no se borran; dejan de compartirse.
-              </p>
-              <div className="mt-2 flex gap-2">
-                <Button
-                  variant="danger"
-                  onClick={() => {
-                    setPendingDelete(null);
-                    void run(() => unwrap(api.DELETE('/households/{householdId}', { params: { ...CSRF_PARAMS, path: { householdId: view.household.id } } })));
-                  }}
-                >
-                  Confirmar eliminación
-                </Button>
-                <Button variant="secondary" onClick={() => setPendingDelete(null)}>
-                  Cancelar
-                </Button>
-              </div>
+          <form
+            noValidate
+            aria-label="Crear hogar"
+            onSubmit={(e) => {
+              setNotice(null);
+              void createForm.onSubmit(e);
+            }}
+            className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <TextField id="household-name" label="Nombre del nuevo hogar" name="name" required value={createForm.values.name ?? ''} onChange={createForm.onChange} errors={createForm.errors} />
+            <div>
+              <Button type="submit" disabled={createForm.busy}>
+                Crear hogar
+              </Button>
             </div>
-          ) : null}
+            <FormError errors={createForm.errors} message={createForm.message} />
+          </form>
         </div>
-      ))}
+        <div className="grid min-w-0 content-start gap-4 lg:col-span-2">
+          {households.length === 0 ? <p className="text-sm font-semibold text-slate-800">Aún no perteneces a ningún hogar.</p> : null}
+          {households.map((view) => (
+            <div key={view.household.id} className="grid gap-2">
+              <HouseholdCard
+                view={view}
+                myUserId={user?.id ?? ''}
+                onMemberAction={onMemberAction(view.household.id)}
+                onDelete={() => setPendingDelete(view.household.id)}
+                inviteForm={view.isHouseholdOwner ? <InviteForm householdId={view.household.id} onInvited={load} /> : null}
+              />
+              {pendingDelete === view.household.id ? (
+                <div role="alertdialog" aria-labelledby={`delete-${view.household.id}`} className="rounded-2xl border-2 border-danger bg-red-50 p-4">
+                  <p id={`delete-${view.household.id}`} className="text-sm text-red-900">
+                    ¿Eliminar el hogar {view.household.name}? Las mascotas no se borran; dejan de compartirse.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button
+                      variant="danger"
+                      onClick={() => {
+                        setPendingDelete(null);
+                        void run(() => unwrap(api.DELETE('/households/{householdId}', { params: { ...CSRF_PARAMS, path: { householdId: view.household.id } } })));
+                      }}
+                    >
+                      Confirmar eliminación
+                    </Button>
+                    <Button variant="secondary" onClick={() => setPendingDelete(null)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

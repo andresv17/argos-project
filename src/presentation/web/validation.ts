@@ -8,6 +8,7 @@
  */
 import { ERROR_CATALOG } from '../../generated/errors/error-codes.ts';
 import { resolveFieldErrorCode } from '../../generated/errors/field-errors.ts';
+import { humanSchemaMessage } from './schema-messages.ts';
 import {
   validateCreateBodyMeasurementInput,
   validateCreateCustomParameterInput,
@@ -17,6 +18,9 @@ import {
   validateCreatePetInput,
   validateCreateVaccinationInput,
   validateCreateWeightInput,
+  validateChangePasswordInput,
+  validateDeleteAccountInput,
+  validateUpdateProfileInput,
   validateInviteMemberInput,
   validateLoginInput,
   validateRegisterUserInput,
@@ -37,6 +41,9 @@ const VALIDATORS = {
   CreateCustomParameterInput: validateCreateCustomParameterInput,
   CreateHouseholdInput: validateCreateHouseholdInput,
   InviteMemberInput: validateInviteMemberInput,
+  UpdateProfileInput: validateUpdateProfileInput,
+  ChangePasswordInput: validateChangePasswordInput,
+  DeleteAccountInput: validateDeleteAccountInput,
 } as const satisfies Record<string, ValidatorFunction<unknown>>;
 
 export type InputSchema = keyof typeof VALIDATORS;
@@ -59,7 +66,8 @@ export function validateInput(schema: InputSchema, input: unknown): FieldErrors 
     const field = path.split('/').filter((s) => s !== '')[0] ?? FORM_ERROR_KEY;
     if (errors[field] !== undefined) continue;
     const code = resolveFieldErrorCode(schema, path) ?? 'ERR-SCHEMA-VALIDATION-FAILED';
-    errors[field] = ERROR_CATALOG[code].detailTemplate;
+    // T293: el texto técnico del esquema formal nunca llega a la pantalla; el resto de códigos usa su texto del catálogo.
+    errors[field] = code === 'ERR-SCHEMA-VALIDATION-FAILED' ? humanSchemaMessage(field === FORM_ERROR_KEY ? undefined : field) : ERROR_CATALOG[code].detailTemplate;
   }
   return errors;
 }
