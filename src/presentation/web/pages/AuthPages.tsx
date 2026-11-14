@@ -13,9 +13,9 @@ import type { Schemas } from '../view-model.ts';
 
 function AuthLayout({ title, children }: { readonly title: string; readonly children: JSX.Element[] }): JSX.Element {
   return (
-    <main id="main-content" className="mx-auto mt-10 w-full max-w-md px-4">
-      <h1 className="mb-1 text-2xl font-bold text-slate-900">Argos</h1>
-      <h2 className="mb-4 text-lg font-semibold text-slate-800">{title}</h2>
+    <main id="main-content" className="mx-4 mt-10 max-w-md rounded-3xl border border-white/40 bg-white/90 p-6 shadow-glass sm:mx-auto sm:supports-[backdrop-filter]:bg-white/70 sm:supports-[backdrop-filter]:backdrop-blur-md">
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-primary">Argos</h1>
+      <h2 className="mb-4 text-lg font-semibold text-text-primary">{title}</h2>
       {children}
     </main>
   );
@@ -44,7 +44,7 @@ export function LoginPage(): JSX.Element {
       </form>
       <p className="mt-4 text-sm text-slate-800">
         ¿No tienes cuenta?{' '}
-        <Link to="/register" className="font-semibold text-blue-800 underline">
+        <Link to="/register" className="font-semibold text-primary underline">
           Regístrate
         </Link>
       </p>
@@ -78,7 +78,7 @@ export function RegisterPage(): JSX.Element {
       </form>
       <p className="mt-4 text-sm text-slate-800">
         ¿Ya tienes cuenta?{' '}
-        <Link to="/login" className="font-semibold text-blue-800 underline">
+        <Link to="/login" className="font-semibold text-primary underline">
           Inicia sesión
         </Link>
       </p>

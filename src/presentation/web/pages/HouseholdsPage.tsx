@@ -6,7 +6,7 @@
  * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, ERR-HOUSE-OWNER-CANNOT-LEAVE
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Button, FormError, TextField } from '../components/Field.tsx';
+import { Button, FormError, SelectField, TextField } from '../components/Field.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { useSession } from '../session.tsx';
 import { useContractForm } from '../use-contract-form.ts';
@@ -119,7 +119,8 @@ function InviteForm({ householdId, onInvited }: { readonly householdId: string; 
   const { api } = useSession();
   const form = useContractForm({
     schema: 'InviteMemberInput',
-    initial: { username: '' },
+    // [FIX B-1] roleOnJoin es obligatorio en InviteMemberInput; sin él la API responde 422 (ui_blueprint §3.4). Valor inicial READER.
+    initial: { username: '', roleOnJoin: 'READER' },
     resetOnSuccess: true,
     send: async (body) => {
       await unwrap(api.POST('/households/{householdId}/invitations', { params: { ...CSRF_PARAMS, path: { householdId } }, body: body as Schemas['InviteMemberInput'] }));
@@ -127,8 +128,21 @@ function InviteForm({ householdId, onInvited }: { readonly householdId: string; 
     },
   });
   return (
-    <form noValidate aria-label="Invitar miembro" onSubmit={(e) => void form.onSubmit(e)} className="flex flex-wrap items-end gap-2">
+    <form noValidate aria-label="Invitar miembro" onSubmit={(e) => void form.onSubmit(e)} className="flex flex-wrap items-end gap-3">
       <TextField id={`invite-${householdId}`} label="Invitar por usuario" name="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
+      <SelectField
+        id={`invite-${householdId}-roleOnJoin`}
+        label="Rol al unirse"
+        name="roleOnJoin"
+        value={form.values.roleOnJoin ?? 'READER'}
+        options={[
+          { value: 'ADMIN', label: 'Administrador' },
+          { value: 'CAREGIVER', label: 'Cuidador' },
+          { value: 'READER', label: 'Lector' },
+        ]}
+        onChange={form.onChange}
+        errors={form.errors}
+      />
       <Button type="submit" disabled={form.busy}>
         Invitar
       </Button>

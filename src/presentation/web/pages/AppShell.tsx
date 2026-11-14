@@ -30,21 +30,21 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
   readonly onLogout: () => void;
 }): JSX.Element {
   const link = ({ isActive }: { isActive: boolean }): string =>
-    `rounded px-3 py-2 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-white ${isActive ? 'bg-white text-slate-900' : 'text-white underline-offset-4 hover:underline'}`;
+    `flex min-h-12 items-center rounded-full px-4 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-primary ${isActive ? 'bg-accent text-primary' : 'text-white underline-offset-4 hover:underline'}`;
   return (
-    <header className="bg-slate-900 text-white">
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-slate-900">
+    <header className="bg-primary text-white">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:rounded-full focus:bg-white focus:px-4 focus:py-3 focus:text-primary">
         Saltar al contenido
       </a>
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <p className="text-lg font-bold">Argos</p>
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <p className="text-lg font-bold tracking-tight">Argos</p>
         <nav aria-label="Principal" className="flex flex-wrap gap-1">
           <NavLink to="/" end className={link}>
             Mascotas
           </NavLink>
           <NavLink to="/households" className={link}>
             Hogares{' '}
-            <span data-household-count={householdCount} className="ml-1 rounded-full bg-slate-200 px-2 text-xs font-bold text-slate-900">
+            <span data-household-count={householdCount} className="ml-1 rounded-full bg-white px-2 text-xs font-bold text-primary">
               <span aria-hidden="true">{householdCount}</span>
               <span className="sr-only">{householdCount === 1 ? '1 hogar' : `${householdCount} hogares`}</span>
               <span className="ml-1 font-normal" aria-hidden="true">hogares</span>
@@ -60,7 +60,7 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
           </NavLink>
         </nav>
         <div className="flex items-center gap-3">
-          <span className="text-sm">{displayName}</span>
+          <span className="sr-only text-sm min-[480px]:not-sr-only">{displayName}</span>
           <Button variant="secondary" onClick={onLogout}>
             Cerrar sesión
           </Button>
@@ -89,9 +89,14 @@ export function AppShell({ children }: { readonly children: ReactNode }): JSX.El
   };
   return (
     <InvitationsContext.Provider value={{ count, householdCount, refresh }}>
-      <div className="min-h-screen bg-slate-100 text-slate-900">
+      <div className="min-h-screen text-text-primary">
         <ShellHeader displayName={session.user?.displayName ?? ''} pendingInvitations={count} householdCount={householdCount} onLogout={onLogout} />
-        <main id="main-content" tabIndex={-1} className="mx-auto max-w-7xl p-4">
+        {/* Marco L1 de blur (ui_blueprint §1.4/§1.5): blur solo desde 640 px y con soporte; en móvil blanco 90 % sin blur. */}
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-4 mt-4 mb-6 max-w-7xl rounded-3xl border border-white/40 bg-white/90 p-4 shadow-glass sm:mx-6 sm:p-6 lg:mx-auto sm:supports-[backdrop-filter]:bg-white/70 sm:supports-[backdrop-filter]:backdrop-blur-md"
+        >
           {children}
         </main>
       </div>

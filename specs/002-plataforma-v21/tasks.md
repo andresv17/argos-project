@@ -228,7 +228,7 @@
 
 **Responsable visual**: `/sati`. Todo componente nuevo pasa por su revisión; la aprobación del diseño es de Neo.
 
-- [ ] T283 [US8] [N2] Sati entrega el diseño de la v2.1 que la spec aprueba (tokens, app shell, directorio, ficha, `/cuenta`, hogares con roles, Centro de Respaldos, estados vacío y de carga) en `claude/` o `.specify/memory/audits/`, sin SSO, sin recuperación por correo y sin adjuntos; la aprobación es de Neo y cualquier librería de iconos o fuentes nueva es Nivel 2 (REQ-UI2-001, REQ-UI2-003, REQ-UI2-004, REQ-UI2-008)
+- [x] T283 [US8] [N2] Sati entrega el diseño de la v2.1 que la spec aprueba (tokens, app shell, directorio, ficha, `/cuenta`, hogares con roles, Centro de Respaldos, estados vacío y de carga) en `claude/` o `.specify/memory/audits/`, sin SSO, sin recuperación por correo y sin adjuntos; la aprobación es de Neo y cualquier librería de iconos o fuentes nueva es Nivel 2 (REQ-UI2-001, REQ-UI2-003, REQ-UI2-004, REQ-UI2-008)
 
 ### Tests for Slice 6
 

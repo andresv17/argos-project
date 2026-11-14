@@ -40,7 +40,7 @@ function ModuleContent({ module, dashboard }: { readonly module: RecordModule; r
       return dashboard.bodyMeasurements.length === 0 ? (
         <Empty />
       ) : (
-        <div role="region" aria-label="Medidas corporales (desplazable)" tabIndex={0} className="overflow-x-auto focus:outline focus:outline-2 focus:outline-blue-700">
+        <div role="region" aria-label="Medidas corporales (desplazable)" tabIndex={0} className="overflow-x-auto focus:outline focus:outline-2 focus:outline-primary">
           <table className="min-w-full text-left text-sm">
             <caption className="sr-only">Medidas corporales</caption>
             <thead>
@@ -227,8 +227,8 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
               tabIndex={selected ? 0 : -1}
               onClick={() => onTabChange(spec.id)}
               onKeyDown={(e) => onKeyDown(e, index)}
-              className={`whitespace-nowrap px-3 py-2 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                selected ? 'border-b-2 border-blue-700 text-blue-800' : 'text-slate-800'
+              className={`whitespace-nowrap px-3 py-2 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                selected ? 'border-b-2 border-primary text-primary' : 'text-slate-800'
               }`}
             >
               {spec.tabLabel}

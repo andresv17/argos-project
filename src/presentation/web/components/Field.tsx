@@ -39,7 +39,7 @@ export function TextField({ id, label, name, value, onChange, errors, type = 'te
         aria-invalid={error === undefined ? undefined : true}
         aria-describedby={error === undefined ? undefined : errorId}
         onChange={(e) => onChange(name, e.target.value)}
-        className="w-full rounded border border-slate-500 px-3 py-2 text-slate-900"
+        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       />
       {error === undefined ? null : (
         <p id={errorId} className="text-sm text-red-800">
@@ -77,14 +77,14 @@ export function PasswordField({ id, label, name, value, onChange, errors, requir
           aria-invalid={error === undefined ? undefined : true}
           aria-describedby={error === undefined ? undefined : errorId}
           onChange={(e) => onChange(name, e.target.value)}
-          className="w-0 min-w-0 flex-1 rounded border border-slate-500 px-3 py-2 text-slate-900"
+          className="min-h-12 w-0 min-w-0 flex-1 rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         />
         <button
           type="button"
           aria-pressed={visible}
           aria-controls={id}
           onClick={() => setVisible((v) => !v)}
-          className="shrink-0 rounded border border-slate-600 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+          className="min-h-12 shrink-0 rounded-full border border-primary bg-white px-4 text-sm font-semibold text-primary hover:bg-meadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           Mostrar contraseña
         </button>
@@ -123,7 +123,7 @@ export function SelectField({ id, label, name, value, options, onChange, errors 
         aria-invalid={error === undefined ? undefined : true}
         aria-describedby={error === undefined ? undefined : errorId}
         onChange={(e) => onChange(name, e.target.value)}
-        className="w-full rounded border border-slate-500 px-3 py-2 text-slate-900"
+        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -145,7 +145,7 @@ export function FormError({ errors, message }: { readonly errors?: FieldErrors; 
   const text = message ?? errors?.[FORM_ERROR_KEY] ?? null;
   if (text === null || text === undefined) return null;
   return (
-    <p role="alert" className="rounded border border-red-700 bg-red-50 px-3 py-2 text-sm text-red-900">
+    <p role="alert" className="rounded-2xl border border-danger bg-red-50 px-4 py-3 text-sm text-red-900">
       {text}
     </p>
   );
@@ -158,17 +158,18 @@ export function Button({ children, type = 'button', onClick, variant = 'primary'
   readonly variant?: 'primary' | 'secondary' | 'danger';
   readonly disabled?: boolean;
 }): JSX.Element {
+  // Botones píldora de 48 px de alto (ui_blueprint §1.4). Contraste: blanco/oliva 9.41:1, blanco/peligro 6.47:1, oliva/blanco 9.41:1.
   const styles = {
-    primary: 'bg-blue-700 text-white hover:bg-blue-800',
-    secondary: 'border border-slate-600 bg-white text-slate-900 hover:bg-slate-100',
-    danger: 'bg-red-700 text-white hover:bg-red-800',
+    primary: 'bg-primary text-white hover:bg-primary-hover',
+    secondary: 'border border-primary bg-white text-primary hover:bg-meadow',
+    danger: 'bg-danger text-white hover:bg-red-800',
   } as const;
   return (
     <button
       type={type}
       disabled={disabled}
       {...(onClick === undefined ? {} : { onClick })}
-      className={`rounded px-3 py-2 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:opacity-60 ${styles[variant]}`}
+      className={`min-h-12 rounded-full px-5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60 ${styles[variant]}`}
     >
       {children}
     </button>

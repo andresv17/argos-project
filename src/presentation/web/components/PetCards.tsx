@@ -84,8 +84,8 @@ export function PetCardList({ cards, activePetId, onSelect }: {
             data-pet-id={card.profile.id}
             onClick={() => onSelect(card.profile.id)}
             onKeyDown={(e) => onKeyDown(e, index)}
-            className={`cursor-pointer rounded-lg border bg-white p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-              selected ? 'border-blue-700 ring-1 ring-blue-700' : 'border-slate-300'
+            className={`cursor-pointer rounded-lg border bg-white p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              selected ? 'border-primary ring-1 ring-primary bg-accent-soft' : 'border-slate-300'
             }`}
           >
             <p className="text-base font-semibold text-slate-900">{card.profile.name}</p>
