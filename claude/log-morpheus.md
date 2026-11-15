@@ -1048,3 +1048,95 @@
 ### 2026-11-14 — Morpheus: Neo aprueba T295 (opción A para cabecera a 320 px). Autoriza marcar T295 [x] y commit local de cierre de pieza (sin push).
 - Keymaker despachado: marcado T295 en tasks.md, stage explícito de src (4 archivos), ui_blueprint v2.5, architecture_spec.md, bitácoras y veredictos. Excluidos: logos.json, gate outputs, .playwright-mcp, CLAUDE/GUIA/SKILLS, registro-proceso (bus).
 - Ahead, sin push.
+
+### 2026-11-14 — Morpheus: Neo aprueba Rebanada 6 cerrada, autoriza commit documental del bus y abre Fase 8 (T297+). Sin push hasta T310.
+- Commit bf30703 (docs(002): sincronizar registro de proceso de cierre de la rebanada 6). Verificado.
+- Dependencias de Fase 8: rebanadas 1-6 cerradas (ok). T306 bloqueada por T204a (firma de Neo, sin firmar).
+- Despachados en paralelo: Seraph A (T297, T298, T301) y Seraph B (T299, T300). Escriben pruebas; los rojos son hallazgos y van a Keymaker por Caso A. Ninguna se marca [x].
+- Pendiente: T302 (Sentinels/Trinity), T303 (Stryker), T304-T305, T306 (bloqueada T204a), T307-T308 (recorrido manual Zee/Kid), T309 (compuerta), T310 (Oracle, Neo marca).
+
+### 2026-11-14 — Morpheus: Seraph B entrega T299 (30 pruebas verdes) y T300 (37 verdes). Sin hallazgos nuevos de seguridad en src/.
+- Pendiente de decisión de Neo: ¿una petición que responde 403/404/422 debe renovar la actividad de sesión? La spec no lo dice; la prueba cubre CSRF, cookie inventada, revocada y vencida.
+- Rojos V12 en audit-secret.security.spec.ts (T298) pertenecen al otro agente de Seraph, todavía en curso. No se envían a Keymaker hasta que termine.
+- T299 y T300 sin [x].
+
+### 2026-11-14 — Morpheus: Seraph A entrega T297 (10 verdes), T298 (V13 verde; V12 3 rojos reales), T301 (8 verdes). Caso A: V12 es defecto de seguridad real (producción acepta secreto de fixtures y clave de desarrollo). Keymaker despachado a corregir app-config.ts sin relajar pruebas.
+- Sin marcar [x]. Sin commit. Sin push.
+- Pendiente: Seraph confirma V12; Oracle audita T297-T301; decisión de Neo sobre renovación de sesión con 403/404/422.
+
+### 2026-11-14 — Morpheus: Keymaker corrige V12 (app-config: denylist por huella SHA-256 y clave de desarrollo fuera de test; sin valor en error). Verificado en disco: sin valor en claro nuevo; 'de'.repeat(32) ya existía en HEAD. audit-secret 11/11 dos veces; tests/security 264/264.
+- Oracle despachado a auditar T297-T301 y el arreglo V12 (claude/veredicto-auditor-fase8-ola1.md).
+- Decisión de Neo pendiente: renovación de sesión con 403/404/422. Firma T204a pendiente (bloquea T306).
+- Sin commit, sin push, sin [x].
+
+### 2026-11-14 — Morpheus: Neo decide D1 = (a) mantener renovación de sesión en 403/404/422. Autoriza marcar T297-T301 [x] al commitear ola 1. Ordena ola 2: T302 (Trinity con Sentinels) y T303 (Seraph, mutación ≥85%).
+- Despachados en paralelo: Keymaker (prueba D1 en session-audit-import, marcas T297-T301 y commit de ola 1), Trinity (T302, hallazgos por Caso A/B), Seraph (T303, sin relajar pruebas).
+- Sin push. T302 y T303 sin marcar.
+
+### 2026-11-14 — Morpheus: Trinity entrega T302 (16/16 vectores con prueba; batería 267/267 tras 6 corridas). Un fallo puntual en V14 D1 durante edición concurrente, no reproducido. SAST sin Semgrep (grep 0 coincidencias; npm audit 0). Caso A menor: M-1 (V9 con una sola prueba, ampliar a 4 roles). Caso B: ninguno.
+- Decisión pendiente de Neo: instalar Semgrep (dependencia nivel 2).
+- T302 sin [x]. Oracle valida con árbol estable antes de marcar.
+
+### 2026-11-14 — Morpheus: Seraph entrega T303. Score 88 % medido SOLO con configuración temporal que excluye 11 suites rojas; el comando oficial npm run test:mutation NO arranca (27 pruebas 001 rojas en dry-run). T303 NO se da por cumplida con el gate oficial.
+- Bloqueo real: contratos de la 001 leídos mientras la compilación es de la 002 (H-T303-2, posible Caso B). T304 lo resuelve.
+- Architect despachado en solo lectura: clasifica las 27 pruebas (sustituidas / adaptar / decisión de contrato). Entregable claude/analisis-t304-pruebas-001.md.
+- Sin commit, sin push, T303 y T302 sin marcar.
+
+### 2026-11-14 — Morpheus: Architect entrega análisis T304 (solo lectura): 25 sustituciones pendientes (a), 2 defectos Caso A (b), 0 contratos (c). Cuatro decisiones de gobierno para Neo. Keymaker despachado a los dos Caso A (scrypt N sin tope; audit-pseudonym con secreto de fixtures).
+- Hallazgos aparte: H-T304-1 (6 tareas [x] con filas de sustitución sin completar: T221, T226, T228, T240, T255, T284); H-T304-2 (cancelInvitation sin ruta en Fastify, sin tarea que la cite).
+- Decisiones para Neo: (1) columna Estado y regla 6 en la tabla; (2) fila 35 sobre contradicción filas 3/32; (3) fila 36 sobre codegen-drift; (4) confirmar rechazo de excluir suites y autorizar tarea para cancelInvitation.
+
+### 2026-11-14 — Morpheus: Neo aprueba defectos Caso A (scrypt, audit-pseudonym) y firma las cuatro decisiones de T304 (columna Estado y regla 6; filas 35 y 36; rechazo de excluir suites; tarea cancelInvitation).
+- Architect despachado primero (tabla y tarea nueva). Keymaker irá después: sustituciones de las 25 filas en sus archivos originales y ruta DELETE cancelInvitation.
+- T303, T304 sin marcar. Sin commit, sin push.
+
+### 2026-11-14 — Morpheus: inicia sesión (arranque en frío desde disco)
+- Lectura: handover-neb-crew-2026-11-14, log-morpheus, tasks.md (102/112 [x], HEAD 6c2e953, ahead 6, sin push). Sin proceso Stryker vivo ni informe claude/hallazgos-t303-mutacion-oficial.md.
+- Acción: relanzado `npm run test:mutation` en segundo plano (sin exclusiones), salida en scratchpad. Sin commit, sin marcar tareas, sin push.
+- Atención Neo: T204a aparece [x] en el árbol de trabajo sin firma confirmada (bloquea T306). Huecos de interfaz, reservas filas 4/22, Semgrep y enmienda III siguen pendientes.
+
+### 2026-11-14 — Morpheus: Neo ratifica los 5 puntos de Nivel 2 (T204a/constitución 3.2.0, ruta cancelInvitation, filas 4 y 22 opción A, Semgrep solo en CI, T302-T304 a Oracle tras mutación).
+- Verificado en disco: constitución v3.2.0 y T204a [x] correctos. Filas 4 y 22 siguen `pendiente`. Stryker sigue vivo: la mutación NO ha concluido (no lo doy por hecho).
+- Despachado Architect a marcar filas 4 y 22 (verificando grep de pruebas). Oracle pendiente hasta que termine la mutación. Sin commit, sin push, sin marcar tareas.
+- Architect entrega filas 4 y 22 a `sustituida` (opción A). Hallazgo para Oracle: sqlite-backup-import.spec.ts y layer-dependencies.spec.ts existen pero no contienen literalmente el escenario de la columna. Quedan 22 filas `pendiente`. Mutación oficial sigue en curso. Sin commit ni push.
+
+### 2026-11-14 — Morpheus: cierre de sesión (hardline)
+- Disco: HEAD 6c2e953 (`6c2e953`), ahead 6, sin push. Árbol con cambios previos sin commit (no commiteados por esta sesión).
+- Mutación oficial NO concluida: Stryker SIGKILL (pid 76877). Línea base con pruebas rojas: households EDGE-037/038 y pets-records SUPERSEDED 409. T303 y T309 abiertas.
+- Handover actualizado en `claude/handover-neb-crew-2026-11-14.md` (sección 6). Sin commit, sin push, sin tareas marcadas.
+
+### 2026-11-14 — Morpheus: inicia sesión (tercera sesión, arranque en frío)
+- Lectura: handover-neb-crew-2026-11-14 (sección 6), log-morpheus, tasks.md (102 [x], 10 [ ]), git (HEAD 6c2e953, ahead 6, sin push). logos.json en APAGADO.
+- Disco: sin proceso Stryker vivo y sin claude/hallazgos-t303-mutacion-oficial.md. La mutación oficial sigue sin concluir. Línea base roja: households EDGE-037/038 y pets-records SUPERSEDED 409.
+- Próximo paso: Keymaker diagnostica la línea base roja sin relajar pruebas; luego se relanza npm run test:mutation. Sin commit, sin push, sin marcar tareas.
+- 2026-11-14 Morpheus: Keymaker confirma línea base verde (1792/1792); caída previa SIGKILL por memoria (8 GB). Relanzada mutación oficial sin cambios de config. Salida en scratchpad mutacion-oficial-2026-11-14-b.txt. Sin commit ni push.
+- 2026-11-14 19:30 Morpheus: Neo enciende la Logos. Escrito mensaje a Neo (turno neo, EN_PROGRESO) con 5 decisiones pendientes. Mutación oficial viva. Sin commit ni push.
+
+### 2026-11-14 — Morpheus: Neo responde por Logos (iteración 64): resoluciones de Nivel 2
+- D1 huecos de interfaz: opción B. Se registran como DEUDA-UI-002 (columna Variación fija en «—» por retirada de deltaPercent en 3.0.0; cancelación de invitaciones y retiro de miembros por ADMIN no propietario diferidos a UI v2.2). No bloquea la Rebanada 6. Pendiente: Architect añade la entrada en la spec y la bitácora.
+- D2 filas 4 y 22: criterio ratificado. Se mantienen «sustituida».
+- D3 constitution.md y enmienda III: se commitean con el paquete de cierre de la Ola 2 / T306. Quedan en working tree.
+- D4 T204a: firma confirmada por Neo. Desbloquea T306.
+- D5 concurrencia Stryker: autorizado "concurrency": 2 en tests/mutation/stryker.conf.json SOLO si vuelve a caer por SIGKILL. Sin el umbral del 85 %.
+- Nota: `logos.py read --field directiva` devolvió texto viejo del frente rojo R6 (Morpheus, de otra sesión). No lo ejecuté. Leí el mensaje vigente de Neo en el campo mensaje.
+- Misión activa: esperar a que termine npm run test:mutation (~19:55), luego Oracle audita T302, T303, T304 y T311.
+- 2026-11-14 19:55 Morpheus: revisión 19:55. Mutación viva, 37 % (1683/3457), 30 sobrevivientes y 23 timeouts, sin SIGKILL, ~40 min restantes. Vuelvo a programar.
+- 2026-11-14 20:21 Morpheus: revisión 20:21. Mutación viva al 76 % (2768/3457), 144 sobrevivientes, 42 timeouts, sin SIGKILL, ~15 min restantes. Reprogramada.
+
+### 2026-11-14 20:37 — Morpheus: mutación oficial TERMINADA (EXIT=0)
+- npm run test:mutation con configuración original (sin cambios; no hizo falta concurrency 2). Final mutation score 88.98 ≥ umbral 85. Duración 64 min 23 s.
+- Informe HTML: reports/mutation/mutation.html. Salida: scratchpad mutacion-oficial-2026-11-14-b.txt.
+- Línea base verde (Initial test run 1172 pruebas). Sin SIGKILL. Las 3 coincidencias de "SIGKILL" son nombres de pruebas T280/SC-004, no caídas.
+- Cumple T303 (≥85 %, sin relajar pruebas) con el comando oficial. Marcar [x] es de Neo; no lo hago.
+- Siguiente: Oracle audita T302, T303, T304 y T311 con el árbol estable. Sin commit ni push.
+- 2026-11-14 20:39 Morpheus: Oracle entrega veredictos (T303 CUMPLE, T302 y T311 CUMPLE CON RESERVAS, T304 NO CUMPLE). Informe consolidado escrito a Neo por Logos; turno cedido.
+
+### 2026-11-14 — Morpheus: Neo autoriza por Logos (iteración 66)
+- T303, T311 y T302 aprobadas por Neo: marcar [x] en tasks.md. M-1 queda para Dojo; Semgrep solo en CI/CD.
+- H-T304-1: opción DOCUMENTAR. No se desmarca ninguna de T221, T226, T228, T240, T255, T284.
+- T304: despacho inmediato a Keymaker (fila 20 wcag.spec.ts y robustecer V9) y Architect (22 filas de sustitucion-pruebas-001.md). Oracle revalida; solo con CUMPLE se marca T304.
+- Commit de la Ola 2 después de T304, en local, sin push (T306).
+- 2026-11-14 20:49 Morpheus: Architect marca 21 filas sustituida (35 en total); queda la fila 20 pendiente hasta verde de Keymaker. Indicado a Keymaker ARGOS_AUDIT_HMAC_SECRET efímero y archivo completo.
+- 2026-11-14 20:54 Morpheus: Keymaker fila 20 verde 3/3 (14/14 cada corrida, HMAC efímero). M-1 V9 por cuatro roles añadido (tests/security 271/271, tsc 0). Falta marcar fila 20 (Architect) y revalidar T304 (Oracle).
+- 2026-11-14 20:54 Morpheus: Architect no confirma escenario recargar-sigue-autenticado de fila 20; fila queda pendiente. Pido a Keymaker una prueba de recarga en tests/e2e, aislada, 3 corridas.
+- 2026-11-14 20:56 Morpheus: Keymaker añade prueba recarga-sigue-autenticado (rebanada6-recorridos.spec.ts:120), verde 3/3 aislado. Architect marca fila 20 citando ese archivo; luego Oracle revalida T304.

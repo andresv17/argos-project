@@ -10,7 +10,9 @@
  * PATCH .../members/{userId} cambia el rol (cuerpo ChangeRoleInput, 200 HouseholdMemberView) y POST .../ownership-transfer
  * transfiere la propiedad (TransferHouseholdOwnershipInput, 200 HouseholdView); T246.
  *
- * @implements REQ-HOUSE-001, REQ-HOUSE2-002, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND
+ * DELETE .../invitations/{invitationId} cancela una invitación INVITED (204; T311, acción RBAC MANAGE_HOUSEHOLD_MEMBERS).
+ *
+ * @implements T311, REQ-HOUSE-001, REQ-HOUSE2-002, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -21,9 +23,10 @@ import { requireSession } from '../plugins/session-auth.ts';
 import type { RouteContext } from './use-cases.ts';
 
 type HouseholdParams = { Params: { householdId: string } };
+type InvitationParams = { Params: { householdId: string; invitationId: string } };
 type MemberParams = { Params: { householdId: string; userId: string } };
 
-/** @implements REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND */
+/** @implements T311, STATE-HOUSE-MEMBERSHIP-001, REQ-RBAC-001, REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND */
 export function registerHouseholdRoutes(app: FastifyInstance, { useCases }: RouteContext): void {
   const onRequest = requireSession(useCases.authenticate);
 
@@ -45,6 +48,11 @@ export function registerHouseholdRoutes(app: FastifyInstance, { useCases }: Rout
   app.post<HouseholdParams>('/api/households/:householdId/invitations', { onRequest }, async (request, reply) =>
     reply.status(202).send(await useCases.inviteMember.execute(request.userId, request.params.householdId, jsonBody(request.body))),
   );
+
+  app.delete<InvitationParams>('/api/households/:householdId/invitations/:invitationId', { onRequest }, async (request, reply) => {
+    await useCases.cancelInvitation.execute(request.userId, request.params.householdId, request.params.invitationId);
+    return reply.status(204).send();
+  });
 
   app.patch<MemberParams>('/api/households/:householdId/members/:userId', { onRequest }, async (request) => {
     const { householdId, userId } = request.params;

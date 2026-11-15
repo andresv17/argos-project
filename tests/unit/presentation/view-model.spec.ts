@@ -88,17 +88,20 @@ describe('modelo de presentación puro', () => {
     ]);
   });
 
-  it('[REQ-UI-002] la tabla de peso muestra variación absoluta y porcentual de la API con signo, y — sin medición anterior', () => {
-    const rows = weightRows([weight('w3', '2026-03-10', 33, 0.6, 1.85), weight('w2', '2026-02-10', 32.4, -0.45, -1.37), weight('w1', '2026-01-10', 32.85, null, null)]);
-    expect(rows.map((r) => [r.date, r.weight, r.deltaKg, r.deltaPercent])).toEqual([
-      ['2026-03-10', '33.00 kg', '+0.60 kg', '+1.85 %'],
-      ['2026-02-10', '32.40 kg', '−0.45 kg', '−1.37 %'],
-      ['2026-01-10', '32.85 kg', '—', '—'],
+  it('[REQ-UI-002][REQ-REC2-001] la tabla de peso muestra solo la variación absoluta deltaKg de la API con signo, y — sin medición anterior; deltaPercent ya no existe en el contrato', () => {
+    const entries = [weight('w3', '2026-03-10', 33, 0.6), weight('w2', '2026-02-10', 32.4, -0.45), weight('w1', '2026-01-10', 32.85, null)];
+    const rows = weightRows(entries);
+    expect(rows.map((r) => [r.date, r.weight, r.deltaKg])).toEqual([
+      ['2026-03-10', '33.00 kg', '+0.60 kg'],
+      ['2026-02-10', '32.40 kg', '−0.45 kg'],
+      ['2026-01-10', '32.85 kg', '—'],
     ]);
+    // La vista del contrato 3.0.0 solo lleva record y deltaKg: la UI no inventa un porcentaje.
+    expect([Object.keys(entries[0]!).sort(), rows.every((r) => r.deltaPercent === '—')]).toEqual([['deltaKg', 'record'], true]);
   });
 
   it('[REQ-UI-002] el gráfico SVG es determinista: orden cronológico, escala lineal y mismo SVG para el mismo input', () => {
-    const entries = [weight('w3', '2026-03-10', 34, 2, 6.25), weight('w2', '2026-02-10', 32, -1, -3.03), weight('w1', '2026-01-10', 33, null, null)];
+    const entries = [weight('w3', '2026-03-10', 34, 2), weight('w2', '2026-02-10', 32, -1), weight('w1', '2026-01-10', 33, null)];
     const chart = weightChart(entries, 600, 220, 32);
     expect([chart.path, chart.points.map((p) => p.label), chart.minLabel, chart.maxLabel, weightChart(entries, 600, 220, 32)]).toEqual([
       'M32 110 L300 188 L568 32',
@@ -110,7 +113,7 @@ describe('modelo de presentación puro', () => {
   });
 
   it('[REQ-UI-002] una sola medición o pesos iguales quedan centrados y sin división por cero', () => {
-    expect([weightChart([weight('w1', '2026-01-10', 30, null, null)]).path, weightChart([weight('b', '2026-02-10', 30, 0, 0), weight('a', '2026-01-10', 30, null, null)]).path]).toEqual([
+    expect([weightChart([weight('w1', '2026-01-10', 30, null)]).path, weightChart([weight('b', '2026-02-10', 30, 0), weight('a', '2026-01-10', 30, null)]).path]).toEqual([
       'M300 110',
       'M32 110 L568 110',
     ]);
@@ -139,16 +142,27 @@ describe('modelo de presentación puro', () => {
     ]);
   });
 
-  it('[REQ-UI-006] el OWNER puede cancelar invitaciones, retirar miembros y eliminar; el MEMBER solo abandonar', () => {
+  it('[REQ-UI-006][REQ-HOUSE2-002][REQ-RBAC-001] el propietario retira a los demás miembros y elimina el hogar; los roles ADMIN, CAREGIVER y READER no propietarios solo abandonan; el propietario no abandona', () => {
     const owner = household('OWNER');
-    const memberView = household('MEMBER');
+    const caregiver = household('CAREGIVER');
+    const reader = household('READER');
     expect([
       owner.members.map((m) => memberActions(owner, m, ME)),
-      memberView.members.map((m) => memberActions(memberView, m, OTHER)),
-      canDeleteHousehold(owner),
-      canDeleteHousehold(memberView),
-      owner.members.map((m) => (m as unknown as { user: { id: string } }).user.id),
-    ]).toEqual([[[], ['REMOVE'], ['CANCEL_INVITATION']], [[], ['LEAVE']], true, false, [ME, OTHER, INVITEE]]);
+      caregiver.members.map((m) => memberActions(caregiver, m, OTHER)),
+      reader.members.map((m) => memberActions(reader, m, OTHER)),
+      [owner, caregiver, reader].map(canDeleteHousehold),
+      owner.members.map((m) => m.membership.userId),
+      owner.pendingInvitations.map((i) => [i.inviteeUsername, i.status]),
+    ]).toEqual([
+      [[], ['REMOVE']],
+      [[], ['LEAVE']],
+      [[], ['LEAVE']],
+      [true, false, false],
+      [ME, OTHER],
+      [['lucia', 'INVITED']],
+    ]);
+    // Las invitaciones INVITED ya no son filas de `members` (T246): `INVITEE` solo existe en pendingInvitations.
+    expect(owner.members.some((m) => m.membership.userId === INVITEE)).toBe(false);
   });
 
   it('[REQ-UI-006] el contador de invitaciones pendientes usa singular y plural', () => {

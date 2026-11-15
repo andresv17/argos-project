@@ -2,7 +2,7 @@
  * Hashing de contraseñas con scrypt y salt aleatorio (INV-AUTH-003).
  * - Formato: `scrypt$<N>$<r>$<p>$<salt base64>$<hash base64>`; salt de 16 bytes y clave de 64 bytes.
  * - `verify` recalcula con los parámetros guardados en el hash y compara en tiempo constante; un hash con formato
- *   inválido devuelve false (sin lanzar).
+ *   inválido, o con N/r/p por encima de DEFAULT_SCRYPT_PARAMETERS (anti-DoS), devuelve false (sin lanzar).
  * - `createDummyHash()` produce el hash ficticio de INV-AUTH-006, con el mismo coste que uno real.
  *
  * @implements INV-AUTH-003, INV-AUTH-006, INV-ARCH-002, INV-ARCH-004
@@ -44,10 +44,13 @@ export class ScryptPasswordHasherAdapter implements PasswordHasherPort {
     const match = HASH_FORMAT.exec(hash);
     if (match === null) return false;
     const [, N, r, p, salt, expected] = match as unknown as [string, string, string, string, string, string];
+    const stored: ScryptParameters = { N: Number(N), r: Number(r), p: Number(p) };
+    // Tope anti-DoS: un hash hostil no puede exigir más coste que el que el propio sistema genera (DEFAULT_SCRYPT_PARAMETERS).
+    if (stored.N > DEFAULT_SCRYPT_PARAMETERS.N || stored.r > DEFAULT_SCRYPT_PARAMETERS.r || stored.p > DEFAULT_SCRYPT_PARAMETERS.p) return false;
     const expectedKey = Buffer.from(expected, 'base64');
     if (expectedKey.length === 0) return false;
     try {
-      const key = await scrypt(plain, Buffer.from(salt, 'base64'), expectedKey.length, { N: Number(N), r: Number(r), p: Number(p) });
+      const key = await scrypt(plain, Buffer.from(salt, 'base64'), expectedKey.length, stored);
       return timingSafeEqual(key, expectedKey);
     } catch {
       return false;

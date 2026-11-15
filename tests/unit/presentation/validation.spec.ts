@@ -27,12 +27,27 @@ describe('validación en cliente derivada de los contratos', () => {
     ]).toEqual([{}, {}, {}, {}]);
   });
 
-  it('[REQ-UI-002][ERR-REC-WEIGHT-OUT-OF-RANGE][ERR-REC-MEASUREMENT-OUT-OF-RANGE] los rangos de peso y medidas usan su código x-sdd-error', () => {
+  it('[REQ-UI-002][ERR-REC-WEIGHT-OUT-OF-RANGE][ERR-REC-MEASUREMENT-OUT-OF-RANGE][INV-REC2-002] el peso admite 0.001 a 150 con 3 decimales (el dominio estrecha por especie) y los rangos usan su código x-sdd-error', () => {
+    const weight = (weightKg: number) => validateInput('CreateWeightInput', { recordedAt: '2026-01-10', weightKg });
     expect([
-      validateInput('CreateWeightInput', { recordedAt: '2026-01-10', weightKg: 200 }),
-      validateInput('CreateWeightInput', { recordedAt: '2026-01-10', weightKg: 32.851 }),
+      weight(200),
+      weight(32.851),
+      weight(0.001),
+      weight(150),
+      weight(0.0005),
+      weight(150.001),
+      weight(32.8515),
       validateInput('CreateBodyMeasurementInput', { recordedAt: '2026-01-10', neckCm: 0.5, chestCm: 50, backLengthCm: 50, waistCm: 50 }),
-    ]).toEqual([{ weightKg: msg('ERR-REC-WEIGHT-OUT-OF-RANGE') }, { weightKg: msg('ERR-REC-WEIGHT-OUT-OF-RANGE') }, { neckCm: msg('ERR-REC-MEASUREMENT-OUT-OF-RANGE') }]);
+    ]).toEqual([
+      { weightKg: msg('ERR-REC-WEIGHT-OUT-OF-RANGE') },
+      {},
+      {},
+      {},
+      { weightKg: msg('ERR-REC-WEIGHT-OUT-OF-RANGE') },
+      { weightKg: msg('ERR-REC-WEIGHT-OUT-OF-RANGE') },
+      { weightKg: msg('ERR-REC-WEIGHT-OUT-OF-RANGE') },
+      { neckCm: msg('ERR-REC-MEASUREMENT-OUT-OF-RANGE') },
+    ]);
   });
 
   it('[REQ-UI-002] los formularios de los 6 módulos validan contra su esquema de alta', () => {

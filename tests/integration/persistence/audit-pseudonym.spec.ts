@@ -1,6 +1,6 @@
+import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { AppConfigError, loadAppConfig } from '../../../src/infrastructure/config/app-config.ts';
-import { AUDIT_SECRET_HEX } from '../../fixtures/audit-fixtures.ts';
 
 /**
  * T256 (fase ROJA) — el secreto de la seudonimización (REQ-AUD-001, SC-014, INV-ARCH-006).
@@ -30,7 +30,7 @@ describe('ARGOS_AUDIT_HMAC_SECRET en la configuración (src/infrastructure/confi
   });
 
   it('[REQ-AUD-001][SC-014] en producción, un secreto de 32 bytes en hexadecimal (64 caracteres) arranca', () => {
-    expect(errorOf({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: AUDIT_SECRET_HEX })).toBe('sin error');
+    expect(errorOf({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: randomBytes(32).toString('hex') })).toBe('sin error');
   });
 
   it('[REQ-AUD-001][INV-ARCH-006] solo con NODE_ENV=test se admite arrancar sin secreto (valor fijo de prueba explícito); en development y sin NODE_ENV falta la variable y no arranca (D-1); un secreto presente e inválido se rechaza también en pruebas', () => {

@@ -1,10 +1,11 @@
-# Enmienda del Principio III de la constitución — Feature 002 (BORRADOR)
+# Enmienda del Principio III de la constitución — Feature 002
 
-**BORRADOR PENDIENTE DE FIRMA NIVEL 2 de Neo**
+**ENMIENDA RATIFICADA Y FIRMADA POR NEO (NIVEL 2)**
 
-Autor: `/architect` (F6) · Fecha: 2026-11-10 · Autorizado por Neo para preparar, **no para aplicar**.
-Este documento no modifica `.specify/memory/constitution.md`. Hasta que Neo firme, la constitución vigente es la 3.1.0.
-Relación: continúa el follow-up de la enmienda 3.1.0 («los identificadores de la 002 se incorporan al principio III cuando existan sus contratos»). La enmienda anterior (`enmienda-constitucion-002-borrador.md`) no tocó el principio III.
+Autor original: `/architect` (F6) · Fecha original: 2026-11-10
+**Ratificación y Firma Soberana (T204a):** Andrés Vallejo (Neo, Nivel 2) · Fecha: 2026-11-14.
+Constitución actualizada a **3.2.0** en `.specify/memory/constitution.md`.
+Relación: formaliza la incorporación de los identificadores de la Feature 002 al Principio III.
 
 ---
 

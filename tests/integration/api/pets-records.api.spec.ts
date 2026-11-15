@@ -9,15 +9,19 @@ afterEach(async () => api.close());
 const names = (json: unknown) => (json as Array<{ profile: { name: string } }>).map((c) => c.profile.name);
 
 describe('mascotas por HTTP (src/infrastructure/http/routes/pets.routes.ts)', () => {
-  it('[REQ-PET-005] GET /pets lista solo las mascotas propias, ordenadas, con colorToken nulo fuera de hogar (EDGE-030)', async () => {
+  it('[REQ-PET2-002][REQ-RBAC-001] GET /pets lista las mascotas propias y las visibles por hogar, ordenadas, con colorToken nulo fuera de hogar (EDGE-030) y permissions por rol', async () => {
     api = await createApi();
     const r = await api.call('GET', '/api/pets', { cookie: await api.login('andres') });
-    const cards = r.json as Array<{ owner: { colorToken: unknown }; myRole: string; permissions: { editPetBasics: boolean } }>;
-    expect([r.status, names(r.json).sort(), cards.every((c) => c.owner.colorToken === null && c.myRole === 'OWNER' && c.permissions.editPetBasics)]).toEqual([
-      200,
-      ['Argos', 'Kira', 'Milo', 'Nyx', 'Toby'],
-      true,
-    ]);
+    const cards = r.json as Array<{ profile: { name: string }; owner: { colorToken: unknown }; myRole: string; permissions: { editPetBasics: boolean; deletePet: boolean; transferPetOwnership: boolean } }>;
+    const own = cards.filter((c) => c.profile.name !== 'Luna');
+    const luna = cards.find((c) => c.profile.name === 'Luna')!;
+    expect([
+      r.status,
+      names(r.json).sort(),
+      own.every((c) => c.owner.colorToken === null && c.myRole === 'OWNER' && c.permissions.editPetBasics && c.permissions.deletePet),
+      // Luna es de María y el hogar la hace visible a Andrés como ADMIN: edita lo básico, no elimina ni transfiere.
+      [luna.myRole, luna.owner.colorToken, luna.permissions.editPetBasics, luna.permissions.deletePet, luna.permissions.transferPetOwnership],
+    ]).toEqual([200, ['Argos', 'Kira', 'Luna', 'Milo', 'Nyx', 'Toby'], true, ['ADMIN', null, true, false, false]]);
   });
 
   it('[REQ-PET-005] D-03 y EDGE-039: q no distingue mayúsculas ni tildes ("lucia" encuentra "Lucía" y no "Lucas"); species y filter filtran', async () => {
@@ -29,7 +33,8 @@ describe('mascotas por HTTP (src/infrastructure/http/routes/pets.routes.ts)', ()
     const upper = await api.call('GET', '/api/pets?q=LUCÍA', { cookie });
     const cats = await api.call('GET', '/api/pets?species=FELINE', { cookie });
     const catsByFilter = await api.call('GET', '/api/pets?filter=FELINE', { cookie });
-    expect([names(q.json), names(upper.json), names(cats.json).sort(), names(catsByFilter.json).sort()]).toEqual([['Lucía'], ['Lucía'], ['Milo', 'Nyx'], ['Milo', 'Nyx']]);
+    // Luna (FELINE, de María) es visible para Andrés por el hogar y entra en el filtro de gatos.
+    expect([names(q.json), names(upper.json), names(cats.json).sort(), names(catsByFilter.json).sort()]).toEqual([['Lucía'], ['Lucía'], ['Luna', 'Milo', 'Nyx'], ['Luna', 'Milo', 'Nyx']]);
   });
 
   it('[REQ-PET-005] una consulta inválida (q de más de 50 caracteres, species desconocida, parámetro extra o q repetido) → 422', async () => {
@@ -300,9 +305,9 @@ describe('especies, edad estimada y microchip por HTTP (REQ-PET2-001, INV-PET2-0
     }
     const list = async (query: string) => names((await api.call('GET', `/api/pets${query}`, { cookie })).json).sort();
     expect([await list('?filter=ALL'), await list('?filter=CANINE'), await list('?filter=FELINE'), await list('?filter=OTHERS'), await list('?filter=OTHERS&q=bird')]).toEqual([
-      ['Argos', 'Kira', 'Milo', 'Nube BIRD', 'Nube OTHER', 'Nube RABBIT', 'Nyx', 'Toby'],
+      ['Argos', 'Kira', 'Luna', 'Milo', 'Nube BIRD', 'Nube OTHER', 'Nube RABBIT', 'Nyx', 'Toby'],
       ['Argos', 'Kira', 'Toby'],
-      ['Milo', 'Nyx'],
+      ['Luna', 'Milo', 'Nyx'],
       ['Nube BIRD', 'Nube OTHER', 'Nube RABBIT'],
       ['Nube BIRD'],
     ]);

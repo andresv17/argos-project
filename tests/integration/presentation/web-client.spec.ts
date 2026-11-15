@@ -42,15 +42,19 @@ async function loggedClient(): Promise<ApiClient> {
 }
 
 describe('cliente generado de la SPA contra la API real', () => {
-  it('[REQ-UI-007] en "Mis mascotas" colorToken es null y en el hogar cada tarjeta trae su colorToken', async () => {
+  it('[REQ-UI-007][REQ-UI2-003] en "Mis mascotas" colorToken es null y en el hogar cada tarjeta trae su colorToken (OWNER_COLOR_1..8) con permissions por rol', async () => {
     const client = await loggedClient();
     const mine = await unwrap(client.GET('/pets'));
     const house = await unwrap(client.GET('/households/{householdId}/pets', { params: { path: { householdId: H1 } } }));
+    const luna = house.pets.find((c) => c.profile.name === 'Luna')!;
     expect([
       mine.length > 0 && mine.every((c) => c.owner.colorToken === null && ownerBadge(c.owner).style === null),
-      house.pets.length > mine.length && house.pets.every((c) => c.owner.colorToken !== null && ownerBadge(c.owner).style !== null),
-      house.pets.some((c) => !c.permissions.editPetBasics),
-    ]).toEqual([true, true, true]);
+      // La 002 muestra en "Mis mascotas" las propias y las visibles por hogar: el hogar H1 trae el mismo conjunto, ahora con color.
+      house.pets.map((c) => c.profile.id).sort(),
+      house.pets.every((c) => c.owner.colorToken !== null && ownerBadge(c.owner).style !== null),
+      // Luna es de María: Andrés la ve como ADMIN (edita lo básico; no elimina ni transfiere) con el color 2 del dueño.
+      [luna.owner.colorToken, luna.myRole, luna.permissions.editPetBasics, luna.permissions.deletePet, luna.permissions.transferPetOwnership],
+    ]).toEqual([true, mine.map((c) => c.profile.id).sort(), true, ['OWNER_COLOR_2', 'ADMIN', true, false, false]]);
   });
 
   it('[REQ-UI-001] el filtro lo aplica la API en los dos contextos: "Mis mascotas" y el hogar (DEUDA-UI-FILTRO-001), con la misma normalización', async () => {

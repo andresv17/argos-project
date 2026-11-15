@@ -385,3 +385,14 @@ Obs: mensaje del commit menciona contador no presente en el diff.
 - Leídos los 6 specs y el diff de app-config.ts; verify-oracles 0 débiles; tsc 0; security 264/264; presentación+scrypt 12 fallos heredados (11+1).
 - V12: mensaje sin valor, sin secretos nuevos (huella SHA-256), NODE_ENV=test intacto, validaciones previas intactas.
 - Latencia de invitación: aceptable (5/5 verdes), límite documentado. D1 (renovación con 4xx) escalada a Neo. Detalle en claude/veredicto-auditor-fase8-ola1.md.
+
+### 2026-11-14 — Oracle: auditoría T302, T303, T304, T311 (antes de dictaminar)
+- Medido en disco: security 267/267 (13 archivos); vitest completo 1792/1792 (90 archivos); tsc 0; traceability 118/118 CUMPLE; verify-oracles 0 débiles.
+- Mutación: score 88.98, EXIT=0, 1172 pruebas en dry-run, stryker.conf.json sin diff contra HEAD, sin exclusiones en config.
+- Tabla 001: 14 «sustituida» y 22 «pendiente» (regla 6 exige todas); T311: ruta DELETE servida, NOT_YET_SERVED vacío.
+- Veredictos: T302 CUMPLE CON RESERVAS, T303 CUMPLE, T304 NO CUMPLE, T311 CUMPLE CON RESERVAS. Detalle en claude/veredicto-oracle-T302-T311-2026-11-14.md. Sin commits, sin marcar tareas.
+
+### 2026-11-14 — Oracle: revalidación T304 (tabla 001)
+- Tabla: 36 filas «sustituida», 0 «pendiente» (3 apariciones de la palabra son prosa en filas 26/33 y nota de huecos). Archivos de filas 4, 20 y 22 existen y contienen las pruebas.
+- Medido: playwright fila 20 aislado 22/22; security 271/271 (13 archivos); tsc 0; traceability 118/118 CUMPLE; verify-oracles 0 débiles.
+- tasks.md: T302, T303, T311 en [x]; T304 en [ ]. Veredicto T304 CUMPLE. Detalle en claude/veredicto-oracle-T304-revalidacion-2026-11-14.md. Sin commits.

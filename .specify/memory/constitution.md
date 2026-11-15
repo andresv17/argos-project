@@ -1,21 +1,17 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 3.0.0 -> 3.1.0
-Bump rationale: MINOR. La Feature 002 amplía el dominio (8 especies), los roles de hogar, la
-  política de sesión y los anchos verificados. No crea principios ni retira o redefine los
-  principios I a VI; se trata como MINOR por interpretación declarada, firmada por Neo
-  (Andrés Vallejo, Nivel 2) el 2026-11-10.
+Version change: 3.1.0 -> 3.2.0
+Bump rationale: MINOR. La Feature 002 incorpora sus identificadores formales (requisitos,
+  invariantes, máquinas de estado y catálogo de errores) al Principio III con una fuente de verdad
+  por feature. No redefine los principios I a VI; se trata como MINOR conforme a la enmienda
+  ratificada por Neo (Andrés Vallejo, Nivel 2) el 2026-11-14.
 
 Modified principles:
-  - IV. Test Gate con Umbrales Fijos: viñeta de accesibilidad (pantalla de cuenta; anchos 320,
-    768, 1024 y 1280 px).
-Modified sections:
-  - Technology Stack & Repository Structure, párrafo Sistema: especies DOG | CAT pasan a 8
-    especies (migración DOG -> CANINE, CAT -> FELINE); "solo el dueño puede modificar" pasa al
-    modelo de roles por membresía y asignación mascota-hogar por el Propietario Legal.
-  - Technology Stack & Repository Structure, viñeta Autenticación: TTL de 7 días pasa a 24 h
-    absolutas y 30 min de inactividad.
+  - III. Trazabilidad Verificable por Máquina: fuentes de verdad por feature (001 y 002), listado
+    completo de IDs de la 002, máquinas de estado actualizadas, catálogo de errores de la 002 y
+    declaración de IDs reemplazados y dados de baja.
+Modified sections: ninguna.
 Added sections: ninguna.
 Removed sections: ninguna.
 
@@ -23,12 +19,10 @@ Templates reviewed for alignment:
   - .specify/templates/{plan,spec,tasks,checklist,constitution}-template.md: sin referencias a
     DOG | CAT, 7 días ni a los tres anchos; sin cambios.
   - spec-system.md: sin referencias a los valores antiguos; sin cambios.
-  - scripts/verify-traceability.sh: lee el principio III y su línea de identificadores dados de baja; no cambia.
+  - scripts/verify-traceability.sh: verifica compuertas multi-feature 001 y 002; sin cambios.
 
 Follow-up TODOs:
-  - Los identificadores de la 002 (REQ-*2, etc.) se incorporan al principio III cuando existan
-    sus contratos (F4); esta enmienda no toca el principio III.
-  - Versión 3.1.0 firmada por Andrés Vallejo (Nivel 2) el 2026-11-10.
+  - Versión 3.2.0 firmada por Andrés Vallejo (Nivel 2) el 2026-11-14 (tarea T204a).
 -->
 
 # Proyecto Argos Constitution
@@ -79,18 +73,29 @@ en CI y en Cloud.
 
 ### III. Trazabilidad Verificable por Máquina
 
-Fuente de verdad de los identificadores: `specs/001-pet-health-tracker/spec.md`, los contratos de `specs/001-pet-health-tracker/contracts/` y los `INV-ARCH-*` del principio II.
+Fuente de verdad de los identificadores, por feature: Feature 001: `specs/001-pet-health-tracker/spec.md` y los contratos de `specs/001-pet-health-tracker/contracts/`. Feature 002: `specs/002-plataforma-v21/spec.md` y los contratos de `specs/002-plataforma-v21/contracts/`. Común a ambas: los `INV-ARCH-*` del principio II. La compuerta se ejecuta por feature (`scripts/verify-traceability.sh --feature 001|002`); un identificador que una feature declara «reemplazado» deja de ser vigente para esa feature y sigue vigente para la anterior mientras esta se mantenga en la compuerta.
+
+**Feature 001**
 
 - **Requisitos:** `REQ-AUTH-001`..`004`, `REQ-PET-001`..`005`, `REQ-REC-001`..`006`, `REQ-HOUSE-001`..`005`, `REQ-UI-001`..`007`, `REQ-BACKUP-001`..`002`.
 - **Invariantes:** `INV-PET-002`, `INV-PET-003`, `INV-PET-005`, `INV-PET-006`, `INV-OWN-001`, `INV-ACC-001`, `INV-ACC-002`, `INV-AUTH-001`..`007`, `INV-HOUSE-001`..`005`, `INV-REC-001`..`006`, `INV-SORT-001`, `INV-BACKUP-001`, `INV-ARCH-001`..`006`.
 - **Máquinas de Estado:** `STATE-ALERT-001`, `STATE-BACKUP-001`, `STATE-AUTH-SESSION-001`, `STATE-HOUSE-MEMBERSHIP-001`.
 - **Errores:** todos los códigos de `specs/001-pet-health-tracker/contracts/errors/error-catalog.json`.
-- **IDs retirados (no deben aparecer en código nuevo):** `INV-PET-001`, `INV-PET-004`, `STATE-PET-QUOTA-001`, `ERR-PET-QUOTA-EXCEEDED`.
 
-Cada función o clase de `src/` incluye en su JSDoc los identificadores que implementa (`@implements ...`), y cada `it`/`test` de `tests/` incluye entre corchetes el identificador que verifica. La trazabilidad cuenta como cumplida **solo** si el identificador aparece en un `@implements` de `src/` fuera de `src/generated/` **y** en el título de un `it`/`test` de `tests/`.
+**Feature 002**
 
-**Rationale**: permite auditar por script, sin interpretación, que lo especificado está
-implementado y probado.
+- **Requisitos nuevos o que reemplazan:** `REQ-AUTH2-001`..`003`, `REQ-ACC-001`, `REQ-ACC-002`, `REQ-TIME-001`, `REQ-PET2-001`..`003`, `REQ-OWN-001`, `REQ-REC2-001`..`003`, `REQ-RBAC-001`, `REQ-HOUSE2-001`..`004`, `REQ-MIG-001`, `REQ-AUD-001`, `REQ-BACKUP2-001`..`002`, `REQ-UI2-001`..`008`.
+- **Requisitos de la 001 que siguen vigentes:** `REQ-AUTH-003`, `REQ-AUTH-004`, `REQ-PET-002`, `REQ-PET-004`, `REQ-REC-002`, `REQ-REC-005`, `REQ-REC-006`, `REQ-HOUSE-001`, `REQ-HOUSE-003`, `REQ-UI-001`, `REQ-UI-002`, `REQ-UI-003`, `REQ-UI-005`.
+- **Invariantes nuevas o que reemplazan:** `INV-AUTH2-001`, `INV-AUTH2-002`, `INV-PET2-001`, `INV-REC2-002`, `INV-OWN2-001`, `INV-ACC2-001`, `INV-ACC2-002`, `INV-HOUSE2-001`, `INV-AUD-001`.
+- **Invariantes de la 001 que siguen vigentes:** `INV-AUTH-001`, `INV-AUTH-003`, `INV-AUTH-005`, `INV-AUTH-006`, `INV-AUTH-007`, `INV-PET-002`, `INV-PET-003`, `INV-PET-005`, `INV-PET-006`, `INV-HOUSE-003`, `INV-HOUSE-004`, `INV-HOUSE-005`, `INV-REC-001`, `INV-REC-003`, `INV-REC-004`, `INV-REC-005`, `INV-REC-006`, `INV-SORT-001`, `INV-BACKUP-001`, `INV-ARCH-001`..`006`.
+- **Máquinas de Estado:** `STATE-AUTH-SESSION-001` (v3.0.0), `STATE-HOUSE-MEMBERSHIP-001` (v3.0.0), `STATE-ALERT-001` (v2.1.0), `STATE-BACKUP-001` (v2.3.0) y `STATE-ACCOUNT-DELETE-001` (nueva, aprobada por Neo).
+- **Errores:** todos los códigos de `specs/002-plataforma-v21/contracts/errors/error-catalog.json` (35 entradas). Entran 7 códigos nuevos: `ERR-ACCOUNT-CONFIRMATION-MISMATCH`, `ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD`, `ERR-ACCOUNT-OWNS-SHARED-PETS`, `ERR-OWN-TRANSFER-INVALID-TARGET`, `ERR-REC-SUPERSEDED-IMMUTABLE` y los dos aprobados por Neo, `ERR-PET-MICROCHIP-DUPLICATE` y `ERR-RATE-LIMITED`.
+- **IDs reemplazados por la 002 (vigentes solo para la compuerta de la 001):** `REQ-AUTH-001`, `REQ-AUTH-002`, `REQ-PET-001`, `REQ-PET-003`, `REQ-PET-005`, `REQ-REC-001`, `REQ-REC-003`, `REQ-REC-004`, `REQ-HOUSE-002`, `REQ-HOUSE-004`, `REQ-HOUSE-005`, `REQ-BACKUP-001`, `REQ-BACKUP-002`, `REQ-UI-004`, `REQ-UI-006`, `REQ-UI-007`, `INV-AUTH-002`, `INV-AUTH-004`, `INV-REC-002`, `INV-OWN-001`, `INV-ACC-001`, `INV-ACC-002`, `INV-HOUSE-001` e `INV-HOUSE-002` (esta última absorbida por `REQ-HOUSE2-001` y `REQ-HOUSE2-002`).
+- **IDs retirados (no deben aparecer en código nuevo):** `INV-PET-001`, `INV-PET-004`, `STATE-PET-QUOTA-001`, `ERR-PET-QUOTA-EXCEEDED`. Se añaden, con efecto desde que el código de la 001 los deje de usar (tarea T220 de la 002): `ERR-AUTH-USER-NOT-FOUND` y `ERR-HOUSE-MEMBER-ALREADY-EXISTS`, retirados del catálogo de la 002 porque invitar es uniforme.
+
+Cada función o clase de `src/` incluye en su JSDoc los identificadores que implementa (`@implements ...`), y cada `it`/`test` de `tests/` incluye entre corchetes el identificador que verifica. La trazabilidad cuenta como cumplida **solo** si el identificador aparece en un `@implements` de `src/` fuera de `src/generated/` **y** en el título de un `it`/`test` de `tests/`. Los `SC-*` de una spec son criterios de aceptación: se citan en `tasks.md` y se revisan a mano, el script no los exige.
+
+**Rationale**: permite auditar por script, sin interpretación, que lo especificado está implementado y probado, ahora para las dos features con una sola fuente de reglas.
 
 ### IV. Test Gate con Umbrales Fijos (NON-NEGOTIABLE)
 
@@ -171,4 +176,4 @@ Esta constitución prevalece sobre cualquier plan, tarea o línea de código.
 - **Revisión de cumplimiento.** Toda revisión verifica el cumplimiento de estos principios. Una desviación aceptada se registra con responsable y condición de cierre en «Complexity Tracking» del plan y como tarea abierta en `tasks.md`.
 - **Guía operativa.** `spec-system.md` y `CLAUDE.md` son la guía de ejecución para agentes; ante una diferencia con este documento prevalece la constitución.
 
-**Version**: 3.1.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-10
+**Version**: 3.2.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-14

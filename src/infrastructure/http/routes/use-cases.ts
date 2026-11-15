@@ -9,6 +9,7 @@ import { AssignPetToHouseholdUseCase, ListPetAssignmentsUseCase, UnassignPetFrom
 import { AuthenticateRequestUseCase, GetCurrentSessionUseCase, LoginUseCase, LogoutUseCase, RegisterUserUseCase } from '../../../application/use-cases/auth-use-cases.ts';
 import { ExportBackupUseCase, ImportBackupUseCase, PreviewBackupImportUseCase } from '../../../application/use-cases/backup-use-cases.ts';
 import {
+  CancelHouseholdInvitationUseCase,
   ChangeMemberRoleUseCase,
   CreateHouseholdUseCase,
   DeleteHouseholdUseCase,
@@ -61,6 +62,7 @@ export function createUseCases(deps: ApplicationDeps) {
     deleteRecord: new DeleteRecordUseCase(deps),
     createHousehold: new CreateHouseholdUseCase(deps),
     inviteMember: new InviteMemberUseCase(deps),
+    cancelInvitation: new CancelHouseholdInvitationUseCase(deps),
     listMyInvitations: new ListMyInvitationsUseCase(deps),
     respondInvitation: new RespondInvitationUseCase(deps),
     removeMember: new RemoveMemberUseCase(deps),

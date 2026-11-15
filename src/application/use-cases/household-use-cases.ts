@@ -356,6 +356,29 @@ export class RemoveMemberUseCase {
   }
 }
 
+/**
+ * El propietario o un ADMIN cancela una invitación pendiente por su id (INVITED a CANCELLED, STATE-HOUSE-MEMBERSHIP-001).
+ * Un actor sin acceso al hogar recibe ERR-HOUSE-NOT-FOUND y un rol sin MANAGE_HOUSEHOLD_MEMBERS recibe 403 (requireManager);
+ * una invitación inexistente, de otro hogar o ya resuelta responde ERR-HOUSE-INVITATION-NOT-FOUND (404). Deja 1 fila de auditoría.
+ * @implements T311, REQ-HOUSE2-002, STATE-HOUSE-MEMBERSHIP-001, REQ-RBAC-001, INV-ACC2-002, REQ-AUD-001
+ */
+export class CancelHouseholdInvitationUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(userId: string, householdId: string, invitationId: string): Promise<204> {
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const memberships = await repositories.households.listMemberships(householdId);
+      requireManager(memberships, householdId, userId);
+      const invitation = (await repositories.invitations.listByHousehold(householdId)).find((i) => i.invitationId === invitationId && i.status === 'INVITED');
+      if (invitation === undefined) throw new DomainError('ERR-HOUSE-INVITATION-NOT-FOUND', undefined, 'invitationId');
+      const cancelled: InvitationRecord = { ...invitation, status: 'CANCELLED', respondedAt: this.deps.clock.nowIsoTimestamp() };
+      await repositories.invitations.save(cancelled);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'HOUSEHOLD_INVITATION', entityId: invitation.invitationId, previous: invitation, next: cancelled });
+      return 204 as const;
+    });
+  }
+}
+
 /** Un MEMBER abandona el hogar (LEFT); el OWNER no puede (ERR-HOUSE-OWNER-CANNOT-LEAVE). @implements REQ-HOUSE-004 */
 export class LeaveHouseholdUseCase {
   constructor(private readonly deps: ApplicationDeps) {}

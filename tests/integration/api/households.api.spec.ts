@@ -406,4 +406,32 @@ describe('roles de hogar por HTTP (REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE-003
     const second = await api.call('POST', `/api/invitations/${hid}/accept`, { cookie: luciaCookie });
     expect([first.status, problemOf(second)]).toEqual([200, { status: 404, code: 'ERR-HOUSE-INVITATION-NOT-FOUND' }]);
   });
+
+  it('[T311][REQ-HOUSE2-002][STATE-HOUSE-MEMBERSHIP-001][REQ-RBAC-001] DELETE /households/{id}/invitations/{invitationId}: el propietario cancela (204), el invitado ya no puede aceptar, CAREGIVER recibe 403, id desconocido 404 y sin sesión 401', async () => {
+    api = await createApi();
+    const andres = await api.login('andres');
+    const hid = await newHousehold(andres);
+    await api.call('POST', `/api/households/${hid}/invitations`, { cookie: andres, body: { username: 'lucia.r', roleOnJoin: 'READER' } });
+    await api.call('POST', `/api/households/${hid}/invitations`, { cookie: andres, body: { username: 'maria.v', roleOnJoin: 'CAREGIVER' } });
+    await api.call('POST', `/api/invitations/${hid}/accept`, { cookie: await api.login('maria.v') });
+    const pending = ((await api.call('GET', `/api/households/${hid}`, { cookie: andres })).json as { pendingInvitations: Array<{ invitationId: string; inviteeUsername: string }> }).pendingInvitations;
+    const invitationId = pending.find((i) => i.inviteeUsername === 'lucia.r')!.invitationId;
+    const url = `/api/households/${hid}/invitations/${invitationId}`;
+    const asCaregiver = await api.call('DELETE', url, { cookie: await api.login('maria.v') });
+    const noSession = await api.call('DELETE', url);
+    const cancelled = await api.call('DELETE', url, { cookie: andres });
+    const again = await api.call('DELETE', url, { cookie: andres });
+    const unknown = await api.call('DELETE', `/api/households/${hid}/invitations/99999999-9999-4999-8999-999999999999`, { cookie: andres });
+    const accept = await api.call('POST', `/api/invitations/${hid}/accept`, { cookie: await api.login('lucia.r') });
+    const after = ((await api.call('GET', `/api/households/${hid}`, { cookie: andres })).json as { pendingInvitations: unknown[] }).pendingInvitations;
+    expect([asCaregiver.status, problemOf(noSession), cancelled.status, problemOf(again), problemOf(unknown), problemOf(accept), after.length]).toEqual([
+      403,
+      { status: 401, code: 'ERR-AUTH-UNAUTHENTICATED' },
+      204,
+      { status: 404, code: 'ERR-HOUSE-INVITATION-NOT-FOUND' },
+      { status: 404, code: 'ERR-HOUSE-INVITATION-NOT-FOUND' },
+      { status: 404, code: 'ERR-HOUSE-INVITATION-NOT-FOUND' },
+      0,
+    ]);
+  });
 });

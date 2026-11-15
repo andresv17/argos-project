@@ -117,6 +117,24 @@ test.describe('Recorridos de la Rebanada 6 (T286)', () => {
     expect(requests).toEqual([]);
   });
 
+  test('[REQ-AUTH-003][REQ-UI2-001] recargar con page.reload() mantiene la sesión: /api/auth/me sigue siendo 200 con el mismo usuario, la cookie sigue siendo la misma y la pantalla protegida sigue visible', async ({ page, context }) => {
+    const user = await signedInPage(page, 'recarga');
+    await page.goto('/households');
+    await expect(page.getByLabel('Nombre del nuevo hogar')).toBeVisible();
+    const before = (await context.cookies()).find((c) => c.name === 'argos_session');
+    expect(before?.httpOnly).toBe(true);
+
+    await page.reload();
+
+    await expect(page).toHaveURL(/\/households$/);
+    await expect(page.getByLabel('Nombre del nuevo hogar')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible();
+    const me = await apiCall<{ user: { username: string } }>(context.request, 'GET', '/auth/me');
+    expect([me.status, me.code, me.body.user.username]).toEqual([200, null, user.username]);
+    const after = (await context.cookies()).find((c) => c.name === 'argos_session');
+    expect(after?.value).toBe(before!.value);
+  });
+
   test('[REQ-UI2-007] el Centro de Respaldos importa con una barra de fases (Validando, Previsualizando, Aplicando, Terminada) y sin porcentaje', async ({ page }, testInfo) => {
     await signedInPage(page, 'respaldo');
     await createPetViaApi(page.context().request, 'Argos', 'CANINE');

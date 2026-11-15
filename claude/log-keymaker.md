@@ -615,3 +615,38 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-14 — Hallazgo V12 (T298, Caso A de Seraph): denylist de secretos públicos de auditoría
 - src/infrastructure/config/app-config.ts: con NODE_ENV != 'test' se rechaza ARGOS_AUDIT_HMAC_SECRET si es la clave de desarrollo o el secreto de los fixtures (huella SHA-256, sin valor en claro). AppConfigError nombra solo la variable.
 - Verificación: tsc 0; audit-secret 11/11 dos veces; tests/security 264/264; línea base 12 fallos heredados (11 presentación + 1 scrypt). Sin commit.
+
+## 2026-11-14 — Correcciones Caso A (análisis T304 grupo b), sin commit
+- scrypt-password-hasher.adapter.ts: verify rechaza (false) hashes con N>16384, r>8 o p>1 (DEFAULT_SCRYPT_PARAMETERS, lo que el sistema genera); cierra DoS de INV-AUTH-003.
+- audit-pseudonym.spec.ts: el test de producción usa randomBytes(32).toString('hex') en vez de AUDIT_SECRET_HEX (denylist V12 intacta); aserciones sin cambios.
+- Gates: tsc 0; audit-pseudonym 4/4; scrypt 10/10; tests/security 267/267; verify-oracles 0 débiles.
+
+## 2026-11-14 — Sustitución grupo (a) de T304 (25 pruebas) y ruta T311 cancelInvitation (autorización de Neo, Nivel 2), sin commit
+- Ruta T311: nuevo CancelHouseholdInvitationUseCase (household-use-cases.ts; requireManager = MANAGE_HOUSEHOLD_MEMBERS, INVITED a CANCELLED, auditoría UPDATE, 404 ERR-HOUSE-INVITATION-NOT-FOUND), registrado en routes/use-cases.ts y servido en households.routes.ts (DELETE /api/households/:householdId/invitations/:invitationId, 204). El caso de uso no existía en src: se creó. NOT_YET_SERVED queda vacío (única edición de session-csrf.security.spec.ts). Prueba nueva en households.api.spec.ts.
+- Sustituciones: generated-contracts y canonical-fixtures leen catálogo (35), máquinas y esquemas de specs/002 (fixtures 001 solo para sobres legados con upgradePet); codegen-drift (--feature 002 = defecto + regresión 001); openapi-conformance (40 operaciones y recorrido feliz completo); pets-records.api (Luna visible por hogar, ADMIN); presentation-fixtures reescrito con permissions/roles 002; components, view-model, validation y web-client reescritos.
+- Hallazgos Caso A (presentación, no tocados): (1) WeightTable aún pinta la columna «Variación (%)» con «—» fijo (view-model.ts weightRows, T284 PENDIENTE); (2) HouseholdCard no pinta pendingInvitations ni «Cancelar invitación» (memberActions nunca devuelve CANCEL_INVITATION); (3) memberActions solo ofrece REMOVE al propietario, no a un ADMIN no propietario (MANAGE_HOUSEHOLD_MEMBERS).
+- Gates: tsc 0; contratos+pets-records+presentación 567/567; tests/security 267/267; verify-oracles 0 débiles; verify-traceability --feature 002: 118/118.
+
+## 2026-11-14 — Mapeo de las 24 filas pendientes de sustitucion-pruebas-001.md (modo lectura, sin commit)
+- Ejecuté 31 archivos de las filas en una sola corrida de vitest (663 passed) y 14 archivos nuevos de la fila 23 (192 passed). Sin tocar specs/, tests/, src/ ni la tabla.
+- Fila 20 (Playwright visual + wcag): 41 passed, 1 failed, 10 did not run; repetí wcag.spec.ts: 11 passed, 1 failed, 2 did not run. Fallos distintos (timeout de 60 s en :91; `main` no visible en :173). Hallazgo Caso A pendiente de aislar causa.
+- Reservas: fila 4 (sqlite-backup-import.spec.ts sin caso de migración 1.0.0/2.0.0) y fila 22 (layer-dependencies.spec.ts sin rutas multi-feature).
+- Playwright exige ARGOS_AUDIT_HMAC_SECRET; usé un valor aleatorio efímero solo en el proceso. Entregable: claude/mapeo-filas-pendientes-t304.md.
+
+## 2026-11-14 — Diagnóstico línea base roja de mutación (sin ediciones, sin commit)
+- vitest households.api (EDGE-037/038), pets-records.api (SUPERSEDED 409): 3 archivos 110/110 verdes; vitest completo 90 archivos, 1792/1792; tsc 0.
+- Log de Stryker: "Initial test run succeeded. Ran 1172 tests" (dry run verde). Los «FAIL» (households EDGE-037/038, pets-records SUPERSEDED, backup-use-cases) son salidas de mutantes activos que matan pruebas (esperado), volcadas al caer el proceso hijo con SIGKILL al 15 %.
+- Clasificación: no hay defecto de producción, ni prueba desalineada, ni Caso B. Causa real: SIGKILL del proceso hijo (recursos/sandbox, ~35 min proyectados, 3457 mutantes). No se tocó src/ ni tests/.
+
+## 2026-11-14 — T304 fila 20 (wcag.spec.ts) y M-1 (V9 por rol): inicio, sin commit
+- Decisión: correr wcag.spec.ts completo 3 veces con ARGOS_AUDIT_HMAC_SECRET efímero (aleatorio, solo en el proceso, nada en disco del repo); sin omitir pruebas. Diagnosticar solo si falla; no se toca el oráculo ni sustitucion-pruebas-001.md (Architect).
+- Decisión M-1: la única prueba V9 (nine-vectors-four-roles) mezcla los 4 roles en una sola aserción; se añaden pruebas por rol (it.each ROLES) con el mismo oráculo (marcadores crudos ausentes, escape presente, códigos por rol), sin tocar la existente.
+- M-1 hecho: nine-vectors-four-roles.security.spec.ts +4 pruebas V9 por rol (it.each); tests/security 271/271, tsc 0.
+
+## 2026-11-14 — T304 fila 20: 3 corridas wcag.spec.ts verdes
+- 3/3 corridas, exit 0, 14 passed, 0 failed, 0 omitidas (31.9 s, 31.7 s, 35.6 s), secreto HMAC efímero. Sin ediciones de src/ ni del oráculo. Hipótesis de los fallos previos (timeout 60 s, main no visible): carga de la máquina por corridas concurrentes (vitest/Stryker); en corridas aisladas no reproduce. Sin commit.
+
+## 2026-11-14 — Fila 20: prueba «recargar sigue autenticado» (pedido de Morpheus), sin commit
+- Decisión: añadir en tests/e2e/visual/rebanada6-recorridos.spec.ts una prueba con page.reload() que afirma /api/auth/me 200 con el mismo username, la misma cookie argos_session httpOnly y la pantalla /households visible. Ya existía un reload en auth-pet-forms.spec.ts (solo URL + botón). No se toca checklist ni tasks.md.
+- Corrección de mi aserción: SessionView es {user:{username},...} (contrato identity.schema); el rojo era de la prueba nueva, no de src/.
+- Prueba reload: 3/3 aisladas exit 0, 8 passed (archivo completo); tsc 0. Sin commit.

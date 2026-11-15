@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { upgradePet } from '../../fixtures/storage-upgrade.ts';
-import errorCatalog from '../../../specs/001-pet-health-tracker/contracts/errors/error-catalog.json';
+import errorCatalog from '../../../specs/002-plataforma-v21/contracts/errors/error-catalog.json';
+import fixtures002 from '../../../specs/002-plataforma-v21/contracts/examples/canonical-fixtures.json';
+import authSessionMachine from '../../../specs/002-plataforma-v21/contracts/state-machines/auth-session.machine.json';
+import backupMachine from '../../../specs/002-plataforma-v21/contracts/state-machines/backup-import.machine.json';
+import householdMachine from '../../../specs/002-plataforma-v21/contracts/state-machines/household-membership.machine.json';
+import alertMachine from '../../../specs/002-plataforma-v21/contracts/state-machines/sanitary-alert.machine.json';
+// Fixtures de la 001: solo para los sobres legados (BackupEnvelopeV1Legacy/V2Legacy), fila 35 de la tabla de sustitución.
 import fixtures from '../../../specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json';
 import * as generated from '../../../src/generated/index.ts';
 import {
@@ -31,15 +37,23 @@ function expectValid(validate: AjvValidator, data: unknown): void {
   expect(validate(data), JSON.stringify(validate.errors)).toBe(true);
 }
 
+/** Nombres de estado de una máquina: lista de nombres o mapa nombre -> definición. */
+function statesOf(states: unknown): string[] {
+  return Array.isArray(states) ? (states as string[]) : Object.keys(states as object);
+}
+
 function firstErrorPath(validate: AjvValidator, field: string): string | undefined {
   return validate.errors?.find((e) => e.instancePath === field)?.instancePath;
 }
 
 describe('contratos generados', () => {
   it('INV-ARCH-003: los fixtures canónicos válidos pasan sus validadores generados', () => {
-    for (const user of fixtures.users) expectValid(validateUserPublicProfile, user);
-    expectValid(validateHousehold, fixtures.household);
-    for (const member of fixtures.householdMembers) expectValid(validateHouseholdMember, member);
+    const entities = fixtures002.entities;
+    for (const user of entities.users) expectValid(validateUserPublicProfile, user);
+    expectValid(validateHousehold, entities.household);
+    for (const member of entities.householdMembers) expectValid(validateHouseholdMember, member);
+    for (const pet of entities.pets) expectValid(validatePetProfile, pet);
+    // Sobres legados de la 001: sus mascotas se elevan con upgradePet antes de validar contra PetProfile 3.0.0.
     for (const pet of fixtures.otherUserPets) expectValid(validatePetProfile, upgradePet(pet as never));
     expectValid(validateBackupEnvelopeV2Legacy, fixtures.validBackupEnvelopeV2);
     expectValid(validateBackupEnvelopeV1Legacy, fixtures.validLegacyBackupEnvelopeV1);
@@ -95,7 +109,7 @@ describe('contratos generados', () => {
   it('INV-ARCH-003: el catálogo generado coincide con error-catalog.json y cada ProblemDetails generado es válido', () => {
     const entries = errorCatalog.errors as Record<string, { status: number }>;
     expect(ERROR_CODES).toEqual(Object.keys(entries).sort());
-    expect(ERROR_CODES).toHaveLength(30);
+    expect(ERROR_CODES).toHaveLength(35);
     for (const code of ERROR_CODES) {
       const error = new DomainError(code);
       expect(error.status).toBe(entries[code]?.status);
@@ -117,8 +131,13 @@ describe('contratos generados', () => {
   });
 
   it('INV-ARCH-003: cada máquina se genera desde su propio archivo y no existe máquina de cupo', () => {
+    // Los estados generados coinciden con los de cada archivo de máquina de la 002 (INV-ARCH-003).
+    expect([...STATE_ALERT_001_STATES]).toEqual(statesOf(alertMachine.machines['STATE-ALERT-001'].states));
+    expect([...STATE_AUTH_SESSION_001_STATES]).toEqual(statesOf(authSessionMachine.machines['STATE-AUTH-SESSION-001'].states));
+    expect([...STATE_HOUSE_MEMBERSHIP_001_STATES]).toEqual(statesOf(householdMachine.machines['STATE-HOUSE-MEMBERSHIP-001'].states));
+    expect([...STATE_BACKUP_001_STATES]).toEqual(statesOf(backupMachine.machines['STATE-BACKUP-001'].states));
     expect(STATE_ALERT_001_STATES).toEqual(['SUPERSEDED', 'OVERDUE', 'DUE_SOON', 'UP_TO_DATE']);
-    expect(STATE_AUTH_SESSION_001_STATES).toEqual(['ANONYMOUS', 'AUTHENTICATED', 'EXPIRED', 'LOGGED_OUT']);
+    expect(STATE_AUTH_SESSION_001_STATES).toEqual(['ANONYMOUS', 'AUTHENTICATED', 'EXPIRED_IDLE', 'EXPIRED', 'LOGGED_OUT', 'REVOKED']);
     expect(STATE_HOUSE_MEMBERSHIP_001_STATES).toEqual(['INVITED', 'ACTIVE', 'DECLINED', 'CANCELLED', 'LEFT', 'REMOVED']);
     expect(STATE_BACKUP_001_STATES).toEqual([
       'IDLE',
@@ -130,6 +149,7 @@ describe('contratos generados', () => {
       'COMMITTING_SNAPSHOT',
       'COMPLETED',
       'ROLLED_BACK',
+      'PREVIEW_READY',
     ]);
     expect(Object.keys(generated).filter((name) => name.includes('QUOTA'))).toEqual([]);
   });

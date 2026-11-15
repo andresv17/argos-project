@@ -16,7 +16,7 @@
 - **[Story]**: historia de la spec (US1 a US8). `[F7]` marca los prerequisitos de herramientas.
 - **[N2]**: requiere autorización de Neo (Nivel 2).
 - Los identificadores entre paréntesis al final de una tarea son los que verifica su compuerta: `bash scripts/verify-traceability.sh --feature 002 --task T###` (el parámetro `--feature` lo crea T204).
-- Numeración: las tareas de la 002 empiezan en `T201` para no confundirse con las `T001..T0xx` de la 001. Los `SC-*` se citan como criterio de aceptación; el script no los exige, la compuerta final de T311 sí los revisa a mano contra el mapa del quickstart.
+- Numeración: las tareas de la 002 empiezan en `T201` para no confundirse con las `T001..T0xx` de la 001. Los `SC-*` se citan como criterio de aceptación; el script no los exige, la compuerta final de T309 sí los revisa a mano contra el mapa del quickstart.
 
 ## Path Conventions
 
@@ -43,7 +43,7 @@
 - [x] T202 [F7] Hacer que `scripts/compile-contracts.sh` acepte `--feature 001|002` (por defecto 001) y verifique la existencia de los 13 contratos de la 002 en `specs/002-plataforma-v21/contracts/` (INV-ARCH-003, ERR-SCHEMA-VALIDATION-FAILED)
 - [x] T203 [F7] Hacer que `scripts/codegen.mjs` lea `--contracts specs/002-plataforma-v21/contracts` sin cambiar su salida determinista, y que registre solo las palabras `x-sdd-metadata`, `x-sdd-status` y `x-sdd-error` (INV-ARCH-003, ERR-SCHEMA-VALIDATION-FAILED)
 - [x] T204 [F7] [N2] Hacer que `scripts/verify-traceability.sh` acepte `--feature 002` (spec, contratos, catálogo y `tasks.md` de la feature), que su expresión de IDs admita dígitos en el segmento (`REQ-AUTH2-001`, `REQ-HOUSE2-004`, `INV-REC2-002`, `STATE-ACCOUNT-DELETE-001`) y que excluya como vigentes los IDs que la tabla «Trazabilidad con la Feature 001» marca como reemplazados (INV-ARCH-001, INV-ARCH-002, INV-ARCH-006)
-- [ ] T204a [N2] [F7] Firma de Neo de la enmienda del principio III (3.2.0), dependiente de T204 y bloqueante de T306. Nivel 2.
+- [x] T204a [N2] [F7] Firma de Neo de la enmienda del principio III (3.2.0), dependiente de T204 y bloqueante de T306. Nivel 2.
 - [x] T205 [P] [F7] [N2] Ajustar `scripts/verify-oracles.sh`, `tests/unit/layer-dependencies.spec.ts` y las rutas fijas de `.github/workflows/test-gate.yml` y `drift-detection.yml` solo para rutas multi-feature; el cambio de los flujos de CI es Nivel 2 y se escala a Neo antes de aplicarlo (INV-ARCH-004, INV-ARCH-002)
 - [x] T206 [F7] Compuerta F7: `bash scripts/verify-traceability.sh` (001, debe seguir en CUMPLE), `bash scripts/verify-traceability.sh --feature 002` (debe ejecutarse y listar lo pendiente, sin error de uso), `npx tsc --noEmit` y `npm run test:gate` en verde con la 001 intacta (INV-ARCH-001, INV-ARCH-003)
 
@@ -268,12 +268,16 @@
 - [x] T299 [P] Vectores V14, V15 y V16 en `tests/security/exploits/`: actividad constante no supera 24 h y lo rechazado no renueva; cero apariciones del `userId` eliminado en auditoría y volcado; importación con `ownerUserId`, `role` o asignaciones falsos en 1.0.0, 2.0.0 y 3.0.0 (INV-AUTH2-002, INV-AUD-001, SC-014, REQ-BACKUP2-002, ERR-BACKUP-SCHEMA-INVALID)
 - [x] T300 [P] Los 9 vectores originales de la constitución ejecutados con los 4 roles (IDOR, hogares ajenos, sin sesión, sesión expirada, CSRF, enumeración por tiempo, prototype pollution, payload mayor de 10 MB y XSS almacenado) (SC-003, INV-ACC2-001, INV-ACC2-002, INV-AUTH-006, INV-AUTH-007, ERR-BACKUP-PAYLOAD-TOO-LARGE)
 - [x] T301 [P] Pruebas adicionales: la interfaz no hace peticiones autenticadas en segundo plano, la invitación devuelve el mismo cuerpo y un tiempo similar exista o no el `username`, y un escáner de logs no encuentra `userId`, `username`, `email`, token ni cookie sembrados (INV-AUTH2-002, INV-HOUSE-003, INV-AUTH-003, INV-AUD-001)
-- [ ] T302 Sentinels y Trinity ejecutan la batería completa de 16 vectores y los hallazgos vuelven a Keymaker por Caso A; los que cambian contrato vuelven a Architect por Caso B (SC-003, INV-AUTH-007, ERR-AUTH-CSRF-REJECTED)
+- [x] T302 Sentinels y Trinity ejecutan la batería completa de 16 vectores y los hallazgos vuelven a Keymaker por Caso A; los que cambian contrato vuelven a Architect por Caso B (SC-003, INV-AUTH-007, ERR-AUTH-CSRF-REJECTED)
+
+### Ruta pendiente de la rebanada 3 (hallazgo H-T304-2)
+
+- [x] T311 Servir en Fastify la ruta `DELETE /households/:householdId/invitations/:invitationId` (`operationId: cancelInvitation`, respuesta `204`; `401`, `403`, `404` y `500` como Problem RFC 9457), conectada al caso de uso `CancelHouseholdInvitationUseCase` (transición `INVITED` a `CANCELLED`, acción RBAC `MANAGE_HOUSEHOLD_MEMBERS`, cabecera CSRF obligatoria), en `src/presentation/` junto a las rutas de hogares; retirar `cancelInvitation` de `NOT_YET_SERVED` en `tests/security/exploits/session-csrf.security.spec.ts` y llegar a las 40 operaciones del OpenAPI 3.0.0 servidas, con la prueba de conformidad y el recorrido feliz sobre las 40 (REQ-HOUSE2-002, STATE-HOUSE-MEMBERSHIP-001, REQ-RBAC-001, INV-ACC2-002, INV-AUTH-007, contrato `contracts/openapi/pet-tracker-api.openapi.yaml` `cancelInvitation`, SC-003)
 
 ### Mutación, regresión y compuerta final
 
-- [ ] T303 Actualizar `tests/mutation/stryker.conf.json` a los módulos nuevos (`src/domain/**`, `src/application/**`) y cazar los mutantes sobrevivientes hasta Stryker ≥ 85 % con Seraph y Dojo, sin relajar ninguna prueba (INV-ARCH-001, SC-002)
-- [ ] T304 Regresión completa de la 001 vigente: todas las pruebas de la tabla de sustitución en estado «sustituida» y todas las no listadas en verde, sin pruebas borradas, comentadas ni relajadas (SC-002, INV-ARCH-004)
+- [x] T303 Actualizar `tests/mutation/stryker.conf.json` a los módulos nuevos (`src/domain/**`, `src/application/**`) y cazar los mutantes sobrevivientes hasta Stryker ≥ 85 % con Seraph y Dojo, sin relajar ninguna prueba (INV-ARCH-001, SC-002)
+- [x] T304 Regresión completa de la 001 vigente: todas las pruebas de la tabla de sustitución en estado «sustituida» y todas las no listadas en verde, sin pruebas borradas, comentadas ni relajadas (SC-002, INV-ARCH-004)
 - [ ] T305 `bash scripts/verify-oracles.sh` sin oráculos débiles sobre las pruebas nuevas y sustituidas (INV-ARCH-002)
 - [ ] T306 `bash scripts/verify-traceability.sh --feature 002` en compuerta final: 100 % de los `REQ`, `INV`, `STATE` y `ERR` vigentes con `@implements` en `src/` y título de prueba en `tests/`; depende de T204a (firma de Neo de la enmienda del principio III) (SC-002, INV-ARCH-001, INV-ARCH-002)
 - [ ] T307 Revisar a mano el mapa del quickstart §4: `SC-001` a `SC-017` con su prueba nombrada, y listar los que carezcan de ella (SC-001, SC-002, SC-003, SC-004, SC-005, SC-006, SC-007, SC-008, SC-009, SC-010, SC-011, SC-012, SC-013, SC-014, SC-015, SC-016, SC-017)

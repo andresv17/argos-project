@@ -23,7 +23,9 @@ import {
  * DEUDA-TEST-001 sobre la API generada v2: validateX en vez de validateXSchema, sobre v2 y v1 heredado, catálogo v2.1.1).
  */
 const fixtures = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/examples/canonical-fixtures.json'), 'utf8'));
-const catalog = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/001-pet-health-tracker/contracts/errors/error-catalog.json'), 'utf8'));
+/** Fixtures de la 002 (fila 35 de la tabla de sustitución): entidades canónicas y catálogo de 35 códigos que generan src/generated/. */
+const fixtures002 = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/002-plataforma-v21/contracts/examples/canonical-fixtures.json'), 'utf8'));
+const catalog = JSON.parse(readFileSync(resolve(process.cwd(), 'specs/002-plataforma-v21/contracts/errors/error-catalog.json'), 'utf8'));
 
 interface Validator {
   (data: unknown): boolean;
@@ -59,17 +61,26 @@ describe('contracts/examples/canonical-fixtures.json -> src/generated/', () => {
   });
 
   it('[REQ-PET-001][REQ-HOUSE-001] usuarios, hogar, membresías y mascotas de otro usuario del fixture cumplen sus esquemas', () => {
+    const e = fixtures002.entities;
     expect([
-      fixtures.users.map((u: unknown) => validateUserPublicProfile(u)),
-      validateHousehold(fixtures.household),
-      fixtures.householdMembers.map((m: unknown) => validateHouseholdMember(m)),
+      e.users.map((u: unknown) => validateUserPublicProfile(u)),
+      validateHousehold(e.household),
+      e.householdMembers.map((m: unknown) => validateHouseholdMember(m)),
+      e.pets.map((p: unknown) => validatePetProfile(p)),
+      // Mascota de otro usuario del fixture 001, elevada con upgradePet (solo caso legado).
       fixtures.otherUserPets.map((p: never) => validatePetProfile(upgradePet(p))),
-    ]).toEqual([[true, true, true, true], true, [true, true, true], [true]]);
+    ]).toEqual([
+      e.users.map(() => true),
+      true,
+      e.householdMembers.map(() => true),
+      e.pets.map(() => true),
+      [true],
+    ]);
   });
 
   it('[REQ-PET-001] rechaza propiedades no autorizadas (additionalProperties: false) y textos con espacios laterales o vacíos', () => {
-    const pet = upgradePet(fixtures.validBackupEnvelopeV2.pets[0]);
-    const vaccine = fixtures.validBackupEnvelopeV2.records.vaccinations[0];
+    const pet = fixtures002.entities.pets[0];
+    const vaccine = fixtures002.entities.records.vaccinations[0];
     expect([
       firstError(validatePetProfile, { ...pet, unexpectedHackField: 'intrusion' }),
       firstError(validatePetProfile, { ...pet, name: '  Argos  ' }),
@@ -79,7 +90,7 @@ describe('contracts/examples/canonical-fixtures.json -> src/generated/', () => {
   });
 
   it('[REQ-REC-001][REQ-REC-002][REQ-REC-003][REQ-REC-004][REQ-REC-005][REQ-REC-006] cada registro de los 6 módulos del sobre canónico cumple su esquema', () => {
-    const r = fixtures.validBackupEnvelopeV2.records;
+    const r = fixtures002.entities.records;
     const checks: Array<[Validator, unknown[]]> = [
       [validateWeightRecord, r.weights],
       [validateBodyMeasurementRecord, r.bodyMeasurements],
@@ -91,8 +102,8 @@ describe('contracts/examples/canonical-fixtures.json -> src/generated/', () => {
     expect(checks.map(([validate, list]) => list.every((x) => validate(x)))).toEqual([true, true, true, true, true, true]);
   });
 
-  it('[ERR-INTERNAL-UNEXPECTED] ERROR_CATALOG generado coincide con error-catalog.json: los 30 códigos vigentes y ninguno más', () => {
+  it('[ERR-INTERNAL-UNEXPECTED] ERROR_CATALOG generado coincide con error-catalog.json: los 35 códigos vigentes de la 002 y ninguno más', () => {
     expect([Object.keys(ERROR_CATALOG).sort(), ERROR_CATALOG['ERR-INTERNAL-UNEXPECTED'].status]).toEqual([Object.keys(catalog.errors).sort(), 500]);
-    expect(Object.keys(ERROR_CATALOG)).toHaveLength(30);
+    expect(Object.keys(ERROR_CATALOG)).toHaveLength(35);
   });
 });

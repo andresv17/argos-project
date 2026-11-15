@@ -118,15 +118,31 @@ function runCompile(args: string[], cwd = ROOT): { status: number | null; output
 }
 
 describe('T201: contratos multi-feature (compile-contracts.sh --feature y codegen.mjs --contracts)', () => {
-  it('INV-ARCH-003: --feature 001 equivale al valor por defecto', { timeout: SLOW }, () => {
-    // T207: src/generated ya es el de la 002, así que 001 se compara con el valor por defecto y no con src/generated.
+  it('INV-ARCH-003: --feature 002 equivale al valor por defecto', { timeout: SLOW }, () => {
+    // T207: el valor por defecto de compile-contracts.sh es la 002; con --feature 002 la salida es idéntica a la del valor por defecto.
+    const out = makeTempDir();
+    const res = runCompile(['--feature', '002', '--out', out]);
+    expect(res.status).toBe(0);
+    expect(res.output).toContain('specs/002-plataforma-v21/contracts/');
+    const byDefault = makeTempDir();
+    const defaultRun = runCompile(['--out', byDefault]);
+    expect(defaultRun.status).toBe(0);
+    expect(defaultRun.output).toContain('specs/002-plataforma-v21/contracts/');
+    expect(readTree(out)).toEqual(readTree(byDefault));
+  });
+
+  it('INV-ARCH-003: --feature 001 compila los contratos 001 en --out sin tocar src/generated (regresión de la 001)', { timeout: SLOW }, () => {
+    const before = readTree(GENERATED);
     const out = makeTempDir();
     const res = runCompile(['--feature', '001', '--out', out]);
     expect(res.status).toBe(0);
     expect(res.output).toContain('specs/001-pet-health-tracker/contracts/');
+    expect(existsSync(join(out, 'index.ts'))).toBe(true);
+    // La 001 ya no es el valor por defecto: su salida difiere de la de la 002 y src/generated queda intacto.
     const byDefault = makeTempDir();
     expect(runCompile(['--out', byDefault]).status).toBe(0);
-    expect(readTree(out)).toEqual(readTree(byDefault));
+    expect(readTree(out)).not.toEqual(readTree(byDefault));
+    expect(readTree(GENERATED)).toEqual(before);
   });
 
   it('INV-ARCH-003: --feature 002 verifica los contratos de la 002 y genera en --out sin tocar src/generated', { timeout: SLOW }, () => {

@@ -22,3 +22,40 @@
 - Lectura en disco: git (rama 002-plataforma-v21, HEAD 425c006, 3 commits sin subir), tasks.md (95 [x], 16 [ ], 6 en REVIEW), handover-morpheus-2026-11-14.md, veredicto-auditor-pieza-t295-v25.md, entrega-T295-pieza-sati.md, bus registro-proceso-argos.md.
 - Hallazgo: T295 (revisión visual de Sati) abierta a la espera de decisiones D-N1 (conflicto de previsualización de respaldo) y D-N2 (menú de navegación en móvil) de Neo. H-V25-1 (orden de foco en nav < 1024 px) ALTO sin corregir.
 - Sin edición de specs, código ni handovers.
+
+## 2026-11-14 — Consulta "ya terminamos feature 2? o estamos por terminarla?" (Neo)
+- Lectura en disco: tasks.md 002 (111 casillas: 96 [x], 15 [ ]; 6 en REVIEW), handover-morpheus-2026-11-14.md, registro-proceso-argos.md (cola), veredicto-auditor-fallos-gate-t296.md, gate-T296-output.txt, git (rama 002-plataforma-v21, HEAD bf30703, ahead 5 de origin).
+- Hallazgo: feature 002 NO terminada. Quedan 15 casillas: T204a (firma de Neo, N2), T297–T310 (fase 8: vectores de seguridad, mutación, regresión 001, compuerta final y veredicto de Oracle). T306 bloqueada por T204a.
+- Hallazgo: gate-T296-output.txt registra 26 pruebas fallidas. Oracle (veredicto-auditor-fallos-gate-t296.md) las marca HEREDADAS de la línea base en el subconjunto de presentación; no verifiqué las 14 restantes.
+- Pendientes de Neo: 5 decisiones de la rebanada 6 del handover (respaldos de spec, grilla 1280 px, 12 pruebas obsoletas, 422 que expone detalle del validador, reorganización del portal), T204a y autorizar push.
+- Sin edición de specs, código ni handovers.
+
+## 2026-11-14 — Consulta "qué es Stryker?" (Neo)
+- Lectura en disco: package.json (script test:mutation, @stryker-mutator 10.1.1), tests/mutation/stryker.conf.json, claude/handover-neb-crew-2026-11-14.md, claude/hallazgos-t303-mutacion.md.
+- Explicado a Neo en lenguaje sencillo: Stryker = herramienta de mutation testing (altera el código a propósito para comprobar que las pruebas lo detectan).
+- Estado: mutación oficial NO concluida (SIGKILL al 15 
+## 2026-11-14 — Consulta "qué es Stryker?" (Neo)
+- Lectura en disco: package.json (script test:mutation, @stryker-mutator 10.1.1), tests/mutation/stryker.conf.json, claude/handover-neb-crew-2026-11-14.md, claude/hallazgos-t303-mutacion.md.
+- Explicado a Neo en lenguaje sencillo: Stryker = herramienta de mutation testing (altera el código a propósito para comprobar que las pruebas lo detectan).
+- Estado: mutación oficial NO concluida (SIGKILL al 15 %, sin informe). T303 y T309 abiertas.
+- Sin edición de specs, código ni handovers.
+
+- 2026-11-14 19:47 Neb: consulta "estado de mutación". Disco: Stryker vivo (PID 95969 y workers), salida mutacion-oficial-2026-11-14-b.txt en scratchpad de 515ca0fd, 1314/3457 (30 %) a las 19:47, sin errores SIGKILL hasta ahora (la corrida anterior moría al 15 %). Sin informe final aún. Solo lectura, sin commit ni push.
+
+- 2026-11-14 19:49 Neb: Neo pregunta si debe volver en 40 min y si la mutación consume tokens. Respuesta: Stryker y Vitest son procesos locales de Node, sin llamadas a modelos, no consumen tokens. Riesgo: si el Mac se suspende o se cierra la sesión que lanzó el proceso, puede morir. Solo lectura.
+
+- 2026-11-14 19:50 Neb: Neo cree que la feature 002 casi termina. Disco: tasks.md 102 [x], 10 [ ]; T303, T304 y T309 abiertas. Mutación 35 % (1550/3457) 19:50, sin SIGKILL. Corrijo: la caída anterior SIGKILL no tiene causa confirmada en disco; Neo indica que él terminó los procesos. Recomiendo caffeinate -dimsu -w 95948 para mantener el Mac activo. Solo lectura.
+
+- 2026-11-14 19:53 Neb: Neo pregunta si la feature 002 solo depende de pruebas de seguridad. Disco: 10 tareas abiertas: T302 (Sentinels/Trinity), T303 (mutación), T304 (regresión 001), T305 (oráculos), T306 (trazabilidad, depende de T204a), T307 (mapa SC), T308 (recorrido manual Zee/Kid), T309 (compuerta final), T310 (veredicto Oracle), T311 (endpoint cancelInvitation). Respuesta: no, la seguridad es solo una parte. Solo lectura.
+
+- 2026-11-14 19:54 Neb: Neo pide validar firma T204a (solo lectura). Disco: enmienda-principio-iii-002-borrador.md dice "ENMIENDA RATIFICADA Y FIRMADA POR NEO (NIVEL 2)", fecha 2026-11-14; constitution.md en 3.2.0 con firma T204a; tasks.md T204a [x]. Registro 2026-11-14 Morpheus: Neo ratifica 5 puntos. Pendiente: archivos sin commit (M). Sin cambios en repo.
+
+- 2026-11-14 19:55 Neb: Neo pregunta si la feature 002 se termina hoy. Respuesta: no es realista. Quedan 9 tareas abiertas (T302, T303, T304, T305, T307, T308, T309, T310, T311), incluidas implementación de T311, 11 suites rojas de la 001 por corregir, mutación al 35 % y recorrido manual con personas (T308). Solo lectura.
+
+- 2026-11-14 19:56 Neb: Neo pregunta cuántas horas tomaría cerrar la 002. Estimación (no medida): 12 a 20 h de trabajo efectivo, 2 a 3 días con esperas, reruns de mutación (~1 h cada una) y T308 con personas. Solo lectura.
+
+- 2026-11-14 19:58 Neb: Neo supone que F3 (Cloud), F4 (mejoras) y F5 (IA) serán más cortas. Disco: no hay definición de F3-F5 en el repo (solo specs 001 y 002). Respuesta: no necesariamente; la seguridad no se reduce con cada fase, y F3 (infraestructura) y F5 (riesgos de IA) suman superficie. Solo lectura.
+
+- 2026-11-14 20:00 Neb: Neo prefiere calidad y seguridad sobre velocidad. Las fases F3-F5 no se han comentado a otros agentes; se lanzarán tras cerrar la 002. Solo lectura.
+
+- 2026-11-14 20:01 Neb: Neo pide avance antes de descansar. Mutación 41 % (1829/3457), 20:01, 30 sobrevivientes, 30 timeouts, sin SIGKILL, PID 95948 vivo, caffeinate activo (PID 19571). Estimado ~45 min restantes (~20:45). T303 y demás abiertas. Solo lectura.
