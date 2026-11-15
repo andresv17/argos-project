@@ -1174,3 +1174,4 @@
 - 2026-11-14 21:48 Morpheus: T308 repetido 7/7 PASA (Zee/Kid). Marco T284 y T291 [x] por autorización de Neo (iter 72). Lanzo compuertas T309 en serie.
 - 2026-11-14 21:52 Morpheus: Oracle T310 CUMPLE CON RESERVAS (R-1 mapa SC-002; R-2 árbol sin commitear antes de push; R-3 menores). Architect anota R-1. Escalo a Neo: marcas [x], commit del árbol, etiqueta y push.
 - 2026-11-14 21:52 Morpheus: Architect ajusta mapa-sc-002 L27 a SIN PRUEBA PROPIA: 0. Sin commit; el commit del mapa va con el árbol pendiente tras decisión de Neo (R-2).
+- 2026-11-14 21:56 Morpheus: commit de cierre de la feature 002 ac14bfd (local, sin push). Árbol limpio salvo temporales excluidos. Ahead 9. Etiqueta y push: Neo.

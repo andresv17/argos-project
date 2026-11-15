@@ -729,3 +729,4 @@
 2026-11-14 Morpheus: Oracle T310 CUMPLE CON RESERVAS. Pendiente Neo: marcas, commit del árbol (R-2), etiqueta y push.
 2026-11-14 Architect: mapa-sc-002.md L8/L30 SC-002 actualizado a aceptado por Neo (it. 70) vía T306+T305+suite verde; reserva visible. Sin commit.
 2026-11-14 Architect: mapa-sc-002.md L27 conteo SIN PRUEBA ajustado a 0 (SC-002 aceptado por Neo). Sin commit.
+2026-11-14 Morpheus: commit de cierre feature 002 ac14bfd (local). Árbol limpio salvo temporales excluidos. Push y etiqueta: Neo.
