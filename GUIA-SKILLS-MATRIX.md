@@ -22,7 +22,7 @@ graph TD
     end
 
     subgraph ClaudeUniversal["Capa 1: Skills Universales (~/.claude/skills/)"]
-        UniversalCore["21 Roles de la Matrix:<br/>/architect, /mouse, /keymaker, /oracle, /morpheus<br/>/trinity, /seraph, /link, /sati, /hamann, /merovingian<br/>/lock, /rama, /mifune, /zion, /dojo, /neb, /logos<br/>/hardline, /smith, /sentinels"]
+        UniversalCore["20 Roles de la Matrix:<br/>/architect, /mouse, /keymaker, /oracle, /morpheus<br/>/trinity, /seraph, /link, /sati, /hamann, /merovingian<br/>/lock, /rama, /mifune, /zion, /dojo, /neb<br/>/hardline, /smith, /sentinels"]
         SpecKit["14 Comandos de GitHub Spec Kit:<br/>/speckit-specify, /speckit-plan, /speckit-tasks, etc."]
     end
 
@@ -38,8 +38,19 @@ graph TD
     ClaudeUniversal -->|"Orquesta & Colabora con"| ClaudeLocal
 ```
 
-- **Capa 1 (Universal en `~/.claude/skills/`):** 21 personajes de *The Matrix* + 14 herramientas de SpecKit que están disponibles en **todos tus proyectos** sin duplicar archivos.
+- **Capa 1 (Universal en `~/.claude/skills/`):** 20 personajes de *The Matrix* + 14 herramientas de SpecKit que están disponibles en **todos tus proyectos** sin duplicar archivos.
 - **Capa 2 (Local en `.claude/skills/`):** 4 personajes de dominio exclusivo de ARGOS (clínica veterinaria, mascotas, personas de hogar y telemetría de hardware).
+
+### Portabilidad Multi-Plataforma y el campo `model:` en `SKILL.md`
+> [!NOTE]
+> **Compatibilidad del campo `model:` entre proveedores:**
+> El atributo `model: haiku` o `model: sonnet` definido en el encabezado YAML (`frontmatter`) de las skills es una **característica exclusiva del runtime de Claude Code**. Permite que el CLI alterne dinámicamente el subagente para optimizar cuotas y costes (FinOps).
+>
+> En otras plataformas de agentes (como **Google Antigravity / Gemini** o **OpenAI / Codex / ChatGPT**), **no existe una funcionalidad equivalente** para cambiar el modelo desde el archivo markdown de una skill:
+> - Si estas skills se instalan o consumen en **Antigravity**, **Cursor** o **OpenAI**, el campo `model:` **se ignora de forma segura y silenciosa**.
+> - La skill se ejecutará con el modelo que el usuario tenga seleccionado activamente en esa plataforma (por ejemplo, Gemini 1.5/2.0 Flash/Pro en Antigravity, o GPT-4o en OpenAI).
+> 
+> De esta forma, mantenemos el ahorro automático de tokens en Claude Code sin comprometer la portabilidad universal del contenido ni generar errores en otros proveedores.
 
 ---
 
@@ -58,7 +69,7 @@ Estas skills viven dentro de la carpeta `.claude/skills/` de ARGOS porque contie
 
 ## 3. Skills Universales Activas en ARGOS (`~/.claude/skills/`)
 
-Al abrir Claude Code en ARGOS, tienes acceso automático a las **21 skills universales** heredadas desde `~/.claude/skills/`:
+Al abrir Claude Code en ARGOS, tienes acceso automático a las **20 skills universales** heredadas desde `~/.claude/skills/`:
 
 ### A. Escuadra Principal (Uso diario — 90% del tiempo)
 - **`/architect`** → Arquitecto de Soluciones & SDD. Diseña el blueprint técnico integral (topología de capas, arquitectura limpia/hexagonal, puertos, adaptadores, flujos de datos y ADRs), specs, constitución y contratos formales. Entrega planos claros a Keymaker. No toca código.
@@ -84,10 +95,14 @@ Al abrir Claude Code en ARGOS, tienes acceso automático a las **21 skills unive
 - **`/zion`** → Arena de debate multi-agente (`1v1`, `Escuadrón`, `Clan 7v7`) para destrabar decisiones difíciles.
 - **`/dojo`** → Refactorización continua y planes de limpieza de deudas técnicas (`DEUDA-*`).
 - **`/neb`** → Traductor del código verde. Explica en español sencillo en qué va el proyecto y qué firmas de Neo faltan.
-- **`/logos`** → Sincronizador del bus central `claude/registro-proceso-argos.md` entre sesiones.
 - **`/hardline`** → Cierre de sesión y extracción de contexto. *(Se dispara solo al decir **"cerremos sesión"**)*.
 
-### E. Red Team
+### E. Canal de Comunicación Logos (Nave Logos — Comunicación Autónoma Inter-Agente)
+La **Nave Logos** es el canal de enlace autónomo y continuo entre **The Source** (Google Antigravity / Gemini) y **Morpheus** (Claude Code):
+- **Encendido del Canal:** Escribe `"Morpheus: enciende la Logos"` (o `"Source: enciende la Logos"`). Ambos agentes intercambian directivas y entregas auditadas mediante `logos.json` y `scripts/logos.py`.
+- **Apagado Inmediato (Modo Manual):** Escribe `"apaga la Logos"`, `"desactiva la Logos"` o `"apagar canal"`. El canal se desconecta en el acto, se suspende la ejecución de scripts, no se toca `logos.json` y toda la comunicación revierte a texto plano directo contigo.
+
+### F. Red Team
 - **`/smith`** → Chaos Engineering. Simula caídas de SQLite, cortes a mitad de transacciones y fallos de disco.
 - **`/sentinels`** → Los 9 Centinelas. Evalúa los 9 vectores de exploit (IDOR, CSRF, XSS, fuerza bruta, >10 MB, etc.).
 
@@ -120,7 +135,7 @@ cerremos sesión
 - **Guía de Skills de ARGOS:** `GUIA-SKILLS-MATRIX.md`
 - **Guía Universal (Global):** `~/.claude/GUIA-SKILLS-MATRIX.md`
 - **Skills Locales (4):** `.claude/skills/{maggie,zee,kid,niobe}/SKILL.md`
-- **Skills Universales (21):** `~/.claude/skills/<nombre>/SKILL.md`
+- **Skills Universales (20):** `~/.claude/skills/<nombre>/SKILL.md`
 - **Plano de Control Soberano:** `~/.gemini/config/skills/source/SKILL.md`
 - **Bitácora Soberana de Source:** `~/.gemini/config/skills/source/references/bitacoras/bitacora-<slug>.md` (ej. `bitacoras/bitacora-proyecto-argos.md`)
 - **Memoria viva y logs en disco:** `claude/registro-proceso-argos.md` y `claude/log-<personaje>.md`

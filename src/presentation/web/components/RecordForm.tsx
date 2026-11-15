@@ -6,11 +6,12 @@
 import { useState } from 'react';
 import { Button, FormError, SelectField, TextField } from './Field.tsx';
 import { initialRecordValues, type RecordModuleSpec } from '../records.ts';
+import type { FormBody } from '../validation.ts';
 import { useContractForm } from '../use-contract-form.ts';
 
 export function RecordForm({ spec, onSubmit }: {
   readonly spec: RecordModuleSpec;
-  readonly onSubmit: (body: Record<string, string | number>) => Promise<void>;
+  readonly onSubmit: (body: FormBody) => Promise<void>;
 }): JSX.Element {
   const [saved, setSaved] = useState(false);
   const form = useContractForm({

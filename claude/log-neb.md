@@ -59,3 +59,15 @@
 - 2026-11-14 20:00 Neb: Neo prefiere calidad y seguridad sobre velocidad. Las fases F3-F5 no se han comentado a otros agentes; se lanzarán tras cerrar la 002. Solo lectura.
 
 - 2026-11-14 20:01 Neb: Neo pide avance antes de descansar. Mutación 41 % (1829/3457), 20:01, 30 sobrevivientes, 30 timeouts, sin SIGKILL, PID 95948 vivo, caffeinate activo (PID 19571). Estimado ~45 min restantes (~20:45). T303 y demás abiertas. Solo lectura.
+
+- 2026-11-14 21:04 Neb: Neo pide estado tras pruebas. Disco: mutación oficial terminó EXIT=0, score 88.98 (>=85), 64 min. Commits nuevos ac566de (cierre ola 2) y 11637e0 (registro T304). tasks.md: 106 [x], 6 [ ] (T305-T310). T302, T303, T304 y T311 aparecen [x] en ac566de; tasks.md línea 321 dice que [x] solo con aprobación humana, agentes dejan REVIEW. Marca a verificar con Neo. Solo lectura.
+
+- 2026-11-14 21:07 Neb: Neo pregunta si 85 % es estándar y qué validan las pruebas de mutación. Disco: umbral 85 en tests/mutation/stryker.conf.json; alcance src/domain y src/application (50 archivos). Por archivo bajo 85 %: ownership-transfer 80.95, weight-limits 80.65, estimated-age 83.33, record-invariants 84.26, import-hardening 84.75. Solo lectura.
+
+- 2026-11-14 21:10 Neb: Neo pregunta si 88.98 % es buen puntaje. Respuesta: sólido y por encima del umbral del proyecto; buen nivel para lógica de negocio; no excepcional; el promedio oculta archivos bajo 85 %. Solo lectura.
+
+- 2026-11-14 21:12 Neb: Neo ve a Zee y Kid probando el portal. Disco: vite (5173) y API (3100) en escucha desde 21:08; Chrome abierto; Morpheus lanzó T308 por agentes (autorizado por Neo). Zee y Kid son personas de agente, no humanos: corrijo mi estimado previo que suponía personas. Coverage 88.29 % < 95 % = Caso B pendiente de Neo. Solo lectura.
+
+- 2026-11-14 21:18 Neb: Neo pregunta si está cerca de cerrar 002. Respuesta: cerca en pasos, con 3 dependencias: decisión de Neo sobre cobertura 88.29 % (Caso B), evidencia de T308 y T307 (SC-002), y veredicto de Oracle T310 antes de COMPLETED y push. Solo lectura.
+
+- 2026-11-14 21:50 Neb: Neo pregunta si ya empezó la mutación de T309 (1 h). Disco 21:50: no hay Stryker vivo. Keymaker ejecutó compuertas en serie (1-6 OK excepto coverage 88.29 % < 95 %); test:mutation NO relanzado (evidencia lo marca como prohibido, usa 88.98 % aprobado). T309 literal incluye test:mutation: desviación que requiere decisión de Neo. Solo lectura.

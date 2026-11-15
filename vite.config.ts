@@ -33,6 +33,8 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/domain/**', 'src/application/**'],
+      // src/application/ports/** son interfaces puras sin sentencias ejecutables (decisión de Neo, 2026-11-14); el umbral sigue en 95.
+      exclude: ['src/application/ports/**'],
       reporter: ['text-summary', 'json-summary'],
       reportsDirectory: 'coverage',
       thresholds: { lines: 95, branches: 95 },

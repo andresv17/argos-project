@@ -204,3 +204,14 @@
 - grep en disco: rebanada6-recorridos.spec.ts L120 contiene la prueba «recargar con page.reload() mantiene la sesión» (`page.reload()` L127, `GET /auth/me` L134 con [200, null, username], cookie `argos_session` igual L136).
 - Siguen confirmados: nine-vectors-four-roles.security.spec.ts L252 (V9 por cuatro roles) y tests/e2e/accessibility/wcag.spec.ts (cuatro anchos, L147-L151). El verde (3/3 aislado, 8/8) lo aporta Keymaker; no reejecuté.
 - Solo se edita la columna Estado de la fila 20; sin tocar tasks.md, src/, tests/ ni commit.
+
+### 2026-11-14 — Architect: T307, revisión a mano del mapa SC-001..SC-017 del quickstart §4 (sin commit)
+- grep en tests/ por ID `SC-0NN` y por título: 16 de 17 SC tienen al menos un título `it/test` que los cita (incluye SC-007 y SC-008, SC-009 y SC-006).
+- Hallazgo: el mapa §4 NO lista SC-002 ni SC-007 como filas propias. SC-007 sí tiene prueba (rebanada6-recorridos.spec.ts L63). SC-002 (100 % de IDs con implementación y prueba) no la cita ninguna prueba en tests/; lo cubre la compuerta `scripts/verify-traceability.sh` (T306), que verify-gates.spec.ts prueba solo como herramienta.
+- Resultado en `.specify/memory/audits/mapa-sc-002.md`. Sin tocar tasks.md, src/, tests/ ni contratos.
+
+### 2026-11-14 — Architect: mapa-sc-002.md, SC-002 pasa a aceptado por Neo (sin commit)
+- Instrucción de Morpheus con decisión de Neo (Logos, iteración 70): SC-002 queda cubierto por T306 (118/118 IDs, pureza 0) + T305 (0 débiles) + suite verde.
+- Se editan SOLO L8 (fila SC-002) y L30 (nota SC-002) de `.specify/memory/audits/mapa-sc-002.md`; la reserva «sin prueba propia en tests/» se mantiene visible.
+- Sin tocar tasks.md, src/, tests/, contratos ni commit.
+- 2026-11-14 Architect: mapa-sc-002.md L27 ajustada a «SIN PRUEBA PROPIA: 0» por aprobación de Morpheus; solo esa línea, sin commit.

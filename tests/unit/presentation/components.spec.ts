@@ -87,7 +87,7 @@ describe('componentes de la SPA (render estático)', () => {
   it('[REQ-UI-004] cada campo del formulario tiene etiqueta asociada por id', () => {
     const markup = html(h(PetForm, { profile: profile('p1', 'Argos'), onSubmit: asyncNoop, onCancel: noop }));
     const ids = [...markup.matchAll(/<(?:input|select)[^>]* id="([^"]+)"/g)].map((m) => m[1]);
-    expect([ids.length, ids.every((id) => markup.includes(`for="${id}"`)), markup.includes('value="Argos"')]).toEqual([6, true, true]);
+    expect([ids.length, ids.every((id) => markup.includes(`for="${id}"`)), markup.includes('value="Argos"')]).toEqual([9, true, true]);
   });
 
   it('[REQ-PET-004] la confirmación de eliminación arranca con el botón deshabilitado', () => {

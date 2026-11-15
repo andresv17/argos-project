@@ -1141,3 +1141,36 @@
 - 2026-11-14 20:54 Morpheus: Architect no confirma escenario recargar-sigue-autenticado de fila 20; fila queda pendiente. Pido a Keymaker una prueba de recarga en tests/e2e, aislada, 3 corridas.
 - 2026-11-14 20:56 Morpheus: Keymaker añade prueba recarga-sigue-autenticado (rebanada6-recorridos.spec.ts:120), verde 3/3 aislado. Architect marca fila 20 citando ese archivo; luego Oracle revalida T304.
 - 2026-11-14 20:58 Morpheus: Oracle revalida T304 CUMPLE. Marcada T304 [x] por autorización de Neo (Logos). Commit local ac566de (sin push). Ahead 7.
+
+### 2026-11-14 21:03 — Morpheus: Logos reencendida; Neo autoriza compuerta final (iteración 68)
+- Neo ratifica ac566de y 11637e0; T302, T303, T304, T311 [x]. Autoriza T305, T306, T307, T309 (Keymaker y Oracle) y T308 (Zee y Kid por agentes). Push solo tras T310 y la aprobación de Neo por Logos.
+- Decisión de ruta: T307 y T308 se guardan en .specify/memory/audits/ (ruta canónica del CLAUDE.md), no en docs/audits que mencionó Neo. Lo informo a Neo.
+- T309: reutilizar el informe de mutación 88.98 % (EXIT=0). No relanzar los 64 min salvo que los archivos hayan cambiado.
+- Recursos: 8 GB RAM. Correr e2e y gates en secuencia, no en paralelo con Stryker ni vitest.
+- 2026-11-14 21:03 Morpheus: T307 (Architect): 16 SC cubiertos; SIN PRUEBA SC-002 (sólo cubierto por compuerta T306). Mapa §4 sin filas SC-002 ni SC-007. Decisión para Oracle/Neo: si T306 cuenta como evidencia de SC-002 o si hace falta prueba [SC-002].
+- 2026-11-14 21:07 Morpheus: Keymaker: T305 0, T306 0 (118/118), T309 contratos 0, tsc 0, e2e 53 OK. Coverage rojo 88.29 % < 95 % por 11 archivos de src/application/ports/ (sólo interfaces). Caso B: decisión de criterio para Neo. test:gate no ejecutable mientras incluya mutation. Lanzo T308 (no depende de cobertura).
+
+### 2026-11-14 21:30 — Morpheus: T308 terminado con 2 defectos altos (Caso A) que contradicen T284 y T291 [x]
+- Zee y Kid (agentes): 5 PASA, 2 FALLA parcial, 0 NO VERIFICADO. Informe: .specify/memory/audits/recorrido-aceptacion-quickstart-002.md.
+- H-T308-1 (alto): PetForm.tsx ofrece solo Perro y Gato (faltan 6 especies, speciesOther, neutered, microchip). Contradice T284 [x]. Afecta REQ-PET2-001 y SC-001.
+- H-T308-2 (alto): no hay UI para transferir propiedad de mascota/hogar ni cambiar roles de miembros. Contradice T291 [x]. Afecta REQ-OWN-001 y REQ-HOUSE2-002.
+- Menores: plural «1 mascotas»; sin confirmación al invitar ni al descargar; acordeón «Registros anteriores» vs «Reemplazados»; «Próximo refuerzo» marcado obligatorio.
+- Decisión mía: no lanzar Oracle para T310 mientras T309 (cobertura) y T308 (defectos altos) no tengan decisión de Neo.
+- Bloqueos para Neo: (1) cobertura, (2) SC-002 con T306, (3) reabrir T284 y T291 o aceptarlas como deuda.
+
+### 2026-11-14 21:40 — Morpheus: Neo resuelve por Logos (iteración 70)
+- Opción A cobertura: excluir src/application/ports/** en vite.config.ts con constancia en el informe de compuertas.
+- SC-002 aceptado con T306 + T305 + suite verde.
+- T284 y T291 reabiertas: marcadas [ ] en tasks.md por mí (orden de Neo).
+- Keymaker: 8 especies, speciesOther, birthDateIsEstimate, neutered, microchipId, controles de transferencia (mascota y hogar) y cambio de rol. Menores O-6 y O-4.
+- Después: repetir T308 con Zee y Kid, luego T309 (coverage, e2e, tsc, contratos, gate sin mutation) y Oracle para T310.
+- Aviso: la espera (Logos) salió con código 2 reportando estado OFF, pero logos.json mostraba IN_PROGRESS con la directiva de Neo. Actué según la directiva.
+- 2026-11-14 21:33 Morpheus: Keymaker implementa T284/T291 y menores; 1811/1812 vitest, la única roja es components.spec.ts:89 (cuenta de campos 6→9). Edición denegada por permiso; no la fuerzo. Escalo a Neo por Logos.
+
+### 2026-11-14 — Morpheus: Neo reactiva la Logos (iteración 72)
+- Neo editó en disco components.spec.ts:90 de [6,true,true] a [9,true,true] (15/15 verde, tsc 0).
+- Autoriza: repetir T308 con Zee y Kid; si T308 verde en 7 flujos, marcar T284 y T291 [x]; luego T309 (test:coverage y gate) y Oracle para T310.
+- Aviso mío: test:gate encadena test:mutation (64 min). Lo ejecuto sin mutation, salvo que Neo ordene lo contrario.
+- 2026-11-14 21:48 Morpheus: T308 repetido 7/7 PASA (Zee/Kid). Marco T284 y T291 [x] por autorización de Neo (iter 72). Lanzo compuertas T309 en serie.
+- 2026-11-14 21:52 Morpheus: Oracle T310 CUMPLE CON RESERVAS (R-1 mapa SC-002; R-2 árbol sin commitear antes de push; R-3 menores). Architect anota R-1. Escalo a Neo: marcas [x], commit del árbol, etiqueta y push.
+- 2026-11-14 21:52 Morpheus: Architect ajusta mapa-sc-002 L27 a SIN PRUEBA PROPIA: 0. Sin commit; el commit del mapa va con el árbol pendiente tras decisión de Neo (R-2).

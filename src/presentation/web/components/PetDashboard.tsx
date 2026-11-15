@@ -14,6 +14,7 @@ import { OwnerBadge } from './OwnerBadge.tsx';
 import { PetAvatar } from './PetAvatar.tsx';
 import { RecordForm } from './RecordForm.tsx';
 import { WeightChart, WeightTable } from './WeightChart.tsx';
+import type { FormBody } from '../validation.ts';
 import { RECORD_MODULES, RECORD_SUMMARY, RECORD_WRITE_PERMISSION, type RecordModule } from '../records.ts';
 import { formatAge, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type PetDashboardView } from '../view-model.ts';
 
@@ -45,7 +46,7 @@ function VaccinationItems({ items }: { readonly items: readonly Vaccination[] })
       {items.map(({ record, alert }) => (
         <li key={record.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
           <span className="text-sm tabular-nums">
-            <strong>{record.vaccineName}</strong> · aplicada {record.appliedAt} · refuerzo {record.nextBoosterAt}
+            <strong>{record.vaccineName}</strong> · aplicada {record.appliedAt}{record.nextBoosterAt === null ? '' : ` · refuerzo ${record.nextBoosterAt}`}
           </span>
           <AlertBadge alert={alert} />
         </li>
@@ -263,17 +264,21 @@ function AlertsCard({ dashboard, canRegisterWeight, onRegisterWeight }: {
 
 const STAT_CARD = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 
-export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEdit, onDelete, editSlot, deleteSlot }: {
+export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEdit, onDelete, onTransfer, editSlot, deleteSlot, transferSlot }: {
   readonly dashboard: PetDashboardView;
   readonly activeTab: RecordModule;
   readonly onTabChange: (tab: RecordModule) => void;
-  readonly onAddRecord: (module: RecordModule, body: Record<string, string | number>) => Promise<void>;
+  readonly onAddRecord: (module: RecordModule, body: FormBody) => Promise<void>;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
+  /** REQ-OWN-001: abre el panel de transferencia; el botón solo existe si lo pasa la página y `transferPetOwnership` es cierto. */
+  readonly onTransfer?: () => void;
   /** Modo EDIT: formulario que sustituye al hero y al bento mientras dura. */
   readonly editSlot?: ReactNode;
   /** Modo DELETE: diálogo en línea bajo el hero. */
   readonly deleteSlot?: ReactNode;
+  /** Modo TRANSFER: panel en línea bajo el hero. */
+  readonly transferSlot?: ReactNode;
 }): JSX.Element {
   const { profile, permissions } = dashboard;
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -329,11 +334,16 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                   {SPECIES_LABEL[profile.species]} · {profile.breed} · {SEX_LABEL[profile.sex]} · nació {profile.birthDate}
                 </p>
                 <OwnerBadge owner={dashboard.owner} readOnly={readOnly} />
-                {permissions.editPetBasics || permissions.deletePet ? (
+                {permissions.editPetBasics || permissions.deletePet || (permissions.transferPetOwnership && onTransfer !== undefined) ? (
                   <div className="flex flex-wrap gap-2">
                     {permissions.editPetBasics ? (
                       <Button variant="secondary" onClick={onEdit}>
                         Editar
+                      </Button>
+                    ) : null}
+                    {permissions.transferPetOwnership && onTransfer !== undefined ? (
+                      <Button variant="secondary" onClick={onTransfer}>
+                        Transferir propiedad
                       </Button>
                     ) : null}
                     {permissions.deletePet ? (
@@ -359,6 +369,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
             </section>
           </div>
           {deleteSlot}
+          {transferSlot}
         </>
       )}
       <div role="tablist" aria-label="Módulos de la ficha" className="flex gap-1 overflow-x-auto p-1">

@@ -19,6 +19,7 @@ export type AlertStatus = Schemas['AlertStatus'];
 export type WeightEntryView = Schemas['WeightEntryView'];
 export type HouseholdView = Schemas['HouseholdView'];
 export type HouseholdMemberView = Schemas['HouseholdMemberView'];
+export type HouseholdRole = Schemas['HouseholdRole'];
 export type MembershipStatus = HouseholdMemberView['membership']['status'];
 export type Species = Schemas['Species'];
 export type ComputedAge = Schemas['ComputedAge'];
@@ -343,9 +344,27 @@ export function memberActions(view: HouseholdView, member: HouseholdMemberView, 
   return isMe && member.membership.status === 'ACTIVE' ? ['LEAVE'] : [];
 }
 
+/**
+ * REQ-HOUSE2-002: el propietario o un ADMIN cambian el rol de un miembro ACTIVE que no sea el propietario;
+ * un ADMIN no cambia el suyo. La API aplica la regla; la UI solo oculta lo que rechazaría.
+ */
+export function canChangeRole(view: HouseholdView, member: HouseholdMemberView, myUserId: string): boolean {
+  if (member.membership.status !== 'ACTIVE' || member.membership.isHouseholdOwner) return false;
+  if (view.isHouseholdOwner) return true;
+  return view.myRole === 'ADMIN' && member.membership.userId !== myUserId;
+}
+
+/** REQ-HOUSE2-002 (TRANSFER_OWNERSHIP): solo el propietario, hacia otro miembro ACTIVE. */
+export function canTransferHousehold(view: HouseholdView, member: HouseholdMemberView, myUserId: string): boolean {
+  return view.isHouseholdOwner && member.membership.status === 'ACTIVE' && member.membership.userId !== myUserId;
+}
+
 export function canDeleteHousehold(view: HouseholdView): boolean {
   return view.isHouseholdOwner;
 }
+
+/** «1 mascota» / «2 mascotas»: cantidad con el sustantivo en singular cuando es exactamente 1. */
+export const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
 export function invitationsLabel(count: number): string {
   return count === 1 ? '1 invitación pendiente' : `${count} invitaciones pendientes`;

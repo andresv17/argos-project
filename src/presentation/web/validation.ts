@@ -76,11 +76,13 @@ export function validateInput(schema: InputSchema, input: unknown): FieldErrors 
  * Convierte los valores de texto de un formulario al tipo del contrato: vacío opcional → se omite,
  * numérico → `Number`. No interpreta reglas de negocio.
  */
-export function formValues(raw: Readonly<Record<string, string>>, numeric: readonly string[] = []): Record<string, string | number> {
-  const out: Record<string, string | number> = {};
+export type FormBody = Record<string, string | number | boolean>;
+
+export function formValues(raw: Readonly<Record<string, string>>, numeric: readonly string[] = [], booleans: readonly string[] = []): FormBody {
+  const out: FormBody = {};
   for (const [key, value] of Object.entries(raw)) {
     if (value === '') continue;
-    out[key] = numeric.includes(key) ? Number(value) : value;
+    out[key] = booleans.includes(key) ? value === 'true' : numeric.includes(key) ? Number(value) : value;
   }
   return out;
 }

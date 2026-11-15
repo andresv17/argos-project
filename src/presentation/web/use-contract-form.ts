@@ -6,7 +6,7 @@
  */
 import { useState, type FormEvent } from 'react';
 import { ApiProblem, catalogProblem, problemMessage } from './api.ts';
-import { formValues, validateInput, type FieldErrors, type InputSchema } from './validation.ts';
+import { formValues, validateInput, type FieldErrors, type FormBody, type InputSchema } from './validation.ts';
 
 export interface ContractForm {
   readonly values: Readonly<Record<string, string>>;
@@ -21,10 +21,11 @@ export function useContractForm(options: {
   readonly schema: InputSchema;
   readonly initial: Readonly<Record<string, string>>;
   readonly numeric?: readonly string[];
+  readonly booleans?: readonly string[];
   readonly resetOnSuccess?: boolean;
-  readonly send: (body: Record<string, string | number>) => Promise<void>;
+  readonly send: (body: FormBody) => Promise<void>;
 }): ContractForm {
-  const { schema, initial, numeric = [], resetOnSuccess = false, send } = options;
+  const { schema, initial, numeric = [], booleans = [], resetOnSuccess = false, send } = options;
   const [values, setValues] = useState<Readonly<Record<string, string>>>(initial);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<string | null>(null);
@@ -34,7 +35,7 @@ export function useContractForm(options: {
 
   const onSubmit = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
-    const body = formValues(values, numeric);
+    const body = formValues(values, numeric, booleans);
     const clientErrors = validateInput(schema, body);
     setErrors(clientErrors);
     setMessage(null);

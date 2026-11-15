@@ -7,13 +7,13 @@
   2. Cambiar el estado de documentos normativos a `APPROVED` o `LOCKED`.
   3. Autorizar dependencias externas de Nivel 2 (`.specify/memory/constitution.md`, Technology Stack & Repository Structure).
   4. Ejecutar `git push` o eliminar locks de Git (`.git/index.lock`).
-- Todo escalamiento al humano DEBE usar el encabezado: **`PARA: Neo (Andrés Vallejo — Nivel 2)`**.
+- Todo escalamiento al humano DEBE usar el encabezado: **`TO: Neo (Andrés Vallejo — Level 2)`**.
 
 ---
 
-## 2. Regla Inquebrantable de Cierre de Sesión en Lenguaje Natural (`"cerremos sesión"` → `/hardline`)
-Cuando **Neo** escriba en lenguaje natural frases como ***"cerremos sesión"***, ***"cerrar sesión"***, ***"cierra la sesión"***, ***"cierra sesión"***, ***"terminemos por hoy"*** o ***"dame salida"*** (incluso si NO escribió `/hardline`):
-1. **Activa inmediatamente `.claude/skills/hardline/SKILL.md`.**
+## 2. Regla Inquebrantable de Cierre de Sesión en Lenguaje Natural (`"close session"` / `"cerremos sesión"` → `/hardline`)
+Cuando **Neo** escriba en lenguaje natural frases como ***"close session"***, ***"cerremos sesión"***, ***"cerrar sesión"***, ***"cierra la sesión"***, ***"terminemos por hoy"*** o ***"dame salida"*** (incluso si NO escribió `/hardline`):
+1. **Activa inmediatamente la skill `/hardline` (`~/.claude/skills/hardline/SKILL.md`).**
 2. Detén cualquier tarea o edición nueva en el acto.
 3. Inspecciona el estado físico real en disco (`git status --short --branch`, `git log -1 --oneline`, `git diff --stat`).
 4. Actualiza la bitácora del personaje activo en `claude/log-<personaje>.md` y genera/actualiza `claude/handover-<personaje>-YYYY-MM-DD.md`.
@@ -32,15 +32,16 @@ La ventana de conversación es efímera; **el disco es la única fuente de verda
 
 ---
 
-## 4. Topología de Llamadas Directas (`MAX_HOPS = 2`) y Sobre Multiversal `DE: / PARA:`
-1. **Sobre Estructurado Obligatorio:** Toda respuesta de cualquier skill DEBE cerrar con el bloque:
+## 4. Topología de Llamadas Directas (`MAX_HOPS = 2`) y Sobre Multiversal `FROM: / TO:`
+1. **Sobre Estructurado Obligatorio:** Toda respuesta de cualquier skill DEBE cerrar con el bloque canónico:
    ```text
-   DE: <Personaje / Rol>
-   PARA: <Destinatario>
-   ESTADO: <En progreso | Bloqueado | Validación requerida>
-   DETALLE: <Contenido en lenguaje claro + evidencia en disco>
-   SIGUIENTE PASO RECOMENDADO: <Comando o acción exacta>
+   FROM: <Character / Role>
+   TO: <Recipient>
+   STATUS: <In Progress | Blocked | Validation Required>
+   DETAILS: <Content + disk-backed evidence>
+   RECOMMENDED NEXT STEP: <Exact command or action>
    ```
+   - **Regla de Cierre en Modo Logos:** Cuando el canal `logos.json` esté activo (`logos.py wait` corriendo en segundo plano), es obligatorio anexar inmediatamente debajo de `RECOMMENDED NEXT STEP:` el banner visual `┌─ Note ─┐` de la skill activa como últimas líneas de la respuesta en terminal.
 2. **Cortafuegos contra Bucles Infinitos:**
    - `/keymaker` ↔ `/architect`: Máximo **1 ida y vuelta (`MAX_HOPS = 2`)** para dudas de especificación/contrato (Caso B). Si persiste, escalan a `/zion` o `/morpheus`.
    - `/keymaker` o `/architect` → `/oracle`: Toda entrega pasa por validación en disco de `/oracle` (**`MAX_RETRY = 1`**).
@@ -48,10 +49,11 @@ La ventana de conversación es efímera; **el disco es la única fuente de verda
 
 ---
 
-## 5. FinOps de Modelos — Regla de 3 Niveles (`haiku` N1 → `sonnet` N2 → `opus` N3)
-- **Nivel 1 (`haiku` — Por defecto en las 24 skills):** Todas las 24 skills arrancan en `haiku`. Toda conversación sencilla, consulta de estado, lectura de bitácoras (`claude/log-*.md`), ejecución de scripts (`verify-traceability.sh`, `verify-oracles.sh`, `tsc`) y coordinación entre roles se resuelve en `haiku`.
-- **Nivel 2 (`sonnet` — Segundo nivel para ejecución importante):** Se escala a `/model sonnet` únicamente cuando `/architect`, `/keymaker`, `/oracle`, `/trinity` o `/zion` van a ejecutar trabajo profundo (diseñar/editar contratos o specs complejos, programar features en `src/` y `tests/`, hacer auditoría forense línea por línea o moderar un debate en `/zion`). Al terminar la tarea, se regresa a `haiku`.
-- **Nivel 3 (`opus` — Máximo nivel para cirugía crítica):** Reservado exclusivamente para algoritmos complejos, bugs transaccionales/criptográficos difíciles o decisiones arquitectónicas de altísima complejidad donde `sonnet` no baste. Se activa solo en ese turno puntual y se regresa inmediatamente a `haiku`.
+## 5. FinOps de Modelos — Regla Automática de 3 Niveles (`haiku` N1 → `sonnet` N2 → `opus` N3)
+- **Nivel 1 (`haiku` — Orquestadores y consulta rápida):** Roles de coordinación, triage y lectura (`/morpheus`, `/neb`, `/link`, `/hardline`, etc.) corren en `haiku`.
+- **Nivel 2 (`sonnet` — Despacho automático de ejecución):** `/architect`, `/keymaker`, `/oracle`, `/sati`, `/trinity`, `/seraph` y `/zion` ya declaran `model: sonnet` en su `SKILL.md`. Cuando `/morpheus` los despacha como subagentes vía herramienta `Agent` (`subagent_type: "general-purpose"`), Claude Code los ejecuta automáticamente en `sonnet` **sin** pedirle a Neo cambiar `/model` manualmente.
+- **Nivel 3 (`opus` — Cirugía crítica y ataque adversarial):** `/smith` declara `model: opus` y se despacha automáticamente en `opus` para caos/resiliencia o problemas transaccionales/criptográficos de máxima complejidad.
+- **Nota de Portabilidad (`model:` en `SKILL.md`):** El campo `model:` en el frontmatter YAML de las skills es una extensión propietaria de Claude Code. En otros entornos (como Google Antigravity o herramientas de OpenAI) esta propiedad no tiene soporte nativo y se ignora silenciosamente, ejecutando la skill con el modelo activo del entorno.
 
 ---
 

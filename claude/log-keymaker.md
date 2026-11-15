@@ -650,3 +650,35 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Decisión: añadir en tests/e2e/visual/rebanada6-recorridos.spec.ts una prueba con page.reload() que afirma /api/auth/me 200 con el mismo username, la misma cookie argos_session httpOnly y la pantalla /households visible. Ya existía un reload en auth-pet-forms.spec.ts (solo URL + botón). No se toca checklist ni tasks.md.
 - Corrección de mi aserción: SessionView es {user:{username},...} (contrato identity.schema); el rojo era de la prueba nueva, no de src/.
 - Prueba reload: 3/3 aisladas exit 0, 8 passed (archivo completo); tsc 0. Sin commit.
+
+## 2026-11-14 — Compuerta final 002 (T305/T306/T309 + tsc, coverage, e2e, gate): inicio, sin commit
+- Decisión: ejecutar las 7 compuertas en secuencia (un solo runner), `cmd; echo EXIT=$?`, salida en scratchpad. test:mutation NO se lanza (ya aprobado 88.98 %, EXIT=0). e2e con ARGOS_AUDIT_HMAC_SECRET efímero.
+- Nota: `npm run test:gate` incluye test:mutation y playwright; se ejecutará tal cual lo pide Morpheus salvo que se indique lo contrario; ver decisión siguiente.
+
+## 2026-11-14 — Compuerta final 002: resultados y Caso B de cobertura (sin commit)
+- oracles 0 (116 arch., 0 débiles); traceability --feature 002 0 (118/118); compile-contracts 0; tsc 0; e2e 0 (53 passed); coverage EXIT=1 (90 arch., 1796/1796 OK).
+- Causa del rojo: líneas 88.29 % < 95 % por los 11 src/application/ports/*.ts (solo interfaces; 369 de 388 líneas sin cubrir). Sin ellos ~99.4 %. vite.config.ts sin cambios vs HEAD.
+- Decisión: NO corregir. Excluir ports es cambio de criterio de cobertura (config), no defecto de src/. Se reporta como Caso B. test:gate no ejecutado (incluye mutation, prohibido, y cae en coverage). Evidencia: claude/evidencia-compuertas-final-002-2026-11-14.md
+
+## 2026-11-14 — T284/T291 presentación + O-6/O-4 + cobertura ports (autorización Neo N2), sin commit
+- Decisión: PetForm con 8 especies, speciesOther condicional, birthDateIsEstimate/neutered/microchipId (nombres del OpenAPI CreatePetInput/UpdatePetInput). formValues gana parámetro `booleans` (conversión 'true'/'false') y, en edición, los campos anulables vaciados se envían null (contrato lo permite).
+- Contrato verificado: servidos transferPetOwnership (POST /pets/{id}/ownership-transfer), transferHouseholdOwnership (POST /households/{id}/ownership-transfer) y changeMemberRole (PATCH /households/{id}/members/{userId}, ChangeRoleInput {role}); sin Caso B. Rol: propietario o ADMIN, nunca sobre el propietario (household-policies).
+- O-6: nextBoosterAt opcional en records.ts (y la ficha no imprime «null»). O-4: plural en previsualización de respaldo. C: vite.config coverage.exclude ports.
+
+## 2026-11-14 — T284/T291: src hecho, pruebas nuevas, Caso B por prueba existente
+- src: PetForm (8 especies, speciesOther, birthDateIsEstimate, neutered, microchipId, petFormBody), TransferOwnership.tsx (panel de mascota), HouseholdsPage (selector de rol, transferir hogar), view-model (canChangeRole, canTransferHousehold, plural), validation (FormBody, booleans), records/PetDashboard (O-6), BackupPage (O-4), vite.config (exclude ports).
+- tests: tests/unit/presentation/t284-t291-controles.spec.ts (14 pruebas verdes).
+- Caso B: components.spec.ts L89 («cada campo del formulario tiene etiqueta asociada por id») espera 6 campos en PetForm; con los 3 nuevos son 9. El permiso me negó editar esa prueba existente; NO se tocó. Pendiente de Neo/Morpheus.
+
+## 2026-11-14 — e2e: etiqueta ambigua
+- Defecto propio en src: el checkbox "La fecha de nacimiento es estimada" chocaba con getByLabel(Fecha de nacimiento) (strict mode). Renombrado a "Es una fecha estimada". Se reejecutan los gates.
+
+## 2026-11-14 — Gates finales T284/T291
+- tsc 0; vitest 92 archivos 1811/1812 (falla components.spec L89, Caso B); e2e 0, 53 passed; coverage con esa prueba excluida (solo diagnóstico): exit 0, 1797/1797, líneas 99.35 %, ramas 97.89 %. npm run test:coverage real: exit 1 por la misma prueba. Sin commit.
+
+## 2026-11-14 — Compuertas T305/T306/T309 (orden de Morpheus), sin commit
+- Decisión: ejecutar en serie oracles, trazabilidad, compile-contracts, tsc, vitest, coverage, e2e. package.json: test:gate encadena test:mutation, por tanto NO se corre; se sustituye por el informe aprobado (88.98 %, EXIT=0).
+- Resumen se guardará en claude/evidencia-compuertas-T309-2026-11-14.md.
+
+## 2026-11-14 — Resultado compuertas
+- Compuertas 1-7 EXIT=0; vitest 1812/1812; e2e 53; evidencia escrita. Sin defectos de src.

@@ -702,3 +702,30 @@
 2026-11-14 architect: fila 20 sustitucion-pruebas-001 -> sustituida (rebanada6-recorridos.spec.ts:120/127/134; V9 nine-vectors:252; wcag.spec.ts 4 anchos). Sin commit.
 - 2026-11-14 Oracle: T304 revalidada en disco, CUMPLE (36/36 sustituidas, E2E 22/22, security 271/271, tsc 0, gates CUMPLE); marcar [x] queda para Neo. Ver claude/veredicto-oracle-T304-revalidacion-2026-11-14.md
 2026-11-14 Morpheus: T304 [x] (Oracle CUMPLE + autorización Neo). Commit local ac566de. Sin push. Pendiente: T306 y T310 con push de Neo.
+2026-11-14 Morpheus: Neo autoriza compuerta final T305-T309 y T308 por agentes; push tras T310. Despacho Keymaker (gates) y Architect (T307).
+2026-11-14 keymaker: inicio compuerta final 002 (7 gates en secuencia, sin mutation). Sin commit.
+- 2026-11-14 Architect: T307 mapa SC-001..017 revisado con grep; 16 CUBIERTO, 1 SIN PRUEBA (SC-002, solo vía compuerta T306); informe en .specify/memory/audits/mapa-sc-002.md (sin commit)
+2026-11-14 Morpheus: T307 mapa: 16 cubiertos, SC-002 sin prueba propia (solo compuerta T306). Decisión pendiente para Oracle/Neo.
+2026-11-14 Neb: mutación oficial EXIT=0, 88.98 %. ac566de marca T302/T303/T304/T311 [x]; regla de tasks.md exige aprobación humana. Solo lectura.
+2026-11-14 keymaker: gates 002: oracles/trace(118/118)/contracts/tsc/e2e(53) EXIT=0; coverage EXIT=1 (88.29% lineas por ports/*.ts solo-interfaz) -> Caso B. Evidencia claude/evidencia-compuertas-final-002-2026-11-14.md
+2026-11-14 Morpheus: compuertas: T305/T306/T309/tsc/e2e OK; coverage 88.29 % < 95 % (ports/ interfaces) = Caso B para Neo. Lanzo T308.
+2026-11-14 Neb: portal activo (5173/3100), T308 lanzada por agentes Zee/Kid; corrijo: no requiere personas. Solo lectura.
+2026-11-14 Zee/Kid: T308 recorrido quickstart §6 hecho (5 PASA, 2 FALLA parcial por UI: 8 especies sin formulario, transferencias sin UI). Informe .specify/memory/audits/recorrido-aceptacion-quickstart-002.md
+2026-11-14 Morpheus: T308: 5 PASA, 2 FALLA (H-T308-1 especies en UI, H-T308-2 sin transferencia/roles). Contradicen T284/T291 [x]. T310 bloqueado por decisiones de Neo.
+2026-11-14 Morpheus: Neo resuelve (iter 70): cobertura A, SC-002 aceptado, T284/T291 reabiertas [ ]. Keymaker corrige UI y menores; luego T308 y T309.
+2026-11-14 Neb: 002 cerca; faltan decisión de cobertura, evidencia T308/T307 y veredicto T310. Solo lectura.
+- 2026-11-14 Keymaker: inicio T284/T291 UI (PetForm 8 especies, transferencias, cambio de rol), O-6, O-4, exclude ports en coverage (Neo N2); sin commit.
+- 2026-11-14 Keymaker: src T284/T291/O-6/O-4/ports hechos + t284-t291-controles.spec.ts; Caso B: components.spec.ts L89 espera 6 campos de PetForm (ahora 9); sin editar.
+- 2026-11-14 Keymaker: e2e rojo por mi etiqueta del checkbox (ambigua con getByLabel 'Fecha de nacimiento'); renombrada a 'Es una fecha estimada' (defecto de src).
+- 2026-11-14 Keymaker: gates tsc 0; vitest 1811/1812 (1 Caso B components.spec L89); e2e 0 (53); coverage (excl. esa prueba) 0, líneas 99.35/ramas 97.89; npm run test:coverage exit 1 solo por Caso B. Sin commit.
+2026-11-14 Morpheus: T284/T291 implementadas; bloqueo: components.spec.ts:89 (6→9 campos) requiere decisión de Neo (permiso denegado).
+2026-11-14 Morpheus: Logos ON (iter 72). Neo edita components.spec:90 a 9. Lanzo T308 repetido; T309 y Oracle después.
+2026-11-14 Kid/Zee: T308 repetido 7/7 PASA solo desde la interfaz (H-T308-1 y H-T308-2 cerrados); informe en .specify/memory/audits/recorrido-aceptacion-quickstart-002-repeticion.md; apps detenidas, sin commit.
+2026-11-14 Morpheus: T308 7/7 PASA; T284 y T291 [x] (Neo). Compuertas T309 en curso.
+2026-11-14 Keymaker: compuertas T305/T306/T309 en serie iniciadas; test:gate no se corre (encadena mutation, sustituida por informe aprobado).
+2026-11-14 Neb: T309 sin mutación viva; Keymaker usó 88.98 % aprobado; desviación de T309 para decisión de Neo. Solo lectura.
+2026-11-14 Keymaker: compuertas 1-7 EXIT=0 (1812/1812, e2e 53); test:gate no corrido (mutation sustituida). Evidencia en claude/evidencia-compuertas-T309-2026-11-14.md.
+- 2026-11-14 Oracle: veredicto T310 feature 002 CUMPLE CON RESERVAS (R-1 mapa SC-002, R-2 árbol sin commitear, R-3 N/O); gates 0/0/0; ver claude/veredicto-oracle-T310-feature-002-2026-11-14.md
+2026-11-14 Morpheus: Oracle T310 CUMPLE CON RESERVAS. Pendiente Neo: marcas, commit del árbol (R-2), etiqueta y push.
+2026-11-14 Architect: mapa-sc-002.md L8/L30 SC-002 actualizado a aceptado por Neo (it. 70) vía T306+T305+suite verde; reserva visible. Sin commit.
+2026-11-14 Architect: mapa-sc-002.md L27 conteo SIN PRUEBA ajustado a 0 (SC-002 aceptado por Neo). Sin commit.

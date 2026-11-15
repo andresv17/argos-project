@@ -28,7 +28,7 @@ export interface RecordModuleSpec {
   readonly fields: readonly RecordFieldSpec[];
 }
 
-const date = (name: string, label: string): RecordFieldSpec => ({ name, label, type: 'date', required: true });
+const date = (name: string, label: string, required = true): RecordFieldSpec => ({ name, label, type: 'date', required });
 const text = (name: string, label: string, required = true): RecordFieldSpec => ({ name, label, type: 'text', required });
 const decimal = (name: string, label: string): RecordFieldSpec => ({ name, label, type: 'number', required: true, step: '0.01' });
 
@@ -65,7 +65,7 @@ export const RECORD_MODULES: readonly RecordModuleSpec[] = [
     fields: [
       text('vaccineName', 'Vacuna'),
       date('appliedAt', 'Fecha de aplicación'),
-      date('nextBoosterAt', 'Próximo refuerzo'),
+      date('nextBoosterAt', 'Próximo refuerzo', false),
       text('batchOrClinic', 'Lote o clínica', false),
       text('notes', 'Notas', false),
     ],

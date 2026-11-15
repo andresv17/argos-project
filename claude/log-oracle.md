@@ -396,3 +396,8 @@ Obs: mensaje del commit menciona contador no presente en el diff.
 - Tabla: 36 filas «sustituida», 0 «pendiente» (3 apariciones de la palabra son prosa en filas 26/33 y nota de huecos). Archivos de filas 4, 20 y 22 existen y contienen las pruebas.
 - Medido: playwright fila 20 aislado 22/22; security 271/271 (13 archivos); tsc 0; traceability 118/118 CUMPLE; verify-oracles 0 débiles.
 - tasks.md: T302, T303, T311 en [x]; T304 en [ ]. Veredicto T304 CUMPLE. Detalle en claude/veredicto-oracle-T304-revalidacion-2026-11-14.md. Sin commits.
+
+### 2026-11-14 — Oracle: veredicto formal T310 (feature 002)
+- Medido: tasks 106 [x]/6 [ ] (T305-T310); verify-oracles EXIT=0 (0 débiles); traceability 002 EXIT=0 (118/118); tsc EXIT=0; evidencia T309 coincide.
+- T308 repetición 7/7 PASA; mapa-sc-002 existe pero no refleja la aceptación de Neo sobre SC-002 (R-1). Vite: ports excluido, umbral 95.
+- Git HEAD 11637e0, sin commitear código de presentación (R-2). Veredicto CUMPLE CON RESERVAS: claude/veredicto-oracle-T310-feature-002-2026-11-14.md. Sin commits ni marcas.

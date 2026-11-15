@@ -10,9 +10,11 @@ import { ContextSelector, PET_PANEL_ID } from '../components/ContextSelector.tsx
 import { Button, FormError } from '../components/Field.tsx';
 import { DeletePetDialog, PetDashboard } from '../components/PetDashboard.tsx';
 import { PetCardList, PetFilter } from '../components/PetCards.tsx';
-import { PetForm } from '../components/PetForm.tsx';
+import { PetTransferPanel } from '../components/TransferOwnership.tsx';
+import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { addRecord, type RecordModule } from '../records.ts';
+import type { FormBody } from '../validation.ts';
 import { useSession } from '../session.tsx';
 import {
   contextOptions,
@@ -24,7 +26,7 @@ import {
   type Schemas,
 } from '../view-model.ts';
 
-type Mode = 'VIEW' | 'CREATE' | 'EDIT' | 'DELETE';
+type Mode = 'VIEW' | 'CREATE' | 'EDIT' | 'DELETE' | 'TRANSFER';
 
 const messageOf = (error: unknown): string => problemMessage(error instanceof ApiProblem ? error.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED'));
 
@@ -41,6 +43,7 @@ export function PetsPage(): JSX.Element {
   const [activeTab, setActiveTab] = useState<RecordModule>('weights');
   const [mode, setMode] = useState<Mode>('VIEW');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const cardsRequest = useRef(0);
   const dashboardRequest = useRef(0);
 
@@ -101,7 +104,7 @@ export function PetsPage(): JSX.Element {
     setError(null);
   };
 
-  const createPet = async (body: Record<string, string | number>): Promise<void> => {
+  const createPet = async (body: PetFormBody): Promise<void> => {
     const pet = await unwrap(api.POST('/pets', { params: CSRF_PARAMS, body: body as unknown as Schemas['CreatePetInput'] }));
     setMode('VIEW');
     setContextId(MINE_CONTEXT_ID);
@@ -109,7 +112,7 @@ export function PetsPage(): JSX.Element {
     await loadCards();
   };
 
-  const editPet = async (body: Record<string, string | number>): Promise<void> => {
+  const editPet = async (body: PetFormBody): Promise<void> => {
     if (activePetId === null) return;
     await unwrap(api.PATCH('/pets/{petId}', { params: { ...CSRF_PARAMS, path: { petId: activePetId } }, body: body as Schemas['UpdatePetInput'] }));
     setMode('VIEW');
@@ -128,7 +131,7 @@ export function PetsPage(): JSX.Element {
     }
   };
 
-  const onAddRecord = async (module: RecordModule, body: Record<string, string | number>): Promise<void> => {
+  const onAddRecord = async (module: RecordModule, body: FormBody): Promise<void> => {
     if (activePetId === null) return;
     await addRecord(api, module, activePetId, body);
     await refreshAll();
@@ -170,6 +173,11 @@ export function PetsPage(): JSX.Element {
           </section>
           <section aria-label="Ficha de la mascota" className="grid min-w-0 grid-cols-1 content-start gap-3">
             <FormError message={error} />
+            {notice === null ? null : (
+              <p role="status" className="rounded-2xl border border-emerald-700 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                {notice}
+              </p>
+            )}
             {mode === 'CREATE' ? (
               <PetForm profile={null} households={householdChoices} onSubmit={createPet} onCancel={() => setMode('VIEW')} />
             ) : dashboard === null ? (
@@ -183,6 +191,10 @@ export function PetsPage(): JSX.Element {
                 onAddRecord={onAddRecord}
                 onEdit={() => setMode('EDIT')}
                 onDelete={() => setMode('DELETE')}
+                onTransfer={() => {
+                  setNotice(null);
+                  setMode('TRANSFER');
+                }}
                 {...(mode === 'EDIT' && dashboard.permissions.editPetBasics
                   ? {
                       editSlot: (
@@ -191,6 +203,24 @@ export function PetsPage(): JSX.Element {
                           profile={dashboard.profile}
                           canAssign={dashboard.permissions.assignPetToHouseholds}
                           onSubmit={editPet}
+                          onCancel={() => setMode('VIEW')}
+                        />
+                      ),
+                    }
+                  : {})}
+                {...(mode === 'TRANSFER' && dashboard.permissions.transferPetOwnership
+                  ? {
+                      transferSlot: (
+                        <PetTransferPanel
+                          key={`transfer-${dashboard.profile.id}`}
+                          petId={dashboard.profile.id}
+                          petName={dashboard.profile.name}
+                          ownerUserId={dashboard.profile.ownerUserId}
+                          onTransferred={async (text) => {
+                            setMode('VIEW');
+                            setNotice(text);
+                            await refreshAll();
+                          }}
                           onCancel={() => setMode('VIEW')}
                         />
                       ),

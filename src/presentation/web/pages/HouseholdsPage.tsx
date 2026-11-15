@@ -12,7 +12,9 @@ import { useSession } from '../session.tsx';
 import { useContractForm } from '../use-contract-form.ts';
 import { useInvitations } from './AppShell.tsx';
 import {
+  canChangeRole,
   canDeleteHousehold,
+  canTransferHousehold,
   HOUSEHOLD_ROLE_LABEL,
   invitationsLabel,
   MEMBER_ACTION_LABEL,
@@ -20,13 +22,22 @@ import {
   memberActions,
   ownerBadge,
   type HouseholdView,
+  type HouseholdRole,
   type MemberAction,
   type Schemas,
 } from '../view-model.ts';
 
 type InvitationView = Schemas['InvitationView'];
 
+const ASSIGNABLE_ROLES: readonly HouseholdRole[] = ['ADMIN', 'CAREGIVER', 'READER'];
+
 const messageOf = (error: unknown): string => problemMessage(error instanceof ApiProblem ? error.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED'));
+
+/** Aviso previo a transferir el hogar: el anterior propietario conserva ADMIN (INV-HOUSE2-001). */
+export function transferHouseholdText(view: HouseholdView, targetUserId: string): string {
+  const target = view.members.find((m) => m.membership.userId === targetUserId)?.membership.displayName ?? 'el miembro elegido';
+  return `¿Transferir la propiedad del hogar ${view.household.name} a ${target}? Conservarás el rol de Administrador.`;
+}
 
 export function InvitationList({ invitations, onAccept, onDecline }: {
   readonly invitations: readonly InvitationView[];
@@ -61,12 +72,16 @@ export function InvitationList({ invitations, onAccept, onDecline }: {
   );
 }
 
-export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, inviteForm }: {
+export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, inviteForm, onChangeRole, onTransferOwnership }: {
   readonly view: HouseholdView;
   readonly myUserId: string;
   readonly onMemberAction: (userId: string, action: MemberAction) => void;
   readonly onDelete: () => void;
   readonly inviteForm: JSX.Element | null;
+  /** REQ-HOUSE2-002 CHANGE_ROLE: si falta, no se ofrece el selector. */
+  readonly onChangeRole?: (userId: string, role: HouseholdRole) => void;
+  /** REQ-HOUSE2-002 TRANSFER_OWNERSHIP: si falta, no se ofrece el botón. */
+  readonly onTransferOwnership?: (userId: string) => void;
 }): JSX.Element {
   const titleId = `household-${view.household.id}-title`;
   return (
@@ -107,7 +122,29 @@ export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, invite
                 </span>
                 {member.membership.isHouseholdOwner ? <span className="text-xs font-semibold text-slate-800">Propietario</span> : null}
               </span>
-              <span className="flex gap-2">
+              <span className="flex flex-wrap items-center gap-2">
+                {onChangeRole !== undefined && canChangeRole(view, member, myUserId) ? (
+                  <label className="flex items-center gap-1 text-sm text-slate-800">
+                    <span>Rol de {member.membership.displayName}</span>
+                    <select
+                      aria-label={`Rol de ${member.membership.displayName}`}
+                      value={member.membership.role}
+                      onChange={(e) => onChangeRole(member.membership.userId, e.target.value as HouseholdRole)}
+                      className="min-h-10 rounded-xl border border-border-strong bg-white px-2 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      {ASSIGNABLE_ROLES.map((role) => (
+                        <option key={role} value={role}>
+                          {HOUSEHOLD_ROLE_LABEL[role]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {onTransferOwnership !== undefined && canTransferHousehold(view, member, myUserId) ? (
+                  <Button variant="secondary" onClick={() => onTransferOwnership(member.membership.userId)}>
+                    Transferir propiedad
+                  </Button>
+                ) : null}
                 {memberActions(view, member, myUserId).map((action) => (
                   <Button key={action} variant={action === 'LEAVE' ? 'secondary' : 'danger'} onClick={() => onMemberAction(member.membership.userId, action)}>
                     {MEMBER_ACTION_LABEL[action]}
@@ -168,6 +205,7 @@ export function HouseholdsPage(): JSX.Element {
   const [invitations, setInvitations] = useState<InvitationView[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [pendingTransfer, setPendingTransfer] = useState<{ householdId: string; userId: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
@@ -208,6 +246,22 @@ export function HouseholdsPage(): JSX.Element {
 
   const onMemberAction = (householdId: string) => (userId: string): void => {
     void run(() => unwrap(api.DELETE('/households/{householdId}/members/{userId}', { params: { ...CSRF_PARAMS, path: { householdId, userId } } })));
+  };
+
+  const onChangeRole = (householdId: string) => (userId: string, role: HouseholdRole): void => {
+    setNotice(null);
+    void run(() => unwrap(api.PATCH('/households/{householdId}/members/{userId}', { params: { ...CSRF_PARAMS, path: { householdId, userId } }, body: { role } })));
+  };
+
+  const confirmTransfer = (): void => {
+    if (pendingTransfer === null) return;
+    const { householdId, userId } = pendingTransfer;
+    setPendingTransfer(null);
+    setNotice(null);
+    void run(async () => {
+      await unwrap(api.POST('/households/{householdId}/ownership-transfer', { params: { ...CSRF_PARAMS, path: { householdId } }, body: { targetUserId: userId } }));
+      setNotice('Propiedad del hogar transferida. Conservas el rol de Administrador.');
+    });
   };
 
   return (
@@ -253,8 +307,25 @@ export function HouseholdsPage(): JSX.Element {
                 myUserId={user?.id ?? ''}
                 onMemberAction={onMemberAction(view.household.id)}
                 onDelete={() => setPendingDelete(view.household.id)}
+                onChangeRole={onChangeRole(view.household.id)}
+                onTransferOwnership={(userId) => setPendingTransfer({ householdId: view.household.id, userId })}
                 inviteForm={view.isHouseholdOwner ? <InviteForm householdId={view.household.id} onInvited={load} /> : null}
               />
+              {pendingTransfer?.householdId === view.household.id ? (
+                <div role="alertdialog" aria-labelledby={`transfer-${view.household.id}`} className="rounded-2xl border-2 border-slate-400 bg-white p-4">
+                  <p id={`transfer-${view.household.id}`} className="text-sm text-slate-900">
+                    {transferHouseholdText(view, pendingTransfer.userId)}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button variant="danger" onClick={confirmTransfer}>
+                      Confirmar transferencia
+                    </Button>
+                    <Button variant="secondary" onClick={() => setPendingTransfer(null)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               {pendingDelete === view.household.id ? (
                 <div role="alertdialog" aria-labelledby={`delete-${view.household.id}`} className="rounded-2xl border-2 border-danger bg-red-50 p-4">
                   <p id={`delete-${view.household.id}`} className="text-sm text-red-900">

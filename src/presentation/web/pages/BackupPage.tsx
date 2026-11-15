@@ -9,7 +9,7 @@ import { useState, type ChangeEvent, type DragEvent } from 'react';
 import { Button, FormError } from '../components/Field.tsx';
 import { ApiProblem, attachmentFileName, type ApiClient, CSRF_PARAMS, catalogProblem, problemMessage, unwrap, type ProblemDetails } from '../api.ts';
 import { useSession } from '../session.tsx';
-import type { Schemas } from '../view-model.ts';
+import { plural, type Schemas } from '../view-model.ts';
 
 type ImportBackupResult = Schemas['ImportBackupResult'];
 
@@ -102,14 +102,14 @@ function PhaseBar({ phase, stalled = false }: { readonly phase: Phase; readonly 
   );
 }
 
-function PreviewSummary({ preview }: { readonly preview: ImportPreviewResult }): JSX.Element {
+export function PreviewSummary({ preview }: { readonly preview: ImportPreviewResult }): JSX.Element {
   const { counts, collisions, affectedSharedPets } = preview;
   return (
     <div role="status" className="grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
-      <p className="font-semibold">{`Previsualización (versión ${preview.sourceSchemaVersion}): el archivo trae ${counts.pets} mascotas.`}</p>
+      <p className="font-semibold">{`Previsualización (versión ${preview.sourceSchemaVersion}): el archivo trae ${plural(counts.pets, 'mascota', 'mascotas')}.`}</p>
       <p className="tabular-nums text-text-muted">{`Pesos: ${counts.weights} · Medidas: ${counts.bodyMeasurements} · Vacunas: ${counts.vaccinations} · Desparasitaciones: ${counts.dewormings} · Consultas: ${counts.medicalVisits} · Parámetros: ${counts.customParameters}`}</p>
-      <p>{`Se reemplazarán ${collisions.petsReplacedCount} mascotas propias actuales; ${collisions.sameIdPetsCount} coinciden por identificador.`}</p>
-      {affectedSharedPets.petsCount > 0 ? <p>{`${affectedSharedPets.petsCount} mascotas compartidas perderán su asignación en ${affectedSharedPets.householdsCount} hogares.`}</p> : null}
+      <p>{`Se reemplazarán ${plural(collisions.petsReplacedCount, 'mascota propia actual', 'mascotas propias actuales')}; ${collisions.sameIdPetsCount} ${collisions.sameIdPetsCount === 1 ? 'coincide' : 'coinciden'} por identificador.`}</p>
+      {affectedSharedPets.petsCount > 0 ? <p>{`${plural(affectedSharedPets.petsCount, 'mascota compartida perderá', 'mascotas compartidas perderán')} su asignación en ${plural(affectedSharedPets.householdsCount, 'hogar', 'hogares')}.`}</p> : null}
     </div>
   );
 }

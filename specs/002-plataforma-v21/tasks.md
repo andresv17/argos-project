@@ -278,12 +278,12 @@
 
 - [x] T303 Actualizar `tests/mutation/stryker.conf.json` a los módulos nuevos (`src/domain/**`, `src/application/**`) y cazar los mutantes sobrevivientes hasta Stryker ≥ 85 % con Seraph y Dojo, sin relajar ninguna prueba (INV-ARCH-001, SC-002)
 - [x] T304 Regresión completa de la 001 vigente: todas las pruebas de la tabla de sustitución en estado «sustituida» y todas las no listadas en verde, sin pruebas borradas, comentadas ni relajadas (SC-002, INV-ARCH-004)
-- [ ] T305 `bash scripts/verify-oracles.sh` sin oráculos débiles sobre las pruebas nuevas y sustituidas (INV-ARCH-002)
-- [ ] T306 `bash scripts/verify-traceability.sh --feature 002` en compuerta final: 100 % de los `REQ`, `INV`, `STATE` y `ERR` vigentes con `@implements` en `src/` y título de prueba en `tests/`; depende de T204a (firma de Neo de la enmienda del principio III) (SC-002, INV-ARCH-001, INV-ARCH-002)
-- [ ] T307 Revisar a mano el mapa del quickstart §4: `SC-001` a `SC-017` con su prueba nombrada, y listar los que carezcan de ella (SC-001, SC-002, SC-003, SC-004, SC-005, SC-006, SC-007, SC-008, SC-009, SC-010, SC-011, SC-012, SC-013, SC-014, SC-015, SC-016, SC-017)
-- [ ] T308 Recorrido manual de aceptación del quickstart §6 (registro, 8 especies, hogar con rol, Cuidador, `SUPERSEDED`, respaldo con previsualización, eliminación de cuenta) por Zee y Kid, con evidencia en `.specify/memory/audits/` (SC-001, SC-014, SC-015, SC-017)
-- [ ] T309 Compuerta final: `bash scripts/compile-contracts.sh --feature 002`, `bash scripts/verify-traceability.sh --feature 002`, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit`, `npm run test:coverage`, `npm run test:mutation`, `npm run test:e2e` y `npm run test:gate` en verde (INV-ARCH-001, INV-ARCH-002, INV-ARCH-003, SC-002)
-- [ ] T310 [N2] Oracle emite el veredicto formal sobre la feature y deja las tareas en `REVIEW`; la marca `COMPLETED`, la etiqueta y `git push` son de Neo (SC-002)
+- [x] T305 `bash scripts/verify-oracles.sh` sin oráculos débiles sobre las pruebas nuevas y sustituidas (INV-ARCH-002)
+- [x] T306 `bash scripts/verify-traceability.sh --feature 002` en compuerta final: 100 % de los `REQ`, `INV`, `STATE` y `ERR` vigentes con `@implements` en `src/` y título de prueba en `tests/`; depende de T204a (firma de Neo de la enmienda del principio III) (SC-002, INV-ARCH-001, INV-ARCH-002)
+- [x] T307 Revisar a mano el mapa del quickstart §4: `SC-001` a `SC-017` con su prueba nombrada, y listar los que carezcan de ella (SC-001, SC-002, SC-003, SC-004, SC-005, SC-006, SC-007, SC-008, SC-009, SC-010, SC-011, SC-012, SC-013, SC-014, SC-015, SC-016, SC-017)
+- [x] T308 Recorrido manual de aceptación del quickstart §6 (registro, 8 especies, hogar con rol, Cuidador, `SUPERSEDED`, respaldo con previsualización, eliminación de cuenta) por Zee y Kid, con evidencia en `.specify/memory/audits/` (SC-001, SC-014, SC-015, SC-017)
+- [x] T309 Compuerta final: `bash scripts/compile-contracts.sh --feature 002`, `bash scripts/verify-traceability.sh --feature 002`, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit`, `npm run test:coverage`, `npm run test:mutation`, `npm run test:e2e` y `npm run test:gate` en verde (INV-ARCH-001, INV-ARCH-002, INV-ARCH-003, SC-002)
+- [x] T310 [N2] Oracle emite el veredicto formal sobre la feature y deja las tareas en `REVIEW`; la marca `COMPLETED`, la etiqueta y `git push` son de Neo (SC-002)
 
 **Checkpoint**: feature completa en `REVIEW`; sin `COMPLETED` hasta que Neo lo firme.
 
