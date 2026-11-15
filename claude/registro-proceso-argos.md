@@ -730,3 +730,4 @@
 2026-11-14 Architect: mapa-sc-002.md L8/L30 SC-002 actualizado a aceptado por Neo (it. 70) vía T306+T305+suite verde; reserva visible. Sin commit.
 2026-11-14 Architect: mapa-sc-002.md L27 conteo SIN PRUEBA ajustado a 0 (SC-002 aceptado por Neo). Sin commit.
 2026-11-14 Morpheus: commit de cierre feature 002 ac14bfd (local). Árbol limpio salvo temporales excluidos. Push y etiqueta: Neo.
+2026-11-14 Morpheus: CIERRE DE MISIÓN feature 002 (Neo ratifica ac14bfd y c8202d1; 112/112). Etiqueta y push: Neo. Tripulación en descanso.
