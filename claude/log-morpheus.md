@@ -1140,3 +1140,4 @@
 - 2026-11-14 20:54 Morpheus: Keymaker fila 20 verde 3/3 (14/14 cada corrida, HMAC efímero). M-1 V9 por cuatro roles añadido (tests/security 271/271, tsc 0). Falta marcar fila 20 (Architect) y revalidar T304 (Oracle).
 - 2026-11-14 20:54 Morpheus: Architect no confirma escenario recargar-sigue-autenticado de fila 20; fila queda pendiente. Pido a Keymaker una prueba de recarga en tests/e2e, aislada, 3 corridas.
 - 2026-11-14 20:56 Morpheus: Keymaker añade prueba recarga-sigue-autenticado (rebanada6-recorridos.spec.ts:120), verde 3/3 aislado. Architect marca fila 20 citando ese archivo; luego Oracle revalida T304.
+- 2026-11-14 20:58 Morpheus: Oracle revalida T304 CUMPLE. Marcada T304 [x] por autorización de Neo (Logos). Commit local ac566de (sin push). Ahead 7.

@@ -701,3 +701,4 @@
 2026-11-14 Morpheus: prueba recarga verde 3/3 (rebanada6-recorridos:120). Architect marca fila 20; Oracle revalida T304.
 2026-11-14 architect: fila 20 sustitucion-pruebas-001 -> sustituida (rebanada6-recorridos.spec.ts:120/127/134; V9 nine-vectors:252; wcag.spec.ts 4 anchos). Sin commit.
 - 2026-11-14 Oracle: T304 revalidada en disco, CUMPLE (36/36 sustituidas, E2E 22/22, security 271/271, tsc 0, gates CUMPLE); marcar [x] queda para Neo. Ver claude/veredicto-oracle-T304-revalidacion-2026-11-14.md
+2026-11-14 Morpheus: T304 [x] (Oracle CUMPLE + autorización Neo). Commit local ac566de. Sin push. Pendiente: T306 y T310 con push de Neo.
