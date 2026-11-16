@@ -793,3 +793,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creado postgres-unit-of-work.ts (PostgresUnitOfWork(pool, createRepositories(client))): BEGIN, 3 SET LOCAL (10 s/10 s/15 s), pg_advisory_xact_lock(0x4152474f53), work, COMMIT; ROLLBACK ante fallo.
 - C-6 tomada del SqliteUnitOfWork: error original salvo fallo de ROLLBACK -> DomainError ERR-INTERNAL-UNEXPECTED finalState UNKNOWN (cliente destruido). Reintento único solo por ECONNRESET en connect() o BEGIN.
 - PoolLike ampliado con connect/query (PoolClientLike, QueryResultLike); quitado el cast 'as unknown' de la prueba viva; la prueba R1 de Oracle ahora afirma la línea exacta 'pg pool end error code=ECONNRESET'.
+
+## 2026-11-16 — T422 pruebas primero (repositorios PostgreSQL parte 1)
+- Creados tests/integration/persistence/postgres-repositories-part1.spec.ts (23 pruebas con doble del cliente: SQL exacto, $n consecutivos, sin interpolación, orden de columnas, sha256 de token, filas corruptas, fuente sin process.env/schema_migrations) y postgres-repositories.spec.ts (suite de conformidad con fábrica async + dispose, describe.skipIf(!TEST_DATABASE_URL); 19 omitidas, esquema aislado por prueba con baseline 0001).
+- Rojas: 23 (módulo postgres-repositories.ts inexistente, import dinámico para que tsc siga en 0). tsc 0.
+- Nota: la suite es única; sus pruebas de mascotas/hogares solo pasarán vivas tras T423/T424.
