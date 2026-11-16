@@ -1,0 +1,179 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+/**
+ * T448 (REQ-CICD-003, 005, 006, 008, 009, 011, SC-CLD-006, 007, 023, D-03): deploy-argos.yml.
+ * Pruebas estáticas por lectura del texto del flujo.
+ */
+const path = join(process.cwd(), '.github', 'workflows', 'deploy-argos.yml');
+const load = (): string => readFileSync(path, 'utf8');
+const noComments = (s: string): string => s.replace(/^\s*#.*$/gm, '');
+const body = (): string => noComments(load());
+
+/** Devuelve el texto del trabajo `name` (de su clave hasta el siguiente trabajo o el fin). */
+const job = (name: string): string => {
+  const y = body();
+  const jobs = y.split(/^jobs:\s*$/m)[1] ?? '';
+  const parts = jobs.split(/^ {2}(?=[\w-]+:\s*$)/m);
+  return parts.find((p) => p.startsWith(`${name}:`)) ?? '';
+};
+const jobNames = (): string[] => [...(body().split(/^jobs:\s*$/m)[1] ?? '').matchAll(/^ {2}([\w-]+):\s*$/gm)].map((m) => m[1] ?? '');
+
+describe('.github/workflows/deploy-argos.yml (T448)', () => {
+  it('el archivo existe', () => {
+    expect(existsSync(path)).toBe(true);
+  });
+
+  it('se dispara con push a main (rutas acotadas) y workflow_dispatch, sin pull_request', () => {
+    const y = body();
+    expect(y).toMatch(/^ {2}push:\s*\n\s+branches:\s*\[\s*main\s*\]/m);
+    expect(y).toMatch(/^ {4}paths:/m);
+    for (const p of ['src/**', 'package*.json', 'Dockerfile', '.dockerignore', 'vite.config.ts', '.github/workflows/deploy-argos.yml']) {
+      expect(y).toContain(`'${p}'`);
+    }
+    expect(y).toMatch(/^ {2}workflow_dispatch:/m);
+    expect(y).not.toMatch(/pull_request/);
+    expect(y).not.toMatch(/workflow_run/);
+  });
+
+  it('gate reutiliza test-gate.yml con permissions contents: read, sin id-token ni secretos', () => {
+    const g = job('gate');
+    expect(g).toMatch(/^\s+uses:\s*\.\/\.github\/workflows\/test-gate\.yml\s*$/m);
+    expect(g).toMatch(/^ {4}permissions:\s*\n\s+contents:\s*read\s*$/m);
+    expect(g).not.toMatch(/id-token/);
+    expect(g).not.toMatch(/secrets\./);
+    expect(g).not.toMatch(/secrets:\s*inherit/);
+    expect(g).not.toMatch(/environment:/);
+    expect(g).not.toMatch(/vars\.(GCP|TF_)/);
+  });
+
+  it('solo deploy tiene id-token: write y declara sus propios permissions mínimos', () => {
+    const y = body();
+    expect(y.match(/id-token:\s*write/g)?.length).toBe(1);
+    const d = job('deploy');
+    expect(d).toMatch(/^ {4}permissions:\s*\n(?:\s+[\w-]+:\s*\w+\s*\n)*?\s+id-token:\s*write/m);
+    expect(d).toMatch(/contents:\s*read/);
+    expect(d).not.toMatch(/contents:\s*write/);
+    for (const name of jobNames()) {
+      if (name !== 'deploy') expect(job(name)).not.toMatch(/id-token/);
+    }
+  });
+
+  it('no existe trabajo compat (H-MIF-001)', () => {
+    expect(jobNames()).not.toContain('compat');
+    expect(body()).not.toMatch(/^ {2}compat:/m);
+  });
+
+  it('todos los trabajos declaran permissions propios y no hay permissions amplios', () => {
+    const y = body();
+    expect(y).not.toMatch(/write-all/);
+    expect(y).not.toMatch(/read-all/);
+    expect(y).not.toMatch(/^permissions:/m);
+    for (const name of jobNames()) expect(job(name)).toMatch(/^ {4}permissions:/m);
+  });
+
+  it('cada uses: de terceros está fijado a SHA de 40 caracteres; actions/* admite etiqueta mayor; incluye auth y login-action', () => {
+    const uses = [...body().matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)].map((m) => m[1] ?? '');
+    expect(uses.length).toBeGreaterThan(0);
+    for (const u of uses) {
+      if (u.startsWith('./')) expect(u).toBe('./.github/workflows/test-gate.yml');
+      else if (u.startsWith('actions/')) expect(u).toMatch(/^actions\/[\w.-]+@(v\d+|[0-9a-f]{40})$/);
+      else expect(u).toMatch(/^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/);
+    }
+    expect(uses.some((u) => u.startsWith('google-github-actions/auth@'))).toBe(true);
+    expect(uses.some((u) => u.startsWith('docker/login-action@'))).toBe(true);
+  });
+
+  it('npm audit --omit=dev --audit-level=high precede al build de la imagen y a deploy', () => {
+    const y = body();
+    const audit = y.indexOf('npm audit --omit=dev --audit-level=high');
+    const build = y.indexOf('docker build');
+    expect(audit).toBeGreaterThan(-1);
+    expect(build).toBeGreaterThan(audit);
+    expect(job('audit')).toContain('npm audit --omit=dev --audit-level=high');
+    expect(job('deploy')).toMatch(/needs:[^\n]*audit/);
+  });
+
+  it('el orden de dependencias es gate -> audit -> migrate -> deploy', () => {
+    expect(job('audit')).toMatch(/needs:\s*gate/);
+    expect(job('migrate')).toMatch(/needs:[^\n]*audit/);
+    expect(job('deploy')).toMatch(/needs:[^\n]*migrate/);
+  });
+
+  it('migrate usa DATABASE_URL_DIRECT por env, scripts/migrate-postgres.ts y no tiene id-token ni credenciales de GCP', () => {
+    const m = job('migrate');
+    expect(m).toMatch(/DATABASE_URL_DIRECT:\s*\$\{\{\s*secrets\.DATABASE_URL_DIRECT\s*\}\}/);
+    expect(m).toMatch(/scripts\/migrate-postgres\.ts/);
+    expect(m).not.toMatch(/google-github-actions\/auth/);
+    expect(m).not.toMatch(/NEON_/);
+    expect(m).toMatch(/^ {4}environment:\s*produccion\s*$/m);
+    expect(m).toMatch(/--ignore-scripts/);
+  });
+
+  it('deploy usa el entorno produccion, WIF por variables y sin llaves JSON', () => {
+    const d = job('deploy');
+    expect(d).toMatch(/^ {4}environment:\s*produccion\s*$/m);
+    expect(d).toMatch(/workload_identity_provider:\s*\$\{\{\s*vars\.GCP_WIF_PROVIDER\s*\}\}/);
+    expect(d).toMatch(/service_account:\s*\$\{\{\s*vars\.GCP_DEPLOY_SA\s*\}\}/);
+    expect(body()).not.toMatch(/credentials_json|GCP_SA_KEY/);
+  });
+
+  it('imagen con etiqueta sha-<commit> en Artifact Registry y push', () => {
+    const d = job('deploy');
+    expect(d).toMatch(/-docker\.pkg\.dev\//);
+    expect(d).toMatch(/argos-docker\/argos:sha-\$\{?GITHUB_SHA\}?/);
+    expect(d).toMatch(/docker push/);
+    expect(d.indexOf('docker build')).toBeLessThan(d.indexOf('docker push'));
+  });
+
+  it('despliega sin tráfico con sondas y secretos por versión numérica, nunca latest', () => {
+    const d = job('deploy');
+    expect(d).toMatch(/gcloud run deploy argos/);
+    expect(d).toMatch(/--no-traffic/);
+    expect(d).toMatch(/--startup-probe/);
+    expect(d).toMatch(/--liveness-probe/);
+    expect(d).toMatch(/\/healthz/);
+    expect(d).toMatch(/DATABASE_URL=argos-database-url:\$\{?DB_VERSION\}?/);
+    expect(d).toMatch(/ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:\$\{?HMAC_VERSION\}?/);
+    expect(d).toMatch(/\^\[0-9\]\+\$/);
+    expect(body()).not.toMatch(/(?:argos-database-url|argos-audit-hmac-secret):latest/);
+  });
+
+  it('humo en /healthz y /readyz, luego mueve el 100 % del tráfico, y retrocede si falla', () => {
+    const d = job('deploy');
+    const smoke = d.indexOf('/readyz');
+    const promote = d.indexOf('update-traffic');
+    expect(smoke).toBeGreaterThan(-1);
+    expect(promote).toBeGreaterThan(smoke);
+    expect(d).toMatch(/--to-revisions[= ]\S*=100/);
+    expect(d).toMatch(/if:\s*\$?\{?\{?\s*failure\(\)/);
+    expect(d).toMatch(/--remove-tags/);
+  });
+
+  it('concurrency por ref sin cancelar el despliegue en curso', () => {
+    expect(body()).toMatch(/^concurrency:\s*\n\s+group:\s*deploy-argos-\$\{\{\s*github\.ref\s*\}\}\s*\n\s+cancel-in-progress:\s*false/m);
+  });
+
+  it('no interpola contexto de evento en run: y no enmascara con echo de secretos', () => {
+    const y = body();
+    const runs = [...y.matchAll(/^\s*run:\s*(\|[^\n]*\n(?:(?: {8,}[^\n]*)?\n)*|[^\n]*)/gm)].map((m) => m[1] ?? '');
+    expect(runs.length).toBeGreaterThan(0);
+    for (const r of runs) expect(r).not.toMatch(/\$\{\{/);
+    expect(y).not.toMatch(/github\.event\.(head_commit|pull_request|issue|comment)/);
+    expect(y).not.toMatch(/github\.head_ref/);
+  });
+
+  it('REQ-CICD-008: sin git push, candados, upload-artifact, NEON_API_KEY ni emojis', () => {
+    const y = body();
+    expect(y).not.toMatch(/git push/);
+    expect(y).not.toMatch(/index\.lock/);
+    expect(y).not.toMatch(/upload-artifact/);
+    expect(y).not.toMatch(/NEON_API_KEY|NEON_PROJECT_ID/);
+    expect(y).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
+  it('enmascara los valores derivados con ::add-mask::', () => {
+    expect(body()).toMatch(/::add-mask::/);
+  });
+});
