@@ -153,6 +153,65 @@ describe('guardia de plan: dominio propio (REQ-IAC-014, SC-CLD-024)', () => {
   });
 });
 
+describe('guardia de plan: cierre en falso (R-1 y R-3 de Oracle, T471)', () => {
+  const PROTECTED_TYPES = [
+    'google_secret_manager_secret_version',
+    'google_secret_manager_secret',
+    'google_cloud_run_v2_service',
+    'google_storage_bucket',
+  ];
+  const noActions = (type: string, extra: object = {}) => ({ address: `${type}.x`, type, name: 'x', change: { ...extra } });
+
+  it('un recurso protegido sin change.actions produce plan-invalido', async () => {
+    const { evaluatePlan } = await load();
+    for (const type of PROTECTED_TYPES) {
+      const r = evaluatePlan(plan([noActions(type)]), { env: GOOD_ENV });
+      expect(r.ok, type).toBe(false);
+      expect(r.violations.map((v) => v.rule), type).toContain('plan-invalido');
+    }
+  });
+
+  it('protegido sin change, con actions nulo, vacío o no-array también falla', async () => {
+    const { evaluatePlan } = await load();
+    const t = 'google_secret_manager_secret_version';
+    const variants = [
+      { address: `${t}.x`, type: t, name: 'x' },
+      noActions(t, { actions: null }),
+      noActions(t, { actions: [] }),
+      noActions(t, { actions: 'delete' }),
+    ];
+    for (const v of variants) {
+      const r = evaluatePlan(plan([v]), { env: GOOD_ENV });
+      expect(r.ok, JSON.stringify(v)).toBe(false);
+      expect(r.violations.map((x) => x.rule)).toContain('plan-invalido');
+    }
+  });
+
+  it('un recurso no protegido sin actions no bloquea', async () => {
+    const { evaluatePlan } = await load();
+    expect(evaluatePlan(plan([noActions('google_project_service')]), { env: GOOD_ENV }).ok).toBe(true);
+  });
+
+  it('CLI: protegido sin actions sale con 1 y plan-invalido en stderr', () => {
+    const f = join(tmpdir(), `plan-guard-r1-${process.pid}.json`);
+    writeFileSync(f, JSON.stringify(plan([noActions('google_storage_bucket')])));
+    try {
+      const r = spawnSync('node', [SCRIPT, f], { env: { PATH: process.env.PATH ?? '', ...GOOD_ENV }, encoding: 'utf8' });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain('plan-invalido');
+    } finally {
+      rmSync(f, { force: true });
+    }
+  });
+
+  it('sin plan.variables y con un mapeo de dominio falla cerrado', async () => {
+    const { evaluatePlan } = await load();
+    const p = { format_version: '1.2', resource_changes: [change('google_cloud_run_domain_mapping', 'custom', ['create'])] };
+    const r = evaluatePlan(p, { env: GOOD_ENV });
+    expect(r.ok).toBe(false);
+  });
+});
+
 describe('guardia de plan: entrada y CLI', () => {
   let dir: string;
   beforeEach(() => {
