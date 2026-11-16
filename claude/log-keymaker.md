@@ -772,3 +772,9 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creados docker-compose.test.yml (postgres:17, healthcheck, loopback 55432, tmpfs), .env.example (marcador comentado `# TEST_DATABASE_URL=`), tests/integration/persistence/postgres-service.spec.ts (2 estáticas + 1 con describe.skipIf(!TEST_DATABASE_URL), motivo en el nombre).
 - process.env en tests/ tiene precedente (audit-secret.security.spec.ts); la regla SAST y el gate de pureza se aplican a src/. Docker: CLI instalado, daemon apagado (no se levantó el servicio).
 - tsc 0; completa 1987 verdes + 1 omitida (antes 1985).
+
+## 2026-11-16 — T419 (baseline 0001 de PostgreSQL y paridad)
+- Pruebas primero: tests/integration/persistence/schema-parity.spec.ts (7 estáticas + 1 viva con skipIf(!TEST_DATABASE_URL)); roja por 0001 inexistente. Luego src/infrastructure/persistence/postgres/migrations/0001_baseline.sql (ruta de data-model.md §2; no existía carpeta migrations/ en la raíz).
+- Paridad leída del DDL de sqlite_master (migraciones reales) vs el SQL: tablas (lista canónica de 18), columnas, tipos (data->JSONB, flags->SMALLINT), nulabilidad, defectos, UNIQUE, FK/cascadas, PK, CHECK (GLOB -> regex), índices parciales. Una sola fila schema_migrations ('0001_baseline') y una sola MIGRATION en audit_log.
+- Hallazgo propio: mi primer SQL conservaba length()=15 redundante junto a la regex; se alineó a la regex sola (data-model §1).
+- tsc 0; completa 1994 verdes + 2 omitidas. Sin dependencias nuevas.
