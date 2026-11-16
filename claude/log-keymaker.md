@@ -732,3 +732,9 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creados security-headers.ts, ops-routes.ts, static-assets.ts en src/infrastructure/http/. server.ts/app.ts NO tocados (el cableado a producción queda para otra tarea).
 - Decisiones: CSP añade base-uri/form-action/object-src 'self'/'none'; /readyz cachea la promesa (éxito/fallo, 60 s, Date.now) y el timeout de 5 s se limpia; 503 con cuerpo fijo sin causa. Estáticos: hook onRequest da 404 a rutas con %2e/%2f/%5c/%00/\\ o // (fuera de /api/); el fallback SPA excluye /api/*, /assets/* y últimos segmentos con extensión (inject normaliza el traversal a /secret.txt y no debe devolver index.html).
 - Gates: ops 58/58; tsc 0; unit+integration 74 archivos, 1602/1602; contratos 003 sin diferencias con src/generated/ops.
+
+## 2026-11-16 — T413 (pruebas primero: POST /internal/maintenance)
+- Creado tests/integration/ops/maintenance-route.spec.ts (15 pruebas). Contrato para T414: src/infrastructure/http/routes/maintenance-routes.ts exporta registerMaintenanceRoute(app, { verifyOidc(token): Promise<Identity>, runMaintenance(): Promise<{purged:number}> }). Identidad del Scheduler fijada en el test (argos-scheduler@test-project...; Identity {email, sub}).
+- Cubre: 401 sin header / no Bearer / token inválido; 403 identidad ajena; 200 Scheduler (body.purged); 5xx sin causa; respuesta y log sin token ni identidad (log solo conteo "purged":7); CSRF aparte (Bearer sin cookie 200, cookie sin Bearer 401); GET/PUT/DELETE/PATCH 404|405.
+- Ambigüedad: openapi MaintenanceResult tiene 5 conteos, la firma dada es {purged}; se prueba solo body.purged (T414/Architect alinean).
+- Resultado: tsc exit 0; vitest 15/15 rojas, causa única módulo inexistente. src/ intacto. Sin push, sin [x]. registro-proceso no tocado por instrucción.
