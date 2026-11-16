@@ -2,7 +2,6 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 /**
@@ -22,7 +21,8 @@ interface Result {
 interface Guard {
   evaluatePlan: (plan: unknown, opts?: { labels?: string[]; env?: Record<string, string | undefined> }) => Result;
 }
-const load = async (): Promise<Guard> => (await import(pathToFileURL(SCRIPT).href)) as Guard;
+// @ts-expect-error TS7016: el guardia es .mjs sin declaraciones (el módulo se tipa con Guard)
+const load = async (): Promise<Guard> => (await import('../../scripts/terraform-plan-guard.mjs')) as unknown as Guard;
 
 const change = (type: string, name: string, actions: string[]) => ({
   address: `${type}.${name}`,
