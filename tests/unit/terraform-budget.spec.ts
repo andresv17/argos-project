@@ -41,10 +41,10 @@ describe('terraform/budget.tf (T443)', () => {
     expect(b).toMatch(/display_name\s*=\s*"\$\{var\.project_prefix\}-/);
   });
 
-  it('alerta por correo: destinatarios IAM por defecto activos (no se desactivan)', () => {
+  it('alerta por correo: destinatarios IAM por defecto activos (no se desactivan ni se pasa a Pub/Sub)', () => {
     const b = budget();
-    expect(b).toMatch(/all_updates_rule\s*\{/);
     expect(b).not.toMatch(/disable_default_iam_recipients\s*=\s*true/);
+    expect(b).not.toMatch(/pubsub_topic/);
   });
 
   it('variable billing_account sin default, tipo string y con validación de formato', () => {

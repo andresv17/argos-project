@@ -49,3 +49,13 @@ variable "database_url" {
     error_message = "database_url no puede estar vacía ni contener saltos de línea (REQ-IAC-013)."
   }
 }
+
+variable "billing_account" {
+  description = "ID de la cuenta de facturación (formato AAAAAA-BBBBBB-CCCCCC) a la que se asocia el presupuesto de 1 USD (D-13). No es un secreto. Llega por TF_VAR_billing_account."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$", var.billing_account))
+    error_message = "billing_account debe tener el formato AAAAAA-BBBBBB-CCCCCC (hexadecimal en mayúsculas)."
+  }
+}
