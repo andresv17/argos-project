@@ -3,7 +3,8 @@ name: Vacuum Argos
 # T473 (REQ-PG-015, REQ-PG-011, SC-CLD-019, EDGE-CLD-08): VACUUM por el rol propietario (argos_migrator), nunca argos_app.
 # - cron semanal: VACUUM (ANALYZE) por tabla.
 # - workflow_dispatch (paso obligatorio del runbook tras cada eliminacion de cuenta o importacion): por defecto
-#   VACUUM (FULL, ANALYZE) con lock_timeout=3s y hasta 3 reintentos; modo "simple" lo baja a VACUUM (ANALYZE).
+#   VACUUM (FULL, ANALYZE) con lock_timeout=3s y hasta 3 reintentos, y a continuacion VACUUM (ANALYZE) por tabla
+#   (H-K-T473-5: PG17 no actualiza last_vacuum con FULL); modo "simple" lo baja a VACUUM (ANALYZE) sin paso extra.
 # - Cada VACUUM es una sentencia psql -c independiente (fuera de transaccion) con statement_timeout propio.
 # - Falla ante "skipping ... only table owner" o si last_vacuum de alguna tabla supera 10 dias.
 # - Publica solo conteos/fechas de pg_stat_user_tables (last_vacuum, last_autovacuum, n_dead_tup), sin datos.
@@ -52,10 +53,12 @@ jobs:
           sql_seccion() { awk -v n="$1" '$1 == "--" && $2 == "@sql" { dentro = ($3 == n); next } dentro' scripts/vacuum-argos.sql; }
           if [ "${EVENTO}" = "workflow_dispatch" ] && [ "${MODO:-full}" = "full" ]; then
             SENTENCIA="$(sql_seccion vacuum_full)"
+            SENTENCIA_TRAS="$(sql_seccion vacuum_tras_full)"
             export PGOPTIONS="-c lock_timeout=3s -c statement_timeout=120s"
             MAX_INTENTOS=3
           else
             SENTENCIA="$(sql_seccion vacuum_simple)"
+            SENTENCIA_TRAS=""
             export PGOPTIONS="-c statement_timeout=120s"
             MAX_INTENTOS=1
           fi
@@ -75,6 +78,13 @@ jobs:
                 if grep -Eqi "only table owner|permission denied to vacuum" "${SALIDA}"; then
                   echo "FALLA: ${T} emitio 'skipping ... only table owner can vacuum' (rol sin privilegio)" >&2
                   exit 1
+                fi
+                if [ -n "${SENTENCIA_TRAS}" ]; then
+                  psql "${DATABASE_URL_DIRECT}" -X -v ON_ERROR_STOP=1 -c "${SENTENCIA_TRAS} ${T}" >"${SALIDA}" 2>&1 || { cat "${SALIDA}" >&2; echo "FALLA: ${T} no pudo ejecutar ${SENTENCIA_TRAS} tras el FULL" >&2; exit 1; }
+                  if grep -Eqi "only table owner|permission denied to vacuum" "${SALIDA}"; then
+                    echo "FALLA: ${T} emitio 'skipping ... only table owner can vacuum' (rol sin privilegio)" >&2
+                    exit 1
+                  fi
                 fi
                 echo "OK ${T}"
                 break
