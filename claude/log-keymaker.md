@@ -727,3 +727,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-16 — PASO 0 RC-1 de Oracle (concurrencia de la caché de /readyz)
 - Añadida a readyz-cache.spec.ts una prueba: 10 GET /readyz simultáneos con caché vacía y checkReady pendiente -> una sola llamada (promesa en vuelo compartida) y 10 respuestas 200.
 - Resultado: 7/7 rojas (módulo ops-routes.ts aún inexistente; causa única de ausencia). Commit local, sin push.
+
+## 2026-11-16 — T412 + T479 (verde)
+- Creados security-headers.ts, ops-routes.ts, static-assets.ts en src/infrastructure/http/. server.ts/app.ts NO tocados (el cableado a producción queda para otra tarea).
+- Decisiones: CSP añade base-uri/form-action/object-src 'self'/'none'; /readyz cachea la promesa (éxito/fallo, 60 s, Date.now) y el timeout de 5 s se limpia; 503 con cuerpo fijo sin causa. Estáticos: hook onRequest da 404 a rutas con %2e/%2f/%5c/%00/\\ o // (fuera de /api/); el fallback SPA excluye /api/*, /assets/* y últimos segmentos con extensión (inject normaliza el traversal a /secret.txt y no debe devolver index.html).
+- Gates: ops 58/58; tsc 0; unit+integration 74 archivos, 1602/1602; contratos 003 sin diferencias con src/generated/ops.
