@@ -158,7 +158,7 @@ Ninguna cuenta de Argos tiene permisos sobre recursos de Mirror. Con WIF, la con
 ### 6.1.1 Cadena de suministro de CI (REQ-CICD-011, H-MERO-007/008/009)
 - Acciones: lista con versión y SHA de 40 caracteres en cada flujo; por SHA las de credenciales (`google-github-actions/auth`, `docker/login-action`, `hashicorp/setup-terraform`) y las de terceros; etiqueta mayor solo para `actions/*`.
 - `hadolint` y `actionlint` como binarios con versión y `sha256` fijos; `gitleaks-action` no se usa (SC-CLD-004 con `grep` o binario por `sha256`).
-- `permissions:` por trabajo: `contents: read` por defecto; `id-token: write` solo en `deploy` y `terraform apply`; el trabajo `gate` (pruebas) sin `id-token` ni secretos de GCP.
+- `permissions:` por trabajo: `contents: read` por defecto; `id-token: write` permitido exclusivamente en `build-push` (autenticación WIF para push a Artifact Registry), `deploy` (despliegue a Cloud Run) y `terraform apply`; los trabajos `gate`, `audit` y `migrate` permanecen estrictamente sin `id-token` ni credenciales OIDC.
 - `npm audit --omit=dev --audit-level=high` en `code-quality.yml` y antes del despliegue; imagen base `node:22.23.4-slim@sha256:<digest>` (T433).
 - `dependabot.yml` (solo `github-actions` y `docker`): propuesta a Neo, no incluida.
 
@@ -167,9 +167,10 @@ Ninguna cuenta de Argos tiene permisos sobre recursos de Mirror. Con WIF, la con
 concurrency: { group: deploy-argos, cancel-in-progress: false }
 jobs:
   gate:    { uses: ./.github/workflows/test-gate.yml }   # permissions: contents: read; SIN id-token ni secretos de GCP (H-MERO-009)
-  build:   { needs: gate }      # buildx; push <region>-docker.pkg.dev/<proj>/argos/argos:sha-${{ github.sha }}
-  migrate: { needs: build }     # node scripts/migrate-postgres.ts con DATABASE_URL_DIRECT; sin rama Neon pre-<sha> (D-19)
-  deploy:  { needs: migrate }   # permissions: id-token: write solo aqui; gcloud run deploy --image … --no-traffic --tag sha-<corto> con sondas, env y secretos NNN numéricos
+  audit:   { needs: gate }      # npm audit --omit=dev --audit-level=high; permissions: contents: read; SIN id-token
+  build-push: { needs: audit }  # permissions: id-token: write (WIF); buildx; push <region>-docker.pkg.dev/<proj>/argos/argos:sha-${{ github.sha }}
+  migrate: { needs: build-push }     # node scripts/migrate-postgres.ts con DATABASE_URL_DIRECT; sin rama Neon pre-<sha> (D-19)
+  deploy:  { needs: migrate }   # permissions: id-token: write (WIF, despliegue a Cloud Run); gcloud run deploy --image … --no-traffic --tag sha-<corto> con sondas, env y secretos NNN numéricos
   smoke:   { needs: deploy }    # curl /healthz y /readyz en la URL etiquetada
   promote: { needs: smoke }     # gcloud run services update-traffic --to-latest
 ```
