@@ -54,5 +54,8 @@ describe('terraform/scheduler.tf (T442)', () => {
 
   it('depende del servicio y de las APIs habilitadas (cloudscheduler) y del invoker', () => {
     expect(job()).toMatch(/depends_on\s*=\s*\[[^\]]*google_project_service\.apis[^\]]*\]/);
+    expect(job()).toMatch(
+      /depends_on\s*=\s*\[[^\]]*google_cloud_run_v2_service_iam_member\.scheduler_invoker[^\]]*\]/,
+    );
   });
 });
