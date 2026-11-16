@@ -769,3 +769,7 @@
 2026-11-15 21:19 Morpheus: rama 003-cloud-gcp creada en 19a9abb y publicada en origin; 002-plataforma-v21 restablecida a f459c9c.
 2026-11-15 21:19 Morpheus: Keymaker en T406 y T408 en 003-cloud-gcp (sin src/ ni terraform/).
 2026-11-15 Keymaker: T406 y T408 hechas (sin marcar [x]): ops.openapi.yaml, codegen-ops.mjs y scripts con --feature 003; compuertas verdes; src/terraform sin cambios; commit local.
+2026-11-15 21:22 Morpheus: T406/T408 en 9915575 (local). Oracle verifica antes de push.
+2026-11-15 21:23 Oracle: T406/T408 (9915575) CUMPLE CON RESERVAS (R1 evidencia 003 informativa hasta SDD_STRICT_EVIDENCE=1). Ver audits/oracle-T406-T408-veredicto.md
+2026-11-15 21:24 Morpheus: 9915575 (T406/T408, Oracle CUMPLE CON RESERVAS) publicado en origin/003-cloud-gcp.
+2026-11-15 21:34 Morpheus: Neo marca T406/T408 [x]; luz verde T409 (pruebas en tests/, sin src/).

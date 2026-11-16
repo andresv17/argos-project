@@ -1278,3 +1278,25 @@
 ### 2026-11-15 20:50 — Morpheus: commit local b0fa89e docs(003) (sin push)
 - Incluye specs/003-cloud-gcp/, .specify/memory/audits/ (gates y enmienda), .specify/memory/constitution.md (3.3.0) y bitácoras de gates. Excluido: claude/log-neb.md y ajenos.
 - Pendiente: nada obligatorio. Tareas de implementación (T403 ya firmada, T406, T408) solo con orden explícita de Neo. Sin push.
+
+### 2026-11-15 21:19 — Morpheus: rama 003-cloud-gcp y push autorizados por Neo
+- Rama 003-cloud-gcp creada en 19a9abb y publicada en origin (tracking). 002-plataforma-v21 restablecida a f459c9c (local y origin alineados, sin commits de la 003).
+- Neo: luz verde a Keymaker para T406 (scripts de compuertas con prefijos 003) y T408 (contracts/ops.openapi.yaml). Invariante: cero cambios en src/ o terraform/.
+- Siguiente: /keymaker ejecuta T406 y T408 en la rama 003-cloud-gcp.
+
+### 2026-11-15 21:22 — Morpheus: Keymaker entrega T406 y T408 (commit local 9915575, sin push)
+- Verificado: solo scripts/ y specs/003-cloud-gcp/contracts/openapi/ y claude/. src/ y terraform/ sin cambios. Diff de verify-traceability.sh: filtro de IDs 003 en principio II solo para 001/002.
+- Preguntas para Neo: (1) autorizar formalmente cambios en scripts/ (T406 ya tiene luz verde de Neo); (2) evidencia de código informativa hasta T462; (3) status 503 para ERR-INTERNAL-UNEXPECTED en /readyz vs catálogo 002 (500); (4) ProblemDetails duplicado en ops.openapi.yaml.
+- Hallazgo: la compuerta de la 002 fallaba antes del cambio con 4 IDs de la 003 citados en principio II; 001 falla en 5 IDs preexistentes (ajenos).
+- Siguiente: /oracle verifica 9915575 en disco antes de pedir push.
+
+### 2026-11-15 21:24 — Morpheus: /oracle CUMPLE CON RESERVAS para 9915575 (T406/T408); push a origin/003-cloud-gcp
+- Veredicto: .specify/memory/audits/oracle-T406-T408-veredicto.md. 002 pasa (118/118). 001 mantiene sus 5 fallos preexistentes. src/, terraform/, .github/, .specify/ sin cambios.
+- Push autorizado por Neo para la rama 003-cloud-gcp (orden de ramas). 002-plataforma-v21 no tocada.
+- Reservas: R1 evidencia de código informativa hasta cierre T462 (SDD_STRICT_EVIDENCE=1 allí); R2 001 con 5 fallos ajenos; R3 catálogo de errores reutiliza el de la 002.
+- Pendiente Neo: marcar COMPLETED T406/T408 si acepta; decisiones de Keymaker (preguntas 1 a 4).
+
+### 2026-11-15 21:34 — Morpheus: Neo firma T406 y T408 [x] COMPLETED; preguntas de Keymaker respondidas; luz verde T409
+- Marcas [x] de T406 y T408 presentes en tasks.md (orden de Neo). Commit local de esa marca.
+- Respuestas: (1) scripts ratificados; (2) evidencia de código informativa hasta T462 con SDD_STRICT_EVIDENCE=1; (3) /readyz 503 con ERR-INTERNAL-UNEXPECTED, sin entradas nuevas en el catálogo; (4) ProblemDetails RFC 7807 local aceptado.
+- T409: tests primero en tests/unit/app-config.spec.ts que fallen antes de T410; sustitución de la aserción HOST=0.0.0.0 según D-26. Sin cambios en src/.
