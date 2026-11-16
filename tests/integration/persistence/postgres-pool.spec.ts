@@ -34,6 +34,8 @@ function crearDoble(): Doble {
         return like;
       },
       end: pool.end,
+      connect: async () => ({ query: async () => ({ rows: [], rowCount: 0 }), release: () => undefined }),
+      query: async () => ({ rows: [], rowCount: 0 }),
     };
     return like;
   };
@@ -93,7 +95,7 @@ describe('createPostgresPool (doble del constructor, sin Postgres)', () => {
   it('no consulta schema_migrations ni abre conexión al crearse (REQ-PG-006, T464 lo hace)', () => {
     const d = crearDoble();
     const pool = createPostgresPool({ connectionString: URL_SECRETA, pgPoolMax: 5 }, { createPool: d.ctor, log: () => undefined });
-    expect(Object.keys(pool).sort()).toEqual(['end', 'on']);
+    expect(Object.keys(pool).sort()).toEqual(['connect', 'end', 'on', 'query']);
   });
 });
 
@@ -112,7 +114,7 @@ describe('closePool', () => {
     const lines: string[] = [];
     const pool = createPostgresPool({ connectionString: URL_SECRETA, pgPoolMax: 5 }, { createPool: d.ctor, log: (l) => lines.push(l) });
     await expect(closePool(pool)).resolves.toBeUndefined();
-    expect(lines.join('\n')).not.toContain('clave-super-secreta');
+    expect(lines).toEqual(['pg pool end error code=ECONNRESET']);
   });
 });
 
@@ -121,8 +123,8 @@ describe.skipIf(!TEST_DATABASE_URL)(
   () => {
     it('conecta, responde SELECT 1 y cierra', async () => {
       const pool = createPostgresPool({ connectionString: TEST_DATABASE_URL ?? '', pgPoolMax: 2 });
-      const { rows } = await (pool as unknown as { query(sql: string): Promise<{ rows: { n: number }[] }> }).query('SELECT 1 AS n');
-      expect(rows[0]?.n).toBe(1);
+      const { rows } = await pool.query('SELECT 1 AS n');
+      expect(rows[0]?.['n']).toBe(1);
       await closePool(pool);
     });
   },

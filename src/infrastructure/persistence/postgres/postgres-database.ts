@@ -30,10 +30,25 @@ export interface PoolSettings {
   readonly keepAliveInitialDelayMillis: number;
 }
 
-/** Superficie mínima del pool que usa el adaptador (T421 la amplía con `connect`). */
+/** Resultado mínimo de una consulta: filas y conteo. */
+export interface QueryResultLike {
+  readonly rows: Array<Record<string, unknown>>;
+  readonly rowCount: number | null;
+}
+
+/** Superficie mínima de un cliente prestado por el pool (transacción de T421). */
+export interface PoolClientLike {
+  query(text: string, values?: unknown[]): Promise<QueryResultLike>;
+  /** `release(error)` con un error (o `true`) destruye la conexión en lugar de devolverla al pool. */
+  release(error?: Error | boolean): void;
+}
+
+/** Superficie mínima del pool que usa el adaptador. */
 export interface PoolLike {
   on(event: 'error', handler: (error: Error) => void): PoolLike;
   end(): Promise<void>;
+  connect(): Promise<PoolClientLike>;
+  query(text: string, values?: unknown[]): Promise<QueryResultLike>;
 }
 
 export type PoolConstructor = (settings: PoolSettings) => PoolLike;

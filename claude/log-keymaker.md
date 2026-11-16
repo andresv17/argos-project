@@ -788,3 +788,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creado tests/integration/persistence/postgres-session-caps.spec.ts (17 + 1 viva con skipIf(!TEST_DATABASE_URL)). Doble del cliente: orden/texto exacto BEGIN, 3 SET LOCAL, pg_advisory_xact_lock, COMMIT; ROLLBACK/COMMIT fallidos (C-6); reintento único por ECONNRESET; keepAlive; SIGTERM <= 7 s con installShutdownHandlers de T415.
 - Import dinámico del módulo inexistente para que cada prueba falle por separado y tsc siga en 0. Rojas: 14; verdes previas 3 (keepAlive y 2 SIGTERM, ya cubiertos por T420/T415).
 - Decisión: lock/statement 10 s e idle 15 s según REQ-PG-004/012 (la tarea decía 15 s para los tres). SET LOCAL antes del candado asesor para que lock_timeout acote la espera.
+
+## 2026-11-16 — T421 (unidad de trabajo PostgreSQL)
+- Creado postgres-unit-of-work.ts (PostgresUnitOfWork(pool, createRepositories(client))): BEGIN, 3 SET LOCAL (10 s/10 s/15 s), pg_advisory_xact_lock(0x4152474f53), work, COMMIT; ROLLBACK ante fallo.
+- C-6 tomada del SqliteUnitOfWork: error original salvo fallo de ROLLBACK -> DomainError ERR-INTERNAL-UNEXPECTED finalState UNKNOWN (cliente destruido). Reintento único solo por ECONNRESET en connect() o BEGIN.
+- PoolLike ampliado con connect/query (PoolClientLike, QueryResultLike); quitado el cast 'as unknown' de la prueba viva; la prueba R1 de Oracle ahora afirma la línea exacta 'pg pool end error code=ECONNRESET'.
