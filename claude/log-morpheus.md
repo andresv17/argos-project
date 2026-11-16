@@ -1176,3 +1176,10 @@
 - 2026-11-14 21:52 Morpheus: Architect ajusta mapa-sc-002 L27 a SIN PRUEBA PROPIA: 0. Sin commit; el commit del mapa va con el árbol pendiente tras decisión de Neo (R-2).
 - 2026-11-14 21:56 Morpheus: commit de cierre de la feature 002 ac14bfd (local, sin push). Árbol limpio salvo temporales excluidos. Ahead 9. Etiqueta y push: Neo.
 - 2026-11-14 21:58 Morpheus: CIERRE DE MISIÓN feature 002. Neo ratifica ac14bfd y c8202d1; tasks 112/112 [x]; árbol limpio. Neo asume etiqueta y push. Tripulación en descanso operativo. Sin acciones pendientes de Morpheus.
+- 2026-11-14 21:59 HARDLINE Morpheus: cierre de sesión. HEAD f767966 (origin c8202d1, ahead 1, docs). Feature 002 cerrada, 112/112 [x]. Handover: claude/handover-morpheus-2026-11-14.md. Árbol: log-neb.md (ajeno, sin commit) y excluidos. Sin push.
+- 2026-11-14 21:59 HARDLINE Morpheus: se hizo commit de cierre por error (c790774) y se deshizo (reset --soft, no pusheado). Handover y bitácoras quedan sin commitear, según el protocolo de /hardline.
+
+### 2026-11-15 19:05 — Morpheus: ARRANQUE DE SESIÓN (orden de Neo: "inicia sesión")
+- Lectura en disco: registro, entorno-y-lecciones, handover 2026-11-14, log-morpheus, tasks.md 002 (112/112 [x], 0 abiertas), feature.json (002-plataforma-v21).
+- Git: rama 002-plataforma-v21, HEAD f767966 (origin c8202d1, ahead 1). Sin modo Logos activo (manual). Sin dispatch ni cambios de código.
+- Pendientes de Neo: etiqueta y push de la feature 002; commit de bitácoras (handover, log-morpheus, registro) cuando lo ordene; log-neb.md no es mío.

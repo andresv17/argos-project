@@ -1,27 +1,66 @@
-# Handover Morpheus — 2026-11-14 (cierre de sesión)
+---
+handover_id: HANDOVER-MORPHEUS-2026-11-14
+character: morpheus
+functional_role: Captain / Tech Lead (orquestación de la tripulación en la feature 002)
+date: 2026-11-14
+branch: 002-plataforma-v21
+head_commit: f767966 (f767966115e34ee65c64f0960305a2a8722c437b)
+active_task: Feature 002 cerrada (T001-T310 con 112/112 [x])
+progress_percent: 100%
+status: READY_FOR_NEO_APPROVAL
+---
 
-## HEAD y rama
-- Rama `002-plataforma-v21`, HEAD `ff0fe62`. Commits locales sin push: `7b6e576` (arranque local y asignación a hogar), `d8beed8` (rediseño visual y T283), `ff0fe62` (suite E2E 38/38). **Ahead 0 respecto de origin**: los tres commits ya están en el remoto. Verificado: `git rev-list --count origin/002-plataforma-v21..HEAD` = 0.
+# Session Handover — Morpheus (2026-11-14)
 
-## Mapa de progreso
-- Rebanada 5: cerrada (T280-T282, commit anterior).
-- T283 (Sati, diseño v2.1): marcado [x] por orden de Neo. Discrepancias abiertas: la descripción pide `/cuenta` y Centro de Respaldos (T290 y T292 los cubren), y el blueprint está en la raíz y no en `claude/` ni `.specify/memory/audits/`.
-- Rediseño visual según `ui_blueprint.md` v1.1: implementado y auditado (Oracle APTO CONDICIONADO, veredicto en claude/).
-- Rebanada 6, frente rojo (T284, T285, T286): pruebas escritas y auditadas por Oracle (APTO CONDICIONADO). **Sin commit.** Archivos: `tests/unit/presentation/rebanada6-*.spec.ts`, `tests/unit/presentation/rebanada6-fixtures.ts`, `tests/e2e/visual/rebanada6-recorridos.spec.ts`, ampliaciones en `wcag.spec.ts`, `web-client.spec.ts` y `e2e-support.ts`.
-- Rebanada 6, frente verde (T287 a T293): **no iniciado**. Sin código de las pantallas nuevas.
+> Reemplaza el handover de esta misma fecha escrito antes del cierre de la feature 002 (quedó obsoleto).
 
-## Pendientes de decisión de Neo (Logos, sin respuesta; turno neo, estado EN_PROGRESO)
-1. Respaldos de spec para el frente rojo: texto y rol del aviso de expiración, forma de la barra de fases, texto de hogar creado, puntos de quiebre de la grilla.
-2. Grilla de 3 columnas a 1280 px: confirmar con Sati.
-3. Las 12 pruebas antiguas obsoletas (fixtures `canEdit`, contrato 001): reescribir en commit aparte o dejar como deuda B-11.
-4. Hallazgo de seguridad: el 422 expone texto interno del validador en `detail` (`error-catalog.json:349-355`). Abrir tarea de corrección en `src/` o dejarlo como deuda.
-5. Reorganización estructural del portal: Neo considera que el encargo a Sati no pidió cambios de posición. Pendiente de nuevo encargo explícito.
+## 1. Plain Language Summary for Neo (Project Lead / Level 2)
+- La feature 002 quedó cerrada. Las 112 tareas están marcadas, las compuertas verdes y Oracle emitió CUMPLE CON RESERVAS (T310).
+- Los commits de cierre ya están en origin (`c8202d1`). Queda local `f767966`, solo bitácora.
+- Pendiente: nada obligatorio. Las reservas de producto (N-1 a N-3, O-1 a O-5) quedan como mejoras, no bloquean.
 
-## Estado de procesos
-- Dev servers (`tsx watch` y `vite`) siguen en marcha, lanzados para pruebas de Neo. No se detuvieron al cerrar.
+## 2. Active Task and Real Disk State
+- **Task:** Feature 002 cerrada (100 %). 112/112 `[x]`, 0 abiertas (verificado en disco).
+- **Latest On-Disk Commit:** `f767966` — docs(002): cierre de misión de la feature 002 en bitácora de Morpheus y bus. En origin: `c8202d1`.
+- **Commits de la sesión:** `ac566de` (cierre ola 2), `11637e0` (docs T304), `ac14bfd` (cierre formal 002: UI T284/T291, menores, exclusión de ports, evidencias), `c8202d1` (docs, en origin), `f767966` (docs, local).
+- **Working Tree (`git status`):**
+  - `M claude/log-neb.md`: cambio de /neb (dos líneas de 21:58). No es de Morpheus. Sin commit.
+  - Sin seguimiento, excluidos por orden de Neo: `.playwright-mcp/`, `gate-T296-output.txt`, `logos.json`, `scripts/logos.py`.
+- **Latest Executed Gates (sobre el árbol del cierre):**
+  - T305 `verify-oracles.sh`: exit 0, 118 archivos, 0 débiles.
+  - T306 `verify-traceability.sh --feature 002`: exit 0, 118/118, pureza 0.
+  - T309 `compile-contracts.sh --feature 002`: exit 0.
+  - `npx tsc --noEmit`: exit 0.
+  - `npx vitest run`: exit 0, 92 archivos, 1812/1812.
+  - `npm run test:coverage`: exit 0, líneas 99.35 %, ramas 97.89 %, con exclusión de `src/application/ports/**` (decisión de Neo).
+  - `npx playwright test tests/e2e`: exit 0, 53/53.
+  - `npm run test:mutation`: EXIT=0, score 88.98 % (64 min, sin SIGKILL, configuración original).
+  - `npm run test:gate`: NO ejecutado a propósito (encadena test:mutation; se usó el informe aprobado).
+  - Evidencias: `claude/evidencia-compuertas-T309-2026-11-14.md`, `claude/evidencia-compuertas-final-002-2026-11-14.md`.
 
-## Próximo paso
-Responder en el canal Logos a las decisiones 1-4, y definir el encargo de reorganización (5). No hay despliegues pendientes ni órdenes en curso.
+## 3. Decisions Made in Session
+- **Neo (Logos, iter. 66-72):** T302, T303, T311 `[x]`; H-T304-1 documentado sin desmarcar; cobertura opción A (excluir `src/application/ports/**`); SC-002 aceptado con T306 + T305 + suite verde; T284 y T291 reabiertas y luego cerradas tras T308 7/7.
+- **Neo (iter. 74, cierre):** commit de cierre autorizado (`ac14bfd`); CLAUDE.md, GUIA-SKILLS-MATRIX.md y SKILLS-PROPUESTAS.MD incluidos; logos.json, scripts/logos.py, gate-T296-output.txt y .playwright-mcp/ excluidos. Etiqueta y push: Neo.
+- **Morpheus:** la compuerta `test:gate` no se corre mientras encadene `test:mutation`; se cubre con el informe aprobado.
 
-## Uncommitted
-- Frente rojo R6 (tests) y bitácoras de agentes. Sin commit por decisión pendiente de Neo.
+## 4. Technical Debt and Open Blockers
+- **Reservas de Oracle (T310, no bloquean):**
+  - N-1: speciesOther solo se ve en Editar.
+  - N-2: la mascota compartida aparece en «Mis mascotas» de Kid.
+  - N-3: tras transferir, Zee no ve Transferir ni Eliminar.
+  - O-1: sin mensaje al invitar.
+  - O-2: sin confirmación de descarga en /backup.
+  - O-3: la etiqueta del acordeón es «Registros anteriores», no «Reemplazados».
+  - O-5: la barra de fases se ve como lista.
+- **Mouse (F6):** los 2 altos de `tasks.md` no tienen reverificación registrada en disco. Opcional, no bloquea.
+- **Riesgo de entorno:** máquina de 8 GB. Stryker y e2e en paralelo causaron caídas por SIGKILL; correr en serie.
+
+## 5. Wake-Up Order for Next Session Instance
+- **Character to wake up:** `/morpheus`
+- **Files to read first:**
+  1. `claude/registro-proceso-argos.md`
+  2. `claude/entorno-y-lecciones.md`
+  3. `claude/handover-morpheus-2026-11-14.md` (este archivo)
+  4. `claude/log-morpheus.md`
+  5. `specs/002-plataforma-v21/tasks.md`
+- **Immediate action to execute:** nada obligatorio. Si Neo pide la siguiente misión, verificar `git status` y `git log -3 --oneline`, y esperar su orden. No hacer push ni etiquetar sin orden de Neo.

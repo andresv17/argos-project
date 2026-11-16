@@ -731,3 +731,6 @@
 2026-11-14 Architect: mapa-sc-002.md L27 conteo SIN PRUEBA ajustado a 0 (SC-002 aceptado por Neo). Sin commit.
 2026-11-14 Morpheus: commit de cierre feature 002 ac14bfd (local). Árbol limpio salvo temporales excluidos. Push y etiqueta: Neo.
 2026-11-14 Morpheus: CIERRE DE MISIÓN feature 002 (Neo ratifica ac14bfd y c8202d1; 112/112). Etiqueta y push: Neo. Tripulación en descanso.
+2026-11-14 HARDLINE (Morpheus): cierre de sesión. HEAD f767966 (origin c8202d1, ahead 1). Feature 002 cerrada, 112/112 [x]. Handover: claude/handover-morpheus-2026-11-14.md. Sin push.
+2026-11-14 Neb: cierre 002 verificado en disco (112/112, origin c8202d1, tag remoto v2.1.0-feature-002). Pendiente: 1 commit local f767966. Solo lectura.
+2026-11-15 19:05 Morpheus: arranque de sesión. Feature 002 cerrada (112/112), HEAD f767966 (ahead 1). Sin dispatch. Pendiente Neo: etiqueta y push.
