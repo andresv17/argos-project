@@ -786,3 +786,121 @@
 2026-11-16 Keymaker: T410 hecha (dbDriver, pgPoolMax, regla HOST; app-config.spec 63/63, tsc PASS). Residuo: src/generated/ops/ sin seguimiento rompe 3 pruebas codegen-drift (no de T410). Commit local, sin [x].
 2026-11-16 Oracle: T404 CUMPLE CON RESERVAS (falta prueba de arranque @fastify/static), T410 CUMPLE (63/63, tsc 0, sin debilitar aserciones); residuo src/generated/ops/ y 3 fallos codegen-drift diagnosticados (2 por ops/, 1 prueba obsoleta desde T406). Ver .specify/memory/audits/oracle-T404-T410-veredicto.md
 2026-11-16 Keymaker: T404 R-1 cerrada (tests/unit/static-startup.spec.ts, 2/2 verdes, tsc 0). Commit local, sin [x].
+2026-11-16 Oracle: R-1 CUMPLE (97a4585: static-startup.spec 2/2, tsc 0, sin tocar src/package/contracts; línea ajena en registro benigna). Ver .specify/memory/audits/oracle-R1-static-startup.md
+2026-11-16 Morpheus: Logos ON. Neo ordena marcar T404/T410, versionar ops/, @types/pg a devDep, push y T411. Keymaker saneamiento en curso; Oracle después.
+- 2026-11-16 Keymaker: saneamiento pg/ops types/codegen-drift, gates verdes (1544/1544); commit local.
+2026-11-16 Oracle: 188c0af CUMPLE CON RESERVAS (alcance, deps exactas, drift spec, ops identico, tsc 0, 13/13 y 65/65; reserva: deriva de ops/ sin test). Ver .specify/memory/audits/oracle-188c0af-saneamiento.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS 188c0af (R1 deuda: test deriva ops/). Push DENEGADO por clasificador; pendiente Neo. T411 tests-primero en curso.
+2026-11-16 Oracle: 59ff67c (T411 pruebas primero) CUMPLE CON RESERVAS (solo tests+log; 51/51 rojas por modulos inexistentes; tsc 0; reserva R-1: cache 60 s de /readyz D-17 sin probar). Ver .specify/memory/audits/oracle-T411-pruebas-primero.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS 59ff67c (T411). R-1 caché /readyz: Keymaker añade pruebas rojas antes de T412. Push pendiente Neo.
+2026-11-16 Morpheus: Keymaker e826e83 pruebas caché /readyz (6 rojas). Oracle audita antes de T412.
+2026-11-16 Oracle: e826e83 (pruebas caché /readyz D-17) CUMPLE CON RESERVAS (solo test+log; 6/6 rojas por ops-routes.ts inexistente; tsc 0; sin conflicto con ops-http; reservas: concurrencia en vuelo, borde 60 s). Ver .specify/memory/audits/oracle-e826e83-cache-readyz.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS e826e83. Keymaker T412+T479 con RC-1 en curso. Push pendiente Neo.
+2026-11-16 Morpheus: Keymaker 833d1d0 (RC-1) y ca18cbb (T412+T479) locales, ops 58/58. Oracle audita; regla extensión fallback SPA en revisión.
+2026-11-16 Oracle: 833d1d0 CUMPLE; ca18cbb (T412+T479) CUMPLE CON RESERVAS (regla extensión SPA válida y no fuga en HTTP real; trustProxy ausente; cableado sin asignar). ops 58/58, tsc 0, unit+integration 1602/1602. Ver .specify/memory/audits/oracle-T412-T479-veredicto.md
+2026-11-16 Morpheus: Oracle 833d1d0 CUMPLE, ca18cbb CUMPLE CON RESERVAS. Decisiones Neo: regla extensión, cableado y trustProxy (falta en src), firma T412/T479. Despachado T413.
+2026-11-16 Morpheus: Keymaker 6617b41 T413 (15 rojas). Oracle audita; desajuste MaintenanceResult en revisión.
+2026-11-16 Oracle: 6617b41 (T413) CUMPLE CON RESERVAS: 15/15 rojas por maintenance-routes.ts ausente, tsc 0. R-1 prueba usa {purged} vs contrato/codigo 5 conteos (corregir prueba); R-2 falta identidad esperada del Scheduler en opciones (/architect); R-3 ops-routes vs maintenance-routes. Ver .specify/memory/audits/oracle-T413-maintenance-tests.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS 6617b41 (T413). R-2 a /architect (identidad Scheduler), R-1 a Keymaker tras decisión.
+2026-11-16 Morpheus: /architect cierra decisiones T413 (schedulerEmail, MaintenanceCounts, maintenance-routes.ts). Keymaker corrige pruebas. plan.md ADR-003-06 pendiente de texto.
+2026-11-16 Morpheus: Keymaker 513cc4f (pruebas T413 corregidas, AppConfig schedulerEmail/oidcAudience en rojo). Oracle re-audita (3 pruebas sqlite retiradas).
+2026-11-16 Oracle: re-auditoría 513cc4f CUMPLE (R-1/R-2 cerradas; 3 pruebas sqlite retiradas = corrección legítima, no devolver). Rojas 43/105 (21 módulo ausente, 22 propiedades AppConfig), tsc 0. Ver audits/oracle-513cc4f-reaudicion-t413.md
+2026-11-16 Morpheus: Oracle CUMPLE 513cc4f. T414 en curso (oidc-verify fail-closed; librería JWT pendiente de Neo).
+2026-11-16 Morpheus: Keymaker 59ec0a2 T414 (suite 1957/1957). Oracle audita desvíos CSRF y fixtures. Bloqueo N2 librería JWT.
+2026-11-16 Oracle: auditoría 59ec0a2 (T414) CUMPLE CON RESERVAS (CSRF exacta, 0 evasiones, 0 purgas; fixtures CUMPLE). tsc 0, 163/163, 1957/1957. Ver audits/oracle-59ec0a2-t414.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS 59ec0a2 (T414, REVIEW). Despachado T415 logging/SIGTERM. Bloqueo N2 librería JWT.
+2026-11-16 Morpheus: Keymaker T415 (2b472e3 pruebas, 61010e7 impl) suite 1985/1985. Oracle audita; desvíos DATABASE_URL en logger y cableado SIGTERM.
+2026-11-16 Oracle: auditoría 2b472e3 (CUMPLE) y 61010e7 (CUMPLE CON RESERVAS) T415. tsc 0, 28/28, 1985/1985. Reservas R-1 texto libre, R-2 SIGTERM real, R-3 doc Cloud Run. Ver audits/oracle-2b472e3-61010e7-t415.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T415. R-3 documentación Cloud Run requests a /architect. R-1 TECHDEBT; R-2 a T465/T466.
+2026-11-16 Morpheus: R-3 T415 cerrada (research §10, data-model §6). Keymaker ejecuta compuerta Fase 2 (T416).
+- 2026-11-16 Neb: estado en lenguaje llano para Neo. Orden de saneamiento de Neo sin aplicar en disco (ver log-neb.md).
+2026-11-16 Morpheus: T416 BLOQUEADA: playwright sin ARGOS_AUDIT_HMAC_SECRET; test:gate borra ops/ al compilar 002. Escalada a Neo (N2).
+2026-11-16 Morpheus: Neo aprueba 1B, test:gate 003, jose en Fase 3. Keymaker aplica y relanza T416. Push ya hecho hasta 61010e7 (verificado).
+2026-11-16 Morpheus: Keymaker 1f03e05 (playwright NODE_ENV test, compile 003 en test:gate, docs). Compuertas rápidas verdes. Oracle audita. Mutación y Playwright, corrida final única.
+- 2026-11-16 oracle: audit 1f03e05 (T416 compuertas rapidas) CUMPLE CON RESERVAS; test:gate completo pendiente. Ver .specify/memory/audits/oracle-1f03e05-compuertas-rapidas.md
+2026-11-16 Morpheus: Neo aprueba (b): T416 REVIEW, mutación/Playwright a T462. 1f03e05 en origin. Despachado T417 (Phase 3).
+2026-11-16 Morpheus: Keymaker 4aebb40 T417 (fábrica async, dispose opcional; 1985/1985). Oracle audita.
+- 2026-11-16 oracle: audit 4aebb40 (T417) CUMPLE CON RESERVAS; 0 aserciones tocadas, tsc 0, 58/58. Ver .specify/memory/audits/oracle-4aebb40-t417.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T417 (4aebb40). Despachados T418 y T419 en secuencia.
+2026-11-16 Morpheus: Keymaker T418 (8b58bc7) y T419 (0ea22c4) locales; Docker apagado; Oracle audita.
+- 2026-11-16 oracle: audit 8b58bc7 (T418) y 0ea22c4 (T419) CUMPLE CON RESERVAS (prueba viva sin Docker; versión '0001_baseline' a decidir en T429/T464); tsc 0, vitest 9 pasan/2 omitidas. Ver .specify/memory/audits/oracle-8b58bc7-0ea22c4-t418-t419.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T418/T419. Decisión Docker a Neo (Logos 79). Despachado T420 (pool pg).
+2026-11-16 Morpheus: Keymaker T420 (ce9a9b9) pool pg. Suite 2002/3 omitidas. Oracle audita.
+- 2026-11-16 oracle: audit ce9a9b9 (T420) CUMPLE CON RESERVAS (pool pg ok, sin filtracion de URL, sin process.env); tsc 0, vitest 8 pasan/1 omitida. Ver .specify/memory/audits/oracle-ce9a9b9-t420.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS ce9a9b9 (T420). Despachado T465 + T421 en secuencia.
+2026-11-16 Morpheus: Keymaker T465 (273c389) y T421 (96f2916) locales, 2019/4 omitidas. Oracle audita topes y orden.
+2026-11-16 oracle: audit 273c389 (T465) CUMPLE y 96f2916 (T421) CUMPLE CON RESERVAS; topes 10s/10s/15s conformes a REQ-PG-004/012, orden SET LOCAL antes del candado correcto; tsc 0, vitest 25 pasan/2 omitidas. Ver .specify/memory/audits/oracle-273c389-96f2916-t465-t421.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T465 y T421; topes correctos. Despachado T422 (repositorios parte 1).
+2026-11-16 Morpheus: Keymaker T422 (a90fc0f, e8fb61c) locales; 2042/23 omitidas. Oracle audita.
+2026-11-16 oracle: audit a90fc0f (T422 pruebas) CUMPLE y e8fb61c (T422 repos parte 1) CUMPLE CON RESERVAS; SQL 100% $n (3 plantillas solo USER_COLUMNS), tsc 0, vitest 23/23. Ver .specify/memory/audits/oracle-a90fc0f-e8fb61c-t422.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T422. Despachados T423 y T424 en secuencia (T424 cierra la fábrica compuesta).
+2026-11-16 Morpheus: corrección de Neo: tras escalar por Logos, espera pasiva obligatoria.
+2026-11-16 Morpheus: Logos reanudada por orden de Neo (terminal). Turno a Morpheus, estado IN_PROGRESS.
+2026-11-16 Morpheus: Neo ratifica (b) Docker: viva a T431. Continúo T423/T424.
+2026-11-16 Morpheus: Keymaker T423 (537f6c9) y T424 (968bd0e) locales, fábrica completa. Oracle audita.
+- 2026-11-16 Oracle: auditoria T423/T424 (20f103f,537f6c9,0d50aad,968bd0e) CUMPLE CON RESERVAS (R-1,R-2,R-3 -> T427/T431); acotado oraculo T422 no debilita; tsc 0, part1/2/3 = 23/23/21 pass. Ver .specify/memory/audits/oracle-T423-T424.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T423/T424. Despachados T425 y T426 en secuencia.
+2026-11-16 Morpheus: Keymaker T425 (8cd7d39) y T426 (8dd5cce) locales. Oracle audita INV-AUD-001.
+- 2026-11-16 Oracle: auditoria T425/T426 (e40602f,8cd7d39,e5b07b7,8dd5cce) CUMPLE CON RESERVAS (R-1 cast TEXT/zona, R-2 cast sin indice en audit_log, R-3 patron 4 escrituras); INV-AUD-001 = Auditoria Sin Secretos, retencion 24 m exigida por ADR-002-14, sin cambio de spec; tsc 0, vitest 20 pass/2 skip. Ver .specify/memory/audits/oracle-T425-T426.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T425/T426; INV-AUD-001 OK. Despachado T427 (concurrencia).
+2026-11-16 Morpheus: Keymaker T427 (1457d39) local, 7 no vivas + 3 vivas omitidas. Oracle audita.
+- 2026-11-16 Oracle: 1457d39 (T427) CUMPLE CON RESERVAS: 7 verdes + 3 omitidas (viva aplazada a T431), tsc 0; R-1 control negativo desacoplado del doble; sin cambios requeridos en src/. Ver .specify/memory/audits/oracle-1457d39-t427.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T427. /architect decide composición T428 (URL, carga dinámica, cierre, 55P03).
+2026-11-16 Morpheus: /architect decide T428. Despachado Keymaker T428 (pruebas primero).
+2026-11-16 Morpheus: Keymaker T428 (999135e pruebas, 714a3ca impl) local; 2122/29 omitidas. Oracle audita.
+- 2026-11-16 oracle: auditados 999135e + 714a3ca (T428): CUMPLE CON RESERVAS (URL sin filtracion, carga dinamica no vacua, cierre unico; databaseUrl en defaults no es Nivel 3; viva a T431). Ver .specify/memory/audits/oracle-999135e-714a3ca-t428.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T428 (999135e, 714a3ca). REVIEW. Siguiente en cola.
+2026-11-16 Morpheus: Neo (Logos 84): 55P03 500 genérico. Push hasta 714a3ca. Despacho T429 y T430.
+2026-11-16 Morpheus: Keymaker T429 (86e53d9) y T430 (6bf91e1) locales. Oracle audita.
+2026-11-16 Oracle: T429/T430 (ffcc80b, 86e53d9, 6bf91e1) CUMPLE CON RESERVAS (R1 config, R2 tsx->T448, R3 auditoria por conteos, R4 vivas->T431). tsc 0; 23+7 verdes, 2 omitidas. Sin fugas. Ver audits/oracle-T429-T430.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T429/T430 (REVIEW). T431 requiere Docker (Neo).
+2026-11-16 Morpheus: Docker arriba. T431 vivas: 297 pasan, 4 fallan (57014 vs 55P03; timeouts 5 s; títulos). /architect decide topes.
+2026-11-16 Morpheus: /architect opción A (topes sin cambio). Keymaker corrige pruebas vivas T431 (solo tests/).
+2026-11-16 Morpheus: Keymaker 99085ad viva 301 verdes; sin variable 2152/31. Oracle audita relajación 55P03/57014.
+2026-11-16 Oracle: 99085ad T431 CUMPLE (viva 301/301; sin var 2152/31; tsc 0). Relajación 55P03/57014 válida y discriminante. Ver audits/oracle-99085ad-t431.md
+2026-11-16 Morpheus: Neo aprueba T431 REVIEW; Phase 4 (T432/T433).
+2026-11-16 Morpheus: Keymaker T432/T433 locales. H-1: /healthz 404 (T412/T479 sin componer). Oracle audita; Architect decide cableado.
+2026-11-16 Oracle: f4ab470/7513308/cbad577/9fc5f98 T432/T433 CUMPLE CON RESERVAS (21/21, tsc 0, digest verificado). H-1 confirmado: Fase 2 incompleta (T412/T479 sin cablear); H-2 dist-server sin ignorar. Ver audits/oracle-T432-T433.md
+2026-11-16 Architect: H-1 decidido (cableado = T412/T479; trustProxy=1 si host 0.0.0.0; prueba app-composition roja primero). Ver audits/architect-H1-composicion-fase2.md
+2026-11-16 Morpheus: Neo autoriza cierre de cableado Fase 2 (healthz, readyz, estáticos, cabeceras, trustProxy). Keymaker despachado.
+2026-11-16 Morpheus: /architect decide composición Fase 2; Keymaker alineado.
+2026-11-16 Morpheus: Keymaker cierre Fase 2 (2cd6050, 29536ac) local; 2186/31. Oracle audita.
+2026-11-16 Oracle: 2cd6050 CUMPLE; 29536ac/global CUMPLE CON RESERVAS (tsc 0, 13/13, 2186/31, XFF verificado). Reserva CSP img-src (avatares data:) para T434. Ver audits/oracle-2cd6050-29536ac-fase2.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS Fase 2. Escalo CSP (REQ-CLD-009) a Neo.
+2026-11-16 Morpheus: Neo aprueba CSP img-src data: y T434. Fase 2 REVIEW. Despachado Keymaker (CSP + T434).
+2026-11-16 Morpheus: Keymaker CSP (aed011c) y T434 humo: healthz 200; readyz bloqueado por TLS en PG de pruebas (decisión Neo). Oracle audita.
+- 2026-11-16 Oracle: auditados 2294675+aed011c (CSP img-src data:) y metricas T434 -> CUMPLE CON RESERVAS (N=4 vs 5 segun metrica comprimida). Ver .specify/memory/audits/oracle-2294675-aed011c-t434-csp.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS CSP. N keep: 4 vs 5 (decisión).
+2026-11-16 Morpheus: Neo aprueba (c) readyz a CI; N keep=4; Phase 4 REVIEW. Phase 5 (T435-T437).
+2026-11-16 Morpheus: Keymaker Phase 5 T435/T436/T437 local (6 commits). terraform no instalado. Oracle audita.
+2026-11-16 Oracle: T435-T437 (6 commits 2ca57cb..e25163f) CUMPLE CON RESERVAS; 18/18 verdes, tsc 0, bash -n 0. Ver .specify/memory/audits/oracle-T435-T436-T437.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T435-T437. IAM decisión Neo antes de T456. Despachado T471+T438.
+2026-11-16 Morpheus: Keymaker T471 (e8110a3) y T438 (c2147b7) locales. Oracle audita.
+2026-11-16 Oracle: T471+T438 (0de7f47,e8110a3,2d83803,c2147b7) CUMPLE CON RESERVAS; tsc 0, 42/42 verdes, guardia sin fuga de secretos. Ver .specify/memory/audits/oracle-T471-T438.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T471/T438. Fix R-1 guardia + T439 despachados.
+2026-11-16 Morpheus: Keymaker R-1 (7ad058f) y T439 (1adba3e) locales. Oracle audita.
+2026-11-16 Oracle: R-1 y T439 (e38b3b1,7ad058f,0463169,1adba3e) CUMPLE CON RESERVAS; R-1 cerrado (28/28 exit 1), tsc 0, 66/66 verdes. Ver .specify/memory/audits/oracle-R1-T439.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS R-1 y T439. Despachado T440.
+2026-11-16 Morpheus: Keymaker T440 (143d76b) local. Oracle audita.
+2026-11-16 Oracle: T440 (a714c88,143d76b) CUMPLE CON RESERVAS; tsc 0, 10/10 verdes; reservas R-1 deletion_protection explícito, R-2 etiquetas. Ver .specify/memory/audits/oracle-T440.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T440. Despachado Keymaker (R-1 + T442) y Architect (R-2 etiquetas).
+2026-11-16 Morpheus: /architect: etiquetas obligatorias; T484 transversal. Architect añade T484 a tasks.md.
+2026-11-16 Morpheus: T484 añadida (tasks.md). En cola tras R-1/T442.
+2026-11-16 Morpheus: Keymaker R-1 T440 (ab36058) y T442 (82c858a) locales. Oracle audita.
+- 2026-11-16 Oracle: auditados 8557ff3, ab36058, 427e40d, 82c858a, a569af2 (R-1 T440 y T442): CUMPLE CON RESERVAS (R-A prueba depends_on sin scheduler_invoker; R-B audiencia por verificar en despliegue). tsc 0; terraform-*.spec 85 pasan. Ver audits/oracle-T440-R1-T442.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS R-1/T442. Despachado R-A, T484, T441.
+2026-11-16 Morpheus: Keymaker R-A, T484 (3765e88) y T441 (c1d18a0) locales. Oracle audita.
+- 2026-11-16 Oracle: auditoría R-A/T484/T441 (95ee124,d0ef857,3765e88,5652c21,c1d18a0) CUMPLE CON RESERVAS; tsc 0, 102 pasan; ver audits/oracle-R-A-T484-T441.md
+2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS R-A/T484/T441. R1 nombre bucket: Keymaker alinea a REQ-IAC-008.
+2026-11-16 HARDLINE (Morpheus): cierre de sesión. 003 @ aa80688 (local, 28 por delante de origin). Phase 2-4 REVIEW; Phase 5 REVIEW salvo T443/T444/T445-T450. Pendiente Neo: push, terraform para T444, IAM, firmas. Handover: claude/handover-morpheus-2026-11-16.md. Sin push. Docker arriba.
+- 2026-11-16 Morpheus: inicio de sesión. 003 @ aa80688, 28 sin subir. Libre: T443. Esperando decisiones de Neo (push, Terraform, IAM, firmas).
+- 2026-11-16 Morpheus: Logos encendida. Directiva Neo leída. Keymaker despachado a T443/T444. Oracle después.
+- 2026-11-16 Keymaker: T443 (c06d790,c240903) y T444 (pruebas+README/lock/.gitignore) locales; fmt/validate OK, 119 terraform verdes, tsc 0. Pendiente Neo: correo de alerta y API billingbudgets. Oracle audita.
+- 2026-11-16 Morpheus: Keymaker entrega T443/T444 (c06d790, c240903, 5e87e26, 042ab7a). Oracle audita. 3 preguntas para Neo (correo D-13, API billingbudgets, billing_account).
+- 2026-11-16 oracle: T443/T444 auditados (c06d790..042ab7a): CUMPLE CON RESERVAS; ver audits/oracle-T443-T444-veredicto.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T443/T444. REVIEW en tasks.md. Escalado a Neo por Logos.
+- 2026-11-16 Morpheus: Neo resuelve D1/D2. Architect enmienda REQ-IAC-009. Push de 4 commits de T443/T444 hecho por Neo.
+- 2026-11-16 Architect: enmienda REQ-IAC-009 (12ª API billingbudgets + rol costsManager de facturación), autorizada por Neo; pendiente Keymaker services.tf/bootstrap.sh; a Oracle.
+- 2026-11-16 Morpheus: Architect enmienda REQ-IAC-009 (45bde2b). Oracle audita; Keymaker aplica services.tf y bootstrap.sh en paralelo.
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS 45bde2b. Architect resuelve O-1/O-3. Keymaker en curso.
+- 2026-11-16 Keymaker: REQ-IAC-009 enmendado implementado (12 APIs, costsManager en bootstrap); 120 terraform verdes; pendiente /oracle.

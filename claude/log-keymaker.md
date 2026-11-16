@@ -887,3 +887,49 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-16 CSP img-src (Keymaker, orden de Neo Logos 92)
 - Pruebas primero: app-composition.spec.ts y ops-http.spec.ts exigen "img-src 'self' data:" en la CSP. Rojas antes de implementar; luego security-headers.ts y REQ-CLD-009 (una frase).
 - Implementado: CSP = default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; ... ; REQ-CLD-009 actualizado. El spec.md tenía cambios previos sin commitear de /architect: se stagea solo mi hunk.
+
+## 2026-11-16 T434 humo local de la imagen (Keymaker)
+- Build 13.3 s (capas posiblemente en caché). Size 80 565 172 B; docker save | gzip 79 943 345 B. Arranque en 0.43 s hasta /healthz 200 (bridge + -p 8080:8080; --network host no sirve en macOS). /healthz 200, GET / 200 (index.html, CSP con img-src), /readyz 503: Postgres de pruebas sin TLS (ssl=off) y la app exige sslmode=require; no se debilita. Sin fallo de esbuild/--ignore-scripts. Limpieza hecha; Postgres de pruebas intacto. N keep: 4 (5 solo si se cuenta comprimido: 399.7 MB).
+
+## 2026-11-16 Fase 5 T435/T436/T437 — pruebas primero (Keymaker, orden de Neo Logos 94)
+- Terraform NO instalado (`which terraform` vacío): no se instala ni se usa; verificación por lectura y pruebas estáticas. N keep = 4 (ratificado).
+- Pruebas: tests/unit/terraform-bootstrap.spec.ts (6; 5 rojas), terraform-root.spec.ts (9 rojas), terraform-artifact-registry.spec.ts (1 roja de 3 que pasan vacuas... ver commit). Un commit de pruebas por tarea; sin push; no se stagea claude/log-keymaker.md por tener cambios previos ajenos.
+- T436/T437 implementados: provider.tf (google 7.46.2, TF 1.17.2), backend.tf (gcs vacío), variables.tf (secretos sensitive sin default con validation REQ-IAC-013; custom_domain ""), outputs.tf (project_id y ruta del repositorio; ningún secreto), services.tf (11 APIs, for_each inline, sin locals), artifact_registry.tf (1 keep, keep_count 4, repository_id "${prefix}-docker"). 12 pruebas verdes. Decisión a confirmar: outputs.tf referencia artifact_registry.tf (T437). Sin .terraform.lock.hcl (requiere terraform; T444/T456).
+- T435 implementado: terraform/bootstrap.sh (set -euo pipefail, dry-run por defecto, --execute explícito, sin secretos: los 3 secretos de GitHub solo se imprimen como `gh secret set` por stdin de Neo). Pasos: proyecto+facturación, APIs de arranque (incl. sts), bucket `<proyecto>-tfstate` (versionado, PAP, soft-delete 0, ciclo 30 d no vigentes), cuentas plan (viewer/securityReviewer/secretmanager.viewer + objectViewer) y apply (roles admin acotados + objectAdmin), WIF (condición repository_id y repository_owner_id; plan por repository_id, apply por job_workflow_ref de infraestructura.yml en main [verificar T469]), variables de GitHub, Environment produccion con revisor Neo y política de rama main. Prueba ajustada: aserción de --body ahora `gh secret set ... --body`. Verificado en dry-run local (sin llamadas); bash -n OK; shellcheck y terraform no instalados.
+
+## 2026-11-16 T471 pruebas primero (Keymaker, orden de Neo: continuar Fase 5)
+- tests/unit/terraform-plan-guard.spec.ts con planes JSON sintéticos: borrados protegidos (rotacion-secreto solo autoriza la versión), TF_VAR nula/vacía/espacios/salto, dominio ""/válido (0 o 1 mapeo). Rojas antes del guardia. Sin terraform. log-keymaker.md tiene cambios ajenos previos: no se stagea.
+- T471 implementado: scripts/terraform-plan-guard.mjs (evaluatePlan + CLI 0/1/2). 25 pruebas verdes. Ajuste de la prueba: import relativo (la ruta con espacio rompía el import por URL) con @ts-expect-error TS7016. Decisión: etiqueta rotacion-secreto solo autoriza la versión; el resto de protegidos exige aprobacion-manual; etiquetas por --label o PLAN_GUARD_LABELS.
+
+## 2026-11-16 T438 pruebas primero (Keymaker)
+- tests/unit/terraform-secret-manager.spec.ts (8 pruebas estáticas): rojas antes de secret_manager.tf. Versión sin count/for_each, secret_data = var.*, create_before_destroy + deletion_policy ABANDON en versión, prevent_destroy en secretos.
+- T438 implementado: terraform/secret_manager.tf (2 secretos con replicación auto y prevent_destroy; 2 versiones sin count, secret_data = var.*, ABANDON, create_before_destroy). 8 pruebas verdes. Decisiones: prevent_destroy solo en secretos (en la versión bloquearía la rotación); depends_on de los secretos a google_project_service.apis; sin deletion_protection del secreto (argumento no verificado en 7.46.2).
+
+## 2026-11-16 R-1/R-3 del guardia — pruebas primero (Keymaker, orden de Neo: continuar Fase 5)
+- 5 pruebas nuevas en terraform-plan-guard.spec.ts: protegido sin change/actions (ausente, null, [], string) debe dar plan-invalido, CLI exit 1, no protegido no bloquea, sin plan.variables con mapeo falla. 3 rojas antes del arreglo (exit 0 hoy); la de R-3 ya era verde (domain "" + mapeo falla) y queda fijada.
+- R-1 implementado en scripts/terraform-plan-guard.mjs: protegido con actions ausente/vacío/no-array -> violación plan-invalido (exit 1). 30 pruebas verdes.
+
+## 2026-11-16 T439 pruebas primero (Keymaker)
+- tests/unit/terraform-iam.spec.ts (9 estáticas): 3 cuentas, accessor por secreto, deployer (3 roles acotados), scheduler invoker, allUsers solo run.invoker, sin owner/editor/admin, sin bucket/dumps, sin claves JSON. Rojas antes de iam.tf.
+- T439 implementado: terraform/iam.tf (3 cuentas; accessor por secreto para argos-run; deployer: run.developer en servicio, artifactregistry.writer en repo, serviceAccountUser solo sobre argos-run; scheduler y allUsers run.invoker en servicio). Corregida una aserción defectuosa de mi prueba allUsers. Decisión: iam.tf referencia google_cloud_run_v2_service.argos (T440); validate completo requiere T440.
+
+## 2026-11-16 T440 cloud_run.tf (Keymaker)
+- Pruebas primero a714c88 (tests/unit/terraform-cloud-run.spec.ts, 10 rojas). Implementado terraform/cloud_run.tf: servicio v2 "argos", 1 vCPU/512Mi, concurrencia 20, escala 0..2, timeout 60s, cpu_idle, boost (plan.md:85, spec REQ-CLD-002); imagen marcadora hello; ignore_changes de 10 campos. Sin sondas/env/secretos. 76 terraform verdes, suite 2262 verde, tsc 0.
+
+## 2026-11-16 — Phase 5: R-A, T484, T441 (Keymaker)
+- 95ee124 test R-A (depends_on incluye scheduler_invoker; roja al quitarlo, verde con el .tf actual).
+- d0ef857 pruebas T484 (5 rojas) -> 3765e88 etiquetas literales en artifact_registry, secret_manager (x2), cloud_run (servicio).
+- 5652c21 pruebas T441 (9 rojas) -> buckets.tf (google_storage_bucket.exports). Estado: REVIEW pendiente de /oracle; sin [x].
+
+## 2026-11-16 R1 de Oracle: nombre del bucket (Keymaker)
+- Prueba de orden exacto de REQ-IAC-008 (7190d9d), roja antes; buckets.tf alineado a ${var.project_prefix}-${var.project_id}-exports. 103 terraform, suite 2289, tsc 0. REVIEW pendiente de /oracle; sin [x].
+
+## 2026-11-16 — T443 y T444 (Keymaker, orden de Neo, Nivel 2)
+- c06d790 pruebas T443 (8 rojas) -> c240903 budget.tf (google_billing_budget 1 USD, umbrales 0.5/0.9/1.0, filtro labels app=argos) + variable billing_account (sin default, validación AAAAAA-BBBBBB-CCCCCC).
+- CC-K-T443: sin all_updates_rule (el proveedor 7.46.2 exige canal de Monitoring o Pub/Sub allí y D-13 no da dirección); queda el correo por defecto a destinatarios IAM de facturación. Validation Required: ¿basta, o Neo da una dirección (canal google_monitoring_notification_channel + variable)? Además billingbudgets.googleapis.com no está entre las 11 APIs de REQ-IAC-009.
+- Pruebas T444 (terraform-hygiene.spec.ts) -> README.md, .terraform.lock.hcl (google 7.46.2, linux_amd64 + darwin_arm64), terraform/.gitignore. terraform fmt/validate OK; 119 terraform verdes; tsc 0. Bootstrap ya tenía --soft-delete-duration=0. Sin [x]; REVIEW pendiente de /oracle.
+
+## 2026-11-16 — REQ-IAC-009 enmendado: billingbudgets y rol de facturación (Keymaker, N2)
+- Pruebas primero: terraform-root (12 APIs incl. billingbudgets) y terraform-bootstrap (costsManager sobre cuenta de facturación solo a argos-terraform@) -> 2 rojas.
+- Implementado: services.tf (12 APIs), bootstrap.sh (gcloud billing accounts add-iam-policy-binding, roles/billing.costsManager, solo APPLY_SA), README.md.
+- CC-K-REQ009: el paso va tras 4b del bootstrap (no en el paso 1) por depender de que la cuenta de servicio ya exista; H-K: spec dice "paso 1", Oracle/Architect pueden ajustar. Gates: fmt 0, validate OK, mirror 0, 120 terraform verdes, tsc 0. Sin [x].

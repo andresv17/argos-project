@@ -89,6 +89,17 @@ describe('terraform/bootstrap.sh (T435)', () => {
     expect(out).not.toMatch(/gh secret set [^\n]*--body/);
   });
 
+  it('concede roles/billing.costsManager sobre la cuenta de facturación solo a argos-terraform@ (REQ-IAC-009)', () => {
+    const out = run([]).stdout;
+    const lines = out.split('\n').filter((l) => l.includes('billing accounts add-iam-policy-binding'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('AAAAAA-BBBBBB-CCCCCC');
+    expect(lines[0]).toContain('roles/billing.costsManager');
+    expect(lines[0]).toContain('argos-terraform@argos-prueba-123.iam.gserviceaccount.com');
+    expect(lines[0]).not.toContain('terraform-plan');
+    expect(out).not.toMatch(/roles\/billing\.admin|roles\/owner|roles\/editor/);
+  });
+
   it('rechaza argumentos desconocidos y falta de ARGOS_PROJECT_ID', () => {
     expect(run(['--bogus']).status).not.toBe(0);
   });

@@ -10,7 +10,7 @@ Versiones fijadas (D-25): Terraform `1.17.2`, proveedor `hashicorp/google` `7.46
 |---|---|
 | `provider.tf`, `backend.tf` | Proveedor y backend `gcs` vacío (bucket y prefijo por `-backend-config`) |
 | `variables.tf`, `outputs.tf` | Entradas por `TF_VAR_*` y salidas (sin secretos) |
-| `services.tf` | 11 APIs mínimas (REQ-IAC-009) |
+| `services.tf` | 12 APIs mínimas (REQ-IAC-009), incluida `billingbudgets.googleapis.com` |
 | `artifact_registry.tf`, `cloud_run.tf`, `scheduler.tf` | Registro Docker, servicio y disparador |
 | `secret_manager.tf`, `iam.tf` | Secretos (2) y cuentas de servicio con privilegio mínimo |
 | `buckets.tf` | Bucket de dumps de 14 días |
@@ -54,6 +54,6 @@ Para regenerar el lock con las dos plataformas: `terraform providers lock -platf
 
 ## Despliegue
 
-1. Neo ejecuta `bash terraform/bootstrap.sh` (primero en dry-run). Ver `specs/003-cloud-gcp/quickstart.md`.
+1. Neo ejecuta `bash terraform/bootstrap.sh` (primero en dry-run). Ver `specs/003-cloud-gcp/quickstart.md`. El script concede `roles/billing.costsManager` a `argos-terraform@` sobre la **cuenta de facturación** (no de proyecto; requisito del presupuesto, REQ-IAC-009); no se concede a `argos-terraform-plan@` ni se usa `billing.admin`.
 2. CI (`infraestructura.yml`, T446) corre `plan` en PR y `apply` solo desde `main` con aprobación de Neo.
 3. Variables de CI: `TF_VAR_database_url`, `TF_VAR_audit_hmac_secret`, `TF_VAR_billing_account`.
