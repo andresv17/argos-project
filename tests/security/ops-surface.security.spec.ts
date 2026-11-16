@@ -190,7 +190,7 @@ describe('vector V - CSRF: ninguna mutación sin X-Argos-Request, y las sondas n
 
   it.each(MUTATING)('%s sin X-Argos-Request: 403 ERR-AUTH-CSRF-REJECTED en todas las superficies', async (method) => {
     for (const url of URLS) {
-      const res = await app.inject({ method, url, payload: method === 'DELETE' ? undefined : 'x' });
+      const res = await (method === 'DELETE' ? app.inject({ method, url }) : app.inject({ method, url, payload: 'x' }));
       expect(res.statusCode, `${method} ${url}`).toBe(403);
       expect(res.json<{ code: string }>().code, `${method} ${url}`).toBe('ERR-AUTH-CSRF-REJECTED');
     }
