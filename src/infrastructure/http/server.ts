@@ -1,6 +1,7 @@
 /**
  * Arranque de la API local: lee la configuración (INV-ARCH-006), abre SQLite con sus migraciones,
- * compone los adaptadores de producción y escucha solo en 127.0.0.1. Los registros de Fastify ocultan cookies.
+ * compone los adaptadores de producción y escucha solo en 127.0.0.1. Los registros de Fastify ocultan cookies y salen
+ * como JSON con `severity` (Cloud Logging); `SIGTERM` cierra el servidor en <= 7 s (REQ-CLD-006, REQ-CLD-008).
  *
  * @implements INV-ARCH-004, INV-ARCH-006, INV-AUTH-003, INV-AUTH-006
  */
@@ -21,6 +22,8 @@ import { openSqliteDatabase } from '../persistence/sqlite/sqlite-database.ts';
 import { SqliteUnitOfWork } from '../persistence/sqlite/sqlite-unit-of-work.ts';
 import { runMaintenance } from '../../application/use-cases/maintenance-use-cases.ts';
 import { buildApp } from './app.ts';
+import { cloudLoggerOptions } from './cloud-logging.ts';
+import { installShutdownHandlers } from './graceful-shutdown.ts';
 import { createOidcVerifier } from './oidc-verify.ts';
 import { registerMaintenanceRoute } from './routes/maintenance-routes.ts';
 
@@ -29,7 +32,7 @@ import { registerMaintenanceRoute } from './routes/maintenance-routes.ts';
  * Se exportan para que `tests/security/` las ejerza con una salida capturada (H-113-5).
  * @implements INV-AUTH-003
  */
-export const PRODUCTION_LOGGER_OPTIONS = { level: 'info', redact: ['req.headers.cookie', 'res.headers["set-cookie"]'] } as const;
+export const PRODUCTION_LOGGER_OPTIONS = cloudLoggerOptions();
 
 /**
  * Compone la aplicación con los adaptadores de producción sobre la base de `config.databasePath`.
@@ -57,7 +60,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   const app = await buildApp({
     deps,
     cookieSecure: config.cookieSecure,
-    logger: logger && { ...PRODUCTION_LOGGER_OPTIONS, redact: [...PRODUCTION_LOGGER_OPTIONS.redact] },
+    logger: logger && PRODUCTION_LOGGER_OPTIONS,
   });
   app.addHook('onClose', async () => db.close());
   // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). Falla cerrado hasta elegir la librería JWT (N2).
@@ -102,8 +105,11 @@ export async function startServer(config: AppConfig = loadAppConfig()): Promise<
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  startServer().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
-  });
+  startServer().then(
+    (app) => installShutdownHandlers({ target: process, closeServer: () => app.close(), exit: (code) => process.exit(code), log: app.log }),
+    (error: unknown) => {
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(1);
+    },
+  );
 }
