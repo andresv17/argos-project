@@ -19,8 +19,9 @@
 
 import { DomainError } from '../../../generated/index.ts';
 import type { RepositorySet } from '../../../application/ports/repositories.port.ts';
-import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
+import type { MaintenanceCounts, MaintenanceCutoffs, UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type { PoolClientLike, PoolLike } from './postgres-database.ts';
+import { purgeExpiredInBatches } from './postgres-maintenance.ts';
 
 /** Constante de Argos del candado asesor global (ASCII de "ARGOS"). */
 export const PG_ADVISORY_LOCK_KEY = 0x4152474f53;
@@ -46,12 +47,21 @@ export class PostgresUnitOfWork implements UnitOfWorkPort {
     private readonly createRepositories: (client: PoolClientLike) => RepositorySet,
   ) {}
 
-  async runInTransaction<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
+  runInTransaction<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
+    return this.transaction((client) => work(this.createRepositories(client)));
+  }
+
+  /** Mantenimiento ADR-002-14 (REQ-PG-008): solo `DELETE` por lotes en una transacción con los mismos topes y candado. */
+  purgeExpired(cutoffs: MaintenanceCutoffs): Promise<MaintenanceCounts> {
+    return this.transaction((client) => purgeExpiredInBatches(client, cutoffs));
+  }
+
+  private async transaction<T>(work: (client: PoolClientLike) => Promise<T>): Promise<T> {
     const client = await this.begin();
     try {
       for (const sql of SESSION_CAPS) await client.query(sql);
       await client.query(ADVISORY_LOCK_SQL, [PG_ADVISORY_LOCK_KEY]);
-      const result = await work(this.createRepositories(client));
+      const result = await work(client);
       await client.query('COMMIT');
       client.release();
       return result;

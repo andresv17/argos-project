@@ -826,3 +826,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-16 — T425 pruebas primero (purga por lotes PostgreSQL)
 - Creado tests/integration/persistence/postgres-maintenance.spec.ts (14 rojas + 1 viva skipIf(!TEST_DATABASE_URL), aplazada a T431). Doble del cliente: DELETE acotado `ctid IN (SELECT ctid ... LIMIT $n)`, $n consecutivos, umbrales ADR-002-14 con ::timestamptz e intervalos, sin VACUUM/TRUNCATE/INSERT/UPDATE, auditoría solo DELETE por auditBefore, lotes 500+500+120, rowCount null = 0, lote inválido = RangeError, UoW.purgeExpired con topes de sesión y ROLLBACK.
 - Criterio de lote (SQLite no tiene lotes): ctid acotado por LIMIT, repetido por tabla hasta lote < tamaño (500). Módulo cargado por import dinámico; tsc 0.
+
+## 2026-11-16 — T425 implementación (purga por lotes PostgreSQL)
+- Creado postgres-maintenance.ts (purgeExpiredInBatches, PURGE_BATCH_SIZE=500) y PostgresUnitOfWork.purgeExpired (refactor interno: runInTransaction y purgeExpired comparten private transaction(); mismo BEGIN/SET LOCAL/candado/ROLLBACK). Decisión: módulo aparte (no postgres-repositories.ts) porque la purga no es un repositorio y se comparte solo con la UoW.
+- Rojas 14 -> verdes 14 (módulo y método inexistentes). tsc 0; vitest completa 2100 verdes + 24 omitidas (vivas, TEST_DATABASE_URL).
+- INV-AUD-001 interpretado como: no se escriben ni modifican filas de auditoría; el único DELETE de audit_log es la retención de 24 meses de ADR-002-14 (igual que SQLite). Nota: audit_log.timestamp es TEXT con ::timestamptz, sin uso del índice (tablas pequeñas).
