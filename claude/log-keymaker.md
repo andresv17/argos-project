@@ -783,3 +783,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Pruebas primero: tests/integration/persistence/postgres-pool.spec.ts (8 + 1 viva con skipIf(!TEST_DATABASE_URL)); rojas: 1 archivo, 9 pruebas sin ejecutar, causa única módulo postgres-database.ts inexistente.
 - Creado src/infrastructure/persistence/postgres/postgres-database.ts: createPostgresPool({connectionString, pgPoolMax}, {createPool, log}) con max=AppConfig.pgPoolMax (1..10, RangeError si no), idle 10 s, connection 5 s, keepAlive + delay 10 s, pool.on('error') que registra solo el código; closePool idempotente y sin lanzar. Sin schema_migrations (T464). Sin process.env.
 - Desvío menor: la URL entra por parámetro (AppConfig no expone DATABASE_URL). Valores de timeouts elegidos por mí (no fijados en spec): idle 10 s, conexión 5 s.
+
+## 2026-11-16 — T465 (pruebas primero de topes de sesión PostgreSQL)
+- Creado tests/integration/persistence/postgres-session-caps.spec.ts (17 + 1 viva con skipIf(!TEST_DATABASE_URL)). Doble del cliente: orden/texto exacto BEGIN, 3 SET LOCAL, pg_advisory_xact_lock, COMMIT; ROLLBACK/COMMIT fallidos (C-6); reintento único por ECONNRESET; keepAlive; SIGTERM <= 7 s con installShutdownHandlers de T415.
+- Import dinámico del módulo inexistente para que cada prueba falle por separado y tsc siga en 0. Rojas: 14; verdes previas 3 (keepAlive y 2 SIGTERM, ya cubiertos por T420/T415).
+- Decisión: lock/statement 10 s e idle 15 s según REQ-PG-004/012 (la tarea decía 15 s para los tres). SET LOCAL antes del candado asesor para que lock_timeout acote la espera.
