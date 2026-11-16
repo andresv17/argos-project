@@ -185,6 +185,7 @@ Regla: **todo se crea en el bootstrap del día 0 (`terraform/bootstrap.sh` y la 
 | `TF_VAR_audit_hmac_secret` | **secreto** | >= 32 bytes hex (REQ-SEC-002) | Secret Manager (`argos-audit-hmac-secret`) |
 | `TF_VAR_project_id` | variable | ID del proyecto GCP nuevo (D-01) | `var.project_id` |
 | `TF_VAR_region` | variable | `us-central1` (D-02) | `var.region` |
+| `TF_VAR_billing_account` | variable | ID de la cuenta de facturación (`ARGOS_BILLING_ACCOUNT` de `bootstrap.sh`; no sensible, REQ-IAC-009) | `var.billing_account` (presupuesto) |
 | `TF_VAR_custom_domain` | variable | **valor inicial vacío `""`** (F3 desactivado) | `var.custom_domain`; `count = 0` mientras sea vacío |
 | `DATABASE_URL_DIRECT` | secreto | URL directa sin `-pooler`, rol `argos_migrator` | Solo `migrate` y `vacuum-argos.yml` |
 | `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`, `GCP_TERRAFORM_SA`, `GCP_TERRAFORM_PLAN_SA` | variable | Salidas de `bootstrap.sh` | Autenticación WIF (D-05, D-18; sin `GCP_SA_KEY`) |

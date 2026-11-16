@@ -158,7 +158,7 @@ run gcloud iam service-accounts add-iam-policy-binding "$APPLY_SA" --project="$P
 
 say "6. Variables de GitHub del día 0 (valores no sensibles; REQ-CICD-006)"
 WIF_PROVIDER="${POOL_PATH}/providers/${PROVIDER}"
-for kv in "TF_VAR_project_id=${PROJECT}" "TF_VAR_region=${REGION}" "TF_STATE_BUCKET=${STATE_BUCKET}" \
+for kv in "TF_VAR_project_id=${PROJECT}" "TF_VAR_region=${REGION}" "TF_VAR_billing_account=${ARGOS_BILLING_ACCOUNT}" "TF_STATE_BUCKET=${STATE_BUCKET}" \
           "GCP_WIF_PROVIDER=${WIF_PROVIDER}" "GCP_TERRAFORM_SA=${APPLY_SA}" \
           "GCP_TERRAFORM_PLAN_SA=${PLAN_SA}" "GCP_DEPLOY_SA=${DEPLOY_SA}"; do
   run gh variable set "${kv%%=*}" --repo "$REPO" --body "${kv#*=}"
