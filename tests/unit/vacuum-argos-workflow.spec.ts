@@ -94,7 +94,7 @@ describe('.github/workflows/vacuum-argos.yml (T473)', () => {
 
   it('cada VACUUM va como sentencia aparte (psql -c) por tabla, sin transacción', () => {
     const r = runBlocks();
-    expect(r).toMatch(/psql[^\n]*-c\s+"?VACUUM/);
+    expect(r).toMatch(/psql[^\n]*-c\s+"\$\{SENTENCIA\} /);
     expect(r).not.toMatch(/\bBEGIN\b/i);
     expect(r).toMatch(/ON_ERROR_STOP=1/);
     expect(r).toMatch(/for\s+\w+\s+in|while\s+read/);

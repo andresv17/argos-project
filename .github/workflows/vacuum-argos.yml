@@ -1,0 +1,103 @@
+name: Vacuum Argos
+
+# T473 (REQ-PG-015, REQ-PG-011, SC-CLD-019, EDGE-CLD-08): VACUUM por el rol propietario (argos_migrator), nunca argos_app.
+# - cron semanal: VACUUM (ANALYZE) por tabla.
+# - workflow_dispatch (paso obligatorio del runbook tras cada eliminacion de cuenta o importacion): por defecto
+#   VACUUM (FULL, ANALYZE) con lock_timeout=3s y hasta 3 reintentos; modo "simple" lo baja a VACUUM (ANALYZE).
+# - Cada VACUUM es una sentencia psql -c independiente (fuera de transaccion) con statement_timeout propio.
+# - Falla ante "skipping ... only table owner" o si last_vacuum de alguna tabla supera 10 dias.
+# - Publica solo conteos/fechas de pg_stat_user_tables (last_vacuum, last_autovacuum, n_dead_tup), sin datos.
+# Runbook: GitHub deshabilita los schedule tras 60 dias sin actividad del repositorio; reactivar el cron cada 50 dias
+# (por ejemplo con un commit o desde Actions > Enable workflow). El workflow_dispatch es la via de respaldo.
+# Solo usa la URL directa (DATABASE_URL_DIRECT, sin -pooler) y acciones actions/* (sin terceros).
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: 'full = VACUUM (FULL, ANALYZE) con lock_timeout=3s; simple = VACUUM (ANALYZE)'
+        type: choice
+        options: [full, simple]
+        default: full
+
+concurrency:
+  group: vacuum-argos
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  vacuum:
+    name: VACUUM por el rol propietario
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: VACUUM por tabla y verificacion
+        env:
+          DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+          EVENTO: ${{ github.event_name }}
+          MODO: ${{ inputs.modo }}
+        run: |
+          set -euo pipefail
+          echo "::add-mask::${DATABASE_URL_DIRECT}"
+          if [ "${EVENTO}" = "workflow_dispatch" ] && [ "${MODO:-full}" = "full" ]; then
+            SENTENCIA="VACUUM (FULL, ANALYZE)"
+            export PGOPTIONS="-c lock_timeout=3s -c statement_timeout=120s"
+            MAX_INTENTOS=3
+          else
+            SENTENCIA="VACUUM (ANALYZE)"
+            export PGOPTIONS="-c statement_timeout=120s"
+            MAX_INTENTOS=1
+          fi
+          echo "Sentencia: ${SENTENCIA}; hasta ${MAX_INTENTOS} intento(s) por tabla"
+
+          TABLAS="$(psql "${DATABASE_URL_DIRECT}" -X -A -t -v ON_ERROR_STOP=1 \
+            -c "SELECT quote_ident(schemaname) || '.' || quote_ident(relname) FROM pg_stat_user_tables WHERE schemaname = 'public' ORDER BY relname")"
+          if [ -z "${TABLAS}" ]; then
+            echo "Sin tablas en el esquema public: nada que verificar" >&2
+            exit 1
+          fi
+
+          for T in ${TABLAS}; do
+            INTENTO=1
+            while true; do
+              SALIDA="$(mktemp)"
+              if psql "${DATABASE_URL_DIRECT}" -X -v ON_ERROR_STOP=1 -c "${SENTENCIA} ${T}" >"${SALIDA}" 2>&1; then
+                if grep -qi "only table owner" "${SALIDA}"; then
+                  echo "FALLA: ${T} emitio 'skipping ... only table owner can vacuum' (rol sin privilegio)" >&2
+                  exit 1
+                fi
+                echo "OK ${T}"
+                break
+              fi
+              if grep -qi "only table owner" "${SALIDA}"; then
+                echo "FALLA: ${T} emitio 'skipping ... only table owner can vacuum' (rol sin privilegio)" >&2
+                exit 1
+              fi
+              if [ "${INTENTO}" -ge "${MAX_INTENTOS}" ]; then
+                echo "FALLA: ${T} no pudo vaciarse tras ${INTENTO} intento(s)" >&2
+                exit 1
+              fi
+              echo "Reintento ${INTENTO}/${MAX_INTENTOS} para ${T} (lock_timeout)"
+              INTENTO=$((INTENTO + 1))
+              sleep 5
+            done
+          done
+
+          echo "Estado en pg_stat_user_tables (solo conteos y fechas):"
+          psql "${DATABASE_URL_DIRECT}" -X -v ON_ERROR_STOP=1 -c \
+            "SELECT relname, last_vacuum, last_autovacuum, n_dead_tup FROM pg_stat_user_tables WHERE schemaname = 'public' ORDER BY relname"
+
+          VIEJAS="$(psql "${DATABASE_URL_DIRECT}" -X -A -t -v ON_ERROR_STOP=1 -c \
+            "SELECT relname FROM pg_stat_user_tables WHERE schemaname = 'public' AND (last_vacuum IS NULL OR last_vacuum < now() - interval '10 days')")"
+          if [ -n "${VIEJAS}" ]; then
+            echo "FALLA: last_vacuum supera 10 days (o es nulo) en: ${VIEJAS}" >&2
+            exit 1
+          fi
