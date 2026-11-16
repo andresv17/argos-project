@@ -738,3 +738,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Cubre: 401 sin header / no Bearer / token inválido; 403 identidad ajena; 200 Scheduler (body.purged); 5xx sin causa; respuesta y log sin token ni identidad (log solo conteo "purged":7); CSRF aparte (Bearer sin cookie 200, cookie sin Bearer 401); GET/PUT/DELETE/PATCH 404|405.
 - Ambigüedad: openapi MaintenanceResult tiene 5 conteos, la firma dada es {purged}; se prueba solo body.purged (T414/Architect alinean).
 - Resultado: tsc exit 0; vitest 15/15 rojas, causa única módulo inexistente. src/ intacto. Sin push, sin [x]. registro-proceso no tocado por instrucción.
+
+## 2026-11-16 — T413 corregida (R-1/R-2 de Oracle; decisiones D-A1/D-A3 de Architect) + pruebas de AppConfig
+- maintenance-route.spec.ts: firma con schedulerEmail:string; runMaintenance -> Promise<MaintenanceCounts> (5 campos, valores 1..5); sustituidas {purged}/purged===7 por los 5 campos en cuerpo 200 (toEqual + 5 aserciones) y en el log (5 regex); 5 casos 403 por igualdad exacta (mayúsculas, subcadena prefijo/sufijo, dominio parecido x2) + caso 200 exacto; el test de log sin secretos cubre también las identidades casi iguales.
+- app-config.spec.ts: toEqual por defecto ampliado con schedulerEmail:null y oidcAudience:null (+2 líneas, 0 eliminadas); nuevas pruebas (obligatorias con postgres, null con sqlite/memory, formato email, https, mensaje sin valor). No se prueba el caso "valor presente con sqlite" (no fijado por Architect).
+- Resultado: tsc exit 0. maintenance 21/21 rojas (módulo inexistente); app-config 22 rojas / 62 verdes (propiedades inexistentes en src/). src/ intacto. Sin push, sin [x].

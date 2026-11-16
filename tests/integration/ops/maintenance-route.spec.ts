@@ -8,10 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * REQ-CLD-007, REQ-SEC-007, INV-AUD-001, SC-CLD-009. Ruta ajena a cookies y a CSRF (H-MERO-017): se prueba aparte.
  *
  * Contrato de módulo: src/infrastructure/http/routes/maintenance-routes.ts exporta
- * registerMaintenanceRoute(app, { verifyOidc, runMaintenance }).
- *  - verifyOidc(token): Promise<Identity>, inyectada; rechaza (throw) si el token es inválido.
- *  - runMaintenance(): Promise<{ purged: number }>.
- * La identidad esperada del Scheduler se fija aquí (no es un secreto real).
+ * registerMaintenanceRoute(app, { verifyOidc, runMaintenance, schedulerEmail }).
+ *  - verifyOidc(token): Promise<Identity>, inyectada; rechaza (throw) si el token es inválido (valida firma, iss, exp y audiencia).
+ *  - runMaintenance(): Promise<MaintenanceCounts> con los 5 conteos de MaintenanceResult (ops.openapi.yaml).
+ *  - schedulerEmail: string, inyectada desde AppConfig (decisión de /architect 2026-11-16, D-A1); la ruta compara
+ *    identity.email con igualdad exacta (!==): sin minúsculas laxas, sin subcadenas.
+ * La identidad del Scheduler de la prueba no es un secreto real.
  */
 
 const MAINTENANCE_ROUTES = join(process.cwd(), 'src', 'infrastructure', 'http', 'routes', 'maintenance-routes.ts');
@@ -20,20 +22,37 @@ interface Identity {
   readonly email: string;
   readonly sub: string;
 }
+interface MaintenanceCounts {
+  readonly sessionsPurged: number;
+  readonly confirmationTokensPurged: number;
+  readonly membershipsPurged: number;
+  readonly invitationsPurged: number;
+  readonly auditRowsPurged: number;
+}
 interface Options {
   readonly verifyOidc: (token: string) => Promise<Identity>;
-  readonly runMaintenance: () => Promise<{ readonly purged: number }>;
+  readonly runMaintenance: () => Promise<MaintenanceCounts>;
+  readonly schedulerEmail: string;
 }
 type RegisterMaintenanceRoute = (app: FastifyInstance, options: Options) => Promise<void> | void;
 
 const SCHEDULER: Identity = { email: 'argos-scheduler@test-project.iam.gserviceaccount.com', sub: 'sub-scheduler-0001' };
+const COUNTS: MaintenanceCounts = { sessionsPurged: 1, confirmationTokensPurged: 2, membershipsPurged: 3, invitationsPurged: 4, auditRowsPurged: 5 };
 const STRANGER: Identity = { email: 'otra-cuenta@test-project.iam.gserviceaccount.com', sub: 'sub-ajena-0002' };
 const VALID_TOKEN = 'token-del-scheduler-FAKE-aaa.bbb.ccc';
 const STRANGER_TOKEN = 'token-ajeno-FAKE-ddd.eee.fff';
 const BAD_TOKEN = 'token-invalido-FAKE-ggg.hhh.iii';
+// Identidades casi iguales a la del Scheduler: la ruta debe rechazarlas por igualdad exacta (D-A1).
+const NEAR_MISSES: ReadonlyArray<readonly [string, Identity, string]> = [
+  ['mismo email en mayúsculas', { email: SCHEDULER.email.toUpperCase(), sub: 'sub-mayus-0003' }, 'token-mayus-FAKE-jjj.kkk.lll'],
+  ['email que contiene schedulerEmail como subcadena (prefijo)', { email: `x${SCHEDULER.email}`, sub: 'sub-prefijo-0004' }, 'token-prefijo-FAKE-mmm.nnn.ooo'],
+  ['email que contiene schedulerEmail como subcadena (sufijo)', { email: `${SCHEDULER.email}.evil.example`, sub: 'sub-sufijo-0005' }, 'token-sufijo-FAKE-ppp.qqq.rrr'],
+  ['dominio parecido', { email: 'argos-scheduler@test-project.iam.gserviceaccount.com.attacker.io', sub: 'sub-dominio-0006' }, 'token-dominio-FAKE-sss.ttt.uuu'],
+  ['dominio parecido (otro proyecto)', { email: 'argos-scheduler@test-pr0ject.iam.gserviceaccount.com', sub: 'sub-proyecto-0007' }, 'token-proyecto-FAKE-vvv.www.xxx'],
+];
 
 let verifyOidc: ReturnType<typeof vi.fn<(token: string) => Promise<Identity>>>;
-let runMaintenance: ReturnType<typeof vi.fn<() => Promise<{ purged: number }>>>;
+let runMaintenance: ReturnType<typeof vi.fn<() => Promise<MaintenanceCounts>>>;
 let logLines: string[];
 const apps: FastifyInstance[] = [];
 
@@ -47,7 +66,7 @@ async function newApp(): Promise<FastifyInstance> {
     },
   });
   const instance = Fastify({ logger: { level: 'info', stream } });
-  await registerMaintenanceRoute(instance, { verifyOidc, runMaintenance });
+  await registerMaintenanceRoute(instance, { verifyOidc, runMaintenance, schedulerEmail: SCHEDULER.email });
   await instance.ready();
   apps.push(instance);
   return instance;
@@ -62,9 +81,11 @@ beforeEach(() => {
   verifyOidc = vi.fn<(token: string) => Promise<Identity>>().mockImplementation(async (token) => {
     if (token === VALID_TOKEN) return SCHEDULER;
     if (token === STRANGER_TOKEN) return STRANGER;
+    const near = NEAR_MISSES.find(([, , t]) => t === token);
+    if (near !== undefined) return near[1];
     throw new Error('token OIDC inválido');
   });
-  runMaintenance = vi.fn<() => Promise<{ purged: number }>>().mockResolvedValue({ purged: 7 });
+  runMaintenance = vi.fn<() => Promise<MaintenanceCounts>>().mockResolvedValue(COUNTS);
 });
 
 afterEach(async () => {
@@ -108,12 +129,36 @@ describe('POST /internal/maintenance — autenticación OIDC (REQ-SEC-007, SC-CL
     expect(runMaintenance).not.toHaveBeenCalled();
   });
 
+  it.each(NEAR_MISSES)('403 por igualdad exacta: %s no es el Scheduler', async (_caso, identity, token) => {
+    const app = await newApp();
+    const res = await post(app, bearer(token));
+    expect(res.statusCode).toBe(403);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.json<{ code: string }>().code).toBe('ERR-ACC-FORBIDDEN');
+    expect(verifyOidc).toHaveBeenCalledWith(token);
+    expect(runMaintenance).not.toHaveBeenCalled();
+    expect(res.body).not.toContain(identity.email);
+  });
+
+  it('200 solo con el email exactamente igual a schedulerEmail (igualdad exacta)', async () => {
+    const app = await newApp();
+    const res = await post(app, bearer(VALID_TOKEN));
+    expect(res.statusCode).toBe(200);
+    await expect(verifyOidc.mock.results[0]?.value).resolves.toEqual(SCHEDULER);
+    expect(runMaintenance).toHaveBeenCalledTimes(1);
+  });
+
   it('200 con la identidad del Scheduler: ejecuta una vez y devuelve el conteo', async () => {
     const app = await newApp();
     const res = await post(app, bearer(VALID_TOKEN));
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('application/json');
-    expect(res.json<{ purged: number }>().purged).toBe(7);
+    expect(res.json<MaintenanceCounts>()).toEqual(COUNTS);
+    expect(res.json<MaintenanceCounts>().sessionsPurged).toBe(1);
+    expect(res.json<MaintenanceCounts>().confirmationTokensPurged).toBe(2);
+    expect(res.json<MaintenanceCounts>().membershipsPurged).toBe(3);
+    expect(res.json<MaintenanceCounts>().invitationsPurged).toBe(4);
+    expect(res.json<MaintenanceCounts>().auditRowsPurged).toBe(5);
     expect(verifyOidc).toHaveBeenCalledWith(VALID_TOKEN);
     expect(runMaintenance).toHaveBeenCalledTimes(1);
   });
@@ -143,17 +188,25 @@ describe('POST /internal/maintenance — solo conteos, sin token ni identidad (I
     await post(app, bearer(STRANGER_TOKEN));
     await post(app, bearer(BAD_TOKEN));
     await post(app);
+    for (const [, , token] of NEAR_MISSES) await post(app, bearer(token));
     const log = logLines.join('');
-    for (const secret of [VALID_TOKEN, STRANGER_TOKEN, BAD_TOKEN, SCHEDULER.email, SCHEDULER.sub, STRANGER.email, STRANGER.sub]) {
+    const nearSecrets = NEAR_MISSES.flatMap(([, identity, token]) => [token, identity.email, identity.sub]);
+    for (const secret of [VALID_TOKEN, STRANGER_TOKEN, BAD_TOKEN, SCHEDULER.email, SCHEDULER.sub, STRANGER.email, STRANGER.sub, ...nearSecrets]) {
       expect(log).not.toContain(secret);
     }
   });
 
-  it('tras la pasada el log registra el conteo (purged: 7) y ningún identificador', async () => {
+  it('tras la pasada el log registra los 5 conteos y ningún identificador', async () => {
     const app = await newApp();
     await post(app, bearer(VALID_TOKEN));
     const log = logLines.join('');
-    expect(log).toMatch(/"purged":7/);
+    expect(log).toMatch(/"sessionsPurged":1\b/);
+    expect(log).toMatch(/"confirmationTokensPurged":2\b/);
+    expect(log).toMatch(/"membershipsPurged":3\b/);
+    expect(log).toMatch(/"invitationsPurged":4\b/);
+    expect(log).toMatch(/"auditRowsPurged":5\b/);
+    expect(log).not.toContain(SCHEDULER.email);
+    expect(log).not.toContain(SCHEDULER.sub);
     expect(log).not.toContain('authorization');
   });
 });

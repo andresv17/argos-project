@@ -35,6 +35,8 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         auditHmacSecret: null,
         dbDriver: 'sqlite',
         pgPoolMax: 5,
+        schedulerEmail: null,
+        oidcAudience: null,
       },
       APP_CONFIG_DEFAULTS,
     ]);
@@ -214,5 +216,86 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
 
   it.each([['0'], ['-1'], ['11'], ['100'], ['2.5'], ['abc'], ['05'], [' 3'], ['1e1']])('[REQ-PG-010] ARGOS_PG_POOL_MAX=%j se rechaza', (valor) => {
     expect(configError({ ARGOS_PG_POOL_MAX: valor })).toEqual(['ARGOS_PG_POOL_MAX']);
+  });
+
+  // T413 corregida (D-A1, /architect 2026-11-16): identidad del Scheduler y audiencia OIDC (REQ-SEC-007, REQ-CLD-007).
+  // Se leen con field() para que la ausencia de la propiedad en src/ falle por aserción y no por tipos.
+  const SCHEDULER_EMAIL = 'argos-scheduler@argos-prod-1234.iam.gserviceaccount.com';
+  const OIDC_AUDIENCE = 'https://argos-abcdef-uc.a.run.app';
+  const POSTGRES = { ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL };
+  const WITH_BOTH = { ...POSTGRES, ARGOS_SCHEDULER_EMAIL: SCHEDULER_EMAIL, ARGOS_OIDC_AUDIENCE: OIDC_AUDIENCE };
+
+  it('[REQ-SEC-007][D-A1] con postgres y ambas variables válidas, schedulerEmail y oidcAudience quedan en la configuración', () => {
+    const config = loadAppConfig({ NODE_ENV: 'test', ...WITH_BOTH });
+    expect([field(config, 'schedulerEmail'), field(config, 'oidcAudience')]).toEqual([SCHEDULER_EMAIL, OIDC_AUDIENCE]);
+  });
+
+  it.each(['sqlite', 'memory'])('[REQ-SEC-007][D-A1] con %s ambas valen null y no hay error si faltan', (driver) => {
+    const config = loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: driver });
+    expect([field(config, 'schedulerEmail'), field(config, 'oidcAudience')]).toEqual([null, null]);
+  });
+
+  it('[REQ-SEC-007][D-A1] con postgres ambas son obligatorias: falta una, otra o las dos, el error nombra solo las ausentes', () => {
+    expect([
+      configError({ ...POSTGRES, ARGOS_OIDC_AUDIENCE: OIDC_AUDIENCE }),
+      configError({ ...POSTGRES, ARGOS_SCHEDULER_EMAIL: SCHEDULER_EMAIL }),
+      configError(POSTGRES),
+    ]).toEqual([['ARGOS_SCHEDULER_EMAIL'], ['ARGOS_OIDC_AUDIENCE'], ['ARGOS_SCHEDULER_EMAIL', 'ARGOS_OIDC_AUDIENCE']]);
+  });
+
+  it('[REQ-SEC-007][D-A1] con postgres, variables vacías cuentan como ausentes', () => {
+    expect([configError({ ...WITH_BOTH, ARGOS_SCHEDULER_EMAIL: '' }), configError({ ...WITH_BOTH, ARGOS_OIDC_AUDIENCE: '' })]).toEqual([['ARGOS_SCHEDULER_EMAIL'], ['ARGOS_OIDC_AUDIENCE']]);
+  });
+
+  it.each([
+    ['sin sufijo .iam.gserviceaccount.com', 'argos-scheduler@gmail.com'],
+    ['dominio de usuario', 'andres@example.com'],
+    ['con espacios', 'argos scheduler@argos-prod-1234.iam.gserviceaccount.com'],
+    ['con espacio final', `${SCHEDULER_EMAIL} `],
+    ['solo espacios', '   '],
+    ['sin arroba', 'argos-scheduler.iam.gserviceaccount.com'],
+    ['sin parte local', '@argos-prod-1234.iam.gserviceaccount.com'],
+    ['sufijo ajeno detrás', `${SCHEDULER_EMAIL}.evil.io`],
+  ])('[REQ-SEC-007][D-A1] ARGOS_SCHEDULER_EMAIL con formato inválido se rechaza nombrando solo la variable: %s', (_caso, email) => {
+    expect(configError({ ...WITH_BOTH, ARGOS_SCHEDULER_EMAIL: email })).toEqual(['ARGOS_SCHEDULER_EMAIL']);
+  });
+
+  it.each([
+    ['http', 'http://argos-abcdef-uc.a.run.app'],
+    ['sin esquema', 'argos-abcdef-uc.a.run.app'],
+    ['esquema ajeno', 'ftp://argos-abcdef-uc.a.run.app'],
+    ['con credenciales', 'https://usuario:clave@argos-abcdef-uc.a.run.app'],
+    ['con espacios', 'https://argos abcdef.a.run.app'],
+    ['solo espacios', '   '],
+    ['no es URL', 'https://'],
+  ])('[REQ-SEC-007][D-A1] ARGOS_OIDC_AUDIENCE no https o malformada se rechaza nombrando solo la variable: %s', (_caso, audience) => {
+    expect(configError({ ...WITH_BOTH, ARGOS_OIDC_AUDIENCE: audience })).toEqual(['ARGOS_OIDC_AUDIENCE']);
+  });
+
+  it('[REQ-SEC-007][D-A1] el error por schedulerEmail/oidcAudience nombra la variable y nunca el valor', () => {
+    const secretish = 'http://usuario:Cl4ve-no-filtrar@host-interno.example.internal';
+    const casos: Array<Record<string, string>> = [
+      { ...WITH_BOTH, ARGOS_OIDC_AUDIENCE: secretish },
+      { ...WITH_BOTH, ARGOS_SCHEDULER_EMAIL: 'filtrado-no-valido@gmail.com' },
+    ];
+    const volcados = casos.map((env) => {
+      let caught: unknown;
+      try {
+        loadAppConfig({ NODE_ENV: 'test', ...env });
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(AppConfigError);
+      const error = caught as AppConfigError;
+      return [error.message, error.stack ?? '', JSON.stringify(error), String(error)].join('\n');
+    });
+    expect(volcados[0]).toContain('ARGOS_OIDC_AUDIENCE');
+    expect(volcados[1]).toContain('ARGOS_SCHEDULER_EMAIL');
+    for (const volcado of volcados) {
+      expect(volcado).not.toContain('Cl4ve-no-filtrar');
+      expect(volcado).not.toContain('host-interno');
+      expect(volcado).not.toContain('filtrado-no-valido');
+    }
+    expect(() => loadAppConfig({ NODE_ENV: 'test', ...WITH_BOTH, ARGOS_OIDC_AUDIENCE: secretish })).toThrow('Configuración inválida: ARGOS_OIDC_AUDIENCE. Revisa .env.example.');
   });
 });
