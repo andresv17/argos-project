@@ -29,3 +29,6 @@ Thumbs.db
 # Variables de Terraform locales (pueden contener secretos; T452 RI-y)
 *.tfvars
 *.tfvars.json
+
+# Restos de macFUSE (copias ocultas de archivos abiertos al borrar/sobrescribir)
+.fuse_hidden*
