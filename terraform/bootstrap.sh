@@ -109,20 +109,41 @@ run gcloud iam service-accounts create "${PREFIX}-terraform-plan" --project="$PR
 run gcloud iam service-accounts create "${PREFIX}-terraform" --project="$PROJECT" \
   --display-name="ARGOS Terraform apply (escritura, solo main)"
 
-say "4a. Permisos de argos-terraform-plan@: SOLO LECTURA (sin escritura sobre recursos ni estado)"
-for role in roles/viewer roles/iam.securityReviewer roles/secretmanager.viewer; do
+# T441a (REQ-IAC-008, REQ-CICD-012, SC-CLD-008; decisión de Neo 2026-11-16): los permisos de storage de apply y plan
+# se acotan por bucket. Ninguna cuenta de CI puede leer objetos de dumps/ (solo Neo lee los dumps): no se concede
+# roles/storage.admin ni roles/viewer (que incluye storage.objects.get/list) a nivel de proyecto, ni ningún rol
+# de objetos sobre el bucket de exports. A nivel de proyecto solo hay roles personalizados con permisos de
+# METADATOS de buckets (sin storage.objects.*, sin get/setIamPolicy): storage.buckets.create no se puede acotar por bucket.
+# Verificación real en el ensayo T469.
+say "4-pre. Roles personalizados de metadatos de buckets (sin acceso a objetos)"
+run gcloud iam roles create argosTerraformApplyBuckets --project="$PROJECT" \
+  --title="ARGOS Terraform apply: buckets (sin objetos)" \
+  --permissions=storage.buckets.create,storage.buckets.get,storage.buckets.list,storage.buckets.update
+run gcloud iam roles create argosTerraformPlanBuckets --project="$PROJECT" \
+  --title="ARGOS Terraform plan: buckets (solo metadatos)" \
+  --permissions=storage.buckets.get,storage.buckets.list
+
+say "4a. Permisos de argos-terraform-plan@: SOLO LECTURA (sin escritura sobre recursos ni estado; sin lectura de dumps/)"
+# roles/viewer se sustituye por visores concretos: el básico incluye lectura de objetos de todos los buckets.
+for role in roles/run.viewer roles/artifactregistry.reader roles/cloudscheduler.viewer roles/monitoring.viewer \
+            roles/logging.viewer roles/serviceusage.serviceUsageViewer roles/iam.serviceAccountViewer \
+            roles/iam.securityReviewer roles/secretmanager.viewer \
+            "projects/${PROJECT}/roles/argosTerraformPlanBuckets"; do
   run gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:${PLAN_SA}" --role="$role" --condition=None
 done
+# Solo el bucket de ESTADO (nunca el de exports/dumps).
 run gcloud storage buckets add-iam-policy-binding "gs://${STATE_BUCKET}" \
   --member="serviceAccount:${PLAN_SA}" --role=roles/storage.objectViewer
 
-say "4b. Permisos de argos-terraform@: escritura sobre la infraestructura de ARGOS y el estado"
+say "4b. Permisos de argos-terraform@: escritura sobre la infraestructura de ARGOS y el estado (sin lectura de dumps/)"
 for role in roles/run.admin roles/artifactregistry.admin roles/secretmanager.admin \
             roles/iam.serviceAccountAdmin roles/iam.serviceAccountUser roles/resourcemanager.projectIamAdmin \
-            roles/serviceusage.serviceUsageAdmin roles/storage.admin roles/cloudscheduler.admin \
-            roles/monitoring.admin roles/logging.admin; do
+            roles/serviceusage.serviceUsageAdmin roles/cloudscheduler.admin \
+            roles/monitoring.admin roles/logging.admin \
+            "projects/${PROJECT}/roles/argosTerraformApplyBuckets"; do
   run gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:${APPLY_SA}" --role="$role" --condition=None
 done
+# Solo el bucket de ESTADO (nunca el de exports/dumps).
 run gcloud storage buckets add-iam-policy-binding "gs://${STATE_BUCKET}" \
   --member="serviceAccount:${APPLY_SA}" --role=roles/storage.objectAdmin
 # REQ-IAC-009 (enmendado): el presupuesto (google_billing_budget) exige un rol SOBRE LA CUENTA DE FACTURACIÓN;

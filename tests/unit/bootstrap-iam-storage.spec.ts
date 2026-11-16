@@ -62,8 +62,11 @@ describe('bootstrap.sh: IAM de storage acotado por bucket (T441a)', () => {
   it('(c2) apply conserva storage.buckets.create y plan solo lee metadatos de buckets', () => {
     const roleCmds = commands.filter((l) => /iam roles (create|update)/.test(l));
     expect(roleCmds.length).toBe(2);
-    const bindings = commands.filter((l) => /projects add-iam-policy-binding/.test(l) && /projects\/\$\{?PROJECT\}?\/roles\//.test(l));
-    expect(bindings.length).toBe(2);
+    const roles = projectLevelRoles();
+    expect(roles).toContain('roles/argosTerraformApplyBuckets');
+    expect(roles).toContain('roles/argosTerraformPlanBuckets');
+    expect(roleCmds.find((l) => l.includes('argosTerraformApplyBuckets'))).toContain('storage.buckets.create');
+    expect(roleCmds.find((l) => l.includes('argosTerraformPlanBuckets'))).not.toContain('storage.buckets.create');
   });
 
   it('(d) el texto sobre dumps no contradice la decisión (solo Neo lee; sin storage.admin de proyecto)', () => {

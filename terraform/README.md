@@ -102,7 +102,7 @@ fi
 - Sin cifrado propio: el bucket cifra en reposo (acceso uniforme, acceso público prohibido).
 - Vida de 14 días (regla de ciclo de vida sobre `dumps/`) y soft delete en 0 s: el borrado es definitivo a los 14 días.
 - Cadencia semanal estricta (RPO <= 7 d, NFR-CLD-014): con 14 días de vida quedan al menos 2 copias; un dump omitido deja 1. Ponga un recordatorio semanal en su calendario: no hay automatización (R-14).
-- Lectura limitada a Neo (solo Neo lee y escribe el bucket): Terraform no concede ningún rol del bucket a cuentas de servicio; compruébelo con `gcloud storage buckets get-iam-policy "gs://${BUCKET}"` (sin entradas `serviceAccount:`). Compruebe el último dump con `gcloud storage ls -l "gs://${BUCKET}/dumps/"` (antigüedad <= 7 días).
+- Lectura limitada a Neo (solo Neo lee y escribe el bucket): Terraform y `bootstrap.sh` no conceden a las cuentas de servicio de CI ningún rol que lea objetos del bucket (T441a: solo permisos de metadatos de buckets, sin `storage.objects.*`); compruébelo con `gcloud storage buckets get-iam-policy "gs://${BUCKET}"` (sin entradas `serviceAccount:`). Compruebe el último dump con `gcloud storage ls -l "gs://${BUCKET}/dumps/"` (antigüedad <= 7 días).
 
 ### Restauración sin resurrección (REQ-PG-016)
 
