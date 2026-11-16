@@ -145,7 +145,7 @@
 **Independent Test**: SC-CLD-001, 003, 005, 006, 008, 009, 010, 012 con evidencia.
 
 - [ ] T455 [N2] [US2] Neo crea el proyecto Neon (D-02, D-08), los roles `argos_app` y `argos_migrator` y entrega `DATABASE_URL` y `DATABASE_URL_DIRECT` como GitHub Secrets; verifica `SHOW server_version` y que coincida con el Postgres de pruebas (REQ-SEC-004, REQ-SEC-001, REQ-PG-015) — depende de T401
-- [ ] T456 [N2] [US3] Neo ejecuta `terraform/bootstrap.sh` y configura variables y secretos de GitHub (REQ-IAC-002, REQ-CICD-006) — depende de T435, T450
+- [ ] T456 [N2] [US3] Neo ejecuta `terraform/bootstrap.sh` y configura variables y secretos de GitHub (REQ-IAC-002, REQ-CICD-006) — depende de T435, T450, T485
 - [ ] T457 [N2] [US3] Fusión a `main`: `infraestructura.yml` aplica; verificar segundo `plan` sin cambios y estado en `terraform/argos-state` (NFR-CLD-008, SC-CLD-005) — depende de T446, T456, T469
 - [ ] T458 [N2] [US4] Primer despliegue: migración, revisión sin tráfico, humo y tráfico al 100 % (SC-CLD-006, SC-CLD-007) — depende de T457, T455, T451, T477
 - [ ] T459 [US1] T-CLD-MEASURE: medir RTT Cloud Run→Neon, arranque en frío encadenado y p95 de las rutas del recorrido; recalibrar NFR-CLD-005/006 o reabrir D-02 (NFR-CLD-005, NFR-CLD-006, R-04) — depende de T458
