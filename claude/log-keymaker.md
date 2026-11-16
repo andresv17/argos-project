@@ -762,3 +762,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 
 ## 2026-11-16 — T416 (órdenes A-D de Neo, logos it. 76)
 - A: playwright.config.ts, NODE_ENV:'test' en env del webServer API. B: package.json test:gate, compile-contracts --feature 003 tras el 002. C: commit local con research.md §10, data-model.md §6, architect-T415-registro-requests.md + A y B. Sin push, sin [x]. D: compuerta T416 completa a continuación (resultado en el informe a Morpheus).
+
+## 2026-11-16 — T417 (orden de Neo, logos it. 78)
+- Hallazgo: la suite ya era función parametrizada (tests/fixtures/repository-contract-suite.ts, defineRepositoryContractSuite) usada por memoria y SQLite. Hueco real para Postgres: la fábrica era síncrona y sin ciclo de vida.
+- Cambio: tipo UnitOfWorkFactory (síncrona o Promise), opción dispose (afterEach), 19 `await createUnitOfWork()`. Cero aserciones tocadas. Specs de memoria/SQLite sin cambios.
+- Base 21+37=58 verdes; después 21+37=58; completa 1985/1985; tsc exit 0.

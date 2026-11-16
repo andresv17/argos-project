@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { PetProfile } from '../../src/generated/index.ts';
 import type { LegacyHouseholdMember as HouseholdMember } from '../../src/domain/households/household-policies.ts';
 import type { RepositorySet, UserAccount } from '../../src/application/ports/repositories.port.ts';
@@ -8,8 +8,8 @@ import { ANDRES_PETS as ANDRES_PETS_001, HOUSEHOLD, LUNA as LUNA_001, MEMBERSHIP
 import { envelopePets, upgradeEnvelope, upgradePet } from './storage-upgrade.ts';
 
 /**
- * Suite de contratos de los puertos de repositorio (INV-ARCH-005). la ejecuta con los repositorios en
- * memoria; debe ejecutarla también con SQLite. Cada prueba parte de una unidad de trabajo vacía.
+ * Suite de contratos de los puertos de repositorio (INV-ARCH-005). la ejecutan memoria y SQLite con su
+ * fábrica; Postgres la usará después (T426, T427, T431). Cada prueba parte de una unidad de trabajo vacía.
  *: los registros se guardan después de su mascota, porque SQLite exige la referencia (INV-PET-005).
  */
 const account = (user: object, passwordHash: string): UserAccount => ({ ...user, email: null, preferredLanguage: 'es', timezone: 'America/Bogota', passwordHash }) as UserAccount;
@@ -36,14 +36,25 @@ async function rejection(promise: Promise<unknown>): Promise<string> {
   return 'resolved';
 }
 
-export function defineRepositoryContractSuite(adapterName: string, createUnitOfWork: () => UnitOfWorkPort): void {
+/** Fábrica de adaptador: devuelve una unidad de trabajo VACÍA y aislada para cada prueba (síncrona o asíncrona; Postgres la necesita asíncrona, T426/T427/T431). */
+export type UnitOfWorkFactory = () => UnitOfWorkPort | Promise<UnitOfWorkPort>;
+
+/** Ciclo de vida opcional del adaptador: `dispose` se ejecuta tras cada prueba (cerrar pool, borrar esquema temporal). */
+export interface ContractSuiteOptions {
+  readonly dispose?: () => void | Promise<void>;
+}
+
+export function defineRepositoryContractSuite(adapterName: string, createUnitOfWork: UnitOfWorkFactory, options: ContractSuiteOptions = {}): void {
   const seed = async (uow: UnitOfWorkPort, work: (r: RepositorySet) => Promise<void>) => uow.runInTransaction(work);
   const read = <T>(uow: UnitOfWorkPort, work: (r: RepositorySet) => Promise<T>) => uow.runInTransaction(work);
   const seed2 = <T>(uow: UnitOfWorkPort, work: (r: RepositorySet) => Promise<T>) => uow.runInTransaction(work);
 
   describe(`suite de contratos de repositorio (${adapterName})`, () => {
+    const { dispose } = options;
+    if (dispose) afterEach(async () => dispose());
+
     it('[INV-ARCH-005] runInTransaction devuelve una Promise y cada operación de repositorio también', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       const pending = uow.runInTransaction(async (r) => {
         const results = [
           r.users.findById(ANDRES.id),
@@ -66,7 +77,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005] una transacción que termina confirma todos sus cambios', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         await r.users.insert(ANDRES);
         await r.pets.save(ARGOS);
@@ -77,7 +88,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005] si la transacción lanza, se descartan los cambios de todos los repositorios y se propaga el error original', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => r.users.insert(ANDRES));
       const failure = new Error('fallo a mitad de transacción');
       const outcome = await rejection(
@@ -107,7 +118,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005] las transacciones concurrentes no se mezclan: la segunda ve lo que confirmó la primera', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       const first = uow.runInTransaction(async (r) => {
         await r.loginAttempts.replaceFailures('andres', ['2026-11-05T12:00:00.000Z']);
         await Promise.resolve();
@@ -123,7 +134,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005] modificar un objeto devuelto o guardado no altera lo persistido', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       const pet: PetProfile = { ...ARGOS };
       await seed(uow, async (r) => {
         await r.pets.save(pet);
@@ -137,7 +148,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005] usuarios: búsqueda por id, username exacto y lista; id o username repetidos se rechazan', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         await r.users.insert(ANDRES);
         await r.users.insert(MARIA);
@@ -155,7 +166,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005] sesiones e intentos de login: guardar reemplaza y la lectura devuelve lo último guardado', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         await r.sessions.save('t1', SESSION);
         await r.sessions.save('t1', { ...SESSION, revokedAt: '2026-11-05T13:00:00.000Z' });
@@ -167,7 +178,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005] mascotas: save inserta o reemplaza, listByOwners filtra por dueño y delete borra', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         for (const pet of [...ANDRES_PETS, LUNA]) await r.pets.save(pet);
         await r.pets.save({ ...ARGOS, name: 'Argos II' });
@@ -190,7 +201,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005] registros: listForPet devuelve las 6 colecciones de la mascota, add rechaza ids repetidos y deleteForPet borra solo esa mascota', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         for (const pet of ENVELOPE_PETS) await r.pets.save(pet);
         for (const module of Object.keys(envelope.records) as Array<keyof typeof envelope.records>) {
@@ -207,7 +218,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005][INV-BACKUP-001] registros: findPetIdOfRecord devuelve el petId del registro en cualquiera de los 6 módulos y null si no existe', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         for (const pet of ENVELOPE_PETS) await r.pets.save(pet);
         for (const module of Object.keys(envelope.records) as Array<keyof typeof envelope.records>) {
@@ -223,7 +234,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005] hogares: membresías por hogar y por usuarios, saveMembership reemplaza por membershipId y deleteWithMemberships borra ambos', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       const other = { ...HOUSEHOLD, id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb02', name: 'Otro' };
       const otherOwner: HouseholdMember = { ...MEMBERSHIPS[0]!, membershipId: 'cccccccc-cccc-4ccc-8ccc-cccccccccc09', householdId: other.id };
       await seed(uow, async (r) => {
@@ -253,7 +264,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-AUTH-003][REQ-ACC-001] usuarios: email, idioma y zona horaria viajan completos; update reemplaza perfil y hash; delete borra solo esa cuenta', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         await r.users.insert(ANDRES);
         await r.users.insert(MARIA);
@@ -267,7 +278,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-AUTH2-002][REQ-AUTH2-003] sesiones: lastActivityAt se guarda y se renueva; revokeOthers revoca las demás sesiones vigentes del usuario y conserva la actual; deleteByUser borra solo las suyas', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       const maria: UserAccount = MARIA;
       await seed(uow, async (r) => {
         await r.users.insert(ANDRES);
@@ -288,7 +299,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-AUTH-005] intentos de login: deleteFailures borra los fallos del username', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         await r.loginAttempts.replaceFailures('maria.v', ['a']);
         await r.loginAttempts.replaceFailures('andres', ['b']);
@@ -298,7 +309,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[REQ-ACC-002][INV-AUTH-003] tokens de confirmación: uno por usuario (el nuevo reemplaza al anterior), consumo condicional de un solo uso, caducidad exacta y ligado al usuario', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         await r.users.insert(ANDRES);
         await r.users.insert(MARIA);
@@ -319,7 +330,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[INV-ARCH-005] un consumo de token dentro de una transacción que falla se revierte y el token sigue vigente', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         await r.users.insert(ANDRES);
         await r.confirmationTokens.replaceForUser(ANDRES.id, 'hash-a1', NOW, at(600_000));
@@ -335,7 +346,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[ERR-RATE-LIMITED] eventos de frecuencia: countSince cuenta por ámbito y usuario con ventana abierta por la izquierda, y deleteForUser los borra', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         await r.users.insert(ANDRES);
         await r.users.insert(MARIA);
@@ -357,7 +368,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[REQ-HOUSE2-001][INV-HOUSE-003] invitaciones: la inerte no tiene usuario, solo hay una INVITED por hogar y username, y deleteForUser / deleteForHousehold las retiran', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       const invitation = (n: number, username: string, inviteeUserId: string | null, status: 'INVITED' | 'DECLINED' = 'INVITED') => ({
         invitationId: `e2000000-0000-4000-8000-00000000000${n}`,
         householdId: HOUSEHOLD.id,
@@ -390,7 +401,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
     });
 
     it('[REQ-ACC-002] households.deleteMembershipsOfUser borra las filas del usuario en todos los hogares y countReferences llega a 0 cuando no queda nada que lo referencie', async () => {
-      const uow = createUnitOfWork();
+      const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         await r.users.insert(MARIA);
         await r.households.insert(HOUSEHOLD);
