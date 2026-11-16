@@ -34,6 +34,10 @@ describe('terraform/cloud_run.tf (T440)', () => {
     expect(types).toEqual(['google_cloud_run_v2_service']);
   });
 
+  it('declara deletion_protection = true explícito (plan.md l.80, R-1 de Oracle)', () => {
+    expect(service()).toMatch(/^\s*deletion_protection\s*=\s*true\s*$/m);
+  });
+
   it('service_account referencia google_service_account.run.email', () => {
     expect(service()).toMatch(/service_account\s*=\s*google_service_account\.run\.email/);
   });
