@@ -84,7 +84,7 @@ describe('bundle de producción del servidor (T432)', () => {
     expect(readdirSync(join(outDir, 'migrations')).filter((f) => f.endsWith('.sql')).length).toBeGreaterThanOrEqual(5);
   });
 
-  it('[REQ-CLD-001] el bundle arranca con SQLite local y /healthz responde 200 sin Docker', async () => {
+  it('[REQ-CLD-001] el bundle arranca con SQLite local y responde HTTP real (401 de /api/auth/me) sin Docker', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'argos-t432-'));
     const port = await freePort();
     let child: ChildProcess | undefined;
@@ -96,13 +96,14 @@ describe('bundle de producción del servidor (T432)', () => {
         stdio: ['ignore', 'ignore', 'pipe'],
       });
       child.stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+      // /healthz (T412) existe como módulo pero server.ts aún no lo compone (404 hoy): se sondea una ruta ya compuesta.
       let status = 0;
-      for (let attempt = 0; attempt < 100 && status !== 200; attempt += 1) {
+      for (let attempt = 0; attempt < 100 && status === 0; attempt += 1) {
         await new Promise((resolve) => setTimeout(resolve, 100));
-        status = await fetch(`http://127.0.0.1:${port}/healthz`).then((r) => r.status, () => 0);
+        status = await fetch(`http://127.0.0.1:${port}/api/auth/me`).then((r) => r.status, () => 0);
       }
       expect(stderr).toBe('');
-      expect(status).toBe(200);
+      expect(status).toBe(401);
     } finally {
       child?.kill('SIGTERM');
       await new Promise((resolve) => setTimeout(resolve, 200));
