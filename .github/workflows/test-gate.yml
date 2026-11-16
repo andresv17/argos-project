@@ -5,6 +5,8 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # T447 (REQ-CICD-003, REQ-CICD-004): reutilizable por deploy-argos.yml sin credenciales de GCP (H-MERO-009).
+  workflow_call:
   workflow_dispatch:
     inputs:
       task_id:
@@ -25,6 +27,8 @@ jobs:
   test-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
     env:
       # Playwright y los nombres de archivo con tildes necesitan UTF-8 (H-115-4).
       LANG: C.UTF-8
