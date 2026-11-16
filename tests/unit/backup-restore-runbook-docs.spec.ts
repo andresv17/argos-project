@@ -152,3 +152,23 @@ describe('quickstart.md §4.2 (T454)', () => {
     expect(sec).toContain('REQ-PG-016');
   });
 });
+
+describe('límite residual aceptado de T441a (H-ORA-T441a-2, H-ORA-T441a-3)', () => {
+  it('[REQ-IAC-008] documenta que apply conserva roles de administración de proyecto como límite aceptado por Neo', () => {
+    const s = seccion();
+    for (const rol of ['projectIamAdmin', 'serviceAccountAdmin', 'serviceAccountUser']) expect(s).toContain(rol);
+    expect(s).toContain('H-ORA-T441a-2');
+    expect(s).toMatch(/límite (residual )?aceptado/i);
+    expect(s).toMatch(/Neo/);
+    expect(s).toContain('opción (a)');
+    expect(s).toContain('2026-11-16');
+  });
+
+  it('[REQ-IAC-008] documenta que get-iam-policy del bucket no muestra herencia de proyecto y exige projects get-iam-policy filtrando CI', () => {
+    const s = seccion();
+    expect(s).toContain('H-ORA-T441a-3');
+    expect(s).toMatch(/no muestra[^.]*heredad/i);
+    expect(s).toContain('gcloud projects get-iam-policy');
+    expect(s).toMatch(/--filter=[^\n]*serviceAccount/);
+  });
+});
