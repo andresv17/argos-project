@@ -1,5 +1,11 @@
 # SAST: la configuración se lee solo en
 # src/infrastructure/config/ (loadAppConfig valida y convierte las variables).
+#
+# Excepción documentada (decisión N2 de Neo, T453): la lectura de process.env queda centralizada en
+# src/infrastructure/config/. Cuatro scripts de soporte fuera de src/ quedan exentos por ser herramientas de CI
+# y de desarrollo, no del proceso de la API (no incumplen INV-ARCH-006): scripts/validate-secrets.mjs,
+# scripts/scan-secrets.mjs, scripts/terraform-plan-guard.mjs y el JS embebido en scripts/verify-traceability.sh.
+# El alcance del escaneo no cambia: test-gate.yml ejecuta semgrep solo sobre src/ y esta regla declara typescript.
 rules:
   - id: argos-no-process-env-outside-config
     languages: [typescript]
