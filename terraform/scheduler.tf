@@ -1,5 +1,5 @@
-# Job diario de mantenimiento (REQ-CLD-007, NFR-CLD-001, ADR-003-06). UN solo job: 1 de 3 gratis (los otros 2
-# son de Mirror, que Argos no toca). Horario 06:00 America/Bogota (plan.md §2.2). Llama por OIDC a
+# Job diario de mantenimiento (REQ-CLD-007, NFR-CLD-001, ADR-003-06). UN solo job: 1 de 3 gratis (cupo de
+# la cuenta de facturación). Horario 06:00 America/Bogota (plan.md §2.2). Llama por OIDC a
 # POST /internal/maintenance con la cuenta argos-scheduler (run.invoker en iam.tf). La audiencia es la URL del
 # servicio sin ruta: la misma que la app recibe en ARGOS_OIDC_AUDIENCE (REQ-SEC-007). Sin cuerpo ni cabeceras.
 
