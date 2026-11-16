@@ -11,8 +11,19 @@ const load = (): string => readFileSync(path, 'utf8');
 const noComments = (s: string): string => s.replace(/^\s*#.*$/gm, '');
 const body = (): string => noComments(load());
 
-/** Detecta el contexto `secrets` de Actions (E-1/E-2 R-2). Version previa (debil), se fortalece tras el rojo. */
-const usesSecretsContext = (y: string): boolean => /\$\{\{\s*secrets\./.test(y);
+/**
+ * Detecta el contexto `secrets` de Actions (E-1/E-2 R-2) dentro de expresiones `${{ ... }}` (incluso multilinea) y de `if:` sin llaves:
+ * `secrets.X`, `secrets[...]`, `toJSON(secrets)` y expresiones complejas. No coincide con el job `scan-secrets` ni con `scan-secrets.mjs`
+ * (fuera de una expresion, o precedidos por `-`, `.` o caracter de palabra).
+ */
+const SECRETS_TOKEN = /(?<![\w.-])secrets(?![\w-])/i;
+const usesSecretsContext = (y: string): boolean => {
+  for (const m of y.matchAll(/\$\{\{([\s\S]*?)\}\}/g)) if (SECRETS_TOKEN.test(m[1] ?? '')) return true;
+  return y.split('\n').some((l) => {
+    const m = /^\s*(?:-\s*)?if:\s*(.*)$/.exec(l);
+    return m !== null && SECRETS_TOKEN.test(m[1] ?? '');
+  });
+};
 
 /** Texto de todos los bloques `run:` (línea o bloque literal). */
 const runBlocks = (): string => {

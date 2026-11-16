@@ -10,12 +10,15 @@
 // Una linea con `argos-scan:allow` se omite SOLO en archivos bajo tests/ (valores sinteticos de pruebas); fuera de tests/ la marca no
 // suprime nada (E-2 R2). La regla url-con-contrasena se exime unicamente para hosts localhost, 127.0.0.1, [::1], *.example.com y *.test
 // en tests/ (E-2 R1) y para loopback en cualquier ruta; cualquier otra URL con contrasena se detecta, tambien en tests/.
+// Modos file y dir (E-2 R-3): la ruta se resuelve (symlinks incluidos) y SOLO es "tests/" si cae realmente bajo <raiz del repo>/tests/. Una
+// ruta con segmento `..` se rechaza (exit 2). Rutas fuera del repo (imagen exportada, registros de CI) se escanean sin ninguna exencion.
 import { execFileSync } from 'node:child_process';
-import { lstatSync, readdirSync, readFileSync } from 'node:fs';
-import { basename, join, relative } from 'node:path';
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ALLOW = 'argos-scan:allow';
+const REPO_ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
 const PUBLIC_DEV_HMAC = 'de'.repeat(32); // app-config.ts DEVELOPMENT_AUDIT_HMAC_SECRET (publico)
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -46,11 +49,12 @@ export function isForbiddenFile(path) {
 }
 
 /** @returns {Array<{file: string, line: number, rule: string}>} */
-export function scanText(name, text) {
+export function scanText(name, text, opts = {}) {
+  const exempt = opts.exempt ?? name.startsWith('tests/'); // solo "tests/" real; los modos file y dir lo calculan con classifyPath
   const findings = [];
   const lines = text.split(/\r\n|\r|\n/);
   lines.forEach((line, i) => {
-    if (line.includes(ALLOW) && name.startsWith('tests/')) return;
+    if (line.includes(ALLOW) && exempt) return;
     const add = (rule) => findings.push({ file: name, line: i + 1, rule });
     if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(line)) add('clave-privada');
     if (TOKEN_PATTERNS.some((re) => re.test(line))) add('token-conocido');
@@ -59,8 +63,8 @@ export function scanText(name, text) {
       const pass = m[2] ?? '';
       const host = m[3] ?? '';
       // Loopback (credenciales desechables locales) en cualquier ruta; hosts example.com y .test solo en tests/ (fixtures sinteticos).
-      const exempt = LOOPBACK_HOST.test(host) || (name.startsWith('tests/') && SYNTHETIC_HOST.test(host));
-      if (!PLACEHOLDER_PASSWORD.test(pass) && !exempt) add('url-con-contrasena');
+      const hostOk = LOOPBACK_HOST.test(host) || (exempt && SYNTHETIC_HOST.test(host));
+      if (!PLACEHOLDER_PASSWORD.test(pass) && !hostOk) add('url-con-contrasena');
     }
     for (const m of line.matchAll(HMAC_ASSIGN)) {
       const v = m[1] ?? '';
@@ -87,7 +91,21 @@ function isBinary(buf) {
   return buf.subarray(0, 8000).includes(0);
 }
 
-function scanFile(abs, rel) {
+/**
+ * Normaliza una ruta de los modos file y dir (E-2 R-3).
+ * @returns {{abs: string, rel: string, inRepo: boolean} | null} null si la ruta contiene `..`; rel es relativa a la raiz del repo si inRepo.
+ */
+export function classifyPath(raw, root = REPO_ROOT) {
+  if (raw.split(/[\\/]+/).includes('..')) return null;
+  const abs = resolve(raw);
+  let real = abs;
+  if (existsSync(abs)) real = realpathSync(abs);
+  const rel = relative(root, real).split('\\').join('/');
+  const inRepo = rel !== '..' && !rel.startsWith('../') && !isAbsolute(rel);
+  return { abs: real, rel: inRepo ? rel : '', inRepo };
+}
+
+function scanFile(abs, rel, exempt = rel.startsWith('tests/')) {
   const findings = [];
   if (isForbiddenFile(rel)) findings.push({ file: rel, line: 0, rule: 'archivo-prohibido' });
   let st;
@@ -99,20 +117,27 @@ function scanFile(abs, rel) {
   if (!st.isFile() || st.size > MAX_BYTES) return findings;
   const buf = readFileSync(abs);
   if (isBinary(buf)) return findings;
-  return findings.concat(scanText(rel, buf.toString('utf8')));
+  return findings.concat(scanText(rel, buf.toString('utf8'), { exempt }));
 }
 
 /** Recorre un directorio completo (sin omitir ninguna carpeta: es el sistema de archivos de una imagen). */
 export function scanDir(dir) {
+  const c = classifyPath(dir);
+  if (c === null) throw new RangeError('ruta con ..');
+  const prefix = c.inRepo ? c.rel : '';
+  const label = (abs) => [prefix, relative(c.abs, abs).split('\\').join('/')].filter((p) => p !== '').join('/');
   const findings = [];
   const walk = (d) => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       const abs = join(d, e.name);
       if (e.isDirectory()) walk(abs);
-      else if (e.isFile()) findings.push(...scanFile(abs, relative(dir, abs).split('\\').join('/')));
+      else if (e.isFile()) {
+        const name = label(abs);
+        findings.push(...scanFile(abs, name, c.inRepo && name.startsWith('tests/')));
+      }
     }
   };
-  walk(dir);
+  walk(c.abs);
   return findings;
 }
 
@@ -133,15 +158,21 @@ function report(findings) {
 function main(argv) {
   const [mode, target, ...rest] = argv;
   if (mode === 'repo') return report(scanRepo());
-  if (mode === 'dir' && target) return report(scanDir(target));
+  if (mode === 'dir' && target) {
+    if (classifyPath(target) === null) return 2;
+    return report(scanDir(target));
+  }
   if (mode === 'file' && target) {
-    let findings = scanFile(target, target);
+    const c = classifyPath(target);
+    if (c === null) return 2;
+    const label = c.inRepo ? c.rel : target;
+    let findings = scanFile(c.abs, label, c.inRepo && c.rel.startsWith('tests/'));
     const i = rest.indexOf('--literal-env');
     if (i >= 0) {
       const names = (rest[i + 1] ?? '').split(',').filter((n) => n !== '');
       const values = Object.fromEntries(names.map((n) => [n, process.env[n] ?? '']));
       try {
-        findings = findings.concat(scanLiterals(target, readFileSync(target, 'utf8'), values));
+        findings = findings.concat(scanLiterals(label, readFileSync(c.abs, 'utf8'), values));
       } catch {
         return 2;
       }
