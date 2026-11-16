@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -138,5 +138,27 @@ describe('verify-bootstrap-inputs.sh', () => {
   it('no imprime los valores de las variables validadas', () => {
     const r = run({ ...VALID, ARGOS_PROJECT_ID: 'Valor-Con-Mayusculas' });
     expect(r.out).not.toContain('Valor-Con-Mayusculas');
+  });
+});
+
+describe('terraform/README.md documenta la verificación previa de insumos', () => {
+  const readme = readFileSync(join(process.cwd(), 'terraform', 'README.md'), 'utf8');
+  const inicio = readme.indexOf('## Bootstrap del día 0');
+  const seccion = readme.slice(inicio, readme.indexOf('\n## ', inicio + 1));
+
+  it('la sección de bootstrap existe', () => {
+    expect(inicio).toBeGreaterThanOrEqual(0);
+  });
+
+  it('menciona verify-bootstrap-inputs.sh y sus códigos de salida 0, 1 y 2', () => {
+    expect(seccion).toContain('verify-bootstrap-inputs.sh');
+    expect(seccion).toMatch(/0.*1.*2/);
+  });
+
+  it('la mención aparece antes de la referencia a bootstrap.sh', () => {
+    const iVerify = seccion.indexOf('verify-bootstrap-inputs.sh');
+    const iBoot = seccion.indexOf('bootstrap.sh');
+    expect(iVerify).toBeGreaterThanOrEqual(0);
+    expect(iVerify).toBeLessThan(iBoot);
   });
 });
