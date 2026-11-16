@@ -1,0 +1,78 @@
+name: Auto Crear Pull Request (develop -> main)
+
+# T445 (REQ-CICD-001, D-09): cada push a develop crea o actualiza el PR hacia main.
+# Sin credenciales de GCP ni id-token; solo GITHUB_TOKEN con permisos mínimos por trabajo (REQ-CICD-011).
+on:
+  push:
+    branches: [develop]
+
+concurrency:
+  group: auto-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  auto-pr:
+    name: Crear o actualizar PR automático hacia main
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gestionar Pull Request con información del commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Metadatos del commit local (git log, no contexto de evento: evita inyección).
+          COMMIT_TITLE=$(git log -1 --pretty=format:"%s")
+          COMMIT_HASH=$(git log -1 --pretty=format:"%h")
+          COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+          COMMIT_DATE=$(git log -1 --date=format:'%Y-%m-%d %H:%M' --pretty=format:"%cd")
+
+          git fetch origin main --depth=100 || true
+          COMMITS_LIST=$(git log origin/main..HEAD --pretty=format:"* \`%h\` - %s *(%an)*" 2>/dev/null || true)
+          if [ -z "$COMMITS_LIST" ]; then
+            COMMITS_LIST="* \`$COMMIT_HASH\` - $COMMIT_TITLE *($COMMIT_AUTHOR)*"
+          fi
+
+          PR_TITLE="develop: ${COMMIT_TITLE}"
+          BODY_FILE="${RUNNER_TEMP}/pr_body.md"
+          {
+            echo "### Último commit"
+            echo "* **Mensaje:** $COMMIT_TITLE"
+            echo "* **Hash:** \`$COMMIT_HASH\`"
+            echo "* **Autor:** $COMMIT_AUTHOR"
+            echo "* **Fecha:** $COMMIT_DATE"
+            echo ""
+            echo "### Commits acumulados pendientes para producción"
+            echo "$COMMITS_LIST"
+            echo ""
+            echo "---"
+            echo "*Pull Request gestionado automáticamente tras push en \`develop\`. Revisa los cambios y fusiona en \`main\`.*"
+          } > "$BODY_FILE"
+
+          EXISTING_PR=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -z "$EXISTING_PR" ]; then
+            echo "Creando nuevo Pull Request..."
+            gh pr create \
+              --base main \
+              --head develop \
+              --title "$PR_TITLE" \
+              --body-file "$BODY_FILE"
+          else
+            echo "El PR #$EXISTING_PR ya está abierto. Actualizando título y descripción."
+            gh api \
+              --method PATCH \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GH_REPO}/pulls/${EXISTING_PR}" \
+              -f title="$PR_TITLE" \
+              -F body=@"$BODY_FILE" >/dev/null || \
+              echo "Aviso: no se pudo actualizar el texto del PR #$EXISTING_PR; los commits ya están en el PR."
+          fi
