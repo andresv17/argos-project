@@ -37,6 +37,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         pgPoolMax: 5,
         schedulerEmail: null,
         oidcAudience: null,
+        databaseUrl: null,
       },
       APP_CONFIG_DEFAULTS,
     ]);
@@ -190,6 +191,29 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     expect(volcado).not.toContain(SECRET_PASSWORD);
     expect(volcado).not.toContain('db.example.internal');
     expect(volcado).not.toContain('postgres://');
+  });
+
+  // T428 (opción A del Architect, REQ-PG-010, INV-ARCH-006): AppConfig.databaseUrl es el único punto de salida de DATABASE_URL.
+  it('[REQ-PG-010][INV-ARCH-006] databaseUrl es la URL validada con postgres y null con sqlite o memory', () => {
+    expect([
+      field(loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: PG_URL }), 'databaseUrl'),
+      field(loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'sqlite', DATABASE_URL: PG_URL }), 'databaseUrl'),
+      field(loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'memory', DATABASE_URL: PG_URL }), 'databaseUrl'),
+    ]).toEqual([PG_URL, null, null]);
+  });
+
+  it('[REQ-SEC-003][INV-ARCH-006] con una URL válida y otra variable ausente, el AppConfigError no incluye la URL ni en el mensaje ni en variables', () => {
+    let caught: unknown;
+    try {
+      loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', ARGOS_OIDC_AUDIENCE: PG_CLOUD.ARGOS_OIDC_AUDIENCE, DATABASE_URL: PG_URL });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(AppConfigError);
+    const error = caught as AppConfigError;
+    expect([error.variables, error.message]).toEqual([['ARGOS_SCHEDULER_EMAIL'], 'Configuración inválida: ARGOS_SCHEDULER_EMAIL. Revisa .env.example.']);
+    expect(`${error.message}\n${JSON.stringify(error.variables)}`).not.toContain('db.example.internal');
+    expect(`${error.message}\n${JSON.stringify(error.variables)}`).not.toContain('clave');
   });
 
   it('[REQ-PG-010] ARGOS_PG_POOL_MAX por defecto es 5 y acepta los extremos 1 y 10', () => {

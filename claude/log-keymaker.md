@@ -844,3 +844,9 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creado tests/integration/persistence/postgres-concurrency.spec.ts: 7 no vivas (doble de pg_advisory_xact_lock como cola FIFO: 2 pools -> misma constante 0x4152474f53; resultado serial 3 transacciones sin cuentas perdidas + control negativo sin candado que sí las pierde; lock_timeout antes del candado en ambas; 55P03 propagado sin traducir con ROLLBACK, work no ejecutado, release único; recuperación posterior; sin reintento por 55P03) y 3 vivas skipIf(!TEST_DATABASE_URL) (2 pools serial, lock_timeout real ~10 s, 3 pools sin 40P01), aplazadas a T431 por decisión de Neo.
 - Nada que implementar en src/: el orden/texto del candado y los topes ya estaban fijados por T421/T465 (postgres-session-caps.spec.ts); lo nuevo es solo la semántica concurrente. Única roja inicial: error del propio doble (la espera no era cola); corregido en la prueba. Reservas R-1/R-2 de Oracle y R-1 de T425 quedan para T431 (requieren base real).
 - tsc 0; vitest completa 2113 verdes + 28 omitidas.
+
+## 2026-11-16 — T428 pruebas primero (composición PostgreSQL en server.ts)
+- Decisiones vinculantes de /architect (architect-T428-composicion.md): AppConfig.databaseUrl (A), import() dinámico por dbDriver, onClose -> closePool, 55P03 sin mapear (solo comentario).
+- tests/unit/app-config.spec.ts: único toEqual literal de defaults (línea ~38) recibe databaseUrl: null (sin eliminar ni debilitar aserciones; el segundo toEqual usa spread de loadAppConfig y no cambia); +2 casos (databaseUrl con postgres/sqlite/memory; URL ausente del mensaje y variables).
+- Nuevos: tests/unit/server-composition-static.spec.ts (3), tests/integration/server-composition-postgres.spec.ts (3 + 1 viva skipIf aplazada a T431), tests/integration/server-composition-sqlite.spec.ts (1; ya verde: con sqlite no se carga pg, guarda regresión).
+- Rojas confirmadas: 7 (2 app-config, 2 estáticas, 3 postgres).
