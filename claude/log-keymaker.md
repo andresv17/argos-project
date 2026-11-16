@@ -803,3 +803,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creado postgres-repositories.ts: createPostgresRepositoriesPart1(client) con users, sessions, loginAttempts, confirmationTokens, rateLimits; SQL con $n, JSONB con ::jsonb, ANY($1::text[]), UPSERT con EXCLUDED, COUNT bigint->Number, revokeOthers en un solo UPDATE con jsonb_set (sin N+1). Reutiliza corruptData/sessionTokenHash/isSessionRecord de sqlite-repositories.ts (solo se añadió `export` a isSessionRecord).
 - Comentario R1 en postgres-unit-of-work.ts (ROLLBACK con conexión caída => ERR-INTERNAL-UNEXPECTED/UNKNOWN; verifican T427/T477). Sin cambio de comportamiento.
 - Verdes: 23 de 23 rojas; tsc 0; vitest completa 2042 verdes + 23 omitidas.
+
+## 2026-11-16 — T423 pruebas primero (repositorios PostgreSQL parte 2)
+- Creados tests/integration/persistence/postgres-repositories-part2.spec.ts (23 pruebas con doble del cliente: SQL exacto de mascotas y 6 módulos, $n consecutivos, sin interpolación, orden de columnas, microchip 23505 propagado y por propietario, cascadas: pets.delete una sola sentencia, deleteForPet 6 DELETE, listForPet 6 SELECT fijos) y tests/fixtures/pg-fake-client.ts (doble compartido con T424).
+- Rojas: 23 (createPostgresRepositoriesPart2 inexistente; import dinámico, tsc 0).
+- Reservas de Oracle para T427 (no se resuelven aquí): R-1 revokeOthers sin validación por fila (probar fila corrupta y timestamp no canónico en Postgres real); R-2 comparaciones de fecha como TEXT (probar bordes de countSince y consume).
