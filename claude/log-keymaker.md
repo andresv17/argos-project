@@ -705,3 +705,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - app-config.ts: HOST admite 127.0.0.1 y 0.0.0.0 (este solo con NODE_ENV=production o ARGOS_DB_DRIVER=postgres); HOST/ARGOS_DB_DRIVER/ARGOS_PG_POOL_MAX vacíos se rechazan (solo ausente = defecto). dbDriver sqlite|postgres|memory (memory solo test/staging), pgPoolMax 1..10 (5). DATABASE_URL solo con postgres: URL postgres(ql): con sslmode=require; error nombra solo la variable. host tipado '127.0.0.1' | '0.0.0.0'.
 - .env.example: ARGOS_DB_DRIVER=sqlite, ARGOS_PG_POOL_MAX=5; DATABASE_URL como marcador comentado. Tests: añadidas dbDriver/pgPoolMax al objeto por defecto y las reservas del Oracle (URL malformada, URL vacía/ausente); sin debilitar aserciones.
 - Resultados: tsc PASS; app-config.spec 63/63 verdes. Suite unit+integration: 1539 pasan, 3 fallan en codegen-drift (src/generated/ops/ sin seguimiento, efecto de las compuertas de la 003; no es de T410). No se añadió databaseUrl a AppConfig (T427 lo decidirá).
+
+## 2026-11-16 — T404 R-1 (prueba de arranque @fastify/static)
+- Creado tests/unit/static-startup.spec.ts: registra @fastify/static 10.1.8 (dotfiles:'deny') con Fastify 5.12.8 sobre directorio temporal; app.inject GET /index.html -> 200 y contenido; GET /.env -> 403/404 sin filtrar contenido.
+- Resultados: tsc exit 0; vitest 2/2 verdes. Sin defectos de @fastify/static. No se tocó src/, package*.json ni src/generated/ops/.
