@@ -53,3 +53,22 @@ describe('pipe de pg_dump protegido (RI-3, REQ-PG-016)', () => {
     });
   }
 });
+
+describe('H-A1/H-A3: OBJ calculado una vez y nota de shell interactiva (terraform/README.md)', () => {
+  const t = read('terraform', 'README.md');
+  const bloque = (): string => {
+    const b = [...t.matchAll(/```bash\n([\s\S]*?)```/g)].map((m) => m[1] as string).find((x) => x.includes('pg_dump'));
+    expect(b).toBeDefined();
+    return b as string;
+  };
+  it('el bloque de respaldo tiene un unico $(date y el cp usa "$OBJ"', () => {
+    const b = bloque();
+    expect(b.match(/\$\(date/g)?.length).toBe(1);
+    expect(b).toMatch(/\| gcloud storage cp - "\$OBJ"/);
+    expect(b).not.toMatch(/cp - "gs:/);
+  });
+  it('avisa de que set -eo pipefail cierra una shell interactiva y recomienda subshell o script', () => {
+    expect(t).toMatch(/shell interactiva[^\n]*(cierra|termina)/i);
+    expect(t).toMatch(/subshell/i);
+  });
+});

@@ -28,7 +28,9 @@ const bloques = (texto: string, lang: string): string[] => [...texto.matchAll(ne
 describe('respaldo: pg_dump por pipe a gs:// (REQ-IAC-008, NFR-CLD-014)', () => {
   it('[REQ-IAC-008] existe la sección y el comando es un pipe sin archivo local', () => {
     const s = seccion();
-    expect(s).toMatch(/pg_dump "\$DATABASE_URL_DIRECT" \| gcloud storage cp - "gs:\/\/\$\{BUCKET\}\/dumps\/\$\(date -u \+%Y-%m-%d\)\.sql"/);
+    // H-A1 (relajacion autorizada por Neo): el objeto se calcula una sola vez en OBJ y el cp lo usa.
+    expect(s).toMatch(/OBJ="gs:\/\/\$\{BUCKET\}\/dumps\/\$\(date -u \+%Y-%m-%d\)\.sql"/);
+    expect(s).toMatch(/pg_dump "\$DATABASE_URL_DIRECT" \| gcloud storage cp - "\$OBJ"/);
     for (const b of bloques(s, 'bash').filter((x) => x.includes('pg_dump'))) {
       expect(b).not.toMatch(/pg_dump[^\n|]*(>|--file|-f )/);
       expect(b).not.toMatch(/gsutil/);
