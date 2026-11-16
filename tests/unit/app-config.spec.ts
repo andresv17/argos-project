@@ -57,6 +57,9 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     [{ PORT: '3000.5' }, ['PORT']],
     [{ PORT: '03000' }, ['PORT']],
     [{ HOST: '0.0.0.0' }, ['HOST']],
+    [{ HOST: '0.0.0.0', ARGOS_DB_DRIVER: 'sqlite' }, ['HOST']],
+    [{ HOST: '0.0.0.0', NODE_ENV: 'development', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32) }, ['HOST']],
+    [{ HOST: '0.0.0.0', NODE_ENV: 'staging', ARGOS_DB_DRIVER: 'memory', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32) }, ['HOST']],
     [{ DATABASE_PATH: '   ' }, ['DATABASE_PATH']],
     [{ APP_TIMEZONE: 'Marte/Olympus' }, ['APP_TIMEZONE']],
     [{ APP_TIMEZONE: '../etc' }, ['APP_TIMEZONE']],
@@ -80,5 +83,47 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
       message = (error as Error).message;
     }
     expect(message).toBe('Configuración inválida: PORT. Revisa .env.example.');
+  });
+
+  // T409 (D-26, enmienda 3.3.0, REQ-CLD-003): sustituyen la aserción única «HOST=0.0.0.0 se rechaza» por la regla completa.
+  const PROD_SECRET = '1f'.repeat(32);
+  const PG_URL = 'postgres://argos:clave@db.example.internal:5432/argos?sslmode=require';
+
+  it('[REQ-CLD-003][D-26] HOST=0.0.0.0 se acepta con NODE_ENV=production y host queda en 0.0.0.0', () => {
+    const config = loadAppConfig({ NODE_ENV: 'production', HOST: '0.0.0.0', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET });
+    expect(config.host).toBe('0.0.0.0');
+  });
+
+  it('[REQ-CLD-003][D-26] HOST=0.0.0.0 se acepta con ARGOS_DB_DRIVER=postgres aunque NODE_ENV no sea production', () => {
+    const config = loadAppConfig({ NODE_ENV: 'test', HOST: '0.0.0.0', ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL });
+    expect(config.host).toBe('0.0.0.0');
+  });
+
+  it.each([
+    ['production', { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET }],
+    ['postgres', { ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL }],
+  ])('[REQ-CLD-003][D-26] con %s se siguen rechazando "::", "localhost", 10.x y espacios en HOST', (_caso, entorno) => {
+    const rechazos = ['::', 'localhost', '10.0.0.1', '10.255.255.255', ' '].map((host) => configError({ ...entorno, HOST: host }));
+    expect(rechazos).toEqual([['HOST'], ['HOST'], ['HOST'], ['HOST'], ['HOST']]);
+  });
+
+  it.each(['::', 'localhost', '10.0.0.1', '10.255.255.255', '::1', '1.1.1.1'])('[REQ-CLD-003][D-26] HOST=%s se rechaza fuera de production y postgres', (host) => {
+    expect(configError({ HOST: host })).toEqual(['HOST']);
+  });
+
+  it('[REQ-CLD-003][D-26] sin HOST, o con HOST vacío, el valor es 127.0.0.1 también en production y con postgres', () => {
+    const production = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET };
+    const postgres = { ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL };
+    expect([
+      loadAppConfig({ NODE_ENV: 'test' }).host,
+      loadAppConfig({ NODE_ENV: 'test', HOST: '' }).host,
+      loadAppConfig(production).host,
+      loadAppConfig({ ...production, HOST: '' }).host,
+      loadAppConfig({ NODE_ENV: 'test', ...postgres }).host,
+    ]).toEqual(['127.0.0.1', '127.0.0.1', '127.0.0.1', '127.0.0.1', '127.0.0.1']);
+  });
+
+  it('[REQ-CLD-003][D-26] el rechazo de HOST no nombra el valor rechazado en el mensaje', () => {
+    expect(() => loadAppConfig({ NODE_ENV: 'test', HOST: '10.0.0.1' })).toThrow('Configuración inválida: HOST. Revisa .env.example.');
   });
 });

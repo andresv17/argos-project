@@ -773,3 +773,4 @@
 2026-11-15 21:23 Oracle: T406/T408 (9915575) CUMPLE CON RESERVAS (R1 evidencia 003 informativa hasta SDD_STRICT_EVIDENCE=1). Ver audits/oracle-T406-T408-veredicto.md
 2026-11-15 21:24 Morpheus: 9915575 (T406/T408, Oracle CUMPLE CON RESERVAS) publicado en origin/003-cloud-gcp.
 2026-11-15 21:34 Morpheus: Neo marca T406/T408 [x]; luz verde T409 (pruebas en tests/, sin src/).
+2026-11-15 Keymaker: T409 rojo en tests/unit/app-config.spec.ts (2 fallan por la regla HOST, 33 verdes); src/ intacto; commit local, sin marcar [x].

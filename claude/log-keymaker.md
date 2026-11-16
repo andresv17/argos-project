@@ -687,3 +687,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creado specs/003-cloud-gcp/contracts/openapi/ops.openapi.yaml (OpenAPI 3.1, 3 ops, errores RFC 9457 con ERR-* ya existentes de la 002) y scripts/codegen-ops.mjs (valida y emite solo openapi-types.ts).
 - compile-contracts.sh admite --feature 003 (destino por defecto src/generated/ops/, rechaza api/errors/machines/schemas, exige git diff --stat -- src/generated/api vacío); verify-traceability.sh reconoce NFR/SC y IDs propios de la 003 (spec→tasks 1:1, evidencia de código informativa salvo SDD_STRICT_EVIDENCE=1); verify-oracles.sh solo documentado.
 - Hallazgo: la 002 fallaba 4 IDs (REQ-CLD-003, REQ-PG-001, REQ-SEC-002/003) desde la enmienda 3.3.0 de la constitución; corregido filtrando IDs propios de la 003 del principio II en 001/002. Verde: 002 118/118. Sin tocar src/ ni terraform/. Compilado solo a scratchpad.
+
+## 2026-11-15 — T409 (rojo, rama 003-cloud-gcp): pruebas de la regla HOST (D-26)
+- tests/unit/app-config.spec.ts: la fila `HOST=0.0.0.0 → rechazo` se conserva (sigue válida en test/sqlite) y se refuerza con 3 filas (sqlite, development, staging+memory); 7 pruebas/casos nuevos en total para production, postgres, rechazos permanentes, defecto 127.0.0.1 y mensaje sin eco.
+- Rojo real: 2 fallan (0.0.0.0 con production; 0.0.0.0 con postgres) con `Configuración inválida: HOST`. 33 pasan hoy: son rechazos que el código actual ya cumple (guardas de regresión).
+- Nota: HOST vacío toma el defecto 127.0.0.1 (comportamiento existente), no se rechaza; se afirma así. src/ sin cambios. T410 no implementada.
