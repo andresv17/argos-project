@@ -46,6 +46,7 @@ PLAN_SA="${PREFIX}-terraform-plan@${PROJECT}.iam.gserviceaccount.com"   # solo l
 APPLY_SA="${PREFIX}-terraform@${PROJECT}.iam.gserviceaccount.com"       # escritura (solo main)
 DEPLOY_SA="${PREFIX}-deployer@${PROJECT}.iam.gserviceaccount.com"       # lo crea Terraform (T439)
 WORKFLOW_REF="${REPO}/.github/workflows/infraestructura.yml@refs/heads/main"
+DEPLOY_WORKFLOW_REF="${REPO}/.github/workflows/deploy-argos.yml@refs/heads/main"
 
 say() { printf '\n### %s\n' "$*"; }
 
@@ -154,7 +155,12 @@ say "5b. argos-terraform@: SOLO el workflow infraestructura.yml desde refs/heads
 run gcloud iam service-accounts add-iam-policy-binding "$APPLY_SA" --project="$PROJECT" \
   --role=roles/iam.workloadIdentityUser \
   --member="principalSet://iam.googleapis.com/${POOL_PATH}/attribute.job_workflow_ref/${WORKFLOW_REF}"
-# La cuenta argos-deployer@ la crea Terraform (T439); su vinculación WIF se añade en T439/T450.
+# La cuenta argos-deployer@ la crea Terraform (T439); la vincula el paso 5c (T485).
+
+say "5c. argos-deployer@: SOLO el workflow deploy-argos.yml desde refs/heads/main (T485, D-W1) [la cuenta debe existir: apply de T439 antes]"
+run gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" --project="$PROJECT" \
+  --role=roles/iam.workloadIdentityUser \
+  --member="principalSet://iam.googleapis.com/${POOL_PATH}/attribute.job_workflow_ref/${DEPLOY_WORKFLOW_REF}"
 
 say "6. Variables de GitHub del día 0 (valores no sensibles; REQ-CICD-006)"
 WIF_PROVIDER="${POOL_PATH}/providers/${PROVIDER}"
