@@ -328,7 +328,8 @@ describe('T429 migrador: salida sin secretos (REQ-PG-006, REQ-PG-010)', () => {
     expect(surface).not.toContain('argos_owner');
     expect(surface).not.toContain('ep-direct.neon.example');
     expect(surface).not.toContain('postgresql://');
-    expect(world.logs.join('\n')).toContain('0001_baseline');
+    expect((thrown as Error).message).toContain('0001_baseline');
+    expect((thrown as Error).message).toContain('28P01');
   });
 
   it('en el éxito solo registra versiones y conteos', async () => {
