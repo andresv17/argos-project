@@ -56,6 +56,8 @@ Para regenerar el lock con las dos plataformas: `terraform providers lock -platf
 
 Solo Neo ejecuta estos pasos (T456). Detalle y orden completo en `specs/003-cloud-gcp/quickstart.md` sección 6.
 
+Primero ejecute `bash scripts/verify-bootstrap-inputs.sh` (solo lectura local, paso previo a `bootstrap.sh`): comprueba herramientas (`gh`, `gcloud`, `terraform`, sesiones) y el formato de las variables no secretas. Salida 0 = todo pasa, 1 = alguna comprobación falla, 2 = faltan variables obligatorias.
+
 1. `bash terraform/bootstrap.sh` en dry-run (imprime los comandos) y luego `bash terraform/bootstrap.sh --execute`, con `ARGOS_PROJECT_ID`, `ARGOS_GITHUB_REPO`, `ARGOS_BILLING_ACCOUNT` y `ARGOS_GITHUB_REVIEWER` exportadas. El script concede `roles/billing.costsManager` a `argos-terraform@` sobre la **cuenta de facturación** (no de proyecto; requisito del presupuesto, REQ-IAC-009); no se concede a `argos-terraform-plan@` ni se usa `billing.admin`.
 2. El paso 6 del script crea las variables de GitHub y el paso 7 el Environment `produccion` (revisor: Neo, solo rama `main`). El paso 8 solo imprime las órdenes de los secretos.
 3. Neo pega los secretos por entrada estándar: `gh secret set TF_VAR_database_url --repo <dueno/repo>`, `gh secret set TF_VAR_audit_hmac_secret --repo <dueno/repo>` y `gh secret set DATABASE_URL_DIRECT --repo <dueno/repo>`.
