@@ -86,7 +86,7 @@ describe('terraform/bootstrap.sh (T435)', () => {
     expect(out).toMatch(/GCP_WIF_PROVIDER/);
     expect(out).toMatch(/TF_STATE_BUCKET/);
     expect(out).toMatch(/environments\/produccion/);
-    expect(out).not.toMatch(/TF_VAR_database_url\s+--body|--body\s+\S{8,}/);
+    expect(out).not.toMatch(/gh secret set [^\n]*--body/);
   });
 
   it('rechaza argumentos desconocidos y falta de ARGOS_PROJECT_ID', () => {
