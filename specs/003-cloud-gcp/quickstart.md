@@ -46,6 +46,9 @@ curl -fsS localhost:8080/healthz && curl -fsS localhost:8080/readyz
 ## 4.1 Después de eliminar una cuenta o importar
 Disparar `vacuum-argos.yml` con `workflow_dispatch` (REQ-PG-011, REQ-PG-015). Tras verificar T430, borrar de forma segura el `.db`, `-wal` y `-shm` locales de la 002 (H-RAMA-014). Al restaurar (PITR, rama o dump) seguir el runbook de REQ-PG-016 (T454). Los dumps de `dumps/` viven 14 días (R-14): con cadencia semanal hay al menos 2 copias y la purga física completa de una cuenta eliminada ocurre como máximo a los 14 días.
 
+## 4.2 Respaldo semanal y restauración (REQ-IAC-008, REQ-PG-016, NFR-CLD-014, T454)
+Cada semana, sin saltarse ninguna (RPO <= 7 d), Neo ejecuta con su identidad: `pg_dump "$DATABASE_URL_DIRECT" | gcloud storage cp - "gs://argos-${TF_VAR_project_id}-exports/dumps/$(date -u +%Y-%m-%d).sql"` (por pipe, sin archivo local; el objeto vive 14 días, al menos 2 copias). El runbook completo de respaldo y los pasos 1-6 de restauración de REQ-PG-016 están en `terraform/README.md` (sección «Respaldo y restauración»). La restauración se ensaya en T478.
+
 ## 5. Presupuesto de cuota para vigilar (primer mes)
 Cloud Run <= 60 % de 180 000 vCPU-s y 360 000 GiB-s; AR <= 400 MB; Secret Manager <= 4 versiones activas; Neon <= 60 CU-h y 0,5 GB; Scheduler 1 job; GCS <= 1 GB de los 5 GB compartidos.
 

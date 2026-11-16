@@ -74,6 +74,88 @@ Solo Neo ejecuta estos pasos (T456). Detalle y orden completo en `specs/003-clou
 
 Sin `NEON_API_KEY` ni `NEON_PROJECT_ID` (D-19) y sin `GCP_SA_KEY` (WIF, D-05).
 
+## Respaldo y restauración (REQ-IAC-008, REQ-PG-016, NFR-CLD-014, NFR-CLD-015, SC-CLD-008)
+
+Runbook manual de Neo (T454). Nada de esto lo ejecuta un flujo ni un agente. Bucket: `argos-<project_id>-exports` (`buckets.tf`), objetos bajo `dumps/`.
+
+### Respaldo semanal por pipe (sin archivo local)
+
+```bash
+BUCKET="argos-${TF_VAR_project_id}-exports"
+# DATABASE_URL_DIRECT: URL directa (sin -pooler) del rol argos_migrator; no la escriba en el historial.
+pg_dump "$DATABASE_URL_DIRECT" | gcloud storage cp - "gs://${BUCKET}/dumps/$(date -u +%Y-%m-%d).sql"
+```
+
+- El nombre es solo la fecha UTC: sin datos personales. El dump viaja por pipe y nunca toca el disco local.
+- Sin cifrado propio: el bucket cifra en reposo (acceso uniforme, acceso público prohibido).
+- Vida de 14 días (regla de ciclo de vida sobre `dumps/`) y soft delete en 0 s: el borrado es definitivo a los 14 días.
+- Cadencia semanal estricta (RPO <= 7 d, NFR-CLD-014): con 14 días de vida quedan al menos 2 copias; un dump omitido deja 1. Ponga un recordatorio semanal en su calendario: no hay automatización (R-14).
+- Lectura limitada a Neo (solo Neo lee y escribe el bucket): Terraform no concede ningún rol del bucket a cuentas de servicio; compruébelo con `gcloud storage buckets get-iam-policy "gs://${BUCKET}"` (sin entradas `serviceAccount:`). Compruebe el último dump con `gcloud storage ls -l "gs://${BUCKET}/dumps/"` (antigüedad <= 7 días).
+
+### Restauración sin resurrección (REQ-PG-016)
+
+Prerrequisitos: la restauración usa el mismo secreto HMAC de auditoría que la base viva (`ARGOS_AUDIT_HMAC_SECRET`); rotarlo rompe el paso 3. `LIVE_URL` es la URL directa de la base viva; `RESTORED_URL` es la URL directa de una rama o base vacía de Neon creada para restaurar. Los archivos `*.txt` contienen seudónimos HMAC y IDs: guárdelos fuera del repositorio y bórrelos al terminar.
+
+**Paso 1. Exportar de la base viva las filas `ACCOUNT_DELETE`** (antes de restaurar; `entity_id` es el HMAC del ID):
+
+```bash
+psql "$LIVE_URL" -X -A -t -c "SELECT entity_id FROM audit_log WHERE mutation_type = 'ACCOUNT_DELETE'" > account_delete_ids.txt
+```
+
+**Paso 2. Restaurar** el dump elegido (el más reciente, de <= 7 días) en la base vacía; se aborta y revierte ante el primer error:
+
+```bash
+gcloud storage cat "gs://${BUCKET}/dumps/<fecha>.sql" | psql "$RESTORED_URL" -X -v ON_ERROR_STOP=1 --single-transaction
+```
+
+**Paso 3. Calcular el HMAC de cada `user.id` restaurado y eliminar a los coincidentes con el paso 1.** El HMAC es `HMAC-SHA256(clave hex, user.id)` igual que el adaptador de producción. Defina el secreto sin dejarlo en el historial (`read -rs ARGOS_AUDIT_HMAC_SECRET; export ARGOS_AUDIT_HMAC_SECRET`):
+
+```bash
+psql "$RESTORED_URL" -X -A -t -c "SELECT id FROM users" | node -e 'const{createHmac}=require("node:crypto"),fs=require("node:fs");const del=new Set(fs.readFileSync(process.argv[1],"utf8").split("\n").filter(Boolean));const key=Buffer.from(process.env.ARGOS_AUDIT_HMAC_SECRET,"hex");for(const id of fs.readFileSync(0,"utf8").split("\n").filter(Boolean))if(del.has(createHmac("sha256",key).update(id,"utf8").digest("hex")))console.log(id)' account_delete_ids.txt > ids_olvidados.txt
+```
+
+La eliminación sigue el orden de hoja a raíz del caso de uso `DeleteAccountUseCase` (B9) y termina con la poscondición B10 (cero referencias). Se ejecuta en una transacción desde el directorio de `ids_olvidados.txt`:
+
+```bash
+psql "$RESTORED_URL" -X -v ON_ERROR_STOP=1 --single-transaction <<'SQL'
+CREATE TEMP TABLE olvidados (id text PRIMARY KEY);
+\copy olvidados (id) FROM 'ids_olvidados.txt'
+DELETE FROM pets WHERE owner_user_id IN (SELECT id FROM olvidados);
+DELETE FROM household_members WHERE user_id IN (SELECT id FROM olvidados);
+DELETE FROM households WHERE owner_user_id IN (SELECT id FROM olvidados);
+DELETE FROM sessions WHERE user_id IN (SELECT id FROM olvidados);
+DELETE FROM login_attempts WHERE username IN (SELECT username FROM users WHERE id IN (SELECT id FROM olvidados));
+DELETE FROM users WHERE id IN (SELECT id FROM olvidados);
+SELECT (SELECT count(*) FROM pets WHERE owner_user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM households WHERE owner_user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM household_members WHERE user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM sessions WHERE user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM household_invitations WHERE invited_by_user_id IN (SELECT id FROM olvidados) OR invitee_user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM backup_confirmation_tokens WHERE user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM rate_limit_events WHERE subject_user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM users WHERE id IN (SELECT id FROM olvidados)) AS referencias_restantes;
+SQL
+```
+
+`referencias_restantes` debe ser 0. Los registros clínicos, las asignaciones, las invitaciones, los tokens de confirmación y los eventos de límite desaparecen por las claves foráneas `ON DELETE CASCADE`. Nota: el `audit_log` restaurado conserva en claro los IDs de esas cuentas y no tiene su fila `ACCOUNT_DELETE`; este runbook no lo corrige (queda para decisión, H-K-T454-2).
+
+**Paso 4. Revocar todas las sesiones restauradas** (ninguna sesión del dump debe seguir válida):
+
+```bash
+psql "$RESTORED_URL" -X -v ON_ERROR_STOP=1 --single-transaction <<'SQL'
+UPDATE sessions
+   SET revoked_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+       data = jsonb_set(data, '{revokedAt}', to_jsonb(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')))
+ WHERE revoked_at IS NULL;
+SQL
+```
+
+**Paso 5. Eliminar la rama de respaldo de Neon.** Si restauró con la función de restauración de Neon (PITR o rama), Neon crea una rama de respaldo: bórrela en la consola de Neon (Branches). Con restauración por dump, borre en la consola de Neon la rama o base temporal que ya no se use. No hay comando de CLI verificado para esto y no hay clave de API de Neon en los secretos (D-19).
+
+**Paso 6. Registrar el RPO y el RTO efectivos.** RPO = ahora − fecha del dump usado (objetivo <= 7 d). RTO = desde la decisión de restaurar hasta el servicio sirviendo con datos válidos y los pasos 1-5 aplicados (objetivo <= 2 h, NFR-CLD-015). En la prueba T478 se anotan en `research.md`; en un incidente real, en el registro del incidente.
+
+Para que el servicio use la base restaurada, cambie la URL en el secreto `TF_VAR_database_url` y siga el runbook de rotación (nueva versión numérica, revisión sin tráfico, humo, promover). Esa parte se ensaya en T478 y T469.
+
 ## Despliegue
 
 1. Bootstrap del día 0 (sección anterior).

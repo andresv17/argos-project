@@ -88,16 +88,18 @@ describe('restauración: pasos 1-6 de REQ-PG-016 en orden', () => {
     const s = seccion();
     expect(s).toContain("mutation_type = 'ACCOUNT_DELETE'");
     expect(sql).toMatch(/CREATE TABLE audit_log[\s\S]*entity_id TEXT NOT NULL/);
-    expect(s).toMatch(/UPDATE sessions SET revoked_at/);
+    expect(s).toMatch(/UPDATE sessions\s+SET revoked_at/);
     expect(sql).toMatch(/CREATE TABLE sessions[\s\S]*revoked_at TEXT/);
   });
 
   it('[REQ-PG-016] el paso 3 elimina lo mismo que cuenta countReferences (B9/B10) y no deja filas', () => {
     const s = seccion();
-    for (const tabla of ['pets', 'households', 'household_members', 'sessions', 'household_invitations', 'login_attempts', 'users']) {
+    for (const tabla of ['pets', 'households', 'household_members', 'sessions', 'login_attempts', 'users']) {
       expect(s).toMatch(new RegExp(`DELETE FROM ${tabla}\\b`));
     }
-    expect(s).toMatch(/countReferences|referencias/i);
+    expect(s).toContain('household_invitations');
+    expect(s).toContain('ON DELETE CASCADE');
+    expect(s).toMatch(/referencias_restantes/);
   });
 
   it('[REQ-PG-016] el fragmento de Node del paso 3 produce el mismo HMAC que el adaptador de producción', () => {
@@ -123,7 +125,7 @@ describe('solo flags verificados (sin inventar)', () => {
     const lineas = bloques(seccion(), 'bash').join('\n').split('\n').filter((l) => /\b(psql|pg_dump)\b/.test(l) && !l.trim().startsWith('#'));
     expect(lineas.length).toBeGreaterThan(0);
     for (const l of lineas) {
-      const sinComillas = l.replace(/"[^"]*"/g, '').replace(/'[^']*'/g, '');
+      const sinComillas = l.replace(/\| node -e .*$/, '').replace(/"[^"]*"/g, '').replace(/'[^']*'/g, '');
       for (const f of sinComillas.match(/(?<=\s)-{1,2}[A-Za-z][\w-]*(?:=\S+)?/g) ?? []) expect(PERMITIDOS.has(f), `flag no verificado: ${f}`).toBe(true);
     }
   });
