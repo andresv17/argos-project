@@ -8,6 +8,11 @@ resource "google_artifact_registry_repository" "argos" {
   format        = "DOCKER"
   description   = "Imágenes de ARGOS"
 
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
+
   cleanup_policy_dry_run = false
 
   cleanup_policies {

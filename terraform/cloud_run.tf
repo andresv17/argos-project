@@ -12,6 +12,11 @@ resource "google_cloud_run_v2_service" "argos" {
 
   deletion_protection = true
 
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
+
   template {
     service_account                  = google_service_account.run.email
     timeout                          = "60s"

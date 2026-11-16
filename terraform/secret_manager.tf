@@ -7,6 +7,11 @@ resource "google_secret_manager_secret" "database_url" {
   project   = var.project_id
   secret_id = "${var.project_prefix}-database-url"
 
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
+
   replication {
     auto {}
   }
@@ -21,6 +26,11 @@ resource "google_secret_manager_secret" "database_url" {
 resource "google_secret_manager_secret" "audit_hmac_secret" {
   project   = var.project_id
   secret_id = "${var.project_prefix}-audit-hmac-secret"
+
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
 
   replication {
     auto {}
