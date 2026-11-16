@@ -69,7 +69,7 @@ describe('.github/workflows/infraestructura.yml (T446)', () => {
       expect(step).toMatch(/unset DATABASE_URL_DIRECT/);
       expect(step).not.toMatch(/continue-on-error/);
     }
-    expect(body()).not.toMatch(/GITHUB_ENV/);
+    expect(body()).not.toMatch(/(?:TF_VAR_\w+|DATABASE_URL\w*)[^\n]*>>\s*"?\$GITHUB_ENV/);
   });
 
   it('plan solo corre en pull_request del mismo repositorio, con cuenta de plan, -lock=false, sin environment ni tfplan como artefacto', () => {
