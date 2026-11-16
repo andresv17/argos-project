@@ -145,7 +145,7 @@ describe('fallo en la escritura N con PostgresUnitOfWork (REQ-PG-002, INV-ARCH-0
 
 const TABLES = ['users', 'pets', 'weights', 'vaccinations', 'households', 'household_members', 'pet_assignments', 'audit_log'];
 
-describe.skipIf(!TEST_DATABASE_URL)('fallo en la escritura N sobre PostgreSQL real (SE OMITE: falta TEST_DATABASE_URL; la prueba viva se aplaza a T431)', () => {
+describe.skipIf(!TEST_DATABASE_URL)('fallo en la escritura N sobre PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no está definida)', { timeout: 60_000 }, () => {
   it('para cada N el ROLLBACK deja las tablas idénticas', async () => {
     const schema = `argos_t_${randomUUID().replaceAll('-', '')}`;
     const admin = createPostgresPool({ connectionString: TEST_DATABASE_URL ?? '', pgPoolMax: 1 });

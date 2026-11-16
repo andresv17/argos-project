@@ -868,3 +868,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creado tests/integration/persistence/sqlite-to-postgres-transfer.spec.ts: 7 no vivas + 1 viva skipIf(!TEST_DATABASE_URL), aplazada a T431 (sin Docker). Origen SQLite real con ANDRES y MARIA, hogar compartido, 2 sesiones, fallos de login, registros en las 6 colecciones de ambas cuentas (MARIA recibe uno por colección sobre LUNA). Destino: PostgresUnitOfWork con doble del cliente; RegisterUserUseCase registra de nuevo y ImportBackupUseCase importa el respaldo v3 de ExportBackupUseCase.
 - Afirma lo conservado (ids y conteos de mascotas y 6 colecciones, con el dueño nuevo) y lo perdido (ningún id de cuenta, hash, hogar, membresía, invitación ni sesión del origen en escrituras de Postgres; sin escrituras a households, household_members, household_invitations, pet_assignments, login_attempts; auditoría solo CREATE e IMPORT propias, sin MIGRATION del origen).
 - Rojas 0: las pruebas pasan a la primera porque exportBackup/importBackup (REQ-BACKUP2-001/002) y los repositorios de Postgres (T423/T424) ya cubren el traslado; no hay nada que implementar en src/. tsc 0.
+
+## 2026-11-16 T431 pruebas vivas alineadas (Keymaker)
+- Tests: 55P03 o 57014 en concurrencia viva; timeout 60 s solo en suites vivas; títulos neutros (sin "SE OMITE"). Sin tocar src/ ni constantes.
+- Corrida viva (Postgres 55432): 23 archivos, 301 pasan, 0 fallan. Suite sin variable: 114 archivos pasan, 1 omitido; 2152 pasan, 31 omitidas. tsc exit 0.

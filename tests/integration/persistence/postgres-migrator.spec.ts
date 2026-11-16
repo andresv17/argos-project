@@ -379,7 +379,7 @@ describe('T429 lectura de DATABASE_URL_DIRECT por config (INV-ARCH-006, REQ-PG-0
 });
 
 describe.skipIf(!TEST_DATABASE_URL)(
-  'T429 migrador contra PostgreSQL real (omitida sin TEST_DATABASE_URL; aplazada a T431 por decisión de Neo, sin Docker)',
+  'T429 migrador contra PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no está definida)',
   () => {
     it('aplica 0001_baseline una sola vez sobre una base vacía y la segunda ejecución no aplica nada', async () => {
       const mod = await loadMigrator();

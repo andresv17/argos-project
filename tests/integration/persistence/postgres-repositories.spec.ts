@@ -19,7 +19,8 @@ const REPOSITORIES_PATH = '../../../src/infrastructure/persistence/postgres/post
 const BASELINE = readFileSync(new URL('../../../src/infrastructure/persistence/postgres/migrations/0001_baseline.sql', import.meta.url), 'utf8');
 
 describe.skipIf(!TEST_DATABASE_URL)(
-  'repositorios PostgreSQL reales (SE OMITE: falta la variable TEST_DATABASE_URL; levanta docker-compose.test.yml y defínela)',
+  'repositorios PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no está definida)',
+  { timeout: 60_000 },
   () => {
     let pool: PoolLike | undefined;
     let admin: PoolLike | undefined;

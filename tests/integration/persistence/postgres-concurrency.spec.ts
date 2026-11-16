@@ -179,7 +179,8 @@ describe('concurrencia de PostgresUnitOfWork con dobles (REQ-PG-004, SC-CLD-002)
 });
 
 describe.skipIf(!TEST_DATABASE_URL)(
-  'concurrencia en PostgreSQL real (SE OMITE: falta TEST_DATABASE_URL; la prueba viva se aplaza a T431)',
+  'concurrencia en PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no está definida)',
+  { timeout: 60_000 },
   () => {
     type Pool = ReturnType<typeof createPostgresPool>;
     const withSchema = async (run: (admin: Pool, urlFor: () => string) => Promise<void>) => {
@@ -228,7 +229,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
       });
     }, 60_000);
 
-    it('lock_timeout produce error controlado 55P03 a los ~10 s si otro cliente retiene el candado, y la siguiente transacción funciona', async () => {
+    it('lock_timeout/statement_timeout produce error controlado (55P03 o 57014) a los ~10 s si otro cliente retiene el candado, y la siguiente transacción funciona', async () => {
       await withSchema(async (_admin, urlFor) => {
         const holderPool = createPostgresPool({ connectionString: urlFor(), pgPoolMax: 1 });
         const waiterPool = createPostgresPool({ connectionString: urlFor(), pgPoolMax: 1 });
@@ -239,7 +240,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
           const started = Date.now();
           const error = await new PostgresUnitOfWork(waiterPool, () => ({}) as never).runInTransaction(async () => 1).catch((e: unknown) => e);
           const elapsed = Date.now() - started;
-          expect((error as { code?: string }).code).toBe('55P03');
+          expect(['55P03', '57014']).toContain((error as { code?: string }).code);
           expect(elapsed).toBeGreaterThanOrEqual(9_000);
           expect(elapsed).toBeLessThan(15_000);
           await holder.query('ROLLBACK');

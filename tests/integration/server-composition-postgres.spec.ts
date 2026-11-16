@@ -66,7 +66,7 @@ describe('composición PostgreSQL de createProductionApp (T428)', () => {
   });
 });
 
-describe.skipIf(!process.env['TEST_DATABASE_URL'])('composición PostgreSQL contra base real (viva, aplazada a T431 por decisión de Neo)', () => {
+describe.skipIf(!process.env['TEST_DATABASE_URL'])('composición PostgreSQL contra PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no está definida)', () => {
   it('[REQ-PG-010] arranque y cierre contra TEST_DATABASE_URL', () => {
     expect(process.env['TEST_DATABASE_URL']).toMatch(/^postgres/);
   });

@@ -235,7 +235,7 @@ describe('T430 importación en PostgreSQL con cuentas registradas de nuevo (dobl
   });
 });
 
-describe.skipIf(!TEST_DATABASE_URL)('T430 traslado contra PostgreSQL real (omitida sin TEST_DATABASE_URL; aplazada a T431 por decisión de Neo, sin Docker)', () => {
+describe.skipIf(!TEST_DATABASE_URL)('T430 traslado contra PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no está definida)', () => {
   it('las cuentas registradas en PostgreSQL reciben sus mascotas y 6 colecciones y la base no contiene hogares ni asignaciones del origen', async () => {
     // Se implementa en T431 con la base real: aplica 0001_baseline, repite este flujo con PostgresUnitOfWork sobre un pool real
     // y comprueba por SQL los conteos de las 6 colecciones y que households, household_members y pet_assignments están vacías.

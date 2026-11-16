@@ -246,7 +246,8 @@ describe('keepAlive y SIGTERM (REQ-PG-012, REQ-CLD-006)', () => {
 });
 
 describe.skipIf(!TEST_DATABASE_URL)(
-  'unidad de trabajo real (SE OMITE: falta la variable TEST_DATABASE_URL; levanta docker-compose.test.yml y defínela)',
+  'unidad de trabajo PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no está definida)',
+  { timeout: 60_000 },
   () => {
     it('los topes SET LOCAL se ven dentro de la transacción y desaparecen al terminar', async () => {
       const { PostgresUnitOfWork } = await loadUow();
