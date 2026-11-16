@@ -723,3 +723,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-16 — R-1 de T411 (pruebas primero: caché de 60 s de /readyz)
 - Creado tests/integration/ops/readyz-cache.spec.ts (6 pruebas, fake timers): 2 GET <60 s = 1 llamada; fallo cacheado 60 s (mismo 503); expira a 61 s; fallo expirado se reevalúa; /healthz nunca cacheado ni llama a checkReady; caché por instancia (app nueva sin caché). Misma firma registerOpsRoutes(app, {checkReady}).
 - Resultado: tsc exit 0; vitest 6/6 rojas, causa única "Failed to load url .../routes/ops-routes.ts" (módulo inexistente). No probadas contra implementación desechable. src/ intacto. Sin push, sin [x].
+
+## 2026-11-16 — PASO 0 RC-1 de Oracle (concurrencia de la caché de /readyz)
+- Añadida a readyz-cache.spec.ts una prueba: 10 GET /readyz simultáneos con caché vacía y checkReady pendiente -> una sola llamada (promesa en vuelo compartida) y 10 respuestas 200.
+- Resultado: 7/7 rojas (módulo ops-routes.ts aún inexistente; causa única de ausencia). Commit local, sin push.

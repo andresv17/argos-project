@@ -111,4 +111,15 @@ describe('/readyz caché de 60 s (D-17, REQ-CLD-004)', () => {
     await getReadyz(appB);
     expect(checkReady).toHaveBeenCalledTimes(2);
   });
+  it('N GET /readyz simultáneos con la caché vacía provocan una sola llamada a checkReady (promesa en vuelo compartida, RC-1)', async () => {
+    let release: () => void = () => undefined;
+    checkReady.mockImplementation(() => new Promise<void>((resolve) => { release = resolve; }));
+    const app = await newApp();
+    const pending = Array.from({ length: 10 }, () => getReadyz(app));
+    await vi.advanceTimersByTimeAsync(10);
+    release();
+    const results = await Promise.all(pending);
+    expect(results.map((r) => r.statusCode)).toEqual(Array(10).fill(200));
+    expect(checkReady).toHaveBeenCalledTimes(1);
+  });
 });
