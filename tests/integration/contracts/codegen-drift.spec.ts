@@ -31,7 +31,10 @@ function readTree(dir: string): Record<string, string> {
   const walk = (current: string): void => {
     for (const entry of readdirSync(current).sort()) {
       const full = join(current, entry);
-      if (statSync(full).isDirectory()) walk(full);
+      if (statSync(full).isDirectory()) {
+        if (current === dir && entry === 'ops') continue; // 003: src/generated/ops/ lo compila la 003, no la regeneración de la 002
+        walk(full);
+      }
       else if (entry !== '.gitkeep') tree[relative(dir, full)] = readFileSync(full, 'utf8');
     }
   };
@@ -168,8 +171,8 @@ describe('T201: contratos multi-feature (compile-contracts.sh --feature y codege
   });
 
   it('INV-ARCH-003: una feature desconocida o un valor mal formado sale con código 2', () => {
-    const unknown = runCompile(['--feature', '003']);
-    expect(unknown.output).toContain('Feature desconocida: 003');
+    const unknown = runCompile(['--feature', '999']);
+    expect(unknown.output).toContain('Feature desconocida: 999');
     expect(unknown.status).toBe(2);
     const missing = runCompile(['--feature']);
     expect(missing.output).toContain('Uso: --feature NNN');

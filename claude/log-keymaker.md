@@ -709,3 +709,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-16 — T404 R-1 (prueba de arranque @fastify/static)
 - Creado tests/unit/static-startup.spec.ts: registra @fastify/static 10.1.8 (dotfiles:'deny') con Fastify 5.12.8 sobre directorio temporal; app.inject GET /index.html -> 200 y contenido; GET /.env -> 403/404 sin filtrar contenido.
 - Resultados: tsc exit 0; vitest 2/2 verdes. Sin defectos de @fastify/static. No se tocó src/, package*.json ni src/generated/ops/.
+
+## 2026-11-16 — Saneamiento pg, ops types y codegen-drift (orden directa de Neo)
+- @types/pg 8.23.1 movido a devDependencies (--save-exact); lock solo cambia posición y flags dev de @types/pg, @types/node y undici-types; sin otros cambios de versión. src/generated/ops/openapi-types.ts versionado (compile-contracts --feature 003: rc 0, salida idéntica a la existente; git diff src/generated/api vacío).
+- codegen-drift.spec.ts: readTree omite el subdirectorio ops/ de primer nivel; aserción de feature desconocida 003 -> 999. Sin otros cambios. T404/T410 [x] ya aplicadas por Morpheus se incluyen en el commit.
+- Gates: tsc exit 0; codegen-drift 13/13; app-config+static-startup 65/65; unit+integration 72 archivos, 1544/1544 verdes.
