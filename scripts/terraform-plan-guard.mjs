@@ -38,8 +38,18 @@ export function evaluatePlan(plan, opts = {}) {
   const changes = plan.resource_changes;
 
   for (const rc of changes) {
-    const actions = rc?.change?.actions ?? [];
     const allowed = PROTECTED[rc?.type];
+    const raw = rc?.change?.actions;
+    if (allowed && (!Array.isArray(raw) || raw.length === 0 || raw.some((a) => typeof a !== 'string'))) {
+      // R-1: Terraform siempre emite actions; si falta no se puede descartar un borrado: cierra en falso.
+      violations.push({
+        rule: 'plan-invalido',
+        address: rc?.address,
+        detail: `${rc?.address ?? rc?.type}: recurso protegido sin change.actions válido`,
+      });
+      continue;
+    }
+    const actions = Array.isArray(raw) ? raw : [];
     if (allowed && actions.includes('delete') && !allowed.some((l) => labels.includes(l))) {
       violations.push({
         rule: 'borrado-protegido',
