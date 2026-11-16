@@ -1,4 +1,4 @@
-import { exportJWK, generateKeyPair, SignJWT, type JWK, type KeyLike } from 'jose';
+import { exportJWK, generateKeyPair, SignJWT, type JWK } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createOidcVerifier } from '../../src/infrastructure/http/oidc-verify.ts';
 
@@ -14,8 +14,8 @@ const AUDIENCE = 'https://argos.test/internal/maintenance';
 const ISSUER = 'https://accounts.google.com';
 const KID = 'test-key-1';
 
-let privateKey: KeyLike | Uint8Array;
-let otherPrivateKey: KeyLike | Uint8Array;
+let privateKey: CryptoKey;
+let otherPrivateKey: CryptoKey;
 let jwks: { keys: JWK[] };
 
 beforeAll(async () => {
@@ -31,7 +31,7 @@ interface Overrides {
   readonly aud?: string;
   readonly exp?: number | string;
   readonly emailVerified?: boolean | undefined;
-  readonly key?: KeyLike | Uint8Array;
+  readonly key?: CryptoKey;
 }
 
 async function sign(o: Overrides = {}): Promise<string> {
