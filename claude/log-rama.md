@@ -36,3 +36,8 @@
 - 4 archivos, 76/76 en verde. 0 logs en archivos de respaldo. Token solo cabecera y SHA-256 en base. Vista previa sin oráculo de IDs ajenos.
 - H-1 baja: access-control.security.spec.ts:86-98 compara ownerUserId/exportedByUserId inexistentes (undefined=undefined, aserción vacua). O-1: 409 de importación confirma existencia de UUID ajeno (diseño de spec).
 - Informe entregado: .specify/memory/audits/rebanada-5-rama.md; sin commit, push ni [x].
+
+## 2026-11-15 · gate 003 · checkpoint (fin)
+- Veredicto D-06: ACEPTABLE CON CONDICIONES (C1..C6); ventana real = max(PITR 6 h, VACUUM semanal, dumps 7 d) y soft delete de GCS la alarga a ~14 d. Ratificación de Neo PENDIENTE.
+- 14 hallazgos (6 altos, 5 medios, 3 bajos): logs con url/IP/detail de pg, restauración que resucita cuentas, respaldo v3 que no trae hogares ni auditoría, tfplan con secretos.
+- Informe: .specify/memory/audits/gate-rama-003.md; sin ediciones de specs ni commit.

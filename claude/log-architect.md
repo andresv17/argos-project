@@ -215,3 +215,46 @@
 - Se editan SOLO L8 (fila SC-002) y L30 (nota SC-002) de `.specify/memory/audits/mapa-sc-002.md`; la reserva «sin prueba propia en tests/» se mantiene visible.
 - Sin tocar tasks.md, src/, tests/, contratos ni commit.
 - 2026-11-14 Architect: mapa-sc-002.md L27 ajustada a «SIN PRUEBA PROPIA: 0» por aprobación de Morpheus; solo esa línea, sin commit.
+
+### 2026-11-15 — Architect: especificación SDD de la Fase 3 (feature 003 Cloud GCP) en `specs/003-cloud-gcp/` (DRAFT, sin commit)
+- Lectura previa: SKILL, bus, entorno, handover Morpheus, constitución, 002, `app-config.ts`, `server.ts`, UoW/migraciones SQLite, Mirror (terraform y workflows, solo lectura). Free Tier de GCP y Neon verificados por WebFetch el 2026-11-15 (cifras en `research.md §1-2`); Cloud Scheduler y Cloud Run Tier 1 NO se pudieron leer completos (marcados supuesto, tarea T402).
+- Decisiones de diseño: ADR-003-01..12 en `plan.md` (candado global `pg_advisory_xact_lock` para igualar `BEGIN IMMEDIATE`; migraciones fuera de la app con URL directa; mantenimiento por Cloud Scheduler porque el `setInterval` no corre con escala a cero; BigQuery diferido; estado Terraform propio).
+- Hallazgos H-03-01..09: sin Dockerfile/healthz/estáticos; `HOST` solo 127.0.0.1; borrado físico (ADR-002-13) más débil en Postgres+PITR 6 h (R-02); Scheduler: Mirror ya usa 2 de 3 jobs gratis.
+- Entregado: spec.md (REQ/NFR/SC + D-01..D-16), plan.md, research.md, data-model.md, quickstart.md, tasks.md (T401..T465, todas `[ ]`), contracts/README.md. `.specify/feature.json` NO modificado (el flujo manual no lo exige). Sin tocar src/, tests/, Dockerfiles, workflows ni terraform; sin gcloud/terraform.
+
+## 2026-11-15 — Feature 003: aplicación de D-01..D-16 resueltas por Neo
+- Purga de Grafana/BigQuery en `specs/003-cloud-gcp/`: retirados US6, REQ-IAC-011 (número conservado, sin renumerar), ADR-003-12 (marcado retirado), `grafana_ro`, `bigquery.tf`, research §6 (ahora observabilidad nativa en Cloud Logging) y Phase 9 (T463..T465). `grep -ic` = 0 en todo salvo 1 línea en `spec.md` («Fuera de alcance: Grafana y BigQuery (decisión de Neo)»).
+- `spec.md` DECISIONES: D-01..D-16 registradas «RESUELTA por Neo (2026-11-15)»; D-05 sin `GCP_SA_KEY` (REQ-CICD-006 ajustado). tasks.md: 62 tareas T401..T462, 0 en `[x]`, mapa 1:1 sin huérfanos (T403, T406, T462 añadidas al mapa; T407 anotada como compuerta transversal).
+- Redactado `.specify/memory/audits/enmienda-constitucion-003-borrador.md` (MINOR 3.3.0, `DRAFT`, pendiente de firma de Neo); `constitution.md` intacta. Nada `APPROVED`/`LOCKED`; sin commit ni push.
+
+## 2026-11-15 — Architect: respuesta a los 10 hallazgos ALTOS de /lock sobre la 003 (sin commit)
+- Resueltos en spec/plan/tasks los técnicos H-LOCK-001, 003, 004, 005, 006, 007, 009, 010: REQ-PG-012..015, REQ-IAC-012..013, REQ-CICD-009..010, REQ-SEC-008, NFR-CLD-013, SC-CLD-013..020, ADR-003-13..17 y Phase 9 (T463..T476); ajustes en REQ-CLD-002/004/006, REQ-PG-004/006/011, REQ-IAC-005/007/010, T402, T415, T420, T421, T425, T429, T438, T440, T446, T448, T452, T455, T457, T462.
+- D-17 (H-LOCK-002) y D-18 (H-LOCK-008) dejadas en `spec.md` como «PENDIENTE — Neo» con recomendación (A+B con alerta semanal de CU-h; separar cuenta de plan); T474 las recoge. D-06 reevaluación marcada para /rama (T452).
+- Verificación por script: 86 IDs REQ/NFR/SC con mapa 1:1 (0 huérfanos, 0 IDs desconocidos), 76 tareas T401..T476 todas `[ ]`, sin ciclos de dependencia. Sin tocar src/, tests/, terraform/, workflows, constitución ni el informe de /lock.
+
+## 2026-11-15 — Architect: recortes de /mifune aplicados a la 003 (sin commit)
+- Aplicados H-MIF-001..005, 010..014 y 016 en spec/plan/tasks/research de `specs/003-cloud-gcp/`: sin job `compat` (retirados REQ-CICD-010, NFR-CLD-013; T468 condicionada), T469+T470+T476 fusionadas en T469, runbook de rotación a un párrafo, Terraform plano, sin puerto OIDC, sin `objectAdmin`, vacuum semanal, `code-quality` solo hadolint/actionlint, una política `keep` de AR, ADR fusionados y retirados (ADR-003-07/10/12, NFR-CLD-003 fundido en NFR-CLD-001). H-MIF-016: T477 verifica el pooler de Neon; `idle_in_transaction_session_timeout` se conserva.
+- No aplicados: D-19 (H-MIF-007), D-20 (H-MIF-008) y D-21 (H-MIF-015, recorte rechazado: Neo pidió `auto-pr.yml`) quedan PENDIENTE — Neo en spec.md; H-MIF-006 y H-MIF-009 anotados bajo D-17 y D-18.
+- Verificación por script: 83 IDs REQ/NFR/SC (antes 86 mapeados) con mapa 1:1 sin huérfanos; 75 tareas (antes 76; T470 y T476 retiradas, T477 nueva), 0 `[x]`, sin ciclos. Sin tocar src/, tests/, terraform/, workflows, constitución ni gate-mifune-003.md.
+
+## 2026-11-15 — Architect: correcciones de /rama aplicadas a la 003 (sin commit)
+- Aplicados H-RAMA-001, 002, 003, 004, 006, 007/008 (dump por pipe), 009, 010 y anotados 012..014: ventana `max(PITR 6 h, VACUUM <= 7 d, dumps 7 d)` en REQ-PG-011/ADR-003-09, `workflow_dispatch` de VACUUM (FULL solo en disparo manual con `lock_timeout`), soft delete 0 s, serializadores sin PII, plan+apply en el mismo trabajo, REQ-PG-016/SC-CLD-021/T478, matriz en `data-model.md §6`, `research.md §8`.
+- Pendiente Neo: D-22 (C1..C6), D-23 (alcance SQLite→Postgres; redacción A solo como propuesta marcada), D-24 (RPO <= 7 d, RTO <= 2 h). D-17..D-21 y H-RAMA-005/007/011/013 sin cambio. Soft delete de GCS verificado por WebFetch; retención de `_Default`/`_Required` sigue `[verificar]`.
+- Script 1:1: 85 IDs REQ/NFR/SC mapeados (antes 83), 0 huérfanos; 76 tareas (antes 75; T478 nueva), 0 `[x]`, sin ciclos. Sin tocar src/, tests/, terraform/, workflows, constitución ni gate-rama-003.md.
+
+## 2026-11-15 — Architect: correcciones de /merovingian aplicadas a la 003 (sin commit)
+- Aplicados H-MERO-003 (salida a `src/generated/ops/`, `git diff --stat src/generated/api` vacío, `test:gate` 002+003 en secuencia), 004 y 013 (REQ-CLD-009, SC-CLD-022, T479, sin `@fastify/helmet`), 005/014/015/016 (notas en `research.md §9`, textos obsoletos corregidos), 006 (carga dinámica, `better-sqlite3` fuera de la imagen), 007/008/009 (REQ-CICD-011, SC-CLD-023: SHA, binarios con sha256, permissions por trabajo, digest de imagen, `npm audit --omit=dev`, gate sin id-token; `gitleaks-action` no se usa), 017 y 018.
+- Pendiente Neo: D-25 (proveedor google/Terraform/lockfile; recomendación B), D-26 (HOST; relajar `app-config.spec.ts:59` es Nivel 3), D-27 (versiones exactas pg/@types/pg/@fastify/static/esbuild; tsx/concurrently en CI), D-28 (encargados y transferencia). T480 las recoge. Nota: «T116/T431» del informe se aplicaron a T445..T449 y T428/T431..T434 según la numeración de la 003.
+- Script 1:1: 89 IDs REQ/NFR/SC (antes 85), 0 huérfanos; 78 tareas (antes 76: T479, T480 nuevas), 0 `[x]`, sin ciclos. Sin tocar src/, tests/, terraform/, workflows, constitución ni gate-merovingian-003.md.
+
+## 2026-11-15 — Architect: D-17..D-28 ratificadas por Neo y frentes F1..F3 incorporados a la 003 (sin commit)
+- Aplicadas D-17..D-28 con la respuesta literal en `specs/003-cloud-gcp/spec.md` (RESUELTA por Neo): caché 60 s en `/readyz` sin OIDC (REQ-CLD-004), REQ-CICD-012 (cuentas Terraform separadas), sin rama `pre-<sha>`/`NEON_API_KEY`, baseline `0001_baseline.sql` (REQ-PG-001, data-model §2, T419), ventana de 7 días (REQ-PG-011, ADR-003-09), D-23 (REQ-PG-007, US2 AC3, T430), NFR-CLD-014/015 (RPO 7 d, RTO 2 h), proveedor 7.46.2 + Terraform 1.17.2 + lockfile, HOST (D-26, Nivel 3 anotado), dependencias exactas (T404 autorizada), D-28 en «Supuestos».
+- Frentes: REQ-CLD-010 (F1/F2, F2 fuera del Terraform y de Mirror), REQ-IAC-014 (F3, `count = 0` con `custom_domain = ""`), ADR-003-18, SC-CLD-024/025, T481..T483; guía de bootstrap en `quickstart.md §6` y `plan.md §6.3`. Domain mapping: Preview, gratuidad NO confirmada por la doc oficial (`research.md §7.1`).
+- Riesgos residuales nuevos: R-12 (caché no impide mantener Neon despierto), R-13 (plan RO lee estado con secretos), R-14 (RPO 7 d sin margen con dumps de 7 d), R-15 (F2 depende de Mirror, F3 Preview).
+- Script 1:1: 96 IDs REQ/NFR/SC (antes 89), 0 huérfanos; 81 tareas (antes 78), 0 `[x]`, sin ciclos. Nada APPROVED/LOCKED; sin tocar src/, tests/, terraform/, workflows, constitución ni audits.
+
+## 2026-11-15 — Architect: R-14 (dumps 14 d), F3 opcional, APPROVED y enmienda 3.3.0 aplicada (sin commit)
+- R-14: dumps de GCS 7 -> 14 d en spec (REQ-PG-011, REQ-PG-016, REQ-IAC-008, NFR-CLD-014, SC-CLD-008, D-22), plan (ADR-003-09, bucket), research (R-02, R-14 mitigado), data-model §6, quickstart §4.1, tasks (T441, T454). Ventana D-22 = max(PITR 6 h, VACUUM <= 7 d, dumps 14 d). RPO <= 7 d coherente: con 14 d hay >= 2 copias. REQ-SEC-006 no cambia (estado Terraform 30 d). T473 sin cambios (VACUUM sigue semanal).
+- F3 OPCIONAL: REQ-IAC-014, T481, T482, SC-CLD-024; sigue condicional por TF_VAR_custom_domain (default "").
+- APPROVED (nota de Neo, R1..R5 visibles en spec.md) en spec, plan, tasks, data-model, research, quickstart y contracts/README.md. Ninguna tarea [x].
+- T403: constitution.md 3.3.0, Last Amended 2026-11-15, firma de Neo; borrador marcado APLICADA. Script 1:1: 96 IDs, 0 huérfanos, 81 tareas, 0 [x].

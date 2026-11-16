@@ -46,3 +46,8 @@
 - Cobertura: 97 de 97 IDs vigentes (REQ/INV/STATE) + 17 SC + 35 ERR con tarea; los 24 sin tarea son los reemplazados (correcto). 110 tareas T201..T310 confirmadas; 22 filas de sustitución + fila 23, 0 pruebas borradas.
 - Hallazgos: T293 y línea 217 mantienen D2/F4-M5 como pendientes (ya APROBADAS); línea 31 firma "antes de T204" contradice la enmienda (después de T204, antes de T306) y no hay tarea de firma ni marcas [N2]; T219 cita T266 (es T265) y T233 cita T277 (es T276).
 - Sin ediciones a tasks.md, sustitución, enmienda ni constitución; sin commit.
+
+## [2026-11-15 | Gate estructural 003]
+- Veredicto PASS estructural: 96 IDs (58 REQ, 13 NFR, 25 SC) 1:1 con mapa, 81 tareas T401..T483, 0 [x], 0 huérfanos, 0 ciclos, estado DRAFT.
+- Condiciones: ops.openapi.yaml por crear (T408); verify-traceability.sh ejecutable pero sin prefijos 003 hasta T406.
+- Informe: .specify/memory/audits/gate-mouse-003.md

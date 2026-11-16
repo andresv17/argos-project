@@ -1183,3 +1183,98 @@
 - Lectura en disco: registro, entorno-y-lecciones, handover 2026-11-14, log-morpheus, tasks.md 002 (112/112 [x], 0 abiertas), feature.json (002-plataforma-v21).
 - Git: rama 002-plataforma-v21, HEAD f767966 (origin c8202d1, ahead 1). Sin modo Logos activo (manual). Sin dispatch ni cambios de código.
 - Pendientes de Neo: etiqueta y push de la feature 002; commit de bitácoras (handover, log-morpheus, registro) cuando lo ordene; log-neb.md no es mío.
+
+### 2026-11-15 19:07 — Morpheus: MISIÓN FASE 3 (feature 003, GCP Free Tier) — solo spec, sin código ni despliegue
+- Orden de Neo: investigar restricciones y construir la especificación SDD de la Fase 3. Sin despliegues ni cambios en src/.
+- Referencia Mirror (solo convenciones IaC/CI): terraform/ (main, locals, backend, modules/mirror-platform) y .github/workflows/ (infraestructura, deploy-grafana, deploy-functions, auto-pr, code-quality).
+- Plan: 1) /architect redacta research + spec/plan/tasks/contracts de specs/003-*, con decisiones abiertas para Neo. 2) Gates: /trinity (secretos, endpoints), /merovingian (pg, Neon), /rama (persistencia y migraciones). 3) /mouse una sola vez al cierre del Architect.
+- Estado: despacho de /architect en curso.
+
+### 2026-11-15 19:16 — Morpheus: /architect entrega borrador 003 (DRAFT)
+- Verificado en disco: specs/003-cloud-gcp/ (spec 175 líneas, plan, research, data-model, quickstart, tasks 65 tareas T401–T465 en [ ], contracts/README.md). Sin commit, sin src/ ni infra tocados.
+- Decisiones abiertas D-01..D-16 presentadas a Neo. Ninguna tarea [N2] se inicia hasta que Neo responda.
+- Gates /lock, /mifune, /rama, /merovingian y /mouse: pendientes de decisiones de Neo (D-15). No despachados todavía.
+
+### 2026-11-15 19:32 — Morpheus: Neo resuelve D-01..D-16 (Level 2)
+- Fuera de alcance 003: Grafana y BigQuery (logs a Cloud Logging, métricas en el portal). Firestore descartado. Se confirma Neon Postgres.
+- D-01 A (proyecto nuevo), D-02 A (us-central1 + aws-us-east-2), D-03 A (migrate en GitHub Actions antes del deploy), D-05 TF_VAR_* + WIF, D-06 A, D-07 A (esbuild), D-08 A, D-09 develop, D-10 autorizadas pg, @types/pg, @fastify/static, esbuild, D-11 A (004/005), D-12 A (bucket propio), D-13 alarma 1 USD, D-14 manual Neon, D-15 orden /lock → /mifune → /rama → /merovingian → /mouse, D-16 borrador MINOR 3.3.0 en .specify/memory/audits/.
+- Siguiente: /architect purga Grafana/BigQuery y redacta borrador de enmienda. Después gates en orden. Nada APPROVED sin firma de Neo.
+
+### 2026-11-15 19:34 — Morpheus: purga Grafana/BigQuery y enmienda 3.3.0 (borrador) entregadas por /architect
+- Verificado por Architect: grep Grafana/BigQuery = 1 en spec.md (exclusión explícita). 62 tareas [ ], 0 [x]. Trazabilidad sin huérfanos.
+- Borrador de enmienda: .specify/memory/audits/enmienda-constitucion-003-borrador.md (DRAFT, firma de Neo pendiente). constitution.md intacta.
+- Siguiente: gates D-15 en orden /lock → /mifune → /rama → /merovingian → /mouse. Lanzo /lock.
+
+### 2026-11-15 19:39 — Morpheus: /lock entrega informe (29 hallazgos: 10 altos, 14 medios, 5 bajos)
+- Informe: .specify/memory/audits/gate-lock-003.md. Bitácora: claude/log-lock.md.
+- Altos H-LOCK-001..010. Para /architect (técnicos): 001, 003, 004, 005, 006, 007, 009, 010. Decisiones para Neo: 002 (acceso público a /readyz vs. cuota Neon) y 008 (cuenta de plan separada de la de apply). 012 y 015 son Caso B (tocan application/): a revisar.
+- Siguiente: /architect resuelve los técnicos en spec/plan/tasks y deja 002 y 008 como decisiones con recomendación. Luego /mifune → /rama → /merovingian → /mouse.
+
+### 2026-11-15 19:43 — Morpheus: /architect resuelve 8 altos técnicos de /lock (001,003–007,009,010)
+- Spec 003: REQ-PG-012..015, REQ-IAC-012..013, REQ-CICD-009..010, REQ-SEC-006/008, ADRs 003-13..17, tareas T463–T476. 76 tareas, todas [ ], mapa 1:1 verificado.
+- Pendientes para Neo: D-17 (acceso /readyz, recomendación A+B) y D-18 (cuenta de plan separada, recomendación sí). Bloquean APPROVED vía T474.
+- Siguiente: /mifune (no depende de D-17/D-18). Luego /rama, /merovingian, /mouse.
+
+### 2026-11-15 19:46 — Morpheus: /mifune entrega informe (16 hallazgos: 2 altos, 8 medios, 6 bajos)
+- Informe: .specify/memory/audits/gate-mifune-003.md. Bitácora: claude/log-mifune.md.
+- Conflictos con órdenes expresas de Neo (NO se recortan sin su decisión): H-MIF-015 (auto-pr.yml lo pidió Neo) se RECHAZA; H-MIF-008 (5 migraciones equivalentes a SQLite, pedido de Neo) requiere decisión de Neo; H-MIF-007 (rama Neon de seguridad, parte de D-03 A) requiere confirmación.
+- Pendientes de D-17/D-18: H-MIF-006 y H-MIF-009.
+- Recortes a aplicar por Architect (no conflictúan): 002, 003, 004, 005, 010, 011, 012, 013, 014, 016 (con verificación previa), 001 con salvedad (mantener prueba N-1 cuando el PR toque migraciones).
+- Siguiente: /architect aplica recortes aceptados y actualiza mapa 1:1; luego /rama, /merovingian, /mouse.
+
+### 2026-11-15 19:50 — Morpheus: recortes /mifune aplicados por /architect (no conflictivos)
+- Aplicados: 001 (con prueba N-1 condicional), 002, 003, 004, 005, 010, 011, 012, 013, 014, 016 (con T477 de verificación).
+- Pendientes Neo: D-17, D-18, D-19 (=007), D-20 (=008). Confirmar D-21 (015 rechazado). Mapa 1:1: 83 IDs, 75 tareas, 0 huérfanos, 0 [x].
+- Siguiente: /rama (reevaluar D-06 con T452 y privacidad), luego /merovingian y /mouse.
+
+### 2026-11-15 19:54 — Morpheus: /rama entrega informe (14 hallazgos: 6 altos, 5 medios, 3 bajos)
+- Informe: .specify/memory/audits/gate-rama-003.md. Veredicto D-06: ACEPTABLE CON CONDICIONES (C1..C6). Ventana real max(PITR 6 h, VACUUM ≤ 7 d, dumps 7 d).
+- Decisión para Neo: ratificar ventana y C1..C6; D-19 (recomendación de /rama: recortar); H-RAMA-005 (alcance de la restauración SQLite→PG: ¿conservar hogares/auditoría o no?); RPO ≤ 7 d / RTO ≤ 2 h propuesto (H-RAMA-004).
+- Correcciones técnicas a /architect: H-RAMA-001, 002, 003, 004 (procedimiento), 006, 009, 010. Luego /merovingian y /mouse.
+
+### 2026-11-15 19:56 — Morpheus: correcciones de /rama aplicadas (76 tareas, 85 IDs, 1:1 OK)
+- Aplicadas: 001, 002, 003, 004 (procedimiento, REQ-PG-016, T478), 006, 008, 009, 010. Pendiente Neo: D-22 (C1..C6), D-23 (alcance SQLite→PG), D-24 (RPO/RTO). H-RAMA-011 (ubicación y transferencia internacional) sin tratar: medio, fuera de la lista de Neo.
+- Siguiente: /merovingian sobre la 003 (librerías pg, @types/pg, @fastify/static, esbuild; contrato ops.openapi.yaml). Luego /mouse una vez.
+
+### 2026-11-15 20:01 — Morpheus: /merovingian entrega informe (18 hallazgos: 3 altos, 10 medios, 5 bajos)
+- Informe: .specify/memory/audits/gate-merovingian-003.md. Bitácora: claude/log-merovingian.md.
+- Versiones propuestas (≥14 d): pg 8.23.1, @types/pg 8.23.1, @fastify/static 10.1.8, esbuild 0.28.2 (dev). Terraform provider google: spec ~>5.20 congelado en 5.45.2 (H-MERO-001); vigente 7.46.2.
+- Decisiones para Neo: autorizar versiones (T404); elegir línea del proveedor google (5.45.2 / 6.50.0 / 7.46.2) y lockfile; firmar sustitución HOST=0.0.0.0 (H-MERO-002) junto con T403; D-25 encargados y transferencia (H-MERO-011); autorizar tsx/concurrently si CI los usa (H-MERO-010).
+- Correcciones a /architect (sin decisión de Neo): H-MERO-003 (salida a src/generated/ops/), 004, 005, 006, 007, 008, 009, 013, 014–018.
+- /mouse: NO se lanza hasta resolver decisiones (regla: una sola invocación).
+
+### 2026-11-15 20:05 — Morpheus: compuertas /lock, /mifune, /rama, /merovingian cerradas en la parte técnica
+- Architect aplicó todas las correcciones no decisorias de cada gate. Estado: 89 IDs REQ/NFR/SC, 78 tareas (T401..T480), 0 [x], 1:1 OK, sin ciclos.
+- Pendientes Neo: D-17 (/readyz), D-18 (cuenta plan), D-19 (rama Neon/NEON_API_KEY), D-20 (baseline), D-21 (auto-pr mantener), D-22 (ratificar D-06 C1..C6), D-23 (alcance SQLite→PG), D-24 (RPO/RTO), D-25 (google provider y Terraform), D-26 (HOST), D-27 (dependencias T404), D-28 (encargados/transferencia).
+- /mouse: en espera. Se lanza una sola vez cuando Neo resuelva las decisiones.
+
+### 2026-11-15 20:25 — Morpheus: Neo ratifica D-17..D-28 y define 3 frentes de exposición + variables GitHub
+- D-17 caché 60 s en /readyz; público en /healthz. D-18 sí (plan RO en PR, apply en main con Environment). D-19 sí (sin pre-<sha>, sin NEON_API_KEY, PITR 6 h). D-20 baseline único 0001_baseline.sql. D-21 mantener auto-pr.yml. D-22 A con redacción honesta. D-23 A (mascotas + 6 colecciones; cuentas y sesiones se inicializan). D-24 RPO ≤7 d, RTO ≤2 h. D-25 google 7.46.2 + lockfile + Terraform 1.17.2. D-26 HOST=0.0.0.0 solo con NODE_ENV=production o ARGOS_DB_DRIVER=postgres. D-27 deps fijas (pg 8.23.1, @types/pg 8.23.1, @fastify/static 10.1.8, esbuild 0.28.2 dev), sin dotenv. D-28 encargados Google/Neon/GitHub, uso personal controlado.
+- Frentes: F1 URL nativa de Cloud Run (sin LB). F2 DuckDNS argos-avallejo.duckdns.org vía Nginx de Mirror (FUERA del Terraform de Argos). F3 google_cloud_run_domain_mapping condicional a custom_domain (default "").
+- Variables: GitHub SECRETS TF_VAR_database_url, TF_VAR_audit_hmac_secret; VARIABLES TF_VAR_project_id, TF_VAR_region, TF_VAR_custom_domain="".
+- Siguiente: /architect incorpora decisiones y frentes (sin APPROVED). Luego /mouse UNA sola vez y consolidado para firma de Neo.
+
+### 2026-11-15 20:31 — Morpheus: decisiones de Neo incorporadas por /architect (96 IDs, 81 tareas)
+- D-17..D-28 aplicadas como RESUELTA por Neo. Frentes F1 (nativo), F2 (DuckDNS, fuera de Argos, REQ-CLD-010), F3 (domain mapping condicional, REQ-IAC-014).
+- Riesgos anotados para Neo: R-14 (dump semanal y vida de 7 d vs RPO 7 d), /readyz sin auth con cliente que llame cada minuto (EDGE-CLD-10), domain mapping en Preview y costo no confirmado, cuenta de plan lee tfstate con secretos.
+- Siguiente: /mouse UNA sola vez sobre specs/003-cloud-gcp/.
+
+### 2026-11-15 20:32 — Morpheus: /mouse PASS estructural (96 IDs, 81 tareas, 0 [x])
+- Informe: .specify/memory/audits/gate-mouse-003.md. Condiciones: ops.openapi.yaml por crear (T408); verify-traceability sin prefijos 003 hasta T406; T407 [ ].
+- Siguiente: /oracle verifica en disco los gates y el estado antes de la firma de Neo. Sin APPROVED.
+
+### 2026-11-15 20:33 — Morpheus: /oracle veredicto 003 = CUMPLE CON RESERVAS
+- Veredicto: .specify/memory/audits/oracle-003-veredicto.md. Reservas R1 (scripts no reconocen prefijos 003 hasta T406), R2 (ops.openapi.yaml por crear T408), R3 ([verificar] WIF, Preview, costo domain mapping, google 7.46.2), R4 (firma T403 y D-26), R5 (checklists/ opcional).
+- Nada APPROVED. Nada commiteado de la 003. Ajenos: log-neb.md, .playwright-mcp/, gate-T296-output.txt, logos.json, scripts/logos.py (no tocados).
+- Siguiente: esperar firma de Neo (APPROVED, T403, R-14, F3). Sin commit ni push sin orden.
+
+### 2026-11-15 20:48 — Morpheus: NEO APRUEBA la spec 003 (APPROVED bajo R1..R5)
+- Neo firma: spec 003 APPROVED; enmienda constitucional 3.3.0 (T403) y sustitución D-26 firmadas.
+- R-14: dumps en GCS con vida de 14 días (2 copias de respaldo). Ventana de purga de D-22 ajustada a 14 días.
+- F3 dominio propio: opcional, sin activación inmediata.
+- Git: autorizado commit local 'docs(003): aprobar especificacion, plan y compuertas de feature 003 (gcp free tier)' con specs/003-cloud-gcp/ y .specify/memory/audits/ (sin ajenos). NO push.
+- Siguiente: /architect aplica R-14 (14 d) y marca APPROVED; aplica enmienda 3.3.0 en constitution.md (T403). Luego commit docs(003).
+
+### 2026-11-15 20:50 — Morpheus: commit local b0fa89e docs(003) (sin push)
+- Incluye specs/003-cloud-gcp/, .specify/memory/audits/ (gates y enmienda), .specify/memory/constitution.md (3.3.0) y bitácoras de gates. Excluido: claude/log-neb.md y ajenos.
+- Pendiente: nada obligatorio. Tareas de implementación (T403 ya firmada, T406, T408) solo con orden explícita de Neo. Sin push.

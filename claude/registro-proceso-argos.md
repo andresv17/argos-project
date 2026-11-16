@@ -734,3 +734,35 @@
 2026-11-14 HARDLINE (Morpheus): cierre de sesión. HEAD f767966 (origin c8202d1, ahead 1). Feature 002 cerrada, 112/112 [x]. Handover: claude/handover-morpheus-2026-11-14.md. Sin push.
 2026-11-14 Neb: cierre 002 verificado en disco (112/112, origin c8202d1, tag remoto v2.1.0-feature-002). Pendiente: 1 commit local f767966. Solo lectura.
 2026-11-15 19:05 Morpheus: arranque de sesión. Feature 002 cerrada (112/112), HEAD f767966 (ahead 1). Sin dispatch. Pendiente Neo: etiqueta y push.
+2026-11-15 19:07 Morpheus: inicia Fase 3 (feature 003, GCP Free Tier). Research+spec, sin código ni despliegue. Despacho /architect.
+2026-11-15 Architect: spec 003-cloud-gcp redactada en DRAFT (spec, plan, research, data-model, quickstart, tasks T401..T465 [ ], contracts/README); 16 decisiones abiertas D-01..D-16 para Neo. Sin commit, sin despliegue.
+2026-11-15 19:16 Morpheus: 003 DRAFT entregado por Architect (65 tareas [ ], D-01..D-16 para Neo). Esperando decisiones.
+2026-11-15 19:32 Morpheus: Neo resuelve D-01..D-16 (Grafana/BigQuery fuera de 003). Purga y enmienda por /architect; luego gates en orden.
+2026-11-15 Architect: D-01..D-16 aplicadas en specs/003 (analítica purgada, 62 tareas [ ], mapa 1:1 ok) + borrador enmienda 3.3.0 DRAFT. Listo para /lock → /mifune → /rama → /merovingian → /mouse.
+2026-11-15 19:34 Morpheus: purga y borrador de enmienda 3.3.0 listos. Lanzo gates D-15: /lock primero.
+2026-11-15 Lock: gate 003 emitido: 29 hallazgos (10 altos, 14 medios, 5 bajos). Informe .specify/memory/audits/gate-lock-003.md. Sin ediciones de specs ni commit.
+2026-11-15 19:39 Morpheus: /lock 29 hallazgos (10 altos). Architect resuelve técnicos; 002 y 008 pasan a Neo.
+2026-11-15 Architect: respuesta a 8 hallazgos altos técnicos de /lock (REQ-PG-012..015, IAC-012..013, CICD-009..010, SEC-008, ADR-003-13..17, T463..T476); D-17/D-18 PENDIENTE — Neo; mapa 1:1 ok, sin commit.
+2026-11-15 19:43 Morpheus: 8 altos de /lock resueltos en 003 (76 tareas). Pendientes Neo: D-17, D-18. Lanzo /mifune.
+2026-11-15 Mifune: gate 003 emitido: 16 hallazgos (2 altos, 8 medios, 6 bajos). Informe .specify/memory/audits/gate-mifune-003.md. Sin ediciones de specs ni commit.
+2026-11-15 19:46 Morpheus: /mifune 16 hallazgos. Recortes no conflictivos a Architect; 008/007/015 y D-17/D-18 a Neo.
+2026-11-15 Architect: recortes /mifune aplicados a la 003 (H-MIF-001..005,010..014,016); D-19/D-20/D-21 PENDIENTE — Neo; 75 tareas, 83 IDs, mapa 1:1 ok; sin commit.
+2026-11-15 19:50 Morpheus: recortes /mifune aplicados (83 IDs, 75 tareas). Pendientes Neo D-17..D-20. Lanzo /rama.
+2026-11-15 Rama: gate 003 emitido: 14 hallazgos (6 altos, 5 medios, 3 bajos); D-06 ACEPTABLE CON CONDICIONES, ratificacion PENDIENTE — Neo. Informe .specify/memory/audits/gate-rama-003.md. Sin ediciones de specs ni commit.
+2026-11-15 19:54 Morpheus: /rama 14 hallazgos (6 altos). D-06 aceptable con condiciones. Neo: ratificar C1..C6, alcance restauración, RPO/RTO.
+2026-11-15 Architect: correcciones /rama aplicadas a 003 (85 IDs, 76 tareas, 1:1 OK); D-22, D-23, D-24 PENDIENTE — Neo. Sin commit.
+2026-11-15 19:56 Morpheus: correcciones /rama aplicadas (76 tareas). Pendientes Neo D-17..D-24. Lanzo /merovingian.
+2026-11-15 Merovingian: gate 003 emitido: 18 hallazgos (3 altos, 10 medios, 5 bajos). Versiones propuestas pg 8.23.1, @fastify/static 10.1.8, esbuild 0.28.2; autorización PENDIENTE — Neo. Informe .specify/memory/audits/gate-merovingian-003.md. Sin ediciones ni commit.
+2026-11-15 20:01 Morpheus: /merovingian 18 hallazgos (3 altos). Neo: versiones, proveedor google, HOST, D-25. /mouse en espera de decisiones.
+2026-11-15 Architect: correcciones /merovingian aplicadas a 003 (89 IDs, 78 tareas, 1:1 OK; REQ-CLD-009, REQ-CICD-011, T479, T480). D-25..D-28 PENDIENTE — Neo. Sin commit.
+2026-11-15 20:05 Morpheus: compuertas técnicas cerradas (89 IDs, 78 tareas). Pendientes Neo D-17..D-28. /mouse en espera (una sola invocación).
+2026-11-15 20:25 Morpheus: Neo ratifica D-17..D-28 y 3 frentes de exposición. /architect incorpora; luego /mouse (única vez).
+2026-11-15 Architect: D-17..D-28 y frentes F1..F3 incorporados a 003 (96 IDs, 81 tareas, 1:1 OK; REQ-CLD-010, REQ-IAC-014, REQ-CICD-012, NFR-CLD-014/015, T481..T483). Domain mapping Preview, gratuidad no confirmada. Sin commit.
+2026-11-15 20:31 Morpheus: decisiones de Neo incorporadas (96 IDs, 81 tareas). Lanzo /mouse (única vez).
+2026-11-15 Mouse: gate estructural 003 PASS (96 IDs 1:1, 81 tareas, 0 huérfanos, 0 [x], DRAFT); condiciones T406/T408. Informe gate-mouse-003.md.
+2026-11-15 20:32 Morpheus: /mouse PASS estructural. Lanzo /oracle para verificación en disco antes de firma de Neo.
+2026-11-15 Oracle: veredicto 003 CUMPLE CON RESERVAS (96 IDs 1:1, 81 tareas, 0 [x], D-17..D-28 resueltas, sin commits ni cambios en src/tests/.github). Informe .specify/memory/audits/oracle-003-veredicto.md. Nada APPROVED.
+2026-11-15 20:33 Morpheus: /oracle CUMPLE CON RESERVAS (R1..R5). Spec 003 en DRAFT, sin commit. Pendiente firma de Neo.
+2026-11-15 20:48 Morpheus: Neo APRUEBA spec 003 (R1..R5), firma enmienda 3.3.0 y D-26, R-14=14 d, F3 opcional. Commit docs(003) local autorizado, sin push.
+- 2026-11-15 20:49 Architect: R-14 (dumps 14 d), F3 opcional, 003 APPROVED y constitución 3.3.0 aplicada; 1:1 = 96 IDs/0 huérfanos/81 tareas/0 [x]; sin commit.
+2026-11-15 20:50 Morpheus: commit b0fa89e docs(003) local (spec 003 APPROVED, enmienda 3.3.0, gates). Sin push.

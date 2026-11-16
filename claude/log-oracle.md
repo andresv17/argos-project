@@ -401,3 +401,7 @@ Obs: mensaje del commit menciona contador no presente en el diff.
 - Medido: tasks 106 [x]/6 [ ] (T305-T310); verify-oracles EXIT=0 (0 débiles); traceability 002 EXIT=0 (118/118); tsc EXIT=0; evidencia T309 coincide.
 - T308 repetición 7/7 PASA; mapa-sc-002 existe pero no refleja la aceptación de Neo sobre SC-002 (R-1). Vite: ports excluido, umbral 95.
 - Git HEAD 11637e0, sin commitear código de presentación (R-2). Veredicto CUMPLE CON RESERVAS: claude/veredicto-oracle-T310-feature-002-2026-11-14.md. Sin commits ni marcas.
+
+## 2026-11-15 Oracle — Auditoria feature 003
+- Verificado en disco: 5 gates presentes, 96 IDs 1:1, 81 tareas, 0 [x], DRAFT, D-17..D-28 RESUELTAS, REQ-CICD-012 ok.
+- Repo sin commits 003, src/tests/terraform/.github sin cambios. Veredicto CUMPLE CON RESERVAS (R1..R5): .specify/memory/audits/oracle-003-veredicto.md. Sin ediciones de spec, sin commit.

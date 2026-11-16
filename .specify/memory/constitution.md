@@ -1,4 +1,19 @@
 <!--
+SYNC IMPACT REPORT (3.2.0 -> 3.3.0, 2026-11-15)
+==================
+Version change: 3.2.0 -> 3.3.0
+Bump rationale: MINOR. La Feature 003 (Argos en la nube, GCP Free Tier) amplía el catálogo de
+  adaptadores (II.4), la tecnología autorizada (Technology Stack) y una condición de
+  configuración (II.6). No retira ni redefine principios. Firmada por Neo (Level 2), 2026-11-15
+  (tarea T403; borrador en .specify/memory/audits/enmienda-constitucion-003-borrador.md).
+Modified principles: II.4 (adaptador PostgreSQL), II.6 (HOST=0.0.0.0 bajo D-26).
+Modified sections: Technology Stack & Repository Structure (fase Cloud, dependencias pg,
+  @types/pg, @fastify/static, esbuild, Terraform 1.17.2, google 7.46.2, WIF, CI sobre develop).
+Added/Removed sections: ninguna.
+Follow-up TODOs: relajar tests/unit/app-config.spec.ts:59 es Nivel 3 (firma de Neo aparte).
+-->
+
+<!--
 SYNC IMPACT REPORT
 ==================
 Version change: 3.1.0 -> 3.2.0
@@ -63,10 +78,11 @@ contradecirla.
 4. **Regla de Dependencia Concéntrica (`INV-ARCH-004`):**
    - `src/domain/` depende únicamente de `src/generated/`.
    - `src/application/` depende únicamente de `src/domain/` y `src/generated/`, y define los puertos.
-   - `src/infrastructure/` implementa los puertos (persistencia SQLite/memoria, HTTP Fastify, hashing, tokens, reloj, configuración) y valida en runtime contra `src/generated/` en toda frontera.
+   - `src/infrastructure/` implementa los puertos (persistencia SQLite/memoria/PostgreSQL, HTTP Fastify, hashing, tokens, reloj, configuración) y valida en runtime contra `src/generated/` en toda frontera.
+   - El adaptador PostgreSQL reside en `src/infrastructure/persistence/postgres/`, se elige por `ARGOS_DB_DRIVER` (`sqlite` por defecto) y debe pasar la misma suite de conformidad de repositorios que memoria y SQLite (REQ-PG-001..005, SC-CLD-002). `src/domain/` y `src/application/` no cambian (NFR-CLD-009).
    - `src/presentation/` consume la API HTTP mediante un cliente tipado generado del contrato OpenAPI y tipos de `src/generated/`. Prohibidas reglas de negocio o aritmética de fechas en componentes.
 5. **Puertos asíncronos y listos para Cloud (`INV-ARCH-005`):** todos los puertos de repositorio devuelven `Promise` y exponen una operación transaccional `runInTransaction(fn)`. Sustituir SQLite local por la base de datos Cloud no puede requerir cambios en `domain/` ni `application/`.
-6. **Configuración aislada (`INV-ARCH-006`):** `process.env` solo puede leerse en `src/infrastructure/config/`, validado contra un esquema. Ningún secreto se versiona; existe `.env.example` sin valores sensibles.
+6. **Configuración aislada (`INV-ARCH-006`):** `process.env` solo puede leerse en `src/infrastructure/config/`, validado contra un esquema. Ningún secreto se versiona; existe `.env.example` sin valores sensibles. `HOST` es `127.0.0.1` por defecto. Se admite `HOST=0.0.0.0` únicamente con `NODE_ENV=production` o `ARGOS_DB_DRIVER=postgres` (D-26 de la feature 003), tras el frontal HTTPS de Cloud Run (`trustProxy`) con `COOKIE_SECURE=true` y `PORT` inyectado por la plataforma; el esquema de configuración en `src/infrastructure/config/` rechaza `::`, `localhost`, `10.x` y el valor vacío. `DATABASE_URL` nunca se registra ni se devuelve (REQ-CLD-003, REQ-SEC-002, REQ-SEC-003).
 
 **Rationale**: el mismo dato y la misma fecha deben producir siempre el mismo resultado, en local,
 en CI y en Cloud.
@@ -135,19 +151,22 @@ El stack tecnológico y el árbol de carpetas son los de la sección «Technolog
 
 **Fases de despliegue.** En la fase actual, API y web se ejecutan en el computador del arquitecto (`127.0.0.1`) con una base SQLite en archivo local, sin exposición a la red. En la fase Cloud se sustituyen únicamente adaptadores de `src/infrastructure/` (persistencia, configuración, cookies `Secure`); `src/domain/` y `src/application/` no cambian (`INV-ARCH-005`).
 
+**Fase Cloud (feature 003).** Contenedor único en Google Cloud Run (`us-central1`), PostgreSQL en Neon (`aws-us-east-2`, creado a mano), Artifact Registry, Secret Manager, Cloud Scheduler (un job de mantenimiento), Cloud Storage (exports, `us-central1`) y Cloud Logging nativo; costo objetivo 0 USD/mes dentro del Free Tier, con alarma preventiva de 1 USD. Infraestructura como código con Terraform 1.17.2 y proveedor `hashicorp/google` 7.46.2 (versiones exactas, `.terraform.lock.hcl` versionado) en `terraform/`, propio y desacoplado de Mirror, con estado en bucket versionado `argos-<project>-tfstate`, secretos por `TF_VAR_*` y autenticación de CI por Workload Identity Federation (WIF), sin llaves JSON fijas. CI/CD en GitHub Actions (infraestructura, despliegue con migración previa, auto-PR) sobre la rama de integración `develop`. Ningún agente ejecuta `terraform apply` ni `gcloud` mutante. SQLite sigue siendo el valor por defecto local; PostgreSQL es el adaptador de la fase Cloud; Firestore queda descartado.
+
 **Stack.**
 
 - **Lenguaje y compilador:** TypeScript 5.x (fijado `~5.6`; prohibido TS 6/7) con `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true` y `noImplicitReturns: true`. `src/` y `tests/` compilan con `tsc --noEmit` sin errores (incluye `@types/node`).
 - **Runtime:** Node.js 22 LTS, idéntico en local y CI. Versión exacta: `.nvmrc` = `22.23.4`; `engines` en `package.json` = `>=22.18 <23`.
 - **Frontend (SPA):** Vite 5 + React 18 + Tailwind CSS 3, con JSX real. Punto de entrada `index.html` → `src/presentation/web/main.tsx`.
-- **Backend local (API HTTP):** Fastify 5 en `src/infrastructure/http/`, escuchando en `127.0.0.1:3000`. En desarrollo, Vite hace proxy de `/api` hacia el servidor. Un único comando (`npm run dev`) levanta API y web.
+- **Backend local (API HTTP):** Fastify 5 en `src/infrastructure/http/`, escuchando en `127.0.0.1:3000` por defecto (`HOST=0.0.0.0` solo bajo las condiciones del Principio II.6). En desarrollo, Vite hace proxy de `/api` hacia el servidor. Un único comando (`npm run dev`) levanta API y web.
 - **Persistencia:** SQLite en archivo local (`./data/argos.sqlite`, ignorado por git) mediante `better-sqlite3`, detrás de puertos de repositorio. Migraciones SQL versionadas y aplicadas al arranque en `src/infrastructure/persistence/sqlite/migrations/`. Adaptador en memoria para pruebas unitarias y de propiedades.
 - **Autenticación:** hash de contraseñas con `scrypt` de `node:crypto` (N=2^15, r=8, p=1, salt 16 bytes, keylen 64). Sesiones opacas de 32 bytes (base64url) almacenadas en la base solo como SHA-256, entregadas en cookie `argos_session` (`HttpOnly`, `SameSite=Strict`, `Path=/`; `Secure` obligatorio en Cloud). La sesión expira a las 24 horas absolutas desde su creación o a los 30 minutos sin actividad, lo que ocurra primero; recargar la página dentro de la vigencia no la cierra.
 - **Generación desde contratos (real, no plantillas):** `scripts/compile-contracts.sh` deriva de `specs/<NNN-feature>/contracts/`: validadores runtime con Ajv 8 en modo standalone y `ajv-formats` desde `schemas/` y los `components.schemas` de `openapi/`; tipos estáticos con `json-schema-to-typescript` y `openapi-typescript`; catálogo de errores y tipos de máquinas de estado leídos de `errors/` y `state-machines/`. Cambiar un valor en un contrato debe cambiar `src/generated/`. Prohibido escribir reglas de validación a mano en plantillas del generador.
-- **Dependencias autorizadas:** TypeScript `~5.6`, Node 22, Vite 5, React 18, Tailwind 3, Fastify 5, `better-sqlite3`, Ajv 8 (standalone) con `ajv-formats`, `json-schema-to-typescript`, `openapi-typescript`, `openapi-fetch`, Vitest 2, `@vitest/coverage-v8`, fast-check 3, Stryker con `@stryker-mutator/vitest-runner` y `@stryker-mutator/typescript-checker`, Playwright con `@axe-core/playwright`, `@types/node`, `@fastify/cookie`, `react-router-dom`, `yaml` (solo si el generador lo importa), `tsx` y `concurrently` (solo desarrollo), `@vitejs/plugin-react`, `postcss`, `autoprefixer`, `@types/react`, `@types/react-dom` y `@types/better-sqlite3`. SAST en CI con Semgrep fijado por versión, sin dependencia npm.
+- **Dependencias autorizadas:** TypeScript `~5.6`, Node 22, Vite 5, React 18, Tailwind 3, Fastify 5, `better-sqlite3`, `pg` y `@types/pg` (adaptador PostgreSQL), `@fastify/static`, `esbuild` (empaquetado de la imagen), Ajv 8 (standalone) con `ajv-formats`, `json-schema-to-typescript`, `openapi-typescript`, `openapi-fetch`, Vitest 2, `@vitest/coverage-v8`, fast-check 3, Stryker con `@stryker-mutator/vitest-runner` y `@stryker-mutator/typescript-checker`, Playwright con `@axe-core/playwright`, `@types/node`, `@fastify/cookie`, `react-router-dom`, `yaml` (solo si el generador lo importa), `tsx` y `concurrently` (solo desarrollo), `@vitejs/plugin-react`, `postcss`, `autoprefixer`, `@types/react`, `@types/react-dom` y `@types/better-sqlite3`. SAST en CI con Semgrep fijado por versión, sin dependencia npm. La feature 003 añade `pg`, `@types/pg`, `@fastify/static` y `esbuild` con versión exacta fijada al implementar y verificación de `/merovingian`; `hadolint`, `actionlint` y `trivy` solo en CI, sin dependencia npm.
 
 **Estructura del repositorio.**
 
+- **Cloud (feature 003):** `terraform/`, `Dockerfile`, `.dockerignore`, `src/infrastructure/persistence/postgres/` y `scripts/migrate-postgres.ts`.
 - **Capa SDD (GitHub Spec Kit):** `.specify/memory/constitution.md`, `.specify/templates/`, `.specify/scripts/`, `.specify/extensions/`, `.specify/workflows/`, `.specify/integrations/`, los archivos de estado de `.specify/` y `specs/<NNN-feature>/` con `spec.md`, `plan.md`, `tasks.md`, `research.md`, `data-model.md`, `quickstart.md`, `contracts/` y `checklists/`.
 - **Código:** `src/generated/`, `src/domain/`, `src/application/`, `src/infrastructure/` y `src/presentation/`, con subcarpetas por responsabilidad siempre dentro de la capa correcta.
 - **Pruebas:** `tests/unit/`, `tests/property/`, `tests/integration/`, `tests/security/`, `tests/e2e/`, `tests/mutation/` y `tests/fixtures/`. Los auxiliares compartidos de prueba van en `tests/fixtures/`.
@@ -176,4 +195,6 @@ Esta constitución prevalece sobre cualquier plan, tarea o línea de código.
 - **Revisión de cumplimiento.** Toda revisión verifica el cumplimiento de estos principios. Una desviación aceptada se registra con responsable y condición de cierre en «Complexity Tracking» del plan y como tarea abierta en `tasks.md`.
 - **Guía operativa.** `spec-system.md` y `CLAUDE.md` son la guía de ejecución para agentes; ante una diferencia con este documento prevalece la constitución.
 
-**Version**: 3.2.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-14
+**Version**: 3.3.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-15
+
+Versión 3.3.0 firmada por Andrés Vallejo (Nivel 2) el 2026-11-15 (tarea T403). Firmada por Neo (Level 2), 2026-11-15.
