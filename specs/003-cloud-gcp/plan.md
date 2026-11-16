@@ -158,7 +158,7 @@ Ninguna cuenta de Argos tiene permisos sobre recursos de Mirror. Con WIF, la con
 ### 6.1.1 Cadena de suministro de CI (REQ-CICD-011, H-MERO-007/008/009)
 - Acciones: lista con versión y SHA de 40 caracteres en cada flujo; por SHA las de credenciales (`google-github-actions/auth`, `docker/login-action`, `hashicorp/setup-terraform`) y las de terceros; etiqueta mayor solo para `actions/*`.
 - `hadolint` y `actionlint` como binarios con versión y `sha256` fijos; `gitleaks-action` no se usa (SC-CLD-004 con `grep` o binario por `sha256`).
-- `permissions:` por trabajo: `contents: read` por defecto; `id-token: write` permitido exclusivamente en `build-push` (autenticación WIF para push a Artifact Registry), `deploy` (despliegue a Cloud Run) y `terraform apply`; los trabajos `gate`, `audit` y `migrate` permanecen estrictamente sin `id-token` ni credenciales OIDC.
+- `permissions:` por trabajo: `contents: read` por defecto; `id-token: write` permitido exclusivamente en `build-push` (autenticación WIF para push a Artifact Registry), `deploy` (despliegue a Cloud Run), `plan` (PR de `infraestructura.yml`, solo lectura, WIF con `argos-terraform-plan@`; REQ-CICD-012, SC-CLD-025) y `apply`; los trabajos `validate`, `gate`, `audit` y `migrate` permanecen estrictamente sin `id-token` ni credenciales OIDC.
 - `npm audit --omit=dev --audit-level=high` en `code-quality.yml` y antes del despliegue; imagen base `node:22.23.4-slim@sha256:<digest>` (T433).
 - `dependabot.yml` (solo `github-actions` y `docker`): propuesta a Neo, no incluida.
 
