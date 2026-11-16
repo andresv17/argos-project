@@ -1,8 +1,9 @@
 name: Desplegar ARGOS (Cloud Run)
 
 # T448 (REQ-CICD-003, 005, 006, 008, 009, 011, 012; SC-CLD-006, 007, 023; D-03, D-18).
-# Orden: gate (pruebas, sin credenciales) -> audit -> migrate (Neon directo, sin credenciales de GCP)
-#        -> deploy (unico con id-token: build, push, revision sin trafico, humo, promocion, retroceso).
+# Orden (Neo D2): gate (pruebas, sin credenciales) -> audit -> build-push (id-token, solo imagen)
+#        -> migrate (Neon directo, sin credenciales de GCP; un build fallido no toca la base)
+#        -> deploy (id-token, unico con environment produccion: revision sin trafico, humo, promocion, retroceso).
 # Sin trabajo compat (H-MIF-001). Sin rama Neon automatica ni NEON_API_KEY (D-19).
 # Acciones de terceros fijadas por SHA de 40 caracteres; actions/* admite etiqueta mayor (REQ-CICD-011).
 on:
@@ -48,49 +49,18 @@ jobs:
       - name: npm audit (REQ-CICD-011)
         run: npm audit --omit=dev --audit-level=high
 
-  # Migracion con URL directa (D-03, REQ-CICD-005). Sin credenciales de GCP ni id-token.
-  migrate:
-    name: Migrar Neon (URL directa)
-    needs: [audit]
+  # Build y push de la imagen (REQ-CICD-003 (2)). Autentica con WIF; sin secretos de base de datos ni environment.
+  build-push:
+    name: Construir y subir la imagen
+    needs: audit
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: produccion
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout de código
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js (.nvmrc)
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: npm
-
-      - name: Instalar dependencias sin scripts
-        run: npm ci --ignore-scripts
-
-      - name: Migrar (idempotente, con candado acotado; REQ-PG-014)
-        env:
-          DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
-        run: |
-          set -euo pipefail
-          echo "::add-mask::${DATABASE_URL_DIRECT}"
-          npx tsx scripts/migrate-postgres.ts
-
-  deploy:
-    name: Construir, desplegar sin tráfico, humo y promover
-    needs: [audit, migrate]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: produccion
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
     env:
       PROJECT_ID: ${{ vars.TF_VAR_project_id }}
       REGION: ${{ vars.TF_VAR_region }}
-      SERVICE: argos
     steps:
       - name: Checkout de código
         uses: actions/checkout@v4
@@ -116,7 +86,59 @@ jobs:
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/argos-docker/argos:sha-${GITHUB_SHA}"
           docker build --tag "$IMAGE" .
           docker push "$IMAGE"
-          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+
+  # Migracion con URL directa (D-03, REQ-CICD-005). Sin credenciales de GCP ni id-token.
+  migrate:
+    name: Migrar Neon (URL directa)
+    needs: build-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Instalar dependencias sin scripts
+        run: npm ci --ignore-scripts
+
+      - name: Migrar (idempotente, con candado acotado; REQ-PG-014)
+        env:
+          DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+        run: |
+          set -euo pipefail
+          echo "::add-mask::${DATABASE_URL_DIRECT}"
+          npx tsx scripts/migrate-postgres.ts
+
+  deploy:
+    name: Construir, desplegar sin tráfico, humo y promover
+    needs: migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: produccion
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ vars.TF_VAR_project_id }}
+      REGION: ${{ vars.TF_VAR_region }}
+      SERVICE: argos
+      ARGOS_SCHEDULER_EMAIL: argos-scheduler@${{ vars.TF_VAR_project_id }}.iam.gserviceaccount.com
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Autenticar en GCP con Workload Identity Federation (REQ-CICD-006)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
 
       - name: Resolver versiones numéricas de los secretos (REQ-CICD-009; nunca latest)
         run: |
@@ -151,11 +173,17 @@ jobs:
         run: |
           set -euo pipefail
           TAG="sha-${GITHUB_SHA::7}"
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/argos-docker/argos:sha-${GITHUB_SHA}"
+          OIDC_AUDIENCE="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')"
+          if [ -z "$OIDC_AUDIENCE" ]; then
+            echo "No se pudo derivar la audiencia OIDC (status.url vacío)." >&2
+            exit 1
+          fi
           gcloud run deploy argos \
             --project "$PROJECT_ID" --region "$REGION" \
             --image "$IMAGE" \
             --no-traffic --tag "$TAG" \
-            --set-env-vars "COOKIE_SECURE=true" \
+            --set-env-vars "COOKIE_SECURE=true,ARGOS_SCHEDULER_EMAIL=${ARGOS_SCHEDULER_EMAIL},ARGOS_OIDC_AUDIENCE=${OIDC_AUDIENCE}" \
             --set-secrets "DATABASE_URL=argos-database-url:${DB_VERSION},ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:${HMAC_VERSION}" \
             --startup-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=2,failureThreshold=10,timeoutSeconds=1" \
             --liveness-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=10,failureThreshold=3,timeoutSeconds=1"
