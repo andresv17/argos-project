@@ -835,3 +835,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-16 — T426 pruebas primero (inyector de fallos PostgreSQL)
 - Creado tests/integration/persistence/postgres-fault-injection.spec.ts (6 rojas + 1 viva skipIf(!TEST_DATABASE_URL), aplazada a T431). Doble transaccional del cliente (escrituras pendientes hasta COMMIT, descartadas por ROLLBACK): para cada N 1..4 error InjectedWriteFailure, ROLLBACK final, sin COMMIT, 0 escrituras confirmadas; la escritura N no llega al cliente; repetible; contador reiniciado por transacción; error original sin traducir y release único.
 - El envoltorio (tests/fixtures/pg-fault-injection.ts) se carga con import dinámico (tsc 0). Reutiliza DeterministicFaultInjector de src (T277), sin tocarlo.
+
+## 2026-11-16 — T426 implementación (inyector de fallos PostgreSQL)
+- Creado tests/fixtures/pg-fault-injection.ts (faultInjectingRepositories(injector, createRepositories)): envuelve la fábrica que ya recibe PostgresUnitOfWork; beginTransaction() por transacción + injector.wrap. Ubicación: tests/fixtures porque es solo de pruebas y no exige cambios en src (el DeterministicFaultInjector de T277 se reutiliza tal cual).
+- Rojas 6 -> verdes 6 (fixture inexistente). tsc 0; vitest completa 2106 verdes + 25 omitidas (vivas).
