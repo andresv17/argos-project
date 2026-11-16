@@ -59,6 +59,18 @@ export function runMigrations(db: SqliteDatabase, migrationsDir: string = DEFAUL
 }
 
 /**
+ * Sonda de /readyz (REQ-CLD-004): la base responde (`SELECT 1`) y las migraciones esperadas están todas aplicadas
+ * (esperadas ⊆ aplicadas, criterio de subconjunto, nunca igualdad). Rechaza sin datos; no hace timeout ni caché propios.
+ * @implements REQ-CLD-004, REQ-PG-013
+ */
+export function assertSchemaReady(db: SqliteDatabase, migrationsDir: string = DEFAULT_MIGRATIONS_DIR): void {
+  db.prepare('SELECT 1').pluck().get();
+  const applied = new Set(db.prepare('SELECT version FROM schema_migrations').pluck().all() as string[]);
+  const missing = readdirSync(migrationsDir).filter((name) => MIGRATION_FILE.test(name) && !applied.has(name));
+  if (missing.length > 0) throw new Error('migraciones pendientes');
+}
+
+/**
  * Abre (o crea) la base, activa claves foráneas y aplica las migraciones pendientes.
  * @implements INV-PET-005, ERR-INTERNAL-UNEXPECTED
  */

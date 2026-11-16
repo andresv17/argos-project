@@ -6,6 +6,8 @@
  * @implements INV-ARCH-004, INV-ARCH-006, INV-AUTH-003, INV-AUTH-006
  */
 
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { FastifyInstance } from 'fastify';
 import type { UnitOfWorkPort } from '../../application/ports/unit-of-work.port.ts';
@@ -39,26 +41,38 @@ export const PRODUCTION_LOGGER_OPTIONS = cloudLoggerOptions();
  * Un 55P03 (lock_timeout) no se traduce: se propaga y `registerProblemDetails` responde 500 ERR-INTERNAL-UNEXPECTED
  * (el catálogo v2.1.1 no tiene 503; un código nuevo es cambio de contrato Nivel 3). No se registra `config` ni la URL.
  */
-async function composePersistence(config: AppConfig): Promise<{ uow: UnitOfWorkPort; close: () => Promise<void> }> {
+async function composePersistence(config: AppConfig): Promise<{ uow: UnitOfWorkPort; close: () => Promise<void>; checkReady: () => Promise<void> }> {
   if (config.dbDriver === 'postgres') {
     if (config.databaseUrl === null) throw new Error('DATABASE_URL ausente con ARGOS_DB_DRIVER=postgres');
     const { createPostgresPool, closePool } = await import('../persistence/postgres/postgres-database.ts');
     const { PostgresUnitOfWork } = await import('../persistence/postgres/postgres-unit-of-work.ts');
     const { createPostgresRepositories } = await import('../persistence/postgres/postgres-repositories.ts');
     const pool = createPostgresPool({ connectionString: config.databaseUrl, pgPoolMax: config.pgPoolMax });
-    return { uow: new PostgresUnitOfWork(pool, createPostgresRepositories), close: () => closePool(pool) };
+    // Hasta T464: solo SELECT 1 (REQ-PG-013: nunca consulta schema_migrations en /healthz ni al arrancar).
+    return { uow: new PostgresUnitOfWork(pool, createPostgresRepositories), close: () => closePool(pool), checkReady: async () => void (await pool.query('SELECT 1')) };
   }
-  const { openSqliteDatabase } = await import('../persistence/sqlite/sqlite-database.ts');
+  const { openSqliteDatabase, assertSchemaReady } = await import('../persistence/sqlite/sqlite-database.ts');
   const { SqliteUnitOfWork } = await import('../persistence/sqlite/sqlite-unit-of-work.ts');
   const db = openSqliteDatabase(config.databasePath);
-  return { uow: new SqliteUnitOfWork(db), close: async () => void db.close() };
+  return { uow: new SqliteUnitOfWork(db), close: async () => void db.close(), checkReady: async () => assertSchemaReady(db) };
 }
 
 /**
  * Compone la aplicación con los adaptadores de producción sobre la persistencia de `config.dbDriver`.
  * @implements INV-AUTH-003, INV-AUTH-006
  */
-export async function createProductionApp(config: AppConfig, logger: boolean = true): Promise<FastifyInstance> {
+export interface ProductionAppOptions {
+  /** Carpeta de estáticos; por defecto `<cwd>/dist` (WORKDIR /app en la imagen). */
+  readonly staticRoot?: string;
+  /** Sustituye la sonda de /readyz (solo pruebas); por defecto la de la persistencia activa. */
+  readonly checkReady?: () => Promise<void>;
+}
+
+export async function createProductionApp(config: AppConfig, logger: boolean = true, options: ProductionAppOptions = {}): Promise<FastifyInstance> {
+  const staticRoot = options.staticRoot ?? resolve(process.cwd(), 'dist');
+  const serveStatic = options.staticRoot !== undefined || existsSync(resolve(staticRoot, 'index.html'));
+  // En producción (host 0.0.0.0) sin dist/index.html falla cerrado; en desarrollo se omiten los estáticos.
+  if (!serveStatic && config.host === '0.0.0.0') throw new Error('Falta dist/index.html: ejecute el build del frontend');
   const persistence = await composePersistence(config);
   const hasher = new ScryptPasswordHasherAdapter();
   const ids = new CryptoUuidAdapter();
@@ -81,6 +95,10 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     deps,
     cookieSecure: config.cookieSecure,
     logger: logger && PRODUCTION_LOGGER_OPTIONS,
+    // Un solo salto de confianza detrás de Cloud Run (REQ-CLD-003); `true` permitiría falsificar X-Forwarded-For.
+    trustProxy: config.host === '0.0.0.0' ? 1 : false,
+    checkReady: options.checkReady ?? persistence.checkReady,
+    ...(serveStatic ? { staticRoot } : {}),
   });
   app.addHook('onClose', () => persistence.close());
   // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). Falla cerrado hasta elegir la librería JWT (N2).
