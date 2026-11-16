@@ -9,8 +9,10 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DomainError, type PetProfile } from '../../../src/generated/index.ts';
 import type { MedicalRecordRepositoryPort, PetRepositoryPort } from '../../../src/application/ports/repositories.port.ts';
+import type { PetRecordCollections } from '../../../src/domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../../src/domain/records/record-invariants.ts';
 import { ARGOS, envelope } from '../../fixtures/application-harness.ts';
+import { upgradeRecords } from '../../fixtures/storage-upgrade.ts';
 import { expectParametrized, fakeClient, type Reply } from '../../fixtures/pg-fake-client.ts';
 
 const MODULE_PATH = '../../../src/infrastructure/persistence/postgres/postgres-repositories.ts';
@@ -127,7 +129,7 @@ const MODULES: ReadonlyArray<{ module: RecordModule; table: string }> = [
   { module: 'medicalVisits', table: 'medical_visits' },
   { module: 'customParameters', table: 'custom_parameters' },
 ];
-const sample = <M extends RecordModule>(module: M): RecordOf<M> => (envelope.records as unknown as Record<M, RecordOf<M>[]>)[module][0]!;
+const sample = <M extends RecordModule>(module: M): RecordOf<M> => (upgradeRecords(envelope.records as unknown as PetRecordCollections) as unknown as Record<M, RecordOf<M>[]>)[module][0]!;
 
 describe('registros clínicos (T423, REQ-PG-002, INV-PET-005)', () => {
   it.each(MODULES)('add $module: INSERT en $table con (id, pet_id, data) y data como JSONB; pesos añade weight_grams', async ({ module, table }) => {

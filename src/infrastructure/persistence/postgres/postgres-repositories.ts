@@ -2,7 +2,9 @@
  * Repositorios PostgreSQL detrás de los puertos de aplicación (misma firma que el adaptador SQLite). Solo se usan dentro de
  * `PostgresUnitOfWork.runInTransaction`, sobre el cliente de esa transacción.
  * - PARTE 1 (T422): usuarios, sesiones, intentos de acceso, límites de frecuencia y tokens de respaldo.
- *   Las partes 2 (T423) y 3 (T424) añaden el resto de `RepositorySet`.
+ * - PARTE 2 (T423): mascotas, pesos y los 5 módulos clínicos (cascadas por ON DELETE CASCADE; microchip único por propietario
+ *   impuesto por el índice parcial `pets_owner_microchip`, cuya violación 23505 se propaga sin ocultarse).
+ *   La parte 3 (T424) añade el resto de `RepositorySet`.
  * - SQL siempre parametrizado con `$n` posicionales: ningún valor se interpola en el texto de la sentencia. Las únicas plantillas
  *   componen constantes SQL (la lista de columnas de `users`).
  * - Cada fila guarda el objeto del contrato en `data` (JSONB) y repite en columnas las claves y referencias. Frontera validada
@@ -12,13 +14,27 @@
  * - INV-AUTH-003: el hash de la contraseña va en su columna, nunca en `data`; el token de sesión se guarda como SHA-256.
  * - Sin lectura del entorno (INV-ARCH-006) ni consulta a la tabla de migraciones (T464).
  *
- * @implements REQ-PG-002, INV-ARCH-004, INV-AUTH-003, INV-AUTH2-002, REQ-AUTH2-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED
+ * @implements REQ-PG-002, INV-PET-005, REQ-PET2-001, INV-ARCH-004, INV-AUTH-003, INV-AUTH2-002, REQ-AUTH2-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED
  */
 
-import { DomainError, validateUserPublicProfile, type UserPublicProfile } from '../../../generated/index.ts';
+import {
+  DomainError,
+  validateBodyMeasurementRecord,
+  validateCustomParameterRecord,
+  validateDewormingRecord,
+  validateMedicalVisitRecord,
+  validatePetProfile,
+  validateUserPublicProfile,
+  validateVaccinationRecord,
+  validateWeightRecord,
+  type PetProfile,
+  type UserPublicProfile,
+} from '../../../generated/index.ts';
 import type {
   ConfirmationTokenRepositoryPort,
   LoginAttemptRepositoryPort,
+  MedicalRecordRepositoryPort,
+  PetRepositoryPort,
   RateLimitRepositoryPort,
   RepositorySet,
   SessionRepositoryPort,
@@ -27,6 +43,9 @@ import type {
 } from '../../../application/ports/repositories.port.ts';
 import { corruptData, isSessionRecord, sessionTokenHash } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
+import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
+import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
+import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 
 type Check<T> = (value: unknown) => value is T;
 type Row = Record<string, unknown>;
@@ -227,6 +246,145 @@ function rateLimitRepository(client: PoolClientLike): RateLimitRepositoryPort {
       await client.query('DELETE FROM rate_limit_events WHERE subject_user_id = $1', [userId]);
     },
   };
+}
+
+/** Tabla de cada módulo de registros y su validador generado (los nombres de tabla son constantes, nunca entrada). */
+const RECORD_TABLES: { readonly [M in RecordModule]: { readonly table: string; readonly check: Check<RecordOf<M>> } } = {
+  weights: { table: 'weights', check: validateWeightRecord },
+  bodyMeasurements: { table: 'body_measurements', check: validateBodyMeasurementRecord },
+  vaccinations: { table: 'vaccinations', check: validateVaccinationRecord },
+  dewormings: { table: 'dewormings', check: validateDewormingRecord },
+  medicalVisits: { table: 'medical_visits', check: validateMedicalVisitRecord },
+  customParameters: { table: 'custom_parameters', check: validateCustomParameterRecord },
+};
+const RECORD_MODULE_NAMES = Object.keys(RECORD_TABLES) as RecordModule[];
+
+const PET_COLUMNS = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate';
+
+/** @implements INV-ARCH-004, INV-PET-005, REQ-PET2-001, ERR-INTERNAL-UNEXPECTED */
+function petRepository(client: PoolClientLike): PetRepositoryPort {
+  const toPet = (row: Row): PetProfile => {
+    const id = String(row['id']);
+    const neutered = row['neutered'];
+    return decode(
+      'pets',
+      id,
+      row['data'],
+      validatePetProfile,
+      (p) =>
+        p.id === row['id'] &&
+        p.ownerUserId === row['owner_user_id'] &&
+        p.species === row['species'] &&
+        p.speciesOther === row['species_other'] &&
+        p.neutered === (neutered === null ? null : Number(neutered) === 1) &&
+        p.microchipId === row['microchip_id'] &&
+        p.birthDateIsEstimate === (Number(row['birth_date_is_estimate']) === 1),
+    );
+  };
+  return {
+    async findById(petId) {
+      const { rows } = await client.query(`SELECT ${PET_COLUMNS} FROM pets WHERE id = $1`, [petId]);
+      return rows[0] === undefined ? null : toPet(rows[0]);
+    },
+    async listByOwners(ownerUserIds) {
+      const { rows } = await client.query(`SELECT ${PET_COLUMNS} FROM pets WHERE owner_user_id = ANY($1::text[])`, [[...ownerUserIds]]);
+      return rows.map(toPet);
+    },
+    async save(pet) {
+      // UPSERT (no REPLACE): reemplazar una mascota no dispara la cascada de sus registros. Un microchip repetido del mismo
+      // propietario viola `pets_owner_microchip` (23505) y el error se propaga tal cual (INV-PET-005, REQ-PET2-001).
+      await client.query(
+        `INSERT INTO pets (${PET_COLUMNS}) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8)
+         ON CONFLICT (id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id, data = EXCLUDED.data, species = EXCLUDED.species,
+           species_other = EXCLUDED.species_other, neutered = EXCLUDED.neutered, microchip_id = EXCLUDED.microchip_id,
+           birth_date_is_estimate = EXCLUDED.birth_date_is_estimate`,
+        [
+          pet.id,
+          pet.ownerUserId,
+          encode('pets', pet.id, pet, validatePetProfile),
+          pet.species,
+          pet.speciesOther,
+          pet.neutered === null ? null : pet.neutered ? 1 : 0,
+          pet.microchipId,
+          pet.birthDateIsEstimate ? 1 : 0,
+        ],
+      );
+    },
+    async delete(petId) {
+      // INV-PET-005: ON DELETE CASCADE borra en la misma sentencia los registros de los 6 módulos y las asignaciones.
+      await client.query('DELETE FROM pets WHERE id = $1', [petId]);
+    },
+  };
+}
+
+/** @implements INV-ARCH-004, INV-PET-005, INV-REC2-002, ERR-INTERNAL-UNEXPECTED */
+function recordRepository(client: PoolClientLike): MedicalRecordRepositoryPort {
+  const isWeights = (module: RecordModule) => module === 'weights';
+  const PET_OF_RECORD = RECORD_MODULE_NAMES.map((m) => `SELECT pet_id FROM ${RECORD_TABLES[m].table} WHERE id = $1`).join(' UNION ALL ') + ' LIMIT 1';
+  return {
+    async listForPet(petId) {
+      const result = {} as Record<RecordModule, unknown[]>;
+      for (const module of RECORD_MODULE_NAMES) {
+        const { table, check } = RECORD_TABLES[module];
+        const { rows } = await client.query(`SELECT id, pet_id, data${isWeights(module) ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = $1`, [petId]);
+        result[module] = rows.map((row) =>
+          decode(table, String(row['id']), row['data'], check as Check<{ id: string; petId: string; weightKg?: number }>, (r) =>
+            r.id === row['id'] && r.petId === row['pet_id'] && (!isWeights(module) || Number(row['weight_grams']) === weightKgToGrams(r.weightKg!)),
+          ),
+        );
+      }
+      return result as unknown as PetRecordCollections;
+    },
+    async findPetIdOfRecord(recordId) {
+      const { rows } = await client.query(PET_OF_RECORD, [recordId]);
+      const row = rows[0];
+      if (row === undefined) return null;
+      if (typeof row['pet_id'] !== 'string') throw corruptData('records', recordId);
+      return row['pet_id'];
+    },
+    async add<M extends RecordModule>(module: M, record: RecordOf<M>) {
+      const { table, check } = RECORD_TABLES[module];
+      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
+      if (isWeights(module)) {
+        await client.query('INSERT INTO weights (id, pet_id, data, weight_grams) VALUES ($1, $2, $3::jsonb, $4)', [
+          record.id,
+          record.petId,
+          data,
+          weightKgToGrams((record as RecordOf<'weights'>).weightKg),
+        ]);
+      } else {
+        await client.query(`INSERT INTO ${table} (id, pet_id, data) VALUES ($1, $2, $3::jsonb)`, [record.id, record.petId, data]);
+      }
+    },
+    async replace<M extends RecordModule>(module: M, record: RecordOf<M>) {
+      const { table, check } = RECORD_TABLES[module];
+      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
+      const result = isWeights(module)
+        ? await client.query('UPDATE weights SET data = $1::jsonb, weight_grams = $2 WHERE id = $3 AND pet_id = $4', [
+            data,
+            weightKgToGrams((record as RecordOf<'weights'>).weightKg),
+            record.id,
+            record.petId,
+          ])
+        : await client.query(`UPDATE ${table} SET data = $1::jsonb WHERE id = $2 AND pet_id = $3`, [data, record.id, record.petId]);
+      if (result.rowCount !== 1) throw corruptData(table, record.id);
+    },
+    async remove(module, petId, recordId) {
+      const result = await client.query(`DELETE FROM ${RECORD_TABLES[module].table} WHERE id = $1 AND pet_id = $2`, [recordId, petId]);
+      return result.rowCount === 1;
+    },
+    async deleteForPet(petId) {
+      for (const module of RECORD_MODULE_NAMES) await client.query(`DELETE FROM ${RECORD_TABLES[module].table} WHERE pet_id = $1`, [petId]);
+    },
+  };
+}
+
+/** Repositorios de la parte 2 (T423): mascotas y registros clínicos. */
+export type PostgresRepositoriesPart2 = Pick<RepositorySet, 'pets' | 'records'>;
+
+/** @implements REQ-PG-002, INV-ARCH-005 */
+export function createPostgresRepositoriesPart2(client: PoolClientLike): PostgresRepositoriesPart2 {
+  return { pets: petRepository(client), records: recordRepository(client) };
 }
 
 /** Repositorios de la parte 1 (T422) sobre el cliente de la transacción; T423 y T424 completan `RepositorySet`. */

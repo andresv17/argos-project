@@ -313,7 +313,9 @@ describe('código fuente (T422, INV-ARCH-006, T464)', () => {
     expect(source()).not.toContain('schema_migrations');
   });
   it('ninguna sentencia interpola valores: el primer argumento de cada client.query es literal, la constante de columnas o COUNT_REFERENCES', () => {
-    const firstArguments = [...source().matchAll(/client\.query\(\s*(`[^`]*`|'[^']*'|\w+)/g)].map((m) => m[1]!);
+    // Solo la sección de la parte 1: las partes 2 y 3 (T423, T424) tienen su propia verificación y constantes (nombres de tabla).
+    const part1 = source().split('/** Tabla de cada módulo de registros')[0]!;
+    const firstArguments = [...part1.matchAll(/client\.query\(\s*(`[^`]*`|'[^']*'|\w+)/g)].map((m) => m[1]!);
     expect(firstArguments.length).toBe(20);
     for (const argument of firstArguments) {
       const interpolations = [...argument.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1]);
