@@ -1,4 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -196,6 +198,44 @@ describe('.github/workflows/infraestructura.yml (T446)', () => {
     expect(check).toBeGreaterThan(-1);
     expect(write).toBeGreaterThan(check);
     expect(st).toMatch(/exit 1/);
+  });
+
+  describe('fragmento de validación de PLAN_GUARD_LABELS ejecutado en bash (H-DH1-1)', () => {
+    const run = (labels: string): { rc: number; env: string } => {
+      const st = steps('apply').find((x) => /PLAN_GUARD_LABELS=/.test(x)) ?? '';
+      const from = st.indexOf('          if ');
+      const frag = st.slice(from);
+      expect(from).toBeGreaterThan(-1);
+      const dir = mkdtempSync(join(tmpdir(), 'pgl-'));
+      const envFile = join(dir, 'github_env');
+      const script = `set -euo pipefail\nLABELS="$LABELS_IN"\n${frag.replace(/^ {10}/gm, '')}`;
+      const r = spawnSync('bash', ['-c', script], { env: { ...process.env, LABELS_IN: labels, GITHUB_ENV: envFile }, encoding: 'utf8' });
+      return { rc: r.status ?? -1, env: existsSync(envFile) ? readFileSync(envFile, 'utf8') : '' };
+    };
+
+    it('LABELS vacío es válido: rc 0 y escribe PLAN_GUARD_LABELS= vacío', () => {
+      const r = run('');
+      expect(r.rc).toBe(0);
+      expect(r.env).toBe('PLAN_GUARD_LABELS=\n');
+    });
+
+    it('etiquetas válidas pasan y se escriben', () => {
+      const r = run('rotacion-secreto,aprobacion-manual');
+      expect(r.rc).toBe(0);
+      expect(r.env).toBe('PLAN_GUARD_LABELS=rotacion-secreto,aprobacion-manual\n');
+    });
+
+    it('rechaza salto de línea (a\\nB=1) sin escribir en GITHUB_ENV', () => {
+      const r = run('a\nB=1');
+      expect(r.rc).not.toBe(0);
+      expect(r.env).toBe('');
+    });
+
+    it('rechaza espacio (A b) sin escribir en GITHUB_ENV', () => {
+      const r = run('A b');
+      expect(r.rc).not.toBe(0);
+      expect(r.env).toBe('');
+    });
   });
 
   it('las etiquetas llegan al guardia por PLAN_GUARD_LABELS (rotacion-secreto y aprobacion-manual), sin interpolar en run', () => {
