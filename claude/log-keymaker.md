@@ -759,3 +759,6 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creados src/infrastructure/http/cloud-logging.ts (severity/message, base null, hora ISO, serializers req/err, redactSecrets, hook logMethod que redacta texto y reescribe "Route X:/url not found" -> "Route not found": hallazgo de la prueba del 404, Fastify registraba la URL con el UUID) y graceful-shutdown.ts (7 s < 10 s, servidor -> pool, SIGTERM/SIGINT una vez).
 - server.ts: PRODUCTION_LOGGER_OPTIONS = cloudLoggerOptions(); installShutdownHandlers solo en el bloque de arranque principal. app.ts y T412 sin cambios.
 - Limitación: DATABASE_URL no llega al logger (argos-no-process-env; AppConfig no la expone): se redacta por patrón postgres(ql):// y por el valor si se pasa a cloudLoggerOptions({databaseUrl}). Pool: aún no existe; closePool queda opcional.
+
+## 2026-11-16 — T416 (órdenes A-D de Neo, logos it. 76)
+- A: playwright.config.ts, NODE_ENV:'test' en env del webServer API. B: package.json test:gate, compile-contracts --feature 003 tras el 002. C: commit local con research.md §10, data-model.md §6, architect-T415-registro-requests.md + A y B. Sin push, sin [x]. D: compuerta T416 completa a continuación (resultado en el informe a Morpheus).

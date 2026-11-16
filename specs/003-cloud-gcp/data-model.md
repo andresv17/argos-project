@@ -82,7 +82,7 @@ Vida máxima de cada copia de los datos personales. Valores entre paréntesis = 
 | Dumps lógicos | GCS `dumps/` | 14 d; soft delete 0 s (sin él ~21 d) | REQ-IAC-008; soft delete por defecto de 7 d verificado el 2026-11-15, 0 lo desactiva |
 | Estado de Terraform no vigente | GCS (bucket de estado) | 30 d; soft delete 0 s (sin él ~37 d) | REQ-SEC-006 |
 | Logs de aplicación (sin PII por REQ-CLD-008) | Cloud Logging `_Default` | (30 d, fijar explícito) `[verificar]` | no confirmado: la página de enrutamiento no cita el valor |
-| Registro de petición de Cloud Run (IP, URL, user-agent) | Cloud Logging `_Default` | igual que `_Default`; no suprimible | REQ-CLD-008 (c) |
+| Registro de petición de Cloud Run (`run.googleapis.com/requests`: método, URL, estado, latencia, IP, user-agent) | Cloud Logging `_Default` | (30 d, valor por defecto de `_Default`; no suprimible) `[verificar]` que este log se enruta a `_Default` | REQ-CLD-008 (c); `research.md §10` (fuente oficial consultada 2026-11-16) |
 | Auditoría de administración de GCP | Cloud Logging `_Required` | (400 d, fijo de Google) `[verificar]` | no confirmado |
 | Registros de GitHub Actions | GitHub | (<= 30 d en la configuración del repositorio; el valor por defecto es 90 d) `[verificar]` | REQ-CICD-008 |
 | Artefactos de GitHub Actions | GitHub | (1 d; sin `tfplan`) | REQ-CICD-002, REQ-CICD-008 |

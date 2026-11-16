@@ -48,6 +48,7 @@ export default defineConfig({
         HOST: '127.0.0.1',
         APP_TIMEZONE: 'America/Bogota',
         COOKIE_SECURE: 'false',
+        NODE_ENV: 'test',
       },
     },
     {
