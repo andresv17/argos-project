@@ -15,7 +15,7 @@ import {
 } from '../../../src/infrastructure/persistence/postgres/postgres-database.ts';
 
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
-const URL_SECRETA = 'postgres://argos_app:clave-super-secreta@db.ejemplo.neon.tech/argos';
+const URL_SECRETA = 'postgres://argos_app:clave-super-secreta@db.ejemplo.neon.tech/argos'; // argos-scan:allow
 
 interface Doble {
   readonly ctor: PoolConstructor;

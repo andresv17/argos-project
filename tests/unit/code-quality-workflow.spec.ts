@@ -88,7 +88,7 @@ describe('.github/workflows/code-quality.yml (T449)', () => {
     expect(y).not.toMatch(/id-token/);
     expect(y).not.toMatch(/write-all/);
     expect(y).not.toMatch(/:\s*write\b/);
-    expect(y).not.toMatch(/secrets\./);
+    expect(y).not.toMatch(/\$\{\{\s*secrets\./); // contexto de secretos de Actions (no el nombre scan-secrets.mjs)
   });
 
   it('no interpola ${{ }} dentro de run:', () => {

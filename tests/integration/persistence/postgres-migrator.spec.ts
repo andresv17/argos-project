@@ -352,7 +352,7 @@ describe('T429 lectura de DATABASE_URL_DIRECT por config (INV-ARCH-006, REQ-PG-0
   it.each([
     ['ausente', undefined],
     ['vacía', ''],
-    ['sin sslmode=require', 'postgresql://u:p@ep.example/db'],
+    ['sin sslmode=require', 'postgresql://u:p@ep.example/db'], // argos-scan:allow
     ['esquema http', 'http://u:p@ep.example/db?sslmode=require'],
     ['con -pooler en el host (no es directa)', `postgresql://u:${PASSWORD}@ep-x-pooler.neon.example/db?sslmode=require`],
     ['no es una URL', `${PASSWORD} no url`],

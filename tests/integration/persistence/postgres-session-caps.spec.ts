@@ -24,7 +24,7 @@ const loadUow = async (): Promise<UowModule> => (await import(/* @vite-ignore */
 const ADVISORY = 'SELECT pg_advisory_xact_lock($1)';
 const CAPS = ["SET LOCAL lock_timeout = '10s'", "SET LOCAL statement_timeout = '10s'", "SET LOCAL idle_in_transaction_session_timeout = '15s'"];
 
-const reset = (code: string) => Object.assign(new Error('read ECONNRESET postgres://u:clave-secreta@host/db'), { code });
+const reset = (code: string) => Object.assign(new Error('read ECONNRESET postgres://u:clave-secreta@host/db'), { code }); // argos-scan:allow
 
 interface FakeClient {
   readonly statements: string[];
@@ -198,7 +198,7 @@ describe('keepAlive y SIGTERM (REQ-PG-012, REQ-CLD-006)', () => {
   it('el pool se crea con keepAlive TCP corto', () => {
     const seen: Array<{ keepAlive: boolean; keepAliveInitialDelayMillis: number }> = [];
     createPostgresPool(
-      { connectionString: 'postgres://u:p@h/d', pgPoolMax: 3 },
+      { connectionString: 'postgres://u:p@h/d', pgPoolMax: 3 }, // argos-scan:allow
       { createPool: (s) => (seen.push(s), { on: () => ({}) as never, end: async () => undefined } as never), log: () => undefined },
     );
     expect(seen[0]?.keepAlive).toBe(true);

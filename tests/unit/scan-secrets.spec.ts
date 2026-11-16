@@ -92,13 +92,13 @@ describe('patrones de secretos (SC-CLD-004)', () => {
   });
 
   it.each([
-    ['postgresql://u:Zq81xKd0pLm3@ep-cool-123.us-east-2.aws.neon.tech/db', 'host real de Neon'],
-    ['postgres://u:Zq81xKd0pLm3@evil.example.com.attacker.io/db', 'sufijo example.com con dominio ajeno'],
-    ['postgres://u:Zq81xKd0pLm3@notexample.com/db', 'notexample.com'],
-    ['postgres://u:Zq81xKd0pLm3@localhost.evil.com/db', 'localhost.evil.com'],
-    ['postgres://u:Zq81xKd0pLm3@mytest/db', 'mytest sin punto'],
-    ['postgres://u:Zq81xKd0pLm3@prod.test.io/db', 'test en medio'],
-    ['postgres://u:Zq81xKd0pLm3@10.0.0.5/db', 'IP privada no loopback'],
+    ['postgresql://u:Zq81xKd0pLm3@ep-cool-123.us-east-2.aws.neon.tech/db', 'host real de Neon'], // argos-scan:allow
+    ['postgres://u:Zq81xKd0pLm3@evil.example.com.attacker.io/db', 'sufijo example.com con dominio ajeno'], // argos-scan:allow
+    ['postgres://u:Zq81xKd0pLm3@notexample.com/db', 'notexample.com'], // argos-scan:allow
+    ['postgres://u:Zq81xKd0pLm3@localhost.evil.com/db', 'localhost.evil.com'], // argos-scan:allow
+    ['postgres://u:Zq81xKd0pLm3@mytest/db', 'mytest sin punto'], // argos-scan:allow
+    ['postgres://u:Zq81xKd0pLm3@prod.test.io/db', 'test en medio'], // argos-scan:allow
+    ['postgres://u:Zq81xKd0pLm3@10.0.0.5/db', 'IP privada no loopback'], // argos-scan:allow
   ])('[REQ-SEC-001][E-2 R1] en tests/ se detecta una URL con contraseña a %s', async (url, _n) => {
     expect((await load()).scanText('tests/unit/x.spec.ts', `u = '${url}'`).map((f) => f.rule)).toEqual(['url-con-contrasena']);
   });
@@ -207,7 +207,7 @@ describe('compuerta activa en CI (E-1, SC-CLD-004)', () => {
   it('[SC-CLD-004][E-1] code-quality.yml ejecuta `node scripts/scan-secrets.mjs repo` como paso, sin acciones de terceros', () => {
     expect(wf).toMatch(/^\s+run:\s*node scripts\/scan-secrets\.mjs repo\s*$/m);
     expect(wf).toMatch(/^ {2}scan-secrets:\s*$/m);
-    expect(wf).not.toMatch(/gitleaks/i);
+    expect(wf).not.toMatch(/^\s*-?\s*uses:.*gitleaks/im);
   });
   it('[SC-CLD-004][E-1] el trabajo scan-secrets hace checkout y usa Node de .nvmrc, con permisos de solo lectura', () => {
     const job = wf.slice(wf.indexOf('  scan-secrets:'));

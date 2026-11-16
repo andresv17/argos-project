@@ -8,8 +8,8 @@ import { AppConfigError, DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig } from '..
  * Paso de CI (scripts/validate-secrets.mjs): infraestructura.yml lo invoca; aquí se prueba con valores sintéticos.
  */
 const SCRIPT = join(process.cwd(), 'scripts', 'validate-secrets.mjs');
-const GOOD_DB = 'postgresql://argos_app:s3cr3t-pw@ep-cool-123-pooler.us-east-2.aws.neon.tech/argos?sslmode=require';
-const GOOD_DIRECT = 'postgresql://argos_migrator:d1rect-pw@ep-cool-123.us-east-2.aws.neon.tech/argos?sslmode=require';
+const GOOD_DB = 'postgresql://argos_app:s3cr3t-pw@ep-cool-123-pooler.us-east-2.aws.neon.tech/argos?sslmode=require'; // argos-scan:allow
+const GOOD_DIRECT = 'postgresql://argos_migrator:d1rect-pw@ep-cool-123.us-east-2.aws.neon.tech/argos?sslmode=require'; // argos-scan:allow
 const GOOD_HMAC = 'ab'.repeat(32);
 
 interface Violation {
@@ -76,7 +76,7 @@ describe('DATABASE_URL de aplicación (REQ-CICD-009)', () => {
   });
 
   it('[REQ-CICD-009] -pooler solo cuenta en el host, no en la ruta ni la contraseña', async () => {
-    const tricky = 'postgresql://u:x-pooler@ep-cool-123.neon.tech/db-pooler?sslmode=require';
+    const tricky = 'postgresql://u:x-pooler@ep-cool-123.neon.tech/db-pooler?sslmode=require'; // argos-scan:allow
     expect(await rules({ ...ENV, TF_VAR_database_url: tricky })).toEqual(['TF_VAR_database_url:pooler-requerido']);
   });
 });

@@ -7,8 +7,9 @@
 //                                                            un registro de CI o comentario; con --literal-env busca ademas el
 //                                                            VALOR de cada variable de entorno nombrada (secreto de prueba)
 // Salida: 0 = sin hallazgos, 1 = hallazgos, 2 = uso incorrecto. Solo se imprimen archivo, linea y regla; nunca el valor.
-// Una linea con `argos-scan:allow` se omite (valores sinteticos de pruebas). La regla url-con-contrasena no se aplica a tests/
-// (URL sinteticas de fixtures) ni a hosts de loopback (credenciales desechables locales); las demas reglas si aplican a tests/.
+// Una linea con `argos-scan:allow` se omite SOLO en archivos bajo tests/ (valores sinteticos de pruebas); fuera de tests/ la marca no
+// suprime nada (E-2 R2). La regla url-con-contrasena se exime unicamente para hosts localhost, 127.0.0.1, [::1], *.example.com y *.test
+// en tests/ (E-2 R1) y para loopback en cualquier ruta; cualquier otra URL con contrasena se detecta, tambien en tests/.
 import { execFileSync } from 'node:child_process';
 import { lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
@@ -30,6 +31,8 @@ const TOKEN_PATTERNS = [
 const PLACEHOLDER_PASSWORD = /^(<[^>]*>|\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*|\.{2,}|\*+|x+|pass(word)?|postgres|changeme|secret|test|argos|clave|contrasena|tu[_-]?clave|\{\{.*\}\})$/i;
 const URL_WITH_PASSWORD = /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/([^\s:@/'"`<>]+):([^\s@'"`]+)@([^\s/:?'"`]+)/g;
 const HMAC_ASSIGN = /(?:ARGOS_AUDIT_HMAC_SECRET|audit_hmac_secret)["']?\s*[:=]\s*["']?([^\s"',;]+)/gi;
+const LOOPBACK_HOST = /^(localhost|127\.0\.0\.1|\[::1\])$/i;
+const SYNTHETIC_HOST = /^(?:.+\.)?(?:example\.com|test)$/i; // solo se admite en tests/ (E-2 R1)
 const HEX64 = /^(?:[0-9a-fA-F]{2}){32,}$/;
 
 /** Rutas que nunca deben estar en el repositorio ni en la imagen (REQ-SEC-005). */
@@ -47,16 +50,17 @@ export function scanText(name, text) {
   const findings = [];
   const lines = text.split(/\r\n|\r|\n/);
   lines.forEach((line, i) => {
-    if (line.includes(ALLOW)) return;
+    if (line.includes(ALLOW) && name.startsWith('tests/')) return;
     const add = (rule) => findings.push({ file: name, line: i + 1, rule });
     if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(line)) add('clave-privada');
     if (TOKEN_PATTERNS.some((re) => re.test(line))) add('token-conocido');
     if (/"type"\s*:\s*"service_account"/.test(line) || /"private_key"\s*:\s*"-----BEGIN/.test(line)) add('cuenta-de-servicio');
     for (const m of line.matchAll(URL_WITH_PASSWORD)) {
       const pass = m[2] ?? '';
-      const loopback = /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(m[3] ?? '');
-      // Las URL sinteticas de tests/ (fixtures con host de ejemplo) y las de loopback (credenciales desechables locales) no son secretos.
-      if (!PLACEHOLDER_PASSWORD.test(pass) && !loopback && !name.startsWith('tests/')) add('url-con-contrasena');
+      const host = m[3] ?? '';
+      // Loopback (credenciales desechables locales) en cualquier ruta; hosts example.com y .test solo en tests/ (fixtures sinteticos).
+      const exempt = LOOPBACK_HOST.test(host) || (name.startsWith('tests/') && SYNTHETIC_HOST.test(host));
+      if (!PLACEHOLDER_PASSWORD.test(pass) && !exempt) add('url-con-contrasena');
     }
     for (const m of line.matchAll(HMAC_ASSIGN)) {
       const v = m[1] ?? '';

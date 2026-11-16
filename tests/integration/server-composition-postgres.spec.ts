@@ -6,7 +6,7 @@ import { loadAppConfig } from '../../src/infrastructure/config/app-config.ts';
  * better-sqlite3 es un módulo falso que falla si se importa; createPostgresPool/closePool son dobles.
  * La prueba viva contra Neon queda aplazada a T431 (describe.skipIf(!TEST_DATABASE_URL) al final).
  */
-const URL_SECRET = 'postgres://argos:clave-secreta-428@db.example.internal:5432/argos?sslmode=require';
+const URL_SECRET = 'postgres://argos:clave-secreta-428@db.example.internal:5432/argos?sslmode=require'; // argos-scan:allow
 const PG_ENV = {
   NODE_ENV: 'test',
   ARGOS_DB_DRIVER: 'postgres',

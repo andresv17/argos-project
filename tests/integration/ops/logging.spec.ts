@@ -30,7 +30,7 @@ import { AUDIT_SECRET_HEX } from '../../fixtures/audit-fixtures.ts';
 const CLIENT_IP = '203.0.113.77';
 const MICROCHIP = '985112345678901';
 const MISSING_PET_UUID = '0b9e1b8a-6c1d-4a53-9f3e-2f8f7c1d9a11';
-const DATABASE_URL = 'postgresql://argos_app:s3cr3tP4ss@ep-cool-name-123.eu-central-1.aws.neon.tech/argos?sslmode=require';
+const DATABASE_URL = 'postgresql://argos_app:s3cr3tP4ss@ep-cool-name-123.eu-central-1.aws.neon.tech/argos?sslmode=require'; // argos-scan:allow
 const PASSWORD = 'Lucia2026xyz!';
 const CSRF = { 'x-argos-request': '1', 'content-type': 'application/json' };
 const PET = { name: 'Lucía', species: 'CANINE', breed: 'Mestiza', birthDate: '2024-03-01', sex: 'FEMALE', avatarUrl: null, microchipId: MICROCHIP };

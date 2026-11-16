@@ -6,7 +6,7 @@ name: Code Quality
 #
 # Acciones de los flujos de la 003 (REQ-CICD-011(a)); actions/* admite etiqueta mayor, el resto va por SHA de 40 caracteres:
 #   actions/checkout@v4                (actions/*, etiqueta mayor)  auto-pr, test-gate, deploy-argos, drift-detection, code-quality
-#   actions/setup-node@v4              (actions/*, etiqueta mayor)  test-gate, deploy-argos, drift-detection
+#   actions/setup-node@v4              (actions/*, etiqueta mayor)  test-gate, deploy-argos, drift-detection, code-quality
 #   actions/setup-python@v5            (actions/*, etiqueta mayor)  test-gate
 #   google-github-actions/auth         v3.0.0  7c6bc770dae815cd3e89ee6cdf493a5fab2cc093  deploy-argos
 #   docker/login-action                v4.8.0  8aa5831fb8d48d8f76594c7ddde61ae58019f550  deploy-argos
@@ -85,3 +85,18 @@ jobs:
       - name: Auditar dependencias de producción
         run: |
           npm audit --omit=dev --audit-level=high
+
+  scan-secrets:
+    name: escaneo de secretos (repositorio)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Escanear secretos en archivos versionados (SC-CLD-004)
+        run: node scripts/scan-secrets.mjs repo

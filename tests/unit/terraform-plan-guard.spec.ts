@@ -35,7 +35,7 @@ const plan = (changes: unknown[], customDomain = '') => ({
   variables: { custom_domain: { value: customDomain } },
   resource_changes: changes,
 });
-const GOOD_ENV = { TF_VAR_database_url: 'postgres://u:p@h-pooler/db?sslmode=require', TF_VAR_audit_hmac_secret: 'ab'.repeat(32) };
+const GOOD_ENV = { TF_VAR_database_url: 'postgres://u:p@h-pooler/db?sslmode=require', TF_VAR_audit_hmac_secret: 'ab'.repeat(32) }; // argos-scan:allow
 
 describe('guardia de plan: borrados protegidos (REQ-IAC-007)', () => {
   it('bloquea delete de google_secret_manager_secret_version sin la etiqueta rotacion-secreto', async () => {

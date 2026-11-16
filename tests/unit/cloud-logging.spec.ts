@@ -7,7 +7,7 @@ import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 import { cloudLoggerOptions, redactSecrets, serializeError, serializeRequest, severityOf } from '../../src/infrastructure/http/cloud-logging.ts';
 
-const DATABASE_URL = 'postgresql://argos_app:s3cr3tP4ss@ep-cool-name-123.eu-central-1.aws.neon.tech/argos?sslmode=require';
+const DATABASE_URL = 'postgresql://argos_app:s3cr3tP4ss@ep-cool-name-123.eu-central-1.aws.neon.tech/argos?sslmode=require'; // argos-scan:allow
 
 async function capture(databaseUrl: string | undefined, log: (logger: import('fastify').FastifyBaseLogger) => void): Promise<Array<Record<string, unknown>>> {
   const lines: string[] = [];
@@ -58,7 +58,7 @@ describe('redacción de DATABASE_URL en cualquier registro (REQ-CLD-008)', () =>
   });
 
   it('redactSecrets elimina cualquier URL postgres:// o postgresql:// aunque no se conozca la configurada', () => {
-    const clean = redactSecrets('error postgres://otro:clave@host.interno:5432/db y postgresql://u:p@h/d', undefined);
+    const clean = redactSecrets('error postgres://otro:clave@host.interno:5432/db y postgresql://u:p@h/d', undefined); // argos-scan:allow
     expect(clean).not.toMatch(/postgres(ql)?:\/\//);
     expect(clean).not.toContain('clave');
     expect(clean).not.toContain('host.interno');
