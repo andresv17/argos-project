@@ -1,6 +1,6 @@
 /**
  * Estáticos de dist/ con @fastify/static y fallback SPA a index.html (solo GET/HEAD fuera de /api/* y /assets/*).
- * Dotfiles denegados, sin listado de directorios; rutas con traversal codificado, barras dobles o invertidas y byte
+ * Dotfiles (segmentos con punto inicial, también /.well-known/*) dan 404 sin contenido ni SPA; sin listado de directorios; rutas con traversal codificado, barras dobles o invertidas y byte
  * nulo dan 404 sin contenido. El fallback no se aplica a rutas con extensión en el último segmento (parecen archivos:
  * el cliente o el analizador de URL pueden haber normalizado un traversal a /secret.txt, que no debe devolver index.html).
  * @implements REQ-CLD-001, REQ-CLD-009, SC-CLD-022
@@ -16,7 +16,8 @@ export interface StaticAssetsOptions {
 
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 const NO_CACHE = 'no-cache';
-const SUSPICIOUS = /%2e|%2f|%5c|%00|\\|\/\/|\.\./i;
+// Incluye cualquier segmento que empiece por punto (dotfiles): 404 uniforme; @fastify/static con dotfiles:'deny' lanzaría un 403 sin código FST_* que acabaría en 500.
+const SUSPICIOUS = /%2e|%2f|%5c|%00|\\|\/\/|\.\.|\/\./i;
 
 export async function registerStaticAssets(app: FastifyInstance, { root }: StaticAssetsOptions): Promise<void> {
   const assetsDir = `${root}${sep}assets${sep}`;
