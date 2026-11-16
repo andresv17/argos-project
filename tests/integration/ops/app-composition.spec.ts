@@ -49,6 +49,7 @@ afterEach(async () => {
 function expectSecurityHeaders(headers: Record<string, unknown>): void {
   expect(String(headers['content-security-policy'])).toContain("default-src 'self'");
   expect(String(headers['content-security-policy'])).toContain("frame-ancestors 'none'");
+  expect(String(headers['content-security-policy'])).toContain("img-src 'self' data:");
   expect(headers['x-content-type-options']).toBe('nosniff');
   expect(headers['referrer-policy']).toBe('no-referrer');
 }

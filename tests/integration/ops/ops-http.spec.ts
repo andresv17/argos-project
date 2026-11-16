@@ -214,6 +214,7 @@ describe('cabeceras de seguridad por ruta (REQ-CLD-009, SC-CLD-022, T479)', () =
       const csp = String(res.headers['content-security-policy']);
       expect(csp, url).toContain("default-src 'self'");
       expect(csp, url).toContain("frame-ancestors 'none'");
+      expect(csp, url).toContain("img-src 'self' data:");
     }
   });
 

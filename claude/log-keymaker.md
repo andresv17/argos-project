@@ -883,3 +883,6 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - tests/integration/ops/app-composition.spec.ts: 13 pruebas, 9 rojas (sondas, estáticos y cabeceras no compuestos; trustProxy ausente), 4 verdes (API 401, estática de process.env, etc.).
 - Implementado (cierre Fase 2): app.ts recibe trustProxy/checkReady/staticRoot opcionales (orden: problem-details, security-headers, CSRF, API, ops, estáticos al final); server.ts provee checkReady (sqlite: assertSchemaReady nueva en sqlite-database.ts = SELECT 1 + esperadas ⊆ aplicadas; postgres: SELECT 1 hasta T464), trustProxy = host 0.0.0.0 ? 1 : false (convertido a función hop<1 porque los tipos de Fastify no aceptan number), staticRoot = <cwd>/dist, falla cerrado en 0.0.0.0 sin index.html, omite en desarrollo. tsc 0; vitest 2186 verdes + 31 omitidas.
 - Desvíos: maintenance se registra tras estáticos (POST; el notFoundHandler no depende del orden). persistence/sqlite tocado por orden de Morpheus.
+
+## 2026-11-16 CSP img-src (Keymaker, orden de Neo Logos 92)
+- Pruebas primero: app-composition.spec.ts y ops-http.spec.ts exigen "img-src 'self' data:" en la CSP. Rojas antes de implementar; luego security-headers.ts y REQ-CLD-009 (una frase).
