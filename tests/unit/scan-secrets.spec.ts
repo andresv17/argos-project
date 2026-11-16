@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -64,16 +64,59 @@ describe('patrones de secretos (SC-CLD-004)', () => {
     expect(await rulesOf(text)).toEqual([]);
   });
 
-  it('[REQ-SEC-001] la regla de URL no aplica a fixtures de tests/ ni a loopback, pero un token en tests/ sí se marca', async () => {
+  it('[REQ-SEC-001] la regla de URL exime hosts sintéticos de tests/ y loopback, pero un host real o un token en tests/ sí se marca', async () => {
     const m = await load();
-    expect(m.scanText('tests/unit/x.spec.ts', `u = '${PG_URL}'`)).toEqual([]);
+    expect(m.scanText('tests/unit/x.spec.ts', `u = '${PG_URL}'`).map((f) => f.rule)).toEqual(['url-con-contrasena']);
+    expect(m.scanText('tests/unit/x.spec.ts', "u = 'postgres://argos_app:Zq81xKd0pLm3Vb7n@db.example.com/argos'")).toEqual([]);
     expect(m.scanText('src/x.ts', `u = '${PG_URL}'`).map((f) => f.rule)).toEqual(['url-con-contrasena']);
     expect(m.scanText('docker-compose.yml', 'postgres://argos_test:Zq81xKd0pLm3@127.0.0.1:55432/db')).toEqual([]);
     expect(m.scanText('tests/unit/x.spec.ts', `t = '${GH}'`).map((f) => f.rule)).toEqual(['token-conocido']);
   });
 
-  it('[REQ-SEC-001] el marcador argos-scan:allow en la línea suprime el hallazgo', async () => {
-    expect(await rulesOf(`k=${GH} # argos-scan:allow`)).toEqual([]);
+  it('[REQ-SEC-001] el marcador argos-scan:allow suprime el hallazgo solo en archivos de tests/', async () => {
+    const m = await load();
+    expect(m.scanText('tests/unit/x.spec.ts', `k=${GH} # argos-scan:allow`)).toEqual([]);
+  });
+
+  it.each(['src/x.ts', 'f.txt', 'scripts/x.mjs', '.github/workflows/a.yml', 'docs/tests/x.md', 'mytests/x.ts', 'app/tests/x.ts'])(
+    '[REQ-SEC-001][E-2 R2] la marca argos-scan:allow NO suprime nada fuera de tests/ (%s)',
+    async (p) => {
+      const m = await load();
+      expect(m.scanText(p, `k=${GH} # argos-scan:allow`).map((f) => f.rule)).toEqual(['token-conocido']);
+      expect(m.scanText(p, `u = '${PG_URL}' // argos-scan:allow`).map((f) => f.rule)).toEqual(['url-con-contrasena']);
+    },
+  );
+
+  it.each(['tests/unit/x.spec.ts', 'tests/e2e/a/b.ts'])('[REQ-SEC-001][E-2 R2] la marca sigue suprimiendo en %s', async (p) => {
+    expect((await load()).scanText(p, `k=${GH} # argos-scan:allow`)).toEqual([]);
+  });
+
+  it.each([
+    ['postgresql://u:Zq81xKd0pLm3@ep-cool-123.us-east-2.aws.neon.tech/db', 'host real de Neon'],
+    ['postgres://u:Zq81xKd0pLm3@evil.example.com.attacker.io/db', 'sufijo example.com con dominio ajeno'],
+    ['postgres://u:Zq81xKd0pLm3@notexample.com/db', 'notexample.com'],
+    ['postgres://u:Zq81xKd0pLm3@localhost.evil.com/db', 'localhost.evil.com'],
+    ['postgres://u:Zq81xKd0pLm3@mytest/db', 'mytest sin punto'],
+    ['postgres://u:Zq81xKd0pLm3@prod.test.io/db', 'test en medio'],
+    ['postgres://u:Zq81xKd0pLm3@10.0.0.5/db', 'IP privada no loopback'],
+  ])('[REQ-SEC-001][E-2 R1] en tests/ se detecta una URL con contraseña a %s', async (url, _n) => {
+    expect((await load()).scanText('tests/unit/x.spec.ts', `u = '${url}'`).map((f) => f.rule)).toEqual(['url-con-contrasena']);
+  });
+
+  it.each([
+    'postgres://u:Zq81xKd0pLm3@localhost:5432/db',
+    'postgres://u:Zq81xKd0pLm3@127.0.0.1/db',
+    'postgres://u:Zq81xKd0pLm3@example.com/db',
+    'postgres://u:Zq81xKd0pLm3@db.example.com/db',
+    'postgres://u:Zq81xKd0pLm3@a.b.example.com:5432/db',
+    'postgres://u:Zq81xKd0pLm3@db.test/db',
+    'postgres://u:Zq81xKd0pLm3@ep-x.test:5432/db',
+  ])('[REQ-SEC-001][E-2 R1] en tests/ se exime %s (hosts sintéticos)', async (url) => {
+    expect((await load()).scanText('tests/unit/x.spec.ts', `u = '${url}'`)).toEqual([]);
+  });
+
+  it('[REQ-SEC-001][E-2 R1] los hosts example.com y .test NO se eximen fuera de tests/', async () => {
+    expect((await load()).scanText('src/x.ts', "u = 'postgres://u:Zq81xKd0pLm3@db.example.com/db'").map((f) => f.rule)).toEqual(['url-con-contrasena']);
   });
 
   it('[REQ-SEC-001] los hallazgos llevan archivo, línea y regla, nunca el valor', async () => {
@@ -156,6 +199,22 @@ describe('CLI (SC-CLD-004)', () => {
     expect(run([]).status).toBe(2);
     expect(run(['dir']).status).toBe(2);
     expect(run(['nada', 'x']).status).toBe(2);
+  });
+});
+
+describe('compuerta activa en CI (E-1, SC-CLD-004)', () => {
+  const wf = readFileSync(join(process.cwd(), '.github', 'workflows', 'code-quality.yml'), 'utf8');
+  it('[SC-CLD-004][E-1] code-quality.yml ejecuta `node scripts/scan-secrets.mjs repo` como paso, sin acciones de terceros', () => {
+    expect(wf).toMatch(/^\s+run:\s*node scripts\/scan-secrets\.mjs repo\s*$/m);
+    expect(wf).toMatch(/^ {2}scan-secrets:\s*$/m);
+    expect(wf).not.toMatch(/gitleaks/i);
+  });
+  it('[SC-CLD-004][E-1] el trabajo scan-secrets hace checkout y usa Node de .nvmrc, con permisos de solo lectura', () => {
+    const job = wf.slice(wf.indexOf('  scan-secrets:'));
+    expect(job).toContain('uses: actions/checkout@v4');
+    expect(job).toContain('uses: actions/setup-node@v4');
+    expect(job).toContain("node-version-file: '.nvmrc'");
+    expect(job).toContain('contents: read');
   });
 });
 
