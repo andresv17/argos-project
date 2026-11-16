@@ -9,6 +9,8 @@ name: Vacuum Argos
 # - Publica solo conteos/fechas de pg_stat_user_tables (last_vacuum, last_autovacuum, n_dead_tup), sin datos.
 # Runbook: GitHub deshabilita los schedule tras 60 dias sin actividad del repositorio; reactivar el cron cada 50 dias
 # (por ejemplo con un commit o desde Actions > Enable workflow). El workflow_dispatch es la via de respaldo.
+# SQL compartido: scripts/vacuum-argos.sql (secciones `-- @sql <nombre>`), el mismo que usa la prueba con centinela
+# tests/integration/persistence/postgres-vacuum-sentinel.spec.ts (T473b), para que flujo y prueba no diverjan.
 # Solo usa la URL directa (DATABASE_URL_DIRECT, sin -pooler) y acciones actions/* (sin terceros).
 on:
   schedule:
@@ -47,19 +49,19 @@ jobs:
         run: |
           set -euo pipefail
           echo "::add-mask::${DATABASE_URL_DIRECT}"
+          sql_seccion() { awk -v n="$1" '$1 == "--" && $2 == "@sql" { dentro = ($3 == n); next } dentro' scripts/vacuum-argos.sql; }
           if [ "${EVENTO}" = "workflow_dispatch" ] && [ "${MODO:-full}" = "full" ]; then
-            SENTENCIA="VACUUM (FULL, ANALYZE)"
+            SENTENCIA="$(sql_seccion vacuum_full)"
             export PGOPTIONS="-c lock_timeout=3s -c statement_timeout=120s"
             MAX_INTENTOS=3
           else
-            SENTENCIA="VACUUM (ANALYZE)"
+            SENTENCIA="$(sql_seccion vacuum_simple)"
             export PGOPTIONS="-c statement_timeout=120s"
             MAX_INTENTOS=1
           fi
           echo "Sentencia: ${SENTENCIA}; hasta ${MAX_INTENTOS} intento(s) por tabla"
 
-          TABLAS="$(psql "${DATABASE_URL_DIRECT}" -X -A -t -v ON_ERROR_STOP=1 \
-            -c "SELECT quote_ident(schemaname) || '.' || quote_ident(relname) FROM pg_stat_user_tables WHERE schemaname = 'public' ORDER BY relname")"
+          TABLAS="$(psql "${DATABASE_URL_DIRECT}" -X -A -t -v ON_ERROR_STOP=1 -c "$(sql_seccion listar_tablas)")"
           if [ -z "${TABLAS}" ]; then
             echo "Sin tablas en el esquema public: nada que verificar" >&2
             exit 1
@@ -70,14 +72,14 @@ jobs:
             while true; do
               SALIDA="$(mktemp)"
               if psql "${DATABASE_URL_DIRECT}" -X -v ON_ERROR_STOP=1 -c "${SENTENCIA} ${T}" >"${SALIDA}" 2>&1; then
-                if grep -qi "only table owner" "${SALIDA}"; then
+                if grep -Eqi "only table owner|permission denied to vacuum" "${SALIDA}"; then
                   echo "FALLA: ${T} emitio 'skipping ... only table owner can vacuum' (rol sin privilegio)" >&2
                   exit 1
                 fi
                 echo "OK ${T}"
                 break
               fi
-              if grep -qi "only table owner" "${SALIDA}"; then
+              if grep -Eqi "only table owner|permission denied to vacuum" "${SALIDA}"; then
                 echo "FALLA: ${T} emitio 'skipping ... only table owner can vacuum' (rol sin privilegio)" >&2
                 exit 1
               fi
@@ -92,11 +94,9 @@ jobs:
           done
 
           echo "Estado en pg_stat_user_tables (solo conteos y fechas):"
-          psql "${DATABASE_URL_DIRECT}" -X -v ON_ERROR_STOP=1 -c \
-            "SELECT relname, last_vacuum, last_autovacuum, n_dead_tup FROM pg_stat_user_tables WHERE schemaname = 'public' ORDER BY relname"
+          psql "${DATABASE_URL_DIRECT}" -X -v ON_ERROR_STOP=1 -c "$(sql_seccion estado)"
 
-          VIEJAS="$(psql "${DATABASE_URL_DIRECT}" -X -A -t -v ON_ERROR_STOP=1 -c \
-            "SELECT relname FROM pg_stat_user_tables WHERE schemaname = 'public' AND (last_vacuum IS NULL OR last_vacuum < now() - interval '10 days')")"
+          VIEJAS="$(psql "${DATABASE_URL_DIRECT}" -X -A -t -v ON_ERROR_STOP=1 -c "$(sql_seccion vencidas)")"
           if [ -n "${VIEJAS}" ]; then
             echo "FALLA: last_vacuum supera 10 days (o es nulo) en: ${VIEJAS}" >&2
             exit 1

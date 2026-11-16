@@ -10,6 +10,9 @@ import { describe, expect, it } from 'vitest';
 const path = join(process.cwd(), '.github', 'workflows', 'vacuum-argos.yml');
 const load = (): string => readFileSync(path, 'utf8');
 const body = (): string => load().replace(/^\s*#.*$/gm, '');
+/** T473b: el SQL de la secuencia vive en scripts/vacuum-argos.sql, compartido con la prueba de centinela. */
+const sqlPath = join(process.cwd(), 'scripts', 'vacuum-argos.sql');
+const sharedSql = (): string => readFileSync(sqlPath, 'utf8').replace(/^\s*--(?!\s+@sql).*$/gm, '');
 
 const SECRETS_TOKEN = /(?<![\w.-])secrets(?![\w-])/i;
 /** Líneas de `secrets.X` que NO están dentro de un bloque `env:` de paso (indentación >= 10). */
@@ -62,7 +65,7 @@ describe('.github/workflows/vacuum-argos.yml (T473)', () => {
     const y = body();
     expect(y).toMatch(/inputs:\s*\n\s+modo:/);
     expect(y).toMatch(/full/);
-    const r = runBlocks();
+    const r = runBlocks() + sharedSql();
     expect(r).toMatch(/VACUUM \(ANALYZE\)/);
     expect(r).toMatch(/VACUUM \(FULL, ANALYZE\)/);
     expect(y).toMatch(/github\.event_name/);
@@ -100,12 +103,25 @@ describe('.github/workflows/vacuum-argos.yml (T473)', () => {
     expect(r).toMatch(/for\s+\w+\s+in|while\s+read/);
   });
 
-  it('falla ante "skipping … only table owner"', () => {
+  it('falla ante "skipping … only table owner" (PG <= 15) y "permission denied to vacuum" (PG >= 16, Neon 17)', () => {
     expect(runBlocks()).toMatch(/only table owner/);
+    expect(runBlocks()).toMatch(/permission denied to vacuum/);
+  });
+
+  it('T473b: toma el SQL de scripts/vacuum-argos.sql (compartido con la prueba de centinela), sin duplicarlo en el flujo', () => {
+    expect(existsSync(sqlPath)).toBe(true);
+    const r = runBlocks();
+    expect(r).toMatch(/scripts\/vacuum-argos\.sql/);
+    for (const seccion of ['vacuum_simple', 'vacuum_full', 'listar_tablas', 'estado', 'vencidas']) {
+      expect(r).toContain(`sql_seccion ${seccion}`);
+      expect(readFileSync(sqlPath, 'utf8')).toMatch(new RegExp(`^-- @sql ${seccion}\\s*$`, 'm'));
+    }
+    expect(r).not.toMatch(/SELECT\s/i);
+    expect(r).not.toMatch(/VACUUM \(/);
   });
 
   it('falla si last_vacuum supera 10 días y publica last_vacuum/last_autovacuum/n_dead_tup', () => {
-    const r = runBlocks();
+    const r = runBlocks() + sharedSql();
     expect(r).toMatch(/pg_stat_user_tables/);
     expect(r).toMatch(/last_vacuum/);
     expect(r).toMatch(/last_autovacuum/);
