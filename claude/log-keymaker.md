@@ -872,3 +872,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-16 T431 pruebas vivas alineadas (Keymaker)
 - Tests: 55P03 o 57014 en concurrencia viva; timeout 60 s solo en suites vivas; títulos neutros (sin "SE OMITE"). Sin tocar src/ ni constantes.
 - Corrida viva (Postgres 55432): 23 archivos, 301 pasan, 0 fallan. Suite sin variable: 114 archivos pasan, 1 omitido; 2152 pasan, 31 omitidas. tsc exit 0.
+
+## 2026-11-16 T432 y T433 (Keymaker, Phase 4 Contenedor)
+- T432: pruebas primero f4ab470 (7 rojas: script inexistente); scripts/build-server.mjs (esbuild 0.28.2, ESM, splitting, external better-sqlite3 y pg-native, banner createRequire, copia migraciones SQLite) 7513308. Dependencias de terceros EMPAQUETADAS salvo better-sqlite3; el fragmento de SQLite es el unico que lo importa. Humo: arranca y /api/auth/me da 401. HALLAZGO: /healthz da 404 en el bundle: ops-routes.ts, security-headers y static-assets (T412/T479) existen pero server.ts/app.ts no los componen (y por tanto la imagen no sirve dist/). Fuera de mi alcance (src/).
+- T433: pruebas primero cbad577 (14 rojas: sin Dockerfile ni .dockerignore); Dockerfile (2 etapas, digest del indice sha256:5ec23b7c... verificado con docker buildx imagetools inspect), .dockerignore. Etapa final sin node_modules, sin npm, sin better-sqlite3 (REQ-PG-010: ARGOS_DB_DRIVER=postgres por defecto). dist-server no esta en .gitignore (fuera de alcance).
+- tsc 0; vitest 2173 verdes + 31 omitidas.
