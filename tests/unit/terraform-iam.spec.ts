@@ -73,7 +73,7 @@ describe('terraform/iam.tf (T439)', () => {
     expect(pub.length).toBe(1);
     expect(pub[0]?.type).toBe('google_cloud_run_v2_service_iam_member');
     expect(roles(pub[0]!)).toEqual(['roles/run.invoker']);
-    expect(code().match(/allUsers|allAuthenticatedUsers/g)?.filter((x) => x === 'allAuthenticatedUsers')).toBeUndefined();
+    expect(code()).not.toContain('allAuthenticatedUsers');
   });
 
   it('no hay roles de propietario, editor ni administración amplia', () => {
