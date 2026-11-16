@@ -839,3 +839,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-16 — T426 implementación (inyector de fallos PostgreSQL)
 - Creado tests/fixtures/pg-fault-injection.ts (faultInjectingRepositories(injector, createRepositories)): envuelve la fábrica que ya recibe PostgresUnitOfWork; beginTransaction() por transacción + injector.wrap. Ubicación: tests/fixtures porque es solo de pruebas y no exige cambios en src (el DeterministicFaultInjector de T277 se reutiliza tal cual).
 - Rojas 6 -> verdes 6 (fixture inexistente). tsc 0; vitest completa 2106 verdes + 25 omitidas (vivas).
+
+## 2026-11-16 — T427 pruebas de concurrencia (prueba viva aplazada a T431)
+- Creado tests/integration/persistence/postgres-concurrency.spec.ts: 7 no vivas (doble de pg_advisory_xact_lock como cola FIFO: 2 pools -> misma constante 0x4152474f53; resultado serial 3 transacciones sin cuentas perdidas + control negativo sin candado que sí las pierde; lock_timeout antes del candado en ambas; 55P03 propagado sin traducir con ROLLBACK, work no ejecutado, release único; recuperación posterior; sin reintento por 55P03) y 3 vivas skipIf(!TEST_DATABASE_URL) (2 pools serial, lock_timeout real ~10 s, 3 pools sin 40P01), aplazadas a T431 por decisión de Neo.
+- Nada que implementar en src/: el orden/texto del candado y los topes ya estaban fijados por T421/T465 (postgres-session-caps.spec.ts); lo nuevo es solo la semántica concurrente. Única roja inicial: error del propio doble (la espera no era cola); corregido en la prueba. Reservas R-1/R-2 de Oracle y R-1 de T425 quedan para T431 (requieren base real).
+- tsc 0; vitest completa 2113 verdes + 28 omitidas.
