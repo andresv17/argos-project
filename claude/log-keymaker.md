@@ -749,3 +749,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - server.ts: registra la ruta solo con dbDriver==='postgres'; setInterval solo con sqlite. csrf-guard.ts: exención exacta de POST /internal/maintenance. T412 (ops-routes, static-assets, security-headers) sin cambios. .env.example: solo comentarios.
 - Desvío: tests/unit/app-config.spec.ts, solo fixtures: 11 entornos postgres previos aportan PG_CLOUD (las variables ahora obligatorias); aserciones intactas.
 - Gates: tsc 0; ops+app-config 163/163; unit+integration 1644/1644 (75 archivos); suite completa 1957/1957 (96). Sin push, sin [x].
+
+## 2026-11-16 — T415 (pruebas primero: logging con severity, redacción, serializers, SIGTERM)
+- Creados tests/unit/cloud-logging.spec.ts (13), tests/unit/graceful-shutdown.spec.ts (9), tests/integration/ops/logging.spec.ts (6) = 28 pruebas. Contrato para src/: http/cloud-logging.ts (cloudLoggerOptions({databaseUrl}), severityOf, redactSecrets, serializeRequest, serializeError) y http/graceful-shutdown.ts (SHUTDOWN_TIMEOUT_MS=7000, CLOUD_RUN_GRACE_MS=10000, shutdownGracefully({closeServer, closePool?, timeoutMs?}), installShutdownHandlers({target, closeServer, closePool?, timeoutMs?, exit})).
+- Cubre: severity/message sin level/msg/pid/hostname; DATABASE_URL (URL, usuario, clave, host) fuera de mensaje, campos y Error; req solo method+url con plantilla; err solo sqlstate+constraint; microchip duplicado (409) y 404 con UUID sin UUID/microchip/IP en stdout; cierre simulado < 7 s (nunca señal real). Registro de Cloud Run documentado en el encabezado de logging.spec.ts.
+- Resultado: 3 archivos rojos (28 pruebas), causa única: módulos cloud-logging.ts y graceful-shutdown.ts inexistentes. src/ intacto. Sin push, sin [x].
