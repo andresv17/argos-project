@@ -61,7 +61,7 @@ describe('.github/workflows/code-quality.yml (T449)', () => {
     const r = runBlocks();
     expect(r).toMatch(/sha256sum\s+(-c|--check)/);
     expect(r.match(/sha256sum\s+(-c|--check)/g)?.length).toBe(2);
-    expect(r).toMatch(/hadolint\s+Dockerfile/);
+    expect(r).toMatch(/hadolint"?\s+Dockerfile/);
     expect(r).toMatch(/actionlint\b/);
   });
 
