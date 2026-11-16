@@ -43,7 +43,7 @@ describe('patrones de secretos (SC-CLD-004)', () => {
     ['clave de acceso AWS', `key = "${AWS}"`, 'token-conocido'],
     ['token de GitHub', `token: ${GH}`, 'token-conocido'],
     ['clave de API de Google', `k=${GAPI}`, 'token-conocido'],
-    ['cuenta de servicio de GCP', '{"type": "service_account", "project_id": "p"}', 'cuenta-de-servicio'],
+    ['cuenta de servicio de GCP', '{"type": "service_account", "project_id": "p"}', 'cuenta-de-servicio'], // argos-scan:allow
     ['HMAC de auditoría asignado', `ARGOS_AUDIT_HMAC_SECRET=${HMAC}`, 'hmac-auditoria'],
     ['HMAC en YAML', `TF_VAR_audit_hmac_secret: "${HMAC}"`, 'hmac-auditoria'],
   ])('[REQ-SEC-001] detecta %s', async (_n, text, rule) => {
