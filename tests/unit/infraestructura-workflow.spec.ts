@@ -17,6 +17,7 @@ const job = (name: string): string => {
   return parts.find((p) => p.startsWith(`${name}:`)) ?? '';
 };
 const jobNames = (): string[] => [...(body().split(/^jobs:\s*$/m)[1] ?? '').matchAll(/^ {2}([\w-]+):\s*$/gm)].map((m) => m[1] ?? '');
+const steps = (name: string): string[] => (job(name).split(/^ {4}steps:\s*$/m)[1] ?? '').split(/^ {6}(?=- name:)/m).filter((x) => x.trim() !== '');
 const needsOf = (name: string): string[] => {
   const m = /^ {4}needs:\s*(?:\[([^\]]*)\]|(\S+))\s*$/m.exec(job(name));
   return (m?.[1] ?? m?.[2] ?? '').split(',').map((x) => x.trim()).filter((x) => x !== '');
@@ -125,8 +126,6 @@ describe('.github/workflows/infraestructura.yml (T446)', () => {
       for (const v of ['TF_VAR_project_id', 'TF_VAR_region', 'TF_VAR_custom_domain']) {
         expect(j).toMatch(new RegExp(`${v}:\\s*\\$\\{\\{\\s*vars\\.${v}\\s*\\}\\}`));
       }
-      expect(j).toMatch(/TF_VAR_database_url:\s*\$\{\{\s*secrets\.TF_VAR_database_url\s*\}\}/);
-      expect(j).toMatch(/TF_VAR_audit_hmac_secret:\s*\$\{\{\s*secrets\.TF_VAR_audit_hmac_secret\s*\}\}/);
       expect(j).toMatch(/workload_identity_provider:\s*\$\{\{\s*vars\.GCP_WIF_PROVIDER\s*\}\}/);
       expect(j).toMatch(/-backend-config="bucket=\$\{?TF_STATE_BUCKET\}?"/);
       expect(j).toMatch(/-backend-config="prefix=terraform\/argos-state"/);
@@ -148,6 +147,55 @@ describe('.github/workflows/infraestructura.yml (T446)', () => {
       const step = j.slice(j.lastIndexOf('- name:', guard), guard);
       expect(step).not.toMatch(/continue-on-error/);
     }
+  });
+
+  it('los secretos TF_VAR_* y DATABASE_URL_DIRECT no aparecen en el env: de nivel de trabajo (D-H1, REQ-SEC-001)', () => {
+    for (const name of ['plan', 'apply']) {
+      const head = job(name).split(/^ {4}steps:\s*$/m)[0] ?? '';
+      expect(head).toMatch(/^ {4}env:/m);
+      expect(head).not.toMatch(/TF_VAR_database_url|TF_VAR_audit_hmac_secret|DATABASE_URL_DIRECT|secrets\./);
+    }
+  });
+
+  it('los secretos solo aparecen en env: de pasos de validación, plan, apply y guardia (D-H1)', () => {
+    const allowed = /validate-secrets\.mjs|terraform plan|terraform apply|terraform-plan-guard\.mjs|gh pr comment/;
+    for (const name of ['plan', 'apply']) {
+      const sts = steps(name);
+      expect(sts.length).toBeGreaterThan(5);
+      const withSecret = sts.filter((st) => /secrets\.(TF_VAR_|DATABASE_URL)/.test(st));
+      expect(withSecret.length).toBeGreaterThanOrEqual(3);
+      for (const st of withSecret) {
+        expect(st).toMatch(allowed);
+        expect(st).not.toMatch(/uses:/);
+      }
+      for (const key of ['checkout', 'setup-node', 'setup-terraform', 'google-github-actions/auth']) {
+        const st = sts.find((x) => x.includes(key)) ?? '';
+        expect(st).not.toBe('');
+        expect(st).not.toMatch(/secrets\./);
+        expect(st).not.toMatch(/TF_VAR_database_url|TF_VAR_audit_hmac_secret|DATABASE_URL_DIRECT/);
+      }
+      const need = (re: RegExp): string => sts.find((x) => re.test(x)) ?? '';
+      for (const st of [need(/validate-secrets\.mjs/), need(/terraform plan/), need(/terraform-plan-guard\.mjs/)]) {
+        expect(st).toMatch(/TF_VAR_database_url:\s*\$\{\{\s*secrets\.TF_VAR_database_url\s*\}\}/);
+        expect(st).toMatch(/TF_VAR_audit_hmac_secret:\s*\$\{\{\s*secrets\.TF_VAR_audit_hmac_secret\s*\}\}/);
+      }
+      expect(need(/validate-secrets\.mjs/)).toMatch(/DATABASE_URL_DIRECT:\s*\$\{\{\s*secrets\.DATABASE_URL_DIRECT\s*\}\}/);
+    }
+    const ap = steps('apply').find((x) => /terraform apply/.test(x)) ?? '';
+    expect(ap).toMatch(/TF_VAR_database_url:\s*\$\{\{\s*secrets\.TF_VAR_database_url\s*\}\}/);
+    expect(ap).toMatch(/TF_VAR_audit_hmac_secret:\s*\$\{\{\s*secrets\.TF_VAR_audit_hmac_secret\s*\}\}/);
+    const cm = steps('plan').find((x) => /gh pr comment/.test(x)) ?? '';
+    expect(cm).toMatch(/TF_VAR_database_url:\s*\$\{\{\s*secrets\.TF_VAR_database_url\s*\}\}/);
+  });
+
+  it('PLAN_GUARD_LABELS se valida con regex estricta antes de escribirse en GITHUB_ENV (D-H1, R-2)', () => {
+    const st = steps('apply').find((x) => /PLAN_GUARD_LABELS=/.test(x)) ?? '';
+    expect(st).not.toBe('');
+    const check = st.search(/grep -E[q]? [^\n]*\^\[a-z0-9,\._-\]\*\$/);
+    const write = st.search(/PLAN_GUARD_LABELS=[^\n]*>>\s*"\$GITHUB_ENV"/);
+    expect(check).toBeGreaterThan(-1);
+    expect(write).toBeGreaterThan(check);
+    expect(st).toMatch(/exit 1/);
   });
 
   it('las etiquetas llegan al guardia por PLAN_GUARD_LABELS (rotacion-secreto y aprobacion-manual), sin interpolar en run', () => {
