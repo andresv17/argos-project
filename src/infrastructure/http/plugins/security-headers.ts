@@ -5,7 +5,7 @@
 
 import type { FastifyInstance } from 'fastify';
 
-export const CONTENT_SECURITY_POLICY = "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'";
+export const CONTENT_SECURITY_POLICY = "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'";
 
 export function registerSecurityHeaders(app: FastifyInstance): void {
   app.addHook('onRequest', async (_request, reply) => {

@@ -886,3 +886,4 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 
 ## 2026-11-16 CSP img-src (Keymaker, orden de Neo Logos 92)
 - Pruebas primero: app-composition.spec.ts y ops-http.spec.ts exigen "img-src 'self' data:" en la CSP. Rojas antes de implementar; luego security-headers.ts y REQ-CLD-009 (una frase).
+- Implementado: CSP = default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; ... ; REQ-CLD-009 actualizado. El spec.md tenía cambios previos sin commitear de /architect: se stagea solo mi hunk.
