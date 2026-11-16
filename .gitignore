@@ -25,3 +25,7 @@ handoff.json*
 .DS_Store
 Thumbs.db
 *.log
+
+# Variables de Terraform locales (pueden contener secretos; T452 RI-y)
+*.tfvars
+*.tfvars.json

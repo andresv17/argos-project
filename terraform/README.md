@@ -81,12 +81,22 @@ Runbook manual de Neo (T454). Nada de esto lo ejecuta un flujo ni un agente. Buc
 ### Respaldo semanal por pipe (sin archivo local)
 
 ```bash
+set -eo pipefail
 BUCKET="argos-${TF_VAR_project_id}-exports"
+OBJ="gs://${BUCKET}/dumps/$(date -u +%Y-%m-%d).sql"
 # DATABASE_URL_DIRECT: URL directa (sin -pooler) del rol argos_migrator; no la escriba en el historial.
-pg_dump "$DATABASE_URL_DIRECT" | gcloud storage cp - "gs://${BUCKET}/dumps/$(date -u +%Y-%m-%d).sql"
+if ! pg_dump "$DATABASE_URL_DIRECT" | gcloud storage cp - "gs://${BUCKET}/dumps/$(date -u +%Y-%m-%d).sql"; then
+  gcloud storage rm "$OBJ" 2>/dev/null || true   # pg_dump o la subida fallaron: no dejar un dump parcial
+  echo "Respaldo FALLIDO: objeto parcial eliminado; repita el respaldo." >&2; exit 1
+fi
+SIZE="$(gcloud storage objects describe "$OBJ" --format='value(size)')"
+if [ "${SIZE:-0}" -gt 0 ]; then echo "Respaldo valido: ${SIZE} bytes en ${OBJ}"; else
+  gcloud storage rm "$OBJ"; echo "Respaldo FALLIDO: objeto vacio eliminado." >&2; exit 1
+fi
 ```
 
 - El nombre es solo la fecha UTC: sin datos personales. El dump viaja por pipe y nunca toca el disco local.
+- `set -eo pipefail` hace que falle el pipe si falla `pg_dump` (no solo `gcloud`); en ese caso, o si el objeto queda vacío, se borra y el respaldo NO es válido: repítalo antes de darlo por hecho.
 - Sin cifrado propio: el bucket cifra en reposo (acceso uniforme, acceso público prohibido).
 - Vida de 14 días (regla de ciclo de vida sobre `dumps/`) y soft delete en 0 s: el borrado es definitivo a los 14 días.
 - Cadencia semanal estricta (RPO <= 7 d, NFR-CLD-014): con 14 días de vida quedan al menos 2 copias; un dump omitido deja 1. Ponga un recordatorio semanal en su calendario: no hay automatización (R-14).
