@@ -1,0 +1,95 @@
+import { spawnSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+/**
+ * T435 (REQ-IAC-002, REQ-SEC-006, REQ-CICD-006, REQ-CICD-012, D-12): terraform/bootstrap.sh es un script
+ * documentado y revisable que ejecuta Neo; por defecto solo IMPRIME los comandos (dry-run) y nunca contiene secretos.
+ */
+const SCRIPT = join(process.cwd(), 'terraform', 'bootstrap.sh');
+let sandbox: string;
+let binDir: string;
+let callLog: string;
+
+function run(args: string[]): { status: number | null; stdout: string; stderr: string } {
+  const r = spawnSync('bash', [SCRIPT, ...args], {
+    encoding: 'utf8',
+    env: { PATH: `${binDir}:/usr/bin:/bin`, HOME: sandbox, ARGOS_PROJECT_ID: 'argos-prueba-123', ARGOS_GITHUB_REPO: 'dueno/argos', ARGOS_BILLING_ACCOUNT: 'AAAAAA-BBBBBB-CCCCCC' },
+  });
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr };
+}
+
+beforeEach(() => {
+  sandbox = mkdtempSync(join(tmpdir(), 'argos-bootstrap-'));
+  binDir = join(sandbox, 'bin');
+  callLog = join(sandbox, 'calls.log');
+  spawnSync('mkdir', ['-p', binDir]);
+  for (const tool of ['gcloud', 'gsutil', 'gh', 'terraform', 'curl']) {
+    const p = join(binDir, tool);
+    writeFileSync(p, `#!/bin/bash\necho "${tool} $*" >> "${callLog}"\n`);
+    chmodSync(p, 0o755);
+  }
+});
+afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
+
+describe('terraform/bootstrap.sh (T435)', () => {
+  it('existe y declara set -euo pipefail', () => {
+    expect(existsSync(SCRIPT)).toBe(true);
+    const text = readFileSync(SCRIPT, 'utf8');
+    expect(text.startsWith('#!')).toBe(true);
+    expect(text).toMatch(/^set -euo pipefail$/m);
+  });
+
+  it('no contiene valores de secretos (llaves, URLs con credenciales, tokens ni hex largo)', () => {
+    const text = readFileSync(SCRIPT, 'utf8');
+    expect(text).not.toMatch(/postgres(ql)?:\/\/[^\s$"']*:[^\s$"']+@/i);
+    expect(text).not.toMatch(/BEGIN [A-Z ]*PRIVATE KEY/);
+    expect(text).not.toMatch(/gh[pousr]_[A-Za-z0-9]{20,}/);
+    expect(text).not.toMatch(/AIza[0-9A-Za-z_-]{20,}/);
+    expect(text).not.toMatch(/\b[0-9a-f]{32,}\b/i);
+    expect(text).not.toMatch(/GCP_SA_KEY/);
+    expect(text).not.toMatch(/mirror/i);
+  });
+
+  it('sin --execute solo imprime los comandos y no invoca ninguna herramienta', () => {
+    const r = run([]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/DRY-RUN/);
+    expect(r.stdout).toMatch(/gcloud /);
+    expect(r.stdout).toMatch(/argos-terraform-plan@/);
+    expect(r.stdout).toMatch(/argos-terraform@/);
+    expect(r.stdout).toMatch(/argos-prueba-123-tfstate/);
+    expect(r.stdout).toMatch(/produccion/);
+    expect(existsSync(callLog)).toBe(false);
+  });
+
+  it('--dry-run explícito se comporta igual y --execute es el único modo que invoca herramientas', () => {
+    const dry = run(['--dry-run']);
+    expect(dry.status).toBe(0);
+    expect(existsSync(callLog)).toBe(false);
+    const text = readFileSync(SCRIPT, 'utf8');
+    expect(text).toMatch(/--execute/);
+    expect(text).toMatch(/EXECUTE=0/);
+  });
+
+  it('cubre bucket versionado de estado, WIF, cuentas separadas, Environment y variables de GitHub', () => {
+    const out = run([]).stdout;
+    expect(out).toMatch(/versioning/i);
+    expect(out).toMatch(/public-access-prevention|public_access_prevention/);
+    expect(out).toMatch(/soft-delete-duration=0|soft_delete/);
+    expect(out).toMatch(/workload-identity-pools/);
+    expect(out).toMatch(/repository_id/);
+    expect(out).toMatch(/GCP_TERRAFORM_PLAN_SA/);
+    expect(out).toMatch(/GCP_TERRAFORM_SA/);
+    expect(out).toMatch(/GCP_WIF_PROVIDER/);
+    expect(out).toMatch(/TF_STATE_BUCKET/);
+    expect(out).toMatch(/environments\/produccion/);
+    expect(out).not.toMatch(/TF_VAR_database_url\s+--body|--body\s+\S{8,}/);
+  });
+
+  it('rechaza argumentos desconocidos y falta de ARGOS_PROJECT_ID', () => {
+    expect(run(['--bogus']).status).not.toBe(0);
+  });
+});
