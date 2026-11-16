@@ -56,6 +56,11 @@ describe('terraform/buckets.tf (T441)', () => {
     expect(name).not.toMatch(/email|user|usuario|pet|mascota|password|secret|token|@/i);
   });
 
+  it('el nombre respeta el orden exacto de REQ-IAC-008 (R1 de Oracle)', () => {
+    const name = bucket().match(/^ {2}name\s*=\s*(.+)$/m)?.[1]?.trim() ?? '';
+    expect(name).toBe('"${var.project_prefix}-${var.project_id}-exports"');
+  });
+
   it('sin permisos: ningún google_storage_bucket_iam_* ni referencia a argos-run', () => {
     expect(code()).not.toMatch(/_iam_|argos-run|google_service_account|allUsers|allAuthenticatedUsers/);
   });
