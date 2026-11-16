@@ -1,0 +1,21 @@
+# Servicio PostgreSQL local SOLO para pruebas (REQ-PG-001, T418). No es el despliegue (Cloud Run + Neon).
+# Uso: docker compose -f docker-compose.test.yml up -d --wait
+#      export TEST_DATABASE_URL=postgres://argos_test:argos_test@127.0.0.1:55432/argos_test   (credenciales desechables locales)
+#      npx vitest run
+# Sin TEST_DATABASE_URL las pruebas de PostgreSQL se omiten con motivo explícito.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: argos_test
+      POSTGRES_PASSWORD: argos_test
+      POSTGRES_DB: argos_test
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argos_test -d argos_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 15

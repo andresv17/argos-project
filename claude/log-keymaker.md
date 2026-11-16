@@ -767,3 +767,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Hallazgo: la suite ya era función parametrizada (tests/fixtures/repository-contract-suite.ts, defineRepositoryContractSuite) usada por memoria y SQLite. Hueco real para Postgres: la fábrica era síncrona y sin ciclo de vida.
 - Cambio: tipo UnitOfWorkFactory (síncrona o Promise), opción dispose (afterEach), 19 `await createUnitOfWork()`. Cero aserciones tocadas. Specs de memoria/SQLite sin cambios.
 - Base 21+37=58 verdes; después 21+37=58; completa 1985/1985; tsc exit 0.
+
+## 2026-11-16 — T418 (servicio PostgreSQL de pruebas)
+- Creados docker-compose.test.yml (postgres:17, healthcheck, loopback 55432, tmpfs), .env.example (marcador comentado `# TEST_DATABASE_URL=`), tests/integration/persistence/postgres-service.spec.ts (2 estáticas + 1 con describe.skipIf(!TEST_DATABASE_URL), motivo en el nombre).
+- process.env en tests/ tiene precedente (audit-secret.security.spec.ts); la regla SAST y el gate de pureza se aplican a src/. Docker: CLI instalado, daemon apagado (no se levantó el servicio).
+- tsc 0; completa 1987 verdes + 1 omitida (antes 1985).
