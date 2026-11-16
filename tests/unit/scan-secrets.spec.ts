@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -199,6 +199,75 @@ describe('CLI (SC-CLD-004)', () => {
     expect(run([]).status).toBe(2);
     expect(run(['dir']).status).toBe(2);
     expect(run(['nada', 'x']).status).toBe(2);
+  });
+});
+
+describe('normalización de rutas en los modos file y dir (E-1/E-2 R-3)', () => {
+  const run = (args: string[], cwd: string) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', cwd, env: { PATH: process.env.PATH ?? '' } });
+  const URL_REAL = 'postgresql://argos_app:' + 'Zq81xKd0pLm3Vb7n' + '@db.real-host.io/argos'; // host real: solo exento en tests/ con marca
+  const MARCADA = `u=${URL_REAL} # argos-scan:allow\n`;
+  const mk = (rel: string, text: string) => {
+    mkdirSync(join(root, rel, '..'), { recursive: true });
+    writeFileSync(join(root, rel), text);
+  };
+
+  it('[R-3] un archivo fuera del repo con ruta relativa tests/... NO recibe la exención', () => {
+    mk('ext1/tests/x.log', MARCADA);
+    const r = run(['file', 'tests/x.log'], join(root, 'ext1'));
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain('url-con-contrasena');
+  });
+
+  it('[R-3] un dir fuera del repo con subcarpeta tests/ NO recibe la exención', () => {
+    mk('ext2/tests/x.log', MARCADA);
+    const r = run(['dir', '.'], join(root, 'ext2'));
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain('url-con-contrasena');
+  });
+
+  it('[R-3] una ruta con segmento .. se rechaza (exit 2), también si apunta a tests/', () => {
+    expect(run(['file', 'tests/../package.json'], process.cwd()).status).toBe(2);
+    expect(run(['file', 'tests/unit/../../package.json'], process.cwd()).status).toBe(2);
+    expect(run(['dir', 'tests/../scripts'], process.cwd()).status).toBe(2);
+    expect(run(['file', '..\\x'], process.cwd()).status).toBe(2);
+  });
+
+  it('[R-3] un archivo real bajo tests/ del repo conserva la exención, con ruta relativa o absoluta y desde otro cwd', () => {
+    const d = join(process.cwd(), 'tests', `.tmp-scan-r3-${process.pid}`);
+    mkdirSync(d, { recursive: true });
+    try {
+      writeFileSync(join(d, 'a.log'), MARCADA);
+      expect(run(['file', `tests/.tmp-scan-r3-${process.pid}/a.log`], process.cwd()).status).toBe(0);
+      expect(run(['file', join(d, 'a.log')], root).status).toBe(0);
+      expect(run(['dir', d], root).status).toBe(0);
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  it('[R-3] un archivo real del repo fuera de tests/ no recibe la exención (aunque el nombre contenga tests/)', () => {
+    const d = join(process.cwd(), 'scripts', `.tmp-scan-r3-${process.pid}`);
+    mkdirSync(join(d, 'tests'), { recursive: true });
+    try {
+      writeFileSync(join(d, 'tests', 'a.log'), MARCADA);
+      expect(run(['file', join(d, 'tests', 'a.log')], process.cwd()).status).toBe(1);
+      expect(run(['dir', d], process.cwd()).status).toBe(1);
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  it('[R-3] un symlink dentro de tests/ que apunta fuera de tests/ no recibe la exención', () => {
+    const d = join(root, 'ext3');
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, 'real.log'), MARCADA);
+    const link = join(process.cwd(), 'tests', `.tmp-scan-link-${process.pid}.log`);
+    symlinkSync(join(d, 'real.log'), link);
+    try {
+      expect(run(['file', link], process.cwd()).status).toBe(1);
+    } finally {
+      rmSync(link, { force: true });
+    }
   });
 });
 

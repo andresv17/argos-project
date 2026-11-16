@@ -11,6 +11,9 @@ const load = (): string => readFileSync(path, 'utf8');
 const noComments = (s: string): string => s.replace(/^\s*#.*$/gm, '');
 const body = (): string => noComments(load());
 
+/** Detecta el contexto `secrets` de Actions (E-1/E-2 R-2). Version previa (debil), se fortalece tras el rojo. */
+const usesSecretsContext = (y: string): boolean => /\$\{\{\s*secrets\./.test(y);
+
 /** Texto de todos los bloques `run:` (línea o bloque literal). */
 const runBlocks = (): string => {
   const lines = body().split('\n');
@@ -88,7 +91,7 @@ describe('.github/workflows/code-quality.yml (T449)', () => {
     expect(y).not.toMatch(/id-token/);
     expect(y).not.toMatch(/write-all/);
     expect(y).not.toMatch(/:\s*write\b/);
-    expect(y).not.toMatch(/\$\{\{\s*secrets\./); // contexto de secretos de Actions (no el nombre scan-secrets.mjs)
+    expect(usesSecretsContext(y)).toBe(false); // contexto de secretos de Actions (no el nombre del job scan-secrets ni scan-secrets.mjs)
   });
 
   it('no interpola ${{ }} dentro de run:', () => {
@@ -106,3 +109,35 @@ describe('.github/workflows/code-quality.yml (T449)', () => {
     expect(c).toMatch(/Mirror[^\n]*no aplica/i);
   });
 });
+
+describe('detector del contexto secrets (E-1/E-2 R-2)', () => {
+  it.each([
+    ['${{ secrets.X }}', 'punto'],
+    ['${{secrets.X}}', 'sin espacios'],
+    ['${{ secrets["X"] }}', 'corchetes'],
+    ["${{ secrets['X'] }}", 'corchetes simples'],
+    ['${{ toJSON(secrets) }}', 'toJSON'],
+    ['${{ toJson( secrets ) }}', 'toJson con espacios'],
+    ['${{ env.A || secrets.X }}', 'expresion compleja'],
+    ["${{ format('{0}', secrets.X) }}", 'dentro de funcion'],
+    ['${{ !(github.event_name == "push") && secrets.X }}', 'tras operador'],
+    ['${{\n  secrets.X\n}}', 'multilinea'],
+    ['if: secrets.X != \'\'', 'if sin llaves'],
+    ['if: ${{ always() && secrets.X }}', 'if con llaves'],
+  ])('detecta %s (%s)', (txt) => {
+    expect(usesSecretsContext(txt)).toBe(true);
+  });
+
+  it.each([
+    ['  scan-secrets:\n    runs-on: ubuntu-latest', 'nombre del job'],
+    ['run: node scripts/scan-secrets.mjs repo', 'script'],
+    ['name: Escaneo de secretos', 'texto comun'],
+    ['${{ github.ref }} y scan-secrets.mjs', 'expresion sin secrets'],
+    ['${{ env.SECRETS_DIR }}', 'variable parecida'],
+    ['${{ vars.my-secrets }}', 'nombre con guion'],
+    ['needs: [scan-secrets]', 'needs'],
+  ])('no detecta %s (%s)', (txt) => {
+    expect(usesSecretsContext(txt)).toBe(false);
+  });
+});
+
