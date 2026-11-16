@@ -1,0 +1,7 @@
+# Se versiona .terraform.lock.hcl (T444); nunca el directorio de trabajo, los estados ni los planes.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
