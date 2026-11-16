@@ -682,3 +682,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 
 ## 2026-11-14 — Resultado compuertas
 - Compuertas 1-7 EXIT=0; vitest 1812/1812; e2e 53; evidencia escrita. Sin defectos de src.
+
+## 2026-11-15 — T406/T408 (Ola 0, rama 003-cloud-gcp): compuertas con prefijos 003 y contrato ops
+- Creado specs/003-cloud-gcp/contracts/openapi/ops.openapi.yaml (OpenAPI 3.1, 3 ops, errores RFC 9457 con ERR-* ya existentes de la 002) y scripts/codegen-ops.mjs (valida y emite solo openapi-types.ts).
+- compile-contracts.sh admite --feature 003 (destino por defecto src/generated/ops/, rechaza api/errors/machines/schemas, exige git diff --stat -- src/generated/api vacío); verify-traceability.sh reconoce NFR/SC y IDs propios de la 003 (spec→tasks 1:1, evidencia de código informativa salvo SDD_STRICT_EVIDENCE=1); verify-oracles.sh solo documentado.
+- Hallazgo: la 002 fallaba 4 IDs (REQ-CLD-003, REQ-PG-001, REQ-SEC-002/003) desde la enmienda 3.3.0 de la constitución; corregido filtrando IDs propios de la 003 del principio II en 001/002. Verde: 002 118/118. Sin tocar src/ ni terraform/. Compilado solo a scratchpad.

@@ -5,7 +5,8 @@
 # Criterio estricto: cualquier aparición falla (no se distingue aserción principal de secundaria).
 #
 # tests/ es común a todas las features. `--feature NNN` (opcional, para que los flujos de CI llamen igual a todas las
-# compuertas) solo comprueba que exista specs/NNN-*/; no cambia lo que se analiza.
+# compuertas) solo comprueba que exista specs/NNN-*/; no cambia lo que se analiza. Con `--feature 003` (T406) los
+# tests de la 003 (tests/** y sus pruebas de contrato ops) caen bajo el mismo análisis de tests/; sin cambios de criterio.
 #
 # Salida: 0 = cumple; 1 = incumple; 2 = falta tests/, uso inválido o feature desconocida.
 set -euo pipefail
@@ -14,7 +15,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --feature)
       if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
-        echo "[SDD Oracle Gate] Uso: --feature NNN (tres dígitos, p. ej. 001 o 002)" >&2
+        echo "[SDD Oracle Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002 o 003)" >&2
         exit 2
       fi
       if ! compgen -G "specs/$2-*/" > /dev/null; then

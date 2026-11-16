@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --feature)
       if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
-        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001 o 002)" >&2
+        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002 o 003)" >&2
         exit 2
       fi
       FEATURE="$2"
@@ -76,7 +76,14 @@ const TASKS = `${featureDir}/tasks.md`;
 const CONTRACTS = `${featureDir}/contracts`;
 const CATALOG = `${featureDir}/contracts/errors/error-catalog.json`;
 const CODE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
-const NUM_ID = /\b(?:REQ|INV|STATE)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g;
+// Feature 003 (T406): además de REQ/INV/STATE, reconoce los prefijos NFR-CLD y SC-CLD (y REQ-CLD/PG/IAC/CICD/SEC, ya cubiertos).
+// 001 y 002 conservan el patrón original para no cambiar sus IDs exigidos.
+const CLOUD = feature === '003';
+// IDs propios de la 003. La constitución 3.3.0 (principio II) los cita, pero no son exigibles a la 001 ni a la 002.
+const OWNED_003 = /^(?:REQ-(?:CLD|PG|IAC|CICD|SEC)|NFR-CLD|SC-CLD)-\d{3}$/;
+const NUM_ID = CLOUD
+  ? /\b(?:REQ|INV|STATE|NFR|SC)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g
+  : /\b(?:REQ|INV|STATE)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g;
 const ERR_ID = /\bERR-[A-Z]+(?:-[A-Z0-9]+)+\b/g;
 const taskId = process.env.SDD_TASK_ID ?? '';
 
@@ -87,7 +94,8 @@ const usage = (message) => {
   process.exit(2);
 };
 
-for (const path of [SPEC, CONSTITUTION, TASKS, CONTRACTS, CATALOG]) {
+// La 003 no tiene catálogo propio de errores: reutiliza el de la 002 (contracts/README.md); su catálogo es opcional.
+for (const path of CLOUD ? [SPEC, CONSTITUTION, TASKS, CONTRACTS] : [SPEC, CONSTITUTION, TASKS, CONTRACTS, CATALOG]) {
   if (!existsSync(path)) usage(`Fuente ausente: ${path}`);
 }
 
@@ -127,7 +135,7 @@ for (const file of walk(CONTRACTS)) {
   for (const id of readFileSync(file, 'utf8').match(NUM_ID) ?? []) candidates.add(id);
 }
 for (const line of section(constitutionLines, 'II')) {
-  for (const id of line.match(NUM_ID) ?? []) candidates.add(id);
+  for (const id of line.match(NUM_ID) ?? []) if (CLOUD || !OWNED_003.test(id)) candidates.add(id);
 }
 // Tabla «Trazabilidad con la Feature 001» de la spec (features posteriores): los IDs de la primera columna cuya
 // segunda columna dice «Reemplazad...» o «...absorbid...» dejan de ser vigentes (siguen existiendo en la 001).
@@ -155,14 +163,14 @@ for (const line of feature === '001' ? section(constitutionLines, 'III') : []) {
 }
 let catalogCodes;
 try {
-  catalogCodes = Object.keys(JSON.parse(readFileSync(CATALOG, 'utf8')).errors ?? {});
+  catalogCodes = CLOUD && !existsSync(CATALOG) ? [] : Object.keys(JSON.parse(readFileSync(CATALOG, 'utf8')).errors ?? {});
 } catch (e) {
   usage(`No se pudo leer ${CATALOG}: ${e.message}`);
 }
 // Errores que el catálogo de una feature posterior retira (x-sdd-metadata.removed) cuentan como retirados.
 if (feature !== '001') {
   try {
-    for (const code of JSON.parse(readFileSync(CATALOG, 'utf8'))['x-sdd-metadata']?.removed ?? []) retired.add(code);
+    if (existsSync(CATALOG)) for (const code of JSON.parse(readFileSync(CATALOG, 'utf8'))['x-sdd-metadata']?.removed ?? []) retired.add(code);
   } catch {
     // el error de lectura ya se informó arriba
   }
@@ -241,6 +249,18 @@ for (const file of testFiles) {
   }
 }
 
+// Feature 003: sus IDs REQ-IAC/CICD/SEC/NFR/SC se evidencian también en terraform/, workflows y simulacros, no solo en src/
+// con @implements. Mientras no se implemente (Phase 2..9), la compuerta exige 1:1 spec→tasks.md y trata la evidencia de
+// código como informativa; SDD_STRICT_EVIDENCE=1 la vuelve bloqueante (compuerta de cierre de la feature).
+const strictEvidence = !CLOUD || process.env.SDD_STRICT_EVIDENCE === '1';
+if (CLOUD) {
+  const tasksText = readFileSync(TASKS, 'utf8');
+  const owned = required.filter((id) => OWNED_003.test(id)).length;
+  const orphans = required.filter((id) => OWNED_003.test(id) && !tasksText.includes(id));
+  for (const id of orphans) err(`  FAIL  ${id}  huérfano: no aparece en ${TASKS} (spec→tasks 1:1)`);
+  if (orphans.length > 0) failed = true;
+  out(`[SDD Traceability Gate] Spec→tasks 1:1: ${owned - orphans.length}/${owned} IDs propios de la 003 mapeados en tasks.md (${strictEvidence ? 'evidencia de código bloqueante' : 'evidencia de código informativa'})`);
+}
 let traced = 0;
 for (const id of required) {
   const src = implemented.has(id);
@@ -254,7 +274,7 @@ for (const id of required) {
     }
     continue;
   }
-  failed = true;
+  if (strictEvidence) failed = true;
   const reasons = [];
   if (!src) {
     const hint = looseInSrc.has(id)
@@ -268,7 +288,7 @@ for (const id of required) {
     const hint = inDescribe.has(id) ? ` (solo en título de describe: ${first(inDescribe, id)})` : '';
     reasons.push(`sin título it/test en tests/${hint}`);
   }
-  err(`  FAIL  ${id}  ${reasons.join('; ')}`);
+  if (strictEvidence || taskId !== '') err(`  ${strictEvidence ? 'FAIL' : 'PENDING'}  ${id}  ${reasons.join('; ')}`);
 }
 out(`[SDD Traceability Gate] IDs trazados: ${traced}/${required.length}`);
 

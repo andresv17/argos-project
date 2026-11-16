@@ -766,3 +766,6 @@
 2026-11-15 20:48 Morpheus: Neo APRUEBA spec 003 (R1..R5), firma enmienda 3.3.0 y D-26, R-14=14 d, F3 opcional. Commit docs(003) local autorizado, sin push.
 - 2026-11-15 20:49 Architect: R-14 (dumps 14 d), F3 opcional, 003 APPROVED y constitución 3.3.0 aplicada; 1:1 = 96 IDs/0 huérfanos/81 tareas/0 [x]; sin commit.
 2026-11-15 20:50 Morpheus: commit b0fa89e docs(003) local (spec 003 APPROVED, enmienda 3.3.0, gates). Sin push.
+2026-11-15 21:19 Morpheus: rama 003-cloud-gcp creada en 19a9abb y publicada en origin; 002-plataforma-v21 restablecida a f459c9c.
+2026-11-15 21:19 Morpheus: Keymaker en T406 y T408 en 003-cloud-gcp (sin src/ ni terraform/).
+2026-11-15 Keymaker: T406 y T408 hechas (sin marcar [x]): ops.openapi.yaml, codegen-ops.mjs y scripts con --feature 003; compuertas verdes; src/terraform sin cambios; commit local.
