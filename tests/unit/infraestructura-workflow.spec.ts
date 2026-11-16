@@ -134,17 +134,29 @@ describe('.github/workflows/infraestructura.yml (T446)', () => {
     }
   });
 
-  it('la guarda de borrados cubre los recursos críticos, incluido google_secret_manager_secret_version, en plan y apply (REQ-IAC-007)', () => {
+  it('la guarda de borrados invoca scripts/terraform-plan-guard.mjs con plan.json, en plan y apply, sin lógica jq duplicada (Neo Q4, REQ-IAC-007)', () => {
     for (const name of ['plan', 'apply']) {
       const j = job(name);
-      for (const t of ['google_cloud_run_v2_service', 'google_secret_manager_secret', 'google_secret_manager_secret_version', 'google_storage_bucket']) {
-        expect(j).toContain(t);
-      }
       expect(j).toMatch(/terraform show -json/);
-      expect(j).toMatch(/index\("delete"\)/);
-      expect(j).toContain('rotacion-secreto');
-      expect(j.indexOf('index("delete")')).toBeLessThan(name === 'apply' ? j.indexOf('terraform apply') : j.length);
+      expect(j).toMatch(/node scripts\/terraform-plan-guard\.mjs "\$\{RUNNER_TEMP\}\/plan\.json"/);
+      expect(j).not.toMatch(/(^|[\s|(])jq\s/m);
+      expect(j).not.toContain('index("delete")');
+      expect(j).not.toMatch(/ROTACION_SECRETO/);
+      const guard = j.indexOf('terraform-plan-guard.mjs');
+      expect(guard).toBeGreaterThan(j.indexOf('terraform show -json'));
+      if (name === 'apply') expect(guard).toBeLessThan(j.indexOf('terraform apply'));
+      const step = j.slice(j.lastIndexOf('- name:', guard), guard);
+      expect(step).not.toMatch(/continue-on-error/);
     }
+  });
+
+  it('las etiquetas llegan al guardia por PLAN_GUARD_LABELS (rotacion-secreto y aprobacion-manual), sin interpolar en run', () => {
+    const p = job('plan');
+    expect(p).toMatch(/PLAN_GUARD_LABELS:\s*\$\{\{\s*join\(github\.event\.pull_request\.labels\.\*\.name,\s*','\)\s*\}\}/);
+    const a = job('apply');
+    expect(a).toMatch(/commits\/\$\{GITHUB_SHA\}\/pulls/);
+    expect(a).toMatch(/PLAN_GUARD_LABELS=[^\n]*>>\s*"\$GITHUB_ENV"/);
+    expect(a.indexOf('PLAN_GUARD_LABELS=')).toBeLessThan(a.indexOf('terraform-plan-guard.mjs'));
   });
 
   it('hashicorp/setup-terraform y google-github-actions/auth van por SHA de 40; actions/* por etiqueta mayor', () => {

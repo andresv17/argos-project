@@ -19,7 +19,6 @@ interface Violation {
 interface Result {
   ok: boolean;
   violations: Violation[];
-  values: Record<string, string>;
 }
 interface Mod {
   validateSecrets: (env: Record<string, string | undefined>) => Result;
@@ -37,10 +36,13 @@ describe('DATABASE_URL de aplicación (REQ-CICD-009)', () => {
 
   it.each([
     ['espacios al inicio y al final', `  ${GOOD_DB}  `],
+    ['espacio al inicio', ` ${GOOD_DB}`],
+    ['espacio al final', `${GOOD_DB} `],
     ['tabulador al final', `${GOOD_DB}\t`],
-  ])('[REQ-CICD-009] %s: se recorta (trim) y el valor devuelto está limpio', async (_n, value) => {
+    ['tabulador al inicio', `\t${GOOD_DB}`],
+  ])('[REQ-CICD-009][Neo Q3] DATABASE_URL con %s: se rechaza (fail-closed), no se recorta', async (_n, value) => {
     const r = (await load()).validateSecrets({ ...ENV, TF_VAR_database_url: value });
-    expect([r.ok, r.values['TF_VAR_database_url']]).toEqual([true, GOOD_DB]);
+    expect([r.ok, r.violations.map((v) => `${v.variable}:${v.rule}`)]).toEqual([false, ['TF_VAR_database_url:espacio-o-salto']]);
   });
 
   it.each([
@@ -84,6 +86,14 @@ describe('DATABASE_URL_DIRECT (REQ-CICD-009)', () => {
     expect(await rules({ ...ENV, DATABASE_URL_DIRECT: GOOD_DB })).toEqual(['DATABASE_URL_DIRECT:pooler-prohibido']);
   });
 
+  it.each([
+    ['espacio al final', `${GOOD_DIRECT} `],
+    ['espacio al inicio', ` ${GOOD_DIRECT}`],
+    ['tabulador al final', `${GOOD_DIRECT}\t`],
+  ])('[REQ-CICD-009][Neo Q3] DATABASE_URL_DIRECT con %s: se rechaza (fail-closed)', async (_n, value) => {
+    expect(await rules({ ...ENV, DATABASE_URL_DIRECT: value })).toEqual(['DATABASE_URL_DIRECT:espacio-o-salto']);
+  });
+
   it('[REQ-CICD-009] misma validación de salto de línea y sslmode', async () => {
     expect(await rules({ ...ENV, DATABASE_URL_DIRECT: `${GOOD_DIRECT}\n` })).toEqual(['DATABASE_URL_DIRECT:espacio-o-salto']);
     expect(await rules({ ...ENV, DATABASE_URL_DIRECT: GOOD_DIRECT.replace('?sslmode=require', '') })).toEqual(['DATABASE_URL_DIRECT:sslmode']);
@@ -106,9 +116,18 @@ describe('ARGOS_AUDIT_HMAC_SECRET (REQ-SEC-002)', () => {
     expect(await rules({ ...ENV, TF_VAR_audit_hmac_secret: value })).toEqual(['TF_VAR_audit_hmac_secret:hmac']);
   });
 
-  it('[REQ-SEC-002] salto de línea final se rechaza (EDGE-CLD-05) y espacios de borde se recortan', async () => {
+  it('[REQ-SEC-002] salto de línea final se rechaza (EDGE-CLD-05)', async () => {
     expect(await rules({ ...ENV, TF_VAR_audit_hmac_secret: `${GOOD_HMAC}\n` })).toEqual(['TF_VAR_audit_hmac_secret:espacio-o-salto']);
-    expect((await load()).validateSecrets({ ...ENV, TF_VAR_audit_hmac_secret: ` ${GOOD_HMAC} ` }).values['TF_VAR_audit_hmac_secret']).toBe(GOOD_HMAC);
+  });
+
+  it.each([
+    ['espacio al inicio', ` ${GOOD_HMAC}`],
+    ['espacio al final', `${GOOD_HMAC} `],
+    ['espacios en ambos bordes', ` ${GOOD_HMAC} `],
+    ['tabulador al final', `${GOOD_HMAC}\t`],
+  ])('[REQ-SEC-002][Neo Q3] HMAC con %s: se rechaza (fail-closed), no se recorta', async (_n, value) => {
+    const r = (await load()).validateSecrets({ ...ENV, TF_VAR_audit_hmac_secret: value });
+    expect([r.ok, r.violations.map((v) => `${v.variable}:${v.rule}`)]).toEqual([false, ['TF_VAR_audit_hmac_secret:espacio-o-salto']]);
   });
 
   it.each([GOOD_HMAC, 'AB'.repeat(32), 'ab'.repeat(40), DEVELOPMENT_AUDIT_HMAC_SECRET, 'ab'.repeat(31), 'zz'.repeat(32)])(
