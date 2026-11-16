@@ -85,7 +85,7 @@ set -eo pipefail
 BUCKET="argos-${TF_VAR_project_id}-exports"
 OBJ="gs://${BUCKET}/dumps/$(date -u +%Y-%m-%d).sql"
 # DATABASE_URL_DIRECT: URL directa (sin -pooler) del rol argos_migrator; no la escriba en el historial.
-if ! pg_dump "$DATABASE_URL_DIRECT" | gcloud storage cp - "gs://${BUCKET}/dumps/$(date -u +%Y-%m-%d).sql"; then
+if ! pg_dump "$DATABASE_URL_DIRECT" | gcloud storage cp - "$OBJ"; then
   gcloud storage rm "$OBJ" 2>/dev/null || true   # pg_dump o la subida fallaron: no dejar un dump parcial
   echo "Respaldo FALLIDO: objeto parcial eliminado; repita el respaldo." >&2; exit 1
 fi
@@ -96,6 +96,8 @@ fi
 ```
 
 - El nombre es solo la fecha UTC: sin datos personales. El dump viaja por pipe y nunca toca el disco local.
+- `OBJ` se calcula una sola vez: así el `cp`, el borrado del parcial y la verificación de tamaño apuntan al mismo objeto aunque el bloque cruce la medianoche UTC.
+- `set -eo pipefail` en una shell interactiva cierra la sesión si el bloque falla (por `exit` o por `-e`): ejecute el bloque en una subshell `( ... )` o guárdelo como script y lánzelo con `bash`.
 - `set -eo pipefail` hace que falle el pipe si falla `pg_dump` (no solo `gcloud`); en ese caso, o si el objeto queda vacío, se borra y el respaldo NO es válido: repítalo antes de darlo por hecho.
 - Sin cifrado propio: el bucket cifra en reposo (acceso uniforme, acceso público prohibido).
 - Vida de 14 días (regla de ciclo de vida sobre `dumps/`) y soft delete en 0 s: el borrado es definitivo a los 14 días.
