@@ -6,7 +6,7 @@
 
 resource "google_storage_bucket" "exports" {
   project       = var.project_id
-  name          = "${var.project_prefix}-exports-${var.project_id}"
+  name          = "${var.project_prefix}-${var.project_id}-exports"
   location      = "us-central1"
   storage_class = "STANDARD"
 
