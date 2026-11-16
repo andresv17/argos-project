@@ -122,8 +122,8 @@ describe('verify-bootstrap-inputs.sh', () => {
 
   it('no imprime secretos ni la cuenta de gcloud, pero recuerda GitHub Secrets', () => {
     const secrets = {
-      DATABASE_URL: 'postgres://usuario:CLAVE-DE-PRUEBA-123@host/db',
-      TF_VAR_database_url: 'postgres://u:OTRA-CLAVE-456@h/d',
+      DATABASE_URL: 'valor-prueba-CLAVE-DE-PRUEBA-123',
+      TF_VAR_database_url: 'valor-prueba-OTRA-CLAVE-456',
       TF_VAR_audit_hmac_secret: 'deadbeef'.repeat(8),
     };
     const r = run({ ...VALID, ...secrets });
