@@ -18,6 +18,8 @@
  * - `DATABASE_URL` (REQ-CLD-005, REQ-SEC-003): obligatoria solo con `postgres`; URL `postgres:`/`postgresql:` con `sslmode=require`.
  *   Es un secreto: el error nombra solo la variable, nunca el valor.
  * - `ARGOS_PG_POOL_MAX` (REQ-PG-010): entero 1..10 sin ceros a la izquierda (5).
+ * - `ARGOS_SCHEDULER_EMAIL` y `ARGOS_OIDC_AUDIENCE` (REQ-SEC-007, D-A1): obligatorias con `postgres` (correo
+ *   `*.iam.gserviceaccount.com`; URL `https:` sin credenciales ni espacios); `null` con sqlite o memory. El error nombra solo la variable.
  * - Una variable inválida produce `AppConfigError` con la lista de variables afectadas; no se arranca con valores
  *   por defecto silenciosos. Ningún valor es secreto (`.env.example`).
  *
@@ -46,6 +48,10 @@ export interface AppConfig {
   readonly dbDriver: 'sqlite' | 'postgres' | 'memory';
   /** Tamaño máximo del pool de PostgreSQL (ARGOS_PG_POOL_MAX, 1..10). */
   readonly pgPoolMax: number;
+  /** Cuenta de servicio del Scheduler (ARGOS_SCHEDULER_EMAIL); obligatoria con postgres, null en otro driver. No se registra. */
+  readonly schedulerEmail: string | null;
+  /** Audiencia OIDC https (ARGOS_OIDC_AUDIENCE); obligatoria con postgres, null en otro driver. No se registra. */
+  readonly oidcAudience: string | null;
 }
 
 interface RawAppConfig {
@@ -114,6 +120,26 @@ function isValidDatabaseUrl(value: string | undefined): boolean {
   }
 }
 
+const SCHEDULER_EMAIL_NAME = 'ARGOS_SCHEDULER_EMAIL';
+const OIDC_AUDIENCE_NAME = 'ARGOS_OIDC_AUDIENCE';
+const SCHEDULER_EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$/;
+
+/** Correo de cuenta de servicio (`*.iam.gserviceaccount.com`, sin espacios). Nunca devuelve el valor. */
+function isValidSchedulerEmail(value: string | undefined): boolean {
+  return value !== undefined && SCHEDULER_EMAIL_PATTERN.test(value);
+}
+
+/** URL `https:` sin credenciales, con host y sin espacios. Nunca devuelve el valor. */
+function isValidOidcAudience(value: string | undefined): boolean {
+  if (value === undefined || value === '' || /\s/.test(value)) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname !== '' && url.username === '' && url.password === '';
+  } catch {
+    return false;
+  }
+}
+
 const AUDIT_SECRET_NAME = 'ARGOS_AUDIT_HMAC_SECRET';
 /** >= 32 bytes en hexadecimal: 64 o más caracteres hexadecimales, en número par. */
 const AUDIT_SECRET_PATTERN = /^(?:[0-9a-fA-F]{2}){32,}$/;
@@ -168,11 +194,14 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
   if (!invalid.has('HOST') && raw.HOST === '0.0.0.0' && nodeEnv !== 'production' && raw.ARGOS_DB_DRIVER !== 'postgres') invalid.add('HOST');
   if (!invalid.has('ARGOS_DB_DRIVER') && raw.ARGOS_DB_DRIVER === 'memory' && nodeEnv !== 'test' && nodeEnv !== 'staging') invalid.add('ARGOS_DB_DRIVER');
   const invalidDatabaseUrl = raw.ARGOS_DB_DRIVER === 'postgres' && !isValidDatabaseUrl(env[DATABASE_URL_NAME]);
+  const isPostgres = raw.ARGOS_DB_DRIVER === 'postgres';
+  const invalidSchedulerEmail = isPostgres && !isValidSchedulerEmail(env[SCHEDULER_EMAIL_NAME]);
+  const invalidOidcAudience = isPostgres && !isValidOidcAudience(env[OIDC_AUDIENCE_NAME]);
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
   const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret) || (env['NODE_ENV'] !== 'test' && isKnownPublicAuditSecret(auditHmacSecret));
-  if (invalid.size > 0 || invalidSecret || invalidDatabaseUrl) {
-    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
+  if (invalid.size > 0 || invalidSecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience) {
+    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
   }
   return {
     port: Number(raw.PORT),
@@ -188,5 +217,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
     auditHmacSecret,
     dbDriver: raw.ARGOS_DB_DRIVER,
     pgPoolMax: Number(raw.ARGOS_PG_POOL_MAX),
+    schedulerEmail: isPostgres ? env[SCHEDULER_EMAIL_NAME]! : null,
+    oidcAudience: isPostgres ? env[OIDC_AUDIENCE_NAME]! : null,
   };
 }

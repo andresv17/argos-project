@@ -21,6 +21,8 @@ import { openSqliteDatabase } from '../persistence/sqlite/sqlite-database.ts';
 import { SqliteUnitOfWork } from '../persistence/sqlite/sqlite-unit-of-work.ts';
 import { runMaintenance } from '../../application/use-cases/maintenance-use-cases.ts';
 import { buildApp } from './app.ts';
+import { createOidcVerifier } from './oidc-verify.ts';
+import { registerMaintenanceRoute } from './routes/maintenance-routes.ts';
 
 /**
  * Opciones del logger de producción: `cookie` de la petición y `set-cookie` de la respuesta se ocultan (INV-AUTH-003).
@@ -58,6 +60,14 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     logger: logger && { ...PRODUCTION_LOGGER_OPTIONS, redact: [...PRODUCTION_LOGGER_OPTIONS.redact] },
   });
   app.addHook('onClose', async () => db.close());
+  // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). Falla cerrado hasta elegir la librería JWT (N2).
+  if (config.dbDriver === 'postgres' && config.schedulerEmail !== null && config.oidcAudience !== null) {
+    registerMaintenanceRoute(app, {
+      verifyOidc: createOidcVerifier({ audience: config.oidcAudience }),
+      runMaintenance: () => runMaintenance(deps),
+      schedulerEmail: config.schedulerEmail,
+    });
+  }
   maintenanceDeps.set(app, deps);
   return app;
 }
@@ -86,7 +96,7 @@ function scheduleMaintenance(app: FastifyInstance, deps: ApplicationDeps): void 
 /** @implements INV-ARCH-006 */
 export async function startServer(config: AppConfig = loadAppConfig()): Promise<FastifyInstance> {
   const app = await createProductionApp(config);
-  scheduleMaintenance(app, maintenanceDeps.get(app)!);
+  if (config.dbDriver === 'sqlite') scheduleMaintenance(app, maintenanceDeps.get(app)!);
   await app.listen({ host: config.host, port: config.port });
   return app;
 }

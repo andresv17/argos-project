@@ -92,6 +92,8 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   // T409 (D-26, enmienda 3.3.0, REQ-CLD-003): sustituyen la aserción única «HOST=0.0.0.0 se rechaza» por la regla completa.
   const PROD_SECRET = '1f'.repeat(32);
   const PG_URL = 'postgres://argos:clave@db.example.internal:5432/argos?sslmode=require';
+  // Con postgres, schedulerEmail y oidcAudience son obligatorias (D-A1): los fixtures anteriores a T414 las aportan para seguir aislando su variable.
+  const PG_CLOUD = { ARGOS_SCHEDULER_EMAIL: 'argos-scheduler@argos-prod-1234.iam.gserviceaccount.com', ARGOS_OIDC_AUDIENCE: 'https://argos-abcdef-uc.a.run.app' };
 
   it('[REQ-CLD-003][D-26] HOST=0.0.0.0 se acepta con NODE_ENV=production y host queda en 0.0.0.0', () => {
     const config = loadAppConfig({ NODE_ENV: 'production', HOST: '0.0.0.0', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET });
@@ -99,13 +101,13 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   });
 
   it('[REQ-CLD-003][D-26] HOST=0.0.0.0 se acepta con ARGOS_DB_DRIVER=postgres aunque NODE_ENV no sea production', () => {
-    const config = loadAppConfig({ NODE_ENV: 'test', HOST: '0.0.0.0', ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL });
+    const config = loadAppConfig({ NODE_ENV: 'test', HOST: '0.0.0.0', ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: PG_URL });
     expect(config.host).toBe('0.0.0.0');
   });
 
   it.each([
     ['production', { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET }],
-    ['postgres', { ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL }],
+    ['postgres', { ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: PG_URL }],
   ])('[REQ-CLD-003][D-26] con %s se siguen rechazando "::", "localhost", 10.x y espacios en HOST', (_caso, entorno) => {
     const rechazos = ['::', 'localhost', '10.0.0.1', '10.255.255.255', ' '].map((host) => configError({ ...entorno, HOST: host }));
     expect(rechazos).toEqual([['HOST'], ['HOST'], ['HOST'], ['HOST'], ['HOST']]);
@@ -117,13 +119,13 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
 
   it('[REQ-CLD-003][D-26] sin HOST el valor es 127.0.0.1 también en production y con postgres', () => {
     const production = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET };
-    const postgres = { ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL };
+    const postgres = { ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: PG_URL };
     expect([loadAppConfig({ NODE_ENV: 'test' }).host, loadAppConfig(production).host, loadAppConfig({ NODE_ENV: 'test', ...postgres }).host]).toEqual(['127.0.0.1', '127.0.0.1', '127.0.0.1']);
   });
 
   it('[REQ-CLD-003][D-26] HOST="" explícito se rechaza (orden de Neo) en test, production y postgres; solo la variable ausente toma 127.0.0.1', () => {
     const production = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET };
-    const postgres = { ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL };
+    const postgres = { ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: PG_URL };
     expect([configError({ HOST: '' }), configError({ ...production, HOST: '' }), configError({ ...postgres, HOST: '' }), configError({ HOST: ' ' })]).toEqual([['HOST'], ['HOST'], ['HOST'], ['HOST']]);
   });
 
@@ -142,7 +144,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   });
 
   it('[REQ-PG-010] ARGOS_DB_DRIVER=postgres se acepta con DATABASE_URL válida y queda en la configuración', () => {
-    expect(field(loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL }), 'dbDriver')).toBe('postgres');
+    expect(field(loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: PG_URL }), 'dbDriver')).toBe('postgres');
   });
 
   it.each([
@@ -163,7 +165,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   });
 
   it('[REQ-CLD-005] DATABASE_URL es obligatoria con ARGOS_DB_DRIVER=postgres y no con sqlite', () => {
-    expect([configError({ ARGOS_DB_DRIVER: 'postgres' }), configError({ ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: '' }), configError({ ARGOS_DB_DRIVER: 'sqlite' })]).toEqual([['DATABASE_URL'], ['DATABASE_URL'], ['sin error']]);
+    expect([configError({ ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD }), configError({ ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: '' }), configError({ ARGOS_DB_DRIVER: 'sqlite' })]).toEqual([['DATABASE_URL'], ['DATABASE_URL'], ['sin error']]);
   });
 
   it.each([
@@ -171,13 +173,13 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     ['sslmode=disable', `${LEAKY_URL}?sslmode=disable`],
     ['sslmode=prefer', `${LEAKY_URL}?sslmode=prefer`],
   ])('[REQ-CLD-005] con postgres la DATABASE_URL debe contener sslmode=require: se rechaza %s', (_caso, url) => {
-    expect(configError({ ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: url })).toEqual(['DATABASE_URL']);
+    expect(configError({ ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: url })).toEqual(['DATABASE_URL']);
   });
 
   it('[REQ-SEC-003] ante fallo de DATABASE_URL el mensaje, las propiedades y el error serializado no incluyen la URL ni la contraseña', () => {
     let caught: unknown;
     try {
-      loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: `${LEAKY_URL}?sslmode=disable` });
+      loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: `${LEAKY_URL}?sslmode=disable` });
     } catch (error) {
       caught = error;
     }
@@ -191,7 +193,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   });
 
   it('[REQ-PG-010] ARGOS_PG_POOL_MAX por defecto es 5 y acepta los extremos 1 y 10', () => {
-    const postgres = { ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL };
+    const postgres = { ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: PG_URL };
     expect([
       field(loadAppConfig({ NODE_ENV: 'test' }), 'pgPoolMax'),
       field(loadAppConfig({ NODE_ENV: 'test', ...postgres, ARGOS_PG_POOL_MAX: '1' }), 'pgPoolMax'),
@@ -205,12 +207,12 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     ['esquema ajeno', 'mysql://argos:clave@db.example.internal:3306/argos?sslmode=require'],
     ['sin host ni esquema válido', '://?sslmode=require'],
   ])('[REQ-CLD-005] con postgres una DATABASE_URL malformada se rechaza nombrando solo la variable: %s', (_caso, url) => {
-    expect(configError({ ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: url })).toEqual(['DATABASE_URL']);
+    expect(configError({ ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: url })).toEqual(['DATABASE_URL']);
   });
 
   it('[REQ-CLD-005] DATABASE_URL vacía o ausente con postgres se rechaza y el mensaje solo nombra la variable', () => {
     for (const env of [{ DATABASE_URL: '' }, {}]) {
-      expect(() => loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', ...env })).toThrow('Configuración inválida: DATABASE_URL. Revisa .env.example.');
+      expect(() => loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, ...env })).toThrow('Configuración inválida: DATABASE_URL. Revisa .env.example.');
     }
   });
 

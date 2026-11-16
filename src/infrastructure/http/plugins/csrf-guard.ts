@@ -13,9 +13,12 @@ export const CSRF_HEADER = 'x-argos-request';
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /** @implements INV-AUTH-007, ERR-AUTH-CSRF-REJECTED */
+/** Ruta del Scheduler: autenticada con Bearer OIDC, sin cookies; excluida de CSRF (H-MERO-017). */
+const CSRF_EXEMPT_PATH = '/internal/maintenance';
+
 export function registerCsrfGuard(app: FastifyInstance): void {
   app.addHook('onRequest', async (request) => {
-    if (MUTATING_METHODS.has(request.method) && request.headers[CSRF_HEADER] !== '1') {
+    if (MUTATING_METHODS.has(request.method) && request.url.split('?')[0] !== CSRF_EXEMPT_PATH && request.headers[CSRF_HEADER] !== '1') {
       throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'X-Argos-Request');
     }
   });
