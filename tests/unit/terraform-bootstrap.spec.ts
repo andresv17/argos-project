@@ -100,6 +100,42 @@ describe('terraform/bootstrap.sh (T435)', () => {
     expect(out).not.toMatch(/roles\/billing\.admin|roles\/owner|roles\/editor/);
   });
 
+  describe('paso 5c: binding WIF de argos-deployer@ (T485, REQ-CICD-012, REQ-IAC-013, REQ-SEC-001)', () => {
+    const DEPLOYER = 'argos-deployer@argos-prueba-123.iam.gserviceaccount.com';
+    const bindingLines = (out: string): string[] =>
+      out.split('\n').filter((l) => l.includes('service-accounts add-iam-policy-binding') && l.includes(DEPLOYER));
+
+    it('existe un binding workloadIdentityUser para argos-deployer@', () => {
+      const lines = bindingLines(run([]).stdout);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain('roles/iam.workloadIdentityUser');
+    });
+
+    it('su --member se restringe a job_workflow_ref de deploy-argos.yml en refs/heads/main', () => {
+      const [line] = bindingLines(run([]).stdout);
+      expect(line).toContain('--member="principalSet://iam.googleapis.com/projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/');
+      expect(line).toContain('attribute.job_workflow_ref/dueno/argos/.github/workflows/deploy-argos.yml@refs/heads/main');
+      expect(line).not.toContain('attribute.repository_id');
+      expect(line).not.toContain('infraestructura.yml');
+    });
+
+    it('ningun workloadIdentityUser sobre argos-deployer@ carece de job_workflow_ref y la cuenta de plan no lo recibe', () => {
+      const out = run([]).stdout;
+      const lines = out.split('\n').filter((l) => l.includes('workloadIdentityUser') || l.includes('--member='));
+      const deployerBlocks = out.split('\n').filter((l) => l.includes(DEPLOYER) && l.includes('add-iam-policy-binding'));
+      expect(deployerBlocks.length).toBeGreaterThan(0);
+      for (const l of deployerBlocks) expect(l).toContain('attribute.job_workflow_ref');
+      expect(lines.filter((l) => l.includes('deploy-argos.yml'))).toHaveLength(1);
+      expect(out.split('\n').filter((l) => l.includes('terraform-plan@') && l.includes('deploy-argos.yml'))).toHaveLength(0);
+    });
+
+    it('el comentario ya no dice que la vinculacion se anade en T439/T450 y apunta al paso 5c (T485)', () => {
+      const text = readFileSync(SCRIPT, 'utf8');
+      expect(text).not.toMatch(/se añade en T439\/T450/);
+      expect(text).toMatch(/5c[^\n]*T485|T485[^\n]*5c/);
+    });
+  });
+
   it('rechaza argumentos desconocidos y falta de ARGOS_PROJECT_ID', () => {
     expect(run(['--bogus']).status).not.toBe(0);
   });
