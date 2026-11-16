@@ -214,7 +214,7 @@ jobs:
           set -euo pipefail
           # Solo las dos etiquetas que lee el guardia; luego regex estricta (sin saltos de línea) antes de escribir en GITHUB_ENV (D-H1, R-2).
           LABELS="$(gh api "repos/${GH_REPO}/commits/${GITHUB_SHA}/pulls" --jq '[.[].labels[].name | select(. == "rotacion-secreto" or . == "aprobacion-manual")] | unique | join(",")')"
-          if ! printf '%s' "$LABELS" | grep -Eq '^[a-z0-9,._-]*$' || [ "$(printf '%s' "$LABELS" | wc -l)" -ne 0 ]; then
+          if [ -n "$LABELS" ] && { ! printf '%s' "$LABELS" | grep -Eq '^[a-z0-9,._-]*$' || [ "$(printf '%s' "$LABELS" | wc -l)" -ne 0 ]; }; then
             echo "Etiquetas con caracteres no permitidos; se aborta." >&2
             exit 1
           fi
