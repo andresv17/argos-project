@@ -11,7 +11,7 @@ const code = (): string => readFileSync(FILE, 'utf8').replace(/^\s*(#|\/\/).*$/g
 const service = (): string =>
   code().match(/resource\s+"google_cloud_run_v2_service"\s+"argos"\s*\{([^]*?)\n\}/)?.[1] ?? '';
 const ignored = (): string[] => {
-  const raw = service().match(/ignore_changes\s*=\s*\[([^]*?)\]/)?.[1] ?? '';
+  const raw = service().match(/ignore_changes\s*=\s*\[([^]*?)\n\s*\]/)?.[1] ?? '';
   return raw
     .split('\n')
     .map((l) => l.trim().replace(/,$/, ''))
