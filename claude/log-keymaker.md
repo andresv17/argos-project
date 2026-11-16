@@ -850,3 +850,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - tests/unit/app-config.spec.ts: único toEqual literal de defaults (línea ~38) recibe databaseUrl: null (sin eliminar ni debilitar aserciones; el segundo toEqual usa spread de loadAppConfig y no cambia); +2 casos (databaseUrl con postgres/sqlite/memory; URL ausente del mensaje y variables).
 - Nuevos: tests/unit/server-composition-static.spec.ts (3), tests/integration/server-composition-postgres.spec.ts (3 + 1 viva skipIf aplazada a T431), tests/integration/server-composition-sqlite.spec.ts (1; ya verde: con sqlite no se carga pg, guarda regresión).
 - Rojas confirmadas: 7 (2 app-config, 2 estáticas, 3 postgres).
+
+## 2026-11-16 — T428 implementación (composición PostgreSQL en server.ts)
+- app-config.ts: AppConfig.databaseUrl (isPostgres ? env[DATABASE_URL]! : null). server.ts: composePersistence(config) con import() dinámico por dbDriver (postgres: postgres-database, postgres-unit-of-work y postgres-repositories, fábrica necesaria para PostgresUnitOfWork; memory sigue el camino sqlite), createPostgresPool({connectionString: config.databaseUrl, pgPoolMax}), error sin valor si databaseUrl es null, onClose -> persistence.close() (closePool o db.close()), comentario de 55P03. Sin process.env ni logs de config.
+- Rojas 7 -> verdes 7 (databaseUrl inexistente; imports estáticos; sqlite-composición). tsc 0; vitest completa 2122 verdes + 29 omitidas (vivas). git diff --stat src/domain src/application vacío.

@@ -17,6 +17,7 @@
  * - `ARGOS_DB_DRIVER` (REQ-PG-010): `sqlite` (defecto), `postgres` o `memory` (solo con `NODE_ENV` test o staging).
  * - `DATABASE_URL` (REQ-CLD-005, REQ-SEC-003): obligatoria solo con `postgres`; URL `postgres:`/`postgresql:` con `sslmode=require`.
  *   Es un secreto: el error nombra solo la variable, nunca el valor.
+ *   Con postgres sale en `AppConfig.databaseUrl` (único lector de `process.env`, T428); `null` con sqlite o memory.
  * - `ARGOS_PG_POOL_MAX` (REQ-PG-010): entero 1..10 sin ceros a la izquierda (5).
  * - `ARGOS_SCHEDULER_EMAIL` y `ARGOS_OIDC_AUDIENCE` (REQ-SEC-007, D-A1): obligatorias con `postgres` (correo
  *   `*.iam.gserviceaccount.com`; URL `https:` sin credenciales ni espacios); `null` con sqlite o memory. El error nombra solo la variable.
@@ -52,6 +53,8 @@ export interface AppConfig {
   readonly schedulerEmail: string | null;
   /** Audiencia OIDC https (ARGOS_OIDC_AUDIENCE); obligatoria con postgres, null en otro driver. No se registra. */
   readonly oidcAudience: string | null;
+  /** DATABASE_URL ya validada (T428); obligatoria con postgres, null en otro driver. Es un secreto: no se registra. */
+  readonly databaseUrl: string | null;
 }
 
 interface RawAppConfig {
@@ -219,5 +222,6 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
     pgPoolMax: Number(raw.ARGOS_PG_POOL_MAX),
     schedulerEmail: isPostgres ? env[SCHEDULER_EMAIL_NAME]! : null,
     oidcAudience: isPostgres ? env[OIDC_AUDIENCE_NAME]! : null,
+    databaseUrl: isPostgres ? env[DATABASE_URL_NAME]! : null,
   };
 }

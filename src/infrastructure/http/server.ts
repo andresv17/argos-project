@@ -8,6 +8,7 @@
 
 import { pathToFileURL } from 'node:url';
 import type { FastifyInstance } from 'fastify';
+import type { UnitOfWorkPort } from '../../application/ports/unit-of-work.port.ts';
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { CryptoSecureTokenAdapter } from '../adapters/crypto-secure-token.adapter.ts';
 import { CryptoUuidAdapter } from '../adapters/crypto-uuid.adapter.ts';
@@ -18,8 +19,6 @@ import { SlidingWindowRateLimiterAdapter, rateLimitsFrom } from '../adapters/sli
 import { ScryptPasswordHasherAdapter } from '../adapters/scrypt-password-hasher.adapter.ts';
 import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
 import { DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
-import { openSqliteDatabase } from '../persistence/sqlite/sqlite-database.ts';
-import { SqliteUnitOfWork } from '../persistence/sqlite/sqlite-unit-of-work.ts';
 import { runMaintenance } from '../../application/use-cases/maintenance-use-cases.ts';
 import { buildApp } from './app.ts';
 import { cloudLoggerOptions } from './cloud-logging.ts';
@@ -35,16 +34,37 @@ import { registerMaintenanceRoute } from './routes/maintenance-routes.ts';
 export const PRODUCTION_LOGGER_OPTIONS = cloudLoggerOptions();
 
 /**
- * Compone la aplicación con los adaptadores de producción sobre la base de `config.databasePath`.
+ * Persistencia por `config.dbDriver` (REQ-PG-010, SC-CLD-011): carga dinámica, de modo que con postgres solo se cargan
+ * postgres-* y `pg`, y con sqlite solo sqlite-* y better-sqlite3. `memory` sigue el camino de sqlite (sin cambios).
+ * Un 55P03 (lock_timeout) no se traduce: se propaga y `registerProblemDetails` responde 500 ERR-INTERNAL-UNEXPECTED
+ * (el catálogo v2.1.1 no tiene 503; un código nuevo es cambio de contrato Nivel 3). No se registra `config` ni la URL.
+ */
+async function composePersistence(config: AppConfig): Promise<{ uow: UnitOfWorkPort; close: () => Promise<void> }> {
+  if (config.dbDriver === 'postgres') {
+    if (config.databaseUrl === null) throw new Error('DATABASE_URL ausente con ARGOS_DB_DRIVER=postgres');
+    const { createPostgresPool, closePool } = await import('../persistence/postgres/postgres-database.ts');
+    const { PostgresUnitOfWork } = await import('../persistence/postgres/postgres-unit-of-work.ts');
+    const { createPostgresRepositories } = await import('../persistence/postgres/postgres-repositories.ts');
+    const pool = createPostgresPool({ connectionString: config.databaseUrl, pgPoolMax: config.pgPoolMax });
+    return { uow: new PostgresUnitOfWork(pool, createPostgresRepositories), close: () => closePool(pool) };
+  }
+  const { openSqliteDatabase } = await import('../persistence/sqlite/sqlite-database.ts');
+  const { SqliteUnitOfWork } = await import('../persistence/sqlite/sqlite-unit-of-work.ts');
+  const db = openSqliteDatabase(config.databasePath);
+  return { uow: new SqliteUnitOfWork(db), close: async () => void db.close() };
+}
+
+/**
+ * Compone la aplicación con los adaptadores de producción sobre la persistencia de `config.dbDriver`.
  * @implements INV-AUTH-003, INV-AUTH-006
  */
 export async function createProductionApp(config: AppConfig, logger: boolean = true): Promise<FastifyInstance> {
-  const db = openSqliteDatabase(config.databasePath);
+  const persistence = await composePersistence(config);
   const hasher = new ScryptPasswordHasherAdapter();
   const ids = new CryptoUuidAdapter();
   const tokens = new CryptoSecureTokenAdapter();
   const deps: ApplicationDeps = {
-    uow: new SqliteUnitOfWork(db),
+    uow: persistence.uow,
     clock: new SystemClockAdapter(config.appTimezone),
     ids,
     tokens,
@@ -62,7 +82,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     cookieSecure: config.cookieSecure,
     logger: logger && PRODUCTION_LOGGER_OPTIONS,
   });
-  app.addHook('onClose', async () => db.close());
+  app.addHook('onClose', () => persistence.close());
   // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). Falla cerrado hasta elegir la librería JWT (N2).
   if (config.dbDriver === 'postgres' && config.schedulerEmail !== null && config.oidcAudience !== null) {
     registerMaintenanceRoute(app, {
