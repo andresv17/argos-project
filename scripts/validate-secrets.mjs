@@ -13,7 +13,8 @@ const HMAC_PATTERN = /^(?:[0-9a-fA-F]{2}){32,}$/; // >= 32 bytes hex (app-config
 const DEV_HMAC = 'de'.repeat(32); // app-config.ts DEVELOPMENT_AUDIT_HMAC_SECRET
 const FIXTURE_HMAC_SHA256 = 'eaa93b9fcd229b8446cacff0a963d1afe33fa3fd3b6f63343c3227c987f6c592'; // huella, no el valor
 
-// trim = solo espacios y tabuladores de los bordes; un \n o \r final NO se recorta, se rechaza (EDGE-CLD-05).
+// Neo Q3: sin recorte. Cualquier espacio, tabulador o salto (de borde o interno) se rechaza, fail-closed (EDGE-CLD-05).
+// `trim` solo sirve para enmascarar también la forma recortada del valor en los registros.
 const trim = (v) => v.replace(/^[ \t]+|[ \t]+$/g, '');
 
 /** Líneas no vacías de los valores crudo y recortado, para `::add-mask::` (GitHub enmascara por línea). */
@@ -56,10 +57,9 @@ function checkHmac(name, value, violations) {
   if (!HMAC_PATTERN.test(value) || publicSecret) violations.push({ variable: name, rule: 'hmac' });
 }
 
-/** @returns {{ok: boolean, violations: Array<{variable: string, rule: string}>, values: Record<string, string>}} */
+/** @returns {{ok: boolean, violations: Array<{variable: string, rule: string}>}} */
 export function validateSecrets(env) {
   const violations = [];
-  const values = {};
   const specs = [
     [APP_URL, true, (v) => checkDatabaseUrl(APP_URL, v, true, violations)],
     [HMAC, true, (v) => checkHmac(HMAC, v, violations)],
@@ -71,10 +71,9 @@ export function validateSecrets(env) {
       if (required) violations.push({ variable: name, rule: 'ausente' });
       continue;
     }
-    values[name] = trim(raw);
-    check(values[name]);
+    check(raw);
   }
-  return { ok: violations.length === 0, violations, values };
+  return { ok: violations.length === 0, violations };
 }
 
 function main() {

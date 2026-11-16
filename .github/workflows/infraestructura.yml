@@ -108,25 +108,13 @@ jobs:
           terraform -chdir=terraform plan -input=false -no-color -lock=false -out="${RUNNER_TEMP}/tfplan"
           terraform -chdir=terraform show -json "${RUNNER_TEMP}/tfplan" > "${RUNNER_TEMP}/plan.json"
 
-      - name: Guarda de borrados sobre recursos críticos (REQ-IAC-007)
+      - name: Guardia del plan (REQ-IAC-007, T471)
         env:
-          ROTACION_SECRETO: ${{ contains(github.event.pull_request.labels.*.name, 'rotacion-secreto') }}
+          PLAN_GUARD_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: |
           set -euo pipefail
-          # Recursos críticos: google_cloud_run_v2_service, google_secret_manager_secret, google_secret_manager_secret_version, google_storage_bucket.
-          # Solo la versión de secreto admite la etiqueta rotacion-secreto (una rotación la reemplaza).
-          BLOQUEADOS="$(jq -r --arg rot "$ROTACION_SECRETO" '
-            ["google_cloud_run_v2_service","google_secret_manager_secret","google_secret_manager_secret_version","google_storage_bucket"] as $crit
-            | (.resource_changes // [])
-            | map(select(.type as $t | $crit | index($t)))
-            | map(select(.change.actions | index("delete")))
-            | map(select(.type != "google_secret_manager_secret_version" or $rot != "true"))
-            | .[].address' "${RUNNER_TEMP}/plan.json")"
-          if [ -n "$BLOQUEADOS" ]; then
-            echo "El plan borra o reemplaza recursos protegidos sin aprobación:" >&2
-            echo "$BLOQUEADOS" >&2
-            exit 1
-          fi
+          # Borrados de recursos protegidos: rotacion-secreto solo exime google_secret_manager_secret_version; aprobacion-manual exime los demás.
+          node scripts/terraform-plan-guard.mjs "${RUNNER_TEMP}/plan.json"
 
       - name: Comentar el plan en el PR (atributos sensitive ocultos)
         env:
@@ -212,34 +200,20 @@ jobs:
           terraform -chdir=terraform plan -input=false -no-color -lock-timeout=5m -out="${RUNNER_TEMP}/tfplan"
           terraform -chdir=terraform show -json "${RUNNER_TEMP}/tfplan" > "${RUNNER_TEMP}/plan.json"
 
-      - name: Etiquetas del PR de origen (rotacion-secreto)
+      - name: Etiquetas del PR de origen (rotacion-secreto, aprobacion-manual)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          if gh api "repos/${GH_REPO}/commits/${GITHUB_SHA}/pulls" --jq '.[].labels[].name' | grep -Fxq 'rotacion-secreto'; then
-            echo "ROTACION_SECRETO=true" >> "$GITHUB_ENV"
-          else
-            echo "ROTACION_SECRETO=false" >> "$GITHUB_ENV"
-          fi
+          LABELS="$(gh api "repos/${GH_REPO}/commits/${GITHUB_SHA}/pulls" --jq '[.[].labels[].name] | unique | join(",")')"
+          echo "PLAN_GUARD_LABELS=${LABELS}" >> "$GITHUB_ENV"
 
-      - name: Guarda de borrados sobre recursos críticos (REQ-IAC-007)
+      - name: Guardia del plan (REQ-IAC-007, T471)
         run: |
           set -euo pipefail
-          # Recursos críticos: google_cloud_run_v2_service, google_secret_manager_secret, google_secret_manager_secret_version, google_storage_bucket.
-          BLOQUEADOS="$(jq -r --arg rot "$ROTACION_SECRETO" '
-            ["google_cloud_run_v2_service","google_secret_manager_secret","google_secret_manager_secret_version","google_storage_bucket"] as $crit
-            | (.resource_changes // [])
-            | map(select(.type as $t | $crit | index($t)))
-            | map(select(.change.actions | index("delete")))
-            | map(select(.type != "google_secret_manager_secret_version" or $rot != "true"))
-            | .[].address' "${RUNNER_TEMP}/plan.json")"
-          if [ -n "$BLOQUEADOS" ]; then
-            echo "El plan borra o reemplaza recursos protegidos sin aprobación:" >&2
-            echo "$BLOQUEADOS" >&2
-            exit 1
-          fi
+          # Borrados de recursos protegidos: rotacion-secreto solo exime google_secret_manager_secret_version; aprobacion-manual exime los demás.
+          node scripts/terraform-plan-guard.mjs "${RUNNER_TEMP}/plan.json"
 
       - name: terraform apply del plan guardado
         run: |
