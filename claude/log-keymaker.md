@@ -822,3 +822,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - postgres-repositories.ts: createPostgresRepositoriesPart3 (households con updateOwner por jsonb_set, saveMembership con role/is_household_owner, invitations con 23505 propagada, assignments, auditLog insert/pseudonymize) y createPostgresRepositories(client): RepositorySet de las 3 partes. Archivo único (~700 líneas, similar al SQLite de 683); decisión: no se parte en módulos para no crear import circular con encode/decode.
 - tests/integration/persistence/postgres-repositories.spec.ts ahora usa createPostgresRepositories (tipado, sin `as RepositorySet`); en su encabezado quedan las reservas de Oracle R-1 (revokeOthers sin validación por fila) y R-2 (fechas como TEXT) para T427.
 - Rojas 21 -> verdes 21. tsc 0; vitest completa verde, vivas omitidas (19 + 4) por falta de TEST_DATABASE_URL.
+
+## 2026-11-16 — T425 pruebas primero (purga por lotes PostgreSQL)
+- Creado tests/integration/persistence/postgres-maintenance.spec.ts (14 rojas + 1 viva skipIf(!TEST_DATABASE_URL), aplazada a T431). Doble del cliente: DELETE acotado `ctid IN (SELECT ctid ... LIMIT $n)`, $n consecutivos, umbrales ADR-002-14 con ::timestamptz e intervalos, sin VACUUM/TRUNCATE/INSERT/UPDATE, auditoría solo DELETE por auditBefore, lotes 500+500+120, rowCount null = 0, lote inválido = RangeError, UoW.purgeExpired con topes de sesión y ROLLBACK.
+- Criterio de lote (SQLite no tiene lotes): ctid acotado por LIMIT, repetido por tabla hasta lote < tamaño (500). Módulo cargado por import dinámico; tsc 0.
