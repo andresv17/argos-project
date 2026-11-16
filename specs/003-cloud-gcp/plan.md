@@ -89,7 +89,7 @@ Reglas: etiquetas `app=argos`, `managed-by=terraform` en todos los recursos etiq
 | `google_cloud_scheduler_job.maintenance` | `0 6 * * *` `America/Bogota`, `http_target` POST con `oidc_token`; **único job** | 1 de 3 gratis (2 de Mirror) |
 | Cuentas de servicio y roles | §5 | 0 |
 | `google_cloud_run_domain_mapping.custom` (F3) | `count = var.custom_domain != "" ? 1 : 0`; omitido con `custom_domain = ""`; DNS de GoDaddy manual | Gratuidad no confirmada (Preview), opcional |
-| `google_billing_budget` (D-13) | 1 USD, umbrales 50/90/100 % | 0 |
+| `google_billing_budget` (D-13) | 1 USD, umbrales 50/90/100 %; requiere la API `billingbudgets.googleapis.com` (12ª de REQ-IAC-009) y `roles/billing.costsManager` de `argos-terraform@` sobre la cuenta de facturación | 0 |
 
 ### 2.3 Estado
 `terraform/argos-state` en el bucket de D-12 (recomendado: bucket propio y versionado). El estado contiene valores de secretos (R-06): bucket privado, acceso solo a la cuenta de Terraform, `public_access_prevention=enforced`.
