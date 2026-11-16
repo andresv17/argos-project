@@ -798,3 +798,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creados tests/integration/persistence/postgres-repositories-part1.spec.ts (23 pruebas con doble del cliente: SQL exacto, $n consecutivos, sin interpolación, orden de columnas, sha256 de token, filas corruptas, fuente sin process.env/schema_migrations) y postgres-repositories.spec.ts (suite de conformidad con fábrica async + dispose, describe.skipIf(!TEST_DATABASE_URL); 19 omitidas, esquema aislado por prueba con baseline 0001).
 - Rojas: 23 (módulo postgres-repositories.ts inexistente, import dinámico para que tsc siga en 0). tsc 0.
 - Nota: la suite es única; sus pruebas de mascotas/hogares solo pasarán vivas tras T423/T424.
+
+## 2026-11-16 — T422 implementación (repositorios PostgreSQL parte 1)
+- Creado postgres-repositories.ts: createPostgresRepositoriesPart1(client) con users, sessions, loginAttempts, confirmationTokens, rateLimits; SQL con $n, JSONB con ::jsonb, ANY($1::text[]), UPSERT con EXCLUDED, COUNT bigint->Number, revokeOthers en un solo UPDATE con jsonb_set (sin N+1). Reutiliza corruptData/sessionTokenHash/isSessionRecord de sqlite-repositories.ts (solo se añadió `export` a isSessionRecord).
+- Comentario R1 en postgres-unit-of-work.ts (ROLLBACK con conexión caída => ERR-INTERNAL-UNEXPECTED/UNKNOWN; verifican T427/T477). Sin cambio de comportamiento.
+- Verdes: 23 de 23 rojas; tsc 0; vitest completa 2042 verdes + 23 omitidas.

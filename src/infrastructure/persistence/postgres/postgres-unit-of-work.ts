@@ -82,7 +82,12 @@ export class PostgresUnitOfWork implements UnitOfWorkPort {
     return client;
   }
 
-  /** Deshace la transacción y libera el cliente; si no puede deshacer, el estado es desconocido (C-6). */
+  /**
+   * Deshace la transacción y libera el cliente; si no puede deshacer, el estado es desconocido (C-6).
+   * Desvío documentado (R1 de Oracle): con una conexión realmente caída dentro de `work`, el `ROLLBACK` también falla y el
+   * llamador recibe ERR-INTERNAL-UNEXPECTED con finalState UNKNOWN, no el ECONNRESET original. Es conservador (no se afirma un
+   * estado que no se pudo comprobar) y coherente con C-6; lo verifican T427/T477 con Postgres real.
+   */
   private async rollback(client: PoolClientLike, cause: unknown): Promise<void> {
     try {
       await client.query('ROLLBACK');

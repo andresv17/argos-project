@@ -312,8 +312,13 @@ describe('código fuente (T422, INV-ARCH-006, T464)', () => {
     expect(source()).not.toMatch(/process\.env/);
     expect(source()).not.toContain('schema_migrations');
   });
-  it('ninguna sentencia interpola valores: las plantillas solo componen constantes SQL', () => {
-    const interpolations = [...source().matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1]);
-    expect(interpolations.filter((expr) => !/^SELECT_USER$/.test(expr!.trim()))).toEqual([]);
+  it('ninguna sentencia interpola valores: el primer argumento de cada client.query es literal, la constante de columnas o COUNT_REFERENCES', () => {
+    const firstArguments = [...source().matchAll(/client\.query\(\s*(`[^`]*`|'[^']*'|\w+)/g)].map((m) => m[1]!);
+    expect(firstArguments.length).toBe(20);
+    for (const argument of firstArguments) {
+      const interpolations = [...argument.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1]);
+      expect(interpolations.filter((expr) => expr !== 'USER_COLUMNS')).toEqual([]);
+      if (/^\w+$/.test(argument)) expect(argument).toBe('COUNT_REFERENCES');
+    }
   });
 });

@@ -73,7 +73,7 @@ const RECORD_TABLES: { readonly [M in RecordModule]: { readonly table: string; r
 };
 const RECORD_MODULE_NAMES = Object.keys(RECORD_TABLES) as RecordModule[];
 
-const isSessionRecord: Check<SessionRecord> = (value): value is SessionRecord => {
+export const isSessionRecord: Check<SessionRecord> = (value): value is SessionRecord => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const v = value as Record<string, unknown>;
   const timestamp = (x: unknown) => typeof x === 'string' && isCanonicalUtcTimestamp(x);
