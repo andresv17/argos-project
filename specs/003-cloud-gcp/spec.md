@@ -324,3 +324,16 @@ Origen: `.specify/memory/audits/gate-merovingian-003.md` (no modificado). Los n�
 | 016 | Anotado | Licencia BUSL-1.1 en REQ-IAC-002 y D-25 |
 | 017 | Aplicado | `ops.openapi.yaml` no toca contratos de dominio; `/internal/maintenance` fuera de la matriz CSRF y probado aparte (REQ-CLD-004, REQ-SEC-007, T413, T453) |
 | 018 | Aplicado | `scripts/` sin segundo punto de lectura de `process.env` o regla SAST extendida (REQ-PG-010, T429, T453) |
+
+## Notas `/architect` T452 (2026-11-16, decisiones de Neo Nivel 2; sin APPROVED)
+
+Origen: `.specify/memory/audits/rama-T452-privacidad-respaldos.md` (rev. 2) y `oracle-T452-dictamen-rama.md`. Neo resolvió en la Logos:
+
+| Decisión | Resolución de Neo | Asentada en |
+|---|---|---|
+| **T452a** (purga de bytes) | Opción (b): cron semanal `VACUUM (ANALYZE)` simple, sin `FULL`; recordatorio obligatorio con comprobación en el runbook de disparar `workflow_dispatch` modo `full` tras cada eliminación de cuenta. El cron solo recupera tuplas; la ventana de 14 días depende del disparo manual `full` (precisión, no contradicción) | REQ-PG-011; REQ-PG-015 (sin cambio); ADR-003-09 en `plan.md` (precisión T452a, espejo aplicado) |
+| **T441a** (IAM sobre dumps) | Opción (i): acotar por bucket los permisos de `storage` de `bootstrap.sh` para `apply` y `plan`, protegiendo `dumps/` de lectura por cuentas de CI; verificación en T469 | REQ-IAC-008; tarea nueva T441a (Phase 9, depende de T469) |
+| **T446a** (secretos en el job `plan` de PR) | Opción (iii): se **acepta** el vector bajo el modelo de **único mantenedor soberano (Neo)**. **Condición vinculante: reabrir esta decisión si el repositorio incorpora colaboradores**. Residual de R-06 / R-13 / REQ-CICD-012 | R-06 (riesgo aceptado); anotación en T446 |
+| **T444a** (secretos en el estado de Terraform) | Opción (ii): **R-06 se mantiene aceptado y documentado**; el estado reside en bucket privado con acceso uniforme (UBLA), cifrado en reposo y `prevent_destroy` (REQ-SEC-006, REQ-IAC-008) | R-06 (riesgo aceptado); anotación en T444 |
+
+**R-06 (aceptación vigente, 2026-11-16)**: los valores de secretos pasados por `TF_VAR_*` viven en el estado de Terraform y se acepta el riesgo bajo estas condiciones: (a) bucket de estado privado, con UBLA, cifrado, `public_access_prevention=enforced` y `prevent_destroy`; (b) el job `plan` de PR recibe secretos y se acepta bajo el modelo de único mantenedor soberano; (c) **reabrir si el repositorio incorpora colaboradores**. El espejo ya está aplicado (sin cambio de fondo): la fila R-06 (aceptación vigente) en `research.md` y la precisión T452a de ADR-003-09 en `plan.md`.
