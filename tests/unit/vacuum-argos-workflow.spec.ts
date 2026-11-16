@@ -120,6 +120,23 @@ describe('.github/workflows/vacuum-argos.yml (T473)', () => {
     expect(r).not.toMatch(/VACUUM \(/);
   });
 
+  it('H-K-T473-5 opción A: solo el modo manual full ejecuta VACUUM (ANALYZE) tras el FULL por tabla (SQL compartido)', () => {
+    expect(sharedSql()).toMatch(/^-- @sql vacuum_tras_full\s*\nVACUUM \(ANALYZE\)\s*$/m);
+    const r = runBlocks();
+    expect(r).toContain('sql_seccion vacuum_tras_full');
+    // La sentencia posterior solo se asigna dentro de la rama full; en la rama del cron queda vacía.
+    const full = /if \[ "\$\{EVENTO\}" = "workflow_dispatch" \][^\n]*\n([\s\S]*?)\n\s*else\n([\s\S]*?)\n\s*fi/.exec(r);
+    expect(full).not.toBeNull();
+    expect(full?.[1]).toContain('sql_seccion vacuum_tras_full');
+    expect(full?.[2]).not.toContain('sql_seccion vacuum_tras_full');
+    // Se ejecuta como psql -c independiente, después del FULL de la misma tabla y antes de pasar a la siguiente.
+    const iFull = r.indexOf('-c "${SENTENCIA} ${T}"');
+    const iTras = r.indexOf('-c "${SENTENCIA_TRAS} ${T}"');
+    expect(iFull).toBeGreaterThan(-1);
+    expect(iTras).toBeGreaterThan(iFull);
+    expect(r).not.toMatch(/VACUUM \(/);
+  });
+
   it('falla si last_vacuum supera 10 días y publica last_vacuum/last_autovacuum/n_dead_tup', () => {
     const r = runBlocks() + sharedSql();
     expect(r).toMatch(/pg_stat_user_tables/);

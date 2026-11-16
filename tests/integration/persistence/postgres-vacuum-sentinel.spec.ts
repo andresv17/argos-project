@@ -64,9 +64,10 @@ describe.skipIf(!TEST_DATABASE_URL)(
     const dbNombre = `argos_vac_${sufijo}`;
     const claveApp = `a${randomUUID()}`;
     const claveMig = `m${randomUUID()}`;
-    const rolApp = 'argos_app';
-    const rolMig = 'argos_migrator';
-    let rolesCreados = false;
+    // H-O-T473b-3: roles de clúster con sufijo único por corrida, creados y borrados SOLO por esta prueba (nunca se toca un rol ajeno).
+    const rolApp = `argos_app_${sufijo}`;
+    const rolMig = `argos_migrator_${sufijo}`;
+    let rolesCreados: string[] = [];
     let admin: pg.Client;
     let su: pg.Client; // superusuario dentro de la base efímera (pageinspect)
     let urlApp = '';
@@ -83,6 +84,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
           for (let i = 1; ; i++) {
             try {
               await client.query(`${sentencia} ${t}`);
+              if (modo === 'full') await client.query(`${seccion('vacuum_tras_full')} ${t}`); // H-K-T473-5 (opción A)
               break;
             } catch (e) {
               if (i >= intentos) throw e;
@@ -116,7 +118,8 @@ describe.skipIf(!TEST_DATABASE_URL)(
       );
       return Number(r.rows[0]?.n);
     }
-    const heapYIndices = ['users', 'users_pkey', 'users_username_key'] as const;
+    // users_pkey no se inspecciona: el centinela es username/email (id es otro UUID), por lo que no puede contenerlo (H-O-T473b-2).
+    const heapYIndices = ['users', 'users_username_key'] as const;
     async function centinelaEnRelaciones(centinela: string): Promise<Record<string, number[]>> {
       const out: Record<string, number[]> = {};
       for (const rel of heapYIndices) out[rel] = await paginasConCentinela(rel, centinela);
@@ -124,7 +127,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
     }
     const tamano = async (rel: string): Promise<number> => Number((await su.query<{ s: string }>('SELECT pg_relation_size($1::text::regclass)::text AS s', [rel])).rows[0]?.s);
 
-    async function sembrar(): Promise<{ centinela: string; app: pg.Client }> {
+    async function sembrar(relleno = 40): Promise<{ centinela: string; app: pg.Client }> {
       await su.query('TRUNCATE users CASCADE');
       await su.query('ALTER TABLE users SET (autovacuum_enabled = false)');
       const centinela = `centinela-${randomUUID()}`;
@@ -138,7 +141,13 @@ describe.skipIf(!TEST_DATABASE_URL)(
           email,
         ]);
       // Relleno que conserva viva la página (el VACUUM simple no puede truncar un archivo con filas vivas).
-      for (let i = 0; i < 40; i++) await insertar(randomUUID(), `relleno-${i}-${randomUUID()}`, `relleno-${i}@vacuum.example.test`);
+      await app.query(
+        `INSERT INTO users (id, username, password_hash, data, email)
+         SELECT gen_random_uuid()::text, 'relleno-' || g || '-' || gen_random_uuid()::text, 'hash-sintetico', '{"displayName":"relleno"}'::jsonb,
+                'relleno-' || g || '@vacuum.example.test'
+           FROM generate_series(1, $1::int) AS g`,
+        [relleno],
+      );
       await insertar(randomUUID(), centinela, `${centinela}@vacuum.example.test`);
       return { centinela, app };
     }
@@ -151,12 +160,13 @@ describe.skipIf(!TEST_DATABASE_URL)(
       const suUrl = new URL(TEST_DATABASE_URL!);
       suUrl.pathname = `/${dbNombre}`;
       su = (await conectar(suUrl.toString())).client;
-      // Roles de la prueba (de clúster): se crean si faltan y se les fija una clave desechable.
+      // Roles de la prueba (de clúster): solo se crean si no existen (nunca ALTER sobre un rol ajeno) y se registran para borrarlos.
       for (const [rol, clave] of [[rolApp, claveApp], [rolMig, claveMig]] as const) {
         const existe = (await admin.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [rol])).rowCount === 1;
-        await admin.query(`${existe ? 'ALTER' : 'CREATE'} ROLE ${rol} LOGIN PASSWORD '${clave}'`);
+        if (existe) throw new Error(`El rol ${rol} ya existe: la prueba no toca roles que no creó`);
+        await admin.query(`CREATE ROLE ${rol} LOGIN PASSWORD '${clave}'`);
+        rolesCreados.push(rol);
       }
-      rolesCreados = true;
       await su.query(BASELINE);
       await su.query(`REVOKE ALL ON SCHEMA public FROM PUBLIC`);
       await su.query(`GRANT USAGE ON SCHEMA public TO ${rolApp}, ${rolMig}`);
@@ -172,9 +182,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
       await su?.end();
       if (admin !== undefined) {
         await admin.query(`DROP DATABASE IF EXISTS ${dbNombre} WITH (FORCE)`);
-        if (rolesCreados) {
-          for (const rol of [rolApp, rolMig]) await admin.query(`DROP ROLE IF EXISTS ${rol}`).catch(() => undefined);
-        }
+        for (const rol of rolesCreados) await admin.query(`DROP ROLE IF EXISTS ${rol}`).catch(() => undefined);
         await admin.end();
       }
     });
@@ -207,15 +215,16 @@ describe.skipIf(!TEST_DATABASE_URL)(
     }, 60_000);
 
     it('disparo manual VACUUM (FULL, ANALYZE) por argos_migrator: el centinela desaparece del heap y de los índices; pg_relation_size se compacta', async () => {
-      const { centinela, app } = await sembrar();
-      await app.query('DELETE FROM users WHERE email = $1', [`${centinela}@vacuum.example.test`]);
+      const { centinela, app } = await sembrar(3000); // relleno que ocupa varias páginas: el FULL debe compactarlas
+      await app.query('DELETE FROM users WHERE email = $1 OR email LIKE $2', [`${centinela}@vacuum.example.test`, 'relleno-%@vacuum.example.test']);
       await app.end();
       const tamanoAntes = await tamano('users');
+      expect(tamanoAntes).toBeGreaterThan(8192 * 4); // premisa: la tabla ocupaba varias páginas antes de vaciar
       const { notices, estado } = await ejecutarSecuencia('full');
       expect(notices.join('\n')).not.toMatch(SIN_PRIVILEGIO);
       const despues = await centinelaEnRelaciones(centinela);
-      expect(despues).toEqual({ users: [], users_pkey: [], users_username_key: [] });
-      expect(await tamano('users')).toBeLessThanOrEqual(tamanoAntes);
+      expect(despues).toEqual({ users: [], users_username_key: [] });
+      expect(await tamano('users')).toBeLessThan(tamanoAntes); // H-O-T473b-1: compactación demostrada, no solo "no creció"
       expect(estado.rowCount).toBeGreaterThan(0);
     }, 120_000);
 
@@ -260,6 +269,30 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await su.query(`DROP TABLE ${sonda}`);
       }
     }, 60_000);
+
+    it('H-K-T473-5 opción A: la secuencia manual (FULL y luego VACUUM (ANALYZE) por tabla) deja last_vacuum no nulo en todas las tablas, sin tabla vencida', async () => {
+      const { centinela, app } = await sembrar();
+      await app.query('DELETE FROM users WHERE email = $1', [`${centinela}@vacuum.example.test`]);
+      await app.end();
+      expect(seccion('vacuum_tras_full')).toBe('VACUUM (ANALYZE)');
+      await ejecutarSecuencia('full');
+      const { client } = await conectar(urlMig);
+      try {
+        const leerVencidas = async (): Promise<string[]> => (await client.query<{ relname: string }>(seccion('vencidas'))).rows.map((r) => r.relname);
+        let vencidas = await leerVencidas();
+        if (vencidas.length > 0) {
+          await sleep(2000);
+          vencidas = await leerVencidas();
+        }
+        expect(vencidas).toEqual([]);
+        const nulos = await client.query("SELECT relname FROM pg_stat_user_tables WHERE schemaname = 'public' AND last_vacuum IS NULL");
+        expect(nulos.rows).toEqual([]);
+      } finally {
+        await client.end();
+      }
+      // El centinela sigue ausente tras la secuencia completa (el VACUUM simple posterior no lo reintroduce).
+      expect(await centinelaEnRelaciones(centinela)).toEqual({ users: [], users_username_key: [] });
+    }, 120_000);
 
     it('cron VACUUM (ANALYZE) por argos_migrator: elimina la tupla muerta (lógico) pero el centinela sigue físicamente en heap e índice, por eso el disparo manual NO baja a simple', async () => {
       const { centinela, app } = await sembrar();
