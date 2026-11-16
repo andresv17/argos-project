@@ -18,6 +18,12 @@ const job = (name: string): string => {
   const parts = jobs.split(/^ {2}(?=[\w-]+:\s*$)/m);
   return parts.find((p) => p.startsWith(`${name}:`)) ?? '';
 };
+/** Lista exacta de `needs` de un trabajo (acepta escalar o lista de flujo). */
+const needsOf = (name: string): string[] => {
+  const m = /^ {4}needs:\s*(?:\[([^\]]*)\]|(\S+))\s*$/m.exec(job(name));
+  const raw = m?.[1] ?? m?.[2] ?? '';
+  return raw.split(',').map((x) => x.trim()).filter((x) => x !== '');
+};
 const jobNames = (): string[] => [...(body().split(/^jobs:\s*$/m)[1] ?? '').matchAll(/^ {2}([\w-]+):\s*$/gm)].map((m) => m[1] ?? '');
 
 describe('.github/workflows/deploy-argos.yml (T448)', () => {
@@ -48,15 +54,17 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(g).not.toMatch(/vars\.(GCP|TF_)/);
   });
 
-  it('solo deploy tiene id-token: write y declara sus propios permissions mínimos', () => {
+  it('solo build-push y deploy tienen id-token: write (push y despliegue exigen GCP) con permissions mínimos', () => {
     const y = body();
-    expect(y.match(/id-token:\s*write/g)?.length).toBe(1);
-    const d = job('deploy');
-    expect(d).toMatch(/^ {4}permissions:\s*\n(?:\s+[\w-]+:\s*\w+\s*\n)*?\s+id-token:\s*write/m);
-    expect(d).toMatch(/contents:\s*read/);
-    expect(d).not.toMatch(/contents:\s*write/);
+    expect(y.match(/id-token:\s*write/g)?.length).toBe(2);
+    for (const name of ['build-push', 'deploy']) {
+      const d = job(name);
+      expect(d).toMatch(/^ {4}permissions:\s*\n(?:\s+[\w-]+:\s*\w+\s*\n)*?\s+id-token:\s*write/m);
+      expect(d).toMatch(/contents:\s*read/);
+      expect(d).not.toMatch(/contents:\s*write/);
+    }
     for (const name of jobNames()) {
-      if (name !== 'deploy') expect(job(name)).not.toMatch(/id-token/);
+      if (name !== 'deploy' && name !== 'build-push') expect(job(name)).not.toMatch(/id-token/);
     }
   });
 
@@ -85,20 +93,23 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(uses.some((u) => u.startsWith('docker/login-action@'))).toBe(true);
   });
 
-  it('npm audit --omit=dev --audit-level=high precede al build de la imagen y a deploy', () => {
+  it('npm audit --omit=dev --audit-level=high precede al build de la imagen y a deploy (build-push depende de audit)', () => {
     const y = body();
     const audit = y.indexOf('npm audit --omit=dev --audit-level=high');
     const build = y.indexOf('docker build');
     expect(audit).toBeGreaterThan(-1);
     expect(build).toBeGreaterThan(audit);
     expect(job('audit')).toContain('npm audit --omit=dev --audit-level=high');
-    expect(job('deploy')).toMatch(/needs:[^\n]*audit/);
+    expect(needsOf('build-push')).toEqual(['audit']);
   });
 
-  it('el orden de dependencias es gate -> audit -> migrate -> deploy', () => {
-    expect(job('audit')).toMatch(/needs:\s*gate/);
-    expect(job('migrate')).toMatch(/needs:[^\n]*audit/);
-    expect(job('deploy')).toMatch(/needs:[^\n]*migrate/);
+  it('el orden exacto de dependencias es gate -> audit -> build-push -> migrate -> deploy (Neo D2)', () => {
+    expect(jobNames()).toEqual(['gate', 'audit', 'build-push', 'migrate', 'deploy']);
+    expect(needsOf('gate')).toEqual([]);
+    expect(needsOf('audit')).toEqual(['gate']);
+    expect(needsOf('build-push')).toEqual(['audit']);
+    expect(needsOf('migrate')).toEqual(['build-push']);
+    expect(needsOf('deploy')).toEqual(['migrate']);
   });
 
   it('migrate usa DATABASE_URL_DIRECT por env, scripts/migrate-postgres.ts y no tiene id-token ni credenciales de GCP', () => {
@@ -107,8 +118,16 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(m).toMatch(/scripts\/migrate-postgres\.ts/);
     expect(m).not.toMatch(/google-github-actions\/auth/);
     expect(m).not.toMatch(/NEON_/);
-    expect(m).toMatch(/^ {4}environment:\s*produccion\s*$/m);
+    expect(m).not.toMatch(/environment:/);
     expect(m).toMatch(/--ignore-scripts/);
+  });
+
+  it('una sola aprobación: environment produccion solo en deploy (Neo D3)', () => {
+    for (const name of jobNames()) {
+      if (name === 'deploy') expect(job(name)).toMatch(/^ {4}environment:\s*produccion\s*$/m);
+      else expect(job(name)).not.toMatch(/environment:/);
+    }
+    expect(body().match(/^\s+environment:/gm)?.length).toBe(1);
   });
 
   it('deploy usa el entorno produccion, WIF por variables y sin llaves JSON', () => {
@@ -119,8 +138,16 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(body()).not.toMatch(/credentials_json|GCP_SA_KEY/);
   });
 
-  it('imagen con etiqueta sha-<commit> en Artifact Registry y push', () => {
-    const d = job('deploy');
+  it('build-push se autentica con WIF por variables, sin environment ni secretos de base de datos', () => {
+    const b = job('build-push');
+    expect(b).toMatch(/workload_identity_provider:\s*\$\{\{\s*vars\.GCP_WIF_PROVIDER\s*\}\}/);
+    expect(b).toMatch(/service_account:\s*\$\{\{\s*vars\.GCP_DEPLOY_SA\s*\}\}/);
+    expect(b).not.toMatch(/DATABASE_URL/);
+  });
+
+  it('imagen con etiqueta sha-<commit> en Artifact Registry y push (en build-push); deploy no reconstruye', () => {
+    const d = job('build-push');
+    expect(job('deploy')).not.toMatch(/docker (build|push)/);
     expect(d).toMatch(/-docker\.pkg\.dev\//);
     expect(d).toMatch(/argos-docker\/argos:sha-\$\{?GITHUB_SHA\}?/);
     expect(d).toMatch(/docker push/);
@@ -138,6 +165,25 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(d).toMatch(/ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:\$\{?HMAC_VERSION\}?/);
     expect(d).toMatch(/\^\[0-9\]\+\$/);
     expect(body()).not.toMatch(/(?:argos-database-url|argos-audit-hmac-secret):latest/);
+  });
+
+  it('inyecta ARGOS_SCHEDULER_EMAIL y ARGOS_OIDC_AUDIENCE en gcloud run deploy sin hardcodear (Neo D1, H-O-T448-1)', () => {
+    const d = job('deploy');
+    expect(d).toMatch(/ARGOS_SCHEDULER_EMAIL:\s*argos-scheduler@\$\{\{\s*vars\.TF_VAR_project_id\s*\}\}\.iam\.gserviceaccount\.com/);
+    expect(d).toMatch(/gcloud run services describe "?\$SERVICE"?[^\n]*--format="?'?value\(status\.url\)'?"?/);
+    expect(d).toMatch(/OIDC_AUDIENCE="?\$\(gcloud run services describe/);
+    const deployCmd = d.slice(d.indexOf('gcloud run deploy argos'));
+    expect(deployCmd).toMatch(/--set-env-vars\s+"[^"]*ARGOS_SCHEDULER_EMAIL=\$\{?ARGOS_SCHEDULER_EMAIL\}?/);
+    expect(deployCmd).toMatch(/--set-env-vars\s+"[^"]*ARGOS_OIDC_AUDIENCE=\$\{?OIDC_AUDIENCE\}?/);
+    expect(deployCmd).toMatch(/COOKIE_SECURE=true/);
+    expect(body()).not.toMatch(/ARGOS_OIDC_AUDIENCE=https?:\/\//);
+    expect(d.indexOf('value(status.url)')).toBeLessThan(d.indexOf('gcloud run deploy argos'));
+  });
+
+  it('sondas ratificadas (Neo D4): startup 2/10/1 y liveness 10/3/1 sobre /healthz', () => {
+    const d = job('deploy');
+    expect(d).toMatch(/--startup-probe "httpGet\.path=\/healthz,[^"]*periodSeconds=2,failureThreshold=10,timeoutSeconds=1"/);
+    expect(d).toMatch(/--liveness-probe "httpGet\.path=\/healthz,[^"]*periodSeconds=10,failureThreshold=3,timeoutSeconds=1"/);
   });
 
   it('humo en /healthz y /readyz, luego mueve el 100 % del tráfico, y retrocede si falla', () => {
