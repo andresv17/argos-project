@@ -50,20 +50,26 @@ Disparar `vacuum-argos.yml` con `workflow_dispatch` (REQ-PG-011, REQ-PG-015). Tr
 Cloud Run <= 60 % de 180 000 vCPU-s y 360 000 GiB-s; AR <= 400 MB; Secret Manager <= 4 versiones activas; Neon <= 60 CU-h y 0,5 GB; Scheduler 1 job; GCS <= 1 GB de los 5 GB compartidos.
 
 ## 6. Guía de bootstrap del día 0: secretos y variables de GitHub (REQ-CICD-006, REQ-CICD-012, REQ-IAC-014)
-Todo se crea en el bootstrap; nada queda pendiente de inventar. Orden: (1) Neo crea Neon (T455); (2) ejecuta `terraform/bootstrap.sh`, que crea proyecto, bucket de estado, WIF y las cuentas `argos-terraform-plan@` y `argos-terraform@`; (3) Neo crea en GitHub:
+Todo se crea el día 0; nada queda pendiente de inventar. Solo Neo ejecuta estos pasos (T456). Orden:
 
-| Tipo | Nombre | Valor inicial |
+1. Neo crea la base en Neon (T455): rol `argos_app` (URL con `-pooler`) y rol `argos_migrator` (URL directa, sin `-pooler`).
+2. Neo exporta `ARGOS_PROJECT_ID`, `ARGOS_GITHUB_REPO`, `ARGOS_BILLING_ACCOUNT` y `ARGOS_GITHUB_REVIEWER`, y ejecuta `bash terraform/bootstrap.sh` (dry-run, imprime los comandos) y después `bash terraform/bootstrap.sh --execute`. El script crea el proyecto, el bucket de estado, WIF, `argos-terraform-plan@` y `argos-terraform@`; en su paso 6 crea las **variables** de GitHub, en el paso 7 el Environment `produccion` (revisor Neo, rama `main`) y en el paso 8 solo imprime las órdenes de los secretos.
+3. Neo pega los **secretos** por entrada estándar (los valores nunca van al historial ni al repo): `gh secret set TF_VAR_database_url --repo <dueno/repo>`, `gh secret set TF_VAR_audit_hmac_secret --repo <dueno/repo>` y `gh secret set DATABASE_URL_DIRECT --repo <dueno/repo>`.
+4. Neo revisa en GitHub (Settings > Secrets and variables > Actions) que todo exista. Después se abre un PR que toque `terraform/**`: el primer plan corre en `infraestructura.yml` (`validate` y `plan`); el `apply` solo corre desde `main` y espera la aprobación de Neo en `produccion`.
+
+| Tipo | Nombre | Quién lo crea y valor inicial |
 |---|---|---|
-| Secreto | `TF_VAR_database_url` | URL de Neon con `-pooler` (rol `argos_app`) |
-| Secreto | `TF_VAR_audit_hmac_secret` | >= 32 bytes hex |
-| Secreto | `DATABASE_URL_DIRECT` | URL directa (rol `argos_migrator`) |
-| Variable | `TF_VAR_project_id` | ID del proyecto GCP |
-| Variable | `TF_VAR_region` | `us-central1` |
-| Variable | `TF_VAR_custom_domain` | `""` (F3 desactivado; si GitHub rechaza el valor vacío, no crear la variable: se evalúa como vacía) |
-| Variable | `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`, `GCP_TERRAFORM_SA`, `GCP_TERRAFORM_PLAN_SA`, `TF_STATE_BUCKET` | salidas de `bootstrap.sh` |
-| Environment | `produccion` | revisor requerido: Neo |
+| Secreto | `TF_VAR_database_url` | Neo, paso 3: URL de Neon con `-pooler` (rol `argos_app`) |
+| Secreto | `TF_VAR_audit_hmac_secret` | Neo, paso 3: >= 32 bytes hex |
+| Secreto | `DATABASE_URL_DIRECT` | Neo, paso 3: URL directa (rol `argos_migrator`) |
+| Variable | `TF_VAR_project_id` | `bootstrap.sh` paso 6: ID del proyecto GCP |
+| Variable | `TF_VAR_region` | `bootstrap.sh` paso 6: `us-central1` |
+| Variable | `TF_VAR_billing_account` | `bootstrap.sh` paso 6, desde `ARGOS_BILLING_ACCOUNT`. **Obligatoria**: sin ella el presupuesto no se planifica (REQ-IAC-009) |
+| Variable | `TF_VAR_custom_domain` | Neo: `""` (F3 desactivado; el script solo imprime la orden, y si GitHub rechaza el valor vacío no se crea la variable: se evalúa como vacía) |
+| Variable | `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`, `GCP_TERRAFORM_SA`, `GCP_TERRAFORM_PLAN_SA`, `TF_STATE_BUCKET` | `bootstrap.sh` paso 6 |
+| Environment | `produccion` | `bootstrap.sh` paso 7: revisor requerido: Neo |
 
-Sin `NEON_API_KEY` ni `NEON_PROJECT_ID` (D-19). `custom_domain = ""` es válido: Terraform omite el mapeo (`count = 0`).
+Sin `NEON_API_KEY` ni `NEON_PROJECT_ID` (D-19). Tampoco existe `GCP_SA_KEY`: la autenticación es por WIF (D-05, D-18). `custom_domain = ""` es válido: Terraform omite el mapeo (`count = 0`).
 
 ## 7. Frentes de exposición: activación y verificación
 - **F1** (principal): la URL `https://<service>-<hash>.a.run.app` existe tras el primer `apply` y el primer despliegue; sin Load Balancer.
