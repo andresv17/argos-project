@@ -111,19 +111,91 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     expect(configError({ HOST: host })).toEqual(['HOST']);
   });
 
-  it('[REQ-CLD-003][D-26] sin HOST, o con HOST vacío, el valor es 127.0.0.1 también en production y con postgres', () => {
+  it('[REQ-CLD-003][D-26] sin HOST el valor es 127.0.0.1 también en production y con postgres', () => {
     const production = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET };
     const postgres = { ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL };
-    expect([
-      loadAppConfig({ NODE_ENV: 'test' }).host,
-      loadAppConfig({ NODE_ENV: 'test', HOST: '' }).host,
-      loadAppConfig(production).host,
-      loadAppConfig({ ...production, HOST: '' }).host,
-      loadAppConfig({ NODE_ENV: 'test', ...postgres }).host,
-    ]).toEqual(['127.0.0.1', '127.0.0.1', '127.0.0.1', '127.0.0.1', '127.0.0.1']);
+    expect([loadAppConfig({ NODE_ENV: 'test' }).host, loadAppConfig(production).host, loadAppConfig({ NODE_ENV: 'test', ...postgres }).host]).toEqual(['127.0.0.1', '127.0.0.1', '127.0.0.1']);
+  });
+
+  it('[REQ-CLD-003][D-26] HOST="" explícito se rechaza (orden de Neo) en test, production y postgres; solo la variable ausente toma 127.0.0.1', () => {
+    const production = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET };
+    const postgres = { ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL };
+    expect([configError({ HOST: '' }), configError({ ...production, HOST: '' }), configError({ ...postgres, HOST: '' }), configError({ HOST: ' ' })]).toEqual([['HOST'], ['HOST'], ['HOST'], ['HOST']]);
   });
 
   it('[REQ-CLD-003][D-26] el rechazo de HOST no nombra el valor rechazado en el mensaje', () => {
     expect(() => loadAppConfig({ NODE_ENV: 'test', HOST: '10.0.0.1' })).toThrow('Configuración inválida: HOST. Revisa .env.example.');
+  });
+
+  // T409 (REQ-CLD-003, REQ-CLD-005, REQ-PG-010, REQ-SEC-003): ARGOS_DB_DRIVER, DATABASE_URL y ARGOS_PG_POOL_MAX.
+  // Supuesto de nombres para T410: las propiedades de AppConfig serán `dbDriver` y `pgPoolMax`.
+  const field = (config: unknown, name: string): unknown => (config as Record<string, unknown>)[name];
+  const SECRET_PASSWORD = 'S3cr3t-P4ss-no-filtrar';
+  const LEAKY_URL = `postgres://argos:${SECRET_PASSWORD}@db.example.internal:5432/argos`;
+
+  it('[REQ-PG-010] ARGOS_DB_DRIVER por defecto es sqlite y queda en la configuración', () => {
+    expect([field(loadAppConfig({ NODE_ENV: 'test' }), 'dbDriver'), field(loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'sqlite' }), 'dbDriver')]).toEqual(['sqlite', 'sqlite']);
+  });
+
+  it('[REQ-PG-010] ARGOS_DB_DRIVER=postgres se acepta con DATABASE_URL válida y queda en la configuración', () => {
+    expect(field(loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL }), 'dbDriver')).toBe('postgres');
+  });
+
+  it.each([
+    ['mysql', { ARGOS_DB_DRIVER: 'mysql' }],
+    ['cadena vacía', { ARGOS_DB_DRIVER: '' }],
+    ['mayúsculas', { ARGOS_DB_DRIVER: 'POSTGRES', DATABASE_URL: PG_URL }],
+    ['memory en development', { NODE_ENV: 'development', ARGOS_DB_DRIVER: 'memory', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET }],
+    ['memory en production', { NODE_ENV: 'production', ARGOS_DB_DRIVER: 'memory', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET }],
+  ])('[REQ-PG-010] ARGOS_DB_DRIVER inválido se rechaza nombrando solo la variable: %s', (_caso, env) => {
+    expect(configError(env)).toEqual(['ARGOS_DB_DRIVER']);
+  });
+
+  it('[REQ-PG-010] memory se admite en test y staging', () => {
+    expect([
+      field(loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'memory' }), 'dbDriver'),
+      field(loadAppConfig({ NODE_ENV: 'staging', ARGOS_DB_DRIVER: 'memory', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET }), 'dbDriver'),
+    ]).toEqual(['memory', 'memory']);
+  });
+
+  it('[REQ-CLD-005] DATABASE_URL es obligatoria con ARGOS_DB_DRIVER=postgres y no con sqlite', () => {
+    expect([configError({ ARGOS_DB_DRIVER: 'postgres' }), configError({ ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: '' }), configError({ ARGOS_DB_DRIVER: 'sqlite' })]).toEqual([['DATABASE_URL'], ['DATABASE_URL'], ['sin error']]);
+  });
+
+  it.each([
+    ['sin sslmode', LEAKY_URL],
+    ['sslmode=disable', `${LEAKY_URL}?sslmode=disable`],
+    ['sslmode=prefer', `${LEAKY_URL}?sslmode=prefer`],
+  ])('[REQ-CLD-005] con postgres la DATABASE_URL debe contener sslmode=require: se rechaza %s', (_caso, url) => {
+    expect(configError({ ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: url })).toEqual(['DATABASE_URL']);
+  });
+
+  it('[REQ-SEC-003] ante fallo de DATABASE_URL el mensaje, las propiedades y el error serializado no incluyen la URL ni la contraseña', () => {
+    let caught: unknown;
+    try {
+      loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: `${LEAKY_URL}?sslmode=disable` });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(AppConfigError);
+    const error = caught as AppConfigError;
+    const volcado = [error.message, error.stack ?? '', JSON.stringify(error), JSON.stringify(Object.getOwnPropertyNames(error).map((n) => (error as unknown as Record<string, unknown>)[n])), String(error)].join('\n');
+    expect(error.message).toBe('Configuración inválida: DATABASE_URL. Revisa .env.example.');
+    expect(volcado).not.toContain(SECRET_PASSWORD);
+    expect(volcado).not.toContain('db.example.internal');
+    expect(volcado).not.toContain('postgres://');
+  });
+
+  it('[REQ-PG-010] ARGOS_PG_POOL_MAX por defecto es 5 y acepta los extremos 1 y 10', () => {
+    const postgres = { ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: PG_URL };
+    expect([
+      field(loadAppConfig({ NODE_ENV: 'test' }), 'pgPoolMax'),
+      field(loadAppConfig({ NODE_ENV: 'test', ...postgres, ARGOS_PG_POOL_MAX: '1' }), 'pgPoolMax'),
+      field(loadAppConfig({ NODE_ENV: 'test', ...postgres, ARGOS_PG_POOL_MAX: '10' }), 'pgPoolMax'),
+    ]).toEqual([5, 1, 10]);
+  });
+
+  it.each([['0'], ['-1'], ['11'], ['100'], ['2.5'], ['abc'], ['05'], [' 3'], ['1e1']])('[REQ-PG-010] ARGOS_PG_POOL_MAX=%j se rechaza', (valor) => {
+    expect(configError({ ARGOS_PG_POOL_MAX: valor })).toEqual(['ARGOS_PG_POOL_MAX']);
   });
 });

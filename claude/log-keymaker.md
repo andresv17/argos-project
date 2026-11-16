@@ -692,3 +692,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - tests/unit/app-config.spec.ts: la fila `HOST=0.0.0.0 → rechazo` se conserva (sigue válida en test/sqlite) y se refuerza con 3 filas (sqlite, development, staging+memory); 7 pruebas/casos nuevos en total para production, postgres, rechazos permanentes, defecto 127.0.0.1 y mensaje sin eco.
 - Rojo real: 2 fallan (0.0.0.0 con production; 0.0.0.0 con postgres) con `Configuración inválida: HOST`. 33 pasan hoy: son rechazos que el código actual ya cumple (guardas de regresión).
 - Nota: HOST vacío toma el defecto 127.0.0.1 (comportamiento existente), no se rechaza; se afirma así. src/ sin cambios. T410 no implementada.
+
+## 2026-11-15 — T409 (rojo, completado): HOST vacío, ARGOS_DB_DRIVER, DATABASE_URL, ARGOS_PG_POOL_MAX
+- Orden de Neo: HOST="" se rechaza (la prueba que lo daba por 127.0.0.1 ahora espera ['HOST']; ' ' sigue rechazado). Añadidas pruebas de ARGOS_DB_DRIVER (defecto sqlite, postgres, rechazo de mysql/vacío/mayúsculas/memory fuera de test y staging), DATABASE_URL (obligatoria solo con postgres, sslmode=require, sin eco: mensaje, stack y JSON sin contraseña ni URL) y ARGOS_PG_POOL_MAX (1..10, defecto 5, rechazo de 0, -1, 11, 2.5, abc, 05, " 3", 1e1).
+- vitest app-config.spec.ts: 59 pruebas, 26 fallan (todas por la regla nueva: error esperado que no ocurre o propiedad undefined), 33 pasan (guardas previas). Supuesto de nombres para T410: dbDriver y pgPoolMax. src/ intacto; T410 no implementada.
