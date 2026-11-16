@@ -106,6 +106,7 @@
 - [ ] T442 [US1] `scheduler.tf`: **un** job `argos-maintenance` diario con OIDC hacia `/internal/maintenance` (REQ-CLD-007, NFR-CLD-001) — depende de T440
 - [ ] T443 [P] [N2] [US3] Presupuesto de 1 USD con alerta preventiva por correo (D-13) (NFR-CLD-001) — depende de T436
 - [ ] T444 [US3] `terraform fmt -check`, `terraform validate` (sin credenciales ni `apply`), `grep -ri mirror terraform/` = 0, `soft_delete_policy` en 0 s también en el bucket de estado de `bootstrap.sh`/`terraform/README.md`, `sensitive = true` en variables y salidas de secretos, y README de Terraform (REQ-IAC-003, REQ-IAC-008, REQ-SEC-001, SC-CLD-005, SC-CLD-008) — depende de T442, T441
+- [ ] T485 [N2] [US3] `terraform/bootstrap.sh` paso 5c: añadir `roles/iam.workloadIdentityUser` sobre la cuenta `argos-deployer@` (en `iam.tf`, T439) restringido estrictamente a `attribute.job_workflow_ref` del flujo `.github/workflows/deploy-argos.yml` en `refs/heads/main`, y corregir el comentario de la línea 157 que hoy dice falsamente que la vinculación "se añade en T439/T450" (REQ-CICD-012, REQ-IAC-013, REQ-SEC-001, D-W1 de Neo). Sin este binding el primer despliegue real de `deploy-argos.yml` falla. Pruebas primero en `tests/unit/terraform-bootstrap.spec.ts` — depende de T450, T439
 
 ---
 
@@ -223,7 +224,7 @@
 | REQ-IAC-009 | T436, T443 |
 | REQ-IAC-010 | T440, T469 |
 | REQ-IAC-012 | T469, T440 |
-| REQ-IAC-013 | T471, T438, T446 |
+| REQ-IAC-013 | T471, T438, T446, T485 |
 | REQ-IAC-014 | T481, T482, T471, T450 |
 | REQ-CICD-001 | T445 |
 | REQ-CICD-002 | T446 |
@@ -235,8 +236,8 @@
 | REQ-CICD-008 | T448, T446 |
 | REQ-CICD-009 | T472, T448, T469 |
 | REQ-CICD-011 | T445, T446, T447, T448, T449 |
-| REQ-CICD-012 | T435, T446, T457 |
-| REQ-SEC-001 | T438, T444, T446, T450, T451, T455, T405 |
+| REQ-CICD-012 | T435, T446, T457, T485 |
+| REQ-SEC-001 | T438, T444, T446, T450, T451, T455, T405, T485 |
 | REQ-SEC-002 | T410, T409 |
 | REQ-SEC-003 | T409 |
 | REQ-SEC-004 | T455 |
