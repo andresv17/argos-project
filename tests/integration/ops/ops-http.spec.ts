@@ -38,6 +38,11 @@ let checkReady: ReturnType<typeof vi.fn<() => Promise<void>>>;
 
 async function buildOpsApp(): Promise<FastifyInstance> {
   const instance = Fastify();
+  // Manejador real de errores (F-T453-02): sin él, un error 403 de @fastify/static no se traduce y la prueba da falso verde.
+  const { registerProblemDetails } = (await import(/* @vite-ignore */ join(SRC_HTTP, 'plugins/problem-details.ts'))) as {
+    registerProblemDetails(app: FastifyInstance): void;
+  };
+  registerProblemDetails(instance);
   const registerSecurityHeaders = await load('plugins/security-headers.ts', 'registerSecurityHeaders');
   const registerOpsRoutes = await load('routes/ops-routes.ts', 'registerOpsRoutes');
   const registerStaticAssets = await load('plugins/static-assets.ts', 'registerStaticAssets');
@@ -180,12 +185,30 @@ describe('estáticos y fallback SPA (REQ-CLD-001)', () => {
     expect(res.body).not.toContain('ARGOS-SPA');
   });
 
-  it('niega los dotfiles de dist/ sin filtrar su contenido', async () => {
+  it('niega los dotfiles de dist/ con 404 exacto, sin contenido y sin 5xx (F-T453-01/02)', async () => {
     app = await buildOpsApp();
     const res = await app.inject({ method: 'GET', url: '/.env' });
-    expect([403, 404]).toContain(res.statusCode);
+    expect(res.statusCode).toBe(404);
     expect(res.body).not.toContain('DOTFILE');
+    expect(res.body).not.toContain('ERR-INTERNAL-UNEXPECTED');
   });
+
+  it.each(['/.env', '/.git/config', '/.gitignore', '/assets/.x', '/assets/.env', '/.well-known/x', '/.well-known/security.txt', '/sub/.hidden/y', '/%2eenv'])(
+    'dotfile %s: 404 sin contenido, sin SPA y sin 5xx',
+    async (url) => {
+      mkdirSync(join(sandbox, 'dist', '.well-known'), { recursive: true });
+      writeFileSync(join(sandbox, 'dist', '.well-known', 'x'), 'DOTFILE=1');
+      writeFileSync(join(sandbox, 'dist', 'assets', '.x'), 'DOTFILE=1');
+      app = await buildOpsApp();
+      for (const method of ['GET', 'HEAD'] as const) {
+        const res = await app.inject({ method, url });
+        expect(res.statusCode).toBe(404);
+        expect(res.body).not.toContain('DOTFILE');
+        expect(res.body).not.toContain('ARGOS-SPA');
+        expect(res.body).not.toContain('ERR-INTERNAL-UNEXPECTED');
+      }
+    },
+  );
 
   it('no lista directorios (/assets/ no devuelve un índice con nombres de archivo)', async () => {
     app = await buildOpsApp();
