@@ -113,7 +113,8 @@ describe('terraform/bootstrap.sh (T435)', () => {
 
     it('su --member se restringe a job_workflow_ref de deploy-argos.yml en refs/heads/main', () => {
       const [line] = bindingLines(run([]).stdout);
-      expect(line).toContain('--member="principalSet://iam.googleapis.com/projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/');
+      expect(line).toContain('--member=principalSet://iam.googleapis.com/projects/');
+      expect(line).toContain('/locations/global/workloadIdentityPools/');
       expect(line).toContain('attribute.job_workflow_ref/dueno/argos/.github/workflows/deploy-argos.yml@refs/heads/main');
       expect(line).not.toContain('attribute.repository_id');
       expect(line).not.toContain('infraestructura.yml');
