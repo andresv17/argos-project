@@ -23,11 +23,14 @@
   },
   "dependencies": {
     "@fastify/cookie": "11.1.5",
+    "@fastify/static": "10.1.8",
+    "@types/pg": "8.23.1",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "better-sqlite3": "13.0.3",
     "fastify": "5.12.8",
     "openapi-fetch": "0.17.0",
+    "pg": "8.23.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-router-dom": "7.18.5"
@@ -46,6 +49,7 @@
     "@vitest/coverage-v8": "2.1.9",
     "autoprefixer": "10.6.2",
     "concurrently": "10.0.6",
+    "esbuild": "0.28.2",
     "fast-check": "3.23.2",
     "json-schema-to-typescript": "16.0.0",
     "openapi-typescript": "7.13.0",

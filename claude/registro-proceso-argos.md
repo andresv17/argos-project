@@ -774,3 +774,12 @@
 2026-11-15 21:24 Morpheus: 9915575 (T406/T408, Oracle CUMPLE CON RESERVAS) publicado en origin/003-cloud-gcp.
 2026-11-15 21:34 Morpheus: Neo marca T406/T408 [x]; luz verde T409 (pruebas en tests/, sin src/).
 2026-11-15 Keymaker: T409 rojo en tests/unit/app-config.spec.ts (2 fallan por la regla HOST, 33 verdes); src/ intacto; commit local, sin marcar [x].
+2026-11-15 21:37 Morpheus: Neo decide HOST vacío = rechazo; luz verde al resto de T409 (tests en rojo).
+2026-11-15 Keymaker: T409 completado en rojo (59 pruebas, 26 fallan por regla nueva, 33 guardas); solo tests/; commit local, sin [x].
+2026-11-15 21:38 Morpheus: T409 completo en rojo (9b0485c, local). Oracle valida antes de T410.
+2026-11-15 Oracle: T409 (9b0485c) CUMPLE CON RESERVAS: 26 rojos validos, 33 verdes, solo tests/ y bitacora. Veredicto en audits/oracle-T409-veredicto.md
+2026-11-15 21:39 Morpheus: Oracle CUMPLE CON RESERVAS T409. Lanzo T404 (deps fijas D-27) sin src/.
+2026-11-15 21:41 HARDLINE (Morpheus): cierre de sesión. 003 en 9b0485c (local, ahead 3; origin 9915575). T406/T408 [x] por Neo; T409 rojas (Oracle CUMPLE CON RESERVAS). Pendiente Neo: [x] T409/T480/T403, dbDriver/pgPoolMax, orden T404 y T410. Handover: claude/handover-morpheus-2026-11-15.md. Sin push.
+2026-11-16 Morpheus: inicia sesión. Lectura en disco; HEAD 9b0485c (ahead 3). Bloqueados T404/T410 pendientes de marcas y orden de Neo. Sin push, sin marcas.
+2026-11-16 Morpheus: Neo firma T403/T409/T480 [x] (commit a4bf460, push a origin hecho). feature.json -> 003. Despacho Keymaker T404 + T410 (sin push). Oracle después.
+2026-11-16 Keymaker: T404 hecha (pg 8.23.1, @types/pg 8.23.1, @fastify/static 10.1.8, esbuild 0.28.2 exactas; humo OK con Fastify 5.12.8; tsc PASS). Commit local, sin [x].

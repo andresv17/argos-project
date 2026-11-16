@@ -696,3 +696,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-15 — T409 (rojo, completado): HOST vacío, ARGOS_DB_DRIVER, DATABASE_URL, ARGOS_PG_POOL_MAX
 - Orden de Neo: HOST="" se rechaza (la prueba que lo daba por 127.0.0.1 ahora espera ['HOST']; ' ' sigue rechazado). Añadidas pruebas de ARGOS_DB_DRIVER (defecto sqlite, postgres, rechazo de mysql/vacío/mayúsculas/memory fuera de test y staging), DATABASE_URL (obligatoria solo con postgres, sslmode=require, sin eco: mensaje, stack y JSON sin contraseña ni URL) y ARGOS_PG_POOL_MAX (1..10, defecto 5, rechazo de 0, -1, 11, 2.5, abc, 05, " 3", 1e1).
 - vitest app-config.spec.ts: 59 pruebas, 26 fallan (todas por la regla nueva: error esperado que no ocurre o propiedad undefined), 33 pasan (guardas previas). Supuesto de nombres para T410: dbDriver y pgPoolMax. src/ intacto; T410 no implementada.
+
+## 2026-11-16 — T404 (deps fijas D-27, rama 003-cloud-gcp)
+- Instaladas con --save-exact: pg 8.23.1, @types/pg 8.23.1, @fastify/static 10.1.8 (dependencies) y esbuild 0.28.2 (devDependencies). Sin tsx/concurrently/dotenv/helmet nuevos. Fastify sigue en 5.12.8.
+- package.json y lock verificados con versiones exactas; prueba de humo de @fastify/static con Fastify 5.12.8: inject 200; tsc --noEmit PASS. Commit local, sin [x], sin push.
