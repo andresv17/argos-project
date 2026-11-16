@@ -783,3 +783,4 @@
 2026-11-16 Morpheus: inicia sesión. Lectura en disco; HEAD 9b0485c (ahead 3). Bloqueados T404/T410 pendientes de marcas y orden de Neo. Sin push, sin marcas.
 2026-11-16 Morpheus: Neo firma T403/T409/T480 [x] (commit a4bf460, push a origin hecho). feature.json -> 003. Despacho Keymaker T404 + T410 (sin push). Oracle después.
 2026-11-16 Keymaker: T404 hecha (pg 8.23.1, @types/pg 8.23.1, @fastify/static 10.1.8, esbuild 0.28.2 exactas; humo OK con Fastify 5.12.8; tsc PASS). Commit local, sin [x].
+2026-11-16 Keymaker: T410 hecha (dbDriver, pgPoolMax, regla HOST; app-config.spec 63/63, tsc PASS). Residuo: src/generated/ops/ sin seguimiento rompe 3 pruebas codegen-drift (no de T410). Commit local, sin [x].

@@ -700,3 +700,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-16 — T404 (deps fijas D-27, rama 003-cloud-gcp)
 - Instaladas con --save-exact: pg 8.23.1, @types/pg 8.23.1, @fastify/static 10.1.8 (dependencies) y esbuild 0.28.2 (devDependencies). Sin tsx/concurrently/dotenv/helmet nuevos. Fastify sigue en 5.12.8.
 - package.json y lock verificados con versiones exactas; prueba de humo de @fastify/static con Fastify 5.12.8: inject 200; tsc --noEmit PASS. Commit local, sin [x], sin push.
+
+## 2026-11-16 — T410 (config dbDriver, pgPoolMax, regla HOST)
+- app-config.ts: HOST admite 127.0.0.1 y 0.0.0.0 (este solo con NODE_ENV=production o ARGOS_DB_DRIVER=postgres); HOST/ARGOS_DB_DRIVER/ARGOS_PG_POOL_MAX vacíos se rechazan (solo ausente = defecto). dbDriver sqlite|postgres|memory (memory solo test/staging), pgPoolMax 1..10 (5). DATABASE_URL solo con postgres: URL postgres(ql): con sslmode=require; error nombra solo la variable. host tipado '127.0.0.1' | '0.0.0.0'.
+- .env.example: ARGOS_DB_DRIVER=sqlite, ARGOS_PG_POOL_MAX=5; DATABASE_URL como marcador comentado. Tests: añadidas dbDriver/pgPoolMax al objeto por defecto y las reservas del Oracle (URL malformada, URL vacía/ausente); sin debilitar aserciones.
+- Resultados: tsc PASS; app-config.spec 63/63 verdes. Suite unit+integration: 1539 pasan, 3 fallan en codegen-drift (src/generated/ops/ sin seguimiento, efecto de las compuertas de la 003; no es de T410). No se añadió databaseUrl a AppConfig (T427 lo decidirá).

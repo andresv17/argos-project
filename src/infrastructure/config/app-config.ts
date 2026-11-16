@@ -12,6 +12,12 @@
  *   solo en pruebas puede faltar (`auditHmacSecret` nulo y el servidor usa la clave fija de prueba). Si está presente e
  *   inválida se rechaza en todo entorno. Su valor nunca aparece en el mensaje
  *   del error, en logs ni en excepciones: `AppConfigError` solo nombra la variable.
+ * - `HOST` (REQ-CLD-003, D-26): `127.0.0.1` por defecto; `0.0.0.0` solo con `NODE_ENV=production` o `ARGOS_DB_DRIVER=postgres`.
+ *   Solo la variable ausente toma el defecto: `HOST=""` se rechaza.
+ * - `ARGOS_DB_DRIVER` (REQ-PG-010): `sqlite` (defecto), `postgres` o `memory` (solo con `NODE_ENV` test o staging).
+ * - `DATABASE_URL` (REQ-CLD-005, REQ-SEC-003): obligatoria solo con `postgres`; URL `postgres:`/`postgresql:` con `sslmode=require`.
+ *   Es un secreto: el error nombra solo la variable, nunca el valor.
+ * - `ARGOS_PG_POOL_MAX` (REQ-PG-010): entero 1..10 sin ceros a la izquierda (5).
  * - Una variable inválida produce `AppConfigError` con la lista de variables afectadas; no se arranca con valores
  *   por defecto silenciosos. Ningún valor es secreto (`.env.example`).
  *
@@ -24,7 +30,7 @@ import { DEFAULT_APP_TIMEZONE, isSupportedTimeZone } from '../adapters/system-cl
 
 export interface AppConfig {
   readonly port: number;
-  readonly host: '127.0.0.1';
+  readonly host: '127.0.0.1' | '0.0.0.0';
   readonly databasePath: string;
   readonly appTimezone: string;
   readonly cookieSecure: boolean;
@@ -36,6 +42,10 @@ export interface AppConfig {
   readonly auditRetentionDays: number;
   /** Clave HMAC de auditoría en hexadecimal (>= 32 bytes) o null si falta con NODE_ENV=test. Es un secreto: no se registra. */
   readonly auditHmacSecret: string | null;
+  /** Adaptador de persistencia (ARGOS_DB_DRIVER). */
+  readonly dbDriver: 'sqlite' | 'postgres' | 'memory';
+  /** Tamaño máximo del pool de PostgreSQL (ARGOS_PG_POOL_MAX, 1..10). */
+  readonly pgPoolMax: number;
 }
 
 interface RawAppConfig {
@@ -49,6 +59,8 @@ interface RawAppConfig {
   INVITE_MAX_PER_WINDOW: string;
   INVITE_WINDOW_MINUTES: string;
   ARGOS_AUDIT_RETENTION_DAYS: string;
+  ARGOS_DB_DRIVER: 'sqlite' | 'postgres' | 'memory';
+  ARGOS_PG_POOL_MAX: string;
 }
 
 export const APP_CONFIG_DEFAULTS: Readonly<RawAppConfig> = {
@@ -62,6 +74,8 @@ export const APP_CONFIG_DEFAULTS: Readonly<RawAppConfig> = {
   INVITE_MAX_PER_WINDOW: '20',
   INVITE_WINDOW_MINUTES: '15',
   ARGOS_AUDIT_RETENTION_DAYS: '730',
+  ARGOS_DB_DRIVER: 'sqlite',
+  ARGOS_PG_POOL_MAX: '5',
 };
 
 const POSITIVE_INTEGER = '^[1-9][0-9]{0,3}$';
@@ -71,7 +85,7 @@ export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
   type: 'object',
   properties: {
     PORT: { type: 'string', pattern: '^(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$' },
-    HOST: { type: 'string', enum: ['127.0.0.1'] },
+    HOST: { type: 'string', enum: ['127.0.0.1', '0.0.0.0'] },
     DATABASE_PATH: { type: 'string', minLength: 1, pattern: '\\S' },
     APP_TIMEZONE: { type: 'string', minLength: 1, pattern: '^[A-Za-z][A-Za-z0-9_+/-]*$' },
     COOKIE_SECURE: { type: 'string', enum: ['true', 'false'] },
@@ -80,10 +94,25 @@ export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
     INVITE_MAX_PER_WINDOW: { type: 'string', pattern: POSITIVE_INTEGER },
     INVITE_WINDOW_MINUTES: { type: 'string', pattern: POSITIVE_INTEGER },
     ARGOS_AUDIT_RETENTION_DAYS: { type: 'string', pattern: POSITIVE_INTEGER },
+    ARGOS_DB_DRIVER: { type: 'string', enum: ['sqlite', 'postgres', 'memory'] },
+    ARGOS_PG_POOL_MAX: { type: 'string', pattern: '^(?:[1-9]|10)$' },
   },
-  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES', 'ARGOS_AUDIT_RETENTION_DAYS'],
+  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES', 'ARGOS_AUDIT_RETENTION_DAYS', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX'],
   additionalProperties: false,
 };
+
+const DATABASE_URL_NAME = 'DATABASE_URL';
+
+/** DATABASE_URL válida para PostgreSQL: URL `postgres:`/`postgresql:` con `sslmode=require`. No lanza ni devuelve el valor. */
+function isValidDatabaseUrl(value: string | undefined): boolean {
+  if (value === undefined || value === '') return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'postgres:' || url.protocol === 'postgresql:') && url.searchParams.get('sslmode') === 'require';
+  } catch {
+    return false;
+  }
+}
 
 const AUDIT_SECRET_NAME = 'ARGOS_AUDIT_HMAC_SECRET';
 /** >= 32 bytes en hexadecimal: 64 o más caracteres hexadecimales, en número par. */
@@ -116,30 +145,38 @@ function isKnownPublicAuditSecret(value: string): boolean {
   return normalized === DEVELOPMENT_AUDIT_HMAC_SECRET || createHash('sha256').update(normalized).digest('hex') === FIXTURE_AUDIT_SECRET_SHA256;
 }
 
+/** Variables cuyo valor vacío explícito no equivale a «ausente» (D-26 y T409). */
+const STRICT_EMPTY_KEYS: ReadonlySet<string> = new Set(['HOST', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX']);
+
 export type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 
 /**
  * Lee y valida la configuración. `env` por defecto es `process.env`; las pruebas pasan su propio objeto.
- * Una variable ausente o vacía toma su valor por defecto.
+ * Una variable ausente o vacía toma su valor por defecto, salvo `HOST`, `ARGOS_DB_DRIVER` y `ARGOS_PG_POOL_MAX`
+ * (solo la ausente toma el defecto; vacía se rechaza).
  * @implements INV-ARCH-006
  */
 export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
   const keys = Object.keys(APP_CONFIG_DEFAULTS) as Array<keyof RawAppConfig>;
-  const raw = Object.fromEntries(keys.map((key) => [key, env[key] === undefined || env[key] === '' ? APP_CONFIG_DEFAULTS[key] : env[key]])) as unknown as RawAppConfig;
+  const raw = Object.fromEntries(keys.map((key) => [key, env[key] === undefined || (env[key] === '' && !STRICT_EMPTY_KEYS.has(key)) ? APP_CONFIG_DEFAULTS[key] : env[key]])) as unknown as RawAppConfig;
   const invalid = new Set<string>();
   if (!validateRawConfig(raw)) {
     for (const error of validateRawConfig.errors ?? []) invalid.add(error.instancePath.replace(/^\//, ''));
   }
   if (!invalid.has('APP_TIMEZONE') && !isSupportedTimeZone(raw.APP_TIMEZONE)) invalid.add('APP_TIMEZONE');
+  const nodeEnv = env['NODE_ENV'];
+  if (!invalid.has('HOST') && raw.HOST === '0.0.0.0' && nodeEnv !== 'production' && raw.ARGOS_DB_DRIVER !== 'postgres') invalid.add('HOST');
+  if (!invalid.has('ARGOS_DB_DRIVER') && raw.ARGOS_DB_DRIVER === 'memory' && nodeEnv !== 'test' && nodeEnv !== 'staging') invalid.add('ARGOS_DB_DRIVER');
+  const invalidDatabaseUrl = raw.ARGOS_DB_DRIVER === 'postgres' && !isValidDatabaseUrl(env[DATABASE_URL_NAME]);
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
   const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret) || (env['NODE_ENV'] !== 'test' && isKnownPublicAuditSecret(auditHmacSecret));
-  if (invalid.size > 0 || invalidSecret) {
-    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
+  if (invalid.size > 0 || invalidSecret || invalidDatabaseUrl) {
+    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
   }
   return {
     port: Number(raw.PORT),
-    host: '127.0.0.1',
+    host: raw.HOST as AppConfig['host'],
     databasePath: raw.DATABASE_PATH,
     appTimezone: raw.APP_TIMEZONE,
     cookieSecure: raw.COOKIE_SECURE === 'true',
@@ -149,5 +186,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
     inviteWindowMinutes: Number(raw.INVITE_WINDOW_MINUTES),
     auditRetentionDays: Number(raw.ARGOS_AUDIT_RETENTION_DAYS),
     auditHmacSecret,
+    dbDriver: raw.ARGOS_DB_DRIVER,
+    pgPoolMax: Number(raw.ARGOS_PG_POOL_MAX),
   };
 }

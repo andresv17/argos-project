@@ -33,6 +33,8 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         inviteWindowMinutes: 15,
         auditRetentionDays: 730,
         auditHmacSecret: null,
+        dbDriver: 'sqlite',
+        pgPoolMax: 5,
       },
       APP_CONFIG_DEFAULTS,
     ]);
@@ -193,6 +195,21 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
       field(loadAppConfig({ NODE_ENV: 'test', ...postgres, ARGOS_PG_POOL_MAX: '1' }), 'pgPoolMax'),
       field(loadAppConfig({ NODE_ENV: 'test', ...postgres, ARGOS_PG_POOL_MAX: '10' }), 'pgPoolMax'),
     ]).toEqual([5, 1, 10]);
+  });
+
+  // Reservas del Oracle (T409) incorporadas en T410.
+  it.each([
+    ['URL malformada', 'esto no es una url sslmode=require'],
+    ['esquema ajeno', 'mysql://argos:clave@db.example.internal:3306/argos?sslmode=require'],
+    ['sin host ni esquema válido', '://?sslmode=require'],
+  ])('[REQ-CLD-005] con postgres una DATABASE_URL malformada se rechaza nombrando solo la variable: %s', (_caso, url) => {
+    expect(configError({ ARGOS_DB_DRIVER: 'postgres', DATABASE_URL: url })).toEqual(['DATABASE_URL']);
+  });
+
+  it('[REQ-CLD-005] DATABASE_URL vacía o ausente con postgres se rechaza y el mensaje solo nombra la variable', () => {
+    for (const env of [{ DATABASE_URL: '' }, {}]) {
+      expect(() => loadAppConfig({ NODE_ENV: 'test', ARGOS_DB_DRIVER: 'postgres', ...env })).toThrow('Configuración inválida: DATABASE_URL. Revisa .env.example.');
+    }
   });
 
   it.each([['0'], ['-1'], ['11'], ['100'], ['2.5'], ['abc'], ['05'], [' 3'], ['1e1']])('[REQ-PG-010] ARGOS_PG_POOL_MAX=%j se rechaza', (valor) => {
