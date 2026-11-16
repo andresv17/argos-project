@@ -817,3 +817,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-16 — T424 pruebas primero (repositorios PostgreSQL parte 3 + fábrica compuesta)
 - Creado tests/integration/persistence/postgres-repositories-part3.spec.ts (21 pruebas: hogares, membresías con role/is_household_owner, 23505 de un segundo propietario y de una segunda INVITED propagadas, updateOwner con jsonb_set, invitaciones, asignaciones, auditoría insert/pseudonymizeUser, fábrica createPostgresRepositories con las 11 claves, y chequeo estático de que la spec viva ya no usa el cast ni la parte 1 sola).
 - Rojas: 21 (todas por createPostgresRepositoriesPart3/createPostgresRepositories inexistentes o spec viva aún con cast). tsc 0.
+
+## 2026-11-16 — T424 implementación (parte 3 + cierre de la fábrica compuesta)
+- postgres-repositories.ts: createPostgresRepositoriesPart3 (households con updateOwner por jsonb_set, saveMembership con role/is_household_owner, invitations con 23505 propagada, assignments, auditLog insert/pseudonymize) y createPostgresRepositories(client): RepositorySet de las 3 partes. Archivo único (~700 líneas, similar al SQLite de 683); decisión: no se parte en módulos para no crear import circular con encode/decode.
+- tests/integration/persistence/postgres-repositories.spec.ts ahora usa createPostgresRepositories (tipado, sin `as RepositorySet`); en su encabezado quedan las reservas de Oracle R-1 (revokeOthers sin validación por fila) y R-2 (fechas como TEXT) para T427.
+- Rojas 21 -> verdes 21. tsc 0; vitest completa verde, vivas omitidas (19 + 4) por falta de TEST_DATABASE_URL.

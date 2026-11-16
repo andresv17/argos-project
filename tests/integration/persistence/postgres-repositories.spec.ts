@@ -2,13 +2,15 @@
  * Conformidad de los repositorios de PostgreSQL contra la suite compartida (T422..T424, REQ-PG-002, INV-ARCH-005).
  * Contra un Postgres real: se OMITE sin TEST_DATABASE_URL (única lectura de process.env permitida en tests/ para PostgreSQL).
  * Cada prueba usa un esquema propio con el baseline 0001 aplicado; `dispose` lo elimina y cierra el pool.
- * Nota: la suite es única; sus pruebas de mascotas, registros, hogares e invitaciones solo pasan al completarse T423 y T424.
+ * Usa la fábrica completa createPostgresRepositories (3 partes, T424): ya no hay cast ni partes faltantes.
+ * RESERVAS DE ORACLE PARA T427 (pendientes, no resueltas aquí): R-1 revokeOthers sin validación previa por fila (probar fila corrupta
+ * y timestamp no canónico en Postgres real); R-2 comparaciones de fecha como TEXT (probar bordes de countSince y consume).
  */
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe } from 'vitest';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
-import { closePool, createPostgresPool, type PoolLike } from '../../../src/infrastructure/persistence/postgres/postgres-database.ts';
+import { closePool, createPostgresPool, type PoolClientLike, type PoolLike } from '../../../src/infrastructure/persistence/postgres/postgres-database.ts';
 import { PostgresUnitOfWork } from '../../../src/infrastructure/persistence/postgres/postgres-unit-of-work.ts';
 import { defineRepositoryContractSuite } from '../../fixtures/repository-contract-suite.ts';
 
@@ -32,10 +34,10 @@ describe.skipIf(!TEST_DATABASE_URL)(
         url.searchParams.set('options', `-c search_path=${schema}`);
         pool = createPostgresPool({ connectionString: url.toString(), pgPoolMax: 4 });
         await pool.query(BASELINE);
-        const { createPostgresRepositoriesPart1 } = (await import(/* @vite-ignore */ REPOSITORIES_PATH)) as {
-          createPostgresRepositoriesPart1(client: unknown): unknown;
+        const { createPostgresRepositories } = (await import(/* @vite-ignore */ REPOSITORIES_PATH)) as {
+          createPostgresRepositories: (client: PoolClientLike) => RepositorySet;
         };
-        return new PostgresUnitOfWork(pool, (client) => createPostgresRepositoriesPart1(client) as RepositorySet);
+        return new PostgresUnitOfWork(pool, createPostgresRepositories);
       },
       {
         dispose: async () => {

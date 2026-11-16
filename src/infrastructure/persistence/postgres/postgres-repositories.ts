@@ -4,7 +4,9 @@
  * - PARTE 1 (T422): usuarios, sesiones, intentos de acceso, límites de frecuencia y tokens de respaldo.
  * - PARTE 2 (T423): mascotas, pesos y los 5 módulos clínicos (cascadas por ON DELETE CASCADE; microchip único por propietario
  *   impuesto por el índice parcial `pets_owner_microchip`, cuya violación 23505 se propaga sin ocultarse).
- *   La parte 3 (T424) añade el resto de `RepositorySet`.
+ * - PARTE 3 (T424): hogares, membresías, invitaciones, asignaciones y auditoría; `createPostgresRepositories` compone las 3
+ *   partes en el `RepositorySet` completo. Un solo propietario ACTIVE por hogar (INV-HOUSE2-001) y una sola invitación abierta
+ *   por (hogar, username) (INV-HOUSE-003) los imponen los índices parciales; sus violaciones 23505 se propagan sin traducir.
  * - SQL siempre parametrizado con `$n` posicionales: ningún valor se interpola en el texto de la sentencia. Las únicas plantillas
  *   componen constantes SQL (la lista de columnas de `users`).
  * - Cada fila guarda el objeto del contrato en `data` (JSONB) y repite en columnas las claves y referencias. Frontera validada
@@ -14,7 +16,7 @@
  * - INV-AUTH-003: el hash de la contraseña va en su columna, nunca en `data`; el token de sesión se guarda como SHA-256.
  * - Sin lectura del entorno (INV-ARCH-006) ni consulta a la tabla de migraciones (T464).
  *
- * @implements REQ-PG-002, INV-PET-005, REQ-PET2-001, INV-ARCH-004, INV-AUTH-003, INV-AUTH2-002, REQ-AUTH2-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED
+ * @implements REQ-PG-002, INV-HOUSE-003, INV-HOUSE2-001, REQ-AUD-001, INV-PET-005, REQ-PET2-001, INV-ARCH-004, INV-AUTH-003, INV-AUTH2-002, REQ-AUTH2-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED
  */
 
 import {
@@ -22,18 +24,27 @@ import {
   validateBodyMeasurementRecord,
   validateCustomParameterRecord,
   validateDewormingRecord,
+  validateHousehold,
   validateMedicalVisitRecord,
   validatePetProfile,
   validateUserPublicProfile,
   validateVaccinationRecord,
   validateWeightRecord,
+  type AuditEntry,
+  type Household,
   type PetProfile,
   type UserPublicProfile,
 } from '../../../generated/index.ts';
 import type {
+  AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
+  HouseholdRepositoryPort,
+  InvitationRecord,
+  InvitationRepositoryPort,
   LoginAttemptRepositoryPort,
   MedicalRecordRepositoryPort,
+  PetAssignmentRecord,
+  PetAssignmentRepositoryPort,
   PetRepositoryPort,
   RateLimitRepositoryPort,
   RepositorySet,
@@ -43,6 +54,7 @@ import type {
 } from '../../../application/ports/repositories.port.ts';
 import { corruptData, isSessionRecord, sessionTokenHash } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
+import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
@@ -399,4 +411,215 @@ export function createPostgresRepositoriesPart1(client: PoolClientLike): Postgre
     confirmationTokens: confirmationTokenRepository(client),
     rateLimits: rateLimitRepository(client),
   };
+}
+
+const MEMBERSHIP_COLUMNS = 'membership_id, household_id, user_id, status, first_joined_at, data';
+const INVITATION_COLUMNS = 'id, household_id, invitee_username, invitee_user_id, invited_by_user_id, role_on_join, status, created_at, responded_at';
+const ASSIGNMENT_COLUMNS = 'pet_id, household_id, assigned_by_user_id, assigned_at';
+
+/** @implements INV-ARCH-004, INV-HOUSE-003, INV-HOUSE2-001, ERR-INTERNAL-UNEXPECTED */
+function householdRepository(client: PoolClientLike): HouseholdRepositoryPort {
+  const toHousehold = (row: Row): Household =>
+    decode('households', String(row['id']), row['data'], validateHousehold, (h) => h.id === row['id'] && h.ownerUserId === row['owner_user_id']);
+  const toMembership = (row: Row): LegacyHouseholdMember =>
+    decode<LegacyHouseholdMember>(
+      'household_members',
+      String(row['membership_id']),
+      row['data'],
+      isLegacyHouseholdMember,
+      (m) =>
+        m.membershipId === row['membership_id'] &&
+        m.householdId === row['household_id'] &&
+        m.userId === row['user_id'] &&
+        m.status === row['status'] &&
+        m.firstJoinedAt === row['first_joined_at'],
+    );
+  return {
+    async findById(householdId) {
+      const { rows } = await client.query('SELECT id, owner_user_id, data FROM households WHERE id = $1', [householdId]);
+      return rows[0] === undefined ? null : toHousehold(rows[0]);
+    },
+    async insert(household) {
+      await client.query('INSERT INTO households (id, owner_user_id, data) VALUES ($1, $2, $3::jsonb)', [
+        household.id,
+        household.ownerUserId,
+        encode('households', household.id, household, validateHousehold),
+      ]);
+    },
+    async deleteWithMemberships(householdId) {
+      // C5: ON DELETE CASCADE borra membresías, invitaciones y asignaciones del hogar; las mascotas no se tocan.
+      await client.query('DELETE FROM households WHERE id = $1', [householdId]);
+    },
+    async listMemberships(householdId) {
+      const { rows } = await client.query(`SELECT ${MEMBERSHIP_COLUMNS} FROM household_members WHERE household_id = $1`, [householdId]);
+      return rows.map(toMembership);
+    },
+    async listMembershipsOfUsers(userIds) {
+      const { rows } = await client.query(`SELECT ${MEMBERSHIP_COLUMNS} FROM household_members WHERE user_id = ANY($1::text[])`, [[...userIds]]);
+      return rows.map(toMembership);
+    },
+    async saveMembership(membership) {
+      const data = encode('household_members', membership.membershipId, membership, isLegacyHouseholdMember);
+      // role e is_household_owner reflejan el rol de data; household_members_one_owner (índice parcial) exige un único propietario ACTIVE.
+      const owner = isOwnerRow(membership);
+      const role = owner ? 'ADMIN' : membership.role === 'MEMBER' ? 'READER' : membership.role;
+      await client.query(
+        `INSERT INTO household_members (${MEMBERSHIP_COLUMNS}, role, is_household_owner) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
+         ON CONFLICT (membership_id) DO UPDATE SET household_id = EXCLUDED.household_id, user_id = EXCLUDED.user_id,
+           status = EXCLUDED.status, first_joined_at = EXCLUDED.first_joined_at, data = EXCLUDED.data,
+           role = EXCLUDED.role, is_household_owner = EXCLUDED.is_household_owner`,
+        [membership.membershipId, membership.householdId, membership.userId, membership.status, membership.firstJoinedAt, data, role, owner ? 1 : 0],
+      );
+    },
+    async deleteMembershipsOfUser(userId) {
+      await client.query('DELETE FROM household_members WHERE user_id = $1', [userId]);
+    },
+    async updateOwner(householdId, ownerUserId) {
+      // La columna y data.ownerUserId cambian juntos (la lectura comprueba que coincidan).
+      const result = await client.query(
+        "UPDATE households SET owner_user_id = $1, data = jsonb_set(data, '{ownerUserId}', to_jsonb($1::text)) WHERE id = $2",
+        [ownerUserId, householdId],
+      );
+      if (result.rowCount !== 1) throw new Error(`households: el hogar ${householdId} no existe`);
+    },
+  };
+}
+
+/** @implements REQ-HOUSE2-001, INV-HOUSE-003 */
+function invitationRepository(client: PoolClientLike): InvitationRepositoryPort {
+  const toRecord = (row: Row): InvitationRecord => ({
+    invitationId: row['id'] as string,
+    householdId: row['household_id'] as string,
+    inviteeUsername: row['invitee_username'] as string,
+    inviteeUserId: row['invitee_user_id'] as string | null,
+    roleOnJoin: row['role_on_join'] as InvitationRecord['roleOnJoin'],
+    invitedByUserId: row['invited_by_user_id'] as string,
+    status: row['status'] as InvitationRecord['status'],
+    createdAt: row['created_at'] as string,
+    respondedAt: row['responded_at'] as string | null,
+  });
+  return {
+    async findOpen(householdId, inviteeUsername) {
+      const { rows } = await client.query(
+        `SELECT ${INVITATION_COLUMNS} FROM household_invitations WHERE household_id = $1 AND invitee_username = $2 AND status = 'INVITED'`,
+        [householdId, inviteeUsername],
+      );
+      return rows[0] === undefined ? null : toRecord(rows[0]);
+    },
+    async save(invitation) {
+      // INV-HOUSE-003: household_invitations_one_open rechaza una segunda INVITED del mismo (hogar, username) con 23505.
+      await client.query(
+        `INSERT INTO household_invitations (${INVITATION_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (id) DO UPDATE SET household_id = EXCLUDED.household_id, invitee_username = EXCLUDED.invitee_username,
+           invitee_user_id = EXCLUDED.invitee_user_id, invited_by_user_id = EXCLUDED.invited_by_user_id, role_on_join = EXCLUDED.role_on_join,
+           status = EXCLUDED.status, created_at = EXCLUDED.created_at, responded_at = EXCLUDED.responded_at`,
+        [
+          invitation.invitationId,
+          invitation.householdId,
+          invitation.inviteeUsername,
+          invitation.inviteeUserId,
+          invitation.invitedByUserId,
+          invitation.roleOnJoin,
+          invitation.status,
+          invitation.createdAt,
+          invitation.respondedAt,
+        ],
+      );
+    },
+    async listOpenForUser(userId) {
+      const { rows } = await client.query(
+        `SELECT ${INVITATION_COLUMNS} FROM household_invitations WHERE invitee_user_id = $1 AND status = 'INVITED' ORDER BY created_at ASC, household_id ASC`,
+        [userId],
+      );
+      return rows.map(toRecord);
+    },
+    async listByHousehold(householdId) {
+      const { rows } = await client.query(`SELECT ${INVITATION_COLUMNS} FROM household_invitations WHERE household_id = $1`, [householdId]);
+      return rows.map(toRecord);
+    },
+    async deleteForUser(userId) {
+      await client.query('DELETE FROM household_invitations WHERE invited_by_user_id = $1 OR invitee_user_id = $1', [userId]);
+    },
+    async deleteForHousehold(householdId) {
+      await client.query('DELETE FROM household_invitations WHERE household_id = $1', [householdId]);
+    },
+  };
+}
+
+/** @implements REQ-HOUSE2-003 */
+function assignmentRepository(client: PoolClientLike): PetAssignmentRepositoryPort {
+  const toRecord = (row: Row): PetAssignmentRecord => ({
+    petId: row['pet_id'] as string,
+    householdId: row['household_id'] as string,
+    assignedByUserId: row['assigned_by_user_id'] as string,
+    assignedAt: row['assigned_at'] as string,
+  });
+  return {
+    async listByHousehold(householdId) {
+      const { rows } = await client.query(`SELECT ${ASSIGNMENT_COLUMNS} FROM pet_assignments WHERE household_id = $1 ORDER BY pet_id`, [householdId]);
+      return rows.map(toRecord);
+    },
+    async listByPet(petId) {
+      const { rows } = await client.query(`SELECT ${ASSIGNMENT_COLUMNS} FROM pet_assignments WHERE pet_id = $1 ORDER BY household_id`, [petId]);
+      return rows.map(toRecord);
+    },
+    async save(assignment) {
+      await client.query(
+        `INSERT INTO pet_assignments (${ASSIGNMENT_COLUMNS}) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (pet_id, household_id) DO UPDATE SET assigned_by_user_id = EXCLUDED.assigned_by_user_id, assigned_at = EXCLUDED.assigned_at`,
+        [assignment.petId, assignment.householdId, assignment.assignedByUserId, assignment.assignedAt],
+      );
+    },
+    async remove(petId, householdId) {
+      await client.query('DELETE FROM pet_assignments WHERE pet_id = $1 AND household_id = $2', [petId, householdId]);
+    },
+    async deleteForHousehold(householdId) {
+      await client.query('DELETE FROM pet_assignments WHERE household_id = $1', [householdId]);
+    },
+    async deleteForPet(petId) {
+      await client.query('DELETE FROM pet_assignments WHERE pet_id = $1', [petId]);
+    },
+  };
+}
+
+/**
+ * `audit_log` (data-model §2.12): sin claves foráneas; los CHECK de la tabla rechazan valores fuera de los enums cerrados.
+ * @implements REQ-AUD-001, INV-AUD-001, INV-ARCH-005
+ */
+function auditLogRepository(client: PoolClientLike): AuditLogRepositoryPort {
+  return {
+    async insert(entry: AuditEntry) {
+      await client.query(
+        'INSERT INTO audit_log (id, timestamp, executor_user_id, mutation_type, entity_type, entity_id, previous_state_hash, new_state_hash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [entry.id, entry.timestamp, entry.executorUserId, entry.mutationType, entry.entityType, entry.entityId, entry.previousStateHash, entry.newStateHash],
+      );
+    },
+    async pseudonymizeUser(userId, hmac) {
+      await client.query(
+        'UPDATE audit_log SET executor_user_id = CASE WHEN executor_user_id = $1 THEN $2 ELSE executor_user_id END, entity_id = CASE WHEN entity_id = $1 THEN $2 ELSE entity_id END WHERE executor_user_id = $1 OR entity_id = $1',
+        [userId, hmac],
+      );
+    },
+  };
+}
+
+/** Repositorios de la parte 3 (T424): hogares, invitaciones, asignaciones y auditoría. */
+export type PostgresRepositoriesPart3 = Pick<RepositorySet, 'households' | 'invitations' | 'assignments' | 'auditLog'>;
+
+/** @implements REQ-PG-002, INV-ARCH-005 */
+export function createPostgresRepositoriesPart3(client: PoolClientLike): PostgresRepositoriesPart3 {
+  return {
+    households: householdRepository(client),
+    invitations: invitationRepository(client),
+    assignments: assignmentRepository(client),
+    auditLog: auditLogRepository(client),
+  };
+}
+
+/**
+ * Fábrica completa: el `RepositorySet` de las 3 partes sobre el cliente de la transacción (se pasa a `PostgresUnitOfWork`).
+ * @implements REQ-PG-002, INV-ARCH-005
+ */
+export function createPostgresRepositories(client: PoolClientLike): RepositorySet {
+  return { ...createPostgresRepositoriesPart1(client), ...createPostgresRepositoriesPart2(client), ...createPostgresRepositoriesPart3(client) };
 }
