@@ -778,3 +778,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Paridad leída del DDL de sqlite_master (migraciones reales) vs el SQL: tablas (lista canónica de 18), columnas, tipos (data->JSONB, flags->SMALLINT), nulabilidad, defectos, UNIQUE, FK/cascadas, PK, CHECK (GLOB -> regex), índices parciales. Una sola fila schema_migrations ('0001_baseline') y una sola MIGRATION en audit_log.
 - Hallazgo propio: mi primer SQL conservaba length()=15 redundante junto a la regex; se alineó a la regex sola (data-model §1).
 - tsc 0; completa 1994 verdes + 2 omitidas. Sin dependencias nuevas.
+
+## 2026-11-16 — T420 (pool pg con límites y cierre)
+- Pruebas primero: tests/integration/persistence/postgres-pool.spec.ts (8 + 1 viva con skipIf(!TEST_DATABASE_URL)); rojas: 1 archivo, 9 pruebas sin ejecutar, causa única módulo postgres-database.ts inexistente.
+- Creado src/infrastructure/persistence/postgres/postgres-database.ts: createPostgresPool({connectionString, pgPoolMax}, {createPool, log}) con max=AppConfig.pgPoolMax (1..10, RangeError si no), idle 10 s, connection 5 s, keepAlive + delay 10 s, pool.on('error') que registra solo el código; closePool idempotente y sin lanzar. Sin schema_migrations (T464). Sin process.env.
+- Desvío menor: la URL entra por parámetro (AppConfig no expone DATABASE_URL). Valores de timeouts elegidos por mí (no fijados en spec): idle 10 s, conexión 5 s.
