@@ -51,11 +51,33 @@ variable "database_url" {
 }
 
 variable "billing_account" {
-  description = "ID de la cuenta de facturación (formato AAAAAA-BBBBBB-CCCCCC) a la que se asocia el presupuesto de 1 USD (D-13). No es un secreto. Llega por TF_VAR_billing_account."
+  description = "ID de la cuenta de facturación (formato AAAAAA-BBBBBB-CCCCCC) a la que se asocia el presupuesto preventivo (~1 USD, D-13). No es un secreto. Llega por TF_VAR_billing_account."
   type        = string
 
   validation {
     condition     = can(regex("^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$", var.billing_account))
     error_message = "billing_account debe tener el formato AAAAAA-BBBBBB-CCCCCC (hexadecimal en mayúsculas)."
+  }
+}
+
+variable "budget_currency" {
+  description = "Código ISO de moneda de la cuenta de facturación (p. ej. COP o USD). GCP exige que coincida con la moneda de la cuenta."
+  type        = string
+  default     = "COP"
+
+  validation {
+    condition     = can(regex("^[A-Z]{3}$", var.budget_currency))
+    error_message = "budget_currency debe ser un código ISO-4217 de 3 letras en mayúsculas (p. ej. COP, USD)."
+  }
+}
+
+variable "budget_units" {
+  description = "Monto entero del presupuesto preventivo en la moneda de budget_currency (~1 USD = 4500 COP)."
+  type        = string
+  default     = "4500"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.budget_units))
+    error_message = "budget_units debe ser un entero positivo en texto (p. ej. 4500)."
   }
 }

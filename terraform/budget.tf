@@ -18,10 +18,12 @@ resource "google_billing_budget" "argos" {
 
   amount {
     specified_amount {
-      currency_code = "USD"
-      units         = "1"
+      currency_code = var.budget_currency
+      units         = var.budget_units
     }
   }
+
+  depends_on = [google_project_service.apis["billingbudgets.googleapis.com"]]
 
   threshold_rules {
     threshold_percent = 0.5
