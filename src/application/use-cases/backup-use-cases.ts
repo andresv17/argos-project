@@ -29,6 +29,7 @@ import {
   type ErrorCode,
 } from '../../generated/index.ts';
 import { isMicrochipGlobalViolation } from './microchip-violation.ts';
+import { isMicrochipDuplicateError, microchipLimitError, recordMicrochipDuplicate } from './microchip-rate-limit.ts';
 // UNIQUE_CONSTRAINT_VIOLATED lanza la clase 3.1.0 (catálogo 3.1.0), la misma que usa microchip-violation.ts; el resto de la importación conserva la de la 002.
 import { DomainError as DomainErrorV31, type ErrorCode as ErrorCodeV31 } from '../../generated/v31/index.ts';
 import {
@@ -499,11 +500,15 @@ export class ImportBackupUseCase {
     );
     // REQ-PET4-001, REQ-IMP-001 (3): el microchip es único en todo el sistema y lo impone `pets_microchip_global` al guardar; si OTRO usuario ya lo
     // tiene, la importación falla completa con el error uniforme y el detalle nombra solo la mascota PROPIA del archivo (posición y nombre).
+    // REQ-PET4-002 (ADR-004-04): chequeo previo del límite de duplicados; el 429 se lanza antes de tocar nada y sin transición de la máquina.
+    let limited: DomainError | null = null;
     try {
       await this.deps.uow.runInTransaction(async (repositories) => {
         await this.pipeline.assertNoForeignIds(run, repositories, userId, envelope);
         // INVARIANTS_VALID (guard): la confirmación debe ser el fileDigest de los bytes leídos (errorIfDigestMismatch).
         if (!fileDigestMatches(confirmDigest, fileDigest)) throw mismatch;
+        limited = await microchipLimitError(this.deps, repositories, userId, envelope.pets.some((pet) => pet.microchipId !== null));
+        if (limited !== null) throw limited;
         run.fire('INVARIANTS_VALID');
         // REQ-BOR-005: candado del propietario y luego el de cada mascota que se reemplaza (orden usuario → mascota).
         await repositories.users.findByIdForUpdate(userId);
@@ -542,6 +547,9 @@ export class ImportBackupUseCase {
         });
       });
     } catch (error) {
+      if (limited !== null && error === limited) throw error;
+      // El duplicado cuenta como un evento del usuario; se registra fuera de la transacción ya terminada (best effort).
+      if (isMicrochipDuplicateError(error)) await recordMicrochipDuplicate(this.deps, userId);
       // ID ajeno: run.fail ya llevó la máquina a ROLLED_BACK con ERR-BACKUP-REFERENTIAL-INTEGRITY.
       if (run.state === 'ROLLED_BACK' || error === mismatch) throw error;
       if (run.state === 'CHECKING_DOMAIN_INVARIANTS') {

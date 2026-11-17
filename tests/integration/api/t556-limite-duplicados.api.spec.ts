@@ -6,7 +6,7 @@
  *  - ni el microchip ni el identificador del usuario aparecen en el cuerpo ni en los logs.
  */
 import { Writable } from 'node:stream';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../../src/infrastructure/http/app.ts';
 import { PRODUCTION_LOGGER_OPTIONS } from '../../../src/infrastructure/http/server.ts';
@@ -31,6 +31,9 @@ afterEach(async () => {
 const CHIP = '981020000000001';
 const petInput = (patch: Record<string, unknown> = {}) => ({ ...NEW_PET, name: 'Nube', species: 'RABBIT', breed: 'Cabeza de león', birthDate: '2024-01-10', sex: 'MALE', ...patch });
 const chipN = (n: number) => `9810200000${String(10000 + n)}`; // 15 dígitos, no trivial
+// El harness valida las respuestas contra el OpenAPI de la 002, que no declara el 429 de estas rutas (lo declara el OpenAPI 3.1.0 de la 004, cubierto por
+// contracts-004-openapi.spec.ts): las llamadas que esperan 429 pasan `contract: false` y se comprueba el código y el estado del problema.
+const NO_CONTRACT = { contract: false } as const;
 const RATE = { status: 429, code: 'ERR-RATE-LIMITED' };
 const DUP = { status: 409, code: 'ERR-PET-MICROCHIP-DUPLICATE' };
 const events = () => api.db.prepare("SELECT COUNT(*) FROM rate_limit_events WHERE scope = 'MICROCHIP_DUPLICATE'").pluck().get() as number;
@@ -54,8 +57,8 @@ describe('T556/T557 límite de duplicados de microchip (REQ-PET4-002, SC-CAT-029
     expect(events()).toBe(5);
     const before = api.dump();
     const fresh = chipN(1);
-    const withNew = await api.call('POST', '/api/pets', { cookie: andres, body: petInput({ name: 'Nuevo', microchipId: fresh }) });
-    const withDup = await api.call('POST', '/api/pets', { cookie: andres, body: petInput({ name: 'Otra', microchipId: CHIP }) });
+    const withNew = await api.call('POST', '/api/pets', { cookie: andres, body: petInput({ name: 'Nuevo', microchipId: fresh }), ...NO_CONTRACT });
+    const withDup = await api.call('POST', '/api/pets', { cookie: andres, body: petInput({ name: 'Otra', microchipId: CHIP }), ...NO_CONTRACT });
     expect([problemOf(withNew), problemOf(withDup)]).toEqual([RATE, RATE]);
     expect(withDup.text).toBe(withNew.text);
     expect([petsWithChip(fresh), events(), api.dump() === before]).toEqual([0, 5, true]);
@@ -80,7 +83,7 @@ describe('T556/T557 límite de duplicados de microchip (REQ-PET4-002, SC-CAT-029
     expect(events()).toBe(5);
     const keptChip = (api.db.prepare('SELECT microchip_id FROM pets WHERE id = ?').pluck().get(KIRA_ID) ?? null) as string | null;
     const before = api.dump();
-    const blocked = await api.call('PATCH', `/api/pets/${KIRA_ID}`, { cookie: andres, body: { microchipId: chipN(3) } });
+    const blocked = await api.call('PATCH', `/api/pets/${KIRA_ID}`, { cookie: andres, body: { microchipId: chipN(3) }, ...NO_CONTRACT });
     expect(problemOf(blocked)).toEqual(RATE);
     expect([petsWithChip(chipN(3)), api.dump() === before]).toEqual([0, true]);
     const sameChip = keptChip === null ? { name: 'Kira II' } : { name: 'Kira II', microchipId: keptChip };
@@ -95,7 +98,7 @@ describe('T556/T557 límite de duplicados de microchip (REQ-PET4-002, SC-CAT-029
     await api.call('POST', '/api/pets', { cookie: maria, body: petInput({ name: 'De María', microchipId: CHIP }) });
     const exported = (await api.call('POST', '/api/backup/export', { cookie: andres })).json as { pets: Array<Record<string, unknown>> };
     const withChip = (chip: string | null) => JSON.stringify({ ...exported, pets: exported.pets.map((p, i) => ({ ...p, microchipId: i === 0 ? chip : null })) });
-    const importAs = (payload: string) => api.call('POST', '/api/backup/import', { cookie: andres, raw: payload, headers: { 'x-argos-import-confirm': digestOf(payload) } });
+    const importAs = (payload: string, rated = false) => api.call('POST', '/api/backup/import', { cookie: andres, raw: payload, headers: { 'x-argos-import-confirm': digestOf(payload) }, ...(rated ? NO_CONTRACT : {}) });
 
     const dupFile = withChip(CHIP);
     const first = await importAs(dupFile);
@@ -106,7 +109,7 @@ describe('T556/T557 límite de duplicados de microchip (REQ-PET4-002, SC-CAT-029
     const own = () => JSON.stringify(['pets', 'weights', 'vaccinations'].map((t) => api.db.prepare(`SELECT * FROM ${t} ORDER BY 1`).all()));
     const dataBefore = own();
     const eventsBefore = api.db.prepare('SELECT COUNT(*) FROM rate_limit_events').pluck().get();
-    const blocked = await importAs(withChip(chipN(4)));
+    const blocked = await importAs(withChip(chipN(4)), true);
     expect([problemOf(blocked), own() === dataBefore, api.db.prepare('SELECT COUNT(*) FROM rate_limit_events').pluck().get()]).toEqual([RATE, true, eventsBefore]);
     expect(blocked.text).not.toContain(chipN(4));
     // Sin ningún microchip no hay chequeo previo: el archivo se importa.
@@ -126,6 +129,18 @@ describe('T556/T557 límite de duplicados de microchip (REQ-PET4-002, SC-CAT-029
     expect([ok.status, trivial.status, missing.status, edit.status, imported.status, events()]).toEqual([201, 422, 404, 200, 200, 0]);
   });
 
+  it('[SC-CAT-029][ADR-004-04] el registro del evento es best effort: si falla, el duplicado se responde igual con 409 y no se guarda nada', async () => {
+    api = await createApi();
+    const andres = await api.login('andres');
+    const maria = await api.login('maria.v');
+    await api.call('POST', '/api/pets', { cookie: maria, body: petInput({ name: 'De María', microchipId: CHIP }) });
+    vi.spyOn(api.deps.rateLimiter, 'record').mockRejectedValue(new Error('fallo simulado del registro'));
+    const before = api.dump();
+    const dup = await api.call('POST', '/api/pets', { cookie: andres, body: petInput({ name: 'Otra', microchipId: CHIP }) });
+    expect([problemOf(dup), events(), api.dump() === before]).toEqual([DUP, 0, true]);
+    vi.restoreAllMocks();
+  });
+
   it('[SC-CAT-029] el límite es por usuario: tras agotar el cupo de Andrés, María puede registrar chips nuevos', async () => {
     await exhaust(5);
     const maria = await api.login('maria.v');
@@ -138,7 +153,7 @@ describe('T556/T557 límite de duplicados de microchip (REQ-PET4-002, SC-CAT-029
     const start = api.clock.nowIsoTimestamp();
     const at = (ms: number) => new Date(Date.parse(start) + ms).toISOString();
     api.clock.setClock('2026-11-06', at(24 * 3_600_000 - 60_000));
-    const early = await api.call('POST', '/api/pets', { cookie: await api.login('andres'), body: petInput({ name: 'Pronto', microchipId: chipN(9) }) });
+    const early = await api.call('POST', '/api/pets', { cookie: await api.login('andres'), body: petInput({ name: 'Pronto', microchipId: chipN(9) }), ...NO_CONTRACT });
     expect(problemOf(early)).toEqual(RATE);
     api.clock.setClock('2026-11-06', at(24 * 3_600_000 + 1_000));
     const later = await api.call('POST', '/api/pets', { cookie: await api.login('andres'), body: petInput({ name: 'Después', microchipId: chipN(9) }) });

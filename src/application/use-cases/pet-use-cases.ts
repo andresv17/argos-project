@@ -20,6 +20,7 @@ import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAl
 import { ownerTag } from '../../domain/households/household-policies.ts';
 import { collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
 import { mapMicrochipViolation } from './microchip-violation.ts';
+import { assertMicrochipWithinLimit, withDuplicateRecording } from './microchip-rate-limit.ts';
 import { computeWeightEvolutionSeries, withSymptomFields } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
@@ -80,20 +81,24 @@ export class RegisterPetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(userId: string, input: unknown): Promise<PetProfile> {
-    return this.deps.uow.runInTransaction(async (repositories) => {
-      const pet = createPetProfile({
-        id: this.deps.ids.nextId(),
-        ownerUserId: userId,
-        input,
-        today: this.deps.clock.todayIsoDate(),
-        nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
-      });
-      await mapMicrochipViolation(() => repositories.pets.save(pet));
-      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: pet });
-      const baseHouseholdId = baseHouseholdIdOf(input);
-      if (baseHouseholdId !== undefined) await assignOwnedPetToHousehold(this.deps, repositories, userId, pet, baseHouseholdId);
-      return pet;
-    });
+    return withDuplicateRecording(this.deps, userId, () =>
+      this.deps.uow.runInTransaction(async (repositories) => {
+        const pet = createPetProfile({
+          id: this.deps.ids.nextId(),
+          ownerUserId: userId,
+          input,
+          today: this.deps.clock.todayIsoDate(),
+          nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
+        });
+        // REQ-PET4-002: chequeo previo del límite de duplicados (429 sin guardar), tras validar la entrada y antes de guardar.
+        await assertMicrochipWithinLimit(this.deps, repositories, userId, pet.microchipId !== null);
+        await mapMicrochipViolation(() => repositories.pets.save(pet));
+        await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: pet });
+        const baseHouseholdId = baseHouseholdIdOf(input);
+        if (baseHouseholdId !== undefined) await assignOwnedPetToHousehold(this.deps, repositories, userId, pet, baseHouseholdId);
+        return pet;
+      }),
+    );
   }
 }
 
@@ -102,20 +107,24 @@ export class UpdatePetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(userId: string, petId: string, input: unknown): Promise<PetProfile> {
-    return this.deps.uow.runInTransaction(async (repositories) => {
-      const { pet } = await requirePetAction(repositories, userId, petId, 'EDIT_PET_BASICS');
-      const records = await repositories.records.listForPet(petId);
-      const updated = updatePetProfile({
-        pet,
-        input,
-        today: this.deps.clock.todayIsoDate(),
-        nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
-        recordEventDates: collectRecordEventDates(petId, records),
-      });
-      await mapMicrochipViolation(() => repositories.pets.save(updated));
-      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: pet, next: updated });
-      return updated;
-    });
+    return withDuplicateRecording(this.deps, userId, () =>
+      this.deps.uow.runInTransaction(async (repositories) => {
+        const { pet } = await requirePetAction(repositories, userId, petId, 'EDIT_PET_BASICS');
+        const records = await repositories.records.listForPet(petId);
+        const updated = updatePetProfile({
+          pet,
+          input,
+          today: this.deps.clock.todayIsoDate(),
+          nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
+          recordEventDates: collectRecordEventDates(petId, records),
+        });
+        // REQ-PET4-002: solo si cambia el microchip (repetir el propio valor no puede violar `pets_microchip_global`).
+        await assertMicrochipWithinLimit(this.deps, repositories, userId, updated.microchipId !== null && updated.microchipId !== pet.microchipId);
+        await mapMicrochipViolation(() => repositories.pets.save(updated));
+        await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: pet, next: updated });
+        return updated;
+      }),
+    );
   }
 }
 
