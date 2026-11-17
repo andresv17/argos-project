@@ -103,7 +103,9 @@ async function openHttp(name: EngineName): Promise<Http> {
 
 describe.each(ENGINE_NAMES)('T552 microchip único global (%s)', (name) => {
   const base = it.skipIf(name === 'PostgreSQL' && !HAS_POSTGRES);
-  const run = (title: string, work: () => Promise<void>) => base(title, work, 120_000);
+  // El candado asesor global de PostgresUnitOfWork (una sola clave para toda la base) lo retiene ~10 s la prueba existente de postgres-concurrency.spec.ts
+  // («lock_timeout/statement_timeout»); si esta suite coincide con esa ventana, sus transacciones vencen por statement_timeout. Reintento acotado solo en PG.
+  const run = (title: string, work: () => Promise<void>) => base(title, { timeout: 120_000, retry: name === 'PostgreSQL' ? 2 : 0 }, work);
 
   run('[SC-CAT-022][REQ-PET4-001] un duplicado propio y uno ajeno dan 409 con el mismo cuerpo byte a byte, por la misma ruta (un solo save, sin listByOwners) y sin datos del tercero en cuerpo ni logs', async () => {
     const http = await openHttp(name);

@@ -11,7 +11,9 @@
  *   no dispare el borrado en cascada de sus registros.
  *
  * - Mascotas (0003): species, species_other, neutered, microchip_id y birth_date_is_estimate repiten el objeto en columnas
- *   (CHECK de las 8 especies y de speciesOther solo con OTHER, microchip único por propietario); weights.weight_grams guarda
+ *   (CHECK de las 8 especies y de speciesOther solo con OTHER; microchip único en todo el sistema por el índice parcial
+ *   `pets_microchip_global` (0008, REQ-PET4-001): su violación llega como `UNIQUE constraint failed: pets.microchip_id` y el caso de uso la
+ *   mapea sin propagar el objeto de error del driver); weights.weight_grams guarda
  *   el peso en gramos enteros (ADR-002-09). La lectura comprueba que las columnas coinciden con `data`.
  *
  * @implements INV-ARCH-004, INV-ARCH-005, INV-AUTH-003, INV-PET-005, INV-HOUSE-003, INV-PET2-001, INV-REC2-002, ERR-INTERNAL-UNEXPECTED

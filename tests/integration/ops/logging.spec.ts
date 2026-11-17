@@ -134,14 +134,14 @@ describe('SC-CLD-004: stdout sin UUID, microchip ni IP', () => {
     app = captured.app;
     app.get('/boom', async () => {
       throw Object.assign(new Error(`duplicate key (microchip_id)=(${MICROCHIP}) ${DATABASE_URL}`), {
-        code: '23505', constraint: 'pets_owner_microchip', detail: `Key (microchip_id)=(${MICROCHIP}) already exists.`, parameters: [MICROCHIP],
+        code: '23505', constraint: 'pets_microchip_global', detail: `Key (microchip_id)=(${MICROCHIP}) already exists.`, parameters: [MICROCHIP],
       });
     });
     const res = await app.inject({ method: 'GET', url: '/boom', remoteAddress: CLIENT_IP });
     expect(res.statusCode).toBe(500);
     const log = captured.lines.join('\n');
     expect(log).toContain('23505');
-    expect(log).toContain('pets_owner_microchip');
+    expect(log).toContain('pets_microchip_global');
     for (const fragment of [MICROCHIP, CLIENT_IP, 's3cr3tP4ss', 'neon.tech', 'already exists', 'duplicate key']) expect(log).not.toContain(fragment);
   });
 });

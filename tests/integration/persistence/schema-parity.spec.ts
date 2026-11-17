@@ -24,6 +24,14 @@ const CANONICAL_TABLES = [
   'schema_migrations', 'sessions', 'users', 'vaccinations', 'weights',
 ];
 
+/** Lista canónica de índices del esquema final (T555, 004): los que añaden las migraciones 0007/0008 (SQLite) y 0003/0004 (Postgres) y los de la 002. */
+const CANONICAL_INDEXES = [
+  'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
+  'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
+  'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'pet_assignments_household_id',
+  'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'sessions_user_id', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
+];
+
 /** Diferencias de tipo justificadas en data-model.md §1: data JSON -> JSONB; indicadores 0/1 -> SMALLINT. */
 const SMALLINT_FLAGS = new Set(['neutered', 'birth_date_is_estimate', 'is_household_owner']);
 
@@ -203,6 +211,13 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     for (const [name, lite] of sqlite.tables) expect(pg.tables.get(name)!.checks, `CHECK de ${name}`).toEqual(lite.checks);
     expect(sqlite.tables.get('pets')!.checks.some((c) => c.includes("microchip_id ~ '^[0-9]{15}$'"))).toBe(true);
     expect(sqlite.tables.get('weights')!.checks).toContain('weight_grams BETWEEN 1 AND 150000');
+  });
+
+  it('[T555] la lista canónica de índices coincide con la de ambos esquemas (sin pets_owner_microchip; con users_username_lower y pets_microchip_global)', () => {
+    expect([...sqlite.indexes.keys()].sort()).toEqual(CANONICAL_INDEXES);
+    expect([...postgresSchema().indexes.keys()].sort()).toEqual(CANONICAL_INDEXES);
+    expect(sqlite.indexes.get('users_username_lower')).toMatchObject({ table: 'users', unique: true, columns: 'lower(username)', where: null });
+    expect(sqlite.indexes.get('household_invitations_one_open')).toMatchObject({ unique: true, columns: 'household_id,lower(invitee_username)', where: "status = 'INVITED'" });
   });
 
   it('los índices, únicos y parciales incluidos, son los mismos', () => {

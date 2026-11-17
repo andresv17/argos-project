@@ -322,7 +322,7 @@ class BackupImportPipeline {
         const pet = petsById.get(record.petId)!;
         validateRecord(module, record, pet.birthDate, today, pet.species);
       }
-      // Microchip único por propietario dentro del archivo (el dueño de todas es el usuario autenticado).
+      // Microchip repetido dentro del archivo (el dueño de todas es el usuario autenticado); contra otros usuarios lo impone `pets_microchip_global` al guardar.
       // El error nombra la mascota PROPIA del archivo (posición y nombre), nunca el microchip ni datos de terceros (REQ-IMP-001, SC-CAT-024).
       const chips = new Set<string>();
       for (const [index, pet] of envelope.pets.entries()) {

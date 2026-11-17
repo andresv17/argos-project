@@ -2,8 +2,9 @@
  * Repositorios PostgreSQL detrás de los puertos de aplicación (misma firma que el adaptador SQLite). Solo se usan dentro de
  * `PostgresUnitOfWork.runInTransaction`, sobre el cliente de esa transacción.
  * - PARTE 1 (T422): usuarios, sesiones, intentos de acceso, límites de frecuencia y tokens de respaldo.
- * - PARTE 2 (T423): mascotas, pesos y los 5 módulos clínicos (cascadas por ON DELETE CASCADE; microchip único por propietario
- *   impuesto por el índice parcial `pets_owner_microchip`, cuya violación 23505 se propaga sin ocultarse).
+ * - PARTE 2 (T423): mascotas, pesos y los 5 módulos clínicos (cascadas por ON DELETE CASCADE; microchip único en todo el sistema
+ *   impuesto por el índice parcial `pets_microchip_global` (0004, REQ-PET4-001), cuya violación 23505 el caso de uso mapea por su nombre
+ *   exacto sin propagar `detail` ni `constraint` del driver).
  * - PARTE 3 (T424): hogares, membresías, invitaciones, asignaciones y auditoría; `createPostgresRepositories` compone las 3
  *   partes en el `RepositorySet` completo. Un solo propietario ACTIVE por hogar (INV-HOUSE2-001) y una sola invitación abierta
  *   por (hogar, username) (INV-HOUSE-003) los imponen los índices parciales; sus violaciones 23505 se propagan sin traducir.
@@ -310,8 +311,9 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
       return rows.map(toPet);
     },
     async save(pet) {
-      // UPSERT (no REPLACE): reemplazar una mascota no dispara la cascada de sus registros. Un microchip repetido del mismo
-      // propietario viola `pets_owner_microchip` (23505) y el error se propaga tal cual (INV-PET-005, REQ-PET2-001).
+      // UPSERT (no REPLACE): reemplazar una mascota no dispara la cascada de sus registros. Un microchip repetido, propio o de
+      // otro propietario, viola `pets_microchip_global` (23505): este adaptador no lo traduce; `mapMicrochipViolation` lo hace en el caso de uso
+      // (INV-PET-005, REQ-PET4-001).
       await client.query(
         `INSERT INTO pets (${PET_COLUMNS}) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8)
          ON CONFLICT (id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id, data = EXCLUDED.data, species = EXCLUDED.species,

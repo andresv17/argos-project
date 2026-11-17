@@ -115,9 +115,9 @@ describe('serializers.req (REQ-CLD-008a)', () => {
 
 describe('serializers.err (REQ-CLD-008b)', () => {
   it('de un error de pg conserva solo el SQLSTATE y el nombre de la restricción', () => {
-    const pgError = Object.assign(new Error('duplicate key value violates unique constraint "pets_owner_microchip"'), {
+    const pgError = Object.assign(new Error('duplicate key value violates unique constraint "pets_microchip_global"'), {
       code: '23505',
-      constraint: 'pets_owner_microchip',
+      constraint: 'pets_microchip_global',
       detail: 'Key (owner_user_id, microchip_id)=(u-1, 985112345678901) already exists.',
       where: 'SQL statement "INSERT ..."',
       parameters: ['985112345678901'],
@@ -126,7 +126,7 @@ describe('serializers.err (REQ-CLD-008b)', () => {
       schema: 'public',
     });
     const out = serializeError(pgError);
-    expect(out).toEqual({ sqlstate: '23505', constraint: 'pets_owner_microchip' });
+    expect(out).toEqual({ sqlstate: '23505', constraint: 'pets_microchip_global' });
     expect(JSON.stringify(out)).not.toContain('985112345678901');
   });
 

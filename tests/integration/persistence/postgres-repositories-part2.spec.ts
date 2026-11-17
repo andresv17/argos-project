@@ -97,14 +97,14 @@ describe('mascotas (T423, REQ-PG-002, INV-PET-005, REQ-PET2-001)', () => {
     expect(client.calls[0]!.sql).not.toMatch(/DELETE|REPLACE/);
   });
 
-  it('unicidad de microchip por propietario (REQ-PET2-001): la violación 23505 del índice pets_owner_microchip se propaga intacta', async () => {
-    const violation = Object.assign(new Error('duplicate key value violates unique constraint "pets_owner_microchip"'), { code: '23505' });
+  it('unicidad global de microchip (REQ-PET4-001): la violación 23505 del índice pets_microchip_global se propaga intacta desde el adaptador (la mapea el caso de uso)', async () => {
+    const violation = Object.assign(new Error('duplicate key value violates unique constraint "pets_microchip_global"'), { code: '23505', constraint: 'pets_microchip_global' });
     const { client, r } = await repos({ error: violation });
     await expect(r.pets.save({ ...PET, id: '11111111-1111-4111-8111-1111111111ff' })).rejects.toBe(violation);
     expect(client.calls).toHaveLength(1);
   });
 
-  it('el mismo microchip en propietarios distintos viaja con su propio owner_user_id (la unicidad es por par, no global)', async () => {
+  it('el mismo microchip en propietarios distintos viaja con su propio owner_user_id (el adaptador no filtra: la unicidad global la impone el índice)', async () => {
     const { client, r } = await repos({ rowCount: 1 }, { rowCount: 1 });
     await r.pets.save(PET);
     await r.pets.save({ ...PET, id: '11111111-1111-4111-8111-1111111111fe', ownerUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02' });
