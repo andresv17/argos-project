@@ -65,9 +65,8 @@ const shape = (e: DomainError) => [e.code, e.status, e.message, e.field, e.detai
 describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (name) => {
   const base = it.skipIf(name === 'PostgreSQL' && !HAS_POSTGRES);
   // Postgres real es lento al sembrar y a las 400 transacciones de la medición informativa: tiempo de sobra por prueba.
-  // El candado asesor global de PostgresUnitOfWork (una sola clave para toda la base) lo retiene ~10 s la prueba existente de postgres-concurrency.spec.ts
-  // («lock_timeout/statement_timeout»); si esta suite coincide con esa ventana, sus transacciones vencen por statement_timeout. Reintento acotado solo en PG.
-  const run = (title: string, work: () => Promise<void>) => base(title, { timeout: 120_000, retry: name === 'PostgreSQL' ? 2 : 0 }, work);
+  // Sin reintentos (H-O-004US3-5): las suites PG se serializan en vite.config.ts (grupo `threads` de una sola hebra) porque el candado asesor es de base.
+  const run = (title: string, work: () => Promise<void>) => base(title, { timeout: 120_000 }, work);
 
   run('[SC-CAT-016][REQ-LOG-002][INV-LOG-001][EDGE-009] «ana.perez» y «ANA.PEREZ» chocan con «Ana.Perez» (ERR-AUTH-USERNAME-TAKEN) sin crear nada; «maria_01» y «maria» coexisten', async () => {
     const engine = await open(name);
