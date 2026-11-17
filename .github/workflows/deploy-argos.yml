@@ -227,13 +227,14 @@ jobs:
             echo "TAG_URL=${TAG_URL}"
           } >> "$GITHUB_ENV"
 
-      - name: Smoke test sobre la revisión etiquetada (/healthz y /readyz; REQ-CICD-003)
+      - name: Smoke test sobre la revisión etiquetada (/readyz y /; REQ-CICD-003, D-32)
         run: |
           set -euo pipefail
-          for ruta in /healthz /readyz; do
-            curl --fail --silent --show-error --retry 18 --retry-delay 5 --retry-all-errors --max-time 15 "${TAG_URL}${ruta}" > /dev/null
-            echo "Smoke test OK: ${ruta}"
-          done
+          # GFE intercepta /healthz externo con 404 (D-32): el smoke externo usa /readyz y /; las probes internas siguen en /healthz.
+          curl --fail --silent --show-error --retry 18 --retry-delay 5 --retry-all-errors --max-time 15 "${TAG_URL}/readyz" > /dev/null
+          echo "Smoke test OK: /readyz"
+          curl --fail --silent --show-error --retry 18 --retry-delay 5 --retry-all-errors --max-time 15 "${TAG_URL}/" > /dev/null
+          echo "Smoke test OK: /"
 
       - name: Mover el 100 % del tráfico a la revisión nueva
         run: |
