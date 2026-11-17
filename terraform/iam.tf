@@ -1,6 +1,6 @@
 # IAM mínimo (REQ-IAC-006, plan.md §5). Solo recursos *_iam_member acotados a cada recurso: ni roles de
-# proyecto, ni owner/editor, ni claves JSON (el despliegue usa WIF). argos-run no tiene permisos sobre ningún
-# bucket (H-MIF-010, REQ-IAC-008). El servicio google_cloud_run_v2_service.argos lo define T440.
+# proyecto, ni owner/editor, ni claves JSON (el despliegue usa WIF). argos-run solo tiene permisos sobre el bucket
+# de medios (T562, REQ-GCS-002) y no tiene ninguno sobre exports (H-MIF-010, REQ-IAC-008). El servicio google_cloud_run_v2_service.argos lo define T440.
 
 resource "google_service_account" "run" {
   project      = var.project_id
@@ -108,4 +108,18 @@ resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
   name     = google_cloud_run_v2_service.argos.name
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+# argos-run: objetos del bucket de medios y nada más (T562, REQ-GCS-002). Sin acceso a exports ni a nivel de proyecto.
+resource "google_storage_bucket_iam_member" "run_media_object_user" {
+  bucket = google_storage_bucket.media.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.run.email}"
+}
+
+# argos-run firma URL V4 con signBlob (iamcredentials) sobre sí misma: sin llaves de cuenta de servicio.
+resource "google_service_account_iam_member" "run_token_creator_self" {
+  service_account_id = google_service_account.run.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.run.email}"
 }

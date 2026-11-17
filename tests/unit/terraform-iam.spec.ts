@@ -31,8 +31,8 @@ describe('terraform/iam.tf (T439)', () => {
     expect(ids).toEqual(['argos-deployer', 'argos-run', 'argos-scheduler']);
   });
 
-  it('argos-run solo tiene secretmanager.secretAccessor, sobre los 2 secretos (no a nivel de proyecto)', () => {
-    const run = forSa('run');
+  it('argos-run solo tiene secretmanager.secretAccessor, sobre los 2 secretos (no a nivel de proyecto); los permisos de medios (T562) los cubre terraform-media.spec.ts', () => {
+    const run = forSa('run').filter((b) => b.type === 'google_secret_manager_secret_iam_member');
     expect(run.length).toBe(2);
     for (const b of run) {
       expect(b.type).toBe('google_secret_manager_secret_iam_member');
