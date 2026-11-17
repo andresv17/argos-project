@@ -1,10 +1,21 @@
 name: SDD Test Gate (The Architecture Type System)
 
 on:
+  # T487 (D-29): sin push a main (PR ya lo cubre); cambios solo de docs/IaC no gastan minutos.
   push:
-    branches: [main, develop]
+    branches: [develop]
+    paths-ignore:
+      - 'terraform/**'
+      - 'specs/**'
+      - 'docs/**'
+      - 'claude/**'
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - 'terraform/**'
+      - 'specs/**'
+      - 'docs/**'
+      - 'claude/**'
   # T447 (REQ-CICD-003, REQ-CICD-004): reutilizable por deploy-argos.yml sin credenciales de GCP (H-MERO-009).
   workflow_call:
   workflow_dispatch:
