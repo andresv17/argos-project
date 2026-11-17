@@ -440,6 +440,16 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       expect(await read(uow, (r) => r.invitations.listByHousehold(HOUSEHOLD.id))).toEqual([]);
     });
 
+    it('[REQ-BOR-005][INV-REG-003] findByIdForUpdate (candado de mascota y de propietario) devuelve lo mismo que findById y null si no existe', async () => {
+      const uow = await createUnitOfWork();
+      await seed(uow, async (r) => {
+        await r.users.insert(ANDRES);
+        await r.pets.save(ARGOS);
+      });
+      const found = await read(uow, async (r) => [await r.pets.findByIdForUpdate(ARGOS.id), await r.pets.findByIdForUpdate('00000000-0000-4000-8000-0000000000ff'), await r.users.findByIdForUpdate(ANDRES.id), await r.users.findByIdForUpdate('00000000-0000-4000-8000-0000000000ff')] as const);
+      expect(found).toEqual([ARGOS, null, ANDRES, null]);
+    });
+
     it('[REQ-ACC-002] households.deleteMembershipsOfUser borra las filas del usuario en todos los hogares y countReferences llega a 0 cuando no queda nada que lo referencie', async () => {
       const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
