@@ -27,16 +27,42 @@ describe('.github/workflows/test-gate.yml (T447)', () => {
     expect(noComments(load())).toMatch(/^ {2}workflow_call:/m);
   });
 
-  it('conserva los disparadores push, pull_request y workflow_dispatch con main y develop (D-09)', () => {
+  it('T487: no dispara con push a main; push solo a develop', () => {
+    const on = noComments(load()).split(/^jobs:/m)[0] ?? '';
+    const push = on.match(/^ {2}push:\s*\n((?: {4}.*\n|\s*\n)+)/m)?.[1] ?? '';
+    expect(push).toMatch(/branches:\s*\[\s*develop\s*\]/);
+    expect(push).not.toMatch(/main/);
+  });
+
+  it('T487: conserva pull_request a main y develop, workflow_call y workflow_dispatch', () => {
     const y = noComments(load());
-    expect(y).toMatch(/^ {2}push:\s*\n\s+branches:\s*\[\s*main,\s*develop\s*\]/m);
     expect(y).toMatch(/^ {2}pull_request:\s*\n\s+branches:\s*\[\s*main,\s*develop\s*\]/m);
+    expect(y).toMatch(/^ {2}workflow_call:/m);
     expect(y).toMatch(/^ {2}workflow_dispatch:/m);
   });
 
+  it.each(['push', 'pull_request'])('T487: %s ignora terraform, specs, docs y claude', (ev) => {
+    const on = noComments(load()).split(/^jobs:/m)[0] ?? '';
+    const block = on.match(new RegExp(`^ {2}${ev}:\\s*\\n((?: {4}.*\\n|\\s*\\n)+)`, 'm'))?.[1] ?? '';
+    expect(block).toMatch(/paths-ignore:/);
+    for (const g of ['terraform/**', 'specs/**', 'docs/**', 'claude/**']) {
+      expect(block).toContain(g);
+    }
+  });
+
   it.skipIf(!hasBase)('los pasos existentes no cambiaron respecto de b6cacc5', () => {
-    const before = steps(git('show', `${BASE}:.github/workflows/test-gate.yml`));
+    // D-29 punto 6 (Neo): el paso Install Playwright Chromium sale del gate rápido; los demás no cambian.
+    const before = steps(git('show', `${BASE}:.github/workflows/test-gate.yml`)).replace(
+      / {6}- name: Install Playwright[^\n]*\n {8}run: npx playwright install --with-deps chromium\n\n/,
+      '',
+    );
     expect(steps(load())).toBe(before);
+  });
+
+  it('D-29: test-gate.yml sin Install Playwright ni playwright install', () => {
+    const y = load();
+    expect(y).not.toMatch(/Install Playwright/);
+    expect(y).not.toMatch(/playwright install/);
   });
 
   it('el trabajo reutilizable tiene permissions contents: read por trabajo', () => {
@@ -55,5 +81,21 @@ describe('.github/workflows/test-gate.yml (T447)', () => {
 
   it.skipIf(!hasBase)('drift-detection.yml no cambió respecto de b6cacc5 (REQ-CICD-004)', () => {
     expect(git('diff', BASE, '--', '.github/workflows/drift-detection.yml')).toBe('');
+  });
+
+  it('T487: package.json test:gate sin playwright ni Chromium, con trazabilidad 003', () => {
+    const scripts = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).scripts as Record<string, string>;
+    const gate = scripts['test:gate'] ?? '';
+    expect(gate).toMatch(/verify-traceability\.sh --feature 003/);
+    expect(gate).not.toMatch(/playwright|test:e2e|chromium/i);
+    expect(gate).toMatch(/compile-contracts\.sh/);
+    expect(gate).toMatch(/verify-oracles\.sh/);
+    expect(gate).toMatch(/tsc --noEmit/);
+    expect(gate).toMatch(/vitest run/);
+  });
+
+  it('T487: test:gate:full existe y contiene playwright o mutación', () => {
+    const scripts = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).scripts as Record<string, string>;
+    expect(scripts['test:gate:full'] ?? '').toMatch(/playwright|test:e2e|test:mutation/);
   });
 });

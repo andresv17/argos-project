@@ -81,3 +81,13 @@ variable "budget_units" {
     error_message = "budget_units debe ser un entero positivo en texto (p. ej. 4500)."
   }
 }
+
+variable "github_repository" {
+  description = "Repositorio de GitHub (owner/name) cuyo flujo deploy-argos.yml puede usar argos-deployer@ por WIF (T489, D-30). Llega por TF_VAR_github_repository."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", var.github_repository))
+    error_message = "github_repository debe tener la forma owner/name (por ejemplo dueno/argos)."
+  }
+}

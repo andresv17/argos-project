@@ -74,6 +74,8 @@ Primero ejecute `bash scripts/verify-bootstrap-inputs.sh` (solo lectura local, p
 | Variable | `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`, `GCP_TERRAFORM_SA`, `GCP_TERRAFORM_PLAN_SA`, `TF_STATE_BUCKET` | `bootstrap.sh` paso 6 |
 | Environment | `produccion` | `bootstrap.sh` paso 7: revisor requerido Neo |
 
+Si la aprobación en `produccion` supera 45 min y el sondeo de `deploy-argos.yml` falla, re-ejecute deploy-argos.yml tras aprobar y terminar el apply.
+
 Sin `NEON_API_KEY` ni `NEON_PROJECT_ID` (D-19) y sin `GCP_SA_KEY` (WIF, D-05).
 
 ## Respaldo y restauración (REQ-IAC-008, REQ-PG-016, NFR-CLD-014, NFR-CLD-015, SC-CLD-008)

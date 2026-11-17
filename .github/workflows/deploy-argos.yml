@@ -79,13 +79,13 @@ jobs:
             sleep 15
           done
           if [ "$ACTIVE" != "0" ]; then
-            echo "Tiempo de espera agotado para Infraestructura (Terraform) en main."
+            echo "Tiempo de espera agotado para Infraestructura (Terraform) en main; re-ejecute deploy-argos.yml tras aprobar y terminar el apply."
             exit 1
           fi
           SAME_SHA_CONCLUSION=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow infraestructura.yml --branch main --limit 5 \
             --json headSha,conclusion --jq "[.[] | select(.headSha == \"$GITHUB_SHA\")][0].conclusion // \"\"")
           if [ -n "$SAME_SHA_CONCLUSION" ] && [ "$SAME_SHA_CONCLUSION" != "success" ]; then
-            echo "Infraestructura (Terraform) falló o fue cancelada para $GITHUB_SHA ($SAME_SHA_CONCLUSION); se detiene el despliegue."
+            echo "Infraestructura (Terraform) falló o fue cancelada para $GITHUB_SHA ($SAME_SHA_CONCLUSION); se detiene el despliegue; re-ejecute deploy-argos.yml tras aprobar y terminar el apply."
             exit 1
           fi
 

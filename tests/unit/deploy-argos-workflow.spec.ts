@@ -231,4 +231,44 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
   it('enmascara los valores derivados con ::add-mask::', () => {
     expect(body()).toMatch(/::add-mask::/);
   });
+  describe('D-29 res. 4 (T488): coordinación con infraestructura.yml', () => {
+    const FRASE = 're-ejecute deploy-argos.yml tras aprobar y terminar el apply';
+    const sondeo = (): string => job('build-push').split(/^ {6}- name: Checkout de código/m)[0] ?? '';
+    const infra = (): string => readFileSync(join(process.cwd(), '.github', 'workflows', 'infraestructura.yml'), 'utf8').replace(/^\s*#.*$/gm, '');
+    const concurrencyOf = (y: string): { group: string; cancel: string } => ({
+      group: /^concurrency:\s*\n\s+group:\s*(\S+)/m.exec(y)?.[1] ?? '',
+      cancel: /^concurrency:\s*\n\s+group:[^\n]*\n\s+cancel-in-progress:\s*(\S+)/m.exec(y)?.[1] ?? '',
+    });
+
+    it('(a) el sondeo de build-push sigue con 120 iteraciones de 15 s', () => {
+      const s = sondeo();
+      expect(s).toMatch(/for _ in \$\(seq 1 120\); do/);
+      expect(s).toMatch(/^\s+sleep 15$/m);
+      expect(s).toContain('--workflow infraestructura.yml');
+    });
+
+    it('(b) el sondeo falla cerrado si la infraestructura del SHA no termina en success', () => {
+      const s = sondeo();
+      expect(s).toMatch(/\[ -n "\$SAME_SHA_CONCLUSION" \] && \[ "\$SAME_SHA_CONCLUSION" != "success" \]/);
+      const bloque = /SAME_SHA_CONCLUSION" != "success" \]; then([\s\S]*?)\n\s+fi/.exec(s)?.[1] ?? '';
+      expect(bloque).toMatch(/exit 1/);
+      expect(s).toMatch(/\[ "\$ACTIVE" != "0" \]; then[\s\S]*?exit 1/);
+    });
+
+    it('(c) el mensaje de fallo del sondeo indica re-ejecutar deploy-argos.yml tras aprobar y terminar el apply', () => {
+      const bloques = [...sondeo().matchAll(/echo "([^"\n]*)"\n\s+exit 1/g)].map((m) => m[1] ?? '');
+      expect(bloques).toHaveLength(2);
+      for (const b of bloques) expect(b).toContain(FRASE);
+    });
+
+    it('(d) concurrency distinto en deploy-argos.yml e infraestructura.yml, ambos con cancel-in-progress false', () => {
+      const d = concurrencyOf(body());
+      const i = concurrencyOf(infra());
+      expect(d.group).toMatch(/^deploy-argos-/);
+      expect(i.group).toMatch(/^infraestructura-/);
+      expect(d.group).not.toBe(i.group);
+      expect(d.cancel).toBe('false');
+      expect(i.cancel).toBe('false');
+    });
+  });
 });

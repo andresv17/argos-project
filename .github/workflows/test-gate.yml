@@ -1,10 +1,21 @@
 name: SDD Test Gate (The Architecture Type System)
 
 on:
+  # T487 (D-29): sin push a main (PR ya lo cubre); cambios solo de docs/IaC no gastan minutos.
   push:
-    branches: [main, develop]
+    branches: [develop]
+    paths-ignore:
+      - 'terraform/**'
+      - 'specs/**'
+      - 'docs/**'
+      - 'claude/**'
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - 'terraform/**'
+      - 'specs/**'
+      - 'docs/**'
+      - 'claude/**'
   # T447 (REQ-CICD-003, REQ-CICD-004): reutilizable por deploy-argos.yml sin credenciales de GCP (H-MERO-009).
   workflow_call:
   workflow_dispatch:
@@ -67,9 +78,6 @@ jobs:
           python -m pip install "semgrep==${SEMGREP_VERSION}"
           semgrep --version
           semgrep scan --config tests/security/sast-rules --error --metrics=off src/
-
-      - name: Install Playwright Chromium with system dependencies
-        run: npx playwright install --with-deps chromium
 
       - name: Compuerta final completa (npm run test:gate)
         if: ${{ inputs.task_id == '' }}

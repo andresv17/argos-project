@@ -72,6 +72,8 @@ Todo se crea el día 0; nada queda pendiente de inventar. Solo Neo ejecuta estos
 | Variable | `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`, `GCP_TERRAFORM_SA`, `GCP_TERRAFORM_PLAN_SA`, `TF_STATE_BUCKET` | `bootstrap.sh` paso 6 |
 | Environment | `produccion` | `bootstrap.sh` paso 7: revisor requerido: Neo |
 
+Si la aprobación en `produccion` supera 45 min y el sondeo de `deploy-argos.yml` falla, re-ejecute deploy-argos.yml tras aprobar y terminar el apply.
+
 Sin `NEON_API_KEY` ni `NEON_PROJECT_ID` (D-19). Tampoco existe `GCP_SA_KEY`: la autenticación es por WIF (D-05, D-18). `custom_domain = ""` es válido: Terraform omite el mapeo (`count = 0`).
 
 ## 7. Frentes de exposición: activación y verificación
