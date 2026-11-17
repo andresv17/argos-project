@@ -41,6 +41,9 @@ addFormats(ajv);
 const PET_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/pet.schema.json';
 // T535: los parámetros adicionales llevan `symptomType` y `severity` (medical-records.schema.json 3.1.0 de la 004, mismo $id). `revision` (4A-2,
 // edición con If-Match) aún no existe en el servidor: el arnés la exime de `required` en los 6 registros hasta que la implemente su tarea.
+// T540 (H-O-T617-2): la COLUMNA `revision` ya existe (SQLite 0006, Postgres 0002), pero el servidor aún no la lee ni la expone (es de T614, «revision de
+// solo lectura en los registros»). Se probó retirar la exención ahora: 21 pruebas de API fallan porque las respuestas no la traen, y exponerla exige
+// los validadores v31 de registro (hoy 002, sin `revision`), los repositorios de los 3 motores y 5 baselines de pruebas de Postgres. Se retira con T614.
 // T617: `symptomType` y `severity` vuelven a ser obligatorios en el registro (ya no hay exportación 3.0.0 que los omita); es un endurecimiento.
 const RECORDS_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/medical-records.schema.json';
 // T617: el respaldo es 3.1.0 (backup-envelope.schema.json 3.1.0 de la 004, mismo $id; conserva BackupEnvelopeV3 y los heredados, añade
