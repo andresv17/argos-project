@@ -18,6 +18,7 @@ import { validateCreatePetInput, validatePetProfile, validateUpdatePetInput, typ
 import { assertBreedConsistency, deriveBreed, hasBreedCatalog as hasCatalogSpecies, isBreedOther } from './breed-catalog.ts';
 import { diffInCalendarDays, validateBirthDateNotFuture } from '../shared/date-utils.ts';
 import { estimatedAgeToBirthDate } from './estimated-age.ts';
+import { isTrivialMicrochip } from './microchip-patterns.ts';
 import { assertCanonicalCreatedAt, getRecordEventDate } from '../sorting/deterministic-sorter.ts';
 
 /**
@@ -158,6 +159,7 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
     failSchema('CreatePetInput', validateCreatePetInput as ValidatorWithErrors);
   }
   const valid: CreatePetInput = input;
+  assertMicrochipNotTrivial(valid.microchipId);
   let birthDate: string;
   let birthDateIsEstimate: boolean;
   if (valid.estimatedAge !== undefined) {
@@ -196,6 +198,13 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
   return pet;
 }
 
+/** REQ-PET4-002: el relleno y las secuencias consecutivas se rechazan con ERR-SCHEMA-VALIDATION-FAILED en `microchipId`, sin repetir el valor. */
+function assertMicrochipNotTrivial(microchipId: string | null | undefined): void {
+  if (typeof microchipId === 'string' && isTrivialMicrochip(microchipId)) {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'microchipId no puede ser un número de relleno ni una secuencia consecutiva (REQ-PET4-002).', 'microchipId');
+  }
+}
+
 export interface UpdatePetCommand {
   readonly pet: PetProfile;
   readonly input: unknown;
@@ -219,6 +228,7 @@ export function updatePetProfile(command: UpdatePetCommand): PetProfile {
     failSchema('UpdatePetInput', validateUpdatePetInput as ValidatorWithErrors);
   }
   const changes: UpdatePetInput = input;
+  assertMicrochipNotTrivial(changes.microchipId);
   const { estimatedAge, ...profileChanges } = changes;
   if (estimatedAge !== undefined) {
     if (changes.birthDate !== undefined) {
