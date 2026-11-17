@@ -1,4 +1,21 @@
 <!--
+SYNC IMPACT REPORT (3.4.0 -> 3.5.0, 2026-11-17)
+==================
+Version change: 3.4.0 -> 3.5.0
+Bump rationale: MINOR, conforme al precedente de 3.3.0 y 3.4.0 (una dependencia nueva en Technology
+  Stack). Autoriza `@google-cloud/storage` 9.0.0 (versión exacta, sin `^` ni `~`) acotada
+  exclusivamente a `src/infrastructure/adapters/` (adaptador de Cloud Storage de la feature 004).
+  No retira ni redefine principios. Motivo: tarea T612, decisión D-01 A, condición C-4 de
+  /merovingian (informe .specify/memory/audits/merovingian-T612-gcs.md). Autorizada por Neo
+  (Andrés Vallejo, Level 2), 2026-11-17.
+Modified principles: ninguno.
+Modified sections: Technology Stack & Repository Structure (Dependencias autorizadas).
+Added/Removed sections: ninguna.
+Follow-up TODOs: la prueba de arquitectura que falla si `src/domain/**` o `src/application/**`
+  importan `@google-cloud/*` es una tarea de /keymaker (C-4); esta enmienda no toca `tests/`.
+-->
+
+<!--
 SYNC IMPACT REPORT (3.3.0 -> 3.4.0, 2026-11-16)
 ==================
 Version change: 3.3.0 -> 3.4.0
@@ -176,7 +193,7 @@ El stack tecnológico y el árbol de carpetas son los de la sección «Technolog
 - **Persistencia:** SQLite en archivo local (`./data/argos.sqlite`, ignorado por git) mediante `better-sqlite3`, detrás de puertos de repositorio. Migraciones SQL versionadas y aplicadas al arranque en `src/infrastructure/persistence/sqlite/migrations/`. Adaptador en memoria para pruebas unitarias y de propiedades.
 - **Autenticación:** hash de contraseñas con `scrypt` de `node:crypto` (N=2^15, r=8, p=1, salt 16 bytes, keylen 64). Sesiones opacas de 32 bytes (base64url) almacenadas en la base solo como SHA-256, entregadas en cookie `argos_session` (`HttpOnly`, `SameSite=Strict`, `Path=/`; `Secure` obligatorio en Cloud). La sesión expira a las 24 horas absolutas desde su creación o a los 30 minutos sin actividad, lo que ocurra primero; recargar la página dentro de la vigencia no la cierra.
 - **Generación desde contratos (real, no plantillas):** `scripts/compile-contracts.sh` deriva de `specs/<NNN-feature>/contracts/`: validadores runtime con Ajv 8 en modo standalone y `ajv-formats` desde `schemas/` y los `components.schemas` de `openapi/`; tipos estáticos con `json-schema-to-typescript` y `openapi-typescript`; catálogo de errores y tipos de máquinas de estado leídos de `errors/` y `state-machines/`. Cambiar un valor en un contrato debe cambiar `src/generated/`. Prohibido escribir reglas de validación a mano en plantillas del generador.
-- **Dependencias autorizadas:** TypeScript `~5.6`, Node 22, Vite 5, React 18, Tailwind 3, Fastify 5, `better-sqlite3`, `pg` y `@types/pg` (adaptador PostgreSQL), `@fastify/static`, `esbuild` (empaquetado de la imagen), Ajv 8 (standalone) con `ajv-formats`, `json-schema-to-typescript`, `openapi-typescript`, `openapi-fetch`, Vitest 2, `@vitest/coverage-v8`, fast-check 3, Stryker con `@stryker-mutator/vitest-runner` y `@stryker-mutator/typescript-checker`, Playwright con `@axe-core/playwright`, `@types/node`, `@fastify/cookie`, `react-router-dom`, `yaml` (solo si el generador lo importa), `tsx` y `concurrently` (solo desarrollo), `@vitejs/plugin-react`, `postcss`, `autoprefixer`, `@types/react`, `@types/react-dom` y `@types/better-sqlite3`. SAST en CI con Semgrep fijado por versión, sin dependencia npm. La feature 003 añade `pg`, `@types/pg`, `@fastify/static` y `esbuild` con versión exacta fijada al implementar y verificación de `/merovingian`; `hadolint`, `actionlint` y `trivy` solo en CI, sin dependencia npm. La feature 003 añade además `jose` en la versión exacta `6.2.17` (sin `^` ni `~`; ESM nativo para Node >= 22, cero dependencias), **acotada exclusivamente a la verificación OIDC de la ruta `/internal/maintenance`** (`src/infrastructure/http/oidc-verify.ts`, JWKS de Google; validación de `iss`, `exp`, `aud` y `email_verified`; tarea T486); no se importa desde `src/domain/` ni `src/application/` y cualquier otro uso requiere una autorización nueva (Nivel 2). Autorizada por Neo (Level 2), 2026-11-16.
+- **Dependencias autorizadas:** TypeScript `~5.6`, Node 22, Vite 5, React 18, Tailwind 3, Fastify 5, `better-sqlite3`, `pg` y `@types/pg` (adaptador PostgreSQL), `@fastify/static`, `esbuild` (empaquetado de la imagen), Ajv 8 (standalone) con `ajv-formats`, `json-schema-to-typescript`, `openapi-typescript`, `openapi-fetch`, Vitest 2, `@vitest/coverage-v8`, fast-check 3, Stryker con `@stryker-mutator/vitest-runner` y `@stryker-mutator/typescript-checker`, Playwright con `@axe-core/playwright`, `@types/node`, `@fastify/cookie`, `react-router-dom`, `yaml` (solo si el generador lo importa), `tsx` y `concurrently` (solo desarrollo), `@vitejs/plugin-react`, `postcss`, `autoprefixer`, `@types/react`, `@types/react-dom` y `@types/better-sqlite3`. SAST en CI con Semgrep fijado por versión, sin dependencia npm. La feature 003 añade `pg`, `@types/pg`, `@fastify/static` y `esbuild` con versión exacta fijada al implementar y verificación de `/merovingian`; `hadolint`, `actionlint` y `trivy` solo en CI, sin dependencia npm. La feature 003 añade además `jose` en la versión exacta `6.2.17` (sin `^` ni `~`; ESM nativo para Node >= 22, cero dependencias), **acotada exclusivamente a la verificación OIDC de la ruta `/internal/maintenance`** (`src/infrastructure/http/oidc-verify.ts`, JWKS de Google; validación de `iss`, `exp`, `aud` y `email_verified`; tarea T486); no se importa desde `src/domain/` ni `src/application/` y cualquier otro uso requiere una autorización nueva (Nivel 2). Autorizada por Neo (Level 2), 2026-11-16. La feature 004 añade `@google-cloud/storage` en la versión exacta `9.0.0` (sin `^` ni `~`), **acotada exclusivamente a `src/infrastructure/adapters/`** (adaptador de Cloud Storage; tarea T612, D-01 A, condición C-4 de `/merovingian`, informe `.specify/memory/audits/merovingian-T612-gcs.md`); el SDK no se importa desde `src/domain/` ni `src/application/`, y una prueba de arquitectura debe fallar si lo hacen; cualquier otro uso requiere una autorización nueva (Nivel 2). Autorizada por Neo (Level 2), 2026-11-17.
 
 **Estructura del repositorio.**
 
@@ -209,7 +226,7 @@ Esta constitución prevalece sobre cualquier plan, tarea o línea de código.
 - **Revisión de cumplimiento.** Toda revisión verifica el cumplimiento de estos principios. Una desviación aceptada se registra con responsable y condición de cierre en «Complexity Tracking» del plan y como tarea abierta en `tasks.md`.
 - **Guía operativa.** `spec-system.md` y `CLAUDE.md` son la guía de ejecución para agentes; ante una diferencia con este documento prevalece la constitución.
 
-**Version**: 3.4.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-16
+**Version**: 3.5.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-17
 
 Versión 3.3.0 firmada por Andrés Vallejo (Nivel 2) el 2026-11-15 (tarea T403). Firmada por Neo (Level 2), 2026-11-15.
 
