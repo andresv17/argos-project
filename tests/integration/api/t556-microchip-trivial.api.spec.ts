@@ -3,9 +3,18 @@
  *  - los 15 dígitos iguales y las secuencias consecutivas módulo 10 (ascendentes y descendentes) se rechazan en el alta y en la edición con
  *    422 ERR-SCHEMA-VALIDATION-FAILED y campo `microchipId`, sin guardar nada y sin repetir el valor en el cuerpo;
  *  - un microchip ordinario sigue entrando, y un duplicado recibe el 409 con el `detail` que remite al administrador.
- * El límite de 5 duplicados por día y por usuario (ERR-RATE-LIMITED) NO se prueba aquí: queda pendiente de una decisión de Neo (ver informe).
+ * El límite de 5 duplicados por usuario en 24 h (ERR-RATE-LIMITED) se prueba en t556-limite-duplicados.api.spec.ts.
  */
+import { Writable } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
+import { buildApp } from '../../../src/infrastructure/http/app.ts';
+import { PRODUCTION_LOGGER_OPTIONS } from '../../../src/infrastructure/http/server.ts';
+import { FixedClockAdapter } from '../../../src/infrastructure/adapters/fixed-clock.adapter.ts';
+import { IN_MEMORY_DATABASE, openSqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
+import { SqliteUnitOfWork } from '../../../src/infrastructure/persistence/sqlite/sqlite-unit-of-work.ts';
+import { PASSWORDS, TEST_RATE_LIMITS, canonicalState, createDeps } from '../../fixtures/application-harness.ts';
+import { seedSqlite } from '../../fixtures/sqlite-harness.ts';
+import { SpyPasswordHasher } from '../../fixtures/test-doubles.ts';
 import { createApi, problemOf, type Api } from './api-harness.ts';
 import { KIRA_ID, NEW_PET } from './api-fixtures.ts';
 
@@ -55,5 +64,39 @@ describe('T556 microchip trivial y texto del 409 (REQ-PET4-002, SC-CAT-029)', ()
     expect([first.status, problemOf(dup)]).toEqual([201, { status: 409, code: 'ERR-PET-MICROCHIP-DUPLICATE' }]);
     expect((dup.json as { detail?: string }).detail).toBe('Este microchip ya está registrado en ARGOS. Si es tuyo, contacta al administrador.');
     expect(dup.text).not.toContain(ORDINARY);
+  });
+
+  it('[SC-CAT-029][INV-LOG-001] REFUERZO de no eco: un microchip trivial NO literal del patrón (cubierto por el backreference) no aparece en el cuerpo completo (detail incluido) ni en el log, en el alta ni en la edición', async () => {
+    const lines: string[] = [];
+    const stream = new Writable({
+      write(chunk: Buffer, _encoding, done) {
+        lines.push(...chunk.toString('utf8').split('\n').filter((l) => l.length > 0));
+        done();
+      },
+    });
+    const db = openSqliteDatabase(IN_MEMORY_DATABASE);
+    const uow = new SqliteUnitOfWork(db);
+    await seedSqlite(uow, canonicalState());
+    const harnessApp = await buildApp({ deps: createDeps(uow, new FixedClockAdapter(), new SpyPasswordHasher(), TEST_RATE_LIMITS), cookieSecure: false, logger: { ...PRODUCTION_LOGGER_OPTIONS, redact: [...PRODUCTION_LOGGER_OPTIONS.redact], stream } });
+    try {
+      const headers = { 'x-argos-request': '1', 'content-type': 'application/json' };
+      const session = await harnessApp.inject({ method: 'POST', url: '/api/auth/login', headers, payload: { username: 'andres', password: PASSWORDS['andres'] } });
+      const cookie = (session.headers['set-cookie'] as string).split(';')[0]!;
+      const bodies: string[] = [];
+      const statuses: number[] = [];
+      for (const microchipId of ['000000000000000', '777777777777777']) {
+        const created = await harnessApp.inject({ method: 'POST', url: '/api/pets', headers: { ...headers, cookie }, payload: petInput({ microchipId }) });
+        const edited = await harnessApp.inject({ method: 'PATCH', url: `/api/pets/${KIRA_ID}`, headers: { ...headers, cookie }, payload: { microchipId } });
+        statuses.push(created.statusCode, edited.statusCode);
+        bodies.push(created.body, edited.body);
+      }
+      expect(statuses).toEqual([422, 422, 422, 422]);
+      expect(bodies.every((body) => body.includes('"ERR-SCHEMA-VALIDATION-FAILED"') && body.includes('"detail"'))).toBe(true);
+      const scanned = [...bodies, ...lines].join('\n');
+      expect(['000000000000000', '777777777777777'].filter((value) => scanned.includes(value))).toEqual([]);
+    } finally {
+      await harnessApp.close();
+      db.close();
+    }
   });
 });
