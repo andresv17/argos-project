@@ -7,6 +7,7 @@
  * @implements INV-ARCH-004, INV-ARCH-005, INV-PET-003
  */
 
+import type { MediaKind } from '../../domain/media/index.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
 import type { AuditEntry, Household, HouseholdInvitation, UserSelfProfile } from '../../generated/index.ts';
 import type { LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
@@ -127,9 +128,82 @@ export interface PetRepositoryPort {
    */
   findByIdForUpdate(petId: string): Promise<PetProfile | null>;
   listByOwners(ownerUserIds: readonly string[]): Promise<PetProfile[]>;
-  /** Inserta o reemplaza por id. */
+  /** Inserta o reemplaza por id. NO toca las columnas de avatar: un `PATCH` de la mascota no puede revertir el avatar (INV-AVA-001). */
   save(pet: PetProfile): Promise<void>;
   delete(petId: string): Promise<void>;
+  /** Estado del avatar de la mascota (`avatar_version`, `avatar_object_id`); null si la mascota no existe. */
+  findAvatar(petId: string): Promise<AvatarState | null>;
+  /**
+   * Cambia el avatar: `avatar_version = avatar_version + 1` y `avatar_object_id = :objectId` en una sola sentencia y devuelve el estado nuevo
+   * (INV-AVA-001: la versión solo crece). Falla si la mascota no existe.
+   */
+  replaceAvatar(petId: string, objectId: string): Promise<AvatarState>;
+  /** Quita el avatar: `avatar_object_id = NULL`; `avatar_version` NO cambia ni se reinicia (INV-AVA-001). */
+  clearAvatar(petId: string): Promise<void>;
+}
+
+/** Avatar de la mascota: la versión nunca decrece; `objectId` nulo = sin avatar (REQ-AVA-001). */
+export interface AvatarState {
+  readonly version: number;
+  readonly objectId: string | null;
+}
+
+/** Metadatos de un archivo o foto (`pet_media`, REQ-GCS-005): sin clave de objeto, sin hash y sin autoría; la clave se deriva (INV-ARC-003). */
+export interface PetMediaRecord {
+  readonly id: string;
+  readonly petId: string;
+  readonly kind: MediaKind;
+  readonly mime: string;
+  readonly sizeBytes: number;
+  readonly originalName: string;
+  readonly createdAt: string;
+}
+
+export interface PetMediaRepositoryPort {
+  /** Falla si el id ya existe o si la mascota no existe (clave foránea). */
+  insert(media: PetMediaRecord): Promise<void>;
+  /** El medio con ese id SOLO si pertenece a la mascota; null en otro caso. */
+  findById(petId: string, mediaId: string): Promise<PetMediaRecord | null>;
+  /** Página de la mascota y el tipo ordenada por `(createdAt DESC, id DESC)` (INV-ALB-001) más el `total` del filtro. */
+  listPage(petId: string, kind: MediaKind, limit: number, offset: number): Promise<{ readonly items: PetMediaRecord[]; readonly total: number }>;
+  /** Suma de `size_bytes` de todas las mascotas del propietario legal; el avatar no cuenta (REQ-ARC-005). */
+  countBytesOfOwner(ownerUserId: string): Promise<number>;
+  /** Borra la fila de esa mascota con ese id; true si existía. */
+  remove(petId: string, mediaId: string): Promise<boolean>;
+  /** Objetos que se borrarían: filas de `pet_media` más avatares no nulos de esas mascotas (vista previa de importación, D-15 A). */
+  countObjectsOfPets(petIds: readonly string[]): Promise<number>;
+}
+
+export type MediaDeletionReason = 'INTENT' | 'DELETE';
+
+/** Fila de `media_deletion_queue`: solo claves con UUID (INV-ARC-003), sin datos personales. */
+export interface MediaDeletionEntry {
+  readonly objectKey: string;
+  readonly reason: MediaDeletionReason;
+  readonly enqueuedAt: string;
+  readonly attempts: number;
+}
+
+/** Cola de borrado de objetos de GCS (REQ-GCS-004, REQ-GCS-006): GCS no participa de la transacción de base de datos. */
+export interface MediaDeletionQueuePort {
+  /** Inserta la clave; si ya existe, `DELETE` sustituye a `INTENT` y un `INTENT` nunca degrada un `DELETE`. */
+  enqueue(objectKey: string, reason: MediaDeletionReason, enqueuedAt: string): Promise<void>;
+  /**
+   * Encola con `DELETE` la clave derivada de cada medio de la mascota y la de su avatar (si lo hay) y devuelve esas claves; es lo primero que
+   * se hace al eliminar la mascota, la cuenta o importar por reemplazo (REQ-GCS-004).
+   */
+  enqueueObjectsOfPet(petId: string, enqueuedAt: string): Promise<string[]>;
+  findByKey(objectKey: string): Promise<MediaDeletionEntry | null>;
+  /** Hasta `limit` filas por `(enqueuedAt, objectKey)` ascendente. */
+  listPending(limit: number): Promise<MediaDeletionEntry[]>;
+  /** Borra la fila (idempotente). */
+  remove(objectKey: string): Promise<void>;
+  /** Suma 1 a `attempts` (sin tope, REQ-GCS-004). */
+  recordFailure(objectKey: string): Promise<void>;
+  /** Convierte en `DELETE` los `INTENT` con `enqueuedAt` estrictamente anterior al corte (REQ-GCS-006) y devuelve cuántos. */
+  promoteStaleIntents(olderThanExclusive: string): Promise<number>;
+  /** Filas con `enqueuedAt` estrictamente anterior al corte (alerta a las 48 h, REQ-GCS-004); solo un conteo. */
+  countOlderThan(cutoffExclusive: string): Promise<number>;
 }
 
 export interface MedicalRecordRepositoryPort {
@@ -205,5 +279,7 @@ export interface RepositorySet {
   readonly rateLimits: RateLimitRepositoryPort;
   readonly invitations: InvitationRepositoryPort;
   readonly assignments: PetAssignmentRepositoryPort;
+  readonly media: PetMediaRepositoryPort;
+  readonly mediaQueue: MediaDeletionQueuePort;
   readonly auditLog: AuditLogRepositoryPort;
 }

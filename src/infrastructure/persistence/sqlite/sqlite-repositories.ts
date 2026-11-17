@@ -46,6 +46,10 @@ import type {
   SessionRepositoryPort,
   UserAccount,
   UserRepositoryPort,
+  MediaDeletionEntry,
+  MediaDeletionQueuePort,
+  PetMediaRecord,
+  PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
@@ -360,6 +364,10 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
   );
   // INV-PET-005: ON DELETE CASCADE borra en la misma sentencia los registros de los 6 módulos.
   const remove = db.prepare('DELETE FROM pets WHERE id = ?');
+  type AvatarRow = { readonly avatar_version: number; readonly avatar_object_id: string | null };
+  const avatarOf = db.prepare<[string], AvatarRow>('SELECT avatar_version, avatar_object_id FROM pets WHERE id = ?');
+  const bumpAvatar = db.prepare<[string, string], AvatarRow>('UPDATE pets SET avatar_version = avatar_version + 1, avatar_object_id = ? WHERE id = ? RETURNING avatar_version, avatar_object_id');
+  const dropAvatar = db.prepare('UPDATE pets SET avatar_object_id = NULL WHERE id = ?');
   const toPet = (row: PetRow): PetProfile =>
     decode(
       'pets',
@@ -402,6 +410,115 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
     },
     async delete(petId) {
       remove.run(petId);
+    },
+    async findAvatar(petId) {
+      const row = avatarOf.get(petId);
+      return row === undefined ? null : { version: row.avatar_version, objectId: row.avatar_object_id };
+    },
+    async replaceAvatar(petId, objectId) {
+      // Una sola sentencia: la versión solo crece (INV-AVA-001). Sin fila afectada, la mascota no existe.
+      const row = bumpAvatar.get(objectId, petId);
+      if (row === undefined) throw new Error('FOREIGN KEY constraint failed: pets');
+      return { version: row.avatar_version, objectId: row.avatar_object_id };
+    },
+    async clearAvatar(petId) {
+      dropAvatar.run(petId);
+    },
+  };
+}
+
+/** Clave derivada del medio (INV-ARC-003), idéntica en SQL a `mediaObjectKey` del dominio. */
+const DERIVED_MEDIA_KEY = "'pets/' || pet_id || '/' || CASE kind WHEN 'FILE' THEN 'files' ELSE 'photos' END || '/' || id";
+
+interface MediaRow {
+  readonly id: string;
+  readonly pet_id: string;
+  readonly kind: 'FILE' | 'PHOTO';
+  readonly mime: string;
+  readonly size_bytes: number;
+  readonly original_name: string;
+  readonly created_at: string;
+}
+
+const toMedia = (row: MediaRow): PetMediaRecord => ({ id: row.id, petId: row.pet_id, kind: row.kind, mime: row.mime, sizeBytes: row.size_bytes, originalName: row.original_name, createdAt: row.created_at });
+
+/** `pet_media` (REQ-GCS-005): solo metadatos; la clave del objeto se deriva. @implements REQ-GCS-005, INV-ALB-001, REQ-ARC-005 */
+function mediaRepository(db: SqliteDatabase): PetMediaRepositoryPort {
+  const columns = 'id, pet_id, kind, mime, size_bytes, original_name, created_at';
+  const insert = db.prepare(`INSERT INTO pet_media (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+  const byId = db.prepare<[string, string], MediaRow>(`SELECT ${columns} FROM pet_media WHERE id = ? AND pet_id = ?`);
+  const page = db.prepare<[string, string, number, number], MediaRow>(`SELECT ${columns} FROM pet_media WHERE pet_id = ? AND kind = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`);
+  const total = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM pet_media WHERE pet_id = ? AND kind = ?');
+  const bytes = db.prepare<[string], { n: number }>('SELECT COALESCE(SUM(m.size_bytes), 0) AS n FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = ?');
+  const remove = db.prepare('DELETE FROM pet_media WHERE id = ? AND pet_id = ?');
+  const countMedia = db.prepare<[string, string], { n: number }>('SELECT (SELECT count(*) FROM pet_media WHERE pet_id IN (SELECT value FROM json_each(?))) + (SELECT count(*) FROM pets WHERE id IN (SELECT value FROM json_each(?)) AND avatar_object_id IS NOT NULL) AS n');
+  return {
+    async insert(media) {
+      insert.run(media.id, media.petId, media.kind, media.mime, media.sizeBytes, media.originalName, media.createdAt);
+    },
+    async findById(petId, mediaId) {
+      const row = byId.get(mediaId, petId);
+      return row === undefined ? null : toMedia(row);
+    },
+    async listPage(petId, kind, limit, offset) {
+      return { items: page.all(petId, kind, limit, offset).map(toMedia), total: total.get(petId, kind)!.n };
+    },
+    async countBytesOfOwner(ownerUserId) {
+      return bytes.get(ownerUserId)!.n;
+    },
+    async remove(petId, mediaId) {
+      return remove.run(mediaId, petId).changes === 1;
+    },
+    async countObjectsOfPets(petIds) {
+      const ids = list(petIds);
+      return countMedia.get(ids, ids)!.n;
+    },
+  };
+}
+
+/** `media_deletion_queue` (REQ-GCS-004, REQ-GCS-006): sin clave foránea. @implements REQ-GCS-004, REQ-GCS-006, INV-GCS-002 */
+function mediaQueueRepository(db: SqliteDatabase): MediaDeletionQueuePort {
+  type QueueRow = { readonly object_key: string; readonly reason: 'INTENT' | 'DELETE'; readonly enqueued_at: string; readonly attempts: number };
+  const toEntry = (row: QueueRow): MediaDeletionEntry => ({ objectKey: row.object_key, reason: row.reason, enqueuedAt: row.enqueued_at, attempts: row.attempts });
+  const upsert = db.prepare(
+    `INSERT INTO media_deletion_queue (object_key, reason, enqueued_at) VALUES (?, ?, ?)
+     ON CONFLICT (object_key) DO UPDATE SET reason = CASE WHEN excluded.reason = 'DELETE' THEN 'DELETE' ELSE media_deletion_queue.reason END`,
+  );
+  const mediaKeys = db.prepare<[string], { key: string }>(`SELECT ${DERIVED_MEDIA_KEY} AS key FROM pet_media WHERE pet_id = ?`);
+  const avatarKey = db.prepare<[string], { key: string }>("SELECT 'pets/' || id || '/avatar/' || avatar_object_id AS key FROM pets WHERE id = ? AND avatar_object_id IS NOT NULL");
+  const byKey = db.prepare<[string], QueueRow>('SELECT object_key, reason, enqueued_at, attempts FROM media_deletion_queue WHERE object_key = ?');
+  const pending = db.prepare<[number], QueueRow>('SELECT object_key, reason, enqueued_at, attempts FROM media_deletion_queue ORDER BY enqueued_at, object_key LIMIT ?');
+  const remove = db.prepare('DELETE FROM media_deletion_queue WHERE object_key = ?');
+  const failure = db.prepare('UPDATE media_deletion_queue SET attempts = attempts + 1 WHERE object_key = ?');
+  const promote = db.prepare("UPDATE media_deletion_queue SET reason = 'DELETE' WHERE reason = 'INTENT' AND enqueued_at < ?");
+  const older = db.prepare<[string], { n: number }>('SELECT count(*) AS n FROM media_deletion_queue WHERE enqueued_at < ?');
+  return {
+    async enqueue(objectKey, reason, enqueuedAt) {
+      upsert.run(objectKey, reason, enqueuedAt);
+    },
+    async enqueueObjectsOfPet(petId, enqueuedAt) {
+      const keys = [...mediaKeys.all(petId), ...avatarKey.all(petId)].map((row) => row.key);
+      for (const key of keys) upsert.run(key, 'DELETE', enqueuedAt);
+      return keys;
+    },
+    async findByKey(objectKey) {
+      const row = byKey.get(objectKey);
+      return row === undefined ? null : toEntry(row);
+    },
+    async listPending(limit) {
+      return pending.all(limit).map(toEntry);
+    },
+    async remove(objectKey) {
+      remove.run(objectKey);
+    },
+    async recordFailure(objectKey) {
+      failure.run(objectKey);
+    },
+    async promoteStaleIntents(olderThanExclusive) {
+      return promote.run(olderThanExclusive).changes;
+    },
+    async countOlderThan(cutoffExclusive) {
+      return older.get(cutoffExclusive)!.n;
     },
   };
 }
@@ -714,6 +831,8 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     rateLimits: rateLimitRepository(db),
     invitations: invitationRepository(db),
     assignments: assignmentRepository(db),
+    media: mediaRepository(db),
+    mediaQueue: mediaQueueRepository(db),
     auditLog: auditLogRepository(db),
   };
 }

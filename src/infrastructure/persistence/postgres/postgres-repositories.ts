@@ -46,6 +46,10 @@ import type {
   SessionRepositoryPort,
   UserAccount,
   UserRepositoryPort,
+  MediaDeletionEntry,
+  MediaDeletionQueuePort,
+  PetMediaRecord,
+  PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
 import { corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
@@ -335,6 +339,122 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
       // INV-PET-005: ON DELETE CASCADE borra en la misma sentencia los registros de los 6 módulos y las asignaciones.
       await client.query('DELETE FROM pets WHERE id = $1', [petId]);
     },
+    async findAvatar(petId) {
+      const { rows } = await client.query('SELECT avatar_version, avatar_object_id FROM pets WHERE id = $1', [petId]);
+      return rows[0] === undefined ? null : { version: Number(rows[0]['avatar_version']), objectId: (rows[0]['avatar_object_id'] as string | null) ?? null };
+    },
+    async replaceAvatar(petId, objectId) {
+      // Una sola sentencia: la versión solo crece (INV-AVA-001). Sin fila afectada, la mascota no existe.
+      const { rows } = await client.query('UPDATE pets SET avatar_version = avatar_version + 1, avatar_object_id = $1 WHERE id = $2 RETURNING avatar_version, avatar_object_id', [objectId, petId]);
+      if (rows[0] === undefined) throw new Error('FOREIGN KEY constraint failed: pets');
+      return { version: Number(rows[0]['avatar_version']), objectId: rows[0]['avatar_object_id'] as string };
+    },
+    async clearAvatar(petId) {
+      await client.query('UPDATE pets SET avatar_object_id = NULL WHERE id = $1', [petId]);
+    },
+  };
+}
+
+const MEDIA_COLUMNS = 'id, pet_id, kind, mime, size_bytes, original_name, created_at';
+/** Clave derivada del medio (INV-ARC-003), idéntica en SQL a `mediaObjectKey` del dominio. */
+const DERIVED_MEDIA_KEY = "'pets/' || pet_id || '/' || CASE kind WHEN 'FILE' THEN 'files' ELSE 'photos' END || '/' || id";
+
+const toMedia = (row: Row): PetMediaRecord => ({
+  id: String(row['id']),
+  petId: String(row['pet_id']),
+  kind: row['kind'] as PetMediaRecord['kind'],
+  mime: String(row['mime']),
+  sizeBytes: Number(row['size_bytes']),
+  originalName: String(row['original_name']),
+  createdAt: String(row['created_at']),
+});
+
+/** `pet_media` (REQ-GCS-005): solo metadatos; la clave del objeto se deriva. @implements REQ-GCS-005, INV-ALB-001, REQ-ARC-005 */
+function mediaRepository(client: PoolClientLike): PetMediaRepositoryPort {
+  return {
+    async insert(media) {
+      await client.query(`INSERT INTO pet_media (${MEDIA_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [
+        media.id, media.petId, media.kind, media.mime, media.sizeBytes, media.originalName, media.createdAt,
+      ]);
+    },
+    async findById(petId, mediaId) {
+      const { rows } = await client.query(`SELECT ${MEDIA_COLUMNS} FROM pet_media WHERE id = $1 AND pet_id = $2`, [mediaId, petId]);
+      return rows[0] === undefined ? null : toMedia(rows[0]);
+    },
+    async listPage(petId, kind, limit, offset) {
+      const { rows } = await client.query(`SELECT ${MEDIA_COLUMNS} FROM pet_media WHERE pet_id = $1 AND kind = $2 ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`, [petId, kind, limit, offset]);
+      const total = await client.query('SELECT COUNT(*) AS n FROM pet_media WHERE pet_id = $1 AND kind = $2', [petId, kind]);
+      return { items: rows.map(toMedia), total: count(total.rows[0]) };
+    },
+    async countBytesOfOwner(ownerUserId) {
+      const { rows } = await client.query('SELECT COALESCE(SUM(m.size_bytes), 0) AS n FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = $1', [ownerUserId]);
+      return count(rows[0]);
+    },
+    async remove(petId, mediaId) {
+      const result = await client.query('DELETE FROM pet_media WHERE id = $1 AND pet_id = $2', [mediaId, petId]);
+      return result.rowCount === 1;
+    },
+    async countObjectsOfPets(petIds) {
+      const { rows } = await client.query(
+        'SELECT (SELECT COUNT(*) FROM pet_media WHERE pet_id = ANY($1::text[])) + (SELECT COUNT(*) FROM pets WHERE id = ANY($1::text[]) AND avatar_object_id IS NOT NULL) AS n',
+        [[...petIds]],
+      );
+      return count(rows[0]);
+    },
+  };
+}
+
+const toQueueEntry = (row: Row): MediaDeletionEntry => ({
+  objectKey: String(row['object_key']),
+  reason: row['reason'] as MediaDeletionEntry['reason'],
+  enqueuedAt: String(row['enqueued_at']),
+  attempts: Number(row['attempts']),
+});
+
+/** `media_deletion_queue` (REQ-GCS-004, REQ-GCS-006): sin clave foránea. @implements REQ-GCS-004, REQ-GCS-006, INV-GCS-002 */
+function mediaQueueRepository(client: PoolClientLike): MediaDeletionQueuePort {
+  return {
+    async enqueue(objectKey, reason, enqueuedAt) {
+      await client.query(
+        `INSERT INTO media_deletion_queue (object_key, reason, enqueued_at) VALUES ($1, $2, $3)
+         ON CONFLICT (object_key) DO UPDATE SET reason = CASE WHEN EXCLUDED.reason = 'DELETE' THEN 'DELETE' ELSE media_deletion_queue.reason END`,
+        [objectKey, reason, enqueuedAt],
+      );
+    },
+    async enqueueObjectsOfPet(petId, enqueuedAt) {
+      // INSERT … SELECT con las claves derivadas (medios y avatar) en la misma sentencia y la misma transacción (data-model.md §3).
+      const { rows } = await client.query(
+        `INSERT INTO media_deletion_queue (object_key, reason, enqueued_at)
+         SELECT ${DERIVED_MEDIA_KEY}, 'DELETE', $2 FROM pet_media WHERE pet_id = $1
+         UNION ALL SELECT 'pets/' || id || '/avatar/' || avatar_object_id, 'DELETE', $2 FROM pets WHERE id = $1 AND avatar_object_id IS NOT NULL
+         ON CONFLICT (object_key) DO UPDATE SET reason = 'DELETE'
+         RETURNING object_key`,
+        [petId, enqueuedAt],
+      );
+      return rows.map((row) => String(row['object_key']));
+    },
+    async findByKey(objectKey) {
+      const { rows } = await client.query('SELECT object_key, reason, enqueued_at, attempts FROM media_deletion_queue WHERE object_key = $1', [objectKey]);
+      return rows[0] === undefined ? null : toQueueEntry(rows[0]);
+    },
+    async listPending(limit) {
+      const { rows } = await client.query('SELECT object_key, reason, enqueued_at, attempts FROM media_deletion_queue ORDER BY enqueued_at, object_key LIMIT $1', [limit]);
+      return rows.map(toQueueEntry);
+    },
+    async remove(objectKey) {
+      await client.query('DELETE FROM media_deletion_queue WHERE object_key = $1', [objectKey]);
+    },
+    async recordFailure(objectKey) {
+      await client.query('UPDATE media_deletion_queue SET attempts = attempts + 1 WHERE object_key = $1', [objectKey]);
+    },
+    async promoteStaleIntents(olderThanExclusive) {
+      const result = await client.query("UPDATE media_deletion_queue SET reason = 'DELETE' WHERE reason = 'INTENT' AND enqueued_at < $1", [olderThanExclusive]);
+      return result.rowCount ?? 0;
+    },
+    async countOlderThan(cutoffExclusive) {
+      const { rows } = await client.query('SELECT COUNT(*) AS n FROM media_deletion_queue WHERE enqueued_at < $1', [cutoffExclusive]);
+      return count(rows[0]);
+    },
   };
 }
 
@@ -403,11 +523,11 @@ function recordRepository(client: PoolClientLike): MedicalRecordRepositoryPort {
 }
 
 /** Repositorios de la parte 2 (T423): mascotas y registros clínicos. */
-export type PostgresRepositoriesPart2 = Pick<RepositorySet, 'pets' | 'records'>;
+export type PostgresRepositoriesPart2 = Pick<RepositorySet, 'pets' | 'records' | 'media' | 'mediaQueue'>;
 
 /** @implements REQ-PG-002, INV-ARCH-005 */
 export function createPostgresRepositoriesPart2(client: PoolClientLike): PostgresRepositoriesPart2 {
-  return { pets: petRepository(client), records: recordRepository(client) };
+  return { pets: petRepository(client), records: recordRepository(client), media: mediaRepository(client), mediaQueue: mediaQueueRepository(client) };
 }
 
 /** Repositorios de la parte 1 (T422) sobre el cliente de la transacción; T423 y T424 completan `RepositorySet`. */

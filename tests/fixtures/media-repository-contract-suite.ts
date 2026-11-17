@@ -18,7 +18,7 @@ const OTRA = { ...upgradePet(ANDRES_PETS_001[1] ?? ANDRES_PETS_001[0]!), id: 'f0
 const AJENA = { ...ARGOS, id: 'f0000000-0000-4000-8000-0000000000d9', ownerUserId: MARIA.id, microchipId: null, name: 'Ajena' };
 const NOW = '2026-11-17T10:00:00.000Z';
 const at = (seconds: number) => new Date(Date.parse(NOW) + seconds * 1000).toISOString();
-const id = (n: number) => `f0000000-0000-4000-8000-00000000040${String(n).padStart(2, '0')}`;
+const id = (n: number) => `f0000000-0000-4000-8000-0000000004${String(n).padStart(2, '0')}`;
 
 const media = (n: number, over: Partial<PetMediaRecord> = {}): PetMediaRecord => ({
   id: id(n), petId: ARGOS.id, kind: 'FILE', mime: 'application/pdf', sizeBytes: 100 * n, originalName: `n${n}.pdf`, createdAt: at(n), ...over,

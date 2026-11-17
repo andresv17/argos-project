@@ -30,7 +30,14 @@ import type {
   SessionRepositoryPort,
   UserAccount,
   UserRepositoryPort,
+  AvatarState,
+  MediaDeletionEntry,
+  MediaDeletionQueuePort,
+  MediaDeletionReason,
+  PetMediaRecord,
+  PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
+import { avatarObjectKey, mediaObjectKey } from '../../../domain/media/index.ts';
 import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
@@ -51,6 +58,12 @@ export interface MemoryState {
   rateEvents: RateLimitEvent[];
   invitations: InvitationRecord[];
   assignments: PetAssignmentRecord[];
+  /** `pet_media` (REQ-GCS-005). */
+  media: PetMediaRecord[];
+  /** `media_deletion_queue` (REQ-GCS-004); sin relación con las mascotas, como en la base de datos. */
+  mediaQueue: MediaDeletionEntry[];
+  /** `avatar_version` y `avatar_object_id` por mascota; una mascota sin entrada tiene versión 0 y sin avatar. */
+  avatars: Record<string, AvatarState>;
   /** Filas de auditoría en orden de inserción (REQ-AUD-001). */
   auditLog: AuditEntry[];
 }
@@ -82,6 +95,9 @@ export function emptyMemoryState(): MemoryState {
     rateEvents: [],
     invitations: [],
     assignments: [],
+    media: [],
+    mediaQueue: [],
+    avatars: {},
     auditLog: [],
   };
 }
@@ -254,6 +270,98 @@ function petRepository(state: MemoryState): PetRepositoryPort {
     async delete(petId) {
       state.pets = state.pets.filter((p) => p.id !== petId);
       state.assignments = state.assignments.filter((a) => a.petId !== petId); // como ON DELETE CASCADE
+      state.media = state.media.filter((m) => m.petId !== petId); // como ON DELETE CASCADE (la cola no se toca: no tiene clave foránea)
+      delete state.avatars[petId];
+    },
+    async findAvatar(petId) {
+      if (!state.pets.some((p) => p.id === petId)) return null;
+      return copy(state.avatars[petId] ?? { version: 0, objectId: null });
+    },
+    async replaceAvatar(petId, objectId) {
+      if (!state.pets.some((p) => p.id === petId)) throw new Error('FOREIGN KEY constraint failed');
+      const next = { version: (state.avatars[petId]?.version ?? 0) + 1, objectId };
+      state.avatars[petId] = next;
+      return copy(next);
+    },
+    async clearAvatar(petId) {
+      const current = state.avatars[petId];
+      if (current !== undefined) state.avatars[petId] = { version: current.version, objectId: null };
+    },
+  };
+}
+
+function mediaRepository(state: MemoryState): PetMediaRepositoryPort {
+  return {
+    async insert(media) {
+      if (!state.pets.some((p) => p.id === media.petId)) throw new Error('FOREIGN KEY constraint failed');
+      if (state.media.some((m) => m.id === media.id)) throw new Error('UNIQUE constraint failed: pet_media.id');
+      state.media = [...state.media, copy(media)];
+    },
+    async findById(petId, mediaId) {
+      return copy(state.media.find((m) => m.id === mediaId && m.petId === petId) ?? null);
+    },
+    async listPage(petId, kind, limit, offset) {
+      const all = state.media
+        .filter((m) => m.petId === petId && m.kind === kind)
+        .sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1));
+      return copy({ items: all.slice(offset, offset + limit), total: all.length });
+    },
+    async countBytesOfOwner(ownerUserId) {
+      const owned = new Set(state.pets.filter((p) => p.ownerUserId === ownerUserId).map((p) => p.id));
+      return state.media.filter((m) => owned.has(m.petId)).reduce((sum, m) => sum + m.sizeBytes, 0);
+    },
+    async remove(petId, mediaId) {
+      const before = state.media.length;
+      state.media = state.media.filter((m) => !(m.id === mediaId && m.petId === petId));
+      return state.media.length < before;
+    },
+    async countObjectsOfPets(petIds) {
+      const wanted = new Set(petIds);
+      return state.media.filter((m) => wanted.has(m.petId)).length + [...wanted].filter((id) => state.pets.some((p) => p.id === id) && (state.avatars[id]?.objectId ?? null) !== null).length;
+    },
+  };
+}
+
+function mediaQueueRepository(state: MemoryState): MediaDeletionQueuePort {
+  const upsert = (objectKey: string, reason: MediaDeletionReason, enqueuedAt: string) => {
+    const existing = state.mediaQueue.find((e) => e.objectKey === objectKey);
+    if (existing === undefined) state.mediaQueue = [...state.mediaQueue, { objectKey, reason, enqueuedAt, attempts: 0 }];
+    else if (reason === 'DELETE' && existing.reason === 'INTENT') state.mediaQueue = state.mediaQueue.map((e) => (e.objectKey === objectKey ? { ...e, reason: 'DELETE' } : e));
+  };
+  return {
+    async enqueue(objectKey, reason, enqueuedAt) {
+      upsert(objectKey, reason, enqueuedAt);
+    },
+    async enqueueObjectsOfPet(petId, enqueuedAt) {
+      const keys = state.media.filter((m) => m.petId === petId).map((m) => mediaObjectKey(petId, m.kind, m.id));
+      const avatarId = state.avatars[petId]?.objectId ?? null;
+      if (avatarId !== null) keys.push(avatarObjectKey(petId, avatarId));
+      for (const key of keys) upsert(key, 'DELETE', enqueuedAt);
+      return keys;
+    },
+    async findByKey(objectKey) {
+      return copy(state.mediaQueue.find((e) => e.objectKey === objectKey) ?? null);
+    },
+    async listPending(limit) {
+      return copy([...state.mediaQueue].sort((a, b) => (a.enqueuedAt === b.enqueuedAt ? (a.objectKey < b.objectKey ? -1 : 1) : a.enqueuedAt < b.enqueuedAt ? -1 : 1)).slice(0, limit));
+    },
+    async remove(objectKey) {
+      state.mediaQueue = state.mediaQueue.filter((e) => e.objectKey !== objectKey);
+    },
+    async recordFailure(objectKey) {
+      state.mediaQueue = state.mediaQueue.map((e) => (e.objectKey === objectKey ? { ...e, attempts: e.attempts + 1 } : e));
+    },
+    async promoteStaleIntents(olderThanExclusive) {
+      let promoted = 0;
+      state.mediaQueue = state.mediaQueue.map((e) => {
+        if (e.reason !== 'INTENT' || !(e.enqueuedAt < olderThanExclusive)) return e;
+        promoted += 1;
+        return { ...e, reason: 'DELETE' };
+      });
+      return promoted;
+    },
+    async countOlderThan(cutoffExclusive) {
+      return state.mediaQueue.filter((e) => e.enqueuedAt < cutoffExclusive).length;
     },
   };
 }
@@ -390,6 +498,8 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     rateLimits: rateLimitRepository(state),
     invitations: invitationRepository(state),
     assignments: assignmentRepository(state),
+    media: mediaRepository(state),
+    mediaQueue: mediaQueueRepository(state),
     auditLog: auditLogRepository(state),
   };
 }
