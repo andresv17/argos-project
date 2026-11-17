@@ -2705,7 +2705,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Avatar eliminado */
+            /** @description Avatar eliminado (idempotente; la clave queda en cola transaccional; no declara 502) */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -2715,15 +2715,6 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
-            /** @description ERR-MEDIA-STORAGE-UNAVAILABLE (Cache-Control: no-store) */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetails"];
-                };
-            };
         };
     };
     listPetAssignments: {
