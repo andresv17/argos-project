@@ -42,12 +42,16 @@ import { validateBirthDateNotFuture } from '../../domain/shared/date-utils.ts';
 import { sortHistoricalRecords, sortPetsForListing } from '../../domain/sorting/deterministic-sorter.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
-import type { ApplicationDeps } from './use-case-support.ts';
+import { lockPet, type ApplicationDeps } from './use-case-support.ts';
 
 export type ImportBackupResult = ComponentsV31['schemas']['ImportBackupResult'];
 type SourceSchemaVersion = ImportBackupResult['sourceSchemaVersion'];
-/** La vista previa conserva la forma 002 con la versión de origen ampliada a 3.1.0; `mediaToDeleteCount` llega con T604/T605 y no va aquí. */
-export type ImportPreviewResult = Omit<components['schemas']['ImportPreviewResult'], 'sourceSchemaVersion'> & { readonly sourceSchemaVersion: SourceSchemaVersion };
+/** La vista previa conserva la forma 002 con la versión de origen ampliada a 3.1.0 y, desde T604, `mediaToDeleteCount` (D-15 A). */
+export type ImportPreviewResult = Omit<components['schemas']['ImportPreviewResult'], 'sourceSchemaVersion'> & {
+  readonly sourceSchemaVersion: SourceSchemaVersion;
+  /** Archivos, fotos y avatares de las mascotas que el reemplazo elimina; entero >= 0 [REQ-IMP-001, D-15 A]. */
+  readonly mediaToDeleteCount: number;
+};
 type BackupDeps = ApplicationDeps;
 
 const MODULES = Object.keys(RECORD_MODULES) as RecordModule[];
@@ -318,10 +322,17 @@ class BackupImportPipeline {
         validateRecord(module, record, pet.birthDate, today, pet.species);
       }
       // Microchip único por propietario dentro del archivo (el dueño de todas es el usuario autenticado).
+      // El error nombra la mascota PROPIA del archivo (posición y nombre), nunca el microchip ni datos de terceros (REQ-IMP-001, SC-CAT-024).
       const chips = new Set<string>();
-      for (const pet of envelope.pets) {
+      for (const [index, pet] of envelope.pets.entries()) {
         if (pet.microchipId === null) continue;
-        if (chips.has(pet.microchipId)) throw new DomainError('ERR-PET-MICROCHIP-DUPLICATE', undefined, 'microchipId');
+        if (chips.has(pet.microchipId)) {
+          throw new DomainError(
+            'ERR-PET-MICROCHIP-DUPLICATE',
+            `La mascota n.º ${index + 1} del archivo («${pet.name}») repite el microchip de otra mascota del mismo archivo.`,
+            'microchipId',
+          );
+        }
         chips.add(pet.microchipId);
       }
     } catch (error) {
@@ -348,6 +359,16 @@ class BackupImportPipeline {
 }
 
 /**
+ * Archivos, fotos y avatares que el reemplazo elimina junto con las mascotas actuales del usuario (D-15 A, REQ-IMP-001). Hasta que existan las
+ * tablas de medios y el avatar (T574, T575, T584) no hay nada que contar: es 0 y este es el único punto que T575 conectará al repositorio de
+ * `pet_media` y a `pets.avatar_object_id`.
+ * @implements REQ-IMP-001
+ */
+async function countMediaToDelete(_repositories: RepositorySet, _replacedPets: readonly PetProfile[]): Promise<number> {
+  return 0;
+}
+
+/**
  * REQ-BACKUP2-002, modo PREVIEW de STATE-BACKUP-001: mismas etapas que la importación, sin escribir nada (ni datos, ni
  * auditoría). Devuelve conteos, colisiones medidas solo contra mascotas propias, el aviso de mascotas compartidas que
  * perderán su asignación y el `fileDigest` de los bytes leídos. Los errores de tamaño, JSON, endurecimiento, versión,
@@ -366,7 +387,7 @@ export class PreviewBackupImportUseCase {
     const run = new ImportRun(observer);
     const { bytes, sourceSchemaVersion, owned } = this.pipeline.prepare(run, userId, payload, 'START_PREVIEW');
     const fileIds = new Set(owned.pets.map((pet) => pet.id));
-    let shared: { petsCount: number; householdsCount: number; petsReplacedCount: number; sameIdPetsCount: number };
+    let shared: { petsCount: number; householdsCount: number; petsReplacedCount: number; sameIdPetsCount: number; mediaToDeleteCount: number };
     try {
       shared = await this.deps.uow.runInTransaction(async (repositories) => {
         // Solo lectura de lo propio: la previsualización no comprueba IDs ajenos (eso es del commit, I-5), así que no
@@ -384,6 +405,7 @@ export class PreviewBackupImportUseCase {
           householdsCount: households.size,
           petsReplacedCount: current.length,
           sameIdPetsCount: current.filter((pet) => fileIds.has(pet.id)).length,
+          mediaToDeleteCount: await countMediaToDelete(repositories, current),
         };
       });
     } catch (error) {
@@ -405,6 +427,7 @@ export class PreviewBackupImportUseCase {
       },
       collisions: { petsReplacedCount: shared.petsReplacedCount, sameIdPetsCount: shared.sameIdPetsCount },
       affectedSharedPets: { petsCount: shared.petsCount, householdsCount: shared.householdsCount },
+      mediaToDeleteCount: shared.mediaToDeleteCount,
     };
   }
 }
@@ -461,7 +484,10 @@ export class ImportBackupUseCase {
         // INVARIANTS_VALID (guard): la confirmación debe ser el fileDigest de los bytes leídos (errorIfDigestMismatch).
         if (!fileDigestMatches(confirmDigest, fileDigest)) throw mismatch;
         run.fire('INVARIANTS_VALID');
+        // REQ-BOR-005: candado del propietario y luego el de cada mascota que se reemplaza (orden usuario → mascota).
+        await repositories.users.findByIdForUpdate(userId);
         const current = await repositories.pets.listByOwners([userId]);
+        for (const pet of [...current].sort((a, b) => (a.id < b.id ? -1 : 1))) await lockPet(repositories, pet.id);
         const previous = await ownedSnapshot(repositories, current);
         for (const pet of current) {
           await repositories.records.deleteForPet(pet.id);

@@ -50,7 +50,7 @@ const RECORDS_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/me
 // BackupEnvelopeV31 y amplía `sourceSchemaVersion` a 3.1.0). SUPERSESIÓN LEGÍTIMA, no debilitamiento: el OpenAPI de la 002 declara la respuesta de
 // POST /backup/export como BackupEnvelopeV3 y la exportación ahora emite 3.1.0 (REQ-BACKUP2-001 de la 004); el arnés apunta esa respuesta a
 // BackupEnvelopeV31 del mismo OpenAPI de la 004, y se valida con el esquema completo (breedCode, symptomType y severity obligatorios, sin
-// propiedades adicionales). `mediaToDeleteCount` (ImportPreviewResult) pertenece a la vista previa de T604/T605: se exime de `required` hasta entonces.
+// propiedades adicionales). `mediaToDeleteCount` (ImportPreviewResult) es de la vista previa de T604/T605: ya se exige (T605 retiró su exención).
 const BACKUP_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/backup-envelope.schema.json';
 const exportOk = (openapi.paths['/backup/export']!['post'] as { responses: Record<string, { content: Record<string, { schema: { $ref: string } }> }> }).responses['200']!.content['application/json']!.schema;
 exportOk.$ref = exportOk.$ref.replace('#/$defs/BackupEnvelopeV3', '#/$defs/BackupEnvelopeV31');
@@ -60,10 +60,8 @@ for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) {
     for (const def of Object.values(records.$defs)) if (def.required !== undefined) def.required = def.required.filter((name) => name !== 'revision');
     ajv.addSchema(records);
   } else if (file === 'backup-envelope.schema.json') {
-    const backup = JSON.parse(readFileSync(BACKUP_004, 'utf8')) as { $defs: Record<string, { required?: string[] }> };
-    const preview = backup.$defs['ImportPreviewResult']!;
-    preview.required = (preview.required ?? []).filter((name) => name !== 'mediaToDeleteCount');
-    ajv.addSchema(backup);
+    // T605 (H-O-T617-2): `mediaToDeleteCount` ya lo devuelve la vista previa; se retira su exención y el arnés lo exige como `required`.
+    ajv.addSchema(JSON.parse(readFileSync(BACKUP_004, 'utf8')));
   } else if (file === 'pet.schema.json') {
     const pet = JSON.parse(readFileSync(PET_004, 'utf8')) as { $defs: { PetProfile: { required: string[] } } };
     pet.$defs.PetProfile.required = pet.$defs.PetProfile.required.filter((name) => name !== 'avatarVersion');

@@ -117,14 +117,13 @@ describe.skipIf(!TEST_DATABASE_URL)('T601 PostgreSQL real: SELECT … FOR UPDATE
   const forUpdate = (table: string) => new RegExp(`FROM ${table}\\b[^;]*FOR UPDATE`);
 
   it('[REQ-BOR-005][SC-CAT-028] lo primero que lee DeleteRecordUseCase, UpdateRecordUseCase y AddWeightRecordUseCase es la fila de la mascota con FOR UPDATE', async () => {
-    const { uow, recorded, depsOf } = await rig();
+    const { recorded, depsOf } = await rig();
     const deps = depsOf();
     const cases: Array<[string, () => Promise<unknown>]> = [
       ['alta', () => new AddWeightRecordUseCase(deps).execute(ANDRES, ARGOS.id, { weightKg: 20.5, recordedAt: '2026-11-01' })],
       ['edición', () => new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'weights', WEIGHT.id, { collection: 'weights', notes: 'x' })],
       ['borrado', () => new DeleteRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'weights', WEIGHT.id)],
     ];
-    expect(uow).toBeDefined();
     for (const [label, run] of cases) {
       recorded.length = 0;
       await run();
@@ -144,8 +143,7 @@ describe.skipIf(!TEST_DATABASE_URL)('T601 PostgreSQL real: SELECT … FOR UPDATE
   });
 
   it('[REQ-BOR-005][INV-REG-003] si otra sesión retiene la fila de la mascota con FOR UPDATE, la mutación espera hasta que la libere y entonces se aplica', async () => {
-    const { uow, raw, depsOf } = await rig();
-    expect(uow).toBeDefined();
+    const { raw, depsOf } = await rig();
     await raw.query('BEGIN');
     await raw.query('SELECT id FROM pets WHERE id = $1 FOR UPDATE', [ARGOS.id]);
     let done = false;

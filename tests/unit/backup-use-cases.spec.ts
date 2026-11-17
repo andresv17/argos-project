@@ -613,6 +613,7 @@ describe('T278: previsualización, confirmación e importación con auditoría (
       counts: { pets: 5, weights: 2, bodyMeasurements: 1, vaccinations: 2, dewormings: 1, medicalVisits: 1, customParameters: 1 },
       collisions: { petsReplacedCount: 5, sameIdPetsCount: 5 },
       affectedSharedPets: { petsCount: 5, householdsCount: 1 },
+      mediaToDeleteCount: 0, // T604, D-15 A: sin medios todavía
     });
     expect(json(h.uow.snapshot())).toBe(before);
   });
