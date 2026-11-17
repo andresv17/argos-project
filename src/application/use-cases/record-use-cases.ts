@@ -33,6 +33,7 @@ import {
 } from '../../domain/records/record-invariants.ts';
 import type { RbacAction } from '../../domain/access/rbac.ts';
 import { assertRecordNotSuperseded } from '../../domain/records/superseded-guard.ts';
+import { stateHash } from '../../domain/audit/state-hash.ts';
 import { DomainError } from '../../generated/index.ts';
 import { RECORD_ENTITY_TYPE, recordAudit } from './audit-support.ts';
 import { requirePetAction, type ApplicationDeps } from './use-case-support.ts';
@@ -179,8 +180,9 @@ function moduleOrNotFound(collection: string): RecordModule {
 /**
  * Edición parcial de un registro de cualquiera de los 6 módulos. Orden: acceso (404 antes que 403) con la acción
  * WRITE_* del módulo, existencia del registro en la mascota (ERR-PET-NOT-FOUND), esquema y dominio, y por último la
- * guarda de inmutabilidad (409). Solo vacunas y desparasitaciones pueden estar SUPERSEDED.
- * @implements REQ-REC2-003, REQ-RBAC-001, SC-015, ERR-REC-SUPERSEDED-IMMUTABLE, ERR-ACC-FORBIDDEN
+ * guarda de inmutabilidad (409), antes y después de aplicar la edición (INV-REG-002). Sin cambios efectivos no hay escritura ni
+ * fila de auditoría (REQ-BOR-003). Solo vacunas y desparasitaciones pueden estar SUPERSEDED.
+ * @implements REQ-BOR-003, INV-REG-002, REQ-REC2-003, REQ-RBAC-001, SC-015, ERR-REC-SUPERSEDED-IMMUTABLE, ERR-ACC-FORBIDDEN
  */
 export class UpdateRecordUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
@@ -195,11 +197,21 @@ export class UpdateRecordUseCase {
       if (current === undefined) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
       const updated = applyRecordUpdate(module, current, input, pet.birthDate, today, pet.species);
       assertRecordNotSuperseded(supersededStatus(module, existing, recordId, today));
+      // INV-REG-002: la edición que dejaría al propio registro SUPERSEDED (p. ej. una fecha anterior a otra de la misma clave) se rechaza.
+      assertRecordNotSuperseded(supersededStatus(module, withReplaced(existing, module, updated), recordId, today));
+      // REQ-BOR-003: sin cambios efectivos del estado canónico no se escribe ni se audita.
+      if (stateHash(current) === stateHash(updated)) return current;
       await repositories.records.replace(module, updated);
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: RECORD_ENTITY_TYPE[module], entityId: recordId, previous: current, next: updated });
       return updated;
     });
   }
+}
+
+/** Las colecciones de la mascota con el registro editado en lugar del vigente (para evaluar el estado resultante). */
+function withReplaced(existing: PetRecordCollections, module: RecordModule, updated: RecordOf<RecordModule>): PetRecordCollections {
+  const list = existing[module] as ReadonlyArray<{ id: string }>;
+  return { ...existing, [module]: list.map((r) => (r.id === (updated as { id: string }).id ? updated : r)) } as unknown as PetRecordCollections;
 }
 
 /** Estado de alerta del registro; los módulos sin semáforo nunca están reemplazados. */
