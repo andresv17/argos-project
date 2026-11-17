@@ -1,6 +1,6 @@
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { expect } from 'vitest';
-import type { ApplicationDeps } from '../../../src/application/use-cases/use-case-support.ts';
+import type { ApplicationDeps, MediaServices } from '../../../src/application/use-cases/use-case-support.ts';
 import { FixedClockAdapter } from '../../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import { buildApp } from '../../../src/infrastructure/http/app.ts';
 import type { MemoryState } from '../../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
@@ -55,7 +55,7 @@ export const username = (id: string) => USERS.find((u) => u.id === id)!.username
 
 export async function createApi(
   state: MemoryState = canonicalState(),
-  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits } = {},
+  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices } = {},
 ): Promise<Api> {
   const db = openSqliteDatabase(IN_MEMORY_DATABASE);
   const uow = new SqliteUnitOfWork(db);
@@ -64,7 +64,8 @@ export async function createApi(
   db.exec("DELETE FROM audit_log WHERE mutation_type = 'MIGRATION'");
   const clock = new FixedClockAdapter();
   const hasher = new SpyPasswordHasher();
-  const deps = createDeps(uow, clock, hasher, options.rateLimits ?? TEST_RATE_LIMITS);
+  const base = createDeps(uow, clock, hasher, options.rateLimits ?? TEST_RATE_LIMITS);
+  const deps: ApplicationDeps = options.media === undefined ? base : { ...base, media: options.media };
   const app = await buildApp({ deps, cookieSecure: options.cookieSecure ?? false });
 
   async function call(method: string, url: string, options: CallOptions = {}): Promise<ApiResponse> {

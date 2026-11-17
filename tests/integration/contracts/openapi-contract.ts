@@ -18,6 +18,15 @@ const METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
 type Json = Record<string, unknown>;
 export const openapi = parseYaml(readFileSync(OPENAPI_PATH, 'utf8')) as Json & { paths: Record<string, Record<string, Json>> };
 
+// T578 (REQ-ARC-001): las rutas de medios y avatar solo existen en el OpenAPI 3.1.0 de la 004. Se incorporan al documento del arnés con sus respuestas
+// tal como las declara la 004 (los `$ref` de componentes que comparten ambos documentos, como `Problem` y `ProblemDetails`, siguen resolviéndose en el de la 002).
+const OPENAPI_004_PATH = 'specs/004-catalogos-registros-archivos/contracts/openapi/pet-tracker-api.openapi.yaml';
+const MEDIA_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/media.schema.json';
+const openapi004 = parseYaml(readFileSync(OPENAPI_004_PATH, 'utf8')) as { paths: Record<string, Record<string, Json>> };
+for (const mediaPath of ['/pets/{petId}/media', '/pets/{petId}/media/{mediaId}/access', '/pets/{petId}/media/{mediaId}', '/pets/{petId}/avatar']) {
+  openapi.paths[mediaPath] = openapi004.paths[mediaPath]!;
+}
+
 export interface Operation {
   readonly method: string;
   readonly path: string;
@@ -68,6 +77,7 @@ for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) {
     ajv.addSchema(pet);
   } else ajv.addSchema(JSON.parse(readFileSync(join('specs/002-plataforma-v21/contracts/schemas', file), 'utf8')));
 }
+ajv.addSchema(JSON.parse(readFileSync(MEDIA_004, 'utf8')));
 ajv.addSchema({ ...openapi, $id: OPENAPI_ID });
 
 const pointer = (...parts: string[]) => parts.map((p) => p.replace(/~/g, '~0').replace(/\//g, '~1')).join('/');

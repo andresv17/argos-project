@@ -98,7 +98,10 @@ export class ControlledStorage implements MediaStoragePort {
   }
   async createReadUrl(request: MediaReadUrlRequest): Promise<MediaReadUrl> {
     this.check('createReadUrl', request.key);
-    return this.inner.createReadUrl(request);
+    // El adaptador de memoria devuelve una ruta relativa de desarrollo (`/__dev/media/…`); el contrato exige una URL https (MediaAccess.url). El doble
+    // conserva las validaciones del adaptador y entrega una URL con la forma de la de GCS (host virtual del bucket).
+    const { expiresAt } = await this.inner.createReadUrl(request);
+    return { url: `https://argos-media-test.storage.googleapis.com/${request.key}?X-Goog-Expires=${request.ttlSeconds}`, expiresAt };
   }
   /** Claves vivas del prefijo (sin pasar por la caída simulada). */
   async keys(prefix = 'pets/'): Promise<string[]> {
