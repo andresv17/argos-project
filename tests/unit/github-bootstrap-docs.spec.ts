@@ -54,6 +54,10 @@ describe('T450 guía de bootstrap del día 0', () => {
         expect(iSecreto).toBeGreaterThan(iBoot);
         expect(iPlan).toBeGreaterThan(iSecreto);
       });
+      it('indica re-ejecutar deploy-argos.yml si la aprobación en produccion supera 45 min (D-29 res. 4, T488)', () => {
+        expect(texto).toContain('supera 45 min');
+        expect(texto).toContain('re-ejecute deploy-argos.yml tras aprobar y terminar el apply');
+      });
       it('TF_VAR_billing_account sale de bootstrap.sh paso 6 y ARGOS_BILLING_ACCOUNT', () => {
         expect(texto).toContain('ARGOS_BILLING_ACCOUNT');
         expect(texto).toMatch(/paso 6/);
