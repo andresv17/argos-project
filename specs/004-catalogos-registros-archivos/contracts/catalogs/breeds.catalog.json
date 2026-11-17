@@ -1,0 +1,491 @@
+{
+  "catalogId": "BREEDS",
+  "catalogVersion": "0.1.0",
+  "status": "DRAFT",
+  "validation": "Revisado por /maggie el 2026-11-17 (68 entradas verificadas; rótulos corregidos por MAG-004-010/011/012). Pendiente de veterinario humano: P-3 (agrupaciones de razas). Los codes publicados son inmutables; una raza retirada pasa a deprecated:true y nunca se reutiliza su code.",
+  "notes": [
+    "Criolla equivale a mestizo o doméstico de pelo corto/largo (MAG-004-014).",
+    "La raza no alimenta reglas clínicas de peso, edad ni alertas (INV-RAZ-002).",
+    "Razas frecuentes ausentes (Shiba Inu, Pekinés, Boston Terrier, Bulldog Americano, Pastor de Shetland, Bullmastiff, Dogo Argentino, Bernés de la Montaña, Gran Pirineo, Bombay, Chartreux, Savannah, Manx, Ragamuffin) se cubren con Otra; altas en 0.2.0 sin reutilizar codes (MAG-004-013, TECHDEBT-004-05)."
+  ],
+  "ordering": "Criolla primero (order 1); demás por label en orden alfabético del español sin distinguir tildes (order 10, 20, ...); Otra al final (order 9999).",
+  "codePattern": "^(DOG|CAT)_[A-Z0-9_]{2,40}$",
+  "entries": [
+    {
+      "code": "DOG_CRIOLLA",
+      "species": "CANINE",
+      "label": "Criolla",
+      "order": 1,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_AKITA",
+      "species": "CANINE",
+      "label": "Akita",
+      "order": 10,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_BASSET_HOUND",
+      "species": "CANINE",
+      "label": "Basset Hound",
+      "order": 20,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_BEAGLE",
+      "species": "CANINE",
+      "label": "Beagle",
+      "order": 30,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_BICHON_FRISE",
+      "species": "CANINE",
+      "label": "Bichón Frisé",
+      "order": 40,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_BORDER_COLLIE",
+      "species": "CANINE",
+      "label": "Border Collie",
+      "order": 50,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_BOXER",
+      "species": "CANINE",
+      "label": "Boxer",
+      "order": 60,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_BULLDOG_FRANCES",
+      "species": "CANINE",
+      "label": "Bulldog Francés",
+      "order": 70,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_BULLDOG_INGLES",
+      "species": "CANINE",
+      "label": "Bulldog Inglés",
+      "order": 80,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_CANE_CORSO",
+      "species": "CANINE",
+      "label": "Cane Corso",
+      "order": 90,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_CANICHE_POODLE",
+      "species": "CANINE",
+      "label": "Caniche (Poodle)",
+      "order": 100,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_CHIHUAHUA",
+      "species": "CANINE",
+      "label": "Chihuahua",
+      "order": 110,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_CHOW_CHOW",
+      "species": "CANINE",
+      "label": "Chow Chow",
+      "order": 120,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_COCKER_SPANIEL",
+      "species": "CANINE",
+      "label": "Cocker Spaniel",
+      "order": 130,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_DALMATA",
+      "species": "CANINE",
+      "label": "Dálmata",
+      "order": 140,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_DOBERMAN",
+      "species": "CANINE",
+      "label": "Dóberman",
+      "order": 150,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_FOX_TERRIER",
+      "species": "CANINE",
+      "label": "Fox Terrier",
+      "order": 160,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_GALGO",
+      "species": "CANINE",
+      "label": "Galgo (Español)",
+      "order": 170,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_GOLDEN_RETRIEVER",
+      "species": "CANINE",
+      "label": "Golden Retriever",
+      "order": 180,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_GRAN_DANES",
+      "species": "CANINE",
+      "label": "Gran Danés",
+      "order": 190,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_HUSKY_SIBERIANO",
+      "species": "CANINE",
+      "label": "Husky Siberiano",
+      "order": 200,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_JACK_RUSSELL_TERRIER",
+      "species": "CANINE",
+      "label": "Jack Russell Terrier",
+      "order": 210,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_LABRADOR_RETRIEVER",
+      "species": "CANINE",
+      "label": "Labrador Retriever",
+      "order": 220,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_LHASA_APSO",
+      "species": "CANINE",
+      "label": "Lhasa Apso",
+      "order": 230,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_MALTES",
+      "species": "CANINE",
+      "label": "Maltés",
+      "order": 240,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_MASTIN",
+      "species": "CANINE",
+      "label": "Mastín (Español, Napolitano o Inglés)",
+      "order": 250,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_PASTOR_ALEMAN",
+      "species": "CANINE",
+      "label": "Pastor Alemán",
+      "order": 260,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_PASTOR_AUSTRALIANO",
+      "species": "CANINE",
+      "label": "Pastor Australiano",
+      "order": 270,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_PASTOR_BELGA",
+      "species": "CANINE",
+      "label": "Pastor Belga",
+      "order": 280,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_PINSCHER_MINIATURA",
+      "species": "CANINE",
+      "label": "Pinscher Miniatura",
+      "order": 290,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_PITBULL",
+      "species": "CANINE",
+      "label": "Pitbull (American Pit Bull Terrier)",
+      "order": 300,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_POMERANIA",
+      "species": "CANINE",
+      "label": "Pomerania",
+      "order": 310,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_PUG",
+      "species": "CANINE",
+      "label": "Pug",
+      "order": 320,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_ROTTWEILER",
+      "species": "CANINE",
+      "label": "Rottweiler",
+      "order": 330,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_SALCHICHA_DACHSHUND",
+      "species": "CANINE",
+      "label": "Salchicha (Dachshund)",
+      "order": 340,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_SAMOYEDO",
+      "species": "CANINE",
+      "label": "Samoyedo",
+      "order": 350,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_SAN_BERNARDO",
+      "species": "CANINE",
+      "label": "San Bernardo",
+      "order": 360,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_SCHNAUZER",
+      "species": "CANINE",
+      "label": "Schnauzer (miniatura, mediano o gigante)",
+      "order": 370,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_SETTER_IRLANDES",
+      "species": "CANINE",
+      "label": "Setter Irlandés",
+      "order": 380,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_SHAR_PEI",
+      "species": "CANINE",
+      "label": "Shar Pei",
+      "order": 390,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_SHIH_TZU",
+      "species": "CANINE",
+      "label": "Shih Tzu",
+      "order": 400,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_WEIMARANER",
+      "species": "CANINE",
+      "label": "Weimaraner",
+      "order": 410,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_YORKSHIRE_TERRIER",
+      "species": "CANINE",
+      "label": "Yorkshire Terrier",
+      "order": 420,
+      "deprecated": false
+    },
+    {
+      "code": "DOG_OTHER",
+      "species": "CANINE",
+      "label": "Otra",
+      "order": 9999,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_CRIOLLA",
+      "species": "FELINE",
+      "label": "Criolla",
+      "order": 1,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_ABISINIO",
+      "species": "FELINE",
+      "label": "Abisinio",
+      "order": 10,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_ANGORA",
+      "species": "FELINE",
+      "label": "Angora Turco",
+      "order": 20,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_AZUL_RUSO",
+      "species": "FELINE",
+      "label": "Azul Ruso",
+      "order": 30,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_BENGALI",
+      "species": "FELINE",
+      "label": "Bengalí",
+      "order": 40,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_BIRMANO",
+      "species": "FELINE",
+      "label": "Birmano",
+      "order": 50,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_BOSQUE_DE_NORUEGA",
+      "species": "FELINE",
+      "label": "Bosque de Noruega",
+      "order": 60,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_BRITANICO_DE_PELO_CORTO",
+      "species": "FELINE",
+      "label": "Británico de Pelo Corto",
+      "order": 70,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_BURMES",
+      "species": "FELINE",
+      "label": "Burmés",
+      "order": 80,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_CORNISH_REX",
+      "species": "FELINE",
+      "label": "Cornish Rex",
+      "order": 90,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_DEVON_REX",
+      "species": "FELINE",
+      "label": "Devon Rex",
+      "order": 100,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_EXOTICO_DE_PELO_CORTO",
+      "species": "FELINE",
+      "label": "Exótico de Pelo Corto",
+      "order": 110,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_HIMALAYO",
+      "species": "FELINE",
+      "label": "Himalayo",
+      "order": 120,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_MAINE_COON",
+      "species": "FELINE",
+      "label": "Maine Coon",
+      "order": 130,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_ORIENTAL",
+      "species": "FELINE",
+      "label": "Oriental",
+      "order": 140,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_PERSA",
+      "species": "FELINE",
+      "label": "Persa",
+      "order": 150,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_RAGDOLL",
+      "species": "FELINE",
+      "label": "Ragdoll",
+      "order": 160,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_SCOTTISH_FOLD",
+      "species": "FELINE",
+      "label": "Scottish Fold",
+      "order": 170,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_SIAMES",
+      "species": "FELINE",
+      "label": "Siamés",
+      "order": 180,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_SIBERIANO",
+      "species": "FELINE",
+      "label": "Siberiano",
+      "order": 190,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_SOMALI",
+      "species": "FELINE",
+      "label": "Somalí",
+      "order": 200,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_SPHYNX",
+      "species": "FELINE",
+      "label": "Sphynx",
+      "order": 210,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_TONQUINES",
+      "species": "FELINE",
+      "label": "Tonkinés",
+      "order": 220,
+      "deprecated": false
+    },
+    {
+      "code": "CAT_OTHER",
+      "species": "FELINE",
+      "label": "Otra",
+      "order": 9999,
+      "deprecated": false
+    }
+  ]
+}
