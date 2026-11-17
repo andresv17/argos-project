@@ -46,7 +46,6 @@ PLAN_SA="${PREFIX}-terraform-plan@${PROJECT}.iam.gserviceaccount.com"   # solo l
 APPLY_SA="${PREFIX}-terraform@${PROJECT}.iam.gserviceaccount.com"       # escritura (solo main)
 DEPLOY_SA="${PREFIX}-deployer@${PROJECT}.iam.gserviceaccount.com"       # lo crea Terraform (T439)
 WORKFLOW_REF="${REPO}/.github/workflows/infraestructura.yml@refs/heads/main"
-DEPLOY_WORKFLOW_REF="${REPO}/.github/workflows/deploy-argos.yml@refs/heads/main"
 
 say() { printf '\n### %s\n' "$*"; }
 
@@ -176,23 +175,15 @@ say "5b. argos-terraform@: SOLO el workflow infraestructura.yml desde refs/heads
 run gcloud iam service-accounts add-iam-policy-binding "$APPLY_SA" --project="$PROJECT" \
   --role=roles/iam.workloadIdentityUser \
   --member="principalSet://iam.googleapis.com/${POOL_PATH}/attribute.job_workflow_ref/${WORKFLOW_REF}"
-# La cuenta argos-deployer@ la crea Terraform (T439); la vincula el paso 5c (T485).
+# La cuenta argos-deployer@ y su vinculo WIF los crea Terraform (T489, D-30) en terraform/iam.tf.
 
-say "5c. argos-deployer@: SOLO el workflow deploy-argos.yml desde refs/heads/main (T485, D-W1) [la cuenta debe existir: apply de T439 antes]"
-if [ "$EXECUTE" -eq 1 ] && ! gcloud iam service-accounts describe "$DEPLOY_SA" --project="$PROJECT" >/dev/null 2>&1; then
-  echo "AVISO: ${DEPLOY_SA} aún no existe (se crea en el primer terraform apply). Continúa con los pasos 6 y 7; tras el apply ejecuta:" >&2
-  echo "  gcloud iam service-accounts add-iam-policy-binding ${DEPLOY_SA} --project=${PROJECT} --role=roles/iam.workloadIdentityUser --member=principalSet://iam.googleapis.com/${POOL_PATH}/attribute.job_workflow_ref/${DEPLOY_WORKFLOW_REF}" >&2
-else
-  run gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" --project="$PROJECT" \
-    --role=roles/iam.workloadIdentityUser \
-    --member="principalSet://iam.googleapis.com/${POOL_PATH}/attribute.job_workflow_ref/${DEPLOY_WORKFLOW_REF}"
-fi
+say "5c. nota: la vinculacion WIF de la cuenta de despliegue ya NO es manual; la declara terraform/iam.tf (T489) y la crea el primer apply"
 
 say "6. Variables de GitHub del día 0 (valores no sensibles; REQ-CICD-006)"
 WIF_PROVIDER="${POOL_PATH}/providers/${PROVIDER}"
 for kv in "TF_VAR_project_id=${PROJECT}" "TF_VAR_region=${REGION}" "TF_VAR_billing_account=${ARGOS_BILLING_ACCOUNT}" "TF_STATE_BUCKET=${STATE_BUCKET}" \
           "GCP_WIF_PROVIDER=${WIF_PROVIDER}" "GCP_TERRAFORM_SA=${APPLY_SA}" \
-          "GCP_TERRAFORM_PLAN_SA=${PLAN_SA}" "GCP_DEPLOY_SA=${DEPLOY_SA}"; do
+          "TF_VAR_github_repository=${REPO}" "GCP_TERRAFORM_PLAN_SA=${PLAN_SA}" "GCP_DEPLOY_SA=${DEPLOY_SA}"; do
   run gh variable set "${kv%%=*}" --repo "$REPO" --body "${kv#*=}"
 done
 # custom_domain vacío (F3 desactivado). Si GitHub rechaza el valor vacío, omitir (se evalúa como vacío) [verificar en T456].
