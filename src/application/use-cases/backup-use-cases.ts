@@ -29,6 +29,8 @@ import {
   type ErrorCode,
 } from '../../generated/index.ts';
 import { isMicrochipGlobalViolation } from './microchip-violation.ts';
+// UNIQUE_CONSTRAINT_VIOLATED lanza la clase 3.1.0 (catálogo 3.1.0), la misma que usa microchip-violation.ts; el resto de la importación conserva la de la 002.
+import { DomainError as DomainErrorV31, type ErrorCode as ErrorCodeV31 } from '../../generated/v31/index.ts';
 import {
   STATE_BACKUP_001,
   validateBackupEnvelopeV31,
@@ -124,12 +126,12 @@ class ImportRun {
    * UNIQUE_CONSTRAINT_VIOLATED desde COMMITTING_SNAPSHOT (PROPAGATE_SPECIFIC, máquina 2.4.0): el código lo fija quien llama y la máquina
    * lo acota con allowedErrors (solo ERR-PET-MICROCHIP-DUPLICATE). @implements REQ-PET4-001, INV-PET4-001
    */
-  propagateUnique(code: ErrorCode, detail?: string): DomainError {
+  propagateUnique(code: ErrorCodeV31, detail?: string): DomainErrorV31 {
     const definition = this.fire('UNIQUE_CONSTRAINT_VIOLATED') as { error: string; allowedErrors?: readonly string[]; finalState?: RollbackFinalState };
     if (definition.error !== 'PROPAGATE_SPECIFIC' || !definition.allowedErrors?.includes(code)) {
       throw new Error(`STATE-BACKUP-001: ${code} no está permitido en UNIQUE_CONSTRAINT_VIOLATED`);
     }
-    return new DomainError(code, detail, 'microchipId', definition.finalState ?? 'ROLLED_BACK');
+    return new DomainErrorV31(code, detail, 'microchipId', definition.finalState ?? 'ROLLED_BACK');
   }
 }
 

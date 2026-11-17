@@ -4,7 +4,7 @@ import {
   type BackupEnvelopeV3,
   type PetProfile,
 } from '../../src/generated/index.ts';
-import { STATE_BACKUP_001, STATE_BACKUP_001_EVENTS, STATE_BACKUP_001_STATES, validateBackupEnvelopeV31 } from '../../src/generated/v31/index.ts';
+import { DomainError as V31DomainError, STATE_BACKUP_001, STATE_BACKUP_001_EVENTS, STATE_BACKUP_001_STATES, validateBackupEnvelopeV31 } from '../../src/generated/v31/index.ts';
 import {
   ExportBackupUseCase,
   ImportBackupUseCase,
@@ -57,6 +57,8 @@ function importer(deps = createHarness().deps) {
 }
 
 /** Importación que debe fallar sin cambiar nada: código, campo, finalState y pasos. */
+const DUPLICATE_CHIP = '985112345678901';
+
 async function rejected(payload: string | Uint8Array, harness = createHarness()) {
   const before = json(harness.uow.snapshot());
   const { steps, promise } = importer(harness.deps)(payload);
@@ -435,8 +437,17 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
       ),
     );
     const before = json(uow.inner.snapshot());
-    const { steps, promise } = importer({ ...createHarness().deps, uow })(json(v3()));
-    const error = await failure(promise);
+    // H-O-004A1-1: el archivo lleva un microchip REAL de 15 dígitos (el fixture base lo trae nulo y la aserción de fuga era vacua).
+    const file = json(v3((e) => { e.pets[0]!.microchipId = DUPLICATE_CHIP; }));
+    expect(file).toContain(DUPLICATE_CHIP);
+    const { steps, promise } = importer({ ...createHarness().deps, uow })(file);
+    // H-O-004A1-2: la clase es la 3.1.0 (la misma que usa microchip-violation.ts), no la de la 002; `failure()` solo reconoce la 002.
+    const error = await promise.then(
+      () => { throw new Error('se esperaba un rechazo'); },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(V31DomainError);
+    if (!(error instanceof V31DomainError)) throw error;
     expect([error.code, error.finalState, error.field, path(steps).slice(-2), json(uow.inner.snapshot()) === before]).toEqual([
       'ERR-PET-MICROCHIP-DUPLICATE',
       'ROLLED_BACK',
@@ -444,7 +455,9 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
       ['INVARIANTS_VALID>COMMITTING_SNAPSHOT', 'UNIQUE_CONSTRAINT_VIOLATED>ROLLED_BACK'],
       true,
     ]);
-    expect(String(error.detail)).not.toMatch(/\d{9,}/);
+    const everything = JSON.stringify(error) + error.message + String(error.stack) + JSON.stringify(error.toProblemDetails('/api/backup/import'));
+    expect(everything).not.toContain(DUPLICATE_CHIP);
+    expect(everything).not.toMatch(/\d{9,}/);
   });
 
   it('[STATE-BACKUP-001][INV-PET4-001] otra violación de unicidad (no pets_microchip_global) sigue siendo STORAGE_ERROR', async () => {
