@@ -89,14 +89,19 @@ describe('terraform/bootstrap.sh (T435)', () => {
     expect(out).not.toMatch(/gh secret set [^\n]*--body/);
   });
 
-  it('concede roles/billing.costsManager sobre la cuenta de facturación solo a argos-terraform@ (REQ-IAC-009)', () => {
+  it('concede costsManager a argos-terraform@ y solo billing.viewer (lectura) a argos-terraform-plan@ sobre la cuenta de facturación (REQ-IAC-009, D-31)', () => {
     const out = run([]).stdout;
     const lines = out.split('\n').filter((l) => l.includes('billing accounts add-iam-policy-binding'));
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toContain('AAAAAA-BBBBBB-CCCCCC');
-    expect(lines[0]).toContain('roles/billing.costsManager');
-    expect(lines[0]).toContain('argos-terraform@argos-prueba-123.iam.gserviceaccount.com');
-    expect(lines[0]).not.toContain('terraform-plan');
+    expect(lines).toHaveLength(2);
+    for (const l of lines) expect(l).toContain('AAAAAA-BBBBBB-CCCCCC');
+    const apply = lines.filter((l) => l.includes('argos-terraform@argos-prueba-123.iam.gserviceaccount.com'));
+    const plan = lines.filter((l) => l.includes('argos-terraform-plan@argos-prueba-123.iam.gserviceaccount.com'));
+    expect(apply).toHaveLength(1);
+    expect(apply[0]).toContain('roles/billing.costsManager');
+    expect(apply[0]).not.toContain('terraform-plan');
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toContain('roles/billing.viewer');
+    expect(plan[0]).not.toContain('costsManager');
     expect(out).not.toMatch(/roles\/billing\.admin|roles\/owner|roles\/editor/);
   });
 
