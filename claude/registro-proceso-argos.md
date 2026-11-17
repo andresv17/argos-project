@@ -904,3 +904,302 @@
 - 2026-11-16 Morpheus: Architect enmienda REQ-IAC-009 (45bde2b). Oracle audita; Keymaker aplica services.tf y bootstrap.sh en paralelo.
 - 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS 45bde2b. Architect resuelve O-1/O-3. Keymaker en curso.
 - 2026-11-16 Keymaker: REQ-IAC-009 enmendado implementado (12 APIs, costsManager en bootstrap); 120 terraform verdes; pendiente /oracle.
+- 2026-11-16 Architect: O-1 (plan.md costsManager) y O-3 (traza REQ-IAC-009 + T443) resueltos en 152aedd; pendiente auditoria Oracle.
+- 2026-11-16 Morpheus: Keymaker 126b4b2 (billingbudgets, costsManager). Oracle audita con foco en H-K1 (entradas ajenas en el commit) y H-K2.
+- 2026-11-16 Morpheus: 152aedd (O-1 plan.md:139 y O-3 traza T443) verificado en disco por Morpheus: 2 líneas, alcance correcto. Sin push.
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS 126b4b2. R-1 (paso 4b) despachado a Architect. H-K1 inofensivo.
+- 2026-11-16 Architect: R-1 cerrado en d5bf1d9 (spec.md REQ-IAC-009 -> paso 4b de bootstrap.sh). Hunk ajeno L39-45 fuera del commit. Sin push.
+- 2026-11-16 Morpheus: R-1 cerrado: spec.md:129 paso 4b (commit HEAD verificado en disco). 126b4b2 CUMPLE CON RESERVAS.
+- 2026-11-16 Morpheus: T401 cerrada por Neo. Keymaker a T445 (auto-pr.yml).
+- 2026-11-16 Keymaker: T445 auto-pr.yml (pruebas 86a5238 -> feat), 8 pruebas verdes, tsc 0; REVIEW pendiente de /oracle; sin [x].
+- 2026-11-16 Morpheus: Keymaker T445 (86a5238, b6cacc5). Oracle audita; verificar D-09 rama develop.
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T445 (86a5238, b6cacc5). REVIEW en tasks.md. Precondición H-K-2 para Neo.
+- 2026-11-16 Morpheus: Neo confirma develop y Actions; T445 REVIEW; despacho Keymaker a T447.
+- 2026-11-16 Keymaker: T447 test-gate.yml workflow_call (pruebas 1555672, feat siguiente); REVIEW pendiente de /oracle
+- 2026-11-16 Morpheus: Keymaker T447 (1555672, 9d16e56). Oracle audita.
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T447 (1555672, 9d16e56). REVIEW en tasks.md. R-2 para T448.
+- 2026-11-16 Morpheus: Neo autoriza T448 con R-2. Keymaker despachado.
+- 2026-11-16 Keymaker: T448 deploy-argos.yml (pruebas primero + feat); REVIEW pendiente de /oracle; sin [x].
+- 2026-11-16 Morpheus: Keymaker T448 (3193488, c157726). Desviación migrate-antes-de-build. Oracle audita.
+- 2026-11-16 Morpheus: Neo resuelve D1-D4 de T448. Keymaker corrige orden, OIDC y environment.
+2026-11-16 Keymaker T448 correccion D1-D4 commits locales; H-K-T448-2 id-token en build-push; REVIEW pendiente de /oracle
+- 2026-11-16 Morpheus: Keymaker corrige T448 (3720571, f8984e1). Oracle reaudita. H-K-T448-2 para /architect.
+- 2026-11-16 Morpheus: T448 a REVIEW (reauditoría CUMPLE CON RESERVAS). H-K-T448-2 pendiente de Neo E1.
+- 2026-11-16 Morpheus: E1 SÍ. Architect enmienda REQ-CICD-011(c), plan §6.1, SC-CLD-023.
+- 2026-11-16 Architect: enmienda E1 aplicada en commit 69e1a72 (REQ-CICD-011(c), REQ-CICD-003, SC-CLD-023, plan §6.1/6.2). Pendiente reauditoría Oracle.
+- 2026-11-16 Morpheus: Architect commitea enmienda E1 (REQ-CICD-011(c), REQ-CICD-003, SC-CLD-023, plan §6.1-6.2). Oracle reaudita.
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS E1 (69e1a72). R1 (tasks T448) y paréntesis corregidos por Architect.
+- 2026-11-16 Architect: R1 (T448 id-token) y paréntesis REQ-CICD-011(c) corregidos en commit 248422a. Pendiente Oracle.
+- 2026-11-16 Morpheus: E1 cerrada en disco: 69e1a72 (enmienda) y 248422a (T448 tasks.md y paréntesis). T448 lista para firma de Neo.
+- 2026-11-16 Morpheus: T448 ratificada en REVIEW. Keymaker a T449. T472 después.
+- 2026-11-16 Keymaker T449: 86c686c pruebas, 061d5f8 code-quality.yml; actionlint local 0 hallazgos; REVIEW pendiente de /oracle
+- 2026-11-16 Morpheus: Keymaker T449 (86c686c, 061d5f8). actionlint local OK. Oracle audita.
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T449 (86c686c, 061d5f8). REVIEW en tasks.md. Hashes verificados contra oficiales. Enmienda opcional REQ-CICD-011(d) para Neo.
+- 2026-11-16 Morpheus: Neo ratifica T449 (REVIEW), autoriza enmienda REQ-CICD-011(d) y T472. Architect enmienda (d); Keymaker T472.
+- 2026-11-16 | architect | Enmienda REQ-CICD-011(d) alta/crítica (Neo N2), commit 452a085, solo spec.md.
+- 2026-11-16 Morpheus: Architect commit 452a085 (REQ-CICD-011(d) 0 altas o críticas) verificado en disco. T472 en curso (Keymaker).
+- 2026-11-16 Keymaker T472: 4559891 (pruebas) + 39c8196 (scripts/validate-secrets.mjs); REVIEW pendiente de /oracle; sin [x].
+- 2026-11-16 Morpheus: Keymaker T472 (4559891 pruebas 34/35 rojas; 39c8196 scripts/validate-secrets.mjs). Oracle audita.
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T472 (4559891, 39c8196). REVIEW en tasks.md. 3 preguntas para Neo (trim, extensión a HMAC/DIRECT, HMAC vacío).
+- 2026-11-16 Morpheus: Neo ratifica T472 (REVIEW), contesta Q1-Q3 (SÍ), sube 452a085, 4559891, 39c8196. Despachado Keymaker a T446.
+- 2026-11-16 Keymaker T446: tests 9981f77 -> feat infraestructura.yml (ver git log); REVIEW pendiente de /oracle; H-K-T446-1..4 abiertos; sin [x].
+- 2026-11-16 Morpheus: Keymaker T446 (9981f77 pruebas 15/15 rojas; 56b65c8 infraestructura.yml, SHA setup-terraform v3.1.2). H-K-T446-1 (id-token en plan vs REQ-CICD-002/011(c)). Oracle audita.
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T446 (9981f77, 56b65c8). REVIEW en tasks.md. 4 preguntas a Neo.
+- 2026-11-16 Morpheus: Neo ratifica T446 (REVIEW); Q1 SÍ, Q2 SÍ, Q3 opción A (rechazo espacios de borde), Q4 SÍ (integrar terraform-plan-guard). Despachados Architect (Q1, Q2) y Keymaker (Q3, Q4) en paralelo.
+- 2026-11-16 architect: enmiendas Q1/Q2 T446 en spec/plan/bootstrap/tasks(frase); parches en scratchpad, sin commit (skill lo prohíbe); bootstrap.spec 7/7
+- 2026-11-16 Keymaker: Neo Q3-Q4 hechos (4920bca pruebas, feat siguiente); validate-secrets fail-closed y guardia T471 integrado en infraestructura.yml. REVIEW pendiente de /oracle.
+- 2026-11-16 Morpheus: Architect Q1/Q2 aplicadas por Morpheus: c767fad (spec) y 2633308 (plan, bootstrap). c767fad incluye marcas REVIEW de T445-T449 (mías, ratificadas por Neo) no mencionadas en el mensaje. Sin push.
+- 2026-11-16 Morpheus: Keymaker Q3/Q4 (4920bca pruebas 14 rojas; e9f992c). Oracle audita junto con enmiendas c767fad/2633308 (ad911fa7 y ae9dd500).
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS enmiendas Q1/Q2 (c767fad, 2633308). R-1 (plan §6.1.1 sin plan de PR) despachado a Architect. Reserva de trazabilidad de REVIEW en c767fad declarada.
+- 2026-11-16 Architect: R-1 aplicado en plan.md §6.1.1 (id-token en plan de PR), commit 3a054d3, pendiente re-validación Oracle.
+- 2026-11-16 Morpheus: R-1 cerrado: plan §6.1.1 alineado en 3a054d3 (verificado en disco).
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS Q3/Q4 (4920bca, e9f992c), sin bloqueantes. Reservas: H-K-Q4-2 (TF_VAR en env de trabajo), R-2 (GITHUB_ENV sin delimitador), R-3 (trim redundante). Escalado a Neo con opción de endurecimiento.
+- 2026-11-16 Morpheus: Neo ratifica T446 y T472 (REVIEW), sube 5 commits (4920bca, c767fad, 2633308, e9f992c, 3a054d3). Autoriza D-H1 (SÍ). Despachado Keymaker al endurecimiento. Después T450.
+- 2026-11-16 Keymaker: D-H1 (73dfb45 pruebas, fix en git log); secretos por paso, PLAN_GUARD_LABELS con regex; REVIEW pendiente /oracle
+- 2026-11-16 Morpheus: Keymaker D-H1 (73dfb45 pruebas 3/19 rojas; f170f92 YAML). Oracle reaudita.
+- 2026-11-16 Morpheus: Oracle NO CUMPLE D-H1 por H-DH1-1 (etiquetas vacías abortan apply en main). Keymaker corrige (único reintento, MAX_RETRY=1).
+- 2026-11-16 Keymaker: H-DH1-1 corregido (19d5ff2 pruebas, b57472a fix); pendiente reauditoría /oracle.
+- 2026-11-16 Morpheus: Keymaker corrige H-DH1-1 (19d5ff2 pruebas 1/23 roja; b57472a fix 1 línea). Oracle reaudita (a3e083de).
+- 2026-11-16 Morpheus: Oracle CUMPLE H-DH1-1 (19d5ff2, b57472a). D-H1 cerrado. Escalado a Neo cierre y T450.
+- 2026-11-16 Morpheus: Neo sube 4 commits de D-H1 (verificado b57472a sincronizado). Autoriza T450. Despachado Keymaker (documentación día 0, incluye TF_VAR_billing_account).
+- 2026-11-16 Keymaker T450 commit 6f57cfa docs bootstrap día 0 (README + quickstart §6 + prueba); hallazgos H-K-T450-1..3; REVIEW pendiente de /oracle; sin [x]
+- 2026-11-16 Morpheus: Keymaker T450 (6f57cfa, 3 archivos; 33/33). Incidente heredoc sin efectos verificado (bootstrap.sh sin cambios). Hallazgos H-K-T450-1/2/3 para Architect. Oracle audita (a247a072).
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T450 (6f57cfa). REVIEW. Hueco real: binding WIF de argos-deployer@ sin tarea; comentario bootstrap.sh L157 falso. Escalado a Neo.
+- 2026-11-16 Morpheus: Neo ratifica T450 (REVIEW), confirma push de 6f57cfa, autoriza T485 (D-W1). Architect registra T485 en tasks.md; después Keymaker la implementa.
+- 2026-11-16 Architect: T485 registrada en tasks.md (D-W1, Neo), commit d1e8e66; despachar a Keymaker.
+- 2026-11-16 Morpheus: Architect registra T485 (d1e8e66, tasks.md). Despacho Keymaker.
+- 2026-11-16 Keymaker T485: paso 5c WIF argos-deployer@ (c94f509, 02d5f2d + ajuste de prueba); REVIEW pendiente de /oracle; sin [x].
+- 2026-11-16 Morpheus: Keymaker T485 (c94f509 pruebas 4/11 rojas; 02d5f2d paso 5c; 77be540 ajuste comillas). Oracle audita (a8008883).
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T485 (c94f509, 02d5f2d, 77be540). REVIEW en tasks.md. Reserva job_workflow_ref sin verificar en GitHub real (T469).
+- 2026-11-16 Morpheus: Neo ratifica T485 (REVIEW), confirma push de 4 commits, aprueba D-T456 y abre Phase 7 (T451, T454). Despachados Architect (dependencia T456) y Keymaker (T451, T454).
+- 2026-11-16 Architect: D-T456 aplicada, T456 depende de T435, T450, T485 (75fe66e). Sin [x]/REVIEW.
+- 2026-11-16 Morpheus: Architect T456 dependencia (75fe66e) verificado. Esperando Keymaker (T451, T454).
+- 2026-11-16 Keymaker: T451 (2a12008, d3528fa, a2e65b6) y T454 (834d8ad, 582c668) listos para /oracle; suite 2510 verde, tsc 0; H-K-T451-1/2, H-K-T454-1/2. Sin [x].
+- 2026-11-16 Morpheus: Keymaker T451 (2a12008, d3528fa, a2e65b6; scan-secrets.mjs) y T454 (834d8ad, 582c668). Oracle audita (a17dd8a6). Hallazgos: H-K-T451-1 (escáner sin flujo), H-K-T451-2 (SC-CLD-004 gitleaks en quickstart), H-K-T454-1 (equivalencia de borrado), H-K-T454-2 (audit_log para /rama).
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T451 y T454 (phase 7). REVIEW. Escalado a Neo: conexión del escáner, endurecer allow y exención tests/, reserva /rama.
+- 2026-11-16 Morpheus: Neo ordena apagar la Logos. Canal OFF. Modo manual.
+- 2026-11-16 HARDLINE (Morpheus): cierre de sesión. 003 @ 582c668 (sincronizada con origin). Fase 2-7 en REVIEW. tasks.md con cambios sin commitear (T401 [x] de Neo y marcas REVIEW). Logos OFF. Handover: claude/handover-morpheus-2026-11-16.md. Sin push.
+- 2026-11-16 Morpheus: Logos ENCENDIDA por Neo. Directiva E-1/E-2/E-3 recibida; despacho Keymaker (E-1/E-2).
+- 2026-11-16 Keymaker: E-1/E-2 R1/R2 listos (pruebas bcaff10 17 rojas; impl en commit siguiente); suite 2536 verde, tsc 0, repo 0 hallazgos; para /oracle. Sin [x].
+- 2026-11-16 Morpheus: Keymaker entrega E-1/E-2 (bcaff10, 8644bc4). Oracle audita en disco.
+- 2026-11-16 Oracle: auditoria E-1/E-2 (bcaff10, 8644bc4) CUMPLE CON RESERVAS (3 bajas); 77/77 pruebas, scan repo 0, tsc 0; informe .specify/memory/audits/oracle-E1-E2-escaneo-ci.md
+- 2026-11-16 Morpheus: Neo elige OPCIÓN A (R-2/R-3). Despacho Keymaker micro-ciclo.
+- 2026-11-16 Keymaker: R-2/R-3 listos (d4f1a51 pruebas 15 rojas; c0fa21a impl); suite 2561 verde, tsc 0, repo 0. Para /oracle. Sin [x].
+- 2026-11-16 Morpheus: Keymaker entrega R-2/R-3 (d4f1a51, c0fa21a). Desviación externas; Oracle audita.
+- 2026-11-16 Oracle: R-2/R-3 CUMPLE CON RESERVAS (102/102, suite 2561, tsc 0, repo 0); desviacion rutas externas = decision Neo L2. Informe audits/oracle-R2-R3-escaneo-ci.md
+- 2026-11-16 Morpheus: Neo acepta (a) R-2/R-3 en REVIEW. Despacho Keymaker a T473.
+- 2026-11-16 Keymaker: T473 listo (149d10a pruebas 14 rojas; impl en commit siguiente); suite 2575 verde, tsc 0. Para /oracle. Sin [x].
+- 2026-11-16 Morpheus: Keymaker entrega T473 (149d10a, 62cfd50). Centinela SC-CLD-019 pendiente. Oracle audita.
+- 2026-11-16 Oracle T473 (149d10a,62cfd50): CUMPLE CON RESERVAS; falta prueba centinela SC-CLD-019 (bloquea COMPLETED). Informe .specify/memory/audits/oracle-T473-vacuum.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T473; centinela ALTA pendiente (propuesta T473b). Escalado a Neo.
+- 2026-11-16 Morpheus: Neo elige (A) T473b. Despacho Architect a registrar T473b y aclaraciones.
+- 2026-11-16 Architect: T473b registrada (tasks.md), T473 REVIEW parcial, aclaración H-K-T473-2 en spec REQ-PG-015, trazabilidad actualizada; verify-traceability CUMPLE; sin commit.
+- 2026-11-16 Morpheus: Architect registra T473b (Fase 9) y T473 REVIEW parcial. Despacho Keymaker a T473b.
+- 2026-11-16 Keymaker: T473b lista (prueba centinela 6/6 verde en PG17, SQL compartido, yml ajustado; hallazgos H-K-T473-3/5/6). Para /oracle. Sin [x].
+- 2026-11-16 Morpheus: Keymaker entrega T473b (59c41ed). H-K-T473-5 ALTA pendiente de decisión. Oracle audita.
+- 2026-11-16 Oracle: T473b (59c41ed) CUMPLE CON RESERVAS (21/21 verde, rojo ENOENT 4+suite, tsc 0, scan 0; 3 BAJAS; H-K-T473-3 correcto, H-K-T473-5 bloquea T473 no T473b, recomienda VACUUM simple tras FULL). Informe .specify/memory/audits/oracle-T473b-centinela.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T473b (59c41ed). H-K-T473-5 a decisión de Neo (opción A). Escalado.
+- 2026-11-16 Morpheus: Neo ratifica T473b REVIEW y opción A + micro-ajuste. Despacho Architect y Keymaker en paralelo.
+- 2026-11-16 Architect: H-K-T473-5 opción A asentada en REQ-PG-015/SC-CLD-019 y notas T473/T473b; sin T473c; sin commit.
+- 2026-11-16 Morpheus: Architect asienta H-K-T473-5 (spec REQ-PG-015, SC-CLD-019; tasks T473/T473b). Keymaker en curso.
+- 2026-11-16 Keymaker: micro-ciclo T473b (5417e64 pruebas, 4efa006 impl): VACUUM (ANALYZE) tras FULL en manual, micro-ajustes Oracle; 23/23, suite 2615, tsc 0, scan 0. Para /oracle. Sin [x].
+- 2026-11-16 Morpheus: Keymaker entrega opción A (5417e64 + HEAD). Oracle audita.
+- 2026-11-16 Oracle: T473/T473b opcion A (5417e64+4efa006) CUMPLE; 23/23, rojo 3/23, tsc 0, scan 0; H-O-T473b-3 aceptable. Informe oracle-T473-opcion-A.md. Sin [x].
+- 2026-11-16 Morpheus: Oracle CUMPLE opción A (5417e64, 4efa006). T473/T473b listas para ratificación de Neo.
+- 2026-11-16 Morpheus: Neo ordena push (ejecutado). Siguiente T452: despacho /rama.
+- 2026-11-16 Rama: T452 auditada (3 temas CUMPLE CON RESERVAS; 6 hallazgos H-RAMA-T452-1..6). Informe .specify/memory/audits/rama-T452-privacidad-respaldos.md. Sin ediciones de codigo/specs, sin [x].
+- 2026-11-16 Morpheus: /rama entrega dictamen T452 (3 temas con reservas). Oracle audita.
+- 2026-11-16 /oracle: audita dictamen /rama T452 -> CUMPLE CON RESERVAS (H-4 sobrestimado: job plan de PR ya recibe secretos; roles/viewer plan->dumps sin verificar); informe .specify/memory/audits/oracle-T452-dictamen-rama.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS dictamen T452. /rama corrige informe antes de escalar a Neo.
+- 2026-11-16 /rama: informe T452 corregido rev. 2 segun Oracle (H-4 reformulado: job plan con secretos; +H-ORA-T452-2/-5; 4 decisiones para Neo); .specify/memory/audits/rama-T452-privacidad-respaldos.md
+- 2026-11-16 Morpheus: informe T452 rev.2 listo. Escalado a Neo decisiones T452a, T441a, T446a, T444a.
+- 2026-11-16 Morpheus: Neo resuelve T452 (b, i, iii, ii) y autoriza micro-ciclo T454a/tfvars. Despacho Architect y Keymaker.
+- 2026-11-16 /architect: asienta decisiones Neo T452a/T441a/T446a/T444a (spec.md, tasks.md, T441a nueva [ ]); traceability CUMPLE; pendiente espejo en research.md R-06 y plan.md ADR-003-09
+- 2026-11-16 Morpheus: Architect asienta decisiones T452 (spec, tasks). Espejo research/plan autorizado.
+- 2026-11-16 /architect: espejo T452a en plan.md ADR-003-09 y R-06 en research.md; traceability CUMPLE; pendiente /oracle
+- 2026-11-16 Morpheus: Architect completa espejos plan.md y research.md. Pendiente Keymaker.
+- 2026-11-16 Keymaker: T452 RI-3/RI-y (b5feb4d pruebas, impl siguiente commit): *.tfvars ignorados + pipe pg_dump con pipefail y verificacion de tamano. Sin [x], sin push.
+- 2026-11-16 Morpheus: Keymaker entrega micro-ciclo T454a (b5feb4d, 5e3a72c). Oracle audita junto con asentación T452.
+- 2026-11-16 Oracle: audita T454a (b5feb4d,5e3a72c) + asentacion T452: CUMPLE CON RESERVAS. Rojo 8/11, verde 23/23, trazabilidad CUMPLE. H-A1 carrera medianoche en README (doble date). quickstart.md en specs/ aceptado como desviacion menor. Informe: .specify/memory/audits/oracle-T454a-asentacion-T452.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T454a/T452. H-A1 a Keymaker, H-1 a Architect.
+- 2026-11-16 Architect: H-1 spec.md notas T452 actualizadas (espejo plan/research aplicado); verify-traceability ejecutado.
+- 2026-11-16 Keymaker: H-A1/H-A3 BLOQUEADO: backup-restore-runbook-docs.spec.ts:31 exige literal gs://...$(date) en el cp; esperar decision de Morpheus. Sin cambios ni commits.
+- 2026-11-16 Morpheus: Keymaker bloqueado por conflicto de prueba (backup-restore-runbook-docs:31). Escalado a Neo.
+- 2026-11-16 Morpheus: Neo autoriza relajación puntual (H-A1). Despacho Architect (quickstart §4.2) y Keymaker (README + prueba).
+- 2026-11-16 [architect] quickstart §4.2: OBJ asignado antes, un solo $(date; notas T452 spec.md verificadas limpias; verify-traceability corrido.
+- 2026-11-16 Keymaker: H-A1/H-A3 hecho (commits a7d36b1 prueba, c84c94d impl). Verde 25/25; pendiente Oracle.
+- 2026-11-16 Morpheus: Keymaker entrega H-A1/H-A3 (2 commits locales). Architect reordena quickstart §4.2. Oracle audita.
+- 2026-11-16 Oracle: auditoria H-A1/H-A3 (a7d36b1, c84c94d) + quickstart 4.2 + spec T452: CUMPLE CON RESERVAS (spec.md con hunks ajenos mezclados); informe .specify/memory/audits/oracle-H-A1-H-A3-runbook.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS H-A1/H-A3 (a7d36b1, c84c94d). Higiene spec.md: Architect commitea solo sus hunks.
+- 2026-11-16 Architect: commit b0b46cb higiene (quickstart 4.2 + notas T452 spec.md); hunks ajenos de spec.md sin commitear.
+- 2026-11-16 Morpheus: b0b46cb commit higiene Architect. Escalado a Neo: T454a/T452 REVIEW, push, hunks ajenos.
+- 2026-11-16 Morpheus: Neo ratifica T454a/T452 REVIEW, push ejecutado; Architect sanea spec; T453 con Trinity.
+- 2026-11-16 architect: commit docs(003) sincronizacion spec.md; traceability CUMPLE; sin espacio espurio en L128.
+- 2026-11-16 Morpheus: Architect commitea spec.md (d3caa25). Oracle audita; Trinity en curso (T453).
+- 2026-11-16 Oracle: d3caa25 (sincronizacion spec.md) CUMPLE; 5 hunks coinciden con decisiones de Neo/Architect, l.128 sin espacio sobrante (xxd, cat -vet, diff --check), traceability CUMPLE; info H-OD-1 T401 [x] sin commitear en tasks.md. Informe .specify/memory/audits/oracle-d3caa25-sincronizacion-spec.md
+- 2026-11-16 Morpheus: Oracle CUMPLE d3caa25. T401 [x] ya ratificado por Neo. T453 en curso.
+- 2026-11-16 Trinity: T453 informe trinity-T453-vectores.md; 9 vectores pasan, F-T453-01 (dotfiles 500), maintenance 401/403/200 OK (verificador real fail-closed), SAST 0 en src/, Semgrep no instalado; sin commit.
+- 2026-11-16 Morpheus: Trinity entrega T453 (9 vectores pasan; F-T453-01 dotfiles 500). Oracle audita.
+- 2026-11-16 oracle: audito informe Trinity T453 (HEAD d3caa25) -> CUMPLE CON RESERVAS; F-T453-01 confirmado (500 dotfiles, reproducido) + F-T453-02 oraculo debil ops-http.spec.ts:183; SAST = decision N2 de alcance; 200 OIDC real -> T462. Informe: .specify/memory/audits/oracle-T453-trinity.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T453. Keymaker corrige F-T453-01/02. Decisiones N2 a Neo tras corrección.
+- 2026-11-16 Keymaker: F-T453-01/02 corregidos (test a587d16 rojo 9, fix c051620 verde ops 107/107); guardia de dotfiles en static-assets; a Oracle. Sin push/[x].
+- 2026-11-16 Morpheus: Keymaker entrega F-T453-01/02 (a587d16, c051620). Oracle re-audita.
+- 2026-11-16 Oracle: T453 correccion dotfiles (a587d16^..c051620) CUMPLE; F-T453-01/02 cerrados; informe oracle-T453-correccion-dotfiles.md
+- 2026-11-16 Morpheus: Oracle CUMPLE F-T453-01/02. Escalado a Neo T453 REVIEW y decisiones N2.
+- 2026-11-16 Morpheus: Neo resuelve T453 (REVIEW; SAST A; jose autorizado; limpieza fuse; O-4). Despacho Keymaker y Architect.
+- 2026-11-16 Architect: tasks.md anota T453 REVIEW, excepcion SAST (A) y jose autorizado en T462 (Neo).
+- 2026-11-16 Keymaker: T453 N2 A/B/C hechos (9fd554c fuse, ec5744f SAST doc, 13e6920+d431c31 suite O-4 56 verdes de regresion). Vitest 2655 ok, tsc 0, secretos 0. A Oracle. Sin push/[x].
+- 2026-11-16 Morpheus: Keymaker entrega limpieza, excepción SAST y O-4 (9fd554c..d431c31). Architect asienta tasks.md. Oracle audita.
+- 2026-11-16 Oracle: limpieza .fuse_hidden + SAST A + suite O-4 (9fd554c..d431c31) CUMPLE CON RESERVAS; 56/56, no vacuidad 4 rojos, tsc 0, scan 0, trace CUMPLE; deriva menor vs server.ts. Informe oracle-limpieza-sast-o4-T453.md. Sin [x].
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS limpieza/SAST/O-4. Escalado a Neo: T453 REVIEW, push, deuda T462.
+- 2026-11-16 Morpheus: Neo ratifica T453 REVIEW; push ejecutado; deudas a T462; Architect commitea tasks.md y balance Fase 7.
+- 2026-11-16 Architect: commit 228fc4a (tasks.md; deudas H-O-O4-1/2 en T462; trace CUMPLE). Balance Fase 7 y propuesta Fase 8 a Morpheus. Sin push/[x].
+- 2026-11-16 Morpheus: Architect commitea tasks.md (228fc4a) y balance Fase 7. Oracle audita antes de Fase 8.
+- 2026-11-16 Oracle: 228fc4a (sync tasks.md) CUMPLE CON RESERVAS; solo tasks.md, T401 unico [ ]->[x] (ratificado Neo), T453 REVIEW sin [x]; H-OD-1 texto obsoleto O-4, H-OD-2 falta tarea jose (alta para T462), traceability CUMPLE. Informe .specify/memory/audits/oracle-228fc4a-balance-fase7.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS 228fc4a. H-OD-2 jose ALTA (T462). Architect corrige textos y dependencias.
+- 2026-11-16 Architect: H-OD-1/3/5 corregidos en tasks.md (T453, cabecera T485, T462 deps); H-OD-6 ya estaba (T477 dep T455). Sin commit, sin [x].
+- 2026-11-16 Morpheus: Architect corrige tasks.md (T453, encabezado, T462). Oracle audita diff.
+- 2026-11-16 Oracle: diff tasks.md (T453, encabezado, T462) CUMPLE; informe oracle-tasks-correcciones-architect.md; commiteable solo con pathspec tasks.md.
+- 2026-11-16 Morpheus: commit documental de tasks.md (correcciones Architect) auditado por Oracle CUMPLE.
+- 2026-11-16 Morpheus: commit 95e63f1 (tasks.md). Escalado a Neo decisiones jose/T486, T469, sign-offs Fase 8.
+- 2026-11-16 Morpheus: Neo autoriza jose@6.2.17 y T486. Despacho Architect (registro T486, constitución) y Keymaker (implementación).
+- 2026-11-16 Architect: T486 registrada en tasks.md y enmienda constitucion 3.4.0 (jose 6.2.17, solo OIDC); verify-traceability 003 CUMPLE; sin commit.
+- 2026-11-16 Keymaker: T486 jose OIDC: b0d3b98 (prueba) y 329c841 (impl); gates verdes; sin push/[x]. Pendiente Oracle.
+- 2026-11-16 Morpheus: Keymaker entrega T486 (b0d3b98, 329c841). Architect registra T486 y enmienda 3.4.0. Oracle audita.
+- 2026-11-16 Oracle: T486 jose + enmienda 3.4.0 CUMPLE CON RESERVAS (88/88, tsc 0, scan 0, trazabilidad CUMPLE; hasInstallScript inocuo). Informe oracle-T486-jose-enmienda.md.
+- 2026-11-16 Morpheus: commit de enmienda 3.4.0 y registro T486 (constitution, tasks, informe Oracle). Merovingian verifica jose.
+- 2026-11-16 Merovingian: jose@6.2.17 CUMPLE (exacta, MIT, 0 transitivas, audit sin jose, integrity==registro, solo oidc-verify.ts). Informe merovingian-T486-jose-supply-chain.md.
+- 2026-11-16 Morpheus: Merovingian CUMPLE jose. Architect marca T486 REVIEW.
+- 2026-11-16 Architect: T486 en REVIEW en tasks.md (casilla [ ], sin [x]); verify-traceability --feature 003 CUMPLE. Sin commit.
+- 2026-11-16 Morpheus: T486 a REVIEW commiteado. Escalado a Neo.
+- 2026-11-16 Morpheus: Neo ratifica T486 REVIEW, acepta moderadas npm audit, push ejecutado. Despacho Keymaker a T441a.
+- 2026-11-16 Keymaker: T441a IAM storage por bucket: 87a84a7 (prueba, rojo 5/5) y 871876f (impl); gates verdes; sin push/[x]. Pendiente Oracle; verificacion real en T469.
+- 2026-11-16 Morpheus: Keymaker entrega T441a (87a84a7, 871876f). Oracle audita.
+- 2026-11-16 Oracle: T441a (87a84a7, 871876f) CUMPLE CON RESERVAS: rojo 5/5 verificado, c2 corregida sin debilitar, tests 49/49, bash/tsc/scan 0; 4 hallazgos (H-ORA-T441a-1..4). Informe .specify/memory/audits/oracle-T441a-iam-storage.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T441a. Residual MEDIA a Neo. Architect marca REVIEW.
+- 2026-11-16 Architect: T441a en REVIEW y anotación de riesgos en T469 (tasks.md); casillas [ ]; verify-traceability CUMPLE; sin commit.
+- 2026-11-16 Morpheus: commit T441a REVIEW (tasks.md). Escalado a Neo residual H-ORA-T441a-2 y push.
+- 2026-11-16 Morpheus: Neo acepta residual T441a (a) y push. Keymaker documenta el límite.
+- 2026-11-16 Keymaker: límite residual H-ORA-T441a-2/3 documentado en terraform/README.md (fb2b313 rojo, 6e5d21a verde); pendiente Oracle.
+- 2026-11-16 Morpheus: Keymaker documenta límite residual (fb2b313 + implementación). Oracle audita.
+- 2026-11-16 Oracle: T441a limite residual docs (fb2b313/6e5d21a) CUMPLE CON RESERVAS; rojo 2/14, verde 19/19; informe .specify/memory/audits/oracle-T441a-limite-residual-docs.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS docs límite T441a (fb2b313, 6e5d21a). Escalado a Neo estado y checklist.
+- 2026-11-16 Morpheus: Neo confirma push y autoriza scripts/verify-bootstrap-inputs.sh. Despacho Keymaker.
+- 2026-11-16 Keymaker: scripts/verify-bootstrap-inputs.sh (b5d6ded rojo 35/36, fc11099 verde 36/36, f7e535c); pendiente Oracle.
+- 2026-11-16 Morpheus: Keymaker entrega verify-bootstrap-inputs.sh (b5d6ded, fc11099, ajuste). Oracle audita.
+- 2026-11-16 Oracle: audita verify-bootstrap-inputs (b5d6ded, fc11099, f7e535c): CUMPLE CON RESERVAS, rojo 35/36, verde 36/36, 2 hallazgos bajos; informe oracle-verify-bootstrap-inputs.md.
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS verify-bootstrap-inputs (b5d6ded, fc11099, f7e535c). Escalado a Neo.
+- 2026-11-16 Morpheus: Neo confirma push y autoriza mención del script en terraform/README.md. Despacho Keymaker.
+- 2026-11-16 Keymaker: README documenta verify-bootstrap-inputs.sh antes de bootstrap.sh (prueba roja 2/39, verde 39/39); pendiente Oracle.
+- 2026-11-16 Morpheus: Keymaker entrega mención del script en README (d33d08e, 25169dc). Oracle audita.
+- 2026-11-16 Oracle: auditoria d33d08e+25169dc CUMPLE CON RESERVAS (rojo 2/39, verde 39/39, tsc 0, scan 0; H-README-1 regex 0.*1.*2 vacuo menor) -> .specify/memory/audits/oracle-readme-verify-bootstrap.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS mención README (d33d08e, 25169dc). Escalado a Neo.
+- 2026-11-16 Morpheus: Logos en PAUSE_NEO. Software concluido; standby hasta insumos humanos (T455, T456).
+- 2026-11-16 Morpheus: orden de Neo (T443 sync + racionalización CI). Architect primero.
+- 2026-11-16 Architect: enmienda T443/D-13 y CI D-29 en spec.md/tasks.md; nuevas T487, T488 [ ]; verify-traceability 003 CUMPLE; sin commit.
+- 2026-11-16 Morpheus: Architect asienta T443/D-13 y propone D-29 (pendiente Neo). Oracle audita.
+- 2026-11-16 Oracle: T443/D-13 CUMPLE vs origin/main; D-29/T487/T488 propuesta [ ] ok; hallazgo H-O-1 test:gate --feature 002 vs CI 003; CUMPLE CON RESERVAS (oracle-T443-D29-asentacion.md).
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T443/D-29. Escalado a Neo D-29 (1)-(7).
+- 2026-11-16 Morpheus: modo manual confirmado por Neo; espera de Logos detenida. D-29 en terminal.
+- 2026-11-16 Morpheus: commit documental espejos T452 (plan.md, research.md).
+- 2026-11-16 Morpheus: Neo autoriza D-29 (1-8) y T489 en terminal. Architect registra.
+- 2026-11-16 Architect: D-29 RESUELTA (Neo, res. 1-8); T487/T488 actualizadas, T489 nueva (binding WIF declarativo); verify-traceability 003 CUMPLE; sin commitear.
+- 2026-11-16 Morpheus: Architect asienta D-29 y T489. Keymaker T487 y T489 en paralelo; Oracle audita spec.
+- 2026-11-16 Keymaker: T489 BLOQUEADO; falta owner/repo en Terraform (requiere variable nueva); a Architect. Sin commits.
+- 2026-11-16 Morpheus: T489 bloqueado (variable github_repository + CI). Escalado a Neo en terminal.
+- 2026-11-16 Oracle: auditoría asentación D-29 (res.1-8) y T489 en spec/tasks: CUMPLE CON RESERVAS (3 menores H-O-D29-1..3); traceability 003 CUMPLE; secrets 0. Informe: .specify/memory/audits/oracle-D29-T489-asentacion.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS asentación D-29. Architect corrige H-O-D29-1/2.
+- 2026-11-16 Architect: corregidas H-O-D29-1/2/3 en spec.md/tasks.md (solo texto, sin estados); traceability 003 CUMPLE.
+- 2026-11-16 Morpheus: commit spec.md y tasks.md (D-29 resuelta, T487-T489, T443 sync).
+- 2026-11-16 Keymaker: T487 commits 49e8558 (prueba) y 93fdd4f (impl); verde; pendiente Oracle.
+- 2026-11-16 Morpheus: Keymaker entrega T487 (49e8558 rojo 4/11, 93fdd4f verde 11/11). Oracle audita.
+- 2026-11-16 Oracle: T487 (49e8558, 93fdd4f) CUMPLE CON RESERVAS: rojo 4/11, verde 34/34; reserva: quitar paso Install Playwright (+ajustar prueba steps). Informe .specify/memory/audits/oracle-T487-test-gate.md
+- 2026-11-16 Morpheus: Oracle CUMPLE CON RESERVAS T487 (H1 media: quitar Install Playwright del gate; H2 aceptable). Keymaker corrige H1 test-first.
+- 2026-11-16 Keymaker: T487 H1 corregida (7aa4e0e prueba, implementacion siguiente commit): test-gate.yml sin Install Playwright; verde 35/35, completo 2720.
+- 2026-11-16 Morpheus: Keymaker quita Install Playwright del gate (7aa4e0e, bedda38). Oracle reaudita.
+- 2026-11-16 Oracle: reauditoria T487/D-29 (7aa4e0e,bedda38) CUMPLE; rojo 2 fallos, verde 35/35, tsc=0, scan=0; informe .specify/memory/audits/oracle-T487-reauditoria.md
+- 2026-11-16 Morpheus: Oracle CUMPLE reauditoría T487 (H1 cerrado). T487 a REVIEW. T488 pendiente: Keymaker test-first.
+- 2026-11-16 Architect: T487 marcada REVIEW en tasks.md (línea 187), sin [x]; verify-traceability --feature 003 CUMPLE. Pendiente commit de Morpheus.
+- 2026-11-16 Morpheus: commit T487 REVIEW (tasks.md).
+- 2026-11-16 Keymaker: T488 (36bbf0e prueba, eb80eba impl+docs): rojo 1+2 fallos, verde 62/62, completo 2726, tsc=0, scan=0. A REVIEW pendiente de Oracle.
+- 2026-11-16 Morpheus: Keymaker entrega T488 (36bbf0e, eb80eba). Oracle audita.
+- 2026-11-16 Oracle: T488 (36bbf0e, eb80eba) CUMPLE: rojo 1+2, verde 62/62, sondeo 120x15s intacto, concurrency distintos, tsc/scan/traza OK. Informe oracle-T488-serializacion.md.
+- 2026-11-16 Architect: T488 a REVIEW en tasks.md línea 188 (sin [x]); traza 003 CUMPLE. Sin commit.
+- 2026-11-16 Morpheus: commit T488 REVIEW (tasks.md).
+- 2026-11-16 HARDLINE (Morpheus): cierre de sesión. HEAD e1b330c, 10 commits sin push. T487/T488 REVIEW. T489 pendiente de Neo (github_repository + pruebas 5c). Logos OFF. Handover: claude/handover-morpheus-2026-11-16.md.
+- 2026-11-16 Morpheus: inicia sesión (manual). HEAD e1b330c, 10 commits sin push; T487/T488 REVIEW; T489 espera a Neo; Logos OFF.
+- 2026-11-16 Morpheus: Neo autoriza lote T489 + permiso secretos deployer (43998528333). Despacho Architect -> Keymaker -> Oracle. Sin push ni [x].
+- 2026-11-16 Architect: D-30 y T489 ampliada (github_repository, pruebas 5c, secretmanager.viewer del deployer; rol verificado sin versions.access; causa run 43998528333 confirmada). Sin commit.
+- 2026-11-16 Morpheus: Architect entrega diseño T489+secretos (D-30). Causa 43998528333 confirmada (versions.list). Despacho Keymaker test-first.
+- 2026-11-16 Keymaker: T489 (db5c1ac prueba, 3367b30 impl): rojo 10 fallos, verde 29/29, completo 2734, tsc=0, traza 003 OK, scan=0, tf fmt/validate OK. Desviaciones: data google_project nuevo; terraform-iam.spec.ts ajustado. A REVIEW pendiente de Oracle.
+- 2026-11-16 Morpheus: Keymaker entrega T489+D-30 (db5c1ac, 3367b30; verde 29/29). Despacho Oracle.
+- 2026-11-16 Oracle: T489 (db5c1ac, 3367b30) NO CUMPLE: H-O-T489-1 ALTO, TF_VAR_github_repository falta en job apply (sin default => apply falla). Resto OK (rojo 10, verde 29/29, projects.get cubierto). Informe oracle-T489-D30.md.
+- 2026-11-16 Morpheus: Oracle NO CUMPLE T489 (H-O-T489-1 ALTO: falta env en job apply). Despacho Keymaker fix + reauditoria.
+- 2026-11-16 Keymaker: T489 fix H-O-T489-1/2 (f2aae21 prueba, 27edc2f impl): rojo 1 fallo (apply sin env), verde 29/29, tsc=0, traza OK, scan=0, fmt=0. Pendiente reauditoria Oracle.
+- 2026-11-16 Morpheus: Keymaker fix T489 (f2aae21, 27edc2f; verde 29/29). Despacho Oracle reauditoria.
+- 2026-11-16 Oracle: reauditoría T489 (f2aae21, 27edc2f) CUMPLE CON RESERVAS: H-O-T489-1/2 cerrados, 29/29, tsc 0, traza OK, scan 0. Reservas menores 3..6. Informe oracle-T489-D30-reauditoria.md.
+- 2026-11-16 Morpheus: Oracle reauditoria T489 CUMPLE CON RESERVAS (ALTO/MEDIO cerrados). Escalado a Neo para aceptar REVIEW.
+- 2026-11-16 Morpheus: Neo acepta T489 REVIEW con reservas 3-6; commit documental acotado autorizado; sin push. Despacho Architect.
+- 2026-11-16 Architect: T489 REVIEW en tasks.md + TECHDEBT-CLD-002..005 (H-O-T489-3..6); sin commit.
+- 2026-11-16 Morpheus: commit documental 74bd093 (T489 REVIEW + TECHDEBT-CLD-002..005). Sin push.
+- 2026-11-16 Morpheus: PR #3 plan 403 billing.budget; Neo ordena billing.viewer solo lectura a argos-terraform-plan@ (REQ-IAC-009, paso 4b). Despacho Architect.
+- 2026-11-16 Architect: D-31 (REQ-IAC-009 enmendada) y T490 nueva [ ]: billing.viewer a argos-terraform-plan@ en bootstrap.sh 4b; terraform/*.tf no cambian. Sin commit.
+- 2026-11-16 Morpheus: commit documental D-31/T490 (spec, tasks). Despacho Keymaker T490.
+- 2026-11-16 Keymaker: T490 (91c538f prueba, 1d8163e impl): rojo 1 fallo, verde 29/29, tsc=0, traza OK, scan=0, bash -n OK. Pendiente auditoria Oracle.
+- 2026-11-16 Morpheus: Keymaker T490 (91c538f, 1d8163e; verde 29/29). Despacho Oracle.
+- 2026-11-16 Oracle: T490/D-31 CUMPLE CON RESERVAS (H-O-T490-1..3 menores; requiere bootstrap 4b de Neo). Informe audits/oracle-T490-D31.md.
+- 2026-11-16 Morpheus: Oracle T490 CUMPLE CON RESERVAS. Escalado a Neo para REVIEW y ejecucion de paso 4b.
+- 2026-11-16 Morpheus: Neo acepta T490 REVIEW (billing.viewer verificado en vivo, PR #3 fusionado). Despacho Architect.
+- 2026-11-16 Architect: T490 REVIEW + TECHDEBT-CLD-006 (H-O-T490-1) en tasks.md. Sin commit.
+- 2026-11-16 Morpheus: commit documental T490 REVIEW (TECHDEBT-CLD-006). Sin push.
+- 2026-11-16 Morpheus: Neo ratifica T490 REVIEW. Fallo en vivo 44003087897 (GFE 404 en TAG_URL). Despacho Keymaker: retry 18x5 y Smoke test.
+- 2026-11-16 Keymaker: prueba en rojo smoke TAG_URL retry 18x5 + Smoke test (deploy-argos-workflow.spec.ts; 1 fallo, 27/28).
+- 2026-11-16 Keymaker: impl deploy-argos.yml retry 18x5 + Smoke test; verde 47/47, tsc=0, traza OK, scan=0. Pendiente Oracle.
+- 2026-11-16 Morpheus: Keymaker deploy smoke (b14abee, f5adef9; verde 47/47). Despacho Oracle.
+- 2026-11-16 Oracle: deploy smoke (b14abee, f5adef9) CUMPLE CON RESERVAS (H-O-SMK-1..3 menores/informativos; rojo reproducido, 47/47). Informe audits/oracle-deploy-smoke-44003087897.md.
+- 2026-11-16 Morpheus: Oracle deploy smoke CUMPLE CON RESERVAS (b14abee, f5adef9). Escalado a Neo para push PR #4.
+- 2026-11-16 Morpheus: diagnostico vivo: GFE 404 en /healthz externo; smoke externo pasa a /readyz y /. Despacho Architect.
+- 2026-11-16 Architect: D-32 asentada (spec SC-CLD-006/007, REQ-CICD-003, SC-CLD-024; tasks T448/T483). Traza CUMPLE. Sin commit. Define cambio Keymaker.
+- 2026-11-16 Morpheus: D-32 asentada (spec/tasks sin commit). Despacho Keymaker: smoke externo /readyz y /.
+- 2026-11-16 Keymaker: D-32 prueba 70f2538 (rojo 2 fallos) e impl 6bded9d (verde 48/48, tsc=0, traza OK, scan=0). Pendiente Oracle.
+- 2026-11-16 Morpheus: Keymaker D-32 (70f2538, 6bded9d; verde 48/48). Despacho Oracle.
+- 2026-11-16 Oracle: D-32 (70f2538, 6bded9d) CUMPLE CON RESERVAS (H-O-SMK-1: criterio real es el run PR #5; rojo reproducido, 48/48). Informe audits/oracle-D32-smoke-readyz.md.
+- 2026-11-16 Morpheus: Oracle D-32 CUMPLE CON RESERVAS (70f2538, 6bded9d). Escalado a Neo para PR #5.
+- 2026-11-16 Morpheus: commit documental D-32 (spec, tasks, audit). Sin push.
+- 2026-11-16 HARDLINE (Morpheus): cierre. HEAD 7f5c193 = origin/003-cloud-gcp; PRs #1-#5 MERGED (gh). Sin commits locales pendientes. Pendiente: confirmar run en vivo PR #5 (H-O-SMK-1), firmas COMPLETED de Neo, T455/T456 humanas. Handover: claude/handover-morpheus-2026-11-16.md.
+- 2026-11-17 Morpheus: inicia sesion. HEAD 7f5c193 = origin; PR #5 deploy main verde (44006096446), confirma D-32 en vivo. Pendiente Neo: COMPLETED, T455/T456, SC-CLD-024 a /readyz.
+- 2026-11-17 Morpheus: Logos ON por orden de Neo. Verificado en vivo / y /readyz 200. Entrego plan ordenado hacia T462 por Logos (sin push, sin [x]).
+- 2026-11-17 Morpheus: lote Neo en curso: Keymaker T473b y Seraph T460 en paralelo; T459/T461 parciales; T483 NXDOMAIN (F2 no bloquea T462).
+- 2026-11-17 Keymaker: T473b ya completa en 5417e64/4efa006/0cd4259 (Oracle CUMPLE); reverificadas compuertas, sin cambios nuevos.
+- 2026-11-17 Morpheus: Keymaker T473b ya implementada (sin código nuevo). Oracle audita 5417e64..0cd4259; punto abierto H-O-T473-3 en el YAML.
+- 2026-11-17 Seraph T460: tramo lectura PASA; pasos 2-7 y SC-CLD-012 NO EJECUTABLES sin autorizacion de escrituras en prod (denegado, no eludido). Informe seraph-T460-aceptacion.md. Sin datos creados, sin [x].
+- 2026-11-17 Morpheus: T460 Seraph BLOQUEADO (escrituras prod denegadas); lectura PASS. Escalar a Neo. Oracle T473b en curso.
+- 2026-11-17 Oracle: T473b CUMPLE CON RESERVAS (H-O-T473b-1 MEDIA: mitigacion sleep 2 + relectura falta en vacuum-argos.yml). Compuertas verdes; sentinel 7/7 con PG17 local. oracle-T473b-auditoria.md.
+- 2026-11-17 Morpheus: Oracle T473b CUMPLE CON RESERVAS (H-O-T473b-1 MEDIA). Keymaker remedia prueba primero; luego reauditoria.
+- 2026-11-17 Keymaker: H-O-T473b-1 remediada (sleep 2 + relectura unica de vencidas), commit 27e05d4; pendiente reauditoria Oracle
+- 2026-11-17 Morpheus: Keymaker 27e05d4 remedia H-O-T473b-1 (roja->verde 17/17; sentinel NO EJECUTADO). Oracle reauditoria en curso.
+- 2026-11-17 Oracle: reauditoria T473b 27e05d4 CUMPLE (H-O-T473b-1 cerrada; centinela 7/7; O-1 BAJA proceso)
+- 2026-11-17 Morpheus: Oracle CUMPLE T473b (27e05d4). Escalo a Neo: T460 bloqueado por autorizacion de escrituras prod, T469 en cola, T483 NXDOMAIN.
+- 2026-11-17 Morpheus: Neo autoriza T460 completo (escrituras sinteticas + borrado), aprueba T473/T473b, difiere T483. Despacho Seraph T460.
+- 2026-11-17 Morpheus: T459 parcial (logs 24 h, n=143 p50 0.40 s p95 1.22 s); RTT Neon y cold start sin medicion explicita.
+- 2026-11-17 Seraph: T460 recorrido de aceptacion 003 completo PASS (pasos 1-7 + SC-CLD-012), cuentas sinteticas eliminadas y login 401; informe en .specify/memory/audits/recorrido-aceptacion-003.md. Pendiente Neo: marcar T460.
+- 2026-11-17 Morpheus: T460 PASS por API (pasos 1-7, SC-CLD-012), cuentas sinteticas eliminadas. Huecos UI sin navegador. Oracle valida T460.
+- 2026-11-17 Oracle: T460 CUMPLE CON RESERVAS (H-O-T460-1..3; huecos UI, quickstart 002 §6 p7 documental); limpieza 401 reverificada. Informe oracle-T460-aceptacion.md.
+- 2026-11-17 Morpheus: Oracle T460 CUMPLE CON RESERVAS (H-O-T460-1..3). Keymaker T478 local en curso.
+- 2026-11-17 Keymaker: T478 parte local OK (runbook T454 pasos 1-4 en Postgres 17 local: cuenta eliminada no reaparece, referencias 0, sesiones revocadas; limpieza verificada). Informe keymaker-T478-restauracion-local.md. Pendiente Neo: rama Neon, RTO, tramo GCS.
+- 2026-11-17 Morpheus: T478 local pasos 1-4 OK (PG17 local, limpieza verificada). Oracle valida; GCS/Neon/RTO quedan para ventana de Neo.
+- 2026-11-17 Oracle: T478 local CUMPLE CON RESERVAS (H-O-T478-1..2, no bloqueantes); limpieza verificada; GCS/Neon/RTO sin verificar. oracle-T478-local.md
+- 2026-11-17 Morpheus: Oracle T478 local CUMPLE CON RESERVAS. Escalado consolidado a Neo (T460, T459, T461, T478, T469, T462).
+- 2026-11-17 Morpheus: T459 asentada en research.md §11 (NFR-CLD-006 no cumplido en muestra p95 1.22 s; NFR-CLD-005 1.38 s con pausa 10 min).
+- 2026-11-17 Architect: H-O-T460-2 (quickstart 002 paso 7) y H-O-T478-2 (README terraform paso 3b, nota psql local) corregidos por orden de Neo. Sin commit.
+- 2026-11-17 Morpheus: Architect H-O-T460-2 y H-O-T478-2 listas (sin commit). Link ejecuta T469 con checklist de Neo.
+- 2026-11-17 Link: T469 ensayo unico iniciado; estado inicial argos-00008-cup 100 %. Registro en claude/log-link.md.
+- 2026-11-17 Link: T469(a) docs bootstrap dos fases escritos (README y bootstrap.sh, solo comentarios).
+- 2026-11-17 Link: T469(c) revision argos-00005-lbl sin trafico + rollback a argos-00008-cup 100 % verificado.
+- 2026-11-17 Link: T469(c) plan solo lectura: cloud_run no-op, trafico intacto, ignore_changes verificados.
+- 2026-11-17 Link: T469(d) argos-00012-cem (tag t469, 0 %) creada; humo pendiente.
+- 2026-11-17 Link: T469 ensayo ejecutado; (d) parcial (rotacion de valor v2 pendiente de Neo). Trafico final argos-00008-cup 100 %. Informe link-T469-ensayo-unico.md.
+- 2026-11-17 Morpheus: T469 hecho salvo (d) valor v2 (Neo). Oracle audita T469 y corre gates T462.
+- 2026-11-17 Oracle: T469 CUMPLE CON RESERVAS (L-T469-3 v2 no creada); T462 5 compuertas exit 0, Postgres NO EJECUTADO; H-O-O4-1/2 y H-O-T460-1 abiertas. Informe oracle-T469-T462.md.
+- 2026-11-17 Morpheus: T462 gates OK; no cierra por H-O-O4-1/2 abiertas. Keymaker remedia prueba primero.
+- 2026-11-17 Keymaker: H-O-O4-1/2 cubiertas con tests/security/ops-surface-production.security.spec.ts (createProductionApp, guarda server.ts); sin cambios en src; gates verdes. Pendiente reauditoría Oracle.

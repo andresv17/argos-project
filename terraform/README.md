@@ -78,6 +78,16 @@ Si la aprobación en `produccion` supera 45 min y el sondeo de `deploy-argos.yml
 
 Sin `NEON_API_KEY` ni `NEON_PROJECT_ID` (D-19) y sin `GCP_SA_KEY` (WIF, D-05).
 
+## Secuencia de bootstrap en dos fases (T469 a; REQ-IAC-010, REQ-IAC-012)
+
+Solo documentación: no cambia ninguna lógica de `bootstrap.sh` ni de Terraform.
+
+**Fase 1: día 0 manual (Neo, una vez, `bootstrap.sh --execute`).** Crea lo que Terraform necesita para existir y que no puede crear él mismo: proyecto y facturación, APIs mínimas, bucket de estado, cuentas `argos-terraform-plan@` y `argos-terraform@` con roles acotados, Workload Identity Federation, variables de GitHub, Environment `produccion` y, por entrada estándar, los 3 secretos de GitHub.
+
+**Fase 2: Terraform desde CI (`infraestructura.yml`, solo `main` con aprobación en `produccion`).** El primer `apply` crea los recursos `argos-*` con una imagen marcadora pública, sin sondas propias y sin referencias a secretos ni `env`. Después, `deploy-argos.yml` (cuenta `argos-deployer@`) fija imagen, `env`, sondas, versión numérica de secretos y tráfico.
+
+Atributos de `google_cloud_run_v2_service.argos` cubiertos por `ignore_changes` (verificados contra el servicio real en T469: ninguno rompe el plan, que queda no-op): `traffic`, `client`, `client_version`, `template[0].revision`, `template[0].labels`, `template[0].annotations`, `template[0].containers[0].image`, `template[0].containers[0].env`, `template[0].containers[0].startup_probe`, `template[0].containers[0].liveness_probe`. Evidencia del ensayo: `.specify/memory/audits/link-T469-ensayo-unico.md`.
+
 ## Respaldo y restauración (REQ-IAC-008, REQ-PG-016, NFR-CLD-014, NFR-CLD-015, SC-CLD-008)
 
 Runbook manual de Neo (T454). Nada de esto lo ejecuta un flujo ni un agente. Bucket: `argos-<project_id>-exports` (`buckets.tf`), objetos bajo `dumps/`.
@@ -132,7 +142,7 @@ gcloud storage cat "gs://${BUCKET}/dumps/<fecha>.sql" | psql "$RESTORED_URL" -X 
 psql "$RESTORED_URL" -X -A -t -c "SELECT id FROM users" | node -e 'const{createHmac}=require("node:crypto"),fs=require("node:fs");const del=new Set(fs.readFileSync(process.argv[1],"utf8").split("\n").filter(Boolean));const key=Buffer.from(process.env.ARGOS_AUDIT_HMAC_SECRET,"hex");for(const id of fs.readFileSync(0,"utf8").split("\n").filter(Boolean))if(del.has(createHmac("sha256",key).update(id,"utf8").digest("hex")))console.log(id)' account_delete_ids.txt > ids_olvidados.txt
 ```
 
-La eliminación sigue el orden de hoja a raíz del caso de uso `DeleteAccountUseCase` (B9) y termina con la poscondición B10 (cero referencias). Se ejecuta en una transacción desde el directorio de `ids_olvidados.txt`:
+La eliminación sigue el orden de hoja a raíz del caso de uso `DeleteAccountUseCase` (B9) y termina con la poscondición B10 (cero referencias). Se ejecuta en una transacción desde el directorio de `ids_olvidados.txt`. Nota (H-O-T478-2): `\copy` es una meta-orden del cliente `psql`; requiere `psql` cliente local y lee `ids_olvidados.txt` de la máquina donde corre `psql` (no del servidor), por lo que el comando debe ejecutarse desde ese directorio:
 
 ```bash
 psql "$RESTORED_URL" -X -v ON_ERROR_STOP=1 --single-transaction <<'SQL'
