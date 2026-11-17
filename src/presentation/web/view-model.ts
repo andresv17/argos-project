@@ -11,7 +11,8 @@ import { STATE_ALERT_001 } from '../../generated/machines/sanitary-alert.machine
 export type Schemas = components['schemas'];
 export type PetCardView = Schemas['PetCardView'];
 export type PetDashboardView = Schemas['PetDashboardView'];
-export type PetProfile = Schemas['PetProfile'];
+/** Perfil de la mascota; `breedCode` (feature 004) es nulo en mascotas anteriores y puede faltar en datos de la 002. */
+export type PetProfile = Schemas['PetProfile'] & { readonly breedCode?: string | null };
 export type OwnerTag = Schemas['OwnerTag'];
 export type OwnerColorToken = Schemas['OwnerColorToken'];
 export type AlertStateMetadata = Schemas['AlertStateMetadata'];

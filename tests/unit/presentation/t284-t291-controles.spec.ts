@@ -41,17 +41,17 @@ describe('T284 PetForm: 8 especies y campos de REQ-PET2-001', () => {
   });
 
   it('[REQ-PET2-001] los valores iniciales de la edición reflejan el perfil (booleanos como texto, nulos como vacío)', () => {
-    const p = { ...profile('p3', 'Luna'), birthDateIsEstimate: true, neutered: false, microchipId: '123456789012345' };
-    expect(petFormInitial(p)).toMatchObject({ birthDateIsEstimate: 'true', neutered: 'false', microchipId: '123456789012345', speciesOther: '' });
+    const p = { ...profile('p3', 'Luna'), birthDateIsEstimate: true, neutered: false, microchipId: '985112345678901' };
+    expect(petFormInitial(p)).toMatchObject({ birthDateIsEstimate: 'true', neutered: 'false', microchipId: '985112345678901', speciesOther: '' });
     expect(petFormInitial(null)).toMatchObject({ species: 'CANINE', birthDateIsEstimate: 'false', neutered: '', microchipId: '', speciesOther: '' });
   });
 
   it('[REQ-PET2-001] formValues convierte booleans a boolean real y omite vacíos; el contrato acepta los nuevos campos y rechaza un microchip de 14 dígitos', () => {
-    const body = formValues({ ...BASE, species: 'RABBIT', birthDateIsEstimate: 'true', neutered: 'false', microchipId: '123456789012345', speciesOther: '' }, [], ['birthDateIsEstimate', 'neutered']);
-    expect(body).toMatchObject({ birthDateIsEstimate: true, neutered: false, microchipId: '123456789012345' });
+    const body = formValues({ ...BASE, species: 'RABBIT', birthDateIsEstimate: 'true', neutered: 'false', microchipId: '985112345678901', speciesOther: '' }, [], ['birthDateIsEstimate', 'neutered']);
+    expect(body).toMatchObject({ birthDateIsEstimate: true, neutered: false, microchipId: '985112345678901' });
     expect('speciesOther' in body).toBe(false);
     expect(validateInput('CreatePetInput', body)).toEqual({});
-    expect(Object.keys(validateInput('CreatePetInput', { ...body, microchipId: '12345678901234' }))).toEqual(['microchipId']);
+    expect(Object.keys(validateInput('CreatePetInput', { ...body, microchipId: '98511234567890' }))).toEqual(['microchipId']);
     expect(validateInput('CreatePetInput', { ...body, species: 'OTHER', speciesOther: 'Erizo' })).toEqual({});
   });
 
@@ -61,10 +61,10 @@ describe('T284 PetForm: 8 especies y campos de REQ-PET2-001', () => {
   });
 
   it('[REQ-PET2-001] en la edición, vaciar un campo anulable que tenía valor envía null; si ya era nulo, no se envía', () => {
-    const had = { ...profile('p4', 'Puas', ME, 'OTHER'), neutered: true, microchipId: '123456789012345' };
+    const had = { ...profile('p4', 'Puas', ME, 'OTHER'), neutered: true, microchipId: '985112345678901' };
     expect(petFormBody(had, { ...BASE, species: 'CANINE' })).toEqual({ ...BASE, species: 'CANINE', speciesOther: null, neutered: null, microchipId: null });
     expect(petFormBody(profile('p5', 'Argos'), { ...BASE, species: 'CANINE' })).toEqual({ ...BASE, species: 'CANINE' });
-    expect(petFormBody(had, { ...BASE, species: 'OTHER', speciesOther: 'Erizo', neutered: true, microchipId: '123456789012345' })).toEqual({ ...BASE, species: 'OTHER', speciesOther: 'Erizo', neutered: true, microchipId: '123456789012345' });
+    expect(petFormBody(had, { ...BASE, species: 'OTHER', speciesOther: 'Erizo', neutered: true, microchipId: '985112345678901' })).toEqual({ ...BASE, species: 'OTHER', speciesOther: 'Erizo', neutered: true, microchipId: '985112345678901' });
   });
 });
 

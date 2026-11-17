@@ -15,7 +15,6 @@ import {
   validateCreateDewormingInput,
   validateCreateHouseholdInput,
   validateCreateMedicalVisitInput,
-  validateCreatePetInput,
   validateCreateVaccinationInput,
   validateCreateWeightInput,
   validateChangePasswordInput,
@@ -24,9 +23,10 @@ import {
   validateInviteMemberInput,
   validateLoginInput,
   validateRegisterUserInput,
-  validateUpdatePetInput,
   type ValidatorFunction,
 } from '../../generated/schemas/validators.mjs';
+// El alta y la edición de mascota usan el contrato 3.1.0 (breedCode, microchip) mientras el resto de formularios sigue en la 002.
+import { validateCreatePetInput, validateUpdatePetInput } from '../../generated/v31/schemas/validators.mjs';
 
 const VALIDATORS = {
   RegisterUserInput: validateRegisterUserInput,
