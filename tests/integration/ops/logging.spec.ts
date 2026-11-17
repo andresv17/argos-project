@@ -54,7 +54,7 @@ async function appWithCapturedStdout(): Promise<{ app: FastifyInstance; lines: s
     tokens,
     hasher,
     dummyPasswordHash: await hasher.createDummyHash(),
-    rateLimiter: new SlidingWindowRateLimiterAdapter(ids, { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 20, windowMinutes: 15 } }),
+    rateLimiter: new SlidingWindowRateLimiterAdapter(ids, { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 20, windowMinutes: 15 }, MICROCHIP_DUPLICATE: { maxPerWindow: 5, windowMinutes: 1440 } }),
     backupTokens: new Sha256BackupTokenAdapter(tokens),
     auditLog: new RepositoryAuditLogAdapter(),
     auditPseudonym: new HmacAuditPseudonymAdapter(),

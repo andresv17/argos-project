@@ -83,7 +83,7 @@ export interface ConfirmationTokenRepositoryPort {
   deleteForUser(userId: string): Promise<void>;
 }
 
-export type RateLimitScope = 'EXPORT' | 'INVITE';
+export type RateLimitScope = 'EXPORT' | 'INVITE' | 'MICROCHIP_DUPLICATE';
 
 export interface RateLimitEvent {
   readonly id: string;

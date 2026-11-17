@@ -138,7 +138,7 @@ describe('hogares por HTTP (src/infrastructure/http/routes/households.routes.ts)
   });
 
   it('[REQ-HOUSE2-001][INV-AUTH-006] el tiempo de respuesta es similar exista o no el username (medición con tolerancia amplia)', async () => {
-    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 1000, windowMinutes: 15 } } });
+    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 1000, windowMinutes: 15 }, MICROCHIP_DUPLICATE: { maxPerWindow: 5, windowMinutes: 1440 } } });
     const andres = await api.login('andres');
     const median = async (username: string) => {
       const times: number[] = [];
@@ -155,7 +155,7 @@ describe('hogares por HTTP (src/infrastructure/http/routes/households.routes.ts)
   });
 
   it('[REQ-HOUSE2-001][ERR-HOUSE-NOT-FOUND][ERR-ACC-FORBIDDEN] solo el propietario invita (T238 PENDIENTE: ADMIN): un miembro recibe 403 y quien no ve el hogar, 404; ninguno consume el límite', async () => {
-    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 1, windowMinutes: 15 } } });
+    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 1, windowMinutes: 15 }, MICROCHIP_DUPLICATE: { maxPerWindow: 5, windowMinutes: 1440 } } });
     const body = { username: 'lucia.r', roleOnJoin: 'READER' };
     const byMember = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: await api.login('maria.v'), body });
     const byStranger = await api.call('POST', `/api/households/${H1}/invitations`, { cookie: await api.login('lucia.r'), body });
@@ -168,7 +168,7 @@ describe('hogares por HTTP (src/infrastructure/http/routes/households.routes.ts)
   });
 
   it('[REQ-HOUSE2-001][ERR-RATE-LIMITED] al superar INVITE_MAX_PER_WINDOW → 429 con el mismo resultado para usernames reales e inexistentes; la ventana es deslizante y exacta a 15 min', async () => {
-    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 3, windowMinutes: 15 } } });
+    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 3, windowMinutes: 15 }, MICROCHIP_DUPLICATE: { maxPerWindow: 5, windowMinutes: 1440 } } });
     const andres = await api.login('andres');
     const invite = (username: string) => api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body: { username, roleOnJoin: 'READER' } });
     const first = [await invite('lucia.r'), await invite('nadie.x'), await invite('maria.v')];
@@ -189,7 +189,7 @@ describe('hogares por HTTP (src/infrastructure/http/routes/households.routes.ts)
   });
 
   it('[REQ-HOUSE2-001][ERR-RATE-LIMITED] el límite es por actor: otra propietaria con su propio hogar no queda bloqueada por el consumo de Andrés', async () => {
-    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 1, windowMinutes: 15 } } });
+    api = await createApi(undefined, { rateLimits: { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 1, windowMinutes: 15 }, MICROCHIP_DUPLICATE: { maxPerWindow: 5, windowMinutes: 1440 } } });
     const andres = await api.login('andres');
     const lucia = await api.login('lucia.r');
     const created = await api.call('POST', '/api/households', { cookie: lucia, body: { name: 'Casa Rivas' }, contract: false });

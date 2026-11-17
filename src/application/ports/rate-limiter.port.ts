@@ -16,4 +16,16 @@ export interface RateLimiterPort {
    * recibida, de modo que un rollback también deshace el consumo.
    */
   tryConsume(repositories: RepositorySet, scope: RateLimitScope, userId: string, nowIsoTimestamp: string): Promise<boolean>;
+
+  /**
+   * Solo consulta (REQ-PET4-002, ADR-004-04): true si el actor ya tiene en la ventana tantos eventos del ámbito como permite el tope
+   * (`>= máximo`). No registra nada, de modo que consultar no prolonga la ventana.
+   */
+  isExhausted(repositories: RepositorySet, scope: RateLimitScope, userId: string, nowIsoTimestamp: string): Promise<boolean>;
+
+  /**
+   * Solo registro (REQ-PET4-002, ADR-004-04): anota un evento del actor en el ámbito SIN comprobar el tope (el evento ya ocurrió: un duplicado
+   * de microchip). Opera dentro de la transacción recibida.
+   */
+  record(repositories: RepositorySet, scope: RateLimitScope, userId: string, nowIsoTimestamp: string): Promise<void>;
 }

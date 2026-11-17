@@ -125,7 +125,7 @@ describe('SlidingWindowRateLimiterAdapter (src/infrastructure/adapters/sliding-w
   const at = (offsetMs: number) => new Date(Date.parse(REFERENCE_NOW) + offsetMs).toISOString();
   const setup = (max = 3) => {
     const uow = new InMemoryUnitOfWork({ ...USERS_FOR_ADAPTERS() });
-    const limiter = new SlidingWindowRateLimiterAdapter(new DeterministicIdAdapter(RATE_EVENT_IDS), { EXPORT: { maxPerWindow: 1, windowMinutes: 15 }, INVITE: { maxPerWindow: max, windowMinutes: 15 } });
+    const limiter = new SlidingWindowRateLimiterAdapter(new DeterministicIdAdapter(RATE_EVENT_IDS), { EXPORT: { maxPerWindow: 1, windowMinutes: 15 }, INVITE: { maxPerWindow: max, windowMinutes: 15 }, MICROCHIP_DUPLICATE: { maxPerWindow: 5, windowMinutes: 1440 } });
     const consume = (scope: 'EXPORT' | 'INVITE', userId: string, offsetMs: number) => uow.runInTransaction((r) => limiter.tryConsume(r, scope, userId, at(offsetMs)));
     return { uow, consume };
   };
@@ -149,6 +149,47 @@ describe('SlidingWindowRateLimiterAdapter (src/infrastructure/adapters/sliding-w
   it('[ERR-RATE-LIMITED] el límite es por ámbito y por actor: agotar INVITE no afecta a EXPORT ni a otra persona', async () => {
     const { consume } = setup(1);
     expect([await consume('INVITE', ANA, 0), await consume('INVITE', ANA, 1), await consume('EXPORT', ANA, 2), await consume('EXPORT', ANA, 3), await consume('INVITE', ELENA, 4)]).toEqual([true, false, true, false, true]);
+  });
+});
+
+describe('SlidingWindowRateLimiterAdapter, ámbito MICROCHIP_DUPLICATE: consulta (isExhausted) y registro (record) separados (ADR-004-04, REQ-PET4-002)', () => {
+  const at = (offsetMs: number) => new Date(Date.parse(REFERENCE_NOW) + offsetMs).toISOString();
+  const WINDOW = 1440 * 60_000;
+  const setup = () => {
+    const uow = new InMemoryUnitOfWork({ ...USERS_FOR_ADAPTERS() });
+    const limiter = new SlidingWindowRateLimiterAdapter(new DeterministicIdAdapter(RATE_EVENT_IDS), { EXPORT: { maxPerWindow: 1, windowMinutes: 15 }, INVITE: { maxPerWindow: 3, windowMinutes: 15 }, MICROCHIP_DUPLICATE: { maxPerWindow: 5, windowMinutes: 1440 } });
+    const exhausted = (userId: string, offsetMs: number, scope: 'EXPORT' | 'INVITE' | 'MICROCHIP_DUPLICATE' = 'MICROCHIP_DUPLICATE') => uow.runInTransaction((r) => limiter.isExhausted(r, scope, userId, at(offsetMs)));
+    const record = (userId: string, offsetMs: number, scope: 'EXPORT' | 'INVITE' | 'MICROCHIP_DUPLICATE' = 'MICROCHIP_DUPLICATE') => uow.runInTransaction((r) => limiter.record(r, scope, userId, at(offsetMs)));
+    return { uow, exhausted, record };
+  };
+
+  it('[REQ-PET4-002] isExhausted solo consulta (no registra) y devuelve true cuando ya hay 5 eventos en la ventana; record registra sin comprobar el tope', async () => {
+    const { uow, exhausted, record } = setup();
+    expect([await exhausted(ANA, 0), await exhausted(ANA, 1), uow.snapshot().rateEvents]).toEqual([false, false, []]);
+    const states: boolean[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      states.push(await exhausted(ANA, i * 1000));
+      await record(ANA, i * 1000);
+    }
+    expect([states, await exhausted(ANA, 5000)]).toEqual([[false, false, false, false, false], true]);
+    expect(uow.snapshot().rateEvents).toHaveLength(5);
+    await record(ANA, 6000); // best effort: record no revisa el tope
+    expect(uow.snapshot().rateEvents).toHaveLength(6);
+  });
+
+  it('[REQ-PET4-002] la ventana es deslizante de 1440 minutos: el evento deja de contar justo a las 24 h y consultar no la prolonga', async () => {
+    const { exhausted, record } = setup();
+    for (let i = 0; i < 5; i += 1) await record(ANA, 0);
+    expect([await exhausted(ANA, WINDOW - 1), await exhausted(ANA, WINDOW - 1), await exhausted(ANA, WINDOW), await exhausted(ANA, WINDOW + 1)]).toEqual([true, true, false, false]);
+  });
+
+  it('[REQ-PET4-002] el cupo es por ámbito y por usuario, y EXPORT e INVITE conservan su tryConsume', async () => {
+    const { exhausted, record } = setup();
+    for (let i = 0; i < 5; i += 1) await record(ANA, i);
+    expect([await exhausted(ANA, 10), await exhausted(ELENA, 10), await exhausted(ANA, 10, 'EXPORT'), await exhausted(ANA, 10, 'INVITE')]).toEqual([true, false, false, false]);
+    const uow = new InMemoryUnitOfWork({ ...USERS_FOR_ADAPTERS() });
+    const limiter = new SlidingWindowRateLimiterAdapter(new DeterministicIdAdapter(RATE_EVENT_IDS), { EXPORT: { maxPerWindow: 1, windowMinutes: 15 }, INVITE: { maxPerWindow: 3, windowMinutes: 15 }, MICROCHIP_DUPLICATE: { maxPerWindow: 5, windowMinutes: 1440 } });
+    expect([await uow.runInTransaction((r) => limiter.tryConsume(r, 'EXPORT', ANA, at(0))), await uow.runInTransaction((r) => limiter.tryConsume(r, 'EXPORT', ANA, at(1)))]).toEqual([true, false]);
   });
 });
 
