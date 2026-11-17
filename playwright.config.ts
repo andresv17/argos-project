@@ -35,7 +35,11 @@ export default defineConfig({
     timezoneId: 'America/Bogota',
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // WebKit solo si se pide (E2E_WEBKIT=1) y está instalado (`npx playwright install webkit`): PE-04, no se instala sin autorización.
+    ...(process.env['E2E_WEBKIT'] === '1' ? [{ name: 'webkit', use: { ...devices['Desktop Safari'] } }] : []),
+  ],
   webServer: [
     {
       command: 'npx tsx src/infrastructure/http/server.ts',
