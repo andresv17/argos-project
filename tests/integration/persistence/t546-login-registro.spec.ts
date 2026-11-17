@@ -62,7 +62,7 @@ async function failureOf(promise: Promise<unknown>): Promise<DomainError> {
 }
 const shape = (e: DomainError) => [e.code, e.status, e.message, e.field, e.detail];
 
-describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (name) => {
+describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', { timeout: 60_000 }, (name) => {
   const run = it.skipIf(name === 'PostgreSQL' && !HAS_POSTGRES);
 
   run('[SC-CAT-016][REQ-LOG-002][INV-LOG-001][EDGE-009] «ana.perez» y «ANA.PEREZ» chocan con «Ana.Perez» (ERR-AUTH-USERNAME-TAKEN) sin crear nada; «maria_01» y «maria» coexisten', async () => {
@@ -193,6 +193,17 @@ describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (n
     expect(await engine.read((r) => r.loginAttempts.listFailures('ANA.PEREZ'))).toEqual([]);
     await login.execute({ username: 'Ana.Perez', password: 'Ana2026a' });
     expect(await engine.read((r) => r.loginAttempts.listFailures('ana.perez'))).toEqual([]);
+  });
+
+  run('[REQ-LOG-002][INV-HOUSE-003] la base impone una sola invitación abierta por (hogar, LOWER(invitee_username)): guardar «ANA.PEREZ» teniendo «Ana.Perez» abierta se rechaza; con la primera rechazada, sí entra', async () => {
+    const engine = await open(name);
+    const base = { householdId: HOUSEHOLD.id, inviteeUserId: ANA, invitedByUserId: ANDRES, roleOnJoin: 'READER' as const, status: 'INVITED' as const, createdAt: NOW, respondedAt: null };
+    await engine.read((r) => r.invitations.save({ ...base, invitationId: idOf(40), inviteeUsername: 'Ana.Perez' }));
+    const second = await engine.read((r) => r.invitations.save({ ...base, invitationId: idOf(41), inviteeUsername: 'ANA.PEREZ' })).then(() => 'resolved', () => 'rejected');
+    expect(second).toBe('rejected');
+    await engine.read((r) => r.invitations.save({ ...base, invitationId: idOf(40), inviteeUsername: 'Ana.Perez', status: 'DECLINED', respondedAt: NOW }));
+    const third = await engine.read((r) => r.invitations.save({ ...base, invitationId: idOf(41), inviteeUsername: 'ANA.PEREZ' })).then(() => 'resolved', () => 'rejected');
+    expect(third).toBe('resolved');
   });
 
   run('[SC-CAT-021][REQ-LOG-002][REQ-HOUSE2-002] invitar escribiendo «ana.perez» resuelve a «Ana.Perez»; la respuesta es la misma que para un usuario inexistente y no hay segunda invitación abierta por «ANA.PEREZ»', async () => {

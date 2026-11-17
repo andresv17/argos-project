@@ -510,13 +510,13 @@ function invitationRepository(client: PoolClientLike): InvitationRepositoryPort 
   return {
     async findOpen(householdId, inviteeUsername) {
       const { rows } = await client.query(
-        `SELECT ${INVITATION_COLUMNS} FROM household_invitations WHERE household_id = $1 AND invitee_username = $2 AND status = 'INVITED'`,
+        `SELECT ${INVITATION_COLUMNS} FROM household_invitations WHERE household_id = $1 AND LOWER(invitee_username) = LOWER($2) AND status = 'INVITED'`,
         [householdId, inviteeUsername],
       );
       return rows[0] === undefined ? null : toRecord(rows[0]);
     },
     async save(invitation) {
-      // INV-HOUSE-003: household_invitations_one_open rechaza una segunda INVITED del mismo (hogar, username) con 23505.
+      // INV-HOUSE-003: household_invitations_one_open (hogar, LOWER(invitee_username)) rechaza una segunda INVITED con 23505 (REQ-LOG-002).
       await client.query(
         `INSERT INTO household_invitations (${INVITATION_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (id) DO UPDATE SET household_id = EXCLUDED.household_id, invitee_username = EXCLUDED.invitee_username,

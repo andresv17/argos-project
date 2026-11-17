@@ -6,7 +6,7 @@
  * - Las invitaciones viven solo en household_invitations (T246, resolución de Neo): household_members no guarda filas
  *   INVITED, y aceptar, rechazar, cancelar y listar leen y escriben ahí; al aceptar nace la membresía ACTIVE con roleOnJoin.
  * - InviteMemberUseCase comprueba primero que el actor sea gestor (OWNER o ADMIN, requireManager; REQ-HOUSE2-001), después valida la entrada
- *   (el username no se normaliza), aplica el límite de frecuencia y responde siempre 202 {received:true} (REQ-HOUSE2-001).
+ *   (el username no se recorta ni se normaliza al guardar; la búsqueda del invitado y la invitación abierta comparan por LOWER, REQ-LOG-002), aplica el límite de frecuencia y responde siempre 202 {received:true} (REQ-HOUSE2-001).
  * - ListMyHouseholdsUseCase ordena por createdAt del hogar y luego id (la spec no fija el orden).
  *
  * - ChangeMemberRoleUseCase y TransferHouseholdOwnershipUseCase (T246) guardan solo las filas que cambian; la transferencia
@@ -189,7 +189,8 @@ export class InviteMemberUseCase {
       const eligible = inviteMember({ memberships, householdId, actorUserId: userId, invitee, membershipId: this.deps.ids.nextId(), nowIsoTimestamp: now, roleOnJoin }) !== null;
       const pending = await repositories.invitations.findOpen(householdId, username);
       if (pending === null && (invitee === null || eligible)) {
-        const invitation = this.invitationOf(householdId, username, invitee?.id ?? null, roleOnJoin, userId, now);
+        // El username guardado es el de la cuenta (capitalización original) cuando existe; la búsqueda y el índice abierto son por LOWER (REQ-LOG-002).
+        const invitation = this.invitationOf(householdId, invitee?.username ?? username, invitee?.id ?? null, roleOnJoin, userId, now);
         await repositories.invitations.save(invitation);
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'HOUSEHOLD_INVITATION', entityId: invitation.invitationId, previous: null, next: invitation });
       }

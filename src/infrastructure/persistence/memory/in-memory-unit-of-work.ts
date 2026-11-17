@@ -205,11 +205,11 @@ function rateLimitRepository(state: MemoryState): RateLimitRepositoryPort {
 function invitationRepository(state: MemoryState): InvitationRepositoryPort {
   return {
     async findOpen(householdId, inviteeUsername) {
-      return copy(state.invitations.find((i) => i.householdId === householdId && i.inviteeUsername === inviteeUsername && i.status === 'INVITED') ?? null);
+      return copy(state.invitations.find((i) => i.householdId === householdId && i.inviteeUsername.toLowerCase() === inviteeUsername.toLowerCase() && i.status === 'INVITED') ?? null);
     },
     async save(invitation) {
       const clash = state.invitations.some(
-        (i) => i.invitationId !== invitation.invitationId && invitation.status === 'INVITED' && i.status === 'INVITED' && i.householdId === invitation.householdId && i.inviteeUsername === invitation.inviteeUsername,
+        (i) => i.invitationId !== invitation.invitationId && invitation.status === 'INVITED' && i.status === 'INVITED' && i.householdId === invitation.householdId && i.inviteeUsername.toLowerCase() === invitation.inviteeUsername.toLowerCase(),
       );
       if (clash) throw new Error(`household_invitations: ya hay una invitación INVITED de ${invitation.inviteeUsername} en el hogar`);
       state.invitations = [...state.invitations.filter((i) => i.invitationId !== invitation.invitationId), copy(invitation)];

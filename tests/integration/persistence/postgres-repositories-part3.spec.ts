@@ -173,7 +173,7 @@ describe('invitaciones (T424, REQ-PG-002, INV-HOUSE-003)', () => {
     expect(await r.invitations.findOpen(HOUSEHOLD.id, 'carlos')).toEqual(INVITATION);
     expect(await r.invitations.findOpen(HOUSEHOLD.id, HOSTILE)).toBeNull();
     expect(client.calls[0]).toEqual({
-      sql: `SELECT ${INV_COLS} FROM household_invitations WHERE household_id = $1 AND invitee_username = $2 AND status = 'INVITED'`,
+      sql: `SELECT ${INV_COLS} FROM household_invitations WHERE household_id = $1 AND LOWER(invitee_username) = LOWER($2) AND status = 'INVITED'`,
       values: [HOUSEHOLD.id, 'carlos'],
     });
     expectParametrized(client.calls);

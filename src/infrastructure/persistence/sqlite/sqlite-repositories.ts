@@ -618,7 +618,7 @@ function rateLimitRepository(db: SqliteDatabase): RateLimitRepositoryPort {
 /** @implements REQ-HOUSE2-001, INV-HOUSE-003, ERR-INTERNAL-UNEXPECTED */
 function invitationRepository(db: SqliteDatabase): InvitationRepositoryPort {
   const columns = 'id, household_id, invitee_username, invitee_user_id, invited_by_user_id, role_on_join, status, created_at, responded_at';
-  const open = db.prepare<[string, string], InvitationRow>(`SELECT ${columns} FROM household_invitations WHERE household_id = ? AND invitee_username = ? AND status = 'INVITED'`);
+  const open = db.prepare<[string, string], InvitationRow>(`SELECT ${columns} FROM household_invitations WHERE household_id = ? AND lower(invitee_username) = lower(?) AND status = 'INVITED'`);
   const ofHousehold = db.prepare<[string], InvitationRow>(`SELECT ${columns} FROM household_invitations WHERE household_id = ?`);
   const openForUser = db.prepare<[string], InvitationRow>(
     `SELECT ${columns} FROM household_invitations WHERE invitee_user_id = ? AND status = 'INVITED' ORDER BY created_at ASC, household_id ASC`,
