@@ -81,14 +81,6 @@ async function smallTargets(page: Page, selector: string): Promise<string[]> {
   );
 }
 
-/**
- * Desbordamiento horizontal a 320 px (WCAG 1.4.10 Reflow), defecto real en `src/` que Seraph no corrige. Causa: los `<input type="file">` miden 321 px de ancho
- * mínimo y no llevan `w-full`/`min-w-0`: H-S-T592-1 `AvatarCropper.tsx` l.47-54 (`#avatar-file`) y H-S-T592-2 `MediaPanel.tsx` (`#media-file`, clase `FIELD`). Hasta
- * que Keymaker los corrija, las pruebas que muestran esos paneles a 320 px esperan exactamente este desbordamiento y nada más (a 1024 y 1280 px no hay ninguno);
- * al corregirlo la prueba falla y se retira la constante.
- */
-const H_S_T592_OVERFLOW = (screen: string): string => `${screen}@320px desbordamiento horizontal`;
-
 test.describe.configure({ mode: 'serial' });
 
 test.describe('CSP de producción y WCAG 2.1 AA a 320/1024/1280 px: recortador, visor y PetForm (T592)', () => {
@@ -155,7 +147,7 @@ test.describe('CSP de producción y WCAG 2.1 AA a 320/1024/1280 px: recortador, 
     await page.getByRole('button', { name: 'Editar', exact: true }).first().click();
     await expect(page.locator('#avatar-file')).toBeVisible();
     for (const width of VIEWPORT_WIDTHS) findings.push(...(await wcagAt(page, 'PetForm-edicion', width)));
-    expect(findings).toEqual([H_S_T592_OVERFLOW('PetForm-edicion')]);
+    expect(findings).toEqual([]);
     expect(await violations(page)).toEqual([]);
   });
 
@@ -175,7 +167,7 @@ test.describe('CSP de producción y WCAG 2.1 AA a 320/1024/1280 px: recortador, 
       expect(box.width).toBeLessThanOrEqual(width);
       expect(await smallTargets(page, 'button')).toEqual([]);
     }
-    expect(findings).toEqual([H_S_T592_OVERFLOW('recortador')]);
+    expect(findings).toEqual([]);
     // Teclado: la vista previa recibe el foco, muestra un indicador de foco y las flechas la mueven sin perder el foco.
     await page.locator('#avatar-file').focus();
     await page.keyboard.press('Tab');
@@ -234,7 +226,7 @@ test.describe('CSP de producción y WCAG 2.1 AA a 320/1024/1280 px: recortador, 
       if (width >= 1024) await expect(frame).toBeVisible();
       else await expect(frame).toBeHidden();
     }
-    expect(findings).toEqual([H_S_T592_OVERFLOW('visor-imagen'), H_S_T592_OVERFLOW('visor-pdf')]);
+    expect(findings).toEqual([]);
     expect(await violations(page)).toEqual([]);
     // La política sigue cerrando el resto: una imagen de otro host se bloquea por `img-src` y queda registrada.
     await page.evaluate(() => {
