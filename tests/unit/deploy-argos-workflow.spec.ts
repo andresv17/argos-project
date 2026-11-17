@@ -186,7 +186,7 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(d).toMatch(/--liveness-probe "httpGet\.path=\/healthz,[^"]*periodSeconds=10,failureThreshold=3,timeoutSeconds=1"/);
   });
 
-  it('humo en /healthz y /readyz, luego mueve el 100 % del tráfico, y retrocede si falla', () => {
+  it('humo en /readyz y /, luego mueve el 100 % del tráfico, y retrocede si falla', () => {
     const d = job('deploy');
     const smoke = d.indexOf('/readyz');
     const promote = d.indexOf('update-traffic');
@@ -199,17 +199,33 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
 
   it('smoke test sobre TAG_URL espera la propagación GFE (18 reintentos cada 5 s) y se nombra Smoke test', () => {
     const d = job('deploy');
-    const curl = /curl[^\n]*\$\{TAG_URL\}[^\n]*/.exec(d)?.[0] ?? '';
-    expect(curl).toMatch(/--retry 18(\s|$)/);
-    expect(curl).toMatch(/--retry-delay 5(\s|$)/);
-    expect(curl).toContain('--retry-all-errors');
-    expect(curl).toContain('--fail');
+    const step = /^ {6}- name:\s*[^\n]*Smoke test[^\n]*\n(?: {8}[^\n]*\n|\n)*/m.exec(d)?.[0] ?? '';
+    expect(step).not.toBe('');
+    const curls = step.split('\n').filter((l) => /curl/.test(l) && l.includes('${TAG_URL}'));
+    expect(curls).toHaveLength(2);
     const jobName = /^ {4}name:\s*(.+)$/m.exec(d)?.[1] ?? '';
-    const stepName = /^ {6}- name:\s*(.*\/healthz.*)$/m.exec(d)?.[1] ?? '';
+    const stepName = /^ {6}- name:\s*(.*Smoke test.*)$/m.exec(d)?.[1] ?? '';
     expect(jobName).toContain('Smoke test');
     expect(jobName).not.toMatch(/humo/i);
-    expect(stepName).toContain('Smoke test');
     expect(stepName).not.toMatch(/humo/i);
+    for (const url of ['${TAG_URL}/readyz', '${TAG_URL}/']) {
+      const curl = curls.find((l) => new RegExp(url.replace(/[$/{}]/g, '\\$&') + '(["\\s]|$)').test(l)) ?? '';
+      expect(curl, url).not.toBe('');
+      expect(curl).toContain('--fail');
+      expect(curl).toMatch(/--retry 18(\s|$)/);
+      expect(curl).toMatch(/--retry-delay 5(\s|$)/);
+      expect(curl).toContain('--retry-all-errors');
+    }
+  });
+
+  it('D-32: el smoke externo no consulta /healthz (lo intercepta GFE con 404); las probes internas siguen en /healthz', () => {
+    const d = job('deploy');
+    const step = /^ {6}- name:\s*[^\n]*Smoke test[^\n]*\n(?: {8}[^\n]*\n|\n)*/m.exec(d)?.[0] ?? '';
+    expect(step).not.toBe('');
+    expect(step).not.toContain('${TAG_URL}/healthz');
+    expect(step).not.toMatch(/\/healthz/);
+    expect(d).toMatch(/--startup-probe "httpGet\.path=\/healthz,/);
+    expect(d).toMatch(/--liveness-probe "httpGet\.path=\/healthz,/);
   });
 
   it('concurrency por ref sin cancelar el despliegue en curso', () => {
