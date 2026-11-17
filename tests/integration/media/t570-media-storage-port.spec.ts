@@ -1,3 +1,4 @@
+import { Gaxios, type GaxiosOptions, type GaxiosResponse } from 'gaxios';
 import { GoogleAuth } from 'google-auth-library';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MediaStorageUnavailableError, type MediaStoragePort } from '../../../src/application/ports/media-storage.port.ts';
@@ -16,7 +17,7 @@ const ID_A = '8b2d9c10-5e47-4f3a-a1b6-7c9d0e1f2a34';
 const ID_B = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
 const ID_C = '2b3c4d5e-6f70-4b8c-9d0e-1f2a3b4c5d6e';
 const key = (id: string, folder = 'files'): string => `pets/${PET}/${folder}/${id}`;
-const NOW = new Date('2026-11-17T12:00:00.000Z');
+const NOW = new Date('2099-11-17T12:00:00.000Z');
 const SIGNER = 'argos-run@argos-test.iam.gserviceaccount.com';
 
 class FakeAuth extends GoogleAuth {
@@ -26,6 +27,10 @@ class FakeAuth extends GoogleAuth {
     this.signed.push(blobToSign);
     if (this.failWith !== null) throw new Error(this.failWith);
     return Buffer.from('firma-de-prueba').toString('base64');
+  }
+  /** El SDK siempre pasa por authClient.request; el doble no pide token: se hace la petición HTTP tal cual. */
+  override async request<T>(options: GaxiosOptions): Promise<GaxiosResponse<T>> {
+    return new Gaxios().request<T>(options);
   }
   override async getCredentials(): Promise<{ client_email: string }> {
     return { client_email: SIGNER };
@@ -90,7 +95,7 @@ describe.each(adapters)('MediaStoragePort: conformidad (%s)', (_name, create) =>
     await port.put(key(ID_A, 'photos'), Uint8Array.from([1]), 'image/png');
     await port.put(key(ID_B, 'avatar'), Uint8Array.from([1]), 'image/png');
     const listed = await port.list(`pets/${PET}/files/`);
-    expect(listed.map((e) => e.key)).toEqual([key(ID_A), key(ID_B), key(ID_C)]);
+    expect(listed.map((e) => e.key)).toEqual([key(ID_B), key(ID_C), key(ID_A)]);
     for (const entry of listed) expect(entry.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     expect((await port.list('pets/')).length).toBe(5);
     expect(await port.list('pets/00000000-0000-4000-8000-000000000000/')).toEqual([]);
@@ -100,7 +105,7 @@ describe.each(adapters)('MediaStoragePort: conformidad (%s)', (_name, create) =>
     const port = create();
     await port.put(key(ID_A, 'photos'), bytes, 'image/jpeg');
     const result = await port.createReadUrl({ key: key(ID_A, 'photos'), contentType: 'image/jpeg', filename: 'foto.jpg', ttlSeconds: 300 });
-    expect([typeof result.url, result.expiresAt]).toEqual(['string', '2026-11-17T12:05:00.000Z']);
+    expect([typeof result.url, result.expiresAt]).toEqual(['string', '2099-11-17T12:05:00.000Z']);
   });
 
   it.each([29, 901, 0, -1, 30.5, Number.NaN])('createReadUrl rechaza un ttl fuera de 30-900 (%s)', async (ttlSeconds) => {
@@ -149,12 +154,12 @@ describe('adaptador de memoria (T571)', () => {
   });
 
   it('list usa la fecha de creación de la primera escritura (put posterior no la cambia)', async () => {
-    let at = new Date('2026-11-17T10:00:00.000Z');
+    let at = new Date('2099-11-17T10:00:00.000Z');
     const port = new MemoryMediaStorageAdapter({ now: () => at });
     await port.put(key(ID_A), Uint8Array.from([1]), 'image/png');
-    at = new Date('2026-11-17T11:00:00.000Z');
+    at = new Date('2099-11-17T11:00:00.000Z');
     await port.put(key(ID_A), Uint8Array.from([2]), 'image/png');
-    expect((await port.list('pets/')).map((e) => e.createdAt)).toEqual(['2026-11-17T10:00:00.000Z']);
+    expect((await port.list('pets/')).map((e) => e.createdAt)).toEqual(['2099-11-17T10:00:00.000Z']);
   });
 });
 
@@ -167,13 +172,13 @@ describe('adaptador GCS (T572)', () => {
     expect([parsed.protocol, parsed.host, parsed.pathname]).toEqual(['https:', `${BUCKET}.storage.googleapis.com`, `/${key(ID_A, 'photos')}`]);
     expect(parsed.searchParams.get('X-Goog-Algorithm')).toBe('GOOG4-RSA-SHA256');
     expect(parsed.searchParams.get('X-Goog-Expires')).toBe('300');
-    expect(parsed.searchParams.get('X-Goog-Date')).toBe('20261117T120000Z');
+    expect(parsed.searchParams.get('X-Goog-Date')).toBe('20991117T120000Z');
     expect(parsed.searchParams.get('X-Goog-SignedHeaders')).toBe('host');
-    expect(parsed.searchParams.get('X-Goog-Credential')).toBe(`${SIGNER}/20261117/auto/storage/goog4_request`);
+    expect(parsed.searchParams.get('X-Goog-Credential')).toBe(`${SIGNER}/20991117/auto/storage/goog4_request`);
     expect(parsed.searchParams.get('response-content-type')).toBe('image/webp');
     expect(parsed.searchParams.get('response-content-disposition')).toBe('inline; filename="foto.webp"');
     expect(parsed.searchParams.get('X-Goog-Signature')).toBe(Buffer.from('firma-de-prueba').toString('hex'));
-    expect(expiresAt).toBe('2026-11-17T12:05:00.000Z');
+    expect(expiresAt).toBe('2099-11-17T12:05:00.000Z');
   });
 
   it('el TTL máximo (900) y el mínimo (30) llegan a X-Goog-Expires', async () => {
@@ -199,7 +204,7 @@ describe('adaptador GCS (T572)', () => {
     const port = gcs();
     await port.put(key(ID_A), Uint8Array.from([1, 2]), 'image/png');
     await port.get(key(ID_A));
-    const methods = double.requests.map((r) => `${r.method} ${r.path.replace(/\/o\/.*/, '/o/…')}`);
+    const methods = double.requests.map((r: { method: string; path: string }) => `${r.method} ${r.path.replace(/\/o\/.*/, '/o/…')}`);
     expect(methods[0]).toBe(`POST /upload/storage/v1/b/${BUCKET}/o`);
     expect(methods.slice(1).every((m) => m.includes(`/b/${BUCKET}/o/`))).toBe(true);
     expect([...double.objects.keys()]).toEqual([key(ID_A)]);

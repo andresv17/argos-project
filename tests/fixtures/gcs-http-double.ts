@@ -29,7 +29,7 @@ async function bodyOf(request: IncomingMessage): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-function parseMultipartRelated(body: Buffer, contentType: string): { name: string; contentType: string; bytes: Buffer } {
+function parseMultipartRelated(body: Buffer, contentType: string): { name: string | undefined; contentType: string; bytes: Buffer } {
   const boundary = /boundary=(?:"([^"]+)"|([^;]+))/.exec(contentType);
   const marker = Buffer.from(`--${boundary?.[1] ?? boundary?.[2] ?? ''}`);
   const parts: Buffer[] = [];
@@ -44,7 +44,7 @@ function parseMultipartRelated(body: Buffer, contentType: string): { name: strin
     const at = part.indexOf('\r\n\r\n');
     return { headers: part.subarray(0, at).toString('latin1'), content: part.subarray(at + 4, part.length - 2) };
   };
-  const meta = JSON.parse(split(parts[0]!).content.toString('utf8')) as { name: string; contentType?: string };
+  const meta = JSON.parse(split(parts[0]!).content.toString('utf8')) as { name?: string; contentType?: string };
   const media = split(parts[1]!);
   const mediaType = /content-type:\s*([^\r\n]+)/i.exec(media.headers)?.[1] ?? 'application/octet-stream';
   return { name: meta.name, contentType: meta.contentType ?? mediaType, bytes: media.content };
@@ -83,9 +83,10 @@ export async function startGcsHttpDouble(bucket: string): Promise<GcsHttpDouble>
     }
     if (method === 'POST' && url.pathname === `/upload/storage/v1/b/${bucket}/o`) {
       const parsed = parseMultipartRelated(body, String(request.headers['content-type'] ?? ''));
-      const stored: DoubleObject = { bytes: parsed.bytes, contentType: parsed.contentType, timeCreated: objects.get(parsed.name)?.timeCreated ?? new Date().toISOString() };
-      objects.set(parsed.name, stored);
-      json(response, 200, resource(parsed.name, stored));
+      const name = url.searchParams.get('name') ?? parsed.name ?? '';
+      const stored: DoubleObject = { bytes: parsed.bytes, contentType: parsed.contentType, timeCreated: objects.get(name)?.timeCreated ?? new Date().toISOString() };
+      objects.set(name, stored);
+      json(response, 200, resource(name, stored));
       return;
     }
     if (objectPath !== null) {
@@ -127,6 +128,10 @@ export async function startGcsHttpDouble(bucket: string): Promise<GcsHttpDouble>
     set failWith(value: number | null) {
       state.failWith = value;
     },
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve());
+        server.closeAllConnections();
+      }),
   };
 }
