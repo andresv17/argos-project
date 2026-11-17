@@ -40,6 +40,12 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         schedulerEmail: null,
         oidcAudience: null,
         databaseUrl: null,
+        mediaDriver: 'memory',
+        mediaBucket: null,
+        mediaSignedUrlTtlSeconds: 300,
+        mediaMaxBytes: 10485760,
+        mediaMaxBytesPerOwner: 1073741824,
+        mediaMaxConcurrentUploads: 4,
       },
       APP_CONFIG_DEFAULTS,
     ]);
