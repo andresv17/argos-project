@@ -133,7 +133,7 @@ for role in roles/run.viewer roles/artifactregistry.reader roles/cloudscheduler.
 done
 # Solo el bucket de ESTADO (nunca el de exports/dumps).
 run gcloud storage buckets add-iam-policy-binding "gs://${STATE_BUCKET}" \
-  --member="serviceAccount:${PLAN_SA}" --role=roles/storage.objectViewer
+  --member="serviceAccount:${PLAN_SA}" --role=roles/storage.objectUser
 
 say "4b. Permisos de argos-terraform@: escritura sobre la infraestructura de ARGOS y el estado (sin lectura de dumps/)"
 for role in roles/run.admin roles/artifactregistry.admin roles/secretmanager.admin \
