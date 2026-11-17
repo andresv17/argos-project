@@ -327,3 +327,28 @@ describe('adaptadores deterministas (src/infrastructure/adapters/)', () => {
     expect(() => new DeterministicIdAdapter(['no-es-uuid'])).toThrow(/no es UUID v4: no-es-uuid/);
   });
 });
+
+describe('shiftIsoTimestamp: aritmética de instantes UTC sin Date (INV-ARCH-001, REQ-GCS-004)', () => {
+  it('[REQ-GCS-004] resta 1 h y 48 h, cruza día, mes, año y 29 de febrero, y conserva los milisegundos', async () => {
+    const { shiftIsoTimestamp } = await import('../../src/domain/shared/date-utils.ts');
+    expect(shiftIsoTimestamp('2026-11-17T10:00:00.000Z', -3_600_000)).toBe('2026-11-17T09:00:00.000Z');
+    expect(shiftIsoTimestamp('2026-11-17T10:00:00.250Z', -48 * 3_600_000)).toBe('2026-11-15T10:00:00.250Z');
+    expect(shiftIsoTimestamp('2026-03-01T00:30:00.000Z', -3_600_000)).toBe('2026-02-28T23:30:00.000Z');
+    expect(shiftIsoTimestamp('2028-03-01T00:30:00.000Z', -3_600_000)).toBe('2028-02-29T23:30:00.000Z');
+    expect(shiftIsoTimestamp('2027-01-01T00:00:00.000Z', -1)).toBe('2026-12-31T23:59:59.999Z');
+    expect(shiftIsoTimestamp('2026-12-31T23:00:00.000Z', 2 * 3_600_000)).toBe('2027-01-01T01:00:00.000Z');
+    expect(shiftIsoTimestamp('2026-11-17T10:00:00.000Z', 0)).toBe('2026-11-17T10:00:00.000Z');
+  });
+
+  it('[REQ-GCS-004] coincide con Date para 2 000 instantes y desplazamientos pseudoaleatorios y rechaza un instante no canónico', async () => {
+    const { shiftIsoTimestamp } = await import('../../src/domain/shared/date-utils.ts');
+    let seed = 7;
+    const next = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    for (let n = 0; n < 2000; n += 1) {
+      const base = new Date(Date.UTC(2000, 0, 1) + Math.floor(next() * 90 * 365 * 86_400_000));
+      const delta = Math.floor((next() - 0.5) * 200 * 86_400_000);
+      expect(shiftIsoTimestamp(base.toISOString(), delta)).toBe(new Date(base.getTime() + delta).toISOString());
+    }
+    expect(() => shiftIsoTimestamp('2026-11-17 10:00:00', 0)).toThrow(RangeError);
+  });
+});

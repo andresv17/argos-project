@@ -52,7 +52,7 @@ export function defineMediaRepositoryContractSuite(adapterName: string, createUn
 
     it('[REQ-GCS-005] una fila para una mascota inexistente se rechaza (clave foránea)', async () => {
       const uow = await prepare();
-      await expect(uow.runInTransaction((r) => r.media.insert(media(1, { petId: 'f0000000-0000-4000-8000-0000000000ee' })))).rejects.toThrow();
+      await expect(uow.runInTransaction((r) => r.media.insert(media(1, { petId: 'f0000000-0000-4000-8000-0000000000ee' })))).rejects.toThrow(/foreign key/i);
     });
 
     it('[REQ-ALB-001][INV-ALB-001] listPage ordena por (createdAt DESC, id DESC), filtra por tipo, pagina y cuenta el total', async () => {
@@ -132,6 +132,22 @@ export function defineMediaRepositoryContractSuite(adapterName: string, createUn
         cleared: { version: 2, objectId: null },
         third: { version: 3, objectId: id(22) },
         missing: null,
+      });
+    });
+
+    it('[REQ-AVA-001] findAvatarVersions devuelve en una sola lectura la versión de las mascotas con avatar y null para las demás (sin avatar o inexistentes)', async () => {
+      const uow = await prepare();
+      const versions = await uow.runInTransaction(async (r) => {
+        await r.pets.replaceAvatar(ARGOS.id, id(20));
+        await r.pets.replaceAvatar(ARGOS.id, id(21));
+        await r.pets.replaceAvatar(OTRA.id, id(22));
+        await r.pets.clearAvatar(OTRA.id);
+        const found = await r.pets.findAvatarVersions([ARGOS.id, OTRA.id, AJENA.id, 'f0000000-0000-4000-8000-0000000000ee']);
+        return { found: [...found.entries()].sort(), empty: (await r.pets.findAvatarVersions([])).size };
+      });
+      expect(versions).toEqual({
+        found: [[AJENA.id, null], [ARGOS.id, 2], [OTRA.id, null]].sort(),
+        empty: 0,
       });
     });
 
