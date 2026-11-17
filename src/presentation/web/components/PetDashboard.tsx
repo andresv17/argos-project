@@ -11,7 +11,7 @@ import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type React
 import { AlertBadge } from './AlertBadge.tsx';
 import { Button } from './Field.tsx';
 import { OwnerBadge } from './OwnerBadge.tsx';
-import { PetAvatar } from './PetAvatar.tsx';
+import { AvatarExternalLink, PetAvatar } from './PetAvatar.tsx';
 import { RecordActions } from './RecordActions.tsx';
 import { RecordForm } from './RecordForm.tsx';
 import { SymptomLegend } from './SymptomLegend.tsx';
@@ -19,7 +19,7 @@ import { symptomSummary, type SymptomSeverity, type SymptomType } from '../sympt
 import { WeightChart, WeightTable } from './WeightChart.tsx';
 import type { FormBody } from '../validation.ts';
 import { RECORD_MODULES, RECORD_SUMMARY, RECORD_WRITE_PERMISSION, type RecordModule } from '../records.ts';
-import { formatAge, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
+import { avatarVersionOf, formatAge, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
 
 const CATEGORY_LABEL = Object.fromEntries(
   (RECORD_MODULES.find((m) => m.id === 'customParameters')?.fields.find((f) => f.name === 'category')?.options ?? []).map((o) => [o.value, o.label]),
@@ -397,7 +397,8 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                 ) : null}
               </div>
               <div className="shrink-0">
-                <PetAvatar name={profile.name} avatarUrl={profile.avatarUrl} colorToken={dashboard.owner.colorToken} size={96} />
+                <PetAvatar name={profile.name} petId={profile.id} avatarVersion={avatarVersionOf(profile)} colorToken={dashboard.owner.colorToken} size={96} />
+                <AvatarExternalLink avatarUrl={profile.avatarUrl} />
               </div>
             </section>
             <AlertsCard dashboard={dashboard} canRegisterWeight={permissions.writeWeightsAndMeasurements} onRegisterWeight={registerWeight} />

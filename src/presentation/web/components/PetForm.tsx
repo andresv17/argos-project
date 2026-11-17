@@ -7,6 +7,7 @@ import { Button, FormError, SelectField, TextField } from './Field.tsx';
 import { PetAssignments } from './PetAssignments.tsx';
 import { BREEDS } from '../../../generated/catalogs/index.ts';
 import { SEX_LABEL, SPECIES_LABEL, type PetProfile, type Species } from '../view-model.ts';
+import { AvatarExternalLink } from './PetAvatar.tsx';
 import { useContractForm } from '../use-contract-form.ts';
 import type { FormBody } from '../validation.ts';
 
@@ -183,6 +184,10 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
       />
       <TextField id={`${prefix}-microchipId`} label="Microchip (15 dígitos, opcional)" name="microchipId" value={form.values.microchipId ?? ''} onChange={form.onChange} errors={form.errors} />
       <TextField id={`${prefix}-avatarUrl`} label="URL del avatar (opcional)" name="avatarUrl" type="url" value={form.values.avatarUrl ?? ''} onChange={form.onChange} errors={form.errors} />
+      <p id={`${prefix}-avatarUrl-help`} className="-mt-2 text-sm text-text-muted">
+        La imagen de este enlace no se muestra como imagen en ARGOS: se abre como enlace en una pestaña nueva.
+      </p>
+      <AvatarExternalLink avatarUrl={form.values.avatarUrl} />
       {profile === null ? (
         <SelectField
           id={`${prefix}-baseHouseholdId`}
