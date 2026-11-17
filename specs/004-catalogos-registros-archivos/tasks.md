@@ -164,7 +164,7 @@
 - [x] T609 [US4] Lectura en streaming con corte, detección de corriente truncada (400 sin `put`) y límite de subidas simultáneas por instancia (REQ-ARC-001)
 - [x] T610 [P] [US4] Pruebas de contrato con doble de GCS caído: 502 y `no-store` en `getMediaAccess`, `putAvatar`, `getAvatar` y `deleteAvatar`; 204 en `deleteMedia` (SC-ALM-030) (REQ-ARC-003, REQ-AVA-001)
 - [x] T611 [P] [US4] Pruebas de componente del panel de archivos: `accept` de fotos, mensaje del 415, renovación proactiva con reloj simulado y «Abrir o descargar» en ventana móvil (SC-ALM-032) (REQ-ARC-003, REQ-ARC-001)
-- [ ] T615 [P] [US4] Pruebas de la reexportación de fotos (D-13 A): un JPEG con EXIF y GPS sale sin segmentos EXIF y con la orientación visual correcta, PNG y WebP sin metadatos, WebP no codificable cae a JPEG, una imagen no decodificable no se sube, el PDF no se modifica y el resultado respeta 10 MiB; en Chromium y, si está disponible, WebKit (PE-04) (SC-ALM-035) (REQ-ARC-001)
+- [x] T615 [P] [US4] Pruebas de la reexportación de fotos (D-13 A): un JPEG con EXIF y GPS sale sin segmentos EXIF y con la orientación visual correcta, PNG y WebP sin metadatos, WebP no codificable cae a JPEG, una imagen no decodificable no se sube, el PDF no se modifica y el resultado respeta 10 MiB; en Chromium y, si está disponible, WebKit (PE-04) (SC-ALM-035) (REQ-ARC-001)
 - [x] T616 [US4] Función de cliente de reexportación por `canvas` (orientación EXIF aplicada, formatos de salida, error visible si falla) integrada en el panel de archivos antes del `POST` (REQ-ARC-001)
 
 ---
@@ -176,8 +176,8 @@
 
 - [x] T583 [P] [US5] Pruebas: avatar (JPEG/PNG/WebP, tope de 512 KiB sin validar dimensiones, UUID por versión, `avatar_version` monótono y nunca reiniciado, `PATCH` concurrente con `PUT`, `DELETE` con GCS caído seguido de `PUT`, caché inmutable solo con `v` actual y `no-cache` en otro caso, 404 sin avatar, tercero sin acceso) (SC-ALM-016, SC-ALM-017, SC-ALM-027) (REQ-AVA-001, INV-AVA-001)
 - [x] T584 [US5] Casos de uso y rutas `PUT`/`GET`/`DELETE /pets/{petId}/avatar` con proxy autenticado, columnas `avatar_version` y `avatar_object_id`, cola del avatar anterior y del avatar eliminado, `Vary: Cookie` (REQ-AVA-001, INV-AVA-001, REQ-GCS-006) **Nota (H-O-004A-1):** retirar la exención de `avatarVersion` en `required` de `openapi-contract.ts` cuando la columna `avatar_version` exista.
-- [ ] T585 [P] [US5] Pruebas de componente: recortador (salida 512×512 WebP, o JPEG si `canvas` no codifica WebP; máscara circular; teclado), en Chromium y WebKit (si WebKit exige instalar un navegador en CI es [N2]; si no, PE-04), prioridad avatar cargado > inicial y `avatarUrl` como enlace de texto sin `<img>` bajo la CSP de producción (D-19 A), ayuda de `avatarUrl` (SC-ALM-018..020) (REQ-AVA-002, REQ-AVA-003)
-- [ ] T586 [US5] `PetAvatar`, `AvatarCropper` con respaldo JPEG y ayuda del campo `avatarUrl` en `PetForm`, con el enlace «Ver enlace externo» (REQ-AVA-002, REQ-AVA-003)
+- [x] T585 [P] [US5] Pruebas de componente: recortador (salida 512×512 WebP, o JPEG si `canvas` no codifica WebP; máscara circular; teclado), en Chromium y WebKit (si WebKit exige instalar un navegador en CI es [N2]; si no, PE-04), prioridad avatar cargado > inicial y `avatarUrl` como enlace de texto sin `<img>` bajo la CSP de producción (D-19 A), ayuda de `avatarUrl` (SC-ALM-018..020) (REQ-AVA-002, REQ-AVA-003)
+- [x] T586 [US5] `PetAvatar`, `AvatarCropper` con respaldo JPEG y ayuda del campo `avatarUrl` en `PetForm`, con el enlace «Ver enlace externo» (REQ-AVA-002, REQ-AVA-003)
 - [x] T587 [P] [US5] Pruebas de paginación del álbum: 24 por página, orden determinista, página fuera de rango, `page = 0`, `loading="lazy"` en cada imagen (SC-ALM-021) (REQ-ALB-001, INV-ALB-001)
 - [x] T588 [US5] Endpoint y pantalla del álbum por mascota con imágenes completas y `loading="lazy"` (D-09, D-20 B) (REQ-ALB-001, INV-ALB-001)
 
@@ -186,11 +186,11 @@
 ## Phase 8: Seguridad, accesibilidad, cierre y despliegue
 
 - [x] T591 [P] `/trinity` y `/sentinels`: pruebas de seguridad de medios (IDOR entre mascotas y hogares, políglotas, SVG/HTML, CSRF y límite de tamaño en la subida, enumeración y límite por usuario del microchip) en `tests/security/` (INV-ARC-002, INV-ARC-001, REQ-ARC-002, REQ-PET4-001, REQ-PET4-002, INV-LOG-002)
-- [ ] T592 [P] `/seraph`: E2E con las cabeceras de CSP de producción y WCAG 2.1 AA a 320, 1024 y 1280 px del recortador, el visor y `PetForm` (REQ-AVA-002, REQ-FRM-002, REQ-ARC-003)
+- [x] T592 [P] `/seraph`: E2E con las cabeceras de CSP de producción y WCAG 2.1 AA a 320, 1024 y 1280 px del recortador, el visor y `PetForm` (REQ-AVA-002, REQ-FRM-002, REQ-ARC-003)
 - [ ] T593 [P] `/kid`: recorrido multi-navegador de un hogar compartido con medios de mascotas compartidas (REQ-ARC-002)
 - [ ] T594 [P] Comprobación de costo: `terraform plan` sin recursos de pago y cuenta de operaciones esperadas dentro del cupo (SC-ALM-024) (NFR-ALM-001)
 - [ ] T595 Runbook y `quickstart.md` de 004: retención 0 y ventana única de `REQ-PG-011` para los registros borrados, ventana de la cola de GCS (inmediata, <= 24 h, sin tope con alerta a las 48 h), aviso de eliminación de cuenta, restauración (`REQ-PG-016`) sin resurrección de medios y reaplicando borrados desde la auditoría, migración aditiva sin retroceso destructivo, no activar Data Access logs del bucket de medios, canal de resolución de microchip por Neo, métrica de bytes servidos (SC-ALM-033) (REQ-GCS-004, REQ-ACC-002, REQ-BOR-004, NFR-ALM-005, REQ-PET4-002, NFR-ALM-001)
-- [ ] T596 Compuertas finales: `npx tsc --noEmit`, `npm run test:gate`, `bash scripts/verify-traceability.sh --feature 004`, `bash scripts/verify-oracles.sh`; auditoría de `/oracle` (REQ-ESP-001, NFR-ALM-004)
+- [x] T596 Compuertas finales: `npx tsc --noEmit`, `npm run test:gate`, `bash scripts/verify-traceability.sh --feature 004`, `bash scripts/verify-oracles.sh`; auditoría de `/oracle` (REQ-ESP-001, NFR-ALM-004)
 - [ ] T597 [N2] Neo: despliegue por CI aprobado, `terraform apply` y verificación en vivo de subida, vista en línea (URL firmada, `iframe`, caducidad y CSP de producción), borrado físico, avatar, y prueba en un dispositivo móvil real (PE-04, PE-05, PE-06); firma `[x]` (REQ-GCS-001, REQ-GCS-002, REQ-ARC-003, REQ-GCS-004)
 
 ---
@@ -204,7 +204,7 @@
 | TECHDEBT-004-03 | galería del hogar (feature 005) | decisión de producto de la 005 | `D-12` B |
 | TECHDEBT-004-04 | tope de píxeles y miniaturas de las fotos | página del álbum con > 3 s hasta la primera imagen en 4G simulado, o cierre de pestaña por memoria con fotos reales | `D-20` B, `D-09` |
 | TECHDEBT-004-05 | altas de razas del catálogo (`0.2.0`) | validación de `/maggie` y veterinario (`PE-03`) | MAG-004-013, 014 |
-| TECHDEBT-004-06 | límite por IP en el login: limitador en la aplicación (`src/`) o Cloud Armor en `terraform/`, a decidir en una feature posterior; hoy solo mitiga el hash costoso uniforme (`INV-AUTH-006`) | feature posterior de endurecimiento del login, o evidencia de fuerza bruta distribuida contra cuentas con correo conocido (tope efectivo 10 intentos por ventana) | `RR-07`, H-T591R-1 (decisión de Neo 2026-11-17; firma pendiente) |
+| TECHDEBT-004-06 | límite por IP en el login: limitador en la aplicación (`src/`) o Cloud Armor en `terraform/`, a decidir en una feature posterior; hoy solo mitiga el hash costoso uniforme (`INV-AUTH-006`) | feature posterior de endurecimiento del login, o evidencia de fuerza bruta distribuida contra cuentas con correo conocido (tope efectivo 10 intentos por ventana) | `RR-07`, H-T591R-1 (decisión y firma de Neo 2026-11-17) |
 
 ## Mapa de trazabilidad ID → tareas (1:1 con `spec.md`; sin huérfanos)
 
