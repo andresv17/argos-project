@@ -1,22 +1,26 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-BACKUP-001",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "status": "REVIEW",
   "x-sdd-metadata": {
-    "version": "2.3.0",
+    "version": "2.4.0",
     "status": "REVIEW",
-    "supersedes": "2.2.0",
+    "supersedes": "2.3.0",
     "change_type": "MINOR",
-    "change_note": "MINOR: reconoce 3.0.0, 2.0.0 y 1.0.0; previsualización sin persistencia; endurecimiento P-14; criterio de fallo inyectado (SC-004); housekeeping posterior al commit (R4); fila IMPORT en la misma transacción.",
+    "change_note": "MINOR: reconoce 3.0.0, 2.0.0 y 1.0.0; previsualización sin persistencia; endurecimiento P-14; criterio de fallo inyectado (SC-004); housekeeping posterior al commit (R4); fila IMPORT en la misma transacción. 2.4.0 (MINOR, aprobada por Neo): microchip único global (REQ-PET4-001, INV-PET4-001); COMMITTING_SNAPSHOT añade UNIQUE_CONSTRAINT_VIOLATED a ROLLED_BACK con ERR-PET-MICROCHIP-DUPLICATE cuando la violación es de pets_microchip_global (otra violación sigue como STORAGE_ERROR); se corrige la descripción de CHECKING_DOMAIN_INVARIANTS.",
     "traceability": [
       "STATE-BACKUP-001",
       "REQ-BACKUP2-002",
       "REQ-BACKUP2-001",
       "INV-BACKUP-001",
       "REQ-AUD-001",
+      "REQ-PET4-001",
+      "REQ-IMP-001",
+      "INV-PET4-001",
       "SC-003",
-      "SC-004"
+      "SC-004",
+      "SC-CAT-024"
     ]
   },
   "machines": {
@@ -81,7 +85,7 @@
           }
         },
         "CHECKING_DOMAIN_INVARIANTS": {
-          "description": "Orden fijo: IDs únicos en todo el sobre y sin huérfanos; INV-PET-* y luego INV-REC-* por colección; peso por especie (INV-REC2-002); microchip único por propietario dentro del archivo; IDs ajenos comprobados en la misma transacción que la escritura (I-5). ownerUserId = usuario autenticado siempre, sin asignaciones.",
+          "description": "Orden fijo: IDs únicos en todo el sobre y sin huérfanos; INV-PET-* y luego INV-REC-* por colección; peso por especie (INV-REC2-002); microchip sin repetirse dentro del propio archivo (la colisión contra mascotas de otros usuarios NO se consulta aquí: la detecta solo la restricción pets_microchip_global en COMMITTING_SNAPSHOT, sin revelar al titular); IDs ajenos comprobados en la misma transacción que la escritura (I-5). ownerUserId = usuario autenticado siempre, sin asignaciones.",
           "on": {
             "ORPHAN_DUPLICATE_OR_FOREIGN_ID": {
               "target": "ROLLED_BACK",
@@ -118,9 +122,17 @@
           }
         },
         "COMMITTING_SNAPSHOT": {
-          "description": "En una transacción con bloqueo de escritura: borra las mascotas propias con sus 6 colecciones y asignaciones; inserta las del sobre con ownerUserId = usuario autenticado y sin asignaciones; inserta 1 fila IMPORT (USER, entityId = userId) con hashes del JSON canónico antes y después; poscondiciones (conteos iguales a la previsualización, ninguna mascota del usuario con asignación, foreign_key_check, filas de otros usuarios sin variación).",
+          "description": "En una transacción con bloqueo de escritura: borra las mascotas propias con sus 6 colecciones y asignaciones; inserta las del sobre con ownerUserId = usuario autenticado y sin asignaciones; inserta 1 fila IMPORT (USER, entityId = userId) con hashes del JSON canónico antes y después; poscondiciones (conteos iguales a la previsualización, ninguna mascota del usuario con asignación, foreign_key_check, filas de otros usuarios sin variación). Unicidad del microchip global: la detecta únicamente la restricción pets_microchip_global (REQ-PET4-001, INV-PET4-001), sin consulta previa por propietario.",
           "on": {
             "COMMIT_SUCCESS": "COMPLETED",
+            "UNIQUE_CONSTRAINT_VIOLATED": {
+              "target": "ROLLED_BACK",
+              "error": "PROPAGATE_SPECIFIC",
+              "allowedErrors": [
+                "ERR-PET-MICROCHIP-DUPLICATE"
+              ],
+              "guard": "violación de pets_microchip_global; otra violación → STORAGE_ERROR"
+            },
             "STORAGE_ERROR": {
               "target": "ROLLED_BACK",
               "error": "ERR-BACKUP-ATOMIC-ROLLBACK"

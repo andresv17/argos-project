@@ -1,6 +1,6 @@
 # Data Model: Cambios físicos de la Feature 004 (4A-1 y 4A-2)
 
-**Estado**: `DRAFT` (para aprobación de Neo). El modelo base es el de `specs/002-plataforma-v21/data-model.md` más el mapeo de `specs/003-cloud-gcp/data-model.md`. Aquí solo se listan los **deltas**. Toda migración es **Nivel 2** y se escribe en dos motores: SQLite (`0006`, `0007`) y Postgres (`0002`, `0003`), con prueba de paridad (`tests/integration/persistence/schema-parity.spec.ts`). **Enmienda única 2026-11-17**: recortes de `/mifune` (K-05, K-06, K-08, K-10) y mitigaciones de `/rama` y `/lock`. **Decisiones de Neo asentadas 2026-11-17**: `D-11` A y `D-03` C (borrado físico, **sin** `deleted_at`, `deleted_by_user_id` ni índices de purga), `D-16` A (columna `revision`), `D-12` B (sin galería) y `D-06` C (sin DOCX/XLSX).
+**Estado**: `DRAFT` (para aprobación de Neo). El modelo base es el de `specs/002-plataforma-v21/data-model.md` más el mapeo de `specs/003-cloud-gcp/data-model.md`. Aquí solo se listan los **deltas**. Toda migración es **Nivel 2** y se escribe en dos motores: SQLite (`0006`, `0009`) y Postgres (`0002`, `0005`), con prueba de paridad (`tests/integration/persistence/schema-parity.spec.ts`). **Enmienda única 2026-11-17**: recortes de `/mifune` (K-05, K-06, K-08, K-10) y mitigaciones de `/rama` y `/lock`. **Decisiones de Neo asentadas 2026-11-17**: `D-11` A y `D-03` C (borrado físico, **sin** `deleted_at`, `deleted_by_user_id` ni índices de purga), `D-16` A (columna `revision`), `D-12` B (sin galería) y `D-06` C (sin DOCX/XLSX).
 
 ## 1. Migración «catálogos, revisión, usuario y microchip» (SQLite `0006`, Postgres `0002`)
 
@@ -18,7 +18,7 @@
 
 El campo nuevo de la mascota `breedCode` vive en el documento `data` JSON de `pets` validado por Ajv, igual que `breed`; no requiere columna (no existe `breedOther`, K-08). Los campos `symptomType` y `severity` viven en el documento `data` de `custom_parameters`; los registros existentes tienen `symptomType = null`, `severity = null`. El estado del avatar **no** vive en el JSON (ver §2): un `PATCH` de la mascota que reescribe el documento no puede revertirlo. Las mascotas existentes quedan con `breedCode = null`.
 
-## 2. Migración «medios» (SQLite `0007`, Postgres `0003`)
+## 2. Migración «medios» (SQLite `0009`, Postgres `0005`)
 
 ### Columnas nuevas de `pets` (avatar)
 

@@ -109,7 +109,7 @@ Trazas: REQ-BOR-005, REQ-ARC-005, INV-REG-003, INV-AVA-001, INV-GCS-002.
 
 1. Phase 1 (T501..T509, T598, T612): decisiones de Neo (D-01..D-20, firmadas y asentadas), `/merovingian` (grafo de impacto y auditoría de la dependencia, T612), `/maggie`, `/sati`, `/lock`, `/rama`, `/mifune` (las cuatro últimas ya ejecutadas y integradas), pendientes externos, `/mouse`.
 2. Phase 2 (T510..T517): contratos (`/architect`), scripts (N2), compilación (`/keymaker`).
-3. Phases 3..5 (4A-1) y 6..7 (4A-2) en TDD; migraciones numeradas en orden `0002` (PG) / `0006` (SQLite) antes que `0003` / `0007`.
+3. Phases 3..5 (4A-1) y 6..7 (4A-2) en TDD; migraciones numeradas en orden `0002` (PG) / `0006` (SQLite) antes que `0005` / `0009`.
 4. Phase 8: seguridad, accesibilidad, costo, runbook, compuertas (`tsc`, `test:gate`, `verify-traceability --feature 004`, `verify-oracles`) y firma de Neo.
 
 Cada commit de implementación pasa por `/oracle` (`MAX_RETRY = 1`). Ninguna tarea pasa de `REVIEW` sin la firma de Neo.
