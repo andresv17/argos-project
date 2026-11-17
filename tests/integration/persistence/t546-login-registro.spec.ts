@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { LoginUseCase, RegisterUserUseCase } from '../../../src/application/use-cases/auth-use-cases.ts';
 import { InviteMemberUseCase } from '../../../src/application/use-cases/household-use-cases.ts';
 import { DomainError } from '../../../src/generated/index.ts';
-import { ANDRES, CARLOS, HOUSEHOLD, MARIA, PASSWORDS } from '../../fixtures/application-harness.ts';
+import { ANDRES, HOUSEHOLD, PASSWORDS } from '../../fixtures/application-harness.ts';
 import { ENGINE_NAMES, HAS_POSTGRES, account, idOf, openEngine, stateWith, type EngineName, type IdentityEngine } from '../../fixtures/identity-engines.ts';
 import { DUMMY_PASSWORD_HASH, FAKE_HASH_PREFIX } from '../../fixtures/test-doubles.ts';
 
@@ -63,7 +63,7 @@ async function failureOf(promise: Promise<unknown>): Promise<DomainError> {
 const shape = (e: DomainError) => [e.code, e.status, e.message, e.field, e.detail];
 
 describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (name) => {
-  const run = name === 'PostgreSQL' && !HAS_POSTGRES ? it.skip : it;
+  const run = it.skipIf(name === 'PostgreSQL' && !HAS_POSTGRES);
 
   run('[SC-CAT-016][REQ-LOG-002][INV-LOG-001][EDGE-009] «ana.perez» y «ANA.PEREZ» chocan con «Ana.Perez» (ERR-AUTH-USERNAME-TAKEN) sin crear nada; «maria_01» y «maria» coexisten', async () => {
     const engine = await open(name);
@@ -78,7 +78,8 @@ describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (n
 
   run('[SC-CAT-016][INV-LOG-001] la base impone la unicidad por LOWER(username) aunque el caso de uso no la compruebe: insertar «ANA.PEREZ» directo falla', async () => {
     const engine = await open(name);
-    await expect(engine.read((r) => r.users.insert(account(idOf(9), 'ANA.PEREZ', 'Clave2026x!')))).rejects.toThrow();
+    const inserted = await engine.read((r) => r.users.insert(account(idOf(9), 'ANA.PEREZ', 'Clave2026x!'))).then(() => 'resolved', () => 'rejected');
+    expect(inserted).toBe('rejected');
     expect(await engine.read((r) => r.users.listByIds([idOf(9)]))).toEqual([]);
   });
 
@@ -205,9 +206,7 @@ describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (n
     await invite.execute(ANDRES, HOUSEHOLD.id, { username: 'ANA.PEREZ', roleOnJoin: 'READER' });
     const mine = await engine.read((r) => r.invitations.listOpenForUser(ANA));
     expect(mine).toHaveLength(1);
-    expect(await engine.read((r) => r.invitations.findOpen(HOUSEHOLD.id, 'ana.perez'))).not.toBeNull();
-    // El resto del hogar sigue igual: María y Carlos no se tocan.
-    expect([MARIA, CARLOS].every((id) => typeof id === 'string')).toBe(true);
+    expect((await engine.read((r) => r.invitations.findOpen(HOUSEHOLD.id, 'ana.perez')))?.invitationId).toBe(open1?.invitationId);
   });
 });
 

@@ -26,8 +26,16 @@ export interface UserRepositoryPort {
    * y en memoria el candado de la transacción ya es de escritura). Va ANTES que el de la mascota (REQ-BOR-005, ADR-004-05).
    */
   findByIdForUpdate(userId: string): Promise<UserAccount | null>;
-  /** Búsqueda exacta por username ya normalizado (recortado y en minúsculas, INV-AUTH-001). */
+  /**
+   * Búsqueda por username SIN distinguir mayúsculas (`LOWER(username)`; el índice único `users_username_lower` garantiza a lo sumo una
+   * cuenta, INV-LOG-001, REQ-LOG-002). El valor guardado conserva la capitalización con que se registró.
+   */
   findByUsername(username: string): Promise<UserAccount | null>;
+  /**
+   * Cuentas cuyo correo coincide con `normalizedEmail` (recortado y en minúsculas) sin distinguir mayúsculas (`LOWER(email)`). El correo NO es
+   * único (002): devuelve hasta 2 filas, de modo que quien llama distingue «una sola cuenta» de «ambiguo» (REQ-LOG-001, EDGE-007).
+   */
+  listByEmail(normalizedEmail: string): Promise<UserAccount[]>;
   listByIds(userIds: readonly string[]): Promise<UserAccount[]>;
   /** Falla si el id o el username ya existen. */
   insert(user: UserAccount): Promise<void>;
@@ -56,7 +64,7 @@ export interface SessionRepositoryPort {
 }
 
 export interface LoginAttemptRepositoryPort {
-  /** Instantes de los fallos registrados para el username normalizado (INV-AUTH-005). */
+  /** Instantes de los fallos registrados para el identificador normalizado, en minúsculas (INV-AUTH-005, REQ-LOG-001). */
   listFailures(username: string): Promise<string[]>;
   replaceFailures(username: string, failures: readonly string[]): Promise<void>;
   /** Borra la entrada del username (la elimina de la cuenta, REQ-ACC-002). */
@@ -98,7 +106,7 @@ export interface InvitationRecord extends HouseholdInvitation {
 }
 
 export interface InvitationRepositoryPort {
-  /** La invitación INVITED del hogar para ese username, o null. */
+  /** La invitación INVITED del hogar para ese username (sin distinguir mayúsculas, REQ-LOG-002), o null. */
   findOpen(householdId: string, inviteeUsername: string): Promise<InvitationRecord | null>;
   /** Inserta o reemplaza por invitationId. Una segunda INVITED del mismo (hogar, username) se rechaza (INV-HOUSE-003). */
   save(invitation: InvitationRecord): Promise<void>;

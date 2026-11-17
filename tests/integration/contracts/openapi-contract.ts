@@ -49,12 +49,16 @@ const RECORDS_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/me
 // POST /backup/export como BackupEnvelopeV3 y la exportación ahora emite 3.1.0 (REQ-BACKUP2-001 de la 004); el arnés apunta esa respuesta a
 // BackupEnvelopeV31 del mismo OpenAPI de la 004, y se valida con el esquema completo (breedCode, symptomType y severity obligatorios, sin
 // propiedades adicionales). `mediaToDeleteCount` (ImportPreviewResult) es de la vista previa de T604/T605: ya se exige (T605 retiró su exención).
+// T549 (REQ-LOG-002, REQ-LOG-001): `Username` admite mayúsculas (`^[A-Za-z0-9._-]+$`) y `LoginInput.username` llega a 254 (identity.schema.json 3.1.0 de la 004, mismo $id).
+const IDENTITY_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/identity.schema.json';
 const BACKUP_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/backup-envelope.schema.json';
 const exportOk = (openapi.paths['/backup/export']!['post'] as { responses: Record<string, { content: Record<string, { schema: { $ref: string } }> }> }).responses['200']!.content['application/json']!.schema;
 exportOk.$ref = exportOk.$ref.replace('#/$defs/BackupEnvelopeV3', '#/$defs/BackupEnvelopeV31');
 for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) {
   if (file === 'medical-records.schema.json') {
     ajv.addSchema(JSON.parse(readFileSync(RECORDS_004, 'utf8')));
+  } else if (file === 'identity.schema.json') {
+    ajv.addSchema(JSON.parse(readFileSync(IDENTITY_004, 'utf8')));
   } else if (file === 'backup-envelope.schema.json') {
     // T605 (H-O-T617-2): `mediaToDeleteCount` ya lo devuelve la vista previa; se retira su exención y el arnés lo exige como `required`.
     ajv.addSchema(JSON.parse(readFileSync(BACKUP_004, 'utf8')));

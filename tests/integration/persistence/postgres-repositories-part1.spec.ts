@@ -91,8 +91,19 @@ describe('usuarios (T422, REQ-PG-002, INV-AUTH-003)', () => {
     expect(await r.users.findByUsername(HOSTILE)).toBeNull();
     expect(client.calls).toEqual([
       { sql: `${SELECT_USER} WHERE id = $1`, values: [ANDRES.id] },
-      { sql: `${SELECT_USER} WHERE username = $1`, values: [ANDRES.username] },
-      { sql: `${SELECT_USER} WHERE username = $1`, values: [HOSTILE] },
+      { sql: `${SELECT_USER} WHERE LOWER(username) = LOWER($1)`, values: [ANDRES.username] },
+      { sql: `${SELECT_USER} WHERE LOWER(username) = LOWER($1)`, values: [HOSTILE] },
+    ]);
+    expectParametrized(client.calls);
+  });
+
+  it('[REQ-LOG-001] listByEmail: LOWER(email) = LOWER($1) con LIMIT 2 y un solo parámetro posicional; devuelve las cuentas con el hash', async () => {
+    const { client, r } = await repos({ rows: [userRow()] }, { rows: [] });
+    expect(await r.users.listByEmail('andres@ejemplo.com')).toEqual([ANDRES]);
+    expect(await r.users.listByEmail(HOSTILE)).toEqual([]);
+    expect(client.calls).toEqual([
+      { sql: `${SELECT_USER} WHERE LOWER(email) = LOWER($1) LIMIT 2`, values: ['andres@ejemplo.com'] },
+      { sql: `${SELECT_USER} WHERE LOWER(email) = LOWER($1) LIMIT 2`, values: [HOSTILE] },
     ]);
     expectParametrized(client.calls);
   });
@@ -316,7 +327,7 @@ describe('código fuente (T422, INV-ARCH-006, T464)', () => {
     // Solo la sección de la parte 1: las partes 2 y 3 (T423, T424) tienen su propia verificación y constantes (nombres de tabla).
     const part1 = source().split('/** Tabla de cada módulo de registros')[0]!;
     const firstArguments = [...part1.matchAll(/client\.query\(\s*(`[^`]*`|'[^']*'|\w+)/g)].map((m) => m[1]!);
-    expect(firstArguments.length).toBe(21); // T601: +1 por users.findByIdForUpdate (SELECT … FOR UPDATE)
+    expect(firstArguments.length).toBe(22); // T547/T548: +1 por users.listByEmail (LOWER(email)); T601: +1 por users.findByIdForUpdate (SELECT … FOR UPDATE)
     for (const argument of firstArguments) {
       const interpolations = [...argument.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1]);
       expect(interpolations.filter((expr) => expr !== 'USER_COLUMNS')).toEqual([]);

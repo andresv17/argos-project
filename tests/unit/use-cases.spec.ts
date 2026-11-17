@@ -110,10 +110,10 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect(uow.snapshot().loginFailures['andres']).toEqual([]);
     const result = await login.execute({ username: 'andres', password: PASSWORDS['andres'] });
     expect(result).toEqual({
-      sessionToken: 'token-0001',
+      sessionToken: 'token-0002',
       session: { user: selfProfile(ANDRES), createdAt: NOW, lastActivityAt: NOW, idleExpiresAt: IDLE_AT, absoluteExpiresAt: ABSOLUTE_AT },
     });
-    expect([uow.snapshot().loginFailures['andres'], uow.snapshot().sessions['token-0001']]).toEqual([[], { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null }]);
+    expect([uow.snapshot().loginFailures['andres'], uow.snapshot().sessions['token-0002']]).toEqual([[], { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null }]);
   });
 
   it('[INV-AUTH-006][REQ-AUTH2-002] EDGE-012/EDGE-032: usuario inexistente y contraseña errónea dan el mismo error y una sola llamada a verify, la primera contra el hash ficticio', async () => {

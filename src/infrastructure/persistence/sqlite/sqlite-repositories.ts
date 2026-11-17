@@ -21,11 +21,12 @@ import { createHash } from 'node:crypto';
 import {
   DomainError,
   validateHousehold,
-  validateUserPublicProfile,
   type AuditEntry,
   type Household,
   type UserPublicProfile,
 } from '../../../generated/index.ts';
+// 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
+import { validateUserPublicProfile } from '../../../generated/v31/index.ts';
 import { isStoredPetProfile, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
@@ -212,7 +213,8 @@ interface MembershipRow {
 function userRepository(db: SqliteDatabase): UserRepositoryPort {
   const select = 'SELECT id, username, password_hash, email, preferred_language, timezone, data FROM users';
   const byId = db.prepare<[string], UserRow>(`${select} WHERE id = ?`);
-  const byUsername = db.prepare<[string], UserRow>(`${select} WHERE username = ?`);
+  const byUsername = db.prepare<[string], UserRow>(`${select} WHERE lower(username) = lower(?)`);
+  const byEmail = db.prepare<[string], UserRow>(`${select} WHERE lower(email) = lower(?) LIMIT 2`);
   const byIds = db.prepare<[string], UserRow>(`${select} WHERE id IN (SELECT value FROM json_each(?))`);
   const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone) VALUES (?, ?, ?, ?, ?, ?, ?)');
   const update = db.prepare('UPDATE users SET password_hash = ?, data = ?, email = ?, preferred_language = ?, timezone = ? WHERE id = ? AND username = ?');
@@ -252,6 +254,9 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
     async findByUsername(username) {
       const row = byUsername.get(username);
       return row === undefined ? null : toAccount(row);
+    },
+    async listByEmail(normalizedEmail) {
+      return byEmail.all(normalizedEmail).map(toAccount);
     },
     async listByIds(userIds) {
       return byIds.all(list(userIds)).map(toAccount);

@@ -4,7 +4,7 @@
  *   copia reemplaza al estado; si no, se descarta y la promesa se rechaza con el error original (INV-ARCH-005).
  * - Las transacciones se ejecutan en serie, en orden de llegada.
  * - Los objetos devueltos son copias: modificarlos no altera el estado guardado.
- * - Restricciones equivalentes a las de SQLite: id y username únicos en usuarios; id único por módulo de registros.
+ * - Restricciones equivalentes a las de SQLite: id y username (sin distinguir mayúsculas) únicos en usuarios; id único por módulo de registros.
  *
  * @implements INV-ARCH-004, INV-ARCH-005
  */
@@ -97,13 +97,16 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       return copy(state.users.find((u) => u.id === userId) ?? null); // las transacciones de memoria van en serie
     },
     async findByUsername(username) {
-      return copy(state.users.find((u) => u.username === username) ?? null);
+      return copy(state.users.find((u) => u.username.toLowerCase() === username.toLowerCase()) ?? null);
+    },
+    async listByEmail(normalizedEmail) {
+      return copy(state.users.filter((u) => u.email !== null && u.email.toLowerCase() === normalizedEmail.toLowerCase()).slice(0, 2));
     },
     async listByIds(userIds) {
       return copy(state.users.filter((u) => userIds.includes(u.id)));
     },
     async insert(user) {
-      if (state.users.some((u) => u.id === user.id || u.username === user.username)) {
+      if (state.users.some((u) => u.id === user.id || u.username.toLowerCase() === user.username.toLowerCase())) {
         throw new Error(`users: id o username duplicado (${user.id}, ${user.username})`);
       }
       state.users.push(copy(user));

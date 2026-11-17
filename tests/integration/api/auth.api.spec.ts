@@ -112,7 +112,7 @@ describe('inicio de sesión por HTTP (REQ-AUTH2-002)', () => {
     expect([old.status, old.cookie, (old.json as { user: { username: string } }).user.username]).toEqual([200, 'argos_session=token-0001', 'vieja.cuenta']);
   });
 
-  it('[REQ-AUTH2-002][INV-AUTH-006] usuario inexistente, contraseña errónea y username con otra capitalización dan el mismo 401 genérico, con una verificación por rama', async () => {
+  it('[REQ-AUTH2-002][INV-AUTH-006] usuario inexistente y contraseña errónea dan el mismo 401 genérico, con una verificación por rama; otra capitalización del username entra (REQ-LOG-002)', async () => {
     api = await createIdentityApi();
     const wrong = await api.call('POST', '/api/auth/login', { body: { username: 'ana.duena', password: 'incorrecta' } });
     api.hasher.reset();
@@ -121,11 +121,11 @@ describe('inicio de sesión por HTTP (REQ-AUTH2-002)', () => {
     api.hasher.reset();
     const exact = await api.call('POST', '/api/auth/login', { body: { username: 'Ana.Duena', password: IDENTITY_PASSWORDS['ana.duena'] } });
     const strip = (r: typeof wrong) => ({ ...(r.json as object), instance: null });
-    expect([problemOf(wrong), strip(wrong), ghostCalls, problemOf(exact), api.hasher.calls.filter((c) => c.method === 'verify').length]).toEqual([
+    expect([problemOf(wrong), strip(wrong), ghostCalls, exact.status, api.hasher.calls.filter((c) => c.method === 'verify').length]).toEqual([
       { status: 401, code: 'ERR-AUTH-INVALID-CREDENTIALS' },
       strip(ghost),
       1,
-      { status: 401, code: 'ERR-AUTH-INVALID-CREDENTIALS' },
+      200,
       1,
     ]);
   });

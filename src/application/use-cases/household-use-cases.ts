@@ -19,7 +19,6 @@ import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
   validateChangeRoleInput,
-  validateInviteMemberInput,
   validateTransferHouseholdOwnershipInput,
   type components,
   type Household,
@@ -28,6 +27,8 @@ import {
   type ChangeRoleInput,
   type TransferHouseholdOwnershipInput,
 } from '../../generated/index.ts';
+// 3.1.0 (feature 004): el username de la invitación admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
+import { validateInviteMemberInput } from '../../generated/v31/index.ts';
 import {
   applyMembershipEvent,
   changeMemberRole,

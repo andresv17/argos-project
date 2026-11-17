@@ -28,7 +28,7 @@ import {
 } from '../../generated/index.ts';
 import { isConfirmationTokenShape, planHouseholdsForDeletion, planPetAssignmentsForDeletion } from '../../domain/account/account-deletion-guards.ts';
 import { assertIanaTimeZone } from '../../domain/account/profile-policy.ts';
-import { assertNotLockedOut, evaluateLoginAttempt, invalidCredentialsError } from '../../domain/auth/auth-policies.ts';
+import { assertNotLockedOut, evaluateLoginAttempt, invalidCredentialsError, normalizeLoginIdentifier } from '../../domain/auth/auth-policies.ts';
 import { sessionStateAt } from '../../domain/auth/session-policy.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
@@ -47,11 +47,12 @@ async function requireAccount(repositories: RepositorySet, userId: string): Prom
  * conservador).
  */
 async function verifyCurrentPassword(deps: ApplicationDeps, repositories: RepositorySet, account: UserAccount, password: string, now: string): Promise<boolean> {
-  const failures = await repositories.loginAttempts.listFailures(account.username);
+  const failureKey = normalizeLoginIdentifier(account.username);
+  const failures = await repositories.loginAttempts.listFailures(failureKey);
   assertNotLockedOut(failures, now);
   const matches = await deps.hasher.verify(password, account.passwordHash);
   const outcome = evaluateLoginAttempt(failures, now, () => matches);
-  if (outcome.event === 'LOGIN_FAILURE') await repositories.loginAttempts.replaceFailures(account.username, outcome.failures);
+  if (outcome.event === 'LOGIN_FAILURE') await repositories.loginAttempts.replaceFailures(failureKey, outcome.failures);
   return matches;
 }
 
@@ -169,7 +170,7 @@ export class DeleteAccountUseCase {
       await repositories.sessions.deleteByUser(userId);
       await repositories.confirmationTokens.deleteForUser(userId);
       await repositories.rateLimits.deleteForUser(userId);
-      await repositories.loginAttempts.deleteFailures(account.username);
+      await repositories.loginAttempts.deleteFailures(normalizeLoginIdentifier(account.username));
       await repositories.users.delete(userId);
       // B10: poscondición: ninguna fila referencia al usuario.
       if ((await repositories.users.countReferences(userId)) !== 0) {

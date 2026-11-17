@@ -148,7 +148,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       expect((await read(uow, (r) => r.pets.findById(ARGOS.id)))!.name).toBe('Argos');
     });
 
-    it('[INV-ARCH-005] usuarios: búsqueda por id, username exacto y lista; id o username repetidos se rechazan', async () => {
+    it('[INV-ARCH-005] usuarios: búsqueda por id, username sin distinguir mayúsculas y lista; id o username (también por mayúsculas) repetidos se rechazan', async () => {
       const uow = await createUnitOfWork();
       await seed(uow, async (r) => {
         await r.users.insert(ANDRES);
@@ -161,9 +161,10 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
         missing: await r.users.findById('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa99'),
         list: sortedIds(await r.users.listByIds([MARIA.id, ANDRES.id, 'x'])),
       }));
-      expect(found).toEqual({ byId: MARIA, byUsername: ANDRES, otherCase: null, missing: null, list: [ANDRES.id, MARIA.id].sort() });
+      expect(found).toEqual({ byId: MARIA, byUsername: ANDRES, otherCase: ANDRES, missing: null, list: [ANDRES.id, MARIA.id].sort() });
       expect(await rejection(seed(uow, (r) => r.users.insert({ ...MARIA, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa77' })))).not.toBe('resolved');
       expect(await rejection(seed(uow, (r) => r.users.insert({ ...MARIA, username: 'otro' })))).not.toBe('resolved');
+      expect(await rejection(seed(uow, (r) => r.users.insert({ ...MARIA, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa78', username: 'ANDRES' })))).not.toBe('resolved');
     });
 
     it('[INV-ARCH-005] sesiones e intentos de login: guardar reemplaza y la lectura devuelve lo último guardado', async () => {

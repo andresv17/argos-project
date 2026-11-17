@@ -22,11 +22,12 @@
 import {
   DomainError,
   validateHousehold,
-  validateUserPublicProfile,
   type AuditEntry,
   type Household,
   type UserPublicProfile,
 } from '../../../generated/index.ts';
+// 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
+import { validateUserPublicProfile } from '../../../generated/v31/index.ts';
 import { isStoredPetProfile, type PetProfile, type PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
@@ -119,8 +120,12 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
       return rows[0] === undefined ? null : toAccount(rows[0]);
     },
     async findByUsername(username) {
-      const { rows } = await client.query(`${USER_COLUMNS} WHERE username = $1`, [username]);
+      const { rows } = await client.query(`${USER_COLUMNS} WHERE LOWER(username) = LOWER($1)`, [username]);
       return rows[0] === undefined ? null : toAccount(rows[0]);
+    },
+    async listByEmail(normalizedEmail) {
+      const { rows } = await client.query(`${USER_COLUMNS} WHERE LOWER(email) = LOWER($1) LIMIT 2`, [normalizedEmail]);
+      return rows.map(toAccount);
     },
     async listByIds(userIds) {
       const { rows } = await client.query(`${USER_COLUMNS} WHERE id = ANY($1::text[])`, [[...userIds]]);
