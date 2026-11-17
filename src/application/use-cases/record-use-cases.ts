@@ -1,325 +1,222 @@
 /**
- * Application Use Cases for the 6 Clinical & Biometric Historical Record Modules.
- * Strictly isolated per petId and free of direct clock or random entropy [INV-ARCH-001, INV-ARCH-002, INV-PET-003].
+ * Casos de uso de alta de los 6 módulos de registros. Orden de comprobación: acceso por la matriz
+ * (INV-PET-003, INV-ACC2-001/002: mascota inexistente o no visible, ERR-PET-NOT-FOUND; visible sin la acción del módulo,
+ * ERR-ACC-FORBIDDEN), luego esquema y dominio con validateRecordInput. El id y createdAt
+ * salen de los puertos solo si la entrada es válida; los opcionales ausentes se guardan como null.
+ * Las respuestas siguen el OpenAPI: WeightEntryView, VaccinationEntryView y DewormingEntryView para peso, vacuna y
+ * desparasitación; el registro tal cual para los demás.
  *
- * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-PET-003, INV-REC-001, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, STATE-ALERT-001, ERR-PET-NOT-FOUND, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004
+ * Edición y borrado de vacunas (REQ-REC2-003): un registro SUPERSEDED es inmutable con cualquier rol; borrar el posterior
+ * devuelve el anterior a vigente (SUPERSEDED se calcula, no se almacena).
+ *
+ * @implements REQ-REC2-003, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-PET-003, INV-ACC-002, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
-import {
-  DomainError,
-  type BodyMeasurementRecord,
-  type CreateBodyMeasurementInput,
-  type CreateCustomParameterInput,
-  type CreateDewormingInput,
-  type CreateMedicalVisitInput,
-  type CreateVaccinationInput,
-  type CreateWeightRecordInput,
-  type CustomParameterRecord,
-  type DewormingEntryView,
-  type DewormingRecord,
-  type MedicalVisitRecord,
-  type PetProfile,
-  type VaccinationEntryView,
-  type VaccinationRecord,
-  type WeightEntryView,
-  type WeightRecord,
-} from '../../generated/index.ts';
+import type { BodyMeasurementRecord, CustomParameterRecord, MedicalVisitRecord } from '../../generated/index.ts';
 import {
   evaluateDewormingAlerts,
   evaluateVaccinationAlerts,
+  type DewormingEntryView,
+  type VaccinationEntryView,
 } from '../../domain/alerts/sanitary-alert-evaluator.ts';
+import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import {
+  applyRecordUpdate,
   computeWeightEvolutionSeries,
-  validateBodyMeasurementRecordDomain,
-  validateCustomParameterRecordDomain,
-  validateDewormingRecordDomain,
-  validateMedicalVisitRecordDomain,
-  validateVaccinationRecordDomain,
-  validateWeightRecordDomain,
+  moduleOfCollection,
+  validateRecordInput,
+  type RecordModule,
+  type RecordOf,
+  type WeightEntryView,
 } from '../../domain/records/record-invariants.ts';
-import type { ClockPort } from '../ports/clock.port.ts';
-import type { IdGeneratorPort } from '../ports/id-generator.port.ts';
-import type { StorageRepositoryPort } from '../ports/storage-repository.port.ts';
+import type { RbacAction } from '../../domain/access/rbac.ts';
+import { assertRecordNotSuperseded } from '../../domain/records/superseded-guard.ts';
+import { DomainError } from '../../generated/index.ts';
+import { RECORD_ENTITY_TYPE, recordAudit } from './audit-support.ts';
+import { requirePetAction, type ApplicationDeps } from './use-case-support.ts';
 
-function requireExistingPet(repository: StorageRepositoryPort, petId: string): PetProfile {
-  const pet = repository.getPetById(petId);
-  if (!pet) {
-    throw new DomainError(
-      'ERR-PET-NOT-FOUND',
-      `No existe ninguna mascota registrada con id ${petId}.`,
-      'petId'
-    );
-  }
-  return pet;
-}
+/** Acción de la matriz que autoriza el alta de cada módulo (REQ-RBAC-001, REQ-REC-002/005/006). */
+const WRITE_ACTION: Readonly<Record<RecordModule, RbacAction>> = {
+  weights: 'WRITE_WEIGHTS_AND_MEASUREMENTS',
+  bodyMeasurements: 'WRITE_WEIGHTS_AND_MEASUREMENTS',
+  vaccinations: 'WRITE_HEALTH_EVENTS',
+  dewormings: 'WRITE_HEALTH_EVENTS',
+  medicalVisits: 'WRITE_APPOINTMENTS_AND_PARAMETERS',
+  customParameters: 'WRITE_APPOINTMENTS_AND_PARAMETERS',
+};
+
+/** Opcionales que el registro persistido exige como null cuando la entrada no los trae. */
+const NULLABLE_DEFAULTS: Readonly<Record<RecordModule, Readonly<Record<string, string | null>>>> = {
+  weights: { notes: null },
+  bodyMeasurements: { notes: null },
+  vaccinations: { category: 'VACCINE', nextBoosterAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
+  dewormings: { category: 'DEWORMING', nextSuggestedDoseAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
+  medicalVisits: { observations: null },
+  customParameters: { notes: null },
+};
 
 /**
- * Use Case 1: Control de Peso (Weight Record) [REQ-REC-001, INV-REC-001, INV-REC-002, INV-PET-003].
- *
- * @implements REQ-REC-001, INV-PET-003, INV-REC-001, INV-REC-002, ERR-PET-NOT-FOUND, ERR-REC-WEIGHT-OUT-OF-RANGE, INV-ARCH-001, INV-ARCH-002
+ * Alta genérica de un registro: acceso de escritura, validación, construcción y persistencia en una transacción.
+ * @implements INV-PET-003, INV-ACC-002
  */
-export class AddWeightRecordUseCase {
-  private readonly repository: StorageRepositoryPort;
-  private readonly clock: ClockPort;
-  private readonly idGenerator: IdGeneratorPort;
-
+abstract class AddRecordUseCase<M extends RecordModule, View> {
   constructor(
-    repository: StorageRepositoryPort,
-    clock: ClockPort,
-    idGenerator: IdGeneratorPort
-  ) {
-    this.repository = repository;
-    this.clock = clock;
-    this.idGenerator = idGenerator;
-  }
+    private readonly deps: ApplicationDeps,
+    private readonly module: M,
+  ) {}
 
-  public execute(input: CreateWeightRecordInput): WeightEntryView {
-    const pet = requireExistingPet(this.repository, input.petId);
-    const today = this.clock.todayIsoDate();
+  protected abstract present(record: RecordOf<M>, existing: PetRecordCollections, today: string): View;
 
-    const candidate: WeightRecord = {
-      id: this.idGenerator.nextId(),
-      petId: pet.id,
-      recordedAt: input.recordedAt,
-      weightKg: input.weightKg,
-      notes: input.notes ?? null,
-      createdAt: this.clock.nowIsoTimestamp(),
-    };
-
-    const validated = validateWeightRecordDomain(candidate, pet.birthDate, today);
-    this.repository.saveWeightRecord(validated);
-
-    const allWeights = this.repository.listWeightsByPet(pet.id);
-    const series = computeWeightEvolutionSeries(allWeights);
-    const createdEntry = series.find((entry) => entry.id === validated.id);
-
-    return (
-      createdEntry ?? {
-        ...validated,
-        deltaKg: null,
-      }
-    );
+  async execute(userId: string, petId: string, input: unknown): Promise<View> {
+    const today = this.deps.clock.todayIsoDate();
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION[this.module]);
+      const valid = validateRecordInput(this.module, input, pet.birthDate, today, pet.species);
+      const record = {
+        ...NULLABLE_DEFAULTS[this.module],
+        ...valid,
+        id: this.deps.ids.nextId(),
+        petId,
+        createdAt: this.deps.clock.nowIsoTimestamp(),
+      } as unknown as RecordOf<M>;
+      const existing = await repositories.records.listForPet(petId);
+      await repositories.records.add(this.module, record);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: RECORD_ENTITY_TYPE[this.module], entityId: record.id, previous: null, next: record });
+      return this.present(record, existing, today);
+    });
   }
 }
 
-/**
- * Use Case 2: Medidas Corporales (Body Measurements: neckCm, chestCm, backLengthCm, waistCm)
- * [REQ-REC-002, INV-REC-001, INV-REC-003, INV-PET-003].
- *
- * @implements REQ-REC-002, INV-PET-003, INV-REC-001, INV-REC-003, ERR-PET-NOT-FOUND, ERR-REC-MEASUREMENT-OUT-OF-RANGE, INV-ARCH-001, INV-ARCH-002
- */
-export class AddBodyMeasurementUseCase {
-  private readonly repository: StorageRepositoryPort;
-  private readonly clock: ClockPort;
-  private readonly idGenerator: IdGeneratorPort;
-
-  constructor(
-    repository: StorageRepositoryPort,
-    clock: ClockPort,
-    idGenerator: IdGeneratorPort
-  ) {
-    this.repository = repository;
-    this.clock = clock;
-    this.idGenerator = idGenerator;
+/** @implements REQ-REC2-001, INV-REC2-002, ERR-REC-WEIGHT-OUT-OF-RANGE */
+export class AddWeightRecordUseCase extends AddRecordUseCase<'weights', WeightEntryView> {
+  constructor(deps: ApplicationDeps) {
+    super(deps, 'weights');
   }
 
-  public execute(input: CreateBodyMeasurementInput): BodyMeasurementRecord {
-    const pet = requireExistingPet(this.repository, input.petId);
-    const today = this.clock.todayIsoDate();
-
-    const candidate: BodyMeasurementRecord = {
-      id: this.idGenerator.nextId(),
-      petId: pet.id,
-      recordedAt: input.recordedAt,
-      neckCm: input.neckCm,
-      chestCm: input.chestCm,
-      backLengthCm: input.backLengthCm,
-      waistCm: input.waistCm,
-      notes: input.notes ?? null,
-      createdAt: this.clock.nowIsoTimestamp(),
-    };
-
-    const validated = validateBodyMeasurementRecordDomain(candidate, pet.birthDate, today);
-    this.repository.saveBodyMeasurementRecord(validated);
-    return validated;
+  protected present(record: RecordOf<'weights'>, existing: PetRecordCollections): WeightEntryView {
+    return computeWeightEvolutionSeries([...existing.weights, record]).find((entry) => entry.record.id === record.id)!;
   }
 }
 
-/**
- * Use Case 3: Vacunación (Vaccination Record + STATE-ALERT-001 evaluation)
- * [REQ-REC-003, INV-REC-001, INV-REC-004, INV-REC-006, STATE-ALERT-001].
- *
- * @implements REQ-REC-003, INV-PET-003, INV-REC-001, INV-REC-004, INV-REC-006, STATE-ALERT-001, ERR-PET-NOT-FOUND, ERR-REC-INVALID-BOOSTER-DATE, INV-ARCH-001, INV-ARCH-002
- */
-export class AddVaccinationUseCase {
-  private readonly repository: StorageRepositoryPort;
-  private readonly clock: ClockPort;
-  private readonly idGenerator: IdGeneratorPort;
-
-  constructor(
-    repository: StorageRepositoryPort,
-    clock: ClockPort,
-    idGenerator: IdGeneratorPort
-  ) {
-    this.repository = repository;
-    this.clock = clock;
-    this.idGenerator = idGenerator;
+/** @implements REQ-REC-002 */
+export class AddBodyMeasurementUseCase extends AddRecordUseCase<'bodyMeasurements', BodyMeasurementRecord> {
+  constructor(deps: ApplicationDeps) {
+    super(deps, 'bodyMeasurements');
   }
 
-  public execute(input: CreateVaccinationInput): VaccinationEntryView {
-    const pet = requireExistingPet(this.repository, input.petId);
-    const today = this.clock.todayIsoDate();
-
-    const candidate: VaccinationRecord = {
-      id: this.idGenerator.nextId(),
-      petId: pet.id,
-      vaccineName: input.vaccineName,
-      appliedAt: input.appliedAt,
-      nextBoosterAt: input.nextBoosterAt,
-      batchOrClinic: input.batchOrClinic ?? null,
-      notes: input.notes ?? null,
-      createdAt: this.clock.nowIsoTimestamp(),
-    };
-
-    const validated = validateVaccinationRecordDomain(candidate, pet.birthDate, today);
-    this.repository.saveVaccinationRecord(validated);
-
-    const evaluated = evaluateVaccinationAlerts(
-      this.repository.listVaccinationsByPet(pet.id),
-      today
-    );
-    return evaluated.find((v) => v.id === validated.id)!;
+  protected present(record: BodyMeasurementRecord): BodyMeasurementRecord {
+    return record;
   }
 }
 
-/**
- * Use Case 4: Desparasitación (Deworming Record + STATE-ALERT-001 evaluation)
- * [REQ-REC-004, INV-REC-001, INV-REC-005, INV-REC-006, STATE-ALERT-001].
- *
- * @implements REQ-REC-004, INV-PET-003, INV-REC-001, INV-REC-005, INV-REC-006, STATE-ALERT-001, ERR-PET-NOT-FOUND, ERR-REC-INVALID-NEXT-DOSE-DATE, INV-ARCH-001, INV-ARCH-002
- */
-export class AddDewormingUseCase {
-  private readonly repository: StorageRepositoryPort;
-  private readonly clock: ClockPort;
-  private readonly idGenerator: IdGeneratorPort;
-
-  constructor(
-    repository: StorageRepositoryPort,
-    clock: ClockPort,
-    idGenerator: IdGeneratorPort
-  ) {
-    this.repository = repository;
-    this.clock = clock;
-    this.idGenerator = idGenerator;
+/** @implements REQ-REC-003 */
+export class AddVaccinationUseCase extends AddRecordUseCase<'vaccinations', VaccinationEntryView> {
+  constructor(deps: ApplicationDeps) {
+    super(deps, 'vaccinations');
   }
 
-  public execute(input: CreateDewormingInput): DewormingEntryView {
-    const pet = requireExistingPet(this.repository, input.petId);
-    const today = this.clock.todayIsoDate();
-
-    const candidate: DewormingRecord = {
-      id: this.idGenerator.nextId(),
-      petId: pet.id,
-      productBrand: input.productBrand,
-      dewormingType: input.dewormingType,
-      appliedAt: input.appliedAt,
-      nextSuggestedDoseAt: input.nextSuggestedDoseAt,
-      notes: input.notes ?? null,
-      createdAt: this.clock.nowIsoTimestamp(),
-    };
-
-    const validated = validateDewormingRecordDomain(candidate, pet.birthDate, today);
-    this.repository.saveDewormingRecord(validated);
-
-    const evaluated = evaluateDewormingAlerts(
-      this.repository.listDewormingsByPet(pet.id),
-      today
-    );
-    return evaluated.find((d) => d.id === validated.id)!;
+  protected present(record: RecordOf<'vaccinations'>, existing: PetRecordCollections, today: string): VaccinationEntryView {
+    return evaluateVaccinationAlerts([...existing.vaccinations, record], today).find((entry) => entry.record.id === record.id)!;
   }
 }
 
-/**
- * Use Case 5: Citas y Controles Médicos (Medical Visit Record)
- * [REQ-REC-005, INV-REC-001, INV-REC-006, INV-PET-003].
- *
- * @implements REQ-REC-005, INV-PET-003, INV-REC-001, INV-REC-006, ERR-PET-NOT-FOUND, INV-ARCH-001, INV-ARCH-002
- */
-export class AddMedicalVisitUseCase {
-  private readonly repository: StorageRepositoryPort;
-  private readonly clock: ClockPort;
-  private readonly idGenerator: IdGeneratorPort;
-
-  constructor(
-    repository: StorageRepositoryPort,
-    clock: ClockPort,
-    idGenerator: IdGeneratorPort
-  ) {
-    this.repository = repository;
-    this.clock = clock;
-    this.idGenerator = idGenerator;
+/** @implements REQ-REC-004 */
+export class AddDewormingUseCase extends AddRecordUseCase<'dewormings', DewormingEntryView> {
+  constructor(deps: ApplicationDeps) {
+    super(deps, 'dewormings');
   }
 
-  public execute(input: CreateMedicalVisitInput): MedicalVisitRecord {
-    const pet = requireExistingPet(this.repository, input.petId);
-    const today = this.clock.todayIsoDate();
-
-    const candidate: MedicalVisitRecord = {
-      id: this.idGenerator.nextId(),
-      petId: pet.id,
-      visitDate: input.visitDate,
-      reason: input.reason,
-      diagnosis: input.diagnosis,
-      treatment: input.treatment,
-      clinicOrVet: input.clinicOrVet,
-      observations: input.observations ?? null,
-      createdAt: this.clock.nowIsoTimestamp(),
-    };
-
-    const validated = validateMedicalVisitRecordDomain(candidate, pet.birthDate, today);
-    this.repository.saveMedicalVisitRecord(validated);
-    return validated;
+  protected present(record: RecordOf<'dewormings'>, existing: PetRecordCollections, today: string): DewormingEntryView {
+    return evaluateDewormingAlerts([...existing.dewormings, record], today).find((entry) => entry.record.id === record.id)!;
   }
 }
 
-/**
- * Use Case 6: Parámetros Adicionales (Custom Parameter Record)
- * [REQ-REC-006, INV-REC-001, INV-REC-006, INV-PET-003].
- *
- * @implements REQ-REC-006, INV-PET-003, INV-REC-001, INV-REC-006, ERR-PET-NOT-FOUND, INV-ARCH-001, INV-ARCH-002
- */
-export class AddCustomParameterUseCase {
-  private readonly repository: StorageRepositoryPort;
-  private readonly clock: ClockPort;
-  private readonly idGenerator: IdGeneratorPort;
-
-  constructor(
-    repository: StorageRepositoryPort,
-    clock: ClockPort,
-    idGenerator: IdGeneratorPort
-  ) {
-    this.repository = repository;
-    this.clock = clock;
-    this.idGenerator = idGenerator;
+/** @implements REQ-REC-005 */
+export class AddMedicalVisitUseCase extends AddRecordUseCase<'medicalVisits', MedicalVisitRecord> {
+  constructor(deps: ApplicationDeps) {
+    super(deps, 'medicalVisits');
   }
 
-  public execute(input: CreateCustomParameterInput): CustomParameterRecord {
-    const pet = requireExistingPet(this.repository, input.petId);
-    const today = this.clock.todayIsoDate();
+  protected present(record: MedicalVisitRecord): MedicalVisitRecord {
+    return record;
+  }
+}
 
-    const candidate: CustomParameterRecord = {
-      id: this.idGenerator.nextId(),
-      petId: pet.id,
-      recordedAt: input.recordedAt,
-      category: input.category,
-      title: input.title,
-      description: input.description,
-      notes: input.notes ?? null,
-      createdAt: this.clock.nowIsoTimestamp(),
-    };
+/** @implements REQ-REC-006 */
+export class AddCustomParameterUseCase extends AddRecordUseCase<'customParameters', CustomParameterRecord> {
+  constructor(deps: ApplicationDeps) {
+    super(deps, 'customParameters');
+  }
 
-    const validated = validateCustomParameterRecordDomain(candidate, pet.birthDate, today);
-    this.repository.saveCustomParameterRecord(validated);
-    return validated;
+  protected present(record: CustomParameterRecord): CustomParameterRecord {
+    return record;
+  }
+}
+
+/** Acción de la matriz que autoriza borrar cada módulo (REQ-RBAC-001): eventos de salud vs. el resto. */
+const DELETE_ACTION: Readonly<Record<RecordModule, RbacAction>> = {
+  weights: 'DELETE_OTHER_RECORDS',
+  bodyMeasurements: 'DELETE_OTHER_RECORDS',
+  vaccinations: 'DELETE_HEALTH_EVENTS',
+  dewormings: 'DELETE_HEALTH_EVENTS',
+  medicalVisits: 'DELETE_OTHER_RECORDS',
+  customParameters: 'DELETE_OTHER_RECORDS',
+};
+
+/** La colección de la ruta debe existir en el contrato (RecordCollection); si no, la ruta no existe: 404. */
+function moduleOrNotFound(collection: string): RecordModule {
+  const module = moduleOfCollection(collection);
+  if (module === undefined) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'collection');
+  return module;
+}
+
+/**
+ * Edición parcial de un registro de cualquiera de los 6 módulos. Orden: acceso (404 antes que 403) con la acción
+ * WRITE_* del módulo, existencia del registro en la mascota (ERR-PET-NOT-FOUND), esquema y dominio, y por último la
+ * guarda de inmutabilidad (409). Solo vacunas y desparasitaciones pueden estar SUPERSEDED.
+ * @implements REQ-REC2-003, REQ-RBAC-001, SC-015, ERR-REC-SUPERSEDED-IMMUTABLE, ERR-ACC-FORBIDDEN
+ */
+export class UpdateRecordUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(userId: string, petId: string, collection: string, recordId: string, input: unknown): Promise<RecordOf<RecordModule>> {
+    const module = moduleOrNotFound(collection);
+    const today = this.deps.clock.todayIsoDate();
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION[module]);
+      const existing = await repositories.records.listForPet(petId);
+      const current = (existing[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId) as RecordOf<RecordModule> | undefined;
+      if (current === undefined) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
+      const updated = applyRecordUpdate(module, current, input, pet.birthDate, today, pet.species);
+      assertRecordNotSuperseded(supersededStatus(module, existing, recordId, today));
+      await repositories.records.replace(module, updated);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: RECORD_ENTITY_TYPE[module], entityId: recordId, previous: current, next: updated });
+      return updated;
+    });
+  }
+}
+
+/** Estado de alerta del registro; los módulos sin semáforo nunca están reemplazados. */
+function supersededStatus(module: RecordModule, existing: PetRecordCollections, recordId: string, today: string): string {
+  if (module === 'vaccinations') return evaluateVaccinationAlerts(existing.vaccinations, today).find((e) => e.record.id === recordId)?.alert?.status ?? 'ACTIVE';
+  if (module === 'dewormings') return evaluateDewormingAlerts(existing.dewormings, today).find((e) => e.record.id === recordId)?.alert?.status ?? 'ACTIVE';
+  return 'ACTIVE';
+}
+
+/**
+ * Borra un registro de la mascota. Si era el posterior de su clave, el anterior vuelve a ser vigente.
+ * @implements REQ-REC2-003, REQ-RBAC-001, ERR-ACC-FORBIDDEN
+ */
+export class DeleteRecordUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(userId: string, petId: string, collection: string, recordId: string): Promise<void> {
+    const module = moduleOrNotFound(collection);
+    await this.deps.uow.runInTransaction(async (repositories) => {
+      await requirePetAction(repositories, userId, petId, DELETE_ACTION[module]);
+      const current = ((await repositories.records.listForPet(petId))[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId);
+      if (current === undefined || !(await repositories.records.remove(module, petId, recordId))) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: RECORD_ENTITY_TYPE[module], entityId: recordId, previous: current, next: null });
+    });
   }
 }

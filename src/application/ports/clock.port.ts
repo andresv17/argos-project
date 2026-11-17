@@ -1,18 +1,13 @@
 /**
- * Entropy-isolating ClockPort interface for the Application Layer.
- * Prohibits direct usage of global clock calls in Domain and Application [INV-ARCH-001].
+ * Reloj inyectado. Prohíbe relojes globales en domain/ y application/.
+ * - todayIsoDate(): fecha calendario YYYY-MM-DD en APP_TIMEZONE (por defecto America/Bogota).
+ * - nowIsoTimestamp(): UTC canónico YYYY-MM-DDTHH:mm:ss.sssZ.
+ * - timeZone: la zona IANA de la aplicación (APP_TIMEZONE); es la zona inicial del perfil (REQ-ACC-001, REQ-TIME-001).
  *
- * @implements INV-ARCH-001, INV-ARCH-004, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-BACKUP-001, REQ-BACKUP-002
+ * @implements INV-ARCH-001, INV-ARCH-004
  */
-
 export interface ClockPort {
-  /**
-   * Returns current local/system calendar date in ISO-8601 format (YYYY-MM-DD).
-   */
+  readonly timeZone: string;
   todayIsoDate(): string;
-
-  /**
-   * Returns current UTC timestamp in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ).
-   */
   nowIsoTimestamp(): string;
 }

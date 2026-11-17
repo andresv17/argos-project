@@ -1,0 +1,1125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/medical-records.schema.json",
+  "title": "MedicalRecordsSchema",
+  "description": "6 colecciones de registro histórico con peso por especie, campos clínicos completos y dosis opcional [REQ-REC2-001..003, REQ-REC-002/005/006]",
+  "x-sdd-metadata": {
+    "version": "3.0.0",
+    "status": "REVIEW",
+    "supersedes": "2.1.1",
+    "change_type": "MAJOR",
+    "change_note": "MAJOR: peso 0.001-150 kg con tabla por especie (cota provisional), vacunas y desparasitaciones con veterinario, colegiado y próxima fecha opcional.",
+    "traceability": [
+      "REQ-REC2-001",
+      "REQ-REC2-002",
+      "REQ-REC2-003",
+      "REQ-REC-002",
+      "REQ-REC-005",
+      "REQ-REC-006",
+      "INV-REC2-002",
+      "INV-REC-001",
+      "INV-REC-003",
+      "INV-REC-004",
+      "INV-REC-005",
+      "INV-REC-006",
+      "INV-PET-003",
+      "INV-SORT-001",
+      "STATE-ALERT-001"
+    ]
+  },
+  "$defs": {
+    "AlertStatus": {
+      "type": "string",
+      "enum": [
+        "UP_TO_DATE",
+        "DUE_SOON",
+        "OVERDUE",
+        "SUPERSEDED"
+      ]
+    },
+    "SpeciesWeightLimits": {
+      "const": {
+        "CANINE": {
+          "minKg": 0.05,
+          "maxKg": 150.0,
+          "decimals": 2,
+          "status": "VALIDATED_BY_SPEC"
+        },
+        "FELINE": {
+          "minKg": 0.05,
+          "maxKg": 150.0,
+          "decimals": 2,
+          "status": "VALIDATED_BY_SPEC"
+        },
+        "RABBIT": {
+          "minKg": 0.001,
+          "maxKg": 150.0,
+          "decimals": 3,
+          "status": "PROVISIONAL_MAX_TO_VALIDATE_BY_VET"
+        },
+        "FERRET": {
+          "minKg": 0.001,
+          "maxKg": 150.0,
+          "decimals": 3,
+          "status": "PROVISIONAL_MAX_TO_VALIDATE_BY_VET"
+        },
+        "BIRD": {
+          "minKg": 0.001,
+          "maxKg": 150.0,
+          "decimals": 3,
+          "status": "PROVISIONAL_MAX_TO_VALIDATE_BY_VET"
+        },
+        "REPTILE": {
+          "minKg": 0.001,
+          "maxKg": 150.0,
+          "decimals": 3,
+          "status": "PROVISIONAL_MAX_TO_VALIDATE_BY_VET"
+        },
+        "SMALL_MAMMAL": {
+          "minKg": 0.001,
+          "maxKg": 150.0,
+          "decimals": 3,
+          "status": "PROVISIONAL_MAX_TO_VALIDATE_BY_VET"
+        },
+        "OTHER": {
+          "minKg": 0.001,
+          "maxKg": 150.0,
+          "decimals": 3,
+          "status": "PROVISIONAL_MAX_TO_VALIDATE_BY_VET"
+        }
+      },
+      "description": "Tabla de INV-REC2-002 (Maggie, F4). El mínimo 0.001 kg y los 3 decimales están decididos (7B); la cota máxima de 150.000 kg para las seis especies pequeñas es PROVISIONAL, a validar por un veterinario (M1). Es una cota de plausibilidad de captura, no un límite clínico. Sin alertas automáticas de peso ni de edad para ninguna especie [INV-REC2-002, SC-013]"
+    },
+    "WeightRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "recordedAt",
+        "weightKg",
+        "notes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 150.0,
+          "multipleOf": 0.001,
+          "description": "Envolvente general (0.001-150, 3 decimales). El dominio estrecha por especie con SpeciesWeightLimits: CANINE/FELINE 0.05-150.00 con 2 decimales [INV-REC2-002]",
+          "x-sdd-error": "ERR-REC-WEIGHT-OUT-OF-RANGE"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      }
+    },
+    "CreateWeightInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedAt",
+        "weightKg"
+      ],
+      "properties": {
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 150.0,
+          "multipleOf": 0.001,
+          "description": "Envolvente general (0.001-150, 3 decimales). El dominio estrecha por especie con SpeciesWeightLimits: CANINE/FELINE 0.05-150.00 con 2 decimales [INV-REC2-002]",
+          "x-sdd-error": "ERR-REC-WEIGHT-OUT-OF-RANGE"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort"
+    },
+    "BodyMeasurementRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "recordedAt",
+        "neckCm",
+        "chestCm",
+        "backLengthCm",
+        "waistCm",
+        "notes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "neckCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "chestCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "backLengthCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "waistCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      }
+    },
+    "CreateBodyMeasurementInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedAt",
+        "neckCm",
+        "chestCm",
+        "backLengthCm",
+        "waistCm"
+      ],
+      "properties": {
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "neckCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "chestCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "backLengthCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "waistCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort"
+    },
+    "MedicalVisitRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "visitDate",
+        "reason",
+        "diagnosis",
+        "treatment",
+        "clinicOrVet",
+        "observations",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "visitDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "reason": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 200
+        },
+        "diagnosis": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "treatment": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "clinicOrVet": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "observations": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      }
+    },
+    "CreateMedicalVisitInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visitDate",
+        "reason",
+        "diagnosis",
+        "treatment",
+        "clinicOrVet"
+      ],
+      "properties": {
+        "visitDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "reason": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 200
+        },
+        "diagnosis": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "treatment": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "clinicOrVet": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "observations": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort"
+    },
+    "CustomParameterRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "recordedAt",
+        "category",
+        "title",
+        "description",
+        "notes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "DIET_CHANGE",
+            "ALLERGY",
+            "SURGERY",
+            "BEHAVIOR",
+            "OTHER"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 1000
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      }
+    },
+    "CreateCustomParameterInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedAt",
+        "category",
+        "title",
+        "description"
+      ],
+      "properties": {
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "DIET_CHANGE",
+            "ALLERGY",
+            "SURGERY",
+            "BEHAVIOR",
+            "OTHER"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 1000
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId llega por la ruta; id y createdAt los asigna el servidor vía IdGeneratorPort/ClockPort"
+    },
+    "VaccinationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "category",
+        "vaccineName",
+        "appliedAt",
+        "nextBoosterAt",
+        "batchOrClinic",
+        "veterinarianName",
+        "veterinarianLicense",
+        "notes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "category": {
+          "type": "string",
+          "const": "VACCINE"
+        },
+        "vaccineName": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 100
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextBoosterAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opcional; si existe, > appliedAt [INV-REC-004]. Nulo = no requiere próxima dosis y queda fuera del semáforo [REQ-REC2-002]"
+        },
+        "batchOrClinic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianLicense": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 60,
+          "description": "Texto libre sin patrón: el formato del colegiado varía por país. Dato de un tercero [REQ-REC2-002]"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      },
+      "description": "[REQ-REC2-002]"
+    },
+    "CreateVaccinationInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vaccineName",
+        "appliedAt"
+      ],
+      "properties": {
+        "vaccineName": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 100
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextBoosterAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opcional; si existe, > appliedAt [INV-REC-004]. Nulo = no requiere próxima dosis y queda fuera del semáforo [REQ-REC2-002]"
+        },
+        "batchOrClinic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianLicense": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 60,
+          "description": "Texto libre sin patrón: el formato del colegiado varía por país. Dato de un tercero [REQ-REC2-002]"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "petId por la ruta; id y createdAt los asigna el servidor. 'Requiere próxima dosis' es un indicador de interfaz derivado de nextBoosterAt != null, no un campo [REQ-REC2-002]"
+    },
+    "DewormingRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "category",
+        "productBrand",
+        "dewormingType",
+        "appliedAt",
+        "nextSuggestedDoseAt",
+        "batchOrClinic",
+        "veterinarianName",
+        "veterinarianLicense",
+        "notes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "category": {
+          "type": "string",
+          "const": "DEWORMING"
+        },
+        "productBrand": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 100
+        },
+        "dewormingType": {
+          "type": "string",
+          "enum": [
+            "INTERNAL",
+            "EXTERNAL"
+          ]
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextSuggestedDoseAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opcional; si existe, > appliedAt [INV-REC-005]. Nulo = no requiere próxima dosis y queda fuera del semáforo [REQ-REC2-002]"
+        },
+        "batchOrClinic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianLicense": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 60,
+          "description": "Texto libre sin patrón: el formato del colegiado varía por país. Dato de un tercero [REQ-REC2-002]"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      },
+      "description": "[REQ-REC2-002]"
+    },
+    "CreateDewormingInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "productBrand",
+        "dewormingType",
+        "appliedAt"
+      ],
+      "properties": {
+        "productBrand": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 100
+        },
+        "dewormingType": {
+          "type": "string",
+          "enum": [
+            "INTERNAL",
+            "EXTERNAL"
+          ]
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextSuggestedDoseAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opcional; si existe, > appliedAt [INV-REC-005]. Nulo = no requiere próxima dosis y queda fuera del semáforo [REQ-REC2-002]"
+        },
+        "batchOrClinic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianLicense": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 60,
+          "description": "Texto libre sin patrón: el formato del colegiado varía por país. Dato de un tercero [REQ-REC2-002]"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Ver CreateVaccinationInput [REQ-REC2-002]"
+    },
+    "UpdateWeightInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection"
+      ],
+      "properties": {
+        "collection": {
+          "type": "string",
+          "const": "weights",
+          "description": "Discriminante fijo de la variante; debe coincidir con el segmento {collection} de la ruta [F4-M1]"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 150.0,
+          "multipleOf": 0.001,
+          "description": "Envolvente general (0.001-150, 3 decimales). El dominio estrecha por especie con SpeciesWeightLimits: CANINE/FELINE 0.05-150.00 con 2 decimales [INV-REC2-002]",
+          "x-sdd-error": "ERR-REC-WEIGHT-OUT-OF-RANGE"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Parcial; exige el permiso de la matriz y rechaza registros SUPERSEDED con ERR-REC-SUPERSEDED-IMMUTABLE con cualquier rol [REQ-REC2-003, REQ-RBAC-001]",
+      "minProperties": 2
+    },
+    "UpdateBodyMeasurementInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection"
+      ],
+      "properties": {
+        "collection": {
+          "type": "string",
+          "const": "measurements",
+          "description": "Discriminante fijo de la variante; debe coincidir con el segmento {collection} de la ruta [F4-M1]"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "neckCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "chestCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "backLengthCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "waistCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Parcial; exige el permiso de la matriz y rechaza registros SUPERSEDED con ERR-REC-SUPERSEDED-IMMUTABLE con cualquier rol [REQ-REC2-003, REQ-RBAC-001]",
+      "minProperties": 2
+    },
+    "UpdateVaccinationInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection"
+      ],
+      "properties": {
+        "collection": {
+          "type": "string",
+          "const": "vaccinations",
+          "description": "Discriminante fijo de la variante; debe coincidir con el segmento {collection} de la ruta [F4-M1]"
+        },
+        "vaccineName": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 100
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextBoosterAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opcional; si existe, > appliedAt [INV-REC-004]. Nulo = no requiere próxima dosis y queda fuera del semáforo [REQ-REC2-002]"
+        },
+        "batchOrClinic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianLicense": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 60,
+          "description": "Texto libre sin patrón: el formato del colegiado varía por país. Dato de un tercero [REQ-REC2-002]"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Parcial; exige el permiso de la matriz y rechaza registros SUPERSEDED con ERR-REC-SUPERSEDED-IMMUTABLE con cualquier rol [REQ-REC2-003, REQ-RBAC-001]",
+      "minProperties": 2
+    },
+    "UpdateDewormingInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection"
+      ],
+      "properties": {
+        "collection": {
+          "type": "string",
+          "const": "dewormings",
+          "description": "Discriminante fijo de la variante; debe coincidir con el segmento {collection} de la ruta [F4-M1]"
+        },
+        "productBrand": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 100
+        },
+        "dewormingType": {
+          "type": "string",
+          "enum": [
+            "INTERNAL",
+            "EXTERNAL"
+          ]
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextSuggestedDoseAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opcional; si existe, > appliedAt [INV-REC-005]. Nulo = no requiere próxima dosis y queda fuera del semáforo [REQ-REC2-002]"
+        },
+        "batchOrClinic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianLicense": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 60,
+          "description": "Texto libre sin patrón: el formato del colegiado varía por país. Dato de un tercero [REQ-REC2-002]"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Parcial; exige el permiso de la matriz y rechaza registros SUPERSEDED con ERR-REC-SUPERSEDED-IMMUTABLE con cualquier rol [REQ-REC2-003, REQ-RBAC-001]",
+      "minProperties": 2
+    },
+    "UpdateMedicalVisitInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection"
+      ],
+      "properties": {
+        "collection": {
+          "type": "string",
+          "const": "visits",
+          "description": "Discriminante fijo de la variante; debe coincidir con el segmento {collection} de la ruta [F4-M1]"
+        },
+        "visitDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "reason": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 200
+        },
+        "diagnosis": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "treatment": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "clinicOrVet": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "observations": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Parcial; exige el permiso de la matriz y rechaza registros SUPERSEDED con ERR-REC-SUPERSEDED-IMMUTABLE con cualquier rol [REQ-REC2-003, REQ-RBAC-001]",
+      "minProperties": 2
+    },
+    "UpdateCustomParameterInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection"
+      ],
+      "properties": {
+        "collection": {
+          "type": "string",
+          "const": "custom-parameters",
+          "description": "Discriminante fijo de la variante; debe coincidir con el segmento {collection} de la ruta [F4-M1]"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "DIET_CHANGE",
+            "ALLERGY",
+            "SURGERY",
+            "BEHAVIOR",
+            "OTHER"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 1000
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Parcial; exige el permiso de la matriz y rechaza registros SUPERSEDED con ERR-REC-SUPERSEDED-IMMUTABLE con cualquier rol [REQ-REC2-003, REQ-RBAC-001]",
+      "minProperties": 2
+    },
+    "RecordCollection": {
+      "type": "string",
+      "enum": [
+        "weights",
+        "measurements",
+        "vaccinations",
+        "dewormings",
+        "visits",
+        "custom-parameters"
+      ],
+      "description": "Segmento de ruta de las 6 colecciones"
+    }
+  }
+}

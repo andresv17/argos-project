@@ -1,0 +1,150 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Argos Operational API (Feature 003, Cloud GCP)
+  version: 1.0.0
+  description: >
+    Contrato operativo de la Feature 003: sondas de salud para Cloud Run y mantenimiento invocado por Cloud Scheduler.
+    Contiene 3 operaciones y NO toca contratos de dominio: ninguna ruta coincide con las 40 operaciones de la Feature 002
+    (specs/002-plataforma-v21/contracts/openapi/pet-tracker-api.openapi.yaml). Las rutas viven en la raiz del servidor
+    (sin prefijo /api). Ninguna respuesta expone identificadores de personas.
+    Los errores usan application/problem+json (RFC 9457) con codigos ya existentes del catalogo 002
+    (ERR-INTERNAL-UNEXPECTED, ERR-AUTH-UNAUTHENTICATED, ERR-ACC-FORBIDDEN); no se anade ningun ERR-* nuevo.
+  x-sdd-status: REVIEW
+  x-sdd-metadata:
+    version: 1.0.0
+    status: REVIEW
+    change_type: MINOR
+    change_note: Primer contrato operativo de la 003; solo rutas nuevas, sin cambios en 001 ni 002.
+    traceability: [REQ-CLD-004, REQ-CLD-007, REQ-SEC-007, INV-ARCH-003]
+servers:
+  - url: http://127.0.0.1:3100
+    description: Servidor local (SQLite)
+  - url: https://{service}.run.app
+    description: Cloud Run (el host real lo fija el despliegue)
+    variables:
+      service:
+        default: argos
+security: []
+tags:
+  - name: health
+  - name: ops
+
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      operationId: getHealthz
+      summary: "Sonda de vida del proceso, sin dependencias externas [REQ-CLD-004]"
+      x-sdd-requirements: [REQ-CLD-004]
+      security: []
+      responses:
+        '200':
+          description: Proceso vivo. Sin CSRF, sin sesion, sin acceso a la base de datos.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthzResponse' }
+  /readyz:
+    get:
+      tags: [health]
+      operationId: getReadyz
+      summary: "Sonda de disponibilidad (base accesible y migraciones aplicadas) [REQ-CLD-004]"
+      description: >
+        Resultado cacheado en memoria 60 s (D-17). Sin OIDC, sin CSRF. El 503 no revela la causa
+        (base inaccesible o migraciones faltantes).
+      x-sdd-requirements: [REQ-CLD-004]
+      security: []
+      responses:
+        '200':
+          description: Servicio listo para recibir trafico.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReadyzResponse' }
+        '503':
+          description: No listo. Cuerpo RFC 9457 con code ERR-INTERNAL-UNEXPECTED y sin detalle de la causa.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+  /internal/maintenance:
+    post:
+      tags: [ops]
+      operationId: runMaintenance
+      summary: "Purga programada invocada por Cloud Scheduler con OIDC [REQ-CLD-007, REQ-SEC-007]"
+      description: >
+        Autenticada solo con Bearer OIDC de la cuenta de servicio del Scheduler (audiencia = URL del servicio).
+        Ajena a cookies y a CSRF: queda excluida de la matriz CSRF y se prueba aparte (H-MERO-017).
+        La respuesta contiene unicamente conteos.
+      x-sdd-requirements: [REQ-CLD-007, REQ-SEC-007]
+      security:
+        - schedulerOidc: []
+      responses:
+        '200':
+          description: Purga ejecutada; solo conteos.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MaintenanceResult' }
+        '401':
+          description: Sin token OIDC o token invalido (ERR-AUTH-UNAUTHENTICATED).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '403':
+          description: Identidad OIDC valida pero ajena al Scheduler (ERR-ACC-FORBIDDEN).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+
+components:
+  securitySchemes:
+    schedulerOidc:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token OIDC emitido por Google para la cuenta de servicio del Scheduler; audiencia = URL del servicio.
+  headers:
+    NoStore:
+      description: Cache-Control no-store; las sondas nunca se cachean aguas arriba.
+      schema: { type: string, const: no-store }
+  schemas:
+    HealthzResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, const: ok }
+    ReadyzResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, const: ready }
+    MaintenanceResult:
+      type: object
+      additionalProperties: false
+      required: [sessionsPurged, confirmationTokensPurged, membershipsPurged, invitationsPurged, auditRowsPurged]
+      properties:
+        sessionsPurged: { type: integer, minimum: 0 }
+        confirmationTokensPurged: { type: integer, minimum: 0 }
+        membershipsPurged: { type: integer, minimum: 0 }
+        invitationsPurged: { type: integer, minimum: 0 }
+        auditRowsPurged: { type: integer, minimum: 0 }
+    ProblemDetails:
+      type: object
+      additionalProperties: false
+      description: RFC 9457 Problem Details; subconjunto operativo, identico en forma a ProblemDetails de specs/002-plataforma-v21/contracts/schemas/common.schema.json (sin finalState, que solo aplica a respaldos).
+      required: [type, code, title, status, detail, invariantRef]
+      properties:
+        type: { type: string, pattern: '^urn:argos:error:ERR-[A-Z0-9-]+$' }
+        code: { type: string, enum: [ERR-INTERNAL-UNEXPECTED, ERR-AUTH-UNAUTHENTICATED, ERR-ACC-FORBIDDEN] }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: string }
+        invariantRef: { type: string }
+        field: { type: [string, 'null'] }
+        instance: { type: [string, 'null'] }

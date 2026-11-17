@@ -9,6 +9,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    "types": ["node"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -18,5 +19,5 @@
     "noUnusedParameters": true,
     "skipLibCheck": true
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests", "vite.config.ts", "playwright.config.ts", "tailwind.config.ts"]
 }

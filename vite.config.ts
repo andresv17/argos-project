@@ -1,8 +1,20 @@
-export default {
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
   root: '.',
+  plugins: [react()],
   server: {
-    port: 5173,
+    host: '127.0.0.1',
+    port: Number(process.env['E2E_WEB_PORT'] ?? 5173),
     strictPort: true,
+    proxy: {
+      '/api': {
+        // El 3000 puede estar ocupado por otro servicio (p. ej. Grafana); por eso la API de desarrollo usa el 3100.
+        target: `http://127.0.0.1:${process.env['E2E_API_PORT'] ?? 3100}`,
+        changeOrigin: false,
+      },
+    },
   },
   build: {
     outDir: 'dist',
@@ -11,6 +23,21 @@ export default {
   test: {
     globals: false,
     environment: 'node',
-    include: ['tests/**/*.spec.ts'],
+    include: [
+      'tests/unit/**/*.spec.ts',
+      'tests/property/**/*.spec.ts',
+      'tests/integration/**/*.spec.ts',
+      'tests/security/**/*.spec.ts',
+    ],
+    // Constitución §5: líneas y ramas ≥ 95 % en src/domain/ y src/application/ (TASK-115).
+    coverage: {
+      provider: 'v8',
+      include: ['src/domain/**', 'src/application/**'],
+      // src/application/ports/** son interfaces puras sin sentencias ejecutables (decisión de Neo, 2026-11-14); el umbral sigue en 95.
+      exclude: ['src/application/ports/**'],
+      reporter: ['text-summary', 'json-summary'],
+      reportsDirectory: 'coverage',
+      thresholds: { lines: 95, branches: 95 },
+    },
   },
-};
+});

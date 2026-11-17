@@ -1,0 +1,102 @@
+name: Code Quality
+
+# T449 (REQ-CICD-007, REQ-CICD-011, SC-CLD-023): solo hadolint y actionlint, como binarios con versión y sha256 fijos,
+# más npm audit de producción como compuerta. Sin acciones de terceros (ni hadolint-action, ni rhysd/actionlint,
+# ni gitleaks-action). Sin terraform fmt/validate (los cubre infraestructura.yml) ni trivy (H-MIF-012).
+#
+# Acciones de los flujos de la 003 (REQ-CICD-011(a)); actions/* admite etiqueta mayor, el resto va por SHA de 40 caracteres:
+#   actions/checkout@v4                (actions/*, etiqueta mayor)  auto-pr, test-gate, deploy-argos, drift-detection, code-quality
+#   actions/setup-node@v4              (actions/*, etiqueta mayor)  test-gate, deploy-argos, drift-detection, code-quality
+#   actions/setup-python@v5            (actions/*, etiqueta mayor)  test-gate
+#   google-github-actions/auth         v3.0.0  7c6bc770dae815cd3e89ee6cdf493a5fab2cc093  deploy-argos
+#   docker/login-action                v4.8.0  8aa5831fb8d48d8f76594c7ddde61ae58019f550  deploy-argos
+#   hashicorp/setup-terraform          (pendiente: se fija por SHA en infraestructura.yml, T446)
+#
+# No aplican a Argos:
+#   deploy-functions.yml no aplica: Argos no usa Cloud Functions (REQ-CICD-007).
+#   Los flujos de VM de Mirror no aplican: Argos corre en Cloud Run, sin VM (REQ-CICD-007).
+#
+# Binarios (releases oficiales; sha256 cruzado con actionlint_1.7.12_checksums.txt y hadolint checksums.sha256):
+#   actionlint 1.7.12  actionlint_1.7.12_linux_amd64.tar.gz  https://github.com/rhysd/actionlint/releases/tag/v1.7.12
+#   hadolint   v2.15.1 hadolint-linux-x86_64                 https://github.com/hadolint/hadolint/releases/tag/v2.15.1
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [develop]
+
+concurrency:
+  group: code-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  hadolint:
+    name: hadolint (Dockerfile)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      HADOLINT_VERSION: v2.15.1
+      HADOLINT_SHA256: c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Instalar hadolint por sha256
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/hadolint" "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-linux-x86_64"
+          echo "${HADOLINT_SHA256}  $RUNNER_TEMP/hadolint" | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/hadolint"
+      - name: Analizar Dockerfile
+        run: |
+          "$RUNNER_TEMP/hadolint" Dockerfile
+
+  actionlint:
+    name: actionlint (flujos de GitHub Actions)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Instalar actionlint por sha256
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/actionlint.tar.gz" "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check --strict
+          mkdir "$RUNNER_TEMP/actionlint-bin"
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP/actionlint-bin" actionlint
+      - name: Analizar flujos
+        run: |
+          "$RUNNER_TEMP/actionlint-bin/actionlint" -color
+
+  npm-audit:
+    name: npm audit (dependencias de producción)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Auditar dependencias de producción
+        run: |
+          npm audit --omit=dev --audit-level=high
+
+  scan-secrets:
+    name: escaneo de secretos (repositorio)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Escanear secretos en archivos versionados (SC-CLD-004)
+        run: node scripts/scan-secrets.mjs repo

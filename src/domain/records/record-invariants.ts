@@ -1,292 +1,372 @@
 /**
- * Pure domain invariants for the 6 historical clinical & biometric modules:
- * 1. Weight Control (REQ-REC-001, INV-REC-002)
- * 2. Body Measurements (REQ-REC-002, INV-REC-003)
- * 3. Vaccinations (REQ-REC-003, INV-REC-004)
- * 4. Dewormings (REQ-REC-004, INV-REC-005)
- * 5. Medical Visits (REQ-REC-005, INV-REC-001, INV-REC-006)
- * 6. Custom Parameters (REQ-REC-006, INV-REC-001, INV-REC-006)
+ * Invariantes puras de los 6 módulos de registros clínicos y biométricos (v2).
+ * - REQ-REC-001 Peso, REQ-REC-002 Medidas, REQ-REC-003 Vacunación, REQ-REC-004 Desparasitación,
+ *   REQ-REC-005 Citas y controles, REQ-REC-006 Parámetros adicionales.
+ * - Precedencia: primero el esquema generado; un fallo sobre el valor de un campo con
+ *   x-sdd-error devuelve su código (weightKg → ERR-REC-WEIGHT-OUT-OF-RANGE; medidas → ERR-REC-MEASUREMENT-OUT-OF-RANGE);
+ *   un campo ausente, una propiedad no autorizada o cualquier otro fallo, ERR-SCHEMA-VALIDATION-FAILED (incluye
+ *   INV-REC-006 vía NonEmptyTrimmedString). Después el dominio: máx. 2 decimales exactos (INV-REC-002/003),
+ *   ventana temporal (INV-REC-001, en date-utils) y fecha siguiente estrictamente posterior (INV-REC-004/005).
+ * - El peso (REQ-REC2-001, INV-REC2-002) se valida contra la tabla de su especie en gramos enteros (weight-limits.ts); por
+ *   eso validar un peso exige la especie de la mascota. deltaKg se calcula en gramos enteros, sin redondeo (EDGE-034);
+ *   la 002 retira deltaPercent del contrato.
  *
- * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-REC-001, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-004
+ * @implements REQ-REC2-001, INV-REC2-002, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-REC-002, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE, INV-ARCH-001, INV-ARCH-004
  */
 
 import {
   DomainError,
-  hasMaxTwoDecimals,
-  isValidIsoCalendarDate,
-  validateBodyMeasurementRecordSchema,
-  validateCustomParameterRecordSchema,
-  validateDewormingRecordSchema,
-  validateMedicalVisitRecordSchema,
-  validateVaccinationRecordSchema,
-  validateWeightRecordSchema,
+  resolveFieldErrorCode,
+  validateBodyMeasurementRecord,
+  validateCreateBodyMeasurementInput,
+  validateCreateCustomParameterInput,
+  validateCreateDewormingInput,
+  validateCreateMedicalVisitInput,
+  validateCreateVaccinationInput,
+  validateCreateWeightInput,
+  validateCustomParameterRecord,
+  validateDewormingRecord,
+  validateMedicalVisitRecord,
+  validateUpdateBodyMeasurementInput,
+  validateUpdateCustomParameterInput,
+  validateUpdateDewormingInput,
+  validateUpdateMedicalVisitInput,
+  validateUpdateVaccinationInput,
+  validateUpdateWeightInput,
+  validateVaccinationRecord,
+  validateWeightRecord,
+  type BackupEnvelopeV3,
   type BodyMeasurementRecord,
+  type components,
+  type CreateBodyMeasurementInput,
+  type CreateCustomParameterInput,
+  type CreateDewormingInput,
+  type CreateMedicalVisitInput,
+  type CreateVaccinationInput,
+  type CreateWeightInput,
   type CustomParameterRecord,
   type DewormingRecord,
+  type ErrorCode,
   type MedicalVisitRecord,
+  type Species,
   type VaccinationRecord,
-  type WeightEntryView,
   type WeightRecord,
 } from '../../generated/index.ts';
 import { validateEventDateWindow } from '../shared/date-utils.ts';
 import { sortHistoricalRecords } from '../sorting/deterministic-sorter.ts';
+import { assertWeightWithinSpeciesLimits, weightKgToGrams } from './weight-limits.ts';
 
-export const MIN_WEIGHT_KG = 0.05;
-export const MAX_WEIGHT_KG = 150.0;
-export const MIN_MEASUREMENT_CM = 1.0;
-export const MAX_MEASUREMENT_CM = 250.0;
+export type WeightEntryView = components['schemas']['WeightEntryView'];
+type RecordCollections = BackupEnvelopeV3['records'];
+/** Las 6 colecciones del sobre v3: weights, bodyMeasurements, vaccinations, dewormings, medicalVisits, customParameters. */
+export type RecordModule = keyof RecordCollections;
+export type RecordOf<M extends RecordModule> = RecordCollections[M][number];
+
+export interface RecordInputs {
+  weights: CreateWeightInput;
+  bodyMeasurements: CreateBodyMeasurementInput;
+  vaccinations: CreateVaccinationInput;
+  dewormings: CreateDewormingInput;
+  medicalVisits: CreateMedicalVisitInput;
+  customParameters: CreateCustomParameterInput;
+}
+
+interface ValidatorWithErrors {
+  (data: unknown): boolean;
+  errors?: ReadonlyArray<{ instancePath: string; message?: string; params: Record<string, unknown> }> | null;
+}
+
+interface SchemaRef {
+  readonly name: string;
+  readonly validate: ValidatorWithErrors;
+}
+
+export interface RecordModuleRules {
+  readonly record: SchemaRef;
+  readonly input: SchemaRef;
+  /** Fecha del evento sujeta a INV-REC-001. */
+  readonly eventDateField: string;
+  /** Campo de peso en kg, validado por especie (INV-REC2-002); null en los módulos sin peso. */
+  readonly weightField: string | null;
+  /** Campos numéricos con máx. 2 decimales y el código de su invariante (INV-REC-003). */
+  readonly decimalFields: readonly string[];
+  readonly decimalError: ErrorCode | null;
+  /** Fecha que debe ser estrictamente posterior a eventDateField y su código (INV-REC-004/005). */
+  readonly nextDate: { readonly field: string; readonly error: ErrorCode } | null;
+}
+
+const ref = (name: string, validate: unknown): SchemaRef => ({ name, validate: validate as ValidatorWithErrors });
+const MEASUREMENT_FIELDS = ['neckCm', 'chestCm', 'backLengthCm', 'waistCm'] as const;
+
+/** Reglas por módulo, leídas de medical-records.schema.json y de la spec. */
+export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> = {
+  weights: {
+    record: ref('WeightRecord', validateWeightRecord),
+    input: ref('CreateWeightInput', validateCreateWeightInput),
+    eventDateField: 'recordedAt',
+    weightField: 'weightKg',
+    decimalFields: [],
+    decimalError: null,
+    nextDate: null,
+  },
+  bodyMeasurements: {
+    record: ref('BodyMeasurementRecord', validateBodyMeasurementRecord),
+    input: ref('CreateBodyMeasurementInput', validateCreateBodyMeasurementInput),
+    eventDateField: 'recordedAt',
+    weightField: null,
+    decimalFields: MEASUREMENT_FIELDS,
+    decimalError: 'ERR-REC-MEASUREMENT-OUT-OF-RANGE',
+    nextDate: null,
+  },
+  vaccinations: {
+    record: ref('VaccinationRecord', validateVaccinationRecord),
+    input: ref('CreateVaccinationInput', validateCreateVaccinationInput),
+    eventDateField: 'appliedAt',
+    weightField: null,
+    decimalFields: [],
+    decimalError: null,
+    nextDate: { field: 'nextBoosterAt', error: 'ERR-REC-INVALID-BOOSTER-DATE' },
+  },
+  dewormings: {
+    record: ref('DewormingRecord', validateDewormingRecord),
+    input: ref('CreateDewormingInput', validateCreateDewormingInput),
+    eventDateField: 'appliedAt',
+    weightField: null,
+    decimalFields: [],
+    decimalError: null,
+    nextDate: { field: 'nextSuggestedDoseAt', error: 'ERR-REC-INVALID-NEXT-DOSE-DATE' },
+  },
+  medicalVisits: {
+    record: ref('MedicalVisitRecord', validateMedicalVisitRecord),
+    input: ref('CreateMedicalVisitInput', validateCreateMedicalVisitInput),
+    eventDateField: 'visitDate',
+    weightField: null,
+    decimalFields: [],
+    decimalError: null,
+    nextDate: null,
+  },
+  customParameters: {
+    record: ref('CustomParameterRecord', validateCustomParameterRecord),
+    input: ref('CreateCustomParameterInput', validateCreateCustomParameterInput),
+    eventDateField: 'recordedAt',
+    weightField: null,
+    decimalFields: [],
+    decimalError: null,
+    nextDate: null,
+  },
+};
 
 /**
- * Validates that a mandatory text field is non-empty after trimming and does not contain
- * leading/trailing whitespace or exceed maxLength.
- *
- * @implements INV-REC-006, ERR-SCHEMA-VALIDATION-FAILED
+ * Regla 4 de la: el código anotado solo se aplica a fallos sobre el valor del campo anotado.
+ * Ajv siempre llena `errors` cuando la validación falla.
+ * @implements INV-REC-002, INV-REC-003, INV-REC-006, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE
  */
-export function validateNonEmptyTrimmedField(
-  value: string,
-  fieldName: string,
-  maxLength: number
-): string {
-  const trimmed = value.trim();
-  if (trimmed.length < 1 || trimmed.length > maxLength || value !== trimmed) {
-    throw new DomainError(
-      'ERR-SCHEMA-VALIDATION-FAILED',
-      `El campo obligatorio '${fieldName}' no puede estar vacío ni exceder ${maxLength} caracteres.`,
-      fieldName
-    );
+function assertSchema(schema: SchemaRef, value: unknown): void {
+  if (schema.validate(value)) return;
+  const error = schema.validate.errors![0]!;
+  const named = error.params['missingProperty'] ?? error.params['additionalProperty'];
+  if (typeof named === 'string') {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `${schema.name}: ${named} ${String(error.message)}.`, named);
   }
-  return trimmed;
+  const field = error.instancePath.split('/')[1] ?? null;
+  const annotated = resolveFieldErrorCode(schema.name, error.instancePath);
+  if (annotated !== undefined) {
+    throw new DomainError(annotated, undefined, field);
+  }
+  throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `${schema.name}: ${field ?? '(raíz)'} ${String(error.message)}.`, field);
 }
 
 /**
- * Validates biometric weight value: 0.05 <= weightKg <= 150.00 and max 2 decimal places.
- *
- * @implements REQ-REC-001, INV-REC-002, ERR-REC-WEIGHT-OUT-OF-RANGE
+ * Máx. 2 decimales exactos: el valor coincide con su redondeo a centésimas. El esquema generado usa
+ * multipleOfPrecision 2, que tolera restos menores de 0.01 centésimas (p. ej. 46.5 + 1e-13), así que el dominio lo cierra.
+ * @implements INV-REC-003
  */
-export function validateWeightKgInvariant(weightKg: number): void {
-  if (
-    typeof weightKg !== 'number' ||
-    !Number.isFinite(weightKg) ||
-    weightKg < MIN_WEIGHT_KG ||
-    weightKg > MAX_WEIGHT_KG ||
-    !hasMaxTwoDecimals(weightKg)
-  ) {
-    throw new DomainError(
-      'ERR-REC-WEIGHT-OUT-OF-RANGE',
-      `El peso (${String(weightKg)} kg) debe situarse entre ${MIN_WEIGHT_KG} kg y ${MAX_WEIGHT_KG} kg con máximo 2 decimales.`,
-      'weightKg'
-    );
-  }
+export function hasAtMostTwoDecimals(value: number): boolean {
+  return Number(value.toFixed(2)) === value;
 }
 
 /**
- * Validates biometric body measurement dimensions: each of neckCm, chestCm, backLengthCm, waistCm
- * must satisfy 1.00 <= value <= 250.00 cm with max 2 decimal places.
- *
- * @implements REQ-REC-002, INV-REC-003, ERR-REC-MEASUREMENT-OUT-OF-RANGE
+ * Reglas de dominio de un registro o entrada ya válidos según su esquema. El peso exige la especie de la mascota.
+ * @implements INV-REC2-002, INV-REC-003, INV-REC-004, INV-REC-005, ERR-REC-DATE-BEFORE-BIRTH, ERR-REC-FUTURE-EVENT-DATE, ERR-REC-INVALID-BOOSTER-DATE, ERR-REC-INVALID-NEXT-DOSE-DATE
  */
-export function validateBodyMeasurementsInvariants(dimensions: {
-  readonly neckCm: number;
-  readonly chestCm: number;
-  readonly backLengthCm: number;
-  readonly waistCm: number;
-}): void {
-  const fields: Array<keyof typeof dimensions> = [
-    'neckCm',
-    'chestCm',
-    'backLengthCm',
-    'waistCm',
-  ];
-
-  for (const field of fields) {
-    const val = dimensions[field];
-    if (
-      typeof val !== 'number' ||
-      !Number.isFinite(val) ||
-      val < MIN_MEASUREMENT_CM ||
-      val > MAX_MEASUREMENT_CM ||
-      !hasMaxTwoDecimals(val)
-    ) {
-      throw new DomainError(
-        'ERR-REC-MEASUREMENT-OUT-OF-RANGE',
-        `La medida corporal ${field} (${String(val)} cm) debe situarse entre ${MIN_MEASUREMENT_CM} cm y ${MAX_MEASUREMENT_CM} cm con máximo 2 decimales.`,
-        field
-      );
+function assertDomainRules(
+  rules: RecordModuleRules,
+  value: Record<string, unknown>,
+  petBirthDate: string,
+  currentDate: string,
+  species: Species | undefined,
+): void {
+  if (rules.weightField !== null) {
+    if (species === undefined) {
+      throw new Error('El peso se valida con la especie de la mascota (INV-REC2-002): falta species.');
+    }
+    assertWeightWithinSpeciesLimits(species, value[rules.weightField] as number, rules.weightField);
+  }
+  for (const field of rules.decimalFields) {
+    if (!hasAtMostTwoDecimals(value[field] as number)) {
+      throw new DomainError(rules.decimalError!, `${field} admite como máximo 2 decimales.`, field);
+    }
+  }
+  const eventDate = value[rules.eventDateField] as string;
+  validateEventDateWindow(eventDate, petBirthDate, currentDate, rules.eventDateField);
+  if (rules.nextDate !== null) {
+    const { field, error } = rules.nextDate;
+    const nextDate = value[field] as string;
+    if (nextDate <= eventDate) {
+      throw new DomainError(error, `${field} (${nextDate}) debe ser estrictamente posterior a ${rules.eventDateField} (${eventDate}).`, field);
     }
   }
 }
 
 /**
- * Validates that nextBoosterAt is strictly greater than appliedAt (YYYY-MM-DD lexicographical comparison).
- *
- * @implements REQ-REC-003, INV-REC-004, ERR-REC-INVALID-BOOSTER-DATE
+ * Valida la entrada de alta de un módulo (petId llega por la ruta; id y createdAt los asigna el servidor).
+ * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
  */
-export function validateVaccinationBoosterDate(appliedAt: string, nextBoosterAt: string): void {
-  if (!isValidIsoCalendarDate(appliedAt) || !isValidIsoCalendarDate(nextBoosterAt)) {
-    throw new DomainError(
-      'ERR-SCHEMA-VALIDATION-FAILED',
-      'Las fechas appliedAt y nextBoosterAt deben tener formato ISO-8601 YYYY-MM-DD válido.',
-      'nextBoosterAt'
-    );
-  }
-  if (nextBoosterAt <= appliedAt) {
-    throw new DomainError(
-      'ERR-REC-INVALID-BOOSTER-DATE',
-      `La fecha de próximo refuerzo (${nextBoosterAt}) debe ser estrictamente posterior a la fecha de aplicación (${appliedAt}).`,
-      'nextBoosterAt'
-    );
-  }
-}
-
-/**
- * Validates that nextSuggestedDoseAt is strictly greater than appliedAt (YYYY-MM-DD comparison).
- *
- * @implements REQ-REC-004, INV-REC-005, ERR-REC-INVALID-NEXT-DOSE-DATE
- */
-export function validateDewormingNextDoseDate(
-  appliedAt: string,
-  nextSuggestedDoseAt: string
-): void {
-  if (!isValidIsoCalendarDate(appliedAt) || !isValidIsoCalendarDate(nextSuggestedDoseAt)) {
-    throw new DomainError(
-      'ERR-SCHEMA-VALIDATION-FAILED',
-      'Las fechas appliedAt y nextSuggestedDoseAt deben tener formato ISO-8601 YYYY-MM-DD válido.',
-      'nextSuggestedDoseAt'
-    );
-  }
-  if (nextSuggestedDoseAt <= appliedAt) {
-    throw new DomainError(
-      'ERR-REC-INVALID-NEXT-DOSE-DATE',
-      `La fecha de próxima dosis sugerida (${nextSuggestedDoseAt}) debe ser estrictamente posterior a la fecha de aplicación (${appliedAt}).`,
-      'nextSuggestedDoseAt'
-    );
-  }
-}
-
-/**
- * Validates a complete WeightRecord against domain invariants and schema contract.
- *
- * @implements REQ-REC-001, INV-REC-001, INV-REC-002
- */
-export function validateWeightRecordDomain(
-  record: WeightRecord,
+export function validateRecordInput<M extends RecordModule>(
+  module: M,
+  input: unknown,
   petBirthDate: string,
-  currentDate: string
-): WeightRecord {
-  validateEventDateWindow(record.recordedAt, petBirthDate, currentDate, 'recordedAt');
-  validateWeightKgInvariant(record.weightKg);
-  return validateWeightRecordSchema(record);
+  currentDate: string,
+  species?: Species,
+): RecordInputs[M] {
+  const rules = RECORD_MODULES[module];
+  assertSchema(rules.input, input);
+  assertDomainRules(rules, input as Record<string, unknown>, petBirthDate, currentDate, species);
+  return input as RecordInputs[M];
+}
+
+/** Módulos con edición parcial (PATCH): los 6 (REQ-REC2-003). */
+export type EditableRecordModule = RecordModule;
+const UPDATE_SCHEMAS: Readonly<Record<EditableRecordModule, { readonly collection: string; readonly schema: SchemaRef }>> = {
+  weights: { collection: 'weights', schema: ref('UpdateWeightInput', validateUpdateWeightInput) },
+  bodyMeasurements: { collection: 'measurements', schema: ref('UpdateBodyMeasurementInput', validateUpdateBodyMeasurementInput) },
+  vaccinations: { collection: 'vaccinations', schema: ref('UpdateVaccinationInput', validateUpdateVaccinationInput) },
+  dewormings: { collection: 'dewormings', schema: ref('UpdateDewormingInput', validateUpdateDewormingInput) },
+  medicalVisits: { collection: 'visits', schema: ref('UpdateMedicalVisitInput', validateUpdateMedicalVisitInput) },
+  customParameters: { collection: 'custom-parameters', schema: ref('UpdateCustomParameterInput', validateUpdateCustomParameterInput) },
+};
+
+/** Módulo de la colección de la ruta `/records/{collection}` (RecordCollection del contrato); undefined si no existe. */
+export function moduleOfCollection(collection: string): RecordModule | undefined {
+  return (Object.keys(UPDATE_SCHEMAS) as RecordModule[]).find((m) => UPDATE_SCHEMAS[m].collection === collection);
 }
 
 /**
- * Validates a complete BodyMeasurementRecord against domain invariants and schema contract.
- *
- * @implements REQ-REC-002, INV-REC-001, INV-REC-003
+ * Edición parcial (REQ-REC2-003): valida el cuerpo contra UpdateXInput (la propiedad collection es obligatoria y debe ser la
+ * de la ruta; sin ella o con otra, ERR-SCHEMA-VALIDATION-FAILED), lo fusiona con el registro vigente y revalida el
+ * registro completo con las reglas de dominio (fecha del evento, próxima fecha posterior). El id y petId no cambian.
+ * @implements REQ-REC2-003, REQ-REC2-002, INV-REC-004
  */
+export function applyRecordUpdate<M extends EditableRecordModule>(
+  module: M,
+  existing: RecordOf<M>,
+  input: unknown,
+  petBirthDate: string,
+  currentDate: string,
+  species?: Species,
+): RecordOf<M> {
+  const { schema, collection } = UPDATE_SCHEMAS[module];
+  assertSchema(schema, input);
+  const { collection: declared, ...changes } = input as Record<string, unknown>;
+  if (declared !== collection) {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `${schema.name}: collection no coincide con la ruta.`, 'collection');
+  }
+  return validateRecord(module, { ...(existing as object), ...changes }, petBirthDate, currentDate, species);
+}
+
+/**
+ * Valida un registro completo de un módulo (alta ya construida, o importación de respaldo).
+ * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
+ */
+export function validateRecord<M extends RecordModule>(
+  module: M,
+  record: unknown,
+  petBirthDate: string,
+  currentDate: string,
+  species?: Species,
+): RecordOf<M> {
+  const rules = RECORD_MODULES[module];
+  assertSchema(rules.record, record);
+  assertDomainRules(rules, record as Record<string, unknown>, petBirthDate, currentDate, species);
+  return record as RecordOf<M>;
+}
+
+/** @implements REQ-REC2-001, INV-REC2-002 */
+export function validateWeightRecordDomain(record: WeightRecord, petBirthDate: string, currentDate: string, species: Species): WeightRecord {
+  return validateRecord('weights', record, petBirthDate, currentDate, species);
+}
+
+/** @implements REQ-REC-002, INV-REC-003 */
 export function validateBodyMeasurementRecordDomain(
   record: BodyMeasurementRecord,
   petBirthDate: string,
-  currentDate: string
+  currentDate: string,
 ): BodyMeasurementRecord {
-  validateEventDateWindow(record.recordedAt, petBirthDate, currentDate, 'recordedAt');
-  validateBodyMeasurementsInvariants({
-    neckCm: record.neckCm,
-    chestCm: record.chestCm,
-    backLengthCm: record.backLengthCm,
-    waistCm: record.waistCm,
-  });
-  return validateBodyMeasurementRecordSchema(record);
+  return validateRecord('bodyMeasurements', record, petBirthDate, currentDate);
 }
 
-/**
- * Validates a complete VaccinationRecord against domain invariants and schema contract.
- *
- * @implements REQ-REC-003, INV-REC-001, INV-REC-004, INV-REC-006
- */
+/** @implements REQ-REC-003, INV-REC-004 */
 export function validateVaccinationRecordDomain(
   record: VaccinationRecord,
   petBirthDate: string,
-  currentDate: string
+  currentDate: string,
 ): VaccinationRecord {
-  validateNonEmptyTrimmedField(record.vaccineName, 'vaccineName', 100);
-  validateEventDateWindow(record.appliedAt, petBirthDate, currentDate, 'appliedAt');
-  validateVaccinationBoosterDate(record.appliedAt, record.nextBoosterAt);
-  return validateVaccinationRecordSchema(record);
+  return validateRecord('vaccinations', record, petBirthDate, currentDate);
 }
 
-/**
- * Validates a complete DewormingRecord against domain invariants and schema contract.
- *
- * @implements REQ-REC-004, INV-REC-001, INV-REC-005, INV-REC-006
- */
-export function validateDewormingRecordDomain(
-  record: DewormingRecord,
-  petBirthDate: string,
-  currentDate: string
-): DewormingRecord {
-  validateNonEmptyTrimmedField(record.productBrand, 'productBrand', 100);
-  validateEventDateWindow(record.appliedAt, petBirthDate, currentDate, 'appliedAt');
-  validateDewormingNextDoseDate(record.appliedAt, record.nextSuggestedDoseAt);
-  return validateDewormingRecordSchema(record);
+/** @implements REQ-REC-004, INV-REC-005 */
+export function validateDewormingRecordDomain(record: DewormingRecord, petBirthDate: string, currentDate: string): DewormingRecord {
+  return validateRecord('dewormings', record, petBirthDate, currentDate);
 }
 
-/**
- * Validates a complete MedicalVisitRecord against domain invariants and schema contract.
- *
- * @implements REQ-REC-005, INV-REC-001, INV-REC-006
- */
+/** @implements REQ-REC-005, INV-REC-006 */
 export function validateMedicalVisitRecordDomain(
   record: MedicalVisitRecord,
   petBirthDate: string,
-  currentDate: string
+  currentDate: string,
 ): MedicalVisitRecord {
-  validateEventDateWindow(record.visitDate, petBirthDate, currentDate, 'visitDate');
-  validateNonEmptyTrimmedField(record.reason, 'reason', 200);
-  validateNonEmptyTrimmedField(record.diagnosis, 'diagnosis', 500);
-  validateNonEmptyTrimmedField(record.treatment, 'treatment', 500);
-  validateNonEmptyTrimmedField(record.clinicOrVet, 'clinicOrVet', 120);
-  return validateMedicalVisitRecordSchema(record);
+  return validateRecord('medicalVisits', record, petBirthDate, currentDate);
 }
 
-/**
- * Validates a complete CustomParameterRecord against domain invariants and schema contract.
- *
- * @implements REQ-REC-006, INV-REC-001, INV-REC-006
- */
+/** @implements REQ-REC-006, INV-REC-006 */
 export function validateCustomParameterRecordDomain(
   record: CustomParameterRecord,
   petBirthDate: string,
-  currentDate: string
+  currentDate: string,
 ): CustomParameterRecord {
-  validateEventDateWindow(record.recordedAt, petBirthDate, currentDate, 'recordedAt');
-  validateNonEmptyTrimmedField(record.title, 'title', 120);
-  validateNonEmptyTrimmedField(record.description, 'description', 1000);
-  return validateCustomParameterRecordSchema(record);
+  return validateRecord('customParameters', record, petBirthDate, currentDate);
 }
 
 /**
- * Computes the deterministic weight evolution series sorted by INV-SORT-001 (newest first),
- * where each record's deltaKg is the exact 2-decimal difference relative to the immediately
- * preceding chronological measurement (or null for the earliest measurement).
- *
- * @implements REQ-REC-001, INV-REC-002, INV-SORT-001
+ * INV-REC-006 para textos obligatorios fuera de los esquemas de registros (lo usa la capa de aplicación v1 hasta):
+ * trim().length >= 1, sin espacios extremos y como máximo maxLength caracteres.
+ * @implements INV-REC-006
+ */
+export function validateNonEmptyTrimmedField(value: string, fieldName: string, maxLength: number): string {
+  if (value.length < 1 || value.length > maxLength || value !== value.trim()) {
+    throw new DomainError(
+      'ERR-SCHEMA-VALIDATION-FAILED',
+      `El campo obligatorio '${fieldName}' no puede estar vacío, tener espacios extremos ni exceder ${maxLength} caracteres.`,
+      fieldName,
+    );
+  }
+  return value;
+}
+
+/**
+ * REQ-REC2-001: serie de evolución en el orden de INV-SORT-001 (más reciente primero). Cada entrada compara con la
+ * medición inmediata anterior en ese orden; la primera medición cronológica lleva deltaKg null. deltaKg se calcula con la
+ * diferencia de gramos enteros dividida por 1000, sin redondeo (equivale a la unidad más fina de la especie: centésimas
+ * para CANINE y FELINE, milésimas para las demás). La 002 retira deltaPercent del contrato.
+ * @implements REQ-REC2-001, INV-REC2-002
  */
 export function computeWeightEvolutionSeries(records: readonly WeightRecord[]): WeightEntryView[] {
-  const sortedDesc = sortHistoricalRecords(records);
-
-  return sortedDesc.map((current, index) => {
-    const previousChronological = sortedDesc[index + 1];
-    if (!previousChronological) {
-      return {
-        ...current,
-        deltaKg: null,
-      };
+  const sorted = sortHistoricalRecords(records);
+  return sorted.map((record, index) => {
+    const previous = sorted[index + 1];
+    if (previous === undefined) {
+      return { record, deltaKg: null };
     }
-    const rawDelta = current.weightKg - previousChronological.weightKg;
-    const roundedDelta = Math.round(rawDelta * 100) / 100;
-    return {
-      ...current,
-      deltaKg: Object.is(roundedDelta, -0) ? 0 : roundedDelta,
-    };
+    return { record, deltaKg: (weightKgToGrams(record.weightKg) - weightKgToGrams(previous.weightKg)) / 1000 };
   });
 }

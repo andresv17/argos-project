@@ -1,0 +1,112 @@
+/**
+ * Soporte común de los E2E de: altas por la API real (misma sesión que el navegador, con la cabecera CSRF)
+ * y la auditoría de accesibilidad con `@axe-core/playwright` a 320, 1024 y 1280 px (REQ-UI-004). No hay reglas
+ * propias: se usan las de axe-core con las etiquetas WCAG 2.1 A/AA y solo se filtra por impacto.
+ *
+ * @implements REQ-UI-004
+ */
+import AxeBuilder from '@axe-core/playwright';
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
+
+export const VIEWPORT_WIDTHS = [320, 1024, 1280] as const;
+/** Anchos de la v2.1 (REQ-UI2-008, SC-005): se añade el de 768 px, donde cambia el app shell. */
+export const VIEWPORT_WIDTHS_V21 = [320, 768, 1024, 1280] as const;
+const CSRF = { 'X-Argos-Request': '1' } as const;
+
+/** Fecha YYYY-MM-DD en America/Bogota (la zona del servidor de desarrollo) desplazada `days` días desde hoy. */
+export function isoDateFromToday(days: number): string {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+  const shifted = new Date(`${today}T12:00:00.000Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+}
+
+/** POST a la API con la cabecera CSRF; falla la prueba si la respuesta no es la esperada. */
+export async function apiPost<T = Record<string, unknown>>(request: APIRequestContext, path: string, data: unknown, expected = 201): Promise<T> {
+  const response = await request.post(`/api${path}`, { headers: CSRF, data });
+  expect(response.status(), `POST /api${path}: ${await response.text()}`).toBe(expected);
+  return (await response.json()) as T;
+}
+
+/** Respuesta de la API reducida a lo que comparan los E2E: estado HTTP, `code` del catálogo RFC 9457 (si es un problema) y cuerpo. */
+export interface ApiOutcome<T = unknown> {
+  readonly status: number;
+  readonly code: string | null;
+  readonly body: T;
+}
+
+/** Llamada a la API con la sesión del contexto; no afirma nada: la prueba compara `status` y `code`. Las escrituras llevan la cabecera CSRF. */
+export async function apiCall<T = unknown>(
+  request: APIRequestContext,
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  data?: unknown,
+): Promise<ApiOutcome<T>> {
+  const response = await request.fetch(`/api${path}`, { method, headers: method === 'GET' ? {} : CSRF, ...(data === undefined ? {} : { data }) });
+  const text = await response.text();
+  const body = (text === '' ? null : JSON.parse(text)) as T;
+  const code = typeof body === 'object' && body !== null && 'code' in body ? String((body as { code: unknown }).code) : null;
+  return { status: response.status(), code, body };
+}
+
+/** Registra al usuario desde el contexto del navegador: la cookie de sesión queda en ese contexto (REQ-AUTH2-001). La contraseña debe cumplir INV-AUTH2-001. */
+export async function registerViaApi(request: APIRequestContext, username: string, displayName: string, password: string): Promise<void> {
+  await apiPost(request, '/auth/register', { username, displayName, password, confirmPassword: password });
+}
+
+export async function createPetViaApi(request: APIRequestContext, name: string, species: 'DOG' | 'CAT' | 'CANINE' | 'FELINE', birthDate = '2020-05-01'): Promise<string> {
+  const pet = await apiPost<{ id: string }>(request, '/pets', { name, species, breed: 'Mestiza', birthDate, sex: 'MALE', avatarUrl: null });
+  return pet.id;
+}
+
+/** Id del hogar con ese nombre entre los hogares ACTIVE del usuario del contexto. */
+export async function householdIdByName(request: APIRequestContext, name: string): Promise<string> {
+  const response = await request.get('/api/households');
+  const households = (await response.json()) as Array<{ household: { id: string; name: string } }>;
+  return households.find((h) => h.household.name === name)!.household.id;
+}
+
+/**
+ * axe-core (WCAG 2.1 A/AA) en los tres anchos. Devuelve las violaciones `critical`/`serious` y el desbordamiento
+ * horizontal como texto legible; la prueba espera la lista vacía. Restaura el ancho de escritorio al terminar.
+ */
+export async function accessibilityFindings(page: Page, screen: string): Promise<string[]> {
+  const findings: string[] = [];
+  for (const width of VIEWPORT_WIDTHS) {
+    await page.setViewportSize({ width, height: 900 });
+    const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    for (const violation of result.violations) {
+      if (violation.impact === 'critical' || violation.impact === 'serious') {
+        findings.push(`${screen}@${width}px ${violation.impact} ${violation.id}: ${violation.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+      }
+    }
+    if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) {
+      findings.push(`${screen}@${width}px desbordamiento horizontal`);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  return findings;
+}
+
+/**
+ * axe-core (WCAG 2.1 A/AA) en los anchos indicados (la Rebanada 6 usa `VIEWPORT_WIDTHS_V21`). Devuelve las violaciones `critical`/`serious` y el desbordamiento
+ * horizontal como texto legible; la prueba espera la lista vacía. Restaura el ancho de escritorio al terminar.
+ */
+export async function accessibilityFindingsAt(page: Page, screen: string, widths: readonly number[]): Promise<string[]> {
+  const findings: string[] = [];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    for (const violation of result.violations) {
+      if (violation.impact === 'critical' || violation.impact === 'serious') {
+        findings.push(`${screen}@${width}px ${violation.impact} ${violation.id}: ${violation.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+      }
+    }
+    if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) {
+      findings.push(`${screen}@${width}px desbordamiento horizontal`);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  return findings;
+}
+

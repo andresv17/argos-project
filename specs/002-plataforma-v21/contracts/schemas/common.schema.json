@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/common.schema.json",
+  "title": "CommonPrimitives",
+  "description": "Primitivas compartidas por todos los contratos de la Feature 002 [INV-REC-006, INV-SORT-001, REQ-AUD-001]",
+  "x-sdd-metadata": {
+    "version": "2.3.0",
+    "status": "REVIEW",
+    "supersedes": "2.2.0",
+    "change_type": "MINOR",
+    "change_note": "MINOR: añade Sha256Hex, HmacSha256Hex y ConfirmationToken. Sin cambios en las primitivas existentes ni en ProblemDetails.",
+    "traceability": [
+      "INV-REC-006",
+      "INV-SORT-001",
+      "INV-ARCH-001",
+      "REQ-AUD-001",
+      "INV-AUD-001",
+      "REQ-ACC-002"
+    ]
+  },
+  "$defs": {
+    "Uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUID v4 en minúsculas generado vía IdGeneratorPort"
+    },
+    "IsoDate": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "IsoTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "UTC canónico con milisegundos; garantiza orden lexicográfico = cronológico [INV-SORT-001]"
+    },
+    "NonEmptyTrimmedString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(.*\\S)?$"
+    },
+    "OptionalNotes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "OwnerColorToken": {
+      "type": "string",
+      "enum": [
+        "OWNER_COLOR_1",
+        "OWNER_COLOR_2",
+        "OWNER_COLOR_3",
+        "OWNER_COLOR_4",
+        "OWNER_COLOR_5",
+        "OWNER_COLOR_6",
+        "OWNER_COLOR_7",
+        "OWNER_COLOR_8"
+      ],
+      "description": "[INV-HOUSE-005]"
+    },
+    "ProblemDetails": {
+      "$anchor": "ProblemDetails",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "code",
+        "title",
+        "status",
+        "detail",
+        "invariantRef"
+      ],
+      "description": "RFC 9457 Problem Details (application/problem+json). Fuente única; referenciada por error-catalog.json y el OpenAPI.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "pattern": "^urn:argos:error:ERR-[A-Z0-9-]+$"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^ERR-[A-Z0-9-]+$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599
+        },
+        "detail": {
+          "type": "string"
+        },
+        "invariantRef": {
+          "type": "string"
+        },
+        "field": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "instance": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Ruta de la petición"
+        },
+        "finalState": {
+          "type": "string",
+          "enum": [
+            "ROLLED_BACK",
+            "UNKNOWN"
+          ],
+          "description": "Presente cuando el error se devuelve durante una importación de respaldo (STATE-BACKUP-001). ROLLED_BACK: el rollback terminó y el estado previo está restaurado. UNKNOWN: el rollback del almacenamiento falló (ROLLBACK_FAILED); la postcondición no está garantizada. Ausente en el resto de errores."
+        }
+      }
+    },
+    "Sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 en hexadecimal minúscula [REQ-AUD-001]"
+    },
+    "HmacSha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "HMAC-SHA256(ARGOS_AUDIT_HMAC_SECRET, userId) en hexadecimal minúscula; seudónimo del usuario eliminado [REQ-AUD-001, SC-014]"
+    },
+    "ConfirmationToken": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "description": "32 bytes aleatorios en base64url sin relleno; se entrega una sola vez y en la BD solo se guarda su SHA-256 [REQ-ACC-002, REQ-BACKUP2-001]"
+    }
+  }
+}

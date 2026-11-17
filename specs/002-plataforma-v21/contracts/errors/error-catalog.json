@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArgosDeterministicErrorCatalog",
+  "x-sdd-metadata": {
+    "version": "3.0.0",
+    "status": "REVIEW",
+    "supersedes": "2.1.1",
+    "change_type": "MAJOR",
+    "change_note": "MAJOR: se retiran ERR-AUTH-USER-NOT-FOUND y ERR-HOUSE-MEMBER-ALREADY-EXISTS (respuesta uniforme al invitar, R3); se añaden 7 errores; cambian política de contraseña, sesión, matriz de permisos, rango de peso y respaldo 3.0.0. Cada entrada añade type (urn RFC 9457) y requirementRef. PENDIENTES DE NEO (no oficiales hasta su aprobación): ERR-PET-MICROCHIP-DUPLICATE, ERR-RATE-LIMITED y la máquina STATE-ACCOUNT-DELETE-001 (citada en requirementRef/OpenAPI).",
+    "removed": [
+      "ERR-AUTH-USER-NOT-FOUND",
+      "ERR-HOUSE-MEMBER-ALREADY-EXISTS"
+    ],
+    "added": [
+      "ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD",
+      "ERR-ACCOUNT-OWNS-SHARED-PETS",
+      "ERR-ACCOUNT-CONFIRMATION-MISMATCH",
+      "ERR-REC-SUPERSEDED-IMMUTABLE",
+      "ERR-OWN-TRANSFER-INVALID-TARGET",
+      "ERR-PET-MICROCHIP-DUPLICATE",
+      "ERR-RATE-LIMITED"
+    ],
+    "pendingIds": [
+      "ERR-PET-MICROCHIP-DUPLICATE",
+      "ERR-RATE-LIMITED",
+      "STATE-ACCOUNT-DELETE-001"
+    ],
+    "traceability": [
+      "ERR-ACC-FORBIDDEN",
+      "ERR-ACCOUNT-CONFIRMATION-MISMATCH",
+      "ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD",
+      "ERR-ACCOUNT-OWNS-SHARED-PETS",
+      "ERR-AUTH-CSRF-REJECTED",
+      "ERR-AUTH-INVALID-CREDENTIALS",
+      "ERR-AUTH-TOO-MANY-ATTEMPTS",
+      "ERR-AUTH-UNAUTHENTICATED",
+      "ERR-AUTH-USERNAME-TAKEN",
+      "ERR-AUTH-WEAK-PASSWORD",
+      "ERR-BACKUP-ATOMIC-ROLLBACK",
+      "ERR-BACKUP-MALFORMED-JSON",
+      "ERR-BACKUP-PAYLOAD-TOO-LARGE",
+      "ERR-BACKUP-REFERENTIAL-INTEGRITY",
+      "ERR-BACKUP-SCHEMA-INVALID",
+      "ERR-BACKUP-VERSION-UNSUPPORTED",
+      "ERR-HOUSE-INVITATION-NOT-FOUND",
+      "ERR-HOUSE-MEMBERSHIP-NOT-FOUND",
+      "ERR-HOUSE-NOT-FOUND",
+      "ERR-HOUSE-OWNER-CANNOT-LEAVE",
+      "ERR-INTERNAL-UNEXPECTED",
+      "ERR-OWN-TRANSFER-INVALID-TARGET",
+      "ERR-PET-BIRTHDATE-AFTER-RECORDS",
+      "ERR-PET-FUTURE-BIRTHDATE",
+      "ERR-PET-MICROCHIP-DUPLICATE",
+      "ERR-PET-NOT-FOUND",
+      "ERR-RATE-LIMITED",
+      "ERR-REC-DATE-BEFORE-BIRTH",
+      "ERR-REC-FUTURE-EVENT-DATE",
+      "ERR-REC-INVALID-BOOSTER-DATE",
+      "ERR-REC-INVALID-NEXT-DOSE-DATE",
+      "ERR-REC-MEASUREMENT-OUT-OF-RANGE",
+      "ERR-REC-SUPERSEDED-IMMUTABLE",
+      "ERR-REC-WEIGHT-OUT-OF-RANGE",
+      "ERR-SCHEMA-VALIDATION-FAILED"
+    ]
+  },
+  "version": "3.0.0",
+  "status": "REVIEW",
+  "problemDetailsSchema": {
+    "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
+  },
+  "errors": {
+    "ERR-ACC-FORBIDDEN": {
+      "status": 403,
+      "title": "Acción no permitida",
+      "invariantRef": "INV-ACC2-002",
+      "detailTemplate": "Puedes ver este recurso pero tu rol no permite esta acción.",
+      "type": "urn:argos:error:ERR-ACC-FORBIDDEN",
+      "requirementRef": "REQ-RBAC-001, REQ-HOUSE2-002, REQ-OWN-001"
+    },
+    "ERR-ACCOUNT-CONFIRMATION-MISMATCH": {
+      "type": "urn:argos:error:ERR-ACCOUNT-CONFIRMATION-MISMATCH",
+      "status": 409,
+      "title": "Confirmación de eliminación inválida",
+      "invariantRef": "REQ-ACC-002",
+      "detailTemplate": "El token de confirmación del respaldo falta, está mal formado, caducó, ya fue usado o es ajeno. Descarga un respaldo nuevo para obtener otro token. No se realizaron cambios.",
+      "requirementRef": "REQ-ACC-002",
+      "change_note": "F4-A1: se devuelve también cuando backupConfirmationToken está ausente o mal formado (el esquema no lo rechaza); nunca ERR-SCHEMA-VALIDATION-FAILED por el token."
+    },
+    "ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD": {
+      "type": "urn:argos:error:ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD",
+      "status": 409,
+      "title": "La cuenta es propietaria de un hogar compartido",
+      "invariantRef": "INV-HOUSE2-001",
+      "detailTemplate": "Eres propietario de un hogar con otros miembros activos. Transfiere la propiedad o elimina el hogar antes de eliminar tu cuenta.",
+      "requirementRef": "REQ-ACC-002"
+    },
+    "ERR-ACCOUNT-OWNS-SHARED-PETS": {
+      "type": "urn:argos:error:ERR-ACCOUNT-OWNS-SHARED-PETS",
+      "status": 409,
+      "title": "La cuenta tiene mascotas compartidas",
+      "invariantRef": "INV-OWN2-001",
+      "detailTemplate": "Tienes mascotas asignadas a hogares con otros miembros activos. Transfiérelas o desasígnalas antes de eliminar tu cuenta.",
+      "requirementRef": "REQ-ACC-002"
+    },
+    "ERR-AUTH-CSRF-REJECTED": {
+      "status": 403,
+      "title": "Petición rechazada",
+      "invariantRef": "INV-AUTH-007",
+      "detailTemplate": "La petición no incluye la cabecera de protección X-Argos-Request.",
+      "type": "urn:argos:error:ERR-AUTH-CSRF-REJECTED",
+      "requirementRef": "INV-AUTH-007"
+    },
+    "ERR-AUTH-INVALID-CREDENTIALS": {
+      "status": 401,
+      "title": "Credenciales inválidas",
+      "invariantRef": "INV-AUTH-006",
+      "detailTemplate": "Usuario o contraseña incorrectos. También se usa cuando la contraseña actual es incorrecta al cambiarla o al eliminar la cuenta; la interfaz no debe tratarla como pérdida de sesión.",
+      "type": "urn:argos:error:ERR-AUTH-INVALID-CREDENTIALS",
+      "requirementRef": "REQ-AUTH2-002, REQ-AUTH2-003, REQ-ACC-002"
+    },
+    "ERR-AUTH-TOO-MANY-ATTEMPTS": {
+      "status": 429,
+      "title": "Demasiados intentos",
+      "invariantRef": "INV-AUTH-005",
+      "detailTemplate": "Demasiados intentos fallidos. Intenta de nuevo en 15 minutos. Los fallos de contraseña actual al cambiar la contraseña o eliminar la cuenta cuentan en la misma ventana.",
+      "type": "urn:argos:error:ERR-AUTH-TOO-MANY-ATTEMPTS",
+      "requirementRef": "REQ-AUTH2-002, REQ-AUTH2-003, REQ-ACC-002"
+    },
+    "ERR-AUTH-UNAUTHENTICATED": {
+      "status": 401,
+      "title": "Sesión requerida",
+      "invariantRef": "INV-AUTH2-002",
+      "detailTemplate": "Debes iniciar sesión para continuar. El mensaje es idéntico para sesión inexistente, revocada, expirada por inactividad (30 min) o por tope absoluto (24 h).",
+      "type": "urn:argos:error:ERR-AUTH-UNAUTHENTICATED",
+      "requirementRef": "REQ-AUTH-004, REQ-AUTH2-003"
+    },
+    "ERR-AUTH-USERNAME-TAKEN": {
+      "status": 409,
+      "title": "Nombre de usuario no disponible",
+      "invariantRef": "INV-AUTH-001",
+      "detailTemplate": "Ya existe una cuenta con ese nombre de usuario.",
+      "type": "urn:argos:error:ERR-AUTH-USERNAME-TAKEN",
+      "requirementRef": "REQ-AUTH2-001"
+    },
+    "ERR-AUTH-WEAK-PASSWORD": {
+      "status": 422,
+      "title": "Contraseña insegura",
+      "invariantRef": "INV-AUTH2-001",
+      "detailTemplate": "La contraseña debe tener entre 10 y 128 caracteres e incluir al menos una mayúscula, un número y un símbolo.",
+      "type": "urn:argos:error:ERR-AUTH-WEAK-PASSWORD",
+      "requirementRef": "REQ-AUTH2-001, REQ-AUTH2-003"
+    },
+    "ERR-BACKUP-ATOMIC-ROLLBACK": {
+      "status": 500,
+      "title": "Fallo de persistencia con rollback ejecutado",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "Se abortó la importación y se restauró el estado previo intacto.",
+      "type": "urn:argos:error:ERR-BACKUP-ATOMIC-ROLLBACK",
+      "requirementRef": "REQ-BACKUP2-002, SC-004"
+    },
+    "ERR-BACKUP-MALFORMED-JSON": {
+      "status": 400,
+      "title": "Archivo de respaldo JSON malformado",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "El contenido importado no es un documento JSON sintácticamente válido.",
+      "type": "urn:argos:error:ERR-BACKUP-MALFORMED-JSON",
+      "requirementRef": null
+    },
+    "ERR-BACKUP-PAYLOAD-TOO-LARGE": {
+      "status": 413,
+      "title": "Archivo de respaldo demasiado grande",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "El archivo de respaldo supera el tamaño máximo de 10 MB medido en bytes realmente leídos.",
+      "type": "urn:argos:error:ERR-BACKUP-PAYLOAD-TOO-LARGE",
+      "requirementRef": "REQ-BACKUP2-002"
+    },
+    "ERR-BACKUP-REFERENTIAL-INTEGRITY": {
+      "status": 409,
+      "title": "Integridad referencial del respaldo violada",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "El respaldo contiene identificadores duplicados, registros huérfanos o conflictos de integridad referencial. El mensaje no revela el identificador ni el propietario.",
+      "type": "urn:argos:error:ERR-BACKUP-REFERENTIAL-INTEGRITY",
+      "requirementRef": "REQ-BACKUP2-002"
+    },
+    "ERR-BACKUP-SCHEMA-INVALID": {
+      "status": 422,
+      "title": "Estructura del respaldo inválida",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "El archivo de respaldo incumple el contrato backup-envelope.schema.json: propiedades no autorizadas (incluidos campos de propiedad, rol o asignación), claves __proto__, constructor o prototype, profundidad excesiva o claves duplicadas.",
+      "type": "urn:argos:error:ERR-BACKUP-SCHEMA-INVALID",
+      "requirementRef": "REQ-BACKUP2-002"
+    },
+    "ERR-BACKUP-VERSION-UNSUPPORTED": {
+      "status": 422,
+      "title": "Versión de respaldo no soportada",
+      "invariantRef": "INV-BACKUP-001",
+      "detailTemplate": "La versión del archivo de respaldo debe ser 3.0.0 (o 2.0.0 o 1.0.0 para migración).",
+      "type": "urn:argos:error:ERR-BACKUP-VERSION-UNSUPPORTED",
+      "requirementRef": "REQ-BACKUP2-002"
+    },
+    "ERR-HOUSE-INVITATION-NOT-FOUND": {
+      "status": 404,
+      "title": "Invitación no encontrada",
+      "invariantRef": "INV-HOUSE-003",
+      "detailTemplate": "No tienes una invitación pendiente para este hogar.",
+      "type": "urn:argos:error:ERR-HOUSE-INVITATION-NOT-FOUND",
+      "requirementRef": "REQ-HOUSE-003, REQ-HOUSE2-002"
+    },
+    "ERR-HOUSE-MEMBERSHIP-NOT-FOUND": {
+      "status": 404,
+      "title": "Membresía no encontrada",
+      "invariantRef": "INV-HOUSE-004",
+      "detailTemplate": "El usuario indicado no es un miembro ACTIVE de este hogar.",
+      "type": "urn:argos:error:ERR-HOUSE-MEMBERSHIP-NOT-FOUND",
+      "requirementRef": "REQ-HOUSE2-002"
+    },
+    "ERR-HOUSE-NOT-FOUND": {
+      "status": 404,
+      "title": "Hogar no encontrado",
+      "invariantRef": "INV-HOUSE-004",
+      "detailTemplate": "No existe ningún hogar accesible con el identificador proporcionado.",
+      "type": "urn:argos:error:ERR-HOUSE-NOT-FOUND",
+      "requirementRef": "REQ-HOUSE2-003, REQ-HOUSE2-004"
+    },
+    "ERR-HOUSE-OWNER-CANNOT-LEAVE": {
+      "status": 409,
+      "title": "El propietario no puede abandonar el hogar",
+      "invariantRef": "INV-HOUSE2-001",
+      "detailTemplate": "El propietario del hogar no puede abandonarlo; puede transferir la propiedad o eliminar el hogar.",
+      "type": "urn:argos:error:ERR-HOUSE-OWNER-CANNOT-LEAVE",
+      "requirementRef": "REQ-HOUSE2-002"
+    },
+    "ERR-INTERNAL-UNEXPECTED": {
+      "status": 500,
+      "title": "Error interno inesperado",
+      "invariantRef": "INV-ARCH-004",
+      "detailTemplate": "Ocurrió un error inesperado. No se realizaron cambios parciales.",
+      "type": "urn:argos:error:ERR-INTERNAL-UNEXPECTED",
+      "requirementRef": null
+    },
+    "ERR-OWN-TRANSFER-INVALID-TARGET": {
+      "type": "urn:argos:error:ERR-OWN-TRANSFER-INVALID-TARGET",
+      "status": 422,
+      "title": "Destino de transferencia inválido",
+      "invariantRef": "INV-OWN2-001",
+      "detailTemplate": "El destinatario debe ser un miembro ACTIVE de un hogar donde la mascota está asignada, distinto del propietario actual y sin colisión de microchip con sus mascotas.",
+      "requirementRef": "REQ-OWN-001"
+    },
+    "ERR-PET-BIRTHDATE-AFTER-RECORDS": {
+      "status": 422,
+      "title": "Fecha de nacimiento incompatible con el historial",
+      "invariantRef": "INV-PET-006",
+      "detailTemplate": "La nueva fecha de nacimiento es posterior a uno o más registros existentes de la mascota.",
+      "type": "urn:argos:error:ERR-PET-BIRTHDATE-AFTER-RECORDS",
+      "requirementRef": null
+    },
+    "ERR-PET-FUTURE-BIRTHDATE": {
+      "status": 422,
+      "title": "Fecha de nacimiento futura inválida",
+      "invariantRef": "INV-PET-002",
+      "detailTemplate": "La fecha de nacimiento no puede ser posterior a la fecha actual del sistema.",
+      "type": "urn:argos:error:ERR-PET-FUTURE-BIRTHDATE",
+      "requirementRef": null
+    },
+    "ERR-PET-MICROCHIP-DUPLICATE": {
+      "type": "urn:argos:error:ERR-PET-MICROCHIP-DUPLICATE",
+      "status": 409,
+      "title": "Microchip duplicado",
+      "invariantRef": "INV-PET2-001",
+      "detailTemplate": "Ya tienes una mascota con ese número de microchip (la unicidad es por propietario).",
+      "requirementRef": "REQ-PET2-001",
+      "pendingId": true,
+      "change_note": "ID PENDIENTE de aprobación de Neo: no figura en la lista de IDs de la spec; no leer como oficial."
+    },
+    "ERR-PET-NOT-FOUND": {
+      "status": 404,
+      "title": "Mascota no encontrada",
+      "invariantRef": "INV-ACC2-001",
+      "detailTemplate": "No existe ninguna mascota accesible con el identificador proporcionado.",
+      "type": "urn:argos:error:ERR-PET-NOT-FOUND",
+      "requirementRef": "REQ-PET2-003"
+    },
+    "ERR-RATE-LIMITED": {
+      "type": "urn:argos:error:ERR-RATE-LIMITED",
+      "status": 429,
+      "title": "Límite de frecuencia superado",
+      "invariantRef": "INV-AUTH-006",
+      "detailTemplate": "Has superado el límite de solicitudes de esta operación. Intenta de nuevo más tarde.",
+      "requirementRef": "REQ-BACKUP2-001, REQ-HOUSE2-001",
+      "pendingId": true,
+      "change_note": "ID PENDIENTE de aprobación de Neo: no figura en la lista de IDs de la spec; no leer como oficial."
+    },
+    "ERR-REC-DATE-BEFORE-BIRTH": {
+      "status": 422,
+      "title": "Fecha de evento anterior al nacimiento",
+      "invariantRef": "INV-REC-001",
+      "detailTemplate": "La fecha del registro no puede ser anterior a la fecha de nacimiento de la mascota.",
+      "type": "urn:argos:error:ERR-REC-DATE-BEFORE-BIRTH",
+      "requirementRef": null
+    },
+    "ERR-REC-FUTURE-EVENT-DATE": {
+      "status": 422,
+      "title": "Fecha de evento en el futuro",
+      "invariantRef": "INV-REC-001",
+      "detailTemplate": "La fecha de aplicación, medición o consulta no puede ser posterior a la fecha actual.",
+      "type": "urn:argos:error:ERR-REC-FUTURE-EVENT-DATE",
+      "requirementRef": null
+    },
+    "ERR-REC-INVALID-BOOSTER-DATE": {
+      "status": 422,
+      "title": "Fecha de próximo refuerzo inválida",
+      "invariantRef": "INV-REC-004",
+      "detailTemplate": "Cuando se informa, nextBoosterAt debe ser estrictamente posterior a appliedAt.",
+      "type": "urn:argos:error:ERR-REC-INVALID-BOOSTER-DATE",
+      "requirementRef": "REQ-REC2-002"
+    },
+    "ERR-REC-INVALID-NEXT-DOSE-DATE": {
+      "status": 422,
+      "title": "Fecha de próxima dosis inválida",
+      "invariantRef": "INV-REC-005",
+      "detailTemplate": "Cuando se informa, nextSuggestedDoseAt debe ser estrictamente posterior a appliedAt.",
+      "type": "urn:argos:error:ERR-REC-INVALID-NEXT-DOSE-DATE",
+      "requirementRef": "REQ-REC2-002"
+    },
+    "ERR-REC-MEASUREMENT-OUT-OF-RANGE": {
+      "status": 422,
+      "title": "Medida corporal fuera del rango permitido",
+      "invariantRef": "INV-REC-003",
+      "detailTemplate": "Todas las medidas corporales deben situarse entre 1.00 cm y 250.00 cm con máximo 2 decimales.",
+      "type": "urn:argos:error:ERR-REC-MEASUREMENT-OUT-OF-RANGE",
+      "requirementRef": null
+    },
+    "ERR-REC-SUPERSEDED-IMMUTABLE": {
+      "type": "urn:argos:error:ERR-REC-SUPERSEDED-IMMUTABLE",
+      "status": 409,
+      "title": "Registro reemplazado inmutable",
+      "invariantRef": "REQ-REC2-003",
+      "detailTemplate": "Reemplazada por registro posterior: este registro no se puede modificar. Registra uno nuevo para corregirlo.",
+      "requirementRef": "REQ-REC2-003"
+    },
+    "ERR-REC-WEIGHT-OUT-OF-RANGE": {
+      "status": 422,
+      "title": "Peso fuera del rango permitido",
+      "invariantRef": "INV-REC2-002",
+      "detailTemplate": "El peso está fuera del rango de la especie: perros y gatos de 0.05 a 150.00 kg con máximo 2 decimales; las demás especies de 0.001 a 150.000 kg con máximo 3 decimales (cota máxima provisional, a validar por veterinario).",
+      "type": "urn:argos:error:ERR-REC-WEIGHT-OUT-OF-RANGE",
+      "requirementRef": "REQ-REC2-001"
+    },
+    "ERR-SCHEMA-VALIDATION-FAILED": {
+      "status": 422,
+      "title": "Violación de contrato de esquema de datos",
+      "invariantRef": "INV-REC-006",
+      "detailTemplate": "El payload incumple el esquema formal, contiene propiedades no autorizadas, un username con mayúsculas, confirmPassword distinto de password, una frase de confirmación distinta de ELIMINAR MI CUENTA o una especie/speciesOther incoherente.",
+      "type": "urn:argos:error:ERR-SCHEMA-VALIDATION-FAILED",
+      "requirementRef": "REQ-AUTH2-001, INV-PET2-001, REQ-ACC-002"
+    }
+  }
+}

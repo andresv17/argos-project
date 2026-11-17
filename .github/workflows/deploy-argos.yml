@@ -1,0 +1,227 @@
+name: Desplegar ARGOS (Cloud Run)
+
+# T448 (REQ-CICD-003, 005, 006, 008, 009, 011, 012; SC-CLD-006, 007, 023; D-03, D-18).
+# Orden (Neo D2): gate (pruebas, sin credenciales) -> audit -> build-push (id-token, solo imagen)
+#        -> migrate (Neon directo, sin credenciales de GCP; un build fallido no toca la base)
+#        -> deploy (id-token, unico con environment produccion: revision sin trafico, humo, promocion, retroceso).
+# Sin trabajo compat (H-MIF-001). Sin rama Neon automatica ni NEON_API_KEY (D-19).
+# Acciones de terceros fijadas por SHA de 40 caracteres; actions/* admite etiqueta mayor (REQ-CICD-011).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package*.json'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'vite.config.ts'
+      - '.github/workflows/deploy-argos.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-argos-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Compuerta de pruebas aislada: sin id-token ni secretos de GCP (H-MERO-009).
+  gate:
+    name: Compuerta de pruebas
+    uses: ./.github/workflows/test-gate.yml
+    permissions:
+      contents: read
+
+  audit:
+    name: npm audit de produccion
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: npm audit (REQ-CICD-011)
+        run: npm audit --omit=dev --audit-level=high
+
+  # Build y push de la imagen (REQ-CICD-003 (2)). Autentica con WIF; sin secretos de base de datos ni environment.
+  build-push:
+    name: Construir y subir la imagen
+    needs: audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ vars.TF_VAR_project_id }}
+      REGION: ${{ vars.TF_VAR_region }}
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Autenticar en GCP con Workload Identity Federation (REQ-CICD-006)
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          token_format: access_token
+
+      - name: Login en Artifact Registry
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ vars.TF_VAR_region }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - name: Construir y subir la imagen con etiqueta sha-<commit>
+        run: |
+          set -euo pipefail
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/argos-docker/argos:sha-${GITHUB_SHA}"
+          docker build --tag "$IMAGE" .
+          docker push "$IMAGE"
+
+  # Migracion con URL directa (D-03, REQ-CICD-005). Sin credenciales de GCP ni id-token.
+  migrate:
+    name: Migrar Neon (URL directa)
+    needs: build-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Instalar dependencias sin scripts
+        run: npm ci --ignore-scripts
+
+      - name: Migrar (idempotente, con candado acotado; REQ-PG-014)
+        env:
+          DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+        run: |
+          set -euo pipefail
+          echo "::add-mask::${DATABASE_URL_DIRECT}"
+          npx tsx scripts/migrate-postgres.ts
+
+  deploy:
+    name: Construir, desplegar sin tráfico, humo y promover
+    needs: migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: produccion
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ vars.TF_VAR_project_id }}
+      REGION: ${{ vars.TF_VAR_region }}
+      SERVICE: argos
+      ARGOS_SCHEDULER_EMAIL: argos-scheduler@${{ vars.TF_VAR_project_id }}.iam.gserviceaccount.com
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Autenticar en GCP con Workload Identity Federation (REQ-CICD-006)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - name: Resolver versiones numéricas de los secretos (REQ-CICD-009; nunca latest)
+        run: |
+          set -euo pipefail
+          latest_version() {
+            gcloud secrets versions list "$1" --project "$PROJECT_ID" --filter="state=ENABLED" --format="value(name)" | sed 's#.*/##' | sort -n | tail -n 1
+          }
+          DB_VERSION="$(latest_version argos-database-url)"
+          HMAC_VERSION="$(latest_version argos-audit-hmac-secret)"
+          for v in "$DB_VERSION" "$HMAC_VERSION"; do
+            if ! printf '%s' "$v" | grep -Eq '^[0-9]+$'; then
+              echo "Versión de secreto no numérica; se aborta el despliegue." >&2
+              exit 1
+            fi
+          done
+          echo "::add-mask::${DB_VERSION}"
+          echo "::add-mask::${HMAC_VERSION}"
+          echo "DB_VERSION=${DB_VERSION}" >> "$GITHUB_ENV"
+          echo "HMAC_VERSION=${HMAC_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Registrar la revisión que hoy sirve el tráfico (para retroceso)
+        run: |
+          set -euo pipefail
+          gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json > "${RUNNER_TEMP}/service.json"
+          PREV_REVISION="$(jq -r '((.status.traffic // []) | map(select(.percent == 100)) | .[0].revisionName // empty) // empty' "${RUNNER_TEMP}/service.json")"
+          if [ -z "$PREV_REVISION" ]; then
+            PREV_REVISION="$(jq -r '.status.latestReadyRevisionName // empty' "${RUNNER_TEMP}/service.json")"
+          fi
+          echo "PREV_REVISION=${PREV_REVISION}" >> "$GITHUB_ENV"
+
+      - name: Desplegar revisión sin tráfico, con sondas, entorno y secretos por versión
+        run: |
+          set -euo pipefail
+          TAG="sha-${GITHUB_SHA::7}"
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/argos-docker/argos:sha-${GITHUB_SHA}"
+          OIDC_AUDIENCE="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')"
+          if [ -z "$OIDC_AUDIENCE" ]; then
+            echo "No se pudo derivar la audiencia OIDC (status.url vacío)." >&2
+            exit 1
+          fi
+          gcloud run deploy argos \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --image "$IMAGE" \
+            --no-traffic --tag "$TAG" \
+            --set-env-vars "COOKIE_SECURE=true,ARGOS_SCHEDULER_EMAIL=${ARGOS_SCHEDULER_EMAIL},ARGOS_OIDC_AUDIENCE=${OIDC_AUDIENCE}" \
+            --set-secrets "DATABASE_URL=argos-database-url:${DB_VERSION},ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:${HMAC_VERSION}" \
+            --startup-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=2,failureThreshold=10,timeoutSeconds=1" \
+            --liveness-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=10,failureThreshold=3,timeoutSeconds=1"
+          gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json > "${RUNNER_TEMP}/service.json"
+          NEW_REVISION="$(jq -r --arg tag "$TAG" '(.status.traffic // []) | map(select(.tag == $tag)) | .[0].revisionName // empty' "${RUNNER_TEMP}/service.json")"
+          TAG_URL="$(jq -r --arg tag "$TAG" '(.status.traffic // []) | map(select(.tag == $tag)) | .[0].url // empty' "${RUNNER_TEMP}/service.json")"
+          if [ -z "$NEW_REVISION" ] || [ -z "$TAG_URL" ]; then
+            echo "No se encontró la revisión etiquetada ${TAG}." >&2
+            exit 1
+          fi
+          {
+            echo "TAG=${TAG}"
+            echo "NEW_REVISION=${NEW_REVISION}"
+            echo "TAG_URL=${TAG_URL}"
+          } >> "$GITHUB_ENV"
+
+      - name: Humo sobre la revisión etiquetada (/healthz y /readyz; REQ-CICD-003)
+        run: |
+          set -euo pipefail
+          for ruta in /healthz /readyz; do
+            curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --max-time 15 "${TAG_URL}${ruta}" > /dev/null
+            echo "Humo OK: ${ruta}"
+          done
+
+      - name: Mover el 100 % del tráfico a la revisión nueva
+        run: |
+          set -euo pipefail
+          gcloud run services update-traffic "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --to-revisions "${NEW_REVISION}=100"
+          gcloud run services update-traffic "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --remove-tags "$TAG"
+
+      - name: Retroceso si algo falló (SC-CLD-006)
+        if: failure()
+        run: |
+          set -uo pipefail
+          if [ -n "${PREV_REVISION:-}" ]; then
+            gcloud run services update-traffic "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --to-revisions "${PREV_REVISION}=100" || true
+          fi
+          if [ -n "${TAG:-}" ]; then
+            gcloud run services update-traffic "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --remove-tags "$TAG" || true
+          fi
+          echo "Despliegue fallido: el tráfico queda en ${PREV_REVISION:-la revisión anterior}." >&2

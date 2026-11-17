@@ -1,0 +1,597 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/backup-envelope.schema.json",
+  "title": "BackupEnvelopeSchema",
+  "description": "Sobre de exportación/importación atómica de los datos de UN usuario [REQ-BACKUP-001, REQ-BACKUP-002, INV-BACKUP-001, STATE-BACKUP-001]",
+  "x-sdd-metadata": {
+    "version": "2.1.1",
+    "status": "REVIEW",
+    "supersedes": "2.1.0",
+    "traceability": [
+      "REQ-BACKUP-001",
+      "REQ-BACKUP-002",
+      "INV-BACKUP-001",
+      "STATE-BACKUP-001"
+    ],
+    "change_type": "MINOR",
+    "change_note": "MINOR: los ítems v1 pasan de type:object sin forma a definiciones LegacyXxxRecordV1 explícitas con additionalProperties:false y campos requeridos."
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/BackupEnvelopeV2"
+    },
+    {
+      "$ref": "#/$defs/BackupEnvelopeV1Legacy"
+    }
+  ],
+  "$defs": {
+    "BackupEnvelopeV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "exportedAt",
+        "exportedByUserId",
+        "pets",
+        "records"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "2.0.0"
+        },
+        "exportedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "exportedByUserId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "pets": {
+          "type": "array",
+          "items": {
+            "$ref": "https://argos.local/contracts/schemas/pet.schema.json"
+          },
+          "description": "Sin límite de cantidad. Todos con ownerUserId == exportedByUserId."
+        },
+        "records": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "weights",
+            "bodyMeasurements",
+            "vaccinations",
+            "dewormings",
+            "medicalVisits",
+            "customParameters"
+          ],
+          "properties": {
+            "weights": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/WeightRecord"
+              }
+            },
+            "bodyMeasurements": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/BodyMeasurementRecord"
+              }
+            },
+            "vaccinations": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/VaccinationRecord"
+              }
+            },
+            "dewormings": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/DewormingRecord"
+              }
+            },
+            "medicalVisits": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/MedicalVisitRecord"
+              }
+            },
+            "customParameters": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/CustomParameterRecord"
+              }
+            }
+          }
+        }
+      },
+      "description": "Nunca contiene usuarios, hogares, sesiones ni credenciales [INV-AUTH-003]"
+    },
+    "LegacyPetProfileV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "species",
+        "breed",
+        "birthDate",
+        "sex",
+        "avatarUrl",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "species": {
+          "type": "string",
+          "enum": [
+            "DOG",
+            "CAT"
+          ]
+        },
+        "breed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "birthDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "sex": {
+          "type": "string",
+          "enum": [
+            "MALE",
+            "FEMALE"
+          ]
+        },
+        "avatarUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2048
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BackupEnvelopeV1Legacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "exportedAt",
+        "pets",
+        "records"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "1.0.0"
+        },
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LegacyPetProfileV1"
+          }
+        },
+        "records": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "weights",
+            "bodyMeasurements",
+            "vaccinations",
+            "dewormings",
+            "medicalVisits",
+            "customParameters"
+          ],
+          "properties": {
+            "weights": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LegacyWeightRecordV1"
+              }
+            },
+            "bodyMeasurements": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LegacyBodyMeasurementRecordV1"
+              }
+            },
+            "vaccinations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LegacyVaccinationRecordV1"
+              }
+            },
+            "dewormings": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LegacyDewormingRecordV1"
+              }
+            },
+            "medicalVisits": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LegacyMedicalVisitRecordV1"
+              }
+            },
+            "customParameters": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LegacyCustomParameterRecordV1"
+              }
+            }
+          }
+        }
+      },
+      "description": "Formato v1.0.0 aceptado solo para migración: se asigna ownerUserId = usuario actual, updatedAt = createdAt y createdAt se normaliza a UTC canónico; luego se valida como v2 completo."
+    },
+    "LegacyWeightRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "recordedAt",
+        "weightKg",
+        "notes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 150.0,
+          "multipleOf": 0.01,
+          "description": "[INV-REC-002]",
+          "x-sdd-error": "ERR-REC-WEIGHT-OUT-OF-RANGE"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Formato v1 no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+        }
+      },
+      "description": "Registro v1 de WeightRecord: misma forma que v2 salvo createdAt, que admite date-time no canónico."
+    },
+    "LegacyBodyMeasurementRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "recordedAt",
+        "neckCm",
+        "chestCm",
+        "backLengthCm",
+        "waistCm",
+        "notes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "neckCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "chestCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "backLengthCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "waistCm": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 250.0,
+          "multipleOf": 0.01,
+          "x-sdd-error": "ERR-REC-MEASUREMENT-OUT-OF-RANGE"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Formato v1 no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+        }
+      },
+      "description": "Registro v1 de BodyMeasurementRecord: misma forma que v2 salvo createdAt, que admite date-time no canónico."
+    },
+    "LegacyVaccinationRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "vaccineName",
+        "appliedAt",
+        "nextBoosterAt",
+        "batchOrClinic",
+        "notes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "vaccineName": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 100
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextBoosterAt": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ],
+          "description": "> appliedAt [INV-REC-004]"
+        },
+        "batchOrClinic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Formato v1 no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+        }
+      },
+      "description": "Registro v1 de VaccinationRecord: misma forma que v2 salvo createdAt, que admite date-time no canónico."
+    },
+    "LegacyDewormingRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "productBrand",
+        "dewormingType",
+        "appliedAt",
+        "nextSuggestedDoseAt",
+        "notes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "productBrand": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 100
+        },
+        "dewormingType": {
+          "type": "string",
+          "enum": [
+            "INTERNAL",
+            "EXTERNAL"
+          ]
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextSuggestedDoseAt": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ],
+          "description": "> appliedAt [INV-REC-005]"
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Formato v1 no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+        }
+      },
+      "description": "Registro v1 de DewormingRecord: misma forma que v2 salvo createdAt, que admite date-time no canónico."
+    },
+    "LegacyMedicalVisitRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "visitDate",
+        "reason",
+        "diagnosis",
+        "treatment",
+        "clinicOrVet",
+        "observations",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "visitDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "reason": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 200
+        },
+        "diagnosis": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "treatment": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 500
+        },
+        "clinicOrVet": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "observations": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Formato v1 no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+        }
+      },
+      "description": "Registro v1 de MedicalVisitRecord: misma forma que v2 salvo createdAt, que admite date-time no canónico."
+    },
+    "LegacyCustomParameterRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "recordedAt",
+        "category",
+        "title",
+        "description",
+        "notes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "DIET_CHANGE",
+            "ALLERGY",
+            "SURGERY",
+            "BEHAVIOR",
+            "OTHER"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 1000
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Formato v1 no canónico; se normaliza en MIGRATING_LEGACY_ENVELOPE"
+        }
+      },
+      "description": "Registro v1 de CustomParameterRecord: misma forma que v2 salvo createdAt, que admite date-time no canónico."
+    }
+  }
+}

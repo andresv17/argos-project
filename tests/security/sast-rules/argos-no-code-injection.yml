@@ -1,0 +1,11 @@
+# SAST: sin evaluación dinámica de código.
+rules:
+  - id: argos-no-dynamic-code
+    languages: [typescript]
+    severity: ERROR
+    message: Evaluación dinámica de código (eval, new Function o temporizador con texto). Prohibida en Argos.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+      - pattern: setTimeout("...", ...)
+      - pattern: setInterval("...", ...)

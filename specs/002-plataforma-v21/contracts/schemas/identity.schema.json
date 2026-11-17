@@ -1,0 +1,612 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/identity.schema.json",
+  "title": "IdentitySchema",
+  "description": "Usuarios, sesión, perfil, hogares, membresías con rol, invitaciones y eliminación de cuenta [REQ-AUTH2-*, REQ-ACC-*, REQ-HOUSE2-*, REQ-RBAC-001]",
+  "x-sdd-metadata": {
+    "version": "3.0.0",
+    "status": "REVIEW",
+    "supersedes": "2.1.1",
+    "change_type": "MAJOR",
+    "change_note": "MAJOR: contraseña 10-128 con política, sesión con inactividad, perfil, roles ADMIN/CAREGIVER/READER, invitación con roleOnJoin y entidad de invitación separada, eliminación de cuenta con token.",
+    "traceability": [
+      "REQ-AUTH2-001",
+      "REQ-AUTH2-002",
+      "REQ-AUTH2-003",
+      "REQ-AUTH-003",
+      "REQ-AUTH-004",
+      "REQ-ACC-001",
+      "REQ-ACC-002",
+      "REQ-TIME-001",
+      "REQ-HOUSE-001",
+      "REQ-HOUSE-003",
+      "REQ-HOUSE2-001",
+      "REQ-HOUSE2-002",
+      "REQ-HOUSE2-003",
+      "REQ-HOUSE2-004",
+      "REQ-RBAC-001",
+      "INV-AUTH-001",
+      "INV-AUTH-003",
+      "INV-AUTH2-001",
+      "INV-AUTH2-002",
+      "INV-AUTH-006",
+      "INV-HOUSE2-001",
+      "INV-HOUSE-003",
+      "INV-HOUSE-004",
+      "INV-HOUSE-005",
+      "STATE-AUTH-SESSION-001",
+      "STATE-HOUSE-MEMBERSHIP-001"
+    ]
+  },
+  "$defs": {
+    "Username": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 30,
+      "pattern": "^[a-z0-9._-]+$",
+      "description": "Único [INV-AUTH-001]. NO se normaliza: un username con mayúsculas se rechaza con ERR-SCHEMA-VALIDATION-FAILED y el login compara de forma exacta [REQ-AUTH2-001, H-F5-08]"
+    },
+    "DisplayName": {
+      "type": "string",
+      "allOf": [
+        {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+        }
+      ],
+      "minLength": 1,
+      "maxLength": 60,
+      "description": "1-60 caracteres sin espacios extremos [REQ-AUTH2-001, REQ-ACC-001]"
+    },
+    "Email": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "email",
+      "maxLength": 254,
+      "description": "Opcional, no único, no verificado, no se envía correo; solo visible para el propio usuario [REQ-AUTH2-001, REQ-ACC-001, INV-AUTH-006]"
+    },
+    "PreferredLanguage": {
+      "type": "string",
+      "enum": [
+        "es",
+        "en",
+        "pt"
+      ],
+      "default": "es",
+      "description": "Conjunto cerrado [REQ-ACC-001]"
+    },
+    "Timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+){0,2}$",
+      "description": "Zona IANA. Forma sintáctica aquí; la pertenencia a la base IANA la valida el dominio. Solo formatea horas de pantalla y nunca altera un cálculo [REQ-ACC-001, REQ-TIME-001]",
+      "$comment": "Error: ERR-SCHEMA-VALIDATION-FAILED"
+    },
+    "Password": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 128,
+      "allOf": [
+        {
+          "pattern": "\\p{Lu}"
+        },
+        {
+          "pattern": "[0-9]"
+        },
+        {
+          "pattern": "[!-/:-@\\[-`{-~]"
+        }
+      ],
+      "writeOnly": true,
+      "description": "10-128 puntos de código Unicode sin recortar ni normalizar; al menos una mayúscula (categoría Lu), un dígito ASCII y un símbolo de los 32 ASCII (! \" # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ ` { | } ~; el espacio no cuenta). Solo en registro y cambio de contraseña, nunca en login ni en salidas [INV-AUTH2-001, INV-AUTH-003]",
+      "x-sdd-error": "ERR-AUTH-WEAK-PASSWORD"
+    },
+    "LoginPassword": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "writeOnly": true,
+      "description": "Sin política: solo no vacía y de máximo 128 caracteres [REQ-AUTH2-002]"
+    },
+    "UserPublicProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "username",
+        "displayName",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "username": {
+          "$ref": "#/$defs/Username"
+        },
+        "displayName": {
+          "$ref": "#/$defs/DisplayName"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      },
+      "description": "Perfil visible para terceros: nunca incluye email [REQ-AUTH-004, REQ-HOUSE2-004]"
+    },
+    "UserSelfProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "username",
+        "displayName",
+        "createdAt",
+        "email",
+        "preferredLanguage",
+        "timezone"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "username": {
+          "$ref": "#/$defs/Username"
+        },
+        "displayName": {
+          "$ref": "#/$defs/DisplayName"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "email": {
+          "$ref": "#/$defs/Email"
+        },
+        "preferredLanguage": {
+          "$ref": "#/$defs/PreferredLanguage"
+        },
+        "timezone": {
+          "$ref": "#/$defs/Timezone"
+        }
+      },
+      "description": "Perfil del propio usuario; añade email, preferredLanguage y timezone [REQ-AUTH-004, REQ-ACC-001]"
+    },
+    "SessionView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user",
+        "createdAt",
+        "lastActivityAt",
+        "idleExpiresAt",
+        "absoluteExpiresAt"
+      ],
+      "properties": {
+        "user": {
+          "$ref": "#/$defs/UserSelfProfile"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "lastActivityAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "idleExpiresAt": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+            }
+          ],
+          "description": "lastActivityAt + 30 min (derivado, no persistido)"
+        },
+        "absoluteExpiresAt": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+            }
+          ],
+          "description": "createdAt + 24 h (derivado, no persistido)"
+        }
+      },
+      "description": "El token viaja solo en la cookie HttpOnly argos_session, nunca en el cuerpo [INV-AUTH-003, INV-AUTH2-002]"
+    },
+    "RegisterUserInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username",
+        "displayName",
+        "password",
+        "confirmPassword"
+      ],
+      "properties": {
+        "username": {
+          "$ref": "#/$defs/Username"
+        },
+        "displayName": {
+          "$ref": "#/$defs/DisplayName"
+        },
+        "password": {
+          "$ref": "#/$defs/Password"
+        },
+        "confirmPassword": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "writeOnly": true,
+          "description": "Debe ser idéntico a password; la igualdad la verifica el dominio (ERR-SCHEMA-VALIDATION-FAILED, field confirmPassword)"
+        },
+        "email": {
+          "$ref": "#/$defs/Email"
+        }
+      },
+      "description": "[REQ-AUTH2-001]"
+    },
+    "LoginInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "password": {
+          "$ref": "#/$defs/LoginPassword"
+        }
+      },
+      "description": "Validación laxa a propósito: errores de login siempre genéricos [REQ-AUTH2-002, INV-AUTH-006]"
+    },
+    "ChangePasswordInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentPassword",
+        "newPassword"
+      ],
+      "properties": {
+        "currentPassword": {
+          "$ref": "#/$defs/LoginPassword"
+        },
+        "newPassword": {
+          "$ref": "#/$defs/Password"
+        }
+      },
+      "description": "Revoca las demás sesiones y conserva la actual en la misma transacción. Los fallos de currentPassword cuentan para el bloqueo de INV-AUTH-005 (T3) [REQ-AUTH2-003, INV-AUTH2-001]"
+    },
+    "UpdateProfileInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "displayName": {
+          "$ref": "#/$defs/DisplayName"
+        },
+        "email": {
+          "$ref": "#/$defs/Email"
+        },
+        "preferredLanguage": {
+          "$ref": "#/$defs/PreferredLanguage"
+        },
+        "timezone": {
+          "$ref": "#/$defs/Timezone"
+        }
+      },
+      "description": "[REQ-ACC-001]"
+    },
+    "DeleteAccountInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "confirmationPhrase",
+        "password"
+      ],
+      "properties": {
+        "confirmationPhrase": {
+          "type": "string",
+          "const": "ELIMINAR MI CUENTA",
+          "description": "Literal, sensible a mayúsculas y sin recortar [REQ-ACC-002 (3)]"
+        },
+        "password": {
+          "$ref": "#/$defs/LoginPassword"
+        },
+        "backupConfirmationToken": {
+          "description": "Opcional a nivel de esquema a propósito: el esquema NO rechaza su ausencia ni su forma. El servidor valida que sea un ConfirmationToken (common.schema.json: 43 caracteres base64url) y responde ERR-ACCOUNT-CONFIRMATION-MISMATCH si falta, está mal formado, caducado, ya usado o es ajeno, después de verificar la contraseña (STATE-ACCOUNT-DELETE-001, A2) [REQ-ACC-002, SC-014, F4-A1]",
+          "x-sdd-error": "ERR-ACCOUNT-CONFIRMATION-MISMATCH"
+        }
+      },
+      "description": "[REQ-ACC-002] El token prueba la solicitud del respaldo, no que se guardó (riesgo residual T5 aceptado). Un backupConfirmationToken ausente o mal formado no da ERR-SCHEMA-VALIDATION-FAILED sino ERR-ACCOUNT-CONFIRMATION-MISMATCH (la forma se valida en el servidor)."
+    },
+    "HouseholdRole": {
+      "type": "string",
+      "enum": [
+        "ADMIN",
+        "CAREGIVER",
+        "READER"
+      ],
+      "description": "Rol por membresía; el propietario del hogar es siempre ADMIN [REQ-RBAC-001, INV-HOUSE2-001]"
+    },
+    "MembershipLifecycleState": {
+      "type": "string",
+      "enum": [
+        "INVITED",
+        "ACTIVE",
+        "DECLINED",
+        "CANCELLED",
+        "LEFT",
+        "REMOVED"
+      ],
+      "description": "Estados de STATE-HOUSE-MEMBERSHIP-001. INVITED, DECLINED y CANCELLED se persisten en la invitación; ACTIVE, LEFT y REMOVED en la membresía [ADR-002-04]"
+    },
+    "Household": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "ownerUserId",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "name": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        },
+        "ownerUserId": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+            }
+          ],
+          "description": "Propietario del hogar; solo cambia con TRANSFER_OWNERSHIP [INV-HOUSE2-001]"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      }
+    },
+    "HouseholdMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "membershipId",
+        "householdId",
+        "userId",
+        "username",
+        "displayName",
+        "role",
+        "isHouseholdOwner",
+        "status",
+        "joinedAt",
+        "firstJoinedAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "membershipId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "householdId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "userId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "username": {
+          "$ref": "#/$defs/Username"
+        },
+        "displayName": {
+          "$ref": "#/$defs/DisplayName"
+        },
+        "role": {
+          "$ref": "#/$defs/HouseholdRole"
+        },
+        "isHouseholdOwner": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "LEFT",
+            "REMOVED"
+          ]
+        },
+        "joinedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "firstJoinedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "updatedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      },
+      "description": "Muestra displayName, username y rol; nunca el correo [REQ-HOUSE2-004]"
+    },
+    "HouseholdInvitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invitationId",
+        "householdId",
+        "inviteeUsername",
+        "roleOnJoin",
+        "invitedByUserId",
+        "status",
+        "createdAt",
+        "respondedAt"
+      ],
+      "properties": {
+        "invitationId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "householdId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "inviteeUsername": {
+          "$ref": "#/$defs/Username"
+        },
+        "roleOnJoin": {
+          "$ref": "#/$defs/HouseholdRole"
+        },
+        "invitedByUserId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "INVITED",
+            "DECLINED",
+            "CANCELLED",
+            "ACCEPTED"
+          ]
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "respondedAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "description": "Existe también para un username inexistente (invitación inerte, indistinguible para quien invita) [REQ-HOUSE2-001, R3]. ACCEPTED es el estado terminal de la invitación que originó una membresía ACTIVE."
+    },
+    "CreateHouseholdInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        }
+      },
+      "description": "[REQ-HOUSE-001]"
+    },
+    "InviteMemberInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username",
+        "roleOnJoin"
+      ],
+      "properties": {
+        "username": {
+          "$ref": "#/$defs/Username"
+        },
+        "roleOnJoin": {
+          "$ref": "#/$defs/HouseholdRole"
+        }
+      },
+      "description": "Invitar por username con rol; respuesta uniforme exista o no el usuario [REQ-HOUSE2-001, R3]"
+    },
+    "ChangeRoleInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role"
+      ],
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/HouseholdRole"
+        }
+      },
+      "description": "CHANGE_ROLE [REQ-HOUSE2-002, STATE-HOUSE-MEMBERSHIP-001]"
+    },
+    "TransferHouseholdOwnershipInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetUserId"
+      ],
+      "properties": {
+        "targetUserId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        }
+      },
+      "description": "TRANSFER_OWNERSHIP: el destino es un miembro ACTIVE que no es el propietario [REQ-HOUSE2-002, INV-HOUSE2-001]"
+    },
+    "OwnerTag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "userId",
+        "displayName",
+        "colorToken"
+      ],
+      "properties": {
+        "userId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "displayName": {
+          "$ref": "#/$defs/DisplayName"
+        },
+        "colorToken": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OwnerColorToken"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null fuera de un hogar; dentro, color por posición [INV-HOUSE-005]"
+        }
+      },
+      "description": "Distinción visual del dueño [REQ-UI2-003, INV-HOUSE-005]"
+    },
+    "RbacAction": {
+      "type": "string",
+      "enum": [
+        "EDIT_PET_BASICS",
+        "DELETE_PET",
+        "WRITE_HEALTH_EVENTS",
+        "DELETE_HEALTH_EVENTS",
+        "WRITE_WEIGHTS_AND_MEASUREMENTS",
+        "WRITE_APPOINTMENTS_AND_PARAMETERS",
+        "DELETE_OTHER_RECORDS",
+        "MANAGE_HOUSEHOLD_MEMBERS",
+        "TRANSFER_PET_OWNERSHIP",
+        "ASSIGN_PET_TO_HOUSEHOLDS",
+        "EXPORT_IMPORT_BACKUP"
+      ],
+      "description": "Las 11 filas de la matriz de REQ-RBAC-001, en el orden de la spec (SC-008: 11 x 4 roles = 44 casos)"
+    },
+    "RbacRole": {
+      "type": "string",
+      "enum": [
+        "OWNER",
+        "ADMIN",
+        "CAREGIVER",
+        "READER"
+      ],
+      "description": "OWNER es el Propietario Legal de la mascota o el propietario del hogar según la acción [REQ-RBAC-001]"
+    }
+  }
+}

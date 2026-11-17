@@ -1,0 +1,238 @@
+name: Infraestructura (Terraform)
+
+# T446 (REQ-CICD-002, 006, 008, 011, 012; REQ-IAC-007, 013; REQ-SEC-001; SC-CLD-004, 025; D-18).
+# validate: fmt -check y validate sin credenciales (PR y main).
+# plan:  solo pull_request del mismo repositorio; cuenta de SOLO LECTURA (argos-terraform-plan@), -lock=false, comentario sin valores sensibles.
+# apply: solo push a main; cuenta de escritura (argos-terraform@); environment produccion (aprobacion de Neo);
+#        plan y apply en el MISMO trabajo; tfplan jamas se sube como artefacto (H-RAMA-006).
+# Antes de plan y apply se ejecuta scripts/validate-secrets.mjs (T472). Si falla, el trabajo falla.
+# Acciones: hashicorp/setup-terraform v3.1.2 y google-github-actions/auth v3.0.0 por SHA de 40; actions/* por etiqueta mayor (REQ-CICD-011).
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/infraestructura.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/infraestructura.yml'
+
+concurrency:
+  group: infraestructura-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: fmt y validate (sin credenciales)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: '1.17.2'
+          terraform_wrapper: false
+
+      - name: terraform fmt -check
+        run: terraform -chdir=terraform fmt -check -recursive
+
+      - name: terraform init sin backend
+        run: terraform -chdir=terraform init -backend=false -input=false
+
+      - name: terraform validate
+        run: terraform -chdir=terraform validate
+
+  plan:
+    name: Plan de solo lectura (PR)
+    needs: validate
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    env:
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_project_id: ${{ vars.TF_VAR_project_id }}
+      TF_VAR_region: ${{ vars.TF_VAR_region }}
+      TF_VAR_custom_domain: ${{ vars.TF_VAR_custom_domain }}
+      TF_VAR_billing_account: ${{ vars.TF_VAR_billing_account }}
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Validar secretos antes del plan (REQ-CICD-009, T472)
+        env:
+          TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
+          TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
+          DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL_DIRECT:-}" ]; then unset DATABASE_URL_DIRECT; fi
+          node scripts/validate-secrets.mjs
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: '1.17.2'
+          terraform_wrapper: false
+
+      - name: Autenticar con la cuenta de solo lectura (REQ-CICD-012)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_PLAN_SA }}
+
+      - name: terraform init (backend GCS)
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform init -input=false -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="prefix=terraform/argos-state"
+
+      - name: terraform plan (solo lectura, sin candado)
+        env:
+          TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
+          TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform plan -input=false -no-color -lock=false -out="${RUNNER_TEMP}/tfplan"
+          terraform -chdir=terraform show -json "${RUNNER_TEMP}/tfplan" > "${RUNNER_TEMP}/plan.json"
+
+      - name: Guardia del plan (REQ-IAC-007, T471)
+        env:
+          PLAN_GUARD_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
+          TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
+        run: |
+          set -euo pipefail
+          # Borrados de recursos protegidos: rotacion-secreto solo exime google_secret_manager_secret_version; aprobacion-manual exime los demás.
+          node scripts/terraform-plan-guard.mjs "${RUNNER_TEMP}/plan.json"
+
+      - name: Comentar el plan en el PR (atributos sensitive ocultos)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
+          TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### Plan de Terraform (solo lectura)"
+            echo
+            echo '```'
+            terraform -chdir=terraform show -no-color "${RUNNER_TEMP}/tfplan" | head -c 60000
+            echo
+            echo '```'
+          } > "${RUNNER_TEMP}/comment.md"
+          for v in "$TF_VAR_database_url" "$TF_VAR_audit_hmac_secret"; do
+            if grep -F -q -- "$v" "${RUNNER_TEMP}/comment.md"; then
+              echo "El comentario contiene un valor de secreto; se aborta." >&2
+              exit 1
+            fi
+          done
+          gh pr comment "$PR_NUMBER" --body-file "${RUNNER_TEMP}/comment.md"
+
+  apply:
+    name: Plan y apply en main (aprobación de Neo)
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: produccion
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+    env:
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_project_id: ${{ vars.TF_VAR_project_id }}
+      TF_VAR_region: ${{ vars.TF_VAR_region }}
+      TF_VAR_custom_domain: ${{ vars.TF_VAR_custom_domain }}
+      TF_VAR_billing_account: ${{ vars.TF_VAR_billing_account }}
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Validar secretos antes del plan y del apply (REQ-CICD-009, T472)
+        env:
+          TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
+          TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
+          DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL_DIRECT:-}" ]; then unset DATABASE_URL_DIRECT; fi
+          node scripts/validate-secrets.mjs
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: '1.17.2'
+          terraform_wrapper: false
+
+      - name: Autenticar con la cuenta de escritura (REQ-CICD-012)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_SA }}
+
+      - name: terraform init (backend GCS)
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform init -input=false -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="prefix=terraform/argos-state"
+
+      - name: terraform plan (el archivo queda solo en el ejecutor)
+        env:
+          TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
+          TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform plan -input=false -no-color -lock-timeout=5m -out="${RUNNER_TEMP}/tfplan"
+          terraform -chdir=terraform show -json "${RUNNER_TEMP}/tfplan" > "${RUNNER_TEMP}/plan.json"
+
+      - name: Etiquetas del PR de origen (rotacion-secreto, aprobacion-manual)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Solo las dos etiquetas que lee el guardia; luego regex estricta (sin saltos de línea) antes de escribir en GITHUB_ENV (D-H1, R-2).
+          LABELS="$(gh api "repos/${GH_REPO}/commits/${GITHUB_SHA}/pulls" --jq '[.[].labels[].name | select(. == "rotacion-secreto" or . == "aprobacion-manual")] | unique | join(",")')"
+          if [ -n "$LABELS" ] && { ! printf '%s' "$LABELS" | grep -Eq '^[a-z0-9,._-]*$' || [ "$(printf '%s' "$LABELS" | wc -l)" -ne 0 ]; }; then
+            echo "Etiquetas con caracteres no permitidos; se aborta." >&2
+            exit 1
+          fi
+          echo "PLAN_GUARD_LABELS=${LABELS}" >> "$GITHUB_ENV"
+
+      - name: Guardia del plan (REQ-IAC-007, T471)
+        env:
+          TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
+          TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
+        run: |
+          set -euo pipefail
+          # Borrados de recursos protegidos: rotacion-secreto solo exime google_secret_manager_secret_version; aprobacion-manual exime los demás.
+          node scripts/terraform-plan-guard.mjs "${RUNNER_TEMP}/plan.json"
+
+      - name: terraform apply del plan guardado
+        env:
+          TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
+          TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform apply -input=false -no-color -lock-timeout=5m "${RUNNER_TEMP}/tfplan"

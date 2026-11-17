@@ -1,262 +1,188 @@
 /**
- * Application Use Cases for Pet Profile Management and Individual Pet Dashboard.
- * Strictly depends only on Domain and Generated Contracts via injected Ports [INV-ARCH-001, INV-ARCH-002, INV-ARCH-004].
+ * Casos de uso de mascotas. Orden de comprobación: acceso (INV-ACC-001/002, 404 antes que 403), luego
+ * esquema y dominio dentro de las funciones de pet-invariants.
+ * - UpdatePetUseCase aplica INV-PET-006 con las fechas de todos los registros de la mascota.
+ * - DeletePetUseCase borra la mascota y sus 6 colecciones en una sola transacción (REQ-PET-004).
+ * - RegisterPet y UpdatePet comprueban que el microchip sea único entre las mascotas del mismo propietario (REQ-PET2-001).
+ * - ListMyPetsUseCase devuelve las mascotas propias y las visibles por asignación a hogares, sin cupo, con el filtro
+ *   (REQ-PET2-002) y el orden de REQ-PET-005; fuera de un hogar el colorToken del dueño es null (EDGE-030).
+ * - GetPetDashboardUseCase aplica INV-ACC2-001 y devuelve myRole y permissions de la matriz REQ-RBAC-001 (reemplazan canEdit).
  *
- * @implements REQ-PET-001, REQ-PET-002, REQ-PET-003, INV-PET-001, INV-PET-002, INV-PET-003, INV-PET-004, INV-REC-006, INV-SORT-001, STATE-PET-QUOTA-001, STATE-ALERT-001, ERR-PET-QUOTA-EXCEEDED, ERR-PET-NOT-FOUND, ERR-PET-FUTURE-BIRTHDATE, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004
+ * @implements REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
+import type { components, PetProfile, Species } from '../../generated/index.ts';
+import { petPermissionsFor } from '../../domain/access/rbac.ts';
+import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
+import { ownerTag } from '../../domain/households/household-policies.ts';
+import { assertMicrochipUniqueForOwner, collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
+import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
+import { calculatePetAge } from '../../domain/shared/date-utils.ts';
+import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
+import { assignOwnedPetToHousehold } from './assignment-use-cases.ts';
+import { recordAudit } from './audit-support.ts';
 import {
-  DomainError,
-  validatePetProfileSchema,
-  type CreatePetInput,
-  type PetDashboardView,
-  type PetListOverview,
-  type PetProfile,
-  type PetSummaryCardView,
-  type UpdatePetInput,
-} from '../../generated/index.ts';
-import {
-  evaluateDewormingAlerts,
-  evaluateVaccinationAlerts,
-  summarizeSanitaryAlerts,
-} from '../../domain/alerts/sanitary-alert-evaluator.ts';
-import {
-  assertCanRegisterPetSpecies,
-  assertCanUpdatePetSpecies,
-  evaluatePetQuotaState,
-} from '../../domain/pet/pet-invariants.ts';
-import {
-  computeWeightEvolutionSeries,
-  validateNonEmptyTrimmedField,
-} from '../../domain/records/record-invariants.ts';
-import {
-  calculatePetAge,
-  validateBirthDateNotFuture,
-} from '../../domain/shared/date-utils.ts';
-import { sortHistoricalRecords } from '../../domain/sorting/deterministic-sorter.ts';
-import type { ClockPort } from '../ports/clock.port.ts';
-import type { IdGeneratorPort } from '../ports/id-generator.port.ts';
-import type { StorageRepositoryPort } from '../ports/storage-repository.port.ts';
+  buildPetCard,
+  listVisiblePets,
+  publicProfilesById,
+  requirePetAction,
+  requireReadablePet,
+  type ApplicationDeps,
+  type PetCardView,
+} from './use-case-support.ts';
 
 /**
- * Registers a new pet enforcing the 4-pet total quota (max 2 DOG, max 2 CAT) and non-future birthDate.
- *
- * @implements REQ-PET-001, INV-PET-001, INV-PET-002, INV-REC-006, STATE-PET-QUOTA-001, ERR-PET-QUOTA-EXCEEDED, ERR-PET-FUTURE-BIRTHDATE, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001, INV-ARCH-002
+ * PetDashboardView del OpenAPI con `profile` tipado como PetProfile: el tipo generado de `profile`
+ * ($ref al archivo pet.schema.json completo) incluye una propiedad `$defs` obligatoria (H-108-3).
  */
+export type PetDashboardView = Omit<components['schemas']['PetDashboardView'], 'profile'> & { profile: PetProfile };
+
+/** Filtro del listado de REQ-PET2-002 (parámetro `filter` del OpenAPI). */
+export type PetListGroup = 'ALL' | 'CANINE' | 'FELINE' | 'OTHERS' | 'WITH_ALERTS';
+
+export interface PetListQuery {
+  readonly q?: string;
+  /**
+   * Alias heredado de la 001 (especie exacta). T228 PENDIENTE: el contrato 002 solo declara `filter`; `species` se
+   * conserva porque el cliente web y las rutas de hogar lo envían hasta T284 y T238.
+   */
+  readonly species?: Species;
+  readonly filter?: PetListGroup;
+}
+
+/** Parte del filtro que decide el dominio por mascota (nombre, especie y grupo); WITH_ALERTS necesita la tarjeta. */
+export function petListFilterOf(query: PetListQuery): PetListFilter {
+  const group = query.filter === undefined || query.filter === 'WITH_ALERTS' ? undefined : query.filter;
+  return {
+    ...(query.q === undefined ? {} : { q: query.q }),
+    ...(query.species === undefined ? {} : { species: query.species }),
+    ...(group === undefined ? {} : { group }),
+  };
+}
+
+/** WITH_ALERTS: solo las tarjetas con alertas sanitarias activas (REQ-PET2-002). */
+export function keepsCard(query: PetListQuery, card: Pick<PetCardView, 'alertsSummary'>): boolean {
+  return query.filter !== 'WITH_ALERTS' || card.alertsSummary.totalActiveAlerts > 0;
+}
+
+/** Hogar base opcional del alta (REQ-HOUSE2-003): ya validado por createPetProfile; aquí solo se lee. */
+function baseHouseholdIdOf(input: unknown): string | undefined {
+  const value = (input as { readonly baseHouseholdId?: unknown }).baseHouseholdId;
+  return typeof value === 'string' ? value : undefined;
+}
+
+/** @implements REQ-PET2-001, ERR-PET-MICROCHIP-DUPLICATE, INV-ARCH-001, INV-ARCH-002 */
 export class RegisterPetUseCase {
-  private readonly repository: StorageRepositoryPort;
-  private readonly clock: ClockPort;
-  private readonly idGenerator: IdGeneratorPort;
+  constructor(private readonly deps: ApplicationDeps) {}
 
-  constructor(
-    repository: StorageRepositoryPort,
-    clock: ClockPort,
-    idGenerator: IdGeneratorPort
-  ) {
-    this.repository = repository;
-    this.clock = clock;
-    this.idGenerator = idGenerator;
-  }
-
-  public execute(input: CreatePetInput): PetProfile {
-    const existingPets = this.repository.listPets();
-    assertCanRegisterPetSpecies(existingPets, input.species);
-
-    const name = validateNonEmptyTrimmedField(input.name, 'name', 50);
-    const breed = validateNonEmptyTrimmedField(input.breed, 'breed', 60);
-    const today = this.clock.todayIsoDate();
-    validateBirthDateNotFuture(input.birthDate, today);
-
-    const candidate: PetProfile = {
-      id: this.idGenerator.nextId(),
-      name,
-      species: input.species,
-      breed,
-      birthDate: input.birthDate,
-      sex: input.sex,
-      avatarUrl: input.avatarUrl ?? null,
-      createdAt: this.clock.nowIsoTimestamp(),
-    };
-
-    const validated = validatePetProfileSchema(candidate);
-    this.repository.savePet(validated);
-    return validated;
+  async execute(userId: string, input: unknown): Promise<PetProfile> {
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const pet = createPetProfile({
+        id: this.deps.ids.nextId(),
+        ownerUserId: userId,
+        input,
+        today: this.deps.clock.todayIsoDate(),
+        nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
+      });
+      assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([userId]), pet.microchipId, pet.id);
+      await repositories.pets.save(pet);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: pet });
+      const baseHouseholdId = baseHouseholdIdOf(input);
+      if (baseHouseholdId !== undefined) await assignOwnedPetToHousehold(this.deps, repositories, userId, pet, baseHouseholdId);
+      return pet;
+    });
   }
 }
 
-/**
- * Updates an existing pet profile enforcing species quota (INV-PET-004) and birthDate consistency.
- *
- * @implements REQ-PET-001, INV-PET-001, INV-PET-002, INV-PET-003, INV-PET-004, INV-REC-006, ERR-PET-NOT-FOUND, ERR-PET-QUOTA-EXCEEDED, ERR-PET-FUTURE-BIRTHDATE, ERR-SCHEMA-VALIDATION-FAILED, INV-ARCH-001
- */
+/** @implements REQ-PET2-001, INV-ACC-002, ERR-ACC-FORBIDDEN, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND */
 export class UpdatePetUseCase {
-  private readonly repository: StorageRepositoryPort;
-  private readonly clock: ClockPort;
+  constructor(private readonly deps: ApplicationDeps) {}
 
-  constructor(repository: StorageRepositoryPort, clock: ClockPort) {
-    this.repository = repository;
-    this.clock = clock;
-  }
-
-  public execute(input: UpdatePetInput): PetProfile {
-    const existing = this.repository.getPetById(input.petId);
-    if (!existing) {
-      throw new DomainError(
-        'ERR-PET-NOT-FOUND',
-        `No existe ninguna mascota con id ${input.petId}.`,
-        'petId'
-      );
-    }
-
-    const targetSpecies = input.species ?? existing.species;
-    if (targetSpecies !== existing.species) {
-      const allPets = this.repository.listPets();
-      assertCanUpdatePetSpecies(allPets, existing.id, targetSpecies);
-    }
-
-    const targetName =
-      input.name !== undefined
-        ? validateNonEmptyTrimmedField(input.name, 'name', 50)
-        : existing.name;
-    const targetBreed =
-      input.breed !== undefined
-        ? validateNonEmptyTrimmedField(input.breed, 'breed', 60)
-        : existing.breed;
-    const targetBirthDate = input.birthDate ?? existing.birthDate;
-    validateBirthDateNotFuture(targetBirthDate, this.clock.todayIsoDate());
-
-    const updatedCandidate: PetProfile = {
-      id: existing.id,
-      name: targetName,
-      species: targetSpecies,
-      breed: targetBreed,
-      birthDate: targetBirthDate,
-      sex: input.sex ?? existing.sex,
-      avatarUrl: input.avatarUrl !== undefined ? input.avatarUrl : existing.avatarUrl,
-      createdAt: existing.createdAt,
-    };
-
-    const validated = validatePetProfileSchema(updatedCandidate);
-    this.repository.savePet(validated);
-    return validated;
+  async execute(userId: string, petId: string, input: unknown): Promise<PetProfile> {
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const { pet } = await requirePetAction(repositories, userId, petId, 'EDIT_PET_BASICS');
+      const records = await repositories.records.listForPet(petId);
+      const updated = updatePetProfile({
+        pet,
+        input,
+        today: this.deps.clock.todayIsoDate(),
+        nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
+        recordEventDates: collectRecordEventDates(petId, records),
+      });
+      assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([pet.ownerUserId]), updated.microchipId, updated.id);
+      await repositories.pets.save(updated);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: pet, next: updated });
+      return updated;
+    });
   }
 }
 
-/**
- * Retrieves the complete isolated technical dashboard for a single pet, including computed age,
- * active sanitary alerts summary, and the 6 deterministically sorted historical record collections.
- *
- * @implements REQ-PET-002, REQ-PET-003, INV-PET-003, INV-SORT-001, STATE-ALERT-001, ERR-PET-NOT-FOUND, INV-ARCH-001
- */
+/** @implements REQ-PET-004, INV-ACC-002, ERR-ACC-FORBIDDEN, ERR-PET-NOT-FOUND, INV-ARCH-005 */
+export class DeletePetUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(userId: string, petId: string): Promise<204> {
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const { pet } = await requirePetAction(repositories, userId, petId, 'DELETE_PET');
+      await repositories.records.deleteForPet(petId);
+      await repositories.pets.delete(petId);
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'PET', entityId: petId, previous: pet, next: null });
+      return 204 as const;
+    });
+  }
+}
+
+/** @implements REQ-PET2-002, REQ-PET-005, REQ-PET-002 */
+export class ListMyPetsUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(userId: string, query: PetListQuery = {}): Promise<PetCardView[]> {
+    const today = this.deps.clock.todayIsoDate();
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const filter = petListFilterOf(query);
+      const visible = await listVisiblePets(repositories, userId);
+      const roleOf = new Map(visible.map((v) => [v.pet.id, v.role]));
+      const owners = await publicProfilesById(repositories, visible.map((v) => v.pet.ownerUserId));
+      const pets = sortPetsForListing(visible.map((v) => v.pet).filter((pet) => matchesPetListFilter(pet, filter)));
+      const cards: PetCardView[] = [];
+      for (const pet of pets) {
+        const card = buildPetCard(pet, ownerTag(owners.get(pet.ownerUserId)!, null), roleOf.get(pet.id)!, await repositories.records.listForPet(pet.id), today);
+        if (keepsCard(query, card)) cards.push(card);
+      }
+      return cards;
+    });
+  }
+}
+
+/** @implements REQ-PET2-003, REQ-PET-003, REQ-PET-002, REQ-RBAC-001, INV-ACC2-001, INV-ACC-001, INV-ACC-002, ERR-PET-NOT-FOUND */
 export class GetPetDashboardUseCase {
-  private readonly repository: StorageRepositoryPort;
-  private readonly clock: ClockPort;
+  constructor(private readonly deps: ApplicationDeps) {}
 
-  constructor(repository: StorageRepositoryPort, clock: ClockPort) {
-    this.repository = repository;
-    this.clock = clock;
-  }
-
-  public execute(petId: string): PetDashboardView {
-    const profile = this.repository.getPetById(petId);
-    if (!profile) {
-      throw new DomainError(
-        'ERR-PET-NOT-FOUND',
-        `No existe ninguna mascota con id ${petId}.`,
-        'petId'
-      );
-    }
-
-    const today = this.clock.todayIsoDate();
-    const computedAge = calculatePetAge(profile.birthDate, today);
-
-    const rawWeights = this.repository.listWeightsByPet(petId);
-    const weights = computeWeightEvolutionSeries(rawWeights);
-
-    const bodyMeasurements = sortHistoricalRecords(
-      this.repository.listBodyMeasurementsByPet(petId)
-    );
-
-    const vaccinations = evaluateVaccinationAlerts(
-      this.repository.listVaccinationsByPet(petId),
-      today
-    );
-
-    const dewormings = evaluateDewormingAlerts(
-      this.repository.listDewormingsByPet(petId),
-      today
-    );
-
-    const medicalVisits = sortHistoricalRecords(
-      this.repository.listMedicalVisitsByPet(petId)
-    );
-
-    const customParameters = sortHistoricalRecords(
-      this.repository.listCustomParametersByPet(petId)
-    );
-
-    const alertsSummary = summarizeSanitaryAlerts(vaccinations, dewormings);
-
-    return {
-      profile,
-      computedAge,
-      alertsSummary,
-      weights,
-      bodyMeasurements,
-      vaccinations,
-      dewormings,
-      medicalVisits,
-      customParameters,
-    };
-  }
-}
-
-/**
- * Lists all registered pets (up to 4) along with global quota state, computed age, and alert counters
- * for the PetSelectorBar UI.
- *
- * @implements REQ-PET-002, REQ-PET-003, REQ-UI-001, STATE-PET-QUOTA-001, STATE-ALERT-001, INV-ARCH-001
- */
-export class ListPetsOverviewUseCase {
-  private readonly repository: StorageRepositoryPort;
-  private readonly clock: ClockPort;
-
-  constructor(repository: StorageRepositoryPort, clock: ClockPort) {
-    this.repository = repository;
-    this.clock = clock;
-  }
-
-  public execute(): PetListOverview {
-    const allPets = this.repository.listPets();
-    const quota = evaluatePetQuotaState(allPets);
-    const today = this.clock.todayIsoDate();
-
-    const summaries: PetSummaryCardView[] = allPets.map((profile) => {
-      const computedAge = calculatePetAge(profile.birthDate, today);
-      const vaccinations = evaluateVaccinationAlerts(
-        this.repository.listVaccinationsByPet(profile.id),
-        today
-      );
-      const dewormings = evaluateDewormingAlerts(
-        this.repository.listDewormingsByPet(profile.id),
-        today
-      );
-      const alertsSummary = summarizeSanitaryAlerts(vaccinations, dewormings);
-      const weights = computeWeightEvolutionSeries(
-        this.repository.listWeightsByPet(profile.id)
-      );
-
+  async execute(userId: string, petId: string): Promise<PetDashboardView> {
+    const today = this.deps.clock.todayIsoDate();
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const { pet, role } = await requireReadablePet(repositories, userId, petId);
+      const owner = (await publicProfilesById(repositories, [pet.ownerUserId])).get(pet.ownerUserId)!;
+      const records = await repositories.records.listForPet(petId);
+      const vaccinations = evaluateVaccinationAlerts(records.vaccinations, today);
+      const dewormings = evaluateDewormingAlerts(records.dewormings, today);
       return {
-        profile,
-        computedAge,
-        alertsSummary,
-        latestWeightKg: weights[0]?.weightKg ?? null,
+        profile: pet,
+        owner: ownerTag(owner, null),
+        myRole: role,
+        permissions: petPermissionsFor(role),
+        computedAge: calculatePetAge(pet.birthDate, today),
+        alertsSummary: summarizeSanitaryAlerts(vaccinations, dewormings),
+        weights: computeWeightEvolutionSeries(records.weights),
+        bodyMeasurements: sortHistoricalRecords(records.bodyMeasurements),
+        // T255 PENDIENTE: separación vigentes/reemplazados según REQ-REC2-002.
+        vaccinations: vaccinations.filter((v) => v.alert?.status !== 'SUPERSEDED'),
+        supersededVaccinations: vaccinations.filter((v) => v.alert?.status === 'SUPERSEDED'),
+        dewormings: dewormings.filter((d) => d.alert?.status !== 'SUPERSEDED'),
+        supersededDewormings: dewormings.filter((d) => d.alert?.status === 'SUPERSEDED'),
+        medicalVisits: sortHistoricalRecords(records.medicalVisits),
+        customParameters: sortHistoricalRecords(records.customParameters),
       };
     });
-
-    return {
-      quota,
-      pets: summaries,
-    };
   }
 }

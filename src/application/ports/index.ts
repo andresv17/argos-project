@@ -1,8 +1,15 @@
 /**
- * Barrel export for Application Layer Ports.
- * @implements INV-ARCH-001, INV-ARCH-002, INV-ARCH-004
+ * Puertos de la capa de aplicación, con los nombres del y la
+ * @implements INV-ARCH-004, INV-ARCH-005
  */
 
 export * from './clock.port.ts';
 export * from './id-generator.port.ts';
-export * from './storage-repository.port.ts';
+export * from './secure-token.port.ts';
+export * from './password-hasher.port.ts';
+export * from './repositories.port.ts';
+export * from './unit-of-work.port.ts';
+export * from './rate-limiter.port.ts';
+export * from './backup-token.port.ts';
+export * from './audit-log.port.ts';
+export * from './audit-pseudonym.port.ts';

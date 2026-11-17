@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Argos — Maqueta v2.1 (Propuesta A)</title>
+<style>
+  /* Tokens de ui_blueprint.md v2.1 (sección 2) */
+  :root{
+    --primary:#1d4f3a; --primary-hover:#173f2f; --secondary:#35573f;
+    --accent:#c5f35a; --accent-soft:#e9fbc4; --sky:#eaf6ff; --meadow:#e6f2ea; --cream:#f4f8ef;
+    --text:#0f172a; --muted:#475569; --border-strong:#64748b; --danger:#b91c1c;
+    --owner-1:#1d4ed8; --owner-2:#047857; --ok-bg:#f1f5f9; --ok-fg:#1e293b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-width:320px;min-height:100vh;color:var(--text);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:linear-gradient(135deg,var(--sky) 0%,var(--meadow) 50%,var(--cream) 100%);
+    padding:16px;}
+  @media (min-width:640px){body{padding:24px}}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .skip{position:absolute;left:8px;top:8px;z-index:10;background:#fff;color:var(--primary);min-height:48px}
+  .skip:not(:focus){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  a,button,select,input,[role=option],[role=tab]{min-height:48px}
+  :focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary);border-radius:12px}
+
+  /* Marco L1: única capa de blur (>=640 px, con soporte) */
+  .frame{max-width:1280px;margin:0 auto;background:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.4);
+    border-radius:24px;box-shadow:0 8px 32px rgba(15,23,42,.06);padding:16px}
+  @media (min-width:640px){.frame{padding:24px;background:rgba(255,255,255,.7)}
+    @supports (backdrop-filter:blur(1px)){.frame{backdrop-filter:blur(12px)}}}
+
+  header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between}
+  .wordmark{font-size:18px;font-weight:700;letter-spacing:-.02em;color:var(--primary)}
+  nav.main{display:flex;flex-wrap:wrap;gap:8px}
+  nav.main a{position:relative;display:inline-flex;align-items:center;gap:6px;padding:0 16px;border-radius:999px;color:var(--primary);
+    text-decoration:none;font-weight:500;font-size:14px}
+  nav.main a:hover{background:#fff}
+  nav.main a[aria-current=page]{background:var(--accent);font-weight:600}
+  /* H-BP2-6: indicador no cromático de 2 px en primary (ademas del relleno lima) */
+  nav.main a[aria-current=page]::after,.tab[aria-selected=true]::after{content:"";position:absolute;left:16px;right:16px;bottom:6px;height:2px;border-radius:1px;background:var(--primary)}
+  .badge{border-radius:999px;padding:0 8px;font-size:12px;font-weight:700;line-height:20px;background:var(--primary);color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .badge.amber{background:#fcd34d;color:#0f172a}
+  .user{display:flex;align-items:center;gap:8px;font-size:14px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;min-height:48px;padding:0 20px;
+    font-weight:600;font-size:15px;font-family:inherit;cursor:pointer;text-decoration:none;border:1px solid var(--primary);background:#fff;color:var(--primary)}
+  .btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .btn.primary:hover{background:var(--primary-hover)}
+  .btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+
+  .ctx{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:16px}
+  .tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+  .tab{position:relative;white-space:nowrap;border-radius:999px;padding:0 16px;display:inline-flex;align-items:center;border:0;background:transparent;color:var(--text);font-weight:500;cursor:pointer;font-size:15px}
+  .tab[aria-selected=true]{background:var(--accent);color:var(--primary);font-weight:600}
+  .tab:hover{background:#fff}
+  .filters{display:flex;flex-wrap:wrap;gap:8px}
+  .field{display:grid;gap:4px;font-size:14px;font-weight:600}
+  .field input,.field select{min-height:48px;border:1px solid var(--border-strong);border-radius:12px;padding:8px 12px;background:#fff;font:400 15px inherit;color:var(--text)}
+  .field input::placeholder{color:#64748b}
+
+  .layout{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:16px}
+  .layout>*{min-width:0}
+  @media (min-width:1024px){.layout{grid-template-columns:156px minmax(0,1fr);}}
+
+  /* Riel listbox */
+  .rail{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;list-style:none;margin:0;padding:0 0 4px}
+  @media (min-width:1024px){.rail{flex-direction:column;overflow-x:visible;overflow-y:auto;max-height:36rem;align-items:center}}
+  @media (min-width:1024px){.rail{align-items:stretch}}
+  .opt{scroll-snap-align:start;flex:0 0 auto;width:148px;display:grid;justify-items:center;align-content:start;gap:4px;padding:8px 6px;border-radius:16px;
+    border:2px solid transparent;cursor:pointer;background:#fff;outline:none;text-align:center;min-width:0}
+  @media (min-width:1024px){.opt{width:100%}}
+  .opt[aria-selected=true]{background:var(--accent-soft);border-color:var(--primary)}
+  .opt:focus-visible{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary)}
+  .opt .nm{font-size:13px;font-weight:600;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sub{font-size:12px;line-height:16px;color:var(--muted);font-variant-numeric:tabular-nums;max-width:100%}
+  .opt .sub{font-weight:500}
+  /* Linea de alertas del riel: siempre ambos numeros; el texto lleva el significado, el color solo refuerza */
+  .alertline{font-size:12px;font-weight:700;line-height:16px;border-radius:10px;padding:2px 8px;font-variant-numeric:tabular-nums;max-width:100%}
+  .alertline.red{background:#fee2e2;color:#7f1d1d}
+  .alertline.amber{background:#fef3c7;color:#78350f}
+  .alertline.ok{background:var(--ok-bg);color:var(--ok-fg)}
+  .own{font-size:12px;font-weight:600;line-height:16px;color:#1e293b;max-width:100%}
+  #pet-panel[data-ctx=casa] .own[data-o]{background:var(--oc);color:#fff;border-radius:999px;padding:2px 8px;font-weight:700}
+  .newpet{flex:0 0 auto;width:148px;margin-top:8px;min-height:48px;display:grid;justify-items:center;gap:4px;padding:6px 4px;border-radius:16px;
+    border:2px dashed var(--border-strong);background:transparent;color:var(--primary);font:600 13px inherit;cursor:pointer}
+
+  /* Avatar: iniciales + glifo (D1) */
+  .av{position:relative;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:20px;
+    background:var(--secondary);flex:0 0 auto}
+  #pet-panel[data-ctx=casa] .av[data-o="1"]{box-shadow:0 0 0 3px var(--owner-1)}
+  #pet-panel[data-ctx=casa] .av[data-o="2"]{box-shadow:0 0 0 3px var(--owner-2)}
+  #pet-panel[data-ctx=casa] .av.lg[data-o="1"]{background:var(--owner-1)}
+  .av.lg{width:96px;height:96px;font-size:30px}
+  .av .gl{position:absolute;right:-2px;bottom:-2px;width:22px;height:22px;border-radius:50%;background:#fff;color:var(--primary);display:grid;place-items:center}
+  .av .gl svg{width:14px;height:14px}
+
+  .hero-bento{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch;min-width:0}
+  .hero-bento>*{min-width:0}
+  .hero{grid-column:1/-1}
+  .alerts{grid-column:1/-1}
+  @media (min-width:1024px){.hero-bento{grid-template-columns:repeat(12,minmax(0,1fr))}
+    .hero{grid-column:span 7}.alerts{grid-column:span 5;grid-row:span 2}
+    .edad{grid-column:span 3}.peso{grid-column:span 4}}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
+  .hero h2{margin:0;font-size:36px;line-height:40px;font-weight:700}
+  @media (min-width:1024px){.hero h2{font-size:48px;line-height:52px}}
+  .meta{margin:4px 0 0;color:var(--muted);font-size:14px}
+  .pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .pill{border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;border:1px solid var(--border-strong);color:#1e293b}
+  .pill.owner{color:#1e293b;background:#fff}
+  #pet-panel[data-ctx=casa] .pill.owner[data-o]{background:var(--oc);color:#fff;border:0}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .kpi-l{font-size:14px;color:var(--muted)}
+  .kpi-v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:4px}
+  .alerts{background:var(--primary);color:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.05);display:grid;gap:12px;align-content:start}
+  .alerts h3{margin:0;font-size:18px;font-weight:600}
+  .alerts .total{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+  .alerts ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+  .alerts li{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+  .alerts svg{width:20px;height:20px;flex:0 0 auto}
+  .btn.onprimary{background:#fff;color:var(--primary);border-color:#fff}
+
+  .modules{margin-top:12px}
+  .modules .tabs{padding:0}
+  .panel{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;margin-top:12px}
+  details.rec{margin-bottom:16px}
+  details.rec summary{list-style:none;display:inline-flex;align-items:center;min-height:48px;padding:0 20px;border-radius:999px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer}
+  details.rec summary::-webkit-details-marker{display:none}
+  .formgrid{display:grid;gap:12px;margin-top:12px}
+  @media (min-width:640px){.formgrid{grid-template-columns:1fr 1fr}}
+  .chart-wrap{display:grid;gap:16px}
+  @media (min-width:1024px){.chart-wrap{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+  .region{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+  th,td{padding:8px 6px;text-align:left;border-bottom:1px solid #e2e8f0}
+  td.num{white-space:nowrap}
+  th{font-weight:600}
+  .note{font-size:12px;color:var(--muted);margin-top:16px}
+</style>
+</head>
+<body>
+<a class="skip btn primary" href="#main-content">Saltar al contenido</a>
+
+<div class="frame">
+  <header class="top">
+    <p class="wordmark">Argos</p>
+    <nav class="main" aria-label="Principal">
+      <a href="#" aria-current="page">Mascotas</a>
+      <a href="#">Hogares <span class="badge" data-household-count="2" aria-hidden="true">2 hogares</span><span class="sr-only">2 hogares</span> <span class="badge amber" data-pending-invitations="1" aria-hidden="true">1 invitaciones</span><span class="sr-only">1 invitación pendiente</span></a>
+      <a href="#">Respaldo</a>
+      <a href="ui_maqueta_cuenta.html">Perfil</a>
+    </nav>
+    <div class="user"><span>Ana</span><button class="btn">Cerrar sesión</button></div>
+  </header>
+
+  <div class="ctx">
+    <div class="tabs" role="tablist" aria-label="Contexto de mascotas">
+      <button class="tab" role="tab" aria-selected="true" tabindex="0" id="context-tab-mine" aria-controls="pet-panel">Mis mascotas</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" id="context-tab-casa" aria-controls="pet-panel">Casa Pérez</button>
+    </div>
+    <form class="filters" role="search" aria-label="Filtrar mascotas" onsubmit="return false">
+      <label class="field">Buscar mascota
+        <input type="search" aria-label="Buscar mascota por nombre" maxlength="50" placeholder="Escribe un nombre">
+      </label>
+      <label class="field">Filtrar por especie
+        <select><option>Todas</option><option>Perro</option><option>Gato</option></select>
+      </label>
+    </form>
+  </div>
+
+  <main id="main-content" tabindex="-1">
+  <div id="pet-panel" class="layout" role="tabpanel" aria-labelledby="context-tab-mine" data-ctx="mine">
+    <!-- Riel: listbox de mascotas. Datos de EJEMPLO. -->
+    <div>
+      <ul class="rail" role="listbox" aria-label="Mascotas" id="rail">
+        <li class="opt" role="option" aria-selected="true" data-pet-id="ejemplo-1" tabindex="0">
+          <span class="av" data-o="1" aria-hidden="true">AR<span class="gl"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="10" r="2"/><circle cx="10" cy="5" r="2"/><circle cx="14" cy="5" r="2"/><circle cx="18" cy="10" r="2"/><path d="M12 12c-3 0-5 3-5 5s2 3 5 3 5-1 5-3-2-5-5-5z"/></svg></span></span>
+          <span class="nm">Argos</span>
+          <span class="sub">Perro · 7 años, 8 meses</span>
+          <span class="sub">28.40 kg</span>
+          <span class="alertline red">Alertas: 2 vencidas · 1 próximas</span>
+          <span class="own" data-o="1" data-oc="1" style="--oc:var(--owner-1)" data-owner-badge="none">Dueño: Ana</span>
+        </li>
+        <li class="opt" role="option" aria-selected="false" data-pet-id="ejemplo-2" tabindex="-1">
+          <span class="av" data-o="1" aria-hidden="true">LU<span class="gl"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="10" r="2"/><circle cx="10" cy="5" r="2"/><circle cx="14" cy="5" r="2"/><circle cx="18" cy="10" r="2"/><path d="M12 12c-3 0-5 3-5 5s2 3 5 3 5-1 5-3-2-5-5-5z"/></svg></span></span>
+          <span class="nm">Luna</span>
+          <span class="sub">Gato · 5 años, 2 meses</span>
+          <span class="sub">4.20 kg</span>
+          <span class="alertline amber">Alertas: 0 vencidas · 1 próximas</span>
+          <span class="own" data-o="1" data-oc="1" style="--oc:var(--owner-1)" data-owner-badge="none">Dueño: Ana</span>
+        </li>
+        <li class="opt" role="option" aria-selected="false" data-pet-id="ejemplo-3" tabindex="-1">
+          <span class="av" data-o="1" aria-hidden="true">RO<span class="gl"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="10" r="2"/><circle cx="10" cy="5" r="2"/><circle cx="14" cy="5" r="2"/><circle cx="18" cy="10" r="2"/><path d="M12 12c-3 0-5 3-5 5s2 3 5 3 5-1 5-3-2-5-5-5z"/></svg></span></span>
+          <span class="nm">Rocky</span>
+          <span class="sub">Perro · 3 años, 10 meses</span>
+          <span class="sub">Sin peso</span>
+          <span class="alertline ok">Alertas: 0 vencidas · 0 próximas</span>
+          <span class="own" data-o="1" data-oc="1" style="--oc:var(--owner-1)" data-owner-badge="none">Dueño: Ana</span>
+        </li>
+      </ul>
+      <button class="newpet" type="button">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Nueva mascota
+      </button>
+    </div>
+
+    <article aria-labelledby="pet-title" data-pet-id="ejemplo-1">
+      <div class="hero-bento">
+        <div class="card hero">
+          <div>
+            <h2 id="pet-title">Argos</h2>
+            <p class="meta">Perro · Labrador · Macho · nació 2019-03-02</p>
+            <div class="pills">
+              <span class="pill owner" data-o="1" style="--oc:var(--owner-1)" data-owner-badge="none">Dueño: Ana</span>
+              <span class="pill" data-read-only="true" hidden>Solo lectura</span>
+            </div>
+            <div class="actions">
+              <button class="btn">Editar</button>
+              <button class="btn danger">Eliminar</button>
+            </div>
+          </div>
+          <span class="av lg" data-o="1" aria-hidden="true">AR<span class="gl"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="10" r="2"/><circle cx="10" cy="5" r="2"/><circle cx="14" cy="5" r="2"/><circle cx="18" cy="10" r="2"/><path d="M12 12c-3 0-5 3-5 5s2 3 5 3 5-1 5-3-2-5-5-5z"/></svg></span></span>
+        </div>
+
+        <section class="alerts" aria-labelledby="alerts-title">
+          <h3 id="alerts-title">Alertas sanitarias</h3>
+          <p class="total">3 alertas activas</p>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg>2 vencidas</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>1 próximas</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>2 al día</li>
+          </ul>
+          <p>Dueño: Ana</p>
+          <div><button class="btn onprimary">Registrar peso</button></div>
+        </section>
+
+        <div class="card edad"><p class="kpi-l">Edad</p><p class="kpi-v">7 años, 8 meses</p></div>
+        <div class="card peso"><p class="kpi-l">Último peso</p><p class="kpi-v">28.40 kg</p></div>
+      </div>
+
+      <section class="modules" aria-label="Ficha de la mascota">
+        <div class="tabs" role="tablist" aria-label="Módulos de la ficha">
+          <button class="tab" role="tab" aria-selected="true" id="module-tab-weights" aria-controls="module-panel-weights">Peso</button>
+          <button class="tab" role="tab" aria-selected="false" id="module-tab-measurements" aria-controls="module-panel-measurements">Medidas</button>
+          <button class="tab" role="tab" aria-selected="false" id="module-tab-vaccinations" aria-controls="module-panel-vaccinations">Vacunas</button>
+          <button class="tab" role="tab" aria-selected="false" id="module-tab-dewormings" aria-controls="module-panel-dewormings">Desparasitación</button>
+          <button class="tab" role="tab" aria-selected="false" id="module-tab-visits" aria-controls="module-panel-visits">Consultas</button>
+          <button class="tab" role="tab" aria-selected="false" id="module-tab-customParameters" aria-controls="module-panel-customParameters">Parámetros</button>
+        </div>
+
+        <div class="panel" role="tabpanel" id="module-panel-weights" aria-labelledby="module-tab-weights">
+          <!-- D2 (H-BP2-3): `open` es estado local, se inicializa SOLO al montar (cerrado aqui porque el modulo tiene registros); no se recalcula al guardar. -->
+          <details class="rec">
+            <summary>Registrar peso</summary>
+            <form aria-labelledby="form-weights-title" class="formgrid" onsubmit="return false">
+              <h3 id="form-weights-title" style="margin:0;font-size:18px">Registrar peso</h3>
+              <label class="field"><span>Fecha <span aria-hidden="true">*</span></span><input id="weights-recordedAt" name="recordedAt" type="date" required></label>
+              <label class="field"><span>Peso (kg) <span aria-hidden="true">*</span></span><input id="weights-weightKg" name="weightKg" type="number" step="0.01" min="0.001" max="150" required></label>
+              <label class="field">Notas<input name="notes" type="text" maxlength="1000"></label>
+              <div><button class="btn primary" type="submit">Guardar</button></div>
+            </form>
+          </details>
+
+          <div class="chart-wrap">
+            <div>
+              <svg viewBox="0 0 600 220" role="img" aria-label="Evolución de peso: 4 mediciones, mínimo 26.90, máximo 28.40" width="100%" style="max-width:600px;height:auto">
+                <line x1="32" y1="188" x2="568" y2="188" stroke="#cbd5e1"/>
+                <polyline fill="none" stroke="#1d4f3a" stroke-width="2" points="32,142.7 210.7,180 389.3,68 568,40"/>
+                <circle cx="32" cy="142.7" r="4" fill="#1d4f3a"/><circle cx="210.7" cy="180" r="4" fill="#1d4f3a"/>
+                <circle cx="389.3" cy="68" r="4" fill="#1d4f3a"/><circle cx="568" cy="40" r="4" fill="#1d4f3a"/>
+              </svg>
+            </div>
+            <div class="region" role="region" aria-label="Evolución de peso (desplazable)" tabindex="0">
+              <table>
+                <caption class="sr-only">Evolución de peso</caption>
+                <thead><tr><th scope="col">Fecha</th><th scope="col">Peso</th><th scope="col">Variación (kg)</th><th scope="col">Variación (%)</th></tr></thead>
+                <tbody>
+                  <tr><td class="num">2026-08-01</td><td class="num">28.40 kg</td><td class="num">+0.30 kg</td><td>—</td></tr>
+                  <tr><td class="num">2026-06-10</td><td class="num">28.10 kg</td><td class="num">+1.20 kg</td><td>—</td></tr>
+                  <tr><td class="num">2026-03-02</td><td class="num">26.90 kg</td><td class="num">−0.40 kg</td><td>—</td></tr>
+                  <tr><td class="num">2026-01-10</td><td class="num">27.30 kg</td><td class="num">—</td><td>—</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+      <p class="note">Datos de ejemplo coherentes con la fecha 2026-11-14; no son datos reales del contrato. Ninguna métrica fuera de architecture_spec.md.</p>
+    </article>
+  </div>
+  </main>
+</div>
+
+<script>
+  // Teclado del riel (listbox): flechas en ambos sentidos, Inicio, Fin, Enter, Espacio.
+  (function(){
+    var rail=document.getElementById('rail'), opts=[].slice.call(rail.querySelectorAll('[role=option]'));
+    function select(i){
+      opts.forEach(function(o,k){o.setAttribute('aria-selected',k===i);o.tabIndex=k===i?0:-1;});
+      opts[i].focus();
+    }
+    rail.addEventListener('keydown',function(e){
+      var i=opts.indexOf(document.activeElement); if(i<0)return;
+      var n=null;
+      if(e.key==='ArrowDown'||e.key==='ArrowRight') n=(i+1)%opts.length;
+      if(e.key==='ArrowUp'||e.key==='ArrowLeft') n=(i-1+opts.length)%opts.length;
+      if(e.key==='Home') n=0; if(e.key==='End') n=opts.length-1;
+      if(e.key==='Enter'||e.key===' '){ e.preventDefault(); return; }
+      if(n!==null){ e.preventDefault(); select(n); }
+    });
+    opts.forEach(function(o){o.addEventListener('click',function(){select(opts.indexOf(o));});});
+  })();
+  // Contexto de mascotas: alterna "Mis mascotas" (sin color de dueño) y hogar (con color). Solo demostracion visual.
+  (function(){
+    var panel=document.getElementById('pet-panel'), tabs=[].slice.call(document.querySelectorAll('[role=tab][aria-controls=pet-panel]'));
+    function pick(i){
+      var casa=tabs[i].id==='context-tab-casa';
+      tabs.forEach(function(t,k){t.setAttribute('aria-selected',k===i);t.tabIndex=k===i?0:-1;});
+      panel.setAttribute('aria-labelledby',tabs[i].id);
+      panel.setAttribute('data-ctx',casa?'casa':'mine');
+      [].forEach.call(panel.querySelectorAll('[data-owner-badge]'),function(e){
+        e.setAttribute('data-owner-badge',casa?'OWNER_COLOR_'+e.getAttribute('data-o'):'none');});
+      tabs[i].focus();
+    }
+    tabs.forEach(function(t,i){
+      t.addEventListener('click',function(){pick(i);});
+      t.addEventListener('keydown',function(e){
+        var n=null;
+        if(e.key==='ArrowRight')n=(i+1)%tabs.length; if(e.key==='ArrowLeft')n=(i-1+tabs.length)%tabs.length;
+        if(e.key==='Home')n=0; if(e.key==='End')n=tabs.length-1;
+        if(n!==null){e.preventDefault();pick(n);}
+      });
+    });
+  })();
+</script>
+</body>
+</html>

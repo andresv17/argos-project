@@ -1,0 +1,45 @@
+# Secretos y configuración local (REQ-SEC-005)
+.env
+.env.*
+*.pem
+*.key
+*.tfstate
+*.tfstate.*
+.terraform
+terraform
+
+# Dependencias y artefactos (se regeneran en la etapa de build)
+node_modules
+dist
+dist-server
+dist-server-*
+coverage
+reports
+playwright-report
+test-results
+.stryker-tmp
+
+# Pruebas, especificaciones, memoria de agentes y control de versiones
+tests
+claude
+specs
+.specify
+.claude
+.playwright-mcp
+.git
+.github
+
+# Datos locales y registros
+data
+*.sqlite
+*.sqlite-*
+*.log
+logos.json
+handoff.json*
+_to_delete
+
+# Documentación y maquetas
+*.md
+*.MD
+ui_maqueta*.html
+.DS_Store
