@@ -12,6 +12,14 @@ const path = join(process.cwd(), '.github', 'workflows', 'test-gate.yml');
 const load = (): string => readFileSync(path, 'utf8');
 const noComments = (s: string): string => s.replace(/^\s*#.*$/gm, '');
 const git = (...args: string[]): string => execFileSync('git', args, { encoding: 'utf8' });
+const hasBase = ((): boolean => {
+  try {
+    execFileSync('git', ['cat-file', '-e', `${BASE}^{commit}`], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
 const steps = (s: string): string => s.slice(s.indexOf('    steps:'));
 
 describe('.github/workflows/test-gate.yml (T447)', () => {
@@ -26,7 +34,7 @@ describe('.github/workflows/test-gate.yml (T447)', () => {
     expect(y).toMatch(/^ {2}workflow_dispatch:/m);
   });
 
-  it('los pasos existentes no cambiaron respecto de b6cacc5', () => {
+  it.skipIf(!hasBase)('los pasos existentes no cambiaron respecto de b6cacc5', () => {
     const before = steps(git('show', `${BASE}:.github/workflows/test-gate.yml`));
     expect(steps(load())).toBe(before);
   });
@@ -45,7 +53,7 @@ describe('.github/workflows/test-gate.yml (T447)', () => {
     expect(y).not.toMatch(/GCP|GOOGLE_|workload_identity/i);
   });
 
-  it('drift-detection.yml no cambió respecto de b6cacc5 (REQ-CICD-004)', () => {
+  it.skipIf(!hasBase)('drift-detection.yml no cambió respecto de b6cacc5 (REQ-CICD-004)', () => {
     expect(git('diff', BASE, '--', '.github/workflows/drift-detection.yml')).toBe('');
   });
 });
