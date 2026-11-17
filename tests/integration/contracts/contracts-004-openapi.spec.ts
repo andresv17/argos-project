@@ -95,9 +95,9 @@ describe('T511 avatar', () => {
     expect(codes('/pets/{petId}/avatar', 'get')).toEqual(['200', '401', '404', '502']);
   });
 
-  it('REQ-AVA-001: deleteAvatar responde 204 y declara 502', () => {
+  it('REQ-AVA-001: deleteAvatar responde 204 idempotente y no declara 502 (cola transaccional)', () => {
     expect(op('/pets/{petId}/avatar', 'delete').operationId).toBe('deleteAvatar');
-    expect(codes('/pets/{petId}/avatar', 'delete')).toEqual(['204', '401', '403', '404', '502']);
+    expect(codes('/pets/{petId}/avatar', 'delete')).toEqual(['204', '401', '403', '404']);
   });
 });
 
