@@ -62,7 +62,7 @@ export function defineMediaRepositoryContractSuite(adapterName: string, createUn
         await r.media.insert(media(6, { kind: 'FILE' }));
         await r.media.insert(media(7, { petId: OTRA.id, kind: 'PHOTO' }));
       });
-      const page = (kind: 'PHOTO' | 'FILE', limit: number, offset: number) => uow.runInTransaction(async (r) => r.media.listPage(ARGOS.id, kind, limit, offset));
+      const page = (kind: 'PHOTO' | 'FILE' | null, limit: number, offset: number) => uow.runInTransaction(async (r) => r.media.listPage(ARGOS.id, kind, limit, offset));
       // Orden: n5 (t5), n4 (t4), luego los tres del mismo instante por id descendente: n3, n2, n1.
       expect((await page('PHOTO', 2, 0)).items.map((m) => m.id)).toEqual([id(5), id(4)]);
       expect((await page('PHOTO', 2, 2)).items.map((m) => m.id)).toEqual([id(3), id(2)]);
@@ -70,6 +70,8 @@ export function defineMediaRepositoryContractSuite(adapterName: string, createUn
       expect((await page('PHOTO', 2, 6))).toEqual({ items: [], total: 5 });
       expect((await page('FILE', 24, 0)).items.map((m) => m.id)).toEqual([id(6)]);
       expect((await page('FILE', 24, 0)).total).toBe(1);
+      // Sin filtro de tipo se listan ambos, con el mismo orden.
+      expect(await page(null, 3, 0)).toMatchObject({ total: 6, items: [{ id: id(6) }, { id: id(5) }, { id: id(4) }] });
     });
 
     it('[REQ-ARC-005] countBytesOfOwner suma todas las mascotas del propietario y no cuenta las de otro ni el avatar', async () => {

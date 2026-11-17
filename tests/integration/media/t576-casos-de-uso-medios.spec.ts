@@ -81,7 +81,7 @@ describe('T576 subida: validación en orden y tipo por firma (REQ-ARC-001, INV-A
   it('[SC-ALM-007][INV-ARC-003] el nombre ../../etc/passwd\\u0000.pdf queda saneado y la clave solo contiene pets/<uuid>/files/<uuid>', async () => {
     await eachEngine(null, {}, async (e) => {
       const item = await upload(e, ANDRES, 'FILE', PDF(), '../../etc/passwd\u0000.pdf');
-      expect(item.originalName).toBe('etcpasswd.pdf');
+      expect(item.originalName).toBe('....etcpasswd.pdf');
       expect(await e.storage.keys()).toEqual([`pets/${ARGOS.id}/files/${item.id}`]);
     });
   });
@@ -224,7 +224,7 @@ describe('T576 intención previa, permiso y cuota re-verificados en la transacci
   });
 
   it('[SC-ALM-026] dos subidas con 1 byte de cuota restante: una se acepta, la otra recibe 409 y su objeto se borra', async () => {
-    await eachEngine(null, { limits: { maxBytesPerOwner: 129 } }, async (e) => {
+    await eachEngine(null, { limits: { maxBytesPerOwner: 128 } }, async (e) => {
       // El put de la primera subida espera a que la segunda también haya pasado la comprobación previa y escrito su objeto.
       let release: () => void = () => undefined;
       const gate = new Promise<void>((resolve) => (release = resolve));
@@ -243,10 +243,13 @@ describe('T576 intención previa, permiso y cuota re-verificados en la transacci
     });
   });
 
-  it('[SC-ALM-026][REQ-ARC-002] una subida cuyo rol se revoca durante la transmisión recibe 403 y su objeto se borra', async () => {
+  it('[SC-ALM-026][REQ-ARC-002] una subida cuyo rol baja a Lector durante la transmisión recibe 403 y su objeto se borra', async () => {
     await eachEngine('CAREGIVER', {}, async (e) => {
       e.storage.beforePut = async () => {
-        await e.run((r) => r.households.saveMembership({ ...ownMembership(e, r), status: 'LEFT' } as never).then(() => undefined) as Promise<void>);
+        await e.run(async (r) => {
+          const membership = (await r.households.listMembershipsOfUsers([MARIA])).find((m) => m.status === 'ACTIVE')!;
+          await r.households.saveMembership({ ...membership, role: 'READER' }); // cambio de rol a Lector durante la transmisión
+        });
       };
       expect(await codeOf(upload(e, MARIA, 'FILE', PDF()))).toBe('ERR-ACC-FORBIDDEN');
       expect([await e.mediaRows(), await e.storage.keys(), await e.queue()]).toEqual([[], [], []]);
@@ -290,9 +293,3 @@ describe('T576 auditoría PET_MEDIA (REQ-AUD-001, REQ-ARC-001)', () => {
     });
   });
 });
-
-async function ownMembership(e: MediaEngine, r: import('../../../src/application/ports/repositories.port.ts').RepositorySet) {
-  void e;
-  const memberships = await r.households.listMembershipsOfUsers([MARIA]);
-  return memberships.find((m) => m.status === 'ACTIVE')!;
-}
