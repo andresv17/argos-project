@@ -190,7 +190,7 @@ describe('INV-ARCH-006: process.env solo en src/infrastructure/config/', () => {
     const root = join(process.cwd(), 'src');
     const offenders = listSources(root)
       .filter((path) => !path.includes(`${join('src', 'infrastructure', 'config')}`))
-      .filter((path) => readFileSync(path, 'utf8').split('\n').some((line) => /process\.env/.test(line) && !/^\s*(\*|\/\/|\/\*)/.test(line)))
+      .filter((path) => readFileSync(path, 'utf8').split('\n').some((line) => /process\.env/.test(line) && !/^\s*(\*|\/\/|\/\*)/.test(line) && !line.includes('__STRYKER')))
       .map((path) => path.slice(root.length + 1));
     expect(offenders).toEqual([]);
   });
