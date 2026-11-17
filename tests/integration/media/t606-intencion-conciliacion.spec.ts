@@ -107,14 +107,16 @@ describe('T606 conciliación diaria del prefijo pets/ (SC-ALM-031, REQ-GCS-006)'
     });
   });
 
-  it('[SC-ALM-031] claves ajenas al formato de objetos de medios no se borran y un fallo de list no detiene el mantenimiento', async () => {
+  it('[SC-ALM-031] un fallo de list no detiene el mantenimiento: reconciled 0, la cola se procesa y el objeto sigue para la pasada siguiente', async () => {
     await eachEngine(null, async (e) => {
-      await e.storage.inner.put('pets/no-es-una-clave', PDF(), 'application/pdf');
+      await e.storage.inner.put(ORPHAN(1), PDF(), 'application/pdf');
       advance(e, 48 * HOUR);
-      expect((await runMediaQueueMaintenance(e.deps)).reconciled).toBe(0);
-      expect(await e.storage.keys()).toEqual(['pets/no-es-una-clave']);
       e.storage.failing.add('list');
       expect(await runMediaQueueMaintenance(e.deps)).toMatchObject({ reconciled: 0, failed: 0 });
+      expect(await e.storage.keys()).toEqual([ORPHAN(1)]);
+      e.storage.failing.clear();
+      expect((await runMediaQueueMaintenance(e.deps)).reconciled).toBe(1);
+      expect(await e.storage.keys()).toEqual([]);
     });
   });
 

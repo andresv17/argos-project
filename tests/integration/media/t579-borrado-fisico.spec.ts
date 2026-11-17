@@ -163,7 +163,7 @@ describe('T579 mantenimiento de la cola (REQ-GCS-006, E3-04)', () => {
         await r.mediaQueue.enqueue(`pets/${ARGOS.id}/files/f0000000-0000-4000-8000-0000000d0d02`, 'DELETE', hours(e, -47));
       });
       const result = await runMediaQueueMaintenance(e.deps);
-      expect(result).toEqual({ promoted: 0, deleted: 0, failed: 2, overdue: 1 });
+      expect(result).toEqual({ promoted: 0, deleted: 0, failed: 2, overdue: 1, reconciled: 0 });
       expect(JSON.stringify(result)).not.toContain('pets/');
     });
   });
@@ -172,7 +172,7 @@ describe('T579 mantenimiento de la cola (REQ-GCS-006, E3-04)', () => {
     await eachEngine(async (e) => {
       const { media: _unused, ...withoutMedia } = e.deps;
       void _unused;
-      expect(await runMediaQueueMaintenance(withoutMedia)).toEqual({ promoted: 0, deleted: 0, failed: 0, overdue: 0 });
+      expect(await runMediaQueueMaintenance(withoutMedia)).toEqual({ promoted: 0, deleted: 0, failed: 0, overdue: 0, reconciled: 0 });
     });
   });
 });
