@@ -17,9 +17,10 @@ interface FieldProps {
   readonly required?: boolean;
   readonly autoComplete?: string;
   readonly step?: string;
+  readonly inputMode?: 'numeric' | 'decimal';
 }
 
-export function TextField({ id, label, name, value, onChange, errors, type = 'text', required = false, autoComplete, step }: FieldProps): JSX.Element {
+export function TextField({ id, label, name, value, onChange, errors, type = 'text', required = false, autoComplete, step, inputMode }: FieldProps): JSX.Element {
   const error = errors[name];
   const errorId = `${id}-error`;
   return (
@@ -36,6 +37,7 @@ export function TextField({ id, label, name, value, onChange, errors, type = 'te
         required={required}
         {...(autoComplete === undefined ? {} : { autoComplete })}
         {...(step === undefined ? {} : { step })}
+        {...(inputMode === undefined ? {} : { inputMode })}
         aria-invalid={error === undefined ? undefined : true}
         aria-describedby={error === undefined ? undefined : errorId}
         onChange={(e) => onChange(name, e.target.value)}
@@ -56,7 +58,7 @@ export function TextField({ id, label, name, value, onChange, errors, type = 'te
  *
  * @implements REQ-UI-005, REQ-UI-004
  */
-export function PasswordField({ id, label, name, value, onChange, errors, required = false, autoComplete }: Omit<FieldProps, 'type' | 'step'>): JSX.Element {
+export function PasswordField({ id, label, name, value, onChange, errors, required = false, autoComplete }: Omit<FieldProps, 'type' | 'step' | 'inputMode'>): JSX.Element {
   const [visible, setVisible] = useState(false);
   const error = errors[name];
   const errorId = `${id}-error`;

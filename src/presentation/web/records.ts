@@ -16,6 +16,7 @@ export interface RecordFieldSpec {
   readonly type: 'date' | 'number' | 'text' | 'select';
   readonly required: boolean;
   readonly step?: string;
+  readonly inputMode?: 'numeric' | 'decimal';
   readonly options?: ReadonlyArray<{ readonly value: string; readonly label: string }>;
 }
 
@@ -31,6 +32,8 @@ export interface RecordModuleSpec {
 const date = (name: string, label: string, required = true): RecordFieldSpec => ({ name, label, type: 'date', required });
 const text = (name: string, label: string, required = true): RecordFieldSpec => ({ name, label, type: 'text', required });
 const decimal = (name: string, label: string): RecordFieldSpec => ({ name, label, type: 'number', required: true, step: '0.01' });
+/** Medidas en centímetros enteros (REQ-MDC-001): paso 1 y teclado numérico. */
+const wholeCm = (name: string, label: string): RecordFieldSpec => ({ name, label, type: 'number', required: true, step: '1', inputMode: 'numeric' });
 
 export const RECORD_MODULES: readonly RecordModuleSpec[] = [
   {
@@ -49,10 +52,10 @@ export const RECORD_MODULES: readonly RecordModuleSpec[] = [
     numeric: ['neckCm', 'chestCm', 'backLengthCm', 'waistCm'],
     fields: [
       date('recordedAt', 'Fecha'),
-      decimal('neckCm', 'Cuello (cm)'),
-      decimal('chestCm', 'Pecho (cm)'),
-      decimal('backLengthCm', 'Largo de lomo (cm)'),
-      decimal('waistCm', 'Cintura (cm)'),
+      wholeCm('neckCm', 'Cuello (cm)'),
+      wholeCm('chestCm', 'Pecho (cm)'),
+      wholeCm('backLengthCm', 'Largo de lomo (cm)'),
+      wholeCm('waistCm', 'Cintura (cm)'),
       text('notes', 'Notas', false),
     ],
   },

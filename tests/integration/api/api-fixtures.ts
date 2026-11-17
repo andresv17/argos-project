@@ -11,7 +11,7 @@ export const NEW_PET = { name: 'Lucía', species: 'CANINE', breed: 'Mestiza', bi
 
 export const RECORD_INPUTS = {
   weights: { recordedAt: '2026-11-04', weightKg: 32.85, notes: null },
-  measurements: { recordedAt: '2026-11-04', neckCm: 47, chestCm: 79, backLengthCm: 65.5, waistCm: 59 },
+  measurements: { recordedAt: '2026-11-04', neckCm: 47, chestCm: 79, backLengthCm: 66, waistCm: 59 },
   vaccinations: { vaccineName: 'Rabia', appliedAt: '2026-11-04', nextBoosterAt: '2027-11-04' },
   dewormings: { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-11-04', nextSuggestedDoseAt: '2027-02-04' },
   visits: { visitDate: '2026-11-04', reason: 'Control', diagnosis: 'Sano', treatment: 'Ninguno', clinicOrVet: 'VetCentral' },

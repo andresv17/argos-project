@@ -18,7 +18,6 @@ import {
   DomainError,
   resolveFieldErrorCode,
   validateBodyMeasurementRecord,
-  validateCreateBodyMeasurementInput,
   validateCreateCustomParameterInput,
   validateCreateDewormingInput,
   validateCreateMedicalVisitInput,
@@ -27,7 +26,6 @@ import {
   validateCustomParameterRecord,
   validateDewormingRecord,
   validateMedicalVisitRecord,
-  validateUpdateBodyMeasurementInput,
   validateUpdateCustomParameterInput,
   validateUpdateDewormingInput,
   validateUpdateMedicalVisitInput,
@@ -52,6 +50,11 @@ import {
   type VaccinationRecord,
   type WeightRecord,
 } from '../../generated/index.ts';
+// Contrato 3.1.0 (feature 004): las entradas de medidas son enteras (REQ-MDC-001); los registros siguen en la forma 002 para leer los guardados con decimales.
+import {
+  validateCreateBodyMeasurementInput as validateCreateBodyMeasurementInputV31,
+  validateUpdateBodyMeasurementInput as validateUpdateBodyMeasurementInputV31,
+} from '../../generated/v31/index.ts';
 import { validateEventDateWindow } from '../shared/date-utils.ts';
 import { sortHistoricalRecords } from '../sorting/deterministic-sorter.ts';
 import { assertWeightWithinSpeciesLimits, weightKgToGrams } from './weight-limits.ts';
@@ -91,6 +94,8 @@ export interface RecordModuleRules {
   /** Campos numéricos con máx. 2 decimales y el código de su invariante (INV-REC-003). */
   readonly decimalFields: readonly string[];
   readonly decimalError: ErrorCode | null;
+  /** Campos que en una entrada nueva o editada deben ser enteros (REQ-MDC-001); los registros ya guardados conservan sus decimales. */
+  readonly integerInputFields: readonly string[];
   /** Fecha que debe ser estrictamente posterior a eventDateField y su código (INV-REC-004/005). */
   readonly nextDate: { readonly field: string; readonly error: ErrorCode } | null;
 }
@@ -107,15 +112,17 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     weightField: 'weightKg',
     decimalFields: [],
     decimalError: null,
+    integerInputFields: [],
     nextDate: null,
   },
   bodyMeasurements: {
     record: ref('BodyMeasurementRecord', validateBodyMeasurementRecord),
-    input: ref('CreateBodyMeasurementInput', validateCreateBodyMeasurementInput),
+    input: ref('CreateBodyMeasurementInput', validateCreateBodyMeasurementInputV31),
     eventDateField: 'recordedAt',
     weightField: null,
     decimalFields: MEASUREMENT_FIELDS,
     decimalError: 'ERR-REC-MEASUREMENT-OUT-OF-RANGE',
+    integerInputFields: MEASUREMENT_FIELDS,
     nextDate: null,
   },
   vaccinations: {
@@ -125,6 +132,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     weightField: null,
     decimalFields: [],
     decimalError: null,
+    integerInputFields: [],
     nextDate: { field: 'nextBoosterAt', error: 'ERR-REC-INVALID-BOOSTER-DATE' },
   },
   dewormings: {
@@ -134,6 +142,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     weightField: null,
     decimalFields: [],
     decimalError: null,
+    integerInputFields: [],
     nextDate: { field: 'nextSuggestedDoseAt', error: 'ERR-REC-INVALID-NEXT-DOSE-DATE' },
   },
   medicalVisits: {
@@ -143,6 +152,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     weightField: null,
     decimalFields: [],
     decimalError: null,
+    integerInputFields: [],
     nextDate: null,
   },
   customParameters: {
@@ -152,6 +162,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     weightField: null,
     decimalFields: [],
     decimalError: null,
+    integerInputFields: [],
     nextDate: null,
   },
 };
@@ -219,6 +230,20 @@ function assertDomainRules(
 }
 
 /**
+ * REQ-MDC-001: una entrada nueva o editada lleva las medidas en centímetros enteros. El esquema 3.1.0 ya lo exige (multipleOf 1); el dominio lo
+ * cierra porque un valor como 46.0000000000001 puede pasar el resto de coma flotante.
+ * @implements REQ-MDC-001, ERR-REC-MEASUREMENT-OUT-OF-RANGE
+ */
+function assertIntegerInputFields(rules: RecordModuleRules, value: Record<string, unknown>): void {
+  for (const field of rules.integerInputFields) {
+    const measure = value[field];
+    if (measure !== undefined && !Number.isInteger(measure)) {
+      throw new DomainError(rules.decimalError!, `${field} se registra en centímetros enteros.`, field);
+    }
+  }
+}
+
+/**
  * Valida la entrada de alta de un módulo (petId llega por la ruta; id y createdAt los asigna el servidor).
  * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
  */
@@ -231,6 +256,7 @@ export function validateRecordInput<M extends RecordModule>(
 ): RecordInputs[M] {
   const rules = RECORD_MODULES[module];
   assertSchema(rules.input, input);
+  assertIntegerInputFields(rules, input as Record<string, unknown>);
   assertDomainRules(rules, input as Record<string, unknown>, petBirthDate, currentDate, species);
   return input as RecordInputs[M];
 }
@@ -239,7 +265,7 @@ export function validateRecordInput<M extends RecordModule>(
 export type EditableRecordModule = RecordModule;
 const UPDATE_SCHEMAS: Readonly<Record<EditableRecordModule, { readonly collection: string; readonly schema: SchemaRef }>> = {
   weights: { collection: 'weights', schema: ref('UpdateWeightInput', validateUpdateWeightInput) },
-  bodyMeasurements: { collection: 'measurements', schema: ref('UpdateBodyMeasurementInput', validateUpdateBodyMeasurementInput) },
+  bodyMeasurements: { collection: 'measurements', schema: ref('UpdateBodyMeasurementInput', validateUpdateBodyMeasurementInputV31) },
   vaccinations: { collection: 'vaccinations', schema: ref('UpdateVaccinationInput', validateUpdateVaccinationInput) },
   dewormings: { collection: 'dewormings', schema: ref('UpdateDewormingInput', validateUpdateDewormingInput) },
   medicalVisits: { collection: 'visits', schema: ref('UpdateMedicalVisitInput', validateUpdateMedicalVisitInput) },
@@ -271,6 +297,7 @@ export function applyRecordUpdate<M extends EditableRecordModule>(
   if (declared !== collection) {
     throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `${schema.name}: collection no coincide con la ruta.`, 'collection');
   }
+  assertIntegerInputFields(RECORD_MODULES[module], changes);
   return validateRecord(module, { ...(existing as object), ...changes }, petBirthDate, currentDate, species);
 }
 

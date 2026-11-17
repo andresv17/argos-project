@@ -421,7 +421,7 @@ describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-0
 describe('registros de los 6 módulos (src/application/use-cases/record-use-cases.ts)', () => {
   const INPUTS = {
     weights: { recordedAt: '2026-11-05', weightKg: 33.1 },
-    bodyMeasurements: { recordedAt: '2026-11-05', neckCm: 47, chestCm: 79.5, backLengthCm: 65, waistCm: 58 },
+    bodyMeasurements: { recordedAt: '2026-11-05', neckCm: 47, chestCm: 80, backLengthCm: 65, waistCm: 58 },
     vaccinations: { vaccineName: 'Rabia', appliedAt: '2026-11-05', nextBoosterAt: '2027-11-05' },
     dewormings: { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-11-05', nextSuggestedDoseAt: '2026-11-10' },
     medicalVisits: { visitDate: '2026-11-05', reason: 'Control', diagnosis: 'Sano', treatment: 'Ninguno', clinicOrVet: 'VetCare' },

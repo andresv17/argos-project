@@ -51,6 +51,7 @@ export function RecordForm({ spec, onSubmit }: {
             type={field.type}
             required={field.required}
             {...(field.step === undefined ? {} : { step: field.step })}
+            {...(field.inputMode === undefined ? {} : { inputMode: field.inputMode })}
             value={form.values[field.name] ?? ''}
             onChange={form.onChange}
             errors={form.errors}

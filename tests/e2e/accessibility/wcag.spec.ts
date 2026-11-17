@@ -32,7 +32,7 @@ test.beforeAll(async ({ browser }) => {
   const record = (module: string, body: unknown) => apiPost(ownerContext.request, `/pets/${petId}/records/${module}`, body);
   await record('weights', { recordedAt: '2026-01-10', weightKg: 32.85, notes: 'Control anual' });
   await record('weights', { recordedAt: '2026-02-10', weightKg: 32.4, notes: null });
-  await record('measurements', { recordedAt: '2026-02-10', neckCm: 47, chestCm: 79, backLengthCm: 65.5, waistCm: 59 });
+  await record('measurements', { recordedAt: '2026-02-10', neckCm: 47, chestCm: 79, backLengthCm: 66, waistCm: 59 });
   await record('vaccinations', { vaccineName: 'Rabia', appliedAt: isoDateFromToday(-400), nextBoosterAt: isoDateFromToday(-30) });
   await record('vaccinations', { vaccineName: 'Rabia', appliedAt: isoDateFromToday(-20), nextBoosterAt: isoDateFromToday(-2) });
   await record('vaccinations', { vaccineName: 'Moquillo', appliedAt: isoDateFromToday(-100), nextBoosterAt: isoDateFromToday(10) });
