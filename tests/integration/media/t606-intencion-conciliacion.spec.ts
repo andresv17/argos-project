@@ -107,6 +107,36 @@ describe('T606 conciliación diaria del prefijo pets/ (SC-ALM-031, REQ-GCS-006)'
     });
   });
 
+  it('[SC-ALM-031][INV-ARC-003] una clave con formato inválido de más de 24 h no se encola como DELETE y no se borra; la válida vecina sí', async () => {
+    await eachEngine(null, async (e) => {
+      const invalid = [`pets/${ARGOS.id}/files/no-es-uuid`, `pets/${ARGOS.id}/otra/f0000000-0000-4000-8000-0000000c0c09`, 'pets/suelto.bin'];
+      const list = e.storage.inner.list.bind(e.storage.inner);
+      // el adaptador de memoria rechaza claves inválidas en put (assertMediaKey): se simulan como si ya existieran en el bucket real
+      e.storage.inner.list = async (prefix) => [...(await list(prefix)), ...invalid.map((key) => ({ key, createdAt: '2000-01-01T00:00:00.000Z' }))];
+      const deleted: string[] = [];
+      const remove = e.storage.inner.delete.bind(e.storage.inner);
+      e.storage.inner.delete = async (key) => (deleted.push(key), remove(key));
+      await e.storage.inner.put(ORPHAN(1), PDF(), 'application/pdf');
+      advance(e, 48 * HOUR);
+      const result = await runMediaQueueMaintenance(e.deps);
+      expect([result.reconciled, result.deleted, deleted, await e.queue()]).toEqual([1, 1, [ORPHAN(1)], []]);
+    });
+  });
+
+  it('[SC-ALM-031] un objeto que ya tiene fila DELETE en la cola no genera un segundo encolado ni cuenta como conciliado', async () => {
+    await eachEngine(null, async (e) => {
+      await e.storage.inner.put(ORPHAN(1), PDF(), 'application/pdf');
+      await e.run((r) => r.mediaQueue.enqueue(ORPHAN(1), 'DELETE', e.clock.nowIsoTimestamp()));
+      advance(e, 48 * HOUR);
+      e.storage.failing.add('delete'); // la fila DELETE sobrevive a la pasada y se puede contar
+      const result = await runMediaQueueMaintenance(e.deps);
+      expect(result.reconciled).toBe(0);
+      expect((await e.queue()).filter((q) => q.objectKey === ORPHAN(1))).toHaveLength(1);
+      e.storage.failing.clear();
+      expect([(await runMediaQueueMaintenance(e.deps)).reconciled, await e.queue(), await e.storage.keys()]).toEqual([0, [], []]);
+    });
+  });
+
   it('[SC-ALM-031] un fallo de list no detiene el mantenimiento: reconciled 0, la cola se procesa y el objeto sigue para la pasada siguiente', async () => {
     await eachEngine(null, async (e) => {
       await e.storage.inner.put(ORPHAN(1), PDF(), 'application/pdf');
