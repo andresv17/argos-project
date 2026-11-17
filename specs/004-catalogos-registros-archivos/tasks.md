@@ -204,6 +204,7 @@
 | TECHDEBT-004-03 | galería del hogar (feature 005) | decisión de producto de la 005 | `D-12` B |
 | TECHDEBT-004-04 | tope de píxeles y miniaturas de las fotos | página del álbum con > 3 s hasta la primera imagen en 4G simulado, o cierre de pestaña por memoria con fotos reales | `D-20` B, `D-09` |
 | TECHDEBT-004-05 | altas de razas del catálogo (`0.2.0`) | validación de `/maggie` y veterinario (`PE-03`) | MAG-004-013, 014 |
+| TECHDEBT-004-06 | límite por IP en el login: limitador en la aplicación (`src/`) o Cloud Armor en `terraform/`, a decidir en una feature posterior; hoy solo mitiga el hash costoso uniforme (`INV-AUTH-006`) | feature posterior de endurecimiento del login, o evidencia de fuerza bruta distribuida contra cuentas con correo conocido (tope efectivo 10 intentos por ventana) | `RR-07`, H-T591R-1 (decisión de Neo 2026-11-17; firma pendiente) |
 
 ## Mapa de trazabilidad ID → tareas (1:1 con `spec.md`; sin huérfanos)
 
