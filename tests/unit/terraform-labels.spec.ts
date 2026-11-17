@@ -33,7 +33,7 @@ describe('etiquetas app y managed-by (T484)', () => {
   for (const [file, type, name] of CASES) {
     it(`${type}.${name} (${file}) lleva exactamente app=argos y managed-by=terraform`, () => {
       const [body] = resource(file, type, name);
-      expect(body, 'recurso no encontrado').toBeTruthy();
+      expect(typeof body, 'recurso no encontrado').toBe('string');
       expect(labels(body ?? '')).toEqual(EXPECTED);
     });
   }
@@ -64,6 +64,6 @@ describe('etiquetas app y managed-by (T484)', () => {
       expect(code(f), f).not.toMatch(/\blocals\s*\{/);
       expect(code(f), f).not.toMatch(/default_labels/);
     }
-    expect(() => read('locals.tf')).toThrow();
+    expect(() => read('locals.tf')).toThrow(Error);
   });
 });

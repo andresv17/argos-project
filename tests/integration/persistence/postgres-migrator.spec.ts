@@ -180,7 +180,7 @@ describe('T429 migrador: candado de sesión acotado (REQ-PG-014)', () => {
     const mod = await loadMigrator();
     const world = makeWorld();
     world.failures.set('0001_baseline', [{ code: '42P07', message: 'relation exists' }]);
-    await expect(mod.runPostgresMigrations(world.options([BASELINE]))).rejects.toThrow();
+    await expect(mod.runPostgresMigrations(world.options([BASELINE]))).rejects.toThrow(Error);
     expect(world.statements.at(-1)).toContain('pg_advisory_unlock');
     expect(world.statements).toContain('ROLLBACK');
     expect(world.ended).toBe(1);
@@ -246,7 +246,7 @@ describe('T429 migrador: topes y reintentos (REQ-PG-014)', () => {
     const world = makeWorld();
     const blocked = { code: '55P03', message: 'lock timeout' };
     world.failures.set('0001_baseline', [blocked, blocked, blocked, blocked, blocked]);
-    await expect(mod.runPostgresMigrations(world.options([BASELINE]))).rejects.toThrow();
+    await expect(mod.runPostgresMigrations(world.options([BASELINE]))).rejects.toThrow(Error);
     expect(world.executed).toHaveLength(4);
     expect(world.committed).toEqual([]);
     expect(world.statements.at(-1)).toContain('pg_advisory_unlock');
@@ -256,7 +256,7 @@ describe('T429 migrador: topes y reintentos (REQ-PG-014)', () => {
     const mod = await loadMigrator();
     const world = makeWorld();
     world.failures.set('0001_baseline', [{ code: '42601', message: 'syntax error' }]);
-    await expect(mod.runPostgresMigrations(world.options([BASELINE]))).rejects.toThrow();
+    await expect(mod.runPostgresMigrations(world.options([BASELINE]))).rejects.toThrow(Error);
     expect(world.executed).toEqual(['0001_baseline']);
     expect(world.sleeps).toEqual([]);
   });
@@ -276,7 +276,7 @@ describe('T429 migrador: transacción por migración e idempotencia (REQ-PG-006)
     const mod = await loadMigrator();
     const world = makeWorld();
     world.failures.set('0002_expand', [{ code: '42703', message: 'boom' }]);
-    await expect(mod.runPostgresMigrations(world.options([BASELINE, SECOND]))).rejects.toThrow();
+    await expect(mod.runPostgresMigrations(world.options([BASELINE, SECOND]))).rejects.toThrow(Error);
     expect(world.committed).toEqual(['0001_baseline']);
     expect(world.statements).toContain('ROLLBACK');
   });

@@ -60,46 +60,46 @@ describe('createOidcVerifier (T486, REQ-SEC-007)', () => {
 
   it('(b) rechaza un token expirado', async () => {
     const verify = createOidcVerifier({ audience: AUDIENCE, jwks });
-    await expect(verify(await sign({ exp: Math.floor(Date.now() / 1000) - 3600 }))).rejects.toThrow();
+    await expect(verify(await sign({ exp: Math.floor(Date.now() / 1000) - 3600 }))).rejects.toThrow(Error);
   });
 
   it('(c) rechaza una audiencia ajena', async () => {
     const verify = createOidcVerifier({ audience: AUDIENCE, jwks });
-    await expect(verify(await sign({ aud: 'https://otro.test' }))).rejects.toThrow();
+    await expect(verify(await sign({ aud: 'https://otro.test' }))).rejects.toThrow(Error);
   });
 
   it('(d) rechaza una firma inválida (clave ajena al JWKS)', async () => {
     const verify = createOidcVerifier({ audience: AUDIENCE, jwks });
-    await expect(verify(await sign({ key: otherPrivateKey }))).rejects.toThrow();
+    await expect(verify(await sign({ key: otherPrivateKey }))).rejects.toThrow(Error);
   });
 
   it('(e) rechaza email_verified falso', async () => {
     const verify = createOidcVerifier({ audience: AUDIENCE, jwks });
-    await expect(verify(await sign({ emailVerified: false }))).rejects.toThrow();
+    await expect(verify(await sign({ emailVerified: false }))).rejects.toThrow(Error);
   });
 
   it('(e2) rechaza email_verified ausente', async () => {
     const verify = createOidcVerifier({ audience: AUDIENCE, jwks });
-    await expect(verify(await sign({ emailVerified: undefined }))).rejects.toThrow();
+    await expect(verify(await sign({ emailVerified: undefined }))).rejects.toThrow(Error);
   });
 
   it('(f) rechaza una iss ajena', async () => {
     const verify = createOidcVerifier({ audience: AUDIENCE, jwks });
-    await expect(verify(await sign({ iss: 'https://evil.test' }))).rejects.toThrow();
+    await expect(verify(await sign({ iss: 'https://evil.test' }))).rejects.toThrow(Error);
   });
 
   it('(g) falla cerrado sin audiencia', async () => {
     const verify = createOidcVerifier({ audience: '', jwks });
-    await expect(verify(await sign())).rejects.toThrow();
+    await expect(verify(await sign())).rejects.toThrow(Error);
   });
 
   it('(g2) falla cerrado con JWKS vacío', async () => {
     const verify = createOidcVerifier({ audience: AUDIENCE, jwks: { keys: [] } });
-    await expect(verify(await sign())).rejects.toThrow();
+    await expect(verify(await sign())).rejects.toThrow(Error);
   });
 
   it('(g3) falla cerrado con un token que no es JWT', async () => {
     const verify = createOidcVerifier({ audience: AUDIENCE, jwks });
-    await expect(verify('no-es-un-jwt')).rejects.toThrow();
+    await expect(verify('no-es-un-jwt')).rejects.toThrow(Error);
   });
 });

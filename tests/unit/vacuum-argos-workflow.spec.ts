@@ -126,8 +126,7 @@ describe('.github/workflows/vacuum-argos.yml (T473)', () => {
     expect(r).toContain('sql_seccion vacuum_tras_full');
     // La sentencia posterior solo se asigna dentro de la rama full; en la rama del cron queda vacía.
     const full = /if \[ "\$\{EVENTO\}" = "workflow_dispatch" \][^\n]*\n([\s\S]*?)\n\s*else\n([\s\S]*?)\n\s*fi/.exec(r);
-    expect(full).not.toBeNull();
-    expect(full?.[1]).toContain('sql_seccion vacuum_tras_full');
+    expect(full?.[1] ?? '').toContain('sql_seccion vacuum_tras_full');
     expect(full?.[2]).not.toContain('sql_seccion vacuum_tras_full');
     // Se ejecuta como psql -c independiente, después del FULL de la misma tabla y antes de pasar a la siguiente.
     const iFull = r.indexOf('-c "${SENTENCIA} ${T}"');

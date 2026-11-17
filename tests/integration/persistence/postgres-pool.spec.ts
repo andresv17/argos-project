@@ -81,7 +81,7 @@ describe('createPostgresPool (doble del constructor, sin Postgres)', () => {
   it('el manejador de error no lanza (no tumba el proceso)', () => {
     const d = crearDoble();
     createPostgresPool({ connectionString: URL_SECRETA, pgPoolMax: 5 }, { createPool: d.ctor, log: () => undefined });
-    expect(() => d.pool.handlers.get('error')?.(new Error('boom'))).not.toThrow();
+    expect(d.pool.handlers.get('error')?.(new Error('boom'))).toBeUndefined();
   });
 
   it('rechaza pgPoolMax fuera de 1..10 o no entero', () => {

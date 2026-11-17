@@ -106,7 +106,7 @@ describe('restauración: pasos 1-6 de REQ-PG-016 en orden', () => {
 
   it('[REQ-PG-016] el fragmento de Node del paso 3 produce el mismo HMAC que el adaptador de producción', () => {
     const js = /node -e '([\s\S]*?)' account_delete_ids\.txt/.exec(seccion())?.[1];
-    expect(js).toBeDefined();
+    expect(typeof js).toBe('string');
     const key = 'a1'.repeat(32);
     const ids = ['usuario-1', 'usuario-2', 'usuario-3'];
     const hmac = new HmacAuditPseudonymAdapter().hmacUserId('usuario-2', key);

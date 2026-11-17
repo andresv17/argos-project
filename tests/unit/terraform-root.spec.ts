@@ -48,8 +48,7 @@ describe('terraform/ raíz plana (T436)', () => {
     expect(v).toMatch(/variable\s+"region"[^]*?default\s*=\s*"us-central1"/);
     expect(v).toMatch(/variable\s+"project_prefix"[^]*?default\s*=\s*"argos"/);
     const cd = v.match(/variable\s+"custom_domain"\s*\{[^]*?\n\}/);
-    expect(cd).not.toBeNull();
-    expect(cd?.[0]).toMatch(/default\s*=\s*""/);
+    expect(cd?.[0] ?? '').toMatch(/default\s*=\s*""/);
     expect(cd?.[0]).toMatch(/validation\s*\{/);
     expect(cd?.[0]).toMatch(/var\.custom_domain\s*==\s*""/);
   });
@@ -58,8 +57,7 @@ describe('terraform/ raíz plana (T436)', () => {
     const v = code('variables.tf');
     for (const name of ['audit_hmac_secret', 'database_url']) {
       const b = v.match(new RegExp(`variable\\s+"${name}"\\s*\\{[^]*?\\n\\}`));
-      expect(b, name).not.toBeNull();
-      expect(b?.[0], name).toMatch(/sensitive\s*=\s*true/);
+      expect(b?.[0] ?? '', name).toMatch(/sensitive\s*=\s*true/);
       expect(b?.[0], name).not.toMatch(/default\s*=/);
     }
   });

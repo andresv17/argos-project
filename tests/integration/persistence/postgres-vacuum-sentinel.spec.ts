@@ -263,7 +263,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await sleep(2000);
         const tras = await leer();
         expect(tras.lv).toBeNull(); // si PostgreSQL lo corrigiera, esta prueba avisa y el flujo podría simplificarse
-        expect(tras.la).not.toBeNull(); // ANALYZE sí queda registrado
+        expect(tras.la instanceof Date || typeof tras.la === 'string').toBe(true); // ANALYZE sí queda registrado
       } finally {
         await client.end();
         await su.query(`DROP TABLE ${sonda}`);

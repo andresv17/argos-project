@@ -139,7 +139,7 @@ describe('PostgresUnitOfWork: COMMIT, ROLLBACK y convención C-6 (REQ-PG-005, IN
     expect(error).toBeInstanceOf(DomainError);
     expect((error as DomainError).code).toBe('ERR-INTERNAL-UNEXPECTED');
     expect((error as DomainError).finalState).toBe('UNKNOWN');
-    expect(client.release.mock.calls[0]?.[0]).toBeTruthy();
+    expect(client.release.mock.calls[0]?.[0]).toBeInstanceOf(Error);
   });
 });
 
@@ -152,7 +152,7 @@ describe('PostgresUnitOfWork: reintento único por ECONNRESET previo al primer c
     await expect((await uowOn(pool)).runInTransaction(work)).resolves.toBe('ok');
     expect(pool.connect).toHaveBeenCalledTimes(2);
     expect(work).toHaveBeenCalledTimes(1);
-    expect(dead.release.mock.calls[0]?.[0]).toBeTruthy();
+    expect(dead.release.mock.calls[0]?.[0]).toBeInstanceOf(Error);
     expect(alive.statements).toEqual(['BEGIN', ...CAPS, ADVISORY, 'COMMIT']);
   });
 

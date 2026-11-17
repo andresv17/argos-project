@@ -58,7 +58,7 @@ describe('H-A1/H-A3: OBJ calculado una vez y nota de shell interactiva (terrafor
   const t = read('terraform', 'README.md');
   const bloque = (): string => {
     const b = [...t.matchAll(/```bash\n([\s\S]*?)```/g)].map((m) => m[1] as string).find((x) => x.includes('pg_dump'));
-    expect(b).toBeDefined();
+    expect(typeof b).toBe('string');
     return b as string;
   };
   it('el bloque de respaldo tiene un unico $(date y el cp usa "$OBJ"', () => {

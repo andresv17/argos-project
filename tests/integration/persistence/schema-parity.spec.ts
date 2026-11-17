@@ -162,7 +162,7 @@ describe('paridad estática 0001_baseline.sql vs SQLite final (REQ-PG-003, REQ-M
     const pg = postgresSchema();
     for (const [name, lite] of sqlite.tables) {
       const target = pg.tables.get(name);
-      expect(target, `tabla ${name} ausente en 0001`).toBeDefined();
+      expect(pg.tables.has(name), `tabla ${name} ausente en 0001`).toBe(true);
       expect([...target!.columns.keys()].sort(), `columnas de ${name}`).toEqual([...lite.columns.keys()].sort());
       expect([...target!.primaryKey].sort(), `clave primaria de ${name}`).toEqual([...lite.primaryKey].sort());
       for (const [col, def] of lite.columns) {
