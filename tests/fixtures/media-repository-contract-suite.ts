@@ -135,6 +135,20 @@ export function defineMediaRepositoryContractSuite(adapterName: string, createUn
       });
     });
 
+    it('[REQ-IMP-001][INV-AVA-001] raiseAvatarVersion lleva la versión a un valor mayor y nunca la baja; sin avatar y sin mascota no hace nada', async () => {
+      const uow = await prepare();
+      const states = await uow.runInTransaction(async (r) => {
+        await r.pets.raiseAvatarVersion(ARGOS.id, 5);
+        const raised = await r.pets.findAvatar(ARGOS.id);
+        await r.pets.raiseAvatarVersion(ARGOS.id, 3);
+        const kept = await r.pets.findAvatar(ARGOS.id);
+        await r.pets.raiseAvatarVersion('f0000000-0000-4000-8000-0000000000ee', 9);
+        const next = await r.pets.replaceAvatar(ARGOS.id, id(20));
+        return { raised, kept, next };
+      });
+      expect(states).toEqual({ raised: { version: 5, objectId: null }, kept: { version: 5, objectId: null }, next: { version: 6, objectId: id(20) } });
+    });
+
     it('[INV-AVA-001] pets.save (PATCH de la mascota) no revierte el avatar ni su versión', async () => {
       const uow = await prepare();
       await uow.runInTransaction(async (r) => {

@@ -25,7 +25,7 @@ import { SpyPasswordHasher } from './test-doubles.ts';
 
 export const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const REPOSITORIES_PATH = '../../src/infrastructure/persistence/postgres/postgres-repositories.ts';
-const POSTGRES_MIGRATIONS = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0006_rate_limit_microchip_scope.sql'];
+const POSTGRES_MIGRATIONS = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0006_rate_limit_microchip_scope.sql'];
 
 /** Esquema completo de PostgreSQL (baseline y migraciones posteriores) para las pruebas con base real. */
 export const POSTGRES_SCHEMA_SQL = POSTGRES_MIGRATIONS.map((name) =>

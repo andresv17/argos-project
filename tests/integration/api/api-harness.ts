@@ -121,7 +121,7 @@ export async function createApi(
 }
 
 /** API con el estado de identidad de la Rebanada 1 y el reloj en el instante de referencia de los fixtures 3.0.0 (2026-11-11T12:00:00Z). */
-export async function createIdentityApi(options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits } = {}): Promise<Api> {
+export async function createIdentityApi(options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices } = {}): Promise<Api> {
   const api = await createApi(identityState(), options);
   api.clock.setClock(REFERENCE_TODAY, REFERENCE_NOW);
   return api;
