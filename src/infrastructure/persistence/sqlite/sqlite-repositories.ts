@@ -221,6 +221,11 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
       const row = byId.get(userId);
       return row === undefined ? null : toAccount(row);
     },
+    async findByIdForUpdate(userId) {
+      // BEGIN IMMEDIATE (SqliteUnitOfWork) ya tomó el candado de escritura de toda la base al abrir la transacción (REQ-BOR-005).
+      const row = byId.get(userId);
+      return row === undefined ? null : toAccount(row);
+    },
     async findByUsername(username) {
       const row = byUsername.get(username);
       return row === undefined ? null : toAccount(row);
@@ -342,6 +347,11 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
     );
   return {
     async findById(petId) {
+      const row = byId.get(petId);
+      return row === undefined ? null : toPet(row);
+    },
+    async findByIdForUpdate(petId) {
+      // BEGIN IMMEDIATE (SqliteUnitOfWork) ya tomó el candado de escritura de toda la base al abrir la transacción (REQ-BOR-005).
       const row = byId.get(petId);
       return row === undefined ? null : toPet(row);
     },

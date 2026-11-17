@@ -93,6 +93,9 @@ function userRepository(state: MemoryState): UserRepositoryPort {
     async findById(userId) {
       return copy(state.users.find((u) => u.id === userId) ?? null);
     },
+    async findByIdForUpdate(userId) {
+      return copy(state.users.find((u) => u.id === userId) ?? null); // las transacciones de memoria van en serie
+    },
     async findByUsername(username) {
       return copy(state.users.find((u) => u.username === username) ?? null);
     },
@@ -231,6 +234,9 @@ function petRepository(state: MemoryState): PetRepositoryPort {
   return {
     async findById(petId) {
       return copy(state.pets.find((p) => p.id === petId) ?? null);
+    },
+    async findByIdForUpdate(petId) {
+      return copy(state.pets.find((p) => p.id === petId) ?? null); // las transacciones de memoria van en serie
     },
     async listByOwners(ownerUserIds) {
       return copy(state.pets.filter((p) => ownerUserIds.includes(p.ownerUserId)));

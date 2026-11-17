@@ -21,6 +21,11 @@ export interface UserAccount extends UserSelfProfile {
 
 export interface UserRepositoryPort {
   findById(userId: string): Promise<UserAccount | null>;
+  /**
+   * Lee el usuario y toma el candado del propietario hasta el final de la transacción (`SELECT … FOR UPDATE` en Postgres; en SQLite
+   * y en memoria el candado de la transacción ya es de escritura). Va ANTES que el de la mascota (REQ-BOR-005, ADR-004-05).
+   */
+  findByIdForUpdate(userId: string): Promise<UserAccount | null>;
   /** Búsqueda exacta por username ya normalizado (recortado y en minúsculas, INV-AUTH-001). */
   findByUsername(username: string): Promise<UserAccount | null>;
   listByIds(userIds: readonly string[]): Promise<UserAccount[]>;
@@ -107,6 +112,12 @@ export interface InvitationRepositoryPort {
 
 export interface PetRepositoryPort {
   findById(petId: string): Promise<PetProfile | null>;
+  /**
+   * Lee la mascota y toma su candado hasta el final de la transacción (`SELECT … FOR UPDATE` en Postgres; `BEGIN IMMEDIATE` ya es el
+   * candado en SQLite y las transacciones de memoria van en serie). Toda mutación de registros, medios o avatar lo toma primero
+   * (REQ-BOR-005, INV-REG-003).
+   */
+  findByIdForUpdate(petId: string): Promise<PetProfile | null>;
   listByOwners(ownerUserIds: readonly string[]): Promise<PetProfile[]>;
   /** Inserta o reemplaza por id. */
   save(pet: PetProfile): Promise<void>;

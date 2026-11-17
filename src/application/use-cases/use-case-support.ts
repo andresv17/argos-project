@@ -162,6 +162,32 @@ export async function listVisiblePets(repositories: RepositorySet, userId: strin
 }
 
 /**
+ * Candado de mascota (REQ-BOR-005, INV-REG-003, ADR-004-05): primera lectura de toda transacción que cree, edite, borre o supersede
+ * registros, suba o borre medios o cambie el avatar. Si la mascota no existe no bloquea nada y el caso de uso responde ERR-PET-NOT-FOUND.
+ * @implements REQ-BOR-005, INV-REG-003
+ */
+export async function lockPet(repositories: RepositorySet, petId: string): Promise<void> {
+  await repositories.pets.findByIdForUpdate(petId);
+}
+
+/**
+ * Candado de propietario y luego de mascota, en ESE orden (usuario → mascota, sin ciclos), para las transacciones que además validan la
+ * cuota del propietario (REQ-BOR-005). El propietario se conoce leyendo la mascota; tras bloquearlo se vuelve a leer con el candado de la
+ * mascota y, si el propietario cambió entre medias (traspaso), se repite con el nuevo (como máximo 3 intentos; después falla cerrado).
+ * @implements REQ-BOR-005, INV-REG-003
+ */
+export async function lockOwnerThenPet(repositories: RepositorySet, petId: string): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const unlocked = await repositories.pets.findById(petId);
+    if (unlocked === null) return;
+    await repositories.users.findByIdForUpdate(unlocked.ownerUserId);
+    const locked = await repositories.pets.findByIdForUpdate(petId);
+    if (locked === null || locked.ownerUserId === unlocked.ownerUserId) return;
+  }
+  throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'El propietario de la mascota cambió durante el bloqueo; reintenta.');
+}
+
+/**
  * Mascota visible por el usuario (propietario o miembro ACTIVE de un hogar al que está asignada); si no existe o no es
  * visible, ERR-PET-NOT-FOUND (INV-PET-003, INV-ACC2-001).
  * @implements INV-ACC2-001, INV-PET-003, ERR-PET-NOT-FOUND

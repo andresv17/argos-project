@@ -1263,3 +1263,4 @@
 - 2026-11-17 Morpheus: B2 hecho (11 commits). Retiro exencion revision diferido a T614. Oracle audita B2.
 - 2026-11-17 Morpheus: B2 aprobado por Neo; R-2 cerrada con PG17 (55/55). Siguiente slice C: T600-T601, T604-T605, T613-T614.
 - 2026-11-17 Keymaker slice C: T600 pruebas de concurrencia (SQLite+PG17, 6/6) listas; ver log-keymaker.
+- 2026-11-17 Keymaker slice C: T601 candado de mascota/propietario (findByIdForUpdate, PG FOR UPDATE) verde.

@@ -118,6 +118,11 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
       const { rows } = await client.query(`${USER_COLUMNS} WHERE id = $1`, [userId]);
       return rows[0] === undefined ? null : toAccount(rows[0]);
     },
+    async findByIdForUpdate(userId) {
+      // Candado del propietario (REQ-BOR-005): va antes que el de la mascota (orden usuario -> mascota).
+      const { rows } = await client.query(`${USER_COLUMNS} WHERE id = $1 FOR UPDATE`, [userId]);
+      return rows[0] === undefined ? null : toAccount(rows[0]);
+    },
     async findByUsername(username) {
       const { rows } = await client.query(`${USER_COLUMNS} WHERE username = $1`, [username]);
       return rows[0] === undefined ? null : toAccount(rows[0]);
@@ -293,6 +298,11 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
   return {
     async findById(petId) {
       const { rows } = await client.query(`SELECT ${PET_COLUMNS} FROM pets WHERE id = $1`, [petId]);
+      return rows[0] === undefined ? null : toPet(rows[0]);
+    },
+    async findByIdForUpdate(petId) {
+      // Candado de mascota (REQ-BOR-005, ADR-004-05): la fila queda bloqueada hasta el COMMIT o el ROLLBACK.
+      const { rows } = await client.query(`SELECT ${PET_COLUMNS} FROM pets WHERE id = $1 FOR UPDATE`, [petId]);
       return rows[0] === undefined ? null : toPet(rows[0]);
     },
     async listByOwners(ownerUserIds) {

@@ -316,7 +316,7 @@ describe('código fuente (T422, INV-ARCH-006, T464)', () => {
     // Solo la sección de la parte 1: las partes 2 y 3 (T423, T424) tienen su propia verificación y constantes (nombres de tabla).
     const part1 = source().split('/** Tabla de cada módulo de registros')[0]!;
     const firstArguments = [...part1.matchAll(/client\.query\(\s*(`[^`]*`|'[^']*'|\w+)/g)].map((m) => m[1]!);
-    expect(firstArguments.length).toBe(20);
+    expect(firstArguments.length).toBe(21); // T601: +1 por users.findByIdForUpdate (SELECT … FOR UPDATE)
     for (const argument of firstArguments) {
       const interpolations = [...argument.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1]);
       expect(interpolations.filter((expr) => expr !== 'USER_COLUMNS')).toEqual([]);

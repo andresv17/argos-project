@@ -36,7 +36,7 @@ import { assertRecordNotSuperseded } from '../../domain/records/superseded-guard
 import { stateHash } from '../../domain/audit/state-hash.ts';
 import { DomainError } from '../../generated/index.ts';
 import { RECORD_ENTITY_TYPE, recordAudit } from './audit-support.ts';
-import { requirePetAction, type ApplicationDeps } from './use-case-support.ts';
+import { lockPet, requirePetAction, type ApplicationDeps } from './use-case-support.ts';
 
 /** Acción de la matriz que autoriza el alta de cada módulo (REQ-RBAC-001, REQ-REC-002/005/006). */
 const WRITE_ACTION: Readonly<Record<RecordModule, RbacAction>> = {
@@ -73,6 +73,7 @@ abstract class AddRecordUseCase<M extends RecordModule, View> {
   async execute(userId: string, petId: string, input: unknown): Promise<View> {
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
+      await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION[this.module]);
       const valid = validateRecordInput(this.module, input, pet.birthDate, today, pet.species);
       const record = {
@@ -191,6 +192,7 @@ export class UpdateRecordUseCase {
     const module = moduleOrNotFound(collection);
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
+      await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION[module]);
       const existing = await repositories.records.listForPet(petId);
       const current = (existing[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId) as RecordOf<RecordModule> | undefined;
@@ -232,6 +234,7 @@ export class DeleteRecordUseCase {
   async execute(userId: string, petId: string, collection: string, recordId: string): Promise<void> {
     const module = moduleOrNotFound(collection);
     await this.deps.uow.runInTransaction(async (repositories) => {
+      await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       await requirePetAction(repositories, userId, petId, DELETE_ACTION[module]);
       const existing = await repositories.records.listForPet(petId);
       const current = (existing[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId);
