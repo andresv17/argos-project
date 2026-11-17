@@ -76,7 +76,7 @@
 - [x] T529 [US1] `trim()` en `use-contract-form.ts` / `validation.ts` para todo texto salvo contraseñas (REQ-FRM-001)
 - [x] T530 [P] [US1] Pruebas: orden de foco de `PetForm` (SC-CAT-006) (REQ-FRM-002)
 - [x] T531 [US1] Mover `birthDateIsEstimate` bajo «Fecha de nacimiento» con el rótulo «Fecha de nacimiento aproximada (estimada)» (REQ-FRM-002)
-- [ ] T599 [P] [US1] Prueba estática: ningún módulo de `src/domain/` de peso, edad o alertas referencia `breedCode` ni `breed` (SC-CAT-033) (INV-RAZ-002)
+- [x] T599 [P] [US1] Prueba estática: ningún módulo de `src/domain/` de peso, edad o alertas referencia `breedCode` ni `breed` (SC-CAT-033) (INV-RAZ-002)
 
 ---
 
