@@ -6,7 +6,7 @@
  * @implements REQ-AUD-001, INV-AUD-001, INV-ARCH-001
  */
 
-import { monthlyAnniversary, parseIsoCalendarDate } from '../../domain/shared/date-utils.ts';
+import { monthlyAnniversary, parseIsoCalendarDate, shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
 import type { MaintenanceCounts, MaintenanceCutoffs } from '../ports/unit-of-work.port.ts';
 import type { ApplicationDeps } from './use-case-support.ts';
 
@@ -49,8 +49,8 @@ const OVERDUE_HOURS = 48;
 export async function runMediaQueueMaintenance(deps: Pick<ApplicationDeps, 'uow' | 'clock' | 'media'>): Promise<MediaQueueResult> {
   const media = deps.media;
   if (media === undefined) return NO_MEDIA_QUEUE;
-  const now = Date.parse(deps.clock.nowIsoTimestamp());
-  const before = (hours: number) => new Date(now - hours * HOUR_MS).toISOString();
+  const now = deps.clock.nowIsoTimestamp();
+  const before = (hours: number) => shiftIsoTimestamp(now, -hours * HOUR_MS);
   const { promoted, entries } = await deps.uow.runInTransaction(async (r) => ({
     promoted: await r.mediaQueue.promoteStaleIntents(before(INTENT_STALE_HOURS)),
     entries: await r.mediaQueue.listPending(MEDIA_QUEUE_BATCH),

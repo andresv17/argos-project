@@ -40,7 +40,10 @@ import type { UnitOfWorkPort } from '../ports/unit-of-work.port.ts';
  * PetCardView del OpenAPI con `profile` tipado como PetProfile: el tipo generado de `profile`
  * ($ref al archivo pet.schema.json completo) incluye una propiedad `$defs` obligatoria (H-108-3).
  */
-export type PetCardView = Omit<components['schemas']['PetCardView'], 'profile'> & { profile: PetProfile };
+export type PetCardView = Omit<components['schemas']['PetCardView'], 'profile'> & { profile: PetProfileView };
+
+/** Perfil de la API 3.1.0: el de dominio más `avatarVersion` (solo lectura; `avatar_version` si hay avatar y `null` si no, REQ-AVA-001). */
+export type PetProfileView = PetProfile & { readonly avatarVersion: number | null };
 
 /** Topes de medios que entrega la composición desde `ARGOS_MEDIA_*` (REQ-ARC-001, REQ-ARC-003, REQ-ARC-005). */
 export interface MediaLimits {
@@ -244,11 +247,11 @@ export function globalAlertStatusOf(summary: PetCardView['alertsSummary']): PetC
   return null;
 }
 
-export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, records: PetRecordCollections, today: string): PetCardView {
+export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, records: PetRecordCollections, today: string, avatarVersion: number | null = null): PetCardView {
   const weights = computeWeightEvolutionSeries(records.weights);
   const alertsSummary = summarizeSanitaryAlerts(evaluateVaccinationAlerts(records.vaccinations, today), evaluateDewormingAlerts(records.dewormings, today));
   return {
-    profile: normalizePetProfile(pet),
+    profile: { ...normalizePetProfile(pet), avatarVersion },
     owner,
     myRole: role,
     permissions: petPermissionsFor(role),

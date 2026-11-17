@@ -13,7 +13,7 @@
  * @implements REQ-PET4-001, INV-PET4-001, REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
-import { normalizePetProfile, type PetProfile } from '../../domain/pet/pet-invariants.ts';
+import { normalizePetProfile } from '../../domain/pet/pet-invariants.ts';
 import type { components, Species } from '../../generated/index.ts';
 import { petPermissionsFor } from '../../domain/access/rbac.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
@@ -36,13 +36,14 @@ import {
   requireReadablePet,
   type ApplicationDeps,
   type PetCardView,
+  type PetProfileView,
 } from './use-case-support.ts';
 
 /**
  * PetDashboardView del OpenAPI con `profile` tipado como PetProfile: el tipo generado de `profile`
  * ($ref al archivo pet.schema.json completo) incluye una propiedad `$defs` obligatoria (H-108-3).
  */
-export type PetDashboardView = Omit<components['schemas']['PetDashboardView'], 'profile'> & { profile: PetProfile };
+export type PetDashboardView = Omit<components['schemas']['PetDashboardView'], 'profile'> & { profile: PetProfileView };
 
 /** Filtro del listado de REQ-PET2-002 (parámetro `filter` del OpenAPI). */
 export type PetListGroup = 'ALL' | 'CANINE' | 'FELINE' | 'OTHERS' | 'WITH_ALERTS';
@@ -82,7 +83,7 @@ function baseHouseholdIdOf(input: unknown): string | undefined {
 export class RegisterPetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, input: unknown): Promise<PetProfile> {
+  async execute(userId: string, input: unknown): Promise<PetProfileView> {
     return withDuplicateRecording(this.deps, userId, () =>
       this.deps.uow.runInTransaction(async (repositories) => {
         const pet = createPetProfile({
@@ -98,7 +99,7 @@ export class RegisterPetUseCase {
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: pet });
         const baseHouseholdId = baseHouseholdIdOf(input);
         if (baseHouseholdId !== undefined) await assignOwnedPetToHousehold(this.deps, repositories, userId, pet, baseHouseholdId);
-        return pet;
+        return { ...pet, avatarVersion: null }; // una mascota nueva no tiene avatar
       }),
     );
   }
@@ -108,7 +109,7 @@ export class RegisterPetUseCase {
 export class UpdatePetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, petId: string, input: unknown): Promise<PetProfile> {
+  async execute(userId: string, petId: string, input: unknown): Promise<PetProfileView> {
     return withDuplicateRecording(this.deps, userId, () =>
       this.deps.uow.runInTransaction(async (repositories) => {
         const { pet } = await requirePetAction(repositories, userId, petId, 'EDIT_PET_BASICS');
@@ -124,7 +125,8 @@ export class UpdatePetUseCase {
         await assertMicrochipWithinLimit(this.deps, repositories, userId, updated.microchipId !== null && updated.microchipId !== pet.microchipId);
         await mapMicrochipViolation(() => repositories.pets.save(updated));
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: pet, next: updated });
-        return updated;
+        // `pets.save` no toca el avatar (INV-AVA-001); la respuesta lo refleja leyendo su versión actual.
+        return { ...updated, avatarVersion: (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null };
       }),
     );
   }
@@ -164,9 +166,10 @@ export class ListMyPetsUseCase {
       const roleOf = new Map(visible.map((v) => [v.pet.id, v.role]));
       const owners = await publicProfilesById(repositories, visible.map((v) => v.pet.ownerUserId));
       const pets = sortPetsForListing(visible.map((v) => v.pet).filter((pet) => matchesPetListFilter(pet, filter)));
+      const avatars = await repositories.pets.findAvatarVersions(pets.map((pet) => pet.id)); // una sola lectura (sin N+1)
       const cards: PetCardView[] = [];
       for (const pet of pets) {
-        const card = buildPetCard(pet, ownerTag(owners.get(pet.ownerUserId)!, null), roleOf.get(pet.id)!, await repositories.records.listForPet(pet.id), today);
+        const card = buildPetCard(pet, ownerTag(owners.get(pet.ownerUserId)!, null), roleOf.get(pet.id)!, await repositories.records.listForPet(pet.id), today, avatars.get(pet.id) ?? null);
         if (keepsCard(query, card)) cards.push(card);
       }
       return cards;
@@ -184,10 +187,11 @@ export class GetPetDashboardUseCase {
       const { pet, role } = await requireReadablePet(repositories, userId, petId);
       const owner = (await publicProfilesById(repositories, [pet.ownerUserId])).get(pet.ownerUserId)!;
       const records = await repositories.records.listForPet(petId);
+      const avatarVersion = (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null;
       const vaccinations = evaluateVaccinationAlerts(records.vaccinations, today);
       const dewormings = evaluateDewormingAlerts(records.dewormings, today);
       return {
-        profile: normalizePetProfile(pet),
+        profile: { ...normalizePetProfile(pet), avatarVersion },
         owner: ownerTag(owner, null),
         myRole: role,
         permissions: petPermissionsFor(role),

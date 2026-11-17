@@ -132,6 +132,11 @@ export interface PetRepositoryPort {
   /** Inserta o reemplaza por id. NO toca las columnas de avatar: un `PATCH` de la mascota no puede revertir el avatar (INV-AVA-001). */
   save(pet: PetProfile): Promise<void>;
   delete(petId: string): Promise<void>;
+  /**
+   * `avatarVersion` de la API de cada mascota existente en UNA lectura: `avatar_version` si `avatar_object_id` no es nulo y `null` en otro caso
+   * (REQ-AVA-001). Las mascotas inexistentes no aparecen en el mapa.
+   */
+  findAvatarVersions(petIds: readonly string[]): Promise<ReadonlyMap<string, number | null>>;
   /** Estado del avatar de la mascota (`avatar_version`, `avatar_object_id`); null si la mascota no existe. */
   findAvatar(petId: string): Promise<AvatarState | null>;
   /**

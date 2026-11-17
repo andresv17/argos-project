@@ -12,6 +12,7 @@
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { DomainError as DomainErrorV31 } from '../../../generated/v31/index.ts';
+import { AVATAR_MAX_BYTES } from '../../../domain/media/index.ts';
 import type { MediaServices } from '../../../application/use-cases/use-case-support.ts';
 import { rawBody } from '../request-input.ts';
 import { requireSession } from '../plugins/session-auth.ts';
@@ -64,9 +65,12 @@ export function registerMediaRoutes(app: FastifyInstance, { useCases }: RouteCon
     return payload;
   });
 
+  // Un solo contador por instancia para las subidas de archivos y de avatar.
+  const limiter = uploadLimiter(media.limits.maxConcurrentUploads);
+
   app.post<PetParams & { Querystring: { kind?: unknown } }>(
     '/api/pets/:petId/media',
-    { onRequest, bodyLimit: media.limits.maxBytes + 1, preParsing: uploadLimiter(media.limits.maxConcurrentUploads) },
+    { onRequest, bodyLimit: media.limits.maxBytes + 1, preParsing: limiter },
     async (request, reply) => {
       const item = await useCases.uploadMedia.execute(request.userId, request.params.petId, {
         kind: request.query.kind,
@@ -87,6 +91,26 @@ export function registerMediaRoutes(app: FastifyInstance, { useCases }: RouteCon
 
   app.delete<MediaParams>('/api/pets/:petId/media/:mediaId', { onRequest }, async (request, reply) => {
     await useCases.deleteMedia.execute(request.userId, request.params.petId, request.params.mediaId);
+    return reply.status(204).send();
+  });
+
+  // Avatar (REQ-AVA-001): cuerpo crudo JPEG/PNG/WebP de hasta 512 KiB; el tipo lo decide la firma, no el Content-Type.
+  app.put<PetParams>('/api/pets/:petId/avatar', { onRequest, bodyLimit: AVATAR_MAX_BYTES + 1, preParsing: limiter }, async (request) =>
+    useCases.putAvatar.execute(request.userId, request.params.petId, rawBody(request.body)),
+  );
+
+  app.get<PetParams & { Querystring: { v?: unknown } }>('/api/pets/:petId/avatar', { onRequest }, async (request, reply) => {
+    const image = await useCases.getAvatar.execute(request.userId, request.params.petId, request.query.v);
+    // `v` igual a la versión actual: inmutable (la URL cambia con cada versión); en otro caso el navegador revalida (REQ-AVA-001, RR-04).
+    return reply
+      .header('cache-control', image.immutable ? 'private, max-age=31536000, immutable' : 'no-cache')
+      .header('vary', 'Cookie')
+      .type(image.contentType)
+      .send(Buffer.from(image.bytes));
+  });
+
+  app.delete<PetParams>('/api/pets/:petId/avatar', { onRequest }, async (request, reply) => {
+    await useCases.deleteAvatar.execute(request.userId, request.params.petId);
     return reply.status(204).send();
   });
 }

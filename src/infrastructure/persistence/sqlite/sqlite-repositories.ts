@@ -365,6 +365,7 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
   const remove = db.prepare('DELETE FROM pets WHERE id = ?');
   type AvatarRow = { readonly avatar_version: number; readonly avatar_object_id: string | null };
   const avatarOf = db.prepare<[string], AvatarRow>('SELECT avatar_version, avatar_object_id FROM pets WHERE id = ?');
+  const avatarVersions = db.prepare<[string], { id: string; avatar_version: number; avatar_object_id: string | null }>('SELECT id, avatar_version, avatar_object_id FROM pets WHERE id IN (SELECT value FROM json_each(?))');
   const bumpAvatar = db.prepare<[string, string], AvatarRow>('UPDATE pets SET avatar_version = avatar_version + 1, avatar_object_id = ? WHERE id = ? RETURNING avatar_version, avatar_object_id');
   const dropAvatar = db.prepare('UPDATE pets SET avatar_object_id = NULL WHERE id = ?');
   const raiseAvatar = db.prepare('UPDATE pets SET avatar_version = ? WHERE id = ? AND avatar_version < ?');
@@ -410,6 +411,10 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
     },
     async delete(petId) {
       remove.run(petId);
+    },
+    async findAvatarVersions(petIds) {
+      const rows = avatarVersions.all(list(petIds));
+      return new Map(rows.map((row) => [row.id, row.avatar_object_id === null ? null : row.avatar_version] as const));
     },
     async findAvatar(petId) {
       const row = avatarOf.get(petId);

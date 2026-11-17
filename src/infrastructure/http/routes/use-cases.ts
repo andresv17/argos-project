@@ -5,6 +5,7 @@
  */
 
 import { ChangePasswordUseCase, DeleteAccountUseCase, UpdateProfileUseCase } from '../../../application/use-cases/account-use-cases.ts';
+import { DeleteAvatarUseCase, GetAvatarUseCase, PutAvatarUseCase } from '../../../application/use-cases/avatar-use-cases.ts';
 import { AssignPetToHouseholdUseCase, ListPetAssignmentsUseCase, UnassignPetFromHouseholdUseCase } from '../../../application/use-cases/assignment-use-cases.ts';
 import { AuthenticateRequestUseCase, GetCurrentSessionUseCase, LoginUseCase, LogoutUseCase, RegisterUserUseCase } from '../../../application/use-cases/auth-use-cases.ts';
 import { ExportBackupUseCase, ImportBackupUseCase, PreviewBackupImportUseCase } from '../../../application/use-cases/backup-use-cases.ts';
@@ -85,6 +86,9 @@ export function createUseCases(deps: ApplicationDeps) {
     listMedia: new ListMediaUseCase(deps),
     mediaAccess: new GetMediaAccessUseCase(deps),
     deleteMedia: new DeleteMediaUseCase(deps),
+    putAvatar: new PutAvatarUseCase(deps),
+    getAvatar: new GetAvatarUseCase(deps),
+    deleteAvatar: new DeleteAvatarUseCase(deps),
   };
 }
 

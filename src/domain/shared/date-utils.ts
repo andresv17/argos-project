@@ -171,3 +171,34 @@ export function calculatePetAge(birthDate: string, currentDate: string): Compute
     totalDays: diffInCalendarDays(currentDate, birthDate),
   };
 }
+
+const MS_PER_DAY = 86_400_000;
+const CANONICAL_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})Z$/;
+
+/**
+ * Desplaza un instante UTC canónico (`YYYY-MM-DDTHH:mm:ss.sssZ`) `deltaMs` milisegundos, con aritmética entera (days_from_civil / civil_from_days):
+ * sin objetos `Date` ni reloj (INV-ARCH-001). Lo usan los umbrales de la cola de borrado de medios (1 h y 48 h, REQ-GCS-004, REQ-GCS-006).
+ * @implements INV-ARCH-001, REQ-GCS-004
+ */
+export function shiftIsoTimestamp(isoTimestamp: string, deltaMs: number): string {
+  const match = CANONICAL_TIMESTAMP.exec(isoTimestamp);
+  if (match === null) throw new RangeError('El instante no es UTC canónico YYYY-MM-DDTHH:mm:ss.sssZ.');
+  const [, date, hours, minutes, seconds, millis] = match as unknown as [string, string, string, string, string, string];
+  const total = toEpochDays(date) * MS_PER_DAY + ((Number(hours) * 60 + Number(minutes)) * 60 + Number(seconds)) * 1000 + Number(millis) + deltaMs;
+  const days = Math.floor(total / MS_PER_DAY);
+  const rest = total - days * MS_PER_DAY;
+  const z = days + 719468;
+  const era = Math.floor(z / 146097);
+  const dayOfEra = z - era * 146097;
+  const yearOfEra = Math.floor((dayOfEra - Math.floor(dayOfEra / 1460) + Math.floor(dayOfEra / 36524) - Math.floor(dayOfEra / 146096)) / 365);
+  const dayOfYear = dayOfEra - (365 * yearOfEra + Math.floor(yearOfEra / 4) - Math.floor(yearOfEra / 100));
+  const shiftedMonth = Math.floor((5 * dayOfYear + 2) / 153);
+  const day = dayOfYear - Math.floor((153 * shiftedMonth + 2) / 5) + 1;
+  const month = shiftedMonth < 10 ? shiftedMonth + 3 : shiftedMonth - 9;
+  const year = yearOfEra + era * 400 + (month <= 2 ? 1 : 0);
+  const pad = (value: number, width: number) => String(value).padStart(width, '0');
+  const h = Math.floor(rest / 3_600_000);
+  const m = Math.floor((rest % 3_600_000) / 60_000);
+  const s = Math.floor((rest % 60_000) / 1000);
+  return `${pad(year, 4)}-${pad(month, 2)}-${pad(day, 2)}T${pad(h, 2)}:${pad(m, 2)}:${pad(s, 2)}.${pad(rest % 1000, 3)}Z`;
+}

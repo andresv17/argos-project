@@ -41,7 +41,9 @@ export class TransferPetOwnershipUseCase {
       // REQ-AUD-001: 1 fila OWNERSHIP_TRANSFER sobre la mascota y 1 fila UNASSIGN por cada asignación podada.
       await recordAudit(this.deps, repositories, { executorUserId: actorUserId, mutationType: 'OWNERSHIP_TRANSFER', entityType: 'PET', entityId: petId, previous: pet, next: transferred });
       for (const assignment of before.filter((a) => !kept.has(a.householdId))) await recordAssignmentRemoved(this.deps, repositories, actorUserId, assignment);
-      return { pet: transferred, prunedAssignments: pruned };
+      // La respuesta lleva `avatarVersion` (REQ-AVA-001); la transferencia no toca el avatar (`pets.save` no lo modifica).
+      const avatarVersion = (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null;
+      return { pet: { ...transferred, avatarVersion }, prunedAssignments: pruned };
     });
   }
 }

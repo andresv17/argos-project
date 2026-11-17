@@ -63,9 +63,9 @@ async function composePersistence(config: AppConfig): Promise<{ uow: UnitOfWorkP
  * Almacenamiento de objetos por `config.mediaDriver` (REQ-GCS-003). Solo se compone el adaptador de memoria (desarrollo y pruebas).
  *
  * PENDIENTE (T576/T577, declarado): con `gcs` NO se conecta el adaptador de GCS. Empaquetar `@google-cloud/storage` en el bundle de producción hace
- * fallar la prueba REQ-SEC-005 de `tests/integration/build/build-server.spec.ts` por dos falsos positivos de código de terceros (`process.env.DEBUG =` del
- * paquete `debug` y un ejemplo de JSDoc con `-----BEGIN PRIVATE KEY-----`), y la imagen final no lleva `node_modules` (no hay `external` posible). Requiere la
- * decisión de Neo/Link/Trinity sobre esa prueba o sobre la imagen; hasta entonces con `gcs` la API arranca sin rutas de medios.
+ * fallar la prueba REQ-SEC-005 de `tests/integration/build/build-server.spec.ts` por dos falsos positivos de código de terceros (una asignación a la variable
+ * de depuración del paquete `debug` y un ejemplo de documentación con una cabecera de clave privada), y la imagen final no lleva `node_modules` (no hay
+ * `external` posible). Requiere la decisión de Neo/Link/Trinity sobre esa prueba o sobre la imagen; hasta entonces con `gcs` la API arranca sin rutas de medios.
  */
 async function composeMediaStorage(config: AppConfig, now: () => Date): Promise<MediaStoragePort | null> {
   if (config.mediaDriver !== 'memory') return null;

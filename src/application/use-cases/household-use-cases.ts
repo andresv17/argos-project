@@ -466,8 +466,9 @@ export class GetHouseholdPetsUseCase {
         matchesPetListFilter(entry.pet, petListFilterOf(query)),
       );
       const pets = [];
+      const avatars = await repositories.pets.findAvatarVersions(entries.map((entry) => entry.pet.id));
       for (const entry of entries) {
-        const card = buildPetCard(entry.pet, entry.owner, entry.myRole, await repositories.records.listForPet(entry.pet.id), today);
+        const card = buildPetCard(entry.pet, entry.owner, entry.myRole, await repositories.records.listForPet(entry.pet.id), today, avatars.get(entry.pet.id) ?? null);
         if (keepsCard(query, card)) pets.push(card);
       }
       return { household: (await repositories.households.findById(householdId))!, pets };

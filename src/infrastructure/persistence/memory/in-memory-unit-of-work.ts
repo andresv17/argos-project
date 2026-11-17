@@ -274,6 +274,10 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       state.media = state.media.filter((m) => m.petId !== petId); // como ON DELETE CASCADE (la cola no se toca: no tiene clave foránea)
       delete state.avatars[petId];
     },
+    async findAvatarVersions(petIds) {
+      const wanted = new Set(petIds);
+      return new Map(state.pets.filter((p) => wanted.has(p.id)).map((p) => [p.id, state.avatars[p.id]?.objectId != null ? state.avatars[p.id]!.version : null] as const));
+    },
     async findAvatar(petId) {
       if (!state.pets.some((p) => p.id === petId)) return null;
       return copy(state.avatars[petId] ?? { version: 0, objectId: null });

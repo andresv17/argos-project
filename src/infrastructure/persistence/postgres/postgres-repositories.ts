@@ -339,6 +339,10 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
       // INV-PET-005: ON DELETE CASCADE borra en la misma sentencia los registros de los 6 módulos y las asignaciones.
       await client.query('DELETE FROM pets WHERE id = $1', [petId]);
     },
+    async findAvatarVersions(petIds) {
+      const { rows } = await client.query('SELECT id, avatar_version, avatar_object_id FROM pets WHERE id = ANY($1::text[])', [[...petIds]]);
+      return new Map(rows.map((row) => [String(row['id']), row['avatar_object_id'] === null ? null : Number(row['avatar_version'])] as const));
+    },
     async findAvatar(petId) {
       const { rows } = await client.query('SELECT avatar_version, avatar_object_id FROM pets WHERE id = $1', [petId]);
       return rows[0] === undefined ? null : { version: Number(rows[0]['avatar_version']), objectId: (rows[0]['avatar_object_id'] as string | null) ?? null };
