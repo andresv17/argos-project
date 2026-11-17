@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/media.schema.json",
+  "title": "MediaSchema",
+  "description": "Archivos, fotos y avatar de la mascota en almacenamiento de objetos [REQ-ARC-001, REQ-ARC-003, REQ-ALB-001, REQ-AVA-001, REQ-GCS-005]. Sin autoría, sin clave de objeto y sin disposición (D-06 C).",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "Contrato nuevo de la feature 004 (API 3.1.0): MediaItem, MediaAccess, MediaPage y AvatarVersionResult con additionalProperties false.",
+    "traceability": [
+      "REQ-ARC-001",
+      "REQ-ARC-003",
+      "REQ-ALB-001",
+      "REQ-AVA-001",
+      "REQ-GCS-005",
+      "INV-ARC-001",
+      "INV-ARC-002",
+      "INV-ARC-003",
+      "INV-ARC-004",
+      "INV-ALB-001",
+      "INV-AVA-001"
+    ]
+  },
+  "$defs": {
+    "MediaKind": {
+      "type": "string",
+      "enum": [
+        "FILE",
+        "PHOTO"
+      ],
+      "description": "PHOTO acepta solo JPEG, PNG y WebP; FILE acepta además PDF [INV-ARC-001]"
+    },
+    "MediaMime": {
+      "type": "string",
+      "enum": [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/pdf"
+      ],
+      "description": "Lista cerrada por firma (magic bytes); DOCX, XLSX y TXT no se aceptan (TECHDEBT-004-01) [INV-ARC-001]"
+    },
+    "MediaItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "kind",
+        "mime",
+        "sizeBytes",
+        "originalName",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "kind": {
+          "$ref": "#/$defs/MediaKind"
+        },
+        "mime": {
+          "$ref": "#/$defs/MediaMime"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10485760
+        },
+        "originalName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nombre original solo como texto de listado, 1 a 120 puntos de código; nunca forma parte de la clave del objeto [INV-ARC-003]"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      },
+      "description": "Elemento del álbum de la mascota. Sin objectKey ni identificador de usuario [REQ-ARC-001, REQ-GCS-005]"
+    },
+    "MediaAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "expiresAt",
+        "mime"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://",
+          "description": "V4 Signed URL de lectura sobre el host virtual del bucket [REQ-ARC-003]"
+        },
+        "expiresAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "mime": {
+          "$ref": "#/$defs/MediaMime"
+        }
+      },
+      "description": "Acceso de lectura en línea; sin disposition: todo se sirve en línea (D-06 C) [REQ-ARC-003, INV-ARC-004]"
+    },
+    "MediaPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 24,
+          "items": {
+            "$ref": "#/$defs/MediaItem"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pageSize": {
+          "type": "integer",
+          "const": 24
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "description": "Página determinista de 24 elementos [REQ-ALB-001, INV-ALB-001]"
+    },
+    "AvatarVersionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "avatarVersion"
+      ],
+      "properties": {
+        "avatarVersion": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "description": "Respuesta de putAvatar [REQ-AVA-001]"
+    }
+  }
+}

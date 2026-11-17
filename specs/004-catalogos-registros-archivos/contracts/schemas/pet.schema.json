@@ -1,0 +1,864 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/pet.schema.json",
+  "title": "PetProfileSchema",
+  "description": "Perfil de mascota multi-especie con dueño, asignaciones y permisos [REQ-PET2-001..003, REQ-OWN-001, REQ-HOUSE2-003]",
+  "x-sdd-metadata": {
+    "version": "3.1.0",
+    "status": "DRAFT",
+    "supersedes": "3.0.0",
+    "change_type": "MINOR",
+    "change_note": "MINOR 3.1.0 (feature 004): +breedCode y +avatarVersion de solo lectura en PetProfile; +breedCode en CreatePetInput y UpdatePetInput (breed opcional con breedCode); microchipId de entrada rechaza relleno y secuencias módulo 10.",
+    "traceability": [
+      "REQ-PET2-001",
+      "REQ-PET2-002",
+      "REQ-PET2-003",
+      "REQ-PET-002",
+      "REQ-PET-004",
+      "REQ-OWN-001",
+      "REQ-HOUSE2-003",
+      "REQ-RBAC-001",
+      "INV-PET2-001",
+      "INV-PET-002",
+      "INV-PET-006",
+      "INV-OWN2-001",
+      "INV-ACC2-001",
+      "INV-ACC2-002",
+      "INV-REC-006",
+      "REQ-RAZ-001",
+      "REQ-RAZ-002",
+      "REQ-RAZ-003",
+      "INV-RAZ-001",
+      "REQ-AVA-001",
+      "INV-AVA-001",
+      "REQ-PET4-001",
+      "REQ-PET4-002",
+      "INV-PET4-001"
+    ]
+  },
+  "$defs": {
+    "Species": {
+      "type": "string",
+      "enum": [
+        "CANINE",
+        "FELINE",
+        "RABBIT",
+        "FERRET",
+        "BIRD",
+        "REPTILE",
+        "SMALL_MAMMAL",
+        "OTHER"
+      ],
+      "description": "8 especies aprobadas [INV-PET2-001]. Migración 001: DOG a CANINE, CAT a FELINE [REQ-MIG-001]"
+    },
+    "Sex": {
+      "type": "string",
+      "enum": [
+        "MALE",
+        "FEMALE"
+      ]
+    },
+    "SpeciesOther": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        }
+      ],
+      "description": "1-60; obligatorio solo con species OTHER y nulo en el resto [INV-PET2-001]",
+      "x-sdd-error": "ERR-SCHEMA-VALIDATION-FAILED"
+    },
+    "MicrochipId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^\\d{15}$",
+      "description": "15 dígitos; opcional; único por propietario, no global; la unicidad la verifica la aplicación (ERR-PET-MICROCHIP-DUPLICATE). Se excluye de la vista canónica de auditoría [REQ-PET2-001, R2]"
+    },
+    "AvatarUrl": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2048,
+      "pattern": "^(https?://|data:image/(png|jpeg|webp);base64,)",
+      "description": "Solo http(s) o data-URL de imagen (previene javascript:) [REQ-PET2-001]"
+    },
+    "ComputedAge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "years",
+        "months",
+        "totalDays"
+      ],
+      "properties": {
+        "years": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "months": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 11
+        },
+        "totalDays": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "description": "[REQ-PET-002] vigente: años reales para las 8 especies, sin años humanos equivalentes; aniversario en el último día del mes cuando el día no existe"
+    },
+    "PetProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "ownerUserId",
+        "name",
+        "species",
+        "speciesOther",
+        "breed",
+        "birthDate",
+        "birthDateIsEstimate",
+        "sex",
+        "neutered",
+        "microchipId",
+        "avatarUrl",
+        "createdAt",
+        "updatedAt",
+        "breedCode",
+        "avatarVersion"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "ownerUserId": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+            }
+          ],
+          "description": "Propietario Legal; solo cambia con REQ-OWN-001 [INV-OWN2-001]"
+        },
+        "name": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 50
+        },
+        "species": {
+          "$ref": "#/$defs/Species"
+        },
+        "speciesOther": {
+          "$ref": "#/$defs/SpeciesOther"
+        },
+        "breed": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        },
+        "birthDate": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ],
+          "description": "<= ClockPort.todayIsoDate() [INV-PET-002] y <= registro más antiguo [INV-PET-006]"
+        },
+        "birthDateIsEstimate": {
+          "type": "boolean"
+        },
+        "sex": {
+          "$ref": "#/$defs/Sex"
+        },
+        "neutered": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "microchipId": {
+          "$ref": "#/$defs/MicrochipId"
+        },
+        "avatarUrl": {
+          "$ref": "#/$defs/AvatarUrl"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "updatedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "breedCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(DOG|CAT)_[A-Z0-9_]{2,40}$",
+          "description": "Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003]"
+        },
+        "avatarVersion": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "readOnly": true,
+          "description": "Versión del avatar, derivada de avatar_version/avatar_object_id; solo lectura, nunca entrada ni parte del respaldo [REQ-AVA-001, INV-AVA-001]"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "OTHER"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "speciesOther": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "speciesOther": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "CANINE"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^DOG_"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "FELINE"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^CAT_"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "enum": [
+                  "RABBIT",
+                  "FERRET",
+                  "BIRD",
+                  "REPTILE",
+                  "SMALL_MAMMAL",
+                  "OTHER"
+                ]
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ],
+      "description": "[REQ-PET2-001, INV-PET2-001]. speciesOther solo con OTHER."
+    },
+    "EstimatedAge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "years",
+        "months"
+      ],
+      "properties": {
+        "years": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60
+        },
+        "months": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 11
+        }
+      },
+      "description": "Edad aproximada en años y meses: el servidor la convierte a birthDate (fecha de ClockPort menos años y meses, regla del último día del mes) con birthDateIsEstimate = true [REQ-PET2-001]"
+    },
+    "CreatePetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "species",
+        "sex"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 50
+        },
+        "species": {
+          "$ref": "#/$defs/Species"
+        },
+        "speciesOther": {
+          "$ref": "#/$defs/SpeciesOther"
+        },
+        "breed": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        },
+        "birthDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "birthDateIsEstimate": {
+          "type": "boolean"
+        },
+        "estimatedAge": {
+          "$ref": "#/$defs/EstimatedAge"
+        },
+        "sex": {
+          "$ref": "#/$defs/Sex"
+        },
+        "neutered": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "microchipId": {
+          "$ref": "#/$defs/MicrochipInput"
+        },
+        "avatarUrl": {
+          "$ref": "#/$defs/AvatarUrl"
+        },
+        "baseHouseholdId": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+            }
+          ],
+          "description": "Hogar base opcional: asignación inicial; el dueño debe ser miembro ACTIVE [REQ-HOUSE2-003]"
+        },
+        "breedCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(DOG|CAT)_[A-Z0-9_]{2,40}$",
+          "description": "Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003]"
+        }
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "birthDate"
+          ],
+          "properties": {
+            "birthDate": {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "estimatedAge"
+          ],
+          "properties": {
+            "estimatedAge": {
+              "$ref": "#/$defs/EstimatedAge"
+            }
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "OTHER"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "speciesOther"
+            ],
+            "properties": {
+              "speciesOther": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "speciesOther": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "CANINE"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^DOG_"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "FELINE"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^CAT_"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "enum": [
+                  "RABBIT",
+                  "FERRET",
+                  "BIRD",
+                  "REPTILE",
+                  "SMALL_MAMMAL",
+                  "OTHER"
+                ]
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "breedCode"
+            ]
+          },
+          "else": {
+            "type": "object",
+            "required": [
+              "breed"
+            ],
+            "properties": {
+              "breed": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "description": "Exactamente uno de birthDate (con birthDateIsEstimate opcional, por defecto false) o estimatedAge; estimatedAge con birthDateIsEstimate = false se rechaza en el dominio. ownerUserId lo fija el servidor con el usuario autenticado y nunca se acepta del cliente [REQ-PET2-001, INV-OWN2-001] | 3.1.0: breed es opcional cuando hay breedCode (ausente o igual al rótulo; texto libre de 1 a 60 con *_OTHER); sin breedCode, breed es obligatorio. avatarVersion no se acepta como entrada [REQ-RAZ-003, REQ-AVA-001]"
+    },
+    "UpdatePetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "name": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 50
+        },
+        "species": {
+          "$ref": "#/$defs/Species"
+        },
+        "speciesOther": {
+          "$ref": "#/$defs/SpeciesOther"
+        },
+        "breed": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        },
+        "birthDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "birthDateIsEstimate": {
+          "type": "boolean"
+        },
+        "sex": {
+          "$ref": "#/$defs/Sex"
+        },
+        "neutered": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "microchipId": {
+          "$ref": "#/$defs/MicrochipInput"
+        },
+        "avatarUrl": {
+          "$ref": "#/$defs/AvatarUrl"
+        },
+        "estimatedAge": {
+          "$ref": "#/$defs/EstimatedAge"
+        },
+        "breedCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(DOG|CAT)_[A-Z0-9_]{2,40}$",
+          "description": "Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003]"
+        }
+      },
+      "description": "Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001]",
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "CANINE"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^DOG_"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "FELINE"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^CAT_"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "enum": [
+                  "RABBIT",
+                  "FERRET",
+                  "BIRD",
+                  "REPTILE",
+                  "SMALL_MAMMAL",
+                  "OTHER"
+                ]
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PetEffectiveRole": {
+      "type": "string",
+      "enum": [
+        "OWNER",
+        "ADMIN",
+        "CAREGIVER",
+        "READER"
+      ],
+      "description": "Rol efectivo = Propietario Legal, o el mayor rol ACTIVE entre los hogares donde la mascota está asignada (ADMIN > CAREGIVER > READER) [REQ-RBAC-001]"
+    },
+    "PetPermissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "editPetBasics",
+        "deletePet",
+        "writeHealthEvents",
+        "deleteHealthEvents",
+        "writeWeightsAndMeasurements",
+        "writeAppointmentsAndParameters",
+        "deleteOtherRecords",
+        "transferPetOwnership",
+        "assignPetToHouseholds"
+      ],
+      "properties": {
+        "editPetBasics": {
+          "type": "boolean"
+        },
+        "deletePet": {
+          "type": "boolean"
+        },
+        "writeHealthEvents": {
+          "type": "boolean"
+        },
+        "deleteHealthEvents": {
+          "type": "boolean"
+        },
+        "writeWeightsAndMeasurements": {
+          "type": "boolean"
+        },
+        "writeAppointmentsAndParameters": {
+          "type": "boolean"
+        },
+        "deleteOtherRecords": {
+          "type": "boolean"
+        },
+        "transferPetOwnership": {
+          "type": "boolean"
+        },
+        "assignPetToHouseholds": {
+          "type": "boolean"
+        }
+      },
+      "description": "Resultado de can(rol efectivo, acción) para las 9 acciones de mascota de la matriz; reemplaza canEdit [REQ-PET2-003, REQ-RBAC-001]. Exportar/importar es de cuenta y siempre permitido; MANAGE_HOUSEHOLD_MEMBERS es de hogar."
+    },
+    "PetAssignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "petId",
+        "householdId",
+        "assignedByUserId",
+        "assignedAt"
+      ],
+      "properties": {
+        "petId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "householdId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "assignedByUserId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "assignedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      },
+      "description": "Relación muchos a muchos mascota-hogar [REQ-HOUSE2-003]"
+    },
+    "TransferPetOwnershipInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetUserId"
+      ],
+      "properties": {
+        "targetUserId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        }
+      },
+      "description": "[REQ-OWN-001]"
+    },
+    "TransferPetOwnershipResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pet",
+        "prunedAssignments"
+      ],
+      "properties": {
+        "pet": {
+          "$ref": "#/$defs/PetProfile"
+        },
+        "prunedAssignments": {
+          "type": "array",
+          "items": {
+            "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+          },
+          "description": "householdId de las asignaciones podadas porque el nuevo dueño no es miembro ACTIVE"
+        }
+      },
+      "description": "[REQ-OWN-001, SC-016]"
+    },
+    "MicrochipInput": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^(?!(\\d)\\1{14}$)(?!(?:012345678901234|09876543210-1-2-3-4|123456789012345|109876543210-1-2-3|234567890123456|2109876543210-1-2|345678901234567|32109876543210-1|456789012345678|432109876543210|567890123456789|543210987654321|678901234567890|654321098765432|789012345678901|765432109876543|890123456789012|876543210987654|901234567890123|987654321098765)$)\\d{15}$",
+      "description": "15 dígitos; rechaza 15 dígitos iguales y las secuencias consecutivas ascendentes o descendentes módulo 10 (123456789012345, 987654321098765) con ERR-SCHEMA-VALIDATION-FAILED; único global [REQ-PET4-001, REQ-PET4-002, INV-PET4-001]",
+      "x-sdd-error": "ERR-SCHEMA-VALIDATION-FAILED"
+    }
+  }
+}
