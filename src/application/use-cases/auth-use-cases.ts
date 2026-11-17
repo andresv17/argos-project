@@ -7,8 +7,9 @@
  * - INV-AUTH-006 / INV-LOG-002: si el usuario no existe, o el correo no tiene cuenta o tiene varias, LoginUseCase verifica la contraseña
  *   contra el hash ficticio, de modo que PasswordHasherPort.verify se invoca exactamente una vez en todas las ramas y el error es el
  *   mismo ERR-AUTH-INVALID-CREDENTIALS. Un intento bloqueado no verifica ni se registra (INV-AUTH-005, EDGE-029).
- * - Límite de intentos (REQ-LOG-001, SC-CAT-020, SC-CAT-030): los fallos se cuentan bajo el identificador normalizado y bajo la cuenta
- *   resuelta (su username en minúsculas) y cada fallo nuevo se guarda UNA sola vez, bajo la cuenta si existe y si no bajo el identificador.
+ * - Límite de intentos (REQ-LOG-001, SC-CAT-020, SC-CAT-030, INV-LOG-002): los fallos se cuentan SOLO bajo el identificador normalizado (minúsculas):
+ *   el usuario y el correo de una misma cuenta tienen contadores independientes y un éxito borra únicamente la clave con la que se entró. Un
+ *   correo existente, inexistente o ambiguo se comporta igual (H-T591-2). `verifyCurrentPassword` conserva la clave del username.
  * - Los fallos de login se confirman antes de devolver el error, para que el rollback no los borre.
  *
  * @implements REQ-AUTH2-001, REQ-AUTH2-002, REQ-LOG-001, REQ-LOG-002, INV-LOG-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH2-002, INV-AUTH-006, INV-ARCH-001, INV-ARCH-002, INV-ARCH-005
@@ -110,17 +111,14 @@ export class LoginUseCase {
     const now = this.deps.clock.nowIsoTimestamp();
     const result = await this.deps.uow.runInTransaction(async (repositories) => {
       const account = await resolveLoginAccount(repositories, identifier);
-      const accountKey = account === null ? identifier : normalizeLoginIdentifier(account.username);
-      const byIdentifier = await repositories.loginAttempts.listFailures(identifier);
-      const byAccount = accountKey === identifier ? byIdentifier : await repositories.loginAttempts.listFailures(accountKey);
-      assertNotLockedOut(accountKey === identifier ? byIdentifier : [...byIdentifier, ...byAccount], now);
+      const failures = await repositories.loginAttempts.listFailures(identifier);
+      assertNotLockedOut(failures, now);
       const matches = await this.deps.hasher.verify(credentials.password, account?.passwordHash ?? this.deps.dummyPasswordHash);
       if (account !== null && matches) {
-        await repositories.loginAttempts.replaceFailures(accountKey, []);
-        if (byIdentifier.length > 0 && accountKey !== identifier) await repositories.loginAttempts.replaceFailures(identifier, []);
+        await repositories.loginAttempts.replaceFailures(identifier, []);
         return startSession(this.deps, repositories, account, now);
       }
-      await repositories.loginAttempts.replaceFailures(accountKey, [...byAccount, now]);
+      await repositories.loginAttempts.replaceFailures(identifier, [...failures, now]);
       return null;
     });
     if (result === null) throw invalidCredentialsError();

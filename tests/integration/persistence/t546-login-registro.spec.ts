@@ -7,7 +7,7 @@
  *    con el mismo error genérico que la contraseña incorrecta;
  *  - usuario inexistente, correo inexistente, correo ambiguo y contraseña incorrecta: mismo estado y cuerpo y una sola verificación (espía);
  *    la medición de tiempo es INFORMATIVA (no bloquea);
- *  - el límite de 5 fallos se acumula por identificador en minúsculas y por cuenta resuelta;
+ *  - el límite de 5 fallos se acumula por identificador en minúsculas, sin contador por cuenta resuelta (usuario y correo son independientes, H-T591-2);
  *  - la invitación por `username` resuelve al mismo usuario sin distinguir mayúsculas y conserva la respuesta uniforme.
  * Además (T547): el índice `users_username_lower` existe y las migraciones abortan con conteo si hay colisiones.
  */
@@ -177,15 +177,13 @@ describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (n
     expect(engine.hasher.calls).toEqual([]);
   });
 
-  run('[SC-CAT-030][REQ-LOG-001] 3 fallos con «ana» y 2 con «ana@x.com» bloquean el sexto con cualquiera (límite por identificador y por cuenta resuelta)', async () => {
+  run('[SC-CAT-030][REQ-LOG-001] 3 fallos con «ana» y 2 con «ana@x.com» NO bloquean ninguno de los dos: los contadores son independientes (sin contador por cuenta resuelta)', async () => {
     const engine = await open(name);
     await engine.read((r) => r.users.insert(account(idOf(21), 'ana', 'AnaUno2026a', 'ana@x.com')));
     const login = new LoginUseCase(engine.deps);
     for (const identifier of ['ana', 'ANA', 'ana', 'ana@x.com', 'Ana@X.com']) expect(await outcome(login.execute({ username: identifier, password: 'incorrecta1!' }))).toBe('ERR-AUTH-INVALID-CREDENTIALS@null');
-    engine.hasher.reset();
-    expect(await outcome(login.execute({ username: 'ana', password: 'AnaUno2026a' }))).toBe('ERR-AUTH-TOO-MANY-ATTEMPTS@username');
-    expect(await outcome(login.execute({ username: 'ana@x.com', password: 'AnaUno2026a' }))).toBe('ERR-AUTH-TOO-MANY-ATTEMPTS@username');
-    expect(engine.hasher.calls).toEqual([]);
+    expect(await outcome(login.execute({ username: 'ana', password: 'AnaUno2026a' }))).toBe('OK');
+    expect(await outcome(login.execute({ username: 'ana@x.com', password: 'AnaUno2026a' }))).toBe('OK');
   });
 
   run('[REQ-LOG-001] los fallos se guardan bajo el identificador en minúsculas (nunca con la capitalización escrita) y un éxito los borra', async () => {

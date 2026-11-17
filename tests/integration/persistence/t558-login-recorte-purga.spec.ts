@@ -1,9 +1,9 @@
 /**
- * T558 [P] [US3] inicio de sesión: recorte del identificador, contador por cuenta resuelta y purga TTL de `login_attempts`
+ * T558 [P] [US3] inicio de sesión: recorte del identificador, contador independiente por identificador y purga TTL de `login_attempts`
  * (SC-CAT-018, SC-CAT-030; REQ-LOG-001, INV-LOG-002), en memoria, SQLite y PostgreSQL 17 real (se OMITE sin TEST_DATABASE_URL):
  *  - el identificador se recorta antes de resolverlo y de contar: «  ANA.PEREZ  » y «  Ana@Ejemplo.com  » entran a la misma cuenta;
- *  - los fallos escritos con el correo se acumulan bajo el username de la cuenta resuelta (nunca bajo el correo) y un éxito por cualquiera de
- *    los dos caminos los borra;
+ *  - los fallos escritos con el correo se acumulan bajo el correo normalizado y los del usuario bajo su username (contadores independientes,
+ *    H-T591-2); un éxito borra SOLO la clave con la que se entró;
  *  - `purgeExpired` (SQLite y PostgreSQL; la memoria no purga) elimina las filas de `login_attempts` sin ningún fallo dentro de la ventana de
  *    bloqueo (INV-AUTH-005, 15 min: el TTL), conserva las que tienen alguno (frontera inclusiva) y no altera los cinco conteos de retención.
  */
@@ -50,19 +50,21 @@ describe.each(ENGINE_NAMES)('T558 login: recorte, cuenta resuelta y purga (%s)',
     expect([byUser.session.user.id, byMail.session.user.id]).toEqual([ANA, ANA]);
   });
 
-  run('[SC-CAT-030][REQ-LOG-001] los fallos con el correo se guardan bajo el username de la cuenta resuelta (no bajo el correo) y un éxito por usuario o por correo los borra', async () => {
+  run('[SC-CAT-030][REQ-LOG-001] los fallos con el correo se guardan bajo el correo normalizado (no bajo el username) y un éxito por correo o por usuario borra solo su propia clave', async () => {
     const engine = await open(name);
     const login = new LoginUseCase(engine.deps);
     await code(login.execute({ username: 'ANA@ejemplo.com', password: 'mala2026Clave!' }));
     await code(login.execute({ username: 'ana.perez', password: 'mala2026Clave!' }));
     await code(login.execute({ username: ' Ana@Ejemplo.com ', password: 'mala2026Clave!' }));
-    expect(await engine.read((r) => r.loginAttempts.listFailures('ana.perez'))).toEqual([NOW, NOW, NOW]);
-    expect(await engine.read((r) => r.loginAttempts.listFailures('ana@ejemplo.com'))).toEqual([]);
+    expect(await engine.read((r) => r.loginAttempts.listFailures('ana@ejemplo.com'))).toEqual([NOW, NOW]);
+    expect(await engine.read((r) => r.loginAttempts.listFailures('ana.perez'))).toEqual([NOW]);
     await login.execute({ username: 'ana@ejemplo.com', password: 'Ana2026a' });
-    expect(await engine.read((r) => r.loginAttempts.listFailures('ana.perez'))).toEqual([]);
+    expect(await engine.read((r) => r.loginAttempts.listFailures('ana@ejemplo.com'))).toEqual([]);
+    expect(await engine.read((r) => r.loginAttempts.listFailures('ana.perez'))).toEqual([NOW]);
     await code(login.execute({ username: 'ana@ejemplo.com', password: 'mala2026Clave!' }));
     await login.execute({ username: 'ANA.PEREZ', password: 'Ana2026a' });
     expect(await engine.read((r) => r.loginAttempts.listFailures('ana.perez'))).toEqual([]);
+    expect(await engine.read((r) => r.loginAttempts.listFailures('ana@ejemplo.com'))).toEqual([NOW]);
   });
 
   it.skipIf(name === 'memoria' || (name === 'PostgreSQL' && !HAS_POSTGRES))('[SC-CAT-030][REQ-LOG-001] purgeExpired elimina de login_attempts las filas sin fallos dentro de la ventana de 15 min (frontera inclusiva), conserva las demás y no cambia los cinco conteos', { timeout: 120_000 }, async () => {
