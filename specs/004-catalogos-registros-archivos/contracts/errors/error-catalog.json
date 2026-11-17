@@ -6,7 +6,7 @@
     "status": "DRAFT",
     "supersedes": "3.0.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 3.1.0 (feature 004): 6 errores nuevos (medios y conflicto de revisión, D-16 A); ERR-PET-MICROCHIP-DUPLICATE oficializado con detalle sin datos de terceros; ERR-RATE-LIMITED cita REQ-PET4-002 y REQ-ARC-001. PENDIENTE DE NEO: ERR-RATE-LIMITED y STATE-ACCOUNT-DELETE-001 siguen como en la 002.",
+    "change_note": "MINOR 3.1.0 (feature 004): 6 errores nuevos (medios y conflicto de revisión, D-16 A); ERR-PET-MICROCHIP-DUPLICATE oficializado con detalle sin datos de terceros; ERR-RATE-LIMITED cita REQ-PET4-002 y REQ-ARC-001. ERR-RATE-LIMITED APROBADO por Neo (T556/T557): ya no es pendiente; su detalle genérico no incluye el microchip (SC-CAT-029: 429 al sexto duplicado en 24 h; el 409 de ERR-PET-MICROCHIP-DUPLICATE no cambia). PENDIENTE DE NEO: STATE-ACCOUNT-DELETE-001 sigue como en la 002.",
     "removed": [],
     "added": [
       "ERR-MEDIA-TOO-LARGE",
@@ -17,7 +17,6 @@
       "ERR-REC-CONFLICT"
     ],
     "pendingIds": [
-      "ERR-RATE-LIMITED",
       "STATE-ACCOUNT-DELETE-001"
     ],
     "traceability": [
@@ -326,8 +325,7 @@
       "invariantRef": "INV-AUTH-006",
       "detailTemplate": "Has superado el límite de solicitudes de esta operación. Intenta de nuevo más tarde.",
       "requirementRef": "REQ-BACKUP2-001, REQ-HOUSE2-001, REQ-PET4-002, REQ-ARC-001",
-      "pendingId": true,
-      "change_note": "ID PENDIENTE de aprobación de Neo: no figura en la lista de IDs de la spec; no leer como oficial."
+      "change_note": "ID APROBADO por Neo (T556/T557, REQ-PET4-002): ya no es pendiente. Cubre también el límite de 5 duplicados de microchip por usuario en ventana deslizante de 24 h; el detalle es genérico y nunca incluye el microchip ni identificadores."
     },
     "ERR-REC-CONFLICT": {
       "type": "urn:argos:error:ERR-REC-CONFLICT",
