@@ -51,7 +51,7 @@ No hay ruta de catálogo de razas: `breeds.catalog.json` se compila a `src/gener
 | `ERR-MEDIA-NOT-FOUND` | 404 | medio inexistente o de otra mascota (la mascota inexistente o sin acceso sigue siendo `ERR-PET-NOT-FOUND`) | REQ-ARC-002 |
 | `ERR-MEDIA-STORAGE-UNAVAILABLE` | 502 | GCS o `signBlob` no responden en `uploadMedia`, `getMediaAccess` y las 3 operaciones del avatar (con `Cache-Control: no-store`); nunca en `deleteMedia` (la cola garantiza el borrado) | REQ-GCS-004, REQ-ARC-003 |
 | `ERR-PET-MICROCHIP-DUPLICATE` (existente, `pendingIds` en 002) | 409 | duplicado propio o ajeno, cuerpo idéntico y misma ruta; `detail`: «Este microchip ya está registrado en ARGOS. Si es tuyo, contacta al administrador.» | REQ-PET4-001 |
-| `ERR-RATE-LIMITED` (existente) | 429 | sexto duplicado de microchip del día por usuario; subida con el límite de subidas simultáneas por instancia alcanzado | REQ-PET4-002, REQ-ARC-001 |
+| `ERR-RATE-LIMITED` | 429 | cuota propia del usuario agotada en el ámbito `MICROCHIP_DUPLICATE` (ventana deslizante de 24 h, 5 eventos, ADR-004-04; chequeo previo sin consultar la existencia del microchip); subida con el límite de subidas simultáneas por instancia alcanzado | REQ-PET4-002, REQ-ARC-001 |
 | `ERR-REC-CONFLICT` (nuevo, `D-16` A) | 409 | `If-Match` con una `revision` desactualizada | REQ-BOR-005 |
 | `ERR-REC-SUPERSEDED-IMMUTABLE` (existente) | 409 | edición **o borrado** de `SUPERSEDED` | REQ-BOR-002 |
 | `ERR-AUTH-USERNAME-TAKEN` (existente, 001) | 409 | colisión por `LOWER(username)` | REQ-LOG-002 |
