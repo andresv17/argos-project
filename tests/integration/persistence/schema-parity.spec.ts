@@ -3,13 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { IN_MEMORY_DATABASE, openSqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 
 /**
- * Paridad del esquema final de PostgreSQL (0001_baseline.sql, D-20) con el de SQLite tras sus 5 migraciones
+ * Paridad del esquema final de PostgreSQL (0001_baseline.sql más 0002_record_revision.sql, D-20) con el de SQLite tras sus 6 migraciones
  * (REQ-PG-003, REQ-MIG-001, INV-PET2-001, REQ-HOUSE2-003; T419; data-model.md §2 de la 003).
  * Parte estática: compara tablas, columnas, tipos mapeados, nulabilidad, valores por defecto, claves, cascadas,
  * CHECK, UNIQUE e índices (incluidos los parciales) leyendo solo el texto del SQL; no levanta PostgreSQL.
  * Parte viva: con TEST_DATABASE_URL aplica el baseline en un esquema desechable y compara con information_schema.
  */
 const BASELINE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0001_baseline.sql', import.meta.url);
+/** T540: la migración 0002 de Postgres equivale a la 0006 de SQLite (`revision` en las 6 tablas de registros, D-16 A). */
+const REVISION_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0002_record_revision.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
@@ -123,6 +125,12 @@ function parseSchema(statements: string[]): Schema {
       schema.tables.set(t[1]!, parseCreateTable(t[1]!, t[2]!));
       continue;
     }
+    const alter = /^ALTER TABLE (\w+) ADD COLUMN ([\s\S]+)$/i.exec(stmt.trim());
+    if (alter) {
+      const added = parseCreateTable(alter[1]!, alter[2]!);
+      for (const [name, column] of added.columns) schema.tables.get(alter[1]!)!.columns.set(name, column);
+      continue;
+    }
     const ix = /^CREATE (UNIQUE )?INDEX (?:IF NOT EXISTS )?(\w+) ON (\w+) ?\(([^)]*)\)(?: WHERE ([\s\S]+))?$/i.exec(squash(stmt));
     if (ix) schema.indexes.set(ix[2]!, { table: ix[3]!, unique: Boolean(ix[1]), columns: squash(ix[4]!), where: ix[5] ? squash(ix[5]) : null });
   }
@@ -139,18 +147,18 @@ function sqliteSchema(): Schema {
   }
 }
 
-function postgresStatements(): string[] {
-  return stripSql(readFileSync(BASELINE_PATH, 'utf8'))
+function postgresStatements(path: URL = BASELINE_PATH): string[] {
+  return stripSql(readFileSync(path, 'utf8'))
     .split(/;\s*(?:\n|$)/)
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (): Schema => parseSchema(postgresStatements());
+const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH)]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
 
-describe('paridad estática 0001_baseline.sql vs SQLite final (REQ-PG-003, REQ-MIG-001)', () => {
+describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003, REQ-MIG-001)', () => {
   const sqlite = sqliteSchema();
 
   it('la lista canónica de tablas coincide en ambos esquemas', () => {
@@ -193,8 +201,22 @@ describe('paridad estática 0001_baseline.sql vs SQLite final (REQ-PG-003, REQ-M
     expect(pg.indexes.get('household_members_one_owner')).toMatchObject({ unique: true });
   });
 
+  it('[T540][REQ-BOR-005][INV-REG-003] las 6 tablas de registros tienen revision INTEGER NOT NULL DEFAULT 0 en ambos motores y ninguna tiene columnas ni índices de borrado lógico (D-11 A)', () => {
+    const six = ['weights', 'body_measurements', 'vaccinations', 'dewormings', 'medical_visits', 'custom_parameters'];
+    const pg = postgresSchema();
+    for (const schema of [sqlite, pg]) {
+      for (const table of six) {
+        expect(schema.tables.get(table)!.columns.get('revision'), `revision de ${table}`).toMatchObject({ type: 'INTEGER', notNull: true, default: '0', generated: false });
+        const names = [...schema.tables.get(table)!.columns.keys()];
+        expect(names.filter((n) => /deleted/i.test(n)), `borrado lógico en ${table}`).toEqual([]);
+      }
+      expect([...schema.indexes.entries()].filter(([name, ix]) => /deleted/i.test(name + ix.columns + (ix.where ?? ''))).map(([name]) => name)).toEqual([]);
+      for (const [name, table] of schema.tables) if (!six.includes(name)) expect(table.columns.has('revision'), `revision en ${name}`).toBe(false);
+    }
+  });
+
   it('el SQL es PostgreSQL puro: sin STRICT, json_extract, PRAGMA ni GLOB; datos JSONB', () => {
-    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8'));
+    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8'));
     for (const banned of [/\bSTRICT\b/i, /json_extract/i, /\bPRAGMA\b/i, /\bGLOB\b/i, /strftime/i, /\bAUTOINCREMENT\b/i]) {
       expect(sql).not.toMatch(banned);
     }
@@ -235,6 +257,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(`CREATE SCHEMA ${schemaName}`);
         await client.query(`SET search_path TO ${schemaName}`);
         await client.query(readFileSync(BASELINE_PATH, 'utf8'));
+        await client.query(readFileSync(REVISION_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],
