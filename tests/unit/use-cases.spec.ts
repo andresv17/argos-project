@@ -82,12 +82,13 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect(hasher.calls).toEqual([{ method: 'hash', plain: 'Clave2026x!', hash: null }]);
   });
 
-  it('[REQ-AUTH2-001][ERR-AUTH-USERNAME-TAKEN] "andres" ya existe y no se guarda nada; "ANDRES" (EDGE-010) ya no se normaliza: es un error de esquema', async () => {
+  it('[REQ-AUTH2-001][REQ-LOG-002][ERR-AUTH-USERNAME-TAKEN] "andres" ya existe y no se guarda nada; "ANDRES" (EDGE-010) también choca por LOWER(username) (INV-LOG-001)', async () => {
     const { deps, uow } = createHarness();
     const register = new RegisterUserUseCase(deps);
     const password = { password: 'Clave2026x!', confirmPassword: 'Clave2026x!' };
     expect(await outcome(register.execute({ username: 'andres', displayName: 'Otro', ...password }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
-    expect(await outcome(register.execute({ username: edge('EDGE-010-').payload.username, displayName: 'Otro', ...password }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@username');
+    expect(await outcome(register.execute({ username: edge('EDGE-010-').payload.username, displayName: 'Otro', ...password }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
+    expect(await outcome(register.execute({ username: ' andres ', displayName: 'Otro', ...password }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@username');
     expect(uow.snapshot()).toEqual(canonicalState());
   });
 
@@ -100,12 +101,13 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect([uow.snapshot(), hasher.calls]).toEqual([canonicalState(), []]);
   });
 
-  it('[REQ-AUTH2-002] login correcto con el username exacto: abre sesión con lastActivityAt y vacía los fallos previos; "ANDRES" no entra', async () => {
+  it('[REQ-AUTH2-002][REQ-LOG-001] login correcto: abre sesión con lastActivityAt y vacía los fallos previos; "ANDRES" entra a la misma cuenta (sin distinguir mayúsculas) y los fallos se guardan en minúsculas', async () => {
     const state = canonicalState();
     state.loginFailures['andres'] = ['2026-11-05T11:58:00.000Z', '2026-11-05T11:59:00.000Z'];
     const { deps, uow } = createHarness(state);
     const login = new LoginUseCase(deps);
-    expect(await outcome(login.execute({ username: 'ANDRES', password: PASSWORDS['andres'] }))).toBe('ERR-AUTH-INVALID-CREDENTIALS@null');
+    expect((await login.execute({ username: 'ANDRES', password: PASSWORDS['andres'] })).session.user.id).toBe(ANDRES);
+    expect(uow.snapshot().loginFailures['andres']).toEqual([]);
     const result = await login.execute({ username: 'andres', password: PASSWORDS['andres'] });
     expect(result).toEqual({
       sessionToken: 'token-0001',

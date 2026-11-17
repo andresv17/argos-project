@@ -121,7 +121,7 @@ describe('hogares por HTTP (src/infrastructure/http/routes/households.routes.ts)
     ]);
   });
 
-  it('[REQ-HOUSE2-001][ERR-SCHEMA-VALIDATION-FAILED] se invita siempre por username con roleOnJoin: sin rol, rol inválido, correo o userId, y un username con mayúsculas o espacios → 422', async () => {
+  it('[REQ-HOUSE2-001][ERR-SCHEMA-VALIDATION-FAILED] se invita siempre por username con roleOnJoin: sin rol, rol inválido, correo o userId, y un username con espacios → 422', async () => {
     api = await createApi();
     const andres = await api.login('andres');
     const attempt = async (body: unknown) => problemOf(await api.call('POST', `/api/households/${H1}/invitations`, { cookie: andres, body }));
