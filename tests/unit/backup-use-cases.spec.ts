@@ -436,7 +436,9 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
         work({ ...r, pets: { ...r.pets, save: async () => { throw Object.assign(new Error('UNIQUE constraint failed: pets.microchip_id'), { code: 'SQLITE_CONSTRAINT_UNIQUE' }); } } }),
       ),
     );
-    const before = json(uow.inner.snapshot());
+    // REQ-PET4-002: el duplicado registra un evento del usuario en una transacción independiente; el resto del estado queda intacto byte a byte.
+    const sansRateEvents = () => json({ ...uow.inner.snapshot(), rateEvents: [] });
+    const before = sansRateEvents();
     // H-O-004A1-1: el archivo lleva un microchip REAL de 15 dígitos (el fixture base lo trae nulo y la aserción de fuga era vacua).
     const file = json(v3((e) => { e.pets[0]!.microchipId = DUPLICATE_CHIP; }));
     expect(file).toContain(DUPLICATE_CHIP);
@@ -448,12 +450,13 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
     );
     expect(error).toBeInstanceOf(V31DomainError);
     if (!(error instanceof V31DomainError)) throw error;
-    expect([error.code, error.finalState, error.field, path(steps).slice(-2), json(uow.inner.snapshot()) === before]).toEqual([
+    expect([error.code, error.finalState, error.field, path(steps).slice(-2), sansRateEvents() === before, uow.inner.snapshot().rateEvents.map((e) => e.scope)]).toEqual([
       'ERR-PET-MICROCHIP-DUPLICATE',
       'ROLLED_BACK',
       'microchipId',
       ['INVARIANTS_VALID>COMMITTING_SNAPSHOT', 'UNIQUE_CONSTRAINT_VIOLATED>ROLLED_BACK'],
       true,
+      ['MICROCHIP_DUPLICATE'],
     ]);
     const everything = JSON.stringify(error) + error.message + String(error.stack) + JSON.stringify(error.toProblemDetails('/api/backup/import'));
     expect(everything).not.toContain(DUPLICATE_CHIP);

@@ -379,7 +379,8 @@ describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-0
     const first = await register.execute(ANDRES, { ...RABBIT, microchipId: CHIP });
     const before = uow.snapshot();
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Otra', microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
-    expect(uow.snapshot()).toEqual(before);
+    // REQ-PET4-002: lo único que cambia es el evento del duplicado (transacción independiente); mascotas, registros y auditoría quedan intactos.
+    expect([{ ...uow.snapshot(), rateEvents: [] }, uow.snapshot().rateEvents.map((e) => [e.scope, e.userId])]).toEqual([{ ...before, rateEvents: [] }, [['MICROCHIP_DUPLICATE', ANDRES]]]);
     expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, ARGOS.id, { microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
     expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, first.id, { microchipId: CHIP, name: 'Nube II' }))).toBe('OK');
     expect(await outcome(register.execute(MARIA, { ...RABBIT, microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
