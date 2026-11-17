@@ -108,6 +108,11 @@ jobs:
 
           VIEJAS="$(psql "${DATABASE_URL_DIRECT}" -X -A -t -v ON_ERROR_STOP=1 -c "$(sql_seccion vencidas)")"
           if [ -n "${VIEJAS}" ]; then
+            # H-O-T473b-1: una unica relectura tras sleep 2; solo el segundo valor decide.
+            sleep 2
+            VIEJAS="$(psql "${DATABASE_URL_DIRECT}" -X -A -t -v ON_ERROR_STOP=1 -c "$(sql_seccion vencidas)")"
+          fi
+          if [ -n "${VIEJAS}" ]; then
             echo "FALLA: last_vacuum supera 10 days (o es nulo) en: ${VIEJAS}" >&2
             exit 1
           fi

@@ -146,6 +146,22 @@ describe('.github/workflows/vacuum-argos.yml (T473)', () => {
     expect(r).toMatch(/exit 1/);
   });
 
+  it('H-O-T473b-1: antes de fallar por last_vacuum espera sleep 2 y relee vencidas una sola vez; solo la segunda lectura decide', () => {
+    const r = runBlocks();
+    const lecturas = [...r.matchAll(/sql_seccion vencidas/g)].map((m) => m.index ?? -1);
+    expect(lecturas).toHaveLength(2); // lectura inicial + una única relectura
+    const iSleep = r.indexOf('sleep 2', (lecturas[0] ?? 0) + 1);
+    expect(iSleep).toBeGreaterThan(lecturas[0] ?? 0);
+    expect(iSleep).toBeLessThan(lecturas[1] ?? 0);
+    expect(r.match(/sleep 2\b/g)).toHaveLength(1);
+    // El exit 1 por last_vacuum llega después de la relectura.
+    const iExit = r.indexOf('exit 1', lecturas[1] ?? 0);
+    expect(iExit).toBeGreaterThan(lecturas[1] ?? 0);
+    expect(r.slice(lecturas[1] ?? 0, iExit)).toContain('last_vacuum supera');
+    // La relectura solo ocurre si la primera encontró vencidas (no se espera en el camino feliz).
+    expect(r.slice(lecturas[0] ?? 0, iSleep)).toMatch(/if \[ -n "\$\{VIEJAS\}" \]; then/);
+  });
+
   it('permisos mínimos: contents: read, sin id-token ni write', () => {
     const y = body();
     expect(y).toMatch(/^permissions:\s*\n\s+contents:\s*read\s*$/m);
