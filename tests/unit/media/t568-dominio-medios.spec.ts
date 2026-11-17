@@ -255,7 +255,7 @@ describe('claves de objeto: solo UUID (INV-ARC-003, SC-ALM-007)', () => {
 
   it('propiedad: toda clave generada pasa isMediaObjectKey y no contiene texto de usuario', () => {
     fc.assert(
-      fc.property(fc.uuidV(4), fc.uuidV(4), fc.constantFrom('FILE', 'PHOTO'), (petId, id, kind) => {
+      fc.property(fc.uuidV(4), fc.uuidV(4), fc.constantFrom('FILE' as const, 'PHOTO' as const), (petId, id, kind) => {
         const key = mediaObjectKey(petId, kind, id);
         expect(isMediaObjectKey(key)).toBe(true);
         expect(key).toMatch(/^pets\/[0-9a-f-]{36}\/(files|photos)\/[0-9a-f-]{36}$/);
