@@ -6,7 +6,7 @@
 
 **Estado**: `DRAFT` (borrador del Architect para aprobación de Neo, Nivel 2). Toda tarea nace `[ ]`; el techo de los agentes es `REVIEW` y solo Neo marca `COMPLETED` (`[x]`). Ningún documento está `APPROVED` ni `LOCKED`.
 
-**Numeración**: `T501..T517`, `T520..T542`, `T544..T559`, `T560..T588`, `T591..T601`, `T604..T611` y `T612..T616` (las nuevas se numeran por orden de incorporación y se listan en la fase donde se ejecutan; huecos deliberados T518-T519, T543, T589, T590, T602 y T603). 003 usó `T401..T490`; 004 empieza en `T501`. Las tareas de 4B, 4C y 4D tendrán su propia feature.
+**Numeración**: `T501..T517`, `T520..T542`, `T544..T559`, `T560..T588`, `T591..T601`, `T604..T611` y `T612..T617` (las nuevas se numeran por orden de incorporación y se listan en la fase donde se ejecutan; huecos deliberados T518-T519, T543, T589, T590, T602 y T603). 003 usó `T401..T490`; 004 empieza en `T501`. Las tareas de 4B, 4C y 4D tendrán su propia feature.
 
 ## Format: `[ID] [P?] [N2?] [Story] Description`
 - **[P]**: paralelizable (archivos distintos, sin dependencia). **[N2]**: requiere autorización de Neo (Nivel 2: dependencias, CI, scripts, Terraform, migraciones de esquema, despliegue). **[GOV]**: gobernanza. **[EXT]**: pendiente externo a los agentes (veterinario humano, dispositivo real). **[US1..US5]**: historias de `spec.md`.
@@ -69,7 +69,7 @@
 - [ ] T522 [P] [US1] Pruebas de dominio: catálogo de razas (orden «Criolla» primero y «Otra» al final, códigos únicos y estables, `deprecated`) y `assertBreedConsistency` con `breed` derivado (SC-CAT-002, SC-CAT-004) (REQ-RAZ-001, INV-RAZ-001)
 - [ ] T523 [US1] `src/domain/pet/breed-catalog.ts` y `assertBreedConsistency` sobre el catálogo generado (REQ-RAZ-001, REQ-RAZ-003, INV-RAZ-001)
 - [ ] T524 [P] [US1] Pruebas de casos de uso: alta y edición con `breedCode`, derivación de `breed` (rótulo; texto libre con `*_OTHER`; «Otra» por defecto), `breed` distinto del rótulo rechazado, mascota antigua sin `breedCode` (SC-CAT-003, SC-CAT-004) (REQ-RAZ-002, REQ-RAZ-003, INV-RAZ-001)
-- [ ] T525 [US1] Casos de uso, repositorios (memoria, SQLite, Postgres), vista pública, hash canónico y respaldo `3.1.0` con `breedCode` (sin `avatarVersion` ni medios) (REQ-RAZ-002, REQ-RAZ-003, INV-RAZ-001)
+- [ ] T525 [US1] Casos de uso, repositorios (memoria, SQLite, Postgres), vista pública y hash canónico con `breedCode`; el respaldo `3.1.0` con `breedCode` se parte a T617 (la exportación sigue en `3.0.0` sin `breedCode` hasta T617) (REQ-RAZ-002, REQ-RAZ-003, INV-RAZ-001)
 - [ ] T526 [P] [US1] Pruebas de componente: selector de raza (orden, «Otra» con campo libre opcional que se envía como `breed`, «Raza actual» para mascotas antiguas) (SC-CAT-002, SC-CAT-003) (REQ-RAZ-001, REQ-RAZ-002)
 - [ ] T527 [US1] `BreedSelect` en `PetForm` según el prototipo de T504; campo de raza libre solo para las 6 especies sin catálogo (REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003)
 - [ ] T528 [P] [US1] Pruebas: `trim()` en el límite del formulario y rechazo del servidor con espacio final (SC-CAT-005) (REQ-FRM-001)
@@ -88,7 +88,8 @@
 - [ ] T532 [P] [US2] Pruebas: medidas enteras (contrato, dominio, formulario `step=1`) y conservación de registros con decimales (SC-CAT-007, SC-CAT-008) (REQ-MDC-001)
 - [ ] T533 [US2] Contrato compilado, invariante de dominio y formulario de medidas (REQ-MDC-001)
 - [ ] T534 [P] [US2] Pruebas: síntomas (catálogo cerrado, coherencia categoría/tipo, rótulos de D-17 A («Apetito disminuido», «Energía disminuida», «Heces (diarrea u otro cambio)») y «Vómito» oculto con aviso en `RABBIT` y `SMALL_MAMMAL` (solo presentación: el servidor lo acepta), ayuda de nivel, `title` sincronizado al cambiar el tipo, sin efecto en alertas, búsqueda estática de `symptomType` y `severity` en `src/domain/alerts/` y de `severity` en clases, estilos, orden y texto condicional de `src/presentation/`, aviso y derivación fijos en formulario, listado y exportación, sin las palabras «tratamiento», «medicamento», «dosis», «dar», «administrar») (SC-CAT-009, SC-CAT-010, SC-CAT-011, SC-CAT-034) (REQ-SIN-001, REQ-SIN-003, INV-SIN-001, INV-SIN-002)
-- [ ] T535 [US2] Dominio, caso de uso de `custom-parameters` (sin interpretar `title` ni `description`), persistencia, permisos, auditoría `CUSTOM_PARAMETER` y respaldo `3.1.0` para `SYMPTOM` (SC-CAT-026) (REQ-SIN-001, REQ-SIN-002, REQ-SIN-003, INV-SIN-001)
+- [ ] T535 [US2] Dominio, caso de uso de `custom-parameters` (sin interpretar `title` ni `description`), persistencia, permisos, auditoría `CUSTOM_PARAMETER`; el respaldo `3.1.0` para `SYMPTOM` va en T617 (SC-CAT-026) (REQ-SIN-001, REQ-SIN-002, REQ-SIN-003, INV-SIN-001)
+- [ ] T617 [US2] Respaldo `3.1.0` único (partido de T525; depende de T515 y T535): exportación con `schemaVersion` `3.1.0`, mascotas con `breedCode` (sin `avatarVersion`, sin `revision`, sin medios) y parámetros con `symptomType` y `severity`; la importación acepta `1.0.0`, `2.0.0`, `3.0.0` y `3.1.0` (`breedCode` = `null` si falta) y rechaza versiones futuras; ajusta el arnés OpenAPI de 002 (`sourceSchemaVersion`) y el hash/aduana del sobre; pruebas de ida y vuelta exportar → importar que conserva `breedCode` y `breed` en los 3 motores, e importación de un `3.0.0` (REQ-RAZ-003, REQ-SIN-001, INV-RAZ-001; `REQ-BACKUP2-001`, `REQ-BACKUP2-002`). `ImportPreviewResult.mediaToDeleteCount` no va aquí: es de T604/T605
 - [ ] T536 [US2] Formulario de síntoma (4 tipos con los rótulos de D-17 A y aviso en lugar de «Vómito» para `RABBIT` y `SMALL_MAMMAL`, intensidad «Leve/Moderado/Intenso» con ayuda fija y texto de pie, `title` sincronizado, placeholder de `description` sin medicación, sin color ni ícono por intensidad) y leyenda «Este registro no sustituye la consulta veterinaria» más «Si tu mascota empeora o tienes dudas, consulta a tu veterinario.» en formulario, listado y exportación (SC-CAT-010, SC-CAT-034) (REQ-SIN-001, REQ-SIN-003, INV-SIN-002)
 - [ ] T537 [P] [US2] Pruebas: edición auditada (con `If-Match` vigente) de peso, cita médica y vacuna vigente; sin cambios no audita; Lector 403; la edición que dejaría al propio registro `SUPERSEDED` se rechaza con 409 sin cambios (SC-CAT-012, SC-CAT-028) (REQ-BOR-003)
 - [ ] T538 [US2] Ajustar `UpdateRecordUseCase` para omitir la fila de auditoría cuando el estado canónico no cambia y rechazar la edición que deja al propio registro `SUPERSEDED` (REQ-BOR-003, INV-REG-002)
@@ -211,11 +212,11 @@
 | REQ-ESP-001 | T509, T514, T520, T521, T596 |
 | REQ-RAZ-001 | T502, T503, T513, T515, T516, T517, T522, T523, T526, T527, T598 |
 | REQ-RAZ-002 | T524, T525, T526, T527 |
-| REQ-RAZ-003 | T510, T523, T524, T525, T527 |
+| REQ-RAZ-003 | T510, T523, T524, T525, T527, T617 |
 | REQ-FRM-001 | T528, T529 |
 | REQ-FRM-002 | T504, T530, T531, T592 |
 | REQ-MDC-001 | T502, T507, T510, T515, T532, T533 |
-| REQ-SIN-001 | T502, T503, T504, T507, T510, T515, T534, T535, T536, T598 |
+| REQ-SIN-001 | T502, T503, T504, T507, T510, T515, T534, T535, T536, T598, T617 |
 | REQ-SIN-002 | T535 |
 | REQ-SIN-003 | T503, T504, T534, T535, T536, T598 |
 | REQ-BOR-001 | T502, T539, T541, T544, T545 |
@@ -243,7 +244,7 @@
 | REQ-AVA-003 | T501, T504, T585, T586 |
 | REQ-ALB-001 | T504, T511, T587, T588 |
 | REQ-IMP-001 | T501, T504, T510, T511, T604, T605 |
-| INV-RAZ-001 | T513, T522, T523, T524, T525 |
+| INV-RAZ-001 | T513, T522, T523, T524, T525, T617 |
 | INV-RAZ-002 | T503, T599 |
 | INV-SIN-001 | T503, T534, T535 |
 | INV-SIN-002 | T503, T534, T536 |
