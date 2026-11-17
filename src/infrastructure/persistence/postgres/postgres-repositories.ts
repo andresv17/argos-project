@@ -382,8 +382,8 @@ function mediaRepository(client: PoolClientLike): PetMediaRepositoryPort {
       return rows[0] === undefined ? null : toMedia(rows[0]);
     },
     async listPage(petId, kind, limit, offset) {
-      const { rows } = await client.query(`SELECT ${MEDIA_COLUMNS} FROM pet_media WHERE pet_id = $1 AND kind = $2 ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`, [petId, kind, limit, offset]);
-      const total = await client.query('SELECT COUNT(*) AS n FROM pet_media WHERE pet_id = $1 AND kind = $2', [petId, kind]);
+      const { rows } = await client.query(`SELECT ${MEDIA_COLUMNS} FROM pet_media WHERE pet_id = $1 AND ($2::text IS NULL OR kind = $2) ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`, [petId, kind, limit, offset]);
+      const total = await client.query('SELECT COUNT(*) AS n FROM pet_media WHERE pet_id = $1 AND ($2::text IS NULL OR kind = $2)', [petId, kind]);
       return { items: rows.map(toMedia), total: count(total.rows[0]) };
     },
     async countBytesOfOwner(ownerUserId) {

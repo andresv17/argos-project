@@ -6,3 +6,4 @@
 export * from './media-signatures.ts';
 export * from './media-names.ts';
 export * from './media-keys.ts';
+export * from './media-limits.ts';

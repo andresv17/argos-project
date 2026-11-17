@@ -8,7 +8,7 @@
 
 import type { AuditLogPort } from '../../application/ports/audit-log.port.ts';
 import type { RepositorySet } from '../../application/ports/repositories.port.ts';
-import type { AuditEntry } from '../../generated/schemas/types.ts';
+import type { AuditEntry } from '../../generated/v31/index.ts';
 
 export class RepositoryAuditLogAdapter implements AuditLogPort {
   async append(repositories: RepositorySet, entry: AuditEntry): Promise<void> {

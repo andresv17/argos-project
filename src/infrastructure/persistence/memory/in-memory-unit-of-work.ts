@@ -11,7 +11,8 @@
 
 import type { PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import type { DeterministicFaultInjector } from '../fault-injector.ts';
-import type { AuditEntry, Household } from '../../../generated/index.ts';
+import type { Household } from '../../../generated/index.ts';
+import type { AuditEntry } from '../../../generated/v31/index.ts';
 import type { LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type {
   AuditLogRepositoryPort,
@@ -302,7 +303,7 @@ function mediaRepository(state: MemoryState): PetMediaRepositoryPort {
     },
     async listPage(petId, kind, limit, offset) {
       const all = state.media
-        .filter((m) => m.petId === petId && m.kind === kind)
+        .filter((m) => m.petId === petId && (kind === null || m.kind === kind))
         .sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1));
       return copy({ items: all.slice(offset, offset + limit), total: all.length });
     },

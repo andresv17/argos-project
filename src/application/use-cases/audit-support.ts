@@ -10,7 +10,7 @@
  */
 
 import { stateHash } from '../../domain/audit/state-hash.ts';
-import type { AuditEntityType, AuditMutationType } from '../../generated/index.ts';
+import type { AuditEntityType, AuditMutationType } from '../../generated/v31/index.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import type { RecordModule } from '../../domain/records/record-invariants.ts';
 import type { ApplicationDeps } from './use-case-support.ts';

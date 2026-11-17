@@ -9,7 +9,8 @@
 
 import type { MediaKind } from '../../domain/media/index.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
-import type { AuditEntry, Household, HouseholdInvitation, UserSelfProfile } from '../../generated/index.ts';
+import type { Household, HouseholdInvitation, UserSelfProfile } from '../../generated/index.ts';
+import type { AuditEntry } from '../../generated/v31/index.ts';
 import type { LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
@@ -164,8 +165,8 @@ export interface PetMediaRepositoryPort {
   insert(media: PetMediaRecord): Promise<void>;
   /** El medio con ese id SOLO si pertenece a la mascota; null en otro caso. */
   findById(petId: string, mediaId: string): Promise<PetMediaRecord | null>;
-  /** Página de la mascota y el tipo ordenada por `(createdAt DESC, id DESC)` (INV-ALB-001) más el `total` del filtro. */
-  listPage(petId: string, kind: MediaKind, limit: number, offset: number): Promise<{ readonly items: PetMediaRecord[]; readonly total: number }>;
+  /** Página de la mascota (y del tipo, o de ambos si `kind` es null) ordenada por `(createdAt DESC, id DESC)` (INV-ALB-001) más el `total` del filtro. */
+  listPage(petId: string, kind: MediaKind | null, limit: number, offset: number): Promise<{ readonly items: PetMediaRecord[]; readonly total: number }>;
   /** Suma de `size_bytes` de todas las mascotas del propietario legal; el avatar no cuenta (REQ-ARC-005). */
   countBytesOfOwner(ownerUserId: string): Promise<number>;
   /** Borra la fila de esa mascota con ese id; true si existía. */

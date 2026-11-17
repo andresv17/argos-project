@@ -18,12 +18,13 @@ import {
   type UserSelfProfile,
 } from '../../generated/index.ts';
 import { effectiveRole } from '../../domain/access/effective-role.ts';
-import { can, petPermissionsFor, type RbacAction, type RbacRole } from '../../domain/access/rbac.ts';
+import { can, petPermissionsFor, type PetAction, type RbacRole } from '../../domain/access/rbac.ts';
 import { toRoleMembership } from '../../domain/households/household-policies.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
+import type { MediaStoragePort } from '../ports/media-storage.port.ts';
 import type { AuditLogPort } from '../ports/audit-log.port.ts';
 import type { AuditPseudonymPort } from '../ports/audit-pseudonym.port.ts';
 import type { BackupTokenPort } from '../ports/backup-token.port.ts';
@@ -40,6 +41,24 @@ import type { UnitOfWorkPort } from '../ports/unit-of-work.port.ts';
  * ($ref al archivo pet.schema.json completo) incluye una propiedad `$defs` obligatoria (H-108-3).
  */
 export type PetCardView = Omit<components['schemas']['PetCardView'], 'profile'> & { profile: PetProfile };
+
+/** Topes de medios que entrega la composición desde `ARGOS_MEDIA_*` (REQ-ARC-001, REQ-ARC-003, REQ-ARC-005). */
+export interface MediaLimits {
+  /** Tamaño máximo de un archivo o foto en bytes (`ARGOS_MEDIA_MAX_BYTES`, <= 10 MiB). */
+  readonly maxBytes: number;
+  /** Cuota por propietario legal (`ARGOS_MEDIA_MAX_BYTES_PER_OWNER`, 1 GiB). */
+  readonly maxBytesPerOwner: number;
+  /** Subidas simultáneas por instancia (`ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS`, 4); lo aplica la capa HTTP. */
+  readonly maxConcurrentUploads: number;
+  /** Caducidad de la URL firmada (`ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS`, 30-900). */
+  readonly signedUrlTtlSeconds: number;
+}
+
+/** Almacenamiento de objetos y topes; ausente cuando la composición no conecta medios (los casos de uso de medios fallan cerrado). */
+export interface MediaServices {
+  readonly storage: MediaStoragePort;
+  readonly limits: MediaLimits;
+}
 
 export interface ApplicationDeps {
   readonly uow: UnitOfWorkPort;
@@ -61,6 +80,8 @@ export interface ApplicationDeps {
   readonly auditHmacSecret: string;
   /** Identificadores de las filas de auditoría: generador aparte para no alterar la secuencia de ids de las entidades. */
   readonly auditIds: IdGeneratorPort;
+  /** Medios (feature 004, REQ-GCS-003): almacenamiento de objetos y topes. Opcional hasta que la composición lo conecta. */
+  readonly media?: MediaServices;
 }
 
 interface ValidatorWithErrors {
@@ -205,7 +226,7 @@ export async function requireReadablePet(repositories: RepositorySet, userId: st
  * que 403); visible sin la acción, ERR-ACC-FORBIDDEN.
  * @implements REQ-RBAC-001, INV-ACC2-001, INV-ACC2-002, INV-PET-003, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN
  */
-export async function requirePetAction(repositories: RepositorySet, userId: string, petId: string, action: RbacAction): Promise<PetAccess> {
+export async function requirePetAction(repositories: RepositorySet, userId: string, petId: string, action: PetAction): Promise<PetAccess> {
   const access = await requireReadablePet(repositories, userId, petId);
   if (!can(access.role, action)) throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'petId');
   return access;

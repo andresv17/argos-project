@@ -23,12 +23,11 @@ import { createHash } from 'node:crypto';
 import {
   DomainError,
   validateHousehold,
-  type AuditEntry,
   type Household,
   type UserPublicProfile,
 } from '../../../generated/index.ts';
 // 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
-import { validateUserPublicProfile } from '../../../generated/v31/index.ts';
+import { validateUserPublicProfile, type AuditEntry } from '../../../generated/v31/index.ts';
 import { isStoredPetProfile, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
@@ -447,8 +446,8 @@ function mediaRepository(db: SqliteDatabase): PetMediaRepositoryPort {
   const columns = 'id, pet_id, kind, mime, size_bytes, original_name, created_at';
   const insert = db.prepare(`INSERT INTO pet_media (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?)`);
   const byId = db.prepare<[string, string], MediaRow>(`SELECT ${columns} FROM pet_media WHERE id = ? AND pet_id = ?`);
-  const page = db.prepare<[string, string, number, number], MediaRow>(`SELECT ${columns} FROM pet_media WHERE pet_id = ? AND kind = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`);
-  const total = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM pet_media WHERE pet_id = ? AND kind = ?');
+  const page = db.prepare<[string, string | null, string | null, number, number], MediaRow>(`SELECT ${columns} FROM pet_media WHERE pet_id = ? AND (? IS NULL OR kind = ?) ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`);
+  const total = db.prepare<[string, string | null, string | null], { n: number }>('SELECT count(*) AS n FROM pet_media WHERE pet_id = ? AND (? IS NULL OR kind = ?)');
   const bytes = db.prepare<[string], { n: number }>('SELECT COALESCE(SUM(m.size_bytes), 0) AS n FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = ?');
   const remove = db.prepare('DELETE FROM pet_media WHERE id = ? AND pet_id = ?');
   const countMedia = db.prepare<[string, string], { n: number }>('SELECT (SELECT count(*) FROM pet_media WHERE pet_id IN (SELECT value FROM json_each(?))) + (SELECT count(*) FROM pets WHERE id IN (SELECT value FROM json_each(?)) AND avatar_object_id IS NOT NULL) AS n');
@@ -461,7 +460,7 @@ function mediaRepository(db: SqliteDatabase): PetMediaRepositoryPort {
       return row === undefined ? null : toMedia(row);
     },
     async listPage(petId, kind, limit, offset) {
-      return { items: page.all(petId, kind, limit, offset).map(toMedia), total: total.get(petId, kind)!.n };
+      return { items: page.all(petId, kind, kind, limit, offset).map(toMedia), total: total.get(petId, kind, kind)!.n };
     },
     async countBytesOfOwner(ownerUserId) {
       return bytes.get(ownerUserId)!.n;
