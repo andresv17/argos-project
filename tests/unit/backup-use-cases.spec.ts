@@ -663,6 +663,20 @@ describe('T278: previsualización, confirmación e importación con auditoría (
     expect([r.code, r.status, r.field, r.finalState, r.path.at(-1)]).toEqual(['ERR-PET-MICROCHIP-DUPLICATE', 409, 'microchipId', 'ROLLED_BACK', 'DOMAIN_INVARIANT_VIOLATED>ROLLED_BACK']);
   });
 
+  // El esquema 3.1.0 ya rechaza el codigo de otra especie; lo que solo la invariante de dominio detecta es el rotulo que no es el del catalogo.
+  it.each([['DOG_BEAGLE con breed «Labrador» (rotulo del catalogo: «Beagle»)', 'DOG_BEAGLE', 'Labrador', 'breed']])(
+    '[REQ-RAZ-003][INV-RAZ-001][STATE-BACKUP-001] H-O-T617-1: un respaldo 3.1.0 con %s se rechaza con ERR-SCHEMA-VALIDATION-FAILED en CHECKING_DOMAIN_INVARIANTS, sin estado parcial',
+    async (_case, breedCode, breed, field) => {
+      const file = v3();
+      expect(file.pets[0]!.species).toBe('CANINE');
+      const records = { ...file.records, customParameters: file.records.customParameters.map((c) => ({ ...c, symptomType: null, severity: null })) };
+      const payload = json({ ...file, schemaVersion: '3.1.0', records, pets: file.pets.map((p, i) => ({ ...p, breedCode: i === 0 ? breedCode : null, breed: i === 0 ? breed : p.breed })) });
+      const harness = createHarness();
+      const r = await rejected(payload, harness); // `rejected` ya exige el estado intacto byte a byte
+      expect([r.code, r.field, r.finalState, r.path.at(-1)]).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', field, 'ROLLED_BACK', 'DOMAIN_INVARIANT_VIOLATED>ROLLED_BACK']);
+    },
+  );
+
   it('[REQ-AUD-001][STATE-BACKUP-001] la importación escribe 1 fila IMPORT (USER, entityId = userId) con hashes antes y después, y pide el checkpoint del WAL una sola vez', async () => {
     const h = createHarness();
     let checkpoints = 0;
