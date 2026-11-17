@@ -50,6 +50,10 @@ export const MIGRATION_PRECHECKS: Readonly<Record<string, (db: SqliteDatabase) =
     const clashes = db.prepare('SELECT count(*) FROM (SELECT microchip_id FROM pets WHERE microchip_id IS NOT NULL GROUP BY 1 HAVING count(*) > 1)').pluck().get() as number;
     if (clashes > 0) throw new Error(`Migración 0008 abortada: ${clashes} grupo(s) de mascotas con el mismo microchip entre propietarios; Neo debe resolverlos antes de migrar`);
   },
+  '0010_rate_limit_microchip_scope.sql': (db) => {
+    const orphans = db.prepare('SELECT count(*) FROM rate_limit_events WHERE subject_user_id NOT IN (SELECT id FROM users)').pluck().get() as number;
+    if (orphans > 0) throw new Error(`Migración 0010 abortada: ${orphans} evento(s) de límite de frecuencia sin usuario en rate_limit_events; Neo debe resolverlos antes de migrar`);
+  },
 };
 
 /**

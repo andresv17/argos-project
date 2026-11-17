@@ -14,6 +14,8 @@ const BASELINE_PATH = new URL('../../../src/infrastructure/persistence/postgres/
 const USERNAME_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0003_username_case_insensitive.sql', import.meta.url);
 /** T553: la 0004 de Postgres equivale a la 0008 de SQLite (`pets_owner_microchip` pasa a `pets_microchip_global`, único parcial global). */
 const MICROCHIP_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0004_pets_microchip_global.sql', import.meta.url);
+/** T556: la 0006 de Postgres equivale a la 0010 de SQLite (el CHECK de `rate_limit_events.scope` admite MICROCHIP_DUPLICATE). */
+const RATE_SCOPE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0006_rate_limit_microchip_scope.sql', import.meta.url);
 /** T540: la migración 0002 de Postgres equivale a la 0006 de SQLite (`revision` en las 6 tablas de registros, D-16 A). */
 const REVISION_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0002_record_revision.sql', import.meta.url);
 
@@ -143,6 +145,20 @@ function parseSchema(statements: string[]): Schema {
       for (const [name, column] of added.columns) schema.tables.get(alter[1]!)!.columns.set(name, column);
       continue;
     }
+    // Postgres nombra el CHECK de columna `<tabla>_<columna>_check`: DROP lo retira y ADD CONSTRAINT … CHECK pone el nuevo (0006).
+    const dropCheck = /^ALTER TABLE (\w+) DROP CONSTRAINT (\w+)_(\w+)_check$/i.exec(stmt.trim());
+    if (dropCheck) {
+      const table = schema.tables.get(dropCheck[1]!)!;
+      table.checks = table.checks.filter((c) => !c.startsWith(`${dropCheck[3]} IN `));
+      continue;
+    }
+    const addCheck = /^ALTER TABLE (\w+) ADD CONSTRAINT \w+ (CHECK[\s\S]+)$/i.exec(stmt.trim());
+    if (addCheck) {
+      const table = schema.tables.get(addCheck[1]!)!;
+      table.checks.push(...extractChecks(addCheck[2]!).checks);
+      table.checks.sort();
+      continue;
+    }
     const drop = /^DROP INDEX (?:IF EXISTS )?(\w+)$/i.exec(stmt.trim());
     if (drop) {
       schema.indexes.delete(drop[1]!);
@@ -173,7 +189,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH)]);
+const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH)]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -245,7 +261,7 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
   });
 
   it('el SQL es PostgreSQL puro: sin STRICT, json_extract, PRAGMA ni GLOB; datos JSONB', () => {
-    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8') + readFileSync(USERNAME_PATH, 'utf8') + readFileSync(MICROCHIP_PATH, 'utf8'));
+    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8') + readFileSync(USERNAME_PATH, 'utf8') + readFileSync(MICROCHIP_PATH, 'utf8') + readFileSync(RATE_SCOPE_PATH, 'utf8'));
     for (const banned of [/\bSTRICT\b/i, /json_extract/i, /\bPRAGMA\b/i, /\bGLOB\b/i, /strftime/i, /\bAUTOINCREMENT\b/i]) {
       expect(sql).not.toMatch(banned);
     }
@@ -289,6 +305,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(REVISION_PATH, 'utf8'));
         await client.query(readFileSync(USERNAME_PATH, 'utf8'));
         await client.query(readFileSync(MICROCHIP_PATH, 'utf8'));
+        await client.query(readFileSync(RATE_SCOPE_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],
