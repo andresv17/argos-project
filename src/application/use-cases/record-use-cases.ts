@@ -222,8 +222,9 @@ function supersededStatus(module: RecordModule, existing: PetRecordCollections, 
 }
 
 /**
- * Borra un registro de la mascota. Si era el posterior de su clave, el anterior vuelve a ser vigente.
- * @implements REQ-REC2-003, REQ-RBAC-001, ERR-ACC-FORBIDDEN
+ * Borra FÍSICAMENTE un registro de la mascota (D-11 A: sin borrado lógico), con la fila DELETE en la misma transacción. Un registro
+ * SUPERSEDED no se borra (409). Si era el posterior de su clave, el anterior vuelve a ser vigente.
+ * @implements REQ-BOR-001, REQ-BOR-002, REQ-BOR-005, INV-REG-001, INV-REG-002, REQ-REC2-003, REQ-RBAC-001, ERR-ACC-FORBIDDEN
  */
 export class DeleteRecordUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
@@ -232,8 +233,12 @@ export class DeleteRecordUseCase {
     const module = moduleOrNotFound(collection);
     await this.deps.uow.runInTransaction(async (repositories) => {
       await requirePetAction(repositories, userId, petId, DELETE_ACTION[module]);
-      const current = ((await repositories.records.listForPet(petId))[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId);
-      if (current === undefined || !(await repositories.records.remove(module, petId, recordId))) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
+      const existing = await repositories.records.listForPet(petId);
+      const current = (existing[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId);
+      if (current === undefined) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
+      // D-11 A, E-01: un registro SUPERSEDED no se borra (409); el borrado es físico y comprueba las filas afectadas.
+      assertRecordNotSuperseded(supersededStatus(module, existing, recordId, this.deps.clock.todayIsoDate()));
+      if (!(await repositories.records.remove(module, petId, recordId))) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: RECORD_ENTITY_TYPE[module], entityId: recordId, previous: current, next: null });
     });
   }
