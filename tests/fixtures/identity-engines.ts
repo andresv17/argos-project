@@ -72,7 +72,12 @@ export async function openEngine(name: EngineName, state: MemoryState): Promise<
       clock,
       hasher,
       sqlite: db,
-      rawQuery: async (sql, values = []) => db.prepare(sql).all(...(values as never[])) as Array<Record<string, unknown>>,
+      rawQuery: async (sql, values = []) => {
+        const statement = db.prepare(sql);
+        if (statement.reader) return statement.all(...(values as never[])) as Array<Record<string, unknown>>;
+        statement.run(...(values as never[]));
+        return [];
+      },
       read: (work) => uow.runInTransaction(work),
       dispose: async () => void (db.open && db.close()),
     };

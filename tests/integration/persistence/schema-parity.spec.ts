@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { IN_MEMORY_DATABASE, openSqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 
 /**
- * Paridad del esquema final de PostgreSQL (0001_baseline.sql más 0002_record_revision.sql, D-20) con el de SQLite tras sus 7 migraciones
+ * Paridad del esquema final de PostgreSQL (0001_baseline.sql más 0002_record_revision.sql, D-20) con el de SQLite tras sus 8 migraciones
  * (REQ-PG-003, REQ-MIG-001, INV-PET2-001, REQ-HOUSE2-003; T419; data-model.md §2 de la 003).
  * Parte estática: compara tablas, columnas, tipos mapeados, nulabilidad, valores por defecto, claves, cascadas,
  * CHECK, UNIQUE e índices (incluidos los parciales) leyendo solo el texto del SQL; no levanta PostgreSQL.
@@ -12,6 +12,8 @@ import { IN_MEMORY_DATABASE, openSqliteDatabase } from '../../../src/infrastruct
 const BASELINE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0001_baseline.sql', import.meta.url);
 /** T547: la 0003 de Postgres equivale a la 0007 de SQLite (índice único LOWER(username), invitaciones por LOWER(invitee_username), normalización de intentos). */
 const USERNAME_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0003_username_case_insensitive.sql', import.meta.url);
+/** T553: la 0004 de Postgres equivale a la 0008 de SQLite (`pets_owner_microchip` pasa a `pets_microchip_global`, único parcial global). */
+const MICROCHIP_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0004_pets_microchip_global.sql', import.meta.url);
 /** T540: la migración 0002 de Postgres equivale a la 0006 de SQLite (`revision` en las 6 tablas de registros, D-16 A). */
 const REVISION_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0002_record_revision.sql', import.meta.url);
 
@@ -163,7 +165,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH)]);
+const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH)]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -207,7 +209,9 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     const pg = postgresSchema();
     expect([...pg.indexes.keys()].sort()).toEqual([...sqlite.indexes.keys()].sort());
     for (const [name, ix] of sqlite.indexes) expect(pg.indexes.get(name), `índice ${name}`).toEqual(ix);
-    expect(pg.indexes.get('pets_owner_microchip')).toMatchObject({ unique: true, where: 'microchip_id IS NOT NULL' });
+    expect(pg.indexes.get('pets_microchip_global')).toMatchObject({ unique: true, columns: 'microchip_id', where: 'microchip_id IS NOT NULL' });
+    expect(pg.indexes.has('pets_owner_microchip')).toBe(false);
+    expect(sqlite.indexes.has('pets_owner_microchip')).toBe(false);
     expect(pg.indexes.get('household_members_one_owner')).toMatchObject({ unique: true });
   });
 
@@ -226,7 +230,7 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
   });
 
   it('el SQL es PostgreSQL puro: sin STRICT, json_extract, PRAGMA ni GLOB; datos JSONB', () => {
-    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8') + readFileSync(USERNAME_PATH, 'utf8'));
+    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8') + readFileSync(USERNAME_PATH, 'utf8') + readFileSync(MICROCHIP_PATH, 'utf8'));
     for (const banned of [/\bSTRICT\b/i, /json_extract/i, /\bPRAGMA\b/i, /\bGLOB\b/i, /strftime/i, /\bAUTOINCREMENT\b/i]) {
       expect(sql).not.toMatch(banned);
     }
@@ -269,6 +273,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(BASELINE_PATH, 'utf8'));
         await client.query(readFileSync(REVISION_PATH, 'utf8'));
         await client.query(readFileSync(USERNAME_PATH, 'utf8'));
+        await client.query(readFileSync(MICROCHIP_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

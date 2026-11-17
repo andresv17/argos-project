@@ -101,8 +101,9 @@ async function openHttp(name: EngineName): Promise<Http> {
   };
 }
 
-describe.each(ENGINE_NAMES)('T552 microchip único global (%s)', { timeout: 60_000 }, (name) => {
-  const run = it.skipIf(name === 'PostgreSQL' && !HAS_POSTGRES);
+describe.each(ENGINE_NAMES)('T552 microchip único global (%s)', (name) => {
+  const base = it.skipIf(name === 'PostgreSQL' && !HAS_POSTGRES);
+  const run = (title: string, work: () => Promise<void>) => base(title, work, 120_000);
 
   run('[SC-CAT-022][REQ-PET4-001] un duplicado propio y uno ajeno dan 409 con el mismo cuerpo byte a byte, por la misma ruta (un solo save, sin listByOwners) y sin datos del tercero en cuerpo ni logs', async () => {
     const http = await openHttp(name);

@@ -62,8 +62,10 @@ async function failureOf(promise: Promise<unknown>): Promise<DomainError> {
 }
 const shape = (e: DomainError) => [e.code, e.status, e.message, e.field, e.detail];
 
-describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', { timeout: 60_000 }, (name) => {
-  const run = it.skipIf(name === 'PostgreSQL' && !HAS_POSTGRES);
+describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (name) => {
+  const base = it.skipIf(name === 'PostgreSQL' && !HAS_POSTGRES);
+  // Postgres real es lento al sembrar y a las 400 transacciones de la medición informativa: tiempo de sobra por prueba.
+  const run = (title: string, work: () => Promise<void>) => base(title, work, 120_000);
 
   run('[SC-CAT-016][REQ-LOG-002][INV-LOG-001][EDGE-009] «ana.perez» y «ANA.PEREZ» chocan con «Ana.Perez» (ERR-AUTH-USERNAME-TAKEN) sin crear nada; «maria_01» y «maria» coexisten', async () => {
     const engine = await open(name);

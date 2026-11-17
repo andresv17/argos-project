@@ -276,7 +276,7 @@ describe('especies, edad estimada y microchip por HTTP (REQ-PET2-001, INV-PET2-0
     expect(out).toEqual([1, 2, 3, 4].map(() => ({ status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' })));
   });
 
-  it('[REQ-PET2-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip es único por propietario: el mismo dueño recibe 409 (alta y edición) y otra cuenta lo puede usar', async () => {
+  it('[REQ-PET4-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip es único en todo el sistema: el mismo dueño y otra cuenta reciben el mismo 409 (alta y edición) y editar la propia mascota no choca', async () => {
     api = await createApi();
     const andres = await api.login('andres');
     const maria = await api.login('maria.v');
@@ -292,12 +292,14 @@ describe('especies, edad estimada y microchip por HTTP (REQ-PET2-001, INV-PET2-0
       { status: 409, code: 'ERR-PET-MICROCHIP-DUPLICATE' },
       { status: 409, code: 'ERR-PET-MICROCHIP-DUPLICATE' },
       200,
-      201,
+      409,
       201,
       201,
     ]);
+    expect(otherAccount.text).toBe(dupCreate.text);
     expect(dupCreate.text).not.toContain(CHIP);
     expect((dupCreate.json as { field?: string }).field).toBe('microchipId');
+    expect((otherAccount.json as { detail?: string }).detail).toBe('Este microchip ya está registrado en ARGOS. Si es tuyo, contacta al administrador.');
   });
 
   it('[REQ-PET2-002] GET /pets?filter= separa Todos, Perros (CANINE), Gatos (FELINE) y Otros (las otras seis especies) y se combina con q', async () => {

@@ -86,7 +86,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       1,
       'wal',
       [],
-      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql'],
+      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql'],
     ]);
   });
 
@@ -115,7 +115,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       revoked_at: '2026-11-05T13:00:00.000Z',
       data: { userId: 'a0000000-0000-4000-8000-000000000001', createdAt: '2026-11-05T12:00:00.000Z', lastActivityAt: '2026-11-05T12:00:00.000Z', revokedAt: '2026-11-05T13:00:00.000Z' },
     });
-    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql']]);
+    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql']]);
   });
 
   it('[REQ-ACC-001][ERR-INTERNAL-UNEXPECTED] la base rechaza un idioma fuera de es/en/pt, un ámbito de frecuencia desconocido y un rol o estado de invitación inválido', () => {
@@ -201,7 +201,7 @@ describe('mascotas multi-especie y peso en gramos sobre SQLite (REQ-MIG-001, INV
     );
   });
 
-  it('[REQ-PET2-001][INV-PET2-001] el microchip repetido del mismo propietario lo rechaza el índice único; el de otro propietario se admite; editar la misma mascota no choca', async () => {
+  it('[REQ-PET4-001][INV-PET4-001] el microchip repetido, del mismo propietario o de otro, lo rechaza el índice único global; editar la misma mascota no choca', async () => {
     const uow = new SqliteUnitOfWork(memoryDb());
     await seedSqlite(uow);
     const a = pet('0000000a-0000-4000-8000-000000000000', { microchipId: chip });
@@ -209,9 +209,9 @@ describe('mascotas multi-especie y peso en gramos sobre SQLite (REQ-MIG-001, INV
     await uow.runInTransaction((r) => r.pets.save({ ...a, name: 'Otro nombre' }));
     const dup = pet('0000000b-0000-4000-8000-000000000000', { microchipId: chip });
     expect(String(await rejectionOf(uow.runInTransaction((r) => r.pets.save(dup))))).toMatch(/UNIQUE constraint failed/);
-    await uow.runInTransaction((r) => r.pets.save({ ...dup, ownerUserId: fixtures.users[1].id }));
-    const owners = await uow.runInTransaction(async (r) => [(await r.pets.findById(dup.id))!.ownerUserId, (await r.pets.findById(a.id))!.name]);
-    expect(owners).toEqual([fixtures.users[1].id, 'Otro nombre']);
+    expect(String(await rejectionOf(uow.runInTransaction((r) => r.pets.save({ ...dup, ownerUserId: fixtures.users[1].id }))))).toMatch(/UNIQUE constraint failed: pets\.microchip_id/);
+    const stored = await uow.runInTransaction(async (r) => [await r.pets.findById(dup.id), (await r.pets.findById(a.id))!.name]);
+    expect(stored).toEqual([null, 'Otro nombre']);
   });
 
   it('[ADR-002-09][INV-REC2-002] cada peso guarda weight_grams entero igual a su valor en kg por 1000 y la lectura rechaza una columna que no coincide con el objeto', async () => {

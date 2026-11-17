@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/generated/index.ts';
+// El catálogo 3.1.0 cambia el detalle y el invariante de ERR-PET-MICROCHIP-DUPLICATE: su error es de la clase 3.1.0 (mismo contrato).
+import { DomainError as DomainErrorV31 } from '../../src/generated/v31/index.ts';
 import {
   AuthenticateRequestUseCase,
   GetCurrentSessionUseCase,
@@ -52,7 +54,7 @@ async function outcome(promise: Promise<unknown>): Promise<string> {
     await promise;
     return 'OK';
   } catch (error) {
-    if (error instanceof DomainError) return `${error.code}@${String(error.field)}`;
+    if (error instanceof DomainError || error instanceof DomainErrorV31) return `${error.code}@${String(error.field)}`;
     throw error;
   }
 }
@@ -371,7 +373,7 @@ describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-0
     expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, pet.id, { species: 'OTHER', speciesOther: null }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@speciesOther');
   });
 
-  it('[REQ-PET2-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip repetido del mismo propietario se rechaza sin guardar nada; otra cuenta puede usarlo; editar la misma mascota no choca', async () => {
+  it('[REQ-PET4-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip repetido, del mismo propietario o de otro, se rechaza sin guardar nada; editar la misma mascota no choca', async () => {
     const { deps, uow } = createHarness();
     const register = new RegisterPetUseCase(deps);
     const first = await register.execute(ANDRES, { ...RABBIT, microchipId: CHIP });
@@ -380,7 +382,8 @@ describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-0
     expect(uow.snapshot()).toEqual(before);
     expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, ARGOS.id, { microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
     expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, first.id, { microchipId: CHIP, name: 'Nube II' }))).toBe('OK');
-    expect(await outcome(register.execute(MARIA, { ...RABBIT, microchipId: CHIP }))).toBe('OK');
+    expect(await outcome(register.execute(MARIA, { ...RABBIT, microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
+    expect(uow.snapshot().pets.filter((p) => p.microchipId === CHIP)).toHaveLength(1);
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Sin chip' }))).toBe('OK');
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Sin chip 2' }))).toBe('OK');
   });

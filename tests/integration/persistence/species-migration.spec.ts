@@ -228,10 +228,10 @@ describe('restricciones de la base migrada (INV-PET2-001, INV-PET-005, INV-REC2-
     expect(count(d, 'pets')).toBe(8);
   });
 
-  it('[REQ-PET2-001][INV-PET2-001] el microchip de 15 dígitos es único por propietario, no entre cuentas, y varios nulos conviven', () => {
+  it('[REQ-PET4-001][INV-PET4-001] el microchip de 15 dígitos es único en todo el sistema (pets_microchip_global, también entre cuentas) y varios nulos conviven', () => {
     const d = db();
     insertPet(d, 'p1', 'u1', { microchip_id: '981020000000001' });
-    insertPet(d, 'p2', 'u2', { microchip_id: '981020000000001' });
+    expect(() => insertPet(d, 'p2', 'u2', { microchip_id: '981020000000001' })).toThrow(/UNIQUE constraint failed: pets\.microchip_id/);
     insertPet(d, 'p3', 'u1', { microchip_id: null });
     insertPet(d, 'p4', 'u1', { microchip_id: null });
     insertPet(d, 'p5', 'u1', { microchip_id: '981020000000002' });
@@ -240,7 +240,7 @@ describe('restricciones de la base migrada (INV-PET2-001, INV-PET-005, INV-REC2-
     for (const bad of ['98102000000000', '9810200000000011', '98102000000000a', '']) {
       expect(() => insertPet(d, 'x', 'u9', { microchip_id: bad })).toThrow(/CHECK constraint failed/);
     }
-    expect(count(d, 'pets')).toBe(5);
+    expect(count(d, 'pets')).toBe(4);
   });
 
   it('[INV-REC2-002][ADR-002-09] weight_grams es entero obligatorio entre 1 y 150000', () => {
