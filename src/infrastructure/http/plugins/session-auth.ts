@@ -31,6 +31,21 @@ export function requireSession(authenticate: AuthenticateRequestUseCase): onRequ
   };
 }
 
+/** Cabecera de la renovación pasiva del visor (OpenAPI 3.2.0, `getMediaAccess`). */
+export const RENEWAL_HEADER = 'x-argos-renewal';
+
+/**
+ * Variante SOLO para `getMediaAccess` (SC-ALM-036, INV-AUTH2-002): con la cabecera `X-Argos-Renewal` valiendo exactamente `1` valida la sesión sin
+ * renovar `lastActivityAt`. Cualquier otra cosa (ausente, otro valor, cabecera repetida o en forma de array) renueva como siempre (fail-safe).
+ * @implements INV-AUTH2-002, REQ-ARC-003
+ */
+export function requireSessionPassiveRenewal(authenticate: AuthenticateRequestUseCase): onRequestAsyncHookHandler {
+  return async (request) => {
+    const passive = request.headers[RENEWAL_HEADER] === '1';
+    request.userId = await authenticate.execute(sessionTokenOf(request), { renew: !passive });
+  };
+}
+
 /** @implements REQ-AUTH2-002, INV-AUTH-003 */
 export function setSessionCookie(reply: FastifyReply, token: string, secure: boolean): void {
   reply.setCookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: 'strict', path: '/', maxAge: SESSION_MAX_AGE_SECONDS, secure });

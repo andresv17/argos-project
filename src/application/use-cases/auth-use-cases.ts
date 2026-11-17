@@ -3,7 +3,7 @@
  * - Precedencia: esquema (regla 4) y dominio (regla 5). El username se guarda tal como se escribió y es único por LOWER (REQ-LOG-002,
  *   INV-LOG-001); con espacios se rechaza en el registro. El login acepta usuario o correo (REQ-LOG-001): el identificador se recorta y se
  *   pasa a minúsculas con `normalizeLoginIdentifier`; un correo resuelve solo si hay EXACTAMENTE una cuenta (EDGE-007).
- * - INV-AUTH2-002: autenticar una petición válida renueva `lastActivityAt`; una rechazada no escribe nada.
+ * - INV-AUTH2-002: autenticar una petición válida renueva `lastActivityAt`; una rechazada no escribe nada. Excepción: `renew: false` (SC-ALM-036).
  * - INV-AUTH-006 / INV-LOG-002: si el usuario no existe, o el correo no tiene cuenta o tiene varias, LoginUseCase verifica la contraseña
  *   contra el hash ficticio, de modo que PasswordHasherPort.verify se invoca exactamente una vez en todas las ramas y el error es el
  *   mismo ERR-AUTH-INVALID-CREDENTIALS. Un intento bloqueado no verifica ni se registra (INV-AUTH-005, EDGE-029).
@@ -152,11 +152,13 @@ export class AuthenticateRequestUseCase {
 
   /**
    * userId de la sesión vigente, que además renueva `lastActivityAt` (evento REQUEST). Sin sesión, revocada o vencida
-   * por inactividad o por tope: ERR-AUTH-UNAUTHENTICATED sin escribir nada.
+   * por inactividad o por tope: ERR-AUTH-UNAUTHENTICATED sin escribir nada. Con `renew: false` (renovación pasiva del visor,
+   * SC-ALM-036) valida con las mismas reglas y el mismo error pero NO guarda `lastActivityAt`; por omisión renueva (fail-safe).
    */
-  async execute(sessionToken: string | null): Promise<string> {
+  async execute(sessionToken: string | null, options: { readonly renew?: boolean } = {}): Promise<string> {
     const now = this.deps.clock.nowIsoTimestamp();
     return this.deps.uow.runInTransaction(async (repositories) => {
+      if (options.renew === false) return assertAuthenticated(await currentSession(repositories, sessionToken), now).userId;
       const renewed = renewSession(await currentSession(repositories, sessionToken), now);
       await repositories.sessions.save(sessionToken!, renewed);
       return renewed.userId;

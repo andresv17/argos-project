@@ -54,7 +54,8 @@ export class MediaApiError extends Error {
 
 export interface MediaApi {
   list(petId: string, kind: MediaKind | undefined, page: number): Promise<MediaPage>;
-  access(petId: string, mediaId: string): Promise<MediaAccess>;
+  /** `renewal: true` es la renovación proactiva del visor: envía `X-Argos-Renewal: 1` y NO cuenta como actividad (SC-ALM-036). */
+  access(petId: string, mediaId: string, options?: { readonly renewal?: boolean }): Promise<MediaAccess>;
   upload(petId: string, kind: MediaKind, blob: Blob, filename: string): Promise<MediaItem>;
   remove(petId: string, mediaId: string): Promise<void>;
   putAvatar(petId: string, blob: Blob): Promise<AvatarVersionResult>;
@@ -62,7 +63,7 @@ export interface MediaApi {
 }
 
 export function createMediaApi(fetchImpl: typeof fetch = (...args) => fetch(...args), baseUrl = '/api'): MediaApi {
-  async function send(path: string, method: string, headers: Record<string, string> = {}, body?: Blob): Promise<Response> {
+  async function send(path: string, method: string, headers: Record<string, string> = {}, body?: Blob, passive = false): Promise<Response> {
     let response: Response;
     try {
       response = await fetchImpl(`${baseUrl}${path}`, { method, headers: { 'X-Argos-Request': '1', ...headers }, ...(body === undefined ? {} : { body }) });
@@ -79,7 +80,7 @@ export function createMediaApi(fetchImpl: typeof fetch = (...args) => fetch(...a
       }
       throw new MediaApiError(code, response.status);
     }
-    notifyActivity();
+    if (!passive) notifyActivity();
     return response;
   }
   const json = async <T>(response: Response): Promise<T> => (await response.json()) as T;
@@ -91,8 +92,9 @@ export function createMediaApi(fetchImpl: typeof fetch = (...args) => fetch(...a
       query.set('page', String(page));
       return json<MediaPage>(await send(`/pets/${petId}/media?${query.toString()}`, 'GET'));
     },
-    async access(petId, mediaId) {
-      return json<MediaAccess>(await send(`/pets/${petId}/media/${mediaId}/access`, 'GET'));
+    async access(petId, mediaId, options) {
+      const passive = options?.renewal === true;
+      return json<MediaAccess>(await send(`/pets/${petId}/media/${mediaId}/access`, 'GET', passive ? { 'X-Argos-Renewal': '1' } : {}, undefined, passive));
     },
     async upload(petId, kind, blob, filename) {
       return json<MediaItem>(await send(`/pets/${petId}/media?kind=${kind}`, 'POST', { 'X-Argos-Filename': encodeURIComponent(filename), 'Content-Type': 'application/octet-stream' }, blob));

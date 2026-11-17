@@ -15,7 +15,7 @@ import { DomainError as DomainErrorV31 } from '../../../generated/v31/index.ts';
 import { AVATAR_MAX_BYTES } from '../../../domain/media/index.ts';
 import type { MediaServices } from '../../../application/use-cases/use-case-support.ts';
 import { rawBody } from '../request-input.ts';
-import { requireSession } from '../plugins/session-auth.ts';
+import { requireSession, requireSessionPassiveRenewal } from '../plugins/session-auth.ts';
 import type { RouteContext } from './use-cases.ts';
 
 type PetParams = { Params: { petId: string } };
@@ -85,7 +85,7 @@ export function registerMediaRoutes(app: FastifyInstance, { useCases }: RouteCon
     useCases.listMedia.execute(request.userId, request.params.petId, { kind: request.query.kind, page: request.query.page }),
   );
 
-  app.get<MediaParams>('/api/pets/:petId/media/:mediaId/access', { onRequest }, async (request) =>
+  app.get<MediaParams>('/api/pets/:petId/media/:mediaId/access', { onRequest: requireSessionPassiveRenewal(useCases.authenticate) }, async (request) =>
     useCases.mediaAccess.execute(request.userId, request.params.petId, request.params.mediaId),
   );
 

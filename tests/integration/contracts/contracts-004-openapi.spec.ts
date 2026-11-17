@@ -21,9 +21,9 @@ const paramNames = (path: string, method: string): string[] =>
   (op(path, method).parameters as Json[]).map((p) => (p.$ref as string | undefined)?.split('/').pop() ?? (p.name as string));
 
 describe('T511 versión y metadatos', () => {
-  it('REQ-ARC-001: la API pasa a 3.1.0 (MINOR) en DRAFT y supersede a 3.0.0', () => {
-    expect(doc.info.version).toBe('3.1.0');
-    expect(doc.info['x-sdd-metadata']).toEqual(expect.objectContaining({ version: '3.1.0', status: 'DRAFT', supersedes: '3.0.0', change_type: 'MINOR' }));
+  it('REQ-ARC-001: la API pasa a 3.2.0 (MINOR) en DRAFT y supersede a 3.1.0', () => {
+    expect(doc.info.version).toBe('3.2.0');
+    expect(doc.info['x-sdd-metadata']).toEqual(expect.objectContaining({ version: '3.2.0', status: 'DRAFT', supersedes: '3.1.0', change_type: 'MINOR' }));
   });
 
   it('REQ-ARC-001: declara exactamente las 7 operaciones nuevas de medios y avatar además de las 40 de la 002', () => {
@@ -69,6 +69,18 @@ describe('T511 medios', () => {
     expect(access.responses['200'].headers['Cache-Control'].schema.const).toBe('no-store');
     expect(codes('/pets/{petId}/media/{mediaId}/access', 'get')).toEqual(['200', '401', '404', '502']);
     expect(JSON.stringify(access)).not.toContain('disposition');
+  });
+
+  it('SC-ALM-036: X-Argos-Renewal (enum ["1"], opcional) la declara solo getMediaAccess y ninguna otra operación', () => {
+    const header = (op('/pets/{petId}/media/{mediaId}/access', 'get').parameters as Json[]).find((p) => p.name === 'X-Argos-Renewal') as Json;
+    expect([header.in, header.required, (header.schema as Json).enum]).toEqual(['header', false, ['1']]);
+    const holders: string[] = [];
+    for (const [path, item] of Object.entries(doc.paths as Record<string, Json>)) {
+      for (const [method, def] of Object.entries(item)) {
+        if (JSON.stringify(def).includes('X-Argos-Renewal') && method !== 'parameters') holders.push(`${method} ${path}`);
+      }
+    }
+    expect(holders).toEqual(['get /pets/{petId}/media/{mediaId}/access']);
   });
 
   it('REQ-GCS-004: deleteMedia responde 204 y no declara 502', () => {

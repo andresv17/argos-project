@@ -262,7 +262,7 @@ export function MediaPanel({ petId, canUpload, canDelete, renewal = browserRenew
     renewer.current?.stop();
     setViewer({ item, url: null, status: 'LOADING' });
     const next = createAccessRenewer({
-      fetchAccess: () => api.access(petId, item.id),
+      fetchAccess: (isRenewal) => api.access(petId, item.id, { renewal: isRenewal }),
       onUrl: (access) => setViewer({ item, url: access.url, status: 'READY' }),
       onError: () => setViewer({ item, url: null, status: 'ERROR' }),
       now: renewal.now,
