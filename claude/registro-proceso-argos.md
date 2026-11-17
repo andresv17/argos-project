@@ -1327,3 +1327,7 @@
 - 2026-11-17 Morpheus: Architect db68161 registra TECHDEBT-004-06 (RR-07; fila de deuda en tasks.md sin tarea ni [x]; spec RR-07 cita el ID). verify-traceability CUMPLE. Pendiente Oracle de db68161 y firma Neo.
 - 2026-11-17 Oracle: a739c7c/6e84f38 NO CUMPLE solo por H-O-E2E-1 (verify-oracles 004 FALLA: test.skip en reexportacion-fotos.spec.ts l.89/101); E2E 12/12, vitest 27/27, tsc 0, traza CUMPLE.
 - 2026-11-17 Keymaker: H-O-E2E-1 corregido (test.skip eliminados en reexportacion-fotos.spec.ts); verify-oracles 004 CUMPLE, E2E 12/12, vitest 27/27, tsc 0. Pendiente Oracle.
+- 2026-11-17 Morpheus: Keymaker 8474a63 corrige H-O-E2E-1 (skips eliminados); verify-oracles CUMPLE. Despacho Oracle re-auditoria (8474a63, db68161) y Seraph T592 en paralelo.
+- 2026-11-17 Oracle: 8474a63 + db68161 CUMPLE CON RESERVAS (menores); H-O-E2E-1 cerrada; media 12/12, tsc 0, oráculos 0 débiles, traza CUMPLE; TECHDEBT-004-06 sin [x], firma Neo pendiente.
+- 2026-11-17 Morpheus: Oracle re-auditoria 8474a63 y db68161 CUMPLE CON RESERVAS (H-O-E2E-1 CERRADA; H-O-E2E-3 titulo cosmetico; H-O-RR07-1 firma Neo). Espera Seraph T592.
+- 2026-11-17 Seraph: T592 e2e medios-csp-wcag.spec.ts 4/4 Chromium; hallazgos H-S-T592-1/2 (inputs file desbordan a 320 px en AvatarCropper y MediaPanel); tsc 0; verify-oracles CUMPLE. Sin [x].
