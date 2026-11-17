@@ -86,7 +86,7 @@ test.describe('reexportación de fotos por canvas (T615)', () => {
 
   test('[SC-ALM-035] WebP con fragmento EXIF sale sin metadatos y como WebP si el navegador lo codifica', async ({ page }) => {
     const webp = await makeImage(page, 'image/webp', 40, 20);
-    test.skip(webp === null, 'este navegador no codifica WebP (cubierto por la prueba de WebP no codificable)');
+    expect(webp?.subarray(8, 12).toString('latin1'), 'Chromium codifica WebP (RIFF/WEBP)').toBe('WEBP');
     const input = webpWithExif(webp!, 40, 20);
     expect(hasMetadata(input)).toBe(true);
     const outcome = await reexport(page, input, 'image/webp', 'loro.webp');
@@ -96,10 +96,9 @@ test.describe('reexportación de fotos por canvas (T615)', () => {
 
   test('[SC-ALM-035] WebP no codificable cae a JPEG con extensión .jpg y sin metadatos', async ({ page }) => {
     const webp = await makeImage(page, 'image/webp', 40, 20);
-    const source = webp === null ? (await makeImage(page, 'image/png', 40, 20))! : webpWithExif(webp, 40, 20);
-    const type = webp === null ? 'image/png' : 'image/webp';
-    test.skip(webp === null, 'este navegador no decodifica ni codifica WebP: el respaldo se cubre en Chromium');
-    const outcome = await reexport(page, source, type, 'loro.webp', { noWebp: true });
+    expect(webp?.subarray(8, 12).toString('latin1'), 'Chromium codifica WebP (RIFF/WEBP)').toBe('WEBP');
+    const source = webpWithExif(webp!, 40, 20);
+    const outcome = await reexport(page, source, 'image/webp', 'loro.webp', { noWebp: true });
     expect([outcome.ok, outcome.reason, outcome.type, outcome.name]).toEqual([true, undefined, 'image/jpeg', 'loro.jpg']);
     expect(hasMetadata(Buffer.from(outcome.base64!, 'base64'))).toBe(false);
   });
