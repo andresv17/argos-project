@@ -12,17 +12,14 @@
  */
 // El catálogo 3.1.0 cambia el detalle («Este microchip ya está registrado en ARGOS…») y el invariante (INV-PET4-001): clase 3.1.0 del mismo contrato.
 import { DomainError } from '../../generated/v31/index.ts';
+import { isUniqueViolationOf, type UniqueConstraintName } from './unique-violation.ts';
 
-const MICROCHIP_CONSTRAINT = 'pets_microchip_global';
-const SQLITE_MICROCHIP_MESSAGE = 'UNIQUE constraint failed: pets.microchip_id';
+const MICROCHIP_INDEX: UniqueConstraintName = {
+  pgConstraint: 'pets_microchip_global',
+  sqliteMessage: 'UNIQUE constraint failed: pets.microchip_id',
+};
 
-export function isMicrochipGlobalViolation(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false;
-  const { code, constraint, message } = error as { code?: unknown; constraint?: unknown; message?: unknown };
-  if (code === '23505') return constraint === MICROCHIP_CONSTRAINT;
-  if (code === 'SQLITE_CONSTRAINT_UNIQUE') return message === SQLITE_MICROCHIP_MESSAGE;
-  return false;
-}
+export const isMicrochipGlobalViolation = (error: unknown): boolean => isUniqueViolationOf(error, MICROCHIP_INDEX);
 
 /** Ejecuta el guardado y mapea SOLO la violación de `pets_microchip_global` a ERR-PET-MICROCHIP-DUPLICATE (409, campo `microchipId`). */
 export async function mapMicrochipViolation<T>(work: () => Promise<T>): Promise<T> {

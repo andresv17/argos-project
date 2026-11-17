@@ -28,6 +28,7 @@ import {
 import { assertAuthenticated, logout, openSession, renewSession, sessionExpiries, type SessionRecord } from '../../domain/auth/session-policy.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
+import { mapUsernameViolation } from './username-violation.ts';
 import { assertMatchesSchema, toSelfProfile, type ApplicationDeps } from './use-case-support.ts';
 
 export interface AuthenticatedSession {
@@ -91,7 +92,8 @@ export class RegisterUserUseCase {
         timezone: this.deps.clock.timeZone,
         passwordHash: await this.deps.hasher.hash(valid.password),
       };
-      await repositories.users.insert(account);
+      // Carrera entre dos altas del mismo username (INV-LOG-001): la base es la última defensa y su violación es ERR-AUTH-USERNAME-TAKEN, no un 500.
+      await mapUsernameViolation(() => repositories.users.insert(account));
       await recordAudit(this.deps, repositories, { executorUserId: account.id, mutationType: 'CREATE', entityType: 'USER', entityId: account.id, previous: null, next: account });
       return startSession(this.deps, repositories, account, now);
     });
