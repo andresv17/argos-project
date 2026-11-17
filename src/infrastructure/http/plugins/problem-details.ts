@@ -18,6 +18,8 @@ import { MAX_IMPORT_BYTES } from '../../../application/use-cases/backup-use-case
 
 export const PROBLEM_CONTENT_TYPE = 'application/problem+json; charset=utf-8';
 export const BACKUP_IMPORT_PATH = '/api/backup/import';
+/** `POST /api/pets/<id>/media` y `PUT /api/pets/<id>/avatar`: rutas de cuerpo crudo de medios. */
+const MEDIA_UPLOAD_PATH = /^\/api\/pets\/[^/]+\/(?:media|avatar)$/;
 
 /** Ruta de la petición sin la cadena de consulta (campo `instance`). */
 export const requestPath = (request: FastifyRequest) => request.url.split('?')[0] ?? request.url;
@@ -34,6 +36,8 @@ function isFastifyRequestError(error: unknown): error is FastifyError {
 export function toDomainError(error: unknown, request: FastifyRequest): DomainError | DomainErrorV31 {
   if (error instanceof DomainError || error instanceof DomainErrorV31) return error;
   if (isFastifyRequestError(error)) {
+    // Medios y avatar (REQ-ARC-001, REQ-AVA-001): el cuerpo que supera el tope de lectura es ERR-MEDIA-TOO-LARGE (413), no un fallo de esquema.
+    if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' && MEDIA_UPLOAD_PATH.test(requestPath(request))) return new DomainErrorV31('ERR-MEDIA-TOO-LARGE');
     if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' && (requestPath(request) === BACKUP_IMPORT_PATH || requestPath(request) === `${BACKUP_IMPORT_PATH}/preview`)) {
       return new DomainError('ERR-BACKUP-PAYLOAD-TOO-LARGE', `El archivo supera el máximo de ${MAX_IMPORT_BYTES} bytes (10 MB).`, null, 'ROLLED_BACK');
     }

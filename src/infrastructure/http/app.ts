@@ -22,6 +22,7 @@ import { registerOwnershipRoutes } from './routes/ownership.routes.ts';
 import { registerHouseholdRoutes } from './routes/households.routes.ts';
 import { registerOpsRoutes } from './routes/ops-routes.ts';
 import { registerPetRoutes } from './routes/pets.routes.ts';
+import { registerMediaRoutes } from './routes/media.routes.ts';
 import { registerRecordEditRoutes } from './routes/records-edit.routes.ts';
 import { createUseCases } from './routes/use-cases.ts';
 
@@ -56,6 +57,8 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
   registerAccountRoutes(app, context);
   registerPetRoutes(app, context);
   registerRecordEditRoutes(app, context);
+  // Medios (feature 004): solo si la composición conectó el almacenamiento (REQ-GCS-003); sin él las rutas no existen (404).
+  if (deps.media !== undefined) registerMediaRoutes(app, context, deps.media);
   registerHouseholdRoutes(app, context);
   registerAssignmentRoutes(app, context);
   registerOwnershipRoutes(app, context);

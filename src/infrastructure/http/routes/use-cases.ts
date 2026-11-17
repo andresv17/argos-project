@@ -23,6 +23,7 @@ import {
   RespondInvitationUseCase,
   TransferHouseholdOwnershipUseCase,
 } from '../../../application/use-cases/household-use-cases.ts';
+import { DeleteMediaUseCase, GetMediaAccessUseCase, ListMediaUseCase, UploadMediaUseCase } from '../../../application/use-cases/media-use-cases.ts';
 import { TransferPetOwnershipUseCase } from '../../../application/use-cases/ownership-use-cases.ts';
 import { DeletePetUseCase, GetPetDashboardUseCase, ListMyPetsUseCase, RegisterPetUseCase, UpdatePetUseCase } from '../../../application/use-cases/pet-use-cases.ts';
 import {
@@ -80,6 +81,10 @@ export function createUseCases(deps: ApplicationDeps) {
     exportBackup: new ExportBackupUseCase(deps),
     previewBackupImport: new PreviewBackupImportUseCase(deps),
     importBackup: new ImportBackupUseCase(deps),
+    uploadMedia: new UploadMediaUseCase(deps),
+    listMedia: new ListMediaUseCase(deps),
+    mediaAccess: new GetMediaAccessUseCase(deps),
+    deleteMedia: new DeleteMediaUseCase(deps),
   };
 }
 
