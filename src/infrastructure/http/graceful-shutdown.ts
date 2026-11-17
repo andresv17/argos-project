@@ -6,6 +6,8 @@
  * @implements REQ-CLD-006, INV-ARCH-005
  */
 
+import { nowMonotonicMs } from '../adapters/system-clock.adapter.ts';
+
 /** Periodo de gracia de Cloud Run tras `SIGTERM` (verificar en T402). */
 export const CLOUD_RUN_GRACE_MS = 10_000;
 /** Plazo máximo del cierre propio: deja 3 s de margen antes de `SIGKILL`. */
@@ -27,7 +29,7 @@ export interface ShutdownResult {
 
 /** @implements REQ-CLD-006 */
 export async function shutdownGracefully({ closeServer, closePool, timeoutMs = SHUTDOWN_TIMEOUT_MS }: ShutdownOptions): Promise<ShutdownResult> {
-  const started = performance.now();
+  const started = nowMonotonicMs();
   let failed = false;
   const work = (async () => {
     try {
@@ -47,7 +49,7 @@ export async function shutdownGracefully({ closeServer, closePool, timeoutMs = S
   });
   const winner = await Promise.race([work.then(() => 'done' as const), deadline]);
   clearTimeout(timer);
-  return { durationMs: performance.now() - started, timedOut: winner === 'timeout', failed };
+  return { durationMs: nowMonotonicMs() - started, timedOut: winner === 'timeout', failed };
 }
 
 export interface ShutdownHandlerOptions extends ShutdownOptions {

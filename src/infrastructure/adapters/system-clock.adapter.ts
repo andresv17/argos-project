@@ -44,3 +44,13 @@ export class SystemClockAdapter implements ClockPort {
     return this.now().toISOString();
   }
 }
+
+/** Instante Unix en milisegundos (solo en adaptador de reloj, INV-ARCH-001). */
+export function nowEpochMs(): number {
+  return Date.now();
+}
+
+/** Reloj monotónico en milisegundos para medir duraciones internas (INV-ARCH-001). */
+export function nowMonotonicMs(): number {
+  return performance.now();
+}

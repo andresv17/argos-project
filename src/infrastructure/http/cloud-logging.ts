@@ -11,6 +11,9 @@
  */
 
 import type { FastifyError } from 'fastify';
+import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
+
+const defaultClock = new SystemClockAdapter();
 
 export type CloudSeverity = 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
 
@@ -120,7 +123,7 @@ export function cloudLoggerOptions({ databaseUrl }: CloudLoggerSettings = {}) {
     level: 'info',
     messageKey: 'message',
     base: null,
-    timestamp: () => `,"time":"${new Date().toISOString()}"`,
+    timestamp: () => `,"time":"${defaultClock.nowIsoTimestamp()}"`,
     formatters: { level: (label: string) => ({ severity: severityOf(label) }) },
     redact: ['req.headers.cookie', 'res.headers["set-cookie"]'],
     serializers: { req: serializeRequest, err: errSerializer },

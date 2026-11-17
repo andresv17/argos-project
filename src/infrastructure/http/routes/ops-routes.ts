@@ -7,6 +7,7 @@
  */
 
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { nowEpochMs } from '../../adapters/system-clock.adapter.ts';
 
 export const READYZ_CACHE_MS = 60_000;
 export const READYZ_TIMEOUT_MS = 5_000;
@@ -60,7 +61,7 @@ export function registerOpsRoutes(app: FastifyInstance, { checkReady }: OpsRoute
   app.get('/healthz', async (_request, reply: FastifyReply) => reply.header('Cache-Control', 'no-store').send({ status: 'ok' }));
 
   app.get('/readyz', async (_request, reply: FastifyReply) => {
-    const now = Date.now();
+    const now = nowEpochMs();
     if (cache === undefined || now - cache.at >= READYZ_CACHE_MS) cache = { ready: withTimeout(checkReady), at: now };
     const ready = await cache.ready;
     reply.header('Cache-Control', 'no-store');
