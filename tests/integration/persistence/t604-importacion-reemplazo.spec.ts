@@ -7,8 +7,9 @@
  *  - un microchip repetido dentro del archivo falla completo sin modificar datos y el error nombra la mascota PROPIA del archivo (posición y
  *    nombre) sin repetir el microchip;
  *  - la vista previa informa `mediaToDeleteCount` (entero >= 0).
- * FUERA de esta tarea hasta que existan sus piezas (reportado a Morpheus): `avatar_object_id`/`avatar_version`, `pet_media` y
- * `media_deletion_queue` (T574, T575, T580) y el índice global de microchip (T553, T554) que detecta el duplicado ante OTRO usuario.
+ *  - (cierre de medios) con 2 filas de `pet_media` y un avatar vigente la vista previa informa `mediaToDeleteCount` = 3; el reemplazo borra las filas,
+ *    deja `avatar_object_id` nulo conservando `avatar_version` y encola las 3 claves con `DELETE` (REQ-GCS-004, D-15 A).
+ * El duplicado de microchip ante OTRO usuario (índice global, T553/T554) se prueba en t552-microchip-global.spec.ts.
  */
 import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -143,6 +144,34 @@ function define(make: MakeEngine) {
     expect(Number.isInteger(preview.mediaToDeleteCount)).toBe(true);
     expect(preview.mediaToDeleteCount).toBe(0);
     expect(JSON.stringify(await recordIdsOf(uow, ARGOS.id))).toBe(before);
+  });
+
+  it('[REQ-IMP-001][SC-CAT-031][D-15 A][REQ-GCS-004] con archivos, fotos y avatar la vista previa cuenta 3; el reemplazo borra las filas, deja avatar_object_id nulo con avatar_version conservada y encola las 3 claves', async () => {
+    const { uow, exporter, importer, previewer } = await open(make);
+    const { json } = await exporter.execute(ANDRES);
+    const avatarId = 'f0000000-0000-4000-8000-0000000a0a01';
+    const media = [
+      { id: 'f0000000-0000-4000-8000-0000000b0b01', kind: 'FILE', mime: 'application/pdf' },
+      { id: 'f0000000-0000-4000-8000-0000000b0b02', kind: 'PHOTO', mime: 'image/png' },
+    ] as const;
+    await uow.runInTransaction(async (r) => {
+      for (const m of media) await r.media.insert({ ...m, petId: ARGOS.id, sizeBytes: 64, originalName: 'a', createdAt: '2026-11-05T12:00:00.000Z' });
+      await r.pets.replaceAvatar(ARGOS.id, 'f0000000-0000-4000-8000-0000000a0a00');
+      await r.pets.replaceAvatar(ARGOS.id, avatarId);
+    });
+    expect((await previewer.execute(ANDRES, json)).mediaToDeleteCount).toBe(3);
+    expect(await uow.runInTransaction((r) => r.mediaQueue.listPending(10))).toEqual([]); // la vista previa no escribe
+    await importer.execute(ANDRES, json, digestOf(json));
+    const queued = (await uow.runInTransaction((r) => r.mediaQueue.listPending(10))).map((q) => [q.objectKey, q.reason]).sort();
+    expect(queued).toEqual(
+      [
+        [`pets/${ARGOS.id}/avatar/${avatarId}`, 'DELETE'],
+        [`pets/${ARGOS.id}/files/${media[0].id}`, 'DELETE'],
+        [`pets/${ARGOS.id}/photos/${media[1].id}`, 'DELETE'],
+      ].sort(),
+    );
+    expect(await uow.runInTransaction((r) => r.media.listPage(ARGOS.id, null, 10, 0))).toMatchObject({ total: 0 });
+    expect(await uow.runInTransaction((r) => r.pets.findAvatar(ARGOS.id))).toEqual({ version: 2, objectId: null });
   });
 }
 
