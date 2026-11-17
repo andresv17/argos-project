@@ -1,7 +1,7 @@
 /**
  * Alta y edición del perfil de una mascota propia (REQ-PET-001). La edición solo se ofrece si `canEdit`.
  *
- * @implements REQ-UI-002, REQ-UI-004, REQ-UI-007
+ * @implements REQ-UI-002, REQ-UI-004, REQ-UI-007, REQ-FRM-002
  */
 import { Button, FormError, SelectField, TextField } from './Field.tsx';
 import { PetAssignments } from './PetAssignments.tsx';
@@ -88,6 +88,17 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
       ) : null}
       <TextField id={`${prefix}-breed`} label="Raza" name="breed" required value={form.values.breed ?? ''} onChange={form.onChange} errors={form.errors} />
       <TextField id={`${prefix}-birthDate`} label="Fecha de nacimiento" name="birthDate" type="date" required value={form.values.birthDate ?? ''} onChange={form.onChange} errors={form.errors} />
+      <label htmlFor={`${prefix}-birthDateIsEstimate`} className="flex items-center gap-2 text-sm font-medium text-slate-800 sm:col-span-2">
+        <input
+          type="checkbox"
+          id={`${prefix}-birthDateIsEstimate`}
+          name="birthDateIsEstimate"
+          checked={form.values.birthDateIsEstimate === 'true'}
+          onChange={(e) => form.onChange('birthDateIsEstimate', String(e.currentTarget.checked))}
+          className="h-4 w-4"
+        />
+        Fecha de nacimiento aproximada (estimada)
+      </label>
       <SelectField
         id={`${prefix}-sex`}
         label="Sexo"
@@ -100,17 +111,6 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
         onChange={form.onChange}
         errors={form.errors}
       />
-      <label htmlFor={`${prefix}-birthDateIsEstimate`} className="flex items-center gap-2 text-sm font-medium text-slate-800 sm:col-span-2">
-        <input
-          type="checkbox"
-          id={`${prefix}-birthDateIsEstimate`}
-          name="birthDateIsEstimate"
-          checked={form.values.birthDateIsEstimate === 'true'}
-          onChange={(e) => form.onChange('birthDateIsEstimate', String(e.currentTarget.checked))}
-          className="h-4 w-4"
-        />
-        Es una fecha estimada
-      </label>
       <SelectField
         id={`${prefix}-neutered`}
         label="Esterilizado"
