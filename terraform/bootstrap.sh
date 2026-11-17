@@ -179,9 +179,14 @@ run gcloud iam service-accounts add-iam-policy-binding "$APPLY_SA" --project="$P
 # La cuenta argos-deployer@ la crea Terraform (T439); la vincula el paso 5c (T485).
 
 say "5c. argos-deployer@: SOLO el workflow deploy-argos.yml desde refs/heads/main (T485, D-W1) [la cuenta debe existir: apply de T439 antes]"
-run gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" --project="$PROJECT" \
-  --role=roles/iam.workloadIdentityUser \
-  --member="principalSet://iam.googleapis.com/${POOL_PATH}/attribute.job_workflow_ref/${DEPLOY_WORKFLOW_REF}"
+if [ "$EXECUTE" -eq 1 ] && ! gcloud iam service-accounts describe "$DEPLOY_SA" --project="$PROJECT" >/dev/null 2>&1; then
+  echo "AVISO: ${DEPLOY_SA} aún no existe (se crea en el primer terraform apply). Continúa con los pasos 6 y 7; tras el apply ejecuta:" >&2
+  echo "  gcloud iam service-accounts add-iam-policy-binding ${DEPLOY_SA} --project=${PROJECT} --role=roles/iam.workloadIdentityUser --member=principalSet://iam.googleapis.com/${POOL_PATH}/attribute.job_workflow_ref/${DEPLOY_WORKFLOW_REF}" >&2
+else
+  run gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" --project="$PROJECT" \
+    --role=roles/iam.workloadIdentityUser \
+    --member="principalSet://iam.googleapis.com/${POOL_PATH}/attribute.job_workflow_ref/${DEPLOY_WORKFLOW_REF}"
+fi
 
 say "6. Variables de GitHub del día 0 (valores no sensibles; REQ-CICD-006)"
 WIF_PROVIDER="${POOL_PATH}/providers/${PROVIDER}"
