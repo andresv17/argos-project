@@ -14,7 +14,7 @@ afterEach(async () => api.close());
 
 const TRIVIAL = ['123456789012345', '000000000000000', '987654321098765', '111111111111111', '999999999999999', '012345678901234', '543210987654321'];
 // Descendentes módulo 10 que empiezan en 0, 1, 2 y 3: el patrón del contrato 3.1.0 los lista mal («09876543210-1-2-3-4», …), de modo que el esquema los deja pasar.
-// REQ-PET4-002 los rechaza igual; la validación de dominio (T557) cubre el hueco (H-K-004T556-1, contrato por corregir por /architect).
+// Corregido el patrón (af2aa3b, H-K-004T556-1), el esquema ya las rechaza; la regla de dominio (T557) sigue cubriéndolas como segunda línea.
 const TRIVIAL_FUERA_DEL_PATRON = ['098765432109876', '109876543210987', '210987654321098', '321098765432109'];
 const ORDINARY = '981020000000001';
 const petInput = (patch: Record<string, unknown> = {}) => ({ ...NEW_PET, name: 'Nube', species: 'RABBIT', breed: 'Cabeza de león', birthDate: '2024-01-10', sex: 'MALE', ...patch });
@@ -41,7 +41,8 @@ describe('T556 microchip trivial y texto del 409 (REQ-PET4-002, SC-CAT-029)', ()
       expect([problemOf(r), (r.json as { field?: string }).field]).toEqual([{ status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' }, 'microchipId']);
     }
     const hole = await api.call('PATCH', `/api/pets/${KIRA_ID}`, { cookie, body: { microchipId: '109876543210987' } });
-    expect([problemOf(hole), hole.text.includes('109876543210987')]).toEqual([{ status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' }, false]);
+    // El `detail` de ajv cita el patrón del contrato, que ahora lista las 20 secuencias (incluida esta): se comprueba que el valor enviado no se repite en el resto del cuerpo.
+    expect([problemOf(hole), JSON.stringify({ ...(hole.json as object), detail: undefined }).includes('109876543210987')]).toEqual([{ status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' }, false]);
     const list = await api.call('GET', '/api/pets', { cookie });
     expect(JSON.stringify(list.json)).not.toMatch(/123456789012345|000000000000000|987654321098765|098765432109876|109876543210987/);
   });
