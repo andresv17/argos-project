@@ -61,14 +61,23 @@ describe('terraform/iam.tf: permisos de secretos del deployer y binding WIF (T48
     const body = wif[0]?.body ?? '';
     const member = body.match(/member\s*=\s*"([^"]+)"/)?.[1] ?? '';
     expect(member).toMatch(
-      /^principalSet:\/\/iam\.googleapis\.com\/projects\/\$\{[^}]+\}\/locations\/global\/workloadIdentityPools\/[^/]+\/attribute\.job_workflow_ref\/\$\{var\.github_repository\}\/\.github\/workflows\/deploy-argos\.yml@refs\/heads\/main$/,
+      /^principalSet:\/\/iam\.googleapis\.com\/projects\/\$\{[^}]+\}\/locations\/global\/workloadIdentityPools\/\$\{var\.project_prefix\}-github\/attribute\.job_workflow_ref\/\$\{var\.github_repository\}\/\.github\/workflows\/deploy-argos\.yml@refs\/heads\/main$/,
     );
     expect(member).not.toContain('*');
     expect(member).not.toMatch(/attribute\.repository|infraestructura\.yml/);
   });
 
-  it('infraestructura.yml inyecta TF_VAR_github_repository desde github.repository', () => {
+  it('infraestructura.yml inyecta TF_VAR_github_repository exactamente una vez en cada job plan y apply', () => {
     const wf = readFileSync(join(process.cwd(), '.github', 'workflows', 'infraestructura.yml'), 'utf8');
-    expect(wf).toContain('TF_VAR_github_repository: ${{ github.repository }}');
+    const jobsText = wf.slice(wf.search(/^jobs:\s*$/m));
+    const parts = jobsText.split(/^ {2}([A-Za-z0-9_-]+):\s*$/m);
+    const jobs = new Map<string, string>();
+    for (let i = 1; i < parts.length; i += 2) jobs.set(parts[i] ?? '', parts[i + 1] ?? '');
+    const line = 'TF_VAR_github_repository: ${{ github.repository }}';
+    for (const name of ['plan', 'apply']) {
+      const body = jobs.get(name) ?? '';
+      expect(body.split(line).length - 1, `job ${name}`).toBe(1);
+    }
+    expect(wf.split(line).length - 1).toBe(2);
   });
 });
