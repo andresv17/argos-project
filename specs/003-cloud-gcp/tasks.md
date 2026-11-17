@@ -197,6 +197,7 @@
 - **TECHDEBT-CLD-004** (H-O-T489-5, BAJO) — Origen: T489. Estado: abierta. `quickstart.md §6` y `terraform/README.md` no describen el binding declarativo ni `TF_VAR_github_repository`. Neo decidió NO incluirlos en este lote. Se paga en la actualización documental previa a T456 (T450 o enmienda documental posterior).
 - **TECHDEBT-CLD-005** (H-O-T489-6, MENOR) — Origen: T489. Estado: abierta. `actionlint` no está instalado localmente; el YAML de `infraestructura.yml` queda cubierto por actionlint en CI (según Neo). Se paga al verificar la primera ejecución de CI con actionlint tras el merge (T457) o instalándolo en local.
 - **TECHDEBT-CLD-006** (H-O-T490-1, MENOR) — Origen: T490. Estado: abierta. La prueba anti-escalada de `tests/unit/terraform-bootstrap.spec.ts` solo cubre `roles/billing.admin|owner|editor`; otro rol de escritura de facturacion (`billing.user`, `billing.creator`, `costsManager`) en otra linea solo lo atrapan el conteo de 2 lineas y el `not.toContain` por linea. Se paga cuando se endurezca la prueba anti-escalada para cubrir cualquier rol de escritura de facturacion, no solo admin|owner|editor.
+- **TECHDEBT-CLD-007** (decisión de Neo, Level 2, 2026-11-17) — Origen: T469. Estado: abierta. La rotación real de los secretos a la versión 2 (valor nuevo, tras `validate-secrets`) queda pendiente para una ventana de mantenimiento de Neo; el ensayo de T469 ya firmada no la incluye. Se paga cuando Neo ejecute esa ventana. Sin cambio de estado de T469.
 ---
 
 ## Mapa de trazabilidad ID → tareas (1:1 con `spec.md`; sin huérfanos)
