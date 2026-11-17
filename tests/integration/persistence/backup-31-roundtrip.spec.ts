@@ -84,14 +84,29 @@ async function open(make: MakeEngine) {
 type Pets = Array<PetProfile & { breedCode?: string | null }>;
 const sorted = <T extends { id: string }>(rows: readonly T[]) => [...rows].sort((a, b) => (a.id < b.id ? -1 : 1));
 
-/** Estado del usuario: mascotas y sus 6 colecciones, ordenados por id. */
+/** JSON con claves ordenadas: el orden de claves de cada motor no es el contrato. */
+const canonical = (value: unknown): string =>
+  JSON.stringify(value, (_key, v: unknown) =>
+    typeof v === 'object' && v !== null && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([x], [y]) => (x < y ? -1 : 1))) : v,
+  );
+
+/** Estado del usuario: mascotas (la anterior a la 004 sin `breedCode` se lee nula, SC-CAT-004) y sus 6 colecciones, ordenados por id. */
 async function stateOf(uow: UnitOfWorkPort) {
   return uow.runInTransaction(async (r) => {
-    const pets = sorted(await r.pets.listByOwners([ANDRES])) as Pets;
+    const pets = sorted((await r.pets.listByOwners([ANDRES])).map((p) => ({ ...p, breedCode: (p as { breedCode?: string | null }).breedCode ?? null }))) as Pets;
     const records = [];
     for (const pet of pets) {
       const own = await r.records.listForPet(pet.id);
-      records.push(Object.fromEntries(Object.entries(own).map(([module, rows]) => [module, sorted(rows as Array<{ id: string }>)])));
+      records.push(
+        Object.fromEntries(
+          Object.entries(own).map(([module, rows]) => [
+            module,
+            sorted(
+              (rows as Array<{ id: string }>).map((row) => (module === 'customParameters' ? { symptomType: null, severity: null, ...row } : row)), // anterior a la 004 = nulos
+            ),
+          ]),
+        ),
+      );
     }
     return { pets, records };
   });
@@ -148,7 +163,7 @@ function defineRoundTrip(make: MakeEngine) {
     expect(result.sourceSchemaVersion).toBe('3.1.0');
     const after = await stateOf(uow);
     expect(after.pets.find((p) => p.id === toby.id)).toMatchObject({ breedCode: 'DOG_BEAGLE', breed: 'Beagle' });
-    expect(JSON.stringify(after)).toBe(JSON.stringify(before));
+    expect(JSON.parse(canonical(after))).toEqual(JSON.parse(canonical(before)));
   });
 
   it('la vista previa de un 3.1.0 informa sourceSchemaVersion 3.1.0 y no cambia nada', async () => {

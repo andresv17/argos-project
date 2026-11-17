@@ -41,14 +41,26 @@ addFormats(ajv);
 const PET_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/pet.schema.json';
 // T535: los parámetros adicionales llevan `symptomType` y `severity` (medical-records.schema.json 3.1.0 de la 004, mismo $id). `revision` (4A-2,
 // edición con If-Match) aún no existe en el servidor: el arnés la exime de `required` en los 6 registros hasta que la implemente su tarea.
-// `symptomType` y `severity` también quedan fuera de `required` porque el sobre 3.0.0 de la 002 reutiliza este mismo registro y la exportación
-// 3.0.0 los omite hasta el respaldo 3.1.0 (T617).
+// T617: `symptomType` y `severity` vuelven a ser obligatorios en el registro (ya no hay exportación 3.0.0 que los omita); es un endurecimiento.
 const RECORDS_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/medical-records.schema.json';
+// T617: el respaldo es 3.1.0 (backup-envelope.schema.json 3.1.0 de la 004, mismo $id; conserva BackupEnvelopeV3 y los heredados, añade
+// BackupEnvelopeV31 y amplía `sourceSchemaVersion` a 3.1.0). SUPERSESIÓN LEGÍTIMA, no debilitamiento: el OpenAPI de la 002 declara la respuesta de
+// POST /backup/export como BackupEnvelopeV3 y la exportación ahora emite 3.1.0 (REQ-BACKUP2-001 de la 004); el arnés apunta esa respuesta a
+// BackupEnvelopeV31 del mismo OpenAPI de la 004, y se valida con el esquema completo (breedCode, symptomType y severity obligatorios, sin
+// propiedades adicionales). `mediaToDeleteCount` (ImportPreviewResult) pertenece a la vista previa de T604/T605: se exime de `required` hasta entonces.
+const BACKUP_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/backup-envelope.schema.json';
+const exportOk = (openapi.paths['/backup/export']!['post'] as { responses: Record<string, { content: Record<string, { schema: { $ref: string } }> }> }).responses['200']!.content['application/json']!.schema;
+exportOk.$ref = exportOk.$ref.replace('#/$defs/BackupEnvelopeV3', '#/$defs/BackupEnvelopeV31');
 for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) {
   if (file === 'medical-records.schema.json') {
     const records = JSON.parse(readFileSync(RECORDS_004, 'utf8')) as { $defs: Record<string, { required?: string[] }> };
-    for (const def of Object.values(records.$defs)) if (def.required !== undefined) def.required = def.required.filter((name) => name !== 'revision' && name !== 'symptomType' && name !== 'severity');
+    for (const def of Object.values(records.$defs)) if (def.required !== undefined) def.required = def.required.filter((name) => name !== 'revision');
     ajv.addSchema(records);
+  } else if (file === 'backup-envelope.schema.json') {
+    const backup = JSON.parse(readFileSync(BACKUP_004, 'utf8')) as { $defs: Record<string, { required?: string[] }> };
+    const preview = backup.$defs['ImportPreviewResult']!;
+    preview.required = (preview.required ?? []).filter((name) => name !== 'mediaToDeleteCount');
+    ajv.addSchema(backup);
   } else if (file === 'pet.schema.json') {
     const pet = JSON.parse(readFileSync(PET_004, 'utf8')) as { $defs: { PetProfile: { required: string[] } } };
     pet.$defs.PetProfile.required = pet.$defs.PetProfile.required.filter((name) => name !== 'avatarVersion');

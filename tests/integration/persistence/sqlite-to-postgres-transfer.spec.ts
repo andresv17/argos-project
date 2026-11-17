@@ -128,7 +128,7 @@ describe('T430 exportación v3 de dos usuarios con un hogar compartido (REQ-PG-0
       const { envelope } = await exporter.execute(userId);
       const ownedIds = state.pets.filter((p) => p.ownerUserId === userId).map((p) => p.id);
       expect(Object.keys(envelope).sort()).toEqual(['exportedAt', 'pets', 'records', 'schemaVersion']);
-      expect(envelope.schemaVersion).toBe('3.0.0');
+      expect(envelope.schemaVersion).toBe('3.1.0');
       expect(Object.keys(envelope.records).sort()).toEqual([...MODULES].sort());
       expect(envelope.pets.map((p) => p.id).sort()).toEqual([...ownedIds].sort());
       for (const module of MODULES) {
