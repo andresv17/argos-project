@@ -101,7 +101,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     ...(serveStatic ? { staticRoot } : {}),
   });
   app.addHook('onClose', () => persistence.close());
-  // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). Falla cerrado hasta elegir la librería JWT (N2).
+  // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). El token OIDC del Scheduler se verifica con jose (createOidcVerifier, T486): firma, issuer, audiencia y correo.
   if (config.dbDriver === 'postgres' && config.schedulerEmail !== null && config.oidcAudience !== null) {
     registerMaintenanceRoute(app, {
       verifyOidc: createOidcVerifier({ audience: config.oidcAudience }),
