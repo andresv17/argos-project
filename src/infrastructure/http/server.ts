@@ -23,6 +23,7 @@ import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
 import { DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
 import { runMaintenance } from '../../application/use-cases/maintenance-use-cases.ts';
 import { buildApp } from './app.ts';
+import { mediaBucketHost } from './plugins/security-headers.ts';
 import { cloudLoggerOptions } from './cloud-logging.ts';
 import { installShutdownHandlers } from './graceful-shutdown.ts';
 import { createOidcVerifier } from './oidc-verify.ts';
@@ -99,6 +100,8 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     trustProxy: config.host === '0.0.0.0' ? 1 : false,
     checkReady: options.checkReady ?? persistence.checkReady,
     ...(serveStatic ? { staticRoot } : {}),
+    // CSP con el host del bucket de medios solo con el driver gcs (T564, E3-03, SC-ALM-012).
+    ...(config.mediaDriver === 'gcs' && config.mediaBucket !== null ? { mediaHost: mediaBucketHost(config.mediaBucket) } : {}),
   });
   app.addHook('onClose', () => persistence.close());
   // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). El token OIDC del Scheduler se verifica con jose (createOidcVerifier, T486): firma, issuer, audiencia y correo.

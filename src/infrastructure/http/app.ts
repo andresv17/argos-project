@@ -34,17 +34,19 @@ export interface HttpAppOptions {
   readonly checkReady?: () => Promise<void>;
   /** Si está presente se sirven los estáticos de dist/ con fallback SPA (REQ-CLD-001), siempre al final. */
   readonly staticRoot?: string;
+  /** Host `<bucket>.storage.googleapis.com` del bucket de medios para la CSP (T564); ausente con el driver memory. */
+  readonly mediaHost?: string;
 }
 
 /** @implements INV-ARCH-004, INV-AUTH-007 */
-export async function buildApp({ deps, cookieSecure, logger = false, trustProxy = false, checkReady, staticRoot }: HttpAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ deps, cookieSecure, logger = false, trustProxy = false, checkReady, staticRoot, mediaHost }: HttpAppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger, trustProxy: typeof trustProxy === 'number' ? (_address: string, hop: number) => hop < trustProxy : trustProxy });
   await app.register(cookie);
   app.decorateRequest('userId', '');
   app.removeAllContentTypeParsers();
   app.addContentTypeParser('*', { parseAs: 'buffer' }, (_request, body, done) => done(null, body));
   registerProblemDetails(app);
-  registerSecurityHeaders(app);
+  registerSecurityHeaders(app, mediaHost === undefined ? {} : { mediaHost });
   registerCsrfGuard(app);
   const context = { useCases: createUseCases(deps), cookieSecure };
   registerAuthRoutes(app, context);
