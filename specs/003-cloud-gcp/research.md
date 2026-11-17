@@ -145,3 +145,11 @@ Verificación del informe `.specify/memory/audits/gate-merovingian-003.md` (2026
 - **Retención:** el bucket `_Default` de Cloud Logging conserva 30 días si no se cambia (configurable de 1 a 3650 días). **[verificar]** que este log concreto se enruta a `_Default` (sumidero `_Default`) en el proyecto real: la documentación consultada no lo afirma para `run.googleapis.com/requests`. No se fija una cifra distinta; si Neo acorta o alarga el periodo, se actualiza `data-model.md §6`.
 - **Fuentes:** [Logging and viewing logs in Cloud Run](https://docs.cloud.google.com/run/docs/logging), [Configure log buckets](https://docs.cloud.google.com/logging/docs/buckets), [LogEntry/HttpRequest](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry) (consultadas 2026-11-16).
 
+
+## 11. Medición T459 (latencia y arranque en frío; 2026-11-17)
+- **Fuente de latencia:** logs de Cloud Run `httpRequest.latency` del servicio `argos`, últimas 24 h, todas las rutas: n=143, **p50 = 0.40 s, p95 = 1.22 s**. La muestra mezcla rutas (incluye login con hash de contraseña) y no separa instancia fría de caliente.
+- **Contraste con NFR-CLD-006** (p95 <= 800 ms con instancia caliente y Neon activo): **no cumplido en esta muestra** (1.22 s). No se recalibra aquí: queda abierto para decisión de Neo (recalibrar el umbral o investigar la ruta lenta). Se registra tal cual.
+- **Arranque en frío (SC-CLD-012):** primera solicitud autenticada tras pausa de 10 min (11:34 a 11:44 UTC): login 200 en **1.38 s**, `GET /pets` 200.
+- **Contraste con NFR-CLD-005** (<= 8 s tras >= 15 min sin tráfico): **cumple con 1.38 s**, pero la pausa medida fue de 10 min, no de 15. La condición exacta no se midió.
+- **RTT Cloud Run→Neon:** no medido por separado. Sin medición explícita de arranque encadenado (Neon despierto + instancia fría); queda como reserva.
+- **Registro:** Seraph, `recorrido-aceptacion-003.md` (SC-CLD-012); Oracle, `oracle-T460-aceptacion.md`.

@@ -79,7 +79,7 @@ Pruebas adicionales: la interfaz no hace peticiones autenticadas en segundo plan
 4. Como `CAREGIVER`, registrar un peso (permitido) e intentar editar el nombre de la mascota (denegado y sin botón).
 5. Registrar dos vacunas «Rabia»: la primera pasa al acordeón «Registros anteriores» y su edición se rechaza.
 6. Exportar el respaldo (el servidor emite el token en la cabecera), importarlo con previsualización y observar el aviso de mascotas compartidas.
-7. Intentar eliminar la cuenta con una mascota compartida (bloqueada); transferirla; eliminar con frase `ELIMINAR MI CUENTA`, contraseña y token vigente.
+7. Intentar eliminar la cuenta con una mascota compartida (bloqueada); transferir la mascota o, si es propietario de un hogar con otros miembros `ACTIVE`, transferir o eliminar la propiedad del hogar (`REQ-ACC-002`); eliminar con frase `ELIMINAR MI CUENTA`, contraseña y token vigente.
 
 ## 7. Qué NO validar todavía
 

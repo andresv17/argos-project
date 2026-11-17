@@ -14,6 +14,13 @@
 #   bash terraform/bootstrap.sh              # dry-run (imprime)
 #   bash terraform/bootstrap.sh --execute    # ejecuta de verdad
 #
+# Secuencia en dos fases (T469 a; solo comentario, sin cambio de lógica):
+#   Fase 1 (este script, Neo, una vez): proyecto, facturación, APIs mínimas, bucket de estado, cuentas de Terraform,
+#          WIF, variables de GitHub y Environment produccion. Los secretos los pega Neo por stdin (paso 8).
+#   Fase 2 (CI): infraestructura.yml aplica Terraform desde main (imagen marcadora, sin sondas ni secretos) y
+#          deploy-argos.yml fija imagen, env, sondas, versiones numéricas de secretos y tráfico.
+#   Ver terraform/README.md, sección "Secuencia de bootstrap en dos fases".
+#
 # Este script NO contiene ni recibe valores de secretos. Los secretos de GitHub
 # (TF_VAR_database_url, TF_VAR_audit_hmac_secret, DATABASE_URL_DIRECT) los pega Neo
 # por stdin con `gh secret set` (quickstart.md sec. 6); aquí solo se imprimen las órdenes.
