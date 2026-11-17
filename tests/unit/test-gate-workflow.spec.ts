@@ -51,8 +51,18 @@ describe('.github/workflows/test-gate.yml (T447)', () => {
   });
 
   it.skipIf(!hasBase)('los pasos existentes no cambiaron respecto de b6cacc5', () => {
-    const before = steps(git('show', `${BASE}:.github/workflows/test-gate.yml`));
+    // D-29 punto 6 (Neo): el paso Install Playwright Chromium sale del gate rápido; los demás no cambian.
+    const before = steps(git('show', `${BASE}:.github/workflows/test-gate.yml`)).replace(
+      / {6}- name: Install Playwright[^\n]*\n {8}run: npx playwright install --with-deps chromium\n\n/,
+      '',
+    );
     expect(steps(load())).toBe(before);
+  });
+
+  it('D-29: test-gate.yml sin Install Playwright ni playwright install', () => {
+    const y = load();
+    expect(y).not.toMatch(/Install Playwright/);
+    expect(y).not.toMatch(/playwright install/);
   });
 
   it('el trabajo reutilizable tiene permissions contents: read por trabajo', () => {
