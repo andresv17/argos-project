@@ -14,13 +14,12 @@
  *   escribe en la misma transacción 1 fila de auditoría IMPORT; tras el commit pide el checkpoint del WAL.
  * Fechas solo de ClockPort (INV-ARCH-001); persistencia solo por UnitOfWorkPort (INV-ARCH-005).
  *
- * @implements REQ-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, REQ-RBAC-001, REQ-ACC-002, ERR-RATE-LIMITED, INV-BACKUP-001, STATE-BACKUP-001, ERR-BACKUP-MALFORMED-JSON, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-BACKUP-VERSION-UNSUPPORTED, ERR-BACKUP-SCHEMA-INVALID, ERR-BACKUP-REFERENTIAL-INTEGRITY, ERR-BACKUP-ATOMIC-ROLLBACK, INV-ARCH-001, INV-ARCH-004, INV-ARCH-005
+ * @implements REQ-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, REQ-RBAC-001, REQ-ACC-002, ERR-RATE-LIMITED, REQ-PET4-001, INV-PET4-001, REQ-IMP-001, INV-BACKUP-001, STATE-BACKUP-001, ERR-BACKUP-MALFORMED-JSON, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-BACKUP-VERSION-UNSUPPORTED, ERR-BACKUP-SCHEMA-INVALID, ERR-BACKUP-REFERENTIAL-INTEGRITY, ERR-BACKUP-ATOMIC-ROLLBACK, INV-ARCH-001, INV-ARCH-004, INV-ARCH-005
  */
 
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
-  STATE_BACKUP_001,
   validateBackupEnvelopeV1Legacy,
   validateBackupEnvelopeV2Legacy,
   validateBackupEnvelopeV3,
@@ -28,12 +27,17 @@ import {
   type BackupEnvelopeV2Legacy,
   type components,
   type ErrorCode,
+} from '../../generated/index.ts';
+import { isMicrochipGlobalViolation } from './microchip-violation.ts';
+import {
+  STATE_BACKUP_001,
+  validateBackupEnvelopeV31,
+  type BackupEnvelopeV31,
+  type components as ComponentsV31,
   type RollbackFinalState,
   type StateBackup001Event,
   type StateBackup001State,
-} from '../../generated/index.ts';
-import { isMicrochipGlobalViolation } from './microchip-violation.ts';
-import { validateBackupEnvelopeV31, type BackupEnvelopeV31, type components as ComponentsV31 } from '../../generated/v31/index.ts';
+} from '../../generated/v31/index.ts';
 import { liftEnvelopeV3ToV31, migrateEnvelopeV2ToV3, migrateLegacyEnvelope } from '../../domain/backup/backup-migration.ts';
 import { assertBreedConsistency } from '../../domain/pet/breed-catalog.ts';
 import { computeFileDigest, fileDigestMatches } from '../../domain/backup/file-digest.ts';
@@ -114,6 +118,18 @@ class ImportRun {
   propagate(error: DomainError): DomainError {
     this.fire('DOMAIN_INVARIANT_VIOLATED');
     return new DomainError(error.code, error.detail, error.field, 'ROLLED_BACK');
+  }
+
+  /**
+   * UNIQUE_CONSTRAINT_VIOLATED desde COMMITTING_SNAPSHOT (PROPAGATE_SPECIFIC, máquina 2.4.0): el código lo fija quien llama y la máquina
+   * lo acota con allowedErrors (solo ERR-PET-MICROCHIP-DUPLICATE). @implements REQ-PET4-001, INV-PET4-001
+   */
+  propagateUnique(code: ErrorCode, detail?: string): DomainError {
+    const definition = this.fire('UNIQUE_CONSTRAINT_VIOLATED') as { error: string; allowedErrors?: readonly string[]; finalState?: RollbackFinalState };
+    if (definition.error !== 'PROPAGATE_SPECIFIC' || !definition.allowedErrors?.includes(code)) {
+      throw new Error(`STATE-BACKUP-001: ${code} no está permitido en UNIQUE_CONSTRAINT_VIOLATED`);
+    }
+    return new DomainError(code, detail, 'microchipId', definition.finalState ?? 'ROLLED_BACK');
   }
 }
 
@@ -481,7 +497,6 @@ export class ImportBackupUseCase {
     );
     // REQ-PET4-001, REQ-IMP-001 (3): el microchip es único en todo el sistema y lo impone `pets_microchip_global` al guardar; si OTRO usuario ya lo
     // tiene, la importación falla completa con el error uniforme y el detalle nombra solo la mascota PROPIA del archivo (posición y nombre).
-    let microchipConflict: DomainError | null = null;
     try {
       await this.deps.uow.runInTransaction(async (repositories) => {
         await this.pipeline.assertNoForeignIds(run, repositories, userId, envelope);
@@ -505,15 +520,10 @@ export class ImportBackupUseCase {
             await repositories.pets.save(pet);
           } catch (error) {
             if (!isMicrochipGlobalViolation(error)) throw error;
-            // La máquina de importación no declara este caso desde COMMITTING_SNAPSHOT: se lanza el error de dominio con finalState ROLLED_BACK
-            // (la transacción se revierte) sin disparar un evento (pregunta abierta a /architect).
-            microchipConflict = new DomainError(
+            throw run.propagateUnique(
               'ERR-PET-MICROCHIP-DUPLICATE',
               `La mascota n.º ${index + 1} del archivo («${pet.name}») tiene un microchip que ya está registrado en ARGOS.`,
-              'microchipId',
-              'ROLLED_BACK',
             );
-            throw microchipConflict;
           }
         }
         for (const { module, record } of recordsOf(envelope)) {
@@ -531,7 +541,7 @@ export class ImportBackupUseCase {
       });
     } catch (error) {
       // ID ajeno: run.fail ya llevó la máquina a ROLLED_BACK con ERR-BACKUP-REFERENTIAL-INTEGRITY.
-      if (run.state === 'ROLLED_BACK' || error === mismatch || (microchipConflict !== null && error === microchipConflict)) throw error;
+      if (run.state === 'ROLLED_BACK' || error === mismatch) throw error;
       if (run.state === 'CHECKING_DOMAIN_INVARIANTS') {
         throw run.fail('STORAGE_READ_FAILED', 'Fallo del almacenamiento al comprobar los IDs del respaldo.');
       }

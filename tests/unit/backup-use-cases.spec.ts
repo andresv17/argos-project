@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   DomainError,
-  STATE_BACKUP_001,
-  STATE_BACKUP_001_EVENTS,
-  STATE_BACKUP_001_STATES,
   type BackupEnvelopeV3,
   type PetProfile,
 } from '../../src/generated/index.ts';
-import { validateBackupEnvelopeV31 } from '../../src/generated/v31/index.ts';
+import { STATE_BACKUP_001, STATE_BACKUP_001_EVENTS, STATE_BACKUP_001_STATES, validateBackupEnvelopeV31 } from '../../src/generated/v31/index.ts';
 import {
   ExportBackupUseCase,
   ImportBackupUseCase,
@@ -431,6 +428,36 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
     expect([r.code, r.status, r.finalState, r.path]).toEqual(['ERR-BACKUP-ATOMIC-ROLLBACK', 500, 'ROLLED_BACK', [...UNTIL_COMMIT, 'STORAGE_ERROR>ROLLED_BACK']]);
   });
 
+  it('[STATE-BACKUP-001][REQ-PET4-001][INV-PET4-001] un microchip ya registrado al guardar termina en INVARIANTS_VALID>UNIQUE_CONSTRAINT_VIOLATED>ROLLED_BACK con ERR-PET-MICROCHIP-DUPLICATE, sin microchip en el detalle', async () => {
+    const uow = new ScriptedUnitOfWork((inner, work) =>
+      inner.runInTransaction((r) =>
+        work({ ...r, pets: { ...r.pets, save: async () => { throw Object.assign(new Error('UNIQUE constraint failed: pets.microchip_id'), { code: 'SQLITE_CONSTRAINT_UNIQUE' }); } } }),
+      ),
+    );
+    const before = json(uow.inner.snapshot());
+    const { steps, promise } = importer({ ...createHarness().deps, uow })(json(v3()));
+    const error = await failure(promise);
+    expect([error.code, error.finalState, error.field, path(steps).slice(-2), json(uow.inner.snapshot()) === before]).toEqual([
+      'ERR-PET-MICROCHIP-DUPLICATE',
+      'ROLLED_BACK',
+      'microchipId',
+      ['INVARIANTS_VALID>COMMITTING_SNAPSHOT', 'UNIQUE_CONSTRAINT_VIOLATED>ROLLED_BACK'],
+      true,
+    ]);
+    expect(String(error.detail)).not.toMatch(/\d{9,}/);
+  });
+
+  it('[STATE-BACKUP-001][INV-PET4-001] otra violación de unicidad (no pets_microchip_global) sigue siendo STORAGE_ERROR', async () => {
+    const uow = new ScriptedUnitOfWork((inner, work) =>
+      inner.runInTransaction((r) =>
+        work({ ...r, pets: { ...r.pets, save: async () => { throw Object.assign(new Error('UNIQUE constraint failed: pets.id'), { code: 'SQLITE_CONSTRAINT_UNIQUE' }); } } }),
+      ),
+    );
+    const { steps, promise } = importer({ ...createHarness().deps, uow })(json(v3()));
+    const error = await failure(promise);
+    expect([error.code, error.finalState, path(steps).at(-1)]).toEqual(['ERR-BACKUP-ATOMIC-ROLLBACK', 'ROLLED_BACK', 'STORAGE_ERROR>ROLLED_BACK']);
+  });
+
   it('[ERR-BACKUP-ATOMIC-ROLLBACK] un DomainError del almacenamiento durante el commit también es STORAGE_ERROR, salvo que señale rollback fallido', async () => {
     const uow = new ScriptedUnitOfWork((inner, work) =>
       inner.runInTransaction((r) => work({ ...r, records: { ...r.records, add: async () => { throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'fila corrupta'); } } })),
@@ -505,7 +532,7 @@ describe('conformidad con contracts/state-machines/backup-import.machine.json', 
 
   it('[STATE-BACKUP-001] backupImportTransition devuelve exactamente cada transición de la máquina generada', () => {
     expect(defined.map(({ state, event }) => backupImportTransition(state as never, event as never))).toEqual(defined.map(({ t }) => t));
-    expect(defined.length).toBe(22);
+    expect(defined.length).toBe(23);
   });
 
   it('[STATE-BACKUP-001] un evento que la máquina no define en un estado lanza: COMPLETED y ROLLED_BACK son finales', () => {
