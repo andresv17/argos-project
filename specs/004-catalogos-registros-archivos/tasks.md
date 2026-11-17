@@ -187,9 +187,9 @@
 
 - [x] T591 [P] `/trinity` y `/sentinels`: pruebas de seguridad de medios (IDOR entre mascotas y hogares, políglotas, SVG/HTML, CSRF y límite de tamaño en la subida, enumeración y límite por usuario del microchip) en `tests/security/` (INV-ARC-002, INV-ARC-001, REQ-ARC-002, REQ-PET4-001, REQ-PET4-002, INV-LOG-002)
 - [x] T592 [P] `/seraph`: E2E con las cabeceras de CSP de producción y WCAG 2.1 AA a 320, 1024 y 1280 px del recortador, el visor y `PetForm` (REQ-AVA-002, REQ-FRM-002, REQ-ARC-003)
-- [ ] T593 [P] `/kid`: recorrido multi-navegador de un hogar compartido con medios de mascotas compartidas (REQ-ARC-002)
+- [x] T593 [P] `/kid`: recorrido multi-navegador de un hogar compartido con medios de mascotas compartidas (REQ-ARC-002)
 - [x] T594 [P] Comprobación de costo: `terraform plan` sin recursos de pago y cuenta de operaciones esperadas dentro del cupo (SC-ALM-024) (NFR-ALM-001)
-- [ ] T595 Runbook y `quickstart.md` de 004: retención 0 y ventana única de `REQ-PG-011` para los registros borrados, ventana de la cola de GCS (inmediata, <= 24 h, sin tope con alerta a las 48 h), aviso de eliminación de cuenta, restauración (`REQ-PG-016`) sin resurrección de medios y reaplicando borrados desde la auditoría, migración aditiva sin retroceso destructivo, no activar Data Access logs del bucket de medios, canal de resolución de microchip por Neo, métrica de bytes servidos (SC-ALM-033) (REQ-GCS-004, REQ-ACC-002, REQ-BOR-004, NFR-ALM-005, REQ-PET4-002, NFR-ALM-001)
+- [x] T595 Runbook y `quickstart.md` de 004: retención 0 y ventana única de `REQ-PG-011` para los registros borrados, ventana de la cola de GCS (inmediata, <= 24 h, sin tope con alerta a las 48 h), aviso de eliminación de cuenta, restauración (`REQ-PG-016`) sin resurrección de medios y reaplicando borrados desde la auditoría, migración aditiva sin retroceso destructivo, no activar Data Access logs del bucket de medios, canal de resolución de microchip por Neo, métrica de bytes servidos (SC-ALM-033) (REQ-GCS-004, REQ-ACC-002, REQ-BOR-004, NFR-ALM-005, REQ-PET4-002, NFR-ALM-001)
 - [x] T596 Compuertas finales: `npx tsc --noEmit`, `npm run test:gate`, `bash scripts/verify-traceability.sh --feature 004`, `bash scripts/verify-oracles.sh`; auditoría de `/oracle` (REQ-ESP-001, NFR-ALM-004)
 - [ ] T597 [N2] Neo: despliegue por CI aprobado, `terraform apply` y verificación en vivo de subida, vista en línea (URL firmada, `iframe`, caducidad y CSP de producción), borrado físico, avatar, y prueba en un dispositivo móvil real (PE-04, PE-05, PE-06); firma `[x]` (REQ-GCS-001, REQ-GCS-002, REQ-ARC-003, REQ-GCS-004)
 
@@ -205,6 +205,7 @@
 | TECHDEBT-004-04 | tope de píxeles y miniaturas de las fotos | página del álbum con > 3 s hasta la primera imagen en 4G simulado, o cierre de pestaña por memoria con fotos reales | `D-20` B, `D-09` |
 | TECHDEBT-004-05 | altas de razas del catálogo (`0.2.0`) | validación de `/maggie` y veterinario (`PE-03`) | MAG-004-013, 014 |
 | TECHDEBT-004-06 | límite por IP en el login: limitador en la aplicación (`src/`) o Cloud Armor en `terraform/`, a decidir en una feature posterior; hoy solo mitiga el hash costoso uniforme (`INV-AUTH-006`) | feature posterior de endurecimiento del login, o evidencia de fuerza bruta distribuida contra cuentas con correo conocido (tope efectivo 10 intentos por ventana) | `RR-07`, H-T591R-1 (decisión y firma de Neo 2026-11-17) |
+| TECHDEBT-004-07 | recorrido E2E Playwright multi-navegador de cohabitación sobre UI con medios compartidos (hoy cubierto por pruebas de integración API `t593-cohabitacion.api.spec.ts` en los 5 estados y permisos cruzados) | regresión de concurrencia multi-sesión en UI o ampliación de la suite E2E de hogares compartidos | `T593`, H-O-T593-1 (decisión y firma de Neo 2026-11-17) |
 
 ## Mapa de trazabilidad ID → tareas (1:1 con `spec.md`; sin huérfanos)
 
