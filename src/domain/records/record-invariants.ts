@@ -18,15 +18,12 @@ import {
   DomainError,
   resolveFieldErrorCode,
   validateBodyMeasurementRecord,
-  validateCreateCustomParameterInput,
   validateCreateDewormingInput,
   validateCreateMedicalVisitInput,
   validateCreateVaccinationInput,
   validateCreateWeightInput,
-  validateCustomParameterRecord,
   validateDewormingRecord,
   validateMedicalVisitRecord,
-  validateUpdateCustomParameterInput,
   validateUpdateDewormingInput,
   validateUpdateMedicalVisitInput,
   validateUpdateVaccinationInput,
@@ -37,7 +34,6 @@ import {
   type BodyMeasurementRecord,
   type components,
   type CreateBodyMeasurementInput,
-  type CreateCustomParameterInput,
   type CreateDewormingInput,
   type CreateMedicalVisitInput,
   type CreateVaccinationInput,
@@ -51,9 +47,14 @@ import {
   type WeightRecord,
 } from '../../generated/index.ts';
 // Contrato 3.1.0 (feature 004): las entradas de medidas son enteras (REQ-MDC-001); los registros siguen en la forma 002 para leer los guardados con decimales.
+// Síntomas (REQ-SIN-001): CustomParameter 3.1.0 con symptomType y severity.
 import {
   validateCreateBodyMeasurementInput as validateCreateBodyMeasurementInputV31,
+  validateCreateCustomParameterInput as validateCreateCustomParameterInputV31,
+  validateCustomParameterRecord as validateCustomParameterRecordV31,
   validateUpdateBodyMeasurementInput as validateUpdateBodyMeasurementInputV31,
+  validateUpdateCustomParameterInput as validateUpdateCustomParameterInputV31,
+  type CreateCustomParameterInput as CreateCustomParameterInputV31,
 } from '../../generated/v31/index.ts';
 import { validateEventDateWindow } from '../shared/date-utils.ts';
 import { sortHistoricalRecords } from '../sorting/deterministic-sorter.ts';
@@ -71,7 +72,7 @@ export interface RecordInputs {
   vaccinations: CreateVaccinationInput;
   dewormings: CreateDewormingInput;
   medicalVisits: CreateMedicalVisitInput;
-  customParameters: CreateCustomParameterInput;
+  customParameters: CreateCustomParameterInputV31;
 }
 
 interface ValidatorWithErrors {
@@ -98,6 +99,39 @@ export interface RecordModuleRules {
   readonly integerInputFields: readonly string[];
   /** Fecha que debe ser estrictamente posterior a eventDateField y su código (INV-REC-004/005). */
   readonly nextDate: { readonly field: string; readonly error: ErrorCode } | null;
+}
+
+export type SymptomType = NonNullable<CreateCustomParameterInputV31['symptomType']>;
+export type SymptomSeverity = NonNullable<CreateCustomParameterInputV31['severity']>;
+/** Parámetro adicional con los campos de síntoma de la 004; son nulos fuera de la categoría SYMPTOM (REQ-SIN-001). */
+export type CustomParameterWithSymptom = CustomParameterRecord & { readonly symptomType: SymptomType | null; readonly severity: SymptomSeverity | null };
+
+/** Los parámetros guardados antes de la 004 no tienen symptomType ni severity: se leen con ambos nulos (REQ-SIN-001). @implements REQ-SIN-001 */
+export function withSymptomFields(record: CustomParameterRecord): CustomParameterWithSymptom {
+  const stored = record as CustomParameterRecord & { symptomType?: SymptomType | null; severity?: SymptomSeverity | null };
+  return { ...record, symptomType: stored.symptomType ?? null, severity: stored.severity ?? null };
+}
+
+/**
+ * Valida un parámetro guardado contra CustomParameterRecord 3.1.0 (catálogo cerrado y coherencia categoría/tipo, INV-SIN-001). El registro
+ * aún no almacena `revision` (llega con la edición concurrente): se completa con 0 solo para esta comprobación.
+ * @implements REQ-SIN-001, INV-SIN-001
+ */
+const validateStoredCustomParameter: ValidatorWithErrors = Object.assign(
+  (data: unknown): boolean => {
+    const candidate = typeof data === 'object' && data !== null && !Array.isArray(data)
+      ? { ...(data as Record<string, unknown>), symptomType: (data as Record<string, unknown>)['symptomType'] ?? null, severity: (data as Record<string, unknown>)['severity'] ?? null, revision: (data as Record<string, unknown>)['revision'] ?? 0 }
+      : data;
+    const ok = validateCustomParameterRecordV31(candidate);
+    validateStoredCustomParameter.errors = validateCustomParameterRecordV31.errors ?? null;
+    return ok;
+  },
+  { errors: null as NonNullable<ValidatorWithErrors['errors']> | null },
+);
+
+/** Comprobación de almacenamiento de un parámetro adicional (SQLite y PostgreSQL). @implements REQ-SIN-001, INV-SIN-001 */
+export function isStoredCustomParameter(value: unknown): value is CustomParameterRecord {
+  return validateStoredCustomParameter(value);
 }
 
 const ref = (name: string, validate: unknown): SchemaRef => ({ name, validate: validate as ValidatorWithErrors });
@@ -156,8 +190,8 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     nextDate: null,
   },
   customParameters: {
-    record: ref('CustomParameterRecord', validateCustomParameterRecord),
-    input: ref('CreateCustomParameterInput', validateCreateCustomParameterInput),
+    record: ref('CustomParameterRecord', validateStoredCustomParameter),
+    input: ref('CreateCustomParameterInput', validateCreateCustomParameterInputV31),
     eventDateField: 'recordedAt',
     weightField: null,
     decimalFields: [],
@@ -269,7 +303,7 @@ const UPDATE_SCHEMAS: Readonly<Record<EditableRecordModule, { readonly collectio
   vaccinations: { collection: 'vaccinations', schema: ref('UpdateVaccinationInput', validateUpdateVaccinationInput) },
   dewormings: { collection: 'dewormings', schema: ref('UpdateDewormingInput', validateUpdateDewormingInput) },
   medicalVisits: { collection: 'visits', schema: ref('UpdateMedicalVisitInput', validateUpdateMedicalVisitInput) },
-  customParameters: { collection: 'custom-parameters', schema: ref('UpdateCustomParameterInput', validateUpdateCustomParameterInput) },
+  customParameters: { collection: 'custom-parameters', schema: ref('UpdateCustomParameterInput', validateUpdateCustomParameterInputV31) },
 };
 
 /** Módulo de la colección de la ruta `/records/{collection}` (RecordCollection del contrato); undefined si no existe. */

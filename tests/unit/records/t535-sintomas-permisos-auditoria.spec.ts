@@ -13,7 +13,7 @@ const SYMPTOM = { recordedAt: '2026-11-05', category: 'SYMPTOM', symptomType: 'V
 function harnessWithRole(role: 'ADMIN' | 'CAREGIVER' | 'READER') {
   const state = canonicalState();
   const membership = state.memberships.find((m) => m.userId === MARIA)!;
-  membership.role = role;
+  (membership as { role: string }).role = role;
   return createHarness(state);
 }
 async function codeOf(promise: Promise<unknown>): Promise<string> {

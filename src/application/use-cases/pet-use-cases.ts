@@ -17,7 +17,7 @@ import { petPermissionsFor } from '../../domain/access/rbac.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import { ownerTag } from '../../domain/households/household-policies.ts';
 import { assertMicrochipUniqueForOwner, collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
-import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
+import { computeWeightEvolutionSeries, withSymptomFields } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import { assignOwnedPetToHousehold } from './assignment-use-cases.ts';
@@ -182,7 +182,7 @@ export class GetPetDashboardUseCase {
         dewormings: dewormings.filter((d) => d.alert?.status !== 'SUPERSEDED'),
         supersededDewormings: dewormings.filter((d) => d.alert?.status === 'SUPERSEDED'),
         medicalVisits: sortHistoricalRecords(records.medicalVisits),
-        customParameters: sortHistoricalRecords(records.customParameters),
+        customParameters: sortHistoricalRecords(records.customParameters).map(withSymptomFields),
       };
     });
   }

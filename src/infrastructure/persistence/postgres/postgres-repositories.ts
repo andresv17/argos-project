@@ -22,7 +22,6 @@
 import {
   DomainError,
   validateBodyMeasurementRecord,
-  validateCustomParameterRecord,
   validateDewormingRecord,
   validateHousehold,
   validateMedicalVisitRecord,
@@ -54,7 +53,7 @@ import type {
 import { corruptData, isSessionRecord, sessionTokenHash } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
-import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
+import { isStoredCustomParameter, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 
 type Check<T> = (value: unknown) => value is T;
@@ -265,7 +264,7 @@ const RECORD_TABLES: { readonly [M in RecordModule]: { readonly table: string; r
   vaccinations: { table: 'vaccinations', check: validateVaccinationRecord },
   dewormings: { table: 'dewormings', check: validateDewormingRecord },
   medicalVisits: { table: 'medical_visits', check: validateMedicalVisitRecord },
-  customParameters: { table: 'custom_parameters', check: validateCustomParameterRecord },
+  customParameters: { table: 'custom_parameters', check: isStoredCustomParameter },
 };
 const RECORD_MODULE_NAMES = Object.keys(RECORD_TABLES) as RecordModule[];
 

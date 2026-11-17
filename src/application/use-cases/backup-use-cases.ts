@@ -169,13 +169,20 @@ export class ExportBackupUseCase {
         const own = await repositories.records.listForPet(pet.id);
         for (const module of MODULES) collected[module].push(...own[module]);
       }
+      const exportedRecords: Record<string, unknown[]> = Object.fromEntries(MODULES.map((module) => [module, sortHistoricalRecords(collected[module] as never)]));
+      // El respaldo 3.0.0 es cerrado y no conoce symptomType ni severity: los parámetros que no son síntoma los llevan nulos y se omiten. Un síntoma
+      // (SYMPTOM) no cabe en 3.0.0: el sobre es inválido y la exportación falla cerrada hasta el respaldo 3.1.0 (T617) en vez de perderlo en silencio.
+      exportedRecords['customParameters'] = (exportedRecords['customParameters'] as Array<Record<string, unknown>>).map((c) => {
+        const { symptomType, severity, ...rest } = c;
+        return symptomType === null && severity === null ? rest : c;
+      });
       const envelope = {
         schemaVersion: '3.0.0',
         exportedAt: now,
         // El respaldo 3.0.0 no lleva breedCode (BackupPetProfileV3 es cerrado): la raza viaja como texto `breed`. El sobre 3.1.0 con
-        // breedCode llega con la compatibilidad de esquemas del respaldo (T525 pendiente, ver bitácora) [REQ-RAZ-003, REQ-BOR-005].
+        // breedCode llega con la compatibilidad de esquemas del respaldo (T617, ver bitácora) [REQ-RAZ-003, REQ-BOR-005].
         pets: sortPetsForListing(owned).map(({ ownerUserId: _ownerUserId, breedCode: _breedCode, ...pet }) => pet),
-        records: Object.fromEntries(MODULES.map((module) => [module, sortHistoricalRecords(collected[module] as never)])),
+        records: exportedRecords,
       };
       // Un sobre inválido se descubre antes de emitir el token: el rechazo deshace también el consumo de cupo.
       if (!validateBackupEnvelopeV3(envelope)) {

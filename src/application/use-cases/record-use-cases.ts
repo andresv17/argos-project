@@ -12,7 +12,7 @@
  * @implements REQ-REC2-003, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-PET-003, INV-ACC-002, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
-import type { BodyMeasurementRecord, CustomParameterRecord, MedicalVisitRecord } from '../../generated/index.ts';
+import type { BodyMeasurementRecord, MedicalVisitRecord } from '../../generated/index.ts';
 import {
   evaluateDewormingAlerts,
   evaluateVaccinationAlerts,
@@ -24,7 +24,9 @@ import {
   applyRecordUpdate,
   computeWeightEvolutionSeries,
   moduleOfCollection,
+  withSymptomFields,
   validateRecordInput,
+  type CustomParameterWithSymptom,
   type RecordModule,
   type RecordOf,
   type WeightEntryView,
@@ -52,7 +54,7 @@ const NULLABLE_DEFAULTS: Readonly<Record<RecordModule, Readonly<Record<string, s
   vaccinations: { category: 'VACCINE', nextBoosterAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
   dewormings: { category: 'DEWORMING', nextSuggestedDoseAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
   medicalVisits: { observations: null },
-  customParameters: { notes: null },
+  customParameters: { notes: null, symptomType: null, severity: null },
 };
 
 /**
@@ -142,14 +144,18 @@ export class AddMedicalVisitUseCase extends AddRecordUseCase<'medicalVisits', Me
   }
 }
 
-/** @implements REQ-REC-006 */
-export class AddCustomParameterUseCase extends AddRecordUseCase<'customParameters', CustomParameterRecord> {
+/**
+ * Parámetro adicional y síntoma (REQ-SIN-001): la coherencia categoría/tipo la valida el contrato 3.1.0 en el dominio. El caso de uso
+ * nunca interpreta `title` ni `description` (REQ-SIN-003).
+ * @implements REQ-REC-006, REQ-SIN-001, REQ-SIN-002, REQ-SIN-003, INV-SIN-001
+ */
+export class AddCustomParameterUseCase extends AddRecordUseCase<'customParameters', CustomParameterWithSymptom> {
   constructor(deps: ApplicationDeps) {
     super(deps, 'customParameters');
   }
 
-  protected present(record: CustomParameterRecord): CustomParameterRecord {
-    return record;
+  protected present(record: RecordOf<'customParameters'>): CustomParameterWithSymptom {
+    return withSymptomFields(record);
   }
 }
 

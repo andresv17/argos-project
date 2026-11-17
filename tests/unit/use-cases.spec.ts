@@ -348,7 +348,8 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
       { record: r.weights[0], deltaKg: null },
     ]);
     expect(view.vaccinations.map((v) => [v.record.id, v.alert!.status, v.alert!.daysRemaining])).toEqual([[r.vaccinations[0]!.id, 'DUE_SOON', 7]]);
-    expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements, [], [], r.customParameters]);
+    // 3.1.0 (REQ-SIN-001): la ficha lee los parámetros anteriores a la 004 con symptomType y severity nulos.
+    expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements, [], [], r.customParameters.map((c) => ({ ...c, symptomType: null, severity: null }))]);
     expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([{ ...ARGOS, breedCode: null }, { years: 4, months: 5, totalDays: 1640 }, 1]);
   });
 });
@@ -456,7 +457,7 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const expected = [
       stored('bodyMeasurements', { notes: null }),
       stored('medicalVisits', { observations: null }),
-      stored('customParameters', { notes: null }),
+      stored('customParameters', { notes: null, symptomType: null, severity: null }),
     ];
     expect(results).toEqual(expected.map((record) => [record, record]));
   });

@@ -39,8 +39,17 @@ addFormats(ajv);
 // T525: las respuestas de mascota llevan `breedCode` (pet.schema.json 3.1.0 de la 004, mismo $id). `avatarVersion` (4A-2, avatar) aún no existe
 // en el servidor: el arnés la exime de `required` hasta que la implemente su tarea; el resto de esquemas sigue siendo el de la 002.
 const PET_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/pet.schema.json';
+// T535: los parámetros adicionales llevan `symptomType` y `severity` (medical-records.schema.json 3.1.0 de la 004, mismo $id). `revision` (4A-2,
+// edición con If-Match) aún no existe en el servidor: el arnés la exime de `required` en los 6 registros hasta que la implemente su tarea.
+// `symptomType` y `severity` también quedan fuera de `required` porque el sobre 3.0.0 de la 002 reutiliza este mismo registro y la exportación
+// 3.0.0 los omite hasta el respaldo 3.1.0 (T617).
+const RECORDS_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/medical-records.schema.json';
 for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) {
-  if (file === 'pet.schema.json') {
+  if (file === 'medical-records.schema.json') {
+    const records = JSON.parse(readFileSync(RECORDS_004, 'utf8')) as { $defs: Record<string, { required?: string[] }> };
+    for (const def of Object.values(records.$defs)) if (def.required !== undefined) def.required = def.required.filter((name) => name !== 'revision' && name !== 'symptomType' && name !== 'severity');
+    ajv.addSchema(records);
+  } else if (file === 'pet.schema.json') {
     const pet = JSON.parse(readFileSync(PET_004, 'utf8')) as { $defs: { PetProfile: { required: string[] } } };
     pet.$defs.PetProfile.required = pet.$defs.PetProfile.required.filter((name) => name !== 'avatarVersion');
     ajv.addSchema(pet);

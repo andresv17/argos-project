@@ -82,7 +82,7 @@ describe('T534 sin efecto en alertas (SC-CAT-011, SC-CAT-034, INV-SIN-002)', () 
     const dashAfter = await new GetPetDashboardUseCase(deps).execute(ANDRES, ARGOS.id);
     expect(dashAfter.alertsSummary).toEqual(dashBefore.alertsSummary);
     expect([dashAfter.vaccinations, dashAfter.dewormings]).toEqual([dashBefore.vaccinations, dashBefore.dewormings]);
-    expect(dashAfter.customParameters.filter((c) => c.category === 'SYMPTOM')).toHaveLength(5);
+    expect((dashAfter.customParameters as ReadonlyArray<{ category: string }>).filter((c) => c.category === 'SYMPTOM')).toHaveLength(5);
   });
 
   it('una description «dar 5 mg» no genera alerta ni cambio de estado y se guarda tal cual', async () => {
