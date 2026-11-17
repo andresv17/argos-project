@@ -153,3 +153,8 @@ Verificación del informe `.specify/memory/audits/gate-merovingian-003.md` (2026
 - **Contraste con NFR-CLD-005** (<= 8 s tras >= 15 min sin tráfico): **cumple con 1.38 s**, pero la pausa medida fue de 10 min, no de 15. La condición exacta no se midió.
 - **RTT Cloud Run→Neon:** no medido por separado. Sin medición explícita de arranque encadenado (Neon despierto + instancia fría); queda como reserva.
 - **Registro:** Seraph, `recorrido-aceptacion-003.md` (SC-CLD-012); Oracle, `oracle-T460-aceptacion.md`.
+
+## 12. Prueba de restauración T478 (SC-CLD-021, NFR-CLD-014/015; 2026-11-17)
+- **Alcance ejecutado:** validación local en Postgres 17 (Keymaker/Oracle, `oracle-T478-local.md`, pasos 1–4) **y** simulacro en vivo ejecutado por Neo (Level 2) contra GCS y rama desechable de Neon siguiendo el runbook de `T454` (`REQ-PG-016`).
+- **RTO medido:** **20 min** (incluyendo operación manual completa), cumpliendo ampliamente el objetivo `<= 2 h` (`NFR-CLD-015`).
+- **Verificación:** la cuenta eliminada tras el respaldo no reapareció después de la purga HMAC, las sesiones restauradas quedaron invalidadas y la rama desechable de Neon fue eliminada al concluir.
