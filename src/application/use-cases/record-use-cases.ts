@@ -23,6 +23,7 @@ import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import {
   applyRecordUpdate,
   computeWeightEvolutionSeries,
+  revisionOf,
   moduleOfCollection,
   withSymptomFields,
   validateRecordInput,
@@ -35,6 +36,8 @@ import type { RbacAction } from '../../domain/access/rbac.ts';
 import { assertRecordNotSuperseded } from '../../domain/records/superseded-guard.ts';
 import { stateHash } from '../../domain/audit/state-hash.ts';
 import { DomainError } from '../../generated/index.ts';
+// ERR-REC-CONFLICT es de la 3.1.0 (feature 004): el catálogo 002 no lo trae; la capa HTTP reconoce ambas clases (problem-details.ts).
+import { DomainError as DomainErrorV31 } from '../../generated/v31/index.ts';
 import { RECORD_ENTITY_TYPE, recordAudit } from './audit-support.ts';
 import { lockPet, requirePetAction, type ApplicationDeps } from './use-case-support.ts';
 
@@ -82,6 +85,7 @@ abstract class AddRecordUseCase<M extends RecordModule, View> {
         id: this.deps.ids.nextId(),
         petId,
         createdAt: this.deps.clock.nowIsoTimestamp(),
+        revision: 0, // D-16 A: todo registro nace con revisión 0
       } as unknown as RecordOf<M>;
       const existing = await repositories.records.listForPet(petId);
       await repositories.records.add(this.module, record);
@@ -179,30 +183,37 @@ function moduleOrNotFound(collection: string): RecordModule {
 }
 
 /**
- * Edición parcial de un registro de cualquiera de los 6 módulos. Orden: acceso (404 antes que 403) con la acción
- * WRITE_* del módulo, existencia del registro en la mascota (ERR-PET-NOT-FOUND), esquema y dominio, y por último la
- * guarda de inmutabilidad (409), antes y después de aplicar la edición (INV-REG-002). Sin cambios efectivos no hay escritura ni
- * fila de auditoría (REQ-BOR-003). Solo vacunas y desparasitaciones pueden estar SUPERSEDED.
- * @implements REQ-BOR-003, INV-REG-002, REQ-REC2-003, REQ-RBAC-001, SC-015, ERR-REC-SUPERSEDED-IMMUTABLE, ERR-ACC-FORBIDDEN
+ * Edición parcial de un registro de cualquiera de los 6 módulos con control de revisión (D-16 A). Orden: candado de mascota, acceso
+ * (404 antes que 403) con la acción WRITE_* del módulo, `If-Match` presente (si no, ERR-SCHEMA-VALIDATION-FAILED, campo If-Match),
+ * existencia del registro en la mascota (ERR-PET-NOT-FOUND), comparación de la revisión BAJO EL CANDADO (distinta, 409 ERR-REC-CONFLICT
+ * sin cambios ni auditoría), esquema y dominio, y por último la guarda de inmutabilidad (409), antes y después de aplicar la edición
+ * (INV-REG-002). Sin cambios efectivos no hay escritura, ni fila de auditoría, ni incremento de `revision` (REQ-BOR-003); con ellos,
+ * `revision` aumenta en 1. Solo vacunas y desparasitaciones pueden estar SUPERSEDED.
+ * @param ifMatch revisión leída por el cliente (cabecera `If-Match`); `null` si la petición no la trajo.
+ * @implements REQ-BOR-003, REQ-BOR-005, INV-REG-002, INV-REG-003, REQ-REC2-003, REQ-RBAC-001, SC-015, ERR-REC-CONFLICT, ERR-REC-SUPERSEDED-IMMUTABLE, ERR-ACC-FORBIDDEN
  */
 export class UpdateRecordUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, petId: string, collection: string, recordId: string, input: unknown): Promise<RecordOf<RecordModule>> {
+  async execute(userId: string, petId: string, collection: string, recordId: string, input: unknown, ifMatch: number | null): Promise<RecordOf<RecordModule>> {
     const module = moduleOrNotFound(collection);
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION[module]);
+      if (ifMatch === null) throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'Falta la cabecera If-Match con la revisión del registro.', 'If-Match');
       const existing = await repositories.records.listForPet(petId);
       const current = (existing[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId) as RecordOf<RecordModule> | undefined;
       if (current === undefined) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
-      const updated = applyRecordUpdate(module, current, input, pet.birthDate, today, pet.species);
+      // D-16 A: la comparación va dentro de la transacción con el candado de mascota; una revisión distinta no cambia ni audita nada.
+      if (revisionOf(current) !== ifMatch) throw new DomainErrorV31('ERR-REC-CONFLICT');
+      const applied = applyRecordUpdate(module, current, input, pet.birthDate, today, pet.species);
+      const updated = { ...applied, revision: revisionOf(current) + 1 } as RecordOf<RecordModule>;
       assertRecordNotSuperseded(supersededStatus(module, existing, recordId, today));
       // INV-REG-002: la edición que dejaría al propio registro SUPERSEDED (p. ej. una fecha anterior a otra de la misma clave) se rechaza.
       assertRecordNotSuperseded(supersededStatus(module, withReplaced(existing, module, updated), recordId, today));
-      // REQ-BOR-003: sin cambios efectivos del estado canónico no se escribe ni se audita.
-      if (stateHash(current) === stateHash(updated)) return current;
+      // REQ-BOR-003: sin cambios efectivos del estado canónico (sin contar la revisión) no se escribe, no se audita y no se incrementa `revision`.
+      if (stateHash(current) === stateHash(applied)) return current;
       await repositories.records.replace(module, updated);
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: RECORD_ENTITY_TYPE[module], entityId: recordId, previous: current, next: updated });
       return updated;

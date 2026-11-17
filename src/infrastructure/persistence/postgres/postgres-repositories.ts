@@ -21,13 +21,8 @@
 
 import {
   DomainError,
-  validateBodyMeasurementRecord,
-  validateDewormingRecord,
   validateHousehold,
-  validateMedicalVisitRecord,
   validateUserPublicProfile,
-  validateVaccinationRecord,
-  validateWeightRecord,
   type AuditEntry,
   type Household,
   type UserPublicProfile,
@@ -50,10 +45,10 @@ import type {
   UserAccount,
   UserRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
-import { corruptData, isSessionRecord, sessionTokenHash } from '../sqlite/sqlite-repositories.ts';
+import { corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
-import { isStoredCustomParameter, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
+import { STORED_RECORD_CHECKS, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 
 type Check<T> = (value: unknown) => value is T;
@@ -264,12 +259,12 @@ function rateLimitRepository(client: PoolClientLike): RateLimitRepositoryPort {
 
 /** Tabla de cada módulo de registros y su validador generado (los nombres de tabla son constantes, nunca entrada). */
 const RECORD_TABLES: { readonly [M in RecordModule]: { readonly table: string; readonly check: Check<RecordOf<M>> } } = {
-  weights: { table: 'weights', check: validateWeightRecord },
-  bodyMeasurements: { table: 'body_measurements', check: validateBodyMeasurementRecord },
-  vaccinations: { table: 'vaccinations', check: validateVaccinationRecord },
-  dewormings: { table: 'dewormings', check: validateDewormingRecord },
-  medicalVisits: { table: 'medical_visits', check: validateMedicalVisitRecord },
-  customParameters: { table: 'custom_parameters', check: isStoredCustomParameter },
+  weights: { table: 'weights', check: STORED_RECORD_CHECKS.weights },
+  bodyMeasurements: { table: 'body_measurements', check: STORED_RECORD_CHECKS.bodyMeasurements },
+  vaccinations: { table: 'vaccinations', check: STORED_RECORD_CHECKS.vaccinations },
+  dewormings: { table: 'dewormings', check: STORED_RECORD_CHECKS.dewormings },
+  medicalVisits: { table: 'medical_visits', check: STORED_RECORD_CHECKS.medicalVisits },
+  customParameters: { table: 'custom_parameters', check: STORED_RECORD_CHECKS.customParameters },
 };
 const RECORD_MODULE_NAMES = Object.keys(RECORD_TABLES) as RecordModule[];
 
@@ -345,9 +340,9 @@ function recordRepository(client: PoolClientLike): MedicalRecordRepositoryPort {
       const result = {} as Record<RecordModule, unknown[]>;
       for (const module of RECORD_MODULE_NAMES) {
         const { table, check } = RECORD_TABLES[module];
-        const { rows } = await client.query(`SELECT id, pet_id, data${isWeights(module) ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = $1`, [petId]);
+        const { rows } = await client.query(`SELECT id, pet_id, data, revision${isWeights(module) ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = $1`, [petId]);
         result[module] = rows.map((row) =>
-          decode(table, String(row['id']), row['data'], check as Check<{ id: string; petId: string; weightKg?: number }>, (r) =>
+          decode(table, String(row['id']), withRevision(table, String(row['id']), row['data'], Number(row['revision'])), check as Check<{ id: string; petId: string; weightKg?: number }>, (r) =>
             r.id === row['id'] && r.petId === row['pet_id'] && (!isWeights(module) || Number(row['weight_grams']) === weightKgToGrams(r.weightKg!)),
           ),
         );
@@ -363,29 +358,31 @@ function recordRepository(client: PoolClientLike): MedicalRecordRepositoryPort {
     },
     async add<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const { table, check } = RECORD_TABLES[module];
-      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
+      const { data, revision } = encodeRecord(table, record, check as Check<RecordOf<M>>);
       if (isWeights(module)) {
-        await client.query('INSERT INTO weights (id, pet_id, data, weight_grams) VALUES ($1, $2, $3::jsonb, $4)', [
+        await client.query('INSERT INTO weights (id, pet_id, data, revision, weight_grams) VALUES ($1, $2, $3::jsonb, $4, $5)', [
           record.id,
           record.petId,
           data,
+          revision,
           weightKgToGrams((record as RecordOf<'weights'>).weightKg),
         ]);
       } else {
-        await client.query(`INSERT INTO ${table} (id, pet_id, data) VALUES ($1, $2, $3::jsonb)`, [record.id, record.petId, data]);
+        await client.query(`INSERT INTO ${table} (id, pet_id, data, revision) VALUES ($1, $2, $3::jsonb, $4)`, [record.id, record.petId, data, revision]);
       }
     },
     async replace<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const { table, check } = RECORD_TABLES[module];
-      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
+      const { data, revision } = encodeRecord(table, record, check as Check<RecordOf<M>>);
       const result = isWeights(module)
-        ? await client.query('UPDATE weights SET data = $1::jsonb, weight_grams = $2 WHERE id = $3 AND pet_id = $4', [
+        ? await client.query('UPDATE weights SET data = $1::jsonb, revision = $2, weight_grams = $3 WHERE id = $4 AND pet_id = $5', [
             data,
+            revision,
             weightKgToGrams((record as RecordOf<'weights'>).weightKg),
             record.id,
             record.petId,
           ])
-        : await client.query(`UPDATE ${table} SET data = $1::jsonb WHERE id = $2 AND pet_id = $3`, [data, record.id, record.petId]);
+        : await client.query(`UPDATE ${table} SET data = $1::jsonb, revision = $2 WHERE id = $3 AND pet_id = $4`, [data, revision, record.id, record.petId]);
       if (result.rowCount !== 1) throw corruptData(table, record.id);
     },
     async remove(module, petId, recordId) {

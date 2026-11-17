@@ -17,19 +17,14 @@
 import {
   DomainError,
   resolveFieldErrorCode,
-  validateBodyMeasurementRecord,
   validateCreateDewormingInput,
   validateCreateMedicalVisitInput,
   validateCreateVaccinationInput,
   validateCreateWeightInput,
-  validateDewormingRecord,
-  validateMedicalVisitRecord,
   validateUpdateDewormingInput,
   validateUpdateMedicalVisitInput,
   validateUpdateVaccinationInput,
   validateUpdateWeightInput,
-  validateVaccinationRecord,
-  validateWeightRecord,
   type BackupEnvelopeV3,
   type BodyMeasurementRecord,
   type components,
@@ -49,6 +44,11 @@ import {
 // Contrato 3.1.0 (feature 004): las entradas de medidas son enteras (REQ-MDC-001); los registros siguen en la forma 002 para leer los guardados con decimales.
 // Síntomas (REQ-SIN-001): CustomParameter 3.1.0 con symptomType y severity.
 import {
+  validateBodyMeasurementRecord as validateBodyMeasurementRecordV31,
+  validateDewormingRecord as validateDewormingRecordV31,
+  validateMedicalVisitRecord as validateMedicalVisitRecordV31,
+  validateVaccinationRecord as validateVaccinationRecordV31,
+  validateWeightRecord as validateWeightRecordV31,
   validateCreateBodyMeasurementInput as validateCreateBodyMeasurementInputV31,
   validateCreateCustomParameterInput as validateCreateCustomParameterInputV31,
   validateCustomParameterRecord as validateCustomParameterRecordV31,
@@ -64,7 +64,17 @@ export type WeightEntryView = components['schemas']['WeightEntryView'];
 type RecordCollections = BackupEnvelopeV3['records'];
 /** Las 6 colecciones del sobre v3: weights, bodyMeasurements, vaccinations, dewormings, medicalVisits, customParameters. */
 export type RecordModule = keyof RecordCollections;
-export type RecordOf<M extends RecordModule> = RecordCollections[M][number];
+/**
+ * Registro de un módulo. `revision` (REQ-BOR-005, D-16 A) es de solo lectura: los repositorios siempre la devuelven; es opcional en el tipo
+ * porque el alta y las fixtures de las pruebas pueden omitirla (el almacenamiento la completa con 0).
+ */
+export type RecordOf<M extends RecordModule> = RecordCollections[M][number] & { readonly revision?: number };
+
+/** Revisión del registro (0 si aún no la trae). @implements REQ-BOR-005 */
+export const revisionOf = (record: unknown): number => {
+  const revision = (record as { revision?: unknown } | null)?.revision;
+  return typeof revision === 'number' ? revision : 0;
+};
 
 export interface RecordInputs {
   weights: CreateWeightInput;
@@ -113,21 +123,43 @@ export function withSymptomFields(record: CustomParameterRecord): CustomParamete
 }
 
 /**
- * Valida un parámetro guardado contra CustomParameterRecord 3.1.0 (catálogo cerrado y coherencia categoría/tipo, INV-SIN-001). El registro
- * aún no almacena `revision` (llega con la edición concurrente): se completa con 0 solo para esta comprobación.
- * @implements REQ-SIN-001, INV-SIN-001
+ * Valida un registro guardado o importado contra su esquema 3.1.0 (con `revision` de solo lectura, REQ-BOR-005). El respaldo y las filas
+ * anteriores a la 004 no la traen: se completa con 0 solo para esta comprobación. Los parámetros además completan `symptomType` y `severity`
+ * nulos (catálogo cerrado y coherencia categoría/tipo, INV-SIN-001).
+ * @implements REQ-BOR-005, REQ-SIN-001, INV-SIN-001
  */
-const validateStoredCustomParameter: ValidatorWithErrors = Object.assign(
-  (data: unknown): boolean => {
-    const candidate = typeof data === 'object' && data !== null && !Array.isArray(data)
-      ? { ...(data as Record<string, unknown>), symptomType: (data as Record<string, unknown>)['symptomType'] ?? null, severity: (data as Record<string, unknown>)['severity'] ?? null, revision: (data as Record<string, unknown>)['revision'] ?? 0 }
-      : data;
-    const ok = validateCustomParameterRecordV31(candidate);
-    validateStoredCustomParameter.errors = validateCustomParameterRecordV31.errors ?? null;
-    return ok;
-  },
-  { errors: null as NonNullable<ValidatorWithErrors['errors']> | null },
-);
+function lenientRecordValidator(validate: ValidatorWithErrors, defaults: Readonly<Record<string, unknown>> = {}): ValidatorWithErrors {
+  const wrapped: ValidatorWithErrors = Object.assign(
+    (data: unknown): boolean => {
+      let candidate: unknown = data;
+      if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        const record = data as Record<string, unknown>;
+        candidate = { ...record, revision: record['revision'] ?? 0, ...Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, record[key] ?? value])) };
+      }
+      const ok = validate(candidate);
+      wrapped.errors = validate.errors ?? null;
+      return ok;
+    },
+    { errors: null as NonNullable<ValidatorWithErrors['errors']> | null },
+  );
+  return wrapped;
+}
+const validateStoredWeight = lenientRecordValidator(validateWeightRecordV31 as ValidatorWithErrors);
+const validateStoredBodyMeasurement = lenientRecordValidator(validateBodyMeasurementRecordV31 as ValidatorWithErrors);
+const validateStoredVaccination = lenientRecordValidator(validateVaccinationRecordV31 as ValidatorWithErrors);
+const validateStoredDeworming = lenientRecordValidator(validateDewormingRecordV31 as ValidatorWithErrors);
+const validateStoredMedicalVisit = lenientRecordValidator(validateMedicalVisitRecordV31 as ValidatorWithErrors);
+const validateStoredCustomParameter = lenientRecordValidator(validateCustomParameterRecordV31 as ValidatorWithErrors, { symptomType: null, severity: null });
+
+/** Comprobaciones de almacenamiento de los 6 módulos (SQLite y PostgreSQL): esquema 3.1.0 con `revision`. @implements REQ-BOR-005 */
+export const STORED_RECORD_CHECKS: { readonly [M in RecordModule]: (value: unknown) => value is RecordOf<M> } = {
+  weights: validateStoredWeight as unknown as (value: unknown) => value is RecordOf<'weights'>,
+  bodyMeasurements: validateStoredBodyMeasurement as unknown as (value: unknown) => value is RecordOf<'bodyMeasurements'>,
+  vaccinations: validateStoredVaccination as unknown as (value: unknown) => value is RecordOf<'vaccinations'>,
+  dewormings: validateStoredDeworming as unknown as (value: unknown) => value is RecordOf<'dewormings'>,
+  medicalVisits: validateStoredMedicalVisit as unknown as (value: unknown) => value is RecordOf<'medicalVisits'>,
+  customParameters: validateStoredCustomParameter as unknown as (value: unknown) => value is RecordOf<'customParameters'>,
+};
 
 /** Comprobación de almacenamiento de un parámetro adicional (SQLite y PostgreSQL). @implements REQ-SIN-001, INV-SIN-001 */
 export function isStoredCustomParameter(value: unknown): value is CustomParameterRecord {
@@ -140,7 +172,7 @@ const MEASUREMENT_FIELDS = ['neckCm', 'chestCm', 'backLengthCm', 'waistCm'] as c
 /** Reglas por módulo, leídas de medical-records.schema.json y de la spec. */
 export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> = {
   weights: {
-    record: ref('WeightRecord', validateWeightRecord),
+    record: ref('WeightRecord', validateStoredWeight),
     input: ref('CreateWeightInput', validateCreateWeightInput),
     eventDateField: 'recordedAt',
     weightField: 'weightKg',
@@ -150,7 +182,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     nextDate: null,
   },
   bodyMeasurements: {
-    record: ref('BodyMeasurementRecord', validateBodyMeasurementRecord),
+    record: ref('BodyMeasurementRecord', validateStoredBodyMeasurement),
     input: ref('CreateBodyMeasurementInput', validateCreateBodyMeasurementInputV31),
     eventDateField: 'recordedAt',
     weightField: null,
@@ -160,7 +192,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     nextDate: null,
   },
   vaccinations: {
-    record: ref('VaccinationRecord', validateVaccinationRecord),
+    record: ref('VaccinationRecord', validateStoredVaccination),
     input: ref('CreateVaccinationInput', validateCreateVaccinationInput),
     eventDateField: 'appliedAt',
     weightField: null,
@@ -170,7 +202,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     nextDate: { field: 'nextBoosterAt', error: 'ERR-REC-INVALID-BOOSTER-DATE' },
   },
   dewormings: {
-    record: ref('DewormingRecord', validateDewormingRecord),
+    record: ref('DewormingRecord', validateStoredDeworming),
     input: ref('CreateDewormingInput', validateCreateDewormingInput),
     eventDateField: 'appliedAt',
     weightField: null,
@@ -180,7 +212,7 @@ export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> =
     nextDate: { field: 'nextSuggestedDoseAt', error: 'ERR-REC-INVALID-NEXT-DOSE-DATE' },
   },
   medicalVisits: {
-    record: ref('MedicalVisitRecord', validateMedicalVisitRecord),
+    record: ref('MedicalVisitRecord', validateStoredMedicalVisit),
     input: ref('CreateMedicalVisitInput', validateCreateMedicalVisitInput),
     eventDateField: 'visitDate',
     weightField: null,

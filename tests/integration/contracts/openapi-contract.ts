@@ -39,11 +39,9 @@ addFormats(ajv);
 // T525: las respuestas de mascota llevan `breedCode` (pet.schema.json 3.1.0 de la 004, mismo $id). `avatarVersion` (4A-2, avatar) aún no existe
 // en el servidor: el arnés la exime de `required` hasta que la implemente su tarea; el resto de esquemas sigue siendo el de la 002.
 const PET_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/pet.schema.json';
-// T535: los parámetros adicionales llevan `symptomType` y `severity` (medical-records.schema.json 3.1.0 de la 004, mismo $id). `revision` (4A-2,
-// edición con If-Match) aún no existe en el servidor: el arnés la exime de `required` en los 6 registros hasta que la implemente su tarea.
-// T540 (H-O-T617-2): la COLUMNA `revision` ya existe (SQLite 0006, Postgres 0002), pero el servidor aún no la lee ni la expone (es de T614, «revision de
-// solo lectura en los registros»). Se probó retirar la exención ahora: 21 pruebas de API fallan porque las respuestas no la traen, y exponerla exige
-// los validadores v31 de registro (hoy 002, sin `revision`), los repositorios de los 3 motores y 5 baselines de pruebas de Postgres. Se retira con T614.
+// T535: los parámetros adicionales llevan `symptomType` y `severity` (medical-records.schema.json 3.1.0 de la 004, mismo $id).
+// T614 (H-O-T540-1, diferido desde T540): `revision` (D-16 A, solo lectura) ya la leen y la devuelven los 3 repositorios y todas las respuestas de
+// registros; se RETIRÓ su exención y el arnés la exige como `required` en los 6 registros (y en los registros anidados de tablero y listados).
 // T617: `symptomType` y `severity` vuelven a ser obligatorios en el registro (ya no hay exportación 3.0.0 que los omita); es un endurecimiento.
 const RECORDS_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/medical-records.schema.json';
 // T617: el respaldo es 3.1.0 (backup-envelope.schema.json 3.1.0 de la 004, mismo $id; conserva BackupEnvelopeV3 y los heredados, añade
@@ -56,9 +54,7 @@ const exportOk = (openapi.paths['/backup/export']!['post'] as { responses: Recor
 exportOk.$ref = exportOk.$ref.replace('#/$defs/BackupEnvelopeV3', '#/$defs/BackupEnvelopeV31');
 for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) {
   if (file === 'medical-records.schema.json') {
-    const records = JSON.parse(readFileSync(RECORDS_004, 'utf8')) as { $defs: Record<string, { required?: string[] }> };
-    for (const def of Object.values(records.$defs)) if (def.required !== undefined) def.required = def.required.filter((name) => name !== 'revision');
-    ajv.addSchema(records);
+    ajv.addSchema(JSON.parse(readFileSync(RECORDS_004, 'utf8')));
   } else if (file === 'backup-envelope.schema.json') {
     // T605 (H-O-T617-2): `mediaToDeleteCount` ya lo devuelve la vista previa; se retira su exención y el arnés lo exige como `required`.
     ajv.addSchema(JSON.parse(readFileSync(BACKUP_004, 'utf8')));

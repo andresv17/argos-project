@@ -85,7 +85,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
         await r.records.add('weights', envelope.records.weights[0]!);
       });
       const [user, pet, records] = await read(uow, async (r) => [await r.users.findById(ANDRES.id), await r.pets.findById(ARGOS.id), await r.records.listForPet(ARGOS.id)] as const);
-      expect([user, pet, records.weights]).toEqual([ANDRES, ARGOS, [envelope.records.weights[0]]]);
+      expect([user, pet, records.weights]).toEqual([ANDRES, ARGOS, [{ ...envelope.records.weights[0], revision: 0 }]]);
     });
 
     it('[INV-ARCH-005] si la transacción lanza, se descartan los cambios de todos los repositorios y se propaga el error original', async () => {
@@ -210,12 +210,29 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
         }
       });
       const argosRecords = await read(uow, (r) => r.records.listForPet(ARGOS.id));
-      const expected = Object.fromEntries(Object.entries(envelope.records).map(([m, list]) => [m, (list as Array<{ petId: string }>).filter((x) => x.petId === ARGOS.id)]));
+      // D-16 A: la lectura siempre trae `revision` (los registros sin ella valen 0).
+      const expected = Object.fromEntries(Object.entries(envelope.records).map(([m, list]) => [m, (list as Array<{ petId: string }>).filter((x) => x.petId === ARGOS.id).map((x) => ({ ...x, revision: 0 }))]));
       expect(argosRecords).toEqual(expected);
       expect(await rejection(seed(uow, (r) => r.records.add('weights', envelope.records.weights[0]!)))).not.toBe('resolved');
       await seed(uow, (r) => r.records.deleteForPet(ARGOS.id));
       const after = await read(uow, async (r) => [await r.records.listForPet(ARGOS.id), (await r.records.listForPet(envelope.records.dewormings[0]!.petId)).dewormings.length]);
       expect(after).toEqual([{ weights: [], bodyMeasurements: [], vaccinations: [], dewormings: [], medicalVisits: [], customParameters: [] }, 1]);
+    });
+
+    it('[REQ-BOR-005][D-16 A] registros: add guarda la revision dada (0 si falta), replace la reemplaza y la lectura la devuelve de solo lectura', async () => {
+      const uow = await createUnitOfWork();
+      const weight = envelope.records.weights[0]!;
+      const other = { ...envelope.records.weights[1]!, revision: 7 };
+      await seed(uow, async (r) => {
+        await r.pets.save(ARGOS);
+        await r.records.add('weights', weight);
+        await r.records.add('weights', other as never);
+      });
+      const revisionsOf = async () => Object.fromEntries((await read(uow, (r) => r.records.listForPet(ARGOS.id))).weights.map((w) => [w.id, (w as unknown as { revision: number }).revision]));
+      expect(await revisionsOf()).toEqual({ [weight.id]: 0, [other.id]: 7 });
+      await seed(uow, (r) => r.records.replace('weights', { ...weight, notes: 'editado', revision: 1 } as never));
+      expect(await revisionsOf()).toEqual({ [weight.id]: 1, [other.id]: 7 });
+      expect((await read(uow, (r) => r.records.listForPet(ARGOS.id))).weights.find((w) => w.id === weight.id)!.notes).toBe('editado');
     });
 
     it('[INV-ARCH-005][INV-BACKUP-001] registros: findPetIdOfRecord devuelve el petId del registro en cualquiera de los 6 módulos y null si no existe', async () => {

@@ -12,7 +12,7 @@ import { DeletePetDialog, PetDashboard } from '../components/PetDashboard.tsx';
 import { PetCardList, PetFilter } from '../components/PetCards.tsx';
 import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
-import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
+import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
 import type { FormBody } from '../validation.ts';
 import { useSession } from '../session.tsx';
@@ -137,9 +137,15 @@ export function PetsPage(): JSX.Element {
     await refreshAll();
   };
 
-  const onEditRecord = async (module: RecordModule, recordId: string, body: FormBody): Promise<void> => {
+  const onEditRecord = async (module: RecordModule, recordId: string, body: FormBody, revision: number): Promise<void> => {
     if (activePetId === null) return;
-    await updateRecord(api, module, activePetId, recordId, body);
+    try {
+      await updateRecord(api, module, activePetId, recordId, body, revision);
+    } catch (e) {
+      // REQ-BOR-005: ante un 409 de revisión se recarga la ficha para que la persona vea lo que cambió y reintente con la revisión vigente.
+      if (e instanceof ApiProblem && e.problem.code === RECORD_CONFLICT_CODE) await refreshAll();
+      throw e;
+    }
     await refreshAll();
   };
 

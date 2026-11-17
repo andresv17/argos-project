@@ -78,9 +78,9 @@ describe('T532 conservación de registros con decimales (SC-CAT-008)', () => {
     const exported = await new ExportBackupUseCase(deps).execute(ANDRES);
     expect(exported.envelope.records.bodyMeasurements.find((m) => m.id === OLD.id)?.chestCm).toBe(40.25);
     const update = new UpdateRecordUseCase(deps);
-    const updated = (await update.execute(ANDRES, ARGOS.id, 'measurements', OLD.id, { collection: 'measurements', notes: 'ok' })) as { chestCm: number };
+    const updated = (await update.execute(ANDRES, ARGOS.id, 'measurements', OLD.id, { collection: 'measurements', notes: 'ok' }, 0)) as { chestCm: number };
     expect(updated.chestCm).toBe(40.25);
-    await expect(update.execute(ANDRES, ARGOS.id, 'measurements', OLD.id, { collection: 'measurements', chestCm: 40.5 })).rejects.toMatchObject({ code: 'ERR-REC-MEASUREMENT-OUT-OF-RANGE', field: 'chestCm' });
+    await expect(update.execute(ANDRES, ARGOS.id, 'measurements', OLD.id, { collection: 'measurements', chestCm: 40.5 }, 1)).rejects.toMatchObject({ code: 'ERR-REC-MEASUREMENT-OUT-OF-RANGE', field: 'chestCm' });
     await expect(new AddBodyMeasurementUseCase(deps).execute(ANDRES, ARGOS.id, { ...INPUT, neckCm: 32.5 })).rejects.toMatchObject({ code: 'ERR-REC-MEASUREMENT-OUT-OF-RANGE', field: 'neckCm' });
   });
 });

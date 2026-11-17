@@ -31,7 +31,7 @@ describe('T535 permisos y auditoría de síntomas (SC-CAT-026, REQ-SIN-002)', ()
     const { deps, uow } = harnessWithRole('ADMIN');
     const created = await new AddCustomParameterUseCase(deps).execute(MARIA, ARGOS.id, SYMPTOM);
     expect([created.category, created.symptomType, created.severity]).toEqual(['SYMPTOM', 'VOMIT', 'MODERATE']);
-    const updated = (await new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'custom-parameters', created.id, { collection: 'custom-parameters', severity: 'SEVERE' })) as typeof created;
+    const updated = (await new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'custom-parameters', created.id, { collection: 'custom-parameters', severity: 'SEVERE' }, 0)) as typeof created;
     expect([updated.symptomType, updated.severity]).toEqual(['VOMIT', 'SEVERE']);
     await new DeleteRecordUseCase(deps).execute(MARIA, ARGOS.id, 'custom-parameters', created.id);
     const rows = uow.snapshot().auditLog.filter((r) => r.entityId === created.id);
@@ -68,8 +68,8 @@ describe('T535 permisos y auditoría de síntomas (SC-CAT-026, REQ-SIN-002)', ()
     const { deps } = createHarness();
     const created = await new AddCustomParameterUseCase(deps).execute(ANDRES, ARGOS.id, SYMPTOM);
     const update = new UpdateRecordUseCase(deps);
-    expect(await codeOf(update.execute(ANDRES, ARGOS.id, 'custom-parameters', created.id, { collection: 'custom-parameters', category: 'ALLERGY' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
-    expect(await codeOf(update.execute(ANDRES, ARGOS.id, 'custom-parameters', created.id, { collection: 'custom-parameters', category: 'ALLERGY', symptomType: null, severity: null }))).toBe('OK');
-    expect(await codeOf(update.execute(ANDRES, ARGOS.id, 'custom-parameters', created.id, { collection: 'custom-parameters', symptomType: 'STOOL' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+    expect(await codeOf(update.execute(ANDRES, ARGOS.id, 'custom-parameters', created.id, { collection: 'custom-parameters', category: 'ALLERGY' }, 0))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+    expect(await codeOf(update.execute(ANDRES, ARGOS.id, 'custom-parameters', created.id, { collection: 'custom-parameters', category: 'ALLERGY', symptomType: null, severity: null }, 0))).toBe('OK');
+    expect(await codeOf(update.execute(ANDRES, ARGOS.id, 'custom-parameters', created.id, { collection: 'custom-parameters', symptomType: 'STOOL' }, 1))).toBe('ERR-SCHEMA-VALIDATION-FAILED'); // la edición anterior (OK) dejó revision 1
   });
 });

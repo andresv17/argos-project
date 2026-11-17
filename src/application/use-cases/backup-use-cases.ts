@@ -489,13 +489,18 @@ export class ImportBackupUseCase {
         const current = await repositories.pets.listByOwners([userId]);
         for (const pet of [...current].sort((a, b) => (a.id < b.id ? -1 : 1))) await lockPet(repositories, pet.id);
         const previous = await ownedSnapshot(repositories, current);
+        // REQ-BOR-005, SC-CAT-035: la revisión de un registro que ya existía nunca retrocede (la existente + 1); uno nuevo nace en 0.
+        const priorRevisions = await revisionsOf(repositories, current);
         for (const pet of current) {
           await repositories.records.deleteForPet(pet.id);
           await repositories.assignments.deleteForPet(pet.id);
           await repositories.pets.delete(pet.id);
         }
         for (const pet of envelope.pets) await repositories.pets.save(pet);
-        for (const { module, record } of recordsOf(envelope)) await repositories.records.add(module, record as never);
+        for (const { module, record } of recordsOf(envelope)) {
+          const prior = priorRevisions.get(record.id);
+          await repositories.records.add(module, { ...record, revision: prior === undefined ? 0 : prior + 1 } as never);
+        }
         await recordAudit(this.deps, repositories, {
           executorUserId: userId,
           mutationType: 'IMPORT',
@@ -515,6 +520,16 @@ export class ImportBackupUseCase {
       throw rollbackFailed ? run.fail('ROLLBACK_FAILED', error.detail) : run.fail('STORAGE_ERROR');
     }
   }
+}
+
+/** Revisión vigente de cada registro de las mascotas dadas (por id de registro), antes de que el reemplazo los borre. @implements REQ-BOR-005 */
+async function revisionsOf(repositories: RepositorySet, pets: readonly PetProfile[]): Promise<Map<string, number>> {
+  const revisions = new Map<string, number>();
+  for (const pet of pets) {
+    const records = await repositories.records.listForPet(pet.id);
+    for (const module of MODULES) for (const record of records[module] as Array<{ id: string; revision?: number }>) revisions.set(record.id, record.revision ?? 0);
+  }
+  return revisions;
 }
 
 /**

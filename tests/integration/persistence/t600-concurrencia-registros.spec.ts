@@ -76,7 +76,7 @@ function suite(name: 'SQLite' | 'PostgreSQL', create: () => Promise<ConcurrentEn
     it('[SC-CAT-028][INV-REG-003][REQ-BOR-005] la edición llega ANTES de la creación de la vacuna posterior: la edición se aplica (una fila UPDATE) y la vacuna nueva se crea', async () => {
       const engine = await engineOf();
       const held = await startHeldA(engine, (deps) =>
-        new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', notes: 'editada antes' }),
+        new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', notes: 'editada antes' }, 0),
       );
       let bDone = false;
       const b = engine.asClientB((deps) => new AddVaccinationUseCase(deps).execute(ANDRES, ARGOS.id, NEWER_VACCINE));
@@ -98,7 +98,7 @@ function suite(name: 'SQLite' | 'PostgreSQL', create: () => Promise<ConcurrentEn
       const held = await startHeldA(engine, (deps) => new AddVaccinationUseCase(deps).execute(ANDRES, ARGOS.id, NEWER_VACCINE));
       let bDone = false;
       const b = engine.asClientB((deps) =>
-        new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', notes: 'editada despues' }),
+        new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', notes: 'editada despues' }, 0),
       );
       const bOutcome = codeOf(b.result).then((code) => ((bDone = true), code));
       await pause(150);

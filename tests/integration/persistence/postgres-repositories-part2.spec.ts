@@ -132,17 +132,17 @@ const MODULES: ReadonlyArray<{ module: RecordModule; table: string }> = [
 const sample = <M extends RecordModule>(module: M): RecordOf<M> => (upgradeRecords(envelope.records as unknown as PetRecordCollections) as unknown as Record<M, RecordOf<M>[]>)[module][0]!;
 
 describe('registros clínicos (T423, REQ-PG-002, INV-PET-005)', () => {
-  it.each(MODULES)('add $module: INSERT en $table con (id, pet_id, data) y data como JSONB; pesos añade weight_grams', async ({ module, table }) => {
+  it.each(MODULES)('add $module: INSERT en $table con (id, pet_id, data, revision) y data como JSONB sin revision (D-16 A); pesos añade weight_grams', async ({ module, table }) => {
     const { client, r } = await repos({ rowCount: 1 });
     const record = sample(module);
     await r.records.add(module, record);
     const call = client.calls[0]!;
     if (module === 'weights') {
-      expect(call.sql).toBe(`INSERT INTO weights (id, pet_id, data, weight_grams) VALUES ($1, $2, $3::jsonb, $4)`);
-      expect(call.values.filter((_, i) => i !== 2)).toEqual([record.id, record.petId, 32400]);
+      expect(call.sql).toBe(`INSERT INTO weights (id, pet_id, data, revision, weight_grams) VALUES ($1, $2, $3::jsonb, $4, $5)`);
+      expect(call.values.filter((_, i) => i !== 2)).toEqual([record.id, record.petId, 0, 32400]);
     } else {
-      expect(call.sql).toBe(`INSERT INTO ${table} (id, pet_id, data) VALUES ($1, $2, $3::jsonb)`);
-      expect(call.values.filter((_, i) => i !== 2)).toEqual([record.id, record.petId]);
+      expect(call.sql).toBe(`INSERT INTO ${table} (id, pet_id, data, revision) VALUES ($1, $2, $3::jsonb, $4)`);
+      expect(call.values.filter((_, i) => i !== 2)).toEqual([record.id, record.petId, 0]);
     }
     expect(JSON.parse(call.values[2] as string)).toEqual(record);
     expectParametrized(client.calls);
@@ -156,20 +156,20 @@ describe('registros clínicos (T423, REQ-PG-002, INV-PET-005)', () => {
 
   it('listForPet: 6 consultas fijas (sin N+1) en el orden de los módulos; pesos incluye weight_grams y se contrasta con data', async () => {
     const replies: Reply[] = MODULES.map(({ module }) => ({
-      rows: [{ id: sample(module).id, pet_id: sample(module).petId, data: sample(module), ...(module === 'weights' ? { weight_grams: 32400 } : {}) }],
+      rows: [{ id: sample(module).id, pet_id: sample(module).petId, data: sample(module), revision: 0, ...(module === 'weights' ? { weight_grams: 32400 } : {}) }],
     }));
     const { client, r } = await repos(...replies);
     const lists = (await r.records.listForPet(sample('weights').petId)) as unknown as Record<RecordModule, unknown[]>;
     expect(client.calls.map((c) => c.sql)).toEqual(
-      MODULES.map(({ module, table }) => `SELECT id, pet_id, data${module === 'weights' ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = $1`),
+      MODULES.map(({ module, table }) => `SELECT id, pet_id, data, revision${module === 'weights' ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = $1`),
     );
-    for (const { module } of MODULES) expect(lists[module]).toEqual([sample(module)]);
+    for (const { module } of MODULES) expect(lists[module]).toEqual([{ ...sample(module), revision: 0 }]);
     expectParametrized(client.calls);
   });
 
   it('listForPet: weight_grams distinto de data, o pet_id distinto, es dato corrupto (ERR-INTERNAL-UNEXPECTED)', async () => {
     const w = sample('weights');
-    for (const row of [{ id: w.id, pet_id: w.petId, data: w, weight_grams: 1 }, { id: w.id, pet_id: 'otra', data: w, weight_grams: 32400 }]) {
+    for (const row of [{ id: w.id, pet_id: w.petId, data: w, revision: 0, weight_grams: 1 }, { id: w.id, pet_id: 'otra', data: w, revision: 0, weight_grams: 32400 }]) {
       const { r } = await repos({ rows: [row] });
       await expect(r.records.listForPet(w.petId)).rejects.toMatchObject({ code: 'ERR-INTERNAL-UNEXPECTED' });
     }
@@ -189,9 +189,9 @@ describe('registros clínicos (T423, REQ-PG-002, INV-PET-005)', () => {
     const { client, r } = await repos({ rowCount: 1 }, { rowCount: 1 }, { rowCount: 0 });
     await r.records.replace('weights', sample('weights'));
     await r.records.replace('medicalVisits', sample('medicalVisits'));
-    expect(client.calls[0]!.sql).toBe('UPDATE weights SET data = $1::jsonb, weight_grams = $2 WHERE id = $3 AND pet_id = $4');
-    expect(client.calls[0]!.values.filter((_, i) => i !== 0)).toEqual([32400, sample('weights').id, sample('weights').petId]);
-    expect(client.calls[1]!.sql).toBe('UPDATE medical_visits SET data = $1::jsonb WHERE id = $2 AND pet_id = $3');
+    expect(client.calls[0]!.sql).toBe('UPDATE weights SET data = $1::jsonb, revision = $2, weight_grams = $3 WHERE id = $4 AND pet_id = $5');
+    expect(client.calls[0]!.values.filter((_, i) => i !== 0)).toEqual([0, 32400, sample('weights').id, sample('weights').petId]);
+    expect(client.calls[1]!.sql).toBe('UPDATE medical_visits SET data = $1::jsonb, revision = $2 WHERE id = $3 AND pet_id = $4');
     await expect(r.records.replace('weights', sample('weights'))).rejects.toMatchObject({ code: 'ERR-INTERNAL-UNEXPECTED' });
     expectParametrized(client.calls);
   });

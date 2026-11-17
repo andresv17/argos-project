@@ -39,12 +39,16 @@ export function DeleteRecordDialog({ label, onConfirm, onCancel }: {
   );
 }
 
+/** Revisión del registro (solo lectura, D-16 A); los registros sin ella valen 0. */
+const revisionOfRecord = (record: Readonly<Record<string, unknown>>): number => (typeof record['revision'] === 'number' ? record['revision'] : 0);
+
 export function RecordActions({ module, record, species, permissions, onEdit, onDelete }: {
   readonly module: RecordModule;
   readonly record: Readonly<Record<string, unknown>>;
   readonly species: Species;
   readonly permissions: PetPermissions;
-  readonly onEdit?: (module: RecordModule, recordId: string, body: FormBody) => Promise<void>;
+  /** `revision` es la del registro leído: viaja como If-Match (D-16 A). */
+  readonly onEdit?: (module: RecordModule, recordId: string, body: FormBody, revision: number) => Promise<void>;
   readonly onDelete?: (module: RecordModule, recordId: string) => Promise<void>;
 }): JSX.Element | null {
   const [mode, setMode] = useState<'none' | 'editing' | 'deleting'>('none');
@@ -81,7 +85,7 @@ export function RecordActions({ module, record, species, permissions, onEdit, on
         ) : null}
       </div>
       {mode === 'editing' && onEdit !== undefined ? (
-        <RecordForm spec={{ ...spec, formTitle: `Editar ${label}` }} species={species} initial={recordInitialValues(module, record)} onSubmit={(body) => onEdit(module, recordId, body).then(() => setMode('none'))} />
+        <RecordForm spec={{ ...spec, formTitle: `Editar ${label}` }} species={species} initial={recordInitialValues(module, record)} onSubmit={(body) => onEdit(module, recordId, body, revisionOfRecord(record)).then(() => setMode('none'))} />
       ) : null}
       {mode === 'deleting' && onDelete !== undefined ? <DeleteRecordDialog label={label} onConfirm={() => void run(() => onDelete(module, recordId))} onCancel={() => setMode('none')} /> : null}
       <FormError message={error} />

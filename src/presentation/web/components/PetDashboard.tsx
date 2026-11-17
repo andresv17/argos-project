@@ -294,7 +294,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   readonly onTabChange: (tab: RecordModule) => void;
   readonly onAddRecord: (module: RecordModule, body: FormBody) => Promise<void>;
   /** Edición de un registro vigente (REQ-BOR-003); sin ella la ficha no ofrece «Editar» en los registros. */
-  readonly onEditRecord?: (module: RecordModule, recordId: string, body: FormBody) => Promise<void>;
+  readonly onEditRecord?: (module: RecordModule, recordId: string, body: FormBody, revision: number) => Promise<void>;
   /** Borrado físico de un registro vigente (REQ-BOR-001); sin ella la ficha no ofrece «Eliminar» en los registros. */
   readonly onDeleteRecord?: (module: RecordModule, recordId: string) => Promise<void>;
   readonly onEdit: () => void;

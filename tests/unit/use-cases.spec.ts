@@ -343,13 +343,15 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     const { deps } = createHarness();
     const view = await new GetPetDashboardUseCase(deps).execute(ANDRES, ARGOS.id);
     const r = envelope.records;
+    // D-16 A: toda lectura trae `revision` (los registros sembrados sin ella valen 0).
+    const rev = <T extends object>(record: T) => ({ ...record, revision: 0 });
     expect(view.weights).toEqual([
-      { record: r.weights[1], deltaKg: 0.45 },
-      { record: r.weights[0], deltaKg: null },
+      { record: rev(r.weights[1]!), deltaKg: 0.45 },
+      { record: rev(r.weights[0]!), deltaKg: null },
     ]);
     expect(view.vaccinations.map((v) => [v.record.id, v.alert!.status, v.alert!.daysRemaining])).toEqual([[r.vaccinations[0]!.id, 'DUE_SOON', 7]]);
     // 3.1.0 (REQ-SIN-001): la ficha lee los parámetros anteriores a la 004 con symptomType y severity nulos.
-    expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements, [], [], r.customParameters.map((c) => ({ ...c, symptomType: null, severity: null }))]);
+    expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements.map(rev), [], [], r.customParameters.map((c) => ({ ...c, symptomType: null, severity: null, revision: 0 }))]);
     expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([{ ...ARGOS, breedCode: null }, { years: 4, months: 5, totalDays: 1640 }, 1]);
   });
 });
@@ -438,7 +440,7 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
       customParameters: new AddCustomParameterUseCase(deps),
     }) as const;
   const MODULES = Object.keys(INPUTS) as Array<keyof typeof INPUTS>;
-  const stored = (module: keyof typeof INPUTS, extra: Record<string, unknown>) => ({ ...INPUTS[module], ...extra, id: generatedId(1), petId: ARGOS.id, createdAt: NOW });
+  const stored = (module: keyof typeof INPUTS, extra: Record<string, unknown>) => ({ ...INPUTS[module], ...extra, id: generatedId(1), petId: ARGOS.id, createdAt: NOW, revision: 0 });
 
   it('[REQ-REC2-001] peso: guarda el registro y responde WeightEntryView con delta respecto a la medición anterior (32.85 → 33.10)', async () => {
     const { deps, uow } = createHarness();
@@ -468,12 +470,12 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const vaccine = await cases.vaccinations.execute(ANDRES, ARGOS.id, { ...INPUTS.vaccinations, batchOrClinic: 'Lote 7', notes: 'Sin reacción' });
     const deworming = await cases.dewormings.execute(ANDRES, ARGOS.id, INPUTS.dewormings);
     expect([vaccine.record, vaccine.alert!.status, vaccine.alert!.daysRemaining]).toEqual([
-      { ...INPUTS.vaccinations, category: 'VACCINE', veterinarianName: null, veterinarianLicense: null, batchOrClinic: 'Lote 7', notes: 'Sin reacción', id: generatedId(1), petId: ARGOS.id, createdAt: NOW },
+      { ...INPUTS.vaccinations, category: 'VACCINE', veterinarianName: null, veterinarianLicense: null, batchOrClinic: 'Lote 7', notes: 'Sin reacción', id: generatedId(1), petId: ARGOS.id, createdAt: NOW, revision: 0 },
       'UP_TO_DATE',
       365,
     ]);
     expect([deworming.record, deworming.alert!.status, deworming.alert!.daysRemaining]).toEqual([
-      { ...INPUTS.dewormings, category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
+      { ...INPUTS.dewormings, category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW, revision: 0 },
       'DUE_SOON',
       5,
     ]);
@@ -488,7 +490,7 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const deworming = await cases.dewormings.execute(ANDRES, KIRA, { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-10-01', nextSuggestedDoseAt: '2026-10-31' });
     expect([weight.record.id, weight.deltaKg, 'deltaPercent' in weight]).toEqual([generatedId(1), 0.1, false]);
     expect([vaccine.record, vaccine.alert!.status]).toEqual([
-      { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01', category: 'VACCINE', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
+      { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01', category: 'VACCINE', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW, revision: 0 },
       'OVERDUE',
     ]);
     expect([deworming.record.id, deworming.alert!.status]).toEqual([generatedId(3), 'OVERDUE']);

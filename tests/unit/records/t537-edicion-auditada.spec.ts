@@ -26,9 +26,9 @@ describe.each(['memoria', 'SQLite'] as const)('T537 edición auditada (%s)', (na
     const { deps, audit } = await engineOf();
     const update = new UpdateRecordUseCase(deps);
     const visit = await new AddMedicalVisitUseCase(deps).execute(ANDRES, ARGOS.id, VISIT);
-    const weight = (await update.execute(ANDRES, ARGOS.id, 'weights', WEIGHT_ID, { collection: 'weights', weightKg: 33 })) as { weightKg: number };
-    const edited = (await update.execute(ANDRES, ARGOS.id, 'visits', visit.id, { collection: 'visits', observations: 'Control repetido.' })) as { observations: string };
-    const vaccine = (await update.execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', batchOrClinic: 'Lote B-100' })) as { batchOrClinic: string };
+    const weight = (await update.execute(ANDRES, ARGOS.id, 'weights', WEIGHT_ID, { collection: 'weights', weightKg: 33 }, 0)) as { weightKg: number };
+    const edited = (await update.execute(ANDRES, ARGOS.id, 'visits', visit.id, { collection: 'visits', observations: 'Control repetido.' }, 0)) as { observations: string };
+    const vaccine = (await update.execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', batchOrClinic: 'Lote B-100' }, 0)) as { batchOrClinic: string };
     expect([weight.weightKg, edited.observations, vaccine.batchOrClinic]).toEqual([33, 'Control repetido.', 'Lote B-100']);
     for (const [id, type] of [[WEIGHT_ID, 'WEIGHT_RECORD'], [visit.id, 'APPOINTMENT_RECORD'], [VACCINE_ID, 'VACCINATION_RECORD']] as const) {
       const rows = (await audit(id)).filter((r) => r.mutationType === 'UPDATE');
@@ -42,7 +42,7 @@ describe.each(['memoria', 'SQLite'] as const)('T537 edición auditada (%s)', (na
   it('[SC-CAT-012] una edición sin cambios efectivos (mismos valores) responde con el registro, no escribe fila de auditoría y no cambia el estado', async () => {
     const { deps, audit, snapshot } = await engineOf();
     const before = snapshot();
-    const same = (await new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'weights', WEIGHT_ID, { collection: 'weights', weightKg: 32.4, notes: 'Peso estable de primavera' })) as { id: string; weightKg: number };
+    const same = (await new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'weights', WEIGHT_ID, { collection: 'weights', weightKg: 32.4, notes: 'Peso estable de primavera' }, 0)) as { id: string; weightKg: number };
     expect([same.id, same.weightKg]).toEqual([WEIGHT_ID, 32.4]);
     expect(await audit(WEIGHT_ID)).toEqual([]);
     expect(snapshot()).toBe(before);
@@ -54,9 +54,9 @@ describe.each(['memoria', 'SQLite'] as const)('T537 edición auditada (%s)', (na
     const before = snapshot();
     const update = new UpdateRecordUseCase(deps);
     const codes = [
-      await codeOf(update.execute(MARIA, ARGOS.id, 'weights', WEIGHT_ID, { collection: 'weights', weightKg: 33 })),
-      await codeOf(update.execute(MARIA, ARGOS.id, 'visits', visit.id, { collection: 'visits', observations: 'x' })),
-      await codeOf(update.execute(MARIA, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', notes: 'x' })),
+      await codeOf(update.execute(MARIA, ARGOS.id, 'weights', WEIGHT_ID, { collection: 'weights', weightKg: 33 }, 0)),
+      await codeOf(update.execute(MARIA, ARGOS.id, 'visits', visit.id, { collection: 'visits', observations: 'x' }, 0)),
+      await codeOf(update.execute(MARIA, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', notes: 'x' }, 0)),
     ];
     expect(codes).toEqual(Array(3).fill('ERR-ACC-FORBIDDEN'));
     expect(snapshot()).toBe(before);
@@ -68,18 +68,18 @@ describe.each(['memoria', 'SQLite'] as const)('T537 edición auditada (%s)', (na
     const newer = await new AddVaccinationUseCase(deps).execute(ANDRES, ARGOS.id, { vaccineName: 'Séxtuple Canina', appliedAt: '2026-03-01' });
     const before = snapshot();
     const update = new UpdateRecordUseCase(deps);
-    expect(await codeOf(update.execute(ANDRES, ARGOS.id, 'vaccinations', newer.record.id, { collection: 'vaccinations', appliedAt: '2025-01-01' }))).toBe('ERR-REC-SUPERSEDED-IMMUTABLE');
+    expect(await codeOf(update.execute(ANDRES, ARGOS.id, 'vaccinations', newer.record.id, { collection: 'vaccinations', appliedAt: '2025-01-01' }, 0))).toBe('ERR-REC-SUPERSEDED-IMMUTABLE');
     expect(snapshot()).toBe(before);
     expect((await audit(newer.record.id)).map((r) => r.mutationType)).toEqual(['CREATE']);
     // Una edición que la deja vigente sí se acepta.
-    expect(await codeOf(update.execute(ANDRES, ARGOS.id, 'vaccinations', newer.record.id, { collection: 'vaccinations', appliedAt: '2026-04-01' }))).toBe('OK');
+    expect(await codeOf(update.execute(ANDRES, ARGOS.id, 'vaccinations', newer.record.id, { collection: 'vaccinations', appliedAt: '2026-04-01' }, 0))).toBe('OK');
   });
 
   it('[REQ-REC2-003][SC-015] un registro que ya es SUPERSEDED sigue siendo inmutable (409) aunque la edición no cambie su fecha', async () => {
     const { deps, snapshot } = await engineOf();
     await new AddVaccinationUseCase(deps).execute(ANDRES, ARGOS.id, { vaccineName: 'Séxtuple Canina', appliedAt: '2026-03-01' });
     const before = snapshot();
-    expect(await codeOf(new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', notes: 'tarde' }))).toBe('ERR-REC-SUPERSEDED-IMMUTABLE');
+    expect(await codeOf(new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', notes: 'tarde' }, 0))).toBe('ERR-REC-SUPERSEDED-IMMUTABLE');
     expect(snapshot()).toBe(before);
   });
 });

@@ -200,12 +200,17 @@ export const RECORD_COLLECTION: Readonly<Record<RecordModule, string>> = {
   customParameters: 'custom-parameters',
 };
 
-/** Edición parcial de un registro vigente (REQ-BOR-003). El cuerpo declara la colección de la ruta; el servidor valida y audita. */
-export async function updateRecord(api: ApiClient, module: RecordModule, petId: string, recordId: string, body: Readonly<Record<string, unknown>>): Promise<void> {
+/**
+ * Edición parcial de un registro vigente (REQ-BOR-003). El cuerpo declara la colección de la ruta; el servidor valida y audita.
+ * `revision` es la que trajo el registro al leerlo y viaja como `If-Match: "<revision>"` (D-16 A, REQ-BOR-005): si otra persona lo cambió
+ * antes, el servidor responde 409 ERR-REC-CONFLICT y no cambia nada.
+ */
+export async function updateRecord(api: ApiClient, module: RecordModule, petId: string, recordId: string, body: Readonly<Record<string, unknown>>, revision: number): Promise<void> {
   const collection = RECORD_COLLECTION[module];
   await unwrap(
     api.PATCH('/pets/{petId}/records/{collection}/{recordId}', {
       params: { ...CSRF_PARAMS, path: { petId, collection: collection as Schemas['RecordCollection'], recordId } },
+      headers: { 'If-Match': `"${revision}"` },
       body: { ...body, collection } as Schemas['UpdateWeightInput'],
     }),
   );

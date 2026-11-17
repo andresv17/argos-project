@@ -60,7 +60,7 @@ describe.each(['memoria', 'SQLite'] as const)('T539 borrado físico (%s)', (name
     const before = engine.snapshot();
     const del = new DeleteRecordUseCase(engine.deps);
     expect(await codeOf(del.execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID))).toBe('ERR-REC-SUPERSEDED-IMMUTABLE');
-    expect(await codeOf(new UpdateRecordUseCase(engine.deps).execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', notes: 'x' }))).toBe('ERR-REC-SUPERSEDED-IMMUTABLE');
+    expect(await codeOf(new UpdateRecordUseCase(engine.deps).execute(ANDRES, ARGOS.id, 'vaccinations', VACCINE_ID, { collection: 'vaccinations', notes: 'x' }, 0))).toBe('ERR-REC-SUPERSEDED-IMMUTABLE');
     expect(engine.snapshot()).toBe(before);
     expect(engine.recordIds('vaccinations')).toContain(VACCINE_ID);
     await del.execute(ANDRES, ARGOS.id, 'vaccinations', newer.record.id);

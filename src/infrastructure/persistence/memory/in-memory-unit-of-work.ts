@@ -256,7 +256,8 @@ function recordRepository(state: MemoryState): MedicalRecordRepositoryPort {
     async listForPet(petId) {
       const result = emptyMemoryState().records;
       for (const module of RECORD_MODULE_NAMES) {
-        (result[module] as unknown[]) = copy((state.records[module] as Array<{ petId: string }>).filter((r) => r.petId === petId));
+        // `revision` siempre se devuelve (D-16 A): las filas anteriores a la 004 valen 0.
+        (result[module] as unknown[]) = copy((state.records[module] as Array<{ petId: string; revision?: number }>).filter((r) => r.petId === petId)).map((r) => ({ ...r, revision: r.revision ?? 0 }));
       }
       return result;
     },
@@ -272,13 +273,13 @@ function recordRepository(state: MemoryState): MedicalRecordRepositoryPort {
       if (collection.some((r) => r.id === record.id)) {
         throw new Error(`${module}: id duplicado (${record.id})`);
       }
-      collection.push(copy(record));
+      collection.push({ ...copy(record), revision: record.revision ?? 0 });
     },
     async replace<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const collection = state.records[module] as Array<RecordOf<M>>;
       const index = collection.findIndex((r) => r.id === record.id);
       if (index < 0) throw new Error(`${module}: registro inexistente (${record.id})`);
-      collection[index] = copy(record);
+      collection[index] = { ...copy(record), revision: record.revision ?? 0 };
     },
     async remove(module, petId, recordId) {
       const collection = state.records[module] as Array<{ id: string; petId: string }>;

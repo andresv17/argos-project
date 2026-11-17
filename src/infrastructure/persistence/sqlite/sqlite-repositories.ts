@@ -20,13 +20,8 @@
 import { createHash } from 'node:crypto';
 import {
   DomainError,
-  validateBodyMeasurementRecord,
-  validateDewormingRecord,
   validateHousehold,
-  validateMedicalVisitRecord,
   validateUserPublicProfile,
-  validateVaccinationRecord,
-  validateWeightRecord,
   type AuditEntry,
   type Household,
   type UserPublicProfile,
@@ -52,7 +47,7 @@ import type {
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
-import { isStoredCustomParameter, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
+import { STORED_RECORD_CHECKS, revisionOf, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 import { isCanonicalUtcTimestamp } from '../../../domain/sorting/deterministic-sorter.ts';
 import type Database from 'better-sqlite3';
@@ -62,12 +57,12 @@ type Check<T> = (value: unknown) => value is T;
 
 /** Tabla de cada módulo de registros y su validador generado. */
 const RECORD_TABLES: { readonly [M in RecordModule]: { readonly table: string; readonly check: Check<RecordOf<M>> } } = {
-  weights: { table: 'weights', check: validateWeightRecord },
-  bodyMeasurements: { table: 'body_measurements', check: validateBodyMeasurementRecord },
-  vaccinations: { table: 'vaccinations', check: validateVaccinationRecord },
-  dewormings: { table: 'dewormings', check: validateDewormingRecord },
-  medicalVisits: { table: 'medical_visits', check: validateMedicalVisitRecord },
-  customParameters: { table: 'custom_parameters', check: isStoredCustomParameter },
+  weights: { table: 'weights', check: STORED_RECORD_CHECKS.weights },
+  bodyMeasurements: { table: 'body_measurements', check: STORED_RECORD_CHECKS.bodyMeasurements },
+  vaccinations: { table: 'vaccinations', check: STORED_RECORD_CHECKS.vaccinations },
+  dewormings: { table: 'dewormings', check: STORED_RECORD_CHECKS.dewormings },
+  medicalVisits: { table: 'medical_visits', check: STORED_RECORD_CHECKS.medicalVisits },
+  customParameters: { table: 'custom_parameters', check: STORED_RECORD_CHECKS.customParameters },
 };
 const RECORD_MODULE_NAMES = Object.keys(RECORD_TABLES) as RecordModule[];
 
@@ -109,6 +104,32 @@ function decode<T>(table: string, key: string, raw: unknown, check: Check<T>, co
   }
   if (!check(value) || !columns(value)) throw corruptData(table, key);
   return value;
+}
+
+/**
+ * Serializa un registro validado: `data` NO lleva `revision` (la columna es la autoridad, D-16 A); el registro se valida con ella (0 si falta).
+ * @implements REQ-BOR-005
+ */
+export function encodeRecord<T extends { readonly id: string }>(table: string, record: T, check: Check<T>): { readonly data: string; readonly revision: number } {
+  const revision = revisionOf(record);
+  const complete = { ...record, revision };
+  if (!check(complete)) throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Objeto inválido para ${table} (${record.id}); no se guarda.`);
+  const { revision: _revision, ...stored } = complete;
+  return { data: JSON.stringify(stored), revision };
+}
+
+/** Une la columna `revision` al objeto guardado para validarlo y devolverlo completo (D-16 A). */
+export function withRevision(table: string, key: string, raw: unknown, revision: unknown): unknown {
+  let value: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      throw corruptData(table, key);
+    }
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value) || typeof revision !== 'number' || !Number.isInteger(revision) || revision < 0) throw corruptData(table, key);
+  return { ...(value as Record<string, unknown>), revision };
 }
 
 /** Parámetro de lista para `IN (SELECT value FROM json_each(?))`. */
@@ -166,6 +187,8 @@ interface RecordRow {
   readonly id: string;
   readonly pet_id: string;
   readonly data: string;
+  /** Revisión del registro (D-16 A): la columna es la autoridad; `data` no la repite. */
+  readonly revision: number;
   /** Solo en `weights` (ADR-002-09). */
   readonly weight_grams?: number;
 }
@@ -382,10 +405,10 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
   for (const module of RECORD_MODULE_NAMES) {
     const { table } = RECORD_TABLES[module];
     statements[module] = {
-      byPet: db.prepare<[string], RecordRow>(`SELECT id, pet_id, data${table === 'weights' ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = ?`),
-      insert: db.prepare<[string, string, string]>(`INSERT INTO ${table} (id, pet_id, data${table === 'weights' ? ', weight_grams' : ''}) VALUES (?, ?, ?${table === 'weights' ? ', ?' : ''})`),
+      byPet: db.prepare<[string], RecordRow>(`SELECT id, pet_id, data, revision${table === 'weights' ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = ?`),
+      insert: db.prepare<(string | number)[]>(`INSERT INTO ${table} (id, pet_id, data, revision${table === 'weights' ? ', weight_grams' : ''}) VALUES (?, ?, ?, ?${table === 'weights' ? ', ?' : ''})`),
       removeForPet: db.prepare<[string]>(`DELETE FROM ${table} WHERE pet_id = ?`),
-      update: db.prepare<(string | number)[]>(`UPDATE ${table} SET data = ?${table === 'weights' ? ', weight_grams = ?' : ''} WHERE id = ? AND pet_id = ?`),
+      update: db.prepare<(string | number)[]>(`UPDATE ${table} SET data = ?, revision = ?${table === 'weights' ? ', weight_grams = ?' : ''} WHERE id = ? AND pet_id = ?`),
       removeOne: db.prepare<[string, string]>(`DELETE FROM ${table} WHERE id = ? AND pet_id = ?`),
     };
   }
@@ -401,7 +424,7 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
         result[module] = statements[module].byPet
           .all(petId)
           .map((row) =>
-            decode(table, row.id, row.data, check as Check<{ id: string; petId: string; weightKg?: number }>, (r) =>
+            decode(table, row.id, JSON.stringify(withRevision(table, row.id, row.data, row.revision)), check as Check<{ id: string; petId: string; weightKg?: number }>, (r) =>
               r.id === row.id && r.petId === row.pet_id && (table !== 'weights' || (row.weight_grams === weightKgToGrams(r.weightKg!))),
             ),
           );
@@ -416,18 +439,16 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
     },
     async add<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const { table, check } = RECORD_TABLES[module];
-      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
-      if (module === 'weights') {
-        statements[module].insert.run(record.id, record.petId, data, weightKgToGrams((record as RecordOf<'weights'>).weightKg));
-      } else {
-        statements[module].insert.run(record.id, record.petId, data);
-      }
+      const { data, revision } = encodeRecord(table, record, check as Check<RecordOf<M>>);
+      const params: (string | number)[] = [record.id, record.petId, data, revision];
+      if (module === 'weights') params.push(weightKgToGrams((record as RecordOf<'weights'>).weightKg));
+      statements[module].insert.run(...params);
     },
     async replace<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const { table, check } = RECORD_TABLES[module];
-      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
-      const params = module === 'weights' ? [data, weightKgToGrams((record as RecordOf<'weights'>).weightKg)] : [data];
-      const result = statements[module].update.run(...(params as (string | number)[]), record.id, record.petId);
+      const { data, revision } = encodeRecord(table, record, check as Check<RecordOf<M>>);
+      const params: (string | number)[] = module === 'weights' ? [data, revision, weightKgToGrams((record as RecordOf<'weights'>).weightKg)] : [data, revision];
+      const result = statements[module].update.run(...params, record.id, record.petId);
       if (result.changes !== 1) throw corruptData(table, record.id);
     },
     async remove(module, petId, recordId) {

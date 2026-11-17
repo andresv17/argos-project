@@ -1265,3 +1265,4 @@
 - 2026-11-17 Keymaker slice C: T600 pruebas de concurrencia (SQLite+PG17, 6/6) listas; ver log-keymaker.
 - 2026-11-17 Keymaker slice C: T601 candado de mascota/propietario (findByIdForUpdate, PG FOR UPDATE) verde.
 - 2026-11-17 Keymaker slice C: T604/T605 importacion (reemplazo, microchip del archivo, mediaToDeleteCount + UI + exencion retirada). Parcial: medios/avatar y microchip global esperan T574/T575/T580/T553/T554.
+- 2026-11-17 Keymaker slice C: T613/T614 control de revision (If-Match, ERR-REC-CONFLICT, revision en 3 motores, UI) verde; exencion de revision retirada. Pendiente Oracle.

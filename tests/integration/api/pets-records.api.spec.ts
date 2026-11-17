@@ -6,6 +6,9 @@ import { ARGOS_ID, KIRA_ID, LUNA_ID, NEW_PET, RECORD_INPUTS } from './api-fixtur
 let api: Api;
 afterEach(async () => api.close());
 
+/** D-16 A: todo PATCH de un registro lleva `If-Match` con la revisión leída; los registros de estas pruebas no se han editado antes (revision 0). */
+const IF_MATCH_0 = { 'if-match': '"0"' };
+
 const names = (json: unknown) => (json as Array<{ profile: { name: string } }>).map((c) => c.profile.name);
 
 describe('mascotas por HTTP (src/infrastructure/http/routes/pets.routes.ts)', () => {
@@ -556,7 +559,7 @@ describe('registros clínicos 002 por HTTP (REQ-REC2-002, REQ-REC2-003, SC-015)'
     const v2 = created(await api.call('POST', recordsUrl('vaccinations'), { cookie: andres, body: second }));
     const view = await dashboard(andres);
     expect([view.vaccinations.filter((v) => v.record.vaccineName === NAME).map((v) => v.record.id), view.supersededVaccinations.map((v) => [v.record.id, v.alert!.status]).filter(([id]) => id === v1)]).toEqual([[v2], [[v1, 'SUPERSEDED']]]);
-    const patch = (cookie: string, id: string) => api.call('PATCH', `${recordsUrl('vaccinations')}/${id}`, { cookie, body: { collection: 'vaccinations', notes: 'corregido' } });
+    const patch = (cookie: string, id: string) => api.call('PATCH', `${recordsUrl('vaccinations')}/${id}`, { cookie, headers: IF_MATCH_0, body: { collection: 'vaccinations', notes: 'corregido' } });
     const attempts = [await patch(andres, v1), await patch(maria, v1), await patch(lucia, v1)];
     const current = await patch(andres, v2);
     const after = await dashboard(andres);
@@ -571,7 +574,7 @@ describe('registros clínicos 002 por HTTP (REQ-REC2-002, REQ-REC2-003, SC-015)'
     const v1 = created(await api.call('POST', recordsUrl('vaccinations'), { cookie, body: { vaccineName: NAME, appliedAt: '2026-06-01', nextBoosterAt: null } }));
     const v2 = created(await api.call('POST', recordsUrl('vaccinations'), { cookie, body: { vaccineName: NAME.toUpperCase(), appliedAt: '2026-10-01', nextBoosterAt: null } }));
     const view = await dashboard(cookie);
-    const edit = await api.call('PATCH', `${recordsUrl('vaccinations')}/${v1}`, { cookie, body: { collection: 'vaccinations', notes: 'no debe guardarse' } });
+    const edit = await api.call('PATCH', `${recordsUrl('vaccinations')}/${v1}`, { cookie, headers: IF_MATCH_0, body: { collection: 'vaccinations', notes: 'no debe guardarse' } });
     expect([
       view.vaccinations.filter((v) => v.record.vaccineName.toLowerCase() === NAME.toLowerCase()).map((v) => [v.record.id, v.alert]),
       view.supersededVaccinations.map((v) => [v.record.id, v.alert?.status ?? null]),
@@ -588,7 +591,7 @@ describe('registros clínicos 002 por HTTP (REQ-REC2-002, REQ-REC2-003, SC-015)'
     const removed = await api.call('DELETE', `${recordsUrl('vaccinations')}/${v2}`, { cookie });
     const view = await dashboard(cookie);
     const back = view.vaccinations.find((v) => v.record.id === v1);
-    const edit = await api.call('PATCH', `${recordsUrl('vaccinations')}/${v1}`, { cookie, body: { collection: 'vaccinations', notes: 'ya editable' } });
+    const edit = await api.call('PATCH', `${recordsUrl('vaccinations')}/${v1}`, { cookie, headers: IF_MATCH_0, body: { collection: 'vaccinations', notes: 'ya editable' } });
     expect([removed.status, back?.alert?.status, back?.alert?.daysRemaining, view.supersededVaccinations.some((v) => v.record.id === v1), edit.status]).toEqual([204, 'UP_TO_DATE', 208, false, 200]);
   });
 

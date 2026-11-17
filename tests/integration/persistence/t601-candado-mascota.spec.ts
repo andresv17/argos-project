@@ -121,7 +121,7 @@ describe.skipIf(!TEST_DATABASE_URL)('T601 PostgreSQL real: SELECT … FOR UPDATE
     const deps = depsOf();
     const cases: Array<[string, () => Promise<unknown>]> = [
       ['alta', () => new AddWeightRecordUseCase(deps).execute(ANDRES, ARGOS.id, { weightKg: 20.5, recordedAt: '2026-11-01' })],
-      ['edición', () => new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'weights', WEIGHT.id, { collection: 'weights', notes: 'x' })],
+      ['edición', () => new UpdateRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'weights', WEIGHT.id, { collection: 'weights', notes: 'x' }, 0)],
       ['borrado', () => new DeleteRecordUseCase(deps).execute(ANDRES, ARGOS.id, 'weights', WEIGHT.id)],
     ];
     for (const [label, run] of cases) {

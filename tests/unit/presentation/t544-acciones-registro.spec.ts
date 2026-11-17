@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { DeleteRecordDialog } from '../../../src/presentation/web/components/RecordActions.tsx';
 import { PetDashboard } from '../../../src/presentation/web/components/PetDashboard.tsx';
-import { ApiProblem, catalogProblem } from '../../../src/presentation/web/api.ts';
+import { ApiProblem, catalogProblem, toProblem } from '../../../src/presentation/web/api.ts';
 import { RECORD_MODULES, deleteRecord, updateRecord, type RecordModule } from '../../../src/presentation/web/records.ts';
 import { canDeleteRecord, canEditRecord, recordActionMessage, recordInitialValues, recordLabel } from '../../../src/presentation/web/record-actions.ts';
 import type { PetDashboardView } from '../../../src/presentation/web/view-model.ts';
@@ -110,6 +110,12 @@ describe('T544 mensaje del 409 de SUPERSEDED y de los demás errores (REQ-BOR-00
     expect(message).toContain('no se puede modificar');
   });
 
+  it('[ERR-REC-CONFLICT][REQ-BOR-005] el 409 de revisión desactualizada se muestra como «El registro cambió; recarga y vuelve a intentarlo» y no como error inesperado', () => {
+    const body = { type: 'urn:argos:error:ERR-REC-CONFLICT', code: 'ERR-REC-CONFLICT', title: 'Registro modificado por otra persona', status: 409, detail: 'x', invariantRef: 'INV-REG-003' };
+    expect(toProblem(body).code).toBe('ERR-REC-CONFLICT');
+    expect(recordActionMessage(new ApiProblem(toProblem(body)))).toContain('El registro cambió; recarga y vuelve a intentarlo');
+  });
+
   it('[ERR-ACC-FORBIDDEN][ERR-INTERNAL-UNEXPECTED] un 403 usa su texto y un error ajeno a la API cae en el error inesperado', () => {
     expect(recordActionMessage(new ApiProblem(catalogProblem('ERR-ACC-FORBIDDEN')))).toContain('tu rol no permite');
     expect(recordActionMessage(new TypeError('boom'))).toBe(recordActionMessage(new ApiProblem(catalogProblem('ERR-INTERNAL-UNEXPECTED'))));
@@ -150,11 +156,12 @@ describe('T544 llamadas del cliente (PATCH y DELETE del registro)', () => {
 
   it('[REQ-BOR-003] updateRecord manda PATCH a la colección del módulo con `collection` en el cuerpo y la cabecera CSRF', async () => {
     const { calls, api } = fake();
-    await updateRecord(api, 'customParameters', 'pet-1', 'rec-1', { title: 'Nuevo' });
-    await updateRecord(api, 'measurements', 'pet-1', 'rec-2', { neckCm: 31 });
+    await updateRecord(api, 'customParameters', 'pet-1', 'rec-1', { title: 'Nuevo' }, 0);
+    await updateRecord(api, 'measurements', 'pet-1', 'rec-2', { neckCm: 31 }, 4);
+    // D-16 A: la revisión leída viaja entre comillas en If-Match.
     expect(calls).toEqual([
-      { method: 'PATCH', url: '/pets/{petId}/records/{collection}/{recordId}', init: { params: { header: { 'X-Argos-Request': '1' }, path: { petId: 'pet-1', collection: 'custom-parameters', recordId: 'rec-1' } }, body: { collection: 'custom-parameters', title: 'Nuevo' } } },
-      { method: 'PATCH', url: '/pets/{petId}/records/{collection}/{recordId}', init: { params: { header: { 'X-Argos-Request': '1' }, path: { petId: 'pet-1', collection: 'measurements', recordId: 'rec-2' } }, body: { collection: 'measurements', neckCm: 31 } } },
+      { method: 'PATCH', url: '/pets/{petId}/records/{collection}/{recordId}', init: { params: { header: { 'X-Argos-Request': '1' }, path: { petId: 'pet-1', collection: 'custom-parameters', recordId: 'rec-1' } }, headers: { 'If-Match': '"0"' }, body: { collection: 'custom-parameters', title: 'Nuevo' } } },
+      { method: 'PATCH', url: '/pets/{petId}/records/{collection}/{recordId}', init: { params: { header: { 'X-Argos-Request': '1' }, path: { petId: 'pet-1', collection: 'measurements', recordId: 'rec-2' } }, headers: { 'If-Match': '"4"' }, body: { collection: 'measurements', neckCm: 31 } } },
     ]);
   });
 

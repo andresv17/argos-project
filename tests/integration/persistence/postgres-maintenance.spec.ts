@@ -16,7 +16,10 @@ import { expectParametrized, norm, type Call } from '../../fixtures/pg-fake-clie
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const MAINTENANCE_PATH = '../../../src/infrastructure/persistence/postgres/postgres-maintenance.ts';
 const UOW_PATH = '../../../src/infrastructure/persistence/postgres/postgres-unit-of-work.ts';
-const BASELINE = readFileSync(new URL('../../../src/infrastructure/persistence/postgres/migrations/0001_baseline.sql', import.meta.url), 'utf8');
+// Esquema vigente: el baseline y la 0002 (columna `revision` de los 6 registros, T540; los repositorios la leen y la escriben desde T614).
+const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql']
+  .map((name) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${name}`, import.meta.url), 'utf8'))
+  .join('\n');
 
 const CUTOFFS: MaintenanceCutoffs = { now: '2026-11-05T12:00:00.000Z', auditBefore: '2024-11-05T12:00:00.000Z' };
 const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log'] as const;
