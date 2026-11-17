@@ -16,13 +16,15 @@ const USERNAME_PATH = new URL('../../../src/infrastructure/persistence/postgres/
 const MICROCHIP_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0004_pets_microchip_global.sql', import.meta.url);
 /** T556: la 0006 de Postgres equivale a la 0010 de SQLite (el CHECK de `rate_limit_events.scope` admite MICROCHIP_DUPLICATE). */
 const RATE_SCOPE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0006_rate_limit_microchip_scope.sql', import.meta.url);
+/** T574: la 0005 de Postgres equivale a la 0009 de SQLite (`pet_media`, `media_deletion_queue` y las columnas de avatar de `pets`). */
+const MEDIA_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0005_pet_media.sql', import.meta.url);
 /** T540: la migración 0002 de Postgres equivale a la 0006 de SQLite (`revision` en las 6 tablas de registros, D-16 A). */
 const REVISION_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0002_record_revision.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
   'audit_log', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'household_invitations',
-  'household_members', 'households', 'login_attempts', 'medical_visits', 'pet_assignments', 'pets', 'rate_limit_events',
+  'household_members', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'pet_assignments', 'pet_media', 'pets', 'rate_limit_events',
   'schema_migrations', 'sessions', 'users', 'vaccinations', 'weights',
 ];
 
@@ -31,7 +33,7 @@ const CANONICAL_INDEXES = [
   'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
   'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
   'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'pet_assignments_household_id',
-  'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'sessions_user_id', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
+  'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'sessions_user_id', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
 ];
 
 /** Diferencias de tipo justificadas en data-model.md §1: data JSON -> JSONB; indicadores 0/1 -> SMALLINT. */
@@ -189,7 +191,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH)]);
+const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH)]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -261,7 +263,7 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
   });
 
   it('el SQL es PostgreSQL puro: sin STRICT, json_extract, PRAGMA ni GLOB; datos JSONB', () => {
-    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8') + readFileSync(USERNAME_PATH, 'utf8') + readFileSync(MICROCHIP_PATH, 'utf8') + readFileSync(RATE_SCOPE_PATH, 'utf8'));
+    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8') + readFileSync(USERNAME_PATH, 'utf8') + readFileSync(MICROCHIP_PATH, 'utf8') + readFileSync(RATE_SCOPE_PATH, 'utf8') + readFileSync(MEDIA_PATH, 'utf8'));
     for (const banned of [/\bSTRICT\b/i, /json_extract/i, /\bPRAGMA\b/i, /\bGLOB\b/i, /strftime/i, /\bAUTOINCREMENT\b/i]) {
       expect(sql).not.toMatch(banned);
     }
@@ -306,6 +308,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(USERNAME_PATH, 'utf8'));
         await client.query(readFileSync(MICROCHIP_PATH, 'utf8'));
         await client.query(readFileSync(RATE_SCOPE_PATH, 'utf8'));
+        await client.query(readFileSync(MEDIA_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],
