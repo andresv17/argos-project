@@ -184,7 +184,7 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     const d = job('deploy');
     const deployCmd = d.slice(d.indexOf('gcloud run deploy argos'));
     const m = /--set-env-vars\s+"([^"]*)"/.exec(deployCmd);
-    expect(m).not.toBeNull();
+    expect(m?.[1]).toContain('COOKIE_SECURE=true');
     const pairs = (m?.[1] ?? '').split(',').map((x) => x.trim()).filter((x) => x !== '');
     const keys = pairs.map((x) => x.split('=')[0]);
     // El flag reemplaza todo el entorno: las existentes deben seguir presentes.
