@@ -227,7 +227,7 @@ describe('neutralFilename: nombre de la URL firmada (REQ-ARC-003, D-14 A, INV-AR
   });
 
   it('una PHOTO que fuera PDF no existe: lanza', () => {
-    expect(() => neutralFilename('PHOTO', 'application/pdf')).toThrow();
+    expect(() => neutralFilename('PHOTO', 'application/pdf')).toThrow(RangeError);
   });
 });
 
@@ -241,9 +241,9 @@ describe('claves de objeto: solo UUID (INV-ARC-003, SC-ALM-007)', () => {
 
   it('rechaza un petId o mediaId que no sea UUID v4 en minúsculas (../, nombres, mayúsculas, con espacio)', () => {
     for (const bad of ['../x', 'Análisis Luna.pdf', PET.toUpperCase(), `${PET} `, `${PET}/..`, '', 'x']) {
-      expect(() => mediaObjectKey(bad, 'FILE', ID), bad).toThrow();
-      expect(() => mediaObjectKey(PET, 'FILE', bad), bad).toThrow();
-      expect(() => avatarObjectKey(PET, bad), bad).toThrow();
+      expect(() => mediaObjectKey(bad, 'FILE', ID), bad).toThrow(RangeError);
+      expect(() => mediaObjectKey(PET, 'FILE', bad), bad).toThrow(RangeError);
+      expect(() => avatarObjectKey(PET, bad), bad).toThrow(RangeError);
     }
   });
 

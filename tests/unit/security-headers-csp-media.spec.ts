@@ -29,7 +29,7 @@ describe('CSP con el host del bucket de medios (T563)', () => {
   });
 
   it.each(['', 'Bucket', 'a b', 'a;b', "a'b", 'a/b', '*', 'a.b.c.evil.com/x', '-x', 'x'.repeat(64)])('mediaBucketHost rechaza el nombre no válido %j', (name) => {
-    expect(() => mediaBucketHost(name)).toThrow();
+    expect(() => mediaBucketHost(name)).toThrow('Nombre de bucket de medios no válido.');
   });
 
   it('img-src queda en self, data: y exactamente el host; frame-src es solo ese host', async () => {
@@ -60,7 +60,7 @@ describe('CSP con el host del bucket de medios (T563)', () => {
 
   it('un host que no es <bucket>.storage.googleapis.com se rechaza al registrar (sin inyección de directivas)', () => {
     for (const bad of ['evil.example.com', `${HOST}; script-src *`, 'storage.googleapis.com', '*.storage.googleapis.com', `${HOST}/x`]) {
-      expect(() => registerSecurityHeaders(Fastify(), { mediaHost: bad })).toThrow();
+      expect(() => registerSecurityHeaders(Fastify(), { mediaHost: bad })).toThrow('Host de medios no válido para la CSP.');
     }
   });
 });
