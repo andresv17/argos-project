@@ -142,7 +142,7 @@ describe('presentación de la Rebanada 6 contra la API real (T284)', () => {
 
   it('[REQ-UI-005][ERR-SCHEMA-VALIDATION-FAILED] el rechazo real del registro con un usuario inválido llega a la UI sin el texto técnico del esquema formal', async () => {
     const client = createWebApi(await baseUrl());
-    const error = await unwrap(client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'Mayusculas', displayName: 'X', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' } })).catch((e: unknown) => e);
+    const error = await unwrap(client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'con espacios', displayName: 'X', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' } })).catch((e: unknown) => e);
     const shown = error instanceof ApiProblem ? [error.problem.code, problemMessage(error.problem).includes('El payload incumple el esquema formal')] : null;
     expect(shown).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', false]);
   });

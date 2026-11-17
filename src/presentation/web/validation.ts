@@ -4,7 +4,7 @@
  * La API valida de nuevo; esta capa solo evita peticiones que el contrato ya rechaza. No hay esquemas escritos a mano:
  * todo validador sale de `scripts/compile-contracts.sh` (INV-ARCH-003).
  *
- * @implements INV-ARCH-003, REQ-FRM-001, REQ-UI-002, REQ-UI-005, REQ-UI-006, ERR-SCHEMA-VALIDATION-FAILED, ERR-AUTH-WEAK-PASSWORD, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE
+ * @implements INV-ARCH-003, REQ-FRM-001, REQ-LOG-001, REQ-LOG-002, REQ-UI-002, REQ-UI-005, REQ-UI-006, ERR-SCHEMA-VALIDATION-FAILED, ERR-AUTH-WEAK-PASSWORD, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE
  */
 import { ERROR_CATALOG } from '../../generated/errors/error-codes.ts';
 import { resolveFieldErrorCode } from '../../generated/errors/field-errors.ts';
@@ -18,13 +18,19 @@ import {
   validateChangePasswordInput,
   validateDeleteAccountInput,
   validateUpdateProfileInput,
+  type ValidatorFunction,
+} from '../../generated/schemas/validators.mjs';
+// El alta y la edición de mascota (breedCode, microchip), el registro, el inicio de sesión (usuario o correo, 254) y la invitación (username con
+// mayúsculas) usan el contrato 3.1.0; el resto de formularios sigue en la 002.
+import {
+  validateCreateBodyMeasurementInput,
+  validateCreateCustomParameterInput,
+  validateCreatePetInput,
   validateInviteMemberInput,
   validateLoginInput,
   validateRegisterUserInput,
-  type ValidatorFunction,
-} from '../../generated/schemas/validators.mjs';
-// El alta y la edición de mascota usan el contrato 3.1.0 (breedCode, microchip) mientras el resto de formularios sigue en la 002.
-import { validateCreateBodyMeasurementInput, validateCreateCustomParameterInput, validateCreatePetInput, validateUpdatePetInput } from '../../generated/v31/schemas/validators.mjs';
+  validateUpdatePetInput,
+} from '../../generated/v31/schemas/validators.mjs';
 
 const VALIDATORS = {
   RegisterUserInput: validateRegisterUserInput,

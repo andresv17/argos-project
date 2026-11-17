@@ -1,9 +1,10 @@
 /**
  * Pantallas de registro e inicio de sesión con validación en cliente derivada de los contratos y mensajes
  * del catálogo. Tras registrarse, la sesión queda iniciada (REQ-AUTH2-001). El registro aplica la política de
- * contraseña nueva (INV-AUTH2-001) con confirmación y correo opcional; el inicio de sesión no la aplica (REQ-AUTH2-002).
+ * contraseña nueva (INV-AUTH2-001) con confirmación y correo opcional; el inicio de sesión no la aplica (REQ-AUTH2-002). El campo de
+ * inicio de sesión acepta usuario o correo (REQ-LOG-001); el usuario del registro admite mayúsculas y no exige dígitos (REQ-LOG-002).
  *
- * @implements REQ-UI-005, REQ-UI-004, REQ-AUTH2-001, INV-AUTH2-001, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-WEAK-PASSWORD
+ * @implements REQ-UI-005, REQ-UI-004, REQ-AUTH2-001, REQ-LOG-001, REQ-LOG-002, INV-AUTH2-001, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-WEAK-PASSWORD
  */
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, FormError, PasswordField, TextField } from '../components/Field.tsx';
@@ -45,12 +46,13 @@ export function LoginPage(): JSX.Element {
   return (
     <AuthLayout title="Iniciar sesión">
       <form noValidate aria-label="Iniciar sesión" onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <TextField id="login-username" label="Usuario" name="username" autoComplete="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
+        <TextField id="login-username" label="Usuario o correo" name="username" autoComplete="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
         <PasswordField id="login-password" label="Contraseña" name="password" autoComplete="current-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
         <FormError errors={form.errors} message={form.message} />
         <Button type="submit" disabled={form.busy}>
           Entrar
         </Button>
+        <p className="text-sm text-text-muted">Si no puedes entrar con tu correo, usa tu usuario.</p>
       </form>
       <p className="mt-4 text-sm text-slate-800">
         ¿No tienes cuenta?{' '}
@@ -76,7 +78,7 @@ export function RegisterPage(): JSX.Element {
   return (
     <AuthLayout title="Crear cuenta">
       <form noValidate aria-label="Crear cuenta" onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <TextField id="register-username" label="Usuario (minúsculas, números, . _ -)" name="username" autoComplete="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
+        <TextField id="register-username" label="Usuario (letras, números, . _ -)" name="username" autoComplete="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
         <TextField id="register-displayName" label="Nombre visible" name="displayName" autoComplete="name" required value={form.values.displayName ?? ''} onChange={form.onChange} errors={form.errors} />
         <TextField id="register-email" label="Correo (opcional)" name="email" type="email" autoComplete="email" value={form.values.email ?? ''} onChange={form.onChange} errors={form.errors} />
         <PasswordField id="register-password" label="Contraseña (10 a 128, con mayúscula, número y símbolo)" name="password" autoComplete="new-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
