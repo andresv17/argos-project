@@ -2,10 +2,10 @@
  * Patrones triviales del microchip de ENTRADA (REQ-PET4-002, EDGE-020): 15 dígitos iguales y secuencias consecutivas ascendentes o
  * descendentes módulo 10 (`123456789012345`, `987654321098765`, `098765432109876`). Función pura: sin reloj, sin entorno, sin E/S.
  *
- * El patrón `MicrochipInput` del contrato 3.1.0 ya rechaza la mayoría, pero lista mal las descendentes que empiezan en 0, 1, 2 y 3
- * («09876543210-1-2-3-4», …), que nunca coinciden con 15 dígitos. Esta regla de dominio aplica la definición de la spec completa
- * (hallazgo H-K-004T556-1; el contrato lo corrige `/architect`, no se edita aquí). Solo valida la entrada: un microchip ya guardado no se
- * revalida.
+ * El patrón `MicrochipInput` del contrato 3.1.0 enumera las 20 secuencias consecutivas módulo 10 (10 ascendentes y 10 descendentes; corregido en
+ * af2aa3b, H-K-004T556-1, que sustituyó las cuatro descendentes defectuosas que empiezan en 0, 1, 2 y 3) y los 15 dígitos iguales mediante
+ * referencia hacia atrás. Esta regla de dominio es defensa en profundidad: aplica la misma definición de REQ-PET4-002 a la entrada que no pasa por
+ * el esquema y se mantiene idéntica a él. Solo valida la entrada: un microchip ya guardado no se revalida.
  *
  * @implements REQ-PET4-002, EDGE-020
  */
