@@ -117,7 +117,7 @@ export function MediaPanelView(props: MediaPanelViewProps): JSX.Element {
               accept={uploadKind === 'PHOTO' ? PHOTO_ACCEPT : FILE_ACCEPT}
               disabled={uploading}
               onChange={(e) => props.onChoose(e.target.files?.[0] ?? null)}
-              className={FIELD}
+              className={`${FIELD} w-full min-w-0`}
             />
           </div>
           <Button disabled={uploading || chosenName === null} onClick={props.onUpload}>
