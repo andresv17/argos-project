@@ -144,7 +144,8 @@ describe.each(ENGINE_NAMES)('T552 microchip único global (%s)', (name) => {
     const foreign = await http.patch(maria, `/api/pets/${LUNA.id}`, { microchipId: CHIP });
     const same = await http.patch(andres, `/api/pets/${petId}`, { microchipId: CHIP, name: 'Nube II' });
     expect([own.status, foreign.status, same.status]).toEqual([409, 409, 200]);
-    expect(foreign.body).toBe(own.body);
+    // La ruta (`instance`) lleva el id de la mascota que se edita; el resto del cuerpo es idéntico.
+    expect({ ...foreign.json, instance: null }).toEqual({ ...own.json, instance: null });
     expect(own.json['detail']).toBe(DETAIL);
     expect(await http.engine.read((r) => r.pets.findById(LUNA.id).then((p) => p?.microchipId))).toBeNull();
   });

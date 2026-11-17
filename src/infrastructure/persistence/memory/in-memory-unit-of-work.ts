@@ -245,6 +245,10 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       return copy(state.pets.filter((p) => ownerUserIds.includes(p.ownerUserId)));
     },
     async save(pet) {
+      // Equivale a `pets_microchip_global` (REQ-PET4-001): el microchip no nulo es único en todo el sistema y la violación imita la de SQLite.
+      if (pet.microchipId !== null && state.pets.some((p) => p.id !== pet.id && p.microchipId === pet.microchipId)) {
+        throw Object.assign(new Error('UNIQUE constraint failed: pets.microchip_id'), { code: 'SQLITE_CONSTRAINT_UNIQUE' });
+      }
       state.pets = [...state.pets.filter((p) => p.id !== pet.id), copy(pet)];
     },
     async delete(petId) {

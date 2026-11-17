@@ -31,7 +31,6 @@ import {
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import { SPECIES, isOtherSpecies, assertSpeciesConsistency, speciesFilterGroup } from '../../src/domain/pet/species.ts';
 import { estimatedAgeToBirthDate } from '../../src/domain/pet/estimated-age.ts';
-import { assertMicrochipUniqueForOwner } from '../../src/domain/pet/pet-invariants.ts';
 import { upgradePet } from '../fixtures/storage-upgrade.ts';
 import { calculatePetAge } from '../../src/domain/shared/date-utils.ts';
 
@@ -539,7 +538,6 @@ describe('edad estimada y edad real (src/domain/pet/estimated-age.ts)', () => {
 
 describe('microchip y esterilización (src/domain/pet/pet-invariants.ts)', () => {
   const chip = '981020000000001';
-  const withChip = (id: string, microchipId: string | null) => ({ ...argos, id, microchipId });
 
   it('[REQ-PET2-001] neutered es opcional y admite true, false y null; microchipId admite 15 dígitos o null', () => {
     expect([true, false, null].map((neutered) => create({ ...VALID_INPUT, neutered }).neutered)).toEqual([true, false, null]);
@@ -549,17 +547,5 @@ describe('microchip y esterilización (src/domain/pet/pet-invariants.ts)', () =>
       const error = catchDomainError(() => create({ ...VALID_INPUT, microchipId: bad }));
       expect([error.code, error.field]).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', 'microchipId']);
     }
-  });
-
-  it('[REQ-PET2-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip es único entre las mascotas del mismo propietario', () => {
-    const owned = [withChip('p1', chip), withChip('p2', null)];
-    const error = catchDomainError(() => assertMicrochipUniqueForOwner(owned, chip, 'p3'));
-    expect([error.code, error.status, error.field]).toEqual(['ERR-PET-MICROCHIP-DUPLICATE', 409, 'microchipId']);
-    expect(error.detail).not.toContain(chip);
-    expect(assertMicrochipUniqueForOwner(owned, chip, 'p1')).toBeUndefined(); // la misma mascota al editar
-    expect(assertMicrochipUniqueForOwner(owned, '981020000000002', 'p3')).toBeUndefined();
-    expect(assertMicrochipUniqueForOwner(owned, null, 'p3')).toBeUndefined();
-    expect(assertMicrochipUniqueForOwner([withChip('p4', null), withChip('p5', null)], null, 'p6')).toBeUndefined();
-    expect(assertMicrochipUniqueForOwner([], chip, 'p3')).toBeUndefined(); // otro propietario: sin mascotas suyas con ese chip
   });
 });

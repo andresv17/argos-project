@@ -3,12 +3,14 @@
  * esquema y dominio dentro de las funciones de pet-invariants.
  * - UpdatePetUseCase aplica INV-PET-006 con las fechas de todos los registros de la mascota.
  * - DeletePetUseCase borra la mascota y sus 6 colecciones en una sola transacción (REQ-PET-004).
- * - RegisterPet y UpdatePet comprueban que el microchip sea único entre las mascotas del mismo propietario (REQ-PET2-001).
+ * - RegisterPet y UpdatePet NO consultan antes por propietario: el microchip es único en todo el sistema y lo impone la restricción
+ *   `pets_microchip_global` al guardar; `mapMicrochipViolation` mapea solo esa violación al mismo ERR-PET-MICROCHIP-DUPLICATE para un
+ *   duplicado propio o ajeno (REQ-PET4-001, INV-PET4-001).
  * - ListMyPetsUseCase devuelve las mascotas propias y las visibles por asignación a hogares, sin cupo, con el filtro
  *   (REQ-PET2-002) y el orden de REQ-PET-005; fuera de un hogar el colorToken del dueño es null (EDGE-030).
  * - GetPetDashboardUseCase aplica INV-ACC2-001 y devuelve myRole y permissions de la matriz REQ-RBAC-001 (reemplazan canEdit).
  *
- * @implements REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-PET4-001, INV-PET4-001, REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
 import { normalizePetProfile, type PetProfile } from '../../domain/pet/pet-invariants.ts';
@@ -16,7 +18,8 @@ import type { components, Species } from '../../generated/index.ts';
 import { petPermissionsFor } from '../../domain/access/rbac.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import { ownerTag } from '../../domain/households/household-policies.ts';
-import { assertMicrochipUniqueForOwner, collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
+import { collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
+import { mapMicrochipViolation } from './microchip-violation.ts';
 import { computeWeightEvolutionSeries, withSymptomFields } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
@@ -85,8 +88,7 @@ export class RegisterPetUseCase {
         today: this.deps.clock.todayIsoDate(),
         nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
       });
-      assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([userId]), pet.microchipId, pet.id);
-      await repositories.pets.save(pet);
+      await mapMicrochipViolation(() => repositories.pets.save(pet));
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: pet });
       const baseHouseholdId = baseHouseholdIdOf(input);
       if (baseHouseholdId !== undefined) await assignOwnedPetToHousehold(this.deps, repositories, userId, pet, baseHouseholdId);
@@ -110,8 +112,7 @@ export class UpdatePetUseCase {
         nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
         recordEventDates: collectRecordEventDates(petId, records),
       });
-      assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([pet.ownerUserId]), updated.microchipId, updated.id);
-      await repositories.pets.save(updated);
+      await mapMicrochipViolation(() => repositories.pets.save(updated));
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: pet, next: updated });
       return updated;
     });

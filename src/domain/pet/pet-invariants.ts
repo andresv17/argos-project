@@ -3,7 +3,8 @@
  * - REQ-PET2-001: alta y edición del perfil; el dueño es el usuario autenticado; la edad estimada (años y meses) se
  *   convierte a birthDate con el reloj inyectado y marca birthDateIsEstimate (ADR-002-16).
  * - INV-PET2-001: species de las 8 aprobadas y speciesOther solo con OTHER (esquema + estado resultante de la edición).
- * - REQ-PET2-001 / ERR-PET-MICROCHIP-DUPLICATE: el microchip es único por propietario, no entre cuentas.
+ * - REQ-PET4-001 / INV-PET4-001 / ERR-PET-MICROCHIP-DUPLICATE: el microchip es único en todo el sistema; lo impone la restricción única
+ *   `pets_microchip_global` al guardar (no hay comprobación de dominio previa: ver `application/use-cases/microchip-violation.ts`).
  * - INV-PET-002: birthDate <= ClockPort.todayIsoDate() (delegado en date-utils).
  * - INV-PET-006: al editar birthDate, no puede quedar después de ningún registro de la mascota.
  * - INV-OWN-001: un único ownerUserId, que referencia un usuario existente y no se edita vía API.
@@ -85,23 +86,6 @@ export function assertValidPetProfile(pet: unknown): asserts pet is PetProfile {
     failSchema('PetProfile', validatePetProfile as ValidatorWithErrors);
   }
   assertBreedConsistency(candidate.species, candidate.breedCode, candidate.breed);
-}
-
-/**
- * ERR-PET-MICROCHIP-DUPLICATE: ninguna otra mascota del propietario lleva ese microchip. `ownedPets` son solo las
- * mascotas de ese propietario (la unicidad es por propietario, no global); `exceptPetId` es la mascota que se guarda
- * (una edición que conserva su propio chip no choca). Un microchip nulo nunca choca. El mensaje no repite el número.
- * @implements REQ-PET2-001, ERR-PET-MICROCHIP-DUPLICATE
- */
-export function assertMicrochipUniqueForOwner(
-  ownedPets: ReadonlyArray<{ readonly id: string; readonly microchipId: string | null }>,
-  microchipId: string | null | undefined,
-  exceptPetId: string,
-): void {
-  if (microchipId === null || microchipId === undefined) return;
-  if (ownedPets.some((other) => other.id !== exceptPetId && other.microchipId === microchipId)) {
-    throw new DomainError('ERR-PET-MICROCHIP-DUPLICATE', undefined, 'microchipId');
-  }
 }
 
 /**

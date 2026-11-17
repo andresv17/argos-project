@@ -3,12 +3,13 @@ import { resolve } from 'node:path';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { DomainError, type BackupEnvelopeV3, type PetProfile } from '../../src/generated/index.ts';
-import { assertBirthDateNotAfterRecords, assertMicrochipUniqueForOwner, createPetProfile } from '../../src/domain/pet/pet-invariants.ts';
+import { assertBirthDateNotAfterRecords, createPetProfile } from '../../src/domain/pet/pet-invariants.ts';
 import { SPECIES, assertSpeciesConsistency } from '../../src/domain/pet/species.ts';
 import { estimatedAgeToBirthDate } from '../../src/domain/pet/estimated-age.ts';
 import { calculatePetAge } from '../../src/domain/shared/date-utils.ts';
 import { upgradePet } from '../fixtures/storage-upgrade.ts';
 import { deletePetCascade } from '../../src/domain/pet/pet-deletion.ts';
+import { InMemoryUnitOfWork, emptyMemoryState } from '../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
 
 const PROPERTY_SEED = 20261105;
 const DAY_MS = 86_400_000;
@@ -90,15 +91,22 @@ describe('propiedades de mascota', () => {
     );
   });
 
-  it('[REQ-PET2-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip repetido falla si y solo si otra mascota del propietario lo tiene', () => {
+  it('[REQ-PET4-001][INV-PET4-001] el guardado de una mascota con microchip falla si y solo si OTRA mascota (de cualquier propietario) ya lo tiene', async () => {
     const chip = fc.constantFrom<string | null>(null, '981020000000001', '981020000000002');
-    fc.assert(
-      fc.property(fc.array(chip, { maxLength: 6 }), chip, (existing, candidate) => {
-        const owned = existing.map((microchipId, i) => ({ id: `p${i}`, microchipId }));
-        const expected = candidate !== null && existing.includes(candidate) ? 'ERR-PET-MICROCHIP-DUPLICATE' : 'OK';
-        expect(outcome(() => assertMicrochipUniqueForOwner(owned, candidate, 'nueva'))).toBe(expected);
+    const owner = fc.constantFrom('u-1', 'u-2', 'u-3');
+    await fc.assert(
+      fc.asyncProperty(fc.array(fc.tuple(owner, chip), { maxLength: 8 }), async (saves) => {
+        const uow = new InMemoryUnitOfWork(emptyMemoryState());
+        const seen = new Set<string>();
+        for (const [i, [ownerUserId, microchipId]] of saves.entries()) {
+          const pet = { ...upgradePet(envelope.pets[0] as never), id: `p${i}`, ownerUserId, microchipId } as PetProfile;
+          const expected = microchipId !== null && seen.has(microchipId) ? 'rejected' : 'saved';
+          const actual = await uow.runInTransaction((r) => r.pets.save(pet as never)).then(() => 'saved', () => 'rejected');
+          expect(actual).toBe(expected);
+          if (actual === 'saved' && microchipId !== null) seen.add(microchipId);
+        }
       }),
-      { seed: PROPERTY_SEED, numRuns: 300 },
+      { seed: PROPERTY_SEED, numRuns: 150 },
     );
   });
 });

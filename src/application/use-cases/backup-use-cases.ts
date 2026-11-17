@@ -32,6 +32,7 @@ import {
   type StateBackup001Event,
   type StateBackup001State,
 } from '../../generated/index.ts';
+import { isMicrochipGlobalViolation } from './microchip-violation.ts';
 import { validateBackupEnvelopeV31, type BackupEnvelopeV31, type components as ComponentsV31 } from '../../generated/v31/index.ts';
 import { liftEnvelopeV3ToV31, migrateEnvelopeV2ToV3, migrateLegacyEnvelope } from '../../domain/backup/backup-migration.ts';
 import { assertBreedConsistency } from '../../domain/pet/breed-catalog.ts';
@@ -478,6 +479,9 @@ export class ImportBackupUseCase {
       'X-Argos-Import-Confirm',
       'ROLLED_BACK',
     );
+    // REQ-PET4-001, REQ-IMP-001 (3): el microchip es único en todo el sistema y lo impone `pets_microchip_global` al guardar; si OTRO usuario ya lo
+    // tiene, la importación falla completa con el error uniforme y el detalle nombra solo la mascota PROPIA del archivo (posición y nombre).
+    let microchipConflict: DomainError | null = null;
     try {
       await this.deps.uow.runInTransaction(async (repositories) => {
         await this.pipeline.assertNoForeignIds(run, repositories, userId, envelope);
@@ -496,7 +500,22 @@ export class ImportBackupUseCase {
           await repositories.assignments.deleteForPet(pet.id);
           await repositories.pets.delete(pet.id);
         }
-        for (const pet of envelope.pets) await repositories.pets.save(pet);
+        for (const [index, pet] of envelope.pets.entries()) {
+          try {
+            await repositories.pets.save(pet);
+          } catch (error) {
+            if (!isMicrochipGlobalViolation(error)) throw error;
+            // La máquina de importación no declara este caso desde COMMITTING_SNAPSHOT: se lanza el error de dominio con finalState ROLLED_BACK
+            // (la transacción se revierte) sin disparar un evento (pregunta abierta a /architect).
+            microchipConflict = new DomainError(
+              'ERR-PET-MICROCHIP-DUPLICATE',
+              `La mascota n.º ${index + 1} del archivo («${pet.name}») tiene un microchip que ya está registrado en ARGOS.`,
+              'microchipId',
+              'ROLLED_BACK',
+            );
+            throw microchipConflict;
+          }
+        }
         for (const { module, record } of recordsOf(envelope)) {
           const prior = priorRevisions.get(record.id);
           await repositories.records.add(module, { ...record, revision: prior === undefined ? 0 : prior + 1 } as never);
@@ -512,7 +531,7 @@ export class ImportBackupUseCase {
       });
     } catch (error) {
       // ID ajeno: run.fail ya llevó la máquina a ROLLED_BACK con ERR-BACKUP-REFERENTIAL-INTEGRITY.
-      if (run.state === 'ROLLED_BACK' || error === mismatch) throw error;
+      if (run.state === 'ROLLED_BACK' || error === mismatch || (microchipConflict !== null && error === microchipConflict)) throw error;
       if (run.state === 'CHECKING_DOMAIN_INVARIANTS') {
         throw run.fail('STORAGE_READ_FAILED', 'Fallo del almacenamiento al comprobar los IDs del respaldo.');
       }
