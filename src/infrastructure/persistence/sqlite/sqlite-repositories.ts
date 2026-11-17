@@ -25,15 +25,14 @@ import {
   validateDewormingRecord,
   validateHousehold,
   validateMedicalVisitRecord,
-  validatePetProfile,
   validateUserPublicProfile,
   validateVaccinationRecord,
   validateWeightRecord,
   type AuditEntry,
   type Household,
-  type PetProfile,
   type UserPublicProfile,
 } from '../../../generated/index.ts';
+import { isStoredPetProfile, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
@@ -332,7 +331,7 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
       'pets',
       row.id,
       row.data,
-      validatePetProfile,
+      isStoredPetProfile,
       (p) =>
         p.id === row.id &&
         p.ownerUserId === row.owner_user_id &&
@@ -354,7 +353,7 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
       upsert.run(
         pet.id,
         pet.ownerUserId,
-        encode('pets', pet.id, pet, validatePetProfile),
+        encode('pets', pet.id, pet, isStoredPetProfile),
         pet.species,
         pet.speciesOther,
         pet.neutered === null ? null : pet.neutered ? 1 : 0,

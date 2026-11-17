@@ -15,6 +15,7 @@
  * @implements REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-HOUSE2-001, INV-ARCH-001, INV-ARCH-002
  */
 
+import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
   validateChangeRoleInput,
@@ -22,7 +23,6 @@ import {
   validateTransferHouseholdOwnershipInput,
   type components,
   type Household,
-  type PetProfile,
   type UserPublicProfile,
   type InviteMemberInput,
   type ChangeRoleInput,

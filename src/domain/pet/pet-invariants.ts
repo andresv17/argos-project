@@ -11,19 +11,43 @@
  * @implements REQ-PET2-001, INV-PET2-001, REQ-PET-002, INV-PET-002, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS, ERR-PET-MICROCHIP-DUPLICATE, INV-ARCH-001, INV-ARCH-004
  */
 
-import {
-  DomainError,
-  validateCreatePetInput,
-  validatePetProfile,
-  validateUpdatePetInput,
-  type BackupEnvelopeV3,
-  type CreatePetInput,
-  type PetProfile,
-  type UpdatePetInput,
-} from '../../generated/index.ts';
+import { DomainError, type BackupEnvelopeV3, type PetProfile as ContractPetProfile } from '../../generated/index.ts';
+// Mascota 3.1.0 (feature 004): breedCode en el perfil y en las entradas de alta y edición (REQ-RAZ-003).
+import { validateCreatePetInput, validatePetProfile, validateUpdatePetInput, type CreatePetInput, type UpdatePetInput } from '../../generated/v31/index.ts';
+import { assertBreedConsistency, deriveBreed, hasBreedCatalog as hasCatalogSpecies, isBreedOther } from './breed-catalog.ts';
 import { diffInCalendarDays, validateBirthDateNotFuture } from '../shared/date-utils.ts';
 import { estimatedAgeToBirthDate } from './estimated-age.ts';
 import { assertCanonicalCreatedAt, getRecordEventDate } from '../sorting/deterministic-sorter.ts';
+
+/**
+ * Perfil de la mascota con `breedCode` (REQ-RAZ-003). Opcional en el tipo porque las mascotas anteriores a la feature 004 no lo
+ * traen en disco: `normalizePetProfile` lo expone siempre (nulo si falta). `avatarVersion` (4A-2) aún no existe en el dominio.
+ */
+export type PetProfile = ContractPetProfile & { readonly breedCode?: string | null };
+
+/** Las mascotas guardadas antes de la 004 no tienen `breedCode`: se leen con `breedCode = null` (SC-CAT-004). @implements REQ-RAZ-003 */
+export function normalizePetProfile<T extends PetProfile>(pet: T): T & { readonly breedCode: string | null } {
+  return { ...pet, breedCode: pet.breedCode ?? null };
+}
+
+/**
+ * Valida el perfil contra el contrato 3.1.0 (`PetProfile`, con `breedCode`) y la coherencia de raza (INV-RAZ-001).
+ * `avatarVersion` es derivado de solo lectura de 4A-2 y no se guarda: aquí se completa con `null` para el esquema.
+ * Sirve de guarda de tipo para los repositorios SQLite y PostgreSQL.
+ * @implements REQ-RAZ-003, INV-RAZ-001
+ */
+export function isStoredPetProfile(value: unknown): value is PetProfile {
+  if (value === null || typeof value !== 'object') return false;
+  const pet = value as Record<string, unknown>;
+  const candidate = { ...pet, breedCode: pet['breedCode'] ?? null, avatarVersion: null };
+  if (!validatePetProfile(candidate)) return false;
+  try {
+    assertBreedConsistency(candidate.species, candidate.breedCode, candidate.breed);
+  } catch {
+    return false;
+  }
+  return true;
+}
 
 /** Las 6 colecciones de registros clínicos, con la forma del sobre de respaldo v3. */
 export type PetRecordCollections = BackupEnvelopeV3['records'];
@@ -56,9 +80,11 @@ function failSchema(schemaName: string, validator: ValidatorWithErrors): never {
  * @implements REQ-PET2-001, INV-PET2-001, INV-OWN-001
  */
 export function assertValidPetProfile(pet: unknown): asserts pet is PetProfile {
-  if (!validatePetProfile(pet)) {
+  const candidate = { ...(pet as Record<string, unknown>), breedCode: (pet as { breedCode?: unknown }).breedCode ?? null, avatarVersion: null };
+  if (!validatePetProfile(candidate)) {
     failSchema('PetProfile', validatePetProfile as ValidatorWithErrors);
   }
+  assertBreedConsistency(candidate.species, candidate.breedCode, candidate.breed);
 }
 
 /**
@@ -163,13 +189,16 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
   }
   validateBirthDateNotFuture(birthDate, command.today);
   assertCanonicalCreatedAt(command.nowIsoTimestamp, 'createdAt');
+  const breedCode = valid.breedCode ?? null;
+  const breed = breedCode === null ? valid.breed! : deriveBreed(breedCode, valid.breed); // sin breedCode, el esquema exige breed
   const pet: PetProfile = {
     id: command.id,
     ownerUserId: command.ownerUserId,
     name: valid.name,
     species: valid.species,
     speciesOther: (valid.speciesOther ?? null) as PetProfile['speciesOther'], // el generador tipa el nulo como string
-    breed: valid.breed,
+    breed,
+    breedCode,
     birthDate,
     birthDateIsEstimate,
     sex: valid.sex,
@@ -223,13 +252,21 @@ export function updatePetProfile(command: UpdatePetCommand): PetProfile {
   }
   assertCanonicalCreatedAt(command.nowIsoTimestamp, 'updatedAt');
   const updated: PetProfile = {
-    ...command.pet,
+    ...normalizePetProfile(command.pet),
     ...profileChanges,
     id: command.pet.id,
     ownerUserId: command.pet.ownerUserId,
     createdAt: command.pet.createdAt,
     updatedAt: command.nowIsoTimestamp,
   } as PetProfile;
+  const breedCode = updated.breedCode ?? null;
+  const breedTouched = changes.breedCode !== undefined || changes.breed !== undefined || changes.species !== undefined;
+  if (breedCode !== null && breedTouched) {
+    // Con `*_OTHER` y sin texto nuevo se conserva el texto libre ya guardado (si el código no cambió).
+    const keepsText = isBreedOther(breedCode) && changes.breed === undefined && command.pet.breedCode === breedCode;
+    const text = changes.breed ?? (keepsText ? command.pet.breed : undefined);
+    if (hasCatalogSpecies(updated.species)) updated.breed = deriveBreed(breedCode, text);
+  }
   assertValidPetProfile(updated);
   return updated;
 }

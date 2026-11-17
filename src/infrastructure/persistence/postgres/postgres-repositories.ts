@@ -26,15 +26,14 @@ import {
   validateDewormingRecord,
   validateHousehold,
   validateMedicalVisitRecord,
-  validatePetProfile,
   validateUserPublicProfile,
   validateVaccinationRecord,
   validateWeightRecord,
   type AuditEntry,
   type Household,
-  type PetProfile,
   type UserPublicProfile,
 } from '../../../generated/index.ts';
+import { isStoredPetProfile, type PetProfile, type PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
@@ -55,7 +54,6 @@ import type {
 import { corruptData, isSessionRecord, sessionTokenHash } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
-import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 
@@ -282,7 +280,7 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
       'pets',
       id,
       row['data'],
-      validatePetProfile,
+      isStoredPetProfile,
       (p) =>
         p.id === row['id'] &&
         p.ownerUserId === row['owner_user_id'] &&
@@ -313,7 +311,7 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
         [
           pet.id,
           pet.ownerUserId,
-          encode('pets', pet.id, pet, validatePetProfile),
+          encode('pets', pet.id, pet, isStoredPetProfile),
           pet.species,
           pet.speciesOther,
           pet.neutered === null ? null : pet.neutered ? 1 : 0,

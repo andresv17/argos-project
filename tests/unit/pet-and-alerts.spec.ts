@@ -1,10 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { validatePetProfile as validatePetProfile31 } from '../../src/generated/v31/index.ts';
 import {
   DomainError,
   STATE_ALERT_001,
-  validatePetProfile,
   type BackupEnvelopeV3,
   type DewormingRecord,
   type PetProfile,
@@ -89,10 +89,11 @@ describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
       neutered: null,
       microchipId: null,
       avatarUrl: null,
+      breedCode: null,
       createdAt: NOW,
       updatedAt: NOW,
     });
-    expect(validatePetProfile(pet)).toBe(true);
+    expect(validatePetProfile31({ ...pet, avatarVersion: null })).toBe(true);
     expect(create({ ...VALID_INPUT, avatarUrl: 'https://img.example/rocky.png' }).avatarUrl).toBe(
       'https://img.example/rocky.png',
     );
@@ -197,7 +198,7 @@ describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
       nowIsoTimestamp: '2026-11-05T13:00:00.000Z',
       recordEventDates: [],
     });
-    expect(updated).toEqual({ ...argos, name: 'Argos II', avatarUrl: null, updatedAt: '2026-11-05T13:00:00.000Z' });
+    expect(updated).toEqual({ ...argos, name: 'Argos II', avatarUrl: null, breedCode: null, updatedAt: '2026-11-05T13:00:00.000Z' });
     expect(frozen).toEqual(argos);
     const empty = catchDomainError(() => update({}));
     expect(empty.code).toBe('ERR-SCHEMA-VALIDATION-FAILED');
@@ -434,7 +435,7 @@ describe('especies (src/domain/pet/species.ts)', () => {
   it('[INV-PET2-001][REQ-PET2-001] el alta acepta cada especie; OTHER guarda speciesOther y las demás lo dejan en null', () => {
     for (const species of SPECIES_002) {
       const pet = create(inputFor(species));
-      expect([pet.species, pet.speciesOther, validatePetProfile(pet)]).toEqual([species, species === 'OTHER' ? 'Erizo africano' : null, true]);
+      expect([pet.species, pet.speciesOther, validatePetProfile31({ ...pet, avatarVersion: null })]).toEqual([species, species === 'OTHER' ? 'Erizo africano' : null, true]);
     }
   });
 

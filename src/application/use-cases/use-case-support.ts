@@ -8,12 +8,12 @@
  * @implements INV-ACC-001, INV-ACC-002, INV-PET-003, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN
  */
 
+import { normalizePetProfile, type PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
   resolveFieldErrorCode,
   type components,
   type OwnerTag,
-  type PetProfile,
   type UserPublicProfile,
   type UserSelfProfile,
 } from '../../generated/index.ts';
@@ -201,7 +201,7 @@ export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, r
   const weights = computeWeightEvolutionSeries(records.weights);
   const alertsSummary = summarizeSanitaryAlerts(evaluateVaccinationAlerts(records.vaccinations, today), evaluateDewormingAlerts(records.dewormings, today));
   return {
-    profile: pet,
+    profile: normalizePetProfile(pet),
     owner,
     myRole: role,
     permissions: petPermissionsFor(role),

@@ -17,6 +17,7 @@
  * @implements REQ-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, REQ-RBAC-001, REQ-ACC-002, ERR-RATE-LIMITED, INV-BACKUP-001, STATE-BACKUP-001, ERR-BACKUP-MALFORMED-JSON, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-BACKUP-VERSION-UNSUPPORTED, ERR-BACKUP-SCHEMA-INVALID, ERR-BACKUP-REFERENTIAL-INTEGRITY, ERR-BACKUP-ATOMIC-ROLLBACK, INV-ARCH-001, INV-ARCH-004, INV-ARCH-005
  */
 
+import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
   STATE_BACKUP_001,
@@ -28,7 +29,6 @@ import {
   type BackupEnvelopeV3,
   type components,
   type ErrorCode,
-  type PetProfile,
   type RollbackFinalState,
   type StateBackup001Event,
   type StateBackup001State,
@@ -172,7 +172,9 @@ export class ExportBackupUseCase {
       const envelope = {
         schemaVersion: '3.0.0',
         exportedAt: now,
-        pets: sortPetsForListing(owned).map(({ ownerUserId: _ownerUserId, ...pet }) => pet),
+        // El respaldo 3.0.0 no lleva breedCode (BackupPetProfileV3 es cerrado): la raza viaja como texto `breed`. El sobre 3.1.0 con
+        // breedCode llega con la compatibilidad de esquemas del respaldo (T525 pendiente, ver bitácora) [REQ-RAZ-003, REQ-BOR-005].
+        pets: sortPetsForListing(owned).map(({ ownerUserId: _ownerUserId, breedCode: _breedCode, ...pet }) => pet),
         records: Object.fromEntries(MODULES.map((module) => [module, sortHistoricalRecords(collected[module] as never)])),
       };
       // Un sobre inválido se descubre antes de emitir el token: el rechazo deshace también el consumo de cupo.

@@ -37,11 +37,11 @@ async function start(): Promise<string> {
 describe('T284/T291 cuerpos del formulario y transferencias contra la API real', () => {
   it('[REQ-PET2-001][INV-PET2-001] alta OTHER con speciesOther, estimada, esterilizada y microchip; la edición a CANINE vacía los anulables con null', async () => {
     const andres = await clientFor(await start(), 'andres');
-    const raw = { name: 'Puas', species: 'OTHER', speciesOther: 'Erizo', breed: 'Africano', birthDate: '2024-01-01', birthDateIsEstimate: 'true', sex: 'FEMALE', neutered: 'true', microchipId: '123456789012345' };
+    const raw = { name: 'Puas', species: 'OTHER', speciesOther: 'Erizo', breed: 'Africano', birthDate: '2024-01-01', birthDateIsEstimate: 'true', sex: 'FEMALE', neutered: 'true', microchipId: '985112345678901' };
     const body = formValues(raw, [], ['birthDateIsEstimate', 'neutered']);
     expect(validateInput('CreatePetInput', body)).toEqual({});
     const created = await unwrap(andres.POST('/pets', { params: CSRF_PARAMS, body: petFormBody(null, body) as unknown as Schemas['CreatePetInput'] }));
-    expect([created.species, created.speciesOther, created.birthDateIsEstimate, created.neutered, created.microchipId]).toEqual(['OTHER', 'Erizo', true, true, '123456789012345']);
+    expect([created.species, created.speciesOther, created.birthDateIsEstimate, created.neutered, created.microchipId]).toEqual(['OTHER', 'Erizo', true, true, '985112345678901']);
     const editBody = petFormBody(created, formValues({ ...raw, species: 'RABBIT', speciesOther: '', neutered: '', microchipId: '' }, [], ['birthDateIsEstimate', 'neutered']));
     const edited = await unwrap(andres.PATCH('/pets/{petId}', { params: { ...CSRF_PARAMS, path: { petId: created.id } }, body: editBody as Schemas['UpdatePetInput'] }));
     expect([edited.species, edited.speciesOther, edited.neutered, edited.microchipId]).toEqual(['RABBIT', null, null, null]);

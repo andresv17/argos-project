@@ -36,7 +36,16 @@ export const OPERATIONS: readonly Operation[] = Object.entries(openapi.paths).fl
 // Mismas opciones numéricas que los validadores generados (scripts/codegen.mjs): sin multipleOfPrecision, 32.85 no es múltiplo de 0.001 por coma flotante (T226).
 const ajv = new Ajv2020({ strict: false, allErrors: true, multipleOfPrecision: 10 });
 addFormats(ajv);
-for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) ajv.addSchema(JSON.parse(readFileSync(join('specs/002-plataforma-v21/contracts/schemas', file), 'utf8')));
+// T525: las respuestas de mascota llevan `breedCode` (pet.schema.json 3.1.0 de la 004, mismo $id). `avatarVersion` (4A-2, avatar) aún no existe
+// en el servidor: el arnés la exime de `required` hasta que la implemente su tarea; el resto de esquemas sigue siendo el de la 002.
+const PET_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/pet.schema.json';
+for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) {
+  if (file === 'pet.schema.json') {
+    const pet = JSON.parse(readFileSync(PET_004, 'utf8')) as { $defs: { PetProfile: { required: string[] } } };
+    pet.$defs.PetProfile.required = pet.$defs.PetProfile.required.filter((name) => name !== 'avatarVersion');
+    ajv.addSchema(pet);
+  } else ajv.addSchema(JSON.parse(readFileSync(join('specs/002-plataforma-v21/contracts/schemas', file), 'utf8')));
+}
 ajv.addSchema({ ...openapi, $id: OPENAPI_ID });
 
 const pointer = (...parts: string[]) => parts.map((p) => p.replace(/~/g, '~0').replace(/\//g, '~1')).join('/');

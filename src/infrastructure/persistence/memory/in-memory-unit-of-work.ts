@@ -9,8 +9,9 @@
  * @implements INV-ARCH-004, INV-ARCH-005
  */
 
+import type { PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import type { DeterministicFaultInjector } from '../fault-injector.ts';
-import type { AuditEntry, Household, PetProfile } from '../../../generated/index.ts';
+import type { AuditEntry, Household } from '../../../generated/index.ts';
 import type { LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type {
   AuditLogRepositoryPort,

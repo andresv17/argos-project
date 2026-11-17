@@ -7,7 +7,8 @@
  * @implements INV-ARCH-004, INV-ARCH-005, INV-PET-003
  */
 
-import type { AuditEntry, Household, HouseholdInvitation, PetProfile, UserSelfProfile } from '../../generated/index.ts';
+import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
+import type { AuditEntry, Household, HouseholdInvitation, UserSelfProfile } from '../../generated/index.ts';
 import type { LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';

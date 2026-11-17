@@ -11,7 +11,8 @@
  * @implements REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
-import type { components, PetProfile, Species } from '../../generated/index.ts';
+import { normalizePetProfile, type PetProfile } from '../../domain/pet/pet-invariants.ts';
+import type { components, Species } from '../../generated/index.ts';
 import { petPermissionsFor } from '../../domain/access/rbac.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import { ownerTag } from '../../domain/households/household-policies.ts';
@@ -167,7 +168,7 @@ export class GetPetDashboardUseCase {
       const vaccinations = evaluateVaccinationAlerts(records.vaccinations, today);
       const dewormings = evaluateDewormingAlerts(records.dewormings, today);
       return {
-        profile: pet,
+        profile: normalizePetProfile(pet),
         owner: ownerTag(owner, null),
         myRole: role,
         permissions: petPermissionsFor(role),
