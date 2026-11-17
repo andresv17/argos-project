@@ -12,6 +12,7 @@
  */
 
 import { DomainError } from '../../../generated/index.ts';
+import { loginAttemptsExpiryCutoff } from '../../../domain/auth/auth-policies.ts';
 import type { RepositorySet } from '../../../application/ports/repositories.port.ts';
 import type { MaintenanceCounts, MaintenanceCutoffs, UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type { DeterministicFaultInjector } from '../fault-injector.ts';
@@ -58,7 +59,9 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
   async purgeExpired(cutoffs: MaintenanceCutoffs): Promise<MaintenanceCounts> {
     const counts = await this.runInTransaction(async () => {
       const at = (modifiers: string) => `strftime('%Y-%m-%dT%H:%M:%fZ', @now${modifiers})`;
-      const run = (sql: string) => this.db.prepare(sql).run(cutoffs).changes;
+      const run = (sql: string) => this.db.prepare(sql).run({ ...cutoffs, loginAttemptsBefore: loginAttemptsExpiryCutoff(cutoffs.now) }).changes;
+      // REQ-LOG-001 / SC-CAT-030: filas de login_attempts sin ningún fallo dentro de la ventana de bloqueo; sin conteo propio (los 5 del contrato operativo no cambian).
+      run('DELETE FROM login_attempts WHERE NOT EXISTS (SELECT 1 FROM json_each(login_attempts.failures) WHERE json_each.value >= @loginAttemptsBefore)');
       return {
         sessionsPurged: run(
           `DELETE FROM sessions WHERE revoked_at < ${at(", '-7 days'")} OR created_at < ${at(", '-7 days', '-24 hours'")} OR last_activity_at < ${at(", '-7 days', '-30 minutes'")}`,

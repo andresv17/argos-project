@@ -16,7 +16,7 @@
 import { DomainError, STATE_AUTH_SESSION_001, resolveFieldErrorCode } from '../../generated/index.ts';
 // 3.1.0 (feature 004): Username admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
 import { validateRegisterUserInput, type RegisterUserInput } from '../../generated/v31/index.ts';
-import { MS_PER_MINUTE, toEpochMillis } from './utc-timestamp.ts';
+import { MS_PER_MINUTE, addMillis, toEpochMillis } from './utc-timestamp.ts';
 
 export { isPasswordCompliant } from './password-policy.ts';
 export {
@@ -92,6 +92,15 @@ export function assertUsernameAvailable(username: string, existingUsernames: Ite
       throw new DomainError('ERR-AUTH-USERNAME-TAKEN', undefined, 'username');
     }
   }
+}
+
+/**
+ * TTL de `login_attempts` (REQ-LOG-001, SC-CAT-030): una fila sin ningún fallo con instante >= este umbral ya no cuenta para el bloqueo
+ * (misma frontera inclusiva que `failuresInWindow`) y el mantenimiento la elimina.
+ * @implements INV-AUTH-005, REQ-LOG-001
+ */
+export function loginAttemptsExpiryCutoff(nowIsoTimestamp: string): string {
+  return addMillis(nowIsoTimestamp, -LOCKOUT_WINDOW_MINUTES * MS_PER_MINUTE);
 }
 
 /**

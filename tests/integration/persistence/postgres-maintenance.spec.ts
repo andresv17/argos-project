@@ -22,7 +22,7 @@ const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_usernam
   .join('\n');
 
 const CUTOFFS: MaintenanceCutoffs = { now: '2026-11-05T12:00:00.000Z', auditBefore: '2024-11-05T12:00:00.000Z' };
-const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log'] as const;
+const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log', 'login_attempts'] as const; // login_attempts (T559, SC-CAT-030) va al final y no tiene conteo propio
 const BATCH = 500;
 
 interface MaintenanceModule {
@@ -88,6 +88,7 @@ describe('purgeExpiredInBatches: forma de las sentencias (REQ-PG-008, REQ-PG-011
       household_members: [CUTOFFS.now, BATCH],
       household_invitations: [CUTOFFS.now, BATCH],
       audit_log: [CUTOFFS.auditBefore, BATCH],
+      login_attempts: ['2026-11-05T11:45:00.000Z', BATCH], // ahora menos la ventana de bloqueo de 15 min (T559)
     });
   });
 

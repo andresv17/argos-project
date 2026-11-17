@@ -7,6 +7,8 @@
  * - Los umbrales son los de SQLite: sesiones (revocadas > 7 d, > 7 d + 24 h de creación o > 7 d + 30 min inactivas), tokens de
  *   confirmación vencidos, membresías `LEFT`/`REMOVED` y invitaciones terminales > 90 d, y auditoría anterior a `auditBefore`
  *   (24 meses). Las columnas de fecha son TEXT: se convierten con `::timestamptz` explícito y los valores van como `$n`.
+ * - `login_attempts` (REQ-LOG-001, SC-CAT-030): se borran las filas sin ningún fallo dentro de la ventana de bloqueo (TTL = INV-AUTH-005).
+ *   No tiene conteo propio: los cinco conteos de retención son los del contrato operativo y el log no cambia.
  * - NO ejecuta el compactador de tablas (el rol `argos_app` no es propietario: lo hace `vacuum-argos.yml`, T473, REQ-PG-011/015),
  *   no escribe filas de auditoría (INV-AUD-001) y devuelve solo conteos. Sin lectura del entorno ni de la tabla de migraciones.
  *
@@ -14,6 +16,7 @@
  */
 
 import type { MaintenanceCounts, MaintenanceCutoffs } from '../../../application/ports/unit-of-work.port.ts';
+import { loginAttemptsExpiryCutoff } from '../../../domain/auth/auth-policies.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 
 /** Filas por lote: acota cada sentencia y el tiempo que se retiene el candado entre lotes. */
@@ -63,6 +66,11 @@ export async function purgeExpiredInBatches(client: PoolClientLike, cutoffs: Mai
       counts[step.key] += deleted;
       if (deleted < batchSize) break;
     }
+  }
+  const expired = `DELETE FROM login_attempts WHERE ctid IN (SELECT ctid FROM login_attempts WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements_text(failures::jsonb) AS f(failed_at) WHERE f.failed_at::timestamptz >= $1::timestamptz) LIMIT $2)`;
+  for (;;) {
+    const deleted = (await client.query(expired, [loginAttemptsExpiryCutoff(cutoffs.now), batchSize])).rowCount ?? 0;
+    if (deleted < batchSize) break;
   }
   return counts;
 }
