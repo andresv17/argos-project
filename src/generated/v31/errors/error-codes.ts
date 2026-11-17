@@ -262,8 +262,7 @@ export const ERROR_CATALOG = {
     "invariantRef": "INV-AUTH-006",
     "detailTemplate": "Has superado el límite de solicitudes de esta operación. Intenta de nuevo más tarde.",
     "requirementRef": "REQ-BACKUP2-001, REQ-HOUSE2-001, REQ-PET4-002, REQ-ARC-001",
-    "pendingId": true,
-    "change_note": "ID PENDIENTE de aprobación de Neo: no figura en la lista de IDs de la spec; no leer como oficial."
+    "change_note": "ID APROBADO por Neo (T556/T557, REQ-PET4-002): ya no es pendiente. Cubre también el límite de 5 duplicados de microchip por usuario en ventana deslizante de 24 h; el detalle es genérico y nunca incluye el microchip ni identificadores."
   },
   "ERR-REC-CONFLICT": {
     "type": "urn:argos:error:ERR-REC-CONFLICT",
