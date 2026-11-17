@@ -12,6 +12,9 @@ import { DeletePetDialog, PetDashboard } from '../components/PetDashboard.tsx';
 import { PetCardList, PetFilter } from '../components/PetCards.tsx';
 import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
+import { AvatarEditor } from '../components/AvatarCropper.tsx';
+import { MediaPanel } from '../components/MediaPanel.tsx';
+import { Link } from 'react-router-dom';
 import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
 import type { FormBody } from '../validation.ts';
@@ -23,6 +26,7 @@ import {
   type PetCardView,
   type PetDashboardView,
   type PetFilterValue,
+  avatarVersionOf,
   type Schemas,
 } from '../view-model.ts';
 
@@ -218,16 +222,41 @@ export function PetsPage(): JSX.Element {
                 {...(mode === 'EDIT' && dashboard.permissions.editPetBasics
                   ? {
                       editSlot: (
-                        <PetForm
-                          key={`edit-${dashboard.profile.id}`}
-                          profile={dashboard.profile}
-                          canAssign={dashboard.permissions.assignPetToHouseholds}
-                          onSubmit={editPet}
-                          onCancel={() => setMode('VIEW')}
-                        />
+                        <>
+                          <PetForm
+                            key={`edit-${dashboard.profile.id}`}
+                            profile={dashboard.profile}
+                            canAssign={dashboard.permissions.assignPetToHouseholds}
+                            onSubmit={editPet}
+                            onCancel={() => setMode('VIEW')}
+                          />
+                          <AvatarEditor
+                            key={`avatar-${dashboard.profile.id}`}
+                            petId={dashboard.profile.id}
+                            petName={dashboard.profile.name}
+                            avatarVersion={avatarVersionOf(dashboard.profile)}
+                            onChanged={refreshAll}
+                          />
+                        </>
                       ),
                     }
                   : {})}
+                mediaSlot={
+                  <>
+                    <MediaPanel
+                      key={`media-${dashboard.profile.id}`}
+                      petId={dashboard.profile.id}
+                      canUpload={dashboard.permissions.writeHealthEvents}
+                      canDelete={dashboard.permissions.deleteHealthEvents}
+                    />
+                    <Link
+                      to={`/mascotas/${dashboard.profile.id}/album`}
+                      className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      Ver el álbum de fotos
+                    </Link>
+                  </>
+                }
                 {...(mode === 'TRANSFER' && dashboard.permissions.transferPetOwnership
                   ? {
                       transferSlot: (

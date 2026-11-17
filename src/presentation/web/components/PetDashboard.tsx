@@ -288,7 +288,7 @@ function AlertsCard({ dashboard, canRegisterWeight, onRegisterWeight }: {
 
 const STAT_CARD = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 
-export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEditRecord, onDeleteRecord, onEdit, onDelete, onTransfer, editSlot, deleteSlot, transferSlot }: {
+export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEditRecord, onDeleteRecord, onEdit, onDelete, onTransfer, editSlot, deleteSlot, transferSlot, mediaSlot }: {
   readonly dashboard: PetDashboardView;
   readonly activeTab: RecordModule;
   readonly onTabChange: (tab: RecordModule) => void;
@@ -307,6 +307,8 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   readonly deleteSlot?: ReactNode;
   /** Modo TRANSFER: panel en línea bajo el hero. */
   readonly transferSlot?: ReactNode;
+  /** Panel de archivos y acceso al álbum (T581, T588); no se muestra mientras se edita el perfil. */
+  readonly mediaSlot?: ReactNode;
 }): JSX.Element {
   const { profile, permissions } = dashboard;
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -459,6 +461,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
         ) : null}
         <ModuleContent module={activeSpec.id} dashboard={dashboard} canWrite={canWrite} {...(recordActions === undefined ? {} : { actions: recordActions })} />
       </section>
+      {editSlot === undefined ? mediaSlot : null}
     </article>
   );
 }
