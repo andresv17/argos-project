@@ -15,8 +15,8 @@ import { validateInput } from '../../../src/presentation/web/validation.ts';
 const WEB = 'src/presentation/web';
 const filesOf = (dir: string): string[] => readdirSync(dir).flatMap((e) => (statSync(join(dir, e)).isDirectory() ? filesOf(join(dir, e)) : /\.(?:ts|tsx)$/.test(e) ? [join(dir, e)] : []));
 const sources = filesOf(WEB).map((file) => ({ file, text: readFileSync(file, 'utf8') }));
-/** Módulos de presentación con temporizador autorizado (T288 debounce de búsqueda; T293 aviso previo de expiración). */
-const TIMER_MODULES = ['use-debounced-value.ts', 'idle-notice.ts'] as const;
+/** Módulos de presentación con temporizador autorizado (T288 debounce de búsqueda; T293 aviso previo de expiración; T581 planificador de la renovación al 80 %, tercer módulo autorizado por Neo). */
+const TIMER_MODULES = ['use-debounced-value.ts', 'idle-notice.ts', 'browser-scheduler.ts'] as const;
 const msg = (code: keyof typeof ERROR_CATALOG): string => ERROR_CATALOG[code].detailTemplate;
 const registration = { username: 'nueva.usuaria', displayName: 'Nueva', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' };
 

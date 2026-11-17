@@ -2,9 +2,8 @@
  * Renovación proactiva de la URL firmada de un visor (SC-ALM-032, REQ-ARC-003): la pide, la publica y programa su renovación al 80 % del tiempo hasta
  * `expiresAt`; si la renovación falla reintenta una sola vez y, si vuelve a fallar, informa el error y no pide más.
  *
- * El módulo es puro: el reloj y el planificador llegan como puertos (`now`, `scheduler`). La regla de capas de la presentación prohíbe temporizadores y
- * lecturas del reloj fuera de dos módulos autorizados por Neo, así que el planificador real (el del navegador) queda pendiente de una decisión de Neo y,
- * mientras tanto, `MediaPanel` no lo conecta: la URL se renueva cada vez que se abre el visor.
+ * El módulo es puro: el reloj y el planificador llegan como puertos (`now`, `scheduler`). El planificador real vive en `browser-scheduler.ts` (tercer módulo
+ * con temporizadores autorizado por Neo) y `MediaPanel` lo conecta por defecto.
  *
  * @implements REQ-ARC-003
  */
