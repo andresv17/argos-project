@@ -61,7 +61,7 @@ async function composePersistence(config: AppConfig): Promise<{ uow: UnitOfWorkP
 
 /**
  * Almacenamiento de objetos por `config.mediaDriver` (REQ-GCS-003). Con `gcs` se construye `GcsMediaStorageAdapter` con el bucket de
- * `app-config.ts` (único lector de `process.env`; las credenciales vienen de la cuenta de ejecución, sin llaves) y con `memory` el
+ * `app-config.ts` (único lector del entorno; las credenciales vienen de la cuenta de ejecución, sin llaves) y con `memory` el
  * adaptador de memoria (desarrollo y pruebas). Ambos se cargan por importación dinámica: el SDK solo se evalúa con `gcs`.
  * El bundle de producción incluye `@google-cloud/storage`; REQ-SEC-005 se precisó en `build-server.spec.ts` (opción a, aprobada por Neo).
  */

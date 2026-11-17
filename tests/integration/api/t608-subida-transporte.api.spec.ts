@@ -113,28 +113,36 @@ describe('T608 corte de lectura y memoria acotada (SC-ALM-005, SC-ALM-029)', () 
   });
 
   it('[SC-ALM-029] seis subidas lentas de 10 MiB con límite de 4: cuatro avanzan, la quinta y la sexta reciben 429 ERR-RATE-LIMITED y la memoria no supera 4 × 10 MiB más el margen', async () => {
-    const { port, cookie, storage } = await start({ maxConcurrentUploads: 4 });
+    const { port, cookie, storage, serverSockets } = await start({ maxConcurrentUploads: 4 });
     const baseline = process.memoryUsage().rss;
     let peak = baseline;
     const sampler = setInterval(() => (peak = Math.max(peak, process.memoryUsage().rss)), 5);
     const body = Buffer.from(PDF(10 * MIB));
-    const upload = (): Promise<string> =>
+    // Las cuatro primeras envían la mitad del cuerpo y esperan `release` para el resto: siguen "en vuelo" mientras la quinta y la sexta llegan.
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => (release = resolve));
+    const upload = (hold: boolean, withBody = true): Promise<string> =>
       new Promise((resolve) => {
         let raw = '';
         const socket = connect(port, '127.0.0.1', () => {
           socket.write(head(cookie, `content-length: ${body.length}\r\n`));
-          // Mitad del cuerpo ahora; el resto tras un instante, para que las cuatro primeras sigan "en vuelo" cuando llegan la quinta y la sexta.
+          // La quinta y la sexta solo envían cabeceras: el 429 sale antes de leer el cuerpo y así el cliente alcanza a leerlo (sin RST por cuerpo sin leer).
+          if (!withBody) return;
           socket.write(body.subarray(0, body.length / 2));
-          setTimeout(() => socket.write(body.subarray(body.length / 2)), 300);
+          void (hold ? released : Promise.resolve()).then(() => socket.write(body.subarray(body.length / 2)));
         });
         socket.on('data', (data) => (raw += data.toString('latin1')));
         socket.on('close', () => resolve(statusLine(raw)));
         socket.on('error', () => resolve(statusLine(raw)));
       });
-    const firstFour = Array.from({ length: 4 }, upload);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    const lastTwo = [upload(), upload()];
-    const results = await Promise.all([...firstFour, ...lastTwo]);
+    const firstFour = Array.from({ length: 4 }, () => upload(true));
+    // Espera a que el servidor haya aceptado las cuatro conexiones (cada una ocupa un cupo desde antes de leer el cuerpo).
+    while (serverSockets.length < 4) await new Promise((resolve) => setTimeout(resolve, 5));
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const lastTwo = [upload(false, false), upload(false, false)];
+    const limited = await Promise.all(lastTwo);
+    release();
+    const results = [...(await Promise.all(firstFour)), ...limited];
     clearInterval(sampler);
     const tally = (code: string): number => results.filter((line) => line.includes(code)).length;
     expect([tally('201'), tally('429'), storage.operations.length]).toEqual([4, 2, 4]);
