@@ -5,6 +5,7 @@ import type { RepositorySet, UserAccount } from '../../src/application/ports/rep
 import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.port.ts';
 import type { SessionRecord } from '../../src/domain/auth/auth-policies.ts';
 import { ANDRES_PETS as ANDRES_PETS_001, HOUSEHOLD, LUNA as LUNA_001, MEMBERSHIPS, envelope as envelope001, fixtures } from './application-harness.ts';
+import { evaluateVaccinationAlerts } from '../../src/domain/alerts/sanitary-alert-evaluator.ts';
 import { envelopePets, upgradeEnvelope, upgradePet } from './storage-upgrade.ts';
 
 /**
@@ -231,6 +232,45 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       expect(await read(uow, (r) => r.records.findPetIdOfRecord(ARGOS.id))).toBe(null);
       await seed(uow, (r) => r.records.deleteForPet(ARGOS.id));
       expect(await read(uow, (r) => r.records.findPetIdOfRecord(envelope.records.weights[0]!.id))).toBe(null);
+    });
+
+    it('[T545][REQ-BOR-001][INV-REG-001] registros: remove borra físicamente el registro de su mascota (true una vez, false después), no toca a los demás y la relectura no guarda marca de borrado', async () => {
+      const uow = await createUnitOfWork();
+      await seed(uow, async (r) => {
+        for (const pet of ENVELOPE_PETS) await r.pets.save(pet);
+        for (const module of Object.keys(envelope.records) as Array<keyof typeof envelope.records>) {
+          for (const record of envelope.records[module]) await r.records.add(module, record as never);
+        }
+      });
+      const modules = Object.keys(envelope.records) as Array<keyof typeof envelope.records>;
+      for (const module of modules) {
+        const target = (envelope.records[module] as Array<{ id: string; petId: string }>)[0]!;
+        const others = Object.values(await read(uow, (r) => r.records.listForPet(target.petId))).flat().filter((x) => x.id !== target.id).length;
+        expect(await seed2(uow, (r) => r.records.remove(module, 'otra-mascota', target.id)), `${module}: otra mascota`).toBe(false);
+        expect(await read(uow, (r) => r.records.findPetIdOfRecord(target.id)), `${module}: sigue`).toBe(target.petId);
+        expect(await seed2(uow, (r) => r.records.remove(module, target.petId, target.id)), `${module}: borra`).toBe(true);
+        expect(await seed2(uow, (r) => r.records.remove(module, target.petId, target.id)), `${module}: segundo borrado`).toBe(false);
+        expect(await read(uow, (r) => r.records.findPetIdOfRecord(target.id)), `${module}: ya no existe`).toBe(null);
+        const left = await read(uow, (r) => r.records.listForPet(target.petId));
+        expect((left[module] as Array<{ id: string }>).some((x) => x.id === target.id), `${module}: fuera del listado`).toBe(false);
+        expect(Object.values(left).flat().length, `${module}: los demás intactos`).toBe(others);
+        expect(JSON.stringify(left), `${module}: sin marca de borrado`).not.toMatch(/deleted/i);
+      }
+    });
+
+    it('[T545][REQ-BOR-002][INV-REG-001] registros: SUPERSEDED se calcula de los registros existentes; borrar el posterior devuelve el anterior a vigente y el calculo no ve el borrado', async () => {
+      const uow = await createUnitOfWork();
+      const first = envelope.records.vaccinations.find((v) => v.petId === ARGOS.id)!;
+      const newer = { ...first, id: '9a000000-0000-4000-8000-000000000001', appliedAt: '2026-03-01', nextBoosterAt: null, createdAt: '2026-03-01T10:00:00.000Z' };
+      await seed(uow, async (r) => {
+        for (const pet of ENVELOPE_PETS) await r.pets.save(pet);
+        await r.records.add('vaccinations', first as never);
+        await r.records.add('vaccinations', newer as never);
+      });
+      const statuses = async () => evaluateVaccinationAlerts((await read(uow, (r) => r.records.listForPet(ARGOS.id))).vaccinations, '2026-11-05').map((e) => [e.record.id, e.alert?.status ?? null]);
+      expect(await statuses()).toEqual([[newer.id, null], [first.id, 'SUPERSEDED']]);
+      expect(await seed2(uow, (r) => r.records.remove('vaccinations', ARGOS.id, newer.id))).toBe(true);
+      expect(await statuses()).toEqual([[first.id, 'DUE_SOON']]);
     });
 
     it('[INV-ARCH-005] hogares: membresías por hogar y por usuarios, saveMembership reemplaza por membershipId y deleteWithMemberships borra ambos', async () => {
