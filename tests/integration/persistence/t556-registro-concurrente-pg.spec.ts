@@ -111,8 +111,9 @@ describe.skipIf(!HAS_POSTGRES)('H-O-004US3-4 registro concurrente con el mismo u
       if (result.kind !== 'ERR') return;
       expect(result.error).toBeInstanceOf(DomainErrorV31);
       expect([result.error.code, result.error.status, result.error.field]).toEqual(['ERR-AUTH-USERNAME-TAKEN', 409, 'username']);
-      const everything = JSON.stringify(result.error) + result.error.message + String(result.error.stack);
-      for (const leaked of ['users_username_lower', '23505', 'Key (', 'nuevo.usuario']) expect(everything, leaked).not.toContain(leaked);
+      // H-O-004US3R-1: sin distinguir mayúsculas (el username enviado es «NUEVO.USUARIO»): cuerpo serializado, mensaje, detalle y pila.
+      const everything = (JSON.stringify(result.error) + result.error.message + String(result.error.detail) + String(result.error.stack)).toLowerCase();
+      for (const leaked of ['users_username_lower', '23505', 'key (', 'nuevo.usuario']) expect(everything, leaked).not.toContain(leaked);
       expect(await pg.usersLike('nuevo.usuario')).toEqual(['Nuevo.Usuario']);
     } finally {
       if (aOpen) await clientA.query('ROLLBACK').catch(() => undefined);
