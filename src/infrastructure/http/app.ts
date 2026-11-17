@@ -11,6 +11,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { registerCsrfGuard } from './plugins/csrf-guard.ts';
 import { registerProblemDetails } from './plugins/problem-details.ts';
+import { registerDevMediaRoutes, type DevMediaOptions } from './routes/dev-media.routes.ts';
 import { registerSecurityHeaders } from './plugins/security-headers.ts';
 import { registerStaticAssets } from './plugins/static-assets.ts';
 import { registerAccountRoutes } from './routes/account.routes.ts';
@@ -36,10 +37,12 @@ export interface HttpAppOptions {
   readonly staticRoot?: string;
   /** Host `<bucket>.storage.googleapis.com` del bucket de medios para la CSP (T564); ausente con el driver memory. */
   readonly mediaHost?: string;
+  /** Adaptador de memoria y entorno para la ruta de desarrollo `/__dev/media/…` (T571); ausente con el driver gcs. */
+  readonly devMedia?: DevMediaOptions;
 }
 
 /** @implements INV-ARCH-004, INV-AUTH-007 */
-export async function buildApp({ deps, cookieSecure, logger = false, trustProxy = false, checkReady, staticRoot, mediaHost }: HttpAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ deps, cookieSecure, logger = false, trustProxy = false, checkReady, staticRoot, mediaHost, devMedia }: HttpAppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger, trustProxy: typeof trustProxy === 'number' ? (_address: string, hop: number) => hop < trustProxy : trustProxy });
   await app.register(cookie);
   app.decorateRequest('userId', '');
@@ -57,6 +60,7 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
   registerAssignmentRoutes(app, context);
   registerOwnershipRoutes(app, context);
   registerBackupRoutes(app, context);
+  if (devMedia !== undefined) registerDevMediaRoutes(app, context, devMedia);
   if (checkReady !== undefined) registerOpsRoutes(app, { checkReady });
   if (staticRoot !== undefined) await registerStaticAssets(app, { root: staticRoot });
   return app;
