@@ -48,6 +48,7 @@ function loadBreeds() {
   }
   if (!Array.isArray(doc.entries) || doc.entries.length === 0) fail('entries vacío');
   const seen = new Set();
+  const seenLabels = new Set();
   for (const entry of doc.entries) {
     const keys = Object.keys(entry).sort();
     if (keys.join() !== [...ENTRY_KEYS].sort().join()) fail(`claves no cerradas en ${entry.code ?? '?'}: ${keys.join(', ')}`);
@@ -56,6 +57,9 @@ function loadBreeds() {
     if (!entry.code.startsWith(PREFIX[entry.species])) fail(`prefijo del code distinto de la especie en ${entry.code} (${entry.species}) [SC-CAT-032]`);
     if (seen.has(entry.code)) fail(`code duplicado: ${entry.code}`);
     seen.add(entry.code);
+    const labelKey = `${entry.species}|${fold(String(entry.label)).toLowerCase().trim()}`;
+    if (seenLabels.has(labelKey)) fail(`rótulo duplicado en ${entry.species}: ${entry.label} [SC-CAT-032]`);
+    seenLabels.add(labelKey);
     if (typeof entry.label !== 'string' || entry.label.trim() === '' || typeof entry.deprecated !== 'boolean') fail(`label o deprecated inválido en ${entry.code}`);
   }
   // order se recalcula al compilar (TECHDEBT-004-05): Criolla 1; el resto alfabético sin tildes de 10 en 10; Otra 9999.

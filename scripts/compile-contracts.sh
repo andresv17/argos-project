@@ -4,6 +4,7 @@
 # Uso:
 #   bash scripts/compile-contracts.sh                      feature 002 por defecto (override: ARGOS_FEATURE=NNN), salida en src/generated/
 #   bash scripts/compile-contracts.sh --feature 001|002|003|004  elige la feature cuyos contratos se compilan
+#   bash scripts/compile-contracts.sh --contracts DIR      (solo 004, pruebas) lee los contratos de DIR en vez de <feature>/contracts
 #   bash scripts/compile-contracts.sh --out DIR            escribe en DIR en vez del destino por defecto (pruebas, comparaciones)
 #
 # Feature 003 (T406/T408): solo compila contracts/openapi/ops.openapi.yaml; destino por defecto src/generated/ops/
@@ -20,6 +21,7 @@ set -euo pipefail
 
 FEATURE="${ARGOS_FEATURE:-002}"
 OUT_DIR=""
+CONTRACTS_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --feature)
@@ -28,6 +30,14 @@ while [[ $# -gt 0 ]]; do
         exit 2
       fi
       FEATURE="$2"
+      shift 2
+      ;;
+    --contracts)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        echo "[SDD Contract Compiler] Uso: --contracts DIR" >&2
+        exit 2
+      fi
+      CONTRACTS_OVERRIDE="$2"
       shift 2
       ;;
     --out)
@@ -56,6 +66,13 @@ case "$FEATURE" in
     ;;
 esac
 CONTRACTS_DIR="$FEATURE_DIR/contracts"
+if [[ -n "$CONTRACTS_OVERRIDE" ]]; then
+  if [[ "$FEATURE" != "004" ]]; then
+    echo "[SDD Contract Compiler] --contracts solo se admite con --feature 004 (pruebas de fixtures)" >&2
+    exit 2
+  fi
+  CONTRACTS_DIR="$CONTRACTS_OVERRIDE"
+fi
 
 echo "[SDD Contract Compiler] Verificando existencia de contratos en $CONTRACTS_DIR/..."
 
@@ -150,8 +167,9 @@ if [[ "$FEATURE" == "004" ]]; then
       ;;
   esac
   echo "[SDD Contract Compiler] Regenerando $OUT_DIR/v31 y $OUT_DIR/catalogs (feature 004)..."
-  node scripts/codegen.mjs --contracts "$CONTRACTS_DIR" --out "${OUT_DIR%/}/v31"
+  # El catálogo se valida primero (T517, SC-CAT-032): un catálogo inválido detiene la compilación sin generar nada.
   node scripts/codegen-catalogs.mjs --contracts "$CONTRACTS_DIR" --out "${OUT_DIR%/}/catalogs"
+  node scripts/codegen.mjs --contracts "$CONTRACTS_DIR" --out "${OUT_DIR%/}/v31"
   if [[ -n "$(git diff --stat -- src/generated/api 2>/dev/null)" ]]; then
     echo "[ERROR] La compilación de la 004 modificó src/generated/api (INV-ARCH-003)" >&2
     exit 1
