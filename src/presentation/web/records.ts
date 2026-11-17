@@ -2,7 +2,7 @@
  * Los 6 módulos de registros de la ficha: pestaña, formulario de alta (campos y esquema del contrato) y llamada
  * tipada al cliente generado.
  *
- * @implements REQ-UI-002, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
+ * @implements REQ-BOR-001, REQ-BOR-003, REQ-UI-002, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
  */
 import { CSRF_PARAMS, unwrap, type ApiClient } from './api.ts';
 import type { InputSchema } from './validation.ts';
@@ -188,4 +188,34 @@ export async function addRecord(api: ApiClient, module: RecordModule, petId: str
       await unwrap(api.POST('/pets/{petId}/records/custom-parameters', { params, body: body as Schemas['CreateCustomParameterInput'] }));
       return;
   }
+}
+
+/** Colección de la ruta `/pets/{petId}/records/{collection}/{recordId}` de cada módulo (RecordCollection del contrato). */
+export const RECORD_COLLECTION: Readonly<Record<RecordModule, string>> = {
+  weights: 'weights',
+  measurements: 'measurements',
+  vaccinations: 'vaccinations',
+  dewormings: 'dewormings',
+  visits: 'visits',
+  customParameters: 'custom-parameters',
+};
+
+/** Edición parcial de un registro vigente (REQ-BOR-003). El cuerpo declara la colección de la ruta; el servidor valida y audita. */
+export async function updateRecord(api: ApiClient, module: RecordModule, petId: string, recordId: string, body: Readonly<Record<string, unknown>>): Promise<void> {
+  const collection = RECORD_COLLECTION[module];
+  await unwrap(
+    api.PATCH('/pets/{petId}/records/{collection}/{recordId}', {
+      params: { ...CSRF_PARAMS, path: { petId, collection: collection as Schemas['RecordCollection'], recordId } },
+      body: { ...body, collection } as Schemas['UpdateWeightInput'],
+    }),
+  );
+}
+
+/** Borrado físico de un registro vigente (REQ-BOR-001): 204, o 409 si está reemplazado (REQ-BOR-002). */
+export async function deleteRecord(api: ApiClient, module: RecordModule, petId: string, recordId: string): Promise<void> {
+  await unwrap(
+    api.DELETE('/pets/{petId}/records/{collection}/{recordId}', {
+      params: { ...CSRF_PARAMS, path: { petId, collection: RECORD_COLLECTION[module] as Schemas['RecordCollection'], recordId } },
+    }),
+  );
 }

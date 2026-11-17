@@ -5,13 +5,14 @@
  * Regla D2: el `open` del bloque de alta es estado local, fijado una sola vez al mostrar el módulo por primera vez
  * (abierto si no hay registros) y que solo cambia el usuario; guardar nunca lo cierra.
  *
- * @implements REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, STATE-ALERT-001
+ * @implements REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, STATE-ALERT-001
  */
 import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { AlertBadge } from './AlertBadge.tsx';
 import { Button } from './Field.tsx';
 import { OwnerBadge } from './OwnerBadge.tsx';
 import { PetAvatar } from './PetAvatar.tsx';
+import { RecordActions } from './RecordActions.tsx';
 import { RecordForm } from './RecordForm.tsx';
 import { SymptomLegend } from './SymptomLegend.tsx';
 import { symptomSummary, type SymptomSeverity, type SymptomType } from '../symptoms.ts';
@@ -45,10 +46,13 @@ function ItemList({ children }: { readonly children: ReactNode }): JSX.Element {
   return <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">{children}</ul>;
 }
 
+/** Acciones de edición y borrado de un registro vigente; los reemplazados (SUPERSEDED) se listan sin ellas (REQ-BOR-002). */
+type ActionsFor = (module: RecordModule, record: object) => ReactNode;
+
 type Vaccination = PetDashboardView['vaccinations'][number];
 type Deworming = PetDashboardView['dewormings'][number];
 
-function VaccinationItems({ items }: { readonly items: readonly Vaccination[] }): JSX.Element {
+function VaccinationItems({ items, actions }: { readonly items: readonly Vaccination[]; readonly actions?: ActionsFor }): JSX.Element {
   return (
     <ItemList>
       {items.map(({ record, alert }) => (
@@ -57,13 +61,14 @@ function VaccinationItems({ items }: { readonly items: readonly Vaccination[] })
             <strong>{record.vaccineName}</strong> · aplicada {record.appliedAt}{record.nextBoosterAt === null ? '' : ` · refuerzo ${record.nextBoosterAt}`}
           </span>
           <AlertBadge alert={alert} />
+          {actions?.('vaccinations', record)}
         </li>
       ))}
     </ItemList>
   );
 }
 
-function DewormingItems({ items }: { readonly items: readonly Deworming[] }): JSX.Element {
+function DewormingItems({ items, actions }: { readonly items: readonly Deworming[]; readonly actions?: ActionsFor }): JSX.Element {
   return (
     <ItemList>
       {items.map(({ record, alert }) => (
@@ -72,6 +77,7 @@ function DewormingItems({ items }: { readonly items: readonly Deworming[] }): JS
             <strong>{record.productBrand}</strong> ({DEWORMING_LABEL[record.dewormingType]}) · aplicada {record.appliedAt} · próxima {record.nextSuggestedDoseAt}
           </span>
           <AlertBadge alert={alert} />
+          {actions?.('dewormings', record)}
         </li>
       ))}
     </ItemList>
@@ -89,13 +95,13 @@ function Superseded({ children, count }: { readonly children: ReactNode; readonl
   );
 }
 
-function ModuleContent({ module, dashboard, canWrite }: { readonly module: RecordModule; readonly dashboard: PetDashboardView; readonly canWrite: boolean }): JSX.Element {
+function ModuleContent({ module, dashboard, canWrite, actions }: { readonly module: RecordModule; readonly dashboard: PetDashboardView; readonly canWrite: boolean; readonly actions?: ActionsFor }): JSX.Element {
   switch (module) {
     case 'weights':
       return (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <WeightChart entries={dashboard.weights} />
-          {dashboard.weights.length === 0 ? null : <WeightTable entries={dashboard.weights} />}
+          {dashboard.weights.length === 0 ? null : <WeightTable entries={dashboard.weights} {...(actions === undefined ? {} : { actionsFor: (entry) => actions('weights', entry.record) })} />}
         </div>
       );
     case 'measurements':
@@ -112,6 +118,7 @@ function ModuleContent({ module, dashboard, canWrite }: { readonly module: Recor
                 <th scope="col" className="px-2 py-1 font-semibold">Pecho</th>
                 <th scope="col" className="px-2 py-1 font-semibold">Lomo</th>
                 <th scope="col" className="px-2 py-1 font-semibold">Cintura</th>
+                {actions === undefined ? null : <th scope="col" className="px-2 py-1 font-semibold">Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -122,6 +129,7 @@ function ModuleContent({ module, dashboard, canWrite }: { readonly module: Recor
                   <td className="whitespace-nowrap px-2 py-1">{m.chestCm.toFixed(2)} cm</td>
                   <td className="whitespace-nowrap px-2 py-1">{m.backLengthCm.toFixed(2)} cm</td>
                   <td className="whitespace-nowrap px-2 py-1">{m.waistCm.toFixed(2)} cm</td>
+                  {actions === undefined ? null : <td className="px-2 py-1">{actions('measurements', m)}</td>}
                 </tr>
               ))}
             </tbody>
@@ -131,7 +139,7 @@ function ModuleContent({ module, dashboard, canWrite }: { readonly module: Recor
     case 'vaccinations':
       return (
         <>
-          {dashboard.vaccinations.length === 0 ? <Empty canWrite={canWrite} /> : <VaccinationItems items={dashboard.vaccinations} />}
+          {dashboard.vaccinations.length === 0 ? <Empty canWrite={canWrite} /> : <VaccinationItems items={dashboard.vaccinations} {...(actions === undefined ? {} : { actions })} />}
           <Superseded count={dashboard.supersededVaccinations.length}>
             <VaccinationItems items={dashboard.supersededVaccinations} />
           </Superseded>
@@ -140,7 +148,7 @@ function ModuleContent({ module, dashboard, canWrite }: { readonly module: Recor
     case 'dewormings':
       return (
         <>
-          {dashboard.dewormings.length === 0 ? <Empty canWrite={canWrite} /> : <DewormingItems items={dashboard.dewormings} />}
+          {dashboard.dewormings.length === 0 ? <Empty canWrite={canWrite} /> : <DewormingItems items={dashboard.dewormings} {...(actions === undefined ? {} : { actions })} />}
           <Superseded count={dashboard.supersededDewormings.length}>
             <DewormingItems items={dashboard.supersededDewormings} />
           </Superseded>
@@ -159,6 +167,7 @@ function ModuleContent({ module, dashboard, canWrite }: { readonly module: Recor
               <p className="text-sm text-text-muted">
                 Diagnóstico: {v.diagnosis}. Tratamiento: {v.treatment}.
               </p>
+              {actions?.('visits', v)}
             </li>
           ))}
         </ItemList>
@@ -179,6 +188,7 @@ function ModuleContent({ module, dashboard, canWrite }: { readonly module: Recor
                 </p>
                 <SymptomSummary record={c} />
                 <p className="text-sm text-text-muted">{c.description}</p>
+                {actions?.('customParameters', c)}
               </li>
             ))}
           </ItemList>
@@ -278,11 +288,15 @@ function AlertsCard({ dashboard, canRegisterWeight, onRegisterWeight }: {
 
 const STAT_CARD = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 
-export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEdit, onDelete, onTransfer, editSlot, deleteSlot, transferSlot }: {
+export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEditRecord, onDeleteRecord, onEdit, onDelete, onTransfer, editSlot, deleteSlot, transferSlot }: {
   readonly dashboard: PetDashboardView;
   readonly activeTab: RecordModule;
   readonly onTabChange: (tab: RecordModule) => void;
   readonly onAddRecord: (module: RecordModule, body: FormBody) => Promise<void>;
+  /** Edición de un registro vigente (REQ-BOR-003); sin ella la ficha no ofrece «Editar» en los registros. */
+  readonly onEditRecord?: (module: RecordModule, recordId: string, body: FormBody) => Promise<void>;
+  /** Borrado físico de un registro vigente (REQ-BOR-001); sin ella la ficha no ofrece «Eliminar» en los registros. */
+  readonly onDeleteRecord?: (module: RecordModule, recordId: string) => Promise<void>;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
   /** REQ-OWN-001: abre el panel de transferencia; el botón solo existe si lo pasa la página y `transferPetOwnership` es cierto. */
@@ -333,6 +347,20 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
     requestFocus();
   };
   const readOnly = isReadOnly(permissions);
+  const recordActions: ActionsFor | undefined =
+    onEditRecord === undefined && onDeleteRecord === undefined
+      ? undefined
+      : (module, record) => (
+          <RecordActions
+            key={(record as { id: string }).id}
+            module={module}
+            record={record as Readonly<Record<string, unknown>>}
+            species={profile.species}
+            permissions={permissions}
+            {...(onEditRecord === undefined ? {} : { onEdit: onEditRecord })}
+            {...(onDeleteRecord === undefined ? {} : { onDelete: onDeleteRecord })}
+          />
+        );
 
   return (
     <article {...(editSlot === undefined ? { 'aria-labelledby': 'pet-title' } : {})} data-pet-id={profile.id} className="grid min-w-0 grid-cols-1 gap-4">
@@ -428,7 +456,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
             <RecordForm key={`${profile.id}-${activeSpec.id}`} spec={activeSpec} species={profile.species} onSubmit={(body) => onAddRecord(activeSpec.id, body)} />
           </details>
         ) : null}
-        <ModuleContent module={activeSpec.id} dashboard={dashboard} canWrite={canWrite} />
+        <ModuleContent module={activeSpec.id} dashboard={dashboard} canWrite={canWrite} {...(recordActions === undefined ? {} : { actions: recordActions })} />
       </section>
     </article>
   );

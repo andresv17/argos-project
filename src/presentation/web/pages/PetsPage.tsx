@@ -13,7 +13,7 @@ import { PetCardList, PetFilter } from '../components/PetCards.tsx';
 import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
-import { addRecord, type RecordModule } from '../records.ts';
+import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
 import type { FormBody } from '../validation.ts';
 import { useSession } from '../session.tsx';
 import {
@@ -137,6 +137,18 @@ export function PetsPage(): JSX.Element {
     await refreshAll();
   };
 
+  const onEditRecord = async (module: RecordModule, recordId: string, body: FormBody): Promise<void> => {
+    if (activePetId === null) return;
+    await updateRecord(api, module, activePetId, recordId, body);
+    await refreshAll();
+  };
+
+  const onDeleteRecord = async (module: RecordModule, recordId: string): Promise<void> => {
+    if (activePetId === null) return;
+    await deleteRecord(api, module, activePetId, recordId);
+    await refreshAll();
+  };
+
   const isMine = contextId === MINE_CONTEXT_ID;
   const filtered = q.trim() !== '' || species !== '';
   const emptyHint = filtered ? undefined : isMine ? 'Usa «Nueva mascota» para añadir la primera.' : 'Quien sea dueño puede asignar mascotas al hogar desde Editar.';
@@ -189,6 +201,8 @@ export function PetsPage(): JSX.Element {
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
                 onAddRecord={onAddRecord}
+                onEditRecord={onEditRecord}
+                onDeleteRecord={onDeleteRecord}
                 onEdit={() => setMode('EDIT')}
                 onDelete={() => setMode('DELETE')}
                 onTransfer={() => {
