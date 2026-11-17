@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "STATE-ALERT-001",
+  "version": "2.1.0",
+  "status": "REVIEW",
+  "supersedes": "2.0.1",
+  "x-sdd-metadata": {
+    "version": "2.1.0",
+    "status": "REVIEW",
+    "supersedes": "2.0.1",
+    "change_type": "MINOR",
+    "change_note": "MINOR: la próxima fecha es opcional; un registro con targetDate nulo y sin registro posterior de la misma clave queda fuera de la evaluación (sin estado ni alerta); si sí tiene uno posterior queda SUPERSEDED (F4-M4, a validar por Maggie). Sin alertas automáticas de peso ni de edad para ninguna especie. El orden y los guards de los cuatro estados no cambian.",
+    "traceability": [
+      "STATE-ALERT-001",
+      "REQ-REC2-002",
+      "REQ-REC2-003",
+      "REQ-PET2-002",
+      "REQ-UI-003",
+      "INV-REC-004",
+      "INV-REC-005",
+      "SC-015"
+    ]
+  },
+  "machines": {
+    "STATE-ALERT-001": {
+      "description": "Evaluación determinista de alertas sanitarias para Vacunación y Desparasitación",
+      "evaluation": "Función pura: si hasNewerRecordOfSameKey es true devuelve SUPERSEDED aunque targetDate sea null; si no y targetDate es null devuelve null (fuera de la evaluación, sin alerta ni contribución al semáforo global); si no, devuelve el primer estado cuyo guard es verdadero, en el orden de evaluationOrder.",
+      "context": {
+        "targetDate": "YYYY-MM-DD (nextBoosterAt o nextSuggestedDoseAt) o null cuando no requiere próxima dosis",
+        "currentDate": "YYYY-MM-DD de ClockPort.todayIsoDate()",
+        "hasNewerRecordOfSameKey": "boolean: existe registro posterior (orden INV-SORT-001) para la misma mascota con mismo vaccineName.trim().toLowerCase() o mismo dewormingType"
+      },
+      "evaluationOrder": [
+        "SUPERSEDED",
+        "OVERDUE",
+        "DUE_SOON",
+        "UP_TO_DATE"
+      ],
+      "states": {
+        "SUPERSEDED": {
+          "guard": "hasNewerRecordOfSameKey === true",
+          "uiBadge": "NEUTRAL_GRAY",
+          "label": "Reemplazada por registro posterior",
+          "isActiveAlert": false
+        },
+        "OVERDUE": {
+          "guard": "hasNewerRecordOfSameKey === false && daysRemaining < 0",
+          "uiBadge": "DANGER_RED",
+          "label": "Vencida",
+          "isActiveAlert": true
+        },
+        "DUE_SOON": {
+          "guard": "hasNewerRecordOfSameKey === false && daysRemaining >= 0 && daysRemaining <= 15",
+          "uiBadge": "WARNING_AMBER",
+          "label": "Próxima a vencer (<= 15 días)",
+          "isActiveAlert": true
+        },
+        "UP_TO_DATE": {
+          "guard": "hasNewerRecordOfSameKey === false && daysRemaining > 15",
+          "uiBadge": "SUCCESS_GREEN",
+          "label": "Al día",
+          "isActiveAlert": false
+        }
+      },
+      "excludedWhen": "targetDate === null && hasNewerRecordOfSameKey === false",
+      "rules": {
+        "supersededIsComputed": "SUPERSEDED se calcula, no se persiste (no existe supersedesId). Un registro SUPERSEDED no se puede editar con ningún rol (ERR-REC-SUPERSEDED-IMMUTABLE); eliminar el posterior lo devuelve a vigente.",
+        "supersededKey": "Misma mascota y mismo vaccineName.trim().toLowerCase() (vacunas) o mismo dewormingType (desparasitaciones); el registro posterior sigue el orden de INV-SORT-001, tenga o no próxima fecha.",
+        "globalSemaphore": "Estado más grave entre vacunas y desparasitaciones: OVERDUE > DUE_SOON > UP_TO_DATE. SUPERSEDED y registros sin fecha no cuentan; sin registros evaluables no hay insignia global.",
+        "noAutomaticClinicalAlerts": "Sin alertas automáticas de peso ideal, sobrepeso, edad ni geriátricas para ninguna especie hasta que existan reglas clínicas aprobadas (Maggie P-3). El estado 'Al día' solo indica que la fecha registrada no venció; no es garantía de salud.",
+        "clock": "currentDate llega de ClockPort.todayIsoDate() con APP_TIMEZONE; el timezone del perfil nunca interviene (REQ-TIME-001).",
+        "supersededWithoutTargetDate": "Un registro sin próxima fecha que tiene uno posterior de la misma clave es SUPERSEDED (inmutable, va al acordeón de reemplazados), no null. A VALIDAR POR MAGGIE (no es decisión de Neo). Sin registro posterior sigue siendo null y fuera del semáforo."
+      }
+    }
+  }
+}

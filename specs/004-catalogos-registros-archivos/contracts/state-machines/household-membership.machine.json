@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "STATE-HOUSE-MEMBERSHIP-001",
+  "version": "3.0.0",
+  "status": "REVIEW",
+  "x-sdd-metadata": {
+    "version": "3.0.0",
+    "status": "REVIEW",
+    "supersedes": "2.2.0",
+    "change_type": "MAJOR",
+    "change_note": "MAJOR: rol por membresía (ADMIN, CAREGIVER, READER), propietario del hogar separado del rol, eventos CHANGE_ROLE y TRANSFER_OWNERSHIP, invitación como entidad propia con roleOnJoin y poda de asignaciones al salir. La spec la llama 'v2'; el archivo es 3.0.0 por coherencia con la sesión.",
+    "traceability": [
+      "STATE-HOUSE-MEMBERSHIP-001",
+      "REQ-HOUSE-001",
+      "REQ-HOUSE-003",
+      "REQ-HOUSE2-001",
+      "REQ-HOUSE2-002",
+      "REQ-HOUSE2-003",
+      "REQ-RBAC-001",
+      "REQ-AUD-001",
+      "INV-HOUSE2-001",
+      "INV-HOUSE-003",
+      "INV-HOUSE-004",
+      "SC-017"
+    ]
+  },
+  "machines": {
+    "STATE-HOUSE-MEMBERSHIP-001": {
+      "description": "Relación de un usuario con un hogar. Solo ACTIVE otorga visibilidad (INV-HOUSE-004). Persistencia: INVITED, DECLINED y CANCELLED viven en la invitación; ACTIVE, LEFT y REMOVED en la membresía (ADR-002-04).",
+      "roles": [
+        "ADMIN",
+        "CAREGIVER",
+        "READER"
+      ],
+      "attributes": {
+        "role": "ADMIN | CAREGIVER | READER",
+        "isHouseholdOwner": "boolean; exactamente un ACTIVE por hogar, siempre con role ADMIN (INV-HOUSE2-001)"
+      },
+      "initialStates": {
+        "CREATE_HOUSEHOLD": {
+          "target": "ACTIVE",
+          "effect": "role = ADMIN; isHouseholdOwner = true",
+          "req": "REQ-HOUSE-001"
+        },
+        "INVITE": {
+          "target": "INVITED",
+          "effect": "nueva invitación con roleOnJoin"
+        }
+      },
+      "states": {
+        "INVITED": {
+          "isVisible": false,
+          "on": {
+            "ACCEPT": {
+              "target": "ACTIVE",
+              "actor": "INVITEE",
+              "effect": "role = roleOnJoin; isHouseholdOwner = false; joinedAt = now; firstJoinedAt = del par si existe, si no now",
+              "req": "REQ-HOUSE-003"
+            },
+            "DECLINE": {
+              "target": "DECLINED",
+              "actor": "INVITEE"
+            },
+            "CANCEL": {
+              "target": "CANCELLED",
+              "actor": "HOUSEHOLD_OWNER | ADMIN",
+              "req": "REQ-HOUSE2-002"
+            }
+          }
+        },
+        "ACTIVE": {
+          "isVisible": true,
+          "on": {
+            "LEAVE": {
+              "target": "LEFT",
+              "actor": "SELF",
+              "guard": "!isHouseholdOwner",
+              "errorIfGuardFails": "ERR-HOUSE-OWNER-CANNOT-LEAVE",
+              "effect": "retira las asignaciones a este hogar de las mascotas de las que el miembro es Propietario Legal (una fila UNASSIGN por asignación)",
+              "req": "REQ-HOUSE2-002"
+            },
+            "REMOVE": {
+              "target": "REMOVED",
+              "actor": "HOUSEHOLD_OWNER | ADMIN",
+              "guard": "target != actor && !target.isHouseholdOwner",
+              "errorIfGuardFails": "ERR-ACC-FORBIDDEN",
+              "effect": "mismo efecto sobre las asignaciones que LEAVE",
+              "req": "REQ-HOUSE2-002"
+            },
+            "CHANGE_ROLE": {
+              "target": "ACTIVE",
+              "actor": "HOUSEHOLD_OWNER | ADMIN",
+              "guard": "target.status === 'ACTIVE' && !target.isHouseholdOwner && target != actor && newRole in roles",
+              "errorIfGuardFails": "ERR-ACC-FORBIDDEN",
+              "errorIfTargetNotActive": "ERR-HOUSE-MEMBERSHIP-NOT-FOUND",
+              "effect": "role = newRole; 1 fila ROLE_CHANGE sobre HOUSEHOLD_MEMBERSHIP; el rol efectivo sobre mascotas cambia de inmediato",
+              "transition": "ACTIVE(rol A) -> ACTIVE(rol B)",
+              "req": "REQ-HOUSE2-002"
+            },
+            "TRANSFER_OWNERSHIP": {
+              "target": "ACTIVE",
+              "actor": "HOUSEHOLD_OWNER",
+              "guard": "target.status === 'ACTIVE' && !target.isHouseholdOwner",
+              "errorIfGuardFails": "ERR-HOUSE-MEMBERSHIP-NOT-FOUND",
+              "errorIfActorNotOwner": "ERR-ACC-FORBIDDEN",
+              "effect": "en una sola transacción: target.isHouseholdOwner = true y target.role = ADMIN; anterior.isHouseholdOwner = false y conserva ADMIN; household.ownerUserId = target; 1 fila OWNERSHIP_TRANSFER sobre HOUSEHOLD (INV-HOUSE2-001: siempre exactamente un propietario)",
+              "req": "REQ-HOUSE2-002"
+            }
+          }
+        },
+        "DECLINED": {
+          "isVisible": false,
+          "on": {
+            "INVITE": {
+              "target": "INVITED",
+              "actor": "HOUSEHOLD_OWNER | ADMIN",
+              "effect": "nueva invitación con id nuevo"
+            }
+          }
+        },
+        "CANCELLED": {
+          "isVisible": false,
+          "on": {
+            "INVITE": {
+              "target": "INVITED",
+              "actor": "HOUSEHOLD_OWNER | ADMIN",
+              "effect": "nueva invitación con id nuevo"
+            }
+          }
+        },
+        "LEFT": {
+          "isVisible": false,
+          "on": {
+            "INVITE": {
+              "target": "INVITED",
+              "actor": "HOUSEHOLD_OWNER | ADMIN",
+              "effect": "nueva invitación con id nuevo; firstJoinedAt heredado del par"
+            }
+          }
+        },
+        "REMOVED": {
+          "isVisible": false,
+          "on": {
+            "INVITE": {
+              "target": "INVITED",
+              "actor": "HOUSEHOLD_OWNER | ADMIN",
+              "effect": "nueva invitación con id nuevo; firstJoinedAt heredado del par"
+            }
+          }
+        }
+      },
+      "rules": {
+        "inviteUniform": "POST de invitación responde siempre 202 con el mismo cuerpo exista o no el username, con tiempo uniforme y límite de ritmo (ERR-RATE-LIMITED). Si el username no existe, la invitación se guarda inerte (inviteeUserId nulo): nunca se vincula a una cuenta registrada después y nadie puede aceptarla (R3).",
+        "inviteGuards": "Quien invita es el propietario del hogar o un ADMIN. No se crea invitación duplicada INVITED ni a un miembro ACTIVE; ambos casos responden igual que un éxito para no filtrar existencia (INV-HOUSE-003).",
+        "roleHierarchy": "El rol efectivo sobre una mascota es el mayor de los roles ACTIVE entre los hogares donde está asignada: ADMIN > CAREGIVER > READER; el Propietario Legal manda siempre (REQ-RBAC-001).",
+        "ownerAlwaysAdmin": "El propietario del hogar tiene siempre role ADMIN. Nadie puede expulsarlo, degradarlo ni cambiarle el rol; un ADMIN tampoco puede cambiar su propio rol. Solo cambia con TRANSFER_OWNERSHIP.",
+        "householdDeletion": "Solo el propietario del hogar lo elimina. Borra físicamente hogar, membresías, invitaciones y asignaciones; las mascotas no se tocan (REQ-HOUSE2-002). Si el propietario elimina su cuenta siendo el único miembro ACTIVE, el hogar se elimina en cascada; con otros ACTIVE se bloquea (ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD).",
+        "assignmentInvariant": "El Propietario Legal de una mascota es miembro ACTIVE de todo hogar donde está asignada. Salir, ser expulsado o transferir la mascota poda las asignaciones que lo violarían (una fila UNASSIGN cada una).",
+        "retention": "Membresías LEFT/REMOVED e invitaciones DECLINED/CANCELLED/ACCEPTED se retienen 90 días desde su último cambio y luego se purgan; se borran siempre al eliminar la cuenta de cualquiera de las partes o el hogar (R5).",
+        "unauthorizedActor": "ERR-ACC-FORBIDDEN si el actor es miembro ACTIVE sin el rol requerido; ERR-HOUSE-NOT-FOUND si el actor no es miembro ACTIVE; ERR-HOUSE-MEMBERSHIP-NOT-FOUND si el objetivo no es miembro ACTIVE; ERR-HOUSE-INVITATION-NOT-FOUND si ACCEPT/DECLINE/CANCEL no tienen invitación INVITED. ACCEPT y DECLINE nunca devuelven 403.",
+        "closedStates": "DECLINED, CANCELLED, LEFT y REMOVED no son finales: admiten INVITE."
+      }
+    }
+  }
+}
