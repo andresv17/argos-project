@@ -352,6 +352,9 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
     async clearAvatar(petId) {
       await client.query('UPDATE pets SET avatar_object_id = NULL WHERE id = $1', [petId]);
     },
+    async raiseAvatarVersion(petId, version) {
+      await client.query('UPDATE pets SET avatar_version = $1 WHERE id = $2 AND avatar_version < $1', [version, petId]);
+    },
   };
 }
 

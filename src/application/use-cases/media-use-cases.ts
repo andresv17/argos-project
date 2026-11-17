@@ -63,6 +63,23 @@ export async function purgeObjects(deps: ApplicationDeps, keys: readonly string[
   }
 }
 
+/**
+ * Refuerzo tras eliminar mascotas (REQ-GCS-004): lista el prefijo `pets/{petId}/` y borra lo que quede, sea cual sea su origen. Si algo falla lo cubre
+ * la conciliación diaria (REQ-GCS-006). Nunca lanza.
+ * @implements REQ-GCS-004, INV-GCS-002
+ */
+export async function reinforcePrefix(deps: ApplicationDeps, petIds: readonly string[]): Promise<void> {
+  const media = deps.media;
+  if (media === undefined) return;
+  for (const petId of petIds) {
+    try {
+      for (const entry of await media.storage.list(`pets/${petId}/`)) await media.storage.delete(entry.key);
+    } catch {
+      // la conciliación diaria lo recoge (REQ-GCS-006)
+    }
+  }
+}
+
 function parseKind(value: unknown): MediaKind {
   if (value === 'FILE' || value === 'PHOTO') return value;
   throw new DomainErrorV31('ERR-SCHEMA-VALIDATION-FAILED', 'kind debe ser FILE o PHOTO.', 'kind');

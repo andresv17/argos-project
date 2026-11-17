@@ -50,6 +50,7 @@ import { validateBirthDateNotFuture } from '../../domain/shared/date-utils.ts';
 import { sortHistoricalRecords, sortPetsForListing } from '../../domain/sorting/deterministic-sorter.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
+import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import { lockPet, type ApplicationDeps } from './use-case-support.ts';
 
 export type ImportBackupResult = ComponentsV31['schemas']['ImportBackupResult'];
@@ -379,13 +380,12 @@ class BackupImportPipeline {
 }
 
 /**
- * Archivos, fotos y avatares que el reemplazo elimina junto con las mascotas actuales del usuario (D-15 A, REQ-IMP-001). Hasta que existan las
- * tablas de medios y el avatar (T574, T575, T584) no hay nada que contar: es 0 y este es el único punto que T575 conectará al repositorio de
- * `pet_media` y a `pets.avatar_object_id`.
+ * Archivos, fotos y avatares que el reemplazo elimina junto con las mascotas actuales del usuario (D-15 A, REQ-IMP-001): filas de `pet_media` más
+ * avatares vigentes (`pets.avatar_object_id` no nulo) de esas mascotas.
  * @implements REQ-IMP-001
  */
-async function countMediaToDelete(_repositories: RepositorySet, _replacedPets: readonly PetProfile[]): Promise<number> {
-  return 0;
+async function countMediaToDelete(repositories: RepositorySet, replacedPets: readonly PetProfile[]): Promise<number> {
+  return repositories.media.countObjectsOfPets(replacedPets.map((pet) => pet.id));
 }
 
 /**
@@ -502,6 +502,8 @@ export class ImportBackupUseCase {
     // tiene, la importación falla completa con el error uniforme y el detalle nombra solo la mascota PROPIA del archivo (posición y nombre).
     // REQ-PET4-002 (ADR-004-04): chequeo previo del límite de duplicados; el 429 se lanza antes de tocar nada y sin transición de la máquina.
     let limited: DomainError | null = null;
+    const objectKeys: string[] = [];
+    let replacedPetIds: string[] = [];
     try {
       await this.deps.uow.runInTransaction(async (repositories) => {
         await this.pipeline.assertNoForeignIds(run, repositories, userId, envelope);
@@ -515,6 +517,15 @@ export class ImportBackupUseCase {
         const current = await repositories.pets.listByOwners([userId]);
         for (const pet of [...current].sort((a, b) => (a.id < b.id ? -1 : 1))) await lockPet(repositories, pet.id);
         const previous = await ownedSnapshot(repositories, current);
+        // REQ-IMP-001 (1), REQ-GCS-004: medios y avatar de las mascotas reemplazadas entran en la cola (en esta transacción) y `avatar_version` de las que
+        // conservan su `id` no retrocede (la fila se recrea con `avatar_object_id = NULL`).
+        objectKeys.length = 0;
+        const priorAvatarVersions = new Map<string, number>();
+        for (const pet of current) {
+          objectKeys.push(...(await repositories.mediaQueue.enqueueObjectsOfPet(pet.id, this.deps.clock.nowIsoTimestamp())));
+          priorAvatarVersions.set(pet.id, (await repositories.pets.findAvatar(pet.id))?.version ?? 0);
+        }
+        replacedPetIds = current.map((pet) => pet.id);
         // REQ-BOR-005, SC-CAT-035: la revisión de un registro que ya existía nunca retrocede (la existente + 1); uno nuevo nace en 0.
         const priorRevisions = await revisionsOf(repositories, current);
         for (const pet of current) {
@@ -533,6 +544,10 @@ export class ImportBackupUseCase {
             );
           }
         }
+        for (const pet of envelope.pets) {
+          const prior = priorAvatarVersions.get(pet.id);
+          if (prior !== undefined && prior > 0) await repositories.pets.raiseAvatarVersion(pet.id, prior);
+        }
         for (const { module, record } of recordsOf(envelope)) {
           const prior = priorRevisions.get(record.id);
           await repositories.records.add(module, { ...record, revision: prior === undefined ? 0 : prior + 1 } as never);
@@ -546,6 +561,9 @@ export class ImportBackupUseCase {
           next: await ownedSnapshot(repositories, envelope.pets),
         });
       });
+      // Tras el COMMIT (REQ-GCS-004): borrado inmediato de los objetos y refuerzo por `list`; lo que falle lo reintenta el mantenimiento. Nunca lanza.
+      await purgeObjects(this.deps, objectKeys);
+      await reinforcePrefix(this.deps, replacedPetIds);
     } catch (error) {
       if (limited !== null && error === limited) throw error;
       // El duplicado cuenta como un evento del usuario; se registra fuera de la transacción ya terminada (best effort).

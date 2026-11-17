@@ -26,9 +26,11 @@ import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import { assignOwnedPetToHousehold } from './assignment-use-cases.ts';
 import { recordAudit } from './audit-support.ts';
+import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import {
   buildPetCard,
   listVisiblePets,
+  lockPet,
   publicProfilesById,
   requirePetAction,
   requireReadablePet,
@@ -133,13 +135,20 @@ export class DeletePetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(userId: string, petId: string): Promise<204> {
-    return this.deps.uow.runInTransaction(async (repositories) => {
+    const objectKeys = await this.deps.uow.runInTransaction(async (repositories) => {
+      await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, 'DELETE_PET');
+      // REQ-GCS-004: los medios y el avatar vigentes entran en la cola en la MISMA transacción; GCS no participa de ella.
+      const keys = await repositories.mediaQueue.enqueueObjectsOfPet(petId, this.deps.clock.nowIsoTimestamp());
       await repositories.records.deleteForPet(petId);
       await repositories.pets.delete(petId);
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'PET', entityId: petId, previous: pet, next: null });
-      return 204 as const;
+      return keys;
     });
+    // Tras el COMMIT: borrado inmediato e idempotente de cada objeto, refuerzo por `list` del prefijo; lo que falle lo reintenta el mantenimiento.
+    await purgeObjects(this.deps, objectKeys);
+    await reinforcePrefix(this.deps, [petId]);
+    return 204;
   }
 }
 

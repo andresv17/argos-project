@@ -367,6 +367,7 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
   const avatarOf = db.prepare<[string], AvatarRow>('SELECT avatar_version, avatar_object_id FROM pets WHERE id = ?');
   const bumpAvatar = db.prepare<[string, string], AvatarRow>('UPDATE pets SET avatar_version = avatar_version + 1, avatar_object_id = ? WHERE id = ? RETURNING avatar_version, avatar_object_id');
   const dropAvatar = db.prepare('UPDATE pets SET avatar_object_id = NULL WHERE id = ?');
+  const raiseAvatar = db.prepare('UPDATE pets SET avatar_version = ? WHERE id = ? AND avatar_version < ?');
   const toPet = (row: PetRow): PetProfile =>
     decode(
       'pets',
@@ -422,6 +423,9 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
     },
     async clearAvatar(petId) {
       dropAvatar.run(petId);
+    },
+    async raiseAvatarVersion(petId, version) {
+      raiseAvatar.run(version, petId, version);
     },
   };
 }

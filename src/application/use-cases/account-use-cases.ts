@@ -32,6 +32,7 @@ import { assertNotLockedOut, evaluateLoginAttempt, invalidCredentialsError, norm
 import { sessionStateAt } from '../../domain/auth/session-policy.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
+import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import { assertMatchesAnnotatedSchema, assertMatchesSchema, toSelfProfile, type ApplicationDeps } from './use-case-support.ts';
 
 async function requireAccount(repositories: RepositorySet, userId: string): Promise<UserAccount> {
@@ -120,7 +121,11 @@ export class DeleteAccountUseCase {
     // A3: seudónimo HMAC-SHA256 del userId (cálculo puro, mismo secreto y formato para executorUserId y entityId).
     const pseudonym = this.deps.auditPseudonym.hmacUserId(userId, this.deps.auditHmacSecret);
 
+    // REQ-GCS-004: claves de medios y avatares de todas las mascotas propias; se encolan en la transacción y se borran tras el COMMIT.
+    const objectKeys: string[] = [];
+    let ownedPetIdsForCleanup: string[] = [];
     await this.deps.uow.runInTransaction(async (repositories) => {
+      objectKeys.length = 0;
       // B2: la sesión y la cuenta siguen vigentes (petición simultánea).
       const account = await repositories.users.findById(userId);
       const session = sessionToken === null ? null : await repositories.sessions.findByToken(sessionToken);
@@ -155,7 +160,9 @@ export class DeleteAccountUseCase {
       // B8: el historial previo del usuario (executorUserId y entityId de filas USER) pasa a su HMAC.
       await this.deps.auditLog.pseudonymizeUser(repositories, userId, pseudonym);
       // B9: de hoja a raíz.
+      ownedPetIdsForCleanup = ownedPetIds;
       for (const pet of ownedPets) {
+        objectKeys.push(...(await repositories.mediaQueue.enqueueObjectsOfPet(pet.id, now)));
         await repositories.records.deleteForPet(pet.id);
         await repositories.assignments.deleteForPet(pet.id);
         await repositories.pets.delete(pet.id);
@@ -177,7 +184,10 @@ export class DeleteAccountUseCase {
         throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'La eliminación de la cuenta dejó filas que referencian al usuario; se revierte.');
       }
     });
-    // Tras el commit: checkpoint del WAL con truncado (ADR-002-13). Un fallo no revierte la eliminación.
+    // Tras el commit: borrado inmediato de los objetos y refuerzo por `list` (REQ-GCS-004); lo que falle lo reintenta el mantenimiento.
+    await purgeObjects(this.deps, objectKeys);
+    await reinforcePrefix(this.deps, ownedPetIdsForCleanup);
+    // Checkpoint del WAL con truncado (ADR-002-13). Un fallo no revierte la eliminación.
     await this.deps.uow.checkpointAfterCommit?.();
     return 204;
   }

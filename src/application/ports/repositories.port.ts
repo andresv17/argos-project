@@ -141,6 +141,11 @@ export interface PetRepositoryPort {
   replaceAvatar(petId: string, objectId: string): Promise<AvatarState>;
   /** Quita el avatar: `avatar_object_id = NULL`; `avatar_version` NO cambia ni se reinicia (INV-AVA-001). */
   clearAvatar(petId: string): Promise<void>;
+  /**
+   * Lleva `avatar_version` a `max(actual, version)` sin tocar `avatar_object_id`: la importación por reemplazo recrea la fila de la mascota y debe
+   * conservar la versión de la existente con el mismo `id` para que la caché `?v=` no sirva una imagen antigua (REQ-IMP-001, INV-AVA-001).
+   */
+  raiseAvatarVersion(petId: string, version: number): Promise<void>;
 }
 
 /** Avatar de la mascota: la versión nunca decrece; `objectId` nulo = sin avatar (REQ-AVA-001). */

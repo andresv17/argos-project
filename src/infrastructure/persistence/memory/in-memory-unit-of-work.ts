@@ -288,6 +288,11 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       const current = state.avatars[petId];
       if (current !== undefined) state.avatars[petId] = { version: current.version, objectId: null };
     },
+    async raiseAvatarVersion(petId, version) {
+      if (!state.pets.some((p) => p.id === petId)) return;
+      const current = state.avatars[petId] ?? { version: 0, objectId: null };
+      if (version > current.version) state.avatars[petId] = { version, objectId: current.objectId };
+    },
   };
 }
 
