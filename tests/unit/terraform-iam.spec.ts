@@ -45,12 +45,14 @@ describe('terraform/iam.tf (T439)', () => {
     ]);
   });
 
-  it('argos-deployer: run.developer, artifactregistry.writer y serviceAccountUser solo sobre argos-run', () => {
+  it('argos-deployer: run.developer, artifactregistry.writer, serviceAccountUser solo sobre argos-run y secretmanager.viewer sobre 2 secretos (D-30)', () => {
     const dep = forSa('deployer');
     expect(dep.flatMap(roles).sort()).toEqual([
       'roles/artifactregistry.writer',
       'roles/iam.serviceAccountUser',
       'roles/run.developer',
+      'roles/secretmanager.viewer',
+      'roles/secretmanager.viewer',
     ]);
     const user = dep.find((b) => roles(b)[0] === 'roles/iam.serviceAccountUser');
     expect(user?.type).toBe('google_service_account_iam_member');
