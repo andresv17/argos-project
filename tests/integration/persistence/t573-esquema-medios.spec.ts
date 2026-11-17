@@ -78,6 +78,30 @@ describe('T573 esquema de medios en SQLite (migración 0009)', () => {
     db.close();
   });
 
+  it('[REQ-AUD-001] audit_log admite la entidad PET_MEDIA y sigue rechazando cualquier otra; conserva sus filas e índices (DESVIACIÓN DECLARADA)', () => {
+    const cache = join(process.cwd(), 'node_modules', '.cache');
+    mkdirSync(cache, { recursive: true });
+    const dir = mkdtempSync(join(cache, 'argos-t573a-'));
+    dirs.push(dir);
+    const previous = join(dir, 'previas');
+    mkdirSync(previous);
+    for (const file of readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => n < '0009')) writeFileSync(join(previous, file), readFileSync(join(DEFAULT_MIGRATIONS_DIR, file), 'utf8'));
+    const path = join(dir, 'argos.sqlite');
+    const legacy = openSqliteDatabase(path, { migrationsDir: previous });
+    const insert = (db: ReturnType<typeof openSqliteDatabase>, id: string, entity: string) =>
+      db.prepare("INSERT INTO audit_log (id, timestamp, executor_user_id, mutation_type, entity_type, entity_id) VALUES (?, '2026-11-17T10:00:00.000Z', ?, 'CREATE', ?, 'x')").run(id, USER, entity);
+    insert(legacy, MEDIA(1), 'PET');
+    expect(() => insert(legacy, MEDIA(2), 'PET_MEDIA')).toThrow(/CHECK constraint failed/);
+    const before = legacy.prepare('SELECT * FROM audit_log ORDER BY id').all();
+    legacy.close();
+    const db = openSqliteDatabase(path);
+    expect(db.prepare('SELECT * FROM audit_log WHERE mutation_type <> ? ORDER BY id').all('MIGRATION')).toEqual(before.filter((r) => (r as { mutation_type: string }).mutation_type !== 'MIGRATION'));
+    insert(db, MEDIA(2), 'PET_MEDIA');
+    expect(() => insert(db, MEDIA(3), 'OTRA')).toThrow(/CHECK constraint failed/);
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'audit_log' AND name NOT LIKE 'sqlite_%' ORDER BY name").pluck().all()).toEqual(['audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp']);
+    db.close();
+  });
+
   it('[REQ-AVA-001] pets.avatar_version es INTEGER NOT NULL DEFAULT 0 y avatar_object_id es TEXT nulo', () => {
     const db = openSqliteDatabase(IN_MEMORY_DATABASE);
     const columns = db.prepare('PRAGMA table_info(pets)').all() as SqliteColumn[];
@@ -170,6 +194,19 @@ describe.skipIf(!TEST_DATABASE_URL)('T573 esquema de medios en Postgres real (mi
       await client.query('DELETE FROM pets WHERE id = $1', [PET]);
       expect((await client.query('SELECT count(*)::int AS n FROM pet_media')).rows[0]).toEqual({ n: 0 });
       expect((await client.query('SELECT count(*)::int AS n FROM media_deletion_queue')).rows[0]).toEqual({ n: 2 });
+    });
+  });
+
+  it('[REQ-AUD-001] audit_log admite PET_MEDIA tras la migración y rechaza otra entidad (23514); antes no la admitía (DESVIACIÓN DECLARADA)', async () => {
+    await withSchema(async (client) => {
+      const audit = (id: string, entity: string) =>
+        client.query("INSERT INTO audit_log (id, timestamp, executor_user_id, mutation_type, entity_type, entity_id) VALUES ($1, '2026-11-17T10:00:00.000Z', $2, 'CREATE', $3, 'x')", [id, USER, entity]);
+      await audit(MEDIA(1), 'PET');
+      expect((await failure(audit(MEDIA(2), 'PET_MEDIA')))?.constraint).toBe('audit_log_entity_type_check');
+      await migrate(client);
+      await audit(MEDIA(2), 'PET_MEDIA');
+      expect((await failure(audit(MEDIA(3), 'OTRA')))?.code).toBe('23514');
+      expect((await client.query("SELECT count(*)::int AS n FROM audit_log WHERE mutation_type = 'CREATE'")).rows[0]).toEqual({ n: 2 });
     });
   });
 

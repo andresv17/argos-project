@@ -23,3 +23,10 @@ CREATE TABLE media_deletion_queue (
   enqueued_at TEXT NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0)
 );
+
+-- Auditoria de medios (REQ-AUD-001, T577): el contrato 3.1.0 anade `PET_MEDIA` a AuditEntityType, pero el CHECK de `audit_log.entity_type` (0001) no lo admite.
+-- Equivale a la reconstruccion de tabla de la 0009 de SQLite. Las filas existentes cumplen la restriccion ampliada. DESVIACION DECLARADA: el data-model.md §2 no lista este cambio.
+ALTER TABLE audit_log DROP CONSTRAINT audit_log_entity_type_check;
+ALTER TABLE audit_log ADD CONSTRAINT audit_log_entity_type_check CHECK (entity_type IN
+  ('USER', 'PET', 'WEIGHT_RECORD', 'BODY_MEASUREMENT', 'VACCINATION_RECORD', 'DEWORMING_RECORD', 'APPOINTMENT_RECORD',
+   'CUSTOM_PARAMETER', 'HOUSEHOLD', 'HOUSEHOLD_MEMBERSHIP', 'HOUSEHOLD_INVITATION', 'PET_ASSIGNMENT', 'PET_MEDIA', 'SYSTEM'));

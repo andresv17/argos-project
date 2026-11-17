@@ -148,10 +148,11 @@ function parseSchema(statements: string[]): Schema {
       continue;
     }
     // Postgres nombra el CHECK de columna `<tabla>_<columna>_check`: DROP lo retira y ADD CONSTRAINT … CHECK pone el nuevo (0006).
-    const dropCheck = /^ALTER TABLE (\w+) DROP CONSTRAINT (\w+)_(\w+)_check$/i.exec(stmt.trim());
+    const dropCheck = /^ALTER TABLE (\w+) DROP CONSTRAINT (\w+)_check$/i.exec(stmt.trim());
     if (dropCheck) {
       const table = schema.tables.get(dropCheck[1]!)!;
-      table.checks = table.checks.filter((c) => !c.startsWith(`${dropCheck[3]} IN `));
+      const column = dropCheck[2]!.slice(dropCheck[1]!.length + 1); // `<tabla>_<columna>_check`: la columna puede llevar guion bajo (entity_type)
+      table.checks = table.checks.filter((c) => !c.startsWith(`${column} IN `));
       continue;
     }
     const addCheck = /^ALTER TABLE (\w+) ADD CONSTRAINT \w+ (CHECK[\s\S]+)$/i.exec(stmt.trim());
