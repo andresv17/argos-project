@@ -5,6 +5,8 @@
  *   `APP_TIMEZONE` zona IANA válida (`America/Bogota`, F6), `COOKIE_SECURE` `true` o `false` (`false`).
  * - Límites de frecuencia (ADR-002-12, T216): `EXPORT_MAX_PER_WINDOW` (5), `EXPORT_WINDOW_MINUTES` (15),
  *   `INVITE_MAX_PER_WINDOW` (20) e `INVITE_WINDOW_MINUTES` (15): enteros positivos de hasta 4 dígitos, sin ceros a la izquierda.
+ * - Límite de duplicados de microchip (REQ-PET4-002, ADR-004-04, T556/T557): `MICROCHIP_DUPLICATE_MAX_PER_WINDOW` (5) y
+ *   `MICROCHIP_DUPLICATE_WINDOW_MINUTES` (1440 = ventana deslizante de 24 h), con el mismo formato de entero que los anteriores.
  * - `ARGOS_AUDIT_RETENTION_DAYS` (REQ-AUD-001, INV-AUD-001): retención de la auditoría en días, entero positivo de hasta 4
  *   dígitos sin ceros a la izquierda (730 = 24 meses). Inválida: `AppConfigError` nombra solo la variable, no el valor.
  * - `ARGOS_AUDIT_HMAC_SECRET` (REQ-AUD-001, SC-014): clave HMAC de la seudonimización de la auditoría, >= 32 bytes en
@@ -41,6 +43,8 @@ export interface AppConfig {
   readonly exportWindowMinutes: number;
   readonly inviteMaxPerWindow: number;
   readonly inviteWindowMinutes: number;
+  readonly microchipDuplicateMaxPerWindow: number;
+  readonly microchipDuplicateWindowMinutes: number;
   /** Retención de la auditoría en días (ARGOS_AUDIT_RETENTION_DAYS, 730 = 24 meses). */
   readonly auditRetentionDays: number;
   /** Clave HMAC de auditoría en hexadecimal (>= 32 bytes) o null si falta con NODE_ENV=test. Es un secreto: no se registra. */
@@ -67,6 +71,8 @@ interface RawAppConfig {
   EXPORT_WINDOW_MINUTES: string;
   INVITE_MAX_PER_WINDOW: string;
   INVITE_WINDOW_MINUTES: string;
+  MICROCHIP_DUPLICATE_MAX_PER_WINDOW: string;
+  MICROCHIP_DUPLICATE_WINDOW_MINUTES: string;
   ARGOS_AUDIT_RETENTION_DAYS: string;
   ARGOS_DB_DRIVER: 'sqlite' | 'postgres' | 'memory';
   ARGOS_PG_POOL_MAX: string;
@@ -82,6 +88,8 @@ export const APP_CONFIG_DEFAULTS: Readonly<RawAppConfig> = {
   EXPORT_WINDOW_MINUTES: '15',
   INVITE_MAX_PER_WINDOW: '20',
   INVITE_WINDOW_MINUTES: '15',
+  MICROCHIP_DUPLICATE_MAX_PER_WINDOW: '5',
+  MICROCHIP_DUPLICATE_WINDOW_MINUTES: '1440',
   ARGOS_AUDIT_RETENTION_DAYS: '730',
   ARGOS_DB_DRIVER: 'sqlite',
   ARGOS_PG_POOL_MAX: '5',
@@ -102,11 +110,13 @@ export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
     EXPORT_WINDOW_MINUTES: { type: 'string', pattern: POSITIVE_INTEGER },
     INVITE_MAX_PER_WINDOW: { type: 'string', pattern: POSITIVE_INTEGER },
     INVITE_WINDOW_MINUTES: { type: 'string', pattern: POSITIVE_INTEGER },
+    MICROCHIP_DUPLICATE_MAX_PER_WINDOW: { type: 'string', pattern: POSITIVE_INTEGER },
+    MICROCHIP_DUPLICATE_WINDOW_MINUTES: { type: 'string', pattern: POSITIVE_INTEGER },
     ARGOS_AUDIT_RETENTION_DAYS: { type: 'string', pattern: POSITIVE_INTEGER },
     ARGOS_DB_DRIVER: { type: 'string', enum: ['sqlite', 'postgres', 'memory'] },
     ARGOS_PG_POOL_MAX: { type: 'string', pattern: '^(?:[1-9]|10)$' },
   },
-  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES', 'ARGOS_AUDIT_RETENTION_DAYS', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX'],
+  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES', 'MICROCHIP_DUPLICATE_MAX_PER_WINDOW', 'MICROCHIP_DUPLICATE_WINDOW_MINUTES', 'ARGOS_AUDIT_RETENTION_DAYS', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX'],
   additionalProperties: false,
 };
 
@@ -216,6 +226,8 @@ export function loadAppConfig(env: EnvironmentSource = process.env): AppConfig {
     exportWindowMinutes: Number(raw.EXPORT_WINDOW_MINUTES),
     inviteMaxPerWindow: Number(raw.INVITE_MAX_PER_WINDOW),
     inviteWindowMinutes: Number(raw.INVITE_WINDOW_MINUTES),
+    microchipDuplicateMaxPerWindow: Number(raw.MICROCHIP_DUPLICATE_MAX_PER_WINDOW),
+    microchipDuplicateWindowMinutes: Number(raw.MICROCHIP_DUPLICATE_WINDOW_MINUTES),
     auditRetentionDays: Number(raw.ARGOS_AUDIT_RETENTION_DAYS),
     auditHmacSecret,
     dbDriver: raw.ARGOS_DB_DRIVER,

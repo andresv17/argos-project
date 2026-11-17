@@ -31,6 +31,8 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         exportWindowMinutes: 15,
         inviteMaxPerWindow: 20,
         inviteWindowMinutes: 15,
+        microchipDuplicateMaxPerWindow: 5,
+        microchipDuplicateWindowMinutes: 1440,
         auditRetentionDays: 730,
         auditHmacSecret: null,
         dbDriver: 'sqlite',
@@ -56,6 +58,13 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     expect([config.exportMaxPerWindow, config.exportWindowMinutes, config.inviteMaxPerWindow, config.inviteWindowMinutes]).toEqual([2, 60, 100, 5]);
   });
 
+  it('[INV-ARCH-006][ERR-RATE-LIMITED][REQ-PET4-002] el límite de duplicados de microchip sale de MICROCHIP_DUPLICATE_MAX_PER_WINDOW (5) y MICROCHIP_DUPLICATE_WINDOW_MINUTES (1440) y se convierte a enteros', () => {
+    const byDefault = loadAppConfig({ NODE_ENV: 'test' });
+    const custom = loadAppConfig({ NODE_ENV: 'test', MICROCHIP_DUPLICATE_MAX_PER_WINDOW: '3', MICROCHIP_DUPLICATE_WINDOW_MINUTES: '60' });
+    const empty = loadAppConfig({ NODE_ENV: 'test', MICROCHIP_DUPLICATE_MAX_PER_WINDOW: '', MICROCHIP_DUPLICATE_WINDOW_MINUTES: '' });
+    expect([byDefault, custom, empty].map((c) => [c.microchipDuplicateMaxPerWindow, c.microchipDuplicateWindowMinutes])).toEqual([[5, 1440], [3, 60], [5, 1440]]);
+  });
+
   it.each([
     [{ PORT: '0' }, ['PORT']],
     [{ PORT: '65536' }, ['PORT']],
@@ -76,6 +85,9 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     [{ INVITE_WINDOW_MINUTES: 'quince' }, ['INVITE_WINDOW_MINUTES']],
     [{ INVITE_MAX_PER_WINDOW: '010' }, ['INVITE_MAX_PER_WINDOW']],
     [{ EXPORT_MAX_PER_WINDOW: '0', INVITE_WINDOW_MINUTES: '0' }, ['EXPORT_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES']],
+    [{ MICROCHIP_DUPLICATE_MAX_PER_WINDOW: '0' }, ['MICROCHIP_DUPLICATE_MAX_PER_WINDOW']],
+    [{ MICROCHIP_DUPLICATE_WINDOW_MINUTES: '1.5' }, ['MICROCHIP_DUPLICATE_WINDOW_MINUTES']],
+    [{ MICROCHIP_DUPLICATE_MAX_PER_WINDOW: '05', MICROCHIP_DUPLICATE_WINDOW_MINUTES: 'un día' }, ['MICROCHIP_DUPLICATE_MAX_PER_WINDOW', 'MICROCHIP_DUPLICATE_WINDOW_MINUTES']],
   ])('[INV-ARCH-006] una variable inválida se rechaza con AppConfigError que la nombra: %j', (env, variables) => {
     expect(configError(env)).toEqual(variables);
   });
