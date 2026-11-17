@@ -201,6 +201,15 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(body()).toMatch(/^concurrency:\s*\n\s+group:\s*deploy-argos-\$\{\{\s*github\.ref\s*\}\}\s*\n\s+cancel-in-progress:\s*false/m);
   });
 
+  it('build-push espera a infraestructura.yml en main antes de autenticar en GCP', () => {
+    const bp = job('build-push');
+    expect(bp).toMatch(/actions:\s*read/);
+    const waitIdx = bp.indexOf('--workflow infraestructura.yml');
+    const authIdx = bp.indexOf('google-github-actions/auth');
+    expect(waitIdx).toBeGreaterThan(-1);
+    expect(authIdx).toBeGreaterThan(waitIdx);
+  });
+
   it('no interpola contexto de evento en run: y no enmascara con echo de secretos', () => {
     const y = body();
     const runs = [...y.matchAll(/^\s*run:\s*(\|[^\n]*\n(?:(?: {8,}[^\n]*)?\n)*|[^\n]*)/gm)].map((m) => m[1] ?? '');

@@ -17,12 +17,23 @@ describe('terraform/budget.tf (T443)', () => {
     expect([...code().matchAll(/resource\s+"google_billing_budget"/g)].length).toBe(1);
   });
 
-  it('presupuesto de 1 USD (specified_amount en USD, units "1", sin nanos)', () => {
+  it('presupuesto preventivo parametrizado (var.budget_currency / var.budget_units, sin nanos)', () => {
     const b = budget();
-    expect(b).toMatch(/specified_amount\s*\{[^}]*currency_code\s*=\s*"USD"[^}]*\}/);
-    expect(b).toMatch(/units\s*=\s*"1"/);
+    expect(b).toMatch(/specified_amount\s*\{[^}]*currency_code\s*=\s*var\.budget_currency\b[^}]*\}/);
+    expect(b).toMatch(/specified_amount\s*\{[^}]*units\s*=\s*var\.budget_units\b[^}]*\}/);
     expect(b).not.toMatch(/nanos/);
     expect(b).not.toMatch(/last_period_amount/);
+
+    const v = strip(readFileSync(join(dir, 'variables.tf'), 'utf8'));
+    const cur = v.match(/variable\s+"budget_currency"\s*\{([^]*?)\n\}/)?.[1] ?? '';
+    expect(cur).toMatch(/default\s*=\s*"COP"/);
+    const units = v.match(/variable\s+"budget_units"\s*\{([^]*?)\n\}/)?.[1] ?? '';
+    expect(units).toMatch(/default\s*=\s*"4500"/);
+  });
+
+  it('declara depends_on sobre billingbudgets.googleapis.com para evitar SERVICE_DISABLED en proyecto nuevo', () => {
+    const b = budget();
+    expect(b).toMatch(/depends_on\s*=\s*\[\s*google_project_service\.apis\["billingbudgets\.googleapis\.com"\]\s*\]/);
   });
 
   it('umbrales 50 %, 90 % y 100 % (0.5, 0.9, 1.0), solo esos', () => {
