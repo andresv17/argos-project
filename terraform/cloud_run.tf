@@ -4,6 +4,14 @@
 # Primer apply: imagen marcadora pública SIN sondas propias (sonda TCP por defecto) y SIN referencias a
 # secretos ni env (REQ-CLD-005 los inyecta CI). Los nombres de atributo de ignore_changes son [verificar] en T469.
 
+# Medios (T561, ADR-004-01, E3-05): el entorno de medios NO se declara aquí (REQ-IAC-012; ignore_changes lo
+# cubre y --set-env-vars de deploy-argos.yml reemplaza todo el entorno). Valores que debe inyectar el pipeline:
+# ARGOS_MEDIA_DRIVER=gcs, ARGOS_MEDIA_BUCKET=<project_prefix>-<project_id>-media (google_storage_bucket.media),
+# ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS=300, ARGOS_MEDIA_MAX_BYTES=10485760,
+# ARGOS_MEDIA_MAX_BYTES_PER_OWNER=1073741824, ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS=4.
+# Memoria: 512Mi alcanza para 4 subidas simultáneas de 10 MiB (40 MiB en vuelo, lectura en streaming con corte)
+# más el SDK de GCS; la concurrencia 20 por instancia no cambia porque el tope de subidas lo impone la app.
+
 resource "google_cloud_run_v2_service" "argos" {
   project  = var.project_id
   name     = "argos"
