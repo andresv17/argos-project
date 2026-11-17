@@ -8,20 +8,25 @@
 # compuertas) solo comprueba que exista specs/NNN-*/; no cambia lo que se analiza. Con `--feature 003` (T406) los
 # tests de la 003 (tests/** y sus pruebas de contrato ops) caen bajo el mismo análisis de tests/; sin cambios de criterio.
 #
+# Feature 004 (T514): con `--feature 004` además exige que existan las pruebas de contrato de la 004
+# (tests/integration/contracts/*-004-*.spec.ts) y las incluye en el análisis; el criterio de oráculos no cambia.
+#
 # Salida: 0 = cumple; 1 = incumple; 2 = falta tests/, uso inválido o feature desconocida.
 set -euo pipefail
 
+FEATURE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --feature)
       if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
-        echo "[SDD Oracle Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002 o 003)" >&2
+        echo "[SDD Oracle Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003 o 004)" >&2
         exit 2
       fi
       if ! compgen -G "specs/$2-*/" > /dev/null; then
         echo "[SDD Oracle Gate] Feature desconocida: $2 (no existe specs/$2-*/)" >&2
         exit 2
       fi
+      FEATURE="$2"
       shift 2
       ;;
     *)
@@ -36,6 +41,7 @@ if [[ ! -d tests ]]; then
   exit 2
 fi
 
+export SDD_FEATURE="$FEATURE"
 exec node --input-type=module - <<'JS'
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -57,6 +63,14 @@ const walk = (dir) =>
 
 console.log('[SDD Oracle Gate] Analizando suites en tests/ contra Weak Oracles...');
 const files = walk('tests').filter((f) => CODE_EXT.test(f));
+if (process.env.SDD_FEATURE === '004') {
+  const contractTests = files.filter((f) => /^tests\/integration\/contracts\/[^/]*-004-[^/]*\.spec\.ts$/.test(f));
+  console.log(`[SDD Oracle Gate] feature 004: contratos 004: ${contractTests.length} archivos de prueba de contrato`);
+  if (contractTests.length === 0) {
+    console.error('[SDD Oracle Gate] feature 004 sin pruebas de contrato (tests/integration/contracts/*-004-*.spec.ts)');
+    process.exit(1);
+  }
+}
 let hits = 0;
 for (const file of files) {
   readFileSync(file, 'utf8').split('\n').forEach((line, i) => {

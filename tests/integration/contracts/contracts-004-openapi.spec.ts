@@ -127,7 +127,7 @@ describe('T511 rutas existentes cambiadas', () => {
   });
 
   it('REQ-PET4-002: registerPet y updatePet declaran 429 ERR-RATE-LIMITED por duplicados de microchip', () => {
-    expect(op('/pets', 'post').responses['429']).toBeTruthy();
-    expect(op('/pets/{petId}', 'patch').responses['429']).toBeTruthy();
+    expect(op('/pets', 'post').responses['429']).toEqual({ $ref: '#/components/responses/Problem' });
+    expect(op('/pets/{petId}', 'patch').responses['429']).toEqual({ $ref: '#/components/responses/Problem' });
   });
 });
