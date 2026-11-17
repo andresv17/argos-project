@@ -6,9 +6,10 @@
  */
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createMediaApi, MediaApiError } from '../../../src/presentation/web/media-api.ts';
-import { ALLOWED_TYPES_MESSAGE, createAccessRenewer, FILE_ACCEPT, mediaProblemMessage, PHOTO_ACCEPT, renewalDelayMs } from '../../../src/presentation/web/media-view.ts';
+import { createAccessRenewer, renewalDelayMs } from '../../../src/presentation/web/access-renewer.ts';
+import { ALLOWED_TYPES_MESSAGE, FILE_ACCEPT, mediaProblemMessage, PHOTO_ACCEPT } from '../../../src/presentation/web/media-view.ts';
 import { MediaPanelView, type MediaPanelViewProps } from '../../../src/presentation/web/components/MediaPanel.tsx';
 
 const PET = '44444444-4444-4444-8444-444444444401';
@@ -93,51 +94,79 @@ describe('T611 textos y tipos aceptados', () => {
 });
 
 describe('T611 renovación proactiva de la URL firmada (SC-ALM-032)', () => {
-  beforeEach(() => vi.useFakeTimers({ now: Date.parse('2026-11-17T10:00:00.000Z') }));
-  afterEach(() => vi.useRealTimers());
-
-  const lease = (seconds: number) => ({ url: `https://b.storage.googleapis.com/x?e=${seconds}`, expiresAt: new Date(Date.now() + seconds * 1000).toISOString(), mime: 'image/png' as const });
+  /** Planificador y reloj simulados: `advance` ejecuta, en orden, lo programado hasta el instante pedido. */
+  function clock(start = Date.parse('2026-11-17T10:00:00.000Z')) {
+    let now = start;
+    const queue: Array<{ at: number; run: () => void; live: boolean }> = [];
+    return {
+      now: () => now,
+      scheduler: {
+        after(run: () => void, ms: number) {
+          const entry = { at: now + ms, run, live: true };
+          queue.push(entry);
+          return () => void (entry.live = false);
+        },
+      },
+      async advance(ms: number): Promise<void> {
+        const target = now + ms;
+        for (;;) {
+          const next = queue.filter((e) => e.live && e.at <= target).sort((x, y) => x.at - y.at)[0];
+          if (next === undefined) break;
+          next.live = false;
+          now = next.at;
+          next.run();
+          await Promise.resolve();
+          await Promise.resolve();
+        }
+        now = target;
+      },
+    };
+  }
+  const lease = (now: () => number, seconds: number) => ({ url: `https://b.storage.googleapis.com/x?e=${seconds}`, expiresAt: new Date(now() + seconds * 1000).toISOString(), mime: 'image/png' as const });
 
   it('[SC-ALM-032] el retardo es el 80 % del tiempo hasta expiresAt (300 s → 240 s) y nunca negativo', () => {
     expect([renewalDelayMs(0, 300_000), renewalDelayMs(1000, 1000), renewalDelayMs(5000, 1000)]).toEqual([240_000, 0, 0]);
   });
 
   it('[SC-ALM-032] pide una URL nueva exactamente al 80 % de expiresAt y publica la nueva', async () => {
+    const time = clock();
     const urls: string[] = [];
-    const fetchAccess = vi.fn(async () => lease(300));
-    const renewer = createAccessRenewer({ fetchAccess, onUrl: (a) => urls.push(a.url), onError: () => undefined });
+    const fetchAccess = vi.fn(async () => lease(time.now, 300));
+    const renewer = createAccessRenewer({ fetchAccess, onUrl: (a) => urls.push(a.url), onError: () => undefined, now: time.now, scheduler: time.scheduler });
     await renewer.start();
-    await vi.advanceTimersByTimeAsync(239_999);
+    await time.advance(239_999);
     expect(fetchAccess).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(1);
+    await time.advance(1);
     expect([fetchAccess.mock.calls.length, urls.length]).toEqual([2, 2]);
     renewer.stop();
   });
 
   it('[SC-ALM-032] si la renovación falla reintenta una sola vez; si vuelve a fallar informa el error y deja de pedir', async () => {
+    const time = clock();
     const errors: unknown[] = [];
     let calls = 0;
     const fetchAccess = vi.fn(async () => {
       calls += 1;
-      if (calls === 1) return lease(100);
+      if (calls === 1) return lease(time.now, 100);
       throw new Error('caída');
     });
-    const renewer = createAccessRenewer({ fetchAccess, onUrl: () => undefined, onError: (e) => errors.push(e) });
+    const renewer = createAccessRenewer({ fetchAccess, onUrl: () => undefined, onError: (e) => errors.push(e), now: time.now, scheduler: time.scheduler });
     await renewer.start();
-    await vi.advanceTimersByTimeAsync(80_000);
+    await time.advance(80_000);
     expect(fetchAccess).toHaveBeenCalledTimes(2);
-    await vi.advanceTimersByTimeAsync(5_000);
+    await time.advance(5_000);
     expect([fetchAccess.mock.calls.length, errors.length]).toEqual([3, 1]);
-    await vi.advanceTimersByTimeAsync(600_000);
+    await time.advance(600_000);
     expect(fetchAccess).toHaveBeenCalledTimes(3);
   });
 
   it('[SC-ALM-032] stop cancela la renovación pendiente (al cerrar el visor)', async () => {
-    const fetchAccess = vi.fn(async () => lease(300));
-    const renewer = createAccessRenewer({ fetchAccess, onUrl: () => undefined, onError: () => undefined });
+    const time = clock();
+    const fetchAccess = vi.fn(async () => lease(time.now, 300));
+    const renewer = createAccessRenewer({ fetchAccess, onUrl: () => undefined, onError: () => undefined, now: time.now, scheduler: time.scheduler });
     await renewer.start();
     renewer.stop();
-    await vi.advanceTimersByTimeAsync(600_000);
+    await time.advance(600_000);
     expect(fetchAccess).toHaveBeenCalledTimes(1);
   });
 });
@@ -224,5 +253,17 @@ describe('T611 panel de archivos (render)', () => {
   it('[REQ-ALB-001] con más de 24 elementos ofrece paginación; vacío muestra «Sin archivos»', () => {
     expect(view({ total: 50 })).toContain('Página 1 de 3');
     expect(view({ items: [], total: 0 })).toContain('Sin archivos');
+  });
+});
+
+describe('T611 integración en la ficha (REQ-ARC-002)', () => {
+  it('[REQ-ARC-003] la ficha de la mascota muestra el panel de archivos en su ranura y no en modo edición', async () => {
+    const { PetDashboard } = await import('../../../src/presentation/web/components/PetDashboard.tsx');
+    const { dashboard } = await import('./presentation-fixtures.ts');
+    const base = { dashboard: dashboard('OWNER'), activeTab: 'weights' as const, onTabChange: noop, onAddRecord: async () => undefined, onEdit: noop, onDelete: noop };
+    const slot = h('p', null, 'RANURA-ARCHIVOS');
+    const normal = renderToStaticMarkup(h(PetDashboard, { ...base, mediaSlot: slot }));
+    const editing = renderToStaticMarkup(h(PetDashboard, { ...base, mediaSlot: slot, editSlot: h('p', null, 'FORM') }));
+    expect([normal.includes('RANURA-ARCHIVOS'), editing.includes('RANURA-ARCHIVOS'), editing.includes('FORM')]).toEqual([true, false, true]);
   });
 });

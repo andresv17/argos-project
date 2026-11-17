@@ -6,14 +6,38 @@
  *
  * @implements REQ-ARC-001, REQ-ARC-003, REQ-ALB-001, REQ-AVA-001, INV-AUTH-007
  */
-import type { components } from '../../generated/v31/api/openapi-types.ts';
 import { notifyActivity } from './activity.ts';
 
-type Schemas = components['schemas'];
-export type MediaItem = Schemas['MediaItem'];
-export type MediaPage = Schemas['MediaPage'];
-export type MediaAccess = Schemas['MediaAccess'];
-export type MediaKind = Schemas['MediaKind'];
+/*
+ * Formas de las respuestas del OpenAPI 3.1.0 (MediaItem, MediaPage, MediaAccess, AvatarVersionResult). Se declaran aquí y no se importan de
+ * `src/generated/v31/api/` porque la regla de capas de la presentación (`presentation-architecture.spec.ts`) solo admite módulos concretos de `generated/`;
+ * `tests/unit/presentation/t611-contrato-medios.spec.ts` comprueba en compilación que son asignables en ambos sentidos a los tipos generados.
+ */
+export type MediaKind = 'FILE' | 'PHOTO';
+export type MediaMime = 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf';
+export interface MediaItem {
+  readonly id: string;
+  readonly petId: string;
+  readonly kind: MediaKind;
+  readonly mime: MediaMime;
+  readonly sizeBytes: number;
+  readonly originalName: string;
+  readonly createdAt: string;
+}
+export interface MediaPage {
+  readonly items: readonly MediaItem[];
+  readonly page: number;
+  readonly pageSize: 24;
+  readonly total: number;
+}
+export interface MediaAccess {
+  readonly url: string;
+  readonly expiresAt: string;
+  readonly mime: MediaMime;
+}
+export interface AvatarVersionResult {
+  readonly avatarVersion: number;
+}
 
 export const UNEXPECTED_CODE = 'ERR-INTERNAL-UNEXPECTED';
 
@@ -33,7 +57,7 @@ export interface MediaApi {
   access(petId: string, mediaId: string): Promise<MediaAccess>;
   upload(petId: string, kind: MediaKind, blob: Blob, filename: string): Promise<MediaItem>;
   remove(petId: string, mediaId: string): Promise<void>;
-  putAvatar(petId: string, blob: Blob): Promise<Schemas['AvatarVersionResult']>;
+  putAvatar(petId: string, blob: Blob): Promise<AvatarVersionResult>;
   deleteAvatar(petId: string): Promise<void>;
 }
 
@@ -77,7 +101,7 @@ export function createMediaApi(fetchImpl: typeof fetch = (...args) => fetch(...a
       await send(`/pets/${petId}/media/${mediaId}`, 'DELETE');
     },
     async putAvatar(petId, blob) {
-      return json<Schemas['AvatarVersionResult']>(await send(`/pets/${petId}/avatar`, 'PUT', { 'Content-Type': blob.type }, blob));
+      return json<AvatarVersionResult>(await send(`/pets/${petId}/avatar`, 'PUT', { 'Content-Type': blob.type }, blob));
     },
     async deleteAvatar(petId) {
       await send(`/pets/${petId}/avatar`, 'DELETE');

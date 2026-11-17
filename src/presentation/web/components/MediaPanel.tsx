@@ -11,7 +11,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from './Field.tsx';
 import { createMediaApi, MediaApiError, type MediaItem, type MediaKind } from '../media-api.ts';
-import { albumPageCount, ALBUM_PAGE_SIZE, createAccessRenewer, FILE_ACCEPT, formatBytes, mediaProblemMessage, PHOTO_ACCEPT } from '../media-view.ts';
+import { createAccessRenewer, type Scheduler } from '../access-renewer.ts';
+import { albumPageCount, ALBUM_PAGE_SIZE, FILE_ACCEPT, formatBytes, mediaProblemMessage, PHOTO_ACCEPT } from '../media-view.ts';
 import { browserPhotoPort, PhotoReexportError, reexportPhoto, type UploadPayload } from '../photo-reexport.ts';
 
 export interface ViewerState {
@@ -191,8 +192,17 @@ export function MediaPanelView(props: MediaPanelViewProps): JSX.Element {
 
 const ALLOWED_MIME: ReadonlySet<string> = new Set(FILE_ACCEPT.split(','));
 
+/** Sin planificador real (pendiente de decisión de Neo, ver `access-renewer.ts`) no hay renovación proactiva: las renovaciones programadas nunca se ejecutan. */
+const NO_RENEWAL: { readonly now: () => number; readonly scheduler: Scheduler } = { now: () => 0, scheduler: { after: () => () => undefined } };
+
 /** Contenedor: carga la lista, sube (con reexportación de fotos), abre el visor con renovación de la URL y borra con confirmación. */
-export function MediaPanel({ petId, canUpload, canDelete }: { readonly petId: string; readonly canUpload: boolean; readonly canDelete: boolean }): JSX.Element {
+export function MediaPanel({ petId, canUpload, canDelete, renewal = NO_RENEWAL }: {
+  readonly petId: string;
+  readonly canUpload: boolean;
+  readonly canDelete: boolean;
+  /** Reloj y planificador de la renovación al 80 % de `expiresAt`; sin ellos la URL no se renueva sola. */
+  readonly renewal?: { readonly now: () => number; readonly scheduler: Scheduler };
+}): JSX.Element {
   const api = useMemo(() => createMediaApi(), []);
   const [items, setItems] = useState<readonly MediaItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -257,6 +267,8 @@ export function MediaPanel({ petId, canUpload, canDelete }: { readonly petId: st
       fetchAccess: () => api.access(petId, item.id),
       onUrl: (access) => setViewer({ item, url: access.url, status: 'READY' }),
       onError: () => setViewer({ item, url: null, status: 'ERROR' }),
+      now: renewal.now,
+      scheduler: renewal.scheduler,
     });
     renewer.current = next;
     void next.start();
