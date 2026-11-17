@@ -81,13 +81,15 @@ describe('terraform/iam.tf (T439)', () => {
   it('no hay roles de propietario, editor ni administración amplia', () => {
     const all = iamBlocks().flatMap(roles);
     expect(all.length).toBeGreaterThan(0);
-    for (const r of all) expect(r).not.toMatch(/owner|editor|\.admin$|roles\/storage\./);
+    // T560/T562 (REQ-GCS-002): storage.objectUser solo sobre el bucket de medios; lo cubre terraform-media.spec.ts.
+    for (const r of all) expect(r).not.toMatch(/owner|editor|\.admin$|roles\/storage\.(?!objectUser$)/);
     expect(code()).not.toMatch(/roles\/(owner|editor)/);
   });
 
   it('ningún permiso toca el bucket de estado ni de dumps (REQ-IAC-008, H-MIF-010)', () => {
     const c = code();
-    expect(c).not.toMatch(/google_storage_bucket/);
+    // T560/T562: el único recurso de bucket permitido en iam.tf es el binding sobre el bucket de medios (REQ-GCS-002).
+    expect(c.replace(/google_storage_bucket_iam_member"\s+"[a-z0-9_]+"\s*\{[^]*?\n\}/g, '')).not.toMatch(/google_storage_bucket/);
     expect(c).not.toMatch(/storage\.(objectAdmin|objectViewer|objectCreator|admin)/);
     expect(c).not.toMatch(/tfstate|exports|dumps/);
   });
