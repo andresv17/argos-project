@@ -9,6 +9,17 @@ import { assertBreedConsistency, breedOptions, deriveBreed, hasBreedCatalog, isB
 
 const fold = (text: string): string => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
+/** 'OK' si no lanza; si lanza un DomainError, `código@campo`. */
+function outcomeOf(run: () => unknown): string {
+  try {
+    run();
+    return 'OK';
+  } catch (error) {
+    if (error instanceof DomainError) return `${error.code}@${String(error.field)}`;
+    throw error;
+  }
+}
+
 function failure(run: () => unknown): DomainError {
   try {
     run();
@@ -61,7 +72,7 @@ describe('T522 catálogo de razas (REQ-RAZ-001)', () => {
     if (!retired) throw new Error('DOG_AKITA ausente');
     const deprecated = { ...retired, deprecated: true };
     expect(breedOptions('CANINE', [deprecated]).some((o) => o.code === 'DOG_AKITA')).toBe(false);
-    expect(() => assertBreedConsistency('CANINE', 'DOG_AKITA', 'Akita', [deprecated])).not.toThrow();
+    expect(outcomeOf(() => assertBreedConsistency('CANINE', 'DOG_AKITA', 'Akita', [deprecated]))).toBe('OK');
   });
 });
 
@@ -101,9 +112,9 @@ describe('T522 deriveBreed (REQ-RAZ-002)', () => {
 
 describe('T522 assertBreedConsistency (INV-RAZ-001)', () => {
   it('SC-CAT-004: breedCode nulo con texto libre válido es coherente (mascota antigua «Golden»)', () => {
-    expect(() => assertBreedConsistency('CANINE', null, 'Golden')).not.toThrow();
-    expect(() => assertBreedConsistency('RABBIT', null, 'Cabeza de león')).not.toThrow();
-    expect(() => assertBreedConsistency('RABBIT', undefined, 'Cabeza de león')).not.toThrow();
+    expect(outcomeOf(() => assertBreedConsistency('CANINE', null, 'Golden'))).toBe('OK');
+    expect(outcomeOf(() => assertBreedConsistency('RABBIT', null, 'Cabeza de león'))).toBe('OK');
+    expect(outcomeOf(() => assertBreedConsistency('RABBIT', undefined, 'Cabeza de león'))).toBe('OK');
   });
 
   it('breedCode nulo con raza vacía o de más de 60 caracteres se rechaza en breed', () => {
@@ -126,10 +137,10 @@ describe('T522 assertBreedConsistency (INV-RAZ-001)', () => {
   });
 
   it('SC-CAT-003: coherentes: rótulo exacto, «Otra», y texto libre con *_OTHER', () => {
-    expect(() => assertBreedConsistency('CANINE', 'DOG_CRIOLLA', 'Criolla')).not.toThrow();
-    expect(() => assertBreedConsistency('CANINE', 'DOG_OTHER', 'Otra')).not.toThrow();
-    expect(() => assertBreedConsistency('CANINE', 'DOG_OTHER', 'Pastor Maremmano')).not.toThrow();
-    expect(() => assertBreedConsistency('FELINE', 'CAT_SIAMES', 'Siamés')).not.toThrow();
+    expect(outcomeOf(() => assertBreedConsistency('CANINE', 'DOG_CRIOLLA', 'Criolla'))).toBe('OK');
+    expect(outcomeOf(() => assertBreedConsistency('CANINE', 'DOG_OTHER', 'Otra'))).toBe('OK');
+    expect(outcomeOf(() => assertBreedConsistency('CANINE', 'DOG_OTHER', 'Pastor Maremmano'))).toBe('OK');
+    expect(outcomeOf(() => assertBreedConsistency('FELINE', 'CAT_SIAMES', 'Siamés'))).toBe('OK');
   });
 
   it('INV-RAZ-001: un texto libre de *_OTHER fuera de 1..60 se rechaza', () => {
