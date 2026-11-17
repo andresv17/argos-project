@@ -194,9 +194,11 @@ jobs:
             echo "No se encontró la revisión etiquetada ${TAG}." >&2
             exit 1
           fi
-          echo "TAG=${TAG}" >> "$GITHUB_ENV"
-          echo "NEW_REVISION=${NEW_REVISION}" >> "$GITHUB_ENV"
-          echo "TAG_URL=${TAG_URL}" >> "$GITHUB_ENV"
+          {
+            echo "TAG=${TAG}"
+            echo "NEW_REVISION=${NEW_REVISION}"
+            echo "TAG_URL=${TAG_URL}"
+          } >> "$GITHUB_ENV"
 
       - name: Humo sobre la revisión etiquetada (/healthz y /readyz; REQ-CICD-003)
         run: |

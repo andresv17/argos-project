@@ -27,6 +27,6 @@ WORKDIR /app
 COPY --from=build /app/dist-server ./dist-server
 COPY --from=build /app/dist ./dist
 # Archivos de root y de solo lectura para el proceso; la única escritura permitida es /tmp.
-USER node
+USER 1000:1000
 EXPOSE 8080
 CMD ["node", "dist-server/server.js"]

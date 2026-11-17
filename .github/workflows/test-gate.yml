@@ -14,14 +14,14 @@ on:
         required: false
         default: ''
       feature:
-        description: 'Feature a verificar (001 o 002). Vacío = 001.'
+        description: 'Feature a verificar (001, 002 o 003). Vacío = 003.'
         required: false
-        default: '001'
+        default: '003'
 
 env:
   SEMGREP_VERSION: '1.184.0'
-  # Multi-feature (T205): la 001 es el valor por defecto; solo la ejecución manual puede pedir otra.
-  FEATURE: ${{ inputs.feature || '001' }}
+  # Multi-feature (T205/T447): la 003 es el valor por defecto; solo la ejecución manual puede pedir otra.
+  FEATURE: ${{ inputs.feature || '003' }}
 
 jobs:
   test-gate:
