@@ -146,9 +146,12 @@ done
 run gcloud storage buckets add-iam-policy-binding "gs://${STATE_BUCKET}" \
   --member="serviceAccount:${APPLY_SA}" --role=roles/storage.objectAdmin
 # REQ-IAC-009 (enmendado): el presupuesto (google_billing_budget) exige un rol SOBRE LA CUENTA DE FACTURACIÓN;
-# un rol de proyecto no basta. Solo argos-terraform@ (nunca la cuenta de plan); sin billing.admin, owner ni editor.
+# un rol de proyecto no basta. costsManager solo a argos-terraform@; la cuenta de plan (argos-terraform-plan@) recibe
+# SOLO billing.viewer (lectura, D-31) para leer el presupuesto en el plan; sin billing.admin, owner ni editor.
 run gcloud billing accounts add-iam-policy-binding "$ARGOS_BILLING_ACCOUNT" \
   --member="serviceAccount:${APPLY_SA}" --role=roles/billing.costsManager
+run gcloud billing accounts add-iam-policy-binding "$ARGOS_BILLING_ACCOUNT" \
+  --member="serviceAccount:${PLAN_SA}" --role=roles/billing.viewer
 
 say "5. Workload Identity Federation para GitHub Actions (D-05; sin llaves JSON)"
 run gcloud iam workload-identity-pools create "$POOL" --project="$PROJECT" --location=global \

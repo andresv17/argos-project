@@ -3,7 +3,7 @@ name: Desplegar ARGOS (Cloud Run)
 # T448 (REQ-CICD-003, 005, 006, 008, 009, 011, 012; SC-CLD-006, 007, 023; D-03, D-18).
 # Orden (Neo D2): gate (pruebas, sin credenciales) -> audit -> build-push (id-token, solo imagen)
 #        -> migrate (Neon directo, sin credenciales de GCP; un build fallido no toca la base)
-#        -> deploy (id-token, unico con environment produccion: revision sin trafico, humo, promocion, retroceso).
+#        -> deploy (id-token, unico con environment produccion: revision sin trafico, Smoke test, promocion, retroceso).
 # Sin trabajo compat (H-MIF-001). Sin rama Neon automatica ni NEON_API_KEY (D-19).
 # Acciones de terceros fijadas por SHA de 40 caracteres; actions/* admite etiqueta mayor (REQ-CICD-011).
 on:
@@ -144,7 +144,7 @@ jobs:
           npx tsx scripts/migrate-postgres.ts
 
   deploy:
-    name: Construir, desplegar sin tráfico, humo y promover
+    name: Construir, desplegar sin tráfico, Smoke test y promover
     needs: migrate
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -227,12 +227,12 @@ jobs:
             echo "TAG_URL=${TAG_URL}"
           } >> "$GITHUB_ENV"
 
-      - name: Humo sobre la revisión etiquetada (/healthz y /readyz; REQ-CICD-003)
+      - name: Smoke test sobre la revisión etiquetada (/healthz y /readyz; REQ-CICD-003)
         run: |
           set -euo pipefail
           for ruta in /healthz /readyz; do
-            curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --max-time 15 "${TAG_URL}${ruta}" > /dev/null
-            echo "Humo OK: ${ruta}"
+            curl --fail --silent --show-error --retry 18 --retry-delay 5 --retry-all-errors --max-time 15 "${TAG_URL}${ruta}" > /dev/null
+            echo "Smoke test OK: ${ruta}"
           done
 
       - name: Mover el 100 % del tráfico a la revisión nueva

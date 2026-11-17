@@ -197,6 +197,21 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(d).toMatch(/--remove-tags/);
   });
 
+  it('smoke test sobre TAG_URL espera la propagación GFE (18 reintentos cada 5 s) y se nombra Smoke test', () => {
+    const d = job('deploy');
+    const curl = /curl[^\n]*\$\{TAG_URL\}[^\n]*/.exec(d)?.[0] ?? '';
+    expect(curl).toMatch(/--retry 18(\s|$)/);
+    expect(curl).toMatch(/--retry-delay 5(\s|$)/);
+    expect(curl).toContain('--retry-all-errors');
+    expect(curl).toContain('--fail');
+    const jobName = /^ {4}name:\s*(.+)$/m.exec(d)?.[1] ?? '';
+    const stepName = /^ {6}- name:\s*(.*\/healthz.*)$/m.exec(d)?.[1] ?? '';
+    expect(jobName).toContain('Smoke test');
+    expect(jobName).not.toMatch(/humo/i);
+    expect(stepName).toContain('Smoke test');
+    expect(stepName).not.toMatch(/humo/i);
+  });
+
   it('concurrency por ref sin cancelar el despliegue en curso', () => {
     expect(body()).toMatch(/^concurrency:\s*\n\s+group:\s*deploy-argos-\$\{\{\s*github\.ref\s*\}\}\s*\n\s+cancel-in-progress:\s*false/m);
   });
