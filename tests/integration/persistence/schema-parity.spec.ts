@@ -3,13 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { IN_MEMORY_DATABASE, openSqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 
 /**
- * Paridad del esquema final de PostgreSQL (0001_baseline.sql más 0002_record_revision.sql, D-20) con el de SQLite tras sus 6 migraciones
+ * Paridad del esquema final de PostgreSQL (0001_baseline.sql más 0002_record_revision.sql, D-20) con el de SQLite tras sus 7 migraciones
  * (REQ-PG-003, REQ-MIG-001, INV-PET2-001, REQ-HOUSE2-003; T419; data-model.md §2 de la 003).
  * Parte estática: compara tablas, columnas, tipos mapeados, nulabilidad, valores por defecto, claves, cascadas,
  * CHECK, UNIQUE e índices (incluidos los parciales) leyendo solo el texto del SQL; no levanta PostgreSQL.
  * Parte viva: con TEST_DATABASE_URL aplica el baseline en un esquema desechable y compara con information_schema.
  */
 const BASELINE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0001_baseline.sql', import.meta.url);
+/** T547: la 0003 de Postgres equivale a la 0007 de SQLite (índice único LOWER(username), invitaciones por LOWER(invitee_username), normalización de intentos). */
+const USERNAME_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0003_username_case_insensitive.sql', import.meta.url);
 /** T540: la migración 0002 de Postgres equivale a la 0006 de SQLite (`revision` en las 6 tablas de registros, D-16 A). */
 const REVISION_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0002_record_revision.sql', import.meta.url);
 
@@ -131,8 +133,14 @@ function parseSchema(statements: string[]): Schema {
       for (const [name, column] of added.columns) schema.tables.get(alter[1]!)!.columns.set(name, column);
       continue;
     }
-    const ix = /^CREATE (UNIQUE )?INDEX (?:IF NOT EXISTS )?(\w+) ON (\w+) ?\(([^)]*)\)(?: WHERE ([\s\S]+))?$/i.exec(squash(stmt));
-    if (ix) schema.indexes.set(ix[2]!, { table: ix[3]!, unique: Boolean(ix[1]), columns: squash(ix[4]!), where: ix[5] ? squash(ix[5]) : null });
+    const drop = /^DROP INDEX (?:IF EXISTS )?(\w+)$/i.exec(stmt.trim());
+    if (drop) {
+      schema.indexes.delete(drop[1]!);
+      continue;
+    }
+    // Admite un nivel de paréntesis anidado en las columnas (índices de expresión: lower(username)); SQLite y Postgres difieren solo en mayúsculas.
+    const ix = /^CREATE (UNIQUE )?INDEX (?:IF NOT EXISTS )?(\w+) ON (\w+) ?\(((?:[^()]|\([^()]*\))*)\)(?: WHERE ([\s\S]+))?$/i.exec(squash(stmt));
+    if (ix) schema.indexes.set(ix[2]!, { table: ix[3]!, unique: Boolean(ix[1]), columns: squash(ix[4]!).toLowerCase(), where: ix[5] ? squash(ix[5]) : null });
   }
   return schema;
 }
@@ -148,12 +156,14 @@ function sqliteSchema(): Schema {
 }
 
 function postgresStatements(path: URL = BASELINE_PATH): string[] {
+  // Los bloques DO $$ … $$ (comprobaciones previas con RAISE) no son DDL del esquema: se quitan antes de partir por `;`.
   return stripSql(readFileSync(path, 'utf8'))
+    .replace(/DO\s+\$\$[\s\S]*?\$\$\s*;?/gi, '')
     .split(/;\s*(?:\n|$)/)
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH)]);
+const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH)]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -216,7 +226,7 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
   });
 
   it('el SQL es PostgreSQL puro: sin STRICT, json_extract, PRAGMA ni GLOB; datos JSONB', () => {
-    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8'));
+    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8') + readFileSync(USERNAME_PATH, 'utf8'));
     for (const banned of [/\bSTRICT\b/i, /json_extract/i, /\bPRAGMA\b/i, /\bGLOB\b/i, /strftime/i, /\bAUTOINCREMENT\b/i]) {
       expect(sql).not.toMatch(banned);
     }
@@ -258,6 +268,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(`SET search_path TO ${schemaName}`);
         await client.query(readFileSync(BASELINE_PATH, 'utf8'));
         await client.query(readFileSync(REVISION_PATH, 'utf8'));
+        await client.query(readFileSync(USERNAME_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

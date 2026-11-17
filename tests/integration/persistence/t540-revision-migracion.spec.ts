@@ -34,7 +34,7 @@ describe('T540 SQLite 0006_record_revision (D-16 A, D-11 A)', () => {
     }
     const indexes = db.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'index'").all() as Array<{ name: string; sql: string | null }>;
     expect(indexes.filter((i) => /deleted/i.test(i.name + (i.sql ?? '')))).toEqual([]);
-    expect(db.prepare('SELECT version FROM schema_migrations ORDER BY version').pluck().all().at(-1)).toBe('0006_record_revision.sql');
+    expect(db.prepare('SELECT version FROM schema_migrations ORDER BY version').pluck().all()).toContain('0006_record_revision.sql');
     db.close();
   });
 

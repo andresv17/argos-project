@@ -36,6 +36,23 @@ export interface OpenSqliteOptions {
 }
 
 /**
+ * Comprobaciones previas de migraciones que cambian restricciones (Feature 004, T547 y T553): corren dentro de la transacción de la
+ * migración y, si encuentran datos que la nueva restricción rechazaría, la ABORTAN con un mensaje que solo trae conteos (nunca un
+ * username, un microchip ni un identificador). Así la base queda intacta y `schema_migrations` no anota la versión.
+ * @implements REQ-LOG-002, INV-LOG-001, REQ-PET4-001, INV-PET4-001, EDGE-008
+ */
+export const MIGRATION_PRECHECKS: Readonly<Record<string, (db: SqliteDatabase) => void>> = {
+  '0007_username_case_insensitive.sql': (db) => {
+    const clashes = db.prepare('SELECT count(*) FROM (SELECT lower(username) FROM users GROUP BY 1 HAVING count(*) > 1)').pluck().get() as number;
+    if (clashes > 0) throw new Error(`Migración 0007 abortada: ${clashes} grupo(s) de usuarios con el mismo lower(username); Neo debe resolverlos antes de migrar`);
+  },
+  '0008_pets_microchip_global.sql': (db) => {
+    const clashes = db.prepare('SELECT count(*) FROM (SELECT microchip_id FROM pets WHERE microchip_id IS NOT NULL GROUP BY 1 HAVING count(*) > 1)').pluck().get() as number;
+    if (clashes > 0) throw new Error(`Migración 0008 abortada: ${clashes} grupo(s) de mascotas con el mismo microchip entre propietarios; Neo debe resolverlos antes de migrar`);
+  },
+};
+
+/**
  * Aplica, en orden, las migraciones de `migrationsDir` que no estén en `schema_migrations`. Devuelve las aplicadas.
  * @implements INV-ARCH-004
  */
@@ -51,6 +68,7 @@ export function runMigrations(db: SqliteDatabase, migrationsDir: string = DEFAUL
   for (const name of pending) {
     const sql = readFileSync(join(migrationsDir, name), 'utf8');
     db.transaction(() => {
+      MIGRATION_PRECHECKS[name]?.(db);
       db.exec(sql);
       record.run(name);
     })();

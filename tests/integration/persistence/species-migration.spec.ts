@@ -22,6 +22,8 @@ const RECORD_KEYS = ['weights', 'bodyMeasurements', 'vaccinations', 'dewormings'
 const LEGACY_SPECIES: Record<string, string> = { DOG: 'CANINE', CAT: 'FELINE' };
 const MIGRATION_0004 = readdirSync(DEFAULT_MIGRATIONS_DIR).find((name) => /^0004_[a-z0-9_]+\.sql$/.test(name)) ?? '0004_pendiente.sql';
 const MIGRATION_0005 = readdirSync(DEFAULT_MIGRATIONS_DIR).find((name) => /^0005_[a-z0-9_]+\.sql$/.test(name)) ?? '0005_pendiente.sql';
+/** Migraciones posteriores a la 0006 (004: 0007 usuario sin mayúsculas, 0008 microchip global...): se listan del directorio para no editar esta prueba en cada una. */
+const LATER_MIGRATIONS = readdirSync(DEFAULT_MIGRATIONS_DIR).filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name) && name > '0006_zzz').sort();
 const MIGRATION_0006 = readdirSync(DEFAULT_MIGRATIONS_DIR).find((name) => /^0006_[a-z0-9_]+\.sql$/.test(name)) ?? '0006_pendiente.sql';
 const MIGRATION_0003 = readdirSync(DEFAULT_MIGRATIONS_DIR).find((name) => /^0003_[a-z0-9_]+\.sql$/.test(name)) ?? '0003_pendiente.sql';
 
@@ -82,7 +84,7 @@ describe('migración de especies y peso 0003 sobre una base de la 001 (REQ-MIG-0
   it('[REQ-MIG-001][SC-011] conteos antes y después iguales, 0 filas DOG o CAT y cada especie mapeada (DOG a CANINE, CAT a FELINE)', () => {
     const db = legacyDatabase(join(tempDir(), 'b.sqlite'));
     const before = snapshotCounts(db);
-    expect(runMigrations(db)).toEqual([MIGRATION_0003, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006]);
+    expect(runMigrations(db)).toEqual([MIGRATION_0003, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, ...LATER_MIGRATIONS]);
     expect(snapshotCounts(db)).toEqual(before);
     const remaining = db.prepare("SELECT COUNT(*) FROM pets WHERE species IN ('DOG', 'CAT') OR json_extract(data, '$.species') IN ('DOG', 'CAT')").pluck().get();
     expect(remaining).toBe(0);
@@ -154,7 +156,7 @@ describe('migración de especies y peso 0003 sobre una base de la 001 (REQ-MIG-0
 
   it('[REQ-MIG-001][SC-011] una base de la 001 sin mascotas ni registros migra sin error y queda con las columnas nuevas', () => {
     const db = legacyDatabase(join(tempDir(), 'f.sqlite'), false);
-    expect(runMigrations(db)).toEqual([MIGRATION_0003, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006]);
+    expect(runMigrations(db)).toEqual([MIGRATION_0003, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, ...LATER_MIGRATIONS]);
     expect(columnsOf(db, 'pets')).toEqual(
       expect.arrayContaining(['species', 'species_other', 'neutered', 'microchip_id', 'birth_date_is_estimate']),
     );

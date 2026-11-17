@@ -21,7 +21,7 @@ import { upgradePet } from '../../fixtures/storage-upgrade.ts';
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const FIXTURE_PATH = '../../fixtures/pg-fault-injection.ts';
 // Esquema vigente: el baseline y la 0002 (columna `revision` de los 6 registros, T540; los repositorios la leen y la escriben desde T614).
-const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql']
+const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql']
   .map((name) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${name}`, import.meta.url), 'utf8'))
   .join('\n');
 
