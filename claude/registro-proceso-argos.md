@@ -1203,3 +1203,63 @@
 - 2026-11-17 Oracle: T469 CUMPLE CON RESERVAS (L-T469-3 v2 no creada); T462 5 compuertas exit 0, Postgres NO EJECUTADO; H-O-O4-1/2 y H-O-T460-1 abiertas. Informe oracle-T469-T462.md.
 - 2026-11-17 Morpheus: T462 gates OK; no cierra por H-O-O4-1/2 abiertas. Keymaker remedia prueba primero.
 - 2026-11-17 Keymaker: H-O-O4-1/2 cubiertas con tests/security/ops-surface-production.security.spec.ts (createProductionApp, guarda server.ts); sin cambios en src; gates verdes. Pendiente reauditoría Oracle.
+- 2026-11-17 Morpheus: caaeec6 cierra H-O-O4-1/2 por cobertura; Oracle reaudita con mutacion en worktree temporal.
+- 2026-11-17 Oracle: reauditoría caaeec6 CUMPLE CON RESERVAS; H-O-O4-1/2 cerradas (rojo por mutación 4/9 en worktree); reservas H-O-O4-3 (comentario JWT) y H-O-T460-1 abierta. Informe oracle-O4-caaeec6-reauditoria.md.
+- 2026-11-17 Morpheus: H-O-O4-1/2 cerradas (caaeec6). Abiertas H-O-O4-3 (src, Neo) y H-O-T460-1 (E2E). Escalo a Neo.
+- 2026-11-17 Morpheus: Neo aprueba T469 parcial, T459 y T469 [x]; autoriza H-O-O4-3 (L104), commit local por pathspec; T462 PG17 + Oracle final.
+- 2026-11-17 Architect: H-O-T462-1 rótulo «Registros anteriores» alineado y TECHDEBT-CLD-007 registrada (ef197fe). Trazabilidad 003 CUMPLE.
+- 2026-11-17 Morpheus: Architect ef197fe (rotulo H-O-T462-1, TECHDEBT-CLD-007). Pendiente Neo: openapi 002 contrato.
+- 2026-11-17 Keymaker: H-O-O4-3 comentario OIDC de server.ts alineado con jose; commit local 993b101; gates verdes; sin push.
+- 2026-11-17 Morpheus: 993b101 (H-O-O4-3), b2ddffe (commit documental local). Oracle veredicto final T462 con PG17 en curso.
+- 2026-11-17 Oracle: T462 veredicto final CUMPLE; test:gate con PG17 2784/2784, 0 omitidas; scan 0 hallazgos. Informe oracle-T462-veredicto-final.md.
+- 2026-11-17 Morpheus: T462 CUMPLE (Oracle, PG17 2784/2784, 0 omitidas). Pendiente firma [x] T462 y push de Neo.
+- 2026-11-17 Morpheus: Neo aprueba T462 (CUMPLE). Standby en b2ddffe. Pendiente Neo: [x] T462, push, T478 vivo, TECHDEBT-CLD-007.
+- 2026-11-17 Neb: Neo confirma portal en Cloud Run accedido y probado; T478 sigue [ ] (parte local con reservas; falta Neon, GCS, RTO). Sin cambios en repo.
+- 2026-11-17 Morpheus: FEATURE 003-cloud-gcp COMPLETED (Neo). main 51d6fc8 = origin c644621. Crew en descanso.
+- 2026-11-17 Morpheus: plan Feature 004 entregado a Neo (4A-1/4A-2/4B/4D); sin despacho; numeracion 006 reservada a dominio propio.
+- 2026-11-17 Morpheus: Neo aprueba numeracion 004-008 y resoluciones de 004 (4A-1/4A-2). Despacho Architect spec 004.
+- 2026-11-17 Architect: spec 004 (4A-1/4A-2) en DRAFT en rama 004-catalogos-registros-archivos: 32 REQ, 50 SC, 89 tareas, E-01..E-10 a 002 propuestas; sin commit ni push. Pendiente gates /lock, /rama, /maggie, /mouse y firmas de Neo (D-01..D-10).
+- 2026-11-17 Morpheus: spec 004 DRAFT (6 archivos, 89 tareas). Gates /lock /rama /maggie /mifune en curso.
+- 2026-11-17 maggie: T503 revisión clínica 004 -> .specify/memory/audits/maggie-004-clinica.md (MAG-004-001..017; 1 alta). Sin commit.
+- 2026-11-17 Mifune: filtro KISS 004 emitido (15 hallazgos; K-01 multipart no autorizado; recortes K-02/K-03/K-05/K-08/K-09). Informe audits/mifune-004-kiss.md
+- 2026-11-17 Morpheus: /maggie 004: 17 hallazgos (alta MAG-008 trazabilidad falsa). Sintomas aprobados con condiciones.
+- 2026-11-17 Morpheus: /mifune 004: 15 hallazgos (K-01 multipart, K-02 formatos extra). Espero /lock y /rama.
+- 2026-11-17 Rama: T506 auditoria 004 (solo lectura): 21 hallazgos RAMA-004-001..021 (5 ALTA); informe .specify/memory/audits/rama-004-lifecycle.md; sin ediciones de spec.
+- 2026-11-17 Morpheus: /rama 004: aceptable con condiciones (5 altas: autoria en claro, objeto huerfano, reemplazo sin aviso, detail 23505, retencion 44 dias).
+- 2026-11-17 Lock: T505 revision spec 004: 36 EDGE-004-001..036 (8 ALTA/21 MEDIA/7 BAJA), informe .specify/memory/audits/lock-004-edge.md; solo lectura, sin commit.
+- 2026-11-17 Morpheus: gates 004 completos (maggie, mifune, rama, lock). Despacho Architect enmienda unica; luego mouse y Neo.
+- 2026-11-17 Architect: enmienda única 004 (maggie+mifune+rama+lock) integrada en spec/plan/tasks/data-model/contratos DRAFT: 37 REQ, 18 INV, 5 NFR, 68 SC, 109 T, 5 ADR; D-03/06/11..20 pendientes de Neo, PE-01..06 externos; sin commit. Siguiente: /mouse.
+- 2026-11-17 Morpheus: 004 enmienda unica integrada (REQ 37, SC 68, T611). /mouse unica en curso. Paquete a Neo despues.
+- 2026-11-17 Mouse: gate estructural 004 PASS (128 IDs 1:1, 109 T, 0 huerfanos, DRAFT); verify-traceability bloqueo conocido T512; informe mouse-004-estructura.md.
+- 2026-11-17 Morpheus: 004 gates completos (mouse PASS estructural). Paquete de decisiones a Neo; sin Keymaker hasta firma.
+- 2026-11-17 Morpheus: Neo firma D-01..D-20 de 004 (D-03 C, D-11 A, D-06 C). Architect asienta; Keymaker 4A-1 despues.
+- 2026-11-17 Architect: asienta D-01..D-20 de 004 y aplica delta E-01..E-11 (texto 002) / E3-01..E3-05 (003). 35 REQ, 18 INV, 5 NFR, 67 SC, 109 T (nuevas T612..T616), 5 ADR; todas [ ]; contratos 002 en T510..T512; gate 004 aborta por error-catalog (T512). Siguiente: /keymaker 4A-1 con T512 primero.
+- 2026-11-17 Morpheus: 004 asentada (1c32fd0). Keymaker bloque 1 T510-T515 (contratos y gate 004).
+- 2026-11-17 Keymaker: T510 esquemas 004 (3.1.0) materializados con prueba 21/21; ver log-keymaker.
+- 2026-11-17 Keymaker: T511 OpenAPI 004 (47 ops) con prueba 15/15.
+- 2026-11-17 Keymaker: T512 error-catalog 004 (41 errores) con prueba 12/12.
+- 2026-11-17 Keymaker: T514 [N2] scripts compile/traceability/oracles para 004 (+codegen-catalogs.mjs) con prueba 12/12.
+- 2026-11-17 Keymaker: T515 src/generated/{v31,catalogs} publicados por compile-contracts; prueba 9/9.
+- 2026-11-17 Morpheus: 004 bloque 1 hecho (5 commits). Oracle audita el bloque y el cambio de gate.
+- 2026-11-17 Oracle: bloque 1 de 004 CUMPLE CON RESERVAS (H-O-004B1-1 cierre estricto de evidencia, H-O-004B1-2 menor); ver audits/oracle-004-bloque1.md
+- 2026-11-17 Morpheus: Oracle bloque 1 004 CUMPLE CON RESERVAS. Planifico bloque 2 de 4A-1.
+- 2026-11-17 Keymaker: 004 4A-1 slice A (T516..T531) en 16 commits; T525 parcial (respaldo 3.1.0 pendiente). Oracle audita.
+- 2026-11-17 Morpheus: slice A 004 (T516-T531) HEAD 80ea2e4; T525 parcial respaldo 3.1.0. Oracle audita slice A; Architect decide particion T525.
+- 2026-11-17 Architect: T525 partida; respaldo 3.1.0 con breedCode pasa a T617 [US2] (tras T535). T525 queda sin respaldo. Sin cambios de estado.
+- 2026-11-17 Morpheus: T525 particionada; respaldo 3.1.0 a T617 (US2) en 36d6449.
+- 2026-11-17 Oracle: slice A 004 (T516-T531) CUMPLE CON RESERVAS (H-O-004A-1..3); informe en audits/oracle-004-slice-A.md; sin tareas marcadas.
+- 2026-11-17 Morpheus: Oracle slice A CUMPLE CON RESERVAS. Slice B1 (medidas y sintomas T532-T536) en curso.
+- 2026-11-17 Keymaker: slice B1 004 (T532..T536) en 6 commits (3b4a253..c623dd0); gates verdes; export 3.0.0 falla cerrado con SYMPTOM hasta T617. Oracle audita.
+- 2026-11-17 Morpheus: slice B1 004 hecho (c623dd0). Oracle audita B1; Keymaker T617 (respaldo 3.1.0) en paralelo.
+- 2026-11-17 Oracle: slice B1 004 (T532-T536) CUMPLE CON RESERVAS (H-O-004B1S-1..4); informe audits/oracle-004-slice-B1.md; sin tareas marcadas ni push.
+- 2026-11-17 Morpheus: Oracle B1 CUMPLE CON RESERVAS; no liberar sin T617 (export con SYMPTOM).
+- 2026-11-17 Keymaker T617 respaldo 3.1.0: rojo bb558dd, verde 0108dc2; gates verdes (2945 pass/45 omitidas); listo para /oracle
+- 2026-11-17 Morpheus: T617 hecho (0108dc2). Oracle audita T617 y luego B1 queda liberable.
+- 2026-11-17 Oracle T617: CUMPLE CON RESERVAS (H-O-T617-1..3, ninguna bloquea); B1 LIBERABLE; test:gate 2990/2990 con PG, 2945+45 omitidas sin PG; sin [x], sin push. Informe .specify/memory/audits/oracle-004-T617.md
+- 2026-11-17 Morpheus: B1 LIBERABLE (Oracle). T617 CUMPLE CON RESERVAS. Inicio B2 y decisiones menores en paralelo.
+- 2026-11-17 Architect: leyenda SC-CAT-034 (Respaldo>Exportar, JSON sin leyenda) y notas de retiro de exenciones en T540/T613/T604/T605/T584 (13bde69)
+- 2026-11-17 Morpheus: Architect 13bde69 leyenda SC-CAT-034 y exenciones anotadas. B2 en curso.
+- 2026-11-17 Keymaker B2: H-O-T617-1 + T537..T545 (commits 3fb961b..84e3018), sin push. Gates verdes (2993 pass/48 omitidas; con PG 3041/3041). Retiro de exencion revision diferido a T614 (H-O-T540-1). Oracle audita B2.
+- 2026-11-17 Morpheus: B2 hecho (11 commits). Retiro exencion revision diferido a T614. Oracle audita B2.
+- 2026-11-17 Morpheus: B2 aprobado por Neo; R-2 cerrada con PG17 (55/55). Siguiente slice C: T600-T601, T604-T605, T613-T614.
+- 2026-11-17 Keymaker slice C: T600 pruebas de concurrencia (SQLite+PG17, 6/6) listas; ver log-keymaker.

@@ -1122,3 +1122,58 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Nuevo tests/security/ops-surface-production.security.spec.ts: usa createProductionApp (staticRoot y checkReady inyectados, pool postgres doble, verificador OIDC real jose con token sintético). 9 pruebas: sondas/estáticos/CSP, mantenimiento vs estáticos (401), CSRF, traversal; guarda de server.ts (postgres completo -> 401; sin email, sin audiencia, sin ambas, y sqlite con ambas -> 404).
 - ROJO: el único fallo inicial fue un supuesto erróneo de la propia prueba (GET /internal/maintenance cae al fallback SPA 200, no 4xx); corregido en la prueba. Ningún defecto de producción: la guarda ya funcionaba, las pruebas pasan por construcción como cierre.
 - No se tocó src/ (mutación de la guarda para probar que las pruebas fallan: denegada por permisos; queda pendiente si Neo la autoriza). Comentario "hasta elegir la librería JWT" sigue en src/server.ts L103 (fuera de mi alcance; pedir a Architect/Neo). Compuertas: tsc, traceability 003, test:gate (2746 passed), scan-secrets 0.
+
+## 2026-11-17 H-O-O4-3 comentario OIDC de server.ts (autorizado por Neo N2)
+- Línea 104 de server.ts: reemplazado «Falla cerrado hasta elegir la librería JWT (N2)» por «El token OIDC del Scheduler se verifica con jose (createOidcVerifier, T486): firma, issuer, audiencia y correo.». Sin cambio de lógica.
+- Compuertas: tsc 0; ops-surface-production 9/9; test:gate 2746 pass; scan-secrets 0 hallazgos.
+- Commit local 993b101 (sin push, sin [x]).
+
+## 2026-11-17 004 bloque 1 / T510 esquemas 3.1.0 (Keymaker)
+- Decision: /architect no dejo JSON en contracts/ de 004 (solo README y catalogo): materialice schemas/ copiando los de 002 (sin editarlos) y aplicando el delta del README; 002 intacta (INV-ARCH-003). Nuevo media.schema.json; BackupEnvelopeV31 + registros BackupXRecordV3/V31 sin revision; MicrochipInput aparte de MicrochipId.
+- ROJO: contracts-004-schemas.spec.ts -> ENOENT specs/004.../contracts/schemas (0 tests). VERDE tras materializar (1 ajuste: strictRequired en else de breed): 21/21.
+
+## 2026-11-17 004 bloque 1 / T511 OpenAPI 3.1.0 (Keymaker)
+- OpenAPI 004 = copia de 002 + delta: 7 operaciones nuevas (media/avatar, cuerpo crudo), If-Match en updateRecord, 409 en deleteRecord, 429 en registerPet/updatePet, respaldo 3.1.0, login con usuario o correo. 47 operaciones. 002 intacta.
+- ROJO: contracts-004-openapi.spec.ts -> ENOENT openapi/pet-tracker-api.openapi.yaml. VERDE 15/15 (1 ajuste: mi descripcion contenia la palabra prohibida).
+
+## 2026-11-17 004 bloque 1 / T512 catalogo de errores (Keymaker)
+- error-catalog.json 3.1.0: +6 errores (MEDIA-TOO-LARGE/TYPE-NOT-ALLOWED/QUOTA-EXCEEDED/NOT-FOUND/STORAGE-UNAVAILABLE, REC-CONFLICT), ERR-PET-MICROCHIP-DUPLICATE oficializado (detalle del README), ERR-RATE-LIMITED conserva pendingId (no oficializado por mi: decision de Neo). state-machines copiadas tal cual de 002 para compilar 004 de forma autonoma.
+- ROJO: contracts-004-errors.spec.ts -> ENOENT error-catalog.json. VERDE 12/12.
+
+## 2026-11-17 004 bloque 1 / T514 [N2] scripts (Keymaker)
+- compile-contracts.sh: --feature 004 (contratos a <out>/v31, catalogs a <out>/catalogs; guarda contra src/generated/{api,errors,machines,schemas,ops}); 001/002 ahora apartan y restauran ops/catalogs/v31 del destino (antes los borraban). Nuevo scripts/codegen-catalogs.mjs (valida patron, prefijo=especie, unicidad, Criolla/Otra; order recalculado). verify-traceability.sh: 004 = prefijos NFR/SC, rangos X-NNN..MMM (solo 004), IDs 003 citados en spec no exigidos, spec->tasks 1:1 de 125 IDs propios, evidencia informativa (SDD_STRICT_EVIDENCE=1 la hace bloqueante). verify-oracles.sh: --feature 004 exige pruebas de contrato 004.
+- ROJO (scripts sin tocar, 8/12 fallos): compile 004 'Feature desconocida', oracles/traceability 004 sin soporte. Nota: codegen-catalogs.mjs ya existia al correr el rojo, por eso 4 pruebas (catalogo x3 + regresion 002/003) pasaron en rojo. VERDE 12/12. verify-oracles detecto 2 toBeTruthy en mi propia prueba T511: corregidos.
+
+## 2026-11-17 004 bloque 1 / T515 publicar src/generated (Keymaker)
+- Ejecutados compile 002, 003 y 004 (salida solo por herramienta): src/generated/v31 (contratos 3.1.0: 123 validadores, 41 errores) y src/generated/catalogs (68 razas). 002/003 sin diff. codegen-drift.spec.ts (002) ahora omite ops, catalogs y v31 como ya omitia ops (cambio de prueba, no de contrato).
+- ROJO: generated-004.spec.ts -> 'Failed to load url src/generated/catalogs/index.ts'. VERDE 9/9; tsc 0 errores.
+
+## 2026-11-17 004 4A-1 slice A (Keymaker): T516..T531
+- T516/T517 (7322323, 38705ba): --contracts DIR (solo 004) en compile-contracts.sh; catálogo se valida ANTES de v31; rótulo duplicado por especie rechazado. T520 (f6c768f) pasa sin cambios: T521 sin código, premisa «solo Perro y Gato» no se reproduce (8 especies; el filtro agrupa).
+- T522/T523 (7f3d94d, 7d95db4, 33896be): src/domain/pet/breed-catalog.ts. T524/T525 (c474c00, bceeca6, 5e425fc): breedCode en pet-invariants (validadores v31 de PetProfile/Create/Update, breed derivado), repos SQLite/PG con isStoredPetProfile, vista normalizada (breedCode nulo). DECISIÓN: respaldo 3.1.0 con breedCode NO hecho (acopla con symptomType/severity/mediaToDeleteCount y arnés 002); el export 3.0.0 quita breedCode.
+- T528..T531 (6712d7b, 9b4ad0d, 01950fb, 0eb7448): trim en formValues salvo contraseñas; casilla de fecha estimada bajo Fecha de nacimiento. T526/T527 (133f1b4, 80ea2e4): BreedSelect; guarda de arquitectura de presentación admite generated/catalogs y v31 validators.
+- Pruebas 002 tocadas (supersesión): use-cases.spec, pet-and-alerts.spec (breedCode nulo en la vista), t284-cliente y t284-controles (chip 123456789012345 es secuencia rechazada por MicrochipInput 3.1.0), openapi-contract.ts (pet.schema 3.1.0 sin avatarVersion required).
+
+## 2026-11-17 004 4A-1 slice B1 (Keymaker): T532..T536
+- T532/T533 (3b4a253 test, a4bf823 feat): medidas enteras. ROJO 5/8 fallos (dominio acepta 32.5, edicion 40.5 pasa, form step=0.01, cliente sin rechazo); VERDE 8/8. Entradas y PATCH de medidas con validadores v31; el registro conserva el esquema 002 (decimales guardados se leen, listan, exportan y editan en otros campos). Supersesion 002: fixtures de entrada con decimales a enteros (api-fixtures, wcag e2e, use-cases, record-invariants baseInput).
+- T534 (864883e test): ROJO 6/8 dominio + suite de presentacion sin symptoms.ts. T535 (70f863e test, d069b5c feat): ROJO 6/9; VERDE. CustomParameter 3.1.0 en record-invariants (validador de registro tolerante: symptomType/severity ?? null, revision ?? 0), isStoredCustomParameter compartido por SQLite y PG, defaults null al alta, ficha normaliza viejos, export 3.0.0 omite nulos y FALLA CERRADO ante SYMPTOM hasta T617. Arnes OpenAPI 002: medical-records 004 sin exigir revision/symptomType/severity.
+- T536 (c623dd0): symptoms.ts, SymptomLegend, RecordForm (species, initial), listado, ExportSection. Verde 131/131 presentacion. Gates: tsc 0; traceability 004 CUMPLE; oracles 004 CUMPLE (0 debiles); test:gate 2931 pass / 38 omitidas (igual que antes); scan-secrets 0.
+- DECISIONES propias a revisar: leyenda de «exportacion» vive en la UI de Respaldo (el sobre JSON es cerrado); intensidad preseleccionada «Leve»; PG sin prueba viva (omitida sin PG17).
+
+## 2026-11-17 004 4A-1 T617 respaldo 3.1.0 (Keymaker)
+- ROJO bb558dd (backup-31-roundtrip.spec.ts, 21 pruebas en memoria, SQLite y Postgres 17 en 127.0.0.1:55432): 18 fallan (export 3.0.0 falla cerrado por SYMPTOM, sin breedCode; 1.0.0/2.0.0 sin breedCode nulo); 3 pasan (version futura). VERDE 0108dc2: 21/21 con PG vivo.
+- Impl: ExportBackupUseCase emite 3.1.0 (breedCode ?? null, symptomType/severity ?? null, sin avatarVersion/revision/medios/mediaToDeleteCount) validado con validateBackupEnvelopeV31; importacion acepta 1.0.0/2.0.0/3.0.0/3.1.0; liftEnvelopeV3ToV31 (backup-migration.ts) deja breedCode/symptomType/severity nulos y conserva breed; assertBreedConsistency en invariantes de importacion (INV-RAZ-001). ImportPreviewResult local con version ampliada (mediaToDeleteCount queda para T604/T605). Mensaje VERSION_MISMATCH ahora lista 3.1.0.
+- Supersesiones 002 (tests, no contratos): openapi-contract.ts (backup-envelope 004 mismo $id, export 200 -> BackupEnvelopeV31 en memoria, mediaToDeleteCount exento de required, symptomType/severity vuelven a required = endurecimiento), backup-use-cases.spec, backup-export.api, backup-import-preview.api, backup-atomicity, backup-client, sqlite-to-postgres-transfer ('3.0.0' -> '3.1.0' y validador V31 en exportacion).
+- Gates: tsc 0; traceability 004 CUMPLE; oracles 004 CUMPLE (0 debiles); test:gate 2945 pass / 45 omitidas (antes 2931/38; +7 PG de T617 omitidas sin PG); scan-secrets 0.
+
+## 2026-11-17 004 4A-1 slice B2 (Keymaker): H-O-T617-1, T537..T545
+- H-O-T617-1 (3fb961b): caso de dominio en backup-use-cases.spec: respaldo 3.1.0 con DOG_BEAGLE y breed «Labrador» -> ERR-SCHEMA-VALIDATION-FAILED (campo breed, ROLLED_BACK, DOMAIN_INVARIANT_VIOLATED), estado intacto. NOTA: el codigo es ERR-SCHEMA-VALIDATION-FAILED, no ERR-PET-* (no existe ERR-PET-INVALID-BREED; failBreed lanza el de esquema). ROJO en worktree sin la linea assertBreedConsistency: se acepta la importacion («se esperaba un rechazo»). Un breedCode de otra especie lo rechaza el esquema (ERR-BACKUP-SCHEMA-INVALID), por eso no es caso de dominio.
+- T537/T538 (722762c test, 85a8c84 feat): ROJO 4/10 (sin cambios audita; edicion que deja SUPERSEDED se acepta) -> VERDE 10/10 memoria y SQLite. fixtures/record-engines.ts.
+- T539/T541 (42a558c test, 1722ce2 feat): ROJO 2/10 (borrar SUPERSEDED se acepta) -> VERDE. Los repos ya borraban fisicamente.
+- T540 (8273114 test, f3d31e8 feat): ROJO 13 -> VERDE; 0006 SQLite, 0002 Postgres (probado en PG17 55432, esquema desechable). Retiro de exencion de revision en openapi-contract.ts DIFERIDO a T614: probado, rompe 21 pruebas de API (36 en total) porque el servidor no lee/expone revision; exponerla exige validadores v31, repos de 3 motores y 5 baselines PG.
+- T542 (950eadd), T545 (84e3018): guardas verdes de inicio, sensibilidad demostrada por mutacion. T544 (e6a9953 test, f4098c2 feat): ROJO suite no carga -> VERDE 144 presentacion.
+- Gates: tsc 0; traceability 004 CUMPLE; oracles 004 CUMPLE (0 debiles); test:gate 2993 pass / 48 omitidas (antes 2945/45); con PG 3041/3041 pasan, 0 omitidas; scan-secrets 0.
+
+## 2026-11-17 004 slice C (Keymaker): T600
+- T600: tests/fixtures/concurrent-engines.ts (dos conexiones: SQLite archivo en node_modules/.cache con busy_timeout 0 en B; PG17 55432 con dos transacciones) + t600-concurrencia-registros.spec.ts (6 pruebas: doble DELETE, edicion antes/despues de la vacuna posterior). VERDE de inicio (los candados globales ya serializan). Sensibilidad demostrada por mutacion: sin pg_advisory_xact_lock fallan 2 PG; con BEGIN diferido fallan 3 SQLite (B llega a leer con A abierta). Fuente restaurada.
+- Credenciales PG de pruebas: docker-compose.test.yml (argos_test:argos_test@127.0.0.1:55432/argos_test).
