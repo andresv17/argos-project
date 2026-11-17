@@ -933,3 +933,192 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Pruebas primero: terraform-root (12 APIs incl. billingbudgets) y terraform-bootstrap (costsManager sobre cuenta de facturación solo a argos-terraform@) -> 2 rojas.
 - Implementado: services.tf (12 APIs), bootstrap.sh (gcloud billing accounts add-iam-policy-binding, roles/billing.costsManager, solo APPLY_SA), README.md.
 - CC-K-REQ009: el paso va tras 4b del bootstrap (no en el paso 1) por depender de que la cuenta de servicio ya exista; H-K: spec dice "paso 1", Oracle/Architect pueden ajustar. Gates: fmt 0, validate OK, mirror 0, 120 terraform verdes, tsc 0. Sin [x].
+
+## 2026-11-16 — T445 auto-pr.yml (Keymaker)
+- 86a5238 pruebas primero (tests/unit/auto-pr-workflow.spec.ts, 8 rojas) -> feat auto-pr.yml: push a develop (D-09) -> PR a main; permissions por trabajo contents:read + pull-requests:write; solo actions/checkout@v4 (actions/*, sin terceros); metadatos por git log y env (sin interpolar contexto en run); concurrency por ref; sin emojis.
+- CC-K-T445: se descartó el fallback REST de creación de Mirror y el contents:write de nivel raíz. H-K: actionlint/shellcheck no instalados; YAML validado con js-yaml. REVIEW pendiente de /oracle; sin [x].
+
+## 2026-11-16 — T447 test-gate.yml workflow_call (Keymaker)
+- 1555672 pruebas primero (tests/unit/test-gate-workflow.spec.ts, 2 rojas: workflow_call y permissions por trabajo; las otras 4 ya verdes por diseño: develop ya estaba en push/pull_request, pasos y drift sin cambio).
+- feat: workflow_call + permissions contents:read en el trabajo; pasos idénticos a b6cacc5; sin id-token ni secrets. drift-detection.yml intacto. H-K: develop ya existía en test-gate.yml; actionlint no instalado (YAML con js-yaml). REVIEW pendiente de /oracle; sin [x].
+
+## 2026-11-16 — T448 deploy-argos.yml (Keymaker)
+- 3193488 pruebas primero (tests/unit/deploy-argos-workflow.spec.ts, 18 rojas) -> feat deploy-argos.yml: gate (uses test-gate.yml, contents:read, sin id-token/secretos), audit (npm audit --omit=dev --audit-level=high), migrate (DATABASE_URL_DIRECT, sin GCP), deploy (único id-token: build/push, secretos por versión numérica, --no-traffic con sondas, humo /healthz y /readyz, --to-revisions NEW=100, retroceso con failure()). auth v3.0.0 y login-action v4.8.0 por SHA; sin compat.
+- CC-K-T448: migrate va antes de build (build requiere id-token y solo deploy lo tiene); environment produccion en migrate y deploy. H-K: actionlint no instalado. Preguntas a Neo: valores de sondas liveness, flags de sondas [verificar T469], variables de entorno de Cloud Run más allá de COOKIE_SECURE. REVIEW pendiente de /oracle; sin [x].
+
+## 2026-11-16 — T448 correccion Neo D1-D4 (Keymaker)
+- Commits 3720571 (pruebas, 8/22 rojas) y fix (ver git log). D1 email/audiencia OIDC en gcloud run deploy; D2 gate->audit->build-push->migrate->deploy; D3 environment solo en deploy; D4 sondas sin cambio.
+- H-K-T448-2: build-push necesita id-token: write (push a Artifact Registry); REQ-CICD-011(c)/plan 6.1 dicen id-token solo en deploy. Prueba ahora fija 2 trabajos. Pendiente /architect. Sin [x]; actionlint no instalado.
+
+## 2026-11-16 — T449 code-quality.yml (Keymaker)
+- 86c686c pruebas primero (10 rojas) -> 061d5f8 feat: hadolint v2.15.1 (sha256 c7187db9...c8c507, checksums.sha256 oficial) y actionlint 1.7.12 (sha256 8aca8db9...a3d8, checksums.txt oficial) como binarios; npm audit --omit=dev --audit-level=high; permissions contents:read; lista de acciones y justificación deploy-functions/Mirror en comentario.
+- actionlint 1.7.12 (darwin_arm64, aba9ced2...953f) corrido en local sobre auto-pr, test-gate, deploy-argos, code-quality: salida vacía, rc=0 (cierra H-K-T448-3; sin shellcheck local). H-K-T449-1: hashicorp/setup-terraform listada como pendiente (T446). H-K-T449-2: npm audit reporta 3 moderadas (glob/minimatch via @fastify/static), pasa con nivel high. REVIEW pendiente de /oracle; sin [x].
+
+## 2026-11-16 — T472 validación de secretos en CI (Keymaker)
+- 4559891 pruebas primero (tests/unit/validate-secrets.spec.ts, 34 rojas de 35) -> 39c8196 scripts/validate-secrets.mjs (validateSecrets + CLI; ::add-mask:: antes de cualquier salida; HMAC espeja app-config con prueba de paridad).
+- CC-K-T472: vive en scripts/ porque infraestructura.yml (T446) aún no existe y la spec dice que ese workflow valida; trim = solo espacios/tab de borde, \n/\r finales se rechazan (EDGE-CLD-05). Gates: suite 2387 verde, tsc 0. H-K: T446 debe invocar el script y usar los valores recortados. Sin [x].
+
+## 2026-11-16 — T446 infraestructura.yml (Keymaker)
+- 9981f77 pruebas primero (tests/unit/infraestructura-workflow.spec.ts, 15 rojas) -> feat infraestructura.yml (validate / plan PR / apply main) + ajuste de una aserción propia (GITHUB_ENV solo prohibido para TF_VAR/DATABASE_URL, porque apply guarda ROTACION_SECRETO).
+- setup-terraform v3.1.2 = b9cd54a3c349d3f38e8881555d616ced269862dd (git ls-remote --tags hashicorp/setup-terraform; etiqueta ligera, sin ^{}); cierra H-K-T449-1. actionlint 1.7.12 rc=0, 61 pruebas verdes, tsc 0.
+- CC-K-T446: id-token en plan (WIF solo lectura, REQ-CICD-012) y apply; REQ-CICD-002/011(c) dicen solo apply -> H-K-T446-1 para /architect. TF_VAR_billing_account sale de vars.TF_VAR_billing_account (no está en plan 6.3 ni bootstrap) -> H-K-T446-2. Valores recortados no se propagan (el script no los exporta; Terraform valida salto de línea y vacío, no espacios de borde) -> H-K-T446-3. Etiqueta rotacion-secreto: PR label en plan, API commits/pulls en apply (pull-requests: read) -> H-K-T446-4. Sin [x].
+
+## 2026-11-16 — Neo Q3-Q4 sobre T446/T472 (Keymaker)
+- 4920bca pruebas primero (14 rojas: 12 validate-secrets, 2 workflow) -> feat (ver git log): validate-secrets rechaza espacios/tab de borde (regla espacio-o-salto, sin recorte; ya no devuelve values); infraestructura.yml invoca `node scripts/terraform-plan-guard.mjs "${RUNNER_TEMP}/plan.json"` con PLAN_GUARD_LABELS (PR: join de labels; main: gh api commits/SHA/pulls --jq unique|join). Sin jq duplicado. Cierra H-K-T446-3, H-O-1, H-O-2.
+- Gates: 137 pruebas de workflows/guard/secretos verdes, tsc 0, js-yaml 0, actionlint 1.7.12 darwin_arm64 (sha256 verificado) rc 0. Sin [x].
+
+## 2026-11-16 — D-H1 de Neo: secretos acotados a pasos y GITHUB_ENV seguro (Keymaker)
+- 73dfb45 pruebas primero (3 rojas de 19: env de trabajo sin secretos, secretos solo en pasos de validación/plan/guardia/comentario/apply, regex antes de GITHUB_ENV) -> fix (ver git log): TF_VAR secretos movidos a env: de paso; DATABASE_URL_DIRECT solo en validate-secrets (guardia no lo lee).
+- CC-K-DH1: GITHUB_ENV por regex ^[a-z0-9,._-]*$ + rechazo de saltos, tras filtrar con --jq a rotacion-secreto/aprobacion-manual (evita que una etiqueta ajena con espacio rompa el apply). Gates: 94 verdes, tsc 0, js-yaml 0, actionlint 1.7.12 rc 0. Sin [x].
+
+## 2026-11-16 — H-DH1-1 (PLAN_GUARD_LABELS vacío aborta apply)
+- Pruebas primero 19d5ff2: 4 pruebas bash reales (vacío, válidas, `a\nB=1`, `A b`); la de vacío en rojo (rc 1) contra el YAML previo.
+- Corrección b57472a: `if [ -n "$LABELS" ] && { ! grep ... || wc -l ...; }`; solo cambia 1 línea de infraestructura.yml.
+- Compuertas: vitest 3 archivos 98/98, tsc 0, js-yaml 0, actionlint 0. Sin push, sin [x].
+
+## 2026-11-16 — T450 guía de bootstrap día 0 (Keymaker)
+- 6f57cfa: tests/unit/github-bootstrap-docs.spec.ts (17 rojas de 33 antes; nombres, orden, produccion/Neo, D-19, cruce con los `${{ secrets|vars }}` de infraestructura.yml y deploy-argos.yml) -> terraform/README.md (sección nueva + Despliegue) y quickstart.md §6 reescrito. Quickstart ya tenía §6 pero omitía TF_VAR_billing_account.
+- YAML lee exactamente 3 secretos y 9 variables = lista de T450. H-K-T450-1: plan 6.3 dice que `vacuum-argos.yml` lee DATABASE_URL_DIRECT; no existe ese flujo. H-K-T450-2: plan 6.3 no lista TF_VAR_billing_account como variable de la tabla de Neo (sí la incluye; ok) pero bootstrap.sh crea TF_VAR_custom_domain solo como eco, no ejecuta. H-K-T450-3: bootstrap.sh comenta que la vinculación WIF de argos-deployer@ se añade en "T439/T450"; T450 no la cubre. Sin [x].
+
+## 2026-11-16 — T485 paso 5c bootstrap.sh (Keymaker)
+- c94f509 pruebas primero (4 rojas de 11: binding existe, member con job_workflow_ref+deploy-argos.yml@refs/heads/main, ninguno sin job_workflow_ref, comentario) -> 02d5f2d feat paso 5c (DEPLOY_WORKFLOW_REF, mismo formato que WORKFLOW_REF) -> ajuste de aserción de comillas (dry-run imprime sin comillas). Comentario de línea 157 corregido: "la vincula el paso 5c (T485)". Gates: terraform-* 124 verdes, tsc 0, bash -n ok. Sin [x], sin push, bootstrap no ejecutado.
+- H-K-T485-1: 02d5f2d se commiteó con 1 prueba roja por aserción de comillas; corregido en commit siguiente. H-K-T485-2: el paso 5c exige que argos-deployer@ exista (apply de T439 antes); anotado en el texto del paso.
+
+## 2026-11-16 — T451 escaneo de secretos y T454 runbook de respaldo (Keymaker)
+- T451: 2a12008 pruebas primero (40 rojas de 40) -> d3528fa scripts/scan-secrets.mjs (grep de patrones, sin gitleaks ni dependencias; modos repo|dir|file --literal-env) -> a2e65b6 marca allow en fila sintetica. Repo 0 hallazgos; imagen construida (3765 archivos exportados, inspect e history) 0 hallazgos. NO conectado a ningun workflow (fuera de alcance).
+- T454: 834d8ad pruebas primero (12 rojas) -> 582c668 terraform/README.md seccion "Respaldo y restauracion" + quickstart 4.2. Flags verificados con postgres:17 y gcloud local; SQL del paso 3 ejecutado contra Postgres 17 real con el esquema 0001. Sin neonctl (no verificable).
+- H-K-T451-1 no hay job que lo invoque (code-quality.yml); H-K-T451-2 quickstart fila SC-CLD-004 dice `gitleaks detect`; H-K-T454-1 REQ-PG-016 "cascada" no existe en BD, SQL replica B9; H-K-T454-2 audit_log restaurado conserva IDs en claro. Gates: suite 2510 verde, tsc 0. Sin [x], sin push.
+
+## 2026-11-16 Keymaker: E-1 / E-2 R1 / E-2 R2 (escaner de secretos)
+- Pruebas primero bcaff10: 17 rojas de 67 (R1 detecta host real en tests/, R2 allow solo en tests/, paso scan-secrets en code-quality.yml).
+- Implementacion (ver commit siguiente): scan-secrets.mjs (allow solo si name empieza por tests/; exencion URL en tests/ solo *.example.com y *.test; loopback en cualquier ruta); job scan-secrets en code-quality.yml (checkout, setup-node .nvmrc, run node scripts/scan-secrets.mjs repo).
+- Efecto colateral: R1 destapo 12 URL sinteticas en 7 archivos de tests/ (hosts neon/ejemplo/h); se marcaron con argos-scan:allow (valido en tests/). Se ajusto el regex /secrets\./ de code-quality-workflow.spec.ts a ${{ secrets. (coincidia con scan-secrets.mjs).
+- Compuertas: suite 2536 verde/31 skipped, tsc 0, repo 0 hallazgos. actionlint no instalado. Sin [x], sin push. E-3 intacto.
+
+## 2026-11-16 Keymaker: R-2 / R-3 (Opcion A de Neo)
+- Pruebas primero d4f1a51: 15 rojas (9 R-2 detector secrets, 6 R-3 rutas file/dir). Implementacion c0fa21a.
+- R-2: usesSecretsContext analiza cuerpos `${{ }}` (multilinea) y `if:` sin llaves con /(?<![\w.-])secrets(?![\w-])/i; no coincide con job scan-secrets ni scan-secrets.mjs.
+- R-3: classifyPath (realpath, rechaza `..` con exit 2); exencion allow/URL solo si la ruta real cae bajo <raiz>/tests/. Rutas fuera del repo se escanean SIN exenciones (desviacion: no se rechazan, para no inutilizar dir/file sobre imagen/registros de CI).
+- Compuertas: 102/102 en las 2 specs, suite 2561 verde/31 skipped, tsc 0, repo 0 hallazgos. actionlint no instalado. Sin [x], sin push.
+
+## 2026-11-16 Keymaker T473 (vacuum-argos.yml)
+- Pruebas primero 149d10a: tests/unit/vacuum-argos-workflow.spec.ts, 14/14 rojas (archivo inexistente).
+- Impl: .github/workflows/vacuum-argos.yml (cron lunes 07:00 UTC, dispatch con modo full|simple, psql -c por tabla, lock_timeout=3s x3 en full, falla por only table owner y last_vacuum > 10 d). Una prueba ajustada (regex sobre ${SENTENCIA}). 14/14 verde; suite 2575 verde, tsc 0. actionlint no instalado.
+- Pendiente fuera de alcance: prueba de integracion con centinela (requiere Postgres real). Sin push, sin [x].
+
+## 2026-11-16 Keymaker T473b (centinela de VACUUM)
+- Pruebas primero: postgres-vacuum-sentinel.spec.ts sin scripts/vacuum-argos.sql = 0 pruebas recogidas (archivo falla al cargar; 6 previstas); con SQL pero sin ajustes: 5 de 5 rojas (TRUNCATE FK, mensaje PG17, get_raw_page regclass). Verde final 6/6 contra postgres:17 (contenedor proyectoargos-postgres-1 healthy, puerto 55432).
+- Compartido: scripts/vacuum-argos.sql con secciones `-- @sql`; el flujo las extrae con awk (sql_seccion), la prueba con el mismo criterio. vacuum-argos-workflow.spec.ts 14 -> 15 verdes.
+- H-K-T473-3 (ALTA): PG17 emite "permission denied to vacuum ... skipping it" (no "only table owner"); el grep del flujo nunca disparaba en PG16+/17. Corregido en yml (grep -E de ambas frases) y pineado en prueba.
+- H-K-T473-5 (ALTA): VACUUM (FULL, ANALYZE) NO actualiza last_vacuum (solo last_analyze) en PG17; el disparo manual full fallaria por last_vacuum nulo si el cron no corrio antes (<=10 d). Sin corregir (criterio de spec): pineado con prueba; propuesta a Architect/Neo.
+- H-K-T473-6: VACUUM simple recupera la tupla pero los bytes del centinela quedan en heap e indice (users, users_username_key); por tanto el manual NO baja a simple. Suite 2613 verde, tsc 0, scan 0 hallazgos. Sin [x], sin push.
+
+## 2026-11-16 Keymaker T473b micro-ciclo (H-K-T473-5 opcion A + H-O-T473b-1/2/3)
+- Pruebas primero 5417e64: rojo 3 fallos / 20 verdes (23); luego impl 4efa006: seccion vacuum_tras_full en scripts/vacuum-argos.sql y paso por tabla tras el FULL solo en modo manual full (cron intacto).
+- Micro-ajustes: relleno 3000 filas + borrado y exigir pg_relation_size <; quitado users_pkey; roles con sufijo unico creados y borrados solo por la prueba (desviacion: no se reutilizan argos_app/argos_migrator).
+- Compuertas: 23/23 en las 2 specs con PG17, suite 2615 verde, tsc 0, scan 0. actionlint no instalado. Sin [x], sin push.
+
+## 2026-11-16 Keymaker T452 micro-ciclo (RI-3 pipefail, RI-y *.tfvars)
+- Pruebas primero b5feb4d: tests/unit/backup-runbook-hardening.spec.ts, rojo 8 fallos / 3 verdes (11); impl: *.tfvars y *.tfvars.json en .gitignore raiz y terraform/.gitignore; terraform/README.md y specs/003-cloud-gcp/quickstart.md con set -eo pipefail, if ! pg_dump|gcloud, rm del objeto parcial y verificacion size > 0. README.md raiz no contiene pg_dump (sin cambios).
+- Restriccion: backup-restore-runbook-docs.spec.ts exige la linea literal del pipe con gs://${BUCKET}/dumps/$(date...); se conservo literal (la ruta OBJ se calcula aparte: carrera teorica en medianoche UTC).
+- Desviacion: el unico quickstart con pg_dump esta en specs/ (permitido por el mandato). actionlint no instalado. Sin [x], sin push.
+
+## 2026-11-16 Keymaker: H-A1/H-A3 (T454a) BLOQUEADO antes de escribir pruebas
+- Conflicto: tests/unit/backup-restore-runbook-docs.spec.ts:31 [REQ-IAC-008] exige la linea literal `pg_dump "$DATABASE_URL_DIRECT" | gcloud storage cp - "gs://${BUCKET}/dumps/$(date -u +%Y-%m-%d).sql"` en terraform/README.md. La correccion H-A1 (`cp - "$OBJ"`) la rompe.
+- Segun instruccion: no se relaja la prueba ni se toca specs/. Sin cambios en disco ni commits. H-A3 no iniciado (se entrega junto con H-A1).
+- Salida propuesta: autorizar a Keymaker a cambiar esa regex a `gcloud storage cp - "\$OBJ"` + exigir OBJ="gs://${BUCKET}/dumps/$(date ...).sql" (misma garantia de REQ-IAC-008, sin archivo local); quickstart.md (specs/) tambien tiene el doble date -> Architect.
+
+## 2026-11-16 H-A1/H-A3 (decision Neo)
+- Prueba a7d36b1: regex docs:31 relajada (OBJ= y cp "$OBJ") + 2 pruebas nuevas hardening. Rojo: 3 fallos/22 ok.
+- Impl c84c94d: README con OBJ unico y nota de shell interactiva. Verde 25/25. Sin push, sin [x].
+
+## 2026-11-16 Keymaker F-T453-01/02 (dotfiles 500)
+- Prueba a587d16: buildOpsApp registra el registerProblemDetails real; dotfile exige 404 exacto + it.each de 9 URLs (/.env, /.git/config, /assets/.x, /.well-known/x, /sub/.hidden/y, dist/.env real, dist/.well-known/x, dist/assets/.x) en GET y HEAD. Rojo 9 fallos / 51 verdes (60), todos 500.
+- Impl c051620: SUSPICIOUS += \/\. (segmento con punto inicial) en plugins/static-assets.ts; el onRequest y el notFoundHandler ya lo tratan como 404 plano sin SPA.
+- Opcion elegida: guardia en static-assets (1 alternativa de regex) en vez de mapear 403 sin FST_* en problem-details (ampliaria la traduccion de errores global) o dotfiles:'ignore' (mandaria /.well-known/x al SPA). dotfiles:'deny' queda como defensa en profundidad.
+- Verde: ops 107/107 (5 archivos), tsc 0, suite 2599 ok/38 skipped sin fallos, scan-secrets 0. actionlint no instalado. Sin push, sin [x]. O-3/O-4 no tocados.
+
+## 2026-11-16 Keymaker - T453 decisiones N2 de Neo (A, B, C)
+- 9fd554c: git rm de 6 scripts/.fuse_hidden* (0000000300000001, 0000000900000001, 0000000a00000002, 0000000b00000003, 0000000c00000004, 0000001500000003) + `.fuse_hidden*` en .gitignore.
+- ec5744f: excepcion documentada en tests/security/sast-rules/argos-no-process-env.yml (4 scripts de CI exentos; alcance y CI sin cambios). Ninguna prueba lee la regla, por eso no hubo rojo previo.
+- 13e6920 + d431c31: tests/security/ops-surface.security.spec.ts, 56 pruebas con inject(), verde de entrada (regresion); mutando static-assets a la version previa a c051620 fallan 4 (dotfiles). Ajuste de tipos (tsc 0).
+- Compuertas: ops-surface + integration/ops 163/163; tsc 0; vitest completo 141 archivos, 2655 pasan, 38 skipped, 0 fallos; scan-secrets 0. actionlint no instalado. Sin push, sin [x].
+
+## 2026-11-16 T486 jose OIDC
+- Prueba primero b0d3b98 (rojo: 2 fallos de aceptacion, 9 pasan por fail-closed). Implementacion 329c841: jose@6.2.17 exacta, createRemoteJWKSet/createLocalJWKSet + jwtVerify (iss, aud, exp, RS256, email_verified===true). tsc 0, vitest completo 2666 ok, scan-secrets 0. Sin push, sin [x].
+
+## 2026-11-16 T441a (opción i, Neo): IAM de storage por bucket en bootstrap.sh
+- Prueba 87a84a7 (tests/unit/bootstrap-iam-storage.spec.ts): ROJO 5/5 contra bootstrap.sh previo.
+- Impl 871876f: fuera roles/storage.admin y roles/viewer de proyecto; plan con visores concretos; roles personalizados de proyecto argosTerraformApplyBuckets (buckets.create/get/list/update) y argosTerraformPlanBuckets (get/list), sin storage.objects.*; objectViewer/objectAdmin solo sobre el bucket de estado. README: frase "solo Neo lee" ajustada.
+- Gates: bash -n OK; 57/57 bootstrap; vitest completo 2671 passed; tsc 0; scan-secrets 0. T441a sigue [ ] (verificación real en T469). Sin push.
+
+## 2026-11-16 — Documentación del límite residual T441a (Neo, opción a)
+- Prueba roja fb2b313 (2 fallos de 14) en backup-restore-runbook-docs.spec.ts; implementación 6e5d21a en terraform/README.md (2 viñetas tras «Lectura limitada a Neo»). quickstart.md §4 no describe get-iam-policy: sin cambio.
+- Compuertas: vitest 19/19 (docs + bootstrap-iam-storage), suite 2673 pass/38 skip, tsc 0, scan-secrets 0 hallazgos. Sin push, sin [x].
+
+## 2026-11-16 — scripts/verify-bootstrap-inputs.sh (decisión Neo, Level 2)
+- Prueba b5d6ded: ROJO 35 fallan / 1 pasa (36). Impl fc11099: VERDE 36/36 (tras corregir que check silenciaba PASA de herramientas). f7e535c: valores de prueba sin forma URL (scan-secrets marcó 2 hallazgos en la prueba, ahora 0).
+- Script: herramientas (gh, gcloud, terraform, gh auth status, gcloud cuenta activa) y formato de ARGOS_PROJECT_ID/REPO/BILLING/REGION/REVIEWER; códigos 0/1/2; no lee ni imprime secretos ni la cuenta.
+- Gates: bash -n 0; tsc 0; vitest 2709 pass/38 skip/0 fallos; scan-secrets 0. actionlint no instalado. Sin push, sin [x].
+
+## 2026-11-16 — README: paso previo verify-bootstrap-inputs.sh (decisión Neo)
+- Prueba d33d08e (en verify-bootstrap-inputs.spec.ts): ROJO 2 fallos de 39. Impl en terraform/README.md (1 párrafo de 1 línea tras «Solo Neo ejecuta…»): VERDE 39/39. Primer intento puso `bootstrap.sh` antes del script y la prueba de orden lo detectó; reformulado y commit enmendado (local).
+- Compuertas: vitest completo sin fallos, tsc 0, scan-secrets 0. Sin push, sin [x].
+
+## 2026-11-16 Keymaker T489 BLOQUEADO
+- Lectura completa. El member exige <owner>/<repo> (job_workflow_ref). En terraform/ no existe variable, local ni data con el repositorio (solo bootstrap.sh REPO=ARGOS_GITHUB_REPO y workflows). Proyecto (data google_project) y pool ("${var.project_prefix}-github") sí se derivan sin valores nuevos.
+- Se requiere variable nueva (p. ej. github_repository): DETENIDO, escalado a Architect. Sin cambios en disco salvo esta nota. Nota: terraform-bootstrap.spec.ts (describe 5c) deberá reescribirse al quitar el paso 5c.
+
+## 2026-11-16 Keymaker T487 (D-29, Neo manual)
+- Prueba primero 49e8558 (rojo 4 fallos/7 pasan), luego implementacion 93fdd4f: test-gate.yml sin push a main, paths-ignore (terraform, specs, docs, claude) en push y PR; test:gate sin playwright, con verify-traceability 002 y 003; playwright en test:gate:full.
+- Verde 34/34 (test-gate + deploy-argos workflow); vitest completo 2719 pasan, 0 fallos; tsc 0; scan-secrets 0. actionlint no instalado. Sin push, sin [x].
+
+## 2026-11-16 Keymaker T487 H1 (D-29 punto 6, Neo)
+- Prueba primero 7aa4e0e (rojo 2 fallos/10 pasan de 12): pasos comparados contra b6cacc5 sin bloque Playwright + caso nuevo sin Install Playwright/playwright install.
+- Implementacion: quitado paso "Install Playwright Chromium with system dependencies" de test-gate.yml. Verde 35/35 (test-gate + deploy-argos); vitest completo 2720 pasan, 0 fallos; tsc 0; scan-secrets 0. Sin push, sin [x].
+
+## 2026-11-16 T488 (D-29 res. 4, opción A) — Keymaker
+- Prueba primero 36bbf0e: 4 casos nuevos (a)-(d) en deploy-argos-workflow.spec.ts + 1 caso de docs por documento en github-bootstrap-docs.spec.ts. Rojo: 1 fallo (c) en workflow (26/27), 2 fallos docs (33/35).
+- Implementación eb80eba: solo texto de los dos mensajes de fallo del sondeo + frase en quickstart.md §6 y terraform/README.md. Sondeo, concurrency y pasos intactos.
+- Verde: 62/62 en los dos archivos; completo 2726 pasan/38 skipped; tsc=0; scan-secrets=0. actionlint no instalado.
+
+## 2026-11-16 Keymaker T489 (D-30)
+- Prueba primero db5c1ac (terraform-bootstrap.spec 5c reescrito, terraform-iam-secrets.spec nuevo, terraform-iam.spec ajustado a 5 roles del deployer): ROJO 10 fallos (5+4+1) de 29.
+- Implementacion 3367b30: variables.tf github_repository (sin default, regex owner/name); iam.tf data google_project.this (no existia) + deployer_wif + 2 secretmanager.viewer a nivel de secreto; bootstrap.sh 5c solo nota a T489 y paso 6 fija TF_VAR_github_repository; infraestructura.yml TF_VAR_github_repository.
+- Verde 19/19 (2 specs) y 29/29 con iam.spec; vitest completo 2734 pasan/38 skipped; tsc=0; traza 003 CUMPLE; scan-secrets repo 0 hallazgos; terraform fmt -check=0 y validate OK (init -backend=false, sin credenciales). Sin push, sin [x].
+
+## 2026-11-16 Keymaker T489 fix H-O-T489-1/2
+- Prueba primero f2aae21 (terraform-iam-secrets.spec.ts): TF_VAR_github_repository exactamente 1 vez por job plan y apply (2 total) + pool del principalSet anclado a ${var.project_prefix}-github. ROJO: 1 fallo "job apply: expected +0 to be 1" (5/6 pasan; el regex anclado ya coincidia con iam.tf).
+- Implementacion 27edc2f: TF_VAR_github_repository en env del job apply de infraestructura.yml. iam.tf sin cambios.
+- Verde 29/29 (3 specs); tsc=0; traza 003 CUMPLE; scan-secrets 0; terraform fmt -check=0. Sin push, sin [x].
+
+## 2026-11-16 Keymaker T490 (D-31)
+- Prueba primero 91c538f (terraform-bootstrap.spec.ts): 2 lineas billing add-iam-policy-binding; costsManager solo a argos-terraform@, billing.viewer solo a argos-terraform-plan@ (sin costsManager); sin admin/owner/editor. ROJO: 1 fallo (expected length 1 to be 2), 12/13 pasan.
+- Implementacion 1d8163e (bootstrap.sh 4b): segundo binding billing.viewer a PLAN_SA tras costsManager; comentario corregido.
+- Verde 29/29 (3 specs); tsc=0; traza 003 CUMPLE; scan-secrets 0; bash -n OK. Sin push, sin [x], sin ejecutar gcloud.
+
+## 2026-11-16 Keymaker deploy 44003087897 (GFE 404 en TAG_URL)
+- Prueba primero (deploy-argos-workflow.spec.ts): smoke sobre TAG_URL con --retry 18 --retry-delay 5 --retry-all-errors --fail; nombre de job y paso con "Smoke test" sin humo/Humo. ROJO: 1 fallo "expected ... to match /--retry 18/" (27/28 pasan).
+- Implementacion: solo .github/workflows/deploy-argos.yml (retry 18 x delay 5 = 90 s, nombres Smoke test en job, paso, eco y comentario). Verde 47/47 (3 specs); tsc=0; traza 003 CUMPLE; scan-secrets 0. Sin push, sin [x], sin gh/gcloud.
+
+## 2026-11-16 Keymaker D-32 (smoke externo /readyz y /)
+- Prueba primero 70f2538 (deploy-argos-workflow.spec.ts): smoke con curl a ${TAG_URL}/readyz y ${TAG_URL}/ (--fail, retry 18x5, retry-all-errors), sin /healthz; probes internas en /healthz. ROJO: 2 fallos (27/29).
+- Implementacion 6bded9d: solo deploy-argos.yml; paso Smoke test con dos curl (/readyz, /). Probes sin cambio. Verde 48/48 (3 specs); tsc=0; traza 003 CUMPLE; scan-secrets 0. Sin push, sin [x], sin gh/gcloud.
+
+## 2026-11-17 Keymaker T473b (verificacion, sin cambios)
+- T473b ya implementada y auditada: pruebas 5417e64 (rojo 3 fallos/23), impl 4efa006, tipo 0cd4259; Oracle CUMPLE (oracle-T473-opcion-A.md). Incluye H-O-T473-3 (sleep 2 y relectura) y SQL compartido scripts/vacuum-argos.sql. Sin nuevo codigo: nada que escribir. Compuertas reverificadas en HEAD 7f5c193.
+
+## 2026-11-17 — H-O-T473b-1 (T473 vacuum-argos.yml)
+- Rojo: nueva prueba en tests/unit/vacuum-argos-workflow.spec.ts (1 lectura de vencidas, sin sleep 2) -> 16 pass / 1 fail.
+- Verde: sleep 2 + una sola relectura de vencidas antes de exit 1; 17/17. Commit 27e05d4.
+- tsc 0, traceability 003 CUMPLE, test:gate verde, scan-secrets ejecutado. postgres-vacuum-sentinel: NO EJECUTADO (sin Postgres 17 local).
+
+## 2026-11-17 — T478 (parte local) ensayo del runbook T454 en Postgres 17 local
+- Ejecutados pasos 1-4 de REQ-PG-016 contra bases desechables argos_restore_src/dst en proyectoargos-postgres-1 (SQL y node tal cual; psql/pg_dump via docker exec; tramo GCS sustituido por pipe local).
+- Resultado: dump 26061 B; conteos origen=destino (2/2/2/1); tras pasos 3-4 destino 1/1/1/1, referencias_restantes 0, sesiones no revocadas 0. Observaciones: runbook asume psql local (\copy de archivo cliente); H-K-T454-2 reconfirmado.
+- Limpieza verificada: sin argos_restore_*, sin roles de prueba. No se toco Neon/GCS/prod. Informe: .specify/memory/audits/keymaker-T478-restauracion-local.md. T478 sigue abierta (Neon, RTO).
+
+## 2026-11-17 — H-O-O4-1 / H-O-O4-2 (remediación de Oracle, prueba primero)
+- Nuevo tests/security/ops-surface-production.security.spec.ts: usa createProductionApp (staticRoot y checkReady inyectados, pool postgres doble, verificador OIDC real jose con token sintético). 9 pruebas: sondas/estáticos/CSP, mantenimiento vs estáticos (401), CSRF, traversal; guarda de server.ts (postgres completo -> 401; sin email, sin audiencia, sin ambas, y sqlite con ambas -> 404).
+- ROJO: el único fallo inicial fue un supuesto erróneo de la propia prueba (GET /internal/maintenance cae al fallback SPA 200, no 4xx); corregido en la prueba. Ningún defecto de producción: la guarda ya funcionaba, las pruebas pasan por construcción como cierre.
+- No se tocó src/ (mutación de la guarda para probar que las pruebas fallan: denegada por permisos; queda pendiente si Neo la autoriza). Comentario "hasta elegir la librería JWT" sigue en src/server.ts L103 (fuera de mi alcance; pedir a Architect/Neo). Compuertas: tsc, traceability 003, test:gate (2746 passed), scan-secrets 0.
