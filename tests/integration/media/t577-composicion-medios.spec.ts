@@ -69,13 +69,14 @@ describe('T577 composición con ARGOS_MEDIA_DRIVER=memory (desarrollo y pruebas)
   });
 });
 
-describe('T577 composición con ARGOS_MEDIA_DRIVER=gcs (PENDIENTE declarado)', () => {
-  it('[REQ-GCS-003][SC-ALM-012] con gcs el adaptador de GCS aún no se conecta: la API arranca sin la ruta de desarrollo ni rutas de medios y con el host del bucket en la CSP', async () => {
-    const { app, cookie, petId } = await start({ ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' });
-    const list = await app.inject({ method: 'GET', url: `/api/pets/${petId}/media`, headers: { cookie } });
+describe('T577 composición con ARGOS_MEDIA_DRIVER=gcs', () => {
+  it('[REQ-GCS-003][SC-ALM-012] con gcs se conecta el adaptador de GCS: hay rutas de medios, no hay ruta de desarrollo y la CSP lleva el host del bucket', async () => {
+    const { app, petId } = await start({ ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' });
+    // Sin sesión: no llega al bucket (no hay red ni credenciales en la prueba); basta la cabecera CSP de la respuesta 401.
+    const list = await app.inject({ method: 'GET', url: `/api/pets/${petId}/media` });
     expect(app.hasRoute({ method: 'GET', url: '/__dev/media/*' })).toBe(false);
-    expect(app.hasRoute({ method: 'POST', url: '/api/pets/:petId/media' })).toBe(false);
-    expect(list.statusCode).not.toBe(500);
+    expect(app.hasRoute({ method: 'POST', url: '/api/pets/:petId/media' })).toBe(true);
+    expect(list.statusCode).toBe(401);
     expect(String(list.headers['content-security-policy'])).toContain('https://argos-test-media.storage.googleapis.com');
   });
 });
