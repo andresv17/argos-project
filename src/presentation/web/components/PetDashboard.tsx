@@ -13,16 +13,24 @@ import { Button } from './Field.tsx';
 import { OwnerBadge } from './OwnerBadge.tsx';
 import { PetAvatar } from './PetAvatar.tsx';
 import { RecordForm } from './RecordForm.tsx';
+import { SymptomLegend } from './SymptomLegend.tsx';
+import { symptomSummary, type SymptomSeverity, type SymptomType } from '../symptoms.ts';
 import { WeightChart, WeightTable } from './WeightChart.tsx';
 import type { FormBody } from '../validation.ts';
 import { RECORD_MODULES, RECORD_SUMMARY, RECORD_WRITE_PERMISSION, type RecordModule } from '../records.ts';
-import { formatAge, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type PetDashboardView } from '../view-model.ts';
+import { formatAge, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
 
 const CATEGORY_LABEL = Object.fromEntries(
   (RECORD_MODULES.find((m) => m.id === 'customParameters')?.fields.find((f) => f.name === 'category')?.options ?? []).map((o) => [o.value, o.label]),
 );
 const DEWORMING_LABEL: Readonly<Record<'INTERNAL' | 'EXTERNAL', string>> = { INTERNAL: 'Interna', EXTERNAL: 'Externa' };
 const RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white';
+
+/** Tipo e intensidad de un síntoma como texto neutro: mismo estilo con cualquier intensidad (INV-SIN-002). */
+function SymptomSummary({ record }: { readonly record: { readonly category: string; readonly symptomType?: SymptomType | null; readonly severity?: SymptomSeverity | null } }): JSX.Element | null {
+  const summary = symptomSummary(record);
+  return summary === null ? null : <p className="text-sm text-text-muted">{summary}</p>;
+}
 
 function Empty({ canWrite }: { readonly canWrite: boolean }): JSX.Element {
   return (
@@ -155,23 +163,29 @@ function ModuleContent({ module, dashboard, canWrite }: { readonly module: Recor
           ))}
         </ItemList>
       );
-    case 'customParameters':
-      return dashboard.customParameters.length === 0 ? (
+    case 'customParameters': {
+      const parameters = dashboard.customParameters as readonly CustomParameterView[];
+      return parameters.length === 0 ? (
         <Empty canWrite={canWrite} />
       ) : (
-        <ItemList>
-          {dashboard.customParameters.map((c) => (
-            <li key={c.id} className="p-3">
-              <p className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="rounded-full bg-pastel-mint px-2 text-xs font-semibold text-emerald-900">{CATEGORY_LABEL[c.category] ?? c.category}</span>
-                <strong>{c.title}</strong>
-                <span className="tabular-nums text-text-muted">{c.recordedAt}</span>
-              </p>
-              <p className="text-sm text-text-muted">{c.description}</p>
-            </li>
-          ))}
-        </ItemList>
+        <>
+          <ItemList>
+            {parameters.map((c) => (
+              <li key={c.id} className="p-3">
+                <p className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="rounded-full bg-pastel-mint px-2 text-xs font-semibold text-emerald-900">{CATEGORY_LABEL[c.category] ?? c.category}</span>
+                  <strong>{c.title}</strong>
+                  <span className="tabular-nums text-text-muted">{c.recordedAt}</span>
+                </p>
+                <SymptomSummary record={c} />
+                <p className="text-sm text-text-muted">{c.description}</p>
+              </li>
+            ))}
+          </ItemList>
+          {parameters.some((c) => c.category === 'SYMPTOM') ? <SymptomLegend /> : null}
+        </>
       );
+    }
   }
 }
 
@@ -411,7 +425,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
             }}
           >
             <summary className={`inline-flex min-h-12 cursor-pointer items-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover ${RING}`}>{RECORD_SUMMARY[activeSpec.id]}</summary>
-            <RecordForm key={`${profile.id}-${activeSpec.id}`} spec={activeSpec} onSubmit={(body) => onAddRecord(activeSpec.id, body)} />
+            <RecordForm key={`${profile.id}-${activeSpec.id}`} spec={activeSpec} species={profile.species} onSubmit={(body) => onAddRecord(activeSpec.id, body)} />
           </details>
         ) : null}
         <ModuleContent module={activeSpec.id} dashboard={dashboard} canWrite={canWrite} />

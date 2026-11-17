@@ -14,6 +14,12 @@ export type PetDashboardView = Schemas['PetDashboardView'];
 /** Perfil de la mascota; `breedCode` (feature 004) es nulo en mascotas anteriores y puede faltar en datos de la 002. */
 export type PetProfile = Schemas['PetProfile'] & { readonly breedCode?: string | null };
 export type OwnerTag = Schemas['OwnerTag'];
+/** Parámetro adicional de la ficha con los campos de síntoma de la 004 (nulos o ausentes fuera de la categoría «Síntoma»). */
+export type CustomParameterView = Omit<Schemas['CustomParameterRecord'], 'category'> & {
+  readonly category: Schemas['CustomParameterRecord']['category'] | 'SYMPTOM';
+  readonly symptomType?: 'VOMIT' | 'APPETITE' | 'STOOL' | 'ENERGY' | null;
+  readonly severity?: 'MILD' | 'MODERATE' | 'SEVERE' | null;
+};
 export type OwnerColorToken = Schemas['OwnerColorToken'];
 export type AlertStateMetadata = Schemas['AlertStateMetadata'];
 export type AlertStatus = Schemas['AlertStatus'];

@@ -7,6 +7,7 @@
  */
 import { useState, type ChangeEvent, type DragEvent } from 'react';
 import { Button, FormError } from '../components/Field.tsx';
+import { SymptomLegend } from '../components/SymptomLegend.tsx';
 import { ApiProblem, attachmentFileName, type ApiClient, CSRF_PARAMS, catalogProblem, problemMessage, unwrap, type ProblemDetails } from '../api.ts';
 import { useSession } from '../session.tsx';
 import { plural, type Schemas } from '../view-model.ts';
@@ -114,6 +115,22 @@ export function PreviewSummary({ preview }: { readonly preview: ImportPreviewRes
   );
 }
 
+/** Sección de exportación; lleva la leyenda fija de los síntomas porque el respaldo incluye esos registros (REQ-SIN-003). */
+export function ExportSection({ onDownload }: { readonly onDownload: () => void }): JSX.Element {
+  return (
+    <section aria-labelledby="export-title" className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 id="export-title" className="text-lg font-semibold">
+        Exportar
+      </h2>
+      <p className="max-w-prose text-sm text-text-muted">Descarga un archivo JSON con tus mascotas y sus registros. No incluye datos de otros usuarios ni de tus hogares.</p>
+      <SymptomLegend />
+      <div>
+        <Button onClick={onDownload}>Descargar respaldo</Button>
+      </div>
+    </section>
+  );
+}
+
 export function BackupPage(): JSX.Element {
   const { api } = useSession();
   const [file, setFile] = useState<File | null>(null);
@@ -181,15 +198,7 @@ export function BackupPage(): JSX.Element {
   return (
     <div className="mx-auto grid max-w-3xl gap-4">
       <h1 className="text-2xl font-bold">Respaldo</h1>
-      <section aria-labelledby="export-title" className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 id="export-title" className="text-lg font-semibold">
-          Exportar
-        </h2>
-        <p className="max-w-prose text-sm text-text-muted">Descarga un archivo JSON con tus mascotas y sus registros. No incluye datos de otros usuarios ni de tus hogares.</p>
-        <div>
-          <Button onClick={() => void download()}>Descargar respaldo</Button>
-        </div>
-      </section>
+      <ExportSection onDownload={() => void download()} />
       <section aria-labelledby="import-title" className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 id="import-title" className="text-lg font-semibold">
           Importar

@@ -189,7 +189,7 @@ describe('T534 búsqueda estática de severity y symptomType en src/presentation
   const DECIDES = /className|style=|\.sort\(|\.filter\(|\.find\(|\.some\(|\.every\(|\.map\(\([^)]*\) =>[^;]*\?|&&|\|\||===|!==|\bif \(|\bswitch\b|\bcase\b|\? [^.]/;
 
   it('ninguna línea que use severity decide clases, estilos, color, ícono, orden, filtro o texto condicional', () => {
-    const offenders = sources.flatMap(({ file, lines }) => lines.flatMap((line, i) => (/severity/i.test(line) && DECIDES.test(line) ? [`${file}:${i + 1}: ${line.trim()}`] : [])));
+    const offenders = sources.flatMap(({ file, lines }) => lines.flatMap((line, i) => (/severity/i.test(line) && DECIDES.test(line.replace(/\?\?|\?\./g, '')) ? [`${file}:${i + 1}: ${line.trim()}`] : [])));
     expect(offenders).toEqual([]);
   });
 

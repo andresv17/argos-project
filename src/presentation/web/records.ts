@@ -130,6 +130,7 @@ export const RECORD_MODULES: readonly RecordModuleSpec[] = [
           { value: 'SURGERY', label: 'Cirugía' },
           { value: 'BEHAVIOR', label: 'Comportamiento' },
           { value: 'OTHER', label: 'Otro' },
+          { value: 'SYMPTOM', label: 'Síntoma' },
         ],
       },
       text('title', 'Título'),
