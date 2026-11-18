@@ -35,6 +35,11 @@ export interface MediaAccess {
   readonly expiresAt: string;
   readonly mime: MediaMime;
 }
+/** `AlbumLimits` del contrato 005 (`getAlbumLimits`): fotos actuales y tope vigente; el cliente no cablea el tope (REQ-ALB5-005). */
+export interface AlbumLimits {
+  readonly photoCount: number;
+  readonly maxPhotosPerPet: number;
+}
 export interface AvatarVersionResult {
   readonly avatarVersion: number;
 }
@@ -54,6 +59,8 @@ export class MediaApiError extends Error {
 
 export interface MediaApi {
   list(petId: string, kind: MediaKind | undefined, page: number): Promise<MediaPage>;
+  /** `GET /pets/{petId}/album/limits` (REQ-ALB5-005). */
+  albumLimits(petId: string): Promise<AlbumLimits>;
   /** `renewal: true` es la renovación proactiva del visor: envía `X-Argos-Renewal: 1` y NO cuenta como actividad (SC-ALM-036). */
   access(petId: string, mediaId: string, options?: { readonly renewal?: boolean }): Promise<MediaAccess>;
   upload(petId: string, kind: MediaKind, blob: Blob, filename: string): Promise<MediaItem>;
@@ -91,6 +98,9 @@ export function createMediaApi(fetchImpl: typeof fetch = (...args) => fetch(...a
       if (kind !== undefined) query.set('kind', kind);
       query.set('page', String(page));
       return json<MediaPage>(await send(`/pets/${petId}/media?${query.toString()}`, 'GET'));
+    },
+    async albumLimits(petId) {
+      return json<AlbumLimits>(await send(`/pets/${petId}/album/limits`, 'GET'));
     },
     async access(petId, mediaId, options) {
       const passive = options?.renewal === true;

@@ -4,6 +4,7 @@
  *   `X-Argos-Filename` (`encodeURIComponent`). `bodyLimit = ARGOS_MEDIA_MAX_BYTES + 1`: Fastify corta la lectura al superarlo (más, a lo sumo, un
  *   fragmento) y el caso de uso rechaza el byte sobrante con 413; una corriente truncada nunca llega al manejador (no hay `put`).
  * - como máximo `ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS` subidas simultáneas por instancia desde antes de leer el cuerpo; la siguiente: 429 ERR-RATE-LIMITED.
+ * - `GET /album/limits` (feature 005, REQ-ALB5-005): `AlbumLimits`.
  * - `GET /media`, `GET /media/{mediaId}/access`, `DELETE /media/{mediaId}` (204 siempre tras el COMMIT).
  * - `Cache-Control: no-store` en `/access` y en todo error de estas rutas (la URL firmada nunca se cachea ni se registra).
  *
@@ -24,7 +25,7 @@ type MediaParams = { Params: { petId: string; mediaId: string } };
 const FILENAME_HEADER = 'x-argos-filename';
 const FILENAME_MAX_ENCODED = 1000;
 /** `/api/pets/<id>/media…` y `/api/pets/<id>/avatar…`: las respuestas de error nunca se cachean. */
-export const MEDIA_PATH = /^\/api\/pets\/[^/?]+\/(?:media|avatar)(?:[/?]|$)/;
+export const MEDIA_PATH = /^\/api\/pets\/[^/?]+\/(?:media|avatar|album\/limits)(?:[/?]|$)/;
 
 /** Nombre original decodificado; ausente es null (el caso de uso lo reemplaza por `archivo.<ext>`); una codificación inválida es 422. */
 export function decodeFilename(header: string | string[] | undefined): string | null {
@@ -61,7 +62,7 @@ export function registerMediaRoutes(app: FastifyInstance, { useCases }: RouteCon
 
   app.addHook('onSend', async (request, reply, payload) => {
     const path = request.url.split('?')[0] ?? request.url;
-    if (MEDIA_PATH.test(path) && (reply.statusCode >= 400 || path.endsWith('/access'))) reply.header('cache-control', 'no-store');
+    if (MEDIA_PATH.test(path) && (reply.statusCode >= 400 || path.endsWith('/access') || path.endsWith('/album/limits'))) reply.header('cache-control', 'no-store');
     return payload;
   });
 
@@ -84,6 +85,9 @@ export function registerMediaRoutes(app: FastifyInstance, { useCases }: RouteCon
   app.get<PetParams & { Querystring: { kind?: unknown; page?: unknown } }>('/api/pets/:petId/media', { onRequest }, async (request) =>
     useCases.listMedia.execute(request.userId, request.params.petId, { kind: request.query.kind, page: request.query.page }),
   );
+
+  // Límite del álbum (REQ-ALB5-005): `{photoCount, maxPhotosPerPet}` para «N de M fotos»; el 409 no lleva la cifra (ProblemDetails es cerrado).
+  app.get<PetParams>('/api/pets/:petId/album/limits', { onRequest }, async (request) => useCases.albumLimits.execute(request.userId, request.params.petId));
 
   app.get<MediaParams>('/api/pets/:petId/media/:mediaId/access', { onRequest: requireSessionPassiveRenewal(useCases.authenticate) }, async (request) =>
     useCases.mediaAccess.execute(request.userId, request.params.petId, request.params.mediaId),

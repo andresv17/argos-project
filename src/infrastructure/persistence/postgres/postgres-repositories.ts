@@ -393,6 +393,10 @@ function mediaRepository(client: PoolClientLike): PetMediaRepositoryPort {
       const total = await client.query('SELECT COUNT(*) AS n FROM pet_media WHERE pet_id = $1 AND ($2::text IS NULL OR kind = $2)', [petId, kind]);
       return { items: rows.map(toMedia), total: count(total.rows[0]) };
     },
+    async countByPetAndKind(petId, kind) {
+      const { rows } = await client.query('SELECT COUNT(*) AS n FROM pet_media WHERE pet_id = $1 AND kind = $2', [petId, kind]);
+      return count(rows[0]);
+    },
     async countBytesOfOwner(ownerUserId) {
       const { rows } = await client.query('SELECT COALESCE(SUM(m.size_bytes), 0) AS n FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = $1', [ownerUserId]);
       return count(rows[0]);

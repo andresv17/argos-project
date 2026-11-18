@@ -177,6 +177,8 @@ export interface PetMediaRepositoryPort {
   findById(petId: string, mediaId: string): Promise<PetMediaRecord | null>;
   /** Página de la mascota (y del tipo, o de ambos si `kind` es null) ordenada por `(createdAt DESC, id DESC)` (INV-ALB-001) más el `total` del filtro. */
   listPage(petId: string, kind: MediaKind | null, limit: number, offset: number): Promise<{ readonly items: PetMediaRecord[]; readonly total: number }>;
+  /** Número de filas de la mascota de ese tipo (`PHOTO` = álbum, `FILE` = archivos clínicos); 0 si no hay ninguna o la mascota no existe (REQ-ALB5-002). */
+  countByPetAndKind(petId: string, kind: MediaKind): Promise<number>;
   /** Suma de `size_bytes` de todas las mascotas del propietario legal; el avatar no cuenta (REQ-ARC-005). */
   countBytesOfOwner(ownerUserId: string): Promise<number>;
   /** Borra la fila de esa mascota con ese id; true si existía. */

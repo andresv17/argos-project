@@ -316,6 +316,9 @@ function mediaRepository(state: MemoryState): PetMediaRepositoryPort {
         .sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1));
       return copy({ items: all.slice(offset, offset + limit), total: all.length });
     },
+    async countByPetAndKind(petId, kind) {
+      return state.media.filter((m) => m.petId === petId && m.kind === kind).length;
+    },
     async countBytesOfOwner(ownerUserId) {
       const owned = new Set(state.pets.filter((p) => p.ownerUserId === ownerUserId).map((p) => p.id));
       return state.media.filter((m) => owned.has(m.petId)).reduce((sum, m) => sum + m.sizeBytes, 0);

@@ -31,6 +31,7 @@ import type { BackupTokenPort } from '../ports/backup-token.port.ts';
 import type { ClockPort } from '../ports/clock.port.ts';
 import type { IdGeneratorPort } from '../ports/id-generator.port.ts';
 import type { PasswordHasherPort } from '../ports/password-hasher.port.ts';
+import type { PlatformParameterPort } from '../ports/platform-parameter.port.ts';
 import type { RateLimiterPort } from '../ports/rate-limiter.port.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import type { SecureTokenPort } from '../ports/secure-token.port.ts';
@@ -85,6 +86,11 @@ export interface ApplicationDeps {
   readonly auditIds: IdGeneratorPort;
   /** Medios (feature 004, REQ-GCS-003): almacenamiento de objetos y topes. Opcional hasta que la composición lo conecta. */
   readonly media?: MediaServices;
+  /**
+   * Parámetros de plataforma con caché (feature 005, REQ-PRM-002). Ausente en una composición sin ellos: rige el valor por defecto del código
+   * (`PARAMETER_CATALOG`), nunca un valor cableado en el caso de uso.
+   */
+  readonly platformParameters?: PlatformParameterPort;
 }
 
 interface ValidatorWithErrors {
