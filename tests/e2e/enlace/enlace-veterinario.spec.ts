@@ -150,6 +150,39 @@ test.describe('enlace veterinario en móvil emulado a 320 px (T758..T766)', () =
     await vet.close();
   });
 
+  test('[SC-005-045][SC-005-031][D5-15] vista previa del propietario (Pixel 5 y 320 px): muestra lo que verá el veterinario con la franja de vista previa, sin token ni formularios, con el microchip declarado no compartido, accesible y sin desbordar', async () => {
+    const created: string[] = [];
+    ownerPage.on('response', (r) => {
+      if (r.request().method() === 'POST' && r.url().includes('/share-links')) created.push(r.url());
+    });
+    await ownerPage.goto('/');
+    await section().getByLabel('Incluir archivos clínicos').check();
+    await section().getByRole('button', { name: 'Ver vista previa del resumen' }).click();
+    await expect(ownerPage).toHaveURL(new RegExp(`/mascotas/${petId}/resumen\\?includeMicrochip=false&includeClinicalFiles=true`));
+    await expect(ownerPage.getByRole('heading', { level: 1, name: 'Resumen clínico de Nube' })).toBeVisible();
+    await expect(ownerPage.getByRole('note').filter({ hasText: 'Vista previa — así lo verá tu veterinario. Aún no se ha compartido nada.' })).toBeVisible();
+    await expect(ownerPage.getByText('Microchip no compartido por el cuidador')).toBeVisible();
+    await expect(ownerPage.getByText('Este resumen no sustituye la consulta veterinaria.')).toBeVisible();
+    await expect(ownerPage.getByText('12,5 kg')).toBeVisible();
+    await expect(ownerPage.getByText(HOSTILE_NAME, { exact: true })).toBeVisible();
+    expect(await ownerPage.locator('main form, main input, main textarea, main select').count()).toBe(0);
+    expect(await ownerPage.content()).not.toContain(token);
+    expect(ownerPage.url()).not.toContain(token);
+    expect(created).toEqual([]);
+    expect(await overflow(ownerPage)).toEqual([320, 320]);
+    const axe = await new AxeBuilder({ page: ownerPage }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    expect(axe.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious').map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+    await ownerPage.emulateMedia({ media: 'print' });
+    const printed = await ownerPage.locator('body').innerText();
+    expect(printed).not.toContain('Vista previa — así lo verá tu veterinario');
+    expect(printed).not.toContain('Imprimir / Guardar como PDF');
+    expect(printed).toContain('Datos al momento de esta consulta; pueden cambiar');
+    await ownerPage.emulateMedia({ media: 'screen' });
+    await ownerPage.getByRole('button', { name: 'Volver' }).click();
+    await expect(section()).toBeVisible();
+    await expect(section().getByText('1 de 20 enlaces activos')).toBeVisible();
+  });
+
   test('[SC-005-019][SC-005-046][D5-22] «Revocar» pide confirmación en línea y solo al confirmar se envía el DELETE; tras revocar, el enlace muestra la pantalla uniforme', async ({ browser }) => {
     const deletes: string[] = [];
     ownerPage.on('request', (r) => {
