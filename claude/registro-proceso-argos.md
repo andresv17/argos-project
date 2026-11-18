@@ -1331,3 +1331,29 @@
 - 2026-11-17 Oracle: 8474a63 + db68161 CUMPLE CON RESERVAS (menores); H-O-E2E-1 cerrada; media 12/12, tsc 0, oráculos 0 débiles, traza CUMPLE; TECHDEBT-004-06 sin [x], firma Neo pendiente.
 - 2026-11-17 Morpheus: Oracle re-auditoria 8474a63 y db68161 CUMPLE CON RESERVAS (H-O-E2E-1 CERRADA; H-O-E2E-3 titulo cosmetico; H-O-RR07-1 firma Neo). Espera Seraph T592.
 - 2026-11-17 Seraph: T592 e2e medios-csp-wcag.spec.ts 4/4 Chromium; hallazgos H-S-T592-1/2 (inputs file desbordan a 320 px en AvatarCropper y MediaPanel); tsc 0; verify-oracles CUMPLE. Sin [x].
+- 2026-11-18 | Morpheus | /architect 4C detenido por orden de Neo; Neo enviará requerimiento completo.
+- 2026-11-18 | Morpheus | 4C reemplazada por escena del hogar pixel art (IA). Rama 006-escena-hogar-pixel-art. Requerimiento en claude/requerimiento-escena-hogar-pixel-art.md.
+- 2026-11-18 | Morpheus | Logos ENCENDIDA por Neo (turno morpheus). Architect 006 en curso; al terminar, mensaje final a Neo y se queda esperando su respuesta.
+- 2026-11-18 | Architect | spec.md 006 DRAFT escrito (22 REQ, 13 INV, 17 EDGE, 34 SC, 15 decisiones D6-* para Neo); pendientes /rama y /merovingian antes de plan; luego /mouse.
+- 2026-11-18 | Morpheus | Spec 006 DRAFT (22 REQ/13 INV/17 EDGE/34 SC, D6-01..15 para Neo). Despacho /rama y /merovingian en paralelo.
+- 2026-11-18 | Merovingian | Auditoría 006 dependencia IA: SDK solo por enmienda Nivel 2; recomendado fetch nativo tras puerto+fake; D6-12 (costo) requiere Neo. Informe merovingian-006-dependencia-ia.md.
+- 2026-11-18 | Rama | Revisión privacidad spec 006: PASA CON CONDICIONES (C1..C11, D6-16/17 nuevas para Neo). Informe .specify/memory/audits/rama-006-privacidad.md.
+- 2026-11-18 | Architect | Enmienda spec 006 DRAFT (31 REQ/17 INV/23 EDGE/50 SC, D6-01..17 pendientes de Neo): incorpora C1..C11 de /rama y H-MERO-006-01..05. Siguiente: /mouse.
+- 2026-11-18 | Mouse | Gate estructural 006 (DRAFT): BLOCKED menor. 31 REQ/17 INV/23 EDGE/50 SC/4 NFR/9 RR/17 D coinciden, 0 duplicados, 0 refs cruzadas rotas; 1 ALTO (huérfanos REQ-022, INV-009, INV-012), 4 MEDIO (A5 inexistente, cobertura implícita, default REQ-020 vs D6-10, marcas D6), 5 BAJO. Informe mouse-006-estructura.md.
+- 2026-11-18 architect: corregido specs/006 spec.md tras /mouse (M6-A1, M1..M4, B1..B3); SC 50->55; D6-01..17 siguen PENDIENTES de Neo; estado DRAFT.
+- 2026-11-18 | Morpheus | Neo aprueba D6-01..D6-17 (006). Despacho architect: spec aplicado + B4/B5 + aviso + plan/research/data-model/contracts para validación.
+- 2026-11-18 | Architect | D6-01..17 firmadas aplicadas a spec 006 (32 REQ/17 INV/24 EDGE/67 SC) + aviso borrador, research, data-model, plan, contracts (13 ops, 7 ERR-SCENE-*) y enmienda Principio VI sin aplicar; DRAFT, abiertos H-ARCH-006-01/02 y datos de Vertex [verificar]. Siguiente: /trinity, /lock, /mifune, /link, /merovingian, luego /oracle.
+- 2026-11-18 | Mifune | Diseno 006 revisado: 13 H-MIF-006-* (alto: status derivable en lectura, evita ganchos en LOCKED; medios: fold scene_images/attempts, 13 vars config, tope global diferido). Informe audits/mifune-006-diseno.md.
+- 2026-11-18 | Trinity | Auditoría de diseño 006: 0 CRÍTICO/3 ALTO/8 MEDIO/5 BAJO (H-TRI-006-01..16) en .specify/memory/audits/trinity-006-diseno.md; ALTO: worker OIDC sin email/aud propia, DoS económico, normalizador lista negra. Validation Required.
+- 2026-11-18 | Lock | Revisión adversarial 006: 23 hallazgos H-LCK-006-01..23 (6 altos, 10 medios, 7 bajos) en .specify/memory/audits/lock-006-diseno.md; solo lectura.
+- 2026-11-18 | Link | Revisión IaC de la 006 (plan §6-§7, research §6) contra terraform/ y CI: informe en .specify/memory/audits/link-006-iac.md (REVIEW). Hallazgos: moneda COP del presupuesto, ARGOS_SCENE_* van en deploy-argos.yml, budget solo avisa y no ve Vertex; Nivel 2 pendiente de Neo. Sin cambios en terraform/ ni CI.
+- 2026-11-18 | Merovingian | Impacto de diseño 006: H-MERO-006-11..24 (8 ALTA: auditoría cerrada, claves media pets/, cuota, migraciones, ganchos transferencia/importación, arneses, Terraform COP, compuertas). Informe .specify/memory/audits/merovingian-006-diseno-impacto.md. Solo lectura.
+- 2026-11-18 | Architect | Revisión de diseño 006 aplicada en DRAFT (spec/plan/data-model/contracts): 36 REQ, 19 INV, 33 EDGE, 96 SC, 12 RR; N2-01..N2-12 pendientes de Neo; H-MIF-03/04/05 no aplicados; sin compilar. Log: claude/log-architect.md.
+- 2026-11-18 | Oracle | Auditoría de diseño 006: PASS CON OBSERVACIONES (IDs 1:1, 7 ERR-SCENE, 13 ops, ajv compila con strictTypes:false; OBS-5 hash idempotencia sin action en data-model). Informe .specify/memory/audits/oracle-006-diseno.md. Solo lectura.
+- 2026-11-18 | Architect | Correcciones OBS-1/3/4/5/6 del informe Oracle 006 aplicadas en DRAFT; scene-payload compila con strictTypes:true; EDGE-016/H-MIF-006-03 sin tocar (a Neo)
+- 2026-11-18 | Morpheus | Paquete diseño 006 listo (DRAFT). Oracle PASS CON OBS corregidas. Escalado a Neo N2-01..12 y EDGE-016.
+- 2026-11-18 | Morpheus | Neo firma N2-01..12 y EDGE-016. Architect asienta y genera tasks.md; ejecución fake por fases, sin driver real ni main.
+- 2026-11-18 | Architect | Asentadas N2-01..12 y EDGE-016 en spec/plan/data-model/contratos; tasks.md 006 escrito (85 tareas T601..T798, 8 fases, 196/196 IDs con tarea, todas [ ]; T798 [GOV] bloqueada N2-10). Falta /oracle.
+- 2026-11-18 | Oracle | tasks.md 006: PASS CON OBS (196/196 cobertura, 0 ciclos; colisión T6##/T7## con 004/005 no rompe compuertas; OBS numeración). Informe oracle-006-tasks.md.
+- 2026-11-18 | Architect | 006 renumerada T601..T798 -> T801..T885 (85 tareas, 0 huérfanas, 188/188 cobertura); OBS-2 aclarado: checkpoint T825 (ex T639) cierra tras T833 de Fase 4. Sin commit.
+- 2026-11-18 | Keymaker | T801 pruebas rojas compuerta 006 escritas (7/10 rojas), commit local pendiente; sin push ni [x].

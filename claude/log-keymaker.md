@@ -1274,3 +1274,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-17 Keymaker: reintento H-O-E2E-1 (sin push, sin [x])
 - tests/e2e/media/reexportacion-fotos.spec.ts: eliminados los 2 test.skip(webp === null) (l.89/101); ahora se afirma la cabecera RIFF/WEBP (bytes 8..12 == 'WEBP') porque not.toBeNull() es oraculo debil. La prueba noWebp usa siempre WebP real.
 - Gates: playwright media 12/12; vitest 27/27; tsc 0; verify-oracles 004 CUMPLE (debiles 0, deshabilitados 0).
+
+## 2026-11-18 Keymaker: T801 pruebas rojas compuerta 006 (sin push, sin [x])
+- Creado tests/integration/gates/t801-compuerta-006.spec.ts (10 pruebas: 8 fixtures + 2 sobre el repo real). Rojo: 7/10 fallan (EDGE/SC/rangos no reconocidos, tarea sin ID pasa, sin spec->tasks 1:1, repo real FAIL por evidencia bloqueante y 98 IDs sin EDGE/SC).
+- Alcance: solo tests/; scripts/ intactos hasta T802. Dep: ninguna.
