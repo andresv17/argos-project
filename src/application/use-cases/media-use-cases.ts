@@ -12,7 +12,7 @@
  * Borrado: la clave entra en la cola con `DELETE` en la misma transacción que borra la fila; tras el `COMMIT` se borra el objeto y la fila de la cola
  * y cualquier fallo del almacenamiento queda en la cola (`attempts + 1`) para el mantenimiento: el caso de uso no falla (204 siempre).
  *
- * @implements REQ-ALB5-002, REQ-ALB5-005, INV-005-003, REQ-ARC-001, REQ-ARC-002, REQ-ARC-003, REQ-ARC-005, REQ-ALB-001, REQ-GCS-004, REQ-GCS-006, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ALB-001, INV-GCS-002, REQ-BOR-005
+ * @implements REQ-ALB5-002, REQ-ALB5-003, REQ-ALB5-005, INV-005-003, SC-005-002, SC-005-003, SC-005-004, SC-005-005, SC-005-006, SC-005-034, REQ-ARC-001, REQ-ARC-002, REQ-ARC-003, REQ-ARC-005, REQ-ALB-001, REQ-GCS-004, REQ-GCS-006, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ALB-001, INV-GCS-002, REQ-BOR-005
  */
 
 import {

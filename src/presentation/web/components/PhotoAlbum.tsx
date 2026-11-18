@@ -7,7 +7,7 @@
  * según los permisos; el contador «N de M fotos» y el estado «Álbum lleno» salen de `getAlbumLimits` (el tope no se cablea) y tras un 409 ERR-MEDIA-ALBUM-LIMIT
  * se vuelve a pedir `getAlbumLimits`.
  *
- * @implements REQ-ALB-001, INV-ALB-001, REQ-ARC-003, REQ-ALB5-001, REQ-ALB5-002, REQ-ALB5-003, REQ-ALB5-004, REQ-ALB5-005
+ * @implements SC-005-001, REQ-ALB-001, INV-ALB-001, REQ-ARC-003, REQ-ALB5-001, REQ-ALB5-002, REQ-ALB5-003, REQ-ALB5-004, REQ-ALB5-005
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
