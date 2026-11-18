@@ -1353,3 +1353,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T820 pruebas rojas de Cloud Run 120 s y 1 GiB (N2-05, N2-11, REQ-CLD-002) (sin push, sin [x])
 - Nuevo tests/unit/terraform-cloud-run-escena-006.spec.ts: timeout 120s y memoria 1Gi (no 60s/512Mi), resto de REQ-CLD-002 sin cambio (cpu_idle, escala 0..2, concurrencia 20), sin env ni ARGOS_SCENE_* en Terraform, T_GEN máx. 105 + 15 <= 120 < dispatchDeadline 130, texto de REQ-CLD-002 en 003 con Enmienda 006.
 - Rojo 4/6; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T821 enmienda de REQ-CLD-002 y cloud_run.tf (N2-05, N2-11) (sin push, sin [x])
+- spec 003 REQ-CLD-002 (1 GiB, timeout=120s, Enmienda 006, dispatchDeadline 130 s) y terraform/cloud_run.tf (timeout 120s, memoria 1Gi, comentario actualizado; sin env, sin cambio de cpu_idle ni de instancias). terraform-cloud-run.spec: 60s/512Mi -> 120s/1Gi. La cola ya documenta dispatchDeadline 130 s (T819); Terraform no tiene ese campo en la cola.
+- Verde: t820 6/6, terraform-* 17 archivos; tsc 0; sin plan ni apply.

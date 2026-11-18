@@ -184,3 +184,16 @@ verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
 verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 318; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
 ```
 Rojo esperado hasta T821 (4/6).
+
+## T821 verde (Cloud Run 120 s y 1 GiB)
+```
+npx vitest run tests/unit/terraform-cloud-run-escena-006.spec.ts tests/unit/terraform-cloud-run.spec.ts
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 002 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 318; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
+```
+Suite de 003 cambiada por la enmienda: terraform-cloud-run.spec (60s/512Mi -> 120s/1Gi, mismas aserciones). Ajuste a mi prueba T820: el texto histórico «antes timeout=60s» no cuenta como valor vigente. No se ejecutó terraform.

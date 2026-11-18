@@ -53,8 +53,9 @@ describe('terraform/cloud_run.tf con timeout 120 s y 1 GiB (T820, REQ-CLD-002 en
     const text = req();
     expect(text).toMatch(/timeout=120s/);
     expect(text).toMatch(/1 GiB/);
-    expect(text).not.toMatch(/timeout=60s/);
-    expect(text).not.toMatch(/512 MiB, `concurrency=20`/);
+    const vigente = text.split('**Enmienda 006')[0] ?? '';
+    expect(vigente).not.toMatch(/timeout=60s|512 MiB/);
+    expect(vigente).toMatch(/1 GiB, `concurrency=20`/);
     expect(text).toMatch(/Enmienda 006[^.]*N2-05[^.]*N2-11|Enmienda 006[^.]*N2-11[^.]*N2-05/);
     expect(text).toMatch(/dispatchDeadline[^.]*130 s/);
     expect(text).toContain('concurrency=20');

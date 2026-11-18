@@ -9,8 +9,10 @@
 # ARGOS_MEDIA_DRIVER=gcs, ARGOS_MEDIA_BUCKET=<project_prefix>-<project_id>-media (google_storage_bucket.media),
 # ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS=300, ARGOS_MEDIA_MAX_BYTES=10485760,
 # ARGOS_MEDIA_MAX_BYTES_PER_OWNER=1073741824, ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS=4.
-# Memoria: 512Mi alcanza para 4 subidas simultáneas de 10 MiB (40 MiB en vuelo, lectura en streaming con corte)
-# más el SDK de GCS; la concurrencia 20 por instancia no cambia porque el tope de subidas lo impone la app.
+# Memoria y tiempo (enmienda 006, N2-05 y N2-11; REQ-CLD-002): 1Gi y timeout de 120 s. El worker de la escena (POST /internal/scene-worker) es una
+# solicitud real que espera la generación (T_GEN 90 s por defecto, máximo 105 s) y la tarea de Cloud Tasks lleva dispatchDeadline de 130 s; las
+# 4 subidas simultáneas de 10 MiB de 004 (40 MiB en vuelo) caben de sobra. La concurrencia 20 por instancia no cambia: el tope de subidas lo impone la app.
+# El cambio crea una revisión nueva que puede recibir tráfico sin pasar el smoke test (traffic ignorado): aplicar fuera de un despliegue --no-traffic.
 
 resource "google_cloud_run_v2_service" "argos" {
   project  = var.project_id
@@ -27,7 +29,7 @@ resource "google_cloud_run_v2_service" "argos" {
 
   template {
     service_account                  = google_service_account.run.email
-    timeout                          = "60s"
+    timeout                          = "120s"
     max_instance_request_concurrency = 20
 
     scaling {
@@ -41,7 +43,7 @@ resource "google_cloud_run_v2_service" "argos" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "512Mi"
+          memory = "1Gi"
         }
         cpu_idle          = true
         startup_cpu_boost = true
