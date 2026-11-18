@@ -1525,3 +1525,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Pruebas primero: t834 expireLease (memoria y SQLite) rojo 'expected { attemptId, resultObjectId } to equal { id, actorUserId, ... }'; t851 (+3) rojo 'expected [] to deeply equal [[HOME_SCENE, UPDATE, ...]]' (2 fallos; la de 404 ya conforme). Luego expireLease devuelve el SceneAttemptRecord transicionado (puerto, memoria, SQLite, PG, Null).
 - recordSceneAttemptAudit (scene-audit.ts) reutilizado por getScene, requestSceneGeneration (T1) y el worker; actor = actorUserId del intento expirado; solo si el CAS transiciona. 404 antes de cualquier escritura (sin cambios).
 - Suite completa con PG real: 297 archivos, 4707 pasan, 1 omitida, 0 rojos; tsc 0; gates 001/002/006 y oracles 006 CUMPLE.
+
+## 2026-11-18 Keymaker: H-KEY-F5-7 cuota agotada en T2 con motivo interno SCENE_QUOTA_AT_T2 (INV-ESC6-004/005; EDGE-ESC6-031) (sin push, sin [x])
+- Prueba primero (t855, +1): rojo 'Expected e1b81331... Received 8d98987c...' (hash de auditoria con result ERR-SCENE-GENERATION-FAILED en vez del motivo interno). Luego finish(outcome, code, internalReason) en T2: intento FAILED con ERR-SCENE-GENERATION-FAILED, sin cuota, imagen anterior intacta; el motivo solo entra al hash de SCENE_FAILED.
+- La vista (lastError) y scene_attempts.error_code siguen con el codigo estable; el motivo interno no aparece en el estado persistido de intentos. Catalogo y SceneErrorCode intactos.
+- Suite completa con PG real: 297 archivos, 4708 pasan, 1 omitida, 0 rojos; tsc 0; gates CUMPLE.

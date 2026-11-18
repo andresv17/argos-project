@@ -3,6 +3,7 @@ import type { SceneGenerationRequest, SceneGenerationResult, SceneImageGenerator
 import { RunSceneGenerationUseCase } from '../../src/application/use-cases/scene-run-use-case.ts';
 import { GetSceneUseCase, RequestSceneGenerationUseCase, type SceneTarget } from '../../src/application/use-cases/scene-use-cases.ts';
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
+import { stateHash } from '../../src/domain/audit/state-hash.ts';
 import { STYLE_BASE_TEXT } from '../../src/domain/scene/build-image-prompt.ts';
 import { FakeSceneImageGenerator } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
 import { ANDRES, ARGOS, HOUSEHOLD, canonicalState, createHarness } from '../fixtures/application-harness.ts';
@@ -314,6 +315,27 @@ describe('runSceneGeneration (T856): consentimiento, cambios y arrendamiento dur
     expect(await shrunk.execute(j, signal())).toBe('PUBLISHED');
     expect(sceneOf(t)).toMatchObject({ consumedGenerations: 1, quotaWindow: '2026-11' });
     expect((await t.get.execute(ANDRES, HOUSE)).quota).toMatchObject({ window: '2026-12', remaining: 10 });
+  });
+
+  it('[H-KEY-F5-7][INV-ESC6-004][INV-ESC6-005] cuota agotada en T2: intento FAILED con ERR-SCENE-GENERATION-FAILED sin descuento, imagen anterior intacta, y el motivo interno SCENE_QUOTA_AT_T2 solo en la auditoría (no es un ERR-* ni llega a la vista)', async () => {
+    const t = setup();
+    await t.run.execute(await requested(t, 1), signal());
+    const previous = sceneOf(t)?.image?.id ?? '';
+    await t.h.uow.runInTransaction(async (r) => {
+      const pet = (await r.pets.findById(ARGOS.id))!;
+      await r.pets.save({ ...pet, breed: 'Mestizo cambiado', breedCode: null });
+    });
+    t.h.clock.setClock('2026-11-05', at(120));
+    const j = await requested(t, 2);
+    t.hooked.during = async () => { await t.h.uow.runInTransaction(async (r) => { await r.scenes.raiseConsumed(j.sceneId, '2026-11', 10); }); };
+    expect(await t.run.execute(j, signal())).toBe('FAILED');
+    expect(snap(t).sceneAttempts?.[1]).toMatchObject({ phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED' });
+    expect(sceneOf(t)).toMatchObject({ consumedGenerations: 10, image: { id: previous }, runState: 'failed' });
+    expect(await t.get.execute(ANDRES, HOUSE)).toMatchObject({ status: 'failed', lastError: 'ERR-SCENE-GENERATION-FAILED', imageTag: previous });
+    const last = snap(t).auditLog.at(-1);
+    const attempt = snap(t).sceneAttempts![1]!;
+    expect(last?.newStateHash).toBe(stateHash({ event: 'SCENE_FAILED', householdRef: t.deps.auditPseudonym.hmacUserId(HOUSEHOLD.id, t.deps.auditHmacSecret), mode: attempt.mode, pets: JSON.parse(attempt.inputsSnapshot).pets.length, result: 'SCENE_QUOTA_AT_T2' }));
+    expect(JSON.stringify(snap(t).sceneAttempts)).not.toContain('SCENE_QUOTA_AT_T2');
   });
 
   it('[INV-ESC6-004] si la cuota del intento se agotó mientras corría, T2 no publica ni descuenta de más y la imagen anterior queda intacta', async () => {

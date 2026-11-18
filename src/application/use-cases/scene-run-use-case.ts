@@ -166,10 +166,10 @@ export class RunSceneGenerationUseCase {
       const current = await r.scenes.findById(scene.id);
       const live = await r.scenes.findAttemptById(attempt.id);
       const now = deps.clock.nowIsoTimestamp();
-      const finish = async (outcome: 'FAILED' | 'CANCELLED', code: SceneErrorCode | null) => {
+      const finish = async (outcome: 'FAILED' | 'CANCELLED', code: SceneErrorCode | null, internalReason?: string) => {
         if (live !== null && live.outcome === null && (await r.scenes.closeAttempt({ sceneId: scene.id, attemptId: attempt.id, outcome, errorCode: code, degraded, now }))) {
           await r.mediaQueue.enqueue(key, 'DELETE', now);
-          await this.audit(r, scene, attempt, 'SCENE_FAILED', code ?? outcome);
+          await this.audit(r, scene, attempt, 'SCENE_FAILED', internalReason ?? code ?? outcome);
         }
         return { outcome } as const;
       };
@@ -181,7 +181,8 @@ export class RunSceneGenerationUseCase {
       const owners = await this.dataOwners(r, current, snapshot, attempt.actorUserId);
       if (owners === null) return finish('CANCELLED', null);
       const quota = applyPublication({ consumed: current.consumedGenerations, window: current.quotaWindow, attemptWindow: attempt.quotaWindow, attemptMax: attempt.quotaMax });
-      if (!quota.allowed) return finish('FAILED', 'ERR-SCENE-GENERATION-FAILED');
+      // H-KEY-F5-7: el código visible es el estable; el motivo interno (no es un ERR-*) solo va a la auditoría.
+      if (!quota.allowed) return finish('FAILED', 'ERR-SCENE-GENERATION-FAILED', 'SCENE_QUOTA_AT_T2');
       const previous = await r.scenes.publishImage({
         sceneId: scene.id,
         attemptId: attempt.id,
