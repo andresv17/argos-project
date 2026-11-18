@@ -2,7 +2,7 @@
  * T778 [US5] el contrato del resumen como entrada de Fase 5 (REQ-SUM-006; SC-005-033): versionado, de esquema cerrado, sin datos de contacto, sin cambios en `package.json`
  * y compilando con Ajv 2020 junto a los esquemas anteriores. No se integra ningún proveedor de IA en 005 (cualquier envío a terceros es Nivel 2 y requiere `/rama`).
  */
-import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
@@ -13,8 +13,16 @@ import { ARGOS, canonicalState } from '../../fixtures/application-harness.ts';
 import { upgradePet, upgradeRecords } from '../../fixtures/storage-upgrade.ts';
 
 const ROOT = resolve(import.meta.dirname, '../../..');
-/** Último commit de la feature 004 antes de abrir la 005: `package.json` debe ser idéntico (NFR-005-004). */
-const BASE_004 = '44c83e0';
+/**
+ * SHA-256 de `package.json` y `package-lock.json` tal como estaban en el último commit de la feature 004 (44c83e0), fijados a mano (NFR-005-004).
+ * El contrato «sin SDK de IA ni dependencia nueva en 005» es el estado de 004. No se usa git en tiempo de ejecución porque el checkout de CI es superficial
+ * (fetch-depth 1) y 44c83e0 no existe allí. Cualquier cambio legítimo de dependencias debe actualizar estos hashes de forma consciente y autorizada.
+ * Se obtuvieron con `git show 44c83e0:<archivo> | shasum -a 256`.
+ */
+const PINNED_SHA256 = {
+  'package.json': 'ca9158d562ad27f30a7423c8776c55433400cea022ed8c16fca9743236baa88f',
+  'package-lock.json': 'cb1c84443f10107c56e0486b3084aba191a0d95fcbe490a95779c1232038ef25',
+} as const;
 const SCHEMA_FILE = join(ROOT, 'specs/005-album-archivos-clinicos/contracts/schemas/clinical-summary.schema.json');
 const schema = JSON.parse(readFileSync(SCHEMA_FILE, 'utf8')) as Record<string, unknown>;
 
@@ -73,8 +81,10 @@ describe('T778 contrato del resumen versionado y cerrado (REQ-SUM-006, SC-005-03
   it('[REQ-SUM-006][SC-005-033] no hay dependencia nueva: package.json es idéntico al de la feature 004 y no se integra ningún proveedor de IA', () => {
     const pkg = readFileSync(join(ROOT, 'package.json'), 'utf8');
     expect(pkg).not.toMatch(/openai|@anthropic-ai|@google\/generative-ai|@google-cloud\/vertexai|langchain|cohere|mistral/i);
-    const diff = execFileSync('git', ['diff', '--name-only', BASE_004, '--', 'package.json', 'package-lock.json'], { cwd: ROOT, encoding: 'utf8' });
-    expect(diff.trim()).toBe('');
+    for (const [file, expected] of Object.entries(PINNED_SHA256)) {
+      const actual = createHash('sha256').update(readFileSync(join(ROOT, file))).digest('hex');
+      expect({ file, sha256: actual }).toEqual({ file, sha256: expected });
+    }
   });
 
   it('[REQ-SUM-006][SC-005-033] los cuatro esquemas de la 005 compilan con Ajv 2020 estricto junto a los de la 004 y sus $ref externos resuelven', () => {
