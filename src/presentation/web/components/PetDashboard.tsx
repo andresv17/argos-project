@@ -5,7 +5,7 @@
  * Regla D2: el `open` del bloque de alta es estado local, fijado una sola vez al mostrar el módulo por primera vez
  * (abierto si no hay registros) y que solo cambia el usuario; guardar nunca lo cierra.
  *
- * @implements REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, STATE-ALERT-001
+ * @implements REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, STATE-ALERT-001, REQ-CLI5-001, SC-005-010
  */
 import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { AlertBadge } from './AlertBadge.tsx';
@@ -461,7 +461,14 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
         ) : null}
         <ModuleContent module={activeSpec.id} dashboard={dashboard} canWrite={canWrite} {...(recordActions === undefined ? {} : { actions: recordActions })} />
       </section>
-      {editSlot === undefined ? mediaSlot : null}
+      {editSlot === undefined && mediaSlot !== undefined ? (
+        <section aria-labelledby="history-files-title" className="grid min-w-0 gap-3">
+          <h3 id="history-files-title" className="text-lg font-semibold">
+            Historial / Archivos
+          </h3>
+          {mediaSlot}
+        </section>
+      ) : null}
     </article>
   );
 }

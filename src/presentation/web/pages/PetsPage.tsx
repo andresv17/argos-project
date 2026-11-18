@@ -2,7 +2,7 @@
  * Pantalla principal: selector de contexto, filtro, tarjetas y ficha de la mascota activa. Todos los datos
  * llegan de la API; la página solo orquesta peticiones y estado de pantalla.
  *
- * @implements REQ-UI-001, REQ-UI-002, REQ-UI-007, REQ-PET-004
+ * @implements REQ-UI-001, REQ-UI-002, REQ-UI-007, REQ-PET-004, REQ-CLI5-001
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebouncedValue } from '../use-debounced-value.ts';
@@ -13,7 +13,7 @@ import { PetCardList, PetFilter } from '../components/PetCards.tsx';
 import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
 import { AvatarEditor } from '../components/AvatarCropper.tsx';
-import { MediaPanel } from '../components/MediaPanel.tsx';
+import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { Link } from 'react-router-dom';
 import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
@@ -243,7 +243,7 @@ export function PetsPage(): JSX.Element {
                   : {})}
                 mediaSlot={
                   <>
-                    <MediaPanel
+                    <ClinicalFilesPanel
                       key={`media-${dashboard.profile.id}`}
                       petId={dashboard.profile.id}
                       canUpload={dashboard.permissions.writeHealthEvents}

@@ -1,7 +1,7 @@
 /**
  * Lógica de presentación de los medios, sin React: tipos aceptados, textos de error, renovación proactiva de la URL firmada y paginación del álbum.
  *
- * @implements REQ-ARC-001, REQ-ARC-003, REQ-ALB-001, INV-ARC-004, REQ-ALB5-002, REQ-ALB5-005
+ * @implements REQ-ARC-001, REQ-ARC-003, REQ-ALB-001, INV-ARC-004, REQ-ALB5-002, REQ-ALB5-005, REQ-CLI5-001, SC-005-007, SC-005-008
  */
 import { ERROR_CATALOG, type ErrorCode } from '../../generated/errors/error-codes.ts';
 
@@ -32,6 +32,24 @@ const isCode = (code: string): code is ErrorCode => Object.prototype.hasOwnPrope
 export function mediaProblemMessage(code: string | undefined): string {
   if (code === undefined) return GENERIC_MESSAGE;
   return MEDIA_MESSAGES[code] ?? ALBUM_MESSAGES[code] ?? (isCode(code) ? ERROR_CATALOG[code].detailTemplate : GENERIC_MESSAGE);
+}
+
+/**
+ * Textos del panel «Archivos» de «Historial / Archivos» (T732, `/sati` S2): el 415 y la cuota hablan de archivos clínicos; el resto de códigos usa los textos comunes.
+ * La cuota la comparten álbum y archivos (REQ-CLI5-003), por eso el texto remite a «archivos o fotos».
+ */
+export const CLINICAL_FILES_MESSAGES: Readonly<Record<string, string>> = {
+  'ERR-MEDIA-TYPE-NOT-ALLOWED': 'Ese formato no se admite. Usa PDF, JPEG, PNG o WebP.',
+  'ERR-MEDIA-QUOTA-EXCEEDED': 'No hay espacio suficiente en tu cuota. Elimina archivos o fotos para liberar espacio.',
+};
+export const clinicalFilesMessage = (code: string | undefined): string => (code === undefined ? mediaProblemMessage(code) : CLINICAL_FILES_MESSAGES[code] ?? mediaProblemMessage(code));
+
+const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'] as const;
+/** Fecha de subida «12 nov 2026» a partir del instante ISO (día UTC; no es la fecha del examen, D5-04). */
+export function uploadDateText(iso: string): string {
+  const [year = '', month = '', day = ''] = iso.slice(0, 10).split('-');
+  const name = MONTHS[Number(month) - 1];
+  return name === undefined ? iso.slice(0, 10) : `${Number(day)} ${name} ${year}`;
 }
 
 export const ALBUM_PAGE_SIZE = 24;
