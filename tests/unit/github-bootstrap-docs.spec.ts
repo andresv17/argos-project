@@ -10,10 +10,11 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 const read = (p: string): string => readFileSync(join(root, p), 'utf8');
 
-const SECRETOS = ['TF_VAR_database_url', 'TF_VAR_audit_hmac_secret', 'DATABASE_URL_DIRECT'];
+const SECRETOS = ['TF_VAR_database_url', 'TF_VAR_audit_hmac_secret', 'TF_VAR_share_ip_hmac_secret', 'DATABASE_URL_DIRECT'];
 const VARIABLES = [
   'TF_VAR_project_id', 'TF_VAR_region', 'TF_VAR_custom_domain', 'TF_VAR_billing_account',
   'GCP_WIF_PROVIDER', 'GCP_DEPLOY_SA', 'GCP_TERRAFORM_SA', 'GCP_TERRAFORM_PLAN_SA', 'TF_STATE_BUCKET',
+  'ARGOS_PUBLIC_BASE_URL',
 ];
 const DOCS = ['terraform/README.md', 'specs/003-cloud-gcp/quickstart.md'];
 
