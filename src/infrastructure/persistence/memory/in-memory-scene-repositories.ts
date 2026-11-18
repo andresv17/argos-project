@@ -20,7 +20,18 @@ export interface SceneQuotaCarryRow {
 }
 
 /** Parte de `MemoryState` que usa la escena. */
+/** `household_photos` (data-model.md §2.4): sin nombre original; cuenta en la cuota de 1 GiB del propietario del hogar (REQ-ESC6-018). */
+export interface HouseholdPhotoRow {
+  readonly householdId: string;
+  readonly objectId: string;
+  readonly mime: 'image/jpeg' | 'image/png' | 'image/webp';
+  readonly sizeBytes: number;
+  readonly uploadedByUserId: string;
+  readonly createdAt: string;
+}
+
 export interface SceneMemoryState {
+  householdPhotos?: HouseholdPhotoRow[];
   scenes?: SceneRecord[];
   sceneAttempts?: SceneAttemptRecord[];
   sceneConsents?: SceneConsentRecord[];

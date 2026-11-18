@@ -181,7 +181,10 @@ export interface PetMediaRepositoryPort {
   listPage(petId: string, kind: MediaKind | null, limit: number, offset: number): Promise<{ readonly items: PetMediaRecord[]; readonly total: number }>;
   /** Número de filas de la mascota de ese tipo (`PHOTO` = álbum, `FILE` = archivos clínicos); 0 si no hay ninguna o la mascota no existe (REQ-ALB5-002). */
   countByPetAndKind(petId: string, kind: MediaKind): Promise<number>;
-  /** Suma de `size_bytes` de todas las mascotas del propietario legal; el avatar no cuenta (REQ-ARC-005). */
+  /**
+   * Suma de `size_bytes` de todas las mascotas del propietario legal más la foto de los hogares que posee (`households.owner_user_id`); el avatar y las escenas no
+   * cuentan (REQ-ARC-005; enmienda MINOR (c) de N2-06, REQ-ESC6-018). Quien sube la foto del hogar no es el que la consume: cuenta el propietario del hogar.
+   */
   countBytesOfOwner(ownerUserId: string): Promise<number>;
   /** Borra la fila de esa mascota con ese id; true si existía. */
   remove(petId: string, mediaId: string): Promise<boolean>;

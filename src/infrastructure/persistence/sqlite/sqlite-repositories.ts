@@ -461,7 +461,7 @@ function mediaRepository(db: SqliteDatabase): PetMediaRepositoryPort {
   const page = db.prepare<[string, string | null, string | null, number, number], MediaRow>(`SELECT ${columns} FROM pet_media WHERE pet_id = ? AND (? IS NULL OR kind = ?) ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`);
   const total = db.prepare<[string, string | null, string | null], { n: number }>('SELECT count(*) AS n FROM pet_media WHERE pet_id = ? AND (? IS NULL OR kind = ?)');
   const countKind = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM pet_media WHERE pet_id = ? AND kind = ?');
-  const bytes = db.prepare<[string], { n: number }>('SELECT COALESCE(SUM(m.size_bytes), 0) AS n FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = ?');
+  const bytes = db.prepare<[string, string], { n: number }>('SELECT COALESCE((SELECT SUM(m.size_bytes) FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = ?), 0) + COALESCE((SELECT SUM(h.size_bytes) FROM household_photos h JOIN households g ON g.id = h.household_id WHERE g.owner_user_id = ?), 0) AS n');
   const remove = db.prepare('DELETE FROM pet_media WHERE id = ? AND pet_id = ?');
   const inPets = db.prepare<[string, string], MediaRow>(`SELECT ${columns} FROM pet_media WHERE id = ? AND pet_id IN (SELECT value FROM json_each(?))`);
   const countMedia = db.prepare<[string, string], { n: number }>('SELECT (SELECT count(*) FROM pet_media WHERE pet_id IN (SELECT value FROM json_each(?))) + (SELECT count(*) FROM pets WHERE id IN (SELECT value FROM json_each(?)) AND avatar_object_id IS NOT NULL) AS n');
@@ -480,7 +480,7 @@ function mediaRepository(db: SqliteDatabase): PetMediaRepositoryPort {
       return countKind.get(petId, kind)!.n;
     },
     async countBytesOfOwner(ownerUserId) {
-      return bytes.get(ownerUserId)!.n;
+      return bytes.get(ownerUserId, ownerUserId)!.n;
     },
     async remove(petId, mediaId) {
       return remove.run(mediaId, petId).changes === 1;

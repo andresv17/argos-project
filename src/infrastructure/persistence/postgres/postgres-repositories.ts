@@ -400,7 +400,7 @@ function mediaRepository(client: PoolClientLike): PetMediaRepositoryPort {
       return count(rows[0]);
     },
     async countBytesOfOwner(ownerUserId) {
-      const { rows } = await client.query('SELECT COALESCE(SUM(m.size_bytes), 0) AS n FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = $1', [ownerUserId]);
+      const { rows } = await client.query('SELECT COALESCE((SELECT SUM(m.size_bytes) FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = $1), 0) + COALESCE((SELECT SUM(h.size_bytes) FROM household_photos h JOIN households g ON g.id = h.household_id WHERE g.owner_user_id = $1), 0) AS n', [ownerUserId]);
       return count(rows[0]);
     },
     async remove(petId, mediaId) {

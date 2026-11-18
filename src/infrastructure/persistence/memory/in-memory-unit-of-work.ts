@@ -114,6 +114,7 @@ export function emptyMemoryState(): MemoryState {
     sceneAttempts: [],
     sceneConsents: [],
     sceneQuotaCarry: [],
+    householdPhotos: [],
   };
 }
 
@@ -337,7 +338,9 @@ function mediaRepository(state: MemoryState): PetMediaRepositoryPort {
     },
     async countBytesOfOwner(ownerUserId) {
       const owned = new Set(state.pets.filter((p) => p.ownerUserId === ownerUserId).map((p) => p.id));
-      return state.media.filter((m) => owned.has(m.petId)).reduce((sum, m) => sum + m.sizeBytes, 0);
+      const ownedHouseholds = new Set(state.households.filter((h) => h.ownerUserId === ownerUserId).map((h) => h.id));
+      const photos = (state.householdPhotos ?? []).filter((h) => ownedHouseholds.has(h.householdId)).reduce((sum, h) => sum + h.sizeBytes, 0);
+      return state.media.filter((m) => owned.has(m.petId)).reduce((sum, m) => sum + m.sizeBytes, 0) + photos;
     },
     async findInPets(petIds, mediaId) {
       const wanted = new Set(petIds);
