@@ -1378,3 +1378,4 @@
 - 2026-11-18 | Keymaker | T821 REQ-CLD-002 120 s / 1 GiB + cloud_run.tf (t820 verde, terraform-* verdes, tsc 0, sin apply); sin push ni [x].
 - 2026-11-18 | Keymaker | T822 pruebas rojas presupuesto 5 USD/22500 COP (5 rojas, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T823 NFR-CLD-001 5 USD/22500 COP + budget.tf/variables.tf (t822 verde, suite solo con rojos T813/T815, tsc 0; T824 pendiente de Neo); sin push ni [x].
+- 2026-11-18 | Keymaker | T826 pruebas rojas pureza de capas/entropia de la escena (2 rojas hasta T827, tsc 0, gates CUMPLE); sin push ni [x].

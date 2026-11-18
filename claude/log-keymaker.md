@@ -1365,3 +1365,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T823 enmienda de NFR-CLD-001, budget.tf y variables.tf (N2-05, N2-04) (sin push, sin [x])
 - spec 003 NFR-CLD-001 (5 USD, Enmienda 006, filtro por proyecto, solo avisa, Neo verifica moneda); budget.tf (filtro projects/<número>, display_name sin «1-usd», comentario) y variables.tf (budget_units 22500, descripciones). terraform-budget.spec: 4500 -> 22500 y filtro por proyecto. README de terraform al día.
 - Verde: t822 7/7, terraform-* 18 archivos; suite completa solo con rojos documentados (T813 x5, T815 x18). T824 queda para Neo (moneda real); no se ejecutó gcloud/terraform. 22500 COP por defecto hasta su confirmación.
+
+## 2026-11-18 Keymaker: T826 pruebas rojas de pureza de capas y entropia de la escena (INV-ESC6-001/002) (sin push, sin [x])
+- Nuevo tests/unit/t826-pureza-escena-006.spec.ts: detectores de Date/entropia/node:/fs/fetch/SDK/process.env con autoprueba; src/domain/scene (vacio hasta Fase 4) sin entropia, sin node:, solo generated/v34; src/application sin fs/fetch/SDK/env; los 4 archivos de puertos de escena existen, exportados en el indice y solo con import type.
+- Rojo 2/9 (puertos de escena inexistentes hasta T827); tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
