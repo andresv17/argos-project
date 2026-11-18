@@ -1364,3 +1364,4 @@
 - 2026-11-18 | Keymaker | T805 test:gate y test-gate.yml con 006: t805 9/9, gates y workflow 80/80; sin push ni [x].
 - 2026-11-18 | Keymaker | pin sha256 de package.json en t778 actualizado por T805; suite completa verde salvo ese pin (ahora verde); T806/T807 bloqueadas por alcance; sin push ni [x].
 - 2026-11-18 | Keymaker | T806 deploy-argos.yml (ARGOS_SCENE_* fake) y T807 bootstrap.sh (cloudtasks admin/viewer): rojas b0ab49c, verdes bc043bb; sin push ni [x].
+- 2026-11-18 | Keymaker | T809 pruebas rojas esquema auditoría 004 (11 rojas, tsc 0); sin push ni [x].

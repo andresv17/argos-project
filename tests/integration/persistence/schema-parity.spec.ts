@@ -25,6 +25,8 @@ const PLATFORM_PATH = new URL('../../../src/infrastructure/persistence/postgres/
 
 /** T766 (005): la 0008 de Postgres equivale a la 0012 de SQLite (`share_links` y `share_link_audit`, REQ-VET-003..005, REQ-VET-010, REQ-VET-013). */
 const SHARE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0008_share_links.sql', import.meta.url);
+/** T809/T810 (006, N2-06 (a)): la 0009 de Postgres equivale a la 0013 de SQLite (por ahora solo el CHECK de `audit_log.entity_type`; T832/T833 añaden las tablas de la escena). */
+const HOME_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0009_home_scenes.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
@@ -204,7 +206,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH)]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -242,6 +244,15 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     for (const [name, lite] of sqlite.tables) expect(pg.tables.get(name)!.checks, `CHECK de ${name}`).toEqual(lite.checks);
     expect(sqlite.tables.get('pets')!.checks.some((c) => c.includes("microchip_id ~ '^[0-9]{15}$'"))).toBe(true);
     expect(sqlite.tables.get('weights')!.checks).toContain('weight_grams BETWEEN 1 AND 150000');
+  });
+
+  it('T809 (006, N2-06 (a)): el CHECK de audit_log.entity_type admite HOME_SCENE, SCENE_CONSENT y HOUSEHOLD_PHOTO en ambos motores y es el mismo', () => {
+    const pg = postgresSchema([HOME_PATH]);
+    const liteChecks = sqlite.tables.get('audit_log')!.checks;
+    const pgChecks = pg.tables.get('audit_log')!.checks;
+    expect(pgChecks).toEqual(liteChecks);
+    const entityCheck = liteChecks.find((c) => c.startsWith('entity_type IN '))!;
+    for (const value of ['HOME_SCENE', 'SCENE_CONSENT', 'HOUSEHOLD_PHOTO', 'PET_MEDIA']) expect(entityCheck, value).toContain(`'${value}'`);
   });
 
   it('[T555] la lista canónica de índices coincide con la de ambos esquemas (sin pets_owner_microchip; con users_username_lower y pets_microchip_global)', () => {

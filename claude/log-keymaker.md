@@ -1307,3 +1307,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Pruebas rojas b0ab49c: t806-deploy-argos-escena-006.spec.ts (3/5 rojas) y t807-bootstrap-cloudtasks-006.spec.ts (3/4 rojas).
 - Implementación bc043bb: deploy-argos.yml añade ARGOS_SCENE_* (DRIVER=fake fijo, nunca real; WORKER_URL=${PUBLIC_BASE_URL}/internal/scene-worker; sin secretos nuevos, ARGOS_SHARE_* intactas); bootstrap.sh añade roles/cloudtasks.viewer (plan) y cloudtasks.admin (apply) en los bucles existentes (idempotentes).
 - Hallazgo: plan §1.3 exige driver real en producción y fake falla al arrancar allí; con N2-10 (no merge a main hasta la compuerta real) queda como riesgo R-LINK-006-3 aceptado. Sin push, sin [x], nada ejecutado.
+
+## 2026-11-18 Keymaker: T809 pruebas rojas esquema de auditoría 004 (N2-06 (a)) (sin push, sin [x])
+- Creado tests/integration/contracts/t809-auditoria-escena-006.spec.ts (contrato 3.2.0, generado v31/v33/v34, adaptador en memoria, CHECK SQLite 0013 y texto Postgres 0009) y un `it` nuevo en schema-parity.spec.ts (`postgresSchema(extra)` con parámetro opcional, sin cambio de comportamiento).
+- Rojo: 11 fallan, 15 pasan (tsc 0). AuditMutationType no cambia (mapeo a CREATE/UPDATE/DELETE existentes, data-model §8). Evidencia: claude/evidencia-fase2-006-2026-11-18.md.
+- Decisión: el CHECK de audit_log (M-3) se entrega en T810 como migraciones 0013 (SQLite) y 0009 (Postgres) con solo la reconstrucción; T832/T833 añaden las tablas al mismo archivo.
