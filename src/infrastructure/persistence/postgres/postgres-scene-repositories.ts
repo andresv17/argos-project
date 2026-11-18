@@ -112,6 +112,59 @@ export function postgresSceneRepository(client: PoolClientLike): SceneRepository
         householdPhotoValues(photo),
       );
     },
+    async findImageSources(sceneId) {
+      const { rows } = await client.query('SELECT owner_user_id FROM scene_image_sources WHERE scene_id = $1 ORDER BY owner_user_id', [sceneId]);
+      return rows.map((row) => String(row['owner_user_id']));
+    },
+    async replaceImageSources(sceneId, ownerUserIds) {
+      await client.query('DELETE FROM scene_image_sources WHERE scene_id = $1', [sceneId]);
+      for (const owner of new Set(ownerUserIds)) await client.query('INSERT INTO scene_image_sources (scene_id, owner_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [sceneId, owner]);
+    },
+    async retireImage(sceneId, now) {
+      const { rows } = await client.query('SELECT image_id FROM home_scenes WHERE id = $1', [sceneId]);
+      const id = rows[0]?.['image_id'] === null || rows[0] === undefined ? null : String(rows[0]['image_id']);
+      await client.query('DELETE FROM scene_image_sources WHERE scene_id = $1', [sceneId]);
+      if (id === null) return null;
+      await client.query(
+        'UPDATE home_scenes SET image_id = NULL, image_mime = NULL, image_size_bytes = NULL, image_fingerprint = NULL, image_inputs_snapshot = NULL, image_created_at = NULL, image_degraded = 0, updated_at = $1 WHERE id = $2 AND image_id IS NOT NULL',
+        [now, sceneId],
+      );
+      return id;
+    },
+    async cancelInFlight(sceneId, now) {
+      const { rows } = await client.query(
+        "SELECT s.current_attempt_id AS current_attempt_id, a.result_object_id AS result_object_id FROM home_scenes s JOIN scene_attempts a ON a.id = s.current_attempt_id WHERE s.id = $1 AND s.run_state = 'generating'",
+        [sceneId],
+      );
+      const row = rows[0];
+      if (row === undefined) return null;
+      await client.query("UPDATE scene_attempts SET phase = 'DONE', outcome = 'CANCELLED', finished_at = $1 WHERE id = $2 AND outcome IS NULL", [now, row['current_attempt_id']]);
+      await client.query('UPDATE home_scenes SET run_state = NULL, current_attempt_id = NULL, lease_expires_at = NULL, updated_at = $1 WHERE id = $2', [now, sceneId]);
+      return { attemptId: String(row['current_attempt_id']), resultObjectId: String(row['result_object_id']) };
+    },
+    async adoptOwnerScene(ownerUserId, householdId, now) {
+      const { rows } = await client.query('SELECT id FROM home_scenes WHERE owner_user_id = $1', [ownerUserId]);
+      if (rows[0] === undefined) return null;
+      const id = String(rows[0]['id']);
+      await client.query('DELETE FROM home_scenes WHERE household_id = $1 AND id <> $2', [householdId, id]);
+      await client.query('UPDATE home_scenes SET household_id = $1, owner_user_id = NULL, updated_at = $2 WHERE id = $3', [householdId, now, id]);
+      return id;
+    },
+    async raiseConsumed(sceneId, quotaWindow, consumed) {
+      await client.query('UPDATE home_scenes SET consumed_generations = $1 WHERE id = $2 AND quota_window = $3 AND consumed_generations < $1', [consumed, sceneId, quotaWindow]);
+    },
+    async deleteScene(sceneId) {
+      await client.query('DELETE FROM home_scenes WHERE id = $1', [sceneId]);
+    },
+    async deleteHouseholdPhoto(householdId) {
+      await client.query('DELETE FROM household_photos WHERE household_id = $1', [householdId]);
+    },
+    async pseudonymizeUser(userId, pseudonym) {
+      await client.query('DELETE FROM scene_image_sources WHERE owner_user_id = $1 AND scene_id IN (SELECT scene_id FROM scene_image_sources WHERE owner_user_id = $2)', [userId, pseudonym]);
+      await client.query('UPDATE scene_image_sources SET owner_user_id = $1 WHERE owner_user_id = $2', [pseudonym, userId]);
+      await client.query('UPDATE household_photos SET uploaded_by_user_id = $1 WHERE uploaded_by_user_id = $2', [pseudonym, userId]);
+      await client.query('UPDATE scene_attempts SET actor_user_id = $1 WHERE actor_user_id = $2', [pseudonym, userId]);
+    },
   };
 }
 

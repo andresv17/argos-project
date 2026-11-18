@@ -57,6 +57,28 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
   const putPhoto = db.prepare(
     `INSERT INTO household_photos (${HOUSEHOLD_PHOTO_COLUMN_LIST}) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (household_id) DO UPDATE SET object_id = excluded.object_id, mime = excluded.mime, size_bytes = excluded.size_bytes, uploaded_by_user_id = excluded.uploaded_by_user_id, created_at = excluded.created_at`,
   );
+  const sourcesOf = db.prepare<[string], { owner_user_id: string }>('SELECT owner_user_id FROM scene_image_sources WHERE scene_id = ? ORDER BY owner_user_id');
+  const clearSources = db.prepare('DELETE FROM scene_image_sources WHERE scene_id = ?');
+  const addSource = db.prepare('INSERT OR IGNORE INTO scene_image_sources (scene_id, owner_user_id) VALUES (?, ?)');
+  const imageOf = db.prepare<[string], { image_id: string | null }>('SELECT image_id FROM home_scenes WHERE id = ?');
+  const retire = db.prepare(
+    'UPDATE home_scenes SET image_id = NULL, image_mime = NULL, image_size_bytes = NULL, image_fingerprint = NULL, image_inputs_snapshot = NULL, image_created_at = NULL, image_degraded = 0, updated_at = ? WHERE id = ? AND image_id IS NOT NULL',
+  );
+  const inFlight = db.prepare<[string], { current_attempt_id: string; result_object_id: string }>(
+    "SELECT s.current_attempt_id AS current_attempt_id, a.result_object_id AS result_object_id FROM home_scenes s JOIN scene_attempts a ON a.id = s.current_attempt_id WHERE s.id = ? AND s.run_state = 'generating'",
+  );
+  const cancelAttempt = db.prepare("UPDATE scene_attempts SET phase = 'DONE', outcome = 'CANCELLED', finished_at = ? WHERE id = ? AND outcome IS NULL");
+  const idleScene = db.prepare('UPDATE home_scenes SET run_state = NULL, current_attempt_id = NULL, lease_expires_at = NULL, updated_at = ? WHERE id = ?');
+  const ownerScene = db.prepare<[string], { id: string }>('SELECT id FROM home_scenes WHERE owner_user_id = ?');
+  const dropOtherOfHousehold = db.prepare('DELETE FROM home_scenes WHERE household_id = ? AND id <> ?');
+  const adopt = db.prepare('UPDATE home_scenes SET household_id = ?, owner_user_id = NULL, updated_at = ? WHERE id = ?');
+  const raise = db.prepare('UPDATE home_scenes SET consumed_generations = ? WHERE id = ? AND quota_window = ? AND consumed_generations < ?');
+  const dropScene = db.prepare('DELETE FROM home_scenes WHERE id = ?');
+  const dropPhoto = db.prepare('DELETE FROM household_photos WHERE household_id = ?');
+  const pseudoSourcesDelete = db.prepare('DELETE FROM scene_image_sources WHERE owner_user_id = ?');
+  const pseudoSources = db.prepare('UPDATE OR IGNORE scene_image_sources SET owner_user_id = ? WHERE owner_user_id = ?');
+  const pseudoPhotos = db.prepare('UPDATE household_photos SET uploaded_by_user_id = ? WHERE uploaded_by_user_id = ?');
+  const pseudoAttempts = db.prepare('UPDATE scene_attempts SET actor_user_id = ? WHERE actor_user_id = ?');
   return {
     async findById(sceneId) {
       const row = byId.get(sceneId);
@@ -122,6 +144,49 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
     },
     async putHouseholdPhoto(photo) {
       putPhoto.run(...householdPhotoValues(photo));
+    },
+    async findImageSources(sceneId) {
+      return sourcesOf.all(sceneId).map((r) => r.owner_user_id);
+    },
+    async replaceImageSources(sceneId, ownerUserIds) {
+      clearSources.run(sceneId);
+      for (const owner of new Set(ownerUserIds)) addSource.run(sceneId, owner);
+    },
+    async retireImage(sceneId, now) {
+      const id = imageOf.get(sceneId)?.image_id ?? null;
+      clearSources.run(sceneId);
+      if (id === null) return null;
+      retire.run(now, sceneId);
+      return id;
+    },
+    async cancelInFlight(sceneId, now) {
+      const row = inFlight.get(sceneId);
+      if (row === undefined) return null;
+      cancelAttempt.run(now, row.current_attempt_id);
+      idleScene.run(now, sceneId);
+      return { attemptId: row.current_attempt_id, resultObjectId: row.result_object_id };
+    },
+    async adoptOwnerScene(ownerUserId, householdId, now) {
+      const own = ownerScene.get(ownerUserId);
+      if (own === undefined) return null;
+      dropOtherOfHousehold.run(householdId, own.id);
+      adopt.run(householdId, now, own.id);
+      return own.id;
+    },
+    async raiseConsumed(sceneId, quotaWindow, consumed) {
+      raise.run(consumed, sceneId, quotaWindow, consumed);
+    },
+    async deleteScene(sceneId) {
+      dropScene.run(sceneId);
+    },
+    async deleteHouseholdPhoto(householdId) {
+      dropPhoto.run(householdId);
+    },
+    async pseudonymizeUser(userId, pseudonym) {
+      pseudoSources.run(pseudonym, userId);
+      pseudoSourcesDelete.run(userId); // restos: filas que ya tenían el seudónimo en esa escena
+      pseudoPhotos.run(pseudonym, userId);
+      pseudoAttempts.run(pseudonym, userId);
     },
   };
 }

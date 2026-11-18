@@ -115,6 +115,33 @@ export class NullSceneRepository implements SceneRepository {
   putHouseholdPhoto(_photo: HouseholdPhotoRecord): Promise<void> {
     return Promise.resolve();
   }
+  findImageSources(_sceneId: string): Promise<string[]> {
+    return Promise.resolve([]);
+  }
+  replaceImageSources(_sceneId: string, _ownerUserIds: readonly string[]): Promise<void> {
+    return Promise.resolve();
+  }
+  retireImage(_sceneId: string, _now: string): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+  cancelInFlight(_sceneId: string, _now: string): Promise<{ readonly attemptId: string; readonly resultObjectId: string } | null> {
+    return Promise.resolve(null);
+  }
+  adoptOwnerScene(_ownerUserId: string, _householdId: string, _now: string): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+  raiseConsumed(_sceneId: string, _quotaWindow: string, _consumed: number): Promise<void> {
+    return Promise.resolve();
+  }
+  deleteScene(_sceneId: string): Promise<void> {
+    return Promise.resolve();
+  }
+  deleteHouseholdPhoto(_householdId: string): Promise<void> {
+    return Promise.resolve();
+  }
+  pseudonymizeUser(_userId: string, _pseudonym: string): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 export class NullSceneConsentRepository implements SceneConsentRepository {

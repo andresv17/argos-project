@@ -134,6 +134,29 @@ export interface SceneRepository {
   findHouseholdPhoto(householdId: string): Promise<HouseholdPhotoRecord | null>;
   /** Reemplaza (o crea) la foto del hogar. */
   putHouseholdPhoto(photo: HouseholdPhotoRecord): Promise<void>;
+
+  // --- Ciclo de vida y privacidad (T862..T868): los ganchos de 002/004/005 solo escriben filas, en la transacción de la causa (plan.md §1.2, regla 1). ---
+  /** Usuarios cuyos datos aportaron a la imagen vigente (`scene_image_sources`), sin duplicados y en orden ascendente. */
+  findImageSources(sceneId: string): Promise<string[]>;
+  /** Reemplaza completo el conjunto de fuentes de la imagen vigente (se vacía al retirarla). */
+  replaceImageSources(sceneId: string, ownerUserIds: readonly string[]): Promise<void>;
+  /** Retira la imagen vigente (`image_*` a NULL, `image_degraded` a 0) y vacía las fuentes; conserva cuota y estado. Devuelve el `image_id` retirado o `null` si no había. */
+  retireImage(sceneId: string, now: string): Promise<string | null>;
+  /** Cancela el intento en vuelo (`run_state = 'generating'`): intento `DONE`/`CANCELLED`, escena sin `run_state`; devuelve su `result_object_id` o `null` si no había intento en vuelo. */
+  cancelInFlight(sceneId: string, now: string): Promise<{ readonly attemptId: string; readonly resultObjectId: string } | null>;
+  /**
+   * `D6-09` (EDGE-ESC6-030): la escena sin hogar del propietario pasa a ser la del hogar (`household_id := :h`, `owner_user_id := NULL`; imagen y cuota migran sin llamar a la IA).
+   * Si el hogar ya tenía otra escena (sin imagen) se elimina y se conserva la migrada. Devuelve el id de la escena migrada o `null` si el propietario no tenía escena.
+   */
+  adoptOwnerScene(ownerUserId: string, householdId: string, now: string): Promise<string | null>;
+  /** Sube `consumed_generations` a `max(actual, consumed)` solo si la escena está en esa ventana (arrastre de cuota, EDGE-ESC6-033). */
+  raiseConsumed(sceneId: string, quotaWindow: string, consumed: number): Promise<void>;
+  /** Borra la escena con sus intentos y fuentes (cascada); no toca la cola de borrado: la encola el gancho antes. */
+  deleteScene(sceneId: string): Promise<void>;
+  /** Borra la foto del hogar (idempotente). */
+  deleteHouseholdPhoto(householdId: string): Promise<void>;
+  /** Seudonimiza (HMAC) al usuario en `scene_image_sources.owner_user_id`, `household_photos.uploaded_by_user_id` y `scene_attempts.actor_user_id` (B10; REQ-ESC6-029). */
+  pseudonymizeUser(userId: string, pseudonym: string): Promise<void>;
 }
 
 /** Fila lógica de `scene_consents` (data-model.md §2.7). Se conserva al retirarlo (prueba de la retirada). */

@@ -27,6 +27,13 @@ export interface SceneMemoryState {
   sceneAttempts?: SceneAttemptRecord[];
   sceneConsents?: SceneConsentRecord[];
   sceneQuotaCarry?: SceneQuotaCarryRow[];
+  /** `scene_image_sources`: de qué dueños proviene la imagen vigente. */
+  sceneImageSources?: SceneImageSourceRow[];
+}
+
+export interface SceneImageSourceRow {
+  readonly sceneId: string;
+  readonly ownerUserId: string;
 }
 
 const copy = <T>(value: T): T => structuredClone(value);
@@ -36,6 +43,7 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
   const attempts = (): SceneAttemptRecord[] => (state.sceneAttempts ??= []);
   const carry = (): SceneQuotaCarryRow[] => (state.sceneQuotaCarry ??= []);
   const photos = (): HouseholdPhotoRecord[] => (state.householdPhotos ??= []);
+  const sources = (): SceneImageSourceRow[] => (state.sceneImageSources ??= []);
   const replaceScene = (id: string, change: Partial<SceneRecord>): void => {
     state.scenes = scenes().map((s) => (s.id === id ? { ...s, ...change } : s));
   };
@@ -136,6 +144,56 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
     },
     async putHouseholdPhoto(photo) {
       state.householdPhotos = [...photos().filter((p) => p.householdId !== photo.householdId), copy(photo)];
+    },
+    async findImageSources(sceneId) {
+      return sources().filter((x) => x.sceneId === sceneId).map((x) => x.ownerUserId).sort();
+    },
+    async replaceImageSources(sceneId, ownerUserIds) {
+      state.sceneImageSources = [...sources().filter((x) => x.sceneId !== sceneId), ...[...new Set(ownerUserIds)].map((ownerUserId) => ({ sceneId, ownerUserId }))];
+    },
+    async retireImage(sceneId, now) {
+      const scene = scenes().find((s) => s.id === sceneId);
+      state.sceneImageSources = sources().filter((x) => x.sceneId !== sceneId);
+      if (scene === undefined || scene.image === null) return null;
+      replaceScene(sceneId, { image: null, imageDegraded: false, updatedAt: now });
+      return scene.image.id;
+    },
+    async cancelInFlight(sceneId, now) {
+      const scene = scenes().find((s) => s.id === sceneId);
+      if (scene === undefined || scene.runState !== 'generating' || scene.currentAttemptId === null) return null;
+      const attempt = attempts().find((a) => a.id === scene.currentAttemptId);
+      if (attempt !== undefined) replaceAttempt(attempt.id, { phase: 'DONE', outcome: 'CANCELLED', finishedAt: now });
+      replaceScene(sceneId, { runState: null, currentAttemptId: null, leaseExpiresAt: null, updatedAt: now });
+      return attempt === undefined ? null : { attemptId: attempt.id, resultObjectId: attempt.resultObjectId };
+    },
+    async adoptOwnerScene(ownerUserId, householdId, now) {
+      const own = scenes().find((s) => s.ownerUserId === ownerUserId);
+      if (own === undefined) return null;
+      const other = scenes().find((s) => s.householdId === householdId && s.id !== own.id);
+      if (other !== undefined) {
+        state.scenes = scenes().filter((s) => s.id !== other.id);
+        state.sceneAttempts = attempts().filter((a) => a.sceneId !== other.id);
+        state.sceneImageSources = sources().filter((x) => x.sceneId !== other.id);
+      }
+      replaceScene(own.id, { householdId, ownerUserId: null, updatedAt: now });
+      return own.id;
+    },
+    async raiseConsumed(sceneId, quotaWindow, consumed) {
+      const scene = scenes().find((s) => s.id === sceneId);
+      if (scene !== undefined && scene.quotaWindow === quotaWindow && scene.consumedGenerations < consumed) replaceScene(sceneId, { consumedGenerations: consumed });
+    },
+    async deleteScene(sceneId) {
+      state.scenes = scenes().filter((s) => s.id !== sceneId);
+      state.sceneAttempts = attempts().filter((a) => a.sceneId !== sceneId);
+      state.sceneImageSources = sources().filter((x) => x.sceneId !== sceneId);
+    },
+    async deleteHouseholdPhoto(householdId) {
+      state.householdPhotos = photos().filter((p) => p.householdId !== householdId);
+    },
+    async pseudonymizeUser(userId, pseudonym) {
+      state.sceneImageSources = [...new Map(sources().map((x) => [`${x.sceneId}|${x.ownerUserId === userId ? pseudonym : x.ownerUserId}`, x.ownerUserId === userId ? { ...x, ownerUserId: pseudonym } : x])).values()];
+      state.householdPhotos = photos().map((p) => (p.uploadedByUserId === userId ? { ...p, uploadedByUserId: pseudonym } : p));
+      state.sceneAttempts = attempts().map((a) => (a.actorUserId === userId ? { ...a, actorUserId: pseudonym } : a));
     },
   };
 }

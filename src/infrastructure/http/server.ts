@@ -13,6 +13,7 @@ import type { FastifyInstance } from 'fastify';
 import { createCachedPlatformParameterPort } from '../../application/platform-parameters/cached-platform-parameter.ts';
 import type { PlatformParameterRepositoryPort } from '../../application/ports/platform-parameter.port.ts';
 import type { UnitOfWorkPort } from '../../application/ports/unit-of-work.port.ts';
+import { SceneLifecycleHooks } from '../../application/use-cases/scene-lifecycle-hooks.ts';
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { CryptoSecureTokenAdapter } from '../adapters/crypto-secure-token.adapter.ts';
 import { CryptoUuidAdapter } from '../adapters/crypto-uuid.adapter.ts';
@@ -131,6 +132,8 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     auditHmacSecret: config.auditHmacSecret ?? DEVELOPMENT_AUDIT_HMAC_SECRET,
     auditIds: ids,
     platformParameters,
+    // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).
+    sceneHooks: new SceneLifecycleHooks(),
     ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter() } }),
     ...(mediaStorage === null
       ? {}

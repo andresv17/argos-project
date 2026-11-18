@@ -1406,3 +1406,4 @@
 - 2026-11-18 | Keymaker | T863 cableado onPetUnassigned + onMemberRemoved (T815 14 -> 10 rojos; tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T864+T865 cableado onHouseholdCreated/onHouseholdDeleting/onAccountDeleting (T815 10 -> 4 rojos; tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T866+T867 cableado onPetOwnershipTransferred + onBackupImported (T815 4 -> 0 rojos, 27/27; suite completa sin rojos, tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 | Keymaker | T862..T868 SceneLifecycleHooks real + repositorio de escena ampliado (t862 27+17 verdes, rojo previo TypeError/modulo inexistente; suite completa con PG real 0 rojos, tsc 0, gates CUMPLE); H-KEY-F5-4 orden D6-09; sin push ni [x].
