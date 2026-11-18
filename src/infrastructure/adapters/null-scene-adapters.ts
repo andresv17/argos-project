@@ -91,6 +91,9 @@ export class NullSceneRepository implements SceneRepository {
   countAttemptsByScene(_sceneId: string, _since: string): Promise<number> {
     return Promise.resolve(0);
   }
+  countFailedAttemptsByScene(_sceneId: string, _since: string): Promise<{ readonly count: number; readonly oldestAt: string | null }> {
+    return Promise.resolve({ count: 0, oldestAt: null });
+  }
   countAttemptsByActor(_actorUserId: string, _since: string): Promise<number> {
     return Promise.resolve(0);
   }

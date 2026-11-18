@@ -202,6 +202,31 @@ function defineSceneContract(name: string, create: Factory, dispose: () => Promi
       expect(counts).toEqual([3, 1, 2, 1, 1, 0]);
     });
 
+    it('[REQ-ESC6-034][H-KEY-F5-3] countFailedAttemptsByScene cuenta solo FAILED con started_at >= since y devuelve el instante del fallo mas antiguo; los exitosos, cancelados y en vuelo no cuentan', async () => {
+      const uow = await prepare();
+      const done = (outcome: 'FAILED' | 'SUCCEEDED' | 'CANCELLED', t: number): Partial<SceneAttemptRecord> => ({ startedAt: at(t), finishedAt: at(t + 5), phase: 'DONE', outcome });
+      await uow.runInTransaction(begin(1, NOW, done('FAILED', 0)));
+      await uow.runInTransaction(begin(2, at(600), done('SUCCEEDED', 600)));
+      await uow.runInTransaction(begin(3, at(1200), done('FAILED', 1200)));
+      await uow.runInTransaction(begin(4, at(1800), done('CANCELLED', 1800)));
+      await uow.runInTransaction(begin(5, at(2400), done('FAILED', 2400)));
+      await uow.runInTransaction(begin(6, at(3000), { startedAt: at(3000) }));
+      const counts = await uow.runInTransaction(async (r) => [
+        await r.scenes.countFailedAttemptsByScene(SCENE_ID, at(0)),
+        await r.scenes.countFailedAttemptsByScene(SCENE_ID, at(1)),
+        await r.scenes.countFailedAttemptsByScene(SCENE_ID, at(2400)),
+        await r.scenes.countFailedAttemptsByScene(SCENE_ID, at(2401)),
+        await r.scenes.countFailedAttemptsByScene('a1000000-0000-4000-8000-0000000000ff', at(0)),
+      ]);
+      expect(counts).toEqual([
+        { count: 3, oldestAt: at(0) },
+        { count: 2, oldestAt: at(1200) },
+        { count: 1, oldestAt: at(2400) },
+        { count: 0, oldestAt: null },
+        { count: 0, oldestAt: null },
+      ]);
+    });
+
     it('[EDGE-ESC6-033][SC-ESC6-074] el arrastre de cuota es un UPSERT con maximo por (propietario, ventana): nunca baja y otra ventana es independiente', async () => {
       const uow = await prepare();
       const read = async () => uow.runInTransaction(async (r) => [await r.scenes.findQuotaCarry(ANDRES.id, '2026-11'), await r.scenes.findQuotaCarry(ANDRES.id, '2026-12'), await r.scenes.findQuotaCarry(MARIA.id, '2026-11')]);

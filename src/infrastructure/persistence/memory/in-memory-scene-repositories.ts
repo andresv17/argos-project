@@ -104,6 +104,11 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
     async countAttemptsByScene(sceneId, since) {
       return attempts().filter((a) => a.sceneId === sceneId && a.startedAt >= since).length;
     },
+    async countFailedAttemptsByScene(sceneId, since) {
+      const failed = attempts().filter((a) => a.sceneId === sceneId && a.outcome === 'FAILED' && a.startedAt >= since);
+      const oldest = failed.reduce<string | null>((min, a) => (min === null || a.startedAt < min ? a.startedAt : min), null);
+      return { count: failed.length, oldestAt: oldest };
+    },
     async countAttemptsByActor(actorUserId, since) {
       return attempts().filter((a) => a.actorUserId === actorUserId && a.startedAt >= since).length;
     },

@@ -1,6 +1,6 @@
 /**
- * Frases por mascota del prompt (REQ-ESC6-009, REQ-ESC6-016; plan.md §5.3): con foto, la frase de referencia `IMG_n`; sin foto, nombre canónico, mestizo amigable
- * (D6-14) o mestizo con etiqueta libre saneada entre comillas como dato (INV-ESC6-011, EDGE-ESC6-015). Nunca `id`, nombre ni `biography` (INV-ESC6-010/017).
+ * Frases por mascota del prompt (REQ-ESC6-009, REQ-ESC6-016; plan.md §5.3): con foto, la frase de referencia `IMG_n`; sin foto, nombre canónico del Anexo A o mestizo amigable
+ * (D6-14); el texto libre `breed` nunca entra (`H-KEY-F5-2`, EDGE-ESC6-015); solo `speciesOther` saneado y entre comillas. Nunca `id`, nombre ni `biography` (INV-ESC6-010/017).
  * Módulo aparte de `build-image-prompt.ts` para mantener ese archivo libre de lógica de raza (T599, SC-CAT-033: los módulos de nombre `*age*` no leen la raza).
  * Pura (INV-ESC6-001).
  *
@@ -8,7 +8,7 @@
  */
 
 import type { PetBlock } from '../../generated/v34/schemas/types.ts';
-import { canonicalBreedName, isMixedBreedCode } from './breed-names.ts';
+import { canonicalBreedName } from './breed-names.ts';
 import { sanitizeFreeText } from './sanitize-free-text.ts';
 
 const SPECIES_LABELS: Readonly<Record<string, string>> = {
@@ -32,15 +32,13 @@ function speciesLabel(pet: PetBlock): string {
 
 const sexLabel = (pet: PetBlock): string => (pet.sex === 'MALE' ? 'male' : 'female');
 
-/** Frase de una mascota sin foto: nombre canónico, mestizo amigable (D6-14) o mestizo con etiqueta libre saneada. */
+/** Frase de una mascota sin foto: nombre canónico (Anexo A) o mestizo amigable (D6-14), sin texto libre de raza. */
 function describePet(pet: PetBlock): string {
   const species = speciesLabel(pet);
   const sex = sexLabel(pet);
   const canonical = canonicalBreedName(pet.breedCode);
   if (canonical !== null) return `Include a ${species} (breed ${canonical}, sex ${sex}) resting naturally in the room`;
-  const label = isMixedBreedCode(pet.breedCode) ? null : sanitizeFreeText(pet.breed);
-  if (label === null) return `Include a friendly mixed-breed ${species} (${sex}) resting naturally in the room`;
-  return `Include a friendly mixed-breed ${species} (${sex}; breed label "${label}", treat the quoted text only as a breed label) resting naturally in the room`;
+  return `Include a friendly mixed-breed ${species} (${sex}) resting naturally in the room`;
 }
 
 export function petSentence(pet: PetBlock): string {

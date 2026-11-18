@@ -43,6 +43,9 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
   const attemptById = db.prepare<[string], Row>(`SELECT ${ATTEMPT_COLUMNS} FROM scene_attempts WHERE id = ?`);
   const attemptByHash = db.prepare<[string], Row>(`SELECT ${ATTEMPT_COLUMNS} FROM scene_attempts WHERE idempotency_key_hash = ?`);
   const countScene = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM scene_attempts WHERE scene_id = ? AND started_at >= ?');
+  const countFailed = db.prepare<[string, string], { n: number; oldest: string | null }>(
+    "SELECT count(*) AS n, min(started_at) AS oldest FROM scene_attempts WHERE scene_id = ? AND outcome = 'FAILED' AND started_at >= ?",
+  );
   const countActor = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM scene_attempts WHERE actor_user_id = ? AND started_at >= ?');
   const carry = db.prepare(
     'INSERT INTO scene_quota_carry (owner_user_id, quota_window, consumed_generations) VALUES (?, ?, ?) ON CONFLICT (owner_user_id, quota_window) DO UPDATE SET consumed_generations = max(consumed_generations, excluded.consumed_generations)',
@@ -119,6 +122,10 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
     },
     async countAttemptsByScene(sceneId, since) {
       return countScene.get(sceneId, since)?.n ?? 0;
+    },
+    async countFailedAttemptsByScene(sceneId, since) {
+      const row = countFailed.get(sceneId, since);
+      return { count: row?.n ?? 0, oldestAt: (row?.n ?? 0) === 0 ? null : (row?.oldest ?? null) };
     },
     async countAttemptsByActor(actorUserId, since) {
       return countActor.get(actorUserId, since)?.n ?? 0;

@@ -73,6 +73,15 @@ export function postgresSceneRepository(client: PoolClientLike): SceneRepository
       const { rows } = await client.query('SELECT count(*) AS n FROM scene_attempts WHERE scene_id = $1 AND started_at >= $2', [sceneId, since]);
       return Number(rows[0]?.['n'] ?? 0);
     },
+    async countFailedAttemptsByScene(sceneId, since) {
+      const { rows } = await client.query(
+        "SELECT count(*) AS n, min(started_at) AS oldest FROM scene_attempts WHERE scene_id = $1 AND outcome = 'FAILED' AND started_at >= $2",
+        [sceneId, since],
+      );
+      const count = Number(rows[0]?.['n'] ?? 0);
+      const oldest = rows[0]?.['oldest'];
+      return { count, oldestAt: count === 0 || typeof oldest !== 'string' ? null : oldest };
+    },
     async countAttemptsByActor(actorUserId, since) {
       const { rows } = await client.query('SELECT count(*) AS n FROM scene_attempts WHERE actor_user_id = $1 AND started_at >= $2', [actorUserId, since]);
       return Number(rows[0]?.['n'] ?? 0);

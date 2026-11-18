@@ -10,17 +10,21 @@
 import type { PetBlock, ScenePayload, StyleBlock } from '../../generated/v34/schemas/types.ts';
 import type { ModePlan } from './decide-mode.ts';
 import type { InputsSnapshot, SnapshotPet } from './inputs-snapshot.ts';
+import { canonicalBreedName } from './breed-names.ts';
 import { sanitizeFreeText } from './sanitize-free-text.ts';
 
 export const SCENE_PAYLOAD_SCHEMA_VERSION = '1.0.0';
 
 /** Estilo fijo de la escena (constantes del servidor, no entrada del usuario). */
 export const DEFAULT_SCENE_STYLE: StyleBlock = {
-  artStyle: '32-bit isometric pixel art, cozy room cutaway',
-  lighting: 'warm natural daylight from a large window',
-  palette: ['#F2D7A6', '#C98B5A', '#7A5230', '#4F7A5A', '#9EC5D8', '#2E3440'],
-  constraints: ['No text, letters, logos, or watermarks', 'No people', 'Keep every pet clearly visible and separate'],
+  artStyle: '32-bit isometric pixel art cutaway illustration',
+  lighting: 'soft natural morning light',
+  palette: ['#1D4F3A', '#E6F2EA', '#F4F8EF', '#EAF6FF'],
+  constraints: ['No text', 'no blur', 'no anti-aliasing'],
 };
+
+/** `breed` es obligatorio en el contrato 1.0.0, pero el texto libre del usuario no sale del servidor (`H-KEY-F5-2`): constante neutra para toda raza sin nombre canónico. */
+export const MIXED_BREED_LABEL = 'Mixed breed';
 
 export interface BuildScenePayloadInput {
   readonly plan: ModePlan;
@@ -41,7 +45,7 @@ function petBlock(pet: SnapshotPet, action: PetBlock['action'], ref: PetBlock['p
     action,
     species: pet.species as PetBlock['species'],
     speciesOther,
-    breed: sanitizeFreeText(pet.breed) ?? 'Unknown',
+    breed: canonicalBreedName(pet.breedCode) ?? MIXED_BREED_LABEL,
     breedCode: pet.breedCode,
     sex: pet.sex as PetBlock['sex'],
     hasReferencePhoto: hasPhoto,

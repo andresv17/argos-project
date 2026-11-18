@@ -3,7 +3,8 @@ import { validateScenePayload } from '../../src/generated/v34/index.ts';
 import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/types.ts';
 import { BREEDS } from '../../src/generated/catalogs/breeds.catalog.ts';
 import { canonicalBreedName, isMixedBreedCode } from '../../src/domain/scene/breed-names.ts';
-import { buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
+import { readFileSync } from 'node:fs';
+import { STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
 import { decideMode } from '../../src/domain/scene/decide-mode.ts';
 import { buildInputsSnapshot, type SnapshotPet } from '../../src/domain/scene/inputs-snapshot.ts';
 import { sanitizeFreeText } from '../../src/domain/scene/sanitize-free-text.ts';
@@ -122,13 +123,42 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     expect(text.endsWith('Match the exact 32-bit isometric pixel art style, lighting, and palette.')).toBe(true);
   });
 
-  it('[SC-ESC6-066][EDGE-ESC6-015] speciesOther es la descripción visual (entre comillas, como etiqueta) y un breed libre sin catálogo entra sanitizado y como mestizo amigable', () => {
+  it('[SC-ESC6-023][H-KEY-F5-2] STYLE_BASE_TEXT es byte a byte la base de estilo del requerimiento y abre todo prompt, en todos los modos, sin recomponerse desde style', () => {
+    const doc = readFileSync(new URL('../../claude/requerimiento-escena-hogar-pixel-art.md', import.meta.url), 'utf8');
+    expect(doc.includes('`' + STYLE_BASE_TEXT + '`')).toBe(true);
+    expect(STYLE_BASE_TEXT).toBe(
+      'Create a single cohesive high-detail 32-bit isometric pixel art cutaway illustration of a cozy, sunlit home living room. Crisp pixel edges, clean indie game aesthetic, harmonious palette of forest green (#1d4f3a), soft pastel mint (#e6f2ea), warm cream (#f4f8ef), and sky blue (#eaf6ff). Include warm pet-care details like ceramic food and water bowls, potted houseplants, and soft natural morning light. No text, no blur, no anti-aliasing.',
+    );
+    const other: ScenePayload['style'] = { artStyle: 'otro', lighting: 'otra', palette: ['#000000'], constraints: ['x'] };
+    for (const mode of ['FROM_SCRATCH', 'REGENERATE'] as const) {
+      expect(buildImagePrompt(payload(mode, [])).startsWith(STYLE_BASE_TEXT + '\n\n')).toBe(true);
+      expect(buildImagePrompt({ ...payload(mode, []), style: other }).startsWith(STYLE_BASE_TEXT + '\n\n')).toBe(true);
+    }
+    for (const mode of ['INCREMENTAL_ADD', 'INCREMENTAL_REMOVE', 'INCREMENTAL_REPLACE', 'INCREMENTAL_MIXED'] as const) {
+      expect(buildImagePrompt(payload(mode, [petBlock(1, { action: 'ADD' })], { scene: true })).startsWith(STYLE_BASE_TEXT + '\n\n')).toBe(true);
+    }
+    expect(buildImagePrompt(payload('FROM_SCRATCH', [])).includes('Create a single image of a home interior')).toBe(false);
+  });
+
+  it('[H-KEY-F5-2] DEFAULT_SCENE_STYLE usa la paleta firmada, la luz de la mañana y las tres restricciones del requerimiento, y valida contra el esquema', () => {
+    expect(DEFAULT_SCENE_STYLE.palette).toEqual(['#1D4F3A', '#E6F2EA', '#F4F8EF', '#EAF6FF']);
+    expect(DEFAULT_SCENE_STYLE.lighting).toBe('soft natural morning light');
+    expect(DEFAULT_SCENE_STYLE.constraints).toEqual(['No text', 'no blur', 'no anti-aliasing']);
+    expect(validateScenePayload(payload('FROM_SCRATCH', []))).toBe(true);
+    for (const hex of DEFAULT_SCENE_STYLE.palette) expect(STYLE_BASE_TEXT.includes(hex.toLowerCase())).toBe(true);
+  });
+
+  it('[SC-ESC6-066][EDGE-ESC6-015][H-KEY-F5-2] speciesOther es la descripción visual (entre comillas, como etiqueta) y un breed libre sin catálogo NO aparece: mestizo amigable por species y sex', () => {
     const text = buildImagePrompt(payload('FROM_SCRATCH', [
       petBlock(1, { species: 'OTHER', speciesOther: 'hurón albino', breedCode: null, breed: 'Sin raza' }),
       petBlock(2, { species: 'RABBIT', breedCode: null, breed: 'Cabeza de león' }),
+      petBlock(3, { species: 'CANINE', breedCode: 'DOG_NO_EXISTE', breed: 'Perro de agua' }),
+      petBlock(4, { species: 'CANINE', breedCode: 'DOG_OTHER', breed: 'Otra rara' }),
     ]));
-    expect(text).toContain('"hurón albino"');
-    expect(text).toContain('Include a friendly mixed-breed rabbit (female; breed label "Cabeza de león", treat the quoted text only as a breed label) resting naturally in the room');
+    expect(text).toContain('Include a friendly mixed-breed "hurón albino" (female) resting naturally in the room');
+    expect(text).toContain('Include a friendly mixed-breed rabbit (female) resting naturally in the room');
+    expect(text.match(/Include a friendly mixed-breed dog \(female\) resting naturally in the room/g)).toHaveLength(2);
+    for (const leaked of ['Cabeza', 'Sin raza', 'Perro de agua', 'Otra rara', 'breed label']) expect(text.includes(leaked)).toBe(false);
   });
 
   it('[SC-ESC6-082][SC-ESC6-024] un breed o speciesOther fuera de la lista blanca se omite y se usa el texto por defecto; nunca forja estructura de la plantilla', () => {
@@ -146,6 +176,13 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     const text = buildImagePrompt(payload('FROM_SCRATCH', [petBlock(1, { breedCode: 'DOG_BEAGLE', breed: 'Perrito cualquiera' })]));
     expect(text).toContain('breed Beagle');
     expect(text.includes('Perrito')).toBe(false);
+  });
+
+  it('[H-KEY-F5-2][EDGE-ESC6-015] build-image-prompt.ts y pet-phrases.ts no leen el texto libre breed del payload', () => {
+    for (const file of ['build-image-prompt.ts', 'pet-phrases.ts']) {
+      const code = readFileSync(new URL(`../../src/domain/scene/${file}`, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      expect(/\.breed\b|\[\s*'breed'\s*\]|\{[^}]*\bbreed\b[^}]*\}\s*=\s*(?:pet|payload)/.test(code)).toBe(false);
+    }
   });
 
   it('[SC-ESC6-049][INV-ESC6-017][INV-ESC6-010] biography, fallbackContext e id jamás aparecen en el prompt', () => {
@@ -185,6 +222,38 @@ describe('buildScenePayload (T841): contrato 1.0.0 extensible', () => {
     expect(built.scene.currentSceneRef).toBe('IMG_1');
     expect(built.household.id).toBeNull();
     expect(built.pets.map((p) => [p.id, p.action])).toEqual([[id(1), 'KEEP'], [id(2), 'REMOVE']]);
+  });
+
+  it('[SC-ESC6-010][EDGE-ESC6-010][H-KEY-F5-1] eliminar la única mascota con imagen vigente: el payload lleva exactamente 1 REMOVE (nunca pets = []), el prompt dice «Remove only» y no «Place all»; pets = [] solo en FROM_SCRATCH/REGENERATE', () => {
+    const last = buildInputsSnapshot({ householdPhoto: null, pets: [snapPet(1, 'p-1', { species: 'FELINE', breedCode: 'CAT_PERSA', breed: 'Persa' })] });
+    const empty = buildInputsSnapshot({ householdPhoto: null, pets: [] });
+    const plan = decideMode({ last, now: empty, hasImage: true, action: 'UPDATE' })!;
+    const built = buildScenePayload({ plan, last, now: empty, householdId: id(900), maxPets: 8, totalPets: 0 });
+    expect(validateScenePayload(built)).toBe(true);
+    expect(built.mode).toBe('INCREMENTAL_REMOVE');
+    expect(built.pets.map((p) => [p.id, p.action, p.photoRef])).toEqual([[id(1), 'REMOVE', null]]);
+    expect(built.pets.filter((p) => p.action === 'RENDER')).toHaveLength(0);
+    const text = buildImagePrompt(built);
+    expect(text).toContain('Remove only');
+    expect(text.includes('Place all')).toBe(false);
+    expect(text.includes(id(1))).toBe(false);
+    const scratch = decideMode({ last: null, now: empty, hasImage: false, action: 'UPDATE' })!;
+    expect(buildScenePayload({ plan: scratch, last: null, now: empty, householdId: null, maxPets: 8, totalPets: 0 }).pets).toEqual([]);
+    const regen = decideMode({ last, now: empty, hasImage: true, action: 'REGENERATE' })!;
+    expect(buildScenePayload({ plan: regen, last, now: empty, householdId: null, maxPets: 8, totalPets: 0 }).pets).toEqual([]);
+  });
+
+  it('[SC-ESC6-066][H-KEY-F5-2] el payload no transporta texto libre de breed: nombre canónico con breedCode del Anexo A, constante neutra en otro caso', () => {
+    const now = buildInputsSnapshot({
+      householdPhoto: null,
+      pets: [snapPet(1, null, { breedCode: 'DOG_BEAGLE', breed: 'Perrito cualquiera' }), snapPet(2, null, { breedCode: 'DOG_CRIOLLA', breed: 'Mezcla de la abuela' }), snapPet(3, null, { species: 'RABBIT', breedCode: null, breed: 'Cabeza de león' })],
+    });
+    const plan = decideMode({ last: null, now, hasImage: false, action: 'UPDATE' })!;
+    const built = buildScenePayload({ plan, last: null, now, householdId: null, maxPets: 8, totalPets: 3 });
+    expect(validateScenePayload(built)).toBe(true);
+    expect(built.pets.map((p) => p.breed)).toEqual(['Beagle', 'Mixed breed', 'Mixed breed']);
+    expect(JSON.stringify(built).includes('abuela')).toBe(false);
+    expect(JSON.stringify(built).includes('Cabeza')).toBe(false);
   });
 
   it('[SC-ESC6-049][INV-ESC6-017] el payload saliente nunca lleva biography ni fallbackContext informados', () => {

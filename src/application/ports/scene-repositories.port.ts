@@ -118,6 +118,11 @@ export interface SceneRepository {
   /** Contadores de `REQ-ESC6-034`: intentos de la escena o del actor con `started_at >= since`. */
   countAttemptsByScene(sceneId: string, since: string): Promise<number>;
   countAttemptsByActor(actorUserId: string, since: string): Promise<number>;
+  /**
+   * Tope de fallos de `REQ-ESC6-034` (2) (`H-KEY-F5-3`): intentos de la escena con `outcome = 'FAILED'` y `started_at >= since`; `oldestAt` es el menor `started_at`
+   * de esas filas (`null` si `count = 0`) y es la base de `Retry-After` (`oldestAt + 24 h - now`). `countAttemptsByScene` queda para el enfriamiento de 60 s.
+   */
+  countFailedAttemptsByScene(sceneId: string, since: string): Promise<{ readonly count: number; readonly oldestAt: string | null }>;
   /** Arrastre de cuota (EDGE-ESC6-033): `UPSERT` con `consumed := max(valor previo, consumed)`. */
   upsertQuotaCarry(ownerUserId: string, quotaWindow: string, consumedGenerations: number): Promise<void>;
   findQuotaCarry(ownerUserId: string, quotaWindow: string): Promise<number | null>;

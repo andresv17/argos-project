@@ -2,8 +2,8 @@
  * `buildImagePrompt(payload)`: compila el texto final en inglés de la escena (REQ-ESC6-016; plan.md §5.3). Pura y determinista: misma entrada, misma salida byte a
  * byte (INV-ESC6-001, SC-ESC6-023). Bloques separados por una línea en blanco: (1) base de estilo; (2) hogar (solo `FROM_SCRATCH` y `REGENERATE`); (3) mascotas
  * (`RENDER`) con cierre «Place all N pets…» solo con N ≥ 1; (4) bloque incremental sobre la escena previa (`IMG_n` de `currentSceneRef`). El único contenido variable
- * son enums del dominio, `breed`/`speciesOther` ya saneados por la lista blanca (INV-ESC6-011, entre comillas como etiquetas de datos), nombres canónicos de raza y
- * etiquetas `IMG_n`. NUNCA se emiten `id`, nombres, `biography` ni `fallbackContext` (INV-ESC6-010, INV-ESC6-017).
+ * son enums del dominio, `speciesOther` ya saneado por la lista blanca (INV-ESC6-011, entre comillas como etiqueta de datos), nombres canónicos de raza
+ * (Anexo A del plan) y etiquetas `IMG_n`; el texto libre `breed` nunca se lee (`H-KEY-F5-2`). NUNCA se emiten `id`, nombres, `biography` ni `fallbackContext` (INV-ESC6-010, INV-ESC6-017).
  *
  * @implements REQ-ESC6-016, REQ-ESC6-009, INV-ESC6-001, INV-ESC6-010, INV-ESC6-011, INV-ESC6-017, EDGE-ESC6-015, SC-ESC6-023, SC-ESC6-066, SC-ESC6-082
  */
@@ -11,13 +11,14 @@
 import type { ScenePayload } from '../../generated/v34/schemas/types.ts';
 import { petSentence, targetDescription } from './pet-phrases.ts';
 
-const STYLE_CLOSING = 'Match the exact 32-bit isometric pixel art style, lighting, and palette.';
+/**
+ * Base de estilo normativa (plan.md §5.3, `H-KEY-F5-2`): byte a byte el bloque 1 de «Plantilla de referencia» de `claude/requerimiento-escena-hogar-pixel-art.md`.
+ * Se emite siempre tal cual; no se recompone desde las ranuras de `payload.style`.
+ */
+export const STYLE_BASE_TEXT =
+  'Create a single cohesive high-detail 32-bit isometric pixel art cutaway illustration of a cozy, sunlit home living room. Crisp pixel edges, clean indie game aesthetic, harmonious palette of forest green (#1d4f3a), soft pastel mint (#e6f2ea), warm cream (#f4f8ef), and sky blue (#eaf6ff). Include warm pet-care details like ceramic food and water bowls, potted houseplants, and soft natural morning light. No text, no blur, no anti-aliasing.';
 
-function styleBlock(payload: ScenePayload): string {
-  const { artStyle, lighting, palette, constraints } = payload.style;
-  const head = `Create a single image of a home interior scene in this exact style: ${artStyle}. Lighting: ${lighting}. Color palette: ${palette.join(', ')}.`;
-  return constraints.length === 0 ? head : `${head}\nConstraints:\n${constraints.map((c) => `- ${c}`).join('\n')}`;
-}
+const STYLE_CLOSING = 'Match the exact 32-bit isometric pixel art style, lighting, and palette.';
 
 function householdBlock(payload: ScenePayload): string {
   const { hasReferencePhoto, photoRef } = payload.household;
@@ -50,5 +51,5 @@ function incrementalBlocks(payload: ScenePayload): string[] {
 
 export function buildImagePrompt(payload: ScenePayload): string {
   const scratch = payload.mode === 'FROM_SCRATCH' || payload.mode === 'REGENERATE';
-  return [styleBlock(payload), ...(scratch ? scratchBlocks(payload) : incrementalBlocks(payload))].join('\n\n');
+  return [STYLE_BASE_TEXT, ...(scratch ? scratchBlocks(payload) : incrementalBlocks(payload))].join('\n\n');
 }
