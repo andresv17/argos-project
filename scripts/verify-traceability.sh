@@ -173,15 +173,18 @@ for (const line of section(constitutionLines, 'II')) {
 // Tabla «Trazabilidad con la Feature 001» de la spec (features posteriores): los IDs de la primera columna cuya
 // segunda columna dice «Reemplazad...» o «...absorbid...» dejan de ser vigentes (siguen existiendo en la 001).
 const superseded = new Set();
-if (feature !== '001') {
-  const specLines = readFileSync(SPEC, 'utf8').split('\n');
+// En modo 001 la tabla se lee de la spec 002 y solo cuentan los 5 IDs sustituidos aprobados por Neo (D-A).
+const SUPERSEDED_BY_002 = new Set(['REQ-AUTH-001', 'REQ-AUTH-002', 'INV-AUTH-002', 'INV-AUTH-004', 'REQ-HOUSE-002']);
+const SPEC_002 = 'specs/002-plataforma-v21/spec.md';
+if (feature !== '001' || existsSync(SPEC_002)) {
+  const specLines = readFileSync(feature === '001' ? SPEC_002 : SPEC, 'utf8').split('\n');
   const head = specLines.findIndex((l) => /^#{2,4}\s+Trazabilidad con la Feature 001\b/.test(l));
   if (head !== -1) {
     for (const row of specLines.slice(head + 1)) {
       if (/^#{1,4}\s/.test(row)) break;
       const cells = row.split('|').map((c) => c.trim());
       if (cells.length < 4 || !/^(?:Reemplazad|.*absorbid)/i.test(cells[2])) continue;
-      for (const id of cells[1].match(NUM_ID) ?? []) superseded.add(id);
+      for (const id of cells[1].match(NUM_ID) ?? []) if (feature !== '001' || SUPERSEDED_BY_002.has(id)) superseded.add(id);
     }
   }
 }
