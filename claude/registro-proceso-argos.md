@@ -1405,3 +1405,4 @@
 - 2026-11-18 | Keymaker | T862 cableado onPetRemoved pet/avatar (T815 18 -> 14 rojos; suite sin otros rojos, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T863 cableado onPetUnassigned + onMemberRemoved (T815 14 -> 10 rojos; tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T864+T865 cableado onHouseholdCreated/onHouseholdDeleting/onAccountDeleting (T815 10 -> 4 rojos; tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 | Keymaker | T866+T867 cableado onPetOwnershipTransferred + onBackupImported (T815 4 -> 0 rojos, 27/27; suite completa sin rojos, tsc 0, gates CUMPLE); sin push ni [x].

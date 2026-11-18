@@ -1466,3 +1466,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T864+T865 cableado de onHouseholdCreated, onHouseholdDeleting y onAccountDeleting (REQ-ESC6-029/032/011; EDGE-ESC6-022/030/033; SC-ESC6-044/048/058/073/076) (sin push, sin [x])
 - Rojo previo (T815, 10): household crear x2, eliminar x2, account x2 ('expected [] to deeply equal [{hook ...}]'). Implementacion: onHouseholdCreated tras insert del hogar y su membresia; onHouseholdDeleting tras requireOwner y antes de deleteWithMemberships; onAccountDeleting tras las comprobaciones B4-B6 (hogares en cascada del plan, seudonimo HMAC) y antes de recordAudit/borrados. T864 y T865 comparten household-use-cases.ts y van en un solo commit.
 - T815: 10 -> 4 rojos (ownership x2, backup x2). tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T866+T867 cableado de onPetOwnershipTransferred (ownership-use-cases) y onBackupImported (backup-use-cases) (REQ-ESC6-022/024/025/030; SC-ESC6-051/088) (sin push, sin [x])
+- Rojo previo (T815, 4): ownership x2 y backup x2. Implementacion: onPetOwnershipTransferred tras validar transferPetOwnership y antes de podar asignaciones (previousOwner = pet.ownerUserId); onBackupImported tras fijar replacedPetIds y antes de borrar (ids ordenados; solo si se reemplaza alguna mascota). El fallo del gancho se relanza tal cual (patron de 'limited') en lugar de ERR-BACKUP-ATOMIC-ROLLBACK, como exige la prueba T815.
+- T815: 4 -> 0 rojos (27/27). Suite completa sin rojos. tsc 0; gates CUMPLE.
