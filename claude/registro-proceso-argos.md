@@ -1374,3 +1374,4 @@
 - 2026-11-18 | Keymaker | T817 REQ-IAC-009 a 14 APIs + services.tf (t816 verde, tsc 0, gates CUMPLE, sin apply); sin push ni [x].
 - 2026-11-18 | Keymaker | T818 pruebas rojas IAM escena + cola argos-scene (10 rojas, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T819 REQ-IAC-006 + iam.tf + cloud_tasks.tf (t818 verde, terraform-* verdes, tsc 0, sin apply); sin push ni [x].
+- 2026-11-18 | Keymaker | T820 pruebas rojas Cloud Run 120 s / 1 GiB (4 rojas, tsc 0, gates CUMPLE); sin push ni [x].

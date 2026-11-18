@@ -1349,3 +1349,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T819 enmienda de REQ-IAC-006, iam.tf y cloud_tasks.tf (N2-05) (sin push, sin [x])
 - spec 003 REQ-IAC-006 con «Enmienda 006» (excepción documentada aiplatform.user de proyecto, argos-scene-tasks, enqueuer acotado a la cola); terraform/iam.tf (+cuenta scene_tasks, +4 bindings, comentario EXCEPCIÓN DOCUMENTADA) y terraform/cloud_tasks.tf (cola argos-scene, max_attempts 1, 2 concurrentes, 1/s, sin http_target; el dispatchDeadline 130 s lo fija la app por tarea).
 - Suites de 003 cambiadas por la enmienda: terraform-iam (4 cuentas, un único google_project_iam_member) y terraform-iam-secrets (misma excepción); además un regex mío de T818 corregido. t818 12/12 verde, terraform-* verdes, tsc 0. Sin plan ni apply.
+
+## 2026-11-18 Keymaker: T820 pruebas rojas de Cloud Run 120 s y 1 GiB (N2-05, N2-11, REQ-CLD-002) (sin push, sin [x])
+- Nuevo tests/unit/terraform-cloud-run-escena-006.spec.ts: timeout 120s y memoria 1Gi (no 60s/512Mi), resto de REQ-CLD-002 sin cambio (cpu_idle, escala 0..2, concurrencia 20), sin env ni ARGOS_SCENE_* en Terraform, T_GEN máx. 105 + 15 <= 120 < dispatchDeadline 130, texto de REQ-CLD-002 en 003 con Enmienda 006.
+- Rojo 4/6; tsc 0; gates CUMPLE.

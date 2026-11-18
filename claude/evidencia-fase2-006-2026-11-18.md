@@ -166,3 +166,21 @@ verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
 verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 317; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
 ```
 Cambios en suites de 003 por la enmienda: terraform-iam.spec (4 cuentas; único google_project_iam_member = aiplatform.user de argos-run) y terraform-iam-secrets.spec (misma excepción). Corregido un regex defectuoso de mi propia prueba T818 (TokenCreator). No se ejecutó terraform.
+
+## T820 rojo (REQ-CLD-002: 120 s y 1 GiB)
+```
+npx vitest run tests/unit/terraform-cloud-run-escena-006.spec.ts
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/unit/terraform-cloud-run-escena-006.spec.ts > terraform/cloud_run.tf con timeout 120 s y 1 GiB (T820, REQ-CLD-002 enmendado por la 006) > NFR-ESC6-003: timeout = "120s" y memory = "1Gi"; ya no 60 s
+ FAIL  tests/unit/terraform-cloud-run-escena-006.spec.ts > terraform/cloud_run.tf con timeout 120 s y 1 GiB (T820, REQ-CLD-002 enmendado por la 006) > SC-ESC6-092: la espera de generación (90 s por defecto, máx
+ FAIL  tests/unit/terraform-cloud-run-escena-006.spec.ts > terraform/cloud_run.tf con timeout 120 s y 1 GiB (T820, REQ-CLD-002 enmendado por la 006) > REQ-CLD-002: la spec de 003 declara timeout=120s y 1 GiB co
+ FAIL  tests/unit/terraform-cloud-run-escena-006.spec.ts > terraform/cloud_run.tf con timeout 120 s y 1 GiB (T820, REQ-CLD-002 enmendado por la 006) > NFR-ESC6-003: el comentario de cloud_run.tf deja de afirmar
+ Test Files  1 failed (1)
+      Tests  4 failed | 2 passed (6)
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 002 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 318; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
+```
+Rojo esperado hasta T821 (4/6).
