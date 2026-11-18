@@ -32,7 +32,7 @@ function readTree(dir: string): Record<string, string> {
     for (const entry of readdirSync(current).sort()) {
       const full = join(current, entry);
       if (statSync(full).isDirectory()) {
-        if (current === dir && ['ops', 'catalogs', 'v31'].includes(entry)) continue; // 003 (ops) y 004 (catalogs, v31) los compilan sus propias features, no la regeneración de la 002
+        if (current === dir && ['ops', 'catalogs', 'v31', 'v33'].includes(entry)) continue; // 003 (ops), 004 (catalogs, v31) y 005 (v33) los compilan sus propias features, no la regeneración de la 002
         walk(full);
       }
       else if (entry !== '.gitkeep') tree[relative(dir, full)] = readFileSync(full, 'utf8');
