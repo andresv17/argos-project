@@ -227,6 +227,16 @@ function defineSceneContract(name: string, create: Factory, dispose: () => Promi
       ]);
     });
 
+    it('[REQ-ESC6-034] lastAttemptStartedAt devuelve el inicio del intento mas reciente de la escena y oldestActorAttemptAt el mas antiguo del actor desde since (null sin intentos)', async () => {
+      const uow = await prepare();
+      const read = () => uow.runInTransaction(async (r) => [await r.scenes.lastAttemptStartedAt(SCENE_ID), await r.scenes.oldestActorAttemptAt(ANDRES.id, at(0)), await r.scenes.oldestActorAttemptAt(ANDRES.id, at(601)), await r.scenes.oldestActorAttemptAt(MARIA.id, at(0))]);
+      expect(await read()).toEqual([null, null, null, null]);
+      await uow.runInTransaction(begin(1, NOW, { startedAt: at(0) }));
+      await uow.runInTransaction(begin(2, at(600), { startedAt: at(600), actorUserId: MARIA.id }));
+      await uow.runInTransaction(begin(3, at(1200), { startedAt: at(1200) }));
+      expect(await read()).toEqual([at(1200), at(0), at(1200), at(600)]);
+    });
+
     it('[SC-ESC6-018][SC-ESC6-093][H-TRI-006-12] expireLease: CAS idempotente; vencido pasa a failed con intento FAILED/ERR-SCENE-LEASE-EXPIRED y devuelve el objeto resultante; vigente o repetido no cambia nada', async () => {
       const uow = await prepare();
       await uow.runInTransaction(begin(1, NOW));

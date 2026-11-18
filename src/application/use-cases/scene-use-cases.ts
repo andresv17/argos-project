@@ -8,21 +8,24 @@
  * @implements REQ-ESC6-003, REQ-ESC6-004, REQ-ESC6-005, REQ-ESC6-008, REQ-ESC6-011, REQ-ESC6-019, REQ-ESC6-020, REQ-ESC6-024, REQ-ESC6-032, REQ-ESC6-034, INV-ESC6-007, INV-ESC6-014, INV-ESC6-019, EDGE-ESC6-003, EDGE-ESC6-006, SC-ESC6-014, SC-ESC6-018, SC-ESC6-081, SC-ESC6-093
  */
 
+import { sha256Hex } from '../../domain/audit/sha256.ts';
 import { householdPhotoObjectKey, sceneImageObjectKey } from '../../domain/media/media-keys.ts';
 import { isOwnerRow } from '../../domain/households/household-policies.ts';
-import { ATTEMPT_WINDOW_SECONDS, ATTEMPT_COOLDOWN_SECONDS, evaluateAttemptLimits } from '../../domain/scene/attempt-limits.ts';
-import { buildInputsSnapshot, computeFingerprint, countPendingChanges, hasInputs, parseInputsSnapshot, type InputsSnapshot, type SnapshotPet } from '../../domain/scene/inputs-snapshot.ts';
+import { ATTEMPT_WINDOW_SECONDS, evaluateAttemptLimits } from '../../domain/scene/attempt-limits.ts';
+import { buildInputsSnapshot, computeFingerprint, countPendingChanges, hasInputs, parseInputsSnapshot, serializeInputsSnapshot, type InputsSnapshot, type SnapshotPet } from '../../domain/scene/inputs-snapshot.ts';
+import { decideMode } from '../../domain/scene/decide-mode.ts';
 import { quotaWindowOf, remainingQuota, windowResetsAt } from '../../domain/scene/quota-window.ts';
 import { canGenerateScene, canManageHouseholdPhoto, type SceneRole } from '../../domain/scene/scene-policy.ts';
 import { deriveStatus, type DerivedStatus } from '../../domain/scene/scene-state.ts';
 import { selectVisiblePets } from '../../domain/scene/select-visible-pets.ts';
 import { shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
 import { DomainError } from '../../generated/index.ts';
+import { DomainError as DomainErrorV34 } from '../../generated/v34/index.ts';
 import type { SceneErrorCode, SceneView } from '../../generated/v34/schemas/types.ts';
 import { DomainError as DomainErrorV31 } from '../../generated/v31/index.ts';
 import type { MediaReadUrl } from '../ports/media-storage.port.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
-import type { SceneAttemptRecord, SceneConsentScope, SceneRecord } from '../ports/scene-repositories.port.ts';
+import type { SceneAttemptMode, SceneAttemptRecord, SceneConsentScope, SceneRecord } from '../ports/scene-repositories.port.ts';
 import { requireMedia } from './media-use-cases.ts';
 import type { ApplicationDeps, SceneServices } from './use-case-support.ts';
 
@@ -103,8 +106,19 @@ export async function loadLiveInputs(deps: ApplicationDeps, r: RepositorySet, ac
   return { snapshot, fingerprint: computeFingerprint(snapshot), shown: pets.length, total };
 }
 
-/** Instante desde el que un intento iniciado cuenta como «reciente» para el enfriamiento de 60 s (`started_at > now - 60 s`). */
-const cooldownSince = (now: string): string => shiftIsoTimestamp(now, -(ATTEMPT_COOLDOWN_SECONDS * 1000 - 1));
+/** Contadores de `REQ-ESC6-034` leídos bajo el candado de la escena y evaluados por la función pura de dominio (con `Retry-After` exacto). */
+async function evaluateLimits(r: RepositorySet, sceneId: string, actorUserId: string, now: string): Promise<ReturnType<typeof evaluateAttemptLimits>> {
+  const since = shiftIsoTimestamp(now, -ATTEMPT_WINDOW_SECONDS * 1000);
+  const failed = await r.scenes.countFailedAttemptsByScene(sceneId, since);
+  return evaluateAttemptLimits({
+    now,
+    lastStartedAt: await r.scenes.lastAttemptStartedAt(sceneId),
+    failedInWindow: failed.count,
+    oldestFailedStartedAt: failed.oldestAt,
+    startedByActor: await r.scenes.countAttemptsByActor(actorUserId, since),
+    oldestActorStartedAt: await r.scenes.oldestActorAttemptAt(actorUserId, since),
+  });
+}
 
 interface SceneReading {
   readonly scene: SceneRecord;
@@ -144,14 +158,7 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
   const petPhotosGranted = await hasActiveConsent(r, svc, userId, 'PET_PHOTOS');
   const householdPhotoGranted = await hasActiveConsent(r, svc, userId, 'HOUSEHOLD_PHOTO');
   const consentRequired = svc.realDriver && !petPhotosGranted && !householdPhotoGranted;
-  const limits = evaluateAttemptLimits({
-    now,
-    lastStartedAt: (await r.scenes.countAttemptsByScene(scene.id, cooldownSince(now))) > 0 ? now : null,
-    failedInWindow: (await r.scenes.countFailedAttemptsByScene(scene.id, shiftIsoTimestamp(now, -ATTEMPT_WINDOW_SECONDS * 1000))).count,
-    oldestFailedStartedAt: null,
-    startedByActor: await r.scenes.countAttemptsByActor(userId, shiftIsoTimestamp(now, -ATTEMPT_WINDOW_SECONDS * 1000)),
-    oldestActorStartedAt: null,
-  });
+  const limits = await evaluateLimits(r, scene.id, userId, now);
   const roleOk = canGenerateScene(access.role);
   const hasChange = pending >= 1 || derived.status === 'failed' || (scene.image === null && hasInputs(live.snapshot));
   const statusOk = derived.status === 'outdated' || derived.status === 'failed';
@@ -242,3 +249,155 @@ export class GetSceneImageUseCase {
 
 /** Clave de objeto de la foto del hogar para la lectura autorizada (la usa `getHouseholdPhoto`, T857). */
 export const householdPhotoKeyOf = householdPhotoObjectKey;
+
+/** 429 `ERR-RATE-LIMITED` con `Retry-After` en segundos y `blockedReason = COOLDOWN` (REQ-ESC6-034); la capa HTTP lo traduce a la cabecera. */
+export class SceneRateLimitedError extends DomainError {
+  readonly blockedReason = 'COOLDOWN';
+  constructor(readonly retryAfterSeconds: number) {
+    super('ERR-RATE-LIMITED');
+    this.name = 'SceneRateLimitedError';
+  }
+}
+
+export type SceneGenerateAction = 'UPDATE' | 'REGENERATE';
+
+export interface RequestSceneResult {
+  /** `true` = intento nuevo aceptado (202); `false` = estado vigente sin intento nuevo (200). */
+  readonly accepted: boolean;
+  readonly view: SceneView;
+}
+
+const IDEMPOTENCY_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const IDEMPOTENCY_TTL_MS = 86_400_000;
+
+/** Clave efectiva (REQ-ESC6-012): SHA-256 de `actorId ‖ sceneId ‖ action ‖ clave`; la clave del cliente nunca se guarda. */
+export const sceneIdempotencyHash = (actorUserId: string, sceneId: string, action: SceneGenerateAction, key: string): string =>
+  sha256Hex([actorUserId, sceneId, action, key].join('\u001f'));
+
+const invalid = (field: string, detail: string): DomainError => new DomainError('ERR-SCHEMA-VALIDATION-FAILED', detail, field);
+
+function parseGenerateInput(input: unknown, key: unknown): { action: SceneGenerateAction; key: string } {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) throw invalid('action', 'El cuerpo debe ser un objeto con action.');
+  const body = input as Record<string, unknown>;
+  const action = body['action'];
+  if (Object.keys(body).some((k) => k !== 'action') || (action !== 'UPDATE' && action !== 'REGENERATE')) throw invalid('action', 'action debe ser UPDATE o REGENERATE.');
+  if (typeof key !== 'string' || !IDEMPOTENCY_KEY.test(key)) throw invalid('Idempotency-Key', 'Idempotency-Key debe ser un UUID v4.');
+  return { action, key };
+}
+
+/** Códigos de un encolado cuyo resultado se ignora (la tarea pudo crearse): el arrendamiento `T_QUEUE` resuelve el caso (EDGE-ESC6-032). */
+const AMBIGUOUS_ENQUEUE = new Set(['DEADLINE_EXCEEDED', 'UNAVAILABLE', 'ABORTED', 'ETIMEDOUT', 'TIMEOUT']);
+
+function classifyEnqueueError(error: unknown): 'EXISTS' | 'AMBIGUOUS' | 'REJECTED' {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+  const name = error instanceof Error ? error.name : '';
+  if (code === 'ALREADY_EXISTS' || code === 6) return 'EXISTS';
+  if ((typeof code === 'string' && AMBIGUOUS_ENQUEUE.has(code)) || name === 'TimeoutError' || name === 'AbortError') return 'AMBIGUOUS';
+  return 'REJECTED';
+}
+
+/**
+ * `generateHouseholdScene` / `generateOwnerScene` (T1; REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-011, REQ-ESC6-012, REQ-ESC6-034, REQ-ESC6-036). En UNA transacción y bajo el
+ * candado de la escena: rol (403 tras el 404), consentimiento del driver real (403), idempotencia, estado, cambios pendientes (`UPDATE` sin ellos responde el
+ * estado sin intento, D14), cuota (409), contadores (429), modo, intento `PENDING`, `INTENT` del objeto resultante y arrendamiento `ahora + T_QUEUE` (compare-and-set,
+ * INV-ESC6-003). Después del `COMMIT` encola `{ sceneId, attemptId }`: `ALREADY_EXISTS` es éxito, un resultado ambiguo no marca `failed` y solo un rechazo
+ * determinista cierra el intento `FAILED` y pasa su `INTENT` a `DELETE` (EDGE-ESC6-032). Nunca llama al generador.
+ */
+export class RequestSceneGenerationUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(userId: string, target: SceneTarget, input: unknown, idempotencyKey: unknown): Promise<RequestSceneResult> {
+    const { deps } = this;
+    const svc = requireScene(deps);
+    const { action, key } = parseGenerateInput(input, idempotencyKey);
+    const outcome = await deps.uow.runInTransaction(async (r) => {
+      const access = await resolveSceneAccess(r, userId, target);
+      if (!canGenerateScene(access.role)) throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'householdId');
+      if (svc.realDriver && !(await hasActiveConsent(r, svc, userId, 'PET_PHOTOS')) && !(await hasActiveConsent(r, svc, userId, 'HOUSEHOLD_PHOTO'))) {
+        throw new DomainErrorV34('ERR-SCENE-CONSENT-REQUIRED');
+      }
+      const now = deps.clock.nowIsoTimestamp();
+      const window = quotaWindowOf(deps.clock.todayIsoDate());
+      let scene = await findSceneOf(r, access);
+      if (scene === null) {
+        const fresh: SceneRecord = {
+          id: deps.ids.nextId(), householdId: access.householdId, ownerUserId: access.ownerUserId, runState: null, currentAttemptId: null, leaseExpiresAt: null,
+          image: null, imageDegraded: false, consumedGenerations: 0, quotaWindow: window, createdAt: now, updatedAt: now,
+        };
+        await r.scenes.insert(fresh);
+        scene = (await findSceneOf(r, access)) ?? fresh;
+      }
+      await r.scenes.lockScene(scene.id);
+      const current = (): Promise<SceneRecord> => findSceneOf(r, access).then((found) => found ?? scene!);
+      const respond = async (accepted: boolean): Promise<{ accepted: boolean; view: SceneView; job: null }> => ({ accepted, view: await buildView(deps, r, userId, access, await readScene(deps, r, access, await current(), now, window)), job: null });
+
+      // Idempotencia con alcance (actor, escena, acción), vigencia de 24 h y una sola clave recordada (la última).
+      const other: SceneGenerateAction = action === 'UPDATE' ? 'REGENERATE' : 'UPDATE';
+      const known = await r.scenes.findAttemptByIdempotencyKeyHash(sceneIdempotencyHash(userId, scene.id, action, key));
+      if (known !== null && known.sceneId === scene.id && known.idempotencyExpiresAt !== null && known.idempotencyExpiresAt > now) return respond(false);
+      const crossed = await r.scenes.findAttemptByIdempotencyKeyHash(sceneIdempotencyHash(userId, scene.id, other, key));
+      if (crossed !== null && crossed.sceneId === scene.id && crossed.idempotencyExpiresAt !== null && crossed.idempotencyExpiresAt > now) {
+        throw invalid('Idempotency-Key', 'La misma clave no puede usarse con otra acción.');
+      }
+
+      let reading = await readScene(deps, r, access, scene, now, window);
+      if (reading.derived.leaseExpired) {
+        const expired = await r.scenes.expireLease(scene.id, now);
+        if (expired !== null) await r.mediaQueue.enqueue(sceneImageObjectKey(scene.id, expired.resultObjectId), 'DELETE', now);
+        reading = await readScene(deps, r, access, await current(), now, window);
+      }
+      const { derived, live, last } = reading;
+      if (derived.status === 'generating') return respond(false);
+      const hasChange = countPendingChanges(last, live.snapshot) >= 1 || derived.status === 'failed' || (reading.scene.image === null && hasInputs(live.snapshot));
+      if (action === 'UPDATE' && !((derived.status === 'outdated' || derived.status === 'failed') && hasChange)) return respond(false);
+      if (remainingQuota({ max: svc.quotaMax, consumed: reading.scene.consumedGenerations, consumedWindow: reading.scene.quotaWindow, currentWindow: window }) < 1) {
+        throw new DomainErrorV34('ERR-SCENE-QUOTA-EXCEEDED');
+      }
+      const limits = await evaluateLimits(r, scene.id, userId, now);
+      if (!limits.allowed) throw new SceneRateLimitedError(limits.retryAfterSeconds);
+
+      const hasImage = reading.scene.image !== null;
+      const plan = decideMode({ last, now: live.snapshot, hasImage, action }) ?? decideMode({ last: null, now: live.snapshot, hasImage: false, action: 'UPDATE' });
+      const mode: SceneAttemptMode = plan?.mode ?? 'FROM_SCRATCH';
+      const attemptId = deps.ids.nextId();
+      const resultObjectId = deps.ids.nextId();
+      const began = await r.scenes.beginGeneration({
+        sceneId: scene.id,
+        attempt: {
+          id: attemptId, sceneId: scene.id, actorUserId: userId, action, mode, fingerprint: live.fingerprint, inputsSnapshot: serializeInputsSnapshot(live.snapshot), resultObjectId,
+          phase: 'PENDING', claimedAt: null, providerCallStartedAt: null, quotaWindow: window, quotaMax: svc.quotaMax, outcome: null, errorCode: null, degraded: false,
+          idempotencyKeyHash: sceneIdempotencyHash(userId, scene.id, action, key), idempotencyExpiresAt: shiftIsoTimestamp(now, IDEMPOTENCY_TTL_MS), startedAt: now, finishedAt: null,
+        },
+        now,
+        leaseExpiresAt: shiftIsoTimestamp(now, svc.queueWaitSeconds * 1000),
+      });
+      if (!began) return respond(false);
+      await r.mediaQueue.enqueue(sceneImageObjectKey(scene.id, resultObjectId), 'INTENT', now);
+      const view = await buildView(deps, r, userId, access, await readScene(deps, r, access, await current(), now, window));
+      return { accepted: true, view, job: { sceneId: scene.id, attemptId, resultObjectId } };
+    });
+    if (outcome.job === null) return { accepted: outcome.accepted, view: outcome.view };
+    return this.dispatch(userId, target, outcome.job, outcome.view);
+  }
+
+  /** Encolado tras el COMMIT (EDGE-ESC6-032). */
+  private async dispatch(userId: string, target: SceneTarget, job: { sceneId: string; attemptId: string; resultObjectId: string }, view: SceneView): Promise<RequestSceneResult> {
+    const { deps } = this;
+    const svc = requireScene(deps);
+    try {
+      await svc.dispatcher.enqueue({ sceneId: job.sceneId, attemptId: job.attemptId });
+      return { accepted: true, view };
+    } catch (error) {
+      const kind = classifyEnqueueError(error);
+      if (kind !== 'REJECTED') return { accepted: true, view };
+      await deps.uow.runInTransaction(async (r) => {
+        const now = deps.clock.nowIsoTimestamp();
+        await r.scenes.lockScene(job.sceneId);
+        if (await r.scenes.closeAttempt({ sceneId: job.sceneId, attemptId: job.attemptId, outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', degraded: false, now })) {
+          await r.mediaQueue.enqueue(sceneImageObjectKey(job.sceneId, job.resultObjectId), 'DELETE', now);
+        }
+      });
+      return { accepted: false, view: await new GetSceneUseCase(deps).execute(userId, target) };
+    }
+  }
+}

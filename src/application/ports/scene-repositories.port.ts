@@ -150,6 +150,10 @@ export interface SceneRepository {
   closeAttempt(input: CloseAttemptInput): Promise<boolean>;
   /** T2: publica la imagen y cierra el intento `SUCCEEDED`; devuelve el id de la imagen anterior (para encolar su borrado) o `null`. */
   publishImage(input: PublishImageInput): Promise<string | null>;
+  /** Inicio del intento más reciente de la escena (base del enfriamiento de 60 s y de su `Retry-After`) o `null`. */
+  lastAttemptStartedAt(sceneId: string): Promise<string | null>;
+  /** Inicio más antiguo de los intentos del actor con `started_at >= since` (base de `Retry-After` del tope por actor) o `null`. */
+  oldestActorAttemptAt(actorUserId: string, since: string): Promise<string | null>;
   /** Contadores de `REQ-ESC6-034`: intentos de la escena o del actor con `started_at >= since`. */
   countAttemptsByScene(sceneId: string, since: string): Promise<number>;
   countAttemptsByActor(actorUserId: string, since: string): Promise<number>;

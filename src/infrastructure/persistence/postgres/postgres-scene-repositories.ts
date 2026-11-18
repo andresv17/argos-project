@@ -109,6 +109,14 @@ export function postgresSceneRepository(client: PoolClientLike): SceneRepository
       for (const owner of new Set(ownerUserIds)) await client.query('INSERT INTO scene_image_sources (scene_id, owner_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [sceneId, owner]);
       return previous;
     },
+    async lastAttemptStartedAt(sceneId) {
+      const { rows } = await client.query('SELECT max(started_at) AS m FROM scene_attempts WHERE scene_id = $1', [sceneId]);
+      return typeof rows[0]?.['m'] === 'string' ? rows[0]['m'] : null;
+    },
+    async oldestActorAttemptAt(actorUserId, since) {
+      const { rows } = await client.query('SELECT min(started_at) AS m FROM scene_attempts WHERE actor_user_id = $1 AND started_at >= $2', [actorUserId, since]);
+      return typeof rows[0]?.['m'] === 'string' ? rows[0]['m'] : null;
+    },
     async countAttemptsByScene(sceneId, since) {
       const { rows } = await client.query('SELECT count(*) AS n FROM scene_attempts WHERE scene_id = $1 AND started_at >= $2', [sceneId, since]);
       return Number(rows[0]?.['n'] ?? 0);

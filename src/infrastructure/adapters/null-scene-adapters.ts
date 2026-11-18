@@ -102,6 +102,12 @@ export class NullSceneRepository implements SceneRepository {
   publishImage(_input: PublishImageInput): Promise<string | null> {
     return Promise.resolve(null);
   }
+  lastAttemptStartedAt(_sceneId: string): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+  oldestActorAttemptAt(_actorUserId: string, _since: string): Promise<string | null> {
+    return Promise.resolve(null);
+  }
   countAttemptsByScene(_sceneId: string, _since: string): Promise<number> {
     return Promise.resolve(0);
   }

@@ -12,7 +12,10 @@ export class SpySceneDispatcher implements SceneJobDispatcherPort {
   failing = false;
   /** Cuando es verdadero, `enqueue` rechaza con `ALREADY_EXISTS` (la tarea con ese nombre ya existía, EDGE-ESC6-032). */
   alreadyExists = false;
+  /** Cuando es verdadero, `enqueue` falla con un tiempo agotado: el resultado es ambiguo y la tarea pudo crearse (EDGE-ESC6-032). */
+  ambiguous = false;
   async enqueue(job: SceneJob): Promise<void> {
+    if (this.ambiguous) throw Object.assign(new Error('tiempo agotado'), { code: 'DEADLINE_EXCEEDED' });
     if (this.failing) throw new Error('cola caída');
     this.jobs.push({ sceneId: job.sceneId, attemptId: job.attemptId });
     if (this.alreadyExists) throw Object.assign(new Error('ALREADY_EXISTS'), { code: 'ALREADY_EXISTS' });
