@@ -8,7 +8,7 @@
     "status": "DRAFT",
     "supersedes": null,
     "change_type": "MAJOR",
-    "change_note": "Contrato nuevo de la feature 005 (T706). SharedSummaryView resuelve el canal contractual del nombre original (B1 de /merovingian): el nombre viaja solo en fileLabels, nunca dentro de ClinicalSummary.",
+    "change_note": "Contrato nuevo de la feature 005 (T706). SharedSummaryView resuelve el canal contractual del nombre original (B1 de /merovingian): el nombre viaja solo en fileLabels, nunca dentro de ClinicalSummary. T707: IdempotencyKey y CreateShareLinkReplay (EDGE-005-16/17); displayName vacío = «Archivo» (EDGE-005-27); nota MIF-005-10 sobre revokedAt.",
     "traceability": [
       "REQ-VET-001",
       "REQ-VET-002",
@@ -24,7 +24,11 @@
       "INV-005-009",
       "SC-005-015",
       "SC-005-025",
-      "SC-005-035"
+      "SC-005-035",
+      "EDGE-005-16",
+      "EDGE-005-17",
+      "EDGE-005-27",
+      "SC-005-051"
     ]
   },
   "$defs": {
@@ -141,7 +145,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Nota MIF-005-10 (T707): sin consumidor confirmado; se retira solo si /sati confirma que la interfaz no muestra la fecha de revocación (la lista pinta status)"
         },
         "includeMicrochip": {
           "type": "boolean"
@@ -213,6 +218,25 @@
       },
       "description": "Respuesta de creación; el token se pierde si no se copia (se revoca y se crea otro)"
     },
+    "CreateShareLinkReplay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "link",
+        "urlAvailable"
+      ],
+      "properties": {
+        "link": {
+          "$ref": "#/$defs/ShareLinkView"
+        },
+        "urlAvailable": {
+          "type": "boolean",
+          "const": false,
+          "description": "Siempre false: el token no es recuperable (INV-005-005); no existe campo url"
+        }
+      },
+      "description": "Respuesta 200 de un reintento con la misma Idempotency-Key: metadatos del enlace ya creado, SIN URL ni token, sin nueva fila ni auditoría [EDGE-005-16, EDGE-005-17]"
+    },
     "ShareLinkList": {
       "type": "object",
       "additionalProperties": false,
@@ -257,7 +281,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 120,
-          "description": "Nombre original del archivo, texto del cuidador SIN verificar; se inserta solo como texto escapado, nunca en title, URL, cabeceras, registros ni en la hoja impresa [D5-06, D5-23, INV-005-009]"
+          "description": "Nombre original del archivo, texto del cuidador SIN verificar; se inserta solo como texto escapado, nunca en title, URL, cabeceras, registros ni en la hoja impresa. Si queda vacío tras el saneado, la etiqueta fija «Archivo» (EDGE-005-27); se escapa por construcción también para filas antiguas [D5-06, D5-23, INV-005-009]"
         }
       },
       "description": "Rótulo de un archivo clínico del resumen, leído de pet_media.original_name tras resolver el token"
@@ -295,6 +319,12 @@
         }
       },
       "description": "Envoltorio cerrado de la ruta pública y de la vista previa. Canal contractual del nombre original: ClinicalSummary permanece sin nombres (REQ-SUM-003, REQ-SUM-006) [REQ-VET-009, REQ-SUM-004]"
+    },
+    "IdempotencyKey": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "Valor de la cabecera Idempotency-Key de las dos operaciones de creación (UUID v4 del cliente, uno por intento de creación y reutilizado en los reintentos). Se guarda con la fila, única por (creador, clave); un reintento no crea otro enlace [EDGE-005-16, EDGE-005-17]"
     }
   }
 }

@@ -8,7 +8,7 @@
     "status": "DRAFT",
     "supersedes": null,
     "change_type": "MAJOR",
-    "change_note": "Contrato nuevo de la feature 005 (T706).",
+    "change_note": "Contrato nuevo de la feature 005 (T706). T707 (MIF-005-07): la fila no lleva valueType, minValue ni maxValue (sin consumidor); el tipo, el defecto y el rango viven solo en ParameterDefaults (catálogo del código).",
     "traceability": [
       "REQ-PRM-001",
       "REQ-PRM-002",
@@ -28,23 +28,12 @@
       ],
       "description": "Catálogo cerrado en código; una clave nueva exige tocar dominio, siembra y este contrato"
     },
-    "ParameterValueType": {
-      "type": "string",
-      "enum": [
-        "INTEGER",
-        "TEXT",
-        "BOOLEAN"
-      ]
-    },
     "PlatformParameter": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "key",
-        "valueType",
         "value",
-        "minValue",
-        "maxValue",
         "description",
         "updatedAt",
         "updatedByUserId"
@@ -53,26 +42,11 @@
         "key": {
           "$ref": "#/$defs/ParameterKey"
         },
-        "valueType": {
-          "$ref": "#/$defs/ParameterValueType"
-        },
         "value": {
           "type": "string",
           "minLength": 1,
           "maxLength": 200,
-          "description": "Texto canónico; el dominio lo interpreta según valueType; fuera de rango o ilegible = valor por defecto del código + aviso sin datos [REQ-PRM-002]"
-        },
-        "minValue": {
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "maxValue": {
-          "type": [
-            "integer",
-            "null"
-          ]
+          "description": "Texto canónico; el dominio lo interpreta con el tipo y el rango del catálogo en código (ParameterDefaults); fuera de rango o ilegible = valor por defecto del código + aviso sin datos [REQ-PRM-002]"
         },
         "description": {
           "type": "string",
@@ -94,7 +68,7 @@
           "description": "Sin FK: el perfil de administrador de plataforma aún no existe [REQ-PRM-003]"
         }
       },
-      "description": "Fila de platform_parameters"
+      "description": "Fila de platform_parameters; sin value_type, min_value ni max_value (MIF-005-05/07 de T707: el tipo y el rango viven solo en el catálogo del código)"
     },
     "ParameterDefaults": {
       "type": "object",

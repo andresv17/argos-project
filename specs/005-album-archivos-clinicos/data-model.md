@@ -1,6 +1,6 @@
 # Modelo de datos — Feature 005 (Álbum, archivos clínicos, enlace veterinario y ClinicalSummary)
 
-**Estado**: `DRAFT` (T706). Deltas sobre el modelo de la 004 (`specs/004-*/data-model.md`, `LOCKED`). Migraciones **Nivel 2** (SQLite y Postgres con prueba de paridad); los números de migración los asigna `/keymaker` tras la última de la 004. Fechas: `TEXT` ISO-8601 UTC con milisegundos (`IsoTimestamp`), salvo las fechas de calendario de los registros clínicos, que no se tocan.
+**Estado**: `DRAFT` (T706; revisión T707 del 2026-11-18 con las brechas EDGE de `/lock` y las podas de `/mifune` sin decisión de Neo). Deltas sobre el modelo de la 004 (`specs/004-*/data-model.md`, `LOCKED`). Migraciones **Nivel 2** (SQLite y Postgres con prueba de paridad); los números de migración los asigna `/keymaker` tras la última de la 004. Fechas: `TEXT` ISO-8601 UTC con milisegundos (`IsoTimestamp`), salvo las fechas de calendario de los registros clínicos, que no se tocan.
 
 ## 1. `pet_media` (existente): sin cambio de esquema
 
@@ -18,14 +18,14 @@
 | Columna | Tipo | Restricción |
 |---|---|---|
 | `key` | `TEXT` | PK; patrón `^[a-z][a-z0-9_.]{2,63}$` validado por dominio |
-| `value_type` | `TEXT` | NOT NULL, `CHECK (value_type IN ('INTEGER','TEXT','BOOLEAN'))` |
-| `value` | `TEXT` | NOT NULL, 1–200 (texto canónico; el tipo lo interpreta el dominio) |
-| `min_value` / `max_value` | `INTEGER` | NULL permitido; límites informativos para la futura UI de administración |
+| `value` | `TEXT` | NOT NULL, 1–200 (texto canónico; el tipo y el rango los define el catálogo del código y los interpreta el dominio) |
 | `description` | `TEXT` | NOT NULL, <= 200 |
 | `updated_at` | `TEXT` | NOT NULL |
 | `updated_by_user_id` | `TEXT` | NULL; **sin FK** (el perfil de administrador de plataforma aún no existe, `REQ-PRM-003`) |
 
-Siembra: `('album.max_photos_per_pet','INTEGER','10',1,50,'Máximo de fotos de álbum por mascota',now,NULL)`. Lectura con caché en memoria de TTL <= 60 s (`D5-07`); fila ausente, ilegible o fuera de rango → valor por defecto del código y aviso sin datos. Sin endpoint ni UI. Alternativas descartadas: tabla ancha (cada parámetro exigiría migración); JSON único (no consultable ni restringible por clave).
+**MIF-005-07 (T707)**: sin columnas `value_type`, `min_value` ni `max_value` (no tienen consumidor: el rango y el defecto ya viven en el catálogo del código y la UI de administración está fuera, `REQ-PRM-003`).
+
+Siembra: `('album.max_photos_per_pet','10','Máximo de fotos de álbum por mascota',now,NULL)`. Lectura con caché en memoria de TTL <= 60 s **por instancia** (`D5-07`; con varias instancias el desfase entre ellas está acotado a 60 s y es aceptado, EDGE-005-12; la interfaz se reconcilia con `getAlbumLimits` tras el 409); fila ausente, ilegible o fuera de rango → valor por defecto del código y aviso sin datos. Sin endpoint ni UI. Alternativas descartadas: tabla ancha (cada parámetro exigiría migración); JSON único (no consultable ni restringible por clave).
 
 ## 3. `share_links` (`REQ-VET-*`, `STATE-SHARE-001`)
 
@@ -38,11 +38,14 @@ Siembra: `('album.max_photos_per_pet','INTEGER','10',1,50,'Máximo de fotos de �
 | `household_id` | `TEXT` | FK `households(id)` `ON DELETE CASCADE`; NOT NULL si `scope = 'HOUSEHOLD'` |
 | `created_by_user_id` | `TEXT` | NOT NULL, FK `users(id)` `ON DELETE CASCADE` |
 | `created_at` | `TEXT` | NOT NULL |
-| `expires_in_days` | `INTEGER` | NOT NULL, `CHECK (expires_in_days IN (1,7,30))` (RAMA-005-009: la BD solo admite la enumeración; no existe `expiresAt` libre) |
+| `expires_in_days` | `INTEGER` | NOT NULL, `CHECK (expires_in_days IN (1,7,30))` (RAMA-005-009: la BD solo admite la enumeración; no existe `expiresAt` libre). **Nota MIF-005-10 (T707)**: sin consumidor aparente; no se retira hasta que `/rama` confirme que basta un `CHECK` equivalente sobre `expires_at - created_at` ∈ {1,7,30} días o la validación de dominio |
+| `idempotency_key` | `TEXT` | NOT NULL (UUID v4 de la cabecera `Idempotency-Key`); `UNIQUE (created_by_user_id, idempotency_key)` (EDGE-005-16/17, T707); no es un secreto ni el token; se purga con la fila |
 | `expires_at` | `TEXT` | NOT NULL; `CHECK (expires_at > created_at)`; el dominio fija `expires_at = created_at + expires_in_days` con `ClockPort` |
 | `revoked_at` | `TEXT` | NULL = no revocado |
 | `include_microchip` | `INTEGER` | NOT NULL DEFAULT 0, `CHECK (IN (0,1))`; inmutable (`D5-14`) |
 | `include_clinical_files` | `INTEGER` | NOT NULL DEFAULT 0, `CHECK (IN (0,1))`; inmutable (`D5-21`) |
+
+**Nota MIF-005-10 (T707)**: `ShareLinkView.revokedAt` no tiene consumidor confirmado (la lista pinta `status`); se retira solo si `/sati` confirma que no muestra la fecha de revocación; hasta entonces permanece.
 
 `CHECK ((scope='PET' AND pet_id IS NOT NULL AND household_id IS NULL) OR (scope='HOUSEHOLD' AND household_id IS NOT NULL AND pet_id IS NULL))`. **Sin columna de estado** (derivado, `STATE-SHARE-001`), **sin columna de token**, **sin IP**. Índices: UNIQUE `token_hash` (resolución pública); `share_links_pet_active (pet_id, revoked_at, expires_at)` y `share_links_household_active (household_id, revoked_at, expires_at)` (tope de 20 y listado); `share_links_created_by (created_by_user_id, created_at DESC)`; `share_links_purge (expires_at)` y `(revoked_at)` para la purga. `PRAGMA foreign_keys = ON` verificado por la prueba de paridad.
 
@@ -50,9 +53,9 @@ Siembra: `('album.max_photos_per_pet','INTEGER','10',1,50,'Máximo de fotos de �
 
 | Operación | Regla |
 |---|---|
-| Crear (`REQ-VET-001/003/012`) | Token generado en memoria (`randomBytes(32)`, base64url) → **una transacción**: candado (mascota para `PET`; propietario del creador para `HOUSEHOLD`), revalidar `CREATE_SHARE_LINK` (PET: rol efectivo; HOUSEHOLD: rol del usuario en el hogar, no el rol por mascota), validar que el selector pertenezca al conjunto vigente, contar activos (`revoked_at IS NULL AND expires_at > now`) y rechazar con `ERR-SHARE-LINK-LIMIT` si ya hay 20, insertar la fila con solo el hash, insertar la auditoría `CREATED` → `COMMIT` → solo entonces devolver la URL. Cualquier fallo: rollback total y token descartado. Si la respuesta se pierde tras el `COMMIT`, el token es irrecuperable (`INV-005-005`): el enlace queda listado y revocable |
-| Revocar (`REQ-VET-005`) | `UPDATE share_links SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL` + auditoría `REVOKED` en la misma transacción; idempotente (0 filas = sin segunda auditoría); `DELETE /share-links/{id}` **no** borra la fila |
-| Resolver (`REQ-VET-006/011`, `INV-005-006`) | **Una transacción de lectura**: fila por `token_hash` + vigencia + revocación + autoridad vigente del creador + conjunto de mascotas del alcance por consulta (HOUSEHOLD: `pets` asignadas ahora al hogar **y** `owner_user_id = created_by_user_id`) + lectura de los registros. Sin caché ni instantánea. Misma secuencia de llamadas a puertos en todas las ramas de fallo |
+| Crear (`REQ-VET-001/003/012`) | Token generado en memoria (`randomBytes(32)`, base64url) → **una transacción**: **candado del alcance** (la mascota para `PET`; **el hogar (`household_id`) para `HOUSEHOLD`**, nunca el candado del usuario creador: dos creadores distintos tomarían candados distintos y ambos contarían 19, EDGE-005-15; PostgreSQL: `SELECT ... FOR UPDATE` de la fila del hogar o `pg_advisory_xact_lock` con clave por `household_id`; SQLite: la transacción `IMMEDIATE`), revalidar `CREATE_SHARE_LINK` (PET: rol efectivo; HOUSEHOLD: rol del usuario en el hogar, no el rol por mascota), **buscar `(created_by_user_id, idempotency_key)`: si existe con el mismo alcance y opciones, `COMMIT` sin escribir y responder 200 `CreateShareLinkReplay` sin URL; con otro alcance u opciones, 422**, validar que el selector pertenezca al conjunto vigente, contar **bajo ese candado** los activos del alcance (`revoked_at IS NULL AND expires_at > now`, por `pet_id` o `household_id`, de cualquier creador) y rechazar con `ERR-SHARE-LINK-LIMIT` si ya hay 20, insertar la fila con solo el hash y la `idempotency_key`, insertar la auditoría `CREATED` → `COMMIT` → solo entonces devolver la URL. Cualquier fallo: rollback total y token descartado. Si la respuesta se pierde tras el `COMMIT`, el token es irrecuperable (`INV-005-005`): el reintento con la misma clave no crea otro enlace y el enlace queda listado y revocable (riesgo residual en `PN-07`) |
+| Revocar (`REQ-VET-005`) | `UPDATE share_links SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL AND expires_at > ?` + auditoría `REVOKED` en la misma transacción; idempotente (0 filas = sin segunda auditoría); un enlace ya VENCIDO es un **no-op** (204 sin escribir ni auditar, sigue VENCIDO; MIF-005-08, T707); `DELETE /share-links/{id}` **no** borra la fila |
+| Resolver (`REQ-VET-006/011`, `INV-005-006`) | **Una transacción de solo lectura con aislamiento explícito** (PostgreSQL: `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY`, instantánea única; `READ COMMITTED` no basta, EDGE-005-14; SQLite: transacción de lectura sobre WAL) y **un único `ClockPort.now()` por petición** (EDGE-005-24), con prueba de dos conexiones en PostgreSQL real (`SC-005-049`): fila por `token_hash` + vigencia + revocación + autoridad vigente del creador + conjunto de mascotas del alcance por consulta (HOUSEHOLD: `pets` asignadas ahora al hogar **y** `owner_user_id = created_by_user_id`) + lectura de los registros. Sin caché ni instantánea. Misma secuencia de llamadas a puertos en todas las ramas de fallo |
 | Cascada (`REQ-VET-010`) | Eliminar mascota, hogar o cuenta borra las filas en la misma transacción (`ON DELETE CASCADE`); la importación de respaldo **por reemplazo** ejecuta la misma cascada al borrar mascotas |
 | Autoridad perdida (`REQ-VET-011`) | No se borra: el enlace deja de resolver (404 uniforme) mientras el creador no recupere autoridad; si la recupera, vuelve a resolver (la autoridad se evalúa en cada acceso). La fila sigue su vigencia y se purga a los 30 días de vencer o revocarse |
 | Purga (`REQ-VET-013`) | Mantenimiento diario (`REQ-CLD-007`): `DELETE FROM share_links WHERE expires_at < :now-30d OR revoked_at < :now-30d` |
@@ -72,7 +75,7 @@ Tabla propia (no se edita `audit-entry.schema.json` de la 004). Sin FK a `share_
 | `ip_key_version` | `INTEGER` | NULL; versión de la clave (rotación trimestral) |
 | `fail_count` | `INTEGER` | NOT NULL DEFAULT 1; en `ACCESS_FAILED` se **agrega** una fila por `(ip_hmac, ventana)` con contador, no una fila por intento (minimización y costo) |
 
-Reglas: clave HMAC dedicada (Secret Manager, >= 32 bytes, separada de las claves de sesión y de auditoría); IP efectiva solo de `trustProxy` de 1 salto (nunca `X-Forwarded-For` crudo; IPv6 por /64); sin escritura de BD durante un 429; si la auditoría de un acceso válido falla, **fail-closed** (no se sirve el resumen). El límite de tasa vive en memoria (mapa acotado con expulsión del más antiguo, solo cuenta fallos): `TECHDEBT-005-01`. Retención: **90 días** (purga diaria `DELETE ... WHERE occurred_at < :now-90d`); el HMAC de IP se rota **trimestralmente** (las filas conservan `ip_key_version`; no se re-calcula el histórico).
+Reglas: clave HMAC dedicada (Secret Manager, >= 32 bytes, separada de las claves de sesión y de auditoría); IP efectiva solo de `trustProxy` de 1 salto (nunca `X-Forwarded-For` crudo; IPv6 por /64); sin escritura de BD durante un 429; si la auditoría de un acceso válido falla, **fail-closed** (no se sirve el resumen). El límite de tasa vive en memoria (`Map` con barrido de ventanas vencidas y tope duro de entradas; con el tope lleno, 429 fail-closed; sin estructura de expulsión del más antiguo, MIF-005-12; solo cuenta fallos): `TECHDEBT-005-01`. Retención: **90 días** (purga diaria `DELETE ... WHERE occurred_at < :now-90d`); el HMAC de IP se rota **trimestralmente** (las filas conservan `ip_key_version`; no se re-calcula el histórico).
 
 ## 5. Respaldo, restauración y exportación
 

@@ -9,7 +9,7 @@
     "status": "DRAFT",
     "supersedes": null,
     "change_type": "MAJOR",
-    "change_note": "Máquina nueva de la feature 005 (T706): ciclo de vida de un enlace veterinario y regla de resolución uniforme. El estado se DERIVA de revokedAt y expiresAt; no se persiste una columna de estado.",
+    "change_note": "Máquina nueva de la feature 005 (T706): ciclo de vida de un enlace veterinario y regla de resolución uniforme. El estado se DERIVA de revokedAt y expiresAt; no se persiste una columna de estado. T707: EXPIRED -> REVOKED pasa a no-op idempotente (MIF-005-08); candado por alcance, lectura coherente, un solo now e idempotencia de creación.",
     "traceability": [
       "STATE-SHARE-001",
       "REQ-VET-004",
@@ -25,7 +25,16 @@
       "SC-005-018",
       "SC-005-019",
       "SC-005-037",
-      "SC-005-038"
+      "SC-005-038",
+      "EDGE-005-14",
+      "EDGE-005-15",
+      "EDGE-005-16",
+      "EDGE-005-23",
+      "EDGE-005-24",
+      "EDGE-005-25",
+      "SC-005-049",
+      "SC-005-050",
+      "SC-005-051"
     ]
   },
   "machines": {
@@ -34,7 +43,7 @@
       "context": {
         "revokedAt": "IsoTimestamp o null",
         "expiresAt": "IsoTimestamp (createdAt + {1,7,30} días)",
-        "now": "ClockPort.now(); nunca el reloj de la base de datos",
+        "now": "ClockPort.now(); nunca el reloj de la base de datos; UNA sola lectura por petición (EDGE-005-24): el mismo instante alimenta el estado, generatedAt, validUntil, la edad derivada y X-Goog-Expires",
         "creatorAuthority": "boolean evaluado EN ESTA petición: PET = el creador conserva rol efectivo OWNER|ADMIN sobre la mascota; HOUSEHOLD = el creador es propietario o ADMIN ACTIVE de ese hogar",
         "resolvedPetSet": "conjunto de mascotas del alcance calculado por consulta en esta petición (HOUSEHOLD: asignadas ahora al hogar Y propiedad legal del creador, D5-19); sin caché ni instantánea",
         "tokenResolvesToRow": "boolean: SHA-256 del token recibido (cualquier forma) coincide con un token_hash"
@@ -70,7 +79,7 @@
           "from": null,
           "to": "ACTIVE",
           "event": "CREATE",
-          "guard": "permiso CREATE_SHARE_LINK sobre el alcance, activos < 20 y resolvedPetSet no vacío, todo bajo candado y en una transacción",
+          "guard": "permiso CREATE_SHARE_LINK sobre el alcance, Idempotency-Key no repetida (si se repite: 200 sin crear, EDGE-005-16/17), activos < 20 y resolvedPetSet no vacío, todo bajo el candado del alcance y en una transacción",
           "requirementRef": "REQ-VET-001, REQ-VET-012"
         },
         {
@@ -82,9 +91,9 @@
         },
         {
           "from": "EXPIRED",
-          "to": "REVOKED",
+          "to": "EXPIRED",
           "event": "REVOKE",
-          "guard": "igual; fija revokedAt (permite listar REVOKED antes de la purga)",
+          "guard": "no-op idempotente (MIF-005-08, T707): 204 sin escribir ni auditar; el enlace sigue VENCIDO; la autoridad del actor se valida igual y sin autoridad es 404; no existe transición EXPIRED -> REVOKED",
           "requirementRef": "REQ-VET-005"
         },
         {
@@ -124,12 +133,14 @@
             "X-Content-Type-Options: nosniff",
             "Content-Security-Policy restrictiva"
           ]
-        }
+        },
+        "readConsistency": "una transacción de solo lectura con aislamiento explícito (PostgreSQL REPEATABLE READ READ ONLY; SQLite lectura sobre WAL) y un único now por petición (EDGE-005-14, EDGE-005-24)",
+        "frameworkResponses": "404 de parámetro largo y 400 de URL mal codificada de Fastify, ruta no definida y barra final bajo /shared/ se normalizan a este mismo 404 y cuentan como fallo (EDGE-005-25)"
       },
       "activeLinkLimit": {
         "maxActivePerScope": 20,
         "countsWhere": "revoked_at IS NULL AND expires_at > now",
-        "enforcedIn": "transacción de creación bajo candado (comprobación autoritativa); un chequeo previo solo es rechazo barato",
+        "enforcedIn": "transacción de creación bajo candado DEL ALCANCE (mascota para PET, hogar para HOUSEHOLD; nunca el candado del usuario creador, EDGE-005-15) (comprobación autoritativa); un chequeo previo solo es rechazo barato",
         "errorRef": "ERR-SHARE-LINK-LIMIT"
       },
       "retention": {
@@ -140,7 +151,7 @@
       "rules": {
         "noStatusColumn": "El estado no se persiste: se deriva de revoked_at y expires_at con el reloj inyectado (evita deriva entre columna y reloj).",
         "immutableOptions": "includeMicrochip e includeClinicalFiles no cambian tras crear; cambiarlos exige revocar y crear otro enlace.",
-        "signedUrlWindow": "Tras revocar o vencer, una URL firmada ya emitida vive hasta su TTL (<= 300 s, INV-005-008); el corte aplica a la API y a la emisión, no a URL ya emitidas."
+        "signedUrlWindow": "Tras revocar o vencer, una URL firmada ya emitida vive hasta su TTL (<= 300 s, INV-005-008); el corte aplica a la API y a la emisión, no a URL ya emitidas. X-Goog-Expires = min(300, floor(restante)) con mínimo 1 s: con menos de 1 s restante no se emite URL y se responde el 404 uniforme (EDGE-005-23)."
       }
     }
   }
