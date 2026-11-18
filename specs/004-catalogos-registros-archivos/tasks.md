@@ -191,7 +191,7 @@
 - [x] T594 [P] Comprobación de costo: `terraform plan` sin recursos de pago y cuenta de operaciones esperadas dentro del cupo (SC-ALM-024) (NFR-ALM-001)
 - [x] T595 Runbook y `quickstart.md` de 004: retención 0 y ventana única de `REQ-PG-011` para los registros borrados, ventana de la cola de GCS (inmediata, <= 24 h, sin tope con alerta a las 48 h), aviso de eliminación de cuenta, restauración (`REQ-PG-016`) sin resurrección de medios y reaplicando borrados desde la auditoría, migración aditiva sin retroceso destructivo, no activar Data Access logs del bucket de medios, canal de resolución de microchip por Neo, métrica de bytes servidos (SC-ALM-033) (REQ-GCS-004, REQ-ACC-002, REQ-BOR-004, NFR-ALM-005, REQ-PET4-002, NFR-ALM-001)
 - [x] T596 Compuertas finales: `npx tsc --noEmit`, `npm run test:gate`, `bash scripts/verify-traceability.sh --feature 004`, `bash scripts/verify-oracles.sh`; auditoría de `/oracle` (REQ-ESP-001, NFR-ALM-004)
-- [ ] T597 [N2] Neo: despliegue por CI aprobado, `terraform apply` y verificación en vivo de subida, vista en línea (URL firmada, `iframe`, caducidad y CSP de producción), borrado físico, avatar, y prueba en un dispositivo móvil real (PE-04, PE-05, PE-06); firma `[x]` (REQ-GCS-001, REQ-GCS-002, REQ-ARC-003, REQ-GCS-004)
+- [x] T597 [N2] Neo: despliegue por CI aprobado, `terraform apply` y verificación en vivo de subida, vista en línea (URL firmada, `iframe`, caducidad y CSP de producción), borrado físico, avatar, y prueba en un dispositivo móvil real (PE-04, PE-05, PE-06); firma `[x]` (REQ-GCS-001, REQ-GCS-002, REQ-ARC-003, REQ-GCS-004)
 
 ---
 
