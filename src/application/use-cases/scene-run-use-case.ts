@@ -43,6 +43,14 @@ interface Claimed {
   readonly totalPets: number;
 }
 
+/** Fotos EFECTIVAMENTE enviadas al proveedor tras los filtros del worker (H-KEY-F5-6): solo ellas definen `scene_image_sources` y el consentimiento recomprobado en T2. */
+interface SentPhotos {
+  readonly petIds: ReadonlySet<string>;
+  readonly household: boolean;
+  /** La imagen vigente viajó como referencia (modo incremental): hereda las fuentes de la imagen previa. */
+  readonly previousImage: boolean;
+}
+
 const REFERENCE_MIMES = new Set(['image/png', 'image/webp', 'image/jpeg']);
 const resultKey = (attempt: SceneAttemptRecord, sceneId: string): string => sceneImageObjectKey(sceneId, attempt.resultObjectId);
 
@@ -75,18 +83,19 @@ export class RunSceneGenerationUseCase {
     let degraded = attempt.degraded;
     let references: SceneReferenceImage[] = [];
     let prompt = '';
+    let sent: SentPhotos = { petIds: new Set(), household: false, previousImage: false };
     try {
       const last = scene.image === null ? null : parseInputsSnapshot(scene.image.inputsSnapshot);
       const plan = decideMode({ last, now: snapshot, hasImage: scene.image !== null, action: attempt.action }) ?? decideMode({ last: null, now: snapshot, hasImage: false, action: 'UPDATE' });
       if (plan === null || plan.mode !== attempt.mode) return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
-      const slots: Array<{ ref: AssetRef; key: string; required: boolean }> = [];
+      const slots: Array<{ ref: AssetRef; key: string; required: boolean; petId?: string; household?: true }> = [];
       if (plan.currentSceneRef !== null && scene.image !== null) slots.push({ ref: plan.currentSceneRef, key: sceneImageObjectKey(scene.id, scene.image.id), required: true });
-      if (plan.householdRef !== null && scene.householdId !== null && snapshot.household !== null) slots.push({ ref: plan.householdRef, key: householdPhotoObjectKey(scene.householdId, snapshot.household), required: false });
+      if (plan.householdRef !== null && scene.householdId !== null && snapshot.household !== null) slots.push({ ref: plan.householdRef, key: householdPhotoObjectKey(scene.householdId, snapshot.household), required: false, household: true });
       for (const entry of plan.pets) {
         const pet = snapshot.pets.find((p) => p.id === entry.petId);
-        if (entry.ref !== null && pet?.photo != null) slots.push({ ref: entry.ref, key: avatarObjectKey(pet.id, pet.photo), required: false });
+        if (entry.ref !== null && pet?.photo != null) slots.push({ ref: entry.ref, key: avatarObjectKey(pet.id, pet.photo), required: false, petId: pet.id });
       }
-      const loaded: Array<{ ref: AssetRef; required: boolean; mime: string; bytes: Uint8Array }> = [];
+      const loaded: Array<{ ref: AssetRef; required: boolean; mime: string; bytes: Uint8Array; petId?: string; household?: true }> = [];
       const dropped = new Set<AssetRef>();
       for (const slot of slots) {
         let object: Awaited<ReturnType<typeof media.storage.get>> = null;
@@ -104,7 +113,7 @@ export class RunSceneGenerationUseCase {
           degraded = true;
           continue;
         }
-        loaded.push({ ref: slot.ref, required: slot.required, mime: stripped.mime, bytes: stripped.bytes });
+        loaded.push({ ...slot, mime: stripped.mime, bytes: stripped.bytes });
       }
       const fit = svc.images.fit(loaded.map((l) => l.bytes.length));
       if (fit.degraded) {
@@ -115,6 +124,12 @@ export class RunSceneGenerationUseCase {
         }
       }
       const adjusted = renumber(plan, dropped);
+      const delivered = loaded.filter((l) => !dropped.has(l.ref));
+      sent = {
+        petIds: new Set(delivered.flatMap((l) => (l.petId === undefined ? [] : [l.petId]))),
+        household: delivered.some((l) => l.household === true),
+        previousImage: delivered.some((l) => l.required),
+      };
       references = loaded.filter((l) => !dropped.has(l.ref)).map((l, i) => ({ ref: `IMG_${i + 1}` as SceneReferenceImage['ref'], mime: l.mime, bytes: l.bytes }));
       prompt = buildImagePrompt(buildScenePayload({ plan: adjusted, last, now: snapshot, householdId: scene.householdId, maxPets: svc.maxPets, totalPets: claim.totalPets }));
     } catch {
@@ -178,7 +193,7 @@ export class RunSceneGenerationUseCase {
         return { outcome: 'CANCELLED' } as const;
       }
       if (current.leaseExpiresAt === null || current.leaseExpiresAt <= now) return finish('FAILED', 'ERR-SCENE-LEASE-EXPIRED');
-      const owners = await this.dataOwners(r, current, snapshot, attempt.actorUserId);
+      const owners = await this.dataOwners(r, current, snapshot, attempt.actorUserId, sent);
       if (owners === null) return finish('CANCELLED', null);
       const quota = applyPublication({ consumed: current.consumedGenerations, window: current.quotaWindow, attemptWindow: attempt.quotaWindow, attemptMax: attempt.quotaMax });
       // H-KEY-F5-7: el código visible es el estable; el motivo interno (no es un ERR-*) solo va a la auditoría.
@@ -242,7 +257,7 @@ export class RunSceneGenerationUseCase {
         await this.audit(r, scene, attempt, 'SCENE_FAILED', 'ERR-SCENE-GENERATION-FAILED');
         return { outcome: 'FAILED', purge: key };
       }
-      const owners = await this.dataOwners(r, scene, snapshot, attempt.actorUserId);
+      const owners = await this.dataOwners(r, scene, snapshot, attempt.actorUserId, null);
       if (owners === null) return { ...(await abandon('CANCELLED', null)), outcome: 'CANCELLED' };
       const live = await loadLiveInputs(deps, r, { householdId: scene.householdId, ownerUserId: scene.ownerUserId, role: 'OWNER' });
       return { scene, attempt: { ...attempt, phase: 'RUNNING', claimedAt: now }, snapshot, totalPets: live.total };
@@ -281,13 +296,14 @@ export class RunSceneGenerationUseCase {
   }
 
   /**
-   * Dueños de los datos de la imagen (REQ-ESC6-036 (4)): el actor, el propietario de cada mascota del snapshot y quien subió la foto del hogar. Exige cuenta
-   * existente, mascota existente y asignada (o, sin hogar, del propietario sin asignar) y, con el driver real, consentimiento vigente del actor y de cada dueño de
-   * una foto incluida. `null` si falta alguno (EDGE-ESC6-025); si no, los ids únicos para `scene_image_sources`.
+   * Dueños de los datos de la imagen (REQ-ESC6-036 (4), H-KEY-F5-6). Existencia de cuenta y mascota asignada (o, sin hogar, del propietario sin asignar): TODOS los
+   * dueños del snapshot, hayan viajado o no sus fotos. Consentimiento vigente (driver real): el actor y los dueños de fotos ENVIADAS (`sent`); en el claim, que aún no
+   * conoce los filtros, `sent` es `null` y se exige para toda foto del snapshot. `null` si falta algo (EDGE-ESC6-025); si no, los ids únicos de `scene_image_sources`:
+   * quien subió la foto del hogar y cada dueño de foto de mascota enviadas, más las fuentes de la imagen previa si viajó como referencia (la imagen nueva deriva de ella).
    */
-  private async dataOwners(r: RepositorySet, scene: SceneRecord, snapshot: InputsSnapshot, actorUserId: string): Promise<string[] | null> {
+  private async dataOwners(r: RepositorySet, scene: SceneRecord, snapshot: InputsSnapshot, actorUserId: string, sent: SentPhotos | null): Promise<string[] | null> {
     const svc = requireScene(this.deps);
-    const owners = new Set<string>();
+    const sources = new Set<string>();
     if ((await r.users.findById(actorUserId)) === null) return null;
     if (svc.realDriver && !(await hasActiveConsent(r, svc, actorUserId, 'PET_PHOTOS')) && !(await hasActiveConsent(r, svc, actorUserId, 'HOUSEHOLD_PHOTO'))) return null;
     for (const entry of snapshot.pets) {
@@ -296,15 +312,21 @@ export class RunSceneGenerationUseCase {
       const assignments = await r.assignments.listByPet(pet.id);
       const placed = scene.householdId !== null ? assignments.some((a) => a.householdId === scene.householdId) : pet.ownerUserId === scene.ownerUserId && assignments.length === 0;
       if (!placed) return null;
-      if (svc.realDriver && entry.photo !== null && !(await hasActiveConsent(r, svc, pet.ownerUserId, 'PET_PHOTOS'))) return null;
-      owners.add(pet.ownerUserId);
+      const photoSent = entry.photo !== null && (sent === null || sent.petIds.has(pet.id));
+      if (photoSent) {
+        if (svc.realDriver && !(await hasActiveConsent(r, svc, pet.ownerUserId, 'PET_PHOTOS'))) return null;
+        sources.add(pet.ownerUserId);
+      }
     }
     if (snapshot.household !== null && scene.householdId !== null) {
       const photo = await r.scenes.findHouseholdPhoto(scene.householdId);
       if (photo === null || photo.objectId !== snapshot.household || (await r.users.findById(photo.uploadedByUserId)) === null) return null;
-      if (svc.realDriver && !(await hasActiveConsent(r, svc, photo.uploadedByUserId, 'HOUSEHOLD_PHOTO'))) return null;
-      owners.add(photo.uploadedByUserId);
+      if (sent === null || sent.household) {
+        if (svc.realDriver && !(await hasActiveConsent(r, svc, photo.uploadedByUserId, 'HOUSEHOLD_PHOTO'))) return null;
+        sources.add(photo.uploadedByUserId);
+      }
     }
-    return [...owners].sort();
+    if (sent !== null && sent.previousImage) for (const owner of await r.scenes.findImageSources(scene.id)) sources.add(owner);
+    return [...sources].sort();
   }
 }

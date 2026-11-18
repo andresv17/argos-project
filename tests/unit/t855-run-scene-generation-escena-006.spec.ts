@@ -6,7 +6,7 @@ import type { ApplicationDeps } from '../../src/application/use-cases/use-case-s
 import { stateHash } from '../../src/domain/audit/state-hash.ts';
 import { STYLE_BASE_TEXT } from '../../src/domain/scene/build-image-prompt.ts';
 import { FakeSceneImageGenerator } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
-import { ANDRES, ARGOS, HOUSEHOLD, canonicalState, createHarness } from '../fixtures/application-harness.ts';
+import { ANDRES, ARGOS, HOUSEHOLD, LUNA, MARIA, canonicalState, createHarness } from '../fixtures/application-harness.ts';
 import { ControlledStorage } from '../fixtures/media-harness.ts';
 import { sceneFixture, withScene, type SceneFixtureOptions } from '../fixtures/scene-services-fixtures.ts';
 
@@ -67,7 +67,7 @@ async function requested(t: T, n = 1, action: 'UPDATE' | 'REGENERATE' = 'UPDATE'
 }
 
 describe('runSceneGeneration (T856): camino feliz y T2 atómico', () => {
-  it('[REQ-ESC6-013][INV-ESC6-004][SC-ESC6-020] publica en T2: imagen vigente con la huella del intento, cuota +1 en la ventana del intento, fuentes, intento SUCCEEDED, INTENT retirado y objeto guardado', async () => {
+  it('[REQ-ESC6-013][INV-ESC6-004][SC-ESC6-020] publica en T2: imagen vigente con la huella del intento, cuota +1 en la ventana del intento, fuentes vacías (ninguna foto enviada), intento SUCCEEDED, INTENT retirado y objeto guardado', async () => {
     const t = setup();
     const before = JSON.stringify({ pets: snap(t).pets, households: snap(t).households, records: snap(t).records });
     const j = await requested(t);
@@ -79,7 +79,7 @@ describe('runSceneGeneration (T856): camino feliz y T2 atómico', () => {
     expect(attempt).toMatchObject({ phase: 'DONE', outcome: 'SUCCEEDED', claimedAt: NOW, providerCallStartedAt: NOW, finishedAt: NOW });
     expect(await t.storage.keys('scenes/')).toEqual([`scenes/${j.sceneId}/images/${attempt?.resultObjectId}`]);
     expect(queue(t)).toEqual([]);
-    expect(snap(t).sceneImageSources?.map((s) => s.ownerUserId).sort()).toEqual([...new Set(snap(t).pets.filter((p) => snap(t).assignments.some((a) => a.petId === p.id && a.householdId === HOUSEHOLD.id)).map((p) => p.ownerUserId))].sort());
+    expect(snap(t).sceneImageSources ?? []).toEqual([]); // H-KEY-F5-6: sin foto enviada no hay fuentes (mascotas sin foto, actor sin foto propia)
     expect(await t.get.execute(ANDRES, HOUSE)).toMatchObject({ status: 'ready', pending: 0, quota: { remaining: 9 }, imageTag: attempt?.resultObjectId });
     expect(JSON.stringify({ pets: snap(t).pets, households: snap(t).households, records: snap(t).records })).toBe(before);
   });
@@ -238,6 +238,43 @@ describe('runSceneGeneration (T856): referencias, degradación y límites', () =
     expect(sceneOf(t)?.imageDegraded).toBe(true);
   });
 
+  it('[H-KEY-F5-6][SC-ESC6-039] scene_image_sources registra solo al dueño de la foto efectivamente enviada: la mascota de otro dueño sin foto y el actor sin foto propia no figuran', async () => {
+    const t = setup();
+    await withAvatar(t, await validPng());
+    expect(await t.run.execute(await requested(t), signal())).toBe('PUBLISHED');
+    expect(t.fixture.generator.calls[0]?.references).toHaveLength(1);
+    expect(snap(t).sceneImageSources).toEqual([{ sceneId: sceneOf(t)?.id, ownerUserId: ARGOS.ownerUserId }]);
+    expect(snap(t).pets.find((p) => p.id === LUNA.id)?.ownerUserId).not.toBe(ARGOS.ownerUserId);
+  });
+
+  it('[H-KEY-F5-6][SC-ESC6-039] una generación incremental conserva las fuentes de la imagen previa (viajó como referencia) y añade al dueño de la foto nueva', async () => {
+    const t = setup();
+    await withAvatar(t, await validPng());
+    await t.run.execute(await requested(t, 1), signal());
+    const lunaAvatar = 'e1000000-0000-4000-8000-000000000002';
+    await t.h.uow.runInTransaction(async (r) => { await r.pets.replaceAvatar(LUNA.id, lunaAvatar); });
+    await t.storage.put(`pets/${LUNA.id}/avatar/${lunaAvatar}`, await validPng(), 'image/png');
+    t.h.clock.setClock('2026-11-05', at(120));
+    expect(await t.run.execute(await requested(t, 2), signal())).toBe('PUBLISHED');
+    expect(snap(t).sceneAttempts?.[1]?.mode).not.toBe('FROM_SCRATCH');
+    expect(t.fixture.generator.calls[1]?.references.length).toBeGreaterThanOrEqual(2);
+    expect(snap(t).sceneImageSources?.map((x) => x.ownerUserId).sort()).toEqual([ARGOS.ownerUserId, LUNA.ownerUserId].sort());
+  });
+
+  it('[H-KEY-F5-6][EDGE-ESC6-028] una foto omitida o degradada (objeto ausente, ilegible o fuera del tope agregado) no cuenta como enviada: sin fuentes', async () => {
+    for (const make of [async () => null, async () => new TextEncoder().encode('no es imagen')]) {
+      const t = setup();
+      await withAvatar(t, await make());
+      expect(await t.run.execute(await requested(t), signal())).toBe('PUBLISHED');
+      expect(sceneOf(t)?.imageDegraded).toBe(true);
+      expect(snap(t).sceneImageSources ?? []).toEqual([]);
+    }
+    const capped = setup({ images: { fit: () => ({ kept: 0, degraded: true }) } });
+    await withAvatar(capped, await validPng());
+    expect(await capped.run.execute(await requested(capped), signal())).toBe('PUBLISHED');
+    expect(snap(capped).sceneImageSources ?? []).toEqual([]);
+  });
+
   it('[EDGE-ESC6-028] si el tope agregado de referencias no admite ninguna, se omiten por prioridad, se registra degradación y el intento termina', async () => {
     const t = setup({ images: { fit: () => ({ kept: 0, degraded: true }) } });
     await withAvatar(t, await validPng());
@@ -270,6 +307,42 @@ describe('runSceneGeneration (T856): consentimiento, cambios y arrendamiento dur
     expect(sceneOf(t)).toMatchObject({ image: null, consumedGenerations: 0 });
     expect(await t.storage.keys('scenes/')).toEqual([]);
     expect(queue(t)).toEqual([]);
+  });
+
+  describe('H-KEY-F5-6: recomprobación de T2 (EDGE-ESC6-025)', () => {
+    const consentOf = (userId: string, n: number) => ({ id: `c5000000-0000-4000-8000-00000000001${n}`, userId, scope: 'PET_PHOTOS' as const, providerId: 'vertex-gemini-image', noticeVersion: '1', grantedAt: NOW, revokedAt: null });
+    const LUNA_AVATAR = 'e1000000-0000-4000-8000-000000000002';
+    async function ready(photoOfLuna: 'sent' | 'absent') {
+      const t = setup({ realDriver: true });
+      await t.h.uow.runInTransaction(async (r) => { await r.sceneConsents.grant(consentOf(ANDRES, 1)); await r.sceneConsents.grant(consentOf(MARIA, 2)); await r.pets.replaceAvatar(LUNA.id, LUNA_AVATAR); });
+      if (photoOfLuna === 'sent') await t.storage.put(`pets/${LUNA.id}/avatar/${LUNA_AVATAR}`, await validPng(), 'image/png');
+      const j = await requested(t);
+      return { t, j };
+    }
+
+    it('el dueño de una foto ENVIADA que retira el consentimiento mientras el proveedor trabaja cancela el intento: T2 no publica y el objeto se purga', async () => {
+      const { t, j } = await ready('sent');
+      t.hooked.during = async () => { await t.h.uow.runInTransaction(async (r) => { await r.sceneConsents.revoke(consentOf(MARIA, 2).id, NOW); }); };
+      expect(await t.run.execute(j, signal())).toBe('CANCELLED');
+      expect(t.fixture.generator.calls[0]?.references).toHaveLength(1);
+      expect(sceneOf(t)).toMatchObject({ image: null, consumedGenerations: 0 });
+      expect(await t.storage.keys('scenes/')).toEqual([]);
+    });
+
+    it('el dueño de una foto que NO viajó (objeto ausente, degradada) retira el consentimiento durante la generación: T2 publica, sin él en las fuentes', async () => {
+      const { t, j } = await ready('absent');
+      t.hooked.during = async () => { await t.h.uow.runInTransaction(async (r) => { await r.sceneConsents.revoke(consentOf(MARIA, 2).id, NOW); }); };
+      expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
+      expect(sceneOf(t)).toMatchObject({ imageDegraded: true, consumedGenerations: 1 });
+      expect(snap(t).sceneImageSources ?? []).toEqual([]);
+    });
+
+    it('la existencia de cuenta y la asignación se recomprueban sobre TODOS los dueños del snapshot aunque su foto no viajara: la mascota desasignada cancela el intento', async () => {
+      const { t, j } = await ready('absent');
+      t.hooked.during = async () => { await t.h.uow.runInTransaction(async (r) => { await r.assignments.remove(LUNA.id, HOUSEHOLD.id); }); };
+      expect(await t.run.execute(j, signal())).toBe('CANCELLED');
+      expect(sceneOf(t)).toMatchObject({ image: null, consumedGenerations: 0 });
+    });
   });
 
   it('[REQ-ESC6-014][SC-ESC6-017] los cambios durante la generación se publican con la huella del intento: la escena queda ready para lo generado y outdated por lo nuevo', async () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GetSceneNoticeUseCase, GrantSceneConsentUseCase, RevokeSceneConsentUseCase } from '../../src/application/use-cases/scene-consent-use-cases.ts';
+import { RunSceneGenerationUseCase } from '../../src/application/use-cases/scene-run-use-case.ts';
 import { PutHouseholdPhotoUseCase } from '../../src/application/use-cases/scene-photo-use-cases.ts';
 import { GetSceneUseCase, RequestSceneGenerationUseCase, loadLiveInputs, type SceneTarget } from '../../src/application/use-cases/scene-use-cases.ts';
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
@@ -169,6 +170,32 @@ describe('revokeSceneConsent (T858)', () => {
     expect(snap(t).mediaQueue).toEqual([]);
     expect(await t.storage.keys('scenes/')).toEqual([]);
     expect(attempt?.phase).toBe('PENDING');
+  });
+
+  it('[H-KEY-F5-6][SC-ESC6-039] dueño sin foto enviada retira, la imagen se conserva: sus referencias propias se purgan y su intento en vuelo se cancela, pero la imagen sigue porque su foto no viajó', async () => {
+    const t = setup();
+    await t.grant.execute(ANDRES, BOTH);
+    await t.grant.execute(MARIA, BOTH);
+    const avatar = 'e1000000-0000-4000-8000-000000000001';
+    await t.h.uow.runInTransaction(async (r) => { await r.pets.replaceAvatar(ARGOS.id, avatar); });
+    await t.storage.put(`pets/${ARGOS.id}/avatar/${avatar}`, await pngBytes(), 'image/png');
+    const run = new RunSceneGenerationUseCase(t.deps);
+    await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, key(1));
+    const first = snap(t).sceneAttempts![0]!;
+    expect(await run.execute({ sceneId: first.sceneId, attemptId: first.id }, new AbortController().signal)).toBe('PUBLISHED');
+    expect((snap(t).sceneImageSources ?? []).map((x) => x.ownerUserId)).toEqual([ANDRES]);
+    const imageId = snap(t).scenes?.[0]?.image?.id;
+    // Un intento en vuelo cuyo snapshot incluye la mascota de MARIA (sin foto enviada).
+    await t.h.uow.runInTransaction(async (r) => { const pet = (await r.pets.findById(ARGOS.id))!; await r.pets.save({ ...pet, breed: 'Cambio', breedCode: null }); });
+    t.h.clock.setClock('2026-11-05', '2026-11-05T12:05:00.000Z');
+    await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, key(2));
+    await t.revoke.execute(MARIA);
+    expect(snap(t).scenes?.[0]?.image?.id).toBe(imageId);
+    expect((snap(t).sceneImageSources ?? []).map((x) => x.ownerUserId)).toEqual([ANDRES]);
+    expect(snap(t).sceneAttempts?.[1]).toMatchObject({ outcome: 'CANCELLED' });
+    expect((await t.get.execute(ANDRES, HOUSE)).imageTag).toBe(imageId);
+    await t.revoke.execute(ANDRES);
+    expect(snap(t).scenes?.[0]?.image).toBeNull();
   });
 
   it('[D6-17][REQ-ESC6-030] el retiro de un usuario sin relación con la imagen ni con la escena no la toca', async () => {
