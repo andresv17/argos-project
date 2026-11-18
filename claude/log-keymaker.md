@@ -1439,3 +1439,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Pruebas primero: t841 (22): rojo 'Failed to load url .../breed-names.ts'. Luego sanitize-free-text (NFKC + lista blanca + marcadores secundarios), breed-names (tabla en ingles de 65 razas; criolla/*_OTHER mestizas), build-image-prompt (plantillas plan.md 5.3) y scene-payload (valida contra validateScenePayload de v34).
 - Decisiones (H-KEY-F5-2 a /architect): el catalogo trae etiquetas en espanol, asi que la tabla canonica en ingles es del dominio; el texto de estilo base no esta en spec/plan y se fijo en DEFAULT_SCENE_STYLE; breed libre sin catalogo => 'mestizo amigable (sexo; breed label "x")' (une REQ-ESC6-009 y EDGE-ESC6-015).
 - Verde 22/22; suite solo T815 x18; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T842 correccion: pet-phrases.ts separa la logica de raza de build-image-prompt.ts (T599 SC-CAT-033) (sin push, sin [x])
+- Hallazgo: tras el commit de T841+T842 la suite dio 19 rojos: domain-sin-raza-peso-edad-alertas (T599, 004) escanea los archivos de src/domain cuyo nombre contiene 'age' y 'build-image-prompt.ts' lo contiene ('im-age'); no se toca el test cerrado de 004.
+- Correccion: las frases por mascota (raza, mestizo, etiqueta) viven en pet-phrases.ts y build-image-prompt.ts ya no nombra 'breed'. Verde t841 22/22 y T599 28/28; suite solo T815 x18.
