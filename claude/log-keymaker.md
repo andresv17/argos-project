@@ -1434,3 +1434,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Pruebas primero: t839 (17): rojo 'Failed to load url ../../src/domain/scene/decide-mode.ts'. Luego decide-mode.ts (precedencia REGENERATE > sin imagen > foto del hogar > incrementales; MIXED con >1 tipo; ranuras IMG_1 escena o foto del hogar, luego mascotas dibujadas con foto; null sin cambios).
 - Decision: las mascotas REMOVE viajan al final del plan (desde el snapshot anterior); SC-ESC6-010 dice 'pets = []' y plan.md dice que incluye las REMOVE: se deja a T842 y se reporta a /architect (H-KEY-F5-1).
 - Verde 17/17; suite completa solo T815 x18; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T841+T842 build-image-prompt, sanitize-free-text, breed-names y scene-payload (REQ-ESC6-015/016; INV-ESC6-001/006/010/011/017; EDGE-ESC6-015) (sin push, sin [x])
+- Pruebas primero: t841 (22): rojo 'Failed to load url .../breed-names.ts'. Luego sanitize-free-text (NFKC + lista blanca + marcadores secundarios), breed-names (tabla en ingles de 65 razas; criolla/*_OTHER mestizas), build-image-prompt (plantillas plan.md 5.3) y scene-payload (valida contra validateScenePayload de v34).
+- Decisiones (H-KEY-F5-2 a /architect): el catalogo trae etiquetas en espanol, asi que la tabla canonica en ingles es del dominio; el texto de estilo base no esta en spec/plan y se fijo en DEFAULT_SCENE_STYLE; breed libre sin catalogo => 'mestizo amigable (sexo; breed label "x")' (une REQ-ESC6-009 y EDGE-ESC6-015).
+- Verde 22/22; suite solo T815 x18; tsc 0; gates CUMPLE.
