@@ -1,5 +1,6 @@
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { expect } from 'vitest';
+import type { PlatformParameterPort } from '../../../src/application/ports/platform-parameter.port.ts';
 import type { ApplicationDeps, MediaServices } from '../../../src/application/use-cases/use-case-support.ts';
 import { FixedClockAdapter } from '../../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import { buildApp } from '../../../src/infrastructure/http/app.ts';
@@ -55,7 +56,7 @@ export const username = (id: string) => USERS.find((u) => u.id === id)!.username
 
 export async function createApi(
   state: MemoryState = canonicalState(),
-  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices } = {},
+  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices; readonly platformParameters?: PlatformParameterPort } = {},
 ): Promise<Api> {
   const db = openSqliteDatabase(IN_MEMORY_DATABASE);
   const uow = new SqliteUnitOfWork(db);
@@ -65,7 +66,11 @@ export async function createApi(
   const clock = new FixedClockAdapter();
   const hasher = new SpyPasswordHasher();
   const base = createDeps(uow, clock, hasher, options.rateLimits ?? TEST_RATE_LIMITS);
-  const deps: ApplicationDeps = options.media === undefined ? base : { ...base, media: options.media };
+  const deps: ApplicationDeps = {
+    ...base,
+    ...(options.media === undefined ? {} : { media: options.media }),
+    ...(options.platformParameters === undefined ? {} : { platformParameters: options.platformParameters }),
+  };
   const app = await buildApp({ deps, cookieSecure: options.cookieSecure ?? false });
 
   async function call(method: string, url: string, options: CallOptions = {}): Promise<ApiResponse> {

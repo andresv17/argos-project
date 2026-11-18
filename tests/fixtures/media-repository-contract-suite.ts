@@ -74,6 +74,29 @@ export function defineMediaRepositoryContractSuite(adapterName: string, createUn
       expect(await page(null, 3, 0)).toMatchObject({ total: 6, items: [{ id: id(6) }, { id: id(5) }, { id: id(4) }] });
     });
 
+    it('[REQ-ALB5-002][INV-005-003] countByPetAndKind cuenta solo el tipo pedido de la mascota pedida; cero si no hay filas; baja al borrar', async () => {
+      const uow = await prepare();
+      const counts = await uow.runInTransaction(async (r) => {
+        for (let n = 1; n <= 3; n += 1) await r.media.insert(media(n, { kind: 'PHOTO', mime: 'image/png' }));
+        for (let n = 4; n <= 5; n += 1) await r.media.insert(media(n, { kind: 'FILE' }));
+        await r.media.insert(media(6, { petId: OTRA.id, kind: 'PHOTO', mime: 'image/png' }));
+        return [
+          await r.media.countByPetAndKind(ARGOS.id, 'PHOTO'),
+          await r.media.countByPetAndKind(ARGOS.id, 'FILE'),
+          await r.media.countByPetAndKind(OTRA.id, 'PHOTO'),
+          await r.media.countByPetAndKind(OTRA.id, 'FILE'),
+          await r.media.countByPetAndKind('f0000000-0000-4000-8000-0000000000ee', 'PHOTO'),
+        ];
+      });
+      expect(counts).toEqual([3, 2, 1, 0, 0]);
+      const after = await uow.runInTransaction(async (r) => {
+        await r.media.remove(ARGOS.id, id(1));
+        return r.media.countByPetAndKind(ARGOS.id, 'PHOTO');
+      });
+      expect(after).toBe(2);
+      expect(typeof after).toBe('number');
+    });
+
     it('[REQ-ARC-005] countBytesOfOwner suma todas las mascotas del propietario y no cuenta las de otro ni el avatar', async () => {
       const uow = await prepare();
       const bytes = await uow.runInTransaction(async (r) => {
