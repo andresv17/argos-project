@@ -1,6 +1,6 @@
 # Contratos de la Feature 005 (delta incremental sobre la API 004 `3.2.0` → `3.3.0`)
 
-**Estado**: `DRAFT` (T706, 2026-11-18; decisiones D5-01..D5-24 de Neo asentadas; revisión T707 del mismo día: brechas EDGE de `/lock` y podas de `/mifune` sin decisión de Neo, ver §9). Los contratos de la 004 y de la 002 son `LOCKED` y **no se editan** (salvo las enmiendas de texto firmadas del punto 7). Este directorio es **incremental**: contiene solo lo nuevo y referencia lo heredado por `$ref`. `src/generated/` **no** se regenera todavía (no hay generador de 005; ver §6, diseño).
+**Estado**: `DRAFT` (T706, 2026-11-18; decisiones D5-01..D5-24 de Neo asentadas; revisión T707 del mismo día: brechas EDGE de `/lock` y podas de `/mifune` sin decisión de Neo, ver §9). Los contratos de la 004 y de la 002 son `LOCKED` y **no se editan** (salvo las enmiendas de texto firmadas del punto 7). Este directorio es **incremental**: contiene solo lo nuevo y referencia lo heredado por `$ref`. `src/generated/` **no** se regenera todavía (ver §6).
 
 Versión de la API: `3.3.0` (MINOR: 10 operaciones nuevas, ninguna existente cambia). `media.schema.json` de la 004 **conserva** `MediaPage.maxItems 24` y `pageSize const 24` (D5-01): la página de 24 sigue valiendo para `kind = FILE` y para mascotas con fotos heredadas por encima del tope.
 
@@ -60,11 +60,11 @@ Estado **derivado** (`REVOKED` > `EXPIRED` > `ACTIVE`) de `revoked_at` y `expire
 - **Estado derivado sin columna**: evita deriva entre columna y reloj; costo: ninguno (índice por `token_hash`).
 - **`getAlbumLimits` aparte**: `MediaPage` y `ProblemDetails` son cerrados y `LOCKED`; ampliar cualquiera sería MAJOR de 004.
 
-## 6. Compilación (diseño de texto; NO ejecutado en T706)
+## 6. Compilación (`--feature 005`; catálogo fusionado, D-B)
 
 `scripts/compile-contracts.sh` hoy admite `001|002|003|004` y escribe `src/generated/v31/` para la 004 con **un** catálogo. Diseño para `--feature 005` (lo implementa `/keymaker` tras T708, tarea de Nivel 2 porque toca la compuerta):
 1. Rama `005` con su lista `CONTRACT_FILES` (los 4 esquemas, el OpenAPI, el catálogo y la máquina) y destino `<out>/v33/` (nunca `v31`, `api`, `errors`, `machines`, `schemas`, `ops`, `catalogs`); añadir `v33` a la lista `foreign` de las ramas 001/002 para conservarlo al recompilar.
-2. El catálogo incremental se **fusiona** con el de la 004 al compilar: se generan `v33/errors/error-codes.ts` solo con los 4 códigos nuevos y el mapa de ejecución une `v31` y `v33`; la compilación **falla** si un código existe en ambos catálogos o si una referencia `inherited` no existe en el de la 004.
+2. El catálogo incremental se **fusiona** con el de la 004 al compilar y `v33/errors/error-codes.ts` contiene el **catálogo fusionado** (los códigos de la 004 más los 4 nuevos de la 005; D-B, opción a, Neo, Nivel 2), sin modificar `scripts/codegen.mjs`. Justificación: `codegen.mjs` genera un único catálogo por salida y no admite un modo «solo delta»; los tipos de la 004 se duplican en `v33` y el catálogo queda **duplicado entre `v31` y `v33`**, efecto aceptado por Neo. El mapa de ejecución une `v31` y `v33`; la compilación **falla** si un código existe en ambos catálogos de origen o si una referencia `inherited` no existe en el de la 004 (los catálogos de origen no se editan: la fusión ocurre en un directorio de ensayo).
 3. `x-sdd-metadata` de los esquemas de 005 se valida con las mismas reglas que las de 004 (`version`, `status`, `traceability`).
 4. `contracts-004-errors.spec.ts` no cambia (la lista cerrada de `ERR-MEDIA-*` de la 004 sigue igual): ventaja del catálogo incremental.
 
@@ -83,3 +83,7 @@ Estado **derivado** (`REVOKED` > `EXPIRED` > `ACTIVE`) de `revoked_at` y `expire
 Aplicado en estos contratos: idempotencia de creación (`Idempotency-Key`, `CreateShareLinkReplay`; EDGE-005-16/17); candado de creación por alcance y no por creador (EDGE-005-15, texto en `STATE-SHARE-001` y `ShareLinkList`/409); lectura coherente y un solo `now` (EDGE-005-14/24); normalización de las respuestas de Fastify al 404 uniforme (EDGE-005-25, campos `uniformSources` y `normalizationRule` del catálogo); `X-Goog-Expires` mínimo 1 s (EDGE-005-23); `displayName` vacío = «Archivo» (EDGE-005-27); `EXPIRED -> REVOKED` convertido en no-op (MIF-005-08); `PlatformParameter` sin `valueType`, `minValue` ni `maxValue` (MIF-005-07).
 
 **Decisiones de Neo del 2026-11-18 (T708, `spec.md` «Decisiones de Neo sobre los puntos PN-01..PN-11»)**: PN-01..PN-11 resueltas. El contrato mantiene `HOUSEHOLD` (PN-01), `getSharedFile` (PN-02), la auditoría por acceso (PN-03), la caché de 60 s (PN-04) y la vista previa de hogar (PN-05); **PN-06**: la rotación HMAC de IP y `ip_key_version` se difieren a 006 (ningún esquema ni OpenAPI las expone; solo cambia la retención interna de `retention`); PN-07..PN-11 no cambian ningún esquema (la columna `pet_owner_user_id_at_creation` de PN-08 es interna a `data-model.md`, no aparece en la API). **Nota MIF-005-10**: `ShareLinkView.revokedAt` y la columna `expires_in_days` siguen en el contrato hasta que `/rama` y `/sati` confirmen que pueden retirarse.
+
+## 10. Referencias compilables (O2 de `/oracle` T709, 2026-11-18)
+
+Los esquemas de 005 siguen el mismo patrón que los de 004 para que `compile-contracts.sh --feature 005` los compile **sin normalizaciones manuales**: (1) `$id` y `$ref` absolutos de la forma `https://argos.local/contracts/schemas/<archivo>.schema.json` (sin el segmento `005` en la ruta; los nombres de archivo de 005 no colisionan con los de 004); (2) sin `$ref` en la raíz del esquema: los tipos viven en `$defs` y `codegen.mjs` los registra uno a uno. Las referencias del OpenAPI a la 004 (`../../../004-*/contracts/schemas/…`) no se tocan.

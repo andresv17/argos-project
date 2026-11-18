@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://argos.local/contracts/005/schemas/share-link.schema.json",
+  "$id": "https://argos.local/contracts/schemas/share-link.schema.json",
   "title": "ShareLinkSchema",
   "description": "Enlace de solo lectura para el veterinario y su envoltorio de vista (feature 005) [REQ-VET-001..013, REQ-SUM-004]. El token NUNCA aparece fuera de CreateShareLinkResult.url (INV-005-005); las listas solo llevan metadatos. Sin nombre del hogar (D5-23).",
   "x-sdd-metadata": {
@@ -296,7 +296,7 @@
       ],
       "properties": {
         "summary": {
-          "$ref": "https://argos.local/contracts/005/schemas/clinical-summary.schema.json#/$defs/ClinicalSummary"
+          "$ref": "https://argos.local/contracts/schemas/clinical-summary.schema.json#/$defs/ClinicalSummary"
         },
         "fileLabels": {
           "type": "array",

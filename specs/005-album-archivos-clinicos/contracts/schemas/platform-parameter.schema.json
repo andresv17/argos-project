@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://argos.local/contracts/005/schemas/platform-parameter.schema.json",
+  "$id": "https://argos.local/contracts/schemas/platform-parameter.schema.json",
   "title": "PlatformParameterSchema",
   "description": "Parámetros de plataforma en base de datos (feature 005) [REQ-PRM-001, REQ-PRM-002, REQ-PRM-003]. Sin endpoint ni interfaz de edición; este esquema fija el catálogo de claves conocidas y la forma de la fila para el repositorio y las pruebas de paridad.",
   "x-sdd-metadata": {

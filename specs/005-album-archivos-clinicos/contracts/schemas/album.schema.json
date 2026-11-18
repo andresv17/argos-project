@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://argos.local/contracts/005/schemas/album.schema.json",
+  "$id": "https://argos.local/contracts/schemas/album.schema.json",
   "title": "AlbumSchema",
   "description": "Límite de fotos del álbum expuesto al cliente (feature 005) [REQ-ALB5-002, REQ-ALB5-005]. Contrato aparte porque MediaPage y ProblemDetails de la 004 son cerrados y LOCKED.",
   "x-sdd-metadata": {
@@ -40,6 +40,5 @@
       },
       "description": "Respuesta de getAlbumLimits; el cliente decide «N de M fotos» y «Álbum completo» con este objeto, sin cablear el valor [REQ-ALB5-005]"
     }
-  },
-  "$ref": "#/$defs/AlbumLimits"
+  }
 }

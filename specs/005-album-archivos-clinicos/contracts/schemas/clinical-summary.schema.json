@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://argos.local/contracts/005/schemas/clinical-summary.schema.json",
+  "$id": "https://argos.local/contracts/schemas/clinical-summary.schema.json",
   "title": "ClinicalSummarySchema",
   "description": "Read-model clínico de solo lectura, versionado y por allow-list (feature 005) [REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-006, INV-005-004]. Esquema cerrado: un campo nuevo del dominio NO aparece hasta que este contrato lo declare. Sin nombres de archivo (D5-06: viajan en SharedSummaryView.fileLabels), sin fotos de álbum, sin avatar, sin identificadores de usuario, hogar, mascota ni registro, sin claves ni URLs de objeto, sin `ownerUserId`, sin `revision` y sin interpretación automática (alertas, banderas, normal/anormal o texto generado; MAG-005-003). Las fechas de calendario son `YYYY-MM-DD` tal como se guardaron, sin conversión UTC (MAG-005-004); UTC solo en `generatedAt` y en `createdAt` de archivos.",
   "x-sdd-metadata": {
@@ -599,6 +599,5 @@
       },
       "description": "Documento raíz [REQ-SUM-001]"
     }
-  },
-  "$ref": "#/$defs/ClinicalSummary"
+  }
 }

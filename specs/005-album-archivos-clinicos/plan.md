@@ -115,7 +115,7 @@ El detalle vive en `data-model.md` (los números de migración los asigna Keymak
 - **Consecuencia**: `REQ-VET-006` pasa a «dos rutas de lectura»; `INV-005-002` y `INV-005-008` lo fijan.
 
 ### ADR-005-08 — Catálogo de errores incremental de 005
-- **Decisión** (D5-02, B2): `ERR-MEDIA-ALBUM-LIMIT`, `ERR-SHARE-LINK-LIMIT`, `ERR-SHARE-NOT-FOUND` y `ERR-SHARE-RATE-LIMITED` en `contracts/errors/error-catalog.json`; la 004 no se toca. El compilador fusiona ambos catálogos y falla ante duplicados (diseño en `contracts/README.md` §6; se implementa en T709, Nivel 2).
+- **Decisión** (D5-02, B2): `ERR-MEDIA-ALBUM-LIMIT`, `ERR-SHARE-LINK-LIMIT`, `ERR-SHARE-NOT-FOUND` y `ERR-SHARE-RATE-LIMITED` en `contracts/errors/error-catalog.json`; la 004 no se toca. El compilador fusiona ambos catálogos y falla ante duplicados (diseño en `contracts/README.md` §6; se implementa en T709, Nivel 2; D-B: `v33/errors/error-codes.ts` lleva el catálogo fusionado 004+005, duplicado entre `v31` y `v33` por decisión de Neo).
 - **Alternativa descartada**: enmendar el catálogo `LOCKED` de la 004 (rompería `contracts-004-errors.spec.ts` y exigiría MINOR de 004).
 
 ### ADR-005-05 — «Cancelar» es comportamiento de cliente
