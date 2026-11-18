@@ -129,3 +129,27 @@ verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
 verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 316; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
 ```
 Suite completa: 23 fallos, todos los rojos documentados de T813 (5, hasta T833/T814) y T815 (18, hasta T868); 4020 verdes. terraform no se ejecutó. Suite antigua terraform-root actualizada (12 -> 14, enmienda).
+
+## T818 rojo (REQ-IAC-006 excepción documentada, argos-scene-tasks, cola argos-scene)
+```
+npx vitest run tests/unit/terraform-iam-escena-006.spec.ts
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/unit/terraform-iam-escena-006.spec.ts > terraform/iam.tf: cuentas y excepción documentada de la 006 (T818, REQ-IAC-006 enmendado) > REQ-ESC6-033: existe la cuenta argos-scene-tasks (argos-run, argo
+ FAIL  tests/unit/terraform-iam-escena-006.spec.ts > terraform/iam.tf: cuentas y excepción documentada de la 006 (T818, REQ-IAC-006 enmendado) > REQ-IAC-006: el único rol de proyecto es roles/aiplatform.user pa
+ FAIL  tests/unit/terraform-iam-escena-006.spec.ts > terraform/iam.tf: cuentas y excepción documentada de la 006 (T818, REQ-IAC-006 enmendado) > INV-ESC6-018: argos-scene-tasks solo tiene roles/run.invoker, sob
+ FAIL  tests/unit/terraform-iam-escena-006.spec.ts > terraform/iam.tf: cuentas y excepción documentada de la 006 (T818, REQ-IAC-006 enmendado) > INV-ESC6-018: argos-run encola solo en la cola (roles/cloudtasks.
+ FAIL  tests/unit/terraform-iam-escena-006.spec.ts > terraform/iam.tf: cuentas y excepción documentada de la 006 (T818, REQ-IAC-006 enmendado) > INV-ESC6-018: argos-run solo actúa como argos-scene-tasks (roles/
+ FAIL  tests/unit/terraform-iam-escena-006.spec.ts > terraform/iam.tf: cuentas y excepción documentada de la 006 (T818, REQ-IAC-006 enmendado) > REQ-IAC-006: la spec de 003 documenta la excepción (aiplatform.us
+ FAIL  tests/unit/terraform-iam-escena-006.spec.ts > terraform/cloud_tasks.tf: cola argos-scene (T818, D6-15, NFR-ESC6-002) > existe y define un único google_cloud_tasks_queue "scene" llamado argos-scene en la 
+ FAIL  tests/unit/terraform-iam-escena-006.spec.ts > terraform/cloud_tasks.tf: cola argos-scene (T818, D6-15, NFR-ESC6-002) > REQ-ESC6-012: max_attempts = 1 (sin reintentos automáticos), 2 despachos concurrente
+ FAIL  tests/unit/terraform-iam-escena-006.spec.ts > terraform/cloud_tasks.tf: cola argos-scene (T818, D6-15, NFR-ESC6-002) > INV-ESC6-018: depende de la API cloudtasks, sin http_target ni destino fijo en Terra
+ FAIL  tests/unit/terraform-iam-escena-006.spec.ts > terraform/cloud_tasks.tf: cola argos-scene (T818, D6-15, NFR-ESC6-002) > REQ-IAC-003: sin referencias a Mirror y sin secretos en el archivo
+ Test Files  1 failed (1)
+      Tests  10 failed | 2 passed (12)
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 002 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 317; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
+```
+Rojo esperado hasta T819 (10/12).
