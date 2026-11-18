@@ -4,7 +4,7 @@
  *
  * @implements REQ-ESC6-012, INV-ESC6-009
  */
-import type { SceneAttemptRecord, SceneConsentRecord, SceneRecord } from '../../application/ports/scene-repositories.port.ts';
+import type { HouseholdPhotoRecord, SceneAttemptRecord, SceneConsentRecord, SceneRecord } from '../../application/ports/scene-repositories.port.ts';
 
 type Row = Record<string, unknown>;
 
@@ -119,3 +119,16 @@ export const toConsentRecord = (row: Row): SceneConsentRecord => ({
 
 export const consentValues = (c: SceneConsentRecord): unknown[] => [c.id, c.userId, c.scope, c.providerId, c.noticeVersion, c.grantedAt, c.revokedAt];
 
+
+export const HOUSEHOLD_PHOTO_COLUMN_LIST = 'household_id, object_id, mime, size_bytes, uploaded_by_user_id, created_at';
+
+export const toHouseholdPhotoRecord = (row: Row): HouseholdPhotoRecord => ({
+  householdId: String(row['household_id']),
+  objectId: String(row['object_id']),
+  mime: String(row['mime']) as HouseholdPhotoRecord['mime'],
+  sizeBytes: Number(row['size_bytes']),
+  uploadedByUserId: String(row['uploaded_by_user_id']),
+  createdAt: String(row['created_at']),
+});
+
+export const householdPhotoValues = (p: HouseholdPhotoRecord): unknown[] => [p.householdId, p.objectId, p.mime, p.sizeBytes, p.uploadedByUserId, p.createdAt];

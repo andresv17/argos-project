@@ -6,7 +6,20 @@
  * @implements INV-ESC6-003, INV-ESC6-004, INV-ESC6-012, REQ-ESC6-012, REQ-ESC6-034, REQ-ESC6-036, EDGE-ESC6-016, EDGE-ESC6-033, INV-ARCH-005
  */
 import type { SceneConsentRepository, SceneRepository } from '../../../application/ports/scene-repositories.port.ts';
-import { ATTEMPT_COLUMN_LIST, CONSENT_COLUMN_LIST, SCENE_COLUMN_LIST, attemptValues, consentValues, sceneValues, toAttemptRecord, toConsentRecord, toSceneRecord } from '../scene-row-mappers.ts';
+import {
+  ATTEMPT_COLUMN_LIST,
+  CONSENT_COLUMN_LIST,
+  HOUSEHOLD_PHOTO_COLUMN_LIST,
+  SCENE_COLUMN_LIST,
+  attemptValues,
+  consentValues,
+  householdPhotoValues,
+  sceneValues,
+  toAttemptRecord,
+  toConsentRecord,
+  toHouseholdPhotoRecord,
+  toSceneRecord,
+} from '../scene-row-mappers.ts';
 import type { SqliteDatabase } from './sqlite-database.ts';
 
 type Row = Record<string, unknown>;
@@ -35,6 +48,15 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
     'INSERT INTO scene_quota_carry (owner_user_id, quota_window, consumed_generations) VALUES (?, ?, ?) ON CONFLICT (owner_user_id, quota_window) DO UPDATE SET consumed_generations = max(consumed_generations, excluded.consumed_generations)',
   );
   const carryOf = db.prepare<[string, string], { consumed_generations: number }>('SELECT consumed_generations FROM scene_quota_carry WHERE owner_user_id = ? AND quota_window = ?');
+  const purgeAttempts = db.prepare(
+    'DELETE FROM scene_attempts WHERE outcome IS NOT NULL AND finished_at < ? AND id NOT IN (SELECT current_attempt_id FROM home_scenes WHERE current_attempt_id IS NOT NULL)',
+  );
+  const clearExpired = db.prepare('UPDATE scene_attempts SET idempotency_key_hash = NULL, idempotency_expires_at = NULL WHERE idempotency_key_hash IS NOT NULL AND idempotency_expires_at <= ?');
+  const purgeCarry = db.prepare('DELETE FROM scene_quota_carry WHERE quota_window < ?');
+  const photoOf = db.prepare<[string], Row>(`SELECT ${HOUSEHOLD_PHOTO_COLUMN_LIST} FROM household_photos WHERE household_id = ?`);
+  const putPhoto = db.prepare(
+    `INSERT INTO household_photos (${HOUSEHOLD_PHOTO_COLUMN_LIST}) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (household_id) DO UPDATE SET object_id = excluded.object_id, mime = excluded.mime, size_bytes = excluded.size_bytes, uploaded_by_user_id = excluded.uploaded_by_user_id, created_at = excluded.created_at`,
+  );
   return {
     async findById(sceneId) {
       const row = byId.get(sceneId);
@@ -84,6 +106,22 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
     },
     async findQuotaCarry(ownerUserId, quotaWindow) {
       return carryOf.get(ownerUserId, quotaWindow)?.consumed_generations ?? null;
+    },
+    async purgeTerminalAttempts(finishedBefore) {
+      return purgeAttempts.run(finishedBefore).changes;
+    },
+    async clearExpiredIdempotencyHashes(now) {
+      return clearExpired.run(now).changes;
+    },
+    async purgeQuotaCarryBefore(quotaWindow) {
+      return purgeCarry.run(quotaWindow).changes;
+    },
+    async findHouseholdPhoto(householdId) {
+      const row = photoOf.get(householdId);
+      return row === undefined ? null : toHouseholdPhotoRecord(row);
+    },
+    async putHouseholdPhoto(photo) {
+      putPhoto.run(...householdPhotoValues(photo));
     },
   };
 }

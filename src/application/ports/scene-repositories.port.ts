@@ -87,6 +87,16 @@ export interface ClaimAttemptInput {
   readonly leaseExpiresAt: string;
 }
 
+/** Fila lógica de `household_photos` (data-model.md §2.4): una por hogar, sin nombre original (INV-ESC6-009). */
+export interface HouseholdPhotoRecord {
+  readonly householdId: string;
+  readonly objectId: string;
+  readonly mime: 'image/jpeg' | 'image/png' | 'image/webp';
+  readonly sizeBytes: number;
+  readonly uploadedByUserId: string;
+  readonly createdAt: string;
+}
+
 export interface SceneRepository {
   findById(sceneId: string): Promise<SceneRecord | null>;
   findByHouseholdId(householdId: string): Promise<SceneRecord | null>;
@@ -111,6 +121,19 @@ export interface SceneRepository {
   /** Arrastre de cuota (EDGE-ESC6-033): `UPSERT` con `consumed := max(valor previo, consumed)`. */
   upsertQuotaCarry(ownerUserId: string, quotaWindow: string, consumedGenerations: number): Promise<void>;
   findQuotaCarry(ownerUserId: string, quotaWindow: string): Promise<number | null>;
+  /**
+   * Mantenimiento diario (N2-11, SC-ESC6-095). Intentos terminales (`outcome` no nulo) con `finished_at < finishedBefore` que no sean el `current_attempt_id` de
+   * una escena (la derivación del estado fallido lo lee); devuelve las filas borradas.
+   */
+  purgeTerminalAttempts(finishedBefore: string): Promise<number>;
+  /** Pone a NULL `idempotency_key_hash` e `idempotency_expires_at` de los intentos con `idempotency_expires_at <= now` (las filas se conservan). */
+  clearExpiredIdempotencyHashes(now: string): Promise<number>;
+  /** Borra los arrastres de cuota de ventanas anteriores a `quotaWindow` (`YYYY-MM`, orden lexicográfico). */
+  purgeQuotaCarryBefore(quotaWindow: string): Promise<number>;
+  /** Foto del hogar (una por hogar): la conciliación diaria la lee para no encolar su objeto; T857 la escribe desde los casos de uso. */
+  findHouseholdPhoto(householdId: string): Promise<HouseholdPhotoRecord | null>;
+  /** Reemplaza (o crea) la foto del hogar. */
+  putHouseholdPhoto(photo: HouseholdPhotoRecord): Promise<void>;
 }
 
 /** Fila lógica de `scene_consents` (data-model.md §2.7). Se conserva al retirarlo (prueba de la retirada). */

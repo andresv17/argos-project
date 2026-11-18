@@ -6,6 +6,7 @@
  * @implements INV-ESC6-003, INV-ESC6-004, INV-ESC6-012, REQ-ESC6-012, REQ-ESC6-034, REQ-ESC6-036, EDGE-ESC6-016, EDGE-ESC6-033, INV-ARCH-005
  */
 import type {
+  HouseholdPhotoRecord,
   SceneAttemptRecord,
   SceneConsentRecord,
   SceneConsentRepository,
@@ -20,18 +21,8 @@ export interface SceneQuotaCarryRow {
 }
 
 /** Parte de `MemoryState` que usa la escena. */
-/** `household_photos` (data-model.md §2.4): sin nombre original; cuenta en la cuota de 1 GiB del propietario del hogar (REQ-ESC6-018). */
-export interface HouseholdPhotoRow {
-  readonly householdId: string;
-  readonly objectId: string;
-  readonly mime: 'image/jpeg' | 'image/png' | 'image/webp';
-  readonly sizeBytes: number;
-  readonly uploadedByUserId: string;
-  readonly createdAt: string;
-}
-
 export interface SceneMemoryState {
-  householdPhotos?: HouseholdPhotoRow[];
+  householdPhotos?: HouseholdPhotoRecord[];
   scenes?: SceneRecord[];
   sceneAttempts?: SceneAttemptRecord[];
   sceneConsents?: SceneConsentRecord[];
@@ -44,6 +35,7 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
   const scenes = (): SceneRecord[] => (state.scenes ??= []);
   const attempts = (): SceneAttemptRecord[] => (state.sceneAttempts ??= []);
   const carry = (): SceneQuotaCarryRow[] => (state.sceneQuotaCarry ??= []);
+  const photos = (): HouseholdPhotoRecord[] => (state.householdPhotos ??= []);
   const replaceScene = (id: string, change: Partial<SceneRecord>): void => {
     state.scenes = scenes().map((s) => (s.id === id ? { ...s, ...change } : s));
   };
@@ -117,6 +109,33 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
     },
     async findQuotaCarry(ownerUserId, quotaWindow) {
       return carry().find((c) => c.ownerUserId === ownerUserId && c.quotaWindow === quotaWindow)?.consumedGenerations ?? null;
+    },
+    async purgeTerminalAttempts(finishedBefore) {
+      const current = new Set(scenes().map((s) => s.currentAttemptId).filter((id): id is string => id !== null));
+      const before = attempts().length;
+      state.sceneAttempts = attempts().filter((a) => !(a.outcome !== null && a.finishedAt !== null && a.finishedAt < finishedBefore && !current.has(a.id)));
+      return before - state.sceneAttempts.length;
+    },
+    async clearExpiredIdempotencyHashes(now) {
+      let cleared = 0;
+      state.sceneAttempts = attempts().map((a) => {
+        if (a.idempotencyKeyHash === null || a.idempotencyExpiresAt === null || a.idempotencyExpiresAt > now) return a;
+        cleared += 1;
+        return { ...a, idempotencyKeyHash: null, idempotencyExpiresAt: null };
+      });
+      return cleared;
+    },
+    async purgeQuotaCarryBefore(quotaWindow) {
+      const before = carry().length;
+      state.sceneQuotaCarry = carry().filter((c) => c.quotaWindow >= quotaWindow);
+      return before - state.sceneQuotaCarry.length;
+    },
+    async findHouseholdPhoto(householdId) {
+      const found = photos().find((p) => p.householdId === householdId);
+      return found === undefined ? null : copy(found);
+    },
+    async putHouseholdPhoto(photo) {
+      state.householdPhotos = [...photos().filter((p) => p.householdId !== photo.householdId), copy(photo)];
     },
   };
 }

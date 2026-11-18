@@ -1388,3 +1388,4 @@
 - 2026-11-18 | Keymaker | T833 Postgres 0009_home_scenes paridad exacta (schema-parity y paridad viva en postgres:17 local 39/39 verde; solo rojos T813/T815, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T834 repositorios de escena memoria/SQLite/Postgres (t834 29 verdes + 12 contra postgres:17 local; rojo previo 29; suite solo T813 x5/T815 x18, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T814 countBytesOfOwner suma foto del hogar (t813 5/5 verde; suite con PG real solo T815 x18, tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 | Keymaker | T835 purga diaria de escena + conciliacion scenes/ y households/ (t835 7/7 verde, rojo previo 7; suite con PG real solo T815 x18, tsc 0, gates CUMPLE); sin push ni [x].

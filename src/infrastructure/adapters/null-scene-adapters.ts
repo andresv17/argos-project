@@ -12,6 +12,7 @@ import type { ScenePrivacyHooksPort } from '../../application/ports/scene-privac
 import type {
   BeginGenerationInput,
   ClaimAttemptInput,
+  HouseholdPhotoRecord,
   SceneAttemptRecord,
   SceneConsentRecord,
   SceneConsentRepository,
@@ -98,6 +99,21 @@ export class NullSceneRepository implements SceneRepository {
   }
   findQuotaCarry(_ownerUserId: string, _quotaWindow: string): Promise<number | null> {
     return Promise.resolve(null);
+  }
+  purgeTerminalAttempts(_finishedBefore: string): Promise<number> {
+    return Promise.resolve(0);
+  }
+  clearExpiredIdempotencyHashes(_now: string): Promise<number> {
+    return Promise.resolve(0);
+  }
+  purgeQuotaCarryBefore(_quotaWindow: string): Promise<number> {
+    return Promise.resolve(0);
+  }
+  findHouseholdPhoto(_householdId: string): Promise<HouseholdPhotoRecord | null> {
+    return Promise.resolve(null);
+  }
+  putHouseholdPhoto(_photo: HouseholdPhotoRecord): Promise<void> {
+    return Promise.resolve();
   }
 }
 

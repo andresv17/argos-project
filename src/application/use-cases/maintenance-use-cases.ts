@@ -6,7 +6,7 @@
  * @implements REQ-AUD-001, INV-AUD-001, INV-ARCH-001
  */
 
-import { isMediaObjectKey } from '../../domain/media/index.ts';
+import { RECONCILED_PREFIXES, isMediaObjectKey, reconciliationAgeMinutes } from '../../domain/media/index.ts';
 import { retentionCutoffs } from '../../domain/sharing/share-link.ts';
 import { monthlyAnniversary, parseIsoCalendarDate, shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
 import type { MaintenanceCounts, MaintenanceCutoffs } from '../ports/unit-of-work.port.ts';
@@ -43,37 +43,44 @@ const MEDIA_QUEUE_BATCH = 1000;
 const HOUR_MS = 3_600_000;
 const INTENT_STALE_HOURS = 1;
 const OVERDUE_HOURS = 48;
-const ORPHAN_AGE_HOURS = 24;
+const MINUTE_MS = 60_000;
 
 /**
- * Conciliación diaria (REQ-GCS-006, INV-GCS-002, SC-ALM-031): lista el prefijo `pets/` y encola con `DELETE` todo objeto de más de 24 h cuya clave no esté
- * en `pet_media` (derivada), en `pets.avatar_object_id` ni en la cola. Las claves que no tienen el formato de los objetos de medios no se tocan. La
- * comprobación y el encolado van en una misma transacción por objeto. Si `list` falla devuelve 0: la siguiente pasada lo reintenta. Nunca lanza.
+ * Conciliación diaria (REQ-GCS-006, INV-GCS-002, SC-ALM-031; 006: REQ-ESC6-029, EDGE-ESC6-021): lista los prefijos `pets/`, `scenes/` y `households/` (una sola
+ * rutina, `RECONCILED_PREFIXES`) y encola con `DELETE` todo objeto más antiguo que su ventana (24 h en `pets/`, 15 min en `scenes/` y `households/`, porque un
+ * worker zombi puede subir un objeto tras vencer el arrendamiento) cuya clave no esté referenciada: `pet_media` (derivada) o `pets.avatar_object_id` en `pets/`;
+ * `home_scenes.image_id` en `scenes/`; `household_photos.object_id` en `households/`; ni en la cola (incluidas las filas `INTENT`). Las claves que no tienen el
+ * formato de los objetos de medios no se tocan. La comprobación y el encolado van en una misma transacción por objeto. Si `list` falla en un prefijo, ese
+ * prefijo se omite: la siguiente pasada lo reintenta. Nunca lanza.
  */
-async function reconcileObjects(deps: Pick<ApplicationDeps, 'uow' | 'media'>, now: string, olderThan: string): Promise<number> {
+async function reconcileObjects(deps: Pick<ApplicationDeps, 'uow' | 'media'>, now: string): Promise<number> {
   const media = deps.media;
   if (media === undefined) return 0;
-  let entries: Awaited<ReturnType<typeof media.storage.list>>;
-  try {
-    entries = await media.storage.list('pets/');
-  } catch {
-    return 0;
-  }
   let enqueued = 0;
-  for (const entry of entries) {
-    if (entry.createdAt >= olderThan || !isMediaObjectKey(entry.key)) continue;
-    const [, petId, folder, objectId] = entry.key.split('/') as [string, string, 'files' | 'photos' | 'avatar', string];
+  for (const prefix of RECONCILED_PREFIXES) {
+    let entries: Awaited<ReturnType<typeof media.storage.list>>;
     try {
-      const orphan = await deps.uow.runInTransaction(async (r) => {
-        if ((await r.mediaQueue.findByKey(entry.key)) !== null) return false;
-        if (folder === 'avatar') return (await r.pets.findAvatar(petId))?.objectId !== objectId;
-        return (await r.media.findById(petId, objectId))?.kind !== (folder === 'photos' ? 'PHOTO' : 'FILE');
-      });
-      if (!orphan) continue;
-      await deps.uow.runInTransaction((r) => r.mediaQueue.enqueue(entry.key, 'DELETE', now));
-      enqueued += 1;
+      entries = await media.storage.list(prefix);
     } catch {
-      // la siguiente pasada lo reintenta
+      continue;
+    }
+    for (const entry of entries) {
+      if (!isMediaObjectKey(entry.key) || entry.createdAt >= shiftIsoTimestamp(now, -reconciliationAgeMinutes(entry.key) * MINUTE_MS)) continue;
+      const [root, ownerId, folder, objectId] = entry.key.split('/') as [string, string, string, string];
+      try {
+        const orphan = await deps.uow.runInTransaction(async (r) => {
+          if ((await r.mediaQueue.findByKey(entry.key)) !== null) return false;
+          if (root === 'scenes') return (await r.scenes.findById(ownerId))?.image?.id !== objectId;
+          if (root === 'households') return (await r.scenes.findHouseholdPhoto(ownerId))?.objectId !== objectId;
+          if (folder === 'avatar') return (await r.pets.findAvatar(ownerId))?.objectId !== objectId;
+          return (await r.media.findById(ownerId, objectId))?.kind !== (folder === 'photos' ? 'PHOTO' : 'FILE');
+        });
+        if (!orphan) continue;
+        await deps.uow.runInTransaction((r) => r.mediaQueue.enqueue(entry.key, 'DELETE', now));
+        enqueued += 1;
+      } catch {
+        // la siguiente pasada lo reintenta
+      }
     }
   }
   return enqueued;
@@ -90,7 +97,7 @@ export async function runMediaQueueMaintenance(deps: Pick<ApplicationDeps, 'uow'
   if (media === undefined) return NO_MEDIA_QUEUE;
   const now = deps.clock.nowIsoTimestamp();
   const before = (hours: number) => shiftIsoTimestamp(now, -hours * HOUR_MS);
-  const reconciled = await reconcileObjects(deps, now, before(ORPHAN_AGE_HOURS));
+  const reconciled = await reconcileObjects(deps, now);
   const { promoted, entries } = await deps.uow.runInTransaction(async (r) => ({
     promoted: await r.mediaQueue.promoteStaleIntents(before(INTENT_STALE_HOURS)),
     entries: await r.mediaQueue.listPending(MEDIA_QUEUE_BATCH),
@@ -133,6 +140,39 @@ export async function purgeShareData(deps: Pick<ApplicationDeps, 'uow' | 'clock'
   }
 }
 
+/** Retención de los intentos terminales de la escena (N2-11 ratificada por Neo): 30 días. */
+const SCENE_ATTEMPT_RETENTION_DAYS = 30;
+const DAY_MS = 86_400_000;
+
+/** Conteos de la purga de la escena: solo números (SC-ESC6-095). */
+export interface SceneMaintenanceResult {
+  readonly attemptsPurged: number;
+  readonly hashesCleared: number;
+  readonly carryPurged: number;
+}
+
+const NO_SCENE_PURGE: SceneMaintenanceResult = { attemptsPurged: 0, hashesCleared: 0, carryPurged: 0 };
+
+/**
+ * Purga diaria de la escena (feature 006, `N2-11`, SC-ESC6-095, REQ-ESC6-012, INV-ESC6-016): intentos terminales de más de 30 días (salvo el vigente de la
+ * escena), hashes de clave de idempotencia vencidos (a las 24 h; la fila se conserva) y arrastres de cuota de ventanas anteriores a la actual (`YYYY-MM` en
+ * APP_TIMEZONE, de `todayIsoDate`). Una transacción; no escribe auditoría ni registra identificadores. Nunca lanza: la siguiente pasada lo reintenta.
+ * @implements REQ-ESC6-012, INV-ESC6-016, SC-ESC6-095
+ */
+export async function purgeSceneData(deps: Pick<ApplicationDeps, 'uow' | 'clock'>): Promise<SceneMaintenanceResult> {
+  try {
+    const now = deps.clock.nowIsoTimestamp();
+    const currentWindow = deps.clock.todayIsoDate().slice(0, 7);
+    return await deps.uow.runInTransaction(async (r) => ({
+      attemptsPurged: await r.scenes.purgeTerminalAttempts(shiftIsoTimestamp(now, -SCENE_ATTEMPT_RETENTION_DAYS * DAY_MS)),
+      hashesCleared: await r.scenes.clearExpiredIdempotencyHashes(now),
+      carryPurged: await r.scenes.purgeQuotaCarryBefore(currentWindow),
+    }));
+  } catch {
+    return NO_SCENE_PURGE;
+  }
+}
+
 /**
  * Ejecuta una pasada de mantenimiento con el reloj de la aplicación; sin almacenamiento con purga devuelve ceros. Con medios conectados recorre también
  * la cola de borrado y entrega su resultado a `onMediaQueue` (la respuesta de `/internal/maintenance` conserva sus 5 conteos).
@@ -144,6 +184,7 @@ export async function runMaintenance(
   const queue = await runMediaQueueMaintenance(deps);
   if (deps.media !== undefined) onMediaQueue?.(queue);
   await purgeShareData(deps);
+  await purgeSceneData(deps);
   if (deps.uow.purgeExpired === undefined) return NO_PURGE;
   return deps.uow.purgeExpired(maintenanceCutoffs(deps.clock.nowIsoTimestamp()));
 }

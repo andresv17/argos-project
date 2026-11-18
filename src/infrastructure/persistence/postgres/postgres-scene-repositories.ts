@@ -9,12 +9,15 @@ import type { SceneConsentRepository, SceneRepository } from '../../../applicati
 import {
   ATTEMPT_COLUMN_LIST as ATTEMPT_COLUMNS,
   CONSENT_COLUMN_LIST as CONSENT_COLUMNS,
+  HOUSEHOLD_PHOTO_COLUMN_LIST as PHOTO_COLUMNS,
   SCENE_COLUMN_LIST as SCENE_COLUMNS,
   attemptValues,
   consentValues,
+  householdPhotoValues,
   sceneValues,
   toAttemptRecord,
   toConsentRecord,
+  toHouseholdPhotoRecord,
   toSceneRecord,
 } from '../scene-row-mappers.ts';
 import type { PoolClientLike } from './postgres-database.ts';
@@ -83,6 +86,31 @@ export function postgresSceneRepository(client: PoolClientLike): SceneRepository
     async findQuotaCarry(ownerUserId, quotaWindow) {
       const { rows } = await client.query('SELECT consumed_generations FROM scene_quota_carry WHERE owner_user_id = $1 AND quota_window = $2', [ownerUserId, quotaWindow]);
       return rows[0] === undefined ? null : Number(rows[0]['consumed_generations']);
+    },
+    async purgeTerminalAttempts(finishedBefore) {
+      const result = await client.query(
+        'DELETE FROM scene_attempts WHERE outcome IS NOT NULL AND finished_at < $1 AND id NOT IN (SELECT current_attempt_id FROM home_scenes WHERE current_attempt_id IS NOT NULL)',
+        [finishedBefore],
+      );
+      return result.rowCount ?? 0;
+    },
+    async clearExpiredIdempotencyHashes(now) {
+      const result = await client.query('UPDATE scene_attempts SET idempotency_key_hash = NULL, idempotency_expires_at = NULL WHERE idempotency_key_hash IS NOT NULL AND idempotency_expires_at <= $1', [now]);
+      return result.rowCount ?? 0;
+    },
+    async purgeQuotaCarryBefore(quotaWindow) {
+      const result = await client.query('DELETE FROM scene_quota_carry WHERE quota_window < $1', [quotaWindow]);
+      return result.rowCount ?? 0;
+    },
+    async findHouseholdPhoto(householdId) {
+      const { rows } = await client.query(`SELECT ${PHOTO_COLUMNS} FROM household_photos WHERE household_id = $1`, [householdId]);
+      return rows[0] === undefined ? null : toHouseholdPhotoRecord(rows[0]);
+    },
+    async putHouseholdPhoto(photo) {
+      await client.query(
+        `INSERT INTO household_photos (${PHOTO_COLUMNS}) VALUES (${placeholders(PHOTO_COLUMNS)}) ON CONFLICT (household_id) DO UPDATE SET object_id = EXCLUDED.object_id, mime = EXCLUDED.mime, size_bytes = EXCLUDED.size_bytes, uploaded_by_user_id = EXCLUDED.uploaded_by_user_id, created_at = EXCLUDED.created_at`,
+        householdPhotoValues(photo),
+      );
     },
   };
 }

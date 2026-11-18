@@ -225,6 +225,40 @@ function defineSceneContract(name: string, create: Factory, dispose: () => Promi
       expect(await uow.runInTransaction(async (r) => [await r.scenes.findById(SCENE_ID), await r.scenes.findAttemptById(attemptId(1))])).toEqual([scene(), null]);
     });
 
+    it('[SC-ESC6-095][N2-11] el mantenimiento: purga intentos terminales viejos (salvo el vigente), anula hashes vencidos y borra arrastres de ventanas anteriores', async () => {
+      const uow = await prepare();
+      await uow.runInTransaction(begin(1, NOW, { outcome: 'SUCCEEDED', phase: 'DONE', finishedAt: at(-100), idempotencyKeyHash: hash('a'), idempotencyExpiresAt: at(-1) }));
+      await uow.runInTransaction(begin(2, at(600), { outcome: 'FAILED', phase: 'DONE', finishedAt: at(-100) }));
+      await uow.runInTransaction(async (r) => {
+        await r.scenes.upsertQuotaCarry(ANDRES.id, '2026-10', 1);
+        await r.scenes.upsertQuotaCarry(ANDRES.id, '2026-11', 1);
+      });
+      const counts = await uow.runInTransaction(async (r) => [
+        await r.scenes.clearExpiredIdempotencyHashes(at(0)),
+        await r.scenes.purgeTerminalAttempts(at(0)),
+        await r.scenes.purgeQuotaCarryBefore('2026-11'),
+        await r.scenes.purgeTerminalAttempts(at(0)),
+      ]);
+      expect(counts).toEqual([0, 1, 1, 0]); // el hash de a1 ya lo anulo T1 de a2; a1 se purga; a2 es el intento vigente
+      expect(await uow.runInTransaction(async (r) => [await r.scenes.findAttemptById(attemptId(1)), (await r.scenes.findAttemptById(attemptId(2)))?.id, await r.scenes.findQuotaCarry(ANDRES.id, '2026-10')])).toEqual([null, attemptId(2), null]);
+    });
+
+    it('[REQ-ESC6-018] foto del hogar: put crea y reemplaza (una por hogar) y find la devuelve sin nombre original; sin foto devuelve null', async () => {
+      const uow = await prepare();
+      const photo = { householdId: HOUSEHOLD.id, objectId: 'a3000000-0000-4000-8000-000000000001', mime: 'image/jpeg', sizeBytes: 100, uploadedByUserId: ANDRES.id, createdAt: NOW } as const;
+      const result = await uow.runInTransaction(async (r) => {
+        const before = await r.scenes.findHouseholdPhoto(HOUSEHOLD.id);
+        await r.scenes.putHouseholdPhoto(photo);
+        const created = await r.scenes.findHouseholdPhoto(HOUSEHOLD.id);
+        await r.scenes.putHouseholdPhoto({ ...photo, objectId: 'a3000000-0000-4000-8000-000000000002', mime: 'image/webp', sizeBytes: 50, uploadedByUserId: MARIA.id });
+        return [before, created, await r.scenes.findHouseholdPhoto(HOUSEHOLD.id), await r.scenes.findHouseholdPhoto('otro')] as const;
+      });
+      expect(result[0]).toBeNull();
+      expect(result[1]).toEqual(photo);
+      expect(result[2]).toEqual({ ...photo, objectId: 'a3000000-0000-4000-8000-000000000002', mime: 'image/webp', sizeBytes: 50, uploadedByUserId: MARIA.id });
+      expect(result[3]).toBeNull();
+    });
+
     it('[SC-ESC6-016] consentimientos: grant, uno vigente por (usuario, ambito, proveedor, version), revoke idempotente y findByUserId devuelve el mas reciente', async () => {
       const uow = await prepare();
       const result = await uow.runInTransaction(async (r) => [
