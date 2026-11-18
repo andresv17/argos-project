@@ -51,6 +51,31 @@ export class PostgresUnitOfWork implements UnitOfWorkPort {
     return this.transaction((client) => work(this.createRepositories(client)));
   }
 
+  /**
+   * Lectura coherente de UNA instantánea (feature 005, REQ-VET-006, EDGE-005-14, SC-005-049): `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY`, con los mismos
+   * topes de sesión (`SET LOCAL`) y SIN el candado asesor global: una lectura pública no bloquea ni es bloqueada por las escrituras (`READ COMMITTED` no da
+   * una sola vista entre consultas). Una escritura dentro de ella falla con SQLSTATE 25006.
+   */
+  async runReadOnly<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    } catch (error) {
+      client.release(error instanceof Error ? error : true);
+      throw error;
+    }
+    try {
+      for (const sql of SESSION_CAPS) await client.query(sql);
+      const result = await work(this.createRepositories(client));
+      await client.query('COMMIT');
+      client.release();
+      return result;
+    } catch (error) {
+      await this.rollback(client, error);
+      throw error;
+    }
+  }
+
   /** Mantenimiento ADR-002-14 (REQ-PG-008): solo `DELETE` por lotes en una transacción con los mismos topes y candado. */
   purgeExpired(cutoffs: MaintenanceCutoffs): Promise<MaintenanceCounts> {
     return this.transaction((client) => purgeExpiredInBatches(client, cutoffs));

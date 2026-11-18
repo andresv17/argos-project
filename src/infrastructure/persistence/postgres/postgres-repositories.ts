@@ -53,6 +53,7 @@ import type {
 } from '../../../application/ports/repositories.port.ts';
 import { corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
+import { shareAuditRepository, shareLinkRepository } from './postgres-share-repositories.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import { STORED_RECORD_CHECKS, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
@@ -404,6 +405,11 @@ function mediaRepository(client: PoolClientLike): PetMediaRepositoryPort {
     async remove(petId, mediaId) {
       const result = await client.query('DELETE FROM pet_media WHERE id = $1 AND pet_id = $2', [mediaId, petId]);
       return result.rowCount === 1;
+    },
+    async findInPets(petIds, mediaId) {
+      if (petIds.length === 0) return null;
+      const { rows } = await client.query(`SELECT ${MEDIA_COLUMNS} FROM pet_media WHERE id = $1 AND pet_id = ANY($2::text[])`, [mediaId, [...petIds]]);
+      return rows[0] === undefined ? null : toMedia(rows[0]);
     },
     async countObjectsOfPets(petIds) {
       const { rows } = await client.query(
@@ -763,5 +769,11 @@ export function createPostgresRepositoriesPart3(client: PoolClientLike): Postgre
  * @implements REQ-PG-002, INV-ARCH-005
  */
 export function createPostgresRepositories(client: PoolClientLike): RepositorySet {
-  return { ...createPostgresRepositoriesPart1(client), ...createPostgresRepositoriesPart2(client), ...createPostgresRepositoriesPart3(client) };
+  return {
+    ...createPostgresRepositoriesPart1(client),
+    ...createPostgresRepositoriesPart2(client),
+    ...createPostgresRepositoriesPart3(client),
+    shareLinks: shareLinkRepository(client),
+    shareAudit: shareAuditRepository(client),
+  };
 }

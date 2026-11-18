@@ -50,6 +50,8 @@ import type {
   PetMediaRecord,
   PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
+import type { ShareAuditRecord, ShareAuditEventType, ShareLinkAuditRepositoryPort, ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import type { ShareLinkRecord, ShareScope } from '../../../domain/sharing/share-link.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
@@ -460,6 +462,7 @@ function mediaRepository(db: SqliteDatabase): PetMediaRepositoryPort {
   const countKind = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM pet_media WHERE pet_id = ? AND kind = ?');
   const bytes = db.prepare<[string], { n: number }>('SELECT COALESCE(SUM(m.size_bytes), 0) AS n FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = ?');
   const remove = db.prepare('DELETE FROM pet_media WHERE id = ? AND pet_id = ?');
+  const inPets = db.prepare<[string, string], MediaRow>(`SELECT ${columns} FROM pet_media WHERE id = ? AND pet_id IN (SELECT value FROM json_each(?))`);
   const countMedia = db.prepare<[string, string], { n: number }>('SELECT (SELECT count(*) FROM pet_media WHERE pet_id IN (SELECT value FROM json_each(?))) + (SELECT count(*) FROM pets WHERE id IN (SELECT value FROM json_each(?)) AND avatar_object_id IS NOT NULL) AS n');
   return {
     async insert(media) {
@@ -484,6 +487,164 @@ function mediaRepository(db: SqliteDatabase): PetMediaRepositoryPort {
     async countObjectsOfPets(petIds) {
       const ids = list(petIds);
       return countMedia.get(ids, ids)!.n;
+    },
+    async findInPets(petIds, mediaId) {
+      if (petIds.length === 0) return null;
+      const row = inPets.get(mediaId, list(petIds));
+      return row === undefined ? null : toMedia(row);
+    },
+  };
+}
+
+interface ShareLinkRow {
+  readonly id: string;
+  readonly token_hash: string;
+  readonly scope: ShareScope;
+  readonly pet_id: string | null;
+  readonly household_id: string | null;
+  readonly created_by_user_id: string;
+  readonly created_at: string;
+  readonly expires_in_days: number;
+  readonly expires_at: string;
+  readonly revoked_at: string | null;
+  readonly include_microchip: number;
+  readonly include_clinical_files: number;
+  readonly idempotency_key: string;
+  readonly pet_owner_user_id_at_creation: string | null;
+}
+
+const SHARE_LINK_COLUMNS =
+  'id, token_hash, scope, pet_id, household_id, created_by_user_id, created_at, expires_in_days, expires_at, revoked_at, include_microchip, include_clinical_files, idempotency_key, pet_owner_user_id_at_creation';
+
+const toShareLink = (row: ShareLinkRow): ShareLinkRecord => ({
+  id: row.id,
+  tokenHash: row.token_hash,
+  scope: row.scope,
+  petId: row.pet_id,
+  householdId: row.household_id,
+  createdByUserId: row.created_by_user_id,
+  createdAt: row.created_at,
+  expiresInDays: row.expires_in_days,
+  expiresAt: row.expires_at,
+  revokedAt: row.revoked_at,
+  includeMicrochip: row.include_microchip === 1,
+  includeClinicalFiles: row.include_clinical_files === 1,
+  idempotencyKey: row.idempotency_key,
+  petOwnerUserIdAtCreation: row.pet_owner_user_id_at_creation,
+});
+
+/**
+ * `share_links` (REQ-VET-003..005, REQ-VET-010..013): solo `token_hash`, CHECK de alcance y de caducidad, `UNIQUE (created_by_user_id, idempotency_key)`,
+ * cascada por mascota, hogar y creador. En SQLite la transacción `BEGIN IMMEDIATE` ya es el candado del alcance (`lockScope` no hace nada).
+ * @implements REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-010, REQ-VET-012, REQ-VET-013, INV-005-005
+ */
+function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
+  const insert = db.prepare(`INSERT INTO share_links (${SHARE_LINK_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const byHash = db.prepare<[string], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE token_hash = ?`);
+  const byId = db.prepare<[string], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE id = ?`);
+  const byKey = db.prepare<[string, string], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE created_by_user_id = ? AND idempotency_key = ?`);
+  const ofPet = db.prepare<[string, string, string], ShareLinkRow>(
+    `SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE scope = 'PET' AND pet_id = ? AND expires_at >= ? AND (revoked_at IS NULL OR revoked_at >= ?) ORDER BY created_at DESC, id DESC`,
+  );
+  const ofHousehold = db.prepare<[string, string, string], ShareLinkRow>(
+    `SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE scope = 'HOUSEHOLD' AND household_id = ? AND expires_at >= ? AND (revoked_at IS NULL OR revoked_at >= ?) ORDER BY created_at DESC, id DESC`,
+  );
+  const activePet = db.prepare<[string, string], { n: number }>(`SELECT count(*) AS n FROM share_links WHERE scope = 'PET' AND pet_id = ? AND revoked_at IS NULL AND expires_at > ?`);
+  const activeHousehold = db.prepare<[string, string], { n: number }>(`SELECT count(*) AS n FROM share_links WHERE scope = 'HOUSEHOLD' AND household_id = ? AND revoked_at IS NULL AND expires_at > ?`);
+  const revoke = db.prepare('UPDATE share_links SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL AND expires_at > ?');
+  const purge = db.prepare('DELETE FROM share_links WHERE expires_at < ? OR revoked_at < ?');
+  const all = db.prepare<[], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links ORDER BY id`);
+  return {
+    async lockScope() {
+      // BEGIN IMMEDIATE de la unidad de trabajo: un solo escritor a la vez
+    },
+    async insert(link) {
+      insert.run(
+        link.id,
+        link.tokenHash,
+        link.scope,
+        link.petId,
+        link.householdId,
+        link.createdByUserId,
+        link.createdAt,
+        link.expiresInDays,
+        link.expiresAt,
+        link.revokedAt,
+        link.includeMicrochip ? 1 : 0,
+        link.includeClinicalFiles ? 1 : 0,
+        link.idempotencyKey,
+        link.petOwnerUserIdAtCreation,
+      );
+    },
+    async findByTokenHash(tokenHash) {
+      const row = byHash.get(tokenHash);
+      return row === undefined ? null : toShareLink(row);
+    },
+    async findById(id) {
+      const row = byId.get(id);
+      return row === undefined ? null : toShareLink(row);
+    },
+    async findByIdempotencyKey(userId, idempotencyKey) {
+      const row = byKey.get(userId, idempotencyKey);
+      return row === undefined ? null : toShareLink(row);
+    },
+    async listByScope(scope, scopeId, retainedSince) {
+      return (scope === 'PET' ? ofPet : ofHousehold).all(scopeId, retainedSince, retainedSince).map(toShareLink);
+    },
+    async countActive(scope, scopeId, now) {
+      return (scope === 'PET' ? activePet : activeHousehold).get(scopeId, now)!.n;
+    },
+    async revoke(id, now) {
+      return revoke.run(now, id, now).changes === 1;
+    },
+    async purge(cutoffExclusive) {
+      return purge.run(cutoffExclusive, cutoffExclusive).changes;
+    },
+    async listAll() {
+      return all.all().map(toShareLink);
+    },
+  };
+}
+
+interface ShareAuditRow {
+  readonly id: string;
+  readonly share_link_id: string | null;
+  readonly event_type: ShareAuditEventType;
+  readonly occurred_at: string;
+  readonly actor_user_id: string | null;
+  readonly ip_hmac: string | null;
+  readonly fail_count: number;
+}
+
+/**
+ * `share_link_audit` (REQ-VET-008, REQ-VET-013): sin claves foráneas; los fallos se agregan por `(ip_hmac, ventana)` con un índice único parcial.
+ * @implements REQ-VET-008, REQ-VET-013, SC-005-022, SC-005-042
+ */
+function shareAuditRepository(db: SqliteDatabase): ShareLinkAuditRepositoryPort {
+  const columns = 'id, share_link_id, event_type, occurred_at, actor_user_id, ip_hmac, fail_count';
+  const insert = db.prepare(`INSERT INTO share_link_audit (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+  const failure = db.prepare(
+    `INSERT INTO share_link_audit (${columns}) VALUES (?, NULL, 'ACCESS_FAILED', ?, NULL, ?, 1)
+     ON CONFLICT (ip_hmac, occurred_at) WHERE event_type = 'ACCESS_FAILED' DO UPDATE SET fail_count = share_link_audit.fail_count + 1`,
+  );
+  const clear = db.prepare('UPDATE share_link_audit SET actor_user_id = NULL WHERE actor_user_id = ?');
+  const purge = db.prepare('DELETE FROM share_link_audit WHERE (ip_hmac IS NULL AND occurred_at < ?) OR (ip_hmac IS NOT NULL AND occurred_at < ?)');
+  const all = db.prepare<[], ShareAuditRow>(`SELECT ${columns} FROM share_link_audit ORDER BY id`);
+  return {
+    async insert(row) {
+      insert.run(row.id, row.shareLinkId, row.eventType, row.occurredAt, row.actorUserId, row.ipHmac, row.failCount);
+    },
+    async recordFailure(id, ipHmac, windowStart) {
+      failure.run(id, windowStart, ipHmac);
+    },
+    async clearActor(userId) {
+      clear.run(userId);
+    },
+    async purge({ withoutIpBefore, withIpBefore }) {
+      return purge.run(withoutIpBefore, withIpBefore).changes;
+    },
+    async listAll() {
+      return all.all().map((r): ShareAuditRecord => ({ id: r.id, shareLinkId: r.share_link_id, eventType: r.event_type, occurredAt: r.occurred_at, actorUserId: r.actor_user_id, ipHmac: r.ip_hmac, failCount: r.fail_count }));
     },
   };
 }
@@ -846,5 +1007,7 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     media: mediaRepository(db),
     mediaQueue: mediaQueueRepository(db),
     auditLog: auditLogRepository(db),
+    shareLinks: shareLinkRepository(db),
+    shareAudit: shareAuditRepository(db),
   };
 }

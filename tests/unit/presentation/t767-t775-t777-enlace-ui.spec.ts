@@ -125,7 +125,6 @@ describe('T767 S4 «Compartir con mi veterinario» (REQ-VET-001, REQ-VET-005, SC
   });
 });
 
-const PET_ID = '11111111-1111-4111-8111-111111111101';
 const FILE_ID = '88888888-8888-4888-8888-888888888801';
 function model(over: { microchip?: boolean; files?: boolean; household?: boolean; fileName?: string; empty?: boolean } = {}): SharedSummaryViewModel {
   const profile = { name: 'Argos', species: 'CANINE', speciesOther: null, breed: 'Pastor Alemán', sex: 'MALE', neutered: null, birthDate: '2022-05-10', birthDateIsEstimate: false, age: { years: 4, months: 6, totalDays: 1650 }, ...(over.microchip ? { microchipId: '982000123456789' } : {}) };

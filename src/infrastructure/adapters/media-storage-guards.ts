@@ -15,9 +15,13 @@ export function assertMediaKey(key: string): void {
   if (!isMediaObjectKey(key)) throw new RangeError('Clave de medio no válida.');
 }
 
-export function assertTtlSeconds(ttlSeconds: number): void {
-  if (!Number.isInteger(ttlSeconds) || ttlSeconds < MIN_SIGNED_URL_TTL_SECONDS || ttlSeconds > MAX_SIGNED_URL_TTL_SECONDS) {
-    throw new RangeError('Caducidad de URL firmada fuera de 30-900 segundos.');
+/** Mínimo de la superficie pública del enlace veterinario (EDGE-005-23): `X-Goog-Expires` nunca es 0. */
+export const MIN_PUBLIC_SIGNED_URL_TTL_SECONDS = 1;
+
+export function assertTtlSeconds(ttlSeconds: number, allowShortTtl = false): void {
+  const min = allowShortTtl ? MIN_PUBLIC_SIGNED_URL_TTL_SECONDS : MIN_SIGNED_URL_TTL_SECONDS;
+  if (!Number.isInteger(ttlSeconds) || ttlSeconds < min || ttlSeconds > MAX_SIGNED_URL_TTL_SECONDS) {
+    throw new RangeError(`Caducidad de URL firmada fuera de ${min}-900 segundos.`);
   }
 }
 

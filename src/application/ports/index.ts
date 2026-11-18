@@ -15,3 +15,4 @@ export * from './audit-log.port.ts';
 export * from './audit-pseudonym.port.ts';
 export * from './media-storage.port.ts';
 export * from './platform-parameter.port.ts';
+export * from './share-link.port.ts';

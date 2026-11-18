@@ -6,6 +6,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { hashToken } from '../../../src/domain/sharing/share-token.ts';
+import type { ShareScopeRef } from '../../../src/application/sharing/share-access.ts';
 import { CreateShareLinkUseCase, ListShareLinksUseCase, RevokeShareLinkUseCase } from '../../../src/application/use-cases/share-link-use-cases.ts';
 import { GetSharedFileUseCase, GetSharedSummaryUseCase, PreviewClinicalSummaryUseCase } from '../../../src/application/use-cases/shared-view-use-cases.ts';
 import { validateCreateShareLinkReplay, validateCreateShareLinkResult, validateShareLinkList, validateSharedSummaryView } from '../../../src/generated/v33/index.ts';
@@ -14,8 +15,8 @@ import { PDF, PNG } from '../../fixtures/media-harness.ts';
 
 const NOW = '2026-11-18T12:00:00.000Z';
 const KIRA = '11111111-1111-4111-8111-111111111102';
-const PET_REF = { scope: 'PET', petId: ARGOS.id } as const;
-const HOUSE_REF = { scope: 'HOUSEHOLD', householdId: HOUSEHOLD_ID } as const;
+const PET_REF: ShareScopeRef = { scope: 'PET', petId: ARGOS.id };
+const HOUSE_REF: ShareScopeRef = { scope: 'HOUSEHOLD', householdId: HOUSEHOLD_ID };
 const IP = '203.0.113.7';
 
 let engines: ShareEngine[] = [];
@@ -33,12 +34,12 @@ async function eachEngine(role: 'ADMIN' | 'CAREGIVER' | 'READER' | null, test: (
   }
 }
 
-const create = (e: ShareEngine, userId: string, ref: typeof PET_REF | typeof HOUSE_REF, key: unknown, body: unknown = {}) => new CreateShareLinkUseCase(e.deps).execute(userId, ref, key, body);
+const create = (e: ShareEngine, userId: string, ref: ShareScopeRef, key: unknown, body: unknown = {}) => new CreateShareLinkUseCase(e.deps).execute(userId, ref, key, body);
 const summary = (e: ShareEngine, token: string, ip = IP) => new GetSharedSummaryUseCase(e.deps).execute(token, ip);
 const revoke = (e: ShareEngine, userId: string, id: string) => new RevokeShareLinkUseCase(e.deps).execute(userId, id);
-const list = (e: ShareEngine, userId: string, ref: typeof PET_REF | typeof HOUSE_REF) => new ListShareLinksUseCase(e.deps).execute(userId, ref);
+const list = (e: ShareEngine, userId: string, ref: ShareScopeRef) => new ListShareLinksUseCase(e.deps).execute(userId, ref);
 
-async function created(e: ShareEngine, userId = ANDRES, ref: typeof PET_REF | typeof HOUSE_REF = PET_REF, n = 1, body: unknown = {}) {
+async function created(e: ShareEngine, userId = ANDRES, ref: ShareScopeRef = PET_REF, n = 1, body: unknown = {}) {
   const result = await create(e, userId, ref, KEY(n), body);
   if (result.kind !== 'CREATED') throw new Error('se esperaba un enlace nuevo');
   return result;
@@ -228,7 +229,7 @@ describe('T756 listado (REQ-VET-001, REQ-VET-005, SC-005-025)', () => {
     await eachEngine(null, async (e) => {
       const old = await created(e, ANDRES, PET_REF, 1, { expiresInDays: 1 });
       const keep = await created(e, ANDRES, PET_REF, 2, { expiresInDays: 7 });
-      e.setNow('2026-12-18T12:00:00.000Z');
+      e.setNow('2026-12-20T12:00:00.000Z');
       expect((await list(e, ANDRES, PET_REF)).items.map((i) => [i.id, i.status])).toEqual([[keep.link.id, 'EXPIRED']]);
       e.setNow('2026-11-20T12:00:00.000Z');
       expect(new Map((await list(e, ANDRES, PET_REF)).items.map((i) => [i.id, i.status]))).toEqual(new Map([[old.link.id, 'EXPIRED'], [keep.link.id, 'ACTIVE']]));
