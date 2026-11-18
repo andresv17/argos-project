@@ -1520,3 +1520,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - t861 (18 = 6 x memoria, SQLite y PostgreSQL real en postgres:17 55432): dos usuarios a la vez, doble clic con la misma clave y con dos, tres entregas concurrentes del worker (1 PUBLISHED y 2 NOOP, generador 1 vez, cuota +1), tres lecturas con arrendamiento vencido (una sola transicion failed y un DELETE), frontera mensual 30-nov/1-dic y T1 contra T2. Verde 18/18.
 - Sin rojo previo: es suite de caracterizacion sobre T854/T856 ya implementadas (sin codigo de produccion nuevo). Un primer intento fallo solo por sembrar la memoria con estado canonico duplicado (error de la prueba, corregido).
 - Suite completa con PG real: 297 archivos, 4703 pasan, 1 omitida, 0 rojos; tsc 0; gates CUMPLE. T591R-2 no fallo en esta corrida.
+
+## 2026-11-18 Keymaker: H-KEY-F5-5 expiracion de arrendamiento auditada (REQ-ESC6-021; INV-ESC6-019; SC-ESC6-018/093) (sin push, sin [x])
+- Pruebas primero: t834 expireLease (memoria y SQLite) rojo 'expected { attemptId, resultObjectId } to equal { id, actorUserId, ... }'; t851 (+3) rojo 'expected [] to deeply equal [[HOME_SCENE, UPDATE, ...]]' (2 fallos; la de 404 ya conforme). Luego expireLease devuelve el SceneAttemptRecord transicionado (puerto, memoria, SQLite, PG, Null).
+- recordSceneAttemptAudit (scene-audit.ts) reutilizado por getScene, requestSceneGeneration (T1) y el worker; actor = actorUserId del intento expirado; solo si el CAS transiciona. 404 antes de cualquier escritura (sin cambios).
+- Suite completa con PG real: 297 archivos, 4707 pasan, 1 omitida, 0 rojos; tsc 0; gates 001/002/006 y oracles 006 CUMPLE.

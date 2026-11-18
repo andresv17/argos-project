@@ -140,10 +140,10 @@ export interface SceneRepository {
   findAttemptByIdempotencyKeyHash(hash: string): Promise<SceneAttemptRecord | null>;
   /**
    * Vencimiento del arrendamiento (data-model.md §7, `H-TRI-006-12`): CAS idempotente `run_state = 'generating' AND lease_expires_at <= now` -> `failed`, sin
-   * arrendamiento, con el intento vigente cerrado `FAILED`/`ERR-SCENE-LEASE-EXPIRED` si seguía abierto. Devuelve el intento (su objeto resultante pasa a `DELETE`
-   * en el caso de uso) o `null` si no cambió nada (otra lectura ganó la carrera o el arrendamiento sigue vigente).
+   * arrendamiento, con el intento vigente cerrado `FAILED`/`ERR-SCENE-LEASE-EXPIRED` si seguía abierto. Devuelve el intento transicionado (su objeto resultante pasa a `DELETE`
+   * y su `actorUserId` es el actor de la auditoría `SCENE_FAILED`, `H-KEY-F5-5`) o `null` si no cambió nada (otra lectura ganó la carrera o el arrendamiento sigue vigente).
    */
-  expireLease(sceneId: string, now: string): Promise<{ readonly attemptId: string; readonly resultObjectId: string } | null>;
+  expireLease(sceneId: string, now: string): Promise<SceneAttemptRecord | null>;
   /** Escribe `provider_call_started_at` antes de llamar al proveedor (H-LCK-006-04). */
   markProviderCall(attemptId: string, now: string): Promise<void>;
   /** Cierra el intento sin publicar; `false` si el intento no existe, no es de la escena o ya estaba cerrado. */

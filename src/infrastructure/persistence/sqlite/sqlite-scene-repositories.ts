@@ -139,7 +139,8 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
       if (row === undefined) return null;
       expireAttempt.run(now, row.current_attempt_id);
       failScene.run(now, sceneId);
-      return { attemptId: row.current_attempt_id, resultObjectId: row.result_object_id };
+      const closed = attemptById.get(row.current_attempt_id);
+      return closed === undefined ? null : toAttemptRecord(closed);
     },
     async markProviderCall(attemptId, now) {
       markCall.run(now, attemptId);

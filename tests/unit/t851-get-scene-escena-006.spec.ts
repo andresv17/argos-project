@@ -3,6 +3,7 @@ import type { SceneAttemptRecord, SceneRecord } from '../../src/application/port
 import { GetSceneImageUseCase, GetSceneUseCase, loadLiveInputs, type SceneTarget } from '../../src/application/use-cases/scene-use-cases.ts';
 import { DomainError } from '../../src/generated/index.ts';
 import { DomainError as DomainErrorV34 } from '../../src/generated/v34/index.ts';
+import { stateHash } from '../../src/domain/audit/state-hash.ts';
 import { serializeInputsSnapshot } from '../../src/domain/scene/inputs-snapshot.ts';
 import { ANDRES, ARGOS, CARLOS, HOUSEHOLD, LUCIA, MARIA, canonicalState, createHarness } from '../fixtures/application-harness.ts';
 import { ControlledStorage } from '../fixtures/media-harness.ts';
@@ -196,6 +197,36 @@ describe('getScene (T852): vencimiento del arrendamiento y consentimiento', () =
     expect([a.status, b.status, a.lastError, b.lastError]).toEqual(['failed', 'failed', 'ERR-SCENE-LEASE-EXPIRED', 'ERR-SCENE-LEASE-EXPIRED']);
     expect(JSON.stringify(t.h.uow.snapshot().sceneAttempts)).toBe(after);
     expect(t.h.uow.snapshot().mediaQueue).toHaveLength(1);
+  });
+
+  it('[H-KEY-F5-5][REQ-ESC6-021] la lectura que materializa el vencimiento audita SCENE_FAILED/ERR-SCENE-LEASE-EXPIRED con el actor del intento (no el lector), HMAC del hogar y una sola vez', async () => {
+    const t = setup();
+    await expired(t);
+    const before = t.h.uow.snapshot().auditLog.length;
+    await t.get.execute(MARIA, HOUSE);
+    const rows = t.h.uow.snapshot().auditLog.slice(before);
+    expect(rows.map((e) => [e.entityType, e.mutationType, e.entityId, e.executorUserId])).toEqual([['HOME_SCENE', 'UPDATE', SCENE, ANDRES]]);
+    const householdRef = t.deps.auditPseudonym.hmacUserId(HOUSEHOLD.id, t.deps.auditHmacSecret);
+    expect(rows[0]?.newStateHash).toBe(stateHash({ event: 'SCENE_FAILED', householdRef, mode: 'FROM_SCRATCH', pets: 0, result: 'ERR-SCENE-LEASE-EXPIRED' }));
+    await t.get.execute(ANDRES, HOUSE);
+    await t.get.execute(MARIA, HOUSE);
+    expect(t.h.uow.snapshot().auditLog.length).toBe(before + 1);
+  });
+
+  it('[H-KEY-F5-5][SC-ESC6-093] dos lecturas concurrentes con el arrendamiento vencido dejan una sola fila de auditoría (el CAS que no transiciona no escribe)', async () => {
+    const t = setup();
+    await expired(t);
+    const before = t.h.uow.snapshot().auditLog.length;
+    await Promise.all([t.get.execute(ANDRES, HOUSE), t.get.execute(MARIA, HOUSE), t.get.execute(ANDRES, HOUSE)]);
+    expect(t.h.uow.snapshot().auditLog.slice(before).map((e) => e.executorUserId)).toEqual([ANDRES]);
+  });
+
+  it('[H-KEY-F5-5][INV-ESC6-019] un lector sin acceso recibe 404 y no materializa el vencimiento ni escribe auditoría', async () => {
+    const t = setup();
+    await expired(t);
+    const before = JSON.stringify(t.h.uow.snapshot());
+    expect(await codeOf(t.get.execute(LUCIA, HOUSE))).toBe('ERR-HOUSE-NOT-FOUND');
+    expect(JSON.stringify(t.h.uow.snapshot())).toBe(before);
   });
 
   it('[REQ-ESC6-024][INV-ESC6-014] con el driver simulado no se exige consentimiento y la foto de la mascota cuenta; con el real, sin consentimiento vigente la foto no cuenta y consent.required = true', async () => {

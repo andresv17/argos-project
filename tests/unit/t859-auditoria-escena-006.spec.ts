@@ -107,6 +107,20 @@ describe('auditoría de la escena (T859)', () => {
     expect(audit(t)[2]?.newStateHash).toBeNull();
   });
 
+  it('[H-KEY-F5-5][REQ-ESC6-021] el POST que materializa el vencimiento de un intento vencido audita SCENE_FAILED/ERR-SCENE-LEASE-EXPIRED (una vez) antes del SCENE_REQUESTED del nuevo intento', async () => {
+    const t = setup();
+    await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, KEY);
+    const first = t.h.uow.snapshot().sceneAttempts![0]!;
+    t.h.clock.setClock('2026-11-05', '2026-11-05T12:10:01.000Z');
+    await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, 'b0000000-0000-4000-8000-000000000003');
+    const rows = audit(t);
+    expect(rows.map((e) => e.executorUserId)).toEqual([ANDRES, ANDRES, ANDRES]);
+    const householdRef = hmac(t, HOUSEHOLD.id);
+    const pets = JSON.parse(first.inputsSnapshot).pets.length as number;
+    expect(rows[1]?.newStateHash).toBe(stateHash({ event: 'SCENE_FAILED', householdRef, mode: first.mode, pets, result: 'ERR-SCENE-LEASE-EXPIRED' }));
+    expect(rows[2]?.newStateHash).toBe(stateHash({ event: 'SCENE_REQUESTED', householdRef, mode: first.mode, pets, result: 'ACCEPTED' }));
+  });
+
   it('[INV-ESC6-016][SC-ESC6-033] una operación rechazada (429, 403, validación) no deja fila de auditoría', async () => {
     const t = setup();
     await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, KEY);

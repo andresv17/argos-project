@@ -237,12 +237,12 @@ function defineSceneContract(name: string, create: Factory, dispose: () => Promi
       expect(await read()).toEqual([at(1200), at(0), at(1200), at(600)]);
     });
 
-    it('[SC-ESC6-018][SC-ESC6-093][H-TRI-006-12] expireLease: CAS idempotente; vencido pasa a failed con intento FAILED/ERR-SCENE-LEASE-EXPIRED y devuelve el objeto resultante; vigente o repetido no cambia nada', async () => {
+    it('[SC-ESC6-018][SC-ESC6-093][H-TRI-006-12] expireLease: CAS idempotente; vencido pasa a failed con intento FAILED/ERR-SCENE-LEASE-EXPIRED y devuelve el intento transicionado completo (con su actor, H-KEY-F5-5); vigente o repetido no cambia nada', async () => {
       const uow = await prepare();
       await uow.runInTransaction(begin(1, NOW));
       expect(await uow.runInTransaction((r) => r.scenes.expireLease(SCENE_ID, at(599)))).toBeNull();
       const first = await uow.runInTransaction((r) => r.scenes.expireLease(SCENE_ID, at(600)));
-      expect(first).toEqual({ attemptId: attemptId(1), resultObjectId: attempt(1).resultObjectId });
+      expect(first).toEqual(attempt(1, { phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-LEASE-EXPIRED', finishedAt: at(600) }));
       expect(await uow.runInTransaction((r) => r.scenes.expireLease(SCENE_ID, at(601)))).toBeNull();
       const state = await uow.runInTransaction(async (r) => [await r.scenes.findById(SCENE_ID), await r.scenes.findAttemptById(attemptId(1))]);
       expect(state[0]).toMatchObject({ runState: 'failed', currentAttemptId: attemptId(1), leaseExpiresAt: null });

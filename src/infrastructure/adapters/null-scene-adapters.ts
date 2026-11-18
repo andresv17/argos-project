@@ -90,7 +90,7 @@ export class NullSceneRepository implements SceneRepository {
   findAttemptByIdempotencyKeyHash(_hash: string): Promise<SceneAttemptRecord | null> {
     return Promise.resolve(null);
   }
-  expireLease(_sceneId: string, _now: string): Promise<{ readonly attemptId: string; readonly resultObjectId: string } | null> {
+  expireLease(_sceneId: string, _now: string): Promise<SceneAttemptRecord | null> {
     return Promise.resolve(null);
   }
   markProviderCall(_attemptId: string, _now: string): Promise<void> {

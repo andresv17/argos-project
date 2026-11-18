@@ -78,7 +78,8 @@ export function postgresSceneRepository(client: PoolClientLike): SceneRepository
       if (row === undefined) return null;
       await client.query("UPDATE scene_attempts SET phase = 'DONE', outcome = 'FAILED', error_code = 'ERR-SCENE-LEASE-EXPIRED', finished_at = $1 WHERE id = $2 AND outcome IS NULL", [now, row['current_attempt_id']]);
       await client.query("UPDATE home_scenes SET run_state = 'failed', lease_expires_at = NULL, updated_at = $1 WHERE id = $2", [now, sceneId]);
-      return { attemptId: String(row['current_attempt_id']), resultObjectId: String(row['result_object_id']) };
+      const closed = await client.query(`SELECT ${ATTEMPT_COLUMNS} FROM scene_attempts WHERE id = $1`, [row['current_attempt_id']]);
+      return closed.rows[0] === undefined ? null : toAttemptRecord(closed.rows[0]);
     },
     async markProviderCall(attemptId, now) {
       await client.query('UPDATE scene_attempts SET provider_call_started_at = $1 WHERE id = $2', [now, attemptId]);

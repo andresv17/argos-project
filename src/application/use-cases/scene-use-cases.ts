@@ -27,7 +27,7 @@ import type { MediaReadUrl } from '../ports/media-storage.port.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import type { SceneAttemptMode, SceneAttemptRecord, SceneConsentScope, SceneRecord } from '../ports/scene-repositories.port.ts';
 import { requireMedia } from './media-use-cases.ts';
-import { opaqueRef, recordSceneAudit } from './scene-audit.ts';
+import { opaqueRef, recordSceneAttemptAudit, recordSceneAudit } from './scene-audit.ts';
 import type { ApplicationDeps, SceneServices } from './use-case-support.ts';
 
 export type SceneTarget = { readonly kind: 'HOUSEHOLD'; readonly householdId: string } | { readonly kind: 'OWNER' };
@@ -215,7 +215,10 @@ export class GetSceneUseCase {
       if (reading.derived.leaseExpired) {
         await r.scenes.lockScene(scene.id);
         const expired = await r.scenes.expireLease(scene.id, now);
-        if (expired !== null) await r.mediaQueue.enqueue(sceneImageObjectKey(scene.id, expired.resultObjectId), 'DELETE', now);
+        if (expired !== null) {
+          await r.mediaQueue.enqueue(sceneImageObjectKey(scene.id, expired.resultObjectId), 'DELETE', now);
+          await recordSceneAttemptAudit(deps, r, scene, expired, 'SCENE_FAILED', 'ERR-SCENE-LEASE-EXPIRED');
+        }
         scene = (await findSceneOf(r, access)) ?? scene;
         reading = await readScene(deps, r, access, scene, now, window);
       }
@@ -344,7 +347,10 @@ export class RequestSceneGenerationUseCase {
       let reading = await readScene(deps, r, access, scene, now, window);
       if (reading.derived.leaseExpired) {
         const expired = await r.scenes.expireLease(scene.id, now);
-        if (expired !== null) await r.mediaQueue.enqueue(sceneImageObjectKey(scene.id, expired.resultObjectId), 'DELETE', now);
+        if (expired !== null) {
+          await r.mediaQueue.enqueue(sceneImageObjectKey(scene.id, expired.resultObjectId), 'DELETE', now);
+          await recordSceneAttemptAudit(deps, r, scene, expired, 'SCENE_FAILED', 'ERR-SCENE-LEASE-EXPIRED');
+        }
         reading = await readScene(deps, r, access, await current(), now, window);
       }
       const { derived, live, last } = reading;

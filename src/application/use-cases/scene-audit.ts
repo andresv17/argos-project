@@ -8,7 +8,9 @@
  * @implements REQ-ESC6-021, INV-ESC6-016, N2-06, SC-ESC6-027, SC-ESC6-033, SC-ESC6-046
  */
 
+import { parseInputsSnapshot } from '../../domain/scene/inputs-snapshot.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
+import type { SceneAttemptRecord, SceneRecord } from '../ports/scene-repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
 import type { ApplicationDeps } from './use-case-support.ts';
 
@@ -36,5 +38,16 @@ export async function recordSceneAudit(deps: ApplicationDeps, r: RepositorySet, 
     entityId: input.entityId,
     previous: input.mutationType === 'CREATE' ? null : { entity: input.entityType, ref: input.entityId },
     next: input.mutationType === 'DELETE' ? null : { event: input.event, ...input.detail },
+  });
+}
+
+/**
+ * Fila `SCENE_PUBLISHED` o `SCENE_FAILED` de un intento, en la transacción que lo cierra (REQ-ESC6-021): solo modo, número de mascotas y resultado. El actor es SIEMPRE
+ * el `actor_user_id` del intento (no quien lee ni quien ejecuta el worker; `H-KEY-F5-5`); el hogar entra como HMAC.
+ */
+export async function recordSceneAttemptAudit(deps: ApplicationDeps, r: RepositorySet, scene: SceneRecord, attempt: SceneAttemptRecord, event: 'SCENE_PUBLISHED' | 'SCENE_FAILED', result: string): Promise<void> {
+  await recordSceneAudit(deps, r, {
+    executorUserId: attempt.actorUserId, mutationType: 'UPDATE', entityType: 'HOME_SCENE', entityId: scene.id, event,
+    detail: { householdRef: opaqueRef(deps, scene.householdId ?? scene.ownerUserId ?? scene.id), mode: attempt.mode, pets: parseInputsSnapshot(attempt.inputsSnapshot)?.pets.length ?? 0, result },
   });
 }

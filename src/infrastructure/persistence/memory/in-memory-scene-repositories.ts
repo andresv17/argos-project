@@ -107,7 +107,8 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
       const attempt = attempts().find((a) => a.id === scene.currentAttemptId);
       if (attempt !== undefined && attempt.outcome === null) replaceAttempt(attempt.id, { phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-LEASE-EXPIRED', finishedAt: now });
       replaceScene(sceneId, { runState: 'failed', leaseExpiresAt: null, updatedAt: now });
-      return attempt === undefined ? null : { attemptId: attempt.id, resultObjectId: attempt.resultObjectId };
+      const closed = attempt === undefined ? undefined : attempts().find((a) => a.id === attempt.id);
+      return closed === undefined ? null : copy(closed);
     },
     async markProviderCall(attemptId, now) {
       replaceAttempt(attemptId, { providerCallStartedAt: now });
