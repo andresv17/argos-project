@@ -12,7 +12,7 @@
 - **TDD (constitución IV)**: las pruebas se escriben primero y rojas antes de implementar.
 - **Contratos primero**: ninguna tarea de `src/` empieza antes de T708 (`/mouse` CUMPLE) y de los contratos de 005 compilados (`bash scripts/compile-contracts.sh`). Los contratos de 004 son `LOCKED`: ninguna tarea los edita sin la firma de Neo de la decisión `D5-*` correspondiente.
 - **Capas**: `src/domain/` y `src/application/` sin `fs`, `fetch`, SDK ni `process.env`.
-- **Sin dependencias nuevas** (`package.json` intacto, NFR-005-004); `node:crypto` basta.
+- **Sin dependencias nuevas** (`package.json` intacto, NFR-005-004); `node:crypto` basta en infraestructura (generación aleatoria); `hashToken` usa el SHA-256 puro del dominio.
 - **Ninguna tarea ejecuta `terraform apply`, `gcloud` mutante, `git push` ni despliega.**
 - **Caso B** (contrato vs implementación): vuelve a `/architect` (`MAX_HOPS = 2`).
 
@@ -103,7 +103,7 @@
 
 - [ ] T750 [US4] Pruebas rojas de seguridad en `tests/security/`: enumeración, 404 uniforme, `Referer`, caché, IDOR entre alcances, métodos distintos de `GET`, cookie inerte — REQ-VET-006, REQ-VET-007, INV-005-001, INV-005-002; SC-005-016, SC-005-020, SC-005-021, SC-005-026
 - [ ] T766 [N2] Migración `share_links` (SQLite y Postgres; `CHECK` de alcance; `ON DELETE CASCADE`; solo `token_hash`; columna `idempotency_key` con `UNIQUE (created_by_user_id, idempotency_key)`) y prueba de paridad — REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-010; SC-005-015, SC-005-018, SC-005-019, SC-005-024
-- [ ] T751 [P] [US4] Dominio `sharing/` (alcance, caducidad, revocación con `EXPIRED` como no-op idempotente (MIF-005-08), formato de token y `hashToken` en el dominio con `node:crypto` (MIF-005-09)) con pruebas — REQ-VET-002, REQ-VET-003, REQ-VET-004, REQ-VET-005; SC-005-016, SC-005-018, SC-005-019
+- [ ] T751 [P] [US4] Dominio `sharing/` (alcance, caducidad, revocación con `EXPIRED` como no-op idempotente (MIF-005-08), formato de token y `hashToken` en dominio como SHA-256 puro del dominio (`domain/audit/sha256.ts`), sin import `node:*` por INV-ARCH-004; equivalencia verificada contra `node:crypto` en pruebas (MIF-005-09)) con pruebas — REQ-VET-002, REQ-VET-003, REQ-VET-004, REQ-VET-005; SC-005-016, SC-005-018, SC-005-019
 - [ ] T752 [US4] `CryptoTokenGenerator` (`randomBytes(32)`, base64url; el puerto solo genera) y verificación de que el hash `SHA-256` del dominio coincide; comparación en tiempo constante; prueba de que el token no se persiste ni se registra — REQ-VET-003, INV-005-005; SC-005-015
 - [ ] T753 [US4] Caducidad con reloj controlado y tope de `D5-11` — REQ-VET-004; SC-005-018
 - [ ] T754 [US4] Caso de uso `CreateShareLink` (permiso de `D5-10`, URL devuelta una sola vez, auditoría, `Idempotency-Key` con 200 sin URL en el reintento y un único camino de código `ResolveShareLink`/`GetSharedSummaryView` compartido con la vista previa, MIF-005-04) — REQ-VET-001, STATE-SHARE-001; SC-005-015, SC-005-025, SC-005-051
