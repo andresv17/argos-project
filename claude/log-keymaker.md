@@ -1448,3 +1448,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Pruebas primero: t843 (15): rojo 'Failed to load url .../attempt-limits.ts'. Luego utc-instant.ts (epochMillis sin Date), quota-window.ts (ventana de todayIsoDate, restante, applyPublication T2, windowResetsAt con desfase como dato) y attempt-limits.ts (60 s, 3 FAILED/escena, 12/actor, Retry-After).
 - Hallazgo H-KEY-F5-3: SceneRepository.countAttemptsByScene cuenta TODOS los intentos; REQ-ESC6-034 pide 3 con resultado FAILED por escena: T853 ampliara el puerto con countFailedAttemptsByScene (+ instante mas antiguo). resetsAt necesita el desfase de APP_TIMEZONE como dato de composicion (ClockPort no lo expone).
 - Verde 15/15; suite solo T815 x18; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T845+T846 scene-state y scene-policy (REQ-ESC6-003/020; INV-ESC6-007; STATE-SCENE-001; SC-ESC6-086/089/090) (sin push, sin [x])
+- Pruebas primero: t845 (26): rojo 'Failed to load url .../scene-state.ts'. Luego scene-state.ts (transitionScene desde STATE_SCENE_001, deriveStatus de 7 reglas en orden estricto con leaseExpired, SCENE_STATE_ERROR_CODES vs HTTP_SCENE_ERROR_CODES) y scene-policy.ts (OWNER/ADMIN actuan, todo miembro lee, sin rol nada).
+- Decision: con imagen y huella distinta la derivacion da outdated aunque no queden entradas (necesario para SC-ESC6-010: eliminar la unica mascota habilita INCREMENTAL_REMOVE); rbac.ts intacto.
+- Verde 26/26; suite solo T815 x18; tsc 0; gates CUMPLE.
