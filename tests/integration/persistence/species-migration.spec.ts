@@ -22,6 +22,9 @@ const RECORD_KEYS = ['weights', 'bodyMeasurements', 'vaccinations', 'dewormings'
 const LEGACY_SPECIES: Record<string, string> = { DOG: 'CANINE', CAT: 'FELINE' };
 const MIGRATION_0004 = readdirSync(DEFAULT_MIGRATIONS_DIR).find((name) => /^0004_[a-z0-9_]+\.sql$/.test(name)) ?? '0004_pendiente.sql';
 const MIGRATION_0005 = readdirSync(DEFAULT_MIGRATIONS_DIR).find((name) => /^0005_[a-z0-9_]+\.sql$/.test(name)) ?? '0005_pendiente.sql';
+/** Migraciones posteriores a la 0006 (004: 0007 usuario sin mayúsculas, 0008 microchip global...): se listan del directorio para no editar esta prueba en cada una. */
+const LATER_MIGRATIONS = readdirSync(DEFAULT_MIGRATIONS_DIR).filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name) && name > '0006_zzz').sort();
+const MIGRATION_0006 = readdirSync(DEFAULT_MIGRATIONS_DIR).find((name) => /^0006_[a-z0-9_]+\.sql$/.test(name)) ?? '0006_pendiente.sql';
 const MIGRATION_0003 = readdirSync(DEFAULT_MIGRATIONS_DIR).find((name) => /^0003_[a-z0-9_]+\.sql$/.test(name)) ?? '0003_pendiente.sql';
 
 const legacyPets = [...fixtures.validBackupEnvelopeV2.pets, ...fixtures.otherUserPets] as Array<{ id: string; ownerUserId: string; species: string }>;
@@ -81,7 +84,7 @@ describe('migración de especies y peso 0003 sobre una base de la 001 (REQ-MIG-0
   it('[REQ-MIG-001][SC-011] conteos antes y después iguales, 0 filas DOG o CAT y cada especie mapeada (DOG a CANINE, CAT a FELINE)', () => {
     const db = legacyDatabase(join(tempDir(), 'b.sqlite'));
     const before = snapshotCounts(db);
-    expect(runMigrations(db)).toEqual([MIGRATION_0003, MIGRATION_0004, MIGRATION_0005]);
+    expect(runMigrations(db)).toEqual([MIGRATION_0003, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, ...LATER_MIGRATIONS]);
     expect(snapshotCounts(db)).toEqual(before);
     const remaining = db.prepare("SELECT COUNT(*) FROM pets WHERE species IN ('DOG', 'CAT') OR json_extract(data, '$.species') IN ('DOG', 'CAT')").pluck().get();
     expect(remaining).toBe(0);
@@ -124,7 +127,7 @@ describe('migración de especies y peso 0003 sobre una base de la 001 (REQ-MIG-0
     runMigrations(db);
     const rows = db.prepare('SELECT id, pet_id, weight_grams, data FROM weights').all() as Array<{ id: string; pet_id: string; weight_grams: number; data: string }>;
     expect(rows).toHaveLength(legacyRecords.weights.length);
-    expect(columnsOf(db, 'weights')).toEqual(['id', 'pet_id', 'data', 'weight_grams']);
+    expect(columnsOf(db, 'weights')).toEqual(['id', 'pet_id', 'data', 'weight_grams', 'revision']);
     for (const row of rows) {
       const record = JSON.parse(row.data);
       expect(validateWeightRecord(record)).toBe(true);
@@ -153,7 +156,7 @@ describe('migración de especies y peso 0003 sobre una base de la 001 (REQ-MIG-0
 
   it('[REQ-MIG-001][SC-011] una base de la 001 sin mascotas ni registros migra sin error y queda con las columnas nuevas', () => {
     const db = legacyDatabase(join(tempDir(), 'f.sqlite'), false);
-    expect(runMigrations(db)).toEqual([MIGRATION_0003, MIGRATION_0004, MIGRATION_0005]);
+    expect(runMigrations(db)).toEqual([MIGRATION_0003, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, ...LATER_MIGRATIONS]);
     expect(columnsOf(db, 'pets')).toEqual(
       expect.arrayContaining(['species', 'species_other', 'neutered', 'microchip_id', 'birth_date_is_estimate']),
     );
@@ -225,10 +228,10 @@ describe('restricciones de la base migrada (INV-PET2-001, INV-PET-005, INV-REC2-
     expect(count(d, 'pets')).toBe(8);
   });
 
-  it('[REQ-PET2-001][INV-PET2-001] el microchip de 15 dígitos es único por propietario, no entre cuentas, y varios nulos conviven', () => {
+  it('[REQ-PET4-001][INV-PET4-001] el microchip de 15 dígitos es único en todo el sistema (pets_microchip_global, también entre cuentas) y varios nulos conviven', () => {
     const d = db();
     insertPet(d, 'p1', 'u1', { microchip_id: '981020000000001' });
-    insertPet(d, 'p2', 'u2', { microchip_id: '981020000000001' });
+    expect(() => insertPet(d, 'p2', 'u2', { microchip_id: '981020000000001' })).toThrow(/UNIQUE constraint failed: pets\.microchip_id/);
     insertPet(d, 'p3', 'u1', { microchip_id: null });
     insertPet(d, 'p4', 'u1', { microchip_id: null });
     insertPet(d, 'p5', 'u1', { microchip_id: '981020000000002' });
@@ -237,7 +240,7 @@ describe('restricciones de la base migrada (INV-PET2-001, INV-PET-005, INV-REC2-
     for (const bad of ['98102000000000', '9810200000000011', '98102000000000a', '']) {
       expect(() => insertPet(d, 'x', 'u9', { microchip_id: bad })).toThrow(/CHECK constraint failed/);
     }
-    expect(count(d, 'pets')).toBe(5);
+    expect(count(d, 'pets')).toBe(4);
   });
 
   it('[INV-REC2-002][ADR-002-09] weight_grams es entero obligatorio entre 1 y 150000', () => {

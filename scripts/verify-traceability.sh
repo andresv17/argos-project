@@ -17,6 +17,10 @@
 # Feature 002 (T204): spec, contratos y tasks.md de specs/002-*; los IDs admiten dígitos en el segmento (REQ-AUTH2-001);
 # quedan fuera de los vigentes los que la tabla «Trazabilidad con la Feature 001» marca como reemplazados o absorbidos
 # y los retirados de la constitución; los rangos del principio III (001) no se toman hasta la enmienda 3.2.0.
+# Feature 004 (T514): como la 003, reconoce además NFR y SC; sus IDs propios son REQ-(ESP|RAZ|FRM|MDC|SIN|BOR|LOG|PET4|GCS|ARC|AVA|ALB|IMP),
+# INV-(RAZ|SIN|REG|LOG|PET4|GCS|ARC|AVA|ALB), NFR-ALM y SC-CAT/SC-ALM; en la compuerta por tarea expande los rangos de IDs
+# escritos como `SC-CAT-016..021` (O-1 de /mouse); los IDs propios de la 003 citados en su spec no se le exigen; la evidencia de
+# código es informativa (SDD_STRICT_EVIDENCE=1 la vuelve bloqueante) y se exige spec→tasks.md 1:1 de los IDs propios.
 # IDs retirados: fallan la compuerta final; en la compuerta por tarea se avisan (RETIRED WARN) sin fallar.
 #
 # Salida: 0 = cumple; 1 = incumple; 2 = uso inválido o fuente ausente.
@@ -28,7 +32,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --feature)
       if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
-        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002 o 003)" >&2
+        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003 o 004)" >&2
         exit 2
       fi
       FEATURE="$2"
@@ -79,9 +83,13 @@ const CODE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
 // Feature 003 (T406): además de REQ/INV/STATE, reconoce los prefijos NFR-CLD y SC-CLD (y REQ-CLD/PG/IAC/CICD/SEC, ya cubiertos).
 // 001 y 002 conservan el patrón original para no cambiar sus IDs exigidos.
 const CLOUD = feature === '003';
+// Feature 004 (T514): prefijos NFR/SC y rangos; sus IDs propios y los de la 003 (que su spec solo cita) se distinguen aquí.
+const FEAT4 = feature === '004';
+const OWNED_004 =
+  /^(?:REQ-(?:ALB|ARC|AVA|BOR|ESP|FRM|GCS|IMP|LOG|MDC|PET4|RAZ|SIN)|INV-(?:ALB|ARC|AVA|GCS|LOG|PET4|RAZ|REG|SIN)|NFR-ALM|SC-(?:CAT|ALM))-\d{3}$/;
 // IDs propios de la 003. La constitución 3.3.0 (principio II) los cita, pero no son exigibles a la 001 ni a la 002.
 const OWNED_003 = /^(?:REQ-(?:CLD|PG|IAC|CICD|SEC)|NFR-CLD|SC-CLD)-\d{3}$/;
-const NUM_ID = CLOUD
+const NUM_ID = CLOUD || FEAT4
   ? /\b(?:REQ|INV|STATE|NFR|SC)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g
   : /\b(?:REQ|INV|STATE)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g;
 const ERR_ID = /\bERR-[A-Z]+(?:-[A-Z0-9]+)+\b/g;
@@ -99,7 +107,17 @@ for (const path of CLOUD ? [SPEC, CONSTITUTION, TASKS, CONTRACTS] : [SPEC, CONST
   if (!existsSync(path)) usage(`Fuente ausente: ${path}`);
 }
 
-const idsIn = (text) => [...(text.match(NUM_ID) ?? []), ...(text.match(ERR_ID) ?? [])];
+// Feature 004: `SC-CAT-016..021` equivale a SC-CAT-016, SC-CAT-017, ..., SC-CAT-021 (solo en 004; 001..003 no cambian).
+const RANGE = /\b((?:REQ|INV|STATE|NFR|SC)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-)(\d{3})\.\.(\d{3})\b/g;
+const rangeIds = (text) => {
+  const ids = [];
+  if (!FEAT4) return ids;
+  for (const m of text.matchAll(RANGE)) {
+    for (let n = Number(m[2]); n <= Number(m[3]); n += 1) ids.push(`${m[1]}${String(n).padStart(3, '0')}`);
+  }
+  return ids;
+};
+const idsIn = (text) => [...(text.match(NUM_ID) ?? []), ...rangeIds(text), ...(text.match(ERR_ID) ?? [])];
 const walk = (dir, skip = () => false) => {
   if (!existsSync(dir)) return [];
   const files = [];
@@ -130,9 +148,11 @@ if (!retiredLine) usage(`No se encontró la línea "IDs retirados" en ${CONSTITU
 const retired = new Set(idsIn(retiredLine));
 
 const candidates = new Set();
-for (const id of readFileSync(SPEC, 'utf8').match(NUM_ID) ?? []) candidates.add(id);
+// La 004 solo cita los IDs de la 003 (REQ-CLD/PG/IAC/CICD/SEC, SC-CLD): no son exigibles a su compuerta.
+const taken = (id) => !(FEAT4 && OWNED_003.test(id));
+for (const id of readFileSync(SPEC, 'utf8').match(NUM_ID) ?? []) if (taken(id)) candidates.add(id);
 for (const file of walk(CONTRACTS)) {
-  for (const id of readFileSync(file, 'utf8').match(NUM_ID) ?? []) candidates.add(id);
+  for (const id of readFileSync(file, 'utf8').match(NUM_ID) ?? []) if (taken(id)) candidates.add(id);
 }
 for (const line of section(constitutionLines, 'II')) {
   for (const id of line.match(NUM_ID) ?? []) if (CLOUD || !OWNED_003.test(id)) candidates.add(id);
@@ -252,7 +272,7 @@ for (const file of testFiles) {
 // Feature 003: sus IDs REQ-IAC/CICD/SEC/NFR/SC se evidencian también en terraform/, workflows y simulacros, no solo en src/
 // con @implements. Mientras no se implemente (Phase 2..9), la compuerta exige 1:1 spec→tasks.md y trata la evidencia de
 // código como informativa; SDD_STRICT_EVIDENCE=1 la vuelve bloqueante (compuerta de cierre de la feature).
-const strictEvidence = !CLOUD || process.env.SDD_STRICT_EVIDENCE === '1';
+const strictEvidence = !(CLOUD || FEAT4) || process.env.SDD_STRICT_EVIDENCE === '1';
 if (CLOUD) {
   const tasksText = readFileSync(TASKS, 'utf8');
   const owned = required.filter((id) => OWNED_003.test(id)).length;
@@ -260,6 +280,16 @@ if (CLOUD) {
   for (const id of orphans) err(`  FAIL  ${id}  huérfano: no aparece en ${TASKS} (spec→tasks 1:1)`);
   if (orphans.length > 0) failed = true;
   out(`[SDD Traceability Gate] Spec→tasks 1:1: ${owned - orphans.length}/${owned} IDs propios de la 003 mapeados en tasks.md (${strictEvidence ? 'evidencia de código bloqueante' : 'evidencia de código informativa'})`);
+}
+if (FEAT4) {
+  // Spec→tasks 1:1 de los IDs propios de la 004; los rangos de tasks.md (`SC-ALM-003..010`) cuentan expandidos.
+  const tasksText = readFileSync(TASKS, 'utf8');
+  const inTasks = new Set([...(tasksText.match(NUM_ID) ?? []), ...rangeIds(tasksText)]);
+  const ownedIds = [...new Set(readFileSync(SPEC, 'utf8').match(NUM_ID) ?? [])].filter((id) => OWNED_004.test(id));
+  const orphans = ownedIds.filter((id) => !inTasks.has(id));
+  for (const id of orphans) err(`  FAIL  ${id}  huérfano: no aparece en ${TASKS} (spec→tasks 1:1)`);
+  if (orphans.length > 0) failed = true;
+  out(`[SDD Traceability Gate] Spec→tasks 1:1: ${ownedIds.length - orphans.length}/${ownedIds.length} IDs propios de la 004 mapeados en tasks.md (${strictEvidence ? 'evidencia de código bloqueante' : 'evidencia de código informativa'})`);
 }
 let traced = 0;
 for (const id of required) {

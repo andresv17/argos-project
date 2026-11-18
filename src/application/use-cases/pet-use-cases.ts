@@ -3,39 +3,47 @@
  * esquema y dominio dentro de las funciones de pet-invariants.
  * - UpdatePetUseCase aplica INV-PET-006 con las fechas de todos los registros de la mascota.
  * - DeletePetUseCase borra la mascota y sus 6 colecciones en una sola transacción (REQ-PET-004).
- * - RegisterPet y UpdatePet comprueban que el microchip sea único entre las mascotas del mismo propietario (REQ-PET2-001).
+ * - RegisterPet y UpdatePet NO consultan antes por propietario: el microchip es único en todo el sistema y lo impone la restricción
+ *   `pets_microchip_global` al guardar; `mapMicrochipViolation` mapea solo esa violación al mismo ERR-PET-MICROCHIP-DUPLICATE para un
+ *   duplicado propio o ajeno (REQ-PET4-001, INV-PET4-001).
  * - ListMyPetsUseCase devuelve las mascotas propias y las visibles por asignación a hogares, sin cupo, con el filtro
  *   (REQ-PET2-002) y el orden de REQ-PET-005; fuera de un hogar el colorToken del dueño es null (EDGE-030).
  * - GetPetDashboardUseCase aplica INV-ACC2-001 y devuelve myRole y permissions de la matriz REQ-RBAC-001 (reemplazan canEdit).
  *
- * @implements REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
+ * @implements REQ-PET4-001, INV-PET4-001, REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
-import type { components, PetProfile, Species } from '../../generated/index.ts';
+import { normalizePetProfile } from '../../domain/pet/pet-invariants.ts';
+import type { components, Species } from '../../generated/index.ts';
 import { petPermissionsFor } from '../../domain/access/rbac.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import { ownerTag } from '../../domain/households/household-policies.ts';
-import { assertMicrochipUniqueForOwner, collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
-import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
+import { collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
+import { mapMicrochipViolation } from './microchip-violation.ts';
+import { assertMicrochipWithinLimit, withDuplicateRecording } from './microchip-rate-limit.ts';
+import { computeWeightEvolutionSeries, withSymptomFields } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import { assignOwnedPetToHousehold } from './assignment-use-cases.ts';
 import { recordAudit } from './audit-support.ts';
+import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import {
   buildPetCard,
   listVisiblePets,
+  lockPet,
   publicProfilesById,
   requirePetAction,
   requireReadablePet,
   type ApplicationDeps,
   type PetCardView,
+  type PetProfileView,
 } from './use-case-support.ts';
 
 /**
  * PetDashboardView del OpenAPI con `profile` tipado como PetProfile: el tipo generado de `profile`
  * ($ref al archivo pet.schema.json completo) incluye una propiedad `$defs` obligatoria (H-108-3).
  */
-export type PetDashboardView = Omit<components['schemas']['PetDashboardView'], 'profile'> & { profile: PetProfile };
+export type PetDashboardView = Omit<components['schemas']['PetDashboardView'], 'profile'> & { profile: PetProfileView };
 
 /** Filtro del listado de REQ-PET2-002 (parámetro `filter` del OpenAPI). */
 export type PetListGroup = 'ALL' | 'CANINE' | 'FELINE' | 'OTHERS' | 'WITH_ALERTS';
@@ -75,22 +83,25 @@ function baseHouseholdIdOf(input: unknown): string | undefined {
 export class RegisterPetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, input: unknown): Promise<PetProfile> {
-    return this.deps.uow.runInTransaction(async (repositories) => {
-      const pet = createPetProfile({
-        id: this.deps.ids.nextId(),
-        ownerUserId: userId,
-        input,
-        today: this.deps.clock.todayIsoDate(),
-        nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
-      });
-      assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([userId]), pet.microchipId, pet.id);
-      await repositories.pets.save(pet);
-      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: pet });
-      const baseHouseholdId = baseHouseholdIdOf(input);
-      if (baseHouseholdId !== undefined) await assignOwnedPetToHousehold(this.deps, repositories, userId, pet, baseHouseholdId);
-      return pet;
-    });
+  async execute(userId: string, input: unknown): Promise<PetProfileView> {
+    return withDuplicateRecording(this.deps, userId, () =>
+      this.deps.uow.runInTransaction(async (repositories) => {
+        const pet = createPetProfile({
+          id: this.deps.ids.nextId(),
+          ownerUserId: userId,
+          input,
+          today: this.deps.clock.todayIsoDate(),
+          nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
+        });
+        // REQ-PET4-002: chequeo previo del límite de duplicados (429 sin guardar), tras validar la entrada y antes de guardar.
+        await assertMicrochipWithinLimit(this.deps, repositories, userId, pet.microchipId !== null);
+        await mapMicrochipViolation(() => repositories.pets.save(pet));
+        await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: pet });
+        const baseHouseholdId = baseHouseholdIdOf(input);
+        if (baseHouseholdId !== undefined) await assignOwnedPetToHousehold(this.deps, repositories, userId, pet, baseHouseholdId);
+        return { ...pet, avatarVersion: null }; // una mascota nueva no tiene avatar
+      }),
+    );
   }
 }
 
@@ -98,22 +109,26 @@ export class RegisterPetUseCase {
 export class UpdatePetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, petId: string, input: unknown): Promise<PetProfile> {
-    return this.deps.uow.runInTransaction(async (repositories) => {
-      const { pet } = await requirePetAction(repositories, userId, petId, 'EDIT_PET_BASICS');
-      const records = await repositories.records.listForPet(petId);
-      const updated = updatePetProfile({
-        pet,
-        input,
-        today: this.deps.clock.todayIsoDate(),
-        nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
-        recordEventDates: collectRecordEventDates(petId, records),
-      });
-      assertMicrochipUniqueForOwner(await repositories.pets.listByOwners([pet.ownerUserId]), updated.microchipId, updated.id);
-      await repositories.pets.save(updated);
-      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: pet, next: updated });
-      return updated;
-    });
+  async execute(userId: string, petId: string, input: unknown): Promise<PetProfileView> {
+    return withDuplicateRecording(this.deps, userId, () =>
+      this.deps.uow.runInTransaction(async (repositories) => {
+        const { pet } = await requirePetAction(repositories, userId, petId, 'EDIT_PET_BASICS');
+        const records = await repositories.records.listForPet(petId);
+        const updated = updatePetProfile({
+          pet,
+          input,
+          today: this.deps.clock.todayIsoDate(),
+          nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
+          recordEventDates: collectRecordEventDates(petId, records),
+        });
+        // REQ-PET4-002: solo si cambia el microchip (repetir el propio valor no puede violar `pets_microchip_global`).
+        await assertMicrochipWithinLimit(this.deps, repositories, userId, updated.microchipId !== null && updated.microchipId !== pet.microchipId);
+        await mapMicrochipViolation(() => repositories.pets.save(updated));
+        await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: pet, next: updated });
+        // `pets.save` no toca el avatar (INV-AVA-001); la respuesta lo refleja leyendo su versión actual.
+        return { ...updated, avatarVersion: (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null };
+      }),
+    );
   }
 }
 
@@ -122,13 +137,20 @@ export class DeletePetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(userId: string, petId: string): Promise<204> {
-    return this.deps.uow.runInTransaction(async (repositories) => {
+    const objectKeys = await this.deps.uow.runInTransaction(async (repositories) => {
+      await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, 'DELETE_PET');
+      // REQ-GCS-004: los medios y el avatar vigentes entran en la cola en la MISMA transacción; GCS no participa de ella.
+      const keys = await repositories.mediaQueue.enqueueObjectsOfPet(petId, this.deps.clock.nowIsoTimestamp());
       await repositories.records.deleteForPet(petId);
       await repositories.pets.delete(petId);
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'PET', entityId: petId, previous: pet, next: null });
-      return 204 as const;
+      return keys;
     });
+    // Tras el COMMIT: borrado inmediato e idempotente de cada objeto, refuerzo por `list` del prefijo; lo que falle lo reintenta el mantenimiento.
+    await purgeObjects(this.deps, objectKeys);
+    await reinforcePrefix(this.deps, [petId]);
+    return 204;
   }
 }
 
@@ -144,9 +166,10 @@ export class ListMyPetsUseCase {
       const roleOf = new Map(visible.map((v) => [v.pet.id, v.role]));
       const owners = await publicProfilesById(repositories, visible.map((v) => v.pet.ownerUserId));
       const pets = sortPetsForListing(visible.map((v) => v.pet).filter((pet) => matchesPetListFilter(pet, filter)));
+      const avatars = await repositories.pets.findAvatarVersions(pets.map((pet) => pet.id)); // una sola lectura (sin N+1)
       const cards: PetCardView[] = [];
       for (const pet of pets) {
-        const card = buildPetCard(pet, ownerTag(owners.get(pet.ownerUserId)!, null), roleOf.get(pet.id)!, await repositories.records.listForPet(pet.id), today);
+        const card = buildPetCard(pet, ownerTag(owners.get(pet.ownerUserId)!, null), roleOf.get(pet.id)!, await repositories.records.listForPet(pet.id), today, avatars.get(pet.id) ?? null);
         if (keepsCard(query, card)) cards.push(card);
       }
       return cards;
@@ -164,10 +187,11 @@ export class GetPetDashboardUseCase {
       const { pet, role } = await requireReadablePet(repositories, userId, petId);
       const owner = (await publicProfilesById(repositories, [pet.ownerUserId])).get(pet.ownerUserId)!;
       const records = await repositories.records.listForPet(petId);
+      const avatarVersion = (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null;
       const vaccinations = evaluateVaccinationAlerts(records.vaccinations, today);
       const dewormings = evaluateDewormingAlerts(records.dewormings, today);
       return {
-        profile: pet,
+        profile: { ...normalizePetProfile(pet), avatarVersion },
         owner: ownerTag(owner, null),
         myRole: role,
         permissions: petPermissionsFor(role),
@@ -181,7 +205,7 @@ export class GetPetDashboardUseCase {
         dewormings: dewormings.filter((d) => d.alert?.status !== 'SUPERSEDED'),
         supersededDewormings: dewormings.filter((d) => d.alert?.status === 'SUPERSEDED'),
         medicalVisits: sortHistoricalRecords(records.medicalVisits),
-        customParameters: sortHistoricalRecords(records.customParameters),
+        customParameters: sortHistoricalRecords(records.customParameters).map(withSymptomFields),
       };
     });
   }

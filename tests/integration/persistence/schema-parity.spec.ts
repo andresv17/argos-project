@@ -3,19 +3,37 @@ import { describe, expect, it } from 'vitest';
 import { IN_MEMORY_DATABASE, openSqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 
 /**
- * Paridad del esquema final de PostgreSQL (0001_baseline.sql, D-20) con el de SQLite tras sus 5 migraciones
+ * Paridad del esquema final de PostgreSQL (0001_baseline.sql más 0002_record_revision.sql, D-20) con el de SQLite tras sus 8 migraciones
  * (REQ-PG-003, REQ-MIG-001, INV-PET2-001, REQ-HOUSE2-003; T419; data-model.md §2 de la 003).
  * Parte estática: compara tablas, columnas, tipos mapeados, nulabilidad, valores por defecto, claves, cascadas,
  * CHECK, UNIQUE e índices (incluidos los parciales) leyendo solo el texto del SQL; no levanta PostgreSQL.
  * Parte viva: con TEST_DATABASE_URL aplica el baseline en un esquema desechable y compara con information_schema.
  */
 const BASELINE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0001_baseline.sql', import.meta.url);
+/** T547: la 0003 de Postgres equivale a la 0007 de SQLite (índice único LOWER(username), invitaciones por LOWER(invitee_username), normalización de intentos). */
+const USERNAME_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0003_username_case_insensitive.sql', import.meta.url);
+/** T553: la 0004 de Postgres equivale a la 0008 de SQLite (`pets_owner_microchip` pasa a `pets_microchip_global`, único parcial global). */
+const MICROCHIP_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0004_pets_microchip_global.sql', import.meta.url);
+/** T556: la 0006 de Postgres equivale a la 0010 de SQLite (el CHECK de `rate_limit_events.scope` admite MICROCHIP_DUPLICATE). */
+const RATE_SCOPE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0006_rate_limit_microchip_scope.sql', import.meta.url);
+/** T574: la 0005 de Postgres equivale a la 0009 de SQLite (`pet_media`, `media_deletion_queue` y las columnas de avatar de `pets`). */
+const MEDIA_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0005_pet_media.sql', import.meta.url);
+/** T540: la migración 0002 de Postgres equivale a la 0006 de SQLite (`revision` en las 6 tablas de registros, D-16 A). */
+const REVISION_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0002_record_revision.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
   'audit_log', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'household_invitations',
-  'household_members', 'households', 'login_attempts', 'medical_visits', 'pet_assignments', 'pets', 'rate_limit_events',
+  'household_members', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'pet_assignments', 'pet_media', 'pets', 'rate_limit_events',
   'schema_migrations', 'sessions', 'users', 'vaccinations', 'weights',
+];
+
+/** Lista canónica de índices del esquema final (T555, 004): los que añaden las migraciones 0007/0008 (SQLite) y 0003/0004 (Postgres) y los de la 002. */
+const CANONICAL_INDEXES = [
+  'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
+  'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
+  'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'pet_assignments_household_id',
+  'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'sessions_user_id', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
 ];
 
 /** Diferencias de tipo justificadas en data-model.md §1: data JSON -> JSONB; indicadores 0/1 -> SMALLINT. */
@@ -123,8 +141,35 @@ function parseSchema(statements: string[]): Schema {
       schema.tables.set(t[1]!, parseCreateTable(t[1]!, t[2]!));
       continue;
     }
-    const ix = /^CREATE (UNIQUE )?INDEX (?:IF NOT EXISTS )?(\w+) ON (\w+) ?\(([^)]*)\)(?: WHERE ([\s\S]+))?$/i.exec(squash(stmt));
-    if (ix) schema.indexes.set(ix[2]!, { table: ix[3]!, unique: Boolean(ix[1]), columns: squash(ix[4]!), where: ix[5] ? squash(ix[5]) : null });
+    const alter = /^ALTER TABLE (\w+) ADD COLUMN ([\s\S]+)$/i.exec(stmt.trim());
+    if (alter) {
+      const added = parseCreateTable(alter[1]!, alter[2]!);
+      for (const [name, column] of added.columns) schema.tables.get(alter[1]!)!.columns.set(name, column);
+      continue;
+    }
+    // Postgres nombra el CHECK de columna `<tabla>_<columna>_check`: DROP lo retira y ADD CONSTRAINT … CHECK pone el nuevo (0006).
+    const dropCheck = /^ALTER TABLE (\w+) DROP CONSTRAINT (\w+)_check$/i.exec(stmt.trim());
+    if (dropCheck) {
+      const table = schema.tables.get(dropCheck[1]!)!;
+      const column = dropCheck[2]!.slice(dropCheck[1]!.length + 1); // `<tabla>_<columna>_check`: la columna puede llevar guion bajo (entity_type)
+      table.checks = table.checks.filter((c) => !c.startsWith(`${column} IN `));
+      continue;
+    }
+    const addCheck = /^ALTER TABLE (\w+) ADD CONSTRAINT \w+ (CHECK[\s\S]+)$/i.exec(stmt.trim());
+    if (addCheck) {
+      const table = schema.tables.get(addCheck[1]!)!;
+      table.checks.push(...extractChecks(addCheck[2]!).checks);
+      table.checks.sort();
+      continue;
+    }
+    const drop = /^DROP INDEX (?:IF EXISTS )?(\w+)$/i.exec(stmt.trim());
+    if (drop) {
+      schema.indexes.delete(drop[1]!);
+      continue;
+    }
+    // Admite un nivel de paréntesis anidado en las columnas (índices de expresión: lower(username)); SQLite y Postgres difieren solo en mayúsculas.
+    const ix = /^CREATE (UNIQUE )?INDEX (?:IF NOT EXISTS )?(\w+) ON (\w+) ?\(((?:[^()]|\([^()]*\))*)\)(?: WHERE ([\s\S]+))?$/i.exec(squash(stmt));
+    if (ix) schema.indexes.set(ix[2]!, { table: ix[3]!, unique: Boolean(ix[1]), columns: squash(ix[4]!).toLowerCase(), where: ix[5] ? squash(ix[5]) : null });
   }
   return schema;
 }
@@ -139,18 +184,20 @@ function sqliteSchema(): Schema {
   }
 }
 
-function postgresStatements(): string[] {
-  return stripSql(readFileSync(BASELINE_PATH, 'utf8'))
+function postgresStatements(path: URL = BASELINE_PATH): string[] {
+  // Los bloques DO $$ … $$ (comprobaciones previas con RAISE) no son DDL del esquema: se quitan antes de partir por `;`.
+  return stripSql(readFileSync(path, 'utf8'))
+    .replace(/DO\s+\$\$[\s\S]*?\$\$\s*;?/gi, '')
     .split(/;\s*(?:\n|$)/)
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (): Schema => parseSchema(postgresStatements());
+const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH)]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
 
-describe('paridad estática 0001_baseline.sql vs SQLite final (REQ-PG-003, REQ-MIG-001)', () => {
+describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003, REQ-MIG-001)', () => {
   const sqlite = sqliteSchema();
 
   it('la lista canónica de tablas coincide en ambos esquemas', () => {
@@ -185,16 +232,39 @@ describe('paridad estática 0001_baseline.sql vs SQLite final (REQ-PG-003, REQ-M
     expect(sqlite.tables.get('weights')!.checks).toContain('weight_grams BETWEEN 1 AND 150000');
   });
 
+  it('[T555] la lista canónica de índices coincide con la de ambos esquemas (sin pets_owner_microchip; con users_username_lower y pets_microchip_global)', () => {
+    expect([...sqlite.indexes.keys()].sort()).toEqual(CANONICAL_INDEXES);
+    expect([...postgresSchema().indexes.keys()].sort()).toEqual(CANONICAL_INDEXES);
+    expect(sqlite.indexes.get('users_username_lower')).toMatchObject({ table: 'users', unique: true, columns: 'lower(username)', where: null });
+    expect(sqlite.indexes.get('household_invitations_one_open')).toMatchObject({ unique: true, columns: 'household_id,lower(invitee_username)', where: "status = 'INVITED'" });
+  });
+
   it('los índices, únicos y parciales incluidos, son los mismos', () => {
     const pg = postgresSchema();
     expect([...pg.indexes.keys()].sort()).toEqual([...sqlite.indexes.keys()].sort());
     for (const [name, ix] of sqlite.indexes) expect(pg.indexes.get(name), `índice ${name}`).toEqual(ix);
-    expect(pg.indexes.get('pets_owner_microchip')).toMatchObject({ unique: true, where: 'microchip_id IS NOT NULL' });
+    expect(pg.indexes.get('pets_microchip_global')).toMatchObject({ unique: true, columns: 'microchip_id', where: 'microchip_id IS NOT NULL' });
+    expect(pg.indexes.has('pets_owner_microchip')).toBe(false);
+    expect(sqlite.indexes.has('pets_owner_microchip')).toBe(false);
     expect(pg.indexes.get('household_members_one_owner')).toMatchObject({ unique: true });
   });
 
+  it('[T540][REQ-BOR-005][INV-REG-003] las 6 tablas de registros tienen revision INTEGER NOT NULL DEFAULT 0 en ambos motores y ninguna tiene columnas ni índices de borrado lógico (D-11 A)', () => {
+    const six = ['weights', 'body_measurements', 'vaccinations', 'dewormings', 'medical_visits', 'custom_parameters'];
+    const pg = postgresSchema();
+    for (const schema of [sqlite, pg]) {
+      for (const table of six) {
+        expect(schema.tables.get(table)!.columns.get('revision'), `revision de ${table}`).toMatchObject({ type: 'INTEGER', notNull: true, default: '0', generated: false });
+        const names = [...schema.tables.get(table)!.columns.keys()];
+        expect(names.filter((n) => /deleted/i.test(n)), `borrado lógico en ${table}`).toEqual([]);
+      }
+      expect([...schema.indexes.entries()].filter(([name, ix]) => /deleted/i.test(name + ix.columns + (ix.where ?? ''))).map(([name]) => name)).toEqual([]);
+      for (const [name, table] of schema.tables) if (!six.includes(name)) expect(table.columns.has('revision'), `revision en ${name}`).toBe(false);
+    }
+  });
+
   it('el SQL es PostgreSQL puro: sin STRICT, json_extract, PRAGMA ni GLOB; datos JSONB', () => {
-    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8'));
+    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8') + readFileSync(USERNAME_PATH, 'utf8') + readFileSync(MICROCHIP_PATH, 'utf8') + readFileSync(RATE_SCOPE_PATH, 'utf8') + readFileSync(MEDIA_PATH, 'utf8'));
     for (const banned of [/\bSTRICT\b/i, /json_extract/i, /\bPRAGMA\b/i, /\bGLOB\b/i, /strftime/i, /\bAUTOINCREMENT\b/i]) {
       expect(sql).not.toMatch(banned);
     }
@@ -235,6 +305,11 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(`CREATE SCHEMA ${schemaName}`);
         await client.query(`SET search_path TO ${schemaName}`);
         await client.query(readFileSync(BASELINE_PATH, 'utf8'));
+        await client.query(readFileSync(REVISION_PATH, 'utf8'));
+        await client.query(readFileSync(USERNAME_PATH, 'utf8'));
+        await client.query(readFileSync(MICROCHIP_PATH, 'utf8'));
+        await client.query(readFileSync(RATE_SCOPE_PATH, 'utf8'));
+        await client.query(readFileSync(MEDIA_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

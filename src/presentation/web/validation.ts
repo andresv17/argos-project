@@ -4,29 +4,33 @@
  * La API valida de nuevo; esta capa solo evita peticiones que el contrato ya rechaza. No hay esquemas escritos a mano:
  * todo validador sale de `scripts/compile-contracts.sh` (INV-ARCH-003).
  *
- * @implements INV-ARCH-003, REQ-UI-002, REQ-UI-005, REQ-UI-006, ERR-SCHEMA-VALIDATION-FAILED, ERR-AUTH-WEAK-PASSWORD, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE
+ * @implements INV-ARCH-003, REQ-FRM-001, REQ-LOG-001, REQ-LOG-002, REQ-UI-002, REQ-UI-005, REQ-UI-006, ERR-SCHEMA-VALIDATION-FAILED, ERR-AUTH-WEAK-PASSWORD, ERR-REC-WEIGHT-OUT-OF-RANGE, ERR-REC-MEASUREMENT-OUT-OF-RANGE
  */
 import { ERROR_CATALOG } from '../../generated/errors/error-codes.ts';
 import { resolveFieldErrorCode } from '../../generated/errors/field-errors.ts';
 import { humanSchemaMessage } from './schema-messages.ts';
 import {
-  validateCreateBodyMeasurementInput,
-  validateCreateCustomParameterInput,
   validateCreateDewormingInput,
   validateCreateHouseholdInput,
   validateCreateMedicalVisitInput,
-  validateCreatePetInput,
   validateCreateVaccinationInput,
   validateCreateWeightInput,
   validateChangePasswordInput,
   validateDeleteAccountInput,
   validateUpdateProfileInput,
+  type ValidatorFunction,
+} from '../../generated/schemas/validators.mjs';
+// El alta y la edición de mascota (breedCode, microchip), el registro, el inicio de sesión (usuario o correo, 254) y la invitación (username con
+// mayúsculas) usan el contrato 3.1.0; el resto de formularios sigue en la 002.
+import {
+  validateCreateBodyMeasurementInput,
+  validateCreateCustomParameterInput,
+  validateCreatePetInput,
   validateInviteMemberInput,
   validateLoginInput,
   validateRegisterUserInput,
   validateUpdatePetInput,
-  type ValidatorFunction,
-} from '../../generated/schemas/validators.mjs';
+} from '../../generated/v31/schemas/validators.mjs';
 
 const VALIDATORS = {
   RegisterUserInput: validateRegisterUserInput,
@@ -78,9 +82,17 @@ export function validateInput(schema: InputSchema, input: unknown): FieldErrors 
  */
 export type FormBody = Record<string, string | number | boolean>;
 
+/** Campos de contraseña: nunca se recortan (un espacio puede formar parte de la contraseña) [REQ-FRM-001]. */
+const PASSWORD_FIELDS: ReadonlySet<string> = new Set(['password', 'confirmPassword', 'currentPassword', 'newPassword']);
+
+/**
+ * `trim()` en el límite del formulario (REQ-FRM-001): todo texto se recorta antes de validar, salvo las contraseñas. El servidor
+ * mantiene `NonEmptyTrimmedString` sin relajarlo; esto corrige en cliente el espacio final del autocorrector móvil.
+ */
 export function formValues(raw: Readonly<Record<string, string>>, numeric: readonly string[] = [], booleans: readonly string[] = []): FormBody {
   const out: FormBody = {};
-  for (const [key, value] of Object.entries(raw)) {
+  for (const [key, original] of Object.entries(raw)) {
+    const value = PASSWORD_FIELDS.has(key) ? original : original.trim();
     if (value === '') continue;
     out[key] = booleans.includes(key) ? value === 'true' : numeric.includes(key) ? Number(value) : value;
   }

@@ -14,8 +14,18 @@ import type { PetPermissions, RbacAction, RbacRole } from '../../generated/index
 
 export type { PetPermissions, RbacAction, RbacRole };
 
+/**
+ * Acciones de medios (feature 004; el contrato las anota como `x-sdd-rbac-action`, no como valores de `RbacAction`): ver, descargar y listar lo
+ * puede cualquier rol con acceso de lectura (incluido el Lector); subir, las filas de «Registrar y editar eventos sanitarios»; borrar, las de
+ * «Eliminar eventos sanitarios» (REQ-ARC-002).
+ */
+export type MediaRbacAction = 'READ_MEDIA' | 'WRITE_MEDIA' | 'DELETE_MEDIA';
+
+/** Acción de la matriz sobre una mascota: las de la 002 y las de medios. */
+export type PetAction = RbacAction | MediaRbacAction;
+
 /** Roles que pueden ejecutar cada acción (REQ-RBAC-001, tabla §5.2 de la spec). */
-const RBAC_MATRIX: Readonly<Record<RbacAction, readonly RbacRole[]>> = {
+const RBAC_MATRIX: Readonly<Record<PetAction, readonly RbacRole[]>> = {
   EDIT_PET_BASICS: ['OWNER', 'ADMIN'],
   DELETE_PET: ['OWNER'],
   WRITE_HEALTH_EVENTS: ['OWNER', 'ADMIN', 'CAREGIVER'],
@@ -27,13 +37,16 @@ const RBAC_MATRIX: Readonly<Record<RbacAction, readonly RbacRole[]>> = {
   TRANSFER_PET_OWNERSHIP: ['OWNER'],
   ASSIGN_PET_TO_HOUSEHOLDS: ['OWNER'],
   EXPORT_IMPORT_BACKUP: ['OWNER', 'ADMIN', 'CAREGIVER', 'READER'],
+  READ_MEDIA: ['OWNER', 'ADMIN', 'CAREGIVER', 'READER'],
+  WRITE_MEDIA: ['OWNER', 'ADMIN', 'CAREGIVER'],
+  DELETE_MEDIA: ['OWNER', 'ADMIN'],
 };
 
 /**
  * Indica si el rol efectivo puede ejecutar la acción.
  * @implements REQ-RBAC-001, INV-ACC2-001, INV-ACC2-002
  */
-export function can(role: RbacRole, action: RbacAction): boolean {
+export function can(role: RbacRole, action: PetAction): boolean {
   return RBAC_MATRIX[action].includes(role);
 }
 
@@ -43,7 +56,7 @@ export function can(role: RbacRole, action: RbacAction): boolean {
  * @implements REQ-RBAC-001, INV-ACC2-002
  */
 export function petPermissionsFor(role: RbacRole | null): PetPermissions {
-  const allowed = (action: RbacAction): boolean => role !== null && can(role, action);
+  const allowed = (action: PetAction): boolean => role !== null && can(role, action);
   return {
     editPetBasics: allowed('EDIT_PET_BASICS'),
     deletePet: allowed('DELETE_PET'),

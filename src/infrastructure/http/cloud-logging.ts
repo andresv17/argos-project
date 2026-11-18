@@ -46,9 +46,29 @@ function sensitiveFragments(databaseUrl: string | undefined): string[] {
   return [...new Set(fragments)].filter((fragment) => fragment.length >= MIN_FRAGMENT_LENGTH).sort((a, b) => b.length - a.length);
 }
 
-/** Elimina de `text` toda URL `postgres(ql)://` y, si se conoce, la `DATABASE_URL` configurada y sus partes. */
+/**
+ * Formas sensibles de los medios (T582, NFR-ALM-002, SC-ALM-024): la URL firmada y sus parámetros `X-Goog-*`, la clave de objeto `pets/<uuid>/…`, el detalle
+ * `Key (…)=(…)` de una violación de unicidad (lleva el microchip) y cualquier número de 15 dígitos (microchip). Se aplican a todo texto del registro,
+ * vengan en un mensaje, un campo anidado o un error del SDK.
+ */
+const SIGNED_URL_PATTERN = /https?:\/\/[^\s"'<>]*X-Goog-[^\s"'<>]*/gi;
+const GOOG_PARAMETER_PATTERN = /X-Goog-[A-Za-z0-9-]*\s*[=:]\s*[^\s&"'<>]+/gi;
+const OBJECT_KEY_PATTERN = /pets\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/(?:files|photos|avatar)(?:\/[0-9a-f-]{36})?)?\/?/gi;
+const UNIQUE_DETAIL_PATTERN = /Key \([^)]*\)=\([^)]*\)(?: already exists\.?)?/g;
+const MICROCHIP_PATTERN = /(?<![0-9])[0-9]{15}(?![0-9])/g;
+
+/** Campos que nunca se registran, con cualquier mayúscula y a cualquier profundidad (T582). */
+const SENSITIVE_FIELDS: ReadonlySet<string> = new Set(['original_name', 'originalname', 'x-argos-filename', 'objectkey', 'object_key', 'microchipid', 'microchip_id', 'signedurl', 'signed_url']);
+
+/** Elimina de `text` toda URL `postgres(ql)://` y, si se conoce, la `DATABASE_URL` configurada y sus partes, más las formas sensibles de los medios. */
 export function redactSecrets(text: string, databaseUrl: string | undefined): string {
-  let clean = text.replace(DATABASE_URL_PATTERN, REDACTED);
+  let clean = text
+    .replace(SIGNED_URL_PATTERN, REDACTED)
+    .replace(GOOG_PARAMETER_PATTERN, REDACTED)
+    .replace(OBJECT_KEY_PATTERN, REDACTED)
+    .replace(UNIQUE_DETAIL_PATTERN, REDACTED)
+    .replace(MICROCHIP_PATTERN, REDACTED)
+    .replace(DATABASE_URL_PATTERN, REDACTED);
   for (const fragment of sensitiveFragments(databaseUrl)) clean = clean.split(fragment).join(REDACTED);
   return clean;
 }
@@ -69,7 +89,7 @@ function scrubValue(value: unknown, databaseUrl: string | undefined, depth: numb
   if (typeof value !== 'object' || value === null || depth >= MAX_DEPTH) return value;
   if (Array.isArray(value)) return value.map((item) => scrubValue(item, databaseUrl, depth + 1));
   if (!isPlain(value)) return value;
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, scrubValue(item, databaseUrl, depth + 1)]));
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, SENSITIVE_FIELDS.has(key.toLowerCase()) ? REDACTED : scrubValue(item, databaseUrl, depth + 1)]));
 }
 
 interface RequestLike {

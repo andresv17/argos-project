@@ -21,6 +21,7 @@ import {
   type AlertTone,
   type PetCardView,
   type PetFilterValue,
+  avatarVersionOf,
 } from '../view-model.ts';
 
 const FIELD_CLASS =
@@ -121,7 +122,7 @@ export function PetCardList({ cards, activePetId, onSelect, emptyHint }: {
               selected ? 'border-2 border-primary bg-accent-soft' : 'border-2 border-transparent bg-white hover:bg-meadow'
             }`}
           >
-            <PetAvatar name={card.profile.name} avatarUrl={card.profile.avatarUrl} colorToken={card.owner.colorToken} size={64} />
+            <PetAvatar name={card.profile.name} petId={card.profile.id} avatarVersion={avatarVersionOf(card.profile)} colorToken={card.owner.colorToken} size={64} />
             <span className="w-full truncate text-sm font-semibold text-text-primary">{card.profile.name}</span>
             <span className="text-xs tabular-nums text-text-muted">{`${SPECIES_LABEL[card.profile.species]} · ${formatAge(card.computedAge)}`}</span>
             <span className="text-xs tabular-nums text-text-muted">{formatKg(card.latestWeightKg)}</span>

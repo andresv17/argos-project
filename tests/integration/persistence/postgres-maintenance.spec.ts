@@ -16,10 +16,13 @@ import { expectParametrized, norm, type Call } from '../../fixtures/pg-fake-clie
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const MAINTENANCE_PATH = '../../../src/infrastructure/persistence/postgres/postgres-maintenance.ts';
 const UOW_PATH = '../../../src/infrastructure/persistence/postgres/postgres-unit-of-work.ts';
-const BASELINE = readFileSync(new URL('../../../src/infrastructure/persistence/postgres/migrations/0001_baseline.sql', import.meta.url), 'utf8');
+// Esquema vigente: el baseline y la 0002 (columna `revision` de los 6 registros, T540; los repositorios la leen y la escriben desde T614).
+const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql']
+  .map((name) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${name}`, import.meta.url), 'utf8'))
+  .join('\n');
 
 const CUTOFFS: MaintenanceCutoffs = { now: '2026-11-05T12:00:00.000Z', auditBefore: '2024-11-05T12:00:00.000Z' };
-const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log'] as const;
+const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log', 'login_attempts'] as const; // login_attempts (T559, SC-CAT-030) va al final y no tiene conteo propio
 const BATCH = 500;
 
 interface MaintenanceModule {
@@ -85,6 +88,7 @@ describe('purgeExpiredInBatches: forma de las sentencias (REQ-PG-008, REQ-PG-011
       household_members: [CUTOFFS.now, BATCH],
       household_invitations: [CUTOFFS.now, BATCH],
       audit_log: [CUTOFFS.auditBefore, BATCH],
+      login_attempts: ['2026-11-05T11:45:00.000Z', BATCH], // ahora menos la ventana de bloqueo de 15 min (T559)
     });
   });
 

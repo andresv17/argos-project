@@ -47,6 +47,8 @@ const baseInput = (module: RecordModule): Record<string, unknown> => {
   const { id: _id, petId: _petId, createdAt: _createdAt, ...input } = baseRecord(module);
   // En vacunas y desparasitaciones la categoría la fija el servidor (VACCINE o DEWORMING): no es parte de la entrada.
   if (module === 'vaccinations' || module === 'dewormings') delete input['category'];
+  // 3.1.0 (REQ-MDC-001): una entrada nueva lleva las medidas en cm enteros; el registro canónico conserva sus decimales (SC-CAT-008).
+  if (module === 'bodyMeasurements') for (const f of ['neckCm', 'chestCm', 'backLengthCm', 'waistCm']) input[f] = Math.round(input[f] as number);
   return input;
 };
 const birthFor = (module: RecordModule) => birthOf(envelope.records[module][0]!.petId);

@@ -3,6 +3,7 @@
  *
  * @implements REQ-UI-002, REQ-REC-001
  */
+import type { ReactNode } from 'react';
 import { weightChart, weightRows, type WeightEntryView } from '../view-model.ts';
 
 export function WeightChart({ entries }: { readonly entries: readonly WeightEntryView[] }): JSX.Element {
@@ -37,7 +38,11 @@ export function WeightChart({ entries }: { readonly entries: readonly WeightEntr
   );
 }
 
-export function WeightTable({ entries }: { readonly entries: readonly WeightEntryView[] }): JSX.Element {
+export function WeightTable({ entries, actionsFor }: {
+  readonly entries: readonly WeightEntryView[];
+  /** Acciones por fila (editar, eliminar) cuando la ficha las ofrece; sin ellas no hay columna (REQ-BOR-003). */
+  readonly actionsFor?: (entry: WeightEntryView) => ReactNode;
+}): JSX.Element {
   const rows = weightRows(entries);
   return (
     <div role="region" aria-label="Evolución de peso (desplazable)" tabIndex={0} className="overflow-x-auto rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
@@ -49,15 +54,17 @@ export function WeightTable({ entries }: { readonly entries: readonly WeightEntr
             <th scope="col" className="px-2 py-1 font-semibold">Peso</th>
             <th scope="col" className="px-2 py-1 font-semibold">Variación (kg)</th>
             <th scope="col" className="px-2 py-1 font-semibold">Variación (%)</th>
+            {actionsFor === undefined ? null : <th scope="col" className="px-2 py-1 font-semibold">Acciones</th>}
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {rows.map((r, index) => (
             <tr key={r.id} className="border-b border-slate-200">
               <td className="px-2 py-1 tabular-nums">{r.date}</td>
               <td className="whitespace-nowrap px-2 py-1 tabular-nums">{r.weight}</td>
               <td className="whitespace-nowrap px-2 py-1 tabular-nums">{r.deltaKg}</td>
               <td className="whitespace-nowrap px-2 py-1 tabular-nums">{r.deltaPercent}</td>
+              {actionsFor === undefined ? null : <td className="px-2 py-1">{actionsFor(entries[index]!)}</td>}
             </tr>
           ))}
         </tbody>

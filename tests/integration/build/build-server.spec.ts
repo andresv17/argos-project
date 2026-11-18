@@ -13,6 +13,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
  */
 
 const ROOT = process.cwd();
+/**
+ * REQ-SEC-005 (opción a, aprobada por Neo): el bundle puede incluir `@google-cloud/storage`, que arrastra dos falsos positivos
+ * conocidos. Se tolera ÚNICAMENTE `process.env.DEBUG = ...` (asignación del paquete `debug`) y una llave privada solo se considera
+ * incrustada si tras BEGIN hay cuerpo base64 y un END (el JSDoc del SDK trae un BEGIN sin cuerpo).
+ */
+const ENV_ASSIGNMENT = /process\.env(?:\.(?!DEBUG\b)[A-Za-z_]+|\[[^\]]+\])\s*=(?!=)/;
+const PRIVATE_KEY_BODY = /-----BEGIN [A-Z ]*PRIVATE KEY-----[A-Za-z0-9+/=\s\\]{40,}-----END [A-Z ]*PRIVATE KEY-----/;
 const BUILD_SCRIPT = join(ROOT, 'scripts', 'build-server.mjs');
 let outDir = '';
 let buildStatus: number | null = null;
@@ -76,8 +83,27 @@ describe('bundle de producción del servidor (T432)', () => {
     const text = allBundleText();
     expect(text.length).toBeGreaterThan(1000);
     expect(text).not.toMatch(/postgres(?:ql)?:\/\/[^\s"'`/@:]+:[^\s"'`/@]+@/);
-    expect(text).not.toMatch(/process\.env(?:\.[A-Za-z_]+|\[[^\]]+\])\s*=(?!=)/);
-    expect(text).not.toMatch(/-----BEGIN [A-Z ]*PRIVATE KEY-----/);
+    expect(text).not.toMatch(ENV_ASSIGNMENT);
+    expect(text).not.toMatch(PRIVATE_KEY_BODY);
+  });
+
+  it('[REQ-SEC-005] las regexes toleran solo process.env.DEBUG y el BEGIN sin cuerpo, y siguen detectando asignaciones y llaves reales', () => {
+    const body = 'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj';
+    // Las cabeceras se arman por partes para que el escáner de secretos del repositorio no tome estas muestras por llaves reales.
+    const begin = (kind: string): string => `-----${'BEGIN'} ${kind}PRIVATE KEY-----`;
+    const end = (kind: string): string => `-----${'END'} ${kind}PRIVATE KEY-----`;
+    expect([
+      ENV_ASSIGNMENT.test('process.env.DEBUG = x;'),
+      ENV_ASSIGNMENT.test('process.env.DEBUG_X = x;'),
+      ENV_ASSIGNMENT.test('process.env.SECRET = "a";'),
+      ENV_ASSIGNMENT.test('process.env["DEBUG"] = "a";'),
+      ENV_ASSIGNMENT.test('process.env.DEBUG === x'),
+    ]).toEqual([false, true, true, true, false]);
+    expect([
+      PRIVATE_KEY_BODY.test(`${begin('')}\n`),
+      PRIVATE_KEY_BODY.test(`${begin('')}\n${body}\n${end('')}`),
+      PRIVATE_KEY_BODY.test(`${begin('RSA ')}\\n${body}\\n${end('RSA ')}`),
+    ]).toEqual([false, true, true]);
   });
 
   it('[REQ-CLD-001] las migraciones SQLite viajan junto al bundle', () => {

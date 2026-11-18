@@ -25,6 +25,7 @@
   "dependencies": {
     "@fastify/cookie": "11.1.5",
     "@fastify/static": "10.1.8",
+    "@google-cloud/storage": "9.0.0",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "better-sqlite3": "13.0.3",

@@ -3,7 +3,8 @@
  * - REQ-PET2-001: alta y edición del perfil; el dueño es el usuario autenticado; la edad estimada (años y meses) se
  *   convierte a birthDate con el reloj inyectado y marca birthDateIsEstimate (ADR-002-16).
  * - INV-PET2-001: species de las 8 aprobadas y speciesOther solo con OTHER (esquema + estado resultante de la edición).
- * - REQ-PET2-001 / ERR-PET-MICROCHIP-DUPLICATE: el microchip es único por propietario, no entre cuentas.
+ * - REQ-PET4-001 / INV-PET4-001 / ERR-PET-MICROCHIP-DUPLICATE: el microchip es único en todo el sistema; lo impone la restricción única
+ *   `pets_microchip_global` al guardar (no hay comprobación de dominio previa: ver `application/use-cases/microchip-violation.ts`).
  * - INV-PET-002: birthDate <= ClockPort.todayIsoDate() (delegado en date-utils).
  * - INV-PET-006: al editar birthDate, no puede quedar después de ningún registro de la mascota.
  * - INV-OWN-001: un único ownerUserId, que referencia un usuario existente y no se edita vía API.
@@ -11,19 +12,44 @@
  * @implements REQ-PET2-001, INV-PET2-001, REQ-PET-002, INV-PET-002, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS, ERR-PET-MICROCHIP-DUPLICATE, INV-ARCH-001, INV-ARCH-004
  */
 
-import {
-  DomainError,
-  validateCreatePetInput,
-  validatePetProfile,
-  validateUpdatePetInput,
-  type BackupEnvelopeV3,
-  type CreatePetInput,
-  type PetProfile,
-  type UpdatePetInput,
-} from '../../generated/index.ts';
+import { DomainError, type BackupEnvelopeV3, type PetProfile as ContractPetProfile } from '../../generated/index.ts';
+// Mascota 3.1.0 (feature 004): breedCode en el perfil y en las entradas de alta y edición (REQ-RAZ-003).
+import { validateCreatePetInput, validatePetProfile, validateUpdatePetInput, type CreatePetInput, type UpdatePetInput } from '../../generated/v31/index.ts';
+import { assertBreedConsistency, deriveBreed, hasBreedCatalog as hasCatalogSpecies, isBreedOther } from './breed-catalog.ts';
 import { diffInCalendarDays, validateBirthDateNotFuture } from '../shared/date-utils.ts';
 import { estimatedAgeToBirthDate } from './estimated-age.ts';
+import { isTrivialMicrochip } from './microchip-patterns.ts';
 import { assertCanonicalCreatedAt, getRecordEventDate } from '../sorting/deterministic-sorter.ts';
+
+/**
+ * Perfil de la mascota con `breedCode` (REQ-RAZ-003). Opcional en el tipo porque las mascotas anteriores a la feature 004 no lo
+ * traen en disco: `normalizePetProfile` lo expone siempre (nulo si falta). `avatarVersion` (4A-2) aún no existe en el dominio.
+ */
+export type PetProfile = ContractPetProfile & { readonly breedCode?: string | null };
+
+/** Las mascotas guardadas antes de la 004 no tienen `breedCode`: se leen con `breedCode = null` (SC-CAT-004). @implements REQ-RAZ-003 */
+export function normalizePetProfile<T extends PetProfile>(pet: T): T & { readonly breedCode: string | null } {
+  return { ...pet, breedCode: pet.breedCode ?? null };
+}
+
+/**
+ * Valida el perfil contra el contrato 3.1.0 (`PetProfile`, con `breedCode`) y la coherencia de raza (INV-RAZ-001).
+ * `avatarVersion` es derivado de solo lectura de 4A-2 y no se guarda: aquí se completa con `null` para el esquema.
+ * Sirve de guarda de tipo para los repositorios SQLite y PostgreSQL.
+ * @implements REQ-RAZ-003, INV-RAZ-001
+ */
+export function isStoredPetProfile(value: unknown): value is PetProfile {
+  if (value === null || typeof value !== 'object') return false;
+  const pet = value as Record<string, unknown>;
+  const candidate = { ...pet, breedCode: pet['breedCode'] ?? null, avatarVersion: null };
+  if (!validatePetProfile(candidate)) return false;
+  try {
+    assertBreedConsistency(candidate.species, candidate.breedCode, candidate.breed);
+  } catch {
+    return false;
+  }
+  return true;
+}
 
 /** Las 6 colecciones de registros clínicos, con la forma del sobre de respaldo v3. */
 export type PetRecordCollections = BackupEnvelopeV3['records'];
@@ -56,26 +82,11 @@ function failSchema(schemaName: string, validator: ValidatorWithErrors): never {
  * @implements REQ-PET2-001, INV-PET2-001, INV-OWN-001
  */
 export function assertValidPetProfile(pet: unknown): asserts pet is PetProfile {
-  if (!validatePetProfile(pet)) {
+  const candidate = { ...(pet as Record<string, unknown>), breedCode: (pet as { breedCode?: unknown }).breedCode ?? null, avatarVersion: null };
+  if (!validatePetProfile(candidate)) {
     failSchema('PetProfile', validatePetProfile as ValidatorWithErrors);
   }
-}
-
-/**
- * ERR-PET-MICROCHIP-DUPLICATE: ninguna otra mascota del propietario lleva ese microchip. `ownedPets` son solo las
- * mascotas de ese propietario (la unicidad es por propietario, no global); `exceptPetId` es la mascota que se guarda
- * (una edición que conserva su propio chip no choca). Un microchip nulo nunca choca. El mensaje no repite el número.
- * @implements REQ-PET2-001, ERR-PET-MICROCHIP-DUPLICATE
- */
-export function assertMicrochipUniqueForOwner(
-  ownedPets: ReadonlyArray<{ readonly id: string; readonly microchipId: string | null }>,
-  microchipId: string | null | undefined,
-  exceptPetId: string,
-): void {
-  if (microchipId === null || microchipId === undefined) return;
-  if (ownedPets.some((other) => other.id !== exceptPetId && other.microchipId === microchipId)) {
-    throw new DomainError('ERR-PET-MICROCHIP-DUPLICATE', undefined, 'microchipId');
-  }
+  assertBreedConsistency(candidate.species, candidate.breedCode, candidate.breed);
 }
 
 /**
@@ -148,6 +159,7 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
     failSchema('CreatePetInput', validateCreatePetInput as ValidatorWithErrors);
   }
   const valid: CreatePetInput = input;
+  assertMicrochipNotTrivial(valid.microchipId);
   let birthDate: string;
   let birthDateIsEstimate: boolean;
   if (valid.estimatedAge !== undefined) {
@@ -163,13 +175,16 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
   }
   validateBirthDateNotFuture(birthDate, command.today);
   assertCanonicalCreatedAt(command.nowIsoTimestamp, 'createdAt');
+  const breedCode = valid.breedCode ?? null;
+  const breed = breedCode === null ? valid.breed! : deriveBreed(breedCode, valid.breed); // sin breedCode, el esquema exige breed
   const pet: PetProfile = {
     id: command.id,
     ownerUserId: command.ownerUserId,
     name: valid.name,
     species: valid.species,
     speciesOther: (valid.speciesOther ?? null) as PetProfile['speciesOther'], // el generador tipa el nulo como string
-    breed: valid.breed,
+    breed,
+    breedCode,
     birthDate,
     birthDateIsEstimate,
     sex: valid.sex,
@@ -181,6 +196,13 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
   };
   assertValidPetProfile(pet);
   return pet;
+}
+
+/** REQ-PET4-002: el relleno y las secuencias consecutivas se rechazan con ERR-SCHEMA-VALIDATION-FAILED en `microchipId`, sin repetir el valor. */
+function assertMicrochipNotTrivial(microchipId: string | null | undefined): void {
+  if (typeof microchipId === 'string' && isTrivialMicrochip(microchipId)) {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'microchipId no puede ser un número de relleno ni una secuencia consecutiva (REQ-PET4-002).', 'microchipId');
+  }
 }
 
 export interface UpdatePetCommand {
@@ -206,6 +228,7 @@ export function updatePetProfile(command: UpdatePetCommand): PetProfile {
     failSchema('UpdatePetInput', validateUpdatePetInput as ValidatorWithErrors);
   }
   const changes: UpdatePetInput = input;
+  assertMicrochipNotTrivial(changes.microchipId);
   const { estimatedAge, ...profileChanges } = changes;
   if (estimatedAge !== undefined) {
     if (changes.birthDate !== undefined) {
@@ -223,13 +246,21 @@ export function updatePetProfile(command: UpdatePetCommand): PetProfile {
   }
   assertCanonicalCreatedAt(command.nowIsoTimestamp, 'updatedAt');
   const updated: PetProfile = {
-    ...command.pet,
+    ...normalizePetProfile(command.pet),
     ...profileChanges,
     id: command.pet.id,
     ownerUserId: command.pet.ownerUserId,
     createdAt: command.pet.createdAt,
     updatedAt: command.nowIsoTimestamp,
   } as PetProfile;
+  const breedCode = updated.breedCode ?? null;
+  const breedTouched = changes.breedCode !== undefined || changes.breed !== undefined || changes.species !== undefined;
+  if (breedCode !== null && breedTouched) {
+    // Con `*_OTHER` y sin texto nuevo se conserva el texto libre ya guardado (si el código no cambió).
+    const keepsText = isBreedOther(breedCode) && changes.breed === undefined && command.pet.breedCode === breedCode;
+    const text = changes.breed ?? (keepsText ? command.pet.breed : undefined);
+    if (hasCatalogSpecies(updated.species)) updated.breed = deriveBreed(breedCode, text);
+  }
   assertValidPetProfile(updated);
   return updated;
 }

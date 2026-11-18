@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/generated/index.ts';
+// El catálogo 3.1.0 cambia el detalle y el invariante de ERR-PET-MICROCHIP-DUPLICATE: su error es de la clase 3.1.0 (mismo contrato).
+import { DomainError as DomainErrorV31 } from '../../src/generated/v31/index.ts';
 import {
   AuthenticateRequestUseCase,
   GetCurrentSessionUseCase,
@@ -52,7 +54,7 @@ async function outcome(promise: Promise<unknown>): Promise<string> {
     await promise;
     return 'OK';
   } catch (error) {
-    if (error instanceof DomainError) return `${error.code}@${String(error.field)}`;
+    if (error instanceof DomainError || error instanceof DomainErrorV31) return `${error.code}@${String(error.field)}`;
     throw error;
   }
 }
@@ -82,12 +84,13 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect(hasher.calls).toEqual([{ method: 'hash', plain: 'Clave2026x!', hash: null }]);
   });
 
-  it('[REQ-AUTH2-001][ERR-AUTH-USERNAME-TAKEN] "andres" ya existe y no se guarda nada; "ANDRES" (EDGE-010) ya no se normaliza: es un error de esquema', async () => {
+  it('[REQ-AUTH2-001][REQ-LOG-002][ERR-AUTH-USERNAME-TAKEN] "andres" ya existe y no se guarda nada; "ANDRES" (EDGE-010) también choca por LOWER(username) (INV-LOG-001)', async () => {
     const { deps, uow } = createHarness();
     const register = new RegisterUserUseCase(deps);
     const password = { password: 'Clave2026x!', confirmPassword: 'Clave2026x!' };
     expect(await outcome(register.execute({ username: 'andres', displayName: 'Otro', ...password }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
-    expect(await outcome(register.execute({ username: edge('EDGE-010-').payload.username, displayName: 'Otro', ...password }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@username');
+    expect(await outcome(register.execute({ username: edge('EDGE-010-').payload.username, displayName: 'Otro', ...password }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
+    expect(await outcome(register.execute({ username: ' andres ', displayName: 'Otro', ...password }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@username');
     expect(uow.snapshot()).toEqual(canonicalState());
   });
 
@@ -100,18 +103,19 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect([uow.snapshot(), hasher.calls]).toEqual([canonicalState(), []]);
   });
 
-  it('[REQ-AUTH2-002] login correcto con el username exacto: abre sesión con lastActivityAt y vacía los fallos previos; "ANDRES" no entra', async () => {
+  it('[REQ-AUTH2-002][REQ-LOG-001] login correcto: abre sesión con lastActivityAt y vacía los fallos previos; "ANDRES" entra a la misma cuenta (sin distinguir mayúsculas) y los fallos se guardan en minúsculas', async () => {
     const state = canonicalState();
     state.loginFailures['andres'] = ['2026-11-05T11:58:00.000Z', '2026-11-05T11:59:00.000Z'];
     const { deps, uow } = createHarness(state);
     const login = new LoginUseCase(deps);
-    expect(await outcome(login.execute({ username: 'ANDRES', password: PASSWORDS['andres'] }))).toBe('ERR-AUTH-INVALID-CREDENTIALS@null');
+    expect((await login.execute({ username: 'ANDRES', password: PASSWORDS['andres'] })).session.user.id).toBe(ANDRES);
+    expect(uow.snapshot().loginFailures['andres']).toEqual([]);
     const result = await login.execute({ username: 'andres', password: PASSWORDS['andres'] });
     expect(result).toEqual({
-      sessionToken: 'token-0001',
+      sessionToken: 'token-0002',
       session: { user: selfProfile(ANDRES), createdAt: NOW, lastActivityAt: NOW, idleExpiresAt: IDLE_AT, absoluteExpiresAt: ABSOLUTE_AT },
     });
-    expect([uow.snapshot().loginFailures['andres'], uow.snapshot().sessions['token-0001']]).toEqual([[], { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null }]);
+    expect([uow.snapshot().loginFailures['andres'], uow.snapshot().sessions['token-0002']]).toEqual([[], { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null }]);
   });
 
   it('[INV-AUTH-006][REQ-AUTH2-002] EDGE-012/EDGE-032: usuario inexistente y contraseña errónea dan el mismo error y una sola llamada a verify, la primera contra el hash ficticio', async () => {
@@ -222,7 +226,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
   it('[REQ-PET-001][INV-ARCH-001][INV-ARCH-002] registra una 6.ª mascota sin cupo (EDGE-001) con id, dueño y fechas de los puertos', async () => {
     const { deps, uow } = createHarness();
     const pet = await new RegisterPetUseCase(deps).execute(ANDRES, ROCKY);
-    expect(pet).toEqual({ ...ROCKY, id: generatedId(1), ownerUserId: ANDRES, speciesOther: null, birthDateIsEstimate: false, neutered: null, microchipId: null, avatarUrl: null, createdAt: NOW, updatedAt: NOW });
+    expect(pet).toEqual({ ...ROCKY, id: generatedId(1), ownerUserId: ANDRES, speciesOther: null, birthDateIsEstimate: false, neutered: null, microchipId: null, avatarUrl: null, breedCode: null, avatarVersion: null, createdAt: NOW, updatedAt: NOW });
     expect(uow.snapshot().pets.filter((p) => p.ownerUserId === ANDRES).length).toBe(6);
   });
 
@@ -237,7 +241,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
   it('[REQ-PET-001][INV-ACC-002][ERR-ACC-FORBIDDEN][ERR-PET-NOT-FOUND] solo el dueño edita: María (hogar ACTIVE) recibe 403; Carlos, Lucía y una mascota inexistente, 404', async () => {
     const { deps, uow } = createHarness();
     const update = new UpdatePetUseCase(deps);
-    expect(await update.execute(ANDRES, ARGOS.id, { name: 'Argos Magno' })).toEqual({ ...ARGOS, name: 'Argos Magno', updatedAt: NOW });
+    expect(await update.execute(ANDRES, ARGOS.id, { name: 'Argos Magno' })).toEqual({ ...ARGOS, breedCode: null, avatarVersion: null, name: 'Argos Magno', updatedAt: NOW });
     expect(uow.snapshot().pets.find((p) => p.id === ARGOS.id)!.name).toBe('Argos Magno');
     expect(
       await Promise.all([
@@ -343,13 +347,16 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     const { deps } = createHarness();
     const view = await new GetPetDashboardUseCase(deps).execute(ANDRES, ARGOS.id);
     const r = envelope.records;
+    // D-16 A: toda lectura trae `revision` (los registros sembrados sin ella valen 0).
+    const rev = <T extends object>(record: T) => ({ ...record, revision: 0 });
     expect(view.weights).toEqual([
-      { record: r.weights[1], deltaKg: 0.45 },
-      { record: r.weights[0], deltaKg: null },
+      { record: rev(r.weights[1]!), deltaKg: 0.45 },
+      { record: rev(r.weights[0]!), deltaKg: null },
     ]);
     expect(view.vaccinations.map((v) => [v.record.id, v.alert!.status, v.alert!.daysRemaining])).toEqual([[r.vaccinations[0]!.id, 'DUE_SOON', 7]]);
-    expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements, [], [], r.customParameters]);
-    expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([ARGOS, { years: 4, months: 5, totalDays: 1640 }, 1]);
+    // 3.1.0 (REQ-SIN-001): la ficha lee los parámetros anteriores a la 004 con symptomType y severity nulos.
+    expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements.map(rev), [], [], r.customParameters.map((c) => ({ ...c, symptomType: null, severity: null, revision: 0 }))]);
+    expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([{ ...ARGOS, breedCode: null, avatarVersion: null }, { years: 4, months: 5, totalDays: 1640 }, 1]);
   });
 });
 
@@ -366,16 +373,18 @@ describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-0
     expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, pet.id, { species: 'OTHER', speciesOther: null }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@speciesOther');
   });
 
-  it('[REQ-PET2-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip repetido del mismo propietario se rechaza sin guardar nada; otra cuenta puede usarlo; editar la misma mascota no choca', async () => {
+  it('[REQ-PET4-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip repetido, del mismo propietario o de otro, se rechaza sin guardar nada; editar la misma mascota no choca', async () => {
     const { deps, uow } = createHarness();
     const register = new RegisterPetUseCase(deps);
     const first = await register.execute(ANDRES, { ...RABBIT, microchipId: CHIP });
     const before = uow.snapshot();
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Otra', microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
-    expect(uow.snapshot()).toEqual(before);
+    // REQ-PET4-002: lo único que cambia es el evento del duplicado (transacción independiente); mascotas, registros y auditoría quedan intactos.
+    expect([{ ...uow.snapshot(), rateEvents: [] }, uow.snapshot().rateEvents.map((e) => [e.scope, e.userId])]).toEqual([{ ...before, rateEvents: [] }, [['MICROCHIP_DUPLICATE', ANDRES]]]);
     expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, ARGOS.id, { microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
     expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, first.id, { microchipId: CHIP, name: 'Nube II' }))).toBe('OK');
-    expect(await outcome(register.execute(MARIA, { ...RABBIT, microchipId: CHIP }))).toBe('OK');
+    expect(await outcome(register.execute(MARIA, { ...RABBIT, microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
+    expect(uow.snapshot().pets.filter((p) => p.microchipId === CHIP)).toHaveLength(1);
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Sin chip' }))).toBe('OK');
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Sin chip 2' }))).toBe('OK');
   });
@@ -421,7 +430,7 @@ describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-0
 describe('registros de los 6 módulos (src/application/use-cases/record-use-cases.ts)', () => {
   const INPUTS = {
     weights: { recordedAt: '2026-11-05', weightKg: 33.1 },
-    bodyMeasurements: { recordedAt: '2026-11-05', neckCm: 47, chestCm: 79.5, backLengthCm: 65, waistCm: 58 },
+    bodyMeasurements: { recordedAt: '2026-11-05', neckCm: 47, chestCm: 80, backLengthCm: 65, waistCm: 58 },
     vaccinations: { vaccineName: 'Rabia', appliedAt: '2026-11-05', nextBoosterAt: '2027-11-05' },
     dewormings: { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-11-05', nextSuggestedDoseAt: '2026-11-10' },
     medicalVisits: { visitDate: '2026-11-05', reason: 'Control', diagnosis: 'Sano', treatment: 'Ninguno', clinicOrVet: 'VetCare' },
@@ -437,7 +446,7 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
       customParameters: new AddCustomParameterUseCase(deps),
     }) as const;
   const MODULES = Object.keys(INPUTS) as Array<keyof typeof INPUTS>;
-  const stored = (module: keyof typeof INPUTS, extra: Record<string, unknown>) => ({ ...INPUTS[module], ...extra, id: generatedId(1), petId: ARGOS.id, createdAt: NOW });
+  const stored = (module: keyof typeof INPUTS, extra: Record<string, unknown>) => ({ ...INPUTS[module], ...extra, id: generatedId(1), petId: ARGOS.id, createdAt: NOW, revision: 0 });
 
   it('[REQ-REC2-001] peso: guarda el registro y responde WeightEntryView con delta respecto a la medición anterior (32.85 → 33.10)', async () => {
     const { deps, uow } = createHarness();
@@ -456,7 +465,7 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const expected = [
       stored('bodyMeasurements', { notes: null }),
       stored('medicalVisits', { observations: null }),
-      stored('customParameters', { notes: null }),
+      stored('customParameters', { notes: null, symptomType: null, severity: null }),
     ];
     expect(results).toEqual(expected.map((record) => [record, record]));
   });
@@ -467,12 +476,12 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const vaccine = await cases.vaccinations.execute(ANDRES, ARGOS.id, { ...INPUTS.vaccinations, batchOrClinic: 'Lote 7', notes: 'Sin reacción' });
     const deworming = await cases.dewormings.execute(ANDRES, ARGOS.id, INPUTS.dewormings);
     expect([vaccine.record, vaccine.alert!.status, vaccine.alert!.daysRemaining]).toEqual([
-      { ...INPUTS.vaccinations, category: 'VACCINE', veterinarianName: null, veterinarianLicense: null, batchOrClinic: 'Lote 7', notes: 'Sin reacción', id: generatedId(1), petId: ARGOS.id, createdAt: NOW },
+      { ...INPUTS.vaccinations, category: 'VACCINE', veterinarianName: null, veterinarianLicense: null, batchOrClinic: 'Lote 7', notes: 'Sin reacción', id: generatedId(1), petId: ARGOS.id, createdAt: NOW, revision: 0 },
       'UP_TO_DATE',
       365,
     ]);
     expect([deworming.record, deworming.alert!.status, deworming.alert!.daysRemaining]).toEqual([
-      { ...INPUTS.dewormings, category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
+      { ...INPUTS.dewormings, category: 'DEWORMING', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW, revision: 0 },
       'DUE_SOON',
       5,
     ]);
@@ -487,7 +496,7 @@ describe('registros de los 6 módulos (src/application/use-cases/record-use-case
     const deworming = await cases.dewormings.execute(ANDRES, KIRA, { productBrand: 'Drontal', dewormingType: 'INTERNAL', appliedAt: '2026-10-01', nextSuggestedDoseAt: '2026-10-31' });
     expect([weight.record.id, weight.deltaKg, 'deltaPercent' in weight]).toEqual([generatedId(1), 0.1, false]);
     expect([vaccine.record, vaccine.alert!.status]).toEqual([
-      { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01', category: 'VACCINE', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW },
+      { vaccineName: 'Rabia', appliedAt: '2025-01-01', nextBoosterAt: '2026-01-01', category: 'VACCINE', batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null, id: generatedId(2), petId: ARGOS.id, createdAt: NOW, revision: 0 },
       'OVERDUE',
     ]);
     expect([deworming.record.id, deworming.alert!.status]).toEqual([generatedId(3), 'OVERDUE']);

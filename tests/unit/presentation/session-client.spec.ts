@@ -6,7 +6,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ERROR_CATALOG } from '../../../src/generated/errors/error-codes.ts';
 import { createWebApi } from '../../../src/presentation/web/api.ts';
-import { RegisterPage } from '../../../src/presentation/web/pages/AuthPages.tsx';
+import { LoginPage, RegisterPage } from '../../../src/presentation/web/pages/AuthPages.tsx';
 import { SessionProvider } from '../../../src/presentation/web/session.tsx';
 import { humanSchemaMessage } from '../../../src/presentation/web/schema-messages.ts';
 import { validateInput } from '../../../src/presentation/web/validation.ts';
@@ -15,8 +15,8 @@ import { validateInput } from '../../../src/presentation/web/validation.ts';
 const WEB = 'src/presentation/web';
 const filesOf = (dir: string): string[] => readdirSync(dir).flatMap((e) => (statSync(join(dir, e)).isDirectory() ? filesOf(join(dir, e)) : /\.(?:ts|tsx)$/.test(e) ? [join(dir, e)] : []));
 const sources = filesOf(WEB).map((file) => ({ file, text: readFileSync(file, 'utf8') }));
-/** Módulos de presentación con temporizador autorizado (T288 debounce de búsqueda; T293 aviso previo de expiración). */
-const TIMER_MODULES = ['use-debounced-value.ts', 'idle-notice.ts'] as const;
+/** Módulos de presentación con temporizador autorizado (T288 debounce de búsqueda; T293 aviso previo de expiración; T581 planificador de la renovación al 80 %, tercer módulo autorizado por Neo). */
+const TIMER_MODULES = ['use-debounced-value.ts', 'idle-notice.ts', 'browser-scheduler.ts'] as const;
 const msg = (code: keyof typeof ERROR_CATALOG): string => ERROR_CATALOG[code].detailTemplate;
 const registration = { username: 'nueva.usuaria', displayName: 'Nueva', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' };
 
@@ -29,8 +29,28 @@ describe('registro con la política de contraseña nueva (REQ-UI-005)', () => {
     expect(validateInput('RegisterUserInput', registration)).toEqual({});
   });
 
-  it('[REQ-UI-005][ERR-SCHEMA-VALIDATION-FAILED] un username con mayúsculas, la confirmación ausente o un correo inválido se rechazan en cliente sin normalizar', () => {
-    expect(validateInput('RegisterUserInput', { ...registration, username: 'Nueva.Usuaria' })).toEqual({ username: humanSchemaMessage('username') });
+  it('[REQ-LOG-002][SC-CAT-017] el registro acepta mayúsculas y no exige dígitos en el usuario; con espacios, @ o fuera de [A-Za-z0-9._-] se rechaza en cliente', () => {
+    for (const username of ['Nueva.Usuaria', 'Andres', 'MARIA_V']) expect(validateInput('RegisterUserInput', { ...registration, username }), username).toEqual({});
+    for (const username of ['and res', 'a@b', 'ab', 'Andrés']) expect(validateInput('RegisterUserInput', { ...registration, username }), username).toEqual({ username: humanSchemaMessage('username') });
+  });
+
+  it('[REQ-LOG-001] el inicio de sesión acepta un usuario o un correo de hasta 254 caracteres y recorta espacios; vacío se rechaza', () => {
+    const email = `${'a'.repeat(64)}@${'b'.repeat(63)}.${'c'.repeat(63)}.com`;
+    expect(email.length).toBeLessThanOrEqual(254);
+    for (const username of ['andres', 'Ana@Ejemplo.com', ' ana@x.com ', email]) expect(validateInput('LoginInput', { username, password: 'x' }), username).toEqual({});
+    expect(validateInput('LoginInput', { username: '', password: 'x' })).toEqual({ username: humanSchemaMessage('username') });
+    expect(validateInput('LoginInput', { username: 'x'.repeat(255), password: 'x' })).toEqual({ username: humanSchemaMessage('username') });
+  });
+
+  it('[REQ-LOG-001][SC-CAT-030] la pantalla de inicio de sesión rotula el campo «Usuario o correo» y muestra «Si no puedes entrar con tu correo, usa tu usuario.» sin distinguir causas', () => {
+    const markup = renderToStaticMarkup(h(MemoryRouter, null, h(SessionProvider, { api: createWebApi(), children: h(LoginPage) })));
+    expect(markup.includes('Usuario o correo')).toBe(true);
+    expect(markup.includes('Si no puedes entrar con tu correo, usa tu usuario.')).toBe(true);
+    expect(markup.includes('id="login-username"')).toBe(true);
+    expect(markup.includes('Usuario</label>')).toBe(false);
+  });
+
+  it('[REQ-UI-005][ERR-SCHEMA-VALIDATION-FAILED] la confirmación ausente o un correo inválido se rechazan en cliente sin normalizar', () => {
     expect(validateInput('RegisterUserInput', { username: 'nueva', displayName: 'Nueva', password: 'Clave2026x!' })).toEqual({ confirmPassword: humanSchemaMessage('confirmPassword') });
     expect(validateInput('RegisterUserInput', { ...registration, email: 'no-es-correo' })).toEqual({ email: humanSchemaMessage('email') });
     expect(validateInput('RegisterUserInput', { ...registration, email: 'nueva@example.com' })).toEqual({});
@@ -38,7 +58,8 @@ describe('registro con la política de contraseña nueva (REQ-UI-005)', () => {
 
   it('[REQ-UI-005][REQ-AUTH2-001] la pantalla de registro pide usuario, nombre, correo opcional, contraseña con la política nueva y su confirmación', () => {
     const markup = renderToStaticMarkup(h(MemoryRouter, null, h(SessionProvider, { api: createWebApi(), children: h(RegisterPage) })));
-    for (const text of ['Usuario (minúsculas, números, . _ -)', 'Nombre visible', 'Correo (opcional)', 'Contraseña (10 a 128, con mayúscula, número y símbolo)', 'Confirmar contraseña']) {
+    expect(markup.includes('minúsculas')).toBe(false);
+    for (const text of ['Usuario (letras, números, . _ -)', 'Nombre visible', 'Correo (opcional)', 'Contraseña (10 a 128, con mayúscula, número y símbolo)', 'Confirmar contraseña']) {
       expect(markup.includes(text), text).toBe(true);
     }
     expect(['register-email', 'register-password', 'register-confirmPassword'].map((id) => markup.includes(`id="${id}"`))).toEqual([true, true, true]);

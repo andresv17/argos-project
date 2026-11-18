@@ -7,6 +7,7 @@
  */
 import { useState, type ChangeEvent, type DragEvent } from 'react';
 import { Button, FormError } from '../components/Field.tsx';
+import { SymptomLegend } from '../components/SymptomLegend.tsx';
 import { ApiProblem, attachmentFileName, type ApiClient, CSRF_PARAMS, catalogProblem, problemMessage, unwrap, type ProblemDetails } from '../api.ts';
 import { useSession } from '../session.tsx';
 import { plural, type Schemas } from '../view-model.ts';
@@ -52,7 +53,8 @@ export async function importBackupFile(api: ApiClient, file: Blob): Promise<Impo
   );
 }
 
-type ImportPreviewResult = Schemas['ImportPreviewResult'];
+/** El cliente aún está tipado con la 002; la 004 (3.1.0) añade `mediaToDeleteCount` a la vista previa (D-15 A, REQ-IMP-001). */
+type ImportPreviewResult = Schemas['ImportPreviewResult'] & { readonly mediaToDeleteCount?: number };
 
 /** Previsualización: bytes crudos a `POST /backup/import/preview`; no persiste nada (REQ-BACKUP2-002). */
 export async function previewBackupFile(api: ApiClient, file: Blob): Promise<ImportPreviewResult> {
@@ -102,15 +104,59 @@ function PhaseBar({ phase, stalled = false }: { readonly phase: Phase; readonly 
   );
 }
 
+/** Archivos, fotos y avatares que el reemplazo elimina; las respuestas anteriores a la 004 no traen el campo (0). @implements REQ-IMP-001 */
+function mediaToDelete(preview: ImportPreviewResult | null): number {
+  const count: unknown = preview?.mediaToDeleteCount;
+  return typeof count === 'number' && count > 0 ? count : 0;
+}
+
+/**
+ * «Importar respaldo» se habilita con archivo, sin operación en curso y, si la vista previa informa medios por eliminar, solo tras la
+ * confirmación explícita (D-15 A, SC-CAT-031).
+ * @implements REQ-IMP-001
+ */
+export function canImportBackup({ file, busy, preview, mediaConfirmed }: { readonly file: Blob | null; readonly busy: boolean; readonly preview: ImportPreviewResult | null; readonly mediaConfirmed: boolean }): boolean {
+  return file !== null && !busy && (mediaToDelete(preview) === 0 || mediaConfirmed);
+}
+
+/** Casilla de confirmación adicional del aviso de medios; no se pinta con 0 elementos. @implements REQ-IMP-001 */
+export function MediaDeletionConfirm({ count, checked, onChange }: { readonly count: number; readonly checked: boolean; readonly onChange: (checked: boolean) => void }): JSX.Element | null {
+  if (count <= 0) return null;
+  return (
+    <label className="flex min-h-12 items-start gap-3 rounded-2xl border border-danger bg-red-50 p-4 text-sm font-semibold text-red-900">
+      <input type="checkbox" checked={checked} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.checked)} className="mt-1 h-5 w-5" />
+      {`Entiendo que se eliminarán ${plural(count, 'elemento', 'elementos')} (archivos, fotos y avatares) y que el respaldo no los incluye.`}
+    </label>
+  );
+}
+
 export function PreviewSummary({ preview }: { readonly preview: ImportPreviewResult }): JSX.Element {
   const { counts, collisions, affectedSharedPets } = preview;
+  const media = mediaToDelete(preview);
   return (
     <div role="status" className="grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
       <p className="font-semibold">{`Previsualización (versión ${preview.sourceSchemaVersion}): el archivo trae ${plural(counts.pets, 'mascota', 'mascotas')}.`}</p>
       <p className="tabular-nums text-text-muted">{`Pesos: ${counts.weights} · Medidas: ${counts.bodyMeasurements} · Vacunas: ${counts.vaccinations} · Desparasitaciones: ${counts.dewormings} · Consultas: ${counts.medicalVisits} · Parámetros: ${counts.customParameters}`}</p>
       <p>{`Se reemplazarán ${plural(collisions.petsReplacedCount, 'mascota propia actual', 'mascotas propias actuales')}; ${collisions.sameIdPetsCount} ${collisions.sameIdPetsCount === 1 ? 'coincide' : 'coinciden'} por identificador.`}</p>
       {affectedSharedPets.petsCount > 0 ? <p>{`${plural(affectedSharedPets.petsCount, 'mascota compartida perderá', 'mascotas compartidas perderán')} su asignación en ${plural(affectedSharedPets.householdsCount, 'hogar', 'hogares')}.`}</p> : null}
+      {media > 0 ? <p className="font-semibold text-red-900">{`Los archivos y fotos no van en el respaldo y se eliminarán: ${plural(media, 'elemento', 'elementos')}`}</p> : null}
     </div>
+  );
+}
+
+/** Sección de exportación; lleva la leyenda fija de los síntomas porque el respaldo incluye esos registros (REQ-SIN-003). */
+export function ExportSection({ onDownload }: { readonly onDownload: () => void }): JSX.Element {
+  return (
+    <section aria-labelledby="export-title" className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 id="export-title" className="text-lg font-semibold">
+        Exportar
+      </h2>
+      <p className="max-w-prose text-sm text-text-muted">Descarga un archivo JSON con tus mascotas y sus registros. No incluye datos de otros usuarios ni de tus hogares.</p>
+      <SymptomLegend />
+      <div>
+        <Button onClick={onDownload}>Descargar respaldo</Button>
+      </div>
+    </section>
   );
 }
 
@@ -123,6 +169,7 @@ export function BackupPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [mediaConfirmed, setMediaConfirmed] = useState(false);
 
   const download = async (): Promise<void> => {
     setError(null);
@@ -138,6 +185,7 @@ export function BackupPage(): JSX.Element {
   const choose = async (next: File | null): Promise<void> => {
     setFile(next);
     setPreview(null);
+    setMediaConfirmed(false);
     setResult(null);
     setError(null);
     if (next === null) {
@@ -181,15 +229,7 @@ export function BackupPage(): JSX.Element {
   return (
     <div className="mx-auto grid max-w-3xl gap-4">
       <h1 className="text-2xl font-bold">Respaldo</h1>
-      <section aria-labelledby="export-title" className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 id="export-title" className="text-lg font-semibold">
-          Exportar
-        </h2>
-        <p className="max-w-prose text-sm text-text-muted">Descarga un archivo JSON con tus mascotas y sus registros. No incluye datos de otros usuarios ni de tus hogares.</p>
-        <div>
-          <Button onClick={() => void download()}>Descargar respaldo</Button>
-        </div>
-      </section>
+      <ExportSection onDownload={() => void download()} />
       <section aria-labelledby="import-title" className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 id="import-title" className="text-lg font-semibold">
           Importar
@@ -218,8 +258,9 @@ export function BackupPage(): JSX.Element {
           {file === null ? null : <p className="break-all text-sm text-slate-800">{`Archivo seleccionado: ${file.name}`}</p>}
         </div>
         {preview === null ? null : <PreviewSummary preview={preview} />}
+        <MediaDeletionConfirm count={mediaToDelete(preview)} checked={mediaConfirmed} onChange={setMediaConfirmed} />
         <div>
-          <Button disabled={file === null || busy} onClick={() => void upload()}>
+          <Button disabled={!canImportBackup({ file, busy, preview, mediaConfirmed })} onClick={() => void upload()}>
             Importar respaldo
           </Button>
         </div>

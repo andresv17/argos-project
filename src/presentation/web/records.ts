@@ -2,7 +2,7 @@
  * Los 6 módulos de registros de la ficha: pestaña, formulario de alta (campos y esquema del contrato) y llamada
  * tipada al cliente generado.
  *
- * @implements REQ-UI-002, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
+ * @implements REQ-BOR-001, REQ-BOR-003, REQ-UI-002, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
  */
 import { CSRF_PARAMS, unwrap, type ApiClient } from './api.ts';
 import type { InputSchema } from './validation.ts';
@@ -16,6 +16,7 @@ export interface RecordFieldSpec {
   readonly type: 'date' | 'number' | 'text' | 'select';
   readonly required: boolean;
   readonly step?: string;
+  readonly inputMode?: 'numeric' | 'decimal';
   readonly options?: ReadonlyArray<{ readonly value: string; readonly label: string }>;
 }
 
@@ -31,6 +32,8 @@ export interface RecordModuleSpec {
 const date = (name: string, label: string, required = true): RecordFieldSpec => ({ name, label, type: 'date', required });
 const text = (name: string, label: string, required = true): RecordFieldSpec => ({ name, label, type: 'text', required });
 const decimal = (name: string, label: string): RecordFieldSpec => ({ name, label, type: 'number', required: true, step: '0.01' });
+/** Medidas en centímetros enteros (REQ-MDC-001): paso 1 y teclado numérico. */
+const wholeCm = (name: string, label: string): RecordFieldSpec => ({ name, label, type: 'number', required: true, step: '1', inputMode: 'numeric' });
 
 export const RECORD_MODULES: readonly RecordModuleSpec[] = [
   {
@@ -49,10 +52,10 @@ export const RECORD_MODULES: readonly RecordModuleSpec[] = [
     numeric: ['neckCm', 'chestCm', 'backLengthCm', 'waistCm'],
     fields: [
       date('recordedAt', 'Fecha'),
-      decimal('neckCm', 'Cuello (cm)'),
-      decimal('chestCm', 'Pecho (cm)'),
-      decimal('backLengthCm', 'Largo de lomo (cm)'),
-      decimal('waistCm', 'Cintura (cm)'),
+      wholeCm('neckCm', 'Cuello (cm)'),
+      wholeCm('chestCm', 'Pecho (cm)'),
+      wholeCm('backLengthCm', 'Largo de lomo (cm)'),
+      wholeCm('waistCm', 'Cintura (cm)'),
       text('notes', 'Notas', false),
     ],
   },
@@ -127,6 +130,7 @@ export const RECORD_MODULES: readonly RecordModuleSpec[] = [
           { value: 'SURGERY', label: 'Cirugía' },
           { value: 'BEHAVIOR', label: 'Comportamiento' },
           { value: 'OTHER', label: 'Otro' },
+          { value: 'SYMPTOM', label: 'Síntoma' },
         ],
       },
       text('title', 'Título'),
@@ -184,4 +188,39 @@ export async function addRecord(api: ApiClient, module: RecordModule, petId: str
       await unwrap(api.POST('/pets/{petId}/records/custom-parameters', { params, body: body as Schemas['CreateCustomParameterInput'] }));
       return;
   }
+}
+
+/** Colección de la ruta `/pets/{petId}/records/{collection}/{recordId}` de cada módulo (RecordCollection del contrato). */
+export const RECORD_COLLECTION: Readonly<Record<RecordModule, string>> = {
+  weights: 'weights',
+  measurements: 'measurements',
+  vaccinations: 'vaccinations',
+  dewormings: 'dewormings',
+  visits: 'visits',
+  customParameters: 'custom-parameters',
+};
+
+/**
+ * Edición parcial de un registro vigente (REQ-BOR-003). El cuerpo declara la colección de la ruta; el servidor valida y audita.
+ * `revision` es la que trajo el registro al leerlo y viaja como `If-Match: "<revision>"` (D-16 A, REQ-BOR-005): si otra persona lo cambió
+ * antes, el servidor responde 409 ERR-REC-CONFLICT y no cambia nada.
+ */
+export async function updateRecord(api: ApiClient, module: RecordModule, petId: string, recordId: string, body: Readonly<Record<string, unknown>>, revision: number): Promise<void> {
+  const collection = RECORD_COLLECTION[module];
+  await unwrap(
+    api.PATCH('/pets/{petId}/records/{collection}/{recordId}', {
+      params: { ...CSRF_PARAMS, path: { petId, collection: collection as Schemas['RecordCollection'], recordId } },
+      headers: { 'If-Match': `"${revision}"` },
+      body: { ...body, collection } as Schemas['UpdateWeightInput'],
+    }),
+  );
+}
+
+/** Borrado físico de un registro vigente (REQ-BOR-001): 204, o 409 si está reemplazado (REQ-BOR-002). */
+export async function deleteRecord(api: ApiClient, module: RecordModule, petId: string, recordId: string): Promise<void> {
+  await unwrap(
+    api.DELETE('/pets/{petId}/records/{collection}/{recordId}', {
+      params: { ...CSRF_PARAMS, path: { petId, collection: RECORD_COLLECTION[module] as Schemas['RecordCollection'], recordId } },
+    }),
+  );
 }

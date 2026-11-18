@@ -69,7 +69,7 @@ describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.ya
     await step('DELETE', `/api/households/${house.household.id}`, { cookie: lucia });
     // Operaciones de la 002: registros (editar y eliminar), hogar con roles, cancelación de invitación, asignación y propiedad.
     const vaccination = ((await step('POST', `/api/pets/${ARGOS_ID}/records/vaccinations`, { cookie: andres, body: { ...RECORD_INPUTS.vaccinations, vaccineName: 'Leptospirosis' } })).json as { record: { id: string } }).record;
-    await step('PATCH', `/api/pets/${ARGOS_ID}/records/vaccinations/${vaccination.id}`, { cookie: andres, body: { collection: 'vaccinations', notes: 'corregido' } });
+    await step('PATCH', `/api/pets/${ARGOS_ID}/records/vaccinations/${vaccination.id}`, { cookie: andres, headers: { 'if-match': '"0"' }, body: { collection: 'vaccinations', notes: 'corregido' } });
     await step('DELETE', `/api/pets/${ARGOS_ID}/records/vaccinations/${vaccination.id}`, { cookie: andres });
     const roles = (await step('POST', '/api/households', { cookie: andres, body: { name: 'Casa de roles' } })).json as { household: { id: string } };
     const rolesId = roles.household.id;

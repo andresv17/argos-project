@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { ApiClient } from './api.ts';
+import { AlbumPage } from './pages/AlbumPage.tsx';
 import { AccountPage } from './pages/AccountPage.tsx';
 import { AppShell } from './pages/AppShell.tsx';
 import { LoginPage, RegisterPage } from './pages/AuthPages.tsx';
@@ -36,6 +37,7 @@ export function AppRoutes(): JSX.Element {
       <Route path="/login" element={<Guard><LoginPage /></Guard>} />
       <Route path="/register" element={<Guard><RegisterPage /></Guard>} />
       <Route path="/" element={<Guard><AppShell><PetsPage /></AppShell></Guard>} />
+      <Route path="/mascotas/:petId/album" element={<Guard><AppShell><AlbumPage /></AppShell></Guard>} />
       <Route path="/households" element={<Guard><AppShell><HouseholdsPage /></AppShell></Guard>} />
       <Route path="/backup" element={<Guard><AppShell><BackupPage /></AppShell></Guard>} />
       <Route path="/cuenta" element={<Guard><AppShell><AccountPage /></AppShell></Guard>} />

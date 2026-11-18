@@ -16,7 +16,9 @@ import {
   evaluateLoginAttempt,
   failuresInWindow,
   invalidCredentialsError,
+  isEmailIdentifier,
   isLockedOut,
+  normalizeLoginIdentifier,
   parseRegisterUserInput,
 } from '../../src/domain/auth/auth-policies.ts';
 import { PASSWORD_SYMBOLS, assertPasswordCompliant, isPasswordCompliant } from '../../src/domain/auth/password-policy.ts';
@@ -123,12 +125,28 @@ const registration = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe('registro (REQ-AUTH2-001)', () => {
-  it('[REQ-AUTH2-001][INV-AUTH-001] un username con mayúsculas o con espacios se rechaza con ERR-SCHEMA-VALIDATION-FAILED y no se normaliza en silencio', () => {
-    for (const username of ['Nuevo_1', ' lucia.r ', 'MARIA.V', 'ab', 'a b', 'x'.repeat(31)]) {
+  it('[REQ-LOG-002][REQ-AUTH2-001][INV-LOG-001] el username con espacios, @, fuera de 3..30 o con caracteres fuera de [A-Za-z0-9._-] se rechaza con ERR-SCHEMA-VALIDATION-FAILED y no se normaliza en silencio', () => {
+    for (const username of [' lucia.r ', 'ab', 'a b', 'a@b', 'ñandú', 'x'.repeat(31)]) {
       const error = catchDomainError(() => parseRegisterUserInput(registration({ username })));
       expect([error.code, error.status, error.field]).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', 422, 'username']);
     }
     expect(parseRegisterUserInput(registration({ username: 'nuevo_1.a-b' })).username).toBe('nuevo_1.a-b');
+  });
+
+  it('[REQ-LOG-002][SC-CAT-017] las mayúsculas se aceptan y se devuelven tal como se escribieron; no se exige dígito', () => {
+    for (const username of ['Nuevo_1', 'MARIA.V', 'Andres', 'Ana.Perez']) expect(parseRegisterUserInput(registration({ username })).username).toBe(username);
+  });
+
+  it('[REQ-LOG-001][INV-LOG-002] normalizeLoginIdentifier recorta y pasa a minúsculas (una sola función de dominio) y no toca nada más', () => {
+    expect(normalizeLoginIdentifier('  Ana@Ejemplo.COM ')).toBe('ana@ejemplo.com');
+    expect(normalizeLoginIdentifier('ANDRES')).toBe('andres');
+    expect(normalizeLoginIdentifier('maria.v')).toBe('maria.v');
+    expect(normalizeLoginIdentifier('\tUsuario_01\n')).toBe('usuario_01');
+    expect(normalizeLoginIdentifier('')).toBe('');
+  });
+
+  it('[REQ-LOG-001] isEmailIdentifier: contiene @ ⇒ correo (un username no puede contener @)', () => {
+    expect([isEmailIdentifier('ana@x.com'), isEmailIdentifier('ana'), isEmailIdentifier('@')]).toEqual([true, false, true]);
   });
 
   it('[REQ-AUTH2-001] confirmPassword distinto de password da ERR-SCHEMA-VALIDATION-FAILED en el campo confirmPassword', () => {

@@ -12,7 +12,7 @@
  * @implements REQ-REC2-003, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-PET-003, INV-ACC-002, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
-import type { BodyMeasurementRecord, CustomParameterRecord, MedicalVisitRecord } from '../../generated/index.ts';
+import type { BodyMeasurementRecord, MedicalVisitRecord } from '../../generated/index.ts';
 import {
   evaluateDewormingAlerts,
   evaluateVaccinationAlerts,
@@ -23,17 +23,23 @@ import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import {
   applyRecordUpdate,
   computeWeightEvolutionSeries,
+  revisionOf,
   moduleOfCollection,
+  withSymptomFields,
   validateRecordInput,
+  type CustomParameterWithSymptom,
   type RecordModule,
   type RecordOf,
   type WeightEntryView,
 } from '../../domain/records/record-invariants.ts';
 import type { RbacAction } from '../../domain/access/rbac.ts';
 import { assertRecordNotSuperseded } from '../../domain/records/superseded-guard.ts';
+import { stateHash } from '../../domain/audit/state-hash.ts';
 import { DomainError } from '../../generated/index.ts';
+// ERR-REC-CONFLICT es de la 3.1.0 (feature 004): el catálogo 002 no lo trae; la capa HTTP reconoce ambas clases (problem-details.ts).
+import { DomainError as DomainErrorV31 } from '../../generated/v31/index.ts';
 import { RECORD_ENTITY_TYPE, recordAudit } from './audit-support.ts';
-import { requirePetAction, type ApplicationDeps } from './use-case-support.ts';
+import { lockPet, requirePetAction, type ApplicationDeps } from './use-case-support.ts';
 
 /** Acción de la matriz que autoriza el alta de cada módulo (REQ-RBAC-001, REQ-REC-002/005/006). */
 const WRITE_ACTION: Readonly<Record<RecordModule, RbacAction>> = {
@@ -52,7 +58,7 @@ const NULLABLE_DEFAULTS: Readonly<Record<RecordModule, Readonly<Record<string, s
   vaccinations: { category: 'VACCINE', nextBoosterAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
   dewormings: { category: 'DEWORMING', nextSuggestedDoseAt: null, batchOrClinic: null, veterinarianName: null, veterinarianLicense: null, notes: null },
   medicalVisits: { observations: null },
-  customParameters: { notes: null },
+  customParameters: { notes: null, symptomType: null, severity: null },
 };
 
 /**
@@ -70,6 +76,7 @@ abstract class AddRecordUseCase<M extends RecordModule, View> {
   async execute(userId: string, petId: string, input: unknown): Promise<View> {
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
+      await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION[this.module]);
       const valid = validateRecordInput(this.module, input, pet.birthDate, today, pet.species);
       const record = {
@@ -78,6 +85,7 @@ abstract class AddRecordUseCase<M extends RecordModule, View> {
         id: this.deps.ids.nextId(),
         petId,
         createdAt: this.deps.clock.nowIsoTimestamp(),
+        revision: 0, // D-16 A: todo registro nace con revisión 0
       } as unknown as RecordOf<M>;
       const existing = await repositories.records.listForPet(petId);
       await repositories.records.add(this.module, record);
@@ -142,14 +150,18 @@ export class AddMedicalVisitUseCase extends AddRecordUseCase<'medicalVisits', Me
   }
 }
 
-/** @implements REQ-REC-006 */
-export class AddCustomParameterUseCase extends AddRecordUseCase<'customParameters', CustomParameterRecord> {
+/**
+ * Parámetro adicional y síntoma (REQ-SIN-001): la coherencia categoría/tipo la valida el contrato 3.1.0 en el dominio. El caso de uso
+ * nunca interpreta `title` ni `description` (REQ-SIN-003).
+ * @implements REQ-REC-006, REQ-SIN-001, REQ-SIN-002, REQ-SIN-003, INV-SIN-001
+ */
+export class AddCustomParameterUseCase extends AddRecordUseCase<'customParameters', CustomParameterWithSymptom> {
   constructor(deps: ApplicationDeps) {
     super(deps, 'customParameters');
   }
 
-  protected present(record: CustomParameterRecord): CustomParameterRecord {
-    return record;
+  protected present(record: RecordOf<'customParameters'>): CustomParameterWithSymptom {
+    return withSymptomFields(record);
   }
 }
 
@@ -171,29 +183,48 @@ function moduleOrNotFound(collection: string): RecordModule {
 }
 
 /**
- * Edición parcial de un registro de cualquiera de los 6 módulos. Orden: acceso (404 antes que 403) con la acción
- * WRITE_* del módulo, existencia del registro en la mascota (ERR-PET-NOT-FOUND), esquema y dominio, y por último la
- * guarda de inmutabilidad (409). Solo vacunas y desparasitaciones pueden estar SUPERSEDED.
- * @implements REQ-REC2-003, REQ-RBAC-001, SC-015, ERR-REC-SUPERSEDED-IMMUTABLE, ERR-ACC-FORBIDDEN
+ * Edición parcial de un registro de cualquiera de los 6 módulos con control de revisión (D-16 A). Orden: candado de mascota, acceso
+ * (404 antes que 403) con la acción WRITE_* del módulo, `If-Match` presente (si no, ERR-SCHEMA-VALIDATION-FAILED, campo If-Match),
+ * existencia del registro en la mascota (ERR-PET-NOT-FOUND), comparación de la revisión BAJO EL CANDADO (distinta, 409 ERR-REC-CONFLICT
+ * sin cambios ni auditoría), esquema y dominio, y por último la guarda de inmutabilidad (409), antes y después de aplicar la edición
+ * (INV-REG-002). Sin cambios efectivos no hay escritura, ni fila de auditoría, ni incremento de `revision` (REQ-BOR-003); con ellos,
+ * `revision` aumenta en 1. Solo vacunas y desparasitaciones pueden estar SUPERSEDED.
+ * @param ifMatch revisión leída por el cliente (cabecera `If-Match`); `null` si la petición no la trajo.
+ * @implements REQ-BOR-003, REQ-BOR-005, INV-REG-002, INV-REG-003, REQ-REC2-003, REQ-RBAC-001, SC-015, ERR-REC-CONFLICT, ERR-REC-SUPERSEDED-IMMUTABLE, ERR-ACC-FORBIDDEN
  */
 export class UpdateRecordUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, petId: string, collection: string, recordId: string, input: unknown): Promise<RecordOf<RecordModule>> {
+  async execute(userId: string, petId: string, collection: string, recordId: string, input: unknown, ifMatch: number | null): Promise<RecordOf<RecordModule>> {
     const module = moduleOrNotFound(collection);
     const today = this.deps.clock.todayIsoDate();
     return this.deps.uow.runInTransaction(async (repositories) => {
+      await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION[module]);
+      if (ifMatch === null) throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'Falta la cabecera If-Match con la revisión del registro.', 'If-Match');
       const existing = await repositories.records.listForPet(petId);
       const current = (existing[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId) as RecordOf<RecordModule> | undefined;
       if (current === undefined) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
-      const updated = applyRecordUpdate(module, current, input, pet.birthDate, today, pet.species);
+      // D-16 A: la comparación va dentro de la transacción con el candado de mascota; una revisión distinta no cambia ni audita nada.
+      if (revisionOf(current) !== ifMatch) throw new DomainErrorV31('ERR-REC-CONFLICT');
+      const applied = applyRecordUpdate(module, current, input, pet.birthDate, today, pet.species);
+      const updated = { ...applied, revision: revisionOf(current) + 1 } as RecordOf<RecordModule>;
       assertRecordNotSuperseded(supersededStatus(module, existing, recordId, today));
+      // INV-REG-002: la edición que dejaría al propio registro SUPERSEDED (p. ej. una fecha anterior a otra de la misma clave) se rechaza.
+      assertRecordNotSuperseded(supersededStatus(module, withReplaced(existing, module, updated), recordId, today));
+      // REQ-BOR-003: sin cambios efectivos del estado canónico (sin contar la revisión) no se escribe, no se audita y no se incrementa `revision`.
+      if (stateHash(current) === stateHash(applied)) return current;
       await repositories.records.replace(module, updated);
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: RECORD_ENTITY_TYPE[module], entityId: recordId, previous: current, next: updated });
       return updated;
     });
   }
+}
+
+/** Las colecciones de la mascota con el registro editado en lugar del vigente (para evaluar el estado resultante). */
+function withReplaced(existing: PetRecordCollections, module: RecordModule, updated: RecordOf<RecordModule>): PetRecordCollections {
+  const list = existing[module] as ReadonlyArray<{ id: string }>;
+  return { ...existing, [module]: list.map((r) => (r.id === (updated as { id: string }).id ? updated : r)) } as unknown as PetRecordCollections;
 }
 
 /** Estado de alerta del registro; los módulos sin semáforo nunca están reemplazados. */
@@ -204,8 +235,9 @@ function supersededStatus(module: RecordModule, existing: PetRecordCollections, 
 }
 
 /**
- * Borra un registro de la mascota. Si era el posterior de su clave, el anterior vuelve a ser vigente.
- * @implements REQ-REC2-003, REQ-RBAC-001, ERR-ACC-FORBIDDEN
+ * Borra FÍSICAMENTE un registro de la mascota (D-11 A: sin borrado lógico), con la fila DELETE en la misma transacción. Un registro
+ * SUPERSEDED no se borra (409). Si era el posterior de su clave, el anterior vuelve a ser vigente.
+ * @implements REQ-BOR-001, REQ-BOR-002, REQ-BOR-005, INV-REG-001, INV-REG-002, REQ-REC2-003, REQ-RBAC-001, ERR-ACC-FORBIDDEN
  */
 export class DeleteRecordUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
@@ -213,9 +245,14 @@ export class DeleteRecordUseCase {
   async execute(userId: string, petId: string, collection: string, recordId: string): Promise<void> {
     const module = moduleOrNotFound(collection);
     await this.deps.uow.runInTransaction(async (repositories) => {
+      await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       await requirePetAction(repositories, userId, petId, DELETE_ACTION[module]);
-      const current = ((await repositories.records.listForPet(petId))[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId);
-      if (current === undefined || !(await repositories.records.remove(module, petId, recordId))) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
+      const existing = await repositories.records.listForPet(petId);
+      const current = (existing[module] as ReadonlyArray<{ id: string }>).find((r) => r.id === recordId);
+      if (current === undefined) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
+      // D-11 A, E-01: un registro SUPERSEDED no se borra (409); el borrado es físico y comprueba las filas afectadas.
+      assertRecordNotSuperseded(supersededStatus(module, existing, recordId, this.deps.clock.todayIsoDate()));
+      if (!(await repositories.records.remove(module, petId, recordId))) throw new DomainError('ERR-PET-NOT-FOUND', undefined, 'recordId');
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: RECORD_ENTITY_TYPE[module], entityId: recordId, previous: current, next: null });
     });
   }

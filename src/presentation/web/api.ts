@@ -31,6 +31,11 @@ export class ApiProblem extends Error {
 
 const isCatalogCode = (code: string): code is ErrorCode => Object.prototype.hasOwnProperty.call(ERROR_CATALOG, code);
 
+/** Código del 409 de revisión desactualizada (3.1.0, D-16 A): el catálogo 002 que usa la SPA no lo trae. @implements REQ-BOR-005 */
+export const RECORD_CONFLICT_CODE = 'ERR-REC-CONFLICT';
+/** Texto de la interfaz para ese 409 (REQ-BOR-005, D-16 A). */
+export const RECORD_CONFLICT_MESSAGE = 'El registro cambió; recarga y vuelve a intentarlo.';
+
 /** `ProblemDetails` del catálogo para un código, con los campos opcionales que se indiquen. */
 export function catalogProblem(code: ErrorCode, field?: string): ProblemDetails {
   const entry = ERROR_CATALOG[code];
@@ -49,13 +54,14 @@ export function catalogProblem(code: ErrorCode, field?: string): ProblemDetails 
 export function toProblem(error: unknown): ProblemDetails {
   if (typeof error === 'object' && error !== null && typeof (error as { code?: unknown }).code === 'string') {
     const candidate = error as ProblemDetails;
-    if (isCatalogCode(candidate.code)) return candidate;
+    if (isCatalogCode(candidate.code) || candidate.code === RECORD_CONFLICT_CODE) return candidate;
   }
   return catalogProblem('ERR-INTERNAL-UNEXPECTED');
 }
 
 /** Texto para el usuario: el `detailTemplate` del catálogo para el código recibido; el de esquema formal se redacta en llano (T293). */
 export function problemMessage(problem: ProblemDetails): string {
+  if (problem.code === RECORD_CONFLICT_CODE) return RECORD_CONFLICT_MESSAGE;
   if (problem.code === 'ERR-SCHEMA-VALIDATION-FAILED') return humanSchemaMessage(typeof problem.field === 'string' ? problem.field : undefined);
   return isCatalogCode(problem.code) ? ERROR_CATALOG[problem.code].detailTemplate : problem.detail;
 }

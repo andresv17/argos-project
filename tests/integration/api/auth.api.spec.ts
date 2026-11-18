@@ -45,17 +45,22 @@ describe('registro por HTTP (src/infrastructure/http/routes/auth.routes.ts)', ()
     expect([me.status, out.status, again.status]).toEqual([200, 204, 200]);
   });
 
-  it('[REQ-AUTH2-001][ERR-SCHEMA-VALIDATION-FAILED] un username con mayúsculas se rechaza (422) y no se normaliza: no se crea ninguna cuenta ni cookie', async () => {
+  it('[REQ-LOG-002][SC-CAT-016][SC-CAT-017] un username con mayúsculas se acepta y se guarda tal como se escribió; con espacios se rechaza (422); otra alta que solo difiere en mayúsculas da 409 ERR-AUTH-USERNAME-TAKEN; el login entra con cualquier capitalización', async () => {
     api = await createIdentityApi();
     const upper = await api.call('POST', '/api/auth/register', { body: registration({ username: 'Nueva.Usuaria' }) });
     const spaced = await api.call('POST', '/api/auth/register', { body: registration({ username: '  nueva.usuaria ' }) });
+    const clash = await api.call('POST', '/api/auth/register', { body: registration({ username: 'NUEVA.USUARIA' }) });
     const lower = await api.call('POST', '/api/auth/login', { body: { username: 'nueva.usuaria', password: 'Clave2026x!' } });
-    expect([problemOf(upper), (upper.json as { field: string }).field, upper.setCookie, problemOf(spaced), problemOf(lower)]).toEqual([
+    const typed = await api.call('POST', '/api/auth/login', { body: { username: 'NUEVA.usuaria ', password: 'Clave2026x!' } });
+    expect([upper.status, (upper.json as { user: { username: string } }).user.username, problemOf(spaced), (spaced.json as { field: string }).field, spaced.setCookie, problemOf(clash), lower.status, typed.status]).toEqual([
+      201,
+      'Nueva.Usuaria',
       { status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' },
       'username',
       null,
-      { status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' },
-      { status: 401, code: 'ERR-AUTH-INVALID-CREDENTIALS' },
+      { status: 409, code: 'ERR-AUTH-USERNAME-TAKEN' },
+      200,
+      200,
     ]);
   });
 
@@ -107,7 +112,7 @@ describe('inicio de sesión por HTTP (REQ-AUTH2-002)', () => {
     expect([old.status, old.cookie, (old.json as { user: { username: string } }).user.username]).toEqual([200, 'argos_session=token-0001', 'vieja.cuenta']);
   });
 
-  it('[REQ-AUTH2-002][INV-AUTH-006] usuario inexistente, contraseña errónea y username con otra capitalización dan el mismo 401 genérico, con una verificación por rama', async () => {
+  it('[REQ-AUTH2-002][INV-AUTH-006] usuario inexistente y contraseña errónea dan el mismo 401 genérico, con una verificación por rama; otra capitalización del username entra (REQ-LOG-002)', async () => {
     api = await createIdentityApi();
     const wrong = await api.call('POST', '/api/auth/login', { body: { username: 'ana.duena', password: 'incorrecta' } });
     api.hasher.reset();
@@ -116,11 +121,11 @@ describe('inicio de sesión por HTTP (REQ-AUTH2-002)', () => {
     api.hasher.reset();
     const exact = await api.call('POST', '/api/auth/login', { body: { username: 'Ana.Duena', password: IDENTITY_PASSWORDS['ana.duena'] } });
     const strip = (r: typeof wrong) => ({ ...(r.json as object), instance: null });
-    expect([problemOf(wrong), strip(wrong), ghostCalls, problemOf(exact), api.hasher.calls.filter((c) => c.method === 'verify').length]).toEqual([
+    expect([problemOf(wrong), strip(wrong), ghostCalls, exact.status, api.hasher.calls.filter((c) => c.method === 'verify').length]).toEqual([
       { status: 401, code: 'ERR-AUTH-INVALID-CREDENTIALS' },
       strip(ghost),
       1,
-      { status: 401, code: 'ERR-AUTH-INVALID-CREDENTIALS' },
+      200,
       1,
     ]);
   });

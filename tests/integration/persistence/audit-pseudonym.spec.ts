@@ -7,6 +7,7 @@ import { AppConfigError, loadAppConfig } from '../../../src/infrastructure/confi
  * Causa roja esperada: loadAppConfig aún no conoce ARGOS_AUDIT_HMAC_SECRET (devuelve configuración sin lanzar AppConfigError).
  * Supuesto de contrato: el modo de producción se declara con NODE_ENV=production; el secreto válido son >= 32 bytes en hexadecimal (64 caracteres).
  */
+const PROD_MEDIA = { ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' }; // T566 (SC-ALM-023)
 function errorOf(env: Record<string, string | undefined>): { variables: readonly string[]; leaked: boolean } | 'sin error' {
   try {
     loadAppConfig(env);
@@ -19,18 +20,18 @@ function errorOf(env: Record<string, string | undefined>): { variables: readonly
 
 describe('ARGOS_AUDIT_HMAC_SECRET en la configuración (src/infrastructure/config/app-config.ts)', () => {
   it('[REQ-AUD-001][SC-014] en producción, sin ARGOS_AUDIT_HMAC_SECRET la aplicación no arranca: AppConfigError nombra solo esa variable', () => {
-    expect(errorOf({ NODE_ENV: 'production' })).toEqual({ variables: ['ARGOS_AUDIT_HMAC_SECRET'], leaked: false });
+    expect(errorOf({ NODE_ENV: 'production', ...PROD_MEDIA })).toEqual({ variables: ['ARGOS_AUDIT_HMAC_SECRET'], leaked: false });
   });
 
   it('[REQ-AUD-001][SC-014] en producción, un secreto vacío, corto (< 32 bytes) o no hexadecimal tampoco arranca, sin copiar el valor al mensaje de error', () => {
     const invalid = ['', 'mal-secreto', 'ab'.repeat(31), `${'zz'.repeat(32)}`];
-    expect(invalid.map((v) => errorOf({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: v }))).toEqual(
+    expect(invalid.map((v) => errorOf({ NODE_ENV: 'production', ...PROD_MEDIA, ARGOS_AUDIT_HMAC_SECRET: v }))).toEqual(
       invalid.map(() => ({ variables: ['ARGOS_AUDIT_HMAC_SECRET'], leaked: false })),
     );
   });
 
   it('[REQ-AUD-001][SC-014] en producción, un secreto de 32 bytes en hexadecimal (64 caracteres) arranca', () => {
-    expect(errorOf({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: randomBytes(32).toString('hex') })).toBe('sin error');
+    expect(errorOf({ NODE_ENV: 'production', ...PROD_MEDIA, ARGOS_AUDIT_HMAC_SECRET: randomBytes(32).toString('hex') })).toBe('sin error');
   });
 
   it('[REQ-AUD-001][INV-ARCH-006] solo con NODE_ENV=test se admite arrancar sin secreto (valor fijo de prueba explícito); en development y sin NODE_ENV falta la variable y no arranca (D-1); un secreto presente e inválido se rechaza también en pruebas', () => {

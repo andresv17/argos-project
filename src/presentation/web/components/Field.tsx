@@ -17,9 +17,11 @@ interface FieldProps {
   readonly required?: boolean;
   readonly autoComplete?: string;
   readonly step?: string;
+  readonly inputMode?: 'numeric' | 'decimal';
+  readonly placeholder?: string;
 }
 
-export function TextField({ id, label, name, value, onChange, errors, type = 'text', required = false, autoComplete, step }: FieldProps): JSX.Element {
+export function TextField({ id, label, name, value, onChange, errors, type = 'text', required = false, autoComplete, step, inputMode, placeholder }: FieldProps): JSX.Element {
   const error = errors[name];
   const errorId = `${id}-error`;
   return (
@@ -36,6 +38,8 @@ export function TextField({ id, label, name, value, onChange, errors, type = 'te
         required={required}
         {...(autoComplete === undefined ? {} : { autoComplete })}
         {...(step === undefined ? {} : { step })}
+        {...(inputMode === undefined ? {} : { inputMode })}
+        {...(placeholder === undefined ? {} : { placeholder })}
         aria-invalid={error === undefined ? undefined : true}
         aria-describedby={error === undefined ? undefined : errorId}
         onChange={(e) => onChange(name, e.target.value)}
@@ -56,7 +60,7 @@ export function TextField({ id, label, name, value, onChange, errors, type = 'te
  *
  * @implements REQ-UI-005, REQ-UI-004
  */
-export function PasswordField({ id, label, name, value, onChange, errors, required = false, autoComplete }: Omit<FieldProps, 'type' | 'step'>): JSX.Element {
+export function PasswordField({ id, label, name, value, onChange, errors, required = false, autoComplete }: Omit<FieldProps, 'type' | 'step' | 'inputMode' | 'placeholder'>): JSX.Element {
   const [visible, setVisible] = useState(false);
   const error = errors[name];
   const errorId = `${id}-error`;
@@ -106,11 +110,15 @@ interface SelectProps {
   readonly options: ReadonlyArray<{ readonly value: string; readonly label: string }>;
   readonly onChange: (name: string, value: string) => void;
   readonly errors: FieldErrors;
+  /** Ayuda fija bajo el selector, asociada con `aria-describedby`. */
+  readonly help?: ReactNode;
 }
 
-export function SelectField({ id, label, name, value, options, onChange, errors }: SelectProps): JSX.Element {
+export function SelectField({ id, label, name, value, options, onChange, errors, help }: SelectProps): JSX.Element {
   const error = errors[name];
   const errorId = `${id}-error`;
+  const helpId = `${id}-help`;
+  const describedBy = [help === undefined ? null : helpId, error === undefined ? null : errorId].filter((x) => x !== null).join(' ');
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={id} className="text-sm font-medium text-slate-800">
@@ -121,7 +129,7 @@ export function SelectField({ id, label, name, value, options, onChange, errors 
         name={name}
         value={value}
         aria-invalid={error === undefined ? undefined : true}
-        aria-describedby={error === undefined ? undefined : errorId}
+        {...(describedBy === '' ? {} : { 'aria-describedby': describedBy })}
         onChange={(e) => onChange(name, e.target.value)}
         className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       >
@@ -131,6 +139,11 @@ export function SelectField({ id, label, name, value, options, onChange, errors 
           </option>
         ))}
       </select>
+      {help === undefined ? null : (
+        <div id={helpId} className="text-sm text-text-muted">
+          {help}
+        </div>
+      )}
       {error === undefined ? null : (
         <p id={errorId} className="text-sm text-red-800">
           {error}
@@ -151,12 +164,14 @@ export function FormError({ errors, message }: { readonly errors?: FieldErrors; 
   );
 }
 
-export function Button({ children, type = 'button', onClick, variant = 'primary', disabled = false }: {
+export function Button({ children, type = 'button', onClick, variant = 'primary', disabled = false, ariaLabel }: {
   readonly children: ReactNode;
   readonly type?: 'button' | 'submit';
   readonly onClick?: () => void;
   readonly variant?: 'primary' | 'secondary' | 'danger';
   readonly disabled?: boolean;
+  /** Nombre accesible cuando el texto visible («Editar») no dice sobre qué registro actúa. */
+  readonly ariaLabel?: string;
 }): JSX.Element {
   // Botones píldora de 48 px de alto (ui_blueprint §1.4). Contraste: blanco/oliva 9.41:1, blanco/peligro 6.47:1, oliva/blanco 9.41:1.
   const styles = {
@@ -168,6 +183,7 @@ export function Button({ children, type = 'button', onClick, variant = 'primary'
     <button
       type={type}
       disabled={disabled}
+      {...(ariaLabel === undefined ? {} : { 'aria-label': ariaLabel })}
       {...(onClick === undefined ? {} : { onClick })}
       className={`min-h-12 rounded-full px-5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60 ${styles[variant]}`}
     >

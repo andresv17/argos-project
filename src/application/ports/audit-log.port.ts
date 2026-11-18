@@ -6,7 +6,8 @@
  * @implements REQ-AUD-001, INV-AUD-001, INV-ARCH-005
  */
 
-import type { AuditEntry } from '../../generated/schemas/types.ts';
+// 3.1.0 (feature 004): AuditEntityType admite PET_MEDIA; el tipo de la 002 no.
+import type { AuditEntry } from '../../generated/v31/index.ts';
 import type { RepositorySet } from './repositories.port.ts';
 
 export interface AuditLogPort {

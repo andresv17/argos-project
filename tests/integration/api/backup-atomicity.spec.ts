@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { validateBackupEnvelopeV3, type BackupEnvelopeV3 } from '../../../src/generated/index.ts';
+import { validateBackupEnvelopeV31, type BackupEnvelopeV31 } from '../../../src/generated/v31/index.ts'; // T617: la exportación es 3.1.0
 import { MAX_IMPORT_BYTES } from '../../../src/application/use-cases/backup-use-cases.ts';
 import { PASSWORDS, fixtures } from '../../fixtures/application-harness.ts';
 import { digestOf, v2, v3 } from '../../fixtures/backup-harness.ts';
@@ -27,18 +27,18 @@ const ownData = () =>
 const lunaOf = () => api.db.prepare('SELECT data FROM pets WHERE id = ?').pluck().get(LUNA_ID);
 
 describe('exportación por HTTP (POST /api/backup/export)', () => {
-  it('[REQ-BACKUP2-001] exporta el sobre 3.0.0 válido solo con los datos del usuario y sin campos de propiedad, como archivo argos-backup-AAAA-MM-DD.json', async () => {
+  it('[REQ-BACKUP2-001] exporta el sobre 3.1.0 válido solo con los datos del usuario y sin campos de propiedad, como archivo argos-backup-AAAA-MM-DD.json', async () => {
     api = await createApi();
     const r = await api.call('POST', '/api/backup/export', { cookie: await api.login('andres') });
-    const envelope = r.json as BackupEnvelopeV3;
+    const envelope = r.json as BackupEnvelopeV31;
     expect([
       r.status,
       r.headers['content-disposition'],
-      validateBackupEnvelopeV3(envelope),
+      validateBackupEnvelopeV31(envelope),
       envelope.schemaVersion,
       envelope.pets.map((p) => p.name).sort(),
       envelope.pets.some((p) => 'ownerUserId' in p),
-    ]).toEqual([200, 'attachment; filename="argos-backup-2026-11-05.json"', true, '3.0.0', ['Argos', 'Kira', 'Milo', 'Nyx', 'Toby'], false]);
+    ]).toEqual([200, 'attachment; filename="argos-backup-2026-11-05.json"', true, '3.1.0', ['Argos', 'Kira', 'Milo', 'Nyx', 'Toby'], false]);
   });
 
   it('[REQ-BACKUP-001] el archivo no contiene contraseñas, hashes ni el token de sesión (INV-AUTH-003)', async () => {
@@ -51,7 +51,7 @@ describe('exportación por HTTP (POST /api/backup/export)', () => {
 });
 
 describe('importación por HTTP (POST /api/backup/import)', () => {
-  it('[REQ-BACKUP2-002] exportar e importar el mismo sobre 3.0.0 → 200 COMPLETED y los datos quedan iguales (sin asignaciones en las mascotas importadas); los datos de otro usuario no se tocan', async () => {
+  it('[REQ-BACKUP2-002] exportar e importar el mismo sobre 3.1.0 → 200 COMPLETED y los datos quedan iguales (sin asignaciones en las mascotas importadas); los datos de otro usuario no se tocan', async () => {
     api = await createApi();
     const cookie = await api.login('andres');
     const exported = await api.call('POST', '/api/backup/export', { cookie });
@@ -62,7 +62,7 @@ describe('importación por HTTP (POST /api/backup/import)', () => {
     const assignedAfter = api.db.prepare('SELECT COUNT(*) FROM pet_assignments WHERE pet_id IN (SELECT id FROM pets WHERE owner_user_id = ?)').pluck().get(USERS_BY_NAME.andres);
     expect([r.status, r.json, lunaOf() === lunaBefore, assignedBefore > 0, assignedAfter, ownData() === before]).toEqual([
       200,
-      { finalState: 'COMPLETED', sourceSchemaVersion: '3.0.0', importedPetsCount: 5, importedRecordsCount: 8 },
+      { finalState: 'COMPLETED', sourceSchemaVersion: '3.1.0', importedPetsCount: 5, importedRecordsCount: 8 },
       true,
       true,
       0,

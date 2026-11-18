@@ -77,7 +77,7 @@ export function canonicalState(): MemoryState {
 }
 
 /** Zona horaria y límites de frecuencia de las pruebas (valores iniciales de ADR-002-12: 5 exportaciones y 20 invitaciones por 15 min). */
-export const TEST_RATE_LIMITS: RateLimits = { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 20, windowMinutes: 15 } };
+export const TEST_RATE_LIMITS: RateLimits = { EXPORT: { maxPerWindow: 5, windowMinutes: 15 }, INVITE: { maxPerWindow: 20, windowMinutes: 15 }, MICROCHIP_DUPLICATE: { maxPerWindow: 5, windowMinutes: 1440 } };
 /** Ids de las filas de auditoría: secuencia aparte para no desplazar los ids de las entidades que esperan las pruebas. */
 export const AUDIT_ROW_IDS = Array.from({ length: 500 }, (_, i) => `a1000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`);
 export const RATE_EVENT_IDS = Array.from({ length: 500 }, (_, i) => `e1000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`);

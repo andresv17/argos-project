@@ -153,3 +153,29 @@ export function migrateEnvelopeV2ToV3(legacy: BackupEnvelopeV2Legacy): BackupEnv
     },
   };
 }
+
+/** Sobre 3.1.0 en su forma estructural mínima: lo que produce la lectura de cualquier versión anterior. */
+export interface BackupEnvelopeV31Shape {
+  readonly schemaVersion: '3.1.0';
+  readonly exportedAt: string;
+  readonly pets: ReadonlyArray<Record<string, unknown>>;
+  readonly records: Readonly<Record<string, ReadonlyArray<Record<string, unknown>>>>;
+}
+
+/**
+ * Sobre 3.0.0 ya validado → sobre en forma 3.1.0 para el resto de la importación (T617, REQ-BACKUP2-002, REQ-RAZ-003, REQ-SIN-001):
+ * cada mascota lleva `breedCode` nulo (el texto `breed` se conserva tal cual) y cada parámetro adicional `symptomType` y `severity` nulos.
+ * No muta la entrada. Los campos que 3.0.0 ya traía no cambian.
+ * @implements REQ-BACKUP2-002, REQ-RAZ-003, REQ-SIN-001, INV-RAZ-001
+ */
+export function liftEnvelopeV3ToV31<E extends { readonly exportedAt: string; readonly pets: ReadonlyArray<object>; readonly records: object }>(
+  envelope: E,
+): BackupEnvelopeV31Shape {
+  const records = envelope.records as Readonly<Record<string, ReadonlyArray<Record<string, unknown>>>>;
+  return {
+    schemaVersion: '3.1.0',
+    exportedAt: envelope.exportedAt,
+    pets: envelope.pets.map((pet) => ({ ...pet, breedCode: null })),
+    records: { ...records, customParameters: (records['customParameters'] ?? []).map((c) => ({ ...c, symptomType: null, severity: null })) },
+  };
+}

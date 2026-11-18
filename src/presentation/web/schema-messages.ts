@@ -47,6 +47,8 @@ const FIELD_PHRASE: Readonly<Record<string, string>> = {
   clinicOrVet: 'la clínica o el veterinario',
   observations: 'las observaciones',
   category: 'la categoría',
+  symptomType: 'el tipo de síntoma',
+  severity: 'la intensidad',
   title: 'el título',
   description: 'la descripción',
 };

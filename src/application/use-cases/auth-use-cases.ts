@@ -1,27 +1,35 @@
 /**
  * Casos de uso de autenticación: registro, login, logout, sesión actual y autenticación de peticiones.
- * - Precedencia: esquema (regla 4) y dominio (regla 5). El username ya no se normaliza (H-F5-08): con mayúsculas o
- *   espacios se rechaza en el registro y en el login no coincide con ninguna cuenta.
- * - INV-AUTH2-002: autenticar una petición válida renueva `lastActivityAt`; una rechazada no escribe nada.
- * - INV-AUTH-006: si el username no existe, LoginUseCase verifica la contraseña contra el hash ficticio, de modo
- *   que PasswordHasherPort.verify se invoca exactamente una vez en ambas ramas. Un intento bloqueado no verifica
- *   ni se registra (INV-AUTH-005, EDGE-029).
+ * - Precedencia: esquema (regla 4) y dominio (regla 5). El username se guarda tal como se escribió y es único por LOWER (REQ-LOG-002,
+ *   INV-LOG-001); con espacios se rechaza en el registro. El login acepta usuario o correo (REQ-LOG-001): el identificador se recorta y se
+ *   pasa a minúsculas con `normalizeLoginIdentifier`; un correo resuelve solo si hay EXACTAMENTE una cuenta (EDGE-007).
+ * - INV-AUTH2-002: autenticar una petición válida renueva `lastActivityAt`; una rechazada no escribe nada. Excepción: `renew: false` (SC-ALM-036).
+ * - INV-AUTH-006 / INV-LOG-002: si el usuario no existe, o el correo no tiene cuenta o tiene varias, LoginUseCase verifica la contraseña
+ *   contra el hash ficticio, de modo que PasswordHasherPort.verify se invoca exactamente una vez en todas las ramas y el error es el
+ *   mismo ERR-AUTH-INVALID-CREDENTIALS. Un intento bloqueado no verifica ni se registra (INV-AUTH-005, EDGE-029).
+ * - Límite de intentos (REQ-LOG-001, SC-CAT-020, SC-CAT-030, INV-LOG-002): los fallos se cuentan SOLO bajo el identificador normalizado (minúsculas):
+ *   el usuario y el correo de una misma cuenta tienen contadores independientes y un éxito borra únicamente la clave con la que se entró. Un
+ *   correo existente, inexistente o ambiguo se comporta igual (H-T591-2). `verifyCurrentPassword` conserva la clave del username.
  * - Los fallos de login se confirman antes de devolver el error, para que el rollback no los borre.
  *
- * @implements REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH2-002, INV-AUTH-006, INV-ARCH-001, INV-ARCH-002, INV-ARCH-005
+ * @implements REQ-AUTH2-001, REQ-AUTH2-002, REQ-LOG-001, REQ-LOG-002, INV-LOG-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH2-002, INV-AUTH-006, INV-ARCH-001, INV-ARCH-002, INV-ARCH-005
  */
 
-import { DomainError, validateLoginInput, type LoginInput, type SessionView } from '../../generated/index.ts';
+import { DomainError, type SessionView } from '../../generated/index.ts';
+// 3.1.0 (feature 004): LoginInput acepta usuario o correo hasta 254 caracteres (REQ-LOG-001); el top-level generado sigue en 3.0.0.
+import { validateLoginInput, type LoginInput } from '../../generated/v31/index.ts';
 import {
   assertNotLockedOut,
   assertUsernameAvailable,
-  evaluateLoginAttempt,
   invalidCredentialsError,
+  isEmailIdentifier,
+  normalizeLoginIdentifier,
   parseRegisterUserInput,
 } from '../../domain/auth/auth-policies.ts';
 import { assertAuthenticated, logout, openSession, renewSession, sessionExpiries, type SessionRecord } from '../../domain/auth/session-policy.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
+import { mapUsernameViolation } from './username-violation.ts';
 import { assertMatchesSchema, toSelfProfile, type ApplicationDeps } from './use-case-support.ts';
 
 export interface AuthenticatedSession {
@@ -31,8 +39,8 @@ export interface AuthenticatedSession {
 }
 
 /**
- * Reglas del esquema de LoginInput (sin x-sdd-error: todo fallo de esquema es ERR-SCHEMA-VALIDATION-FAILED). El
- * username se compara de forma exacta (REQ-AUTH2-002), sin recortar ni pasar a minúsculas.
+ * Reglas del esquema de LoginInput (sin x-sdd-error: todo fallo de esquema es ERR-SCHEMA-VALIDATION-FAILED). El campo `username` conserva
+ * su nombre por compatibilidad y trae un usuario o un correo; el recorte y la minúsculas los aplica `normalizeLoginIdentifier` después.
  */
 function parseLoginInput(input: unknown): LoginInput {
   return assertMatchesSchema<LoginInput>('LoginInput', validateLoginInput, input);
@@ -41,6 +49,17 @@ function parseLoginInput(input: unknown): LoginInput {
 /** SessionView 3.0.0: perfil propio, actividad y vencimientos derivados (INV-AUTH2-002). */
 function toSessionView(account: UserAccount, session: SessionRecord): SessionView {
   return { user: toSelfProfile(account), createdAt: session.createdAt, lastActivityAt: session.lastActivityAt, ...sessionExpiries(session) };
+}
+
+/**
+ * Resolutor del identificador de inicio de sesión (REQ-LOG-001, INV-LOG-002): `identifier` ya viene de `normalizeLoginIdentifier`. Con `@`
+ * se busca por correo y solo resuelve si hay EXACTAMENTE una cuenta (cero o varias: null, EDGE-007); sin `@` se busca por username sin
+ * distinguir mayúsculas. Nunca lanza por «no existe»: el llamador verifica contra el hash ficticio y responde el error genérico.
+ */
+export async function resolveLoginAccount(repositories: RepositorySet, identifier: string): Promise<UserAccount | null> {
+  if (!isEmailIdentifier(identifier)) return repositories.users.findByUsername(identifier);
+  const matches = await repositories.users.listByEmail(identifier);
+  return matches.length === 1 ? matches[0]! : null;
 }
 
 async function startSession(deps: ApplicationDeps, repositories: RepositorySet, account: UserAccount, now: string): Promise<AuthenticatedSession> {
@@ -74,28 +93,33 @@ export class RegisterUserUseCase {
         timezone: this.deps.clock.timeZone,
         passwordHash: await this.deps.hasher.hash(valid.password),
       };
-      await repositories.users.insert(account);
+      // Carrera entre dos altas del mismo username (INV-LOG-001): la base es la última defensa y su violación es ERR-AUTH-USERNAME-TAKEN, no un 500.
+      await mapUsernameViolation(() => repositories.users.insert(account));
       await recordAudit(this.deps, repositories, { executorUserId: account.id, mutationType: 'CREATE', entityType: 'USER', entityId: account.id, previous: null, next: account });
       return startSession(this.deps, repositories, account, now);
     });
   }
 }
 
-/** @implements REQ-AUTH2-002, INV-AUTH-006 */
+/** @implements REQ-AUTH2-002, REQ-LOG-001, INV-AUTH-006, INV-LOG-002 */
 export class LoginUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(input: unknown): Promise<AuthenticatedSession> {
     const credentials = parseLoginInput(input);
+    const identifier = normalizeLoginIdentifier(credentials.username);
     const now = this.deps.clock.nowIsoTimestamp();
     const result = await this.deps.uow.runInTransaction(async (repositories) => {
-      const failures = await repositories.loginAttempts.listFailures(credentials.username);
+      const account = await resolveLoginAccount(repositories, identifier);
+      const failures = await repositories.loginAttempts.listFailures(identifier);
       assertNotLockedOut(failures, now);
-      const account = await repositories.users.findByUsername(credentials.username);
       const matches = await this.deps.hasher.verify(credentials.password, account?.passwordHash ?? this.deps.dummyPasswordHash);
-      const outcome = evaluateLoginAttempt(failures, now, () => account !== null && matches);
-      await repositories.loginAttempts.replaceFailures(credentials.username, outcome.failures);
-      return outcome.error === null ? startSession(this.deps, repositories, account!, now) : null;
+      if (account !== null && matches) {
+        await repositories.loginAttempts.replaceFailures(identifier, []);
+        return startSession(this.deps, repositories, account, now);
+      }
+      await repositories.loginAttempts.replaceFailures(identifier, [...failures, now]);
+      return null;
     });
     if (result === null) throw invalidCredentialsError();
     return result;
@@ -126,11 +150,13 @@ export class AuthenticateRequestUseCase {
 
   /**
    * userId de la sesión vigente, que además renueva `lastActivityAt` (evento REQUEST). Sin sesión, revocada o vencida
-   * por inactividad o por tope: ERR-AUTH-UNAUTHENTICATED sin escribir nada.
+   * por inactividad o por tope: ERR-AUTH-UNAUTHENTICATED sin escribir nada. Con `renew: false` (renovación pasiva del visor,
+   * SC-ALM-036) valida con las mismas reglas y el mismo error pero NO guarda `lastActivityAt`; por omisión renueva (fail-safe).
    */
-  async execute(sessionToken: string | null): Promise<string> {
+  async execute(sessionToken: string | null, options: { readonly renew?: boolean } = {}): Promise<string> {
     const now = this.deps.clock.nowIsoTimestamp();
     return this.deps.uow.runInTransaction(async (repositories) => {
+      if (options.renew === false) return assertAuthenticated(await currentSession(repositories, sessionToken), now).userId;
       const renewed = renewSession(await currentSession(repositories, sessionToken), now);
       await repositories.sessions.save(sessionToken!, renewed);
       return renewed.userId;

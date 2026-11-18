@@ -11,8 +11,15 @@ import { STATE_ALERT_001 } from '../../generated/machines/sanitary-alert.machine
 export type Schemas = components['schemas'];
 export type PetCardView = Schemas['PetCardView'];
 export type PetDashboardView = Schemas['PetDashboardView'];
-export type PetProfile = Schemas['PetProfile'];
+/** Perfil de la mascota; `breedCode` (feature 004) es nulo en mascotas anteriores y puede faltar en datos de la 002. */
+export type PetProfile = Schemas['PetProfile'] & { readonly breedCode?: string | null };
 export type OwnerTag = Schemas['OwnerTag'];
+/** Parámetro adicional de la ficha con los campos de síntoma de la 004 (nulos o ausentes fuera de la categoría «Síntoma»). */
+export type CustomParameterView = Omit<Schemas['CustomParameterRecord'], 'category'> & {
+  readonly category: Schemas['CustomParameterRecord']['category'] | 'SYMPTOM';
+  readonly symptomType?: 'VOMIT' | 'APPETITE' | 'STOOL' | 'ENERGY' | null;
+  readonly severity?: 'MILD' | 'MODERATE' | 'SEVERE' | null;
+};
 export type OwnerColorToken = Schemas['OwnerColorToken'];
 export type AlertStateMetadata = Schemas['AlertStateMetadata'];
 export type AlertStatus = Schemas['AlertStatus'];
@@ -129,17 +136,27 @@ export function isReadOnly(permissions: PetPermissions): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Avatar (D1): origen permitido de la imagen y letras iniciales
+// Avatar (REQ-AVA-001..003, D-19 A): imagen cargada por el proxy de la misma origen, o letras iniciales; `avatarUrl` solo como enlace
 // ---------------------------------------------------------------------------
 
-export type AvatarSource = { readonly kind: 'DATA'; readonly src: string } | { readonly kind: 'REMOTE'; readonly src: string } | { readonly kind: 'INITIALS' };
+/** Ruta del avatar cargado: proxy autenticado de la misma origen con `?v=<avatarVersion>` (caché inmutable por versión); null sin avatar. @implements REQ-AVA-001 */
+export function avatarImagePath(petId: string, avatarVersion: number | null): string | null {
+  return avatarVersion === null ? null : `/api/pets/${petId}/avatar?v=${avatarVersion}`;
+}
 
-/** `data:image/png|jpeg|webp;base64` directo; `http(s)` remoto con fallback; cualquier otro valor se ignora. */
-export function avatarSource(avatarUrl: string | null | undefined): AvatarSource {
-  if (avatarUrl === null || avatarUrl === undefined) return { kind: 'INITIALS' };
-  if (/^data:image\/(?:png|jpeg|webp);base64,/.test(avatarUrl)) return { kind: 'DATA', src: avatarUrl };
-  if (/^https?:\/\//.test(avatarUrl)) return { kind: 'REMOTE', src: avatarUrl };
-  return { kind: 'INITIALS' };
+/** `avatarVersion` del perfil (entero >= 1) o null; el tipo 002 de la SPA aún no lo declara, por eso se lee sin suponer su forma. @implements REQ-AVA-001 */
+export function avatarVersionOf(profile: object): number | null {
+  const value: unknown = Reflect.get(profile, 'avatarVersion');
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 ? value : null;
+}
+
+/**
+ * `avatarUrl` solo se ofrece como enlace de texto y solo con http(s): `javascript:`, `data:` y cualquier otro esquema se descartan. Nunca se usa como
+ * `src` de una imagen (la CSP estricta lo impide, D-19 A). @implements REQ-AVA-002, REQ-AVA-003
+ */
+export function externalAvatarLink(avatarUrl: string | null | undefined): string | null {
+  const trimmed = avatarUrl?.trim() ?? '';
+  return /^https?:\/\/\S+$/i.test(trimmed) ? trimmed : null;
 }
 
 /** Primera letra de las dos primeras palabras del nombre, en mayúscula. */

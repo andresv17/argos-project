@@ -2,8 +2,9 @@
  * Repositorios PostgreSQL detrás de los puertos de aplicación (misma firma que el adaptador SQLite). Solo se usan dentro de
  * `PostgresUnitOfWork.runInTransaction`, sobre el cliente de esa transacción.
  * - PARTE 1 (T422): usuarios, sesiones, intentos de acceso, límites de frecuencia y tokens de respaldo.
- * - PARTE 2 (T423): mascotas, pesos y los 5 módulos clínicos (cascadas por ON DELETE CASCADE; microchip único por propietario
- *   impuesto por el índice parcial `pets_owner_microchip`, cuya violación 23505 se propaga sin ocultarse).
+ * - PARTE 2 (T423): mascotas, pesos y los 5 módulos clínicos (cascadas por ON DELETE CASCADE; microchip único en todo el sistema
+ *   impuesto por el índice parcial `pets_microchip_global` (0004, REQ-PET4-001), cuya violación 23505 el caso de uso mapea por su nombre
+ *   exacto sin propagar `detail` ni `constraint` del driver).
  * - PARTE 3 (T424): hogares, membresías, invitaciones, asignaciones y auditoría; `createPostgresRepositories` compone las 3
  *   partes en el `RepositorySet` completo. Un solo propietario ACTIVE por hogar (INV-HOUSE2-001) y una sola invitación abierta
  *   por (hogar, username) (INV-HOUSE-003) los imponen los índices parciales; sus violaciones 23505 se propagan sin traducir.
@@ -21,20 +22,14 @@
 
 import {
   DomainError,
-  validateBodyMeasurementRecord,
-  validateCustomParameterRecord,
-  validateDewormingRecord,
   validateHousehold,
-  validateMedicalVisitRecord,
-  validatePetProfile,
-  validateUserPublicProfile,
-  validateVaccinationRecord,
-  validateWeightRecord,
   type AuditEntry,
   type Household,
-  type PetProfile,
   type UserPublicProfile,
 } from '../../../generated/index.ts';
+// 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
+import { validateUserPublicProfile } from '../../../generated/v31/index.ts';
+import { isStoredPetProfile, type PetProfile, type PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
@@ -51,12 +46,15 @@ import type {
   SessionRepositoryPort,
   UserAccount,
   UserRepositoryPort,
+  MediaDeletionEntry,
+  MediaDeletionQueuePort,
+  PetMediaRecord,
+  PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
-import { corruptData, isSessionRecord, sessionTokenHash } from '../sqlite/sqlite-repositories.ts';
+import { corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
-import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
-import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
+import { STORED_RECORD_CHECKS, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 
 type Check<T> = (value: unknown) => value is T;
@@ -121,9 +119,18 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
       const { rows } = await client.query(`${USER_COLUMNS} WHERE id = $1`, [userId]);
       return rows[0] === undefined ? null : toAccount(rows[0]);
     },
-    async findByUsername(username) {
-      const { rows } = await client.query(`${USER_COLUMNS} WHERE username = $1`, [username]);
+    async findByIdForUpdate(userId) {
+      // Candado del propietario (REQ-BOR-005): va antes que el de la mascota (orden usuario -> mascota).
+      const { rows } = await client.query(`${USER_COLUMNS} WHERE id = $1 FOR UPDATE`, [userId]);
       return rows[0] === undefined ? null : toAccount(rows[0]);
+    },
+    async findByUsername(username) {
+      const { rows } = await client.query(`${USER_COLUMNS} WHERE LOWER(username) = LOWER($1)`, [username]);
+      return rows[0] === undefined ? null : toAccount(rows[0]);
+    },
+    async listByEmail(normalizedEmail) {
+      const { rows } = await client.query(`${USER_COLUMNS} WHERE LOWER(email) = LOWER($1) LIMIT 2`, [normalizedEmail]);
+      return rows.map(toAccount);
     },
     async listByIds(userIds) {
       const { rows } = await client.query(`${USER_COLUMNS} WHERE id = ANY($1::text[])`, [[...userIds]]);
@@ -262,12 +269,12 @@ function rateLimitRepository(client: PoolClientLike): RateLimitRepositoryPort {
 
 /** Tabla de cada módulo de registros y su validador generado (los nombres de tabla son constantes, nunca entrada). */
 const RECORD_TABLES: { readonly [M in RecordModule]: { readonly table: string; readonly check: Check<RecordOf<M>> } } = {
-  weights: { table: 'weights', check: validateWeightRecord },
-  bodyMeasurements: { table: 'body_measurements', check: validateBodyMeasurementRecord },
-  vaccinations: { table: 'vaccinations', check: validateVaccinationRecord },
-  dewormings: { table: 'dewormings', check: validateDewormingRecord },
-  medicalVisits: { table: 'medical_visits', check: validateMedicalVisitRecord },
-  customParameters: { table: 'custom_parameters', check: validateCustomParameterRecord },
+  weights: { table: 'weights', check: STORED_RECORD_CHECKS.weights },
+  bodyMeasurements: { table: 'body_measurements', check: STORED_RECORD_CHECKS.bodyMeasurements },
+  vaccinations: { table: 'vaccinations', check: STORED_RECORD_CHECKS.vaccinations },
+  dewormings: { table: 'dewormings', check: STORED_RECORD_CHECKS.dewormings },
+  medicalVisits: { table: 'medical_visits', check: STORED_RECORD_CHECKS.medicalVisits },
+  customParameters: { table: 'custom_parameters', check: STORED_RECORD_CHECKS.customParameters },
 };
 const RECORD_MODULE_NAMES = Object.keys(RECORD_TABLES) as RecordModule[];
 
@@ -282,7 +289,7 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
       'pets',
       id,
       row['data'],
-      validatePetProfile,
+      isStoredPetProfile,
       (p) =>
         p.id === row['id'] &&
         p.ownerUserId === row['owner_user_id'] &&
@@ -298,13 +305,19 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
       const { rows } = await client.query(`SELECT ${PET_COLUMNS} FROM pets WHERE id = $1`, [petId]);
       return rows[0] === undefined ? null : toPet(rows[0]);
     },
+    async findByIdForUpdate(petId) {
+      // Candado de mascota (REQ-BOR-005, ADR-004-05): la fila queda bloqueada hasta el COMMIT o el ROLLBACK.
+      const { rows } = await client.query(`SELECT ${PET_COLUMNS} FROM pets WHERE id = $1 FOR UPDATE`, [petId]);
+      return rows[0] === undefined ? null : toPet(rows[0]);
+    },
     async listByOwners(ownerUserIds) {
       const { rows } = await client.query(`SELECT ${PET_COLUMNS} FROM pets WHERE owner_user_id = ANY($1::text[])`, [[...ownerUserIds]]);
       return rows.map(toPet);
     },
     async save(pet) {
-      // UPSERT (no REPLACE): reemplazar una mascota no dispara la cascada de sus registros. Un microchip repetido del mismo
-      // propietario viola `pets_owner_microchip` (23505) y el error se propaga tal cual (INV-PET-005, REQ-PET2-001).
+      // UPSERT (no REPLACE): reemplazar una mascota no dispara la cascada de sus registros. Un microchip repetido, propio o de
+      // otro propietario, viola `pets_microchip_global` (23505): este adaptador no lo traduce; `mapMicrochipViolation` lo hace en el caso de uso
+      // (INV-PET-005, REQ-PET4-001).
       await client.query(
         `INSERT INTO pets (${PET_COLUMNS}) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8)
          ON CONFLICT (id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id, data = EXCLUDED.data, species = EXCLUDED.species,
@@ -313,7 +326,7 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
         [
           pet.id,
           pet.ownerUserId,
-          encode('pets', pet.id, pet, validatePetProfile),
+          encode('pets', pet.id, pet, isStoredPetProfile),
           pet.species,
           pet.speciesOther,
           pet.neutered === null ? null : pet.neutered ? 1 : 0,
@@ -325,6 +338,129 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
     async delete(petId) {
       // INV-PET-005: ON DELETE CASCADE borra en la misma sentencia los registros de los 6 módulos y las asignaciones.
       await client.query('DELETE FROM pets WHERE id = $1', [petId]);
+    },
+    async findAvatarVersions(petIds) {
+      const { rows } = await client.query('SELECT id, avatar_version, avatar_object_id FROM pets WHERE id = ANY($1::text[])', [[...petIds]]);
+      return new Map(rows.map((row) => [String(row['id']), row['avatar_object_id'] === null ? null : Number(row['avatar_version'])] as const));
+    },
+    async findAvatar(petId) {
+      const { rows } = await client.query('SELECT avatar_version, avatar_object_id FROM pets WHERE id = $1', [petId]);
+      return rows[0] === undefined ? null : { version: Number(rows[0]['avatar_version']), objectId: (rows[0]['avatar_object_id'] as string | null) ?? null };
+    },
+    async replaceAvatar(petId, objectId) {
+      // Una sola sentencia: la versión solo crece (INV-AVA-001). Sin fila afectada, la mascota no existe.
+      const { rows } = await client.query('UPDATE pets SET avatar_version = avatar_version + 1, avatar_object_id = $1 WHERE id = $2 RETURNING avatar_version, avatar_object_id', [objectId, petId]);
+      if (rows[0] === undefined) throw new Error('FOREIGN KEY constraint failed: pets');
+      return { version: Number(rows[0]['avatar_version']), objectId: rows[0]['avatar_object_id'] as string };
+    },
+    async clearAvatar(petId) {
+      await client.query('UPDATE pets SET avatar_object_id = NULL WHERE id = $1', [petId]);
+    },
+    async raiseAvatarVersion(petId, version) {
+      await client.query('UPDATE pets SET avatar_version = $1 WHERE id = $2 AND avatar_version < $1', [version, petId]);
+    },
+  };
+}
+
+const MEDIA_COLUMNS = 'id, pet_id, kind, mime, size_bytes, original_name, created_at';
+/** Clave derivada del medio (INV-ARC-003), idéntica en SQL a `mediaObjectKey` del dominio. */
+const DERIVED_MEDIA_KEY = "'pets/' || pet_id || '/' || CASE kind WHEN 'FILE' THEN 'files' ELSE 'photos' END || '/' || id";
+
+const toMedia = (row: Row): PetMediaRecord => ({
+  id: String(row['id']),
+  petId: String(row['pet_id']),
+  kind: row['kind'] as PetMediaRecord['kind'],
+  mime: String(row['mime']),
+  sizeBytes: Number(row['size_bytes']),
+  originalName: String(row['original_name']),
+  createdAt: String(row['created_at']),
+});
+
+/** `pet_media` (REQ-GCS-005): solo metadatos; la clave del objeto se deriva. @implements REQ-GCS-005, INV-ALB-001, REQ-ARC-005 */
+function mediaRepository(client: PoolClientLike): PetMediaRepositoryPort {
+  return {
+    async insert(media) {
+      await client.query(`INSERT INTO pet_media (${MEDIA_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [
+        media.id, media.petId, media.kind, media.mime, media.sizeBytes, media.originalName, media.createdAt,
+      ]);
+    },
+    async findById(petId, mediaId) {
+      const { rows } = await client.query(`SELECT ${MEDIA_COLUMNS} FROM pet_media WHERE id = $1 AND pet_id = $2`, [mediaId, petId]);
+      return rows[0] === undefined ? null : toMedia(rows[0]);
+    },
+    async listPage(petId, kind, limit, offset) {
+      const { rows } = await client.query(`SELECT ${MEDIA_COLUMNS} FROM pet_media WHERE pet_id = $1 AND ($2::text IS NULL OR kind = $2) ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`, [petId, kind, limit, offset]);
+      const total = await client.query('SELECT COUNT(*) AS n FROM pet_media WHERE pet_id = $1 AND ($2::text IS NULL OR kind = $2)', [petId, kind]);
+      return { items: rows.map(toMedia), total: count(total.rows[0]) };
+    },
+    async countBytesOfOwner(ownerUserId) {
+      const { rows } = await client.query('SELECT COALESCE(SUM(m.size_bytes), 0) AS n FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = $1', [ownerUserId]);
+      return count(rows[0]);
+    },
+    async remove(petId, mediaId) {
+      const result = await client.query('DELETE FROM pet_media WHERE id = $1 AND pet_id = $2', [mediaId, petId]);
+      return result.rowCount === 1;
+    },
+    async countObjectsOfPets(petIds) {
+      const { rows } = await client.query(
+        'SELECT (SELECT COUNT(*) FROM pet_media WHERE pet_id = ANY($1::text[])) + (SELECT COUNT(*) FROM pets WHERE id = ANY($1::text[]) AND avatar_object_id IS NOT NULL) AS n',
+        [[...petIds]],
+      );
+      return count(rows[0]);
+    },
+  };
+}
+
+const toQueueEntry = (row: Row): MediaDeletionEntry => ({
+  objectKey: String(row['object_key']),
+  reason: row['reason'] as MediaDeletionEntry['reason'],
+  enqueuedAt: String(row['enqueued_at']),
+  attempts: Number(row['attempts']),
+});
+
+/** `media_deletion_queue` (REQ-GCS-004, REQ-GCS-006): sin clave foránea. @implements REQ-GCS-004, REQ-GCS-006, INV-GCS-002 */
+function mediaQueueRepository(client: PoolClientLike): MediaDeletionQueuePort {
+  return {
+    async enqueue(objectKey, reason, enqueuedAt) {
+      await client.query(
+        `INSERT INTO media_deletion_queue (object_key, reason, enqueued_at) VALUES ($1, $2, $3)
+         ON CONFLICT (object_key) DO UPDATE SET reason = CASE WHEN EXCLUDED.reason = 'DELETE' THEN 'DELETE' ELSE media_deletion_queue.reason END`,
+        [objectKey, reason, enqueuedAt],
+      );
+    },
+    async enqueueObjectsOfPet(petId, enqueuedAt) {
+      // INSERT … SELECT con las claves derivadas (medios y avatar) en la misma sentencia y la misma transacción (data-model.md §3).
+      const { rows } = await client.query(
+        `INSERT INTO media_deletion_queue (object_key, reason, enqueued_at)
+         SELECT ${DERIVED_MEDIA_KEY}, 'DELETE', $2 FROM pet_media WHERE pet_id = $1
+         UNION ALL SELECT 'pets/' || id || '/avatar/' || avatar_object_id, 'DELETE', $2 FROM pets WHERE id = $1 AND avatar_object_id IS NOT NULL
+         ON CONFLICT (object_key) DO UPDATE SET reason = 'DELETE'
+         RETURNING object_key`,
+        [petId, enqueuedAt],
+      );
+      return rows.map((row) => String(row['object_key']));
+    },
+    async findByKey(objectKey) {
+      const { rows } = await client.query('SELECT object_key, reason, enqueued_at, attempts FROM media_deletion_queue WHERE object_key = $1', [objectKey]);
+      return rows[0] === undefined ? null : toQueueEntry(rows[0]);
+    },
+    async listPending(limit) {
+      const { rows } = await client.query('SELECT object_key, reason, enqueued_at, attempts FROM media_deletion_queue ORDER BY enqueued_at, object_key LIMIT $1', [limit]);
+      return rows.map(toQueueEntry);
+    },
+    async remove(objectKey) {
+      await client.query('DELETE FROM media_deletion_queue WHERE object_key = $1', [objectKey]);
+    },
+    async recordFailure(objectKey) {
+      await client.query('UPDATE media_deletion_queue SET attempts = attempts + 1 WHERE object_key = $1', [objectKey]);
+    },
+    async promoteStaleIntents(olderThanExclusive) {
+      const result = await client.query("UPDATE media_deletion_queue SET reason = 'DELETE' WHERE reason = 'INTENT' AND enqueued_at < $1", [olderThanExclusive]);
+      return result.rowCount ?? 0;
+    },
+    async countOlderThan(cutoffExclusive) {
+      const { rows } = await client.query('SELECT COUNT(*) AS n FROM media_deletion_queue WHERE enqueued_at < $1', [cutoffExclusive]);
+      return count(rows[0]);
     },
   };
 }
@@ -338,9 +474,9 @@ function recordRepository(client: PoolClientLike): MedicalRecordRepositoryPort {
       const result = {} as Record<RecordModule, unknown[]>;
       for (const module of RECORD_MODULE_NAMES) {
         const { table, check } = RECORD_TABLES[module];
-        const { rows } = await client.query(`SELECT id, pet_id, data${isWeights(module) ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = $1`, [petId]);
+        const { rows } = await client.query(`SELECT id, pet_id, data, revision${isWeights(module) ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = $1`, [petId]);
         result[module] = rows.map((row) =>
-          decode(table, String(row['id']), row['data'], check as Check<{ id: string; petId: string; weightKg?: number }>, (r) =>
+          decode(table, String(row['id']), withRevision(table, String(row['id']), row['data'], Number(row['revision'])), check as Check<{ id: string; petId: string; weightKg?: number }>, (r) =>
             r.id === row['id'] && r.petId === row['pet_id'] && (!isWeights(module) || Number(row['weight_grams']) === weightKgToGrams(r.weightKg!)),
           ),
         );
@@ -356,29 +492,31 @@ function recordRepository(client: PoolClientLike): MedicalRecordRepositoryPort {
     },
     async add<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const { table, check } = RECORD_TABLES[module];
-      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
+      const { data, revision } = encodeRecord(table, record, check as Check<RecordOf<M>>);
       if (isWeights(module)) {
-        await client.query('INSERT INTO weights (id, pet_id, data, weight_grams) VALUES ($1, $2, $3::jsonb, $4)', [
+        await client.query('INSERT INTO weights (id, pet_id, data, revision, weight_grams) VALUES ($1, $2, $3::jsonb, $4, $5)', [
           record.id,
           record.petId,
           data,
+          revision,
           weightKgToGrams((record as RecordOf<'weights'>).weightKg),
         ]);
       } else {
-        await client.query(`INSERT INTO ${table} (id, pet_id, data) VALUES ($1, $2, $3::jsonb)`, [record.id, record.petId, data]);
+        await client.query(`INSERT INTO ${table} (id, pet_id, data, revision) VALUES ($1, $2, $3::jsonb, $4)`, [record.id, record.petId, data, revision]);
       }
     },
     async replace<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const { table, check } = RECORD_TABLES[module];
-      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
+      const { data, revision } = encodeRecord(table, record, check as Check<RecordOf<M>>);
       const result = isWeights(module)
-        ? await client.query('UPDATE weights SET data = $1::jsonb, weight_grams = $2 WHERE id = $3 AND pet_id = $4', [
+        ? await client.query('UPDATE weights SET data = $1::jsonb, revision = $2, weight_grams = $3 WHERE id = $4 AND pet_id = $5', [
             data,
+            revision,
             weightKgToGrams((record as RecordOf<'weights'>).weightKg),
             record.id,
             record.petId,
           ])
-        : await client.query(`UPDATE ${table} SET data = $1::jsonb WHERE id = $2 AND pet_id = $3`, [data, record.id, record.petId]);
+        : await client.query(`UPDATE ${table} SET data = $1::jsonb, revision = $2 WHERE id = $3 AND pet_id = $4`, [data, revision, record.id, record.petId]);
       if (result.rowCount !== 1) throw corruptData(table, record.id);
     },
     async remove(module, petId, recordId) {
@@ -392,11 +530,11 @@ function recordRepository(client: PoolClientLike): MedicalRecordRepositoryPort {
 }
 
 /** Repositorios de la parte 2 (T423): mascotas y registros clínicos. */
-export type PostgresRepositoriesPart2 = Pick<RepositorySet, 'pets' | 'records'>;
+export type PostgresRepositoriesPart2 = Pick<RepositorySet, 'pets' | 'records' | 'media' | 'mediaQueue'>;
 
 /** @implements REQ-PG-002, INV-ARCH-005 */
 export function createPostgresRepositoriesPart2(client: PoolClientLike): PostgresRepositoriesPart2 {
-  return { pets: petRepository(client), records: recordRepository(client) };
+  return { pets: petRepository(client), records: recordRepository(client), media: mediaRepository(client), mediaQueue: mediaQueueRepository(client) };
 }
 
 /** Repositorios de la parte 1 (T422) sobre el cliente de la transacción; T423 y T424 completan `RepositorySet`. */
@@ -501,13 +639,13 @@ function invitationRepository(client: PoolClientLike): InvitationRepositoryPort 
   return {
     async findOpen(householdId, inviteeUsername) {
       const { rows } = await client.query(
-        `SELECT ${INVITATION_COLUMNS} FROM household_invitations WHERE household_id = $1 AND invitee_username = $2 AND status = 'INVITED'`,
+        `SELECT ${INVITATION_COLUMNS} FROM household_invitations WHERE household_id = $1 AND LOWER(invitee_username) = LOWER($2) AND status = 'INVITED'`,
         [householdId, inviteeUsername],
       );
       return rows[0] === undefined ? null : toRecord(rows[0]);
     },
     async save(invitation) {
-      // INV-HOUSE-003: household_invitations_one_open rechaza una segunda INVITED del mismo (hogar, username) con 23505.
+      // INV-HOUSE-003: household_invitations_one_open (hogar, LOWER(invitee_username)) rechaza una segunda INVITED con 23505 (REQ-LOG-002).
       await client.query(
         `INSERT INTO household_invitations (${INVITATION_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (id) DO UPDATE SET household_id = EXCLUDED.household_id, invitee_username = EXCLUDED.invitee_username,

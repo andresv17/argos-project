@@ -31,6 +31,8 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         exportWindowMinutes: 15,
         inviteMaxPerWindow: 20,
         inviteWindowMinutes: 15,
+        microchipDuplicateMaxPerWindow: 5,
+        microchipDuplicateWindowMinutes: 1440,
         auditRetentionDays: 730,
         auditHmacSecret: null,
         dbDriver: 'sqlite',
@@ -38,6 +40,12 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         schedulerEmail: null,
         oidcAudience: null,
         databaseUrl: null,
+        mediaDriver: 'memory',
+        mediaBucket: null,
+        mediaSignedUrlTtlSeconds: 300,
+        mediaMaxBytes: 10485760,
+        mediaMaxBytesPerOwner: 1073741824,
+        mediaMaxConcurrentUploads: 4,
       },
       APP_CONFIG_DEFAULTS,
     ]);
@@ -54,6 +62,13 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   it('[INV-ARCH-006][ERR-RATE-LIMITED] los límites de frecuencia salen de EXPORT_MAX_PER_WINDOW, EXPORT_WINDOW_MINUTES, INVITE_MAX_PER_WINDOW e INVITE_WINDOW_MINUTES y se convierten a enteros', () => {
     const config = loadAppConfig({ NODE_ENV: 'test', EXPORT_MAX_PER_WINDOW: '2', EXPORT_WINDOW_MINUTES: '60', INVITE_MAX_PER_WINDOW: '100', INVITE_WINDOW_MINUTES: '5' });
     expect([config.exportMaxPerWindow, config.exportWindowMinutes, config.inviteMaxPerWindow, config.inviteWindowMinutes]).toEqual([2, 60, 100, 5]);
+  });
+
+  it('[INV-ARCH-006][ERR-RATE-LIMITED][REQ-PET4-002] el límite de duplicados de microchip sale de MICROCHIP_DUPLICATE_MAX_PER_WINDOW (5) y MICROCHIP_DUPLICATE_WINDOW_MINUTES (1440) y se convierte a enteros', () => {
+    const byDefault = loadAppConfig({ NODE_ENV: 'test' });
+    const custom = loadAppConfig({ NODE_ENV: 'test', MICROCHIP_DUPLICATE_MAX_PER_WINDOW: '3', MICROCHIP_DUPLICATE_WINDOW_MINUTES: '60' });
+    const empty = loadAppConfig({ NODE_ENV: 'test', MICROCHIP_DUPLICATE_MAX_PER_WINDOW: '', MICROCHIP_DUPLICATE_WINDOW_MINUTES: '' });
+    expect([byDefault, custom, empty].map((c) => [c.microchipDuplicateMaxPerWindow, c.microchipDuplicateWindowMinutes])).toEqual([[5, 1440], [3, 60], [5, 1440]]);
   });
 
   it.each([
@@ -76,6 +91,9 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     [{ INVITE_WINDOW_MINUTES: 'quince' }, ['INVITE_WINDOW_MINUTES']],
     [{ INVITE_MAX_PER_WINDOW: '010' }, ['INVITE_MAX_PER_WINDOW']],
     [{ EXPORT_MAX_PER_WINDOW: '0', INVITE_WINDOW_MINUTES: '0' }, ['EXPORT_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES']],
+    [{ MICROCHIP_DUPLICATE_MAX_PER_WINDOW: '0' }, ['MICROCHIP_DUPLICATE_MAX_PER_WINDOW']],
+    [{ MICROCHIP_DUPLICATE_WINDOW_MINUTES: '1.5' }, ['MICROCHIP_DUPLICATE_WINDOW_MINUTES']],
+    [{ MICROCHIP_DUPLICATE_MAX_PER_WINDOW: '05', MICROCHIP_DUPLICATE_WINDOW_MINUTES: 'un día' }, ['MICROCHIP_DUPLICATE_MAX_PER_WINDOW', 'MICROCHIP_DUPLICATE_WINDOW_MINUTES']],
   ])('[INV-ARCH-006] una variable inválida se rechaza con AppConfigError que la nombra: %j', (env, variables) => {
     expect(configError(env)).toEqual(variables);
   });
@@ -92,12 +110,14 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
 
   // T409 (D-26, enmienda 3.3.0, REQ-CLD-003): sustituyen la aserción única «HOST=0.0.0.0 se rechaza» por la regla completa.
   const PROD_SECRET = '1f'.repeat(32);
+  // T566 (SC-ALM-023): en production el driver de medios debe ser gcs con bucket; los fixtures de production lo aportan para aislar su variable.
+  const PROD_MEDIA = { ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
   const PG_URL = 'postgres://argos:clave@db.example.internal:5432/argos?sslmode=require';
   // Con postgres, schedulerEmail y oidcAudience son obligatorias (D-A1): los fixtures anteriores a T414 las aportan para seguir aislando su variable.
   const PG_CLOUD = { ARGOS_SCHEDULER_EMAIL: 'argos-scheduler@argos-prod-1234.iam.gserviceaccount.com', ARGOS_OIDC_AUDIENCE: 'https://argos-abcdef-uc.a.run.app' };
 
   it('[REQ-CLD-003][D-26] HOST=0.0.0.0 se acepta con NODE_ENV=production y host queda en 0.0.0.0', () => {
-    const config = loadAppConfig({ NODE_ENV: 'production', HOST: '0.0.0.0', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET });
+    const config = loadAppConfig({ NODE_ENV: 'production', HOST: '0.0.0.0', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET, ...PROD_MEDIA });
     expect(config.host).toBe('0.0.0.0');
   });
 
@@ -107,7 +127,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   });
 
   it.each([
-    ['production', { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET }],
+    ['production', { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET, ...PROD_MEDIA }],
     ['postgres', { ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: PG_URL }],
   ])('[REQ-CLD-003][D-26] con %s se siguen rechazando "::", "localhost", 10.x y espacios en HOST', (_caso, entorno) => {
     const rechazos = ['::', 'localhost', '10.0.0.1', '10.255.255.255', ' '].map((host) => configError({ ...entorno, HOST: host }));
@@ -119,13 +139,13 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   });
 
   it('[REQ-CLD-003][D-26] sin HOST el valor es 127.0.0.1 también en production y con postgres', () => {
-    const production = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET };
+    const production = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET, ...PROD_MEDIA };
     const postgres = { ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: PG_URL };
     expect([loadAppConfig({ NODE_ENV: 'test' }).host, loadAppConfig(production).host, loadAppConfig({ NODE_ENV: 'test', ...postgres }).host]).toEqual(['127.0.0.1', '127.0.0.1', '127.0.0.1']);
   });
 
   it('[REQ-CLD-003][D-26] HOST="" explícito se rechaza (orden de Neo) en test, production y postgres; solo la variable ausente toma 127.0.0.1', () => {
-    const production = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET };
+    const production = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET, ...PROD_MEDIA };
     const postgres = { ARGOS_DB_DRIVER: 'postgres', ...PG_CLOUD, DATABASE_URL: PG_URL };
     expect([configError({ HOST: '' }), configError({ ...production, HOST: '' }), configError({ ...postgres, HOST: '' }), configError({ HOST: ' ' })]).toEqual([['HOST'], ['HOST'], ['HOST'], ['HOST']]);
   });
@@ -153,7 +173,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     ['cadena vacía', { ARGOS_DB_DRIVER: '' }],
     ['mayúsculas', { ARGOS_DB_DRIVER: 'POSTGRES', DATABASE_URL: PG_URL }],
     ['memory en development', { NODE_ENV: 'development', ARGOS_DB_DRIVER: 'memory', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET }],
-    ['memory en production', { NODE_ENV: 'production', ARGOS_DB_DRIVER: 'memory', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET }],
+    ['memory en production', { NODE_ENV: 'production', ARGOS_DB_DRIVER: 'memory', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET, ...PROD_MEDIA }],
   ])('[REQ-PG-010] ARGOS_DB_DRIVER inválido se rechaza nombrando solo la variable: %s', (_caso, env) => {
     expect(configError(env)).toEqual(['ARGOS_DB_DRIVER']);
   });

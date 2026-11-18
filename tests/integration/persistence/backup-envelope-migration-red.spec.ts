@@ -24,6 +24,8 @@ const sha256 = (text: string) => createHash('sha256').update(text).digest('hex')
 const preview = (cookie: string, raw: string) => api.call('POST', PREVIEW, { cookie, raw, contract: false });
 const importFile = (cookie: string, raw: string) => api.call('POST', IMPORT, { cookie, raw, headers: { 'x-argos-import-confirm': sha256(raw) }, contract: false });
 const auditCount = () => api.db.prepare('SELECT COUNT(*) FROM audit_log').pluck().get() as number;
+/** Volcado sin `revision`: repetir una importación sube la revisión de los registros que ya existían (REQ-BOR-005) y nada más cambia. */
+const stableDump = () => api.dump().replace(/,"revision":\d+/g, '');
 const importRows = () => api.db.prepare("SELECT COUNT(*) FROM audit_log WHERE mutation_type = 'IMPORT'").pluck().get() as number;
 
 /** Sobre 2.0.0 tal cual lo escribió la 001: DOG/CAT, ownerUserId por mascota y exportedByUserId. */
@@ -115,9 +117,9 @@ describe('migración 2.0.0 → 3.0.0 al importar (STATE-BACKUP-001, REQ-BACKUP2-
     const cookie = await api.login('andres');
     const text = legacyV2();
     const first = await importFile(cookie, text);
-    const afterFirst = api.dump();
+    const afterFirst = stableDump();
     const second = await importFile(cookie, text);
-    expect([first.status, second.status, second.json, api.dump() === afterFirst, importRows()]).toEqual([
+    expect([first.status, second.status, second.json, stableDump() === afterFirst, importRows()]).toEqual([
       200,
       200,
       { finalState: 'COMPLETED', sourceSchemaVersion: '2.0.0', importedPetsCount: 5, importedRecordsCount: 8 },
@@ -162,9 +164,9 @@ describe('migración 1.0.0 → 3.0.0 al importar (STATE-BACKUP-001, REQ-BACKUP2-
     const cookie = await api.login('andres');
     const text = legacyV1();
     await importFile(cookie, text);
-    const afterFirst = api.dump();
+    const afterFirst = stableDump();
     const second = await importFile(cookie, text);
-    expect([second.status, api.dump() === afterFirst]).toEqual([200, true]);
+    expect([second.status, stableDump() === afterFirst]).toEqual([200, true]);
   });
 });
 

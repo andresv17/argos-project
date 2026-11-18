@@ -7,7 +7,10 @@
  * @implements INV-ARCH-004, INV-ARCH-005, INV-PET-003
  */
 
-import type { AuditEntry, Household, HouseholdInvitation, PetProfile, UserSelfProfile } from '../../generated/index.ts';
+import type { MediaKind } from '../../domain/media/index.ts';
+import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
+import type { Household, HouseholdInvitation, UserSelfProfile } from '../../generated/index.ts';
+import type { AuditEntry } from '../../generated/v31/index.ts';
 import type { LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
@@ -20,8 +23,21 @@ export interface UserAccount extends UserSelfProfile {
 
 export interface UserRepositoryPort {
   findById(userId: string): Promise<UserAccount | null>;
-  /** Búsqueda exacta por username ya normalizado (recortado y en minúsculas, INV-AUTH-001). */
+  /**
+   * Lee el usuario y toma el candado del propietario hasta el final de la transacción (`SELECT … FOR UPDATE` en Postgres; en SQLite
+   * y en memoria el candado de la transacción ya es de escritura). Va ANTES que el de la mascota (REQ-BOR-005, ADR-004-05).
+   */
+  findByIdForUpdate(userId: string): Promise<UserAccount | null>;
+  /**
+   * Búsqueda por username SIN distinguir mayúsculas (`LOWER(username)`; el índice único `users_username_lower` garantiza a lo sumo una
+   * cuenta, INV-LOG-001, REQ-LOG-002). El valor guardado conserva la capitalización con que se registró.
+   */
   findByUsername(username: string): Promise<UserAccount | null>;
+  /**
+   * Cuentas cuyo correo coincide con `normalizedEmail` (recortado y en minúsculas) sin distinguir mayúsculas (`LOWER(email)`). El correo NO es
+   * único (002): devuelve hasta 2 filas, de modo que quien llama distingue «una sola cuenta» de «ambiguo» (REQ-LOG-001, EDGE-007).
+   */
+  listByEmail(normalizedEmail: string): Promise<UserAccount[]>;
   listByIds(userIds: readonly string[]): Promise<UserAccount[]>;
   /** Falla si el id o el username ya existen. */
   insert(user: UserAccount): Promise<void>;
@@ -50,7 +66,7 @@ export interface SessionRepositoryPort {
 }
 
 export interface LoginAttemptRepositoryPort {
-  /** Instantes de los fallos registrados para el username normalizado (INV-AUTH-005). */
+  /** Instantes de los fallos registrados para el identificador normalizado, en minúsculas (INV-AUTH-005, REQ-LOG-001). */
   listFailures(username: string): Promise<string[]>;
   replaceFailures(username: string, failures: readonly string[]): Promise<void>;
   /** Borra la entrada del username (la elimina de la cuenta, REQ-ACC-002). */
@@ -69,7 +85,7 @@ export interface ConfirmationTokenRepositoryPort {
   deleteForUser(userId: string): Promise<void>;
 }
 
-export type RateLimitScope = 'EXPORT' | 'INVITE';
+export type RateLimitScope = 'EXPORT' | 'INVITE' | 'MICROCHIP_DUPLICATE';
 
 export interface RateLimitEvent {
   readonly id: string;
@@ -92,7 +108,7 @@ export interface InvitationRecord extends HouseholdInvitation {
 }
 
 export interface InvitationRepositoryPort {
-  /** La invitación INVITED del hogar para ese username, o null. */
+  /** La invitación INVITED del hogar para ese username (sin distinguir mayúsculas, REQ-LOG-002), o null. */
   findOpen(householdId: string, inviteeUsername: string): Promise<InvitationRecord | null>;
   /** Inserta o reemplaza por invitationId. Una segunda INVITED del mismo (hogar, username) se rechaza (INV-HOUSE-003). */
   save(invitation: InvitationRecord): Promise<void>;
@@ -106,10 +122,99 @@ export interface InvitationRepositoryPort {
 
 export interface PetRepositoryPort {
   findById(petId: string): Promise<PetProfile | null>;
+  /**
+   * Lee la mascota y toma su candado hasta el final de la transacción (`SELECT … FOR UPDATE` en Postgres; `BEGIN IMMEDIATE` ya es el
+   * candado en SQLite y las transacciones de memoria van en serie). Toda mutación de registros, medios o avatar lo toma primero
+   * (REQ-BOR-005, INV-REG-003).
+   */
+  findByIdForUpdate(petId: string): Promise<PetProfile | null>;
   listByOwners(ownerUserIds: readonly string[]): Promise<PetProfile[]>;
-  /** Inserta o reemplaza por id. */
+  /** Inserta o reemplaza por id. NO toca las columnas de avatar: un `PATCH` de la mascota no puede revertir el avatar (INV-AVA-001). */
   save(pet: PetProfile): Promise<void>;
   delete(petId: string): Promise<void>;
+  /**
+   * `avatarVersion` de la API de cada mascota existente en UNA lectura: `avatar_version` si `avatar_object_id` no es nulo y `null` en otro caso
+   * (REQ-AVA-001). Las mascotas inexistentes no aparecen en el mapa.
+   */
+  findAvatarVersions(petIds: readonly string[]): Promise<ReadonlyMap<string, number | null>>;
+  /** Estado del avatar de la mascota (`avatar_version`, `avatar_object_id`); null si la mascota no existe. */
+  findAvatar(petId: string): Promise<AvatarState | null>;
+  /**
+   * Cambia el avatar: `avatar_version = avatar_version + 1` y `avatar_object_id = :objectId` en una sola sentencia y devuelve el estado nuevo
+   * (INV-AVA-001: la versión solo crece). Falla si la mascota no existe.
+   */
+  replaceAvatar(petId: string, objectId: string): Promise<AvatarState>;
+  /** Quita el avatar: `avatar_object_id = NULL`; `avatar_version` NO cambia ni se reinicia (INV-AVA-001). */
+  clearAvatar(petId: string): Promise<void>;
+  /**
+   * Lleva `avatar_version` a `max(actual, version)` sin tocar `avatar_object_id`: la importación por reemplazo recrea la fila de la mascota y debe
+   * conservar la versión de la existente con el mismo `id` para que la caché `?v=` no sirva una imagen antigua (REQ-IMP-001, INV-AVA-001).
+   */
+  raiseAvatarVersion(petId: string, version: number): Promise<void>;
+}
+
+/** Avatar de la mascota: la versión nunca decrece; `objectId` nulo = sin avatar (REQ-AVA-001). */
+export interface AvatarState {
+  readonly version: number;
+  readonly objectId: string | null;
+}
+
+/** Metadatos de un archivo o foto (`pet_media`, REQ-GCS-005): sin clave de objeto, sin hash y sin autoría; la clave se deriva (INV-ARC-003). */
+export interface PetMediaRecord {
+  readonly id: string;
+  readonly petId: string;
+  readonly kind: MediaKind;
+  readonly mime: string;
+  readonly sizeBytes: number;
+  readonly originalName: string;
+  readonly createdAt: string;
+}
+
+export interface PetMediaRepositoryPort {
+  /** Falla si el id ya existe o si la mascota no existe (clave foránea). */
+  insert(media: PetMediaRecord): Promise<void>;
+  /** El medio con ese id SOLO si pertenece a la mascota; null en otro caso. */
+  findById(petId: string, mediaId: string): Promise<PetMediaRecord | null>;
+  /** Página de la mascota (y del tipo, o de ambos si `kind` es null) ordenada por `(createdAt DESC, id DESC)` (INV-ALB-001) más el `total` del filtro. */
+  listPage(petId: string, kind: MediaKind | null, limit: number, offset: number): Promise<{ readonly items: PetMediaRecord[]; readonly total: number }>;
+  /** Suma de `size_bytes` de todas las mascotas del propietario legal; el avatar no cuenta (REQ-ARC-005). */
+  countBytesOfOwner(ownerUserId: string): Promise<number>;
+  /** Borra la fila de esa mascota con ese id; true si existía. */
+  remove(petId: string, mediaId: string): Promise<boolean>;
+  /** Objetos que se borrarían: filas de `pet_media` más avatares no nulos de esas mascotas (vista previa de importación, D-15 A). */
+  countObjectsOfPets(petIds: readonly string[]): Promise<number>;
+}
+
+export type MediaDeletionReason = 'INTENT' | 'DELETE';
+
+/** Fila de `media_deletion_queue`: solo claves con UUID (INV-ARC-003), sin datos personales. */
+export interface MediaDeletionEntry {
+  readonly objectKey: string;
+  readonly reason: MediaDeletionReason;
+  readonly enqueuedAt: string;
+  readonly attempts: number;
+}
+
+/** Cola de borrado de objetos de GCS (REQ-GCS-004, REQ-GCS-006): GCS no participa de la transacción de base de datos. */
+export interface MediaDeletionQueuePort {
+  /** Inserta la clave; si ya existe, `DELETE` sustituye a `INTENT` y un `INTENT` nunca degrada un `DELETE`. */
+  enqueue(objectKey: string, reason: MediaDeletionReason, enqueuedAt: string): Promise<void>;
+  /**
+   * Encola con `DELETE` la clave derivada de cada medio de la mascota y la de su avatar (si lo hay) y devuelve esas claves; es lo primero que
+   * se hace al eliminar la mascota, la cuenta o importar por reemplazo (REQ-GCS-004).
+   */
+  enqueueObjectsOfPet(petId: string, enqueuedAt: string): Promise<string[]>;
+  findByKey(objectKey: string): Promise<MediaDeletionEntry | null>;
+  /** Hasta `limit` filas por `(enqueuedAt, objectKey)` ascendente. */
+  listPending(limit: number): Promise<MediaDeletionEntry[]>;
+  /** Borra la fila (idempotente). */
+  remove(objectKey: string): Promise<void>;
+  /** Suma 1 a `attempts` (sin tope, REQ-GCS-004). */
+  recordFailure(objectKey: string): Promise<void>;
+  /** Convierte en `DELETE` los `INTENT` con `enqueuedAt` estrictamente anterior al corte (REQ-GCS-006) y devuelve cuántos. */
+  promoteStaleIntents(olderThanExclusive: string): Promise<number>;
+  /** Filas con `enqueuedAt` estrictamente anterior al corte (alerta a las 48 h, REQ-GCS-004); solo un conteo. */
+  countOlderThan(cutoffExclusive: string): Promise<number>;
 }
 
 export interface MedicalRecordRepositoryPort {
@@ -185,5 +290,7 @@ export interface RepositorySet {
   readonly rateLimits: RateLimitRepositoryPort;
   readonly invitations: InvitationRepositoryPort;
   readonly assignments: PetAssignmentRepositoryPort;
+  readonly media: PetMediaRepositoryPort;
+  readonly mediaQueue: MediaDeletionQueuePort;
   readonly auditLog: AuditLogRepositoryPort;
 }

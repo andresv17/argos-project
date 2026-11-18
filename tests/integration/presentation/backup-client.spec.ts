@@ -66,7 +66,7 @@ describe('cliente de respaldo de la SPA (T271, T272)', () => {
     const imp = seen.filter((s) => s.path.endsWith('/backup/import'));
     expect([imp.map((s) => [s.method, s.confirm]), result.sourceSchemaVersion, await fileDigestOf(await file.arrayBuffer())]).toEqual([
       [['POST', expected]],
-      '3.0.0',
+      '3.1.0',
       expected,
     ]);
   });

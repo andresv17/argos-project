@@ -6,12 +6,13 @@ import { AppConfigError, loadAppConfig } from '../../src/infrastructure/config/a
  * @implements REQ-AUD-001, SC-014, INV-ARCH-006
  */
 const VALID_SECRET = 'ab'.repeat(32);
+const PROD_MEDIA = { ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' }; // T566 (SC-ALM-023): en production el driver de medios debe ser gcs con bucket.
 
 describe('ARGOS_AUDIT_HMAC_SECRET obligatoria fuera de pruebas (src/infrastructure/config/app-config.ts)', () => {
   it.each(['development', 'production', undefined])('[REQ-AUD-001][SC-014] con NODE_ENV=%s y sin la variable, AppConfigError cita solo su nombre', (nodeEnv) => {
     let caught: unknown;
     try {
-      loadAppConfig(nodeEnv === undefined ? {} : { NODE_ENV: nodeEnv });
+      loadAppConfig(nodeEnv === undefined ? {} : { NODE_ENV: nodeEnv, ...(nodeEnv === 'production' ? PROD_MEDIA : {}) });
     } catch (error) {
       caught = error;
     }

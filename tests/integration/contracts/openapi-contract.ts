@@ -33,10 +33,59 @@ export const OPERATIONS: readonly Operation[] = Object.entries(openapi.paths).fl
   }),
 );
 
+// T578 (REQ-ARC-001): las rutas de medios y avatar solo existen en el OpenAPI 3.1.0 de la 004. Se incorporan al documento del arnés con sus respuestas
+// tal como las declara la 004 (los `$ref` de componentes que comparten ambos documentos, como `Problem` y `ProblemDetails`, siguen resolviéndose en el de la 002).
+const OPENAPI_004_PATH = 'specs/004-catalogos-registros-archivos/contracts/openapi/pet-tracker-api.openapi.yaml';
+const MEDIA_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/media.schema.json';
+const openapi004 = parseYaml(readFileSync(OPENAPI_004_PATH, 'utf8')) as { paths: Record<string, Record<string, Json>> };
+const MEDIA_PATHS = ['/pets/{petId}/media', '/pets/{petId}/media/{mediaId}/access', '/pets/{petId}/media/{mediaId}', '/pets/{petId}/avatar'];
+for (const mediaPath of MEDIA_PATHS) openapi.paths[mediaPath] = openapi004.paths[mediaPath]!;
+/** Operaciones de medios y avatar de la 004: SOLO sirven para comprobar respuestas; el inventario `OPERATIONS` (la API 002 de 40 operaciones) no cambia. */
+export const MEDIA_OPERATIONS: readonly Operation[] = MEDIA_PATHS.flatMap((path) =>
+  METHODS.filter((m) => openapi004.paths[path]![m] !== undefined).map((m) => {
+    const op = openapi004.paths[path]![m] as Json & { operationId: string; responses: Json };
+    return { method: m.toUpperCase(), path: `${API_PREFIX}${path}`, operationId: op.operationId, statuses: Object.keys(op.responses) };
+  }),
+);
+
+
+
 // Mismas opciones numéricas que los validadores generados (scripts/codegen.mjs): sin multipleOfPrecision, 32.85 no es múltiplo de 0.001 por coma flotante (T226).
 const ajv = new Ajv2020({ strict: false, allErrors: true, multipleOfPrecision: 10 });
 addFormats(ajv);
-for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) ajv.addSchema(JSON.parse(readFileSync(join('specs/002-plataforma-v21/contracts/schemas', file), 'utf8')));
+// T525: las respuestas de mascota llevan `breedCode` (pet.schema.json 3.1.0 de la 004, mismo $id). `avatarVersion` se exige desde T584
+// (columna de avatar); el resto de esquemas sigue siendo el de la 002.
+const PET_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/pet.schema.json';
+// T535: los parámetros adicionales llevan `symptomType` y `severity` (medical-records.schema.json 3.1.0 de la 004, mismo $id).
+// T614 (H-O-T540-1, diferido desde T540): `revision` (D-16 A, solo lectura) ya la leen y la devuelven los 3 repositorios y todas las respuestas de
+// registros; se RETIRÓ su exención y el arnés la exige como `required` en los 6 registros (y en los registros anidados de tablero y listados).
+// T617: `symptomType` y `severity` vuelven a ser obligatorios en el registro (ya no hay exportación 3.0.0 que los omita); es un endurecimiento.
+const RECORDS_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/medical-records.schema.json';
+// T617: el respaldo es 3.1.0 (backup-envelope.schema.json 3.1.0 de la 004, mismo $id; conserva BackupEnvelopeV3 y los heredados, añade
+// BackupEnvelopeV31 y amplía `sourceSchemaVersion` a 3.1.0). SUPERSESIÓN LEGÍTIMA, no debilitamiento: el OpenAPI de la 002 declara la respuesta de
+// POST /backup/export como BackupEnvelopeV3 y la exportación ahora emite 3.1.0 (REQ-BACKUP2-001 de la 004); el arnés apunta esa respuesta a
+// BackupEnvelopeV31 del mismo OpenAPI de la 004, y se valida con el esquema completo (breedCode, symptomType y severity obligatorios, sin
+// propiedades adicionales). `mediaToDeleteCount` (ImportPreviewResult) es de la vista previa de T604/T605: ya se exige (T605 retiró su exención).
+// T549 (REQ-LOG-002, REQ-LOG-001): `Username` admite mayúsculas (`^[A-Za-z0-9._-]+$`) y `LoginInput.username` llega a 254 (identity.schema.json 3.1.0 de la 004, mismo $id).
+const IDENTITY_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/identity.schema.json';
+const BACKUP_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/backup-envelope.schema.json';
+const exportOk = (openapi.paths['/backup/export']!['post'] as { responses: Record<string, { content: Record<string, { schema: { $ref: string } }> }> }).responses['200']!.content['application/json']!.schema;
+exportOk.$ref = exportOk.$ref.replace('#/$defs/BackupEnvelopeV3', '#/$defs/BackupEnvelopeV31');
+for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) {
+  if (file === 'medical-records.schema.json') {
+    ajv.addSchema(JSON.parse(readFileSync(RECORDS_004, 'utf8')));
+  } else if (file === 'identity.schema.json') {
+    ajv.addSchema(JSON.parse(readFileSync(IDENTITY_004, 'utf8')));
+  } else if (file === 'backup-envelope.schema.json') {
+    // T605 (H-O-T617-2): `mediaToDeleteCount` ya lo devuelve la vista previa; se retira su exención y el arnés lo exige como `required`.
+    ajv.addSchema(JSON.parse(readFileSync(BACKUP_004, 'utf8')));
+  } else if (file === 'pet.schema.json') {
+    // T584 (H-O-004A-1): `avatarVersion` ya existe en el servidor (columna `avatar_version`); se RETIRÓ su exención y el arnés la exige como `required`
+    // en toda respuesta de mascota (el esquema completo de la 004, sin filtrar).
+    ajv.addSchema(JSON.parse(readFileSync(PET_004, 'utf8')));
+  } else ajv.addSchema(JSON.parse(readFileSync(join('specs/002-plataforma-v21/contracts/schemas', file), 'utf8')));
+}
+ajv.addSchema(JSON.parse(readFileSync(MEDIA_004, 'utf8')));
 ajv.addSchema({ ...openapi, $id: OPENAPI_ID });
 
 const pointer = (...parts: string[]) => parts.map((p) => p.replace(/~/g, '~0').replace(/\//g, '~1')).join('/');
@@ -46,7 +95,7 @@ const validators = new Map<string, ValidateFunction>();
 export function matchOperation(method: string, url: string): Operation | null {
   const path = url.split('?')[0]!;
   return (
-    OPERATIONS.find((op) => op.method === method.toUpperCase() && new RegExp(`^${op.path.replace(/\{[^}]+\}/g, '[^/]+')}$`).test(path)) ?? null
+    [...OPERATIONS, ...MEDIA_OPERATIONS].find((op) => op.method === method.toUpperCase() && new RegExp(`^${op.path.replace(/\{[^}]+\}/g, '[^/]+')}$`).test(path)) ?? null
   );
 }
 
@@ -72,7 +121,9 @@ export function checkResponse(method: string, url: string, status: number, conte
   }
   const content = response['content'] as Record<string, unknown> | undefined;
   if (content === undefined) return { operationId: op.operationId, errors: body === undefined || body === '' ? [] : [`${op.operationId}: ${status} no debe tener cuerpo`] };
-  const mediaType = Object.keys(content)[0]!;
+  // Varios tipos declarados (p. ej. el avatar: image/jpeg, image/png, image/webp): se usa el que coincide con el de la respuesta.
+  const declared = Object.keys(content);
+  const mediaType = declared.find((type) => (contentType ?? '').startsWith(type)) ?? declared[0]!;
   if (!(contentType ?? '').startsWith(mediaType)) return { operationId: op.operationId, errors: [`${op.operationId}: content-type ${contentType} en vez de ${mediaType}`] };
   const ref = `${OPENAPI_ID}#/${base}/${pointer('content', mediaType, 'schema')}`;
   let validate = validators.get(ref);

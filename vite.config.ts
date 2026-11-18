@@ -1,5 +1,23 @@
 import react from '@vitejs/plugin-react';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig } from 'vitest/config';
+
+/**
+ * H-O-004US3-5: las suites contra PostgreSQL real (las que leen TEST_DATABASE_URL) comparten UNA base y `pg_advisory_xact_lock` es un candado
+ * de BASE (no de esquema): `postgres-concurrency.spec.ts` lo retiene ~10 s y, en paralelo, hace vencer por statement_timeout las transacciones de
+ * otros archivos. En lugar de reintentar (`retry`), esos archivos se serializan: van a un grupo `threads` de UN solo hilo (se ejecutan uno tras
+ * otro, cada uno aislado), mientras el resto de la suite sigue en paralelo. La lista se deriva del contenido (quien lee TEST_DATABASE_URL), así
+ * una suite PG nueva queda serializada sin tocar esta configuración.
+ */
+function postgresSuites(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true, recursive: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.spec.ts'))
+    .map((entry) => join(entry.parentPath, entry.name))
+    .filter((file) => readFileSync(file, 'utf8').includes('TEST_DATABASE_URL'))
+    .map((file) => file.replaceAll('\\', '/'));
+}
+const POSTGRES_SUITES = postgresSuites('tests');
 
 export default defineConfig({
   root: '.',
@@ -23,6 +41,9 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
+    // Una sola hebra para el grupo PG (ver arriba); el resto usa el grupo por defecto (forks) en paralelo.
+    poolMatchGlobs: POSTGRES_SUITES.map((file): [string, 'threads'] => ['**/' + file, 'threads']),
+    poolOptions: { threads: { singleThread: true } },
     include: [
       'tests/unit/**/*.spec.ts',
       'tests/property/**/*.spec.ts',

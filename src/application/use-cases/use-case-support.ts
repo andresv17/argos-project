@@ -8,22 +8,23 @@
  * @implements INV-ACC-001, INV-ACC-002, INV-PET-003, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN
  */
 
+import { normalizePetProfile, type PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
   resolveFieldErrorCode,
   type components,
   type OwnerTag,
-  type PetProfile,
   type UserPublicProfile,
   type UserSelfProfile,
 } from '../../generated/index.ts';
 import { effectiveRole } from '../../domain/access/effective-role.ts';
-import { can, petPermissionsFor, type RbacAction, type RbacRole } from '../../domain/access/rbac.ts';
+import { can, petPermissionsFor, type PetAction, type RbacRole } from '../../domain/access/rbac.ts';
 import { toRoleMembership } from '../../domain/households/household-policies.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
 import { calculatePetAge } from '../../domain/shared/date-utils.ts';
+import type { MediaStoragePort } from '../ports/media-storage.port.ts';
 import type { AuditLogPort } from '../ports/audit-log.port.ts';
 import type { AuditPseudonymPort } from '../ports/audit-pseudonym.port.ts';
 import type { BackupTokenPort } from '../ports/backup-token.port.ts';
@@ -39,7 +40,28 @@ import type { UnitOfWorkPort } from '../ports/unit-of-work.port.ts';
  * PetCardView del OpenAPI con `profile` tipado como PetProfile: el tipo generado de `profile`
  * ($ref al archivo pet.schema.json completo) incluye una propiedad `$defs` obligatoria (H-108-3).
  */
-export type PetCardView = Omit<components['schemas']['PetCardView'], 'profile'> & { profile: PetProfile };
+export type PetCardView = Omit<components['schemas']['PetCardView'], 'profile'> & { profile: PetProfileView };
+
+/** Perfil de la API 3.1.0: el de dominio más `avatarVersion` (solo lectura; `avatar_version` si hay avatar y `null` si no, REQ-AVA-001). */
+export type PetProfileView = PetProfile & { readonly avatarVersion: number | null };
+
+/** Topes de medios que entrega la composición desde `ARGOS_MEDIA_*` (REQ-ARC-001, REQ-ARC-003, REQ-ARC-005). */
+export interface MediaLimits {
+  /** Tamaño máximo de un archivo o foto en bytes (`ARGOS_MEDIA_MAX_BYTES`, <= 10 MiB). */
+  readonly maxBytes: number;
+  /** Cuota por propietario legal (`ARGOS_MEDIA_MAX_BYTES_PER_OWNER`, 1 GiB). */
+  readonly maxBytesPerOwner: number;
+  /** Subidas simultáneas por instancia (`ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS`, 4); lo aplica la capa HTTP. */
+  readonly maxConcurrentUploads: number;
+  /** Caducidad de la URL firmada (`ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS`, 30-900). */
+  readonly signedUrlTtlSeconds: number;
+}
+
+/** Almacenamiento de objetos y topes; ausente cuando la composición no conecta medios (los casos de uso de medios fallan cerrado). */
+export interface MediaServices {
+  readonly storage: MediaStoragePort;
+  readonly limits: MediaLimits;
+}
 
 export interface ApplicationDeps {
   readonly uow: UnitOfWorkPort;
@@ -61,6 +83,8 @@ export interface ApplicationDeps {
   readonly auditHmacSecret: string;
   /** Identificadores de las filas de auditoría: generador aparte para no alterar la secuencia de ids de las entidades. */
   readonly auditIds: IdGeneratorPort;
+  /** Medios (feature 004, REQ-GCS-003): almacenamiento de objetos y topes. Opcional hasta que la composición lo conecta. */
+  readonly media?: MediaServices;
 }
 
 interface ValidatorWithErrors {
@@ -162,6 +186,32 @@ export async function listVisiblePets(repositories: RepositorySet, userId: strin
 }
 
 /**
+ * Candado de mascota (REQ-BOR-005, INV-REG-003, ADR-004-05): primera lectura de toda transacción que cree, edite, borre o supersede
+ * registros, suba o borre medios o cambie el avatar. Si la mascota no existe no bloquea nada y el caso de uso responde ERR-PET-NOT-FOUND.
+ * @implements REQ-BOR-005, INV-REG-003
+ */
+export async function lockPet(repositories: RepositorySet, petId: string): Promise<void> {
+  await repositories.pets.findByIdForUpdate(petId);
+}
+
+/**
+ * Candado de propietario y luego de mascota, en ESE orden (usuario → mascota, sin ciclos), para las transacciones que además validan la
+ * cuota del propietario (REQ-BOR-005). El propietario se conoce leyendo la mascota; tras bloquearlo se vuelve a leer con el candado de la
+ * mascota y, si el propietario cambió entre medias (traspaso), se repite con el nuevo (como máximo 3 intentos; después falla cerrado).
+ * @implements REQ-BOR-005, INV-REG-003
+ */
+export async function lockOwnerThenPet(repositories: RepositorySet, petId: string): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const unlocked = await repositories.pets.findById(petId);
+    if (unlocked === null) return;
+    await repositories.users.findByIdForUpdate(unlocked.ownerUserId);
+    const locked = await repositories.pets.findByIdForUpdate(petId);
+    if (locked === null || locked.ownerUserId === unlocked.ownerUserId) return;
+  }
+  throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'El propietario de la mascota cambió durante el bloqueo; reintenta.');
+}
+
+/**
  * Mascota visible por el usuario (propietario o miembro ACTIVE de un hogar al que está asignada); si no existe o no es
  * visible, ERR-PET-NOT-FOUND (INV-PET-003, INV-ACC2-001).
  * @implements INV-ACC2-001, INV-PET-003, ERR-PET-NOT-FOUND
@@ -179,7 +229,7 @@ export async function requireReadablePet(repositories: RepositorySet, userId: st
  * que 403); visible sin la acción, ERR-ACC-FORBIDDEN.
  * @implements REQ-RBAC-001, INV-ACC2-001, INV-ACC2-002, INV-PET-003, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN
  */
-export async function requirePetAction(repositories: RepositorySet, userId: string, petId: string, action: RbacAction): Promise<PetAccess> {
+export async function requirePetAction(repositories: RepositorySet, userId: string, petId: string, action: PetAction): Promise<PetAccess> {
   const access = await requireReadablePet(repositories, userId, petId);
   if (!can(access.role, action)) throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'petId');
   return access;
@@ -197,11 +247,11 @@ export function globalAlertStatusOf(summary: PetCardView['alertsSummary']): PetC
   return null;
 }
 
-export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, records: PetRecordCollections, today: string): PetCardView {
+export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, records: PetRecordCollections, today: string, avatarVersion: number | null = null): PetCardView {
   const weights = computeWeightEvolutionSeries(records.weights);
   const alertsSummary = summarizeSanitaryAlerts(evaluateVaccinationAlerts(records.vaccinations, today), evaluateDewormingAlerts(records.dewormings, today));
   return {
-    profile: pet,
+    profile: { ...normalizePetProfile(pet), avatarVersion },
     owner,
     myRole: role,
     permissions: petPermissionsFor(role),

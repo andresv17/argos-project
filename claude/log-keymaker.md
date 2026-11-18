@@ -1122,3 +1122,155 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Nuevo tests/security/ops-surface-production.security.spec.ts: usa createProductionApp (staticRoot y checkReady inyectados, pool postgres doble, verificador OIDC real jose con token sintético). 9 pruebas: sondas/estáticos/CSP, mantenimiento vs estáticos (401), CSRF, traversal; guarda de server.ts (postgres completo -> 401; sin email, sin audiencia, sin ambas, y sqlite con ambas -> 404).
 - ROJO: el único fallo inicial fue un supuesto erróneo de la propia prueba (GET /internal/maintenance cae al fallback SPA 200, no 4xx); corregido en la prueba. Ningún defecto de producción: la guarda ya funcionaba, las pruebas pasan por construcción como cierre.
 - No se tocó src/ (mutación de la guarda para probar que las pruebas fallan: denegada por permisos; queda pendiente si Neo la autoriza). Comentario "hasta elegir la librería JWT" sigue en src/server.ts L103 (fuera de mi alcance; pedir a Architect/Neo). Compuertas: tsc, traceability 003, test:gate (2746 passed), scan-secrets 0.
+
+## 2026-11-17 H-O-O4-3 comentario OIDC de server.ts (autorizado por Neo N2)
+- Línea 104 de server.ts: reemplazado «Falla cerrado hasta elegir la librería JWT (N2)» por «El token OIDC del Scheduler se verifica con jose (createOidcVerifier, T486): firma, issuer, audiencia y correo.». Sin cambio de lógica.
+- Compuertas: tsc 0; ops-surface-production 9/9; test:gate 2746 pass; scan-secrets 0 hallazgos.
+- Commit local 993b101 (sin push, sin [x]).
+
+## 2026-11-17 004 bloque 1 / T510 esquemas 3.1.0 (Keymaker)
+- Decision: /architect no dejo JSON en contracts/ de 004 (solo README y catalogo): materialice schemas/ copiando los de 002 (sin editarlos) y aplicando el delta del README; 002 intacta (INV-ARCH-003). Nuevo media.schema.json; BackupEnvelopeV31 + registros BackupXRecordV3/V31 sin revision; MicrochipInput aparte de MicrochipId.
+- ROJO: contracts-004-schemas.spec.ts -> ENOENT specs/004.../contracts/schemas (0 tests). VERDE tras materializar (1 ajuste: strictRequired en else de breed): 21/21.
+
+## 2026-11-17 004 bloque 1 / T511 OpenAPI 3.1.0 (Keymaker)
+- OpenAPI 004 = copia de 002 + delta: 7 operaciones nuevas (media/avatar, cuerpo crudo), If-Match en updateRecord, 409 en deleteRecord, 429 en registerPet/updatePet, respaldo 3.1.0, login con usuario o correo. 47 operaciones. 002 intacta.
+- ROJO: contracts-004-openapi.spec.ts -> ENOENT openapi/pet-tracker-api.openapi.yaml. VERDE 15/15 (1 ajuste: mi descripcion contenia la palabra prohibida).
+
+## 2026-11-17 004 bloque 1 / T512 catalogo de errores (Keymaker)
+- error-catalog.json 3.1.0: +6 errores (MEDIA-TOO-LARGE/TYPE-NOT-ALLOWED/QUOTA-EXCEEDED/NOT-FOUND/STORAGE-UNAVAILABLE, REC-CONFLICT), ERR-PET-MICROCHIP-DUPLICATE oficializado (detalle del README), ERR-RATE-LIMITED conserva pendingId (no oficializado por mi: decision de Neo). state-machines copiadas tal cual de 002 para compilar 004 de forma autonoma.
+- ROJO: contracts-004-errors.spec.ts -> ENOENT error-catalog.json. VERDE 12/12.
+
+## 2026-11-17 004 bloque 1 / T514 [N2] scripts (Keymaker)
+- compile-contracts.sh: --feature 004 (contratos a <out>/v31, catalogs a <out>/catalogs; guarda contra src/generated/{api,errors,machines,schemas,ops}); 001/002 ahora apartan y restauran ops/catalogs/v31 del destino (antes los borraban). Nuevo scripts/codegen-catalogs.mjs (valida patron, prefijo=especie, unicidad, Criolla/Otra; order recalculado). verify-traceability.sh: 004 = prefijos NFR/SC, rangos X-NNN..MMM (solo 004), IDs 003 citados en spec no exigidos, spec->tasks 1:1 de 125 IDs propios, evidencia informativa (SDD_STRICT_EVIDENCE=1 la hace bloqueante). verify-oracles.sh: --feature 004 exige pruebas de contrato 004.
+- ROJO (scripts sin tocar, 8/12 fallos): compile 004 'Feature desconocida', oracles/traceability 004 sin soporte. Nota: codegen-catalogs.mjs ya existia al correr el rojo, por eso 4 pruebas (catalogo x3 + regresion 002/003) pasaron en rojo. VERDE 12/12. verify-oracles detecto 2 toBeTruthy en mi propia prueba T511: corregidos.
+
+## 2026-11-17 004 bloque 1 / T515 publicar src/generated (Keymaker)
+- Ejecutados compile 002, 003 y 004 (salida solo por herramienta): src/generated/v31 (contratos 3.1.0: 123 validadores, 41 errores) y src/generated/catalogs (68 razas). 002/003 sin diff. codegen-drift.spec.ts (002) ahora omite ops, catalogs y v31 como ya omitia ops (cambio de prueba, no de contrato).
+- ROJO: generated-004.spec.ts -> 'Failed to load url src/generated/catalogs/index.ts'. VERDE 9/9; tsc 0 errores.
+
+## 2026-11-17 004 4A-1 slice A (Keymaker): T516..T531
+- T516/T517 (7322323, 38705ba): --contracts DIR (solo 004) en compile-contracts.sh; catálogo se valida ANTES de v31; rótulo duplicado por especie rechazado. T520 (f6c768f) pasa sin cambios: T521 sin código, premisa «solo Perro y Gato» no se reproduce (8 especies; el filtro agrupa).
+- T522/T523 (7f3d94d, 7d95db4, 33896be): src/domain/pet/breed-catalog.ts. T524/T525 (c474c00, bceeca6, 5e425fc): breedCode en pet-invariants (validadores v31 de PetProfile/Create/Update, breed derivado), repos SQLite/PG con isStoredPetProfile, vista normalizada (breedCode nulo). DECISIÓN: respaldo 3.1.0 con breedCode NO hecho (acopla con symptomType/severity/mediaToDeleteCount y arnés 002); el export 3.0.0 quita breedCode.
+- T528..T531 (6712d7b, 9b4ad0d, 01950fb, 0eb7448): trim en formValues salvo contraseñas; casilla de fecha estimada bajo Fecha de nacimiento. T526/T527 (133f1b4, 80ea2e4): BreedSelect; guarda de arquitectura de presentación admite generated/catalogs y v31 validators.
+- Pruebas 002 tocadas (supersesión): use-cases.spec, pet-and-alerts.spec (breedCode nulo en la vista), t284-cliente y t284-controles (chip 123456789012345 es secuencia rechazada por MicrochipInput 3.1.0), openapi-contract.ts (pet.schema 3.1.0 sin avatarVersion required).
+
+## 2026-11-17 004 4A-1 slice B1 (Keymaker): T532..T536
+- T532/T533 (3b4a253 test, a4bf823 feat): medidas enteras. ROJO 5/8 fallos (dominio acepta 32.5, edicion 40.5 pasa, form step=0.01, cliente sin rechazo); VERDE 8/8. Entradas y PATCH de medidas con validadores v31; el registro conserva el esquema 002 (decimales guardados se leen, listan, exportan y editan en otros campos). Supersesion 002: fixtures de entrada con decimales a enteros (api-fixtures, wcag e2e, use-cases, record-invariants baseInput).
+- T534 (864883e test): ROJO 6/8 dominio + suite de presentacion sin symptoms.ts. T535 (70f863e test, d069b5c feat): ROJO 6/9; VERDE. CustomParameter 3.1.0 en record-invariants (validador de registro tolerante: symptomType/severity ?? null, revision ?? 0), isStoredCustomParameter compartido por SQLite y PG, defaults null al alta, ficha normaliza viejos, export 3.0.0 omite nulos y FALLA CERRADO ante SYMPTOM hasta T617. Arnes OpenAPI 002: medical-records 004 sin exigir revision/symptomType/severity.
+- T536 (c623dd0): symptoms.ts, SymptomLegend, RecordForm (species, initial), listado, ExportSection. Verde 131/131 presentacion. Gates: tsc 0; traceability 004 CUMPLE; oracles 004 CUMPLE (0 debiles); test:gate 2931 pass / 38 omitidas (igual que antes); scan-secrets 0.
+- DECISIONES propias a revisar: leyenda de «exportacion» vive en la UI de Respaldo (el sobre JSON es cerrado); intensidad preseleccionada «Leve»; PG sin prueba viva (omitida sin PG17).
+
+## 2026-11-17 004 4A-1 T617 respaldo 3.1.0 (Keymaker)
+- ROJO bb558dd (backup-31-roundtrip.spec.ts, 21 pruebas en memoria, SQLite y Postgres 17 en 127.0.0.1:55432): 18 fallan (export 3.0.0 falla cerrado por SYMPTOM, sin breedCode; 1.0.0/2.0.0 sin breedCode nulo); 3 pasan (version futura). VERDE 0108dc2: 21/21 con PG vivo.
+- Impl: ExportBackupUseCase emite 3.1.0 (breedCode ?? null, symptomType/severity ?? null, sin avatarVersion/revision/medios/mediaToDeleteCount) validado con validateBackupEnvelopeV31; importacion acepta 1.0.0/2.0.0/3.0.0/3.1.0; liftEnvelopeV3ToV31 (backup-migration.ts) deja breedCode/symptomType/severity nulos y conserva breed; assertBreedConsistency en invariantes de importacion (INV-RAZ-001). ImportPreviewResult local con version ampliada (mediaToDeleteCount queda para T604/T605). Mensaje VERSION_MISMATCH ahora lista 3.1.0.
+- Supersesiones 002 (tests, no contratos): openapi-contract.ts (backup-envelope 004 mismo $id, export 200 -> BackupEnvelopeV31 en memoria, mediaToDeleteCount exento de required, symptomType/severity vuelven a required = endurecimiento), backup-use-cases.spec, backup-export.api, backup-import-preview.api, backup-atomicity, backup-client, sqlite-to-postgres-transfer ('3.0.0' -> '3.1.0' y validador V31 en exportacion).
+- Gates: tsc 0; traceability 004 CUMPLE; oracles 004 CUMPLE (0 debiles); test:gate 2945 pass / 45 omitidas (antes 2931/38; +7 PG de T617 omitidas sin PG); scan-secrets 0.
+
+## 2026-11-17 004 4A-1 slice B2 (Keymaker): H-O-T617-1, T537..T545
+- H-O-T617-1 (3fb961b): caso de dominio en backup-use-cases.spec: respaldo 3.1.0 con DOG_BEAGLE y breed «Labrador» -> ERR-SCHEMA-VALIDATION-FAILED (campo breed, ROLLED_BACK, DOMAIN_INVARIANT_VIOLATED), estado intacto. NOTA: el codigo es ERR-SCHEMA-VALIDATION-FAILED, no ERR-PET-* (no existe ERR-PET-INVALID-BREED; failBreed lanza el de esquema). ROJO en worktree sin la linea assertBreedConsistency: se acepta la importacion («se esperaba un rechazo»). Un breedCode de otra especie lo rechaza el esquema (ERR-BACKUP-SCHEMA-INVALID), por eso no es caso de dominio.
+- T537/T538 (722762c test, 85a8c84 feat): ROJO 4/10 (sin cambios audita; edicion que deja SUPERSEDED se acepta) -> VERDE 10/10 memoria y SQLite. fixtures/record-engines.ts.
+- T539/T541 (42a558c test, 1722ce2 feat): ROJO 2/10 (borrar SUPERSEDED se acepta) -> VERDE. Los repos ya borraban fisicamente.
+- T540 (8273114 test, f3d31e8 feat): ROJO 13 -> VERDE; 0006 SQLite, 0002 Postgres (probado en PG17 55432, esquema desechable). Retiro de exencion de revision en openapi-contract.ts DIFERIDO a T614: probado, rompe 21 pruebas de API (36 en total) porque el servidor no lee/expone revision; exponerla exige validadores v31, repos de 3 motores y 5 baselines PG.
+- T542 (950eadd), T545 (84e3018): guardas verdes de inicio, sensibilidad demostrada por mutacion. T544 (e6a9953 test, f4098c2 feat): ROJO suite no carga -> VERDE 144 presentacion.
+- Gates: tsc 0; traceability 004 CUMPLE; oracles 004 CUMPLE (0 debiles); test:gate 2993 pass / 48 omitidas (antes 2945/45); con PG 3041/3041 pasan, 0 omitidas; scan-secrets 0.
+
+## 2026-11-17 004 slice C (Keymaker): T600
+- T600: tests/fixtures/concurrent-engines.ts (dos conexiones: SQLite archivo en node_modules/.cache con busy_timeout 0 en B; PG17 55432 con dos transacciones) + t600-concurrencia-registros.spec.ts (6 pruebas: doble DELETE, edicion antes/despues de la vacuna posterior). VERDE de inicio (los candados globales ya serializan). Sensibilidad demostrada por mutacion: sin pg_advisory_xact_lock fallan 2 PG; con BEGIN diferido fallan 3 SQLite (B llega a leer con A abierta). Fuente restaurada.
+- Credenciales PG de pruebas: docker-compose.test.yml (argos_test:argos_test@127.0.0.1:55432/argos_test).
+- T601: ROJO 68408e5 (6 fallas: sin findByIdForUpdate/lockOwnerThenPet; PG no esperaba la fila de la mascota). VERDE: port findByIdForUpdate en pets y users (memoria/SQLite lectura normal, PG SELECT ... FOR UPDATE), helpers lockPet y lockOwnerThenPet (orden usuario->mascota) en use-case-support, y Add/Update/DeleteRecord toman lockPet antes de todo. SQLite: BEGIN IMMEDIATE ya existia (probado).
+- T604 (b75462c test, UI test commit despues): ROJO 6/12 (detalle del microchip sin posicion/nombre; vista previa sin mediaToDeleteCount) + 3 UI. Reemplazo por pet_id de las 6 tablas y exportar-borrar-importar YA PASABAN (3 motores).
+- T605: ImportBackupUseCase: detalle «La mascota n.º N del archivo («nombre») repite el microchip...» (sin microchip), vista previa con mediaToDeleteCount (countMediaToDelete = 0 hasta T575), candados usuario->mascotas en el commit, UI (canImportBackup, MediaDeletionConfirm, aviso). Exencion de mediaToDeleteCount RETIRADA de openapi-contract.ts; arnes la exige (tests/integration/api 760 verdes).
+- BLOQUEO PARCIAL T604/T605: avatar_object_id/avatar_version, pet_media y media_deletion_queue (T574/T575/T580) y el indice global de microchip (T553/T554) NO existen aun; sin ellos no se pueden probar ni implementar «avatar nulo conservando avatar_version», «encola medios y avatar» ni el duplicado de microchip ante OTRO usuario. «fusion» no existe en 002 (importacion Merge fuera de alcance). Reportado a Morpheus.
+- T613 (20d1299): ROJO 20/21 (3 motores + 2 conexiones + HTTP). No existe en el arnes ninguna exencion de If-Match (solo revision y mediaToDeleteCount): nada que retirar por ese lado.
+- T614: VERDE. Dominio: validadores de registro 3.1.0 tolerantes (revision ?? 0) y STORED_RECORD_CHECKS; RecordOf con revision opcional + revisionOf. Repos: columna `revision` autoritativa (data sin revision) en SQLite/PG, memoria la normaliza a 0. UpdateRecordUseCase(…, ifMatch): comparacion bajo lockPet, ERR-REC-CONFLICT (clase DomainError de v31; problem-details reconoce ambas), sin If-Match ERR-SCHEMA-VALIDATION-FAILED campo If-Match, sin cambios efectivos no incrementa. Ruta PATCH parseIfMatch (`"n"`). Importacion: revision existente+1 / 0 nueva. UI: updateRecord con If-Match, mensaje «El registro cambió; recarga y vuelve a intentarlo.» (ERR-REC-CONFLICT no esta en el catalogo 002 de la SPA; api.ts lo reconoce).
+- EXENCION de `revision` RETIRADA de openapi-contract.ts (H-O-T540-1) y verificada: sin devolver revision en SQLite fallan 11 pruebas de API.
+- Supersesiones de pruebas por contrato 3.1.0: lecturas con revision 0 (use-cases.spec, suite de repositorios), 5 baselines PG con 0002, dobles SQL de postgres-repositories-part2, idempotencia de importacion sin contar revision, PATCH con If-Match en API.
+- Gates: tsc 0; oracles 004 CUMPLE (0 debiles); traceability 004 CUMPLE; vitest focal api+persistence+unit 2008/2008 (PG17 vivo), presentation 162, security+property 383, contracts incluidos en api. NO se corrio test:gate completo.
+- 2026-11-17 US3 (T546..T555) arranca. Decisiones: migraciones nuevas SQLite 0007/0008 y Postgres 0003/0004 (0006/0002 ya estan aplicadas con `revision`; T574 media pasa a 0009/0005: AVISO a Architect). Validadores v31 para Username/LoginInput/InviteMemberInput (el top-level generado sigue en 3.0.0). Fallos de login en UNA sola clave (cuenta resuelta, o identificador si no hay cuenta).
+- T546: ROJO. tests/integration/persistence/t546-login-registro.spec.ts (3 motores) + fixtures/identity-engines.ts; pruebas previas superadas (use-cases, auth-policies, auth.api, precedence, households.api) con el comportamiento 3.1.0.
+- T547: VERDE (migraciones). SQLite 0007_username_case_insensitive.sql + comprobacion previa en `MIGRATION_PRECHECKS` (sqlite-database.ts, solo conteo en el mensaje); Postgres 0003 con bloque DO/RAISE (solo conteo). Indices users_username_lower y household_invitations_one_open sobre LOWER; login_attempts a minusculas con fusion por mayor contador. schema-parity ahora parsea indices de expresion y DROP INDEX; 5 listas BASELINE de pruebas PG y species/sqlite-repositories actualizadas. Persistencia completa 398 verdes + 31 rojos esperados de T546.
+- T548+T549: VERDE (un solo commit: auth-policies/auth-use-cases/repos son los mismos archivos). normalizeLoginIdentifier/isEmailIdentifier (dominio), resolveLoginAccount (correo unico o null), LoginUseCase con un solo verify y fallos en una clave (cuenta resuelta, o identificador), users.findByUsername por LOWER y users.listByEmail (LIMIT 2) en los 3 motores, validadores v31 (Register, Login, Invite, UserPublicProfile en repos). Arnes OpenAPI toma identity.schema.json 3.1.0 de la 004. Pruebas previas actualizadas (repo-contract-suite, security credentials, auth.api, PG dobles). Queda T551 (invitaciones) para cerrar T546 SC-CAT-021.
+- T551: VERDE. invitations.findOpen y la invitacion abierta por LOWER(invitee_username) en memoria/SQLite/PG; InviteMemberUseCase guarda el username de la cuenta cuando existe. T546 completo (3 motores). Prueba de unicidad de invitacion abierta por LOWER anadida.
+- T550: VERDE. Login: campo «Usuario o correo» + ayuda «Si no puedes entrar con tu correo, usa tu usuario.»; registro: «Usuario (letras, números, . _ -)» sin exigir digitos; validation.ts toma los validadores v31 de Register/Login/Invite (254, mayusculas). Pruebas en session-client.spec (4 rojas -> verdes) y web-client. E2E NO ejecutado (prohibido); los getByLabel('Usuario') de Playwright siguen casando por subcadena.
+- T552: ROJO. tests/integration/persistence/t552-microchip-global.spec.ts (3 motores: respuesta byte a byte igual propio/ajeno, misma ruta = un save sin listByOwners, sin microchip/Key (/UUID en cuerpo ni logs, CHECK no es duplicado, importacion con chip de otro usuario, indice y migracion con duplicados SQLite+PG) + tests/unit/microchip-violation.spec.ts. Esqueleto microchip-violation.ts (stub) para que compile. 18 rojos de 24.
+- DECISION a confirmar (T554/importacion): la maquina backup-import NO admite ERR-PET-MICROCHIP-DUPLICATE desde COMMITTING_SNAPSHOT (solo desde CHECKING_DOMAIN_INVARIANTS; en COMMITTING solo STORAGE_ERROR). El duplicado contra OTRO usuario aparece al guardar (ya en COMMITTING). Plan: lanzar el DomainError (finalState ROLLED_BACK) desde el commit sin disparar evento de la maquina; se reporta a Morpheus/Architect como pregunta.
+- T553: VERDE (migraciones). SQLite 0008_pets_microchip_global.sql (precheck TS con conteo) y Postgres 0004 (DO/RAISE con conteo): DROP pets_owner_microchip + indice unico parcial global. Paridad ya cubre ambos; listas de esquema PG y expectativas de migraciones actualizadas; pruebas antiguas de «unico por propietario» (species-migration, sqlite-repositories) pasan a semantica global. Pendientes en rojo a proposito hasta T554: API/use-cases (otra cuenta ahora 409) y los 12 de T552 que dependen del clasificador.
+- T554: VERDE. microchip-violation.ts (isMicrochipGlobalViolation: PG 23505+constraint exacta / SQLite SQLITE_CONSTRAINT_UNIQUE+mensaje exacto; mapMicrochipViolation -> DomainError v31 sin cause ni datos), RegisterPet/UpdatePet sin consulta previa (solo save), memoria impone la unicidad global, assertMicrochipUniqueForOwner eliminada (pruebas sustituidas por una propiedad sobre memoria), importacion: violacion en pets.save -> ERR-PET-MICROCHIP-DUPLICATE ROLLED_BACK nombrando la mascota del archivo. PREGUNTA ABIERTA a Architect: la maquina backup-import no declara ese error desde COMMITTING_SNAPSHOT (se lanza sin disparar evento). T552 24/24 en 3 motores; persistencia+api+unit+security+property+contracts+ops 3085 pass (PG17 vivo).
+- T555: VERDE. Lista canonica de INDICES en schema-parity (22; sin pets_owner_microchip; con users_username_lower y pets_microchip_global) y comentarios de repos/uso/pruebas que citaban «unico por propietario». Reintento acotado (retry 2, solo PG) en T546/T552 por el candado asesor global que retiene ~10 s postgres-concurrency.spec (interferencia preexistente entre suites PG).
+- US3 CIERRE: tsc 0; verify-oracles CUMPLE (general y 004); verify-traceability 004 CUMPLE; vitest integration+unit+security+property 3168/3168 con PG17 vivo (dos pasadas de persistencia 453/453). NO se corrio test:gate ni E2E. Sin [x]; sin push; tasks.md intacto.
+
+## 2026-11-17 A1 (US3)
+- Commit 8a3a5f0 contrato/docs; 52c78e0 codigo+test+generado v31. propagateUnique en ImportRun; microchipConflict eliminado. tsc, traceability, oracles y vitest focal (117) verdes.
+
+## 2026-11-17 Reservas A1 + H-O-004US3-4/5 (Keymaker)
+- Bloque 1 (1d8f476): prueba del duplicado con microchip real 985112345678901; la asercion de fuga revisa JSON, message, stack y problem details y FALLA si el detalle lo incluye (mutacion probada). propagateUnique lanza DomainError v31. Efecto lateral: `failure()` de backup-harness solo reconocia la 002 y rompio T552 (3 motores): corregido en 051f68c (fixture acepta ambas clases).
+- Bloque 2 (5bf839b): unique-violation.ts (clasificacion compartida por nombre de restriccion), username-violation.ts, RegisterUserUseCase mapea 23505 users_username_lower -> ERR-AUTH-USERNAME-TAKEN (v31). t556 con dos conexiones: (a) dos altas por la UoW quedan serializadas por el candado asesor (ya pasaba); (b) carrera real: A inserta sin candado asesor, B bloqueada en el indice recibe 23505 (ROJO: error crudo del driver; VERDE tras el mapeo). Limitacion: por la UoW normal nunca se llega al 23505.
+- Bloque 3 (7393f22): retry:2 retirado de t546/t552. vite.config.ts: poolMatchGlobs envia las suites que leen TEST_DATABASE_URL a `threads` con singleThread (serial); resto en paralelo. Sin serializar y sin retry: 2-3 fallas por corrida (T546, T552 y una vez T540). Con serializar: persistencia 455/455 en 3 corridas, t540 sin reintentos.
+- Gates: tsc 0; traceability 004 CUMPLE; oracles 004 CUMPLE (0 debiles); vitest focal 91/91 + persistencia 455/455. NO test:gate completo ni E2E. tasks.md intacto; esta bitacora no se commitea (ya tenia cambios ajenos sin commit).
+
+## 2026-11-17 Keymaker: H-O-004US3R-1 + T556..T559 (004)
+- 6309e1b: t556-registro-concurrente-pg compara sin distinguir mayusculas (mutacion temporal detectada, restaurada).
+- ec99364 (rojo) + 51b8dfe: T556/T557 microchip trivial. Hallazgo H-K-004T556-1: patron MicrochipInput del contrato 3.1.0 lista mal las descendentes que empiezan en 0,1,2,3 (09876543210-1-2-3-4...); cubierto con isTrivialMicrochip en dominio. Contrato por corregir por /architect.
+- a76b6f9 (rojo) + commit T559: T558/T559 purga TTL de login_attempts (ventana 15 min, sin conteo propio). Recorte, cuenta resuelta, ayuda UI ya existian.
+- PENDIENTE (pregunta a Neo/Architect): contador de 5 duplicados/dia/usuario con ERR-RATE-LIMITED. tasks.md intacto.
+
+- 2026-11-17 Keymaker: t556 3/3 tras af2aa3b; el fallo era el eco del patron en detail de ajv (falso positivo), ajustada la prueba (62465e1). Dominio sin cambios: isTrivialMicrochip es aritmetico, unit ya cubre 10 asc y 10 desc. Gates verdes.
+
+## 2026-11-17 Keymaker: T556/T557 limite de duplicados de microchip (ADR-004-04)
+- Commits: 15a2367 (A rojo), a3b431f (D config), 8f14798 (C migraciones SQLite 0010 / PG 0006), 45b1c96 (B puerto), 6c461a7 (E casos de uso), 612ce76 (F docblock), 193855c (ajuste de pruebas existentes).
+- Chequeo previo en RegisterPet, UpdatePet (solo si cambia microchipId) e ImportBackup; evento registrado solo tras ERR-PET-MICROCHIP-DUPLICATE, en transaccion independiente, best effort. Sin logger en ApplicationDeps: no se loguea nada.
+- Pruebas 429: contract:false (el harness valida contra OpenAPI 002, que no declara 429). Gates: tsc, traceability, oracles OK; vitest focal 162 archivos / 2765 pass / 1 omitida con PG 55432. Sin [x], sin push, tasks.md intacto.
+
+## 2026-11-17 Keymaker: US4 slice (T560..T572 parcial), sin push ni [x]
+- C-1 OK: npm view = 9.0.0 (latest, integrity coincide); npm audit del arbol aislado: 0 vulnerabilidades. Linea base del proyecto ANTES: 27 vulns (12 moderate, 12 high, 3 critical), no «3 moderadas» del informe; DESPUES: identica (mismas 27, mismos paquetes). Sin nuevos.
+- T560 52dbba9 (rojo, 8 pruebas esperan buckets_media.tf/iam.tf de /link); iam.spec 003 admite storage.objectUser solo sobre media. T563/T564 f82b83f/0ec9302 (CSP: mediaBucketHost, buildContentSecurityPolicy). T565/T566 5a60e76/0dcd06c (ARGOS_MEDIA_*; production exige gcs+bucket; fixtures production de 5 suites ajustados).
+- T567 7fbf6d1: package.json 1 linea; lock +41 paquetes, integrity ok, hasInstallScript solo los 4 previos; npm ci --dry-run ok. C-4 c48a63e (mutacion verificada).
+- T568/T569 a6fd09b..77482a3 (dominio src/domain/media). T570/T571/T572 30fe1f2, 5d7e455, 8f845f0, f072db5 (puerto, memoria + /__dev/media, GCS con doble HTTP).
+- Gates: tsc 0; traceability 004 CUMPLE; oracles 004 CUMPLE; vitest tests/unit 1505/1513 (8 rojas = T560 pendiente de /link); integration media/ops/api/build + security 801/801; PG 55432. tasks.md intacto.
+
+## 2026-11-17 Keymaker: slice T573..T588 (checkpoint 1)
+- T573/T574: 6228a25 (rojo) + 41d93d8 migraciones SQLite 0009 / PG 0005; 8d0d90e amplia CHECK de audit_log.entity_type con PET_MEDIA (DESVIACION: no esta en data-model.md; sin ello la auditoria PET_MEDIA de T577 viola el CHECK). Pendiente de ratificar por Architect/Neo.
+- T575: db61802 (rojo) + fe37cef repositorios media, mediaQueue y avatar (memoria, SQLite, PG). listPage admite kind nulo (sin filtro).
+- T576/T577: fde2839 tests + 2014ac9 casos de uso. Acciones READ/WRITE/DELETE_MEDIA en domain/access/rbac.ts (MediaRbacAction); AuditEntry ahora de generated/v31.
+- Hallazgo: SC-ALM-029 pide 400 ERR-SCHEMA-VALIDATION-FAILED pero el catalogo da 422 a ese codigo (pregunta a Architect).
+- Sin [x], sin push; tasks.md intacto; NO test:gate.
+
+## 2026-11-17 Keymaker: slice T573..T588 (checkpoint 2)
+- T578 a2895b9+fab4cbc rutas HTTP medios; arnes de contrato incorpora rutas 004 de medios/avatar. T579/T580 753e6ca+10b3828 cola, cascadas (mascota, cuenta, importacion con avatar_version conservada), mantenimiento runMediaQueueMaintenance, mediaToDeleteCount real.
+- T577 conexion server.ts: SOLO memoria. GCS NO conectado: el bundle con @google-cloud/storage rompe REQ-SEC-005 (process.env.DEBUG= de `debug` y JSDoc BEGIN PRIVATE KEY); el clasificador denego relajar esa prueba; la imagen final no tiene node_modules. Pregunta a Neo/Link/Trinity.
+- MemoryMediaStorage devuelve URL relativa /__dev/media/..., el contrato MediaAccess.url exige https: el doble de pruebas devuelve https; en dev real el cliente recibe la ruta relativa (desviacion).
+
+## 2026-11-17 Keymaker: slice T573..T588 (checkpoint 3)
+- T583/T584: avatar PUT/GET/DELETE + avatarVersion en TODA respuesta de mascota (register, update, lista, tablero, hogar, traspaso); exencion de avatarVersion retirada del arnes de contrato; el inventario OPERATIONS (40 de la 002) se mantiene y MEDIA_OPERATIONS es aparte.
+- Desviaciones: SC-ALM-030 lista deleteAvatar con 502 pero REQ-AVA-001/OpenAPI dicen 204 -> se sigue 204 (idempotente, cola); avatar no escribe auditoria (el perfil no cambia); date-utils.shiftIsoTimestamp nuevo para umbrales sin Date.
+
+## 2026-11-17 Keymaker: cierre del slice T573..T588 (parcial)
+- T582 d1a8fe4+d6fd23a redaccion de logs; T587 d1a8fe4 tests de paginacion (el codigo del listado ya estaba en T577); T585/T586 parcial (PetAvatar proxy + enlace externo + ayuda) commits finales.
+- NO hechos: T581 (panel de archivos), T585 (recortador canvas + Chromium/WebKit), T586 (AvatarCropper), T588 (pantalla del album con loading=lazy). Motivo: UI interactiva + Playwright fuera del alcance de esta pasada; el endpoint del album esta.
+- Gates focales: tsc 0; traceability 004 CUMPLE; oracles 004 CUMPLE (0 debiles); vitest tests/unit+integration+security 3513 pasadas / 1 omitida con PG 55432. NO test:gate, NO e2e, NO property. tasks.md intacto; sin [x]; sin push.
+
+## 2026-11-17 Keymaker: pendientes US4 medios y avatar (GCS, REQ-SEC-005, T608, T581/T585/T586/T588)
+- 51695d8 deleteAvatar sin 502 (contrato). 89c5ff1 regexes REQ-SEC-005 (opcion a de Neo). 69e8e08 GCS en server.ts. b37266d + 061fd61 T608 transporte.
+- T585/T615 rojo f541455; logica ab14167 (recortador) y b965d51 (reexportacion, T616 como dependencia de T581). T611/T588 rojo 38c20d9; T581 5268d26; T588 cfbd4ef; T586 b9b7b55 (rojo) + b1ed172; refactor 6779f3d; integracion c99f724.
+- DETENIDO: planificador real (temporizador) de la renovacion al 80 %: la regla presentation-architecture.spec.ts/session-client.spec.ts solo admite 2 modulos con temporizadores; el clasificador denegó relajarla. Renovador por puertos hecho y probado; no conectado. Pregunta a Neo en el informe.
+- Pendiente: E2E Chromium/WebKit del recortador y la reexportacion (EXIF/orientacion reales), T592/T597. Sin [x], sin push, tasks.md intacto.
+
+## 2026-11-17 Keymaker: T581 scheduler, H-O-004CIE-6, T606/T607/T610, cierre T600/T601/T604/T605 de medios
+- T581: 73804a4+(session-client) rojo, ef14698 browser-scheduler.ts (tercer modulo con temporizadores autorizado por Neo; reglas de capas y session-client ajustadas SOLO para ese modulo) conectado por defecto a MediaPanel (NO_RENEWAL retirado). Queda abierta hasta /oracle.
+- H-6: PetForm ya tenia ayuda de avatarUrl y AvatarExternalLink; t585 (2 pruebas de render estatico) lo cubre y pasa; sin cambios de codigo.
+- T606 e2884c2 (rojo) / T607 616d599 conciliacion diaria pets/ >24 h en runMediaQueueMaintenance (+campo reconciled; t579 ajustada). T609: ya implementado en T578/T608 (bodyLimit, limitador); sin cambios. T610 9654970 (pruebas). T600/T601 4d8cc21 (medios/avatar 2 conexiones SQLite+PG). T604/T605 4b6a493 (3 motores). Sin [x], sin push, tasks.md intacto.
+
+## 2026-11-17 Keymaker: H-T591-1, H-T591-2, H-T591-3 y H-O-004ENM-2 (sin push, sin [x])
+- A 6406516: X-Argos-Renewal=1 solo en getMediaAccess (requireSessionPassiveRenewal; AuthenticateRequestUseCase.execute(token,{renew:false}) usa assertAuthenticated y no guarda). Cliente: media-api access(...,{renewal}) y access-renewer fetchAccess(renewal). contracts-004-openapi actualizado a 3.2.0/supersedes 3.1.0.
+- B 3aca769: LoginUseCase cuenta solo bajo el identificador normalizado; t546/t558 ajustadas; t558-login-identificador-logs (secuencia 429 ahora con 5 fallos del correo) ajustada por el mismo cambio.
+- C 596a713: listas blancas (browser-scheduler.ts, fetch solo en media-api.ts) y prueba que exige la cabecera. D 2e440e6: import JPEG retirado; tsc 0.
+- Gates: tsc 0, traceability 004 CUMPLE, oracles 004 CUMPLE, vitest security+unit+integration(api,persistence,contracts) con PG 55432: 3324 pass / 1 omitida. tasks.md intacto.
+
+## 2026-11-17 Keymaker: E2E Fase 8 T615, T585, T586 (sin push, sin [x])
+- a739c7c T615: tests/e2e/media/reexportacion-fotos.spec.ts (8 pruebas Chromium): JPEG EXIF+GPS orient. 6 sale sin EXIF y con rojo arriba; PNG tEXt, WebP EXIF; WebP no codificable -> JPEG .jpg; DECODE; PDF intacto; TOO_LARGE; POST real del panel. playwright.config.ts: proyecto webkit solo con E2E_WEBKIT=1.
+- 6e84f38 T585/T586: tests/e2e/media/recortador-avatar.spec.ts (4 pruebas): mascara circular, teclado, 512x512 WebP, respaldo JPEG, avatar cargado > inicial, avatarUrl solo enlace bajo img-src 'self' data: (control de violacion incluido).
+- Gates: playwright media 12/12 Chromium; vitest t585/t586/t615 27/27; tsc 0. WebKit NO ejecutado: webkit-2388 no instalado (PE-04; no se instalo). Sin defectos de src/ hallados.
+
+## 2026-11-17 Keymaker: reintento H-O-E2E-1 (sin push, sin [x])
+- tests/e2e/media/reexportacion-fotos.spec.ts: eliminados los 2 test.skip(webp === null) (l.89/101); ahora se afirma la cabecera RIFF/WEBP (bytes 8..12 == 'WEBP') porque not.toBeNull() es oraculo debil. La prueba noWebp usa siempre WebP real.
+- Gates: playwright media 12/12; vitest 27/27; tsc 0; verify-oracles 004 CUMPLE (debiles 0, deshabilitados 0).

@@ -24,7 +24,7 @@ describe('arquitectura de la presentación', () => {
   it('[INV-ARCH-004][REQ-UI-002] src/presentation/web solo importa de sí misma, de módulos concretos de src/generated y de react, react-dom y react-router-dom', () => {
     const allowed = (target: string): boolean =>
       target.startsWith('presentation/web/') ||
-      ['generated/api/client.ts', 'generated/api/openapi-types.ts', 'generated/errors/error-codes.ts', 'generated/errors/field-errors.ts', 'generated/schemas/validators.cjs', 'generated/schemas/validators.mjs', 'generated/machines/sanitary-alert.machine.ts'].includes(target) ||
+      ['generated/api/client.ts', 'generated/api/openapi-types.ts', 'generated/errors/error-codes.ts', 'generated/errors/field-errors.ts', 'generated/schemas/validators.cjs', 'generated/schemas/validators.mjs', 'generated/v31/schemas/validators.mjs', 'generated/catalogs/index.ts', 'generated/machines/sanitary-alert.machine.ts'].includes(target) ||
       ['paquete:react', 'paquete:react-dom/client', 'paquete:react-router-dom'].includes(target);
     const offending = sources.flatMap((f) => importsOf(f).filter((t) => !allowed(t)).map((t) => `${f} -> ${t}`));
     expect([sources.length > 10, offending]).toEqual([true, []]);
@@ -32,8 +32,8 @@ describe('arquitectura de la presentación', () => {
 
   it('[REQ-UI-002] sin dependencias de tiempo medido ni entropía en la UI: ni Date, ni performance.now, ni temporizadores, ni Math.random', () => {
     const forbidden = /\bnew Date\b|\bDate\.now\b|\bperformance\.now\b|\bsetTimeout\b|\bsetInterval\b|\bMath\.random\b/;
-    // Enmienda T288/T293 (autorizada por Neo): solo estos dos módulos pueden usar temporizadores (debounce de 300 ms y aviso previo de expiración).
-    const allowedTimers = ['use-debounced-value.ts', 'idle-notice.ts'];
+    // Enmienda T288/T293/T581 (autorizada por Neo): solo estos tres módulos pueden usar temporizadores (debounce de 300 ms, aviso previo de expiración y planificador de la renovación al 80 %).
+    const allowedTimers = ['use-debounced-value.ts', 'idle-notice.ts', 'browser-scheduler.ts'];
     expect(sources.filter((f) => !allowedTimers.some((m) => f.endsWith(m)) && forbidden.test(readFileSync(f, 'utf8')))).toEqual([]);
   });
 

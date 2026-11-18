@@ -11,7 +11,9 @@
  *   no dispare el borrado en cascada de sus registros.
  *
  * - Mascotas (0003): species, species_other, neutered, microchip_id y birth_date_is_estimate repiten el objeto en columnas
- *   (CHECK de las 8 especies y de speciesOther solo con OTHER, microchip único por propietario); weights.weight_grams guarda
+ *   (CHECK de las 8 especies y de speciesOther solo con OTHER; microchip único en todo el sistema por el índice parcial
+ *   `pets_microchip_global` (0008, REQ-PET4-001): su violación llega como `UNIQUE constraint failed: pets.microchip_id` y el caso de uso la
+ *   mapea sin propagar el objeto de error del driver); weights.weight_grams guarda
  *   el peso en gramos enteros (ADR-002-09). La lectura comprueba que las columnas coinciden con `data`.
  *
  * @implements INV-ARCH-004, INV-ARCH-005, INV-AUTH-003, INV-PET-005, INV-HOUSE-003, INV-PET2-001, INV-REC2-002, ERR-INTERNAL-UNEXPECTED
@@ -20,20 +22,13 @@
 import { createHash } from 'node:crypto';
 import {
   DomainError,
-  validateBodyMeasurementRecord,
-  validateCustomParameterRecord,
-  validateDewormingRecord,
   validateHousehold,
-  validateMedicalVisitRecord,
-  validatePetProfile,
-  validateUserPublicProfile,
-  validateVaccinationRecord,
-  validateWeightRecord,
-  type AuditEntry,
   type Household,
-  type PetProfile,
   type UserPublicProfile,
 } from '../../../generated/index.ts';
+// 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
+import { validateUserPublicProfile, type AuditEntry } from '../../../generated/v31/index.ts';
+import { isStoredPetProfile, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
@@ -50,11 +45,15 @@ import type {
   SessionRepositoryPort,
   UserAccount,
   UserRepositoryPort,
+  MediaDeletionEntry,
+  MediaDeletionQueuePort,
+  PetMediaRecord,
+  PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
-import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
+import { STORED_RECORD_CHECKS, revisionOf, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 import { isCanonicalUtcTimestamp } from '../../../domain/sorting/deterministic-sorter.ts';
 import type Database from 'better-sqlite3';
@@ -64,12 +63,12 @@ type Check<T> = (value: unknown) => value is T;
 
 /** Tabla de cada módulo de registros y su validador generado. */
 const RECORD_TABLES: { readonly [M in RecordModule]: { readonly table: string; readonly check: Check<RecordOf<M>> } } = {
-  weights: { table: 'weights', check: validateWeightRecord },
-  bodyMeasurements: { table: 'body_measurements', check: validateBodyMeasurementRecord },
-  vaccinations: { table: 'vaccinations', check: validateVaccinationRecord },
-  dewormings: { table: 'dewormings', check: validateDewormingRecord },
-  medicalVisits: { table: 'medical_visits', check: validateMedicalVisitRecord },
-  customParameters: { table: 'custom_parameters', check: validateCustomParameterRecord },
+  weights: { table: 'weights', check: STORED_RECORD_CHECKS.weights },
+  bodyMeasurements: { table: 'body_measurements', check: STORED_RECORD_CHECKS.bodyMeasurements },
+  vaccinations: { table: 'vaccinations', check: STORED_RECORD_CHECKS.vaccinations },
+  dewormings: { table: 'dewormings', check: STORED_RECORD_CHECKS.dewormings },
+  medicalVisits: { table: 'medical_visits', check: STORED_RECORD_CHECKS.medicalVisits },
+  customParameters: { table: 'custom_parameters', check: STORED_RECORD_CHECKS.customParameters },
 };
 const RECORD_MODULE_NAMES = Object.keys(RECORD_TABLES) as RecordModule[];
 
@@ -111,6 +110,32 @@ function decode<T>(table: string, key: string, raw: unknown, check: Check<T>, co
   }
   if (!check(value) || !columns(value)) throw corruptData(table, key);
   return value;
+}
+
+/**
+ * Serializa un registro validado: `data` NO lleva `revision` (la columna es la autoridad, D-16 A); el registro se valida con ella (0 si falta).
+ * @implements REQ-BOR-005
+ */
+export function encodeRecord<T extends { readonly id: string }>(table: string, record: T, check: Check<T>): { readonly data: string; readonly revision: number } {
+  const revision = revisionOf(record);
+  const complete = { ...record, revision };
+  if (!check(complete)) throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Objeto inválido para ${table} (${record.id}); no se guarda.`);
+  const { revision: _revision, ...stored } = complete;
+  return { data: JSON.stringify(stored), revision };
+}
+
+/** Une la columna `revision` al objeto guardado para validarlo y devolverlo completo (D-16 A). */
+export function withRevision(table: string, key: string, raw: unknown, revision: unknown): unknown {
+  let value: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      throw corruptData(table, key);
+    }
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value) || typeof revision !== 'number' || !Number.isInteger(revision) || revision < 0) throw corruptData(table, key);
+  return { ...(value as Record<string, unknown>), revision };
 }
 
 /** Parámetro de lista para `IN (SELECT value FROM json_each(?))`. */
@@ -168,6 +193,8 @@ interface RecordRow {
   readonly id: string;
   readonly pet_id: string;
   readonly data: string;
+  /** Revisión del registro (D-16 A): la columna es la autoridad; `data` no la repite. */
+  readonly revision: number;
   /** Solo en `weights` (ADR-002-09). */
   readonly weight_grams?: number;
 }
@@ -191,7 +218,8 @@ interface MembershipRow {
 function userRepository(db: SqliteDatabase): UserRepositoryPort {
   const select = 'SELECT id, username, password_hash, email, preferred_language, timezone, data FROM users';
   const byId = db.prepare<[string], UserRow>(`${select} WHERE id = ?`);
-  const byUsername = db.prepare<[string], UserRow>(`${select} WHERE username = ?`);
+  const byUsername = db.prepare<[string], UserRow>(`${select} WHERE lower(username) = lower(?)`);
+  const byEmail = db.prepare<[string], UserRow>(`${select} WHERE lower(email) = lower(?) LIMIT 2`);
   const byIds = db.prepare<[string], UserRow>(`${select} WHERE id IN (SELECT value FROM json_each(?))`);
   const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone) VALUES (?, ?, ?, ?, ?, ?, ?)');
   const update = db.prepare('UPDATE users SET password_hash = ?, data = ?, email = ?, preferred_language = ?, timezone = ? WHERE id = ? AND username = ?');
@@ -223,9 +251,17 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
       const row = byId.get(userId);
       return row === undefined ? null : toAccount(row);
     },
+    async findByIdForUpdate(userId) {
+      // BEGIN IMMEDIATE (SqliteUnitOfWork) ya tomó el candado de escritura de toda la base al abrir la transacción (REQ-BOR-005).
+      const row = byId.get(userId);
+      return row === undefined ? null : toAccount(row);
+    },
     async findByUsername(username) {
       const row = byUsername.get(username);
       return row === undefined ? null : toAccount(row);
+    },
+    async listByEmail(normalizedEmail) {
+      return byEmail.all(normalizedEmail).map(toAccount);
     },
     async listByIds(userIds) {
       return byIds.all(list(userIds)).map(toAccount);
@@ -327,12 +363,18 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
   );
   // INV-PET-005: ON DELETE CASCADE borra en la misma sentencia los registros de los 6 módulos.
   const remove = db.prepare('DELETE FROM pets WHERE id = ?');
+  type AvatarRow = { readonly avatar_version: number; readonly avatar_object_id: string | null };
+  const avatarOf = db.prepare<[string], AvatarRow>('SELECT avatar_version, avatar_object_id FROM pets WHERE id = ?');
+  const avatarVersions = db.prepare<[string], { id: string; avatar_version: number; avatar_object_id: string | null }>('SELECT id, avatar_version, avatar_object_id FROM pets WHERE id IN (SELECT value FROM json_each(?))');
+  const bumpAvatar = db.prepare<[string, string], AvatarRow>('UPDATE pets SET avatar_version = avatar_version + 1, avatar_object_id = ? WHERE id = ? RETURNING avatar_version, avatar_object_id');
+  const dropAvatar = db.prepare('UPDATE pets SET avatar_object_id = NULL WHERE id = ?');
+  const raiseAvatar = db.prepare('UPDATE pets SET avatar_version = ? WHERE id = ? AND avatar_version < ?');
   const toPet = (row: PetRow): PetProfile =>
     decode(
       'pets',
       row.id,
       row.data,
-      validatePetProfile,
+      isStoredPetProfile,
       (p) =>
         p.id === row.id &&
         p.ownerUserId === row.owner_user_id &&
@@ -347,6 +389,11 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
       const row = byId.get(petId);
       return row === undefined ? null : toPet(row);
     },
+    async findByIdForUpdate(petId) {
+      // BEGIN IMMEDIATE (SqliteUnitOfWork) ya tomó el candado de escritura de toda la base al abrir la transacción (REQ-BOR-005).
+      const row = byId.get(petId);
+      return row === undefined ? null : toPet(row);
+    },
     async listByOwners(ownerUserIds) {
       return byOwners.all(list(ownerUserIds)).map(toPet);
     },
@@ -354,7 +401,7 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
       upsert.run(
         pet.id,
         pet.ownerUserId,
-        encode('pets', pet.id, pet, validatePetProfile),
+        encode('pets', pet.id, pet, isStoredPetProfile),
         pet.species,
         pet.speciesOther,
         pet.neutered === null ? null : pet.neutered ? 1 : 0,
@@ -365,6 +412,122 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
     async delete(petId) {
       remove.run(petId);
     },
+    async findAvatarVersions(petIds) {
+      const rows = avatarVersions.all(list(petIds));
+      return new Map(rows.map((row) => [row.id, row.avatar_object_id === null ? null : row.avatar_version] as const));
+    },
+    async findAvatar(petId) {
+      const row = avatarOf.get(petId);
+      return row === undefined ? null : { version: row.avatar_version, objectId: row.avatar_object_id };
+    },
+    async replaceAvatar(petId, objectId) {
+      // Una sola sentencia: la versión solo crece (INV-AVA-001). Sin fila afectada, la mascota no existe.
+      const row = bumpAvatar.get(objectId, petId);
+      if (row === undefined) throw new Error('FOREIGN KEY constraint failed: pets');
+      return { version: row.avatar_version, objectId: row.avatar_object_id };
+    },
+    async clearAvatar(petId) {
+      dropAvatar.run(petId);
+    },
+    async raiseAvatarVersion(petId, version) {
+      raiseAvatar.run(version, petId, version);
+    },
+  };
+}
+
+/** Clave derivada del medio (INV-ARC-003), idéntica en SQL a `mediaObjectKey` del dominio. */
+const DERIVED_MEDIA_KEY = "'pets/' || pet_id || '/' || CASE kind WHEN 'FILE' THEN 'files' ELSE 'photos' END || '/' || id";
+
+interface MediaRow {
+  readonly id: string;
+  readonly pet_id: string;
+  readonly kind: 'FILE' | 'PHOTO';
+  readonly mime: string;
+  readonly size_bytes: number;
+  readonly original_name: string;
+  readonly created_at: string;
+}
+
+const toMedia = (row: MediaRow): PetMediaRecord => ({ id: row.id, petId: row.pet_id, kind: row.kind, mime: row.mime, sizeBytes: row.size_bytes, originalName: row.original_name, createdAt: row.created_at });
+
+/** `pet_media` (REQ-GCS-005): solo metadatos; la clave del objeto se deriva. @implements REQ-GCS-005, INV-ALB-001, REQ-ARC-005 */
+function mediaRepository(db: SqliteDatabase): PetMediaRepositoryPort {
+  const columns = 'id, pet_id, kind, mime, size_bytes, original_name, created_at';
+  const insert = db.prepare(`INSERT INTO pet_media (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+  const byId = db.prepare<[string, string], MediaRow>(`SELECT ${columns} FROM pet_media WHERE id = ? AND pet_id = ?`);
+  const page = db.prepare<[string, string | null, string | null, number, number], MediaRow>(`SELECT ${columns} FROM pet_media WHERE pet_id = ? AND (? IS NULL OR kind = ?) ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`);
+  const total = db.prepare<[string, string | null, string | null], { n: number }>('SELECT count(*) AS n FROM pet_media WHERE pet_id = ? AND (? IS NULL OR kind = ?)');
+  const bytes = db.prepare<[string], { n: number }>('SELECT COALESCE(SUM(m.size_bytes), 0) AS n FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = ?');
+  const remove = db.prepare('DELETE FROM pet_media WHERE id = ? AND pet_id = ?');
+  const countMedia = db.prepare<[string, string], { n: number }>('SELECT (SELECT count(*) FROM pet_media WHERE pet_id IN (SELECT value FROM json_each(?))) + (SELECT count(*) FROM pets WHERE id IN (SELECT value FROM json_each(?)) AND avatar_object_id IS NOT NULL) AS n');
+  return {
+    async insert(media) {
+      insert.run(media.id, media.petId, media.kind, media.mime, media.sizeBytes, media.originalName, media.createdAt);
+    },
+    async findById(petId, mediaId) {
+      const row = byId.get(mediaId, petId);
+      return row === undefined ? null : toMedia(row);
+    },
+    async listPage(petId, kind, limit, offset) {
+      return { items: page.all(petId, kind, kind, limit, offset).map(toMedia), total: total.get(petId, kind, kind)!.n };
+    },
+    async countBytesOfOwner(ownerUserId) {
+      return bytes.get(ownerUserId)!.n;
+    },
+    async remove(petId, mediaId) {
+      return remove.run(mediaId, petId).changes === 1;
+    },
+    async countObjectsOfPets(petIds) {
+      const ids = list(petIds);
+      return countMedia.get(ids, ids)!.n;
+    },
+  };
+}
+
+/** `media_deletion_queue` (REQ-GCS-004, REQ-GCS-006): sin clave foránea. @implements REQ-GCS-004, REQ-GCS-006, INV-GCS-002 */
+function mediaQueueRepository(db: SqliteDatabase): MediaDeletionQueuePort {
+  type QueueRow = { readonly object_key: string; readonly reason: 'INTENT' | 'DELETE'; readonly enqueued_at: string; readonly attempts: number };
+  const toEntry = (row: QueueRow): MediaDeletionEntry => ({ objectKey: row.object_key, reason: row.reason, enqueuedAt: row.enqueued_at, attempts: row.attempts });
+  const upsert = db.prepare(
+    `INSERT INTO media_deletion_queue (object_key, reason, enqueued_at) VALUES (?, ?, ?)
+     ON CONFLICT (object_key) DO UPDATE SET reason = CASE WHEN excluded.reason = 'DELETE' THEN 'DELETE' ELSE media_deletion_queue.reason END`,
+  );
+  const mediaKeys = db.prepare<[string], { key: string }>(`SELECT ${DERIVED_MEDIA_KEY} AS key FROM pet_media WHERE pet_id = ?`);
+  const avatarKey = db.prepare<[string], { key: string }>("SELECT 'pets/' || id || '/avatar/' || avatar_object_id AS key FROM pets WHERE id = ? AND avatar_object_id IS NOT NULL");
+  const byKey = db.prepare<[string], QueueRow>('SELECT object_key, reason, enqueued_at, attempts FROM media_deletion_queue WHERE object_key = ?');
+  const pending = db.prepare<[number], QueueRow>('SELECT object_key, reason, enqueued_at, attempts FROM media_deletion_queue ORDER BY enqueued_at, object_key LIMIT ?');
+  const remove = db.prepare('DELETE FROM media_deletion_queue WHERE object_key = ?');
+  const failure = db.prepare('UPDATE media_deletion_queue SET attempts = attempts + 1 WHERE object_key = ?');
+  const promote = db.prepare("UPDATE media_deletion_queue SET reason = 'DELETE' WHERE reason = 'INTENT' AND enqueued_at < ?");
+  const older = db.prepare<[string], { n: number }>('SELECT count(*) AS n FROM media_deletion_queue WHERE enqueued_at < ?');
+  return {
+    async enqueue(objectKey, reason, enqueuedAt) {
+      upsert.run(objectKey, reason, enqueuedAt);
+    },
+    async enqueueObjectsOfPet(petId, enqueuedAt) {
+      const keys = [...mediaKeys.all(petId), ...avatarKey.all(petId)].map((row) => row.key);
+      for (const key of keys) upsert.run(key, 'DELETE', enqueuedAt);
+      return keys;
+    },
+    async findByKey(objectKey) {
+      const row = byKey.get(objectKey);
+      return row === undefined ? null : toEntry(row);
+    },
+    async listPending(limit) {
+      return pending.all(limit).map(toEntry);
+    },
+    async remove(objectKey) {
+      remove.run(objectKey);
+    },
+    async recordFailure(objectKey) {
+      failure.run(objectKey);
+    },
+    async promoteStaleIntents(olderThanExclusive) {
+      return promote.run(olderThanExclusive).changes;
+    },
+    async countOlderThan(cutoffExclusive) {
+      return older.get(cutoffExclusive)!.n;
+    },
   };
 }
 
@@ -374,10 +537,10 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
   for (const module of RECORD_MODULE_NAMES) {
     const { table } = RECORD_TABLES[module];
     statements[module] = {
-      byPet: db.prepare<[string], RecordRow>(`SELECT id, pet_id, data${table === 'weights' ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = ?`),
-      insert: db.prepare<[string, string, string]>(`INSERT INTO ${table} (id, pet_id, data${table === 'weights' ? ', weight_grams' : ''}) VALUES (?, ?, ?${table === 'weights' ? ', ?' : ''})`),
+      byPet: db.prepare<[string], RecordRow>(`SELECT id, pet_id, data, revision${table === 'weights' ? ', weight_grams' : ''} FROM ${table} WHERE pet_id = ?`),
+      insert: db.prepare<(string | number)[]>(`INSERT INTO ${table} (id, pet_id, data, revision${table === 'weights' ? ', weight_grams' : ''}) VALUES (?, ?, ?, ?${table === 'weights' ? ', ?' : ''})`),
       removeForPet: db.prepare<[string]>(`DELETE FROM ${table} WHERE pet_id = ?`),
-      update: db.prepare<(string | number)[]>(`UPDATE ${table} SET data = ?${table === 'weights' ? ', weight_grams = ?' : ''} WHERE id = ? AND pet_id = ?`),
+      update: db.prepare<(string | number)[]>(`UPDATE ${table} SET data = ?, revision = ?${table === 'weights' ? ', weight_grams = ?' : ''} WHERE id = ? AND pet_id = ?`),
       removeOne: db.prepare<[string, string]>(`DELETE FROM ${table} WHERE id = ? AND pet_id = ?`),
     };
   }
@@ -393,7 +556,7 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
         result[module] = statements[module].byPet
           .all(petId)
           .map((row) =>
-            decode(table, row.id, row.data, check as Check<{ id: string; petId: string; weightKg?: number }>, (r) =>
+            decode(table, row.id, JSON.stringify(withRevision(table, row.id, row.data, row.revision)), check as Check<{ id: string; petId: string; weightKg?: number }>, (r) =>
               r.id === row.id && r.petId === row.pet_id && (table !== 'weights' || (row.weight_grams === weightKgToGrams(r.weightKg!))),
             ),
           );
@@ -408,18 +571,16 @@ function recordRepository(db: SqliteDatabase): MedicalRecordRepositoryPort {
     },
     async add<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const { table, check } = RECORD_TABLES[module];
-      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
-      if (module === 'weights') {
-        statements[module].insert.run(record.id, record.petId, data, weightKgToGrams((record as RecordOf<'weights'>).weightKg));
-      } else {
-        statements[module].insert.run(record.id, record.petId, data);
-      }
+      const { data, revision } = encodeRecord(table, record, check as Check<RecordOf<M>>);
+      const params: (string | number)[] = [record.id, record.petId, data, revision];
+      if (module === 'weights') params.push(weightKgToGrams((record as RecordOf<'weights'>).weightKg));
+      statements[module].insert.run(...params);
     },
     async replace<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const { table, check } = RECORD_TABLES[module];
-      const data = encode(table, record.id, record, check as Check<RecordOf<M>>);
-      const params = module === 'weights' ? [data, weightKgToGrams((record as RecordOf<'weights'>).weightKg)] : [data];
-      const result = statements[module].update.run(...(params as (string | number)[]), record.id, record.petId);
+      const { data, revision } = encodeRecord(table, record, check as Check<RecordOf<M>>);
+      const params: (string | number)[] = module === 'weights' ? [data, revision, weightKgToGrams((record as RecordOf<'weights'>).weightKg)] : [data, revision];
+      const result = statements[module].update.run(...params, record.id, record.petId);
       if (result.changes !== 1) throw corruptData(table, record.id);
     },
     async remove(module, petId, recordId) {
@@ -584,7 +745,7 @@ function rateLimitRepository(db: SqliteDatabase): RateLimitRepositoryPort {
 /** @implements REQ-HOUSE2-001, INV-HOUSE-003, ERR-INTERNAL-UNEXPECTED */
 function invitationRepository(db: SqliteDatabase): InvitationRepositoryPort {
   const columns = 'id, household_id, invitee_username, invitee_user_id, invited_by_user_id, role_on_join, status, created_at, responded_at';
-  const open = db.prepare<[string, string], InvitationRow>(`SELECT ${columns} FROM household_invitations WHERE household_id = ? AND invitee_username = ? AND status = 'INVITED'`);
+  const open = db.prepare<[string, string], InvitationRow>(`SELECT ${columns} FROM household_invitations WHERE household_id = ? AND lower(invitee_username) = lower(?) AND status = 'INVITED'`);
   const ofHousehold = db.prepare<[string], InvitationRow>(`SELECT ${columns} FROM household_invitations WHERE household_id = ?`);
   const openForUser = db.prepare<[string], InvitationRow>(
     `SELECT ${columns} FROM household_invitations WHERE invitee_user_id = ? AND status = 'INVITED' ORDER BY created_at ASC, household_id ASC`,
@@ -678,6 +839,8 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     rateLimits: rateLimitRepository(db),
     invitations: invitationRepository(db),
     assignments: assignmentRepository(db),
+    media: mediaRepository(db),
+    mediaQueue: mediaQueueRepository(db),
     auditLog: auditLogRepository(db),
   };
 }

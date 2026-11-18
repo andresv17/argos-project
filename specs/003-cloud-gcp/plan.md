@@ -132,7 +132,7 @@ Reglas: etiquetas `app=argos`, `managed-by=terraform` en todos los recursos etiq
 
 | Cuenta de servicio | Roles | Alcance |
 |---|---|---|
-| `argos-run@` (ejecución) | `roles/secretmanager.secretAccessor` | Solo los 2 secretos de Argos (a nivel de secreto, no de proyecto). Sin rol sobre el bucket: la app no escribe en él (H-MIF-010) |
+| `argos-run@` (ejecución) | `roles/secretmanager.secretAccessor`; *Enmienda 004, E3-01*: `roles/storage.objectUser` sobre el bucket de medios y `roles/iam.serviceAccountTokenCreator` sobre sí misma | Secretos: solo los 2 de Argos (a nivel de secreto, no de proyecto). Sin rol sobre el bucket de `dumps/`: la app no escribe en él (H-MIF-010); el bucket de medios es de la Feature 004 |
 | `argos-deployer@` (GitHub, por WIF) | `roles/run.developer`; `roles/artifactregistry.writer`; `roles/iam.serviceAccountUser` | Servicio `argos`; repositorio `argos`; solo sobre `argos-run@` |
 | `argos-scheduler@` | `roles/run.invoker` | Servicio `argos` |
 | `argos-terraform-plan@` (GitHub, por WIF, PR) | roles de solo lectura (ver abajo) | Proyecto Argos y bucket de estado, solo lectura |

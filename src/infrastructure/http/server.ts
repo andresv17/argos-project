@@ -21,8 +21,10 @@ import { SlidingWindowRateLimiterAdapter, rateLimitsFrom } from '../adapters/sli
 import { ScryptPasswordHasherAdapter } from '../adapters/scrypt-password-hasher.adapter.ts';
 import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
 import { DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
-import { runMaintenance } from '../../application/use-cases/maintenance-use-cases.ts';
+import type { MediaStoragePort } from '../../application/ports/media-storage.port.ts';
+import { runMaintenance, type MediaQueueResult } from '../../application/use-cases/maintenance-use-cases.ts';
 import { buildApp } from './app.ts';
+import { mediaBucketHost } from './plugins/security-headers.ts';
 import { cloudLoggerOptions } from './cloud-logging.ts';
 import { installShutdownHandlers } from './graceful-shutdown.ts';
 import { createOidcVerifier } from './oidc-verify.ts';
@@ -58,6 +60,22 @@ async function composePersistence(config: AppConfig): Promise<{ uow: UnitOfWorkP
 }
 
 /**
+ * Almacenamiento de objetos por `config.mediaDriver` (REQ-GCS-003). Con `gcs` se construye `GcsMediaStorageAdapter` con el bucket de
+ * `app-config.ts` (único lector del entorno; las credenciales vienen de la cuenta de ejecución, sin llaves) y con `memory` el
+ * adaptador de memoria (desarrollo y pruebas). Ambos se cargan por importación dinámica: el SDK solo se evalúa con `gcs`.
+ * El bundle de producción incluye `@google-cloud/storage`; REQ-SEC-005 se precisó en `build-server.spec.ts` (opción a, aprobada por Neo).
+ */
+async function composeMediaStorage(config: AppConfig, now: () => Date): Promise<MediaStoragePort | null> {
+  if (config.mediaDriver === 'gcs') {
+    if (config.mediaBucket === null) throw new Error('ARGOS_MEDIA_BUCKET es obligatoria con ARGOS_MEDIA_DRIVER=gcs');
+    const { GcsMediaStorageAdapter, createGcsStorage } = await import('../adapters/gcs-media-storage.adapter.ts');
+    return new GcsMediaStorageAdapter({ storage: createGcsStorage(), bucket: config.mediaBucket, now });
+  }
+  const { MemoryMediaStorageAdapter } = await import('../adapters/memory-media-storage.adapter.ts');
+  return new MemoryMediaStorageAdapter({ now });
+}
+
+/**
  * Compone la aplicación con los adaptadores de producción sobre la persistencia de `config.dbDriver`.
  * @implements INV-AUTH-003, INV-AUTH-006
  */
@@ -77,9 +95,11 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   const hasher = new ScryptPasswordHasherAdapter();
   const ids = new CryptoUuidAdapter();
   const tokens = new CryptoSecureTokenAdapter();
+  const clock = new SystemClockAdapter(config.appTimezone);
+  const mediaStorage = await composeMediaStorage(config, () => new Date(clock.nowIsoTimestamp()));
   const deps: ApplicationDeps = {
     uow: persistence.uow,
-    clock: new SystemClockAdapter(config.appTimezone),
+    clock,
     ids,
     tokens,
     hasher,
@@ -90,6 +110,19 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     auditPseudonym: new HmacAuditPseudonymAdapter(),
     auditHmacSecret: config.auditHmacSecret ?? DEVELOPMENT_AUDIT_HMAC_SECRET,
     auditIds: ids,
+    ...(mediaStorage === null
+      ? {}
+      : {
+          media: {
+            storage: mediaStorage,
+            limits: {
+              maxBytes: config.mediaMaxBytes,
+              maxBytesPerOwner: config.mediaMaxBytesPerOwner,
+              maxConcurrentUploads: config.mediaMaxConcurrentUploads,
+              signedUrlTtlSeconds: config.mediaSignedUrlTtlSeconds,
+            },
+          },
+        }),
   };
   const app = await buildApp({
     deps,
@@ -99,18 +132,28 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     trustProxy: config.host === '0.0.0.0' ? 1 : false,
     checkReady: options.checkReady ?? persistence.checkReady,
     ...(serveStatic ? { staticRoot } : {}),
+    // CSP con el host del bucket de medios solo con el driver gcs (T564, E3-03, SC-ALM-012).
+    ...(config.mediaDriver === 'gcs' && config.mediaBucket !== null ? { mediaHost: mediaBucketHost(config.mediaBucket) } : {}),
+    // Ruta de desarrollo `/__dev/media/…` solo con el adaptador de memoria; la configuración ya impide ese driver con NODE_ENV=production (T566).
+    ...(config.mediaDriver === 'memory' && mediaStorage !== null ? { devMedia: { storage: mediaStorage } } : {}),
   });
   app.addHook('onClose', () => persistence.close());
   // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). El token OIDC del Scheduler se verifica con jose (createOidcVerifier, T486): firma, issuer, audiencia y correo.
   if (config.dbDriver === 'postgres' && config.schedulerEmail !== null && config.oidcAudience !== null) {
     registerMaintenanceRoute(app, {
       verifyOidc: createOidcVerifier({ audience: config.oidcAudience }),
-      runMaintenance: () => runMaintenance(deps),
+      runMaintenance: () => runMaintenance(deps, (queue) => logMediaQueue(app, queue)),
       schedulerEmail: config.schedulerEmail,
     });
   }
   maintenanceDeps.set(app, deps);
   return app;
+}
+
+/** Resultado de la cola de borrado de medios: solo conteos (E3-04); con filas de más de 48 h es una alerta para Neo (REQ-GCS-004). */
+function logMediaQueue(app: FastifyInstance, queue: MediaQueueResult): void {
+  if (queue.overdue > 0) app.log.warn({ mediaQueue: queue }, 'cola de borrado de medios con filas de más de 48 h');
+  else app.log.info({ mediaQueue: queue }, 'cola de borrado de medios');
 }
 
 /** Dependencias de cada app de producción, para que `startServer` programe el mantenimiento sin tocar las pruebas. */
@@ -124,7 +167,7 @@ const MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
  */
 function scheduleMaintenance(app: FastifyInstance, deps: ApplicationDeps): void {
   const pass = () =>
-    runMaintenance(deps).then(
+    runMaintenance(deps, (queue) => logMediaQueue(app, queue)).then(
       (counts) => app.log.info({ maintenance: counts }, 'mantenimiento ADR-002-14'),
       () => app.log.warn('mantenimiento ADR-002-14 falló; se reintenta en la siguiente pasada'),
     );

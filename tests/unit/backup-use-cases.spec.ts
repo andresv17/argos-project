@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   DomainError,
-  STATE_BACKUP_001,
-  STATE_BACKUP_001_EVENTS,
-  STATE_BACKUP_001_STATES,
-  validateBackupEnvelopeV3,
   type BackupEnvelopeV3,
   type PetProfile,
 } from '../../src/generated/index.ts';
+import { DomainError as V31DomainError, STATE_BACKUP_001, STATE_BACKUP_001_EVENTS, STATE_BACKUP_001_STATES, validateBackupEnvelopeV31 } from '../../src/generated/v31/index.ts';
 import {
   ExportBackupUseCase,
   ImportBackupUseCase,
@@ -60,6 +57,8 @@ function importer(deps = createHarness().deps) {
 }
 
 /** Importación que debe fallar sin cambiar nada: código, campo, finalState y pasos. */
+const DUPLICATE_CHIP = '985112345678901';
+
 async function rejected(payload: string | Uint8Array, harness = createHarness()) {
   const before = json(harness.uow.snapshot());
   const { steps, promise } = importer(harness.deps)(payload);
@@ -69,16 +68,22 @@ async function rejected(payload: string | Uint8Array, harness = createHarness())
 }
 
 describe('exportación de respaldo (src/application/use-cases/backup-use-cases.ts)', () => {
-  it('[REQ-BACKUP2-001] Andrés exporta sus 5 mascotas y sus registros en un sobre 3.0.0 válido, sin campos de propiedad, en el orden de REQ-PET-005 e INV-SORT-001', async () => {
+  it('[REQ-BACKUP2-001] Andrés exporta sus 5 mascotas y sus registros en un sobre 3.1.0 válido, sin campos de propiedad, en el orden de REQ-PET-005 e INV-SORT-001', async () => {
     const h = createHarness(validBackupState());
     const before = json(withoutExportTraces(h.uow.snapshot()));
     const result = await new ExportBackupUseCase(h.deps).execute(ANDRES);
+    // T617: el mismo archivo canónico en forma 3.1.0: mascotas con breedCode nulo y parámetros con symptomType y severity nulos.
     const file = v3();
     const expected = {
-      schemaVersion: '3.0.0',
+      schemaVersion: '3.1.0',
       exportedAt: '2026-11-05T12:00:00.000Z',
-      pets: sortPetsForListing(file.pets as unknown as PetProfile[]),
-      records: Object.fromEntries(MODULES.map((m) => [m, sortHistoricalRecords(file.records[m] as never)])),
+      pets: sortPetsForListing(file.pets as unknown as PetProfile[]).map((p) => ({ ...p, breedCode: null })),
+      records: Object.fromEntries(
+        MODULES.map((m) => [
+          m,
+          sortHistoricalRecords(file.records[m] as never).map((r: object) => (m === 'customParameters' ? { ...r, symptomType: null, severity: null } : r)),
+        ]),
+      ),
     };
     expect(result).toEqual({
       envelope: expected,
@@ -87,7 +92,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
       headers: { 'x-argos-confirmation-token': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
     });
     expect(Object.keys(result.envelope)).toEqual(['schemaVersion', 'exportedAt', 'pets', 'records']);
-    expect(validateBackupEnvelopeV3(result.envelope)).toBe(true);
+    expect(validateBackupEnvelopeV31(result.envelope)).toBe(true);
     expect(json(withoutExportTraces(h.uow.snapshot()))).toBe(before);
   });
 
@@ -97,7 +102,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
     const result = await new ExportBackupUseCase(h.deps).execute(MARIA);
     expect([(result.envelope as unknown as { exportedByUserId?: string }).exportedByUserId, result.envelope.pets, result.envelope.records]).toEqual([
       undefined,
-      [LUNA_IN_FILE],
+      [{ ...LUNA_IN_FILE, breedCode: null }],
       Object.fromEntries(MODULES.map((m) => [m, []])),
     ]);
     const forbidden = [ANDRES, MARIA, ARGOS.id, HOUSEHOLD.id, FAKE_HASH_PREFIX, DUMMY_PASSWORD_HASH, 'token-secreto', 'passwordHash', 'username'];
@@ -106,7 +111,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
 
   it('[REQ-BACKUP2-001] un usuario sin mascotas exporta un sobre vacío y válido', async () => {
     const result = await new ExportBackupUseCase(createHarness().deps).execute(fixtures.users[3].id);
-    expect([result.envelope.pets, result.envelope.records, validateBackupEnvelopeV3(result.envelope)]).toEqual([[], Object.fromEntries(MODULES.map((m) => [m, []])), true]);
+    expect([result.envelope.pets, result.envelope.records, validateBackupEnvelopeV31(result.envelope)]).toEqual([[], Object.fromEntries(MODULES.map((m) => [m, []])), true]);
   });
 
   it('[REQ-BACKUP2-001] si los datos guardados no forman un sobre válido, la exportación falla con ERR-INTERNAL-UNEXPECTED, sin emitir token ni consumir cupo', async () => {
@@ -118,7 +123,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
       'ERR-INTERNAL-UNEXPECTED',
       500,
       null,
-      'Los datos guardados del usuario no forman un respaldo 3.0.0 válido.',
+      'Los datos guardados del usuario no forman un respaldo 3.1.0 válido.',
       {},
       [],
     ]);
@@ -130,7 +135,7 @@ describe('importación de respaldo, caminos de éxito (STATE-BACKUP-001)', () =>
     const h = createHarness(validBackupState());
     const exported = await new ExportBackupUseCase(h.deps).execute(ANDRES);
     const { steps, promise } = importer(h.deps)(exported.json);
-    expect(await promise).toEqual({ finalState: 'COMPLETED', sourceSchemaVersion: '3.0.0', importedPetsCount: 5, importedRecordsCount: RECORD_COUNT });
+    expect(await promise).toEqual({ finalState: 'COMPLETED', sourceSchemaVersion: '3.1.0', importedPetsCount: 5, importedRecordsCount: RECORD_COUNT });
     expect(path(steps)).toEqual([...UNTIL_COMMIT, 'COMMIT_SUCCESS>COMPLETED']);
     expect((await new ExportBackupUseCase(h.deps).execute(ANDRES)).json).toBe(exported.json);
   });
@@ -191,6 +196,7 @@ describe('importación de respaldo, caminos de éxito (STATE-BACKUP-001)', () =>
           birthDateIsEstimate: false,
           neutered: null,
           microchipId: null,
+          breedCode: null,
         })),
       ),
     );
@@ -273,14 +279,14 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
   });
 
   it.each([['"4.0.0"'], ['"3.0.1"'], ['"2.0"'], ['2'], ['null'], ['["2.0.0"]']])(
-    '[ERR-BACKUP-VERSION-UNSUPPORTED] schemaVersion %s no es 1.0.0, 2.0.0 ni 3.0.0: VERSION_MISMATCH',
+    '[ERR-BACKUP-VERSION-UNSUPPORTED] schemaVersion %s no es 1.0.0, 2.0.0, 3.0.0 ni 3.1.0: VERSION_MISMATCH',
     async (version) => {
       const r = await rejected(json(v2()).replace('"schemaVersion":"2.0.0"', `"schemaVersion":${version}`));
       expect([r.code, r.status, r.field, r.detail, r.finalState, r.path]).toEqual([
         'ERR-BACKUP-VERSION-UNSUPPORTED',
         422,
         'schemaVersion',
-        `schemaVersion ${JSON.stringify(JSON.parse(version))} no es 1.0.0, 2.0.0 ni 3.0.0.`,
+        `schemaVersion ${JSON.stringify(JSON.parse(version))} no es 1.0.0, 2.0.0, 3.0.0 ni 3.1.0.`,
         'ROLLED_BACK',
         [...UNTIL_VALIDATION, 'VERSION_MISMATCH>ROLLED_BACK'],
       ]);
@@ -424,6 +430,50 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
     expect([r.code, r.status, r.finalState, r.path]).toEqual(['ERR-BACKUP-ATOMIC-ROLLBACK', 500, 'ROLLED_BACK', [...UNTIL_COMMIT, 'STORAGE_ERROR>ROLLED_BACK']]);
   });
 
+  it('[STATE-BACKUP-001][REQ-PET4-001][INV-PET4-001] un microchip ya registrado al guardar termina en INVARIANTS_VALID>UNIQUE_CONSTRAINT_VIOLATED>ROLLED_BACK con ERR-PET-MICROCHIP-DUPLICATE, sin microchip en el detalle', async () => {
+    const uow = new ScriptedUnitOfWork((inner, work) =>
+      inner.runInTransaction((r) =>
+        work({ ...r, pets: { ...r.pets, save: async () => { throw Object.assign(new Error('UNIQUE constraint failed: pets.microchip_id'), { code: 'SQLITE_CONSTRAINT_UNIQUE' }); } } }),
+      ),
+    );
+    // REQ-PET4-002: el duplicado registra un evento del usuario en una transacción independiente; el resto del estado queda intacto byte a byte.
+    const sansRateEvents = () => json({ ...uow.inner.snapshot(), rateEvents: [] });
+    const before = sansRateEvents();
+    // H-O-004A1-1: el archivo lleva un microchip REAL de 15 dígitos (el fixture base lo trae nulo y la aserción de fuga era vacua).
+    const file = json(v3((e) => { e.pets[0]!.microchipId = DUPLICATE_CHIP; }));
+    expect(file).toContain(DUPLICATE_CHIP);
+    const { steps, promise } = importer({ ...createHarness().deps, uow })(file);
+    // H-O-004A1-2: la clase es la 3.1.0 (la misma que usa microchip-violation.ts), no la de la 002; `failure()` solo reconoce la 002.
+    const error = await promise.then(
+      () => { throw new Error('se esperaba un rechazo'); },
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(V31DomainError);
+    if (!(error instanceof V31DomainError)) throw error;
+    expect([error.code, error.finalState, error.field, path(steps).slice(-2), sansRateEvents() === before, uow.inner.snapshot().rateEvents.map((e) => e.scope)]).toEqual([
+      'ERR-PET-MICROCHIP-DUPLICATE',
+      'ROLLED_BACK',
+      'microchipId',
+      ['INVARIANTS_VALID>COMMITTING_SNAPSHOT', 'UNIQUE_CONSTRAINT_VIOLATED>ROLLED_BACK'],
+      true,
+      ['MICROCHIP_DUPLICATE'],
+    ]);
+    const everything = JSON.stringify(error) + error.message + String(error.stack) + JSON.stringify(error.toProblemDetails('/api/backup/import'));
+    expect(everything).not.toContain(DUPLICATE_CHIP);
+    expect(everything).not.toMatch(/\d{9,}/);
+  });
+
+  it('[STATE-BACKUP-001][INV-PET4-001] otra violación de unicidad (no pets_microchip_global) sigue siendo STORAGE_ERROR', async () => {
+    const uow = new ScriptedUnitOfWork((inner, work) =>
+      inner.runInTransaction((r) =>
+        work({ ...r, pets: { ...r.pets, save: async () => { throw Object.assign(new Error('UNIQUE constraint failed: pets.id'), { code: 'SQLITE_CONSTRAINT_UNIQUE' }); } } }),
+      ),
+    );
+    const { steps, promise } = importer({ ...createHarness().deps, uow })(json(v3()));
+    const error = await failure(promise);
+    expect([error.code, error.finalState, path(steps).at(-1)]).toEqual(['ERR-BACKUP-ATOMIC-ROLLBACK', 'ROLLED_BACK', 'STORAGE_ERROR>ROLLED_BACK']);
+  });
+
   it('[ERR-BACKUP-ATOMIC-ROLLBACK] un DomainError del almacenamiento durante el commit también es STORAGE_ERROR, salvo que señale rollback fallido', async () => {
     const uow = new ScriptedUnitOfWork((inner, work) =>
       inner.runInTransaction((r) => work({ ...r, records: { ...r.records, add: async () => { throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'fila corrupta'); } } })),
@@ -498,7 +548,7 @@ describe('conformidad con contracts/state-machines/backup-import.machine.json', 
 
   it('[STATE-BACKUP-001] backupImportTransition devuelve exactamente cada transición de la máquina generada', () => {
     expect(defined.map(({ state, event }) => backupImportTransition(state as never, event as never))).toEqual(defined.map(({ t }) => t));
-    expect(defined.length).toBe(22);
+    expect(defined.length).toBe(23);
   });
 
   it('[STATE-BACKUP-001] un evento que la máquina no define en un estado lanza: COMPLETED y ROLLED_BACK son finales', () => {
@@ -606,6 +656,7 @@ describe('T278: previsualización, confirmación e importación con auditoría (
       counts: { pets: 5, weights: 2, bodyMeasurements: 1, vaccinations: 2, dewormings: 1, medicalVisits: 1, customParameters: 1 },
       collisions: { petsReplacedCount: 5, sameIdPetsCount: 5 },
       affectedSharedPets: { petsCount: 5, householdsCount: 1 },
+      mediaToDeleteCount: 0, // T604, D-15 A: sin medios todavía
     });
     expect(json(h.uow.snapshot())).toBe(before);
   });
@@ -655,6 +706,20 @@ describe('T278: previsualización, confirmación e importación con auditoría (
     );
     expect([r.code, r.status, r.field, r.finalState, r.path.at(-1)]).toEqual(['ERR-PET-MICROCHIP-DUPLICATE', 409, 'microchipId', 'ROLLED_BACK', 'DOMAIN_INVARIANT_VIOLATED>ROLLED_BACK']);
   });
+
+  // El esquema 3.1.0 ya rechaza el codigo de otra especie; lo que solo la invariante de dominio detecta es el rotulo que no es el del catalogo.
+  it.each([['DOG_BEAGLE con breed «Labrador» (rotulo del catalogo: «Beagle»)', 'DOG_BEAGLE', 'Labrador', 'breed']])(
+    '[REQ-RAZ-003][INV-RAZ-001][STATE-BACKUP-001] H-O-T617-1: un respaldo 3.1.0 con %s se rechaza con ERR-SCHEMA-VALIDATION-FAILED en CHECKING_DOMAIN_INVARIANTS, sin estado parcial',
+    async (_case, breedCode, breed, field) => {
+      const file = v3();
+      expect(file.pets[0]!.species).toBe('CANINE');
+      const records = { ...file.records, customParameters: file.records.customParameters.map((c) => ({ ...c, symptomType: null, severity: null })) };
+      const payload = json({ ...file, schemaVersion: '3.1.0', records, pets: file.pets.map((p, i) => ({ ...p, breedCode: i === 0 ? breedCode : null, breed: i === 0 ? breed : p.breed })) });
+      const harness = createHarness();
+      const r = await rejected(payload, harness); // `rejected` ya exige el estado intacto byte a byte
+      expect([r.code, r.field, r.finalState, r.path.at(-1)]).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', field, 'ROLLED_BACK', 'DOMAIN_INVARIANT_VIOLATED>ROLLED_BACK']);
+    },
+  );
 
   it('[REQ-AUD-001][STATE-BACKUP-001] la importación escribe 1 fila IMPORT (USER, entityId = userId) con hashes antes y después, y pide el checkpoint del WAL una sola vez', async () => {
     const h = createHarness();

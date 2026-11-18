@@ -17,29 +17,18 @@
 import {
   DomainError,
   resolveFieldErrorCode,
-  validateBodyMeasurementRecord,
-  validateCreateBodyMeasurementInput,
-  validateCreateCustomParameterInput,
   validateCreateDewormingInput,
   validateCreateMedicalVisitInput,
   validateCreateVaccinationInput,
   validateCreateWeightInput,
-  validateCustomParameterRecord,
-  validateDewormingRecord,
-  validateMedicalVisitRecord,
-  validateUpdateBodyMeasurementInput,
-  validateUpdateCustomParameterInput,
   validateUpdateDewormingInput,
   validateUpdateMedicalVisitInput,
   validateUpdateVaccinationInput,
   validateUpdateWeightInput,
-  validateVaccinationRecord,
-  validateWeightRecord,
   type BackupEnvelopeV3,
   type BodyMeasurementRecord,
   type components,
   type CreateBodyMeasurementInput,
-  type CreateCustomParameterInput,
   type CreateDewormingInput,
   type CreateMedicalVisitInput,
   type CreateVaccinationInput,
@@ -52,6 +41,21 @@ import {
   type VaccinationRecord,
   type WeightRecord,
 } from '../../generated/index.ts';
+// Contrato 3.1.0 (feature 004): las entradas de medidas son enteras (REQ-MDC-001); los registros siguen en la forma 002 para leer los guardados con decimales.
+// Síntomas (REQ-SIN-001): CustomParameter 3.1.0 con symptomType y severity.
+import {
+  validateBodyMeasurementRecord as validateBodyMeasurementRecordV31,
+  validateDewormingRecord as validateDewormingRecordV31,
+  validateMedicalVisitRecord as validateMedicalVisitRecordV31,
+  validateVaccinationRecord as validateVaccinationRecordV31,
+  validateWeightRecord as validateWeightRecordV31,
+  validateCreateBodyMeasurementInput as validateCreateBodyMeasurementInputV31,
+  validateCreateCustomParameterInput as validateCreateCustomParameterInputV31,
+  validateCustomParameterRecord as validateCustomParameterRecordV31,
+  validateUpdateBodyMeasurementInput as validateUpdateBodyMeasurementInputV31,
+  validateUpdateCustomParameterInput as validateUpdateCustomParameterInputV31,
+  type CreateCustomParameterInput as CreateCustomParameterInputV31,
+} from '../../generated/v31/index.ts';
 import { validateEventDateWindow } from '../shared/date-utils.ts';
 import { sortHistoricalRecords } from '../sorting/deterministic-sorter.ts';
 import { assertWeightWithinSpeciesLimits, weightKgToGrams } from './weight-limits.ts';
@@ -60,7 +64,17 @@ export type WeightEntryView = components['schemas']['WeightEntryView'];
 type RecordCollections = BackupEnvelopeV3['records'];
 /** Las 6 colecciones del sobre v3: weights, bodyMeasurements, vaccinations, dewormings, medicalVisits, customParameters. */
 export type RecordModule = keyof RecordCollections;
-export type RecordOf<M extends RecordModule> = RecordCollections[M][number];
+/**
+ * Registro de un módulo. `revision` (REQ-BOR-005, D-16 A) es de solo lectura: los repositorios siempre la devuelven; es opcional en el tipo
+ * porque el alta y las fixtures de las pruebas pueden omitirla (el almacenamiento la completa con 0).
+ */
+export type RecordOf<M extends RecordModule> = RecordCollections[M][number] & { readonly revision?: number };
+
+/** Revisión del registro (0 si aún no la trae). @implements REQ-BOR-005 */
+export const revisionOf = (record: unknown): number => {
+  const revision = (record as { revision?: unknown } | null)?.revision;
+  return typeof revision === 'number' ? revision : 0;
+};
 
 export interface RecordInputs {
   weights: CreateWeightInput;
@@ -68,7 +82,7 @@ export interface RecordInputs {
   vaccinations: CreateVaccinationInput;
   dewormings: CreateDewormingInput;
   medicalVisits: CreateMedicalVisitInput;
-  customParameters: CreateCustomParameterInput;
+  customParameters: CreateCustomParameterInputV31;
 }
 
 interface ValidatorWithErrors {
@@ -91,8 +105,65 @@ export interface RecordModuleRules {
   /** Campos numéricos con máx. 2 decimales y el código de su invariante (INV-REC-003). */
   readonly decimalFields: readonly string[];
   readonly decimalError: ErrorCode | null;
+  /** Campos que en una entrada nueva o editada deben ser enteros (REQ-MDC-001); los registros ya guardados conservan sus decimales. */
+  readonly integerInputFields: readonly string[];
   /** Fecha que debe ser estrictamente posterior a eventDateField y su código (INV-REC-004/005). */
   readonly nextDate: { readonly field: string; readonly error: ErrorCode } | null;
+}
+
+export type SymptomType = NonNullable<CreateCustomParameterInputV31['symptomType']>;
+export type SymptomSeverity = NonNullable<CreateCustomParameterInputV31['severity']>;
+/** Parámetro adicional con los campos de síntoma de la 004; son nulos fuera de la categoría SYMPTOM (REQ-SIN-001). */
+export type CustomParameterWithSymptom = CustomParameterRecord & { readonly symptomType: SymptomType | null; readonly severity: SymptomSeverity | null };
+
+/** Los parámetros guardados antes de la 004 no tienen symptomType ni severity: se leen con ambos nulos (REQ-SIN-001). @implements REQ-SIN-001 */
+export function withSymptomFields(record: CustomParameterRecord): CustomParameterWithSymptom {
+  const stored = record as CustomParameterRecord & { symptomType?: SymptomType | null; severity?: SymptomSeverity | null };
+  return { ...record, symptomType: stored.symptomType ?? null, severity: stored.severity ?? null };
+}
+
+/**
+ * Valida un registro guardado o importado contra su esquema 3.1.0 (con `revision` de solo lectura, REQ-BOR-005). El respaldo y las filas
+ * anteriores a la 004 no la traen: se completa con 0 solo para esta comprobación. Los parámetros además completan `symptomType` y `severity`
+ * nulos (catálogo cerrado y coherencia categoría/tipo, INV-SIN-001).
+ * @implements REQ-BOR-005, REQ-SIN-001, INV-SIN-001
+ */
+function lenientRecordValidator(validate: ValidatorWithErrors, defaults: Readonly<Record<string, unknown>> = {}): ValidatorWithErrors {
+  const wrapped: ValidatorWithErrors = Object.assign(
+    (data: unknown): boolean => {
+      let candidate: unknown = data;
+      if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        const record = data as Record<string, unknown>;
+        candidate = { ...record, revision: record['revision'] ?? 0, ...Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, record[key] ?? value])) };
+      }
+      const ok = validate(candidate);
+      wrapped.errors = validate.errors ?? null;
+      return ok;
+    },
+    { errors: null as NonNullable<ValidatorWithErrors['errors']> | null },
+  );
+  return wrapped;
+}
+const validateStoredWeight = lenientRecordValidator(validateWeightRecordV31 as ValidatorWithErrors);
+const validateStoredBodyMeasurement = lenientRecordValidator(validateBodyMeasurementRecordV31 as ValidatorWithErrors);
+const validateStoredVaccination = lenientRecordValidator(validateVaccinationRecordV31 as ValidatorWithErrors);
+const validateStoredDeworming = lenientRecordValidator(validateDewormingRecordV31 as ValidatorWithErrors);
+const validateStoredMedicalVisit = lenientRecordValidator(validateMedicalVisitRecordV31 as ValidatorWithErrors);
+const validateStoredCustomParameter = lenientRecordValidator(validateCustomParameterRecordV31 as ValidatorWithErrors, { symptomType: null, severity: null });
+
+/** Comprobaciones de almacenamiento de los 6 módulos (SQLite y PostgreSQL): esquema 3.1.0 con `revision`. @implements REQ-BOR-005 */
+export const STORED_RECORD_CHECKS: { readonly [M in RecordModule]: (value: unknown) => value is RecordOf<M> } = {
+  weights: validateStoredWeight as unknown as (value: unknown) => value is RecordOf<'weights'>,
+  bodyMeasurements: validateStoredBodyMeasurement as unknown as (value: unknown) => value is RecordOf<'bodyMeasurements'>,
+  vaccinations: validateStoredVaccination as unknown as (value: unknown) => value is RecordOf<'vaccinations'>,
+  dewormings: validateStoredDeworming as unknown as (value: unknown) => value is RecordOf<'dewormings'>,
+  medicalVisits: validateStoredMedicalVisit as unknown as (value: unknown) => value is RecordOf<'medicalVisits'>,
+  customParameters: validateStoredCustomParameter as unknown as (value: unknown) => value is RecordOf<'customParameters'>,
+};
+
+/** Comprobación de almacenamiento de un parámetro adicional (SQLite y PostgreSQL). @implements REQ-SIN-001, INV-SIN-001 */
+export function isStoredCustomParameter(value: unknown): value is CustomParameterRecord {
+  return validateStoredCustomParameter(value);
 }
 
 const ref = (name: string, validate: unknown): SchemaRef => ({ name, validate: validate as ValidatorWithErrors });
@@ -101,57 +172,63 @@ const MEASUREMENT_FIELDS = ['neckCm', 'chestCm', 'backLengthCm', 'waistCm'] as c
 /** Reglas por módulo, leídas de medical-records.schema.json y de la spec. */
 export const RECORD_MODULES: Readonly<Record<RecordModule, RecordModuleRules>> = {
   weights: {
-    record: ref('WeightRecord', validateWeightRecord),
+    record: ref('WeightRecord', validateStoredWeight),
     input: ref('CreateWeightInput', validateCreateWeightInput),
     eventDateField: 'recordedAt',
     weightField: 'weightKg',
     decimalFields: [],
     decimalError: null,
+    integerInputFields: [],
     nextDate: null,
   },
   bodyMeasurements: {
-    record: ref('BodyMeasurementRecord', validateBodyMeasurementRecord),
-    input: ref('CreateBodyMeasurementInput', validateCreateBodyMeasurementInput),
+    record: ref('BodyMeasurementRecord', validateStoredBodyMeasurement),
+    input: ref('CreateBodyMeasurementInput', validateCreateBodyMeasurementInputV31),
     eventDateField: 'recordedAt',
     weightField: null,
     decimalFields: MEASUREMENT_FIELDS,
     decimalError: 'ERR-REC-MEASUREMENT-OUT-OF-RANGE',
+    integerInputFields: MEASUREMENT_FIELDS,
     nextDate: null,
   },
   vaccinations: {
-    record: ref('VaccinationRecord', validateVaccinationRecord),
+    record: ref('VaccinationRecord', validateStoredVaccination),
     input: ref('CreateVaccinationInput', validateCreateVaccinationInput),
     eventDateField: 'appliedAt',
     weightField: null,
     decimalFields: [],
     decimalError: null,
+    integerInputFields: [],
     nextDate: { field: 'nextBoosterAt', error: 'ERR-REC-INVALID-BOOSTER-DATE' },
   },
   dewormings: {
-    record: ref('DewormingRecord', validateDewormingRecord),
+    record: ref('DewormingRecord', validateStoredDeworming),
     input: ref('CreateDewormingInput', validateCreateDewormingInput),
     eventDateField: 'appliedAt',
     weightField: null,
     decimalFields: [],
     decimalError: null,
+    integerInputFields: [],
     nextDate: { field: 'nextSuggestedDoseAt', error: 'ERR-REC-INVALID-NEXT-DOSE-DATE' },
   },
   medicalVisits: {
-    record: ref('MedicalVisitRecord', validateMedicalVisitRecord),
+    record: ref('MedicalVisitRecord', validateStoredMedicalVisit),
     input: ref('CreateMedicalVisitInput', validateCreateMedicalVisitInput),
     eventDateField: 'visitDate',
     weightField: null,
     decimalFields: [],
     decimalError: null,
+    integerInputFields: [],
     nextDate: null,
   },
   customParameters: {
-    record: ref('CustomParameterRecord', validateCustomParameterRecord),
-    input: ref('CreateCustomParameterInput', validateCreateCustomParameterInput),
+    record: ref('CustomParameterRecord', validateStoredCustomParameter),
+    input: ref('CreateCustomParameterInput', validateCreateCustomParameterInputV31),
     eventDateField: 'recordedAt',
     weightField: null,
     decimalFields: [],
     decimalError: null,
+    integerInputFields: [],
     nextDate: null,
   },
 };
@@ -219,6 +296,20 @@ function assertDomainRules(
 }
 
 /**
+ * REQ-MDC-001: una entrada nueva o editada lleva las medidas en centímetros enteros. El esquema 3.1.0 ya lo exige (multipleOf 1); el dominio lo
+ * cierra porque un valor como 46.0000000000001 puede pasar el resto de coma flotante.
+ * @implements REQ-MDC-001, ERR-REC-MEASUREMENT-OUT-OF-RANGE
+ */
+function assertIntegerInputFields(rules: RecordModuleRules, value: Record<string, unknown>): void {
+  for (const field of rules.integerInputFields) {
+    const measure = value[field];
+    if (measure !== undefined && !Number.isInteger(measure)) {
+      throw new DomainError(rules.decimalError!, `${field} se registra en centímetros enteros.`, field);
+    }
+  }
+}
+
+/**
  * Valida la entrada de alta de un módulo (petId llega por la ruta; id y createdAt los asigna el servidor).
  * @implements REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
  */
@@ -231,6 +322,7 @@ export function validateRecordInput<M extends RecordModule>(
 ): RecordInputs[M] {
   const rules = RECORD_MODULES[module];
   assertSchema(rules.input, input);
+  assertIntegerInputFields(rules, input as Record<string, unknown>);
   assertDomainRules(rules, input as Record<string, unknown>, petBirthDate, currentDate, species);
   return input as RecordInputs[M];
 }
@@ -239,11 +331,11 @@ export function validateRecordInput<M extends RecordModule>(
 export type EditableRecordModule = RecordModule;
 const UPDATE_SCHEMAS: Readonly<Record<EditableRecordModule, { readonly collection: string; readonly schema: SchemaRef }>> = {
   weights: { collection: 'weights', schema: ref('UpdateWeightInput', validateUpdateWeightInput) },
-  bodyMeasurements: { collection: 'measurements', schema: ref('UpdateBodyMeasurementInput', validateUpdateBodyMeasurementInput) },
+  bodyMeasurements: { collection: 'measurements', schema: ref('UpdateBodyMeasurementInput', validateUpdateBodyMeasurementInputV31) },
   vaccinations: { collection: 'vaccinations', schema: ref('UpdateVaccinationInput', validateUpdateVaccinationInput) },
   dewormings: { collection: 'dewormings', schema: ref('UpdateDewormingInput', validateUpdateDewormingInput) },
   medicalVisits: { collection: 'visits', schema: ref('UpdateMedicalVisitInput', validateUpdateMedicalVisitInput) },
-  customParameters: { collection: 'custom-parameters', schema: ref('UpdateCustomParameterInput', validateUpdateCustomParameterInput) },
+  customParameters: { collection: 'custom-parameters', schema: ref('UpdateCustomParameterInput', validateUpdateCustomParameterInputV31) },
 };
 
 /** Módulo de la colección de la ruta `/records/{collection}` (RecordCollection del contrato); undefined si no existe. */
@@ -271,6 +363,7 @@ export function applyRecordUpdate<M extends EditableRecordModule>(
   if (declared !== collection) {
     throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `${schema.name}: collection no coincide con la ruta.`, 'collection');
   }
+  assertIntegerInputFields(RECORD_MODULES[module], changes);
   return validateRecord(module, { ...(existing as object), ...changes }, petBirthDate, currentDate, species);
 }
 

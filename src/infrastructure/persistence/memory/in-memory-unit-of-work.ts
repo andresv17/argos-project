@@ -4,13 +4,15 @@
  *   copia reemplaza al estado; si no, se descarta y la promesa se rechaza con el error original (INV-ARCH-005).
  * - Las transacciones se ejecutan en serie, en orden de llegada.
  * - Los objetos devueltos son copias: modificarlos no altera el estado guardado.
- * - Restricciones equivalentes a las de SQLite: id y username únicos en usuarios; id único por módulo de registros.
+ * - Restricciones equivalentes a las de SQLite: id y username (sin distinguir mayúsculas) únicos en usuarios; id único por módulo de registros.
  *
  * @implements INV-ARCH-004, INV-ARCH-005
  */
 
+import type { PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import type { DeterministicFaultInjector } from '../fault-injector.ts';
-import type { AuditEntry, Household, PetProfile } from '../../../generated/index.ts';
+import type { Household } from '../../../generated/index.ts';
+import type { AuditEntry } from '../../../generated/v31/index.ts';
 import type { LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type {
   AuditLogRepositoryPort,
@@ -29,7 +31,14 @@ import type {
   SessionRepositoryPort,
   UserAccount,
   UserRepositoryPort,
+  AvatarState,
+  MediaDeletionEntry,
+  MediaDeletionQueuePort,
+  MediaDeletionReason,
+  PetMediaRecord,
+  PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
+import { avatarObjectKey, mediaObjectKey } from '../../../domain/media/index.ts';
 import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
@@ -50,6 +59,12 @@ export interface MemoryState {
   rateEvents: RateLimitEvent[];
   invitations: InvitationRecord[];
   assignments: PetAssignmentRecord[];
+  /** `pet_media` (REQ-GCS-005). */
+  media: PetMediaRecord[];
+  /** `media_deletion_queue` (REQ-GCS-004); sin relación con las mascotas, como en la base de datos. */
+  mediaQueue: MediaDeletionEntry[];
+  /** `avatar_version` y `avatar_object_id` por mascota; una mascota sin entrada tiene versión 0 y sin avatar. */
+  avatars: Record<string, AvatarState>;
   /** Filas de auditoría en orden de inserción (REQ-AUD-001). */
   auditLog: AuditEntry[];
 }
@@ -81,6 +96,9 @@ export function emptyMemoryState(): MemoryState {
     rateEvents: [],
     invitations: [],
     assignments: [],
+    media: [],
+    mediaQueue: [],
+    avatars: {},
     auditLog: [],
   };
 }
@@ -92,14 +110,20 @@ function userRepository(state: MemoryState): UserRepositoryPort {
     async findById(userId) {
       return copy(state.users.find((u) => u.id === userId) ?? null);
     },
+    async findByIdForUpdate(userId) {
+      return copy(state.users.find((u) => u.id === userId) ?? null); // las transacciones de memoria van en serie
+    },
     async findByUsername(username) {
-      return copy(state.users.find((u) => u.username === username) ?? null);
+      return copy(state.users.find((u) => u.username.toLowerCase() === username.toLowerCase()) ?? null);
+    },
+    async listByEmail(normalizedEmail) {
+      return copy(state.users.filter((u) => u.email !== null && u.email.toLowerCase() === normalizedEmail.toLowerCase()).slice(0, 2));
     },
     async listByIds(userIds) {
       return copy(state.users.filter((u) => userIds.includes(u.id)));
     },
     async insert(user) {
-      if (state.users.some((u) => u.id === user.id || u.username === user.username)) {
+      if (state.users.some((u) => u.id === user.id || u.username.toLowerCase() === user.username.toLowerCase())) {
         throw new Error(`users: id o username duplicado (${user.id}, ${user.username})`);
       }
       state.users.push(copy(user));
@@ -198,11 +222,11 @@ function rateLimitRepository(state: MemoryState): RateLimitRepositoryPort {
 function invitationRepository(state: MemoryState): InvitationRepositoryPort {
   return {
     async findOpen(householdId, inviteeUsername) {
-      return copy(state.invitations.find((i) => i.householdId === householdId && i.inviteeUsername === inviteeUsername && i.status === 'INVITED') ?? null);
+      return copy(state.invitations.find((i) => i.householdId === householdId && i.inviteeUsername.toLowerCase() === inviteeUsername.toLowerCase() && i.status === 'INVITED') ?? null);
     },
     async save(invitation) {
       const clash = state.invitations.some(
-        (i) => i.invitationId !== invitation.invitationId && invitation.status === 'INVITED' && i.status === 'INVITED' && i.householdId === invitation.householdId && i.inviteeUsername === invitation.inviteeUsername,
+        (i) => i.invitationId !== invitation.invitationId && invitation.status === 'INVITED' && i.status === 'INVITED' && i.householdId === invitation.householdId && i.inviteeUsername.toLowerCase() === invitation.inviteeUsername.toLowerCase(),
       );
       if (clash) throw new Error(`household_invitations: ya hay una invitación INVITED de ${invitation.inviteeUsername} en el hogar`);
       state.invitations = [...state.invitations.filter((i) => i.invitationId !== invitation.invitationId), copy(invitation)];
@@ -231,15 +255,123 @@ function petRepository(state: MemoryState): PetRepositoryPort {
     async findById(petId) {
       return copy(state.pets.find((p) => p.id === petId) ?? null);
     },
+    async findByIdForUpdate(petId) {
+      return copy(state.pets.find((p) => p.id === petId) ?? null); // las transacciones de memoria van en serie
+    },
     async listByOwners(ownerUserIds) {
       return copy(state.pets.filter((p) => ownerUserIds.includes(p.ownerUserId)));
     },
     async save(pet) {
+      // Equivale a `pets_microchip_global` (REQ-PET4-001): el microchip no nulo es único en todo el sistema y la violación imita la de SQLite.
+      if (pet.microchipId !== null && state.pets.some((p) => p.id !== pet.id && p.microchipId === pet.microchipId)) {
+        throw Object.assign(new Error('UNIQUE constraint failed: pets.microchip_id'), { code: 'SQLITE_CONSTRAINT_UNIQUE' });
+      }
       state.pets = [...state.pets.filter((p) => p.id !== pet.id), copy(pet)];
     },
     async delete(petId) {
       state.pets = state.pets.filter((p) => p.id !== petId);
       state.assignments = state.assignments.filter((a) => a.petId !== petId); // como ON DELETE CASCADE
+      state.media = state.media.filter((m) => m.petId !== petId); // como ON DELETE CASCADE (la cola no se toca: no tiene clave foránea)
+      delete state.avatars[petId];
+    },
+    async findAvatarVersions(petIds) {
+      const wanted = new Set(petIds);
+      return new Map(state.pets.filter((p) => wanted.has(p.id)).map((p) => [p.id, state.avatars[p.id]?.objectId != null ? state.avatars[p.id]!.version : null] as const));
+    },
+    async findAvatar(petId) {
+      if (!state.pets.some((p) => p.id === petId)) return null;
+      return copy(state.avatars[petId] ?? { version: 0, objectId: null });
+    },
+    async replaceAvatar(petId, objectId) {
+      if (!state.pets.some((p) => p.id === petId)) throw new Error('FOREIGN KEY constraint failed');
+      const next = { version: (state.avatars[petId]?.version ?? 0) + 1, objectId };
+      state.avatars[petId] = next;
+      return copy(next);
+    },
+    async clearAvatar(petId) {
+      const current = state.avatars[petId];
+      if (current !== undefined) state.avatars[petId] = { version: current.version, objectId: null };
+    },
+    async raiseAvatarVersion(petId, version) {
+      if (!state.pets.some((p) => p.id === petId)) return;
+      const current = state.avatars[petId] ?? { version: 0, objectId: null };
+      if (version > current.version) state.avatars[petId] = { version, objectId: current.objectId };
+    },
+  };
+}
+
+function mediaRepository(state: MemoryState): PetMediaRepositoryPort {
+  return {
+    async insert(media) {
+      if (!state.pets.some((p) => p.id === media.petId)) throw new Error('FOREIGN KEY constraint failed');
+      if (state.media.some((m) => m.id === media.id)) throw new Error('UNIQUE constraint failed: pet_media.id');
+      state.media = [...state.media, copy(media)];
+    },
+    async findById(petId, mediaId) {
+      return copy(state.media.find((m) => m.id === mediaId && m.petId === petId) ?? null);
+    },
+    async listPage(petId, kind, limit, offset) {
+      const all = state.media
+        .filter((m) => m.petId === petId && (kind === null || m.kind === kind))
+        .sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1));
+      return copy({ items: all.slice(offset, offset + limit), total: all.length });
+    },
+    async countBytesOfOwner(ownerUserId) {
+      const owned = new Set(state.pets.filter((p) => p.ownerUserId === ownerUserId).map((p) => p.id));
+      return state.media.filter((m) => owned.has(m.petId)).reduce((sum, m) => sum + m.sizeBytes, 0);
+    },
+    async remove(petId, mediaId) {
+      const before = state.media.length;
+      state.media = state.media.filter((m) => !(m.id === mediaId && m.petId === petId));
+      return state.media.length < before;
+    },
+    async countObjectsOfPets(petIds) {
+      const wanted = new Set(petIds);
+      return state.media.filter((m) => wanted.has(m.petId)).length + [...wanted].filter((id) => state.pets.some((p) => p.id === id) && (state.avatars[id]?.objectId ?? null) !== null).length;
+    },
+  };
+}
+
+function mediaQueueRepository(state: MemoryState): MediaDeletionQueuePort {
+  const upsert = (objectKey: string, reason: MediaDeletionReason, enqueuedAt: string) => {
+    const existing = state.mediaQueue.find((e) => e.objectKey === objectKey);
+    if (existing === undefined) state.mediaQueue = [...state.mediaQueue, { objectKey, reason, enqueuedAt, attempts: 0 }];
+    else if (reason === 'DELETE' && existing.reason === 'INTENT') state.mediaQueue = state.mediaQueue.map((e) => (e.objectKey === objectKey ? { ...e, reason: 'DELETE' } : e));
+  };
+  return {
+    async enqueue(objectKey, reason, enqueuedAt) {
+      upsert(objectKey, reason, enqueuedAt);
+    },
+    async enqueueObjectsOfPet(petId, enqueuedAt) {
+      const keys = state.media.filter((m) => m.petId === petId).map((m) => mediaObjectKey(petId, m.kind, m.id));
+      const avatarId = state.avatars[petId]?.objectId ?? null;
+      if (avatarId !== null) keys.push(avatarObjectKey(petId, avatarId));
+      for (const key of keys) upsert(key, 'DELETE', enqueuedAt);
+      return keys;
+    },
+    async findByKey(objectKey) {
+      return copy(state.mediaQueue.find((e) => e.objectKey === objectKey) ?? null);
+    },
+    async listPending(limit) {
+      return copy([...state.mediaQueue].sort((a, b) => (a.enqueuedAt === b.enqueuedAt ? (a.objectKey < b.objectKey ? -1 : 1) : a.enqueuedAt < b.enqueuedAt ? -1 : 1)).slice(0, limit));
+    },
+    async remove(objectKey) {
+      state.mediaQueue = state.mediaQueue.filter((e) => e.objectKey !== objectKey);
+    },
+    async recordFailure(objectKey) {
+      state.mediaQueue = state.mediaQueue.map((e) => (e.objectKey === objectKey ? { ...e, attempts: e.attempts + 1 } : e));
+    },
+    async promoteStaleIntents(olderThanExclusive) {
+      let promoted = 0;
+      state.mediaQueue = state.mediaQueue.map((e) => {
+        if (e.reason !== 'INTENT' || !(e.enqueuedAt < olderThanExclusive)) return e;
+        promoted += 1;
+        return { ...e, reason: 'DELETE' };
+      });
+      return promoted;
+    },
+    async countOlderThan(cutoffExclusive) {
+      return state.mediaQueue.filter((e) => e.enqueuedAt < cutoffExclusive).length;
     },
   };
 }
@@ -249,7 +381,8 @@ function recordRepository(state: MemoryState): MedicalRecordRepositoryPort {
     async listForPet(petId) {
       const result = emptyMemoryState().records;
       for (const module of RECORD_MODULE_NAMES) {
-        (result[module] as unknown[]) = copy((state.records[module] as Array<{ petId: string }>).filter((r) => r.petId === petId));
+        // `revision` siempre se devuelve (D-16 A): las filas anteriores a la 004 valen 0.
+        (result[module] as unknown[]) = copy((state.records[module] as Array<{ petId: string; revision?: number }>).filter((r) => r.petId === petId)).map((r) => ({ ...r, revision: r.revision ?? 0 }));
       }
       return result;
     },
@@ -265,13 +398,13 @@ function recordRepository(state: MemoryState): MedicalRecordRepositoryPort {
       if (collection.some((r) => r.id === record.id)) {
         throw new Error(`${module}: id duplicado (${record.id})`);
       }
-      collection.push(copy(record));
+      collection.push({ ...copy(record), revision: record.revision ?? 0 });
     },
     async replace<M extends RecordModule>(module: M, record: RecordOf<M>) {
       const collection = state.records[module] as Array<RecordOf<M>>;
       const index = collection.findIndex((r) => r.id === record.id);
       if (index < 0) throw new Error(`${module}: registro inexistente (${record.id})`);
-      collection[index] = copy(record);
+      collection[index] = { ...copy(record), revision: record.revision ?? 0 };
     },
     async remove(module, petId, recordId) {
       const collection = state.records[module] as Array<{ id: string; petId: string }>;
@@ -375,6 +508,8 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     rateLimits: rateLimitRepository(state),
     invitations: invitationRepository(state),
     assignments: assignmentRepository(state),
+    media: mediaRepository(state),
+    mediaQueue: mediaQueueRepository(state),
     auditLog: auditLogRepository(state),
   };
 }

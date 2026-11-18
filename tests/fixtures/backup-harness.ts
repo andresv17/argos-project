@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { expect } from 'vitest';
 import { DomainError, type BackupEnvelopeV3 } from '../../src/generated/index.ts';
+// UNIQUE_CONSTRAINT_VIOLATED lanza la clase 3.1.0 (H-O-004A1-2): el catálogo 3.1.0 es otra clase con el mismo contrato.
+import { DomainError as DomainErrorV31 } from '../../src/generated/v31/index.ts';
 import type { RepositorySet } from '../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.port.ts';
 import type { BackupImportStep } from '../../src/application/use-cases/backup-use-cases.ts';
@@ -57,7 +59,7 @@ export async function failure(promise: Promise<unknown>): Promise<Failure> {
   try {
     await promise;
   } catch (error) {
-    if (!(error instanceof DomainError)) throw error;
+    if (!(error instanceof DomainError || error instanceof DomainErrorV31)) throw error;
     return { code: error.code, status: error.status, field: error.field, finalState: error.finalState, detail: error.detail };
   }
   throw new Error('se esperaba un rechazo');

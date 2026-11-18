@@ -180,6 +180,35 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(d.indexOf('value(status.url)')).toBeLessThan(d.indexOf('gcloud run deploy argos'));
   });
 
+  it('inyecta las 6 variables ARGOS_MEDIA_* conservando las existentes en --set-env-vars (H-O-004US4L-1, REQ-GCS-003)', () => {
+    const d = job('deploy');
+    const deployCmd = d.slice(d.indexOf('gcloud run deploy argos'));
+    const m = /--set-env-vars\s+"([^"]*)"/.exec(deployCmd);
+    expect(m?.[1]).toContain('COOKIE_SECURE=true');
+    const pairs = (m?.[1] ?? '').split(',').map((x) => x.trim()).filter((x) => x !== '');
+    const keys = pairs.map((x) => x.split('=')[0]);
+    // El flag reemplaza todo el entorno: las existentes deben seguir presentes.
+    for (const k of ['COOKIE_SECURE', 'ARGOS_SCHEDULER_EMAIL', 'ARGOS_OIDC_AUDIENCE']) expect(keys).toContain(k);
+    expect(pairs).toContain('COOKIE_SECURE=true');
+    const media = Object.fromEntries(pairs.filter((x) => x.startsWith('ARGOS_MEDIA_')).map((x) => [x.split('=')[0], x.slice(x.indexOf('=') + 1)]));
+    expect(Object.keys(media).sort()).toEqual([
+      'ARGOS_MEDIA_BUCKET',
+      'ARGOS_MEDIA_DRIVER',
+      'ARGOS_MEDIA_MAX_BYTES',
+      'ARGOS_MEDIA_MAX_BYTES_PER_OWNER',
+      'ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS',
+      'ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS',
+    ]);
+    expect(media['ARGOS_MEDIA_DRIVER']).toBe('gcs');
+    expect(media['ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS']).toBe('300');
+    expect(media['ARGOS_MEDIA_MAX_BYTES']).toBe('10485760');
+    expect(media['ARGOS_MEDIA_MAX_BYTES_PER_OWNER']).toBe('1073741824');
+    expect(media['ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS']).toBe('4');
+    // Misma convencion que Terraform (buckets_media.tf): <project_prefix>-<project_id>-media.
+    expect(media['ARGOS_MEDIA_BUCKET']).toMatch(/^\$\{?ARGOS_MEDIA_BUCKET\}?$/);
+    expect(d).toMatch(/ARGOS_MEDIA_BUCKET:\s*argos-\$\{\{\s*vars\.TF_VAR_project_id\s*\}\}-media/);
+  });
+
   it('sondas ratificadas (Neo D4): startup 2/10/1 y liveness 10/3/1 sobre /healthz', () => {
     const d = job('deploy');
     expect(d).toMatch(/--startup-probe "httpGet\.path=\/healthz,[^"]*periodSeconds=2,failureThreshold=10,timeoutSeconds=1"/);
