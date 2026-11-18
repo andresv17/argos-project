@@ -32,3 +32,26 @@ verify-traceability --feature 001, 002, 006 -> "[SDD Traceability Gate] Resultad
 verify-oracles --feature 006 -> "Archivos analizados: 311; oráculos débiles: 0 / Resultado: CUMPLE"
 ```
 Suites de 001..005 cambiadas por la enmienda (únicamente): sqlite-repositories.spec.ts (lista de migraciones aplicadas: se añade '0013_home_scenes.sql' en 2 aserciones, sin debilitar) y schema-parity.spec.ts (HOME_PATH en la composición de Postgres).
+
+## T811 rojo (claves de INV-ARC-003 con scenes/ y households/)
+```
+npx vitest run tests/unit/media-keys-escena-006.spec.ts tests/integration/media
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/unit/media-keys-escena-006.spec.ts > T811 claves de objeto de la escena (INV-ARC-003, INV-ESC6-009) > SC-ESC6-052: la imagen de la escena y la foto del hogar se derivan solo de UUID v4 y 
+ FAIL  tests/unit/media-keys-escena-006.spec.ts > T811 claves de objeto de la escena (INV-ARC-003, INV-ESC6-009) > INV-ESC6-009: un identificador que no es UUID v4 en minúsculas lanza RangeError sin r
+ FAIL  tests/unit/media-keys-escena-006.spec.ts > T811 claves de objeto de la escena (INV-ARC-003, INV-ESC6-009) > INV-ARC-003: isMediaObjectKey admite las 5 formas y rechaza mezclas de carpeta, extra
+ FAIL  tests/unit/media-keys-escena-006.spec.ts > T811 claves de objeto de la escena (INV-ARC-003, INV-ESC6-009) > INV-ARC-003: assertMediaKey acepta las claves de la escena y rechaza las demás con Ra
+ FAIL  tests/unit/media-keys-escena-006.spec.ts > T811 assertListPrefix con scenes/ y households/ (sin RangeError) > REQ-ESC6-029: acepta los prefijos de listado de la conciliación y del borrado en ca
+ FAIL  tests/unit/media-keys-escena-006.spec.ts > T811 conciliación: prefijos y antigüedad (H-LCK-006-11, EDGE-ESC6-021) > REQ-ESC6-029: la rutina existente concilia pets/ (24 h) y añade scenes/ y hou
+ FAIL  tests/unit/media-keys-escena-006.spec.ts > T811 conciliación: prefijos y antigüedad (H-LCK-006-11, EDGE-ESC6-021) > INV-ARC-003: reconciliationAgeMinutes rechaza una clave que no es de medios
+ FAIL  tests/integration/media/t570-media-storage-port.spec.ts > MediaStoragePort: conformidad (memory) > T811 (006, N2-06 (b)): scenes/ y households/ son claves válidas: put, get, list por prefijo (o
+ FAIL  tests/integration/media/t570-media-storage-port.spec.ts > MediaStoragePort: conformidad (gcs) > T811 (006, N2-06 (b)): scenes/ y households/ son claves válidas: put, get, list por prefijo (orde
+ FAIL  tests/integration/media/t571-dev-media-route.spec.ts > GET /__dev/media/<clave> (T571) > T811 (006): sirve la imagen de la escena y la foto del hogar con sesión, sin sesión 401, y una carpeta a
+ FAIL  tests/integration/media/t579-borrado-fisico.spec.ts > T811 borrado físico de claves de la escena (006, N2-06 (b); REQ-ESC6-029, EDGE-ESC6-021, SC-ESC6-044) > [SC-ESC6-044] la cola de borrado ac
+ FAIL  tests/integration/media/t579-borrado-fisico.spec.ts > T811 borrado físico de claves de la escena (006, N2-06 (b); REQ-ESC6-029, EDGE-ESC6-021, SC-ESC6-044) > [EDGE-ESC6-021] la fila INTENT de u
+ FAIL  tests/integration/media/t579-borrado-fisico.spec.ts > T811 borrado físico de claves de la escena (006, N2-06 (b); REQ-ESC6-029, EDGE-ESC6-021, SC-ESC6-044) > [REQ-ESC6-029] eliminar una mascota
+ Test Files  4 failed | 9 passed (13)
+      Tests  13 failed | 154 passed | 11 skipped (178)
+npx tsc --noEmit -> exit 0
+```
+La consulta de referencias de scenes/ y households/ en la conciliación (home_scenes.image_id, household_photos) la entregan T834/T835 (Fase 4); T811/T812 fijan el dominio de claves, `assertListPrefix`, la edad de 15 min y la cola de borrado.

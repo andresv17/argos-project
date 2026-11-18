@@ -1317,3 +1317,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - audit-entry.schema.json 3.1.0 -> 3.2.0 (+HOME_SCENE, +SCENE_CONSENT, +HOUSEHOLD_PHOTO; supersedes 3.1.0; trazabilidad REQ-ESC6-021/INV-ESC6-016). Recompilados 004, 005 y 006 con compile-contracts.sh (solo v31, v33, v34; src/generated/api intacto; la 002 no cambia).
 - Nuevas migraciones sqlite 0013_home_scenes.sql y postgres 0009_home_scenes.sql con solo M-3 (T832/T833 añaden las tablas al mismo archivo). schema-parity compone HOME_PATH; sqlite-repositories.spec lista 0013 (cambio que la enmienda impone).
 - Verde: t809 11/11, suite completa 3989 verdes, tsc 0, trazabilidad 001/002/006 y oráculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T811 pruebas rojas del dominio de claves INV-ARC-003 (N2-06 (b)) (sin push, sin [x])
+- Nuevo tests/unit/media-keys-escena-006.spec.ts (claves, isMediaObjectKey, assertMediaKey, assertListPrefix, RECONCILED_PREFIXES y reconciliationAgeMinutes: 24 h pets, 15 min scenes/households) y casos añadidos (sin tocar los existentes) en t570 (memoria y GCS), t571 (ruta dev), t579 (cola de borrado) y t606.
+- Rojo: 13 fallan, 154 pasan; tsc 0 (API nueva leída por vista tipada). La consulta de referencias de scenes/households en la conciliación queda para T834/T835 (necesita las tablas de Fase 4); la rutina de 004 sigue listando solo pets/.

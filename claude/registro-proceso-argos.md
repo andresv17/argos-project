@@ -1366,3 +1366,4 @@
 - 2026-11-18 | Keymaker | T806 deploy-argos.yml (ARGOS_SCENE_* fake) y T807 bootstrap.sh (cloudtasks admin/viewer): rojas b0ab49c, verdes bc043bb; sin push ni [x].
 - 2026-11-18 | Keymaker | T809 pruebas rojas esquema auditoría 004 (11 rojas, tsc 0); sin push ni [x].
 - 2026-11-18 | Keymaker | T810 enmienda auditoría 004 3.2.0 + CHECK 0013/0009 + recompilación; t809 verde, suite 3989, tsc 0; sin push ni [x].
+- 2026-11-18 | Keymaker | T811 pruebas rojas claves scenes/households INV-ARC-003 (13 rojas, tsc 0); sin push ni [x].

@@ -134,6 +134,37 @@ describe.each(adapters)('MediaStoragePort: conformidad (%s)', (_name, create) =>
     }
     expect(double.requests).toEqual([]);
   });
+
+  it('T811 (006, N2-06 (b)): scenes/ y households/ son claves válidas: put, get, list por prefijo (ordenado, sin mezclarse con pets/), createReadUrl y delete idempotente', async () => {
+    const port = create();
+    const sceneKey = `scenes/${PET}/images/${ID_A}`;
+    const otherScene = `scenes/${PET}/images/${ID_B}`;
+    const photoKey = `households/${PET}/photo/${ID_C}`;
+    await port.put(sceneKey, bytes, 'image/png');
+    await port.put(otherScene, Uint8Array.from([7]), 'image/webp');
+    await port.put(photoKey, Uint8Array.from([8]), 'image/png');
+    await port.put(key(ID_A), Uint8Array.from([1]), 'application/pdf');
+    const found = await port.get(sceneKey);
+    expect([Array.from(found?.bytes ?? []), found?.contentType]).toEqual([Array.from(bytes), 'image/png']);
+    expect((await port.list('scenes/')).map((e) => e.key)).toEqual([otherScene, sceneKey]);
+    expect((await port.list(`scenes/${PET}/images/`)).length).toBe(2);
+    expect((await port.list('households/')).map((e) => e.key)).toEqual([photoKey]);
+    expect((await port.list('pets/')).map((e) => e.key)).toEqual([key(ID_A)]);
+    const read = await port.createReadUrl({ key: photoKey, contentType: 'image/png', filename: 'foto.png', ttlSeconds: 300 });
+    expect([typeof read.url, read.expiresAt]).toEqual(['string', '2099-11-17T12:05:00.000Z']);
+    await port.delete(sceneKey);
+    await expect(port.delete(sceneKey)).resolves.toBeUndefined();
+    expect(await port.get(sceneKey)).toBeNull();
+    expect((await port.list('scenes/')).map((e) => e.key)).toEqual([otherScene]);
+  });
+
+  it('T811 (006): una clave de escena con carpeta ajena o recorrido sigue rechazada con RangeError', async () => {
+    const port = create();
+    for (const bad of [`scenes/${PET}/files/${ID_A}`, `households/${PET}/images/${ID_A}`, `scenes/${PET}/images/${ID_A}.png`, `scenes/../images/${ID_A}`]) {
+      await expect(port.put(bad, bytes, 'image/png'), bad).rejects.toBeInstanceOf(RangeError);
+    }
+    await expect(port.list('scenes/..')).rejects.toBeInstanceOf(RangeError);
+  });
 });
 
 describe('adaptador de memoria (T571)', () => {

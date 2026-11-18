@@ -176,3 +176,38 @@ describe('T579 mantenimiento de la cola (REQ-GCS-006, E3-04)', () => {
     });
   });
 });
+
+describe('T811 borrado físico de claves de la escena (006, N2-06 (b); REQ-ESC6-029, EDGE-ESC6-021, SC-ESC6-044)', () => {
+  const SCENE_KEY = 'scenes/f0000000-0000-4000-8000-0000000d0d01/images/f0000000-0000-4000-8000-0000000d0d02';
+  const PHOTO_KEY = 'households/f0000000-0000-4000-8000-0000000d0d03/photo/f0000000-0000-4000-8000-0000000d0d04';
+
+  it('[SC-ESC6-044] la cola de borrado acepta las claves de la escena y la foto del hogar: el mantenimiento las borra y retira la fila', async () => {
+    await eachEngine(async (e) => {
+      await e.storage.inner.put(SCENE_KEY, PNG(32), 'image/png');
+      await e.storage.inner.put(PHOTO_KEY, PNG(33), 'image/png');
+      await e.run((r) => r.mediaQueue.enqueue(SCENE_KEY, 'DELETE', e.clock.nowIsoTimestamp()).then(() => r.mediaQueue.enqueue(PHOTO_KEY, 'DELETE', e.clock.nowIsoTimestamp())));
+      expect(await runMediaQueueMaintenance(e.deps)).toMatchObject({ deleted: 2, failed: 0 });
+      expect([await e.storage.keys(), await e.queue()]).toEqual([[], []]);
+    });
+  });
+
+  it('[EDGE-ESC6-021] la fila INTENT de una imagen de escena vence a la hora y pasa a DELETE como la de un medio', async () => {
+    await eachEngine(async (e) => {
+      await e.storage.inner.put(SCENE_KEY, PNG(32), 'image/png');
+      await e.run((r) => r.mediaQueue.enqueue(SCENE_KEY, 'INTENT', e.clock.nowIsoTimestamp()));
+      e.clock.setClock(hours(e, 2).slice(0, 10), hours(e, 2));
+      expect(await runMediaQueueMaintenance(e.deps)).toMatchObject({ promoted: 1, deleted: 1 });
+      expect([await e.storage.keys(), await e.queue()]).toEqual([[], []]);
+    });
+  });
+
+  it('[REQ-ESC6-029] eliminar una mascota con medios no toca objetos de scenes/ ni de households/ (el borrado de la escena es de su propio gancho)', async () => {
+    await eachEngine(async (e) => {
+      await seedSix(e);
+      await e.storage.inner.put(SCENE_KEY, PNG(32), 'image/png');
+      await e.storage.inner.put(PHOTO_KEY, PNG(33), 'image/png');
+      await new DeletePetUseCase(e.deps).execute(ANDRES, ARGOS.id);
+      expect((await e.storage.keys()).sort()).toEqual([SCENE_KEY, PHOTO_KEY].sort());
+    });
+  });
+});
