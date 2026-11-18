@@ -52,8 +52,8 @@ describe('T811 claves de objeto de la escena (INV-ARC-003, INV-ESC6-009)', () =>
   });
 
   it('INV-ARC-003: assertMediaKey acepta las claves de la escena y rechaza las demás con RangeError', () => {
-    expect(() => assertMediaKey(sceneImageObjectKey(SCENE, OBJ))).not.toThrow();
-    expect(() => assertMediaKey(householdPhotoObjectKey(HOUSE, OBJ))).not.toThrow();
+    expect(assertMediaKey(sceneImageObjectKey(SCENE, OBJ))).toBeUndefined();
+    expect(assertMediaKey(householdPhotoObjectKey(HOUSE, OBJ))).toBeUndefined();
     expect(() => assertMediaKey(`scenes/${SCENE}/other/${OBJ}`)).toThrow(RangeError);
   });
 });
@@ -61,7 +61,7 @@ describe('T811 claves de objeto de la escena (INV-ARC-003, INV-ESC6-009)', () =>
 describe('T811 assertListPrefix con scenes/ y households/ (sin RangeError)', () => {
   it('REQ-ESC6-029: acepta los prefijos de listado de la conciliación y del borrado en cascada', () => {
     for (const prefix of ['pets/', 'scenes/', 'households/', `scenes/${SCENE}/`, `scenes/${SCENE}/images/`, `households/${HOUSE}/`, `households/${HOUSE}/photo/`, `scenes/${SCENE}/images/${OBJ.slice(0, 8)}`]) {
-      expect(() => assertListPrefix(prefix), prefix).not.toThrow();
+      expect(assertListPrefix(prefix), prefix).toBeUndefined();
     }
   });
 

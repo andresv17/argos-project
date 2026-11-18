@@ -1367,3 +1367,4 @@
 - 2026-11-18 | Keymaker | T809 pruebas rojas esquema auditoría 004 (11 rojas, tsc 0); sin push ni [x].
 - 2026-11-18 | Keymaker | T810 enmienda auditoría 004 3.2.0 + CHECK 0013/0009 + recompilación; t809 verde, suite 3989, tsc 0; sin push ni [x].
 - 2026-11-18 | Keymaker | T811 pruebas rojas claves scenes/households INV-ARC-003 (13 rojas, tsc 0); sin push ni [x].
+- 2026-11-18 | Keymaker | T812 enmienda INV-ARC-003 claves scenes/households + assertListPrefix; media 167 verdes, oráculos 006 CUMPLE, tsc 0; sin push ni [x].

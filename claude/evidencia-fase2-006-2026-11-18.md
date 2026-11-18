@@ -55,3 +55,15 @@ npx vitest run tests/unit/media-keys-escena-006.spec.ts tests/integration/media
 npx tsc --noEmit -> exit 0
 ```
 La consulta de referencias de scenes/ y households/ en la conciliación (home_scenes.image_id, household_photos) la entregan T834/T835 (Fase 4); T811/T812 fijan el dominio de claves, `assertListPrefix`, la edad de 15 min y la cola de borrado.
+
+## T812 verde (enmienda MINOR de INV-ARC-003)
+```
+npx vitest run tests/unit/media-keys-escena-006.spec.ts tests/integration/media -> 13 archivos pasan; 167 pasan | 11 omitidos (178)
+npx vitest run (suite completa, tras corregir oráculos) -> sin fallos salvo los 3 oráculos débiles de mi propio t811 (ver abajo), corregidos
+bash scripts/verify-oracles.sh --feature 006 (antes) -> "oráculos débiles: 3 / Resultado: FALLA" (3 `.not.toThrow()` en media-keys-escena-006.spec.ts, escritos por mí en T811)
+bash scripts/verify-oracles.sh --feature 006 (después) -> "Archivos analizados: 312; oráculos débiles: 0 / Resultado: CUMPLE"
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001, 002, 006 -> CUMPLE (x3)
+```
+Reconocimiento: la corrida roja de T811 no pasó verify-oracles; las 3 aserciones débiles y una aserción vacua de t579 (`keys()` lista solo `pets/` por defecto) se corrigieron en T812 (más estrictas, no más débiles).
+Suites de 001..005 cambiadas por la enmienda: ninguna aserción previa se tocó; solo se añadieron casos (t570, t571, t579, t606).

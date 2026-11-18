@@ -30,7 +30,12 @@ export function assertNeutralFilename(filename: string): void {
   if (!NEUTRAL_FILENAME.test(filename)) throw new RangeError('Nombre de URL firmada no neutro.');
 }
 
-/** Prefijo de listado: vacío no se admite; solo `pets/` y sus UUID. */
+/** Prefijo de listado: vacío no se admite; solo `pets/`, `scenes/` y `households/` con sus UUID y la carpeta fija de cada uno (INV-ARC-003). */
+const LIST_PREFIXES: readonly RegExp[] = [
+  /^pets\/(?:[0-9a-f-]{1,36}(?:\/(?:files|photos|avatar)?(?:\/[0-9a-f-]{0,36})?)?)?$/,
+  /^scenes\/(?:[0-9a-f-]{1,36}(?:\/(?:images)?(?:\/[0-9a-f-]{0,36})?)?)?$/,
+  /^households\/(?:[0-9a-f-]{1,36}(?:\/(?:photo)?(?:\/[0-9a-f-]{0,36})?)?)?$/,
+];
 export function assertListPrefix(prefix: string): void {
-  if (!/^pets\/(?:[0-9a-f-]{1,36}(?:\/(?:files|photos|avatar)?(?:\/[0-9a-f-]{0,36})?)?)?$/.test(prefix)) throw new RangeError('Prefijo de medios no válido.');
+  if (!LIST_PREFIXES.some((pattern) => pattern.test(prefix))) throw new RangeError('Prefijo de medios no válido.');
 }

@@ -1321,3 +1321,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T811 pruebas rojas del dominio de claves INV-ARC-003 (N2-06 (b)) (sin push, sin [x])
 - Nuevo tests/unit/media-keys-escena-006.spec.ts (claves, isMediaObjectKey, assertMediaKey, assertListPrefix, RECONCILED_PREFIXES y reconciliationAgeMinutes: 24 h pets, 15 min scenes/households) y casos añadidos (sin tocar los existentes) en t570 (memoria y GCS), t571 (ruta dev), t579 (cola de borrado) y t606.
 - Rojo: 13 fallan, 154 pasan; tsc 0 (API nueva leída por vista tipada). La consulta de referencias de scenes/households en la conciliación queda para T834/T835 (necesita las tablas de Fase 4); la rutina de 004 sigue listando solo pets/.
+
+## 2026-11-18 Keymaker: T812 enmienda MINOR de INV-ARC-003 (sin push, sin [x])
+- spec 004 INV-ARC-003 ampliado; src/domain/media/media-keys.ts (sceneImageObjectKey, householdPhotoObjectKey, isMediaObjectKey con 5 formas, RECONCILED_PREFIXES, reconciliationAgeMinutes 24 h/15 min) y assertListPrefix con scenes/ y households/. La rutina de conciliación sigue listando solo pets/ (referencias de escena: T834/T835).
+- Corregido en mis pruebas de T811: 3 `.not.toThrow()` (verify-oracles FALLA 3 débiles) y una aserción vacua de t579 (keys() solo mira pets/). Verde: media 167, suite completa sin fallos tras la corrección, oráculos 006 CUMPLE, tsc 0.
