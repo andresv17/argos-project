@@ -1,5 +1,5 @@
 import react from '@vitejs/plugin-react';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
@@ -11,6 +11,7 @@ import { defineConfig } from 'vitest/config';
  * una suite PG nueva queda serializada sin tocar esta configuración.
  */
 function postgresSuites(dir: string): string[] {
+  if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true, recursive: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith('.spec.ts'))
     .map((entry) => join(entry.parentPath, entry.name))
