@@ -18,8 +18,8 @@ describe('T796 compuertas finales de la 005', () => {
     const res = run('verify-traceability.sh');
     expect(res.status, res.output).toBe(0);
     const match = /IDs trazados: (\d+)\/(\d+)/.exec(res.output);
-    expect(match, res.output).not.toBeNull();
-    expect(match![1]).toBe(match![2]);
+    expect(match?.[1], res.output).toBe(match?.[2]);
+    expect(Number(match?.[1])).toBeGreaterThan(100);
     expect(res.output).not.toMatch(/\bFAIL\b/);
   });
 

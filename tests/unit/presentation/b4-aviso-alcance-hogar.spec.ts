@@ -1,6 +1,6 @@
 /**
  * B-4 [EDGE-005-22] el alcance «Todo el hogar» avisa de que es dinámico: las mascotas que se añadan o retiren del hogar cambian lo que ve el veterinario.
- * El aviso aparece solo con el alcance HOUSEHOLD elegido (no con PET, ni sin hogar). Texto pendiente de revisión de /sati.
+ * El aviso aparece solo con el alcance HOUSEHOLD elegido (no con PET, ni sin hogar). Texto aprobado por /sati sin cambios (sati-B4-texto-005.md).
  * Render estático.
  *
  * @implements EDGE-005-22, REQ-VET-002

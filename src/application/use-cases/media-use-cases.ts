@@ -121,7 +121,7 @@ export interface UploadMediaInput {
   readonly bytes: Uint8Array;
 }
 
-/** @implements REQ-ARC-001, REQ-ARC-002, REQ-ARC-005, REQ-GCS-006, INV-ARC-001, INV-ARC-002, INV-ARC-003, SC-ALM-026 */
+/** @implements REQ-ARC-001, REQ-ARC-002, REQ-ARC-005, REQ-GCS-006, INV-ARC-001, INV-ARC-002, INV-ARC-003, SC-ALM-026, SC-ALM-013 (cuota de 1 GiB por propietario y sin tope de FILE; enmienda 005 D5-01: solo PHOTO tiene tope) */
 export class UploadMediaUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
@@ -208,7 +208,7 @@ export class GetAlbumLimitsUseCase {
   }
 }
 
-/** @implements REQ-ALB-001, INV-ALB-001, REQ-ARC-002 */
+/** @implements REQ-ALB-001, INV-ALB-001, REQ-ARC-002, SC-ALM-021 (paginación 24 por página, total y orden created_at DESC, id DESC) */
 export class ListMediaUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 

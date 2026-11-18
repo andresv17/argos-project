@@ -56,7 +56,7 @@ describe('T795 SQLite: tras restaurar, ningún enlace queda activo', () => {
 
   it('lanza si el UPDATE no puede ejecutarse (tabla ausente): no hay reapertura silenciosa', async () => {
     const db = new Database(':memory:');
-    await expect(revokeAllShareLinks(sqliteQueryable(db), NOW)).rejects.toThrow();
+    await expect(revokeAllShareLinks(sqliteQueryable(db), NOW)).rejects.toThrow(/share_links/);
   });
 
   it('lanza si queda algún enlace activo tras el UPDATE (poscondición)', async () => {

@@ -186,7 +186,7 @@ export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
               </label>
             )}
             {scope === 'HOUSEHOLD' && household !== null ? (
-              // EDGE-005-22 (B-4). Texto pendiente de revisión de /sati.
+              // EDGE-005-22 (B-4). Texto aprobado por /sati sin cambios (sati-B4-texto-005.md).
               <p id="share-household-dynamic" className="text-sm text-text-muted">
                 El enlace sigue al hogar tal como esté: si añades o retiras mascotas del hogar, lo que ve el veterinario cambia.
               </p>
