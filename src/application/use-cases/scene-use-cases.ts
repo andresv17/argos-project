@@ -27,6 +27,7 @@ import type { MediaReadUrl } from '../ports/media-storage.port.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import type { SceneAttemptMode, SceneAttemptRecord, SceneConsentScope, SceneRecord } from '../ports/scene-repositories.port.ts';
 import { requireMedia } from './media-use-cases.ts';
+import { opaqueRef, recordSceneAudit } from './scene-audit.ts';
 import type { ApplicationDeps, SceneServices } from './use-case-support.ts';
 
 export type SceneTarget = { readonly kind: 'HOUSEHOLD'; readonly householdId: string } | { readonly kind: 'OWNER' };
@@ -373,6 +374,10 @@ export class RequestSceneGenerationUseCase {
       });
       if (!began) return respond(false);
       await r.mediaQueue.enqueue(sceneImageObjectKey(scene.id, resultObjectId), 'INTENT', now);
+      await recordSceneAudit(deps, r, {
+        executorUserId: userId, mutationType: 'UPDATE', entityType: 'HOME_SCENE', entityId: scene.id, event: 'SCENE_REQUESTED',
+        detail: { householdRef: opaqueRef(deps, access.householdId ?? access.ownerUserId ?? scene.id), mode, pets: live.snapshot.pets.length, result: 'ACCEPTED' },
+      });
       const view = await buildView(deps, r, userId, access, await readScene(deps, r, access, await current(), now, window));
       return { accepted: true, view, job: { sceneId: scene.id, attemptId, resultObjectId } };
     });

@@ -24,6 +24,7 @@ import type { RepositorySet } from '../ports/repositories.port.ts';
 import type { SceneReferenceImage } from '../ports/scene-image-generator.port.ts';
 import type { SceneAttemptRecord, SceneRecord } from '../ports/scene-repositories.port.ts';
 import { purgeObjects, requireMedia } from './media-use-cases.ts';
+import { opaqueRef, recordSceneAudit } from './scene-audit.ts';
 import { hasActiveConsent, loadLiveInputs, requireScene } from './scene-use-cases.ts';
 import type { ApplicationDeps } from './use-case-support.ts';
 
@@ -56,6 +57,14 @@ function renumber(plan: ModePlan, dropped: ReadonlySet<AssetRef>): ModePlan {
 
 export class RunSceneGenerationUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
+
+  /** Fila `SCENE_PUBLISHED` o `SCENE_FAILED` del intento, en la transacción que lo cierra (REQ-ESC6-021): solo modo, número de mascotas y código. */
+  private async audit(r: RepositorySet, scene: SceneRecord, attempt: SceneAttemptRecord, event: 'SCENE_PUBLISHED' | 'SCENE_FAILED', result: string): Promise<void> {
+    await recordSceneAudit(this.deps, r, {
+      executorUserId: attempt.actorUserId, mutationType: 'UPDATE', entityType: 'HOME_SCENE', entityId: scene.id, event,
+      detail: { householdRef: opaqueRef(this.deps, scene.householdId ?? scene.ownerUserId ?? scene.id), mode: attempt.mode, pets: parseInputsSnapshot(attempt.inputsSnapshot)?.pets.length ?? 0, result },
+    });
+  }
 
   async execute(job: SceneWorkerJob, signal: AbortSignal): Promise<RunSceneOutcome> {
     const { deps } = this;
@@ -163,6 +172,7 @@ export class RunSceneGenerationUseCase {
       const finish = async (outcome: 'FAILED' | 'CANCELLED', code: SceneErrorCode | null) => {
         if (live !== null && live.outcome === null && (await r.scenes.closeAttempt({ sceneId: scene.id, attemptId: attempt.id, outcome, errorCode: code, degraded, now }))) {
           await r.mediaQueue.enqueue(key, 'DELETE', now);
+          await this.audit(r, scene, attempt, 'SCENE_FAILED', code ?? outcome);
         }
         return { outcome } as const;
       };
@@ -187,6 +197,7 @@ export class RunSceneGenerationUseCase {
       });
       if (previous !== null) await r.mediaQueue.enqueue(sceneImageObjectKey(scene.id, previous), 'DELETE', now);
       await r.mediaQueue.remove(key);
+      await this.audit(r, scene, attempt, 'SCENE_PUBLISHED', 'OK');
       return { outcome: 'PUBLISHED', previous } as const;
     });
     if (published.outcome === 'PUBLISHED') {
@@ -210,13 +221,19 @@ export class RunSceneGenerationUseCase {
       const now = deps.clock.nowIsoTimestamp();
       const key = resultKey(attempt, scene.id);
       const abandon = async (outcome: 'FAILED' | 'CANCELLED', code: SceneErrorCode | null) => {
-        if (await r.scenes.closeAttempt({ sceneId: scene.id, attemptId: attempt.id, outcome, errorCode: code, degraded: false, now })) await r.mediaQueue.enqueue(key, 'DELETE', now);
+        if (await r.scenes.closeAttempt({ sceneId: scene.id, attemptId: attempt.id, outcome, errorCode: code, degraded: false, now })) {
+          await r.mediaQueue.enqueue(key, 'DELETE', now);
+          await this.audit(r, scene, attempt, 'SCENE_FAILED', code ?? outcome);
+        }
         return { outcome: 'NOOP' as const, purge: key };
       };
       if (scene.currentAttemptId !== attempt.id) return abandon('CANCELLED', null);
       if (scene.runState === 'generating' && scene.leaseExpiresAt !== null && scene.leaseExpiresAt <= now) {
         const expired = await r.scenes.expireLease(scene.id, now);
-        if (expired !== null) await r.mediaQueue.enqueue(key, 'DELETE', now);
+        if (expired !== null) {
+          await r.mediaQueue.enqueue(key, 'DELETE', now);
+          await this.audit(r, scene, attempt, 'SCENE_FAILED', 'ERR-SCENE-LEASE-EXPIRED');
+        }
         return { outcome: 'NOOP', purge: key };
       }
       if (!(await r.scenes.claimAttempt({ sceneId: scene.id, attemptId: attempt.id, now, leaseExpiresAt: shiftIsoTimestamp(now, svc.leaseSeconds * 1000) }))) return { outcome: 'NOOP' };
@@ -224,6 +241,7 @@ export class RunSceneGenerationUseCase {
       if (snapshot === null) {
         await r.scenes.closeAttempt({ sceneId: scene.id, attemptId: attempt.id, outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', degraded: false, now });
         await r.mediaQueue.enqueue(key, 'DELETE', now);
+        await this.audit(r, scene, attempt, 'SCENE_FAILED', 'ERR-SCENE-GENERATION-FAILED');
         return { outcome: 'FAILED', purge: key };
       }
       const owners = await this.dataOwners(r, scene, snapshot, attempt.actorUserId);
@@ -245,14 +263,20 @@ export class RunSceneGenerationUseCase {
     await deps.uow.runInTransaction(async (r) => {
       await r.scenes.lockScene(sceneId);
       const now = deps.clock.nowIsoTimestamp();
+      const scene = await r.scenes.findById(sceneId);
+      if (scene === null) return;
       if (code === 'ERR-SCENE-LEASE-EXPIRED') {
         const expired = await r.scenes.expireLease(sceneId, now);
         if (expired !== null) {
           await r.mediaQueue.enqueue(key, 'DELETE', now);
+          await this.audit(r, scene, attempt, 'SCENE_FAILED', code);
           return;
         }
       }
-      if (await r.scenes.closeAttempt({ sceneId, attemptId: attempt.id, outcome, errorCode: code, degraded, now })) await r.mediaQueue.enqueue(key, 'DELETE', now);
+      if (await r.scenes.closeAttempt({ sceneId, attemptId: attempt.id, outcome, errorCode: code, degraded, now })) {
+        await r.mediaQueue.enqueue(key, 'DELETE', now);
+        await this.audit(r, scene, attempt, 'SCENE_FAILED', code ?? outcome);
+      }
     });
     await purgeObjects(deps, [key]);
     return outcome;

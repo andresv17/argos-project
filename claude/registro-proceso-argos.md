@@ -1414,3 +1414,4 @@
 - 2026-11-18 | Keymaker | T851+T852 getScene + GetSceneImage + repositorio (expireLease/markProviderCall/closeAttempt/publishImage) (t851 15/15, t834 59/59; suite 4608 verdes 0 rojos, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T853+T854 requestSceneGeneration T1 (t853 22/22, rojo previo 22 'not a constructor'; t834 62/62; suite 4633 verdes 0 rojos, tsc 0, gates CUMPLE); auditoria en T859; sin push ni [x].
 - 2026-11-18 | Keymaker | T855+T856 runSceneGeneration worker + SceneImageTools (t855 21/21, rojo previo 'Failed to load url'; suite 4654 verdes 0 rojos, tsc 0, gates CUMPLE); auditoria en T859; sin push ni [x].
+- 2026-11-18 | Keymaker | T857+T858+T859+T860 foto del hogar + consentimiento + auditoria escena (t857 11, t858 13, t859 7; rojo previo 'Failed to load url' y 4 fallos de auditoria; suite 4685 verdes 0 rojos, tsc 0, gates CUMPLE); sin push ni [x].

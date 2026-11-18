@@ -4,7 +4,7 @@
  */
 import type { SceneJob, SceneJobDispatcherPort } from '../../src/application/ports/scene-job-dispatcher.port.ts';
 import type { ApplicationDeps, SceneServices } from '../../src/application/use-cases/use-case-support.ts';
-import { fitReferencesWithinBudget, stripImageMetadata, validateGeneratedImage, type StrippableMime } from '../../src/infrastructure/adapters/image-metadata-stripper.ts';
+import { MAX_IMAGE_PIXELS, MAX_IMAGE_SIDE, fitReferencesWithinBudget, readImageDimensions, stripImageMetadata, validateGeneratedImage, type StrippableMime } from '../../src/infrastructure/adapters/image-metadata-stripper.ts';
 import { FakeSceneImageGenerator, type FakeSceneMode } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
 
 export class SpySceneDispatcher implements SceneJobDispatcherPort {
@@ -53,6 +53,10 @@ export function sceneFixture(options: SceneFixtureOptions = {}): SceneFixture {
     images: {
       strip: (mime, bytes) => stripImageMetadata(mime as StrippableMime, bytes),
       fit: (sizes) => fitReferencesWithinBudget(sizes),
+      withinLimits: (mime, bytes) => {
+        const d = readImageDimensions(mime as StrippableMime, bytes);
+        return d !== null && d.width * d.height <= MAX_IMAGE_PIXELS && Math.max(d.width, d.height) <= MAX_IMAGE_SIDE;
+      },
       validateOutput: (mime, bytes) => validateGeneratedImage(mime, bytes, 32 * 1024 * 1024),
       ...imageOverrides,
     },

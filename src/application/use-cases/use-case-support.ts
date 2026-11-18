@@ -89,6 +89,8 @@ export interface SceneImageTools {
   readonly strip: (mime: string, bytes: Uint8Array) => { readonly ok: true; readonly mime: string; readonly bytes: Uint8Array } | { readonly ok: false };
   /** Mayor prefijo de referencias (por prioridad) que cabe en el tope agregado (EDGE-ESC6-028). */
   readonly fit: (sizes: readonly number[]) => { readonly kept: number; readonly degraded: boolean };
+  /** Tope de ancho × alto (25 MP) y de lado (8192 px) en la subida de la foto del hogar (REQ-ESC6-027). */
+  readonly withinLimits: (mime: string, bytes: Uint8Array) => boolean;
   /** Valida la imagen generada por firma (REQ-ESC6-035). */
   readonly validateOutput: (mime: string, bytes: Uint8Array) => { readonly ok: true; readonly mime: 'image/png' | 'image/webp' } | { readonly ok: false; readonly code: 'ERR-SCENE-INVALID-IMAGE' };
 }
