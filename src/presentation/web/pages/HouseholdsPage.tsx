@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Button, FormError, SelectField, TextField } from '../components/Field.tsx';
+import { HomeScene } from '../components/HomeScene.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { useSession } from '../session.tsx';
 import { useContractForm } from '../use-contract-form.ts';
@@ -72,7 +73,7 @@ export function InvitationList({ invitations, onAccept, onDecline }: {
   );
 }
 
-export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, inviteForm, onChangeRole, onTransferOwnership }: {
+export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, inviteForm, onChangeRole, onTransferOwnership, sceneSlot }: {
   readonly view: HouseholdView;
   readonly myUserId: string;
   readonly onMemberAction: (userId: string, action: MemberAction) => void;
@@ -82,6 +83,8 @@ export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, invite
   readonly onChangeRole?: (userId: string, role: HouseholdRole) => void;
   /** REQ-HOUSE2-002 TRANSFER_OWNERSHIP: si falta, no se ofrece el botón. */
   readonly onTransferOwnership?: (userId: string) => void;
+  /** Escena del hogar (feature 006, D6-04 = A): va en el encabezado de la tarjeta, antes de los miembros. */
+  readonly sceneSlot?: JSX.Element;
 }): JSX.Element {
   const titleId = `household-${view.household.id}-title`;
   return (
@@ -100,6 +103,7 @@ export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, invite
           </Button>
         ) : null}
       </div>
+      {sceneSlot ?? null}
       <ul aria-label={`Miembros de ${view.household.name}`} className="divide-y divide-slate-200">
         {view.members.map((member) => {
           const badge = ownerBadge({ userId: member.membership.userId, displayName: member.membership.displayName, colorToken: member.colorToken ?? null });
@@ -310,6 +314,7 @@ export function HouseholdsPage(): JSX.Element {
                 onChangeRole={onChangeRole(view.household.id)}
                 onTransferOwnership={(userId) => setPendingTransfer({ householdId: view.household.id, userId })}
                 inviteForm={view.isHouseholdOwner ? <InviteForm householdId={view.household.id} onInvited={load} /> : null}
+                sceneSlot={<HomeScene scope={{ kind: 'HOUSEHOLD', householdId: view.household.id }} idPrefix={`escena-${view.household.id}`} />}
               />
               {pendingTransfer?.householdId === view.household.id ? (
                 <div role="alertdialog" aria-labelledby={`transfer-${view.household.id}`} className="rounded-2xl border-2 border-slate-400 bg-white p-4">

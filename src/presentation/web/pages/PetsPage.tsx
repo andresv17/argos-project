@@ -13,6 +13,7 @@ import { PetCardList, PetFilter } from '../components/PetCards.tsx';
 import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
 import { AvatarEditor } from '../components/AvatarCropper.tsx';
+import { HomeScene } from '../components/HomeScene.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { Link } from 'react-router-dom';
@@ -185,6 +186,11 @@ export function PetsPage(): JSX.Element {
             setSpecies(nextSpecies);
           }}
         />
+        {isMine ? (
+          cards.length > 0 ? <HomeScene key="escena-mine" scope={{ kind: 'OWNER' }} idPrefix="escena-mine" /> : null
+        ) : (
+          <HomeScene key={`escena-${contextId}`} scope={{ kind: 'HOUSEHOLD', householdId: contextId }} idPrefix={`escena-${contextId}`} />
+        )}
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[156px_minmax(0,1fr)]">
           <section aria-label="Mascotas del contexto" className="flex min-w-0 flex-col gap-3">
             <PetCardList
