@@ -1458,3 +1458,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Rojo previo (T815): 18 rojos; pet x2 y avatar x2 con 'expected [] to deeply equal [{hook onPetRemoved ...}]'. Implementacion: deps.sceneHooks?.onPetRemoved(repositories, {petId, cause, now}) ANTES de la mutacion y dentro del runInTransaction; el avatar solo si habia avatar (idempotente sin avatar).
 - T815: 18 -> 14 rojos (quedan assignment, household, account, ownership, backup). La logica real de retiro (SceneLifecycleHooks) llega tras el cableado.
 - tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T863 cableado de onPetUnassigned (assignment-use-cases) y onMemberRemoved (household-use-cases, salida o expulsion) (REQ-ESC6-030; EDGE-ESC6-020; SC-ESC6-047) (sin push, sin [x])
+- Rojo previo (T815, 14): assignment x2 ('expected [] to deeply equal [{hook onPetUnassigned...}]') y household salida/expulsion x2. Implementacion: onPetUnassigned solo si la asignacion existia (idempotente); onMemberRemoved tras validar applyMembershipEvent y antes de saveChangedRows/podas (un evento por causa: subsume las desasignaciones, regla 5 del contrato).
+- T815: 14 -> 10 rojos. tsc 0; gates CUMPLE.

@@ -288,6 +288,9 @@ async function endMembership(deps: ApplicationDeps, actorUserId: string, househo
       targetUserId,
       nowIsoTimestamp: deps.clock.nowIsoTimestamp(),
     });
+    // 006 (T863, REQ-ESC6-030, D6-17): la salida o expulsión retira y purga la imagen vigente y cancela el intento en vuelo; ANTES de la mutación, misma transacción.
+    // Un solo evento por causa: subsume la desasignación de las mascotas del miembro (no se invoca onPetUnassigned).
+    await deps.sceneHooks?.onMemberRemoved(repositories, { householdId, userId: targetUserId, cause: actorUserId === targetUserId ? 'LEFT' : 'REMOVED', now: deps.clock.nowIsoTimestamp() });
     const changedRows = await saveChangedRows(repositories, memberships, result.memberships);
     for (const row of changedRows) {
       const previous = memberships.find((m) => m.membershipId === row.membershipId)!;
