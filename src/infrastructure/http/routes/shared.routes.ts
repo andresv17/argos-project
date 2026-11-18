@@ -8,7 +8,7 @@
  * Prohibido devolver el token, la URL o la plantilla de ruta de Fastify en cuerpo, cabeceras o registros; ningún fallo responde 400.
  * Un mecanismo único (`setNotFoundHandler` del prefijo, `setErrorHandler` del prefijo y `frameworkErrors` de la instancia) resuelve en el mismo manejador.
  *
- * @implements REQ-VET-006, REQ-VET-007, REQ-VET-008, INV-005-002, INV-005-007, INV-005-009, SC-005-020, SC-005-021, SC-005-041, SC-005-050, EDGE-005-25
+ * @implements REQ-VET-006, REQ-VET-007, REQ-VET-008, INV-005-002, INV-005-007, INV-005-009, SC-005-020, SC-005-021, SC-005-026, SC-005-041, SC-005-050, NFR-005-002, EDGE-005-25
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { SharedAccessLimiter } from '../../../application/sharing/shared-access-limiter.ts';

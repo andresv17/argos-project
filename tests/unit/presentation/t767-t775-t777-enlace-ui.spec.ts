@@ -241,7 +241,7 @@ describe('T777 S6 impresión (REQ-SUM-005, SC-005-032, SC-005-047, EDGE-005-30)'
   const css = readFileSync(new URL('../../../src/presentation/web/styles.css', import.meta.url), 'utf8');
   const printCss = css.slice(css.indexOf('@media print'));
 
-  it('[SC-005-032] la hoja @media print usa @page { margin: 0 }, fondo blanco, oculta cabecera, franja, botón e índice y evita cortes dentro de las filas', () => {
+  it('[SC-005-032][REQ-SUM-005] la hoja @media print usa @page { margin: 0 }, fondo blanco, oculta cabecera, franja, botón e índice y evita cortes dentro de las filas', () => {
     expect(css).toContain('@media print');
     expect(printCss).toMatch(/@page\s*\{\s*margin:\s*0/);
     expect(printCss).toMatch(/break-inside:\s*avoid/);

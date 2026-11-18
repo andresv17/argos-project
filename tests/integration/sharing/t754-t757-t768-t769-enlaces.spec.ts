@@ -178,6 +178,49 @@ describe('T754 crear enlace (REQ-VET-001, SC-005-015, SC-005-025)', () => {
   });
 });
 
+describe('T768 multi-hogar: el rol efectivo y el rol en el hogar nunca se mezclan (REQ-VET-001, INV-ACC2-001, SC-005-048, SC-005-039)', () => {
+  const HOUSE_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb02';
+  const KIRA_ID = '11111111-1111-4111-8111-111111111102';
+
+  /** María es ADMIN de Casa Vallejo y CAREGIVER del hogar B (de Lucía), donde se asignó Kira (de Andrés) y de donde se retiró de Casa Vallejo. */
+  async function twoHouseholds(e: ShareEngine): Promise<void> {
+    await e.run(async (r) => {
+      await r.households.insert({ id: HOUSE_B, name: 'Hogar B', ownerUserId: LUCIA, createdAt: NOW });
+      await r.households.saveMembership({ membershipId: 'cccccccc-cccc-4ccc-8ccc-cccccccccc91', householdId: HOUSE_B, userId: LUCIA, role: 'OWNER', status: 'ACTIVE', joinedAt: NOW, firstJoinedAt: NOW, updatedAt: NOW });
+      await r.households.saveMembership({ membershipId: 'cccccccc-cccc-4ccc-8ccc-cccccccccc92', householdId: HOUSE_B, userId: MARIA, role: 'CAREGIVER', status: 'ACTIVE', joinedAt: NOW, firstJoinedAt: NOW, updatedAt: NOW });
+      await r.assignments.remove(KIRA_ID, HOUSEHOLD_ID);
+      await r.assignments.save({ petId: KIRA_ID, householdId: HOUSE_B, assignedByUserId: ANDRES, assignedAt: NOW });
+    });
+  }
+
+  it('[SC-005-048][INV-ACC2-001] ADMIN en un hogar y CAREGIVER en otro: ni el enlace PET de la mascota que solo ve por el segundo ni el HOUSEHOLD del segundo (ERR-ACC-FORBIDDEN); el HOUSEHOLD del primero sí', async () => {
+    await eachEngine('ADMIN', async (e) => {
+      await twoHouseholds(e);
+      expect(await codeOf(create(e, MARIA, { scope: 'PET', petId: KIRA_ID }, KEY(1)))).toBe('ERR-ACC-FORBIDDEN');
+      expect(await codeOf(create(e, MARIA, { scope: 'HOUSEHOLD', householdId: HOUSE_B }, KEY(2)))).toBe('ERR-ACC-FORBIDDEN');
+      expect(await codeOf(list(e, MARIA, { scope: 'PET', petId: KIRA_ID }))).toBe('ERR-ACC-FORBIDDEN');
+      const own = await created(e, MARIA, HOUSE_REF, 3);
+      expect((await summary(e, own.token)).summary.pets.map((p) => p.profile.name)).toEqual(['Luna']);
+    });
+  });
+
+  it('[SC-005-048][SC-005-039] un hogar que no es tuyo es 404 y el enlace de un hogar nunca entrega mascotas de otro; si pasa a ADMIN del segundo, el conjunto sigue siendo solo lo que posee', async () => {
+    await eachEngine('ADMIN', async (e) => {
+      await twoHouseholds(e);
+      expect(await codeOf(create(e, ANDRES, { scope: 'HOUSEHOLD', householdId: HOUSE_B }, KEY(1)))).toBe('ERR-HOUSE-NOT-FOUND');
+      await e.run(async (r) => {
+        const m = (await r.households.listMembershipsOfUsers([MARIA])).find((x) => x.householdId === HOUSE_B)!;
+        await r.households.saveMembership({ ...m, role: 'ADMIN' });
+      });
+      // María es ahora ADMIN de B, pero Kira es de Andrés: el conjunto del enlace HOUSEHOLD de B es vacío para ella (D5-19) y la PET de Kira sí es posible por su rol efectivo.
+      expect(await codeOf(create(e, MARIA, { scope: 'HOUSEHOLD', householdId: HOUSE_B }, KEY(2)))).toBe('ERR-ACC-FORBIDDEN');
+      expect(await codeOf(create(e, MARIA, { scope: 'PET', petId: KIRA_ID }, KEY(3)))).toBe('OK');
+      const viaKira = await e.run((r) => r.shareLinks.findByIdempotencyKey(MARIA, KEY(3)));
+      expect(viaKira!.petOwnerUserIdAtCreation).toBe(ANDRES);
+    });
+  });
+});
+
 describe('T769 tope de 20 enlaces activos por alcance (REQ-VET-012, SC-005-038, EDGE-005-15)', () => {
   it('[SC-005-038] el 21.º es ERR-SHARE-LINK-LIMIT 409; vencidos y revocados no cuentan; revocar uno permite otro', async () => {
     await eachEngine(null, async (e) => {

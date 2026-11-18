@@ -120,7 +120,7 @@ describe('T750 IDOR entre alcances (INV-005-001, SC-005-016, SC-005-026)', () =>
     expect(JSON.stringify((await api.publicGet(`/api/shared/${good.token}/summary`)).json)).not.toContain(PHOTO);
   });
 
-  it('[SC-005-016] el alcance sale de la ruta autenticada: crear un enlace de una mascota ajena o de un hogar ajeno es 404 y no deja fila', async () => {
+  it('[SC-005-016][SC-005-026] el alcance sale de la ruta autenticada: crear un enlace de una mascota ajena o de un hogar ajeno es 404 y no deja fila', async () => {
     api = await createShareApi();
     const lucia = await api.login('lucia');
     expect((await api.call('POST', `/api/pets/${ARGOS.id}/share-links`, { cookie: lucia, body: { petId: ARGOS.id }, headers: { 'idempotency-key': KEY(1) } })).status).toBe(404);

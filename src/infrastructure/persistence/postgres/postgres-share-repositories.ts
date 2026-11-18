@@ -4,7 +4,7 @@
  * ALCANCE, nunca del usuario creador (EDGE-005-15). Solo `token_hash` en la base (INV-005-005); fallos agregados por `(ip_hmac, ventana)` con un índice
  * único parcial y `ON CONFLICT`.
  *
- * @implements REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-008, REQ-VET-010, REQ-VET-012, REQ-VET-013, INV-005-005, SC-005-038
+ * @implements REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-008, REQ-VET-010, REQ-VET-012, REQ-VET-013, INV-005-005, SC-005-024, SC-005-038, SC-005-042
  */
 import type { ShareAuditRecord, ShareLinkAuditRepositoryPort, ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
 import type { ShareLinkRecord } from '../../../domain/sharing/share-link.ts';

@@ -111,10 +111,15 @@ describe('T774 exclusiones (REQ-SUM-003, INV-005-004, SC-005-029, SC-005-030)', 
     expect(validateClinicalSummary(JSON.parse(text))).toBe(true);
   });
 
-  it('[REQ-SUM-003] no hay referencia a fotos ni a avatar, ni a ids de usuario u hogar, ni nombres de miembros', () => {
+  it('[REQ-SUM-003][SC-005-030] no hay referencia a fotos ni a avatar, ni a ids de usuario u hogar, ni nombres de miembros', () => {
     const text = JSON.stringify(buildClinicalSummary('HOUSEHOLD', [input(), input(upgradePet(LUNA))], GENERATED_AT, OFF));
     for (const forbidden of ['avatar', 'photo', 'PHOTO', 'ownerUserId', 'householdId', 'aaaaaaaa-aaaa-4aaa', 'bbbbbbbb-bbbb', 'Casa Vallejo', 'username', 'email', 'pets/']) expect(text).not.toContain(forbidden);
   });
+});
+
+it('[SC-005-043][REQ-SUM-007][REQ-SUM-008] el resumen declara la procedencia del cuidador (no verificada) y ninguna interpretación automática', () => {
+  const summary = buildClinicalSummary('PET', [input()], GENERATED_AT, OFF);
+  expect([summary.dataProvenance, summary.automaticInterpretation]).toEqual(['CAREGIVER_REPORTED_NOT_VERIFIED', 'NONE']);
 });
 
 describe('T779a REQ-SIN-003 síntomas como datos reportados (REQ-SUM-008)', () => {

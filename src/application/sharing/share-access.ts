@@ -4,7 +4,7 @@
  * - `PET`: el permiso `CREATE_SHARE_LINK` se decide con el ROL EFECTIVO sobre la mascota (propietario legal o ADMIN; 404 antes que 403).
  * - `HOUSEHOLD`: se decide con el rol del usuario EN ese hogar (propietario del hogar o `ADMIN` ACTIVE), nunca con el rol efectivo por mascota (B3 de
  *   /merovingian); el conjunto servido son las mascotas asignadas AHORA al hogar Y de propiedad legal del creador (D5-19), calculado en cada petición.
- * @implements REQ-VET-001, REQ-VET-002, REQ-VET-011, INV-005-001, INV-005-006, INV-ACC2-001
+ * @implements REQ-VET-001, REQ-VET-002, REQ-VET-011, INV-005-001, INV-005-006, INV-ACC2-001, SC-005-039, SC-005-048
  */
 import { isOwnerRow, type LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';

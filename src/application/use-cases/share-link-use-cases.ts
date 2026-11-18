@@ -9,7 +9,7 @@
  * Revocar (REQ-VET-005, STATE-SHARE-001): `UPDATE … WHERE revoked_at IS NULL AND expires_at > now` + auditoría `REVOKED` en la misma transacción; ya revocado o VENCIDO
  * es un no-op (204 sin escribir ni auditar); sin autoridad o inexistente, el mismo 404.
  *
- * @implements REQ-VET-001, REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-008, REQ-VET-012, STATE-SHARE-001, INV-005-005, SC-005-015, SC-005-019, SC-005-025, SC-005-038, SC-005-046, SC-005-051, EDGE-005-15, EDGE-005-16
+ * @implements REQ-VET-001, REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-008, REQ-VET-012, STATE-SHARE-001, INV-005-005, SC-005-015, SC-005-019, SC-005-025, SC-005-038, SC-005-046, SC-005-051, ERR-SHARE-LINK-LIMIT, ERR-SHARE-NOT-FOUND, EDGE-005-15, EDGE-005-16
  */
 import { retentionCutoffs, computeExpiresAt, deriveStatus, isExpiryDays, isRevocationNoop, DEFAULT_EXPIRY_DAYS, MAX_ACTIVE_SHARE_LINKS, type ShareLinkRecord } from '../../domain/sharing/share-link.ts';
 import { hashToken } from '../../domain/sharing/share-token.ts';

@@ -14,7 +14,7 @@
  * - Límite de tasa por IP efectiva ANTES de tocar la base (429 sin escritura ni resolución); todo fallo cuenta una vez; sin exención de token válido (PN-11).
  * - La auditoría de un acceso válido es fail-closed: si falla, no se sirve el resumen (error interno).
  *
- * @implements REQ-VET-002, REQ-VET-006, REQ-VET-007, REQ-VET-008, REQ-VET-009, REQ-VET-011, REQ-SUM-004, INV-005-001, INV-005-002, INV-005-006, INV-005-007, INV-005-008, INV-005-009, SC-005-016, SC-005-021, SC-005-022, SC-005-023, SC-005-035, SC-005-036, SC-005-037, SC-005-049, EDGE-005-14, EDGE-005-23, EDGE-005-24, MIF-005-04
+ * @implements REQ-VET-002, REQ-VET-006, REQ-VET-007, REQ-VET-008, REQ-VET-009, REQ-VET-011, REQ-SUM-004, INV-005-001, INV-005-002, INV-005-006, INV-005-007, INV-005-008, INV-005-009, SC-005-016, SC-005-017, SC-005-021, SC-005-022, SC-005-023, SC-005-026, SC-005-035, SC-005-036, SC-005-037, SC-005-049, NFR-005-001, NFR-005-002, EDGE-005-14, EDGE-005-23, EDGE-005-24, MIF-005-04
  */
 import { toRoleMembership, isOwnerRow } from '../../domain/households/household-policies.ts';
 import { effectiveRole } from '../../domain/access/effective-role.ts';

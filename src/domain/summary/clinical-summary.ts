@@ -8,7 +8,7 @@
  * - Sin interpretación automática: `automaticInterpretation = 'NONE'`, `dataProvenance = 'CAREGIVER_REPORTED_NOT_VERIFIED'` (REQ-SUM-007, REQ-SUM-008).
  * - Microchip solo con `includeMicrochip` (AUSENTE, no null, sin la casilla); archivos solo con `includeClinicalFiles`.
  *
- * @implements REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-007, REQ-SUM-008, INV-005-004, SC-005-027, SC-005-028, SC-005-029, SC-005-030
+ * @implements REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-007, REQ-SUM-008, INV-005-004, SC-005-027, SC-005-028, SC-005-029, SC-005-030, SC-005-043
  */
 import type { ClinicalPetSummary, ClinicalSummary } from '../../generated/v33/index.ts';
 import type { PetProfile, PetRecordCollections } from '../pet/pet-invariants.ts';
