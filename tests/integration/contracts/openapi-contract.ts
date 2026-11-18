@@ -51,7 +51,7 @@ export const MEDIA_OPERATIONS: readonly Operation[] = MEDIA_PATHS.flatMap((path)
 
 
 // Mismas opciones numéricas que los validadores generados (scripts/codegen.mjs): sin multipleOfPrecision, 32.85 no es múltiplo de 0.001 por coma flotante (T226).
-const ajv = new Ajv2020({ strict: false, allErrors: true, multipleOfPrecision: 10 });
+export const ajv = new Ajv2020({ strict: false, allErrors: true, multipleOfPrecision: 10 });
 addFormats(ajv);
 // T525: las respuestas de mascota llevan `breedCode` (pet.schema.json 3.1.0 de la 004, mismo $id). `avatarVersion` se exige desde T584
 // (columna de avatar); el resto de esquemas sigue siendo el de la 002.

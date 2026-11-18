@@ -16,12 +16,14 @@ import { DomainError } from '../../../generated/index.ts';
 import { DomainError as DomainErrorV31 } from '../../../generated/v31/index.ts';
 // El catálogo 3.3.0 (feature 005) añade ERR-MEDIA-ALBUM-LIMIT: tercera clase con el mismo contrato.
 import { DomainError as DomainErrorV33 } from '../../../generated/v33/index.ts';
+// El catálogo 3.4.0 (feature 006) añade los ERR-SCENE-*: cuarta clase con el mismo contrato.
+import { DomainError as DomainErrorV34 } from '../../../generated/v34/index.ts';
 import { MAX_IMPORT_BYTES } from '../../../application/use-cases/backup-use-cases.ts';
 
 export const PROBLEM_CONTENT_TYPE = 'application/problem+json; charset=utf-8';
 export const BACKUP_IMPORT_PATH = '/api/backup/import';
-/** `POST /api/pets/<id>/media` y `PUT /api/pets/<id>/avatar`: rutas de cuerpo crudo de medios. */
-const MEDIA_UPLOAD_PATH = /^\/api\/pets\/[^/]+\/(?:media|avatar)$/;
+/** `POST /api/pets/<id>/media`, `PUT /api/pets/<id>/avatar` y `PUT /api/households/<id>/photo` (006): rutas de cuerpo crudo de medios. */
+const MEDIA_UPLOAD_PATH = /^\/api\/(?:pets\/[^/]+\/(?:media|avatar)|households\/[^/]+\/photo)$/;
 
 /** Ruta de la petición sin la cadena de consulta (campo `instance`). */
 export const requestPath = (request: FastifyRequest) => request.url.split('?')[0] ?? request.url;
@@ -35,8 +37,8 @@ function isFastifyRequestError(error: unknown): error is FastifyError {
  * Traduce cualquier error a un DomainError del catálogo.
  * @implements ERR-INTERNAL-UNEXPECTED, ERR-BACKUP-PAYLOAD-TOO-LARGE
  */
-export function toDomainError(error: unknown, request: FastifyRequest): DomainError | DomainErrorV31 | DomainErrorV33 {
-  if (error instanceof DomainError || error instanceof DomainErrorV31 || error instanceof DomainErrorV33) return error;
+export function toDomainError(error: unknown, request: FastifyRequest): DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34 {
+  if (error instanceof DomainError || error instanceof DomainErrorV31 || error instanceof DomainErrorV33 || error instanceof DomainErrorV34) return error;
   if (isFastifyRequestError(error)) {
     // Medios y avatar (REQ-ARC-001, REQ-AVA-001): el cuerpo que supera el tope de lectura es ERR-MEDIA-TOO-LARGE (413), no un fallo de esquema.
     if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' && MEDIA_UPLOAD_PATH.test(requestPath(request))) return new DomainErrorV31('ERR-MEDIA-TOO-LARGE');
@@ -48,7 +50,7 @@ export function toDomainError(error: unknown, request: FastifyRequest): DomainEr
   return new DomainError('ERR-INTERNAL-UNEXPECTED');
 }
 
-export function sendProblem(reply: FastifyReply, request: FastifyRequest, error: DomainError | DomainErrorV31 | DomainErrorV33): FastifyReply {
+export function sendProblem(reply: FastifyReply, request: FastifyRequest, error: DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34): FastifyReply {
   return reply.status(error.status).type(PROBLEM_CONTENT_TYPE).send(error.toProblemDetails(requestPath(request)));
 }
 
@@ -56,7 +58,10 @@ export function sendProblem(reply: FastifyReply, request: FastifyRequest, error:
 export function registerProblemDetails(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     const problem = toDomainError(error, request);
-    if (problem.code === 'ERR-INTERNAL-UNEXPECTED' && !(error instanceof DomainError) && !(error instanceof DomainErrorV31) && !(error instanceof DomainErrorV33)) request.log.error({ err: error }, 'error no previsto');
+    if (problem.code === 'ERR-INTERNAL-UNEXPECTED' && !(error instanceof DomainError) && !(error instanceof DomainErrorV31) && !(error instanceof DomainErrorV33) && !(error instanceof DomainErrorV34)) request.log.error({ err: error }, 'error no previsto');
+    // 429 de la escena (REQ-ESC6-034): los segundos de espera viajan en `Retry-After`.
+    const retryAfter = (error as { retryAfterSeconds?: unknown }).retryAfterSeconds;
+    if (problem.code === 'ERR-RATE-LIMITED' && typeof retryAfter === 'number') reply.header('retry-after', String(retryAfter));
     return sendProblem(reply, request, problem);
   });
 }
