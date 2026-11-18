@@ -1,0 +1,604 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/005/schemas/clinical-summary.schema.json",
+  "title": "ClinicalSummarySchema",
+  "description": "Read-model clínico de solo lectura, versionado y por allow-list (feature 005) [REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-006, INV-005-004]. Esquema cerrado: un campo nuevo del dominio NO aparece hasta que este contrato lo declare. Sin nombres de archivo (D5-06: viajan en SharedSummaryView.fileLabels), sin fotos de álbum, sin avatar, sin identificadores de usuario, hogar, mascota ni registro, sin claves ni URLs de objeto, sin `ownerUserId`, sin `revision` y sin interpretación automática (alertas, banderas, normal/anormal o texto generado; MAG-005-003). Las fechas de calendario son `YYYY-MM-DD` tal como se guardaron, sin conversión UTC (MAG-005-004); UTC solo en `generatedAt` y en `createdAt` de archivos.",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
+    "traceability": [
+      "REQ-SUM-001",
+      "REQ-SUM-002",
+      "REQ-SUM-003",
+      "REQ-SUM-006",
+      "REQ-SUM-007",
+      "REQ-SUM-008",
+      "INV-005-004",
+      "INV-005-009",
+      "REQ-VET-009",
+      "SC-005-027",
+      "SC-005-028",
+      "SC-005-029",
+      "SC-005-030",
+      "SC-005-033"
+    ]
+  },
+  "$defs": {
+    "SummaryScope": {
+      "type": "string",
+      "enum": [
+        "PET",
+        "HOUSEHOLD"
+      ],
+      "description": "Alcance del resumen (mascota u hogar) [REQ-SUM-005]"
+    },
+    "SummaryDisclosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "microchipIncluded",
+        "clinicalFilesIncluded"
+      ],
+      "properties": {
+        "microchipIncluded": {
+          "type": "boolean",
+          "description": "true solo si el creador marcó la casilla al crear el enlace o la vista previa (D5-14); la vista muestra «Microchip no compartido por el cuidador» cuando es false (MAG-005-005)"
+        },
+        "clinicalFilesIncluded": {
+          "type": "boolean",
+          "description": "true solo si el creador marcó «Incluir archivos clínicos» (D5-21); con false, clinicalFiles es [] en todas las mascotas"
+        }
+      },
+      "description": "Entradas de privacidad del resumen; son parámetros de entrada de buildClinicalSummary (determinismo) [REQ-SUM-003, REQ-SUM-002]"
+    },
+    "ClinicalProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "species",
+        "speciesOther",
+        "breed",
+        "sex",
+        "neutered",
+        "birthDate",
+        "birthDateIsEstimate",
+        "age"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "species": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/Species"
+        },
+        "speciesOther": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/SpeciesOther"
+        },
+        "breed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "sex": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/Sex"
+        },
+        "neutered": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "birthDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "birthDateIsEstimate": {
+          "type": "boolean"
+        },
+        "age": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "years",
+            "months",
+            "totalDays"
+          ],
+          "properties": {
+            "years": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "months": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 11
+            },
+            "totalDays": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "Edad derivada aritméticamente de birthDate y de la fecha de calendario de generatedAt en UTC; no es una valoración clínica [MAG-005-003]"
+        },
+        "microchipId": {
+          "type": "string",
+          "pattern": "^\\d{15}$",
+          "description": "AUSENTE (no null) salvo que disclosure.microchipIncluded sea true; dato declarado por el cuidador [D5-14, MAG-005-005]"
+        }
+      },
+      "description": "Perfil clínico mínimo de la mascota; sin id, sin ownerUserId, sin avatar [REQ-SUM-003]"
+    },
+    "WeightEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedAt",
+        "weightKg",
+        "notes"
+      ],
+      "properties": {
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 150,
+          "multipleOf": 0.001
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Peso en kilogramos (unidad en el nombre del campo, MAG-005-014)"
+    },
+    "BodyMeasurementEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedAt",
+        "neckCm",
+        "chestCm",
+        "backLengthCm",
+        "waistCm",
+        "notes"
+      ],
+      "properties": {
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "neckCm": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 250,
+          "multipleOf": 0.01
+        },
+        "chestCm": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 250,
+          "multipleOf": 0.01
+        },
+        "backLengthCm": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 250,
+          "multipleOf": 0.01
+        },
+        "waistCm": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 250,
+          "multipleOf": 0.01
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Medidas en centímetros (unidad en el nombre del campo, MAG-005-014)"
+    },
+    "VaccinationEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vaccineName",
+        "appliedAt",
+        "nextBoosterAt",
+        "batchOrClinic",
+        "veterinarianName",
+        "notes"
+      ],
+      "properties": {
+        "vaccineName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextBoosterAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "batchOrClinic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Sin veterinarianLicense (dato de un tercero, minimización) [REQ-SUM-003]"
+    },
+    "DewormingEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "productBrand",
+        "dewormingType",
+        "appliedAt",
+        "nextSuggestedDoseAt",
+        "batchOrClinic",
+        "veterinarianName",
+        "notes"
+      ],
+      "properties": {
+        "productBrand": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "dewormingType": {
+          "type": "string",
+          "enum": [
+            "INTERNAL",
+            "EXTERNAL"
+          ]
+        },
+        "appliedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "nextSuggestedDoseAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "batchOrClinic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "veterinarianName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Sin veterinarianLicense (dato de un tercero, minimización) [REQ-SUM-003]"
+    },
+    "MedicalVisitEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visitDate",
+        "reason",
+        "diagnosis",
+        "treatment",
+        "clinicOrVet",
+        "observations"
+      ],
+      "properties": {
+        "visitDate": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "diagnosis": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "treatment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "clinicOrVet": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "observations": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Texto libre del cuidador, no verificado; puede contener datos de terceros (RAMA-005-007) [REQ-SUM-007]"
+    },
+    "SymptomEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedAt",
+        "symptomType",
+        "severity",
+        "title",
+        "description",
+        "notes"
+      ],
+      "properties": {
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "symptomType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "VOMIT",
+            "APPETITE",
+            "STOOL",
+            "ENERGY",
+            null
+          ]
+        },
+        "severity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "MILD",
+            "MODERATE",
+            "SEVERE",
+            null
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Parámetros de categoría SYMPTOM; reportados por el cuidador, sin valoración [REQ-SIN-003, MAG-005-015]"
+    },
+    "OtherParameterEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordedAt",
+        "category",
+        "title",
+        "description",
+        "notes"
+      ],
+      "properties": {
+        "recordedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "DIET_CHANGE",
+            "ALLERGY",
+            "SURGERY",
+            "BEHAVIOR",
+            "OTHER"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "notes": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/OptionalNotes"
+        }
+      },
+      "description": "Parámetros adicionales distintos de SYMPTOM; reportados por el cuidador"
+    },
+    "ClinicalFileEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "mime",
+        "sizeBytes",
+        "createdAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "mime": {
+          "$ref": "https://argos.local/contracts/schemas/media.schema.json#/$defs/MediaMime"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10485760
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      },
+      "description": "Archivo clínico (kind FILE) SIN nombre original, sin clave de objeto y sin URL. `id` es el identificador opaco del medio que la vista une con SharedSummaryView.fileLabels y con la ruta de descarga. `createdAt` es la fecha de SUBIDA, no la del examen (D5-04, MAG-005-009) [REQ-SUM-003, REQ-VET-009]"
+    },
+    "ClinicalPetSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "weights",
+        "bodyMeasurements",
+        "vaccinations",
+        "dewormings",
+        "medicalVisits",
+        "symptoms",
+        "otherParameters",
+        "clinicalFiles"
+      ],
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/ClinicalProfile"
+        },
+        "weights": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/$defs/WeightEntry"
+          }
+        },
+        "bodyMeasurements": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/$defs/BodyMeasurementEntry"
+          }
+        },
+        "vaccinations": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/$defs/VaccinationEntry"
+          }
+        },
+        "dewormings": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/$defs/DewormingEntry"
+          }
+        },
+        "medicalVisits": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/$defs/MedicalVisitEntry"
+          }
+        },
+        "symptoms": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/$defs/SymptomEntry"
+          }
+        },
+        "otherParameters": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/$defs/OtherParameterEntry"
+          }
+        },
+        "clinicalFiles": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/$defs/ClinicalFileEntry"
+          }
+        }
+      },
+      "description": "Una mascota del alcance. Listas por clave total (fecha DESC, id interno DESC); el id no se emite. Cada lista tiene cota de 5 000 elementos como envolvente de carga; superarla es un error interno, nunca un truncamiento silencioso [REQ-SUM-002]"
+    },
+    "ClinicalSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summaryVersion",
+        "generatedAt",
+        "scope",
+        "dataProvenance",
+        "automaticInterpretation",
+        "disclosure",
+        "pets"
+      ],
+      "properties": {
+        "summaryVersion": {
+          "type": "string",
+          "const": "1.0.0"
+        },
+        "generatedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "scope": {
+          "$ref": "#/$defs/SummaryScope"
+        },
+        "dataProvenance": {
+          "type": "string",
+          "const": "CAREGIVER_REPORTED_NOT_VERIFIED",
+          "description": "Todo el contenido es registrado por el cuidador y no verificado por un profesional (MAG-005-001, REQ-SUM-007)"
+        },
+        "automaticInterpretation": {
+          "type": "string",
+          "const": "NONE",
+          "description": "El resumen no contiene alertas, banderas, normal/anormal ni texto generado (MAG-005-003, REQ-SUM-008)"
+        },
+        "disclosure": {
+          "$ref": "#/$defs/SummaryDisclosure"
+        },
+        "pets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/ClinicalPetSummary"
+          },
+          "description": "Mascotas del alcance, ordenadas por (name ASC, id interno ASC); en HOUSEHOLD solo las que el creador posee legalmente y siguen asignadas al hogar (D5-19)"
+        }
+      },
+      "description": "Documento raíz [REQ-SUM-001]"
+    }
+  },
+  "$ref": "#/$defs/ClinicalSummary"
+}

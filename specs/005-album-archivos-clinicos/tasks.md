@@ -32,7 +32,7 @@
 - [ ] T706 [GOV] `/architect`: crear `contracts/` de 005 tras T700: `clinical-summary.schema.json`, `share-link.schema.json`, `contracts/openapi/` (rutas `share-links` y `/shared/{token}/summary`), catálogo de errores incremental (incluye `ERR-MEDIA-ALBUM-LIMIT` y el 404/429 uniformes) y, si `D5-04` lo firma, la enmienda de `media.schema.json`; la enmienda a contratos de 004 solo con firma — REQ-SUM-001, REQ-SUM-006, REQ-CLI5-002, REQ-ALB5-002, REQ-VET-006; SC-005-011, SC-005-033
 - [ ] T707 [GOV] `/mifune` (recorte de exceso) y `/lock` (EDGE-005-*) sobre spec, plan y contratos — REQ-VET-007, REQ-ALB5-003; SC-005-005, SC-005-021
 - [ ] T708 [GOV] `/mouse`: compuerta estructural **única** (1:1 spec-tareas, 0 historias huérfanas, contratos completos) — todos los REQ; SC-005-001..033
-- [ ] T709 [N2] Revisar `scripts/verify-traceability.sh` y `scripts/verify-oracles.sh` para `--feature 005` (el primero acepta el argumento pero aborta hasta que existan `contracts/` de 005; verificar si las reglas propias de 004 bajo `FEAT4` deben replicarse) y la tabla SC->tarea; sin relajar las compuertas de 001..004 — NFR-005-004; SC-005-033
+- [ ] T709 [N2] Revisar `scripts/verify-traceability.sh`, `scripts/verify-oracles.sh` y `scripts/compile-contracts.sh` para `--feature 005` (el primero acepta el argumento y, con `contracts/` ya creado, no aborta pero exige evidencia estricta de `src/` y `tests/`; verificar si las reglas propias de 004 bajo `FEAT4` deben replicarse; el compilador necesita la rama `005` y la fusión del catálogo incremental, diseño en `contracts/README.md` §6) y la tabla SC->tarea; sin relajar las compuertas de 001..004 — NFR-005-004; SC-005-033
 
 **Checkpoint**: T700..T709 cerradas; solo entonces empiezan las fases siguientes.
 
@@ -54,15 +54,15 @@
 ## Phase 3: User Story 1 — Álbum (P1)
 
 **Goal**: sección «Álbum» y tope de 10 fotos parametrizable.
-**Independent Test**: `SC-005-001..006`.
+**Independent Test**: `SC-005-001..006` y `SC-005-034`.
 
 - [ ] T720 [US1] Pruebas rojas del tope atómico con conexiones intercaladas (9 fotos, dos subidas) y rechazo sin objeto huérfano — REQ-ALB5-002, INV-005-003; SC-005-002, SC-005-003
 - [ ] T721 [US1] Pruebas: mascota con 14 fotos de 004 (listado completo, borrado permitido, subida bloqueada), `FILE` no cuenta, parámetro en 12 — REQ-ALB5-002, REQ-ALB5-003, REQ-ALB5-004; SC-005-004, SC-005-005, SC-005-006
 - [ ] T722 [P] [US1] Pruebas del listado: `kind=PHOTO` solo fotos; `kind=FILE` solo archivos — REQ-ALB5-001; SC-005-001
-- [ ] T723 [P] [US1] Dominio `album-limit.ts` (`assertAlbumHasRoom`, error `ERR-MEDIA-ALBUM-LIMIT`) — REQ-ALB5-002, INV-005-003; SC-005-002
+- [ ] T723 [P] [US1] Dominio `album-limit.ts` (`assertAlbumHasRoom`, error `ERR-MEDIA-ALBUM-LIMIT` del catálogo incremental), puerto `countByPetAndKind` en ambos motores y caso de uso/ruta `getAlbumLimits` — REQ-ALB5-002, REQ-ALB5-005, INV-005-003; SC-005-002, SC-005-034
 - [ ] T724 [US1] Integrar el tope en `UploadMedia`: comprobación previa al `put` y autoritativa en la transacción final bajo candado de mascota; fila `INTENT` pasa a `DELETE` al rechazar; tras T708 y T713 — REQ-ALB5-002, INV-005-003; SC-005-002, SC-005-003, SC-005-004
 - [ ] T725 [US1] Mensaje de error claro y estado «Álbum lleno» con conteo — REQ-ALB5-002, REQ-ALB5-003; SC-005-002, SC-005-005
-- [ ] T726 [US1] UI «Álbum» (subir, ver, eliminar; sin archivos clínicos), con `loading="lazy"` — REQ-ALB5-001, REQ-ALB5-004; SC-005-001, SC-005-005
+- [ ] T726 [US1] UI «Álbum» (subir, ver, eliminar; sin archivos clínicos), con `loading="lazy"` y contador «N de M» tomado de `getAlbumLimits` (sin «10» cableado) — REQ-ALB5-001, REQ-ALB5-004, REQ-ALB5-005; SC-005-001, SC-005-005, SC-005-034
 - [ ] T727 [US1] E2E del álbum (Playwright, móvil emulado) — REQ-ALB5-001; SC-005-001, SC-005-002
 
 ---
@@ -98,7 +98,7 @@
 ## Phase 6: User Story 4 — Enlace veterinario (P1)
 
 **Goal**: enlace de solo lectura por mascota u hogar.
-**Independent Test**: `SC-005-015..026`.
+**Independent Test**: `SC-005-015..026`, `SC-005-035..042`, `SC-005-046` y `SC-005-048`.
 **Bloqueos**: T702, T703, T706 y T708 cerradas. El dominio de resumen (T770..T774) se implementa antes de T758.
 
 - [ ] T750 [US4] Pruebas rojas de seguridad en `tests/security/`: enumeración, 404 uniforme, `Referer`, caché, IDOR entre alcances, métodos distintos de `GET`, cookie inerte — REQ-VET-006, REQ-VET-007, INV-005-001, INV-005-002; SC-005-016, SC-005-020, SC-005-021, SC-005-026
@@ -113,19 +113,21 @@
 - [ ] T758 [US4] Ruta pública `GET /shared/{token}/summary` fuera del grupo con sesión; solo `GET` — REQ-VET-006, INV-005-001, INV-005-002; SC-005-016, SC-005-020
 - [ ] T759 [P] [US4] Cabeceras `no-store`, `no-referrer`, `noindex`, CSP, `nosniff` y prueba por ruta — REQ-VET-006, INV-005-002; SC-005-020
 - [ ] T760 [US4] Límite de tasa por IP (`D5-13`); decisión de Cloud Armor, si aplica, es Nivel 2 y se escala a Neo — REQ-VET-007; SC-005-021
-- [ ] T761 [US4] Uniformidad de respuesta (cuerpo, código y tiempo) entre inexistente, vencido y revocado — REQ-VET-007; SC-005-021
-- [ ] T762 [US4] Auditoría de creación, revocación y accesos sin token ni nombres; prueba de `stdout` — REQ-VET-008, NFR-005-001; SC-005-022
-- [ ] T763 [US4] Archivos clínicos a través del enlace con URL firmada corta o solo listado, según `D5-06` — REQ-VET-009; SC-005-023
-- [ ] T764 [US4] Cascada: eliminar mascota, hogar o cuenta elimina o invalida los enlaces en la misma transacción — REQ-VET-010; SC-005-024
+- [ ] T761 [US4] Uniformidad de respuesta (cuerpo, código, cabeceras y secuencia de puertos con espías) entre inexistente, mal formado, vencido, revocado, creador sin autoridad y `mediaId` ajeno; cabeceras también en 404 y 429 — REQ-VET-007, INV-005-007; SC-005-021, SC-005-041
+- [ ] T762 [US4] Auditoría `share_link_audit` (HMAC de IP con clave dedicada y versión, fallos agregados, fail-closed), serializer sin URL, `instance` constante y redacción de `/shared/<token>`; prueba de `stdout` con centinela — REQ-VET-008, REQ-VET-013, INV-005-009, NFR-005-001; SC-005-022, SC-005-042
+- [ ] T763 [US4] Ruta `getSharedFile` (302 a URL firmada V4 nueva, TTL <= min(300 s, restante), `Content-Disposition` neutro), `mediaId` validado contra el conjunto vigente y `FILE`, y `fileLabels` escapados — REQ-VET-009, INV-005-002, INV-005-008, INV-005-009; SC-005-023, SC-005-035, SC-005-036
+- [ ] T764 [US4] Cascada (mascota, hogar, cuenta e importación por reemplazo), `share_links` fuera de exportación e importación, purga diaria de 30 y 90 días — REQ-VET-010, REQ-VET-013; SC-005-024, SC-005-042
 - [ ] T765 [US4] Pruebas multi-hogar con `/kid` y `/sentinels` sobre IDOR entre alcances — INV-005-001, NFR-005-002; SC-005-016, SC-005-026
-- [ ] T767 [US4] UI «Compartir con veterinario» (alcance, caducidad, copiar URL una vez, lista, revocar) según T705 — REQ-VET-001, REQ-VET-005; SC-005-015, SC-005-019
+- [ ] T767 [US4] UI «Compartir con veterinario» (alcance, caducidad 1/7/30, casillas de microchip y archivos clínicos desmarcadas, copiar URL una vez, lista con `activeCount`, «Revocar» con confirmación en línea) según T705 — REQ-VET-001, REQ-VET-005; SC-005-015, SC-005-019, SC-005-040, SC-005-046
+- [ ] T768 [US4] Revalidación de la autoridad del creador en cada acceso (PET: rol efectivo; HOUSEHOLD: rol en el hogar y propiedad legal) y selector validado contra el conjunto vigente, con `/kid` — REQ-VET-011, INV-005-006; SC-005-037, SC-005-039, SC-005-048
+- [ ] T769 [US4] Tope de 20 enlaces activos bajo candado (SQLite y PostgreSQL con conexiones intercaladas) y `ERR-SHARE-LINK-LIMIT` — REQ-VET-012; SC-005-038
 
 ---
 
 ## Phase 7: User Story 5 — ClinicalSummary (P1)
 
 **Goal**: read-model determinista, vista web y versión imprimible.
-**Independent Test**: `SC-005-027..033`.
+**Independent Test**: `SC-005-027..033`, `SC-005-043..045` y `SC-005-047`.
 **Bloqueos**: T702, T704 y T706.
 
 - [ ] T770 [US5] Dominio `buildClinicalSummary` por allow-list y esquema cerrado (`clinical-summary.schema.json`); sin álbum ni datos privados — REQ-SUM-001, REQ-SUM-003, INV-005-004; SC-005-027, SC-005-029
@@ -134,9 +136,10 @@
 - [ ] T773 [P] [US5] Prueba de propiedades (orden de listas, fechas UTC, sin aleatoriedad) — REQ-SUM-002; SC-005-028
 - [ ] T774 [US5] Pruebas de exclusión: álbum, avatar, correo, `username`, IDs de usuario/hogar, claves de objeto, nombres (`D5-06`), microchip (`D5-14`); campo nuevo de dominio no se filtra — REQ-SUM-003, INV-005-004; SC-005-029, SC-005-030
 - [ ] T775 [US5] Vista web de solo lectura (sin formularios) en la ruta pública — REQ-SUM-004; SC-005-031
-- [ ] T776 [US5] Vista previa autenticada del propietario (`D5-15`) — REQ-SUM-004; SC-005-031
-- [ ] T777 [US5] Hoja `@media print` y botón «Imprimir / Guardar como PDF» sin dependencia nueva — REQ-SUM-005; SC-005-032
+- [ ] T776 [US5] Vista previa autenticada del propietario (`D5-15`) con `includeMicrochip` e `includeClinicalFiles` — REQ-SUM-004; SC-005-031, SC-005-045
+- [ ] T777 [US5] Hoja `@media print` (`@page { margin: 0 }`, sin nombres de archivo, etiqueta de hogar sin nombre) y botón «Imprimir / Guardar como PDF» sin dependencia nueva — REQ-SUM-005; SC-005-032, SC-005-047
 - [ ] T778 [US5] Documentar el contrato del resumen como entrada de Fase 5 (versión, esquema cerrado, sin contacto) y verificar que `package.json` no cambió — REQ-SUM-006; SC-005-033
+- [ ] T779 [US5] Rótulos de procedencia, aviso «no sustituye la consulta veterinaria» en la vista web, «Microchip no compartido por el cuidador» y ausencia de interpretación automática (`dataProvenance`, `automaticInterpretation`) — REQ-SUM-007, REQ-SUM-008; SC-005-043, SC-005-045
 
 ---
 
@@ -190,6 +193,21 @@
 | SC-005-031 | T775, T776, T794 |
 | SC-005-032 | T705, T777 |
 | SC-005-033 | T706, T778, T796 |
+| SC-005-034 | T706, T723, T726 |
+| SC-005-035 | T763, T775 |
+| SC-005-036 | T750, T763 |
+| SC-005-037 | T751, T755, T768 |
+| SC-005-038 | T754, T769 |
+| SC-005-039 | T751, T755, T768 |
+| SC-005-040 | T754, T763, T767 |
+| SC-005-041 | T750, T760, T761 |
+| SC-005-042 | T762, T764, T795 |
+| SC-005-043 | T775, T779 |
+| SC-005-044 | T771, T773 |
+| SC-005-045 | T776, T779 |
+| SC-005-046 | T757, T767 |
+| SC-005-047 | T777 |
+| SC-005-048 | T754, T765, T768 |
 
 ## Dependencias y orden
 - T700 -> T701..T708 -> T709; T708 desbloquea todo `src/`.

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/005/schemas/album.schema.json",
+  "title": "AlbumSchema",
+  "description": "Límite de fotos del álbum expuesto al cliente (feature 005) [REQ-ALB5-002, REQ-ALB5-005]. Contrato aparte porque MediaPage y ProblemDetails de la 004 son cerrados y LOCKED.",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "Contrato nuevo de la feature 005 (T706): cierra B-1 de /sati (la interfaz no cablea «10»).",
+    "traceability": [
+      "REQ-ALB5-002",
+      "REQ-ALB5-003",
+      "REQ-ALB5-005",
+      "INV-005-003",
+      "SC-005-034"
+    ]
+  },
+  "$defs": {
+    "AlbumLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "photoCount",
+        "maxPhotosPerPet"
+      ],
+      "properties": {
+        "photoCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Fotos kind PHOTO de la mascota; puede superar maxPhotosPerPet en mascotas heredadas de la 004 (D5-03)"
+        },
+        "maxPhotosPerPet": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Valor vigente de album.max_photos_per_pet (por defecto 10, rango 1..50) tras la caché de <= 60 s (D5-07)"
+        }
+      },
+      "description": "Respuesta de getAlbumLimits; el cliente decide «N de M fotos» y «Álbum completo» con este objeto, sin cablear el valor [REQ-ALB5-005]"
+    }
+  },
+  "$ref": "#/$defs/AlbumLimits"
+}

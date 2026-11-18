@@ -20,7 +20,7 @@ Versión de la API: `3.1.0` (MINOR: campos opcionales, rutas nuevas, un error nu
 | `BackupEnvelope` | `schemaVersion` `3.1.0`; mascotas con `breedCode` (sin `avatarVersion`, que no viaja); parámetros con `symptomType`, `severity`; sin `revision` ni medios; la importación acepta `3.0.0` y `3.1.0` | REQ-SIN-001, REQ-RAZ-003, REQ-BOR-001, REQ-IMP-001 |
 | `MediaItem` (nuevo) | `id` (UUID), `petId`, `kind` (`FILE\|PHOTO`), `mime` (lista cerrada de INV-ARC-001), `sizeBytes` (1–10 485 760), `originalName` (1–120 puntos de código), `createdAt`; `additionalProperties: false`; sin `objectKey` ni identificador de usuario | REQ-ARC-001, REQ-GCS-005 |
 | `MediaAccess` (nuevo) | `url` (URI https), `expiresAt` (`IsoTimestamp`), `mime`; sin `disposition` (todo se sirve en línea, `D-06` C) | REQ-ARC-003 |
-| `MediaPage` (nuevo) | `items: MediaItem[]` (<= 24), `page` (>= 1), `pageSize` (const 24), `total` (>= 0) | REQ-ALB-001 |
+| `MediaPage` (nuevo) | `items: MediaItem[]` (<= 24), `page` (>= 1), `pageSize` (const 24), `total` (>= 0). *Enmienda 005, D5-01*: sin cambio de valores (`maxItems 24`, `const 24`); la página de 24 aplica a `kind = FILE` y a fotos heredadas por encima del tope de álbum de la 005 | REQ-ALB-001 |
 | `ImportPreviewResult` (existente, 002) | `+ mediaToDeleteCount` (`integer`, mínimo 0: archivos, fotos y avatares de las mascotas que el reemplazo elimina; `D-15` A) | REQ-IMP-001 |
 
 ## 2. Rutas (delta del OpenAPI)
@@ -28,7 +28,7 @@ Versión de la API: `3.1.0` (MINOR: campos opcionales, rutas nuevas, un error nu
 | Método y ruta | operationId | Permiso (E-06) | Respuestas | Requisito |
 |---|---|---|---|---|
 | `POST /pets/{petId}/media?kind=FILE\|PHOTO` (`D-18` A: cuerpo crudo `application/octet-stream`, nombre en la cabecera `X-Argos-Filename` codificado con `encodeURIComponent`; cabecera CSRF; cero dependencias multipart) | `uploadMedia` | `WRITE_MEDIA` | 201 `MediaItem`; 400 (cuerpo truncado), 401, 403, 404, 409 (cuota), 413, 415, 422, 429 (subidas simultáneas), 500, 502 | REQ-ARC-001 |
-| `GET /pets/{petId}/media?kind=&page=` | `listMedia` | `READ_MEDIA` | 200 `MediaPage`; 401, 404, 422 | REQ-ALB-001 |
+| `GET /pets/{petId}/media?kind=&page=` (*Enmienda 005, D5-01*: 24 por página para `FILE` y fotos heredadas por encima del tope) | `listMedia` | `READ_MEDIA` | 200 `MediaPage`; 401, 404, 422 | REQ-ALB-001 |
 | `GET /pets/{petId}/media/{mediaId}/access` | `getMediaAccess` | `READ_MEDIA` | 200 `MediaAccess` (`Cache-Control: no-store`); 401, 404, 502 (`no-store`) | REQ-ARC-003 |
 | `DELETE /pets/{petId}/media/{mediaId}` | `deleteMedia` | `DELETE_MEDIA` | 204 (siempre tras el `COMMIT`); 401, 403, 404. Sin 502 | REQ-GCS-004 |
 | `PUT /pets/{petId}/avatar` (cuerpo crudo `image/jpeg`, `image/png` o `image/webp`, <= 524 288 bytes) | `putAvatar` | «Editar datos básicos» | 200 `{avatarVersion}`; 401, 403, 404, 413, 415, 502 | REQ-AVA-001 |
@@ -47,7 +47,7 @@ No hay ruta de catálogo de razas: `breeds.catalog.json` se compila a `src/gener
 |---|---|---|---|
 | `ERR-MEDIA-TOO-LARGE` | 413 | `size_bytes > ARGOS_MEDIA_MAX_BYTES` o avatar > 524 288 | REQ-ARC-001, REQ-AVA-001 |
 | `ERR-MEDIA-TYPE-NOT-ALLOWED` | 415 | firma fuera de lista (solo JPEG, PNG, WebP y PDF; DOCX, XLSX y TXT incluidos, `D-06` C), SVG/HTML, 0 bytes, `kind` incompatible, avatar que no es JPEG, PNG ni WebP | REQ-ARC-001, INV-ARC-002 |
-| `ERR-MEDIA-QUOTA-EXCEEDED` | 409 | 1 GiB por propietario | REQ-ARC-005 |
+| `ERR-MEDIA-QUOTA-EXCEEDED` | 409 | 1 GiB por propietario (*Enmienda 005, D5-02*: el tope de fotos de álbum NO usa este código; usa `ERR-MEDIA-ALBUM-LIMIT`, definido en el catálogo incremental de la 005, no en éste) | REQ-ARC-005 |
 | `ERR-MEDIA-NOT-FOUND` | 404 | medio inexistente o de otra mascota (la mascota inexistente o sin acceso sigue siendo `ERR-PET-NOT-FOUND`) | REQ-ARC-002 |
 | `ERR-MEDIA-STORAGE-UNAVAILABLE` | 502 | GCS o `signBlob` no responden en `uploadMedia`, `getMediaAccess` y las 3 operaciones del avatar (con `Cache-Control: no-store`); nunca en `deleteMedia` (la cola garantiza el borrado) | REQ-GCS-004, REQ-ARC-003 |
 | `ERR-PET-MICROCHIP-DUPLICATE` (existente, `pendingIds` en 002) | 409 | duplicado propio o ajeno, cuerpo idéntico y misma ruta; `detail`: «Este microchip ya está registrado en ARGOS. Si es tuyo, contacta al administrador.» | REQ-PET4-001 |
