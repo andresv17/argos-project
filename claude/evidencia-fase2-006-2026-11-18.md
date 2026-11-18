@@ -67,3 +67,24 @@ verify-traceability --feature 001, 002, 006 -> CUMPLE (x3)
 ```
 Reconocimiento: la corrida roja de T811 no pasó verify-oracles; las 3 aserciones débiles y una aserción vacua de t579 (`keys()` lista solo `pets/` por defecto) se corrigieron en T812 (más estrictas, no más débiles).
 Suites de 001..005 cambiadas por la enmienda: ninguna aserción previa se tocó; solo se añadieron casos (t570, t571, t579, t606).
+
+## T813 rojo (countBytesOfOwner con household_photos)
+```
+npx vitest run tests/integration/persistence/t813-cuota-foto-hogar.spec.ts
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/integration/persistence/t813-cuota-foto-hogar.spec.ts > T813 countBytesOfOwner suma pet_media y household_photos (memoria y SQLite) > [REQ-ESC6-018][SC-ESC6-028] la foto del hogar del propietario suma a los bytes de s
+AssertionError: memoria propietario del hogar: expected 1000 to be 5000 // Object.is equality
+ FAIL  tests/integration/persistence/t813-cuota-foto-hogar.spec.ts > T813 countBytesOfOwner suma pet_media y household_photos (memoria y SQLite) > [REQ-ESC6-001][EDGE-ESC6-013] la foto la sube cualquier administrador pero cuenta a
+AssertionError: memoria: expected [ +0, +0 ] to deeply equal [ 700, +0 ]
+ FAIL  tests/integration/persistence/t813-cuota-foto-hogar.spec.ts > T813 countBytesOfOwner suma pet_media y household_photos (memoria y SQLite) > [SC-ESC6-064] la subida de un archivo se rechaza con ERR-MEDIA-QUOTA-EXCEEDED cuand
+AssertionError: memoria 4000 + 1001 > 5000: expected 'OK' to be 'ERR-MEDIA-QUOTA-EXCEEDED' // Object.is equality
+ FAIL  tests/integration/persistence/t813-cuota-foto-hogar.spec.ts > T813 countBytesOfOwner suma pet_media y household_photos (memoria y SQLite) > [SC-ESC6-028] los hogares de otro propietario no suman aunque el usuario sea miembr
+AssertionError: memoria: expected [ +0, +0 ] to deeply equal [ +0, 9000 ]
+ FAIL  tests/integration/persistence/t813-cuota-foto-hogar.spec.ts > T813 countBytesOfOwner en el SQL de PostgreSQL (doble del cliente; REQ-PG-002) > [REQ-ESC6-018] una sola consulta parametrizada suma pet_media y household_photos
+AssertionError: expected 'SELECT COALESCE(SUM(m.size_bytes), 0)…' to match /\bhousehold_photos\b/
+ Test Files  1 failed (1)
+      Tests  5 failed | 1 passed (6)
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001/002/006 -> CUMPLE x3; verify-oracles --feature 006 -> CUMPLE (oráculos débiles: 0)
+```
+Rojo documentado y esperado hasta T833 (tabla household_photos en SQLite 0013/T832) + T814 (los 4 countBytesOfOwner). Seed: media-harness.seedHouseholdPhoto (memoria: state.householdPhotos; SQLite: INSERT). Sin cobertura de PostgreSQL vivo (sin TEST_DATABASE_URL).

@@ -1325,3 +1325,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T812 enmienda MINOR de INV-ARC-003 (sin push, sin [x])
 - spec 004 INV-ARC-003 ampliado; src/domain/media/media-keys.ts (sceneImageObjectKey, householdPhotoObjectKey, isMediaObjectKey con 5 formas, RECONCILED_PREFIXES, reconciliationAgeMinutes 24 h/15 min) y assertListPrefix con scenes/ y households/. La rutina de conciliación sigue listando solo pets/ (referencias de escena: T834/T835).
 - Corregido en mis pruebas de T811: 3 `.not.toThrow()` (verify-oracles FALLA 3 débiles) y una aserción vacua de t579 (keys() solo mira pets/). Verde: media 167, suite completa sin fallos tras la corrección, oráculos 006 CUMPLE, tsc 0.
+
+## 2026-11-18 Keymaker: T813 pruebas rojas de countBytesOfOwner con household_photos (N2-06 (c)) (sin push, sin [x])
+- Nuevo tests/integration/persistence/t813-cuota-foto-hogar.spec.ts (memoria y SQLite vía createMediaEngines, SQL de Postgres con pg-fake-client); tests/fixtures/media-harness.ts gana seedHouseholdPhoto (memoria state.householdPhotos, SQLite INSERT household_photos). Foto de hogar cuenta al propietario del hogar (households.owner_user_id), la escena no.
+- Rojo: 5 de 6 fallan (la memoria falla primero, SQLite no se alcanza); tsc 0. Seguirá rojo hasta T833 (tabla) y T814 (implementación, DIFERIDA por tasks.md). Sin Postgres vivo.
