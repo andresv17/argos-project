@@ -1358,3 +1358,4 @@
 - 2026-11-18 | Architect | 006 renumerada T601..T798 -> T801..T885 (85 tareas, 0 huérfanas, 188/188 cobertura); OBS-2 aclarado: checkpoint T825 (ex T639) cierra tras T833 de Fase 4. Sin commit.
 - 2026-11-18 | Keymaker | T801 pruebas rojas compuerta 006 escritas (7/10 rojas), commit local pendiente; sin push ni [x].
 - 2026-11-18 | Keymaker | T802 verify-traceability.sh rama FEAT6: t801 verde, 006/001/002 CUMPLE; sin push ni [x].
+- 2026-11-18 | Keymaker | T803 pruebas rojas compilador 006 (19/21 rojas); limpiada contaminacion src/generated/v34 del rojo; sin push ni [x].

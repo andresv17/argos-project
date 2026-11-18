@@ -1282,3 +1282,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T802 rama FEAT6 en verify-traceability.sh (sin push, sin [x])
 - scripts/verify-traceability.sh: FEAT6 (NUM_ID con EDGE y segmento ESC6, RANGE, OWNED_006, spec->tasks 1:1 con catalogo, tarea sin ID falla, evidencia informativa salvo SDD_STRICT_EVIDENCE=1). 001..005 sin cambio de rama.
 - Verde: t801 10/10; --feature 006 CUMPLE (195/195 propios, 30/233 con evidencia informativa); 001 113/113 y 002 119/119 CUMPLE. Autorizado por N2-08.
+
+## 2026-11-18 Keymaker: T803 pruebas rojas del compilador fusionado 006 (sin push, sin [x])
+- Creado tests/integration/contracts/t803-compilador-006.spec.ts (21 pruebas): v34 con barrel/validadores/maquina/cliente, union 004+005+006 con duplicados prohibidos, herencia, metadata, guardas de destino, v34 ajeno para 001/002/005, deriva src/generated/v34.
+- Rojo: 19/21 fallan ("Feature desconocida: 006"). La prueba de guarda 005->v34 escribio en src/generated/v34/v33 durante el rojo (005 aun sin guarda); contaminacion borrada a mano antes de commitear.
