@@ -139,7 +139,7 @@ run gcloud iam roles create argosTerraformMediaBucketIam --project="$PROJECT" \
 say "4a. Permisos de argos-terraform-plan@: SOLO LECTURA (sin escritura sobre recursos ni estado; sin lectura de dumps/)"
 # roles/viewer se sustituye por visores concretos: el básico incluye lectura de objetos de todos los buckets.
 for role in roles/run.viewer roles/artifactregistry.reader roles/cloudscheduler.viewer roles/monitoring.viewer \
-            roles/logging.viewer roles/serviceusage.serviceUsageViewer roles/iam.serviceAccountViewer \
+            roles/logging.viewer roles/serviceusage.serviceUsageViewer roles/iam.serviceAccountViewer roles/cloudtasks.viewer \
             roles/iam.securityReviewer roles/secretmanager.viewer \
             "projects/${PROJECT}/roles/argosTerraformPlanBuckets"; do
   run gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:${PLAN_SA}" --role="$role" --condition=None
@@ -152,7 +152,7 @@ say "4b. Permisos de argos-terraform@: escritura sobre la infraestructura de ARG
 for role in roles/run.admin roles/artifactregistry.admin roles/secretmanager.admin \
             roles/iam.serviceAccountAdmin roles/iam.serviceAccountUser roles/resourcemanager.projectIamAdmin \
             roles/serviceusage.serviceUsageAdmin roles/cloudscheduler.admin \
-            roles/monitoring.admin roles/logging.admin \
+            roles/monitoring.admin roles/logging.admin roles/cloudtasks.admin \
             "projects/${PROJECT}/roles/argosTerraformApplyBuckets"; do
   run gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:${APPLY_SA}" --role="$role" --condition=None
 done
