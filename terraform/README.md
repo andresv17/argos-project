@@ -24,7 +24,7 @@ Versiones fijadas (D-25): Terraform `1.17.2`, proveedor `hashicorp/google` `7.46
 |---|---|---|
 | `project_id` | no | ID del proyecto GCP |
 | `billing_account` | no | `AAAAAA-BBBBBB-CCCCCC`, para el presupuesto |
-| `database_url`, `audit_hmac_secret` | **sí** (`sensitive = true`) | Sin default; `validation` no vacía y sin saltos de línea (REQ-IAC-013) |
+| `database_url`, `audit_hmac_secret`, `share_ip_hmac_secret` | **sí** (`sensitive = true`) | Sin default; `validation` no vacía y sin saltos de línea (REQ-IAC-013) |
 | `region`, `project_prefix`, `custom_domain` | no | Con default (`us-central1`, `argos`, `""`) |
 
 Toda variable o salida que transporte un secreto lleva `sensitive = true` (REQ-SEC-001). Hoy ninguna salida expone secretos.
@@ -60,13 +60,14 @@ Primero ejecute `bash scripts/verify-bootstrap-inputs.sh` (solo lectura local, p
 
 1. `bash terraform/bootstrap.sh` en dry-run (imprime los comandos) y luego `bash terraform/bootstrap.sh --execute`, con `ARGOS_PROJECT_ID`, `ARGOS_GITHUB_REPO`, `ARGOS_BILLING_ACCOUNT` y `ARGOS_GITHUB_REVIEWER` exportadas. El script concede `roles/billing.costsManager` a `argos-terraform@` sobre la **cuenta de facturación** (no de proyecto; requisito del presupuesto, REQ-IAC-009); no se concede a `argos-terraform-plan@` ni se usa `billing.admin`.
 2. El paso 6 del script crea las variables de GitHub y el paso 7 el Environment `produccion` (revisor: Neo, solo rama `main`). El paso 8 solo imprime las órdenes de los secretos.
-3. Neo pega los secretos por entrada estándar: `gh secret set TF_VAR_database_url --repo <dueno/repo>`, `gh secret set TF_VAR_audit_hmac_secret --repo <dueno/repo>` y `gh secret set DATABASE_URL_DIRECT --repo <dueno/repo>`.
+3. Neo pega los secretos por entrada estándar: `gh secret set TF_VAR_database_url --repo <dueno/repo>`, `gh secret set TF_VAR_audit_hmac_secret --repo <dueno/repo>`, `gh secret set TF_VAR_share_ip_hmac_secret --repo <dueno/repo>` y `gh secret set DATABASE_URL_DIRECT --repo <dueno/repo>`.
 4. Se abre un PR que toque `terraform/**`: el primer plan corre en `infraestructura.yml`; el `apply` solo corre desde `main` tras la aprobación de Neo en `produccion`.
 
 | Tipo | Nombre | Origen |
 |---|---|---|
 | Secreto | `TF_VAR_database_url` | Neo (URL de Neon con `-pooler`, rol `argos_app`) |
 | Secreto | `TF_VAR_audit_hmac_secret` | Neo (>= 32 bytes hex) |
+| Secreto | `TF_VAR_share_ip_hmac_secret` | Neo (>= 32 bytes hex; HMAC de la IP en la auditoría de enlaces compartidos). Único input humano de la directiva 005: lo lee `infraestructura.yml` y crea el secreto `argos-share-ip-hmac-secret` por Terraform |
 | Secreto | `DATABASE_URL_DIRECT` | Neo (URL directa sin `-pooler`, rol `argos_migrator`); la leen la validación de secretos de `infraestructura.yml` y la migración de `deploy-argos.yml` |
 | Variable | `TF_VAR_project_id`, `TF_VAR_region` | `bootstrap.sh` paso 6 |
 | Variable | `TF_VAR_billing_account` | `bootstrap.sh` paso 6, desde `ARGOS_BILLING_ACCOUNT`; **obligatoria** (presupuesto, REQ-IAC-009) |
@@ -194,7 +195,7 @@ Orden: pasos 1-4 y 4b, luego el 5 y el 6, y solo después la rotación de `TF_VA
 
 Exclusión de Cloud Logging para `/shared/` (T793 (b), EDGE-005-32/P1): APLICADA EN CÓDIGO (`terraform/logging.tf`, `google_logging_project_exclusion.shared_token_requests`, filtro `resource.type="cloud_run_revision" AND httpRequest.requestUrl:"/shared/"` sobre el sumidero `_Default`); PENDIENTE de `terraform plan` y `apply` por Neo (la cuenta que aplica necesita `roles/logging.admin` o equivalente para gestionar exclusiones).
 
-Pendientes de Neo (Nivel 2, fuera de Terraform): (b) crear en Secret Manager el secreto `ARGOS_SHARE_IP_HMAC_SECRET` (HMAC de IP de la auditoría de accesos) ANTES del despliegue que lo referencie; (c) fijar `ARGOS_PUBLIC_BASE_URL` (base de la URL pública del enlace). Ambos los inyecta el pipeline de aplicación (`deploy-argos.yml`), no `cloud_run.tf` (REQ-IAC-012: `ignore_changes` cubre `env`), por eso no se declaran en Terraform.
+Pendientes (directiva Neo, 005): todo corre vía GitHub Actions (`infraestructura.yml` para Terraform y `deploy-argos.yml` para la aplicación); no hay pasos manuales en GCP. El único input humano es el secreto `TF_VAR_share_ip_hmac_secret` en GitHub Secrets (>= 32 bytes hex). Con ese secreto, Terraform crea `argos-share-ip-hmac-secret` (con su versión, IAM de `argos-run` y lectura de metadatos para `argos-deployer`), y `deploy-argos.yml` resuelve su versión numérica e inyecta `ARGOS_SHARE_IP_HMAC_SECRET` por `--set-secrets`. `ARGOS_PUBLIC_BASE_URL` se inyecta por `--set-env-vars` desde `vars.ARGOS_PUBLIC_BASE_URL` y, si esa variable no existe, desde la URL del propio servicio (`status.url`); no se declara en Terraform (REQ-IAC-012: `ignore_changes` cubre `env`).
 
 **Paso 5. Eliminar la rama de respaldo de Neon.** Si restauró con la función de restauración de Neon (PITR o rama), Neon crea una rama de respaldo: bórrela en la consola de Neon (Branches). Con restauración por dump, borre en la consola de Neon la rama o base temporal que ya no se use. No hay comando de CLI verificado para esto y no hay clave de API de Neon en los secretos (D-19).
 

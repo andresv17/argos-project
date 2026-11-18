@@ -39,6 +39,17 @@ variable "audit_hmac_secret" {
   }
 }
 
+variable "share_ip_hmac_secret" {
+  description = "Secreto HMAC de la IP en la auditoría de accesos a enlaces compartidos (>= 32 bytes hex, REQ-SEC-002). Llega por TF_VAR_share_ip_hmac_secret."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(trimspace(var.share_ip_hmac_secret)) > 0 && !can(regex("[\\r\\n]", var.share_ip_hmac_secret))
+    error_message = "share_ip_hmac_secret no puede estar vacío ni contener saltos de línea (REQ-IAC-013)."
+  }
+}
+
 variable "database_url" {
   description = "URL de Postgres con -pooler y sslmode=require (REQ-SEC-002). Llega por TF_VAR_database_url."
   type        = string
