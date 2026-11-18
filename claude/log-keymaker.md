@@ -1290,3 +1290,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T804 rama 006 en compile-contracts.sh + src/generated/v34 (sin push, sin [x])
 - scripts/compile-contracts.sh: rama 006 (union catalogos 004+005+006 con duplicados prohibidos, herencia contra la union, metadata, ensayo 004+006 con $ref absolutos a common normalizados a ../schemas/), v34 en las listas de directorios ajenos y en la guarda de la 005. Compilado con el script (nada a mano): src/generated/v34/.
 - tests/integration/contracts/codegen-drift.spec.ts: solo se anade v34 a la lista de directorios ajenos (no se debilita ninguna asercion). Verde: t803 21/21; contracts 14 archivos 549/549; tsc 0.
+
+## 2026-11-18 Keymaker: T805 pruebas rojas test:gate y test-gate.yml (sin push, sin [x])
+- Creado tests/integration/gates/t805-test-gate-006.spec.ts (9 pruebas; rojo 6/9: test:gate sin 006, workflow sin paso 006, entrada manual sin 006). Base de comparacion del lock/deps: dda060b.
+- tests/integration/gates/verify-gates.spec.ts ampliada con 3 pruebas --feature 006 (traceability, oracles positivo y negativo); estas ya pasan (T802) porque las compuertas son genericas.

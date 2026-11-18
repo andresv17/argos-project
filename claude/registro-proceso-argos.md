@@ -1360,3 +1360,4 @@
 - 2026-11-18 | Keymaker | T802 verify-traceability.sh rama FEAT6: t801 verde, 006/001/002 CUMPLE; sin push ni [x].
 - 2026-11-18 | Keymaker | T803 pruebas rojas compilador 006 (19/21 rojas); limpiada contaminacion src/generated/v34 del rojo; sin push ni [x].
 - 2026-11-18 | Keymaker | T804 compile-contracts.sh rama 006 + src/generated/v34 generado por el compilador; t803 21/21, contracts 549/549, tsc 0; sin push ni [x].
+- 2026-11-18 | Keymaker | T805 pruebas rojas test:gate/test-gate.yml (6/9 rojas) + verify-gates ampliada (+3 verdes); sin push ni [x].
