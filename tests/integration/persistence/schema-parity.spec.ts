@@ -25,22 +25,23 @@ const PLATFORM_PATH = new URL('../../../src/infrastructure/persistence/postgres/
 
 /** T766 (005): la 0008 de Postgres equivale a la 0012 de SQLite (`share_links` y `share_link_audit`, REQ-VET-003..005, REQ-VET-010, REQ-VET-013). */
 const SHARE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0008_share_links.sql', import.meta.url);
-/** T809/T810 (006, N2-06 (a)): la 0009 de Postgres equivale a la 0013 de SQLite (por ahora solo el CHECK de `audit_log.entity_type`; T832/T833 añaden las tablas de la escena). */
+/** T809..T833 (006): la 0009 de Postgres equivale a la 0013 de SQLite (CHECK de `audit_log.entity_type` y las 6 tablas de la escena con sus índices). */
 const HOME_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0009_home_scenes.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
-  'audit_log', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'household_invitations',
-  'household_members', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'pet_assignments', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
-  'schema_migrations', 'sessions', 'share_link_audit', 'share_links', 'users', 'vaccinations', 'weights',
+  'audit_log', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'home_scenes', 'household_invitations',
+  'household_members', 'household_photos', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'pet_assignments', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
+  'scene_attempts', 'scene_consents', 'scene_image_sources', 'scene_quota_carry', 'schema_migrations', 'sessions', 'share_link_audit', 'share_links', 'users', 'vaccinations', 'weights',
 ];
 
 /** Lista canónica de índices del esquema final (T555, 004): los que añaden las migraciones 0007/0008 (SQLite) y 0003/0004 (Postgres) y los de la 002. */
 const CANONICAL_INDEXES = [
   'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
-  'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
+  'home_scenes_household', 'home_scenes_owner', 'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
   'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'pet_assignments_household_id',
-  'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'sessions_user_id', 'share_link_audit_actor', 'share_link_audit_failure_window',
+  'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'scene_attempts_actor_started', 'scene_attempts_idempotency',
+  'scene_attempts_scene_started', 'scene_consents_active', 'sessions_user_id', 'share_link_audit_actor', 'share_link_audit_failure_window',
   'share_link_audit_occurred', 'share_links_created_by', 'share_links_expires', 'share_links_household_active', 'share_links_pet_active', 'share_links_revoked', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
 ];
 
@@ -255,6 +256,20 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     for (const value of ['HOME_SCENE', 'SCENE_CONSENT', 'HOUSEHOLD_PHOTO', 'PET_MEDIA']) expect(entityCheck, value).toContain(`'${value}'`);
   });
 
+  it('T831 (006): las 6 tablas de la escena existen en ambos motores con las mismas columnas y los mismos CHECK; image_mime solo PNG/WebP', () => {
+    const pg = postgresSchema([HOME_PATH]);
+    const scene = ['home_scenes', 'scene_attempts', 'scene_image_sources', 'household_photos', 'scene_consents', 'scene_quota_carry'];
+    for (const name of scene) {
+      expect(pg.tables.has(name), `Postgres ${name}`).toBe(true);
+      expect(sqlite.tables.has(name), `SQLite ${name}`).toBe(true);
+      expect(pg.tables.get(name)!.checks, `CHECK de ${name}`).toEqual(sqlite.tables.get(name)!.checks);
+    }
+    expect(sqlite.tables.get('home_scenes')!.checks).toContain("image_mime IN ('image/png','image/webp')");
+    expect(sqlite.tables.get('scene_attempts')!.checks).toContain("phase IN ('PENDING','RUNNING','DONE')");
+    expect(sqlite.tables.get('scene_attempts')!.checks).toContain("outcome IS NULL OR outcome IN ('SUCCEEDED','FAILED','CANCELLED')");
+    expect(sqlite.indexes.get('scene_attempts_idempotency')).toMatchObject({ table: 'scene_attempts', unique: true, columns: 'idempotency_key_hash', where: 'idempotency_key_hash IS NOT NULL' });
+  });
+
   it('[T555] la lista canónica de índices coincide con la de ambos esquemas (sin pets_owner_microchip; con users_username_lower y pets_microchip_global)', () => {
     expect([...sqlite.indexes.keys()].sort()).toEqual(CANONICAL_INDEXES);
     expect([...postgresSchema().indexes.keys()].sort()).toEqual(CANONICAL_INDEXES);
@@ -366,6 +381,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(MEDIA_PATH, 'utf8'));
         await client.query(readFileSync(PLATFORM_PATH, 'utf8'));
         await client.query(readFileSync(SHARE_PATH, 'utf8'));
+        await client.query(readFileSync(HOME_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],
