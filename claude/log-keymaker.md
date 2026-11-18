@@ -1397,3 +1397,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T832 SQLite 0013_home_scenes.sql con las 6 tablas de la escena (REQ-ESC6-011/012/023/025/032; INV-ESC6-003/004) (sin push, sin [x])
 - 0013 conserva la reconstruccion de audit_log (M-3, T810) y anade M-1: home_scenes, scene_attempts, scene_image_sources, household_photos, scene_consents, scene_quota_carry (STRICT, FKs en ese orden, current_attempt_id sin FK) y 6 indices (4 unicos parciales: household, owner, idempotency_key_hash, consentimiento vigente).
 - Verde t831 SQLite (10/10) y sqlite-repositories (lista de tablas 20 -> 29: actualizacion prevista por la enmienda, sin aflojar). Quedan rojos esperados hasta T833: schema-parity x6 y t831 Postgres x1; mas T813 x5 y T815 x18. tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T833 Postgres 0009_home_scenes.sql con paridad exacta (REQ-ESC6-011/012/023/025/032; EDGE-ESC6-016; SC-ESC6-091) (sin push, sin [x])
+- 0009 conserva el ALTER del CHECK de audit_log (M-3) y anade las mismas 6 tablas e indices que la 0013 (sin STRICT; mismos tipos, CHECK, parciales y cascadas). schema-parity (tablas 29, indices, CHECK, columnas) y t831 Postgres en verde; la ruta ya estaba declarada en HOME_PATH (T831).
+- Verificacion viva: con docker-compose.test.yml (postgres:17 local, TEST_DATABASE_URL desechable) la paridad viva aplica 0001..0009 y compara con information_schema: 39/39 verde (schema-parity, t831, t809). Solo quedan T813 x5 y T815 x18.
