@@ -1312,3 +1312,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Creado tests/integration/contracts/t809-auditoria-escena-006.spec.ts (contrato 3.2.0, generado v31/v33/v34, adaptador en memoria, CHECK SQLite 0013 y texto Postgres 0009) y un `it` nuevo en schema-parity.spec.ts (`postgresSchema(extra)` con parámetro opcional, sin cambio de comportamiento).
 - Rojo: 11 fallan, 15 pasan (tsc 0). AuditMutationType no cambia (mapeo a CREATE/UPDATE/DELETE existentes, data-model §8). Evidencia: claude/evidencia-fase2-006-2026-11-18.md.
 - Decisión: el CHECK de audit_log (M-3) se entrega en T810 como migraciones 0013 (SQLite) y 0009 (Postgres) con solo la reconstrucción; T832/T833 añaden las tablas al mismo archivo.
+
+## 2026-11-18 Keymaker: T810 enmienda MINOR de auditoría 004 aplicada (sin push, sin [x])
+- audit-entry.schema.json 3.1.0 -> 3.2.0 (+HOME_SCENE, +SCENE_CONSENT, +HOUSEHOLD_PHOTO; supersedes 3.1.0; trazabilidad REQ-ESC6-021/INV-ESC6-016). Recompilados 004, 005 y 006 con compile-contracts.sh (solo v31, v33, v34; src/generated/api intacto; la 002 no cambia).
+- Nuevas migraciones sqlite 0013_home_scenes.sql y postgres 0009_home_scenes.sql con solo M-3 (T832/T833 añaden las tablas al mismo archivo). schema-parity compone HOME_PATH; sqlite-repositories.spec lista 0013 (cambio que la enmienda impone).
+- Verde: t809 11/11, suite completa 3989 verdes, tsc 0, trazabilidad 001/002/006 y oráculos 006 CUMPLE.

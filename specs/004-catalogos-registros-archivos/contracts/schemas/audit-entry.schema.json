@@ -4,11 +4,11 @@
   "title": "AuditEntrySchema",
   "description": "Entrada de auditoría de mutaciones, vista pública canónica y seudónimo HMAC [REQ-AUD-001, INV-AUD-001, SC-012, SC-014]",
   "x-sdd-metadata": {
-    "version": "3.1.0",
+    "version": "3.2.0",
     "status": "DRAFT",
-    "supersedes": "1.0.0",
+    "supersedes": "3.1.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 3.1.0 (feature 004): AuditEntityType +PET_MEDIA.",
+    "change_note": "MINOR 3.2.0 (feature 006, enmienda N2-06 (a), aprobada por Neo el 2026-11-18): AuditEntityType +HOME_SCENE, +SCENE_CONSENT, +HOUSEHOLD_PHOTO; AuditMutationType no cambia (CREATE, UPDATE y DELETE existentes; el evento concreto va en el detalle opaco). Antes, MINOR 3.1.0 (feature 004): AuditEntityType +PET_MEDIA.",
     "traceability": [
       "REQ-AUD-001",
       "INV-AUD-001",
@@ -18,7 +18,9 @@
       "REQ-BACKUP2-002",
       "SC-012",
       "SC-014",
-      "REQ-GCS-005"
+      "REQ-GCS-005",
+      "REQ-ESC6-021",
+      "INV-ESC6-016"
     ]
   },
   "$defs": {
@@ -54,6 +56,9 @@
         "HOUSEHOLD_INVITATION",
         "PET_ASSIGNMENT",
         "PET_MEDIA",
+        "HOME_SCENE",
+        "SCENE_CONSENT",
+        "HOUSEHOLD_PHOTO",
         "SYSTEM"
       ],
       "description": "Valores cerrados de REQ-AUD-001"

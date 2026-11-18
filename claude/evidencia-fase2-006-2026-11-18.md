@@ -19,3 +19,16 @@ Salida literal de terminal por tarea. Sin push, sin [x].
       Tests  11 failed | 15 passed | 1 skipped (27)
 npx tsc --noEmit -> exit 0
 ```
+
+## T810 verde (enmienda MINOR 3.2.0 de audit-entry de 004 + migraciones M-3)
+```
+bash scripts/compile-contracts.sh --feature 004|005|006 -> compilado; "git diff --stat -- src/generated/api vacío: OK" (3 veces)
+npx vitest run tests/integration/persistence tests/integration/contracts tests/unit/audit-log-adapter.spec.ts
+ Test Files  57 passed | 3 skipped (60)   Tests  1019 passed | 149 skipped (1168)
+npx vitest run (suite completa)
+ Test Files  264 passed | 3 skipped (267)   Tests  3989 passed | 165 skipped (4154)
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001, 002, 006 -> "[SDD Traceability Gate] Resultado: CUMPLE" (x3)
+verify-oracles --feature 006 -> "Archivos analizados: 311; oráculos débiles: 0 / Resultado: CUMPLE"
+```
+Suites de 001..005 cambiadas por la enmienda (únicamente): sqlite-repositories.spec.ts (lista de migraciones aplicadas: se añade '0013_home_scenes.sql' en 2 aserciones, sin debilitar) y schema-parity.spec.ts (HOME_PATH en la composición de Postgres).
