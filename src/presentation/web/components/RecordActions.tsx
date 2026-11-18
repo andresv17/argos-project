@@ -2,7 +2,7 @@
  * Acciones de un registro vigente de la ficha: «Editar» (formulario con los valores actuales) y «Eliminar» (diálogo de confirmación).
  * Solo se montan para registros vigentes y con el permiso de la matriz; el servidor decide (403, 409 de SUPERSEDED) y su texto se muestra.
  *
- * @implements REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, REQ-RBAC-001, REQ-CAN-001, REQ-CAN-002
+ * @implements REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, REQ-RBAC-001, REQ-CAN-001, REQ-CAN-002, SC-005-012, SC-005-013, SC-005-014
  */
 import { useId, useState } from 'react';
 import { Button, FormError } from './Field.tsx';

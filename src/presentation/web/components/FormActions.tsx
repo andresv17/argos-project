@@ -3,7 +3,7 @@
  * «Cancelar» es comportamiento de cliente (ADR-005-05): cierra el formulario y descarta su estado sin petición de escritura y sin
  * confirmación, aunque haya cambios (D5-09). Con un guardado en curso ambos botones se deshabilitan: el guardado manda (EDGE-005-08).
  *
- * @implements REQ-CAN-001, REQ-CAN-002
+ * @implements REQ-CAN-001, REQ-CAN-002, SC-005-012, SC-005-013, SC-005-014
  */
 import type { ReactNode } from 'react';
 import { Button } from './Field.tsx';

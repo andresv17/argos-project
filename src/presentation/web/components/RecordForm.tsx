@@ -2,7 +2,7 @@
  * Formulario de alta de un módulo de registros. Solo se monta si `canEdit` (REQ-UI-002). En «Parámetros», la categoría «Síntoma» añade
  * el tipo, la intensidad con su ayuda fija y la leyenda veterinaria (REQ-SIN-001, REQ-SIN-003); todo es presentación y el servidor valida.
  *
- * @implements REQ-UI-002, REQ-UI-004, REQ-SIN-001, REQ-SIN-003, INV-SIN-002, REQ-CAN-001
+ * @implements REQ-UI-002, REQ-UI-004, REQ-SIN-001, REQ-SIN-003, INV-SIN-002, REQ-CAN-001, SC-005-012
  */
 import { useState } from 'react';
 import { FormError, SelectField, TextField } from './Field.tsx';
