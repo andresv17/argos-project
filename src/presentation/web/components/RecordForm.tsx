@@ -2,10 +2,11 @@
  * Formulario de alta de un módulo de registros. Solo se monta si `canEdit` (REQ-UI-002). En «Parámetros», la categoría «Síntoma» añade
  * el tipo, la intensidad con su ayuda fija y la leyenda veterinaria (REQ-SIN-001, REQ-SIN-003); todo es presentación y el servidor valida.
  *
- * @implements REQ-UI-002, REQ-UI-004, REQ-SIN-001, REQ-SIN-003, INV-SIN-002
+ * @implements REQ-UI-002, REQ-UI-004, REQ-SIN-001, REQ-SIN-003, INV-SIN-002, REQ-CAN-001
  */
 import { useState } from 'react';
-import { Button, FormError, SelectField, TextField } from './Field.tsx';
+import { FormError, SelectField, TextField } from './Field.tsx';
+import { FormActions, cancelForm } from './FormActions.tsx';
 import { SymptomLegend } from './SymptomLegend.tsx';
 import { initialRecordValues, type RecordModuleSpec } from '../records.ts';
 import {
@@ -42,9 +43,11 @@ const NO_SYMPTOM_FIELDS: Readonly<Record<string, string>> = {
   severity: '',
 };
 
-export function RecordForm({ spec, onSubmit, species = 'CANINE', initial: given = {} }: {
+export function RecordForm({ spec, onSubmit, onCancel, species = 'CANINE', initial: given = {} }: {
   readonly spec: RecordModuleSpec;
   readonly onSubmit: (body: FormBody) => Promise<void>;
+  /** Solo en edición: cierra el formulario sin guardar ni pedir confirmación (REQ-CAN-001, D5-09). */
+  readonly onCancel?: () => void;
   /** Especie de la mascota: decide si «Vómito» se ofrece en el tipo de síntoma (D-17 A). */
   readonly species?: Species;
   /** Valores iniciales que reemplazan a los de la primera opción de cada selector. */
@@ -161,16 +164,13 @@ export function RecordForm({ spec, onSubmit, species = 'CANINE', initial: given 
       <div className="sm:col-span-2">
         <FormError errors={form.errors} message={form.message} />
       </div>
-      <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
-        <Button type="submit" disabled={form.busy}>
-          Guardar
-        </Button>
+      <FormActions busy={form.busy} {...(onCancel === undefined ? {} : { onCancel: () => cancelForm(form.busy, onCancel) })}>
         {saved ? (
           <p role="status" className="rounded-2xl border border-emerald-700 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
             Registro guardado.
           </p>
         ) : null}
-      </div>
+      </FormActions>
     </form>
   );
 }

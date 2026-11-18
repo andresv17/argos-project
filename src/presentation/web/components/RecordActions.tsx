@@ -2,7 +2,7 @@
  * Acciones de un registro vigente de la ficha: «Editar» (formulario con los valores actuales) y «Eliminar» (diálogo de confirmación).
  * Solo se montan para registros vigentes y con el permiso de la matriz; el servidor decide (403, 409 de SUPERSEDED) y su texto se muestra.
  *
- * @implements REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, REQ-RBAC-001
+ * @implements REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, REQ-RBAC-001, REQ-CAN-001, REQ-CAN-002
  */
 import { useId, useState } from 'react';
 import { Button, FormError } from './Field.tsx';
@@ -85,7 +85,7 @@ export function RecordActions({ module, record, species, permissions, onEdit, on
         ) : null}
       </div>
       {mode === 'editing' && onEdit !== undefined ? (
-        <RecordForm spec={{ ...spec, formTitle: `Editar ${label}` }} species={species} initial={recordInitialValues(module, record)} onSubmit={(body) => onEdit(module, recordId, body, revisionOfRecord(record)).then(() => setMode('none'))} />
+        <RecordForm spec={{ ...spec, formTitle: `Editar ${label}` }} species={species} initial={recordInitialValues(module, record)} onSubmit={(body) => onEdit(module, recordId, body, revisionOfRecord(record)).then(() => setMode('none'))} onCancel={() => { setError(null); setMode('none'); }} />
       ) : null}
       {mode === 'deleting' && onDelete !== undefined ? <DeleteRecordDialog label={label} onConfirm={() => void run(() => onDelete(module, recordId))} onCancel={() => setMode('none')} /> : null}
       <FormError message={error} />

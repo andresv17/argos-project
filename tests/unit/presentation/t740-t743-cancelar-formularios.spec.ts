@@ -32,7 +32,7 @@ describe('T740 FormActions: Cancelar junto a Guardar (REQ-CAN-001)', () => {
       ['submit', 'Guardar'],
       ['button', 'Cancelar'],
     ]);
-    expect(markup).not.toContain('disabled');
+    expect(markup).not.toContain(' disabled=""');
     expect(markup).not.toContain('tabindex');
   });
 
@@ -43,7 +43,7 @@ describe('T740 FormActions: Cancelar junto a Guardar (REQ-CAN-001)', () => {
 
   it('[SC-005-014][REQ-CAN-002] con un guardado en curso «Guardar» y «Cancelar» están deshabilitados (EDGE-005-08)', () => {
     const markup = renderToStaticMarkup(h(FormActions, { busy: true, onCancel: noop }));
-    expect([...markup.matchAll(/<button[^>]*?(disabled="")?[^>]*>([^<]*)<\/button>/g)].map((m) => [m[1] === undefined ? 'activo' : 'deshabilitado', m[2]])).toEqual([
+    expect([...markup.matchAll(/<button([^>]*)>([^<]*)<\/button>/g)].map((m) => [m[1]!.includes(' disabled=""') ? 'deshabilitado' : 'activo', m[2]])).toEqual([
       ['deshabilitado', 'Guardar'],
       ['deshabilitado', 'Cancelar'],
     ]);
