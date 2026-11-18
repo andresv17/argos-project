@@ -6,7 +6,7 @@
  *
  * @implements REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-008, REQ-VET-010, REQ-VET-012, REQ-VET-013, INV-005-005, SC-005-024, SC-005-038, SC-005-042
  */
-import type { ShareAuditRecord, ShareLinkAuditRepositoryPort, ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
 import type { ShareLinkRecord } from '../../../domain/sharing/share-link.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 
@@ -42,7 +42,8 @@ export function shareLinkRepository(client: PoolClientLike): ShareLinkRepository
       await client.query(scope === 'PET' ? 'SELECT id FROM pets WHERE id = $1 FOR UPDATE' : 'SELECT id FROM households WHERE id = $1 FOR UPDATE', [scopeId]);
     },
     async insert(link) {
-      await client.query(`INSERT INTO share_links (${LINK_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`, [
+      await client
+        .query(`INSERT INTO share_links (${LINK_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`, [
         link.id,
         link.tokenHash,
         link.scope,
@@ -57,7 +58,12 @@ export function shareLinkRepository(client: PoolClientLike): ShareLinkRepository
         link.includeClinicalFiles ? 1 : 0,
         link.idempotencyKey,
         link.petOwnerUserIdAtCreation,
-      ]);
+      ])
+        .catch((error: unknown) => {
+          const { code, constraint } = error as { code?: unknown; constraint?: unknown };
+          if (code === '23505' && typeof constraint === 'string' && constraint.includes('idempotency_key')) throw new ShareLinkIdempotencyConflictError();
+          throw error;
+        });
     },
     async findByTokenHash(tokenHash) {
       const { rows } = await client.query(`SELECT ${LINK_COLUMNS} FROM share_links WHERE token_hash = $1`, [tokenHash]);

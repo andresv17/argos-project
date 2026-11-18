@@ -39,7 +39,7 @@ import type {
   PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
 import { avatarObjectKey, mediaObjectKey } from '../../../domain/media/index.ts';
-import type { ShareAuditRecord, ShareLinkAuditRepositoryPort, ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
 import { EXPIRY_DAYS, type ShareLinkRecord, type ShareScope } from '../../../domain/sharing/share-link.ts';
 import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
@@ -534,7 +534,7 @@ function shareLinkRepository(state: MemoryState): ShareLinkRepositoryPort {
       if (!(link.expiresAt > link.createdAt)) throw constraint('CHECK constraint failed: share_links expires_at');
       if (link.tokenHash.length !== 64) throw constraint('CHECK constraint failed: share_links token_hash');
       if (rows.some((l) => l.id === link.id || l.tokenHash === link.tokenHash)) throw constraint('UNIQUE constraint failed: share_links.token_hash');
-      if (rows.some((l) => l.createdByUserId === link.createdByUserId && l.idempotencyKey === link.idempotencyKey)) throw constraint('UNIQUE constraint failed: share_links.created_by_user_id, share_links.idempotency_key');
+      if (rows.some((l) => l.createdByUserId === link.createdByUserId && l.idempotencyKey === link.idempotencyKey)) throw new ShareLinkIdempotencyConflictError();
       if (!state.users.some((u) => u.id === link.createdByUserId)) throw constraint('FOREIGN KEY constraint failed');
       if (link.petId !== null && !state.pets.some((p) => p.id === link.petId)) throw constraint('FOREIGN KEY constraint failed');
       if (link.householdId !== null && !state.households.some((h) => h.id === link.householdId)) throw constraint('FOREIGN KEY constraint failed');

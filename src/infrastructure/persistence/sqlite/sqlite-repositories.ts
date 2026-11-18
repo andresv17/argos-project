@@ -50,7 +50,7 @@ import type {
   PetMediaRecord,
   PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
-import type { ShareAuditRecord, ShareAuditEventType, ShareLinkAuditRepositoryPort, ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareAuditEventType, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
 import type { ShareLinkRecord, ShareScope } from '../../../domain/sharing/share-link.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
@@ -559,22 +559,27 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
       // BEGIN IMMEDIATE de la unidad de trabajo: un solo escritor a la vez
     },
     async insert(link) {
-      insert.run(
-        link.id,
-        link.tokenHash,
-        link.scope,
-        link.petId,
-        link.householdId,
-        link.createdByUserId,
-        link.createdAt,
-        link.expiresInDays,
-        link.expiresAt,
-        link.revokedAt,
-        link.includeMicrochip ? 1 : 0,
-        link.includeClinicalFiles ? 1 : 0,
-        link.idempotencyKey,
-        link.petOwnerUserIdAtCreation,
-      );
+      try {
+        insert.run(
+          link.id,
+          link.tokenHash,
+          link.scope,
+          link.petId,
+          link.householdId,
+          link.createdByUserId,
+          link.createdAt,
+          link.expiresInDays,
+          link.expiresAt,
+          link.revokedAt,
+          link.includeMicrochip ? 1 : 0,
+          link.includeClinicalFiles ? 1 : 0,
+          link.idempotencyKey,
+          link.petOwnerUserIdAtCreation,
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('share_links.idempotency_key')) throw new ShareLinkIdempotencyConflictError();
+        throw error;
+      }
     },
     async findByTokenHash(tokenHash) {
       const row = byHash.get(tokenHash);

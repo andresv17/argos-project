@@ -9,7 +9,7 @@
  * Revocar (REQ-VET-005, STATE-SHARE-001): `UPDATE … WHERE revoked_at IS NULL AND expires_at > now` + auditoría `REVOKED` en la misma transacción; ya revocado o VENCIDO
  * es un no-op (204 sin escribir ni auditar); sin autoridad o inexistente, el mismo 404.
  *
- * @implements REQ-VET-001, REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-008, REQ-VET-012, STATE-SHARE-001, INV-005-005, SC-005-015, SC-005-019, SC-005-025, SC-005-038, SC-005-046, SC-005-051, ERR-SHARE-LINK-LIMIT, ERR-SHARE-NOT-FOUND, EDGE-005-15, EDGE-005-16
+ * @implements REQ-VET-001, REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-008, REQ-VET-012, STATE-SHARE-001, INV-005-005, SC-005-015, SC-005-019, SC-005-025, SC-005-038, SC-005-046, SC-005-051, ERR-SHARE-LINK-LIMIT, ERR-SHARE-NOT-FOUND, EDGE-005-15, EDGE-005-16, EDGE-005-17-bis, SC-005-052
  */
 import { retentionCutoffs, computeExpiresAt, deriveStatus, isExpiryDays, isRevocationNoop, DEFAULT_EXPIRY_DAYS, MAX_ACTIVE_SHARE_LINKS, type ShareLinkRecord } from '../../domain/sharing/share-link.ts';
 import { hashToken } from '../../domain/sharing/share-token.ts';
@@ -18,6 +18,7 @@ import { DomainError as DomainErrorV33, type CreateShareLinkInput, type ShareLin
 import { validateCreateShareLinkInput } from '../../generated/v33/index.ts';
 import { isHouseholdManager, requireShareAuthority, scopeIdOf, type ShareScopeRef } from '../sharing/share-access.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
+import { ShareLinkIdempotencyConflictError } from '../ports/share-link.port.ts';
 import { assertMatchesSchema, type ApplicationDeps, type SharingServices } from './use-case-support.ts';
 
 const IDEMPOTENCY_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -105,7 +106,13 @@ export class CreateShareLinkUseCase {
         idempotencyKey: key,
         petOwnerUserIdAtCreation: authority.petOwnerUserId,
       };
-      await r.shareLinks.insert(link);
+      try {
+        await r.shareLinks.insert(link);
+      } catch (error) {
+        // EDGE-005-17-bis: la misma clave con otro alcance que llega al UNIQUE sin que la búsqueda la viera es el mismo 422 de contrato, sin detalles de la base.
+        if (error instanceof ShareLinkIdempotencyConflictError) throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'Idempotency-Key ya se usó con otro alcance u otras opciones.', 'Idempotency-Key');
+        throw error;
+      }
       await r.shareAudit.insert({ id: deps.auditIds.nextId(), shareLinkId: link.id, eventType: 'CREATED', occurredAt: now, actorUserId: userId, ipHmac: null, failCount: 1 });
       return { kind: 'CREATED', link: toShareLinkView(link, now), token };
     });

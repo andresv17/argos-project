@@ -6,7 +6,7 @@
  *   hogar deben serializarse para que el conteo de 20 activos sea autoritativo (EDGE-005-15, REQ-VET-012).
  * - La auditoría no tiene clave foránea al enlace (sobrevive a la purga de la fila dentro de sus 90 días) y nunca guarda el token, su hash ni un prefijo.
  *
- * @implements REQ-VET-003, REQ-VET-008, REQ-VET-012, REQ-VET-013, INV-005-005, MIF-005-09
+ * @implements REQ-VET-003, REQ-VET-008, REQ-VET-012, REQ-VET-013, INV-005-005, MIF-005-09, EDGE-005-17-bis
  */
 import type { ShareLinkRecord, ShareScope } from '../../domain/sharing/share-link.ts';
 
@@ -35,10 +35,21 @@ export interface ShareAuditRetention {
   readonly withIpBefore: string;
 }
 
+/**
+ * El UNIQUE `(created_by_user_id, idempotency_key)` saltó en `insert` (carrera que la búsqueda previa no vio). Los adaptadores lo lanzan en lugar del error del motor,
+ * para que el caso de uso lo traduzca al 422 del contrato sin exponer detalles de la base (EDGE-005-17-bis).
+ */
+export class ShareLinkIdempotencyConflictError extends Error {
+  constructor() {
+    super('UNIQUE constraint failed: share_links.created_by_user_id, share_links.idempotency_key');
+    this.name = 'ShareLinkIdempotencyConflictError';
+  }
+}
+
 export interface ShareLinkRepositoryPort {
   /** Candado hasta el final de la transacción (PostgreSQL: `SELECT … FOR UPDATE` de la fila; SQLite y memoria: la transacción ya es de escritura). No falla si el alcance no existe. */
   lockScope(scope: ShareScope, scopeId: string): Promise<void>;
-  /** Falla si `token_hash` o `(created_by_user_id, idempotency_key)` ya existen, si el alcance es incoherente o si la mascota, el hogar o el creador no existen. */
+  /** Falla (con `ShareLinkIdempotencyConflictError` si el duplicado es `(created_by_user_id, idempotency_key)`) si `token_hash` o esa pareja ya existen, si el alcance es incoherente o si la mascota, el hogar o el creador no existen. */
   insert(link: ShareLinkRecord): Promise<void>;
   findByTokenHash(tokenHash: string): Promise<ShareLinkRecord | null>;
   findById(id: string): Promise<ShareLinkRecord | null>;
