@@ -10,7 +10,7 @@ Versiones fijadas (D-25): Terraform `1.17.2`, proveedor `hashicorp/google` `7.46
 |---|---|
 | `provider.tf`, `backend.tf` | Proveedor y backend `gcs` vacío (bucket y prefijo por `-backend-config`) |
 | `variables.tf`, `outputs.tf` | Entradas por `TF_VAR_*` y salidas (sin secretos) |
-| `services.tf` | 12 APIs mínimas (REQ-IAC-009), incluida `billingbudgets.googleapis.com` |
+| `services.tf` | 14 APIs mínimas (REQ-IAC-009), incluidas `billingbudgets.googleapis.com` y, por la enmienda 006 (N2-05), `aiplatform.googleapis.com` y `cloudtasks.googleapis.com` |
 | `artifact_registry.tf`, `cloud_run.tf`, `scheduler.tf` | Registro Docker, servicio y disparador |
 | `secret_manager.tf`, `iam.tf` | Secretos (2) y cuentas de servicio con privilegio mínimo |
 | `buckets.tf` | Bucket de dumps de 14 días |

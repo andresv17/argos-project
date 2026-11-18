@@ -1337,3 +1337,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T816 pruebas rojas de las 14 APIs (N2-05, REQ-IAC-009) (sin push, sin [x])
 - Nuevo tests/unit/terraform-apis-escena-006.spec.ts (14 APIs exactas con aiplatform y cloudtasks, un solo google_project_service, texto de REQ-IAC-009 en 003 con «14» y «Enmienda 006 ... N2-05», comentario sin «solo estas 12»). Rojo 3/4; tsc 0; gates en CUMPLE.
 - La prueba antigua terraform-root (12) se actualiza en T817 junto con services.tf. No se ejecuta terraform.
+
+## 2026-11-18 Keymaker: T817 enmienda de REQ-IAC-009 y services.tf a 14 APIs (N2-05) (sin push, sin [x])
+- spec 003 REQ-IAC-009 (14 APIs, Enmienda 006), terraform/services.tf (+aiplatform, +cloudtasks), terraform/README.md y terraform-root.spec.ts (12 -> 14, mismas aserciones más las dos APIs). Sin plan/apply.
+- Verde: t816 4/4, terraform-* (hygiene, labels, bootstrap, scheduler) verdes; suite completa solo con los rojos documentados de T813/T815; tsc 0; gates CUMPLE.

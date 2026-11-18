@@ -116,3 +116,16 @@ verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
 verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 316; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
 ```
 Rojo esperado hasta T817.
+
+## T817 verde (14 APIs)
+```
+npx vitest run tests/unit/terraform-apis-escena-006.spec.ts tests/unit/terraform-root.spec.ts
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 002 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 316; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
+```
+Suite completa: 23 fallos, todos los rojos documentados de T813 (5, hasta T833/T814) y T815 (18, hasta T868); 4020 verdes. terraform no se ejecutó. Suite antigua terraform-root actualizada (12 -> 14, enmienda).

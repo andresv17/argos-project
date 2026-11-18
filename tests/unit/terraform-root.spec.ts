@@ -71,12 +71,12 @@ describe('terraform/ raíz plana (T436)', () => {
     }
   });
 
-  it('services.tf habilita solo las 12 APIs mínimas con disable_on_destroy = false', () => {
+  it('services.tf habilita solo las 14 APIs mínimas (12 de 003 y aiplatform y cloudtasks de la enmienda 006, N2-05) con disable_on_destroy = false', () => {
     const s = code('services.tf');
-    for (const api of ['run', 'artifactregistry', 'secretmanager', 'iam', 'iamcredentials', 'cloudscheduler', 'storage', 'logging', 'monitoring', 'cloudresourcemanager', 'serviceusage', 'billingbudgets']) {
+    for (const api of ['run', 'artifactregistry', 'secretmanager', 'iam', 'iamcredentials', 'cloudscheduler', 'storage', 'logging', 'monitoring', 'cloudresourcemanager', 'serviceusage', 'billingbudgets', 'aiplatform', 'cloudtasks']) {
       expect(s, api).toContain(`"${api}.googleapis.com"`);
     }
-    expect((s.match(/\.googleapis\.com"/g) ?? []).length).toBe(12);
+    expect((s.match(/\.googleapis\.com"/g) ?? []).length).toBe(14);
     expect(s).toMatch(/disable_on_destroy\s*=\s*false/);
     expect(s).toMatch(/resource\s+"google_project_service"/);
   });
