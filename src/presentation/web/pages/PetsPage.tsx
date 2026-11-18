@@ -14,6 +14,7 @@ import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
 import { AvatarEditor } from '../components/AvatarCropper.tsx';
 import { HomeScene } from '../components/HomeScene.tsx';
+import { PetReferenceNote } from '../components/HouseholdPhoto.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { Link } from 'react-router-dom';
@@ -252,6 +253,7 @@ export function PetsPage(): JSX.Element {
                             avatarVersion={avatarVersionOf(dashboard.profile)}
                             onChanged={refreshAll}
                           />
+                          <PetReferenceNote hasAvatar={avatarVersionOf(dashboard.profile) !== null} />
                         </>
                       ),
                     }

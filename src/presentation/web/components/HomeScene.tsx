@@ -6,7 +6,20 @@
  */
 import type { SceneScope } from '../scene-api.ts';
 import { SceneBlock } from './SceneBlock.tsx';
+import { HouseholdPhoto } from './HouseholdPhoto.tsx';
+import { SceneConsent } from './SceneConsent.tsx';
 
 export function HomeScene({ scope, idPrefix }: { readonly scope: SceneScope; readonly idPrefix: string }): JSX.Element {
-  return <SceneBlock scope={scope} idPrefix={idPrefix} />;
+  return (
+    <SceneBlock scope={scope} idPrefix={idPrefix}>
+      {(view, reload) =>
+        view === null ? null : (
+          <>
+            <SceneConsent idPrefix={idPrefix} view={view} reload={reload} />
+            {scope.kind === 'HOUSEHOLD' ? <HouseholdPhoto householdId={scope.householdId} idPrefix={idPrefix} canUpload={view.actions.canUploadHouseholdPhoto} reload={reload} /> : null}
+          </>
+        )
+      }
+    </SceneBlock>
+  );
 }
