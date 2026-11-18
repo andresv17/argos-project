@@ -22,6 +22,9 @@ const EXPIRY_CHOICES = [
   { days: 30, label: '30 días' },
 ] as const;
 
+/** Referencia estable: enfoca el título «Enlace creado» solo al montarse el resultado (WCAG 4.1.3; el formulario enfocado se desmonta). */
+const focusOnMount = (el: HTMLElement | null): void => el?.focus();
+
 export interface CreatedLinkView {
   readonly url: string;
   readonly scopeLabel: string;
@@ -138,8 +141,8 @@ export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
         </p>
       )}
       {created !== null ? (
-        <div className="grid min-w-0 gap-2 rounded-xl border border-primary bg-meadow p-3">
-          <h4 id="share-created-title" tabIndex={-1} className="text-sm font-semibold text-slate-900">
+        <div role="status" className="grid min-w-0 gap-2 rounded-xl border border-primary bg-meadow p-3">
+          <h4 id="share-created-title" ref={focusOnMount} tabIndex={-1} className="text-sm font-semibold text-slate-900">
             Enlace creado
           </h4>
           <label htmlFor="share-created-url" className="sr-only">

@@ -30,7 +30,7 @@ function view(overrides: Partial<PhotoAlbumViewProps> = {}): string {
 }
 
 describe('T588 álbum de fotos', () => {
-  it('[SC-ALM-021][D-20 B] cada imagen del álbum lleva loading="lazy", la URL completa (sin miniatura) y el nombre como texto alternativo', () => {
+  it('[SC-ALM-021][D-20 B] cada imagen del álbum lleva loading="lazy", la URL completa (sin miniatura) y un texto alternativo compuesto sin el nombre de archivo (T794 B4)', () => {
     const markup = view();
     const images = markup.match(/<img [^>]*>/g) ?? [];
     expect(images).toHaveLength(3);
@@ -39,7 +39,8 @@ describe('T588 álbum de fotos', () => {
       expect(tag).toContain('decoding="async"');
       expect(tag).toMatch(/src="https:\/\/b\.storage\.googleapis\.com\//);
     }
-    expect(markup).toContain('alt="foto-1.jpg"');
+    expect(markup).toContain('alt="Foto 1 de 3 de Luna, subida el 17 nov 2026"');
+    expect(markup).not.toContain('alt="foto-1.jpg"');
   });
 
   it('[REQ-ALB-001] el título nombra la mascota y la paginación sigue el total de 24 por página (50 → 3 páginas)', () => {

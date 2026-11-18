@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from './Field.tsx';
 import { createMediaApi, MediaApiError, type AlbumLimits, type MediaItem } from '../media-api.ts';
-import { albumPageCount, mediaProblemMessage, PHOTO_ACCEPT } from '../media-view.ts';
+import { ALBUM_PAGE_SIZE, albumPageCount, mediaProblemMessage, PHOTO_ACCEPT, uploadDateText } from '../media-view.ts';
 import { browserPhotoPort, PhotoReexportError, reexportPhoto } from '../photo-reexport.ts';
 
 export interface PhotoAlbumViewProps {
@@ -92,14 +92,14 @@ export function PhotoAlbumView(props: PhotoAlbumViewProps): JSX.Element {
       {status === 'READY' && items.length === 0 ? <p className="text-sm font-semibold text-slate-800">Aún no hay fotos.</p> : null}
       {items.length === 0 ? null : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {items.map((item) => {
+          {items.map((item, index) => {
             const url = urls[item.id];
             return (
               <li key={item.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 {url === undefined ? (
                   <div className="aspect-square w-full bg-meadow" aria-hidden="true" />
                 ) : (
-                  <img src={url} alt={item.originalName} loading="lazy" decoding="async" onError={() => onImageError(item)} className="aspect-square w-full object-cover" />
+                  <img src={url} alt={`Foto ${(page - 1) * ALBUM_PAGE_SIZE + index + 1} de ${total} de ${petName}, subida el ${uploadDateText(item.createdAt)}`} loading="lazy" decoding="async" onError={() => onImageError(item)} className="aspect-square w-full object-cover" />
                 )}
                 {canDelete ? (
                   <div className="flex flex-wrap items-center justify-between gap-2 p-2">

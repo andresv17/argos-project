@@ -85,7 +85,7 @@ export function RecordActions({ module, record, species, permissions, onEdit, on
         ) : null}
       </div>
       {mode === 'editing' && onEdit !== undefined ? (
-        <RecordForm spec={{ ...spec, formTitle: `Editar ${label}` }} species={species} initial={recordInitialValues(module, record)} onSubmit={(body) => onEdit(module, recordId, body, revisionOfRecord(record)).then(() => setMode('none'))} onCancel={() => { setError(null); setMode('none'); }} />
+        <RecordForm mode="edit" spec={{ ...spec, formTitle: `Editar ${label}` }} species={species} initial={recordInitialValues(module, record)} onSubmit={(body) => onEdit(module, recordId, body, revisionOfRecord(record)).then(() => setMode('none'))} onCancel={() => { setError(null); setMode('none'); }} />
       ) : null}
       {mode === 'deleting' && onDelete !== undefined ? <DeleteRecordDialog label={label} onConfirm={() => void run(() => onDelete(module, recordId))} onCancel={() => setMode('none')} /> : null}
       <FormError message={error} />
