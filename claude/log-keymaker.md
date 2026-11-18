@@ -1357,3 +1357,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T821 enmienda de REQ-CLD-002 y cloud_run.tf (N2-05, N2-11) (sin push, sin [x])
 - spec 003 REQ-CLD-002 (1 GiB, timeout=120s, Enmienda 006, dispatchDeadline 130 s) y terraform/cloud_run.tf (timeout 120s, memoria 1Gi, comentario actualizado; sin env, sin cambio de cpu_idle ni de instancias). terraform-cloud-run.spec: 60s/512Mi -> 120s/1Gi. La cola ya documenta dispatchDeadline 130 s (T819); Terraform no tiene ese campo en la cola.
 - Verde: t820 6/6, terraform-* 17 archivos; tsc 0; sin plan ni apply.
+
+## 2026-11-18 Keymaker: T822 pruebas rojas del presupuesto de 5 USD (N2-05, N2-04, NFR-CLD-001) (sin push, sin [x])
+- Nuevo tests/unit/terraform-budget-escena-006.spec.ts: budget_units 22500 con COP (5x4500), validación que admite "22500" y "5", descripciones con 5 USD, filtro por proyecto (projects/<número>) sin labels, display_name sin «1-usd», umbrales 50/90/100 y depends_on intactos, texto de NFR-CLD-001 con Enmienda 006.
+- Rojo 5/7; tsc 0; gates CUMPLE. Nota: el plan 006 §6 menciona «umbral previsto al 100 %» pero T822/T823 no lo piden; no se añade un cuarto umbral (H-KEY-F2-2).

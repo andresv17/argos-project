@@ -1376,3 +1376,4 @@
 - 2026-11-18 | Keymaker | T819 REQ-IAC-006 + iam.tf + cloud_tasks.tf (t818 verde, terraform-* verdes, tsc 0, sin apply); sin push ni [x].
 - 2026-11-18 | Keymaker | T820 pruebas rojas Cloud Run 120 s / 1 GiB (4 rojas, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T821 REQ-CLD-002 120 s / 1 GiB + cloud_run.tf (t820 verde, terraform-* verdes, tsc 0, sin apply); sin push ni [x].
+- 2026-11-18 | Keymaker | T822 pruebas rojas presupuesto 5 USD/22500 COP (5 rojas, tsc 0, gates CUMPLE); sin push ni [x].

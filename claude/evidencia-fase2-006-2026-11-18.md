@@ -197,3 +197,22 @@ verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
 verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 318; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
 ```
 Suite de 003 cambiada por la enmienda: terraform-cloud-run.spec (60s/512Mi -> 120s/1Gi, mismas aserciones). Ajuste a mi prueba T820: el texto histórico «antes timeout=60s» no cuenta como valor vigente. No se ejecutó terraform.
+
+## T822 rojo (NFR-CLD-001: alarma de 5 USD / 22500 COP)
+```
+npx vitest run tests/unit/terraform-budget-escena-006.spec.ts
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/unit/terraform-budget-escena-006.spec.ts > terraform/budget.tf con alarma de 5 USD equivalentes (T822, NFR-CLD-001 enmendado por la 006) > NFR-ESC6-001: budget_units por defecto "22500" con budget_
+ FAIL  tests/unit/terraform-budget-escena-006.spec.ts > terraform/budget.tf con alarma de 5 USD equivalentes (T822, NFR-CLD-001 enmendado por la 006) > SC-ESC6-061: la descripción de budget_units y de budget_cu
+ FAIL  tests/unit/terraform-budget-escena-006.spec.ts > terraform/budget.tf con alarma de 5 USD equivalentes (T822, NFR-CLD-001 enmendado por la 006) > NFR-ESC6-001: filtra por el proyecto (projects = projects/
+ FAIL  tests/unit/terraform-budget-escena-006.spec.ts > terraform/budget.tf con alarma de 5 USD equivalentes (T822, NFR-CLD-001 enmendado por la 006) > SC-ESC6-054: el display_name conserva el prefijo del proye
+ FAIL  tests/unit/terraform-budget-escena-006.spec.ts > terraform/budget.tf con alarma de 5 USD equivalentes (T822, NFR-CLD-001 enmendado por la 006) > NFR-CLD-001: la spec de 003 declara la alarma de 5 USD (22
+ Test Files  1 failed (1)
+      Tests  5 failed | 2 passed (7)
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 002 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 319; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
+```
+Rojo esperado hasta T823 (5/7).
