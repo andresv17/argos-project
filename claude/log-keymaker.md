@@ -1425,3 +1425,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Pruebas primero: +5 en backup-restore-runbook-docs.spec (3 columnas, DELETE antes de users, cola media_deletion_queue, referencias_restantes, texto): rojo 5; verde 24/24 y hardening 15/15.
 - terraform/README.md paso 3: 2 INSERT en media_deletion_queue (households/ y scenes/, omite la imagen vigente) + DELETE de scene_attempts, scene_image_sources y household_photos antes de DELETE FROM users; referencias_restantes suma las 3 columnas. La FK (opcion (b)) sigue pendiente de Neo.
 - tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T837+T838 select-visible-pets e inputs-snapshot (REQ-ESC6-004/008; INV-ESC6-001/008; EDGE-ESC6-001/002/012) (sin push, sin [x])
+- Pruebas primero: t837 (15): rojo 'Failed to load url ../../src/domain/scene/inputs-snapshot.ts' (modulo inexistente). Luego src/domain/scene/select-visible-pets.ts (orden assignedAt asc + id, tope N) e inputs-snapshot.ts (canonicalJson + sha256 puro, EMPTY, parse, countPendingChanges por entidad).
+- Verde 15/15; suite completa 18 rojos (solo T815), tsc 0, gates CUMPLE.
