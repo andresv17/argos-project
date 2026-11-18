@@ -158,6 +158,8 @@ export class CreateHouseholdUseCase {
       });
       await repositories.households.insert(household);
       await repositories.households.saveMembership(ownerMembership);
+      // 006 (T864, REQ-ESC6-032, D6-09): con el hogar ya insertado, la escena del propietario sin hogar migra a este hogar (sin llamar a la IA ni consumir cuota).
+      await this.deps.sceneHooks?.onHouseholdCreated(repositories, { householdId: household.id, ownerUserId: userId, now: this.deps.clock.nowIsoTimestamp() });
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'HOUSEHOLD', entityId: household.id, previous: null, next: household });
       return viewOf(repositories, household, [ownerMembership], userId);
     });
@@ -401,6 +403,8 @@ export class DeleteHouseholdUseCase {
     return this.deps.uow.runInTransaction(async (repositories) => {
       requireOwner(await repositories.households.listMemberships(householdId), householdId, userId);
       const household = (await repositories.households.findById(householdId))!;
+      // 006 (T865, REQ-ESC6-029, EDGE-ESC6-022/033): ANTES del DELETE la escena encola sus objetos y la foto del hogar y arrastra la cuota; misma transacción.
+      await this.deps.sceneHooks?.onHouseholdDeleting(repositories, { householdId, now: this.deps.clock.nowIsoTimestamp() });
       await repositories.households.deleteWithMemberships(householdId);
       await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'HOUSEHOLD', entityId: householdId, previous: household, next: null });
       return 204 as const;

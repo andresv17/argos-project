@@ -1404,3 +1404,4 @@
 - 2026-11-18 | Keymaker | T845+T846 scene-state + scene-policy (t845 26/26, rojo previo: modulo inexistente; suite solo T815 x18, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T862 cableado onPetRemoved pet/avatar (T815 18 -> 14 rojos; suite sin otros rojos, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T863 cableado onPetUnassigned + onMemberRemoved (T815 14 -> 10 rojos; tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 | Keymaker | T864+T865 cableado onHouseholdCreated/onHouseholdDeleting/onAccountDeleting (T815 10 -> 4 rojos; tsc 0, gates CUMPLE); sin push ni [x].
