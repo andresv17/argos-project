@@ -20,7 +20,8 @@ const ROOT = resolve(import.meta.dirname, '../../..');
  * Se obtuvieron con `git show 44c83e0:<archivo> | shasum -a 256`.
  */
 const PINNED_SHA256 = {
-  'package.json': 'ca9158d562ad27f30a7423c8776c55433400cea022ed8c16fca9743236baa88f',
+  // T805 (N2-08, Neo): único cambio autorizado de package.json tras 44c83e0, el script test:gate (compile y trazabilidad 006). El hash anterior era ca9158d5...; dependencias y lock siguen intactos (lo demuestra el hash del lock y t805-test-gate-006.spec.ts).
+  'package.json': 'd239eba5b5285391a0e1c03efd88f8cd6f8d1568ace687bf57bb5c56544c063c',
   'package-lock.json': 'cb1c84443f10107c56e0486b3084aba191a0d95fcbe490a95779c1232038ef25',
 } as const;
 const SCHEMA_FILE = join(ROOT, 'specs/005-album-archivos-clinicos/contracts/schemas/clinical-summary.schema.json');

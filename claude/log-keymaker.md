@@ -1298,3 +1298,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T805 implementacion test:gate + test-gate.yml (sin push, sin [x])
 - package.json: solo el script test:gate (+ compile 006 y verify-traceability 006); deps y lock intactos. test-gate.yml: paso aditivo "Compilar contratos 006 y cero deriva de v34" y descripcion de la entrada manual.
 - tests/unit/test-gate-workflow.spec.ts: la comparacion con b6cacc5 descuenta unicamente el paso nuevo (misma asercion toBe sobre el resto de pasos). Verde: gates + workflow 80/80.
+
+## 2026-11-18 Keymaker: ajuste del pin de package.json en T778 por T805 (sin push, sin [x])
+- La suite completa (3964 verdes) mostro 1 rojo: t778 fija el sha256 de package.json; el cambio autorizado de test:gate lo altera. Actualizado el hash (lock intacto, mismo hash) con comentario de trazabilidad T805/N2-08; /oracle debe revisarlo.
+- Alcance: T806 (deploy-argos.yml) y T807 (terraform/bootstrap.sh) quedan BLOQUEADAS por alcance del encargo (deploy-argos.yml no listado; terraform/ prohibido).
