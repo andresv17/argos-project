@@ -33,7 +33,7 @@ import { buildApp } from './app.ts';
 import { mediaBucketHost } from './plugins/security-headers.ts';
 import { cloudLoggerOptions } from './cloud-logging.ts';
 import { installShutdownHandlers } from './graceful-shutdown.ts';
-import { createOidcVerifier } from './oidc-verify.ts';
+import { createRouteOidcVerifier } from './oidc-verify.ts';
 import { registerMaintenanceRoute } from './routes/maintenance-routes.ts';
 
 /**
@@ -164,10 +164,10 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   });
   logging.app = app;
   app.addHook('onClose', () => persistence.close());
-  // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). El token OIDC del Scheduler se verifica con jose (createOidcVerifier, T486): firma, issuer, audiencia y correo.
+  // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). El token OIDC del Scheduler se verifica con jose (createRouteOidcVerifier, T486): firma, issuer, audiencia y correo.
   if (config.dbDriver === 'postgres' && config.schedulerEmail !== null && config.oidcAudience !== null) {
     registerMaintenanceRoute(app, {
-      verifyOidc: createOidcVerifier({ audience: config.oidcAudience }),
+      verifyOidc: createRouteOidcVerifier('/internal/maintenance', { audience: config.oidcAudience }),
       runMaintenance: () => runMaintenance(deps, (queue) => logMediaQueue(app, queue)),
       schedulerEmail: config.schedulerEmail,
     });

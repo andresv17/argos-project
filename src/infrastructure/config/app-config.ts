@@ -350,6 +350,12 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
   if (sceneProject === undefined ? needsRealSettings || (production && sceneIsReal) : !isValidSceneProject(sceneProject)) sceneInvalid.push(SCENE_PROJECT_NAME);
   if (sceneTasksSa === undefined ? production && needsRealSettings : !isValidSchedulerEmail(sceneTasksSa)) sceneInvalid.push(SCENE_TASKS_SA_NAME);
   if (sceneWorkerUrl === undefined ? production && needsRealSettings : !isValidSceneWorkerUrl(sceneWorkerUrl)) sceneInvalid.push(SCENE_WORKER_URL_NAME);
+  // N2-07 = A (T870, SC-ESC6-087): audiencia y correo PROPIOS por ruta; la cuenta de la cola no es la del Planificador y la URL del worker no es la audiencia de mantenimiento.
+  const sameAudience = (a: string, b: string): boolean => a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
+  const tasksEmailClash = sceneTasksSa !== undefined && isPostgres && env[SCHEDULER_EMAIL_NAME] === sceneTasksSa;
+  const audienceClash = sceneWorkerUrl !== undefined && isPostgres && env[OIDC_AUDIENCE_NAME] !== undefined && sameAudience(sceneWorkerUrl, env[OIDC_AUDIENCE_NAME]);
+  if (tasksEmailClash && !sceneInvalid.includes(SCENE_TASKS_SA_NAME)) sceneInvalid.push(SCENE_TASKS_SA_NAME);
+  if (audienceClash && !sceneInvalid.includes(SCENE_WORKER_URL_NAME)) sceneInvalid.push(SCENE_WORKER_URL_NAME);
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
   const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret) || (env['NODE_ENV'] !== 'test' && isKnownPublicAuditSecret(auditHmacSecret));
