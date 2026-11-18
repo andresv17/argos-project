@@ -80,7 +80,7 @@ test.describe('«Cancelar» en la edición clínica (T744)', () => {
 
       await page.getByRole('button', { name: /^Editar (peso|medidas|vacuna|desparasitación|consulta|parámetro)/ }).click();
       await expect(editForm()).toHaveCount(1);
-      const input = editForm().locator(`#${MODULE_ID[c.collection]}-${c.field}`);
+      const input = editForm().locator(`[id^="${MODULE_ID[c.collection]}-edit-"][id$="-${c.field}"]`);
       await expect(input).toHaveValue('nota guardada');
       await input.fill('cambio sin guardar');
       await editForm().getByRole('button', { name: 'Cancelar' }).click();
@@ -92,7 +92,7 @@ test.describe('«Cancelar» en la edición clínica (T744)', () => {
       expect(auditRows()).toBe(auditBefore);
 
       await page.getByRole('button', { name: /^Editar (peso|medidas|vacuna|desparasitación|consulta|parámetro)/ }).click();
-      await expect(editForm().locator(`#${MODULE_ID[c.collection]}-${c.field}`)).toHaveValue('nota guardada');
+      await expect(editForm().locator(`[id^="${MODULE_ID[c.collection]}-edit-"][id$="-${c.field}"]`)).toHaveValue('nota guardada');
       await editForm().getByRole('button', { name: 'Cancelar' }).click();
       await expect(editForm()).toHaveCount(0);
       page.removeAllListeners('request');
@@ -118,7 +118,7 @@ test.describe('«Cancelar» en la edición clínica (T744)', () => {
       return route.continue();
     });
     await page.getByRole('button', { name: /^Editar peso/ }).click();
-    await editForm().locator('#weights-notes').fill('guardado en vuelo');
+    await editForm().locator('[id^="weights-edit-"][id$="-notes"]').fill('guardado en vuelo');
     await editForm().getByRole('button', { name: 'Guardar' }).click();
     await expect(editForm().getByRole('button', { name: 'Cancelar' })).toBeDisabled();
     await expect(editForm().getByRole('button', { name: 'Guardar' })).toBeDisabled();
