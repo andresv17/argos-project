@@ -85,7 +85,7 @@ describe('T805 .github/workflows/test-gate.yml incorpora la 006', () => {
   it('SC-ESC6-050: el paso de la 006 va antes de la compuerta final completa y después de instalar dependencias', () => {
     const y = workflow();
     expect(y.indexOf('npm ci')).toBeLessThan(y.indexOf('compile-contracts.sh --feature 006'));
-    expect(y.indexOf('compile-contracts.sh --feature 006')).toBeLessThan(y.indexOf('npm run test:gate'));
+    expect(y.indexOf('compile-contracts.sh --feature 006')).toBeLessThan(y.indexOf('run: npm run test:gate'));
   });
 
   it('NFR-ESC6-003: el workflow no añade secretos, credenciales de GCP ni Playwright', () => {

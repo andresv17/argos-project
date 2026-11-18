@@ -1294,3 +1294,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T805 pruebas rojas test:gate y test-gate.yml (sin push, sin [x])
 - Creado tests/integration/gates/t805-test-gate-006.spec.ts (9 pruebas; rojo 6/9: test:gate sin 006, workflow sin paso 006, entrada manual sin 006). Base de comparacion del lock/deps: dda060b.
 - tests/integration/gates/verify-gates.spec.ts ampliada con 3 pruebas --feature 006 (traceability, oracles positivo y negativo); estas ya pasan (T802) porque las compuertas son genericas.
+
+## 2026-11-18 Keymaker: T805 implementacion test:gate + test-gate.yml (sin push, sin [x])
+- package.json: solo el script test:gate (+ compile 006 y verify-traceability 006); deps y lock intactos. test-gate.yml: paso aditivo "Compilar contratos 006 y cero deriva de v34" y descripcion de la entrada manual.
+- tests/unit/test-gate-workflow.spec.ts: la comparacion con b6cacc5 descuenta unicamente el paso nuevo (misma asercion toBe sobre el resto de pasos). Verde: gates + workflow 80/80.
