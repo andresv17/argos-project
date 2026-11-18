@@ -234,7 +234,7 @@ const OIDC_AUDIENCE_NAME = 'ARGOS_OIDC_AUDIENCE';
 const SCHEDULER_EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$/;
 
 /** Correo de cuenta de servicio (`*.iam.gserviceaccount.com`, sin espacios). Nunca devuelve el valor. */
-function isValidSchedulerEmail(value: string | undefined): boolean {
+export function isValidSchedulerEmail(value: string | undefined): boolean {
   return value !== undefined && SCHEDULER_EMAIL_PATTERN.test(value);
 }
 
@@ -259,12 +259,15 @@ const SCENE_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const SCENE_PROJECT_PATTERN = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;
 const SCENE_WORKER_HOST_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.run\.app$/;
 const SCENE_WORKER_PATH = '/internal/scene-worker';
+const SCENE_QUEUE_PATTERN = /^[A-Za-z][A-Za-z0-9_-]{0,99}$/;
+/** Nombre de cola de Cloud Tasks (mismo patrón que `ARGOS_SCENE_QUEUE`). */
+export const isValidSceneQueue = (value: string): boolean => SCENE_QUEUE_PATTERN.test(value);
 
 const isValidSceneModel = (value: string): boolean => SCENE_MODEL_PATTERN.test(value) && !value.includes('..');
-const isValidSceneProject = (value: string): boolean => SCENE_PROJECT_PATTERN.test(value) && !value.includes('..');
+export const isValidSceneProject = (value: string): boolean => SCENE_PROJECT_PATTERN.test(value) && !value.includes('..');
 
 /** URL del worker: `https`, host `*.run.app`, ruta exacta, sin consulta, fragmento, puerto ni credenciales (INV-ESC6-018). Nunca devuelve el valor. */
-function isValidSceneWorkerUrl(value: string): boolean {
+export function isValidSceneWorkerUrl(value: string): boolean {
   if (/[\s?#]/.test(value)) return false;
   try {
     const url = new URL(value);

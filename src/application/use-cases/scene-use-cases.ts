@@ -292,7 +292,7 @@ function parseGenerateInput(input: unknown, key: unknown): { action: SceneGenera
 /** Códigos de un encolado cuyo resultado se ignora (la tarea pudo crearse): el arrendamiento `T_QUEUE` resuelve el caso (EDGE-ESC6-032). */
 const AMBIGUOUS_ENQUEUE = new Set(['DEADLINE_EXCEEDED', 'UNAVAILABLE', 'ABORTED', 'ETIMEDOUT', 'TIMEOUT']);
 
-function classifyEnqueueError(error: unknown): 'EXISTS' | 'AMBIGUOUS' | 'REJECTED' {
+export function classifyEnqueueError(error: unknown): 'EXISTS' | 'AMBIGUOUS' | 'REJECTED' {
   const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
   const name = error instanceof Error ? error.name : '';
   if (code === 'ALREADY_EXISTS' || code === 6) return 'EXISTS';

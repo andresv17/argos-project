@@ -13,8 +13,8 @@ export const CSRF_HEADER = 'x-argos-request';
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /** @implements INV-AUTH-007, ERR-AUTH-CSRF-REJECTED */
-/** Ruta del Scheduler: autenticada con Bearer OIDC, sin cookies; excluida de CSRF (H-MERO-017). */
-const CSRF_EXEMPT_PATH = '/internal/maintenance';
+/** Rutas internas autenticadas con Bearer OIDC, sin cookies; excluidas de CSRF (H-MERO-017): el Planificador y la cola de la escena (006, REQ-ESC6-033). */
+const CSRF_EXEMPT_PATHS: ReadonlySet<string> = new Set(['/internal/maintenance', '/internal/scene-worker']);
 /** La superficie pública del enlace veterinario no tiene sesión ni CSRF: todo verbo que no sea GET responde allí el mismo 404 uniforme sin resolver el token (REQ-VET-006). */
 const PUBLIC_SHARED_PREFIX = '/api/shared';
 
@@ -22,7 +22,7 @@ export function registerCsrfGuard(app: FastifyInstance): void {
   app.addHook('onRequest', async (request) => {
     const path = request.url.split('?')[0] ?? '';
     if (path === PUBLIC_SHARED_PREFIX || path.startsWith(`${PUBLIC_SHARED_PREFIX}/`)) return;
-    if (MUTATING_METHODS.has(request.method) && path !== CSRF_EXEMPT_PATH && request.headers[CSRF_HEADER] !== '1') {
+    if (MUTATING_METHODS.has(request.method) && !CSRF_EXEMPT_PATHS.has(path) && request.headers[CSRF_HEADER] !== '1') {
       throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'X-Argos-Request');
     }
   });
