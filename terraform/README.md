@@ -178,6 +178,22 @@ UPDATE sessions
 SQL
 ```
 
+**Paso 4b. Revocar todos los enlaces para el veterinario (OBLIGATORIO e incondicional; EDGE-005-32, PN-09, REQ-VET-013, T795).** Una copia restaurada puede contener enlaces que se revocaron después de la copia; sin este paso volverían a responder 200 con datos clínicos. Se ejecuta SIEMPRE, sobre la base restaurada y ANTES de reabrir el servicio (antes de cambiar `TF_VAR_database_url` y de promover la revisión). El paso es la compuerta técnica `scripts/restore-share-links.ts` (el `UPDATE` está probado por `tests/integration/sharing/t795-restauracion-revoca-enlaces.spec.ts`, que falla si falta); falla con código 1 si no puede ejecutarse o si queda algún enlace con `revoked_at` nulo, y entonces NO se reabre el servicio:
+
+```bash
+RESTORED_URL="$RESTORED_URL" npx tsx scripts/restore-share-links.ts
+```
+
+Forma manual equivalente en `psql` (solo si el script no está disponible; el instante es UTC ISO con milisegundos y `Z`):
+
+```bash
+psql "$RESTORED_URL" -X -v ON_ERROR_STOP=1 --single-transaction -c "UPDATE share_links SET revoked_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') WHERE revoked_at IS NULL"
+```
+
+Orden: pasos 1-4 y 4b, luego el 5 y el 6, y solo después la rotación de `TF_VAR_database_url`. `share_links` queda fuera del respaldo exportable (RAMA-005-008), por eso el paso 3 no lo toca.
+
+Pendientes de Neo (Nivel 2, NO aplicados en Terraform; solo documentados): (a) exclusión de Cloud Logging para la ruta `/shared/` (las URL con el token del enlace aparecen en los registros de solicitudes); (b) secreto `ARGOS_SHARE_IP_HMAC_SECRET` (HMAC de IP de la auditoría de accesos); (c) `ARGOS_PUBLIC_BASE_URL` (base de la URL pública del enlace).
+
 **Paso 5. Eliminar la rama de respaldo de Neon.** Si restauró con la función de restauración de Neon (PITR o rama), Neon crea una rama de respaldo: bórrela en la consola de Neon (Branches). Con restauración por dump, borre en la consola de Neon la rama o base temporal que ya no se use. No hay comando de CLI verificado para esto y no hay clave de API de Neon en los secretos (D-19).
 
 **Paso 6. Registrar el RPO y el RTO efectivos.** RPO = ahora − fecha del dump usado (objetivo <= 7 d). RTO = desde la decisión de restaurar hasta el servicio sirviendo con datos válidos y los pasos 1-5 aplicados (objetivo <= 2 h, NFR-CLD-015). En la prueba T478 se anotan en `research.md`; en un incidente real, en el registro del incidente.
