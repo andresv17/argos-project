@@ -14,3 +14,4 @@ export * from './backup-token.port.ts';
 export * from './audit-log.port.ts';
 export * from './audit-pseudonym.port.ts';
 export * from './media-storage.port.ts';
+export * from './platform-parameter.port.ts';

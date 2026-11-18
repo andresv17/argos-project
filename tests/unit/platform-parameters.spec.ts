@@ -119,10 +119,18 @@ describe('T714 puerto PlatformParameterPort con caché por instancia (D5-07, PN-
   });
 
   it('[D5-07] un TTL mayor de 60 s se rechaza al construir; 60 s y menos se aceptan', () => {
-    expect(() => harness('10', 60_001)).toThrow(/60/);
-    expect(() => harness('10', 0)).toThrow();
-    expect(() => harness('10', 60_000)).not.toThrow();
-    expect(() => harness('10', 1_000)).not.toThrow();
+    const build = (ttlMs: number): string | null => {
+      try {
+        harness('10', ttlMs);
+        return null;
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    expect(build(60_001)).toBe('El TTL de la caché de parámetros debe ser un entero entre 1 y 60000 ms (D5-07)');
+    expect(build(0)).toBe('El TTL de la caché de parámetros debe ser un entero entre 1 y 60000 ms (D5-07)');
+    expect(build(60_000)).toBeNull();
+    expect(build(1_000)).toBeNull();
   });
 
   it('[REQ-PRM-002] si el repositorio falla, el error se propaga y no se cachea', async () => {
