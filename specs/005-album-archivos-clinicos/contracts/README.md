@@ -51,7 +51,7 @@ Heredados sin cambio de la 004: `ERR-ACC-FORBIDDEN`, `ERR-PET-NOT-FOUND`, `ERR-H
 
 ## 4. Máquina de estados (`state-machines/share-link.machine.json`, `STATE-SHARE-001`)
 
-Estado **derivado** (`REVOKED` > `EXPIRED` > `ACTIVE`) de `revoked_at` y `expires_at` con el reloj inyectado; regla de resolución uniforme, tope de 20 activos, retención (auditoría de accesos 90 días, enlaces vencidos o revocados 30 días, HMAC de IP con clave rotada trimestralmente) y limpieza en cascada.
+Estado **derivado** (`REVOKED` > `EXPIRED` > `ACTIVE`) de `revoked_at` y `expires_at` con el reloj inyectado; regla de resolución uniforme, tope de 20 activos, retención (auditoría sin IP 90 días, filas con `ip_hmac` 30 días, enlaces vencidos o revocados 30 días; rotación de la clave HMAC de IP diferida a 006, `PN-06`) y limpieza en cascada.
 
 ## 5. Decisiones de contrato (ADR breves)
 
@@ -82,4 +82,4 @@ Estado **derivado** (`REVOKED` > `EXPIRED` > `ACTIVE`) de `revoked_at` y `expire
 
 Aplicado en estos contratos: idempotencia de creación (`Idempotency-Key`, `CreateShareLinkReplay`; EDGE-005-16/17); candado de creación por alcance y no por creador (EDGE-005-15, texto en `STATE-SHARE-001` y `ShareLinkList`/409); lectura coherente y un solo `now` (EDGE-005-14/24); normalización de las respuestas de Fastify al 404 uniforme (EDGE-005-25, campos `uniformSources` y `normalizationRule` del catálogo); `X-Goog-Expires` mínimo 1 s (EDGE-005-23); `displayName` vacío = «Archivo» (EDGE-005-27); `EXPIRED -> REVOKED` convertido en no-op (MIF-005-08); `PlatformParameter` sin `valueType`, `minValue` ni `maxValue` (MIF-005-07).
 
-**No aplicado (PENDIENTE NEO, ver `spec.md` «Decisiones pendientes de Neo»)**: PN-01..PN-11. El contrato mantiene `HOUSEHOLD`, `getSharedFile`, la auditoría por acceso, la caché de 60 s, la vista previa de hogar y la rotación HMAC tal como estaban. **Nota MIF-005-10**: `ShareLinkView.revokedAt` y la columna `expires_in_days` siguen en el contrato hasta que `/rama` y `/sati` confirmen que pueden retirarse.
+**Decisiones de Neo del 2026-11-18 (T708, `spec.md` «Decisiones de Neo sobre los puntos PN-01..PN-11»)**: PN-01..PN-11 resueltas. El contrato mantiene `HOUSEHOLD` (PN-01), `getSharedFile` (PN-02), la auditoría por acceso (PN-03), la caché de 60 s (PN-04) y la vista previa de hogar (PN-05); **PN-06**: la rotación HMAC de IP y `ip_key_version` se difieren a 006 (ningún esquema ni OpenAPI las expone; solo cambia la retención interna de `retention`); PN-07..PN-11 no cambian ningún esquema (la columna `pet_owner_user_id_at_creation` de PN-08 es interna a `data-model.md`, no aparece en la API). **Nota MIF-005-10**: `ShareLinkView.revokedAt` y la columna `expires_in_days` siguen en el contrato hasta que `/rama` y `/sati` confirmen que pueden retirarse.

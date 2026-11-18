@@ -145,8 +145,9 @@
       },
       "retention": {
         "accessAuditDays": 90,
+        "accessAuditWithIpHmacDays": 30,
         "expiredOrRevokedLinkDays": 30,
-        "ipHmacKeyRotation": "trimestral (clave dedicada, key_version en cada fila)"
+        "ipHmacKeyRotation": "diferida a 006 (PN-06, Neo 2026-11-18): en 005 clave dedicada única, sin key_version; las filas con ip_hmac se purgan a 30 días"
       },
       "rules": {
         "noStatusColumn": "El estado no se persiste: se deriva de revoked_at y expires_at con el reloj inyectado (evita deriva entre columna y reloj).",
