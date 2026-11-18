@@ -54,6 +54,7 @@ import type {
 import { corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 import { shareAuditRepository, shareLinkRepository } from './postgres-share-repositories.ts';
+import { NullSceneConsentRepository, NullSceneRepository } from '../../adapters/null-scene-adapters.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import { STORED_RECORD_CHECKS, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
@@ -775,5 +776,7 @@ export function createPostgresRepositories(client: PoolClientLike): RepositorySe
     ...createPostgresRepositoriesPart3(client),
     shareLinks: shareLinkRepository(client),
     shareAudit: shareAuditRepository(client),
+    scenes: new NullSceneRepository(),
+    sceneConsents: new NullSceneConsentRepository(),
   };
 }

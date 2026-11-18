@@ -1380,3 +1380,4 @@
 - 2026-11-18 | Keymaker | T823 NFR-CLD-001 5 USD/22500 COP + budget.tf/variables.tf (t822 verde, suite solo con rojos T813/T815, tsc 0; T824 pendiente de Neo); sin push ni [x].
 - 2026-11-18 | Keymaker | T826 pruebas rojas pureza de capas/entropia de la escena (2 rojas hasta T827, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T827 puertos escena + ganchos de privacidad nulos + deps.sceneHooks? + fixture espia ajustado (t826 9/9, t827 verdes, tsc 0, gates CUMPLE, solo rojos T813/T815); sin push ni [x].
+- 2026-11-18 | Keymaker | T828 RepositorySet +scenes/sceneConsents nulos en memoria/SQLite/PG + SCENE_LOCK_ORDER (t828 7/7, claves PG 15->17, tsc 0, gates CUMPLE, solo rojos T813/T815); sin push ni [x].

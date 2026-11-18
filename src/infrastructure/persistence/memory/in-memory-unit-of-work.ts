@@ -10,6 +10,7 @@
  */
 
 import type { PetProfile } from '../../../domain/pet/pet-invariants.ts';
+import { NullSceneConsentRepository, NullSceneRepository } from '../../adapters/null-scene-adapters.ts';
 import type { DeterministicFaultInjector } from '../fault-injector.ts';
 import type { Household } from '../../../generated/index.ts';
 import type { AuditEntry } from '../../../generated/v31/index.ts';
@@ -621,6 +622,8 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     auditLog: auditLogRepository(state),
     shareLinks: shareLinkRepository(state),
     shareAudit: shareAuditRepository(state),
+    scenes: new NullSceneRepository(),
+    sceneConsents: new NullSceneConsentRepository(),
   };
 }
 
