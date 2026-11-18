@@ -8,7 +8,7 @@
  * `ShareLinksView` es presentacional; `ShareLinksPanel` es el contenedor con estado y peticiones. La clave `Idempotency-Key` se genera una vez por intento de
  * creación y se reutiliza en cada reintento hasta que la creación tiene éxito o cambia el formulario (EDGE-005-16/17).
  *
- * @implements REQ-VET-001, REQ-VET-004, REQ-VET-005, SC-005-015, SC-005-019, SC-005-040, SC-005-046, SC-005-051
+ * @implements REQ-VET-001, REQ-VET-004, REQ-VET-005, SC-005-015, SC-005-019, SC-005-040, SC-005-046, SC-005-051, EDGE-005-22
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -181,10 +181,16 @@ export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
             </label>
             {household === null ? null : (
               <label className={CHOICE}>
-                <input type="radio" name="scope" value="HOUSEHOLD" checked={scope === 'HOUSEHOLD'} onChange={() => props.onScope('HOUSEHOLD')} className={INPUT} />
+                <input type="radio" name="scope" value="HOUSEHOLD" checked={scope === 'HOUSEHOLD'} onChange={() => props.onScope('HOUSEHOLD')} aria-describedby={scope === 'HOUSEHOLD' ? 'share-household-dynamic' : undefined} className={INPUT} />
                 {`Todo el hogar (${household.petCount} mascotas)`}
               </label>
             )}
+            {scope === 'HOUSEHOLD' && household !== null ? (
+              // EDGE-005-22 (B-4). Texto pendiente de revisión de /sati.
+              <p id="share-household-dynamic" className="text-sm text-text-muted">
+                El enlace sigue al hogar tal como esté: si añades o retiras mascotas del hogar, lo que ve el veterinario cambia.
+              </p>
+            ) : null}
           </fieldset>
           <fieldset className="grid gap-1">
             <legend className={LEGEND}>¿Cuánto tiempo estará disponible?</legend>

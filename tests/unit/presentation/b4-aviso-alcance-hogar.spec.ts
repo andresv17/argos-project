@@ -29,7 +29,7 @@ describe('B-4 aviso de alcance dinámico del hogar (EDGE-005-22)', () => {
     expect(markup).toContain('Todo el hogar (3 mascotas)');
     expect(markup).toMatch(AVISO);
     expect(markup).toContain('id="share-household-dynamic"');
-    expect(markup).toMatch(/value="HOUSEHOLD"[^>]*aria-describedby="share-household-dynamic"/);
+    expect(markup).toMatch(/<input[^>]*aria-describedby="share-household-dynamic"[^>]*value="HOUSEHOLD"/);
   });
 
   it('[EDGE-005-22] con el alcance PET no hay aviso, aunque exista la opción de hogar', () => {
