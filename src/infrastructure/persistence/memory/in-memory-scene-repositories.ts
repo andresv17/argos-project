@@ -101,6 +101,35 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
       const found = attempts().find((a) => a.idempotencyKeyHash === hash);
       return found === undefined ? null : copy(found);
     },
+    async expireLease(sceneId, now) {
+      const scene = scenes().find((s) => s.id === sceneId);
+      if (scene === undefined || scene.runState !== 'generating' || scene.leaseExpiresAt === null || scene.leaseExpiresAt > now || scene.currentAttemptId === null) return null;
+      const attempt = attempts().find((a) => a.id === scene.currentAttemptId);
+      if (attempt !== undefined && attempt.outcome === null) replaceAttempt(attempt.id, { phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-LEASE-EXPIRED', finishedAt: now });
+      replaceScene(sceneId, { runState: 'failed', leaseExpiresAt: null, updatedAt: now });
+      return attempt === undefined ? null : { attemptId: attempt.id, resultObjectId: attempt.resultObjectId };
+    },
+    async markProviderCall(attemptId, now) {
+      replaceAttempt(attemptId, { providerCallStartedAt: now });
+    },
+    async closeAttempt({ sceneId, attemptId, outcome, errorCode, degraded, now }) {
+      const attempt = attempts().find((a) => a.id === attemptId && a.sceneId === sceneId);
+      if (attempt === undefined || attempt.outcome !== null) return false;
+      replaceAttempt(attemptId, { phase: 'DONE', outcome, errorCode, degraded, finishedAt: now });
+      const scene = scenes().find((s) => s.id === sceneId);
+      if (scene !== undefined && scene.currentAttemptId === attemptId) {
+        replaceScene(sceneId, outcome === 'FAILED' ? { runState: 'failed', leaseExpiresAt: null, updatedAt: now } : { runState: null, currentAttemptId: null, leaseExpiresAt: null, updatedAt: now });
+      }
+      return true;
+    },
+    async publishImage({ sceneId, attemptId, image, degraded, consumedGenerations, quotaWindow, ownerUserIds, now }) {
+      const scene = scenes().find((s) => s.id === sceneId);
+      const previous = scene?.image?.id ?? null;
+      replaceScene(sceneId, { image: { ...image }, imageDegraded: degraded, consumedGenerations, quotaWindow, runState: null, currentAttemptId: null, leaseExpiresAt: null, updatedAt: now });
+      replaceAttempt(attemptId, { phase: 'DONE', outcome: 'SUCCEEDED', errorCode: null, degraded, finishedAt: now });
+      state.sceneImageSources = [...sources().filter((x) => x.sceneId !== sceneId), ...[...new Set(ownerUserIds)].map((ownerUserId) => ({ sceneId, ownerUserId }))];
+      return previous;
+    },
     async countAttemptsByScene(sceneId, since) {
       return attempts().filter((a) => a.sceneId === sceneId && a.startedAt >= since).length;
     },

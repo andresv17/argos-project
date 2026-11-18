@@ -227,6 +227,53 @@ function defineSceneContract(name: string, create: Factory, dispose: () => Promi
       ]);
     });
 
+    it('[SC-ESC6-018][SC-ESC6-093][H-TRI-006-12] expireLease: CAS idempotente; vencido pasa a failed con intento FAILED/ERR-SCENE-LEASE-EXPIRED y devuelve el objeto resultante; vigente o repetido no cambia nada', async () => {
+      const uow = await prepare();
+      await uow.runInTransaction(begin(1, NOW));
+      expect(await uow.runInTransaction((r) => r.scenes.expireLease(SCENE_ID, at(599)))).toBeNull();
+      const first = await uow.runInTransaction((r) => r.scenes.expireLease(SCENE_ID, at(600)));
+      expect(first).toEqual({ attemptId: attemptId(1), resultObjectId: attempt(1).resultObjectId });
+      expect(await uow.runInTransaction((r) => r.scenes.expireLease(SCENE_ID, at(601)))).toBeNull();
+      const state = await uow.runInTransaction(async (r) => [await r.scenes.findById(SCENE_ID), await r.scenes.findAttemptById(attemptId(1))]);
+      expect(state[0]).toMatchObject({ runState: 'failed', currentAttemptId: attemptId(1), leaseExpiresAt: null });
+      expect(state[1]).toMatchObject({ phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-LEASE-EXPIRED', finishedAt: at(600) });
+      expect(await uow.runInTransaction((r) => r.scenes.expireLease('a1000000-0000-4000-8000-0000000000ff', at(900)))).toBeNull();
+    });
+
+    it('[REQ-ESC6-036][INV-ESC6-005] markProviderCall fija provider_call_started_at; closeAttempt FAILED deja la escena failed y CANCELLED sin run_state; un intento ya cerrado devuelve false', async () => {
+      const uow = await prepare();
+      await uow.runInTransaction(begin(1, NOW));
+      await uow.runInTransaction((r) => r.scenes.claimAttempt({ sceneId: SCENE_ID, attemptId: attemptId(1), now: at(30), leaseExpiresAt: at(225) }));
+      await uow.runInTransaction((r) => r.scenes.markProviderCall(attemptId(1), at(31)));
+      expect((await uow.runInTransaction((r) => r.scenes.findAttemptById(attemptId(1))))?.providerCallStartedAt).toBe(at(31));
+      const close = (n: number, outcome: 'FAILED' | 'CANCELLED', degraded = false) => (r: RepositorySet) =>
+        r.scenes.closeAttempt({ sceneId: SCENE_ID, attemptId: attemptId(n), outcome, errorCode: outcome === 'FAILED' ? 'ERR-SCENE-GENERATION-FAILED' : null, degraded, now: at(100) });
+      expect(await uow.runInTransaction(close(1, 'FAILED', true))).toBe(true);
+      expect(await uow.runInTransaction(close(1, 'FAILED'))).toBe(false);
+      const failed = await uow.runInTransaction(async (r) => [await r.scenes.findById(SCENE_ID), await r.scenes.findAttemptById(attemptId(1))]);
+      expect(failed[0]).toMatchObject({ runState: 'failed', currentAttemptId: attemptId(1), leaseExpiresAt: null });
+      expect(failed[1]).toMatchObject({ phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', degraded: true, finishedAt: at(100) });
+      await uow.runInTransaction(begin(2, at(200)));
+      expect(await uow.runInTransaction(close(2, 'CANCELLED'))).toBe(true);
+      expect(await uow.runInTransaction((r) => r.scenes.findById(SCENE_ID))).toMatchObject({ runState: null, currentAttemptId: null, leaseExpiresAt: null });
+    });
+
+    it('[INV-ESC6-004][INV-ESC6-005] publishImage escribe la imagen, la cuota y las fuentes, deja la escena sin run_state, cierra el intento SUCCEEDED y devuelve la imagen anterior', async () => {
+      const uow = await prepare();
+      await uow.runInTransaction(begin(1, NOW));
+      const image = (n: number) => ({ id: `a5000000-0000-4000-8000-${String(n).padStart(12, '0')}`, mime: 'image/png' as const, sizeBytes: 9, fingerprint: hash('e'), inputsSnapshot: '{"v":1}', createdAt: at(n) });
+      const publish = (n: number, extra: Partial<{ degraded: boolean; consumed: number }> = {}) => (r: RepositorySet) =>
+        r.scenes.publishImage({ sceneId: SCENE_ID, attemptId: attemptId(n), image: image(n), degraded: extra.degraded ?? false, consumedGenerations: extra.consumed ?? 1, quotaWindow: '2026-11', ownerUserIds: [MARIA.id, ANDRES.id, ANDRES.id], now: at(50) });
+      expect(await uow.runInTransaction(publish(1))).toBeNull();
+      const state = await uow.runInTransaction(async (r) => [await r.scenes.findById(SCENE_ID), await r.scenes.findAttemptById(attemptId(1)), await r.scenes.findImageSources(SCENE_ID)]);
+      expect(state[0]).toMatchObject({ runState: null, currentAttemptId: null, leaseExpiresAt: null, image: image(1), imageDegraded: false, consumedGenerations: 1, quotaWindow: '2026-11' });
+      expect(state[1]).toMatchObject({ phase: 'DONE', outcome: 'SUCCEEDED', finishedAt: at(50) });
+      expect(state[2]).toEqual([ANDRES.id, MARIA.id].sort());
+      await uow.runInTransaction(begin(2, at(700)));
+      expect(await uow.runInTransaction(publish(2, { degraded: true, consumed: 2 }))).toBe(image(1).id);
+      expect(await uow.runInTransaction((r) => r.scenes.findById(SCENE_ID))).toMatchObject({ image: image(2), imageDegraded: true, consumedGenerations: 2 });
+    });
+
     it('[EDGE-ESC6-033][SC-ESC6-074] el arrastre de cuota es un UPSERT con maximo por (propietario, ventana): nunca baja y otra ventana es independiente', async () => {
       const uow = await prepare();
       const read = async () => uow.runInTransaction(async (r) => [await r.scenes.findQuotaCarry(ANDRES.id, '2026-11'), await r.scenes.findQuotaCarry(ANDRES.id, '2026-12'), await r.scenes.findQuotaCarry(MARIA.id, '2026-11')]);

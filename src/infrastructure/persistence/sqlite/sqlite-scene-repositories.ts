@@ -72,6 +72,18 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
   );
   const cancelAttempt = db.prepare("UPDATE scene_attempts SET phase = 'DONE', outcome = 'CANCELLED', finished_at = ? WHERE id = ? AND outcome IS NULL");
   const idleScene = db.prepare('UPDATE home_scenes SET run_state = NULL, current_attempt_id = NULL, lease_expires_at = NULL, updated_at = ? WHERE id = ?');
+  const expiredOf = db.prepare<[string, string], { current_attempt_id: string; result_object_id: string }>(
+    "SELECT s.current_attempt_id AS current_attempt_id, a.result_object_id AS result_object_id FROM home_scenes s JOIN scene_attempts a ON a.id = s.current_attempt_id WHERE s.id = ? AND s.run_state = 'generating' AND s.lease_expires_at <= ?",
+  );
+  const expireAttempt = db.prepare("UPDATE scene_attempts SET phase = 'DONE', outcome = 'FAILED', error_code = 'ERR-SCENE-LEASE-EXPIRED', finished_at = ? WHERE id = ? AND outcome IS NULL");
+  const failScene = db.prepare("UPDATE home_scenes SET run_state = 'failed', lease_expires_at = NULL, updated_at = ? WHERE id = ?");
+  const markCall = db.prepare('UPDATE scene_attempts SET provider_call_started_at = ? WHERE id = ?');
+  const closeOne = db.prepare("UPDATE scene_attempts SET phase = 'DONE', outcome = ?, error_code = ?, degraded = ?, finished_at = ? WHERE id = ? AND scene_id = ? AND outcome IS NULL");
+  const isCurrent = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM home_scenes WHERE id = ? AND current_attempt_id = ?');
+  const publish = db.prepare(
+    'UPDATE home_scenes SET image_id = ?, image_mime = ?, image_size_bytes = ?, image_fingerprint = ?, image_inputs_snapshot = ?, image_created_at = ?, image_degraded = ?, consumed_generations = ?, quota_window = ?, run_state = NULL, current_attempt_id = NULL, lease_expires_at = NULL, updated_at = ? WHERE id = ?',
+  );
+  const succeed = db.prepare("UPDATE scene_attempts SET phase = 'DONE', outcome = 'SUCCEEDED', error_code = NULL, degraded = ?, finished_at = ? WHERE id = ?");
   const ownerScene = db.prepare<[string], { id: string }>('SELECT id FROM home_scenes WHERE owner_user_id = ?');
   const dropOtherOfHousehold = db.prepare('DELETE FROM home_scenes WHERE household_id = ? AND id <> ?');
   const adopt = db.prepare('UPDATE home_scenes SET household_id = ?, owner_user_id = NULL, updated_at = ? WHERE id = ?');
@@ -119,6 +131,29 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
     async findAttemptByIdempotencyKeyHash(hash) {
       const row = attemptByHash.get(hash);
       return row === undefined ? null : toAttemptRecord(row);
+    },
+    async expireLease(sceneId, now) {
+      const row = expiredOf.get(sceneId, now);
+      if (row === undefined) return null;
+      expireAttempt.run(now, row.current_attempt_id);
+      failScene.run(now, sceneId);
+      return { attemptId: row.current_attempt_id, resultObjectId: row.result_object_id };
+    },
+    async markProviderCall(attemptId, now) {
+      markCall.run(now, attemptId);
+    },
+    async closeAttempt({ sceneId, attemptId, outcome, errorCode, degraded, now }) {
+      if (closeOne.run(outcome, errorCode, degraded ? 1 : 0, now, attemptId, sceneId).changes !== 1) return false;
+      if ((isCurrent.get(sceneId, attemptId)?.n ?? 0) === 1) (outcome === 'FAILED' ? failScene : idleScene).run(now, sceneId);
+      return true;
+    },
+    async publishImage({ sceneId, attemptId, image, degraded, consumedGenerations, quotaWindow, ownerUserIds, now }) {
+      const previous = imageOf.get(sceneId)?.image_id ?? null;
+      publish.run(image.id, image.mime, image.sizeBytes, image.fingerprint, image.inputsSnapshot, image.createdAt, degraded ? 1 : 0, consumedGenerations, quotaWindow, now, sceneId);
+      succeed.run(degraded ? 1 : 0, now, attemptId);
+      clearSources.run(sceneId);
+      for (const owner of new Set(ownerUserIds)) addSource.run(sceneId, owner);
+      return previous;
     },
     async countAttemptsByScene(sceneId, since) {
       return countScene.get(sceneId, since)?.n ?? 0;

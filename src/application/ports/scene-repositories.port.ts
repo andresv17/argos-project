@@ -87,6 +87,29 @@ export interface ClaimAttemptInput {
   readonly leaseExpiresAt: string;
 }
 
+/** Cierre de un intento que no publica (`FAILED` o `CANCELLED`); si es el vigente de la escena, `FAILED` la deja `failed` y `CANCELLED` sin `run_state`. */
+export interface CloseAttemptInput {
+  readonly sceneId: string;
+  readonly attemptId: string;
+  readonly outcome: 'FAILED' | 'CANCELLED';
+  readonly errorCode: string | null;
+  readonly degraded: boolean;
+  readonly now: string;
+}
+
+/** T2 (publicación atómica, INV-ESC6-004/005): el caso de uso ya verificó las condiciones bajo el candado de la escena; el repositorio solo escribe. */
+export interface PublishImageInput {
+  readonly sceneId: string;
+  readonly attemptId: string;
+  readonly image: SceneImage;
+  readonly degraded: boolean;
+  readonly consumedGenerations: number;
+  readonly quotaWindow: string;
+  /** Dueños de los datos de la imagen (`scene_image_sources`). */
+  readonly ownerUserIds: readonly string[];
+  readonly now: string;
+}
+
 /** Fila lógica de `household_photos` (data-model.md §2.4): una por hogar, sin nombre original (INV-ESC6-009). */
 export interface HouseholdPhotoRecord {
   readonly householdId: string;
@@ -115,6 +138,18 @@ export interface SceneRepository {
   claimAttempt(input: ClaimAttemptInput): Promise<boolean>;
   findAttemptById(attemptId: string): Promise<SceneAttemptRecord | null>;
   findAttemptByIdempotencyKeyHash(hash: string): Promise<SceneAttemptRecord | null>;
+  /**
+   * Vencimiento del arrendamiento (data-model.md §7, `H-TRI-006-12`): CAS idempotente `run_state = 'generating' AND lease_expires_at <= now` -> `failed`, sin
+   * arrendamiento, con el intento vigente cerrado `FAILED`/`ERR-SCENE-LEASE-EXPIRED` si seguía abierto. Devuelve el intento (su objeto resultante pasa a `DELETE`
+   * en el caso de uso) o `null` si no cambió nada (otra lectura ganó la carrera o el arrendamiento sigue vigente).
+   */
+  expireLease(sceneId: string, now: string): Promise<{ readonly attemptId: string; readonly resultObjectId: string } | null>;
+  /** Escribe `provider_call_started_at` antes de llamar al proveedor (H-LCK-006-04). */
+  markProviderCall(attemptId: string, now: string): Promise<void>;
+  /** Cierra el intento sin publicar; `false` si el intento no existe, no es de la escena o ya estaba cerrado. */
+  closeAttempt(input: CloseAttemptInput): Promise<boolean>;
+  /** T2: publica la imagen y cierra el intento `SUCCEEDED`; devuelve el id de la imagen anterior (para encolar su borrado) o `null`. */
+  publishImage(input: PublishImageInput): Promise<string | null>;
   /** Contadores de `REQ-ESC6-034`: intentos de la escena o del actor con `started_at >= since`. */
   countAttemptsByScene(sceneId: string, since: string): Promise<number>;
   countAttemptsByActor(actorUserId: string, since: string): Promise<number>;

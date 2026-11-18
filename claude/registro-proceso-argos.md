@@ -1411,3 +1411,4 @@
 - 2026-11-18 | Keymaker | T847+T848 stripImageMetadata lista blanca + validateGeneratedImage (t847 15/15, rojo previo: modulo inexistente; suite 0 rojos, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T868 cierre suite T815 (27/27) y estado Fase 5: T837..T850 y T862..T868 hechas, T851..T861 pendientes; suite con PG real 0 rojos (4576 verdes), tsc 0, gates CUMPLE; sin push ni [x].
 - 2026-11-18 | Keymaker | Parte A H-KEY-F5-1/2/3 (countFailedAttemptsByScene x4 adaptadores, STYLE_BASE_TEXT + paleta firmada, breed libre fuera del prompt/payload; suite 4584 verdes 0 rojos, tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 | Keymaker | T851+T852 getScene + GetSceneImage + repositorio (expireLease/markProviderCall/closeAttempt/publishImage) (t851 15/15, t834 59/59; suite 4608 verdes 0 rojos, tsc 0, gates CUMPLE); sin push ni [x].

@@ -12,7 +12,9 @@ import type { ScenePrivacyHooksPort } from '../../application/ports/scene-privac
 import type {
   BeginGenerationInput,
   ClaimAttemptInput,
+  CloseAttemptInput,
   HouseholdPhotoRecord,
+  PublishImageInput,
   SceneAttemptRecord,
   SceneConsentRecord,
   SceneConsentRepository,
@@ -86,6 +88,18 @@ export class NullSceneRepository implements SceneRepository {
     return Promise.resolve(null);
   }
   findAttemptByIdempotencyKeyHash(_hash: string): Promise<SceneAttemptRecord | null> {
+    return Promise.resolve(null);
+  }
+  expireLease(_sceneId: string, _now: string): Promise<{ readonly attemptId: string; readonly resultObjectId: string } | null> {
+    return Promise.resolve(null);
+  }
+  markProviderCall(_attemptId: string, _now: string): Promise<void> {
+    return Promise.resolve();
+  }
+  closeAttempt(_input: CloseAttemptInput): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+  publishImage(_input: PublishImageInput): Promise<string | null> {
     return Promise.resolve(null);
   }
   countAttemptsByScene(_sceneId: string, _since: string): Promise<number> {

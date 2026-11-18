@@ -34,6 +34,8 @@ import type { PasswordHasherPort } from '../ports/password-hasher.port.ts';
 import type { PlatformParameterPort } from '../ports/platform-parameter.port.ts';
 import type { RateLimiterPort } from '../ports/rate-limiter.port.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
+import type { SceneImageGeneratorPort } from '../ports/scene-image-generator.port.ts';
+import type { SceneJobDispatcherPort } from '../ports/scene-job-dispatcher.port.ts';
 import type { ScenePrivacyHooksPort } from '../ports/scene-privacy-hooks.port.ts';
 import type { SecureTokenPort } from '../ports/secure-token.port.ts';
 import type { ShareTokenGeneratorPort } from '../ports/share-link.port.ts';
@@ -77,6 +79,29 @@ export interface SharingServices {
   readonly limiter: SharedAccessLimiter;
 }
 
+/**
+ * Escena del hogar (feature 006, plan §1.3): configuración ya validada por `app-config` (INV-ARCH-006), identidad del aviso de consentimiento (constantes del código,
+ * REQ-ESC6-026) y los puertos del generador y del despachador. Opcional: sin él los casos de uso de la escena fallan cerrado.
+ */
+export interface SceneServices {
+  readonly maxPets: number;
+  readonly quotaMax: number;
+  /** T_GEN en segundos. */
+  readonly genTimeoutSeconds: number;
+  /** T_LEASE = T_GEN + 60 s, desde el claim. */
+  readonly leaseSeconds: number;
+  /** T_QUEUE: espera máxima en cola antes del claim. */
+  readonly queueWaitSeconds: number;
+  /** `true` con `ARGOS_SCENE_DRIVER=real`: exige consentimiento vigente (INV-ESC6-014). */
+  readonly realDriver: boolean;
+  /** Desfase de `APP_TIMEZONE` respecto de UTC en minutos (p. ej. -300) para `quota.resetsAt`. */
+  readonly utcOffsetMinutes: number;
+  readonly noticeVersion: string;
+  readonly providerId: string;
+  readonly generator: SceneImageGeneratorPort;
+  readonly dispatcher: SceneJobDispatcherPort;
+}
+
 export interface ApplicationDeps {
   readonly uow: UnitOfWorkPort;
   readonly clock: ClockPort;
@@ -108,6 +133,8 @@ export interface ApplicationDeps {
   readonly sharing?: SharingServices;
   /** Ganchos de privacidad de la escena (feature 006, T827, plan §1.2): los casos de uso de 002/004/005 los invocan en la transacción de la causa. Ausente: comportamiento actual de 001..005. */
   readonly sceneHooks?: ScenePrivacyHooksPort;
+  /** Servicios de la escena (feature 006, T852). Ausente: los casos de uso de la escena fallan cerrado con un error interno. */
+  readonly scene?: SceneServices;
 }
 
 interface ValidatorWithErrors {

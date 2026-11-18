@@ -69,6 +69,46 @@ export function postgresSceneRepository(client: PoolClientLike): SceneRepository
       const { rows } = await client.query(`SELECT ${ATTEMPT_COLUMNS} FROM scene_attempts WHERE idempotency_key_hash = $1`, [hash]);
       return rows[0] === undefined ? null : toAttemptRecord(rows[0]);
     },
+    async expireLease(sceneId, now) {
+      const { rows } = await client.query(
+        "SELECT s.current_attempt_id AS current_attempt_id, a.result_object_id AS result_object_id FROM home_scenes s JOIN scene_attempts a ON a.id = s.current_attempt_id WHERE s.id = $1 AND s.run_state = 'generating' AND s.lease_expires_at <= $2",
+        [sceneId, now],
+      );
+      const row = rows[0];
+      if (row === undefined) return null;
+      await client.query("UPDATE scene_attempts SET phase = 'DONE', outcome = 'FAILED', error_code = 'ERR-SCENE-LEASE-EXPIRED', finished_at = $1 WHERE id = $2 AND outcome IS NULL", [now, row['current_attempt_id']]);
+      await client.query("UPDATE home_scenes SET run_state = 'failed', lease_expires_at = NULL, updated_at = $1 WHERE id = $2", [now, sceneId]);
+      return { attemptId: String(row['current_attempt_id']), resultObjectId: String(row['result_object_id']) };
+    },
+    async markProviderCall(attemptId, now) {
+      await client.query('UPDATE scene_attempts SET provider_call_started_at = $1 WHERE id = $2', [now, attemptId]);
+    },
+    async closeAttempt({ sceneId, attemptId, outcome, errorCode, degraded, now }) {
+      const closed = await client.query("UPDATE scene_attempts SET phase = 'DONE', outcome = $1, error_code = $2, degraded = $3, finished_at = $4 WHERE id = $5 AND scene_id = $6 AND outcome IS NULL", [
+        outcome,
+        errorCode,
+        degraded ? 1 : 0,
+        now,
+        attemptId,
+        sceneId,
+      ]);
+      if (closed.rowCount !== 1) return false;
+      if (outcome === 'FAILED') await client.query("UPDATE home_scenes SET run_state = 'failed', lease_expires_at = NULL, updated_at = $1 WHERE id = $2 AND current_attempt_id = $3", [now, sceneId, attemptId]);
+      else await client.query('UPDATE home_scenes SET run_state = NULL, current_attempt_id = NULL, lease_expires_at = NULL, updated_at = $1 WHERE id = $2 AND current_attempt_id = $3', [now, sceneId, attemptId]);
+      return true;
+    },
+    async publishImage({ sceneId, attemptId, image, degraded, consumedGenerations, quotaWindow, ownerUserIds, now }) {
+      const { rows } = await client.query('SELECT image_id FROM home_scenes WHERE id = $1', [sceneId]);
+      const previous = rows[0]?.['image_id'] === null || rows[0] === undefined ? null : String(rows[0]['image_id']);
+      await client.query(
+        'UPDATE home_scenes SET image_id = $1, image_mime = $2, image_size_bytes = $3, image_fingerprint = $4, image_inputs_snapshot = $5, image_created_at = $6, image_degraded = $7, consumed_generations = $8, quota_window = $9, run_state = NULL, current_attempt_id = NULL, lease_expires_at = NULL, updated_at = $10 WHERE id = $11',
+        [image.id, image.mime, image.sizeBytes, image.fingerprint, image.inputsSnapshot, image.createdAt, degraded ? 1 : 0, consumedGenerations, quotaWindow, now, sceneId],
+      );
+      await client.query("UPDATE scene_attempts SET phase = 'DONE', outcome = 'SUCCEEDED', error_code = NULL, degraded = $1, finished_at = $2 WHERE id = $3", [degraded ? 1 : 0, now, attemptId]);
+      await client.query('DELETE FROM scene_image_sources WHERE scene_id = $1', [sceneId]);
+      for (const owner of new Set(ownerUserIds)) await client.query('INSERT INTO scene_image_sources (scene_id, owner_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [sceneId, owner]);
+      return previous;
+    },
     async countAttemptsByScene(sceneId, since) {
       const { rows } = await client.query('SELECT count(*) AS n FROM scene_attempts WHERE scene_id = $1 AND started_at >= $2', [sceneId, since]);
       return Number(rows[0]?.['n'] ?? 0);
