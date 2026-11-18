@@ -27,6 +27,11 @@ function projectLevelRoles(): string[] {
   return roles;
 }
 
+const MEDIA_ROLE = 'argosTerraformMediaBucketIam';
+const allRoleCmds = () => commands.filter((l) => /iam roles (create|update)/.test(l));
+/** Roles de proyecto de metadatos de buckets (apply y plan): todos menos el rol acotado al bucket de medios. */
+const bucketMetadataRoleCmds = () => allRoleCmds().filter((l) => !l.includes(MEDIA_ROLE));
+
 describe('bootstrap.sh: IAM de storage acotado por bucket (T441a)', () => {
   it('(a) no concede roles/storage.admin a nivel de proyecto', () => {
     expect(projectLevelRoles().filter((r) => r === 'roles/storage.admin')).toEqual([]);
@@ -53,14 +58,14 @@ describe('bootstrap.sh: IAM de storage acotado por bucket (T441a)', () => {
       expect(l).not.toMatch(/exports/);
     }
     // El rol personalizado de proyecto solo puede llevar permisos de metadatos de buckets, nunca storage.objects.*.
-    const perms = commands.filter((l) => /iam roles (create|update)/.test(l)).join(' ');
+    const perms = bucketMetadataRoleCmds().join(' ');
     expect(perms).toContain('storage.buckets.create');
     expect(perms).not.toMatch(/storage\.objects\./);
     expect(perms).not.toMatch(/storage\.buckets\.(setIamPolicy|getIamPolicy)/);
   });
 
   it('(c2) apply conserva storage.buckets.create y plan solo lee metadatos de buckets', () => {
-    const roleCmds = commands.filter((l) => /iam roles (create|update)/.test(l));
+    const roleCmds = bucketMetadataRoleCmds();
     expect(roleCmds.length).toBe(2);
     const roles = projectLevelRoles();
     expect(roles).toContain('roles/argosTerraformApplyBuckets');
@@ -77,5 +82,34 @@ describe('bootstrap.sh: IAM de storage acotado por bucket (T441a)', () => {
       expect(l).not.toMatch(/legible por (apply|plan|las cuentas de CI)/i);
     }
     expect(dumpsLines.join(' ')).toMatch(/solo Neo/i);
+  });
+
+  it('(e) getIamPolicy/setIamPolicy NO están en los roles de proyecto (apply y plan)', () => {
+    for (const l of bucketMetadataRoleCmds()) {
+      expect(l).not.toMatch(/getIamPolicy/);
+      expect(l).not.toMatch(/setIamPolicy/);
+    }
+  });
+
+  it('(f) getIamPolicy/setIamPolicy están en el rol acotado al bucket de medios y solo se concede sobre ese bucket', () => {
+    const mediaRole = allRoleCmds().filter((l) => l.includes(MEDIA_ROLE));
+    expect(mediaRole.length).toBe(1);
+    expect(mediaRole[0]).toContain('storage.buckets.getIamPolicy');
+    expect(mediaRole[0]).toContain('storage.buckets.setIamPolicy');
+    // El rol no se concede a nivel de proyecto (ni en bucles for role in).
+    expect(projectLevelRoles().filter((r) => r.includes(MEDIA_ROLE))).toEqual([]);
+    const bindings = commands.filter((l) => l.includes(MEDIA_ROLE) && /add-iam-policy-binding/.test(l));
+    expect(bindings.length).toBe(1);
+    expect(bindings[0]).toContain('storage buckets add-iam-policy-binding');
+    expect(bindings[0]).toContain('gs://${MEDIA_BUCKET}');
+    expect(bindings[0]).not.toContain('projects add-iam-policy-binding');
+    expect(text).toContain('MEDIA_BUCKET="${PREFIX}-${PROJECT}-media"');
+    expect(bindings[0]).not.toMatch(/dumps|exports|STATE_BUCKET/);
+  });
+
+  it('(g) storage.objects.* no aparece en ningún rol personalizado ni en el binding del bucket de medios', () => {
+    expect(allRoleCmds().join(' ')).not.toMatch(/storage\.objects\./);
+    const mediaBindings = commands.filter((l) => l.includes(MEDIA_ROLE));
+    expect(mediaBindings.join(' ')).not.toMatch(/storage\.objects\.|roles\/storage\./);
   });
 });

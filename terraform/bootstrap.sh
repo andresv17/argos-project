@@ -119,7 +119,7 @@ run gcloud iam service-accounts create "${PREFIX}-terraform" --project="$PROJECT
 # se acotan por bucket. Ninguna cuenta de CI puede leer objetos de dumps/ (solo Neo lee los dumps): no se concede
 # roles/storage.admin ni roles/viewer (que incluye storage.objects.get/list) a nivel de proyecto, ni ningún rol
 # de objetos sobre el bucket de exports. A nivel de proyecto solo hay roles personalizados con permisos de
-# METADATOS de buckets (sin storage.objects.*, sin get/setIamPolicy): storage.buckets.create no se puede acotar por bucket.
+# METADATOS de buckets (sin storage.objects.*, sin get/setIamPolicy; estos van en un rol aparte acotado al bucket de medios): storage.buckets.create no se puede acotar por bucket.
 # Verificación real en el ensayo T469.
 say "4-pre. Roles personalizados de metadatos de buckets (sin acceso a objetos)"
 run gcloud iam roles create argosTerraformApplyBuckets --project="$PROJECT" \
@@ -128,6 +128,13 @@ run gcloud iam roles create argosTerraformApplyBuckets --project="$PROJECT" \
 run gcloud iam roles create argosTerraformPlanBuckets --project="$PROJECT" \
   --title="ARGOS Terraform plan: buckets (solo metadatos)" \
   --permissions=storage.buckets.get,storage.buckets.list
+# Run 44208529984 de infraestructura.yml (REQ-IAC-008, T441a): terraform/iam.tf:114 (run_media_object_user) falló con 403
+# storage.buckets.getIamPolicy. DECISIÓN DE NEO (Opción A): getIamPolicy/setIamPolicy NO van en los roles de proyecto
+# anteriores (ni a nivel de proyecto ni sobre dumps/). Van en un rol personalizado APARTE, sin storage.objects.*, que se
+# concede SOLO sobre el bucket de medios gs://${PREFIX}-${PROJECT}-media (ver paso 4c).
+run gcloud iam roles create argosTerraformMediaBucketIam --project="$PROJECT" \
+  --title="ARGOS Terraform apply: IAM del bucket de medios (sin objetos)" \
+  --permissions=storage.buckets.getIamPolicy,storage.buckets.setIamPolicy
 
 say "4a. Permisos de argos-terraform-plan@: SOLO LECTURA (sin escritura sobre recursos ni estado; sin lectura de dumps/)"
 # roles/viewer se sustituye por visores concretos: el básico incluye lectura de objetos de todos los buckets.
@@ -152,6 +159,17 @@ done
 # Solo el bucket de ESTADO (nunca el de exports/dumps).
 run gcloud storage buckets add-iam-policy-binding "gs://${STATE_BUCKET}" \
   --member="serviceAccount:${APPLY_SA}" --role=roles/storage.objectAdmin
+
+say "4c. IAM del bucket de medios SOLO para argos-terraform@ (Opción A de Neo; run 44208529984; T441a)"
+# El bucket de medios lo crea Terraform (buckets_media.tf): si aún no existe, esta orden se repite tras el primer apply.
+# Nunca a nivel de proyecto, nunca sobre dumps/ ni sobre el bucket de exports; el rol no incluye storage.objects.*.
+MEDIA_BUCKET="${PREFIX}-${PROJECT}-media"
+if [ "$EXECUTE" -eq 1 ] && ! gcloud storage buckets describe "gs://${MEDIA_BUCKET}" --project="$PROJECT" >/dev/null 2>&1; then
+  echo "AVISO: gs://${MEDIA_BUCKET} aún no existe; repita este paso 4c tras el primer apply de Terraform." >&2
+else
+  run gcloud storage buckets add-iam-policy-binding "gs://${MEDIA_BUCKET}" \
+    --member="serviceAccount:${APPLY_SA}" --role="projects/${PROJECT}/roles/argosTerraformMediaBucketIam"
+fi
 # REQ-IAC-009 (enmendado): el presupuesto (google_billing_budget) exige un rol SOBRE LA CUENTA DE FACTURACIÓN;
 # un rol de proyecto no basta. costsManager solo a argos-terraform@; la cuenta de plan (argos-terraform-plan@) recibe
 # SOLO billing.viewer (lectura, D-31) para leer el presupuesto en el plan; sin billing.admin, owner ni editor.
