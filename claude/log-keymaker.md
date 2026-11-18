@@ -1329,3 +1329,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T813 pruebas rojas de countBytesOfOwner con household_photos (N2-06 (c)) (sin push, sin [x])
 - Nuevo tests/integration/persistence/t813-cuota-foto-hogar.spec.ts (memoria y SQLite vía createMediaEngines, SQL de Postgres con pg-fake-client); tests/fixtures/media-harness.ts gana seedHouseholdPhoto (memoria state.householdPhotos, SQLite INSERT household_photos). Foto de hogar cuenta al propietario del hogar (households.owner_user_id), la escena no.
 - Rojo: 5 de 6 fallan (la memoria falla primero, SQLite no se alcanza); tsc 0. Seguirá rojo hasta T833 (tabla) y T814 (implementación, DIFERIDA por tasks.md). Sin Postgres vivo.
+
+## 2026-11-18 Keymaker: T815 pruebas rojas de los 7 ganchos de privacidad (N2-06 (d)) (sin push, sin [x])
+- Nuevos tests/unit/ganchos-privacidad-escena-006.spec.ts (7 describes: pet, avatar, assignment, household, account, ownership, backup) y tests/fixtures/scene-privacy-hooks-spy.ts (contrato PROPUESTO de 8 ganchos con `deps.sceneHooks` opcional, misma transacción, evento opaco). Cada caso: llamada con evento exacto, rollback total si el gancho lanza, sin llamada si la causa se rechaza, compatibilidad sin puerto.
+- Rojo: 18 fallan, 9 pasan; tsc 0; oráculos 006 CUMPLE. H-KEY-F2-1: T827 aún no define el puerto; el nombre de cada gancho se ratifica con /architect y se cambia solo en el fixture. Cierra en T868.

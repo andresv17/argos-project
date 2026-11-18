@@ -88,3 +88,14 @@ npx tsc --noEmit -> exit 0
 verify-traceability --feature 001/002/006 -> CUMPLE x3; verify-oracles --feature 006 -> CUMPLE (oráculos débiles: 0)
 ```
 Rojo documentado y esperado hasta T833 (tabla household_photos en SQLite 0013/T832) + T814 (los 4 countBytesOfOwner). Seed: media-harness.seedHouseholdPhoto (memoria: state.householdPhotos; SQLite: INSERT). Sin cobertura de PostgreSQL vivo (sin TEST_DATABASE_URL).
+
+## T815 rojo (ganchos de privacidad, 7 suites)
+```
+npx vitest run tests/unit/ganchos-privacidad-escena-006.spec.ts
+⎯⎯⎯⎯⎯⎯ Failed Tests 18 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  18 failed | 9 passed (27)
+(18 rojas = cada gancho esperado sin llamar; 9 verdes = compatibilidad sin puerto y rechazos sin llamada)
+npx tsc --noEmit -> exit 0; verify-traceability 001/002/006 CUMPLE; verify-oracles --feature 006 -> oráculos débiles: 0, CUMPLE
+```
+HALLAZGO H-KEY-F2-1 (a /architect, T827): el puerto ScenePrivacyHooksPort no está definido en plan/tasks. El contrato de los 8 ganchos (nombres, eventos, `deps.sceneHooks` opcional) es PROPUESTO en tests/fixtures/scene-privacy-hooks-spy.ts (único archivo a cambiar si T827 lo nombra distinto). Roja hasta T862..T868 (T868 cierra la suite).
