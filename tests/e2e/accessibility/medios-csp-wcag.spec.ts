@@ -186,11 +186,11 @@ test.describe('CSP de producción y WCAG 2.1 AA a 320/1024/1280 px: recortador, 
     const page = await newPage();
     await selectPet(page);
     const photo = (await makeImage(page, 'image/png', 120, 60))!;
-    await page.locator('#media-file').setInputFiles({ name: 'foto-visor.png', mimeType: 'image/png', buffer: photo });
+    await page.locator('#clinical-file').setInputFiles({ name: 'foto-visor.png', mimeType: 'image/png', buffer: photo });
     await page.getByRole('button', { name: 'Subir', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Ver foto-visor.png' })).toBeVisible();
     const pdf = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R/Size 4>>\n%%EOF\n', 'latin1');
-    await page.locator('#media-file').setInputFiles({ name: 'informe.pdf', mimeType: 'application/pdf', buffer: pdf });
+    await page.locator('#clinical-file').setInputFiles({ name: 'informe.pdf', mimeType: 'application/pdf', buffer: pdf });
     await page.getByRole('button', { name: 'Subir', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Ver informe.pdf' })).toBeVisible();
 
