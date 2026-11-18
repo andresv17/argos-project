@@ -29,7 +29,7 @@ import {
 // 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
 import { validateUserPublicProfile, type AuditEntry } from '../../../generated/v31/index.ts';
 import { isStoredPetProfile, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
-import { NullSceneConsentRepository, NullSceneRepository } from '../../adapters/null-scene-adapters.ts';
+import { sqliteSceneConsentRepository, sqliteSceneRepository } from './sqlite-scene-repositories.ts';
 import type {
   AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
@@ -1015,7 +1015,7 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     auditLog: auditLogRepository(db),
     shareLinks: shareLinkRepository(db),
     shareAudit: shareAuditRepository(db),
-    scenes: new NullSceneRepository(),
-    sceneConsents: new NullSceneConsentRepository(),
+    scenes: sqliteSceneRepository(db),
+    sceneConsents: sqliteSceneConsentRepository(db),
   };
 }

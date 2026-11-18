@@ -46,11 +46,15 @@ describe('UnitOfWork con repositorios de escena nulos (T828, INV-ESC6-012, SC-ES
     expect(found).toEqual([null, null]);
   });
 
-  it('[INV-ESC6-012] PostgreSQL: la fábrica entrega scenes y sceneConsents nulos sin emitir una sola sentencia', async () => {
+  it('[INV-ESC6-012] PostgreSQL: la fábrica entrega scenes y sceneConsents sin emitir sentencias al crearse (T834: reales; cada lectura emite un SELECT parametrizado)', async () => {
     const client = fakeClient();
     const set = createPostgresRepositories(client);
-    expect([await set.scenes.findById('s1'), await set.sceneConsents.findByUserId('u1')]).toEqual([null, null]);
     expect(client.calls).toEqual([]);
+    expect([await set.scenes.findById('s1'), await set.sceneConsents.findByUserId('u1')]).toEqual([null, null]);
+    expect(client.calls.map((c) => [c.sql.split(' FROM ')[1]!.split(' ')[0], c.values])).toEqual([
+      ['home_scenes', ['s1']],
+      ['scene_consents', ['u1']],
+    ]);
   });
 
   it('[EDGE-ESC6-024] los repositorios de escena viajan en el mismo RepositorySet de la transacción, junto a pets y households (misma transacción)', async () => {

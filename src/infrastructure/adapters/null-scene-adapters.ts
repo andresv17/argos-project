@@ -9,7 +9,16 @@
 import type { SceneGenerationRequest, SceneGenerationResult, SceneImageGeneratorPort } from '../../application/ports/scene-image-generator.port.ts';
 import type { SceneJob, SceneJobDispatcherPort } from '../../application/ports/scene-job-dispatcher.port.ts';
 import type { ScenePrivacyHooksPort } from '../../application/ports/scene-privacy-hooks.port.ts';
-import type { SceneConsentRecord, SceneConsentRepository, SceneRecord, SceneRepository } from '../../application/ports/scene-repositories.port.ts';
+import type {
+  BeginGenerationInput,
+  ClaimAttemptInput,
+  SceneAttemptRecord,
+  SceneConsentRecord,
+  SceneConsentRepository,
+  SceneConsentScope,
+  SceneRecord,
+  SceneRepository,
+} from '../../application/ports/scene-repositories.port.ts';
 
 export class NullScenePrivacyHooks implements ScenePrivacyHooksPort {
   onPetRemoved(): Promise<void> {
@@ -54,10 +63,55 @@ export class NullSceneRepository implements SceneRepository {
   findById(_sceneId: string): Promise<SceneRecord | null> {
     return Promise.resolve(null);
   }
+  findByHouseholdId(_householdId: string): Promise<SceneRecord | null> {
+    return Promise.resolve(null);
+  }
+  findByOwnerUserId(_ownerUserId: string): Promise<SceneRecord | null> {
+    return Promise.resolve(null);
+  }
+  insert(_scene: SceneRecord): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+  lockScene(_sceneId: string): Promise<void> {
+    return Promise.resolve();
+  }
+  beginGeneration(_input: BeginGenerationInput): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+  claimAttempt(_input: ClaimAttemptInput): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+  findAttemptById(_attemptId: string): Promise<SceneAttemptRecord | null> {
+    return Promise.resolve(null);
+  }
+  findAttemptByIdempotencyKeyHash(_hash: string): Promise<SceneAttemptRecord | null> {
+    return Promise.resolve(null);
+  }
+  countAttemptsByScene(_sceneId: string, _since: string): Promise<number> {
+    return Promise.resolve(0);
+  }
+  countAttemptsByActor(_actorUserId: string, _since: string): Promise<number> {
+    return Promise.resolve(0);
+  }
+  upsertQuotaCarry(_ownerUserId: string, _quotaWindow: string, _consumedGenerations: number): Promise<void> {
+    return Promise.resolve();
+  }
+  findQuotaCarry(_ownerUserId: string, _quotaWindow: string): Promise<number | null> {
+    return Promise.resolve(null);
+  }
 }
 
 export class NullSceneConsentRepository implements SceneConsentRepository {
   findByUserId(_userId: string): Promise<SceneConsentRecord | null> {
     return Promise.resolve(null);
+  }
+  findActive(_userId: string, _scope: SceneConsentScope, _providerId: string, _noticeVersion: string): Promise<SceneConsentRecord | null> {
+    return Promise.resolve(null);
+  }
+  grant(_consent: SceneConsentRecord): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+  revoke(_consentId: string, _revokedAt: string): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }

@@ -10,7 +10,7 @@
  */
 
 import type { PetProfile } from '../../../domain/pet/pet-invariants.ts';
-import { NullSceneConsentRepository, NullSceneRepository } from '../../adapters/null-scene-adapters.ts';
+import { memorySceneConsentRepository, memorySceneRepository, type SceneMemoryState } from './in-memory-scene-repositories.ts';
 import type { DeterministicFaultInjector } from '../fault-injector.ts';
 import type { Household } from '../../../generated/index.ts';
 import type { AuditEntry } from '../../../generated/v31/index.ts';
@@ -49,7 +49,7 @@ import type { RecordModule, RecordOf } from '../../../domain/records/record-inva
 
 const RECORD_MODULE_NAMES: readonly RecordModule[] = ['weights', 'bodyMeasurements', 'vaccinations', 'dewormings', 'medicalVisits', 'customParameters'];
 
-export interface MemoryState {
+export interface MemoryState extends SceneMemoryState {
   users: UserAccount[];
   sessions: Record<string, SessionRecord>;
   loginFailures: Record<string, string[]>;
@@ -74,6 +74,7 @@ export interface MemoryState {
   shareLinks: ShareLinkRecord[];
   /** `share_link_audit` (feature 005, REQ-VET-008). */
   shareAudit: ShareAuditRecord[];
+  /** Escena del hogar (feature 006): `scenes`, `sceneAttempts`, `sceneConsents` y `sceneQuotaCarry` (opcionales; ausentes = vacías). */
 }
 
 export interface StoredConfirmationToken {
@@ -109,6 +110,10 @@ export function emptyMemoryState(): MemoryState {
     auditLog: [],
     shareLinks: [],
     shareAudit: [],
+    scenes: [],
+    sceneAttempts: [],
+    sceneConsents: [],
+    sceneQuotaCarry: [],
   };
 }
 
@@ -622,8 +627,8 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     auditLog: auditLogRepository(state),
     shareLinks: shareLinkRepository(state),
     shareAudit: shareAuditRepository(state),
-    scenes: new NullSceneRepository(),
-    sceneConsents: new NullSceneConsentRepository(),
+    scenes: memorySceneRepository(state),
+    sceneConsents: memorySceneConsentRepository(state),
   };
 }
 
