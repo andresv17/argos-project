@@ -83,6 +83,16 @@ export interface SharingServices {
  * Escena del hogar (feature 006, plan §1.3): configuración ya validada por `app-config` (INV-ARCH-006), identidad del aviso de consentimiento (constantes del código,
  * REQ-ESC6-026) y los puertos del generador y del despachador. Opcional: sin él los casos de uso de la escena fallan cerrado.
  */
+/** Herramientas de imagen inyectadas (función, no puerto; `infrastructure/adapters/image-metadata-stripper.ts`): normalizan referencias y validan la salida por firma. */
+export interface SceneImageTools {
+  /** Reescribe el contenedor con lista blanca; `ok: false` = referencia ausente (REQ-ESC6-027). */
+  readonly strip: (mime: string, bytes: Uint8Array) => { readonly ok: true; readonly mime: string; readonly bytes: Uint8Array } | { readonly ok: false };
+  /** Mayor prefijo de referencias (por prioridad) que cabe en el tope agregado (EDGE-ESC6-028). */
+  readonly fit: (sizes: readonly number[]) => { readonly kept: number; readonly degraded: boolean };
+  /** Valida la imagen generada por firma (REQ-ESC6-035). */
+  readonly validateOutput: (mime: string, bytes: Uint8Array) => { readonly ok: true; readonly mime: 'image/png' | 'image/webp' } | { readonly ok: false; readonly code: 'ERR-SCENE-INVALID-IMAGE' };
+}
+
 export interface SceneServices {
   readonly maxPets: number;
   readonly quotaMax: number;
@@ -98,6 +108,7 @@ export interface SceneServices {
   readonly utcOffsetMinutes: number;
   readonly noticeVersion: string;
   readonly providerId: string;
+  readonly images: SceneImageTools;
   readonly generator: SceneImageGeneratorPort;
   readonly dispatcher: SceneJobDispatcherPort;
 }

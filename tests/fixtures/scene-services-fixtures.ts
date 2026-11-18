@@ -4,6 +4,7 @@
  */
 import type { SceneJob, SceneJobDispatcherPort } from '../../src/application/ports/scene-job-dispatcher.port.ts';
 import type { ApplicationDeps, SceneServices } from '../../src/application/use-cases/use-case-support.ts';
+import { fitReferencesWithinBudget, stripImageMetadata, validateGeneratedImage, type StrippableMime } from '../../src/infrastructure/adapters/image-metadata-stripper.ts';
 import { FakeSceneImageGenerator, type FakeSceneMode } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
 
 export class SpySceneDispatcher implements SceneJobDispatcherPort {
@@ -22,8 +23,10 @@ export class SpySceneDispatcher implements SceneJobDispatcherPort {
   }
 }
 
-export interface SceneFixtureOptions extends Partial<Omit<SceneServices, 'generator' | 'dispatcher'>> {
+export interface SceneFixtureOptions extends Partial<Omit<SceneServices, 'generator' | 'dispatcher' | 'images'>> {
   readonly mode?: FakeSceneMode;
+  /** Sustituye herramientas de imagen (p. ej. un tope agregado de referencias de 0). */
+  readonly images?: Partial<SceneServices['images']>;
 }
 
 export interface SceneFixture {
@@ -35,7 +38,7 @@ export interface SceneFixture {
 export function sceneFixture(options: SceneFixtureOptions = {}): SceneFixture {
   const generator = new FakeSceneImageGenerator({ mode: options.mode ?? 'ok' });
   const dispatcher = new SpySceneDispatcher();
-  const { mode: _mode, ...rest } = options;
+  const { mode: _mode, images: imageOverrides, ...rest } = options;
   const services: SceneServices = {
     maxPets: 8,
     quotaMax: 10,
@@ -47,6 +50,12 @@ export function sceneFixture(options: SceneFixtureOptions = {}): SceneFixture {
     noticeVersion: '1',
     providerId: 'vertex-gemini-image',
     ...rest,
+    images: {
+      strip: (mime, bytes) => stripImageMetadata(mime as StrippableMime, bytes),
+      fit: (sizes) => fitReferencesWithinBudget(sizes),
+      validateOutput: (mime, bytes) => validateGeneratedImage(mime, bytes, 32 * 1024 * 1024),
+      ...imageOverrides,
+    },
     generator,
     dispatcher,
   };
