@@ -6,6 +6,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { hashToken } from '../../../src/domain/sharing/share-token.ts';
+import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
 import type { ShareScopeRef } from '../../../src/application/sharing/share-access.ts';
 import { CreateShareLinkUseCase, ListShareLinksUseCase, RevokeShareLinkUseCase } from '../../../src/application/use-cases/share-link-use-cases.ts';
 import { GetSharedFileUseCase, GetSharedSummaryUseCase, PreviewClinicalSummaryUseCase } from '../../../src/application/use-cases/shared-view-use-cases.ts';
@@ -125,6 +126,17 @@ describe('T754 crear enlace (REQ-VET-001, SC-005-015, SC-005-025)', () => {
       for (const bad of [undefined, null, '', 'no-uuid', KEY(2).toUpperCase().replace('-4000-', '-1000-'), 42]) {
         expect(await codeOf(create(e, ANDRES, PET_REF, bad))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
       }
+      expect(await e.rows()).toHaveLength(1);
+    });
+  });
+
+  it('[EDGE-005-17-bis][SC-005-051] la misma clave con OTRO alcance que llega al UNIQUE (ventana de carrera simulada: la búsqueda previa no ve la fila) es 422 sin detalles de BD, nunca un error interno', async () => {
+    await eachEngine(null, async (e) => {
+      await created(e, ANDRES, PET_REF, 9);
+      const blind = { ...e.deps, uow: { runInTransaction: <T>(work: (r: RepositorySet) => Promise<T>) => e.deps.uow.runInTransaction((r) => work({ ...r, shareLinks: new Proxy(r.shareLinks, { get: (t, p) => (p === 'findByIdempotencyKey' ? async () => null : (t as never)[p]) }) })) } };
+      const error = await errorOf(new CreateShareLinkUseCase(blind).execute(ANDRES, HOUSE_REF, KEY(9), {}));
+      expect(error.code, e.name).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+      expect(JSON.stringify(error)).not.toMatch(/duplicate|constraint|share_links|23505|UNIQUE/i);
       expect(await e.rows()).toHaveLength(1);
     });
   });

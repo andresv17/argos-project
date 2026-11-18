@@ -19,7 +19,7 @@ import { closePool, createPostgresPool, type PoolClientLike, type PoolLike } fro
 import { PostgresUnitOfWork } from '../../../src/infrastructure/persistence/postgres/postgres-unit-of-work.ts';
 import { ANDRES, ARGOS, MARIA, canonicalState } from '../../fixtures/application-harness.ts';
 import { POSTGRES_SCHEMA_SQL, createSqliteConcurrentEngine, gate, TEST_DATABASE_URL, type ConcurrentEngine } from '../../fixtures/concurrent-engines.ts';
-import { HOUSEHOLD_ID, KEY, SHARE_IP_SECRET, SequentialShareTokenGenerator, codeOf } from '../../fixtures/share-harness.ts';
+import { HOUSEHOLD_ID, KEY, SHARE_IP_SECRET, SequentialShareTokenGenerator, codeOf, errorOf } from '../../fixtures/share-harness.ts';
 import { seedSqlite } from '../../fixtures/sqlite-harness.ts';
 
 const NOW = '2026-11-05T12:00:00.000Z';
@@ -187,6 +187,19 @@ function define(name: 'SQLite' | 'PostgreSQL', build: () => Promise<Engine>): vo
       const b = engine.b();
       const [x, y] = await Promise.all([new CreateShareLinkUseCase(engine.a()).execute(ANDRES, PET_REF, KEY(7), {}), b.result((deps) => new CreateShareLinkUseCase(deps).execute(ANDRES, PET_REF, KEY(7), {}))]);
       expect([x.kind, y.kind].sort()).toEqual(['CREATED', 'REPLAY']);
+      expect(await engine.countLinks()).toBe(1);
+    });
+
+    it('[EDGE-005-17-bis][SC-005-051] la misma Idempotency-Key con OTRO alcance que llega al UNIQUE (ventana de carrera simulada: la búsqueda previa no ve la fila) es 422 ERR-SCHEMA-VALIDATION-FAILED sin detalles de BD, nunca un error interno; queda una sola fila', async () => {
+      engine = await build();
+      await new CreateShareLinkUseCase(engine.a()).execute(ANDRES, PET_REF, KEY(9), {});
+      const base = engine.a();
+      const blind: UnitOfWorkPort = {
+        runInTransaction: (work) => base.uow.runInTransaction((r) => work({ ...r, shareLinks: new Proxy(r.shareLinks, { get: (t, p) => (p === 'findByIdempotencyKey' ? async () => null : (t as never)[p]) }) })),
+      };
+      const error = await errorOf(new CreateShareLinkUseCase({ ...base, uow: blind }).execute(ANDRES, HOUSE_REF, KEY(9), {}));
+      expect(error.code).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+      expect(JSON.stringify(error)).not.toMatch(/duplicate|constraint|share_links|23505|UNIQUE/i);
       expect(await engine.countLinks()).toBe(1);
     });
   });
