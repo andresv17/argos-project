@@ -1381,3 +1381,4 @@
 - 2026-11-18 | Keymaker | T826 pruebas rojas pureza de capas/entropia de la escena (2 rojas hasta T827, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T827 puertos escena + ganchos de privacidad nulos + deps.sceneHooks? + fixture espia ajustado (t826 9/9, t827 verdes, tsc 0, gates CUMPLE, solo rojos T813/T815); sin push ni [x].
 - 2026-11-18 | Keymaker | T828 RepositorySet +scenes/sceneConsents nulos en memoria/SQLite/PG + SCENE_LOCK_ORDER (t828 7/7, claves PG 15->17, tsc 0, gates CUMPLE, solo rojos T813/T815); sin push ni [x].
+- 2026-11-18 | Keymaker | T829 pruebas rojas app-config ARGOS_SCENE_* x9 + T_LEASE/T_QUEUE (57 rojas de 59, tsc 0, gates CUMPLE); sin push ni [x].
