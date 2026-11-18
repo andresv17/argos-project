@@ -16,3 +16,7 @@ export * from './audit-pseudonym.port.ts';
 export * from './media-storage.port.ts';
 export * from './platform-parameter.port.ts';
 export * from './share-link.port.ts';
+export * from './scene-image-generator.port.ts';
+export * from './scene-job-dispatcher.port.ts';
+export * from './scene-repositories.port.ts';
+export * from './scene-privacy-hooks.port.ts';

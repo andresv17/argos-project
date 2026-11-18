@@ -34,6 +34,7 @@ import type { PasswordHasherPort } from '../ports/password-hasher.port.ts';
 import type { PlatformParameterPort } from '../ports/platform-parameter.port.ts';
 import type { RateLimiterPort } from '../ports/rate-limiter.port.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
+import type { ScenePrivacyHooksPort } from '../ports/scene-privacy-hooks.port.ts';
 import type { SecureTokenPort } from '../ports/secure-token.port.ts';
 import type { ShareTokenGeneratorPort } from '../ports/share-link.port.ts';
 import type { SharedAccessLimiter } from '../sharing/shared-access-limiter.ts';
@@ -105,6 +106,8 @@ export interface ApplicationDeps {
   readonly platformParameters?: PlatformParameterPort;
   /** Enlace veterinario (feature 005, US4): token, clave HMAC de IP y límite de tasa. Ausente: las rutas del enlace fallan cerrado. */
   readonly sharing?: SharingServices;
+  /** Ganchos de privacidad de la escena (feature 006, T827, plan §1.2): los casos de uso de 002/004/005 los invocan en la transacción de la causa. Ausente: comportamiento actual de 001..005. */
+  readonly sceneHooks?: ScenePrivacyHooksPort;
 }
 
 interface ValidatorWithErrors {

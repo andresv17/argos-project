@@ -1369,3 +1369,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T826 pruebas rojas de pureza de capas y entropia de la escena (INV-ESC6-001/002) (sin push, sin [x])
 - Nuevo tests/unit/t826-pureza-escena-006.spec.ts: detectores de Date/entropia/node:/fs/fetch/SDK/process.env con autoprueba; src/domain/scene (vacio hasta Fase 4) sin entropia, sin node:, solo generated/v34; src/application sin fs/fetch/SDK/env; los 4 archivos de puertos de escena existen, exportados en el indice y solo con import type.
 - Rojo 2/9 (puertos de escena inexistentes hasta T827); tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T827 puertos de la escena con implementaciones nulas y ApplicationDeps.sceneHooks? (REQ-ESC6-017, REQ-ESC6-031) (sin push, sin [x])
+- Pruebas primero: tests/unit/t827-puertos-escena-006.spec.ts (rojo: modulo null-scene-adapters inexistente y 5 errores tsc TS2307/TS2339). Luego src/application/ports/{scene-image-generator,scene-job-dispatcher,scene-repositories,scene-privacy-hooks}.port.ts (+index), ScenePrivacyHooksPort con los 8 ganchos de plan §1.2, ApplicationDeps.sceneHooks? en use-case-support.ts y src/infrastructure/adapters/null-scene-adapters.ts (8 ganchos = Promise.resolve(); generador nulo devuelve solo SceneErrorCode).
+- Fixture scene-privacy-hooks-spy.ts: port tipado ScenePrivacyHooksPort, UTC_TIMESTAMP_PATTERN/invalidNow() (a), hooksInvoked() (b), probe y failOn intactos (c); forma de eventos sin cambio.
+- Verde: t826 9/9, t827 19/19; tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE; suite completa solo con rojos documentados (T813 x5, T815 x18).

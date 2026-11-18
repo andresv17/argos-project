@@ -1,10 +1,14 @@
 /**
- * Doble del puerto de ganchos de privacidad de la escena (T815, enmienda (d) de N2-06; `ScenePrivacyHooksPort` lo introduce T827 con implementaciones nulas).
+ * Doble del puerto de ganchos de privacidad de la escena (T815, enmienda (d) de N2-06). El contrato lo RATIFICÓ `/architect` el 2026-11-18 en
+ * `plan.md` §1.2 «Puerto `ScenePrivacyHooksPort`» y T827 lo materializa en `src/application/ports/scene-privacy-hooks.port.ts` con implementación nula;
+ * este doble implementa ese mismo puerto y no cambia la forma de ningún evento.
  *
- * CONTRATO PROPUESTO (a ratificar por /architect al materializar el puerto en T827; el nombre y la forma de cada gancho se cambian SOLO en este archivo):
- * cada gancho recibe el `RepositorySet` de la transacción de la causa (mismo candado y mismo COMMIT/ROLLBACK; plan.md §1.2) y un evento con identificadores
- * opacos (nunca nombres ni claves de objeto, INV-ESC6-016) y devuelve `Promise<void>`. El caso de uso lo obtiene de `deps.sceneHooks` (opcional: ausente =
- * comportamiento actual de 001..005, como `media?` y `sharing?`).
+ * Precisiones (T827): (a) `now` es el string UTC canónico `YYYY-MM-DDTHH:mm:ss.sssZ` de `ClockPort.nowIsoTimestamp()`, inyectado por el caso de uso
+ * (`UTC_TIMESTAMP_PATTERN`, `invalidNow()`); (b) para cada causa se invoca solo el gancho correcto (`hooksInvoked()`); (c) se mantienen `probe`
+ * (lectura dentro de la transacción en el instante del gancho) y `failOn` (el gancho lanza: ROLLBACK completo de la causa).
+ *
+ * Cada gancho recibe el `RepositorySet` de la transacción de la causa y un evento con identificadores opacos (nunca nombres ni claves de objeto,
+ * INV-ESC6-016); devuelve `Promise<void>`. El caso de uso lo obtiene de `deps.sceneHooks` (opcional: ausente = comportamiento de 001..005).
  *
  *   onPetRemoved(repositories, { petId, cause: 'PET_DELETED' | 'AVATAR_DELETED', now })      pet-use-cases (baja), avatar-use-cases (borrado)
  *   onPetUnassigned(repositories, { petId, householdId, now })                                assignment-use-cases (desasignación, D6-17)
@@ -16,7 +20,11 @@
  *   onBackupImported(repositories, { ownerUserId, replacedPetIds, now })                      backup-use-cases (importación)
  */
 import type { RepositorySet } from '../../src/application/ports/repositories.port.ts';
+import type { ScenePrivacyHooksPort } from '../../src/application/ports/scene-privacy-hooks.port.ts';
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
+
+/** Forma UTC canónica de `ClockPort.nowIsoTimestamp()`. */
+export const UTC_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 export const SCENE_HOOK_NAMES = [
   'onPetRemoved',
@@ -46,8 +54,12 @@ export interface SceneHooksSpy {
   readonly calls: SceneHookCall[];
   /** Resultados de `probe`, uno por llamada. */
   readonly observed: unknown[];
-  readonly port: Record<SceneHookName, (repositories: RepositorySet, event: Record<string, unknown>) => Promise<void>>;
-  /** Las mismas dependencias con el puerto de ganchos conectado (`deps.sceneHooks`, propuesto para T827). */
+  readonly port: ScenePrivacyHooksPort;
+  /** Nombres distintos de los ganchos invocados, en orden de primera llamada: «solo el gancho correcto por causa» (T827). */
+  hooksInvoked(): SceneHookName[];
+  /** Ganchos cuyo evento no trae `now` como string UTC canónico de `ClockPort` (debe ser vacío). */
+  invalidNow(): SceneHookName[];
+  /** Las mismas dependencias con el puerto de ganchos conectado (`deps.sceneHooks`, opcional en `ApplicationDeps`). */
   attach(deps: ApplicationDeps): ApplicationDeps;
 }
 
@@ -65,6 +77,13 @@ export function createSceneHooksSpy(options: SceneHooksSpyOptions = {}): SceneHo
     if (options.probe !== undefined) observed.push(await options.probe(hook, repositories));
     if (options.failOn === hook) throw new SceneHookFailure(hook);
   };
-  const port = Object.fromEntries(SCENE_HOOK_NAMES.map((name) => [name, entry(name)])) as SceneHooksSpy['port'];
-  return { calls, observed, port, attach: (deps) => ({ ...deps, sceneHooks: port }) as ApplicationDeps };
+  const port = Object.fromEntries(SCENE_HOOK_NAMES.map((name) => [name, entry(name)])) as unknown as ScenePrivacyHooksPort;
+  return {
+    calls,
+    observed,
+    port,
+    hooksInvoked: () => [...new Set(calls.map((c) => c.hook))],
+    invalidNow: () => calls.filter((c) => typeof c.event['now'] !== 'string' || !UTC_TIMESTAMP_PATTERN.test(c.event['now'])).map((c) => c.hook),
+    attach: (deps) => ({ ...deps, sceneHooks: port }),
+  };
 }
