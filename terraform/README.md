@@ -192,7 +192,9 @@ psql "$RESTORED_URL" -X -v ON_ERROR_STOP=1 --single-transaction -c "UPDATE share
 
 Orden: pasos 1-4 y 4b, luego el 5 y el 6, y solo después la rotación de `TF_VAR_database_url`. `share_links` queda fuera del respaldo exportable (RAMA-005-008), por eso el paso 3 no lo toca.
 
-Pendientes de Neo (Nivel 2, NO aplicados en Terraform; solo documentados): (a) exclusión de Cloud Logging para la ruta `/shared/` (las URL con el token del enlace aparecen en los registros de solicitudes); (b) secreto `ARGOS_SHARE_IP_HMAC_SECRET` (HMAC de IP de la auditoría de accesos); (c) `ARGOS_PUBLIC_BASE_URL` (base de la URL pública del enlace).
+Exclusión de Cloud Logging para `/shared/` (T793 (b), EDGE-005-32/P1): APLICADA EN CÓDIGO (`terraform/logging.tf`, `google_logging_project_exclusion.shared_token_requests`, filtro `resource.type="cloud_run_revision" AND httpRequest.requestUrl:"/shared/"` sobre el sumidero `_Default`); PENDIENTE de `terraform plan` y `apply` por Neo (la cuenta que aplica necesita `roles/logging.admin` o equivalente para gestionar exclusiones).
+
+Pendientes de Neo (Nivel 2, fuera de Terraform): (b) crear en Secret Manager el secreto `ARGOS_SHARE_IP_HMAC_SECRET` (HMAC de IP de la auditoría de accesos) ANTES del despliegue que lo referencie; (c) fijar `ARGOS_PUBLIC_BASE_URL` (base de la URL pública del enlace). Ambos los inyecta el pipeline de aplicación (`deploy-argos.yml`), no `cloud_run.tf` (REQ-IAC-012: `ignore_changes` cubre `env`), por eso no se declaran en Terraform.
 
 **Paso 5. Eliminar la rama de respaldo de Neon.** Si restauró con la función de restauración de Neon (PITR o rama), Neon crea una rama de respaldo: bórrela en la consola de Neon (Branches). Con restauración por dump, borre en la consola de Neon la rama o base temporal que ya no se use. No hay comando de CLI verificado para esto y no hay clave de API de Neon en los secretos (D-19).
 
