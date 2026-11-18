@@ -14,7 +14,7 @@ Versiones fijadas (D-25): Terraform `1.17.2`, proveedor `hashicorp/google` `7.46
 | `artifact_registry.tf`, `cloud_run.tf`, `scheduler.tf` | Registro Docker, servicio y disparador |
 | `secret_manager.tf`, `iam.tf` | Secretos (2) y cuentas de servicio con privilegio mínimo |
 | `buckets.tf` | Bucket de dumps de 14 días |
-| `budget.tf` | Presupuesto de 1 USD con umbrales 50/90/100 % (D-13) |
+| `budget.tf` | Presupuesto de 5 USD equivalentes (22500 COP) con umbrales 50/90/100 % y filtro por proyecto (D-13; enmienda 006, N2-05 y N2-04) |
 | `bootstrap.sh` | Día 0; lo ejecuta solo Neo (dry-run por defecto, `--execute` explícito) |
 | `.terraform.lock.hcl` | Versionado: fija el hash del proveedor para `linux_amd64` y `darwin_arm64` |
 

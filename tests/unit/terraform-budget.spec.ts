@@ -28,7 +28,7 @@ describe('terraform/budget.tf (T443)', () => {
     const cur = v.match(/variable\s+"budget_currency"\s*\{([^]*?)\n\}/)?.[1] ?? '';
     expect(cur).toMatch(/default\s*=\s*"COP"/);
     const units = v.match(/variable\s+"budget_units"\s*\{([^]*?)\n\}/)?.[1] ?? '';
-    expect(units).toMatch(/default\s*=\s*"4500"/);
+    expect(units).toMatch(/default\s*=\s*"22500"/); // enmienda 006 (N2-05, N2-04): 5 USD equivalentes
   });
 
   it('declara depends_on sobre billingbudgets.googleapis.com para evitar SERVICE_DISABLED en proyecto nuevo', () => {
@@ -41,9 +41,9 @@ describe('terraform/budget.tf (T443)', () => {
     expect(t.sort()).toEqual([0.5, 0.9, 1]);
   });
 
-  it('filtra por la etiqueta app=argos (NFR-CLD-001) y no por servicios de Mirror', () => {
+  it('filtra por el proyecto (enmienda 006, N2-05: el gasto de Vertex no lleva la etiqueta app=argos) y no por servicios de Mirror', () => {
     const b = budget();
-    expect(b).toMatch(/budget_filter\s*\{[^]*labels\s*=\s*\{\s*app\s*=\s*\[?\s*"argos"\s*\]?\s*\}/);
+    expect(b).toMatch(/budget_filter\s*\{[^]*projects\s*=\s*\["projects\/\$\{data\.google_project\.this\.number\}"\]/);
   });
 
   it('usa var.billing_account y nombra el presupuesto con var.project_prefix', () => {

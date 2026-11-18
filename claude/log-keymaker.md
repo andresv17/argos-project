@@ -1361,3 +1361,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T822 pruebas rojas del presupuesto de 5 USD (N2-05, N2-04, NFR-CLD-001) (sin push, sin [x])
 - Nuevo tests/unit/terraform-budget-escena-006.spec.ts: budget_units 22500 con COP (5x4500), validación que admite "22500" y "5", descripciones con 5 USD, filtro por proyecto (projects/<número>) sin labels, display_name sin «1-usd», umbrales 50/90/100 y depends_on intactos, texto de NFR-CLD-001 con Enmienda 006.
 - Rojo 5/7; tsc 0; gates CUMPLE. Nota: el plan 006 §6 menciona «umbral previsto al 100 %» pero T822/T823 no lo piden; no se añade un cuarto umbral (H-KEY-F2-2).
+
+## 2026-11-18 Keymaker: T823 enmienda de NFR-CLD-001, budget.tf y variables.tf (N2-05, N2-04) (sin push, sin [x])
+- spec 003 NFR-CLD-001 (5 USD, Enmienda 006, filtro por proyecto, solo avisa, Neo verifica moneda); budget.tf (filtro projects/<número>, display_name sin «1-usd», comentario) y variables.tf (budget_units 22500, descripciones). terraform-budget.spec: 4500 -> 22500 y filtro por proyecto. README de terraform al día.
+- Verde: t822 7/7, terraform-* 18 archivos; suite completa solo con rojos documentados (T813 x5, T815 x18). T824 queda para Neo (moneda real); no se ejecutó gcloud/terraform. 22500 COP por defecto hasta su confirmación.

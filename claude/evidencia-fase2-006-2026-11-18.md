@@ -216,3 +216,16 @@ verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
 verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 319; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
 ```
 Rojo esperado hasta T823 (5/7).
+
+## T823 verde (presupuesto 5 USD / 22500 COP)
+```
+npx vitest run tests/unit/terraform-budget-escena-006.spec.ts tests/unit/terraform-budget.spec.ts
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 002 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 319; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
+```
+Suite completa: 23 fallos = 5 de T813 (hasta T833+T814) + 18 de T815 (hasta T868); 4045 verdes. Suite de 003 cambiada por la enmienda: terraform-budget.spec (4500 -> 22500; filtro label -> proyecto). T824 (verificación humana de la moneda por Neo) sigue pendiente de Neo: no se ejecutó gcloud ni terraform; 22500 COP queda por defecto hasta que Neo confirme.
