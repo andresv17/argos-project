@@ -1286,3 +1286,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T803 pruebas rojas del compilador fusionado 006 (sin push, sin [x])
 - Creado tests/integration/contracts/t803-compilador-006.spec.ts (21 pruebas): v34 con barrel/validadores/maquina/cliente, union 004+005+006 con duplicados prohibidos, herencia, metadata, guardas de destino, v34 ajeno para 001/002/005, deriva src/generated/v34.
 - Rojo: 19/21 fallan ("Feature desconocida: 006"). La prueba de guarda 005->v34 escribio en src/generated/v34/v33 durante el rojo (005 aun sin guarda); contaminacion borrada a mano antes de commitear.
+
+## 2026-11-18 Keymaker: T804 rama 006 en compile-contracts.sh + src/generated/v34 (sin push, sin [x])
+- scripts/compile-contracts.sh: rama 006 (union catalogos 004+005+006 con duplicados prohibidos, herencia contra la union, metadata, ensayo 004+006 con $ref absolutos a common normalizados a ../schemas/), v34 en las listas de directorios ajenos y en la guarda de la 005. Compilado con el script (nada a mano): src/generated/v34/.
+- tests/integration/contracts/codegen-drift.spec.ts: solo se anade v34 a la lista de directorios ajenos (no se debilita ninguna asercion). Verde: t803 21/21; contracts 14 archivos 549/549; tsc 0.
