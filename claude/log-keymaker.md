@@ -1278,3 +1278,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T801 pruebas rojas compuerta 006 (sin push, sin [x])
 - Creado tests/integration/gates/t801-compuerta-006.spec.ts (10 pruebas: 8 fixtures + 2 sobre el repo real). Rojo: 7/10 fallan (EDGE/SC/rangos no reconocidos, tarea sin ID pasa, sin spec->tasks 1:1, repo real FAIL por evidencia bloqueante y 98 IDs sin EDGE/SC).
 - Alcance: solo tests/; scripts/ intactos hasta T802. Dep: ninguna.
+
+## 2026-11-18 Keymaker: T802 rama FEAT6 en verify-traceability.sh (sin push, sin [x])
+- scripts/verify-traceability.sh: FEAT6 (NUM_ID con EDGE y segmento ESC6, RANGE, OWNED_006, spec->tasks 1:1 con catalogo, tarea sin ID falla, evidencia informativa salvo SDD_STRICT_EVIDENCE=1). 001..005 sin cambio de rama.
+- Verde: t801 10/10; --feature 006 CUMPLE (195/195 propios, 30/233 con evidencia informativa); 001 113/113 y 002 119/119 CUMPLE. Autorizado por N2-08.

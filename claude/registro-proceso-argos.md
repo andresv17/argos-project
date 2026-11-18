@@ -1357,3 +1357,4 @@
 - 2026-11-18 | Oracle | tasks.md 006: PASS CON OBS (196/196 cobertura, 0 ciclos; colisión T6##/T7## con 004/005 no rompe compuertas; OBS numeración). Informe oracle-006-tasks.md.
 - 2026-11-18 | Architect | 006 renumerada T601..T798 -> T801..T885 (85 tareas, 0 huérfanas, 188/188 cobertura); OBS-2 aclarado: checkpoint T825 (ex T639) cierra tras T833 de Fase 4. Sin commit.
 - 2026-11-18 | Keymaker | T801 pruebas rojas compuerta 006 escritas (7/10 rojas), commit local pendiente; sin push ni [x].
+- 2026-11-18 | Keymaker | T802 verify-traceability.sh rama FEAT6: t801 verde, 006/001/002 CUMPLE; sin push ni [x].
