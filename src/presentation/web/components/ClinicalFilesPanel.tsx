@@ -6,7 +6,7 @@
  *
  * `ClinicalFilesPanelView` es presentacional; `ClinicalFilesPanel` es el contenedor con estado y peticiones.
  *
- * @implements REQ-CLI5-001, REQ-CLI5-003, REQ-ARC-001, REQ-ARC-002, REQ-ARC-003, INV-ARC-004, SC-005-001, SC-005-007, SC-005-008, SC-005-010
+ * @implements REQ-CLI5-001, REQ-CLI5-002, REQ-CLI5-003, REQ-ARC-001, REQ-ARC-002, REQ-ARC-003, INV-ARC-004, NFR-005-003, SC-005-001, SC-005-007, SC-005-008, SC-005-009, SC-005-010, SC-005-011
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from './Field.tsx';
