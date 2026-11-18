@@ -33,6 +33,13 @@ describe('T735 sin tipo ni fecha de examen (REQ-CLI5-002, D5-04; SC-005-011)', (
     expect(read('specs/004-catalogos-registros-archivos/contracts/openapi/pet-tracker-api.openapi.yaml')).not.toMatch(/examType|examDate|EXAM_RESULT|XRAY/i);
   });
 
+  it('REQ-CLI5-002: sin tipo ni fecha de examen, el rótulo es el nombre original y la fecha es created_at (D5-04 firmada)', () => {
+    const props = Object.keys(MEDIA_SCHEMA.$defs['MediaItem']!.properties!);
+    expect(props).toContain('originalName');
+    expect(props).toContain('createdAt');
+    expect(props.filter((p) => /exam|type|tipo/i.test(p))).toEqual([]);
+  });
+
   it('[SC-005-011] la tabla pet_media no tiene columnas de tipo ni de fecha de examen: solo las 7 de 004', () => {
     const db = openSqliteDatabase(IN_MEMORY_DATABASE);
     try {
