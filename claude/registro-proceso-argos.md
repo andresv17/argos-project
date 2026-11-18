@@ -1370,3 +1370,4 @@
 - 2026-11-18 | Keymaker | T812 enmienda INV-ARC-003 claves scenes/households + assertListPrefix; media 167 verdes, oráculos 006 CUMPLE, tsc 0; sin push ni [x].
 - 2026-11-18 | Keymaker | T813 pruebas rojas countBytesOfOwner+household_photos (5 rojas, tsc 0, oráculos CUMPLE); T814 diferida hasta T833; sin push ni [x].
 - 2026-11-18 | Keymaker | T815 pruebas rojas ganchos privacidad 7 casos de uso (18 rojas, tsc 0, oráculos CUMPLE); contrato de ganchos propuesto H-KEY-F2-1; sin push ni [x].
+- 2026-11-18 | Keymaker | T816 pruebas rojas 14 APIs (3 rojas, tsc 0, gates CUMPLE); sin push ni [x].

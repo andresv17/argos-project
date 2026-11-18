@@ -99,3 +99,20 @@ npx vitest run tests/unit/ganchos-privacidad-escena-006.spec.ts
 npx tsc --noEmit -> exit 0; verify-traceability 001/002/006 CUMPLE; verify-oracles --feature 006 -> oráculos débiles: 0, CUMPLE
 ```
 HALLAZGO H-KEY-F2-1 (a /architect, T827): el puerto ScenePrivacyHooksPort no está definido en plan/tasks. El contrato de los 8 ganchos (nombres, eventos, `deps.sceneHooks` opcional) es PROPUESTO en tests/fixtures/scene-privacy-hooks-spy.ts (único archivo a cambiar si T827 lo nombra distinto). Roja hasta T862..T868 (T868 cierra la suite).
+
+## T816 rojo (REQ-IAC-009: 14 APIs)
+```
+npx vitest run tests/unit/terraform-apis-escena-006.spec.ts
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/unit/terraform-apis-escena-006.spec.ts > terraform/services.tf con 14 APIs (T816, REQ-IAC-009 enmendado por la 006) > REQ-IAC-009: habilita exactamente las 12 APIs previas más aiplatform y cloudtas
+ FAIL  tests/unit/terraform-apis-escena-006.spec.ts > terraform/services.tf con 14 APIs (T816, REQ-IAC-009 enmendado por la 006) > REQ-IAC-009: la spec de 003 declara 14 APIs y nombra las dos nuevas con su enmi
+ FAIL  tests/unit/terraform-apis-escena-006.spec.ts > terraform/services.tf con 14 APIs (T816, REQ-IAC-009 enmendado por la 006) > REQ-IAC-009: el comentario de services.tf ya no dice «solo estas 12»
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 002 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 316; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
+```
+Rojo esperado hasta T817.

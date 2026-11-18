@@ -1333,3 +1333,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T815 pruebas rojas de los 7 ganchos de privacidad (N2-06 (d)) (sin push, sin [x])
 - Nuevos tests/unit/ganchos-privacidad-escena-006.spec.ts (7 describes: pet, avatar, assignment, household, account, ownership, backup) y tests/fixtures/scene-privacy-hooks-spy.ts (contrato PROPUESTO de 8 ganchos con `deps.sceneHooks` opcional, misma transacción, evento opaco). Cada caso: llamada con evento exacto, rollback total si el gancho lanza, sin llamada si la causa se rechaza, compatibilidad sin puerto.
 - Rojo: 18 fallan, 9 pasan; tsc 0; oráculos 006 CUMPLE. H-KEY-F2-1: T827 aún no define el puerto; el nombre de cada gancho se ratifica con /architect y se cambia solo en el fixture. Cierra en T868.
+
+## 2026-11-18 Keymaker: T816 pruebas rojas de las 14 APIs (N2-05, REQ-IAC-009) (sin push, sin [x])
+- Nuevo tests/unit/terraform-apis-escena-006.spec.ts (14 APIs exactas con aiplatform y cloudtasks, un solo google_project_service, texto de REQ-IAC-009 en 003 con «14» y «Enmienda 006 ... N2-05», comentario sin «solo estas 12»). Rojo 3/4; tsc 0; gates en CUMPLE.
+- La prueba antigua terraform-root (12) se actualiza en T817 junto con services.tf. No se ejecuta terraform.
