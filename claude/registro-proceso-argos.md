@@ -1402,3 +1402,4 @@
 - 2026-11-18 | Keymaker | T842 fix pet-phrases.ts (T599 SC-CAT-033 escaneaba build-image-prompt por 'age'; suite de nuevo solo T815 x18, tsc 0); sin push ni [x].
 - 2026-11-18 | Keymaker | T843+T844 quota-window + attempt-limits (t843 15/15, rojo previo: modulo inexistente; suite solo T815 x18, tsc 0, gates CUMPLE); H-KEY-F5-3 contador FAILED; sin push ni [x].
 - 2026-11-18 | Keymaker | T845+T846 scene-state + scene-policy (t845 26/26, rojo previo: modulo inexistente; suite solo T815 x18, tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 | Keymaker | T862 cableado onPetRemoved pet/avatar (T815 18 -> 14 rojos; suite sin otros rojos, tsc 0, gates CUMPLE); sin push ni [x].

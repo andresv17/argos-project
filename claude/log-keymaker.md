@@ -1453,3 +1453,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Pruebas primero: t845 (26): rojo 'Failed to load url .../scene-state.ts'. Luego scene-state.ts (transitionScene desde STATE_SCENE_001, deriveStatus de 7 reglas en orden estricto con leaseExpired, SCENE_STATE_ERROR_CODES vs HTTP_SCENE_ERROR_CODES) y scene-policy.ts (OWNER/ADMIN actuan, todo miembro lee, sin rol nada).
 - Decision: con imagen y huella distinta la derivacion da outdated aunque no queden entradas (necesario para SC-ESC6-010: eliminar la unica mascota habilita INCREMENTAL_REMOVE); rbac.ts intacto.
 - Verde 26/26; suite solo T815 x18; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T862 cableado de onPetRemoved en pet-use-cases (PET_DELETED) y avatar-use-cases (AVATAR_DELETED) (REQ-ESC6-029/030; EDGE-ESC6-005/021; SC-ESC6-044/045/047) (sin push, sin [x])
+- Rojo previo (T815): 18 rojos; pet x2 y avatar x2 con 'expected [] to deeply equal [{hook onPetRemoved ...}]'. Implementacion: deps.sceneHooks?.onPetRemoved(repositories, {petId, cause, now}) ANTES de la mutacion y dentro del runInTransaction; el avatar solo si habia avatar (idempotente sin avatar).
+- T815: 18 -> 14 rojos (quedan assignment, household, account, ownership, backup). La logica real de retiro (SceneLifecycleHooks) llega tras el cableado.
+- tsc 0; gates CUMPLE.

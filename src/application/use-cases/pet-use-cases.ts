@@ -140,6 +140,8 @@ export class DeletePetUseCase {
     const objectKeys = await this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, 'DELETE_PET');
+      // 006 (T862, REQ-ESC6-029/030): ANTES de borrar, la escena retira su imagen vigente si la mascota consta en ella (misma transacción; si lanza, la baja se revierte).
+      await this.deps.sceneHooks?.onPetRemoved(repositories, { petId, cause: 'PET_DELETED', now: this.deps.clock.nowIsoTimestamp() });
       // REQ-GCS-004: los medios y el avatar vigentes entran en la cola en la MISMA transacción; GCS no participa de ella.
       const keys = await repositories.mediaQueue.enqueueObjectsOfPet(petId, this.deps.clock.nowIsoTimestamp());
       await repositories.records.deleteForPet(petId);
