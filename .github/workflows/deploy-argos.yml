@@ -187,9 +187,11 @@ jobs:
           echo "::add-mask::${DB_VERSION}"
           echo "::add-mask::${HMAC_VERSION}"
           echo "::add-mask::${SHARE_HMAC_VERSION}"
-          echo "DB_VERSION=${DB_VERSION}" >> "$GITHUB_ENV"
-          echo "HMAC_VERSION=${HMAC_VERSION}" >> "$GITHUB_ENV"
-          echo "SHARE_HMAC_VERSION=${SHARE_HMAC_VERSION}" >> "$GITHUB_ENV"
+          {
+            echo "DB_VERSION=${DB_VERSION}"
+            echo "HMAC_VERSION=${HMAC_VERSION}"
+            echo "SHARE_HMAC_VERSION=${SHARE_HMAC_VERSION}"
+          } >> "$GITHUB_ENV"
 
       - name: Registrar la revisión que hoy sirve el tráfico (para retroceso)
         run: |
