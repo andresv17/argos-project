@@ -1364,6 +1364,7 @@
 - 2026-11-18 | Keymaker | T805 test:gate y test-gate.yml con 006: t805 9/9, gates y workflow 80/80; sin push ni [x].
 - 2026-11-18 | Keymaker | pin sha256 de package.json en t778 actualizado por T805; suite completa verde salvo ese pin (ahora verde); T806/T807 bloqueadas por alcance; sin push ni [x].
 - 2026-11-18 | Keymaker | T806 deploy-argos.yml (ARGOS_SCENE_* fake) y T807 bootstrap.sh (cloudtasks admin/viewer): rojas b0ab49c, verdes bc043bb; sin push ni [x].
+- 2026-11-18 Oracle: auditoria 006 Fase 1 T801..T807 PASS CON OBSERVACIONES (R-LINK-006-3 confirmado en spec/plan; ver .specify/memory/audits/oracle-006-fase1.md)
 - 2026-11-18 | Keymaker | T809 pruebas rojas esquema auditoría 004 (11 rojas, tsc 0); sin push ni [x].
 - 2026-11-18 | Keymaker | T810 enmienda auditoría 004 3.2.0 + CHECK 0013/0009 + recompilación; t809 verde, suite 3989, tsc 0; sin push ni [x].
 - 2026-11-18 | Keymaker | T811 pruebas rojas claves scenes/households INV-ARC-003 (13 rojas, tsc 0); sin push ni [x].
@@ -1378,11 +1379,14 @@
 - 2026-11-18 | Keymaker | T821 REQ-CLD-002 120 s / 1 GiB + cloud_run.tf (t820 verde, terraform-* verdes, tsc 0, sin apply); sin push ni [x].
 - 2026-11-18 | Keymaker | T822 pruebas rojas presupuesto 5 USD/22500 COP (5 rojas, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T823 NFR-CLD-001 5 USD/22500 COP + budget.tf/variables.tf (t822 verde, suite solo con rojos T813/T815, tsc 0; T824 pendiente de Neo); sin push ni [x].
+- 2026-11-18 | Oracle | Auditoria 006 Fase 2 (T809..T823): PASS CON OBSERVACIONES (23 rojos declarados, gates CUMPLE, enmiendas 003/004 conformes); informe oracle-006-fase2.md; sin commit.
+- 2026-11-18 | Architect | Ratificado ScenePrivacyHooksPort (8 ganchos, misma transaccion; plan.md §1.2, T827 aclarada); cobertura 7/7 N2-06(d); sin commit ni [x].
 - 2026-11-18 | Keymaker | T826 pruebas rojas pureza de capas/entropia de la escena (2 rojas hasta T827, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T827 puertos escena + ganchos de privacidad nulos + deps.sceneHooks? + fixture espia ajustado (t826 9/9, t827 verdes, tsc 0, gates CUMPLE, solo rojos T813/T815); sin push ni [x].
 - 2026-11-18 | Keymaker | T828 RepositorySet +scenes/sceneConsents nulos en memoria/SQLite/PG + SCENE_LOCK_ORDER (t828 7/7, claves PG 15->17, tsc 0, gates CUMPLE, solo rojos T813/T815); sin push ni [x].
 - 2026-11-18 | Keymaker | T829 pruebas rojas app-config ARGOS_SCENE_* x9 + T_LEASE/T_QUEUE (57 rojas de 59, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T830 app-config ARGOS_SCENE_* x9 + T_LEASE/T_QUEUE + activacion false (t829 59/59; 6 suites de production de 003/004 con fixture PROD_SCENE, H-KEY-F3-2; solo rojos T813/T815, tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 [oracle] Auditoria 006 Fase 3 (T826..T830): PASS CON OBSERVACIONES; H-KEY-F3-2 = (A); vitest 23 rojos esperados (T813x5, T815x18). Informe .specify/memory/audits/oracle-006-fase3.md
 - 2026-11-18 | Keymaker | T831 pruebas rojas paridad/migracion escena (schema-parity 23->29 tablas, t831 x11; 16 rojos nuevos + T813 x5 esperados, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T832 SQLite 0013_home_scenes (6 tablas + 6 indices; t831 SQLite verde; paridad Postgres roja hasta T833; solo rojos T813/T815 + paridad, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T833 Postgres 0009_home_scenes paridad exacta (schema-parity y paridad viva en postgres:17 local 39/39 verde; solo rojos T813/T815, tsc 0, gates CUMPLE); sin push ni [x].
@@ -1390,3 +1394,5 @@
 - 2026-11-18 | Keymaker | T814 countBytesOfOwner suma foto del hogar (t813 5/5 verde; suite con PG real solo T815 x18, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T835 purga diaria de escena + conciliacion scenes/ y households/ (t835 7/7 verde, rojo previo 7; suite con PG real solo T815 x18, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T836 exclusion del respaldo + runbook (61 verdes, rojo previo 6; H-KEY-F4-1 columnas sin FK en paso 3; suite solo T815 x18, tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 [oracle] Auditoria 006 Fase 4 (T831..T836, T814): PASS CON OBSERVACIONES; H-KEY-F4-1 confirmado como brecha B10 (runbook); T825 parte oracle CERRABLE, merovingian pendiente; PG real reproducido; solo T815 x18 rojo. Informe .specify/memory/audits/oracle-006-fase4.md
+- 2026-11-18 | Keymaker | H-KEY-F4-1 corregido en runbook paso 3 (limpia 3 columnas sin FK, cola de objetos, referencias_restantes; rojo 5 -> verde 39/39); migraciones intactas; sin push ni [x].

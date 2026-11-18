@@ -1420,3 +1420,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - Pruebas primero: backup-restore-runbook-docs.spec (+5 pruebas de la subseccion 006) y backup-runbook-hardening.spec (+2): rojo 6 (falta la subseccion). backup-31-roundtrip (+2): la exportacion es byte a byte igual con y sin escena/foto/consentimiento/arrastre y no nombra sus tablas; importar no restaura ni crea escena (son pruebas de fijacion: ya verdes, protegen contra regresiones; 0009 anadida al esquema PG real).
 - terraform/README.md: subseccion 'Fuera del respaldo exportable (feature 006)' (no viajan en el sobre 3.x, importar no restaura, foto cuenta en 1 GiB y escenas no, pg_dump sin objetos y conciliacion 15 min, cascadas del paso 3, ventana PITR). Hallazgo H-KEY-F4-1: scene_attempts.actor_user_id, scene_image_sources.owner_user_id y household_photos.uploaded_by_user_id no tienen FK y el paso 3 de restauracion no las elimina; documentado como decision pendiente, sin tocar el SQL del runbook.
 - Verde 61/61; suite sin y con PG real: solo T815 x18; tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: H-KEY-F4-1 corregido en el runbook (opcion (a)); sin tocar migraciones; sin push, sin [x]
+- Pruebas primero: +5 en backup-restore-runbook-docs.spec (3 columnas, DELETE antes de users, cola media_deletion_queue, referencias_restantes, texto): rojo 5; verde 24/24 y hardening 15/15.
+- terraform/README.md paso 3: 2 INSERT en media_deletion_queue (households/ y scenes/, omite la imagen vigente) + DELETE de scene_attempts, scene_image_sources y household_photos antes de DELETE FROM users; referencias_restantes suma las 3 columnas. La FK (opcion (b)) sigue pendiente de Neo.
+- tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.

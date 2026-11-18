@@ -220,3 +220,55 @@ describe('006: la foto del hogar y las escenas quedan fuera del respaldo y del d
     expect(fuera()).toMatch(/ON DELETE CASCADE/);
   });
 });
+
+describe('006: el paso 3 limpia las 3 columnas sin FK de la escena para las cuentas olvidadas (H-KEY-F4-1, REQ-PG-016, REQ-ESC6-018)', () => {
+  const sqlPaso3 = (): string => bloques(seccion(), 'bash').find((b) => b.includes('CREATE TEMP TABLE olvidados')) as string;
+  const COLUMNAS: Array<[string, string]> = [
+    ['scene_attempts', 'actor_user_id'],
+    ['scene_image_sources', 'owner_user_id'],
+    ['household_photos', 'uploaded_by_user_id'],
+  ];
+
+  it('[H-KEY-F4-1] el SQL del paso 3 borra las filas de las 3 columnas sin FK por cuenta olvidada', () => {
+    const b = sqlPaso3();
+    for (const [tabla, col] of COLUMNAS) expect(b).toMatch(new RegExp(`DELETE FROM ${tabla}\\b[^;]*${col} IN \\(SELECT id FROM olvidados\\)`));
+  });
+
+  it('[H-KEY-F4-1] esos DELETE van antes de DELETE FROM users', () => {
+    const b = sqlPaso3();
+    const users = b.indexOf('DELETE FROM users WHERE id IN');
+    expect(users).toBeGreaterThan(0);
+    for (const [tabla] of COLUMNAS) {
+      const i = b.search(new RegExp(`DELETE FROM ${tabla}\\b`));
+      expect(i, `falta DELETE FROM ${tabla}`).toBeGreaterThanOrEqual(0);
+      expect(i).toBeLessThan(users);
+    }
+  });
+
+  it('[H-KEY-F4-1] encola en media_deletion_queue (reason DELETE) los objetos de escena y de foto del hogar antes de borrar sus filas', () => {
+    const b = sqlPaso3();
+    const cola = [...b.matchAll(/INSERT INTO media_deletion_queue[^;]*;/g)].map((m) => m[0]);
+    expect(cola.length).toBeGreaterThanOrEqual(2);
+    expect(cola.join('\n')).toMatch(/'scenes\/'/);
+    expect(cola.join('\n')).toMatch(/'households\/'/);
+    expect(cola.join('\n')).toContain("'DELETE'");
+    expect(cola.join('\n')).toMatch(/ON CONFLICT \(object_key\) DO NOTHING/);
+    const iAtt = b.search(/DELETE FROM scene_attempts\b/);
+    const iFoto = b.search(/DELETE FROM household_photos\b/);
+    expect(b.indexOf("'scenes/'")).toBeLessThan(iAtt);
+    expect(b.indexOf("'households/'")).toBeLessThan(iFoto);
+  });
+
+  it('[H-KEY-F4-1] referencias_restantes cuenta las 3 columnas para que cero referencias sea verdadero', () => {
+    const b = sqlPaso3();
+    const q = b.slice(b.indexOf('SELECT (SELECT count(*)'));
+    expect(q).toContain('referencias_restantes');
+    for (const [tabla, col] of COLUMNAS) expect(q).toMatch(new RegExp(`count\\(\\*\\) FROM ${tabla} WHERE ${col} IN \\(SELECT id FROM olvidados\\)`));
+  });
+
+  it('[H-KEY-F4-1] el texto ya no dice que el paso 3 no elimina esas columnas', () => {
+    const s = seccion();
+    expect(s).not.toMatch(/el paso 3 no las elimina/);
+    expect(s).toMatch(/H-KEY-F4-1[^\n]*(corregid|limpia)/i);
+  });
+});

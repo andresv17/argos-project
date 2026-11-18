@@ -129,7 +129,7 @@ La escena del hogar en pixel art (REQ-ESC6-022, REQ-ESC6-018, REQ-ESC6-029; T836
 - La foto del hogar cuenta en la cuota de 1 GiB del propietario del hogar (`households.owner_user_id`, no de quien la sube, REQ-ARC-005); las escenas no cuentan.
 - El `pg_dump` semanal guarda las filas de la base (incluidas las 6 tablas de la escena y la referencia de la foto del hogar) y no incluye los objetos de Cloud Storage de los prefijos `scenes/` y `households/`. Tras restaurar, la conciliación diaria (`/internal/maintenance`, una sola rutina) encola con `DELETE` los objetos de esos prefijos sin referencia con más de 15 min (24 h en `pets/`).
 - Eliminar la cuenta, la mascota o el hogar purga sus objetos de escena (`media_deletion_queue`); en la restauración, el paso 3 elimina las tablas de la escena por `ON DELETE CASCADE` (`home_scenes`, `scene_attempts`, `scene_image_sources` y `household_photos` con el hogar; `scene_consents`, `scene_quota_carry` y las escenas sin hogar con la cuenta).
-- Quedan sin clave foránea, por diseño, `scene_attempts.actor_user_id`, `scene_image_sources.owner_user_id` y `household_photos.uploaded_by_user_id` (seudonimizadas con HMAC al eliminar la cuenta en la base viva): el paso 3 no las elimina en la base restaurada y este runbook no lo corrige (queda para decisión, H-KEY-F4-1).
+- Quedan sin clave foránea, por diseño, `scene_attempts.actor_user_id`, `scene_image_sources.owner_user_id` y `household_photos.uploaded_by_user_id` (seudonimizadas con HMAC al eliminar la cuenta en la base viva). H-KEY-F4-1 corregido en el runbook: el paso 3 las limpia explícitamente para las cuentas olvidadas (encola antes en `media_deletion_queue` los objetos de `scenes/` y `households/`) y `referencias_restantes` las cuenta; añadir una clave foránea en el esquema (opción (b)) queda para decisión de Neo.
 - Ventana residual: PITR y los volcados conservan filas de escena hasta su vencimiento (`RR-06-07`, `REQ-BOR-004`); las imágenes y fotos viven solo en el bucket de medios.
 
 ### Restauración sin resurrección (REQ-PG-016)
@@ -165,6 +165,19 @@ DELETE FROM household_members WHERE user_id IN (SELECT id FROM olvidados);
 DELETE FROM households WHERE owner_user_id IN (SELECT id FROM olvidados);
 DELETE FROM sessions WHERE user_id IN (SELECT id FROM olvidados);
 DELETE FROM login_attempts WHERE username IN (SELECT username FROM users WHERE id IN (SELECT id FROM olvidados));
+-- H-KEY-F4-1: columnas de la escena sin FK. Primero se encolan los objetos (la conciliacion diaria borra del almacen), despues se borran las filas.
+INSERT INTO media_deletion_queue (object_key, reason, enqueued_at, attempts)
+  SELECT 'households/' || household_id || '/photo/' || object_id, 'DELETE', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 0
+  FROM household_photos WHERE uploaded_by_user_id IN (SELECT id FROM olvidados)
+  ON CONFLICT (object_key) DO NOTHING;
+INSERT INTO media_deletion_queue (object_key, reason, enqueued_at, attempts)
+  SELECT 'scenes/' || a.scene_id || '/images/' || a.result_object_id, 'DELETE', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 0
+  FROM scene_attempts a JOIN home_scenes s ON s.id = a.scene_id
+  WHERE a.actor_user_id IN (SELECT id FROM olvidados) AND s.image_id IS DISTINCT FROM a.result_object_id
+  ON CONFLICT (object_key) DO NOTHING;
+DELETE FROM scene_attempts WHERE actor_user_id IN (SELECT id FROM olvidados);
+DELETE FROM scene_image_sources WHERE owner_user_id IN (SELECT id FROM olvidados);
+DELETE FROM household_photos WHERE uploaded_by_user_id IN (SELECT id FROM olvidados);
 DELETE FROM users WHERE id IN (SELECT id FROM olvidados);
 SELECT (SELECT count(*) FROM pets WHERE owner_user_id IN (SELECT id FROM olvidados))
      + (SELECT count(*) FROM households WHERE owner_user_id IN (SELECT id FROM olvidados))
@@ -173,6 +186,9 @@ SELECT (SELECT count(*) FROM pets WHERE owner_user_id IN (SELECT id FROM olvidad
      + (SELECT count(*) FROM household_invitations WHERE invited_by_user_id IN (SELECT id FROM olvidados) OR invitee_user_id IN (SELECT id FROM olvidados))
      + (SELECT count(*) FROM backup_confirmation_tokens WHERE user_id IN (SELECT id FROM olvidados))
      + (SELECT count(*) FROM rate_limit_events WHERE subject_user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM scene_attempts WHERE actor_user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM scene_image_sources WHERE owner_user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM household_photos WHERE uploaded_by_user_id IN (SELECT id FROM olvidados))
      + (SELECT count(*) FROM users WHERE id IN (SELECT id FROM olvidados)) AS referencias_restantes;
 SQL
 ```
