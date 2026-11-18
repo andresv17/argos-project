@@ -1302,3 +1302,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: ajuste del pin de package.json en T778 por T805 (sin push, sin [x])
 - La suite completa (3964 verdes) mostro 1 rojo: t778 fija el sha256 de package.json; el cambio autorizado de test:gate lo altera. Actualizado el hash (lock intacto, mismo hash) con comentario de trazabilidad T805/N2-08; /oracle debe revisarlo.
 - Alcance: T806 (deploy-argos.yml) y T807 (terraform/bootstrap.sh) quedan BLOQUEADAS por alcance del encargo (deploy-argos.yml no listado; terraform/ prohibido).
+
+## 2026-11-18 — T806 y T807 (N2-08)
+- Pruebas rojas b0ab49c: t806-deploy-argos-escena-006.spec.ts (3/5 rojas) y t807-bootstrap-cloudtasks-006.spec.ts (3/4 rojas).
+- Implementación bc043bb: deploy-argos.yml añade ARGOS_SCENE_* (DRIVER=fake fijo, nunca real; WORKER_URL=${PUBLIC_BASE_URL}/internal/scene-worker; sin secretos nuevos, ARGOS_SHARE_* intactas); bootstrap.sh añade roles/cloudtasks.viewer (plan) y cloudtasks.admin (apply) en los bucles existentes (idempotentes).
+- Hallazgo: plan §1.3 exige driver real en producción y fake falla al arrancar allí; con N2-10 (no merge a main hasta la compuerta real) queda como riesgo R-LINK-006-3 aceptado. Sin push, sin [x], nada ejecutado.
