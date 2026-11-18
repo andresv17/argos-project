@@ -66,15 +66,37 @@ function frameworkFailure(deps: ApplicationDeps, ip: string, reply: FastifyReply
   return sendProblem(reply, new DomainErrorV33('ERR-SHARE-NOT-FOUND'));
 }
 
+/** Token que jamás existe (los reales son 256 bits aleatorios): lo usa la resolución de relleno de los fallos del framework. */
+const NEVER_A_TOKEN = '0'.repeat(43);
+
+/**
+ * Manejador ÚNICO de los fallos que genera el framework antes de llegar a una ruta pública (ruta no definida, barra final, parámetro largo, URL mal codificada,
+ * verbos no registrados). Un `GET` ejecuta la MISMA resolución que un token inexistente (misma secuencia de puertos, cuenta para la tasa y agrega el fallo a la
+ * auditoría): así un parámetro largo o una URL rara no se distingue de un token desconocido (INV-005-007, SC-005-050). Cualquier otro verbo no resuelve nada (REQ-VET-006):
+ * solo cuenta para la tasa. Responde siempre el 404 uniforme (o el 429 si la IP ya agotó sus fallos).
+ */
+export function createSharedFailure(useCases: RouteContext['useCases'], deps: ApplicationDeps): (request: FastifyRequest, reply: FastifyReply) => Promise<FastifyReply> {
+  return async (request, reply) => {
+    if (request.method !== 'GET') return frameworkFailure(deps, request.ip, reply);
+    try {
+      await useCases.sharedSummary.execute(NEVER_A_TOKEN, request.ip);
+    } catch (error) {
+      return sendProblem(reply, error instanceof DomainErrorV33 && error.code === 'ERR-SHARE-RATE-LIMITED' ? error : new DomainErrorV33('ERR-SHARE-NOT-FOUND'));
+    }
+    return sendProblem(reply, new DomainErrorV33('ERR-SHARE-NOT-FOUND'));
+  };
+}
+
 /**
  * `frameworkErrors` de la instancia (se pasa a `Fastify(...)`): las URL mal codificadas (`FST_ERR_BAD_URL`) llegan aquí ANTES del enrutador. Bajo `/api/shared`
  * responden el 404 uniforme; fuera de él conservan el 400 por defecto de Fastify.
  * @implements EDGE-005-25, SC-005-050
  */
-export function sharedFrameworkErrors(getDeps: () => ApplicationDeps): (error: Error, request: FastifyRequest, reply: FastifyReply) => void {
+export function sharedFrameworkErrors(getFailure: () => ((request: FastifyRequest, reply: FastifyReply) => Promise<FastifyReply>) | null): (error: Error, request: FastifyRequest, reply: FastifyReply) => void {
   return (error, request, reply) => {
-    if (isSharedApiPath(request.raw.url ?? '') || isSharedPagePath(request.raw.url ?? '')) {
-      void frameworkFailure(getDeps(), request.ip, reply);
+    const failure = getFailure();
+    if (failure !== null && (isSharedApiPath(request.raw.url ?? '') || isSharedPagePath(request.raw.url ?? ''))) {
+      void failure(request, reply);
       return;
     }
     const code = (error as { code?: string }).code ?? 'FST_ERR_BAD_URL';
@@ -83,7 +105,7 @@ export function sharedFrameworkErrors(getDeps: () => ApplicationDeps): (error: E
 }
 
 /** @implements REQ-VET-006, REQ-VET-007, REQ-VET-008, INV-005-002, INV-005-007, SC-005-020, SC-005-050 */
-export function registerSharedRoutes(app: FastifyInstance, { useCases }: RouteContext, deps: ApplicationDeps): void {
+export function registerSharedRoutes(app: FastifyInstance, { useCases }: RouteContext, failure: (request: FastifyRequest, reply: FastifyReply) => Promise<FastifyReply>): void {
   void app.register(
     async (shared) => {
       shared.addHook('onRequest', async (_request, reply) => {
@@ -96,11 +118,11 @@ export function registerSharedRoutes(app: FastifyInstance, { useCases }: RouteCo
           // Un error interno de un caso de uso sale genérico: sin detalle personalizado ni mensaje de la excepción.
           return sendProblem(reply, error.code === 'ERR-INTERNAL-UNEXPECTED' ? new DomainErrorV33('ERR-INTERNAL-UNEXPECTED') : error);
         }
-        if (typeof code === 'string' && code.startsWith('FST_')) return frameworkFailure(deps, request.ip, reply);
+        if (typeof code === 'string' && code.startsWith('FST_')) return failure(request, reply);
         request.log.error({ err: error }, 'error no previsto en la superficie pública');
         return sendProblem(reply, new DomainErrorV33('ERR-INTERNAL-UNEXPECTED'));
       });
-      shared.setNotFoundHandler((request, reply) => frameworkFailure(deps, request.ip, reply));
+      shared.setNotFoundHandler((request, reply) => failure(request, reply));
 
       shared.get<{ Params: { token: string } }>('/:token/summary', { exposeHeadRoute: false }, async (request) => useCases.sharedSummary.execute(request.params.token, request.ip));
 

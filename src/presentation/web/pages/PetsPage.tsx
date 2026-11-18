@@ -14,6 +14,7 @@ import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
 import { AvatarEditor } from '../components/AvatarCropper.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
+import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { Link } from 'react-router-dom';
 import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
@@ -27,6 +28,7 @@ import {
   type PetDashboardView,
   type PetFilterValue,
   avatarVersionOf,
+  type HouseholdView,
   type Schemas,
 } from '../view-model.ts';
 
@@ -35,7 +37,8 @@ type Mode = 'VIEW' | 'CREATE' | 'EDIT' | 'DELETE' | 'TRANSFER';
 const messageOf = (error: unknown): string => problemMessage(error instanceof ApiProblem ? error.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED'));
 
 export function PetsPage(): JSX.Element {
-  const { api } = useSession();
+  const { api, user } = useSession();
+  const [households, setHouseholds] = useState<HouseholdView[]>([]);
   const [options, setOptions] = useState<ContextOption[]>(contextOptions([]));
   const [contextId, setContextId] = useState(MINE_CONTEXT_ID);
   const [q, setQ] = useState('');
@@ -53,7 +56,10 @@ export function PetsPage(): JSX.Element {
 
   useEffect(() => {
     unwrap(api.GET('/households'))
-      .then((households) => setOptions(contextOptions(households)))
+      .then((loaded) => {
+        setHouseholds(loaded);
+        setOptions(contextOptions(loaded));
+      })
       .catch((e: unknown) => setError(messageOf(e)));
   }, [api]);
 
@@ -162,6 +168,9 @@ export function PetsPage(): JSX.Element {
   const isMine = contextId === MINE_CONTEXT_ID;
   const filtered = q.trim() !== '' || species !== '';
   const emptyHint = filtered ? undefined : isMine ? 'Usa «Nueva mascota» para añadir la primera.' : 'Quien sea dueño puede asignar mascotas al hogar desde Editar.';
+  // «Compartir con mi veterinario» (REQ-VET-001, D5-19): el alcance hogar se ofrece solo si el contexto activo es un hogar donde soy propietario o ADMIN y poseo mascotas en él.
+  const ownedInContext = isMine || user === null ? 0 : cards.filter((c) => c.profile.ownerUserId === user.id).length;
+  const shareHousehold = !isMine && ownedInContext > 0 && households.some((h) => h.household.id === contextId && h.myRole === 'ADMIN') ? { id: contextId, petCount: ownedInContext } : null;
   const householdChoices = options.flatMap((o) => (o.context.kind === 'HOUSEHOLD' ? [{ id: o.context.householdId, name: o.label }] : []));
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
@@ -249,6 +258,9 @@ export function PetsPage(): JSX.Element {
                       canUpload={dashboard.permissions.writeHealthEvents}
                       canDelete={dashboard.permissions.deleteHealthEvents}
                     />
+                    {dashboard.myRole === 'OWNER' || dashboard.myRole === 'ADMIN' ? (
+                      <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} />
+                    ) : null}
                     <Link
                       to={`/mascotas/${dashboard.profile.id}/album`}
                       className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"

@@ -55,7 +55,8 @@ describe('T767 S4 «Compartir con mi veterinario» (REQ-VET-001, REQ-VET-005, SC
     for (const label of ['Incluir el número de microchip', 'Incluir archivos clínicos']) expect(markup).toContain(label);
     expect(markup).not.toMatch(/type="checkbox"[^>]*checked/);
     expect(markup).toContain('Si no la marcas, el resumen no muestra el microchip.');
-    expect(markup).toMatch(/<input[^>]*type="radio"[^>]*value="7"[^>]*checked|<input[^>]*checked[^>]*type="radio"[^>]*value="7"|<input[^>]*value="7"[^>]*checked/);
+    expect(markup).toMatch(/<input[^>]*name="expiresInDays"[^>]*checked=""[^>]*value="7"/);
+    expect(markup.match(/name="expiresInDays"[^>]*checked=""/g)).toHaveLength(1);
     expect(markup.match(/type="radio"[^>]*name="expiresInDays"/g)).toHaveLength(3);
     expect(markup).not.toContain('role="switch"');
   });
@@ -87,7 +88,7 @@ describe('T767 S4 «Compartir con mi veterinario» (REQ-VET-001, REQ-VET-005, SC
     expect(markup).toContain('Enlace creado');
     expect(markup).toContain('Este enlace no se vuelve a mostrar. Cópialo ahora.');
     expect(markup).toContain(url);
-    expect(markup).toMatch(/<input[^>]*readOnly=""[^>]*autoComplete="off"|<input[^>]*autoComplete="off"[^>]*readOnly=""/);
+    expect(markup).toMatch(/<input[^>]*readonly=""[^>]*autoComplete="off"|<input[^>]*autoComplete="off"[^>]*readonly=""/);
     expect(markup).not.toMatch(/autoFocus|autofocus/);
     expect(markup).toContain('Copiar enlace');
     expect(markup).toContain('Microchip: no incluido');

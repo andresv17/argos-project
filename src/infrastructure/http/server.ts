@@ -23,6 +23,9 @@ import { SlidingWindowRateLimiterAdapter, rateLimitsFrom } from '../adapters/sli
 import { ScryptPasswordHasherAdapter } from '../adapters/scrypt-password-hasher.adapter.ts';
 import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
 import { DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
+import { DEVELOPMENT_SHARE_IP_HMAC_SECRET, loadShareConfig } from '../config/share-config.ts';
+import { CryptoTokenGenerator } from '../adapters/crypto-token-generator.adapter.ts';
+import { SharedAccessLimiter } from '../../application/sharing/shared-access-limiter.ts';
 import type { MediaStoragePort } from '../../application/ports/media-storage.port.ts';
 import { runMaintenance, type MediaQueueResult } from '../../application/use-cases/maintenance-use-cases.ts';
 import { buildApp } from './app.ts';
@@ -88,6 +91,11 @@ export interface ProductionAppOptions {
   readonly staticRoot?: string;
   /** Sustituye la sonda de /readyz (solo pruebas); por defecto la de la persistencia activa. */
   readonly checkReady?: () => Promise<void>;
+  /**
+   * Clave HMAC dedicada de la IP del enlace veterinario (`ARGOS_SHARE_IP_HMAC_SECRET`, feature 005). Ausente: en local (host 127.0.0.1) rige la clave fija de
+   * desarrollo; en producción (host 0.0.0.0) el enlace queda DESACTIVADO (sin `deps.sharing`: la creación falla cerrada y la ruta pública responde el 404 uniforme).
+   */
+  readonly shareIpHmacSecret?: string | null;
 }
 
 export async function createProductionApp(config: AppConfig, logger: boolean = true, options: ProductionAppOptions = {}): Promise<FastifyInstance> {
@@ -108,6 +116,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     clock,
     warn: (warning) => logging.app?.log.warn({ platformParameter: warning }, 'parámetro de plataforma ausente o inválido: se usa el valor por defecto del código'),
   });
+  const shareSecret = options.shareIpHmacSecret ?? (config.host === '0.0.0.0' ? null : DEVELOPMENT_SHARE_IP_HMAC_SECRET);
   const deps: ApplicationDeps = {
     uow: persistence.uow,
     clock,
@@ -122,6 +131,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     auditHmacSecret: config.auditHmacSecret ?? DEVELOPMENT_AUDIT_HMAC_SECRET,
     auditIds: ids,
     platformParameters,
+    ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter() } }),
     ...(mediaStorage === null
       ? {}
       : {
@@ -192,7 +202,7 @@ function scheduleMaintenance(app: FastifyInstance, deps: ApplicationDeps): void 
 
 /** @implements INV-ARCH-006 */
 export async function startServer(config: AppConfig = loadAppConfig()): Promise<FastifyInstance> {
-  const app = await createProductionApp(config);
+  const app = await createProductionApp(config, true, { shareIpHmacSecret: loadShareConfig().ipHmacSecret });
   if (config.dbDriver === 'sqlite') scheduleMaintenance(app, maintenanceDeps.get(app)!);
   await app.listen({ host: config.host, port: config.port });
   return app;

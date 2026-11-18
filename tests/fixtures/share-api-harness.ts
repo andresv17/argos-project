@@ -55,7 +55,7 @@ export interface ShareApi {
   close(): Promise<void>;
 }
 
-export async function createShareApi(options: { readonly role?: 'ADMIN' | 'CAREGIVER' | 'READER'; readonly limiter?: SharedAccessLimiter } = {}): Promise<ShareApi> {
+export async function createShareApi(options: { readonly role?: 'ADMIN' | 'CAREGIVER' | 'READER'; readonly limiter?: SharedAccessLimiter; readonly staticRoot?: string } = {}): Promise<ShareApi> {
   const state = canonicalState();
   if (options.role !== undefined) (state.memberships.find((m) => m.userId === 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02') as { role: string }).role = options.role;
   const db = openSqliteDatabase(IN_MEMORY_DATABASE);
@@ -71,7 +71,7 @@ export async function createShareApi(options: { readonly role?: 'ADMIN' | 'CAREG
   const deps: ApplicationDeps = { ...base, uow: recording(uow, calls), media: { storage, limits: DEFAULT_LIMITS }, sharing: { tokens, ipHmacSecret: SHARE_IP_SECRET, limiter } };
   const logLines: string[] = [];
   const stream = { write: (line: string) => void logLines.push(line) };
-  const app = await buildApp({ deps, cookieSecure: false, logger: { ...cloudLoggerOptions(), stream } as never });
+  const app = await buildApp({ deps, cookieSecure: false, logger: { ...cloudLoggerOptions(), stream } as never, ...(options.staticRoot === undefined ? {} : { staticRoot: options.staticRoot }) });
 
   const toResponse = (response: LightMyRequestResponse): ShareApiResponse => {
     let json: unknown;
