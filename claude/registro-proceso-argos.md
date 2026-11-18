@@ -1400,3 +1400,4 @@
 - 2026-11-18 | Keymaker | T839+T840 decide-mode (t839 17/17, rojo previo: modulo inexistente; suite solo T815 x18, tsc 0, gates CUMPLE); H-KEY-F5-1 SC-ESC6-010 pets=[] vs REMOVE; sin push ni [x].
 - 2026-11-18 | Keymaker | T841+T842 prompt/payload/sanitize (t841 22/22, rojo previo: modulo inexistente; suite solo T815 x18, tsc 0, gates CUMPLE); H-KEY-F5-2 tabla ingles y estilo base; sin push ni [x].
 - 2026-11-18 | Keymaker | T842 fix pet-phrases.ts (T599 SC-CAT-033 escaneaba build-image-prompt por 'age'; suite de nuevo solo T815 x18, tsc 0); sin push ni [x].
+- 2026-11-18 | Keymaker | T843+T844 quota-window + attempt-limits (t843 15/15, rojo previo: modulo inexistente; suite solo T815 x18, tsc 0, gates CUMPLE); H-KEY-F5-3 contador FAILED; sin push ni [x].

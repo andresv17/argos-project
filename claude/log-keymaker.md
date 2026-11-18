@@ -1443,3 +1443,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T842 correccion: pet-phrases.ts separa la logica de raza de build-image-prompt.ts (T599 SC-CAT-033) (sin push, sin [x])
 - Hallazgo: tras el commit de T841+T842 la suite dio 19 rojos: domain-sin-raza-peso-edad-alertas (T599, 004) escanea los archivos de src/domain cuyo nombre contiene 'age' y 'build-image-prompt.ts' lo contiene ('im-age'); no se toca el test cerrado de 004.
 - Correccion: las frases por mascota (raza, mestizo, etiqueta) viven en pet-phrases.ts y build-image-prompt.ts ya no nombra 'breed'. Verde t841 22/22 y T599 28/28; suite solo T815 x18.
+
+## 2026-11-18 Keymaker: T843+T844 quota-window y attempt-limits (REQ-ESC6-011/034; INV-ESC6-004; EDGE-ESC6-007/029/031) (sin push, sin [x])
+- Pruebas primero: t843 (15): rojo 'Failed to load url .../attempt-limits.ts'. Luego utc-instant.ts (epochMillis sin Date), quota-window.ts (ventana de todayIsoDate, restante, applyPublication T2, windowResetsAt con desfase como dato) y attempt-limits.ts (60 s, 3 FAILED/escena, 12/actor, Retry-After).
+- Hallazgo H-KEY-F5-3: SceneRepository.countAttemptsByScene cuenta TODOS los intentos; REQ-ESC6-034 pide 3 con resultado FAILED por escena: T853 ampliara el puerto con countFailedAttemptsByScene (+ instante mas antiguo). resetsAt necesita el desfase de APP_TIMEZONE como dato de composicion (ClockPort no lo expone).
+- Verde 15/15; suite solo T815 x18; tsc 0; gates CUMPLE.
