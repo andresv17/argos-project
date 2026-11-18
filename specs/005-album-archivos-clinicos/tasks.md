@@ -2,7 +2,7 @@
 
 **Input**: `specs/005-album-archivos-clinicos/` (`spec.md`, `plan.md`); lectura de `specs/004-*/` y de `claude/backlog-fase-4b.md`.
 **Estado**: `DRAFT` (borrador del Architect para aprobación de Neo, Nivel 2; revisión T707 del 2026-11-18: tareas ampliadas con las brechas EDGE de `/lock` y las podas de `/mifune`; revisión T708 del 2026-11-18: Neo resolvió `PN-01..PN-11`, ver `spec.md`; se añaden `T764a` y `T779a` para la trazabilidad de IDs de 004 y se ajustan T757, T754, T762, T764, T768, T773 y T795). Toda tarea nace `[ ]`; el techo de los agentes es `REVIEW` y solo Neo marca `COMPLETED` (`[x]`). Ningún documento está `APPROVED` ni `LOCKED`.
-**Numeración**: `T700..T797` (004 usó `T501..T617`; no se reutiliza ningún ID). Huecos deliberados dentro de cada fase para ampliaciones.
+**Numeración**: `T700..T798` (004 usó `T501..T617`; no se reutiliza ningún ID). Huecos deliberados dentro de cada fase para ampliaciones.
 
 ## Format: `[ID] [P?] [N2?] [Story] Description — REQ/SC`
 - **[P]**: paralelizable. **[N2]**: requiere autorización de Neo (migraciones, scripts de verificación, CI, Terraform, dependencias). **[GOV]**: gobernanza/gate. **[US1..US5]**: historia.
@@ -155,6 +155,7 @@
 - [ ] T795 [N2] `/link`: runbook (cuota de enlaces, rotación de parámetros por SQL, revocación de emergencia) y **compuerta técnica de restauración** (`PN-09`, `EDGE-005-32`: el script de restauración ejecuta `UPDATE share_links SET revoked_at = :now WHERE revoked_at IS NULL` antes de reabrir el tráfico, con prueba que falla si el paso falta) y revisión de `terraform plan` sin recursos de pago — NFR-005-004; SC-005-033
 - [ ] T796 Compuertas finales: `bash scripts/verify-traceability.sh --feature 005`, `bash scripts/verify-oracles.sh --feature 005`, `npx tsc --noEmit`, `npm run test:gate`; `git diff package.json` vacío — NFR-005-004; SC-005-033
 - [ ] T797 [GOV] Firma de Neo (Nivel 2): `COMPLETED` y despliegue; los agentes no marcan `[x]` — todos los REQ
+- [ ] T798 [KEY] Revocar enlaces PET en transferencia de propiedad (B-1, EDGE-005-20-bis), misma transacción; prueba de A→B→A — REQ-VET-011, REQ-VET-005, STATE-SHARE-001; SC-005-052
 
 ---
 
@@ -213,12 +214,13 @@
 | SC-005-049 | T758 |
 | SC-005-050 | T760, T761 |
 | SC-005-051 | T754 |
+| SC-005-052 | T798 |
 
 ## Dependencias y orden
 - T700 -> T701..T708 -> T709; T708 desbloquea todo `src/`.
 - Fase 2 (T710..T714) antes de T724. T766 antes de T751/T754.
 - US5 dominio (T770..T774) antes de T758. US1, US2 y US3 son independientes entre sí tras T708.
-- T790..T797 al final; T797 es exclusivo de Neo.
+- T790..T798 al final; T797 es exclusivo de Neo. T798 (B-1) depende de T768 y de la transferencia de propiedad de 004 (`ownership-use-cases.ts`).
 
 ## Deuda técnica registrada
 - `TECHDEBT-005-01`: el límite de tasa por IP en memoria no sobrevive a varias instancias; Cloud Armor sería la solución (Nivel 2, depende de `RR-07`/`TECHDEBT-004-06`).
