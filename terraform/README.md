@@ -121,6 +121,17 @@ fi
 - Límite residual aceptado (H-ORA-T441a-2; decisión de Neo, opción (a), 2026-11-16): el rol de `apply` conserva `resourcemanager.projectIamAdmin`, `serviceAccountAdmin` y `serviceAccountUser`, de modo que un `apply` comprometido podría concederse a sí mismo lectura de `dumps/`. Es un límite aceptado: `apply` en `main` es la cuenta autorizada de infraestructura. Por eso «ninguna cuenta de CI lee los dumps» se cumple como configuración nominal, no como garantía frente a un `apply` comprometido.
 - La comprobación `gcloud storage buckets get-iam-policy "gs://${BUCKET}"` no muestra los bindings heredados del proyecto (H-ORA-T441a-3). La verificación completa requiere además `gcloud projects get-iam-policy "$TF_VAR_project_id" --flatten="bindings[].members" --filter="bindings.members:serviceAccount" --format="table(bindings.role,bindings.members)"`, revisando que ninguna cuenta de servicio de CI tenga un rol con `storage.objects.get` o `storage.objects.list` (p. ej. `roles/storage.admin`, `roles/storage.objectViewer`, `roles/viewer`).
 
+### Fuera del respaldo exportable (feature 006)
+
+La escena del hogar en pixel art (REQ-ESC6-022, REQ-ESC6-018, REQ-ESC6-029; T836). Pruebas estáticas en `tests/unit/backup-restore-runbook-docs.spec.ts` y `tests/unit/backup-runbook-hardening.spec.ts`.
+
+- La foto del hogar y las escenas no viajan en el sobre de respaldo `3.x` de la aplicación (`ExportBackupUseCase`): el sobre no lleva `household_photos`, `home_scenes` ni `scene_*`. Importar un respaldo no restaura la escena: queda `idle` u `outdated`, sin imagen.
+- La foto del hogar cuenta en la cuota de 1 GiB del propietario del hogar (`households.owner_user_id`, no de quien la sube, REQ-ARC-005); las escenas no cuentan.
+- El `pg_dump` semanal guarda las filas de la base (incluidas las 6 tablas de la escena y la referencia de la foto del hogar) y no incluye los objetos de Cloud Storage de los prefijos `scenes/` y `households/`. Tras restaurar, la conciliación diaria (`/internal/maintenance`, una sola rutina) encola con `DELETE` los objetos de esos prefijos sin referencia con más de 15 min (24 h en `pets/`).
+- Eliminar la cuenta, la mascota o el hogar purga sus objetos de escena (`media_deletion_queue`); en la restauración, el paso 3 elimina las tablas de la escena por `ON DELETE CASCADE` (`home_scenes`, `scene_attempts`, `scene_image_sources` y `household_photos` con el hogar; `scene_consents`, `scene_quota_carry` y las escenas sin hogar con la cuenta).
+- Quedan sin clave foránea, por diseño, `scene_attempts.actor_user_id`, `scene_image_sources.owner_user_id` y `household_photos.uploaded_by_user_id` (seudonimizadas con HMAC al eliminar la cuenta en la base viva): el paso 3 no las elimina en la base restaurada y este runbook no lo corrige (queda para decisión, H-KEY-F4-1).
+- Ventana residual: PITR y los volcados conservan filas de escena hasta su vencimiento (`RR-06-07`, `REQ-BOR-004`); las imágenes y fotos viven solo en el bucket de medios.
+
 ### Restauración sin resurrección (REQ-PG-016)
 
 Prerrequisitos: la restauración usa el mismo secreto HMAC de auditoría que la base viva (`ARGOS_AUDIT_HMAC_SECRET`); rotarlo rompe el paso 3. `LIVE_URL` es la URL directa de la base viva; `RESTORED_URL` es la URL directa de una rama o base vacía de Neon creada para restaurar. Los archivos `*.txt` contienen seudónimos HMAC y IDs: guárdelos fuera del repositorio y bórrelos al terminar.

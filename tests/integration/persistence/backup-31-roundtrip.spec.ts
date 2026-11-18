@@ -18,7 +18,7 @@ import { closePool, createPostgresPool, type PoolClientLike, type PoolLike } fro
 import { PostgresUnitOfWork } from '../../../src/infrastructure/persistence/postgres/postgres-unit-of-work.ts';
 import { IN_MEMORY_DATABASE, openSqliteDatabase, type SqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 import { SqliteUnitOfWork } from '../../../src/infrastructure/persistence/sqlite/sqlite-unit-of-work.ts';
-import { ANDRES, createDeps, fixtures } from '../../fixtures/application-harness.ts';
+import { ANDRES, createDeps, fixtures, HOUSEHOLD } from '../../fixtures/application-harness.ts';
 import { digestOf, failure, v2, v3, validBackupState } from '../../fixtures/backup-harness.ts';
 import { seedSqlite } from '../../fixtures/sqlite-harness.ts';
 import { SpyPasswordHasher } from '../../fixtures/test-doubles.ts';
@@ -26,7 +26,7 @@ import { SpyPasswordHasher } from '../../fixtures/test-doubles.ts';
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const REPOSITORIES_PATH = '../../../src/infrastructure/persistence/postgres/postgres-repositories.ts';
 // Esquema vigente: el baseline y la 0002 (columna `revision` de los 6 registros, T540; los repositorios la leen y la escriben desde T614).
-const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql']
+const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0009_home_scenes.sql']
   .map((name) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${name}`, import.meta.url), 'utf8'))
   .join('\n');
 const SYMPTOM_ID = 'b1000000-0000-4000-8000-000000000001';
@@ -137,7 +137,59 @@ async function seedBreedAndSymptom(uow: UnitOfWorkPort) {
   return toby;
 }
 
+/** Siembra la escena del hogar con imagen vigente, foto del hogar, consentimiento, intento y arrastre de cuota (feature 006). */
+async function seedSceneData(uow: UnitOfWorkPort): Promise<void> {
+  const now = '2026-11-18T10:00:00.000Z';
+  await uow.runInTransaction(async (r) => {
+    await r.scenes.insert({
+      id: 'a1000000-0000-4000-8000-000000000001',
+      householdId: HOUSEHOLD.id,
+      ownerUserId: null,
+      runState: null,
+      currentAttemptId: null,
+      leaseExpiresAt: null,
+      image: { id: 'a3000000-0000-4000-8000-000000000001', mime: 'image/png', sizeBytes: 10, fingerprint: 'a'.repeat(64), inputsSnapshot: '{"v":1}', createdAt: now },
+      imageDegraded: false,
+      consumedGenerations: 1,
+      quotaWindow: '2026-11',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await r.scenes.putHouseholdPhoto({ householdId: HOUSEHOLD.id, objectId: 'a3000000-0000-4000-8000-000000000002', mime: 'image/jpeg', sizeBytes: 100, uploadedByUserId: ANDRES, createdAt: now });
+    await r.scenes.upsertQuotaCarry(ANDRES, '2026-11', 2);
+    await r.sceneConsents.grant({ id: 'a4000000-0000-4000-8000-000000000001', userId: ANDRES, scope: 'PET_PHOTOS', providerId: 'vertex', noticeVersion: '1', grantedAt: now, revokedAt: null });
+  });
+}
+
 function defineRoundTrip(make: MakeEngine) {
+  it('[REQ-ESC6-022][SC-ESC6-051] la foto del hogar y las escenas no viajan: la exportacion es identica con y sin escena, foto, consentimiento y arrastre, y no nombra sus tablas', async () => {
+    const { uow, exporter } = await open(make);
+    const before = (await exporter.execute(ANDRES)).json;
+    await seedSceneData(uow);
+    const after = (await exporter.execute(ANDRES)).json;
+    expect(after).toBe(before);
+    expect(after).not.toMatch(/home_scenes|household_photos|scene_|"scenes?"|sceneId|householdPhoto|image_inputs|imageFingerprint|a3000000-0000-4000-8000/);
+    expect(validateBackupEnvelopeV31(JSON.parse(after))).toBe(true);
+  });
+
+  it('[REQ-ESC6-022] importar un respaldo no restaura ni crea la escena, la foto del hogar ni el consentimiento (sin ganchos de escena conectados)', async () => {
+    const { uow, exporter, importer } = await open(make);
+    const { json } = await exporter.execute(ANDRES);
+    const counts = (): Promise<number[]> =>
+      uow.runInTransaction(async (r) => [
+        (await r.scenes.findByHouseholdId(HOUSEHOLD.id)) === null ? 0 : 1,
+        (await r.scenes.findHouseholdPhoto(HOUSEHOLD.id)) === null ? 0 : 1,
+        await r.scenes.findQuotaCarry(ANDRES, '2026-11') ?? 0,
+        (await r.sceneConsents.findByUserId(ANDRES)) === null ? 0 : 1,
+      ]);
+    expect(await counts()).toEqual([0, 0, 0, 0]);
+    await importer.execute(ANDRES, json, digestOf(json));
+    expect(await counts()).toEqual([0, 0, 0, 0]);
+    await seedSceneData(uow);
+    await importer.execute(ANDRES, json, digestOf(json));
+    expect(await counts()).toEqual([1, 1, 2, 1]); // sin gancho de escena (T867 lo agrega en la Fase 5) la importacion no toca las tablas de la escena
+  });
+
   it('la exportación 3.1.0 lleva breedCode y los síntomas, valida el esquema y no lleva medios ni mediaToDeleteCount (REQ-RAZ-003, REQ-SIN-001)', async () => {
     const { uow, exporter } = await open(make);
     const toby = await seedBreedAndSymptom(uow);

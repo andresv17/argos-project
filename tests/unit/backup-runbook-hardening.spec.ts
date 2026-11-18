@@ -72,3 +72,17 @@ describe('H-A1/H-A3: OBJ calculado una vez y nota de shell interactiva (terrafor
     expect(t).toMatch(/subshell/i);
   });
 });
+
+describe('006: el endurecimiento del respaldo sigue intacto con la escena (REQ-ESC6-022, T836)', () => {
+  it('[REQ-ESC6-022] el bloque de respaldo no cambia: sigue siendo pg_dump por pipe y no nombra ninguna tabla ni prefijo de la escena', () => {
+    const t = read('terraform', 'README.md');
+    const bloque = [...t.matchAll(/```bash\n([\s\S]*?)```/g)].map((m) => m[1] as string).find((x) => x.includes('pg_dump')) as string;
+    expect(bloque).toMatch(/pg_dump "\$DATABASE_URL_DIRECT" \| gcloud storage cp - "\$OBJ"/);
+    expect(bloque).not.toMatch(/home_scenes|household_photos|scene_|scenes\/|households\//);
+  });
+
+  it('[REQ-ESC6-022] terraform/README.md dice que la escena y la foto del hogar no viajan en el respaldo exportable', () => {
+    expect(read('terraform', 'README.md')).toMatch(/Fuera del respaldo exportable \(feature 006\)/);
+    expect(read('terraform', 'README.md')).toMatch(/no viajan en el sobre de respaldo `3\.x`/);
+  });
+});
