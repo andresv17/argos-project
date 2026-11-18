@@ -27,28 +27,29 @@ beforeAll(() => {
 });
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-async function statuses(extra: Record<string, string>): Promise<{ media: number; devIsSpaFallback: boolean }> {
+async function statuses(extra: Record<string, string>): Promise<{ media: number; hasDevRoute: boolean }> {
   const { createProductionApp } = await import('../../../src/infrastructure/http/server.ts');
   const app = await createProductionApp(loadAppConfig({ NODE_ENV: 'test', DATABASE_PATH: join(dir, `${Math.random()}.sqlite`), ...extra }), false);
   try {
     const media = await app.inject({ method: 'GET', url: `/api/pets/${PET}/media` });
     const dev = await app.inject({ method: 'GET', url: '/__dev/media/pets/x/y' });
-    // Sin ruta de desarrollo, el fallback del SPA (dist/index.html) responde HTML; con la ruta de memoria responde la propia ruta.
-    return { media: media.statusCode, devIsSpaFallback: String(dev.headers['content-type']).startsWith('text/html') };
+    // Sin ruta de desarrollo: si existe dist/ responde el fallback SPA (text/html); en CI (sin dist/) Fastify responde 404 de ruta no registrada.
+    const hasDevRoute = !String(dev.headers['content-type']).startsWith('text/html') && !dev.body.includes('Route GET:/__dev/media/pets/x/y not found');
+    return { media: media.statusCode, hasDevRoute };
   } finally {
     await app.close();
   }
 }
 
 describe('composición de medios en createProductionApp', () => {
-  it('[REQ-GCS-003] con driver gcs construye el adaptador GCS con el bucket de la configuración, compone las rutas de medios (401 sin sesión) y no expone /__dev/media (cae al fallback del SPA)', async () => {
+  it('[REQ-GCS-003] con driver gcs construye el adaptador GCS con el bucket de la configuración, compone las rutas de medios (401 sin sesión) y no expone /__dev/media (cae al fallback o 404)', async () => {
     const result = await statuses({ ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-media-test' });
-    expect([result, spies.bucket.mock.calls]).toEqual([{ media: 401, devIsSpaFallback: true }, [['argos-media-test']]]);
+    expect([result, spies.bucket.mock.calls]).toEqual([{ media: 401, hasDevRoute: false }, [['argos-media-test']]]);
   });
 
   it('[REQ-GCS-003] con driver memory no construye el adaptador GCS y conserva las rutas de medios y /__dev/media', async () => {
     spies.bucket.mockClear();
     const result = await statuses({ ARGOS_MEDIA_DRIVER: 'memory' });
-    expect([result, spies.bucket.mock.calls]).toEqual([{ media: 401, devIsSpaFallback: false }, []]);
+    expect([result, spies.bucket.mock.calls]).toEqual([{ media: 401, hasDevRoute: true }, []]);
   });
 });
