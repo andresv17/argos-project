@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { AppConfigError, DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig } from '../../src/infrastructure/config/app-config.ts';
+import { AppConfigError, DEVELOPMENT_AUDIT_HMAC_SECRET } from '../../src/infrastructure/config/app-config.ts';
+import { PROD_SCENE, loadAppConfigActivated as loadAppConfig } from '../fixtures/scene-config-fixtures.ts';
 
 /**
  * T472 (REQ-CICD-009, REQ-SEC-002, SC-CLD-018, EDGE-CLD-05): validación de DATABASE_URL y del secreto HMAC antes de crear la versión.
@@ -135,7 +136,7 @@ describe('ARGOS_AUDIT_HMAC_SECRET (REQ-SEC-002)', () => {
     async (secret) => {
       let appAccepts = true;
       try {
-        loadAppConfig({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: secret, ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' });
+        loadAppConfig({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: secret, ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE });
       } catch (e) {
         if (!(e instanceof AppConfigError)) throw e;
         appAccepts = false;

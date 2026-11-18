@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { AppConfigError, loadAppConfig } from '../../src/infrastructure/config/app-config.ts';
+import { AppConfigError } from '../../src/infrastructure/config/app-config.ts';
+import { PROD_SCENE, loadAppConfigActivated as loadAppConfig } from '../fixtures/scene-config-fixtures.ts';
 
 /**
  * T565 (SC-ALM-023, REQ-GCS-003, REQ-ARC-005, REQ-ARC-001, INV-ARCH-006): variables ARGOS_MEDIA_* de `app-config.ts`.
  */
 const BUCKET = 'argos-argos-prod-1234-media';
 const PROD_SECRET = '1f'.repeat(32);
-const PROD = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET };
+// T830 (SC-ESC6-025): en production también se exige el driver real de la escena; el fixture lo aporta para aislar la variable de medios.
+const PROD = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET, ...PROD_SCENE };
 
 function failing(env: Record<string, string | undefined>): { variables: readonly string[]; message: string } {
   try {
