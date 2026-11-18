@@ -23,11 +23,14 @@ const REVISION_PATH = new URL('../../../src/infrastructure/persistence/postgres/
 /** T711 (005): la 0007 de Postgres equivale a la 0011 de SQLite (`platform_parameters`, REQ-PRM-001, siembra `album.max_photos_per_pet = 10`). */
 const PLATFORM_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0007_platform_parameters.sql', import.meta.url);
 
+/** T766 (005): la 0008 de Postgres equivale a la 0012 de SQLite (`share_links` y `share_link_audit`, REQ-VET-003..005, REQ-VET-010, REQ-VET-013). */
+const SHARE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0008_share_links.sql', import.meta.url);
+
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
   'audit_log', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'household_invitations',
   'household_members', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'pet_assignments', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
-  'schema_migrations', 'sessions', 'users', 'vaccinations', 'weights',
+  'schema_migrations', 'sessions', 'share_link_audit', 'share_links', 'users', 'vaccinations', 'weights',
 ];
 
 /** Lista canónica de índices del esquema final (T555, 004): los que añaden las migraciones 0007/0008 (SQLite) y 0003/0004 (Postgres) y los de la 002. */
@@ -35,7 +38,8 @@ const CANONICAL_INDEXES = [
   'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
   'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
   'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'pet_assignments_household_id',
-  'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'sessions_user_id', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
+  'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'sessions_user_id', 'share_link_audit_actor', 'share_link_audit_failure_window',
+  'share_link_audit_occurred', 'share_links_created_by', 'share_links_expires', 'share_links_household_active', 'share_links_pet_active', 'share_links_revoked', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
 ];
 
 /** Diferencias de tipo justificadas en data-model.md §1: data JSON -> JSONB; indicadores 0/1 -> SMALLINT. */
@@ -115,6 +119,12 @@ function parseCreateTable(name: string, body: string): Table {
       continue;
     }
     if (item === '') continue;
+    // T766: la restricción UNIQUE de tabla (`UNIQUE (created_by_user_id, idempotency_key)`) se compara como un CHECK más (mismo texto en ambos motores).
+    const unique = /^UNIQUE \(([^)]*)\)$/i.exec(item);
+    if (unique) {
+      table.checks.push(`UNIQUE(${unique[1]!.split(',').map((c) => c.trim()).join(',')})`);
+      continue;
+    }
     const m = /^(\w+) (\w+)(.*)$/.exec(item);
     if (!m) throw new Error(`Definición no reconocida en ${name}: ${item}`);
     const tail = m[3]!;
@@ -194,7 +204,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH)]);
+const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH)]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -344,6 +354,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(RATE_SCOPE_PATH, 'utf8'));
         await client.query(readFileSync(MEDIA_PATH, 'utf8'));
         await client.query(readFileSync(PLATFORM_PATH, 'utf8'));
+        await client.query(readFileSync(SHARE_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

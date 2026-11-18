@@ -3,6 +3,8 @@
  * de memoria controlable, límite de tasa en memoria y registro de aplicación capturado (para las pruebas de centinelas, SC-005-022). A diferencia de
  * `createApi`, no valida las respuestas contra el OpenAPI de la 002/004: usa los validadores generados 3.3.0 en cada prueba.
  */
+import { request as httpRequest } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { SharedAccessLimiter } from '../../src/application/sharing/shared-access-limiter.ts';
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
@@ -16,6 +18,9 @@ import { ControlledStorage, DEFAULT_LIMITS } from './media-harness.ts';
 import { SHARE_IP_SECRET, SequentialShareTokenGenerator, recording } from './share-harness.ts';
 import { dumpSqlite, seedSqlite } from './sqlite-harness.ts';
 import { SpyPasswordHasher } from './test-doubles.ts';
+
+/** Alias cortos de los usuarios canónicos. */
+const USERNAMES: Record<string, string> = { andres: 'andres', maria: 'maria.v', carlos: 'carlos_88', lucia: 'lucia.r' };
 
 export interface ShareApiResponse {
   readonly status: number;
@@ -39,6 +44,11 @@ export interface ShareApi {
   call(method: string, url: string, options?: { cookie?: string | null; body?: unknown; csrf?: boolean; headers?: Record<string, string> }): Promise<ShareApiResponse>;
   /** Petición pública sin ninguna cabecera de la aplicación (ni CSRF ni cookie). */
   publicGet(url: string, headers?: Record<string, string>): Promise<ShareApiResponse>;
+  /**
+   * GET por un socket REAL con la línea de petición tal cual (sin que `inject` normalice `%2e%2e` ni otros segmentos): lo que un atacante envía de verdad.
+   * Escucha en un puerto efímero de 127.0.0.1 la primera vez.
+   */
+  rawGet(path: string, headers?: Record<string, string>): Promise<ShareApiResponse>;
   inject(method: string, url: string, headers?: Record<string, string>): Promise<ShareApiResponse>;
   login(username: string): Promise<string>;
   dump(): string;
@@ -97,14 +107,41 @@ export async function createShareApi(options: { readonly role?: 'ADMIN' | 'CAREG
       return inject(method, url, headers, payload);
     },
     publicGet: (url, headers = {}) => inject('GET', url, headers),
+    async rawGet(path, headers = {}) {
+      if (!app.server.listening) await app.listen({ host: '127.0.0.1', port: 0 });
+      const { port } = app.server.address() as AddressInfo;
+      return new Promise<ShareApiResponse>((resolve, reject) => {
+        const req = httpRequest({ host: '127.0.0.1', port, path, method: 'GET', headers }, (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (c: Buffer) => chunks.push(c));
+          res.on('end', () => {
+            const text = Buffer.concat(chunks).toString('utf8');
+            let json: unknown;
+            try {
+              json = text === '' ? undefined : JSON.parse(text);
+            } catch {
+              json = undefined;
+            }
+            resolve({ status: res.statusCode ?? 0, json, text, headers: res.headers as ShareApiResponse['headers'] });
+          });
+        });
+        req.on('error', reject);
+        req.end();
+      });
+    },
     inject,
-    async login(user) {
+    async login(alias) {
+      const user = USERNAMES[alias] ?? alias;
       const response = await inject('POST', '/api/auth/login', { 'x-argos-request': '1', 'content-type': 'application/json' }, JSON.stringify({ username: user, password: PASSWORDS[user] }));
       const cookie = ([] as string[]).concat(response.headers['set-cookie'] ?? [])[0]?.split(';')[0];
       if (response.status !== 200 || cookie === undefined) throw new Error(`login de ${user} falló: ${response.text}`);
       return cookie;
     },
-    dump: () => dumpSqlite(db),
+    dump: () =>
+      JSON.stringify([
+        ...(JSON.parse(dumpSqlite(db)) as unknown[]),
+        ...['pet_media', 'share_links', 'share_link_audit'].map((table) => [table, db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all()]),
+      ]),
     async close() {
       await app.close();
       db.close();

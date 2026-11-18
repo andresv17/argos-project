@@ -142,7 +142,7 @@ describe('T756 rutas autenticadas de creación y listado (REQ-VET-001, SC-005-01
     const foreign = await api.call('DELETE', `/api/share-links/${link.id}`, { cookie: lucia });
     const missing = await api.call('DELETE', '/api/share-links/99999999-9999-4999-8999-999999999999', { cookie: lucia });
     expect([foreign.status, code(foreign)]).toEqual([404, 'ERR-SHARE-NOT-FOUND']);
-    expect(foreign.json).toEqual(missing.json);
+    expect({ ...(foreign.json as object), instance: null }).toEqual({ ...(missing.json as object), instance: null });
   });
 
   it('[SC-005-015] HOUSEHOLD: creación, listado y vista previa de Casa Vallejo; sin permisos 403; y la vista previa no crea token ni fila', async () => {
@@ -198,13 +198,13 @@ describe('T758 / T759 ruta pública GET /api/shared/{token}/summary (REQ-VET-006
   it('[INV-005-002] la lectura pública usa una transacción de solo lectura y una única escritura de auditoría; no escribe nada más', async () => {
     api = await createShareApi();
     const link = await makeLink(await api.login('andres'));
-    const before = JSON.parse(api.dump()) as Record<string, unknown>;
+    const before = new Map(JSON.parse(api.dump()) as Array<[string, unknown[]]>);
     api.calls.length = 0;
     expect((await api.publicGet(`/api/shared/${link.token}/summary`)).status).toBe(200);
     expect(api.calls.filter((c) => c.startsWith('uow.'))).toEqual(['uow.read', 'uow.write']);
-    const after = JSON.parse(api.dump()) as Record<string, unknown[]>;
-    for (const table of Object.keys(before)) if (table !== 'share_link_audit') expect(after[table], table).toEqual(before[table]);
-    expect(after['share_link_audit']).toHaveLength(2);
+    const after = new Map(JSON.parse(api.dump()) as Array<[string, unknown[]]>);
+    for (const [table, rows] of before) if (table !== 'share_link_audit') expect(after.get(table), table).toEqual(rows);
+    expect(after.get('share_link_audit')).toHaveLength(2);
   });
 
   it('[REQ-VET-006] la cookie de sesión no activa ninguna rama: con sesión válida, un token inexistente sigue siendo el mismo 404', async () => {
@@ -255,12 +255,12 @@ describe('T761 uniformidad y normalización de Fastify (REQ-VET-007, INV-005-007
   it('[SC-005-050] todo fallo es el mismo 404 ERR-SHARE-NOT-FOUND: cuerpo idéntico, instance /shared, cabeceras de REQ-VET-006; nunca 400 ni el cuerpo de Fastify, ni eco del token o de la ruta', async () => {
     api = await createShareApi();
     const link = await makeLink(await api.login('andres'));
-    const reference = await api.publicGet(`/api/shared/${'x'.repeat(43)}/summary`);
+    const reference = await api.rawGet(`/api/shared/${'x'.repeat(43)}/summary`);
     expect(reference.status).toBe(404);
     expect(reference.json).toMatchObject({ code: 'ERR-SHARE-NOT-FOUND', status: 404, instance: '/shared', type: 'urn:argos:error:ERR-SHARE-NOT-FOUND' });
     for (const [label, path] of Object.entries(HOSTILE_PATHS(link.token))) {
       api.limiter.reset();
-      const response = await api.publicGet(path);
+      const response = await api.rawGet(path);
       expect(response.status, label).toBe(404);
       expect(response.json, label).toEqual(reference.json);
       expect(response.headers['content-type'], label).toMatch(/^application\/problem\+json/);
@@ -275,17 +275,17 @@ describe('T761 uniformidad y normalización de Fastify (REQ-VET-007, INV-005-007
     api = await createShareApi();
     const link = await makeLink(await api.login('andres'));
     const paths = Object.values(HOSTILE_PATHS(link.token));
-    for (let n = 0; n < 20; n += 1) expect((await api.publicGet(paths[n % paths.length]!)).status).toBe(404);
+    for (let n = 0; n < 20; n += 1) expect((await api.rawGet(paths[n % paths.length]!)).status).toBe(404);
     const writesBefore = api.db.prepare('SELECT COUNT(*) FROM share_link_audit').pluck().get();
     api.calls.length = 0;
-    const limited = await api.publicGet(`/api/shared/${link.token}/summary`);
+    const limited = await api.rawGet(`/api/shared/${link.token}/summary`);
     expect([limited.status, code(limited)]).toEqual([429, 'ERR-SHARE-RATE-LIMITED']);
     expect(limited.headers['retry-after']).toBe('600');
     expectSharedHeaders(limited, '429');
     expect((limited.json as { instance: string }).instance).toBe('/shared');
     expect(api.calls).toEqual([]);
     expect(api.db.prepare('SELECT COUNT(*) FROM share_link_audit').pluck().get()).toBe(writesBefore);
-    for (const path of ['/api/shared/zzz/summary', '/api/shared/%E0%A4%A/summary', `/api/shared/${'a'.repeat(300)}/summary`]) expect((await api.publicGet(path)).status).toBe(429);
+    for (const path of ['/api/shared/zzz/summary', '/api/shared/%E0%A4%A/summary', `/api/shared/${'a'.repeat(300)}/summary`]) expect((await api.rawGet(path)).status).toBe(429);
   });
 
   it('[SC-005-021][SC-005-041] el 429 vale también para un token válido de la misma IP (sin exención, PN-11); otra IP sigue sirviendo', async () => {

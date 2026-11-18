@@ -1,5 +1,5 @@
 /**
- * T751 / T753 / T757 [US4] dominio `sharing/` (REQ-VET-002..005, STATE-SHARE-001): formato del token y `hashToken` con `node:crypto` (MIF-005-09), caducidad
+ * T751 / T753 / T757 [US4] dominio `sharing/` (REQ-VET-002..005, STATE-SHARE-001): formato del token y `hashToken` en el dominio con SHA-256 puro verificado contra `node:crypto` (MIF-005-09; INV-ARCH-004 prohíbe `node:*` en `src/domain`), caducidad
  * {1,7,30} con el instante exacto ya VENCIDO, estado derivado REVOKED > EXPIRED > ACTIVE, `EXPIRED -> REVOKED` como no-op, TTL de la URL firmada pública
  * (<= 300 s, <= restante, mínimo 1 s), rótulo de archivo escapado («Archivo» si queda vacío) e IP efectiva (IPv6 por /64).
  */

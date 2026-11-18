@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SharedAccessLimiter } from '../../../src/application/sharing/shared-access-limiter.ts';
-import { hashToken, SHARE_TOKEN_PATTERN } from '../../../src/domain/sharing/share-token.ts';
+import { hashToken, hashesEqual, SHARE_TOKEN_PATTERN } from '../../../src/domain/sharing/share-token.ts';
 import { CryptoTokenGenerator } from '../../../src/infrastructure/adapters/crypto-token-generator.adapter.ts';
 
 describe('T752 CryptoTokenGenerator (REQ-VET-003, INV-005-005)', () => {
@@ -32,9 +32,11 @@ describe('T752 CryptoTokenGenerator (REQ-VET-003, INV-005-005)', () => {
     expect(Object.getOwnPropertyNames(CryptoTokenGenerator.prototype).sort()).toEqual(['constructor', 'nextShareToken']);
   });
 
-  it('[REQ-VET-003] la comparación del hash del dominio no se hace con === sobre cadenas de longitud distinta (tiempo constante)', () => {
-    const source = readFileSync(new URL('../../../src/domain/sharing/share-token.ts', import.meta.url), 'utf8');
-    expect(source).toMatch(/timingSafeEqual/);
+  it('[REQ-VET-003][INV-ARCH-004] la comparación del hash del dominio es en tiempo constante (acumula XOR de todos los caracteres, sin ===) y el dominio no importa node:*', () => {
+    const source = readFileSync(new URL('../../../src/domain/sharing/share-token.ts', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(source).toMatch(/\^ \(b\.charCodeAt/);
+    expect(source).not.toMatch(/from 'node:|return a === b|a === b/);
+    for (const probe of ['', 'a', hashToken('x'), hashToken('y')]) expect(hashesEqual(hashToken('x'), probe)).toBe(probe === hashToken('x'));
   });
 });
 

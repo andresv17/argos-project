@@ -26,10 +26,12 @@ export const HOUSEHOLD_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01';
 /** Genera tokens de 43 caracteres base64url deterministas (no sirven en producción: solo en pruebas). */
 export class SequentialShareTokenGenerator implements ShareTokenGeneratorPort {
   count = 0;
+  /** `prefix` distinto por conexión: dos conexiones nunca emiten el mismo token. */
+  constructor(private readonly prefix = 'share-token') {}
   readonly issued: string[] = [];
   nextShareToken(): string {
     this.count += 1;
-    const token = createHash('sha256').update(`share-token-${this.count}`).digest('base64url');
+    const token = createHash('sha256').update(`${this.prefix}-${this.count}`).digest('base64url');
     this.issued.push(token);
     return token;
   }

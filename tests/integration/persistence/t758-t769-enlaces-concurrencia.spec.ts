@@ -39,8 +39,8 @@ interface Engine {
   dispose(): Promise<void>;
 }
 
-function withSharing(deps: ApplicationDeps): ApplicationDeps {
-  return { ...deps, sharing: { tokens: new SequentialShareTokenGenerator(), ipHmacSecret: SHARE_IP_SECRET, limiter: new SharedAccessLimiter() } };
+function withSharing(deps: ApplicationDeps, prefix = 'conexion-a'): ApplicationDeps {
+  return { ...deps, sharing: { tokens: new SequentialShareTokenGenerator(prefix), ipHmacSecret: SHARE_IP_SECRET, limiter: new SharedAccessLimiter() } };
 }
 
 async function promoteMariaToAdmin(uow: UnitOfWorkPort): Promise<void> {
@@ -53,17 +53,19 @@ async function promoteMariaToAdmin(uow: UnitOfWorkPort): Promise<void> {
 async function sqliteEngine(): Promise<Engine> {
   const raw = await createSqliteConcurrentEngine();
   await promoteMariaToAdmin(raw.uowA);
+  // Una sola secuencia de ids y de tokens para la conexión A durante toda la prueba (las dependencias se reutilizan; solo cambia la unidad de trabajo).
+  const baseA = withSharing(raw.depsA(), 'conexion-a');
   return {
     name: 'SQLite',
     raw,
-    a: (uow) => withSharing(raw.depsA(uow)),
+    a: (uow) => (uow === undefined ? baseA : { ...baseA, uow }),
     b: () => {
       let client: { readonly result: Promise<unknown>; workStarts(): number } | null = null;
       return {
-        deps: withSharing(raw.depsA(raw.uowB)),
+        deps: withSharing(raw.depsA(raw.uowB), 'conexion-b'),
         starts: () => client?.workStarts() ?? 0,
         result: <T,>(call: (deps: ApplicationDeps) => Promise<T>) => {
-          client = raw.asClientB((deps) => call(withSharing(deps)));
+          client = raw.asClientB((deps) => call(withSharing(deps, 'conexion-b')));
           return client.result as Promise<T>;
         },
       };
@@ -97,13 +99,15 @@ async function postgresEngine(): Promise<Engine> {
   const { DeterministicIdAdapter } = await import('../../../src/infrastructure/adapters/deterministic-id.adapter.ts');
   const { SpyPasswordHasher } = await import('../../fixtures/test-doubles.ts');
   const ids = (prefix: string) => Array.from({ length: 300 }, (_, i) => `${prefix}-0000-4000-8000-${String(i + 1).padStart(12, '0')}`);
-  const make = (uow: UnitOfWorkPort, e: string, au: string): ApplicationDeps =>
-    withSharing({ ...createDeps(uow, new FixedClockAdapter(), new SpyPasswordHasher()), ids: new DeterministicIdAdapter(ids(e)), auditIds: new DeterministicIdAdapter(ids(au)) });
+  const make = (uow: UnitOfWorkPort, e: string, au: string, prefix: string): ApplicationDeps =>
+    withSharing({ ...createDeps(uow, new FixedClockAdapter(), new SpyPasswordHasher()), ids: new DeterministicIdAdapter(ids(e)), auditIds: new DeterministicIdAdapter(ids(au)) }, prefix);
+  const baseA = make(uowA, 'aaaaaaa1', 'aaaaaaa2', 'conexion-a');
+  const baseB = make(uowB, 'ccccccc1', 'ccccccc2', 'conexion-b');
   const raw = { dispose: async () => undefined } as unknown as ConcurrentEngine;
   return {
     name: 'PostgreSQL',
     raw,
-    a: (uow = uowA) => make(uow, 'aaaaaaa1', 'aaaaaaa2'),
+    a: (uow) => (uow === undefined ? baseA : { ...baseA, uow }),
     b: () => {
       let starts = 0;
       const counting: UnitOfWorkPort = {
@@ -113,7 +117,7 @@ async function postgresEngine(): Promise<Engine> {
           return work(r);
         }),
       };
-      const deps = make(counting, 'ccccccc1', 'ccccccc2');
+      const deps: ApplicationDeps = { ...baseB, uow: counting };
       return { deps, starts: () => starts, result: (call) => call(deps) };
     },
     lastClient: () => last,
