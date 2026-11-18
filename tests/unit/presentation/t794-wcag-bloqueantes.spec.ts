@@ -96,7 +96,8 @@ describe('T794 B3 «Enlace creado» se anuncia y recibe el foco (4.1.3)', () => 
     const focus = vi.fn();
     ref!({ focus });
     expect(focus).toHaveBeenCalledTimes(1);
-    expect(() => ref!(null)).not.toThrow();
+    expect(ref!(null)).toBeUndefined();
+    expect(focus).toHaveBeenCalledTimes(1);
   });
 
   it('[B3] la URL se muestra una sola vez y sin creación no hay bloque de estado del resultado', () => {
