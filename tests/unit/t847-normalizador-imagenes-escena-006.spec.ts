@@ -172,8 +172,8 @@ describe('validateGeneratedImage (T848): validación de la salida por firma (REQ
   const LIMIT = 1_000_000;
 
   it('[SC-ESC6-085] acepta PNG y WebP de un cuadro cuyo tipo declarado coincide con la firma y fija el tipo del servidor', () => {
-    expect(validateGeneratedImage('image/png', okPng, LIMIT)).toEqual({ ok: true, mime: 'image/png' });
-    expect(validateGeneratedImage('image/webp', riff([vp8l(2, 2)]), LIMIT)).toEqual({ ok: true, mime: 'image/webp' });
+    expect(validateGeneratedImage('image/png', okPng, LIMIT)).toMatchObject({ ok: true, mime: 'image/png' });
+    expect(validateGeneratedImage('image/webp', riff([vp8l(2, 2)]), LIMIT)).toMatchObject({ ok: true, mime: 'image/webp' });
   });
 
   it('[SC-ESC6-085][SC-ESC6-072] termina ERR-SCENE-INVALID-IMAGE: JPEG, tipo declarado distinto de la firma, vacía, APNG, WebP animado, mayor que el tope y más de 25 MP', () => {
@@ -187,10 +187,10 @@ describe('validateGeneratedImage (T848): validación de la salida por firma (REQ
     expect(validateGeneratedImage('image/png', png([pngChunk('IDAT', IDAT)], 6000, 5000), LIMIT)).toEqual(invalid);
   });
 
-  it('[REQ-ESC6-035][EDGE-ESC6-029] los metadatos de procedencia (tEXt/XMP, C2PA/SynthID) NO se tocan: la salida validada no se reescribe y devuelve solo el veredicto', () => {
-    const withProvenance = png([pngChunk('caBX', enc('c2pa-manifest')), pngChunk('IDAT', IDAT)]);
+  it('[REQ-ESC6-035][EDGE-ESC6-029][H-ORA-F6-A] la procedencia C2PA (caBX) se conserva y la salida validada devuelve los bytes reescritos que se publican (el tEXt se filtra, ver t848b)', () => {
+    const withProvenance = png([pngChunk('caBX', enc('c2pa-manifest')), pngChunk('tEXt', enc('k\0v')), pngChunk('IDAT', IDAT)]);
     const verdict = validateGeneratedImage('image/png', withProvenance, LIMIT);
-    expect(verdict).toEqual({ ok: true, mime: 'image/png' });
-    expect(Object.keys(verdict)).not.toContain('bytes');
+    expect(verdict).toMatchObject({ ok: true, mime: 'image/png' });
+    expect(verdict.ok && types(verdict.bytes)).toEqual(['IHDR', 'caBX', 'IDAT', 'IEND']);
   });
 });

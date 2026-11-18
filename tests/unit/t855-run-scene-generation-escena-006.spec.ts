@@ -96,6 +96,20 @@ describe('runSceneGeneration (T856): camino feliz y T2 atómico', () => {
   });
 });
 
+describe('runSceneGeneration (H-ORA-F6-A): filtro de salida antes del put', () => {
+  it('[REQ-ESC6-035][INV-ESC6-007] con un generador en modo eco (prompt en tEXt) el objeto publicado NO contiene tEXt ni el prompt y sizeBytes es el del objeto publicado', async () => {
+    const t = setup({ mode: 'echo' });
+    const j = await requested(t);
+    expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
+    const prompt = t.fixture.generator.calls[0]?.prompt ?? '';
+    expect(prompt.length).toBeGreaterThan(20);
+    const stored = await t.storage.get(`scenes/${j.sceneId}/images/${snap(t).sceneAttempts?.[0]?.resultObjectId}`);
+    const text = Buffer.from(stored!.bytes).toString('latin1');
+    expect([text.includes('tEXt'), text.includes(prompt.slice(0, 20))]).toEqual([false, false]);
+    expect(sceneOf(t)?.image?.sizeBytes).toBe(stored!.bytes.length);
+  });
+});
+
 describe('runSceneGeneration (T856): claim y entregas duplicadas o ajenas', () => {
   it('[EDGE-ESC6-024][SC-ESC6-059] la segunda entrega del mismo attemptId (SUCCEEDED o FAILED) es NOOP: sin generador, sin cuota y sin escrituras', async () => {
     const t = setup();

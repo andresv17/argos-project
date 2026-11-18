@@ -5,7 +5,7 @@
  * EXIF/XMP/ICC y ALPH). Trunca todo byte posterior al marcador final, verifica el CRC del PNG y que las longitudes cierren exactamente, rechaza PNG y WebP animados
  * y cualquier archivo ilegible (`ok: false` = «ausente»). El recorrido tiene tope de iteraciones y nunca decodifica ni duplica el archivo antes de validar tamaños.
  * NO recodifica ni redimensiona (brecha aceptada para el tramo fake; obligatorio antes del driver real, N2-01 = A). `validateGeneratedImage` valida la SALIDA del
- * proveedor por firma (REQ-ESC6-035) sin reescribirla: sus metadatos de procedencia (C2PA, SynthID, XMP) se conservan (N2-03 = A).
+ * proveedor por firma (REQ-ESC6-035) reescribiéndola por lista blanca (H-ORA-F6-A): se conservan C2PA y XMP (N2-03 = A) y se descartan tEXt, EXIF y el resto.
  *
  * @implements REQ-ESC6-027, REQ-ESC6-035, INV-ESC6-015, EDGE-ESC6-004, EDGE-ESC6-023, EDGE-ESC6-028, EDGE-ESC6-029, ERR-SCENE-INVALID-IMAGE, SC-ESC6-041, SC-ESC6-083, SC-ESC6-084, SC-ESC6-085
  */
@@ -236,30 +236,99 @@ export function fitReferencesWithinBudget(sizes: readonly number[], limit: numbe
   return { kept, degraded: kept < sizes.length };
 }
 
-export type OutputVerdict = { readonly ok: true; readonly mime: 'image/png' | 'image/webp' } | { readonly ok: false; readonly code: 'ERR-SCENE-INVALID-IMAGE' };
+export type OutputVerdict =
+  | { readonly ok: true; readonly mime: 'image/png' | 'image/webp'; readonly bytes: Uint8Array }
+  | { readonly ok: false; readonly code: 'ERR-SCENE-INVALID-IMAGE' };
 const INVALID: OutputVerdict = { ok: false, code: 'ERR-SCENE-INVALID-IMAGE' };
 
-/** Valida la salida del proveedor por FIRMA: solo PNG o WebP de un cuadro, tipo declarado igual a la firma, tamaño y megapíxeles; JPEG no se admite. No reescribe nada. */
+const XMP_KEYWORD = 'XML:com.adobe.xmp';
+const MAX_XMP_BYTES = 64 * 1024;
+const OUTPUT_PNG_KEEP = new Set(['IHDR', 'PLTE', 'tRNS', 'IDAT', 'IEND', 'caBX']);
+const OUTPUT_WEBP_KEEP = new Set(['VP8 ', 'VP8L', 'VP8X', 'ALPH', 'XMP ', 'C2PA']);
+
+/** iTXt cuya keyword es exactamente «XML:com.adobe.xmp» (terminada en NUL) y de a lo sumo 64 KiB. */
+const isXmpItxt = (b: Uint8Array, dataAt: number, len: number): boolean =>
+  len <= MAX_XMP_BYTES && len > XMP_KEYWORD.length && ascii(b, dataAt, XMP_KEYWORD.length) === XMP_KEYWORD && b[dataAt + XMP_KEYWORD.length] === 0;
+
+/** PNG de salida: lista blanca (IHDR, PLTE, tRNS, IDAT, IEND, caBX y iTXt XMP), CRC y longitudes verificados, truncado tras IEND. */
+function filterOutputPng(b: Uint8Array): Uint8Array | null {
+  const parts: Uint8Array[] = [b.subarray(0, 8)];
+  let first = true;
+  let sawIdat = false;
+  for (let at = 8, i = 0; i < MAX_ITERATIONS && at + 12 <= b.length; i += 1) {
+    const len = be32(b, at);
+    if (len > 0x7fffffff || at + 12 + len > b.length) return null;
+    const type = ascii(b, at + 4, 4);
+    if (crc32(b.subarray(at + 4, at + 8 + len)) !== be32(b, at + 8 + len)) return null;
+    if (first) {
+      if (type !== 'IHDR' || len !== 13 || !withinLimits(pngDimensions(b))) return null;
+      first = false;
+    }
+    if (PNG_ANIMATION.has(type)) return null;
+    if (type === 'IDAT') sawIdat = true;
+    if (OUTPUT_PNG_KEEP.has(type) || (type === 'iTXt' && isXmpItxt(b, at + 8, len))) parts.push(b.subarray(at, at + 12 + len));
+    else if ((type.charCodeAt(0) & 0x20) === 0) return null; // crítico desconocido
+    if (type === 'IEND') return sawIdat ? concat(parts) : null;
+    at += 12 + len;
+  }
+  return null;
+}
+
+/** WebP de salida: lista blanca (VP8 , VP8L, VP8X sin indicadores EXIF/ICC, ALPH, XMP , C2PA), RIFF exacto y truncado de lo posterior. */
+function filterOutputWebp(b: Uint8Array): Uint8Array | null {
+  if (b.length < 20 || ascii(b, 0, 4) !== 'RIFF' || ascii(b, 8, 4) !== 'WEBP') return null;
+  const riffSize = le32(b, 4);
+  if (riffSize < 12 || riffSize + 8 > b.length) return null;
+  const end = riffSize + 8;
+  const parts: Uint8Array[] = [];
+  let images = 0;
+  let at = 12;
+  for (let i = 0; i < MAX_ITERATIONS && at < end; i += 1) {
+    if (at + 8 > end) return null;
+    const type = ascii(b, at, 4);
+    const size = le32(b, at + 4);
+    const next = at + 8 + size + (size & 1);
+    if (next > end) return null;
+    if (type === 'ANIM' || type === 'ANMF') return null;
+    if (OUTPUT_WEBP_KEEP.has(type)) {
+      const kept = b.slice(at, next);
+      if (type === 'VP8X') {
+        if (size < 10 || (kept[8]! & 0x02) !== 0) return null;
+        kept[8] = kept[8]! & ~(0x20 | 0x08); // ICC y EXIF a cero; XMP se conserva
+      }
+      if (type === 'VP8 ' || type === 'VP8L') images += 1;
+      parts.push(kept);
+    }
+    at = next;
+  }
+  if (at !== end || images !== 1) return null;
+  const body = concat(parts);
+  const head = new Uint8Array(12);
+  head.set(new TextEncoder().encode('RIFF'), 0);
+  new DataView(head.buffer).setUint32(4, 4 + body.length, true);
+  head.set(new TextEncoder().encode('WEBP'), 8);
+  return concat([head, body]);
+}
+
+/**
+ * Valida la salida del proveedor por FIRMA y la REESCRIBE por lista blanca (H-ORA-F6-A, REQ-ESC6-035, INV-ESC6-007): devuelve los bytes que se publican. Solo PNG o WebP
+ * de un cuadro, tipo declarado igual a la firma, tamaño y megapíxeles; JPEG no se admite. Se conservan C2PA y XMP (N2-03 = A); nunca tEXt, EXIF ni lo posterior al final.
+ */
 export function validateGeneratedImage(declaredMime: string, bytes: Uint8Array, maxBytes: number): OutputVerdict {
-  if (bytes.length === 0 || bytes.length > maxBytes) return INVALID;
-  if (startsWith(bytes, PNG_SIGNATURE)) {
-    if (declaredMime !== 'image/png' || !withinLimits(pngDimensions(bytes))) return INVALID;
-    for (let at = 8, i = 0; i < MAX_ITERATIONS && at + 12 <= bytes.length; i += 1) {
-      const len = be32(bytes, at);
-      if (len > 0x7fffffff || PNG_ANIMATION.has(ascii(bytes, at + 4, 4))) return INVALID;
-      at += 12 + len;
+  try {
+    if (bytes.length === 0 || bytes.length > maxBytes) return INVALID;
+    if (startsWith(bytes, PNG_SIGNATURE)) {
+      if (declaredMime !== 'image/png') return INVALID;
+      const out = filterOutputPng(bytes);
+      return out === null ? INVALID : { ok: true, mime: 'image/png', bytes: out };
     }
-    return { ok: true, mime: 'image/png' };
-  }
-  if (bytes.length >= 20 && ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP') {
-    if (declaredMime !== 'image/webp' || !withinLimits(webpDimensions(bytes))) return INVALID;
-    for (let at = 12, i = 0; i < MAX_ITERATIONS && at + 8 <= bytes.length; i += 1) {
-      const type = ascii(bytes, at, 4);
-      const size = le32(bytes, at + 4);
-      if (type === 'ANIM' || type === 'ANMF' || (type === 'VP8X' && at + 9 <= bytes.length && (bytes[at + 8]! & 0x02) !== 0)) return INVALID;
-      at += 8 + size + (size & 1);
+    if (bytes.length >= 20 && ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP') {
+      if (declaredMime !== 'image/webp') return INVALID;
+      const out = filterOutputWebp(bytes);
+      return out === null || !withinLimits(webpDimensions(out)) ? INVALID : { ok: true, mime: 'image/webp', bytes: out };
     }
-    return { ok: true, mime: 'image/webp' };
+    return INVALID;
+  } catch {
+    return INVALID;
   }
-  return INVALID;
 }

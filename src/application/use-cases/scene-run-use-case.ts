@@ -170,7 +170,7 @@ export class RunSceneGenerationUseCase {
     if (gate === 'EXPIRED') return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-LEASE-EXPIRED', degraded);
     const key = resultKey(attempt, scene.id);
     try {
-      await media.storage.put(key, generated.image.bytes, verdict.mime);
+      await media.storage.put(key, verdict.bytes, verdict.mime);
     } catch {
       return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
     }
@@ -201,7 +201,7 @@ export class RunSceneGenerationUseCase {
       const previous = await r.scenes.publishImage({
         sceneId: scene.id,
         attemptId: attempt.id,
-        image: { id: attempt.resultObjectId, mime: verdict.mime, sizeBytes: generated.image.bytes.length, fingerprint: attempt.fingerprint, inputsSnapshot: attempt.inputsSnapshot, createdAt: now },
+        image: { id: attempt.resultObjectId, mime: verdict.mime, sizeBytes: verdict.bytes.length, fingerprint: attempt.fingerprint, inputsSnapshot: attempt.inputsSnapshot, createdAt: now },
         degraded,
         consumedGenerations: quota.consumed,
         quotaWindow: quota.window,

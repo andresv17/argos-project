@@ -92,7 +92,7 @@ export interface SceneImageTools {
   /** Tope de ancho × alto (25 MP) y de lado (8192 px) en la subida de la foto del hogar (REQ-ESC6-027). */
   readonly withinLimits: (mime: string, bytes: Uint8Array) => boolean;
   /** Valida la imagen generada por firma (REQ-ESC6-035). */
-  readonly validateOutput: (mime: string, bytes: Uint8Array) => { readonly ok: true; readonly mime: 'image/png' | 'image/webp' } | { readonly ok: false; readonly code: 'ERR-SCENE-INVALID-IMAGE' };
+  readonly validateOutput: (mime: string, bytes: Uint8Array) => { readonly ok: true; readonly mime: 'image/png' | 'image/webp'; readonly bytes: Uint8Array } | { readonly ok: false; readonly code: 'ERR-SCENE-INVALID-IMAGE' };
 }
 
 export interface SceneServices {

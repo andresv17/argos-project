@@ -60,7 +60,7 @@ export interface paths {
         };
         /**
          * Imagen vigente de la escena por URL firmada V4 [REQ-ESC6-019, INV-ESC6-007]
-         * @description TTL de ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS (300 s, techo 900; sin ampliarlo). Sin imagen vigente: 404 ERR-MEDIA-NOT-FOUND. Cache-Control: no-store. La URL no se registra.
+         * @description TTL de ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS (300 s, techo 900; sin ampliarlo). Sin imagen vigente y sin acceso al hogar responden el mismo 404 de ERR-HOUSE-NOT-FOUND, con cuerpo, instance y cabeceras identicos (INV-ESC6-007; Decision de Fase 6, 2026-11-18: sustituye ERR-MEDIA-NOT-FOUND para no crear un oraculo entre «sin imagen» y «sin acceso»). Cache-Control: no-store. La URL no se registra.
          */
         get: operations["getHouseholdSceneImage"];
         put?: never;

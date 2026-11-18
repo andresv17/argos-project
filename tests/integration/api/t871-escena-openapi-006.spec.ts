@@ -161,6 +161,23 @@ describe('recorrido feliz con conformidad de contrato (T871)', () => {
 });
 
 describe('404 sin revelar y antes que 403 (T871, INV-ESC6-007, INV-ESC6-019)', () => {
+  it('[H-ORA-F6-B][INV-ESC6-007] «sin imagen vigente» (miembro) y «sin acceso» (ajeno) devuelven el MISMO 404: estado, cuerpo (sin instance que distinga), cabeceras y volcado idénticos', async () => {
+    const s = await setup();
+    const andres = await api.login('andres');
+    const lucia = await api.login('lucia.r');
+    const dumpBefore = api.dump();
+    const noImage = await s.call('GET', `/api/households/${H1}/scene/image`, { cookie: andres });
+    const noAccess = await s.call('GET', `/api/households/${H1}/scene/image`, { cookie: lucia });
+    const stable = (r: ApiResponse) => {
+      const { date: _date, 'content-length': _len, 'x-request-id': _rid, ...headers } = r.headers as Record<string, unknown>;
+      return JSON.stringify({ status: r.status, headers, text: r.text });
+    };
+    expect(noImage.status).toBe(404);
+    expect((noImage.json as { code: string }).code).toBe('ERR-HOUSE-NOT-FOUND');
+    expect(stable(noImage)).toBe(stable(noAccess));
+    expect(api.dump()).toBe(dumpBefore);
+  });
+
   it('[SC-ESC6-093][INV-ESC6-007] quien no es miembro ACTIVE recibe el mismo 404 que un hogar inexistente en las 8 operaciones del hogar, y no se escribe ninguna fila', async () => {
     const s = await setup();
     const lucia = await api.login('lucia.r');
