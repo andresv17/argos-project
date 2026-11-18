@@ -11,6 +11,7 @@
  * @implements REQ-VET-001, REQ-VET-004, REQ-VET-005, SC-005-015, SC-005-019, SC-005-040, SC-005-046, SC-005-051, EDGE-005-22
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BrowserUuidAdapter } from '../../../infrastructure/adapters/browser-uuid.adapter.ts';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './Field.tsx';
 import { createShareApi, ShareApiError, type ShareApi, type ShareLinkList, type ShareLinkView, type ShareScopeName } from '../share-api.ts';
@@ -305,7 +306,7 @@ export function ShareLinksPanel({ petId, petName, household, api = createShareAp
     setBusy(true);
     setError(null);
     setNotice(null);
-    idempotencyKey.current ??= crypto.randomUUID();
+    idempotencyKey.current ??= new BrowserUuidAdapter().nextId();
     try {
       const outcome = await api.create(ref(scope), { expiresInDays, includeMicrochip, includeClinicalFiles }, idempotencyKey.current);
       idempotencyKey.current = null;
