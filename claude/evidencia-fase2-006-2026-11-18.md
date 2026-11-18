@@ -153,3 +153,16 @@ verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
 verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 317; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
 ```
 Rojo esperado hasta T819 (10/12).
+
+## T819 verde (IAM de la escena y cola argos-scene)
+```
+npx vitest run tests/unit/terraform-iam-escena-006.spec.ts tests/unit/terraform-iam.spec.ts tests/unit/terraform-iam-secrets.spec.ts
+ Test Files  3 passed (3)
+      Tests  28 passed (28)
+npx tsc --noEmit -> exit 0
+verify-traceability --feature 001 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 002 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-traceability --feature 006 -> [SDD Traceability Gate] Resultado: CUMPLE
+verify-oracles --feature 006 -> [SDD Oracle Gate] Archivos analizados: 317; oráculos débiles: 0 [SDD Oracle Gate] Resultado: CUMPLE 
+```
+Cambios en suites de 003 por la enmienda: terraform-iam.spec (4 cuentas; único google_project_iam_member = aiplatform.user de argos-run) y terraform-iam-secrets.spec (misma excepción). Corregido un regex defectuoso de mi propia prueba T818 (TokenCreator). No se ejecutó terraform.

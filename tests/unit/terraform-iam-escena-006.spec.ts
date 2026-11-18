@@ -46,7 +46,7 @@ describe('terraform/iam.tf: cuentas y excepción documentada de la 006 (T818, RE
     expect(c).not.toMatch(/_iam_(binding|policy)"/);
     expect(c).not.toMatch(/roles\/(owner|editor)/);
     expect(c).not.toMatch(/roles\/aiplatform\.(admin|serviceAgent)|roles\/cloudtasks\.(admin|queueAdmin|viewer)/);
-    expect(c).not.toMatch(/roles\/iam\.serviceAccountTokenCreator[^]*scene_tasks/);
+    expect(iam().filter((b) => roleOf(b) === 'roles/iam.serviceAccountTokenCreator' && b.body.includes('scene_tasks'))).toEqual([]);
   });
 
   it('INV-ESC6-018: argos-scene-tasks solo tiene roles/run.invoker, sobre el servicio argos y nada de proyecto', () => {

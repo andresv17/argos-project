@@ -1345,3 +1345,7 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T818 pruebas rojas de IAM de la escena y cola argos-scene (N2-05, REQ-IAC-006) (sin push, sin [x])
 - Nuevo tests/unit/terraform-iam-escena-006.spec.ts: 4 cuentas, único google_project_iam_member = aiplatform.user de argos-run con comentario «EXCEPCIÓN DOCUMENTADA» (REQ-IAC-006, N2-05), scene-tasks solo run.invoker sobre el servicio, cloudtasks.enqueuer de argos-run solo sobre la cola, serviceAccountUser de run solo sobre scene-tasks, sin llaves; y cloud_tasks.tf (cola argos-scene, max_attempts 1, 2 concurrentes, 1/s, depends_on API, sin http_target).
 - Rojo 10/12; tsc 0; gates CUMPLE. terraform-iam.spec (3 cuentas, sin google_project_iam) se amenda en T819, no se debilita sin su contraparte.
+
+## 2026-11-18 Keymaker: T819 enmienda de REQ-IAC-006, iam.tf y cloud_tasks.tf (N2-05) (sin push, sin [x])
+- spec 003 REQ-IAC-006 con «Enmienda 006» (excepción documentada aiplatform.user de proyecto, argos-scene-tasks, enqueuer acotado a la cola); terraform/iam.tf (+cuenta scene_tasks, +4 bindings, comentario EXCEPCIÓN DOCUMENTADA) y terraform/cloud_tasks.tf (cola argos-scene, max_attempts 1, 2 concurrentes, 1/s, sin http_target; el dispatchDeadline 130 s lo fija la app por tarea).
+- Suites de 003 cambiadas por la enmienda: terraform-iam (4 cuentas, un único google_project_iam_member) y terraform-iam-secrets (misma excepción); además un regex mío de T818 corregido. t818 12/12 verde, terraform-* verdes, tsc 0. Sin plan ni apply.

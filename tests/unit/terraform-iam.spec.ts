@@ -24,11 +24,11 @@ describe('terraform/iam.tf (T439)', () => {
     expect(existsSync(FILE)).toBe(true);
   });
 
-  it('define las tres cuentas con account_id argos-run, argos-deployer y argos-scheduler', () => {
+  it('define las cuatro cuentas con account_id argos-run, argos-deployer, argos-scheduler y argos-scene-tasks (esta última, enmienda 006 N2-05)', () => {
     const sas = blocks().filter((b) => b.type === 'google_service_account');
-    expect(sas.map((b) => b.name).sort()).toEqual(['deployer', 'run', 'scheduler']);
+    expect(sas.map((b) => b.name).sort()).toEqual(['deployer', 'run', 'scene_tasks', 'scheduler']);
     const ids = sas.map((b) => b.body.match(/account_id\s*=\s*"([^"]+)"/)?.[1]).sort();
-    expect(ids).toEqual(['argos-deployer', 'argos-run', 'argos-scheduler']);
+    expect(ids).toEqual(['argos-deployer', 'argos-run', 'argos-scene-tasks', 'argos-scheduler']);
   });
 
   it('argos-run solo tiene secretmanager.secretAccessor, sobre los 3 secretos (no a nivel de proyecto); los permisos de medios (T562) los cubre terraform-media.spec.ts', () => {
@@ -96,9 +96,10 @@ describe('terraform/iam.tf (T439)', () => {
     expect(c).not.toMatch(/tfstate|exports|dumps/);
   });
 
-  it('no usa bindings autoritativos ni roles de proyecto (solo *_iam_member por recurso)', () => {
+  it('no usa bindings autoritativos ni roles de proyecto salvo la excepción documentada de la 006 (solo *_iam_member por recurso; único rol de proyecto: aiplatform.user de argos-run, enmienda N2-05)', () => {
     const c = code();
-    expect(c).not.toMatch(/google_project_iam/);
+    expect(c.replace(/resource\s+"google_project_iam_member"\s+"run_aiplatform_user"\s*\{[^]*?\n\}/, '')).not.toMatch(/google_project_iam/);
+    expect([...c.matchAll(/google_project_iam_member"\s+"[a-z_]+"/g)]).toHaveLength(1);
     expect(c).not.toMatch(/_iam_(binding|policy)"/);
   });
 
