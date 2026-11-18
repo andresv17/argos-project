@@ -21,6 +21,11 @@
 # INV-(RAZ|SIN|REG|LOG|PET4|GCS|ARC|AVA|ALB), NFR-ALM y SC-CAT/SC-ALM; en la compuerta por tarea expande los rangos de IDs
 # escritos como `SC-CAT-016..021` (O-1 de /mouse); los IDs propios de la 003 citados en su spec no se le exigen; la evidencia de
 # código es informativa (SDD_STRICT_EVIDENCE=1 la vuelve bloqueante) y se exige spec→tasks.md 1:1 de los IDs propios.
+# Feature 005 (T709): como la 004, reconoce NFR y SC y rangos `SC-005-001..006`; admite el segmento numérico `005` (INV-005-001,
+# NFR-005-001, SC-005-001); sus IDs propios son REQ-(ALB5|CAN|CLI5|PRM|SUM|VET), INV-005, NFR-005, SC-005 y STATE-SHARE; exige
+# spec→tasks.md 1:1 de los IDs propios y la evidencia de código es BLOQUEANTE (src/ con @implements y título it/test): sin
+# src/ ni tests/ de la 005 la compuerta final falla, es lo esperado hasta implementar. Los IDs de 003 y 004 que su spec cita
+# (p. ej. REQ-CLD-007, REQ-SIN-003) se exigen como cualquier otro: los cubren T764a y T779a con sus títulos, sin excepciones.
 # IDs retirados: fallan la compuerta final; en la compuerta por tarea se avisan (RETIRED WARN) sin fallar.
 #
 # Salida: 0 = cumple; 1 = incumple; 2 = uso inválido o fuente ausente.
@@ -32,15 +37,15 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --feature)
       if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
-        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003 o 004)" >&2
+        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003, 004 o 005)" >&2
         exit 2
       fi
       FEATURE="$2"
       shift 2
       ;;
     --task)
-      if [[ $# -lt 2 || ! "$2" =~ ^T[0-9]{3}$ ]]; then
-        echo "[SDD Traceability Gate] Uso: --task T###" >&2
+      if [[ $# -lt 2 || ! "$2" =~ ^T[0-9]{3}[a-z]?$ ]]; then
+        echo "[SDD Traceability Gate] Uso: --task T### (o T###a)" >&2
         exit 2
       fi
       TASK_ID="$2"
@@ -85,11 +90,17 @@ const CODE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
 const CLOUD = feature === '003';
 // Feature 004 (T514): prefijos NFR/SC y rangos; sus IDs propios y los de la 003 (que su spec solo cita) se distinguen aquí.
 const FEAT4 = feature === '004';
+// Feature 005 (T709): ver cabecera. No relaja nada de 001..004; solo añade reconocimiento de prefijos propios.
+const FEAT5 = feature === '005';
+const OWNED_005 =
+  /^(?:REQ-(?:ALB5|CAN|CLI5|PRM|SUM|VET)|INV-005|NFR-005|SC-005|STATE-SHARE)-\d{3}$/;
 const OWNED_004 =
   /^(?:REQ-(?:ALB|ARC|AVA|BOR|ESP|FRM|GCS|IMP|LOG|MDC|PET4|RAZ|SIN)|INV-(?:ALB|ARC|AVA|GCS|LOG|PET4|RAZ|REG|SIN)|NFR-ALM|SC-(?:CAT|ALM))-\d{3}$/;
 // IDs propios de la 003. La constitución 3.3.0 (principio II) los cita, pero no son exigibles a la 001 ni a la 002.
 const OWNED_003 = /^(?:REQ-(?:CLD|PG|IAC|CICD|SEC)|NFR-CLD|SC-CLD)-\d{3}$/;
-const NUM_ID = CLOUD || FEAT4
+const NUM_ID = FEAT5
+  ? /\b(?:REQ|INV|STATE|NFR|SC)-(?:[A-Z][A-Z0-9]*|\d{3})(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g
+  : CLOUD || FEAT4
   ? /\b(?:REQ|INV|STATE|NFR|SC)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g
   : /\b(?:REQ|INV|STATE)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g;
 const ERR_ID = /\bERR-[A-Z]+(?:-[A-Z0-9]+)+\b/g;
@@ -108,10 +119,12 @@ for (const path of CLOUD ? [SPEC, CONSTITUTION, TASKS, CONTRACTS] : [SPEC, CONST
 }
 
 // Feature 004: `SC-CAT-016..021` equivale a SC-CAT-016, SC-CAT-017, ..., SC-CAT-021 (solo en 004; 001..003 no cambian).
-const RANGE = /\b((?:REQ|INV|STATE|NFR|SC)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-)(\d{3})\.\.(\d{3})\b/g;
+const RANGE = FEAT5
+  ? /\b((?:REQ|INV|STATE|NFR|SC)-(?:[A-Z][A-Z0-9]*|\d{3})(?:-[A-Z][A-Z0-9]*)*-)(\d{3})\.\.(\d{3})\b/g
+  : /\b((?:REQ|INV|STATE|NFR|SC)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-)(\d{3})\.\.(\d{3})\b/g;
 const rangeIds = (text) => {
   const ids = [];
-  if (!FEAT4) return ids;
+  if (!FEAT4 && !FEAT5) return ids;
   for (const m of text.matchAll(RANGE)) {
     for (let n = Number(m[2]); n <= Number(m[3]); n += 1) ids.push(`${m[1]}${String(n).padStart(3, '0')}`);
   }
@@ -290,6 +303,16 @@ if (FEAT4) {
   for (const id of orphans) err(`  FAIL  ${id}  huérfano: no aparece en ${TASKS} (spec→tasks 1:1)`);
   if (orphans.length > 0) failed = true;
   out(`[SDD Traceability Gate] Spec→tasks 1:1: ${ownedIds.length - orphans.length}/${ownedIds.length} IDs propios de la 004 mapeados en tasks.md (${strictEvidence ? 'evidencia de código bloqueante' : 'evidencia de código informativa'})`);
+}
+if (FEAT5) {
+  // Spec→tasks 1:1 de los IDs propios de la 005 (como la 004); los rangos de tasks.md cuentan expandidos.
+  const tasksText = readFileSync(TASKS, 'utf8');
+  const inTasks = new Set([...(tasksText.match(NUM_ID) ?? []), ...rangeIds(tasksText)]);
+  const ownedIds = [...new Set([...(readFileSync(SPEC, 'utf8').match(NUM_ID) ?? []), ...rangeIds(readFileSync(SPEC, 'utf8'))])].filter((id) => OWNED_005.test(id));
+  const orphans = ownedIds.filter((id) => !inTasks.has(id));
+  for (const id of orphans) err(`  FAIL  ${id}  huérfano: no aparece en ${TASKS} (spec→tasks 1:1)`);
+  if (orphans.length > 0) failed = true;
+  out(`[SDD Traceability Gate] Spec→tasks 1:1: ${ownedIds.length - orphans.length}/${ownedIds.length} IDs propios de la 005 mapeados en tasks.md (evidencia de código bloqueante)`);
 }
 let traced = 0;
 for (const id of required) {

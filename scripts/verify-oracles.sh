@@ -11,6 +11,10 @@
 # Feature 004 (T514): con `--feature 004` además exige que existan las pruebas de contrato de la 004
 # (tests/integration/contracts/*-004-*.spec.ts) y las incluye en el análisis; el criterio de oráculos no cambia.
 #
+# Feature 005 (T709): `--feature 005` comprueba que exista specs/005-*/ y analiza todo tests/ con el mismo criterio estricto
+# (sin relajar nada). Las pruebas de contrato de la 005 (tests/integration/contracts/*-005-*.spec.ts) se cuentan de forma
+# informativa y NO son obligatorias: todavía no existen y la compuerta debe dar CUMPLE con 0 oráculos débiles en las que haya.
+#
 # Salida: 0 = cumple; 1 = incumple; 2 = falta tests/, uso inválido o feature desconocida.
 set -euo pipefail
 
@@ -19,7 +23,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --feature)
       if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
-        echo "[SDD Oracle Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003 o 004)" >&2
+        echo "[SDD Oracle Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003, 004 o 005)" >&2
         exit 2
       fi
       if ! compgen -G "specs/$2-*/" > /dev/null; then
@@ -70,6 +74,10 @@ if (process.env.SDD_FEATURE === '004') {
     console.error('[SDD Oracle Gate] feature 004 sin pruebas de contrato (tests/integration/contracts/*-004-*.spec.ts)');
     process.exit(1);
   }
+}
+if (process.env.SDD_FEATURE === '005') {
+  const own = files.filter((f) => /^tests\/integration\/contracts\/[^/]*-005-[^/]*\.spec\.ts$/.test(f));
+  console.log(`[SDD Oracle Gate] feature 005: pruebas de contrato 005: ${own.length} archivos (informativo; se analizan con el criterio común)`);
 }
 let hits = 0;
 for (const file of files) {
