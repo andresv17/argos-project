@@ -54,7 +54,7 @@ defineRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 defineMediaRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 
 describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlite/sqlite-database.ts)', () => {
-  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001 a 0010 crean las 20 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
+  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001 a 0013 crean las 29 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
     const dir = tempDir();
     const path = join(dir, 'datos', 'argos.sqlite');
     const db = openSqliteDatabase(path);
@@ -71,8 +71,10 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
         'body_measurements',
         'custom_parameters',
         'dewormings',
+        'home_scenes',
         'household_invitations',
         'household_members',
+        'household_photos',
         'households',
         'login_attempts',
         'media_deletion_queue',
@@ -82,6 +84,10 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
         'pets',
         'platform_parameters',
         'rate_limit_events',
+        'scene_attempts',
+        'scene_consents',
+        'scene_image_sources',
+        'scene_quota_carry',
         'schema_migrations',
         'sessions',
         'share_link_audit',

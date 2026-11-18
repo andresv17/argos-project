@@ -1384,3 +1384,4 @@
 - 2026-11-18 | Keymaker | T829 pruebas rojas app-config ARGOS_SCENE_* x9 + T_LEASE/T_QUEUE (57 rojas de 59, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T830 app-config ARGOS_SCENE_* x9 + T_LEASE/T_QUEUE + activacion false (t829 59/59; 6 suites de production de 003/004 con fixture PROD_SCENE, H-KEY-F3-2; solo rojos T813/T815, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T831 pruebas rojas paridad/migracion escena (schema-parity 23->29 tablas, t831 x11; 16 rojos nuevos + T813 x5 esperados, tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 | Keymaker | T832 SQLite 0013_home_scenes (6 tablas + 6 indices; t831 SQLite verde; paridad Postgres roja hasta T833; solo rojos T813/T815 + paridad, tsc 0, gates CUMPLE); sin push ni [x].
