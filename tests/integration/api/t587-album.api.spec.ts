@@ -14,7 +14,8 @@ const BASE = `/api/pets/${ARGOS.id}/media`;
 type Page = { items: Array<{ id: string; createdAt: string }>; page: number; pageSize: number; total: number };
 
 async function seedPhotos(count: number) {
-  api = await createApi(undefined, { media: { storage: new ControlledStorage(() => new Date('2026-11-05T12:00:00.000Z')), limits: DEFAULT_LIMITS } });
+  // Feature 005 (REQ-ALB5-002): el tope de fotos por defecto es 10; este escenario heredado de la 004 necesita hasta 50, el máximo del parámetro (rango 1..50).
+  api = await createApi(undefined, { media: { storage: new ControlledStorage(() => new Date('2026-11-05T12:00:00.000Z')), limits: DEFAULT_LIMITS }, platformParameters: { getInt: async () => 50 } });
   const cookie = await api.login('andres');
   // Instantes repetidos de a 5 para ejercitar el desempate por id; el reloj fijo se mueve cada 5 subidas.
   for (let n = 0; n < count; n += 1) {
