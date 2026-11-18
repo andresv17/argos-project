@@ -8,7 +8,10 @@
  * - Sin interpretación automática: `automaticInterpretation = 'NONE'`, `dataProvenance = 'CAREGIVER_REPORTED_NOT_VERIFIED'` (REQ-SUM-007, REQ-SUM-008).
  * - Microchip solo con `includeMicrochip` (AUSENTE, no null, sin la casilla); archivos solo con `includeClinicalFiles`.
  *
- * @implements REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-007, REQ-SUM-008, INV-005-004, SC-005-027, SC-005-028, SC-005-029, SC-005-030, SC-005-043
+ * - Entrada para IA en Fase 5 (REQ-SUM-006): este contrato (versión `CLINICAL_SUMMARY_VERSION`, esquema cerrado y sin datos de contacto) es la única entrada prevista
+ *   para reportes de IA; en 005 no se integra ningún proveedor ni se añade dependencia (`package.json` no cambia, SC-005-033) y cualquier envío a terceros es Nivel 2 con `/rama`.
+ *
+ * @implements REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-006, REQ-SUM-007, REQ-SUM-008, INV-005-004, SC-005-027, SC-005-028, SC-005-029, SC-005-030, SC-005-033, SC-005-043, SC-005-044
  */
 import type { ClinicalPetSummary, ClinicalSummary } from '../../generated/v33/index.ts';
 import type { PetProfile, PetRecordCollections } from '../pet/pet-invariants.ts';
