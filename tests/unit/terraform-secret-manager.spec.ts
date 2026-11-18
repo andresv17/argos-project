@@ -24,15 +24,15 @@ describe('terraform/secret_manager.tf (T438)', () => {
     expect(c).toMatch(/resource\s+"google_secret_manager_secret"/);
     expect(c).toContain('database-url');
     expect(c).toContain('audit-hmac-secret');
-    expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(2);
-    expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(2);
+    expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(3);
+    expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(3);
     expect(c).toMatch(/\$\{var\.project_prefix\}-database-url/);
     expect(c).toMatch(/\$\{var\.project_prefix\}-audit-hmac-secret/);
   });
 
   it('hay una versión por secreto, sin count ni for_each condicional', () => {
     const c = code();
-    expect((c.match(/resource\s+"google_secret_manager_secret_version"\s+"/g) ?? []).length).toBe(2);
+    expect((c.match(/resource\s+"google_secret_manager_secret_version"\s+"/g) ?? []).length).toBe(3);
     for (const name of ['database_url', 'audit_hmac_secret']) {
       const v = block('google_secret_manager_secret_version', name);
       expect(v, name).not.toBe('');

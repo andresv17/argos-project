@@ -10,6 +10,8 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { FastifyInstance } from 'fastify';
+import { createCachedPlatformParameterPort } from '../../application/platform-parameters/cached-platform-parameter.ts';
+import type { PlatformParameterRepositoryPort } from '../../application/ports/platform-parameter.port.ts';
 import type { UnitOfWorkPort } from '../../application/ports/unit-of-work.port.ts';
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { CryptoSecureTokenAdapter } from '../adapters/crypto-secure-token.adapter.ts';
@@ -21,6 +23,9 @@ import { SlidingWindowRateLimiterAdapter, rateLimitsFrom } from '../adapters/sli
 import { ScryptPasswordHasherAdapter } from '../adapters/scrypt-password-hasher.adapter.ts';
 import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
 import { DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
+import { DEVELOPMENT_SHARE_IP_HMAC_SECRET, loadShareConfig } from '../config/share-config.ts';
+import { CryptoTokenGenerator } from '../adapters/crypto-token-generator.adapter.ts';
+import { SharedAccessLimiter } from '../../application/sharing/shared-access-limiter.ts';
 import type { MediaStoragePort } from '../../application/ports/media-storage.port.ts';
 import { runMaintenance, type MediaQueueResult } from '../../application/use-cases/maintenance-use-cases.ts';
 import { buildApp } from './app.ts';
@@ -43,20 +48,22 @@ export const PRODUCTION_LOGGER_OPTIONS = cloudLoggerOptions();
  * Un 55P03 (lock_timeout) no se traduce: se propaga y `registerProblemDetails` responde 500 ERR-INTERNAL-UNEXPECTED
  * (el catálogo v2.1.1 no tiene 503; un código nuevo es cambio de contrato Nivel 3). No se registra `config` ni la URL.
  */
-async function composePersistence(config: AppConfig): Promise<{ uow: UnitOfWorkPort; close: () => Promise<void>; checkReady: () => Promise<void> }> {
+async function composePersistence(config: AppConfig): Promise<{ uow: UnitOfWorkPort; parameters: PlatformParameterRepositoryPort; close: () => Promise<void>; checkReady: () => Promise<void> }> {
   if (config.dbDriver === 'postgres') {
     if (config.databaseUrl === null) throw new Error('DATABASE_URL ausente con ARGOS_DB_DRIVER=postgres');
     const { createPostgresPool, closePool } = await import('../persistence/postgres/postgres-database.ts');
     const { PostgresUnitOfWork } = await import('../persistence/postgres/postgres-unit-of-work.ts');
     const { createPostgresRepositories } = await import('../persistence/postgres/postgres-repositories.ts');
+    const { SqlPlatformParameterRepository } = await import('../persistence/platform-parameter-repository.ts');
     const pool = createPostgresPool({ connectionString: config.databaseUrl, pgPoolMax: config.pgPoolMax });
     // Hasta T464: solo SELECT 1 (REQ-PG-013: nunca consulta schema_migrations en /healthz ni al arrancar).
-    return { uow: new PostgresUnitOfWork(pool, createPostgresRepositories), close: () => closePool(pool), checkReady: async () => void (await pool.query('SELECT 1')) };
+    return { uow: new PostgresUnitOfWork(pool, createPostgresRepositories), parameters: SqlPlatformParameterRepository.forPostgres(pool), close: () => closePool(pool), checkReady: async () => void (await pool.query('SELECT 1')) };
   }
   const { openSqliteDatabase, assertSchemaReady } = await import('../persistence/sqlite/sqlite-database.ts');
   const { SqliteUnitOfWork } = await import('../persistence/sqlite/sqlite-unit-of-work.ts');
+  const { SqlPlatformParameterRepository } = await import('../persistence/platform-parameter-repository.ts');
   const db = openSqliteDatabase(config.databasePath);
-  return { uow: new SqliteUnitOfWork(db), close: async () => void db.close(), checkReady: async () => assertSchemaReady(db) };
+  return { uow: new SqliteUnitOfWork(db), parameters: SqlPlatformParameterRepository.forSqlite(db), close: async () => void db.close(), checkReady: async () => assertSchemaReady(db) };
 }
 
 /**
@@ -84,6 +91,11 @@ export interface ProductionAppOptions {
   readonly staticRoot?: string;
   /** Sustituye la sonda de /readyz (solo pruebas); por defecto la de la persistencia activa. */
   readonly checkReady?: () => Promise<void>;
+  /**
+   * Clave HMAC dedicada de la IP del enlace veterinario (`ARGOS_SHARE_IP_HMAC_SECRET`, feature 005). Ausente: en local (host 127.0.0.1) rige la clave fija de
+   * desarrollo; en producción (host 0.0.0.0) el enlace queda DESACTIVADO (sin `deps.sharing`: la creación falla cerrada y la ruta pública responde el 404 uniforme).
+   */
+  readonly shareIpHmacSecret?: string | null;
 }
 
 export async function createProductionApp(config: AppConfig, logger: boolean = true, options: ProductionAppOptions = {}): Promise<FastifyInstance> {
@@ -97,6 +109,14 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   const tokens = new CryptoSecureTokenAdapter();
   const clock = new SystemClockAdapter(config.appTimezone);
   const mediaStorage = await composeMediaStorage(config, () => new Date(clock.nowIsoTimestamp()));
+  // Parámetros de plataforma con caché de <= 60 s por instancia (REQ-PRM-002, D5-07); el aviso lleva clave y motivo, nunca el valor (EDGE-005-03).
+  const logging: { app: FastifyInstance | null } = { app: null };
+  const platformParameters = createCachedPlatformParameterPort({
+    repository: persistence.parameters,
+    clock,
+    warn: (warning) => logging.app?.log.warn({ platformParameter: warning }, 'parámetro de plataforma ausente o inválido: se usa el valor por defecto del código'),
+  });
+  const shareSecret = options.shareIpHmacSecret ?? (config.host === '0.0.0.0' ? null : DEVELOPMENT_SHARE_IP_HMAC_SECRET);
   const deps: ApplicationDeps = {
     uow: persistence.uow,
     clock,
@@ -110,6 +130,8 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     auditPseudonym: new HmacAuditPseudonymAdapter(),
     auditHmacSecret: config.auditHmacSecret ?? DEVELOPMENT_AUDIT_HMAC_SECRET,
     auditIds: ids,
+    platformParameters,
+    ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter() } }),
     ...(mediaStorage === null
       ? {}
       : {
@@ -137,6 +159,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     // Ruta de desarrollo `/__dev/media/…` solo con el adaptador de memoria; la configuración ya impide ese driver con NODE_ENV=production (T566).
     ...(config.mediaDriver === 'memory' && mediaStorage !== null ? { devMedia: { storage: mediaStorage } } : {}),
   });
+  logging.app = app;
   app.addHook('onClose', () => persistence.close());
   // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). El token OIDC del Scheduler se verifica con jose (createOidcVerifier, T486): firma, issuer, audiencia y correo.
   if (config.dbDriver === 'postgres' && config.schedulerEmail !== null && config.oidcAudience !== null) {
@@ -179,7 +202,7 @@ function scheduleMaintenance(app: FastifyInstance, deps: ApplicationDeps): void 
 
 /** @implements INV-ARCH-006 */
 export async function startServer(config: AppConfig = loadAppConfig()): Promise<FastifyInstance> {
-  const app = await createProductionApp(config);
+  const app = await createProductionApp(config, true, { shareIpHmacSecret: loadShareConfig().ipHmacSecret });
   if (config.dbDriver === 'sqlite') scheduleMaintenance(app, maintenanceDeps.get(app)!);
   await app.listen({ host: config.host, port: config.port });
   return app;

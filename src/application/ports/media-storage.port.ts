@@ -29,8 +29,13 @@ export interface MediaReadUrlRequest {
   readonly contentType: string;
   /** Nombre neutro de `neutralFilename` (`foto.jpg`, `archivo.pdf`); nunca el nombre original. */
   readonly filename: string;
-  /** Caducidad en segundos, 30–900 (`ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS`). */
+  /** Caducidad en segundos, 30–900 (`ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS`); con `allowShortTtl`, 1–900. */
   readonly ttlSeconds: number;
+  /**
+   * Solo la superficie pública del enlace veterinario (REQ-VET-009, EDGE-005-23): admite desde 1 s para que `X-Goog-Expires = min(300, restante)` no deje una
+   * URL viva más allá del enlace. Ausente: el rango de la 004 (30–900), que el resto de las rutas sigue exigiendo.
+   */
+  readonly allowShortTtl?: boolean;
 }
 
 export interface MediaReadUrl {

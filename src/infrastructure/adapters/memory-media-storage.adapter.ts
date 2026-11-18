@@ -52,7 +52,7 @@ export class MemoryMediaStorageAdapter implements MediaStoragePort {
 
   async createReadUrl(request: MediaReadUrlRequest): Promise<MediaReadUrl> {
     assertMediaKey(request.key);
-    assertTtlSeconds(request.ttlSeconds);
+    assertTtlSeconds(request.ttlSeconds, request.allowShortTtl === true);
     assertNeutralFilename(request.filename);
     return { url: `${DEV_MEDIA_PATH}${request.key}`, expiresAt: new Date(this.now().getTime() + request.ttlSeconds * 1000).toISOString() };
   }

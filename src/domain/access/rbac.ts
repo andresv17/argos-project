@@ -7,7 +7,7 @@
  * La fila «Invitar, expulsar y cambiar rol de miembros» (MANAGE_HOUSEHOLD_MEMBERS) es una acción sobre el hogar:
  * aquí solo fija el rol; las excepciones del propietario del hogar viven en el caso de uso (REQ-HOUSE2-002).
  *
- * @implements REQ-RBAC-001, INV-ACC2-001, INV-ACC2-002, ERR-ACC-FORBIDDEN
+ * @implements REQ-RBAC-001, INV-ACC2-001, INV-ACC2-002, ERR-ACC-FORBIDDEN, REQ-VET-001
  */
 
 import type { PetPermissions, RbacAction, RbacRole } from '../../generated/index.ts';
@@ -21,8 +21,16 @@ export type { PetPermissions, RbacAction, RbacRole };
  */
 export type MediaRbacAction = 'READ_MEDIA' | 'WRITE_MEDIA' | 'DELETE_MEDIA';
 
-/** Acción de la matriz sobre una mascota: las de la 002 y las de medios. */
-export type PetAction = RbacAction | MediaRbacAction;
+/**
+ * Acción de enlaces de solo lectura para veterinario (feature 005, enmienda D5-10; el contrato la anota como `x-sdd-rbac-action`, no como valor
+ * de `RbacAction`, igual que las de medios): crear enlaces la pueden ejecutar el propietario legal y el `ADMIN`. Sobre una mascota (alcance `PET`)
+ * se evalúa con el rol efectivo; el alcance `HOUSEHOLD` se decide con el rol del usuario EN ese hogar (propietario del hogar o `ADMIN` ACTIVE),
+ * nunca con el rol efectivo por mascota (REQ-VET-001, INV-ACC2-001).
+ */
+export type ShareRbacAction = 'CREATE_SHARE_LINK';
+
+/** Acción de la matriz sobre una mascota: las de la 002, las de medios y las de enlaces. */
+export type PetAction = RbacAction | MediaRbacAction | ShareRbacAction;
 
 /** Roles que pueden ejecutar cada acción (REQ-RBAC-001, tabla §5.2 de la spec). */
 const RBAC_MATRIX: Readonly<Record<PetAction, readonly RbacRole[]>> = {
@@ -40,6 +48,7 @@ const RBAC_MATRIX: Readonly<Record<PetAction, readonly RbacRole[]>> = {
   READ_MEDIA: ['OWNER', 'ADMIN', 'CAREGIVER', 'READER'],
   WRITE_MEDIA: ['OWNER', 'ADMIN', 'CAREGIVER'],
   DELETE_MEDIA: ['OWNER', 'ADMIN'],
+  CREATE_SHARE_LINK: ['OWNER', 'ADMIN'],
 };
 
 /**

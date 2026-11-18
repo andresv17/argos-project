@@ -132,7 +132,7 @@ test.describe('subida desde el panel de archivos (T615, extremo a extremo)', () 
     await createPetViaApi(context.request, 'Argos', 'CANINE');
     await page.goto('/');
     await page.getByRole('listbox', { name: 'Mascotas' }).getByRole('option').first().click();
-    await expect(page.locator('#media-file')).toBeAttached();
+    await expect(page.locator('#clinical-file')).toBeAttached();
 
     const plain = (await makeImage(page, 'image/jpeg', 80, 40))!;
     // `postDataBuffer` llega vacío con cuerpos Blob en streaming: se registran los bytes que el cliente entrega a `fetch`.
@@ -152,14 +152,14 @@ test.describe('subida desde el panel de archivos (T615, extremo a extremo)', () 
       };
     });
     const posted = (): Promise<Buffer[]> => page.evaluate(() => (window as unknown as { __posts: string[] }).__posts).then((list) => list.map((b) => Buffer.from(b, 'base64')));
-    await page.locator('#media-file').setInputFiles({ name: 'gps.jpg', mimeType: 'image/jpeg', buffer: jpegWithExif(plain, 6) });
+    await page.locator('#clinical-file').setInputFiles({ name: 'gps.jpg', mimeType: 'image/jpeg', buffer: jpegWithExif(plain, 6) });
     await page.getByRole('button', { name: /Subir/ }).click();
     await expect.poll(async () => (await posted()).length).toBe(1);
     const first = (await posted())[0]!;
     expect(hasMetadata(first)).toBe(false);
     expect(first.subarray(0, 2).toString('hex')).toBe('ffd8');
 
-    await page.locator('#media-file').setInputFiles({ name: 'rota.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('no es una imagen') });
+    await page.locator('#clinical-file').setInputFiles({ name: 'rota.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('no es una imagen') });
     await page.getByRole('button', { name: /Subir/ }).click();
     await expect(page.getByRole('alert')).toContainText('No se pudo leer la imagen');
     expect(await posted()).toHaveLength(1);

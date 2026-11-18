@@ -54,6 +54,8 @@ function sensitiveFragments(databaseUrl: string | undefined): string[] {
 const SIGNED_URL_PATTERN = /https?:\/\/[^\s"'<>]*X-Goog-[^\s"'<>]*/gi;
 const GOOG_PARAMETER_PATTERN = /X-Goog-[A-Za-z0-9-]*\s*[=:]\s*[^\s&"'<>]+/gi;
 const OBJECT_KEY_PATTERN = /pets\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/(?:files|photos|avatar)(?:\/[0-9a-f-]{36})?)?\/?/gi;
+/** Ruta pública del enlace veterinario con el token (`/shared/<43 base64url>`, `/api/shared/…`): el token jamás sale en un registro (INV-005-009, REQ-VET-008). */
+const SHARED_PATH_PATTERN = /\/shared\/[A-Za-z0-9_%.~-]{8,}/g;
 const UNIQUE_DETAIL_PATTERN = /Key \([^)]*\)=\([^)]*\)(?: already exists\.?)?/g;
 const MICROCHIP_PATTERN = /(?<![0-9])[0-9]{15}(?![0-9])/g;
 
@@ -66,6 +68,7 @@ export function redactSecrets(text: string, databaseUrl: string | undefined): st
     .replace(SIGNED_URL_PATTERN, REDACTED)
     .replace(GOOG_PARAMETER_PATTERN, REDACTED)
     .replace(OBJECT_KEY_PATTERN, REDACTED)
+    .replace(SHARED_PATH_PATTERN, '/shared/[REDACTED]')
     .replace(UNIQUE_DETAIL_PATTERN, REDACTED)
     .replace(MICROCHIP_PATTERN, REDACTED)
     .replace(DATABASE_URL_PATTERN, REDACTED);

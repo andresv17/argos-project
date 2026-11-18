@@ -14,6 +14,8 @@ import { LoginPage, RegisterPage } from './pages/AuthPages.tsx';
 import { BackupPage } from './pages/BackupPage.tsx';
 import { HouseholdsPage } from './pages/HouseholdsPage.tsx';
 import { PetsPage } from './pages/PetsPage.tsx';
+import { SharedPage } from './pages/SharedPage.tsx';
+import { SummaryPreviewPage } from './pages/SummaryPreviewPage.tsx';
 import { SessionProvider, useSession } from './session.tsx';
 import { routeRedirect } from './view-model.ts';
 
@@ -38,6 +40,8 @@ export function AppRoutes(): JSX.Element {
       <Route path="/register" element={<Guard><RegisterPage /></Guard>} />
       <Route path="/" element={<Guard><AppShell><PetsPage /></AppShell></Guard>} />
       <Route path="/mascotas/:petId/album" element={<Guard><AppShell><AlbumPage /></AppShell></Guard>} />
+      <Route path="/mascotas/:petId/resumen" element={<Guard><AppShell><SummaryPreviewPage /></AppShell></Guard>} />
+      <Route path="/households/:householdId/resumen" element={<Guard><AppShell><SummaryPreviewPage /></AppShell></Guard>} />
       <Route path="/households" element={<Guard><AppShell><HouseholdsPage /></AppShell></Guard>} />
       <Route path="/backup" element={<Guard><AppShell><BackupPage /></AppShell></Guard>} />
       <Route path="/cuenta" element={<Guard><AppShell><AccountPage /></AppShell></Guard>} />
@@ -47,9 +51,18 @@ export function AppRoutes(): JSX.Element {
 }
 
 export function App({ api }: { readonly api: ApiClient }): JSX.Element {
+  // La página pública `/shared/{token}` va FUERA de la sesión: no consulta `/auth/me`, no lee ni envía la cookie (REQ-VET-006, INV-005-002).
   return (
-    <SessionProvider api={api}>
-      <AppRoutes />
-    </SessionProvider>
+    <Routes>
+      <Route path="/shared/:token" element={<SharedPage />} />
+      <Route
+        path="*"
+        element={
+          <SessionProvider api={api}>
+            <AppRoutes />
+          </SessionProvider>
+        }
+      />
+    </Routes>
   );
 }

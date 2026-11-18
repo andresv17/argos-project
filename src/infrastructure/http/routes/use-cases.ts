@@ -24,7 +24,9 @@ import {
   RespondInvitationUseCase,
   TransferHouseholdOwnershipUseCase,
 } from '../../../application/use-cases/household-use-cases.ts';
-import { DeleteMediaUseCase, GetMediaAccessUseCase, ListMediaUseCase, UploadMediaUseCase } from '../../../application/use-cases/media-use-cases.ts';
+import { DeleteMediaUseCase, GetAlbumLimitsUseCase, GetMediaAccessUseCase, ListMediaUseCase, UploadMediaUseCase } from '../../../application/use-cases/media-use-cases.ts';
+import { CreateShareLinkUseCase, ListShareLinksUseCase, RevokeShareLinkUseCase } from '../../../application/use-cases/share-link-use-cases.ts';
+import { GetSharedFileUseCase, GetSharedSummaryUseCase, PreviewClinicalSummaryUseCase } from '../../../application/use-cases/shared-view-use-cases.ts';
 import { TransferPetOwnershipUseCase } from '../../../application/use-cases/ownership-use-cases.ts';
 import { DeletePetUseCase, GetPetDashboardUseCase, ListMyPetsUseCase, RegisterPetUseCase, UpdatePetUseCase } from '../../../application/use-cases/pet-use-cases.ts';
 import {
@@ -84,11 +86,18 @@ export function createUseCases(deps: ApplicationDeps) {
     importBackup: new ImportBackupUseCase(deps),
     uploadMedia: new UploadMediaUseCase(deps),
     listMedia: new ListMediaUseCase(deps),
+    albumLimits: new GetAlbumLimitsUseCase(deps),
     mediaAccess: new GetMediaAccessUseCase(deps),
     deleteMedia: new DeleteMediaUseCase(deps),
     putAvatar: new PutAvatarUseCase(deps),
     getAvatar: new GetAvatarUseCase(deps),
     deleteAvatar: new DeleteAvatarUseCase(deps),
+    createShareLink: new CreateShareLinkUseCase(deps),
+    listShareLinks: new ListShareLinksUseCase(deps),
+    revokeShareLink: new RevokeShareLinkUseCase(deps),
+    previewSummary: new PreviewClinicalSummaryUseCase(deps),
+    sharedSummary: new GetSharedSummaryUseCase(deps),
+    sharedFile: new GetSharedFileUseCase(deps),
   };
 }
 

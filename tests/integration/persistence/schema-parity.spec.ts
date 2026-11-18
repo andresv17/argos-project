@@ -20,12 +20,17 @@ const RATE_SCOPE_PATH = new URL('../../../src/infrastructure/persistence/postgre
 const MEDIA_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0005_pet_media.sql', import.meta.url);
 /** T540: la migración 0002 de Postgres equivale a la 0006 de SQLite (`revision` en las 6 tablas de registros, D-16 A). */
 const REVISION_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0002_record_revision.sql', import.meta.url);
+/** T711 (005): la 0007 de Postgres equivale a la 0011 de SQLite (`platform_parameters`, REQ-PRM-001, siembra `album.max_photos_per_pet = 10`). */
+const PLATFORM_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0007_platform_parameters.sql', import.meta.url);
+
+/** T766 (005): la 0008 de Postgres equivale a la 0012 de SQLite (`share_links` y `share_link_audit`, REQ-VET-003..005, REQ-VET-010, REQ-VET-013). */
+const SHARE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0008_share_links.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
   'audit_log', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'household_invitations',
-  'household_members', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'pet_assignments', 'pet_media', 'pets', 'rate_limit_events',
-  'schema_migrations', 'sessions', 'users', 'vaccinations', 'weights',
+  'household_members', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'pet_assignments', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
+  'schema_migrations', 'sessions', 'share_link_audit', 'share_links', 'users', 'vaccinations', 'weights',
 ];
 
 /** Lista canónica de índices del esquema final (T555, 004): los que añaden las migraciones 0007/0008 (SQLite) y 0003/0004 (Postgres) y los de la 002. */
@@ -33,7 +38,8 @@ const CANONICAL_INDEXES = [
   'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
   'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
   'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'pet_assignments_household_id',
-  'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'sessions_user_id', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
+  'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'sessions_user_id', 'share_link_audit_actor', 'share_link_audit_failure_window',
+  'share_link_audit_occurred', 'share_links_created_by', 'share_links_expires', 'share_links_household_active', 'share_links_pet_active', 'share_links_revoked', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
 ];
 
 /** Diferencias de tipo justificadas en data-model.md §1: data JSON -> JSONB; indicadores 0/1 -> SMALLINT. */
@@ -113,6 +119,12 @@ function parseCreateTable(name: string, body: string): Table {
       continue;
     }
     if (item === '') continue;
+    // T766: la restricción UNIQUE de tabla (`UNIQUE (created_by_user_id, idempotency_key)`) se compara como un CHECK más (mismo texto en ambos motores).
+    const unique = /^UNIQUE \(([^)]*)\)$/i.exec(item);
+    if (unique) {
+      table.checks.push(`UNIQUE(${unique[1]!.split(',').map((c) => c.trim()).join(',')})`);
+      continue;
+    }
     const m = /^(\w+) (\w+)(.*)$/.exec(item);
     if (!m) throw new Error(`Definición no reconocida en ${name}: ${item}`);
     const tail = m[3]!;
@@ -192,7 +204,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH)]);
+const postgresSchema = (): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH)]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -264,7 +276,7 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
   });
 
   it('el SQL es PostgreSQL puro: sin STRICT, json_extract, PRAGMA ni GLOB; datos JSONB', () => {
-    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8') + readFileSync(USERNAME_PATH, 'utf8') + readFileSync(MICROCHIP_PATH, 'utf8') + readFileSync(RATE_SCOPE_PATH, 'utf8') + readFileSync(MEDIA_PATH, 'utf8'));
+    const sql = stripSql(readFileSync(BASELINE_PATH, 'utf8') + readFileSync(REVISION_PATH, 'utf8') + readFileSync(USERNAME_PATH, 'utf8') + readFileSync(MICROCHIP_PATH, 'utf8') + readFileSync(RATE_SCOPE_PATH, 'utf8') + readFileSync(MEDIA_PATH, 'utf8') + readFileSync(PLATFORM_PATH, 'utf8'));
     for (const banned of [/\bSTRICT\b/i, /json_extract/i, /\bPRAGMA\b/i, /\bGLOB\b/i, /strftime/i, /\bAUTOINCREMENT\b/i]) {
       expect(sql).not.toMatch(banned);
     }
@@ -281,6 +293,37 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     expect(auditInserts[0]).toMatch(/'MIGRATION'/);
     expect(auditInserts[0]).toMatch(/'SYSTEM'/);
     expect(statements.filter((s) => /^(INSERT|UPDATE|DELETE)\b/i.test(s))).toHaveLength(2);
+  });
+
+  it('[T711][REQ-PRM-001][REQ-PRM-003] platform_parameters: mismas 5 columnas en ambos motores, clave primaria textual, sin FK, sin value_type/min_value/max_value (MIF-005-07)', () => {
+    const pg = postgresSchema();
+    for (const schema of [sqlite, pg]) {
+      const table = schema.tables.get('platform_parameters')!;
+      expect([...table.columns.keys()].sort()).toEqual(['description', 'key', 'updated_at', 'updated_by_user_id', 'value']);
+      expect(table.primaryKey).toEqual(['key']);
+      expect(table.columns.get('value')).toMatchObject({ type: 'TEXT', notNull: true, references: null });
+      expect(table.columns.get('description')).toMatchObject({ type: 'TEXT', notNull: true });
+      expect(table.columns.get('updated_at')).toMatchObject({ type: 'TEXT', notNull: true });
+      expect(table.columns.get('updated_by_user_id')).toMatchObject({ type: 'TEXT', notNull: false, references: null });
+      expect([...table.columns.values()].filter((c) => c.references !== null)).toEqual([]);
+    }
+  });
+
+  it('[T711][REQ-PRM-001][SC-005-004] la siembra es la misma en ambos motores: una sola fila album.max_photos_per_pet = 10 sin autor', () => {
+    const sql = stripSql(readFileSync(PLATFORM_PATH, 'utf8'));
+    const inserts = sql.split(/;\s*(?:\n|$)/).map((s) => s.trim()).filter((s) => /^INSERT INTO platform_parameters\b/i.test(s));
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]).toContain("'album.max_photos_per_pet'");
+    expect(inserts[0]).toContain("'10'");
+    expect(inserts[0]).toContain("'Máximo de fotos de álbum por mascota'");
+    const db = openSqliteDatabase(IN_MEMORY_DATABASE);
+    try {
+      expect(db.prepare('SELECT key, value, description, updated_by_user_id FROM platform_parameters').all()).toEqual([
+        { key: 'album.max_photos_per_pet', value: '10', description: 'Máximo de fotos de álbum por mascota', updated_by_user_id: null },
+      ]);
+    } finally {
+      db.close();
+    }
   });
 
   it('audit_log no tiene claves foráneas (REQ-AUD-001) y pet_assignments.assigned_by_user_id tampoco', () => {
@@ -310,6 +353,8 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(MICROCHIP_PATH, 'utf8'));
         await client.query(readFileSync(RATE_SCOPE_PATH, 'utf8'));
         await client.query(readFileSync(MEDIA_PATH, 'utf8'));
+        await client.query(readFileSync(PLATFORM_PATH, 'utf8'));
+        await client.query(readFileSync(SHARE_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],
@@ -327,6 +372,8 @@ describe.skipIf(!TEST_DATABASE_URL)(
         }
         const versions = await client.query('SELECT version FROM schema_migrations');
         expect(versions.rows).toEqual([{ version: '0001_baseline' }]);
+        const seeded = await client.query('SELECT key, value, description, updated_by_user_id FROM platform_parameters');
+        expect(seeded.rows).toEqual([{ key: 'album.max_photos_per_pet', value: '10', description: 'Máximo de fotos de álbum por mascota', updated_by_user_id: null }]);
       } finally {
         await client.query(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE`);
         await client.end();

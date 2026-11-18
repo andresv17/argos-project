@@ -8,6 +8,7 @@
  */
 
 import type { MediaKind } from '../../domain/media/index.ts';
+import type { ShareLinkAuditRepositoryPort, ShareLinkRepositoryPort } from './share-link.port.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
 import type { Household, HouseholdInvitation, UserSelfProfile } from '../../generated/index.ts';
 import type { AuditEntry } from '../../generated/v31/index.ts';
@@ -177,12 +178,19 @@ export interface PetMediaRepositoryPort {
   findById(petId: string, mediaId: string): Promise<PetMediaRecord | null>;
   /** Página de la mascota (y del tipo, o de ambos si `kind` es null) ordenada por `(createdAt DESC, id DESC)` (INV-ALB-001) más el `total` del filtro. */
   listPage(petId: string, kind: MediaKind | null, limit: number, offset: number): Promise<{ readonly items: PetMediaRecord[]; readonly total: number }>;
+  /** Número de filas de la mascota de ese tipo (`PHOTO` = álbum, `FILE` = archivos clínicos); 0 si no hay ninguna o la mascota no existe (REQ-ALB5-002). */
+  countByPetAndKind(petId: string, kind: MediaKind): Promise<number>;
   /** Suma de `size_bytes` de todas las mascotas del propietario legal; el avatar no cuenta (REQ-ARC-005). */
   countBytesOfOwner(ownerUserId: string): Promise<number>;
   /** Borra la fila de esa mascota con ese id; true si existía. */
   remove(petId: string, mediaId: string): Promise<boolean>;
   /** Objetos que se borrarían: filas de `pet_media` más avatares no nulos de esas mascotas (vista previa de importación, D-15 A). */
   countObjectsOfPets(petIds: readonly string[]): Promise<number>;
+  /**
+   * El medio con ese id SOLO si pertenece a alguna de esas mascotas (UNA consulta; ruta pública de archivos del enlace, REQ-VET-009, INV-005-001); null en
+   * otro caso, también con la lista vacía.
+   */
+  findInPets(petIds: readonly string[], mediaId: string): Promise<PetMediaRecord | null>;
 }
 
 export type MediaDeletionReason = 'INTENT' | 'DELETE';
@@ -293,4 +301,8 @@ export interface RepositorySet {
   readonly media: PetMediaRepositoryPort;
   readonly mediaQueue: MediaDeletionQueuePort;
   readonly auditLog: AuditLogRepositoryPort;
+  /** Enlaces de solo lectura para el veterinario (feature 005, REQ-VET-*). */
+  readonly shareLinks: ShareLinkRepositoryPort;
+  /** Auditoría del enlace: creación, revocación y accesos (REQ-VET-008). */
+  readonly shareAudit: ShareLinkAuditRepositoryPort;
 }

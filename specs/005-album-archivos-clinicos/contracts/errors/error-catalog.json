@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArgosDeterministicErrorCatalogIncremental005",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "extends": "specs/004-catalogos-registros-archivos/contracts/errors/error-catalog.json 3.1.0 (LOCKED; no se edita)",
+    "change_note": "Catálogo INCREMENTAL de la feature 005 (D5-02, B2 de /merovingian): solo los 4 códigos nuevos; ERR-ACC-FORBIDDEN, ERR-PET-NOT-FOUND, ERR-HOUSE-NOT-FOUND, ERR-SCHEMA-VALIDATION-FAILED, ERR-MEDIA-QUOTA-EXCEEDED, ERR-MEDIA-TYPE-NOT-ALLOWED, ERR-MEDIA-NOT-FOUND, ERR-AUTH-* e ERR-INTERNAL-UNEXPECTED se heredan sin cambio del catálogo de la 004. El compilador debe fallar si un código aparece en ambos catálogos (ver README, «Compilación»). El 404 y el 429 de la superficie pública llevan cuerpo constante, `instance` constante y las cabeceras de REQ-VET-006 (INV-005-007). T707 (EDGE-005-25): el 404 uniforme absorbe también el 404 de parámetro largo y el 400 de URL mal codificada de Fastify (campos uniformSources y normalizationRule).",
+    "removed": [],
+    "added": [
+      "ERR-MEDIA-ALBUM-LIMIT",
+      "ERR-SHARE-LINK-LIMIT",
+      "ERR-SHARE-NOT-FOUND",
+      "ERR-SHARE-RATE-LIMITED"
+    ],
+    "inherited": [
+      "ERR-ACC-FORBIDDEN",
+      "ERR-AUTH-CSRF-REJECTED",
+      "ERR-AUTH-UNAUTHENTICATED",
+      "ERR-HOUSE-NOT-FOUND",
+      "ERR-INTERNAL-UNEXPECTED",
+      "ERR-MEDIA-NOT-FOUND",
+      "ERR-MEDIA-QUOTA-EXCEEDED",
+      "ERR-MEDIA-STORAGE-UNAVAILABLE",
+      "ERR-MEDIA-TYPE-NOT-ALLOWED",
+      "ERR-PET-NOT-FOUND",
+      "ERR-SCHEMA-VALIDATION-FAILED"
+    ],
+    "traceability": [
+      "REQ-ALB5-002",
+      "REQ-ALB5-003",
+      "REQ-VET-005",
+      "REQ-VET-007",
+      "REQ-VET-011",
+      "REQ-VET-012",
+      "INV-005-003",
+      "INV-005-007",
+      "EDGE-005-25"
+    ]
+  },
+  "version": "1.0.0",
+  "status": "DRAFT",
+  "problemDetailsSchema": {
+    "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
+  },
+  "errors": {
+    "ERR-MEDIA-ALBUM-LIMIT": {
+      "type": "urn:argos:error:ERR-MEDIA-ALBUM-LIMIT",
+      "status": 409,
+      "title": "Álbum completo",
+      "invariantRef": "INV-005-003",
+      "detailTemplate": "El álbum de esta mascota está completo. Elimina alguna foto o guarda las fotos médicas en Historial / Archivos.",
+      "requirementRef": "REQ-ALB5-002, REQ-ALB5-003"
+    },
+    "ERR-SHARE-LINK-LIMIT": {
+      "type": "urn:argos:error:ERR-SHARE-LINK-LIMIT",
+      "status": 409,
+      "title": "Demasiados enlaces activos",
+      "invariantRef": "REQ-VET-012",
+      "detailTemplate": "Se alcanzó el máximo de 20 enlaces activos para este alcance. Revoca alguno para crear otro.",
+      "requirementRef": "REQ-VET-012"
+    },
+    "ERR-SHARE-NOT-FOUND": {
+      "type": "urn:argos:error:ERR-SHARE-NOT-FOUND",
+      "status": 404,
+      "title": "Enlace no disponible",
+      "invariantRef": "INV-005-007",
+      "detailTemplate": "El enlace no está disponible.",
+      "requirementRef": "REQ-VET-005, REQ-VET-007, REQ-VET-011",
+      "uniformSources": [
+        "token inexistente",
+        "token mal formado (longitud, alfabeto)",
+        "enlace vencido",
+        "enlace revocado",
+        "creador sin autoridad",
+        "alcance vacío",
+        "mascota retirada",
+        "mediaId ajeno, PHOTO o enlace sin archivos",
+        "parámetro de más de 100 caracteres (404 propio de Fastify)",
+        "URL mal codificada (400 FST_ERR_BAD_URL de Fastify)",
+        "ruta no definida bajo /shared/ o barra final",
+        "verbo distinto de GET (incluidos HEAD y OPTIONS)",
+        "menos de 1 s de vigencia restante al emitir una URL firmada"
+      ],
+      "normalizationRule": "Toda respuesta del framework generada antes del manejador de la ruta pública se normaliza a este mismo 404 (cuerpo constante, instance \"/shared\", cabeceras de REQ-VET-006, misma secuencia de puertos) y cuenta para el límite de tasa (EDGE-005-25). Prohibido devolver el token, la URL o la plantilla de ruta de Fastify en cualquier error, cabecera o registro; ningún fallo responde 400."
+    },
+    "ERR-SHARE-RATE-LIMITED": {
+      "type": "urn:argos:error:ERR-SHARE-RATE-LIMITED",
+      "status": 429,
+      "title": "Demasiados intentos",
+      "invariantRef": "INV-005-007",
+      "detailTemplate": "Demasiados intentos. Espera unos minutos antes de volver a intentarlo.",
+      "requirementRef": "REQ-VET-007"
+    }
+  }
+}

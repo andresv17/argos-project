@@ -236,6 +236,7 @@ Cada requisito tiene un identificador inmutable. Las invariantes (`INV-*`) y las
   | Ver y descargar archivos y fotos (*Enmienda 004, E-06*; acción `READ_MEDIA`) | S | S | S | S |
   | Subir archivos y fotos (*Enmienda 004, E-06*; acción `WRITE_MEDIA`) | S | S | S | N |
   | Eliminar archivos y fotos (*Enmienda 004, E-06*; acción `DELETE_MEDIA`) | S | S | N | N |
+  | Crear enlaces de solo lectura para el veterinario (*Enmienda 005, D5-10*; acción `CREATE_SHARE_LINK`, solo `x-sdd-rbac-action` del contrato de la 005; para el alcance de hogar la primera y segunda columna son «Propietario del hogar» y «Admin del hogar» **en ese hogar**, no el rol efectivo por mascota) | S | S | N | N |
 
   **Lectura de las dos filas de hogar y de cuenta (cierra H-F5-02, N-4):**
   - *Invitar, expulsar y cambiar rol* es una acción sobre el hogar, no sobre una mascota. Su primera columna es el **propietario del hogar** (quien lo creó o lo recibió por `TRANSFER_OWNERSHIP`), que siempre tiene rol `ADMIN`: puede en cualquier caso. Un `ADMIN` que no es propietario del hogar también puede, salvo expulsar o degradar al propietario del hogar o cambiar su propio rol (`REQ-HOUSE2-002`). Cuidador y Lector no pueden. Ser Propietario Legal de una mascota no concede por sí solo esta acción.
@@ -348,7 +349,7 @@ SSO (Google, Apple, SAML), recuperación de acceso y envío de correos, invitaci
 - **SC-005** (vigente, ampliado): Todas las pantallas son utilizables a 320, 768, 1024 y 1280 px con cero violaciones críticas o serias de accesibilidad (`REQ-UI2-008`).
 - **SC-006** (vigente): Los mismos datos y la misma fecha producen siempre la misma edad, el mismo orden y el mismo estado de alerta, independientemente del `timezone` del perfil (`REQ-TIME-001`).
 - **SC-007** (vigente): Un usuario registra cualquier número de mascotas y la lista y la ficha siguen navegables por teclado y sin recarga.
-- **SC-008**: La prueba de matriz cubre las 14 filas (11 originales y 3 de medios, *Enmienda 004, E-06*) × 4 roles de `REQ-RBAC-001` (56 casos) y el 100 % coincide con el servidor y con las acciones visibles en la interfaz.
+- **SC-008**: La prueba de matriz cubre las 15 filas (11 originales, 3 de medios, *Enmienda 004, E-06*, y 1 de enlaces, *Enmienda 005, D5-10*) × 4 roles de `REQ-RBAC-001` (15 × 4 = 60 casos) y el 100 % coincide con el servidor y con las acciones visibles en la interfaz.
 - **SC-009**: Una sesión expira el 100 % de las veces a los 30 min de inactividad y a las 24 h absolutas, con reloj controlado, y recargar la página dentro de la vigencia no la cierra.
 - **SC-010**: El 100 % de las contraseñas que incumplen `INV-AUTH2-001` se rechaza al registrar o cambiar, y el 100 % de las cuentas con contraseña válida de la 001 sigue iniciando sesión.
 - **SC-011**: La migración desde una base de la 001 conserva el 100 % de las mascotas, registros y visibilidades (cada miembro ve las mismas mascotas que antes) y es repetible sin duplicar.

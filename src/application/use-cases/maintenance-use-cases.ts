@@ -7,6 +7,7 @@
  */
 
 import { isMediaObjectKey } from '../../domain/media/index.ts';
+import { retentionCutoffs } from '../../domain/sharing/share-link.ts';
 import { monthlyAnniversary, parseIsoCalendarDate, shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
 import type { MaintenanceCounts, MaintenanceCutoffs } from '../ports/unit-of-work.port.ts';
 import type { ApplicationDeps } from './use-case-support.ts';
@@ -116,6 +117,23 @@ export async function runMediaQueueMaintenance(deps: Pick<ApplicationDeps, 'uow'
 }
 
 /**
+ * Purga diaria del enlace veterinario (feature 005, REQ-CLD-007, REQ-VET-013, SC-005-042): enlaces vencidos o revocados a 30 días, auditoría sin IP a 90 días y
+ * toda fila con `ip_hmac` a 30 (PN-06). Una transacción; no escribe auditoría ni registra identificadores. Nunca lanza: la siguiente pasada lo reintenta.
+ * @implements REQ-VET-013, REQ-VET-010, REQ-CLD-007, SC-005-042
+ */
+export async function purgeShareData(deps: Pick<ApplicationDeps, 'uow' | 'clock'>): Promise<void> {
+  try {
+    const cutoffs = retentionCutoffs(deps.clock.nowIsoTimestamp());
+    await deps.uow.runInTransaction(async (r) => {
+      await r.shareLinks.purge(cutoffs.links);
+      await r.shareAudit.purge({ withoutIpBefore: cutoffs.auditWithoutIp, withIpBefore: cutoffs.auditWithIp });
+    });
+  } catch {
+    // la siguiente pasada diaria lo reintenta
+  }
+}
+
+/**
  * Ejecuta una pasada de mantenimiento con el reloj de la aplicación; sin almacenamiento con purga devuelve ceros. Con medios conectados recorre también
  * la cola de borrado y entrega su resultado a `onMediaQueue` (la respuesta de `/internal/maintenance` conserva sus 5 conteos).
  */
@@ -125,6 +143,7 @@ export async function runMaintenance(
 ): Promise<MaintenanceCounts> {
   const queue = await runMediaQueueMaintenance(deps);
   if (deps.media !== undefined) onMediaQueue?.(queue);
+  await purgeShareData(deps);
   if (deps.uow.purgeExpired === undefined) return NO_PURGE;
   return deps.uow.purgeExpired(maintenanceCutoffs(deps.clock.nowIsoTimestamp()));
 }

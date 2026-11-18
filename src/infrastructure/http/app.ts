@@ -23,6 +23,8 @@ import { registerHouseholdRoutes } from './routes/households.routes.ts';
 import { registerOpsRoutes } from './routes/ops-routes.ts';
 import { registerPetRoutes } from './routes/pets.routes.ts';
 import { registerMediaRoutes } from './routes/media.routes.ts';
+import { registerShareLinkRoutes } from './routes/share-links.routes.ts';
+import { applySharedHeaders, createSharedFailure, isSharedPagePath, registerSharedRoutes, sharedFrameworkErrors } from './routes/shared.routes.ts';
 import { registerRecordEditRoutes } from './routes/records-edit.routes.ts';
 import { createUseCases } from './routes/use-cases.ts';
 
@@ -44,13 +46,27 @@ export interface HttpAppOptions {
 
 /** @implements INV-ARCH-004, INV-AUTH-007 */
 export async function buildApp({ deps, cookieSecure, logger = false, trustProxy = false, checkReady, staticRoot, mediaHost, devMedia }: HttpAppOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger, trustProxy: typeof trustProxy === 'number' ? (_address: string, hop: number) => hop < trustProxy : trustProxy });
+  // `frameworkErrors` (EDGE-005-25): la URL mal codificada bajo `/api/shared/` responde el 404 uniforme del enlace veterinario, no el 400 de Fastify.
+  const sharedFailure: { current: ReturnType<typeof createSharedFailure> | null } = { current: null };
+  const app = Fastify({
+    logger,
+    trustProxy: typeof trustProxy === 'number' ? (_address: string, hop: number) => hop < trustProxy : trustProxy,
+    frameworkErrors: sharedFrameworkErrors(() => sharedFailure.current),
+  });
   await app.register(cookie);
   app.decorateRequest('userId', '');
   app.removeAllContentTypeParsers();
   app.addContentTypeParser('*', { parseAs: 'buffer' }, (_request, body, done) => done(null, body));
   registerProblemDetails(app);
   registerSecurityHeaders(app, mediaHost === undefined ? {} : { mediaHost });
+  // La página HTML `/shared/{token}` (SPA sin datos) lleva las mismas cabeceras de REQ-VET-006 y su CSP propia, también en el fallback estático (REQ-VET-006, A-15).
+  app.addHook('onRequest', async (request, reply) => {
+    if (isSharedPagePath(request.url)) applySharedHeaders(reply, true);
+  });
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (isSharedPagePath(request.url)) applySharedHeaders(reply, true);
+    return payload;
+  });
   registerCsrfGuard(app);
   const context = { useCases: createUseCases(deps), cookieSecure };
   registerAuthRoutes(app, context);
@@ -59,6 +75,9 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
   registerRecordEditRoutes(app, context);
   // Medios (feature 004): solo si la composición conectó el almacenamiento (REQ-GCS-003); sin él las rutas no existen (404).
   if (deps.media !== undefined) registerMediaRoutes(app, context, deps.media);
+  registerShareLinkRoutes(app, context);
+  sharedFailure.current = createSharedFailure(context.useCases, deps);
+  registerSharedRoutes(app, context, sharedFailure.current);
   registerHouseholdRoutes(app, context);
   registerAssignmentRoutes(app, context);
   registerOwnershipRoutes(app, context);

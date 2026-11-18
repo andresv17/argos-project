@@ -39,6 +39,28 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
   }
 
   /**
+   * Lectura coherente de una instantánea (feature 005, REQ-VET-006, SC-005-049): `BEGIN` diferido (transacción de LECTURA sobre el WAL, sin tomar el candado
+   * de escritura) y `PRAGMA query_only = ON` durante el trabajo: cualquier escritura falla. Se ejecuta en la misma cola que las escrituras (una sola conexión).
+   * @implements REQ-VET-006, EDGE-005-14
+   */
+  runReadOnly<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
+    const run = this.queue.then(() => this.executeReadOnly(work));
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async executeReadOnly<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
+    this.db.exec('BEGIN');
+    this.db.pragma('query_only = ON');
+    try {
+      return await work(this.repositories);
+    } finally {
+      this.db.pragma('query_only = OFF');
+      this.db.exec('ROLLBACK');
+    }
+  }
+
+  /**
    * ADR-002-13 / plan.md:99: checkpoint del WAL con truncado tras el commit. `wal_checkpoint(TRUNCATE)` devuelve
    * `{ busy, log, checkpointed }`; `busy !== 0` (o una excepción) es un fallo: se reintenta una vez y, si persiste, solo se
    * emite un aviso sin identificadores. Nunca revierte nada.

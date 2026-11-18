@@ -28,3 +28,66 @@ body {
     background-size: 720px 720px, auto;
   }
 }
+
+/* Resumen clínico compartido (feature 005, S5/S6 de /sati, T775/T777): hoja blanca sin degradado; `.print-only` solo existe en papel. */
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* Sin márgenes de página: el navegador no imprime encabezado ni pie con la URL (que lleva el token, H-2 de /sati); el relleno va en la hoja. */
+  @page {
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    background-image: none !important;
+    color: #0f172a;
+  }
+
+  body {
+    font-size: 11pt;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  .print-sheet {
+    max-width: none;
+    padding: 16mm 14mm;
+    box-shadow: none;
+    border: 0;
+  }
+
+  /* Cada mascota del alcance hogar empieza en hoja nueva salvo la primera. */
+  .pet-break {
+    break-before: page;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  li,
+  dl {
+    break-inside: avoid;
+  }
+
+  /* En papel no se imprimen nombres de archivo ni URL. */
+  .file-name {
+    display: none;
+  }
+
+  a[href]::after {
+    content: none;
+  }
+}

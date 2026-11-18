@@ -5,6 +5,7 @@
  */
 import type { MediaListEntry, MediaObject, MediaReadUrl, MediaReadUrlRequest, MediaStoragePort } from '../../src/application/ports/media-storage.port.ts';
 import { MediaStorageUnavailableError } from '../../src/application/ports/media-storage.port.ts';
+import type { PlatformParameterPort } from '../../src/application/ports/platform-parameter.port.ts';
 import type { MediaLimits } from '../../src/application/use-cases/use-case-support.ts';
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
 import { DeterministicIdAdapter } from '../../src/infrastructure/adapters/deterministic-id.adapter.ts';
@@ -134,6 +135,8 @@ export interface EngineOptions {
   readonly limits?: Partial<MediaLimits>;
   /** Ids que genera el caso de uso, en orden (por defecto los 50 deterministas de la 002 y luego los de reserva). */
   readonly ids?: readonly string[];
+  /** Puerto de parámetros de plataforma (feature 005); ausente = valor por defecto del código (10 fotos). */
+  readonly platformParameters?: PlatformParameterPort;
 }
 
 /** Motores de memoria y SQLite con los casos de uso de medios conectados a un almacenamiento controlable. */
@@ -169,7 +172,12 @@ export async function createMediaEngines(role: HouseholdRole | null = null, opti
     snapshot: (() => ReturnType<InMemoryUnitOfWork['snapshot']>) | null,
     sqlite?: SqliteDatabase,
   ): MediaEngine {
-    const deps: ApplicationDeps = { ...createDeps(uow, clock, new SpyPasswordHasher()), ids: ids(), media: { storage, limits } };
+    const deps: ApplicationDeps = {
+      ...createDeps(uow, clock, new SpyPasswordHasher()),
+      ids: ids(),
+      media: { storage, limits },
+      ...(options.platformParameters === undefined ? {} : { platformParameters: options.platformParameters }),
+    };
     const run: MediaEngine['run'] = (work) => uow.runInTransaction(work);
     return {
       name,

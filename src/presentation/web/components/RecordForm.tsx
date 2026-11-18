@@ -2,10 +2,11 @@
  * Formulario de alta de un módulo de registros. Solo se monta si `canEdit` (REQ-UI-002). En «Parámetros», la categoría «Síntoma» añade
  * el tipo, la intensidad con su ayuda fija y la leyenda veterinaria (REQ-SIN-001, REQ-SIN-003); todo es presentación y el servidor valida.
  *
- * @implements REQ-UI-002, REQ-UI-004, REQ-SIN-001, REQ-SIN-003, INV-SIN-002
+ * @implements REQ-UI-002, REQ-UI-004, REQ-SIN-001, REQ-SIN-003, INV-SIN-002, REQ-CAN-001, SC-005-012
  */
-import { useState } from 'react';
-import { Button, FormError, SelectField, TextField } from './Field.tsx';
+import { useId, useState } from 'react';
+import { FormError, SelectField, TextField } from './Field.tsx';
+import { FormActions, cancelForm } from './FormActions.tsx';
 import { SymptomLegend } from './SymptomLegend.tsx';
 import { initialRecordValues, type RecordModuleSpec } from '../records.ts';
 import {
@@ -42,14 +43,20 @@ const NO_SYMPTOM_FIELDS: Readonly<Record<string, string>> = {
   severity: '',
 };
 
-export function RecordForm({ spec, onSubmit, species = 'CANINE', initial: given = {} }: {
+export function RecordForm({ spec, onSubmit, onCancel, species = 'CANINE', initial: given = {}, mode = 'create' }: {
   readonly spec: RecordModuleSpec;
   readonly onSubmit: (body: FormBody) => Promise<void>;
+  /** Solo en edición: cierra el formulario sin guardar ni pedir confirmación (REQ-CAN-001, D5-09). */
+  readonly onCancel?: () => void;
   /** Especie de la mascota: decide si «Vómito» se ofrece en el tipo de síntoma (D-17 A). */
   readonly species?: Species;
   /** Valores iniciales que reemplazan a los de la primera opción de cada selector. */
   readonly initial?: Readonly<Record<string, string>>;
+  /** `edit`: ids propios (`<módulo>-edit-<useId>`) para no repetir los del alta ni los de otra edición abierta (WCAG 1.3.1, 4.1.2). El alta conserva `<módulo>`. */
+  readonly mode?: 'create' | 'edit';
 }): JSX.Element {
+  const uid = useId();
+  const base = mode === 'edit' ? `${spec.id}-edit-${uid}` : spec.id;
   const [saved, setSaved] = useState(false);
   const isParameters = spec.id === 'customParameters';
   const initial = {
@@ -85,15 +92,15 @@ export function RecordForm({ spec, onSubmit, species = 'CANINE', initial: given 
   };
 
   return (
-    <form noValidate aria-labelledby={`form-${spec.id}-title`} onSubmit={(e) => void form.onSubmit(e)} className="mt-3 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2">
-      <h3 id={`form-${spec.id}-title`} className="text-base font-semibold sm:col-span-2">
+    <form noValidate aria-labelledby={`form-${base}-title`} onSubmit={(e) => void form.onSubmit(e)} className="mt-3 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2">
+      <h3 id={`form-${base}-title`} className="text-base font-semibold sm:col-span-2">
         {spec.formTitle}
       </h3>
       {spec.fields.map((field) => [
         field.type === 'select' ? (
           <SelectField
             key={field.name}
-            id={`${spec.id}-${field.name}`}
+            id={`${base}-${field.name}`}
             label={field.label}
             name={field.name}
             value={form.values[field.name] ?? ''}
@@ -104,7 +111,7 @@ export function RecordForm({ spec, onSubmit, species = 'CANINE', initial: given 
         ) : (
           <TextField
             key={field.name}
-            id={`${spec.id}-${field.name}`}
+            id={`${base}-${field.name}`}
             label={field.label}
             name={field.name}
             type={field.type}
@@ -121,7 +128,7 @@ export function RecordForm({ spec, onSubmit, species = 'CANINE', initial: given 
           <div key="symptom-fields" className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
             {hidesVomit(species) ? <p className="text-sm text-text-muted sm:col-span-2">{NO_VOMIT_NOTICE}</p> : null}
             <SelectField
-              id={`${spec.id}-symptomType`}
+              id={`${base}-symptomType`}
               label="Tipo"
               name="symptomType"
               value={typeValue}
@@ -130,7 +137,7 @@ export function RecordForm({ spec, onSubmit, species = 'CANINE', initial: given 
               errors={form.errors}
             />
             <SelectField
-              id={`${spec.id}-severity`}
+              id={`${base}-severity`}
               label="Intensidad"
               name="severity"
               value={form.values['severity'] ?? ''}
@@ -161,16 +168,13 @@ export function RecordForm({ spec, onSubmit, species = 'CANINE', initial: given 
       <div className="sm:col-span-2">
         <FormError errors={form.errors} message={form.message} />
       </div>
-      <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
-        <Button type="submit" disabled={form.busy}>
-          Guardar
-        </Button>
+      <FormActions busy={form.busy} {...(onCancel === undefined ? {} : { onCancel: () => cancelForm(form.busy, onCancel) })}>
         {saved ? (
           <p role="status" className="rounded-2xl border border-emerald-700 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
             Registro guardado.
           </p>
         ) : null}
-      </div>
+      </FormActions>
     </form>
   );
 }

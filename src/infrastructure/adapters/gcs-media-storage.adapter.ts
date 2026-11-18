@@ -113,7 +113,7 @@ export class GcsMediaStorageAdapter implements MediaStoragePort {
 
   async createReadUrl(request: MediaReadUrlRequest): Promise<MediaReadUrl> {
     assertMediaKey(request.key);
-    assertTtlSeconds(request.ttlSeconds);
+    assertTtlSeconds(request.ttlSeconds, request.allowShortTtl === true);
     assertNeutralFilename(request.filename);
     // Se alinea el inicio al segundo para que X-Goog-Expires sea exactamente el TTL configurado.
     const startMs = Math.floor(this.now().getTime() / 1000) * 1000;

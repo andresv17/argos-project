@@ -177,6 +177,8 @@ export class DeleteAccountUseCase {
       await repositories.sessions.deleteByUser(userId);
       await repositories.confirmationTokens.deleteForUser(userId);
       await repositories.rateLimits.deleteForUser(userId);
+      // Feature 005 (REQ-VET-008, REQ-VET-010): los enlaces del creador caen por cascada con `users.delete`; la auditoría no tiene clave foránea y pasa a actor nulo en esta misma transacción.
+      await repositories.shareAudit.clearActor(userId);
       await repositories.loginAttempts.deleteFailures(normalizeLoginIdentifier(account.username));
       await repositories.users.delete(userId);
       // B10: poscondición: ninguna fila referencia al usuario.

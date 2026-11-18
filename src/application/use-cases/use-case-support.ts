@@ -31,9 +31,12 @@ import type { BackupTokenPort } from '../ports/backup-token.port.ts';
 import type { ClockPort } from '../ports/clock.port.ts';
 import type { IdGeneratorPort } from '../ports/id-generator.port.ts';
 import type { PasswordHasherPort } from '../ports/password-hasher.port.ts';
+import type { PlatformParameterPort } from '../ports/platform-parameter.port.ts';
 import type { RateLimiterPort } from '../ports/rate-limiter.port.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import type { SecureTokenPort } from '../ports/secure-token.port.ts';
+import type { ShareTokenGeneratorPort } from '../ports/share-link.port.ts';
+import type { SharedAccessLimiter } from '../sharing/shared-access-limiter.ts';
 import type { UnitOfWorkPort } from '../ports/unit-of-work.port.ts';
 
 /**
@@ -63,6 +66,16 @@ export interface MediaServices {
   readonly limits: MediaLimits;
 }
 
+/**
+ * Enlace veterinario (feature 005, US4): generador del token (el hash vive en el dominio), clave HMAC DEDICADA de la IP (hexadecimal, >= 32 bytes; sin rotación
+ * en 005, PN-06) y límite de tasa en memoria de la superficie pública. Opcional: sin él las rutas del enlace fallan cerrado.
+ */
+export interface SharingServices {
+  readonly tokens: ShareTokenGeneratorPort;
+  readonly ipHmacSecret: string;
+  readonly limiter: SharedAccessLimiter;
+}
+
 export interface ApplicationDeps {
   readonly uow: UnitOfWorkPort;
   readonly clock: ClockPort;
@@ -85,6 +98,13 @@ export interface ApplicationDeps {
   readonly auditIds: IdGeneratorPort;
   /** Medios (feature 004, REQ-GCS-003): almacenamiento de objetos y topes. Opcional hasta que la composición lo conecta. */
   readonly media?: MediaServices;
+  /**
+   * Parámetros de plataforma con caché (feature 005, REQ-PRM-002). Ausente en una composición sin ellos: rige el valor por defecto del código
+   * (`PARAMETER_CATALOG`), nunca un valor cableado en el caso de uso.
+   */
+  readonly platformParameters?: PlatformParameterPort;
+  /** Enlace veterinario (feature 005, US4): token, clave HMAC de IP y límite de tasa. Ausente: las rutas del enlace fallan cerrado. */
+  readonly sharing?: SharingServices;
 }
 
 interface ValidatorWithErrors {

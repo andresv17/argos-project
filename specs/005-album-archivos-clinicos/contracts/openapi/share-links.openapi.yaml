@@ -1,0 +1,447 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Argos Pet Health & Biometric Tracker API - delta de la feature 005
+  version: 3.3.0
+  description: >
+    Documento INCREMENTAL de la feature 005 (Fase 4B): contiene solo las 10 operaciones nuevas; el OpenAPI de la 004
+    (3.2.0) permanece LOCKED y se hereda sin cambio. Operaciones autenticadas (cookie + CSRF como el resto): limite del
+    album, creacion y listado de enlaces de solo lectura para el veterinario (mascota u hogar), revocacion y vista previa del
+    resumen clinico. Operaciones publicas (sin cookie, sin CSRF, solo GET): resumen y descarga de archivos clinicos por token
+    de capacidad. Todas las respuestas de error usan application/problem+json (RFC 9457); los codigos nuevos viven en
+    contracts/errors/error-catalog.json (incremental) y el resto en el catalogo de la 004. Un usuario sin permiso de lectura
+    recibe 404 (INV-ACC2-001).
+  x-sdd-status: DRAFT
+  x-sdd-metadata:
+    version: 3.3.0
+    status: DRAFT
+    supersedes: 3.2.0
+    change_type: MINOR
+    change_note: "3.3.0 (feature 005, T706, MINOR aditiva): 10 operaciones nuevas, ninguna operacion existente cambia. El token viaja en la ruta (D5-16, firmado por Neo) con las mitigaciones obligatorias: instance constante, Referrer-Policy no-referrer, Cache-Control no-store, serializer de registros sin URL y filtro de Cloud Logging para /shared/ (lo ejecuta /link). CREATE_SHARE_LINK se anota solo como x-sdd-rbac-action (no entra en RbacAction de la 002). T707 (aditiva, sin cambiar las 10 operaciones): cabecera Idempotency-Key obligatoria en las dos creaciones y respuesta 200 CreateShareLinkReplay sin URL en el reintento (EDGE-005-16/17); el 404 uniforme absorbe el 404 de parametro largo y el 400 de URL mal codificada de Fastify (EDGE-005-25); X-Goog-Expires con minimo de 1 s (EDGE-005-23); lectura publica en una transaccion de solo lectura con un unico now (EDGE-005-14/24); revocar un enlace vencido es un no-op idempotente (MIF-005-08)."
+    traceability: [REQ-ALB5-002, REQ-ALB5-005, REQ-VET-001, REQ-VET-002, REQ-VET-004, REQ-VET-005, REQ-VET-006, REQ-VET-007, REQ-VET-009, REQ-VET-011, REQ-VET-012, REQ-SUM-004, REQ-SUM-005, EDGE-005-14, EDGE-005-16, EDGE-005-23, EDGE-005-25, INV-005-001, INV-005-002, INV-005-005, INV-005-007, INV-005-008, REQ-RBAC-001]
+servers:
+  - url: http://127.0.0.1:3100/api
+    description: Servidor local (prefijo /api). La pagina publica del navegador es /shared/{token} (HTML de la SPA sin datos, mismas cabeceras, no resuelve el token); los datos salen de /api/shared/{token}/summary.
+security:
+  - sessionCookie: []
+tags:
+  - name: album
+  - name: share-links
+  - name: clinical-summary
+  - name: shared-public
+
+paths:
+  /pets/{petId}/album/limits:
+    parameters:
+      - { $ref: '#/components/parameters/PetId' }
+    get:
+      tags: [album]
+      operationId: getAlbumLimits
+      summary: "Conteo de fotos y maximo vigente del album [REQ-ALB5-005, REQ-ALB5-002]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ALB5-005, REQ-ALB5-002]
+      x-sdd-rbac-action: "READ_MEDIA"
+      responses:
+        '200':
+          description: "Limites del album; maxPhotosPerPet es el valor vigente (cache <= 60 s, D5-07)"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/album.schema.json#/$defs/AlbumLimits' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /pets/{petId}/share-links:
+    parameters:
+      - { $ref: '#/components/parameters/PetId' }
+    post:
+      tags: [share-links]
+      operationId: createPetShareLink
+      summary: "Crea un enlace de solo lectura de UNA mascota; devuelve la URL una sola vez; idempotente por Idempotency-Key [REQ-VET-001, REQ-VET-003, REQ-VET-004]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET-001, REQ-VET-003, REQ-VET-004, REQ-VET-012]
+      x-sdd-rbac-action: "CREATE_SHARE_LINK (rol efectivo OWNER o ADMIN sobre la mascota)"
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/share-link.schema.json#/$defs/CreateShareLinkInput' }
+      responses:
+        '200':
+          description: "Reintento con la misma Idempotency-Key (EDGE-005-16/17): metadatos del enlace ya creado SIN url ni token, sin nueva fila ni auditoria, aun con 20 activos. Misma clave con otro alcance u opciones = 422. Cache-Control: no-store"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/share-link.schema.json#/$defs/CreateShareLinkReplay' }
+        '201':
+          description: "Enlace creado; la URL contiene el token y no se vuelve a mostrar. Cache-Control: no-store"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/share-link.schema.json#/$defs/CreateShareLinkResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-SHARE-LINK-LIMIT (20 enlaces activos por mascota, D5-18; conteo bajo el candado de la mascota)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+    get:
+      tags: [share-links]
+      operationId: listPetShareLinks
+      summary: "Lista los enlaces de la mascota (solo metadatos, nunca el token) [REQ-VET-001, REQ-VET-005]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET-001, REQ-VET-005]
+      x-sdd-rbac-action: "CREATE_SHARE_LINK"
+      responses:
+        '200':
+          description: "Enlaces activos y los vencidos o revocados de los ultimos 30 dias"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/share-link.schema.json#/$defs/ShareLinkList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /households/{householdId}/share-links:
+    parameters:
+      - { $ref: '#/components/parameters/HouseholdId' }
+    post:
+      tags: [share-links]
+      operationId: createHouseholdShareLink
+      summary: "Crea un enlace de solo lectura de las mascotas del hogar que el creador posee legalmente [REQ-VET-001, REQ-VET-002, REQ-VET-011]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET-001, REQ-VET-002, REQ-VET-011, REQ-VET-012]
+      x-sdd-rbac-action: "CREATE_SHARE_LINK (rol del usuario EN ese hogar: propietario del hogar o ADMIN ACTIVE; no el rol efectivo por mascota, B3 de /merovingian). El conjunto de mascotas se calcula en cada peticion: asignadas ahora al hogar Y de propiedad legal del creador (D5-19)."
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/share-link.schema.json#/$defs/CreateShareLinkInput' }
+      responses:
+        '200':
+          description: "Reintento con la misma Idempotency-Key (EDGE-005-16/17): metadatos del enlace ya creado SIN url ni token, sin nueva fila ni auditoria, aun con 20 activos. Misma clave con otro alcance u opciones = 422. Cache-Control: no-store"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/share-link.schema.json#/$defs/CreateShareLinkReplay' }
+        '201':
+          description: "Enlace creado; la URL no se vuelve a mostrar. Cache-Control: no-store"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/share-link.schema.json#/$defs/CreateShareLinkResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403':
+          description: "ERR-ACC-FORBIDDEN: no es propietario ni ADMIN del hogar, o no posee legalmente ninguna mascota asignada al hogar (conjunto vacio)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-SHARE-LINK-LIMIT (20 enlaces activos por hogar de cualquier creador, D5-18; conteo bajo el candado del HOGAR, no del creador, EDGE-005-15)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+    get:
+      tags: [share-links]
+      operationId: listHouseholdShareLinks
+      summary: "Lista los enlaces del hogar (solo metadatos, nunca el token) [REQ-VET-001, REQ-VET-005]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET-001, REQ-VET-005]
+      x-sdd-rbac-action: "CREATE_SHARE_LINK (rol del usuario en el hogar)"
+      responses:
+        '200':
+          description: "Enlaces activos y los vencidos o revocados de los ultimos 30 dias"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/share-link.schema.json#/$defs/ShareLinkList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /share-links/{shareLinkId}:
+    parameters:
+      - name: shareLinkId
+        in: path
+        required: true
+        schema: { $ref: '../../../004-catalogos-registros-archivos/contracts/schemas/common.schema.json#/$defs/Uuid' }
+    delete:
+      tags: [share-links]
+      operationId: revokeShareLink
+      summary: "Revoca el enlace (marca revoked_at; NO borra la fila); idempotente [REQ-VET-005, STATE-SHARE-001]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET-005]
+      x-sdd-rbac-action: "El creador, el propietario legal de la mascota (PET) o el propietario o ADMIN del hogar (HOUSEHOLD); la confirmacion en linea es solo de interfaz (D5-22)"
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '204':
+          description: "Enlace revocado con su auditoria en la misma transaccion (efecto inmediato sin cache), ya revocado (idempotente) o ya VENCIDO (no-op sin escritura ni auditoria; sigue VENCIDO, MIF-005-08)"
+        '401': { $ref: '#/components/responses/Problem' }
+        '404':
+          description: "ERR-SHARE-NOT-FOUND: el enlace no existe o el usuario no tiene autoridad sobre su alcance (misma respuesta; no revela la existencia)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /pets/{petId}/clinical-summary:
+    parameters:
+      - { $ref: '#/components/parameters/PetId' }
+    get:
+      tags: [clinical-summary]
+      operationId: previewPetClinicalSummary
+      summary: "Vista previa autenticada del resumen de una mascota, tal como la vera el veterinario [REQ-SUM-004, D5-15]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-SUM-004, REQ-SUM-003]
+      x-sdd-rbac-action: "CREATE_SHARE_LINK (rol efectivo OWNER o ADMIN); mascota ajena o inexistente = 404; no crea ni devuelve token"
+      parameters:
+        - { $ref: '#/components/parameters/IncludeMicrochip' }
+        - { $ref: '#/components/parameters/IncludeClinicalFiles' }
+      responses:
+        '200':
+          description: "Envoltorio de vista; validUntil es null; no se registra el nombre de archivo ni el microchip. Cache-Control: no-store"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/share-link.schema.json#/$defs/SharedSummaryView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /households/{householdId}/clinical-summary:
+    parameters:
+      - { $ref: '#/components/parameters/HouseholdId' }
+    get:
+      tags: [clinical-summary]
+      operationId: previewHouseholdClinicalSummary
+      summary: "Vista previa autenticada del resumen de las mascotas del hogar que el solicitante posee legalmente [REQ-SUM-004, D5-15, D5-19]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-SUM-004, REQ-VET-002]
+      x-sdd-rbac-action: "CREATE_SHARE_LINK (rol del usuario EN ese hogar)"
+      parameters:
+        - { $ref: '#/components/parameters/IncludeMicrochip' }
+        - { $ref: '#/components/parameters/IncludeClinicalFiles' }
+      responses:
+        '200':
+          description: "Envoltorio de vista con el mismo conjunto de mascotas que tendria el enlace; Cache-Control: no-store"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/share-link.schema.json#/$defs/SharedSummaryView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /shared/{token}/summary:
+    parameters:
+      - $ref: '#/components/parameters/SharedToken'
+    get:
+      tags: [shared-public]
+      operationId: getSharedSummary
+      summary: "Resumen clinico de solo lectura por token de capacidad (publico, sin cookie ni CSRF) [REQ-VET-006, REQ-VET-007, REQ-SUM-004]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET-006, REQ-VET-007, REQ-VET-008, REQ-SUM-004, INV-005-001, INV-005-002, INV-005-007, INV-005-009]
+      x-sdd-public: true
+      x-sdd-rate-limit: "20 fallos en 10 minutos por IP efectiva (D5-13); al 21.o, ERR-SHARE-RATE-LIMITED"
+      description: >
+        Unica ruta que entrega datos clinicos por token. No lee cookie ni cabeceras de sesion. Resuelve en UNA transaccion de
+        solo lectura con aislamiento explicito (PostgreSQL REPEATABLE READ READ ONLY; SQLite lectura sobre WAL) y UN unico
+        ClockPort.now() por peticion (EDGE-005-14, EDGE-005-24): token (hash), vigencia, revocacion, autoridad vigente del
+        creador (D5-17) y conjunto de mascotas del alcance (consulta dinamica, sin cache). Cualquier fallo, incluido un token mal formado, responde el mismo 404. Cualquier verbo
+        distinto de GET (incluidos HEAD y OPTIONS) responde el mismo 404 sin resolver el token.
+      security: []
+      responses:
+        '200':
+          description: "Envoltorio de vista. Todas las cabeceras de la ruta son obligatorias tambien en 404, 429 y 5xx"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
+            X-Robots-Tag: { $ref: '#/components/headers/NoIndex' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            Content-Security-Policy: { $ref: '#/components/headers/ApiCsp' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/share-link.schema.json#/$defs/SharedSummaryView' }
+        '404': { $ref: '#/components/responses/SharedNotFound' }
+        '429': { $ref: '#/components/responses/SharedRateLimited' }
+        '500':
+          description: "ERR-INTERNAL-UNEXPECTED generico sin detalle (tambien cuando la auditoria de un acceso valido falla: fail-closed). Mismas cabeceras y `instance` constante."
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
+            X-Robots-Tag: { $ref: '#/components/headers/NoIndex' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+
+  /shared/{token}/files/{mediaId}:
+    parameters:
+      - $ref: '#/components/parameters/SharedToken'
+      - name: mediaId
+        in: path
+        required: true
+        description: "Sin validar el formato en el borde: un mediaId mal formado responde el mismo 404"
+        schema: { type: string, maxLength: 64 }
+    get:
+      tags: [shared-public]
+      operationId: getSharedFile
+      summary: "Redirige a una URL firmada V4 de un archivo clinico del alcance del token [REQ-VET-009, INV-005-001, INV-005-008]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-VET-006, REQ-VET-009, INV-005-001, INV-005-002, INV-005-007, INV-005-008]
+      x-sdd-public: true
+      x-sdd-rate-limit: "comparte el contador de fallos de getSharedSummary"
+      description: >
+        Segunda y ultima ruta publica con token (RAMA-005-002 opcion B). Re-resuelve el token con las mismas reglas que
+        getSharedSummary y ademas exige que mediaId sea kind FILE, pertenezca a una mascota del conjunto vigente del alcance y que el
+        enlace tenga includeClinicalFiles = true; en otro caso, el mismo 404 uniforme (nunca PHOTO, nunca el avatar). Emite una URL
+        nueva en cada peticion (no se persiste ni se cachea) con X-Goog-Expires = min(300 s, floor(tiempo restante del enlace)),
+        minimo 1 s (con menos de 1 s restante no se emite URL y se responde el 404 uniforme, EDGE-005-23) y
+        Content-Disposition neutro sin el nombre original. La clave de objeto nunca sale en la respuesta.
+      security: []
+      responses:
+        '302':
+          description: "Location = URL firmada V4 de lectura sobre el host virtual del bucket; cuerpo vacio"
+          headers:
+            Location: { description: "URL firmada V4; no se registra", schema: { type: string, format: uri, pattern: '^https://' } }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
+            X-Robots-Tag: { $ref: '#/components/headers/NoIndex' }
+        '404': { $ref: '#/components/responses/SharedNotFound' }
+        '429': { $ref: '#/components/responses/SharedRateLimited' }
+        '502':
+          description: "ERR-MEDIA-STORAGE-UNAVAILABLE de la 004 con Cache-Control: no-store e `instance` constante; solo cuando el token ya resolvio y la firma o el almacenamiento fallan (no distingue el estado del enlace)"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_session
+      description: Cookie de sesion de la 002/004 (HttpOnly, SameSite=Strict). Las operaciones publicas de /shared/ la ignoran y declaran security [].
+  headers:
+    NoStore:
+      description: "Cache-Control: no-store"
+      schema: { type: string, const: 'no-store' }
+    NoReferrer:
+      description: "Referrer-Policy: no-referrer (tambien protege la peticion hacia el host del bucket)"
+      schema: { type: string, const: 'no-referrer' }
+    NoIndex:
+      description: "X-Robots-Tag: noindex, nofollow, noarchive"
+      schema: { type: string, const: 'noindex, nofollow, noarchive' }
+    NoSniff:
+      description: "X-Content-Type-Options: nosniff"
+      schema: { type: string, const: 'nosniff' }
+    ApiCsp:
+      description: "Content-Security-Policy: default-src 'none'; frame-ancestors 'none'. La pagina HTML /shared/{token} usa una CSP propia sin script ni recurso de terceros (default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none')."
+      schema: { type: string }
+    RetryAfter:
+      description: "Retry-After fijo en segundos (600), igual para todos los clientes"
+      schema: { type: integer, const: 600 }
+  parameters:
+    CsrfHeader:
+      name: X-Argos-Request
+      in: header
+      required: true
+      description: Obligatoria en toda peticion autenticada que modifica estado; si falta, ERR-AUTH-CSRF-REJECTED. No aplica a /shared/ (solo GET, sin sesion).
+      schema: { type: string, const: '1' }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: "UUID v4 generado por el cliente una vez por intento de creacion y reutilizado en cada reintento (EDGE-005-16/17). Ausente o mal formado = 422 ERR-SCHEMA-VALIDATION-FAILED. Misma clave, mismo creador, mismo alcance y mismas opciones = 200 sin URL; misma clave con otro alcance u opciones = 422."
+      schema: { $ref: '../schemas/share-link.schema.json#/$defs/IdempotencyKey' }
+    PetId:
+      name: petId
+      in: path
+      required: true
+      schema: { $ref: '../../../004-catalogos-registros-archivos/contracts/schemas/common.schema.json#/$defs/Uuid' }
+    HouseholdId:
+      name: householdId
+      in: path
+      required: true
+      schema: { $ref: '../../../004-catalogos-registros-archivos/contracts/schemas/common.schema.json#/$defs/Uuid' }
+    SharedToken:
+      name: token
+      in: path
+      required: true
+      description: "Token de capacidad. NO se valida el formato en el borde: longitud, alfabeto o valor invalidos se resuelven igual que un token inexistente (mismo 404, misma secuencia de puertos, cuenta como fallo; INV-005-007). Nunca se registra: los registros usan la plantilla /shared/:token/... o solo el reqId. El 404 de parametro de mas de 100 caracteres y el 400 de URL mal codificada que genera Fastify se normalizan a este mismo 404 y cuentan como fallo (EDGE-005-25); prohibido devolver el token o la plantilla de ruta de Fastify en cualquier error."
+      schema: { type: string, maxLength: 2048 }
+    IncludeMicrochip:
+      name: includeMicrochip
+      in: query
+      required: false
+      description: "Refleja la casilla D5-14 en la vista previa (B-3 de /sati); por defecto false"
+      schema: { type: boolean, default: false }
+    IncludeClinicalFiles:
+      name: includeClinicalFiles
+      in: query
+      required: false
+      description: "Refleja la casilla D5-21 en la vista previa; por defecto false"
+      schema: { type: boolean, default: false }
+  responses:
+    Problem:
+      description: Error tipado del catalogo de la 004 o del catalogo incremental de la 005 (RFC 9457)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    SharedNotFound:
+      description: "ERR-SHARE-NOT-FOUND uniforme: cuerpo identico, `instance` constante \"/shared\" (nunca la ruta con el token), mismas cabeceras que el 200. Tambien es la unica respuesta para el 404 de parametro largo, el 400 de URL mal codificada, la ruta no definida y la barra final bajo /shared/ (EDGE-005-25); nunca un 400 ni el cuerpo generico de Fastify"
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
+        X-Robots-Tag: { $ref: '#/components/headers/NoIndex' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        Content-Security-Policy: { $ref: '#/components/headers/ApiCsp' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    SharedRateLimited:
+      description: "ERR-SHARE-RATE-LIMITED: 21.o fallo en 10 minutos desde la misma IP efectiva (trustProxy de 1 salto, nunca X-Forwarded-For crudo); sin escritura de base de datos y sin resolver el token; `instance` constante"
+      headers:
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
+        X-Robots-Tag: { $ref: '#/components/headers/NoIndex' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        Content-Security-Policy: { $ref: '#/components/headers/ApiCsp' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      $ref: '../../../004-catalogos-registros-archivos/contracts/schemas/common.schema.json#/$defs/ProblemDetails'

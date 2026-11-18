@@ -19,15 +19,16 @@ const viewer = () =>
   blocks().filter((b) => b.type === 'google_secret_manager_secret_iam_member' && /roles\/secretmanager\.viewer/.test(b.body));
 
 describe('terraform/iam.tf: permisos de secretos del deployer y binding WIF (T489, D-30)', () => {
-  it('exactamente 2 recursos secretmanager.viewer, del deployer, sobre database_url y audit_hmac_secret', () => {
+  it('exactamente 3 recursos secretmanager.viewer, del deployer, sobre database_url, audit_hmac_secret y share_ip_hmac_secret', () => {
     const v = viewer();
-    expect(v.map((b) => b.name).sort()).toEqual(['deployer_secret_viewer_audit_hmac', 'deployer_secret_viewer_database_url']);
+    expect(v.map((b) => b.name).sort()).toEqual(['deployer_secret_viewer_audit_hmac', 'deployer_secret_viewer_database_url', 'deployer_secret_viewer_share_ip_hmac']);
     for (const b of v) {
       expect(b.body).toMatch(/member\s*=\s*"serviceAccount:\$\{google_service_account\.deployer\.email\}"/);
     }
     expect(v.map((b) => b.body.match(/secret_id\s*=\s*([^\n]+)/)?.[1]?.trim()).sort()).toEqual([
       'google_secret_manager_secret.audit_hmac_secret.secret_id',
       'google_secret_manager_secret.database_url.secret_id',
+      'google_secret_manager_secret.share_ip_hmac_secret.secret_id',
     ]);
   });
 
@@ -35,7 +36,7 @@ describe('terraform/iam.tf: permisos de secretos del deployer y binding WIF (T48
     for (const b of blocks()) {
       if (/secretAccessor/.test(b.body)) expect(b.body).not.toContain('google_service_account.deployer');
     }
-    expect(blocks().filter((b) => /secretAccessor/.test(b.body))).toHaveLength(2);
+    expect(blocks().filter((b) => /secretAccessor/.test(b.body))).toHaveLength(3);
   });
 
   it('ningun roles/secretmanager.* a nivel de proyecto', () => {

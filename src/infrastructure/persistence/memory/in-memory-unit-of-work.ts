@@ -39,6 +39,8 @@ import type {
   PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
 import { avatarObjectKey, mediaObjectKey } from '../../../domain/media/index.ts';
+import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
+import { EXPIRY_DAYS, type ShareLinkRecord, type ShareScope } from '../../../domain/sharing/share-link.ts';
 import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
@@ -67,6 +69,10 @@ export interface MemoryState {
   avatars: Record<string, AvatarState>;
   /** Filas de auditoría en orden de inserción (REQ-AUD-001). */
   auditLog: AuditEntry[];
+  /** `share_links` (feature 005, REQ-VET-*): solo el hash del token. */
+  shareLinks: ShareLinkRecord[];
+  /** `share_link_audit` (feature 005, REQ-VET-008). */
+  shareAudit: ShareAuditRecord[];
 }
 
 export interface StoredConfirmationToken {
@@ -100,6 +106,8 @@ export function emptyMemoryState(): MemoryState {
     mediaQueue: [],
     avatars: {},
     auditLog: [],
+    shareLinks: [],
+    shareAudit: [],
   };
 }
 
@@ -135,6 +143,7 @@ function userRepository(state: MemoryState): UserRepositoryPort {
     },
     async delete(userId) {
       state.users = state.users.filter((u) => u.id !== userId);
+      state.shareLinks = (state.shareLinks ?? []).filter((l) => l.createdByUserId !== userId); // como ON DELETE CASCADE
     },
     async countReferences(userId) {
       return (
@@ -272,6 +281,7 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       state.pets = state.pets.filter((p) => p.id !== petId);
       state.assignments = state.assignments.filter((a) => a.petId !== petId); // como ON DELETE CASCADE
       state.media = state.media.filter((m) => m.petId !== petId); // como ON DELETE CASCADE (la cola no se toca: no tiene clave foránea)
+      state.shareLinks = (state.shareLinks ?? []).filter((l) => l.petId !== petId); // como ON DELETE CASCADE
       delete state.avatars[petId];
     },
     async findAvatarVersions(petIds) {
@@ -316,9 +326,16 @@ function mediaRepository(state: MemoryState): PetMediaRepositoryPort {
         .sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1));
       return copy({ items: all.slice(offset, offset + limit), total: all.length });
     },
+    async countByPetAndKind(petId, kind) {
+      return state.media.filter((m) => m.petId === petId && m.kind === kind).length;
+    },
     async countBytesOfOwner(ownerUserId) {
       const owned = new Set(state.pets.filter((p) => p.ownerUserId === ownerUserId).map((p) => p.id));
       return state.media.filter((m) => owned.has(m.petId)).reduce((sum, m) => sum + m.sizeBytes, 0);
+    },
+    async findInPets(petIds, mediaId) {
+      const wanted = new Set(petIds);
+      return copy(state.media.find((m) => m.id === mediaId && wanted.has(m.petId)) ?? null);
     },
     async remove(petId, mediaId) {
       const before = state.media.length;
@@ -437,6 +454,7 @@ function householdRepository(state: MemoryState): HouseholdRepositoryPort {
       state.memberships = state.memberships.filter((m) => m.householdId !== householdId);
       state.invitations = state.invitations.filter((i) => i.householdId !== householdId); // como ON DELETE CASCADE
       state.assignments = state.assignments.filter((a) => a.householdId !== householdId); // como ON DELETE CASCADE
+      state.shareLinks = (state.shareLinks ?? []).filter((l) => l.householdId !== householdId); // como ON DELETE CASCADE
     },
     async listMemberships(householdId) {
       return copy(state.memberships.filter((m) => m.householdId === householdId));
@@ -496,6 +514,96 @@ function auditLogRepository(state: MemoryState): AuditLogRepositoryPort {
   };
 }
 
+const constraint = (message: string): Error => Object.assign(new Error(message), { code: 'SQLITE_CONSTRAINT' });
+
+function shareLinkRepository(state: MemoryState): ShareLinkRepositoryPort {
+  const links = (): ShareLinkRecord[] => (state.shareLinks ??= []);
+  const byId = (a: ShareLinkRecord, b: ShareLinkRecord) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const inScope = (scope: ShareScope, scopeId: string) => (l: ShareLinkRecord) => l.scope === scope && (scope === 'PET' ? l.petId === scopeId : l.householdId === scopeId);
+  return {
+    async lockScope() {
+      // las transacciones de memoria van en serie: ya son el candado
+    },
+    async insert(link) {
+      const rows = links();
+      const coherent =
+        (link.scope === 'PET' && link.petId !== null && link.householdId === null && link.petOwnerUserIdAtCreation !== null) ||
+        (link.scope === 'HOUSEHOLD' && link.householdId !== null && link.petId === null && link.petOwnerUserIdAtCreation === null);
+      if (!coherent) throw constraint('CHECK constraint failed: share_links scope');
+      if (!(EXPIRY_DAYS as readonly number[]).includes(link.expiresInDays)) throw constraint('CHECK constraint failed: share_links expires_in_days');
+      if (!(link.expiresAt > link.createdAt)) throw constraint('CHECK constraint failed: share_links expires_at');
+      if (link.tokenHash.length !== 64) throw constraint('CHECK constraint failed: share_links token_hash');
+      if (rows.some((l) => l.id === link.id || l.tokenHash === link.tokenHash)) throw constraint('UNIQUE constraint failed: share_links.token_hash');
+      if (rows.some((l) => l.createdByUserId === link.createdByUserId && l.idempotencyKey === link.idempotencyKey)) throw new ShareLinkIdempotencyConflictError();
+      if (!state.users.some((u) => u.id === link.createdByUserId)) throw constraint('FOREIGN KEY constraint failed');
+      if (link.petId !== null && !state.pets.some((p) => p.id === link.petId)) throw constraint('FOREIGN KEY constraint failed');
+      if (link.householdId !== null && !state.households.some((h) => h.id === link.householdId)) throw constraint('FOREIGN KEY constraint failed');
+      state.shareLinks = [...rows, copy(link)];
+    },
+    async findByTokenHash(tokenHash) {
+      return copy(links().find((l) => l.tokenHash === tokenHash) ?? null);
+    },
+    async findById(id) {
+      return copy(links().find((l) => l.id === id) ?? null);
+    },
+    async findByIdempotencyKey(userId, idempotencyKey) {
+      return copy(links().find((l) => l.createdByUserId === userId && l.idempotencyKey === idempotencyKey) ?? null);
+    },
+    async listByScope(scope, scopeId, retainedSince) {
+      const rows = links().filter(inScope(scope, scopeId)).filter((l) => !(l.expiresAt < retainedSince || (l.revokedAt !== null && l.revokedAt < retainedSince)));
+      return copy(rows.sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1)));
+    },
+    async countActive(scope, scopeId, now) {
+      return links().filter(inScope(scope, scopeId)).filter((l) => l.revokedAt === null && l.expiresAt > now).length;
+    },
+    async revoke(id, now) {
+      const link = links().find((l) => l.id === id);
+      if (link === undefined || link.revokedAt !== null || !(link.expiresAt > now)) return false;
+      state.shareLinks = links().map((l) => (l.id === id ? { ...l, revokedAt: now } : l));
+      return true;
+    },
+    async purge(cutoffExclusive) {
+      const before = links().length;
+      state.shareLinks = links().filter((l) => !(l.expiresAt < cutoffExclusive || (l.revokedAt !== null && l.revokedAt < cutoffExclusive)));
+      return before - state.shareLinks.length;
+    },
+    async listAll() {
+      return copy([...links()].sort(byId));
+    },
+  };
+}
+
+function shareAuditRepository(state: MemoryState): ShareLinkAuditRepositoryPort {
+  const rows = (): ShareAuditRecord[] => (state.shareAudit ??= []);
+  return {
+    async insert(row) {
+      if (!['CREATED', 'REVOKED', 'ACCESS_OK', 'ACCESS_FAILED'].includes(row.eventType)) throw constraint('CHECK constraint failed: share_link_audit event_type');
+      if (row.ipHmac !== null && row.ipHmac.length !== 64) throw constraint('CHECK constraint failed: share_link_audit ip_hmac');
+      if (rows().some((r) => r.id === row.id)) throw constraint('UNIQUE constraint failed: share_link_audit.id');
+      state.shareAudit = [...rows(), copy(row)];
+    },
+    async recordFailure(id, ipHmac, windowStart) {
+      const existing = rows().find((r) => r.eventType === 'ACCESS_FAILED' && r.ipHmac === ipHmac && r.occurredAt === windowStart);
+      if (existing !== undefined) {
+        state.shareAudit = rows().map((r) => (r === existing ? { ...r, failCount: r.failCount + 1 } : r));
+        return;
+      }
+      state.shareAudit = [...rows(), { id, shareLinkId: null, eventType: 'ACCESS_FAILED', occurredAt: windowStart, actorUserId: null, ipHmac, failCount: 1 }];
+    },
+    async clearActor(userId) {
+      state.shareAudit = rows().map((r) => (r.actorUserId === userId ? { ...r, actorUserId: null } : r));
+    },
+    async purge({ withoutIpBefore, withIpBefore }) {
+      const before = rows().length;
+      state.shareAudit = rows().filter((r) => !(r.ipHmac === null ? r.occurredAt < withoutIpBefore : r.occurredAt < withIpBefore));
+      return before - state.shareAudit.length;
+    },
+    async listAll() {
+      return copy([...rows()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)));
+    },
+  };
+}
+
 function repositoriesOver(state: MemoryState): RepositorySet {
   return {
     users: userRepository(state),
@@ -511,6 +619,8 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     media: mediaRepository(state),
     mediaQueue: mediaQueueRepository(state),
     auditLog: auditLogRepository(state),
+    shareLinks: shareLinkRepository(state),
+    shareAudit: shareAuditRepository(state),
   };
 }
 
@@ -536,6 +646,13 @@ export class InMemoryUnitOfWork implements UnitOfWorkPort {
       this.state = draft;
       return result;
     });
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  /** Lectura sobre una copia que se descarta: nada de lo escrito dentro llega al estado (feature 005, REQ-VET-006). */
+  runReadOnly<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
+    const run = this.queue.then(async () => work(repositoriesOver(copy(this.state))));
     this.queue = run.catch(() => undefined);
     return run;
   }

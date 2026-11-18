@@ -26,7 +26,7 @@ resource "google_service_account" "scheduler" {
   depends_on = [google_project_service.apis]
 }
 
-# argos-run: lectura de sus 2 secretos, a nivel de secreto.
+# argos-run: lectura de sus 3 secretos, a nivel de secreto.
 resource "google_secret_manager_secret_iam_member" "run_database_url" {
   project   = var.project_id
   secret_id = google_secret_manager_secret.database_url.secret_id
@@ -37,6 +37,13 @@ resource "google_secret_manager_secret_iam_member" "run_database_url" {
 resource "google_secret_manager_secret_iam_member" "run_audit_hmac_secret" {
   project   = var.project_id
   secret_id = google_secret_manager_secret.audit_hmac_secret.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.run.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "run_share_ip_hmac_secret" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.share_ip_hmac_secret.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.run.email}"
 }
@@ -88,6 +95,13 @@ resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_datab
 resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_audit_hmac" {
   project   = var.project_id
   secret_id = google_secret_manager_secret.audit_hmac_secret.secret_id
+  role      = "roles/secretmanager.viewer"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_share_ip_hmac" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.share_ip_hmac_secret.secret_id
   role      = "roles/secretmanager.viewer"
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }

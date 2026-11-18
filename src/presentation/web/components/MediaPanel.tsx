@@ -51,7 +51,7 @@ const KIND_LABEL: Readonly<Record<MediaKind, string>> = { FILE: 'Archivo', PHOTO
 const FIELD = 'min-h-12 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
 const dateText = (iso: string): string => iso.slice(0, 10);
 
-function Viewer({ viewer, onClose }: { readonly viewer: ViewerState; readonly onClose: () => void }): JSX.Element {
+export function Viewer({ viewer, onClose }: { readonly viewer: ViewerState; readonly onClose: () => void }): JSX.Element {
   const { item, url, status } = viewer;
   const isPdf = item.mime === 'application/pdf';
   return (

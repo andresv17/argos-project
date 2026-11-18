@@ -43,6 +43,26 @@ resource "google_secret_manager_secret" "audit_hmac_secret" {
   depends_on = [google_project_service.apis]
 }
 
+resource "google_secret_manager_secret" "share_ip_hmac_secret" {
+  project   = var.project_id
+  secret_id = "${var.project_prefix}-share-ip-hmac-secret"
+
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
+
+  replication {
+    auto {}
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
 # ABANDON: Terraform nunca destruye una versión que una revisión de Cloud Run conserva (rollback de tráfico
 # recupera su secreto, REQ-CICD-009). create_before_destroy: la versión nueva existe antes de soltar la anterior.
 resource "google_secret_manager_secret_version" "database_url" {
@@ -58,6 +78,16 @@ resource "google_secret_manager_secret_version" "database_url" {
 resource "google_secret_manager_secret_version" "audit_hmac_secret" {
   secret          = google_secret_manager_secret.audit_hmac_secret.id
   secret_data     = var.audit_hmac_secret
+  deletion_policy = "ABANDON"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "google_secret_manager_secret_version" "share_ip_hmac_secret" {
+  secret          = google_secret_manager_secret.share_ip_hmac_secret.id
+  secret_data     = var.share_ip_hmac_secret
   deletion_policy = "ABANDON"
 
   lifecycle {

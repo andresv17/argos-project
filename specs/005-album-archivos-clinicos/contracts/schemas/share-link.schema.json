@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/share-link.schema.json",
+  "title": "ShareLinkSchema",
+  "description": "Enlace de solo lectura para el veterinario y su envoltorio de vista (feature 005) [REQ-VET-001..013, REQ-SUM-004]. El token NUNCA aparece fuera de CreateShareLinkResult.url (INV-005-005); las listas solo llevan metadatos. Sin nombre del hogar (D5-23).",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "Contrato nuevo de la feature 005 (T706). SharedSummaryView resuelve el canal contractual del nombre original (B1 de /merovingian): el nombre viaja solo en fileLabels, nunca dentro de ClinicalSummary. T707: IdempotencyKey y CreateShareLinkReplay (EDGE-005-16/17); displayName vacío = «Archivo» (EDGE-005-27); nota MIF-005-10 sobre revokedAt.",
+    "traceability": [
+      "REQ-VET-001",
+      "REQ-VET-002",
+      "REQ-VET-003",
+      "REQ-VET-004",
+      "REQ-VET-005",
+      "REQ-VET-009",
+      "REQ-VET-011",
+      "REQ-VET-012",
+      "REQ-SUM-004",
+      "INV-005-001",
+      "INV-005-005",
+      "INV-005-009",
+      "SC-005-015",
+      "SC-005-025",
+      "SC-005-035",
+      "EDGE-005-16",
+      "EDGE-005-17",
+      "EDGE-005-27",
+      "SC-005-051"
+    ]
+  },
+  "$defs": {
+    "ShareLinkScope": {
+      "type": "string",
+      "enum": [
+        "PET",
+        "HOUSEHOLD"
+      ]
+    },
+    "ShareLinkStatus": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "EXPIRED",
+        "REVOKED"
+      ],
+      "description": "Derivado, no persistido: REVOKED si revoked_at no es nulo; EXPIRED si now >= expires_at; ACTIVE en otro caso [STATE-SHARE-001]"
+    },
+    "ExpiryDays": {
+      "type": "integer",
+      "enum": [
+        1,
+        7,
+        30
+      ],
+      "default": 7,
+      "description": "Única caducidad admitida (D5-11); el servidor calcula expiresAt = createdAt + n días con el reloj inyectado; un valor distinto es ERR-SCHEMA-VALIDATION-FAILED [REQ-VET-004]"
+    },
+    "ShareToken": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "description": "32 bytes aleatorios en base64url sin relleno [REQ-VET-003]. Solo existe en CreateShareLinkResult.url; la ruta pública NO valida este patrón en el borde (un token mal formado responde el mismo 404, INV-005-007)"
+    },
+    "CreateShareLinkInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "expiresInDays": {
+          "$ref": "#/$defs/ExpiryDays"
+        },
+        "includeMicrochip": {
+          "type": "boolean",
+          "default": false,
+          "description": "Casilla D5-14; inmutable tras crear el enlace; en HOUSEHOLD aplica a todas las mascotas"
+        },
+        "includeClinicalFiles": {
+          "type": "boolean",
+          "default": false,
+          "description": "Casilla «Incluir archivos clínicos» (D5-21); inmutable; con false el enlace no sirve ni lista archivos"
+        }
+      },
+      "description": "Cuerpo de creación; el alcance y el identificador salen de la ruta, nunca del cuerpo. Sin tokenHash, sin expiresAt libre [REQ-VET-001, REQ-VET-004]"
+    },
+    "ShareLinkView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "scope",
+        "petId",
+        "householdId",
+        "status",
+        "createdAt",
+        "expiresAt",
+        "revokedAt",
+        "includeMicrochip",
+        "includeClinicalFiles"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "scope": {
+          "$ref": "#/$defs/ShareLinkScope"
+        },
+        "petId": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "No nulo si scope = PET"
+        },
+        "householdId": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "No nulo si scope = HOUSEHOLD; la etiqueta de pantalla NO usa el nombre del hogar (D5-23)"
+        },
+        "status": {
+          "$ref": "#/$defs/ShareLinkStatus"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "expiresAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "revokedAt": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Nota MIF-005-10 (T707): sin consumidor confirmado; se retira solo si /sati confirma que la interfaz no muestra la fecha de revocación (la lista pinta status)"
+        },
+        "includeMicrochip": {
+          "type": "boolean"
+        },
+        "includeClinicalFiles": {
+          "type": "boolean"
+        }
+      },
+      "description": "Metadatos de un enlace; nunca el token ni su hash [INV-005-005]",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "const": "PET"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "petId": {
+                "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+              },
+              "householdId": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "const": "HOUSEHOLD"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "householdId": {
+                "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+              },
+              "petId": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CreateShareLinkResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "link",
+        "url"
+      ],
+      "properties": {
+        "link": {
+          "$ref": "#/$defs/ShareLinkView"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://[^\\s?#]+/shared/[A-Za-z0-9_-]{43}$",
+          "maxLength": 2048,
+          "description": "URL pública con el token; se devuelve UNA sola vez, con Cache-Control: no-store, y no se registra, audita ni reenvía [REQ-VET-001, INV-005-005]"
+        }
+      },
+      "description": "Respuesta de creación; el token se pierde si no se copia (se revoca y se crea otro)"
+    },
+    "CreateShareLinkReplay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "link",
+        "urlAvailable"
+      ],
+      "properties": {
+        "link": {
+          "$ref": "#/$defs/ShareLinkView"
+        },
+        "urlAvailable": {
+          "type": "boolean",
+          "const": false,
+          "description": "Siempre false: el token no es recuperable (INV-005-005); no existe campo url"
+        }
+      },
+      "description": "Respuesta 200 de un reintento con la misma Idempotency-Key: metadatos del enlace ya creado, SIN URL ni token, sin nueva fila ni auditoría [EDGE-005-16, EDGE-005-17]"
+    },
+    "ShareLinkList": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "activeCount",
+        "maxActiveLinks"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/$defs/ShareLinkView"
+          }
+        },
+        "activeCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20
+        },
+        "maxActiveLinks": {
+          "type": "integer",
+          "const": 20,
+          "description": "Tope D5-18 por mascota u hogar"
+        }
+      },
+      "description": "Lista de enlaces del alcance (activos más vencidos/revocados de los últimos 30 días, D5-20), orden (createdAt DESC, id DESC)"
+    },
+    "FileLabel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fileId",
+        "displayName"
+      ],
+      "properties": {
+        "fileId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nombre original del archivo, texto del cuidador SIN verificar; se inserta solo como texto escapado, nunca en title, URL, cabeceras, registros ni en la hoja impresa. Si queda vacío tras el saneado, la etiqueta fija «Archivo» (EDGE-005-27); se escapa por construcción también para filas antiguas [D5-06, D5-23, INV-005-009]"
+        }
+      },
+      "description": "Rótulo de un archivo clínico del resumen, leído de pet_media.original_name tras resolver el token"
+    },
+    "SharedSummaryView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "fileLabels",
+        "validUntil"
+      ],
+      "properties": {
+        "summary": {
+          "$ref": "https://argos.local/contracts/schemas/clinical-summary.schema.json#/$defs/ClinicalSummary"
+        },
+        "fileLabels": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/$defs/FileLabel"
+          },
+          "description": "Un rótulo por cada clinicalFiles[].id del resumen; [] si el enlace no incluye archivos"
+        },
+        "validUntil": {
+          "oneOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Caducidad del enlace («Enlace vigente hasta», MAG-005-008); null en la vista previa autenticada"
+        }
+      },
+      "description": "Envoltorio cerrado de la ruta pública y de la vista previa. Canal contractual del nombre original: ClinicalSummary permanece sin nombres (REQ-SUM-003, REQ-SUM-006) [REQ-VET-009, REQ-SUM-004]"
+    },
+    "IdempotencyKey": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "Valor de la cabecera Idempotency-Key de las dos operaciones de creación (UUID v4 del cliente, uno por intento de creación y reutilizado en los reintentos). Se guarda con la fila, única por (creador, clave); un reintento no crea otro enlace [EDGE-005-16, EDGE-005-17]"
+    }
+  }
+}

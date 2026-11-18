@@ -35,6 +35,12 @@ export interface MaintenanceCounts {
 export interface UnitOfWorkPort {
   runInTransaction<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T>;
   /**
+   * Lectura coherente de UNA instantánea (feature 005, REQ-VET-006, EDGE-005-14, SC-005-049): PostgreSQL abre `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY`
+   * (no toma el candado asesor global: una lectura no bloquea ni es bloqueada por las escrituras); SQLite lee sobre el WAL con `query_only`; memoria trabaja
+   * sobre una copia que descarta. Escribir dentro falla. Opcional: sin ella los casos de uso de lectura caen en `runInTransaction`.
+   */
+  runReadOnly?<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T>;
+  /**
    * Borrado físico (ADR-002-13): checkpoint del WAL con truncado, que se invoca DESPUÉS del commit de una eliminación.
    * Nunca lanza: si falla no se revierte nada y el adaptador reintenta y avisa sin identificadores. Opcional: los
    * almacenamientos sin WAL (memoria) lo omiten.

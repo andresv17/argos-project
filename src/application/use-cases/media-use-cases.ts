@@ -5,17 +5,19 @@
  * Subida (data-model.md §3): (1) transacción corta con acceso `WRITE_MEDIA` (404 antes que 403), validación en orden (tipo de `kind`, tamaño,
  * firma, tipo permitido para `kind`, cuota previa) e inserción de la fila `INTENT` de la clave; (2) `put` fuera de toda transacción;
  * (3) transacción final con los candados propietario → mascota (REQ-BOR-005), permiso y cuota re-verificados, `pet_media`, auditoría `PET_MEDIA`
- * y retiro de la fila `INTENT`. Cualquier fallo de la transacción final cambia la fila a `DELETE` y borra el objeto de inmediato (EDGE-011).
+ * y retiro de la fila `INTENT`. Con `kind = PHOTO` el tope de álbum (REQ-ALB5-002; orden tipo → tope → cuota) se comprueba antes del `put` (rechazo barato) y
+ * de forma autoritativa en la transacción final DESPUÉS de los candados (INV-005-003). Cualquier fallo de la transacción final cambia la fila a `DELETE` y borra el objeto de inmediato (EDGE-011).
  * Un fallo del `put` o un corte del proceso deja la fila `INTENT`, que el mantenimiento convierte en `DELETE` tras 1 h (EDGE-012).
  *
  * Borrado: la clave entra en la cola con `DELETE` en la misma transacción que borra la fila; tras el `COMMIT` se borra el objeto y la fila de la cola
  * y cualquier fallo del almacenamiento queda en la cola (`attempts + 1`) para el mantenimiento: el caso de uso no falla (204 siempre).
  *
- * @implements REQ-ARC-001, REQ-ARC-002, REQ-ARC-003, REQ-ARC-005, REQ-ALB-001, REQ-GCS-004, REQ-GCS-006, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ALB-001, INV-GCS-002, REQ-BOR-005
+ * @implements REQ-ALB5-002, REQ-ALB5-003, REQ-ALB5-005, INV-005-003, SC-005-002, SC-005-003, SC-005-004, SC-005-005, SC-005-006, SC-005-034, REQ-ARC-001, REQ-ARC-002, REQ-ARC-003, REQ-ARC-005, REQ-ALB-001, REQ-GCS-004, REQ-GCS-006, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ALB-001, INV-GCS-002, REQ-BOR-005
  */
 
 import {
   MEDIA_PAGE_SIZE,
+  assertAlbumHasRoom,
   canonicalMediaName,
   detectMediaType,
   isAllowedForKind,
@@ -23,6 +25,7 @@ import {
   neutralFilename,
   type MediaKind,
 } from '../../domain/media/index.ts';
+import { ALBUM_MAX_PHOTOS_PER_PET_KEY, PARAMETER_CATALOG } from '../../domain/platform/platform-parameters.ts';
 import { DomainError as DomainErrorV31, type MediaAccess, type MediaItem, type MediaPage } from '../../generated/v31/index.ts';
 import { MediaStorageUnavailableError } from '../ports/media-storage.port.ts';
 import type { PetMediaRecord } from '../ports/repositories.port.ts';
@@ -38,6 +41,15 @@ export function requireMedia(deps: ApplicationDeps): MediaServices {
 }
 
 /** Cualquier fallo del almacenamiento es ERR-MEDIA-STORAGE-UNAVAILABLE; un error de programación sigue siendo interno. */
+/**
+ * Tope vigente de fotos por mascota (`album.max_photos_per_pet`, REQ-PRM-002): el puerto con caché de <= 60 s; sin puerto, el defecto del catálogo del código.
+ * Se lee UNA vez por operación y fuera de toda transacción (nunca con una conexión de transacción retenida).
+ * @implements REQ-ALB5-002, REQ-PRM-002
+ */
+export async function albumMaxPhotos(deps: ApplicationDeps): Promise<number> {
+  return deps.platformParameters === undefined ? PARAMETER_CATALOG[ALBUM_MAX_PHOTOS_PER_PET_KEY].defaultValue : deps.platformParameters.getInt(ALBUM_MAX_PHOTOS_PER_PET_KEY);
+}
+
 export function mapStorageError(error: unknown): unknown {
   return error instanceof MediaStorageUnavailableError ? unavailable() : error;
 }
@@ -95,6 +107,12 @@ const toItem = (media: PetMediaRecord): MediaItem => ({
   createdAt: media.createdAt,
 });
 
+/** `AlbumLimits` de `album.schema.json` (feature 005). */
+export interface AlbumLimits {
+  readonly photoCount: number;
+  readonly maxPhotosPerPet: number;
+}
+
 export interface UploadMediaInput {
   /** Valor crudo de `?kind=`; el caso de uso lo valida. */
   readonly kind: unknown;
@@ -103,7 +121,7 @@ export interface UploadMediaInput {
   readonly bytes: Uint8Array;
 }
 
-/** @implements REQ-ARC-001, REQ-ARC-002, REQ-ARC-005, REQ-GCS-006, INV-ARC-001, INV-ARC-002, INV-ARC-003, SC-ALM-026 */
+/** @implements REQ-ARC-001, REQ-ARC-002, REQ-ARC-005, REQ-GCS-006, INV-ARC-001, INV-ARC-002, INV-ARC-003, SC-ALM-026, SC-ALM-013 (cuota de 1 GiB por propietario y sin tope de FILE; enmienda 005 D5-01: solo PHOTO tiene tope) */
 export class UploadMediaUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
@@ -111,6 +129,8 @@ export class UploadMediaUseCase {
     const media = requireMedia(this.deps);
     const { deps } = this;
     const size = input.bytes.length;
+    // El tope de álbum se lee una vez por operación, fuera de las transacciones (REQ-ALB5-002); solo las fotos lo consultan.
+    const albumMax = input.kind === 'PHOTO' ? await albumMaxPhotos(deps) : null;
 
     // 1. Acceso, validación en orden, cuota previa e intención (transacción corta).
     const prepared = await deps.uow.runInTransaction(async (r) => {
@@ -119,6 +139,7 @@ export class UploadMediaUseCase {
       if (size > media.limits.maxBytes) throw new DomainErrorV31('ERR-MEDIA-TOO-LARGE');
       const detection = detectMediaType(input.bytes);
       if (!detection.ok || !isAllowedForKind(detection.mime, kind)) throw new DomainErrorV31('ERR-MEDIA-TYPE-NOT-ALLOWED');
+      if (albumMax !== null) assertAlbumHasRoom(await r.media.countByPetAndKind(petId, 'PHOTO'), albumMax); // rechazo barato, sin objeto (REQ-ALB5-002)
       if ((await r.media.countBytesOfOwner(pet.ownerUserId)) + size > media.limits.maxBytesPerOwner) throw new DomainErrorV31('ERR-MEDIA-QUOTA-EXCEEDED');
       const id = deps.ids.nextId();
       const key = mediaObjectKey(petId, kind, id);
@@ -138,6 +159,7 @@ export class UploadMediaUseCase {
       return await deps.uow.runInTransaction(async (r) => {
         await lockOwnerThenPet(r, petId);
         const { pet } = await requirePetAction(r, userId, petId, 'WRITE_MEDIA');
+        if (albumMax !== null) assertAlbumHasRoom(await r.media.countByPetAndKind(petId, 'PHOTO'), albumMax); // autoritativo: tras el candado de la mascota (INV-005-003)
         if ((await r.media.countBytesOfOwner(pet.ownerUserId)) + size > media.limits.maxBytesPerOwner) throw new DomainErrorV31('ERR-MEDIA-QUOTA-EXCEEDED');
         const record: PetMediaRecord = {
           id: prepared.id,
@@ -171,7 +193,22 @@ export class UploadMediaUseCase {
   }
 }
 
-/** @implements REQ-ALB-001, INV-ALB-001, REQ-ARC-002 */
+/** @implements REQ-ALB5-005, REQ-ALB5-002, INV-005-003 */
+export class GetAlbumLimitsUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  /** `{photoCount, maxPhotosPerPet}` de la mascota (permiso `READ_MEDIA`); `photoCount` puede superar el tope en mascotas heredadas (D5-03). */
+  async execute(userId: string, petId: string): Promise<AlbumLimits> {
+    const maxPhotosPerPet = await albumMaxPhotos(this.deps);
+    const photoCount = await this.deps.uow.runInTransaction(async (r) => {
+      await requirePetAction(r, userId, petId, 'READ_MEDIA');
+      return r.media.countByPetAndKind(petId, 'PHOTO');
+    });
+    return { photoCount, maxPhotosPerPet };
+  }
+}
+
+/** @implements REQ-ALB-001, INV-ALB-001, REQ-ARC-002, SC-ALM-021 (paginación 24 por página, total y orden created_at DESC, id DESC) */
 export class ListMediaUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
