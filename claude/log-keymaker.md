@@ -1429,3 +1429,8 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-18 Keymaker: T837+T838 select-visible-pets e inputs-snapshot (REQ-ESC6-004/008; INV-ESC6-001/008; EDGE-ESC6-001/002/012) (sin push, sin [x])
 - Pruebas primero: t837 (15): rojo 'Failed to load url ../../src/domain/scene/inputs-snapshot.ts' (modulo inexistente). Luego src/domain/scene/select-visible-pets.ts (orden assignedAt asc + id, tope N) e inputs-snapshot.ts (canonicalJson + sha256 puro, EMPTY, parse, countPendingChanges por entidad).
 - Verde 15/15; suite completa 18 rojos (solo T815), tsc 0, gates CUMPLE.
+
+## 2026-11-18 Keymaker: T839+T840 decide-mode y ranuras IMG_n (REQ-ESC6-006/007/009/010; EDGE-ESC6-008/010; SC-ESC6-056) (sin push, sin [x])
+- Pruebas primero: t839 (17): rojo 'Failed to load url ../../src/domain/scene/decide-mode.ts'. Luego decide-mode.ts (precedencia REGENERATE > sin imagen > foto del hogar > incrementales; MIXED con >1 tipo; ranuras IMG_1 escena o foto del hogar, luego mascotas dibujadas con foto; null sin cambios).
+- Decision: las mascotas REMOVE viajan al final del plan (desde el snapshot anterior); SC-ESC6-010 dice 'pets = []' y plan.md dice que incluye las REMOVE: se deja a T842 y se reporta a /architect (H-KEY-F5-1).
+- Verde 17/17; suite completa solo T815 x18; tsc 0; gates CUMPLE.

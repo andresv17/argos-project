@@ -1397,3 +1397,4 @@
 - 2026-11-18 [oracle] Auditoria 006 Fase 4 (T831..T836, T814): PASS CON OBSERVACIONES; H-KEY-F4-1 confirmado como brecha B10 (runbook); T825 parte oracle CERRABLE, merovingian pendiente; PG real reproducido; solo T815 x18 rojo. Informe .specify/memory/audits/oracle-006-fase4.md
 - 2026-11-18 | Keymaker | H-KEY-F4-1 corregido en runbook paso 3 (limpia 3 columnas sin FK, cola de objetos, referencias_restantes; rojo 5 -> verde 39/39); migraciones intactas; sin push ni [x].
 - 2026-11-18 | Keymaker | T837+T838 domain/scene select-visible-pets + inputs-snapshot (t837 15/15, rojo previo: modulo inexistente; suite solo T815 x18, tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 | Keymaker | T839+T840 decide-mode (t839 17/17, rojo previo: modulo inexistente; suite solo T815 x18, tsc 0, gates CUMPLE); H-KEY-F5-1 SC-ESC6-010 pets=[] vs REMOVE; sin push ni [x].
