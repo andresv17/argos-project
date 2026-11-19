@@ -1418,3 +1418,4 @@
 - 2026-11-18 | Keymaker | T861 suite de concurrencia memoria/SQLite/PG real (t861 18/18, sin rojo previo: caracterizacion; suite 4703 verdes 0 rojos, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T879 correcciones /sati en UI de escena (H-S1..H-S5, H-S12 + H-S6/10/13): t879 + gates verdes, 4881 pasan, wcag 14/14; deuda menor H-S7/8/9/11/14 en log-keymaker.
 - 2026-11-18 | Keymaker | Versionado de specs/006 (spec, plan, contratos, prototipo, tasks) + 9 informes referenciados; commit docs, sin codigo.
+- 2026-11-18 | Keymaker | Fase 8 T879 (guarda-driver-real-escena-006, 10 pruebas; nombre distinto de t879-escena-sati) y T880 (runbook escena en terraform/README + N2-09=B en entorno-y-lecciones): REVIEW, sin driver real.

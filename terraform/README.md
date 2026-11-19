@@ -234,3 +234,16 @@ Para que el servicio use la base restaurada, cambie la URL en el secreto `TF_VAR
 
 1. Bootstrap del día 0 (sección anterior).
 2. CI (`infraestructura.yml`, T446) corre `plan` en PR y `apply` solo desde `main` con aprobación de Neo; junto con `deploy-argos.yml`, solo lee los secretos y variables de la tabla anterior.
+
+## Escena del hogar (006): mantenimiento, conciliación y CI/CD (T880; REQ-ESC6-022, REQ-ESC6-029, NFR-ESC6-002)
+
+Runbook operativo de la escena del hogar en pixel art. Pruebas estáticas en `tests/unit/runbook-escena-006.spec.ts`.
+
+- **Estado del driver.** El servicio corre con `ARGOS_SCENE_DRIVER=fake` fijado en `deploy-argos.yml` (simulador, 0 USD). `ARGOS_SCENE_DRIVER=real` no se activa: la constante `SCENE_REAL_DRIVER_ACTIVATED` del código es `false` y el adaptador del proveedor no existe como código seleccionable hasta la compuerta T885 (`N2-10`, bloqueada).
+- **Respaldo.** La foto del hogar y las escenas no viajan en el respaldo (véase «Fuera del respaldo exportable (feature 006)»); importar un respaldo no restaura la escena. La ayuda de la aplicación lo declara.
+- **Borrado.** Eliminar una mascota, un hogar o una cuenta, la salida o expulsión de un miembro y el retiro del consentimiento encolan los objetos en `media_deletion_queue` (borrado inmediato, sin periodo de gracia). Una generación en vuelo registra antes del `put` una fila `INTENT`, de modo que el objeto huérfano se purga sin publicarse (`EDGE-ESC6-021`).
+- **Conciliación.** La rutina diaria de `/internal/maintenance` recorre los prefijos `scenes/` y `households/` y encola con `DELETE` los objetos sin referencia con más de 15 min (`pets/`: 24 h). Tras una restauración, ejecútela y compruebe 0 huérfanos.
+- **Mantenimiento de la cola.** La cola `argos-scene` (Cloud Tasks) entrega `POST /internal/scene-worker` con el OIDC de `argos-scene-tasks`; la espera en cola tiene su tope `T_QUEUE` de 600 s y el arrendamiento `T_LEASE = T_GEN + 60` es la red de seguridad si una tarea no corre. Si hay generaciones atascadas, no borre la cola: espere al arrendamiento o reintente desde la aplicación.
+- **CI/CD.** `infraestructura.yml` corre `plan` en PR y `apply` solo desde `main` con aprobación de Neo; `deploy-argos.yml` despliega sin tráfico y nunca fija el driver en real. Los cambios de `terraform/` de la 006 no se aplican hasta que Neo lo ordene.
+- **Ventana residual de PITR.** PITR y los volcados conservan filas de escena hasta su vencimiento (`RR-06-07`, `REQ-BOR-004`); las imágenes y las fotos viven solo en el bucket de medios.
+- **Fuera de la 006.** `PN-06` (rotación de la clave HMAC de IP) queda fuera de esta feature (`N2-09` = B); no hay tarea ni requisito de la 006 que la cubra.
