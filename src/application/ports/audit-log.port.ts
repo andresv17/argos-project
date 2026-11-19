@@ -7,6 +7,7 @@
  */
 
 // 3.1.0 (feature 004): AuditEntityType admite PET_MEDIA; el tipo de la 002 no.
+// 3.2.0 (feature 006, N2-06 a): AuditEntityType admite ademas HOME_SCENE, SCENE_CONSENT y HOUSEHOLD_PHOTO (17 valores).
 import type { AuditEntry } from '../../generated/v31/index.ts';
 import type { RepositorySet } from './repositories.port.ts';
 
