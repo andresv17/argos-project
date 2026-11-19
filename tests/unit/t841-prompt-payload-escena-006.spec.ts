@@ -89,9 +89,12 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     expect(text).toContain('Use IMG_3 as the exact visual reference for this pet, faithfully preserving its species, fur colors, coat patterns, ear shapes, proportions, and unique markings.');
   });
 
-  it('[SC-ESC6-004] con foto del hogar: «Use IMG_1 as the exact visual reference for the room\'s layout…»', () => {
+  it('[SC-ESC6-004][SC-ESC6-135] con foto del hogar: diorama isométrico 32-bit inspirado en IMG_1 abandonando la perspectiva fotográfica', () => {
     const text = buildImagePrompt(payload('FROM_SCRATCH', [], { photo: true }));
-    expect(text).toContain("Use IMG_1 as the exact visual reference for the room's layout, furniture, wall colors, and atmosphere, translating it into this 32-bit isometric pixel art style.");
+    expect(text).toContain("Draw a brand-new 32-bit retro video-game isometric cutaway room diorama, like a classic pixel-art indie game, inspired by the furniture, plants, color accents, and general room layout of IMG_1.");
+    expect(text.includes('loose inspiration')).toBe(false);
+    expect(text.includes('Reimagine the entire room from scratch')).toBe(false);
+    expect(text.includes("as the exact visual reference for the room's layout")).toBe(false);
   });
 
   it('[SC-ESC6-010][EDGE-ESC6-010] con cero mascotas no hay bloque de mascotas ni «Place all»', () => {
@@ -100,22 +103,22 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     expect(text.includes('Include a')).toBe(false);
   });
 
-  it('[SC-ESC6-105][REQ-ESC6-016] FROM_SCRATCH y REGENERATE numeran las mascotas RENDER «Pet 1:», «Pet 2:», «Pet 3:» en el orden del payload, sin id ni nombre, y el cierre sigue «Place all 3 pets»', () => {
+  it('[SC-ESC6-105][REQ-ESC6-016] FROM_SCRATCH y REGENERATE numeran las mascotas RENDER «Pet 1 (dog):», «Pet 2 (dog):», «Pet 3 (cat):» (D6-21, SC-ESC6-136) en el orden del payload, sin id ni nombre, y el cierre sigue «Place all 3 pets»', () => {
     for (const mode of ['FROM_SCRATCH', 'REGENERATE'] as const) {
       const text = buildImagePrompt(payload(mode, [petBlock(1), petBlock(2, { hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { species: 'FELINE', breedCode: 'CAT_SIAMES', breed: 'Siames' })]));
-      const lines = text.split('\n').filter((l) => /^Pet \d+: /.test(l));
+      const lines = text.split('\n').filter((l) => /^Pet \d+ \([^)]*\): /.test(l));
       expect(lines).toHaveLength(3);
-      expect(lines[0]?.startsWith('Pet 1: Include a friendly mixed-breed dog')).toBe(true);
-      expect(lines[1]?.startsWith('Pet 2: Use IMG_2 as the exact visual reference for this pet')).toBe(true);
-      expect(lines[2]?.startsWith('Pet 3: Include a cat (breed Siamese')).toBe(true);
+      expect(lines[0]?.startsWith('Pet 1 (dog): Include a friendly mixed-breed dog')).toBe(true);
+      expect(lines[1]?.startsWith('Pet 2 (dog): Use IMG_2 as the exact visual reference for this pet')).toBe(true);
+      expect(lines[2]?.startsWith('Pet 3 (cat): Include a cat (breed Siamese')).toBe(true);
       expect(text).toContain('Place all 3 pets naturally and separately in different cozy spots of the room without merging or omitting any of them.');
       expect(text.includes(id(1))).toBe(false);
     }
   });
 
-  it('[SC-ESC6-105] los modos incrementales no llevan prefijo «Pet k:»', () => {
+  it('[SC-ESC6-105] los modos incrementales no llevan prefijo «Pet k (especie):»', () => {
     const text = buildImagePrompt(payload('INCREMENTAL_MIXED', [petBlock(1, { action: 'KEEP' }), petBlock(2, { action: 'REPLACE', hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { action: 'ADD' })], { scene: true }));
-    expect(/^Pet \d+:/m.test(text)).toBe(false);
+    expect(/^Pet \d+ \(/m.test(text)).toBe(false);
   });
 
   it('[SC-ESC6-106][REQ-ESC6-016] con al menos un photoRef (hogar, mascota RENDER o ADD/REPLACE) PIXEL_REDRAW_RULE aparece exactamente 1 vez, tras el cierre «Place all» y estable en 100 ejecuciones', () => {
@@ -148,12 +151,13 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     expect(text).toBe(
       [
         STYLE_BASE_TEXT,
-        "Use IMG_1 as the exact visual reference for the room's layout, furniture, wall colors, and atmosphere, translating it into this 32-bit isometric pixel art style.",
-        'Pet 1: Use IMG_2 as the exact visual reference for this pet, faithfully preserving its species, fur colors, coat patterns, ear shapes, proportions, and unique markings.\nPet 2: Use IMG_3 as the exact visual reference for this pet, faithfully preserving its species, fur colors, coat patterns, ear shapes, proportions, and unique markings.',
+        "Draw a brand-new 32-bit retro video-game isometric cutaway room diorama, like a classic pixel-art indie game, inspired by the furniture, plants, color accents, and general room layout of IMG_1.",
+        'Pet 1 (dog): Use IMG_2 as the exact visual reference for this pet, faithfully preserving its species, fur colors, coat patterns, ear shapes, proportions, and unique markings.\nPet 2 (dog): Use IMG_3 as the exact visual reference for this pet, faithfully preserving its species, fur colors, coat patterns, ear shapes, proportions, and unique markings.',
         'Place all 2 pets naturally and separately in different cozy spots of the room without merging or omitting any of them.',
         sceneSpecBlock(payload('FROM_SCRATCH', [petBlock(1, { hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(2, { hasReferencePhoto: true, photoRef: 'IMG_3' })], { photo: true })),
+        'Exact animal count: 2 total (2 dogs).',
         PET_COUNT_RULE,
-        'Treat every photographic reference image strictly as a visual guide: redraw the room and every pet entirely in the 32-bit isometric pixel art style, and leave no photographic pixels, textures, or realistic regions anywhere in the image.',
+        PIXEL_REDRAW_RULE,
       ].join('\n\n'),
     );
   });
@@ -269,7 +273,8 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
   /** Extrae y parsea el bloque JSON: entre la introducción y la regla de conteo. */
   function jsonBlockOf(text: string): string {
     const start = text.indexOf(`${SCENE_SPEC_INTRO}\n`);
-    const end = text.indexOf(`\n\n${PET_COUNT_RULE}`);
+    const counted = text.indexOf('\n\nExact animal count: ');
+    const end = counted > -1 ? counted : text.indexOf(`\n\n${PET_COUNT_RULE}`);
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     return text.slice(start + SCENE_SPEC_INTRO.length + 1, end);
@@ -361,9 +366,9 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
     expect(incremental.split(PET_COUNT_RULE)).toHaveLength(2);
   });
 
-  it('[SC-ESC6-118] orden de bloques desde cero: estilo, hogar, líneas «Pet k:», «Place all N pets», JSON, PET_COUNT_RULE y PIXEL_REDRAW_RULE (solo con photoRef)', () => {
+  it('[SC-ESC6-118][SC-ESC6-137] orden de bloques desde cero: estilo, hogar, líneas «Pet k (especie):», «Place all N pets», JSON, línea de conteo, PET_COUNT_RULE y PIXEL_REDRAW_RULE (solo con photoRef)', () => {
     const text = buildImagePrompt(payload('FROM_SCRATCH', [petBlock(1, { hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(2)], { photo: true }));
-    const positions = [STYLE_BASE_TEXT, "Use IMG_1 as the exact visual reference for the room's layout", 'Pet 1: ', 'Pet 2: ', 'Place all 2 pets', SCENE_SPEC_INTRO, PET_COUNT_RULE, PIXEL_REDRAW_RULE].map((part) => text.indexOf(part));
+    const positions = [STYLE_BASE_TEXT, 'Draw a brand-new 32-bit retro video-game isometric cutaway room diorama', 'Pet 1 (dog): ', 'Pet 2 (dog): ', 'Place all 2 pets', SCENE_SPEC_INTRO, 'Exact animal count: 2 total (2 dogs).', PET_COUNT_RULE, PIXEL_REDRAW_RULE].map((part) => text.indexOf(part));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(text.endsWith(PIXEL_REDRAW_RULE)).toBe(true);
@@ -372,14 +377,14 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
     expect(plain.endsWith(PET_COUNT_RULE)).toBe(true);
   });
 
-  it('[SC-ESC6-118] incremental MIXED: pets excluye REMOVE, renderedPetsCount cuenta KEEP + ADD + REPLACE, sin líneas «Pet k:», y el orden es incremental, JSON, regla, redibujado y cierre', () => {
+  it('[SC-ESC6-118] incremental MIXED: pets excluye REMOVE, renderedPetsCount cuenta KEEP + ADD + REPLACE, sin líneas «Pet k (especie):», y el orden es incremental, JSON, línea de conteo, regla, redibujado y cierre', () => {
     const text = buildImagePrompt(payload('INCREMENTAL_MIXED', [petBlock(1, { action: 'KEEP' }), petBlock(2, { action: 'REPLACE', hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { action: 'ADD' }), petBlock(4, { action: 'REMOVE' })], { scene: true }));
     const spec = specOf(text);
     expect(spec.mode).toBe('INCREMENTAL_MIXED');
     expect(spec.renderedPetsCount).toBe(3);
     expect(spec.pets.map((p) => [p.index, p.action])).toEqual([[1, 'KEEP'], [2, 'REPLACE'], [3, 'ADD']]);
-    expect(/^Pet \d+:/m.test(text)).toBe(false);
-    const order = ['Apply only these changes', SCENE_SPEC_INTRO, PET_COUNT_RULE, PIXEL_REDRAW_RULE, 'Match the exact 32-bit isometric pixel art style'].map((part) => text.indexOf(part));
+    expect(/^Pet \d+ \(/m.test(text)).toBe(false);
+    const order = ['Apply only these changes', SCENE_SPEC_INTRO, 'Exact animal count: 3 total (3 dogs).', PET_COUNT_RULE, PIXEL_REDRAW_RULE, 'Match the exact 32-bit isometric pixel art style'].map((part) => text.indexOf(part));
     expect(order.every((p) => p >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(text.endsWith('Match the exact 32-bit isometric pixel art style, lighting, and palette.')).toBe(true);
@@ -490,7 +495,8 @@ describe('buildImagePrompt (T927): KEEP con foto en incrementales (SC-ESC6-123)'
   };
   const jsonOf = (text: string): { pets: Array<{ index: number; action: string; hasReferencePhoto: boolean; photoRef: string | null }> } => {
     const start = text.indexOf(`${SCENE_SPEC_INTRO}\n`) + SCENE_SPEC_INTRO.length + 1;
-    return JSON.parse(text.slice(start, text.indexOf(`\n\n${PET_COUNT_RULE}`)));
+    const counted = text.indexOf('\n\nExact animal count: ');
+    return JSON.parse(text.slice(start, counted > -1 ? counted : text.indexOf(`\n\n${PET_COUNT_RULE}`)));
   };
 
   it('[SC-ESC6-123] el payload incremental MIXED trae hasReferencePhoto true y photoRef IMG_n en cada KEEP con foto, y null en la KEEP sin foto', () => {

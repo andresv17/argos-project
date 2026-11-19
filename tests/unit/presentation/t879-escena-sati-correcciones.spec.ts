@@ -27,7 +27,7 @@ function photo(overrides: Partial<HouseholdPhotoViewProps> = {}): string {
   );
 }
 function block(overrides: Record<string, unknown> = {}): string {
-  return renderToStaticMarkup(h(SceneBlockView, { idPrefix: 'e', scope: { kind: 'OWNER' }, view: sceneView(), status: 'READY', error: null, busy: false, onUpdate: noop, onRegenerate: noop, ...overrides }));
+  return renderToStaticMarkup(h(SceneBlockView, { idPrefix: 'e', scope: { kind: 'OWNER' }, view: sceneView(), status: 'READY', error: null, busy: false, onRegenerate: noop, ...overrides }));
 }
 
 describe('T879 H-S1 jerarquía de encabezados (WCAG 1.3.1)', () => {

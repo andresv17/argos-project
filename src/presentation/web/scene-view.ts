@@ -68,9 +68,38 @@ export function sceneWaitText(seconds: number): string {
 /** Segundos de espera vigentes de la vista (`actions.retryAfterSeconds`), o `null` si no hay (REQ-ESC6-034). */
 export const sceneRetryAfter = (view: SceneViewData): number | null => view.actions.retryAfterSeconds ?? null;
 
-/** Programa UNA relectura a los `seconds + 1` s (SC-ESC6-115); devuelve la cancelación, que el contenedor llama al desmontar. */
-export function scheduleCooldownRefresh({ seconds, scheduler, reload }: { readonly seconds: number; readonly scheduler: Scheduler; readonly reload: () => void }): () => void {
-  return scheduler.after(reload, (seconds + 1) * 1000);
+/** Paso puro de la cuenta atrás (SC-ESC6-115): con `remaining > 0` el texto vigente y el siguiente valor (`remaining - 1`); con `0` o menos pide la relectura. */
+export function cooldownStep(remaining: number): { readonly text: string | null; readonly next: number | null; readonly refresh: boolean } {
+  if (remaining <= 0) return { text: null, next: null, refresh: true };
+  return { text: sceneWaitText(remaining), next: remaining - 1, refresh: false };
+}
+
+/**
+ * Cuenta atrás en vivo (SC-ESC6-115): un tick por segundo (`onTick` recibe los segundos restantes) y, al llegar a 0, `onExpire` una sola vez. Un temporizador
+ * vivo a la vez, cada uno de un disparo; devuelve la cancelación, que el contenedor llama al desmontar o al recargar la espera. La lógica de paso es `cooldownStep`.
+ */
+export function startCooldownCountdown({ seconds, scheduler, onTick, onExpire }: { readonly seconds: number; readonly scheduler: Scheduler; readonly onTick: (remaining: number) => void; readonly onExpire: () => void }): () => void {
+  let cancelled = false;
+  let cancelTimer: (() => void) | null = null;
+  const advance = (remaining: number): void => {
+    const step = cooldownStep(remaining);
+    if (step.refresh || step.next === null) {
+      onExpire();
+      return;
+    }
+    cancelTimer = scheduler.after(() => {
+      if (cancelled) return;
+      cancelTimer = null;
+      onTick(step.next ?? 0);
+      advance(step.next ?? 0);
+    }, 1000);
+  };
+  advance(seconds);
+  return () => {
+    cancelled = true;
+    cancelTimer?.();
+    cancelTimer = null;
+  };
 }
 
 /** El bloque de la escena `OWNER` se ofrece en «Hogar» solo con la lista ya cargada y 0 hogares (`N2-15` = B, REQ-ESC6-019, SC-ESC6-109). */
@@ -130,25 +159,39 @@ export function createLatestOnly(): { run<T>(read: Promise<T>, apply: (value: T)
   };
 }
 
-/** Estado del botón «Actualizar imagen del hogar»: con `canUpdate` falso siempre hay un motivo visible (REQ-ESC6-005). */
-export function sceneUpdateState(view: SceneViewData): { readonly disabled: boolean; readonly reason: string | null } {
-  if (view.actions.canUpdate) return { disabled: false, reason: null };
-  switch (view.actions.blockedReason) {
-    case 'NO_CHANGES':
-      return { disabled: true, reason: 'No hay cambios pendientes desde la última imagen.' };
-    case 'QUOTA_EXHAUSTED':
-      return { disabled: true, reason: `Se agotaron las generaciones de este mes. Se reinician el ${uploadDateText(view.quota.resetsAt)}; la imagen actual se conserva.` };
-    case 'GENERATING':
-      return { disabled: true, reason: 'La imagen se está generando; espera a que termine.' };
-    case 'CONSENT_REQUIRED':
-      return { disabled: true, reason: 'Falta tu consentimiento para enviar fotos al servicio de inteligencia artificial.' };
-    case 'ROLE':
-      return { disabled: true, reason: 'Solo el propietario del hogar o un administrador puede actualizar la imagen.' };
-    case 'COOLDOWN':
-      return { disabled: true, reason: view.actions.retryAfterSeconds == null ? 'Espera un momento antes de volver a intentarlo.' : sceneWaitText(view.actions.retryAfterSeconds) };
-    default:
-      return { disabled: true, reason: 'La imagen no se puede actualizar ahora.' };
+/** Texto del botón deshabilitado con la escena `idle` (sin mascotas ni foto del hogar; la máquina rechaza `idle -> generating`, REQ-ESC6-005). */
+const SCENE_IDLE_TEXT = 'Agrega una mascota o la foto del hogar para crear la imagen.';
+
+/**
+ * Estado del botón único de generación (D6-21, REQ-ESC6-019, REQ-ESC6-005, REQ-ESC6-007; SC-ESC6-131, SC-ESC6-132). Etiqueta: «Reintentar» con `failed`, «Regenerar imagen del
+ * hogar» con imagen vigente y «Crear imagen del hogar» sin ella. Se habilita con `actions.canRegenerate`, sin generación en curso y sin espera; `canUpdate` y `NO_CHANGES` no se leen.
+ * La regla de cliente `idle` deshabilita el botón con su texto. Siempre hay un motivo visible cuando está deshabilitado (salvo el bloqueo transitorio `busy` del contenedor).
+ */
+export function sceneGenerateState(view: SceneViewData): { readonly label: string; readonly disabled: boolean; readonly reason: string | null } {
+  const label = view.status === 'failed' ? 'Reintentar' : view.imageTag === null ? 'Crear imagen del hogar' : 'Regenerar imagen del hogar';
+  const blocked = (reason: string): { readonly label: string; readonly disabled: true; readonly reason: string } => ({ label, disabled: true, reason });
+  const { blockedReason } = view.actions;
+  const wait = blockedReason === 'ROLE' ? null : sceneRetryAfter(view);
+  if (view.status === 'generating') return blocked('La imagen se está generando; espera a que termine.');
+  if (!view.actions.canRegenerate) {
+    switch (blockedReason) {
+      case 'QUOTA_EXHAUSTED':
+        return blocked(`Se agotaron las generaciones de este mes. Se reinician el ${uploadDateText(view.quota.resetsAt)}; la imagen actual se conserva.`);
+      case 'GENERATING':
+        return blocked('La imagen se está generando; espera a que termine.');
+      case 'CONSENT_REQUIRED':
+        return blocked('Falta tu consentimiento para enviar fotos al servicio de inteligencia artificial.');
+      case 'ROLE':
+        return blocked('Solo el propietario del hogar o un administrador puede crear la imagen.');
+      case 'COOLDOWN':
+        return blocked(wait === null ? 'Espera un momento antes de volver a intentarlo.' : sceneWaitText(wait));
+      default:
+        return blocked(wait === null ? 'La imagen no se puede crear ahora.' : sceneWaitText(wait));
+    }
   }
+  if (wait !== null) return blocked(sceneWaitText(wait));
+  if (view.status === 'idle') return blocked(SCENE_IDLE_TEXT);
+  return { label, disabled: false, reason: null };
 }
 
 const GENERIC_MESSAGE = ERROR_CATALOG['ERR-INTERNAL-UNEXPECTED'].detailTemplate;

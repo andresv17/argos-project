@@ -553,3 +553,38 @@ describe('runSceneGeneration (T929): fotos KEEP, tope de bytes y degradación (N
     expect(sceneOf(t)).toMatchObject({ consumedGenerations: 1 });
   });
 });
+
+describe('runSceneGeneration (M2, Fase 13): prueba negativa de consentimiento PET_PHOTOS por dueño', () => {
+  const LUNA_AVATAR = 'e1000000-0000-4000-8000-000000000002';
+  const grantAndres = { id: 'c5000000-0000-4000-8000-000000000031', userId: ANDRES, scope: 'PET_PHOTOS' as const, providerId: 'vertex-gemini-image', noticeVersion: '1', grantedAt: NOW, revokedAt: null };
+  const grantMaria = { ...grantAndres, id: 'c5000000-0000-4000-8000-000000000032', userId: MARIA };
+  const photoRefs = (prompt: string): string[] => [...prompt.matchAll(/"photoRef":\s*"(IMG_\d+)"/g)].map((m) => m[1] ?? '');
+
+  it('[SC-ESC6-134][REQ-ESC6-025][REQ-ESC6-026][EDGE-ESC6-025] REGENERATE: la foto de un dueño sin PET_PHOTOS (ni KEEP ni RENDER) no viaja al proveedor ni entra en scene_image_sources', async () => {
+    const t = setup({ realDriver: true });
+    await t.h.uow.runInTransaction(async (r) => { await r.sceneConsents.grant(grantAndres); await r.pets.replaceAvatar(LUNA.id, LUNA_AVATAR); });
+    await t.storage.put(`pets/${LUNA.id}/avatar/${LUNA_AVATAR}`, await validPng(), 'image/png');
+    const j = await requested(t, 1, 'REGENERATE');
+    expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
+    expect(t.fixture.generator.calls).toHaveLength(1);
+    expect(t.fixture.generator.calls[0]?.references).toEqual([]);
+    expect(photoRefs(t.fixture.generator.calls[0]?.prompt ?? '')).toEqual([]);
+    expect(snap(t).sceneImageSources ?? []).toEqual([]);
+  });
+
+  it('[SC-ESC6-134][REQ-ESC6-025][EDGE-ESC6-025] foto KEEP: tras revocar PET_PHOTOS del dueño, la siguiente regeneración no reenvía su foto y no lo registra como fuente', async () => {
+    const t = setup({ realDriver: true });
+    await t.h.uow.runInTransaction(async (r) => { await r.sceneConsents.grant(grantAndres); await r.sceneConsents.grant(grantMaria); await r.pets.replaceAvatar(LUNA.id, LUNA_AVATAR); await r.pets.replaceAvatar(ARGOS.id, AVATAR); });
+    await t.storage.put(`pets/${LUNA.id}/avatar/${LUNA_AVATAR}`, await validPng(), 'image/png');
+    await t.run.execute(await requested(t, 1, 'REGENERATE'), signal());
+    expect(t.fixture.generator.calls[0]?.references).toHaveLength(1);
+    await t.h.uow.runInTransaction(async (r) => { await r.sceneConsents.revoke(grantMaria.id, NOW); });
+    await t.storage.put(`pets/${ARGOS.id}/avatar/${AVATAR}`, await validPng(), 'image/png');
+    t.h.clock.setClock('2026-11-05', at(120));
+    expect(await t.run.execute(await requested(t, 2, 'REGENERATE'), signal())).toBe('PUBLISHED');
+    const second = t.fixture.generator.calls[1];
+    expect(second?.references).toHaveLength(1);
+    expect(photoRefs(second?.prompt ?? '')).toHaveLength(1);
+    expect(snap(t).sceneImageSources?.map((x) => x.ownerUserId)).toEqual([ARGOS.ownerUserId]);
+  });
+});

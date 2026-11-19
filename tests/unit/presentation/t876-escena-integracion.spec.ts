@@ -43,7 +43,7 @@ describe('T876 integración del bloque de escena (D6-04 = A)', () => {
   });
 
   it('[NFR-ESC6-004] reflujo a 320 px: ni anchos fijos ni desbordes; la imagen y los botones se ajustan (min-w-0, max-w-full, flex-wrap)', () => {
-    const html = renderToStaticMarkup(h(SceneBlockView, { idPrefix: 'x', scope: { kind: 'HOUSEHOLD', householdId: HOUSEHOLD_ID }, view: sceneView({ pending: 1 }), status: 'READY', error: null, busy: false, onUpdate: noop, onRegenerate: noop }));
+    const html = renderToStaticMarkup(h(SceneBlockView, { idPrefix: 'x', scope: { kind: 'HOUSEHOLD', householdId: HOUSEHOLD_ID }, view: sceneView({ pending: 1 }), status: 'READY', error: null, busy: false, onRegenerate: noop }));
     expect(html).toContain('min-w-0');
     expect(html).toContain('max-w-full');
     expect(html).toContain('flex-wrap');

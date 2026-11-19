@@ -71,7 +71,7 @@ paths:
     post:
       tags: [scene]
       operationId: generateHouseholdScene
-      summary: "Actualizar imagen del hogar (UPDATE) o Regenerar escena desde cero (REGENERATE); asincrono e idempotente [REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-012]"
+      summary: "Generar la imagen del hogar: desde cero (REGENERATE, la accion del boton unico de la UI) o incremental (UPDATE, solo API directa); asincrono e idempotente [REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-012]"
       x-sdd-change: NEW
       x-sdd-requirements: [REQ-ESC6-005, REQ-ESC6-006, REQ-ESC6-007, REQ-ESC6-011, REQ-ESC6-012, REQ-ESC6-014, REQ-ESC6-020, REQ-ESC6-023, REQ-ESC6-024, INV-ESC6-003, INV-ESC6-004, INV-ESC6-014, EDGE-ESC6-016]
       x-sdd-rbac-action: "GENERATE_SCENE (propietario del hogar o ADMIN, D6-10 = B)"
@@ -81,7 +81,7 @@ paths:
         resultante; encola la tarea (Cloud Tasks o Job, D6-15) y responde en <= 1 s. La generacion corre en /internal/scene-worker.
         Sin cambios pendientes y con UPDATE: responde 200 con el estado SIN invocar al generador (D14, SC-ESC6-014). Si ya esta
         generating: 200 con el estado vigente, sin segunda generacion ni descuento (D16). Misma Idempotency-Key = misma respuesta.
-        action = REGENERATE esta disponible sin cambios pendientes (REQ-ESC6-007) y exige la misma cuota y rol. Idempotency-Key
+        action = REGENERATE (la que envia siempre el boton unico de la UI desde D6-21) esta disponible sin cambios pendientes (REQ-ESC6-007) y exige la misma cuota y rol; action = UPDATE (incremental) queda solo para la API directa. Idempotency-Key
         con alcance (actor, escena, accion), vigencia de 24 h y memoria de la ULTIMA clave de la escena (una clave anterior no se reconoce y la peticion es nueva): la misma clave con otra accion es 422; una clave ya consumida
         por un intento terminal devuelve 200 con el estado vigente y no bloquea un intento nuevo con clave nueva; la respuesta
         repetida se reevalua en permisos (quien ya no tiene acceso recibe 404, no la respuesta almacenada). Enfriamiento de 60 s
@@ -237,11 +237,11 @@ paths:
     post:
       tags: [scene]
       operationId: generateOwnerScene
-      summary: "Actualizar o regenerar la escena del propietario sin hogar [REQ-ESC6-005, REQ-ESC6-032]"
+      summary: "Generar la escena del propietario sin hogar, desde cero (REGENERATE) o incremental (UPDATE, solo API directa) [REQ-ESC6-005, REQ-ESC6-032]"
       x-sdd-change: NEW
       x-sdd-requirements: [REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-011, REQ-ESC6-012, REQ-ESC6-032]
       x-sdd-rbac-action: "GENERATE_SCENE (propietario)"
-      description: "Mismo comportamiento que generateHouseholdScene (mismo manejador parametrizado por ambito); el ambito de la cuota es el propietario."
+      description: "Mismo comportamiento que generateHouseholdScene (mismo manejador parametrizado por ambito), con REGENERATE como accion del boton unico de la UI (D6-21) y UPDATE solo por API directa; el ambito de la cuota es el propietario."
       parameters:
         - { $ref: '#/components/parameters/CsrfHeader' }
         - { $ref: '#/components/parameters/IdempotencyKey' }

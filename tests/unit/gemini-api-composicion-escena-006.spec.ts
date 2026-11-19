@@ -42,6 +42,17 @@ describe('composición gemini-api (T894, SC-ESC6-098)', () => {
     expect(services.noticeVersion.length).toBeLessThanOrEqual(32);
   });
 
+  it('[SC-ESC6-134][REQ-ESC6-025][REQ-ESC6-026][EDGE-ESC6-025] M1: la composición nunca une un generador que no es el simulado con realDriver=false (el filtro de consentimiento de fotos depende de ese flag)', () => {
+    const { ARGOS_SCENE_DRIVER: _driver, GEMINI_API_KEY: _key, ARGOS_SCENE_GEMINI_MODEL: _model, ...base } = ENV;
+    const fake = compose({ ...base, ARGOS_SCENE_DRIVER: 'fake' });
+    const gemini = compose();
+    for (const services of [fake, gemini]) {
+      expect(services.generator instanceof FakeSceneImageGenerator).toBe(!services.realDriver);
+    }
+    expect([fake.realDriver, gemini.realDriver]).toEqual([false, true]);
+    expect(gemini.generator).toBeInstanceOf(GeminiApiSceneImageGenerator);
+  });
+
   it('[REQ-ESC6-037] el tiempo de T_GEN de la configuración llega al servicio y la composición no hace ninguna llamada de red', () => {
     const services = compose({ ...ENV, ARGOS_SCENE_GEN_TIMEOUT_SECONDS: '45' });
     expect(services.genTimeoutSeconds).toBe(45);

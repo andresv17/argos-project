@@ -1,7 +1,7 @@
 /**
  * T875 (006, Fase 7, pruebas rojas de presentación; WCAG 2.1 AA): bloque «Escena del hogar». Imagen con texto alternativo que cuenta las mascotas, estado en
- * región `aria-live`, «cambios pendientes: P · generaciones restantes: R», «Se muestran N de M mascotas», aviso «desactualizada», botón «Actualizar imagen del
- * hogar» deshabilitado con motivo visible y asociado, «Regenerar escena desde cero» (secundaria), sondeo único cada 3 s y ningún dato personal ni URL firmada en el DOM.
+ * región `aria-live`, «cambios pendientes: P · generaciones restantes: R», «Se muestran N de M mascotas», aviso «desactualizada», botón único de generación
+ * (D6-21; T936) deshabilitado con motivo visible y asociado, sondeo único cada 3 s y ningún dato personal ni URL firmada en el DOM.
  * REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021; NFR-ESC6-003, NFR-ESC6-004; SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030.
  */
 import { createElement as h } from 'react';
@@ -18,7 +18,7 @@ import {
   scenePetsShownText,
   sceneProblemMessage,
   sceneStatusText,
-  sceneUpdateState,
+  sceneGenerateState,
 } from '../../../src/presentation/web/scene-view.ts';
 import type { SceneViewData } from '../../../src/presentation/web/scene-api.ts';
 import { HOUSEHOLD_ID, IMAGE_TAG, sceneView, sceneViewSinImagen } from './escena-fixtures.ts';
@@ -32,7 +32,6 @@ function render(view: SceneViewData | null, overrides: Partial<SceneBlockViewPro
     status: view === null ? 'LOADING' : 'READY',
     error: null,
     busy: false,
-    onUpdate: noop,
     onRegenerate: noop,
     ...overrides,
   };
@@ -56,12 +55,12 @@ describe('T875 textos y reglas puras (REQ-ESC6-005, REQ-ESC6-019)', () => {
     expect(scenePetsShownText({ shown: 3, total: 3, maxPets: 8 })).toBeNull();
   });
 
-  it('[SC-ESC6-014][SC-ESC6-015] el botón Actualizar se habilita solo con canUpdate y, deshabilitado, dice el motivo de cada blockedReason', () => {
-    expect(sceneUpdateState(sceneView({ actions: { canUpdate: true, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: null } }))).toEqual({ disabled: false, reason: null });
-    const reasons = (['NO_CHANGES', 'QUOTA_EXHAUSTED', 'GENERATING', 'CONSENT_REQUIRED', 'ROLE', 'COOLDOWN'] as const).map((blockedReason) => sceneUpdateState(sceneView({ actions: { canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: false, blockedReason } })));
+  it('[SC-ESC6-132] el botón único se habilita con canRegenerate (sin leer canUpdate) y, deshabilitado, dice el motivo de cada blockedReason', () => {
+    expect(sceneGenerateState(sceneView({ actions: { canUpdate: false, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: 'NO_CHANGES' } }))).toEqual({ label: 'Regenerar imagen del hogar', disabled: false, reason: null });
+    const reasons = (['QUOTA_EXHAUSTED', 'GENERATING', 'CONSENT_REQUIRED', 'ROLE', 'COOLDOWN'] as const).map((blockedReason) => sceneGenerateState(sceneView({ actions: { canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: false, blockedReason } })));
     expect(reasons.every((r) => r.disabled && typeof r.reason === 'string' && r.reason.length > 10)).toBe(true);
-    expect(new Set(reasons.map((r) => r.reason)).size).toBe(6);
-    expect(reasons[1]?.reason).toContain('1 dic 2026'); // la fecha de reinicio de la cuota (D6-03)
+    expect(new Set(reasons.map((r) => r.reason)).size).toBe(5);
+    expect(reasons[0]?.reason).toContain('1 dic 2026'); // la fecha de reinicio de la cuota (D6-03)
   });
 
   it('[REQ-ESC6-019] un estado por cada valor de SceneStatus y el aviso «desactualizada» con imagen vigente', () => {
@@ -104,26 +103,24 @@ describe('T875 bloque «Escena del hogar» (REQ-ESC6-019, NFR-ESC6-004)', () => 
     expect(render(sceneView())).not.toContain('Se muestran');
   });
 
-  it('[SC-ESC6-014] «Actualizar imagen del hogar» deshabilitado con el motivo visible y asociado por aria-describedby; habilitado no lleva motivo', () => {
-    const blocked = render(sceneView({ actions: { canUpdate: false, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: 'NO_CHANGES' } }));
-    const button = /<button[^>]*>Actualizar imagen del hogar<\/button>/.exec(blocked)?.[0] ?? '';
+  it('[SC-ESC6-132] el botón único deshabilitado lleva el motivo visible y asociado por aria-describedby; habilitado no lleva motivo', () => {
+    const blocked = render(sceneView({ actions: { canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: true, blockedReason: 'ROLE' } }));
+    const button = /<button[^>]*>Regenerar imagen del hogar<\/button>/.exec(blocked)?.[0] ?? '';
     expect(isDisabled(button)).toBe(true);
-    // T931/SC-ESC6-129: aria-describedby lista el motivo y, después, el texto de ayuda (ids separados por un espacio).
     const describedBy = (/aria-describedby="([^"]+)"/.exec(button)?.[1] ?? '').split(' ');
-    expect(describedBy[0]).toMatch(/-reason$/);
+    expect(describedBy).toEqual(['escena-h1-reason']);
     for (const id of describedBy) expect(blocked).toContain(`id="${id}"`);
     const enabled = render(sceneView({ pending: 1, actions: { canUpdate: true, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: null } }));
-    expect(isDisabled(/<button[^>]*>Actualizar imagen del hogar<\/button>/.exec(enabled)?.[0] ?? '')).toBe(false);
+    expect(isDisabled(/<button[^>]*>Regenerar imagen del hogar<\/button>/.exec(enabled)?.[0] ?? '')).toBe(false);
   });
 
-  it('[SC-ESC6-015] «Regenerar escena desde cero» es la acción secundaria y se habilita con canRegenerate aunque no haya cambios', () => {
+  it('[SC-ESC6-131] con imagen vigente el botón único es primario (no hay acción secundaria) y se habilita con canRegenerate aunque no haya cambios', () => {
     const html = render(sceneView());
-    const button = /<button[^>]*>Regenerar escena desde cero<\/button>/.exec(html)?.[0] ?? '';
+    const button = /<button[^>]*>Regenerar imagen del hogar<\/button>/.exec(html)?.[0] ?? '';
     expect(button).not.toBe('');
     expect(isDisabled(button)).toBe(false);
-    expect(button).toContain('border-primary'); // variante secundaria
-    const roleBlocked = render(sceneView({ actions: { canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: true, blockedReason: 'ROLE' } }));
-    expect(isDisabled(/<button[^>]*>Regenerar escena desde cero<\/button>/.exec(roleBlocked)?.[0] ?? '')).toBe(true);
+    expect(button).not.toContain('border-primary');
+    expect(html.match(/<button\b/g)).toHaveLength(1);
   });
 
   it('[REQ-ESC6-019] failed muestra el mensaje estable y «Reintentar»; la cuota agotada conserva la imagen y dice cuándo se reinicia', () => {
@@ -154,7 +151,7 @@ describe('T875 bloque «Escena del hogar» (REQ-ESC6-019, NFR-ESC6-004)', () => 
     expect(render(null)).toMatch(/role="status"[^>]*>[^<]*Cargando/);
     const error = render(null, { status: 'ERROR', error: sceneProblemMessage('ERR-INTERNAL-UNEXPECTED') });
     expect(error).toMatch(/role="alert"/);
-    expect(error).not.toContain('Actualizar imagen del hogar');
+    expect(error).not.toContain('imagen del hogar</button>');
   });
 
   it('[SC-ESC6-029] sin imagen vigente muestra un marcador textual (no una imagen rota) y la imagen se oculta ante un error de carga', () => {
@@ -164,21 +161,22 @@ describe('T875 bloque «Escena del hogar» (REQ-ESC6-019, NFR-ESC6-004)', () => 
   });
 });
 
-describe('T875 sin imagen vigente: solo la creación inicial (REQ-ESC6-007, REQ-ESC6-019; SC-ESC6-108)', () => {
-  it('[SC-ESC6-108] con imageTag = null y canRegenerate = true hay 0 botones «Regenerar escena desde cero» y el botón inicial «Actualizar imagen del hogar» sigue gobernado por canUpdate', () => {
-    const habilitado = render(sceneViewSinImagen());
-    expect(habilitado.includes('Regenerar escena desde cero')).toBe(false);
-    expect(isDisabled(/<button[^>]*>Actualizar imagen del hogar<\/button>/.exec(habilitado)?.[0] ?? '')).toBe(false);
-    const bloqueado = render(sceneViewSinImagen({ actions: { canUpdate: false, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: 'NO_CHANGES' } }));
-    expect(bloqueado.includes('Regenerar escena desde cero')).toBe(false);
-    expect(isDisabled(/<button[^>]*>Actualizar imagen del hogar<\/button>/.exec(bloqueado)?.[0] ?? '')).toBe(true);
+describe('T875 sin imagen vigente: el botón único dice «Crear imagen del hogar» (REQ-ESC6-005, REQ-ESC6-019; SC-ESC6-108, SC-ESC6-131)', () => {
+  it('[SC-ESC6-108][SC-ESC6-131] con imageTag = null el único botón es «Crear imagen del hogar» y con canRegenerate verdadero y estado distinto de idle está habilitado', () => {
+    const habilitado = render(sceneView({ imageTag: null, status: 'outdated', pending: 1 }));
+    expect(habilitado.match(/<button\b/g)).toHaveLength(1);
+    expect(isDisabled(/<button[^>]*>Crear imagen del hogar<\/button>/.exec(habilitado)?.[0] ?? '')).toBe(false);
+    expect(habilitado.includes('Regenerar imagen del hogar')).toBe(false);
+    const inactivo = render(sceneViewSinImagen());
+    expect(isDisabled(/<button[^>]*>Crear imagen del hogar<\/button>/.exec(inactivo)?.[0] ?? '')).toBe(true);
+    expect(inactivo).toContain('Agrega una mascota o la foto del hogar para crear la imagen.');
   });
 
-  it('[SC-ESC6-108] sin imagen y con status failed queda «Reintentar» y ningún «Regenerar»; con imageTag no nulo el botón «Regenerar» se muestra', () => {
+  it('[SC-ESC6-108][SC-ESC6-131] sin imagen y con status failed queda «Reintentar»; con imageTag no nulo el botón dice «Regenerar imagen del hogar» 1 vez', () => {
     const fallo = render(sceneViewSinImagen({ status: 'failed', lastError: 'ERR-SCENE-GENERATION-FAILED' }));
     expect(fallo).toContain('Reintentar');
-    expect(fallo.includes('Regenerar escena desde cero')).toBe(false);
-    expect(render(sceneView()).split('Regenerar escena desde cero')).toHaveLength(2);
+    expect(fallo.includes('Crear imagen del hogar')).toBe(false);
+    expect(render(sceneView()).split('Regenerar imagen del hogar')).toHaveLength(2);
   });
 });
 

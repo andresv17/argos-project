@@ -39,8 +39,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Actualizar imagen del hogar (UPDATE) o Regenerar escena desde cero (REGENERATE); asincrono e idempotente [REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-012]
-         * @description Bajo el candado de la escena y en una transaccion: valida rol, consentimiento (driver real), cuota y condiciones del boton; decide el modo; fija el arrendamiento (T_LEASE = 150 s), la huella y el intento; registra la fila INTENT del objeto resultante; encola la tarea (Cloud Tasks o Job, D6-15) y responde en <= 1 s. La generacion corre en /internal/scene-worker. Sin cambios pendientes y con UPDATE: responde 200 con el estado SIN invocar al generador (D14, SC-ESC6-014). Si ya esta generating: 200 con el estado vigente, sin segunda generacion ni descuento (D16). Misma Idempotency-Key = misma respuesta. action = REGENERATE esta disponible sin cambios pendientes (REQ-ESC6-007) y exige la misma cuota y rol. Idempotency-Key con alcance (actor, escena, accion), vigencia de 24 h y memoria de la ULTIMA clave de la escena (una clave anterior no se reconoce y la peticion es nueva): la misma clave con otra accion es 422; una clave ya consumida por un intento terminal devuelve 200 con el estado vigente y no bloquea un intento nuevo con clave nueva; la respuesta repetida se reevalua en permisos (quien ya no tiene acceso recibe 404, no la respuesta almacenada). Enfriamiento de 60 s entre intentos y topes de intentos por escena y por actor: 429 ERR-RATE-LIMITED con Retry-After (REQ-ESC6-034). El consentimiento se comprueba tambien en el worker y en T2 (REQ-ESC6-036).
+         * Generar la imagen del hogar: desde cero (REGENERATE, la accion del boton unico de la UI) o incremental (UPDATE, solo API directa); asincrono e idempotente [REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-012]
+         * @description Bajo el candado de la escena y en una transaccion: valida rol, consentimiento (driver real), cuota y condiciones del boton; decide el modo; fija el arrendamiento (T_LEASE = 150 s), la huella y el intento; registra la fila INTENT del objeto resultante; encola la tarea (Cloud Tasks o Job, D6-15) y responde en <= 1 s. La generacion corre en /internal/scene-worker. Sin cambios pendientes y con UPDATE: responde 200 con el estado SIN invocar al generador (D14, SC-ESC6-014). Si ya esta generating: 200 con el estado vigente, sin segunda generacion ni descuento (D16). Misma Idempotency-Key = misma respuesta. action = REGENERATE (la que envia siempre el boton unico de la UI desde D6-21) esta disponible sin cambios pendientes (REQ-ESC6-007) y exige la misma cuota y rol; action = UPDATE (incremental) queda solo para la API directa. Idempotency-Key con alcance (actor, escena, accion), vigencia de 24 h y memoria de la ULTIMA clave de la escena (una clave anterior no se reconoce y la peticion es nueva): la misma clave con otra accion es 422; una clave ya consumida por un intento terminal devuelve 200 con el estado vigente y no bloquea un intento nuevo con clave nueva; la respuesta repetida se reevalua en permisos (quien ya no tiene acceso recibe 404, no la respuesta almacenada). Enfriamiento de 60 s entre intentos y topes de intentos por escena y por actor: 429 ERR-RATE-LIMITED con Retry-After (REQ-ESC6-034). El consentimiento se comprueba tambien en el worker y en T2 (REQ-ESC6-036).
          */
         post: operations["generateHouseholdScene"];
         delete?: never;
@@ -128,8 +128,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Actualizar o regenerar la escena del propietario sin hogar [REQ-ESC6-005, REQ-ESC6-032]
-         * @description Mismo comportamiento que generateHouseholdScene (mismo manejador parametrizado por ambito); el ambito de la cuota es el propietario.
+         * Generar la escena del propietario sin hogar, desde cero (REGENERATE) o incremental (UPDATE, solo API directa) [REQ-ESC6-005, REQ-ESC6-032]
+         * @description Mismo comportamiento que generateHouseholdScene (mismo manejador parametrizado por ambito), con REGENERATE como accion del boton unico de la UI (D6-21) y UPDATE solo por API directa; el ambito de la cuota es el propietario.
          */
         post: operations["generateOwnerScene"];
         delete?: never;
@@ -273,13 +273,13 @@ export interface components {
             maxPets: number;
         };
         SceneActions: {
-            /** @description (a) outdated|failed, (b) cambios>=1 o sin imagen con mascotas/foto, (c) restante>=1, (d) propietario/ADMIN (REQ-ESC6-005) */
+            /** @description Habilita action = UPDATE (generación incremental por API directa; la UI no la envía desde D6-21): (a) outdated|failed, (b) cambios>=1 o sin imagen con mascotas/foto, (c) restante>=1, (d) propietario/ADMIN (REQ-ESC6-005) */
             canUpdate: boolean;
-            /** @description restante>=1, rol y limites de intentos de REQ-ESC6-034 que permitan un intento (retryAfterSeconds = null) (REQ-ESC6-007); no exige cambios */
+            /** @description Habilita action = REGENERATE (generación desde cero, la que envía el botón único de la UI: crear, regenerar o reintentar la imagen del hogar, D6-21): restante>=1, rol y limites de intentos de REQ-ESC6-034 que permitan un intento (retryAfterSeconds = null) (REQ-ESC6-007); no exige cambios */
             canRegenerate: boolean;
             canUploadHouseholdPhoto: boolean;
             /**
-             * @description Primera causa que deshabilita canUpdate (para el texto del botón); COOLDOWN = enfriamiento o tope de intentos de REQ-ESC6-034 (el POST responde 429 ERR-RATE-LIMITED); no revela datos de otros usuarios
+             * @description Primera causa que deshabilita canUpdate (acción UPDATE de la API directa); COOLDOWN = enfriamiento o tope de intentos de REQ-ESC6-034 (el POST responde 429 ERR-RATE-LIMITED); no revela datos de otros usuarios
              * @enum {string|null}
              */
             blockedReason: "NO_CHANGES" | "QUOTA_EXHAUSTED" | "GENERATING" | "CONSENT_REQUIRED" | "ROLE" | "COOLDOWN" | null;
@@ -322,7 +322,7 @@ export interface components {
         IdempotencyKey: string;
         GenerateSceneInput: {
             /**
-             * @description UPDATE = «Actualizar imagen del hogar»; REGENERATE = «Regenerar escena desde cero». El modo del payload lo decide el servidor
+             * @description REGENERATE = generación desde cero, la acción que envía siempre el botón único de la UI (D6-21); UPDATE = generación incremental, solo por API directa. El modo del payload lo decide el servidor
              * @enum {string}
              */
             action: "UPDATE" | "REGENERATE";

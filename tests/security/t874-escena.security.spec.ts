@@ -267,7 +267,9 @@ describe('XSS y prompt injection en nombres y textos libres (T874, INV-ESC6-011,
     // sigue sin haber ningún carácter hostil de los textos libres.
     for (const prompt of c.fixture.generator.calls.map((call) => call.prompt)) {
       const start = prompt.indexOf(`${SCENE_SPEC_INTRO}\n`) + SCENE_SPEC_INTRO.length + 1;
-      const end = prompt.indexOf(`\n\n${PET_COUNT_RULE}`);
+      // D6-21: con N >= 1 la línea de conteo por especie va entre el JSON y la regla de conteo.
+      const counted = prompt.indexOf('\n\nExact animal count: ');
+      const end = counted > -1 ? counted : prompt.indexOf(`\n\n${PET_COUNT_RULE}`);
       expect(start).toBeGreaterThan(SCENE_SPEC_INTRO.length);
       expect(end).toBeGreaterThan(start);
       expect(typeof JSON.parse(prompt.slice(start, end))).toBe('object');

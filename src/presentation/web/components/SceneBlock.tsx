@@ -1,11 +1,12 @@
 /**
  * Bloque «Escena del hogar» (feature 006, T875/T876; D6-04 = A, D6-05 = A): en el encabezado de la vista «Hogar» y, para el propietario sin hogar, en «Mis mascotas».
  * Imagen con texto alternativo, estado anunciado en una región `aria-live`, «cambios pendientes: P · generaciones restantes: R», «Se muestran N de M mascotas», aviso
- * «desactualizada», «Actualizar imagen del hogar» deshabilitado con motivo visible, «Regenerar escena desde cero» (secundaria, solo con imagen vigente: sin `imageTag` solo queda el botón inicial) y «Reintentar» tras un fallo. La imagen
+ * «desactualizada» y un botón único de generación (D6-21, T937): «Crear imagen del hogar», «Regenerar imagen del hogar» o «Reintentar», que siempre pide `action = REGENERATE`
+ * (generación limpia desde cero) y, deshabilitado, muestra su motivo visible. La imagen
  * se pide a la ruta propia del ámbito (302 firmada por el servidor): el DOM no guarda URL firmadas (NFR-ESC6-003). `SceneBlockView` es presentacional; `SceneBlock`
  * es el contenedor (lectura, sondeo cada 3 s mientras `generating`, `Idempotency-Key` nueva por clic).
  *
- * @implements REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, SC-ESC6-128, SC-ESC6-129, SC-ESC6-130, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
+ * @implements REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, SC-ESC6-131, SC-ESC6-132, SC-ESC6-133, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { browserScheduler } from '../browser-scheduler.ts';
@@ -22,15 +23,10 @@ import {
   sceneProblemMessage,
   sceneRetryAfter,
   sceneStatusText,
-  sceneUpdateState,
-  sceneWaitText,
-  scheduleCooldownRefresh,
+  sceneGenerateState,
+  startCooldownCountdown,
 } from '../scene-view.ts';
 import { Button } from './Field.tsx';
-
-/** Textos de ayuda bajo los botones (D6-20, SC-ESC6-128). */
-export const SCENE_UPDATE_HELP_TEXT = 'Úsalo cuando quieras actualizar contenido sobre tu imagen actual.';
-export const SCENE_REGENERATE_HELP_TEXT = 'Úsalo cuando quieras generar una imagen totalmente nueva.';
 
 export interface SceneBlockViewProps {
   /** Prefijo de los ids: evita ids repetidos si hay varios bloques en la página (WCAG 4.1.1). */
@@ -40,7 +36,6 @@ export interface SceneBlockViewProps {
   readonly status: 'LOADING' | 'READY' | 'ERROR';
   readonly error: string | null;
   readonly busy: boolean;
-  readonly onUpdate: () => void;
   readonly onRegenerate: () => void;
   /** Se ejecuta si la imagen no carga (p. ej. 404 tras un retiro): el contenedor vuelve a leer el estado. */
   readonly onImageError?: () => void;
@@ -48,23 +43,19 @@ export interface SceneBlockViewProps {
   readonly children?: ReactNode;
   /** Nivel del título: 2 en «Mis mascotas»; 4 dentro de la tarjeta del hogar, que ya tiene su h3 (H-S1). */
   readonly headingLevel?: 2 | 4;
+  /** Segundos de espera restantes de la cuenta atrás en vivo (SC-ESC6-115); sustituye a `actions.retryAfterSeconds` mientras sea mayor que 0. */
+  readonly waitSeconds?: number | null;
 }
 
-export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onUpdate, onRegenerate, onImageError, children, headingLevel = 2 }: SceneBlockViewProps): JSX.Element {
+export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onRegenerate, onImageError, children, headingLevel = 2, waitSeconds = null }: SceneBlockViewProps): JSX.Element {
   const titleId = `${idPrefix}-title`;
   const Title = `h${headingLevel}` as 'h2' | 'h4';
   const statusId = `${idPrefix}-status`;
   const reasonId = `${idPrefix}-reason`;
-  const updateHelpId = `${idPrefix}-update-help`;
-  const regenerateHelpId = `${idPrefix}-regenerate-help`;
   const src = view === null ? null : sceneImagePath(scope, view.imageTag);
-  const update = view === null ? null : sceneUpdateState(view);
+  const generate = view === null ? null : sceneGenerateState(waitSeconds !== null && waitSeconds > 0 ? { ...view, actions: { ...view.actions, retryAfterSeconds: waitSeconds } } : view);
   const generating = view?.status === 'generating';
-  const wait = view === null || view.actions.blockedReason === 'ROLE' ? null : sceneRetryAfter(view);
-  const waitText = wait === null ? null : sceneWaitText(wait);
   const petsShown = view === null ? null : scenePetsShownText(view.pets);
-  // «Reintentar» no actualiza contenido sobre la imagen actual: sin texto de ayuda (D6-20); el motivo de deshabilitado, si existe, va primero (SC-ESC6-129).
-  const updateDescribedBy = [update?.reason == null ? null : reasonId, view?.status === 'failed' ? null : updateHelpId].filter((x) => x !== null).join(' ') || null;
   return (
     <section aria-labelledby={titleId} className="grid min-w-0 max-w-full gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <Title id={titleId} className="text-lg font-semibold text-slate-900">
@@ -100,32 +91,16 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onU
               {petsShown === null ? null : <p className="text-sm text-slate-900">{petsShown}</p>}
               <div className="flex min-w-0 max-w-full flex-col items-start gap-3 sm:flex-row sm:flex-wrap">
                 <div className="grid min-w-0 max-w-full gap-1">
-                  <Button disabled={busy || generating || wait !== null || update?.disabled === true} {...(updateDescribedBy === null ? {} : { describedBy: updateDescribedBy })} onClick={onUpdate}>
-                    {view.status === 'failed' ? 'Reintentar' : 'Actualizar imagen del hogar'}
+                  <Button disabled={busy || generate?.disabled === true} {...(generate?.reason == null ? {} : { describedBy: reasonId })} onClick={onRegenerate}>
+                    {generate?.label ?? ''}
                   </Button>
-                  {view.status === 'failed' ? null : (
-                    <p id={updateHelpId} className="min-w-0 max-w-full text-sm text-slate-800">
-                      {SCENE_UPDATE_HELP_TEXT}
-                    </p>
-                  )}
                 </div>
-                {src === null ? null : (
-                  <div className="grid min-w-0 max-w-full gap-1">
-                    <Button variant="secondary" disabled={busy || generating || wait !== null || !view.actions.canRegenerate} describedBy={regenerateHelpId} onClick={onRegenerate}>
-                      Regenerar escena desde cero
-                    </Button>
-                    <p id={regenerateHelpId} className="min-w-0 max-w-full text-sm text-slate-800">
-                      {SCENE_REGENERATE_HELP_TEXT}
-                    </p>
-                  </div>
-                )}
               </div>
-              {update?.reason == null ? null : (
-                <p id={reasonId} className="text-sm text-slate-800">
-                  {update.reason}
+              {generate?.reason == null ? null : (
+                <p id={reasonId} className="min-w-0 max-w-full text-sm text-slate-800">
+                  {generate.reason}
                 </p>
               )}
-              {waitText === null || waitText === update?.reason ? null : <p className="text-sm font-semibold text-slate-900">{waitText}</p>}
             </>
           )}
         </div>
@@ -138,7 +113,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onU
 /** Clave de idempotencia nueva por clic (UUID v4, EDGE-ESC6-016). */
 const newKey = (): string => crypto.randomUUID();
 
-/** Contenedor: lee la escena, sondea cada 3 s mientras `generating` y ejecuta «Actualizar» o «Regenerar» con una clave nueva por clic. */
+/** Contenedor: lee la escena, sondea cada 3 s mientras `generating` y ejecuta el botón único (siempre `REGENERATE`) con una clave nueva por clic. */
 export function SceneBlock({ scope, idPrefix, headingLevel, reloadToken, children }: { readonly scope: SceneScope; readonly idPrefix: string; readonly headingLevel?: 2 | 4; /** Al cambiar (p. ej. alta o asignación de una mascota) la escena se vuelve a leer una vez; el valor inicial no recarga (SC-ESC6-109). */ readonly reloadToken?: number; readonly children?: (view: SceneViewData | null, reload: () => Promise<void>) => ReactNode }): JSX.Element {
   const api = useMemo(() => createSceneApi(), []);
   const [view, setView] = useState<SceneViewData | null>(null);
@@ -186,15 +161,17 @@ export function SceneBlock({ scope, idPrefix, headingLevel, reloadToken, childre
     }
   }, [api, stable, fail]);
 
-  // Espera de intentos (REQ-ESC6-034, SC-ESC6-115): una sola relectura a los `t + 1` s; el temporizador se cancela al desmontar o al llegar otra espera.
+  // Espera de intentos (REQ-ESC6-034, SC-ESC6-115): cuenta atrás en vivo cada segundo y una relectura al llegar a 0; el temporizador se cancela al desmontar o al llegar otra espera.
   const [wait, setWait] = useState<{ readonly seconds: number } | null>(null);
+  const [remaining, setRemaining] = useState<number | null>(null);
   useEffect(() => {
     const seconds = view === null || view.actions.blockedReason === 'ROLE' ? null : sceneRetryAfter(view);
     setWait(seconds === null ? null : { seconds });
   }, [view]);
   useEffect(() => {
+    setRemaining(wait === null ? null : wait.seconds);
     if (wait === null) return undefined;
-    return scheduleCooldownRefresh({ seconds: wait.seconds, scheduler: browserScheduler, reload: () => void reload() });
+    return startCooldownCountdown({ seconds: wait.seconds, scheduler: browserScheduler, onTick: setRemaining, onExpire: () => { setRemaining(null); void reload(); } });
   }, [wait, reload]);
 
   const lastToken = useRef(reloadToken);
@@ -224,7 +201,7 @@ export function SceneBlock({ scope, idPrefix, headingLevel, reloadToken, childre
   // `OWNER` sin mascotas, imagen ni consentimiento: no se pinta nada (ni mientras carga); el contenedor sigue montado para releer al cambiar la lista (SC-ESC6-109).
   if (stable.kind === 'OWNER' && (view === null ? status === 'LOADING' : isOwnerSceneEmpty(stable, view))) return <></>;
   return (
-    <SceneBlockView idPrefix={idPrefix} scope={stable} view={view} status={status} error={error} busy={busy} onUpdate={() => void run('UPDATE')} onRegenerate={() => void run('REGENERATE')} onImageError={() => void reload()} {...(headingLevel === undefined ? {} : { headingLevel })}>
+    <SceneBlockView idPrefix={idPrefix} scope={stable} view={view} status={status} error={error} busy={busy} onRegenerate={() => void run('REGENERATE')} onImageError={() => void reload()} waitSeconds={remaining} {...(headingLevel === undefined ? {} : { headingLevel })}>
       {children?.(view, reload)}
     </SceneBlockView>
   );
