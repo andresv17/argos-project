@@ -30,7 +30,9 @@ describe('runbook de la escena (T880)', () => {
 
   it('[NFR-ESC6-002] documenta la cola argos-scene, T_QUEUE, T_LEASE y el worker; y CI/CD sin driver real', () => {
     const s = seccion();
-    for (const t of ['argos-scene', 'T_QUEUE', 'T_LEASE', '/internal/scene-worker', 'infraestructura.yml', 'deploy-argos.yml', 'ARGOS_SCENE_DRIVER=fake']) expect(s.includes(t)).toBe(true);
+    for (const t of ['argos-scene', 'T_QUEUE', 'T_LEASE', '/internal/scene-worker', 'infraestructura.yml', 'deploy-argos.yml', 'ARGOS_SCENE_DRIVER=real', 'ARGOS_SCENE_DRIVER=fake', 'metadata server', 'Vertex AI']) expect(s.includes(t)).toBe(true);
+    expect(/En producción[^.]*`ARGOS_SCENE_DRIVER=real`/.test(s) && /`ARGOS_SCENE_DRIVER=fake` es el valor de CI y desarrollo/.test(s)).toBe(true);
+    expect(s.includes('SCENE_REAL_DRIVER_ACTIVATED` del código es `false`')).toBe(false);
     expect(/Los cambios de `terraform\/`.*no se aplican hasta que Neo/.test(s)).toBe(true);
   });
 
@@ -38,8 +40,8 @@ describe('runbook de la escena (T880)', () => {
     expect(/Ventana residual de PITR/.test(seccion()) && seccion().includes('RR-06-07')).toBe(true);
   });
 
-  it('[REQ-ESC6-022] claude/entorno-y-lecciones.md recoge N2-09 = B (PN-06 fuera de la 006)', () => {
+  it('[REQ-ESC6-022] claude/entorno-y-lecciones.md recoge N2-09 = B (PN-06 fuera de la 006) y la activación del driver real (T885)', () => {
     const e = read('claude/entorno-y-lecciones.md');
-    expect(/`N2-09` = B/.test(e) && e.includes('PN-06') && e.includes('SCENE_REAL_DRIVER_ACTIVATED = false')).toBe(true);
+    expect(/`N2-09` = B/.test(e) && e.includes('PN-06') && e.includes('SCENE_REAL_DRIVER_ACTIVATED = true')).toBe(true);
   });
 });

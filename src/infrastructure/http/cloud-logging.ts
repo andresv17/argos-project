@@ -59,6 +59,9 @@ const SHARED_PATH_PATTERN = /\/shared\/[A-Za-z0-9_%.~-]{8,}/g;
 /** Clave de la Gemini Developer API (`AIza` + 35 caracteres) y su cabecera `x-goog-api-key`, vengan donde vengan (REQ-ESC6-038, SC-ESC6-100). */
 const GEMINI_API_KEY_PATTERN = /AIza[0-9A-Za-z_-]{35}/g;
 const GEMINI_API_KEY_HEADER_PATTERN = /x-goog-api-key["']?\s*[=:]\s*["']?[^\s&"'<>,;}]+/gi;
+/** Token de acceso OAuth2 de Google (`ya29.` + cuerpo) y credenciales de cabecera `Bearer <valor>` (H-F14-T3; token del metadata server de Vertex), vengan donde vengan. */
+const GOOGLE_ACCESS_TOKEN_PATTERN = /ya29\.[0-9A-Za-z_.~+/=-]+/g;
+const BEARER_PATTERN = /\bBearer\s+[^\s"'<>,;}]+/gi;
 const UNIQUE_DETAIL_PATTERN = /Key \([^)]*\)=\([^)]*\)(?: already exists\.?)?/g;
 const MICROCHIP_PATTERN = /(?<![0-9])[0-9]{15}(?![0-9])/g;
 
@@ -70,6 +73,8 @@ export function redactSecrets(text: string, databaseUrl: string | undefined): st
   let clean = text
     .replace(GEMINI_API_KEY_HEADER_PATTERN, REDACTED)
     .replace(GEMINI_API_KEY_PATTERN, REDACTED)
+    .replace(BEARER_PATTERN, REDACTED)
+    .replace(GOOGLE_ACCESS_TOKEN_PATTERN, REDACTED)
     .replace(SIGNED_URL_PATTERN, REDACTED)
     .replace(GOOG_PARAMETER_PATTERN, REDACTED)
     .replace(OBJECT_KEY_PATTERN, REDACTED)

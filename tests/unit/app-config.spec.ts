@@ -59,6 +59,8 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
           tasksServiceAccountEmail: null,
           workerUrl: null,
           projectId: null,
+          location: null, // T948: respaldo de platform_parameters (Fase 14)
+          globalQuotaMax: 5, // T948: cuota global mensual de respaldo (N2-02)
           geminiModel: null, // T891: la clave (geminiApiKey) no es enumerable y no figura aquí
         },
       },

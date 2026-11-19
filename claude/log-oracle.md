@@ -405,3 +405,114 @@ Obs: mensaje del commit menciona contador no presente en el diff.
 ## 2026-11-15 Oracle — Auditoria feature 003
 - Verificado en disco: 5 gates presentes, 96 IDs 1:1, 81 tareas, 0 [x], DRAFT, D-17..D-28 RESUELTAS, REQ-CICD-012 ok.
 - Repo sin commits 003, src/tests/terraform/.github sin cambios. Veredicto CUMPLE CON RESERVAS (R1..R5): .specify/memory/audits/oracle-003-veredicto.md. Sin ediciones de spec, sin commit.
+
+## 2026-11-18 Oracle — Auditoría diseño feature 006
+- Verificado en disco: IDs 36 REQ/19 INV/33 EDGE/96 SC/4 NFR/12 RR/17 D6/12 N2 citados=definidos; 13 operaciones OpenAPI, 7 ERR-SCENE; ajv compila scene y scene-payload (falla con strictTypes:true).
+- 001..005, terraform, scripts, .github, constitución sin cambios; 0 N2 aplicadas. Observaciones: OBS-5 (hash de idempotencia sin `action` en data-model), OBS-3 (cuota 1 GiB foto), OBS-1 strictTypes.
+- H-MIF-006-03 no resuelto: EDGE-ESC6-016 y REQ-034 requieren historial de 24 h; no recomendar columnas. Informe: .specify/memory/audits/oracle-006-diseno.md. Sin commit.
+
+## 2026-11-18 Oracle — Auditoría tasks.md 006 (post N2-01..12)
+- Verificado en disco: 196/196 IDs con tarea (36 REQ, 19 INV, 33 EDGE, 96 SC, 4 NFR, STATE, 7 ERR); 85 tareas, 0 ciclos, 0 [x]; OpenAPI 13 ops; 4 JSON parsean.
+- Colisión T601..T617 (004) y T700..T798 (005): no rompe verify-traceability (--task lee solo tasks.md de la feature); OBS-1 convención. OBS-2 T639 depende de T672. Sin cambios fuera de specs/006 por la asentación.
+- Veredicto PASS CON OBSERVACIONES. Informe: .specify/memory/audits/oracle-006-tasks.md. Sin commit.
+
+## 2026-11-18 — Auditoria 006 Fase 1 (T801..T807, N2-08)
+- Verificados 10 commits: solo rutas permitidas; sin src/ de producto, .tf, specs ni constitution; lock intacto; pin T778 documentado.
+- TDD en orden; sin it() borrado ni expect aflojado (3 lineas eliminadas, todas justificadas). Gates en vivo CUMPLE; tsc 0; 643 pruebas verdes.
+- R-LINK-006-3 confirmado en spec/plan/Dockerfile (no en codigo: aun inexistente). Veredicto PASS CON OBSERVACIONES. Informe: .specify/memory/audits/oracle-006-fase1.md. Sin commit.
+
+## 2026-11-18 — Auditoria 006 Fase 2 (T809..T823, N2-05/N2-06)
+- 14 commits verificados: specs 003/004 solo las 6 enmiendas aprobadas; schema 3.2.0 +3 enums (OBS supersedes 1.0.0->3.1.0); api/002 intactos; migraciones solo audit_log, 17=17.
+- Terraform conforme (14 APIs, IAM minimo, cola 1/2/1, 120s/1Gi, 22500); sin rastro de terraform/bootstrap. Pruebas 001..005 ajustadas sin aflojar.
+- vitest 23 failed (T813 x5, T815 x18) | 4045 passed; tsc 0; gates CUMPLE. PASS CON OBSERVACIONES. Informe: .specify/memory/audits/oracle-006-fase2.md. Sin commit.
+
+## 2026-11-18 — Auditoria 006 Fase 3 (T826..T830, H-KEY-F3-2)
+- 5 commits verificados (398504c..648232f). Alcance conforme; extra aceptable: 3 lineas de persistence/* (T828). Pureza grep limpia.
+- Pruebas 003/004: solo fixture (PROD_SCENE/loadAppConfigActivated); audit-secret.security pasa a staging+rechazo production sin perder aserciones de no filtracion. Bloqueo production=N2-10 intencional. H-KEY-F3-2 = (A) con observacion para T885.
+- tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE; vitest 23 failed (T813 x5, T815 x18) | 4139 passed. PASS CON OBSERVACIONES. Informe: .specify/memory/audits/oracle-006-fase3.md. Sin commit.
+
+## 2026-11-18 Oracle auditoria 006 Fase 4 (T831..T836, T814)
+- Verifique en disco 7 commits, paridad 0013/0009 identica (salvo STRICT), PG real postgres:17 reproducido (119 verdes en 5 suites; suite completa 4389 verdes, solo T815 x18), tsc 0, gates CUMPLE.
+- H-KEY-F4-1 CONFIRMADO: 3 columnas sin FK sobreviven al paso 3 del runbook (brecha B10 de 002, media-baja); correccion minima: purga en runbook + incluirlas en referencias_restantes. cuota N2-06 (c) cuadra.
+- T825 parte /oracle: CERRABLE (reservas: T824 humano, H-KEY-F4-1); firma /merovingian pendiente. Informe .specify/memory/audits/oracle-006-fase4.md
+
+## 2026-11-18 Oracle — Auditoría Fase 5 lote 1 (T837..T850, T862..T868)
+- Verificado: pureza dominio/aplicación 0 hallazgos; 6 reglas del puerto OK; 7 casos de uso cableados en orden del puerto; backup relanza el fallo (backup-use-cases:580); D6-09 DELETE antes de UPDATE coincide con data-model §5.
+- Compuertas: tsc 0; traceability 001/002/006 CUMPLE; oracles 0 débiles; vitest 4387 verdes/190 omitidas (2 de 3 corridas); 1 corrida con rojo de tiempos t591R-2 (004), aislado 2/2 verde.
+- SC sin prueba: 027 (T859 pendiente), 042 (diferida a T885). Veredicto PASS CON OBSERVACIONES: .specify/memory/audits/oracle-006-fase5-lote1.md. Sin commit.
+
+## 2026-11-18 Oracle: auditoria Fase 5 lote 2 (92c2b00 + T851..T861)
+- tsc 0; traceability 001/002/006 CUMPLE; oracles 006 CUMPLE (0 debiles); vitest 4503 pasan, 201 omitidos (sin PG), 0 rojos; T591R-2 no fallo (TECHDEBT-005-01).
+- Veredicto PASS CON OBSERVACIONES: pureza, idempotencia, orden T1, encolado, worker, foto, consentimiento y auditoria conformes; PG real no verificado por Oracle; 5 observaciones del implementador no bloquean T870 (la 4 bloquea rutas T871+).
+- Informe: .specify/memory/audits/oracle-006-fase5-lote2.md
+- 2026-11-18 Oracle: auditoria Fase 5 lote 3 (504c4f7+e35be0c+ac55662). tsc 0; traceability 001/002/006 y oracles 006 CUMPLE; vitest con PG real 4714 pasan, 1 omitido, 1 rojo T591R-2 (flaky 004).
+- Herencia de fuentes en incremental: CORRECTO (REQ-ESC6-025; en spec.md linea 174, data-model 2.3, plan 93). F5-5/6/7 conformes; pureza t826 verde.
+- Veredicto PASS CON OBSERVACIONES. Informe: .specify/memory/audits/oracle-006-fase5-lote3.md
+
+## 2026-11-18 Oracle: auditoria Fase 6 de la 006 (T869..T874; bfff91f..0cf0e64) = PASS CON OBSERVACIONES
+- Verificado en disco: OIDC cruzada por ruta (jose acotado, correo exacto, identidad antes del cuerpo), 12 rutas /api contra OpenAPI, despachador Cloud Tasks solo con dobles, composicion real negada, SCENE_REAL_DRIVER_ACTIVATED=false.
+- Compuertas: tsc 0; trazabilidad 001/002/006 CUMPLE; oracles 006 CUMPLE; scan-secrets 0; vitest PG real 305 archivos, 4813 pasan, 1 omitida, 0 rojos.
+- Hallazgo tEXt (prompt en PNG eco): NO BLOQUEANTE para Fase 6, BLOQUEANTE para T885 (lista blanca de chunks conservando caBX y iTXt XMP). Informe: .specify/memory/audits/oracle-006-fase6.md
+
+## 2026-11-18 Oracle: auditoria Fase 7 (T875..T878) + Parte A de Fase 6 (6e1fba4, 8f2dd6e, d210a04)
+- Filtro de salida y 404 unificado verificados con prueba propia (tEXt+prompt, ancilares, critico, CRC, truncado, WebP) y con t855/t871; deriva de contrato 1 linea de comentario; catalogo y contratos 001..005 intactos.
+- Gates: tsc 0; trazabilidad 001/002/006 CUMPLE; oracles CUMPLE; scan-secrets 0; vitest PG real 311 archivos, 4869 pasan, 1 omitida, 1 roja T591R-2. e2e wcag: 14/14 en d210a04 limpio; el timeout del arbol principal es por .stryker-tmp (OOM de Vite), no por 006.
+- Veredicto PASS CON OBSERVACIONES; prototipo de /sati ausente = BLOQUEANTE para COMPLETED y activacion, no para seguir con tareas sin UI. Informe: .specify/memory/audits/oracle-006-fase7.md
+
+## 2026-11-18 Oracle: cierre Fase 7 de la 006 (f30f472 + fe6727b)
+- Correcciones H-S1..H-S5, H-S12 verificadas en codigo; t877 solo anade onReload. Foco real sin e2e: NO BLOQUEANTE con condicion (deuda e2e con consentimiento sembrado).
+- Gates: tsc 0; trazabilidad 001/002/006 y oracles CUMPLE; scan-secrets 0; vitest PG real 312 archivos, 4881 pasan, 1 omitida, 0 rojas; wcag 14/14.
+- Veredicto PASS CON OBSERVACIONES. Informe: .specify/memory/audits/oracle-006-fase7-cierre.md
+
+## 2026-11-18 Oracle: auditoria Fase 8 de 006 (T883) -> PASS CON OBSERVACIONES
+- Reejecute test:gate con postgres:17 propio: exit 0, 314 archivos, 4896 pasan/1 omitida/0 rojas; trazabilidad 002/003/006 CUMPLE, oraculos 363/0 debiles, sin deriva en src/generated; domain/scene 100 % lineas y funciones. Guarda del driver real, runbook y T885 (bloqueada, 7 condiciones abiertas) verificados en disco.
+- Stryker: umbral break 85 intacto, pero reports/mutation/mutation.html es del 16-nov y no contiene domain/scene; 93,86/28 sobrevivientes solo constan en el log del Keymaker. Sobrevivientes NO BLOQUEANTES con condicion (/smith T882, endurecer inputs-snapshot y scene-payload y reejecutar con informe persistido antes de T885).
+- Observaciones: deuda e2e del foco sin tarea en tasks.md; arbol con cambios ajenos a Fase 8 (constitution.md es Nivel 2). Informe: .specify/memory/audits/oracle-006-fase8.md
+
+- 2026-11-18 20:30 | Oracle | Verificacion en disco de smith-006-cadena-intentos: ejecutado chaos con config temporal fuera del repo (12 tests, 3 rojos, 9 verdes). SMITH-01 CONFIRMADA ALTA (scene-lifecycle-hooks.ts:120-121; viola EDGE-ESC6-033/SC-ESC6-076/REQ-ESC6-011; spec exige el arrastre sin escena de propietario), SMITH-02 CONFIRMADA MEDIA (media-use-cases.ts:66-67; REQ-ESC6-029/SC-ESC6-044).
+- 2026-11-18 20:30 | Oracle | SMITH-03 LATENTE BAJA (adaptador REST no emite codigos numericos, cloud-tasks-scene-dispatcher.adapter.ts:114-122). tsc 0; chaos fuera de test:gate. 01 y 02 bloquean driver real; 01 se sella antes de cerrar 006. Informe: .specify/memory/audits/oracle-006-smith-verificacion.md
+- 2026-11-18 | Oracle | Cierre SMITH-01/02 (3fef7b4): tsc 0, trazabilidad 001/002/006 y oraculos 006 CUMPLE, PG real 314 archivos 4900 pasan 1 omitida 0 rojos; chaos 5b y 7b verdes, 6b (SMITH-03) rojo = deuda. t858 FORTALECE. PASS CON OBSERVACIONES.
+- 2026-11-18 | Oracle | Informe .specify/memory/audits/oracle-006-smith-cierre.md: SMITH-01 y SMITH-02 CERRADAS; SMITH-03 deuda BAJA (disparador: Cloud Tasks por gRPC). Quedan T883/T884 [GOV] y limpieza del arbol; T885 bloqueada.
+
+### 2026-11-18 — Oracle T899: tramo gemini-api (T889..T898) PASS CON OBSERVACIONES
+- Informe: .specify/memory/audits/oracle-006-gemini-api-t899.md. Traceability 006 CUMPLE (205/205), tsc 0, 8 archivos y 218 pruebas verdes; PG 17 real: 319 archivos, 4959 pasan, 1 omitida (evidencia del orquestador).
+- Clave solo en cabecera x-goog-api-key; sin AIza en el repo; .env ignorado y no leído; producción rechaza fake y gemini-api; real bloqueado.
+- Pendientes T900 [HUM] para Neo: fijar ARGOS_SCENE_GEMINI_MODEL, verificar responseModalities y límites inline, fuentes de términos de datos, firmar aviso, tope de 5 USD solo en consola.
+
+## 2026-11-19 T910 [GOV] auditoría T901..T909 (fixes en vivo 006)
+- Veredicto PASS CON OBSERVACIONES. Acta: specs/006-escena-hogar-pixel-art/audits/oracle-006-fixes-en-vivo-t910.md.
+- Tareas T901..T910 todas `[ ]`; sin marcas indebidas. decide-mode, package.json, lock, generated, scan-secrets.mjs sin diff.
+- argos-scan:allow en 4 tests: legítimo (clave sintética, solo tests/, mecanismo documentado, prueba negativa en src/ OK, scan repo 0 hallazgos). Requiere reconocimiento de Neo.
+- Compuertas: traza 006 CUMPLE, oráculos 0 débiles, tsc 0, test:gate PG17 rc0 (320 archivos, 4974 pasan, 1 omitida); T591R-2 pasó con load1 ≈ 4 (no reposo absoluto; frágil bajo carga).
+- Observaciones: OBS-3 SC-106 vs SC-105 redacción "byte a byte". Sin commit ni cambios de código.
+
+## 2026-11-19 T923 [GOV] auditoría Fase 11 (T911..T922) -> PASS CON OBSERVACIONES
+- Acta: specs/006-escena-hogar-pixel-art/audits/oracle-006-fase-t923.md. Tareas T901..T909 [x], T910..T923 [ ]; contrato 1.1.0 y v34 recompilado; OpenAPI 3.4.0.
+- Redacté el literal centinela en oracle-006-fixes-en-vivo-t910.md:22; scan-secrets repo 0 hallazgos.
+- Compuertas: traza 006 CUMPLE (221/221), oráculos 0 débiles, tsc 0, test:gate PG17 rc0, 323 archivos, 5022 pasan, 1 omitida; T591R-2 pasó (máquina no en reposo absoluto).
+- Decisiones para Neo: PET_COUNT_RULE, OpenAPI 3.4.0 vs 3.5.0, T904 editada en [x], T591R-2, firma COMPLETED. Sin commit ni cambios de código.
+
+## 2026-11-19 T934 [GOV] auditoria Fase 12 (T924..T933) -> PASS CON OBSERVACIONES
+- Acta: specs/006-escena-hogar-pixel-art/audits/oracle-006-fase-t934.md. T924..T934, T910, T923 [ ]; T911..T922 [x]. Decisiones D6-20 y N2-16 B+C verificadas en codigo; change_note solo prosa; generated/package/lock sin diff.
+- Compuertas: traza 006 CUMPLE, oraculos 0 debiles, tsc 0, test:gate PG17 rc0 (324 archivos, 5068 pasan, 1 omitida), scan-secrets 0.
+- OBS-1: SC-ESC6-124 sin prueba etiquetada. Pregunta de keymaker (KEEP ausente = degraded) para Neo: recomendado mantener. Sin commit ni cambios de codigo.
+
+## 2026-11-19 Revalidacion Fase 12 (SC-ESC6-124)
+- Prueba t855:509 verificada (aserciones exactas, decision A). src/ y schema sin cambios desde mi acta (mtime, diff 6 archivos).
+- Gates: traza 233/233 CUMPLE; oraculos 374/0 debiles; tsc 0; test:gate PG17 rc0, 324 archivos, 5069 pasan/1 omitida/0 rojas; scan 0.
+- Veredicto PASS CON OBS (OBS-1 cerrada). Acta: specs/006-escena-hogar-pixel-art/audits/oracle-006-fase-t934-revalidacion.md
+
+## 2026-11-19 T942 [GOV] auditoria Fase 13 (T935..T940, T942) -> PASS CON OBSERVACIONES
+- Acta: specs/006-escena-hogar-pixel-art/audits/oracle-006-fase-t942.md. T935..T943, T910, T923, T934 [ ]; T911..T933 [x]. Contratos y generated sin diff; decide-mode/scene-spec intactos.
+- Boton unico, frase de inspiracion y conteo por especie verificados en codigo; t931 eliminado coherente (SC-128..130 SUSTITUIDA, aserciones en t936).
+- Gates: traza 006 CUMPLE 241/241, oraculos 376/0 debiles, tsc 0, test:gate PG17 rc0 (326 archivos, 5114 pasan, 1 omitida), scan 0. Maquina no en reposo (load 13..34); T591R-2 paso.
+- OBS: t938 en memoria (sin PG17), N2-16 stale en spec, T941/N2-17 pendiente. Sin commit ni cambios de codigo.
+
+## 2026-11-19 | Auditoria final cierre Fase 13 (006)
+PASS CON OBS. Traza 241/241 rc0, oraculos 0 debiles, tsc 0, test:gate PG17 rc0 (326 archivos, 5122 pasan, 1 omitida), scan 0. Contratos 1.1.1/3.4.0 solo prosa; frase hogar y contador a 0 en disco; sin aria-live nuevo. Acta: specs/006-escena-hogar-pixel-art/audits/oracle-006-fase-cierre-final.md.
+
+## 2026-11-20 Oracle: auditoria Fase 14 (006, T944..T952)
+- Veredicto PASS CON OBS; acta .specify/memory/audits/oracle-006-fase14.md. Gate PG17 real rc 0 (5281 pasan, 1 omitida). H-F14-1..6 clasificados. Sin [x], sin commit.
+
+## 2026-11-20 Oracle: Fase 14 cierre final (006)
+- Revalide en disco: gate PG17 rc 0 (5289 pasan), tsc 0, traza CUMPLE, oraculos 0 debiles, scan 0; T885 sigue [ ]. Veredicto PASS CON OBS (H-CF-1 decision Neo). Acta .specify/memory/audits/oracle-006-fase14-cierre-final.md.

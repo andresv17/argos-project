@@ -1,7 +1,7 @@
 /**
  * T877 (006, Fase 7): aviso previo y consentimiento en el cliente. Texto EMPAQUETADO con `NOTICE_VERSION` y `PROVIDER_ID` como constantes (iguales a las del servidor),
  * alcance por usuario, versión desactualizada pide reconsentir, retiro con confirmación y la declaración de que la normalización es parcial (N2-01 = B), de PITR y de
- * personas fortuitas. El texto es el BORRADOR `aviso-consentimiento-borrador.md` hasta la firma legal de Neo (REQ-ESC6-026).
+ * personas fortuitas. El texto es el FINAL de la Fase 14 (T950), en revisión hasta la firma de Neo (REQ-ESC6-026).
  * REQ-ESC6-021, REQ-ESC6-023, REQ-ESC6-025, REQ-ESC6-026; EDGE-ESC6-018, EDGE-ESC6-023; ERR-SCENE-NOTICE-OUTDATED; SC-ESC6-033, SC-ESC6-036, SC-ESC6-039, SC-ESC6-040, SC-ESC6-067.
  */
 import { readFileSync } from 'node:fs';
@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SCENE_NOTICE_VERSION, SCENE_PROVIDER_ID } from '../../../src/domain/scene/notice.ts';
 import { SceneConsentView, type SceneConsentViewProps } from '../../../src/presentation/web/components/SceneConsent.tsx';
-import { NOTICE_DRAFT, NOTICE_PROVIDER_ID, NOTICE_SECTIONS, NOTICE_VERSION, consentBody, consentStep } from '../../../src/presentation/web/scene-notice.ts';
+import { NOTICE_PROVIDER_ID, NOTICE_SECTIONS, NOTICE_VERSION, consentBody, consentStep } from '../../../src/presentation/web/scene-notice.ts';
 import { sceneView } from './escena-fixtures.ts';
 
 const noop = (): void => undefined;
@@ -50,7 +50,7 @@ describe('T877 constantes y pasos del consentimiento (REQ-ESC6-023, EDGE-ESC6-01
     expect(consentStep(granted)).toBe('GRANTED');
     expect(consentStep({ ...granted, householdPhotoGranted: false, petPhotosGranted: false })).toBe('ASK');
     expect(consentStep({ ...granted, householdPhotoGranted: true, petPhotosGranted: false })).toBe('ASK'); // alcance por usuario: faltan los avatares
-    expect(consentStep({ ...granted, noticeVersion: '2' })).toBe('OUTDATED');
+    expect(consentStep({ ...granted, noticeVersion: '9' })).toBe('OUTDATED');
     expect(consentStep({ ...granted, providerId: 'otro-proveedor' })).toBe('OUTDATED');
   });
 });
@@ -75,8 +75,8 @@ describe('T877 texto del aviso empaquetado (REQ-ESC6-026, C4)', () => {
     expect(all).toMatch(/sin que lo notes|fortuit/i);
   });
 
-  it('[REQ-ESC6-026] sigue marcado BORRADOR hasta la firma legal de Neo y ninguna sección promete datos sin fuente (retención del proveedor pendiente de confirmar)', () => {
-    expect(NOTICE_DRAFT).toBe(true);
+  it('[REQ-ESC6-026] ya no lleva rótulo de borrador (Fase 14, T950) y ninguna sección promete datos sin fuente (retención del proveedor pendiente de confirmar)', () => {
+    expect(all).not.toMatch(/borrador/i);
     expect(all).toMatch(/pendiente de confirmar/i);
   });
 
@@ -86,11 +86,11 @@ describe('T877 texto del aviso empaquetado (REQ-ESC6-026, C4)', () => {
 });
 
 describe('T877 pantalla del aviso y del consentimiento (REQ-ESC6-023, REQ-ESC6-025)', () => {
-  it('[SC-ESC6-033] ASK: muestra el aviso completo, la etiqueta de borrador y «Consentir y continuar» deshabilitado hasta marcar la casilla; «Ahora no» siempre disponible', () => {
+  it('[SC-ESC6-033] ASK: muestra el aviso completo, sin etiqueta de borrador y «Consentir y continuar» deshabilitado hasta marcar la casilla; «Ahora no» siempre disponible', () => {
     const html = render();
     const text = textOf(html);
     expect(text).toContain('Crear la imagen de tu hogar con inteligencia artificial');
-    expect(text).toMatch(/borrador/i);
+    expect(text).not.toMatch(/borrador/i);
     const grant = /<button[^>]*>Consentir y continuar<\/button>/.exec(html)?.[0] ?? '';
     expect(grant.replace(/class="[^"]*"/, '')).toMatch(/\sdisabled(=|\s|>)/);
     expect(/<button[^>]*>Ahora no<\/button>/.test(html)).toBe(true);

@@ -16,7 +16,7 @@ import { avatarObjectKey, householdPhotoObjectKey, sceneImageObjectKey } from '.
 import { buildImagePrompt } from '../../domain/scene/build-image-prompt.ts';
 import { decideMode, type ModePlan } from '../../domain/scene/decide-mode.ts';
 import { parseInputsSnapshot, type InputsSnapshot } from '../../domain/scene/inputs-snapshot.ts';
-import { applyPublication } from '../../domain/scene/quota-window.ts';
+import { applyPublication, quotaWindowOf } from '../../domain/scene/quota-window.ts';
 import { buildScenePayload } from '../../domain/scene/scene-payload.ts';
 import { shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
 import type { AssetRef, SceneErrorCode } from '../../generated/v34/schemas/types.ts';
@@ -140,6 +140,18 @@ export class RunSceneGenerationUseCase {
       prompt = buildImagePrompt(buildScenePayload({ plan: adjusted, last, now: snapshot, householdId: scene.householdId, maxPets: svc.maxPets, totalPets: claim.totalPets }));
     } catch {
       return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
+    }
+
+    // Cuota GLOBAL mensual (Fase 14, T948, N2-02 = A): descuento atómico ANTES de llamar al proveedor; agotada o ilegible = fallo estable sin llamada (el código visible es el
+    // estable, como en T2; el motivo interno no se expone).
+    if (svc.globalQuota !== undefined) {
+      let allowed = false;
+      try {
+        allowed = await svc.globalQuota.tryConsume(quotaWindowOf(deps.clock.todayIsoDate()));
+      } catch {
+        allowed = false;
+      }
+      if (!allowed) return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
     }
 
     // `provider_call_started_at` se escribe ANTES de llamar al proveedor (H-LCK-006-04).

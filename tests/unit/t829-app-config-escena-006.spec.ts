@@ -27,7 +27,7 @@ const sceneLeaseSeconds = (configModule as unknown as Record<string, (tGen: numb
 /**
  * T829 (006, Fase 3): las 9 variables `ARGOS_SCENE_*` de `app-config.ts` y las constantes `T_LEASE = T_GEN + 60` y `T_QUEUE = 600`. Único lector de
  * `ARGOS_SCENE_*` (INV-ARCH-006). Fuera de rango o inválida impide arrancar y el error nombra solo la variable; `real` exige modelo, proyecto y la constante de
- * activación; en producción `fake` se rechaza; `ARGOS_SCENE_WORKER_URL` se valida (INV-ESC6-018); `ARGOS_SCENE_GLOBAL_QUOTA_MAX` no se lee (N2-02, tramo fake).
+ * activación; en producción `fake` se rechaza; `ARGOS_SCENE_WORKER_URL` se valida (INV-ESC6-018); `ARGOS_SCENE_GLOBAL_QUOTA_MAX` y `ARGOS_SCENE_LOCATION` se leen desde la Fase 14 (T948) como respaldo de platform_parameters.
  * INV-ESC6-013, INV-ESC6-018; REQ-ESC6-031, REQ-ESC6-011; SC-ESC6-034, SC-ESC6-092, SC-ESC6-087, SC-ESC6-025.
  */
 const SECRET = '1f'.repeat(32);
@@ -35,6 +35,7 @@ const PROD_BASE = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: SECRET, ARG
 const SCENE_REAL = {
   ARGOS_SCENE_DRIVER: 'real',
   ARGOS_SCENE_MODEL: 'gemini-2.5-flash-image',
+  ARGOS_SCENE_LOCATION: 'us-central1',
   ARGOS_SCENE_PROJECT_ID: 'argos-prod-1234',
   ARGOS_SCENE_TASKS_SA_EMAIL: 'argos-scene-tasks@argos-prod-1234.iam.gserviceaccount.com',
   ARGOS_SCENE_WORKER_URL: 'https://argos-abcdef-uc.a.run.app/internal/scene-worker',
@@ -67,6 +68,8 @@ describe('valores por defecto de ARGOS_SCENE_* (T829, plan §1.3, REQ-ESC6-031)'
       tasksServiceAccountEmail: null,
       workerUrl: null,
       projectId: null,
+      location: null,
+      globalQuotaMax: 5,
       geminiModel: null, // T891: campo del driver gemini-api; la clave no es enumerable y por eso no figura aquí
     });
   });
@@ -80,7 +83,7 @@ describe('valores por defecto de ARGOS_SCENE_* (T829, plan §1.3, REQ-ESC6-031)'
     for (const name of ['ARGOS_SCENE_DRIVER', 'ARGOS_SCENE_MAX_PETS', 'ARGOS_SCENE_QUOTA_MAX', 'ARGOS_SCENE_GEN_TIMEOUT_SECONDS', 'ARGOS_SCENE_MODEL', 'ARGOS_SCENE_QUEUE', 'ARGOS_SCENE_TASKS_SA_EMAIL', 'ARGOS_SCENE_WORKER_URL', 'ARGOS_SCENE_PROJECT_ID']) {
       expect(example).toContain(name);
     }
-    expect(example).not.toContain('ARGOS_SCENE_GLOBAL_QUOTA_MAX');
+    expect(example).toMatch(/^# ARGOS_SCENE_GLOBAL_QUOTA_MAX=$/m); // Fase 14 (T948): solo comentada, sin valor
     expect(example).toMatch(/^ARGOS_SCENE_DRIVER=fake$/m);
   });
 });
@@ -153,9 +156,11 @@ describe('driver y producción (T829, SC-ESC6-025, SC-ESC6-092, REQ-ESC6-031)', 
     expect(failing({ ...PROD_BASE }, ACTIVATED).variables).toEqual(['ARGOS_SCENE_DRIVER']);
   });
 
-  it('[REQ-ESC6-031] real exige la constante de activación: sin ella (el valor del código es false) no arranca aunque todo lo demás sea válido', () => {
-    expect(failing({ ...PROD_BASE, ...SCENE_REAL }).variables).toEqual(['ARGOS_SCENE_DRIVER']);
-    expect(failing({ NODE_ENV: 'test', ...SCENE_REAL }).variables).toEqual(['ARGOS_SCENE_DRIVER']);
+  it('[REQ-ESC6-031] real exige la constante de activación: con el valor del código (true, T885) arranca; con sceneRealDriverActivated: false no arranca aunque todo lo demás sea válido', () => {
+    expect(failing({ ...PROD_BASE, ...SCENE_REAL }).variables).toEqual(['sin error']);
+    expect(failing({ NODE_ENV: 'test', ...SCENE_REAL }).variables).toEqual(['sin error']);
+    expect(failing({ ...PROD_BASE, ...SCENE_REAL }, { sceneRealDriverActivated: false }).variables).toEqual(['ARGOS_SCENE_DRIVER']);
+    expect(failing({ NODE_ENV: 'test', ...SCENE_REAL }, { sceneRealDriverActivated: false }).variables).toEqual(['ARGOS_SCENE_DRIVER']);
   });
 
   it('[REQ-ESC6-031] real con la constante de activación pero sin modelo no arranca y nombra ARGOS_SCENE_MODEL', () => {
@@ -243,10 +248,10 @@ describe('ARGOS_SCENE_WORKER_URL, modelo, proyecto, cola y cuenta (T829, INV-ESC
   });
 });
 
-describe('ARGOS_SCENE_GLOBAL_QUOTA_MAX no se lee (T829, N2-02, tramo fake)', () => {
-  it('[REQ-ESC6-011] ni un valor válido ni uno inválido cambian la configuración ni la hacen fallar, y no hay campo de tope global', () => {
-    expect(PLAIN({ ARGOS_SCENE_GLOBAL_QUOTA_MAX: '5' })).toEqual(PLAIN());
-    expect(PLAIN({ ARGOS_SCENE_GLOBAL_QUOTA_MAX: 'abc' })).toEqual(PLAIN());
-    expect(Object.keys(test().scene)).not.toContain('globalQuotaMax');
+describe('ARGOS_SCENE_GLOBAL_QUOTA_MAX desde la Fase 14 (T948, N2-02 = A; antes no se leía en el tramo fake)', () => {
+  it('[REQ-ESC6-011] un valor válido se expone como respaldo de platform_parameters (5 por defecto) y uno inválido impide arrancar nombrando solo la variable', () => {
+    expect((PLAIN({ ARGOS_SCENE_GLOBAL_QUOTA_MAX: '8' }) as { scene: { globalQuotaMax: number } }).scene.globalQuotaMax).toBe(8);
+    expect((PLAIN() as { scene: { globalQuotaMax: number } }).scene.globalQuotaMax).toBe(5);
+    expect(failing({ NODE_ENV: 'test', ARGOS_SCENE_GLOBAL_QUOTA_MAX: 'abc' }).variables).toEqual(['ARGOS_SCENE_GLOBAL_QUOTA_MAX']);
   });
 });

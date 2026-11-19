@@ -25,11 +25,11 @@ describe('deploy-argos.yml con la 006 (T806)', () => {
     }
   });
 
-  it('fija el driver en fake y nunca real (R-LINK-006-3, N2-10)', () => {
-    expect(val('ARGOS_SCENE_DRIVER')).toBe('fake');
-    expect(body).not.toMatch(/ARGOS_SCENE_DRIVER=real/);
-    expect(body).not.toMatch(/ARGOS_SCENE_DRIVER:\s*real/);
-    expect(body).not.toMatch(/ARGOS_SCENE_MODEL/);
+  it('fija el driver en real con modelo y región, sin clave de API (T952, D6-22; sustituye a «fake y nunca real» de R-LINK-006-3)', () => {
+    expect(val('ARGOS_SCENE_DRIVER')).toBe('real');
+    expect(val('ARGOS_SCENE_MODEL')).toBe('gemini-2.5-flash-image');
+    expect(val('ARGOS_SCENE_LOCATION')).toBe('us-central1');
+    expect(body).not.toMatch(/GEMINI_API_KEY|x-goog-api-key/);
   });
 
   it('usa valores dentro de rango y de forma segura para la URL del worker', () => {

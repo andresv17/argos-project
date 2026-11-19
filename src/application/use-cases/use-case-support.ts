@@ -34,6 +34,7 @@ import type { PasswordHasherPort } from '../ports/password-hasher.port.ts';
 import type { PlatformParameterPort } from '../ports/platform-parameter.port.ts';
 import type { RateLimiterPort } from '../ports/rate-limiter.port.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
+import type { SceneGlobalQuotaPort } from '../ports/scene-global-quota.port.ts';
 import type { SceneImageGeneratorPort } from '../ports/scene-image-generator.port.ts';
 import type { SceneJobDispatcherPort } from '../ports/scene-job-dispatcher.port.ts';
 import type { ScenePrivacyHooksPort } from '../ports/scene-privacy-hooks.port.ts';
@@ -113,6 +114,8 @@ export interface SceneServices {
   readonly images: SceneImageTools;
   readonly generator: SceneImageGeneratorPort;
   readonly dispatcher: SceneJobDispatcherPort;
+  /** Cuota GLOBAL mensual (Fase 14, T948, N2-02): solo con el driver real; sin puerto el worker no la exige (simulado). */
+  readonly globalQuota?: SceneGlobalQuotaPort;
 }
 
 export interface ApplicationDeps {

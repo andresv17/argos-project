@@ -258,3 +258,158 @@
 - F3 OPCIONAL: REQ-IAC-014, T481, T482, SC-CLD-024; sigue condicional por TF_VAR_custom_domain (default "").
 - APPROVED (nota de Neo, R1..R5 visibles en spec.md) en spec, plan, tasks, data-model, research, quickstart y contracts/README.md. Ninguna tarea [x].
 - T403: constitution.md 3.3.0, Last Amended 2026-11-15, firma de Neo; borrador marcado APLICADA. Script 1:1: 96 IDs, 0 huérfanos, 81 tareas, 0 [x].
+
+## 2026-11-18 — Architect: spec.md DRAFT de la feature 006 (escena del hogar pixel art, IA)
+- Escrito `specs/006-escena-hogar-pixel-art/spec.md` (DRAFT) desde `claude/requerimiento-escena-hogar-pixel-art.md`: 22 REQ-ESC6, 13 INV-ESC6, 17 EDGE-ESC6, 34 SC-ESC6, 4 NFR-ESC6; escenarios A1..D19 todos citados.
+- 15 decisiones pendientes de Neo (D6-01..D6-15: proveedor IA, N, cuota, ubicacion, imagen previa con cuota agotada, Fase 4->5, foto de referencia, cambios mixtos, hogar implicito, roles, orden N, costo, retencion, criolla, segundo plano en Cloud Run).
+- Revisiones requeridas antes de plan: /rama (fotos a API de IA externa, PII) y /merovingian (API/SDK como dependencia externa). No decididas por el Architect. `.specify/feature.json` apuntado a 006. Sin plan, tasks ni contracts; nada APPROVED/LOCKED.
+
+## 2026-11-18 — Architect: enmienda del spec.md 006 con dictámenes de /rama y /merovingian
+- Editado `specs/006-escena-hogar-pixel-art/spec.md` (sigue DRAFT): REQ 22->31 (023..031), INV 13->17, EDGE 17->23, SC 34->50, D6 15->17 (D6-16, D6-17 nuevas), RR-06-05..09.
+- C1..C11 de /rama incorporadas con tablas de trazabilidad (C1 REQ-023, C2 REQ-024, C3 REQ-025, C4 REQ-026, C5 REQ-027, C6 REQ-028, C7 REQ-029, C8 REQ-021/INV-016, C9 REQ-030, C10 INV-017, C11 RR). H-MERO-006-02 queda como riesgo RR-06-06 y D6-15, sin resolver. Recomendación C de /merovingian en REQ-031.
+- Decisiones D6-01..D6-17 todas PENDIENTES de Neo con propuesta no normativa. Texto legal del aviso no escrito. Sin plan, tasks ni contracts; nada APPROVED/LOCKED. Siguiente: /mouse una vez.
+
+## 2026-11-18 — Corrección post-/mouse de spec 006 (DRAFT)
+- Aplicadas M6-A1 (SC-ESC6-051..053 para REQ-022, INV-009, INV-012), M6-M1 (A5 -> B5 en REQ-006, dos sitios, registrado), M6-M2 (IDs en cabeceras SC), M6-M3 (REQ-020 dependiente de D6-10; SC-049 condicional), M6-M4 (D6-02..09, 11, 14 marcadas PENDIENTE; propuesta A en D6-02).
+- Bajos: M6-B1, M6-B2 (nota en Supuestos), M6-B3 (SC-ESC6-054/055). No corregidos: M6-B4, M6-B5. Conteo final: 31 REQ, 17 INV, 23 EDGE, 55 SC, 4 NFR, 17 D6, 9 RR. Sin APPROVED/LOCKED; D6-01..17 siguen pendientes de Neo.
+- Verificado con grep: 0 REQ/INV sin SC/EDGE, 0 referencias colgantes, 0 A5 fuera del registro de corrección.
+
+## 2026-11-18 — Architect: D6-01..D6-17 firmadas por Neo aplicadas; paquete de diseño 006 en DRAFT (sin commit)
+- spec.md: decisiones firmadas como normativas (sección «Decisiones firmadas por Neo 2026-11-18»), sin PENDIENTE; nuevos REQ-ESC6-032 (escena sin hogar y migración), EDGE-ESC6-024, SC-ESC6-056..067, INT-06-04, RR-06-10; corregidos M6-B4 (sección REQ→SC) y M6-B5 (historias 5 y 6 en Given/When/Then). Conteo: 32 REQ, 17 INV, 24 EDGE, 67 SC, 4 NFR, 17 D6, 10 RR.
+- Creados en specs/006-*/: aviso-consentimiento-borrador.md (BORRADOR, 6 elementos), research.md (Vertex con [verificar], sin red; Cloud Tasks vs Job), data-model.md, plan.md, contracts/ (scene-payload 1.0.0, scene, error-catalog con 7 ERR-SCENE-*, home-scene.machine, OpenAPI 3.4.0 con 13 operaciones). Enmienda en .specify/memory/audits/enmienda-006-principio-VI.md (borrador, NO aplicada). Sin tocar src/, tests/, terraform/, tasks.md.
+- Hallazgos abiertos para Neo: H-ARCH-006-01 (sin códec: solo se eliminan metadatos del contenedor, no se redimensiona; brecha frente a C5), H-ARCH-006-02 (5 USD solo avisa; sin tope global), N=8 depende del límite de imágenes del modelo [verificar]. Nada APPROVED/LOCKED.
+
+## 2026-11-18 — Architect: revisión de diseño 006 (Mifune, Trinity, Lock, Link, Merovingian) aplicada en DRAFT (sin commit)
+- Aplicado en specs/006-*/{spec,plan,data-model}.md y contracts/ (OpenAPI, scene, scene-payload, machine, errors): estado derivado en lectura (H-MIF-01), imagen vigente en columnas de home_scenes (H-MIF-02), 13->9 variables (H-MIF-06), normalizador como función por lista blanca (H-MIF-07, H-TRI-03/09), worker con audiencia y correo exactos (H-TRI-01), intentos y 429 (H-TRI-02/08), clave de idempotencia con alcance (H-TRI-05), etiqueta v (H-TRI-06), claim/T2 (H-TRI-07, H-LCK-01..04), EDGE-025..033, ganchos de transferencia/importación y UnitOfWork (H-MERO-15/16/17/24).
+- No aplicados: H-MIF-03 (a /oracle: puede contradecir EDGE-016), H-MIF-04/05 (contradicen REQ-015, SC-021, D6-08). Nivel 2 sin decidir: N2-01..N2-12 en spec.md (normalizador, tope global, formato de salida, moneda 22500 COP, enmiendas REQ-IAC-006/009, REQ-CLD-002, NFR-CLD-001, auditoría 004, claves, jose, scripts, PN-06, memoria 1Gi, Principio VI).
+- Conteo: REQ 32->36, INV 17->19, EDGE 24->33, SC 67->96, RR 10->12, NFR 4, D6 17 firmadas. Sin compilar (compile-contracts.sh no incluye 006). Nada APPROVED/LOCKED/COMPLETED; sin tocar 001..005, constitución, terraform/, scripts/, .github/, src/, tests/ ni tasks.md.
+
+## 2026-11-18 — Architect: correcciones del informe de Oracle 006 (OBS-1/3/4/5/6) en DRAFT (sin commit)
+- data-model §2.5: hash de idempotencia ahora incluye `action` (alineado con REQ-ESC6-012/OpenAPI/scene.schema); spec D6-13 y N2-06(c): la foto del hogar cuenta en la cuota de 1 GiB (REQ-ARC-005); «D6-13 B con TTL» marcado como historial no normativo; data-model cita D6-16.
+- scene-payload.schema.json: `type` añadido en then/else de allOf (object y array anidados); compila con Ajv2020 strict:true + strictTypes:true junto a scene.schema (common/pet de 004 cargados). EDGE-ESC6-016 y H-MIF-006-03 intactos (a Neo).
+
+### 2026-11-18 — Architect: asentadas N2-01..N2-12 y EDGE-ESC6-016; tasks.md 006 (DRAFT, sin commit)
+- spec.md: sección «Decisiones de Nivel 2 firmadas por Neo» (N2-01 B ahora/A antes del real, N2-02 A, N2-03 PNG/WebP, N2-04 22500 COP o 5 USD, N2-05 4 enmiendas de 003, N2-06 (a)-(d), N2-07 A, N2-08, N2-09 B, N2-10, N2-11, N2-12) y «Compuerta del driver real»; sin marcas de pendiente/propuesta. EDGE-016, REQ-012, SC-080 y H-MIF-006-03: solo se recuerda la última clave (24 h), intentos en `scene_attempts`.
+- plan.md (§1.2, §1.3, §5.4, §6.4, §6.5, §7, ADR, §9, nueva §13), data-model.md (§2.5 T1 anula hash previo; M-3 ya no condicional; retención ratificada) y contratos (scene.schema, OpenAPI) coherentes; conteos intactos (36 REQ, 19 INV, 33 EDGE, 96 SC, 4 NFR).
+- tasks.md: 85 tareas T601..T798, todas [ ], 8 fases en el orden pedido; 196/196 IDs (REQ/INV/EDGE/SC/NFR/STATE/ERR) con tarea. T798 [GOV] bloqueada por N2-10 (driver real y main). Sin tocar 001..005, terraform/ ni src/; sin commit.
+
+## 2026-11-18 — Renumeración 006 T601..T798 → T801..T885 (OBS-1/OBS-2 de oracle-006-tasks)
+- Mapeo ordinal fila a fila (85 tareas, mismo orden y dependencias) en tasks/plan/data-model/spec; refs a 004 (T501..T617, T612) conservadas con prefijo; prueba provisional t801-compuerta-006.spec.ts. Contratos sin IDs de tarea (sin cambios).
+- OBS-2: T825 (antes T639) depende de T814 (antes T625) -> T833 (Fase 4); aclarado en tasks.md que la Fase 2 cierra tras T833. Verificado por script: 85 únicas, 0 huérfanas, 188/188 IDs propios cubiertos. Sin commit.
+
+## 2026-11-18 — Ratificacion del puerto ScenePrivacyHooksPort (H-KEY-F2-1)
+- 8 ganchos y firmas del fixture ratificados; plan.md §1.2 nueva subseccion «Puerto ScenePrivacyHooksPort» (misma transaccion, orden: retiro ANTES de mutar / creado DESPUES, eventos opacos, sin escena sin efecto, un evento por causa, sceneHooks? opcional). Cambios al fixture: now: string; onMemberRemoved no se acompana de onPetUnassigned por mascota. tasks.md T827 aclarada (alcance). Cobertura 7/7 casos de uso (T862..T867). Sin commit.
+
+### 2026-11-18 architect T825 H-T825-1..3
+Alineados 003 plan/research (1 GiB, 120 s, 14 APIs, 5 USD, aiplatform.user), 004 spec (cuota con household_photos) y listas 3.2.0 en 002/004/port. Solo texto.
+Sin commit; pendiente re-firma /merovingian.
+
+### 2026-11-18 architect Decisiones de Fase 5 (H-KEY-F5-1..4)
+- F5-1: payload incremental incluye REMOVE (pets=[] solo FROM_SCRATCH/REGENERATE sin mascotas); SC-ESC6-010 y REQ-ESC6-010 ajustados. F5-2: STYLE_BASE_TEXT normativo (plan 5.3) y Anexo A de razas (64 nombres); breed libre NUNCA entra al prompt (EDGE-ESC6-015, REQ-ESC6-009, SC-ESC6-066).
+- F5-3: REQ-ESC6-034 solo FAILED, ventana 24 h, puerto countFailedAttemptsByScene {count, oldestAt} (plan 1.1, data-model 7). F5-4: D6-09 elimina la sobrante antes del UPDATE (data-model 5, EDGE-ESC6-030). Sin PENDIENTE DE NEO; sin commit; src/tests sin tocar.
+
+### 2026-11-18 architect Decisiones de Fase 5 lote 2 (H-KEY-F5-5..7)
+- F5-5: expiracion de arrendamiento al leer se AUDITA (SCENE_FAILED, actor = actor_user_id del intento, misma transaccion, una vez si el CAS transiciona). F5-6: scene_image_sources = solo duenos de fotos efectivamente enviadas; consentimiento en T2 solo actor + duenos de fotos.
+- F5-7: cuota agotada en T2 = FAILED con ERR-SCENE-GENERATION-FAILED, motivo interno SCENE_QUOTA_AT_T2 solo en auditoria; catalogo de errores SIN cambios. Escrito en plan.md (seccion lote 2) y data-model.md 2.3/7. Sin PENDIENTE DE NEO. Sin commit.
+
+### 2026-11-18 architect Decision de Fase 5 lote 3 (herencia de fuentes de imagen)
+- F5-8: scene_image_sources = fotos enviadas en la generacion + fuentes heredadas de la imagen previa si viajo como referencia (INCREMENTAL_*). Confirmada la decision de Keymaker (ac55662): es interpretacion de REQ-ESC6-025 ("imagen que contenga"), no amplia D6-16 (T2 no exige consentimiento a heredados) ni altera el alcance firmado; sobre-purga solo en direccion segura. Escrito en spec.md REQ-ESC6-025 (2) y data-model.md 2.3.
+- Sin PENDIENTE DE NEO. Sin commit; src/tests sin tocar.
+### 2026-11-18 architect Enmienda 006 aplicada a la constitucion (3.5.0 -> 3.6.0)
+- Principio VI: excepcion unica de pago (Vertex, imagenes; REQ-ESC6-028, N2-10, tope 5 USD = 22500 COP) y jose 6.2.17 solo en /internal/maintenance y /internal/scene-worker con audiencia y correo propios. Vigente era 3.5.0 (no 3.2.0), por eso MINOR 3.6.0.
+- Borrador marcado APLICADO; sin APPROVED/LOCKED; sin commit; src/tests sin tocar.
+### 2026-11-18 architect Decision de Fase 6 (H-ORA-F6-A/B) tras oracle-006-fase6
+- A: normalizacion de SALIDA por lista blanca de trozos: PNG IHDR,PLTE,IDAT,IEND,tRNS,caBX + iTXt XML:com.adobe.xmp; WebP VP8 ,VP8L,VP8X,ALPH,XMP ,C2PA. Escrita en spec REQ-ESC6-035, N2-03 (sin cambiar su texto firmado) y plan 5.4. data-model sin cambio.
+- B: 404 de imagen unificado en ERR-HOUSE-NOT-FOUND; solo cambia la descripcion de getHouseholdSceneImage en home-scene.openapi.yaml (sin tocar 001..005) y INV-ESC6-007. Sin PENDIENTE DE NEO. Sin commit; src/tests sin tocar.
+
+## 2026-11-18 — Diseno tramo gemini-api (006)
+- Escrito specs/006-escena-hogar-pixel-art/audits-gemini-api-diseno.md (DRAFT). Sin cambios en src/tests/tasks/constitution.
+- 10 choques C1..C10 con normas (T879, REQ-ESC6-017/028, Principio VI, N2-10, verify-traceability, app-config); enmiendas pendientes de Neo.
+
+### 2026-11-18 architect Enmiendas gemini-api (Opcion 2 de Neo, N2-13)
+- Constitucion 3.6.0 -> 3.7.0 (Principio VI, excepcion local privada); spec (REQ-017/031, SC-025/061, nuevos REQ-037/038, INV-020, SC-097..103, D6-18, N2-13), plan, tasks Fase 9 (T886..T900, todas [ ]), comentario de rango en verify-traceability.sh.
+- Unica linea de src/: redaccion AIza/x-goog-api-key en cloud-logging.ts. verify-traceability 006 CUMPLE (205/205), tsc 0. Sin commit; sin [x]. Informe: audits/architect-006-gemini-api-enmiendas.md.
+
+### 2026-11-19 architect Impacto de 4 fallos en vivo (T900) y proxy /__dev/media
+- Analisis solo lectura de 006 (HEAD 824d82c): punto 4a ya cumplido (decide-mode FROM_SCRATCH ante cambio de foto del hogar); punto 1 mal condicionado (cards.length vs pets.total); puntos 2, 3, 4b, 4c requieren cambio. Proxy vite solo dev, ruta ya existente en 004 (T571).
+- Propuestas T901..T910 y SC-ESC6-104..109 en borrador dentro del informe; spec/plan/tasks sin tocar (necesitan visto bueno de Neo). Sin bloqueo normativo.
+- Informe: specs/006-escena-hogar-pixel-art/audits/architect-006-fixes-en-vivo.md. Sin commit, sin [x]; bus central no tocado por restriccion de Morpheus.
+
+### 2026-11-19 architect T901 [GOV] enmiendas DRAFT de correcciones en vivo (006)
+- Aplicadas con aprobacion soberana de Neo (a)(b)(c): spec.md (REQ-007, 016, 019, 037 ampliados; SC-ESC6-104..109; tabla REQ->SC->tareas; conteo 109 SC; registro), plan.md (5.3, 11, 12), tasks.md (Fase 10 T901..T910 todas [ ], conteo 110, 211 IDs).
+- decide-mode.ts sin cambio; STYLE_BASE_TEXT y frases base intactas. Sin src/, tests/, contratos, commit ni [x].
+- verify-traceability.sh --feature 006: CUMPLE (211/211 IDs propios mapeados, pureza 0 violaciones).
+
+## 2026-11-19 | /architect | Fase 11 T911..T923 (segunda ronda T910, D6-19)
+- Revisé el spec.md parcial heredado: conservé REQ-007/019/034 (con ajustes), descarté el cierre numérico por especie de REQ-016 y lo sustituí por la especificación JSON saneada (plan §5.3.1). La compuerta heredada fallaba por 3 SC huérfanos.
+- Añadí SC-ESC6-110..118, D6-19, N2-14 y N2-15 (pendientes de Neo), tareas T911..T923 en [ ], cierre de OBS-3. Sin contratos, src ni tests.
+- verify-traceability --feature 006: CUMPLE (221/221). Informe: specs/006-escena-hogar-pixel-art/audits/architect-006-fase-t911.md.
+
+## 2026-11-19 | T912 contrato retryAfterSeconds (N2-14 aprobada)
+- scene.schema.json 1.0.0 -> 1.1.0 MINOR (supersedes 1.0.0): SceneActions.retryAfterSeconds integer|null 1..86400 opcional (no en required); descripcion de canRegenerate corregida; traceability +SC-ESC6-112/113.
+- home-scene.openapi.yaml: solo change_note (SceneView llega por $ref); version 3.4.0 sin cambio (fijada en src/generated/v34, problem-details.ts, openapi-contract-006.ts).
+- verify-traceability --feature 006: CUMPLE. STATE-SCENE-001 y error-catalog sin diff. Consulta /merovingian en curso; informe audits/architect-006-fase-t912.md.
+- Dictamen merovingian incorporado (H1..H3, sin bloqueo; pregunta no bloqueante sobre rol ROLE). Informe escrito.
+
+## 2026-11-19 — Correccion documental /mouse T911 (DRAFT, sin commit)
+- spec.md: matriz regenerada (123 tareas T801..T923, 106 [x], 17 abiertas); REQ-007/016/019/034 y filas INV con Fase 11; N2-14 (SI) y N2-15 (B) = APROBADO por Neo 2026-11-19 (estado final lo firma Neo).
+- tasks.md: Fase 11 sin "bloqueada"/"espera N2-15"; plan.md l.306 sin "pendiente N2-15".
+- Pendiente de Neo: version OpenAPI home-scene.openapi.yaml sigue 3.4.0 vs escena 1.1.0; se mantiene hasta decision de Neo.
+- verify-traceability --feature 006: CUMPLE (221/221 IDs propios mapeados).
+
+## 2026-11-19 | /architect | Fase 12 T924..T934 (tercera ronda T910, D6-20)
+- Enmendado en DRAFT spec/plan/tasks (+1 frase de research §2.2): hogar principal en Mascotas (createdAt asc, id asc, funcion pura cliente), fotos KEEP como IMG_n en INCREMENTAL_ADD/REPLACE/MIXED (sin tocar contrato ni scene-spec.ts), textos de ayuda con aria-describedby. SC-ESC6-119..130, T924..T934 todas [ ], ADR-006-14..16, D6-20.
+- Abierta N2-16 (Neo): descarte por tope de bytes de las KEEP (A orden de seleccion / B KEEP primero a descartar, recomendada) y si su omision marca degraded (C no, recomendada / D si). Bloquea T928..T930.
+- verify-traceability --feature 006: CUMPLE (233/233). Matriz verificada por script. Informe audits/architect-006-fase-t924.md. Bus central no tocado por restriccion de Morpheus.
+
+## 2026-11-19 | /architect | Fase 13 T935..T943 (cuarta ronda T910, D6-21)
+- Enmendado en DRAFT spec/plan/tasks: boton unico (Crear/Regenerar imagen/Reintentar) que siempre envia action=REGENERATE (ruta existente, sin cambio de contrato ni de STATE-SCENE-001); householdBlock como inspiracion (unica frase de plantilla sustituida); linea `Exact animal count` antes de PET_COUNT_RULE y `Pet k (especie)`. SC-ESC6-131..138, ADR-006-17..19, T935..T943 en [ ].
+- INCREMENTAL_* queda en servidor (DEUDA-006-INCREMENTAL-SIN-UI). Abierta N2-17 (Neo): solo prosa de contrato, bloquea unicamente T941.
+- verify-traceability --feature 006: CUMPLE (241/241). Informe audits/architect-006-fase-t935.md. Bus central no tocado por restriccion de Morpheus.
+
+## 2026-11-19 | /architect | T941 y enmiendas de cierre Fase 13 (N2-17 A, N2-18)
+- scene.schema.json 1.1.0 -> 1.1.1 PATCH (solo prosa de action, canUpdate, canRegenerate, blockedReason); OpenAPI 3.4.0, summary y descripcion de generateHouseholdScene/generateOwnerScene. Sin cambio de forma.
+- spec.md: INV-ESC6-010 enmendada (A1, N2-18), N2-16 asentada B+C, N2-17 aprobada A, PET_COUNT_RULE ratificada ("When renderedPetsCount is zero"); plan ADR-006-20; tasks: DEUDA-006-AVISO-REGENERACION (condicion 8 de T885) y DEUDA-006-M4-TOPE-REGENERATE.
+- verify-traceability --feature 006: rc 0, CUMPLE 241/241. Informe audits/architect-006-fase-t941.md. Falta recompilar (keymaker).
+
+## 2026-11-19 | /architect | Alineación de prosa de cierre Fase 13 (sin commit)
+- spec.md y plan.md alineados al código en disco: frase del hogar «Draw a brand-new …» y PIXEL_REDRAW_RULE «Render every wall …» (el encargo citaba «Recreate a recognizable …», que no está en el código; manda el disco). Contador regresivo en REQ-019/034/SC-115 y plan §5.7; N2-16 y PET_COUNT_RULE verificadas.
+- Discrepancia reportada: relectura del cooldown a t s en código vs t+1 s en la prosa previa y en tasks.md T916.
+- verify-traceability --feature 006: rc 0, CUMPLE 241/241. Informe audits/architect-006-fase-alineacion-cierre.md. Bus central no tocado por restricción.
+
+## 2026-11-19 — Feature 007 (UX ficha, fechas, pestaña, fallecido, texto escena)
+- Creado specs/007-ux-ficha-mascota-fallecimiento/{spec,plan,tasks,data-model}.md + contracts/README.md (DRAFT, tareas T1001..T1063 todas [ ]). .specify/feature.json apunta a la 007. Sin speckit-skills (redacción nativa con el formato de 005/006).
+- Cobertura [GH:#N]: #11 Bloque A, #12 B, #13 C, #14 D, #15 E, #51 F (encabezados + línea de tarea). Dry-run de gh-project-sync lee 6 issues sin huérfanos.
+- Solo #13 toca modelo/API/respaldo (lifeStatus, deceasedAt; enmienda minor aditiva a pet.schema.json, N2-07-01). Evaluar /merovingian, /rama, /maggie, /lock; /trinity no.
+- Pendientes de Neo: D7-01 (#51 texto), D7-02 (#14 A vs B, recomendada B), D7-03 (rótulo; el recuento incluye desparasitaciones), D7-04/05/06 (#13 alertas, registros posteriores, escena), N2-07-01.
+- Hallazgo: AlertsCard cuenta vacunas Y desparasitaciones; «Estado de vacunación» es literal del Issue pero impreciso (D7-03).
+
+## 2026-11-19 | /architect | Feature 007: pase único de revisión + decisiones de Neo asentadas (sin commit)
+- Incorporadas actas mifune/lock/rama/merovingian en spec, plan, tasks, data-model y contracts/README (DRAFT). Verificado en disco: error existente `ERR-SCHEMA-VALIDATION-FAILED` (422) en 002 (sin `ERR-PET-LIFE-STATUS`); no hay código 412 en el catálogo (contrato nuevo bajo N2-07-01); `spec-system.md` no exige máquina por campo enumerado; `ClinicalProfile` (005) es objeto cerrado sin `lifeStatus` (MINOR de 005); inbox #14 solo 4 módulos.
+- Mifune aplicadas: M7-01..03, 05 (revertida por Neo: se versiona), 06, 07, 09..13, 15 (revertida por Neo: conteo en aria-label), 16, 17; M7-04 parcial (CHECK cruzado por Merovingian C2), M7-08 no aplicada (T1030 se conserva).
+- Lock EDGE-007-009..022 en spec; Neo decidió 009, 012..014, 016, 017; 010/011 requisito técnico; 018 tarea condicional T1036; nuevas T1064..T1068. Rama C2/C3/C6 asentadas; C4/C7 en T1019/T1020/T1026.
+- Tareas: 51 `[ ]`, 0 `[x]`. Etiquetas [GH:#11,12,13,14,15,51] intactas. Sin tocar contracts/ de specs ni src/.
+
+## 2026-11-19 | /architect | 007: correccion de citas tras acta Mouse BLOCKED (sin commit)
+- D1: NFR-007-003 anadida a T1003. D2: EDGE-007-004 anadida a T1015 y T1068.
+- O2: SC-007-001..003 -> citas explicitas en T1031/T1032; SC-007-013..015 explicitas en T1023; SC-007-017..020 explicitas en T1046 (T1047/T1049 siguen por rango 017..019).
+- O1: T1013 fija `version` como entero >= 1 (no updated_at); espejo en data-model.md. O3: REQ-REG7-003 marcada «descartada por Neo, sin tarea por diseno». O4: EDGE-007-021 anotado «sin tarea ni prueba por diseno» en spec.md.
+- Estado intacto: 51 [ ], 0 [x]; etiquetas GH #11..#15,#51 intactas; sin tocar contracts/ ni src/. Pendiente: re-ejecutar /mouse.
+
+## 2026-11-20 | /architect | Feature 006 Fase 14 (T944..T960, directiva D6-22 de Neo) asentada (sin commit)
+- Editados spec.md (D6-22, matriz REQ->tareas, registro), plan.md (§5.8, ADR-006-21, §13) y tasks.md (Fase 14, T885 Dep ampliada, T900 N/A propuesto, conteo 160). Rango T944..T960 (no T1001+, reservado a 007). Todas [ ]; T885 y T900 siguen [ ].
+- verify-traceability --feature 006: CUMPLE 241/241. No se tocó src/, contracts/, deploy, .env.
+- Bloqueos humanos: T956 revisores entorno produccion; T957 Principio VI (texto ya en constitución 3.7.0 pero sin firma, modelo no nombrado); T958 fuente CDPA + firma aviso; T959 T900 N/A; T960 (extra) N2-01=A vs "0 dependencias", N2-04, unidad de ARGOS_SCENE_GLOBAL_QUOTA_MAX=5. T953: IAM/API Vertex en Terraform no cubierto por la directiva.
+
+### 2026-11-20 — Architect: asentadas resoluciones de Neo (a)..(g) a la Fase 14 (D6-23)
+- spec.md: D6-23 + enmienda de N2-01 (A sustituido por «0 dependencias npm nuevas») + registro; plan.md: §5.8 y ADR-006-21 (E1, E3); tasks.md: notas en T885, T900, T953, T956..T960 (ninguna [x]; T824 ya [x] por Neo); research.md: §2.3-bis con fuentes de T958.
+- T953 verificada en solo lectura (services.tf:16, iam.tf:155-157, variables.tf COP/22500). Sin tocar src/, contracts/, terraform/, deploy, .env. Sin commit.
+- verify-traceability --feature 006: CUMPLE (241/241).
+- 2026-11-19 Architect: DEF-M14-R1 corregido: REQ-ESC6-027 y SC-ESC6-042 enmendados con D6-23(f)/E1 (0 deps npm); nota T958/research §2.3-bis (retención/borrado/región/SLA fuera de la firma). verify-traceability 006 ver reporte. Sin commit.
+
+- 2026-11-20 Architect: propagacion cierre T955 (OBS-M5, C5). N2-10 (spec.md) y condicion 3 de T885 (tasks.md) y compuerta spec.md "Compuerta del driver real" alineadas con D6-23(f): "0 dependencias npm nuevas" sustituye N2-01=A; N2-10 sigue como bloqueo. aviso-consentimiento-borrador.md movido a specs/006-escena-hogar-pixel-art/archivo/ con nota en spec.md; referencias por nombre simple en plan/research/tasks/spec no tocadas. Sin src/contracts/terraform/.env, sin commit.
+
+### 2026-11-20 — Architect: pasada de cierre Fase 14 (residuos #8 y firmas de Neo)
+- tasks.md:18 reescrita (N2-01=A sustituido por 0 deps npm, D6-23 (f)); spec.md:610 ruta a archivo/aviso-consentimiento-borrador.md.
+- Firmas asentadas: T958 aprobado (aviso v2, C2, DEUDA-006-AVISO-REGENERACION liquidada), OBS-M1, OBS-M2, H-F14-2 mantener, activar SCENE_REAL_DRIVER_ACTIVATED=true (commit local, sin merge/push).
+- Registro nuevo al final de spec.md; notas en T958, T885 y Checkpoint T944..T960. Sin [x]. verify-traceability 006: CUMPLE.

@@ -1,5 +1,5 @@
 /**
- * Aviso previo y consentimiento de la escena (feature 006, T877): texto empaquetado (borrador hasta la firma de Neo), casilla de consentimiento por usuario,
+ * Aviso previo y consentimiento de la escena (feature 006, T877): texto empaquetado (final, en revisión hasta la firma de Neo), casilla de consentimiento por usuario,
  * «Consentir y continuar» / «Ahora no», reconsentimiento cuando la versión del aviso o el proveedor cambian y retiro con confirmación. `SceneConsentView` es
  * presentacional; `SceneConsent` es el contenedor (grant, revoke y relectura de la escena).
  *
@@ -8,7 +8,7 @@
 import { useMemo, useState } from 'react';
 import { createSceneApi, SceneApiError, type SceneViewData } from '../scene-api.ts';
 import { useDialogFocus } from '../dialog-focus.ts';
-import { consentBody, consentStep, noticeSectionsFor, NOTICE_DRAFT, NOTICE_DRAFT_CHIP, NOTICE_DRAFT_GRANTED_LABEL, NOTICE_DRAFT_LABEL, NOTICE_INTRO, NOTICE_SECTIONS, NOTICE_TITLE, type ConsentStep, type NoticeSection } from '../scene-notice.ts';
+import { consentBody, consentStep, noticeSectionsFor, NOTICE_INTRO, NOTICE_SECTIONS, NOTICE_TITLE, type ConsentStep, type NoticeSection } from '../scene-notice.ts';
 import { sceneProblemMessage } from '../scene-view.ts';
 import { Button } from './Field.tsx';
 
@@ -34,7 +34,6 @@ export interface SceneConsentViewProps {
 }
 
 const PROSE = 'max-w-prose text-sm text-slate-900';
-const DRAFT_CHIP = <span className="mr-2 rounded-md border border-amber-700 bg-white px-2 py-0.5 text-xs font-bold tracking-wide text-amber-950">{NOTICE_DRAFT_CHIP}</span>;
 
 export function SceneConsentView({ idPrefix, step, accepted, busy, confirmRevoke, error, onAccept, onGrant, onDecline, onAskRevoke, onConfirmRevoke, onCancelRevoke, onReload, headingLevel = 3, sections = NOTICE_SECTIONS }: SceneConsentViewProps): JSX.Element {
   const titleId = `${idPrefix}-consent-title`;
@@ -56,12 +55,6 @@ export function SceneConsentView({ idPrefix, step, accepted, busy, confirmRevoke
       )}
       {step === 'GRANTED' ? (
         <>
-          {NOTICE_DRAFT ? (
-            <p className="rounded-xl border border-amber-700 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
-              {DRAFT_CHIP}
-              {NOTICE_DRAFT_GRANTED_LABEL}
-            </p>
-          ) : null}
           <p className={PROSE}>Diste tu consentimiento para enviar la foto de tu hogar y los avatares de tus mascotas al servicio de inteligencia artificial. Puedes retirarlo cuando quieras.</p>
           {confirmRevoke ? (
             <div ref={dialogRef} tabIndex={-1} role="alertdialog" aria-labelledby={dialogId} className="rounded-2xl border-2 border-danger bg-red-50 p-4">
@@ -87,12 +80,6 @@ export function SceneConsentView({ idPrefix, step, accepted, busy, confirmRevoke
         </>
       ) : (
         <>
-          {NOTICE_DRAFT ? (
-            <p className="rounded-xl border border-amber-700 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
-              {DRAFT_CHIP}
-              {NOTICE_DRAFT_LABEL}
-            </p>
-          ) : null}
           {step === 'OUTDATED' ? (
             <>
               <p role="status" className="max-w-prose rounded-xl border border-slate-400 bg-meadow px-3 py-2 text-sm font-semibold text-slate-900">

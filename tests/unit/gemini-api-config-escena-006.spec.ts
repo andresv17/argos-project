@@ -96,10 +96,11 @@ describe('configuración del driver gemini-api (T890, REQ-ESC6-037, SC-ESC6-097)
     expect(real.scene.geminiModel).toBeNull();
   });
 
-  it('[REQ-ESC6-031] SCENE_REAL_DRIVER_ACTIVATED sigue false, gemini-api no lo usa y real sigue sin arrancar con las variables de gemini-api presentes', () => {
-    expect(SCENE_REAL_DRIVER_ACTIVATED).toBe(false);
+  it('[REQ-ESC6-031] SCENE_REAL_DRIVER_ACTIVATED es true (T885), gemini-api no lo usa y real con las variables de gemini-api presentes las ignora (sin clave en la configuración)', () => {
+    expect(SCENE_REAL_DRIVER_ACTIVATED).toBe(true);
     expect(loadAppConfig(DEV).scene.driver).toBe('gemini-api');
-    expect(failing({ NODE_ENV: 'test', ...PROD_SCENE, GEMINI_API_KEY: SENTINEL_KEY, ARGOS_SCENE_GEMINI_MODEL: MODEL }).variables).toEqual(['ARGOS_SCENE_DRIVER']);
+    expect(loadAppConfig({ NODE_ENV: 'test', ...PROD_SCENE, GEMINI_API_KEY: SENTINEL_KEY, ARGOS_SCENE_GEMINI_MODEL: MODEL }).scene.geminiApiKey).toBeNull();
+    expect(failing({ NODE_ENV: 'test', ...PROD_SCENE, GEMINI_API_KEY: SENTINEL_KEY, ARGOS_SCENE_GEMINI_MODEL: MODEL }).variables).toEqual(['sin error']);
   });
 
   it('[REQ-ESC6-037] ARGOS_SCENE_DRIVER fuera de {fake, gemini-api, real} no arranca y nombra solo ARGOS_SCENE_DRIVER', () => {

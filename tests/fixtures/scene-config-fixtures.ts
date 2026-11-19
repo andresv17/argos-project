@@ -9,6 +9,7 @@ import { loadAppConfig, type AppConfig, type EnvironmentSource } from '../../src
 export const PROD_SCENE = {
   ARGOS_SCENE_DRIVER: 'real',
   ARGOS_SCENE_MODEL: 'gemini-2.5-flash-image',
+  ARGOS_SCENE_LOCATION: 'us-central1',
   ARGOS_SCENE_PROJECT_ID: 'argos-prod-1234',
   ARGOS_SCENE_TASKS_SA_EMAIL: 'argos-scene-tasks@argos-prod-1234.iam.gserviceaccount.com',
   ARGOS_SCENE_WORKER_URL: 'https://argos-abcdef-uc.a.run.app/internal/scene-worker',

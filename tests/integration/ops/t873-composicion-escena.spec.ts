@@ -62,7 +62,7 @@ describe('composición de la escena en desarrollo y CI (T873, REQ-ESC6-017, REQ-
   it('[REQ-ESC6-026] el aviso de consentimiento vigente y el desfase horario de APP_TIMEZONE salen de las constantes y de la configuración, no de la petición', () => {
     const bogota = composeSceneServices(loadAppConfig({ NODE_ENV: 'test' }), { run: async () => 'NOOP' });
     const utc = composeSceneServices(loadAppConfig({ NODE_ENV: 'test', APP_TIMEZONE: 'UTC' }), { run: async () => 'NOOP' });
-    expect([bogota.noticeVersion, bogota.providerId, bogota.utcOffsetMinutes, utc.utcOffsetMinutes]).toEqual(['1', 'vertex-gemini-image', -300, 0]);
+    expect([bogota.noticeVersion, bogota.providerId, bogota.utcOffsetMinutes, utc.utcOffsetMinutes]).toEqual(['2', 'vertex-gemini-image', -300, 0]);
   });
 
   it('[INV-ESC6-018][SC-ESC6-087] con el driver real el despachador es el de Cloud Tasks con destino y cuenta de la configuración validada y se prueba con dobles (sin llamadas)', async () => {
@@ -81,10 +81,12 @@ describe('composición de la escena en desarrollo y CI (T873, REQ-ESC6-017, REQ-
     expect(calls).toEqual(['https://cloudtasks.googleapis.com/v2/projects/argos-prod-1234/locations/us-central1/queues/argos-scene/tasks true']);
   });
 
-  it('[REQ-ESC6-028][REQ-ESC6-031] el driver real NO se activa: sin la constante de activación la configuración no arranca y la composición completa del real se niega', () => {
-    expect(() => loadAppConfig({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE })).toThrow('ARGOS_SCENE_DRIVER');
-    const config = loadAppConfigActivated({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE });
-    expect(() => composeSceneServices(config, { run: async () => 'NOOP' })).toThrow(Error);
+  it('[REQ-ESC6-028][REQ-ESC6-031] el driver real está activado por T885: con la constante del código arranca; con sceneRealDriverActivated: false no, y la composición del real sin tope global se niega', () => {
+    const env = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE };
+    expect(loadAppConfig(env).scene.driver).toBe('real');
+    expect(() => loadAppConfig(env, { sceneRealDriverActivated: false })).toThrow('ARGOS_SCENE_DRIVER');
+    const config = loadAppConfigActivated(env);
+    expect(() => composeSceneServices(config, { run: async () => 'NOOP' })).toThrow('Configuración del driver real incompleta');
   });
 });
 

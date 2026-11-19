@@ -1,7 +1,7 @@
 /**
  * T879 (006, Fase 7): correcciones de /sati a la interfaz de la escena (revisión `sati-006-escena-revision.md`): H-S1 jerarquía de encabezados, H-S2 foco en los
  * alertdialog, H-S3 «Recargar la página» en OUTDATED, H-S4 rejilla desde lg:, H-S5 medida de lectura, H-S6 motivo del botón deshabilitado, H-S10 botón en su línea,
- * H-S12 chip BORRADOR también en GRANTED, H-S13 aria-busy durante la generación.
+ * H-S12 chip BORRADOR retirado en la Fase 14 (T950), H-S13 aria-busy durante la generación.
  * REQ-ESC6-019, REQ-ESC6-021, REQ-ESC6-026, NFR-ESC6-004; EDGE-ESC6-018; SC-ESC6-033.
  */
 import { createElement as h } from 'react';
@@ -120,9 +120,9 @@ describe('T879 H-S6 y H-S10 consentimiento', () => {
   });
 });
 
-describe('T879 H-S12 chip BORRADOR siempre visible mientras NOTICE_DRAFT', () => {
-  it('ASK, OUTDATED y GRANTED muestran el chip BORRADOR', () => {
-    for (const step of ['ASK', 'OUTDATED', 'GRANTED'] as const) expect(consent({ step })).toMatch(/<span[^>]*>BORRADOR<\/span>/);
-    expect(textOf(consent({ step: 'GRANTED' }))).toMatch(/pendiente de revisión y firma legal/i);
+describe('T879 H-S12 el chip de borrador se retiró con el aviso final (T950)', () => {
+  it('ASK, OUTDATED y GRANTED ya no muestran chip ni frase de borrador', () => {
+    for (const step of ['ASK', 'OUTDATED', 'GRANTED'] as const) expect(consent({ step })).not.toMatch(/BORRADOR/);
+    expect(textOf(consent({ step: 'GRANTED' }))).not.toMatch(/pendiente de revisión y firma legal/i);
   });
 });

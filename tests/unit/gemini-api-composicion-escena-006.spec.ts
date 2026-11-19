@@ -66,7 +66,7 @@ describe('composición gemini-api (T894, SC-ESC6-098)', () => {
     expect(consentBody()).toEqual({ noticeVersion: SCENE_NOTICE_VERSION, providerId: SCENE_PROVIDER_ID, scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] });
   });
 
-  it('[REQ-ESC6-026] el aviso borrador de gemini-api nombra a la Gemini Developer API, no a Vertex, y el texto de Vertex no cambia', () => {
+  it('[REQ-ESC6-026] el aviso de gemini-api nombra a la Gemini Developer API, no a Vertex, y el texto de Vertex no cambia', () => {
     const text = noticeSectionsFor('gemini-api').map((s) => `${s.title} ${s.paragraphs.join(' ')}`).join(' ');
     expect(/Gemini/.test(text) && /Developer API/.test(text)).toBe(true);
     expect(/Vertex/.test(text)).toBe(false);
@@ -89,9 +89,11 @@ describe('composición gemini-api (T894, SC-ESC6-098)', () => {
     expect([services.realDriver, services.providerId, services.noticeVersion]).toEqual([false, SCENE_PROVIDER_ID, SCENE_NOTICE_VERSION]);
   });
 
-  it('[REQ-ESC6-028][SC-ESC6-043] real sigue negándose aunque haya variables de gemini-api, y la constante de activación no cambia', () => {
+  it('[REQ-ESC6-028][SC-ESC6-043] real no usa las variables de gemini-api (T952): sin cuota global no compone y, con ella, compone Vertex sin clave; la constante de activación no cambia', () => {
     const config = loadAppConfigActivated({ NODE_ENV: 'test', ...PROD_SCENE, GEMINI_API_KEY: KEY, ARGOS_SCENE_GEMINI_MODEL: 'gemini-2.5-flash-image' });
-    expect(() => composeSceneServices(config, { run: async () => 'NOOP' })).toThrow('ARGOS_SCENE_DRIVER=real no está disponible');
+    expect(() => composeSceneServices(config, { run: async () => 'NOOP' })).toThrow('Configuración del driver real incompleta');
+    const services = composeSceneServices(config, { run: async () => 'NOOP', fetch: noNetwork, globalQuota: { tryConsume: async () => true } });
+    expect([services.providerId, services.noticeVersion, services.generator instanceof GeminiApiSceneImageGenerator]).toEqual([SCENE_PROVIDER_ID, SCENE_NOTICE_VERSION, false]);
   });
 });
 

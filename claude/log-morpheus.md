@@ -1300,3 +1300,291 @@
 - Marcas [x] de T406 y T408 presentes en tasks.md (orden de Neo). Commit local de esa marca.
 - Respuestas: (1) scripts ratificados; (2) evidencia de código informativa hasta T462 con SDD_STRICT_EVIDENCE=1; (3) /readyz 503 con ERR-INTERNAL-UNEXPECTED, sin entradas nuevas en el catálogo; (4) ProblemDetails RFC 7807 local aceptado.
 - T409: tests primero en tests/unit/app-config.spec.ts que fallen antes de T410; sustitución de la aserción HOST=0.0.0.0 según D-26. Sin cambios en src/.
+
+### 2026-11-18 — Morpheus: 4C reemplazada por "Escena del hogar en pixel art (IA)" (orden de Neo)
+- Requerimiento guardado en claude/requerimiento-escena-hogar-pixel-art.md. Reemplaza el alcance de avatares de 4C.
+- Rama renombrada a 006-escena-hogar-pixel-art (sin commits propios). Número 006 asumido por la directiva previa de Neo; pendiente de confirmar.
+- Puertas obligatorias antes de plan: /rama (PII de mascotas y hogar enviados a IA externa) y /merovingian (API de IA como dependencia externa). /architect redacta spec DRAFT primero.
+
+### 2026-11-18 — Morpheus: Logos encendida (orden de Neo). Architect 006 en curso; mensaje final a Neo al terminar.
+
+### 2026-11-18 — Morpheus: spec 006 DRAFT entregado por /architect
+- specs/006-escena-hogar-pixel-art/spec.md: 22 REQ, 13 INV, 17 EDGE, 34 SC, 4 NFR; trazabilidad A1..D19 completa. 15 decisiones D6-01..D6-15 pendientes de Neo.
+- .specify/feature.json apunta a 006 (sin commit; revisar).
+- Despacho en paralelo /rama y /merovingian (solo lectura) sobre el spec. /mouse después, una vez.
+
+### 2026-11-18 — Morpheus: Neo aprueba D6-01..D6-17 (006)
+- D6-01 A (Vertex AI, fetch nativo Node 22, sin dependencia npm; fake para dev/CI). D6-12 A: tope 5 USD/mes en terraform/budget.tf + enmienda acotada Principio VI. D6-15 B (Cloud Tasks o Cloud Run Job, evaluar con /link). Resto según propuesta; D6-10 B; D6-13 A; D6-16 A; D6-17 A.
+- Siguiente: /architect aplica decisiones en spec, corrige B4/B5, redacta borrador de aviso de consentimiento (C4), y produce plan.md, research.md, data-model.md, contracts/. Luego revisiones /trinity, /lock, /mifune, /link, /merovingian sobre el plan. Sin tasks.md hasta validación.
+
+### 2026-11-18 — Morpheus: paquete de diseño 006 listo para decisión de Neo
+- Revisiones: /trinity (0 crit, 3 altos), /lock (6 altos), /mifune (13), /link (Terraform con errores de moneda y contradicciones con REQ firmados), /merovingian (8 altas: 006-11..16, 18, 20). Pasada consolidada del architect aplicada en DRAFT.
+- /oracle: PASS CON OBSERVACIONES; correcciones OBS-1/3/4/5/6 aplicadas por architect y verificadas con ajv strict. No re-auditadas por /oracle.
+- Escalado a Neo: N2-01..N2-12 y EDGE-ESC6-016 / H-MIF-006-03.
+
+### 2026-11-18 — Morpheus: Neo firma N2-01..N2-12 y EDGE-ESC6-016 (iteración 46)
+- Aprobado todo; driver real y merge a main quedan bloqueados hasta compuerta (REQ-ESC6-028, N2-01 A, N2-02 A, N2-04, revisores produccion).
+- Siguiente: /architect asienta N2 en spec/plan, genera tasks.md (N2-08 y N2-06 primero), luego ejecución por fases con fake: keymaker, oracle, lock, trinity, sati. Sin terraform apply, sin main, sin driver real.
+
+### 2026-11-18 — Morpheus: Logos encendida por Neo; decisiones pendientes de 006 enviadas al canal
+- Pendientes: prototipo de escena (sati H-S2/H-S3 altas), borrar .stryker-tmp (confirmación), versionar specs/006, aviso de consentimiento (BORRADOR), T824, T797, T885.
+
+### 2026-11-18 — Morpheus: Neo aprueba prototipo y autoriza cierre de Fase 7
+- Autorizado: borrar .stryker-tmp/ (ejecutado), correcciones de /sati (H-S1..H-S5, H-S12 y bajas triviales), versionar specs/006 en la rama, Consentir activo con NOTICE_DRAFT=true, firma legal previa a T885.
+
+### 2026-11-18 — Morpheus: Fase 8 cerrada en REVIEW (SMITH-01/02 selladas, 3fef7b4); escalo a Neo
+- Oracle PASS CON OBS (oracle-006-smith-cierre.md). Pendientes: T883/T884 GOV, árbol sucio ajeno (constitution.md, audit-log.port.ts), registro de deudas (e2e foco, SMITH-03, Stryker reporte), COMPLETED de Neo, T885 bloqueada por N2-10.
+
+### 2026-11-18 — Morpheus: inicio de sesión (modo manual, Logos OFF)
+- Lectura en orden: bus, entorno-y-lecciones, handover-morpheus-2026-11-18-006.md, tasks.md 006, feature.json (apunta a 006), git status y log -5.
+- Estado en disco: rama 006-escena-hogar-pixel-art, HEAD 3fef7b4, sin push; Fase 8 en REVIEW; T883/T884 [GOV] pendientes; T885 BLOQUEADA (N2-10). Ninguna tarea marcada [x] en 006.
+- Árbol sucio ajeno (constitution.md 3.6.0, audit-log.port.ts, enmiendas 002/003/004, T797 de 005 en [x]); no se toca sin orden de Neo.
+- Sin acción ejecutada: el handover exige esperar la orden de Neo sobre las decisiones pendientes.
+
+### 2026-11-18 — Morpheus: orden de Neo recibida (T883, T884, commit documental)
+- Neo autoriza: commit documental aparte (constitution.md 3.6.0, audit-log.port.ts comentario, enmiendas 002/003/004); registro de 4 deudas en T884; T824, T797, T885 sin cambios; COMPLETED lo firma Neo.
+- Despachado /oracle (subagente) para T883: auditoría en disco, veredicto en .specify/memory/audits/oracle-006-fase8-final.md. Morpheus no emite veredicto.
+- Pendiente tras el veredicto: T884 en tasks.md, commit documental con rutas explícitas, sin push ni main.
+
+### 2026-11-18 — Morpheus: T883 y T884 ejecutadas; commit documental aislado
+- T883: /oracle PASS CON OBSERVACIONES (.specify/memory/audits/oracle-006-fase8-final.md). Discrepancia a escalar: su corrida dio 4700 pruebas pasan y 201 omitidas sin TEST_DATABASE_URL, frente a 4900 con PG17 real que consta en el bus.
+- T884: tasks.md en REVIEW con las 4 deudas autorizadas (E2E foco, SMITH-03, Stryker domain/scene, T591R-2). Sin [x].
+- Commit ba3c750: solo constitution 3.6.0, audit-log.port.ts y enmiendas 002/003/004 (rutas explícitas). Sin push, sin main.
+
+### 2026-11-18 — Morpheus: OBS-A cerrada y OBS-C desglosada (orden de Neo)
+- Contenedor desechable postgres:17 (17.12) levantado y eliminado. test:gate con TEST_DATABASE_URL: rc=0, 314 archivos, 4900 pasan, 1 omitida (t558 de 004, fuera de 006), 0 fallos.
+- OBS-C: 196 IDs propios de 006; 157 con @implements; 39 sin trazar: 4 de T885 (REQ-ESC6-028, SC-ESC6-042/043/060) y 35 de comportamiento del tramo fake sin etiqueta.
+- Evidencia: .specify/memory/audits/morpheus-006-obs-a-c-evidencia.md. Commit eab9d12. Sin push, sin [x].
+
+### 2026-11-18 — Morpheus: cierre del tramo fake de 006 (firma COMPLETED de Neo)
+- Neo firmó [x] 83/85 en tasks.md; T824 [HUM] y T885 [GOV] siguen abiertas. Verificado en disco; trazabilidad 006 CUMPLE.
+- Commit b90c3b5 solo con tasks.md. Sin push, sin main, sin ARGOS_SCENE_DRIVER=real, T885 no ejecutada.
+
+### 2026-11-18 — Morpheus: orden de Neo para tramo gemini-api (driver privado)
+- Neo autoriza GeminiApiSceneImageGenerator detrás de SceneImageGeneratorPort (fetch nativo, cero deps, x-goog-api-key, fuera de producción). Clave en .env (ignorado por git); Morpheus no la lee ni escribe.
+- Despachados en paralelo, solo lectura: /architect (diseño y conflictos de contrato) y /merovingian (egreso, Principio VI, PII, costo). Después /keymaker. Sin tocar src/ desde Morpheus.
+
+### 2026-11-18 — Morpheus: veredicto de /merovingian sobre gemini-api: BLOQUEADO para producción
+- Principio VI (constitución 3.6.0) solo excepciona Vertex AI; generativelanguage.googleapis.com queda fuera (research.md:26, REQ-ESC6-028). Implementar el adaptador sin enmienda contradice la constitución.
+- Consentimiento ligado a providerId 'vertex-gemini-image' (notice.ts:9): habría que cambiarlo y reconsentir. Redacción de clave: cloud-logging.ts no cubre AIza ni ?key=.
+- Sin cuota global (N2-02) ni tope duro en la clave de AI Studio.
+- Morpheus NO despacha /keymaker. Espera decisión de Neo: (1) uso local con datos sintéticos sin enmienda, con condiciones C4-C8; (2) enmienda formal del Principio VI y D6-01 con términos de datos verificados.
+- Informe: .specify/memory/audits/merovingian-006-gemini-api.md. Architect pendiente de notificación.
+
+### 2026-11-18 — Morpheus: diseño de /architect gemini-api recibido (DRAFT, sin código)
+- Diseño: specs/006-escena-hogar-pixel-art/audits-gemini-api-diseno.md. Tercer valor de ARGOS_SCENE_DRIVER; rechazado en producción; sin GEMINI_API_KEY falla al arrancar; sin tocar SCENE_REAL_DRIVER_ACTIVATED.
+- Hallazgo crítico: el consentimiento solo se exige si realDriver=true; hoy composeSceneServices lo fija en false. Con gemini-api debe ser true, con providerId nuevo y aviso reescrito; si no, las fotos saldrían sin consentimiento.
+- Choques de Nivel 2 (C1..C10): T879 prohíbe clases Gemini en src/; REQ-ESC6-017/031 y SC-ESC6-025/061 solo admiten Vertex; C3 términos de datos no verificados; C4 Principio VI; C6 rango SC 001..096 del verificador; C10 primer secreto de proveedor.
+- Morpheus no despacha /keymaker hasta decisión de Neo sobre C3 y C4 (proveedor, datos de prueba, tope de gasto).
+
+### 2026-11-18 — Morpheus: Neo firma Opción 2 (gemini-api solo local, fuera de producción; C1..C10 resueltos)
+- Enmiendas acotadas: Principio VI (excepción local), REQ/SC de 006 para {real, fake, gemini-api}, guarda T879 con lista blanca, scene-composition realDriver=true + providerId 'gemini-api' + aviso propio, cloud-logging con redacción AIza y x-goog-api-key.
+- Despachado /architect para redactar enmiendas y tareas [N2] (sin COMPLETED, sin commit). Después /keymaker, /oracle y gates. Clave solo en .env local.
+
+### 2026-11-18 — Morpheus: enmiendas gemini-api redactadas por /architect (T886-T888, borrador)
+- Constitución 3.7.0, spec/plan 006 (REQ-ESC6-037/038, INV-ESC6-020, SC-ESC6-097..103, D6-18, N2-13), cabecera verify-traceability 001..103, cloud-logging con redacción AIza y x-goog-api-key. Tareas T886..T900 abiertas [ ] en tasks.md 006 (T900 [HUM] para Neo).
+- Gates tras cambios: verify-traceability 006 CUMPLE (205/205), tsc 0.
+- Despachado /oracle para verificar T886-T888 en disco (oracle-006-gemini-api-enmiendas.md). Después /keymaker desde T889.
+
+### 2026-11-18 — Morpheus: /oracle PASS CON OBS sobre T886-T888; despachado /keymaker T889-T898
+- Oracle: verify 006 rc=0 (205/205), tsc 0; sin cambios en tests, package.json, lock, terraform, .github; .env no tocado. Observación: N2-13 figura como "Aprobada" en tabla (registro, no APPROVED).
+- Keymaker: pruebas rojas primero (T889-T896), código T891/T893/T895, .env.example T897, compuertas T898. Sin claves, sin red, sin commit, sin [x]. Informe: .specify/memory/audits/keymaker-006-gemini-api.md.
+- T886-T888 pendientes de firma COMPLETED de Neo.
+
+### 2026-11-18 — Morpheus: tramo gemini-api implementado por /keymaker (T889-T898); gate con PG 17 real
+- Keymaker: pruebas rojas primero, luego verde. Sin red real, sin clave leída, sin commit, sin [x].
+- Gate con PostgreSQL 17 real (contenedor desechable, eliminado): test:gate rc=0, 319 archivos, 4959 pasan, 1 omitida (fuera de 006).
+- Desviaciones de keymaker: ARGOS_SCENE_GEMINI_MODEL sin defecto (SC-ESC6-097 lo exige); responseModalities IMAGE no verificada sin red; límites inline no verificados.
+- Despachado /oracle para T899 (oracle-006-gemini-api-t899.md).
+
+### 2026-11-18 — Morpheus: commit del tramo gemini-api (824d82c) y arranque local para T900
+- Neo firmó COMPLETED T886..T899 (97/100 [x]; abiertas T824, T885, T900).
+- Commit 824d82c solo con archivos del tramo (28). Excluidos: .gitignore, specs/005/tasks.md (T797), tests/chaos/, claude/*, logos.py, informes de fases previas de 006 sin commit.
+- Arranque local para T900: `npm run dev` (API en 127.0.0.1:3100, Vite en 5173), lee .env con --env-file-if-exists.
+
+### 2026-11-18 — Morpheus: cierre de sesión (hardline)
+- Forense: HEAD 824d82c, 77 commits sobre origin/main, sin push. tasks 006: 97 [x]; abiertas T824, T885, T900.
+- Handover: claude/handover-morpheus-2026-11-18-cierre.md. Logos OFF. Sin cambios de código en la sesión de cierre.
+
+### 2026-11-19 — Morpheus: despacho de prueba trivial a keymaker
+- Neo pidió: despachar /keymaker con misión trivial (reportar modelo en ejecución). Sin cambios de código, sin commit, sin tasks.md.
+- Acción: Agent subagent_type "keymaker" (sin model:, el agente fija sonnet). Verificar que el modelo reportado coincide con su frontmatter.
+- Resultado keymaker (a8e8018edce7f00ab): reporta Sonnet 5.5, ID claude-sonnet-5-5; declarado sonnet en su definición. Sin archivos leídos ni modificados.
+
+### 2026-11-19 — Morpheus: inicio de sesión (retomar)
+- Lectura: handover-morpheus-2026-11-18-cierre.md, bus, log-morpheus, git (HEAD 824d82c, sin push), tasks 006.
+- Abiertas en 006: T824 [HUM], T885 [GOV] bloqueada por N2-10, T900 [HUM]. Ninguna es despachable por agentes sin decisión o acción de Neo.
+
+### 2026-11-19 — Morpheus: misión de Neo tras prueba en vivo T900
+- Neo reporta 4 fallos de comportamiento en la prueba en vivo (gemini-2.5-flash-image, HTTP 200): (1) PetsPage oculta escena si pets.total===0; (2) SceneBlock: sin imagen solo botón inicial; (3) IMG_n: parte texto antes de cada inlineData en buildGeminiBody; (4) decide-mode REGENERATE al cambiar foto del hogar + prompt pixel art 100% + Pet n numerados.
+- Ademas: proxy /__dev/media en vite.config.ts (pendiente de revisar en diff, incluir en ambito).
+- Cadena: /architect (impacto spec/plan/tests) -> /keymaker -> /oracle. Sin commit ni [x] sin orden de Neo.
+
+### 2026-11-19 — Morpheus: informe /architect fixes en vivo recibido; escalo a Neo
+- Informe: specs/006-escena-hogar-pixel-art/audits/architect-006-fixes-en-vivo.md. Sin bloqueo normativo.
+- Requiere decision de Neo antes de keymaker: (a) regla OWNER con guardas (pets.total===0 && imageTag===null && consentimientos false) en vez de literal; (b) plantillas 4b/4c (PIXEL_REDRAW_RULE, Pet k:); (c) no tocar decide-mode (4a), solo prueba de regresion.
+- Tareas propuestas T901..T910 (todas [ ]). T901 [GOV] aplica enmiendas tras aprobacion de Neo. Sin commit, sin [x].
+
+### 2026-11-19 — Morpheus: Neo aprueba (a) guardas OWNER, (b) 4b/4c, (c) decide-mode sin cambio
+- Orden: T901 por /architect (aplicar enmiendas DRAFT, tabla cobertura, verificacion documental), luego keymaker T902..T908 incl. vite.config.ts aislado, T909 compuertas, T910 oracle hasta REVIEW.
+- Sin commit ajeno al 006, sin push, sin [x] ni COMPLETED.
+
+### 2026-11-19 — Morpheus: T901 aplicada en disco (architect), despacho keymaker T902..T908
+- T901 DRAFT en spec/plan/tasks 006; SC-ESC6-104..109; verify-traceability CUMPLE (211/211). Sin [x], sin commit.
+- Keymaker: T902..T908 secuencial; T909 compuertas; sin commit ni [x].
+
+### 2026-11-19 — Morpheus: keymaker T902..T908 reporta; T909 3/4 compuertas verdes
+- test:gate rc1 solo por T591R-2 (flaky, carga). Desviacion: argos-scan:allow en 4 tests + redaccion en .specify/memory/audits/keymaker-006-gemini-api.md. Oracle debe auditarla.
+- Despacho /oracle para T910 (auditoria en disco T901..T909, repetir test:gate en reposo). Sin commit, sin [x].
+
+### 2026-11-19 — Morpheus: Oracle T910 PASS CON OBSERVACIONES; escalo a Neo
+- Compuertas: traceability CUMPLE 211/211; oracles CUMPLE; tsc 0; test:gate rc0 (320 archivos, 4974 pasan, 1 omitida). T591R-2 paso en carga ~4.2.
+- Acta: specs/006-escena-hogar-pixel-art/audits/oracle-006-fixes-en-vivo-t910.md. Sin commit. Sin [x]/COMPLETED.
+- Pendiente Neo: OBS-1 argos-scan:allow; OBS-2 registrar T591R-2 como deuda; autorizar commit 25 rutas; firma COMPLETED T901..T909; repetir prueba en vivo. OBS-3 (SC-ESC6-106 wording) y OBS-4 (spec/plan DRAFT).
+
+### 2026-11-19 — Morpheus: orden de Neo ejecutada (commit 80a8ccf)
+- T901..T909 marcadas [x] por orden de Neo; T910 queda [ ]. DEUDA-006-T591R2-TIMING registrada en tasks.md.
+- Commit 80a8ccf: 23 rutas (acta decia 25; su lista tiene 23), staging por ruta explicita, nada fuera de 006. Sin push, sin merge.
+- Pendiente documental: /architect precisa SC-ESC6-106 y T904 (igualdad byte a byte solo para PIXEL_REDRAW_RULE). Neo: prueba en vivo T910 [HUM].
+
+### 2026-11-19 — Morpheus: prueba en vivo T910 falla en 3 puntos; nueva fase T911+
+- (1) PetsPage solo imagen del hogar en solo-visualizacion si imageTag!==null; sin controles; sin bloque por tener mascotas. (2) canRegenerate alineado con limits.allowed; mensaje con retryAfterSeconds; refresco al vencer cooldown 60s. (3) Conteo dinamico N=rendered.length y desglose por especie en scratchBlocks.
+- OBS-3 (SC-ESC6-106/T904) incluido. Paso 1: /architect DRAFT. Sin codigo, sin commit, sin [x], T910 queda [ ].
+
+### 2026-11-19 — Morpheus: Neo ordena detener agentes; /architect T911+ detenido (TaskStop)
+- Sin otros agentes en curso. Revisado estado parcial en disco antes de decidir.
+
+### 2026-11-19 — Morpheus: directiva actualizada de Neo (T911+, punto 3 = JSON saneado)
+- Punto 3 cambia de prosa a especificacion JSON saneada (sin household.id, pets[].id, nombres, biography, breed libre); renderedPetsCount dinamico; pets[] index 1..N.
+- Spec.md tiene diff parcial sin commit de architect detenido: se pide revisar antes de reutilizar.
+- Despacho /architect (DRAFT). Sin codigo, sin commit, sin [x], T910 [ ].
+
+### 2026-11-19 — Morpheus: /architect T911+ en DRAFT; Blocked por N2-14 y N2-15; escalo a Neo
+- Enmienda DRAFT en spec/plan/tasks (T911..T923, SC-110..118, 221/221 trazabilidad CUMPLE). Informe: specs/006-escena-hogar-pixel-art/audits/architect-006-fase-t911.md.
+- N2-14: retryAfterSeconds en scene.schema.json y OpenAPI (contrato, MINOR 1.1.0). Bloquea T912..T917.
+- N2-15: usuario sin hogar sin escena OWNER ni retiro de consentimiento. Opciones A/B/C; architect recomienda B. Bloquea T919.
+- Sin keymaker: directiva exige escalar antes. Sin commit, sin [x], T910 [ ].
+
+### 2026-11-19 — Morpheus: Neo aprueba N2-14 (si) y N2-15 (B)
+- Flujo: /architect T912 (con consulta /merovingian) -> /mouse sobre T911 -> /keymaker T913..T922 -> /oracle T923. Sin [x], sin COMPLETED, sin push.
+
+### 2026-11-19 — Morpheus: T912 en DRAFT (scene.schema 1.1.0, openapi change_note). Merovingian: H1 (canRegenerate), H2 (t851 toEqual), H3 (T913 obligatoria). Default no bloqueante: retryAfterSeconds valor real con blockedReason=ROLE.
+- Siguiente: /mouse sobre T911, luego /keymaker T913..T922.
+
+### 2026-11-19 — Morpheus: /mouse (1 pasada) BLOCKED por documentacion de la matriz y N2
+- Defectos: (1) matriz REQ->SC->tareas sin Fase 11 (REQ-007/016/019/034); (2) N2-14 y N2-15 figuran PENDIENTE, Neo aprobo; (3) cabecera "85 tareas".
+- Sin repetir /mouse (gate de 1 pasada). Architect corrige en DRAFT; /oracle en T923 verifica consistencia.
+
+### 2026-11-19 — Morpheus: defectos /mouse corregidos por /architect (CUMPLE). Despacho /keymaker T913..T922
+- Sin commit, sin [x], T910 [ ], T911..T923 [ ].
+
+### 2026-11-19 — Morpheus: keymaker T913..T921 OK; T922 con 2 rojas (T591R-2 conocida; scan-secrets por literal en acta oracle T910 linea 22)
+- Escaner: 1 hallazgo en specs/006.../audits/oracle-006-fixes-en-vivo-t910.md:22. Corrige el propio /oracle en T923 (redactar literal, mantener dictamen).
+- Desviaciones keymaker: PET_COUNT_RULE sin digito; t874 ajustado; hook SceneBlock sin jsdom.
+- Despacho /oracle T923 (auditoria T911..T922, repetir test:gate en reposo). Sin commit, sin [x].
+
+### 2026-11-19 — Morpheus: Oracle T923 PASS CON OBS; escalo a Neo (5 decisiones)
+- Gates: traceability CUMPLE; oracles CUMPLE; tsc 0; test:gate rc0 (323 archivos, 5022 pasan, 0 rojas). Acta: specs/006-escena-hogar-pixel-art/audits/oracle-006-fase-t923.md.
+- Sin commit, sin [x], sin COMPLETED.
+
+### 2026-11-19 — Morpheus: commit fase 11 (T911..T922 [x]); DEUDA-006-SCENEBLOCK-DOM-TEST registrada
+- Commit local aislado (33 rutas, sin push). T923 y T910 [ ] hasta repeticion en vivo de Neo.
+
+### 2026-11-19 — Morpheus: prueba en vivo avanza; Fase 12 (3 ajustes): PetsPage isMine con hogar principal; KEEP con ranura IMG_n en incrementales; textos de ayuda en SceneBlock
+- Flujo: /architect DRAFT (Fase 12) -> /keymaker TDD -> /oracle. Sin [x], sin COMPLETED, sin push. T910/T923 [ ].
+
+### 2026-11-19 — Morpheus: Fase 12 DRAFT (T924..T934). Blocked parcial por N2-16 (KEEP en tope de bytes; degraded). Escalo a Neo. Mouse 1 pasada Fase 12 y keymaker T925..T927 + T931..T932 mientras tanto.
+- Nota: PET_COUNT_RULE (a) y OpenAPI 3.4.0 (c) ya estaban resueltos por Neo; no son pendientes.
+
+### 2026-11-19 — Morpheus: /mouse Fase 12 PASS (observacion menor: cabecera matriz excluye T901/T910/T911/T924). Despacho /keymaker T925..T927, T931..T932. T928..T930 esperan N2-16.
+
+### 2026-11-19 — Morpheus: keymaker T925,T926,T931,T932 verdes; T927 7 rojas esperadas hasta T928 (N2-16). Escalo N2-16 a Neo.
+
+### 2026-11-19 — Morpheus: Neo resuelve N2-16 (B+C): descartar KEEP primero, omision KEEP no degraded; autoriza prosa change_note scene-payload.schema.json. Despacho keymaker T928..T930.
+
+### 2026-11-19 — Morpheus: keymaker T928..T930 en disco (prosa change_note aplicada, src/generated sin cambio). Despacho /oracle T933..T934 y /rama (privacidad KEEP).
+- Pregunta para Neo (no bloqueante): referencia KEEP ausente o ilegible marca degraded (N2-16 solo cubre el tope).
+
+### 2026-11-19 — Morpheus: /rama privacidad KEEP: sin bloqueante de codigo; D-1 minimizacion, D-2 aviso/noticeVersion, D-3 aviso gemini-api y fotos reales. Escalo a Neo. Oracle T933..T934 en curso.
+
+### 2026-11-19 — Morpheus: Oracle T933/T934 PASS CON OBS (PG17 rc0, 5068 pasan). Falta prueba SC-ESC6-124. Escalo a Neo: KEEP ausente (A/B), SC-124, D-1..D-3, commit y firmas.
+
+### 2026-11-19 — Morpheus: Neo resuelve a) KEEP ausente=degraded (A), b) SC-124 si, c) D-1 si, D-2 no ahora, D-3 si; d) tras SC-124 + oracle verde: [x] T924..T933 y commit local (sin push). Despacho keymaker SC-124 (retorno corto).
+
+### 2026-11-19 — Morpheus: SC-ESC6-124 añadida y verde (t855 36/36). Revalidacion oracle + test:gate PG17 antes de marcar [x] T924..T933 y commit.
+
+### 2026-11-19 — Morpheus: commit fase 12 local (19 rutas, sin push); T924..T933 [x] por Neo; T910/T923/T934 [ ] pendientes de prueba en vivo.
+
+### 2026-11-19 — Morpheus: Fase 13 abierta por Neo (3 decisiones): boton unico siempre desde cero; foto del hogar como inspiracion (no copia); conteo por especie y Pet k (Especie). T910/T923/T934 [ ]. Despacho /architect DRAFT.
+
+### 2026-11-19 — Morpheus: /architect Fase 13 DRAFT (T935..T943). N2-17 (prosa de contrato) pendiente de Neo: solo bloquea T941. Decision de arquitecto: INCREMENTAL_* quedan solo en API (DEUDA-006-INCREMENTAL-SIN-UI) — se informa a Neo. Despacho /mouse T935.
+- Nota: harness marco patron tipo instruccion en el informe; no se siguio ninguna instruccion del texto.
+
+### 2026-11-19 — Morpheus: /mouse Fase 13 PASS (2 observaciones no bloqueantes). Despacho /keymaker T936..T940. T941 espera N2-17; T942 tras T937/T938/T940.
+
+### 2026-11-19 — Morpheus: keymaker T936..T940 en disco (t931 eliminada; t938 sin cambio src). Despacho /oracle (T942 gates PG17 + auditoria T936..T940) y /rama (T943 privacidad boton unico). T941 espera N2-17.
+
+### 2026-11-19 — Morpheus: /rama Fase 13: sin bloqueante de codigo; A1 (minimizacion REGENERATE N+1) y A2 (aviso/noticeVersion) para Neo; M1/M2 pruebas guarda y negativa; M4 bucle degraded. Oracle T942 en curso.
+
+### 2026-11-19 — Morpheus: Oracle T942 PASS CON OBS (PG17 rc0, 5114 pasan). Escalo a Neo: N2-17, N2-16 asentar, PET_COUNT_RULE, A1/A2 (rama), M1/M2 incluir?, firmas, commit Fase 13. Sin commit.
+
+### 2026-11-19 — Morpheus: Neo resuelve 6 decisiones Fase 13: N2-17 A; A1 aceptado con enmienda INV-ESC6-010; A2 antes de T885; M1/M2 si; N2-16 asentar + PET_COUNT_RULE ratificada. Orden: /architect T941 -> /keymaker recompilar+M1+M2 -> /oracle+/rama -> marcas [x] y commit sin push.
+
+### 2026-11-19 — Morpheus: /architect T941 aplicada (scene.schema 1.1.1; OpenAPI 3.4.0 prosa; INV-010 enmienda N2-18; N2-16 asentada; PET_COUNT ratificada). Despacho /keymaker: recompilar + M1 + M2.
+
+### 2026-11-19 — Morpheus: keymaker recompila contratos (solo prosa, 7 archivos generados), M1 prueba-candado (sin guarda produccion; decision de Neo pendiente), M2 2 pruebas verdes. Despacho /oracle revalidacion + test:gate PG17 y /rama T943.
+
+### 2026-11-19 — Morpheus: /rama T943 privacidad PASS (0 bloqueante, 0 alto). Notas: renombrar test M2 "foto KEEP" (t855:575); guarda produccion realDriver antes de T885 (opcional). Oracle revalidacion en curso.
+
+### 2026-11-19 — Morpheus: Neo ordena detener agentes. /oracle revalidacion Fase 13 detenido (TaskStop). /rama T943 ya cerrado (PASS privacidad).
+
+### 2026-11-19 — Morpheus: Neo pide 2 ajustes rapidos para prueba en vivo: (1) contador regresivo cooldown en vivo; (2) frase equilibrada householdBlock. Solo tsc + t841/t916/t936/t939. Sin test:gate, sin commit.
+
+### 2026-11-19 — Morpheus: Neo aprueba prueba en vivo y la pasada unica de cierre Fase 13. Ya hechos: T941 recompilado, M1/M2, /rama privacidad PASS. Pendiente: alinear prosa spec/plan (householdBlock positivo, PIXEL_REDRAW_RULE, contador), /oracle final con test:gate PG17, marcas [x] T910,T923,T934,T935..T943 (T824/T885/T900 abiertas), commit local sin push.
+
+### 2026-11-19 — Morpheus: /architect alineacion: discrepancias de disco vs encargo: (1) frase hogar en disco = "Draw a brand-new 32-bit retro video-game isometric cutaway room diorama..." (no "Recreate..."); (2) relectura al llegar a 0 (no t+1 s). Escalo a Neo antes de /oracle final.
+
+### 2026-11-19 — Morpheus: Neo confirma frase hogar (disco) y contador a 0. Procede /oracle final + /rama PG17, marcas [x] y commit. CLAUDE.md nuevo: tras cerrar [x], sync gh-project-sync.mjs.
+
+### 2026-11-19 — Morpheus: /rama revalidacion cierre Fase 13 PASS (0 hallazgos nuevos; scene-notice:96 arrastrado ALTO diferido a A2/T885). Oracle final en curso.
+
+### 2026-11-19 — Morpheus: commit local Fase 13 (33 rutas, sin push). T910, T923, T934, T935..T943 [x] por orden de Neo. T824, T885, T900 abiertas.
+
+### 2026-11-19 — Morpheus: sync GitHub Projects (CLAUDE.md): dry-run sin etiquetas [GH:#N] en tasks 006; nada que sincronizar. Sin push.
+
+### 2026-11-19 — Morpheus: cierre de sesión (hardline). HEAD 8dea731 (006, sin push). Abiertas T824, T885, T900. Handover: claude/handover-morpheus-2026-11-19.md. Logos OFF.
+
+### 2026-11-19 — Morpheus: inicio de sesión (/morpheus inicia sesión). Leídos bus, entorno, handover 2026-11-19, tasks 006. HEAD 8dea731 (006, sin push). 006 limpio en src/specs/tests; sólo tests/chaos/ sin seguimiento (ajeno). Abiertas T824 [HUM], T885 [GOV, bloqueada N2-10], T900 [HUM]. Logos OFF, sin proceso logos.py. Sin despacho: esperando instrucción de Neo.
+
+### 2026-11-19 — Morpheus: Neo da por cerrada la feature 006. Registro en claude/cierre-feature-006-2026-11-19.md. No se cambian estados DRAFT, no se marcan COMPLETED (T824/T885/T900 abiertas), sin push ni merge. Formalizaciones pendientes de Neo.
+### 2026-11-19 — Morpheus: Neo acepta cierre operativo 006; corrijo conteo a 140 [x] / 3 [ ]; decisiones (a)(b)(c) asentadas en el registro de cierre. En espera de directiva.
+
+### 2026-11-19 — Morpheus: Neo abre Feature 007 desde claude/inbox-feature-007.md (6 ítems: GH #11..#15, #51). Nueva dinámica: [GH:#N] obligatorio en tasks.md y sync con gh-project-sync.mjs al quedar listo y en cada avance [x]. Despacho /architect (spec/plan/tasks DRAFT).
+### 2026-11-19 — Morpheus: Architect 007 entregado (DRAFT, T1001..T1063, 49 [ ], GH #11-#15,#51 cubiertos). Verificado en disco. Sync real diferido hasta gates (dry-run: 6 issues Todo->In Progress 0/N). Despachados en paralelo /lock (T1001), /mifune (T1002), /merovingian (T1011), /rama (T1012). Pendientes: /mouse T1005; firmas Neo D7-01..06 y N2-07-01.
+### 2026-11-19 — Morpheus: Mifune T1002 entregado (17 hallazgos M7-01..17). Verifiqué inbox: #14 aplica a Peso/Medidas/Vacunas/Desparasitación; Consultas y Parámetros no están en el alcance de Neo (M7-10 confirmado). Podas altas pendientes de /architect tras las actas de lock, merovingian y rama. Sin edición directa de specs por Morpheus.
+### 2026-11-19 — Morpheus: Rama T1012 entregado: BLOQUEADO PARCIAL solo #13 (C1 y D7-06 para Neo; C2, C3, C6 para /architect). #11/#12/#14/#15/#51 PASS. Acta rama-007-privacidad.md. Pendientes: lock y merovingian.
+### 2026-11-19 — Morpheus: Lock T1001 entregado. Acta lock-007-edge.md: 3 BRECHAS ALTAS en #13 (EDGE-007-009 pestaña obsoleta revierte a ALIVE; -010 carrera registro vs DECEASED; -011 birthDate posterior a deceasedAt) + 8 MEDIAS + BAJAS. 7 decisiones para Neo (009,012,013,014,015,016,017). Pendiente merovingian; después /architect pase único con podas Mifune + Lock + C2/C3/C6 de Rama.
+### 2026-11-19 — Morpheus: Merovingian T1011 entregado: N2-07-01 CONDICIONALMENTE SEGURA. Enmienda debe ir a línea 002 (no 001); rollback de respaldos (C3) es decisión de Neo; huella sin campos nuevos en SnapshotPet; migración 0014/0010 con paridad. Acta merovingian-007-impacto.md. Todos los gates de 007 en disco. Despacho pase único de /architect con puntos técnicos; decisiones Neo marcadas pendientes.
+### 2026-11-19 — Morpheus: Neo aprueba 12 decisiones Nivel 2 de 007 (registro claude/decisiones-neo-007-2026-11-19.md). Se envían a /architect para asentar en spec/plan/tasks; luego /mouse T1005. Rama 007 desde 006 (8dea731) antes de src/.
+### 2026-11-19 — Morpheus: Architect pase único 007 entregado: 12 decisiones asentadas; 51 [ ], 0 [x]; etiquetas #11..#15,#51 presentes. Despacho /mouse gate único (T1005). Rama 007 desde 006 (8dea731) pendiente antes de src/.
+### 2026-11-19 — Morpheus: Mouse T1005 BLOCKED por 2 citas faltantes (NFR-007-003 y EDGE-007-004 sin tarea citada). Solo citación. Architect corrige; luego Mouse reejecuta (gate de re-validación, anotado a Neo). Acta mouse-007-estructura.md.
+### 2026-11-19 — Morpheus: Architect cerró citas (NFR-007-003→T1003; EDGE-007-004→T1015,T1068; SC-002/014/019/020). O1: version = entero ≥1 (decisión técnica del Architect; a confirmar con Neo). Re-ejecuta Mouse (re-validación).
+### 2026-11-19 — Morpheus: /mouse T1005 PASS (re-validación). 007 lista para aprobación final de Neo. Pendiente: aprobación 007, confirmación tipo version (entero), autorización sync GH, crear rama 007 desde 006 (8dea731) antes de src/. Sin implementación hasta orden de Neo.
+### 2026-11-19 — Morpheus: Logos ENCENDIDA por Neo. Mensaje dejado en canal (estado 007 + 4 puntos pendientes). Pasa turno a Neo; espera pasiva en background.
+### 2026-11-19 — Morpheus: Neo aprueba 007 (APPROVED, version entero, sync y rama autorizados). Permiso denegado por el clasificador para git checkout -b y sync. No reintento. Pausa en Logos con comandos para Neo (!). Sin cambios en disco.
+### 2026-11-19 — Morpheus: Logos reencendida. Neo ejecutó rama 007 (checkout 8dea731) y sync (6 Issues Todo->In Progress). Despacho /sati T1003 y /keymaker bloques A,B,D,E,F (TDD, sin commit, sin [x], sin push). Bloque C pendiente de T1013/contratos.
+### 2026-11-19 — Morpheus: Sati T1003 entregado: prototipo specs/007.../prototipos/date-field.html. T1003 sigue [ ] hasta aprobación visual de Neo (320/1024/1280). Keymaker en curso (A,B,D,E,F).
+### 2026-11-19 — Morpheus: Neo apaga la Logos. Canal OFF. Keymaker sigue en curso; el reporte final va por terminal.
+### 2026-11-19 — Morpheus: Neo ordena detener agentes. Keymaker (aa41…) detenido con TaskStop; revisar estado parcial en disco.
+### 2026-11-20 — Morpheus: Logos reencendida. Neo pausa 007 (resguardo c98d00f) y ordena cierre T885 (Fase 14, Vertex AI). Verificado: T824 [x], T885 [ ], T900 [ ], rama activa 006 @ 8dea731. Pendientes no cubiertos por la directiva: aprobaciones de revisores de entorno produccion (T885 cond. 6), enmienda Principio VI (cond. 7), fuente REQ-ESC6-028 (T900 HUM). Despacho /architect Fase 14.
+### 2026-11-20 — Morpheus: /architect Fase 14 DRAFT (T944..T960; T885 depende de T955..T960). Bloqueos humanos T956..T960 (revisores produccion, Principio VI, fuente Cloud DPA, N/A T900) + E1 (N2-01), E2 (N2-04), E3 (unidad de cuota), T953 (Terraform, sin autorizar). Despacho /mouse Fase 14 antes de /keymaker.
+### 2026-11-20 — Morpheus: /mouse Fase 14 BLOQUEADO solo por T824 [x] (confirmación de Neo). Mensaje a Neo en Logos con (a) confirmar T824 y bloqueos b..g. Espera pasiva.
+### 2026-11-20 — Morpheus: Logos ON. Neo resuelve (a)..(g) Fase 14: T824 [x] confirmada; T956 referencia ya en deploy; T957 enmienda Principio VI RATIFICADA (sin nombres de modelo/región); T958 fuentes CDPA y service terms para research.md; T959 T900 N/A Vertex; T960 E1 sustituye N2-01=A por 0 npm; E2 COP confirmada; E3 cuota=5 generaciones/mes; T953 verificación solo lectura. Orden: asentar en docs (architect) -> /mouse PASS -> /keymaker T945..T952 -> T954/T955.
+### 2026-11-20 — Morpheus: /mouse PASS Fase 14 (DEF-M14-R1 resuelto). Despacho /keymaker T945..T952 en 006 (TDD, sin deploy, sin merge, sin push, sin commit, sin [x]). T953 solo lectura. Luego T954/T955.
+### 2026-11-20 — Morpheus: Keymaker Fase 14 T945..T952 entregado (gates tsc 0; vitest 5038 pasan; PG17 NO corrido; SCENE_REAL_DRIVER_ACTIVATED=false). Despacho /oracle auditoría T944..T952 + test:gate PG17 (aa14cce3303c8af70).
+### 2026-11-20 — Morpheus: /oracle Fase 14 PASS CON OBS (PG17 real rc0: 5281 pasan; H-F14-1 workflow real vs constante false; H-F14-2 cuota; H-F14-3 runbook terraform/README.md:242 (fuera de alcance, requiere autorización); H-F14-4/5). Despachados /rama, /trinity, /merovingian para T955.
+### 2026-11-20 — Morpheus: /rama Fase 14 PASS CON OBS. C1 Neo verifica fuentes; C2 salvedad retención; C3 keymaker región=defecto; C4 no activar real en prod mientras 'pendiente'; C5 archivar aviso-consentimiento-borrador.md. Pendientes trinity y merovingian.
+### 2026-11-20 — Morpheus: T955 gates: /rama PASS CON OBS (C1..C5); /trinity PASS CON OBS (0 crit/alto/medio; H-F14-T1..T4); /merovingian PASS CON OBS (E1 cumple literal; OBS-M1..M5). Pendiente propagación: OBS-M5 (N2-10 y T885 cond. 3 citan N2-01=A) y C5 (aviso-consentimiento-borrador.md). Despacho /architect.
+### 2026-11-20 — Morpheus: Fase 14 implementada (sin commit/push/merge). T955 dictámenes PASS CON OBS. Escalado a Neo por Logos con 8 decisiones. Espera pasiva.
+### 2026-11-20 — Morpheus: Neo firma T958, OBS-M1, OBS-M2; autoriza activar SCENE_REAL_DRIVER_ACTIVATED=true en pasada de cierre (commit local, sin merge/push). Orden: architect (residuos #8 y firmas) + keymaker (trinity #7, runbook #6, flag #4) en paralelo; luego /oracle final PG17; commit local. [x] T944..T960 y T885 los pone Neo.
+### 2026-11-20 — Morpheus: /architect cierre OK (residuos #8a/#8b; firmas (a)..(e) asentadas en spec/tasks; trazabilidad CUMPLE). Esperando /keymaker.

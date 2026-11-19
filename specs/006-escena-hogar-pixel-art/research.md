@@ -55,6 +55,14 @@ Mientras estas filas no tengan fuente, el aviso (`aviso-consentimiento-borrador.
 ### 2.5 Salida
 Imagen PNG o JPEG en base64 `[verificar]`; el modelo puede devolver texto en lugar de imagen o rechazar por seguridad (`finishReason`/`promptFeedback`) `[verificar]`: ambos son fallo (`EDGE-ESC6-004`). La salida puede llevar una marca de agua invisible (SynthID) `[verificar]`; no afecta el diseño. El formato esperado por contrato es PNG o WebP; si el modelo entrega JPEG se convierte en una decisión pendiente (no hay códec): se acepta JPEG también en `EDGE-ESC6-004` `[verificar con la salida real]` y se propone ampliar el conjunto aceptado a `image/jpeg` (MINOR, `contracts/`).
 
+### 2.3-bis Fuentes consultadas (`T958`, Neo, 2026-11-19)
+
+Fuentes registradas por Neo (Nivel 2) como consultadas el 2026-11-19; los agentes no las verificaron en red:
+- *Google Cloud Data Processing Addendum*: https://cloud.google.com/terms/data-processing-addendum
+- *Google Cloud Service Specific Terms*, Generative AI / Vertex AI: https://cloud.google.com/terms/service-terms (los Customer Data no se usan para entrenar modelos fundacionales).
+
+Cubren las filas de §2.3 sobre entrenamiento y DPA. Retención, borrado, región, SLA y precios siguen con `[verificar]` hasta que se cite su fuente y **quedan fuera de la firma del texto final del aviso**; Neo confirma el texto final tras `T950` y la revisión de `/rama` (`T958`, `D6-23` (d)).
+
 ## 3. Costo e IAM: resumen de lo que habría que cambiar (solo descripción)
 Ver `plan.md` §7. Nada de esto se ejecuta ni se escribe en `terraform/`.
 

@@ -25,7 +25,7 @@ describe('T875 formas y textos de la escena frente al contrato 006', () => {
   });
 
   it('[REQ-ESC6-026] el servidor y el cliente comparten constantes de versión del aviso y proveedor (ver t877)', () => {
-    expect([SCENE_NOTICE_VERSION, SCENE_PROVIDER_ID]).toEqual(['1', 'vertex-gemini-image']);
+    expect([SCENE_NOTICE_VERSION, SCENE_PROVIDER_ID]).toEqual(['2', 'vertex-gemini-image']);
   });
 });
 

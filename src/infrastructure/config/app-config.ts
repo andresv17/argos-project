@@ -33,9 +33,11 @@
  *   caracteres sin espacios ni saltos de línea y `ARGOS_SCENE_GEMINI_MODEL`; con `fake` o `real` ambas se ignoran; la clave nunca entra en un mensaje de error ni es enumerable) o `real`; `ARGOS_SCENE_MAX_PETS` 1–32 (8), `ARGOS_SCENE_QUOTA_MAX` 1–50 (10), `ARGOS_SCENE_GEN_TIMEOUT_SECONDS` 10–105 (90 = T_GEN),
  *   `ARGOS_SCENE_QUEUE` (`argos-scene`, identificador), y sin valor por defecto `ARGOS_SCENE_MODEL`, `ARGOS_SCENE_PROJECT_ID`, `ARGOS_SCENE_TASKS_SA_EMAIL` y
  *   `ARGOS_SCENE_WORKER_URL` (https, host `*.run.app`, ruta exacta `/internal/scene-worker`, sin consulta, fragmento, puerto ni credenciales). Con
- *   `NODE_ENV=production` se rechaza `fake`; `real` exige la constante de activación del código (`SCENE_REAL_DRIVER_ACTIVATED`, false hasta T885), el modelo y el
- *   proyecto, y en producción además la cuenta de Cloud Tasks y la URL del worker. `T_LEASE = T_GEN + 60` y `T_QUEUE = 600` son constantes de código. El tope global
- *   `ARGOS_SCENE_GLOBAL_QUOTA_MAX` (N2-02) NO se lee en el tramo fake. El error nombra solo la variable, nunca el valor.
+ *   `NODE_ENV=production` se rechaza `fake`; `real` exige la constante de activación del código (`SCENE_REAL_DRIVER_ACTIVATED`, true desde T885), el modelo y el
+ *   proyecto, y en producción además la cuenta de Cloud Tasks y la URL del worker. `T_LEASE = T_GEN + 60` y `T_QUEUE = 600` son constantes de código. Fase 14 (T948/T952,
+ *   D6-22): `ARGOS_SCENE_LOCATION` (lista cerrada de regiones; obligatoria con `real`) y `ARGOS_SCENE_GLOBAL_QUOTA_MAX` (1..1000, 5 por defecto; cuota GLOBAL mensual, N2-02) son el
+ *   RESPALDO de las filas de `platform_parameters`, que prevalecen (`scene-provider-parameters.ts`). Con `real` el driver es Vertex AI por el metadata server (sin clave de API).
+ *   El error nombra solo la variable, nunca el valor.
  * - Una variable inválida produce `AppConfigError` con la lista de variables afectadas; no se arranca con valores
  *   por defecto silenciosos. Ningún valor es secreto (`.env.example`).
  *
@@ -44,6 +46,7 @@
 
 import { createHash } from 'node:crypto';
 import { Ajv, type JSONSchemaType } from 'ajv';
+import { SCENE_DEFAULT_GLOBAL_QUOTA_MAX, isAllowedSceneLocation, parseSceneGlobalQuotaMax } from '../../domain/scene/provider-parameters.ts';
 import { DEFAULT_APP_TIMEZONE, isSupportedTimeZone } from '../adapters/system-clock.adapter.ts';
 
 export interface AppConfig {
@@ -106,6 +109,10 @@ export interface SceneConfig {
   /** Destino y audiencia de la tarea (`ARGOS_SCENE_WORKER_URL`); solo de configuración (INV-ESC6-018). */
   readonly workerUrl: string | null;
   readonly projectId: string | null;
+  /** Región de Vertex AI (`ARGOS_SCENE_LOCATION`, lista cerrada); `null` si no se definió. Respaldo de `platform_parameters` (T948). */
+  readonly location: string | null;
+  /** Cuota GLOBAL mensual de respaldo (`ARGOS_SCENE_GLOBAL_QUOTA_MAX`, 1..1000; 5 por defecto): la fila de `platform_parameters` prevalece (N2-02 = A, T948). */
+  readonly globalQuotaMax: number;
   /** Modelo del driver `gemini-api` (`ARGOS_SCENE_GEMINI_MODEL`); `null` con `fake` o `real`. */
   readonly geminiModel: string | null;
   /**
@@ -120,10 +127,10 @@ export const SCENE_QUEUE_WAIT_SECONDS = 600;
 /** T_LEASE = T_GEN + 60 s (INV-ESC6-013; cumple T_LEASE >= T_GEN + 30 s). */
 export const sceneLeaseSeconds = (genTimeoutSeconds: number): number => genTimeoutSeconds + 60;
 /**
- * Constante de activación del driver real (REQ-ESC6-028, REQ-ESC6-031, N2-10): permanece en `false` hasta que la tarea de gobernanza T885 la cambie. Mientras sea
- * `false`, `ARGOS_SCENE_DRIVER=real` no arranca y, por tanto, `NODE_ENV=production` tampoco (el simulador no se despliega).
+ * Constante de activación del driver real (REQ-ESC6-028, REQ-ESC6-031, N2-10): `true` desde la activación de T885 (Fase 14, D6-22; Vertex AI por el metadata server). Con
+ * `false` (solo por `options.sceneRealDriverActivated` en pruebas) `ARGOS_SCENE_DRIVER=real` no arranca y, por tanto, `NODE_ENV=production` tampoco.
  */
-export const SCENE_REAL_DRIVER_ACTIVATED: boolean = false;
+export const SCENE_REAL_DRIVER_ACTIVATED: boolean = true;
 
 /** Opciones de arranque; `sceneRealDriverActivated` permite a las pruebas fijar la constante de activación sin tocar el código. */
 export interface LoadAppConfigOptions {
@@ -261,6 +268,8 @@ const SCENE_MODEL_NAME = 'ARGOS_SCENE_MODEL';
 const SCENE_PROJECT_NAME = 'ARGOS_SCENE_PROJECT_ID';
 const SCENE_TASKS_SA_NAME = 'ARGOS_SCENE_TASKS_SA_EMAIL';
 const SCENE_WORKER_URL_NAME = 'ARGOS_SCENE_WORKER_URL';
+const SCENE_LOCATION_NAME = 'ARGOS_SCENE_LOCATION';
+const SCENE_GLOBAL_QUOTA_NAME = 'ARGOS_SCENE_GLOBAL_QUOTA_MAX';
 const GEMINI_API_KEY_NAME = 'GEMINI_API_KEY';
 const GEMINI_MODEL_NAME = 'ARGOS_SCENE_GEMINI_MODEL';
 /** Clave de la Developer API: sin patrón de formato del proveedor; 20..256 caracteres visibles (sin espacios ni saltos de línea: evita inyectar cabeceras). */
@@ -371,6 +380,10 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
   if (geminiActive && (geminiKey === undefined || !GEMINI_API_KEY_PATTERN.test(geminiKey))) sceneInvalid.push(GEMINI_API_KEY_NAME);
   if (geminiActive && (geminiModel === undefined || !isValidGeminiModel(geminiModel))) sceneInvalid.push(GEMINI_MODEL_NAME);
   if (sceneModel === undefined ? needsRealSettings : !isValidSceneModel(sceneModel)) sceneInvalid.push(SCENE_MODEL_NAME);
+  const sceneLocation = present(SCENE_LOCATION_NAME);
+  const sceneGlobalQuota = present(SCENE_GLOBAL_QUOTA_NAME);
+  if (sceneLocation === undefined ? needsRealSettings : !isAllowedSceneLocation(sceneLocation)) sceneInvalid.push(SCENE_LOCATION_NAME);
+  if (sceneGlobalQuota !== undefined && parseSceneGlobalQuotaMax(sceneGlobalQuota) === null) sceneInvalid.push(SCENE_GLOBAL_QUOTA_NAME);
   if (sceneProject === undefined ? needsRealSettings || (production && sceneIsReal) : !isValidSceneProject(sceneProject)) sceneInvalid.push(SCENE_PROJECT_NAME);
   if (sceneTasksSa === undefined ? production && needsRealSettings : !isValidSchedulerEmail(sceneTasksSa)) sceneInvalid.push(SCENE_TASKS_SA_NAME);
   if (sceneWorkerUrl === undefined ? production && needsRealSettings : !isValidSceneWorkerUrl(sceneWorkerUrl)) sceneInvalid.push(SCENE_WORKER_URL_NAME);
@@ -399,6 +412,8 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
       tasksServiceAccountEmail: sceneTasksSa ?? null,
       workerUrl: sceneWorkerUrl ?? null,
       projectId: sceneProject ?? null,
+      location: sceneLocation ?? null,
+      globalQuotaMax: sceneGlobalQuota === undefined ? SCENE_DEFAULT_GLOBAL_QUOTA_MAX : (parseSceneGlobalQuotaMax(sceneGlobalQuota) ?? SCENE_DEFAULT_GLOBAL_QUOTA_MAX),
       geminiModel: geminiActive ? geminiModel! : null,
     },
     'geminiApiKey',

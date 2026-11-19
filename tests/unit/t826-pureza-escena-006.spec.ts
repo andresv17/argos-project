@@ -86,7 +86,7 @@ describe('src/application: sin fs, fetch, SDK ni process.env (T826, INV-ESC6-002
 
   it('[INV-ESC6-002] los puertos de la escena solo importan tipos (import type), de application, domain o generated, y nada de infrastructure', () => {
     const files = filesOf(join(SRC, 'application', 'ports')).filter((f) => /scene[^/]*\.port\.ts$/.test(f));
-    expect(files.length).toBe(4);
+    expect(files.length).toBe(5); // Fase 14 (T948): + scene-global-quota.port.ts
     const offenders = files.flatMap((f) =>
       [...read(f).matchAll(/^\s*(?:import|export)\s+(?!type\b)[^'"]*?from\s*['"]([^'"]+)['"]/gm)].map((m) => `${rel(f)} -> import de valor ${m[1]!}`),
     );

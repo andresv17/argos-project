@@ -1,8 +1,9 @@
 /**
  * Composición de la escena del hogar (feature 006, T873; REQ-ESC6-013, REQ-ESC6-017, REQ-ESC6-031, INV-ESC6-002, INV-ESC6-018): construye `SceneServices` desde la
  * configuración validada de `app-config.ts` (INV-ARCH-006). En desarrollo y CI: generador SIMULADO y despachador EN PROCESO que ejecuta `run` con `setImmediate`; el
- * `CloudTasksSceneDispatcher` solo se elige con `ARGOS_SCENE_DRIVER=real` (hoy imposible: la configuración exige la constante de activación, T885) y el generador real no
- * existe como código seleccionable, así que la composición completa del real se NIEGA. Sin llamadas a GCP.
+ * `CloudTasksSceneDispatcher` solo se elige con `ARGOS_SCENE_DRIVER=real` (la configuración exige la constante de activación de T885, hoy false). Fase 14 (T952, D6-22): con `real`
+ * se compone `VertexSceneImageGenerator` (token del metadata server, sin clave de API) con modelo y región de `platform_parameters` (respaldo en el entorno), el aviso final de
+ * Vertex, `realDriver: true` y la cuota global mensual obligatoria. Sin llamadas a GCP al componer.
  *
  * `gemini-api` (T895, REQ-ESC6-037, INV-ESC6-014, INV-ESC6-020): driver LOCAL PRIVADO fuera de producción (la configuración ya lo rechaza con `NODE_ENV=production`). Compone
  * el generador de la Developer API con la clave y el modelo de la configuración, `realDriver: true` (el consentimiento vigente es obligatorio antes de cualquier llamada),
@@ -11,8 +12,10 @@
  * @implements REQ-ESC6-013, REQ-ESC6-017, REQ-ESC6-031, REQ-ESC6-037, INV-ESC6-002, INV-ESC6-014, INV-ESC6-018, INV-ESC6-020
  */
 
+import type { SceneGlobalQuotaPort } from '../../application/ports/scene-global-quota.port.ts';
 import type { SceneJob, SceneJobDispatcherPort } from '../../application/ports/scene-job-dispatcher.port.ts';
 import type { SceneServices } from '../../application/use-cases/use-case-support.ts';
+import type { SceneProviderParameters } from '../../domain/scene/provider-parameters.ts';
 import { SCENE_GEMINI_API_NOTICE_VERSION, SCENE_GEMINI_API_PROVIDER_ID, SCENE_NOTICE_VERSION, SCENE_PROVIDER_ID } from '../../domain/scene/notice.ts';
 import { CloudTasksSceneDispatcher } from '../adapters/cloud-tasks-scene-dispatcher.adapter.ts';
 import { FakeSceneImageGenerator } from '../adapters/fake-scene-image-generator.adapter.ts';
@@ -28,6 +31,7 @@ import {
   type StrippableMime,
 } from '../adapters/image-metadata-stripper.ts';
 import { InProcessSceneDispatcher } from '../adapters/in-process-scene-dispatcher.adapter.ts';
+import { createVertexSceneGenerator } from '../adapters/vertex-scene-image-generator.adapter.ts';
 import type { AppConfig, SceneConfig } from '../config/app-config.ts';
 
 /** Tope de bytes de la imagen generada que se acepta del proveedor. */
@@ -39,6 +43,10 @@ export interface SceneCompositionOptions {
   /** Dobles para Cloud Tasks (pruebas): `fetch` y token de acceso. */
   readonly fetch?: typeof fetch;
   readonly getAccessToken?: () => Promise<string>;
+  /** Modelo, región y tope global ya resueltos desde `platform_parameters` con respaldo en el entorno (T948); sin ellos rige el respaldo de `config.scene` (solo `real`). */
+  readonly providerParameters?: SceneProviderParameters;
+  /** Cuota global mensual atómica (T948): obligatoria con el driver `real` (no se arranca sin tope de gasto). */
+  readonly globalQuota?: SceneGlobalQuotaPort;
 }
 
 /** Desfase de la zona IANA respecto de UTC, en minutos, en el instante dado (p. ej. `America/Bogota` -> -300). */
@@ -68,10 +76,25 @@ export function selectSceneDispatcher(scene: SceneConfig, options: SceneComposit
   return new InProcessSceneDispatcher((job) => options.run(job, AbortSignal.timeout(timeoutMs)).then(() => undefined), { allowed: true });
 }
 
-/** `SceneServices` de la composición. Con el driver real se niega: el generador de Vertex no existe como código seleccionable hasta T885 (REQ-ESC6-028). */
+/** Generador Vertex AI de la composición `real`: proyecto de la configuración, modelo y región de los parámetros resueltos (o su respaldo de entorno). */
+function composeVertexGenerator(scene: SceneConfig, options: SceneCompositionOptions): SceneServices['generator'] {
+  const model = options.providerParameters?.model ?? scene.model;
+  const location = options.providerParameters?.location ?? scene.location;
+  if (scene.projectId === null || model === null || location === null || options.globalQuota === undefined) throw new Error('Configuración del driver real incompleta para la escena.');
+  return createVertexSceneGenerator({
+    projectId: scene.projectId,
+    location,
+    model,
+    timeoutSeconds: scene.genTimeoutSeconds,
+    ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+    ...(options.getAccessToken === undefined ? {} : { getAccessToken: () => options.getAccessToken!() }),
+  });
+}
+
+/** `SceneServices` de la composición. Con `real` (T952) compone Vertex AI; la activación (T885) está habilitada por `SCENE_REAL_DRIVER_ACTIVATED = true` en `app-config.ts`. */
 export function composeSceneServices(config: AppConfig, options: SceneCompositionOptions): SceneServices {
   const scene = config.scene;
-  if (scene.driver === 'real') throw new Error('ARGOS_SCENE_DRIVER=real no está disponible: el adaptador del proveedor no se entrega hasta la compuerta del driver real.');
+  const real = scene.driver === 'real';
   const gemini = scene.driver === 'gemini-api';
   if (gemini && (scene.geminiApiKey === null || scene.geminiModel === null)) throw new Error('Configuración del driver gemini-api incompleta para la escena.');
   return {
@@ -80,22 +103,25 @@ export function composeSceneServices(config: AppConfig, options: SceneCompositio
     genTimeoutSeconds: scene.genTimeoutSeconds,
     leaseSeconds: scene.leaseSeconds,
     queueWaitSeconds: scene.queueWaitSeconds,
-    realDriver: gemini,
+    realDriver: gemini || real,
     utcOffsetMinutes: utcOffsetMinutesOf(config.appTimezone, new Date()),
     noticeVersion: gemini ? SCENE_GEMINI_API_NOTICE_VERSION : SCENE_NOTICE_VERSION,
     providerId: gemini ? SCENE_GEMINI_API_PROVIDER_ID : SCENE_PROVIDER_ID,
     images: {
       strip: (mime, bytes) => stripImageMetadata(mime as StrippableMime, bytes),
-      fit: (sizes) => (gemini ? fitReferencesWithinBudget(sizes, GEMINI_REFERENCE_MAX_BYTES) : fitReferencesWithinBudget(sizes)),
+      fit: (sizes) => (gemini || real ? fitReferencesWithinBudget(sizes, GEMINI_REFERENCE_MAX_BYTES) : fitReferencesWithinBudget(sizes)),
       withinLimits: (mime, bytes) => {
         const size = readImageDimensions(mime as StrippableMime, bytes);
         return size !== null && size.width * size.height <= MAX_IMAGE_PIXELS && Math.max(size.width, size.height) <= MAX_IMAGE_SIDE;
       },
       validateOutput: (mime, bytes) => validateGeneratedImage(mime, bytes, MAX_GENERATED_IMAGE_BYTES),
     },
-    generator: gemini
-      ? createGeminiApiSceneGenerator({ apiKey: scene.geminiApiKey!, model: scene.geminiModel!, timeoutSeconds: scene.genTimeoutSeconds, ...(options.fetch === undefined ? {} : { fetch: options.fetch }) })
-      : new FakeSceneImageGenerator({ mode: 'ok' }),
+    generator: real
+      ? composeVertexGenerator(scene, options)
+      : gemini
+        ? createGeminiApiSceneGenerator({ apiKey: scene.geminiApiKey!, model: scene.geminiModel!, timeoutSeconds: scene.genTimeoutSeconds, ...(options.fetch === undefined ? {} : { fetch: options.fetch }) })
+        : new FakeSceneImageGenerator({ mode: 'ok' }),
     dispatcher: selectSceneDispatcher(scene, options),
+    ...(real && options.globalQuota !== undefined ? { globalQuota: options.globalQuota } : {}),
   };
 }

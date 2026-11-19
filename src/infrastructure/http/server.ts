@@ -35,7 +35,10 @@ import { mediaBucketHost } from './plugins/security-headers.ts';
 import { cloudLoggerOptions } from './cloud-logging.ts';
 import { installShutdownHandlers } from './graceful-shutdown.ts';
 import { createRouteOidcVerifier, type OidcVerifierOptions } from './oidc-verify.ts';
-import { composeSceneServices } from './scene-composition.ts';
+import { composeSceneServices, type SceneCompositionOptions } from './scene-composition.ts';
+import { createSceneGlobalQuotaMaxReader, loadSceneProviderParameters } from '../config/scene-provider-parameters.ts';
+import type { SceneGlobalQuotaPort } from '../../application/ports/scene-global-quota.port.ts';
+import type { SqlSceneGlobalQuotaDeps } from '../persistence/scene-global-quota.ts';
 import { registerMaintenanceRoute } from './routes/maintenance-routes.ts';
 import { registerSceneWorkerRoute } from './routes/scene-worker.routes.ts';
 
@@ -52,22 +55,45 @@ export const PRODUCTION_LOGGER_OPTIONS = cloudLoggerOptions();
  * Un 55P03 (lock_timeout) no se traduce: se propaga y `registerProblemDetails` responde 500 ERR-INTERNAL-UNEXPECTED
  * (el catálogo v2.1.1 no tiene 503; un código nuevo es cambio de contrato Nivel 3). No se registra `config` ni la URL.
  */
-async function composePersistence(config: AppConfig): Promise<{ uow: UnitOfWorkPort; parameters: PlatformParameterRepositoryPort; close: () => Promise<void>; checkReady: () => Promise<void> }> {
+interface ComposedPersistence {
+  readonly uow: UnitOfWorkPort;
+  readonly parameters: PlatformParameterRepositoryPort;
+  /** Contador global mensual de la escena sobre `platform_parameters` (T948); solo se usa con el driver `real`. */
+  readonly sceneGlobalQuota: (deps: SqlSceneGlobalQuotaDeps) => SceneGlobalQuotaPort;
+  readonly close: () => Promise<void>;
+  readonly checkReady: () => Promise<void>;
+}
+
+async function composePersistence(config: AppConfig): Promise<ComposedPersistence> {
   if (config.dbDriver === 'postgres') {
     if (config.databaseUrl === null) throw new Error('DATABASE_URL ausente con ARGOS_DB_DRIVER=postgres');
     const { createPostgresPool, closePool } = await import('../persistence/postgres/postgres-database.ts');
     const { PostgresUnitOfWork } = await import('../persistence/postgres/postgres-unit-of-work.ts');
     const { createPostgresRepositories } = await import('../persistence/postgres/postgres-repositories.ts');
     const { SqlPlatformParameterRepository } = await import('../persistence/platform-parameter-repository.ts');
+    const { SqlSceneGlobalQuota } = await import('../persistence/scene-global-quota.ts');
     const pool = createPostgresPool({ connectionString: config.databaseUrl, pgPoolMax: config.pgPoolMax });
     // Hasta T464: solo SELECT 1 (REQ-PG-013: nunca consulta schema_migrations en /healthz ni al arrancar).
-    return { uow: new PostgresUnitOfWork(pool, createPostgresRepositories), parameters: SqlPlatformParameterRepository.forPostgres(pool), close: () => closePool(pool), checkReady: async () => void (await pool.query('SELECT 1')) };
+    return {
+      uow: new PostgresUnitOfWork(pool, createPostgresRepositories),
+      parameters: SqlPlatformParameterRepository.forPostgres(pool),
+      sceneGlobalQuota: (deps) => SqlSceneGlobalQuota.forPostgres(pool, deps),
+      close: () => closePool(pool),
+      checkReady: async () => void (await pool.query('SELECT 1')),
+    };
   }
   const { openSqliteDatabase, assertSchemaReady } = await import('../persistence/sqlite/sqlite-database.ts');
   const { SqliteUnitOfWork } = await import('../persistence/sqlite/sqlite-unit-of-work.ts');
   const { SqlPlatformParameterRepository } = await import('../persistence/platform-parameter-repository.ts');
+  const { SqlSceneGlobalQuota } = await import('../persistence/scene-global-quota.ts');
   const db = openSqliteDatabase(config.databasePath);
-  return { uow: new SqliteUnitOfWork(db), parameters: SqlPlatformParameterRepository.forSqlite(db), close: async () => void db.close(), checkReady: async () => assertSchemaReady(db) };
+  return {
+    uow: new SqliteUnitOfWork(db),
+    parameters: SqlPlatformParameterRepository.forSqlite(db),
+    sceneGlobalQuota: (deps) => SqlSceneGlobalQuota.forSqlite(db, deps),
+    close: async () => void db.close(),
+    checkReady: async () => assertSchemaReady(db),
+  };
 }
 
 /**
@@ -102,6 +128,8 @@ export interface ProductionAppOptions {
   readonly shareIpHmacSecret?: string | null;
   /** JWKS inyectado para verificar los tokens OIDC de las rutas internas (solo pruebas); por defecto el JWKS público de Google. */
   readonly oidcJwks?: NonNullable<OidcVerifierOptions['jwks']>;
+  /** `fetch` de Cloud Tasks y de Vertex AI con el driver `real` (solo pruebas); por defecto el global. */
+  readonly sceneFetch?: typeof fetch;
 }
 
 export async function createProductionApp(config: AppConfig, logger: boolean = true, options: ProductionAppOptions = {}): Promise<FastifyInstance> {
@@ -122,6 +150,18 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     clock,
     warn: (warning) => logging.app?.log.warn({ platformParameter: warning }, 'parámetro de plataforma ausente o inválido: se usa el valor por defecto del código'),
   });
+  // 006 (Fase 14, T948/T952): con el driver real, modelo, región y tope global salen de `platform_parameters` (respaldo en el entorno de `config.scene`); una fila inválida
+  // rechaza el arranque (nombra la clave, no el valor). El contador global descuenta con una sola sentencia atómica y falla cerrado.
+  const sceneProvider: Pick<SceneCompositionOptions, 'providerParameters' | 'globalQuota' | 'fetch'> = {};
+  if (config.scene.driver === 'real' && mediaStorage !== null) {
+    const providerParameters = await loadSceneProviderParameters(persistence.parameters, config.scene);
+    const readMax = createSceneGlobalQuotaMaxReader(persistence.parameters, providerParameters.globalQuotaMax);
+    Object.assign(sceneProvider, {
+      providerParameters,
+      globalQuota: persistence.sceneGlobalQuota({ readMax, now: () => clock.nowIsoTimestamp() }),
+      ...(options.sceneFetch === undefined ? {} : { fetch: options.sceneFetch }),
+    });
+  }
   // 006 (T873): generador simulado y despachador en proceso en desarrollo y CI; el worker se resuelve perezosamente porque necesita las `deps` que contienen la escena.
   const sceneRunner: { current: RunSceneGenerationUseCase | null } = { current: null };
   const runScene = (job: { sceneId: string; attemptId: string }, signal: AbortSignal) => sceneRunner.current!.execute(job, signal);
@@ -142,7 +182,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     platformParameters,
     // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).
     sceneHooks: new SceneLifecycleHooks(),
-    ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene }) }),
+    ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, ...sceneProvider }) }),
     ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter() } }),
     ...(mediaStorage === null
       ? {}
