@@ -4,7 +4,7 @@ import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/typ
 import { BREEDS } from '../../src/generated/catalogs/breeds.catalog.ts';
 import { canonicalBreedName, isMixedBreedCode } from '../../src/domain/scene/breed-names.ts';
 import { readFileSync } from 'node:fs';
-import { STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
+import { PIXEL_REDRAW_RULE, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
 import { decideMode } from '../../src/domain/scene/decide-mode.ts';
 import { buildInputsSnapshot, type SnapshotPet } from '../../src/domain/scene/inputs-snapshot.ts';
 import { sanitizeFreeText } from '../../src/domain/scene/sanitize-free-text.ts';
@@ -97,6 +97,62 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     const text = buildImagePrompt(payload('FROM_SCRATCH', []));
     expect(text.includes('Place all')).toBe(false);
     expect(text.includes('Include a')).toBe(false);
+  });
+
+  it('[SC-ESC6-105][REQ-ESC6-016] FROM_SCRATCH y REGENERATE numeran las mascotas RENDER «Pet 1:», «Pet 2:», «Pet 3:» en el orden del payload, sin id ni nombre, y el cierre sigue «Place all 3 pets»', () => {
+    for (const mode of ['FROM_SCRATCH', 'REGENERATE'] as const) {
+      const text = buildImagePrompt(payload(mode, [petBlock(1), petBlock(2, { hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { species: 'FELINE', breedCode: 'CAT_SIAMES', breed: 'Siames' })]));
+      const lines = text.split('\n').filter((l) => /^Pet \d+: /.test(l));
+      expect(lines).toHaveLength(3);
+      expect(lines[0]?.startsWith('Pet 1: Include a friendly mixed-breed dog')).toBe(true);
+      expect(lines[1]?.startsWith('Pet 2: Use IMG_2 as the exact visual reference for this pet')).toBe(true);
+      expect(lines[2]?.startsWith('Pet 3: Include a cat (breed Siamese')).toBe(true);
+      expect(text).toContain('Place all 3 pets naturally and separately in different cozy spots of the room without merging or omitting any of them.');
+      expect(text.includes(id(1))).toBe(false);
+    }
+  });
+
+  it('[SC-ESC6-105] los modos incrementales no llevan prefijo «Pet k:»', () => {
+    const text = buildImagePrompt(payload('INCREMENTAL_MIXED', [petBlock(1, { action: 'KEEP' }), petBlock(2, { action: 'REPLACE', hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { action: 'ADD' })], { scene: true }));
+    expect(/^Pet \d+:/m.test(text)).toBe(false);
+  });
+
+  it('[SC-ESC6-106][REQ-ESC6-016] con al menos un photoRef (hogar, mascota RENDER o ADD/REPLACE) PIXEL_REDRAW_RULE aparece exactamente 1 vez, tras el cierre «Place all» y estable en 100 ejecuciones', () => {
+    const count = (text: string): number => text.split(PIXEL_REDRAW_RULE).length - 1;
+    const household = payload('FROM_SCRATCH', [petBlock(1)], { photo: true });
+    const withPetPhoto = payload('REGENERATE', [petBlock(1), petBlock(2, { hasReferencePhoto: true, photoRef: 'IMG_2' })]);
+    const addPhoto = payload('INCREMENTAL_ADD', [petBlock(1, { action: 'KEEP' }), petBlock(2, { action: 'ADD', hasReferencePhoto: true, photoRef: 'IMG_2' })], { scene: true });
+    for (const f of [household, withPetPhoto, addPhoto]) {
+      const outputs = new Set(Array.from({ length: 100 }, () => buildImagePrompt(f)));
+      expect(outputs.size).toBe(1);
+      expect(count([...outputs][0]!)).toBe(1);
+    }
+    const scratch = buildImagePrompt(withPetPhoto);
+    expect(scratch.indexOf(PIXEL_REDRAW_RULE)).toBeGreaterThan(scratch.indexOf('Place all 2 pets'));
+    expect(buildImagePrompt(household).endsWith(PIXEL_REDRAW_RULE)).toBe(true);
+    const incremental = buildImagePrompt(addPhoto);
+    expect(incremental.endsWith(`${PIXEL_REDRAW_RULE}\n\nMatch the exact 32-bit isometric pixel art style, lighting, and palette.`)).toBe(true);
+  });
+
+  it('[SC-ESC6-106] sin ningún photoRef PIXEL_REDRAW_RULE aparece 0 veces y el prompt de 0 mascotas sin foto es byte a byte el anterior (base + cuarto genérico)', () => {
+    const none = payload('FROM_SCRATCH', [petBlock(1), petBlock(2)]);
+    expect(buildImagePrompt(none).includes(PIXEL_REDRAW_RULE)).toBe(false);
+    expect(buildImagePrompt(payload('INCREMENTAL_ADD', [petBlock(1, { action: 'KEEP' }), petBlock(2, { action: 'ADD' })], { scene: true })).includes(PIXEL_REDRAW_RULE)).toBe(false);
+    expect(buildImagePrompt(payload('FROM_SCRATCH', []))).toBe(`${STYLE_BASE_TEXT}\n\nDesign a warm, generic modern living room interior with wooden floors, a cozy armchair, pet beds, and a large sunny window.`);
+    expect(PIXEL_REDRAW_RULE.includes(STYLE_BASE_TEXT)).toBe(false);
+  });
+
+  it('[SC-ESC6-106] prompt canónico completo con foto del hogar y dos mascotas con foto (fixture byte a byte)', () => {
+    const text = buildImagePrompt(payload('FROM_SCRATCH', [petBlock(1, { hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(2, { hasReferencePhoto: true, photoRef: 'IMG_3' })], { photo: true }));
+    expect(text).toBe(
+      [
+        STYLE_BASE_TEXT,
+        "Use IMG_1 as the exact visual reference for the room's layout, furniture, wall colors, and atmosphere, translating it into this 32-bit isometric pixel art style.",
+        'Pet 1: Use IMG_2 as the exact visual reference for this pet, faithfully preserving its species, fur colors, coat patterns, ear shapes, proportions, and unique markings.\nPet 2: Use IMG_3 as the exact visual reference for this pet, faithfully preserving its species, fur colors, coat patterns, ear shapes, proportions, and unique markings.',
+        'Place all 2 pets naturally and separately in different cozy spots of the room without merging or omitting any of them.',
+        'Treat every photographic reference image strictly as a visual guide: redraw the room and every pet entirely in the 32-bit isometric pixel art style, and leave no photographic pixels, textures, or realistic regions anywhere in the image.',
+      ].join('\n\n'),
+    );
   });
 
   it('[SC-ESC6-008] INCREMENTAL_ADD: «Keep the room, furniture, and all existing pets in their exact positions» y solo la mascota nueva se describe', () => {

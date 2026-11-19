@@ -31,6 +31,13 @@ describe('T876 integración del bloque de escena (D6-04 = A)', () => {
     expect(pets).toMatch(/<HomeScene[^>]*kind: 'HOUSEHOLD'/);
   });
 
+  it('[SC-ESC6-109][REQ-ESC6-019] «Mis mascotas» ya no condiciona la escena OWNER a la lista /pets (cards.length) y la vuelve a leer al cambiar la lista (reloadToken)', () => {
+    const pets = read('src/presentation/web/pages/PetsPage.tsx');
+    expect(pets).toMatch(/<HomeScene[^>]*kind: 'OWNER'[^>]*reloadToken=\{petsRevision\}/);
+    expect(pets).not.toMatch(/cards\.length\s*>\s*0\s*\?\s*<HomeScene/);
+    expect(pets.match(/setPetsRevision\(/g)?.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('[NFR-ESC6-004] cada bloque monta con su propio prefijo de ids (varios hogares en la misma página no repiten ids)', () => {
     const households = read('src/presentation/web/pages/HouseholdsPage.tsx');
     expect(households).toMatch(/idPrefix=\{`escena-\$\{view\.household\.id\}`\}/);

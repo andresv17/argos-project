@@ -2,7 +2,7 @@
 
 **Input**: `specs/006-escena-hogar-pixel-art/` (`spec.md`, `plan.md`, `data-model.md`, `research.md`, `contracts/`); lectura de `specs/002..005`, `.specify/memory/constitution.md` y de los informes de `.specify/memory/audits/`.
 **Estado**: `DRAFT` (Architect, 2026-11-18; para `/oracle` y firma de Neo, Nivel 2). Sin `APPROVED` ni `LOCKED`. **Toda tarea nace `[ ]`**; el techo de los agentes es `REVIEW` y solo Neo marca `COMPLETED`. Decisiones `D6-01..D6-17` y `N2-01..N2-12` firmadas por Neo el 2026-11-18 (Logos) y asentadas en `spec.md` y `plan.md`.
-**Numeración**: `T801..T885` más la Fase 9 `T886..T900` (tramo `gemini-api`), con huecos deliberados dentro de cada fase. Se renumeró desde `T601..T798` al rango libre `T801..T885` (observación OBS-1 de `/oracle`) para no colisionar con 004 (`T501..T617`) ni con 005 (`T700..T798`); aun así, cada `tasks.md` es independiente por feature, la compuerta `--feature 006` solo lee este archivo y toda referencia cruzada a una tarea de otra feature lleva su prefijo de feature.
+**Numeración**: `T801..T885` más la Fase 9 `T886..T900` (tramo `gemini-api`) y la Fase 10 `T901..T910` (correcciones de la prueba en vivo, enmienda 2026-11-19), con huecos deliberados dentro de cada fase. Se renumeró desde `T601..T798` al rango libre `T801..T885` (observación OBS-1 de `/oracle`) para no colisionar con 004 (`T501..T617`) ni con 005 (`T700..T798`); aun así, cada `tasks.md` es independiente por feature, la compuerta `--feature 006` solo lee este archivo y toda referencia cruzada a una tarea de otra feature lleva su prefijo de feature.
 
 ## Format: `[ID] [P?] [N2|GOV|HUM] Descripción — REQ/INV/EDGE/NFR/ERR/SC; Dep: tareas`
 - **[P]**: paralelizable. **[N2]**: requiere la autorización de Neo ya firmada (scripts, workflows, Terraform, migraciones, enmiendas a 002..005, dependencias, constitución). **[GOV]**: gobernanza o compuerta. **[HUM]**: paso humano de Neo, que ningún agente ejecuta.
@@ -184,6 +184,7 @@
   - **DEUDA-006-STRYKER-DOMAIN-SCENE**: reporte de mutación de `src/domain/scene/` pendiente de regenerar y persistir en disco (el único reporte en disco es de 16-nov y no contiene `domain/scene`; cifra 93,86 solo en log).
   - **DEUDA-004-T591R-2** (flaky de tiempos con scrypt en 004): deuda de `/dojo`.
   - **DEUDA-006-TRAC-IMPLEMENTS** (informativa): 35 IDs de comportamiento del tramo `fake` tienen pruebas existentes pero carecen de etiqueta `@implements` en `src/` (`morpheus-006-obs-a-c-evidencia.md`).
+  - **DEUDA-006-T591R2-TIMING** (flaky conocida, Neo 2026-11-19): `tests/security/exploits/t591-revalidacion.security.spec.ts` (T591R-2, ratio de tiempos < 2) falla bajo carga alta (load1 ~19-27) y pasa en reposo; no es de la 006. Registrada como deuda, no declarada resuelta. Disparador: aislar la prueba de la carga del gate o revisar el umbral.
   - Nota de cierre OBS-A/OBS-C (eab9d12): OBS-A cerrada con PostgreSQL 17 real (`4900` pasan, `1` omitida fuera de 006, `0` fallos); OBS-C desglosada (`4` IDs de T885 bloqueada + `35` en `DEUDA-006-TRAC-IMPLEMENTS`).
 - [ ] T885 [GOV] **BLOQUEADA por `N2-10`. NO ejecutar.** Activación del driver real y fusión a `main`: solo cuando se cumplan **todas** las condiciones: (1) `REQ-ESC6-028` con datos del proveedor y fuente; (2) `REQ-ESC6-026` texto legal firmado por Neo; (3) `N2-01` = A: dependencia de imagen (versión exacta, `infrastructure/`) con auditoría `/merovingian` con red y `SC-ESC6-042` verde; (4) `N2-02` = A: `ARGOS_SCENE_GLOBAL_QUOTA_MAX` en `platform_parameters` y cuota de la consola de Vertex; (5) `N2-04`: moneda real verificada (T824) y presupuesto aplicado por Neo; (6) revisores requeridos del entorno `produccion`; (7) enmienda del Principio VI aplicada (`N2-12`). Hasta entonces `ARGOS_SCENE_DRIVER=real` y el merge a `main` no se ejecutan — REQ-ESC6-028, REQ-ESC6-026, REQ-ESC6-017, REQ-ESC6-027, REQ-ESC6-031; NFR-ESC6-001; SC-ESC6-042, SC-ESC6-043, SC-ESC6-060, SC-ESC6-061. Dep: T884, T824
 
@@ -217,6 +218,27 @@
 
 ---
 
+## Fase 10: Correcciones de la prueba en vivo `T900` (enmienda 2026-11-19, aprobada por Neo)
+
+**Goal**: Corregir los cuatro fallos de la prueba en vivo: bloque `OWNER` visible sin mascotas, «Regenerar» sin imagen, etiquetas `IMG_n:` ausentes en el cuerpo `generateContent`, y prompt sin numeración `Pet k:` ni redibujado en pixel art; más el proxy de desarrollo `/__dev/media`. Informe de diseño: `audits/architect-006-fixes-en-vivo.md`. `decide-mode.ts`, contratos, `src/generated/` y `package.json` no cambian.
+**Independent Test**: `bash scripts/verify-traceability.sh --feature 006` verde, `npx tsc --noEmit` en 0, `npm run test:gate` verde con 0 llamadas de red.
+**Prohibido en esta fase**: tocar contratos, `src/generated/`, dependencias, `.env`, `git push`, y marcar `[x]` o `COMPLETED` sin firma (solo Neo).
+
+- [x] T901 [GOV] Aplicar a `spec.md`, `plan.md` y `tasks.md` las enmiendas DRAFT de la Fase 10 y la tabla de cobertura (`SC-ESC6-104..109`); `/oracle` verifica el documento. Aceptación: `verify-traceability.sh --feature 006` CUMPLE y 0 IDs sin tarea — REQ-ESC6-006, 007, 016, 019, 037; SC-ESC6-104..109. Autor: `/architect`. Dep: T900
+- [x] T902 [P] Pruebas rojas de cableado (`tests/unit/gemini-api-scene-generator.spec.ts`): etiquetas `IMG_n:` intercaladas antes de cada `inlineData` y 0 etiquetas con 0 referencias — SC-ESC6-104; REQ-ESC6-037; INV-ESC6-016. Aceptación: rojo antes, verde tras T903; 0 llamadas de red. Dep: T901
+- [x] T903 `src/infrastructure/adapters/gemini-api-wire.ts` `buildGeminiBody`: antepone `{text: r.ref + ':'}` a cada `inlineData`; sin cambio de puerto ni de adaptador; verde T902 — REQ-ESC6-037; INV-ESC6-016, INV-ESC6-020; SC-ESC6-104. Dep: T902
+- [x] T904 [P] Pruebas rojas de prompt y modo (`t841`, `t839`): numeración `Pet k:` en modos desde cero, `PIXEL_REDRAW_RULE` condicional a `photoRef`, regresión de foto del hogar (`FROM_SCRATCH`) y cambio de `inputs-snapshot` al reemplazar la foto con las mismas mascotas — SC-ESC6-105, SC-ESC6-106, SC-ESC6-107; REQ-ESC6-006, REQ-ESC6-016. Aceptación: fixtures canónicas nuevas solo con foto o mascotas `RENDER`; casos sin foto sin cambio de byte. Dep: T901
+- [x] T905 `src/domain/scene/build-image-prompt.ts` (y `pet-phrases.ts` si hace falta): numeración `Pet k:` y bloque `PIXEL_REDRAW_RULE`; `decide-mode.ts` **sin cambio de código**; función pura, sin `id`, nombre ni texto libre nuevo; `STYLE_BASE_TEXT` y frases base intactos; verde T904 — REQ-ESC6-016; INV-ESC6-001, INV-ESC6-010, INV-ESC6-017; SC-ESC6-105, SC-ESC6-106, SC-ESC6-107. Dep: T904
+- [x] T906 [P] Pruebas rojas e implementación de `SceneBlockView`: sin `imageTag` no se renderiza «Regenerar escena desde cero» (`t875` y variante `imageTag: null` en `escena-fixtures.ts`) — REQ-ESC6-007, REQ-ESC6-019; SC-ESC6-108. Dep: T901
+- [x] T907 [P] Pruebas rojas e implementación del ocultamiento `OWNER` (solo con `pets.total = 0`, `imageTag = null` y ambos consentimientos `false`) en `HomeScene`/`SceneBlock` y de la recarga al cambiar la lista de mascotas en `PetsPage`; cuidar `t876` (patrón `<HomeScene[^>]*kind: 'OWNER'`) — REQ-ESC6-019; SC-ESC6-109. Dep: T901
+- [x] T908 Incluir `vite.config.ts` (proxy `/__dev/media`, solo desarrollo, hacia la API local) en el commit de la fase, con aserción estática opcional de las claves del proxy; no entra en `vite build` ni en producción — REQ-ESC6-037 (coherencia con INV-ESC6-020); REQ-GCS-003 de 004 (referencia). Dep: T901
+- [x] T909 Compuertas de la fase: `bash scripts/verify-traceability.sh --feature 006`, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit`, `npm run test:gate` (PostgreSQL 17 real, 0 llamadas de red); `package.json` y lock sin cambios — SC-ESC6-104..109; REQ-ESC6-037. Dep: T903, T905, T906, T907, T908
+- [ ] T910 [GOV] `/oracle` audita en disco T901..T909 y emite veredicto; el techo de cualquier agente es `REVIEW`; **solo Neo marca `COMPLETED`**; después, repetición [HUM] de la prueba en vivo por Neo (redibujado del hogar y de cada mascota, numeración y orden de `IMG_n`) — SC-ESC6-104..109; REQ-ESC6-016, REQ-ESC6-019. Dep: T909
+
+**Checkpoint**: T901..T910 con `/oracle` en PASS y firma de Neo; T885 sigue bloqueada.
+
+---
+
 ## Conteo y cobertura
 
 | Fase | Tareas |
@@ -230,12 +252,13 @@
 | Fase 7 | 4 |
 | Fase 8 | 7 |
 | Fase 9 | 15 |
-| **Total** | **100** |
+| Fase 10 | 10 |
+| **Total** | **110** |
 
-Cobertura verificada contra `spec.md` y el catálogo de errores: 205 IDs (38 `REQ-ESC6`, 20 `INV-ESC6`, 33 `EDGE-ESC6`, 103 `SC-ESC6`, 4 `NFR-ESC6`, `STATE-SCENE-001`, 7 `ERR-SCENE-*`), **0 sin tarea**.
+Cobertura verificada contra `spec.md` y el catálogo de errores: 211 IDs (38 `REQ-ESC6`, 20 `INV-ESC6`, 33 `EDGE-ESC6`, 109 `SC-ESC6`, 4 `NFR-ESC6`, `STATE-SCENE-001`, 7 `ERR-SCENE-*`), **0 sin tarea**.
 
 ## Dependencias entre fases
 
-Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5 → Fase 6 → Fase 7 → Fase 8 → Fase 9 (Fase 9 no desbloquea T885). Excepciones explícitas: T814 espera a T833 (tabla `household_photos`); T815 queda roja hasta T862..T868; T810 aporta el `CHECK` de `audit_log` que T832 incluye; T885 queda bloqueada por `N2-10`.
+Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5 → Fase 6 → Fase 7 → Fase 8 → Fase 9 → Fase 10 (ni Fase 9 ni Fase 10 desbloquean T885). Excepciones explícitas: T814 espera a T833 (tabla `household_photos`); T815 queda roja hasta T862..T868; T810 aporta el `CHECK` de `audit_log` que T832 incluye; T885 queda bloqueada por `N2-10`.
 
 **Fuera de las tareas ejecutables**: activar `ARGOS_SCENE_DRIVER=real` y fusionar a `main` (T885, `[GOV]` bloqueada).

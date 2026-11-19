@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildInputsSnapshot, type InputsSnapshot, type SnapshotPet } from '../../src/domain/scene/inputs-snapshot.ts';
+import { buildInputsSnapshot, computeFingerprint, serializeInputsSnapshot, type InputsSnapshot, type SnapshotPet } from '../../src/domain/scene/inputs-snapshot.ts';
 import { decideMode } from '../../src/domain/scene/decide-mode.ts';
 
 /**
@@ -50,6 +50,25 @@ describe('decideMode (T839): FROM_SCRATCH y REGENERATE', () => {
       expect(plan?.currentSceneRef).toBeNull();
     }
     expect(decideMode({ last: snap(null, pet(1)), now: snap('h', pet(1)), hasImage: true, action: 'UPDATE' })?.mode).toBe('FROM_SCRATCH');
+  });
+
+  it('[SC-ESC6-107][REQ-ESC6-006] foto del hogar nueva, reemplazada o borrada con las mismas mascotas e imagen vigente: FROM_SCRATCH, sin escena previa, IMG_1 si hay foto, todas RENDER, y el inputs-snapshot cambia', () => {
+    const last = snap('h1', pet(1, 'a'), pet(2));
+    const cases: Array<{ household: string | null; ref: string | null }> = [
+      { household: 'h2', ref: 'IMG_1' },
+      { household: null, ref: null },
+    ];
+    for (const { household, ref } of cases) {
+      const now = snap(household, pet(1, 'a'), pet(2));
+      expect(computeFingerprint(now)).not.toBe(computeFingerprint(last));
+      expect(serializeInputsSnapshot(now)).not.toBe(serializeInputsSnapshot(last));
+      const plan = decideMode({ last, now, hasImage: true, action: 'UPDATE' });
+      expect(plan).toMatchObject({ mode: 'FROM_SCRATCH', currentSceneRef: null, householdRef: ref });
+      expect(actions(plan!)).toEqual(['1:RENDER', '2:RENDER']);
+    }
+    const added = decideMode({ last: snap(null, pet(1), pet(2)), now: snap('nueva', pet(1), pet(2)), hasImage: true, action: 'UPDATE' });
+    expect(added).toMatchObject({ mode: 'FROM_SCRATCH', currentSceneRef: null, householdRef: 'IMG_1' });
+    expect(actions(added!)).toEqual(['1:RENDER', '2:RENDER']);
   });
 
   it('[SC-ESC6-021][REQ-ESC6-007] REGENERATE gana a todo: sin escena previa, todas RENDER con sus referencias, incluso sin cambios pendientes', () => {

@@ -1,6 +1,6 @@
 # Keymaker 006 — Tramo `gemini-api` (T889..T898), entrega a REVIEW
 
-Fecha: 2026-11-18. Rama `006-escena-hogar-pixel-art`. Sin commit, sin push, sin `[x]`/`COMPLETED`. No se leyó `.env` ni ninguna clave; todas las pruebas usan la clave sintética `AIzaSyTEST-SENTINEL-0000000000000000000` y `fetch` simulado (0 red).
+Fecha: 2026-11-18. Rama `006-escena-hogar-pixel-art`. Sin commit, sin push, sin `[x]`/`COMPLETED`. No se leyó `.env` ni ninguna clave; todas las pruebas usan una clave sintética con prefijo de centinela de prueba (valor omitido para no activar el escáner de secretos) y `fetch` simulado (0 red).
 
 ## Tareas (pruebas rojas primero, luego verde)
 - T889: guarda T879 ajustada con lista blanca por ruta (`gemini-api-scene-image-generator.adapter.ts`, `gemini-api-wire.ts`); siguen prohibidos `aiplatform.googleapis.com`, SDK de IA y `google-auth-library`; nueva `tests/unit/gemini-api-aislamiento-escena-006.spec.ts` (4).

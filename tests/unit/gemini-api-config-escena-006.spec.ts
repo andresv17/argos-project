@@ -7,7 +7,7 @@ import { PROD_SCENE } from '../fixtures/scene-config-fixtures.ts';
  * saltos de línea) y `ARGOS_SCENE_GEMINI_MODEL`; el error nombra solo la variable y nunca el valor; `fake` y `real` ignoran la clave; `real` sigue sin arrancar.
  * La clave es SINTÉTICA (centinela), no existe en ningún proveedor. REQ-ESC6-037; INV-ESC6-020; SC-ESC6-097.
  */
-const SENTINEL_KEY = 'AIzaSyTEST-SENTINEL-0000000000000000000';
+const SENTINEL_KEY = 'AIzaSyTEST-SENTINEL-0000000000000000000'; // argos-scan:allow clave sintetica de prueba
 const MODEL = 'gemini-2.5-flash-image';
 const PROD_BASE = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
 const DEV = { NODE_ENV: 'development', ARGOS_DB_DRIVER: 'sqlite', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_SCENE_DRIVER: 'gemini-api', GEMINI_API_KEY: SENTINEL_KEY, ARGOS_SCENE_GEMINI_MODEL: MODEL } as const;

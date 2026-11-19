@@ -20,7 +20,7 @@ import { sceneFixture, withScene } from '../fixtures/scene-services-fixtures.ts'
  * `noticeVersion` propia, de modo que `INV-ESC6-014` exija consentimiento vigente antes de cualquier llamada. Sin consentimiento, o con proveedor o versión antiguos, el
  * generador recibe 0 llamadas; la revocación en vuelo cancela (EDGE-ESC6-025). Clave SINTÉTICA, `fetch` simulado, 0 red. REQ-ESC6-037; INV-ESC6-014, INV-ESC6-020; SC-ESC6-098.
  */
-const KEY = 'AIzaSyTEST-SENTINEL-0000000000000000000';
+const KEY = 'AIzaSyTEST-SENTINEL-0000000000000000000'; // argos-scan:allow clave sintetica de prueba
 const ENV = { NODE_ENV: 'development', ARGOS_DB_DRIVER: 'sqlite', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_SCENE_DRIVER: 'gemini-api', GEMINI_API_KEY: KEY, ARGOS_SCENE_GEMINI_MODEL: 'gemini-2.5-flash-image' };
 const noNetwork = vi.fn(async () => {
   throw new Error('la composición no debe llamar a la red');

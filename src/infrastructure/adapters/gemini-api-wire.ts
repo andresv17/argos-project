@@ -33,13 +33,19 @@ export const isSafeGeminiKey = (key: string): boolean => KEY_PATTERN.test(key);
 /** URL exacta de `generateContent` (sin consulta y sin la clave). */
 export const geminiGenerateUrl = (model: string): string => `${GEMINI_API_ORIGIN}${GEMINI_API_PATH_PREFIX}${model}:generateContent`;
 
-/** Cuerpo `generateContent`: el texto del prompt primero y luego cada referencia `inlineData` en el orden recibido (`IMG_1..IMG_n`, ya fijado por el worker). */
+/**
+ * Cuerpo `generateContent`: el texto del prompt primero y luego cada referencia en el orden recibido (`IMG_1..IMG_n`, ya fijado por el worker), con una parte de texto
+ * `IMG_n:` antepuesta a cada `inlineData` para que el modelo asocie cada imagen con su etiqueta (SC-ESC6-104). La etiqueta es la del puerto (cadena fija de ranura, sin datos de usuario).
+ */
 export function buildGeminiBody(prompt: string, references: ReadonlyArray<SceneReferenceImage>, modalities: GeminiModalities): string {
   return JSON.stringify({
     contents: [
       {
         role: 'user',
-        parts: [{ text: prompt }, ...references.map((r) => ({ inlineData: { mimeType: r.mime, data: Buffer.from(r.bytes).toString('base64') } }))],
+        parts: [
+          { text: prompt },
+          ...references.flatMap((r) => [{ text: `${r.ref}:` }, { inlineData: { mimeType: r.mime, data: Buffer.from(r.bytes).toString('base64') } }]),
+        ],
       },
     ],
     generationConfig: { responseModalities: [...modalities] },

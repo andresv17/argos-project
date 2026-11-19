@@ -9,7 +9,7 @@ import { validateGeneratedImage } from '../../src/infrastructure/adapters/image-
  * `x-goog-api-key`, `redirect: 'error'`, orden `IMG_1..IMG_n`, tabla de estados HTTP sin reintento interno, aborto, payload sobre el tope, salida PNG/WebP por firma,
  * cadena con `validateOutput` y sin eco del cuerpo de error del proveedor. La clave es SINTÉTICA. REQ-ESC6-037, REQ-ESC6-038, REQ-ESC6-035; INV-ESC6-016; SC-ESC6-099.
  */
-const KEY = 'AIzaSyTEST-SENTINEL-0000000000000000000';
+const KEY = 'AIzaSyTEST-SENTINEL-0000000000000000000'; // argos-scan:allow clave sintetica de prueba
 const MODEL = 'gemini-2.5-flash-image';
 const URL_EXPECTED = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const PROMPT = 'Escena pixel art con IMG_1 e IMG_2 y un texto secreto del prompt';
@@ -67,7 +67,7 @@ describe('petición (REQ-ESC6-037, REQ-ESC6-038, SC-ESC6-099)', () => {
     expect(String(call?.init.body).includes(KEY)).toBe(false);
   });
 
-  it('[SC-ESC6-099] el cuerpo lleva el prompt primero y las referencias inlineData en el orden IMG_1..IMG_n con su tipo y su base64', async () => {
+  it('[SC-ESC6-099][SC-ESC6-104] el cuerpo lleva el prompt primero y, antes de cada inlineData, una parte de texto «IMG_n:» en el orden IMG_1..IMG_n con su tipo y su base64', async () => {
     const t = setup(async () => respond(okBody('image/png', await png())));
     const refs = [ref(1, 'image/png', [1, 2, 3]), ref(2, 'image/jpeg', [9, 8]), ref(3, 'image/webp', [7])];
     await t.generator.generate(request(refs));
@@ -76,10 +76,21 @@ describe('petición (REQ-ESC6-037, REQ-ESC6-038, SC-ESC6-099)', () => {
     expect(body.contents[0]?.role).toBe('user');
     expect(body.contents[0]?.parts).toEqual([
       { text: PROMPT },
+      { text: 'IMG_1:' },
       { inlineData: { mimeType: 'image/png', data: Buffer.from([1, 2, 3]).toString('base64') } },
+      { text: 'IMG_2:' },
       { inlineData: { mimeType: 'image/jpeg', data: Buffer.from([9, 8]).toString('base64') } },
+      { text: 'IMG_3:' },
       { inlineData: { mimeType: 'image/webp', data: Buffer.from([7]).toString('base64') } },
     ]);
+  });
+
+  it('[SC-ESC6-104] con 0 referencias las partes son solo el texto del prompt (0 etiquetas «IMG_n:»)', async () => {
+    const t = setup(async () => respond(okBody('image/png', await png())));
+    await t.generator.generate(request([]));
+    const parts = bodyOf(t.calls[0]!).contents[0]?.parts;
+    expect(parts).toEqual([{ text: PROMPT }]);
+    expect(JSON.stringify(parts).includes('IMG_1:')).toBe(false);
   });
 
   it('[REQ-ESC6-037] responseModalities es IMAGE por defecto y TEXT+IMAGE cuando se configura', async () => {

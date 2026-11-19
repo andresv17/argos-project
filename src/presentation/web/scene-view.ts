@@ -49,6 +49,14 @@ export function sceneStatusText(view: SceneViewData): string {
   }
 }
 
+/**
+ * Escena `OWNER` vacía (REQ-ESC6-019, SC-ESC6-109): el bloque no se muestra solo si a la vez 0 mascotas (`pets.total`), sin imagen vigente y ambos consentimientos en
+ * `false`. Cualquiera de las cuatro condiciones distinta lo mantiene visible (imagen vigente con retiro pendiente, retirada de consentimiento, mascotas sueltas).
+ * El ámbito `HOUSEHOLD` se muestra siempre.
+ */
+export const isOwnerSceneEmpty = (scope: SceneScope, view: SceneViewData): boolean =>
+  scope.kind === 'OWNER' && view.pets.total === 0 && view.imageTag === null && !view.consent.householdPhotoGranted && !view.consent.petPhotosGranted;
+
 /** Estado del botón «Actualizar imagen del hogar»: con `canUpdate` falso siempre hay un motivo visible (REQ-ESC6-005). */
 export function sceneUpdateState(view: SceneViewData): { readonly disabled: boolean; readonly reason: string | null } {
   if (view.actions.canUpdate) return { disabled: false, reason: null };

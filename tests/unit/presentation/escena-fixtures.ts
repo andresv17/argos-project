@@ -22,3 +22,14 @@ export function sceneView(overrides: Partial<SceneViewData> = {}): SceneViewData
     ...overrides,
   };
 }
+
+/** Variante sin imagen vigente (`imageTag: null`) con el servidor ofreciendo `canRegenerate` (SC-ESC6-108): la interfaz solo ofrece la creación inicial. */
+export function sceneViewSinImagen(overrides: Partial<SceneViewData> = {}): SceneViewData {
+  return sceneView({
+    imageTag: null,
+    status: 'idle',
+    pending: 1,
+    actions: { canUpdate: true, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: null },
+    ...overrides,
+  });
+}

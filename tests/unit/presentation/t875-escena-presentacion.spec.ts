@@ -7,10 +7,11 @@
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { SceneBlockView, type SceneBlockViewProps } from '../../../src/presentation/web/components/SceneBlock.tsx';
+import { SceneBlock, SceneBlockView, type SceneBlockViewProps } from '../../../src/presentation/web/components/SceneBlock.tsx';
 import {
   ARGOS_SCENE_POLL_SECONDS,
   createScenePoller,
+  isOwnerSceneEmpty,
   sceneAltText,
   sceneImagePath,
   scenePendingText,
@@ -20,7 +21,7 @@ import {
   sceneUpdateState,
 } from '../../../src/presentation/web/scene-view.ts';
 import type { SceneViewData } from '../../../src/presentation/web/scene-api.ts';
-import { HOUSEHOLD_ID, IMAGE_TAG, sceneView } from './escena-fixtures.ts';
+import { HOUSEHOLD_ID, IMAGE_TAG, sceneView, sceneViewSinImagen } from './escena-fixtures.ts';
 
 const noop = (): void => undefined;
 function render(view: SceneViewData | null, overrides: Partial<SceneBlockViewProps> = {}): string {
@@ -159,6 +160,48 @@ describe('T875 bloque «Escena del hogar» (REQ-ESC6-019, NFR-ESC6-004)', () => 
     const html = render(sceneView({ imageTag: null, status: 'idle', actions: { canUpdate: false, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: 'NO_CHANGES' } }));
     expect(html).not.toContain('<img');
     expect(html).toContain('Aún no hay imagen del hogar');
+  });
+});
+
+describe('T875 sin imagen vigente: solo la creación inicial (REQ-ESC6-007, REQ-ESC6-019; SC-ESC6-108)', () => {
+  it('[SC-ESC6-108] con imageTag = null y canRegenerate = true hay 0 botones «Regenerar escena desde cero» y el botón inicial «Actualizar imagen del hogar» sigue gobernado por canUpdate', () => {
+    const habilitado = render(sceneViewSinImagen());
+    expect(habilitado.includes('Regenerar escena desde cero')).toBe(false);
+    expect(isDisabled(/<button[^>]*>Actualizar imagen del hogar<\/button>/.exec(habilitado)?.[0] ?? '')).toBe(false);
+    const bloqueado = render(sceneViewSinImagen({ actions: { canUpdate: false, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: 'NO_CHANGES' } }));
+    expect(bloqueado.includes('Regenerar escena desde cero')).toBe(false);
+    expect(isDisabled(/<button[^>]*>Actualizar imagen del hogar<\/button>/.exec(bloqueado)?.[0] ?? '')).toBe(true);
+  });
+
+  it('[SC-ESC6-108] sin imagen y con status failed queda «Reintentar» y ningún «Regenerar»; con imageTag no nulo el botón «Regenerar» se muestra', () => {
+    const fallo = render(sceneViewSinImagen({ status: 'failed', lastError: 'ERR-SCENE-GENERATION-FAILED' }));
+    expect(fallo).toContain('Reintentar');
+    expect(fallo.includes('Regenerar escena desde cero')).toBe(false);
+    expect(render(sceneView()).split('Regenerar escena desde cero')).toHaveLength(2);
+  });
+});
+
+describe('T875 escena OWNER vacía (REQ-ESC6-019; SC-ESC6-109)', () => {
+  const owner = { kind: 'OWNER' } as const;
+  const sinNada = (extra: Partial<SceneViewData> = {}): SceneViewData =>
+    sceneViewSinImagen({ pets: { shown: 0, total: 0, maxPets: 8 }, consent: { required: true, noticeVersion: '1', providerId: 'vertex-gemini-image', householdPhotoGranted: false, petPhotosGranted: false }, ...extra });
+
+  it('[SC-ESC6-109] OWNER con pets.total = 0, imageTag = null y ambos consentimientos en false: escena vacía (0 elementos)', () => {
+    expect(isOwnerSceneEmpty(owner, sinNada())).toBe(true);
+  });
+
+  it('[SC-ESC6-109] cualquiera de las cuatro condiciones distinta mantiene la escena visible, y HOUSEHOLD se muestra siempre', () => {
+    const consent = sinNada().consent;
+    expect(isOwnerSceneEmpty(owner, sinNada({ pets: { shown: 1, total: 1, maxPets: 8 } }))).toBe(false);
+    expect(isOwnerSceneEmpty(owner, sinNada({ imageTag: IMAGE_TAG }))).toBe(false);
+    expect(isOwnerSceneEmpty(owner, sinNada({ consent: { ...consent, householdPhotoGranted: true } }))).toBe(false);
+    expect(isOwnerSceneEmpty(owner, sinNada({ consent: { ...consent, petPhotosGranted: true } }))).toBe(false);
+    expect(isOwnerSceneEmpty({ kind: 'HOUSEHOLD', householdId: HOUSEHOLD_ID }, sinNada())).toBe(false);
+  });
+
+  it('[SC-ESC6-109] el contenedor OWNER no pinta nada mientras carga (0 elementos) y el de HOUSEHOLD sí pinta el bloque', () => {
+    expect(renderToStaticMarkup(h(SceneBlock, { scope: owner, idPrefix: 'escena-mine' }))).toBe('');
+    expect(renderToStaticMarkup(h(SceneBlock, { scope: { kind: 'HOUSEHOLD', householdId: HOUSEHOLD_ID }, idPrefix: 'escena-h' }))).toContain('Escena del hogar');
   });
 });
 

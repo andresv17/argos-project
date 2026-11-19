@@ -1,17 +1,18 @@
 /**
  * Bloque «Escena del hogar» (feature 006, T875/T876; D6-04 = A, D6-05 = A): en el encabezado de la vista «Hogar» y, para el propietario sin hogar, en «Mis mascotas».
  * Imagen con texto alternativo, estado anunciado en una región `aria-live`, «cambios pendientes: P · generaciones restantes: R», «Se muestran N de M mascotas», aviso
- * «desactualizada», «Actualizar imagen del hogar» deshabilitado con motivo visible, «Regenerar escena desde cero» (secundaria) y «Reintentar» tras un fallo. La imagen
+ * «desactualizada», «Actualizar imagen del hogar» deshabilitado con motivo visible, «Regenerar escena desde cero» (secundaria, solo con imagen vigente: sin `imageTag` solo queda el botón inicial) y «Reintentar» tras un fallo. La imagen
  * se pide a la ruta propia del ámbito (302 firmada por el servidor): el DOM no guarda URL firmadas (NFR-ESC6-003). `SceneBlockView` es presentacional; `SceneBlock`
  * es el contenedor (lectura, sondeo cada 3 s mientras `generating`, `Idempotency-Key` nueva por clic).
  *
- * @implements REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030
+ * @implements REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { browserScheduler } from '../browser-scheduler.ts';
 import { createSceneApi, SceneApiError, type SceneAction, type SceneScope, type SceneViewData } from '../scene-api.ts';
 import {
   createScenePoller,
+  isOwnerSceneEmpty,
   SCENE_STALE_TEXT,
   sceneFailureText,
   sceneAltText,
@@ -88,9 +89,11 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onU
                 <Button disabled={busy || generating || update?.disabled === true} {...(update?.reason == null ? {} : { describedBy: reasonId })} onClick={onUpdate}>
                   {view.status === 'failed' ? 'Reintentar' : 'Actualizar imagen del hogar'}
                 </Button>
-                <Button variant="secondary" disabled={busy || generating || !view.actions.canRegenerate} onClick={onRegenerate}>
-                  Regenerar escena desde cero
-                </Button>
+                {src === null ? null : (
+                  <Button variant="secondary" disabled={busy || generating || !view.actions.canRegenerate} onClick={onRegenerate}>
+                    Regenerar escena desde cero
+                  </Button>
+                )}
               </div>
               {update?.reason == null ? null : (
                 <p id={reasonId} className="text-sm text-slate-800">
@@ -110,7 +113,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onU
 const newKey = (): string => crypto.randomUUID();
 
 /** Contenedor: lee la escena, sondea cada 3 s mientras `generating` y ejecuta «Actualizar» o «Regenerar» con una clave nueva por clic. */
-export function SceneBlock({ scope, idPrefix, headingLevel, children }: { readonly scope: SceneScope; readonly idPrefix: string; readonly headingLevel?: 2 | 4; readonly children?: (view: SceneViewData | null, reload: () => Promise<void>) => ReactNode }): JSX.Element {
+export function SceneBlock({ scope, idPrefix, headingLevel, reloadToken, children }: { readonly scope: SceneScope; readonly idPrefix: string; readonly headingLevel?: 2 | 4; /** Al cambiar (p. ej. alta o asignación de una mascota) la escena se vuelve a leer una vez; el valor inicial no recarga (SC-ESC6-109). */ readonly reloadToken?: number; readonly children?: (view: SceneViewData | null, reload: () => Promise<void>) => ReactNode }): JSX.Element {
   const api = useMemo(() => createSceneApi(), []);
   const [view, setView] = useState<SceneViewData | null>(null);
   const [status, setStatus] = useState<'LOADING' | 'READY' | 'ERROR'>('LOADING');
@@ -157,6 +160,13 @@ export function SceneBlock({ scope, idPrefix, headingLevel, children }: { readon
     }
   }, [api, stable, fail]);
 
+  const lastToken = useRef(reloadToken);
+  useEffect(() => {
+    if (lastToken.current === reloadToken) return;
+    lastToken.current = reloadToken;
+    void reload();
+  }, [reloadToken, reload]);
+
   const run = async (action: SceneAction): Promise<void> => {
     if (busy) return;
     setBusy(true);
@@ -173,6 +183,8 @@ export function SceneBlock({ scope, idPrefix, headingLevel, children }: { readon
     }
   };
 
+  // `OWNER` sin mascotas, imagen ni consentimiento: no se pinta nada (ni mientras carga); el contenedor sigue montado para releer al cambiar la lista (SC-ESC6-109).
+  if (stable.kind === 'OWNER' && (view === null ? status === 'LOADING' : isOwnerSceneEmpty(stable, view))) return <></>;
   return (
     <SceneBlockView idPrefix={idPrefix} scope={stable} view={view} status={status} error={error} busy={busy} onUpdate={() => void run('UPDATE')} onRegenerate={() => void run('REGENERATE')} onImageError={() => void reload()} {...(headingLevel === undefined ? {} : { headingLevel })}>
       {children?.(view, reload)}

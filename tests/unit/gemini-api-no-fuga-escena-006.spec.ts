@@ -12,7 +12,7 @@ import { composeSceneServices } from '../../src/infrastructure/http/scene-compos
  * registros, errores, mensajes ni resultados del adaptador, del arranque ni de la composición; y la redacción de `cloud-logging.ts` (añadida por /architect) sustituye
  * ambas formas por `[REDACTED]`. 0 llamadas de red reales. REQ-ESC6-038; INV-ESC6-016; SC-ESC6-100.
  */
-const KEY = 'AIzaSyTEST-SENTINEL-0000000000000000000';
+const KEY = 'AIzaSyTEST-SENTINEL-0000000000000000000'; // argos-scan:allow clave sintetica de prueba
 const MODEL = 'gemini-2.5-flash-image';
 const PROMPT = 'texto del prompt que no debe salir';
 const HEADER = 'x-goog-api-key';
