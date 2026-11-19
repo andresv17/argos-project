@@ -66,6 +66,43 @@ export const NOTICE_SECTIONS: readonly NoticeSection[] = [
   },
 ];
 
+/**
+ * Aviso BORRADOR del driver local privado `gemini-api` (T895, REQ-ESC6-037, REQ-ESC6-026): proveedor y versión propios (iguales a los de `src/domain/scene/notice.ts`).
+ * Cambian los apartados «A quién se envía», «Dónde se procesa» y el de retención; el resto es el del aviso de Vertex. Texto pendiente de firma legal de Neo; los términos de datos de la
+ * Developer API no tienen fuente en disco y se declaran «pendientes de confirmar» (REQ-ESC6-028).
+ */
+export const NOTICE_GEMINI_API_VERSION = 'gemini-api-draft-1';
+export const NOTICE_GEMINI_API_PROVIDER_ID = 'gemini-api';
+
+export const NOTICE_GEMINI_API_SECTIONS: readonly NoticeSection[] = NOTICE_SECTIONS.map((section) => {
+  if (section.title === '2. A quién se envía') {
+    return {
+      title: section.title,
+      paragraphs: [
+        'A Google LLC, mediante la API pública Gemini Developer API (modelo Gemini Image), con una clave del propietario de esta instalación de ARGOS. Es un uso local y privado de la API pública, no un servicio de Google Cloud contratado por ARGOS. Entidad contratante y nombre exacto del modelo: pendientes de confirmar.',
+      ],
+    };
+  }
+  if (section.title === '3. Dónde se procesa') {
+    return {
+      title: section.title,
+      paragraphs: ['La región donde la Gemini Developer API procesa tus imágenes está pendiente de confirmar; puede implicar una transferencia internacional de tus imágenes.'],
+    };
+  }
+  if (section.title === '4. Cuánto tiempo las conserva el proveedor') {
+    return {
+      title: section.title,
+      paragraphs: [
+        'Los términos de datos de la Gemini Developer API (retención, uso de las imágenes para entrenamiento según el plan de la clave) están pendientes de confirmar con su documentación oficial. Hasta confirmarlos, usa solo imágenes de prueba y no fotos con datos reales.',
+      ],
+    };
+  }
+  return section;
+});
+
+/** Texto del aviso del proveedor que el servidor declara vigente; un proveedor desconocido muestra el aviso por defecto (y su consentimiento se trata como OUTDATED). */
+export const noticeSectionsFor = (providerId: string): readonly NoticeSection[] => (providerId === NOTICE_GEMINI_API_PROVIDER_ID ? NOTICE_GEMINI_API_SECTIONS : NOTICE_SECTIONS);
+
 export type ConsentStep = 'GRANTED' | 'ASK' | 'OUTDATED';
 
 /**
@@ -73,9 +110,13 @@ export type ConsentStep = 'GRANTED' | 'ASK' | 'OUTDATED';
  * GRANTED si el usuario tiene vigentes los dos alcances (foto del hogar y avatares); ASK en otro caso. El alcance es por usuario (D6-16 = A).
  */
 export function consentStep(consent: SceneViewData['consent']): ConsentStep {
-  if (consent.noticeVersion !== NOTICE_VERSION || consent.providerId !== NOTICE_PROVIDER_ID) return 'OUTDATED';
+  const known = (consent.noticeVersion === NOTICE_VERSION && consent.providerId === NOTICE_PROVIDER_ID) || (consent.noticeVersion === NOTICE_GEMINI_API_VERSION && consent.providerId === NOTICE_GEMINI_API_PROVIDER_ID);
+  if (!known) return 'OUTDATED';
   return consent.householdPhotoGranted && consent.petPhotosGranted ? 'GRANTED' : 'ASK';
 }
 
 /** Cuerpo de `grantSceneConsent` con las constantes del cliente y los dos alcances. */
-export const consentBody = (): GrantSceneConsentBody => ({ noticeVersion: NOTICE_VERSION, providerId: NOTICE_PROVIDER_ID, scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] });
+export const consentBody = (providerId: string = NOTICE_PROVIDER_ID): GrantSceneConsentBody =>
+  providerId === NOTICE_GEMINI_API_PROVIDER_ID
+    ? { noticeVersion: NOTICE_GEMINI_API_VERSION, providerId: NOTICE_GEMINI_API_PROVIDER_ID, scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] }
+    : { noticeVersion: NOTICE_VERSION, providerId: NOTICE_PROVIDER_ID, scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] };

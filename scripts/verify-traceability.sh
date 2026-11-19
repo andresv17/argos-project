@@ -26,7 +26,7 @@
 # spec→tasks.md 1:1 de los IDs propios y la evidencia de código es BLOQUEANTE (src/ con @implements y título it/test): sin
 # src/ ni tests/ de la 005 la compuerta final falla, es lo esperado hasta implementar. Los IDs de 003 y 004 que su spec cita
 # (p. ej. REQ-CLD-007, REQ-SIN-003) se exigen como cualquier otro: los cubren T764a y T779a con sus títulos, sin excepciones.
-# Feature 006 (T802, N2-08): como la 005, reconoce NFR y SC, rangos `SC-ESC6-001..096` y el segmento alfanumérico `ESC6`, y suma el
+# Feature 006 (T802, N2-08): como la 005, reconoce NFR y SC, rangos `SC-ESC6-001..103` (sin tope fijo en código: el patrón es de tres dígitos; enmienda N2-13 para `gemini-api`) y el segmento alfanumérico `ESC6`, y suma el
 # prefijo EDGE; sus IDs propios son REQ|INV|NFR|SC|EDGE-ESC6-NNN, STATE-SCENE-NNN y ERR-SCENE-*. Exige spec→tasks.md 1:1 de los IDs
 # propios (incluidos los códigos del catálogo incremental) y que toda tarea consultada con --task cite al menos un ID. Los IDs de
 # 002..005 que su spec cita se aceptan en la compuerta por tarea. La evidencia de código es INFORMATIVA hasta implementar la feature

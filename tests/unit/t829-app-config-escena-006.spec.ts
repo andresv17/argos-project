@@ -67,6 +67,7 @@ describe('valores por defecto de ARGOS_SCENE_* (T829, plan §1.3, REQ-ESC6-031)'
       tasksServiceAccountEmail: null,
       workerUrl: null,
       projectId: null,
+      geminiModel: null, // T891: campo del driver gemini-api; la clave no es enumerable y por eso no figura aquí
     });
   });
 

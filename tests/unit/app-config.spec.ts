@@ -59,6 +59,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
           tasksServiceAccountEmail: null,
           workerUrl: null,
           projectId: null,
+          geminiModel: null, // T891: la clave (geminiApiKey) no es enumerable y no figura aquí
         },
       },
       APP_CONFIG_DEFAULTS,

@@ -16,6 +16,16 @@ const read = (p: string): string => readFileSync(join(root, p), 'utf8');
 const walk = (dir: string): string[] =>
   readdirSync(join(root, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
 const SRC = walk('src').filter((f) => /\.(ts|tsx)$/.test(f) && !f.startsWith('src/generated'));
+/**
+ * T889 (tramo `gemini-api`, REQ-ESC6-037, INV-ESC6-020; SC-ESC6-101): lista blanca ESTRICTA por ruta. Solo estos dos archivos pueden contener el literal del host de la
+ * Developer API y declarar la clase `GeminiApiSceneImageGenerator`; nada más se relaja (Vertex, SDK de IA, `google-auth-library` y producción siguen prohibidos).
+ */
+const GEMINI_API_ALLOWED = [
+  'src/infrastructure/adapters/gemini-api-scene-image-generator.adapter.ts',
+  'src/infrastructure/adapters/gemini-api-wire.ts',
+] as const;
+const GEMINI_API_ADAPTER = GEMINI_API_ALLOWED[0];
+const outsideAllowlist = (f: string): boolean => !(GEMINI_API_ALLOWED as readonly string[]).includes(f);
 const PROD_BASE = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
 
 function failingVariables(env: EnvironmentSource, activated?: boolean): readonly string[] {
@@ -59,19 +69,28 @@ describe('arranque: el driver real no se activa (REQ-ESC6-028, REQ-ESC6-031, SC-
 });
 
 describe('código: VertexSceneImageGenerator no existe seleccionable y no hay red de IA (SC-ESC6-050, SC-ESC6-061, REQ-ESC6-017)', () => {
-  it('[SC-ESC6-050] ningún archivo de src/ declara una clase de generador del proveedor; el único implementador del puerto con comportamiento es el simulado', () => {
+  it('[SC-ESC6-050][SC-ESC6-101] ninguna clase Vertex ni Gemini en src/ salvo GeminiApiSceneImageGenerator en su archivo; los implementadores del puerto son el simulado, el nulo y ese adaptador', () => {
     const declaraProveedor = SRC.filter((f) => /\bclass\s+\w*(Vertex|Gemini)\w*/.test(read(f)));
-    expect(declaraProveedor).toEqual([]);
+    expect(declaraProveedor).toEqual([GEMINI_API_ADAPTER].filter((f) => SRC.includes(f)));
+    for (const f of declaraProveedor) expect(read(f).match(/\bclass\s+\w*(?:Vertex|Gemini)\w*/g)).toEqual(['class GeminiApiSceneImageGenerator']);
+    expect(SRC.filter((f) => /\bGeminiApiSceneImageGenerator\b/.test(read(f)) && outsideAllowlist(f))).toEqual([]);
     const implementadores = SRC.filter((f) => /implements\s+SceneImageGeneratorPort\b/.test(read(f))).sort();
-    expect(implementadores).toEqual([
-      'src/infrastructure/adapters/fake-scene-image-generator.adapter.ts',
-      'src/infrastructure/adapters/null-scene-adapters.ts',
-    ]);
+    expect(implementadores).toEqual(
+      [
+        'src/infrastructure/adapters/fake-scene-image-generator.adapter.ts',
+        'src/infrastructure/adapters/null-scene-adapters.ts',
+        ...(SRC.includes(GEMINI_API_ADAPTER) ? [GEMINI_API_ADAPTER] : []),
+      ].sort(),
+    );
   });
 
-  it('[REQ-ESC6-017][SC-ESC6-061] src/ no importa SDK de IA ni google-auth-library ni nombra el endpoint de generación de imágenes del proveedor', () => {
-    const prohibido = /from\s+['"](@google\/(genai|generative-ai)|@google-cloud\/(vertexai|aiplatform)|google-auth-library|openai|@anthropic-ai\/sdk)['"]|aiplatform\.googleapis\.com|generativelanguage\.googleapis\.com/;
+  it('[REQ-ESC6-017][SC-ESC6-061] src/ no importa SDK de IA ni google-auth-library ni nombra aiplatform.googleapis.com (ni siquiera el adaptador gemini-api)', () => {
+    const prohibido = /from\s+['"](@google\/(genai|generative-ai)|@google-cloud\/(vertexai|aiplatform)|google-auth-library|openai|@anthropic-ai\/sdk)['"]|aiplatform\.googleapis\.com/;
     expect(SRC.filter((f) => prohibido.test(read(f)))).toEqual([]);
+  });
+
+  it('[SC-ESC6-101][INV-ESC6-020] el literal generativelanguage.googleapis.com solo aparece en los archivos de la lista blanca del adaptador gemini-api', () => {
+    expect(SRC.filter((f) => /generativelanguage\.googleapis\.com/.test(read(f)) && outsideAllowlist(f))).toEqual([]);
   });
 
   it('[SC-ESC6-050] package.json no declara ningún SDK de IA ni google-auth-library como dependencia directa', () => {

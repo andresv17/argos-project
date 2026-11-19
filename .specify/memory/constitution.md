@@ -1,4 +1,22 @@
 <!--
+SYNC IMPACT REPORT (3.6.0 -> 3.7.0, 2026-11-18)
+==================
+Version change: 3.6.0 -> 3.7.0
+Bump rationale: MINOR. Enmienda 006-bis (N2-13, 2026-11-18), acotada: el Principio VI admite además, SOLO en
+  desarrollo local privado (NODE_ENV distinto de production; uso exclusivo de Neo, nunca usuarios externos ni
+  producción), el driver `gemini-api` (Google Gemini Developer API) de la feature 006, por `fetch` nativo y sin
+  dependencia npm nueva, con tope de referencia de 5 USD/mes en la consola del proveedor bajo control de Neo y
+  la clave `GEMINI_API_KEY` solo en `.env` local (nunca en Terraform, Secret Manager ni GitHub Actions). No
+  modifica la excepción de Vertex AI ni su compuerta (N2-10, REQ-ESC6-028, T885). No retira ni redefine
+  principios. Autorizada por Neo (Andrés Vallejo, Level 2), 2026-11-18 (Opción 2). Diseño:
+  specs/006-escena-hogar-pixel-art/audits-gemini-api-diseno.md; dictamen: .specify/memory/audits/merovingian-006-gemini-api.md.
+Modified principles: VI (excepción acotada, nuevo párrafo).
+Modified sections: ninguna otra.
+Added/Removed sections: ninguna.
+Follow-up TODOs: Neo fija el tope de consola, restringe la clave a la API Generative Language y firma el texto del aviso (T900).
+-->
+
+<!--
 SYNC IMPACT REPORT (3.5.0 -> 3.6.0, 2026-11-18)
 ==================
 Version change: 3.5.0 -> 3.6.0
@@ -193,6 +211,8 @@ El stack tecnológico y el árbol de carpetas son los de la sección «Technolog
 
 **Excepción acotada de la feature 006 (Enmienda 006, N2-07 y N2-12, 2026-11-18).** Se admite un único servicio de pago: la generación de imágenes de `SceneImageGeneratorPort` mediante el adaptador de Google Vertex AI (Gemini Image) de la feature 006, desde `src/infrastructure/`, por `fetch` nativo de Node 22 y sin dependencia npm nueva. Condiciones: (a) el adaptador real no se activa (`ARGOS_SCENE_DRIVER=real`) mientras no se cumpla `REQ-ESC6-028` (datos del proveedor con fuente en `specs/006-escena-hogar-pixel-art/research.md`) ni se cierre la compuerta del driver real, con su enfriamiento previo a la activación (N2-10); (b) el gasto de este servicio tiene un tope de 5 USD equivalentes (22500 COP) por mes; (c) el desarrollo y las pruebas usan solo el adaptador simulado (0 USD) y el CI no hace llamadas reales; (d) la excepción no cubre ningún otro servicio, modelo ni proveedor de pago, y cualquier ampliación del tope o del alcance requiere una autorización nueva (Nivel 2).
 
+**Excepción acotada de desarrollo local privado: `gemini-api` (Enmienda 006-bis, N2-13, 2026-11-18).** Sin modificar la excepción anterior, se admite el uso del driver `ARGOS_SCENE_DRIVER=gemini-api` (Google Gemini Developer API) de la feature 006 únicamente cuando `NODE_ENV` es distinto de `production` y en el equipo local de Neo (0 usuarios externos). Condiciones: (a) la aplicación no arranca con `gemini-api` si `NODE_ENV=production`, y `SCENE_REAL_DRIVER_ACTIVATED` sigue `false`; esta excepción no activa ni cumple la compuerta del driver real (N2-10, `REQ-ESC6-028`, T885), que sigue rigiendo producción y Vertex; (b) el gasto lo acota Neo con un tope de referencia de 5 USD por mes en la consola del proveedor; (c) la clave `GEMINI_API_KEY` vive solo en el `.env` local ignorado por git y nunca en Terraform, Secret Manager, GitHub Actions ni el repositorio; (d) solo se usa `fetch` nativo de Node 22, sin dependencia npm nueva, con la clave únicamente en la cabecera `x-goog-api-key`; (e) el CI no hace llamadas reales; (f) el envío de fotos exige el consentimiento vigente de la feature (`INV-ESC6-014`); (g) la excepción no cubre ningún otro servicio, modelo ni proveedor, y cualquier ampliación requiere una autorización nueva (Nivel 2).
+
 **Rationale**: mantiene reproducible el entorno y acotado el coste de mantenimiento.
 
 ## Technology Stack & Repository Structure
@@ -245,10 +265,12 @@ Esta constitución prevalece sobre cualquier plan, tarea o línea de código.
 - **Revisión de cumplimiento.** Toda revisión verifica el cumplimiento de estos principios. Una desviación aceptada se registra con responsable y condición de cierre en «Complexity Tracking» del plan y como tarea abierta en `tasks.md`.
 - **Guía operativa.** `spec-system.md` y `CLAUDE.md` son la guía de ejecución para agentes; ante una diferencia con este documento prevalece la constitución.
 
-**Version**: 3.6.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-18
+**Version**: 3.7.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-18
 
 Versión 3.3.0 firmada por Andrés Vallejo (Nivel 2) el 2026-11-15 (tarea T403). Firmada por Neo (Level 2), 2026-11-15.
 
 Versión 3.4.0 (`jose` 6.2.17, acotada a la verificación OIDC de `/internal/maintenance`) autorizada por Andrés Vallejo (Nivel 2) el 2026-11-16 (tarea T486).
 
 Versión 3.6.0 (Enmienda 006, N2-07 y N2-12, 2026-11-18: excepción acotada de pago para la generación de imágenes de la feature 006 y `jose` 6.2.17 extendido a `/internal/scene-worker`) autorizada por Andrés Vallejo (Nivel 2) el 2026-11-18.
+
+Versión 3.7.0 (Enmienda 006-bis, N2-13, 2026-11-18: excepción acotada al Principio VI para el driver `gemini-api` solo en desarrollo local privado, sin producción ni usuarios externos) autorizada por Andrés Vallejo (Nivel 2) el 2026-11-18; redactada por `/architect` en estado de borrador, sin `APPROVED` ni `LOCKED`.

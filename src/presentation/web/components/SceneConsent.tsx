@@ -8,7 +8,7 @@
 import { useMemo, useState } from 'react';
 import { createSceneApi, SceneApiError, type SceneViewData } from '../scene-api.ts';
 import { useDialogFocus } from '../dialog-focus.ts';
-import { consentBody, consentStep, NOTICE_DRAFT, NOTICE_DRAFT_CHIP, NOTICE_DRAFT_GRANTED_LABEL, NOTICE_DRAFT_LABEL, NOTICE_INTRO, NOTICE_SECTIONS, NOTICE_TITLE, type ConsentStep } from '../scene-notice.ts';
+import { consentBody, consentStep, noticeSectionsFor, NOTICE_DRAFT, NOTICE_DRAFT_CHIP, NOTICE_DRAFT_GRANTED_LABEL, NOTICE_DRAFT_LABEL, NOTICE_INTRO, NOTICE_SECTIONS, NOTICE_TITLE, type ConsentStep, type NoticeSection } from '../scene-notice.ts';
 import { sceneProblemMessage } from '../scene-view.ts';
 import { Button } from './Field.tsx';
 
@@ -29,12 +29,14 @@ export interface SceneConsentViewProps {
   readonly onReload: () => void;
   /** Nivel del encabezado del panel: 3 bajo el h2 de «Mis mascotas», 5 dentro de la tarjeta del hogar (h3) (H-S1). */
   readonly headingLevel?: 3 | 5;
+  /** Apartados del aviso del proveedor vigente (T895); por defecto los de Vertex. */
+  readonly sections?: readonly NoticeSection[];
 }
 
 const PROSE = 'max-w-prose text-sm text-slate-900';
 const DRAFT_CHIP = <span className="mr-2 rounded-md border border-amber-700 bg-white px-2 py-0.5 text-xs font-bold tracking-wide text-amber-950">{NOTICE_DRAFT_CHIP}</span>;
 
-export function SceneConsentView({ idPrefix, step, accepted, busy, confirmRevoke, error, onAccept, onGrant, onDecline, onAskRevoke, onConfirmRevoke, onCancelRevoke, onReload, headingLevel = 3 }: SceneConsentViewProps): JSX.Element {
+export function SceneConsentView({ idPrefix, step, accepted, busy, confirmRevoke, error, onAccept, onGrant, onDecline, onAskRevoke, onConfirmRevoke, onCancelRevoke, onReload, headingLevel = 3, sections = NOTICE_SECTIONS }: SceneConsentViewProps): JSX.Element {
   const titleId = `${idPrefix}-consent-title`;
   const checkId = `${idPrefix}-consent-check`;
   const dialogId = `${idPrefix}-revoke-text`;
@@ -102,7 +104,7 @@ export function SceneConsentView({ idPrefix, step, accepted, busy, confirmRevoke
             </>
           ) : null}
           <p className={PROSE}>{NOTICE_INTRO}</p>
-          {NOTICE_SECTIONS.map((section) => (
+          {sections.map((section) => (
             <div key={section.title} className="grid gap-1">
               <Sub className="text-sm font-semibold text-slate-900">{section.title}</Sub>
               {section.paragraphs.map((paragraph) => (
@@ -185,12 +187,13 @@ export function SceneConsent({ idPrefix, view, reload, headingLevel }: { readonl
     <SceneConsentView
       idPrefix={idPrefix}
       step={step}
+      sections={noticeSectionsFor(view.consent.providerId)}
       accepted={accepted}
       busy={busy}
       confirmRevoke={confirmRevoke}
       error={error}
       onAccept={setAccepted}
-      onGrant={() => void run(async () => api.grantConsent(consentBody()))}
+      onGrant={() => void run(async () => api.grantConsent(consentBody(view.consent.providerId)))}
       onDecline={() => setDismissed(true)}
       onAskRevoke={() => setConfirmRevoke(true)}
       onConfirmRevoke={() =>

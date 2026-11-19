@@ -4,14 +4,20 @@
  * `CloudTasksSceneDispatcher` solo se elige con `ARGOS_SCENE_DRIVER=real` (hoy imposible: la configuración exige la constante de activación, T885) y el generador real no
  * existe como código seleccionable, así que la composición completa del real se NIEGA. Sin llamadas a GCP.
  *
- * @implements REQ-ESC6-013, REQ-ESC6-017, REQ-ESC6-031, INV-ESC6-002, INV-ESC6-018
+ * `gemini-api` (T895, REQ-ESC6-037, INV-ESC6-014, INV-ESC6-020): driver LOCAL PRIVADO fuera de producción (la configuración ya lo rechaza con `NODE_ENV=production`). Compone
+ * el generador de la Developer API con la clave y el modelo de la configuración, `realDriver: true` (el consentimiento vigente es obligatorio antes de cualquier llamada),
+ * despachador EN PROCESO, `providerId` y `noticeVersion` propios y un tope de referencias menor (el JSON inline del proveedor es menor que 32 MiB).
+ *
+ * @implements REQ-ESC6-013, REQ-ESC6-017, REQ-ESC6-031, REQ-ESC6-037, INV-ESC6-002, INV-ESC6-014, INV-ESC6-018, INV-ESC6-020
  */
 
 import type { SceneJob, SceneJobDispatcherPort } from '../../application/ports/scene-job-dispatcher.port.ts';
 import type { SceneServices } from '../../application/use-cases/use-case-support.ts';
-import { SCENE_NOTICE_VERSION, SCENE_PROVIDER_ID } from '../../domain/scene/notice.ts';
+import { SCENE_GEMINI_API_NOTICE_VERSION, SCENE_GEMINI_API_PROVIDER_ID, SCENE_NOTICE_VERSION, SCENE_PROVIDER_ID } from '../../domain/scene/notice.ts';
 import { CloudTasksSceneDispatcher } from '../adapters/cloud-tasks-scene-dispatcher.adapter.ts';
 import { FakeSceneImageGenerator } from '../adapters/fake-scene-image-generator.adapter.ts';
+import { GEMINI_REFERENCE_MAX_BYTES } from '../adapters/gemini-api-wire.ts';
+import { createGeminiApiSceneGenerator } from '../adapters/gemini-api-scene-image-generator.adapter.ts';
 import {
   MAX_IMAGE_PIXELS,
   MAX_IMAGE_SIDE,
@@ -66,26 +72,30 @@ export function selectSceneDispatcher(scene: SceneConfig, options: SceneComposit
 export function composeSceneServices(config: AppConfig, options: SceneCompositionOptions): SceneServices {
   const scene = config.scene;
   if (scene.driver === 'real') throw new Error('ARGOS_SCENE_DRIVER=real no está disponible: el adaptador del proveedor no se entrega hasta la compuerta del driver real.');
+  const gemini = scene.driver === 'gemini-api';
+  if (gemini && (scene.geminiApiKey === null || scene.geminiModel === null)) throw new Error('Configuración del driver gemini-api incompleta para la escena.');
   return {
     maxPets: scene.maxPets,
     quotaMax: scene.quotaMax,
     genTimeoutSeconds: scene.genTimeoutSeconds,
     leaseSeconds: scene.leaseSeconds,
     queueWaitSeconds: scene.queueWaitSeconds,
-    realDriver: false,
+    realDriver: gemini,
     utcOffsetMinutes: utcOffsetMinutesOf(config.appTimezone, new Date()),
-    noticeVersion: SCENE_NOTICE_VERSION,
-    providerId: SCENE_PROVIDER_ID,
+    noticeVersion: gemini ? SCENE_GEMINI_API_NOTICE_VERSION : SCENE_NOTICE_VERSION,
+    providerId: gemini ? SCENE_GEMINI_API_PROVIDER_ID : SCENE_PROVIDER_ID,
     images: {
       strip: (mime, bytes) => stripImageMetadata(mime as StrippableMime, bytes),
-      fit: (sizes) => fitReferencesWithinBudget(sizes),
+      fit: (sizes) => (gemini ? fitReferencesWithinBudget(sizes, GEMINI_REFERENCE_MAX_BYTES) : fitReferencesWithinBudget(sizes)),
       withinLimits: (mime, bytes) => {
         const size = readImageDimensions(mime as StrippableMime, bytes);
         return size !== null && size.width * size.height <= MAX_IMAGE_PIXELS && Math.max(size.width, size.height) <= MAX_IMAGE_SIDE;
       },
       validateOutput: (mime, bytes) => validateGeneratedImage(mime, bytes, MAX_GENERATED_IMAGE_BYTES),
     },
-    generator: new FakeSceneImageGenerator({ mode: 'ok' }),
+    generator: gemini
+      ? createGeminiApiSceneGenerator({ apiKey: scene.geminiApiKey!, model: scene.geminiModel!, timeoutSeconds: scene.genTimeoutSeconds, ...(options.fetch === undefined ? {} : { fetch: options.fetch }) })
+      : new FakeSceneImageGenerator({ mode: 'ok' }),
     dispatcher: selectSceneDispatcher(scene, options),
   };
 }

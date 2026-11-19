@@ -2,7 +2,7 @@
 
 **Input**: `specs/006-escena-hogar-pixel-art/` (`spec.md`, `plan.md`, `data-model.md`, `research.md`, `contracts/`); lectura de `specs/002..005`, `.specify/memory/constitution.md` y de los informes de `.specify/memory/audits/`.
 **Estado**: `DRAFT` (Architect, 2026-11-18; para `/oracle` y firma de Neo, Nivel 2). Sin `APPROVED` ni `LOCKED`. **Toda tarea nace `[ ]`**; el techo de los agentes es `REVIEW` y solo Neo marca `COMPLETED`. Decisiones `D6-01..D6-17` y `N2-01..N2-12` firmadas por Neo el 2026-11-18 (Logos) y asentadas en `spec.md` y `plan.md`.
-**Numeración**: `T801..T885`, con huecos deliberados dentro de cada fase. Se renumeró desde `T601..T798` al rango libre `T801..T885` (observación OBS-1 de `/oracle`) para no colisionar con 004 (`T501..T617`) ni con 005 (`T700..T798`); aun así, cada `tasks.md` es independiente por feature, la compuerta `--feature 006` solo lee este archivo y toda referencia cruzada a una tarea de otra feature lleva su prefijo de feature.
+**Numeración**: `T801..T885` más la Fase 9 `T886..T900` (tramo `gemini-api`), con huecos deliberados dentro de cada fase. Se renumeró desde `T601..T798` al rango libre `T801..T885` (observación OBS-1 de `/oracle`) para no colisionar con 004 (`T501..T617`) ni con 005 (`T700..T798`); aun así, cada `tasks.md` es independiente por feature, la compuerta `--feature 006` solo lee este archivo y toda referencia cruzada a una tarea de otra feature lleva su prefijo de feature.
 
 ## Format: `[ID] [P?] [N2|GOV|HUM] Descripción — REQ/INV/EDGE/NFR/ERR/SC; Dep: tareas`
 - **[P]**: paralelizable. **[N2]**: requiere la autorización de Neo ya firmada (scripts, workflows, Terraform, migraciones, enmiendas a 002..005, dependencias, constitución). **[GOV]**: gobernanza o compuerta. **[HUM]**: paso humano de Neo, que ningún agente ejecuta.
@@ -13,6 +13,7 @@
 - **Contratos primero**: ninguna tarea de `src/` empieza antes de T808 (compuertas y `src/generated/v34/` compilado). Los contratos de 002..005 son `LOCKED`: solo se tocan en las tareas de enmienda de la Fase 2, que `N2-05` y `N2-06` ya autorizan.
 - **Capas**: `src/domain/` y `src/application/` sin `fs`, `fetch`, SDK ni `process.env`; el dominio de escena es puro y sin `Date` ni entropía.
 - **Sin dependencias npm nuevas** en el tramo fake (`SC-ESC6-050`); `N2-01` = B (lista blanca) y `package.json` y lock intactos.
+- **Fase 9 (`gemini-api`)**: solo fuera de `NODE_ENV=production` y para uso local privado de Neo (`D6-18`, `N2-13`); no sustituye ni cumple ninguna condición de T885.
 - **Prohibido en cualquier tarea de esta lista**: `terraform apply`, `gcloud` mutante, `git push`, ejecutar `bootstrap.sh`, activar `ARGOS_SCENE_DRIVER=real`, fusionar a `main` y marcar `[x]` o `COMPLETED`.
 - **No se implementa en el tramo fake**: `ARGOS_SCENE_GLOBAL_QUOTA_MAX` (`N2-02`), la dependencia de imagen (`N2-01` A), `VertexSceneImageGenerator` activo y el redimensionado; van en la tarea `[GOV]` bloqueada T885.
 - **Caso B** (contrato vs implementación): vuelve a `/architect` (`MAX_HOPS = 2`). **`N2-09` = B**: PN-06 no pertenece a la 006 y no tiene tarea.
@@ -190,6 +191,32 @@
 
 ---
 
+## Fase 9: Tramo `gemini-api` de desarrollo local privado (Opción 2 firmada por Neo, `D6-18`, `N2-13`)
+
+**Goal**: Permitir `ARGOS_SCENE_DRIVER=gemini-api` **solo** fuera de `NODE_ENV=production` y solo para uso local privado de Neo (tope de referencia 5 USD/mes en la consola, bajo control de Neo; `GEMINI_API_KEY` solo en `.env` local). **No** activa el driver real, **no** cumple ninguna condición de `N2-10` ni de T885 (que sigue bloqueada), `SCENE_REAL_DRIVER_ACTIVATED` sigue `false` y producción rechaza `fake` y `gemini-api`. Diseño: `specs/006-escena-hogar-pixel-art/audits-gemini-api-diseno.md`; dictamen: `.specify/memory/audits/merovingian-006-gemini-api.md`; resumen de enmiendas: `.specify/memory/audits/architect-006-gemini-api-enmiendas.md`.
+**Independent Test**: `bash scripts/verify-traceability.sh --feature 006` verde, `npx tsc --noEmit` en 0, `npm run test:gate` verde con 0 llamadas de red, la guarda de T879 con lista blanca estricta verde y 0 apariciones de una clave sintética en registros.
+**Prohibido en esta fase**: lecturas o escrituras de `.env` y de la clave por agentes, `git push`, `terraform apply`, tocar la compuerta de T885, `GEMINI_API_KEY` en `terraform/`, Secret Manager o GitHub Actions, y marcar `[x]` o `COMPLETED` (solo Neo).
+
+- [x] T886 [N2] Enmienda MINOR 3.7.0 de `.specify/memory/constitution.md` (Principio VI): excepción acotada de desarrollo local privado para `gemini-api`, sin tocar la excepción de Vertex; informe de impacto y entrada en el historial de versiones. **Estado: COMPLETED (Neo 2026-11-18)** — REQ-ESC6-037, REQ-ESC6-017, REQ-ESC6-031; INV-ESC6-020; SC-ESC6-102. Dep: T884
+- [x] T887 [N2] Enmiendas de `spec.md` y `plan.md`: `REQ-ESC6-017` y `REQ-ESC6-031` aceptan {`real`, `fake`, `gemini-api`} con `gemini-api` solo fuera de producción; `SC-ESC6-025` y `SC-ESC6-061` ajustados; nuevos `REQ-ESC6-037..038`, `INV-ESC6-020`, `SC-ESC6-097..103`, `D6-18`, `N2-13`; filas de variables `GEMINI_API_KEY` y `ARGOS_SCENE_GEMINI_MODEL` en `plan.md`. **Estado: COMPLETED (Neo 2026-11-18)** — REQ-ESC6-017, REQ-ESC6-031, REQ-ESC6-037, REQ-ESC6-038; INV-ESC6-020; SC-ESC6-025, SC-ESC6-061, SC-ESC6-097..103. Dep: T886
+- [x] T888 [N2] `scripts/verify-traceability.sh`: el rango documentado de `SC-ESC6-*` pasa de `001..096` a `001..103` (el patrón de tres dígitos no tiene tope en código; solo cambia la cabecera). Verde `tests/integration/gates/t801-compuerta-006.spec.ts` y `bash scripts/verify-traceability.sh --feature 006`. **Estado: COMPLETED (Neo 2026-11-18)** — REQ-ESC6-031; SC-ESC6-050, SC-ESC6-091. Dep: T887
+- [x] T889 [N2] Pruebas rojas y ajuste de la guarda `tests/unit/guarda-driver-real-escena-006.spec.ts` (cierra el choque C1; **no reabre T879**): lista blanca estricta por ruta, solo para los archivos del adaptador `gemini-api`, del literal `generativelanguage.googleapis.com` y de la clase `GeminiApiSceneImageGenerator`; siguen prohibidos `aiplatform.googleapis.com`, los SDK de IA, `google-auth-library` y todo uso con `NODE_ENV=production`; producción sigue rechazando `fake` y `gemini-api`; `SCENE_REAL_DRIVER_ACTIVATED` sigue `false`. Crea `tests/unit/gemini-api-aislamiento-escena-006.spec.ts` (`GEMINI_API_KEY` ausente de `terraform/`, workflows y lock; `package.json` sin cambios; `process.env` solo en `config/`) — REQ-ESC6-017, REQ-ESC6-037; INV-ESC6-020; SC-ESC6-050, SC-ESC6-101. Dep: T888
+- [x] T890 Pruebas rojas de configuración (`tests/unit/gemini-api-config-escena-006.spec.ts`): `gemini-api` en producción falla nombrando solo `ARGOS_SCENE_DRIVER`; sin clave o sin modelo falla nombrando solo la variable; ningún mensaje lleva el valor de la clave (centinela); `fake` y `real` ignoran la clave; `real` sigue sin arrancar — REQ-ESC6-037; INV-ESC6-020; SC-ESC6-097. Dep: T887
+- [x] T891 `src/infrastructure/config/app-config.ts`: enum `['fake','gemini-api','real']`, lectura de `GEMINI_API_KEY` (20..256, sin espacios ni saltos de línea) y `ARGOS_SCENE_GEMINI_MODEL` (patrón de lista cerrada), `SceneConfig` ampliada sin exponer la clave a ningún serializador; verde T890 — REQ-ESC6-037; INV-ESC6-020; SC-ESC6-097. Dep: T890
+- [x] T892 Pruebas rojas del adaptador y su cableado puro (`tests/unit/gemini-api-scene-generator.spec.ts`, `fetch` simulado, 0 red): URL exacta sin `?`, cabecera `x-goog-api-key`, `redirect: 'error'`, orden `IMG_1..IMG_n`, tabla de estados HTTP (sin reintento interno), aborto, payload sobre el tope, salida PNG/WebP por firma, cadena con `validateOutput` y sin eco del cuerpo de error — REQ-ESC6-037, REQ-ESC6-038, REQ-ESC6-035; SC-ESC6-099. Dep: T887
+- [x] T893 `src/infrastructure/adapters/gemini-api-scene-image-generator.adapter.ts` y `gemini-api-wire.ts`: `GeminiApiSceneImageGenerator implements SceneImageGeneratorPort` con `fetch` nativo, sin dependencia npm; verde T892 y T889 — REQ-ESC6-037, REQ-ESC6-038; INV-ESC6-016, INV-ESC6-020; SC-ESC6-099, SC-ESC6-101. Dep: T892, T889, T891
+- [x] T894 Pruebas rojas de composición y consentimiento (`tests/unit/gemini-api-composicion-escena-006.spec.ts`): `realDriver: true`, despachador en proceso, `providerId = 'gemini-api'`, `noticeVersion` propia; sin consentimiento vigente o con versión o proveedor antiguos el generador recibe 0 llamadas; la revocación en vuelo cancela — REQ-ESC6-037; INV-ESC6-014, INV-ESC6-020; EDGE-ESC6-025; SC-ESC6-098. Dep: T891
+- [x] T895 `src/infrastructure/http/scene-composition.ts`, `src/domain/scene/notice.ts` y `src/presentation/web/scene-notice.ts`: rama `gemini-api` y aviso **borrador** con `noticeVersion` y `providerId` propios (el texto legal final lo firma Neo, `REQ-ESC6-026`); verde T894 — REQ-ESC6-037, REQ-ESC6-026; INV-ESC6-014; SC-ESC6-098. Dep: T893, T894
+- [x] T896 Prueba de no-fuga de la clave (`tests/unit/gemini-api-no-fuga-escena-006.spec.ts`) y verificación de `src/infrastructure/http/cloud-logging.ts`, cuya redacción de `AIza[0-9A-Za-z_-]{35}` y de `x-goog-api-key` ya fue añadida por `/architect` en una línea de patrón; la prueba cubre registros, errores, mensajes y resultados del adaptador con una clave sintética — REQ-ESC6-038; INV-ESC6-016; SC-ESC6-100. Dep: T887
+- [x] T897 `.env.example`: añadir solo comentadas y sin valor `# GEMINI_API_KEY=` y `# ARGOS_SCENE_GEMINI_MODEL=` con la nota «solo fuera de producción»; `ARGOS_SCENE_DRIVER=fake` no cambia; comprobar con `git check-ignore .env`. Ningún agente lee ni escribe `.env` — REQ-ESC6-038; SC-ESC6-103. Dep: T891
+- [x] T898 Compuertas del tramo: `bash scripts/verify-traceability.sh --feature 006`, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit`, `npm run test:gate` (0 llamadas de red); `package.json` y lock sin dependencias nuevas — REQ-ESC6-017, REQ-ESC6-031, REQ-ESC6-037; INV-ESC6-020; SC-ESC6-050, SC-ESC6-097..101. Dep: T889, T893, T895, T896, T897
+- [x] T899 [GOV] `/oracle` audita en disco el tramo `gemini-api` (diff, hashes, suites, guarda con lista blanca, no-fuga, trazabilidad por tarea) y emite veredicto; el techo de cualquier agente es `REVIEW`; **solo Neo marca `COMPLETED`**; T885 permanece bloqueada — REQ-ESC6-037; SC-ESC6-102. Dep: T898 **Estado: COMPLETED (Neo 2026-11-18)** — veredicto PASS CON OBSERVACIONES en `.specify/memory/audits/oracle-006-gemini-api-t899.md`.
+- [ ] T900 [HUM] **Paso de Neo, ningún agente lo ejecuta**: crear la clave en el proyecto de facturación elegido y restringirla a la API Generative Language; fijar en la consola el tope de referencia de 5 USD/mes y su alerta; guardar la clave solo en `.env` local (nunca en el chat, repositorio, Terraform, Secret Manager ni GitHub Actions); verificar con fuente los términos de datos de la Developer API antes de usar fotos reales (`REQ-ESC6-028`) y firmar el texto del aviso (`REQ-ESC6-026`) — REQ-ESC6-037, REQ-ESC6-038; NFR-ESC6-001. Dep: T886
+
+**Checkpoint**: T886..T900 con `/oracle` en PASS; `gemini-api` sigue fuera de producción y T885 bloqueada.
+
+---
+
 ## Conteo y cobertura
 
 | Fase | Tareas |
@@ -202,12 +229,13 @@
 | Fase 6 | 6 |
 | Fase 7 | 4 |
 | Fase 8 | 7 |
-| **Total** | **85** |
+| Fase 9 | 15 |
+| **Total** | **100** |
 
-Cobertura verificada contra `spec.md` y el catálogo de errores: 196 IDs (36 `REQ-ESC6`, 19 `INV-ESC6`, 33 `EDGE-ESC6`, 96 `SC-ESC6`, 4 `NFR-ESC6`, `STATE-SCENE-001`, 7 `ERR-SCENE-*`), **0 sin tarea**.
+Cobertura verificada contra `spec.md` y el catálogo de errores: 205 IDs (38 `REQ-ESC6`, 20 `INV-ESC6`, 33 `EDGE-ESC6`, 103 `SC-ESC6`, 4 `NFR-ESC6`, `STATE-SCENE-001`, 7 `ERR-SCENE-*`), **0 sin tarea**.
 
 ## Dependencias entre fases
 
-Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5 → Fase 6 → Fase 7 → Fase 8. Excepciones explícitas: T814 espera a T833 (tabla `household_photos`); T815 queda roja hasta T862..T868; T810 aporta el `CHECK` de `audit_log` que T832 incluye; T885 queda bloqueada por `N2-10`.
+Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5 → Fase 6 → Fase 7 → Fase 8 → Fase 9 (Fase 9 no desbloquea T885). Excepciones explícitas: T814 espera a T833 (tabla `household_photos`); T815 queda roja hasta T862..T868; T810 aporta el `CHECK` de `audit_log` que T832 incluye; T885 queda bloqueada por `N2-10`.
 
 **Fuera de las tareas ejecutables**: activar `ARGOS_SCENE_DRIVER=real` y fusionar a `main` (T885, `[GOV]` bloqueada).
