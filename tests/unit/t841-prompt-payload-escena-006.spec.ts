@@ -476,3 +476,68 @@ describe('buildScenePayload (T841): contrato 1.0.0 extensible', () => {
     expect(JSON.stringify(built).includes('Remove only')).toBe(false);
   });
 });
+
+/**
+ * T927 (006, Fase 12; D6-20): payload y prompt con fotos `KEEP` en incrementales. REQ-ESC6-016; INV-ESC6-001, INV-ESC6-010, INV-ESC6-017; SC-ESC6-123.
+ * El orden de las ranuras lo fija `N2-16`: aquí se verifica la coherencia JSON-referencias sin suponerlo.
+ */
+describe('buildImagePrompt (T927): KEEP con foto en incrementales (SC-ESC6-123)', () => {
+  const last = buildInputsSnapshot({ householdPhoto: null, pets: [snapPet(1, 'k1'), snapPet(2, 'k2'), snapPet(3), snapPet(4, 'r-old'), snapPet(5, 'x5')] });
+  const now = buildInputsSnapshot({ householdPhoto: null, pets: [snapPet(1, 'k1'), snapPet(2, 'k2'), snapPet(3), snapPet(4, 'r-new'), snapPet(6, 'a6')] });
+  const built = (): ScenePayload => {
+    const plan = decideMode({ last, now, hasImage: true, action: 'UPDATE' })!;
+    return buildScenePayload({ plan, last, now, householdId: id(900), maxPets: 8, totalPets: 5 });
+  };
+  const jsonOf = (text: string): { pets: Array<{ index: number; action: string; hasReferencePhoto: boolean; photoRef: string | null }> } => {
+    const start = text.indexOf(`${SCENE_SPEC_INTRO}\n`) + SCENE_SPEC_INTRO.length + 1;
+    return JSON.parse(text.slice(start, text.indexOf(`\n\n${PET_COUNT_RULE}`)));
+  };
+
+  it('[SC-ESC6-123] el payload incremental MIXED trae hasReferencePhoto true y photoRef IMG_n en cada KEEP con foto, y null en la KEEP sin foto', () => {
+    const payloadBuilt = built();
+    expect(payloadBuilt.mode).toBe('INCREMENTAL_MIXED');
+    expect(validateScenePayload(payloadBuilt)).toBe(true);
+    const byId = (n: number): PetBlock => payloadBuilt.pets.find((p) => p.id === id(n))!;
+    expect([byId(1).hasReferencePhoto, byId(2).hasReferencePhoto]).toEqual([true, true]);
+    expect(byId(1).photoRef).toMatch(/^IMG_[2-9]$/);
+    expect(byId(2).photoRef).toMatch(/^IMG_[2-9]$/);
+    expect(byId(1).photoRef).not.toBe(byId(2).photoRef);
+    expect([byId(3).hasReferencePhoto, byId(3).photoRef]).toEqual([false, null]);
+    expect(byId(5).photoRef).toBeNull();
+  });
+
+  it('[SC-ESC6-123][INV-ESC6-001] 100 salidas idénticas; el JSON de pets excluye REMOVE y cada KEEP con foto lleva su photoRef real, igual al del payload', () => {
+    const payloadBuilt = built();
+    const first = buildImagePrompt(payloadBuilt);
+    for (let i = 0; i < 100; i += 1) expect(buildImagePrompt(payloadBuilt)).toBe(first);
+    const spec = jsonOf(first);
+    expect(spec.pets.map((p) => p.action)).toEqual(['KEEP', 'KEEP', 'KEEP', 'REPLACE', 'ADD']);
+    const expected = payloadBuilt.pets.filter((p) => p.action !== 'REMOVE').map((p) => [p.hasReferencePhoto, p.photoRef]);
+    expect(spec.pets.map((p) => [p.hasReferencePhoto, p.photoRef])).toEqual(expected);
+    expect(spec.pets[0]).toMatchObject({ action: 'KEEP', hasReferencePhoto: true });
+    expect(spec.pets[0]?.photoRef).toMatch(/^IMG_[2-9]$/);
+    const refs = spec.pets.map((p) => p.photoRef).filter((r) => r !== null);
+    expect(new Set(refs).size).toBe(refs.length);
+    expect(refs.every((r) => r !== 'IMG_1')).toBe(true);
+  });
+
+  it('[SC-ESC6-123] PIXEL_REDRAW_RULE aparece 1 vez con foto en ADD o REPLACE y 0 veces cuando solo hay fotos KEEP', () => {
+    expect(buildImagePrompt(built()).split(PIXEL_REDRAW_RULE)).toHaveLength(2);
+    const keepOnlyLast = buildInputsSnapshot({ householdPhoto: null, pets: [snapPet(1, 'k1'), snapPet(2, 'k2'), snapPet(4)] });
+    const keepOnlyNow = buildInputsSnapshot({ householdPhoto: null, pets: [snapPet(1, 'k1'), snapPet(2, 'k2'), snapPet(4), snapPet(7)] });
+    const plan = decideMode({ last: keepOnlyLast, now: keepOnlyNow, hasImage: true, action: 'UPDATE' })!;
+    const onlyKeep = buildScenePayload({ plan, last: keepOnlyLast, now: keepOnlyNow, householdId: id(900), maxPets: 8, totalPets: 4 });
+    expect(onlyKeep.pets.filter((p) => p.action === 'KEEP' && p.hasReferencePhoto)).toHaveLength(2);
+    const text = buildImagePrompt(onlyKeep);
+    expect(text.includes(PIXEL_REDRAW_RULE)).toBe(false);
+    expect(jsonOf(text).pets.filter((p) => p.action === 'KEEP' && p.hasReferencePhoto)).toHaveLength(2);
+  });
+
+  it('[SC-ESC6-123][INV-ESC6-017] el texto con KEEP con foto no contiene household.id, pets[].id, biography ni fallbackContext, y las claves del JSON no cambian', () => {
+    const payloadBuilt = built();
+    const text = buildImagePrompt({ ...payloadBuilt, pets: payloadBuilt.pets.map((p) => ({ ...p, biography: 'secreto-bio', fallbackContext: 'secreto-ctx' } as PetBlock)) });
+    for (const secret of [id(900), id(1), id(2), id(3), id(4), id(5), id(6), 'secreto-bio', 'secreto-ctx']) expect(text.includes(secret)).toBe(false);
+    const spec = jsonOf(text);
+    expect(Object.keys(spec.pets[0] ?? {})).toEqual(['index', 'action', 'species', 'breed', 'sex', 'hasReferencePhoto', 'photoRef']);
+  });
+});

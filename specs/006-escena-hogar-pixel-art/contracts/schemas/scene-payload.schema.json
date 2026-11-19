@@ -8,7 +8,7 @@
     "status": "DRAFT",
     "supersedes": null,
     "change_type": "MAJOR",
-    "change_note": "Contrato nuevo de la feature 006 (Architect, 2026-11-18; revisión 2: FreeText60 por lista blanca, H-TRI-006-04). mode incluye INCREMENTAL_MIXED (D6-08 = A). species y sex referencian por $ref los enums de pet.schema.json de la 004 (SC-ESC6-022). photoRef y currentSceneRef son etiquetas opacas de ranura IMG_n asignadas por el servidor en orden determinista (foto del hogar, escena previa, mascotas por orden de selección); no son URL ni clave de objeto. biography y fallbackContext se declaran opcionales y el servidor los envía siempre nulos hasta nueva revisión de /rama (INV-ESC6-017).",
+    "change_note": "Contrato nuevo de la feature 006 (Architect, 2026-11-18; revisión 2: FreeText60 por lista blanca, H-TRI-006-04). mode incluye INCREMENTAL_MIXED (D6-08 = A). species y sex referencian por $ref los enums de pet.schema.json de la 004 (SC-ESC6-022). photoRef y currentSceneRef son etiquetas opacas de ranura IMG_n asignadas por el servidor en orden determinista (foto del hogar, escena previa y mascotas; primero las que se dibujan por orden de selección y después las mascotas KEEP con foto vigente en los modos incrementales, de modo que ante el tope de bytes se descartan antes las KEEP, N2-16); no son URL ni clave de objeto. biography y fallbackContext se declaran opcionales y el servidor los envía siempre nulos hasta nueva revisión de /rama (INV-ESC6-017).",
     "traceability": [
       "REQ-ESC6-006",
       "REQ-ESC6-009",

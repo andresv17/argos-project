@@ -108,9 +108,10 @@ describe('T875 bloque «Escena del hogar» (REQ-ESC6-019, NFR-ESC6-004)', () => 
     const blocked = render(sceneView({ actions: { canUpdate: false, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: 'NO_CHANGES' } }));
     const button = /<button[^>]*>Actualizar imagen del hogar<\/button>/.exec(blocked)?.[0] ?? '';
     expect(isDisabled(button)).toBe(true);
-    const describedBy = /aria-describedby="([^"]+)"/.exec(button)?.[1] ?? '';
-    expect(describedBy).not.toBe('');
-    expect(blocked).toContain(`id="${describedBy}"`);
+    // T931/SC-ESC6-129: aria-describedby lista el motivo y, después, el texto de ayuda (ids separados por un espacio).
+    const describedBy = (/aria-describedby="([^"]+)"/.exec(button)?.[1] ?? '').split(' ');
+    expect(describedBy[0]).toMatch(/-reason$/);
+    for (const id of describedBy) expect(blocked).toContain(`id="${id}"`);
     const enabled = render(sceneView({ pending: 1, actions: { canUpdate: true, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: null } }));
     expect(isDisabled(/<button[^>]*>Actualizar imagen del hogar<\/button>/.exec(enabled)?.[0] ?? '')).toBe(false);
   });
@@ -139,7 +140,7 @@ describe('T875 bloque «Escena del hogar» (REQ-ESC6-019, NFR-ESC6-004)', () => 
     const markup = render(sceneView({ pending: 1 }), { idPrefix: 'a' }) + render(sceneView({ pending: 1 }), { idPrefix: 'b' });
     const ids = [...markup.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]!);
     expect(ids.filter((v, i) => ids.indexOf(v) !== i)).toEqual([]);
-    for (const m of markup.matchAll(/(?:aria-labelledby|aria-describedby)="([^"]+)"/g)) expect(ids).toContain(m[1]);
+    for (const m of markup.matchAll(/(?:aria-labelledby|aria-describedby)="([^"]+)"/g)) for (const id of m[1]!.split(' ')) expect(ids).toContain(id);
   });
 
   it('[NFR-ESC6-004] reflujo y foco: sin ancho fijo en px, rejilla de una columna en móvil y clases de foco visible en los controles', () => {

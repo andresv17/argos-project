@@ -9,6 +9,7 @@ import type { Scheduler } from './access-renewer.ts';
 import { ERROR_CATALOG } from '../../generated/errors/error-codes.ts';
 import { mediaProblemMessage, uploadDateText } from './media-view.ts';
 import type { SceneErrorCode, SceneScope, SceneViewData } from './scene-api.ts';
+import type { HouseholdView } from './view-model.ts';
 
 /** Intervalo del sondeo mientras `generating` (constante del cliente, no variable del servidor, H-MIF-006-06). */
 export const ARGOS_SCENE_POLL_SECONDS = 3;
@@ -79,6 +80,27 @@ export const ownerSceneVisible = (loaded: boolean, householdsCount: number): boo
 export interface HomeSceneImageData {
   readonly imageTag: string | null;
   readonly shown: number;
+}
+
+/**
+ * Hogar principal del usuario para «Mis mascotas» (REQ-ESC6-019, SC-ESC6-121): el de `household.createdAt` más antiguo y, a igualdad, el de `household.id` menor en
+ * orden ascendente; `null` sin hogares. El cliente aplica el orden él mismo (el arreglo recibido no se muta ni su orden importa). Pura: sin reloj, azar ni entorno.
+ */
+export function principalHouseholdId(households: readonly HouseholdView[]): string | null {
+  const instant = (view: HouseholdView): number => Date.parse(view.household.createdAt);
+  let best: HouseholdView | null = null;
+  for (const candidate of households) {
+    if (best === null) {
+      best = candidate;
+      continue;
+    }
+    const a = instant(candidate);
+    const b = instant(best);
+    const older = Number.isNaN(a) || Number.isNaN(b) ? candidate.household.createdAt < best.household.createdAt : a < b;
+    const same = Number.isNaN(a) || Number.isNaN(b) ? candidate.household.createdAt === best.household.createdAt : a === b;
+    if (older || (same && candidate.household.id < best.household.id)) best = candidate;
+  }
+  return best === null ? null : best.household.id;
 }
 
 /** Lee la escena del hogar (ámbito `HOUSEHOLD`, 1 lectura) para «Mascotas»; sin hogar no hay petición y un error da `null` sin mensaje (SC-ESC6-111). */

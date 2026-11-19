@@ -6,7 +6,7 @@ import type { ApplicationDeps } from '../../src/application/use-cases/use-case-s
 import { stateHash } from '../../src/domain/audit/state-hash.ts';
 import { STYLE_BASE_TEXT } from '../../src/domain/scene/build-image-prompt.ts';
 import { FakeSceneImageGenerator } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
-import { ANDRES, ARGOS, HOUSEHOLD, LUNA, MARIA, canonicalState, createHarness } from '../fixtures/application-harness.ts';
+import { ANDRES, ANDRES_PETS, ARGOS, HOUSEHOLD, LUNA, MARIA, canonicalState, createHarness } from '../fixtures/application-harness.ts';
 import { ControlledStorage } from '../fixtures/media-harness.ts';
 import { sceneFixture, withScene, type SceneFixtureOptions } from '../fixtures/scene-services-fixtures.ts';
 
@@ -432,5 +432,124 @@ describe('runSceneGeneration (T856): consentimiento, cambios y arrendamiento dur
     expect(await t.run.execute(j, signal())).toBe('FAILED');
     expect(sceneOf(t)).toMatchObject({ consumedGenerations: 10, image: null });
     expect(await t.storage.keys('scenes/')).toEqual([]);
+  });
+});
+
+/**
+ * T929 (006, Fase 12; D6-20, N2-16 B+C): tope agregado de bytes con fotos `KEEP` en incrementales. Se descartan primero las `KEEP` (la escena previa y las mascotas
+ * `ADD`/`REPLACE` tienen prioridad) y omitir una `KEEP` NO marca el intento como degradado. REQ-ESC6-024, REQ-ESC6-027; INV-ESC6-010; EDGE-ESC6-028;
+ * SC-ESC6-125, SC-ESC6-126.
+ */
+describe('runSceneGeneration (T929): fotos KEEP, tope de bytes y degradación (N2-16 B+C)', () => {
+  const LUNA_AVATAR = 'e1000000-0000-4000-8000-000000000002';
+  const consentOf = (userId: string, n: number) => ({ id: `c5000000-0000-4000-8000-00000000002${n}`, userId, scope: 'PET_PHOTOS' as const, providerId: 'vertex-gemini-image', noticeVersion: '1', grantedAt: NOW, revokedAt: null });
+  const photoRefs = (prompt: string): string[] => [...prompt.matchAll(/"photoRef":\s*"(IMG_\d+)"/g)].map((m) => m[1] ?? '');
+
+  /** Escena con imagen previa que viajó con la foto de Argos (Andrés); luego Luna (María) recibe foto: REPLACE de Luna y KEEP de Argos. */
+  async function incremental(options: SceneFixtureOptions = {}, sizes: { current: number[] } = { current: [] }) {
+    const t = setup({ ...options, images: { ...(options.images ?? {}), fit: (s) => { sizes.current = [...s]; return (options.images?.fit ?? ((x: readonly number[]) => ({ kept: x.length, degraded: false })))(s); } } });
+    await t.h.uow.runInTransaction(async (r) => { await r.pets.replaceAvatar(ARGOS.id, AVATAR); });
+    await t.storage.put(`pets/${ARGOS.id}/avatar/${AVATAR}`, await validPng(), 'image/png');
+    return t;
+  }
+  async function firstThenLuna(t: T): Promise<ReturnType<typeof job>> {
+    await t.run.execute(await requested(t, 1), signal());
+    await t.h.uow.runInTransaction(async (r) => { await r.pets.replaceAvatar(LUNA.id, LUNA_AVATAR); });
+    await t.storage.put(`pets/${LUNA.id}/avatar/${LUNA_AVATAR}`, await validPng(), 'image/png');
+    t.h.clock.setClock('2026-11-05', at(120));
+    return requested(t, 2);
+  }
+
+  it('[SC-ESC6-125] con espacio: la KEEP viaja; el orden de ranuras es escena previa, REPLACE y luego KEEP; sin degradación; fuentes = dueños de la imagen previa y de la foto nueva', async () => {
+    const sizes = { current: [] as number[] };
+    const t = await incremental({}, sizes);
+    const j = await firstThenLuna(t);
+    expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
+    expect(snap(t).sceneAttempts?.[1]?.mode).toBe('INCREMENTAL_REPLACE');
+    const call = t.fixture.generator.calls[1];
+    expect(call?.references.map((r) => r.ref)).toEqual(['IMG_1', 'IMG_2', 'IMG_3']);
+    expect(sizes.current).toHaveLength(3);
+    expect(photoRefs(call?.prompt ?? '').sort()).toEqual(['IMG_2', 'IMG_3']);
+    expect(sceneOf(t)?.imageDegraded).toBe(false);
+    expect(snap(t).sceneImageSources?.map((x) => x.ownerUserId).sort()).toEqual([ARGOS.ownerUserId, LUNA.ownerUserId].sort());
+  });
+
+  it('[SC-ESC6-125][EDGE-ESC6-028] el tope solo admite escena previa y REPLACE: se descarta la KEEP, IMG_n coherentes en el JSON y NO se marca degraded', async () => {
+    const t = await incremental({ images: { fit: () => ({ kept: 2, degraded: true }) } });
+    const j = await firstThenLuna(t);
+    expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
+    const call = t.fixture.generator.calls[1];
+    expect(call?.references.map((r) => r.ref)).toEqual(['IMG_1', 'IMG_2']);
+    expect(photoRefs(call?.prompt ?? '')).toEqual(['IMG_2']);
+    expect(snap(t).sceneAttempts?.[1]?.degraded).toBe(false);
+    expect(sceneOf(t)?.imageDegraded).toBe(false);
+    expect((await t.get.execute(ANDRES, HOUSE)).status).not.toBe('outdated');
+  });
+
+  it('[SC-ESC6-125][EDGE-ESC6-028] si el tope no admite la foto REPLACE (kept 1), esa omisión sí marca degraded y la KEEP también se descarta', async () => {
+    const t = await incremental({ images: { fit: () => ({ kept: 1, degraded: true }) } });
+    const j = await firstThenLuna(t);
+    expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
+    expect(t.fixture.generator.calls[1]?.references.map((r) => r.ref)).toEqual(['IMG_1']);
+    expect(photoRefs(t.fixture.generator.calls[1]?.prompt ?? '')).toEqual([]);
+    expect(snap(t).sceneAttempts?.[1]?.degraded).toBe(true);
+    expect(sceneOf(t)?.imageDegraded).toBe(true);
+  });
+
+  it('[SC-ESC6-125] la escena previa nunca se omite: si no cabe, el intento falla sin consumir cuota y la imagen anterior queda intacta', async () => {
+    const t = await incremental({ images: { fit: () => ({ kept: 0, degraded: true }) } });
+    const j = await firstThenLuna(t);
+    const before = sceneOf(t)?.image?.id;
+    expect(await t.run.execute(j, signal())).toBe('FAILED');
+    expect(t.fixture.generator.calls).toHaveLength(1);
+    expect(sceneOf(t)).toMatchObject({ consumedGenerations: 1 });
+    expect(sceneOf(t)?.image?.id).toBe(before);
+  });
+
+  it('[SC-ESC6-124][REQ-ESC6-027][EDGE-ESC6-028] 2 KEEP con foto y la primera ausente (404 tras reintento): no viaja, IMG_n renumeradas sin huecos, JSON con hasReferencePhoto false y photoRef null en esa KEEP, ranura real en la otra y degraded true', async () => {
+    const OTHER = ANDRES_PETS.find((p) => p.ownerUserId === ARGOS.ownerUserId && p.id !== ARGOS.id)!;
+    const OTHER_AVATAR = 'e1000000-0000-4000-8000-000000000003';
+    const t = await incremental();
+    await t.h.uow.runInTransaction(async (r) => { await r.pets.replaceAvatar(OTHER.id, OTHER_AVATAR); });
+    await t.storage.put(`pets/${OTHER.id}/avatar/${OTHER_AVATAR}`, await validPng(), 'image/png');
+    await t.run.execute(await requested(t, 1), signal());
+    await t.h.uow.runInTransaction(async (r) => { await r.pets.replaceAvatar(LUNA.id, LUNA_AVATAR); });
+    await t.storage.put(`pets/${LUNA.id}/avatar/${LUNA_AVATAR}`, await validPng(), 'image/png');
+    await t.storage.delete(`pets/${ARGOS.id}/avatar/${AVATAR}`); // la foto de la primera KEEP ya no se puede leer
+    t.h.clock.setClock('2026-11-05', at(120));
+    const j = await requested(t, 2);
+    const before = sceneOf(t)?.image?.id;
+    expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
+    expect(snap(t).sceneAttempts?.[1]?.mode).toBe('INCREMENTAL_REPLACE');
+    const call = t.fixture.generator.calls[1];
+    expect(call?.references.map((r) => r.ref)).toEqual(['IMG_1', 'IMG_2', 'IMG_3']);
+    const json = JSON.parse((call?.prompt ?? '').slice((call?.prompt ?? '').indexOf('{'), (call?.prompt ?? '').lastIndexOf('}') + 1)) as { pets: Array<{ petId?: string; hasReferencePhoto: boolean; photoRef: string | null }> };
+    expect(json.pets.filter((p) => p.hasReferencePhoto).map((p) => p.photoRef).sort()).toEqual(['IMG_2', 'IMG_3']);
+    expect(json.pets.filter((p) => !p.hasReferencePhoto).map((p) => p.photoRef)).toEqual(json.pets.filter((p) => !p.hasReferencePhoto).map(() => null));
+    expect(json.pets.filter((p) => !p.hasReferencePhoto).length).toBe(json.pets.length - 2);
+    expect(photoRefs(call?.prompt ?? '').sort()).toEqual(['IMG_2', 'IMG_3']);
+    expect(snap(t).sceneAttempts?.[1]?.degraded).toBe(true);
+    expect(sceneOf(t)?.imageDegraded).toBe(true);
+    expect(sceneOf(t)?.image?.id).not.toBe(before);
+  });
+
+  it('[SC-ESC6-126][REQ-ESC6-024][INV-ESC6-010] con el driver real, la foto KEEP solo viaja con consentimiento vigente de su dueño y no añade dueños a scene_image_sources', async () => {
+    const t = await incremental({ realDriver: true });
+    await t.h.uow.runInTransaction(async (r) => { await r.sceneConsents.grant(consentOf(ANDRES, 1)); await r.sceneConsents.grant(consentOf(MARIA, 2)); });
+    const j = await firstThenLuna(t);
+    expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
+    expect(t.fixture.generator.calls[1]?.references.map((r) => r.ref)).toEqual(['IMG_1', 'IMG_2', 'IMG_3']);
+    expect(snap(t).sceneImageSources?.map((x) => x.ownerUserId).sort()).toEqual([ARGOS.ownerUserId, LUNA.ownerUserId].sort());
+  });
+
+  it('[SC-ESC6-126][REQ-ESC6-024] el dueño de la KEEP retira el consentimiento mientras el proveedor trabaja: T2 cancela, sin imagen nueva ni cuota', async () => {
+    const t = await incremental({ realDriver: true });
+    await t.h.uow.runInTransaction(async (r) => { await r.sceneConsents.grant(consentOf(ANDRES, 1)); await r.sceneConsents.grant(consentOf(MARIA, 2)); });
+    const j = await firstThenLuna(t);
+    const before = sceneOf(t)?.image?.id;
+    t.hooked.during = async () => { await t.h.uow.runInTransaction(async (r) => { await r.sceneConsents.revoke(consentOf(ANDRES, 1).id, NOW); }); };
+    expect(await t.run.execute(j, signal())).toBe('CANCELLED');
+    expect(sceneOf(t)?.image?.id).toBe(before);
+    expect(sceneOf(t)).toMatchObject({ consumedGenerations: 1 });
   });
 });

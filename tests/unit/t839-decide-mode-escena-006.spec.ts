@@ -164,3 +164,87 @@ describe('decideMode (T839): modos incrementales', () => {
     expect(JSON.stringify(input)).toBe(before);
   });
 });
+
+/**
+ * T927 (006, Fase 12; D6-20): las mascotas `KEEP` con foto vigente también reciben ranura `IMG_n` en los modos incrementales ADD, REPLACE y MIXED. El orden entre
+ * ranuras de `ADD`/`REPLACE` y de `KEEP` lo fija `N2-16` (pendiente de Neo); estas pruebas no lo suponen y comprueban solo el conjunto de ranuras.
+ * REQ-ESC6-006, REQ-ESC6-008, REQ-ESC6-016; INV-ESC6-001, INV-ESC6-010; SC-ESC6-122, SC-ESC6-127.
+ */
+describe('decideMode (T927): ranuras de KEEP con foto en incrementales', () => {
+  const refsOf = (plan: { pets: ReadonlyArray<{ ref: string | null }> }): Array<string | null> => plan.pets.map((p) => p.ref);
+  const keepRefs = (plan: { pets: ReadonlyArray<{ action: string; ref: string | null }> }): Array<string | null> => plan.pets.filter((p) => p.action === 'KEEP').map((p) => p.ref);
+  const slotSet = (plan: { slotCount: number }): string[] => Array.from({ length: plan.slotCount - 1 }, (_, i) => `IMG_${i + 2}`);
+
+  it('[SC-ESC6-122] INCREMENTAL_ADD: cada KEEP con foto lleva una ranura distinta desde IMG_2, la ADD con foto otra y slotCount = 1 + mascotas con foto', () => {
+    const last = snap(null, pet(1, 'a'), pet(2, 'b'), pet(3));
+    const plan = decideMode({ last, now: snap(null, pet(1, 'a'), pet(2, 'b'), pet(3), pet(4, 'd')), hasImage: true, action: 'UPDATE' })!;
+    expect(plan.mode).toBe('INCREMENTAL_ADD');
+    expect(plan.currentSceneRef).toBe('IMG_1');
+    expect(actions(plan)).toEqual(['1:KEEP', '2:KEEP', '3:KEEP', '4:ADD']);
+    expect(plan.pets.find((p) => p.petId === id(3))?.ref).toBeNull();
+    expect(plan.slotCount).toBe(4);
+    const refs = refsOf(plan).filter((r) => r !== null);
+    expect([...refs].sort()).toEqual(slotSet(plan));
+    expect(new Set(refs).size).toBe(refs.length);
+    expect(keepRefs(plan).filter((r) => r !== null)).toHaveLength(2);
+    expect(plan.pets.find((p) => p.petId === id(1))?.ref).toMatch(/^IMG_[2-9]$/);
+    expect(plan.pets.find((p) => p.petId === id(2))?.ref).toMatch(/^IMG_[2-9]$/);
+  });
+
+  it('[SC-ESC6-122] INCREMENTAL_REPLACE: la KEEP con foto lleva ranura y la REPLACE con foto otra, sin repetir', () => {
+    const plan = decideMode({ last: snap(null, pet(1, 'a'), pet(2)), now: snap(null, pet(1, 'a'), pet(2, 'x')), hasImage: true, action: 'UPDATE' })!;
+    expect(plan.mode).toBe('INCREMENTAL_REPLACE');
+    expect(actions(plan)).toEqual(['1:KEEP', '2:REPLACE']);
+    expect(plan.slotCount).toBe(3);
+    expect(refsOf(plan).filter((r) => r !== null).sort()).toEqual(['IMG_2', 'IMG_3']);
+    expect(plan.pets.find((p) => p.petId === id(1))?.ref).toMatch(/^IMG_[2-9]$/);
+  });
+
+  it('[SC-ESC6-122] INCREMENTAL_MIXED: KEEP con foto con ranura; REMOVE nunca lleva ranura; slotCount cuenta solo las enviadas', () => {
+    const last = snap(null, pet(1, 'a'), pet(2, 'b'), pet(3));
+    const plan = decideMode({ last, now: snap(null, pet(1, 'a'), pet(3, 'z'), pet(4, 'd')), hasImage: true, action: 'UPDATE' })!;
+    expect(plan.mode).toBe('INCREMENTAL_MIXED');
+    expect(actions(plan)).toEqual(['1:KEEP', '3:REPLACE', '4:ADD', '2:REMOVE']);
+    expect(plan.pets.find((p) => p.petId === id(2))?.ref).toBeNull();
+    expect(plan.slotCount).toBe(4);
+    expect(refsOf(plan).filter((r) => r !== null).sort()).toEqual(['IMG_2', 'IMG_3', 'IMG_4']);
+    expect(plan.pets.find((p) => p.petId === id(1))?.ref).toMatch(/^IMG_[2-9]$/);
+  });
+
+  it('[SC-ESC6-122] una KEEP sin foto sigue con ref null y no consume ranura', () => {
+    const plan = decideMode({ last: snap(null, pet(1), pet(2)), now: snap(null, pet(1), pet(2), pet(3, 'c')), hasImage: true, action: 'UPDATE' })!;
+    expect(plan.pets.map((p) => p.ref)).toEqual([null, null, 'IMG_2']);
+    expect(plan.slotCount).toBe(2);
+  });
+
+  it('[SC-ESC6-122] INCREMENTAL_REMOVE, FROM_SCRATCH y REGENERATE no cambian: sin ranuras para KEEP', () => {
+    const last = snap(null, pet(1, 'a'), pet(2, 'b'), pet(3, 'c'));
+    const remove = decideMode({ last, now: snap(null, pet(1, 'a'), pet(3, 'c')), hasImage: true, action: 'UPDATE' })!;
+    expect(remove.pets).toEqual([{ petId: id(1), action: 'KEEP', ref: null }, { petId: id(3), action: 'KEEP', ref: null }, { petId: id(2), action: 'REMOVE', ref: null }]);
+    expect(remove.slotCount).toBe(1);
+    const scratch = decideMode({ last: null, now: snap(null, pet(1, 'a'), pet(2)), hasImage: false, action: 'UPDATE' })!;
+    expect(scratch.pets).toEqual([{ petId: id(1), action: 'RENDER', ref: 'IMG_1' }, { petId: id(2), action: 'RENDER', ref: null }]);
+    const regen = decideMode({ last, now: last, hasImage: true, action: 'REGENERATE' })!;
+    expect(regen.pets.map((p) => [p.action, p.ref])).toEqual([['RENDER', 'IMG_1'], ['RENDER', 'IMG_2'], ['RENDER', 'IMG_3']]);
+  });
+
+  it('[SC-ESC6-127][REQ-ESC6-008] 8 mascotas con foto (7 KEEP y 1 ADD): exactamente 9 ranuras (1 + N) y ninguna más', () => {
+    const base = Array.from({ length: 7 }, (_, i) => pet(i + 1, `f${i}`));
+    const plan = decideMode({ last: snap(null, ...base), now: snap(null, ...base, pet(8, 'f7')), hasImage: true, action: 'UPDATE' })!;
+    expect(plan.mode).toBe('INCREMENTAL_ADD');
+    expect(plan.slotCount).toBe(9);
+    const refs = refsOf(plan).filter((r) => r !== null);
+    expect(refs).toHaveLength(8);
+    expect(new Set(refs).size).toBe(8);
+    expect([...refs].sort()).toEqual(slotSet(plan));
+  });
+
+  it('[INV-ESC6-001][SC-ESC6-122] pura con KEEP con foto: 100 ejecuciones idénticas y sin mutar los snapshots', () => {
+    const last = snap(null, pet(1, 'a'), pet(2));
+    const now = snap(null, pet(1, 'a'), pet(2), pet(3, 'c'));
+    const before = JSON.stringify([last, now]);
+    const first = JSON.stringify(decideMode({ last, now, hasImage: true, action: 'UPDATE' }));
+    for (let i = 0; i < 100; i += 1) expect(JSON.stringify(decideMode({ last, now, hasImage: true, action: 'UPDATE' }))).toBe(first);
+    expect(JSON.stringify([last, now])).toBe(before);
+  });
+});

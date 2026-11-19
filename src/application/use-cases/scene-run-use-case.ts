@@ -54,10 +54,13 @@ interface SentPhotos {
 const REFERENCE_MIMES = new Set(['image/png', 'image/webp', 'image/jpeg']);
 const resultKey = (attempt: SceneAttemptRecord, sceneId: string): string => sceneImageObjectKey(sceneId, attempt.resultObjectId);
 
+/** Número de una ranura `IMG_n`. */
+const slotNumber = (ref: AssetRef): number => Number(ref.slice(4));
+
 /** Renumera las ranuras `IMG_n` conservando las referencias que sobreviven (en su orden) y poniendo a `null` las omitidas. */
 function renumber(plan: ModePlan, dropped: ReadonlySet<AssetRef>): ModePlan {
   const kept = new Map<AssetRef, AssetRef>();
-  const ordered = [plan.currentSceneRef, plan.householdRef, ...plan.pets.map((p) => p.ref)].filter((ref): ref is AssetRef => ref !== null);
+  const ordered = [plan.currentSceneRef, plan.householdRef, ...plan.pets.map((p) => p.ref)].filter((ref): ref is AssetRef => ref !== null).sort((a, b) => slotNumber(a) - slotNumber(b));
   for (const ref of ordered) if (!dropped.has(ref)) kept.set(ref, `IMG_${kept.size + 1}` as AssetRef);
   const map = (ref: AssetRef | null): AssetRef | null => (ref === null ? null : (kept.get(ref) ?? null));
   return { ...plan, currentSceneRef: map(plan.currentSceneRef), householdRef: map(plan.householdRef), pets: plan.pets.map((p) => ({ ...p, ref: map(p.ref) })), slotCount: kept.size };
@@ -88,14 +91,16 @@ export class RunSceneGenerationUseCase {
       const last = scene.image === null ? null : parseInputsSnapshot(scene.image.inputsSnapshot);
       const plan = decideMode({ last, now: snapshot, hasImage: scene.image !== null, action: attempt.action }) ?? decideMode({ last: null, now: snapshot, hasImage: false, action: 'UPDATE' });
       if (plan === null || plan.mode !== attempt.mode) return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
-      const slots: Array<{ ref: AssetRef; key: string; required: boolean; petId?: string; household?: true }> = [];
+      const slots: Array<{ ref: AssetRef; key: string; required: boolean; petId?: string; household?: true; keep?: true }> = [];
       if (plan.currentSceneRef !== null && scene.image !== null) slots.push({ ref: plan.currentSceneRef, key: sceneImageObjectKey(scene.id, scene.image.id), required: true });
       if (plan.householdRef !== null && scene.householdId !== null && snapshot.household !== null) slots.push({ ref: plan.householdRef, key: householdPhotoObjectKey(scene.householdId, snapshot.household), required: false, household: true });
       for (const entry of plan.pets) {
         const pet = snapshot.pets.find((p) => p.id === entry.petId);
-        if (entry.ref !== null && pet?.photo != null) slots.push({ ref: entry.ref, key: avatarObjectKey(pet.id, pet.photo), required: false, petId: pet.id });
+        if (entry.ref !== null && pet?.photo != null) slots.push({ ref: entry.ref, key: avatarObjectKey(pet.id, pet.photo), required: false, petId: pet.id, ...(entry.action === 'KEEP' ? { keep: true as const } : {}) });
       }
-      const loaded: Array<{ ref: AssetRef; required: boolean; mime: string; bytes: Uint8Array; petId?: string; household?: true }> = [];
+      // N2-16 (B): las ranuras se entregan y se recortan por número de ranura (escena previa, hogar, ADD/REPLACE y, al final, las KEEP).
+      slots.sort((a, b) => slotNumber(a.ref) - slotNumber(b.ref));
+      const loaded: Array<{ ref: AssetRef; required: boolean; mime: string; bytes: Uint8Array; petId?: string; household?: true; keep?: true }> = [];
       const dropped = new Set<AssetRef>();
       for (const slot of slots) {
         let object: Awaited<ReturnType<typeof media.storage.get>> = null;
@@ -117,10 +122,11 @@ export class RunSceneGenerationUseCase {
       }
       const fit = svc.images.fit(loaded.map((l) => l.bytes.length));
       if (fit.degraded) {
-        degraded = true;
+        // N2-16 (C): omitir por el tope solo fotos KEEP (su apariencia ya está en la escena previa) no marca el intento como degradado.
         for (const l of loaded.slice(fit.kept)) {
-          if (l.required) return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
+          if (l.required) return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', true);
           dropped.add(l.ref);
+          if (l.keep !== true) degraded = true;
         }
       }
       const adjusted = renumber(plan, dropped);

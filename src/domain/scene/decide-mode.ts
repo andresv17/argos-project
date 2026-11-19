@@ -2,7 +2,7 @@
  * Decisión del modo de generación y asignación de ranuras `IMG_n` (REQ-ESC6-006, REQ-ESC6-007, REQ-ESC6-009, REQ-ESC6-010; D6-08 = A). El servidor decide el modo,
  * no el cliente. Precedencia: `REGENERATE` > ausencia de imagen vigente > cambio de la foto del hogar (`FROM_SCRATCH`) > incrementales (con más de un tipo entre
  * ADD, REMOVE y REPLACE: `INCREMENTAL_MIXED`). Ranuras: `IMG_1` = escena previa (incremental) o foto del hogar (desde cero, si existe); luego las mascotas con
- * foto en el orden de selección, solo las que se dibujan (`RENDER`, `ADD`, `REPLACE`). Función pura (INV-ESC6-001): sin reloj, entropía ni E/S.
+ * foto de las que se dibujan (`RENDER`, `ADD`, `REPLACE`) en el orden de selección y, a continuación, las `KEEP` con foto vigente de los modos incrementales (N2-16 B, D6-20). Función pura (INV-ESC6-001): sin reloj, entropía ni E/S.
  *
  * @implements REQ-ESC6-006, REQ-ESC6-007, REQ-ESC6-009, REQ-ESC6-010, INV-ESC6-001, EDGE-ESC6-008, EDGE-ESC6-010, SC-ESC6-056
  */
@@ -88,11 +88,13 @@ export function decideMode(input: DecideModeInput): ModePlan | null {
   const currentSceneRef = scratch ? null : slot(next++);
   const householdRef = scratch && now.household !== null ? slot(next++) : null;
   const addedIds = new Set(added.map((p) => p.id));
-  const pets: PetPlan[] = now.pets.map((p) => {
-    const petAction: PetAction = scratch ? 'RENDER' : addedIds.has(p.id) ? 'ADD' : replaced.has(p.id) ? 'REPLACE' : 'KEEP';
-    const drawn = petAction !== 'KEEP';
-    return { petId: p.id, action: petAction, ref: drawn && p.photo !== null ? slot(next++) : null };
-  });
+  const actionOf = (id: string): PetAction => (scratch ? 'RENDER' : addedIds.has(id) ? 'ADD' : replaced.has(id) ? 'REPLACE' : 'KEEP');
+  // N2-16 (B): primero las ranuras de las mascotas que se dibujan (RENDER, ADD, REPLACE) y después las de las KEEP con foto vigente (D6-20), de modo que ante el tope
+  // de bytes las KEEP se descartan antes (la escena previa, IMG_1, nunca). Dentro de cada grupo, orden de selección.
+  const refs = new Map<string, AssetRef>();
+  for (const p of now.pets) if (actionOf(p.id) !== 'KEEP' && p.photo !== null) refs.set(p.id, slot(next++));
+  if (mode !== 'INCREMENTAL_REMOVE') for (const p of now.pets) if (actionOf(p.id) === 'KEEP' && p.photo !== null) refs.set(p.id, slot(next++));
+  const pets: PetPlan[] = now.pets.map((p) => ({ petId: p.id, action: actionOf(p.id), ref: refs.get(p.id) ?? null }));
   if (!scratch) for (const p of removed) pets.push({ petId: p.id, action: 'REMOVE', ref: null });
 
   return { mode, pets, currentSceneRef, householdRef, slotCount: next - 1, counts };
