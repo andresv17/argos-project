@@ -9,14 +9,16 @@ import { SceneBlock } from './SceneBlock.tsx';
 import { HouseholdPhoto } from './HouseholdPhoto.tsx';
 import { SceneConsent } from './SceneConsent.tsx';
 
-export function HomeScene({ scope, idPrefix }: { readonly scope: SceneScope; readonly idPrefix: string }): JSX.Element {
+/** `headingLevel` es el del bloque: 2 en «Mis mascotas»; 4 dentro de la tarjeta del hogar, que ya tiene su h3 (H-S1). Los paneles van un nivel por debajo. */
+export function HomeScene({ scope, idPrefix, headingLevel = 2 }: { readonly scope: SceneScope; readonly idPrefix: string; readonly headingLevel?: 2 | 4 }): JSX.Element {
+  const panelLevel = headingLevel === 2 ? 3 : 5;
   return (
-    <SceneBlock scope={scope} idPrefix={idPrefix}>
+    <SceneBlock scope={scope} idPrefix={idPrefix} headingLevel={headingLevel}>
       {(view, reload) =>
         view === null ? null : (
           <>
-            <SceneConsent idPrefix={idPrefix} view={view} reload={reload} />
-            {scope.kind === 'HOUSEHOLD' ? <HouseholdPhoto householdId={scope.householdId} idPrefix={idPrefix} canUpload={view.actions.canUploadHouseholdPhoto} reload={reload} /> : null}
+            <SceneConsent idPrefix={idPrefix} view={view} reload={reload} headingLevel={panelLevel} />
+            {scope.kind === 'HOUSEHOLD' ? <HouseholdPhoto householdId={scope.householdId} idPrefix={idPrefix} canUpload={view.actions.canUploadHouseholdPhoto} reload={reload} headingLevel={panelLevel} /> : null}
           </>
         )
       }

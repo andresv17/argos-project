@@ -1416,3 +1416,4 @@
 - 2026-11-18 | Keymaker | T855+T856 runSceneGeneration worker + SceneImageTools (t855 21/21, rojo previo 'Failed to load url'; suite 4654 verdes 0 rojos, tsc 0, gates CUMPLE); auditoria en T859; sin push ni [x].
 - 2026-11-18 | Keymaker | T857+T858+T859+T860 foto del hogar + consentimiento + auditoria escena (t857 11, t858 13, t859 7; rojo previo 'Failed to load url' y 4 fallos de auditoria; suite 4685 verdes 0 rojos, tsc 0, gates CUMPLE); sin push ni [x].
 - 2026-11-18 | Keymaker | T861 suite de concurrencia memoria/SQLite/PG real (t861 18/18, sin rojo previo: caracterizacion; suite 4703 verdes 0 rojos, tsc 0, gates CUMPLE); sin push ni [x].
+- 2026-11-18 | Keymaker | T879 correcciones /sati en UI de escena (H-S1..H-S5, H-S12 + H-S6/10/13): t879 + gates verdes, 4881 pasan, wcag 14/14; deuda menor H-S7/8/9/11/14 en log-keymaker.

@@ -28,6 +28,7 @@ function render(overrides: Partial<SceneConsentViewProps> = {}): string {
     onAskRevoke: noop,
     onConfirmRevoke: noop,
     onCancelRevoke: noop,
+    onReload: noop,
     ...overrides,
   };
   return renderToStaticMarkup(h(SceneConsentView, props));

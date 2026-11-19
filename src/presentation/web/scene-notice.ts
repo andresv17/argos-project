@@ -18,6 +18,10 @@ export const NOTICE_DRAFT = true;
 
 export const NOTICE_TITLE = 'Crear la imagen de tu hogar con inteligencia artificial';
 export const NOTICE_INTRO = 'Para dibujar tu hogar y tus mascotas en pixel art, ARGOS envía imágenes a un servicio de inteligencia artificial de terceros. Antes de continuar, lee esto.';
+/** Chip visible mientras `NOTICE_DRAFT` (H-S12). */
+export const NOTICE_DRAFT_CHIP = 'BORRADOR';
+/** Frase breve para quien ya consintió mientras el aviso sea borrador (H-S12). */
+export const NOTICE_DRAFT_GRANTED_LABEL = 'El aviso al que diste tu consentimiento es un borrador pendiente de revisión y firma legal.';
 export const NOTICE_DRAFT_LABEL = 'Borrador: este texto está pendiente de revisión y firma legal; no es la versión final.';
 
 export interface NoticeSection {

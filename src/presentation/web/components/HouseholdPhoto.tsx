@@ -11,6 +11,7 @@ import { createSceneApi, SceneApiError } from '../scene-api.ts';
 import { PHOTO_ACCEPT } from '../media-view.ts';
 import { browserPhotoPort, PhotoReexportError, reexportPhoto } from '../photo-reexport.ts';
 import { householdPhotoPath, sceneProblemMessage } from '../scene-view.ts';
+import { useDialogFocus } from '../dialog-focus.ts';
 import { Button } from './Field.tsx';
 
 export interface HouseholdPhotoViewProps {
@@ -30,21 +31,25 @@ export interface HouseholdPhotoViewProps {
   readonly onAskDelete: () => void;
   readonly onConfirmDelete: () => void;
   readonly onCancelDelete: () => void;
+  /** 3 bajo el h2 de «Mis mascotas», 5 dentro de la tarjeta del hogar (h3) (H-S1). */
+  readonly headingLevel?: 3 | 5;
 }
 
 const FIELD = 'min-h-12 w-full min-w-0 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
 
-export function HouseholdPhotoView({ idPrefix, photoState, photoSrc, canUpload, chosenName, uploading, confirmDelete, error, onPhotoLoad, onPhotoError, onChoose, onUpload, onAskDelete, onConfirmDelete, onCancelDelete }: HouseholdPhotoViewProps): JSX.Element {
+export function HouseholdPhotoView({ idPrefix, photoState, photoSrc, canUpload, chosenName, uploading, confirmDelete, error, onPhotoLoad, onPhotoError, onChoose, onUpload, onAskDelete, onConfirmDelete, onCancelDelete, headingLevel = 3 }: HouseholdPhotoViewProps): JSX.Element {
   const titleId = `${idPrefix}-photo-title`;
   const fileId = `${idPrefix}-photo-file`;
   const dialogId = `${idPrefix}-photo-delete`;
   const present = photoState === 'PRESENT';
+  const Title = `h${headingLevel}` as 'h3' | 'h5';
+  const { dialogRef, triggerRef, fallbackRef } = useDialogFocus(confirmDelete);
   return (
     <section aria-labelledby={titleId} className="grid min-w-0 max-w-full gap-3 rounded-2xl border border-slate-300 bg-white p-4">
-      <h3 id={titleId} className="text-base font-semibold text-slate-900">
+      <Title id={titleId} ref={fallbackRef} tabIndex={-1} className="text-base font-semibold text-slate-900">
         Foto del hogar
-      </h3>
-      <p className="text-sm text-slate-900">Es opcional: sirve de referencia para dibujar la escena. No subas fotos donde aparezca alguien, en especial menores.</p>
+      </Title>
+      <p className="max-w-prose text-sm text-slate-900">Es opcional: sirve de referencia para dibujar la escena. No subas fotos donde aparezca alguien, en especial menores.</p>
       {error === null ? null : (
         <p role="alert" className="rounded-2xl border border-danger bg-red-50 px-4 py-3 text-sm text-red-900">
           {error}
@@ -59,7 +64,7 @@ export function HouseholdPhotoView({ idPrefix, photoState, photoSrc, canUpload, 
       {!canUpload ? (
         <p className="text-sm text-slate-800">Solo el propietario del hogar o un administrador puede cambiar la foto del hogar.</p>
       ) : confirmDelete ? (
-        <div role="alertdialog" aria-labelledby={dialogId} className="rounded-2xl border-2 border-danger bg-red-50 p-4">
+        <div ref={dialogRef} tabIndex={-1} role="alertdialog" aria-labelledby={dialogId} className="rounded-2xl border-2 border-danger bg-red-50 p-4">
           <p id={dialogId} className="text-sm text-red-900">
             ¿Quitar la foto del hogar? Se borra de inmediato y la imagen de la escena queda desactualizada, con 1 cambio pendiente.
           </p>
@@ -73,7 +78,7 @@ export function HouseholdPhotoView({ idPrefix, photoState, photoSrc, canUpload, 
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-end gap-3">
+        <div ref={triggerRef} className="flex flex-wrap items-end gap-3">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <label htmlFor={fileId} className="text-sm font-medium text-slate-800">
               Elegir foto del hogar
@@ -95,7 +100,7 @@ export function HouseholdPhotoView({ idPrefix, photoState, photoSrc, canUpload, 
 }
 
 /** Contenedor: sube (reexportada por canvas), reemplaza y quita la foto del hogar y relee la escena (el cambio deja la imagen desactualizada). */
-export function HouseholdPhoto({ householdId, idPrefix, canUpload, reload }: { readonly householdId: string; readonly idPrefix: string; readonly canUpload: boolean; readonly reload: () => Promise<void> }): JSX.Element {
+export function HouseholdPhoto({ householdId, idPrefix, canUpload, reload, headingLevel }: { readonly householdId: string; readonly idPrefix: string; readonly canUpload: boolean; readonly reload: () => Promise<void>; readonly headingLevel?: 3 | 5 }): JSX.Element {
   const api = useMemo(() => createSceneApi(), []);
   const [photoState, setPhotoState] = useState<'CHECKING' | 'PRESENT' | 'ABSENT'>('CHECKING');
   const [tag, setTag] = useState<string | null>(null);
@@ -154,6 +159,7 @@ export function HouseholdPhoto({ householdId, idPrefix, canUpload, reload }: { r
       onAskDelete={() => setConfirmDelete(true)}
       onConfirmDelete={() => void remove()}
       onCancelDelete={() => setConfirmDelete(false)}
+      {...(headingLevel === undefined ? {} : { headingLevel })}
     />
   );
 }

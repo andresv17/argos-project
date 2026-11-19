@@ -314,7 +314,7 @@ export function HouseholdsPage(): JSX.Element {
                 onChangeRole={onChangeRole(view.household.id)}
                 onTransferOwnership={(userId) => setPendingTransfer({ householdId: view.household.id, userId })}
                 inviteForm={view.isHouseholdOwner ? <InviteForm householdId={view.household.id} onInvited={load} /> : null}
-                sceneSlot={<HomeScene scope={{ kind: 'HOUSEHOLD', householdId: view.household.id }} idPrefix={`escena-${view.household.id}`} />}
+                sceneSlot={<HomeScene scope={{ kind: 'HOUSEHOLD', householdId: view.household.id }} idPrefix={`escena-${view.household.id}`} headingLevel={4} />}
               />
               {pendingTransfer?.householdId === view.household.id ? (
                 <div role="alertdialog" aria-labelledby={`transfer-${view.household.id}`} className="rounded-2xl border-2 border-slate-400 bg-white p-4">

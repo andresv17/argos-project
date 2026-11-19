@@ -38,10 +38,13 @@ export interface SceneBlockViewProps {
   readonly onImageError?: () => void;
   /** Paneles de consentimiento, foto del hogar y retiro (T877, T878). */
   readonly children?: ReactNode;
+  /** Nivel del título: 2 en «Mis mascotas»; 4 dentro de la tarjeta del hogar, que ya tiene su h3 (H-S1). */
+  readonly headingLevel?: 2 | 4;
 }
 
-export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onUpdate, onRegenerate, onImageError, children }: SceneBlockViewProps): JSX.Element {
+export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onUpdate, onRegenerate, onImageError, children, headingLevel = 2 }: SceneBlockViewProps): JSX.Element {
   const titleId = `${idPrefix}-title`;
+  const Title = `h${headingLevel}` as 'h2' | 'h4';
   const statusId = `${idPrefix}-status`;
   const reasonId = `${idPrefix}-reason`;
   const src = view === null ? null : sceneImagePath(scope, view.imageTag);
@@ -50,49 +53,54 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onU
   const petsShown = view === null ? null : scenePetsShownText(view.pets);
   return (
     <section aria-labelledby={titleId} className="grid min-w-0 max-w-full gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 id={titleId} className="text-lg font-semibold text-slate-900">
+      <Title id={titleId} className="text-lg font-semibold text-slate-900">
         Escena del hogar
-      </h2>
-      <div id={statusId} role="status" aria-live="polite" aria-atomic="true" className="text-sm text-slate-900">
-        {view === null ? (status === 'LOADING' ? 'Cargando la escena…' : null) : sceneStatusText(view)}
-      </div>
-      {error === null ? null : (
-        <p role="alert" className="rounded-2xl border border-danger bg-red-50 px-4 py-3 text-sm text-red-900">
-          {error}
-        </p>
-      )}
-      {view?.status === 'failed' ? (
-        <p role="alert" className="rounded-2xl border border-danger bg-red-50 px-4 py-3 text-sm text-red-900">
-          {sceneFailureText(view.lastError)}
-        </p>
-      ) : null}
-      {view === null ? null : (
-        <>
-          {src === null ? (
-            <p className="rounded-2xl border border-dashed border-slate-400 bg-meadow px-4 py-8 text-center text-sm text-slate-900">Aún no hay imagen del hogar.</p>
-          ) : (
-            <img src={src} alt={sceneAltText(view.pets.shown)} width={512} height={512} decoding="async" {...(onImageError === undefined ? {} : { onError: onImageError })} className="mx-auto aspect-square h-auto w-full max-w-full rounded-2xl border border-slate-200 bg-meadow object-contain sm:max-w-md" style={{ imageRendering: 'pixelated' }} />
-          )}
-          {view.stale ? (
-            <p className="rounded-xl border border-amber-700 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">{SCENE_STALE_TEXT}</p>
-          ) : null}
-          <p className="text-sm font-semibold text-slate-900">{scenePendingText(view)}</p>
-          {petsShown === null ? null : <p className="text-sm text-slate-900">{petsShown}</p>}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button disabled={busy || generating || update?.disabled === true} {...(update?.reason == null ? {} : { describedBy: reasonId })} onClick={onUpdate}>
-              {view.status === 'failed' ? 'Reintentar' : 'Actualizar imagen del hogar'}
-            </Button>
-            <Button variant="secondary" disabled={busy || generating || !view.actions.canRegenerate} onClick={onRegenerate}>
-              Regenerar escena desde cero
-            </Button>
+      </Title>
+      <div className={`grid min-w-0 gap-3 lg:items-start ${view === null || src === null ? '' : 'lg:grid-cols-[28rem_minmax(0,1fr)]'}`}>
+        {view === null || src === null ? null : (
+          <img src={src} alt={sceneAltText(view.pets.shown)} width={512} height={512} decoding="async" {...(generating ? { 'aria-busy': true } : {})} {...(onImageError === undefined ? {} : { onError: onImageError })} className={`aspect-square h-auto w-full max-w-full rounded-2xl border border-slate-200 bg-meadow object-contain sm:max-w-md ${generating ? 'opacity-70' : ''}`} style={{ imageRendering: 'pixelated' }} />
+        )}
+        <div className="grid min-w-0 gap-3">
+          <div id={statusId} role="status" aria-live="polite" aria-atomic="true" className="text-sm text-slate-900">
+            {view === null ? (status === 'LOADING' ? 'Cargando la escena…' : null) : sceneStatusText(view)}
           </div>
-          {update?.reason == null ? null : (
-            <p id={reasonId} className="text-sm text-slate-800">
-              {update.reason}
+          {error === null ? null : (
+            <p role="alert" className="rounded-2xl border border-danger bg-red-50 px-4 py-3 text-sm text-red-900">
+              {error}
             </p>
           )}
-        </>
-      )}
+          {view?.status === 'failed' ? (
+            <p role="alert" className="rounded-2xl border border-danger bg-red-50 px-4 py-3 text-sm text-red-900">
+              {sceneFailureText(view.lastError)}
+            </p>
+          ) : null}
+          {view === null ? null : (
+            <>
+              {src === null ? (
+                <p className="rounded-2xl border border-dashed border-slate-400 bg-meadow px-4 py-8 text-center text-sm text-slate-900">Aún no hay imagen del hogar.</p>
+              ) : null}
+              {view.stale ? (
+                <p className="rounded-xl border border-amber-700 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">{SCENE_STALE_TEXT}</p>
+              ) : null}
+              <p className="text-sm font-semibold text-slate-900">{scenePendingText(view)}</p>
+              {petsShown === null ? null : <p className="text-sm text-slate-900">{petsShown}</p>}
+              <div className="flex flex-wrap items-center gap-3">
+                <Button disabled={busy || generating || update?.disabled === true} {...(update?.reason == null ? {} : { describedBy: reasonId })} onClick={onUpdate}>
+                  {view.status === 'failed' ? 'Reintentar' : 'Actualizar imagen del hogar'}
+                </Button>
+                <Button variant="secondary" disabled={busy || generating || !view.actions.canRegenerate} onClick={onRegenerate}>
+                  Regenerar escena desde cero
+                </Button>
+              </div>
+              {update?.reason == null ? null : (
+                <p id={reasonId} className="text-sm text-slate-800">
+                  {update.reason}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
       {children}
     </section>
   );
@@ -102,7 +110,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onU
 const newKey = (): string => crypto.randomUUID();
 
 /** Contenedor: lee la escena, sondea cada 3 s mientras `generating` y ejecuta «Actualizar» o «Regenerar» con una clave nueva por clic. */
-export function SceneBlock({ scope, idPrefix, children }: { readonly scope: SceneScope; readonly idPrefix: string; readonly children?: (view: SceneViewData | null, reload: () => Promise<void>) => ReactNode }): JSX.Element {
+export function SceneBlock({ scope, idPrefix, headingLevel, children }: { readonly scope: SceneScope; readonly idPrefix: string; readonly headingLevel?: 2 | 4; readonly children?: (view: SceneViewData | null, reload: () => Promise<void>) => ReactNode }): JSX.Element {
   const api = useMemo(() => createSceneApi(), []);
   const [view, setView] = useState<SceneViewData | null>(null);
   const [status, setStatus] = useState<'LOADING' | 'READY' | 'ERROR'>('LOADING');
@@ -166,7 +174,7 @@ export function SceneBlock({ scope, idPrefix, children }: { readonly scope: Scen
   };
 
   return (
-    <SceneBlockView idPrefix={idPrefix} scope={stable} view={view} status={status} error={error} busy={busy} onUpdate={() => void run('UPDATE')} onRegenerate={() => void run('REGENERATE')} onImageError={() => void reload()}>
+    <SceneBlockView idPrefix={idPrefix} scope={stable} view={view} status={status} error={error} busy={busy} onUpdate={() => void run('UPDATE')} onRegenerate={() => void run('REGENERATE')} onImageError={() => void reload()} {...(headingLevel === undefined ? {} : { headingLevel })}>
       {children?.(view, reload)}
     </SceneBlockView>
   );
