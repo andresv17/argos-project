@@ -160,6 +160,19 @@ export const RECORD_SUMMARY: Readonly<Record<RecordModule, string>> = {
   customParameters: 'Registrar parámetro',
 };
 
+/**
+ * Opción B de `[GH:#14]` (decidida por Neo, `D7-02`): solo estos cuatro módulos muestran el formulario descubierto, sin `<summary>` «Registrar …», mientras no hay registros.
+ * Consultas y Parámetros quedan fuera (`M7-10`, `DEUDA-007-REG-CONSULTAS-PARAMETROS`).
+ */
+export const OPTION_B_MODULES: readonly RecordModule[] = ['weights', 'measurements', 'vaccinations', 'dewormings'];
+
+/** El formulario de alta se muestra abierto por defecto: hay permiso de escritura y el módulo no tiene registros (REQ-REG7-002). Función pura, solo la Opción B. */
+export const showsFormOpenByDefault = (_module: RecordModule, records: readonly unknown[], canWrite: boolean): boolean => canWrite && records.length === 0;
+
+/** El módulo pinta `RecordForm` sin `<details>` ni `<summary>`: Opción B, abierto por defecto y sin registros (SC-007-017). */
+export const showsBareForm = (module: RecordModule, records: readonly unknown[], canWrite: boolean): boolean =>
+  OPTION_B_MODULES.includes(module) && showsFormOpenByDefault(module, records, canWrite);
+
 /** Valores iniciales del formulario: vacío, o la primera opción en los selectores. */
 export function initialRecordValues(spec: RecordModuleSpec): Record<string, string> {
   return Object.fromEntries(spec.fields.map((f) => [f.name, f.options?.[0]?.value ?? '']));

@@ -5,7 +5,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { isoDateFromToday } from './e2e-support.ts';
+import { isoDateFromToday, typeDate } from './e2e-support.ts';
 
 const USER = { username: 'duena.dashboard.e2e', displayName: 'Dueña', password: 'Secreto2026a!' };
 
@@ -50,18 +50,18 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     await page.getByRole('button', { name: 'Nueva mascota' }).click();
     await page.locator('#new-pet-name').fill('Argos');
     await page.getByLabel('Raza').fill('Pastor alemán');
-    await page.getByLabel('Fecha de nacimiento').fill('2020-05-01');
+    await typeDate(page, page.getByRole('group', { name: 'Fecha de nacimiento', exact: true }), '2020-05-01');
     await page.getByRole('button', { name: 'Guardar' }).first().click();
     await expect(page.getByRole('heading', { name: 'Argos', level: 2 })).toBeVisible();
     await expect(petOptions()).toHaveCount(1);
 
-    await page.locator('#weights-recordedAt').fill('2026-01-10');
+    await typeDate(page, page.locator('#weights-recordedAt'), '2026-01-10');
     await page.locator('#weights-weightKg').fill('200');
     await page.getByRole('button', { name: 'Guardar' }).click();
     await expect(page.getByText('El peso está fuera del rango de la especie').first()).toBeVisible();
 
     for (const [date, kg] of [['2026-01-10', '32.85'], ['2026-02-10', '32.40']] as const) {
-      await page.locator('#weights-recordedAt').fill(date);
+      await typeDate(page, page.locator('#weights-recordedAt'), date);
       await page.locator('#weights-weightKg').fill(kg);
       await page.getByRole('button', { name: 'Guardar' }).click();
       await expect(page.getByRole('cell', { name: `${kg} kg` }).first()).toBeVisible();
@@ -81,8 +81,8 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     ] as const;
     for (const [index, [name, appliedAt, nextBoosterAt]] of vaccines.entries()) {
       await page.locator('#vaccinations-vaccineName').fill(name);
-      await page.locator('#vaccinations-appliedAt').fill(appliedAt);
-      await page.locator('#vaccinations-nextBoosterAt').fill(nextBoosterAt);
+      await typeDate(page, page.locator('#vaccinations-appliedAt'), appliedAt);
+      await typeDate(page, page.locator('#vaccinations-nextBoosterAt'), nextBoosterAt);
       await page.getByRole('button', { name: 'Guardar' }).click();
       await expect(page.locator('[data-alert-status]')).toHaveCount(index + 1);
     }
@@ -114,7 +114,7 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     await page.locator('#new-pet-name').fill('Ñandú');
     await page.locator('#new-pet-species').selectOption('FELINE');
     await page.getByLabel('Raza').fill('Criollo');
-    await page.getByLabel('Fecha de nacimiento').fill('2022-03-03');
+    await typeDate(page, page.getByRole('group', { name: 'Fecha de nacimiento', exact: true }), '2022-03-03');
     await page.getByRole('button', { name: 'Guardar' }).first().click();
     await expect(page.getByRole('heading', { name: 'Ñandú', level: 2 })).toBeVisible();
     await expect(petOptions()).toHaveCount(2);

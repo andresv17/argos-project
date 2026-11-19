@@ -4,6 +4,7 @@
  * @implements REQ-UI-004, REQ-UI-005
  */
 import { useState, type ReactNode } from 'react';
+import { DateField } from './DateField.tsx';
 import { FORM_ERROR_KEY, type FieldErrors } from '../validation.ts';
 
 interface FieldProps {
@@ -22,6 +23,7 @@ interface FieldProps {
 }
 
 export function TextField({ id, label, name, value, onChange, errors, type = 'text', required = false, autoComplete, step, inputMode, placeholder }: FieldProps): JSX.Element {
+  if (type === 'date') return <DateField id={id} label={label} name={name} value={value} onChange={onChange} errors={errors} required={required} />;
   const error = errors[name];
   const errorId = `${id}-error`;
   return (

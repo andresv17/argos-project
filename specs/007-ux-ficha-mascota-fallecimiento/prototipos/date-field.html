@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototipo DateField (T1003, feature 007)</title>
+<style>
+/* Tokens reales de tailwind.config.ts / ui_blueprint §1.5. Prototipo autocontenido: sin dependencias ni fuentes externas. */
+:root{
+  --primary:#1d4f3a; --text:#0f172a; --muted:#475569; --border:#64748b; --danger:#991b1b; --surface:#fff;
+  --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp6:24px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;min-width:320px;min-height:100vh;color:var(--text);background:#e6f2ea linear-gradient(160deg,#eaf6ff 0%,#e6f2ea 50%,#f4f8ef 100%);
+  font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+main{max-width:1024px;margin:0 auto;padding:var(--sp6) var(--sp4) 48px}
+h1{font-size:1.25rem;line-height:1.3;margin:0 0 var(--sp2)}
+.note{color:var(--muted);font-size:.875rem;max-width:64ch;margin:0 0 var(--sp6)}
+.card{background:var(--surface);border:1px solid #cbd5e1;border-radius:16px;padding:var(--sp4);display:grid;gap:var(--sp6);box-shadow:0 8px 32px rgba(15,23,42,.06)}
+@media (min-width:1024px){ .card{grid-template-columns:1fr 1fr;padding:var(--sp6);gap:var(--sp6) 32px} }
+
+/* ---- DateField ---- */
+.df{border:0;margin:0;padding:0;min-width:0}
+.df legend{padding:0;font-size:.875rem;font-weight:500;color:#1e293b;margin-bottom:var(--sp1)}
+.df .req{color:var(--text)}
+.df-row{display:flex;align-items:center;gap:var(--sp2)}
+.df-seg{
+  width:3.5rem;min-height:48px;padding:var(--sp3) var(--sp2);
+  border:1px solid var(--border);border-radius:12px;background:#fff;color:var(--text);
+  font:inherit;font-variant-numeric:tabular-nums;text-align:center;
+}
+.df-seg.year{width:5.5rem}
+.df-seg::placeholder{color:var(--muted);opacity:1}
+.df-seg:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.df-sep{color:var(--muted);font-size:1.125rem;user-select:none}
+.df[data-invalid] .df-seg{border-color:var(--danger);border-width:2px}
+.df-help,.df-error{margin:var(--sp1) 0 0;font-size:.875rem}
+.df-help{color:var(--muted)}
+.df-error{color:var(--danger);display:flex;gap:var(--sp2);align-items:flex-start}
+.df-error svg{flex:none;margin-top:3px}
+.df-error[hidden]{display:none}
+.emit{margin:var(--sp2) 0 0;font-size:.75rem;color:var(--muted)}
+.emit output{font-variant-numeric:tabular-nums;color:var(--text)}
+.proto{margin-top:var(--sp6);font-size:.8125rem;color:var(--muted);max-width:64ch}
+@media (max-width:359px){ .df-seg{width:3.25rem} .df-seg.year{width:5rem} .df-row{gap:6px} }
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>DateField: tres segmentos con auto-avance</h1>
+  <p class="note">Prototipo T1003 (REQ-FEC7-001..004). Escriba sin usar Tab: el foco pasa solo de Día a Mes y de Mes a Año. Retroceso en un segmento vacío vuelve al anterior. Pegue 2026-11-19 o 19/11/2026 en cualquier segmento.</p>
+
+  <div class="card">
+    <!-- Instancia 1: vacío / estado de reposo -->
+    <fieldset class="df" data-df>
+      <legend>Fecha de nacimiento <span class="req" aria-hidden="true">*</span></legend>
+      <div class="df-row">
+        <input class="df-seg day" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="DD" aria-label="Fecha de nacimiento, día" data-seg="day">
+        <span class="df-sep" aria-hidden="true">/</span>
+        <input class="df-seg mon" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="MM" aria-label="Fecha de nacimiento, mes" data-seg="mon">
+        <span class="df-sep" aria-hidden="true">/</span>
+        <input class="df-seg year" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="AAAA" aria-label="Fecha de nacimiento, año" data-seg="year">
+      </div>
+      <p class="df-help" id="h1">Día, mes y año con números.</p>
+      <p class="emit">Valor emitido al formulario: <output>(vacío)</output></p>
+    </fieldset>
+
+    <!-- Instancia 2: con error del esquema/servidor (el componente no valida; solo muestra el mensaje recibido) -->
+    <fieldset class="df" data-df data-invalid aria-describedby="e2">
+      <legend>Fecha de fallecimiento</legend>
+      <div class="df-row">
+        <input class="df-seg day" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="DD" aria-label="Fecha de fallecimiento, día" aria-invalid="true" aria-describedby="e2" value="20" data-seg="day">
+        <span class="df-sep" aria-hidden="true">/</span>
+        <input class="df-seg mon" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="MM" aria-label="Fecha de fallecimiento, mes" aria-invalid="true" aria-describedby="e2" value="11" data-seg="mon">
+        <span class="df-sep" aria-hidden="true">/</span>
+        <input class="df-seg year" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="AAAA" aria-label="Fecha de fallecimiento, año" aria-invalid="true" aria-describedby="e2" value="2026" data-seg="year">
+      </div>
+      <p class="df-error" id="e2"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4v5M8 11v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>La fecha de fallecimiento no puede ser futura. Mensaje devuelto por el servidor.</span></p>
+      <p class="emit">Valor emitido al formulario: <output>2026-11-20</output></p>
+    </fieldset>
+  </div>
+
+  <p class="proto">Solo prototipo: la línea «Valor emitido» y la lógica de avance en el script existen para revisar el comportamiento; la lógica real vive en <code>date-segments.ts</code> (funciones puras). El componente no valida calendario ni calcula «hoy» (EDGE-007-001, EDGE-007-022).</p>
+</main>
+<script>
+(function(){
+  var max={day:2,mon:2,year:4}, order=['day','mon','year'];
+  function segs(fs){return order.map(function(k){return fs.querySelector('[data-seg='+k+']')})}
+  function emit(fs){
+    var s=segs(fs).map(function(i){return i.value});
+    var ok=s[0].length===2&&s[1].length===2&&s[2].length===4;
+    fs.querySelector('output').textContent=ok?s[2]+'-'+s[1]+'-'+s[0]:'(vacío)';
+  }
+  function fill(fs,d,m,y){var s=segs(fs);s[0].value=d;s[1].value=m;s[2].value=y;emit(fs);}
+  document.querySelectorAll('[data-df]').forEach(function(fs){
+    var s=segs(fs);
+    s.forEach(function(inp,idx){
+      var k=order[idx];
+      inp.addEventListener('input',function(){
+        var v=inp.value.replace(/\D/g,'').slice(0,max[k]);
+        if(k==='day'&&v.length===1&&+v>=4)v='0'+v;
+        if(k==='mon'&&v.length===1&&+v>=2)v='0'+v;
+        inp.value=v;
+        emit(fs);
+        if(k!=='year'&&v.length===2)s[idx+1].focus();
+      });
+      inp.addEventListener('keydown',function(e){
+        if(e.key==='Backspace'&&inp.value===''&&idx>0){
+          e.preventDefault();
+          var p=s[idx-1];p.value=p.value.slice(0,-1);p.focus();emit(fs);
+        }
+      });
+      inp.addEventListener('focus',function(){inp.select()});
+      inp.addEventListener('paste',function(e){
+        var t=(e.clipboardData||window.clipboardData).getData('text').trim();
+        var m=t.match(/^(\d{4})-(\d{2})-(\d{2})$/),n=t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if(m){e.preventDefault();fill(fs,m[3],m[2],m[1]);s[2].focus();}
+        else if(n){e.preventDefault();fill(fs,n[1],n[2],n[3]);s[2].focus();}
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

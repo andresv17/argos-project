@@ -1,0 +1,204 @@
+# Feature Specification: UX de la ficha de mascota, fechas, pestaña Historial/Archivos, mascota fallecida y texto de escena pendiente (Feature 007)
+
+**Feature Branch**: `007-ux-ficha-mascota-fallecimiento` (por crear por Neo desde `006-escena-hogar-pixel-art`; el Architect no toca git)
+**Created**: 2026-11-19
+**Status**: `APPROVED` (firmado por Neo, Nivel 2, el 2026-11-19 tras actas `/lock`, `/mifune`, `/rama`, `/merovingian` y `/mouse` PASS; `version` confirmado como entero ≥ 1; rama `007-ux-ficha-mascota-fallecimiento` autorizada desde `006-escena-hogar-pixel-art`).
+**Revisión (pase único del Architect, 2026-11-19)**: incorpora las actas `mifune-007-kiss.md`, `lock-007-edge.md`, `rama-007-privacidad.md` y `merovingian-007-impacto.md` (`.specify/memory/audits/`). Neo aprobó las decisiones de Nivel 2 el 2026-11-19 (`claude/decisiones-neo-007-2026-11-19.md`); se asientan en «Decisiones de Neo asentadas». La aprobación de decisiones **no** es `APPROVED`/`LOCKED` del documento.
+**Input**: `claude/inbox-feature-007.md` (GitHub Project #5; 6 ítems: `[GH:#11]`, `[GH:#12]`, `[GH:#13]`, `[GH:#14]`, `[GH:#15]`, `[GH:#51]`), tratado como el prompt funcional de Neo. Lectura de `specs/005-*` y `specs/006-*` (solo lectura).
+
+## Verificación de premisas (lectura del estado real en disco)
+
+- `src/presentation/web/components/PetDashboard.tsx`: la ficha tiene un `tablist` de 6 módulos (`RECORD_MODULES`: Peso, Medidas, Vacunas, Desparasitaciones, Consultas, Parámetros) y, **debajo del panel**, una sección fija «Historial / Archivos» (`mediaSlot`, solo si `editSlot === undefined`). Cada módulo renderiza un `<details>` cuyo `<summary>` es el botón «Registrar <módulo>» (`RECORD_SUMMARY`, `records.ts`) y, dentro, `RecordForm` con «Guardar».
+- La tarjeta oliva `AlertsCard` (`PetDashboard.tsx`) se titula «Alertas sanitarias» y contiene un botón «Registrar peso» que abre el formulario de Peso. Su recuento (`alertsSummary` = `summarizeSanitaryAlerts(vacunas, desparasitaciones)`) **incluye vacunas y desparasitaciones**.
+- Las fechas de todos los formularios usan `<input type="date">` nativo (`Field.tsx` `TextField type="date"`, usado por `RecordForm.tsx` y `PetForm.tsx`).
+- `scenePendingText` (`scene-view.ts`) produce «cambios pendientes: P · generaciones restantes: R», que se muestra en `SceneBlock.tsx`.
+- El modelo de mascota (`pet.schema.json` de 001: `CreatePetInput`/`UpdatePetInput` = `name, species, breed, birthDate, sex, avatarUrl`) **no tiene** estado de vida ni fecha de fallecimiento. `[GH:#13]` es el único ítem que exige tocar modelo, persistencia, API y backup.
+
+## Alcance y no alcance
+
+**Dentro**: `[GH:#11]` auto-avance entre segmentos de fecha; `[GH:#12]` pestaña dedicada «Historial / Archivos»; `[GH:#13]` estado Vivo/Fallecido con fecha de fallecimiento e impacto definido; `[GH:#14]` simplificación Registrar/Guardar; `[GH:#15]` limpieza del panel derecho y renombre; `[GH:#51]` nuevo texto de «actualizaciones pendientes» de la escena.
+**Fuera**: cambiar la lógica de alertas sanitarias (solo su rótulo y, por `[GH:#13]`, su exclusión para fallecidas); regenerar o modificar el algoritmo de huella de la escena salvo lo que exija `[GH:#13]`; dependencias nuevas; activación del driver real (T885 de 006 sigue bloqueada); infraestructura, Terraform y despliegue.
+
+## Supuestos
+
+- Los 4 ítems puramente de presentación (`#11`, `#12`, `#14`, `#15`) y el `#51` **no introducen endpoints, rutas ni cambios de contrato**. Solo `#13` toca modelo y API (ver «Impacto en contratos»).
+- «No existen medidas» (`#14`) significa: la lista del módulo de esa mascota está vacía; para mascotas sin permiso de escritura no se muestra formulario alguno (comportamiento actual de `canWrite`).
+
+## User Scenarios & Testing
+
+### User Story 1 — Escribir fechas a mano sin tocar Tab `[GH:#11]` (P1)
+**Independent Test**: `SC-007-001..004`.
+1. **Given** un campo de fecha con segmentos día/mes/año, **When** escribo `15`, **Then** el foco pasa al mes; al escribir `03` pasa al año.
+2. **Given** el segmento de mes vacío con foco, **When** pulso `Backspace`, **Then** el foco vuelve al día y borra su último dígito.
+3. **Given** que escribo `5` en el día, **Then** se completa como `05` y el foco avanza (ningún día válido empieza por 4..9 con dos dígitos).
+
+### User Story 2 — Encontrar Historial / Archivos como una pestaña más `[GH:#12]` (P1)
+**Independent Test**: `SC-007-005..007`.
+1. **Given** la ficha de una mascota, **When** la abro, **Then** veo siete pestañas en este orden: Peso, Medidas, Vacunas, Desparasitaciones, Consultas, Parámetros, Historial / Archivos.
+2. **Given** la pestaña «Historial / Archivos» activa, **Then** muestra el panel de archivos clínicos y no muestra botón «Registrar» ni formulario de registros; la sección ya no aparece al final de la vista.
+
+### User Story 3 — Marcar a mi mascota como fallecida y conservar su recuerdo `[GH:#13]` (P1)
+**Independent Test**: `SC-007-008..016`.
+1. **Given** el formulario de mascota, **When** elijo `Estado: Fallecido`, **Then** aparece el campo «Fecha de fallecimiento» obligatorio; con `Vivo` el campo se oculta y el valor se descarta.
+2. **Given** una mascota fallecida, **Then** su historial y archivos siguen visibles y su ficha muestra «Fallecido» con la fecha.
+
+### User Story 4 — Registrar sin confusión entre «Registrar» y «Guardar» `[GH:#14]` (P1, Opción B decidida por Neo)
+**Independent Test**: `SC-007-017..020`.
+1. **Given** (Opción B) una mascota sin pesos, **When** abro Peso, **Then** veo directamente los campos y «Guardar», sin botón «Registrar peso»; tras guardar el primer peso aparece «Registrar peso».
+
+### User Story 5 — Panel derecho limpio y rotulado `[GH:#15]` (P2)
+**Independent Test**: `SC-007-021..023`.
+1. **Given** una mascota seleccionada, **Then** el panel derecho se titula «Estado de vacunación» y no contiene el botón «Registrar peso».
+
+### User Story 6 — Mensaje claro de cambios pendientes en la escena `[GH:#51]` (sin prioridad, texto decidido por Neo)
+**Independent Test**: `SC-007-024..026`.
+1. **Given** cambios en la foto del hogar o en perfiles de mascotas, **When** miro el bloque Hogar, **Then** el texto explica la acción en lenguaje natural en vez de «cambios pendientes: N».
+
+### Edge Cases
+- **EDGE-007-001** (`#11`): fecha de 29 de febrero, mes `13`, día `00`, año de menos de 4 dígitos: no avanzan ni validan por sí solos; la validación sigue siendo la del esquema (`CreateWeightInput`, etc.). Pegar `2026-11-19` o `19/11/2026` en cualquier segmento reparte los segmentos.
+- **EDGE-007-002** (`#11`): en móvil el teclado numérico (`inputMode="numeric"`) no ofrece Tab; el auto-avance es el único camino. Lectores de pantalla: cada segmento lleva `aria-label` («Día», «Mes», «Año») dentro de un `fieldset` con la leyenda del campo; el cambio de foco no anuncia texto adicional.
+- **EDGE-007-003** (`#12`): `editSlot !== undefined` (edición de la mascota) mantiene oculta la pestaña como hoy. Si `mediaSlot` no se provee, la pestaña no se muestra. La navegación por flechas, `Home` y `End` del `tablist` recorre siete pestañas.
+- **EDGE-007-004** (`#13`): fecha de fallecimiento anterior a la de nacimiento, futura o con `Vivo` + fecha: rechazadas por el contrato (ver `REQ-FAL7-002`). Cambiar de `Fallecido` a `Vivo` (corrección de error) borra la fecha.
+- **EDGE-007-005** (`#13`): mascota fallecida con registros fechados **después** de su fecha de fallecimiento ya existentes (datos previos): se conservan sin alterar; solo se rechazan altas y ediciones nuevas (`REQ-FAL7-005`).
+- **EDGE-007-006** (`#13`): importación de un respaldo anterior a 007 (sin los campos nuevos): cada mascota importada queda `ALIVE` sin fecha. `ALIVE` por defecto aplica solo a filas **sin** los campos; la importación por **reemplazo** de un respaldo anterior sobre una mascota ya `DECEASED` es un cambio visible `DECEASED → ALIVE` y sigue `REQ-FAL7-009` (previsualización y confirmación explícita).
+- **EDGE-007-007** (`#14`): mascota con permiso de solo lectura y sin registros: ni formulario ni botón. Borrar el único registro devuelve la sección a «sin medidas» (vuelve a mostrarse el formulario abierto, Opción B).
+- **EDGE-007-008** (`#51`): conservar la condición de cuota agotada y los demás estados de `SceneBlock`; el nuevo texto no puede sugerir regenerar cuando el botón está deshabilitado. Ver también `EDGE-007-017`.
+- **EDGE-007-009** (`#13`, ALTA, **DECIDIDO por Neo: opción A**): formulario de edición obsoleto revierte el estado de vida. `UpdatePetInput` es un cuerpo completo sin versión ni `If-Match`; una pestaña con `lifeStatus: ALIVE` cargado, tras otra pestaña que marcó `DECEASED`, reescribe `ALIVE` y borra `deceasedAt` sin aviso. Cobertura decidida: control optimista (`updated_at` o `version` en `pets`; `PUT` con `If-Match`; `412` y mensaje «Esta ficha cambió, recarga»). Verificado en disco: el catálogo de errores de 002 **no** tiene código de precondición o versión obsoleta, así que la opción A exige un código nuevo (`/architect`, Nivel 2). Prueba: dos `PUT` secuenciales, el segundo con la versión anterior → `412` y estado intacto. Tarea `T1064`. Los códigos de error son nuevos y se enmiendan en la línea 002 (`T1013`, `T1064`).
+- **EDGE-007-010** (`#13`, ALTA, **requisito técnico**): carrera entre marcar el fallecimiento y crear un registro con fecha posterior. `updatePetProfile` toma `lockPet(petId)` como **primera operación**, antes de leer la mascota y los registros (mismo orden que `record-use-cases.ts`). Resultado de cualquier intercalado: o el registro se rechaza o el fallecimiento se rechaza, nunca ambos persistidos. Prueba con dos transacciones y barrera (Postgres con dos clientes; SQLite por serialización de proceso). Pendiente solo la confirmación por `/keymaker` de si `requireReadablePet` ya bloquea (Lock no la confirmó). Tarea `T1065`.
+- **EDGE-007-011** (`#13`, ALTA, **requisito técnico**): cambiar `birthDate` de una mascota `DECEASED` no puede romper el invariante. `updatePetProfile` valida `REQ-FAL7-002` completo sobre el **estado resultante** (`birthDate` y `deceasedAt` nuevos), también en la transición `ALIVE → DECEASED`; una edición que deje `birthDate > deceasedAt` se rechaza sin cambios. Prueba: edición a `birthDate` posterior a `deceasedAt` → rechazo; edición que mantiene el invariante → aceptada. En `T1015`, `T1016` y `T1021`.
+- **EDGE-007-012** (`#13`, MEDIA, **DECIDIDO por Neo: opción A**): marcar el fallecimiento con registros ya posteriores a `deceasedAt` (quien se equivocó con la fecha no podría corregirla, porque `REQ-FAL7-005` bloquea editar esos registros). Decisión: rechazar y listar los registros en conflicto (el dueño corrige antes). Descartada: permitir con aviso. Prueba: marcar con registro posterior → rechazo con la lista. En `T1023`.
+- **EDGE-007-013** (`#13`, MEDIA, **DECIDIDO por Neo: opción A**): sobre qué fecha se valida «ediciones con fecha posterior». Decisión: se valida la **fecha resultante**; las notas son editables sin cambiar la fecha a una posterior a `deceasedAt`, y editar la fecha a un valor posterior se rechaza. Descartada: bloquear toda edición de un registro ya posterior. En `T1023`.
+- **EDGE-007-014** (`#13` con `006`, MEDIA, **DECIDIDO por Neo: opción A**): generación de escena en vuelo cuando se marca `DECEASED`; la imagen publicada seguiría dibujando a la fallecida. Decisión: el paso T2 de 006 revalida que las mascotas de la huella sigan `ALIVE`; si alguna pasó a `DECEASED`, cancela la publicación (`CANCELLED`, sin cuota). Descartada: dejar la imagen obsoleta visible. Prueba con `FakeSceneImageGenerator` lento. Tarea `T1066`.
+- **EDGE-007-015** (`#13`, MEDIA, **DECIDIDO por Neo: opción A**): un respaldo 007 no se importa en un build anterior (`backup-envelope` 002 con `additionalProperties: false` y `schemaVersion` constante `3.0.0`; rechazo atómico con `ERR-BACKUP-SCHEMA-INVALID`, sin escritura parcial). Decisión: versionar el formato del respaldo con error explícito ante versión superior (`ERR-BACKUP-VERSION-UNSUPPORTED` ya existe en 002). Descartadas: aceptar la ruptura silenciosa; envelope MAJOR. Ver `REQ-FAL7-009`. Tarea `T1067`.
+- **EDGE-007-016** (`#13`, MEDIA, **DECIDIDO por Neo: opción A**): `Fallecido → Vivo` borra la fecha sin rastro y reactiva alertas y escena. Decisión: confirmación explícita en la UI («Al volver a Vivo se reactivarán las alertas») y auditoría de la transición (quién, cuándo, fecha anterior, según `REQ-AUD-001`). Tarea `T1068`.
+- **EDGE-007-017** (`#51`, MEDIA, **DECIDIDO por Neo**): el texto previo afirmaba «Actualizaste la foto…» aunque el cambio de huella lo cause marcar `DECEASED`. Decisión: texto neutral de `D7-01`. Se añade el caso «cambio de estado de vida» a `SC-007-024`. Integrado en `D7-01`.
+- **EDGE-007-018** (`#11`, MEDIA, **tarea condicional**): en teclados virtuales de Android `keydown` llega con `key = "Unidentified"` (`keyCode 229`) y el retroceso en segmento vacío no mueve el foco. Se implementa `keydown` (`M7-12`); si el E2E de `T1035` en WebKit o en emulación de Android Chrome demuestra que no basta, se ejecuta `T1036` (retroceso sobre `beforeinput` con `inputType === "deleteContentBackward"`, `keydown` como respaldo). Ver `REQ-FEC7-006`.
+- **EDGE-007-019** (`#13`, BAJA, **requisito técnico**): con todas las mascotas del hogar `DECEASED`, `globalAlertStatus` debe tener un valor neutro definido (no `null`) y un texto («Sin mascotas activas»); `/maggie` fija el valor en `T1014` y `T1023` lo prueba (`SC-007-013`).
+- **EDGE-007-020** (`#13`, BAJA, **requisito técnico**): con `birthDateIsEstimate = true` el rótulo de edad de una fallecida lleva «aprox.» («Vivió aprox. N años»). Ver `REQ-FAL7-007`.
+- **EDGE-007-021** (`#15`, BAJA): «Estado de vacunación» no describe el recuento (incluye desparasitaciones); sin cambio de código, firma de `D7-03`. **Sin tarea ni prueba por diseño** (cubierto por la decisión `D7-03` y `REQ-PAN7-002`).
+- **EDGE-007-022** (`#13`, BAJA, **requisito técnico**): el rechazo de `deceasedAt` futura usa el reloj del servidor (`America/Bogota`); `DateField` **no** calcula «hoy» con la zona del navegador ni bloquea fechas por sí mismo (`EDGE-007-001`). Prueba de borde: 23:30 del día 19 en Bogotá con `deceasedAt = día 20` → rechazo del servidor.
+
+## Requirements
+
+### Fechas con auto-avance (`[GH:#11]`)
+- **REQ-FEC7-001** (Componente de fecha por segmentos): los campos de fecha (`type: 'date'` de `RecordFieldSpec` y `birthDate`/`deceasedAt` de la mascota) se renderizan como tres segmentos numéricos `Día` (2 dígitos), `Mes` (2) y `Año` (4) con `inputMode="numeric"`. El valor emitido al formulario sigue siendo ISO `YYYY-MM-DD` (o cadena vacía mientras esté incompleto), de modo que los esquemas, el cliente de API y los contratos **no cambian**.
+- **REQ-FEC7-002** (Reglas deterministas de avance): el foco pasa al siguiente segmento (a) al escribir el segundo dígito del día o del mes, (b) al escribir un primer dígito de día `4..9` o de mes `2..9` (el valor se completa con cero a la izquierda, `5` → `05`). El año no avanza (es el último segmento). Solo se aceptan dígitos; cualquier otro carácter se descarta.
+- **REQ-FEC7-003** (Retroceso fluido): `Backspace` con el segmento vacío mueve el foco al segmento anterior y borra su último dígito; con el segmento no vacío borra un dígito sin mover el foco. El primer segmento no retrocede. Se implementa sobre `keydown` (`M7-12`).
+- **REQ-FEC7-004** (Accesibilidad y compatibilidad): cada segmento tiene `aria-label`; el conjunto va en `fieldset` con `legend` visible; foco visible; tamaño táctil mínimo 44 px; funciona con teclado en escritorio y con teclado numérico móvil; el pegado reparte los segmentos (`EDGE-007-001`). Verificación en Chromium, Firefox y WebKit (Playwright) y en un viewport móvil.
+- **REQ-FEC7-005** (Sin dependencias nuevas): componente propio en `src/presentation/web/components/`; `package.json` intacto (`NFR-007-001`). El módulo puro `date-segments.ts` expone **dos** funciones: una para la entrada tecleada (avance y retroceso) y una de análisis de texto (ISO o `DD/MM/AAAA` ↔ segmentos).
+- **REQ-FEC7-006** (Condicional, `EDGE-007-018`): solo si el E2E de `T1035` en WebKit o en emulación de Android Chrome demuestra que `keydown` no basta, el retroceso en segmento vacío se implementa sobre `beforeinput` (`inputType === "deleteContentBackward"`) con `keydown` como respaldo (`T1036`). Sin esa evidencia no se implementa.
+
+### Pestaña Historial / Archivos (`[GH:#12]`)
+- **REQ-PES7-001**: la ficha muestra 7 pestañas en este orden: `Peso`, `Medidas`, `Vacunas`, `Desparasitaciones`, `Consultas`, `Parámetros`, `Historial / Archivos`.
+- **REQ-PES7-002**: la pestaña «Historial / Archivos» (`id` `history`) renderiza `mediaSlot` (panel de archivos clínicos de 005, sin cambios funcionales) y **no** el bloque «Registrar»/`RecordForm`. La sección fija al final de la vista se elimina.
+- **REQ-PES7-003**: el `tablist` conserva el patrón WAI-ARIA existente (`role="tab"`, `aria-selected`, `tabpanel` con `aria-labelledby`, flechas/`Home`/`End`, tabulación móvil); la pestaña activa por defecto sigue siendo `Peso`. No se modifica `RECORD_MODULES` (que describe módulos de registros), se añade una pestaña extra al render.
+
+### Estado Vivo / Fallecido (`[GH:#13]`)
+- **REQ-FAL7-001** (Modelo): la mascota tiene `lifeStatus` ∈ {`ALIVE`, `DECEASED`} (defecto `ALIVE`) y `deceasedAt` (fecha ISO `YYYY-MM-DD`, nulo si `ALIVE`). Aditivo y retrocompatible para datos existentes (SemVer minor del `pet.schema.json` de la línea **002**, no del 001; ver «Impacto en contratos»); **toca modelo, persistencia (SQLite y Postgres), API y respaldo**.
+- **REQ-FAL7-002** (Invariante): `lifeStatus = DECEASED` ⇒ `deceasedAt` obligatorio, `deceasedAt >= birthDate` y `deceasedAt <=` hoy (zona `America/Bogota`); `lifeStatus = ALIVE` ⇒ `deceasedAt` nulo. Violación → `ERR-SCHEMA-VALIDATION-FAILED` (HTTP 422), código **existente** del catálogo de errores de 002, verificado en disco (`M7-02`); **no** se crea `ERR-PET-LIFE-STATUS`. El invariante vive en `src/domain/pet/pet-invariants.ts` (directorio existente; `M7-03`) y se valida sobre el **estado resultante** de la edición (`EDGE-007-011`). El invariante define por sí solo las transiciones válidas (`ALIVE ⇄ DECEASED`; `DECEASED → ALIVE` borra la fecha); `spec-system.md` (`LOCKED`) exige máquina de estados para transiciones con `STATE-XXX`, no para cada campo enumerado, así que **no** se crea máquina separada (`M7-01`).
+- **REQ-FAL7-003** (UI): selector `Estado: Vivo | Fallecido` en el formulario de mascota; con `Fallecido` aparece «Fecha de fallecimiento» (componente de `REQ-FEC7-001`); la ficha y la tarjeta muestran la insignia «Fallecido» con la fecha. La transición `Fallecido → Vivo` está permitida y borra la fecha (corrección de error). Exige confirmación explícita en la UI («Al volver a Vivo se reactivarán las alertas») y queda auditada con la fecha anterior (`EDGE-007-016`, decidido por Neo).
+- **REQ-FAL7-004** (Impacto en alertas, **decidido por Neo, D7-04**): una mascota `DECEASED` no genera alertas sanitarias nuevas ni cuenta en `alertsSummary`/`globalAlertStatus`; el filtro `WITH_ALERTS` la excluye; el historial de vacunas y desparasitaciones sigue visible. La tarjeta «Estado de vacunación» muestra «Sin alertas: mascota fallecida». Con todas las mascotas del hogar `DECEASED`, `globalAlertStatus` toma un valor neutro definido (`EDGE-007-019`).
+- **REQ-FAL7-005** (Registros posteriores, **decidido por Neo, D7-05, EDGE-007-012/013**): se rechazan altas y ediciones de registros clínicos cuya fecha **resultante** sea posterior a `deceasedAt`; las notas de un registro ya posterior son editables sin cambiar su fecha; al marcar el fallecimiento con registros posteriores existentes se rechaza y se listan los registros en conflicto; los registros anteriores se pueden consultar, editar y borrar; nunca se borra historial por marcar el fallecimiento.
+- **REQ-FAL7-006** (Escena del hogar, **decidido por Neo, D7-06**): una mascota `DECEASED` no se dibuja en las generaciones nuevas ni cuenta en `pets.shown/total`; el filtro `DECEASED` se aplica **antes** de `buildInputsSnapshot` (sin campos nuevos en `SnapshotPet`; un snapshot previo a 007 sigue parseando); marcar el fallecimiento cuenta como un cambio de la huella (`REQ-ESC6-004`) y se refleja en el texto de pendientes de `REQ-ESC7-001`; la imagen ya generada **no** se retira hasta que el usuario regenere. Si durante una generación en vuelo una mascota de la huella pasa a `DECEASED`, el paso T2 de 006 cancela la publicación (`CANCELLED`, sin cuota; `EDGE-007-014`). Revertir a `ALIVE` es otro cambio de huella.
+- **REQ-FAL7-007** (Edad, **técnica**): `computedAge` (`REQ-PET-002`) de una mascota fallecida se calcula entre `birthDate` y `deceasedAt` y se rotula «Vivió …» (con «aprox.» si `birthDateIsEstimate = true`, `EDGE-007-020`); el cálculo vigente (a hoy) se conserva para `ALIVE`.
+- **REQ-FAL7-008** (Permisos y privacidad): sin permisos nuevos; marcar el estado exige `WRITE_PET` (permiso existente de edición de mascota). `deceasedAt` es un dato de la mascota, sin PII del titular. **Decidido por Neo (C1)**: `lifeStatus` es visible en el enlace veterinario y el `ClinicalSummary` (005); `deceasedAt` solo viaja con disclosure opt-in del creador del enlace (desmarcado por defecto, como `includeClinicalFiles`); los enlaces activos **no** se revocan automáticamente y el creador recibe aviso al marcar `Fallecido`. Verificado en disco (`H5`): `ClinicalProfile` de `clinical-summary.schema.json` (005, v1.0.0) copia campos de la mascota con `additionalProperties: false` y sin `lifeStatus`; se requiere enmienda MINOR de 005 (propuesta en `contracts/README.md`); `/rama` revalida en `T1012`.
+- **REQ-FAL7-009** (Respaldo e importación): `backup-envelope` incluye ambos campos como **opcionales** (nunca en `required`); la importación de respaldos sin ellos (1.0.0, 2.0.0, 3.0.0 y los de 006) asigna `ALIVE`/nulo siguiendo el patrón de defaults de `backup-migration.ts` (`EDGE-007-006`). **Importación por reemplazo** (técnico, `/rama` C2): la previsualización de `REQ-BACKUP2-002` lista todo cambio de `lifeStatus`, incluido `DECEASED → ALIVE` causado por un respaldo anterior a 007, y exige confirmación explícita antes de aplicar; si se cancela, el estado queda intacto y atómico. **Compatibilidad hacia atrás (C3, documentada)**: `BackupEnvelopeV2` es estricto y `schemaVersion` es constante `3.0.0`; un build anterior a 007 rechaza un respaldo 007 con `ERR-BACKUP-SCHEMA-INVALID`, de forma atómica y sin estado parcial. **Decidido por Neo (`EDGE-007-015`)**: se versiona el formato del respaldo; un build anterior que reciba un respaldo de versión superior lo rechaza con error explícito (`ERR-BACKUP-VERSION-UNSUPPORTED`) y sin escritura parcial; la importación de 1.0.0/2.0.0/3.0.0 sigue asignando `ALIVE`. El valor exacto de `schemaVersion` y la enmienda del esquema se redactan en `contracts/README.md` (tarea `T1067`); este documento no cambia `schemaVersion`.
+- **REQ-FAL7-010** (Retención y minimización, técnico, `/rama` C4 y C6): (a) no existe purga automática de mascotas fallecidas; (b) el único borrado es `DELETE /pets/{petId}` del propietario, con cascada a enlaces veterinarios (`REQ-VET-010`) y auditoría (`REQ-AUD-001`); (c) marcar `DECEASED` nunca borra historial ni archivos; (d) no se añade causa de muerte, nota libre, certificado ni diagnóstico final sin nueva revisión de `/rama`; (e) `lifeStatus` y `deceasedAt` no aparecen en logs, trazas ni en `detail`/`instance` de RFC 9457 (prueba de regresión en `T1019` y `T1026`); (f) solo `OWNER` y `ADMIN` pueden cambiar `lifeStatus`/`deceasedAt`; `CAREGIVER` y `READER` reciben rechazo sin revelar la existencia de la mascota (prueba en `T1020`).
+- **REQ-FAL7-011** (Serialización y estado resultante, técnico): ver `EDGE-007-010` y `EDGE-007-011`. Control de concurrencia optimista decidido por Neo (`EDGE-007-009`, `T1064`).
+
+### Registrar vs Guardar (`[GH:#14]`)
+- **REQ-REG7-001** (**Decisión D7-02 de Neo**): el comportamiento de **solo** Peso, Medidas, Vacunas y Desparasitaciones sin registros es el de la **Opción B, decidida por Neo** (texto literal en «Decisiones de Neo asentadas»; la Opción A queda descartada). El Issue `#14` (confirmado en `claude/inbox-feature-007.md`) nombra solo esos cuatro módulos: **Consultas y Parámetros quedan fuera del alcance** (`M7-10`); extenderlo después sería `DEUDA-007-REG-CONSULTAS-PARAMETROS` si Neo lo pide.
+- **REQ-REG7-002** (Opción B, **decidida**): sin registros y con `canWrite`, el módulo muestra `RecordForm` abierto con «Guardar» y sin `<summary>` «Registrar …»; con ≥ 1 registro vuelve a mostrarse el `<details>` «Registrar …» **plegado por defecto**; la regla de `frozenOpen` (no colapsar al refrescar) se conserva. El predicado puro `showsFormOpenByDefault(module, records, canWrite)` implementa únicamente la Opción B.
+- **REQ-REG7-003** (Opción A, **descartada por Neo, sin tarea por diseño**; no se implementa ni se prueba, `M7-09`; sin constante de opción en el predicado): sin registros se muestra solo el `<summary>` «Registrar …»; al pulsarlo se despliegan campos y «Guardar». Sin cambio respecto del estado del `<details>` actual salvo que **nunca** está abierto por defecto.
+
+### Panel derecho (`[GH:#15]`)
+- **REQ-PAN7-001**: se elimina el botón «Registrar peso» de `AlertsCard` y las propiedades `canRegisterWeight`/`onRegisterWeight` que solo él usa; «Registrar peso» sigue disponible en la pestaña Peso.
+- **REQ-PAN7-002**: el título de la tarjeta pasa de «Alertas sanitarias» a «Estado de vacunación» (texto literal del Issue). **Decidido por Neo (D7-03)**: se mantiene el literal del Issue; el recuento incluye también desparasitaciones (`EDGE-007-021`) y no se cambia.
+- **REQ-PAN7-003**: `aria-labelledby`, identificadores y pruebas existentes se actualizan al nuevo rótulo; el filtro «Con alertas» de la lista de mascotas **no** se renombra (fuera de alcance).
+
+### Texto de actualización de escena pendiente (`[GH:#51]`)
+- **REQ-ESC7-001** (**decidido por Neo, D7-01/EDGE-007-017**): `scenePendingText` se reemplaza por `scenePendingMessage`. Con `pending = 0` no se muestra aviso; con `pending ≥ 1` se muestra «Hubo cambios en tu hogar o en tus mascotas. Puedes volver a generar tu hogar para ver los cambios.» y, en línea aparte, «Generaciones restantes: R». El texto es neutral porque el cambio también puede deberse a `DECEASED`.
+- **REQ-ESC7-002** (decidido por Neo): el contador numérico `P` deja de ser el mensaje principal y se conserva en el `aria-label` del bloque (ejemplo: «P cambios pendientes»). Sin cambio de API, de huella ni de la cuota.
+
+## Impacto en contratos (señal para `/trinity`, `/rama`, `/merovingian`)
+
+| Ítem | Contratos y datos | Evaluación requerida |
+| --- | --- | --- |
+| `#11`, `#12`, `#14`, `#15`, `#51` | Ninguno. Solo `src/presentation/web/` y pruebas. | Ninguna. |
+| `#13` | `pet.schema.json` de la **línea 002** (v3.0.0; coordinar con 004 v3.1.0 `DRAFT`; **no** se enmienda el 001, cuyo compilado lo pisaría `compile-contracts.sh`), OpenAPI de mascotas de 002, `backup-envelope.schema.json` de 002, `canonical-fixtures.json` de 002, migración SQLite `0014` y Postgres `0010`, `src/generated/` (por compilador), `PetCardView`/`PetDashboardView`, `scene-state` (huella; sin campos nuevos en `SnapshotPet`). `clinical-summary.schema.json` de 005 (MINOR, C1 decidida). Enmienda minor aditiva, **aprobada por Neo** (`N2-07-01`, condicionalmente segura según `/merovingian`; condiciones asentadas). | `/merovingian` (grafo de impacto, acta emitida, T1011), `/rama` (acta emitida; revalida T1012 y T1026 tras C1..C3), `/maggie` (alertas, T1014), `/lock` (acta emitida). `/trinity`: **no** (sin auth, sin endpoints nuevos, sin permisos nuevos), salvo que se añada un permiso; el código de error de precondición (`EDGE-007-009`) es un contrato nuevo en 002 y se revisa en `T1013`. |
+
+Sin dependencias nuevas (`package.json` intacto). `data-model.md` y `contracts/README.md` se incluyen solo por `#13`.
+
+## Key Entities
+- **Pet** (ampliado por `#13`): `lifeStatus`, `deceasedAt` (ver `data-model.md`).
+- **DateSegments** (UI, `#11`): estado `{ day, month, year }` derivado del ISO; no se persiste.
+
+## Success Criteria
+- **SC-007-001**: tras escribir `15` en Día el foco está en Mes (prueba de componente y E2E).
+- **SC-007-002**: tras `5` en Día el valor es `05` y el foco está en Mes; tras `1` queda en Día.
+- **SC-007-003**: `Backspace` en Mes vacío lleva el foco a Día y borra un dígito.
+- **SC-007-004**: el campo emite `YYYY-MM-DD` válido solo con los tres segmentos completos; E2E en Chromium, Firefox, WebKit y viewport 390 px.
+- **SC-007-005**: el `tablist` tiene 7 pestañas en el orden de `REQ-PES7-001`.
+- **SC-007-006**: «Historial / Archivos» sin formulario ni botón «Registrar»; ningún `h3` «Historial / Archivos» fuera del `tabpanel`.
+- **SC-007-007**: flechas, `Home` y `End` recorren las 7 pestañas.
+- **SC-007-008**: `lifeStatus` y `deceasedAt` se persisten y leen en SQLite y Postgres con paridad.
+- **SC-007-009**: `DECEASED` sin fecha, fecha previa al nacimiento o futura y `ALIVE` con fecha se rechazan.
+- **SC-007-010**: respaldo exportado e importado conserva ambos campos; respaldo previo importa como `ALIVE`.
+- **SC-007-011**: formulario muestra/oculta «Fecha de fallecimiento» según el selector.
+- **SC-007-012**: insignia «Fallecido» y edad «Vivió …» en la ficha y la tarjeta.
+- **SC-007-013**: mascota fallecida sin alertas en `alertsSummary`, `globalAlertStatus` ni `WITH_ALERTS` (D7-04 decidida).
+- **SC-007-014**: alta de registro con fecha > `deceasedAt` rechazada; anteriores editables (D7-05 decidida).
+- **SC-007-015**: escena nueva no dibuja la fallecida y la huella cambia (D7-06 decidida).
+- **SC-007-016**: el enlace veterinario y el `ClinicalSummary` incluyen `lifeStatus`; `deceasedAt` solo con disclosure opt-in; al marcar `Fallecido` el creador recibe aviso y los enlaces activos no se revocan.
+- **SC-007-017**: sin registros el módulo (Peso, Medidas, Vacunas, Desparasitaciones) muestra campos + «Guardar» sin «Registrar» (Opción B).
+- **SC-007-018**: tras guardar el primer registro (B) aparece «Registrar <módulo>» plegado.
+- **SC-007-019**: al borrar el último registro (B) reaparece el formulario abierto.
+- **SC-007-020**: sin permiso de escritura no hay formulario ni botón en ninguna opción.
+- **SC-007-021**: el panel derecho se titula «Estado de vacunación».
+- **SC-007-022**: el panel derecho no contiene «Registrar peso»; la pestaña Peso sí.
+- **SC-007-023**: ninguna prueba ni texto de UI conserva «Alertas sanitarias» como título de la tarjeta.
+- **SC-007-024**: con `pending ≥ 1` el bloque Hogar muestra el texto decidido de D7-01 (incluido el caso «cambio de estado de vida») y el conteo en `aria-label`.
+- **SC-007-025**: con `pending = 0` no se muestra aviso de pendientes.
+- **SC-007-026**: ninguna cadena «cambios pendientes:» queda en `src/` ni en pruebas.
+- **SC-007-028**: dos transacciones intercaladas (marcar `DECEASED` y crear registro posterior) nunca persisten ambos (`EDGE-007-010`).
+- **SC-007-029**: edición de `birthDate` posterior a `deceasedAt` se rechaza sin cambios (`EDGE-007-011`).
+- **SC-007-030**: respaldo previo sobre mascota `DECEASED` muestra el cambio `DECEASED → ALIVE` en la previsualización y, si se cancela, deja el estado intacto (`REQ-FAL7-009`).
+- **SC-007-031**: `CAREGIVER` y `READER` no pueden cambiar `lifeStatus`/`deceasedAt` y el rechazo no revela la mascota; `lifeStatus` y `deceasedAt` no aparecen en logs ni en `detail`/`instance` (`REQ-FAL7-010`).
+- **SC-007-032**: un snapshot de huella guardado antes de 007 sigue parseando (`parseInputsSnapshot` no devuelve `null`) y `DECEASED` se filtra antes de `buildInputsSnapshot` (`REQ-FAL7-006`).
+- **SC-007-033**: migración `0014`/`0010` aplicada sobre una base con filas previas deja todas en `ALIVE`/nulo con paridad de esquema.
+- **SC-007-034**: `PUT` de mascota con versión obsoleta responde `412` y deja el estado intacto (`EDGE-007-009`).
+- **SC-007-035**: `Fallecido → Vivo` exige confirmación en la UI y deja un registro de auditoría con la fecha anterior (`EDGE-007-016`).
+- **SC-007-027** (transversal): `tsc --noEmit` 0 errores, `verify-traceability.sh` y `verify-oracles.sh` en 0 faltantes, `npm run test:gate` en verde, `package.json` sin cambios.
+
+## Requisitos no funcionales
+- **NFR-007-001**: cero dependencias nuevas.
+- **NFR-007-002**: WCAG 2.1 AA en 320, 1024 y 1280 px para los componentes tocados (`/sati`).
+- **NFR-007-003**: cero «AI Slop»: ninguna UI sin respaldo real.
+
+## Decisiones de Neo asentadas (Nivel 2, 2026-11-19)
+
+Fuente: `claude/decisiones-neo-007-2026-11-19.md`. El Architect las asienta; **no** cambia estado de documentos a `APPROVED`/`LOCKED` (potestad de Neo al cierre) ni marca tareas.
+
+| ID | Ítem | Decisión de Neo (texto) |
+| --- | --- | --- |
+| **N2-07-01** | `[GH:#13]` contratos | Aprobada sobre la **línea 002** (nunca 001), coordinando con la 004 (pet v3.1.0 `DRAFT`) y verificando el impacto en 005 (`ClinicalSummary`). Condicionada a las decisiones siguientes. |
+| **C3 / EDGE-007-015** | respaldo | Versionar el formato del respaldo con error explícito ante versión superior. |
+| **C1** | enlace público | `lifeStatus` visible en el enlace/resumen; `deceasedAt` solo con disclosure opt-in; enlaces activos sin revocación automática, con aviso al creador al marcar Fallecido. |
+| **D7-06** | escena | Excluir mascotas `DECEASED` del dibujo en nuevas generaciones y reflejarlo en la huella; la imagen ya generada se conserva hasta que el usuario regenere. |
+| **EDGE-007-009** | concurrencia | Control optimista (`412`) en el `PUT` de mascota. |
+| **EDGE-007-012** | registros posteriores | Rechazar y listar los registros posteriores al fallecimiento. |
+| **EDGE-007-013** | fecha validada | Validar sobre la fecha resultante; notas editables sin cambiar a una fecha posterior a `deceasedAt`. |
+| **EDGE-007-014** | imagen en vuelo | Cancelar la publicación si en T2 una mascota de la huella pasó a `DECEASED`. |
+| **EDGE-007-016** | Fallecido → Vivo | Confirmación explícita en la UI y auditoría de la transición. |
+| **D7-01 / EDGE-007-017** | `[GH:#51]` | «Hubo cambios en tu hogar o en tus mascotas. Puedes volver a generar tu hogar para ver los cambios.» + línea aparte «Generaciones restantes: R» (conteo numérico en `aria-label`). |
+| **D7-02** | `[GH:#14]` | Opción B únicamente para Peso, Medidas, Vacunas y Desparasitaciones: «Si no existen medidas, mostrar directo los campos + `Guardar` (sin botón `Registrar`); mostrar `Registrar <NOMBRE-MEDIDA>` recién después de agregar la primera medida.» |
+| **D7-03** | `[GH:#15]` | Literal «Estado de vacunación». |
+| **D7-04** | `[GH:#13]` | Fallecida sin alertas (fuera de `alertsSummary`, `globalAlertStatus` y `WITH_ALERTS`). |
+| **D7-05** | `[GH:#13]` | Rechazar altas y ediciones con fecha resultante posterior a `deceasedAt`. |
+
+Consecuencia técnica nueva: `EDGE-007-009` y `EDGE-007-015` exigen contratos nuevos en la línea 002 (código de error de versión obsoleta `412` y valor de versión de respaldo); se redactan como texto en `contracts/README.md` y se aplican en `T1013`, `T1064` y `T1067` bajo `N2-07-01`.
+
+Decididas por el Architect (técnicas): `REQ-FEC7-001..005` (componente propio, ISO hacia fuera, sin dependencias), `REQ-PES7-001..003`, `REQ-FAL7-001..003`, `REQ-FAL7-007..011`, `REQ-REG7-002/003` (detalle de cada opción), `REQ-PAN7-001/003`, `EDGE-007-010`, `EDGE-007-011`, `EDGE-007-019`, `EDGE-007-020`, `EDGE-007-022`, importación por reemplazo con aviso (`/rama` C2), retención (`C6`), minimización y permisos (`C4`, `C7`). Quedan sujetas a confirmación de `/keymaker` (`requireReadablePet`, `EDGE-007-010`).
+
+### Registro de poda de `/mifune` (`mifune-007-kiss.md`)
+Aplicadas: `M7-01` (sin máquina de estados separada), `M7-02` (sin `ERR-PET-LIFE-STATUS`), `M7-03` (`src/domain/pet/pet-invariants.ts`), `M7-05` (revertida por decisión de Neo de `EDGE-007-015`: se versiona el formato), `M7-06` (una tarea de derivados de estado), `M7-07` (paridad dentro de la migración), `M7-09` (sin constante de opción), `M7-10` (cuatro módulos), `M7-11` (dos funciones puras), `M7-12` (`beforeinput` solo condicional), `M7-13` (prototipo `/sati` solo de `DateField`), `M7-15` (revertida por decisión de Neo: el conteo va en `aria-label`), `M7-16` (`T1061` fundida en `T1060`), `M7-17` (pruebas solo de la opción firmada). `M7-04` aplicada **parcialmente**: se conserva el `CHECK` cruzado por instrucción de `/merovingian` (C2) con la asimetría documentada en `data-model.md`. `M7-08` **no** aplicada: `T1030` se conserva porque `/rama` exige revalidación de privacidad sobre la implementación. `M7-14`: sin poda.

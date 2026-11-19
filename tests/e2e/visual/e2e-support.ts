@@ -6,7 +6,7 @@
  * @implements REQ-UI-004
  */
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
 export const VIEWPORT_WIDTHS = [320, 1024, 1280] as const;
 /** Anchos de la v2.1 (REQ-UI2-008, SC-005): se añade el de 768 px, donde cambia el app shell. */
@@ -19,6 +19,19 @@ export function isoDateFromToday(days: number): string {
   const shifted = new Date(`${today}T12:00:00.000Z`);
   shifted.setUTCDate(shifted.getUTCDate() + days);
   return shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * Escribe una fecha ISO en un `DateField` (007): el `fieldset` del campo (p. ej. `#weights-recordedAt`) contiene los segmentos «Día», «Mes» y «Año»; se teclean los
+ * 8 dígitos seguidos sin Tab, de modo que el auto-avance es el único camino (REQ-FEC7-002).
+ */
+export async function typeDate(page: Page, field: Locator, iso: string): Promise<void> {
+  const [year, month, day] = iso.split('-');
+  const first = field.getByLabel('Día');
+  await first.click();
+  await first.selectText(); // si «Día» ya tenía el foco, el clic no selecciona: así escribir siempre reemplaza
+  await page.keyboard.type(`${day}${month}${year}`);
+  await expect(field.getByLabel('Año')).toHaveValue(year!);
 }
 
 /** POST a la API con la cabecera CSRF; falla la prueba si la respuesta no es la esperada. */

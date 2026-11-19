@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebouncedValue } from '../use-debounced-value.ts';
 import { ContextSelector, PET_PANEL_ID } from '../components/ContextSelector.tsx';
 import { Button, FormError } from '../components/Field.tsx';
-import { DeletePetDialog, PetDashboard } from '../components/PetDashboard.tsx';
+import { DeletePetDialog, PetDashboard, type ActiveTab } from '../components/PetDashboard.tsx';
 import { PetCardList, PetFilter } from '../components/PetCards.tsx';
 import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
@@ -50,7 +50,7 @@ export function PetsPage(): JSX.Element {
   const [cards, setCards] = useState<PetCardView[]>([]);
   const [activePetId, setActivePetId] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<PetDashboardView | null>(null);
-  const [activeTab, setActiveTab] = useState<RecordModule>('weights');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('weights');
   const [mode, setMode] = useState<Mode>('VIEW');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);

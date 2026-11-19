@@ -113,25 +113,26 @@ describe('T732 panel «Archivos» solo de archivos clínicos (REQ-CLI5-001)', ()
   });
 });
 
-describe('T733 sección «Historial / Archivos» de la ficha (REQ-CLI5-001; SC-005-010)', () => {
-  const base = { dashboard: dashboard('OWNER'), activeTab: 'weights' as const, onTabChange: noop, onAddRecord: async () => undefined, onEdit: noop, onDelete: noop };
+describe('T733 pestaña «Historial / Archivos» de la ficha (REQ-CLI5-001; SC-005-010; 007 T1039, REQ-PES7-002)', () => {
+  const base = { dashboard: dashboard('OWNER'), activeTab: 'history' as const, onTabChange: noop, onAddRecord: async () => undefined, onEdit: noop, onDelete: noop };
   const slot = h('p', null, 'RANURA-ARCHIVOS');
 
-  it('[SC-005-010] debajo de los módulos clínicos hay una sección con el encabezado «Historial / Archivos» que contiene la ranura', () => {
+  it('[SC-005-010][SC-007-006] la ranura vive dentro del tabpanel de la pestaña «Historial / Archivos»; ya no hay sección final con h3 duplicado', () => {
     const markup = renderToStaticMarkup(h(PetDashboard, { ...base, mediaSlot: slot }));
     const tabpanel = markup.indexOf('role="tabpanel"');
-    const heading = markup.indexOf('Historial / Archivos</h3>');
+    const tab = markup.indexOf('>Historial / Archivos</button>');
     const inside = markup.indexOf('RANURA-ARCHIVOS');
-    expect(tabpanel).toBeGreaterThan(-1);
-    expect(heading).toBeGreaterThan(tabpanel);
-    expect(inside).toBeGreaterThan(heading);
-    expect(markup).toMatch(/<section[^>]*aria-labelledby="history-files-title"/);
-    expect(markup).toContain('id="history-files-title"');
+    expect(tab).toBeGreaterThan(-1);
+    expect(tabpanel).toBeGreaterThan(tab);
+    expect(inside).toBeGreaterThan(tabpanel);
+    expect(markup).toContain('id="module-panel-history"');
+    expect(markup).not.toContain('history-files-title');
+    expect(markup).not.toMatch(/<h3[^>]*>\s*Historial \/ Archivos/);
   });
 
-  it('[SC-005-010] en modo edición o sin ranura no se pinta la sección ni su encabezado', () => {
+  it('[SC-005-010] en modo edición o sin ranura no se pinta la pestaña ni la ranura', () => {
     const editing = renderToStaticMarkup(h(PetDashboard, { ...base, mediaSlot: slot, editSlot: h('p', null, 'FORM') }));
     const without = renderToStaticMarkup(h(PetDashboard, base));
-    expect([editing.includes('Historial / Archivos'), without.includes('Historial / Archivos')]).toEqual([false, false]);
+    expect([editing.includes('Historial / Archivos'), without.includes('Historial / Archivos'), editing.includes('RANURA-ARCHIVOS')]).toEqual([false, false, false]);
   });
 });

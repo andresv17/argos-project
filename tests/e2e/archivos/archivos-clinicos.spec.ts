@@ -36,9 +36,11 @@ test.describe('panel «Archivos» en 320 px (T734)', () => {
   const panel = () => page.getByRole('region', { name: 'Archivos', exact: true });
   const overflow = () => page.evaluate(() => [window.innerWidth, document.documentElement.scrollWidth]);
 
-  test('[SC-005-010][REQ-CLI5-001] la ficha tiene «Historial / Archivos» con el panel vacío, sin selector «Tipo» ni filtro, y no desborda a 320 px', async () => {
+  test('[SC-005-010][REQ-CLI5-001] la ficha tiene la pestaña «Historial / Archivos» con el panel vacío, sin selector «Tipo» ni filtro, y no desborda a 320 px', async () => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Historial / Archivos' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Historial / Archivos' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Historial / Archivos' })).toHaveCount(0); // 007: ya no hay sección final duplicada
+    await page.getByRole('tab', { name: 'Historial / Archivos' }).click();
     await expect(panel()).toBeVisible();
     await expect(panel().getByText('Aún no hay archivos clínicos. Guarda aquí resultados de exámenes, radiografías o fotos médicas de control. Formatos: PDF, JPEG, PNG o WebP.')).toBeVisible();
     await expect(page.getByLabel('Tipo', { exact: true })).toHaveCount(0);
@@ -74,6 +76,7 @@ test.describe('panel «Archivos» en 320 px (T734)', () => {
     const response = await context.request.post(`/api/pets/${petId}/media?kind=PHOTO`, { headers: { ...CSRF, 'X-Argos-Filename': encodeURIComponent('paseo.png') }, data: PNG_HEAD });
     expect(response.status()).toBe(201);
     await page.goto('/');
+    await page.getByRole('tab', { name: 'Historial / Archivos' }).click();
     await expect(panel().getByText('hemograma.pdf')).toBeVisible();
     await expect(panel().getByText('paseo.png')).toHaveCount(0);
     await expect(panel().getByText('Foto')).toHaveCount(0);
@@ -81,6 +84,7 @@ test.describe('panel «Archivos» en 320 px (T734)', () => {
 
   test('[SC-005-010][NFR-005-003] solo con teclado: se llega al selector, al visor y al borrado con confirmación; los botones miden al menos 44 px de alto', async () => {
     await page.goto('/');
+    await page.getByRole('tab', { name: 'Historial / Archivos' }).click();
     await expect(panel().getByText('hemograma.pdf')).toBeVisible();
     for (const name of ['Subir', 'Ver hemograma.pdf', 'Borrar hemograma.pdf']) {
       const button = panel().getByRole('button', { name, exact: true });
@@ -109,6 +113,7 @@ test.describe('panel «Archivos» en 320 px (T734)', () => {
 
   test('[SC-005-010][NFR-005-003] axe-core (WCAG 2.1 A/AA) sin violaciones a 320 px con archivos listados y con el visor abierto', async () => {
     await page.goto('/');
+    await page.getByRole('tab', { name: 'Historial / Archivos' }).click();
     await expect(panel().getByText('hemograma.pdf')).toBeVisible();
     const scan = async () => (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations.map((v) => `${v.impact} ${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
     expect(await scan()).toEqual([]);

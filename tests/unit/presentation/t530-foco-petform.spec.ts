@@ -12,9 +12,10 @@ const html = (el: ReactElement): string => renderToStaticMarkup(el);
 const noop = (): void => undefined;
 const asyncNoop = async (): Promise<void> => undefined;
 
-/** Controles enfocables en orden de documento: `name` de input/select/textarea. */
+/** Controles enfocables en orden de documento: `name` de input/select/textarea; los tres segmentos del `DateField` (007: `birthDate-day|month|year`) cuentan como un solo campo. */
 function focusOrder(markup: string): string[] {
-  return [...markup.matchAll(/<(?:input|select|textarea)\b[^>]*?\bname="([A-Za-z]+)"/g)].map((m) => m[1]!);
+  const names = [...markup.matchAll(/<(?:input|select|textarea)\b[^>]*?\bname="([A-Za-z-]+)"/g)].map((m) => m[1]!.replace(/-(?:day|month|year)$/, ''));
+  return names.filter((name, i) => name !== names[i - 1]);
 }
 
 describe('T530 orden de foco de PetForm (SC-CAT-006)', () => {
@@ -35,7 +36,7 @@ describe('T530 orden de foco de PetForm (SC-CAT-006)', () => {
     const markup = html(h(PetForm, { profile: null, onSubmit: asyncNoop, onCancel: noop }));
     expect(markup).toContain('Fecha de nacimiento aproximada (estimada)');
     expect(markup).not.toContain('Es una fecha estimada');
-    const birth = markup.indexOf('id="new-pet-birthDate"');
+    const birth = markup.indexOf('id="new-pet-birthDate"'); // fieldset del DateField (007)
     const estimate = markup.indexOf('id="new-pet-birthDateIsEstimate"');
     const sex = markup.indexOf('id="new-pet-sex"');
     expect([birth < estimate, estimate < sex]).toEqual([true, true]);

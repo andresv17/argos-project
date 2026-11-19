@@ -1,6 +1,6 @@
 /**
  * T875 (006, Fase 7, pruebas rojas de presentación; WCAG 2.1 AA): bloque «Escena del hogar». Imagen con texto alternativo que cuenta las mascotas, estado en
- * región `aria-live`, «cambios pendientes: P · generaciones restantes: R», «Se muestran N de M mascotas», aviso «desactualizada», botón único de generación
+ * región `aria-live`, aviso neutral de cambios pendientes (T1053, 007), «Se muestran N de M mascotas», aviso «desactualizada», botón único de generación
  * (D6-21; T936) deshabilitado con motivo visible y asociado, sondeo único cada 3 s y ningún dato personal ni URL firmada en el DOM.
  * REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021; NFR-ESC6-003, NFR-ESC6-004; SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030.
  */
@@ -14,7 +14,7 @@ import {
   isOwnerSceneEmpty,
   sceneAltText,
   sceneImagePath,
-  scenePendingText,
+  scenePendingMessage,
   scenePetsShownText,
   sceneProblemMessage,
   sceneStatusText,
@@ -49,8 +49,8 @@ describe('T875 textos y reglas puras (REQ-ESC6-005, REQ-ESC6-019)', () => {
     expect(sceneAltText(0)).toBe('Escena del hogar en pixel art sin mascotas');
   });
 
-  it('[SC-ESC6-029][REQ-ESC6-005] «cambios pendientes: P · generaciones restantes: R» y «Se muestran N de M mascotas» solo si M > N', () => {
-    expect(scenePendingText(sceneView({ pending: 2, quota: { max: 10, remaining: 7, window: '2026-11', resetsAt: '2026-12-01T05:00:00.000Z' } }))).toBe('cambios pendientes: 2 · generaciones restantes: 7');
+  it('[SC-ESC6-029][REQ-ESC6-005] aviso neutral de cambios pendientes (T1053, 007) y «Se muestran N de M mascotas» solo si M > N', () => {
+    expect(scenePendingMessage(sceneView({ pending: 2, quota: { max: 10, remaining: 7, window: '2026-11', resetsAt: '2026-12-01T05:00:00.000Z' } }))?.remaining).toBe('Generaciones restantes: 7');
     expect(scenePetsShownText({ shown: 8, total: 11, maxPets: 8 })).toBe('Se muestran 8 de 11 mascotas');
     expect(scenePetsShownText({ shown: 3, total: 3, maxPets: 8 })).toBeNull();
   });
@@ -91,7 +91,8 @@ describe('T875 bloque «Escena del hogar» (REQ-ESC6-019, NFR-ESC6-004)', () => 
     const html = render(sceneView({ pending: 2, actions: { canUpdate: true, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: null }, status: 'outdated', stale: true }));
     expect(html).toContain(`src="/api/households/${HOUSEHOLD_ID}/scene/image?v=${IMAGE_TAG}"`);
     expect(html).toContain('alt="Escena del hogar en pixel art con 3 mascotas"');
-    expect(html).toContain('cambios pendientes: 2 · generaciones restantes: 7');
+    expect(html).toContain('Hubo cambios en tu hogar o en tus mascotas. Puedes volver a generar tu hogar para ver los cambios.');
+    expect(html).toContain('Generaciones restantes: 7');
     expect(html).toMatch(/aria-live="polite"/);
     expect(html).toMatch(/role="status"/);
     expect(html).not.toMatch(/googleapis|X-Goog|Signature|https?:\/\//i);
