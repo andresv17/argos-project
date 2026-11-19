@@ -1,0 +1,422 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/scene.schema.json",
+  "title": "SceneSchema",
+  "description": "DTO de la API de la escena del hogar (feature 006): estado, cambios pendientes, cuota, consentimiento y foto del hogar [REQ-ESC6-003, 005, 011, 019, 023..026, 032]. ProblemDetails de la 004 es cerrado y LOCKED: los errores nuevos viven en contracts/errors/error-catalog.json.",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "Asentadas N2-01..N2-12 y EDGE-ESC6-016 (2026-11-18): solo se recuerda la ultima clave de idempotencia; sin cambio de forma (PNG/WebP, 13 operaciones). Contrato nuevo de la feature 006. SceneStatus coincide con STATE-SCENE-001. El cliente nunca envía mode ni referencias: el servidor decide el modo y arma el payload (REQ-ESC6-006). Revisión 2 (2026-11-18): el estado se DERIVA en lectura y solo generating|failed se persisten (H-MIF-006-01); imageVersion y HouseholdPhotoView.version se sustituyen por etiquetas de caché UUID (imageTag, tag; H-MIF-006-08, INV-ESC6-019); QUOTA máx. 50 (H-TRI-006-02); blockedReason COOLDOWN (REQ-ESC6-034); alcance y vigencia de la Idempotency-Key (REQ-ESC6-012).",
+    "traceability": [
+      "REQ-ESC6-003",
+      "REQ-ESC6-004",
+      "REQ-ESC6-005",
+      "REQ-ESC6-007",
+      "REQ-ESC6-008",
+      "REQ-ESC6-011",
+      "REQ-ESC6-012",
+      "REQ-ESC6-019",
+      "REQ-ESC6-020",
+      "REQ-ESC6-023",
+      "REQ-ESC6-024",
+      "REQ-ESC6-025",
+      "REQ-ESC6-026",
+      "REQ-ESC6-032",
+      "INV-ESC6-003",
+      "INV-ESC6-004",
+      "SC-ESC6-014",
+      "SC-ESC6-015",
+      "SC-ESC6-016",
+      "REQ-ESC6-033",
+      "REQ-ESC6-034",
+      "REQ-ESC6-036",
+      "INV-ESC6-019",
+      "EDGE-ESC6-016",
+      "SC-ESC6-077",
+      "SC-ESC6-078",
+      "SC-ESC6-080",
+      "SC-ESC6-081",
+      "SC-ESC6-086"
+    ]
+  },
+  "$defs": {
+    "SceneStatus": {
+      "type": "string",
+      "enum": [
+        "idle",
+        "outdated",
+        "generating",
+        "ready",
+        "failed"
+      ],
+      "description": "Estado DERIVADO en lectura de la máquina STATE-SCENE-001 (data-model.md §4): solo generating y failed se persisten (run_state); idle, outdated y ready se calculan con deriveStatus"
+    },
+    "SceneErrorCode": {
+      "type": "string",
+      "enum": [
+        "ERR-SCENE-GENERATION-FAILED",
+        "ERR-SCENE-GENERATION-TIMEOUT",
+        "ERR-SCENE-INVALID-IMAGE",
+        "ERR-SCENE-LEASE-EXPIRED"
+      ],
+      "description": "Código estable del último intento fallido; nunca prompt, respuesta ni mensaje del proveedor (INV-ESC6-016). Superficie SCENE_STATE: viaja solo en SceneView.lastError y NO es respuesta HTTP; el tipo se genera desde error-catalog.json y no desde dos fuentes (H-MIF-006-12)"
+    },
+    "SceneOwnerKind": {
+      "type": "string",
+      "enum": [
+        "HOUSEHOLD",
+        "OWNER"
+      ],
+      "description": "HOUSEHOLD o propietario sin hogar (D6-09)"
+    },
+    "SceneQuota": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max",
+        "remaining",
+        "window",
+        "resetsAt"
+      ],
+      "properties": {
+        "max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "ARGOS_SCENE_QUOTA_MAX (1-50, H-TRI-006-02); fijado en cada intento al crearlo (EDGE-ESC6-031)"
+        },
+        "remaining": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "window": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}$",
+          "description": "Ventana mensual YYYY-MM en APP_TIMEZONE (D6-03)"
+        },
+        "resetsAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp",
+          "description": "Inicio de la ventana siguiente (día 1 00:00 de APP_TIMEZONE, expresado en UTC)"
+        }
+      }
+    },
+    "ScenePets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shown",
+        "total",
+        "maxPets"
+      ],
+      "properties": {
+        "shown": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "maxPets": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        }
+      },
+      "description": "La interfaz muestra «Se muestran shown de total mascotas» cuando total > shown (REQ-ESC6-008)"
+    },
+    "SceneActions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canUpdate",
+        "canRegenerate",
+        "canUploadHouseholdPhoto",
+        "blockedReason"
+      ],
+      "properties": {
+        "canUpdate": {
+          "type": "boolean",
+          "description": "(a) outdated|failed, (b) cambios>=1 o sin imagen con mascotas/foto, (c) restante>=1, (d) propietario/ADMIN (REQ-ESC6-005)"
+        },
+        "canRegenerate": {
+          "type": "boolean",
+          "description": "restante>=1 y rol (REQ-ESC6-007); no exige cambios"
+        },
+        "canUploadHouseholdPhoto": {
+          "type": "boolean"
+        },
+        "blockedReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "NO_CHANGES",
+            "QUOTA_EXHAUSTED",
+            "GENERATING",
+            "CONSENT_REQUIRED",
+            "ROLE",
+            "COOLDOWN",
+            null
+          ],
+          "description": "Primera causa que deshabilita canUpdate (para el texto del botón); COOLDOWN = enfriamiento o tope de intentos de REQ-ESC6-034 (el POST responde 429 ERR-RATE-LIMITED); no revela datos de otros usuarios"
+        }
+      }
+    },
+    "SceneConsentState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "noticeVersion",
+        "providerId",
+        "householdPhotoGranted",
+        "petPhotosGranted"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean",
+          "description": "true si el driver es real y falta un consentimiento vigente del usuario que consulta (INV-ESC6-014)"
+        },
+        "noticeVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "providerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "householdPhotoGranted": {
+          "type": "boolean"
+        },
+        "petPhotosGranted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "SceneView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sceneId",
+        "owner",
+        "status",
+        "imageTag",
+        "pending",
+        "quota",
+        "pets",
+        "actions",
+        "consent",
+        "lastError",
+        "stale",
+        "updatedAt"
+      ],
+      "properties": {
+        "sceneId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "owner": {
+          "$ref": "#/$defs/SceneOwnerKind"
+        },
+        "status": {
+          "$ref": "#/$defs/SceneStatus",
+          "description": "Derivado en lectura (data-model.md §4)"
+        },
+        "imageTag": {
+          "anyOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null si no hay imagen vigente; es el image_id opaco y sirve SOLO de etiqueta de caché: la imagen se pide con getHouseholdSceneImage?v= y el servidor siempre resuelve la imagen vigente autorizada, ignorando o rechazando un v distinto (INV-ESC6-019)"
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Cambios pendientes medidos por entidad (REQ-ESC6-004)"
+        },
+        "quota": {
+          "$ref": "#/$defs/SceneQuota"
+        },
+        "pets": {
+          "$ref": "#/$defs/ScenePets"
+        },
+        "actions": {
+          "$ref": "#/$defs/SceneActions"
+        },
+        "consent": {
+          "$ref": "#/$defs/SceneConsentState"
+        },
+        "lastError": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SceneErrorCode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Solo con status = failed"
+        },
+        "stale": {
+          "type": "boolean",
+          "description": "true si hay imagen vigente y status distinto de ready: se muestra con el aviso «desactualizada» (D6-05 = A)"
+        },
+        "updatedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      }
+    },
+    "GenerateSceneInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "UPDATE",
+            "REGENERATE"
+          ],
+          "description": "UPDATE = «Actualizar imagen del hogar»; REGENERATE = «Regenerar escena desde cero». El modo del payload lo decide el servidor"
+        }
+      }
+    },
+    "IdempotencyKey": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUID v4 generado por el cliente UNA VEZ POR CLIC (EDGE-ESC6-016). Alcance (actor, escena, acción): la clave efectiva es SHA-256(actorId ‖ sceneId ‖ action ‖ clave); el servidor guarda solo ese hash durante 24 h y recuerda UNICAMENTE la ULTIMA clave de la escena (decision de Neo 2026-11-18, H-MIF-006-03): una clave anterior a la ultima no se reconoce. Misma clave con otra acción = 422 ERR-SCHEMA-VALIDATION-FAILED; una clave consumida por un intento terminal responde 200 con el estado vigente y no bloquea un intento nuevo con clave nueva"
+    },
+    "SceneNotice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "noticeVersion",
+        "providerId",
+        "scopes"
+      ],
+      "properties": {
+        "noticeVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "providerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "scopes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ConsentScope"
+          }
+        }
+      },
+      "description": "El texto del aviso lo sirve el cliente desde su paquete (REQ-ESC6-026); aquí solo la clave de versión y los alcances"
+    },
+    "ConsentScope": {
+      "type": "string",
+      "enum": [
+        "HOUSEHOLD_PHOTO",
+        "PET_PHOTOS"
+      ]
+    },
+    "GrantSceneConsentInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "noticeVersion",
+        "providerId",
+        "scopes"
+      ],
+      "properties": {
+        "noticeVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "providerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "scopes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ConsentScope"
+          }
+        }
+      }
+    },
+    "HouseholdPhotoView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tag",
+        "mime",
+        "sizeBytes",
+        "createdAt"
+      ],
+      "properties": {
+        "tag": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid",
+          "description": "object_id opaco de la foto vigente; solo etiqueta de caché (H-MIF-006-08)"
+        },
+        "mime": {
+          "type": "string",
+          "enum": [
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+          ]
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10485760
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        }
+      }
+    },
+    "SceneWorkerTask": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sceneId",
+        "attemptId"
+      ],
+      "properties": {
+        "sceneId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "attemptId": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        }
+      },
+      "description": "Cuerpo de la tarea de Cloud Tasks o del Job hacia /internal/scene-worker: solo identificadores opacos, sin PII (D6-15, EDGE-ESC6-024). Se parsea DESPUÉS de verificar la identidad y con tope ≤ 1 KiB; el attemptId debe pertenecer al sceneId (si no: 204 sin efecto, sin oráculo; REQ-ESC6-033)"
+    }
+  }
+}
