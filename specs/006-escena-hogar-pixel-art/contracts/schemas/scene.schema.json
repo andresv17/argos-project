@@ -4,11 +4,11 @@
   "title": "SceneSchema",
   "description": "DTO de la API de la escena del hogar (feature 006): estado, cambios pendientes, cuota, consentimiento y foto del hogar [REQ-ESC6-003, 005, 011, 019, 023..026, 032]. ProblemDetails de la 004 es cerrado y LOCKED: los errores nuevos viven en contracts/errors/error-catalog.json.",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "status": "DRAFT",
-    "supersedes": null,
-    "change_type": "MAJOR",
-    "change_note": "Asentadas N2-01..N2-12 y EDGE-ESC6-016 (2026-11-18): solo se recuerda la ultima clave de idempotencia; sin cambio de forma (PNG/WebP, 13 operaciones). Contrato nuevo de la feature 006. SceneStatus coincide con STATE-SCENE-001. El cliente nunca envía mode ni referencias: el servidor decide el modo y arma el payload (REQ-ESC6-006). Revisión 2 (2026-11-18): el estado se DERIVA en lectura y solo generating|failed se persisten (H-MIF-006-01); imageVersion y HouseholdPhotoView.version se sustituyen por etiquetas de caché UUID (imageTag, tag; H-MIF-006-08, INV-ESC6-019); QUOTA máx. 50 (H-TRI-006-02); blockedReason COOLDOWN (REQ-ESC6-034); alcance y vigencia de la Idempotency-Key (REQ-ESC6-012).",
+    "supersedes": "1.0.0",
+    "change_type": "MINOR",
+    "change_note": "1.1.0 (MINOR aditiva, Architect 2026-11-19, T912, aprobada por Neo N2-14): SceneActions.retryAfterSeconds (integer|null, 1..86400, opcional, no entra en required) con los segundos que faltan para que los limites de REQ-ESC6-034 permitan un intento; se corrige la descripcion de canRegenerate (ademas de cuota y rol, exige que los limites de intentos permitan el intento, REQ-ESC6-007). Sin cambio de forma de ningun otro campo; STATE-SCENE-001 y ERR-RATE-LIMITED no cambian; un cliente 1.0.0 ignora el campo nuevo. Historial 1.0.0: Asentadas N2-01..N2-12 y EDGE-ESC6-016 (2026-11-18): solo se recuerda la ultima clave de idempotencia; sin cambio de forma (PNG/WebP, 13 operaciones). Contrato nuevo de la feature 006. SceneStatus coincide con STATE-SCENE-001. El cliente nunca envía mode ni referencias: el servidor decide el modo y arma el payload (REQ-ESC6-006). Revisión 2 (2026-11-18): el estado se DERIVA en lectura y solo generating|failed se persisten (H-MIF-006-01); imageVersion y HouseholdPhotoView.version se sustituyen por etiquetas de caché UUID (imageTag, tag; H-MIF-006-08, INV-ESC6-019); QUOTA máx. 50 (H-TRI-006-02); blockedReason COOLDOWN (REQ-ESC6-034); alcance y vigencia de la Idempotency-Key (REQ-ESC6-012).",
     "traceability": [
       "REQ-ESC6-003",
       "REQ-ESC6-004",
@@ -38,7 +38,9 @@
       "SC-ESC6-078",
       "SC-ESC6-080",
       "SC-ESC6-081",
-      "SC-ESC6-086"
+      "SC-ESC6-086",
+      "SC-ESC6-112",
+      "SC-ESC6-113"
     ]
   },
   "$defs": {
@@ -146,7 +148,7 @@
         },
         "canRegenerate": {
           "type": "boolean",
-          "description": "restante>=1 y rol (REQ-ESC6-007); no exige cambios"
+          "description": "restante>=1, rol y limites de intentos de REQ-ESC6-034 que permitan un intento (retryAfterSeconds = null) (REQ-ESC6-007); no exige cambios"
         },
         "canUploadHouseholdPhoto": {
           "type": "boolean"
@@ -166,6 +168,15 @@
             null
           ],
           "description": "Primera causa que deshabilita canUpdate (para el texto del botón); COOLDOWN = enfriamiento o tope de intentos de REQ-ESC6-034 (el POST responde 429 ERR-RATE-LIMITED); no revela datos de otros usuarios"
+        },
+        "retryAfterSeconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 86400,
+          "description": "Segundos que faltan para que los limites de intentos de REQ-ESC6-034 (enfriamiento de 60 s, 3 fallos en 24 h, 12 intentos por actor en 24 h) permitan un intento; igual al Retry-After que devolveria un POST en el mismo instante; null con limites libres; independiente de blockedReason (REQ-ESC6-019, REQ-ESC6-034)"
         }
       }
     },

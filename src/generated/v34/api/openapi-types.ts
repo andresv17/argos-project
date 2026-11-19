@@ -275,7 +275,7 @@ export interface components {
         SceneActions: {
             /** @description (a) outdated|failed, (b) cambios>=1 o sin imagen con mascotas/foto, (c) restante>=1, (d) propietario/ADMIN (REQ-ESC6-005) */
             canUpdate: boolean;
-            /** @description restante>=1 y rol (REQ-ESC6-007); no exige cambios */
+            /** @description restante>=1, rol y limites de intentos de REQ-ESC6-034 que permitan un intento (retryAfterSeconds = null) (REQ-ESC6-007); no exige cambios */
             canRegenerate: boolean;
             canUploadHouseholdPhoto: boolean;
             /**
@@ -283,6 +283,8 @@ export interface components {
              * @enum {string|null}
              */
             blockedReason: "NO_CHANGES" | "QUOTA_EXHAUSTED" | "GENERATING" | "CONSENT_REQUIRED" | "ROLE" | "COOLDOWN" | null;
+            /** @description Segundos que faltan para que los limites de intentos de REQ-ESC6-034 (enfriamiento de 60 s, 3 fallos en 24 h, 12 intentos por actor en 24 h) permitan un intento; igual al Retry-After que devolveria un POST en el mismo instante; null con limites libres; independiente de blockedReason (REQ-ESC6-019, REQ-ESC6-034) */
+            retryAfterSeconds?: number | null;
         };
         SceneConsentState: {
             /** @description true si el driver es real y falta un consentimiento vigente del usuario que consulta (INV-ESC6-014) */

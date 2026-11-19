@@ -3,7 +3,7 @@
  * sondeo único cada 3 s. No hay datos de la mascota ni del servidor en los textos de error (INV-ESC6-016); la imagen se pide a la ruta propia del ámbito con
  * `v = imageTag` (etiqueta de caché, INV-ESC6-019) y nunca se guarda una URL firmada en el DOM (NFR-ESC6-003).
  *
- * @implements REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, INV-ESC6-016, INV-ESC6-019
+ * @implements REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021, REQ-ESC6-034, NFR-ESC6-003, NFR-ESC6-004, INV-ESC6-016, INV-ESC6-019
  */
 import type { Scheduler } from './access-renewer.ts';
 import { ERROR_CATALOG } from '../../generated/errors/error-codes.ts';
@@ -57,6 +57,57 @@ export function sceneStatusText(view: SceneViewData): string {
 export const isOwnerSceneEmpty = (scope: SceneScope, view: SceneViewData): boolean =>
   scope.kind === 'OWNER' && view.pets.total === 0 && view.imageTag === null && !view.consent.householdPhotoGranted && !view.consent.petPhotosGranted;
 
+/** Tiempo de espera legible (SC-ESC6-114): segundos si < 60, minutos hacia arriba si < 3600, horas hacia arriba en otro caso. */
+export function sceneWaitText(seconds: number): string {
+  if (seconds < 60) return `Espera ${seconds} s para volver a intentarlo`;
+  if (seconds < 3600) return `Espera ${Math.ceil(seconds / 60)} min para volver a intentarlo`;
+  return `Espera ${Math.ceil(seconds / 3600)} h para volver a intentarlo`;
+}
+
+/** Segundos de espera vigentes de la vista (`actions.retryAfterSeconds`), o `null` si no hay (REQ-ESC6-034). */
+export const sceneRetryAfter = (view: SceneViewData): number | null => view.actions.retryAfterSeconds ?? null;
+
+/** Programa UNA relectura a los `seconds + 1` s (SC-ESC6-115); devuelve la cancelación, que el contenedor llama al desmontar. */
+export function scheduleCooldownRefresh({ seconds, scheduler, reload }: { readonly seconds: number; readonly scheduler: Scheduler; readonly reload: () => void }): () => void {
+  return scheduler.after(reload, (seconds + 1) * 1000);
+}
+
+/** El bloque de la escena `OWNER` se ofrece en «Hogar» solo con la lista ya cargada y 0 hogares (`N2-15` = B, REQ-ESC6-019, SC-ESC6-109). */
+export const ownerSceneVisible = (loaded: boolean, householdsCount: number): boolean => loaded && householdsCount === 0;
+
+/** Imagen vigente del hogar que muestra «Mascotas» (solo visualización, SC-ESC6-110). */
+export interface HomeSceneImageData {
+  readonly imageTag: string | null;
+  readonly shown: number;
+}
+
+/** Lee la escena del hogar (ámbito `HOUSEHOLD`, 1 lectura) para «Mascotas»; sin hogar no hay petición y un error da `null` sin mensaje (SC-ESC6-111). */
+export async function loadHomeSceneImage(get: (scope: SceneScope) => Promise<SceneViewData>, householdId: string | null): Promise<HomeSceneImageData | null> {
+  if (householdId === null) return null;
+  try {
+    const view = await get({ kind: 'HOUSEHOLD', householdId });
+    return { imageTag: view.imageTag, shown: view.pets.shown };
+  } catch {
+    return null;
+  }
+}
+
+/** Solo la lectura más reciente se aplica; `cancel` descarta la que esté en vuelo (cambio de contexto o desmontaje). */
+export function createLatestOnly(): { run<T>(read: Promise<T>, apply: (value: T) => void): void; cancel(): void } {
+  let ticket = 0;
+  return {
+    run<T>(read: Promise<T>, apply: (value: T) => void): void {
+      const mine = ++ticket;
+      void read.then((value) => {
+        if (mine === ticket) apply(value);
+      });
+    },
+    cancel(): void {
+      ticket += 1;
+    },
+  };
+}
+
 /** Estado del botón «Actualizar imagen del hogar»: con `canUpdate` falso siempre hay un motivo visible (REQ-ESC6-005). */
 export function sceneUpdateState(view: SceneViewData): { readonly disabled: boolean; readonly reason: string | null } {
   if (view.actions.canUpdate) return { disabled: false, reason: null };
@@ -72,7 +123,7 @@ export function sceneUpdateState(view: SceneViewData): { readonly disabled: bool
     case 'ROLE':
       return { disabled: true, reason: 'Solo el propietario del hogar o un administrador puede actualizar la imagen.' };
     case 'COOLDOWN':
-      return { disabled: true, reason: 'Hubo demasiados intentos seguidos; espera un momento antes de volver a intentarlo.' };
+      return { disabled: true, reason: view.actions.retryAfterSeconds == null ? 'Espera un momento antes de volver a intentarlo.' : sceneWaitText(view.actions.retryAfterSeconds) };
     default:
       return { disabled: true, reason: 'La imagen no se puede actualizar ahora.' };
   }
@@ -90,7 +141,7 @@ const PROBLEM_TEXT: Readonly<Record<string, string>> = {
 
 /** Texto para la persona a partir del CÓDIGO: nunca el detalle del servidor, el prompt ni datos personales. `ERR-MEDIA-*` usa los textos de medios. */
 export function sceneProblemMessage(code: string, retryAfterSeconds?: number): string {
-  if (code === 'ERR-RATE-LIMITED') return retryAfterSeconds === undefined ? 'Hubo demasiados intentos. Espera un momento y vuelve a intentarlo.' : `Hubo demasiados intentos. Vuelve a intentarlo en ${retryAfterSeconds} s.`;
+  if (code === 'ERR-RATE-LIMITED') return retryAfterSeconds === undefined ? 'Espera un momento antes de volver a intentarlo.' : sceneWaitText(retryAfterSeconds);
   const own = PROBLEM_TEXT[code];
   if (own !== undefined) return own;
   return code.startsWith('ERR-MEDIA-') ? mediaProblemMessage(code) : GENERIC_MESSAGE;

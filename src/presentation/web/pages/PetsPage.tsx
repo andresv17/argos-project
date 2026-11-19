@@ -13,7 +13,7 @@ import { PetCardList, PetFilter } from '../components/PetCards.tsx';
 import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
 import { AvatarEditor } from '../components/AvatarCropper.tsx';
-import { HomeScene } from '../components/HomeScene.tsx';
+import { HomeSceneImage } from '../components/HomeSceneImage.tsx';
 import { PetReferenceNote } from '../components/HouseholdPhoto.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
@@ -54,8 +54,6 @@ export function PetsPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const cardsRequest = useRef(0);
-  // Cambia con cada alta, edición (incluida la asignación a un hogar) o baja de mascota: la escena del propietario se vuelve a leer (REQ-ESC6-019, SC-ESC6-109).
-  const [petsRevision, setPetsRevision] = useState(0);
   const dashboardRequest = useRef(0);
 
   useEffect(() => {
@@ -123,7 +121,6 @@ export function PetsPage(): JSX.Element {
     setMode('VIEW');
     setContextId(MINE_CONTEXT_ID);
     setActivePetId(pet.id);
-    setPetsRevision((n) => n + 1);
     await loadCards();
   };
 
@@ -131,7 +128,6 @@ export function PetsPage(): JSX.Element {
     if (activePetId === null) return;
     await unwrap(api.PATCH('/pets/{petId}', { params: { ...CSRF_PARAMS, path: { petId: activePetId } }, body: body as Schemas['UpdatePetInput'] }));
     setMode('VIEW');
-    setPetsRevision((n) => n + 1);
     await refreshAll();
   };
 
@@ -141,8 +137,7 @@ export function PetsPage(): JSX.Element {
       await unwrap(api.DELETE('/pets/{petId}', { params: { ...CSRF_PARAMS, path: { petId: activePetId } } }));
       setMode('VIEW');
       setActivePetId(null);
-      setPetsRevision((n) => n + 1);
-      await loadCards();
+        await loadCards();
     } catch (e) {
       setError(messageOf(e));
     }
@@ -192,12 +187,8 @@ export function PetsPage(): JSX.Element {
             setSpecies(nextSpecies);
           }}
         />
-        {isMine ? (
-          // La propia escena decide si se muestra (pets.total, imagen y consentimientos): `cards` incluye mascotas de hogares y se vacía con el filtro de búsqueda (SC-ESC6-109).
-          <HomeScene key="escena-mine" scope={{ kind: 'OWNER' }} idPrefix="escena-mine" reloadToken={petsRevision} />
-        ) : (
-          <HomeScene key={`escena-${contextId}`} scope={{ kind: 'HOUSEHOLD', householdId: contextId }} idPrefix={`escena-${contextId}`} />
-        )}
+        {/* Solo visualización de la imagen vigente del hogar activo; la gestión de la escena vive en «Hogar» (D6-19, SC-ESC6-110). */}
+        <HomeSceneImage householdId={isMine ? null : contextId} />
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[156px_minmax(0,1fr)]">
           <section aria-label="Mascotas del contexto" className="flex min-w-0 flex-col gap-3">
             <PetCardList

@@ -10,6 +10,7 @@ import { Button, FormError, SelectField, TextField } from '../components/Field.t
 import { HomeScene } from '../components/HomeScene.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { useSession } from '../session.tsx';
+import { ownerSceneVisible } from '../scene-view.ts';
 import { useContractForm } from '../use-contract-form.ts';
 import { useInvitations } from './AppShell.tsx';
 import {
@@ -206,6 +207,7 @@ export function HouseholdsPage(): JSX.Element {
   const { api, user } = useSession();
   const invitationsState = useInvitations();
   const [households, setHouseholds] = useState<HouseholdView[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [invitations, setInvitations] = useState<InvitationView[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
@@ -216,6 +218,7 @@ export function HouseholdsPage(): JSX.Element {
     try {
       const [h, i] = await Promise.all([unwrap(api.GET('/households')), unwrap(api.GET('/invitations'))]);
       setHouseholds(h);
+      setLoaded(true);
       setInvitations(i);
       invitationsState.refresh();
     } catch (e) {
@@ -304,6 +307,8 @@ export function HouseholdsPage(): JSX.Element {
         </div>
         <div className="grid min-w-0 content-start gap-4 lg:col-span-2">
           {households.length === 0 ? <p className="text-sm font-semibold text-slate-800">Aún no perteneces a ningún hogar.</p> : null}
+          {/* Sin hogares (N2-15 = B): la escena del propietario se gestiona aquí, con el retiro de consentimiento; se oculta sola si está vacía (SC-ESC6-109). */}
+          {ownerSceneVisible(loaded, households.length) ? <HomeScene scope={{ kind: 'OWNER' }} idPrefix="escena-mine" headingLevel={2} /> : null}
           {households.map((view) => (
             <div key={view.household.id} className="grid gap-2">
               <HouseholdCard

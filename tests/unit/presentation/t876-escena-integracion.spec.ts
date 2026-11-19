@@ -23,19 +23,18 @@ describe('T876 integración del bloque de escena (D6-04 = A)', () => {
     expect(renderToStaticMarkup(h(HouseholdCard, { view, myUserId: 'u', onMemberAction: noop, onDelete: noop, inviteForm: null }))).not.toContain('ESCENA');
   });
 
-  it('[D6-04 = A][D6-09 = A] HouseholdsPage monta la escena del hogar y «Mis mascotas» la del propietario sin hogar (/me) o la del hogar elegido', () => {
+  it('[D6-04 = A][N2-15 = B] HouseholdsPage monta la escena del hogar y la del propietario sin hogar (solo con 0 hogares); «Mascotas» ya no monta ninguna escena de gestión', () => {
     const households = read('src/presentation/web/pages/HouseholdsPage.tsx');
     expect(households).toMatch(/<HomeScene[^>]*kind: 'HOUSEHOLD'/);
+    expect(households).toMatch(/<HomeScene[^>]*kind: 'OWNER'/);
     const pets = read('src/presentation/web/pages/PetsPage.tsx');
-    expect(pets).toMatch(/<HomeScene[^>]*kind: 'OWNER'/);
-    expect(pets).toMatch(/<HomeScene[^>]*kind: 'HOUSEHOLD'/);
+    expect(pets).not.toMatch(/<HomeScene[^>]*kind: 'OWNER'/);
+    expect(pets).not.toMatch(/<HomeScene\b/);
   });
 
-  it('[SC-ESC6-109][REQ-ESC6-019] «Mis mascotas» ya no condiciona la escena OWNER a la lista /pets (cards.length) y la vuelve a leer al cambiar la lista (reloadToken)', () => {
+  it('[SC-ESC6-109][SC-ESC6-110] «Mascotas» ya no lleva reloadToken ni petsRevision (la relectura por alta de mascota quedó sin ruta de interfaz)', () => {
     const pets = read('src/presentation/web/pages/PetsPage.tsx');
-    expect(pets).toMatch(/<HomeScene[^>]*kind: 'OWNER'[^>]*reloadToken=\{petsRevision\}/);
-    expect(pets).not.toMatch(/cards\.length\s*>\s*0\s*\?\s*<HomeScene/);
-    expect(pets.match(/setPetsRevision\(/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(pets).not.toMatch(/petsRevision|reloadToken|setPetsRevision/);
   });
 
   it('[NFR-ESC6-004] cada bloque monta con su propio prefijo de ids (varios hogares en la misma página no repiten ids)', () => {

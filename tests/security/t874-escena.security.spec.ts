@@ -1,3 +1,4 @@
+import { PET_COUNT_RULE, SCENE_SPEC_INTRO } from '../../src/domain/scene/scene-spec.ts';
 import { deflateSync } from 'node:zlib';
 import fc from 'fast-check';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -262,7 +263,18 @@ describe('XSS y prompt injection en nombres y textos libres (T874, INV-ESC6-011,
     for (const text of HOSTILE) {
       for (const fragment of [text, text.slice(0, 50)]) expect([fragment, sent.includes(fragment)]).toEqual([fragment, false]);
     }
-    expect(sent).not.toMatch(/[<>{}\u0000‮]/);
+    // Desde T921 el prompt lleva la especificación JSON saneada (plan §5.3.1): sus llaves son estructura propia y válida (JSON.parse); fuera de ese bloque y dentro de él
+    // sigue sin haber ningún carácter hostil de los textos libres.
+    for (const prompt of c.fixture.generator.calls.map((call) => call.prompt)) {
+      const start = prompt.indexOf(`${SCENE_SPEC_INTRO}\n`) + SCENE_SPEC_INTRO.length + 1;
+      const end = prompt.indexOf(`\n\n${PET_COUNT_RULE}`);
+      expect(start).toBeGreaterThan(SCENE_SPEC_INTRO.length);
+      expect(end).toBeGreaterThan(start);
+      expect(typeof JSON.parse(prompt.slice(start, end))).toBe('object');
+      const outside = prompt.slice(0, start) + prompt.slice(end);
+      expect(outside).not.toMatch(/[<>{}\u0000‮]/);
+      expect(prompt.slice(start, end)).not.toMatch(/[<>\u0000‮]/);
+    }
     const view = await c.call('GET', '/api/me/scene', { cookie: lucia });
     expect([String(view.headers['content-type']).startsWith('application/json'), view.headers['x-content-type-options']]).toEqual([true, 'nosniff']);
     for (const text of accepted) expect(view.text.includes(text)).toBe(false);

@@ -25,7 +25,7 @@ export interface SceneViewData {
   readonly pending: number;
   readonly quota: { readonly max: number; readonly remaining: number; readonly window: string; readonly resetsAt: string };
   readonly pets: { readonly shown: number; readonly total: number; readonly maxPets: number };
-  readonly actions: { readonly canUpdate: boolean; readonly canRegenerate: boolean; readonly canUploadHouseholdPhoto: boolean; readonly blockedReason: SceneBlockedReason | null };
+  readonly actions: { readonly canUpdate: boolean; readonly canRegenerate: boolean; readonly canUploadHouseholdPhoto: boolean; readonly blockedReason: SceneBlockedReason | null; /** Segundos hasta poder volver a intentar (1..86400) o `null`; opcional como en el contrato 1.1.0 (REQ-ESC6-034). */ readonly retryAfterSeconds?: number | null };
   readonly consent: { readonly required: boolean; readonly noticeVersion: string; readonly providerId: string; readonly householdPhotoGranted: boolean; readonly petPhotosGranted: boolean };
   readonly lastError: SceneErrorCode | null;
   readonly stale: boolean;

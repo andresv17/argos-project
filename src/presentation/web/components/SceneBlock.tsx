@@ -20,8 +20,11 @@ import {
   scenePendingText,
   scenePetsShownText,
   sceneProblemMessage,
+  sceneRetryAfter,
   sceneStatusText,
   sceneUpdateState,
+  sceneWaitText,
+  scheduleCooldownRefresh,
 } from '../scene-view.ts';
 import { Button } from './Field.tsx';
 
@@ -51,6 +54,8 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onU
   const src = view === null ? null : sceneImagePath(scope, view.imageTag);
   const update = view === null ? null : sceneUpdateState(view);
   const generating = view?.status === 'generating';
+  const wait = view === null || view.actions.blockedReason === 'ROLE' ? null : sceneRetryAfter(view);
+  const waitText = wait === null ? null : sceneWaitText(wait);
   const petsShown = view === null ? null : scenePetsShownText(view.pets);
   return (
     <section aria-labelledby={titleId} className="grid min-w-0 max-w-full gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -86,11 +91,11 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onU
               <p className="text-sm font-semibold text-slate-900">{scenePendingText(view)}</p>
               {petsShown === null ? null : <p className="text-sm text-slate-900">{petsShown}</p>}
               <div className="flex flex-wrap items-center gap-3">
-                <Button disabled={busy || generating || update?.disabled === true} {...(update?.reason == null ? {} : { describedBy: reasonId })} onClick={onUpdate}>
+                <Button disabled={busy || generating || wait !== null || update?.disabled === true} {...(update?.reason == null ? {} : { describedBy: reasonId })} onClick={onUpdate}>
                   {view.status === 'failed' ? 'Reintentar' : 'Actualizar imagen del hogar'}
                 </Button>
                 {src === null ? null : (
-                  <Button variant="secondary" disabled={busy || generating || !view.actions.canRegenerate} onClick={onRegenerate}>
+                  <Button variant="secondary" disabled={busy || generating || wait !== null || !view.actions.canRegenerate} onClick={onRegenerate}>
                     Regenerar escena desde cero
                   </Button>
                 )}
@@ -100,6 +105,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onU
                   {update.reason}
                 </p>
               )}
+              {waitText === null || waitText === update?.reason ? null : <p className="text-sm font-semibold text-slate-900">{waitText}</p>}
             </>
           )}
         </div>
@@ -160,6 +166,17 @@ export function SceneBlock({ scope, idPrefix, headingLevel, reloadToken, childre
     }
   }, [api, stable, fail]);
 
+  // Espera de intentos (REQ-ESC6-034, SC-ESC6-115): una sola relectura a los `t + 1` s; el temporizador se cancela al desmontar o al llegar otra espera.
+  const [wait, setWait] = useState<{ readonly seconds: number } | null>(null);
+  useEffect(() => {
+    const seconds = view === null || view.actions.blockedReason === 'ROLE' ? null : sceneRetryAfter(view);
+    setWait(seconds === null ? null : { seconds });
+  }, [view]);
+  useEffect(() => {
+    if (wait === null) return undefined;
+    return scheduleCooldownRefresh({ seconds: wait.seconds, scheduler: browserScheduler, reload: () => void reload() });
+  }, [wait, reload]);
+
   const lastToken = useRef(reloadToken);
   useEffect(() => {
     if (lastToken.current === reloadToken) return;
@@ -177,6 +194,7 @@ export function SceneBlock({ scope, idPrefix, headingLevel, reloadToken, childre
       if (next.status === 'generating') pollerRef.current?.start();
     } catch (e) {
       fail(e);
+      if (e instanceof SceneApiError && e.code === 'ERR-RATE-LIMITED' && e.retryAfterSeconds !== undefined) setWait({ seconds: e.retryAfterSeconds });
       await reload();
     } finally {
       setBusy(false);

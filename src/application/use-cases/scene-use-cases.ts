@@ -180,9 +180,10 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
     pets: { shown: live.shown, total: live.total, maxPets: svc.maxPets },
     actions: {
       canUpdate: blockedReason === null,
-      canRegenerate: roleOk && remaining >= 1 && !consentRequired && derived.status !== 'generating',
+      canRegenerate: roleOk && remaining >= 1 && !consentRequired && derived.status !== 'generating' && limits.allowed,
       canUploadHouseholdPhoto: access.householdId !== null && canManageHouseholdPhoto(access.role),
       blockedReason,
+      retryAfterSeconds: limits.allowed ? null : limits.retryAfterSeconds,
     },
     consent: { required: consentRequired, noticeVersion: svc.noticeVersion, providerId: svc.providerId, householdPhotoGranted, petPhotosGranted },
     lastError: derived.status === 'failed' ? derived.lastError : null,

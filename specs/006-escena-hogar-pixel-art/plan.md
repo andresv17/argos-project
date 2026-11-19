@@ -261,6 +261,35 @@ Orden de bloques y separador: `"\n\n"`. Todo texto fijo en inglés; el único co
 **Redibujado en pixel art (enmienda 2026-11-19, `T901`)**: constante de dominio `PIXEL_REDRAW_RULE`, texto fijo en inglés sin contenido variable: «Treat every photographic reference image strictly as a visual guide: redraw the room and every pet entirely in the 32-bit isometric pixel art style, and leave no photographic pixels, textures, or realistic regions anywhere in the image.» Se emite como bloque propio (separador `"\n\n"`) **solo si algún bloque emitido lleva `photoRef` no nulo**; en modos desde cero va tras el bloque de mascotas y su cierre «Place all {N} pets…»; en modos incrementales, antes de `STYLE_CLOSING`. Los casos sin foto no cambian de byte; `STYLE_BASE_TEXT` y las frases existentes no se modifican. **Regresión 4a**: `decide-mode.ts` no cambia; alta, reemplazo o borrado de la foto del hogar con imagen vigente ya produce `FROM_SCRATCH` (precedencia de §3) y se fija con `SC-ESC6-107`. **Cableado (`REQ-ESC6-037`)**: `buildGeminiBody` antepone a cada `inlineData` una parte `{text: "IMG_n:"}` con `r.ref` del puerto; sin referencias `parts = [{text: prompt}]` (`SC-ESC6-104`). **Presentación (§5.7, `REQ-ESC6-007`, `REQ-ESC6-019`)**: sin `imageTag` no se renderiza «Regenerar escena desde cero» (`SC-ESC6-108`); el bloque `OWNER` se oculta solo con `pets.total = 0`, `imageTag = null` y ambos consentimientos en `false`, y se recarga al cambiar la lista de mascotas (`SC-ESC6-109`).
 Asignación de ranuras: `IMG_1` = escena previa (incremental) o foto del hogar (si existe, en modos desde cero); luego las mascotas con foto en orden de selección. Las fixtures canónicas (una por modo y por combinación) fijan el texto byte a byte (`SC-ESC6-023`).
 
+### 5.3.1 Especificación JSON saneada y regla de conteo (enmienda 2026-11-19, `T911`, `D6-19`)
+Módulo de dominio nuevo `src/domain/scene/scene-spec.ts` con `buildSceneSpec(payload): SceneSpec` (pura, `INV-ARCH-001/002`, sin `process.env`) y las constantes `SCENE_SPEC_INTRO` y `PET_COUNT_RULE`; `build-image-prompt.ts` solo las compone. Reutiliza `canonicalBreedName` y `sanitizeFreeText`; `decide-mode.ts`, `pet-phrases.ts` y el payload no cambian. **Esquema exacto** (todo `object` con estas claves y ninguna otra; el orden de las claves es el de esta tabla):
+
+| Ruta | Tipo | Valores |
+|---|---|---|
+| `mode` | string | enum `SceneMode` del payload (`FROM_SCRATCH`, `INCREMENTAL_ADD`, `INCREMENTAL_REMOVE`, `INCREMENTAL_REPLACE`, `INCREMENTAL_MIXED`, `REGENERATE`) |
+| `household.hasReferencePhoto` | boolean | `payload.household.hasReferencePhoto` |
+| `household.photoRef` | string o null | `^IMG_[1-9][0-9]?$` o `null` |
+| `renderedPetsCount` | integer ≥ 0 | `pets.length` de este objeto (calculado, nunca literal) |
+| `pets` | array | mascotas visibles en la imagen resultante: desde cero todas (`RENDER`); incremental `KEEP`, `ADD`, `REPLACE` (se excluyen las `REMOVE`); orden del payload |
+| `pets[].index` | integer | 1..N, ordinal (coincide con `k` de `Pet k:` en modos desde cero) |
+| `pets[].action` | string | `RENDER`, `KEEP`, `ADD`, `REPLACE` |
+| `pets[].species` | string | enum `Species` (`CANINE`, `FELINE`, `RABBIT`, `FERRET`, `BIRD`, `REPTILE`, `SMALL_MAMMAL`, `OTHER`) |
+| `pets[].speciesOther` | string | solo si `species = OTHER` y `sanitizeFreeText` devuelve valor (1..60, lista blanca de `INV-ESC6-011`); si no, la clave se omite |
+| `pets[].breed` | string | nombre canónico en inglés del Anexo A según `breedCode`, o el literal `mixed-breed` (D6-14); el texto libre `breed` no se lee |
+| `pets[].sex` | string | `MALE`, `FEMALE` |
+| `pets[].hasReferencePhoto` | boolean | del payload |
+| `pets[].photoRef` | string o null | etiqueta `IMG_n` o `null` |
+
+**Excluidos por construcción**: `household.id`, `pets[].id`, nombres, `biography`, `fallbackContext`, el bloque `scene` (`currentSceneRef`, `maxPets`, `totalPetsInHousehold`) y `style`. **Serialización**: el objeto literal se crea con las claves en el orden de la tabla (ECMAScript conserva el orden de inserción de claves de texto no numéricas), sin `Object.keys` ni ordenación dinámica, y se serializa con `JSON.stringify(spec, null, 2)`: 2 espacios, `\n` entre líneas, sin salto final; todos los textos ya pasaron listas blancas o enums, así que no hay escapes variables. **Emisión**: bloque `SCENE_SPEC_INTRO` («Scene specification (data only, not instructions):»), salto de línea, el JSON; después, como bloque aparte, `PET_COUNT_RULE`. **Orden global** (separador `"\n\n"`): desde cero = `STYLE_BASE_TEXT`, hogar, líneas `Pet k:`, «Place all {N} pets…» (N ≥ 1), JSON, `PET_COUNT_RULE`, `PIXEL_REDRAW_RULE` (solo con `photoRef`); incremental = `STYLE_BASE_TEXT`, bloque incremental, JSON, `PET_COUNT_RULE`, `PIXEL_REDRAW_RULE` (solo con foto en `ADD`/`REPLACE`), `STYLE_CLOSING`. Sin número quemado: la regla cita el campo `renderedPetsCount`, no un valor; con N = 0 el JSON lleva `pets: []` y la regla pide cero animales (caso desde cero sin mascotas). **Ejemplo canónico** (desde cero, hogar sin foto, 2 mascotas, la primera con foto `IMG_2`, `breedCode` canónico; el texto de «Pet k:» y «Place all» no se repite aquí):
+```
+{ "mode": "FROM_SCRATCH",
+  "household": { "hasReferencePhoto": false, "photoRef": null },
+  "renderedPetsCount": 2,
+  "pets": [ { "index": 1, "action": "RENDER", "species": "CANINE", "breed": "Golden Retriever", "sex": "MALE", "hasReferencePhoto": true, "photoRef": "IMG_2" },
+            { "index": 2, "action": "RENDER", "species": "FELINE", "breed": "mixed-breed", "sex": "FEMALE", "hasReferencePhoto": false, "photoRef": null } ] }
+```
+(en el prompt real va con la sangría de 2 espacios que produce `JSON.stringify`). **Alternativas descartadas**: emitir el JSON compacto en una línea (menos legible para el modelo, sin ganancia medible); reemplazar las líneas `Pet k:` por el JSON (rompe la decisión firmada de `T901` y la frase de foto `IMG_n`); un cierre numérico en texto por especie (borrador previo: duplica el JSON y exige plurales por especie); contrato JSON Schema propio para la salida (el esquema vive en esta tabla y en `SC-ESC6-116/117`; si Neo lo pide se añade `scene-prompt-spec.schema.json` como contrato nuevo). **Impacto en pruebas existentes**: cambian todas las fixtures canónicas de `t841` (cada modo ahora lleva JSON y regla), y se revisan `t848b`, `t849`, `t855` y las pruebas de no-fuga (`INV-ESC6-010`).
+
 ### 5.4 Normalización de imágenes (`REQ-ESC6-027`, `H-ARCH-006-01`, `H-TRI-006-03/09`)
 Función inyectada `stripImageMetadata` que **reescribe el contenedor con lista blanca** (no lista negra) sin tocar los píxeles: JPEG conserva solo `SOI, DQT, DHT, SOF*, DRI, SOS` con sus datos y `EOI` (y `APP14 Adobe` solo si hace falta el color); PNG solo `IHDR, PLTE, tRNS, IDAT, IEND` (y `sRGB`/`gAMA` si se justifica en el SC); WebP solo `VP8 `, `VP8L`, `VP8X` (con los indicadores EXIF/XMP/ICC en cero) y `ALPH`. Todo byte posterior al marcador final se trunca, se verifica el CRC de PNG y que las longitudes cierren **exactamente** el archivo; se rechazan PNG animado (`acTL`) y WebP animado (`ANIM`/`ANMF`); el recorrido tiene tope de iteraciones y de memoria y cualquier fallo → «ausente» (`EDGE-ESC6-009`). **Límites de tamaño** (lectura barata de `IHDR`/`SOF`/`VP8X`): ancho × alto ≤ 25 MP y lado ≤ 8192 px, tanto en la subida de la foto del hogar (ruta de la 006) como en el normalizador (un avatar de 004 que los supere se trata como ausente); y un tope agregado de **32 MiB** de referencias por llamada: si se supera, se omiten las referencias de menor prioridad (orden: escena previa o foto del hogar, luego mascotas por orden de selección de la última a la primera), se registra el hecho sin datos personales y el intento queda `degraded` (`EDGE-ESC6-028`); nunca se carga todo en memoria antes de validar tamaños. **No** redimensiona ni recodifica (no hay códec autorizado): sigue siendo una brecha frente a `C5` de `/rama`, aceptada por Neo para el tramo fake (`N2-01` = B); el aviso declara que la normalización es parcial y no se declara `ARGOS_SCENE_REF_MAX_PX`. **Antes del driver real es obligatoria** la dependencia de imagen (`N2-01` = A: versión exacta, ámbito `infrastructure/`, auditoría `/merovingian` con red) para recodificar y redimensionar. Los bytes viven solo en memoria. Pruebas de propiedades y fuzz en `tests/security/` (archivos truncados, longitudes enormes, polyglot JPEG+ZIP, GPS en `APP1` y en trozo desconocido, trozos privados como `caBX`/`iDOT`; `SC-ESC6-083/084`). Riesgos y opciones: `research.md` §5, `RR-06-10`.
 
@@ -274,7 +303,7 @@ Claves UUID sin nombre de usuario (`INV-ESC6-009`): `scenes/{sceneId}/images/{re
 Serializadores de registros sin prompt, bytes, nombres, `photoRef` resueltos, URL firmadas, `X-Goog-*`, claves de objeto, cuerpos de error del proveedor ni clave de idempotencia (`INV-ESC6-016`); las excepciones de red, `AbortError` y del cliente de metadatos se capturan, se mapean a `SceneErrorCode` y se descartan sin `err`, `cause` ni `stack` con URL (`SC-ESC6-094`); eventos y campos en `data-model.md` §8.
 
 ### 5.7 Interfaz (`presentation/web`)
-Bloque «Escena del hogar» en el encabezado de la vista «Hogar» y bloque en «Mis mascotas» para el propietario sin hogar (`D6-04`): imagen con texto alternativo (número de mascotas), estado en región `aria-live`, «cambios pendientes: P · generaciones restantes: R», «Se muestran N de M mascotas», aviso «desactualizada» (`D6-05`), «Reintentar», «Regenerar escena desde cero» (secundaria) y «Retirar consentimiento y borrar imágenes de la escena». Sondeo único de 3 s (constante del cliente `ARGOS_SCENE_POLL_SECONDS` = 3, no variable del servidor). Con cuota agotada se muestra la fecha de reinicio (`quota.resetsAt`); durante un enfriamiento o un tope de intentos el botón informa el motivo (`blockedReason = COOLDOWN`) y el cliente genera una `Idempotency-Key` nueva por clic. Revisión de `/sati` pendiente (`NFR-ESC6-004`).
+Bloque «Escena del hogar» en el encabezado de la vista «Hogar» (`D6-04`; enmienda 2026-11-19 `T911`: es el **único** lugar de gestión; «Mascotas» solo muestra la imagen vigente del hogar del contexto activo, en solo visualización, sin controles, y no monta `HomeScene` ni la escena `OWNER`; `/me/scene` queda sin uso en la UI, contrato y servidor intactos; la vista solo-lectura es un componente nuevo `HomeSceneImage` que lee la escena del hogar elegido en el selector existente, 1 lectura por cambio de contexto con descarte de respuestas antiguas, y no pinta nada con 0 hogares, contexto «Mis mascotas», `imageTag = null` o error). La escena `OWNER` (`N2-15` = opción B, aprobada por Neo el 2026-11-19): imagen con texto alternativo (número de mascotas), estado en región `aria-live`, «cambios pendientes: P · generaciones restantes: R», «Se muestran N de M mascotas», aviso «desactualizada» (`D6-05`), «Reintentar», «Regenerar escena desde cero» (secundaria) y «Retirar consentimiento y borrar imágenes de la escena». Sondeo único de 3 s (constante del cliente `ARGOS_SCENE_POLL_SECONDS` = 3, no variable del servidor). Con cuota agotada se muestra la fecha de reinicio (`quota.resetsAt`); durante un enfriamiento o un tope de intentos ambos botones («Actualizar imagen del hogar» y «Regenerar escena desde cero») quedan deshabilitados con el mensaje «Espera {t} para volver a intentarlo» (`t` = `actions.retryAfterSeconds`: segundos si < 60, minutos hacia arriba si < 3600, horas hacia arriba en otro caso; `SC-ESC6-114`), el cliente vuelve a leer la escena una vez a los `retryAfterSeconds + 1` s con un temporizador cancelado al desmontar (`SC-ESC6-115`) y el texto «Hubo demasiados intentos seguidos» deja de existir; `canRegenerate` del servidor ya incluye los límites (`SC-ESC6-112`; `scene-use-cases.ts`: `canRegenerate = roleOk && remaining >= 1 && !consentRequired && status !== 'generating' && limits.allowed`) y `actions.retryAfterSeconds` sale de `evaluateAttemptLimits` (`SC-ESC6-113`, `N2-14`) y el cliente genera una `Idempotency-Key` nueva por clic. Revisión de `/sati` pendiente (`NFR-ESC6-004`).
 
 ## 6. Ejecución en segundo plano: Cloud Tasks o Cloud Run Job (`D6-15` = B)
 
@@ -327,6 +356,8 @@ Mientras no se apliquen, el despliegue de la 006 es seguro con `ARGOS_SCENE_DRIV
 | ADR-006-09 | Estado `idle|outdated|ready` **derivado en lectura**; se persiste solo `generating|failed` (`H-MIF-006-01`); se retiran `recomputeSceneStatus` y sus 7+ ganchos en código `LOCKED` | proyección persistida con ganchos en 002/004/005 (acopla y regresa) |
 | ADR-006-10 | Imagen vigente como columnas de `home_scenes`, sin tabla `scene_images` ni FK circular (`H-MIF-006-02`); `scene_attempts` se conserva como tabla (`H-MIF-006-03` acotado por Neo: solo la última clave de idempotencia; intentos 30 días) | tabla `scene_images` con ≤ 1 fila; intentos en columnas de la escena |
 | ADR-006-11 | Worker con identidad y audiencia propias, claim `PENDING → RUNNING` por compare-and-set y T2 que recomprueba dueños de datos (`H-TRI-006-01/07`, `H-LCK-006-01/04`) | reutilizar la audiencia de mantenimiento; publicar sin reverificar consentimiento |
+| ADR-006-12 | Especificación JSON saneada derivada del payload por una función pura aparte (`scene-spec.ts`), compuesta en `buildImagePrompt` junto a las líneas `Pet k:` y una regla de conteo que cita `renderedPetsCount` (sin número quemado) (`D6-19`) | JSON compacto; JSON que reemplaza las líneas `Pet k:`; cierre numérico en texto por especie; contrato JSON Schema nuevo para la salida |
+| ADR-006-13 | «Mascotas» solo visualiza la imagen vigente del hogar (componente de solo lectura) y toda la gestión vive en «Hogar» (`D6-19`); el tiempo de espera viaja en `SceneActions.retryAfterSeconds` (aditivo, `N2-14`) y no se infiere en el cliente | temporizador de 60 s del cliente (no sobrevive a recargas ni cubre topes de 24 h); leer la cabecera `Retry-After` solo tras un `429` (el botón ya estaría habilitado); retirar `/me/scene` (decisión de Neo) |
 
 ## 9. Riesgos del plan
 | ID | Riesgo | Mitigación |
@@ -354,7 +385,7 @@ Para que `tasks.md` no sorprenda: **se rompen o deben ampliarse** `schema-parity
 | REQ-ESC6-004 | plan §5.1, `inputs_snapshot` (`data-model.md` §2.6), `SceneView.pending` |
 | REQ-ESC6-005 | `SceneActions` (`scene.schema.json`), `generateHouseholdScene`; plan §1.2 |
 | REQ-ESC6-006 | plan §3; `scene-payload.schema.json` (`mode`, `action`) |
-| REQ-ESC6-007 | `GenerateSceneInput.action = REGENERATE`; plan §2.3, §5.3 (presentación sin imagen) |
+| REQ-ESC6-007 | `GenerateSceneInput.action = REGENERATE`; plan §2.3, §5.3 (presentación sin imagen), §5.7 (`canRegenerate` con límites; `SC-ESC6-112`) |
 | REQ-ESC6-008 | plan §1.1 `select-visible-pets.ts`; `ScenePets`; `scene.maxPets` |
 | REQ-ESC6-009 | plan §5.3 (bloque 3); `PetBlock.breedCode` |
 | REQ-ESC6-010 | plan §5.3 (cierre con N ≥ 1); `pets` vacío válido |
@@ -363,10 +394,10 @@ Para que `tasks.md` no sorprenda: **se rompen o deben ampliarse** `schema-parity
 | REQ-ESC6-013 | plan §2.2; `ERR-SCENE-GENERATION-FAILED/TIMEOUT`, `ERR-SCENE-INVALID-IMAGE` |
 | REQ-ESC6-014 | `data-model.md` §7 (publicación T2); máquina `generating → outdated` |
 | REQ-ESC6-015 | `scene-payload.schema.json` 1.0.0 |
-| REQ-ESC6-016 | plan §5.3 (numeración `Pet k:`, `PIXEL_REDRAW_RULE`); `build-image-prompt.ts` |
+| REQ-ESC6-016 | plan §5.3 (numeración `Pet k:`, `PIXEL_REDRAW_RULE`), §5.3.1 (especificación JSON y `PET_COUNT_RULE`); `build-image-prompt.ts`, `scene-spec.ts` |
 | REQ-ESC6-017 | plan §1.2/§1.3; `SceneImageGeneratorPort` |
 | REQ-ESC6-018 | `data-model.md` §6; plan §5.5 |
-| REQ-ESC6-019 | `SceneView`, `getHouseholdSceneImage`; plan §5.7, §5.3 (regla `OWNER`) |
+| REQ-ESC6-019 | `SceneView`, `getHouseholdSceneImage`; plan §5.7 («Hogar» único lugar de gestión, `HomeSceneImage` en «Mascotas», espera y relectura), §5.3 (regla `OWNER`) |
 | REQ-ESC6-020 | OpenAPI (`x-sdd-rbac-action`, 403/404) |
 | REQ-ESC6-021 | plan §5.6; `data-model.md` §8 |
 | REQ-ESC6-022 | `data-model.md` §6 (sin respaldo); sin tabla en el sobre `3.x` |
@@ -398,7 +429,7 @@ Para que `tasks.md` no sorprenda: **se rompen o deben ampliarse** `schema-parity
 | INV-ESC6-014 | `ERR-SCENE-CONSENT-REQUIRED`; plan §5.2 |
 | INV-ESC6-015 | plan §5.4 (parcial, `H-ARCH-006-01`, `N2-01`) |
 | REQ-ESC6-033 | plan §6.3; OpenAPI `runSceneWorker`; `ARGOS_SCENE_TASKS_SA_EMAIL`, `ARGOS_SCENE_WORKER_URL` (§1.3) |
-| REQ-ESC6-034 | plan §1.1 `attempt-limits.ts`; §1.3 constantes; `data-model.md` §2.5 y §7; OpenAPI 429 |
+| REQ-ESC6-034 | plan §1.1 `attempt-limits.ts`; §1.3 constantes; `data-model.md` §2.5 y §7; OpenAPI 429; `SceneActions.retryAfterSeconds` (§5.7, `N2-14`) |
 | REQ-ESC6-035 | plan §1.2 `runSceneGeneration`; `ERR-SCENE-INVALID-IMAGE` |
 | REQ-ESC6-036 | plan §1.2; `data-model.md` §7 (claim y T2) |
 | INV-ESC6-018 | plan §1.3 (despachador), §6.3 |
@@ -474,6 +505,10 @@ Para que `tasks.md` no sorprenda: **se rompen o deben ampliarse** `schema-parity
 | SC-ESC6-105, 106 | `buildImagePrompt` (plan §5.3: `Pet k:` y `PIXEL_REDRAW_RULE`) |
 | SC-ESC6-107 | `decide-mode` sin cambio de código y huella `inputs-snapshot` (plan §3, §5.3) |
 | SC-ESC6-108, 109 | `SceneBlockView`, `HomeScene`/`SceneBlock` y `PetsPage` (plan §5.3, §5.7) |
+| SC-ESC6-110, 111 | `PetsPage` y `HomeSceneImage` solo visualización (plan §5.7) |
+| SC-ESC6-112, 113 | `getScene` en `scene-use-cases.ts` (`canRegenerate`, `retryAfterSeconds`), `SceneActions` (plan §5.7, `N2-14`) |
+| SC-ESC6-114, 115 | `scene-view.ts` (texto de espera) y `SceneBlock` (relectura al vencer) (plan §5.7) |
+| SC-ESC6-116, 117, 118 | `scene-spec.ts` y `build-image-prompt.ts` (plan §5.3.1) |
 
 ## 13. Compuerta del driver real y fases de ejecución (`N2-10`, `tasks.md`)
 

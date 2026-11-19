@@ -1,15 +1,16 @@
 /**
  * `buildImagePrompt(payload)`: compila el texto final en inglés de la escena (REQ-ESC6-016; plan.md §5.3). Pura y determinista: misma entrada, misma salida byte a
  * byte (INV-ESC6-001, SC-ESC6-023). Bloques separados por una línea en blanco: (1) base de estilo; (2) hogar (solo `FROM_SCRATCH` y `REGENERATE`); (3) mascotas
- * (`RENDER`, una línea `Pet k:` ordinal 1-based) con cierre «Place all N pets…» solo con N ≥ 1; (4) regla de redibujado `PIXEL_REDRAW_RULE` solo si algún bloque emitido lleva `photoRef`; (5) bloque incremental sobre la escena previa (`IMG_n` de `currentSceneRef`). El único contenido variable
+ * (`RENDER`, una línea `Pet k:` ordinal 1-based) con cierre «Place all N pets…» solo con N ≥ 1; (4) regla de redibujado `PIXEL_REDRAW_RULE` solo si algún bloque emitido lleva `photoRef`; (5) bloque incremental sobre la escena previa (`IMG_n` de `currentSceneRef`). Desde `T921` todos los modos incluyen la especificación JSON saneada (`scene-spec.ts`) y `PET_COUNT_RULE` justo antes de la regla de redibujado (plan §5.3.1). El único contenido variable
  * son enums del dominio, `speciesOther` ya saneado por la lista blanca (INV-ESC6-011, entre comillas como etiqueta de datos), nombres canónicos de raza
  * (Anexo A del plan) y etiquetas `IMG_n`; el texto libre `breed` nunca se lee (`H-KEY-F5-2`). NUNCA se emiten `id`, nombres, `biography` ni `fallbackContext` (INV-ESC6-010, INV-ESC6-017).
  *
- * @implements REQ-ESC6-016, REQ-ESC6-009, INV-ESC6-001, INV-ESC6-010, INV-ESC6-011, INV-ESC6-017, EDGE-ESC6-015, SC-ESC6-023, SC-ESC6-066, SC-ESC6-082
+ * @implements REQ-ESC6-016, REQ-ESC6-009, SC-ESC6-116, SC-ESC6-117, SC-ESC6-118, INV-ESC6-001, INV-ESC6-010, INV-ESC6-011, INV-ESC6-017, EDGE-ESC6-015, SC-ESC6-023, SC-ESC6-066, SC-ESC6-082
  */
 
 import type { ScenePayload } from '../../generated/v34/schemas/types.ts';
 import { petSentence, targetDescription } from './pet-phrases.ts';
+import { PET_COUNT_RULE, sceneSpecBlock } from './scene-spec.ts';
 
 /**
  * Base de estilo normativa (plan.md §5.3, `H-KEY-F5-2`): byte a byte el bloque 1 de «Plantilla de referencia» de `claude/requerimiento-escena-hogar-pixel-art.md`.
@@ -44,6 +45,7 @@ function scratchBlocks(payload: ScenePayload): string[] {
     blocks.push(rendered.map((pet, i) => `Pet ${i + 1}: ${petSentence(pet)}`).join('\n'));
     blocks.push(`Place all ${rendered.length} pets naturally and separately in different cozy spots of the room without merging or omitting any of them.`);
   }
+  blocks.push(sceneSpecBlock(payload), PET_COUNT_RULE);
   const household = payload.household.hasReferencePhoto && payload.household.photoRef !== null;
   if (household || rendered.some(carriesPhoto)) blocks.push(PIXEL_REDRAW_RULE);
   return blocks;
@@ -58,7 +60,7 @@ function incrementalBlocks(payload: ScenePayload): string[] {
   for (const pet of payload.pets.filter((p) => p.action === 'REPLACE')) lines.push(`- Replace only: the ${targetDescription(pet)}, redrawn as follows. ${petSentence(pet)}`);
   const intro = `Use ${base} as the exact base scene. Keep the room, furniture, and all ${others} pets in their exact positions and appearance without altering them. Apply only these changes, one per line:`;
   const withPhoto = payload.pets.some((p) => (p.action === 'ADD' || p.action === 'REPLACE') && carriesPhoto(p));
-  return [intro + '\n' + lines.join('\n'), ...(withPhoto ? [PIXEL_REDRAW_RULE] : []), STYLE_CLOSING];
+  return [intro + '\n' + lines.join('\n'), sceneSpecBlock(payload), PET_COUNT_RULE, ...(withPhoto ? [PIXEL_REDRAW_RULE] : []), STYLE_CLOSING];
 }
 
 export function buildImagePrompt(payload: ScenePayload): string {

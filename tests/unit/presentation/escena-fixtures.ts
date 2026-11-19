@@ -14,7 +14,7 @@ export function sceneView(overrides: Partial<SceneViewData> = {}): SceneViewData
     pending: 0,
     quota: { max: 10, remaining: 7, window: '2026-11', resetsAt: '2026-12-01T05:00:00.000Z' },
     pets: { shown: 3, total: 3, maxPets: 8 },
-    actions: { canUpdate: false, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: 'NO_CHANGES' },
+    actions: { canUpdate: false, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: 'NO_CHANGES', retryAfterSeconds: null },
     consent: { required: false, noticeVersion: '1', providerId: 'vertex-gemini-image', householdPhotoGranted: true, petPhotosGranted: true },
     lastError: null,
     stale: false,
@@ -29,7 +29,7 @@ export function sceneViewSinImagen(overrides: Partial<SceneViewData> = {}): Scen
     imageTag: null,
     status: 'idle',
     pending: 1,
-    actions: { canUpdate: true, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: null },
+    actions: { canUpdate: true, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: null, retryAfterSeconds: null },
     ...overrides,
   });
 }

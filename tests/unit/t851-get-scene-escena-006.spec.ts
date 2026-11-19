@@ -4,6 +4,7 @@ import { GetSceneImageUseCase, GetSceneUseCase, loadLiveInputs, type SceneTarget
 import { DomainError } from '../../src/generated/index.ts';
 import { DomainError as DomainErrorV34 } from '../../src/generated/v34/index.ts';
 import { stateHash } from '../../src/domain/audit/state-hash.ts';
+import { validateSceneView } from '../../src/generated/v34/schemas/validators.mjs';
 import { serializeInputsSnapshot } from '../../src/domain/scene/inputs-snapshot.ts';
 import { ANDRES, ARGOS, CARLOS, HOUSEHOLD, LUCIA, MARIA, canonicalState, createHarness } from '../fixtures/application-harness.ts';
 import { ControlledStorage } from '../fixtures/media-harness.ts';
@@ -124,7 +125,7 @@ describe('getScene (T852): estado derivado, acciones y cuota', () => {
   it('[REQ-ESC6-020][SC-ESC6-081] un READER ve la escena pero no puede actualizar, regenerar ni subir la foto: blockedReason = ROLE', async () => {
     const t = setup();
     const view = await t.get.execute(MARIA, HOUSE);
-    expect(view.actions).toEqual({ canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: false, blockedReason: 'ROLE' });
+    expect(view.actions).toEqual({ canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: false, blockedReason: 'ROLE', retryAfterSeconds: null });
     expect(view.status).toBe('outdated');
   });
 
@@ -284,5 +285,65 @@ describe('getSceneImage (T852): entrega con la etiqueta v solo de caché', () =>
     expect(await codeOf(image.execute(ANDRES, HOUSE, undefined))).toBe('ERR-HOUSE-NOT-FOUND');
     expect(storage.operations).toEqual([]);
     expect([t.h.uow.snapshot().scenes ?? []]).toEqual([[]]);
+  });
+});
+
+describe('getScene (T914): canRegenerate alineado con limits.allowed y retryAfterSeconds (REQ-ESC6-007, REQ-ESC6-034; INV-ESC6-004)', () => {
+  /** Un intento FAILED iniciado hace `ago` segundos con la huella viva (la escena queda `failed`). */
+  async function failedAttempt(t: ReturnType<typeof setup>, ago: number, n = 1): Promise<void> {
+    const fingerprint = await liveFingerprint(t);
+    const startedAt = at(-ago);
+    await t.h.uow.runInTransaction(async (r) => {
+      if (n === 1) await r.scenes.insert(sceneRow());
+      await r.scenes.beginGeneration({ sceneId: SCENE, attempt: attemptRow({ id: `c4000000-0000-4000-8000-00000000000${n}`, resultObjectId: `c3000000-0000-4000-8000-00000000000${n}`, phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', fingerprint, startedAt, finishedAt: startedAt }), now: startedAt, leaseExpiresAt: at(-ago + 1) });
+    });
+  }
+
+  it('[SC-ESC6-112][SC-ESC6-113] dentro del enfriamiento de 60 s canRegenerate es falso, blockedReason COOLDOWN y retryAfterSeconds el resto exacto (entero)', async () => {
+    const t = setup();
+    await failedAttempt(t, 20);
+    const view = await t.get.execute(ANDRES, HOUSE);
+    expect(view.actions).toEqual({ canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: true, blockedReason: 'COOLDOWN', retryAfterSeconds: 40 });
+  });
+
+  it('[SC-ESC6-112][SC-ESC6-113] a los 61 s del intento el enfriamiento venció: canRegenerate verdadero, canUpdate verdadero y retryAfterSeconds null', async () => {
+    const t = setup();
+    await failedAttempt(t, 61);
+    const view = await t.get.execute(ANDRES, HOUSE);
+    expect(view.actions).toEqual({ canUpdate: true, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: null, retryAfterSeconds: null });
+  });
+
+  it('[SC-ESC6-112] a los 60 s exactos el enfriamiento termina (sin segundo extra) y a los 59 s queda 1 s', async () => {
+    const exact = setup();
+    await failedAttempt(exact, 60);
+    expect((await exact.get.execute(ANDRES, HOUSE)).actions).toMatchObject({ canRegenerate: true, retryAfterSeconds: null });
+    const early = setup();
+    await failedAttempt(early, 59);
+    expect((await early.get.execute(ANDRES, HOUSE)).actions).toMatchObject({ canRegenerate: false, retryAfterSeconds: 1 });
+  });
+
+  it('[SC-ESC6-112][SC-ESC6-113] tres FAILED en 24 h: canRegenerate falso y retryAfterSeconds = fallo más antiguo + 24 h − ahora, dentro de 1..86400', async () => {
+    const t = setup();
+    for (let n = 3; n >= 1; n -= 1) await failedAttempt(t, 3600 * n, 4 - n);
+    const view = await t.get.execute(ANDRES, HOUSE);
+    expect(view.actions).toMatchObject({ canRegenerate: false, blockedReason: 'COOLDOWN', retryAfterSeconds: 86_400 - 3 * 3600 });
+  });
+
+  it('[SC-ESC6-113] con blockedReason ROLE el retryAfterSeconds real se informa igualmente (el valor por defecto no es bloqueante)', async () => {
+    const t = setup();
+    await failedAttempt(t, 20);
+    const view = await t.get.execute(MARIA, HOUSE);
+    expect(view.actions).toEqual({ canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: false, blockedReason: 'ROLE', retryAfterSeconds: 40 });
+  });
+
+  it('[SC-ESC6-113] la vista valida contra scene.schema.json 1.1.0 con retryAfterSeconds entero o null, y rechaza 0 y 86401', async () => {
+    const t = setup();
+    await failedAttempt(t, 20);
+    const blocked = await t.get.execute(ANDRES, HOUSE);
+    expect(validateSceneView(blocked)).toBe(true);
+    expect(validateSceneView({ ...blocked, actions: { ...blocked.actions, retryAfterSeconds: null } })).toBe(true);
+    expect(validateSceneView({ ...blocked, actions: { ...blocked.actions, retryAfterSeconds: 0 } })).toBe(false);
+    expect(validateSceneView({ ...blocked, actions: { ...blocked.actions, retryAfterSeconds: 86_401 } })).toBe(false);
+    expect(validateSceneView({ ...blocked, actions: { ...blocked.actions, retryAfterSeconds: 1.5 } })).toBe(false);
   });
 });
