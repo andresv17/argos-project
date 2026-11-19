@@ -1420,3 +1420,4 @@
 - 2026-11-18 | Keymaker | Versionado de specs/006 (spec, plan, contratos, prototipo, tasks) + 9 informes referenciados; commit docs, sin codigo.
 - 2026-11-18 | Keymaker | Fase 8 T879 (guarda-driver-real-escena-006, 10 pruebas; nombre distinto de t879-escena-sati) y T880 (runbook escena en terraform/README + N2-09=B en entorno-y-lecciones): REVIEW, sin driver real.
 - 2026-11-18 | Keymaker | Fase 8 T881 (test:gate PG real: 314 archivos, 4896 pasan, 1 omitida, 0 rojas; gates CUMPLE; tsc 0), T882 mutacion domain/scene 93.86 (pendiente /smith) y T885 BLOQUEADA por N2-10; sin driver real.
+- 2026-11-18 | Keymaker | Sellado SMITH-01 (arrastre de cuota en la escena perezosa del hogar nuevo) y SMITH-02 (purgeObjects conserva fila DELETE si el objeto no existia, solo en revocacion); chaos 5b y 7b verdes; 4900 pasan 0 rojas; SMITH-03 registrada como deuda.

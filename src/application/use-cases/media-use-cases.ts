@@ -55,16 +55,19 @@ export function mapStorageError(error: unknown): unknown {
 }
 
 /**
- * Borra los objetos tras el COMMIT y retira sus filas de la cola; un fallo suma un intento y deja la fila (REQ-GCS-004). Nunca lanza.
+ * Borra los objetos tras el COMMIT y retira sus filas de la cola (con `keepRowIfAbsent`, solo si el objeto existía, BRECHA-SMITH-02); un fallo suma un intento y deja la fila (REQ-GCS-004). Nunca lanza.
  * @implements REQ-GCS-004, INV-GCS-002
  */
-export async function purgeObjects(deps: ApplicationDeps, keys: readonly string[]): Promise<void> {
+export async function purgeObjects(deps: ApplicationDeps, keys: readonly string[], options: { readonly keepRowIfAbsent?: boolean } = {}): Promise<void> {
   const media = deps.media;
   if (media === undefined) return;
   for (const key of keys) {
     try {
+      // `keepRowIfAbsent` (solo la revocación del consentimiento de la escena): si el objeto aún no existe (un `put` en vuelo del worker tras revocar) la fila se
+      // conserva para el worker o la conciliación; la imagen huérfana nunca queda sin fila (REQ-ESC6-025, REQ-ESC6-029, SC-ESC6-044, INV-GCS-002, BRECHA-SMITH-02).
+      const existed = options.keepRowIfAbsent !== true || (await media.storage.list(key)).some((entry) => entry.key === key);
       await media.storage.delete(key);
-      await deps.uow.runInTransaction((r) => r.mediaQueue.remove(key));
+      if (existed) await deps.uow.runInTransaction((r) => r.mediaQueue.remove(key));
     } catch {
       try {
         await deps.uow.runInTransaction((r) => r.mediaQueue.recordFailure(key));

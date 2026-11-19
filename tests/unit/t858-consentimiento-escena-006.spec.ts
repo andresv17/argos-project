@@ -167,7 +167,8 @@ describe('revokeSceneConsent (T858)', () => {
     await t.revoke.execute(ANDRES);
     expect(snap(t).sceneAttempts?.[0]).toMatchObject({ phase: 'DONE', outcome: 'CANCELLED' });
     expect(snap(t).scenes?.[0]).toMatchObject({ runState: null, currentAttemptId: null });
-    expect(snap(t).mediaQueue).toEqual([]);
+    // BRECHA-SMITH-02: el objeto del intento aun no existe (el put del worker puede llegar despues), asi que la fila DELETE se conserva (REQ-ESC6-029, INV-GCS-002).
+    expect(snap(t).mediaQueue.map((e) => `${e.reason}:${e.objectKey}`)).toEqual([`DELETE:scenes/${attempt?.sceneId}/images/${attempt?.resultObjectId}`]);
     expect(await t.storage.keys('scenes/')).toEqual([]);
     expect(attempt?.phase).toBe('PENDING');
   });

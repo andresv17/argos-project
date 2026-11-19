@@ -7,8 +7,12 @@ import { CreateHouseholdUseCase, DeleteHouseholdUseCase, RemoveMemberUseCase } f
 import { TransferPetOwnershipUseCase } from '../../src/application/use-cases/ownership-use-cases.ts';
 import { DeletePetUseCase } from '../../src/application/use-cases/pet-use-cases.ts';
 import { SceneLifecycleHooks } from '../../src/application/use-cases/scene-lifecycle-hooks.ts';
+import { GetSceneUseCase } from '../../src/application/use-cases/scene-use-cases.ts';
+import { purgeObjects } from '../../src/application/use-cases/media-use-cases.ts';
 import { buildInputsSnapshot, serializeInputsSnapshot, computeFingerprint } from '../../src/domain/scene/inputs-snapshot.ts';
 import { ANDRES, ARGOS, HOUSEHOLD, LUCIA, MARIA, createHarness } from '../fixtures/application-harness.ts';
+import { ControlledStorage } from '../fixtures/media-harness.ts';
+import { sceneFixture, withScene } from '../fixtures/scene-services-fixtures.ts';
 
 /**
  * T862..T868 (006, Fase 5): la lógica REAL de los ganchos de privacidad (`SceneLifecycleHooks`, plan.md §1.2) ejecutada a través de los casos de uso de 002/004/005:
@@ -139,6 +143,56 @@ describe('SceneLifecycleHooks (T864): crear hogar con migración D6-09', () => {
     const t = await setup(null);
     await new CreateHouseholdUseCase(t.deps).execute(LUCIA, { name: 'Casa nueva' });
     expect(t.read().scenes ?? []).toEqual([]);
+  });
+});
+
+describe('SceneLifecycleHooks (T864): arrastre de cuota al recrear el hogar sin escena previa (BRECHA-SMITH-01)', () => {
+  it('[SC-ESC6-076][EDGE-ESC6-033][REQ-ESC6-011][REQ-ESC6-032] consume 10, elimina y crea otro hogar: la escena perezosa del hogar nuevo nace con el arrastre y el restante es 0', async () => {
+    const t = await setup(null, async (r) => void (await r.scenes.upsertQuotaCarry(LUCIA, '2026-11', 10)));
+    const deps = withScene(t.deps, sceneFixture());
+    await new CreateHouseholdUseCase(deps).execute(LUCIA, { name: 'Casa recreada' });
+    const created = t.read().households.find((x) => x.ownerUserId === LUCIA && x.name === 'Casa recreada');
+    const view = await new GetSceneUseCase(deps).execute(LUCIA, { kind: 'HOUSEHOLD', householdId: created!.id });
+    expect(view.quota.remaining).toBe(0);
+    expect(t.read().scenes?.find((s) => s.householdId === created!.id)?.consumedGenerations).toBe(10);
+  });
+
+  it('[EDGE-ESC6-033] el arrastre de una ventana anterior no reduce la cuota del hogar nuevo, y sin arrastre nace en 0', async () => {
+    const old = await setup(null, async (r) => void (await r.scenes.upsertQuotaCarry(LUCIA, '2026-10', 10)));
+    const oldDeps = withScene(old.deps, sceneFixture());
+    await new CreateHouseholdUseCase(oldDeps).execute(LUCIA, { name: 'Casa nueva' });
+    const house = old.read().households.find((x) => x.ownerUserId === LUCIA && x.name === 'Casa nueva');
+    expect((await new GetSceneUseCase(oldDeps).execute(LUCIA, { kind: 'HOUSEHOLD', householdId: house!.id })).quota.remaining).toBe(10);
+  });
+});
+
+describe('purgeObjects tras revocar el consentimiento (BRECHA-SMITH-02)', () => {
+  it('[REQ-ESC6-029][SC-ESC6-044][INV-GCS-002] si el objeto aun no existe en el almacen, la fila DELETE de la cola se conserva; si existia, se borra el objeto y se retira la fila', async () => {
+    const t = await setup(null);
+    const storage = new ControlledStorage(() => new Date(NOW));
+    const deps = { ...t.deps, media: { storage, limits: { maxBytes: 10_485_760, maxBytesPerOwner: 1_073_741_824, maxConcurrentUploads: 4, signedUrlTtlSeconds: 300 } } };
+    const absent = imageKey(SCENE, IMAGE);
+    const present = imageKey(SCENE, RESULT);
+    await storage.put(present, new Uint8Array([1]), 'image/png');
+    await t.h.uow.runInTransaction(async (r) => {
+      await r.mediaQueue.enqueue(absent, 'DELETE', NOW);
+      await r.mediaQueue.enqueue(present, 'DELETE', NOW);
+    });
+    await purgeObjects(deps, [absent, present], { keepRowIfAbsent: true });
+    expect(t.queued()).toEqual([`DELETE:${absent}`]);
+    expect(await storage.keys('scenes/')).toEqual([]);
+    await purgeObjects(deps, [absent]);
+    expect(t.queued()).toEqual([]); // sin la opcion, el comportamiento general (SC-ALM-014) no cambia
+  });
+
+  it('[REQ-ESC6-025][REQ-ESC6-029] el almacen caido conserva la fila (comportamiento previo intacto)', async () => {
+    const t = await setup(null);
+    const storage = new ControlledStorage(() => new Date(NOW));
+    const deps = { ...t.deps, media: { storage, limits: { maxBytes: 10_485_760, maxBytesPerOwner: 1_073_741_824, maxConcurrentUploads: 4, signedUrlTtlSeconds: 300 } } };
+    await t.h.uow.runInTransaction(async (r) => void (await r.mediaQueue.enqueue(imageKey(SCENE, IMAGE), 'DELETE', NOW)));
+    storage.down = true;
+    await purgeObjects(deps, [imageKey(SCENE, IMAGE)]);
+    expect(t.queued()).toEqual([`DELETE:${imageKey(SCENE, IMAGE)}`]);
   });
 });
 

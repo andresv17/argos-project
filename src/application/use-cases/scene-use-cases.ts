@@ -191,6 +191,19 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
   };
 }
 
+/**
+ * Escena perezosa nueva con el arrastre de cuota vigente del propietario (REQ-ESC6-011, REQ-ESC6-032, EDGE-ESC6-033, SC-ESC6-076): borrar y recrear un hogar
+ * no reinicia el consumo mensual aunque no hubiera escena previa que migrar. El arrastre solo cuenta si es de la ventana vigente (`findQuotaCarry`).
+ */
+async function newSceneRecord(deps: ApplicationDeps, r: RepositorySet, access: SceneAccess, now: string, window: string): Promise<SceneRecord> {
+  const ownerId = access.householdId === null ? access.ownerUserId : ((await r.households.findById(access.householdId))?.ownerUserId ?? null);
+  const carried = ownerId === null ? null : await r.scenes.findQuotaCarry(ownerId, window);
+  return {
+    id: deps.ids.nextId(), householdId: access.householdId, ownerUserId: access.ownerUserId, runState: null, currentAttemptId: null, leaseExpiresAt: null,
+    image: null, imageDegraded: false, consumedGenerations: carried ?? 0, quotaWindow: window, createdAt: now, updatedAt: now,
+  };
+}
+
 /** `getHouseholdScene` / `getOwnerScene` (REQ-ESC6-003, REQ-ESC6-019, SC-ESC6-093). */
 export class GetSceneUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
@@ -204,10 +217,7 @@ export class GetSceneUseCase {
       const window = quotaWindowOf(deps.clock.todayIsoDate());
       let scene = await findSceneOf(r, access);
       if (scene === null) {
-        const fresh: SceneRecord = {
-          id: deps.ids.nextId(), householdId: access.householdId, ownerUserId: access.ownerUserId, runState: null, currentAttemptId: null, leaseExpiresAt: null,
-          image: null, imageDegraded: false, consumedGenerations: 0, quotaWindow: window, createdAt: now, updatedAt: now,
-        };
+        const fresh = await newSceneRecord(deps, r, access, now, window);
         await r.scenes.insert(fresh);
         scene = (await findSceneOf(r, access)) ?? fresh;
       }
@@ -324,10 +334,7 @@ export class RequestSceneGenerationUseCase {
       const window = quotaWindowOf(deps.clock.todayIsoDate());
       let scene = await findSceneOf(r, access);
       if (scene === null) {
-        const fresh: SceneRecord = {
-          id: deps.ids.nextId(), householdId: access.householdId, ownerUserId: access.ownerUserId, runState: null, currentAttemptId: null, leaseExpiresAt: null,
-          image: null, imageDegraded: false, consumedGenerations: 0, quotaWindow: window, createdAt: now, updatedAt: now,
-        };
+        const fresh = await newSceneRecord(deps, r, access, now, window);
         await r.scenes.insert(fresh);
         scene = (await findSceneOf(r, access)) ?? fresh;
       }

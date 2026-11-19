@@ -149,7 +149,7 @@ export class RevokeSceneConsentUseCase {
       }
       return { keys, state: await consentState(r, svc, userId) };
     });
-    await purgeObjects(deps, outcome.keys);
+    await purgeObjects(deps, outcome.keys, { keepRowIfAbsent: true });
     return outcome.state;
   }
 }
