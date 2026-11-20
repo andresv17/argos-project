@@ -36,6 +36,9 @@ export const RECORD_CONFLICT_CODE = 'ERR-REC-CONFLICT';
 /** Texto de la interfaz para ese 409 (REQ-BOR-005, D-16 A). */
 export const RECORD_CONFLICT_MESSAGE = 'El registro cambió; recarga y vuelve a intentarlo.';
 
+/** 412 de la ficha desactualizada (007, EDGE-007-009): otra persona la cambió; la interfaz recarga y pide reintentar. @implements REQ-FAL7-003 */
+export const isPetVersionConflict = (error: unknown): boolean => error instanceof ApiProblem && error.problem.code === 'ERR-PET-VERSION-CONFLICT';
+
 /** `ProblemDetails` del catálogo para un código, con los campos opcionales que se indiquen. */
 export function catalogProblem(code: ErrorCode, field?: string): ProblemDetails {
   const entry = ERROR_CATALOG[code];

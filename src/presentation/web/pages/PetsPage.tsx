@@ -19,7 +19,7 @@ import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { Link } from 'react-router-dom';
 import { principalHouseholdId } from '../scene-view.ts';
-import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, problemMessage, unwrap } from '../api.ts';
+import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, isPetVersionConflict, problemMessage, unwrap } from '../api.ts';
 import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
 import type { FormBody } from '../validation.ts';
 import { useSession } from '../session.tsx';
@@ -129,7 +129,18 @@ export function PetsPage(): JSX.Element {
     if (activePetId === null) return;
     // EDGE-007-009: la ficha viaja con la versión leída (`If-Match`); si otra persona la cambió, el servidor responde 412 «Esta ficha cambió, recarga».
     const version = dashboard?.profile.version ?? 1;
-    await unwrap(api.PATCH('/pets/{petId}', { params: { header: { ...CSRF_PARAMS.header, 'If-Match': `"${version}"` }, path: { petId: activePetId } }, body: body as Schemas['UpdatePetInput'] }));
+    try {
+      await unwrap(api.PATCH('/pets/{petId}', { params: { header: { ...CSRF_PARAMS.header, 'If-Match': `"${version}"` }, path: { petId: activePetId } }, body: body as Schemas['UpdatePetInput'] }));
+    } catch (e) {
+      // 412: la ficha cambió; se recarga y el formulario (con `key` por versión) vuelve a montarse con lo vigente, junto al mensaje fijo del catálogo.
+      if (isPetVersionConflict(e)) {
+        setError(messageOf(e));
+        await refreshAll();
+        return;
+      }
+      throw e;
+    }
+    setError(null);
     setMode('VIEW');
     await refreshAll();
   };
@@ -240,7 +251,7 @@ export function PetsPage(): JSX.Element {
                       editSlot: (
                         <>
                           <PetForm
-                            key={`edit-${dashboard.profile.id}`}
+                            key={`edit-${dashboard.profile.id}-v${dashboard.profile.version ?? 1}`}
                             profile={dashboard.profile}
                             canAssign={dashboard.permissions.assignPetToHouseholds}
                             onSubmit={editPet}

@@ -110,13 +110,29 @@ function mediaToDelete(preview: ImportPreviewResult | null): number {
   return typeof count === 'number' && count > 0 ? count : 0;
 }
 
+/** Fichas fallecidas que el reemplazo devolvería a Vivo (007, REQ-FAL7-009); una vista previa anterior a la 007 no trae la lista (0). @implements REQ-FAL7-009 */
+function revivedCount(preview: ImportPreviewResult | null): number {
+  return (preview?.lifeStatusChanges ?? []).filter((change) => change.from === 'DECEASED' && change.to === 'ALIVE').length;
+}
+
 /**
  * «Importar respaldo» se habilita con archivo, sin operación en curso y, si la vista previa informa medios por eliminar, solo tras la
  * confirmación explícita (D-15 A, SC-CAT-031).
  * @implements REQ-IMP-001
  */
-export function canImportBackup({ file, busy, preview, mediaConfirmed }: { readonly file: Blob | null; readonly busy: boolean; readonly preview: ImportPreviewResult | null; readonly mediaConfirmed: boolean }): boolean {
-  return file !== null && !busy && (mediaToDelete(preview) === 0 || mediaConfirmed);
+export function canImportBackup({ file, busy, preview, mediaConfirmed, lifeConfirmed = false }: { readonly file: Blob | null; readonly busy: boolean; readonly preview: ImportPreviewResult | null; readonly mediaConfirmed: boolean; readonly lifeConfirmed?: boolean }): boolean {
+  return file !== null && !busy && (mediaToDelete(preview) === 0 || mediaConfirmed) && (revivedCount(preview) === 0 || lifeConfirmed);
+}
+
+/** Casilla de confirmación de las fichas fallecidas que volverían a Vivo (T1022, REQ-FAL7-009, EDGE-007-004); no se pinta con 0. @implements REQ-FAL7-009 */
+export function LifeRevivalConfirm({ count, checked, onChange }: { readonly count: number; readonly checked: boolean; readonly onChange: (checked: boolean) => void }): JSX.Element | null {
+  if (count <= 0) return null;
+  return (
+    <label className="flex min-h-12 items-start gap-3 rounded-2xl border border-amber-700 bg-amber-50 p-4 text-sm font-semibold text-amber-950">
+      <input type="checkbox" checked={checked} onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.checked)} className="mt-1 h-5 w-5" />
+      {`Confirmo que ${plural(count, 'mascota fallecida', 'mascotas fallecidas')} ${count === 1 ? 'volverá' : 'volverán'} a Vivo. Al volver a Vivo se reactivarán las alertas.`}
+    </label>
+  );
 }
 
 /** Casilla de confirmación adicional del aviso de medios; no se pinta con 0 elementos. @implements REQ-IMP-001 */
@@ -133,12 +149,14 @@ export function MediaDeletionConfirm({ count, checked, onChange }: { readonly co
 export function PreviewSummary({ preview }: { readonly preview: ImportPreviewResult }): JSX.Element {
   const { counts, collisions, affectedSharedPets } = preview;
   const media = mediaToDelete(preview);
+  const revived = revivedCount(preview);
   return (
     <div role="status" className="grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
       <p className="font-semibold">{`Previsualización (versión ${preview.sourceSchemaVersion}): el archivo trae ${plural(counts.pets, 'mascota', 'mascotas')}.`}</p>
       <p className="tabular-nums text-text-muted">{`Pesos: ${counts.weights} · Medidas: ${counts.bodyMeasurements} · Vacunas: ${counts.vaccinations} · Desparasitaciones: ${counts.dewormings} · Consultas: ${counts.medicalVisits} · Parámetros: ${counts.customParameters}`}</p>
       <p>{`Se reemplazarán ${plural(collisions.petsReplacedCount, 'mascota propia actual', 'mascotas propias actuales')}; ${collisions.sameIdPetsCount} ${collisions.sameIdPetsCount === 1 ? 'coincide' : 'coinciden'} por identificador.`}</p>
       {affectedSharedPets.petsCount > 0 ? <p>{`${plural(affectedSharedPets.petsCount, 'mascota compartida perderá', 'mascotas compartidas perderán')} su asignación en ${plural(affectedSharedPets.householdsCount, 'hogar', 'hogares')}.`}</p> : null}
+      {revived > 0 ? <p className="font-semibold text-amber-950">{`${plural(revived, 'mascota fallecida', 'mascotas fallecidas')} ${revived === 1 ? 'volverá' : 'volverán'} a figurar como ${revived === 1 ? 'viva' : 'vivas'} con este archivo.`}</p> : null}
       {media > 0 ? <p className="font-semibold text-red-900">{`Los archivos y fotos no van en el respaldo y se eliminarán: ${plural(media, 'elemento', 'elementos')}`}</p> : null}
     </div>
   );
@@ -170,6 +188,7 @@ export function BackupPage(): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [mediaConfirmed, setMediaConfirmed] = useState(false);
+  const [lifeConfirmed, setLifeConfirmed] = useState(false);
 
   const download = async (): Promise<void> => {
     setError(null);
@@ -186,6 +205,7 @@ export function BackupPage(): JSX.Element {
     setFile(next);
     setPreview(null);
     setMediaConfirmed(false);
+    setLifeConfirmed(false);
     setResult(null);
     setError(null);
     if (next === null) {
@@ -259,8 +279,9 @@ export function BackupPage(): JSX.Element {
         </div>
         {preview === null ? null : <PreviewSummary preview={preview} />}
         <MediaDeletionConfirm count={mediaToDelete(preview)} checked={mediaConfirmed} onChange={setMediaConfirmed} />
+        <LifeRevivalConfirm count={revivedCount(preview)} checked={lifeConfirmed} onChange={setLifeConfirmed} />
         <div>
-          <Button disabled={!canImportBackup({ file, busy, preview, mediaConfirmed })} onClick={() => void upload()}>
+          <Button disabled={!canImportBackup({ file, busy, preview, mediaConfirmed, lifeConfirmed })} onClick={() => void upload()}>
             Importar respaldo
           </Button>
         </div>

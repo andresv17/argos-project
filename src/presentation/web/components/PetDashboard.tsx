@@ -5,7 +5,7 @@
  * Regla D2: el `open` del bloque de alta es estado local, fijado una sola vez al mostrar el módulo por primera vez
  * (abierto si no hay registros) y que solo cambia el usuario; guardar nunca lo cierra.
  *
- * @implements REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, STATE-ALERT-001, REQ-CLI5-001, SC-005-010
+ * @implements REQ-FAL7-003, REQ-FAL7-007, REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, STATE-ALERT-001, REQ-CLI5-001, SC-005-010
  */
 import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { AlertBadge } from './AlertBadge.tsx';
@@ -19,7 +19,7 @@ import { symptomSummary, type SymptomSeverity, type SymptomType } from '../sympt
 import { WeightChart, WeightTable } from './WeightChart.tsx';
 import type { FormBody } from '../validation.ts';
 import { OPTION_B_MODULES, RECORD_MODULES, RECORD_SUMMARY, RECORD_WRITE_PERMISSION, showsBareForm, showsFormOpenByDefault, type RecordModule } from '../records.ts';
-import { avatarVersionOf, formatAge, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
+import { avatarVersionOf, deceasedBadgeText, formatAge, livedText, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
 
 const CATEGORY_LABEL = Object.fromEntries(
   (RECORD_MODULES.find((m) => m.id === 'customParameters')?.fields.find((f) => f.name === 'category')?.options ?? []).map((o) => [o.value, o.label]),
@@ -376,6 +376,9 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                   {SPECIES_LABEL[profile.species]} · {profile.breed} · {SEX_LABEL[profile.sex]} · nació {profile.birthDate}
                 </p>
                 <OwnerBadge owner={dashboard.owner} readOnly={readOnly} />
+                {deceasedBadgeText(profile) === null ? null : (
+                  <p className="w-fit rounded-xl border border-slate-500 bg-slate-100 px-3 py-1 text-sm font-bold text-slate-900">{deceasedBadgeText(profile)}</p>
+                )}
                 {permissions.editPetBasics || permissions.deletePet || (permissions.transferPetOwnership && onTransfer !== undefined) ? (
                   <div className="flex flex-wrap gap-2">
                     {permissions.editPetBasics ? (
@@ -404,7 +407,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
             <AlertsCard dashboard={dashboard} />
             <section aria-label="Edad" className={`${STAT_CARD} col-span-1 lg:col-span-3`}>
               <p className="text-sm text-text-muted">Edad</p>
-              <p className="text-2xl font-bold tabular-nums">{formatAge(dashboard.computedAge)}</p>
+              <p className="text-2xl font-bold tabular-nums">{livedText(profile, dashboard.computedAge) ?? formatAge(dashboard.computedAge)}</p>
             </section>
             <section aria-label="Último peso" className={`${STAT_CARD} col-span-1 lg:col-span-4`}>
               <p className="text-sm text-text-muted">Último peso</p>
