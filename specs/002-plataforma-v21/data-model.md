@@ -200,7 +200,7 @@ Invariante de aplicación (`REQ-OWN-001`, `REQ-HOUSE2-002`): el Propietario Lega
 | `timestamp` | TEXT | NOT NULL, UTC |
 | `executor_user_id` | TEXT | NOT NULL. UUID de usuario, `SYSTEM`, o HMAC-SHA256 hex (usuario eliminado). **Sin clave foránea** |
 | `mutation_type` | TEXT | `CHECK IN` los 10 valores cerrados de la spec |
-| `entity_type` | TEXT | `CHECK IN` los 14 valores cerrados de la spec, incluido `'PET_MEDIA'` (*Enmienda 004, E-08*: subida = `CREATE`, borrado = `DELETE`; ampliación del `CHECK` en las migraciones `0009_pet_media.sql` de SQLite y `0005_pet_media.sql` de PostgreSQL; ratificada por Neo) |
+| `entity_type` | TEXT | `CHECK IN` los 17 valores cerrados de la spec (14 originales con `'PET_MEDIA'` + `'HOME_SCENE'`, `'SCENE_CONSENT'`, `'HOUSEHOLD_PHOTO'`; *Enmienda 006 (N2-06 a), audit-entry 3.2.0, 2026-11-18*; `CHECK` ampliado en `0013_home_scenes.sql` de SQLite y `0009_home_scenes.sql` de PostgreSQL), incluido `'PET_MEDIA'` (*Enmienda 004, E-08*: subida = `CREATE`, borrado = `DELETE`; ampliación del `CHECK` en las migraciones `0009_pet_media.sql` de SQLite y `0005_pet_media.sql` de PostgreSQL; ratificada por Neo) |
 | `entity_id` | TEXT | NOT NULL. Id propio de la entidad; HMAC para `ACCOUNT_DELETE`, filas `USER` del eliminado y `PET_ASSIGNMENT` (`ASSIGN`/`UNASSIGN`); `MIG-<versión>` en `MIGRATION` |
 | `previous_state_hash`, `new_state_hash` | TEXT | NULL. SHA-256 hex sin clave del JSON canónico de la **vista pública canónica** |
 

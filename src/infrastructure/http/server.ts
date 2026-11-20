@@ -13,6 +13,8 @@ import type { FastifyInstance } from 'fastify';
 import { createCachedPlatformParameterPort } from '../../application/platform-parameters/cached-platform-parameter.ts';
 import type { PlatformParameterRepositoryPort } from '../../application/ports/platform-parameter.port.ts';
 import type { UnitOfWorkPort } from '../../application/ports/unit-of-work.port.ts';
+import { RunSceneGenerationUseCase } from '../../application/use-cases/scene-run-use-case.ts';
+import { SceneLifecycleHooks } from '../../application/use-cases/scene-lifecycle-hooks.ts';
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { CryptoSecureTokenAdapter } from '../adapters/crypto-secure-token.adapter.ts';
 import { CryptoUuidAdapter } from '../adapters/crypto-uuid.adapter.ts';
@@ -32,8 +34,13 @@ import { buildApp } from './app.ts';
 import { mediaBucketHost } from './plugins/security-headers.ts';
 import { cloudLoggerOptions } from './cloud-logging.ts';
 import { installShutdownHandlers } from './graceful-shutdown.ts';
-import { createOidcVerifier } from './oidc-verify.ts';
+import { createRouteOidcVerifier, type OidcVerifierOptions } from './oidc-verify.ts';
+import { composeSceneServices, type SceneCompositionOptions } from './scene-composition.ts';
+import { createSceneGlobalQuotaMaxReader, loadSceneProviderParameters } from '../config/scene-provider-parameters.ts';
+import type { SceneGlobalQuotaPort } from '../../application/ports/scene-global-quota.port.ts';
+import type { SqlSceneGlobalQuotaDeps } from '../persistence/scene-global-quota.ts';
 import { registerMaintenanceRoute } from './routes/maintenance-routes.ts';
+import { registerSceneWorkerRoute } from './routes/scene-worker.routes.ts';
 
 /**
  * Opciones del logger de producción: `cookie` de la petición y `set-cookie` de la respuesta se ocultan (INV-AUTH-003).
@@ -48,22 +55,45 @@ export const PRODUCTION_LOGGER_OPTIONS = cloudLoggerOptions();
  * Un 55P03 (lock_timeout) no se traduce: se propaga y `registerProblemDetails` responde 500 ERR-INTERNAL-UNEXPECTED
  * (el catálogo v2.1.1 no tiene 503; un código nuevo es cambio de contrato Nivel 3). No se registra `config` ni la URL.
  */
-async function composePersistence(config: AppConfig): Promise<{ uow: UnitOfWorkPort; parameters: PlatformParameterRepositoryPort; close: () => Promise<void>; checkReady: () => Promise<void> }> {
+interface ComposedPersistence {
+  readonly uow: UnitOfWorkPort;
+  readonly parameters: PlatformParameterRepositoryPort;
+  /** Contador global mensual de la escena sobre `platform_parameters` (T948); solo se usa con el driver `real`. */
+  readonly sceneGlobalQuota: (deps: SqlSceneGlobalQuotaDeps) => SceneGlobalQuotaPort;
+  readonly close: () => Promise<void>;
+  readonly checkReady: () => Promise<void>;
+}
+
+async function composePersistence(config: AppConfig): Promise<ComposedPersistence> {
   if (config.dbDriver === 'postgres') {
     if (config.databaseUrl === null) throw new Error('DATABASE_URL ausente con ARGOS_DB_DRIVER=postgres');
     const { createPostgresPool, closePool } = await import('../persistence/postgres/postgres-database.ts');
     const { PostgresUnitOfWork } = await import('../persistence/postgres/postgres-unit-of-work.ts');
     const { createPostgresRepositories } = await import('../persistence/postgres/postgres-repositories.ts');
     const { SqlPlatformParameterRepository } = await import('../persistence/platform-parameter-repository.ts');
+    const { SqlSceneGlobalQuota } = await import('../persistence/scene-global-quota.ts');
     const pool = createPostgresPool({ connectionString: config.databaseUrl, pgPoolMax: config.pgPoolMax });
     // Hasta T464: solo SELECT 1 (REQ-PG-013: nunca consulta schema_migrations en /healthz ni al arrancar).
-    return { uow: new PostgresUnitOfWork(pool, createPostgresRepositories), parameters: SqlPlatformParameterRepository.forPostgres(pool), close: () => closePool(pool), checkReady: async () => void (await pool.query('SELECT 1')) };
+    return {
+      uow: new PostgresUnitOfWork(pool, createPostgresRepositories),
+      parameters: SqlPlatformParameterRepository.forPostgres(pool),
+      sceneGlobalQuota: (deps) => SqlSceneGlobalQuota.forPostgres(pool, deps),
+      close: () => closePool(pool),
+      checkReady: async () => void (await pool.query('SELECT 1')),
+    };
   }
   const { openSqliteDatabase, assertSchemaReady } = await import('../persistence/sqlite/sqlite-database.ts');
   const { SqliteUnitOfWork } = await import('../persistence/sqlite/sqlite-unit-of-work.ts');
   const { SqlPlatformParameterRepository } = await import('../persistence/platform-parameter-repository.ts');
+  const { SqlSceneGlobalQuota } = await import('../persistence/scene-global-quota.ts');
   const db = openSqliteDatabase(config.databasePath);
-  return { uow: new SqliteUnitOfWork(db), parameters: SqlPlatformParameterRepository.forSqlite(db), close: async () => void db.close(), checkReady: async () => assertSchemaReady(db) };
+  return {
+    uow: new SqliteUnitOfWork(db),
+    parameters: SqlPlatformParameterRepository.forSqlite(db),
+    sceneGlobalQuota: (deps) => SqlSceneGlobalQuota.forSqlite(db, deps),
+    close: async () => void db.close(),
+    checkReady: async () => assertSchemaReady(db),
+  };
 }
 
 /**
@@ -96,6 +126,10 @@ export interface ProductionAppOptions {
    * desarrollo; en producción (host 0.0.0.0) el enlace queda DESACTIVADO (sin `deps.sharing`: la creación falla cerrada y la ruta pública responde el 404 uniforme).
    */
   readonly shareIpHmacSecret?: string | null;
+  /** JWKS inyectado para verificar los tokens OIDC de las rutas internas (solo pruebas); por defecto el JWKS público de Google. */
+  readonly oidcJwks?: NonNullable<OidcVerifierOptions['jwks']>;
+  /** `fetch` de Cloud Tasks y de Vertex AI con el driver `real` (solo pruebas); por defecto el global. */
+  readonly sceneFetch?: typeof fetch;
 }
 
 export async function createProductionApp(config: AppConfig, logger: boolean = true, options: ProductionAppOptions = {}): Promise<FastifyInstance> {
@@ -116,6 +150,21 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     clock,
     warn: (warning) => logging.app?.log.warn({ platformParameter: warning }, 'parámetro de plataforma ausente o inválido: se usa el valor por defecto del código'),
   });
+  // 006 (Fase 14, T948/T952): con el driver real, modelo, región y tope global salen de `platform_parameters` (respaldo en el entorno de `config.scene`); una fila inválida
+  // rechaza el arranque (nombra la clave, no el valor). El contador global descuenta con una sola sentencia atómica y falla cerrado.
+  const sceneProvider: Pick<SceneCompositionOptions, 'providerParameters' | 'globalQuota' | 'fetch'> = {};
+  if (config.scene.driver === 'real' && mediaStorage !== null) {
+    const providerParameters = await loadSceneProviderParameters(persistence.parameters, config.scene);
+    const readMax = createSceneGlobalQuotaMaxReader(persistence.parameters, providerParameters.globalQuotaMax);
+    Object.assign(sceneProvider, {
+      providerParameters,
+      globalQuota: persistence.sceneGlobalQuota({ readMax, now: () => clock.nowIsoTimestamp() }),
+      ...(options.sceneFetch === undefined ? {} : { fetch: options.sceneFetch }),
+    });
+  }
+  // 006 (T873): generador simulado y despachador en proceso en desarrollo y CI; el worker se resuelve perezosamente porque necesita las `deps` que contienen la escena.
+  const sceneRunner: { current: RunSceneGenerationUseCase | null } = { current: null };
+  const runScene = (job: { sceneId: string; attemptId: string }, signal: AbortSignal) => sceneRunner.current!.execute(job, signal);
   const shareSecret = options.shareIpHmacSecret ?? (config.host === '0.0.0.0' ? null : DEVELOPMENT_SHARE_IP_HMAC_SECRET);
   const deps: ApplicationDeps = {
     uow: persistence.uow,
@@ -131,6 +180,9 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     auditHmacSecret: config.auditHmacSecret ?? DEVELOPMENT_AUDIT_HMAC_SECRET,
     auditIds: ids,
     platformParameters,
+    // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).
+    sceneHooks: new SceneLifecycleHooks(),
+    ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, ...sceneProvider }) }),
     ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter() } }),
     ...(mediaStorage === null
       ? {}
@@ -146,6 +198,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
           },
         }),
   };
+  sceneRunner.current = new RunSceneGenerationUseCase(deps);
   const app = await buildApp({
     deps,
     cookieSecure: config.cookieSecure,
@@ -161,12 +214,21 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   });
   logging.app = app;
   app.addHook('onClose', () => persistence.close());
-  // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). El token OIDC del Scheduler se verifica con jose (createOidcVerifier, T486): firma, issuer, audiencia y correo.
+  // Solo con postgres (REQ-SEC-007): sin identidad configurada no hay ruta (404). El token OIDC del Scheduler se verifica con jose (createRouteOidcVerifier, T486): firma, issuer, audiencia y correo.
   if (config.dbDriver === 'postgres' && config.schedulerEmail !== null && config.oidcAudience !== null) {
     registerMaintenanceRoute(app, {
-      verifyOidc: createOidcVerifier({ audience: config.oidcAudience }),
+      verifyOidc: createRouteOidcVerifier('/internal/maintenance', { audience: config.oidcAudience, ...(options.oidcJwks === undefined ? {} : { jwks: options.oidcJwks }) }),
       runMaintenance: () => runMaintenance(deps, (queue) => logMediaQueue(app, queue)),
       schedulerEmail: config.schedulerEmail,
+    });
+  }
+  // 006 (REQ-ESC6-033): la ruta del worker solo existe con la cuenta de la cola y la URL del worker configuradas; audiencia = ARGOS_SCENE_WORKER_URL, correo exacto de la cuenta.
+  if (deps.scene !== undefined && config.scene.tasksServiceAccountEmail !== null && config.scene.workerUrl !== null) {
+    registerSceneWorkerRoute(app, {
+      verifyOidc: createRouteOidcVerifier('/internal/scene-worker', { audience: config.scene.workerUrl, ...(options.oidcJwks === undefined ? {} : { jwks: options.oidcJwks }) }),
+      expectedEmail: config.scene.tasksServiceAccountEmail,
+      run: runScene,
+      genTimeoutSeconds: config.scene.genTimeoutSeconds,
     });
   }
   maintenanceDeps.set(app, deps);

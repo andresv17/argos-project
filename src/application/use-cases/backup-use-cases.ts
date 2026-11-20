@@ -504,6 +504,7 @@ export class ImportBackupUseCase {
     let limited: DomainError | null = null;
     const objectKeys: string[] = [];
     let replacedPetIds: string[] = [];
+    let sceneHookFailure: unknown = null;
     try {
       await this.deps.uow.runInTransaction(async (repositories) => {
         await this.pipeline.assertNoForeignIds(run, repositories, userId, envelope);
@@ -526,6 +527,16 @@ export class ImportBackupUseCase {
           priorAvatarVersions.set(pet.id, (await repositories.pets.findAvatar(pet.id))?.version ?? 0);
         }
         replacedPetIds = current.map((pet) => pet.id);
+        // 006 (T867, REQ-ESC6-022, SC-ESC6-088): la importación reemplaza mascotas y deja `avatar_object_id = NULL`; ANTES de borrarlas, la escena retira la imagen vigente de toda
+        // escena cuyo snapshot las incluya (misma transacción: si lanza, la importación se revierte completa). La exportación no incluye escenas y no invoca ganchos.
+        if (replacedPetIds.length > 0) {
+          try {
+            await this.deps.sceneHooks?.onBackupImported(repositories, { ownerUserId: userId, replacedPetIds: [...replacedPetIds].sort(), now: this.deps.clock.nowIsoTimestamp() });
+          } catch (error) {
+            sceneHookFailure = error; // se relanza tal cual tras el ROLLBACK: no es un fallo de almacenamiento de la importación
+            throw error;
+          }
+        }
         // REQ-BOR-005, SC-CAT-035: la revisión de un registro que ya existía nunca retrocede (la existente + 1); uno nuevo nace en 0.
         const priorRevisions = await revisionsOf(repositories, current);
         for (const pet of current) {
@@ -566,6 +577,7 @@ export class ImportBackupUseCase {
       await reinforcePrefix(this.deps, replacedPetIds);
     } catch (error) {
       if (limited !== null && error === limited) throw error;
+      if (sceneHookFailure !== null && error === sceneHookFailure) throw error;
       // El duplicado cuenta como un evento del usuario; se registra fuera de la transacción ya terminada (best effort).
       if (isMicrochipDuplicateError(error)) await recordMicrochipDuplicate(this.deps, userId);
       // ID ajeno: run.fail ya llevó la máquina a ROLLED_BACK con ERR-BACKUP-REFERENTIAL-INTEGRITY.

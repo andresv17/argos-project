@@ -34,6 +34,8 @@ export class TransferPetOwnershipUseCase {
         memberships: await repositories.households.listMembershipsOfUsers([targetUserId]),
         assignments: before,
       });
+      // 006 (T866, REQ-ESC6-024/025/030, SC-ESC6-088): ANTES de mutar, la escena retira las imágenes cuyas fuentes incluyan al propietario anterior; el consentimiento efectivo pasa al nuevo Propietario Legal.
+      await this.deps.sceneHooks?.onPetOwnershipTransferred(repositories, { petId, previousOwnerUserId: pet.ownerUserId, newOwnerUserId: targetUserId, now: this.deps.clock.nowIsoTimestamp() });
       const kept = new Set(out.assignments.map((a) => a.householdId));
       const pruned = before.filter((a) => !kept.has(a.householdId)).map((a) => a.householdId);
       for (const householdId of pruned) await repositories.assignments.remove(petId, householdId);

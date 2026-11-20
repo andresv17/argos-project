@@ -25,6 +25,9 @@ import {
   TransferHouseholdOwnershipUseCase,
 } from '../../../application/use-cases/household-use-cases.ts';
 import { DeleteMediaUseCase, GetAlbumLimitsUseCase, GetMediaAccessUseCase, ListMediaUseCase, UploadMediaUseCase } from '../../../application/use-cases/media-use-cases.ts';
+import { GetSceneNoticeUseCase, GrantSceneConsentUseCase, RevokeSceneConsentUseCase } from '../../../application/use-cases/scene-consent-use-cases.ts';
+import { DeleteHouseholdPhotoUseCase, GetHouseholdPhotoUseCase, PutHouseholdPhotoUseCase } from '../../../application/use-cases/scene-photo-use-cases.ts';
+import { GetSceneImageUseCase, GetSceneUseCase, RequestSceneGenerationUseCase } from '../../../application/use-cases/scene-use-cases.ts';
 import { CreateShareLinkUseCase, ListShareLinksUseCase, RevokeShareLinkUseCase } from '../../../application/use-cases/share-link-use-cases.ts';
 import { GetSharedFileUseCase, GetSharedSummaryUseCase, PreviewClinicalSummaryUseCase } from '../../../application/use-cases/shared-view-use-cases.ts';
 import { TransferPetOwnershipUseCase } from '../../../application/use-cases/ownership-use-cases.ts';
@@ -98,6 +101,15 @@ export function createUseCases(deps: ApplicationDeps) {
     previewSummary: new PreviewClinicalSummaryUseCase(deps),
     sharedSummary: new GetSharedSummaryUseCase(deps),
     sharedFile: new GetSharedFileUseCase(deps),
+    getScene: new GetSceneUseCase(deps),
+    requestScene: new RequestSceneGenerationUseCase(deps),
+    getSceneImage: new GetSceneImageUseCase(deps),
+    putHouseholdPhoto: new PutHouseholdPhotoUseCase(deps),
+    getHouseholdPhoto: new GetHouseholdPhotoUseCase(deps),
+    deleteHouseholdPhoto: new DeleteHouseholdPhotoUseCase(deps),
+    sceneNotice: new GetSceneNoticeUseCase(deps),
+    grantSceneConsent: new GrantSceneConsentUseCase(deps),
+    revokeSceneConsent: new RevokeSceneConsentUseCase(deps),
   };
 }
 

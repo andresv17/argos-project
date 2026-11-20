@@ -1,13 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { AppConfigError, loadAppConfig } from '../../../src/infrastructure/config/app-config.ts';
+import { AppConfigError } from '../../../src/infrastructure/config/app-config.ts';
+import { PROD_SCENE, loadAppConfigActivated as loadAppConfig } from '../../fixtures/scene-config-fixtures.ts';
 
 /**
  * T256 (fase ROJA) — el secreto de la seudonimización (REQ-AUD-001, SC-014, INV-ARCH-006).
  * Causa roja esperada: loadAppConfig aún no conoce ARGOS_AUDIT_HMAC_SECRET (devuelve configuración sin lanzar AppConfigError).
  * Supuesto de contrato: el modo de producción se declara con NODE_ENV=production; el secreto válido son >= 32 bytes en hexadecimal (64 caracteres).
  */
-const PROD_MEDIA = { ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' }; // T566 (SC-ALM-023)
+const PROD_MEDIA = { ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE }; // T566 (SC-ALM-023)
 function errorOf(env: Record<string, string | undefined>): { variables: readonly string[]; leaked: boolean } | 'sin error' {
   try {
     loadAppConfig(env);

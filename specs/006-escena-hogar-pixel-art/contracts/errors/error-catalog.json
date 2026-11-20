@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArgosDeterministicErrorCatalogIncremental006",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "extends": "specs/004-catalogos-registros-archivos/contracts/errors/error-catalog.json 3.1.0 y specs/005-album-archivos-clinicos/contracts/errors/error-catalog.json 1.0.0 (LOCKED o DRAFT sin editar)",
+    "change_note": "Catálogo INCREMENTAL de la feature 006 (M6-B2): solo los 7 códigos nuevos. ERR-ACC-FORBIDDEN, ERR-HOUSE-NOT-FOUND, ERR-PET-NOT-FOUND, ERR-AUTH-*, ERR-SCHEMA-VALIDATION-FAILED, ERR-MEDIA-TYPE-NOT-ALLOWED, ERR-MEDIA-TOO-LARGE, ERR-MEDIA-QUOTA-EXCEEDED, ERR-MEDIA-NOT-FOUND, ERR-MEDIA-STORAGE-UNAVAILABLE, ERR-RATE-LIMITED e ERR-INTERNAL-UNEXPECTED se heredan. Los cuatro códigos con surface = SCENE_STATE se exponen dentro de SceneView.lastError y no como respuesta HTTP de la generación asíncrona. El compilador debe fallar si un código aparece en más de un catálogo. Revisión 2 (2026-11-18): sin códigos nuevos; los límites de intentos y de tasa de REQ-ESC6-034 usan el ERR-RATE-LIMITED heredado (429); los códigos SCENE_STATE no son respuestas HTTP y el mapeador HTTP no los traduce (H-MERO-006-24); el tipo SceneErrorCode de scene.schema.json se genera desde este catálogo (H-MIF-006-12).",
+    "removed": [],
+    "added": [
+      "ERR-SCENE-CONSENT-REQUIRED",
+      "ERR-SCENE-NOTICE-OUTDATED",
+      "ERR-SCENE-QUOTA-EXCEEDED",
+      "ERR-SCENE-GENERATION-FAILED",
+      "ERR-SCENE-GENERATION-TIMEOUT",
+      "ERR-SCENE-INVALID-IMAGE",
+      "ERR-SCENE-LEASE-EXPIRED"
+    ],
+    "inherited": [
+      "ERR-ACC-FORBIDDEN",
+      "ERR-AUTH-CSRF-REJECTED",
+      "ERR-AUTH-UNAUTHENTICATED",
+      "ERR-HOUSE-NOT-FOUND",
+      "ERR-INTERNAL-UNEXPECTED",
+      "ERR-MEDIA-NOT-FOUND",
+      "ERR-MEDIA-QUOTA-EXCEEDED",
+      "ERR-MEDIA-STORAGE-UNAVAILABLE",
+      "ERR-MEDIA-TOO-LARGE",
+      "ERR-MEDIA-TYPE-NOT-ALLOWED",
+      "ERR-RATE-LIMITED",
+      "ERR-SCHEMA-VALIDATION-FAILED"
+    ],
+    "traceability": [
+      "REQ-ESC6-011",
+      "REQ-ESC6-013",
+      "REQ-ESC6-023",
+      "INV-ESC6-003",
+      "INV-ESC6-004",
+      "INV-ESC6-005",
+      "INV-ESC6-014",
+      "EDGE-ESC6-003",
+      "EDGE-ESC6-004",
+      "EDGE-ESC6-017",
+      "EDGE-ESC6-018",
+      "REQ-ESC6-034",
+      "REQ-ESC6-035",
+      "EDGE-ESC6-026",
+      "EDGE-ESC6-029",
+      "EDGE-ESC6-032"
+    ]
+  },
+  "version": "1.0.0",
+  "status": "DRAFT",
+  "problemDetailsSchema": {
+    "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
+  },
+  "errors": {
+    "ERR-SCENE-CONSENT-REQUIRED": {
+      "type": "urn:argos:error:ERR-SCENE-CONSENT-REQUIRED",
+      "status": 403,
+      "title": "Consentimiento requerido",
+      "invariantRef": "INV-ESC6-014",
+      "detailTemplate": "Para crear la imagen de tu hogar debes aceptar el aviso de envío de fotos al servicio de inteligencia artificial.",
+      "requirementRef": "REQ-ESC6-023, REQ-ESC6-025",
+      "note": "No revela qué dueño falta ni a quién pertenecen las demás mascotas; 0 llamadas al generador"
+    },
+    "ERR-SCENE-NOTICE-OUTDATED": {
+      "type": "urn:argos:error:ERR-SCENE-NOTICE-OUTDATED",
+      "status": 409,
+      "title": "Aviso desactualizado",
+      "invariantRef": "REQ-ESC6-023",
+      "detailTemplate": "El aviso cambió. Léelo de nuevo y vuelve a aceptar.",
+      "requirementRef": "REQ-ESC6-023, EDGE-ESC6-018"
+    },
+    "ERR-SCENE-QUOTA-EXCEEDED": {
+      "type": "urn:argos:error:ERR-SCENE-QUOTA-EXCEEDED",
+      "status": 409,
+      "title": "Límite de generaciones alcanzado",
+      "invariantRef": "INV-ESC6-004",
+      "detailTemplate": "Alcanzaste el máximo de imágenes de este mes. Conservamos la última imagen y podrás generar otra el día 1.",
+      "requirementRef": "REQ-ESC6-011",
+      "note": "0 llamadas al generador; la imagen vigente se conserva (D6-05)"
+    },
+    "ERR-SCENE-GENERATION-FAILED": {
+      "type": "urn:argos:error:ERR-SCENE-GENERATION-FAILED",
+      "status": 502,
+      "title": "No pudimos crear la imagen",
+      "invariantRef": "INV-ESC6-005",
+      "detailTemplate": "No pudimos crear la imagen. Tu imagen anterior sigue disponible y no se descontó ningún intento. Puedes reintentar.",
+      "requirementRef": "REQ-ESC6-013",
+      "surface": "SCENE_STATE",
+      "note": "Se expone en SceneView.lastError, no como respuesta HTTP del POST (que devuelve 202/200 con el estado). Sin cuerpo del proveedor"
+    },
+    "ERR-SCENE-GENERATION-TIMEOUT": {
+      "type": "urn:argos:error:ERR-SCENE-GENERATION-TIMEOUT",
+      "status": 504,
+      "title": "La creación de la imagen tardó demasiado",
+      "invariantRef": "INV-ESC6-005",
+      "detailTemplate": "La creación de la imagen tardó demasiado. Tu imagen anterior sigue disponible y no se descontó ningún intento. Puedes reintentar.",
+      "requirementRef": "REQ-ESC6-013, EDGE-ESC6-017",
+      "surface": "SCENE_STATE"
+    },
+    "ERR-SCENE-INVALID-IMAGE": {
+      "type": "urn:argos:error:ERR-SCENE-INVALID-IMAGE",
+      "status": 502,
+      "title": "Imagen generada no válida",
+      "invariantRef": "INV-ESC6-005",
+      "detailTemplate": "El servicio devolvió una imagen que no pudimos usar. Tu imagen anterior sigue disponible y no se descontó ningún intento.",
+      "requirementRef": "REQ-ESC6-013, EDGE-ESC6-004",
+      "surface": "SCENE_STATE"
+    },
+    "ERR-SCENE-LEASE-EXPIRED": {
+      "type": "urn:argos:error:ERR-SCENE-LEASE-EXPIRED",
+      "status": 504,
+      "title": "La generación no terminó",
+      "invariantRef": "INV-ESC6-003",
+      "detailTemplate": "La generación no terminó a tiempo. Tu imagen anterior sigue disponible y no se descontó ningún intento.",
+      "requirementRef": "REQ-ESC6-013, EDGE-ESC6-003",
+      "surface": "SCENE_STATE"
+    }
+  }
+}

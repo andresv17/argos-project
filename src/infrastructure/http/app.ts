@@ -25,6 +25,11 @@ import { registerPetRoutes } from './routes/pets.routes.ts';
 import { registerMediaRoutes } from './routes/media.routes.ts';
 import { registerShareLinkRoutes } from './routes/share-links.routes.ts';
 import { applySharedHeaders, createSharedFailure, isSharedPagePath, registerSharedRoutes, sharedFrameworkErrors } from './routes/shared.routes.ts';
+import { registerHouseholdPhotoRoutes } from './routes/household-photo.routes.ts';
+import { registerSceneConsentRoutes } from './routes/scene-consent.routes.ts';
+import { registerSceneHeaders } from './routes/scene-headers.ts';
+import { registerSceneRoutes } from './routes/scene.routes.ts';
+import { SceneRateLimiter } from './scene-rate-limit.ts';
 import { registerRecordEditRoutes } from './routes/records-edit.routes.ts';
 import { createUseCases } from './routes/use-cases.ts';
 
@@ -75,6 +80,14 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
   registerRecordEditRoutes(app, context);
   // Medios (feature 004): solo si la composición conectó el almacenamiento (REQ-GCS-003); sin él las rutas no existen (404).
   if (deps.media !== undefined) registerMediaRoutes(app, context, deps.media);
+  // Escena del hogar (feature 006): solo si la composición conectó la escena y los medios; sin ellos las rutas no existen (404).
+  if (deps.scene !== undefined && deps.media !== undefined) {
+    const limiter = new SceneRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp()));
+    registerSceneHeaders(app);
+    registerSceneRoutes(app, context, limiter);
+    registerHouseholdPhotoRoutes(app, context, deps.media, limiter);
+    registerSceneConsentRoutes(app, context, limiter);
+  }
   registerShareLinkRoutes(app, context);
   sharedFailure.current = createSharedFailure(context.useCases, deps);
   registerSharedRoutes(app, context, sharedFailure.current);

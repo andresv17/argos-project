@@ -54,6 +54,7 @@ import type {
 import { corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 import { shareAuditRepository, shareLinkRepository } from './postgres-share-repositories.ts';
+import { postgresSceneConsentRepository, postgresSceneRepository } from './postgres-scene-repositories.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import { STORED_RECORD_CHECKS, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
@@ -399,7 +400,7 @@ function mediaRepository(client: PoolClientLike): PetMediaRepositoryPort {
       return count(rows[0]);
     },
     async countBytesOfOwner(ownerUserId) {
-      const { rows } = await client.query('SELECT COALESCE(SUM(m.size_bytes), 0) AS n FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = $1', [ownerUserId]);
+      const { rows } = await client.query('SELECT COALESCE((SELECT SUM(m.size_bytes) FROM pet_media m JOIN pets p ON p.id = m.pet_id WHERE p.owner_user_id = $1), 0) + COALESCE((SELECT SUM(h.size_bytes) FROM household_photos h JOIN households g ON g.id = h.household_id WHERE g.owner_user_id = $1), 0) AS n', [ownerUserId]);
       return count(rows[0]);
     },
     async remove(petId, mediaId) {
@@ -775,5 +776,7 @@ export function createPostgresRepositories(client: PoolClientLike): RepositorySe
     ...createPostgresRepositoriesPart3(client),
     shareLinks: shareLinkRepository(client),
     shareAudit: shareAuditRepository(client),
+    scenes: postgresSceneRepository(client),
+    sceneConsents: postgresSceneConsentRepository(client),
   };
 }

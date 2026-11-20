@@ -120,6 +120,11 @@ export interface MediaEngine {
   queue(): Promise<Array<{ objectKey: string; reason: string; attempts: number }>>;
   audit(entityType: string): Promise<Array<{ mutationType: string; entityId: string; previousStateHash: string | null; newStateHash: string | null }>>;
   avatar(petId?: string): Promise<{ version: number; objectId: string | null } | null>;
+  /**
+   * T813 (006, N2-06 (c)): siembra la foto de un hogar (`household_photos`, data-model §2.4) sin pasar por un caso de uso (la API de la foto del hogar es de
+   * T857). Memoria: `state.householdPhotos` con las claves `householdId, objectId, mime, sizeBytes, uploadedByUserId, createdAt`; SQLite: INSERT directo.
+   */
+  seedHouseholdPhoto(photo: { householdId: string; objectId: string; sizeBytes: number; uploadedByUserId: string }): void;
   /** Ejecuta trabajo transaccional directo (para forzar cambios concurrentes). */
   run<T>(work: (r: import('../../src/application/ports/repositories.port.ts').RepositorySet) => Promise<T>): Promise<T>;
   close(): void;
@@ -181,6 +186,17 @@ export async function createMediaEngines(role: HouseholdRole | null = null, opti
     const run: MediaEngine['run'] = (work) => uow.runInTransaction(work);
     return {
       name,
+      seedHouseholdPhoto: (photo) => {
+        const createdAt = '2026-11-18T10:00:00.000Z';
+        if (sqlite === undefined) {
+          const state = (uow as unknown as { state: { householdPhotos?: Array<Record<string, unknown>> } }).state;
+          (state.householdPhotos ??= []).push({ ...photo, mime: 'image/png', createdAt });
+          return;
+        }
+        sqlite
+          .prepare('INSERT INTO household_photos (household_id, object_id, mime, size_bytes, uploaded_by_user_id, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(photo.householdId, photo.objectId, 'image/png', photo.sizeBytes, photo.uploadedByUserId, createdAt);
+      },
       deps,
       storage,
       clock,

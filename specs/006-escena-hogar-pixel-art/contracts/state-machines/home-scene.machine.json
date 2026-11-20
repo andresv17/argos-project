@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "STATE-SCENE-001",
+  "version": "1.0.0",
+  "status": "DRAFT",
+  "supersedes": null,
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "Máquina nueva de la feature 006: ciclo de vida de la escena del hogar. Ocho transiciones, cerrada: cualquier otra se rechaza (REQ-ESC6-003). generating -> outdated cubre D19 (cambios durante la generación); failed -> outdated, los cambios nuevos tras un fallo (EDGE-ESC6-014); el retiro de la imagen (D6-17) lleva a outdated o idle. Revisión 2 (2026-11-18): el estado se DERIVA en lectura (H-MIF-006-01, ADR-006-09); solo generating y failed se persisten (run_state). Las ocho parejas (from, to) no cambian; generating -> outdated admite además el evento CANCELLED (EDGE-ESC6-025). El arrendamiento se cuenta desde el claim del worker (EDGE-ESC6-026).",
+    "traceability": [
+      "STATE-SCENE-001",
+      "REQ-ESC6-003",
+      "REQ-ESC6-012",
+      "REQ-ESC6-013",
+      "REQ-ESC6-014",
+      "REQ-ESC6-025",
+      "REQ-ESC6-030",
+      "INV-ESC6-003",
+      "INV-ESC6-005",
+      "EDGE-ESC6-003",
+      "EDGE-ESC6-014",
+      "EDGE-ESC6-020",
+      "SC-ESC6-016",
+      "SC-ESC6-017",
+      "SC-ESC6-018",
+      "SC-ESC6-020",
+      "REQ-ESC6-036",
+      "EDGE-ESC6-025",
+      "EDGE-ESC6-026",
+      "EDGE-ESC6-028",
+      "SC-ESC6-068",
+      "SC-ESC6-069",
+      "SC-ESC6-086"
+    ]
+  },
+  "machines": {
+    "STATE-SCENE-001": {
+      "description": "Estado DERIVADO de la escena en lectura (deriveStatus, data-model.md §4); solo generating y failed se persisten (home_scenes.run_state). La máquina es el contrato lógico de las transiciones",
+      "context": {
+        "now": "ClockPort.now(); un solo instante por operación",
+        "fingerprintNow": "huella calculada del estado actual (función pura)",
+        "fingerprintLast": "huella de la última generación publicada o null",
+        "leaseExpiresAt": "IsoTimestamp o null; no nulo solo en generating. En T1 = ahora + T_QUEUE (600 s); el claim del worker lo reescribe a claimed_at + T_LEASE (150 s, EDGE-ESC6-026)",
+        "remainingQuota": "max(0, Q - consumidas de la ventana mensual)"
+      },
+      "initialState": "idle",
+      "states": {
+        "idle": {
+          "label": "Sin imagen y sin cambios",
+          "isTerminal": false,
+          "invariant": "currentImageId = null y no hay mascotas ni foto del hogar con consentimiento"
+        },
+        "outdated": {
+          "label": "Hay cambios pendientes o falta la imagen",
+          "isTerminal": false,
+          "invariant": "fingerprintNow <> fingerprintLast, o no hay imagen y hay entradas"
+        },
+        "generating": {
+          "label": "Generación en curso",
+          "isTerminal": false,
+          "invariant": "leaseExpiresAt > now y un solo intento con arrendamiento (INV-ESC6-003)"
+        },
+        "ready": {
+          "label": "Imagen vigente igual a la huella actual",
+          "isTerminal": false,
+          "invariant": "fingerprintNow = fingerprintLast y existe imagen"
+        },
+        "failed": {
+          "label": "El último intento falló",
+          "isTerminal": false,
+          "invariant": "la imagen válida anterior, si existe, sigue vigente (INV-ESC6-005)"
+        }
+      },
+      "transitions": [
+        {
+          "from": "idle",
+          "to": "outdated",
+          "event": "INPUT_CHANGED",
+          "guard": "fingerprintNow distinta de la vacía (alta de mascota o de foto con consentimiento)",
+          "requirementRef": "REQ-ESC6-003, REQ-ESC6-004"
+        },
+        {
+          "from": "outdated",
+          "to": "generating",
+          "event": "REQUEST",
+          "guard": "rol propietario/ADMIN, restante >= 1, consentimiento vigente (driver real), contadores y enfriamiento de REQ-ESC6-034, cambios >= 1 o sin imagen o REGENERATE; compare-and-set atómico (INV-ESC6-003). REGENERATE desde ready se expresa como ready -> outdated (por la acción) y outdated -> generating en la misma transacción",
+          "requirementRef": "REQ-ESC6-005, REQ-ESC6-012"
+        },
+        {
+          "from": "generating",
+          "to": "ready",
+          "event": "PUBLISHED",
+          "guard": "T2 de publicación bajo candado, intento vigente, arrendamiento vigente desde el claim, dueños de datos con consentimiento y asignación vigentes, cuota del intento (ventana y máximo fijados en T1) y fingerprintNow = fingerprint fijada al inicio y sin referencia degradada",
+          "requirementRef": "REQ-ESC6-011, REQ-ESC6-014"
+        },
+        {
+          "from": "generating",
+          "to": "failed",
+          "event": "FAILED",
+          "guard": "error del proveedor, T_GEN, respuesta inválida, fallo de almacenamiento o arrendamiento vencido; sin consumo de cuota",
+          "requirementRef": "REQ-ESC6-013, EDGE-ESC6-003"
+        },
+        {
+          "from": "generating",
+          "to": "outdated",
+          "event": "PUBLISHED_WITH_NEWER_INPUT | CANCELLED",
+          "guard": "la imagen se publicó y fingerprintNow <> fingerprint fijada al inicio (D19); o T2 canceló el intento porque falta consentimiento, asignación o cuenta de un dueño de datos y no se publica (EDGE-ESC6-025); con CANCELLED la derivación puede dar idle si no quedan entradas",
+          "requirementRef": "REQ-ESC6-014, REQ-ESC6-036, EDGE-ESC6-025"
+        },
+        {
+          "from": "ready",
+          "to": "outdated",
+          "event": "INPUT_CHANGED",
+          "guard": "la huella cambia, o la imagen se retira por D6-17 / retiro de consentimiento con entradas restantes",
+          "requirementRef": "REQ-ESC6-004, REQ-ESC6-030"
+        },
+        {
+          "from": "failed",
+          "to": "generating",
+          "event": "RETRY",
+          "guard": "mismas condiciones que REQUEST; regenera con el estado actual, no con el del intento fallido",
+          "requirementRef": "REQ-ESC6-013, EDGE-ESC6-014"
+        },
+        {
+          "from": "failed",
+          "to": "outdated",
+          "event": "INPUT_CHANGED",
+          "guard": "cambios nuevos tras el fallo solo actualizan la huella (EDGE-ESC6-014)",
+          "requirementRef": "EDGE-ESC6-014"
+        }
+      ],
+      "rejectedTransitions": "Toda pareja (from, to) no listada se rechaza; en particular outdated -> ready, idle -> generating y ready -> generating (REGENERATE exige pasar por outdated: la acción «Regenerar» marca la escena outdated y luego solicita)",
+      "retiredImage": "La purga de la imagen vigente por D6-17 o REQ-ESC6-025 deja image_* en NULL y la escena en outdated (con entradas) o idle (sin entradas) por derivación; no es una transición de fallo (INV-ESC6-005, excepción deliberada). Un intento en vuelo cuyos datos se retiran pasa a CANCELLED (EDGE-ESC6-025)",
+      "persistedStates": [
+        "generating",
+        "failed"
+      ],
+      "derivedStates": [
+        "idle",
+        "outdated",
+        "ready"
+      ],
+      "derivation": {
+        "order": [
+          "run_state = generating y leaseExpiresAt > now -> generating",
+          "run_state = generating y leaseExpiresAt <= now -> failed (ERR-SCENE-LEASE-EXPIRED, materializado por compare-and-set idempotente)",
+          "run_state = failed -> failed, salvo fingerprintNow distinta de la huella del intento fallido -> outdated (EDGE-ESC6-014)",
+          "imagen degradada (EDGE-ESC6-028) -> outdated",
+          "hay imagen y fingerprintNow = fingerprintLast -> ready",
+          "fingerprintNow distinta de la vacía -> outdated",
+          "otro caso -> idle"
+        ]
+      }
+    }
+  }
+}

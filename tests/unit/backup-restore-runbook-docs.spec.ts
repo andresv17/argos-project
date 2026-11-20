@@ -172,3 +172,103 @@ describe('límite residual aceptado de T441a (H-ORA-T441a-2, H-ORA-T441a-3)', ()
     expect(s).toMatch(/--filter=[^\n]*serviceAccount/);
   });
 });
+
+describe('006: la foto del hogar y las escenas quedan fuera del respaldo y del dump de objetos (REQ-ESC6-022, REQ-ESC6-018, REQ-ESC6-029; SC-ESC6-051, SC-ESC6-088)', () => {
+  /** Subsección `### Fuera del respaldo exportable (feature 006)` hasta el siguiente encabezado. */
+  const fuera = (): string => {
+    const s = seccion();
+    const i = s.indexOf('### Fuera del respaldo exportable (feature 006)');
+    expect(i, 'falta la subsección de la 006').toBeGreaterThanOrEqual(0);
+    const rest = s.slice(i + 4);
+    const j = rest.search(/\n#{2,3} /);
+    return j < 0 ? rest : rest.slice(0, j);
+  };
+
+  it('[REQ-ESC6-022] declara que la foto del hogar y las escenas no viajan en el sobre 3.x y que importar no restaura la escena', () => {
+    const t = fuera();
+    expect(t).toMatch(/foto del hogar y las escenas no viajan en el sobre de respaldo `3\.x`/);
+    expect(t).toMatch(/importar un respaldo no restaura la escena/i);
+    expect(t).toMatch(/`idle` u `outdated`, sin imagen/);
+  });
+
+  it('[REQ-ESC6-018] la foto del hogar cuenta en la cuota de 1 GiB del propietario y las escenas no', () => {
+    const t = fuera();
+    expect(t).toMatch(/cuota de 1 GiB del propietario del hogar/);
+    expect(t).toMatch(/las escenas no cuentan/);
+  });
+
+  it('[REQ-ESC6-029] el dump semanal guarda filas, no objetos: tras restaurar, la conciliacion diaria encola los objetos huerfanos de scenes/ y households/', () => {
+    const t = fuera();
+    expect(t).toMatch(/pg_dump[^\n]*no incluye los objetos/);
+    expect(t).toContain('`scenes/`');
+    expect(t).toContain('`households/`');
+    expect(t).toMatch(/15 min/);
+    expect(t).toMatch(/\/internal\/maintenance/);
+  });
+
+  it('[RR-06-07] declara la ventana residual de PITR y volcados, y las columnas sin clave foranea que el paso 3 no elimina (decision pendiente)', () => {
+    const t = fuera();
+    expect(t).toMatch(/PITR/);
+    for (const columna of ['scene_attempts.actor_user_id', 'scene_image_sources.owner_user_id', 'household_photos.uploaded_by_user_id']) expect(t).toContain(columna);
+    expect(t).toMatch(/queda para decisi[oó]n/);
+  });
+
+  it('[REQ-ESC6-022] las tablas de la escena que el paso 3 elimina por cascada existen en el esquema Postgres con ON DELETE CASCADE', () => {
+    const sql = read('src/infrastructure/persistence/postgres/migrations/0009_home_scenes.sql');
+    for (const tabla of ['home_scenes', 'scene_attempts', 'scene_image_sources', 'household_photos', 'scene_consents', 'scene_quota_carry']) expect(sql).toMatch(new RegExp(`CREATE TABLE ${tabla} \\(`));
+    expect(sql.match(/ON DELETE CASCADE/g)?.length).toBeGreaterThanOrEqual(7);
+    expect(fuera()).toMatch(/ON DELETE CASCADE/);
+  });
+});
+
+describe('006: el paso 3 limpia las 3 columnas sin FK de la escena para las cuentas olvidadas (H-KEY-F4-1, REQ-PG-016, REQ-ESC6-018)', () => {
+  const sqlPaso3 = (): string => bloques(seccion(), 'bash').find((b) => b.includes('CREATE TEMP TABLE olvidados')) as string;
+  const COLUMNAS: Array<[string, string]> = [
+    ['scene_attempts', 'actor_user_id'],
+    ['scene_image_sources', 'owner_user_id'],
+    ['household_photos', 'uploaded_by_user_id'],
+  ];
+
+  it('[H-KEY-F4-1] el SQL del paso 3 borra las filas de las 3 columnas sin FK por cuenta olvidada', () => {
+    const b = sqlPaso3();
+    for (const [tabla, col] of COLUMNAS) expect(b).toMatch(new RegExp(`DELETE FROM ${tabla}\\b[^;]*${col} IN \\(SELECT id FROM olvidados\\)`));
+  });
+
+  it('[H-KEY-F4-1] esos DELETE van antes de DELETE FROM users', () => {
+    const b = sqlPaso3();
+    const users = b.indexOf('DELETE FROM users WHERE id IN');
+    expect(users).toBeGreaterThan(0);
+    for (const [tabla] of COLUMNAS) {
+      const i = b.search(new RegExp(`DELETE FROM ${tabla}\\b`));
+      expect(i, `falta DELETE FROM ${tabla}`).toBeGreaterThanOrEqual(0);
+      expect(i).toBeLessThan(users);
+    }
+  });
+
+  it('[H-KEY-F4-1] encola en media_deletion_queue (reason DELETE) los objetos de escena y de foto del hogar antes de borrar sus filas', () => {
+    const b = sqlPaso3();
+    const cola = [...b.matchAll(/INSERT INTO media_deletion_queue[^;]*;/g)].map((m) => m[0]);
+    expect(cola.length).toBeGreaterThanOrEqual(2);
+    expect(cola.join('\n')).toMatch(/'scenes\/'/);
+    expect(cola.join('\n')).toMatch(/'households\/'/);
+    expect(cola.join('\n')).toContain("'DELETE'");
+    expect(cola.join('\n')).toMatch(/ON CONFLICT \(object_key\) DO NOTHING/);
+    const iAtt = b.search(/DELETE FROM scene_attempts\b/);
+    const iFoto = b.search(/DELETE FROM household_photos\b/);
+    expect(b.indexOf("'scenes/'")).toBeLessThan(iAtt);
+    expect(b.indexOf("'households/'")).toBeLessThan(iFoto);
+  });
+
+  it('[H-KEY-F4-1] referencias_restantes cuenta las 3 columnas para que cero referencias sea verdadero', () => {
+    const b = sqlPaso3();
+    const q = b.slice(b.indexOf('SELECT (SELECT count(*)'));
+    expect(q).toContain('referencias_restantes');
+    for (const [tabla, col] of COLUMNAS) expect(q).toMatch(new RegExp(`count\\(\\*\\) FROM ${tabla} WHERE ${col} IN \\(SELECT id FROM olvidados\\)`));
+  });
+
+  it('[H-KEY-F4-1] el texto ya no dice que el paso 3 no elimina esas columnas', () => {
+    const s = seccion();
+    expect(s).not.toMatch(/el paso 3 no las elimina/);
+    expect(s).toMatch(/H-KEY-F4-1[^\n]*(corregid|limpia)/i);
+  });
+});

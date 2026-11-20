@@ -25,7 +25,7 @@ on:
         required: false
         default: ''
       feature:
-        description: 'Feature a verificar (001, 002 o 003). Vacío = 003.'
+        description: 'Feature a verificar (001, 002, 003 o 006). Vacío = 003.'
         required: false
         default: '003'
 
@@ -60,6 +60,11 @@ jobs:
       - name: Verify Contract Compilation & Zero Generated Drift (INV-ARCH-003)
         run: |
           bash scripts/compile-contracts.sh --feature "$FEATURE"
+          git diff --exit-code src/generated/
+
+      - name: Compilar contratos 006 y cero deriva de src/generated/v34 (INV-ARCH-003, N2-08)
+        run: |
+          bash scripts/compile-contracts.sh --feature 006
           git diff --exit-code src/generated/
 
       - name: Compuerta por tarea (solo con task_id)

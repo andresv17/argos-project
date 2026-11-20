@@ -155,6 +155,8 @@ export class DeleteAccountUseCase {
       if (petPlan.foreignAssignmentsInCascade.length > 0) {
         throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'Un hogar en cascada contiene asignaciones de mascotas de otra persona; se revierte sin borrar datos ajenos.');
       }
+      // 006 (T865, REQ-ESC6-029, REQ-ESC6-032): ANTES de borrar nada, la escena encola sus objetos y la foto, arrastra la cuota y seudonimiza sus columnas sin FK; misma transacción.
+      await this.deps.sceneHooks?.onAccountDeleting(repositories, { userId, pseudonym, householdIds: [...plan.cascadeHouseholdIds], now });
       // B7: una sola fila ACCOUNT_DELETE/USER con el HMAC en executorUserId y entityId (sin userId en claro).
       await recordAudit(this.deps, repositories, { executorUserId: pseudonym, mutationType: 'ACCOUNT_DELETE', entityType: 'USER', entityId: pseudonym, previous: account, next: null });
       // B8: el historial previo del usuario (executorUserId y entityId de filas USER) pasa a su HMAC.

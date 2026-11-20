@@ -2,6 +2,7 @@
  * T420 (REQ-PG-001, REQ-PG-006, REQ-PG-012): configuración del pool `pg` verificada con un doble del constructor
  * inyectado, sin conectarse a PostgreSQL. La conexión real se OMITE si falta TEST_DATABASE_URL (igual que T418).
  */
+import { readdirSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import {
   PG_CONNECTION_TIMEOUT_MS,
@@ -96,6 +97,14 @@ describe('createPostgresPool (doble del constructor, sin Postgres)', () => {
     const d = crearDoble();
     const pool = createPostgresPool({ connectionString: URL_SECRETA, pgPoolMax: 5 }, { createPool: d.ctor, log: () => undefined });
     expect(Object.keys(pool).sort()).toEqual(['connect', 'end', 'on', 'query']);
+  });
+});
+
+describe('T831 (006): el pool no migra; la ruta 0009_home_scenes.sql existe y es la última de Postgres', () => {
+  it('el directorio de migraciones de Postgres termina en 0009_home_scenes.sql (el pool nunca las aplica, REQ-PG-006)', () => {
+    const names = readdirSync(new URL('../../../src/infrastructure/persistence/postgres/migrations/', import.meta.url)).sort();
+    expect(names.at(-1)).toBe('0009_home_scenes.sql');
+    expect(names).toHaveLength(9);
   });
 });
 

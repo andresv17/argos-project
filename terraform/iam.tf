@@ -26,6 +26,15 @@ resource "google_service_account" "scheduler" {
   depends_on = [google_project_service.apis]
 }
 
+# Cuenta que usa Cloud Tasks para firmar el OIDC hacia el worker de la escena (006, REQ-ESC6-033, INV-ESC6-018): solo run.invoker sobre el servicio.
+resource "google_service_account" "scene_tasks" {
+  project      = var.project_id
+  account_id   = "argos-scene-tasks"
+  display_name = "Argos: Cloud Tasks hacia el worker de la escena"
+
+  depends_on = [google_project_service.apis]
+}
+
 # argos-run: lectura de sus 3 secretos, a nivel de secreto.
 resource "google_secret_manager_secret_iam_member" "run_database_url" {
   project   = var.project_id
@@ -135,5 +144,41 @@ resource "google_storage_bucket_iam_member" "run_media_object_user" {
 resource "google_service_account_iam_member" "run_token_creator_self" {
   service_account_id = google_service_account.run.name
   role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.run.email}"
+}
+
+# --- Enmienda 006 (N2-05, aprobada por Neo el 2026-11-18; REQ-ESC6-033, INV-ESC6-018). Terraform solo declara: el apply lo ejecuta Neo. ---
+
+# EXCEPCIÓN DOCUMENTADA a REQ-IAC-006 («cero roles de proyecto», enmienda 006, N2-05): roles/aiplatform.user de PROYECTO para argos-run. Vertex AI no ofrece
+# un rol por recurso para predict; el rol personalizado y la cuenta dedicada con impersonación se descartaron (H-TRI-006-10). Es el ÚNICO rol de proyecto
+# y el único google_project_iam_member de este archivo; sin llaves de cuenta de servicio (la identidad la entrega el servidor de metadatos).
+resource "google_project_iam_member" "run_aiplatform_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.run.email}"
+}
+
+# argos-scene-tasks: invocar el servicio (OIDC hacia POST /internal/scene-worker); la verificación en la aplicación es la barrera real.
+resource "google_cloud_run_v2_service_iam_member" "scene_tasks_invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.argos.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.scene_tasks.email}"
+}
+
+# argos-run: encolar solo en la cola argos-scene (nunca de proyecto).
+resource "google_cloud_tasks_queue_iam_member" "run_scene_enqueuer" {
+  project  = var.project_id
+  location = google_cloud_tasks_queue.scene.location
+  name     = google_cloud_tasks_queue.scene.name
+  role     = "roles/cloudtasks.enqueuer"
+  member   = "serviceAccount:${google_service_account.run.email}"
+}
+
+# argos-run: actuar como argos-scene-tasks (solo esa cuenta) para que la tarea lleve su OIDC.
+resource "google_service_account_iam_member" "run_acts_as_scene_tasks" {
+  service_account_id = google_service_account.scene_tasks.name
+  role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.run.email}"
 }

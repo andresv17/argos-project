@@ -71,6 +71,10 @@ export class UnassignPetFromHouseholdUseCase {
     return this.deps.uow.runInTransaction(async (repositories) => {
       await requirePetAction(repositories, userId, petId, 'ASSIGN_PET_TO_HOUSEHOLDS');
       const existing = (await repositories.assignments.listByPet(petId)).find((a) => a.householdId === householdId);
+      if (existing !== undefined) {
+        // 006 (T863, REQ-ESC6-030, D6-17): la desasignación retira y purga la imagen vigente y cancela el intento en vuelo, ANTES de quitar la asignación y en la misma transacción.
+        await this.deps.sceneHooks?.onPetUnassigned(repositories, { petId, householdId, now: this.deps.clock.nowIsoTimestamp() });
+      }
       await repositories.assignments.remove(petId, householdId);
       if (existing !== undefined) {
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UNASSIGN', entityType: 'PET_ASSIGNMENT', entityId: assignmentAuditId(this.deps, petId, householdId), previous: existing, next: null });

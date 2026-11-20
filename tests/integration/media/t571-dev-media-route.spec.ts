@@ -72,6 +72,23 @@ describe('GET /__dev/media/<clave> (T571)', () => {
     await app.close();
   });
 
+  it('T811 (006): sirve la imagen de la escena y la foto del hogar con sesión, sin sesión 401, y una carpeta ajena responde 404', async () => {
+    const { app, cookie, storage } = await setup('test');
+    const scene = `scenes/${PET}/images/${ID}`;
+    const photo = `households/${PET}/photo/${ID}`;
+    await storage.put(scene, Uint8Array.from([4, 5]), 'image/webp');
+    await storage.put(photo, Uint8Array.from([6]), 'image/png');
+    const withSession = await Promise.all([scene, photo].map((k) => app.inject({ method: 'GET', url: `/__dev/media/${k}`, headers: { cookie } })));
+    expect(withSession.map((r) => [r.statusCode, r.headers['content-type'], r.headers['x-content-type-options'], r.headers['content-disposition']])).toEqual([
+      [200, 'image/webp', 'nosniff', undefined],
+      [200, 'image/png', 'nosniff', undefined],
+    ]);
+    expect((await app.inject({ method: 'GET', url: `/__dev/media/${scene}` })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: `/__dev/media/scenes/${PET}/files/${ID}`, headers: { cookie } })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: '/__dev/media/scenes/../../etc/passwd', headers: { cookie } })).statusCode).toBe(404);
+    await app.close();
+  });
+
   it('sin la opción devMedia no se registra nada', async () => {
     api = await createApi();
     const app = await buildApp({ deps: api.deps, cookieSecure: false });

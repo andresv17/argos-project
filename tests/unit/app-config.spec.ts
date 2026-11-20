@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { APP_CONFIG_DEFAULTS, AppConfigError, loadAppConfig } from '../../src/infrastructure/config/app-config.ts';
+import { APP_CONFIG_DEFAULTS, AppConfigError } from '../../src/infrastructure/config/app-config.ts';
+import { PROD_SCENE, loadAppConfigActivated as loadAppConfig } from '../fixtures/scene-config-fixtures.ts';
 
 function configError(env: Record<string, string | undefined>): readonly string[] {
   try {
@@ -46,6 +47,22 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         mediaMaxBytes: 10485760,
         mediaMaxBytesPerOwner: 1073741824,
         mediaMaxConcurrentUploads: 4,
+        scene: {
+          driver: 'fake',
+          maxPets: 8,
+          quotaMax: 10,
+          genTimeoutSeconds: 90,
+          leaseSeconds: 150,
+          queueWaitSeconds: 600,
+          model: null,
+          queue: 'argos-scene',
+          tasksServiceAccountEmail: null,
+          workerUrl: null,
+          projectId: null,
+          location: null, // T948: respaldo de platform_parameters (Fase 14)
+          globalQuotaMax: 5, // T948: cuota global mensual de respaldo (N2-02)
+          geminiModel: null, // T891: la clave (geminiApiKey) no es enumerable y no figura aquí
+        },
       },
       APP_CONFIG_DEFAULTS,
     ]);
@@ -111,7 +128,8 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
   // T409 (D-26, enmienda 3.3.0, REQ-CLD-003): sustituyen la aserción única «HOST=0.0.0.0 se rechaza» por la regla completa.
   const PROD_SECRET = '1f'.repeat(32);
   // T566 (SC-ALM-023): en production el driver de medios debe ser gcs con bucket; los fixtures de production lo aportan para aislar su variable.
-  const PROD_MEDIA = { ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
+  // T830 (SC-ESC6-025, SC-ESC6-092): en production también se exige el driver real de la escena; los fixtures de production lo aportan.
+  const PROD_MEDIA = { ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE };
   const PG_URL = 'postgres://argos:clave@db.example.internal:5432/argos?sslmode=require';
   // Con postgres, schedulerEmail y oidcAudience son obligatorias (D-A1): los fixtures anteriores a T414 las aportan para seguir aislando su variable.
   const PG_CLOUD = { ARGOS_SCHEDULER_EMAIL: 'argos-scheduler@argos-prod-1234.iam.gserviceaccount.com', ARGOS_OIDC_AUDIENCE: 'https://argos-abcdef-uc.a.run.app' };

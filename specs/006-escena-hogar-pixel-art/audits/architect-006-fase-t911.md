@@ -1,0 +1,32 @@
+# Architect 006: Fase 11 (T911..T923), segunda ronda de la prueba en vivo T910
+
+Fecha: 2026-11-19. Rama `006-escena-hogar-pixel-art`, HEAD `80a8ccf`. Estado: `DRAFT`. Autor: `/architect` (sonnet). Sin `src/`, `tests/`, `contracts/`, `src/generated/`, `vite.config.ts` ni constitución; sin commit; ninguna tarea `[x]`.
+
+## 1. Spec.md parcial heredado (revisión)
+El diff previo tocaba 4 requisitos. Dictamen:
+- **REQ-ESC6-007** (`canRegenerate` con `limits.allowed`): CONSERVADO tal cual (correcto frente a la directiva 2; `scene-use-cases.ts:183` hoy no mira `limits`).
+- **REQ-ESC6-019** (PetsPage solo visualización, cooldown, relectura): CONSERVADO con 3 correcciones: (a) frase «se obtuvo desde Hogar» reescrita; (b) añadida la consecuencia de privacidad abierta (`N2-15`); (c) el campo `retryAfterSeconds` queda condicionado a `N2-14` (el borrador lo daba por hecho sin contrato).
+- **REQ-ESC6-034** (`actions.retryAfterSeconds`): CONSERVADO, condicionado a `N2-14`; sus trazas apuntaban a SC-ESC6-113/114/117 inexistentes (huérfanos: la compuerta fallaba con 3 FAIL); reasignadas a SC-ESC6-112/113.
+- **REQ-ESC6-016** (cierre numérico por especie «Draw exactly N {pets} ... desglose»): DESCARTADO y sustituido por la especificación JSON de la directiva 3 (el desglose duplicaba el JSON y exigía plurales por especie; además la corrección singular «Place the pet naturally...» queda fuera: es cambio de frase base no pedido). Se conserva del borrador solo el cierre de OBS-3 (reformulado, sin la excepción de «0 mascotas sin foto», que ya no existe porque el JSON se emite siempre).
+
+## 2. Hallazgos de diseño
+**Directiva 1 (PetsPage).** `PetsPage.tsx:196-199` monta `HomeScene` OWNER (`/me/scene`) o HOUSEHOLD según contexto; `HouseholdsPage.tsx:317` ya monta la gestión completa por hogar (único lugar de gestión). Diseño: componente nuevo de solo lectura `HomeSceneImage` (imagen + `sceneAltText`, sin controles) que lee la escena del hogar del selector; 0 hogares o contexto «Mis mascotas» = nada; 1 o varios hogares = solo el hogar elegido, 1 lectura por cambio de contexto y descarte de respuestas antiguas; `imageTag = null` o error = nada. `/api/me/scene` y `/api/me/scene/image` quedan sin uso en la UI; contrato y servidor intactos (sin retirar). Consecuencia que no resuelvo: sin hogar no hay interfaz OWNER, ni el retiro de consentimiento (REQ-ESC6-025); ver N2-15.
+**Directiva 2 (cooldown).** `canRegenerate` se alinea con `limits.allowed` (cambio de caso de uso; el POST no cambia). Contrato: `scene.schema.json` `SceneActions` NO tiene `retryAfterSeconds` (verificado con grep en `contracts/`), `additionalProperties: false`, así que añadirlo toca contrato (MINOR 1.0.0 a 1.1.0, campo opcional entero 1..86400 o null; la cabecera `Retry-After` del 429 y `ERR-RATE-LIMITED` no cambian; `STATE-SCENE-001` no cambia: el cooldown es motivo de bloqueo, no estado). También se corrige la descripción de `canRegenerate`. Alternativas descartadas: temporizador de 60 s del cliente (no sobrevive a recargas ni cubre topes de 24 h); leer `Retry-After` solo tras un 429 (el botón ya estaría habilitado). No lo apliqué: contratos fuera de mi alcance por restricción; queda T912 bloqueada por N2-14.
+**Directiva 3 (JSON).** Esquema y serialización en `plan.md` §5.3.1 y REQ-ESC6-016. Claves y orden: `mode`, `household{hasReferencePhoto,photoRef}`, `renderedPetsCount`, `pets[]{index,action,species,[speciesOther],breed,sex,hasReferencePhoto,photoRef}`; `JSON.stringify(spec,null,2)` con claves en orden de inserción fijo; `pets` = visibles (desde cero todas; incremental KEEP+ADD+REPLACE, sin REMOVE); `breed` canónico o `mixed-breed`; `PET_COUNT_RULE` cita `renderedPetsCount` (sin número quemado). `INV-ESC6-001/010/017` intactos; `scene-payload.schema.json` no cambia (el JSON es salida derivada, no payload). Estilo: `STYLE_BASE_TEXT` ya contiene el estilo 32-bit isometric pixel art (se interpreta «instrucciones concisas de estilo» como esa base, sin texto nuevo). Impacto: cambian todas las fixtures de t841; revisar t848b/t849/t855. OBS-3 cerrado en SC-ESC6-106 y T904.
+
+## 3. Artefactos modificados
+- `specs/006-escena-hogar-pixel-art/spec.md`: REQ-007 (heredado), 016, 019, 034; SC-ESC6-105/106/109 ajustados; SC-ESC6-110..118 nuevos (Given/When/Then); D6-19; N2-14 y N2-15 (pendientes); conteos (118 SC, 19 D6, 15 N2); registro final.
+- `specs/006-escena-hogar-pixel-art/plan.md`: §5.3.1 nuevo, §5.7, §8 (ADR-006-12, 13), §11 (REQ-007/016/019/034), §12 (SC-110..118).
+- `specs/006-escena-hogar-pixel-art/tasks.md`: Fase 11 T911..T923 todas `[ ]`; T904 (OBS-3); cabecera, conteo (123 tareas) y dependencias.
+- `claude/log-architect.md` (bitácora propia).
+
+## 4. Tareas nuevas
+T911 [GOV] docs; T912 [N2][GOV] contrato (bloqueada N2-14); T913 recompilar contratos; T914/T915 servidor (SC-112, 113); T916/T917 cliente de espera (SC-114, 115); T918/T919 PetsPage solo visualización (SC-110, 111; T919 espera N2-15); T920/T921 prompt JSON (SC-116..118); T922 compuertas; T923 [GOV] oracle + repetición [HUM] de T910. T910 sigue `[ ]`.
+
+## 5. Bloqueos y decisiones de Neo (Nivel 2)
+- **N2-14**: ¿Autorizas enmendar en DRAFT `scene.schema.json` (`SceneActions.retryAfterSeconds`, `integer|null`, 1..86400, opcional, MINOR 1.1.0, más la descripción de `canRegenerate`) y el OpenAPI de `SceneView` (T912), con recompilación de `src/generated/` (T913)? Sin esto el tiempo restante no puede mostrarse y T912..T917 no arrancan. Nota: es aditivo y compatible hacia atrás.
+- **N2-15**: Con tu directiva, un usuario sin hogar no tiene interfaz de escena OWNER, ni retiro de consentimiento (REQ-ESC6-025). ¿A) aceptar (la escena OWNER se gestiona al crear el primer hogar), B) mostrar el bloque OWNER dentro de «Hogar» solo si el usuario tiene 0 hogares, o C) impedir crear escena OWNER? Recomiendo B (cumple «solo en Hogar» y preserva el derecho de retiro). Bloquea T919.
+- No bloqueantes: JSON emitido en todos los modos incluso con N = 0; contrato JSON propio para la salida descartado (si lo quieres, es contrato nuevo). Consultas a `/mifune`, `/lock`, `/merovingian` y `/mouse` no invocadas en esta ronda; recomendable `/merovingian` dentro de T912 y `/mouse` tras T911.
+
+## 6. Compuertas
+`bash scripts/verify-traceability.sh --feature 006`: CUMPLE (221/221 IDs propios mapeados en tasks.md; 258 IDs vigentes; pureza 0 violaciones). Antes de mi edición el estado heredado FALLABA (3 huérfanos: SC-ESC6-113, 114, 117).

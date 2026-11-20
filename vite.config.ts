@@ -33,6 +33,10 @@ export default defineConfig({
         target: `http://127.0.0.1:${process.env['E2E_API_PORT'] ?? 3100}`,
         changeOrigin: false,
       },
+      '/__dev/media': {
+        target: `http://127.0.0.1:${process.env['E2E_API_PORT'] ?? 3100}`,
+        changeOrigin: false,
+      },
     },
   },
   build: {

@@ -109,3 +109,14 @@ describe('fila MIGRATION única (REQ-MIG-001, REQ-AUD-001)', () => {
     expect(totalRows(db)).toBe(1);
   });
 });
+
+describe('T831 (006): la migración de la escena no altera la marca MIGRATION y deja las 6 tablas nuevas vacías', () => {
+  it('una base nueva tiene las tablas de la escena sin filas y sigue con una sola fila MIGRATION', () => {
+    const db = track(openSqliteDatabase(IN_MEMORY_DATABASE));
+    for (const table of ['home_scenes', 'scene_attempts', 'scene_image_sources', 'household_photos', 'scene_consents', 'scene_quota_carry']) {
+      expect(db.prepare(`SELECT COUNT(*) FROM ${table}`).pluck().get(), table).toBe(0);
+    }
+    expect(migrationRows(db)).toHaveLength(1);
+    expect(totalRows(db)).toBe(1);
+  });
+});

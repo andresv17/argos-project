@@ -1274,3 +1274,409 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-17 Keymaker: reintento H-O-E2E-1 (sin push, sin [x])
 - tests/e2e/media/reexportacion-fotos.spec.ts: eliminados los 2 test.skip(webp === null) (l.89/101); ahora se afirma la cabecera RIFF/WEBP (bytes 8..12 == 'WEBP') porque not.toBeNull() es oraculo debil. La prueba noWebp usa siempre WebP real.
 - Gates: playwright media 12/12; vitest 27/27; tsc 0; verify-oracles 004 CUMPLE (debiles 0, deshabilitados 0).
+
+## 2026-11-18 Keymaker: T801 pruebas rojas compuerta 006 (sin push, sin [x])
+- Creado tests/integration/gates/t801-compuerta-006.spec.ts (10 pruebas: 8 fixtures + 2 sobre el repo real). Rojo: 7/10 fallan (EDGE/SC/rangos no reconocidos, tarea sin ID pasa, sin spec->tasks 1:1, repo real FAIL por evidencia bloqueante y 98 IDs sin EDGE/SC).
+- Alcance: solo tests/; scripts/ intactos hasta T802. Dep: ninguna.
+
+## 2026-11-18 Keymaker: T802 rama FEAT6 en verify-traceability.sh (sin push, sin [x])
+- scripts/verify-traceability.sh: FEAT6 (NUM_ID con EDGE y segmento ESC6, RANGE, OWNED_006, spec->tasks 1:1 con catalogo, tarea sin ID falla, evidencia informativa salvo SDD_STRICT_EVIDENCE=1). 001..005 sin cambio de rama.
+- Verde: t801 10/10; --feature 006 CUMPLE (195/195 propios, 30/233 con evidencia informativa); 001 113/113 y 002 119/119 CUMPLE. Autorizado por N2-08.
+
+## 2026-11-18 Keymaker: T803 pruebas rojas del compilador fusionado 006 (sin push, sin [x])
+- Creado tests/integration/contracts/t803-compilador-006.spec.ts (21 pruebas): v34 con barrel/validadores/maquina/cliente, union 004+005+006 con duplicados prohibidos, herencia, metadata, guardas de destino, v34 ajeno para 001/002/005, deriva src/generated/v34.
+- Rojo: 19/21 fallan ("Feature desconocida: 006"). La prueba de guarda 005->v34 escribio en src/generated/v34/v33 durante el rojo (005 aun sin guarda); contaminacion borrada a mano antes de commitear.
+
+## 2026-11-18 Keymaker: T804 rama 006 en compile-contracts.sh + src/generated/v34 (sin push, sin [x])
+- scripts/compile-contracts.sh: rama 006 (union catalogos 004+005+006 con duplicados prohibidos, herencia contra la union, metadata, ensayo 004+006 con $ref absolutos a common normalizados a ../schemas/), v34 en las listas de directorios ajenos y en la guarda de la 005. Compilado con el script (nada a mano): src/generated/v34/.
+- tests/integration/contracts/codegen-drift.spec.ts: solo se anade v34 a la lista de directorios ajenos (no se debilita ninguna asercion). Verde: t803 21/21; contracts 14 archivos 549/549; tsc 0.
+
+## 2026-11-18 Keymaker: T805 pruebas rojas test:gate y test-gate.yml (sin push, sin [x])
+- Creado tests/integration/gates/t805-test-gate-006.spec.ts (9 pruebas; rojo 6/9: test:gate sin 006, workflow sin paso 006, entrada manual sin 006). Base de comparacion del lock/deps: dda060b.
+- tests/integration/gates/verify-gates.spec.ts ampliada con 3 pruebas --feature 006 (traceability, oracles positivo y negativo); estas ya pasan (T802) porque las compuertas son genericas.
+
+## 2026-11-18 Keymaker: T805 implementacion test:gate + test-gate.yml (sin push, sin [x])
+- package.json: solo el script test:gate (+ compile 006 y verify-traceability 006); deps y lock intactos. test-gate.yml: paso aditivo "Compilar contratos 006 y cero deriva de v34" y descripcion de la entrada manual.
+- tests/unit/test-gate-workflow.spec.ts: la comparacion con b6cacc5 descuenta unicamente el paso nuevo (misma asercion toBe sobre el resto de pasos). Verde: gates + workflow 80/80.
+
+## 2026-11-18 Keymaker: ajuste del pin de package.json en T778 por T805 (sin push, sin [x])
+- La suite completa (3964 verdes) mostro 1 rojo: t778 fija el sha256 de package.json; el cambio autorizado de test:gate lo altera. Actualizado el hash (lock intacto, mismo hash) con comentario de trazabilidad T805/N2-08; /oracle debe revisarlo.
+- Alcance: T806 (deploy-argos.yml) y T807 (terraform/bootstrap.sh) quedan BLOQUEADAS por alcance del encargo (deploy-argos.yml no listado; terraform/ prohibido).
+
+## 2026-11-18 — T806 y T807 (N2-08)
+- Pruebas rojas b0ab49c: t806-deploy-argos-escena-006.spec.ts (3/5 rojas) y t807-bootstrap-cloudtasks-006.spec.ts (3/4 rojas).
+- Implementación bc043bb: deploy-argos.yml añade ARGOS_SCENE_* (DRIVER=fake fijo, nunca real; WORKER_URL=${PUBLIC_BASE_URL}/internal/scene-worker; sin secretos nuevos, ARGOS_SHARE_* intactas); bootstrap.sh añade roles/cloudtasks.viewer (plan) y cloudtasks.admin (apply) en los bucles existentes (idempotentes).
+- Hallazgo: plan §1.3 exige driver real en producción y fake falla al arrancar allí; con N2-10 (no merge a main hasta la compuerta real) queda como riesgo R-LINK-006-3 aceptado. Sin push, sin [x], nada ejecutado.
+
+## 2026-11-18 Keymaker: T809 pruebas rojas esquema de auditoría 004 (N2-06 (a)) (sin push, sin [x])
+- Creado tests/integration/contracts/t809-auditoria-escena-006.spec.ts (contrato 3.2.0, generado v31/v33/v34, adaptador en memoria, CHECK SQLite 0013 y texto Postgres 0009) y un `it` nuevo en schema-parity.spec.ts (`postgresSchema(extra)` con parámetro opcional, sin cambio de comportamiento).
+- Rojo: 11 fallan, 15 pasan (tsc 0). AuditMutationType no cambia (mapeo a CREATE/UPDATE/DELETE existentes, data-model §8). Evidencia: claude/evidencia-fase2-006-2026-11-18.md.
+- Decisión: el CHECK de audit_log (M-3) se entrega en T810 como migraciones 0013 (SQLite) y 0009 (Postgres) con solo la reconstrucción; T832/T833 añaden las tablas al mismo archivo.
+
+## 2026-11-18 Keymaker: T810 enmienda MINOR de auditoría 004 aplicada (sin push, sin [x])
+- audit-entry.schema.json 3.1.0 -> 3.2.0 (+HOME_SCENE, +SCENE_CONSENT, +HOUSEHOLD_PHOTO; supersedes 3.1.0; trazabilidad REQ-ESC6-021/INV-ESC6-016). Recompilados 004, 005 y 006 con compile-contracts.sh (solo v31, v33, v34; src/generated/api intacto; la 002 no cambia).
+- Nuevas migraciones sqlite 0013_home_scenes.sql y postgres 0009_home_scenes.sql con solo M-3 (T832/T833 añaden las tablas al mismo archivo). schema-parity compone HOME_PATH; sqlite-repositories.spec lista 0013 (cambio que la enmienda impone).
+- Verde: t809 11/11, suite completa 3989 verdes, tsc 0, trazabilidad 001/002/006 y oráculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T811 pruebas rojas del dominio de claves INV-ARC-003 (N2-06 (b)) (sin push, sin [x])
+- Nuevo tests/unit/media-keys-escena-006.spec.ts (claves, isMediaObjectKey, assertMediaKey, assertListPrefix, RECONCILED_PREFIXES y reconciliationAgeMinutes: 24 h pets, 15 min scenes/households) y casos añadidos (sin tocar los existentes) en t570 (memoria y GCS), t571 (ruta dev), t579 (cola de borrado) y t606.
+- Rojo: 13 fallan, 154 pasan; tsc 0 (API nueva leída por vista tipada). La consulta de referencias de scenes/households en la conciliación queda para T834/T835 (necesita las tablas de Fase 4); la rutina de 004 sigue listando solo pets/.
+
+## 2026-11-18 Keymaker: T812 enmienda MINOR de INV-ARC-003 (sin push, sin [x])
+- spec 004 INV-ARC-003 ampliado; src/domain/media/media-keys.ts (sceneImageObjectKey, householdPhotoObjectKey, isMediaObjectKey con 5 formas, RECONCILED_PREFIXES, reconciliationAgeMinutes 24 h/15 min) y assertListPrefix con scenes/ y households/. La rutina de conciliación sigue listando solo pets/ (referencias de escena: T834/T835).
+- Corregido en mis pruebas de T811: 3 `.not.toThrow()` (verify-oracles FALLA 3 débiles) y una aserción vacua de t579 (keys() solo mira pets/). Verde: media 167, suite completa sin fallos tras la corrección, oráculos 006 CUMPLE, tsc 0.
+
+## 2026-11-18 Keymaker: T813 pruebas rojas de countBytesOfOwner con household_photos (N2-06 (c)) (sin push, sin [x])
+- Nuevo tests/integration/persistence/t813-cuota-foto-hogar.spec.ts (memoria y SQLite vía createMediaEngines, SQL de Postgres con pg-fake-client); tests/fixtures/media-harness.ts gana seedHouseholdPhoto (memoria state.householdPhotos, SQLite INSERT household_photos). Foto de hogar cuenta al propietario del hogar (households.owner_user_id), la escena no.
+- Rojo: 5 de 6 fallan (la memoria falla primero, SQLite no se alcanza); tsc 0. Seguirá rojo hasta T833 (tabla) y T814 (implementación, DIFERIDA por tasks.md). Sin Postgres vivo.
+
+## 2026-11-18 Keymaker: T815 pruebas rojas de los 7 ganchos de privacidad (N2-06 (d)) (sin push, sin [x])
+- Nuevos tests/unit/ganchos-privacidad-escena-006.spec.ts (7 describes: pet, avatar, assignment, household, account, ownership, backup) y tests/fixtures/scene-privacy-hooks-spy.ts (contrato PROPUESTO de 8 ganchos con `deps.sceneHooks` opcional, misma transacción, evento opaco). Cada caso: llamada con evento exacto, rollback total si el gancho lanza, sin llamada si la causa se rechaza, compatibilidad sin puerto.
+- Rojo: 18 fallan, 9 pasan; tsc 0; oráculos 006 CUMPLE. H-KEY-F2-1: T827 aún no define el puerto; el nombre de cada gancho se ratifica con /architect y se cambia solo en el fixture. Cierra en T868.
+
+## 2026-11-18 Keymaker: T816 pruebas rojas de las 14 APIs (N2-05, REQ-IAC-009) (sin push, sin [x])
+- Nuevo tests/unit/terraform-apis-escena-006.spec.ts (14 APIs exactas con aiplatform y cloudtasks, un solo google_project_service, texto de REQ-IAC-009 en 003 con «14» y «Enmienda 006 ... N2-05», comentario sin «solo estas 12»). Rojo 3/4; tsc 0; gates en CUMPLE.
+- La prueba antigua terraform-root (12) se actualiza en T817 junto con services.tf. No se ejecuta terraform.
+
+## 2026-11-18 Keymaker: T817 enmienda de REQ-IAC-009 y services.tf a 14 APIs (N2-05) (sin push, sin [x])
+- spec 003 REQ-IAC-009 (14 APIs, Enmienda 006), terraform/services.tf (+aiplatform, +cloudtasks), terraform/README.md y terraform-root.spec.ts (12 -> 14, mismas aserciones más las dos APIs). Sin plan/apply.
+- Verde: t816 4/4, terraform-* (hygiene, labels, bootstrap, scheduler) verdes; suite completa solo con los rojos documentados de T813/T815; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T818 pruebas rojas de IAM de la escena y cola argos-scene (N2-05, REQ-IAC-006) (sin push, sin [x])
+- Nuevo tests/unit/terraform-iam-escena-006.spec.ts: 4 cuentas, único google_project_iam_member = aiplatform.user de argos-run con comentario «EXCEPCIÓN DOCUMENTADA» (REQ-IAC-006, N2-05), scene-tasks solo run.invoker sobre el servicio, cloudtasks.enqueuer de argos-run solo sobre la cola, serviceAccountUser de run solo sobre scene-tasks, sin llaves; y cloud_tasks.tf (cola argos-scene, max_attempts 1, 2 concurrentes, 1/s, depends_on API, sin http_target).
+- Rojo 10/12; tsc 0; gates CUMPLE. terraform-iam.spec (3 cuentas, sin google_project_iam) se amenda en T819, no se debilita sin su contraparte.
+
+## 2026-11-18 Keymaker: T819 enmienda de REQ-IAC-006, iam.tf y cloud_tasks.tf (N2-05) (sin push, sin [x])
+- spec 003 REQ-IAC-006 con «Enmienda 006» (excepción documentada aiplatform.user de proyecto, argos-scene-tasks, enqueuer acotado a la cola); terraform/iam.tf (+cuenta scene_tasks, +4 bindings, comentario EXCEPCIÓN DOCUMENTADA) y terraform/cloud_tasks.tf (cola argos-scene, max_attempts 1, 2 concurrentes, 1/s, sin http_target; el dispatchDeadline 130 s lo fija la app por tarea).
+- Suites de 003 cambiadas por la enmienda: terraform-iam (4 cuentas, un único google_project_iam_member) y terraform-iam-secrets (misma excepción); además un regex mío de T818 corregido. t818 12/12 verde, terraform-* verdes, tsc 0. Sin plan ni apply.
+
+## 2026-11-18 Keymaker: T820 pruebas rojas de Cloud Run 120 s y 1 GiB (N2-05, N2-11, REQ-CLD-002) (sin push, sin [x])
+- Nuevo tests/unit/terraform-cloud-run-escena-006.spec.ts: timeout 120s y memoria 1Gi (no 60s/512Mi), resto de REQ-CLD-002 sin cambio (cpu_idle, escala 0..2, concurrencia 20), sin env ni ARGOS_SCENE_* en Terraform, T_GEN máx. 105 + 15 <= 120 < dispatchDeadline 130, texto de REQ-CLD-002 en 003 con Enmienda 006.
+- Rojo 4/6; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T821 enmienda de REQ-CLD-002 y cloud_run.tf (N2-05, N2-11) (sin push, sin [x])
+- spec 003 REQ-CLD-002 (1 GiB, timeout=120s, Enmienda 006, dispatchDeadline 130 s) y terraform/cloud_run.tf (timeout 120s, memoria 1Gi, comentario actualizado; sin env, sin cambio de cpu_idle ni de instancias). terraform-cloud-run.spec: 60s/512Mi -> 120s/1Gi. La cola ya documenta dispatchDeadline 130 s (T819); Terraform no tiene ese campo en la cola.
+- Verde: t820 6/6, terraform-* 17 archivos; tsc 0; sin plan ni apply.
+
+## 2026-11-18 Keymaker: T822 pruebas rojas del presupuesto de 5 USD (N2-05, N2-04, NFR-CLD-001) (sin push, sin [x])
+- Nuevo tests/unit/terraform-budget-escena-006.spec.ts: budget_units 22500 con COP (5x4500), validación que admite "22500" y "5", descripciones con 5 USD, filtro por proyecto (projects/<número>) sin labels, display_name sin «1-usd», umbrales 50/90/100 y depends_on intactos, texto de NFR-CLD-001 con Enmienda 006.
+- Rojo 5/7; tsc 0; gates CUMPLE. Nota: el plan 006 §6 menciona «umbral previsto al 100 %» pero T822/T823 no lo piden; no se añade un cuarto umbral (H-KEY-F2-2).
+
+## 2026-11-18 Keymaker: T823 enmienda de NFR-CLD-001, budget.tf y variables.tf (N2-05, N2-04) (sin push, sin [x])
+- spec 003 NFR-CLD-001 (5 USD, Enmienda 006, filtro por proyecto, solo avisa, Neo verifica moneda); budget.tf (filtro projects/<número>, display_name sin «1-usd», comentario) y variables.tf (budget_units 22500, descripciones). terraform-budget.spec: 4500 -> 22500 y filtro por proyecto. README de terraform al día.
+- Verde: t822 7/7, terraform-* 18 archivos; suite completa solo con rojos documentados (T813 x5, T815 x18). T824 queda para Neo (moneda real); no se ejecutó gcloud/terraform. 22500 COP por defecto hasta su confirmación.
+
+## 2026-11-18 Keymaker: T826 pruebas rojas de pureza de capas y entropia de la escena (INV-ESC6-001/002) (sin push, sin [x])
+- Nuevo tests/unit/t826-pureza-escena-006.spec.ts: detectores de Date/entropia/node:/fs/fetch/SDK/process.env con autoprueba; src/domain/scene (vacio hasta Fase 4) sin entropia, sin node:, solo generated/v34; src/application sin fs/fetch/SDK/env; los 4 archivos de puertos de escena existen, exportados en el indice y solo con import type.
+- Rojo 2/9 (puertos de escena inexistentes hasta T827); tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T827 puertos de la escena con implementaciones nulas y ApplicationDeps.sceneHooks? (REQ-ESC6-017, REQ-ESC6-031) (sin push, sin [x])
+- Pruebas primero: tests/unit/t827-puertos-escena-006.spec.ts (rojo: modulo null-scene-adapters inexistente y 5 errores tsc TS2307/TS2339). Luego src/application/ports/{scene-image-generator,scene-job-dispatcher,scene-repositories,scene-privacy-hooks}.port.ts (+index), ScenePrivacyHooksPort con los 8 ganchos de plan §1.2, ApplicationDeps.sceneHooks? en use-case-support.ts y src/infrastructure/adapters/null-scene-adapters.ts (8 ganchos = Promise.resolve(); generador nulo devuelve solo SceneErrorCode).
+- Fixture scene-privacy-hooks-spy.ts: port tipado ScenePrivacyHooksPort, UTC_TIMESTAMP_PATTERN/invalidNow() (a), hooksInvoked() (b), probe y failOn intactos (c); forma de eventos sin cambio.
+- Verde: t826 9/9, t827 19/19; tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE; suite completa solo con rojos documentados (T813 x5, T815 x18).
+
+## 2026-11-18 Keymaker: T828 UnitOfWork con SceneRepository y SceneConsentRepository nulos, orden de candados (ADR-006-07) (sin push, sin [x])
+- Pruebas primero: tests/unit/t828-unit-of-work-escena-006.spec.ts (rojo 5/7 y 5 errores tsc TS2339: RepositorySet sin scenes ni sceneConsents). Luego RepositorySet +scenes +sceneConsents (repositories.port.ts) y los repositorios nulos en las tres fabricas (memoria, SQLite, PostgreSQL); SCENE_LOCK_ORDER = OWNER, PET, HOUSEHOLD, SCENE.
+- Unico cambio en una suite previa: postgres-repositories-part3 (claves de RepositorySet 15 -> 17), previsto por plan §1.2. application-harness, sqlite-harness, pg-fake-client y record-engines no definen literales de RepositorySet: no necesitan cambio (createDeps queda sin sceneHooks para conservar 001..005).
+- Verde: t828 7/7; tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE; suite completa solo con rojos documentados (T813 x5, T815 x18).
+
+## 2026-11-18 Keymaker: T829 pruebas rojas de app-config con las 9 variables ARGOS_SCENE_* (INV-ESC6-013, INV-ESC6-018) (sin push, sin [x])
+- Nuevo tests/unit/t829-app-config-escena-006.spec.ts (59 pruebas): defaults, rangos (MAX_PETS 1-32, QUOTA_MAX 1-50, GEN_TIMEOUT 10-105), T_LEASE = T_GEN + 60 y T_QUEUE = 600, produccion rechaza fake, real exige modelo, proyecto y constante de activacion, ARGOS_SCENE_WORKER_URL (https, *.run.app, ruta exacta, sin consulta/credenciales/puerto), modelo/proyecto/cola sin "/", "?", "..", y GLOBAL_QUOTA_MAX no se lee.
+- Decisiones de diseno (H-KEY-F3-1): «constante de activacion» sin nombre en el spec; la modelo como `loadAppConfig(env, { sceneRealDriverActivated })` con defecto false en el codigo (SCENE_REAL_DRIVER_ACTIVATED). Host del worker solo *.run.app (no hay variable de dominio propio).
+- Rojo 57/59; tsc 0 (vista tipada hasta T830); trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T830 app-config.ts, unico lector de ARGOS_SCENE_* (INV-ESC6-013, INV-ESC6-018) (sin push, sin [x])
+- src/infrastructure/config/app-config.ts: AppConfig.scene (9 variables: 5 con defecto en el esquema Ajv y APP_CONFIG_DEFAULTS; MODEL, PROJECT_ID, TASKS_SA_EMAIL y WORKER_URL leidas como DATABASE_URL), SCENE_QUEUE_WAIT_SECONDS = 600, sceneLeaseSeconds(g) = g + 60, SCENE_REAL_DRIVER_ACTIVATED = false (H-KEY-F3-1) y loadAppConfig(env, { sceneRealDriverActivated }). Produccion rechaza fake y real sin activacion/modelo/proyecto/cuenta/URL; GLOBAL_QUOTA_MAX no se lee; sin dependencia npm nueva. .env.example con las 9 variables.
+- Verde: t829 59/59. REGRESION ESPERADA Y CORREGIDA (H-KEY-F3-2, a /architect y /oracle): SC-ESC6-092 hace que production solo arranque con driver real activado, y la constante es false hasta T885. 21 pruebas de 003/004 con NODE_ENV=production (app-config, -media, -audit-secret, validate-secrets, audit-pseudonym, audit-secret.security) ahora aportan PROD_SCENE y la activacion via tests/fixtures/scene-config-fixtures.ts; el unico arranque real de proceso en production (audit-secret.security) pasa a staging y en production verifica el rechazo por ARGOS_SCENE_DRIVER sin filtrar el secreto. app-config.spec: literal con scene.
+- Suite completa: solo rojos documentados (T813 x5, T815 x18); tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T831 pruebas rojas de paridad y migracion de la escena (REQ-ESC6-018, REQ-ESC6-035; INV-ESC6-004/005; SC-ESC6-091) (sin push, sin [x])
+- schema-parity.spec: CANONICAL_TABLES 23 -> 29 e indices +6 (home_scenes_household/owner, scene_attempts_actor_started/idempotency/scene_started, scene_consents_active), prueba de CHECK identicos y de image_mime solo PNG/WebP, phase/outcome; paridad viva carga la 0009. Nuevo t831-esquema-escena-006.spec.ts (11 pruebas de comportamiento SQLite: CHECK, unicos parciales, cascadas, sin FK en current_attempt_id). Marker, postgres-pool, postgres-maintenance (BASELINE hasta 0009) y t542 declaran la ruta.
+- Rojo 16 (schema-parity 3, t831 11, pool 1, marker 1, t542 1) + T813 x5 documentados; tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE (not.toThrow sustituido por runs() == 'ok').
+
+## 2026-11-18 Keymaker: T832 SQLite 0013_home_scenes.sql con las 6 tablas de la escena (REQ-ESC6-011/012/023/025/032; INV-ESC6-003/004) (sin push, sin [x])
+- 0013 conserva la reconstruccion de audit_log (M-3, T810) y anade M-1: home_scenes, scene_attempts, scene_image_sources, household_photos, scene_consents, scene_quota_carry (STRICT, FKs en ese orden, current_attempt_id sin FK) y 6 indices (4 unicos parciales: household, owner, idempotency_key_hash, consentimiento vigente).
+- Verde t831 SQLite (10/10) y sqlite-repositories (lista de tablas 20 -> 29: actualizacion prevista por la enmienda, sin aflojar). Quedan rojos esperados hasta T833: schema-parity x6 y t831 Postgres x1; mas T813 x5 y T815 x18. tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T833 Postgres 0009_home_scenes.sql con paridad exacta (REQ-ESC6-011/012/023/025/032; EDGE-ESC6-016; SC-ESC6-091) (sin push, sin [x])
+- 0009 conserva el ALTER del CHECK de audit_log (M-3) y anade las mismas 6 tablas e indices que la 0013 (sin STRICT; mismos tipos, CHECK, parciales y cascadas). schema-parity (tablas 29, indices, CHECK, columnas) y t831 Postgres en verde; la ruta ya estaba declarada en HOME_PATH (T831).
+- Verificacion viva: con docker-compose.test.yml (postgres:17 local, TEST_DATABASE_URL desechable) la paridad viva aplica 0001..0009 y compara con information_schema: 39/39 verde (schema-parity, t831, t809). Solo quedan T813 x5 y T815 x18.
+
+## 2026-11-18 Keymaker: T834 repositorios de la escena en memoria, SQLite y Postgres (INV-ESC6-003/004/012; REQ-ESC6-012/036; EDGE-ESC6-016/027/031) (sin push, sin [x])
+- Pruebas primero: t834-repositorios-escena-006.spec.ts (contrato unico memoria/SQLite/Postgres real + SQL exacto con fakeClient): rojo 29 (TypeError: r.scenes.insert/lockScene/beginGeneration/claimAttempt/upsertQuotaCarry is not a function). Luego puerto ampliado (SceneRecord, SceneAttemptRecord, beginGeneration T1 CAS, claimAttempt, contadores, upsertQuotaCarry con max, consentimientos grant/revoke/findActive), memoria, SQLite y Postgres (FOR UPDATE, rowCount, GREATEST), scene-row-mappers.ts comun; nulos conservados y completados.
+- t828: la prueba de Postgres pasa de 'sin sentencias' a 'sin sentencias al crear; un SELECT por lectura' (cambio previsto: los repositorios dejan de ser nulos). Contrato corrido tambien contra postgres:17 local (docker-compose.test.yml).
+- Verde 29/29 + 12 PG; suite completa con PG real: solo T813 x5 y T815 x18; tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T814 enmienda MINOR de countBytesOfOwner: pet_media + household_photos del propietario del hogar (N2-06 (c); REQ-ESC6-001/018; EDGE-ESC6-013; SC-ESC6-019/028/064) (sin push, sin [x])
+- countBytesOfOwner suma pet_media de sus mascotas y household_photos de los hogares con households.owner_user_id = usuario (quien sube la foto no consume; las escenas no cuentan) en memoria (MemoryState.householdPhotos), SQLite (una consulta con dos subconsultas) y Postgres (una consulta parametrizada); doc del puerto actualizado. El unico cambio de suites previas es anadir 0009_home_scenes.sql a los esquemas de postgres-repositories.spec y concurrent-engines (PG real).
+- t813 verde (5/5: x5 rojos documentados pasan a verde); suite con PG real: solo T815 x18; tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T835 mantenimiento diario de la escena: purga de intentos > 30 dias, hashes > 24 h, arrastres viejos; conciliacion de scenes/ y households/ (N2-11; REQ-ESC6-012/029; INV-ESC6-016; EDGE-ESC6-016/021; SC-ESC6-095/044) (sin push, sin [x])
+- Pruebas primero: t835-mantenimiento-escena-006.spec.ts (memoria y SQLite): rojo 7/7 (purgeSceneData no es funcion; reconciled 0 en lugar de 2/1/1). Luego purgeSceneData en maintenance-use-cases (una transaccion, nunca lanza, enlazada en runMaintenance: no hay segunda rutina) y 5 metodos nuevos del repositorio (purgeTerminalAttempts sin el intento vigente de la escena, clearExpiredIdempotencyHashes, purgeQuotaCarryBefore, findHouseholdPhoto, putHouseholdPhoto) en memoria, SQLite y Postgres.
+- reconcileObjects recorre RECONCILED_PREFIXES (pets 24 h; scenes y households 15 min) y decide huerfano por pet_media/avatar, home_scenes.image_id o household_photos.object_id y siempre por la cola (INTENT incluido); un fallo de list en un prefijo omite solo ese prefijo. Decision: no se purga el current_attempt_id de una escena (la derivacion failed -> outdated lo lee, data-model §4).
+- Contrato t834 ampliado (PG real incluido). Verde t835 7/7 y t834 54/54; suite con PG real: solo T815 x18; tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T836 exclusion del respaldo: la foto del hogar y las escenas no viajan; runbook actualizado (REQ-ESC6-022, REQ-ESC6-018; INV-ESC6-009; SC-ESC6-051/088) (sin push, sin [x])
+- Pruebas primero: backup-restore-runbook-docs.spec (+5 pruebas de la subseccion 006) y backup-runbook-hardening.spec (+2): rojo 6 (falta la subseccion). backup-31-roundtrip (+2): la exportacion es byte a byte igual con y sin escena/foto/consentimiento/arrastre y no nombra sus tablas; importar no restaura ni crea escena (son pruebas de fijacion: ya verdes, protegen contra regresiones; 0009 anadida al esquema PG real).
+- terraform/README.md: subseccion 'Fuera del respaldo exportable (feature 006)' (no viajan en el sobre 3.x, importar no restaura, foto cuenta en 1 GiB y escenas no, pg_dump sin objetos y conciliacion 15 min, cascadas del paso 3, ventana PITR). Hallazgo H-KEY-F4-1: scene_attempts.actor_user_id, scene_image_sources.owner_user_id y household_photos.uploaded_by_user_id no tienen FK y el paso 3 de restauracion no las elimina; documentado como decision pendiente, sin tocar el SQL del runbook.
+- Verde 61/61; suite sin y con PG real: solo T815 x18; tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: H-KEY-F4-1 corregido en el runbook (opcion (a)); sin tocar migraciones; sin push, sin [x]
+- Pruebas primero: +5 en backup-restore-runbook-docs.spec (3 columnas, DELETE antes de users, cola media_deletion_queue, referencias_restantes, texto): rojo 5; verde 24/24 y hardening 15/15.
+- terraform/README.md paso 3: 2 INSERT en media_deletion_queue (households/ y scenes/, omite la imagen vigente) + DELETE de scene_attempts, scene_image_sources y household_photos antes de DELETE FROM users; referencias_restantes suma las 3 columnas. La FK (opcion (b)) sigue pendiente de Neo.
+- tsc 0; trazabilidad 001/002/006 y oraculos 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T837+T838 select-visible-pets e inputs-snapshot (REQ-ESC6-004/008; INV-ESC6-001/008; EDGE-ESC6-001/002/012) (sin push, sin [x])
+- Pruebas primero: t837 (15): rojo 'Failed to load url ../../src/domain/scene/inputs-snapshot.ts' (modulo inexistente). Luego src/domain/scene/select-visible-pets.ts (orden assignedAt asc + id, tope N) e inputs-snapshot.ts (canonicalJson + sha256 puro, EMPTY, parse, countPendingChanges por entidad).
+- Verde 15/15; suite completa 18 rojos (solo T815), tsc 0, gates CUMPLE.
+
+## 2026-11-18 Keymaker: T839+T840 decide-mode y ranuras IMG_n (REQ-ESC6-006/007/009/010; EDGE-ESC6-008/010; SC-ESC6-056) (sin push, sin [x])
+- Pruebas primero: t839 (17): rojo 'Failed to load url ../../src/domain/scene/decide-mode.ts'. Luego decide-mode.ts (precedencia REGENERATE > sin imagen > foto del hogar > incrementales; MIXED con >1 tipo; ranuras IMG_1 escena o foto del hogar, luego mascotas dibujadas con foto; null sin cambios).
+- Decision: las mascotas REMOVE viajan al final del plan (desde el snapshot anterior); SC-ESC6-010 dice 'pets = []' y plan.md dice que incluye las REMOVE: se deja a T842 y se reporta a /architect (H-KEY-F5-1).
+- Verde 17/17; suite completa solo T815 x18; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T841+T842 build-image-prompt, sanitize-free-text, breed-names y scene-payload (REQ-ESC6-015/016; INV-ESC6-001/006/010/011/017; EDGE-ESC6-015) (sin push, sin [x])
+- Pruebas primero: t841 (22): rojo 'Failed to load url .../breed-names.ts'. Luego sanitize-free-text (NFKC + lista blanca + marcadores secundarios), breed-names (tabla en ingles de 65 razas; criolla/*_OTHER mestizas), build-image-prompt (plantillas plan.md 5.3) y scene-payload (valida contra validateScenePayload de v34).
+- Decisiones (H-KEY-F5-2 a /architect): el catalogo trae etiquetas en espanol, asi que la tabla canonica en ingles es del dominio; el texto de estilo base no esta en spec/plan y se fijo en DEFAULT_SCENE_STYLE; breed libre sin catalogo => 'mestizo amigable (sexo; breed label "x")' (une REQ-ESC6-009 y EDGE-ESC6-015).
+- Verde 22/22; suite solo T815 x18; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T842 correccion: pet-phrases.ts separa la logica de raza de build-image-prompt.ts (T599 SC-CAT-033) (sin push, sin [x])
+- Hallazgo: tras el commit de T841+T842 la suite dio 19 rojos: domain-sin-raza-peso-edad-alertas (T599, 004) escanea los archivos de src/domain cuyo nombre contiene 'age' y 'build-image-prompt.ts' lo contiene ('im-age'); no se toca el test cerrado de 004.
+- Correccion: las frases por mascota (raza, mestizo, etiqueta) viven en pet-phrases.ts y build-image-prompt.ts ya no nombra 'breed'. Verde t841 22/22 y T599 28/28; suite solo T815 x18.
+
+## 2026-11-18 Keymaker: T843+T844 quota-window y attempt-limits (REQ-ESC6-011/034; INV-ESC6-004; EDGE-ESC6-007/029/031) (sin push, sin [x])
+- Pruebas primero: t843 (15): rojo 'Failed to load url .../attempt-limits.ts'. Luego utc-instant.ts (epochMillis sin Date), quota-window.ts (ventana de todayIsoDate, restante, applyPublication T2, windowResetsAt con desfase como dato) y attempt-limits.ts (60 s, 3 FAILED/escena, 12/actor, Retry-After).
+- Hallazgo H-KEY-F5-3: SceneRepository.countAttemptsByScene cuenta TODOS los intentos; REQ-ESC6-034 pide 3 con resultado FAILED por escena: T853 ampliara el puerto con countFailedAttemptsByScene (+ instante mas antiguo). resetsAt necesita el desfase de APP_TIMEZONE como dato de composicion (ClockPort no lo expone).
+- Verde 15/15; suite solo T815 x18; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T845+T846 scene-state y scene-policy (REQ-ESC6-003/020; INV-ESC6-007; STATE-SCENE-001; SC-ESC6-086/089/090) (sin push, sin [x])
+- Pruebas primero: t845 (26): rojo 'Failed to load url .../scene-state.ts'. Luego scene-state.ts (transitionScene desde STATE_SCENE_001, deriveStatus de 7 reglas en orden estricto con leaseExpired, SCENE_STATE_ERROR_CODES vs HTTP_SCENE_ERROR_CODES) y scene-policy.ts (OWNER/ADMIN actuan, todo miembro lee, sin rol nada).
+- Decision: con imagen y huella distinta la derivacion da outdated aunque no queden entradas (necesario para SC-ESC6-010: eliminar la unica mascota habilita INCREMENTAL_REMOVE); rbac.ts intacto.
+- Verde 26/26; suite solo T815 x18; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T862 cableado de onPetRemoved en pet-use-cases (PET_DELETED) y avatar-use-cases (AVATAR_DELETED) (REQ-ESC6-029/030; EDGE-ESC6-005/021; SC-ESC6-044/045/047) (sin push, sin [x])
+- Rojo previo (T815): 18 rojos; pet x2 y avatar x2 con 'expected [] to deeply equal [{hook onPetRemoved ...}]'. Implementacion: deps.sceneHooks?.onPetRemoved(repositories, {petId, cause, now}) ANTES de la mutacion y dentro del runInTransaction; el avatar solo si habia avatar (idempotente sin avatar).
+- T815: 18 -> 14 rojos (quedan assignment, household, account, ownership, backup). La logica real de retiro (SceneLifecycleHooks) llega tras el cableado.
+- tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T863 cableado de onPetUnassigned (assignment-use-cases) y onMemberRemoved (household-use-cases, salida o expulsion) (REQ-ESC6-030; EDGE-ESC6-020; SC-ESC6-047) (sin push, sin [x])
+- Rojo previo (T815, 14): assignment x2 ('expected [] to deeply equal [{hook onPetUnassigned...}]') y household salida/expulsion x2. Implementacion: onPetUnassigned solo si la asignacion existia (idempotente); onMemberRemoved tras validar applyMembershipEvent y antes de saveChangedRows/podas (un evento por causa: subsume las desasignaciones, regla 5 del contrato).
+- T815: 14 -> 10 rojos. tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T864+T865 cableado de onHouseholdCreated, onHouseholdDeleting y onAccountDeleting (REQ-ESC6-029/032/011; EDGE-ESC6-022/030/033; SC-ESC6-044/048/058/073/076) (sin push, sin [x])
+- Rojo previo (T815, 10): household crear x2, eliminar x2, account x2 ('expected [] to deeply equal [{hook ...}]'). Implementacion: onHouseholdCreated tras insert del hogar y su membresia; onHouseholdDeleting tras requireOwner y antes de deleteWithMemberships; onAccountDeleting tras las comprobaciones B4-B6 (hogares en cascada del plan, seudonimo HMAC) y antes de recordAudit/borrados. T864 y T865 comparten household-use-cases.ts y van en un solo commit.
+- T815: 10 -> 4 rojos (ownership x2, backup x2). tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T866+T867 cableado de onPetOwnershipTransferred (ownership-use-cases) y onBackupImported (backup-use-cases) (REQ-ESC6-022/024/025/030; SC-ESC6-051/088) (sin push, sin [x])
+- Rojo previo (T815, 4): ownership x2 y backup x2. Implementacion: onPetOwnershipTransferred tras validar transferPetOwnership y antes de podar asignaciones (previousOwner = pet.ownerUserId); onBackupImported tras fijar replacedPetIds y antes de borrar (ids ordenados; solo si se reemplaza alguna mascota). El fallo del gancho se relanza tal cual (patron de 'limited') en lugar de ERR-BACKUP-ATOMIC-ROLLBACK, como exige la prueba T815.
+- T815: 4 -> 0 rojos (27/27). Suite completa sin rojos. tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T862..T868 SceneLifecycleHooks real + ciclo de vida del repositorio de escena (REQ-ESC6-022/029/030/032; EDGE-ESC6-005/020/021/022/030/033; SC-ESC6-044/045/047/048/058/073/076/088) (sin push, sin [x])
+- Pruebas primero: t862-repositorio (27 = 9 x memoria/SQLite/PG real): rojo 'TypeError: r.scenes.findImageSources/cancelInFlight/adoptOwnerScene is not a function'; t862-ganchos-reales (17): rojo 'Failed to load url .../scene-lifecycle-hooks.ts'. Implementacion: puerto SceneRepository +9 metodos (fuentes, retireImage, cancelInFlight, adoptOwnerScene, raiseConsumed, deleteScene, deleteHouseholdPhoto, pseudonymizeUser) en memoria, SQLite, PostgreSQL y Null; SceneLifecycleHooks (application/use-cases) cumple las 6 reglas del puerto; server.ts lo conecta como deps.sceneHooks.
+- Decisiones: adoptOwnerScene borra la escena sobrante del hogar ANTES del UPDATE (el indice unico parcial impide el orden UPDATE-primero de data-model 5; mismo resultado, H-KEY-F5-4); onAccountDeleting no arrastra cuota (las filas de scene_quota_carry caen por FK con el usuario; RR-06-12). El borrado de la imagen en GCS lo hace la cola de 004 tras el COMMIT.
+- Verde 27/27 (con PG real postgres:17 local) y 17/17; suite completa con PG real sin rojos; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T849+T850 generador simulado y despachador en proceso (REQ-ESC6-013/017/031; INV-ESC6-002/005/016; EDGE-ESC6-004/017; SC-ESC6-017/018/025/046/050/061/062) (sin push, sin [x])
+- Pruebas primero: t849 (9): rojo 'Failed to load url .../fake-scene-image-generator.adapter.ts'. Luego fake-scene-image-generator.adapter.ts (PNG 1x1 deterministico por SHA-256 del prompt, modos ok/fail/slow/invalid/echo, registro sin bytes) e in-process-scene-dispatcher.adapter.ts (setImmediate tras volver; fallos descartados sin datos; allowed=false se niega).
+- No existe VertexSceneImageGenerator ni se toca red; sin dependencias npm. Verde 9/9; suite completa 0 rojos; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T847+T848 normalizador de metadatos por lista blanca y validacion de la salida por firma (REQ-ESC6-027/035; INV-ESC6-015; EDGE-ESC6-023/004/029; SC-ESC6-041/083/084/085) (sin push, sin [x])
+- Pruebas primero: t847 (15): rojo 'Failed to load url .../image-metadata-stripper.ts'. Luego image-metadata-stripper.ts: stripPng/stripJpeg/stripWebp (lista blanca; CRC; sin animados; trunca tras IEND/EOI/RIFF; critico desconocido => ausente; tope de iteraciones), readImageDimensions (IHDR/SOF/VP8X-VP8L-VP8 sin decodificar), fitReferencesWithinBudget (prefijo <= 32 MiB; degraded) y validateGeneratedImage (firma, un cuadro, tope y 25 MP; sin reescribir: conserva C2PA/SynthID/XMP, N2-03 = A).
+- Sin recodificar ni redimensionar (N2-01 = B; SC-ESC6-042 condicionada a T885). Verde 15/15; suite 0 rojos; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T868 cierre de la suite T815 y estado de la Fase 5 (REQ-ESC6-018/029/030; SC-ESC6-028/088) (sin push, sin [x])
+- T868: media-use-cases no usa el puerto de ganchos: la cuota de 1 GiB ya suma pet_media + household_photos desde T813/T814 (t813 5/5). Suite T815 27/27 verde; ganchos reales t862 17/17 y contrato de repositorio 27/27 (memoria, SQLite, PG real). Suite completa con PG real: 290 archivos, 4576 pasan, 1 omitida, 0 rojos.
+- PENDIENTE de la Fase 5: T851..T861 (casos de uso getScene, requestSceneGeneration, runSceneGeneration, foto del hogar, consentimiento, registros/auditoria, concurrencia). Necesitan ademas, en el repositorio: countFailedAttemptsByScene (+ instante mas antiguo) para REQ-ESC6-034, expireLease (CAS idempotente), publicacion T2 atomica y resolucion de la clave de idempotencia; deps de escena (generador, despachador, stripImageMetadata, config) y el desfase de APP_TIMEZONE como dato para quota.resetsAt.
+- Hallazgos para /architect: H-KEY-F5-1 SC-ESC6-010 (pets=[]) vs REMOVE incluido en el payload; H-KEY-F5-2 texto del estilo base y tabla de razas en ingles; H-KEY-F5-3 contador FAILED de REQ-ESC6-034; H-KEY-F5-4 orden de D6-09 (indice unico parcial).
+
+## 2026-11-18 Keymaker: Parte A decisiones de Fase 5 (H-KEY-F5-1/2/3) (sin push, sin [x])
+- H-KEY-F5-3: countFailedAttemptsByScene(sceneId, since) -> {count, oldestAt} en puerto, memoria, SQLite, PostgreSQL y Null (solo outcome FAILED, started_at >= since). Rojo previo en t834: 'r.scenes.countFailedAttemptsByScene is not a function' (SQLite y memoria). Verde 50/50 con PG real (postgres:17 en 55432). countAttemptsByScene intacto (enfriamiento y tope por actor).
+- H-KEY-F5-2: STYLE_BASE_TEXT (byte a byte del requerimiento) emitido siempre como bloque 1; DEFAULT_SCENE_STYLE con paleta firmada, 'soft natural morning light' y 3 restricciones; breed libre fuera de pet-phrases y de scene-payload (payload.breed = nombre canonico del Anexo A o 'Mixed breed', porque el esquema 1.0.0 lo exige). Rojo previo t841: 4 pruebas (estilo, paleta, mestizo, breed del payload). Verde 27/27.
+- H-KEY-F5-1: decide-mode y scene-payload YA colocaban las REMOVE al final de pets en modos incrementales y pets=[] solo en FROM_SCRATCH/REGENERATE; sin cambio de codigo, se fijo con prueba nueva de SC-ESC6-010 (payload con 1 REMOVE, 'Remove only', sin 'Place all'). No hubo rojo previo (comportamiento ya conforme).
+- Suite completa con PG real: 290 archivos, 4584 pasan, 1 omitida, 0 rojos; tsc 0; gates 001/002/006 y oracles 006 CUMPLE.
+
+## 2026-11-18 Keymaker: T851+T852 getScene y entrega de imagen (REQ-ESC6-003/005/019/020; INV-ESC6-007/019; EDGE-ESC6-003/006; SC-ESC6-014/017/018/081/093) (sin push, sin [x])
+- Pruebas primero: t851 (15): rojo 'Failed to load url .../scene-use-cases.ts'; t834 (+3 contratos expireLease/markProviderCall/closeAttempt/publishImage): rojo 'r.scenes.expireLease is not a function' (6 fallos). Luego scene-use-cases.ts (GetSceneUseCase, GetSceneImageUseCase, loadLiveInputs, resolveSceneAccess) y SceneServices opcional en ApplicationDeps.
+- Repositorio SceneRepository +4 metodos en memoria/SQLite/PG/Null (expireLease CAS, markProviderCall, closeAttempt, publishImage) que usaran T854/T856. 404 = ERR-HOUSE-NOT-FOUND antes de escribir; vencimiento materializado bajo lockScene (INTENT -> DELETE). Verde 15/15 y 59/59 (PG real).
+- Decision: COOLDOWN en getScene usa countAttemptsByScene(since = now-59.999 s) y countFailedAttemptsByScene; consent.required = driver real y sin consentimiento de ningun ambito.
+- Suite completa con PG real: 291 archivos, 4608 pasan, 0 rojos; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T853+T854 requestSceneGeneration (T1) (REQ-ESC6-005/007/011/012/034/036; INV-ESC6-003/004/014; EDGE-ESC6-016/029/031/032; SC-ESC6-014/016/021/065/075/078/079/080) (sin push, sin [x])
+- Pruebas primero: t853 (22): rojo 'RequestSceneGenerationUseCase is not a constructor' (22 fallos); t834 (+1): rojo 'r.scenes.lastAttemptStartedAt is not a function' (3). Luego RequestSceneGenerationUseCase + sceneIdempotencyHash + SceneRateLimitedError (retryAfterSeconds) y repositorio +lastAttemptStartedAt/oldestActorAttemptAt (memoria/SQLite/PG/Null).
+- T1 en una transaccion bajo lockScene: 404 -> 403 rol -> 403 consentimiento (driver real) -> idempotencia (hash SHA-256 actor,escena,accion,clave; una sola clave; 422 si otra accion) -> UPDATE sin cambios 200 -> 409 cuota -> 429 contadores (FAILED-only, H-KEY-F5-3) -> intento PENDING + INTENT + lease T_QUEUE. Encolado tras COMMIT: ALREADY_EXISTS ok, ambiguo no marca failed, rechazo determinista cierra FAILED y pasa INTENT a DELETE.
+- Auditoria SCENE_REQUESTED queda para T859 (se cablea en esta misma transaccion). Suite completa con PG real: 292 archivos, 4633 pasan, 0 rojos; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T855+T856 runSceneGeneration (worker) (REQ-ESC6-013/014/027/036; INV-ESC6-003/004/005/012; EDGE-ESC6-003..006/021/024..028/031; SC-ESC6-017/018/020/032/053/059/062/063/068..071) (sin push, sin [x])
+- Pruebas primero: t855 (21): rojo 'Failed to load url .../scene-run-use-case.ts'. Luego scene-run-use-case.ts (RunSceneGenerationUseCase: claim + reverificacion de duenos de datos, referencias con degradacion y renumeracion IMG_n, provider_call_started_at antes de llamar, validacion de salida por firma, comprobacion de senal y arrendamiento antes del put, T2 atomico) y SceneImageTools (strip/fit/validateOutput) inyectadas en SceneServices.
+- Decisiones: modo del intento autoritativo (mismatch -> FAILED sin cuota); T2 con quota_window/quota_max del intento (EDGE-031); duenos de datos = actor, duenos de cada mascota del snapshot y quien subio la foto del hogar (scene_image_sources); cuota agotada en T2 -> FAILED ERR-SCENE-GENERATION-FAILED; lease vencido en cola antes del claim -> expireLease sin llamar al generador. Auditoria SCENE_PUBLISHED/SCENE_FAILED queda para T859.
+- Suite completa con PG real: 293 archivos, 4654 pasan, 0 rojos; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T857+T858+T859+T860 foto del hogar, consentimiento y auditoria de la escena (REQ-ESC6-001/018/020/021/023..027/029/030; INV-ESC6-009/014/016; EDGE-ESC6-011/013/018..020/025; SC-ESC6-004/019/027/028/033/035..039/046/052/064/094/096) (sin push, sin [x])
+- Pruebas primero: t857 (11) rojo 'Failed to load url .../scene-photo-use-cases.ts'; t858 (13) rojo '.../scene-consent-use-cases.ts'; t859 (7) rojo 4 fallos 'expected [] to deeply equal ...' (sin filas de auditoria). Luego scene-photo-use-cases.ts (Put/Delete/GetHouseholdPhoto), scene-consent-use-cases.ts (GetSceneNotice, Grant, Revoke) y scene-audit.ts (recordSceneAudit; HMAC del hogar y del actor; evento solo en el hash).
+- T860 = implementacion de T857 y T858 (mismas clases). Auditoria cableada en T1 (SCENE_REQUESTED), T2/close/claim (SCENE_PUBLISHED/SCENE_FAILED), grant/revoke y foto. La expiracion de arrendamiento materializada por getScene NO deja fila SCENE_FAILED (la lectura no conoce al actor del intento): queda como hallazgo para /architect o para el mantenimiento diario.
+- SceneImageTools +withLimits (25 MP / 8192 px en la subida). Oracle gate: 6 oraculos debiles propios corregidos antes del commit. Suite completa con PG real: 296 archivos, 4685 pasan, 0 rojos; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T861 suite de concurrencia de la escena (REQ-ESC6-012/036; INV-ESC6-003/004; EDGE-ESC6-024/027/031; SC-ESC6-016/059/070/074/093) (sin push, sin [x])
+- t861 (18 = 6 x memoria, SQLite y PostgreSQL real en postgres:17 55432): dos usuarios a la vez, doble clic con la misma clave y con dos, tres entregas concurrentes del worker (1 PUBLISHED y 2 NOOP, generador 1 vez, cuota +1), tres lecturas con arrendamiento vencido (una sola transicion failed y un DELETE), frontera mensual 30-nov/1-dic y T1 contra T2. Verde 18/18.
+- Sin rojo previo: es suite de caracterizacion sobre T854/T856 ya implementadas (sin codigo de produccion nuevo). Un primer intento fallo solo por sembrar la memoria con estado canonico duplicado (error de la prueba, corregido).
+- Suite completa con PG real: 297 archivos, 4703 pasan, 1 omitida, 0 rojos; tsc 0; gates CUMPLE. T591R-2 no fallo en esta corrida.
+
+## 2026-11-18 Keymaker: H-KEY-F5-5 expiracion de arrendamiento auditada (REQ-ESC6-021; INV-ESC6-019; SC-ESC6-018/093) (sin push, sin [x])
+- Pruebas primero: t834 expireLease (memoria y SQLite) rojo 'expected { attemptId, resultObjectId } to equal { id, actorUserId, ... }'; t851 (+3) rojo 'expected [] to deeply equal [[HOME_SCENE, UPDATE, ...]]' (2 fallos; la de 404 ya conforme). Luego expireLease devuelve el SceneAttemptRecord transicionado (puerto, memoria, SQLite, PG, Null).
+- recordSceneAttemptAudit (scene-audit.ts) reutilizado por getScene, requestSceneGeneration (T1) y el worker; actor = actorUserId del intento expirado; solo si el CAS transiciona. 404 antes de cualquier escritura (sin cambios).
+- Suite completa con PG real: 297 archivos, 4707 pasan, 1 omitida, 0 rojos; tsc 0; gates 001/002/006 y oracles 006 CUMPLE.
+
+## 2026-11-18 Keymaker: H-KEY-F5-7 cuota agotada en T2 con motivo interno SCENE_QUOTA_AT_T2 (INV-ESC6-004/005; EDGE-ESC6-031) (sin push, sin [x])
+- Prueba primero (t855, +1): rojo 'Expected e1b81331... Received 8d98987c...' (hash de auditoria con result ERR-SCENE-GENERATION-FAILED en vez del motivo interno). Luego finish(outcome, code, internalReason) en T2: intento FAILED con ERR-SCENE-GENERATION-FAILED, sin cuota, imagen anterior intacta; el motivo solo entra al hash de SCENE_FAILED.
+- La vista (lastError) y scene_attempts.error_code siguen con el codigo estable; el motivo interno no aparece en el estado persistido de intentos. Catalogo y SceneErrorCode intactos.
+- Suite completa con PG real: 297 archivos, 4708 pasan, 1 omitida, 0 rojos; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: H-KEY-F5-6 scene_image_sources solo para fotos ENVIADAS (REQ-ESC6-025; EDGE-ESC6-025/028; SC-ESC6-039) (sin push, sin [x])
+- Pruebas primero: t855 (+4 nuevas/ajustadas) rojo 'expected [ {...}, {...} ] to deeply equal []' (3) y 'expected CANCELLED to be PUBLISHED' (1); t858 SC-ESC6-039 'dueno sin foto enviada retira, la imagen se conserva' rojo 'expected [ ... ] to deeply equal [ Array(1) ]'. La prueba de fuentes de la publicacion pasa de 'todos los duenos' a [] (sin foto enviada).
+- scene-run-use-case: el worker registra que fotos viajaron (mascotas, hogar, imagen previa) y dataOwners(sent) compone las fuentes desde ellas; existencia/asignacion sobre todos los duenos del snapshot, consentimiento solo del actor y de duenos de fotos enviadas; el claim (sin filtros aun) conserva el chequeo por foto del snapshot. Decision propia: en modo incremental se heredan las fuentes de la imagen previa si viajo como referencia (la imagen nueva deriva de ella); lo reporto a /oracle.
+- Textos: data-model §3 (T2, H-KEY-F5-7) y §6 (2 filas), spec REQ-ESC6-025 (2) y EDGE-ESC6-025, plan §2.2 runSceneGeneration; specs/006 esta sin rastrear en git (no se commitea). Suite con PG real: 297 archivos, 4715 pasan, 1 omitida, 0 rojos; tsc 0; gates CUMPLE.
+
+## 2026-11-18 Keymaker: T869+T870 verificacion OIDC por ruta, jose 6.2.17 acotado a /internal/scene-worker (N2-07 = A) (REQ-ESC6-033; INV-ESC6-018; SC-ESC6-077/087) (sin push, sin [x])
+- Pruebas primero: t869 unit (13) y t869 integracion ops (3): rojo 'createRouteOidcVerifier is not a function' (12 fallos; las 4 de package/alcance de jose ya conformes). Luego oidc-verify.ts (+OIDC_ROUTES, +createRouteOidcVerifier: lanza si la ruta no esta en la lista) y app-config.ts (la cuenta de la cola no puede ser la del Planificador y ARGOS_SCENE_WORKER_URL no puede coincidir con ARGOS_OIDC_AUDIENCE, con o sin barra final; el error nombra solo la variable). server.ts usa createRouteOidcVerifier para /internal/maintenance.
+- Pendiente de /architect (no es mio, prohibido editar .specify/**): aplicar el texto de la enmienda de la constitucion (Principio VI, jose acotado a las dos rutas internas) del borrador enmienda-006-principio-VI.md / N2-07; yo no toco la constitucion.
+- Suite completa con PG real: 299 archivos, 4731 pasan, 1 omitida, 0 rojos; tsc 0; gates 001/002/006 y oracles CUMPLE.
+
+## 2026-11-18 Keymaker: T871+T872 rutas de la escena, foto del hogar y consentimiento con conformidad OpenAPI 006 (REQ-ESC6-003/005/007/012/034; INV-ESC6-007/019; NFR-ESC6-003; SC-ESC6-026/030/079/081/093) (sin push, sin [x])
+- Pruebas primero: t871 (20, helper openapi-contract-006.ts con el ajv del arnes 002) rojo 18 fallos (sin rutas: 404). Luego scene.routes.ts (GET/POST generate/image del hogar y espejo /me, un solo manejador por ambito), household-photo.routes.ts, scene-consent.routes.ts, scene-headers.ts (no-store, no-referrer, nosniff en toda respuesta de escena), scene-rate-limit.ts (generar 6/h, foto 10/h, consentimiento 10/h por usuario, ventana deslizante en memoria con el reloj inyectado, Retry-After) y problem-details (clase DomainError v34 -> ERR-SCENE-* ya no cae en 500; Retry-After; 413 de la foto del hogar).
+- Decisiones propias a reportar: (1) la tasa por usuario es en MEMORIA POR INSTANCIA (no hay migracion para ambitos nuevos en rate_limit_events y no estaba en los archivos de T872); el control duro sigue siendo la cuota y los topes transaccionales de REQ-ESC6-034. (2) `v` mal formado se ignora (302 a la imagen vigente) porque el contrato no declara 422 en getHouseholdSceneImage. (3) El contrato dice 404 ERR-MEDIA-NOT-FOUND sin imagen vigente y T851 devuelve ERR-HOUSE-NOT-FOUND (404 igual): observacion para /architect.
+- Hallazgo de proceso: scan-secrets solo mira archivos versionados; mi t869 tenia una URL postgres con usuario y clave cortos y fallo tras el commit; corregido (amend local, bfff91f) con una URL de placeholder. Desde ahora git add antes del scan. Suite con PG real: ver commit.
+- Suite completa con PG real: 300 archivos, 4751 pasan, 1 omitida, 0 rojos; tsc 0; gates 001/002/006 y oracles CUMPLE (T871+T872).
+
+## 2026-11-18 Keymaker: T873 worker /internal/scene-worker, CloudTasksSceneDispatcher y composicion de la escena (REQ-ESC6-013/033/036/012; INV-ESC6-018/003; EDGE-ESC6-024/027/032; NFR-ESC6-002; SC-ESC6-055/059/070/075/077/087) (sin push, sin [x])
+- Pruebas primero: t873 en 4 archivos (worker 11, integracion con caso de uso real y SQLite 4, despachador 19, composicion 7) escritas antes de los modulos (scene-worker.routes, cloud-tasks-scene-dispatcher, scene-composition inexistentes: tsc TS2307). Luego scene-worker.routes.ts (identidad en onRequest ANTES del cuerpo; 401/403 sin cuerpo; cuerpo <= 1 KiB y 422; espera a run y 204 siempre; 500 sin causa), cloud-tasks-scene-dispatcher.adapter.ts (solo con dobles; destino/audiencia/cuenta solo de config validada al construir; nombre = attemptId; 130 s; 409 = ALREADY_EXISTS, 429/5xx/red/timeout ambiguos, otro 4xx rechazo; sin token, URL ni cuerpo en errores), scene-composition.ts (fake + InProcess en dev/CI; real = Cloud Tasks con config y generador real NEGADO), domain/scene/notice.ts (version del aviso y proveedor), csrf-guard (+/internal/scene-worker) y server.ts (ruta solo con cuenta y URL configuradas; oidcJwks solo pruebas).
+- Un fallo propio atrapado por t869: importe 'jose' como tipo en server.ts y rompia el alcance 'solo oidc-verify.ts'; el tipo sale ahora de oidc-verify.
+- Se exporta classifyEnqueueError (scene-use-cases) para probar con la clasificacion real. Suite con PG real: 304 archivos, 4792 pasan, 1 omitida, 0 rojos; tsc 0; gates 001/002/006 y oracles CUMPLE.
+
+## 2026-11-18 Keymaker: T874 suite de seguridad de la escena (REQ-ESC6-020/027/034; INV-ESC6-007/011/016; EDGE-ESC6-023; SC-ESC6-026/046/078/082/083/084/094) (sin push, sin [x])
+- t874 (21): IDOR entre hogares (ambos sentidos y /me), sin acceso (invitado y expulsado), sesion vencida por inactividad, CSRF con valores distintos de 1 en las mutaciones, enumeracion (inexistente = ajeno, ids malformados), tamano (413 y limites de 25 MP/8192 px antes de almacenar, JSON de 2 MiB, campos de mas), textos hostiles al prompt, fuzz de stripImageMetadata/readImageDimensions/validateGeneratedImage con fast-check (400, 300 y 200 corridas), DoS economico (3 FAILED y el cuarto no llama al generador, 40 POST = 1 intento y 1 tarea, rechazos sin intento) y eco del prompt/proveedor en errores y en auditoria.
+- Es suite de caracterizacion sobre T872/T873 (sin codigo de produccion nuevo). Cuatro errores propios de las pruebas corregidos antes del commit (limite de 6/h agotado por mi bucle, JPEG artesanal, 'gemini' que es el providerId publico del aviso, forma de lastError). Hallazgo para /oracle: con generador en modo eco el PNG valido con el prompt en un trozo tEXt se PUBLICA (la validacion de salida es solo por firma y N2-03 = A conserva metadatos de procedencia); no sale en ninguna respuesta JSON.
+- Suite completa con PG real: 305 archivos, 4813 pasan, 1 omitida, 0 rojos (T591R-2 no fallo); tsc 0; gates 001/002/006 y oracles CUMPLE.
+
+## 2026-11-18 Keymaker: H-ORA-F6-A filtro de salida por lista blanca y H-ORA-F6-B 404 unificado (REQ-ESC6-035; INV-ESC6-007; N2-03 = A) (sin push, sin [x])
+- Pruebas primero: t848b (6) rojo 'Cannot read properties of undefined (reading length)' (el veredicto no traia bytes); t855 modo eco rojo 'expected [ true, true ] to deeply equal [ false, false ]' (tEXt y prompt en el objeto publicado). Luego validateGeneratedImage reescribe PNG (IHDR, PLTE, tRNS, IDAT, IEND, caBX, iTXt XMP <= 64 KiB) y WebP (VP8 /VP8L/VP8X sin EXIF/ICC/ALPH/XMP /C2PA), con CRC, longitudes y truncado; el caso de uso publica verdict.bytes y sizeBytes real.
+- 404: GetSceneImageUseCase ya usaba ERR-HOUSE-NOT-FOUND en HEAD; t871 anade el volcado identico (estado, cabeceras, cuerpo) sin-imagen vs sin-acceso, verde de inmediato (caracterizacion). Catalogo intacto. Trozo critico PNG desconocido = ERR-SCENE-INVALID-IMAGE (coherente con el normalizador de entrada).
+- Regenere src/generated/v34 (deriva por texto del OpenAPI de /architect, 1 linea de comentario). Suite con PG real: 306 archivos, 4820 pasan, 1 omitida, 1 roja (T591R-2, deuda); tsc 0; gates 001/002/006 y oracles CUMPLE.
+
+## 2026-11-18 Keymaker: T875+T876 bloque «Escena del hogar» en presentation/web (REQ-ESC6-005/019/021; NFR-ESC6-003/004; SC-ESC6-014/015/029/030) (sin push, sin [x])
+- Pruebas primero: t875 (presentacion, 23) y t876 (integracion, 5): rojo 'Failed to load url .../components/SceneBlock.tsx' y 'expected -1 to be greater than -1'. Luego scene-api.ts (cliente fetch, X-Argos-Request, sondeo pasivo), scene-view.ts (textos, motivo del boton, ruta propia de la imagen, sondeo unico de 3 s), SceneBlock.tsx, HomeScene.tsx, sceneSlot en HouseholdCard y bloque en PetsPage (Mis mascotas = /me; hogar elegido = hogar).
+- Decisiones propias: no hay diseno de /sati para la escena en disco (el prototipo de T875 no existe); segui plan.md §Presentacion y la tarea. La imagen va por ruta propia (302), sin URL firmada en el DOM. ui-invitation-logs.security.spec: scene-api.ts entra a la lista de modulos con fetch y se exige que el sondeo sea pasivo (INV-AUTH2-002).
+- Suite con PG real: 309 archivos, 4849 pasan, 1 omitida, 0 rojas (T591R-2 no fallo); tsc 0; gates 001/002/006 y oracles CUMPLE.
+
+## 2026-11-18 Keymaker: T877+T878 aviso y consentimiento en el cliente, foto del hogar y nota del avatar de referencia (REQ-ESC6-001/002/021/023/025/026; EDGE-ESC6-012/013/018/023; SC-ESC6-002/004/019/033/036/039/040/067) (sin push, sin [x])
+- Pruebas primero: t877 (13) y t878 (9) rojas por 'Failed to load url .../SceneConsent.tsx' y '.../HouseholdPhoto.tsx'. Luego scene-notice.ts (NOTICE_VERSION='1' y PROVIDER_ID='vertex-gemini-image' como constantes iguales a las de domain/scene/notice.ts, texto BORRADOR, normalizacion parcial, PITR 6 h y 14 dias, personas fortuitas), SceneConsent.tsx (ASK/OUTDATED/GRANTED, retiro con confirmacion), HouseholdPhoto.tsx (subir por canvas sin EXIF, reemplazar, quitar con confirmacion, errores ERR-MEDIA-*), PetReferenceNote junto al AvatarEditor.
+- La compuerta de oraculos fallo una vez por `.exec(...).not.toBeNull()` en mis pruebas; reescrito como `.test(...)` toBe(true/false). El texto de retencion del proveedor y la region quedan 'pendientes de confirmar' (sin fuente en disco), no prometidos. Pendiente de Neo: firma legal del aviso y subir NOTICE_VERSION al firmar (cambia tambien domain/scene/notice.ts).
+- Suite con PG real: 311 archivos, 4870 pasan, 1 omitida, 0 rojas; tsc 0; gates 001/002/006 y oracles CUMPLE. e2e de accesibilidad: wcag.spec.ts agota 60 s en beforeAll (registro por API; no toca codigo mio); medios-csp-wcag 4/4 verdes.
+
+## 2026-11-18 Keymaker: T879 correcciones de /sati a la UI de la escena (H-S1, H-S2, H-S3, H-S4, H-S5, H-S12 obligatorias; H-S6, H-S10, H-S13 opcionales) (REQ-ESC6-019/021/026; NFR-ESC6-004; EDGE-ESC6-018) (sin push, sin [x])
+- Pruebas primero: t879-escena-sati-correcciones.spec.ts (14 aserciones en 8 pruebas) rojo 'Failed to load url .../dialog-focus.ts'. Luego dialog-focus.ts (transicion pura ENTER/RETURN/NONE + hook; el foco entra al alertdialog con tabIndex -1 y vuelve al disparador o al encabezado), headingLevel (h2/h3/h4 en Mis mascotas; h4/h5/h6 en la tarjeta del hogar), 'Recargar la pagina' en OUTDATED, rejilla lg:grid-cols-[28rem_minmax(0,1fr)], max-w-prose, chip BORRADOR tambien en GRANTED, motivo enlazado del boton Consentir, 'Leer el aviso' en su linea (SceneNoticeCollapsed), aria-busy y opacidad en la imagen al generar. t877: solo se anadio onReload al helper render; sus 6 pruebas siguen verdes sin tocar aserciones.
+- Limite honesto: no hay jsdom ni testing-library; el foco real (efecto del hook) se prueba por su decision pura y por tabIndex en el marcado, no en un navegador. wcag.spec.ts 14/14 con estos cambios (Chromium).
+- Deuda menor NO corregida (se registra): H-S7 (doble anuncio en failed; t875 fija ambos mensajes), H-S8 (mensajes duplicados; cambia textos fijados por t875), H-S9 (boton largo en pildora a 320 px; el texto lo fija REQ-ESC6-025), H-S11 (jerarquia tipografica y paleta cruda: pasada de diseno), H-S14 (tema oscuro, fuera de 006). Foco real en navegador sin prueba automatica (sugerida: e2e con consentimiento sembrado). Suite con PG real: 312 archivos, 4881 pasan, 1 omitida, 0 rojas; tsc 0; gates 001/002/006 y oracles CUMPLE.
+
+## 2026-11-18 Keymaker: versionado de specs/006-escena-hogar-pixel-art (docs, sin codigo) (sin push, sin [x])
+- Commit de specs/006 completo (spec, plan, data-model, research, tasks, aviso-consentimiento-borrador, contracts/, prototype/) y de los 9 informes de .specify/memory/audits que la feature referencia por nombre. No se incluyen cambios sin commit de /architect en specs 002/003/004/005, constitution.md ni claude/*.md ajenos.
+- tasks.md de 006 se versiona tal cual esta en disco (sin tocar marcas).
+
+## 2026-11-18 Keymaker: Fase 8 T879 guarda del driver real y T880 runbook operativo (REQ-ESC6-028/031/017/022/029; NFR-ESC6-001/002; SC-ESC6-025/043/050/051/060/061/088) (sin push, sin [x])
+- T879 de Fase 8: el nombre t879-* ya lo ocupa la correccion de /sati, asi que la guarda se llama tests/unit/guarda-driver-real-escena-006.spec.ts (10 pruebas): produccion rechaza fake; real sin constante (false), sin modelo o sin proyecto no arranca; composeSceneServices se niega; ninguna clase Vertex/Gemini en src/; unicos implementadores del puerto: fake y null; sin SDK de IA ni google-auth-library ni endpoints del proveedor; el workflow nunca fija real. Pasaron a la primera porque la guarda ya existia (T829/T873); no hay codigo nuevo.
+- T880: seccion nueva en terraform/README.md (mantenimiento, conciliacion, borrado, cola, CI/CD, PITR) + N2-09=B en claude/entorno-y-lecciones.md; tests/unit/runbook-escena-006.spec.ts (5). Los pasos de respaldo y PITR ya los habia dejado T836; solo se referencian.
+
+## 2026-11-18 Keymaker: Fase 8 T881 compuertas de cierre, T882 mutacion/cobertura de domain/scene y T885 documentada como BLOQUEADA (sin push, sin [x])
+- T881 con PG real (postgres:17 en 127.0.0.1:55432, TEST_DATABASE_URL): npm run test:gate exit 0 = 314 archivos, 4896 pasan, 1 omitida, 0 rojas; trazabilidad 001/002/006 CUMPLE; verify-oracles 363 archivos, 0 debiles, CUMPLE; compile-contracts --feature 006 sin deriva (git status src/generated vacio); tsc 0. package.json difiere de main solo en el script test:gate (que ya incluye la 006: compile, traceability); lock sin cambios; sin dependencias nuevas.
+- T882 (parte Keymaker): cobertura src/domain/scene 100 % lineas/sentencias/funciones, ramas 50..100 (utc-instant 50, breed-names 88.9, inputs-snapshot 89.2, scene-payload 90); total repo 98.83/95.51. Stryker sobre src/domain/scene (41 min): puntaje 93.86 (umbral break 85), 282 muertos, 207 timeout, 28 sobreviven, 4 sin cobertura. Por archivo: inputs-snapshot 78.85, build-image-prompt 88.33, scene-payload 87.50, scene-state 94.12; resto 92..100. Sobrevivientes mayormente literales de mensajes y booleanos (scene-state.ts:65 leaseExpired idle). No endurecidos: no se pidio. PENDIENTE: la revision adversarial /smith (maquina de intentos, simulador lento, caidas) la despacha /morpheus; no la hice.
+- T885: BLOQUEADA por N2-10, no ejecutada. Falta: driver real y adaptador del proveedor (REQ-ESC6-028, datos con fuente, sin red hoy); texto legal del aviso firmado por Neo (REQ-ESC6-026, NOTICE_VERSION); N2-01=A dependencia de imagen auditada por /merovingian con red y SC-ESC6-042; N2-02=A ARGOS_SCENE_GLOBAL_QUOTA_MAX; N2-04 moneda real verificada (T824) y presupuesto; revisores del entorno produccion; enmienda del Principio VI aplicada (N2-12). SCENE_REAL_DRIVER_ACTIVATED sigue false. T883/T884 son [GOV] de /oracle y /morpheus, no mias.
+
+## 2026-11-18 Keymaker: sellado de BRECHA-SMITH-01 (arrastre de cuota al recrear hogar) y BRECHA-SMITH-02 (fila DELETE tras revocar) (REQ-ESC6-011/025/029/032; EDGE-ESC6-033; SC-ESC6-044/076; INV-GCS-002) (sin push, sin [x])
+- Pruebas primero (t862, rojo: 2 failed | 19 passed): el hogar recreado nacia con restante 10 en vez de 0, y purgeObjects retiraba la fila de un objeto inexistente. SMITH-01: helper newSceneRecord en scene-use-cases.ts aplica findQuotaCarry del propietario del hogar (ventana vigente) a la escena perezosa de GetScene y de la solicitud de generacion. SMITH-02: purgeObjects(opcion keepRowIfAbsent) solo retira la fila si el objeto existia (list); lo usa unicamente la revocacion del consentimiento. El comportamiento general (SC-ALM-014, borrar inexistente retira fila) no cambia: un primer intento general rompio 4 pruebas y se acoto.
+- t858 actualizada: tras revocar con intento en vuelo la cola conserva la fila DELETE del objeto aun inexistente (antes asertaba cola vacia). Chaos 5b y 7b en verde con config temporal; solo queda en rojo 3 (SMITH-03). Suite con PG real: 314 archivos, 4900 pasan, 1 omitida, 0 rojas; tsc 0; gates 001/002/006 y oracles CUMPLE; contenedor detenido.
+- DEUDA BRECHA-SMITH-03 (BAJA, latente, NO implementada): classifyEnqueueError no clasifica como AMBIGUOUS los codigos gRPC numericos (14 UNAVAILABLE, 4 DEADLINE_EXCEEDED, 8 RESOURCE_EXHAUSTED). Disparador: cambiar el encolado de Cloud Tasks a gRPC (hoy REST/HTTP). Debe cerrarse antes de ese cambio; caso 6b de tests/chaos lo demuestra.
+
+## 2026-11-18 Keymaker: tramo gemini-api T889..T891 (guarda con lista blanca, aislamiento, configuracion) (REQ-ESC6-037/038; INV-ESC6-020; SC-ESC6-097/101) (sin push, sin [x], sin commit)
+- Estado inicial: git status guardado (198 lineas, rama 006); no se tocan archivos ajenos ni constitution.md. No se leyo .env ni ninguna clave; las pruebas usan la centinela sintetica 'AIzaSyTEST-SENTINEL-...'.
+- T889: guarda T879 ajustada (lista blanca por 2 rutas: adapter y gemini-api-wire.ts; siguen prohibidos aiplatform, SDK de IA, google-auth-library) + tests/unit/gemini-api-aislamiento-escena-006.spec.ts. T890 rojo (7/10) y luego T891 verde: app-config.ts con enum de 3 valores, GEMINI_API_KEY (^[\x21-\x7e]{20,256}$) y ARGOS_SCENE_GEMINI_MODEL (gemini-..., sin ../?/espacios). geminiApiKey es propiedad NO enumerable de scene.
+- Decision: SIN defecto para ARGOS_SCENE_GEMINI_MODEL (SC-ESC6-097 y T890 exigen que su ausencia falle nombrandola; el encargo decia 'defecto valido', prevalece la spec). t829 actualizado con geminiModel:null (campo nuevo de SceneConfig).
+
+## 2026-11-18 Keymaker: T892+T893 adaptador GeminiApiSceneImageGenerator y gemini-api-wire.ts (REQ-ESC6-037/038/035; INV-ESC6-016/018/020; SC-ESC6-099) (sin push, sin [x], sin commit)
+- Pruebas primero: tests/unit/gemini-api-scene-generator.spec.ts (24 pruebas, fetch simulado, 0 red) rojo por 'Failed to load url ...adapter.ts'. Luego wire (URL constante, cuerpo, parseo, firma PNG/WebP) y adaptador: x-goog-api-key, redirect:'error', 1 sola llamada, cuerpo de error cancelado, temporizador propio con setTimeout (limpiado), sin console, sin process.env.
+- Decisiones: modalidad por defecto ['IMAGE'] (opcion ['TEXT','IMAGE'] inyectable; NO verificado con la doc vigente por no haber red); tope inline 18 MiB [no verificado]; el adaptador valida mime declarado == firma (PNG/WebP) y devuelve ERR-SCENE-INVALID-IMAGE si no. toJSON() del adaptador devuelve {} para no volcar la clave. Verde: 37/37 con guarda y aislamiento.
+
+## 2026-11-18 Keymaker: T894..T897 composicion/consentimiento, no-fuga y .env.example (REQ-ESC6-037/038/026; INV-ESC6-014/016/020; SC-ESC6-098/100/103) (sin push, sin [x], sin commit)
+- Pruebas primero: gemini-api-composicion (11 de 12 rojas por constantes/rama inexistentes). Luego T895: domain/scene/notice.ts (SCENE_GEMINI_API_PROVIDER_ID='gemini-api', NOTICE_VERSION 'gemini-api-draft-1'), scene-composition.ts (realDriver true, en proceso, fit de 13 MiB, fabrica createGeminiApiSceneGenerator para que solo el adaptador nombre la clase), scene-notice.ts + SceneConsent.tsx (aviso BORRADOR propio por proveedor; consentStep acepta solo pares conocidos).
+- T896: gemini-api-no-fuga (10 pruebas) detecto que util.inspect mostraba la clave del adaptador; corregido con campo ES privado (#apiKey) + toJSON. Redaccion de cloud-logging verificada con logger Fastify real. T897: .env.example con 2 lineas comentadas sin valor; git check-ignore .env = .env.
+- app-config.spec.ts y t829 actualizados con geminiModel:null (campo nuevo de SceneConfig).
+
+## 2026-11-18 Keymaker: T898 compuertas del tramo gemini-api (sin push, sin [x], sin commit)
+- tsc rc 0; test:gate rc 0 (316 archivos pasan, 3 omitidos; 4759 pasan, 201 omitidas por PG apagado, 0 fallidas); verify-traceability 006 rc 0 CUMPLE; verify-oracles 0 debiles. package.json, lock, terraform, .github y contratos sin diff.
+- Informe en .specify/memory/audits/keymaker-006-gemini-api.md. Entrega a /oracle (T899). Pendiente humano: T900 (clave, tope de consola, terminos de datos, firma del aviso).
+
+## 2026-11-19 — T902..T908 + compuertas T909 (006, Fase 10; sin commit, sin [x])
+- Decisiones de Neo aplicadas: (a) OWNER oculto solo con pets.total=0, imageTag=null y ambos consentimientos false, recarga por reloadToken desde PetsPage (cards.length ya no gobierna); (b) PIXEL_REDRAW_RULE solo con photoRef y "Pet k:" 1-based en modos desde cero; (c) decide-mode.ts sin cambio + regresion SC-ESC6-107.
+- Codigo: gemini-api-wire.ts (etiqueta `IMG_n:` antes de cada inlineData), build-image-prompt.ts, scene-view.ts (isOwnerSceneEmpty), SceneBlock.tsx (sin Regenerar sin imagen; reloadToken; OWNER vacio no pinta), HomeScene.tsx, PetsPage.tsx (petsRevision). vite.config.ts verificado (ya traia el proxy /__dev/media, no duplicado).
+- Pruebas: gemini-api-scene-generator, t841 (+5), t839 (+1), t875 (+7), t876 (+1), escena-fixtures (sceneViewSinImagen), t908 nuevo (2). t848b/t849/t855/t851 sin cambio y verdes.
+- Hallazgo: scan-secrets `repo` fallaba (5 hallazgos token-conocido) desde el commit 824d82c (clave sintetica AIzaSy... versionada). Correccion minima: marca `argos-scan:allow` en 4 lineas de tests/ y redaccion del literal en .specify/memory/audits/keymaker-006-gemini-api.md (linea 3). Desviacion a informar.
+- Compuertas: tsc rc 0; traceability 006 CUMPLE (186/249 trazados); verify-oracles 370 archivos 0 debiles; test:gate rc 1 solo por t591-revalidacion T591R-2 (tiempos, deuda autorizada por Neo; pasa 3/3 aislado); vitest --coverage sin ese archivo rc 0 (319 archivos, 4965 pasan, 1 omitida).
+
+## 2026-11-19 Keymaker: Fase 11 T913..T921 implementadas (006; sin commit, sin [x])
+- T913: bash scripts/compile-contracts.sh --feature 006 (solo src/generated/v34, 7 archivos; retryAfterSeconds en SceneActions). T914: t851 +6 pruebas SC-ESC6-112/113 (canRegenerate con limits.allowed, retryAfterSeconds 1..86400|null, ROLE informa valor real, validateSceneView); H2 ajustado (toEqual con retryAfterSeconds:null, sin debilitar). T915: scene-use-cases.ts buildView.
+- T916/T917: t916-escena-espera.spec.ts (SC-ESC6-114/115) y scene-view.ts (sceneWaitText, scheduleCooldownRefresh, COOLDOWN con tiempo) + SceneBlock.tsx (ambos botones deshabilitados con espera; relectura unica a t+1 s con limpieza al desmontar; 429 con Retry-After). Texto «Hubo demasiados intentos seguidos» eliminado.
+- T918/T919: t918 (SC-ESC6-110/111) y t919 (N2-15 B); HomeSceneImage.tsx nuevo (solo lectura), PetsPage sin HomeScene/petsRevision, HouseholdsPage con bloque OWNER solo con 0 hogares cargados; t876 reescrita en 2 pruebas.
+- T920/T921: t841 +11 pruebas (SC-ESC6-116..118) y 2 existentes ajustadas por mandato de la spec; scene-spec.ts nuevo y build-image-prompt.ts compone JSON + PET_COUNT_RULE. Desviacion: PET_COUNT_RULE usa «is zero» en vez de «0» (sin digitos, directiva 3).
+- Hallazgo ajeno: scan-secrets repo falla por specs/006/audits/oracle-006-fixes-en-vivo-t910.md:22 (cita la clave centinela sin marca; fuera de mi alcance).
+
+## 2026-11-19 Keymaker: T922 compuertas Fase 11 (006; sin commit, sin [x])
+- tsc rc 0; verify-traceability 006 CUMPLE (191/258, 221/221 spec->tasks); verify-oracles 373 archivos 0 debiles CUMPLE. t874 (security) ajustado: las llaves del JSON son estructura valida (JSON.parse), fuera del bloque y dentro sin <>{} hostiles.
+- test:gate con PG 17 real: 323 archivos, 5020 pasan, 1 omitida, 2 rojas: T591R-2 (carga, pasa 9/9 aislada: DEUDA-006-T591R2-TIMING) y scan-secrets repo (specs/006/audits/oracle-006-fixes-en-vivo-t910.md:22 cita la clave centinela sin marca; ajeno, fuera de mi alcance). package.json y lock sin cambios; src/generated solo v34 por compile-contracts.
+
+## 2026-11-19 Keymaker: Fase 12 T925, T926, T927, T931, T932 (006; sin commit, sin [x]; T928..T930 esperan N2-16)
+- T925/T926: t918 ampliada (+12 pruebas SC-ESC6-119/120/121; rojas por principalHouseholdId inexistente). Implementado principalHouseholdId en scene-view.ts (createdAt asc via Date.parse, desempate id asc, pura) y PetsPage usa `isMine ? principalHouseholdId(households) : contextId`. t918 24/24 verde.
+- T927: t839 +7 (SC-ESC6-122/127) y t841 +4 (SC-ESC6-123); 7 rojas esperadas (decide-mode aun asigna ref null a KEEP). No tocados decide-mode.ts ni scene-run-use-case.ts. SC-ESC6-124/126 (use case) quedan para T929/T930. No se supone el orden de ranuras de N2-16 (solo conjunto IMG_2..IMG_slotCount).
+- T931/T932: t931-escena-ayuda.spec.ts nuevo (15 pruebas SC-ESC6-128/129/130; rojas 11) y SceneBlock.tsx con grupos boton+texto, ids `${idPrefix}-update-help|regenerate-help` (idPrefix en vez de useId: ya es la convencion unica por instancia), describedBy `reason help`. t875 ajustada en 2 pruebas (aria-describedby ahora lista varios ids, SC-ESC6-129).
+- Compuertas: tsc 0; traza 006 CUMPLE; oraculos 0 debiles (un not.toBeNull() propio sustituido por toMatch).
+
+## 2026-11-19 Keymaker: Fase 12 T928, T929, T930 + prosa change_note (006; N2-16 B+C; sin commit, sin [x])
+- T928: decide-mode.ts asigna primero ranuras a RENDER/ADD/REPLACE con foto y luego a KEEP con foto (no en INCREMENTAL_REMOVE). T927 verde (t839/t841 72/72).
+- T929: t855 +6 pruebas (SC-ESC6-125/126); rojo en la omision de KEEP sin degraded (1 roja, el resto ya pasaba por coincidencia de renumeracion).
+- T930: scene-run-use-case.ts ordena slots por numero de ranura, renumber ordena por ranura, y la omision por tope de bytes solo marca degraded si cae una foto no KEEP; escena previa requerida sigue fallando. Limites de fit sin cambio.
+- change_note de scene-payload.schema.json: prosa minima; compile-contracts --feature 006: src/generated sin cambios.
+- Compuertas: tsc 0; traza 006 CUMPLE (195/270); oraculos 0 debiles; test:gate rc 0 SIN PG real (4868 pasan, 201 omitidas).
+
+## 2026-11-19 | SC-ESC6-124 (OBS-1 oracle T934)
+- Prueba [SC-ESC6-124] anadida en tests/unit/t855-run-scene-generation-escena-006.spec.ts (describe T929). 2 KEEP, la de Argos con objeto ausente; REPLACE de Luna.
+- Codigo coincide con spec: refs IMG_1..3 renumeradas, JSON false/null en la KEEP ausente, degraded true. Sin cambios en src/. Sin commit.
+## 2026-11-19 Keymaker: T936/T937 botón único (006; sin commit, sin [x])
+- T936: t936-escena-boton-unico.spec.ts nuevo (SC-ESC6-131..133; 36 rojas verificadas antes de implementar); t875/t876/t879/t916 reescritas (sceneUpdateState -> sceneGenerateState, sin onUpdate); t931 eliminada (SC-128..130 sustituidas, aserciones portadas a t936).
+- T937: scene-view.ts sceneGenerateState (reemplaza sceneUpdateState), SceneBlock.tsx botón único run('REGENERATE'); presentation 44 archivos 423 verdes.
+
+## 2026-11-19 Keymaker: Fase 13 T936..T940 (006; sin commit, sin [x]; T941 espera N2-17)
+- T938: t938-regenerar-caracterizacion-escena-006.spec.ts (9 pruebas SC-ESC6-134/014) verdes desde el inicio, sin cambio de src/: sin hallazgo Caso B. Usa harness en memoria (como t853/t855), no PG real.
+- T939: t939-prompt-inspiracion-conteo-escena-006.spec.ts (SC-ESC6-135..138; 20 rojas verificadas) + t841 actualizada (frase hogar, Pet k (especie), linea de conteo, limite del JSON) y t874 (limite del JSON).
+- T940: pet-phrases.ts (petSpeciesLabel, animalCountLine) y build-image-prompt.ts (frase hogar nueva, prefijo, bloque de conteo antes de PET_COUNT_RULE). OTHER sin valor = «animal»/«animals» (se leyo «animal(s)» como la etiqueta regular).
+- Compuertas: tsc 0; traza 006 CUMPLE (198/278, 241/241); oraculos 376 archivos 0 debiles; vitest tests/unit+security+integration 315 archivos pasan, 4872 pasan, 201 omitidas (sin PG), 0 rojas.
+
+## 2026-11-19 Keymaker: T941 recompilación + M1 + M2 (006; sin commit, sin [x])
+- compile-contracts --feature 006: cambian 7 archivos de src/generated/v34 (api/openapi-types.ts, errors/field-errors.ts, schemas/types.ts, validators.cjs/.mjs/.d.cts/.d.mts), solo prosa (descripciones, versión 1.1.1 en cabeceras); sin cambio de tipos ni forma. tsc 0.
+- M2: 2 pruebas SC-ESC6-134/REQ-ESC6-025/026/EDGE-ESC6-025 en t855 (REGENERATE sin PET_PHOTOS; foto previa tras revocar). Pasan; con realDriver=false fallan (no vacuas). El código cumple la spec; sin cambio en src/.
+- M1: prueba de invariante en gemini-api-composicion (generador Fake sii realDriver=false). Verde desde el inicio: la composición deriva ambos del mismo flag, no hay forma de rojo sin cambiar producción; guarda no añadida.
+- Compuertas: traza CUMPLE 198/278, oráculos 376/0 débiles, tsc 0, vitest 49 archivos 555 verdes.
+
+## 2026-11-19 Keymaker: iteración rápida 006 (contador cooldown en vivo + frase hogar equilibrada; sin commit, sin [x])
+- Ajuste 1: scene-view.ts cooldownStep (pura) + startCooldownCountdown (ticks de 1 s, onExpire una vez, cancelación); SceneBlock.tsx usa estado `remaining`, prop waitSeconds en SceneBlockView; sustituye scheduleCooldownRefresh. Sin aria-live nuevo. Pruebas t916/t936 rojas (9) antes de implementar.
+- Ajuste 2: householdBlock con la frase «Recreate a recognizable 32-bit isometric pixel art version of the room shown in ${photoRef}…»; t841/t939 con frase exacta y ausencia de la anterior.
+- Compuertas acotadas: tsc 0; 4 suites 120 verdes.
+
+## 2026-11-20 Keymaker: Fase 14 T945..T950 (006; D6-22; sin commit, sin [x])
+- T945/T946: t945-vertex-generador-escena-006.spec.ts (59 pruebas, rojas verificadas: modulo ausente). Nuevos: adapters/metadata-token-client.ts (cache `#`, vencimiento anticipado 60 s, tope 55 min, sin registros) y adapters/vertex-scene-image-generator.adapter.ts (importa gemini-api-wire.ts; host {location}-aiplatform.googleapis.com con region en lista cerrada; ruta /v1/projects/{p}/locations/{l}/publishers/google/models/{m}:generateContent -- el proyecto es parte de la ruta real de Vertex, el plan §5.8 lo omite). Verde 59/59.
+- T947/T948: t947-parametros-cuota-global-escena-006.spec.ts (61 pruebas). Nuevos: domain/scene/provider-parameters.ts (claves, defaults 5/gemini-2.5-flash-image/us-central1, lista cerrada de regiones, resolvedor fila>entorno>defecto), application/ports/scene-global-quota.port.ts, persistence/scene-global-quota.ts (INSERT..ON CONFLICT DO NOTHING + UPDATE..WHERE CAST(value)<max sobre platform_parameters; SIN migracion ni catalogo/contrato), config/scene-provider-parameters.ts, app-config (location, globalQuotaMax), SceneServices.globalQuota? y gancho en scene-run-use-case antes de markProviderCall (agotada = ERR-SCENE-GENERATION-FAILED, 0 llamadas al proveedor). Verde 61/61.
+- T949/T950: t949-aviso-final-escena-006.spec.ts (19). SCENE_NOTICE_VERSION '1'->'2' (cliente igual), gemini-api-draft-1 -> gemini-api-2; texto final (Vertex, us-central1, reenvio en cada regeneracion, sin entrenamiento segun DPA/SST con retencion pendiente); retirados NOTICE_DRAFT*, chip BORRADOR y la frase «usa solo imagenes de prueba». Actualizados t875/t877/t879 y escena-fixtures. REVIEW hasta firma de Neo (T958).
+- T951/T952: t951-seleccion-driver-vertex-escena-006.spec.ts (20; 11 rojas verificadas). scene-composition.ts compone Vertex con `real` (providerParameters + globalQuota obligatorios, realDriver true, tope de referencias 13 MiB como gemini); server.ts resuelve parametros de platform_parameters al arrancar (fila invalida rechaza el arranque) y crea el contador SQL (sceneFetch solo pruebas); deploy-argos.yml: ARGOS_SCENE_DRIVER=real, ARGOS_SCENE_MODEL, ARGOS_SCENE_LOCATION, sin secretos de API. SCENE_REAL_DRIVER_ACTIVATED SIGUE false (decision: es la activacion de T885; con el merge a main y real en el workflow la produccion NO arranca hasta que se cambie esa constante). .env.example: 2 lineas comentadas nuevas (no se toco .env).
+- Pruebas heredadas actualizadas (deliberado, supuestos obsoletos de Fase 8/9): guarda-driver-real, t806, t829, app-config.spec, t826 (5 puertos), t873, gemini-api-composicion, t875/t877/t879, escena-fixtures, scene-config-fixtures.
+- Compuertas: tsc 0; vitest tests/unit+integration+security 318 archivos 5038 pasan 201 omitidas (sin PG) 0 rojas; verify-oracles 380 archivos 0 debiles CUMPLE; verify-traceability 006 CUMPLE (198/278, 241/241). package.json, lock, terraform/, src/generated, contracts: sin cambio.
+
+## 2026-11-20 Keymaker: cierre Fase 14 (A activación, B endurecimiento token, C runbook; 006; sin commit, sin [x])
+- (A) SCENE_REAL_DRIVER_ACTIVATED = true (app-config.ts:133) y comentarios «false hasta T885» actualizados (app-config, scene-composition). Pruebas ajustadas (rojas 7 verificadas antes): guarda-driver-real, t829, t951, gemini-api-config, t873 (integration), audit-secret (security: produccion con real ahora arranca; fake en produccion sigue rechazado). Conservado: sceneRealDriverActivated:false bloquea real; production rechaza fake y gemini-api.
+- (B) metadata-token-client.ts: promesa en vuelo memoizada (H-F14-T1, se descarta al terminar), json() en try/catch con error literal (H-F14-T2); cloud-logging.ts redacta `ya29.` y `Bearer <x>` (H-F14-T3). Prueba nueva t953-endurecimiento-token-escena-006.spec.ts (8; 6 rojas verificadas).
+- (C) terraform/README.md bullet «Estado del driver» y CI/CD: real en produccion por token del metadata server, fake en CI/dev, activacion habilitada por T885. runbook-escena-006.spec.ts exige ARGOS_SCENE_DRIVER=real y conserva fake; claude/entorno-y-lecciones.md linea N2-09 actualizada (la prueba la leia).

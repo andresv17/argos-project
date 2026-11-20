@@ -62,7 +62,7 @@ variable "database_url" {
 }
 
 variable "billing_account" {
-  description = "ID de la cuenta de facturación (formato AAAAAA-BBBBBB-CCCCCC) a la que se asocia el presupuesto preventivo (~1 USD, D-13). No es un secreto. Llega por TF_VAR_billing_account."
+  description = "ID de la cuenta de facturación (formato AAAAAA-BBBBBB-CCCCCC) a la que se asocia el presupuesto preventivo (5 USD equivalentes, D-13 y enmienda 006). No es un secreto. Llega por TF_VAR_billing_account."
   type        = string
 
   validation {
@@ -83,13 +83,13 @@ variable "budget_currency" {
 }
 
 variable "budget_units" {
-  description = "Monto entero del presupuesto preventivo en la moneda de budget_currency (~1 USD = 4500 COP)."
+  description = "Monto entero del presupuesto preventivo en la moneda de budget_currency: 5 USD equivalentes (22500 si es COP a 4500 COP/USD; 5 si es USD). Enmienda 006, N2-05 y N2-04: Neo verifica la moneda real antes del apply."
   type        = string
-  default     = "4500"
+  default     = "22500"
 
   validation {
     condition     = can(regex("^[1-9][0-9]*$", var.budget_units))
-    error_message = "budget_units debe ser un entero positivo en texto (p. ej. 4500)."
+    error_message = "budget_units debe ser un entero positivo en texto (p. ej. 22500)."
   }
 }
 

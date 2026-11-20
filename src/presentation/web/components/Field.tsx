@@ -164,7 +164,7 @@ export function FormError({ errors, message }: { readonly errors?: FieldErrors; 
   );
 }
 
-export function Button({ children, type = 'button', onClick, variant = 'primary', disabled = false, ariaLabel }: {
+export function Button({ children, type = 'button', onClick, variant = 'primary', disabled = false, ariaLabel, describedBy }: {
   readonly children: ReactNode;
   readonly type?: 'button' | 'submit';
   readonly onClick?: () => void;
@@ -172,6 +172,8 @@ export function Button({ children, type = 'button', onClick, variant = 'primary'
   readonly disabled?: boolean;
   /** Nombre accesible cuando el texto visible («Editar») no dice sobre qué registro actúa. */
   readonly ariaLabel?: string;
+  /** Id del texto que explica por qué el botón está deshabilitado (WCAG 1.3.1, 3.3.2). */
+  readonly describedBy?: string;
 }): JSX.Element {
   // Botones píldora de 48 px de alto (ui_blueprint §1.4). Contraste: blanco/oliva 9.41:1, blanco/peligro 6.47:1, oliva/blanco 9.41:1.
   const styles = {
@@ -184,6 +186,7 @@ export function Button({ children, type = 'button', onClick, variant = 'primary'
       type={type}
       disabled={disabled}
       {...(ariaLabel === undefined ? {} : { 'aria-label': ariaLabel })}
+      {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
       {...(onClick === undefined ? {} : { onClick })}
       className={`min-h-12 rounded-full px-5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60 ${styles[variant]}`}
     >

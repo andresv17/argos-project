@@ -389,3 +389,40 @@ describe('T201: compuerta de oráculos con --feature (scripts/verify-oracles.sh)
     expect(res.status).toBe(2);
   });
 });
+
+// T805 (REQ-ESC6-031, SC-ESC6-050): las tres compuertas reconocen la feature 006 sin cambiar el criterio de las demás.
+const P6 = 'ESC' + '6';
+const FEATURE_006: Files = {
+  '.specify/memory/constitution.md': BASE['.specify/memory/constitution.md'] ?? '',
+  'specs/006-demo-escena/spec.md': `# Spec 006\nREQ-${P6}-001 EDGE-${P6}-001 SC-${P6}-001\n`,
+  'specs/006-demo-escena/tasks.md': [
+    '# Tasks 006',
+    `- [ ] T900 Demo en \`src/domain/demo.ts\` (REQ-${P6}-001, EDGE-${P6}-001, SC-${P6}-001)`,
+    '',
+  ].join('\n'),
+  'specs/006-demo-escena/contracts/errors/error-catalog.json': JSON.stringify({ errors: {} }),
+  'src/domain/demo.ts': `/**\n * ${IMPL} REQ-${P6}-001, EDGE-${P6}-001, SC-${P6}-001\n */\nexport const demo = 1;\n`,
+  'tests/unit/demo.spec.ts': `${IT}('[REQ-${P6}-001][EDGE-${P6}-001][SC-${P6}-001] demo', () => {});\n`,
+};
+
+describe('T805: compuertas con --feature 006', () => {
+  it('REQ-ESC6-031: verify-traceability --feature 006 traza REQ, EDGE y SC de la 006 con evidencia en src/ y tests/', () => {
+    const res = run(TRACEABILITY, FEATURE_006, ['--feature', '006', '--task', 'T900']);
+    expect(res.output).toContain('compuerta por tarea T900 (3 IDs)');
+    expect(res.output).toContain(`  OK    EDGE-${P6}-001`);
+    expect(res.output).toContain('Resultado: CUMPLE');
+    expect(res.status).toBe(0);
+  });
+
+  it('SC-ESC6-050: verify-oracles --feature 006 acepta la feature y analiza el mismo tests/', () => {
+    const res = run(ORACLES, { ...FEATURE_006, 'tests/unit/ok.spec.ts': 'expect(x).toBe(1);\n' }, ['--feature', '006']);
+    expect(res.output).toContain('oráculos débiles: 0');
+    expect(res.status).toBe(0);
+  });
+
+  it('SC-ESC6-050: verify-oracles --feature 006 sigue fallando ante un oráculo débil plantado', () => {
+    const res = run(ORACLES, { ...FEATURE_006, 'tests/unit/weak.spec.ts': 'expect(x).toBe' + 'Defined();\n' }, ['--feature', '006']);
+    expect(res.output).toContain('[ORACLE FAIL]');
+    expect(res.status).toBe(1);
+  });
+});

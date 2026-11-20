@@ -10,11 +10,11 @@ Versiones fijadas (D-25): Terraform `1.17.2`, proveedor `hashicorp/google` `7.46
 |---|---|
 | `provider.tf`, `backend.tf` | Proveedor y backend `gcs` vacío (bucket y prefijo por `-backend-config`) |
 | `variables.tf`, `outputs.tf` | Entradas por `TF_VAR_*` y salidas (sin secretos) |
-| `services.tf` | 12 APIs mínimas (REQ-IAC-009), incluida `billingbudgets.googleapis.com` |
+| `services.tf` | 14 APIs mínimas (REQ-IAC-009), incluidas `billingbudgets.googleapis.com` y, por la enmienda 006 (N2-05), `aiplatform.googleapis.com` y `cloudtasks.googleapis.com` |
 | `artifact_registry.tf`, `cloud_run.tf`, `scheduler.tf` | Registro Docker, servicio y disparador |
 | `secret_manager.tf`, `iam.tf` | Secretos (2) y cuentas de servicio con privilegio mínimo |
 | `buckets.tf` | Bucket de dumps de 14 días |
-| `budget.tf` | Presupuesto de 1 USD con umbrales 50/90/100 % (D-13) |
+| `budget.tf` | Presupuesto de 5 USD equivalentes (22500 COP) con umbrales 50/90/100 % y filtro por proyecto (D-13; enmienda 006, N2-05 y N2-04) |
 | `bootstrap.sh` | Día 0; lo ejecuta solo Neo (dry-run por defecto, `--execute` explícito) |
 | `.terraform.lock.hcl` | Versionado: fija el hash del proveedor para `linux_amd64` y `darwin_arm64` |
 
@@ -121,6 +121,17 @@ fi
 - Límite residual aceptado (H-ORA-T441a-2; decisión de Neo, opción (a), 2026-11-16): el rol de `apply` conserva `resourcemanager.projectIamAdmin`, `serviceAccountAdmin` y `serviceAccountUser`, de modo que un `apply` comprometido podría concederse a sí mismo lectura de `dumps/`. Es un límite aceptado: `apply` en `main` es la cuenta autorizada de infraestructura. Por eso «ninguna cuenta de CI lee los dumps» se cumple como configuración nominal, no como garantía frente a un `apply` comprometido.
 - La comprobación `gcloud storage buckets get-iam-policy "gs://${BUCKET}"` no muestra los bindings heredados del proyecto (H-ORA-T441a-3). La verificación completa requiere además `gcloud projects get-iam-policy "$TF_VAR_project_id" --flatten="bindings[].members" --filter="bindings.members:serviceAccount" --format="table(bindings.role,bindings.members)"`, revisando que ninguna cuenta de servicio de CI tenga un rol con `storage.objects.get` o `storage.objects.list` (p. ej. `roles/storage.admin`, `roles/storage.objectViewer`, `roles/viewer`).
 
+### Fuera del respaldo exportable (feature 006)
+
+La escena del hogar en pixel art (REQ-ESC6-022, REQ-ESC6-018, REQ-ESC6-029; T836). Pruebas estáticas en `tests/unit/backup-restore-runbook-docs.spec.ts` y `tests/unit/backup-runbook-hardening.spec.ts`.
+
+- La foto del hogar y las escenas no viajan en el sobre de respaldo `3.x` de la aplicación (`ExportBackupUseCase`): el sobre no lleva `household_photos`, `home_scenes` ni `scene_*`. Importar un respaldo no restaura la escena: queda `idle` u `outdated`, sin imagen.
+- La foto del hogar cuenta en la cuota de 1 GiB del propietario del hogar (`households.owner_user_id`, no de quien la sube, REQ-ARC-005); las escenas no cuentan.
+- El `pg_dump` semanal guarda las filas de la base (incluidas las 6 tablas de la escena y la referencia de la foto del hogar) y no incluye los objetos de Cloud Storage de los prefijos `scenes/` y `households/`. Tras restaurar, la conciliación diaria (`/internal/maintenance`, una sola rutina) encola con `DELETE` los objetos de esos prefijos sin referencia con más de 15 min (24 h en `pets/`).
+- Eliminar la cuenta, la mascota o el hogar purga sus objetos de escena (`media_deletion_queue`); en la restauración, el paso 3 elimina las tablas de la escena por `ON DELETE CASCADE` (`home_scenes`, `scene_attempts`, `scene_image_sources` y `household_photos` con el hogar; `scene_consents`, `scene_quota_carry` y las escenas sin hogar con la cuenta).
+- Quedan sin clave foránea, por diseño, `scene_attempts.actor_user_id`, `scene_image_sources.owner_user_id` y `household_photos.uploaded_by_user_id` (seudonimizadas con HMAC al eliminar la cuenta en la base viva). H-KEY-F4-1 corregido en el runbook: el paso 3 las limpia explícitamente para las cuentas olvidadas (encola antes en `media_deletion_queue` los objetos de `scenes/` y `households/`) y `referencias_restantes` las cuenta; añadir una clave foránea en el esquema (opción (b)) queda para decisión de Neo.
+- Ventana residual: PITR y los volcados conservan filas de escena hasta su vencimiento (`RR-06-07`, `REQ-BOR-004`); las imágenes y fotos viven solo en el bucket de medios.
+
 ### Restauración sin resurrección (REQ-PG-016)
 
 Prerrequisitos: la restauración usa el mismo secreto HMAC de auditoría que la base viva (`ARGOS_AUDIT_HMAC_SECRET`); rotarlo rompe el paso 3. `LIVE_URL` es la URL directa de la base viva; `RESTORED_URL` es la URL directa de una rama o base vacía de Neon creada para restaurar. Los archivos `*.txt` contienen seudónimos HMAC y IDs: guárdelos fuera del repositorio y bórrelos al terminar.
@@ -154,6 +165,19 @@ DELETE FROM household_members WHERE user_id IN (SELECT id FROM olvidados);
 DELETE FROM households WHERE owner_user_id IN (SELECT id FROM olvidados);
 DELETE FROM sessions WHERE user_id IN (SELECT id FROM olvidados);
 DELETE FROM login_attempts WHERE username IN (SELECT username FROM users WHERE id IN (SELECT id FROM olvidados));
+-- H-KEY-F4-1: columnas de la escena sin FK. Primero se encolan los objetos (la conciliacion diaria borra del almacen), despues se borran las filas.
+INSERT INTO media_deletion_queue (object_key, reason, enqueued_at, attempts)
+  SELECT 'households/' || household_id || '/photo/' || object_id, 'DELETE', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 0
+  FROM household_photos WHERE uploaded_by_user_id IN (SELECT id FROM olvidados)
+  ON CONFLICT (object_key) DO NOTHING;
+INSERT INTO media_deletion_queue (object_key, reason, enqueued_at, attempts)
+  SELECT 'scenes/' || a.scene_id || '/images/' || a.result_object_id, 'DELETE', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 0
+  FROM scene_attempts a JOIN home_scenes s ON s.id = a.scene_id
+  WHERE a.actor_user_id IN (SELECT id FROM olvidados) AND s.image_id IS DISTINCT FROM a.result_object_id
+  ON CONFLICT (object_key) DO NOTHING;
+DELETE FROM scene_attempts WHERE actor_user_id IN (SELECT id FROM olvidados);
+DELETE FROM scene_image_sources WHERE owner_user_id IN (SELECT id FROM olvidados);
+DELETE FROM household_photos WHERE uploaded_by_user_id IN (SELECT id FROM olvidados);
 DELETE FROM users WHERE id IN (SELECT id FROM olvidados);
 SELECT (SELECT count(*) FROM pets WHERE owner_user_id IN (SELECT id FROM olvidados))
      + (SELECT count(*) FROM households WHERE owner_user_id IN (SELECT id FROM olvidados))
@@ -162,6 +186,9 @@ SELECT (SELECT count(*) FROM pets WHERE owner_user_id IN (SELECT id FROM olvidad
      + (SELECT count(*) FROM household_invitations WHERE invited_by_user_id IN (SELECT id FROM olvidados) OR invitee_user_id IN (SELECT id FROM olvidados))
      + (SELECT count(*) FROM backup_confirmation_tokens WHERE user_id IN (SELECT id FROM olvidados))
      + (SELECT count(*) FROM rate_limit_events WHERE subject_user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM scene_attempts WHERE actor_user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM scene_image_sources WHERE owner_user_id IN (SELECT id FROM olvidados))
+     + (SELECT count(*) FROM household_photos WHERE uploaded_by_user_id IN (SELECT id FROM olvidados))
      + (SELECT count(*) FROM users WHERE id IN (SELECT id FROM olvidados)) AS referencias_restantes;
 SQL
 ```
@@ -207,3 +234,16 @@ Para que el servicio use la base restaurada, cambie la URL en el secreto `TF_VAR
 
 1. Bootstrap del día 0 (sección anterior).
 2. CI (`infraestructura.yml`, T446) corre `plan` en PR y `apply` solo desde `main` con aprobación de Neo; junto con `deploy-argos.yml`, solo lee los secretos y variables de la tabla anterior.
+
+## Escena del hogar (006): mantenimiento, conciliación y CI/CD (T880; REQ-ESC6-022, REQ-ESC6-029, NFR-ESC6-002)
+
+Runbook operativo de la escena del hogar en pixel art. Pruebas estáticas en `tests/unit/runbook-escena-006.spec.ts`.
+
+- **Estado del driver.** En producción el servicio corre con `ARGOS_SCENE_DRIVER=real` (fijado en `deploy-argos.yml`): el adaptador de Vertex AI obtiene su token OAuth2 del metadata server de Cloud Run (sin clave de API ni secreto). `ARGOS_SCENE_DRIVER=fake` es el valor de CI y desarrollo (simulador, 0 USD) y producción lo rechaza al arrancar. La activación ya está habilitada por T885 (`SCENE_REAL_DRIVER_ACTIVATED = true` en el código); la cuenta de servicio de Cloud Run necesita el rol de uso de Vertex AI, que se concede en `terraform/` solo cuando Neo ordene aplicarlo.
+- **Respaldo.** La foto del hogar y las escenas no viajan en el respaldo (véase «Fuera del respaldo exportable (feature 006)»); importar un respaldo no restaura la escena. La ayuda de la aplicación lo declara.
+- **Borrado.** Eliminar una mascota, un hogar o una cuenta, la salida o expulsión de un miembro y el retiro del consentimiento encolan los objetos en `media_deletion_queue` (borrado inmediato, sin periodo de gracia). Una generación en vuelo registra antes del `put` una fila `INTENT`, de modo que el objeto huérfano se purga sin publicarse (`EDGE-ESC6-021`).
+- **Conciliación.** La rutina diaria de `/internal/maintenance` recorre los prefijos `scenes/` y `households/` y encola con `DELETE` los objetos sin referencia con más de 15 min (`pets/`: 24 h). Tras una restauración, ejecútela y compruebe 0 huérfanos.
+- **Mantenimiento de la cola.** La cola `argos-scene` (Cloud Tasks) entrega `POST /internal/scene-worker` con el OIDC de `argos-scene-tasks`; la espera en cola tiene su tope `T_QUEUE` de 600 s y el arrendamiento `T_LEASE = T_GEN + 60` es la red de seguridad si una tarea no corre. Si hay generaciones atascadas, no borre la cola: espere al arrendamiento o reintente desde la aplicación.
+- **CI/CD.** `infraestructura.yml` corre `plan` en PR y `apply` solo desde `main` con aprobación de Neo; `deploy-argos.yml` despliega sin tráfico y fija `ARGOS_SCENE_DRIVER=real` (CI y desarrollo usan `fake`). Los cambios de `terraform/` de la 006 no se aplican hasta que Neo lo ordene.
+- **Ventana residual de PITR.** PITR y los volcados conservan filas de escena hasta su vencimiento (`RR-06-07`, `REQ-BOR-004`); las imágenes y las fotos viven solo en el bucket de medios.
+- **Fuera de la 006.** `PN-06` (rotación de la clave HMAC de IP) queda fuera de esta feature (`N2-09` = B); no hay tarea ni requisito de la 006 que la cubra.

@@ -41,7 +41,8 @@ describe('terraform/iam.tf: permisos de secretos del deployer y binding WIF (T48
 
   it('ningun roles/secretmanager.* a nivel de proyecto', () => {
     const c = iam();
-    expect(c).not.toMatch(/google_project_iam/);
+    // Excepción documentada de la enmienda 006 (N2-05): el único google_project_iam_member es roles/aiplatform.user de argos-run; ningún rol secretmanager a nivel de proyecto.
+    expect(c.replace(/resource\s+"google_project_iam_member"\s+"run_aiplatform_user"\s*\{[^]*?\n\}/, '')).not.toMatch(/google_project_iam/);
     for (const b of blocks().filter((x) => /roles\/secretmanager\./.test(x.body))) {
       expect(b.type).toBe('google_secret_manager_secret_iam_member');
     }

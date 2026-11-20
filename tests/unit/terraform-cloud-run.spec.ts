@@ -42,14 +42,14 @@ describe('terraform/cloud_run.tf (T440)', () => {
     expect(service()).toMatch(/service_account\s*=\s*google_service_account\.run\.email/);
   });
 
-  it('recursos de REQ-CLD-002: 1 vCPU, 512Mi, concurrencia 20, escala 0..2, timeout 60s, cpu_idle, boost', () => {
+  it('recursos de REQ-CLD-002 (enmienda 006, N2-05 y N2-11): 1 vCPU, 1Gi, concurrencia 20, escala 0..2, timeout 120s, cpu_idle, boost', () => {
     const s = service();
     expect(s).toMatch(/min_instance_count\s*=\s*0\b/);
     expect(s).toMatch(/max_instance_count\s*=\s*2\b/);
     expect(s).toMatch(/max_instance_request_concurrency\s*=\s*20\b/);
-    expect(s).toMatch(/timeout\s*=\s*"60s"/);
+    expect(s).toMatch(/timeout\s*=\s*"120s"/);
     expect(s).toMatch(/cpu\s*=\s*"1"/);
-    expect(s).toMatch(/memory\s*=\s*"512Mi"/);
+    expect(s).toMatch(/memory\s*=\s*"1Gi"/);
     expect(s).toMatch(/cpu_idle\s*=\s*true/);
     expect(s).toMatch(/startup_cpu_boost\s*=\s*true/);
     expect(s).toMatch(/ingress\s*=\s*"INGRESS_TRAFFIC_ALL"/);

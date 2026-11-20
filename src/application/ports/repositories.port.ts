@@ -16,6 +16,7 @@ import type { LegacyHouseholdMember } from '../../domain/households/household-po
 import type { SessionRecord } from '../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../domain/records/record-invariants.ts';
+import type { SceneConsentRepository, SceneRepository } from './scene-repositories.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
 export interface UserAccount extends UserSelfProfile {
@@ -180,7 +181,10 @@ export interface PetMediaRepositoryPort {
   listPage(petId: string, kind: MediaKind | null, limit: number, offset: number): Promise<{ readonly items: PetMediaRecord[]; readonly total: number }>;
   /** Número de filas de la mascota de ese tipo (`PHOTO` = álbum, `FILE` = archivos clínicos); 0 si no hay ninguna o la mascota no existe (REQ-ALB5-002). */
   countByPetAndKind(petId: string, kind: MediaKind): Promise<number>;
-  /** Suma de `size_bytes` de todas las mascotas del propietario legal; el avatar no cuenta (REQ-ARC-005). */
+  /**
+   * Suma de `size_bytes` de todas las mascotas del propietario legal más la foto de los hogares que posee (`households.owner_user_id`); el avatar y las escenas no
+   * cuentan (REQ-ARC-005; enmienda MINOR (c) de N2-06, REQ-ESC6-018). Quien sube la foto del hogar no es el que la consume: cuenta el propietario del hogar.
+   */
   countBytesOfOwner(ownerUserId: string): Promise<number>;
   /** Borra la fila de esa mascota con ese id; true si existía. */
   remove(petId: string, mediaId: string): Promise<boolean>;
@@ -305,4 +309,8 @@ export interface RepositorySet {
   readonly shareLinks: ShareLinkRepositoryPort;
   /** Auditoría del enlace: creación, revocación y accesos (REQ-VET-008). */
   readonly shareAudit: ShareLinkAuditRepositoryPort;
+  /** Escena del hogar (feature 006, ADR-006-07). Orden de candados: propietario -> mascota -> hogar -> escena (`SCENE_LOCK_ORDER`). */
+  readonly scenes: SceneRepository;
+  /** Consentimientos de la escena (feature 006, ADR-006-07). */
+  readonly sceneConsents: SceneConsentRepository;
 }

@@ -34,6 +34,10 @@ import type { PasswordHasherPort } from '../ports/password-hasher.port.ts';
 import type { PlatformParameterPort } from '../ports/platform-parameter.port.ts';
 import type { RateLimiterPort } from '../ports/rate-limiter.port.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
+import type { SceneGlobalQuotaPort } from '../ports/scene-global-quota.port.ts';
+import type { SceneImageGeneratorPort } from '../ports/scene-image-generator.port.ts';
+import type { SceneJobDispatcherPort } from '../ports/scene-job-dispatcher.port.ts';
+import type { ScenePrivacyHooksPort } from '../ports/scene-privacy-hooks.port.ts';
 import type { SecureTokenPort } from '../ports/secure-token.port.ts';
 import type { ShareTokenGeneratorPort } from '../ports/share-link.port.ts';
 import type { SharedAccessLimiter } from '../sharing/shared-access-limiter.ts';
@@ -76,6 +80,44 @@ export interface SharingServices {
   readonly limiter: SharedAccessLimiter;
 }
 
+/**
+ * Escena del hogar (feature 006, plan §1.3): configuración ya validada por `app-config` (INV-ARCH-006), identidad del aviso de consentimiento (constantes del código,
+ * REQ-ESC6-026) y los puertos del generador y del despachador. Opcional: sin él los casos de uso de la escena fallan cerrado.
+ */
+/** Herramientas de imagen inyectadas (función, no puerto; `infrastructure/adapters/image-metadata-stripper.ts`): normalizan referencias y validan la salida por firma. */
+export interface SceneImageTools {
+  /** Reescribe el contenedor con lista blanca; `ok: false` = referencia ausente (REQ-ESC6-027). */
+  readonly strip: (mime: string, bytes: Uint8Array) => { readonly ok: true; readonly mime: string; readonly bytes: Uint8Array } | { readonly ok: false };
+  /** Mayor prefijo de referencias (por prioridad) que cabe en el tope agregado (EDGE-ESC6-028). */
+  readonly fit: (sizes: readonly number[]) => { readonly kept: number; readonly degraded: boolean };
+  /** Tope de ancho × alto (25 MP) y de lado (8192 px) en la subida de la foto del hogar (REQ-ESC6-027). */
+  readonly withinLimits: (mime: string, bytes: Uint8Array) => boolean;
+  /** Valida la imagen generada por firma (REQ-ESC6-035). */
+  readonly validateOutput: (mime: string, bytes: Uint8Array) => { readonly ok: true; readonly mime: 'image/png' | 'image/webp'; readonly bytes: Uint8Array } | { readonly ok: false; readonly code: 'ERR-SCENE-INVALID-IMAGE' };
+}
+
+export interface SceneServices {
+  readonly maxPets: number;
+  readonly quotaMax: number;
+  /** T_GEN en segundos. */
+  readonly genTimeoutSeconds: number;
+  /** T_LEASE = T_GEN + 60 s, desde el claim. */
+  readonly leaseSeconds: number;
+  /** T_QUEUE: espera máxima en cola antes del claim. */
+  readonly queueWaitSeconds: number;
+  /** `true` con `ARGOS_SCENE_DRIVER=real`: exige consentimiento vigente (INV-ESC6-014). */
+  readonly realDriver: boolean;
+  /** Desfase de `APP_TIMEZONE` respecto de UTC en minutos (p. ej. -300) para `quota.resetsAt`. */
+  readonly utcOffsetMinutes: number;
+  readonly noticeVersion: string;
+  readonly providerId: string;
+  readonly images: SceneImageTools;
+  readonly generator: SceneImageGeneratorPort;
+  readonly dispatcher: SceneJobDispatcherPort;
+  /** Cuota GLOBAL mensual (Fase 14, T948, N2-02): solo con el driver real; sin puerto el worker no la exige (simulado). */
+  readonly globalQuota?: SceneGlobalQuotaPort;
+}
+
 export interface ApplicationDeps {
   readonly uow: UnitOfWorkPort;
   readonly clock: ClockPort;
@@ -105,6 +147,10 @@ export interface ApplicationDeps {
   readonly platformParameters?: PlatformParameterPort;
   /** Enlace veterinario (feature 005, US4): token, clave HMAC de IP y límite de tasa. Ausente: las rutas del enlace fallan cerrado. */
   readonly sharing?: SharingServices;
+  /** Ganchos de privacidad de la escena (feature 006, T827, plan §1.2): los casos de uso de 002/004/005 los invocan en la transacción de la causa. Ausente: comportamiento actual de 001..005. */
+  readonly sceneHooks?: ScenePrivacyHooksPort;
+  /** Servicios de la escena (feature 006, T852). Ausente: los casos de uso de la escena fallan cerrado con un error interno. */
+  readonly scene?: SceneServices;
 }
 
 interface ValidatorWithErrors {

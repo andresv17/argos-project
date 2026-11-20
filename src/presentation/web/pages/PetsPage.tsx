@@ -13,9 +13,12 @@ import { PetCardList, PetFilter } from '../components/PetCards.tsx';
 import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
 import { AvatarEditor } from '../components/AvatarCropper.tsx';
+import { HomeSceneImage } from '../components/HomeSceneImage.tsx';
+import { PetReferenceNote } from '../components/HouseholdPhoto.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { Link } from 'react-router-dom';
+import { principalHouseholdId } from '../scene-view.ts';
 import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
 import type { FormBody } from '../validation.ts';
@@ -135,7 +138,7 @@ export function PetsPage(): JSX.Element {
       await unwrap(api.DELETE('/pets/{petId}', { params: { ...CSRF_PARAMS, path: { petId: activePetId } } }));
       setMode('VIEW');
       setActivePetId(null);
-      await loadCards();
+        await loadCards();
     } catch (e) {
       setError(messageOf(e));
     }
@@ -185,6 +188,8 @@ export function PetsPage(): JSX.Element {
             setSpecies(nextSpecies);
           }}
         />
+        {/* Solo visualización de la imagen vigente del hogar activo; la gestión de la escena vive en «Hogar» (D6-19, SC-ESC6-110). */}
+        <HomeSceneImage householdId={isMine ? principalHouseholdId(households) : contextId} />
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[156px_minmax(0,1fr)]">
           <section aria-label="Mascotas del contexto" className="flex min-w-0 flex-col gap-3">
             <PetCardList
@@ -246,6 +251,7 @@ export function PetsPage(): JSX.Element {
                             avatarVersion={avatarVersionOf(dashboard.profile)}
                             onChanged={refreshAll}
                           />
+                          <PetReferenceNote hasAvatar={avatarVersionOf(dashboard.profile) !== null} />
                         </>
                       ),
                     }

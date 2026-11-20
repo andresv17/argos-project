@@ -1,0 +1,518 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/scene-payload.schema.json",
+  "title": "ScenePayloadSchema",
+  "description": "Payload de buildImagePrompt(payload) de la feature 006 [REQ-ESC6-015, REQ-ESC6-016, INV-ESC6-006]. Lo construye el servidor (nunca el cliente) y lo compila una función pura en src/domain/. Versionado SemVer; los campos futuros se añaden como opcionales en un bump MINOR. Nunca contiene nombres de mascota ni de persona, microchip, correo, fecha de nacimiento ni datos clínicos (INV-ESC6-010); `pets[].id` y `household.id` son internos y buildImagePrompt NO los emite.",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "Contrato nuevo de la feature 006 (Architect, 2026-11-18; revisión 2: FreeText60 por lista blanca, H-TRI-006-04). mode incluye INCREMENTAL_MIXED (D6-08 = A). species y sex referencian por $ref los enums de pet.schema.json de la 004 (SC-ESC6-022). photoRef y currentSceneRef son etiquetas opacas de ranura IMG_n asignadas por el servidor en orden determinista (foto del hogar, escena previa y mascotas; primero las que se dibujan por orden de selección y después las mascotas KEEP con foto vigente en los modos incrementales, de modo que ante el tope de bytes se descartan antes las KEEP, N2-16); no son URL ni clave de objeto. biography y fallbackContext se declaran opcionales y el servidor los envía siempre nulos hasta nueva revisión de /rama (INV-ESC6-017).",
+    "traceability": [
+      "REQ-ESC6-006",
+      "REQ-ESC6-009",
+      "REQ-ESC6-010",
+      "REQ-ESC6-015",
+      "REQ-ESC6-016",
+      "INV-ESC6-006",
+      "INV-ESC6-010",
+      "INV-ESC6-011",
+      "INV-ESC6-017",
+      "SC-ESC6-022",
+      "SC-ESC6-082",
+      "SC-ESC6-023",
+      "SC-ESC6-024",
+      "SC-ESC6-056"
+    ]
+  },
+  "$defs": {
+    "SchemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Versión del contrato del payload; un payload de otra versión se rechaza hasta que exista su esquema"
+    },
+    "AssetRef": {
+      "type": "string",
+      "pattern": "^IMG_[1-9][0-9]?$",
+      "description": "Etiqueta opaca de ranura de imagen (IMG_1..IMG_99) que el prompt cita; el servidor la resuelve a bytes ya normalizados (REQ-ESC6-027). Nunca URL ni clave de objeto (INV-ESC6-009)"
+    },
+    "SceneMode": {
+      "type": "string",
+      "enum": [
+        "FROM_SCRATCH",
+        "INCREMENTAL_ADD",
+        "INCREMENTAL_REMOVE",
+        "INCREMENTAL_REPLACE",
+        "INCREMENTAL_MIXED",
+        "REGENERATE"
+      ]
+    },
+    "PetAction": {
+      "type": "string",
+      "enum": [
+        "KEEP",
+        "ADD",
+        "REMOVE",
+        "REPLACE",
+        "RENDER"
+      ],
+      "description": "RENDER = mascota dibujada desde cero (FROM_SCRATCH y REGENERATE); KEEP/ADD/REMOVE/REPLACE solo en modos incrementales"
+    },
+    "FreeText60": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60,
+      "pattern": "^[\\p{L}\\p{N} .'\\-]+$",
+      "description": "Texto libre sanitizado [INV-ESC6-011, H-TRI-006-04]: LISTA BLANCA tras normalizar NFKC y colapsar espacios (el dominio lo hace antes de validar); solo letras Unicode, dígitos, espacio, punto, apóstrofo y guion; 1-60. Excluye por construcción [ ] { } < > : ; comillas, acentos graves, controles Unicode (\\p{C}), separadores de línea y marcas bidi. Patrón ECMA-262 con bandera u. En caso de duda se omite el valor y se usa el texto por defecto. La lista de marcadores de instrucción del dominio es defensa secundaria"
+    },
+    "HexColor": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "StyleBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artStyle",
+        "lighting",
+        "palette",
+        "constraints"
+      ],
+      "properties": {
+        "artStyle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "lighting": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "palette": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/HexColor"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        }
+      }
+    },
+    "HouseholdBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "hasReferencePhoto",
+        "photoRef"
+      ],
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Interno; null para la escena de un propietario sin hogar (D6-09). No se emite en el prompt"
+        },
+        "hasReferencePhoto": {
+          "type": "boolean",
+          "description": "true solo si existe foto del hogar Y su propietario tiene consentimiento vigente (REQ-ESC6-024)"
+        },
+        "photoRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssetRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fallbackContext": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 60,
+          "description": "Extensión futura; el servidor lo envía null y buildImagePrompt lo ignora (INV-ESC6-017)"
+        }
+      }
+    },
+    "SceneBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentSceneRef",
+        "maxPets",
+        "totalPetsInHousehold"
+      ],
+      "properties": {
+        "currentSceneRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssetRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null en FROM_SCRATCH y REGENERATE; no nulo en los modos incrementales"
+        },
+        "maxPets": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32,
+          "description": "N de ARGOS_SCENE_MAX_PETS (8, D6-02)"
+        },
+        "totalPetsInHousehold": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        }
+      }
+    },
+    "PetBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "action",
+        "species",
+        "breed",
+        "sex",
+        "hasReferencePhoto",
+        "photoRef"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid",
+          "description": "Interno; no se emite en el prompt"
+        },
+        "action": {
+          "$ref": "#/$defs/PetAction"
+        },
+        "species": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/Species"
+        },
+        "speciesOther": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FreeText60"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Obligatorio (no nulo) si species = OTHER, descripción visual (EDGE-ESC6-015); null en otro caso"
+        },
+        "breed": {
+          "$ref": "#/$defs/FreeText60",
+          "description": "Cadena de breed del dominio (004); con breedCode de catálogo el prompt usa el nombre canónico en inglés del catálogo e ignora este texto (H-TRI-006-04)"
+        },
+        "breedCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z][A-Z0-9_]{1,63}$",
+          "description": "Código del catálogo de 004 (solo CANINE y FELINE); DOG_CRIOLLA, CAT_CRIOLLA y *_OTHER activan el mestizo amigable (D6-14)"
+        },
+        "sex": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/Sex"
+        },
+        "hasReferencePhoto": {
+          "type": "boolean",
+          "description": "true solo si hay avatar y su Propietario Legal tiene consentimiento vigente (REQ-ESC6-024)"
+        },
+        "photoRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssetRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "biography": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 280,
+          "description": "Extensión futura; el servidor lo envía null y buildImagePrompt lo ignora (INV-ESC6-017)"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "species": {
+                "const": "OTHER"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "speciesOther"
+            ],
+            "properties": {
+              "speciesOther": {
+                "$ref": "#/$defs/FreeText60"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "hasReferencePhoto": {
+                "const": true
+              }
+            },
+            "required": [
+              "hasReferencePhoto"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "photoRef": {
+                "$ref": "#/$defs/AssetRef"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "photoRef": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ScenePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "mode",
+        "style",
+        "household",
+        "scene",
+        "pets"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "$ref": "#/$defs/SchemaVersion"
+        },
+        "mode": {
+          "$ref": "#/$defs/SceneMode"
+        },
+        "style": {
+          "$ref": "#/$defs/StyleBlock"
+        },
+        "household": {
+          "$ref": "#/$defs/HouseholdBlock"
+        },
+        "scene": {
+          "$ref": "#/$defs/SceneBlock"
+        },
+        "pets": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/PetBlock"
+          },
+          "description": "Hasta scene.maxPets mascotas visibles, en el orden de D6-11 (asignación ascendente, desempate por id). En modos incrementales incluye además las REMOVE (que ya no están visibles)"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "enum": [
+                  "FROM_SCRATCH",
+                  "REGENERATE"
+                ]
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "scene": {
+                "type": "object",
+                "properties": {
+                  "currentSceneRef": {
+                    "type": "null"
+                  }
+                }
+              },
+              "pets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "const": "RENDER"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "scene": {
+                "type": "object",
+                "properties": {
+                  "currentSceneRef": {
+                    "$ref": "#/$defs/AssetRef"
+                  }
+                }
+              },
+              "pets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "enum": [
+                        "KEEP",
+                        "ADD",
+                        "REMOVE",
+                        "REPLACE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "INCREMENTAL_ADD"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "pets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "enum": [
+                        "KEEP",
+                        "ADD"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "INCREMENTAL_REMOVE"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "pets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "enum": [
+                        "KEEP",
+                        "REMOVE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "INCREMENTAL_REPLACE"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "pets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "enum": [
+                        "KEEP",
+                        "REPLACE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$ref": "#/$defs/ScenePayload"
+}

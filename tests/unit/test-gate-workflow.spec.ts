@@ -56,7 +56,12 @@ describe('.github/workflows/test-gate.yml (T447)', () => {
       / {6}- name: Install Playwright[^\n]*\n {8}run: npx playwright install --with-deps chromium\n\n/,
       '',
     );
-    expect(steps(load())).toBe(before);
+    // T805 (N2-08): único paso añadido, de forma aditiva; el resto de los pasos debe seguir idéntico a la base.
+    const current = steps(load()).replace(
+      / {6}- name: Compilar contratos 006[^\n]*\n {8}run: \|\n {10}bash scripts\/compile-contracts\.sh --feature 006\n {10}git diff --exit-code src\/generated\/\n\n/,
+      '',
+    );
+    expect(current).toBe(before);
   });
 
   it('D-29: test-gate.yml sin Install Playwright ni playwright install', () => {

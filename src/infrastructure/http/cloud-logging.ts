@@ -7,7 +7,7 @@
  * El registro de petición de Cloud Run (`run.googleapis.com/requests`: IP, URL, user-agent) lo escribe la plataforma
  * fuera del control de la app; la app no lo duplica ni pretende suprimirlo.
  *
- * @implements REQ-CLD-008, SC-CLD-004, INV-AUTH-003, INV-AUD-001
+ * @implements REQ-CLD-008, SC-CLD-004, INV-AUTH-003, INV-AUD-001, REQ-ESC6-038
  */
 
 import type { FastifyError } from 'fastify';
@@ -56,15 +56,25 @@ const GOOG_PARAMETER_PATTERN = /X-Goog-[A-Za-z0-9-]*\s*[=:]\s*[^\s&"'<>]+/gi;
 const OBJECT_KEY_PATTERN = /pets\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/(?:files|photos|avatar)(?:\/[0-9a-f-]{36})?)?\/?/gi;
 /** Ruta pública del enlace veterinario con el token (`/shared/<43 base64url>`, `/api/shared/…`): el token jamás sale en un registro (INV-005-009, REQ-VET-008). */
 const SHARED_PATH_PATTERN = /\/shared\/[A-Za-z0-9_%.~-]{8,}/g;
+/** Clave de la Gemini Developer API (`AIza` + 35 caracteres) y su cabecera `x-goog-api-key`, vengan donde vengan (REQ-ESC6-038, SC-ESC6-100). */
+const GEMINI_API_KEY_PATTERN = /AIza[0-9A-Za-z_-]{35}/g;
+const GEMINI_API_KEY_HEADER_PATTERN = /x-goog-api-key["']?\s*[=:]\s*["']?[^\s&"'<>,;}]+/gi;
+/** Token de acceso OAuth2 de Google (`ya29.` + cuerpo) y credenciales de cabecera `Bearer <valor>` (H-F14-T3; token del metadata server de Vertex), vengan donde vengan. */
+const GOOGLE_ACCESS_TOKEN_PATTERN = /ya29\.[0-9A-Za-z_.~+/=-]+/g;
+const BEARER_PATTERN = /\bBearer\s+[^\s"'<>,;}]+/gi;
 const UNIQUE_DETAIL_PATTERN = /Key \([^)]*\)=\([^)]*\)(?: already exists\.?)?/g;
 const MICROCHIP_PATTERN = /(?<![0-9])[0-9]{15}(?![0-9])/g;
 
 /** Campos que nunca se registran, con cualquier mayúscula y a cualquier profundidad (T582). */
-const SENSITIVE_FIELDS: ReadonlySet<string> = new Set(['original_name', 'originalname', 'x-argos-filename', 'objectkey', 'object_key', 'microchipid', 'microchip_id', 'signedurl', 'signed_url']);
+const SENSITIVE_FIELDS: ReadonlySet<string> = new Set(['original_name', 'originalname', 'x-argos-filename', 'objectkey', 'object_key', 'microchipid', 'microchip_id', 'signedurl', 'signed_url', 'x-goog-api-key']);
 
 /** Elimina de `text` toda URL `postgres(ql)://` y, si se conoce, la `DATABASE_URL` configurada y sus partes, más las formas sensibles de los medios. */
 export function redactSecrets(text: string, databaseUrl: string | undefined): string {
   let clean = text
+    .replace(GEMINI_API_KEY_HEADER_PATTERN, REDACTED)
+    .replace(GEMINI_API_KEY_PATTERN, REDACTED)
+    .replace(BEARER_PATTERN, REDACTED)
+    .replace(GOOGLE_ACCESS_TOKEN_PATTERN, REDACTED)
     .replace(SIGNED_URL_PATTERN, REDACTED)
     .replace(GOOG_PARAMETER_PATTERN, REDACTED)
     .replace(OBJECT_KEY_PATTERN, REDACTED)

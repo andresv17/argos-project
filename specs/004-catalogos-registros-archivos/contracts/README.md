@@ -16,7 +16,7 @@ Versión de la API: `3.1.0` (MINOR: campos opcionales, rutas nuevas, un error nu
 | Los 6 `*Record` (`WeightRecord`, `BodyMeasurementRecord`, `VaccinationRecord`, `DewormingRecord`, `MedicalVisitRecord`, `CustomParameterRecord`) | `+ revision` (`integer`, mínimo 0, **solo lectura**; no se acepta como entrada; `D-16` A) | REQ-BOR-005 |
 | `Username` | `pattern` `^[a-z0-9._-]+$` → `^[A-Za-z0-9._-]+$`; descripción: unicidad por `LOWER`, guardado tal como se escribió | REQ-LOG-002 |
 | `LoginInput` | `username.maxLength` `30` → `254`; descripción: «usuario o correo» | REQ-LOG-001 |
-| `AuditEntityType` | `+ PET_MEDIA` | E-08 |
+| `AuditEntityType` | `+ PET_MEDIA`; 3.2.0 (*Enmienda 006, N2-06 a*): `+ HOME_SCENE`, `+ SCENE_CONSENT`, `+ HOUSEHOLD_PHOTO` (17 valores) | E-08; N2-06 a |
 | `BackupEnvelope` | `schemaVersion` `3.1.0`; mascotas con `breedCode` (sin `avatarVersion`, que no viaja); parámetros con `symptomType`, `severity`; sin `revision` ni medios; la importación acepta `3.0.0` y `3.1.0` | REQ-SIN-001, REQ-RAZ-003, REQ-BOR-001, REQ-IMP-001 |
 | `MediaItem` (nuevo) | `id` (UUID), `petId`, `kind` (`FILE\|PHOTO`), `mime` (lista cerrada de INV-ARC-001), `sizeBytes` (1–10 485 760), `originalName` (1–120 puntos de código), `createdAt`; `additionalProperties: false`; sin `objectKey` ni identificador de usuario | REQ-ARC-001, REQ-GCS-005 |
 | `MediaAccess` (nuevo) | `url` (URI https), `expiresAt` (`IsoTimestamp`), `mime`; sin `disposition` (todo se sirve en línea, `D-06` C) | REQ-ARC-003 |

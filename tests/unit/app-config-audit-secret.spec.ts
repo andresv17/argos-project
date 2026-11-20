@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { AppConfigError, loadAppConfig } from '../../src/infrastructure/config/app-config.ts';
+import { AppConfigError } from '../../src/infrastructure/config/app-config.ts';
+import { PROD_SCENE, loadAppConfigActivated as loadAppConfig } from '../fixtures/scene-config-fixtures.ts';
 
 /**
  * D-1 de Neo (T269): ARGOS_AUDIT_HMAC_SECRET es obligatoria en cualquier entorno salvo NODE_ENV=test.
  * @implements REQ-AUD-001, SC-014, INV-ARCH-006
  */
 const VALID_SECRET = 'ab'.repeat(32);
-const PROD_MEDIA = { ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' }; // T566 (SC-ALM-023): en production el driver de medios debe ser gcs con bucket.
+const PROD_MEDIA = { ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE }; // T566 (SC-ALM-023): en production el driver de medios debe ser gcs con bucket.
 
 describe('ARGOS_AUDIT_HMAC_SECRET obligatoria fuera de pruebas (src/infrastructure/config/app-config.ts)', () => {
   it.each(['development', 'production', undefined])('[REQ-AUD-001][SC-014] con NODE_ENV=%s y sin la variable, AppConfigError cita solo su nombre', (nodeEnv) => {

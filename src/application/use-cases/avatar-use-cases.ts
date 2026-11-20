@@ -120,6 +120,8 @@ export class DeleteAvatarUseCase {
       const current = await r.pets.findAvatar(petId);
       if (current === null || current.objectId === null) return null;
       const objectKey = avatarObjectKey(petId, current.objectId);
+      // 006 (T862, REQ-ESC6-029): el avatar dejó de ser entrada de la escena; se retira su imagen vigente en la misma transacción.
+      await deps.sceneHooks?.onPetRemoved(r, { petId, cause: 'AVATAR_DELETED', now: deps.clock.nowIsoTimestamp() });
       await r.mediaQueue.enqueue(objectKey, 'DELETE', deps.clock.nowIsoTimestamp());
       await r.pets.clearAvatar(petId);
       return objectKey;

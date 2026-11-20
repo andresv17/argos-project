@@ -190,3 +190,18 @@ describe('T606 concurrencia de la subida (SC-ALM-026, REQ-BOR-005, EDGE-013): si
     });
   });
 });
+
+describe('T811 conciliación: la antigüedad corta de scenes/ y households/ no rebaja la de pets/ (006, N2-06 (b); H-LCK-006-11; SC-ESC6-028)', () => {
+  const MINUTE = 60_000;
+
+  // La consulta de referencias de scenes/ y households/ (home_scenes.image_id, household_photos, INTENT y cola) la entregan T834/T835 (Fase 4);
+  // aquí solo se fija que ampliar el dominio de claves (T812) no cambia la regla de 24 h de pets/.
+  it('[SC-ESC6-028] un objeto de pets/ sin fila de menos de 24 h sigue sin tocarse aunque tenga más de 15 min', async () => {
+    await eachEngine(null, async (e) => {
+      await e.storage.inner.put(ORPHAN(7), PDF(), 'application/pdf');
+      advance(e, 16 * MINUTE);
+      const result = await runMediaQueueMaintenance(e.deps);
+      expect([result.reconciled, await e.storage.keys()]).toEqual([0, [ORPHAN(7)]]);
+    });
+  });
+});

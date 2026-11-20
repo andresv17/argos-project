@@ -10,7 +10,7 @@
 flowchart LR
   U[Navegador] -->|HTTPS| CR
   subgraph GCP[GCP proyecto Argos - us-central1]
-    CR[Cloud Run argos<br/>Fastify: API + estaticos<br/>min=0 max=2 1vCPU 512MiB]
+    CR[Cloud Run argos<br/>Fastify: API + estaticos<br/>min=0 max=2 1vCPU 1GiB]
     AR[(Artifact Registry<br/>N imagenes keep)]
     SM[(Secret Manager<br/>database-url<br/>audit-hmac)]
     SCH[Cloud Scheduler<br/>1 job diario]
@@ -82,14 +82,14 @@ Reglas: etiquetas `app=argos`, `managed-by=terraform` en todos los recursos etiq
 ### 2.2 Recursos y valores
 | Recurso | Valores | Costo |
 |---|---|---|
-| `google_cloud_run_v2_service.argos` | `ingress=INGRESS_TRAFFIC_ALL`, `template.scaling{min=0,max=2}`, `cpu=1`, `memory=512Mi`, `cpu_idle=true`, `startup_cpu_boost=true`, `max_instance_request_concurrency=20`, `timeout=60s`, cuenta de ejecución, imagen marcadora **sin sondas propias ni `secret_key_ref`**; `ignore_changes` sobre `traffic`, `client`, `client_version`, revisión, etiquetas, anotaciones, imagen, env, sondas y secretos (ADR-003-11). Sondas `/healthz`, env y secretos con versión numérica los fija `deploy-argos.yml` | Dentro del cupo (NFR-CLD-004) |
+| `google_cloud_run_v2_service.argos` | `ingress=INGRESS_TRAFFIC_ALL`, `template.scaling{min=0,max=2}`, `cpu=1`, `memory=1Gi`, `cpu_idle=true`, `startup_cpu_boost=true`, `max_instance_request_concurrency=20`, `timeout=120s` (*Enmienda 006, N2-05, REQ-CLD-002*: 1 GiB y 120 s; `dispatchDeadline` de Cloud Tasks 130 s), cuenta de ejecución, imagen marcadora **sin sondas propias ni `secret_key_ref`**; `ignore_changes` sobre `traffic`, `client`, `client_version`, revisión, etiquetas, anotaciones, imagen, env, sondas y secretos (ADR-003-11). Sondas `/healthz`, env y secretos con versión numérica los fija `deploy-argos.yml` | Dentro del cupo (NFR-CLD-004) |
 | `google_artifact_registry_repository.argos` (DOCKER, `us-central1`) | una sola `cleanup_policies` `keep` de N versiones recientes (N=5 provisional, se fija tras medir en T434; sin regla `delete` por antigüedad); `cleanup_policy_dry_run=false` | 0,5 GB gratis |
 | `google_secret_manager_secret` x2 + versión sin `count` | replicación `auto`; `prevent_destroy`; versión con `create_before_destroy` y `deletion_policy` de no destruir; variable con `validation` (no vacía); sin rotación automática | 2 versiones (pocas más durante una rotación) |
 | `google_storage_bucket.exports` | STANDARD, `us-central1`, `uniform_bucket_level_access=true`, `public_access_prevention=enforced`, ciclo de vida 14 d sobre `dumps/`, `soft_delete_policy` 0 s (H-RAMA-002) | Dentro de 5 GB compartidos |
 | `google_cloud_scheduler_job.maintenance` | `0 6 * * *` `America/Bogota`, `http_target` POST con `oidc_token`; **único job** | 1 de 3 gratis (2 de Mirror) |
 | Cuentas de servicio y roles | §5 | 0 |
 | `google_cloud_run_domain_mapping.custom` (F3) | `count = var.custom_domain != "" ? 1 : 0`; omitido con `custom_domain = ""`; DNS de GoDaddy manual | Gratuidad no confirmada (Preview), opcional |
-| `google_billing_budget` (D-13) | 1 USD, umbrales 50/90/100 %; requiere la API `billingbudgets.googleapis.com` (12ª de REQ-IAC-009) y `roles/billing.costsManager` de `argos-terraform@` sobre la cuenta de facturación | 0 |
+| `google_billing_budget` (D-13) | 22500 COP equivalente a 5 USD **[verificar moneda, T824]**, umbrales 50/90/100 % (*Enmienda 006, N2-05, NFR-CLD-001*, antes 1 USD); requiere la API `billingbudgets.googleapis.com` (REQ-IAC-009 queda en 14 APIs; *Enmienda 006, N2-05*: +`aiplatform.googleapis.com`, +`cloudtasks.googleapis.com`; antes «12ª») y `roles/billing.costsManager` de `argos-terraform@` sobre la cuenta de facturación | 0 |
 
 ### 2.3 Estado
 `terraform/argos-state` en el bucket de D-12 (recomendado: bucket propio y versionado). El estado contiene valores de secretos (R-06): bucket privado, acceso solo a la cuenta de Terraform, `public_access_prevention=enforced`.
@@ -98,10 +98,10 @@ Reglas: etiquetas `app=argos`, `managed-by=terraform` en todos los recursos etiq
 
 | Parámetro | Valor | Justificación |
 |---|---|---|
-| CPU/memoria | 1 vCPU / 512 MiB | scrypt y JSON de pocos usuarios; 1 GiB duplicaría GiB-s sin necesidad |
+| CPU/memoria | 1 vCPU / 1 GiB (*Enmienda 006, N2-05, REQ-CLD-002*; antes 512 MiB) | scrypt y JSON de pocos usuarios; la escena de 006 procesa imágenes en memoria y exige 1 GiB (el consumo de GiB-s se reevalúa en `research.md`) |
 | Concurrencia | 20 | scrypt ocupa el *thread pool* de libuv (4 hilos por defecto); 20 evita encolar logins; con `pool.max=5` el cuello es Neon, no Node |
 | Instancias | min 0, max 2 | Tope de gasto, de conexiones (2x5=10) y de abuso (R-07) |
-| Timeout | 60 s | Respuestas son cortas; `lock_timeout` 10 s; `idle_in_transaction_session_timeout` 15 s; `SIGTERM` espera <= 7 s (gracia de Cloud Run 10 s **[verificar]**) |
+| Timeout | 120 s (*Enmienda 006, N2-05, REQ-CLD-002*; antes 60 s) | Respuestas son cortas; `lock_timeout` 10 s; `idle_in_transaction_session_timeout` 15 s; `SIGTERM` espera <= 7 s (gracia de Cloud Run 10 s **[verificar]**) |
 | Facturación | por solicitud, `cpu_idle=true` | Único modo con cupo gratuito verificado |
 | Arranque | CPU boost + probe `/healthz` (periodo 2 s, 10 intentos), fijada por el pipeline; en el primer `apply` solo la sonda TCP por defecto | Reduce cold start; evita fallo del primer `apply` (H-LOCK-005) |
 | Entorno | `NODE_ENV=production`, `HOST=0.0.0.0`, `PORT` (Cloud Run), `COOKIE_SECURE=true`, `APP_TIMEZONE=America/Bogota`, `ARGOS_DB_DRIVER=postgres`, `ARGOS_PG_POOL_MAX=5`, `ARGOS_AUDIT_RETENTION_DAYS=730`, límites `EXPORT_*`/`INVITE_*` | REQ-CLD-005 |
@@ -132,7 +132,7 @@ Reglas: etiquetas `app=argos`, `managed-by=terraform` en todos los recursos etiq
 
 | Cuenta de servicio | Roles | Alcance |
 |---|---|---|
-| `argos-run@` (ejecución) | `roles/secretmanager.secretAccessor`; *Enmienda 004, E3-01*: `roles/storage.objectUser` sobre el bucket de medios y `roles/iam.serviceAccountTokenCreator` sobre sí misma | Secretos: solo los 2 de Argos (a nivel de secreto, no de proyecto). Sin rol sobre el bucket de `dumps/`: la app no escribe en él (H-MIF-010); el bucket de medios es de la Feature 004 |
+| `argos-run@` (ejecución) | `roles/secretmanager.secretAccessor`; *Enmienda 006, N2-05, REQ-IAC-006*: excepción `roles/aiplatform.user` a nivel de proyecto (Vertex AI no admite concesión por recurso) y encolado en Cloud Tasks; *Enmienda 004, E3-01*: `roles/storage.objectUser` sobre el bucket de medios y `roles/iam.serviceAccountTokenCreator` sobre sí misma | Secretos: solo los 2 de Argos (a nivel de secreto, no de proyecto). Sin rol sobre el bucket de `dumps/`: la app no escribe en él (H-MIF-010); el bucket de medios es de la Feature 004 |
 | `argos-deployer@` (GitHub, por WIF) | `roles/run.developer`; `roles/artifactregistry.writer`; `roles/iam.serviceAccountUser` | Servicio `argos`; repositorio `argos`; solo sobre `argos-run@` |
 | `argos-scheduler@` | `roles/run.invoker` | Servicio `argos` |
 | `argos-terraform-plan@` (GitHub, por WIF, PR) | roles de solo lectura (ver abajo) | Proyecto Argos y bucket de estado, solo lectura |

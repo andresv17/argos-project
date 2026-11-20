@@ -39,6 +39,7 @@ describe('T542 retención cero (SC-CAT-015, REQ-BOR-004)', () => {
       ...readdirSync(DEFAULT_MIGRATIONS_DIR).map((n) => withoutComments(readFileSync(join(DEFAULT_MIGRATIONS_DIR, n), 'utf8'))),
       ...readdirSync(PG_DIR).map((n) => withoutComments(readFileSync(new URL(n, PG_DIR), 'utf8'))),
     ];
+    expect(sources.some((sql) => /CREATE TABLE home_scenes/.test(sql))).toBe(true); // T831: las migraciones de la escena también se revisan
     expect(sources.filter((sql) => /deleted_at|deleted_by_user_id|soft_delete/i.test(sql))).toEqual([]);
   });
 

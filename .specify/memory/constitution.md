@@ -1,4 +1,39 @@
 <!--
+SYNC IMPACT REPORT (3.6.0 -> 3.7.0, 2026-11-18)
+==================
+Version change: 3.6.0 -> 3.7.0
+Bump rationale: MINOR. Enmienda 006-bis (N2-13, 2026-11-18), acotada: el Principio VI admite además, SOLO en
+  desarrollo local privado (NODE_ENV distinto de production; uso exclusivo de Neo, nunca usuarios externos ni
+  producción), el driver `gemini-api` (Google Gemini Developer API) de la feature 006, por `fetch` nativo y sin
+  dependencia npm nueva, con tope de referencia de 5 USD/mes en la consola del proveedor bajo control de Neo y
+  la clave `GEMINI_API_KEY` solo en `.env` local (nunca en Terraform, Secret Manager ni GitHub Actions). No
+  modifica la excepción de Vertex AI ni su compuerta (N2-10, REQ-ESC6-028, T885). No retira ni redefine
+  principios. Autorizada por Neo (Andrés Vallejo, Level 2), 2026-11-18 (Opción 2). Diseño:
+  specs/006-escena-hogar-pixel-art/audits-gemini-api-diseno.md; dictamen: .specify/memory/audits/merovingian-006-gemini-api.md.
+Modified principles: VI (excepción acotada, nuevo párrafo).
+Modified sections: ninguna otra.
+Added/Removed sections: ninguna.
+Follow-up TODOs: Neo fija el tope de consola, restringe la clave a la API Generative Language y firma el texto del aviso (T900).
+-->
+
+<!--
+SYNC IMPACT REPORT (3.5.0 -> 3.6.0, 2026-11-18)
+==================
+Version change: 3.5.0 -> 3.6.0
+Bump rationale: MINOR. Enmienda 006 (N2-07 y N2-12, 2026-11-18), acotada, de la feature 006 (escena del
+  hogar en pixel art): (a) excepción única de pago en el Principio VI para la generación de imágenes del
+  adaptador Vertex AI, condicionada a REQ-ESC6-028 y a la compuerta del driver real con enfriamiento
+  (N2-10), con tope de 5 USD equivalentes (22500 COP) por mes; (b) `jose` 6.2.17 extendido
+  exclusivamente a /internal/scene-worker (además de /internal/maintenance), con audiencia y correo
+  propios por ruta. No retira ni redefine principios. Autorizada por Neo (Andrés Vallejo, Level 2),
+  2026-11-18 (Logos). Borrador: .specify/memory/audits/enmienda-006-principio-VI.md.
+Modified principles: VI (excepción acotada).
+Modified sections: Technology Stack & Repository Structure (Dependencias autorizadas, alcance de `jose`).
+Added/Removed sections: ninguna.
+Follow-up TODOs: cambios de terraform/ (tope de presupuesto, APIs, IAM) por /link con Nivel 2.
+-->
+
+<!--
 SYNC IMPACT REPORT (3.4.0 -> 3.5.0, 2026-11-17)
 ==================
 Version change: 3.4.0 -> 3.5.0
@@ -172,7 +207,11 @@ Ninguna tarea se cierra sin pasar su compuerta. Las pruebas no se eliminan, no s
 
 ### VI. Stack Autorizado y Estructura de Repositorio Estándar
 
-El stack tecnológico y el árbol de carpetas son los de la sección «Technology Stack & Repository Structure». Añadir o actualizar una dependencia, crear una carpeta fuera del árbol, o cambiar contratos, CI, scripts de verificación o umbrales de mutación requiere autorización humana previa (Nivel 2). Solo se admiten dependencias y servicios gratuitos; cualquier opción de pago requiere una autorización nueva.
+El stack tecnológico y el árbol de carpetas son los de la sección «Technology Stack & Repository Structure». Añadir o actualizar una dependencia, crear una carpeta fuera del árbol, o cambiar contratos, CI, scripts de verificación o umbrales de mutación requiere autorización humana previa (Nivel 2). Solo se admiten dependencias y servicios gratuitos; cualquier opción de pago requiere una autorización nueva, salvo la única excepción acotada siguiente.
+
+**Excepción acotada de la feature 006 (Enmienda 006, N2-07 y N2-12, 2026-11-18).** Se admite un único servicio de pago: la generación de imágenes de `SceneImageGeneratorPort` mediante el adaptador de Google Vertex AI (Gemini Image) de la feature 006, desde `src/infrastructure/`, por `fetch` nativo de Node 22 y sin dependencia npm nueva. Condiciones: (a) el adaptador real no se activa (`ARGOS_SCENE_DRIVER=real`) mientras no se cumpla `REQ-ESC6-028` (datos del proveedor con fuente en `specs/006-escena-hogar-pixel-art/research.md`) ni se cierre la compuerta del driver real, con su enfriamiento previo a la activación (N2-10); (b) el gasto de este servicio tiene un tope de 5 USD equivalentes (22500 COP) por mes; (c) el desarrollo y las pruebas usan solo el adaptador simulado (0 USD) y el CI no hace llamadas reales; (d) la excepción no cubre ningún otro servicio, modelo ni proveedor de pago, y cualquier ampliación del tope o del alcance requiere una autorización nueva (Nivel 2).
+
+**Excepción acotada de desarrollo local privado: `gemini-api` (Enmienda 006-bis, N2-13, 2026-11-18).** Sin modificar la excepción anterior, se admite el uso del driver `ARGOS_SCENE_DRIVER=gemini-api` (Google Gemini Developer API) de la feature 006 únicamente cuando `NODE_ENV` es distinto de `production` y en el equipo local de Neo (0 usuarios externos). Condiciones: (a) la aplicación no arranca con `gemini-api` si `NODE_ENV=production`, y `SCENE_REAL_DRIVER_ACTIVATED` sigue `false`; esta excepción no activa ni cumple la compuerta del driver real (N2-10, `REQ-ESC6-028`, T885), que sigue rigiendo producción y Vertex; (b) el gasto lo acota Neo con un tope de referencia de 5 USD por mes en la consola del proveedor; (c) la clave `GEMINI_API_KEY` vive solo en el `.env` local ignorado por git y nunca en Terraform, Secret Manager, GitHub Actions ni el repositorio; (d) solo se usa `fetch` nativo de Node 22, sin dependencia npm nueva, con la clave únicamente en la cabecera `x-goog-api-key`; (e) el CI no hace llamadas reales; (f) el envío de fotos exige el consentimiento vigente de la feature (`INV-ESC6-014`); (g) la excepción no cubre ningún otro servicio, modelo ni proveedor, y cualquier ampliación requiere una autorización nueva (Nivel 2).
 
 **Rationale**: mantiene reproducible el entorno y acotado el coste de mantenimiento.
 
@@ -193,7 +232,7 @@ El stack tecnológico y el árbol de carpetas son los de la sección «Technolog
 - **Persistencia:** SQLite en archivo local (`./data/argos.sqlite`, ignorado por git) mediante `better-sqlite3`, detrás de puertos de repositorio. Migraciones SQL versionadas y aplicadas al arranque en `src/infrastructure/persistence/sqlite/migrations/`. Adaptador en memoria para pruebas unitarias y de propiedades.
 - **Autenticación:** hash de contraseñas con `scrypt` de `node:crypto` (N=2^15, r=8, p=1, salt 16 bytes, keylen 64). Sesiones opacas de 32 bytes (base64url) almacenadas en la base solo como SHA-256, entregadas en cookie `argos_session` (`HttpOnly`, `SameSite=Strict`, `Path=/`; `Secure` obligatorio en Cloud). La sesión expira a las 24 horas absolutas desde su creación o a los 30 minutos sin actividad, lo que ocurra primero; recargar la página dentro de la vigencia no la cierra.
 - **Generación desde contratos (real, no plantillas):** `scripts/compile-contracts.sh` deriva de `specs/<NNN-feature>/contracts/`: validadores runtime con Ajv 8 en modo standalone y `ajv-formats` desde `schemas/` y los `components.schemas` de `openapi/`; tipos estáticos con `json-schema-to-typescript` y `openapi-typescript`; catálogo de errores y tipos de máquinas de estado leídos de `errors/` y `state-machines/`. Cambiar un valor en un contrato debe cambiar `src/generated/`. Prohibido escribir reglas de validación a mano en plantillas del generador.
-- **Dependencias autorizadas:** TypeScript `~5.6`, Node 22, Vite 5, React 18, Tailwind 3, Fastify 5, `better-sqlite3`, `pg` y `@types/pg` (adaptador PostgreSQL), `@fastify/static`, `esbuild` (empaquetado de la imagen), Ajv 8 (standalone) con `ajv-formats`, `json-schema-to-typescript`, `openapi-typescript`, `openapi-fetch`, Vitest 2, `@vitest/coverage-v8`, fast-check 3, Stryker con `@stryker-mutator/vitest-runner` y `@stryker-mutator/typescript-checker`, Playwright con `@axe-core/playwright`, `@types/node`, `@fastify/cookie`, `react-router-dom`, `yaml` (solo si el generador lo importa), `tsx` y `concurrently` (solo desarrollo), `@vitejs/plugin-react`, `postcss`, `autoprefixer`, `@types/react`, `@types/react-dom` y `@types/better-sqlite3`. SAST en CI con Semgrep fijado por versión, sin dependencia npm. La feature 003 añade `pg`, `@types/pg`, `@fastify/static` y `esbuild` con versión exacta fijada al implementar y verificación de `/merovingian`; `hadolint`, `actionlint` y `trivy` solo en CI, sin dependencia npm. La feature 003 añade además `jose` en la versión exacta `6.2.17` (sin `^` ni `~`; ESM nativo para Node >= 22, cero dependencias), **acotada exclusivamente a la verificación OIDC de la ruta `/internal/maintenance`** (`src/infrastructure/http/oidc-verify.ts`, JWKS de Google; validación de `iss`, `exp`, `aud` y `email_verified`; tarea T486); no se importa desde `src/domain/` ni `src/application/` y cualquier otro uso requiere una autorización nueva (Nivel 2). Autorizada por Neo (Level 2), 2026-11-16. La feature 004 añade `@google-cloud/storage` en la versión exacta `9.0.0` (sin `^` ni `~`), **acotada exclusivamente a `src/infrastructure/adapters/`** (adaptador de Cloud Storage; tarea T612, D-01 A, condición C-4 de `/merovingian`, informe `.specify/memory/audits/merovingian-T612-gcs.md`); el SDK no se importa desde `src/domain/` ni `src/application/`, y una prueba de arquitectura debe fallar si lo hacen; cualquier otro uso requiere una autorización nueva (Nivel 2). Autorizada por Neo (Level 2), 2026-11-17.
+- **Dependencias autorizadas:** TypeScript `~5.6`, Node 22, Vite 5, React 18, Tailwind 3, Fastify 5, `better-sqlite3`, `pg` y `@types/pg` (adaptador PostgreSQL), `@fastify/static`, `esbuild` (empaquetado de la imagen), Ajv 8 (standalone) con `ajv-formats`, `json-schema-to-typescript`, `openapi-typescript`, `openapi-fetch`, Vitest 2, `@vitest/coverage-v8`, fast-check 3, Stryker con `@stryker-mutator/vitest-runner` y `@stryker-mutator/typescript-checker`, Playwright con `@axe-core/playwright`, `@types/node`, `@fastify/cookie`, `react-router-dom`, `yaml` (solo si el generador lo importa), `tsx` y `concurrently` (solo desarrollo), `@vitejs/plugin-react`, `postcss`, `autoprefixer`, `@types/react`, `@types/react-dom` y `@types/better-sqlite3`. SAST en CI con Semgrep fijado por versión, sin dependencia npm. La feature 003 añade `pg`, `@types/pg`, `@fastify/static` y `esbuild` con versión exacta fijada al implementar y verificación de `/merovingian`; `hadolint`, `actionlint` y `trivy` solo en CI, sin dependencia npm. La feature 003 añade además `jose` en la versión exacta `6.2.17` (sin `^` ni `~`; ESM nativo para Node >= 22, cero dependencias), **acotada exclusivamente a la verificación OIDC de las dos rutas internas `/internal/maintenance` y `/internal/scene-worker`**, cada una con audiencia y correo propios (`src/infrastructure/http/oidc-verify.ts`, JWKS de Google; validación de `iss`, `exp`, `aud` y `email_verified`; tareas T486 y T869; Enmienda 006, N2-07 y N2-12, 2026-11-18); no se importa desde `src/domain/` ni `src/application/` y cualquier otro uso requiere una autorización nueva (Nivel 2). Autorizada por Neo (Level 2), 2026-11-16 (`/internal/maintenance`) y 2026-11-18 (`/internal/scene-worker`). La feature 004 añade `@google-cloud/storage` en la versión exacta `9.0.0` (sin `^` ni `~`), **acotada exclusivamente a `src/infrastructure/adapters/`** (adaptador de Cloud Storage; tarea T612, D-01 A, condición C-4 de `/merovingian`, informe `.specify/memory/audits/merovingian-T612-gcs.md`); el SDK no se importa desde `src/domain/` ni `src/application/`, y una prueba de arquitectura debe fallar si lo hacen; cualquier otro uso requiere una autorización nueva (Nivel 2). Autorizada por Neo (Level 2), 2026-11-17.
 
 **Estructura del repositorio.**
 
@@ -226,8 +265,12 @@ Esta constitución prevalece sobre cualquier plan, tarea o línea de código.
 - **Revisión de cumplimiento.** Toda revisión verifica el cumplimiento de estos principios. Una desviación aceptada se registra con responsable y condición de cierre en «Complexity Tracking» del plan y como tarea abierta en `tasks.md`.
 - **Guía operativa.** `spec-system.md` y `CLAUDE.md` son la guía de ejecución para agentes; ante una diferencia con este documento prevalece la constitución.
 
-**Version**: 3.5.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-17
+**Version**: 3.7.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-18
 
 Versión 3.3.0 firmada por Andrés Vallejo (Nivel 2) el 2026-11-15 (tarea T403). Firmada por Neo (Level 2), 2026-11-15.
 
 Versión 3.4.0 (`jose` 6.2.17, acotada a la verificación OIDC de `/internal/maintenance`) autorizada por Andrés Vallejo (Nivel 2) el 2026-11-16 (tarea T486).
+
+Versión 3.6.0 (Enmienda 006, N2-07 y N2-12, 2026-11-18: excepción acotada de pago para la generación de imágenes de la feature 006 y `jose` 6.2.17 extendido a `/internal/scene-worker`) autorizada por Andrés Vallejo (Nivel 2) el 2026-11-18.
+
+Versión 3.7.0 (Enmienda 006-bis, N2-13, 2026-11-18: excepción acotada al Principio VI para el driver `gemini-api` solo en desarrollo local privado, sin producción ni usuarios externos) autorizada por Andrés Vallejo (Nivel 2) el 2026-11-18; redactada por `/architect` en estado de borrador, sin `APPROVED` ni `LOCKED`.
