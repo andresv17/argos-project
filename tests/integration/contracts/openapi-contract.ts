@@ -70,7 +70,8 @@ const RECORDS_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/me
 const IDENTITY_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/identity.schema.json';
 const BACKUP_004 = 'specs/004-catalogos-registros-archivos/contracts/schemas/backup-envelope.schema.json';
 const exportOk = (openapi.paths['/backup/export']!['post'] as { responses: Record<string, { content: Record<string, { schema: { $ref: string } }> }> }).responses['200']!.content['application/json']!.schema;
-exportOk.$ref = exportOk.$ref.replace('#/$defs/BackupEnvelopeV3', '#/$defs/BackupEnvelopeV31');
+// 007 (Caso B, T1067): el OpenAPI de la 002 ya declara BackupEnvelopeV32; la sustitución solo aplica a la referencia heredada V3 (con V32 un replace de prefijo produciría V312).
+if (exportOk.$ref.endsWith('#/$defs/BackupEnvelopeV3')) exportOk.$ref = exportOk.$ref.replace('#/$defs/BackupEnvelopeV3', '#/$defs/BackupEnvelopeV31');
 for (const file of readdirSync('specs/002-plataforma-v21/contracts/schemas')) {
   if (file === 'medical-records.schema.json') {
     ajv.addSchema(JSON.parse(readFileSync(RECORDS_004, 'utf8')));

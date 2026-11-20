@@ -291,7 +291,7 @@ defineShareContract(
 );
 
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
-const PG_MIGRATIONS = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0006_rate_limit_microchip_scope.sql', '0007_platform_parameters.sql', '0008_share_links.sql'];
+const PG_MIGRATIONS = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0006_rate_limit_microchip_scope.sql', '0007_platform_parameters.sql', '0008_share_links.sql', '0010_pet_life_status.sql']; // 007: INSERT de mascotas escribe life_status/deceased_at/version
 const PG_SCHEMA = PG_MIGRATIONS.map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
 
 describe.skipIf(!TEST_DATABASE_URL)('enlaces veterinarios contra PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no está definida)', { timeout: 60_000 }, () => {

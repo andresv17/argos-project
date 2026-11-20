@@ -126,10 +126,10 @@ describe('T511 rutas existentes cambiadas', () => {
     expect(del.responses['409'].description).toContain('ERR-REC-SUPERSEDED-IMMUTABLE');
   });
 
-  it('REQ-IMP-001: previewBackupImport devuelve ImportPreviewResult y acepta 3.1.0; exportBackup entrega el sobre 3.1.0', () => {
+  it('REQ-IMP-001: previewBackupImport devuelve ImportPreviewResult y acepta 3.1.0; exportBackup entrega el sobre 3.2.0 (007, T1067: BackupEnvelopeV32)', () => {
     expect(op('/backup/import/preview', 'post').summary).toContain('3.1.0');
     expect(op('/backup/export', 'post').responses['200'].content['application/json'].schema.$ref).toBe(
-      '../schemas/backup-envelope.schema.json#/$defs/BackupEnvelopeV31',
+      '../schemas/backup-envelope.schema.json#/$defs/BackupEnvelopeV32',
     );
   });
 

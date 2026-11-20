@@ -278,7 +278,7 @@ describe('T510 metadatos', () => {
       expect(meta(file), file).toEqual(expect.objectContaining({ status: 'DRAFT' }));
     }
     expect(meta('pet').version).toBe('3.1.0');
-    expect(meta('backup-envelope').version).toBe('3.1.0');
+    expect(meta('backup-envelope').version).toBe('3.2.0'); // 007 (T1067, Caso B): MINOR aditiva sobre 3.1.0
     expect(meta('media').version).toBe('1.0.0');
   });
 });
