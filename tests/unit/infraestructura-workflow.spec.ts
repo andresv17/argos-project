@@ -52,6 +52,40 @@ describe('.github/workflows/infraestructura.yml (T446)', () => {
     expect(v).toMatch(/^ {4}permissions:\s*\n\s+contents:\s*read\s*$/m);
   });
 
+  it('DEUDA-INFRA-BOOTSTRAP-CHECK: validate avisa (::warning:: y GITHUB_STEP_SUMMARY) si cambia terraform/bootstrap.sh, sin secretos y con base por env', () => {
+    const step = steps('validate').find((x) => x.includes('DEUDA-INFRA-BOOTSTRAP-CHECK')) ?? '';
+    expect(step).not.toBe('');
+    expect(step).toMatch(/BASE_SHA:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha \|\| github\.event\.before\s*\}\}/);
+    expect(step).toContain('terraform/bootstrap.sh');
+    expect(step).toMatch(/::warning file=terraform\/bootstrap\.sh::[^\n]*roles IAM/);
+    expect(step).toContain('GITHUB_STEP_SUMMARY');
+    expect(job('validate')).toMatch(/fetch-depth:\s*0/);
+  });
+
+  it('DEUDA-INFRA-BOOTSTRAP-CHECK: ejecutado el paso en un repo temporal, avisa y resume solo si bootstrap.sh cambio', () => {
+    const run = /run: \|\n((?: {10,}[^\n]*\n|\n)+)/.exec(steps('validate').find((x) => x.includes('DEUDA-INFRA-BOOTSTRAP-CHECK')) ?? '')?.[1] ?? '';
+    expect(run).not.toBe('');
+    const dir = mkdtempSync(join(tmpdir(), 'bootstrap-check-'));
+    const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
+    const sh = (cmd: string, extra: Record<string, string> = {}) => spawnSync('bash', ['-c', cmd], { cwd: dir, encoding: 'utf8', env: { ...env, ...extra } });
+    sh('git init -q && mkdir terraform && echo a > terraform/bootstrap.sh && echo a > terraform/main.tf && git add -A && git commit -q -m base');
+    const base = sh('git rev-parse HEAD').stdout.trim();
+    const summary = join(dir, 'summary.md');
+    // 1) cambio solo de main.tf: sin aviso
+    sh('echo b > terraform/main.tf && git commit -qam tf');
+    const quiet = sh(run, { BASE_SHA: base, GITHUB_STEP_SUMMARY: summary });
+    expect(quiet.status).toBe(0);
+    expect(quiet.stdout).not.toContain('::warning');
+    expect(existsSync(summary)).toBe(false);
+    // 2) cambio de bootstrap.sh: aviso y resumen
+    sh('echo b > terraform/bootstrap.sh && git commit -qam bs');
+    const loud = sh(run, { BASE_SHA: base, GITHUB_STEP_SUMMARY: summary });
+    expect(loud.status).toBe(0);
+    expect(loud.stdout).toContain('::warning file=terraform/bootstrap.sh::');
+    expect(readFileSync(summary, 'utf8')).toContain('Cambio en terraform/bootstrap.sh');
+    expect(readFileSync(summary, 'utf8')).toContain('roles IAM');
+  });
+
   it('plan y apply esperan a validate', () => {
     expect(needsOf('plan')).toEqual(['validate']);
     expect(needsOf('apply')).toEqual(['validate']);
