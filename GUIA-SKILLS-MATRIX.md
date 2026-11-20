@@ -76,6 +76,7 @@ Al abrir Claude Code en ARGOS, tienes acceso automático a las **20 skills unive
 - **`/mouse`** → Auditor Estructural de Spec Kit. Valida el formato de templates, checklists (`speckit-analyze`) y trazabilidad sintáctica de IDs **una sola vez** al terminar la spec antes de autorizar a Keymaker. No juzga lógica de negocio ni toca código.
 - **`/keymaker`** → Desarrollador SDD. Programa `src/` y `tests/`, compila contratos y ejecuta compuertas de pruebas.
 - **`/oracle`** → Auditor SDD en Disco. Verifica en disco `git diff`, tests reales y genera el veredicto final para la firma de **Neo**.
+  - **Compuerta previa a push (DEUDA-CI-VERIFY-PREPUSH):** antes de emitir un veredicto que habilite `git push` ejecuta `bash scripts/verify-ci-ready.sh` (sale 0 = listo para CI). Comprueba (i) reglas SAST Semgrep de `tests/security/sast-rules/` sobre `src/` (semgrep real si está instalado; si no, comprobación estática equivalente y aproximada), (ii) que `tests/` no lea `claude/` ni archivos sin seguimiento de git (el árbol limpio de CI no los tiene) y (iii) que no haya archivos rastreados modificados fuera de commit en `.env.example`, `src/`, `tests/`, `terraform/` y `.github/`. Un FALLA aquí es hallazgo bloqueante del veredicto.
 - **`/morpheus`** → Capitán Tech Lead. Lee la cola `tasks.md`, coordina subagentes (`MAX_HOPS = 2`) y activa compuertas estratégicas oportunas (/trinity seguridad, /mifune anti-sobreingeniería, /lock abogado del diablo, /rama ciclo de vida de datos, /merovingian dependencias, /hamann sistémico).
 
 ### B. Especialistas Técnicos
