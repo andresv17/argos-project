@@ -214,7 +214,7 @@ export interface paths {
         delete: operations["deletePet"];
         options?: never;
         head?: never;
-        /** Edita datos básicos [REQ-PET2-001, INV-ACC2-002, INV-OWN2-001] */
+        /** Edita datos básicos y estado de vida con If-Match obligatorio (version de la ficha) [REQ-PET2-001, INV-ACC2-002, INV-OWN2-001] */
         patch: operations["updatePet"];
         trace?: never;
     };
@@ -1056,7 +1056,7 @@ export interface components {
         /** @description Previsualización: no persiste nada [REQ-BACKUP2-002, STATE-BACKUP-001, T4, R7]. Incluye el aviso de poda de asignaciones a hogares compartidos. */
         ImportPreviewResult: {
             /** @enum {string} */
-            sourceSchemaVersion: "1.0.0" | "2.0.0" | "3.0.0" | "3.1.0";
+            sourceSchemaVersion: "1.0.0" | "2.0.0" | "3.0.0" | "3.1.0" | "3.2.0";
             /** @description SHA-256 de los bytes realmente leídos; la importación definitiva debe presentarlo para probar que es el mismo archivo previsualizado */
             fileDigest: components["schemas"]["Sha256Hex"];
             counts: {
@@ -1087,11 +1087,21 @@ export interface components {
             /** @constant */
             finalState: "COMPLETED";
             /** @enum {string} */
-            sourceSchemaVersion: "1.0.0" | "2.0.0" | "3.0.0" | "3.1.0";
+            sourceSchemaVersion: "1.0.0" | "2.0.0" | "3.0.0" | "3.1.0" | "3.2.0";
             importedPetsCount: number;
             importedRecordsCount: number;
         };
-        /** @description [REQ-PET2-001, INV-PET2-001]. speciesOther solo con OTHER. */
+        /**
+         * @description Estado de vida de la mascota (feature 007, #13). Defecto ALIVE; el invariante con deceasedAt se valida sobre el estado resultante
+         * @default ALIVE
+         * @enum {string}
+         */
+        LifeStatus: "ALIVE" | "DECEASED";
+        /** @description Fecha ISO YYYY-MM-DD del fallecimiento; obligatoria con DECEASED y nula con ALIVE; >= birthDate y <= hoy (America/Bogota) se validan en el dominio sobre el estado resultante (feature 007, #13) */
+        DeceasedAt: null | (string & components["schemas"]["IsoDate"]);
+        /** @description Version entera >= 1 de la ficha: inicial 1, +1 en cada PATCH de mascota; control optimista con If-Match, 412 ERR-PET-VERSION-CONFLICT si no coincide (feature 007, EDGE-007-009) */
+        PetVersion: number;
+        /** @description [REQ-PET2-001, INV-PET2-001]. speciesOther solo con OTHER. Feature 007: lifeStatus, deceasedAt y version son opcionales en el esquema (aditivo); el servidor siempre los emite. */
         PetProfile: {
             id: components["schemas"]["Uuid"];
             /** @description Propietario Legal; solo cambia con REQ-OWN-001 [INV-OWN2-001] */
@@ -1113,7 +1123,10 @@ export interface components {
             breedCode: string | null;
             /** @description Versión del avatar, derivada de avatar_version/avatar_object_id; solo lectura, nunca entrada ni parte del respaldo [REQ-AVA-001, INV-AVA-001] */
             readonly avatarVersion: number | null;
-        } & (unknown & unknown & unknown & unknown);
+            lifeStatus?: components["schemas"]["LifeStatus"];
+            deceasedAt?: components["schemas"]["DeceasedAt"];
+            version?: components["schemas"]["PetVersion"];
+        } & (unknown & unknown & unknown & unknown & unknown);
         /**
          * @description [INV-HOUSE-005]
          * @enum {string}
@@ -1173,12 +1186,14 @@ export interface components {
             baseHouseholdId?: components["schemas"]["Uuid"];
             /** @description Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003] */
             breedCode?: string | null;
-        } & (unknown & unknown & unknown & unknown & unknown)) & ({
+            lifeStatus?: components["schemas"]["LifeStatus"];
+            deceasedAt?: components["schemas"]["DeceasedAt"];
+        } & (unknown & unknown & unknown & unknown & unknown & unknown)) & ({
             birthDate: components["schemas"]["IsoDate"];
         } | {
             estimatedAge: components["schemas"]["EstimatedAge"];
         });
-        /** @description Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001] */
+        /** @description Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001] Feature 007: lifeStatus/deceasedAt; DECEASED exige deceasedAt; ALIVE lo exige nulo; el PATCH exige If-Match con la version de la ficha. */
         UpdatePetInput: {
             name?: string & components["schemas"]["NonEmptyTrimmedString"];
             species?: components["schemas"]["Species"];
@@ -1193,7 +1208,9 @@ export interface components {
             estimatedAge?: components["schemas"]["EstimatedAge"];
             /** @description Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003] */
             breedCode?: string | null;
-        } & (unknown & unknown & unknown);
+            lifeStatus?: components["schemas"]["LifeStatus"];
+            deceasedAt?: components["schemas"]["DeceasedAt"];
+        } & (unknown & unknown & unknown & unknown & unknown);
         WeightRecord: {
             id: components["schemas"]["Uuid"];
             petId: components["schemas"]["Uuid"];
@@ -1606,6 +1623,8 @@ export interface components {
     parameters: {
         /** @description Obligatoria en toda petición que modifica estado, incluida la exportación (emite token); si falta, ERR-AUTH-CSRF-REJECTED. Se valida antes que la sesión y no renueva actividad [INV-AUTH-007] */
         CsrfHeader: "1";
+        /** @description Version vigente de la ficha (profile.version) entre comillas, por ejemplo "3"; ausente o con otro formato da ERR-SCHEMA-VALIDATION-FAILED y desactualizada ERR-PET-VERSION-CONFLICT (412) sin modificar la ficha (feature 007, EDGE-007-009) */
+        PetIfMatch: string;
         /** @description fileDigest devuelto por la previsualización; prueba que se confirma el mismo archivo [REQ-BACKUP2-002] */
         ImportConfirmDigest: components["schemas"]["Sha256Hex"];
         PetId: components["schemas"]["Uuid"];
@@ -2037,6 +2056,8 @@ export interface operations {
             header: {
                 /** @description Obligatoria en toda petición que modifica estado, incluida la exportación (emite token); si falta, ERR-AUTH-CSRF-REJECTED. Se valida antes que la sesión y no renueva actividad [INV-AUTH-007] */
                 "X-Argos-Request": components["parameters"]["CsrfHeader"];
+                /** @description Version vigente de la ficha (profile.version) entre comillas, por ejemplo "3"; ausente o con otro formato da ERR-SCHEMA-VALIDATION-FAILED y desactualizada ERR-PET-VERSION-CONFLICT (412) sin modificar la ficha (feature 007, EDGE-007-009) */
+                "If-Match": components["parameters"]["PetIfMatch"];
             };
             path: {
                 petId: components["parameters"]["PetId"];
@@ -2062,6 +2083,7 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             429: components["responses"]["Problem"];
             500: components["responses"]["Problem"];

@@ -293,6 +293,50 @@ export type BackupPetProfileV31 = {
   breedCode: string | null;
 };
 /**
+ * Mascota del respaldo 3.2.0 (feature 007): igual que la anterior mas lifeStatus y deceasedAt OPCIONALES (nunca en required); ausentes se importan como ALIVE/nulo [REQ-BACKUP2-002]
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "BackupPetProfileV32".
+ */
+export type BackupPetProfileV32 = {
+  id: Uuid;
+  name: NonEmptyTrimmedString;
+  species: Species;
+  speciesOther: SpeciesOther;
+  breed: NonEmptyTrimmedString;
+  /**
+   * <= ClockPort.todayIsoDate() [INV-PET-002] y <= registro más antiguo [INV-PET-006]
+   */
+  birthDate: IsoDate;
+  birthDateIsEstimate: boolean;
+  sex: Sex;
+  neutered: boolean | null;
+  microchipId: MicrochipId;
+  avatarUrl: AvatarUrl;
+  createdAt: IsoTimestamp;
+  updatedAt: IsoTimestamp;
+  /**
+   * Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003]
+   */
+  breedCode: string | null;
+  lifeStatus?: LifeStatus;
+  deceasedAt?: DeceasedAt;
+};
+/**
+ * Estado de vida de la mascota (feature 007, #13). Defecto ALIVE; el invariante con deceasedAt se valida sobre el estado resultante
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "LifeStatus".
+ */
+export type LifeStatus = "ALIVE" | "DECEASED";
+/**
+ * Fecha ISO YYYY-MM-DD del fallecimiento; obligatoria con DECEASED y nula con ALIVE; >= birthDate y <= hoy (America/Bogota) se validan en el dominio sobre el estado resultante (feature 007, #13)
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "DeceasedAt".
+ */
+export type DeceasedAt = null | IsoDate;
+/**
  * 32 bytes aleatorios en base64url sin relleno; se entrega una sola vez y en la BD solo se guarda su SHA-256 [REQ-ACC-002, REQ-BACKUP2-001]
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
@@ -522,6 +566,8 @@ export type CreatePetInput = {
    * Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003]
    */
   breedCode?: string | null;
+  lifeStatus?: LifeStatus;
+  deceasedAt?: DeceasedAt;
 } & CreatePetInput1;
 /**
  * 15 dígitos; rechaza 15 dígitos iguales y las secuencias consecutivas ascendentes o descendentes módulo 10 (123456789012345, 987654321098765) con ERR-SCHEMA-VALIDATION-FAILED; único global [REQ-PET4-001, REQ-PET4-002, INV-PET4-001]
@@ -545,7 +591,7 @@ export type CreatePetInput1 =
  */
 export type PetEffectiveRole = "OWNER" | "ADMIN" | "CAREGIVER" | "READER";
 /**
- * [REQ-PET2-001, INV-PET2-001]. speciesOther solo con OTHER.
+ * [REQ-PET2-001, INV-PET2-001]. speciesOther solo con OTHER. Feature 007: lifeStatus, deceasedAt y version son opcionales en el esquema (aditivo); el servidor siempre los emite.
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
  * via the `definition` "PetProfile".
@@ -579,9 +625,19 @@ export type PetProfile = {
    * Versión del avatar, derivada de avatar_version/avatar_object_id; solo lectura, nunca entrada ni parte del respaldo [REQ-AVA-001, INV-AVA-001]
    */
   avatarVersion: number | null;
+  lifeStatus?: LifeStatus;
+  deceasedAt?: DeceasedAt;
+  version?: PetVersion;
 };
 /**
- * Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001]
+ * Version entera >= 1 de la ficha: inicial 1, +1 en cada PATCH de mascota; control optimista con If-Match, 412 ERR-PET-VERSION-CONFLICT si no coincide (feature 007, EDGE-007-009)
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "PetVersion".
+ */
+export type PetVersion = number;
+/**
+ * Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001] Feature 007: lifeStatus/deceasedAt; DECEASED exige deceasedAt; ALIVE lo exige nulo; el PATCH exige If-Match con la version de la ficha.
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
  * via the `definition` "UpdatePetInput".
@@ -602,6 +658,8 @@ export type UpdatePetInput = {
    * Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003]
    */
   breedCode?: string | null;
+  lifeStatus?: LifeStatus;
+  deceasedAt?: DeceasedAt;
 };
 /**
  * Etiqueta opaca de ranura de imagen (IMG_1..IMG_99) que el prompt cita; el servidor la resuelve a bytes ya normalizados (REQ-ESC6-027). Nunca URL ni clave de objeto (INV-ESC6-009)
@@ -1312,6 +1370,28 @@ export interface BackupMedicalVisitRecordV31 {
   createdAt: IsoTimestamp;
 }
 /**
+ * Sobre de respaldo 3.2.0 (feature 007, EDGE-007-015): formato versionado; un build anterior responde ERR-BACKUP-VERSION-UNSUPPORTED sin escritura parcial. Las colecciones de registros son las del 3.1.0.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "BackupEnvelopeV32".
+ */
+export interface BackupEnvelopeV32 {
+  schemaVersion: "3.2.0";
+  exportedAt: IsoTimestamp;
+  /**
+   * Solo mascotas de las que el usuario es Propietario Legal; sin límite de cantidad; puede ser vacío
+   */
+  pets: BackupPetProfileV32[];
+  records: {
+    weights: BackupWeightRecordV31[];
+    bodyMeasurements: BackupBodyMeasurementRecordV31[];
+    vaccinations: BackupVaccinationRecordV31[];
+    dewormings: BackupDewormingRecordV31[];
+    medicalVisits: BackupMedicalVisitRecordV31[];
+    customParameters: BackupCustomParameterRecordV31[];
+  };
+}
+/**
  * [REQ-BACKUP2-002]
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
@@ -1319,7 +1399,7 @@ export interface BackupMedicalVisitRecordV31 {
  */
 export interface ImportBackupResult {
   finalState: "COMPLETED";
-  sourceSchemaVersion: "1.0.0" | "2.0.0" | "3.0.0" | "3.1.0";
+  sourceSchemaVersion: "1.0.0" | "2.0.0" | "3.0.0" | "3.1.0" | "3.2.0";
   importedPetsCount: number;
   importedRecordsCount: number;
 }
@@ -1330,7 +1410,7 @@ export interface ImportBackupResult {
  * via the `definition` "ImportPreviewResult".
  */
 export interface ImportPreviewResult {
-  sourceSchemaVersion: "1.0.0" | "2.0.0" | "3.0.0" | "3.1.0";
+  sourceSchemaVersion: "1.0.0" | "2.0.0" | "3.0.0" | "3.1.0" | "3.2.0";
   /**
    * SHA-256 de los bytes realmente leídos; la importación definitiva debe presentarlo para probar que es el mismo archivo previsualizado
    */

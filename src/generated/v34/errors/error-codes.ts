@@ -131,7 +131,7 @@ export const ERROR_CATALOG = {
     "status": 422,
     "title": "Versión de respaldo no soportada",
     "invariantRef": "INV-BACKUP-001",
-    "detailTemplate": "La versión del archivo de respaldo debe ser 3.0.0 (o 2.0.0 o 1.0.0 para migración).",
+    "detailTemplate": "La versión del archivo de respaldo no está soportada por esta versión de ARGOS. Exporta de nuevo desde una versión igual o posterior, o usa un respaldo 3.0.0 o anterior.",
     "type": "urn:argos:error:ERR-BACKUP-VERSION-UNSUPPORTED",
     "requirementRef": "REQ-BACKUP2-002"
   },
@@ -262,6 +262,15 @@ export const ERROR_CATALOG = {
     "detailTemplate": "No existe ninguna mascota accesible con el identificador proporcionado.",
     "type": "urn:argos:error:ERR-PET-NOT-FOUND",
     "requirementRef": "REQ-PET2-003"
+  },
+  "ERR-PET-VERSION-CONFLICT": {
+    "type": "urn:argos:error:ERR-PET-VERSION-CONFLICT",
+    "status": 412,
+    "title": "Ficha modificada por otra persona",
+    "invariantRef": "INV-PET2-001",
+    "detailTemplate": "Esta ficha cambió, recarga.",
+    "requirementRef": "EDGE-007-009 (feature 007, #13)",
+    "note": "El If-Match del PATCH de mascota no coincide con la version vigente. El detalle es fijo: no incluye datos de la mascota, lifeStatus ni deceasedAt"
   },
   "ERR-RATE-LIMITED": {
     "type": "urn:argos:error:ERR-RATE-LIMITED",

@@ -33,6 +33,10 @@ export const FIELD_ERROR_CODES: Readonly<Record<string, Readonly<Record<string, 
   "BackupPetProfileV31": {
     "speciesOther": "ERR-SCHEMA-VALIDATION-FAILED"
   },
+  "BackupPetProfileV32": {
+    "deceasedAt": "ERR-SCHEMA-VALIDATION-FAILED",
+    "speciesOther": "ERR-SCHEMA-VALIDATION-FAILED"
+  },
   "BackupWeightRecordV3": {
     "weightKg": "ERR-REC-WEIGHT-OUT-OF-RANGE"
   },
@@ -94,13 +98,16 @@ export const FIELD_ERROR_CODES: Readonly<Record<string, Readonly<Record<string, 
     "weightKg": "ERR-REC-WEIGHT-OUT-OF-RANGE"
   },
   "CreatePetInput": {
+    "deceasedAt": "ERR-SCHEMA-VALIDATION-FAILED",
     "microchipId": "ERR-SCHEMA-VALIDATION-FAILED",
     "speciesOther": "ERR-SCHEMA-VALIDATION-FAILED"
   },
   "PetProfile": {
+    "deceasedAt": "ERR-SCHEMA-VALIDATION-FAILED",
     "speciesOther": "ERR-SCHEMA-VALIDATION-FAILED"
   },
   "UpdatePetInput": {
+    "deceasedAt": "ERR-SCHEMA-VALIDATION-FAILED",
     "microchipId": "ERR-SCHEMA-VALIDATION-FAILED",
     "speciesOther": "ERR-SCHEMA-VALIDATION-FAILED"
   }
