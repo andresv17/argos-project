@@ -53,6 +53,12 @@ function sortedByDateDesc<T extends { readonly id: string }>(rows: readonly T[],
 
 const note = (value: string | null | undefined): string | null => value ?? null;
 
+function ageForSummary(pet: SummaryPetInput['pet'], today: string, options: SummaryOptions): { years: number; months: number; totalDays?: number } {
+  const { years, months, totalDays } = computedAgeOf(pet, today);
+  if (pet.lifeStatus === 'DECEASED' && options.includeDeceasedAt !== true) return { years, months };
+  return { years, months, totalDays };
+}
+
 function buildPet(input: SummaryPetInput, generatedAt: string, options: SummaryOptions): ClinicalPetSummary {
   const { pet, records } = input;
   const today = generatedAt.slice(0, 10);
@@ -70,7 +76,8 @@ function buildPet(input: SummaryPetInput, generatedAt: string, options: SummaryO
       lifeStatus: pet.lifeStatus ?? 'ALIVE',
       // REQ-FAL7-008: la fecha solo viaja con el opt-in y solo para una fallecida; AUSENTE (no null) en el resto.
       ...(options.includeDeceasedAt === true && pet.lifeStatus === 'DECEASED' && typeof pet.deceasedAt === 'string' ? { deceasedAt: pet.deceasedAt } : {}),
-      age: computedAgeOf(pet, today), // REQ-FAL7-007: una fallecida cuenta hasta deceasedAt
+      // REQ-FAL7-007: una fallecida cuenta hasta deceasedAt. EDGE-007-027 (Opcion A): sin el opt-in `totalDays` se OMITE (con birthDate revelaria la fecha exacta); years y months se mantienen.
+      age: ageForSummary(pet, today, options),
       ...(options.includeMicrochip && typeof pet.microchipId === 'string' ? { microchipId: pet.microchipId } : {}),
     },
     weights: sortedByDateDesc(records.weights, (r) => r.recordedAt).map((r) => ({ recordedAt: r.recordedAt, weightKg: r.weightKg, notes: note(r.notes) })),

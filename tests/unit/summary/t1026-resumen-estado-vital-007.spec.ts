@@ -45,11 +45,25 @@ describe('T1026: estado de vida en el ClinicalSummary (REQ-FAL7-008, SC-007-016)
     expect(validateClinicalSummary(summary)).toBe(true);
   });
 
-  it('[REQ-FAL7-007][SC-007-016] la edad de una fallecida se calcula hasta deceasedAt (no hasta generatedAt), incluso sin publicar la fecha', () => {
+  it('[REQ-FAL7-007][SC-007-016][EDGE-007-027] la edad de una fallecida se calcula hasta deceasedAt y sin opt-in omite totalDays (mantiene years y months)', () => {
     const dead = buildClinicalSummary('PET', [input(deceased())], GENERATED_AT, OFF).pets[0]!.profile;
     const live = buildClinicalSummary('PET', [input(alive())], GENERATED_AT, OFF).pets[0]!.profile;
+    expect(dead.age).toEqual({ years: 4, months: 1 });
+    expect('totalDays' in dead.age).toBe(false);
+    expect(live.age.totalDays).toBeGreaterThan(0);
+    expect(validateClinicalSummary(buildClinicalSummary('PET', [input(deceased())], GENERATED_AT, OFF))).toBe(true);
+  });
+
+  it('[EDGE-007-027][SC-007-016] con includeDeceasedAt la edad de la fallecida conserva totalDays calculado hasta deceasedAt', () => {
+    const dead = buildClinicalSummary('PET', [input(deceased())], GENERATED_AT, { ...OFF, includeDeceasedAt: true }).pets[0]!.profile;
     expect(dead.age).toEqual({ years: 4, months: 1, totalDays: 1492 });
-    expect(live.age.totalDays).toBeGreaterThan(dead.age.totalDays);
+  });
+
+  it('[EDGE-007-027][SC-007-016] prueba negativa: sin opt-in birthDate + age.totalDays NO reconstruye deceasedAt', () => {
+    const profile = buildClinicalSummary('PET', [input(deceased())], GENERATED_AT, OFF).pets[0]!.profile;
+    const reconstructed = profile.age.totalDays === undefined ? null : new Date(Date.parse(`${profile.birthDate}T00:00:00Z`) + profile.age.totalDays * 86_400_000).toISOString().slice(0, 10);
+    expect(reconstructed).toBeNull();
+    expect(reconstructed).not.toBe('2026-06-10');
   });
 
   it('[REQ-FAL7-010] una ficha sin los campos (anterior a la 007) se publica ALIVE sin fecha', () => {

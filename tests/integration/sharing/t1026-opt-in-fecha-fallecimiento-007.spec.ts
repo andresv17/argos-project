@@ -55,6 +55,9 @@ describe('T1026 opt-in includeDeceasedAt en el enlace veterinario (SC-007-016)',
       expect(view.summary.pets[0]!.profile.lifeStatus).toBe('DECEASED');
       expect('deceasedAt' in view.summary.pets[0]!.profile).toBe(false);
       expect('deceasedAtIncluded' in view.summary.disclosure).toBe(false);
+      // EDGE-007-027: sin opt-in no viaja age.totalDays (birthDate + totalDays revelaria la fecha exacta); years y months si.
+      expect('totalDays' in view.summary.pets[0]!.profile.age).toBe(false);
+      expect(typeof view.summary.pets[0]!.profile.age.years).toBe('number');
       expect(JSON.stringify(view)).not.toContain(DEATH);
     });
   });
@@ -79,6 +82,7 @@ describe('T1026 opt-in includeDeceasedAt en el enlace veterinario (SC-007-016)',
       expect(validateSharedSummaryView(view)).toBe(true);
       expect(view.summary.pets[0]!.profile).toMatchObject({ lifeStatus: 'DECEASED', deceasedAt: DEATH });
       expect(view.summary.disclosure).toMatchObject({ deceasedAtIncluded: true });
+      expect(typeof view.summary.pets[0]!.profile.age.totalDays).toBe('number');
     });
   });
 
