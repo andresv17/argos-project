@@ -39,7 +39,7 @@ describe('REQ-FAL7-001 / REQ-FAL7-002: alta y edición con estado de vida', () =
     expect(JSON.stringify(h.uow.snapshot())).toBe(before);
   });
 
-  it('REQ-FAL7-010 / SC-007-031: un miembro sin permiso de edición (rol de hogar) recibe 403 y quien no ve la mascota, 404; ninguno cambia lifeStatus', async () => {
+  it('REQ-FAL7-008 / REQ-FAL7-010 / SC-007-031: un miembro sin permiso de edición (rol de hogar) recibe 403 y quien no ve la mascota, 404; ninguno cambia lifeStatus', async () => {
     const h = createHarness();
     const update = new UpdatePetUseCase(h.deps);
     const body = { lifeStatus: 'DECEASED', deceasedAt: '2026-01-15' };
@@ -103,7 +103,7 @@ describe('EDGE-007-009 / ERR-PET-VERSION-CONFLICT: control optimista de la ficha
 });
 
 describe('REQ-FAL7-004 / REQ-FAL7-007 / EDGE-007-019: alertas y edad de una mascota fallecida (SC-007-012, SC-007-013)', () => {
-  it('ARGOS con vacuna por vencer (1 alerta activa) fallecida: la ficha y la tarjeta no cuentan alertas, el historial sigue visible y la edad llega hasta deceasedAt', async () => {
+  it('REQ-FAL7-004 / REQ-FAL7-007: ARGOS con vacuna por vencer (1 alerta activa) fallecida: la ficha y la tarjeta no cuentan alertas, el historial sigue visible y la edad llega hasta deceasedAt', async () => {
     const h = createHarness();
     const before = await new GetPetDashboardUseCase(h.deps).execute(ANDRES, ARGOS.id);
     expect(before.alertsSummary.totalActiveAlerts).toBe(1);
@@ -119,7 +119,7 @@ describe('REQ-FAL7-004 / REQ-FAL7-007 / EDGE-007-019: alertas y edad de una masc
     expect((await new ListMyPetsUseCase(h.deps).execute(ANDRES, { filter: 'WITH_ALERTS' })).some((c) => c.profile.id === ARGOS.id)).toBe(false);
   });
 
-  it('la edad de una fallecida se calcula entre el nacimiento y deceasedAt, no a hoy', async () => {
+  it('REQ-FAL7-007: la edad de una fallecida se calcula entre el nacimiento y deceasedAt, no a hoy', async () => {
     const { h, pet } = await registered(createHarness(), { lifeStatus: 'DECEASED', deceasedAt: '2025-06-01' });
     const view = await new GetPetDashboardUseCase(h.deps).execute(ANDRES, pet.id);
     expect(view.computedAge).toMatchObject({ years: 1, months: 0 });
@@ -127,7 +127,7 @@ describe('REQ-FAL7-004 / REQ-FAL7-007 / EDGE-007-019: alertas y edad de una masc
 });
 
 describe('REQ-FAL7-005: registros posteriores a la fecha de fallecimiento (SC-007-014, EDGE-007-012, EDGE-007-013)', () => {
-  it('rechaza el alta con fecha posterior a deceasedAt y acepta una anterior o igual; el rechazo no guarda nada', async () => {
+  it('REQ-FAL7-005: rechaza el alta con fecha posterior a deceasedAt y acepta una anterior o igual; el rechazo no guarda nada', async () => {
     const { h, pet } = await registered(createHarness(), { lifeStatus: 'DECEASED', deceasedAt: '2026-01-15' });
     const add = new AddWeightRecordUseCase(h.deps);
     const before = JSON.stringify(h.uow.snapshot());
@@ -137,7 +137,7 @@ describe('REQ-FAL7-005: registros posteriores a la fecha de fallecimiento (SC-00
     expect((await add.execute(ANDRES, pet.id, { recordedAt: '2026-01-15', weightKg: 10 })).record.recordedAt).toBe('2026-01-15');
   });
 
-  it('marcar el fallecimiento con un registro posterior se rechaza listando el registro en conflicto; con la fecha del último registro se acepta', async () => {
+  it('REQ-FAL7-005: marcar el fallecimiento con un registro posterior se rechaza listando el registro en conflicto; con la fecha del último registro se acepta', async () => {
     const { h, pet } = await registered();
     const weight = await new AddWeightRecordUseCase(h.deps).execute(ANDRES, pet.id, { recordedAt: '2026-03-01', weightKg: 10 });
     const update = new UpdatePetUseCase(h.deps);

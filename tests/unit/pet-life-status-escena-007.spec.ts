@@ -43,7 +43,7 @@ function setup() {
 const markDeceased = (deps: ApplicationDeps, petId: string, version = 1) => new UpdatePetUseCase(deps).execute(ANDRES, petId, { lifeStatus: 'DECEASED', deceasedAt: '2026-11-01' }, version);
 
 describe('REQ-FAL7-006: una mascota DECEASED no se dibuja ni cuenta en pets.shown/total', () => {
-  it('SC-007-015: marcar el fallecimiento baja shown y total, y cuenta como un cambio de la huella (pending sube)', async () => {
+  it('REQ-FAL7-006: SC-007-015: marcar el fallecimiento baja shown y total, y cuenta como un cambio de la huella (pending sube)', async () => {
     const t = setup();
     const before = await t.get.execute(ANDRES, HOUSE);
     await markDeceased(t.deps, ARGOS.id);
@@ -52,7 +52,7 @@ describe('REQ-FAL7-006: una mascota DECEASED no se dibuja ni cuenta en pets.show
     expect(after.pending).toBe(before.pending - 1);
   });
 
-  it('SC-007-032: el snapshot de la generación no incluye a la fallecida y un snapshot previo a 007 sigue parseando', async () => {
+  it('REQ-FAL7-006: SC-007-032: el snapshot de la generación no incluye a la fallecida y un snapshot previo a 007 sigue parseando', async () => {
     const t = setup();
     await markDeceased(t.deps, ARGOS.id);
     await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, KEY);
@@ -65,7 +65,7 @@ describe('REQ-FAL7-006: una mascota DECEASED no se dibuja ni cuenta en pets.show
     expect(parseInputsSnapshot(legacy)?.pets.map((p) => p.id)).toEqual([ARGOS.id]);
   });
 
-  it('EDGE-007-014: si una mascota de la huella pasa a DECEASED mientras el proveedor trabaja, la publicación se cancela sin cuota y no queda imagen', async () => {
+  it('REQ-FAL7-006: EDGE-007-014: si una mascota de la huella pasa a DECEASED mientras el proveedor trabaja, la publicación se cancela sin cuota y no queda imagen', async () => {
     const t = setup();
     await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, KEY);
     const attempt = t.h.uow.snapshot().sceneAttempts![0]!;

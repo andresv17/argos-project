@@ -128,7 +128,7 @@ describe('REQ-FAL7-002: invariante DECEASED <=> fecha, >= birthDate, <= hoy (EDG
 });
 
 describe('REQ-FAL7-007: la edad de una fallecida se calcula entre birthDate y deceasedAt (EDGE-007-020, SC-007-012)', () => {
-  it('computedAgeOf usa deceasedAt para Fallecido y hoy para Vivo', () => {
+  it('REQ-FAL7-007: computedAgeOf usa deceasedAt para Fallecido y hoy para Vivo', () => {
     const dead = create({ lifeStatus: 'DECEASED', deceasedAt: '2024-06-01' });
     expect(computedAgeOf(dead, TODAY)).toMatchObject({ years: 4, months: 0 });
     expect(computedAgeOf(create(), TODAY).years).toBeGreaterThanOrEqual(6);
@@ -138,7 +138,7 @@ describe('REQ-FAL7-007: la edad de una fallecida se calcula entre birthDate y de
 describe('REQ-FAL7-005: registros posteriores a deceasedAt (EDGE-007-005, EDGE-007-012, EDGE-007-013, SC-007-014)', () => {
   const dead = (): PetProfile => create({ lifeStatus: 'DECEASED', deceasedAt: '2026-01-15' });
 
-  it('rechaza el alta con fecha posterior y acepta fecha igual o anterior', () => {
+  it('REQ-FAL7-005: rechaza el alta con fecha posterior y acepta fecha igual o anterior', () => {
     expect(fails(() => assertRecordDateNotAfterDeceasedAt(dead(), '2026-01-16', 'recordedAt', true)).code).toBe('ERR-SCHEMA-VALIDATION-FAILED');
     expect(accepts(() => assertRecordDateNotAfterDeceasedAt(dead(), '2026-01-15', 'recordedAt', true))).toBe(true);
     expect(accepts(() => assertRecordDateNotAfterDeceasedAt(dead(), '2025-12-01', 'recordedAt', true))).toBe(true);
@@ -153,7 +153,7 @@ describe('REQ-FAL7-005: registros posteriores a deceasedAt (EDGE-007-005, EDGE-0
     expect(accepts(() => assertRecordDateNotAfterDeceasedAt(create(), '2026-03-01', 'recordedAt', true))).toBe(true);
   });
 
-  it('marcar el fallecimiento con registros posteriores se rechaza y lista los registros en conflicto sin repetir la fecha de fallecimiento', () => {
+  it('REQ-FAL7-005: marcar el fallecimiento con registros posteriores se rechaza y lista los registros en conflicto sin repetir la fecha de fallecimiento', () => {
     const records = {
       weights: [{ id: 'w1', petId: ID, recordedAt: '2026-02-01' }, { id: 'w2', petId: ID, recordedAt: '2025-01-01' }],
       vaccinations: [{ id: 'v1', petId: ID, appliedAt: '2026-03-05' }],

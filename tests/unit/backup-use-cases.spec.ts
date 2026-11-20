@@ -164,6 +164,20 @@ describe('importación de respaldo, caminos de éxito (STATE-BACKUP-001)', () =>
     expect(afterAudit.at(-1)).toMatchObject({ mutationType: 'IMPORT', entityType: 'USER', entityId: ANDRES, executorUserId: ANDRES });
   });
 
+  it('[REQ-FAL7-011][REQ-BACKUP2-002] la importación por reemplazo no retrocede la versión de una ficha que conserva su id: queda en priorVersion+1 y nunca menor', async () => {
+    const seeded = validBackupState();
+    seeded.pets = seeded.pets.map((p) => (p.ownerUserId === ANDRES ? { ...p, version: 7 } : p));
+    const h = createHarness(seeded);
+    const prior = new Map(h.uow.snapshot().pets.filter((p) => p.ownerUserId === ANDRES).map((p) => [p.id, p.version ?? 1] as const));
+    const exported = await new ExportBackupUseCase(h.deps).execute(ANDRES);
+    await importer(h.deps)(exported.json).promise;
+    const after = h.uow.snapshot().pets.filter((p) => p.ownerUserId === ANDRES);
+    expect(after).toHaveLength(prior.size);
+    expect(after.map((p) => [p.id, p.version])).toEqual(after.map((p) => [p.id, (prior.get(p.id) ?? 0) + 1]));
+    expect(after.map((p) => p.version)).toEqual(after.map(() => 8));
+    expect(after.filter((p) => (p.version ?? 0) < (prior.get(p.id) ?? 0))).toEqual([]);
+  });
+
   it('[REQ-BACKUP2-002][INV-BACKUP-001] el ownerUserId de un 2.0.0 se descarta en la migración y las mascotas quedan del usuario autenticado', async () => {
     const h = createHarness({ ...emptyMemoryState(), users: canonicalState().users });
     const fromMaria = v2((e) => {
