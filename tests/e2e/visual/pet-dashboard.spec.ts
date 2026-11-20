@@ -25,6 +25,13 @@ test.afterAll(async () => {
   await context.close();
 });
 
+/** Con el primer registro el formulario pasa a un `<details>` plegado «Registrar …» (Opción B, `[GH:#14]`): se abre con su resumen solo si sigue plegado (tras abrirlo queda abierto) y se espera el campo. */
+async function openRecordForm(summary: string, firstField: string): Promise<void> {
+  const details = page.locator('details', { has: page.locator('summary', { hasText: summary }) });
+  if (!(await details.evaluate((element: HTMLDetailsElement) => element.open))) await details.locator('summary').click();
+  await expect(page.locator(firstField)).toBeVisible();
+}
+
 const petOptions = () => page.getByRole('listbox', { name: 'Mascotas' }).getByRole('option');
 
 test.describe('flujo de un usuario (tests/e2e/visual)', () => {
@@ -32,7 +39,7 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     await page.goto('/backup');
     await expect(page).toHaveURL(/\/login$/);
     await page.getByRole('link', { name: 'Regístrate' }).click();
-    await page.getByLabel(/Usuario \(minúsculas/).fill(USER.username);
+    await page.getByLabel(/Usuario \(letras, números/).fill(USER.username);
     await page.getByLabel('Nombre visible').fill(USER.displayName);
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill('corta');
     await page.getByLabel('Confirmar contraseña').fill('corta');
@@ -49,7 +56,7 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
   test('[REQ-UI-001][REQ-UI-002] alta de mascota; el peso fuera de rango se rechaza en cliente; dos pesos dan tabla con variación y gráfico SVG', async () => {
     await page.getByRole('button', { name: 'Nueva mascota' }).click();
     await page.locator('#new-pet-name').fill('Argos');
-    await page.getByLabel('Raza').fill('Pastor alemán');
+    await page.getByLabel('Raza').selectOption({ label: 'Pastor Alemán' });
     await typeDate(page, page.getByRole('group', { name: 'Fecha de nacimiento', exact: true }), '2020-05-01');
     await page.getByRole('button', { name: 'Guardar' }).first().click();
     await expect(page.getByRole('heading', { name: 'Argos', level: 2 })).toBeVisible();
@@ -60,7 +67,8 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     await page.getByRole('button', { name: 'Guardar' }).click();
     await expect(page.getByText('El peso está fuera del rango de la especie').first()).toBeVisible();
 
-    for (const [date, kg] of [['2026-01-10', '32.85'], ['2026-02-10', '32.40']] as const) {
+    for (const [index, [date, kg]] of ([['2026-01-10', '32.85'], ['2026-02-10', '32.40']] as const).entries()) {
+      if (index > 0) await openRecordForm('Registrar peso', '#weights-recordedAt');
       await typeDate(page, page.locator('#weights-recordedAt'), date);
       await page.locator('#weights-weightKg').fill(kg);
       await page.getByRole('button', { name: 'Guardar' }).click();
@@ -80,6 +88,7 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
       ['Parvovirus', isoDateFromToday(-10), isoDateFromToday(200)],
     ] as const;
     for (const [index, [name, appliedAt, nextBoosterAt]] of vaccines.entries()) {
+      if (index > 0) await openRecordForm('Registrar vacuna', '#vaccinations-vaccineName');
       await page.locator('#vaccinations-vaccineName').fill(name);
       await typeDate(page, page.locator('#vaccinations-appliedAt'), appliedAt);
       await typeDate(page, page.locator('#vaccinations-nextBoosterAt'), nextBoosterAt);
@@ -99,7 +108,7 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     const tab = (name: string) => page.getByRole('tab', { name });
     await tab('Vacunas').focus();
     await page.keyboard.press('End');
-    await expect(tab('Parámetros')).toHaveAttribute('aria-selected', 'true');
+    await expect(tab('Historial / Archivos')).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Home');
     await expect(tab('Peso')).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowRight');
@@ -113,7 +122,7 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     await page.getByRole('button', { name: 'Nueva mascota' }).click();
     await page.locator('#new-pet-name').fill('Ñandú');
     await page.locator('#new-pet-species').selectOption('FELINE');
-    await page.getByLabel('Raza').fill('Criollo');
+    await page.getByLabel('Raza').selectOption({ label: 'Criolla' });
     await typeDate(page, page.getByRole('group', { name: 'Fecha de nacimiento', exact: true }), '2022-03-03');
     await page.getByRole('button', { name: 'Guardar' }).first().click();
     await expect(page.getByRole('heading', { name: 'Ñandú', level: 2 })).toBeVisible();
@@ -154,7 +163,7 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     const envelope = JSON.parse(readFileSync(backupPath, 'utf8')) as { schemaVersion: string; pets: Array<{ name: string }> };
     expect([download.suggestedFilename().match(/^argos-backup-\d{4}-\d{2}-\d{2}\.json$/) !== null, envelope.schemaVersion, envelope.pets.map((p) => p.name).sort()]).toEqual([
       true,
-      '3.0.0',
+      '3.1.0',
       ['Argos', 'Ñandú'],
     ]);
     await page.locator('input[type="file"]').setInputFiles(backupPath);
