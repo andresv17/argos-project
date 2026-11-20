@@ -3,12 +3,22 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-const tracked = new Set(execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuffer: 1 << 26 }).split('\0').filter(Boolean));
+const gitList = (...args) => execFileSync('git', ['ls-files', '-z', ...args], { encoding: 'utf8', maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'ignore'] }).split('\0').filter(Boolean);
+// Solo se analizan los tests rastreados por git (lo que ve CI); fuera de un repo git se recorre tests/ como antes.
+let tracked;
+let testFiles;
+try {
+  tracked = new Set(gitList());
+  testFiles = gitList('tests/');
+} catch {
+  tracked = new Set();
+  testFiles = null;
+}
 const walk = (dir) => readdirSync(dir).flatMap((n) => { const p = join(dir, n); return statSync(p).isDirectory() ? walk(p) : /\.(ts|tsx|mjs|js)$/.test(p) ? [p] : []; });
 // Literales completos (sin interpolacion) que son rutas del repositorio, con o sin prefijo ../ de la prueba.
 const LITERAL = /(['"`])((?:\.\.\/)*)((?:claude|specs|\.specify|scripts|terraform|docs|src|\.github)\/[\w@.\-/]+\.[A-Za-z0-9]+)\1/g;
 const found = new Set();
-for (const file of walk('tests')) {
+for (const file of (testFiles ?? walk('tests')).filter((f) => /\.(ts|tsx|mjs|js)$/.test(f))) {
   const text = readFileSync(file, 'utf8');
   for (const m of text.matchAll(LITERAL)) {
     const path = m[3];

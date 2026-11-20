@@ -92,6 +92,22 @@ describe('verify-ci-ready.sh (DEUDA-CI-VERIFY-PREPUSH)', () => {
     expect(u.out).toContain('specs/001/spec.md (archivo sin seguimiento de git)');
   });
 
+  it('(ii) solo se analizan tests rastreados: un test sin seguimiento que lee un archivo sin seguimiento no dispara falso positivo; el rastreado si falla', () => {
+    const dir = repo(CLEAN);
+    mkdirSync(join(dir, 'specs', '001'), { recursive: true });
+    writeFileSync(join(dir, 'specs', '001', 'spec.md'), 'sin seguimiento\n');
+    writeFileSync(join(dir, 'tests', 'ajeno.spec.ts'), `export const x = '${CL}/log-ajeno.md';\nexport const y = 'specs/001/spec.md';\n`);
+    const limpio = run(dir);
+    expect(limpio.code).toBe(0);
+    expect(limpio.out).not.toContain('ajeno.spec.ts');
+    git(dir, 'add', 'tests/ajeno.spec.ts');
+    git(dir, 'commit', '-q', '-m', 'rastrea el test');
+    const r = run(dir);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`tests/ajeno.spec.ts:1 ${CL}/log-ajeno.md`);
+    expect(r.out).toContain('tests/ajeno.spec.ts:2 specs/001/spec.md (archivo sin seguimiento de git)');
+  });
+
   it('(iii) un archivo rastreado modificado sin commit en .env.example, src/, tests/, terraform/ o .github/ falla; fuera de esas rutas no; un archivo nuevo sin seguimiento tampoco cuenta', () => {
     for (const path of ['.env.example', 'src/domain/a.ts', 'tests/a.spec.ts', 'terraform/main.tf', '.github/workflows/x.yml']) {
       const dir = repo({ ...CLEAN, 'terraform/main.tf': '# t\n', '.github/workflows/x.yml': 'name: x\n', 'docs/n.md': 'n\n' });
