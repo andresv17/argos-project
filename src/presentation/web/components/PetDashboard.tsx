@@ -19,7 +19,7 @@ import { symptomSummary, type SymptomSeverity, type SymptomType } from '../sympt
 import { WeightChart, WeightTable } from './WeightChart.tsx';
 import type { FormBody } from '../validation.ts';
 import { OPTION_B_MODULES, RECORD_MODULES, RECORD_SUMMARY, RECORD_WRITE_PERMISSION, showsBareForm, showsFormOpenByDefault, type RecordModule } from '../records.ts';
-import { avatarVersionOf, deceasedBadgeText, formatAge, livedText, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
+import { avatarVersionOf, deceasedBadgeText, formatAge, livedText, formatIsoDateEs, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
 
 const CATEGORY_LABEL = Object.fromEntries(
   (RECORD_MODULES.find((m) => m.id === 'customParameters')?.fields.find((f) => f.name === 'category')?.options ?? []).map((o) => [o.value, o.label]),
@@ -373,7 +373,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                   {profile.name}
                 </h2>
                 <p className="text-sm text-text-muted">
-                  {SPECIES_LABEL[profile.species]} · {profile.breed} · {SEX_LABEL[profile.sex]} · nació {profile.birthDate}
+                  {SPECIES_LABEL[profile.species]} · {profile.breed} · {SEX_LABEL[profile.sex]} · nació {formatIsoDateEs(profile.birthDate)}
                 </p>
                 <OwnerBadge owner={dashboard.owner} readOnly={readOnly} />
                 {deceasedBadgeText(profile) === null ? null : (

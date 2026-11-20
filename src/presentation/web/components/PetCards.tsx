@@ -131,7 +131,7 @@ export function PetCardList({ cards, activePetId, onSelect, emptyHint }: {
             {deceasedBadgeText(card.profile) === null ? (
               <span className={`rounded-[10px] px-2 text-xs font-bold ${TONE_CLASS[alertTone(card.alertsSummary)]}`}>{alertsLine(card.alertsSummary)}</span>
             ) : (
-              <span className="rounded-[10px] border border-slate-500 bg-slate-100 px-2 text-xs font-bold text-slate-900">{deceasedBadgeText(card.profile)}</span>
+              <span className="whitespace-nowrap rounded-[10px] border border-slate-500 bg-slate-100 px-2 text-xs font-bold text-slate-900">{deceasedBadgeText(card.profile)}</span>
             )}
             <OwnerBadge owner={card.owner} readOnly={isReadOnly(card.permissions)} />
           </li>

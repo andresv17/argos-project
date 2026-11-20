@@ -128,4 +128,19 @@ test.describe('DateField real (007, T1035)', () => {
     }
     expect(await page.evaluate(() => [window.innerWidth, document.documentElement.scrollWidth].every((w, _i, all) => w === all[0]))).toBe(true);
   });
+  test('[REQ-FEC7-004][SC-007-004] a 320 px los tres segmentos caben dentro del grupo, sin desbordar ni provocar scroll horizontal', async () => {
+    const original = page.viewportSize();
+    await page.setViewportSize({ width: 320, height: 800 });
+    const group = field();
+    await expect(group).toBeVisible();
+    const gbox = (await group.boundingBox())!;
+    let previousRight = gbox.x;
+    for (const name of ['Día', 'Mes', 'Año'] as const) {
+      const box = (await seg(name).boundingBox())!;
+      expect([name, box.x >= previousRight - 0.5, box.x + box.width <= gbox.x + gbox.width + 0.5, box.height >= 48]).toEqual([name, true, true, true]);
+      previousRight = box.x + box.width;
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    if (original !== null) await page.setViewportSize(original);
+  });
 });

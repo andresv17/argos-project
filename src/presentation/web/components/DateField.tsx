@@ -22,7 +22,7 @@ interface DateFieldProps {
 
 const SEGMENT_LABEL: Readonly<Record<SegmentName, string>> = { day: 'Día', month: 'Mes', year: 'Año' };
 const SEGMENT_PLACEHOLDER: Readonly<Record<SegmentName, string>> = { day: 'DD', month: 'MM', year: 'AAAA' };
-const SEGMENT_WIDTH: Readonly<Record<SegmentName, string>> = { day: 'w-16', month: 'w-16', year: 'w-24' };
+const SEGMENT_WIDTH: Readonly<Record<SegmentName, string>> = { day: 'grow-[2] max-w-16', month: 'grow-[2] max-w-16', year: 'grow-[3] max-w-24' };
 
 const initialSegments = (value: string): DateSegments => parseDateText(value)?.segments ?? EMPTY_SEGMENTS;
 
@@ -85,7 +85,7 @@ export function DateField({ id, label, name, value, onChange, errors, required =
         {label}
         {required ? <span aria-hidden="true"> *</span> : null}
       </legend>
-      <div className="flex gap-2">
+      <div className="flex min-w-0 gap-2">
         {SEGMENT_ORDER.map((segment) => (
           <input
             key={segment}
@@ -115,7 +115,7 @@ export function DateField({ id, label, name, value, onChange, errors, required =
             onChange={(e) => handleChange(e, segment)}
             onKeyDown={(e) => handleKeyDown(e, segment)}
             onPaste={handlePaste}
-            className={`min-h-12 ${SEGMENT_WIDTH[segment]} rounded-xl border border-border-strong bg-white px-2 py-3 text-center tabular-nums text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
+            className={`min-h-12 min-w-0 basis-0 ${SEGMENT_WIDTH[segment]} rounded-xl border border-border-strong bg-white px-2 py-3 text-center tabular-nums text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
           />
         ))}
       </div>
