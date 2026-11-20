@@ -64,7 +64,10 @@ describe('T778 contrato del resumen versionado y cerrado (REQ-SUM-006, SC-005-03
       customParameters: records.customParameters.filter((r) => r.petId === pet.id),
     };
     const summary = buildClinicalSummary('PET', [{ pet, records: collections, files: [] }], '2026-11-18T12:00:00.000Z', { includeMicrochip: false, includeClinicalFiles: false });
-    expect((schema['x-sdd-metadata'] as { version: string }).version).toBe(CLINICAL_SUMMARY_VERSION);
+    // 007/T1026: la enmienda MINOR 1.1.0 del esquema es aditiva y el formato del documento (`summaryVersion`) sigue en 1.0.0; el MAJOR del contrato coincide con el del documento.
+    const contractVersion = (schema['x-sdd-metadata'] as { version: string }).version;
+    expect(contractVersion.split('.')[0]).toBe(CLINICAL_SUMMARY_VERSION.split('.')[0]);
+    expect(((schema['$defs'] as Record<string, { properties: { summaryVersion: { const: string } } }>)['ClinicalSummary'] ?? { properties: { summaryVersion: { const: '' } } }).properties.summaryVersion.const).toBe(CLINICAL_SUMMARY_VERSION);
     expect(summary.summaryVersion).toBe(CLINICAL_SUMMARY_VERSION);
     expect(CLINICAL_SUMMARY_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });

@@ -11,12 +11,12 @@
  * - Entrada para IA en Fase 5 (REQ-SUM-006): este contrato (versión `CLINICAL_SUMMARY_VERSION`, esquema cerrado y sin datos de contacto) es la única entrada prevista
  *   para reportes de IA; en 005 no se integra ningún proveedor ni se añade dependencia (`package.json` no cambia, SC-005-033) y cualquier envío a terceros es Nivel 2 con `/rama`.
  *
- * @implements REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-006, REQ-SUM-007, REQ-SUM-008, INV-005-004, SC-005-027, SC-005-028, SC-005-029, SC-005-030, SC-005-033, SC-005-043, SC-005-044
+ * @implements REQ-FAL7-008, REQ-FAL7-007, REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-006, REQ-SUM-007, REQ-SUM-008, INV-005-004, SC-005-027, SC-005-028, SC-005-029, SC-005-030, SC-005-033, SC-005-043, SC-005-044
  */
 import type { ClinicalPetSummary, ClinicalSummary } from '../../generated/v33/index.ts';
 import type { PetProfile, PetRecordCollections } from '../pet/pet-invariants.ts';
 import { withSymptomFields } from '../records/record-invariants.ts';
-import { calculatePetAge } from '../shared/date-utils.ts';
+import { computedAgeOf } from '../pet/pet-invariants.ts';
 
 export const CLINICAL_SUMMARY_VERSION = '1.0.0';
 
@@ -37,6 +37,8 @@ export interface SummaryPetInput {
 export interface SummaryOptions {
   readonly includeMicrochip: boolean;
   readonly includeClinicalFiles: boolean;
+  /** Disclosure opt-in del creador del enlace para `deceasedAt` (007, REQ-FAL7-008, C1); ausente equivale a `false` (desmarcado por defecto). */
+  readonly includeDeceasedAt?: boolean;
 }
 
 type ScopeName = ClinicalSummary['scope'];
@@ -65,7 +67,10 @@ function buildPet(input: SummaryPetInput, generatedAt: string, options: SummaryO
       neutered: pet.neutered ?? null,
       birthDate: pet.birthDate,
       birthDateIsEstimate: pet.birthDateIsEstimate ?? false,
-      age: calculatePetAge(pet.birthDate, today),
+      lifeStatus: pet.lifeStatus ?? 'ALIVE',
+      // REQ-FAL7-008: la fecha solo viaja con el opt-in y solo para una fallecida; AUSENTE (no null) en el resto.
+      ...(options.includeDeceasedAt === true && pet.lifeStatus === 'DECEASED' && typeof pet.deceasedAt === 'string' ? { deceasedAt: pet.deceasedAt } : {}),
+      age: computedAgeOf(pet, today), // REQ-FAL7-007: una fallecida cuenta hasta deceasedAt
       ...(options.includeMicrochip && typeof pet.microchipId === 'string' ? { microchipId: pet.microchipId } : {}),
     },
     weights: sortedByDateDesc(records.weights, (r) => r.recordedAt).map((r) => ({ recordedAt: r.recordedAt, weightKg: r.weightKg, notes: note(r.notes) })),
