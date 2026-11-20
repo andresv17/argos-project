@@ -9,7 +9,7 @@ import { CSRF_HEADER_NAME, CSRF_HEADER_VALUE, createApiClient } from '../../gene
 import type { components } from '../../generated/api/openapi-types.ts';
 import { ERROR_CATALOG, type ErrorCode } from '../../generated/errors/error-codes.ts';
 import { notifyActivity } from './activity.ts';
-import { humanSchemaMessage } from './schema-messages.ts';
+import { businessRuleMessage, humanSchemaMessage } from './schema-messages.ts';
 
 export type ProblemDetails = components['schemas']['ProblemDetails'];
 export type ApiClient = ReturnType<typeof createApiClient>;
@@ -65,7 +65,8 @@ export function toProblem(error: unknown): ProblemDetails {
 /** Texto para el usuario: el `detailTemplate` del catálogo para el código recibido; el de esquema formal se redacta en llano (T293). */
 export function problemMessage(problem: ProblemDetails): string {
   if (problem.code === RECORD_CONFLICT_CODE) return RECORD_CONFLICT_MESSAGE;
-  if (problem.code === 'ERR-SCHEMA-VALIDATION-FAILED') return humanSchemaMessage(typeof problem.field === 'string' ? problem.field : undefined);
+  // El detalle de una regla de negocio (p. ej. fecha posterior al fallecimiento) se conserva; el error técnico crudo de esquema cae en el texto llano por campo.
+  if (problem.code === 'ERR-SCHEMA-VALIDATION-FAILED') return businessRuleMessage(problem.detail) ?? humanSchemaMessage(typeof problem.field === 'string' ? problem.field : undefined);
   return isCatalogCode(problem.code) ? ERROR_CATALOG[problem.code].detailTemplate : problem.detail;
 }
 

@@ -128,3 +128,34 @@ test.describe('estado de vida de la ficha (007, T1029)', () => {
     expect(await accessibilityFindings(page, 'ficha de una fallecida')).toEqual([]);
   });
 });
+
+test.describe('registro posterior al fallecimiento (007, ajuste tras prueba manual)', () => {
+  test('[REQ-FAL7-005][SC-007-011] un peso con fecha posterior al fallecimiento muestra el mensaje específico, una sola vez (bajo el campo, sin banner) y no el genérico de formato', async ({ browser }, info) => {
+    const context = await browser.newContext({ locale: 'es-CO', timezoneId: 'America/Bogota' });
+    try {
+      await registerViaApi(context.request, `postmortem7.${info.project.name}`, 'Dueña Posterior', 'PosteriorClave2026!');
+      const petId = await createPetViaApi(context.request, 'Luna', 'CANINE', '1990-01-01');
+      const page = await context.newPage();
+      await page.goto('/');
+      await expect(page.getByRole('heading', { name: 'Luna', level: 2 })).toBeVisible();
+      await page.getByRole('button', { name: 'Editar', exact: true }).click();
+      await page.getByLabel('Estado').selectOption('DECEASED');
+      await typeDate(page, page.locator(`#edit-pet-${petId}-deceasedAt`), '2000-05-17');
+      await page.getByRole('form', { name: /Editar a Luna/ }).getByRole('button', { name: 'Guardar' }).click();
+      await expect(page.getByText('Fallecido · 17/05/2000').first()).toBeVisible();
+
+      await typeDate(page, page.locator('#weights-recordedAt'), '2001-05-18');
+      await page.locator('#weights-weightKg').fill('12.5');
+      await page.getByRole('button', { name: 'Guardar' }).click();
+
+      const specific = 'La mascota está registrada como fallecida: el registro no puede tener una fecha posterior.';
+      await expect(page.locator('#weights-recordedAt-error')).toHaveText(specific);
+      await expect(page.getByText(specific)).toHaveCount(1); // no se repite en el banner rojo inferior
+      await expect(page.getByRole('alert').filter({ hasText: specific })).toHaveCount(0);
+      await expect(page.getByText('falta o no tiene un formato válido')).toHaveCount(0);
+      await expect(page.locator('table tbody tr')).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+});
