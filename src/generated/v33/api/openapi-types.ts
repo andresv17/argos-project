@@ -317,6 +317,13 @@ export interface components {
             neutered: boolean | null;
             birthDate: components["schemas"]["IsoDate"];
             birthDateIsEstimate: boolean;
+            /**
+             * @description Opcional (007, T1026): estado de vida visible en el resumen; ausente equivale a ALIVE para lectores 1.0.0.
+             * @enum {string}
+             */
+            lifeStatus?: "ALIVE" | "DECEASED";
+            /** @description Opcional (007, T1026): fecha de fallecimiento; solo se incluye con disclosure opt-in del creador del enlace (desmarcado por defecto). */
+            deceasedAt?: components["schemas"]["IsoDate"] | null;
             /** @description Edad derivada aritméticamente de birthDate y de la fecha de calendario de generatedAt en UTC; no es una valoración clínica [MAG-005-003] */
             age: {
                 years: number;

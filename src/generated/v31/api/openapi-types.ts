@@ -926,8 +926,16 @@ export interface components {
         MicrochipId: string | null;
         /** @description Solo http(s) o data-URL de imagen (previene javascript:) [REQ-PET2-001] */
         AvatarUrl: string | null;
-        /** @description Mascota del respaldo 3.1.0: con breedCode y sin avatarVersion (los binarios y su versión no viajan) [REQ-IMP-001, REQ-RAZ-003] */
-        BackupPetProfileV31: {
+        /**
+         * @description Estado de vida de la mascota (feature 007, #13). Defecto ALIVE; el invariante con deceasedAt se valida sobre el estado resultante
+         * @default ALIVE
+         * @enum {string}
+         */
+        LifeStatus: "ALIVE" | "DECEASED";
+        /** @description Fecha ISO YYYY-MM-DD del fallecimiento; obligatoria con DECEASED y nula con ALIVE; >= birthDate y <= hoy (America/Bogota) se validan en el dominio sobre el estado resultante (feature 007, #13) */
+        DeceasedAt: null | (string & components["schemas"]["IsoDate"]);
+        /** @description Mascota del respaldo 3.2.0 (feature 007): igual que la anterior mas lifeStatus y deceasedAt OPCIONALES (nunca en required); ausentes se importan como ALIVE/nulo [REQ-BACKUP2-002] */
+        BackupPetProfileV32: {
             id: components["schemas"]["Uuid"];
             name: string & components["schemas"]["NonEmptyTrimmedString"];
             species: components["schemas"]["Species"];
@@ -944,7 +952,9 @@ export interface components {
             updatedAt: components["schemas"]["IsoTimestamp"];
             /** @description Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003] */
             breedCode: string | null;
-        } & (unknown & unknown & unknown & unknown);
+            lifeStatus?: components["schemas"]["LifeStatus"];
+            deceasedAt?: components["schemas"]["DeceasedAt"];
+        } & (unknown & unknown & unknown & unknown & unknown);
         OptionalNotes: string | null;
         /** @description Registro del respaldo 3.1.0: sin revision (solo lectura) [REQ-BOR-005, REQ-IMP-001] */
         BackupWeightRecordV31: {
@@ -1035,13 +1045,13 @@ export interface components {
             /** @enum {string|null} */
             severity: "MILD" | "MODERATE" | "SEVERE" | null;
         } & unknown;
-        /** @description Sobre 3.1.0: sin avatarVersion, revision ni medios; mascotas con breedCode [REQ-IMP-001, REQ-RAZ-003, REQ-SIN-001] */
-        BackupEnvelopeV31: {
+        /** @description Sobre de respaldo 3.2.0 (feature 007, EDGE-007-015): formato versionado; un build anterior responde ERR-BACKUP-VERSION-UNSUPPORTED sin escritura parcial. Las colecciones de registros son las del 3.1.0. */
+        BackupEnvelopeV32: {
             /** @constant */
-            schemaVersion: "3.1.0";
+            schemaVersion: "3.2.0";
             exportedAt: components["schemas"]["IsoTimestamp"];
             /** @description Solo mascotas de las que el usuario es Propietario Legal; sin límite de cantidad; puede ser vacío */
-            pets: components["schemas"]["BackupPetProfileV31"][];
+            pets: components["schemas"]["BackupPetProfileV32"][];
             records: {
                 weights: components["schemas"]["BackupWeightRecordV31"][];
                 bodyMeasurements: components["schemas"]["BackupBodyMeasurementRecordV31"][];
@@ -1057,6 +1067,14 @@ export interface components {
         ImportPreviewResult: {
             /** @enum {string} */
             sourceSchemaVersion: "1.0.0" | "2.0.0" | "3.0.0" | "3.1.0" | "3.2.0";
+            /** @description Opcional (007, REQ-FAL7-009, SC-007-030): mascotas cuyo lifeStatus cambiaria al importar por reemplazo, p. ej. DECEASED a ALIVE; ausente o vacio si no hay cambios. Solo identificador y estados, sin datos personales. */
+            lifeStatusChanges?: {
+                petId: components["schemas"]["Uuid"];
+                /** @enum {string} */
+                from: "ALIVE" | "DECEASED";
+                /** @enum {string} */
+                to: "ALIVE" | "DECEASED";
+            }[];
             /** @description SHA-256 de los bytes realmente leídos; la importación definitiva debe presentarlo para probar que es el mismo archivo previsualizado */
             fileDigest: components["schemas"]["Sha256Hex"];
             counts: {
@@ -1091,14 +1109,6 @@ export interface components {
             importedPetsCount: number;
             importedRecordsCount: number;
         };
-        /**
-         * @description Estado de vida de la mascota (feature 007, #13). Defecto ALIVE; el invariante con deceasedAt se valida sobre el estado resultante
-         * @default ALIVE
-         * @enum {string}
-         */
-        LifeStatus: "ALIVE" | "DECEASED";
-        /** @description Fecha ISO YYYY-MM-DD del fallecimiento; obligatoria con DECEASED y nula con ALIVE; >= birthDate y <= hoy (America/Bogota) se validan en el dominio sobre el estado resultante (feature 007, #13) */
-        DeceasedAt: null | (string & components["schemas"]["IsoDate"]);
         /** @description Version entera >= 1 de la ficha: inicial 1, +1 en cada PATCH de mascota; control optimista con If-Match, 412 ERR-PET-VERSION-CONFLICT si no coincide (feature 007, EDGE-007-009) */
         PetVersion: number;
         /** @description [REQ-PET2-001, INV-PET2-001]. speciesOther solo con OTHER. Feature 007: lifeStatus, deceasedAt y version son opcionales en el esquema (aditivo); el servidor siempre los emite. */
@@ -1881,7 +1891,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BackupEnvelopeV31"];
+                    "application/json": components["schemas"]["BackupEnvelopeV32"];
                 };
             };
             401: components["responses"]["Problem"];
