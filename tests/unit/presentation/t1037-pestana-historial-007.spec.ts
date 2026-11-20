@@ -41,7 +41,8 @@ describe('T1037 siete pestañas en orden (REQ-PES7-001; SC-007-005)', () => {
     expect(markup.match(/role="tab"/g)).toHaveLength(7);
     expect(markup.match(/aria-selected="true"/g)).toHaveLength(1);
     expect(/id="module-tab-weights"[^>]*aria-selected="true"/.test(markup)).toBe(true);
-    expect(markup.match(/tabindex="-1"/g)).toHaveLength(6);
+    // Solo las pestañas (el `<input type="date">` oculto del calendario de la fecha también lleva tabindex -1 y no es una pestaña).
+    expect((markup.match(/<[^>]*role="tab"[^>]*>/g) ?? []).filter((tag) => tag.includes('tabindex="-1"'))).toHaveLength(6);
   });
 });
 

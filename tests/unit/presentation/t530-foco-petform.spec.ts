@@ -12,9 +12,9 @@ const html = (el: ReactElement): string => renderToStaticMarkup(el);
 const noop = (): void => undefined;
 const asyncNoop = async (): Promise<void> => undefined;
 
-/** Controles enfocables en orden de documento: `name` de input/select/textarea; los tres segmentos del `DateField` (007: `birthDate-day|month|year`) cuentan como un solo campo. */
+/** Controles enfocables en orden de documento: `name` de input/select/textarea; los tres segmentos del `DateField` (007: `birthDate-day|month|year`) y su selector de calendario oculto (`-picker`, tabindex -1) cuentan como un solo campo. */
 function focusOrder(markup: string): string[] {
-  const names = [...markup.matchAll(/<(?:input|select|textarea)\b[^>]*?\bname="([A-Za-z-]+)"/g)].map((m) => m[1]!.replace(/-(?:day|month|year)$/, ''));
+  const names = [...markup.matchAll(/<(?:input|select|textarea)\b[^>]*?\bname="([A-Za-z-]+)"/g)].map((m) => m[1]!.replace(/-(?:day|month|year|picker)$/, ''));
   return names.filter((name, i) => name !== names[i - 1]);
 }
 

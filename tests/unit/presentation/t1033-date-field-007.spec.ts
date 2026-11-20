@@ -7,9 +7,10 @@ import { readFileSync } from 'node:fs';
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { DateField } from '../../../src/presentation/web/components/DateField.tsx';
+import { DateField, openNativePicker } from '../../../src/presentation/web/components/DateField.tsx';
 import { TextField } from '../../../src/presentation/web/components/Field.tsx';
 import { RecordForm } from '../../../src/presentation/web/components/RecordForm.tsx';
+import { parseDateText } from '../../../src/presentation/web/date-segments.ts';
 import { RECORD_MODULES } from '../../../src/presentation/web/records.ts';
 
 const noop = (): void => undefined;
@@ -17,7 +18,9 @@ const FIELD_SOURCE = readFileSync('src/presentation/web/components/Field.tsx', '
 const DATE_SOURCE = readFileSync('src/presentation/web/components/DateField.tsx', 'utf8');
 const field = (value: string, errors: Record<string, string> = {}, required = true): string =>
   renderToStaticMarkup(h(DateField, { id: 'weights-recordedAt', label: 'Fecha', name: 'recordedAt', value, onChange: noop, errors, required }));
-const inputs = (markup: string): string[] => markup.match(/<input\b[^>]*>/g) ?? [];
+const allInputs = (markup: string): string[] => markup.match(/<input\b[^>]*>/g) ?? [];
+/** Solo los tres segmentos de texto (el `<input type="date">` oculto del calendario se prueba aparte). */
+const inputs = (markup: string): string[] => allInputs(markup).filter((tag) => !tag.includes('type="date"'));
 
 describe('T1033 DateField: estructura accesible (REQ-FEC7-001, REQ-FEC7-004)', () => {
   it('[SC-007-004] es un fieldset con la leyenda visible del campo y conserva el id del campo en el fieldset', () => {
@@ -37,7 +40,7 @@ describe('T1033 DateField: estructura accesible (REQ-FEC7-001, REQ-FEC7-004)', (
     }
   });
 
-  it('[REQ-FEC7-001] ningún segmento es un input type="date" y ninguno fuerza el teclado de texto', () => {
+  it('[REQ-FEC7-001] ningún segmento es un input type="date"', () => {
     for (const tag of inputs(field('2026-11-19'))) expect(tag).not.toContain('type="date"');
   });
 
@@ -50,11 +53,33 @@ describe('T1033 DateField: estructura accesible (REQ-FEC7-001, REQ-FEC7-004)', (
     expect(inputs(field('')).map((tag) => /maxLength="(\d)"/.exec(tag)?.[1])).toEqual(['2', '2', '4']);
   });
 
-  it('[REQ-FEC7-004] objetivo táctil mínimo 44 px (min-h-12 = 48 px) y foco visible en cada segmento', () => {
+  it('[REQ-FEC7-004] objetivo táctil mínimo 44 px (min-h-12 = 48 px) en cada segmento y foco visible en el contenedor único (focus-within)', () => {
     for (const tag of inputs(field(''))) {
       expect(tag).toContain('min-h-12');
-      expect(tag).toContain('focus-visible:ring-2');
+      expect(tag).toContain('border-0');
     }
+    expect(field('')).toContain('focus-within:ring-2');
+  });
+
+  it('[REQ-FEC7-004] un único campo con borde: un solo contenedor con borde, segmentos separados por «/» decorativos y sin borde propio', () => {
+    const markup = field('');
+    expect(markup.match(/rounded-xl border /g)).toHaveLength(1);
+    expect(markup.match(/<span aria-hidden="true"[^>]*>\/<\/span>/g)).toHaveLength(2);
+    for (const tag of inputs(markup)) expect(tag).not.toMatch(/\sborder-border|rounded-xl/);
+  });
+
+  it('[REQ-FEC7-004] botón «Abrir calendario» (type=button, 44 px) conectado a un input type="date" oculto, fuera del orden de tabulación y del árbol de accesibilidad', () => {
+    const markup = field('2026-11-19');
+    const button = /<button\b[^>]*>/.exec(markup)?.[0] ?? '';
+    expect(button).toContain('type="button"');
+    expect(button).toContain('aria-label="Abrir calendario"');
+    expect(button).toContain('h-11 w-11');
+    const picker = allInputs(markup).filter((tag) => tag.includes('type="date"'));
+    expect(picker).toHaveLength(1);
+    expect(picker[0]).toContain('tabindex="-1"');
+    expect(picker[0]).toContain('aria-hidden="true"');
+    expect(picker[0]).toContain('value="2026-11-19"');
+    expect(allInputs(field('')).find((tag) => tag.includes('type="date"'))).toContain('value=""');
   });
 
   it('[REQ-FEC7-004] el campo obligatorio marca el asterisco decorativo; el opcional no', () => {
@@ -112,11 +137,51 @@ describe('T1033 DateField: foco y portapapeles (REQ-FEC7-002, REQ-FEC7-003, EDGE
   });
 });
 
+/** Doble mínimo de un `<input type="date">`: registra qué ruta se tomó al abrir el calendario. */
+const fakePicker = (overrides: Partial<{ showPicker: () => void; focus: () => void; click: () => void }>): { picker: HTMLInputElement; calls: string[] } => {
+  const calls: string[] = [];
+  const base = { showPicker: () => calls.push('showPicker'), focus: () => calls.push('focus'), click: () => calls.push('click'), ...overrides };
+  return { picker: base as unknown as HTMLInputElement, calls };
+};
+
+describe('T1033 DateField: selector de calendario con respaldo seguro (REQ-FEC7-004)', () => {
+  it('con showPicker disponible lo usa y no recurre al respaldo', () => {
+    const { picker, calls } = fakePicker({});
+    openNativePicker(picker);
+    expect(calls).toEqual(['showPicker']);
+  });
+
+  it('si showPicker lanza, usa focus y click de respaldo sin propagar el error', () => {
+    const { picker, calls } = fakePicker({ showPicker: () => { throw new Error('NotAllowedError'); } });
+    expect(() => openNativePicker(picker)).not.toThrow();
+    expect(calls).toEqual(['focus', 'click']);
+  });
+
+  it('si showPicker no existe, usa focus y click de respaldo', () => {
+    const { picker, calls } = fakePicker({});
+    (picker as unknown as { showPicker?: unknown }).showPicker = undefined;
+    openNativePicker(picker);
+    expect(calls).toEqual(['focus', 'click']);
+  });
+
+  it('si el respaldo también lanza, no rompe; sin elemento no hace nada', () => {
+    const { picker } = fakePicker({ showPicker: () => { throw new Error('x'); }, focus: () => { throw new Error('y'); } });
+    expect(() => openNativePicker(picker)).not.toThrow();
+    expect(() => openNativePicker(null)).not.toThrow();
+  });
+
+  it('elegir una fecha en el calendario reparte los tres segmentos y emite el ISO (handlePick usa parseDateText y commit)', () => {
+    expect(DATE_SOURCE).toMatch(/handlePick[\s\S]*parseDateText\(event\.target\.value\)[\s\S]*commit\(parsed\.segments, parsed\.iso, null\)/);
+    expect(parseDateText('2026-11-19')).toEqual({ segments: { day: '19', month: '11', year: '2026' }, iso: '2026-11-19' });
+  });
+});
+
 describe('T1033 integración con Field.tsx, RecordForm y PetForm (REQ-FEC7-001, REQ-FEC7-005)', () => {
-  it('[REQ-FEC7-005] TextField con type="date" delega en DateField (fieldset) y ya no renderiza <input type="date">', () => {
+  it('[REQ-FEC7-005] TextField con type="date" delega en DateField (fieldset) y solo conserva el <input type="date"> oculto del calendario', () => {
     const markup = renderToStaticMarkup(h(TextField, { id: 'x-birthDate', label: 'Fecha de nacimiento', name: 'birthDate', type: 'date', required: true, value: '2020-05-01', onChange: noop, errors: {} }));
     expect(markup).toContain('<fieldset id="x-birthDate"');
-    expect(markup).not.toContain('type="date"');
+    expect(allInputs(markup).filter((tag) => tag.includes('type="date"')).every((tag) => tag.includes('aria-hidden="true"') && tag.includes('tabindex="-1"'))).toBe(true);
+    expect(markup.match(/type="date"/g)).toHaveLength(1);
     expect(FIELD_SOURCE).toContain("from './DateField.tsx'");
   });
 
@@ -124,7 +189,8 @@ describe('T1033 integración con Field.tsx, RecordForm y PetForm (REQ-FEC7-001, 
     const weights = RECORD_MODULES.find((m) => m.id === 'weights')!;
     const markup = renderToStaticMarkup(h(RecordForm, { spec: weights, onSubmit: async () => undefined }));
     expect(markup).toContain('<fieldset id="weights-recordedAt"');
-    expect(markup).not.toContain('type="date"');
+    expect(allInputs(markup).filter((tag) => tag.includes('type="date"')).every((tag) => tag.includes('aria-hidden="true"') && tag.includes('tabindex="-1"'))).toBe(true);
+    expect(markup.match(/type="date"/g)).toHaveLength(1);
     expect(markup.match(/aria-label="Día"/g)).toHaveLength(1);
   });
 

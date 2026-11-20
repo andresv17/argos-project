@@ -143,4 +143,47 @@ test.describe('DateField real (007, T1035)', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (original !== null) await page.setViewportSize(original);
   });
+
+  test('[REQ-FEC7-004] un único campo con borde: los segmentos van dentro de un solo contenedor, separados por «/», con el botón «Abrir calendario» a la derecha', async () => {
+    const container = field().locator('div').first();
+    await expect(container).toHaveCSS('border-top-width', '1px');
+    for (const name of ['Día', 'Mes', 'Año'] as const) await expect(seg(name)).toHaveCSS('border-top-width', '0px');
+    await expect(container.getByText('/', { exact: true })).toHaveCount(2);
+    const button = field().getByRole('button', { name: 'Abrir calendario' });
+    await expect(button).toBeVisible();
+    const [cbox, bbox, ybox] = [(await container.boundingBox())!, (await button.boundingBox())!, (await seg('Año').boundingBox())!];
+    expect([bbox.x >= ybox.x + ybox.width - 0.5, bbox.x + bbox.width <= cbox.x + cbox.width + 0.5, bbox.width >= 44, bbox.height >= 44]).toEqual([true, true, true, true]);
+    // El foco de un segmento se ve en el contenedor único (focus-within).
+    await seg('Mes').focus();
+    await expect(container).toHaveCSS('box-shadow', /rgb/);
+  });
+
+  test('[REQ-FEC7-004] el selector de calendario: «Abrir calendario» no rompe la página y elegir una fecha reparte los tres segmentos y la emite al guardar', async () => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    const picker = field().locator('input[type="date"]');
+    await expect(picker).toHaveAttribute('aria-hidden', 'true');
+    await expect(picker).toHaveAttribute('tabindex', '-1');
+    await field().getByRole('button', { name: 'Abrir calendario' }).click(); // showPicker() o respaldo focus/click: nunca lanza
+    await page.keyboard.press('Escape');
+    await picker.fill('2026-03-14', { force: true }); // el input nativo está oculto (0x0): sin actionability
+    expect(await values()).toEqual(['14', '03', '2026']);
+    await page.locator('#weights-weightKg').fill('13.2');
+    await page.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page.getByRole('cell', { name: '13.20 kg' }).first()).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  for (const width of [320, 1024, 1280]) {
+    test(`[REQ-FEC7-004][NFR-007-002] a ${width} px el campo único con su botón de calendario cabe sin scroll horizontal`, async () => {
+      const original = page.viewportSize();
+      await page.setViewportSize({ width, height: 800 });
+      await expect(field()).toBeVisible();
+      const gbox = (await field().boundingBox())!;
+      const button = (await field().getByRole('button', { name: 'Abrir calendario' }).boundingBox())!;
+      expect([button.x >= gbox.x - 0.5, button.x + button.width <= gbox.x + gbox.width + 0.5]).toEqual([true, true]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      if (original !== null) await page.setViewportSize(original);
+    });
+  }
 });
