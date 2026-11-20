@@ -345,8 +345,12 @@ export function updatePetProfile(command: UpdatePetCommand): PetProfile {
   updated.deceasedAt = changes.deceasedAt !== undefined ? changes.deceasedAt : lifeStatus === 'ALIVE' && changes.lifeStatus !== undefined ? null : (command.pet.deceasedAt ?? null);
   assertValidPetProfile(updated);
   assertLifeStatusInvariant(updated, command.today);
+  // EDGE-007-028: solo se revisan los registros posteriores en la transicion ALIVE->DECEASED o cuando deceasedAt se ADELANTA; una edicion ajena (p. ej. el nombre) de una fallecida con registro heredado posterior no se rechaza.
   if (updated.lifeStatus === 'DECEASED' && updated.deceasedAt !== null && command.records !== undefined) {
-    assertNoRecordsAfterDeceasedAt(updated.deceasedAt, updated.id, command.records);
+    const previousDeceasedAt = lifeStatusOf(command.pet) === 'DECEASED' ? (command.pet.deceasedAt ?? null) : null;
+    if (previousDeceasedAt === null || diffInCalendarDays(updated.deceasedAt, previousDeceasedAt) < 0) {
+      assertNoRecordsAfterDeceasedAt(updated.deceasedAt, updated.id, command.records);
+    }
   }
   return updated;
 }

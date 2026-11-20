@@ -171,3 +171,32 @@ describe('REQ-FAL7-005: registros posteriores a deceasedAt (EDGE-007-005, EDGE-0
     expect(accepts(() => assertNoRecordsAfterDeceasedAt('2026-03-05', ID, records))).toBe(true);
   });
 });
+
+describe('EDGE-007-028: la revision de registros posteriores solo corre en ALIVE->DECEASED o al adelantar deceasedAt', () => {
+  const inherited = {
+    weights: [{ id: 'w-late', petId: ID, recordedAt: '2026-03-01' }],
+    vaccinations: [],
+    bodyMeasurements: [],
+    dewormings: [],
+    medicalVisits: [],
+    customParameters: [],
+  } as never;
+  const deadWithInherited = (): PetProfile => create({ lifeStatus: 'DECEASED', deceasedAt: '2026-01-15' });
+  const patch = (pet: PetProfile, input: Record<string, unknown>): PetProfile => updatePetProfile({ pet, input, today: TODAY, nowIsoTimestamp: NOW, recordEventDates: [], records: inherited });
+
+  it('EDGE-007-028: PATCH {name} sobre una fallecida con registro heredado posterior se acepta', () => {
+    const renamed = patch(deadWithInherited(), { name: 'Rocky II' });
+    expect([renamed.name, renamed.lifeStatus, renamed.deceasedAt]).toEqual(['Rocky II', 'DECEASED', '2026-01-15']);
+  });
+
+  it('EDGE-007-028: PATCH {deceasedAt} MAS TEMPRANO con registro posterior se rechaza; el mismo valor o uno posterior que el previo no revisa', () => {
+    const pet = deadWithInherited();
+    expect(fails(() => patch(pet, { deceasedAt: '2026-01-10' })).field).toBe('deceasedAt');
+    expect(accepts(() => patch(pet, { deceasedAt: '2026-01-15' }))).toBe(true);
+    expect(accepts(() => patch(pet, { deceasedAt: '2026-01-20' }))).toBe(true);
+  });
+
+  it('EDGE-007-028: la transicion ALIVE->DECEASED con registro posterior sigue rechazandose', () => {
+    expect(fails(() => patch(create(), { lifeStatus: 'DECEASED', deceasedAt: '2026-01-15' })).field).toBe('deceasedAt');
+  });
+});

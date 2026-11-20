@@ -76,3 +76,16 @@ describe('REQ-FAL7-006: una mascota DECEASED no se dibuja ni cuenta en pets.show
     expect(t.h.uow.snapshot().scenes![0]).toMatchObject({ image: null, consumedGenerations: 0 });
   });
 });
+
+describe('EDGE-007-031: fail-closed, una mascota no encontrada queda excluida de la escena', () => {
+  it('EDGE-007-031: una asignacion cuya mascota ya no existe no se dibuja ni cuenta en pets.shown/total', async () => {
+    const clean = setup();
+    const baseline = await clean.get.execute(ANDRES, HOUSE);
+    const orphaned = canonicalState();
+    orphaned.assignments.push({ petId: 'deadbeef-0000-4000-8000-00000000dead', householdId: HOUSEHOLD.id, assignedByUserId: ANDRES, assignedAt: '2026-01-01T00:00:00.000Z' });
+    const h = createHarness(orphaned);
+    const deps = withScene(h.deps, sceneFixture({}));
+    const view = await new GetSceneUseCase(deps).execute(ANDRES, HOUSE);
+    expect([view.pets.total, view.pets.shown]).toEqual([baseline.pets.total, baseline.pets.shown]);
+  });
+});

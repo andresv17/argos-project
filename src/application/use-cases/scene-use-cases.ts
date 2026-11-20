@@ -91,7 +91,11 @@ export async function loadLiveInputs(deps: ApplicationDeps, r: RepositorySet, ac
   }
   // REQ-FAL7-006: una mascota DECEASED no se dibuja ni cuenta en `pets.shown/total`; el filtro va ANTES de elegir las visibles y de `buildInputsSnapshot` (sin campos nuevos en `SnapshotPet`).
   const alive: Array<{ id: string; assignedAt: string }> = [];
-  for (const candidate of candidates) if ((await r.pets.findById(candidate.id))?.lifeStatus !== 'DECEASED') alive.push(candidate);
+  // EDGE-007-031 (fail-closed): una mascota no encontrada queda EXCLUIDA, no dibujada.
+  for (const candidate of candidates) {
+    const pet = await r.pets.findById(candidate.id);
+    if (pet !== null && pet.lifeStatus !== 'DECEASED') alive.push(candidate);
+  }
   const { visible, total } = selectVisiblePets(alive, svc.maxPets);
   const pets: SnapshotPet[] = [];
   for (const entry of visible) {
