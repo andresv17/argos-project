@@ -8,7 +8,7 @@ import { DEFAULT_SCENE_STYLE } from '../../src/domain/scene/scene-payload.ts';
 /**
  * T1071 (007, Bloque G; pruebas rojas del prompt combinado): un solo texto con bloque de fotos (mascotas con `photoRef`) y bloque JSON (solo mascotas sin foto), ordinal
  * global 1-based disjunto, `IMG_1` hogar y mascotas desde `IMG_2` (o `IMG_1` sin hogar), frase de conteo de Neo (D7-ESC-01) y literales 16-bit de Neo (T1069).
- * Los literales se copian de `claude/decisiones-neo-007-2026-11-21.md` (no se lee `claude/` en la prueba: no está versionado).
+ * Los literales se copian de las decisiones de Neo del 2026-11-21 (archivo no versionado; la prueba no lo lee).
  * REQ-ESC7-003, REQ-ESC7-004, REQ-ESC7-006, REQ-ESC7-008, EDGE-007-023, EDGE-007-024; SC-007-036..041.
  */
 const NEO_STYLE_BASE_TEXT =

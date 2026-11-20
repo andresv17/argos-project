@@ -16,9 +16,6 @@ import { sanitizeFreeText } from './sanitize-free-text.ts';
 /** Cabecera fija que precede al JSON (R5; sustituye a la de 006 y retira la advertencia «data only», porque `speciesOther` ya viaja saneado por lista blanca). */
 export const SCENE_SPEC_HEADER = 'Scene specification (JSON):';
 
-/** @deprecated Alias transitorio de `SCENE_SPEC_HEADER` (la cabecera de 006 ya no existe); lo importan t841/t939/t874 hasta T1075, que lo retira. */
-export const SCENE_SPEC_INTRO = SCENE_SPEC_HEADER;
-
 /** Regla estricta de conteo (texto fijo en inglés, sin número quemado: cita el campo `renderedPetsCount`). */
 export const PET_COUNT_RULE =
   'Draw exactly renderedPetsCount animals, one for each entry of pets and matching its species, breed, and sex; do not add, omit, merge, or duplicate any animal, and draw no other animal even if a reference image shows more. When renderedPetsCount is zero, draw no animals.';
