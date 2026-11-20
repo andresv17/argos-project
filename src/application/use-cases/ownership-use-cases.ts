@@ -14,7 +14,7 @@
 import { validateTransferPetOwnershipInput, type TransferPetOwnershipInput, type TransferPetOwnershipResult } from '../../generated/index.ts';
 import { deriveStatus, retentionCutoffs } from '../../domain/sharing/share-link.ts';
 import { transferPetOwnership } from '../../domain/pet/ownership-transfer.ts';
-import { recordAssignmentRemoved, recordAudit } from './audit-support.ts';
+import { auditPetView, recordAssignmentRemoved, recordAudit } from './audit-support.ts';
 import { assertMatchesSchema, requirePetAction, type ApplicationDeps } from './use-case-support.ts';
 
 /** @implements REQ-OWN-001, INV-OWN2-001, SC-016, ERR-OWN-TRANSFER-INVALID-TARGET, REQ-VET-011, SC-005-052, EDGE-005-20-bis */
@@ -52,7 +52,7 @@ export class TransferPetOwnershipUseCase {
         }
       }
       // REQ-AUD-001: 1 fila OWNERSHIP_TRANSFER sobre la mascota y 1 fila UNASSIGN por cada asignación podada.
-      await recordAudit(this.deps, repositories, { executorUserId: actorUserId, mutationType: 'OWNERSHIP_TRANSFER', entityType: 'PET', entityId: petId, previous: pet, next: transferred });
+      await recordAudit(this.deps, repositories, { executorUserId: actorUserId, mutationType: 'OWNERSHIP_TRANSFER', entityType: 'PET', entityId: petId, previous: auditPetView(pet), next: auditPetView(transferred) });
       for (const assignment of before.filter((a) => !kept.has(a.householdId))) await recordAssignmentRemoved(this.deps, repositories, actorUserId, assignment);
       // La respuesta lleva `avatarVersion` (REQ-AVA-001); la transferencia no toca el avatar (`pets.save` no lo modifica).
       const avatarVersion = (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null;

@@ -13,6 +13,7 @@ import type { RateLimits } from '../../../src/infrastructure/adapters/sliding-wi
 import { dumpSqlite, seedSqlite } from '../../fixtures/sqlite-harness.ts';
 import { SpyPasswordHasher } from '../../fixtures/test-doubles.ts';
 import { checkResponse } from '../contracts/openapi-contract.ts';
+import { validateBackupEnvelopeV32 } from '../../../src/generated/v31/index.ts';
 
 /**
  * API real (Fastify `inject`) sobre SQLite en memoria con el estado canónico, reloj fijo (2026-11-05T12:00:00Z),
@@ -78,6 +79,13 @@ export async function createApi(
     const headers: Record<string, string> = { ...(options.headers ?? {}) };
     if (options.csrf !== false) headers['x-argos-request'] = '1';
     if (options.cookie) headers['cookie'] = options.cookie;
+    // 007 (EDGE-007-009): `PATCH /api/pets/{id}` exige `If-Match` con la versión de la ficha; las pruebas que no ejercitan el control optimista
+    // mandan la VIGENTE (leída de la base). Quien lo pruebe pasa su propia cabecera `If-Match` y no se toca.
+    const petPatch = /^\/api\/pets\/([^/?]+)$/.exec(url);
+    if (method === 'PATCH' && petPatch !== null && !Object.keys(headers).some((h) => h.toLowerCase() === 'if-match')) {
+      const row = db.prepare('SELECT version FROM pets WHERE id = ?').get(petPatch[1]) as { version: number } | undefined;
+      if (row !== undefined) headers['if-match'] = `"${row.version}"`;
+    }
     let payload: string | Buffer | undefined;
     if (options.raw !== undefined) {
       payload = typeof options.raw === 'string' ? options.raw : Buffer.from(options.raw);
@@ -95,7 +103,11 @@ export async function createApi(
       json = undefined;
     }
     const setCookie = ([] as string[]).concat(response.headers['set-cookie'] ?? [])[0] ?? null;
-    if (options.contract !== false) {
+    if (options.contract !== false && method === 'POST' && url === '/api/backup/export' && response.statusCode === 200) {
+      // CASO B PENDIENTE (007, T1067): la respuesta 200 de exportBackup sigue documentada como BackupEnvelopeV31/V3 en los OpenAPI de 004/002 y el servidor emite
+      // el sobre 3.2.0 (REQ-FAL7-009; conserva lifeStatus/deceasedAt). Hasta que /architect corrija el $ref, el cuerpo se valida contra el esquema 3.2.0 del contrato.
+      expect(validateBackupEnvelopeV32(json), 'sobre de exportación 3.2.0 (BackupEnvelopeV32)').toBe(true);
+    } else if (options.contract !== false) {
       const check = checkResponse(method, url, response.statusCode, response.headers['content-type'] as string | undefined, json ?? (text === '' ? undefined : text));
       expect(check.errors, `contrato OpenAPI de ${method} ${url}`).toEqual([]);
     }

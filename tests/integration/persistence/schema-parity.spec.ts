@@ -27,6 +27,8 @@ const PLATFORM_PATH = new URL('../../../src/infrastructure/persistence/postgres/
 const SHARE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0008_share_links.sql', import.meta.url);
 /** T809..T833 (006): la 0009 de Postgres equivale a la 0013 de SQLite (CHECK de `audit_log.entity_type` y las 6 tablas de la escena con sus índices). */
 const HOME_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0009_home_scenes.sql', import.meta.url);
+/** T1017 (007): la 0010 de Postgres equivale a la 0014 de SQLite (`life_status`, `deceased_at` y `version` de `pets`, REQ-FAL7-001, EDGE-007-009). */
+const LIFE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0010_pet_life_status.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
@@ -207,7 +209,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -245,6 +247,42 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     for (const [name, lite] of sqlite.tables) expect(pg.tables.get(name)!.checks, `CHECK de ${name}`).toEqual(lite.checks);
     expect(sqlite.tables.get('pets')!.checks.some((c) => c.includes("microchip_id ~ '^[0-9]{15}$'"))).toBe(true);
     expect(sqlite.tables.get('weights')!.checks).toContain('weight_grams BETWEEN 1 AND 150000');
+  });
+
+  it('[T1017][REQ-FAL7-001][REQ-FAL7-002][EDGE-007-009] pets gana life_status, deceased_at y version en ambos motores, con los mismos CHECK y por defecto ALIVE, sin fecha y versión 1', () => {
+    const pg = postgresSchema();
+    for (const schema of [sqlite, pg]) {
+      const pets = schema.tables.get('pets')!;
+      expect(pets.columns.get('life_status'), 'life_status').toMatchObject({ type: 'TEXT', notNull: true, default: "'ALIVE'" });
+      expect(pets.columns.get('deceased_at'), 'deceased_at').toMatchObject({ type: 'TEXT', notNull: false, default: null });
+      expect(pets.columns.get('version'), 'version').toMatchObject({ type: 'INTEGER', notNull: true, default: '1' });
+      expect(pets.checks).toContain("life_status IN ('ALIVE','DECEASED')");
+      expect(pets.checks).toContain("(life_status = 'DECEASED') = (deceased_at IS NOT NULL)");
+      expect(pets.checks).toContain('version >= 1');
+    }
+    expect(pg.tables.get('pets')!.checks).toEqual(sqlite.tables.get('pets')!.checks);
+  });
+
+  it('[T1017][REQ-FAL7-001] la 0010 de Postgres agrega los CHECK NOT VALID y los valida; la 0014 de SQLite deja las filas previas ALIVE, sin fecha y en versión 1', () => {
+    const text = readFileSync(LIFE_PATH, 'utf8');
+    for (const name of ['pets_life_status_check', 'pets_deceased_at_check', 'pets_version_check']) {
+      expect(text, name).toMatch(new RegExp(`ADD CONSTRAINT ${name} CHECK[^;]+NOT VALID;`));
+      expect(text, name).toContain(`VALIDATE CONSTRAINT ${name};`);
+    }
+    const db = openSqliteDatabase(IN_MEMORY_DATABASE);
+    try {
+      db.prepare("INSERT INTO users (id, username, password_hash, data) VALUES ('u1', 'ana', 'x', '{}')").run();
+      db.prepare("INSERT INTO pets (id, owner_user_id, data) VALUES ('p1', 'u1', '{}')").run();
+      expect(db.prepare('SELECT life_status, deceased_at, version FROM pets').get()).toEqual({ life_status: 'ALIVE', deceased_at: null, version: 1 });
+      expect(() => db.prepare("UPDATE pets SET life_status = 'DECEASED' WHERE id = 'p1'").run()).toThrow(/CHECK/);
+      expect(() => db.prepare("UPDATE pets SET deceased_at = '2026-01-01' WHERE id = 'p1'").run()).toThrow(/CHECK/);
+      expect(() => db.prepare("UPDATE pets SET life_status = 'GONE' WHERE id = 'p1'").run()).toThrow(/CHECK/);
+      expect(() => db.prepare("UPDATE pets SET version = 0 WHERE id = 'p1'").run()).toThrow(/CHECK/);
+      db.prepare("UPDATE pets SET life_status = 'DECEASED', deceased_at = '2026-01-01' WHERE id = 'p1'").run();
+      expect(db.prepare('SELECT life_status, deceased_at FROM pets').get()).toEqual({ life_status: 'DECEASED', deceased_at: '2026-01-01' });
+    } finally {
+      db.close();
+    }
   });
 
   it('T809 (006, N2-06 (a)): el CHECK de audit_log.entity_type admite HOME_SCENE, SCENE_CONSENT y HOUSEHOLD_PHOTO en ambos motores y es el mismo', () => {

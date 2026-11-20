@@ -230,9 +230,9 @@ describe('Fixtures canónicos 002 contra los validadores generados', () => {
   });
 
   describe('errorCases: cobertura del catálogo 3.0.0', () => {
-    it('ERR-* cubre exactamente los 35 códigos vigentes y ninguno retirado', () => {
+    it('ERR-* cubre exactamente los 36 códigos vigentes (35 + ERR-PET-VERSION-CONFLICT de 007) y ninguno retirado', () => {
       const codes = (fx.errorCases as any[]).filter((c) => c.expected === 'valid').map((c) => c.requirementId);
-      expect(new Set(codes).size).toBe(35);
+      expect(new Set(codes).size).toBe(36);
       expect(Object.keys(catalog).sort()).toEqual([...codes].sort());
       const txt = JSON.stringify(fx);
       expect(txt).not.toContain('ERR-AUTH-USER-NOT-FOUND');

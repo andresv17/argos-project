@@ -9,7 +9,7 @@
  * publicar y encola el objeto para borrar. Un fallo o timeout no descuenta cuota y deja intacta la imagen anterior. La señal de `T_GEN` entra por parámetro
  * (los temporizadores viven en `infrastructure`). Solo escribe tablas de la escena (INV-ESC6-012). Sin reloj ni entropía propios (INV-ARCH-001/002).
  *
- * @implements REQ-ESC6-013, REQ-ESC6-014, REQ-ESC6-027, REQ-ESC6-036, INV-ESC6-003, INV-ESC6-004, INV-ESC6-005, INV-ESC6-012, EDGE-ESC6-003, EDGE-ESC6-004, EDGE-ESC6-005, EDGE-ESC6-006, EDGE-ESC6-009, EDGE-ESC6-021, EDGE-ESC6-024, EDGE-ESC6-025, EDGE-ESC6-026, EDGE-ESC6-027, EDGE-ESC6-028, EDGE-ESC6-031, SC-ESC6-017, SC-ESC6-018, SC-ESC6-020, SC-ESC6-032, SC-ESC6-059, SC-ESC6-062, SC-ESC6-063, SC-ESC6-068, SC-ESC6-069, SC-ESC6-070, SC-ESC6-071
+ * @implements REQ-FAL7-006, EDGE-007-014, REQ-ESC6-013, REQ-ESC6-014, REQ-ESC6-027, REQ-ESC6-036, INV-ESC6-003, INV-ESC6-004, INV-ESC6-005, INV-ESC6-012, EDGE-ESC6-003, EDGE-ESC6-004, EDGE-ESC6-005, EDGE-ESC6-006, EDGE-ESC6-009, EDGE-ESC6-021, EDGE-ESC6-024, EDGE-ESC6-025, EDGE-ESC6-026, EDGE-ESC6-027, EDGE-ESC6-028, EDGE-ESC6-031, SC-ESC6-017, SC-ESC6-018, SC-ESC6-020, SC-ESC6-032, SC-ESC6-059, SC-ESC6-062, SC-ESC6-063, SC-ESC6-068, SC-ESC6-069, SC-ESC6-070, SC-ESC6-071
  */
 
 import { avatarObjectKey, householdPhotoObjectKey, sceneImageObjectKey } from '../../domain/media/media-keys.ts';
@@ -316,7 +316,7 @@ export class RunSceneGenerationUseCase {
   /**
    * Dueños de los datos de la imagen (REQ-ESC6-036 (4), H-KEY-F5-6). Existencia de cuenta y mascota asignada (o, sin hogar, del propietario sin asignar): TODOS los
    * dueños del snapshot, hayan viajado o no sus fotos. Consentimiento vigente (driver real): el actor y los dueños de fotos ENVIADAS (`sent`); en el claim, que aún no
-   * conoce los filtros, `sent` es `null` y se exige para toda foto del snapshot. `null` si falta algo (EDGE-ESC6-025); si no, los ids únicos de `scene_image_sources`:
+   * conoce los filtros, `sent` es `null` y se exige para toda foto del snapshot. `null` si falta algo (EDGE-ESC6-025) o si una mascota de la huella está DECEASED (REQ-FAL7-006, EDGE-007-014); si no, los ids únicos de `scene_image_sources`:
    * quien subió la foto del hogar y cada dueño de foto de mascota enviadas, más las fuentes de la imagen previa si viajó como referencia (la imagen nueva deriva de ella).
    */
   private async dataOwners(r: RepositorySet, scene: SceneRecord, snapshot: InputsSnapshot, actorUserId: string, sent: SentPhotos | null): Promise<string[] | null> {
@@ -327,6 +327,8 @@ export class RunSceneGenerationUseCase {
     for (const entry of snapshot.pets) {
       const pet = await r.pets.findById(entry.id);
       if (pet === null || (await r.users.findById(pet.ownerUserId)) === null) return null;
+      // REQ-FAL7-006, EDGE-007-014: una mascota de la huella que pasó a DECEASED durante la generación cancela la publicación (CANCELLED, sin cuota).
+      if (pet.lifeStatus === 'DECEASED') return null;
       const assignments = await r.assignments.listByPet(pet.id);
       const placed = scene.householdId !== null ? assignments.some((a) => a.householdId === scene.householdId) : pet.ownerUserId === scene.ownerUserId && assignments.length === 0;
       if (!placed) return null;

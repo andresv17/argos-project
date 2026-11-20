@@ -86,7 +86,7 @@ describe('T556 microchip trivial y texto del 409 (REQ-PET4-002, SC-CAT-029)', ()
       const statuses: number[] = [];
       for (const microchipId of ['000000000000000', '777777777777777']) {
         const created = await harnessApp.inject({ method: 'POST', url: '/api/pets', headers: { ...headers, cookie }, payload: petInput({ microchipId }) });
-        const edited = await harnessApp.inject({ method: 'PATCH', url: `/api/pets/${KIRA_ID}`, headers: { ...headers, cookie }, payload: { microchipId } });
+        const edited = await harnessApp.inject({ method: 'PATCH', url: `/api/pets/${KIRA_ID}`, headers: { ...headers, cookie, 'if-match': '"1"' }, payload: { microchipId } });
         statuses.push(created.statusCode, edited.statusCode);
         bodies.push(created.body, edited.body);
       }

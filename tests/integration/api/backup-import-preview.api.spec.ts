@@ -31,7 +31,7 @@ describe('previsualización (REQ-BACKUP2-002, STATE-BACKUP-001)', () => {
     const body = r.json as { sourceSchemaVersion?: string; fileDigest?: string; counts?: { pets: number }; collisions?: unknown; affectedSharedPets?: { petsCount: number } };
     expect([r.status, body.sourceSchemaVersion, body.fileDigest, body.counts?.pets, body.collisions, (body.affectedSharedPets?.petsCount ?? 0) > 0]).toEqual([
       200,
-      '3.1.0',
+      '3.2.0',
       sha256(text),
       5,
       { petsReplacedCount: 5, sameIdPetsCount: 5 },
@@ -141,6 +141,6 @@ describe('confirmación con X-Argos-Import-Confirm (REQ-BACKUP2-002, STATE-BACKU
     const text = await exportText(cookie);
     const p = await preview(cookie, text);
     const r = await confirm(cookie, text, (p.json as { fileDigest: string }).fileDigest);
-    expect([p.status, r.status, r.json]).toEqual([200, 200, { finalState: 'COMPLETED', sourceSchemaVersion: '3.1.0', importedPetsCount: 5, importedRecordsCount: 8 }]);
+    expect([p.status, r.status, r.json]).toEqual([200, 200, { finalState: 'COMPLETED', sourceSchemaVersion: '3.2.0', importedPetsCount: 5, importedRecordsCount: 8 }]);
   });
 });

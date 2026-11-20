@@ -99,7 +99,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       1,
       'wal',
       [],
-      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql'],
+      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql', '0014_pet_life_status.sql'],
     ]);
   });
 
@@ -128,7 +128,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       revoked_at: '2026-11-05T13:00:00.000Z',
       data: { userId: 'a0000000-0000-4000-8000-000000000001', createdAt: '2026-11-05T12:00:00.000Z', lastActivityAt: '2026-11-05T12:00:00.000Z', revokedAt: '2026-11-05T13:00:00.000Z' },
     });
-    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql']]);
+    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql', '0014_pet_life_status.sql']]);
   });
 
   it('[REQ-ACC-001][ERR-INTERNAL-UNEXPECTED] la base rechaza un idioma fuera de es/en/pt, un ámbito de frecuencia desconocido y un rol o estado de invitación inválido', () => {
@@ -199,7 +199,7 @@ describe('mascotas multi-especie y peso en gramos sobre SQLite (REQ-MIG-001, INV
     });
     const ids = new Set(pets.map((p) => p.id));
     const read = (await uow.runInTransaction((r) => r.pets.listByOwners([ARGOS.ownerUserId]))).filter((p) => ids.has(p.id));
-    expect([...read].sort((a, b) => a.id.localeCompare(b.id))).toEqual(pets);
+    expect([...read].sort((a, b) => a.id.localeCompare(b.id))).toEqual(pets.map((p) => ({ ...p, lifeStatus: 'ALIVE', deceasedAt: null, version: 1 }))); // 007: campos nuevos con sus valores por defecto
     const columns = db
       .prepare(`SELECT species, species_other, neutered, microchip_id, birth_date_is_estimate FROM pets WHERE id IN (${pets.map(() => '?').join(',')}) ORDER BY id`)
       .all(...pets.map((p) => p.id));
@@ -409,6 +409,6 @@ describe('particularidades de SqliteUnitOfWork y los repositorios SQLite', () =>
       }),
     );
     const next = await uow.runInTransaction((r) => r.pets.findById(ARGOS.id));
-    expect([domainFields(error), next]).toEqual([{ code: 'ERR-INTERNAL-UNEXPECTED', status: 500, finalState: 'UNKNOWN' }, ARGOS]);
+    expect([domainFields(error), next]).toEqual([{ code: 'ERR-INTERNAL-UNEXPECTED', status: 500, finalState: 'UNKNOWN' }, { ...ARGOS, lifeStatus: 'ALIVE', deceasedAt: null, version: 1 }]);
   });
 });

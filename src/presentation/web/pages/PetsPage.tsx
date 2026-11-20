@@ -127,7 +127,9 @@ export function PetsPage(): JSX.Element {
 
   const editPet = async (body: PetFormBody): Promise<void> => {
     if (activePetId === null) return;
-    await unwrap(api.PATCH('/pets/{petId}', { params: { ...CSRF_PARAMS, path: { petId: activePetId } }, body: body as Schemas['UpdatePetInput'] }));
+    // EDGE-007-009: la ficha viaja con la versión leída (`If-Match`); si otra persona la cambió, el servidor responde 412 «Esta ficha cambió, recarga».
+    const version = dashboard?.profile.version ?? 1;
+    await unwrap(api.PATCH('/pets/{petId}', { params: { header: { ...CSRF_PARAMS.header, 'If-Match': `"${version}"` }, path: { petId: activePetId } }, body: body as Schemas['UpdatePetInput'] }));
     setMode('VIEW');
     await refreshAll();
   };

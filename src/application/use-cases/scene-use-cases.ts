@@ -5,7 +5,7 @@
  * `deriveStatus` sobre la huella del estado vivo (REQ-ESC6-003, ADR-006-09); lo único que la lectura materializa es el vencimiento del arrendamiento, por
  * compare-and-set idempotente bajo el candado de la escena (data-model.md §7, `H-TRI-006-12`). El reloj y los identificadores salen de los puertos (INV-ARCH-001/002).
  *
- * @implements REQ-ESC6-003, REQ-ESC6-004, REQ-ESC6-005, REQ-ESC6-008, REQ-ESC6-011, REQ-ESC6-019, REQ-ESC6-020, REQ-ESC6-024, REQ-ESC6-032, REQ-ESC6-034, INV-ESC6-007, INV-ESC6-014, INV-ESC6-019, EDGE-ESC6-003, EDGE-ESC6-006, SC-ESC6-014, SC-ESC6-018, SC-ESC6-081, SC-ESC6-093
+ * @implements REQ-FAL7-006, REQ-ESC6-003, REQ-ESC6-004, REQ-ESC6-005, REQ-ESC6-008, REQ-ESC6-011, REQ-ESC6-019, REQ-ESC6-020, REQ-ESC6-024, REQ-ESC6-032, REQ-ESC6-034, INV-ESC6-007, INV-ESC6-014, INV-ESC6-019, EDGE-ESC6-003, EDGE-ESC6-006, SC-ESC6-014, SC-ESC6-018, SC-ESC6-081, SC-ESC6-093
  */
 
 import { sha256Hex } from '../../domain/audit/sha256.ts';
@@ -89,7 +89,10 @@ export async function loadLiveInputs(deps: ApplicationDeps, r: RepositorySet, ac
       if ((await r.assignments.listByPet(pet.id)).length === 0) candidates.push({ id: pet.id, assignedAt: pet.createdAt });
     }
   }
-  const { visible, total } = selectVisiblePets(candidates, svc.maxPets);
+  // REQ-FAL7-006: una mascota DECEASED no se dibuja ni cuenta en `pets.shown/total`; el filtro va ANTES de elegir las visibles y de `buildInputsSnapshot` (sin campos nuevos en `SnapshotPet`).
+  const alive: Array<{ id: string; assignedAt: string }> = [];
+  for (const candidate of candidates) if ((await r.pets.findById(candidate.id))?.lifeStatus !== 'DECEASED') alive.push(candidate);
+  const { visible, total } = selectVisiblePets(alive, svc.maxPets);
   const pets: SnapshotPet[] = [];
   for (const entry of visible) {
     const pet = await r.pets.findById(entry.id);

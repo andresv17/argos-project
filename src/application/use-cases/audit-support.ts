@@ -36,6 +36,16 @@ export const RECORD_ENTITY_TYPE: Readonly<Record<RecordModule, AuditEntityType>>
   customParameters: 'CUSTOM_PARAMETER',
 };
 
+/**
+ * Vista de la mascota para los hashes de auditoría: sin `version` (contador de control optimista, EDGE-007-009; cambia en cada edición y no es un dato de la
+ * mascota). `lifeStatus` y `deceasedAt` SÍ entran (REQ-AUD-001; la transición Fallecido -> Vivo queda auditada con la fecha anterior, EDGE-007-016).
+ * @implements REQ-AUD-001, EDGE-007-016
+ */
+export function auditPetView<T extends { readonly version?: number | undefined }>(pet: T): Omit<T, 'version'> {
+  const { version: _version, ...view } = pet;
+  return view;
+}
+
 /** Añade la fila de auditoría de una mutación exitosa dentro de la transacción en curso. */
 export async function recordAudit(deps: ApplicationDeps, repositories: RepositorySet, change: AuditChange): Promise<void> {
   await deps.auditLog.append(repositories, {

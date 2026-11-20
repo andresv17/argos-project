@@ -8,15 +8,18 @@
  * - INV-PET-002: birthDate <= ClockPort.todayIsoDate() (delegado en date-utils).
  * - INV-PET-006: al editar birthDate, no puede quedar después de ningún registro de la mascota.
  * - INV-OWN-001: un único ownerUserId, que referencia un usuario existente y no se edita vía API.
+ * - REQ-FAL7-002 (feature 007): `lifeStatus = DECEASED` <=> `deceasedAt`, con `birthDate <= deceasedAt <= hoy`, sobre el estado RESULTANTE de la
+ *   edición; DECEASED -> ALIVE borra la fecha. REQ-FAL7-005: ni altas ni ediciones de registros con fecha resultante posterior a `deceasedAt`.
+ *   REQ-FAL7-007: la edad de una fallecida se calcula hasta `deceasedAt`. Los mensajes nunca repiten `lifeStatus` ni `deceasedAt` (REQ-FAL7-010).
  *
- * @implements REQ-PET2-001, INV-PET2-001, REQ-PET-002, INV-PET-002, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS, ERR-PET-MICROCHIP-DUPLICATE, INV-ARCH-001, INV-ARCH-004
+ * @implements REQ-PET2-001, INV-PET2-001, REQ-PET-002, INV-PET-002, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS, ERR-PET-MICROCHIP-DUPLICATE, INV-ARCH-001, INV-ARCH-004, REQ-FAL7-001, REQ-FAL7-002, REQ-FAL7-005, REQ-FAL7-007, REQ-FAL7-010, REQ-FAL7-011
  */
 
 import { DomainError, type BackupEnvelopeV3, type PetProfile as ContractPetProfile } from '../../generated/index.ts';
 // Mascota 3.1.0 (feature 004): breedCode en el perfil y en las entradas de alta y edición (REQ-RAZ-003).
 import { validateCreatePetInput, validatePetProfile, validateUpdatePetInput, type CreatePetInput, type UpdatePetInput } from '../../generated/v31/index.ts';
 import { assertBreedConsistency, deriveBreed, hasBreedCatalog as hasCatalogSpecies, isBreedOther } from './breed-catalog.ts';
-import { diffInCalendarDays, validateBirthDateNotFuture } from '../shared/date-utils.ts';
+import { calculatePetAge, diffInCalendarDays, validateBirthDateNotFuture } from '../shared/date-utils.ts';
 import { estimatedAgeToBirthDate } from './estimated-age.ts';
 import { isTrivialMicrochip } from './microchip-patterns.ts';
 import { assertCanonicalCreatedAt, getRecordEventDate } from '../sorting/deterministic-sorter.ts';
@@ -27,9 +30,77 @@ import { assertCanonicalCreatedAt, getRecordEventDate } from '../sorting/determi
  */
 export type PetProfile = ContractPetProfile & { readonly breedCode?: string | null };
 
-/** Las mascotas guardadas antes de la 004 no tienen `breedCode`: se leen con `breedCode = null` (SC-CAT-004). @implements REQ-RAZ-003 */
-export function normalizePetProfile<T extends PetProfile>(pet: T): T & { readonly breedCode: string | null } {
-  return { ...pet, breedCode: pet.breedCode ?? null };
+/**
+ * Las mascotas guardadas antes de la 004 no tienen `breedCode` (se leen con `breedCode = null`, SC-CAT-004) y las anteriores a la 007 no tienen
+ * `lifeStatus`, `deceasedAt` ni `version` (se leen `ALIVE`, nulo y 1, REQ-FAL7-001).
+ * @implements REQ-RAZ-003, REQ-FAL7-001
+ */
+export function normalizePetProfile<T extends PetProfile>(pet: T): T & { readonly breedCode: string | null; readonly lifeStatus: LifeStatus; readonly deceasedAt: string | null; readonly version: number } {
+  return { ...pet, breedCode: pet.breedCode ?? null, lifeStatus: pet.lifeStatus ?? 'ALIVE', deceasedAt: pet.deceasedAt ?? null, version: pet.version ?? 1 };
+}
+
+/** Estado de vida de la mascota (REQ-FAL7-001). */
+export type LifeStatus = 'ALIVE' | 'DECEASED';
+
+/** Los esquemas v31 de entrada validan la forma (incluida la condicional DECEASED => deceasedAt); el dominio valida el contenido sobre el estado resultante. */
+const lifeStatusOf = (pet: { readonly lifeStatus?: LifeStatus | undefined }): LifeStatus => pet.lifeStatus ?? 'ALIVE';
+
+/**
+ * REQ-FAL7-002: `DECEASED` exige `deceasedAt` (>= birthDate y <= hoy, reloj inyectado); `ALIVE` exige `deceasedAt` nulo. Violación:
+ * ERR-SCHEMA-VALIDATION-FAILED en el campo `deceasedAt`, con un mensaje fijo que no repite el estado ni la fecha (REQ-FAL7-010).
+ * @implements REQ-FAL7-002, EDGE-007-004, EDGE-007-011, EDGE-007-022
+ */
+export function assertLifeStatusInvariant(pet: { readonly birthDate: string; readonly lifeStatus?: LifeStatus | undefined; readonly deceasedAt?: string | null | undefined }, today: string): void {
+  const deceasedAt = pet.deceasedAt ?? null;
+  const reject = (detail: string): never => {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', detail, 'deceasedAt');
+  };
+  if (lifeStatusOf(pet) === 'ALIVE') {
+    if (deceasedAt !== null) reject('La fecha de fallecimiento solo aplica a una mascota fallecida (REQ-FAL7-002).');
+    return;
+  }
+  if (deceasedAt === null) return reject('Una mascota fallecida requiere la fecha de fallecimiento (REQ-FAL7-002).');
+  if (diffInCalendarDays(deceasedAt, pet.birthDate) < 0) reject('La fecha de fallecimiento no puede ser anterior a la de nacimiento (REQ-FAL7-002).');
+  if (diffInCalendarDays(deceasedAt, today) > 0) reject('La fecha de fallecimiento no puede ser futura (REQ-FAL7-002).');
+}
+
+/**
+ * Edad de la mascota (REQ-PET-002): a hoy si está viva; entre `birthDate` y `deceasedAt` si falleció (REQ-FAL7-007). El rótulo «Vivió …»
+ * y el «aprox.» son de la presentación.
+ * @implements REQ-FAL7-007, REQ-PET-002
+ */
+export function computedAgeOf(pet: { readonly birthDate: string; readonly lifeStatus?: LifeStatus | undefined; readonly deceasedAt?: string | null | undefined }, today: string): ReturnType<typeof calculatePetAge> {
+  const end = lifeStatusOf(pet) === 'DECEASED' && pet.deceasedAt != null ? pet.deceasedAt : today;
+  return calculatePetAge(pet.birthDate, end);
+}
+
+/**
+ * REQ-FAL7-005 (EDGE-007-013): una mascota fallecida rechaza altas y ediciones cuya fecha de evento RESULTANTE sea posterior a `deceasedAt`.
+ * `dateChanges = false` (edición solo de notas de un registro que ya era posterior, EDGE-007-005) no se rechaza.
+ * @implements REQ-FAL7-005, EDGE-007-005, EDGE-007-013
+ */
+export function assertRecordDateNotAfterDeceasedAt(pet: { readonly lifeStatus?: LifeStatus | undefined; readonly deceasedAt?: string | null | undefined }, eventDate: string, field: string, dateChanges: boolean): void {
+  if (lifeStatusOf(pet) !== 'DECEASED' || pet.deceasedAt == null || !dateChanges) return;
+  if (diffInCalendarDays(eventDate, pet.deceasedAt) > 0) {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'La mascota está registrada como fallecida: el registro no puede tener una fecha posterior (REQ-FAL7-005).', field);
+  }
+}
+
+/**
+ * REQ-FAL7-005 (EDGE-007-012): marcar el fallecimiento se rechaza si hay registros con fecha posterior; el mensaje lista los registros en
+ * conflicto (colección e id) para que el dueño los corrija antes, sin repetir la fecha de fallecimiento (REQ-FAL7-010).
+ * @implements REQ-FAL7-005, EDGE-007-012
+ */
+export function assertNoRecordsAfterDeceasedAt(deceasedAt: string, petId: string, records: PetRecordCollections): void {
+  const conflicting: string[] = [];
+  for (const [collection, list] of Object.entries(records)) {
+    for (const record of list as ReadonlyArray<Parameters<typeof getRecordEventDate>[0] & { readonly id: string; readonly petId: string }>) {
+      if (record.petId === petId && diffInCalendarDays(getRecordEventDate(record), deceasedAt) > 0) conflicting.push(`${collection}:${record.id}`);
+    }
+  }
+  if (conflicting.length > 0) {
+    throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', `Hay registros con fecha posterior al fallecimiento; corrígelos antes (REQ-FAL7-005): ${conflicting.join(', ')}.`, 'deceasedAt');
+  }
 }
 
 /**
@@ -193,8 +264,12 @@ export function createPetProfile(command: CreatePetCommand): PetProfile {
     avatarUrl: valid.avatarUrl ?? null,
     createdAt: command.nowIsoTimestamp,
     updatedAt: command.nowIsoTimestamp,
+    lifeStatus: valid.lifeStatus ?? 'ALIVE',
+    deceasedAt: valid.deceasedAt ?? null,
+    version: 1, // REQ-FAL7-011: inicial 1; +1 en cada PATCH (EDGE-007-009)
   };
   assertValidPetProfile(pet);
+  assertLifeStatusInvariant(pet, command.today);
   return pet;
 }
 
@@ -212,6 +287,8 @@ export interface UpdatePetCommand {
   readonly nowIsoTimestamp: string;
   /** Fechas de evento de los registros de la mascota (collectRecordEventDates). */
   readonly recordEventDates: readonly string[];
+  /** Registros de la mascota: con ellos, marcar el fallecimiento rechaza y lista los registros posteriores (REQ-FAL7-005, EDGE-007-012). */
+  readonly records?: PetRecordCollections;
 }
 
 /**
@@ -261,6 +338,15 @@ export function updatePetProfile(command: UpdatePetCommand): PetProfile {
     const text = changes.breed ?? (keepsText ? command.pet.breed : undefined);
     if (hasCatalogSpecies(updated.species)) updated.breed = deriveBreed(breedCode, text);
   }
+  // REQ-FAL7-002 / EDGE-007-011: estado RESULTANTE. Volver a ALIVE borra la fecha salvo que la entrada traiga una (que el invariante rechaza).
+  const lifeStatus = changes.lifeStatus ?? lifeStatusOf(command.pet);
+  updated.lifeStatus = lifeStatus;
+  updated.version = (command.pet.version ?? 1) + 1; // REQ-FAL7-011: +1 en cada PATCH de mascota
+  updated.deceasedAt = changes.deceasedAt !== undefined ? changes.deceasedAt : lifeStatus === 'ALIVE' && changes.lifeStatus !== undefined ? null : (command.pet.deceasedAt ?? null);
   assertValidPetProfile(updated);
+  assertLifeStatusInvariant(updated, command.today);
+  if (updated.lifeStatus === 'DECEASED' && updated.deceasedAt !== null && command.records !== undefined) {
+    assertNoRecordsAfterDeceasedAt(updated.deceasedAt, updated.id, command.records);
+  }
   return updated;
 }

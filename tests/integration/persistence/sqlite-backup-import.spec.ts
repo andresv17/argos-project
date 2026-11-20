@@ -29,7 +29,7 @@ describe('importación de respaldo sobre SqliteUnitOfWork', () => {
     const { uow, steps, run } = await setup();
     const result = await run(JSON.stringify(v3()));
     const after = await uow.runInTransaction(async (r) => [(await r.pets.listByOwners([ANDRES])).length, await r.pets.findById(LUNA.id)]);
-    expect([result.finalState, path(steps).at(-1), after]).toEqual(['COMPLETED', 'COMMIT_SUCCESS>COMPLETED', [v3().pets.length, LUNA]]);
+    expect([result.finalState, path(steps).at(-1), after]).toEqual(['COMPLETED', 'COMMIT_SUCCESS>COMPLETED', [v3().pets.length, { ...LUNA, lifeStatus: 'ALIVE', deceasedAt: null, version: 1 }]]); // 007: el repositorio completa los campos nuevos
   });
 
   it('[ERR-INTERNAL-UNEXPECTED] C-1 y C-5: con SQLite, un dato corrupto leído al comprobar IDs ajenos es STORAGE_READ_FAILED, con finalState ROLLED_BACK y sin cambios', async () => {

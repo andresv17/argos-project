@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
-import { validateBackupEnvelopeV31 } from '../../../src/generated/v31/index.ts';
+import { validateBackupEnvelopeV32 } from '../../../src/generated/v31/index.ts';
 import type { PetProfile } from '../../../src/generated/index.ts';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../../src/application/ports/unit-of-work.port.ts';
@@ -26,7 +26,7 @@ import { SpyPasswordHasher } from '../../fixtures/test-doubles.ts';
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const REPOSITORIES_PATH = '../../../src/infrastructure/persistence/postgres/postgres-repositories.ts';
 // Esquema vigente: el baseline y la 0002 (columna `revision` de los 6 registros, T540; los repositorios la leen y la escriben desde T614).
-const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0009_home_scenes.sql']
+const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0009_home_scenes.sql', '0010_pet_life_status.sql']
   .map((name) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${name}`, import.meta.url), 'utf8'))
   .join('\n');
 const SYMPTOM_ID = 'b1000000-0000-4000-8000-000000000001';
@@ -96,7 +96,8 @@ const canonical = (value: unknown): string =>
 /** Estado del usuario: mascotas (la anterior a la 004 sin `breedCode` se lee nula, SC-CAT-004) y sus 6 colecciones, ordenados por id. */
 async function stateOf(uow: UnitOfWorkPort) {
   return uow.runInTransaction(async (r) => {
-    const pets = sorted((await r.pets.listByOwners([ANDRES])).map((p) => ({ ...p, breedCode: (p as { breedCode?: string | null }).breedCode ?? null }))) as Pets;
+    // `version` queda fuera: importar sobre un id existente la sube (REQ-FAL7-011); el estado de la ficha no cambia.
+    const pets = sorted((await r.pets.listByOwners([ANDRES])).map(({ version: _version, ...p }) => ({ ...p, breedCode: (p as { breedCode?: string | null }).breedCode ?? null }))) as Pets;
     const records = [];
     for (const pet of pets) {
       const own = await r.records.listForPet(pet.id);
@@ -169,7 +170,7 @@ function defineRoundTrip(make: MakeEngine) {
     const after = (await exporter.execute(ANDRES)).json;
     expect(after).toBe(before);
     expect(after).not.toMatch(/home_scenes|household_photos|scene_|"scenes?"|sceneId|householdPhoto|image_inputs|imageFingerprint|a3000000-0000-4000-8000/);
-    expect(validateBackupEnvelopeV31(JSON.parse(after))).toBe(true);
+    expect(validateBackupEnvelopeV32(JSON.parse(after))).toBe(true);
   });
 
   it('[REQ-ESC6-022] importar un respaldo no restaura ni crea la escena, la foto del hogar ni el consentimiento (sin ganchos de escena conectados)', async () => {
@@ -190,19 +191,19 @@ function defineRoundTrip(make: MakeEngine) {
     expect(await counts()).toEqual([1, 1, 2, 1]); // sin gancho de escena (T867 lo agrega en la Fase 5) la importacion no toca las tablas de la escena
   });
 
-  it('la exportación 3.1.0 lleva breedCode y los síntomas, valida el esquema y no lleva medios ni mediaToDeleteCount (REQ-RAZ-003, REQ-SIN-001)', async () => {
+  it('la exportación 3.2.0 lleva breedCode, lifeStatus, deceasedAt y los síntomas, valida el esquema y no lleva medios ni mediaToDeleteCount (REQ-RAZ-003, REQ-SIN-001)', async () => {
     const { uow, exporter } = await open(make);
     const toby = await seedBreedAndSymptom(uow);
     const { envelope, json } = await exporter.execute(ANDRES);
-    expect(validateBackupEnvelopeV31(JSON.parse(json))).toBe(true);
-    expect(envelope.schemaVersion).toBe('3.1.0');
+    expect(validateBackupEnvelopeV32(JSON.parse(json))).toBe(true);
+    expect(envelope.schemaVersion).toBe('3.2.0');
     const pets = envelope.pets as unknown as Array<Record<string, unknown>>;
     expect(pets.find((p) => p['id'] === toby.id)).toMatchObject({ breedCode: 'DOG_BEAGLE', breed: 'Beagle' });
-    expect(pets.every((p) => p['breedCode'] !== undefined && !('avatarVersion' in p) && !('ownerUserId' in p))).toBe(true);
+    expect(pets.every((p) => p['breedCode'] !== undefined && p['lifeStatus'] === 'ALIVE' && p['deceasedAt'] === null && !('avatarVersion' in p) && !('ownerUserId' in p) && !('version' in p))).toBe(true);
     const parameters = envelope.records.customParameters as unknown as Array<Record<string, unknown>>;
     expect(parameters.find((c) => c['id'] === SYMPTOM_ID)).toMatchObject({ category: 'SYMPTOM', symptomType: 'VOMIT', severity: 'MODERATE' });
     expect(parameters.every((c) => !('revision' in c))).toBe(true);
-    expect(json).not.toMatch(/mediaToDeleteCount|"media"|avatarVersion|"revision"/);
+    expect(json).not.toMatch(/mediaToDeleteCount|"media"|avatarVersion|"revision"|"version"/);
   });
 
   it('ida y vuelta: exportar, alterar e importar restaura breedCode, breed y el síntoma exactos', async () => {
@@ -216,19 +217,19 @@ function defineRoundTrip(make: MakeEngine) {
     });
     expect(await stateOf(uow)).not.toEqual(before);
     const result = await importer.execute(ANDRES, json, digestOf(json));
-    expect(result.sourceSchemaVersion).toBe('3.1.0');
+    expect(result.sourceSchemaVersion).toBe('3.2.0');
     const after = await stateOf(uow);
     expect(after.pets.find((p) => p.id === toby.id)).toMatchObject({ breedCode: 'DOG_BEAGLE', breed: 'Beagle' });
     expect(JSON.parse(canonical(after))).toEqual(JSON.parse(canonical(before)));
   });
 
-  it('la vista previa de un 3.1.0 informa sourceSchemaVersion 3.1.0 y no cambia nada', async () => {
+  it('la vista previa de un 3.2.0 informa sourceSchemaVersion 3.2.0 y no cambia nada', async () => {
     const { uow, exporter, previewer } = await open(make);
     await seedBreedAndSymptom(uow);
     const { json } = await exporter.execute(ANDRES);
     const before = JSON.stringify(await stateOf(uow));
     const preview = await previewer.execute(ANDRES, json);
-    expect(preview.sourceSchemaVersion).toBe('3.1.0');
+    expect(preview.sourceSchemaVersion).toBe('3.2.0');
     expect(preview.counts.pets).toBe(5);
     expect(JSON.stringify(await stateOf(uow))).toBe(before);
   });
@@ -257,12 +258,46 @@ function defineRoundTrip(make: MakeEngine) {
     }
   });
 
-  it('una versión futura (3.2.0) se rechaza con ERR-BACKUP-VERSION-UNSUPPORTED y no cambia nada', async () => {
+  it('una versión futura (3.3.0) se rechaza con ERR-BACKUP-VERSION-UNSUPPORTED y no cambia nada', async () => {
     const { uow, importer } = await open(make);
     const before = JSON.stringify(await stateOf(uow));
-    const file = JSON.stringify({ ...v3(), schemaVersion: '3.2.0' });
+    const file = JSON.stringify({ ...v3(), schemaVersion: '3.3.0' });
     expect(await failure(importer.execute(ANDRES, file, digestOf(file)))).toMatchObject({ code: 'ERR-BACKUP-VERSION-UNSUPPORTED' });
     expect(JSON.stringify(await stateOf(uow))).toBe(before);
+  });
+
+  it('[REQ-FAL7-009][EDGE-007-006] un 3.1.0 (sin lifeStatus ni deceasedAt) se importa ALIVE y sin fecha; un 3.2.0 con una fallecida conserva el estado y la fecha en la ida y vuelta', async () => {
+    const { uow, exporter, importer } = await open(make);
+    const exported = JSON.parse((await exporter.execute(ANDRES)).json) as { schemaVersion: string; pets: Array<Record<string, unknown>> };
+    const legacy = { ...exported, schemaVersion: '3.1.0', pets: exported.pets.map(({ lifeStatus: _l, deceasedAt: _d, ...pet }) => pet) };
+    const legacyFile = JSON.stringify(legacy);
+    expect((await importer.execute(ANDRES, legacyFile, digestOf(legacyFile))).sourceSchemaVersion).toBe('3.1.0');
+    expect((await stateOf(uow)).pets.map((p) => [p.lifeStatus, p.deceasedAt])).toEqual(exported.pets.map(() => ['ALIVE', null]));
+    const kira = exported.pets.find((p) => p['name'] === 'Kira')!;
+    kira['lifeStatus'] = 'DECEASED';
+    kira['deceasedAt'] = '2026-10-01';
+    const deceasedFile = JSON.stringify(exported);
+    expect((await importer.execute(ANDRES, deceasedFile, digestOf(deceasedFile))).sourceSchemaVersion).toBe('3.2.0');
+    const imported = (await stateOf(uow)).pets.find((p) => p.name === 'Kira')!;
+    expect([imported.lifeStatus, imported.deceasedAt]).toEqual(['DECEASED', '2026-10-01']);
+    const again = JSON.parse((await exporter.execute(ANDRES)).json) as { pets: Array<Record<string, unknown>> };
+    expect(again.pets.find((p) => p['name'] === 'Kira')).toMatchObject({ lifeStatus: 'DECEASED', deceasedAt: '2026-10-01' });
+  });
+
+  it('[REQ-FAL7-002][REQ-FAL7-009] un 3.2.0 con una fallecida de fecha anterior al nacimiento, futura o Vivo con fecha se rechaza sin cambiar nada', async () => {
+    const { uow, exporter, importer } = await open(make);
+    const exported = JSON.parse((await exporter.execute(ANDRES)).json) as { pets: Array<Record<string, unknown>> };
+    const before = JSON.stringify(await stateOf(uow));
+    const invalid: Array<Record<string, unknown>> = [
+      { lifeStatus: 'DECEASED', deceasedAt: '1999-01-01' },
+      { lifeStatus: 'DECEASED', deceasedAt: '2999-01-01' },
+      { lifeStatus: 'ALIVE', deceasedAt: '2026-10-01' },
+    ];
+    for (const change of invalid) {
+      const file = JSON.stringify({ ...exported, pets: exported.pets.map((p, i) => (i === 0 ? { ...p, ...change } : p)) });
+      expect((await failure(importer.execute(ANDRES, file, digestOf(file)))).code, JSON.stringify(change)).toMatch(/^ERR-/);
+      expect(JSON.stringify(await stateOf(uow))).toBe(before);
+    }
   });
 
   it('un 3.1.0 con breedCode de otra especie se rechaza por invariante de dominio (INV-RAZ-001) y no cambia nada', async () => {

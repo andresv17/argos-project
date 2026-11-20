@@ -29,10 +29,10 @@ const entry = (code: string): Entry => {
 };
 
 describe('T512 catálogo de errores 004', () => {
-  it('REQ-ARC-001: el catálogo pasa a 3.1.0 MINOR en DRAFT y lista los 6 errores añadidos', () => {
+  it('REQ-ARC-001: el catálogo pasa a 3.1.0 MINOR en DRAFT y lista los 7 errores añadidos (6 de 004 y ERR-PET-VERSION-CONFLICT de 007)', () => {
     expect(catalog['x-sdd-metadata']).toEqual(expect.objectContaining({ version: '3.1.0', status: 'DRAFT', supersedes: '3.0.0' }));
     expect(catalog['x-sdd-metadata'].added.sort()).toEqual(
-      ['ERR-MEDIA-NOT-FOUND', 'ERR-MEDIA-QUOTA-EXCEEDED', 'ERR-MEDIA-STORAGE-UNAVAILABLE', 'ERR-MEDIA-TOO-LARGE', 'ERR-MEDIA-TYPE-NOT-ALLOWED', 'ERR-REC-CONFLICT'].sort(),
+      ['ERR-MEDIA-NOT-FOUND', 'ERR-MEDIA-QUOTA-EXCEEDED', 'ERR-MEDIA-STORAGE-UNAVAILABLE', 'ERR-MEDIA-TOO-LARGE', 'ERR-MEDIA-TYPE-NOT-ALLOWED', 'ERR-REC-CONFLICT', 'ERR-PET-VERSION-CONFLICT'].sort(),
     );
   });
 

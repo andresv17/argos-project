@@ -29,7 +29,7 @@ describe('T525 breedCode en SQLite (REQ-RAZ-003, INV-RAZ-001)', () => {
     const uow = await sqlite();
     const pet = withBreed({ breedCode: 'DOG_BEAGLE', breed: 'Beagle' });
     await uow.runInTransaction((r) => r.pets.save(pet));
-    expect(await uow.runInTransaction((r) => r.pets.findById(ARGOS.id))).toEqual(pet);
+    expect(await uow.runInTransaction((r) => r.pets.findById(ARGOS.id))).toEqual({ ...pet, lifeStatus: 'ALIVE', deceasedAt: null, version: 2 }); // 007: campos nuevos; guardar sobre la fila sembrada (versión 1) sin `version` la incrementa
   });
 
   it('una mascota anterior sin breedCode se guarda y se lee sin él (la vista lo expone nulo)', async () => {

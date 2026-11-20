@@ -12,7 +12,7 @@
  * Especie en la lectura de respaldos antiguos (T233, REQ-BACKUP2-002, INV-PET2-001): `DOG` se lee como `CANINE` y `CAT`
  * como `FELINE`. El resto de la migración a 3.0.0 llega en T276.
  *
- * @implements STATE-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-002, INV-PET2-001, INV-SORT-001, INV-ARCH-001, INV-ARCH-004
+ * @implements STATE-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-002, INV-PET2-001, INV-SORT-001, INV-ARCH-001, INV-ARCH-004, REQ-FAL7-009
  */
 
 import type { BackupEnvelopeV1Legacy, BackupEnvelopeV2Legacy, LegacyPetProfileV2 } from '../../generated/index.ts';
@@ -177,5 +177,31 @@ export function liftEnvelopeV3ToV31<E extends { readonly exportedAt: string; rea
     exportedAt: envelope.exportedAt,
     pets: envelope.pets.map((pet) => ({ ...pet, breedCode: null })),
     records: { ...records, customParameters: (records['customParameters'] ?? []).map((c) => ({ ...c, symptomType: null, severity: null })) },
+  };
+}
+
+/** Sobre 3.2.0 en su forma estructural mínima: lo que produce la lectura de cualquier versión anterior o del propio 3.2.0 (007, REQ-FAL7-009). */
+export interface BackupEnvelopeV32Shape {
+  readonly schemaVersion: '3.2.0';
+  readonly exportedAt: string;
+  readonly pets: ReadonlyArray<Record<string, unknown>>;
+  readonly records: Readonly<Record<string, ReadonlyArray<Record<string, unknown>>>>;
+}
+
+/**
+ * Sobre 3.1.0 (o 3.2.0) ya validado -> sobre en forma 3.2.0 para el resto de la importación (T1022, REQ-FAL7-009, EDGE-007-006): cada mascota lleva
+ * `lifeStatus` y `deceasedAt`; los respaldos que no los traen (1.0.0, 2.0.0, 3.0.0, 3.1.0 y los de 006) se leen `ALIVE` y sin fecha, y los que sí
+ * los traen los conservan. No muta la entrada.
+ * @implements REQ-FAL7-009, EDGE-007-006, REQ-FAL7-001
+ */
+export function liftEnvelopeV31ToV32<E extends { readonly exportedAt: string; readonly pets: ReadonlyArray<object>; readonly records: object }>(envelope: E): BackupEnvelopeV32Shape {
+  return {
+    schemaVersion: '3.2.0',
+    exportedAt: envelope.exportedAt,
+    pets: envelope.pets.map((pet) => {
+      const stored = pet as { lifeStatus?: unknown; deceasedAt?: unknown };
+      return { ...pet, lifeStatus: stored.lifeStatus ?? 'ALIVE', deceasedAt: stored.deceasedAt ?? null };
+    }),
+    records: envelope.records as Readonly<Record<string, ReadonlyArray<Record<string, unknown>>>>,
   };
 }
