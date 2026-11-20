@@ -41,7 +41,7 @@ type T = ReturnType<typeof setup>;
 const audit = (t: T) => t.h.uow.snapshot().auditLog.filter((e) => ['HOME_SCENE', 'SCENE_CONSENT', 'HOUSEHOLD_PHOTO'].includes(e.entityType));
 const hmac = (t: T, value: string): string => t.deps.auditPseudonym.hmacUserId(value, t.deps.auditHmacSecret);
 async function png(): Promise<Uint8Array> {
-  const r = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], signal: new AbortController().signal });
+  const r = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], seed: 0, signal: new AbortController().signal });
   if (!r.ok) throw new Error('sin imagen');
   return r.image.bytes;
 }

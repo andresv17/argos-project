@@ -107,7 +107,7 @@ describe('composición del driver real en scene-composition.ts (REQ-ESC6-017, RE
 
   it('[REQ-ESC6-017] el generador usa el modelo y la región de los parámetros resueltos (platform_parameters) y el proyecto de la configuración, con el token de metadata simulado', async () => {
     const urls: string[] = [];
-    const png = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], signal: new AbortController().signal });
+    const png = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], seed: 0, signal: new AbortController().signal });
     if (!png.ok) throw new Error('sin imagen simulada');
     const fetchDouble = (async (url: string | URL | Request) => {
       urls.push(String(url));
@@ -120,7 +120,7 @@ describe('composición del driver real en scene-composition.ts (REQ-ESC6-017, RE
       globalQuota: grantingQuota(),
       providerParameters: { model: 'gemini-3-pro-image', location: 'europe-west4', globalQuotaMax: 5 },
     });
-    const result = await services.generator.generate({ prompt: 'p', references: [], signal: new AbortController().signal });
+    const result = await services.generator.generate({ prompt: 'p', references: [], seed: 0, signal: new AbortController().signal });
     expect(result.ok).toBe(true);
     expect(urls[1]).toBe('https://europe-west4-aiplatform.googleapis.com/v1/projects/argos-prod-1234/locations/europe-west4/publishers/google/models/gemini-3-pro-image:generateContent');
   });
@@ -132,7 +132,7 @@ describe('composición del driver real en scene-composition.ts (REQ-ESC6-017, RE
       return new Response('{}', { status: 500 });
     }) as typeof fetch;
     const services = composeSceneServices(config(), { run: async () => 'NOOP', fetch: fetchDouble, getAccessToken: async () => 'tok', globalQuota: grantingQuota() });
-    await services.generator.generate({ prompt: 'p', references: [], signal: new AbortController().signal });
+    await services.generator.generate({ prompt: 'p', references: [], seed: 0, signal: new AbortController().signal });
     expect(urls).toEqual(['https://us-central1-aiplatform.googleapis.com/v1/projects/argos-prod-1234/locations/us-central1/publishers/google/models/gemini-2.5-flash-image:generateContent']);
   });
 

@@ -43,7 +43,7 @@ function setup(options: SceneFixtureOptions = {}) {
 type T = ReturnType<typeof setup>;
 const snap = (t: T) => t.h.uow.snapshot();
 async function pngBytes(): Promise<Uint8Array> {
-  const r = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], signal: new AbortController().signal });
+  const r = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], seed: 0, signal: new AbortController().signal });
   if (!r.ok) throw new Error('sin imagen');
   return r.image.bytes;
 }

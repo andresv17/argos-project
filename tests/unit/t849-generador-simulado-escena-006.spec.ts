@@ -12,6 +12,7 @@ import { InProcessSceneDispatcher } from '../../src/infrastructure/adapters/in-p
 const request = (prompt = 'draw a room', signal: AbortSignal = new AbortController().signal): SceneGenerationRequest => ({
   prompt,
   references: [{ ref: 'IMG_1', mime: 'image/png', bytes: new Uint8Array([1, 2, 3]) }],
+  seed: 0,
   signal,
 });
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -48,8 +49,8 @@ describe('FakeSceneImageGenerator (T849)', () => {
     await fake.generate(request('a'));
     await fake.generate(request('b'));
     expect(fake.calls).toEqual([
-      { prompt: 'a', references: [{ ref: 'IMG_1', mime: 'image/png', byteLength: 3 }] },
-      { prompt: 'b', references: [{ ref: 'IMG_1', mime: 'image/png', byteLength: 3 }] },
+      { prompt: 'a', seed: 0, references: [{ ref: 'IMG_1', mime: 'image/png', byteLength: 3 }] },
+      { prompt: 'b', seed: 0, references: [{ ref: 'IMG_1', mime: 'image/png', byteLength: 3 }] },
     ]);
     expect(JSON.stringify(fake.calls).includes('"bytes"')).toBe(false);
   });

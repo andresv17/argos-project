@@ -27,7 +27,7 @@ const AVATAR = 'e1000000-0000-4000-8000-000000000001';
 const LUNA_AVATAR = 'e1000000-0000-4000-8000-000000000002';
 
 async function png(): Promise<Uint8Array> {
-  const r = await new FakeSceneImageGenerator().generate({ prompt: 'ref', references: [], signal: new AbortController().signal });
+  const r = await new FakeSceneImageGenerator().generate({ prompt: 'ref', references: [], seed: 0, signal: new AbortController().signal });
   if (!r.ok) throw new Error('el generador simulado no devolvió imagen');
   return r.image.bytes;
 }

@@ -59,7 +59,7 @@ describe('redactSecrets (cloud-logging.ts, REQ-ESC6-038)', () => {
 });
 
 describe('adaptador: ningún resultado, error ni registro lleva la clave (INV-ESC6-016)', () => {
-  const request = { prompt: PROMPT, references: [], signal: new AbortController().signal };
+  const request = { prompt: PROMPT, references: [], seed: 0, signal: new AbortController().signal };
   const silence = () => (['log', 'info', 'warn', 'error', 'debug'] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => undefined));
   const make = (fetchDouble: typeof fetch) => new GeminiApiSceneImageGenerator({ apiKey: KEY, model: MODEL, timeoutSeconds: 90, fetch: fetchDouble });
 

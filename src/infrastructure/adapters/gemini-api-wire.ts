@@ -37,7 +37,7 @@ export const geminiGenerateUrl = (model: string): string => `${GEMINI_API_ORIGIN
  * Cuerpo `generateContent`: el texto del prompt primero y luego cada referencia en el orden recibido (`IMG_1..IMG_n`, ya fijado por el worker), con una parte de texto
  * `IMG_n:` antepuesta a cada `inlineData` para que el modelo asocie cada imagen con su etiqueta (SC-ESC6-104). La etiqueta es la del puerto (cadena fija de ranura, sin datos de usuario).
  */
-export function buildGeminiBody(prompt: string, references: ReadonlyArray<SceneReferenceImage>, modalities: GeminiModalities): string {
+export function buildGeminiBody(prompt: string, references: ReadonlyArray<SceneReferenceImage>, modalities: GeminiModalities, seed: number): string {
   return JSON.stringify({
     contents: [
       {
@@ -48,7 +48,7 @@ export function buildGeminiBody(prompt: string, references: ReadonlyArray<SceneR
         ],
       },
     ],
-    generationConfig: { responseModalities: [...modalities] },
+    generationConfig: { responseModalities: [...modalities], seed },
   });
 }
 

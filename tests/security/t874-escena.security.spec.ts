@@ -46,7 +46,7 @@ async function setup(scene: SceneFixtureOptions = {}, mariaRole: 'ADMIN' | 'CARE
 }
 
 async function png(): Promise<Uint8Array> {
-  const r = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], signal: new AbortController().signal });
+  const r = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], seed: 0, signal: new AbortController().signal });
   if (!r.ok) throw new Error('sin imagen');
   return r.image.bytes;
 }

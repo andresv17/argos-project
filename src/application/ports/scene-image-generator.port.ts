@@ -20,6 +20,8 @@ export interface SceneGenerationRequest {
   /** Texto compilado de `buildImagePrompt` (determinista). */
   readonly prompt: string;
   readonly references: ReadonlyArray<SceneReferenceImage>;
+  /** Semilla determinista del intento (`deriveSceneSeed(attempt.id)`, REQ-ESC7-007): el adaptador real la traslada a `generationConfig.seed`; no se persiste ni se registra. */
+  readonly seed: number;
   /** Aborta la llamada al agotar `T_GEN`. */
   readonly signal: AbortSignal;
 }

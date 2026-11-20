@@ -21,7 +21,7 @@ const key = (n: number): string => `b0000000-0000-4000-8000-${String(n).padStart
 const OTHER_HOUSE = 'dddddddd-dddd-4ddd-8ddd-dddddddddd02';
 
 async function png(): Promise<Uint8Array> {
-  const r = await new FakeSceneImageGenerator().generate({ prompt: 'foto', references: [], signal: new AbortController().signal });
+  const r = await new FakeSceneImageGenerator().generate({ prompt: 'foto', references: [], seed: 0, signal: new AbortController().signal });
   if (!r.ok) throw new Error('sin imagen');
   return r.image.bytes;
 }

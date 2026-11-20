@@ -15,6 +15,7 @@
 import { avatarObjectKey, householdPhotoObjectKey, sceneImageObjectKey } from '../../domain/media/media-keys.ts';
 import { buildImagePrompt } from '../../domain/scene/build-image-prompt.ts';
 import { decideMode, type ModePlan } from '../../domain/scene/decide-mode.ts';
+import { deriveSceneSeed } from '../../domain/scene/scene-seed.ts';
 import { parseInputsSnapshot, type InputsSnapshot } from '../../domain/scene/inputs-snapshot.ts';
 import { applyPublication, quotaWindowOf } from '../../domain/scene/quota-window.ts';
 import { buildScenePayload } from '../../domain/scene/scene-payload.ts';
@@ -166,7 +167,7 @@ export class RunSceneGenerationUseCase {
 
     let generated: Awaited<ReturnType<typeof svc.generator.generate>>;
     try {
-      generated = await svc.generator.generate({ prompt, references, signal });
+      generated = await svc.generator.generate({ prompt, references, seed: deriveSceneSeed(attempt.id), signal });
     } catch {
       return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
     }

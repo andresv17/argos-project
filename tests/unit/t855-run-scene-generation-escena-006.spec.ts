@@ -35,7 +35,7 @@ class HookedGenerator implements SceneImageGeneratorPort {
 }
 
 async function validPng(): Promise<Uint8Array> {
-  const result = await new FakeSceneImageGenerator().generate({ prompt: 'ref', references: [], signal: new AbortController().signal });
+  const result = await new FakeSceneImageGenerator().generate({ prompt: 'ref', references: [], seed: 0, signal: new AbortController().signal });
   if (!result.ok) throw new Error('el generador simulado no devolvió imagen');
   return result.image.bytes;
 }
