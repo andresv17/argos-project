@@ -420,6 +420,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(PLATFORM_PATH, 'utf8'));
         await client.query(readFileSync(SHARE_PATH, 'utf8'));
         await client.query(readFileSync(HOME_PATH, 'utf8'));
+        await client.query(readFileSync(LIFE_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],
