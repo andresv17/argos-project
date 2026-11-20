@@ -111,6 +111,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
 }
 
 /** Clave de idempotencia nueva por clic (UUID v4, EDGE-ESC6-016). */
+// nosemgrep: tests.security.sast-rules.argos-no-entropy-outside-adapters — la SPA genera Idempotency-Key de cliente en el navegador (INV-ARCH-004 prohíbe importar infrastructure/ en web/).
 const newKey = (): string => crypto.randomUUID();
 
 /** Contenedor: lee la escena, sondea cada 3 s mientras `generating` y ejecuta el botón único (siempre `REGENERATE`) con una clave nueva por clic. */

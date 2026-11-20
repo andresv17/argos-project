@@ -31,6 +31,7 @@ import {
   type StrippableMime,
 } from '../adapters/image-metadata-stripper.ts';
 import { InProcessSceneDispatcher } from '../adapters/in-process-scene-dispatcher.adapter.ts';
+import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
 import { createVertexSceneGenerator } from '../adapters/vertex-scene-image-generator.adapter.ts';
 import type { AppConfig, SceneConfig } from '../config/app-config.ts';
 
@@ -104,7 +105,7 @@ export function composeSceneServices(config: AppConfig, options: SceneCompositio
     leaseSeconds: scene.leaseSeconds,
     queueWaitSeconds: scene.queueWaitSeconds,
     realDriver: gemini || real,
-    utcOffsetMinutes: utcOffsetMinutesOf(config.appTimezone, new Date()),
+    utcOffsetMinutes: utcOffsetMinutesOf(config.appTimezone, new Date(new SystemClockAdapter(config.appTimezone).nowIsoTimestamp())),
     noticeVersion: gemini ? SCENE_GEMINI_API_NOTICE_VERSION : SCENE_NOTICE_VERSION,
     providerId: gemini ? SCENE_GEMINI_API_PROVIDER_ID : SCENE_PROVIDER_ID,
     images: {
