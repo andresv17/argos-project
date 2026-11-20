@@ -58,7 +58,7 @@ const jsonIndexes = (text: string): number[] => (jsonOf(text)?.pets ?? []).map((
 const photoOrdinals = (text: string): number[] => photoLines(text).map((l) => Number(/^Pet (\d+) /.exec(l)![1]));
 
 describe('T1071 literales 16-bit de Neo (REQ-ESC7-005, SC-007-041)', () => {
-  it('[SC-007-041] STYLE_BASE_TEXT, PIXEL_REDRAW_RULE y el prompt completo usan los literales 16-bit de Neo', () => {
+  it('[SC-007-041][REQ-ESC7-005] STYLE_BASE_TEXT, PIXEL_REDRAW_RULE y el prompt completo usan los literales 16-bit de Neo', () => {
     expect(STYLE_BASE_TEXT).toBe(NEO_STYLE_BASE_TEXT);
     expect(PIXEL_REDRAW_RULE).toBe(NEO_PIXEL_REDRAW_RULE);
     expect(DEFAULT_SCENE_STYLE.artStyle).toBe(NEO_ARTSTYLE);
@@ -88,7 +88,7 @@ describe('T1071 literales 16-bit de Neo (REQ-ESC7-005, SC-007-041)', () => {
 });
 
 describe('T1071 todas con foto (SC-007-036, REQ-ESC7-003/004)', () => {
-  it('[SC-007-036] hogar IMG_1 y mascotas IMG_2..IMG_(N+1) en orden; el bloque de fotos lista las N; sin JSON ni PET_COUNT_RULE', () => {
+  it('[SC-007-036][REQ-ESC7-003] hogar IMG_1 y mascotas IMG_2..IMG_(N+1) en orden; el bloque de fotos lista las N; sin JSON ni PET_COUNT_RULE', () => {
     for (const mode of ['FROM_SCRATCH', 'REGENERATE'] as const) {
       const text = once(payload([withPhoto(1, 'IMG_2'), cat(2, { hasReferencePhoto: true, photoRef: 'IMG_3' }), withPhoto(3, 'IMG_4')], { household: true, mode }));
       expect(photoLines(text)).toHaveLength(3);
@@ -105,7 +105,7 @@ describe('T1071 todas con foto (SC-007-036, REQ-ESC7-003/004)', () => {
     }
   });
 
-  it('[SC-007-036] ejemplo 1 de Neo: hogar IMG_1 + dog IMG_2 + cat IMG_3, bloques en orden estable', () => {
+  it('[SC-007-036][REQ-ESC7-004] ejemplo 1 de Neo: hogar IMG_1 + dog IMG_2 + cat IMG_3, bloques en orden estable', () => {
     const text = once(payload([withPhoto(1, 'IMG_2'), cat(2, { hasReferencePhoto: true, photoRef: 'IMG_3' })], { household: true }));
     const blocks = blocksOf(text);
     expect(blocks[0]).toBe(NEO_STYLE_BASE_TEXT);
@@ -206,13 +206,14 @@ describe('T1071 cero mascotas (SC-007-039)', () => {
 });
 
 describe('T1071 frase de conteo exacta (SC-007-040, REQ-ESC7-006, D7-ESC-01)', () => {
-  it('[SC-007-040] N = 1: singular «1 pet … this 1 pet», una sola vez, con foto o sin foto', () => {
+  it('[SC-007-040][REQ-ESC7-006] N = 1: singular «1 pet … this 1 pet», una sola vez, con foto o sin foto', () => {
     for (const p of [payload([pet(1)]), payload([withPhoto(1, 'IMG_2')], { household: true })]) {
       const text = once(p);
       expect(countOf(text, 'Exact animal count: ')).toBe(1);
       expect(blocksOf(text)).toContain(neoCount(1, '1 dog'));
       expect(text.includes('1 pets')).toBe(false);
       expect(text.includes('these 1 pets')).toBe(false);
+      expect(blocksOf(text)).toContain('Place the 1 pet naturally in a cozy spot of the room.');
     }
   });
 
@@ -341,7 +342,7 @@ describe('T1071 SC-007-043: los tres ejemplos de Neo byte a byte (salvo el token
     expect(text).toBe([NEO_STYLE_BASE_TEXT, NEO_HOUSEHOLD_GENERIC, neoPlaceAll(2), json, neoCount(2, '1 dog, 1 cat')].join('\n\n'));
   });
 
-  it('[SC-007-043][R2] ejemplo 3: mixto con hogar; el JSON conserva el ordinal global 2', () => {
+  it('[SC-007-043][R2][REQ-ESC7-004] ejemplo 3: mixto con hogar; el JSON conserva el ordinal global 2', () => {
     const text = once(payload([withPhoto(1, 'IMG_2'), cat(2)], { household: true }));
     const json = `${NEO_SPEC_HEADER}\n{"renderedPetsCount":1,"pets":[${jsonPet(2, 'cat')}]}`;
     expect(text).toBe([NEO_STYLE_BASE_TEXT, neoHouseholdWithPhoto('IMG_1'), photoLine(1, 'dog', 'IMG_2'), neoPlaceAll(2), json, neoCount(2, '1 dog, 1 cat'), REDRAW].join('\n\n'));

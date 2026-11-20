@@ -33,10 +33,19 @@ function speciesLabel(pet: PetBlock): string {
 /** Etiqueta legible de la especie para la línea `Pet {k} ({especie}):` y el conteo (D6-21): enums del dominio o `speciesOther` saneado entre comillas, o «animal». */
 export const petSpeciesLabel = (pet: PetBlock): string => speciesLabel(pet);
 
+/** Palabra de especie del JSON de escena (R5): la etiqueta del dominio en inglés; `OTHER` viaja como «other» y su `speciesOther` saneado va aparte. */
+export const petSpeciesJsonWord = (pet: PetBlock): string => (pet.species === 'OTHER' ? 'other' : (SPECIES_LABELS[pet.species] ?? 'animal'));
+
 /**
- * Línea de conteo exacto por especie (D6-21, ADR-006-19; SC-ESC6-137): `Exact animal count: {N} total ({n1} {etiqueta1}, …).` o `null` con N = 0. Calculada solo de las
- * mascotas recibidas (el payload sin las `REMOVE`); los grupos siguen el orden de primera aparición (`Map` de inserción, sin ordenar); singular con 1 y plural regular con `s`;
- * la etiqueta `OTHER` con valor va entre comillas y no se flexiona. Pura (INV-ESC6-001) y sin cifras quemadas.
+ * Token de talla de la línea de foto («medium dog»). PROVISIONAL (R6, D7-ESC-02): `PetBlock` no tiene talla y el contrato no se toca, así que devuelve vacío. Es el ÚNICO punto
+ * donde adoptar la opción (a) de Neo cambiaría el texto; el resto de la estructura no depende de él.
+ */
+export const petSizeToken = (_pet: PetBlock): string => '';
+
+/**
+ * Frase de conteo exacto (D7-ESC-01, REQ-ESC7-006; decisión de Neo): `null` con N = 0; N = 1: `Exact animal count: 1 pet in total (G). Draw only this 1 pet and no additional animals.`;
+ * N >= 2: `Exact animal count: N pets in total (G). Draw only these N pets and no additional animals.`. `G` es el desglose por especie (orden de primera aparición, singular con 1 y
+ * plural regular con `s`; la etiqueta `OTHER` con valor va entre comillas y no se flexiona). Calculada solo de las mascotas recibidas. Pura (INV-ESC6-001), sin cifras quemadas.
  */
 export function animalCountLine(pets: readonly PetBlock[]): string | null {
   if (pets.length === 0) return null;
@@ -46,10 +55,13 @@ export function animalCountLine(pets: readonly PetBlock[]): string | null {
     groups.set(label, (groups.get(label) ?? 0) + 1);
   }
   const parts = [...groups].map(([label, n]) => `${n} ${n === 1 || label.startsWith('"') ? label : `${label}s`}`);
-  return `Exact animal count: ${pets.length} total (${parts.join(', ')}).`;
+  const detail = parts.join(', ');
+  return pets.length === 1
+    ? `Exact animal count: 1 pet in total (${detail}). Draw only this 1 pet and no additional animals.`
+    : `Exact animal count: ${pets.length} pets in total (${detail}). Draw only these ${pets.length} pets and no additional animals.`;
 }
 
-const sexLabel = (pet: PetBlock): string => (pet.sex === 'MALE' ? 'male' : 'female');
+export const sexLabel = (pet: PetBlock): string => (pet.sex === 'MALE' ? 'male' : 'female');
 
 /** Frase de una mascota sin foto: nombre canónico (Anexo A) o mestizo amigable (D6-14), sin texto libre de raza. */
 function describePet(pet: PetBlock): string {
@@ -62,7 +74,8 @@ function describePet(pet: PetBlock): string {
 
 export function petSentence(pet: PetBlock): string {
   if (pet.hasReferencePhoto && pet.photoRef !== null) {
-    return `Use ${pet.photoRef} as the exact visual reference for this pet, faithfully preserving its species, fur colors, coat patterns, ear shapes, proportions, and unique markings.`;
+    const kind = [petSizeToken(pet), speciesLabel(pet)].filter((word) => word !== '').join(' ');
+    return `Use ${pet.photoRef} as the exact visual reference for this ${kind}.`;
   }
   return `${describePet(pet)}.`;
 }
