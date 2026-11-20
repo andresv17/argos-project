@@ -150,7 +150,7 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
     },
   });
   const onFormSubmit = (event: FormEvent): void => {
-    if (asking) {
+    if (asking && !confirmed.current) {
       event.preventDefault();
       return;
     }
@@ -163,7 +163,11 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
   };
   const onChange = (name: string, value: string): void => {
     form.onChange(name, value);
-    if (name === 'lifeStatus') setAsking(false);
+    if (name === 'lifeStatus') {
+      setAsking(false);
+      // El esquema exige `deceasedAt` nulo con ALIVE: al volver a Vivo la fecha se vacía en el formulario (el servidor la borra, REQ-FAL7-002).
+      if (value === 'ALIVE') form.onChange('deceasedAt', '');
+    }
     if (name === 'species' && value !== 'OTHER') form.onChange('speciesOther', '');
     if (name === 'species') {
       const fields = breedFieldsForSpecies(value);
@@ -289,7 +293,11 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
           <PetAssignments petId={profile.id} />
         </div>
       ) : null}
-      {asking && profile !== null ? <ReviveConfirmation petName={profile.name} onConfirm={confirmRevive} onCancel={() => { setAsking(false); form.onChange('lifeStatus', 'DECEASED'); }} /> : null}
+      {asking && profile !== null ? <ReviveConfirmation petName={profile.name} onConfirm={confirmRevive} onCancel={() => {
+          setAsking(false);
+          form.onChange('lifeStatus', 'DECEASED');
+          form.onChange('deceasedAt', profile.deceasedAt ?? '');
+        }} /> : null}
       <div className="sm:col-span-2">
         <FormError errors={form.errors} message={form.message} />
       </div>
