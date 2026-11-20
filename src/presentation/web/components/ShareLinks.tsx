@@ -31,6 +31,7 @@ export interface CreatedLinkView {
   readonly expiresAt: string;
   readonly includeMicrochip: boolean;
   readonly includeClinicalFiles: boolean;
+  readonly includeDeceasedAt?: boolean;
 }
 
 export interface ShareLinksViewProps {
@@ -43,6 +44,8 @@ export interface ShareLinksViewProps {
   readonly expiresInDays: 1 | 7 | 30;
   readonly includeMicrochip: boolean;
   readonly includeClinicalFiles: boolean;
+  /** Opt-in de la fecha de fallecimiento (007, T1026); desmarcada por defecto. */
+  readonly includeDeceasedAt?: boolean;
   readonly busy: boolean;
   readonly error: string | null;
   readonly created: CreatedLinkView | null;
@@ -54,6 +57,7 @@ export interface ShareLinksViewProps {
   readonly onExpiry: (days: 1 | 7 | 30) => void;
   readonly onMicrochip: (checked: boolean) => void;
   readonly onClinicalFiles: (checked: boolean) => void;
+  readonly onDeceasedAt?: (checked: boolean) => void;
   readonly onCreate: () => void;
   readonly onCancel: () => void;
   readonly onCopy: () => void;
@@ -124,7 +128,7 @@ function LinkRow({ link, props }: { readonly link: ShareLinkView; readonly props
 }
 
 export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
-  const { petName, household, now, scope, expiresInDays, includeMicrochip, includeClinicalFiles, busy, error, created, copyStatus, list, notice } = props;
+  const { petName, household, now, scope, expiresInDays, includeMicrochip, includeClinicalFiles, includeDeceasedAt, busy, error, created, copyStatus, list, notice } = props;
   return (
     <section aria-labelledby="share-links-title" className={CARD}>
       <h3 id="share-links-title" className="text-base font-semibold text-slate-900">
@@ -217,6 +221,13 @@ export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
             <p id="share-files-help" className="text-sm text-text-muted">
               Si no la marcas, el veterinario no ve ni descarga tus archivos clínicos.
             </p>
+            <label className={CHOICE}>
+              <input type="checkbox" name="includeDeceasedAt" checked={includeDeceasedAt ?? false} onChange={(e) => props.onDeceasedAt?.(e.target.checked)} aria-describedby="share-deceased-help" className={INPUT} />
+              Incluir la fecha de fallecimiento
+            </label>
+            <p id="share-deceased-help" className="text-sm text-text-muted">
+              Solo aplica a mascotas fallecidas. Si no la marcas, el resumen indica que la mascota falleció pero no la fecha.
+            </p>
           </div>
           <p className="text-sm font-semibold text-slate-900">Quien tenga el enlace puede ver el resumen sin iniciar sesión, hasta que venza o lo revoques.</p>
           <div className="flex flex-wrap gap-2">
@@ -267,6 +278,7 @@ export function ShareLinksPanel({ petId, petName, household, api = createShareAp
   const [expiresInDays, setExpiresInDays] = useState<1 | 7 | 30>(7);
   const [includeMicrochip, setIncludeMicrochip] = useState(false);
   const [includeClinicalFiles, setIncludeClinicalFiles] = useState(false);
+  const [includeDeceasedAt, setIncludeDeceasedAt] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -308,7 +320,7 @@ export function ShareLinksPanel({ petId, petName, household, api = createShareAp
     // nosemgrep: tests.security.sast-rules.argos-no-entropy-outside-adapters — la SPA genera Idempotency-Key de cliente en el navegador (INV-ARCH-004 prohíbe importar infrastructure/ en web/).
     idempotencyKey.current ??= crypto.randomUUID();
     try {
-      const outcome = await api.create(ref(scope), { expiresInDays, includeMicrochip, includeClinicalFiles }, idempotencyKey.current);
+      const outcome = await api.create(ref(scope), { expiresInDays, includeMicrochip, includeClinicalFiles, includeDeceasedAt }, idempotencyKey.current);
       idempotencyKey.current = null;
       if (outcome.kind === 'CREATED') {
         setCreated({ url: outcome.url, scopeLabel: scope === 'PET' ? petName : `Hogar compartido · ${household?.petCount ?? 0} mascotas`, expiresAt: outcome.link.expiresAt, includeMicrochip: outcome.link.includeMicrochip, includeClinicalFiles: outcome.link.includeClinicalFiles });
@@ -350,7 +362,7 @@ export function ShareLinksPanel({ petId, petName, household, api = createShareAp
   };
 
   const preview = (): void => {
-    const query = `includeMicrochip=${String(includeMicrochip)}&includeClinicalFiles=${String(includeClinicalFiles)}`;
+    const query = `includeMicrochip=${String(includeMicrochip)}&includeClinicalFiles=${String(includeClinicalFiles)}${includeDeceasedAt ? '&includeDeceasedAt=true' : ''}`;
     navigate(scope === 'HOUSEHOLD' && household !== null ? `/households/${household.id}/resumen?${query}` : `/mascotas/${petId}/resumen?${query}`);
   };
 
@@ -363,6 +375,7 @@ export function ShareLinksPanel({ petId, petName, household, api = createShareAp
       expiresInDays={expiresInDays}
       includeMicrochip={includeMicrochip}
       includeClinicalFiles={includeClinicalFiles}
+      includeDeceasedAt={includeDeceasedAt}
       busy={busy}
       error={error}
       created={created}
@@ -374,12 +387,14 @@ export function ShareLinksPanel({ petId, petName, household, api = createShareAp
       onExpiry={changed(setExpiresInDays)}
       onMicrochip={changed(setIncludeMicrochip)}
       onClinicalFiles={changed(setIncludeClinicalFiles)}
+      onDeceasedAt={changed(setIncludeDeceasedAt)}
       onCreate={() => void create()}
       onCancel={() => {
         idempotencyKey.current = null;
         setExpiresInDays(7);
         setIncludeMicrochip(false);
         setIncludeClinicalFiles(false);
+        setIncludeDeceasedAt(false);
         setScope('PET');
         setError(null);
       }}

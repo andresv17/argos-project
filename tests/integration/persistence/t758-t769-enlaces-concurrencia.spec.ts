@@ -25,7 +25,7 @@ import { seedSqlite } from '../../fixtures/sqlite-harness.ts';
 const NOW = '2026-11-05T12:00:00.000Z';
 const HOUSE_REF = { scope: 'HOUSEHOLD', householdId: HOUSEHOLD_ID } as const;
 const PET_REF = { scope: 'PET', petId: ARGOS.id } as const;
-const PG_SHARE_SQL = ['0007_platform_parameters.sql', '0008_share_links.sql'].map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
+const PG_SHARE_SQL = ['0007_platform_parameters.sql', '0008_share_links.sql', '0011_share_link_deceased_at.sql'].map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
 
 interface Engine {
   readonly name: 'SQLite' | 'PostgreSQL';

@@ -30,6 +30,9 @@ const HOME_PATH = new URL('../../../src/infrastructure/persistence/postgres/migr
 /** T1017 (007): la 0010 de Postgres equivale a la 0014 de SQLite (`life_status`, `deceased_at` y `version` de `pets`, REQ-FAL7-001, EDGE-007-009). */
 const LIFE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0010_pet_life_status.sql', import.meta.url);
 
+/** T1026 (007): la 0011 de Postgres equivale a la 0015 de SQLite (`share_links.include_deceased_at`, opt-in de `deceasedAt`, SC-007-016). */
+const DECEASED_LINK_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0011_share_link_deceased_at.sql', import.meta.url);
+
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
   'audit_log', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'home_scenes', 'household_invitations',
@@ -209,7 +212,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -421,6 +424,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(SHARE_PATH, 'utf8'));
         await client.query(readFileSync(HOME_PATH, 'utf8'));
         await client.query(readFileSync(LIFE_PATH, 'utf8'));
+        await client.query(readFileSync(DECEASED_LINK_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

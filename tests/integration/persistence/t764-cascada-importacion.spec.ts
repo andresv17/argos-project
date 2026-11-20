@@ -29,7 +29,7 @@ import { KEY, SHARE_IP_SECRET, SequentialShareTokenGenerator, codeOf } from '../
 import { seedSqlite } from '../../fixtures/sqlite-harness.ts';
 import { SpyPasswordHasher } from '../../fixtures/test-doubles.ts';
 
-const PG_SHARE_SQL = ['0007_platform_parameters.sql', '0008_share_links.sql'].map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
+const PG_SHARE_SQL = ['0007_platform_parameters.sql', '0008_share_links.sql', '0011_share_link_deceased_at.sql'].map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
 const PET_REF = { scope: 'PET', petId: ARGOS.id } as const;
 
 interface Engine {

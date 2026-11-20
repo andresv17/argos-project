@@ -42,6 +42,7 @@ export function toShareLinkView(link: ShareLinkRecord, now: string): ShareLinkVi
     revokedAt: link.revokedAt,
     includeMicrochip: link.includeMicrochip,
     includeClinicalFiles: link.includeClinicalFiles,
+    includeDeceasedAt: link.includeDeceasedAt,
   };
 }
 
@@ -54,11 +55,11 @@ function parseIdempotencyKey(value: unknown): string {
   return value;
 }
 
-function parseCreateInput(body: unknown): { expiresInDays: 1 | 7 | 30; includeMicrochip: boolean; includeClinicalFiles: boolean } {
+function parseCreateInput(body: unknown): { expiresInDays: 1 | 7 | 30; includeMicrochip: boolean; includeClinicalFiles: boolean; includeDeceasedAt: boolean } {
   const input = assertMatchesSchema<CreateShareLinkInput>('CreateShareLinkInput', validateCreateShareLinkInput, body);
   const expiresInDays = input.expiresInDays ?? DEFAULT_EXPIRY_DAYS;
   if (!isExpiryDays(expiresInDays)) throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'expiresInDays debe ser 1, 7 o 30.', 'expiresInDays');
-  return { expiresInDays, includeMicrochip: input.includeMicrochip ?? false, includeClinicalFiles: input.includeClinicalFiles ?? false };
+  return { expiresInDays, includeMicrochip: input.includeMicrochip ?? false, includeClinicalFiles: input.includeClinicalFiles ?? false, includeDeceasedAt: input.includeDeceasedAt ?? false };
 }
 
 const sameCreation = (link: ShareLinkRecord, ref: ShareScopeRef, input: ReturnType<typeof parseCreateInput>): boolean =>
@@ -66,9 +67,10 @@ const sameCreation = (link: ShareLinkRecord, ref: ShareScopeRef, input: ReturnTy
   (ref.scope === 'PET' ? link.petId === ref.petId : link.householdId === ref.householdId) &&
   link.expiresInDays === input.expiresInDays &&
   link.includeMicrochip === input.includeMicrochip &&
-  link.includeClinicalFiles === input.includeClinicalFiles;
+  link.includeClinicalFiles === input.includeClinicalFiles &&
+  link.includeDeceasedAt === input.includeDeceasedAt;
 
-/** @implements REQ-VET-001, REQ-VET-003, REQ-VET-004, REQ-VET-008, REQ-VET-012, INV-005-005, SC-005-015, SC-005-025, SC-005-038, SC-005-051 */
+/** @implements REQ-VET-001, REQ-VET-003, REQ-VET-004, REQ-VET-008, REQ-VET-012, INV-005-005, SC-005-015, SC-005-025, SC-005-038, SC-005-051, SC-007-016 */
 export class CreateShareLinkUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
@@ -103,6 +105,7 @@ export class CreateShareLinkUseCase {
         revokedAt: null,
         includeMicrochip: input.includeMicrochip,
         includeClinicalFiles: input.includeClinicalFiles,
+        includeDeceasedAt: input.includeDeceasedAt,
         idempotencyKey: key,
         petOwnerUserIdAtCreation: authority.petOwnerUserId,
       };

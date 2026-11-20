@@ -133,7 +133,12 @@ export function buildClinicalSummary(scope: ScopeName, pets: readonly SummaryPet
     scope,
     dataProvenance: 'CAREGIVER_REPORTED_NOT_VERIFIED',
     automaticInterpretation: 'NONE',
-    disclosure: { microchipIncluded: options.includeMicrochip, clinicalFilesIncluded: options.includeClinicalFiles },
+    disclosure: {
+      microchipIncluded: options.includeMicrochip,
+      clinicalFilesIncluded: options.includeClinicalFiles,
+      // 007, T1026: la señal solo viaja con el opt-in (ausente equivale a false en el contrato).
+      ...(options.includeDeceasedAt === true ? { deceasedAtIncluded: true } : {}),
+    },
     pets: ordered.map((input) => buildPet(input, generatedAt, options)) as ClinicalSummary['pets'],
   };
 }

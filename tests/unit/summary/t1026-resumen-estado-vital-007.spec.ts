@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildClinicalSummary, type SummaryPetInput } from '../../../src/domain/summary/clinical-summary.ts';
-import { validateClinicalSummary } from '../../../src/generated/v33/index.ts';
+import { validateClinicalSummary, validateCreateShareLinkInput, validateShareLinkView } from '../../../src/generated/v33/index.ts';
 import type { PetProfile } from '../../../src/domain/pet/pet-invariants.ts';
 import { ARGOS, canonicalState } from '../../fixtures/application-harness.ts';
 import { upgradePet, upgradeRecords } from '../../fixtures/storage-upgrade.ts';
@@ -58,5 +58,26 @@ describe('T1026: estado de vida en el ClinicalSummary (REQ-FAL7-008, SC-007-016)
     const profile = buildClinicalSummary('PET', [input(legacy)], GENERATED_AT, { ...OFF, includeDeceasedAt: true }).pets[0]!.profile;
     expect(profile.lifeStatus).toBe('ALIVE');
     expect('deceasedAt' in profile).toBe(false);
+  });
+
+  it('[REQ-FAL7-008][SC-007-016] la disclosure lleva deceasedAtIncluded: true solo con el opt-in; sin el opt-in la clave esta ausente (equivale a false)', () => {
+    const on = buildClinicalSummary('PET', [input(deceased())], GENERATED_AT, { ...OFF, includeDeceasedAt: true });
+    expect(on.disclosure).toEqual({ microchipIncluded: false, clinicalFilesIncluded: false, deceasedAtIncluded: true });
+    expect(validateClinicalSummary(on)).toBe(true);
+    for (const options of [OFF, { ...OFF, includeDeceasedAt: false }]) {
+      const off = buildClinicalSummary('PET', [input(deceased())], GENERATED_AT, options);
+      expect(off.disclosure).toEqual({ microchipIncluded: false, clinicalFilesIncluded: false });
+      expect(validateClinicalSummary(off)).toBe(true);
+    }
+  });
+
+  it('[SC-007-016] contrato share-link 1.1.0: CreateShareLinkInput acepta includeDeceasedAt booleano, lo rechaza no booleano y sigue cerrado; ShareLinkView lo admite opcional', () => {
+    expect(validateCreateShareLinkInput({ includeDeceasedAt: true })).toBe(true);
+    expect(validateCreateShareLinkInput({})).toBe(true);
+    expect(validateCreateShareLinkInput({ includeDeceasedAt: 'true' })).toBe(false);
+    expect(validateCreateShareLinkInput({ includeDeceasedAt: true, extra: 1 })).toBe(false);
+    const view = { id: '11111111-1111-4111-8111-111111111111', scope: 'PET', petId: '22222222-2222-4222-8222-222222222222', householdId: null, status: 'ACTIVE', createdAt: GENERATED_AT, expiresAt: '2026-11-25T23:30:00.000Z', revokedAt: null, includeMicrochip: false, includeClinicalFiles: false };
+    expect(validateShareLinkView(view)).toBe(true);
+    expect(validateShareLinkView({ ...view, includeDeceasedAt: true })).toBe(true);
   });
 });

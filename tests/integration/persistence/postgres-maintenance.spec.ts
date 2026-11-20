@@ -17,7 +17,7 @@ const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const MAINTENANCE_PATH = '../../../src/infrastructure/persistence/postgres/postgres-maintenance.ts';
 const UOW_PATH = '../../../src/infrastructure/persistence/postgres/postgres-unit-of-work.ts';
 // Esquema vigente (T831: hasta la 0009 de la escena, que añade 6 tablas que el mantenimiento diario no purga con estas 6 sentencias): el baseline y la 0002 (columna `revision` de los 6 registros, T540; los repositorios la leen y la escriben desde T614).
-const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0006_rate_limit_microchip_scope.sql', '0007_platform_parameters.sql', '0008_share_links.sql', '0009_home_scenes.sql', '0010_pet_life_status.sql']
+const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0006_rate_limit_microchip_scope.sql', '0007_platform_parameters.sql', '0008_share_links.sql', '0009_home_scenes.sql', '0010_pet_life_status.sql', '0011_share_link_deceased_at.sql']
   .map((name) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${name}`, import.meta.url), 'utf8'))
   .join('\n');
 

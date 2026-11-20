@@ -52,7 +52,7 @@ export function registerShareLinkRoutes(app: FastifyInstance, { useCases }: Rout
     return reply.status(204).send();
   });
 
-  type PreviewQuery = { Querystring: { includeMicrochip?: unknown; includeClinicalFiles?: unknown } };
+  type PreviewQuery = { Querystring: { includeMicrochip?: unknown; includeClinicalFiles?: unknown; includeDeceasedAt?: unknown } };
   app.get<PetParams & PreviewQuery>('/api/pets/:petId/clinical-summary', { onRequest }, (request) =>
     useCases.previewSummary.execute(request.userId, { scope: 'PET', petId: request.params.petId }, request.query),
   );

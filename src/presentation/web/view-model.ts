@@ -213,6 +213,8 @@ export function formatAge(age: ComputedAge): string {
 export const LIFE_STATUS_LABEL: Readonly<Record<'ALIVE' | 'DECEASED', string>> = { ALIVE: 'Vivo', DECEASED: 'Fallecido' };
 /** Texto de la confirmación al pasar de Fallecido a Vivo, fijado por Neo (REQ-FAL7-003, EDGE-007-016). */
 export const REVIVE_CONFIRMATION_TEXT = 'Al volver a Vivo se reactivarán las alertas';
+/** Aviso al creador al marcar Fallecido (007, T1026, SC-007-016, REQ-FAL7-008): los enlaces veterinarios activos NO se revocan automáticamente. */
+export const DECEASED_LINKS_NOTICE = 'Los enlaces veterinarios activos de esta mascota no se revocan al marcarla como fallecida. Si no quieres que sigan visibles, revócalos desde «Compartir».';
 
 export const isDeceased = (profile: Pick<PetProfile, 'lifeStatus'>): boolean => profile.lifeStatus === 'DECEASED';
 

@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button, FormError, SelectField, TextField } from './Field.tsx';
 import { PetAssignments } from './PetAssignments.tsx';
 import { BREEDS } from '../../../generated/catalogs/index.ts';
-import { LIFE_STATUS_LABEL, REVIVE_CONFIRMATION_TEXT, requiresReviveConfirmation, SEX_LABEL, SPECIES_LABEL, type PetProfile, type Species } from '../view-model.ts';
+import { DECEASED_LINKS_NOTICE, LIFE_STATUS_LABEL, REVIVE_CONFIRMATION_TEXT, requiresReviveConfirmation, SEX_LABEL, SPECIES_LABEL, type PetProfile, type Species } from '../view-model.ts';
 import { AvatarExternalLink } from './PetAvatar.tsx';
 import { useContractForm } from '../use-contract-form.ts';
 import type { FormBody } from '../validation.ts';
@@ -270,6 +270,11 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
       />
       {form.values.lifeStatus === 'DECEASED' ? (
         <TextField id={`${prefix}-deceasedAt`} label="Fecha de fallecimiento" name="deceasedAt" type="date" required value={form.values.deceasedAt ?? ''} onChange={form.onChange} errors={form.errors} />
+      ) : null}
+      {form.values.lifeStatus === 'DECEASED' && profile !== null ? (
+        <p role="status" className="rounded-2xl border border-amber-700 bg-amber-50 p-3 text-sm text-amber-950 sm:col-span-2">
+          {DECEASED_LINKS_NOTICE}
+        </p>
       ) : null}
       <TextField id={`${prefix}-microchipId`} label="Microchip (15 dígitos, opcional)" name="microchipId" value={form.values.microchipId ?? ''} onChange={form.onChange} errors={form.errors} />
       <TextField id={`${prefix}-avatarUrl`} label="URL del avatar (opcional)" name="avatarUrl" type="url" value={form.values.avatarUrl ?? ''} onChange={form.onChange} errors={form.errors} />

@@ -22,6 +22,8 @@ export interface ShareLinkView {
   readonly revokedAt: string | null;
   readonly includeMicrochip: boolean;
   readonly includeClinicalFiles: boolean;
+  /** Opcional (007, T1026): ausente en enlaces anteriores a la 007 equivale a `false`. */
+  readonly includeDeceasedAt?: boolean;
 }
 export interface ShareLinkList {
   readonly items: ShareLinkView[];
@@ -34,6 +36,7 @@ export interface CreateShareLinkBody {
   readonly expiresInDays: 1 | 7 | 30;
   readonly includeMicrochip: boolean;
   readonly includeClinicalFiles: boolean;
+  readonly includeDeceasedAt: boolean;
 }
 export type CreateShareLinkOutcome = { readonly kind: 'CREATED'; readonly link: ShareLinkView; readonly url: string } | { readonly kind: 'REPLAY'; readonly link: ShareLinkView };
 
@@ -48,6 +51,10 @@ export interface ClinicalProfileView {
   readonly birthDateIsEstimate: boolean;
   readonly age: { readonly years: number; readonly months: number; readonly totalDays: number };
   readonly microchipId?: string;
+  /** 007 (REQ-FAL7-008): visible siempre; ausente en resúmenes anteriores. */
+  readonly lifeStatus?: 'ALIVE' | 'DECEASED';
+  /** 007 (SC-007-016): solo llega con el opt-in del creador del enlace. */
+  readonly deceasedAt?: string | null;
 }
 export interface ClinicalPetView {
   readonly profile: ClinicalProfileView;
@@ -67,7 +74,7 @@ export interface SharedSummaryViewModel {
     readonly scope: ShareScopeName;
     readonly dataProvenance: 'CAREGIVER_REPORTED_NOT_VERIFIED';
     readonly automaticInterpretation: 'NONE';
-    readonly disclosure: { readonly microchipIncluded: boolean; readonly clinicalFilesIncluded: boolean };
+    readonly disclosure: { readonly microchipIncluded: boolean; readonly clinicalFilesIncluded: boolean; readonly deceasedAtIncluded?: boolean };
     readonly pets: readonly ClinicalPetView[];
   };
   readonly fileLabels: ReadonlyArray<{ readonly fileId: string; readonly displayName: string }>;
@@ -95,7 +102,7 @@ export interface ShareApi {
   create(ref: ShareRef, body: CreateShareLinkBody, idempotencyKey: string): Promise<CreateShareLinkOutcome>;
   list(ref: ShareRef): Promise<ShareLinkListResult>;
   revoke(shareLinkId: string): Promise<void>;
-  preview(ref: ShareRef, options: { readonly includeMicrochip: boolean; readonly includeClinicalFiles: boolean }): Promise<SharedSummaryViewModel>;
+  preview(ref: ShareRef, options: { readonly includeMicrochip: boolean; readonly includeClinicalFiles: boolean; readonly includeDeceasedAt?: boolean }): Promise<SharedSummaryViewModel>;
   /** Lectura pública por token: sin cookie, sin CSRF, solo GET. */
   getShared(token: string): Promise<SharedSummaryViewModel>;
 }
@@ -139,7 +146,7 @@ export function createShareApi(fetchImpl: typeof fetch = (...args) => fetch(...a
       await send(`/share-links/${shareLinkId}`, authed('DELETE'));
     },
     async preview(ref, options) {
-      const query = `includeMicrochip=${String(options.includeMicrochip)}&includeClinicalFiles=${String(options.includeClinicalFiles)}`;
+      const query = `includeMicrochip=${String(options.includeMicrochip)}&includeClinicalFiles=${String(options.includeClinicalFiles)}${options.includeDeceasedAt === true ? '&includeDeceasedAt=true' : ''}`;
       return json<SharedSummaryViewModel>(await send(`${base(ref)}/clinical-summary?${query}`, authed('GET')));
     },
     async getShared(token) {

@@ -525,12 +525,13 @@ interface ShareLinkRow {
   readonly revoked_at: string | null;
   readonly include_microchip: number;
   readonly include_clinical_files: number;
+  readonly include_deceased_at: number;
   readonly idempotency_key: string;
   readonly pet_owner_user_id_at_creation: string | null;
 }
 
 const SHARE_LINK_COLUMNS =
-  'id, token_hash, scope, pet_id, household_id, created_by_user_id, created_at, expires_in_days, expires_at, revoked_at, include_microchip, include_clinical_files, idempotency_key, pet_owner_user_id_at_creation';
+  'id, token_hash, scope, pet_id, household_id, created_by_user_id, created_at, expires_in_days, expires_at, revoked_at, include_microchip, include_clinical_files, include_deceased_at, idempotency_key, pet_owner_user_id_at_creation';
 
 const toShareLink = (row: ShareLinkRow): ShareLinkRecord => ({
   id: row.id,
@@ -545,6 +546,7 @@ const toShareLink = (row: ShareLinkRow): ShareLinkRecord => ({
   revokedAt: row.revoked_at,
   includeMicrochip: row.include_microchip === 1,
   includeClinicalFiles: row.include_clinical_files === 1,
+  includeDeceasedAt: row.include_deceased_at === 1,
   idempotencyKey: row.idempotency_key,
   petOwnerUserIdAtCreation: row.pet_owner_user_id_at_creation,
 });
@@ -555,7 +557,7 @@ const toShareLink = (row: ShareLinkRow): ShareLinkRecord => ({
  * @implements REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-010, REQ-VET-012, REQ-VET-013, INV-005-005
  */
 function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
-  const insert = db.prepare(`INSERT INTO share_links (${SHARE_LINK_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const insert = db.prepare(`INSERT INTO share_links (${SHARE_LINK_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const byHash = db.prepare<[string], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE token_hash = ?`);
   const byId = db.prepare<[string], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE id = ?`);
   const byKey = db.prepare<[string, string], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE created_by_user_id = ? AND idempotency_key = ?`);
@@ -589,6 +591,7 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
           link.revokedAt,
           link.includeMicrochip ? 1 : 0,
           link.includeClinicalFiles ? 1 : 0,
+          link.includeDeceasedAt ? 1 : 0,
           link.idempotencyKey,
           link.petOwnerUserIdAtCreation,
         );

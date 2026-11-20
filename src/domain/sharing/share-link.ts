@@ -39,6 +39,8 @@ export interface ShareLinkRecord {
   readonly revokedAt: string | null;
   readonly includeMicrochip: boolean;
   readonly includeClinicalFiles: boolean;
+  /** Opt-in del creador para publicar `deceasedAt` (007, T1026, SC-007-016); inmutable tras crear; las filas anteriores a la 007 valen `false`. */
+  readonly includeDeceasedAt: boolean;
   readonly idempotencyKey: string;
   /** `pets.owner_user_id` vigente al crear un enlace PET (PN-08); nulo en HOUSEHOLD. No sale por la API. */
   readonly petOwnerUserIdAtCreation: string | null;
