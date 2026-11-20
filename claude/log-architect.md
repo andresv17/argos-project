@@ -420,3 +420,8 @@ Sin commit; pendiente re-firma /merovingian.
 - O1: clinical-summary.schema (005) ClinicalSummary.allOf if/else: pets[].profile.deceasedAt exige disclosure.deceasedAtIncluded true (v33 recompilado). M2: spec 007 REQ-FAL7-004 -> «Sin alertas (fallecida)».
 - Pendiente keymaker: prueba de contrato negativa de O1 y actualizar contracts-004-openapi.spec.ts (pin 3.2.0 -> 3.3.0). Sin [x], sin push.
 - R9 (merovingian T1070): plan.md:28 ADR-007-07 corregido: la huella no cambia (inputs-snapshot.ts sin prompt/estilo/paleta). R1-R3 quedan para T1072, no resueltos.
+
+### 2026-11-20 — Architect: EDGE-007-027 Opcion A (Neo) + R1-R3/R7 de merovingian T1070 + deudas 029/030/032
+- clinical-summary.schema.json (005, 1.1.0 DRAFT sin bump): age.required = years, months; allOf if/else cerrado (additionalProperties false con props enumeradas, deceasedAt false, DECEASED sin opt-in => age.totalDays false). Cerrar el if con lista completa de props conserva la semantica (11 casos Ajv OK); t778 pasa 5/5 sin tocarla.
+- spec.md/plan.md: reglas R1-R3 y R7 (R7 verificado: scene-use-cases.ts:104-109 filtra consentimiento solo con driver real); deudas EDGE-029/030/032 como nota. Sin [x], sin src/tests.
+- Compile 002/004/005/006 rc 0; src/generated/v33 regenerado. Rojos esperados hasta keymaker: 3 tests t1026 + 1 error tsc (t1026 l.52, totalDays opcional).

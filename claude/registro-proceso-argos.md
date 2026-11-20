@@ -1608,3 +1608,8 @@
 - 2026-11-20 | Oracle | 006 Fase 14 cierre final + activacion T885: PASS CON OBS. test:gate PG17 real rc 0 (331 archivos, 5289 pasan, 1 omitida); tsc 0; traza 006 CUMPLE 241/241; oraculos 381/0 debiles; scan-secrets 0; deps/lock/generated/contracts sin cambios; terraform solo README. Hallazgo H-CF-1 (merge a main = driver real en vivo; decision Neo). Acta oracle-006-fase14-cierre-final.md. Sin commit, sin [x].
 2026-11-20 | Architect | Caso B 007: 004 openapi 3.3.0, 005 L8 REVIEW, O-4 supersedes, O1 if/else en clinical-summary (v33), M2 spec REQ-FAL7-004; sin [x]; ver log-architect
 2026-11-20 | Architect | R9 (T1070): plan.md ADR-007-07 corregido a 'sin cambio de huella'; R1-R3 pendientes para T1072
+2026-11-20 | lock | T1030 Bloque C 007: 1 ALTA (EDGE-007-027 edad revela deceasedAt sin opt-in), 2 MEDIA, 1 MEDIA-aviso, 3 BAJA; acta .specify/memory/audits/lock-007-T1030-bloqueC.md; sin commit
+- 2026-11-20 keymaker: lote Caso B 007 commit c634e45; t778 falla por if/else (pendiente)
+- 2026-11-20 | Rama | 007 revalidación O1 (HEAD 165ada4): PASS CON OBS. O1 OK en validador generado (OBS-A: raíz sin $ref). O2/O3 cerradas, C6 OK, sin fuga a logs. Acta .specify/memory/audits/rama-007-revalidacion-O1.md. Sin commit, sin [x].
+- 2026-11-20 | Rama | 007 O1: HEAD c634e45 — T778 rojo (OBS-F, 4 subesquemas if/else sin additionalProperties false). Privacidad sin fuga. Acta actualizada.
+- 2026-11-20 Architect: EDGE-007-027 Opcion A en clinical-summary (005), R1-R3/R7 asentadas en spec/plan 007, deudas EDGE-029/030/032 anotadas; t778 5/5; pendiente keymaker (src + t1026).

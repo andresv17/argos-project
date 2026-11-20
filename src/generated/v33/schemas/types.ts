@@ -346,7 +346,7 @@ export type DeceasedAt = null | IsoDate;
  */
 export type MediaMime = "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
 /**
- * Documento raíz [REQ-SUM-001]; regla condicional (007, O1 de /rama): pets[].profile.deceasedAt solo puede estar presente si disclosure.deceasedAtIncluded es true (ausente o false lo prohíbe), de modo que la garantía de privacidad vive también en el esquema y no solo en el constructor
+ * Documento raíz [REQ-SUM-001]; regla condicional (007, O1 de /rama): pets[].profile.deceasedAt solo puede estar presente si disclosure.deceasedAtIncluded es true (ausente o false lo prohíbe), de modo que la garantía de privacidad vive también en el esquema y no solo en el constructor; regla EDGE-007-027 (Opción A de Neo): sin disclosure.deceasedAtIncluded true, una mascota con lifeStatus DECEASED no puede incluir age.totalDays (con birthDate revelaría la fecha exacta); age.totalDays es opcional (fuera de required) y ausente equivale a no publicado
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
  * via the `definition` "ClinicalSummary".
@@ -1548,7 +1548,7 @@ export interface ClinicalProfile {
   age: {
     years: number;
     months: number;
-    totalDays: number;
+    totalDays?: number;
   };
   /**
    * AUSENTE (no null) salvo que disclosure.microchipIncluded sea true; dato declarado por el cuidador [D5-14, MAG-005-005]
