@@ -1613,3 +1613,7 @@
 - 2026-11-20 | Rama | 007 revalidación O1 (HEAD 165ada4): PASS CON OBS. O1 OK en validador generado (OBS-A: raíz sin $ref). O2/O3 cerradas, C6 OK, sin fuga a logs. Acta .specify/memory/audits/rama-007-revalidacion-O1.md. Sin commit, sin [x].
 - 2026-11-20 | Rama | 007 O1: HEAD c634e45 — T778 rojo (OBS-F, 4 subesquemas if/else sin additionalProperties false). Privacidad sin fuga. Acta actualizada.
 - 2026-11-20 Architect: EDGE-007-027 Opcion A en clinical-summary (005), R1-R3/R7 asentadas en spec/plan 007, deudas EDGE-029/030/032 anotadas; t778 5/5; pendiente keymaker (src + t1026).
+- 2026-11-20 keymaker: EDGE-007-027/028/031 implementados (2 commits locales, sin push)
+- 2026-11-20 [rama] revalidacion 027/028/031 en HEAD fcb4753: analisis de codigo hecho, acta pendiente.
+- 2026-11-20 [rama] revalidacion 027/028/031 en fcb4753: PASS CON OBS (acta .specify/memory/audits/rama-007-revalidacion-027-028.md, sin commit).
+- 2026-11-20 [keymaker] H-1 oracle: +3 pruebas de contrato age.totalDays en t1026-contrato (REQ-FAL7-008/009, INV-005-004); gates verdes, traza 47/51.

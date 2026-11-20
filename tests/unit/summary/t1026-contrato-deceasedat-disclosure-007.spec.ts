@@ -51,3 +51,34 @@ describe('O1: regla condicional deceasedAt <-> disclosure.deceasedAtIncluded en 
     expect(validateClinicalSummary(variant(null, true))).toBe(true);
   });
 });
+
+const alive = { ...upgradePet(ARGOS), lifeStatus: 'ALIVE' } as PetProfile;
+const optsOff = { includeMicrochip: false, includeClinicalFiles: false, includeDeceasedAt: false };
+
+/** Parte de un resumen real del constructor SIN opt-in (age sin totalDays) y le inyecta totalDays a mano; flag undefined = clave ausente. */
+const withTotalDays = (pet: PetProfile, flag: boolean | undefined): unknown => {
+  const doc = JSON.parse(JSON.stringify(buildClinicalSummary('PET', [{ pet, records: empty, files: [] }], GENERATED_AT, optsOff))) as {
+    pets: { profile: { age: Record<string, unknown>; deceasedAt?: unknown } }[];
+    disclosure: Record<string, unknown>;
+  };
+  delete doc.pets[0]!.profile.deceasedAt;
+  doc.pets[0]!.profile.age.totalDays = 1492;
+  if (flag === undefined) delete doc.disclosure.deceasedAtIncluded;
+  else doc.disclosure.deceasedAtIncluded = flag;
+  return doc;
+};
+
+describe('O1: regla then de age.totalDays para DECEASED en ClinicalSummary (REQ-FAL7-008, REQ-FAL7-009, INV-005-004)', () => {
+  it('[REQ-FAL7-008][INV-005-004] una fallecida con age.totalDays inyectado y sin deceasedAtIncluded true es INVALIDA', () => {
+    expect(validateClinicalSummary(withTotalDays(deceased, undefined))).toBe(false);
+    expect(validateClinicalSummary(withTotalDays(deceased, false))).toBe(false);
+  });
+
+  it('[REQ-FAL7-009][INV-005-004] la misma fallecida con age.totalDays y deceasedAtIncluded true es VALIDA', () => {
+    expect(validateClinicalSummary(withTotalDays(deceased, true))).toBe(true);
+  });
+
+  it('[REQ-FAL7-008][INV-005-004] una ALIVE con age.totalDays es VALIDA (la regla solo restringe a DECEASED)', () => {
+    expect(validateClinicalSummary(withTotalDays(alive, undefined))).toBe(true);
+  });
+});

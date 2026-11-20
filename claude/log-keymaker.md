@@ -1680,3 +1680,14 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 - (A) SCENE_REAL_DRIVER_ACTIVATED = true (app-config.ts:133) y comentarios «false hasta T885» actualizados (app-config, scene-composition). Pruebas ajustadas (rojas 7 verificadas antes): guarda-driver-real, t829, t951, gemini-api-config, t873 (integration), audit-secret (security: produccion con real ahora arranca; fake en produccion sigue rechazado). Conservado: sceneRealDriverActivated:false bloquea real; production rechaza fake y gemini-api.
 - (B) metadata-token-client.ts: promesa en vuelo memoizada (H-F14-T1, se descarta al terminar), json() en try/catch con error literal (H-F14-T2); cloud-logging.ts redacta `ya29.` y `Bearer <x>` (H-F14-T3). Prueba nueva t953-endurecimiento-token-escena-006.spec.ts (8; 6 rojas verificadas).
 - (C) terraform/README.md bullet «Estado del driver» y CI/CD: real en produccion por token del metadata server, fake en CI/dev, activacion habilitada por T885. runbook-escena-006.spec.ts exige ARGOS_SCENE_DRIVER=real y conserva fake; claude/entorno-y-lecciones.md linea N2-09 actualizada (la prueba la leia).
+
+## 2026-11-20 Keymaker lote Caso B (007)
+- Prueba negativa O1 t1026-contrato-deceasedat-disclosure-007.spec.ts (6 pruebas); pin 004 openapi 3.3.0/supersedes 3.2.0.
+- t809/schemas-004 pin 3.2.0 es de audit-entry/backup-envelope: no tocados. t778 (cierre additionalProperties) FALLA por allOf if/else de 005: pendiente decision.
+
+## 2026-11-20 keymaker 007 EDGE-027/028/031
+- 027 totalDays omitido sin opt-in (ageForSummary); 028 revision solo en transicion/adelanto; 031 fail-closed en loadLiveInputs. Gates: tsc 0, vitest 4871 ok, oracles 0 debiles, traza 47/51 sin regresion (ESC7-003..006 Bloque G).
+
+## 2026-11-20 keymaker 007 H-1 oracle (contrato age.totalDays)
+- t1026-contrato-deceasedat-disclosure-007.spec.ts: +3 pruebas (DECEASED+totalDays sin/false flag invalida; con true valida; ALIVE valida). Resumen real del constructor sin opt-in + totalDays a mano.
+- Gates: tsc 0; vitest summary 38 ok (t778 verde); oracles 0 debiles; traza 47/51 sin regresion.
