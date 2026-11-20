@@ -117,7 +117,7 @@ export const STATE_SHARE_001 = {
   },
   "rules": {
     "noStatusColumn": "El estado no se persiste: se deriva de revoked_at y expires_at con el reloj inyectado (evita deriva entre columna y reloj).",
-    "immutableOptions": "includeMicrochip e includeClinicalFiles no cambian tras crear; cambiarlos exige revocar y crear otro enlace.",
+    "immutableOptions": "includeMicrochip, includeClinicalFiles e includeDeceasedAt (007, T1026, opcional, default false) no cambian tras crear; cambiarlos exige revocar y crear otro enlace.",
     "signedUrlWindow": "Tras revocar o vencer, una URL firmada ya emitida vive hasta su TTL (<= 300 s, INV-005-008); el corte aplica a la API y a la emisión, no a URL ya emitidas. X-Goog-Expires = min(300, floor(restante)) con mínimo 1 s: con menos de 1 s restante no se emite URL y se responde el 404 uniforme (EDGE-005-23)."
   }
 } as const;

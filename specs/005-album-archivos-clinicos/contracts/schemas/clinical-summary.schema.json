@@ -8,7 +8,7 @@
     "status": "DRAFT",
     "supersedes": "1.0.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 1.1.0 (feature 007, T1026, C1): ClinicalProfile +lifeStatus opcional (visible) y +deceasedAt opcional (disclosure opt-in del creador); ambos fuera de required, additionalProperties false se conserva; summaryVersion sigue 1.0.0 (formato del documento aditivo). Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
+    "change_note": "MINOR 1.1.0 (feature 007, T1026, C1; DRAFT sin publicar, se pliega aqui la bandera de disclosure sin nuevo bump): disclosure +deceasedAtIncluded (boolean, opcional, fuera de required; ausente equivale a false) para reflejar includeDeceasedAt del enlace; ClinicalProfile +lifeStatus opcional (visible) y +deceasedAt opcional (disclosure opt-in del creador); ambos fuera de required, additionalProperties false se conserva; summaryVersion sigue 1.0.0 (formato del documento aditivo). Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
     "traceability": [
       "REQ-SUM-001",
       "REQ-SUM-002",
@@ -50,6 +50,10 @@
         "clinicalFilesIncluded": {
           "type": "boolean",
           "description": "true solo si el creador marcó «Incluir archivos clínicos» (D5-21); con false, clinicalFiles es [] en todas las mascotas"
+        },
+        "deceasedAtIncluded": {
+          "type": "boolean",
+          "description": "Opcional (007, T1026): true solo si el creador marcó includeDeceasedAt; ausente equivale a false; con false, deceasedAt va ausente en ClinicalProfile"
         }
       },
       "description": "Entradas de privacidad del resumen; son parámetros de entrada de buildClinicalSummary (determinismo) [REQ-SUM-003, REQ-SUM-002]"

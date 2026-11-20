@@ -4,11 +4,11 @@
   "title": "ShareLinkSchema",
   "description": "Enlace de solo lectura para el veterinario y su envoltorio de vista (feature 005) [REQ-VET-001..013, REQ-SUM-004]. El token NUNCA aparece fuera de CreateShareLinkResult.url (INV-005-005); las listas solo llevan metadatos. Sin nombre del hogar (D5-23).",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "status": "DRAFT",
-    "supersedes": null,
-    "change_type": "MAJOR",
-    "change_note": "Contrato nuevo de la feature 005 (T706). SharedSummaryView resuelve el canal contractual del nombre original (B1 de /merovingian): el nombre viaja solo en fileLabels, nunca dentro de ClinicalSummary. T707: IdempotencyKey y CreateShareLinkReplay (EDGE-005-16/17); displayName vacío = «Archivo» (EDGE-005-27); nota MIF-005-10 sobre revokedAt.",
+    "supersedes": "1.0.0",
+    "change_type": "MINOR",
+    "change_note": "MINOR 1.1.0 (feature 007, T1026, C1, SC-007-016): CreateShareLinkInput +includeDeceasedAt (boolean, default false, opcional, fuera de required) y ShareLinkView +includeDeceasedAt (boolean, opcional, fuera de required); additionalProperties false se conserva; inmutable tras crear, como includeMicrochip. Un cliente que no lo envia obtiene false (comportamiento 1.0.0); un consumidor de 1.0.0 ignora el campo nuevo de la vista. Historial: Contrato nuevo de la feature 005 (T706). SharedSummaryView resuelve el canal contractual del nombre original (B1 de /merovingian): el nombre viaja solo en fileLabels, nunca dentro de ClinicalSummary. T707: IdempotencyKey y CreateShareLinkReplay (EDGE-005-16/17); displayName vacío = «Archivo» (EDGE-005-27); nota MIF-005-10 sobre revokedAt.",
     "traceability": [
       "REQ-VET-001",
       "REQ-VET-002",
@@ -28,7 +28,9 @@
       "EDGE-005-16",
       "EDGE-005-17",
       "EDGE-005-27",
-      "SC-005-051"
+      "SC-005-051",
+      "REQ-FAL7-008",
+      "SC-007-016"
     ]
   },
   "$defs": {
@@ -80,6 +82,11 @@
           "type": "boolean",
           "default": false,
           "description": "Casilla «Incluir archivos clínicos» (D5-21); inmutable; con false el enlace no sirve ni lista archivos"
+        },
+        "includeDeceasedAt": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt-in del creador (007, T1026): con true y mascota DECEASED, ClinicalProfile incluye deceasedAt; con false deceasedAt va ausente; inmutable; en HOUSEHOLD aplica a todas las mascotas fallecidas del conjunto"
         }
       },
       "description": "Cuerpo de creación; el alcance y el identificador salen de la ruta, nunca del cuerpo. Sin tokenHash, sin expiresAt libre [REQ-VET-001, REQ-VET-004]"
@@ -153,6 +160,10 @@
         },
         "includeClinicalFiles": {
           "type": "boolean"
+        },
+        "includeDeceasedAt": {
+          "type": "boolean",
+          "description": "Opcional (007, T1026): ausente en filas anteriores a 007 equivale a false; fuera de required para no romper consumidores de 1.0.0"
         }
       },
       "description": "Metadatos de un enlace; nunca el token ni su hash [INV-005-005]",
