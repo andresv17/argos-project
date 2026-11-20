@@ -19,7 +19,7 @@ import { symptomSummary, type SymptomSeverity, type SymptomType } from '../sympt
 import { WeightChart, WeightTable } from './WeightChart.tsx';
 import type { FormBody } from '../validation.ts';
 import { OPTION_B_MODULES, RECORD_MODULES, RECORD_SUMMARY, RECORD_WRITE_PERMISSION, showsBareForm, showsFormOpenByDefault, type RecordModule } from '../records.ts';
-import { avatarVersionOf, deceasedBadgeText, formatAge, livedText, formatIsoDateEs, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
+import { avatarVersionOf, deceasedBadgeText, formatAge, livedText, formatIsoDateEs, formatKg, isDeceased, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
 
 const CATEGORY_LABEL = Object.fromEntries(
   (RECORD_MODULES.find((m) => m.id === 'customParameters')?.fields.find((f) => f.name === 'category')?.options ?? []).map((o) => [o.value, o.label]),
@@ -245,12 +245,14 @@ function AlertIcon({ kind }: { readonly kind: 'overdue' | 'soon' | 'ok' }): JSX.
 /** Tarjeta oliva (decisión D3, `D7-03`): «Estado de vacunación» con el recuento completo de `alertsSummary`; sin acciones (REQ-PAN7-001). */
 function AlertsCard({ dashboard }: { readonly dashboard: PetDashboardView }): JSX.Element {
   const summary = dashboard.alertsSummary;
+  const deceased = isDeceased(dashboard.profile); // M2 (REQ-FAL7-004): la tarjeta sigue visible pero sin recuento.
   return (
     <section aria-labelledby="alerts-title" className="col-span-2 grid content-start gap-2 rounded-2xl bg-primary p-5 text-white shadow-sm lg:col-span-5 lg:row-span-2">
       <h3 id="alerts-title" className="text-lg font-semibold">
         Estado de vacunación
       </h3>
-      <p className="text-2xl font-bold tabular-nums">{`${summary.totalActiveAlerts} alertas activas`}</p>
+      {deceased ? <p className="text-2xl font-bold">Sin alertas (fallecida)</p> : <p className="text-2xl font-bold tabular-nums">{`${summary.totalActiveAlerts} alertas activas`}</p>}
+      {deceased ? null : (
       <ul className="grid gap-1 text-sm">
         <li className="flex items-center gap-2">
           <AlertIcon kind="overdue" />
@@ -265,7 +267,8 @@ function AlertsCard({ dashboard }: { readonly dashboard: PetDashboardView }): JS
           <span className="tabular-nums">{`${summary.upToDateCount} al día`}</span>
         </li>
       </ul>
-      {summary.totalActiveAlerts === 0 ? <p className="text-sm">Todo al día</p> : null}
+      )}
+      {!deceased && summary.totalActiveAlerts === 0 ? <p className="text-sm">Todo al día</p> : null}
       <p className="text-sm">{`Dueño: ${dashboard.owner.displayName}`}</p>
     </section>
   );
