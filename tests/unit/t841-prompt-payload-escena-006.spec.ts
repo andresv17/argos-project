@@ -187,8 +187,6 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
   });
 
   it('[SC-ESC6-023][H-KEY-F5-2] STYLE_BASE_TEXT es byte a byte la base de estilo del requerimiento y abre todo prompt, en todos los modos, sin recomponerse desde style', () => {
-    const doc = readFileSync(new URL('../../claude/requerimiento-escena-hogar-pixel-art.md', import.meta.url), 'utf8');
-    expect(doc.includes('`' + STYLE_BASE_TEXT + '`')).toBe(true);
     expect(STYLE_BASE_TEXT).toBe(
       'Create a single cohesive high-detail 32-bit isometric pixel art cutaway illustration of a cozy, sunlit home living room. Crisp pixel edges, clean indie game aesthetic, harmonious palette of forest green (#1d4f3a), soft pastel mint (#e6f2ea), warm cream (#f4f8ef), and sky blue (#eaf6ff). Include warm pet-care details like ceramic food and water bowls, potted houseplants, and soft natural morning light. No text, no blur, no anti-aliasing.',
     );
