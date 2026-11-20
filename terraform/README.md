@@ -87,7 +87,7 @@ Solo documentación: no cambia ninguna lógica de `bootstrap.sh` ni de Terraform
 
 **Fase 2: Terraform desde CI (`infraestructura.yml`, solo `main` con aprobación en `produccion`).** El primer `apply` crea los recursos `argos-*` con una imagen marcadora pública, sin sondas propias y sin referencias a secretos ni `env`. Después, `deploy-argos.yml` (cuenta `argos-deployer@`) fija imagen, `env`, sondas, versión numérica de secretos y tráfico.
 
-Atributos de `google_cloud_run_v2_service.argos` cubiertos por `ignore_changes` (verificados contra el servicio real en T469: ninguno rompe el plan, que queda no-op): `traffic`, `client`, `client_version`, `template[0].revision`, `template[0].labels`, `template[0].annotations`, `template[0].containers[0].image`, `template[0].containers[0].env`, `template[0].containers[0].startup_probe`, `template[0].containers[0].liveness_probe`. Evidencia del ensayo: `.specify/memory/audits/link-T469-ensayo-unico.md`.
+Atributos de `google_cloud_run_v2_service.argos` cubiertos por `ignore_changes` (verificados contra el servicio real en T469: ninguno rompe el plan, que queda no-op): `traffic`, `client`, `client_version`, `template[0].labels`, `template[0].annotations`, `template[0].containers[0].image`, `template[0].containers[0].env`, `template[0].containers[0].startup_probe`, `template[0].containers[0].liveness_probe`. `template[0].revision` NO se ignora (DEUDA-INFRA-CLOUDRUN-409: ignorarlo causaba el 409 de revision existente); `tests/unit/terraform-cloud-run.spec.ts` blinda que no vuelva a `ignore_changes`. Evidencia del ensayo (previa a esa decision): `.specify/memory/audits/link-T469-ensayo-unico.md`.
 
 ## Respaldo y restauración (REQ-IAC-008, REQ-PG-016, NFR-CLD-014, NFR-CLD-015, SC-CLD-008)
 

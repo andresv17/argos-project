@@ -52,11 +52,12 @@ resource "google_cloud_run_v2_service" "argos" {
   }
 
   lifecycle {
+    # DEUDA-INFRA-CLOUDRUN-409: `template[0].revision` NO se ignora (el nombre de revision lo fija Terraform, no el despliegue de la aplicacion);
+    # ignorarlo provocaba el 409 de revision ya existente. tests/unit/terraform-cloud-run.spec.ts blinda que no vuelva a la lista.
     ignore_changes = [
       traffic,
       client,
       client_version,
-      template[0].revision,
       template[0].labels,
       template[0].annotations,
       template[0].containers[0].image,
