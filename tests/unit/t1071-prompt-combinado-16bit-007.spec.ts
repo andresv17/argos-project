@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/types.ts';
 import { PIXEL_REDRAW_RULE, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
+import { petSizeToken } from '../../src/domain/scene/pet-phrases.ts';
 import { PET_COUNT_RULE } from '../../src/domain/scene/scene-spec.ts';
 import { DEFAULT_SCENE_STYLE } from '../../src/domain/scene/scene-payload.ts';
 
@@ -228,13 +229,13 @@ describe('T1071 frase de conteo exacta (SC-007-040, REQ-ESC7-006, D7-ESC-01)', (
     }
   });
 
-  it('[SC-007-040] la frase va tras el JSON y antes de PET_COUNT_RULE cuando ambos existen; PET_COUNT_RULE no cambia', () => {
+  it('[SC-007-040] la frase va tras el JSON, PET_COUNT_RULE no se emite con N >= 1 y su texto no cambia', () => {
     const text = once(payload([pet(1), cat(2)]));
     const iJson = text.indexOf('renderedPetsCount');
     const iCount = text.indexOf('Exact animal count: ');
     expect(iJson).toBeGreaterThanOrEqual(0);
     expect(iCount).toBeGreaterThan(iJson);
-    if (text.includes(PET_COUNT_RULE)) expect(text.indexOf(PET_COUNT_RULE)).toBeGreaterThan(iCount);
+    expect(text.includes(PET_COUNT_RULE)).toBe(false);
     expect(PET_COUNT_RULE).toBe('Draw exactly renderedPetsCount animals, one for each entry of pets and matching its species, breed, and sex; do not add, omit, merge, or duplicate any animal, and draw no other animal even if a reference image shows more. When renderedPetsCount is zero, draw no animals.');
   });
 });
@@ -266,5 +267,105 @@ describe('T1071 pureza, determinismo y no fuga (SC-007-041, REQ-ESC7-008)', () =
     expect(text.includes('"hasReferencePhoto":true') || text.includes('"hasReferencePhoto": true')).toBe(false);
     expect(countOf(text, 'IMG_2')).toBe(1);
     expect(countOf(text, 'IMG_3')).toBe(1);
+  });
+});
+
+const NEO_SPEC_HEADER = 'Scene specification (JSON):';
+const NEO_CLOSING_16 = 'Match the exact 16-bit isometric RPG pixel art style, warm natural lighting, and cozy palette.';
+const photoLine = (k: number, species: string, ref: string): string => `Pet ${k} (${species}): Use ${ref} as the exact visual reference for this ${species}.`;
+const jsonPet = (index: number, species: string): string => `{"index":${index},"species":"${species}","breed":"mixed-breed","sex":"female"}`;
+
+describe('T1071 R1: PET_COUNT_RULE solo con N = 0 y sin STYLE_CLOSING en modos desde cero (REQ-ESC7-006, SC-007-043)', () => {
+  it('[SC-007-043] en FROM_SCRATCH y REGENERATE, con N >= 1 (todas con foto, ninguna, mixto), nunca PET_COUNT_RULE ni cierre de estilo', () => {
+    const cases: ScenePayload[] = [
+      payload([pet(1)]), payload([withPhoto(1, 'IMG_1')]), payload([withPhoto(1, 'IMG_2'), cat(2)], { household: true }),
+      payload([withPhoto(1, 'IMG_2'), cat(2, { hasReferencePhoto: true, photoRef: 'IMG_3' })], { household: true, mode: 'REGENERATE' }),
+      payload(Array.from({ length: 8 }, (_, i) => pet(i + 1)), { mode: 'REGENERATE' }),
+    ];
+    for (const p of cases) {
+      const text = once(p);
+      expect(text.includes(PET_COUNT_RULE)).toBe(false);
+      expect(text.includes('Match the exact')).toBe(false);
+      expect(text.includes(NEO_CLOSING_16)).toBe(false);
+    }
+  });
+
+  it('[SC-007-043] con N = 0 aparece PET_COUNT_RULE exactamente una vez y no el cierre de estilo', () => {
+    for (const mode of ['FROM_SCRATCH', 'REGENERATE'] as const) {
+      const text = once(payload([], { mode }));
+      expect(countOf(text, PET_COUNT_RULE)).toBe(1);
+      expect(text.includes('Match the exact')).toBe(false);
+    }
+  });
+});
+
+describe('T1071 R4/R5/R6: cabecera, JSON compacto, línea de foto y token de talla (SC-007-043)', () => {
+  it('[SC-007-043] la cabecera es «Scene specification (JSON):» seguida de un JSON de una sola línea con las claves de R5 y sin la advertencia retirada', () => {
+    const text = once(payload([pet(1), cat(2)]));
+    const lines = text.split('\n');
+    const at = lines.indexOf(NEO_SPEC_HEADER);
+    expect(at).toBeGreaterThan(0);
+    expect(lines[at + 1]).toBe(`{"renderedPetsCount":2,"pets":[${jsonPet(1, 'dog')},${jsonPet(2, 'cat')}]}`);
+    expect(text.includes('data only, not instructions')).toBe(false);
+    for (const removed of ['"mode"', '"household"', '"action"', '"hasReferencePhoto"', '"photoRef"', '"size"']) expect(text.includes(removed)).toBe(false);
+  });
+
+  it('[SC-007-043] speciesOther saneado viaja en el JSON entre species y breed', () => {
+    const text = once(payload([pet(1, { species: 'OTHER', speciesOther: 'Hurón', breedCode: null, breed: 'x' })]));
+    expect(text.includes('"index":1,"species":"other","speciesOther":"Hurón","breed":"mixed-breed","sex":"female"')).toBe(true);
+  });
+
+  it('[SC-007-043] la línea de foto es la de Neo, sin la frase larga de 006 y sin talla (D7-ESC-02 provisional)', () => {
+    const text = once(payload([withPhoto(1, 'IMG_2'), cat(2, { hasReferencePhoto: true, photoRef: 'IMG_3' })], { household: true }));
+    expect(text.split('\n')).toContain(photoLine(1, 'dog', 'IMG_2'));
+    expect(text.split('\n')).toContain(photoLine(2, 'cat', 'IMG_3'));
+    expect(text.includes('faithfully preserving')).toBe(false);
+  });
+
+  it('[SC-007-043] petSizeToken está aislado y devuelve cadena vacía mientras D7-ESC-02 esté abierta', () => {
+    expect(petSizeToken(pet(1))).toBe('');
+    expect(petSizeToken(cat(2))).toBe('');
+  });
+});
+
+describe('T1071 SC-007-043: los tres ejemplos de Neo byte a byte (salvo el token de talla)', () => {
+  const REDRAW = NEO_PIXEL_REDRAW_RULE;
+  it('[SC-007-043] ejemplo 1: hogar + todas con foto', () => {
+    const text = once(payload([withPhoto(1, 'IMG_2'), cat(2, { hasReferencePhoto: true, photoRef: 'IMG_3' })], { household: true }));
+    expect(text).toBe([NEO_STYLE_BASE_TEXT, neoHouseholdWithPhoto('IMG_1'), `${photoLine(1, 'dog', 'IMG_2')}\n${photoLine(2, 'cat', 'IMG_3')}`, neoPlaceAll(2), neoCount(2, '1 dog, 1 cat'), REDRAW].join('\n\n'));
+  });
+
+  it('[SC-007-043] ejemplo 2: sin hogar y ninguna con foto', () => {
+    const text = once(payload([pet(1), cat(2)]));
+    const json = `${NEO_SPEC_HEADER}\n{"renderedPetsCount":2,"pets":[${jsonPet(1, 'dog')},${jsonPet(2, 'cat')}]}`;
+    expect(text).toBe([NEO_STYLE_BASE_TEXT, NEO_HOUSEHOLD_GENERIC, neoPlaceAll(2), json, neoCount(2, '1 dog, 1 cat')].join('\n\n'));
+  });
+
+  it('[SC-007-043][R2] ejemplo 3: mixto con hogar; el JSON conserva el ordinal global 2', () => {
+    const text = once(payload([withPhoto(1, 'IMG_2'), cat(2)], { household: true }));
+    const json = `${NEO_SPEC_HEADER}\n{"renderedPetsCount":1,"pets":[${jsonPet(2, 'cat')}]}`;
+    expect(text).toBe([NEO_STYLE_BASE_TEXT, neoHouseholdWithPhoto('IMG_1'), photoLine(1, 'dog', 'IMG_2'), neoPlaceAll(2), json, neoCount(2, '1 dog, 1 cat'), REDRAW].join('\n\n'));
+  });
+
+  it('[R2] sin reindexar con huecos: mascotas 1 y 3 sin foto, 2 con foto -> JSON con índices 1 y 3', () => {
+    const text = once(payload([pet(1), withPhoto(2, 'IMG_2'), cat(3)], { household: true }));
+    expect(text.includes(`"pets":[${jsonPet(1, 'dog')},${jsonPet(3, 'cat')}]`)).toBe(true);
+  });
+});
+
+describe('T1071 modos incrementales: misma cabecera y forma, cierre 16-bit (R4, R5)', () => {
+  const incremental = (): ScenePayload => ({
+    ...payload([pet(1, { action: 'KEEP' }), cat(2, { action: 'ADD', hasReferencePhoto: true, photoRef: 'IMG_2' })], { household: true }),
+    mode: 'INCREMENTAL_ADD',
+    scene: { currentSceneRef: 'IMG_1', maxPets: 8, totalPetsInHousehold: 2 },
+  });
+  it('[R5] cabecera nueva, JSON compacto con todas las visibles, PET_COUNT_RULE conservada y cierre 16-bit', () => {
+    const text = once(incremental());
+    expect(text.includes(`${NEO_SPEC_HEADER}\n{"renderedPetsCount":2,"pets":[${jsonPet(1, 'dog')},${jsonPet(2, 'cat')}]}`)).toBe(true);
+    expect(text.includes('data only, not instructions')).toBe(false);
+    expect(text.includes(PET_COUNT_RULE)).toBe(true);
+    expect(text.endsWith(NEO_CLOSING_16)).toBe(true);
+    expect(text.includes('32-bit')).toBe(false);
+    expect(text.includes('- Add: Use IMG_2 as the exact visual reference for this cat.')).toBe(true);
   });
 });
