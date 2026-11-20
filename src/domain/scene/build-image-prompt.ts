@@ -1,7 +1,7 @@
 /**
  * `buildImagePrompt(payload)`: compila el texto final en inglés de la escena (REQ-ESC6-016, REQ-ESC7-003..008; plan.md §5.3 y ADR-007-07). Pura y determinista: misma entrada, misma
  * salida byte a byte (INV-ESC6-001, SC-ESC6-023). Bloques separados por una línea en blanco. `FROM_SCRATCH`/`REGENERATE` (R4): (1) base de estilo 16-bit; (2) hogar; (3) bloque de
- * fotos (una línea `Pet k (especie): Use IMG_n …` por mascota CON foto, ordinal global 1-based); (4) `Place all N pets…` con N = total visible (R3); (5) bloque JSON solo de las
+ * fotos (una línea `Pet k (especie): Use IMG_n …` por mascota CON foto, ordinal global 1-based); (4) `Place all N pets…` con N = total visible, solo si N >= 2 (R3, D7-ESC-03); (5) bloque JSON solo de las
  * mascotas SIN foto, con el mismo ordinal global (R1, R2), omitido si no hay ninguna; (6) frase de conteo D7-ESC-01 (N >= 1); `PET_COUNT_RULE` solo con N = 0 (R1); (7) regla de
  * redibujado si el hogar o alguna mascota llevan foto. Sin `STYLE_CLOSING` en estos modos. Incrementales: bloque de cambios, JSON con todas las visibles, frase de conteo,
  * `PET_COUNT_RULE`, redibujado si aplica y `STYLE_CLOSING` 16-bit. El único contenido variable son enums del dominio, `speciesOther` ya saneado (INV-ESC6-011), nombres canónicos
@@ -47,9 +47,8 @@ function scratchBlocks(payload: ScenePayload): string[] {
   // Ordinal global 1-based sobre TODAS las visibles (R2): el bloque de fotos y el JSON lo comparten y son disjuntos.
   const photoLines = rendered.flatMap((pet, i) => (carriesPhoto(pet) ? [`Pet ${i + 1} (${petSpeciesLabel(pet)}): ${petSentence(pet)}`] : []));
   if (photoLines.length > 0) blocks.push(photoLines.join('\n'));
-  // R3: N = total visible. Con N = 1 la forma plural sería agramatical («1 pets»); singular provisional, el literal de Neo solo define N >= 2 (se reporta a /architect).
-  if (rendered.length === 1) blocks.push('Place the 1 pet naturally in a cozy spot of the room.');
-  else if (rendered.length > 1) blocks.push(`Place all ${rendered.length} pets naturally and separately in different cozy spots of the room.`);
+  // R3 / D7-ESC-03 (opción C, Neo): la frase «Place…» solo existe para N >= 2; con N = 1 no se emite (el literal de Neo no define singular).
+  if (rendered.length > 1) blocks.push(`Place all ${rendered.length} pets naturally and separately in different cozy spots of the room.`);
   const json = sceneSpecBlock(payload, { onlyWithoutPhoto: true });
   if (json !== null) blocks.push(json);
   blocks.push(...countBlock(payload));

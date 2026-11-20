@@ -206,14 +206,15 @@ describe('T1071 cero mascotas (SC-007-039)', () => {
 });
 
 describe('T1071 frase de conteo exacta (SC-007-040, REQ-ESC7-006, D7-ESC-01)', () => {
-  it('[SC-007-040][REQ-ESC7-006] N = 1: singular «1 pet … this 1 pet», una sola vez, con foto o sin foto', () => {
+  it('[SC-007-040][REQ-ESC7-006] N = 1: singular «1 pet … this 1 pet», una sola vez, con foto o sin foto, sin frase «Place…» (D7-ESC-03 C)', () => {
     for (const p of [payload([pet(1)]), payload([withPhoto(1, 'IMG_2')], { household: true })]) {
       const text = once(p);
       expect(countOf(text, 'Exact animal count: ')).toBe(1);
       expect(blocksOf(text)).toContain(neoCount(1, '1 dog'));
       expect(text.includes('1 pets')).toBe(false);
       expect(text.includes('these 1 pets')).toBe(false);
-      expect(blocksOf(text)).toContain('Place the 1 pet naturally in a cozy spot of the room.');
+      expect(text.includes('Place')).toBe(false);
+      expect(text.includes('Place the 1 pet')).toBe(false);
     }
   });
 
