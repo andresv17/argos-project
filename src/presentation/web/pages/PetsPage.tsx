@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebouncedValue } from '../use-debounced-value.ts';
 import { ContextSelector, PET_PANEL_ID } from '../components/ContextSelector.tsx';
 import { Button, FormError } from '../components/Field.tsx';
-import { DeletePetDialog, PetDashboard } from '../components/PetDashboard.tsx';
+import { DeletePetDialog, PetDashboard, type ActiveTab } from '../components/PetDashboard.tsx';
 import { PetCardList, PetFilter } from '../components/PetCards.tsx';
 import { PetTransferPanel } from '../components/TransferOwnership.tsx';
 import { PetForm, type PetFormBody } from '../components/PetForm.tsx';
@@ -19,7 +19,7 @@ import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { Link } from 'react-router-dom';
 import { principalHouseholdId } from '../scene-view.ts';
-import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, problemMessage, unwrap } from '../api.ts';
+import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, isPetVersionConflict, problemMessage, unwrap } from '../api.ts';
 import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
 import type { FormBody } from '../validation.ts';
 import { useSession } from '../session.tsx';
@@ -50,7 +50,7 @@ export function PetsPage(): JSX.Element {
   const [cards, setCards] = useState<PetCardView[]>([]);
   const [activePetId, setActivePetId] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<PetDashboardView | null>(null);
-  const [activeTab, setActiveTab] = useState<RecordModule>('weights');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('weights');
   const [mode, setMode] = useState<Mode>('VIEW');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -127,7 +127,20 @@ export function PetsPage(): JSX.Element {
 
   const editPet = async (body: PetFormBody): Promise<void> => {
     if (activePetId === null) return;
-    await unwrap(api.PATCH('/pets/{petId}', { params: { ...CSRF_PARAMS, path: { petId: activePetId } }, body: body as Schemas['UpdatePetInput'] }));
+    // EDGE-007-009: la ficha viaja con la versión leída (`If-Match`); si otra persona la cambió, el servidor responde 412 «Esta ficha cambió, recarga».
+    const version = dashboard?.profile.version ?? 1;
+    try {
+      await unwrap(api.PATCH('/pets/{petId}', { params: { header: { ...CSRF_PARAMS.header, 'If-Match': `"${version}"` }, path: { petId: activePetId } }, body: body as Schemas['UpdatePetInput'] }));
+    } catch (e) {
+      // 412: la ficha cambió; se recarga y el formulario (con `key` por versión) vuelve a montarse con lo vigente, junto al mensaje fijo del catálogo.
+      if (isPetVersionConflict(e)) {
+        setError(messageOf(e));
+        await refreshAll();
+        return;
+      }
+      throw e;
+    }
+    setError(null);
     setMode('VIEW');
     await refreshAll();
   };
@@ -238,7 +251,7 @@ export function PetsPage(): JSX.Element {
                       editSlot: (
                         <>
                           <PetForm
-                            key={`edit-${dashboard.profile.id}`}
+                            key={`edit-${dashboard.profile.id}-v${dashboard.profile.version ?? 1}`}
                             profile={dashboard.profile}
                             canAssign={dashboard.permissions.assignPetToHouseholds}
                             onSubmit={editPet}

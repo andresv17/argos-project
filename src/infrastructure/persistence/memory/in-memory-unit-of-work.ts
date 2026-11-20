@@ -12,7 +12,7 @@
 import type { PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import { memorySceneConsentRepository, memorySceneRepository, type SceneMemoryState } from './in-memory-scene-repositories.ts';
 import type { DeterministicFaultInjector } from '../fault-injector.ts';
-import type { Household } from '../../../generated/index.ts';
+import { DomainError, type Household } from '../../../generated/index.ts';
 import type { AuditEntry } from '../../../generated/v31/index.ts';
 import type { LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type {
@@ -266,23 +266,33 @@ function invitationRepository(state: MemoryState): InvitationRepositoryPort {
   };
 }
 
+/** Como las columnas de 0014/0010 (REQ-FAL7-001): una mascota sembrada sin los campos nuevos se lee ALIVE, sin fecha y en versión 1. */
+const withLifeFields = (pet: PetProfile): PetProfile => ({ ...pet, lifeStatus: pet.lifeStatus ?? 'ALIVE', deceasedAt: pet.deceasedAt ?? null, version: pet.version ?? 1 });
+
 function petRepository(state: MemoryState): PetRepositoryPort {
   return {
     async findById(petId) {
-      return copy(state.pets.find((p) => p.id === petId) ?? null);
+      const found = state.pets.find((p) => p.id === petId);
+      return found === undefined ? null : copy(withLifeFields(found));
     },
     async findByIdForUpdate(petId) {
-      return copy(state.pets.find((p) => p.id === petId) ?? null); // las transacciones de memoria van en serie
+      const found = state.pets.find((p) => p.id === petId); // las transacciones de memoria van en serie
+      return found === undefined ? null : copy(withLifeFields(found));
     },
     async listByOwners(ownerUserIds) {
-      return copy(state.pets.filter((p) => ownerUserIds.includes(p.ownerUserId)));
+      return copy(state.pets.filter((p) => ownerUserIds.includes(p.ownerUserId)).map(withLifeFields));
     },
     async save(pet) {
       // Equivale a `pets_microchip_global` (REQ-PET4-001): el microchip no nulo es único en todo el sistema y la violación imita la de SQLite.
       if (pet.microchipId !== null && state.pets.some((p) => p.id !== pet.id && p.microchipId === pet.microchipId)) {
         throw Object.assign(new Error('UNIQUE constraint failed: pets.microchip_id'), { code: 'SQLITE_CONSTRAINT_UNIQUE' });
       }
-      state.pets = [...state.pets.filter((p) => p.id !== pet.id), copy(pet)];
+      // Como el CHECK cruzado de 0014/0010 (REQ-FAL7-002): DECEASED <=> fecha de fallecimiento.
+      if ((pet.lifeStatus === 'DECEASED') !== (pet.deceasedAt != null)) throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Objeto inválido para pets (${pet.id}); no se guarda.`);
+      // Como las columnas de 0014/0010 (REQ-FAL7-001, REQ-FAL7-011): estado y fecha completos; sin `version` explícita, guardar sobre una fila existente la incrementa.
+      const previous = state.pets.find((p) => p.id === pet.id);
+      const version = pet.version ?? (previous === undefined ? 1 : (previous.version ?? 1) + 1);
+      state.pets = [...state.pets.filter((p) => p.id !== pet.id), copy({ ...pet, lifeStatus: pet.lifeStatus ?? 'ALIVE', deceasedAt: pet.deceasedAt ?? null, version })];
     },
     async delete(petId) {
       state.pets = state.pets.filter((p) => p.id !== petId);

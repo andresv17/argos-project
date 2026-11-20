@@ -224,7 +224,17 @@ if (feature !== '001') {
   }
 }
 for (const code of catalogCodes) candidates.add(code);
-const current = new Set([...candidates].filter((id) => !retired.has(id) && !superseded.has(id)).sort());
+// IDs EXCLUIDOS de la compuerta por decision de producto o por condicion no disparada, con justificacion escrita (Logos 64, punto 4). No son
+// «retirados» de la constitucion: siguen existiendo en la spec. Reactivar solo si la condicion se cumple (se quita la entrada y la compuerta los exige).
+const EXCLUDED_BY_DECISION = new Map(
+  feature === '007'
+    ? [
+        ['REQ-REG7-003', 'Opcion A descartada por Neo (M7-09): sin tarea por diseno; no se implementa ni se prueba.'],
+        ['REQ-FEC7-006', 'Condicional a EDGE-007-018 / T1036: sin evidencia de fallo de keydown en WebKit/Android; reactivar solo si /seraph (T1060) detecta el fallo.'],
+      ]
+    : [],
+);
+const current = new Set([...candidates].filter((id) => !retired.has(id) && !superseded.has(id) && !EXCLUDED_BY_DECISION.has(id)).sort());
 
 // ---------------------------------------------------------------------------
 // 2. IDs exigidos (compuerta final o por tarea)
@@ -236,8 +246,9 @@ if (taskId === '') {
   out(
     superseded.size === 0 && feature === '001'
       ? `[SDD Traceability Gate] Modo: compuerta final (${required.length} IDs vigentes; ${retired.size} retirados excluidos)`
-      : `[SDD Traceability Gate] Modo: compuerta final, feature ${feature} (${required.length} IDs vigentes; ${retired.size} retirados y ${superseded.size} reemplazados excluidos)`,
+      : `[SDD Traceability Gate] Modo: compuerta final, feature ${feature} (${required.length} IDs vigentes; ${retired.size} retirados y ${superseded.size} reemplazados excluidos${EXCLUDED_BY_DECISION.size === 0 ? '' : `; ${EXCLUDED_BY_DECISION.size} excluidos por decision`})`,
   );
+  for (const [id, why] of EXCLUDED_BY_DECISION) out(`  EXCLUDED  ${id}  ${why}`);
 } else {
   const rows = readFileSync(TASKS, 'utf8').split('\n');
   const row = rows.find((l) => new RegExp(`^- \\[[ xX]\\] ${taskId} `).test(l));
@@ -251,12 +262,13 @@ if (taskId === '') {
       failed = true;
     }
     for (const id of required) {
-      if (!current.has(id)) {
+      if (!current.has(id) && !EXCLUDED_BY_DECISION.has(id)) {
         err(`[TRACEABILITY FAIL] ${id}: citado en ${taskId} pero no es un ID vigente (${retired.has(id) ? 'retirado' : superseded.has(id) ? 'reemplazado' : 'desconocido'})`);
         failed = true;
       }
     }
   }
+  required = required.filter((id) => !EXCLUDED_BY_DECISION.has(id)); // excluidos por decision: no se exige evidencia (ver su justificacion arriba)
   out(`[SDD Traceability Gate] Modo: compuerta por tarea ${taskId} (${required.length} IDs)`);
 }
 

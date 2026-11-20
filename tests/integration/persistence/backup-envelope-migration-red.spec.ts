@@ -24,8 +24,8 @@ const sha256 = (text: string) => createHash('sha256').update(text).digest('hex')
 const preview = (cookie: string, raw: string) => api.call('POST', PREVIEW, { cookie, raw, contract: false });
 const importFile = (cookie: string, raw: string) => api.call('POST', IMPORT, { cookie, raw, headers: { 'x-argos-import-confirm': sha256(raw) }, contract: false });
 const auditCount = () => api.db.prepare('SELECT COUNT(*) FROM audit_log').pluck().get() as number;
-/** Volcado sin `revision`: repetir una importación sube la revisión de los registros que ya existían (REQ-BOR-005) y nada más cambia. */
-const stableDump = () => api.dump().replace(/,"revision":\d+/g, '');
+/** Volcado sin `revision` ni `version` de la ficha: repetir una importación sube la revisión de los registros que ya existían (REQ-BOR-005) y nada más cambia. */
+const stableDump = () => api.dump().replace(/,"revision":\d+/g, '').replace(/,"version":\d+/g, ''); // `version` de la ficha también sube al reemplazar (REQ-FAL7-011)
 const importRows = () => api.db.prepare("SELECT COUNT(*) FROM audit_log WHERE mutation_type = 'IMPORT'").pluck().get() as number;
 
 /** Sobre 2.0.0 tal cual lo escribió la 001: DOG/CAT, ownerUserId por mascota y exportedByUserId. */

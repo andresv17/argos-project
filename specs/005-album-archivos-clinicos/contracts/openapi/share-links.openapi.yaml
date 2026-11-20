@@ -2,10 +2,10 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 005
-  version: 3.3.0
+  version: 3.4.0
   description: >
     Documento INCREMENTAL de la feature 005 (Fase 4B): contiene solo las 10 operaciones nuevas; el OpenAPI de la 004
-    (3.2.0) permanece LOCKED y se hereda sin cambio. Operaciones autenticadas (cookie + CSRF como el resto): limite del
+    (3.3.0) esta en REVIEW (no LOCKED) y se hereda sin cambio. Operaciones autenticadas (cookie + CSRF como el resto): limite del
     album, creacion y listado de enlaces de solo lectura para el veterinario (mascota u hogar), revocacion y vista previa del
     resumen clinico. Operaciones publicas (sin cookie, sin CSRF, solo GET): resumen y descarga de archivos clinicos por token
     de capacidad. Todas las respuestas de error usan application/problem+json (RFC 9457); los codigos nuevos viven en
@@ -13,11 +13,11 @@ info:
     recibe 404 (INV-ACC2-001).
   x-sdd-status: DRAFT
   x-sdd-metadata:
-    version: 3.3.0
+    version: 3.4.0
     status: DRAFT
-    supersedes: 3.2.0
+    supersedes: 3.3.0
     change_type: MINOR
-    change_note: "3.3.0 (feature 005, T706, MINOR aditiva): 10 operaciones nuevas, ninguna operacion existente cambia. El token viaja en la ruta (D5-16, firmado por Neo) con las mitigaciones obligatorias: instance constante, Referrer-Policy no-referrer, Cache-Control no-store, serializer de registros sin URL y filtro de Cloud Logging para /shared/ (lo ejecuta /link). CREATE_SHARE_LINK se anota solo como x-sdd-rbac-action (no entra en RbacAction de la 002). T707 (aditiva, sin cambiar las 10 operaciones): cabecera Idempotency-Key obligatoria en las dos creaciones y respuesta 200 CreateShareLinkReplay sin URL en el reintento (EDGE-005-16/17); el 404 uniforme absorbe el 404 de parametro largo y el 400 de URL mal codificada de Fastify (EDGE-005-25); X-Goog-Expires con minimo de 1 s (EDGE-005-23); lectura publica en una transaccion de solo lectura con un unico now (EDGE-005-14/24); revocar un enlace vencido es un no-op idempotente (MIF-005-08)."
+    change_note: "3.4.0 (feature 007, T1026, C1, MINOR aditiva): query opcional includeDeceasedAt (boolean, default false) en las dos vistas previas del resumen; el cuerpo CreateShareLinkInput de las dos creaciones gana includeDeceasedAt opcional (schema share-link 1.1.0); ninguna operacion, codigo ni parametro existente cambia y los clientes que no lo envian reciben el comportamiento previo. Historial: 3.3.0 (feature 005, T706, MINOR aditiva): 10 operaciones nuevas, ninguna operacion existente cambia. El token viaja en la ruta (D5-16, firmado por Neo) con las mitigaciones obligatorias: instance constante, Referrer-Policy no-referrer, Cache-Control no-store, serializer de registros sin URL y filtro de Cloud Logging para /shared/ (lo ejecuta /link). CREATE_SHARE_LINK se anota solo como x-sdd-rbac-action (no entra en RbacAction de la 002). T707 (aditiva, sin cambiar las 10 operaciones): cabecera Idempotency-Key obligatoria en las dos creaciones y respuesta 200 CreateShareLinkReplay sin URL en el reintento (EDGE-005-16/17); el 404 uniforme absorbe el 404 de parametro largo y el 400 de URL mal codificada de Fastify (EDGE-005-25); X-Goog-Expires con minimo de 1 s (EDGE-005-23); lectura publica en una transaccion de solo lectura con un unico now (EDGE-005-14/24); revocar un enlace vencido es un no-op idempotente (MIF-005-08)."
     traceability: [REQ-ALB5-002, REQ-ALB5-005, REQ-VET-001, REQ-VET-002, REQ-VET-004, REQ-VET-005, REQ-VET-006, REQ-VET-007, REQ-VET-009, REQ-VET-011, REQ-VET-012, REQ-SUM-004, REQ-SUM-005, EDGE-005-14, EDGE-005-16, EDGE-005-23, EDGE-005-25, INV-005-001, INV-005-002, INV-005-005, INV-005-007, INV-005-008, REQ-RBAC-001]
 servers:
   - url: http://127.0.0.1:3100/api
@@ -220,6 +220,7 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/IncludeMicrochip' }
         - { $ref: '#/components/parameters/IncludeClinicalFiles' }
+        - { $ref: '#/components/parameters/IncludeDeceasedAt' }
       responses:
         '200':
           description: "Envoltorio de vista; validUntil es null; no se registra el nombre de archivo ni el microchip. Cache-Control: no-store"
@@ -247,6 +248,7 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/IncludeMicrochip' }
         - { $ref: '#/components/parameters/IncludeClinicalFiles' }
+        - { $ref: '#/components/parameters/IncludeDeceasedAt' }
       responses:
         '200':
           description: "Envoltorio de vista con el mismo conjunto de mascotas que tendria el enlace; Cache-Control: no-store"
@@ -412,6 +414,12 @@ components:
       in: query
       required: false
       description: "Refleja la casilla D5-21 en la vista previa; por defecto false"
+      schema: { type: boolean, default: false }
+    IncludeDeceasedAt:
+      name: includeDeceasedAt
+      in: query
+      required: false
+      description: "Refleja la casilla opt-in de fecha de fallecimiento en la vista previa (007, T1026, SC-007-016); por defecto false; solo tiene efecto si la mascota es DECEASED"
       schema: { type: boolean, default: false }
   responses:
     Problem:

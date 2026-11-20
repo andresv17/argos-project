@@ -3,12 +3,16 @@
  * uso responde ERR-PET-NOT-FOUND (404), que es el estado que declara el OpenAPI para estas rutas.
  * `GET /pets?q=` aplica la búsqueda sin mayúsculas ni tildes de REQ-PET-005 (D-03).
  *
- * @implements REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
+ * `PATCH /pets/{petId}` (updatePet) lee `If-Match: "<version>"` (control optimista de la ficha, EDGE-007-009): ausente o con otro formato es ERR-SCHEMA-VALIDATION-FAILED en If-Match;
+ * una versión distinta responde 412 ERR-PET-VERSION-CONFLICT (lo decide el caso de uso bajo el candado de mascota).
+ *
+ * @implements REQ-FAL7-011, EDGE-007-009, ERR-PET-VERSION-CONFLICT, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
  */
 
 import type { FastifyInstance } from 'fastify';
 import { jsonBody, petListQuery } from '../request-input.ts';
 import { requireSession } from '../plugins/session-auth.ts';
+import { parseIfMatch } from './records-edit.routes.ts';
 import type { RouteContext, UseCases } from './use-cases.ts';
 
 type PetParams = { Params: { petId: string } };
@@ -32,7 +36,7 @@ export function registerPetRoutes(app: FastifyInstance, { useCases }: RouteConte
   app.post('/api/pets', { onRequest }, async (request, reply) => reply.status(201).send(await useCases.registerPet.execute(request.userId, jsonBody(request.body))));
 
   app.patch<PetParams>('/api/pets/:petId', { onRequest }, async (request) =>
-    useCases.updatePet.execute(request.userId, request.params.petId, jsonBody(request.body)),
+    useCases.updatePet.execute(request.userId, request.params.petId, jsonBody(request.body), parseIfMatch(request.headers['if-match'])),
   );
 
   app.delete<PetParams>('/api/pets/:petId', { onRequest }, async (request, reply) => {

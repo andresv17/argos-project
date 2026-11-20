@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 async function png(): Promise<Uint8Array> {
-  const result = await new FakeSceneImageGenerator({ mode: 'ok' }).generate({ prompt: 'semilla', references: [], signal: new AbortController().signal });
+  const result = await new FakeSceneImageGenerator({ mode: 'ok' }).generate({ prompt: 'semilla', references: [], seed: 0, signal: new AbortController().signal });
   if (!result.ok) throw new Error('sin imagen simulada');
   return result.image.bytes;
 }
@@ -53,7 +53,7 @@ function setup(provider: Handler, options: Partial<ConstructorParameters<typeof 
   const metadataCalls = (): Call[] => calls.filter((c) => c.url === METADATA_URL);
   return { generator, calls, providerCalls, metadataCalls, fetchDouble };
 }
-const request = (references: SceneGenerationRequest['references'] = [], signal: AbortSignal = new AbortController().signal): SceneGenerationRequest => ({ prompt: PROMPT, references, signal });
+const request = (references: SceneGenerationRequest['references'] = [], signal: AbortSignal = new AbortController().signal): SceneGenerationRequest => ({ prompt: PROMPT, references, seed: 0, signal });
 const ref = (n: number, mime: string, bytes: number[]): SceneGenerationRequest['references'][number] => ({ ref: `IMG_${n}`, mime, bytes: Uint8Array.from(bytes) });
 const bodyOf = (call: Call): { contents: Array<{ role: string; parts: Array<Record<string, unknown>> }>; generationConfig: { responseModalities: string[] } } => JSON.parse(String(call.init.body));
 
@@ -97,7 +97,7 @@ describe('petición (REQ-ESC6-017, REQ-ESC6-031; NFR-ESC6-001)', () => {
       { text: 'IMG_2:' },
       { inlineData: { mimeType: 'image/webp', data: Buffer.from([7]).toString('base64') } },
     ]);
-    expect(body.generationConfig).toEqual({ responseModalities: ['IMAGE'] });
+    expect(body.generationConfig).toEqual({ responseModalities: ['IMAGE'], seed: 0 }); // 007: REQ-ESC7-007
   });
 
   it('[REQ-ESC6-017] el adaptador importa el protocolo de gemini-api-wire.ts y no lo duplica', () => {

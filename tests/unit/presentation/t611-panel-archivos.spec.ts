@@ -260,7 +260,8 @@ describe('T611 integración en la ficha (REQ-ARC-002)', () => {
   it('[REQ-ARC-003] la ficha de la mascota muestra el panel de archivos en su ranura y no en modo edición', async () => {
     const { PetDashboard } = await import('../../../src/presentation/web/components/PetDashboard.tsx');
     const { dashboard } = await import('./presentation-fixtures.ts');
-    const base = { dashboard: dashboard('OWNER'), activeTab: 'weights' as const, onTabChange: noop, onAddRecord: async () => undefined, onEdit: noop, onDelete: noop };
+    // 007 (T1039): la ranura vive en la pestaña «Historial / Archivos»; con la pestaña activa se pinta, y en modo edición no hay pestaña ni ranura.
+    const base = { dashboard: dashboard('OWNER'), activeTab: 'history' as const, onTabChange: noop, onAddRecord: async () => undefined, onEdit: noop, onDelete: noop };
     const slot = h('p', null, 'RANURA-ARCHIVOS');
     const normal = renderToStaticMarkup(h(PetDashboard, { ...base, mediaSlot: slot }));
     const editing = renderToStaticMarkup(h(PetDashboard, { ...base, mediaSlot: slot, editSlot: h('p', null, 'FORM') }));

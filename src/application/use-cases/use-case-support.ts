@@ -5,10 +5,10 @@
  *   visible pero sin la acción, ERR-ACC-FORBIDDEN (403).
  * - Fechas e identificadores salen solo de ClockPort e IdGeneratorPort (INV-ARCH-001, INV-ARCH-002).
  *
- * @implements INV-ACC-001, INV-ACC-002, INV-PET-003, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN
+ * @implements INV-ACC-001, INV-ACC-002, INV-PET-003, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, REQ-FAL7-004, REQ-FAL7-007, EDGE-007-019
  */
 
-import { normalizePetProfile, type PetProfile } from '../../domain/pet/pet-invariants.ts';
+import { computedAgeOf, normalizePetProfile, type PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
   resolveFieldErrorCode,
@@ -23,7 +23,6 @@ import { toRoleMembership } from '../../domain/households/household-policies.ts'
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
-import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import type { MediaStoragePort } from '../ports/media-storage.port.ts';
 import type { AuditLogPort } from '../ports/audit-log.port.ts';
 import type { AuditPseudonymPort } from '../ports/audit-pseudonym.port.ts';
@@ -313,15 +312,29 @@ export function globalAlertStatusOf(summary: PetCardView['alertsSummary']): PetC
   return null;
 }
 
+/**
+ * REQ-FAL7-004: una mascota fallecida no genera alertas sanitarias nuevas; las entradas vigentes quedan sin alerta (`alert = null`) y las reemplazadas conservan la suya
+ * (el historial de vacunas y desparasitaciones sigue visible, REQ-REC2-002). Vivas: sin cambios.
+ * @implements REQ-FAL7-004, EDGE-007-019
+ */
+export function silenceAlertsOfDeceased<E extends { readonly alert: { readonly status: string } | null }>(deceased: boolean, entries: readonly E[]): E[] {
+  return deceased ? entries.map((entry) => (entry.alert?.status === 'SUPERSEDED' ? entry : { ...entry, alert: null })) : [...entries];
+}
+
 export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, records: PetRecordCollections, today: string, avatarVersion: number | null = null): PetCardView {
   const weights = computeWeightEvolutionSeries(records.weights);
-  const alertsSummary = summarizeSanitaryAlerts(evaluateVaccinationAlerts(records.vaccinations, today), evaluateDewormingAlerts(records.dewormings, today));
+  const deceased = pet.lifeStatus === 'DECEASED';
+  // REQ-FAL7-004: sin alertas ni conteo en `alertsSummary`/`globalAlertStatus` (valor neutro `null`: el cliente rotula «Sin alertas: mascota fallecida», EDGE-007-019).
+  const alertsSummary = summarizeSanitaryAlerts(
+    silenceAlertsOfDeceased(deceased, evaluateVaccinationAlerts(records.vaccinations, today)),
+    silenceAlertsOfDeceased(deceased, evaluateDewormingAlerts(records.dewormings, today)),
+  );
   return {
     profile: { ...normalizePetProfile(pet), avatarVersion },
     owner,
     myRole: role,
     permissions: petPermissionsFor(role),
-    computedAge: calculatePetAge(pet.birthDate, today),
+    computedAge: computedAgeOf(pet, today), // REQ-FAL7-007
     alertsSummary,
     globalAlertStatus: globalAlertStatusOf(alertsSummary),
     latestWeightKg: weights[0]?.record.weightKg ?? null,

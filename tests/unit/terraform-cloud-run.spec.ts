@@ -81,10 +81,17 @@ describe('terraform/cloud_run.tf (T440)', () => {
         'template[0].containers[0].liveness_probe',
         'template[0].containers[0].startup_probe',
         'template[0].labels',
-        'template[0].revision',
         'traffic',
       ].sort(),
     );
+  });
+
+  it('DEUDA-INFRA-CLOUDRUN-409: template[0].revision NO esta en ignore_changes (ni ninguna otra ruta de revision) y el lifecycle sigue ignorando image y env', () => {
+    const list = ignored();
+    expect(list.filter((entry) => /revision/i.test(entry))).toEqual([]);
+    expect(list).toContain('template[0].containers[0].image');
+    expect(list).toContain('template[0].containers[0].env');
+    expect(readFileSync(join(process.cwd(), 'terraform', 'cloud_run.tf'), 'utf8')).toContain('DEUDA-INFRA-CLOUDRUN-409');
   });
 
   it('no hay literales de secretos ni de URL', () => {

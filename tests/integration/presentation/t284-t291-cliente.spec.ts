@@ -43,7 +43,7 @@ describe('T284/T291 cuerpos del formulario y transferencias contra la API real',
     const created = await unwrap(andres.POST('/pets', { params: CSRF_PARAMS, body: petFormBody(null, body) as unknown as Schemas['CreatePetInput'] }));
     expect([created.species, created.speciesOther, created.birthDateIsEstimate, created.neutered, created.microchipId]).toEqual(['OTHER', 'Erizo', true, true, '985112345678901']);
     const editBody = petFormBody(created, formValues({ ...raw, species: 'RABBIT', speciesOther: '', neutered: '', microchipId: '' }, [], ['birthDateIsEstimate', 'neutered']));
-    const edited = await unwrap(andres.PATCH('/pets/{petId}', { params: { ...CSRF_PARAMS, path: { petId: created.id } }, body: editBody as Schemas['UpdatePetInput'] }));
+    const edited = await unwrap(andres.PATCH('/pets/{petId}', { params: { header: { ...CSRF_PARAMS.header, 'If-Match': `"${created.version ?? 1}"` }, path: { petId: created.id } }, body: editBody as Schemas['UpdatePetInput'] }));
     expect([edited.species, edited.speciesOther, edited.neutered, edited.microchipId]).toEqual(['RABBIT', null, null, null]);
   });
 

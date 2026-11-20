@@ -27,7 +27,7 @@ const AVATAR = 'e1000000-0000-4000-8000-000000000001';
 const LUNA_AVATAR = 'e1000000-0000-4000-8000-000000000002';
 
 async function png(): Promise<Uint8Array> {
-  const r = await new FakeSceneImageGenerator().generate({ prompt: 'ref', references: [], signal: new AbortController().signal });
+  const r = await new FakeSceneImageGenerator().generate({ prompt: 'ref', references: [], seed: 0, signal: new AbortController().signal });
   if (!r.ok) throw new Error('el generador simulado no devolvió imagen');
   return r.image.bytes;
 }
@@ -64,7 +64,8 @@ const retryAfter = async (promise: Promise<unknown>): Promise<number> => {
   }
   throw new Error('se esperaba un rechazo');
 };
-const jsonOf = (prompt: string): { pets: Array<{ action: string; hasReferencePhoto: boolean; photoRef: string | null }> } => JSON.parse(prompt.slice(prompt.indexOf('{'), prompt.lastIndexOf('}') + 1)) as { pets: Array<{ action: string; hasReferencePhoto: boolean; photoRef: string | null }> };
+/** Ranuras `IMG_n` citadas por las líneas de foto del prompt (`Use IMG_n as the exact visual reference for this …`); el JSON 16-bit ya no lleva `photoRef`. */
+const photoRefsOf = (prompt: string): string[] => [...prompt.matchAll(/Use (IMG_\d+) as the exact visual reference for this /g)].map((m) => m[1] ?? '');
 
 async function giveAvatar(t: T, petId: string, objectId: string): Promise<void> {
   await t.h.uow.runInTransaction(async (r) => { await r.pets.replaceAvatar(petId, objectId); });
@@ -101,7 +102,9 @@ async function expectCleanRun(t: T, previousImageId: string | null, expectedRefs
   expect(call?.references.map((r) => r.ref)).toEqual(expectedRefs);
   const prompt = call?.prompt ?? '';
   expect(prompt).not.toContain('as the exact base scene');
-  expect(jsonOf(prompt).pets.every((p) => p.action === 'RENDER')).toBe(true);
+  // Todas RENDER (desde cero): ninguna línea de cambio incremental ni de retirada y el conteo exacto cubre todas las visibles.
+  for (const marker of ['Apply only these changes', '- Add: ', '- Replace only: ', '- Remove only: ']) expect(prompt.includes(marker)).toBe(false);
+  expect(prompt.includes('Exact animal count: ')).toBe(true);
   const reads = t.storage.operations.slice(operationsBefore).filter((op) => op.startsWith('get:scenes/'));
   expect(reads).toEqual([]); // la imagen previa no se lee ni se envía
   if (previousImageId !== null) expect(sceneOf(t)?.image?.id).not.toBe(previousImageId);
@@ -137,7 +140,7 @@ describe('T938 REGENERATE desde cero en cuatro estados (SC-ESC6-134)', () => {
     expect(sceneOf(t)?.image ?? null).toBeNull();
     await expectCleanRun(t, null, ['IMG_1', 'IMG_2']);
     const prompt = t.fixture.generator.calls.at(-1)?.prompt ?? '';
-    expect(jsonOf(prompt).pets.filter((p) => p.hasReferencePhoto).map((p) => p.photoRef)).toEqual(['IMG_2']);
+    expect(photoRefsOf(prompt)).toEqual(['IMG_2']);
   });
 
   it('[SC-ESC6-134] (d) outdated con imagen y mascotas KEEP: REGENERATE las trata a todas como RENDER y envía todas las fotos vigentes sin la imagen previa', async () => {
@@ -147,7 +150,7 @@ describe('T938 REGENERATE desde cero en cuatro estados (SC-ESC6-134)', () => {
     await giveAvatar(t, LUNA.id, LUNA_AVATAR);
     expect(await t.get.execute(ANDRES, HOUSE)).toMatchObject({ status: 'outdated', stale: true });
     await expectCleanRun(t, previous, ['IMG_1', 'IMG_2']);
-    expect(jsonOf(t.fixture.generator.calls.at(-1)?.prompt ?? '').pets.filter((p) => p.hasReferencePhoto)).toHaveLength(2);
+    expect(photoRefsOf(t.fixture.generator.calls.at(-1)?.prompt ?? '')).toEqual(['IMG_1', 'IMG_2']);
   });
 
   it('[SC-ESC6-134][STATE-SCENE-001] el intento sigue el ciclo PENDING → DONE: ninguna fase ni resultado nuevos y la escena vuelve a runState null', async () => {

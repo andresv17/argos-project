@@ -46,6 +46,7 @@ const link = (n: number, over: Partial<ShareLinkRecord> = {}): ShareLinkRecord =
   revokedAt: null,
   includeMicrochip: false,
   includeClinicalFiles: false,
+  includeDeceasedAt: false,
   idempotencyKey: KEY(n),
   petOwnerUserIdAtCreation: ANDRES.id,
   ...over,
@@ -88,7 +89,7 @@ function defineShareContract(name: string, create: Factory, dispose: () => Promi
       });
       const expected = link(1, { includeMicrochip: true, includeClinicalFiles: true, expiresInDays: 30, expiresAt: computeExpiresAt(NOW, 30) });
       expect(found).toEqual([expected, expected, expected, null, null]);
-      expect(Object.keys(found[0]!).sort()).toEqual(['createdAt', 'createdByUserId', 'expiresAt', 'expiresInDays', 'householdId', 'id', 'idempotencyKey', 'includeClinicalFiles', 'includeMicrochip', 'petId', 'petOwnerUserIdAtCreation', 'revokedAt', 'scope', 'tokenHash']);
+      expect(Object.keys(found[0]!).sort()).toEqual(['createdAt', 'createdByUserId', 'expiresAt', 'expiresInDays', 'householdId', 'id', 'idempotencyKey', 'includeClinicalFiles', 'includeDeceasedAt', 'includeMicrochip', 'petId', 'petOwnerUserIdAtCreation', 'revokedAt', 'scope', 'tokenHash']);
     });
 
     it('[REQ-VET-003] token_hash es único y (created_by_user_id, idempotency_key) es único; la misma clave de otro creador sí se admite', async () => {
@@ -291,7 +292,7 @@ defineShareContract(
 );
 
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
-const PG_MIGRATIONS = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0006_rate_limit_microchip_scope.sql', '0007_platform_parameters.sql', '0008_share_links.sql'];
+const PG_MIGRATIONS = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0006_rate_limit_microchip_scope.sql', '0007_platform_parameters.sql', '0008_share_links.sql', '0010_pet_life_status.sql', '0011_share_link_deceased_at.sql']; // 007: INSERT de mascotas escribe life_status/deceased_at/version
 const PG_SCHEMA = PG_MIGRATIONS.map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
 
 describe.skipIf(!TEST_DATABASE_URL)('enlaces veterinarios contra PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no está definida)', { timeout: 60_000 }, () => {

@@ -3,7 +3,7 @@
  * y cierre de la edición con Cancelar/Guardar sin apilar formularios.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { VIEWPORT_WIDTHS } from './e2e-support.ts';
+import { typeDate, VIEWPORT_WIDTHS } from './e2e-support.ts';
 
 const SESSION_USER = { username: 'sesion.e2e', displayName: 'Sesión', password: 'Sesion2026clave!' };
 
@@ -53,7 +53,7 @@ test.describe('formularios de autenticación y mascota (tests/e2e/visual)', () =
     await expect(nameInputs(page)).toHaveCount(1);
     await page.locator('#new-pet-name').fill('Argos');
     await page.getByLabel('Raza').fill('Pastor alemán');
-    await page.getByLabel('Fecha de nacimiento').fill('2020-05-01');
+    await typeDate(page, page.getByRole('group', { name: 'Fecha de nacimiento', exact: true }), '2020-05-01');
     await page.getByRole('button', { name: 'Guardar' }).first().click();
     await expect(page.getByRole('heading', { name: 'Argos', level: 2 })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Nueva mascota' })).toHaveCount(0);

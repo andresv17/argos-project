@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API
-  version: 3.0.0
+  version: 3.2.0
   description: >
     Contrato formal de la API HTTP local (127.0.0.1:3100, prefijo /api) de la Feature 002 (Plataforma ARGOS v2.1).
     Sustituye a la versión 2.4.0 de la Feature 001 (MAJOR): cuentas con política de contraseña y sesión con inactividad,
@@ -13,10 +13,11 @@ info:
     Un usuario sin permiso de lectura recibe 404 (nunca 403) para no revelar la existencia (INV-ACC2-001).
   x-sdd-status: REVIEW
   x-sdd-metadata:
-    version: 3.0.0
+    version: 3.2.0
     status: REVIEW
-    supersedes: 2.4.0
-    change_type: MAJOR
+    supersedes: 3.1.0
+    change_type: MINOR
+    change_note: "MINOR 3.2.0: exportBackup responde BackupEnvelopeV32 (schemaVersion 3.2.0, REQ-FAL7-009) e ImportPreviewResult +lifeStatusChanges opcional (T1022). Antes, MINOR aditiva (feature 007, #13, N2-07-01 y EDGE-007-009): updatePet exige If-Match con la version de la ficha y responde 412 ERR-PET-VERSION-CONFLICT; PetProfile (en PetCardView y PetDashboardView) y los cuerpos de mascota llevan lifeStatus, deceasedAt y version como opcionales. Sin rutas nuevas."
     traceability: [REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AUTH-003, REQ-AUTH-004, REQ-ACC-001, REQ-ACC-002, REQ-TIME-001, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET-004, REQ-OWN-001, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-RBAC-001, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, INV-ACC2-001, INV-ACC2-002, INV-AUTH2-001, INV-AUTH2-002, INV-HOUSE2-001, INV-PET2-001, INV-REC2-002, INV-OWN2-001]
 servers:
   - url: http://127.0.0.1:3100/api
@@ -216,7 +217,7 @@ paths:
               schema: { type: string, const: no-store }
           content:
             application/json:
-              schema: { $ref: '../schemas/backup-envelope.schema.json#/$defs/BackupEnvelopeV3' }
+              schema: { $ref: '../schemas/backup-envelope.schema.json#/$defs/BackupEnvelopeV32' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '429': { $ref: '#/components/responses/Problem' }
@@ -328,12 +329,13 @@ paths:
     patch:
       tags: [pets]
       operationId: updatePet
-      summary: "Edita datos básicos [REQ-PET2-001, INV-ACC2-002, INV-OWN2-001]"
+      summary: "Edita datos básicos y estado de vida con If-Match obligatorio (version de la ficha) [REQ-PET2-001, INV-ACC2-002, INV-OWN2-001]"
       x-sdd-change: CHANGED
       x-sdd-requirements: [REQ-PET2-001, INV-ACC2-002, INV-OWN2-001]
       x-sdd-rbac-action: "EDIT_PET_BASICS"
       parameters:
         - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/PetIfMatch' }
       requestBody:
         required: true
         content:
@@ -349,6 +351,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
         '500': { $ref: '#/components/responses/Problem' }
     delete:
@@ -1000,6 +1003,12 @@ components:
       required: true
       description: Obligatoria en toda petición que modifica estado, incluida la exportación (emite token); si falta, ERR-AUTH-CSRF-REJECTED. Se valida antes que la sesión y no renueva actividad [INV-AUTH-007]
       schema: { type: string, const: '1' }
+    PetIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: 'Version vigente de la ficha (profile.version) entre comillas, por ejemplo "3"; ausente o con otro formato da ERR-SCHEMA-VALIDATION-FAILED y desactualizada ERR-PET-VERSION-CONFLICT (412) sin modificar la ficha (feature 007, EDGE-007-009)'
+      schema: { type: string, pattern: '^"\d+"$' }
     ImportConfirmDigest:
       name: X-Argos-Import-Confirm
       in: header

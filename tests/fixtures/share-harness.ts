@@ -71,6 +71,7 @@ export interface ShareLinkRow {
   readonly revokedAt: string | null;
   readonly includeMicrochip: boolean;
   readonly includeClinicalFiles: boolean;
+  readonly includeDeceasedAt: boolean;
   readonly idempotencyKey: string;
   readonly petOwnerUserIdAtCreation: string | null;
 }

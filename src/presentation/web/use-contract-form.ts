@@ -5,7 +5,7 @@
  * @implements REQ-UI-005, REQ-UI-002
  */
 import { useState, type FormEvent } from 'react';
-import { ApiProblem, catalogProblem, problemMessage } from './api.ts';
+import { ApiProblem, catalogProblem, problemMessage, type ProblemDetails } from './api.ts';
 import { formValues, validateInput, type FieldErrors, type FormBody, type InputSchema } from './validation.ts';
 
 export interface ContractForm {
@@ -15,6 +15,16 @@ export interface ContractForm {
   readonly busy: boolean;
   onChange(name: string, value: string): void;
   onSubmit(event: FormEvent): Promise<void>;
+}
+
+/**
+ * Reparto de un error de la API entre el campo y el banner inferior: si el error apunta a un campo del formulario se pinta SOLO bajo ese campo; el banner (`message`) se
+ * reserva para los errores globales sin campo (o con un campo que el formulario no muestra).
+ */
+export function problemFeedback(problem: ProblemDetails, knownFields: readonly string[]): { readonly errors: FieldErrors; readonly message: string | null } {
+  const text = problemMessage(problem);
+  if (typeof problem.field !== 'string') return { errors: {}, message: text };
+  return { errors: { [problem.field]: text }, message: knownFields.includes(problem.field) ? null : text };
 }
 
 export function useContractForm(options: {
@@ -46,9 +56,9 @@ export function useContractForm(options: {
       if (resetOnSuccess) setValues(initial);
     } catch (error) {
       const problem = error instanceof ApiProblem ? error.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED');
-      const text = problemMessage(problem);
-      if (typeof problem.field === 'string') setErrors({ [problem.field]: text });
-      setMessage(text);
+      const feedback = problemFeedback(problem, Object.keys(values));
+      if (typeof problem.field === 'string') setErrors(feedback.errors);
+      setMessage(feedback.message);
     } finally {
       setBusy(false);
     }

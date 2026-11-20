@@ -4,11 +4,11 @@
   "title": "PetProfileSchema",
   "description": "Perfil de mascota multi-especie con dueño, asignaciones y permisos [REQ-PET2-001..003, REQ-OWN-001, REQ-HOUSE2-003]",
   "x-sdd-metadata": {
-    "version": "3.0.0",
+    "version": "3.1.0",
     "status": "REVIEW",
-    "supersedes": "2.0.2",
-    "change_type": "MAJOR",
-    "change_note": "MAJOR: 8 especies con speciesOther, birthDateIsEstimate, neutered, microchipId opcional; permisos efectivos por mascota; transferencia y asignación a hogares.",
+    "supersedes": "3.0.0",
+    "change_type": "MINOR",
+    "change_note": "MINOR aditiva (feature 007, #13, N2-07-01 aprobada por Neo el 2026-11-19 sobre la linea 002): +LifeStatus (ALIVE|DECEASED, defecto ALIVE), +DeceasedAt (fecha o nulo), +PetVersion (entero >= 1, control optimista); PetProfile, CreatePetInput y UpdatePetInput los aceptan como opcionales con condicional DECEASED => deceasedAt. additionalProperties false se conserva. El 3.1.0 DRAFT de 004 es una linea paralela con su propia historia: absorbe los mismos campos sin cambiar de numeracion (aun DRAFT).",
     "traceability": [
       "REQ-PET2-001",
       "REQ-PET2-002",
@@ -83,6 +83,37 @@
       "maxLength": 2048,
       "pattern": "^(https?://|data:image/(png|jpeg|webp);base64,)",
       "description": "Solo http(s) o data-URL de imagen (previene javascript:) [REQ-PET2-001]"
+    },
+    "LifeStatus": {
+      "type": "string",
+      "enum": [
+        "ALIVE",
+        "DECEASED"
+      ],
+      "default": "ALIVE",
+      "description": "Estado de vida de la mascota (feature 007, #13). Defecto ALIVE; el invariante con deceasedAt se valida sobre el estado resultante"
+    },
+    "DeceasedAt": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ]
+        }
+      ],
+      "description": "Fecha ISO YYYY-MM-DD del fallecimiento; obligatoria con DECEASED y nula con ALIVE; >= birthDate y <= hoy (America/Bogota) se validan en el dominio sobre el estado resultante (feature 007, #13)",
+      "x-sdd-error": "ERR-SCHEMA-VALIDATION-FAILED"
+    },
+    "PetVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Version entera >= 1 de la ficha: inicial 1, +1 en cada PATCH de mascota; control optimista con If-Match, 412 ERR-PET-VERSION-CONFLICT si no coincide (feature 007, EDGE-007-009)"
     },
     "ComputedAge": {
       "type": "object",
@@ -195,6 +226,15 @@
         },
         "updatedAt": {
           "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "lifeStatus": {
+          "$ref": "#/$defs/LifeStatus"
+        },
+        "deceasedAt": {
+          "$ref": "#/$defs/DeceasedAt"
+        },
+        "version": {
+          "$ref": "#/$defs/PetVersion"
         }
       },
       "allOf": [
@@ -226,9 +266,41 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "lifeStatus": {
+                "const": "DECEASED"
+              }
+            },
+            "required": [
+              "lifeStatus"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "deceasedAt"
+            ],
+            "properties": {
+              "deceasedAt": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "deceasedAt": {
+                "type": "null"
+              }
+            }
+          }
         }
       ],
-      "description": "[REQ-PET2-001, INV-PET2-001]. speciesOther solo con OTHER."
+      "description": "[REQ-PET2-001, INV-PET2-001]. speciesOther solo con OTHER. Feature 007: lifeStatus, deceasedAt y version son opcionales en el esquema (aditivo); el servidor siempre los emite."
     },
     "EstimatedAge": {
       "type": "object",
@@ -316,6 +388,12 @@
             }
           ],
           "description": "Hogar base opcional: asignación inicial; el dueño debe ser miembro ACTIVE [REQ-HOUSE2-003]"
+        },
+        "lifeStatus": {
+          "$ref": "#/$defs/LifeStatus"
+        },
+        "deceasedAt": {
+          "$ref": "#/$defs/DeceasedAt"
         }
       },
       "oneOf": [
@@ -370,6 +448,38 @@
             "type": "object",
             "properties": {
               "speciesOther": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "lifeStatus": {
+                "const": "DECEASED"
+              }
+            },
+            "required": [
+              "lifeStatus"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "deceasedAt"
+            ],
+            "properties": {
+              "deceasedAt": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "deceasedAt": {
                 "type": "null"
               }
             }
@@ -430,9 +540,62 @@
         },
         "estimatedAge": {
           "$ref": "#/$defs/EstimatedAge"
+        },
+        "lifeStatus": {
+          "$ref": "#/$defs/LifeStatus"
+        },
+        "deceasedAt": {
+          "$ref": "#/$defs/DeceasedAt"
         }
       },
-      "description": "Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001]"
+      "description": "Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001] Feature 007: lifeStatus/deceasedAt; DECEASED exige deceasedAt; ALIVE lo exige nulo; el PATCH exige If-Match con la version de la ficha.",
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "lifeStatus": {
+                "const": "DECEASED"
+              }
+            },
+            "required": [
+              "lifeStatus"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "deceasedAt"
+            ],
+            "properties": {
+              "deceasedAt": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "lifeStatus": {
+                "const": "ALIVE"
+              }
+            },
+            "required": [
+              "lifeStatus"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "deceasedAt": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "PetEffectiveRole": {
       "type": "string",

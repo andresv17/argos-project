@@ -63,7 +63,7 @@ async function luciaWithPet(): Promise<string> {
 }
 
 async function png(): Promise<Uint8Array> {
-  const result = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], signal: new AbortController().signal });
+  const result = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], seed: 0, signal: new AbortController().signal });
   if (!result.ok) throw new Error('sin imagen');
   return result.image.bytes;
 }

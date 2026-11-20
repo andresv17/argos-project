@@ -4,7 +4,7 @@ import {
   type BackupEnvelopeV3,
   type PetProfile,
 } from '../../src/generated/index.ts';
-import { DomainError as V31DomainError, STATE_BACKUP_001, STATE_BACKUP_001_EVENTS, STATE_BACKUP_001_STATES, validateBackupEnvelopeV31 } from '../../src/generated/v31/index.ts';
+import { DomainError as V31DomainError, STATE_BACKUP_001, STATE_BACKUP_001_EVENTS, STATE_BACKUP_001_STATES, validateBackupEnvelopeV32 } from '../../src/generated/v31/index.ts';
 import {
   ExportBackupUseCase,
   ImportBackupUseCase,
@@ -68,16 +68,16 @@ async function rejected(payload: string | Uint8Array, harness = createHarness())
 }
 
 describe('exportación de respaldo (src/application/use-cases/backup-use-cases.ts)', () => {
-  it('[REQ-BACKUP2-001] Andrés exporta sus 5 mascotas y sus registros en un sobre 3.1.0 válido, sin campos de propiedad, en el orden de REQ-PET-005 e INV-SORT-001', async () => {
+  it('[REQ-BACKUP2-001] Andrés exporta sus 5 mascotas y sus registros en un sobre 3.2.0 válido (con lifeStatus y deceasedAt, sin version), sin campos de propiedad, en el orden de REQ-PET-005 e INV-SORT-001', async () => {
     const h = createHarness(validBackupState());
     const before = json(withoutExportTraces(h.uow.snapshot()));
     const result = await new ExportBackupUseCase(h.deps).execute(ANDRES);
-    // T617: el mismo archivo canónico en forma 3.1.0: mascotas con breedCode nulo y parámetros con symptomType y severity nulos.
+    // T617/T1067: el mismo archivo canónico en forma 3.2.0: mascotas con breedCode nulo, ALIVE y sin fecha (REQ-FAL7-009) y parámetros con symptomType y severity nulos.
     const file = v3();
     const expected = {
-      schemaVersion: '3.1.0',
+      schemaVersion: '3.2.0',
       exportedAt: '2026-11-05T12:00:00.000Z',
-      pets: sortPetsForListing(file.pets as unknown as PetProfile[]).map((p) => ({ ...p, breedCode: null })),
+      pets: sortPetsForListing(file.pets as unknown as PetProfile[]).map((p) => ({ ...p, breedCode: null, lifeStatus: 'ALIVE', deceasedAt: null })),
       records: Object.fromEntries(
         MODULES.map((m) => [
           m,
@@ -92,7 +92,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
       headers: { 'x-argos-confirmation-token': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
     });
     expect(Object.keys(result.envelope)).toEqual(['schemaVersion', 'exportedAt', 'pets', 'records']);
-    expect(validateBackupEnvelopeV31(result.envelope)).toBe(true);
+    expect(validateBackupEnvelopeV32(result.envelope)).toBe(true);
     expect(json(withoutExportTraces(h.uow.snapshot()))).toBe(before);
   });
 
@@ -102,7 +102,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
     const result = await new ExportBackupUseCase(h.deps).execute(MARIA);
     expect([(result.envelope as unknown as { exportedByUserId?: string }).exportedByUserId, result.envelope.pets, result.envelope.records]).toEqual([
       undefined,
-      [{ ...LUNA_IN_FILE, breedCode: null }],
+      [{ ...LUNA_IN_FILE, breedCode: null, lifeStatus: 'ALIVE', deceasedAt: null }],
       Object.fromEntries(MODULES.map((m) => [m, []])),
     ]);
     const forbidden = [ANDRES, MARIA, ARGOS.id, HOUSEHOLD.id, FAKE_HASH_PREFIX, DUMMY_PASSWORD_HASH, 'token-secreto', 'passwordHash', 'username'];
@@ -111,7 +111,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
 
   it('[REQ-BACKUP2-001] un usuario sin mascotas exporta un sobre vacío y válido', async () => {
     const result = await new ExportBackupUseCase(createHarness().deps).execute(fixtures.users[3].id);
-    expect([result.envelope.pets, result.envelope.records, validateBackupEnvelopeV31(result.envelope)]).toEqual([[], Object.fromEntries(MODULES.map((m) => [m, []])), true]);
+    expect([result.envelope.pets, result.envelope.records, validateBackupEnvelopeV32(result.envelope)]).toEqual([[], Object.fromEntries(MODULES.map((m) => [m, []])), true]);
   });
 
   it('[REQ-BACKUP2-001] si los datos guardados no forman un sobre válido, la exportación falla con ERR-INTERNAL-UNEXPECTED, sin emitir token ni consumir cupo', async () => {
@@ -123,7 +123,7 @@ describe('exportación de respaldo (src/application/use-cases/backup-use-cases.t
       'ERR-INTERNAL-UNEXPECTED',
       500,
       null,
-      'Los datos guardados del usuario no forman un respaldo 3.1.0 válido.',
+      'Los datos guardados del usuario no forman un respaldo 3.2.0 válido.',
       {},
       [],
     ]);
@@ -135,7 +135,7 @@ describe('importación de respaldo, caminos de éxito (STATE-BACKUP-001)', () =>
     const h = createHarness(validBackupState());
     const exported = await new ExportBackupUseCase(h.deps).execute(ANDRES);
     const { steps, promise } = importer(h.deps)(exported.json);
-    expect(await promise).toEqual({ finalState: 'COMPLETED', sourceSchemaVersion: '3.1.0', importedPetsCount: 5, importedRecordsCount: RECORD_COUNT });
+    expect(await promise).toEqual({ finalState: 'COMPLETED', sourceSchemaVersion: '3.2.0', importedPetsCount: 5, importedRecordsCount: RECORD_COUNT });
     expect(path(steps)).toEqual([...UNTIL_COMMIT, 'COMMIT_SUCCESS>COMPLETED']);
     expect((await new ExportBackupUseCase(h.deps).execute(ANDRES)).json).toBe(exported.json);
   });
@@ -164,6 +164,20 @@ describe('importación de respaldo, caminos de éxito (STATE-BACKUP-001)', () =>
     expect(afterAudit.at(-1)).toMatchObject({ mutationType: 'IMPORT', entityType: 'USER', entityId: ANDRES, executorUserId: ANDRES });
   });
 
+  it('[REQ-FAL7-011][REQ-BACKUP2-002] la importación por reemplazo no retrocede la versión de una ficha que conserva su id: queda en priorVersion+1 y nunca menor', async () => {
+    const seeded = validBackupState();
+    seeded.pets = seeded.pets.map((p) => (p.ownerUserId === ANDRES ? { ...p, version: 7 } : p));
+    const h = createHarness(seeded);
+    const prior = new Map(h.uow.snapshot().pets.filter((p) => p.ownerUserId === ANDRES).map((p) => [p.id, p.version ?? 1] as const));
+    const exported = await new ExportBackupUseCase(h.deps).execute(ANDRES);
+    await importer(h.deps)(exported.json).promise;
+    const after = h.uow.snapshot().pets.filter((p) => p.ownerUserId === ANDRES);
+    expect(after).toHaveLength(prior.size);
+    expect(after.map((p) => [p.id, p.version])).toEqual(after.map((p) => [p.id, (prior.get(p.id) ?? 0) + 1]));
+    expect(after.map((p) => p.version)).toEqual(after.map(() => 8));
+    expect(after.filter((p) => (p.version ?? 0) < (prior.get(p.id) ?? 0))).toEqual([]);
+  });
+
   it('[REQ-BACKUP2-002][INV-BACKUP-001] el ownerUserId de un 2.0.0 se descarta en la migración y las mascotas quedan del usuario autenticado', async () => {
     const h = createHarness({ ...emptyMemoryState(), users: canonicalState().users });
     const fromMaria = v2((e) => {
@@ -179,6 +193,7 @@ describe('importación de respaldo, caminos de éxito (STATE-BACKUP-001)', () =>
     const h = createHarness();
     const maria = (s: ReturnType<typeof h.uow.snapshot>) => s.pets.filter((p) => p.ownerUserId === MARIA);
     const mariaBefore = maria(h.uow.snapshot());
+    const priorVersions = new Map(h.uow.snapshot().pets.map((p) => [p.id, p.version ?? 1] as const)); // REQ-FAL7-011: la versión de una ficha que conserva su id no retrocede
     const legacy = fixtures.validLegacyBackupEnvelopeV1;
     const { steps, promise } = importer(h.deps)(json(legacy));
     expect(await promise).toEqual({ finalState: 'COMPLETED', sourceSchemaVersion: '1.0.0', importedPetsCount: 4, importedRecordsCount: 8 });
@@ -197,6 +212,9 @@ describe('importación de respaldo, caminos de éxito (STATE-BACKUP-001)', () =>
           neutered: null,
           microchipId: null,
           breedCode: null,
+          lifeStatus: 'ALIVE', // 007: lo que no trae un respaldo anterior se lee ALIVE/nulo
+          deceasedAt: null,
+          version: (priorVersions.get(p.id) ?? 0) + 1,
         })),
       ),
     );
@@ -279,14 +297,14 @@ describe('importación de respaldo, salidas a ROLLED_BACK con el estado intacto 
   });
 
   it.each([['"4.0.0"'], ['"3.0.1"'], ['"2.0"'], ['2'], ['null'], ['["2.0.0"]']])(
-    '[ERR-BACKUP-VERSION-UNSUPPORTED] schemaVersion %s no es 1.0.0, 2.0.0, 3.0.0 ni 3.1.0: VERSION_MISMATCH',
+    '[ERR-BACKUP-VERSION-UNSUPPORTED] schemaVersion %s no es 1.0.0, 2.0.0, 3.0.0, 3.1.0 ni 3.2.0: VERSION_MISMATCH',
     async (version) => {
       const r = await rejected(json(v2()).replace('"schemaVersion":"2.0.0"', `"schemaVersion":${version}`));
       expect([r.code, r.status, r.field, r.detail, r.finalState, r.path]).toEqual([
         'ERR-BACKUP-VERSION-UNSUPPORTED',
         422,
         'schemaVersion',
-        `schemaVersion ${JSON.stringify(JSON.parse(version))} no es 1.0.0, 2.0.0, 3.0.0 ni 3.1.0.`,
+        `schemaVersion ${JSON.stringify(JSON.parse(version))} no es 1.0.0, 2.0.0, 3.0.0, 3.1.0 ni 3.2.0.`,
         'ROLLED_BACK',
         [...UNTIL_VALIDATION, 'VERSION_MISMATCH>ROLLED_BACK'],
       ]);

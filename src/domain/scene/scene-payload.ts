@@ -17,7 +17,7 @@ export const SCENE_PAYLOAD_SCHEMA_VERSION = '1.0.0';
 
 /** Estilo fijo de la escena (constantes del servidor, no entrada del usuario). */
 export const DEFAULT_SCENE_STYLE: StyleBlock = {
-  artStyle: '32-bit isometric pixel art cutaway illustration',
+  artStyle: '16-bit cozy retro RPG isometric pixel art with natural-language warm pastel palette',
   lighting: 'soft natural morning light',
   palette: ['#1D4F3A', '#E6F2EA', '#F4F8EF', '#EAF6FF'],
   constraints: ['No text', 'no blur', 'no anti-aliasing'],

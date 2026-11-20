@@ -64,7 +64,14 @@ describe('T778 contrato del resumen versionado y cerrado (REQ-SUM-006, SC-005-03
       customParameters: records.customParameters.filter((r) => r.petId === pet.id),
     };
     const summary = buildClinicalSummary('PET', [{ pet, records: collections, files: [] }], '2026-11-18T12:00:00.000Z', { includeMicrochip: false, includeClinicalFiles: false });
-    expect((schema['x-sdd-metadata'] as { version: string }).version).toBe(CLINICAL_SUMMARY_VERSION);
+    // 007/T1026: la enmienda MINOR 1.1.0 del esquema es aditiva y el formato del documento (`summaryVersion`) sigue en 1.0.0; el MAJOR del contrato coincide con el del documento.
+    const contractVersion = (schema['x-sdd-metadata'] as { version: string }).version;
+    expect(contractVersion.split('.')[0]).toBe(CLINICAL_SUMMARY_VERSION.split('.')[0]);
+    // Detector de deriva MINOR (restaura la igualdad exacta de 6e7f0a3): cada version del documento tiene UNA version de contrato esperada. Una enmienda MINOR nueva del
+    // contrato de 005 sin actualizar esta tabla (junto con su cableado) rompe la prueba; subir `summaryVersion` sin entrada tambien.
+    const CONTRACT_VERSION_OF_DOCUMENT: Readonly<Record<string, string>> = { '1.0.0': '1.1.0' };
+    expect(CONTRACT_VERSION_OF_DOCUMENT[CLINICAL_SUMMARY_VERSION], 'deriva MINOR: el contrato de 005 cambio de version sin actualizar la tabla documento-contrato').toBe(contractVersion);
+    expect(((schema['$defs'] as Record<string, { properties: { summaryVersion: { const: string } } }>)['ClinicalSummary'] ?? { properties: { summaryVersion: { const: '' } } }).properties.summaryVersion.const).toBe(CLINICAL_SUMMARY_VERSION);
     expect(summary.summaryVersion).toBe(CLINICAL_SUMMARY_VERSION);
     expect(CLINICAL_SUMMARY_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });

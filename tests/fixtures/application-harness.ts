@@ -11,6 +11,7 @@ import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.po
 import type { LegacyHouseholdMember as HouseholdMember } from '../../src/domain/households/household-policies.ts';
 import type { UserAccount } from '../../src/application/ports/repositories.port.ts';
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
+import { UpdatePetUseCase } from '../../src/application/use-cases/pet-use-cases.ts';
 import { DeterministicIdAdapter } from '../../src/infrastructure/adapters/deterministic-id.adapter.ts';
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import {
@@ -113,4 +114,18 @@ export function createHarness(state: MemoryState = canonicalState(), options: In
   const clock = new FixedClockAdapter();
   const hasher = new SpyPasswordHasher();
   return { deps: createDeps(uow, clock, hasher, rateLimits), uow, clock, hasher };
+}
+
+/**
+ * `UpdatePetUseCase` que envía como `If-Match` la versión VIGENTE de la ficha (007, EDGE-007-009: el contrato la exige): para las pruebas que no
+ * ejercitan el control optimista. Una mascota inexistente va con 1; el caso de uso decide 404/403 antes de comparar.
+ */
+export function petUpdater(deps: ApplicationDeps) {
+  const update = new UpdatePetUseCase(deps);
+  return {
+    async execute(userId: string, petId: string, input: unknown) {
+      const version = await deps.uow.runInTransaction(async (repositories) => (await repositories.pets.findById(petId))?.version ?? 1);
+      return update.execute(userId, petId, input, version);
+    },
+  };
 }

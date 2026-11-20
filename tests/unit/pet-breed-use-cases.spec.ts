@@ -5,9 +5,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/generated/index.ts';
-import { GetPetDashboardUseCase, ListMyPetsUseCase, RegisterPetUseCase, UpdatePetUseCase } from '../../src/application/use-cases/pet-use-cases.ts';
+import { GetPetDashboardUseCase, ListMyPetsUseCase, RegisterPetUseCase } from '../../src/application/use-cases/pet-use-cases.ts';
 import { stateHash } from '../../src/domain/audit/state-hash.ts';
-import { ANDRES, ARGOS, createHarness } from '../fixtures/application-harness.ts';
+import { ANDRES, ARGOS, createHarness, petUpdater } from '../fixtures/application-harness.ts';
 
 const BASE = { name: 'Rocky', birthDate: '2024-06-01', sex: 'MALE' };
 
@@ -81,19 +81,19 @@ describe('T524 edición con breedCode (REQ-RAZ-003, INV-RAZ-001)', () => {
     const { deps, uow } = createHarness();
     const legacy = uow.snapshot().pets.find((p) => p.id === ARGOS.id);
     expect(legacy?.breedCode).toBeUndefined();
-    const updated = await new UpdatePetUseCase(deps).execute(ANDRES, ARGOS.id, { name: 'Argos Magno' });
+    const updated = await petUpdater(deps).execute(ANDRES, ARGOS.id, { name: 'Argos Magno' });
     expect([updated.name, updated.breed, updated.breedCode]).toEqual(['Argos Magno', ARGOS.breed, null]);
   });
 
   it('REQ-RAZ-003: elegir una raza del catálogo en la edición deriva breed del rótulo', async () => {
     const { deps } = createHarness();
-    const updated = await new UpdatePetUseCase(deps).execute(ANDRES, ARGOS.id, { breedCode: 'DOG_BEAGLE' });
+    const updated = await petUpdater(deps).execute(ANDRES, ARGOS.id, { breedCode: 'DOG_BEAGLE' });
     expect([updated.breedCode, updated.breed]).toEqual(['DOG_BEAGLE', 'Beagle']);
   });
 
   it('REQ-RAZ-002: con DOG_OTHER la edición guarda el texto libre; editar el nombre después lo conserva', async () => {
     const { deps } = createHarness();
-    const update = new UpdatePetUseCase(deps);
+    const update = petUpdater(deps);
     const other = await update.execute(ANDRES, ARGOS.id, { breedCode: 'DOG_OTHER', breed: 'Pastor Maremmano' });
     expect([other.breedCode, other.breed]).toEqual(['DOG_OTHER', 'Pastor Maremmano']);
     const renamed = await update.execute(ANDRES, ARGOS.id, { name: 'Argos II' });
@@ -102,7 +102,7 @@ describe('T524 edición con breedCode (REQ-RAZ-003, INV-RAZ-001)', () => {
 
   it('SC-CAT-004: un breed distinto del rótulo con un código de catálogo se rechaza, incluso si el código ya estaba guardado', async () => {
     const { deps } = createHarness();
-    const update = new UpdatePetUseCase(deps);
+    const update = petUpdater(deps);
     await update.execute(ANDRES, ARGOS.id, { breedCode: 'DOG_BEAGLE' });
     expect(await outcome(update.execute(ANDRES, ARGOS.id, { breed: 'Golden' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@breed');
     expect(await outcome(update.execute(ANDRES, ARGOS.id, { breedCode: 'DOG_CRIOLLA', breed: 'Golden' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@breed');
@@ -110,7 +110,7 @@ describe('T524 edición con breedCode (REQ-RAZ-003, INV-RAZ-001)', () => {
 
   it('INV-RAZ-001: cambiar la especie sin cambiar el breedCode deja un estado incoherente y se rechaza; con breedCode nulo y raza libre se acepta', async () => {
     const { deps } = createHarness();
-    const update = new UpdatePetUseCase(deps);
+    const update = petUpdater(deps);
     await update.execute(ANDRES, ARGOS.id, { breedCode: 'DOG_BEAGLE' });
     expect(await outcome(update.execute(ANDRES, ARGOS.id, { species: 'RABBIT' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@breedCode');
     expect(await outcome(update.execute(ANDRES, ARGOS.id, { species: 'FELINE', breedCode: 'DOG_CRIOLLA' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@breedCode');
@@ -120,7 +120,7 @@ describe('T524 edición con breedCode (REQ-RAZ-003, INV-RAZ-001)', () => {
 
   it('REQ-RAZ-003: el listado y el panel exponen breedCode (nulo en mascotas antiguas)', async () => {
     const { deps } = createHarness();
-    await new UpdatePetUseCase(deps).execute(ANDRES, ARGOS.id, { breedCode: 'DOG_BEAGLE' });
+    await petUpdater(deps).execute(ANDRES, ARGOS.id, { breedCode: 'DOG_BEAGLE' });
     const cards = await new ListMyPetsUseCase(deps).execute(ANDRES);
     expect(cards.find((c) => c.profile.id === ARGOS.id)?.profile.breedCode).toBe('DOG_BEAGLE');
     expect(cards.filter((c) => c.profile.id !== ARGOS.id).every((c) => c.profile.breedCode === null)).toBe(true);
@@ -133,7 +133,7 @@ describe('T524 hash canónico de la auditoría con breedCode (REQ-AUD-001)', () 
   it('el hash de estado cambia cuando cambia breedCode y la edición deja previous y new distintos', async () => {
     const { deps, uow } = createHarness();
     const before = uow.snapshot().pets.find((p) => p.id === ARGOS.id)!;
-    const after = await new UpdatePetUseCase(deps).execute(ANDRES, ARGOS.id, { breedCode: 'DOG_BEAGLE' });
+    const after = await petUpdater(deps).execute(ANDRES, ARGOS.id, { breedCode: 'DOG_BEAGLE' });
     expect(stateHash(after)).not.toBe(stateHash(before));
     expect(stateHash({ ...after, breedCode: 'DOG_BOXER' })).not.toBe(stateHash(after));
   });

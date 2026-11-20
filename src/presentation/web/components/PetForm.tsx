@@ -1,12 +1,13 @@
 /**
  * Alta y edición del perfil de una mascota propia (REQ-PET-001). La edición solo se ofrece si `canEdit`.
  *
- * @implements REQ-UI-002, REQ-UI-004, REQ-UI-007, REQ-FRM-002, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003
+ * @implements REQ-FAL7-003, REQ-UI-002, REQ-UI-004, REQ-UI-007, REQ-FRM-002, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003
  */
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button, FormError, SelectField, TextField } from './Field.tsx';
 import { PetAssignments } from './PetAssignments.tsx';
 import { BREEDS } from '../../../generated/catalogs/index.ts';
-import { SEX_LABEL, SPECIES_LABEL, type PetProfile, type Species } from '../view-model.ts';
+import { DECEASED_LINKS_NOTICE, LIFE_STATUS_LABEL, REVIVE_CONFIRMATION_TEXT, requiresReviveConfirmation, SEX_LABEL, SPECIES_LABEL, type PetProfile, type Species } from '../view-model.ts';
 import { AvatarExternalLink } from './PetAvatar.tsx';
 import { useContractForm } from '../use-contract-form.ts';
 import type { FormBody } from '../validation.ts';
@@ -17,7 +18,7 @@ export type PetFormBody = Record<string, string | number | boolean | null>;
 /** Las 8 especies aprobadas (REQ-PET2-001, INV-PET2-001), en el orden del contrato. */
 export const SPECIES_ORDER: readonly Species[] = ['CANINE', 'FELINE', 'RABBIT', 'FERRET', 'BIRD', 'REPTILE', 'SMALL_MAMMAL', 'OTHER'];
 
-const NULLABLE_FIELDS = ['speciesOther', 'neutered', 'microchipId', 'breedCode'] as const;
+const NULLABLE_FIELDS = ['speciesOther', 'neutered', 'microchipId', 'breedCode', 'deceasedAt'] as const;
 
 /** Solo perros y gatos tienen catálogo de razas (REQ-RAZ-003); las otras 6 especies llevan la raza como texto libre. */
 const hasBreedCatalog = (species: string): boolean => species === 'CANINE' || species === 'FELINE';
@@ -56,6 +57,8 @@ export function petFormInitial(profile: PetProfile | null): Record<string, strin
     birthDateIsEstimate: String(profile?.birthDateIsEstimate ?? false),
     neutered: profile?.neutered == null ? '' : String(profile.neutered),
     microchipId: profile?.microchipId ?? '',
+    lifeStatus: profile?.lifeStatus ?? 'ALIVE',
+    deceasedAt: profile?.deceasedAt ?? '',
   };
 }
 
@@ -66,6 +69,7 @@ export function petFormInitial(profile: PetProfile | null): Record<string, strin
 export function petFormBody(profile: PetProfile | null, body: FormBody): PetFormBody {
   const out: PetFormBody = { ...body };
   if (out['species'] !== 'OTHER') delete out['speciesOther'];
+  if (out['lifeStatus'] !== 'DECEASED') delete out['deceasedAt']; // REQ-FAL7-002: ALIVE exige la fecha nula; en la edición con fecha previa se envía null más abajo.
   const species = String(out['species']);
   const code = out['breedCode'];
   if (!hasBreedCatalog(species)) delete out['breedCode'];
@@ -82,6 +86,40 @@ export function petFormBody(profile: PetProfile | null, body: FormBody): PetForm
   return out;
 }
 
+/**
+ * Confirmación explícita al volver de Fallecido a Vivo (T1068, REQ-FAL7-003, EDGE-007-004, EDGE-007-016). El texto lo fijó Neo; la auditoría con la fecha anterior la hace el servidor.
+ * @implements REQ-FAL7-003
+ */
+export function ReviveConfirmation({ petName, onConfirm, onCancel }: {
+  readonly petName: string;
+  readonly onConfirm: () => void;
+  readonly onCancel: () => void;
+}): JSX.Element {
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    confirmRef.current?.focus();
+  }, []);
+  return (
+    <div role="alert" className="grid gap-2 rounded-2xl border border-amber-700 bg-amber-50 p-4 text-amber-950 sm:col-span-2">
+      <p className="font-semibold">{`${REVIVE_CONFIRMATION_TEXT}.`}</p>
+      <p className="text-sm">{`${petName} dejará de figurar como fallecida y se borrará su fecha de fallecimiento.`}</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          ref={confirmRef}
+          type="button"
+          onClick={onConfirm}
+          className="min-h-12 rounded-xl bg-primary px-4 py-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          Confirmar y volver a Vivo
+        </button>
+        <Button variant="secondary" onClick={onCancel}>
+          Mantener Fallecido
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function PetForm({ profile, households = [], canAssign = false, onSubmit, onCancel }: {
   readonly profile: PetProfile | null;
   readonly households?: readonly HouseholdChoice[];
@@ -91,9 +129,45 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
 }): JSX.Element {
   // En el alta, `baseHouseholdId` vacío no se envía (formValues omite los vacíos). En edición no existe ese campo (UpdatePetInput).
   const initial = profile === null ? { ...petFormInitial(null), baseHouseholdId: '' } : petFormInitial(profile);
-  const form = useContractForm({ schema: profile === null ? 'CreatePetInput' : 'UpdatePetInput', initial, booleans: ['birthDateIsEstimate', 'neutered'], send: (body) => onSubmit(petFormBody(profile, body)) });
+  // T1068: volver a Vivo pide confirmación; mientras no se confirme, `send` no llega a la API.
+  const [asking, setAsking] = useState(false);
+  const confirmed = useRef(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const form = useContractForm({
+    schema: profile === null ? 'CreatePetInput' : 'UpdatePetInput',
+    initial,
+    booleans: ['birthDateIsEstimate', 'neutered'],
+    send: async (body) => {
+      if (requiresReviveConfirmation(profile, String(body['lifeStatus'])) && !confirmed.current) {
+        setAsking(true);
+        return;
+      }
+      try {
+        await onSubmit(petFormBody(profile, body));
+      } finally {
+        confirmed.current = false;
+      }
+    },
+  });
+  const onFormSubmit = (event: FormEvent): void => {
+    if (asking && !confirmed.current) {
+      event.preventDefault();
+      return;
+    }
+    void form.onSubmit(event);
+  };
+  const confirmRevive = (): void => {
+    confirmed.current = true;
+    setAsking(false);
+    formRef.current?.requestSubmit();
+  };
   const onChange = (name: string, value: string): void => {
     form.onChange(name, value);
+    if (name === 'lifeStatus') {
+      setAsking(false);
+      // El esquema exige `deceasedAt` nulo con ALIVE: al volver a Vivo la fecha se vacía en el formulario (el servidor la borra, REQ-FAL7-002).
+      if (value === 'ALIVE') form.onChange('deceasedAt', '');
+    }
     if (name === 'species' && value !== 'OTHER') form.onChange('speciesOther', '');
     if (name === 'species') {
       const fields = breedFieldsForSpecies(value);
@@ -106,7 +180,7 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
   // REQ-RAZ-003: una mascota anterior (sin breedCode) de perro o gato conserva su texto como «Raza actual» mientras no cambie raza ni especie.
   const legacyBreed = profile !== null && profile.breedCode == null && hasBreedCatalog(species) && species === profile.species ? profile.breed : null;
   return (
-    <form noValidate aria-labelledby={`${prefix}-title`} onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded border border-slate-300 bg-white p-4 sm:grid-cols-2">
+    <form ref={formRef} noValidate aria-labelledby={`${prefix}-title`} onSubmit={onFormSubmit} className="grid gap-3 rounded border border-slate-300 bg-white p-4 sm:grid-cols-2">
       <h2 id={`${prefix}-title`} className="text-lg font-semibold sm:col-span-2">
         {profile === null ? 'Nueva mascota' : `Editar a ${profile.name}`}
       </h2>
@@ -182,6 +256,26 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
         onChange={form.onChange}
         errors={form.errors}
       />
+      <SelectField
+        id={`${prefix}-lifeStatus`}
+        label="Estado"
+        name="lifeStatus"
+        value={form.values.lifeStatus ?? 'ALIVE'}
+        options={[
+          { value: 'ALIVE', label: LIFE_STATUS_LABEL.ALIVE },
+          { value: 'DECEASED', label: LIFE_STATUS_LABEL.DECEASED },
+        ]}
+        onChange={onChange}
+        errors={form.errors}
+      />
+      {form.values.lifeStatus === 'DECEASED' ? (
+        <TextField id={`${prefix}-deceasedAt`} label="Fecha de fallecimiento" name="deceasedAt" type="date" required value={form.values.deceasedAt ?? ''} onChange={form.onChange} errors={form.errors} />
+      ) : null}
+      {form.values.lifeStatus === 'DECEASED' && profile !== null ? (
+        <p role="status" className="rounded-2xl border border-amber-700 bg-amber-50 p-3 text-sm text-amber-950 sm:col-span-2">
+          {DECEASED_LINKS_NOTICE}
+        </p>
+      ) : null}
       <TextField id={`${prefix}-microchipId`} label="Microchip (15 dígitos, opcional)" name="microchipId" value={form.values.microchipId ?? ''} onChange={form.onChange} errors={form.errors} />
       <TextField id={`${prefix}-avatarUrl`} label="URL del avatar (opcional)" name="avatarUrl" type="url" value={form.values.avatarUrl ?? ''} onChange={form.onChange} errors={form.errors} />
       <p id={`${prefix}-avatarUrl-help`} className="-mt-2 text-sm text-text-muted">
@@ -204,11 +298,16 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
           <PetAssignments petId={profile.id} />
         </div>
       ) : null}
+      {asking && profile !== null ? <ReviveConfirmation petName={profile.name} onConfirm={confirmRevive} onCancel={() => {
+          setAsking(false);
+          form.onChange('lifeStatus', 'DECEASED');
+          form.onChange('deceasedAt', profile.deceasedAt ?? '');
+        }} /> : null}
       <div className="sm:col-span-2">
         <FormError errors={form.errors} message={form.message} />
       </div>
       <div className="flex gap-2 sm:col-span-2">
-        <Button type="submit" disabled={form.busy}>
+        <Button type="submit" disabled={form.busy || asking}>
           Guardar
         </Button>
         <Button variant="secondary" onClick={onCancel}>

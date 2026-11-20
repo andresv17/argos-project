@@ -35,7 +35,7 @@ class HookedGenerator implements SceneImageGeneratorPort {
 }
 
 async function validPng(): Promise<Uint8Array> {
-  const result = await new FakeSceneImageGenerator().generate({ prompt: 'ref', references: [], signal: new AbortController().signal });
+  const result = await new FakeSceneImageGenerator().generate({ prompt: 'ref', references: [], seed: 0, signal: new AbortController().signal });
   if (!result.ok) throw new Error('el generador simulado no devolvió imagen');
   return result.image.bytes;
 }
@@ -228,7 +228,7 @@ describe('runSceneGeneration (T856): referencias, degradación y límites', () =
     await withAvatar(t, await validPng());
     await t.run.execute(await requested(t), signal());
     expect(t.fixture.generator.calls[0]?.references.map((r) => [r.ref, r.mime])).toEqual([['IMG_1', 'image/png']]);
-    expect(t.fixture.generator.calls[0]?.prompt).toContain('Use IMG_1 as the exact visual reference for this pet');
+    expect(t.fixture.generator.calls[0]?.prompt).toContain('Use IMG_1 as the exact visual reference for this dog.');
     expect(sceneOf(t)?.imageDegraded).toBe(false);
   });
 
@@ -443,7 +443,8 @@ describe('runSceneGeneration (T856): consentimiento, cambios y arrendamiento dur
 describe('runSceneGeneration (T929): fotos KEEP, tope de bytes y degradación (N2-16 B+C)', () => {
   const LUNA_AVATAR = 'e1000000-0000-4000-8000-000000000002';
   const consentOf = (userId: string, n: number) => ({ id: `c5000000-0000-4000-8000-00000000002${n}`, userId, scope: 'PET_PHOTOS' as const, providerId: 'vertex-gemini-image', noticeVersion: '1', grantedAt: NOW, revokedAt: null });
-  const photoRefs = (prompt: string): string[] => [...prompt.matchAll(/"photoRef":\s*"(IMG_\d+)"/g)].map((m) => m[1] ?? '');
+  /** Ranuras `IMG_n` que el texto cita como referencia visual de una mascota (`Use IMG_n as the exact visual reference for this …`); el JSON 16-bit ya no lleva `photoRef` y las KEEP no se citan en el texto. */
+  const photoRefs = (prompt: string): string[] => [...prompt.matchAll(/Use (IMG_\d+) as the exact visual reference for this /g)].map((m) => m[1] ?? '');
 
   /** Escena con imagen previa que viajó con la foto de Argos (Andrés); luego Luna (María) recibe foto: REPLACE de Luna y KEEP de Argos. */
   async function incremental(options: SceneFixtureOptions = {}, sizes: { current: number[] } = { current: [] }) {
@@ -469,7 +470,9 @@ describe('runSceneGeneration (T929): fotos KEEP, tope de bytes y degradación (N
     const call = t.fixture.generator.calls[1];
     expect(call?.references.map((r) => r.ref)).toEqual(['IMG_1', 'IMG_2', 'IMG_3']);
     expect(sizes.current).toHaveLength(3);
-    expect(photoRefs(call?.prompt ?? '').sort()).toEqual(['IMG_2', 'IMG_3']);
+    // El texto solo cita la foto de la REPLACE (IMG_2); la KEEP (IMG_3) viaja únicamente como referencia de imagen y no aparece en el texto.
+    expect(photoRefs(call?.prompt ?? '')).toEqual(['IMG_2']);
+    expect((call?.prompt ?? '').includes('IMG_3')).toBe(false);
     expect(sceneOf(t)?.imageDegraded).toBe(false);
     expect(snap(t).sceneImageSources?.map((x) => x.ownerUserId).sort()).toEqual([ARGOS.ownerUserId, LUNA.ownerUserId].sort());
   });
@@ -523,11 +526,14 @@ describe('runSceneGeneration (T929): fotos KEEP, tope de bytes y degradación (N
     expect(snap(t).sceneAttempts?.[1]?.mode).toBe('INCREMENTAL_REPLACE');
     const call = t.fixture.generator.calls[1];
     expect(call?.references.map((r) => r.ref)).toEqual(['IMG_1', 'IMG_2', 'IMG_3']);
-    const json = JSON.parse((call?.prompt ?? '').slice((call?.prompt ?? '').indexOf('{'), (call?.prompt ?? '').lastIndexOf('}') + 1)) as { pets: Array<{ petId?: string; hasReferencePhoto: boolean; photoRef: string | null }> };
-    expect(json.pets.filter((p) => p.hasReferencePhoto).map((p) => p.photoRef).sort()).toEqual(['IMG_2', 'IMG_3']);
-    expect(json.pets.filter((p) => !p.hasReferencePhoto).map((p) => p.photoRef)).toEqual(json.pets.filter((p) => !p.hasReferencePhoto).map(() => null));
-    expect(json.pets.filter((p) => !p.hasReferencePhoto).length).toBe(json.pets.length - 2);
-    expect(photoRefs(call?.prompt ?? '').sort()).toEqual(['IMG_2', 'IMG_3']);
+    const prompt = call?.prompt ?? '';
+    const json = JSON.parse(prompt.slice(prompt.indexOf('{'), prompt.lastIndexOf('}') + 1)) as { renderedPetsCount: number; pets: Array<Record<string, unknown>> };
+    // JSON 16-bit (R5): sin photoRef ni hasReferencePhoto; lista todas las visibles con el ordinal global y su conteo coincide.
+    expect(json.renderedPetsCount).toBe(json.pets.length);
+    expect(json.pets.map((p) => p.index)).toEqual(json.pets.map((_, i) => i + 1));
+    expect(JSON.stringify(json)).not.toMatch(/photoRef|hasReferencePhoto|IMG_/);
+    // El texto cita solo la foto REPLACE (IMG_2); la KEEP con foto viaja como referencia IMG_3 sin hueco en la numeración.
+    expect(photoRefs(prompt)).toEqual(['IMG_2']);
     expect(snap(t).sceneAttempts?.[1]?.degraded).toBe(true);
     expect(sceneOf(t)?.imageDegraded).toBe(true);
     expect(sceneOf(t)?.image?.id).not.toBe(before);
@@ -558,7 +564,7 @@ describe('runSceneGeneration (M2, Fase 13): prueba negativa de consentimiento PE
   const LUNA_AVATAR = 'e1000000-0000-4000-8000-000000000002';
   const grantAndres = { id: 'c5000000-0000-4000-8000-000000000031', userId: ANDRES, scope: 'PET_PHOTOS' as const, providerId: 'vertex-gemini-image', noticeVersion: '1', grantedAt: NOW, revokedAt: null };
   const grantMaria = { ...grantAndres, id: 'c5000000-0000-4000-8000-000000000032', userId: MARIA };
-  const photoRefs = (prompt: string): string[] => [...prompt.matchAll(/"photoRef":\s*"(IMG_\d+)"/g)].map((m) => m[1] ?? '');
+  const photoRefs = (prompt: string): string[] => [...prompt.matchAll(/Use (IMG_\d+) as the exact visual reference for this /g)].map((m) => m[1] ?? '');
 
   it('[SC-ESC6-134][REQ-ESC6-025][REQ-ESC6-026][EDGE-ESC6-025] REGENERATE: la foto de un dueño sin PET_PHOTOS (ni KEEP ni RENDER) no viaja al proveedor ni entra en scene_image_sources', async () => {
     const t = setup({ realDriver: true });

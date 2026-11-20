@@ -91,6 +91,9 @@ describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
       breedCode: null,
       createdAt: NOW,
       updatedAt: NOW,
+      lifeStatus: 'ALIVE', // 007: REQ-FAL7-001
+      deceasedAt: null,
+      version: 1,
     });
     expect(validatePetProfile31({ ...pet, avatarVersion: null })).toBe(true);
     expect(create({ ...VALID_INPUT, avatarUrl: 'https://img.example/rocky.png' }).avatarUrl).toBe(
@@ -197,7 +200,7 @@ describe('perfil de mascota (src/domain/pet/pet-invariants.ts)', () => {
       nowIsoTimestamp: '2026-11-05T13:00:00.000Z',
       recordEventDates: [],
     });
-    expect(updated).toEqual({ ...argos, name: 'Argos II', avatarUrl: null, breedCode: null, updatedAt: '2026-11-05T13:00:00.000Z' });
+    expect(updated).toEqual({ ...argos, name: 'Argos II', avatarUrl: null, breedCode: null, lifeStatus: 'ALIVE', deceasedAt: null, version: 2, updatedAt: '2026-11-05T13:00:00.000Z' });
     expect(frozen).toEqual(argos);
     const empty = catchDomainError(() => update({}));
     expect(empty.code).toBe('ERR-SCHEMA-VALIDATION-FAILED');

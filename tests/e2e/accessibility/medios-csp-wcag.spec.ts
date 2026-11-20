@@ -185,6 +185,7 @@ test.describe('CSP de producción y WCAG 2.1 AA a 320/1024/1280 px: recortador, 
   test('[REQ-ARC-003] visor de medios (imagen y PDF): axe a 320, 1024 y 1280 px, nombre accesible, cierre por teclado y URL del visor admitida por la CSP', async () => {
     const page = await newPage();
     await selectPet(page);
+    await page.getByRole('tab', { name: 'Historial / Archivos' }).click();
     const photo = (await makeImage(page, 'image/png', 120, 60))!;
     await page.locator('#clinical-file').setInputFiles({ name: 'foto-visor.png', mimeType: 'image/png', buffer: photo });
     await page.getByRole('button', { name: 'Subir', exact: true }).click();

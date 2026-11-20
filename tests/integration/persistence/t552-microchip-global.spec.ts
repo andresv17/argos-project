@@ -82,7 +82,14 @@ async function openHttp(name: EngineName): Promise<Http> {
     await engine.dispose();
   });
   const send = async (method: 'POST' | 'PATCH', cookie: string, url: string, body: unknown) => {
-    const response = await app.inject({ method, url, headers: { 'x-argos-request': '1', 'content-type': 'application/json', cookie }, payload: JSON.stringify(body) });
+    const headers: Record<string, string> = { 'x-argos-request': '1', 'content-type': 'application/json', cookie };
+    const petPatch = /^\/api\/pets\/([^/?]+)$/.exec(url);
+    if (method === 'PATCH' && petPatch !== null) {
+      // 007 (EDGE-007-009): PATCH de mascota exige If-Match con la versión vigente de la ficha.
+      const version = (await engine.read((r) => r.pets.findById(petPatch[1]!)))?.version;
+      if (version !== undefined) headers['if-match'] = `"${version}"`;
+    }
+    const response = await app.inject({ method, url, headers, payload: JSON.stringify(body) });
     return { status: response.statusCode, body: response.body, json: JSON.parse(response.body === '' ? '{}' : response.body) as Record<string, unknown> };
   };
   return {

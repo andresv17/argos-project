@@ -62,6 +62,12 @@ function PetSection({ pet, index, only, props, names }: { readonly pet: Clinical
         <dd>{`${formatCalendarDate(profile.birthDate)}${profile.birthDateIsEstimate ? ' (estimada)' : ''}`}</dd>
         <dt className="font-semibold">Edad</dt>
         <dd>{`${profile.age.years} años y ${profile.age.months} meses al ${formatCalendarDate(props.view.summary.generatedAt)}`}</dd>
+        {profile.lifeStatus === 'DECEASED' ? (
+          <>
+            <dt className="font-semibold">Estado</dt>
+            <dd>{disclosure.deceasedAtIncluded === true && typeof profile.deceasedAt === 'string' ? `Fallecido el ${formatCalendarDate(profile.deceasedAt)}` : 'Fallecido'}</dd>
+          </>
+        ) : null}
         <dt className="font-semibold">Microchip</dt>
         <dd>{disclosure.microchipIncluded && profile.microchipId !== undefined ? profile.microchipId : 'Microchip no compartido por el cuidador'}</dd>
       </dl>

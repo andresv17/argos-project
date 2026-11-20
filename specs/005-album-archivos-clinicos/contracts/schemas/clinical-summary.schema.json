@@ -4,11 +4,11 @@
   "title": "ClinicalSummarySchema",
   "description": "Read-model clínico de solo lectura, versionado y por allow-list (feature 005) [REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-006, INV-005-004]. Esquema cerrado: un campo nuevo del dominio NO aparece hasta que este contrato lo declare. Sin nombres de archivo (D5-06: viajan en SharedSummaryView.fileLabels), sin fotos de álbum, sin avatar, sin identificadores de usuario, hogar, mascota ni registro, sin claves ni URLs de objeto, sin `ownerUserId`, sin `revision` y sin interpretación automática (alertas, banderas, normal/anormal o texto generado; MAG-005-003). Las fechas de calendario son `YYYY-MM-DD` tal como se guardaron, sin conversión UTC (MAG-005-004); UTC solo en `generatedAt` y en `createdAt` de archivos.",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "status": "DRAFT",
-    "supersedes": null,
-    "change_type": "MAJOR",
-    "change_note": "Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
+    "supersedes": "1.0.0",
+    "change_type": "MINOR",
+    "change_note": "MINOR 1.1.0 (feature 007, EDGE-007-027 Opcion A de Neo, sin nuevo bump por seguir DRAFT: ClinicalProfile.age.required pierde totalDays (queda years, months; totalDays opcional) y ClinicalSummary.allOf gana la condicion if/then DECEASED sin deceasedAtIncluded true prohibe age.totalDays; los subesquemas de la regla condicional son objetos cerrados (additionalProperties false) que enumeran todas las propiedades de ClinicalSummary, SummaryDisclosure, ClinicalPetSummary, ClinicalProfile y age (true = sin restriccion adicional, false = prohibida), de modo que cerrar el if no altera su semantica y un campo nuevo en esos objetos exige actualizar tambien la regla; relaja un required, por lo que un lector 1.0.0 que lo exigiera debe tolerar su ausencia solo en DECEASED sin opt-in). MINOR 1.1.0 (feature 007, T1026, C1; DRAFT sin publicar, se pliega aqui la bandera de disclosure sin nuevo bump): disclosure +deceasedAtIncluded (boolean, opcional, fuera de required; ausente equivale a false) para reflejar includeDeceasedAt del enlace; ClinicalProfile +lifeStatus opcional (visible) y +deceasedAt opcional (disclosure opt-in del creador); ambos fuera de required, additionalProperties false se conserva; summaryVersion sigue 1.0.0 (formato del documento aditivo). Regla condicional if/else en ClinicalSummary (O1 de /rama, decision de Neo): pets[].profile.deceasedAt exige disclosure.deceasedAtIncluded true; sin bump porque sigue DRAFT y no restringe ningun documento valido emitido hasta ahora. Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
     "traceability": [
       "REQ-SUM-001",
       "REQ-SUM-002",
@@ -50,6 +50,10 @@
         "clinicalFilesIncluded": {
           "type": "boolean",
           "description": "true solo si el creador marcó «Incluir archivos clínicos» (D5-21); con false, clinicalFiles es [] en todas las mascotas"
+        },
+        "deceasedAtIncluded": {
+          "type": "boolean",
+          "description": "Opcional (007, T1026): true solo si el creador marcó includeDeceasedAt; ausente equivale a false; con false, deceasedAt va ausente en ClinicalProfile"
         }
       },
       "description": "Entradas de privacidad del resumen; son parámetros de entrada de buildClinicalSummary (determinismo) [REQ-SUM-003, REQ-SUM-002]"
@@ -100,13 +104,24 @@
         "birthDateIsEstimate": {
           "type": "boolean"
         },
+        "lifeStatus": {
+          "type": "string",
+          "enum": ["ALIVE", "DECEASED"],
+          "description": "Opcional (007, T1026): estado de vida visible en el resumen; ausente equivale a ALIVE para lectores 1.0.0."
+        },
+        "deceasedAt": {
+          "oneOf": [
+            {"$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"},
+            {"type": "null"}
+          ],
+          "description": "Opcional (007, T1026): fecha de fallecimiento; solo se incluye con disclosure opt-in del creador del enlace (desmarcado por defecto)."
+        },
         "age": {
           "type": "object",
           "additionalProperties": false,
           "required": [
             "years",
-            "months",
-            "totalDays"
+            "months"
           ],
           "properties": {
             "years": {
@@ -597,7 +612,102 @@
           "description": "Mascotas del alcance, ordenadas por (name ASC, id interno ASC); en HOUSEHOLD solo las que el creador posee legalmente y siguen asignadas al hogar (D5-19)"
         }
       },
-      "description": "Documento raíz [REQ-SUM-001]"
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "disclosure"
+            ],
+            "properties": {
+              "summaryVersion": true,
+              "generatedAt": true,
+              "scope": true,
+              "dataProvenance": true,
+              "automaticInterpretation": true,
+              "disclosure": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "deceasedAtIncluded"
+                ],
+                "properties": {
+                  "microchipIncluded": true,
+                  "clinicalFilesIncluded": true,
+                  "deceasedAtIncluded": {
+                    "const": true
+                  }
+                }
+              },
+              "pets": true
+            }
+          },
+          "else": {
+            "properties": {
+              "pets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "profile": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": true,
+                        "species": true,
+                        "speciesOther": true,
+                        "breed": true,
+                        "sex": true,
+                        "neutered": true,
+                        "birthDate": true,
+                        "birthDateIsEstimate": true,
+                        "lifeStatus": true,
+                        "deceasedAt": false,
+                        "age": true,
+                        "microchipId": true
+                      },
+                      "if": {
+                        "required": [
+                          "lifeStatus"
+                        ],
+                        "properties": {
+                          "lifeStatus": {
+                            "const": "DECEASED"
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "age": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "years": true,
+                              "months": true,
+                              "totalDays": false
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "weights": true,
+                    "bodyMeasurements": true,
+                    "vaccinations": true,
+                    "dewormings": true,
+                    "medicalVisits": true,
+                    "symptoms": true,
+                    "otherParameters": true,
+                    "clinicalFiles": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "description": "Documento raíz [REQ-SUM-001]; regla condicional (007, O1 de /rama): pets[].profile.deceasedAt solo puede estar presente si disclosure.deceasedAtIncluded es true (ausente o false lo prohíbe), de modo que la garantía de privacidad vive también en el esquema y no solo en el constructor; regla EDGE-007-027 (Opción A de Neo): sin disclosure.deceasedAtIncluded true, una mascota con lifeStatus DECEASED no puede incluir age.totalDays (con birthDate revelaría la fecha exacta); age.totalDays es opcional (fuera de required) y ausente equivale a no publicado"
     }
   }
 }

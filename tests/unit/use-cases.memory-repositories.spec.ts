@@ -26,7 +26,7 @@ describe('particularidades de InMemoryUnitOfWork (src/infrastructure/persistence
     }
     expect([message, uow.snapshot().pets]).toEqual(['fallo de commit', []]);
     await uow.runInTransaction((r) => r.pets.save(ARGOS));
-    expect(uow.snapshot().pets).toEqual([ARGOS]);
+    expect(uow.snapshot().pets).toEqual([{ ...ARGOS, lifeStatus: 'ALIVE', deceasedAt: null, version: 1 }]); // 007: el repositorio completa los campos nuevos
   });
 
   it('[INV-ARCH-005] el estado inicial y snapshot() son copias: modificarlos no altera el estado confirmado', async () => {

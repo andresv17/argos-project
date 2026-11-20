@@ -4,11 +4,11 @@
   "title": "BackupEnvelopeSchema",
   "description": "Sobre de respaldo 3.0.0 y lectura de 2.0.0 y 1.0.0 para migración [REQ-BACKUP2-001, REQ-BACKUP2-002, INV-BACKUP-001, STATE-BACKUP-001]",
   "x-sdd-metadata": {
-    "version": "3.0.0",
+    "version": "3.2.0",
     "status": "REVIEW",
-    "supersedes": "2.1.1",
-    "change_type": "MAJOR",
-    "change_note": "MAJOR: sobre 3.0.0 sin userId ni exportedByUserId (R6), 8 especies, registros 3.0.0; 2.0.0 y 1.0.0 solo lectura con migración; esquemas cerrados (T7/P-14).",
+    "supersedes": "3.1.0",
+    "change_type": "MINOR",
+    "change_note": "MINOR 3.2.0 (feature 007, T1022/SC-007-030, REQ-FAL7-009): ImportPreviewResult +lifeStatusChanges opcional (array de {petId, from, to}, maxItems 500). Aditiva; consumidores existentes no cambian. MINOR aditiva (feature 007, #13, C3/EDGE-007-015 aprobados por Neo): +BackupPetProfileV32 y +BackupEnvelopeV32 (schemaVersion 3.2.0, formato versionado) con lifeStatus y deceasedAt opcionales; BackupEnvelopeV3 (3.0.0) y los legados no cambian, de modo que 1.0.0, 2.0.0 y 3.0.0 siguen importando como ALIVE/nulo. Un build anterior rechaza 3.2.0 con ERR-BACKUP-VERSION-UNSUPPORTED. sourceSchemaVersion admite 3.2.0.",
     "traceability": [
       "REQ-BACKUP2-001",
       "REQ-BACKUP2-002",
@@ -219,6 +219,233 @@
         }
       },
       "description": "Nunca contiene usuarios, userId, exportedByUserId, ownerUserId, hogares, asignaciones, roles, sesiones, tokens ni credenciales: additionalProperties false rechaza cualquiera de ellos con ERR-BACKUP-SCHEMA-INVALID [REQ-BACKUP2-001, T7, R6]"
+    },
+    "BackupPetProfileV32": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "species",
+        "speciesOther",
+        "breed",
+        "birthDate",
+        "birthDateIsEstimate",
+        "sex",
+        "neutered",
+        "microchipId",
+        "avatarUrl",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "name": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 50
+        },
+        "species": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/Species"
+        },
+        "speciesOther": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/SpeciesOther"
+        },
+        "breed": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        },
+        "birthDate": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ],
+          "description": "<= ClockPort.todayIsoDate() [INV-PET-002] y <= registro más antiguo [INV-PET-006]"
+        },
+        "birthDateIsEstimate": {
+          "type": "boolean"
+        },
+        "sex": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/Sex"
+        },
+        "neutered": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "microchipId": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/MicrochipId"
+        },
+        "avatarUrl": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/AvatarUrl"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "updatedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "lifeStatus": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/LifeStatus"
+        },
+        "deceasedAt": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/DeceasedAt"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "OTHER"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "speciesOther": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "speciesOther": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "lifeStatus": {
+                "const": "DECEASED"
+              }
+            },
+            "required": [
+              "lifeStatus"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "deceasedAt"
+            ],
+            "properties": {
+              "deceasedAt": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "deceasedAt": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ],
+      "description": "Mascota del respaldo 3.2.0 (feature 007): igual que la anterior mas lifeStatus y deceasedAt OPCIONALES (nunca en required); ausentes se importan como ALIVE/nulo [REQ-BACKUP2-002]"
+    },
+    "BackupEnvelopeV32": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "exportedAt",
+        "pets",
+        "records"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "3.2.0"
+        },
+        "exportedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "pets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BackupPetProfileV32"
+          },
+          "description": "Solo mascotas de las que el usuario es Propietario Legal; sin límite de cantidad; puede ser vacío"
+        },
+        "records": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "weights",
+            "bodyMeasurements",
+            "vaccinations",
+            "dewormings",
+            "medicalVisits",
+            "customParameters"
+          ],
+          "properties": {
+            "weights": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/WeightRecord"
+              }
+            },
+            "bodyMeasurements": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/BodyMeasurementRecord"
+              }
+            },
+            "vaccinations": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/VaccinationRecord"
+              }
+            },
+            "dewormings": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/DewormingRecord"
+              }
+            },
+            "medicalVisits": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/MedicalVisitRecord"
+              }
+            },
+            "customParameters": {
+              "type": "array",
+              "items": {
+                "$ref": "https://argos.local/contracts/schemas/medical-records.schema.json#/$defs/CustomParameterRecord"
+              }
+            }
+          }
+        }
+      },
+      "description": "Sobre de respaldo 3.2.0 (feature 007, EDGE-007-015): formato versionado; un build anterior responde ERR-BACKUP-VERSION-UNSUPPORTED sin escritura parcial. Las colecciones de registros son las del 3.0.0."
     },
     "LegacySpeciesV2": {
       "type": "string",
@@ -1236,8 +1463,24 @@
           "enum": [
             "1.0.0",
             "2.0.0",
-            "3.0.0"
+            "3.0.0",
+            "3.2.0"
           ]
+        },
+        "lifeStatusChanges": {
+          "type": "array",
+          "maxItems": 500,
+          "description": "Opcional (007, REQ-FAL7-009, SC-007-030): mascotas cuyo lifeStatus cambiaria al importar por reemplazo, p. ej. DECEASED a ALIVE; ausente o vacio si no hay cambios. Solo identificador y estados, sin datos personales.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["petId", "from", "to"],
+            "properties": {
+              "petId": {"$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"},
+              "from": {"type": "string", "enum": ["ALIVE", "DECEASED"]},
+              "to": {"type": "string", "enum": ["ALIVE", "DECEASED"]}
+            }
+          }
         },
         "fileDigest": {
           "allOf": [
@@ -1351,7 +1594,8 @@
           "enum": [
             "1.0.0",
             "2.0.0",
-            "3.0.0"
+            "3.0.0",
+            "3.2.0"
           ]
         },
         "importedPetsCount": {

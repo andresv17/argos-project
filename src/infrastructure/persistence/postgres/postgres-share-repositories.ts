@@ -13,7 +13,7 @@ import type { PoolClientLike } from './postgres-database.ts';
 type Row = Record<string, unknown>;
 
 const LINK_COLUMNS =
-  'id, token_hash, scope, pet_id, household_id, created_by_user_id, created_at, expires_in_days, expires_at, revoked_at, include_microchip, include_clinical_files, idempotency_key, pet_owner_user_id_at_creation';
+  'id, token_hash, scope, pet_id, household_id, created_by_user_id, created_at, expires_in_days, expires_at, revoked_at, include_microchip, include_clinical_files, include_deceased_at, idempotency_key, pet_owner_user_id_at_creation';
 
 const nullable = (value: unknown): string | null => (value === null || value === undefined ? null : String(value));
 
@@ -30,6 +30,7 @@ const toLink = (row: Row): ShareLinkRecord => ({
   revokedAt: nullable(row['revoked_at']),
   includeMicrochip: Number(row['include_microchip']) === 1,
   includeClinicalFiles: Number(row['include_clinical_files']) === 1,
+  includeDeceasedAt: Number(row['include_deceased_at']) === 1,
   idempotencyKey: String(row['idempotency_key']),
   petOwnerUserIdAtCreation: nullable(row['pet_owner_user_id_at_creation']),
 });
@@ -43,7 +44,7 @@ export function shareLinkRepository(client: PoolClientLike): ShareLinkRepository
     },
     async insert(link) {
       await client
-        .query(`INSERT INTO share_links (${LINK_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`, [
+        .query(`INSERT INTO share_links (${LINK_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`, [
         link.id,
         link.tokenHash,
         link.scope,
@@ -56,6 +57,7 @@ export function shareLinkRepository(client: PoolClientLike): ShareLinkRepository
         link.revokedAt,
         link.includeMicrochip ? 1 : 0,
         link.includeClinicalFiles ? 1 : 0,
+        link.includeDeceasedAt ? 1 : 0,
         link.idempotencyKey,
         link.petOwnerUserIdAtCreation,
       ])

@@ -10,25 +10,29 @@
  *   (REQ-PET2-002) y el orden de REQ-PET-005; fuera de un hogar el colorToken del dueño es null (EDGE-030).
  * - GetPetDashboardUseCase aplica INV-ACC2-001 y devuelve myRole y permissions de la matriz REQ-RBAC-001 (reemplazan canEdit).
  *
- * @implements REQ-PET4-001, INV-PET4-001, REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
+ * - UpdatePetUseCase (007): toma `lockPet` como PRIMERA operación (REQ-FAL7-011, EDGE-007-010), exige `If-Match` con la `version` de la ficha (412
+ *   ERR-PET-VERSION-CONFLICT si no coincide, sin cambios ni auditoría; EDGE-007-009) y valida `lifeStatus`/`deceasedAt` sobre el estado resultante.
+ * - Una mascota `DECEASED` no genera alertas ni cuenta en `alertsSummary`/`globalAlertStatus` y su edad llega hasta `deceasedAt` (REQ-FAL7-004, REQ-FAL7-007).
+ *
+ * @implements REQ-FAL7-001, REQ-FAL7-002, REQ-FAL7-004, REQ-FAL7-007, REQ-FAL7-008, REQ-FAL7-011, ERR-PET-VERSION-CONFLICT, EDGE-007-009, EDGE-007-010, REQ-PET4-001, INV-PET4-001, REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
 import { normalizePetProfile } from '../../domain/pet/pet-invariants.ts';
-import type { components, Species } from '../../generated/index.ts';
+import { DomainError, type components, type Species } from '../../generated/index.ts';
 import { petPermissionsFor } from '../../domain/access/rbac.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import { ownerTag } from '../../domain/households/household-policies.ts';
-import { collectRecordEventDates, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
+import { collectRecordEventDates, computedAgeOf, createPetProfile, updatePetProfile } from '../../domain/pet/pet-invariants.ts';
 import { mapMicrochipViolation } from './microchip-violation.ts';
 import { assertMicrochipWithinLimit, withDuplicateRecording } from './microchip-rate-limit.ts';
 import { computeWeightEvolutionSeries, withSymptomFields } from '../../domain/records/record-invariants.ts';
-import { calculatePetAge } from '../../domain/shared/date-utils.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import { assignOwnedPetToHousehold } from './assignment-use-cases.ts';
-import { recordAudit } from './audit-support.ts';
+import { auditPetView, recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import {
   buildPetCard,
+  silenceAlertsOfDeceased,
   listVisiblePets,
   lockPet,
   publicProfilesById,
@@ -96,7 +100,7 @@ export class RegisterPetUseCase {
         // REQ-PET4-002: chequeo previo del límite de duplicados (429 sin guardar), tras validar la entrada y antes de guardar.
         await assertMicrochipWithinLimit(this.deps, repositories, userId, pet.microchipId !== null);
         await mapMicrochipViolation(() => repositories.pets.save(pet));
-        await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: pet });
+        await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: auditPetView(pet) });
         const baseHouseholdId = baseHouseholdIdOf(input);
         if (baseHouseholdId !== undefined) await assignOwnedPetToHousehold(this.deps, repositories, userId, pet, baseHouseholdId);
         return { ...pet, avatarVersion: null }; // una mascota nueva no tiene avatar
@@ -109,10 +113,18 @@ export class RegisterPetUseCase {
 export class UpdatePetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, petId: string, input: unknown): Promise<PetProfileView> {
+  /**
+   * @param ifMatch `version` de la ficha leída por el cliente (cabecera `If-Match`); `null` si la petición no la trajo (EDGE-007-009).
+   * Orden: candado de mascota, acceso (404 antes que 403), `If-Match` presente, comparación de la versión BAJO EL CANDADO (distinta: 412 sin cambios ni
+   * auditoría), esquema y dominio sobre el estado resultante.
+   */
+  async execute(userId: string, petId: string, input: unknown, ifMatch: number | null): Promise<PetProfileView> {
     return withDuplicateRecording(this.deps, userId, () =>
       this.deps.uow.runInTransaction(async (repositories) => {
+        await lockPet(repositories, petId); // REQ-FAL7-011, EDGE-007-010: candado de mascota antes de leer la mascota y los registros
         const { pet } = await requirePetAction(repositories, userId, petId, 'EDIT_PET_BASICS');
+        if (ifMatch === null) throw new DomainError('ERR-SCHEMA-VALIDATION-FAILED', 'Falta la cabecera If-Match con la versión de la ficha.', 'If-Match');
+        if ((pet.version ?? 1) !== ifMatch) throw new DomainError('ERR-PET-VERSION-CONFLICT');
         const records = await repositories.records.listForPet(petId);
         const updated = updatePetProfile({
           pet,
@@ -120,11 +132,12 @@ export class UpdatePetUseCase {
           today: this.deps.clock.todayIsoDate(),
           nowIsoTimestamp: this.deps.clock.nowIsoTimestamp(),
           recordEventDates: collectRecordEventDates(petId, records),
+          records,
         });
         // REQ-PET4-002: solo si cambia el microchip (repetir el propio valor no puede violar `pets_microchip_global`).
         await assertMicrochipWithinLimit(this.deps, repositories, userId, updated.microchipId !== null && updated.microchipId !== pet.microchipId);
         await mapMicrochipViolation(() => repositories.pets.save(updated));
-        await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: pet, next: updated });
+        await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: auditPetView(pet), next: auditPetView(updated) });
         // `pets.save` no toca el avatar (INV-AVA-001); la respuesta lo refleja leyendo su versión actual.
         return { ...updated, avatarVersion: (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null };
       }),
@@ -146,7 +159,7 @@ export class DeletePetUseCase {
       const keys = await repositories.mediaQueue.enqueueObjectsOfPet(petId, this.deps.clock.nowIsoTimestamp());
       await repositories.records.deleteForPet(petId);
       await repositories.pets.delete(petId);
-      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'PET', entityId: petId, previous: pet, next: null });
+      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'PET', entityId: petId, previous: auditPetView(pet), next: null });
       return keys;
     });
     // Tras el COMMIT: borrado inmediato e idempotente de cada objeto, refuerzo por `list` del prefijo; lo que falle lo reintenta el mantenimiento.
@@ -190,14 +203,15 @@ export class GetPetDashboardUseCase {
       const owner = (await publicProfilesById(repositories, [pet.ownerUserId])).get(pet.ownerUserId)!;
       const records = await repositories.records.listForPet(petId);
       const avatarVersion = (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null;
-      const vaccinations = evaluateVaccinationAlerts(records.vaccinations, today);
-      const dewormings = evaluateDewormingAlerts(records.dewormings, today);
+      const deceased = pet.lifeStatus === 'DECEASED';
+      const vaccinations = silenceAlertsOfDeceased(deceased, evaluateVaccinationAlerts(records.vaccinations, today));
+      const dewormings = silenceAlertsOfDeceased(deceased, evaluateDewormingAlerts(records.dewormings, today));
       return {
         profile: { ...normalizePetProfile(pet), avatarVersion },
         owner: ownerTag(owner, null),
         myRole: role,
         permissions: petPermissionsFor(role),
-        computedAge: calculatePetAge(pet.birthDate, today),
+        computedAge: computedAgeOf(pet, today), // REQ-FAL7-007: hasta deceasedAt si falleció
         alertsSummary: summarizeSanitaryAlerts(vaccinations, dewormings),
         weights: computeWeightEvolutionSeries(records.weights),
         bodyMeasurements: sortHistoricalRecords(records.bodyMeasurements),

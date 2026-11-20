@@ -4,7 +4,7 @@
  * El riel es un contenedor `flex` con scroll (Opción A de Neo, blueprint §4.8): horizontal bajo `lg`, vertical desde `lg`.
  * Cada opción lleva los datos de la tarjeta del contrato y nunca los calcula.
  *
- * @implements REQ-UI-001, REQ-UI-004, REQ-UI-007, REQ-UI2-002, REQ-UI2-003, REQ-PET2-002
+ * @implements REQ-FAL7-003, REQ-FAL7-007, REQ-UI-001, REQ-UI-004, REQ-UI-007, REQ-UI2-002, REQ-UI2-003, REQ-PET2-002
  */
 import { useRef, type KeyboardEvent } from 'react';
 import { OwnerBadge } from './OwnerBadge.tsx';
@@ -22,6 +22,8 @@ import {
   type PetCardView,
   type PetFilterValue,
   avatarVersionOf,
+  deceasedBadgeText,
+  livedText,
 } from '../view-model.ts';
 
 const FIELD_CLASS =
@@ -124,9 +126,13 @@ export function PetCardList({ cards, activePetId, onSelect, emptyHint }: {
           >
             <PetAvatar name={card.profile.name} petId={card.profile.id} avatarVersion={avatarVersionOf(card.profile)} colorToken={card.owner.colorToken} size={64} />
             <span className="w-full truncate text-sm font-semibold text-text-primary">{card.profile.name}</span>
-            <span className="text-xs tabular-nums text-text-muted">{`${SPECIES_LABEL[card.profile.species]} · ${formatAge(card.computedAge)}`}</span>
+            <span className="text-xs tabular-nums text-text-muted">{`${SPECIES_LABEL[card.profile.species]} · ${livedText(card.profile, card.computedAge) ?? formatAge(card.computedAge)}`}</span>
             <span className="text-xs tabular-nums text-text-muted">{formatKg(card.latestWeightKg)}</span>
-            <span className={`rounded-[10px] px-2 text-xs font-bold ${TONE_CLASS[alertTone(card.alertsSummary)]}`}>{alertsLine(card.alertsSummary)}</span>
+            {deceasedBadgeText(card.profile) === null ? (
+              <span className={`rounded-[10px] px-2 text-xs font-bold ${TONE_CLASS[alertTone(card.alertsSummary)]}`}>{alertsLine(card.alertsSummary)}</span>
+            ) : (
+              <span className="whitespace-nowrap rounded-[10px] border border-slate-500 bg-slate-100 px-2 text-xs font-bold text-slate-900">{deceasedBadgeText(card.profile)}</span>
+            )}
             <OwnerBadge owner={card.owner} readOnly={isReadOnly(card.permissions)} />
           </li>
         );

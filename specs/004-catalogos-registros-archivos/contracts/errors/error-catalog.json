@@ -6,7 +6,7 @@
     "status": "DRAFT",
     "supersedes": "3.0.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 3.1.0 (feature 004): 6 errores nuevos (medios y conflicto de revisión, D-16 A); ERR-PET-MICROCHIP-DUPLICATE oficializado con detalle sin datos de terceros; ERR-RATE-LIMITED cita REQ-PET4-002 y REQ-ARC-001. ERR-RATE-LIMITED APROBADO por Neo (T556/T557): ya no es pendiente; su detalle genérico no incluye el microchip (SC-CAT-029: 429 al sexto duplicado en 24 h; el 409 de ERR-PET-MICROCHIP-DUPLICATE no cambia). PENDIENTE DE NEO: STATE-ACCOUNT-DELETE-001 sigue como en la 002.",
+    "change_note": "MINOR 3.1.0 (feature 004): 6 errores nuevos (medios y conflicto de revisión, D-16 A); ERR-PET-MICROCHIP-DUPLICATE oficializado con detalle sin datos de terceros; ERR-RATE-LIMITED cita REQ-PET4-002 y REQ-ARC-001. ERR-RATE-LIMITED APROBADO por Neo (T556/T557): ya no es pendiente; su detalle genérico no incluye el microchip (SC-CAT-029: 429 al sexto duplicado en 24 h; el 409 de ERR-PET-MICROCHIP-DUPLICATE no cambia). PENDIENTE DE NEO: STATE-ACCOUNT-DELETE-001 sigue como en la 002. Coordinacion feature 007 (#13, EDGE-007-009): +ERR-PET-VERSION-CONFLICT (412) y detalle de ERR-BACKUP-VERSION-UNSUPPORTED para el respaldo 3.2.0.",
     "removed": [],
     "added": [
       "ERR-MEDIA-TOO-LARGE",
@@ -14,7 +14,8 @@
       "ERR-MEDIA-QUOTA-EXCEEDED",
       "ERR-MEDIA-NOT-FOUND",
       "ERR-MEDIA-STORAGE-UNAVAILABLE",
-      "ERR-REC-CONFLICT"
+      "ERR-REC-CONFLICT",
+      "ERR-PET-VERSION-CONFLICT"
     ],
     "pendingIds": [
       "STATE-ACCOUNT-DELETE-001"
@@ -51,6 +52,7 @@
       "ERR-PET-FUTURE-BIRTHDATE",
       "ERR-PET-MICROCHIP-DUPLICATE",
       "ERR-PET-NOT-FOUND",
+      "ERR-PET-VERSION-CONFLICT",
       "ERR-RATE-LIMITED",
       "ERR-REC-CONFLICT",
       "ERR-REC-DATE-BEFORE-BIRTH",
@@ -194,7 +196,7 @@
       "status": 422,
       "title": "Versión de respaldo no soportada",
       "invariantRef": "INV-BACKUP-001",
-      "detailTemplate": "La versión del archivo de respaldo debe ser 3.0.0 (o 2.0.0 o 1.0.0 para migración).",
+      "detailTemplate": "La versión del archivo de respaldo no está soportada por esta versión de ARGOS. Exporta de nuevo desde una versión igual o posterior, o usa un respaldo 3.0.0 o anterior.",
       "type": "urn:argos:error:ERR-BACKUP-VERSION-UNSUPPORTED",
       "requirementRef": "REQ-BACKUP2-002"
     },
@@ -398,6 +400,15 @@
       "detailTemplate": "El payload incumple el esquema formal, contiene propiedades no autorizadas, un username con mayúsculas, confirmPassword distinto de password, una frase de confirmación distinta de ELIMINAR MI CUENTA o una especie/speciesOther incoherente.",
       "type": "urn:argos:error:ERR-SCHEMA-VALIDATION-FAILED",
       "requirementRef": "REQ-AUTH2-001, INV-PET2-001, REQ-ACC-002"
+    },
+    "ERR-PET-VERSION-CONFLICT": {
+      "type": "urn:argos:error:ERR-PET-VERSION-CONFLICT",
+      "status": 412,
+      "title": "Ficha modificada por otra persona",
+      "invariantRef": "INV-PET2-001",
+      "detailTemplate": "Esta ficha cambió, recarga.",
+      "requirementRef": "EDGE-007-009 (feature 007, #13)",
+      "note": "El If-Match del PATCH de mascota no coincide con la version vigente. El detalle es fijo: no incluye datos de la mascota, lifeStatus ni deceasedAt"
     }
   }
 }

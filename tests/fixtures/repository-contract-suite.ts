@@ -22,6 +22,8 @@ const ANDRES_PETS = ANDRES_PETS_001.map(upgradePet);
 const LUNA = upgradePet(LUNA_001);
 const ENVELOPE_PETS = envelopePets(envelope);
 const ARGOS = ANDRES_PETS[0]!;
+/** Lo que devuelve un repositorio (007, REQ-FAL7-001): la ficha guardada sin los campos nuevos se lee ALIVE, sin fecha y en versión 1. */
+const ARGOS_READ = { ...ARGOS, lifeStatus: 'ALIVE', deceasedAt: null, version: 1 } as PetProfile;
 const NOW = '2026-11-05T12:00:00.000Z';
 const SESSION: SessionRecord = { userId: ANDRES.id, createdAt: NOW, lastActivityAt: NOW, revokedAt: null };
 const at = (offsetMs: number) => new Date(Date.parse(NOW) + offsetMs).toISOString();
@@ -85,7 +87,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
         await r.records.add('weights', envelope.records.weights[0]!);
       });
       const [user, pet, records] = await read(uow, async (r) => [await r.users.findById(ANDRES.id), await r.pets.findById(ARGOS.id), await r.records.listForPet(ARGOS.id)] as const);
-      expect([user, pet, records.weights]).toEqual([ANDRES, ARGOS, [{ ...envelope.records.weights[0], revision: 0 }]]);
+      expect([user, pet, records.weights]).toEqual([ANDRES, ARGOS_READ, [{ ...envelope.records.weights[0], revision: 0 }]]);
     });
 
     it('[INV-ARCH-005] si la transacción lanza, se descartan los cambios de todos los repositorios y se propaga el error original', async () => {
@@ -465,7 +467,7 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
         await r.pets.save(ARGOS);
       });
       const found = await read(uow, async (r) => [await r.pets.findByIdForUpdate(ARGOS.id), await r.pets.findByIdForUpdate('00000000-0000-4000-8000-0000000000ff'), await r.users.findByIdForUpdate(ANDRES.id), await r.users.findByIdForUpdate('00000000-0000-4000-8000-0000000000ff')] as const);
-      expect(found).toEqual([ARGOS, null, ANDRES, null]);
+      expect(found).toEqual([ARGOS_READ, null, ANDRES, null]);
     });
 
     it('[REQ-ACC-002] households.deleteMembershipsOfUser borra las filas del usuario en todos los hogares y countReferences llega a 0 cuando no queda nada que lo referencie', async () => {

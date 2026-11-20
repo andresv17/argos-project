@@ -18,12 +18,13 @@ export function SummaryPreviewPage({ api }: { readonly api?: ShareApi }): JSX.El
   const [error, setError] = useState<string | null>(null);
   const includeMicrochip = query.get('includeMicrochip') === 'true';
   const includeClinicalFiles = query.get('includeClinicalFiles') === 'true';
+  const includeDeceasedAt = query.get('includeDeceasedAt') === 'true';
 
   useEffect(() => {
     const client = api ?? createShareApi();
     const ref = householdId !== undefined ? ({ scope: 'HOUSEHOLD', id: householdId } as const) : ({ scope: 'PET', id: petId ?? '' } as const);
-    client.preview(ref, { includeMicrochip, includeClinicalFiles }).then(setView, (e: unknown) => setError(shareProblemMessage(e instanceof ShareApiError ? e.code : 'ERR-INTERNAL-UNEXPECTED')));
-  }, [api, petId, householdId, includeMicrochip, includeClinicalFiles]);
+    client.preview(ref, { includeMicrochip, includeClinicalFiles, includeDeceasedAt }).then(setView, (e: unknown) => setError(shareProblemMessage(e instanceof ShareApiError ? e.code : 'ERR-INTERNAL-UNEXPECTED')));
+  }, [api, petId, householdId, includeMicrochip, includeClinicalFiles, includeDeceasedAt]);
 
   return (
     <div className="grid min-w-0 gap-3">

@@ -1,4 +1,4 @@
-import { PET_COUNT_RULE, SCENE_SPEC_INTRO } from '../../src/domain/scene/scene-spec.ts';
+import { PET_COUNT_RULE, SCENE_SPEC_HEADER } from '../../src/domain/scene/scene-spec.ts';
 import { deflateSync } from 'node:zlib';
 import fc from 'fast-check';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -46,7 +46,7 @@ async function setup(scene: SceneFixtureOptions = {}, mariaRole: 'ADMIN' | 'CARE
 }
 
 async function png(): Promise<Uint8Array> {
-  const r = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], signal: new AbortController().signal });
+  const r = await new FakeSceneImageGenerator().generate({ prompt: 'x', references: [], seed: 0, signal: new AbortController().signal });
   if (!r.ok) throw new Error('sin imagen');
   return r.image.bytes;
 }
@@ -266,11 +266,11 @@ describe('XSS y prompt injection en nombres y textos libres (T874, INV-ESC6-011,
     // Desde T921 el prompt lleva la especificación JSON saneada (plan §5.3.1): sus llaves son estructura propia y válida (JSON.parse); fuera de ese bloque y dentro de él
     // sigue sin haber ningún carácter hostil de los textos libres.
     for (const prompt of c.fixture.generator.calls.map((call) => call.prompt)) {
-      const start = prompt.indexOf(`${SCENE_SPEC_INTRO}\n`) + SCENE_SPEC_INTRO.length + 1;
+      const start = prompt.indexOf(`${SCENE_SPEC_HEADER}\n`) + SCENE_SPEC_HEADER.length + 1;
       // D6-21: con N >= 1 la línea de conteo por especie va entre el JSON y la regla de conteo.
       const counted = prompt.indexOf('\n\nExact animal count: ');
       const end = counted > -1 ? counted : prompt.indexOf(`\n\n${PET_COUNT_RULE}`);
-      expect(start).toBeGreaterThan(SCENE_SPEC_INTRO.length);
+      expect(start).toBeGreaterThan(SCENE_SPEC_HEADER.length);
       expect(end).toBeGreaterThan(start);
       expect(typeof JSON.parse(prompt.slice(start, end))).toBe('object');
       const outside = prompt.slice(0, start) + prompt.slice(end);

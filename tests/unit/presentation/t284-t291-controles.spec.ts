@@ -123,7 +123,8 @@ describe('O-6 y O-4', () => {
     const spec = RECORD_MODULES.find((m) => m.id === 'vaccinations')!;
     expect(spec.fields.find((f) => f.name === 'nextBoosterAt')?.required).toBe(false);
     const markup = html(h(RecordForm, { spec, onSubmit: asyncNoop }));
-    const labelOf = (name: string): string => markup.slice(markup.indexOf(`for="vaccinations-${name}"`), markup.indexOf(`id="vaccinations-${name}"`));
+    // 007: las fechas son un `fieldset` (id del campo) con su `legend`; el asterisco decorativo va dentro de la leyenda.
+    const labelOf = (name: string): string => markup.slice(markup.indexOf(`id="vaccinations-${name}"`), markup.indexOf('</legend>', markup.indexOf(`id="vaccinations-${name}"`)));
     expect([labelOf('nextBoosterAt').includes('*'), labelOf('appliedAt').includes('*')]).toEqual([false, true]);
     expect(validateInput('CreateVaccinationInput', formValues({ vaccineName: 'Rabia', appliedAt: '2026-01-01', nextBoosterAt: '' }))).toEqual({});
     const base = dashboard('OWNER');

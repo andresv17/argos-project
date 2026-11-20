@@ -20,6 +20,8 @@ const FIELD_PHRASE: Readonly<Record<string, string>> = {
   species: 'la especie',
   breed: 'la raza',
   birthDate: 'la fecha de nacimiento',
+  deceasedAt: 'la fecha de fallecimiento',
+  lifeStatus: 'el estado',
   sex: 'el sexo',
   avatarUrl: 'la URL del avatar',
   baseHouseholdId: 'el hogar base',
@@ -61,4 +63,23 @@ export function humanSchemaMessage(field?: string): string {
   if (field === undefined) return GENERAL_SCHEMA_MESSAGE;
   const phrase = FIELD_PHRASE[field];
   return phrase === undefined ? GENERAL_SCHEMA_MESSAGE : `Revisa ${phrase}: falta o no tiene un formato válido.`;
+}
+
+/** Marca de una regla de negocio del servidor: su `detail` cita el requisito que la origina, p. ej. «(REQ-FAL7-005)». Los errores crudos de JSON Schema no la llevan. */
+const BUSINESS_RULE_MARK = /\(REQ-[A-Z0-9]+-\d+\)/;
+/** Rastros de un error técnico de JSON Schema (nombre del esquema, verbos de Ajv, vocabulario del formal): nunca se muestran. */
+const TECHNICAL_TRACE = /\b(must|should|payload|schema|instancePath|additionalProperties|keyword)\b|esquema|\b[A-Z][A-Za-z0-9]*(?:Input|Request|Profile|Body):|^\s*\//i;
+
+/**
+ * Mensaje humano de una regla de negocio que el servidor devuelve bajo `ERR-SCHEMA-VALIDATION-FAILED` (p. ej. fecha posterior al fallecimiento, REQ-FAL7-005):
+ * se conserva en lugar del genérico «Revisa la fecha…», sin la referencia al requisito ni la lista de identificadores internos. `undefined` si el texto es un error
+ * técnico crudo de esquema o no es una regla de negocio reconocible (entonces se usa `humanSchemaMessage`).
+ */
+export function businessRuleMessage(detail: string | undefined): string | undefined {
+  if (detail === undefined || !BUSINESS_RULE_MARK.test(detail) || TECHNICAL_TRACE.test(detail)) return undefined;
+  const text = detail
+    .replace(/\s*\(REQ-[A-Z0-9]+-\d+\)/g, '')
+    .replace(/:\s*[A-Za-z]+:[^\s,]+(?:,\s*[A-Za-z]+:[^\s,]+)*\.?\s*$/, '.')
+    .trim();
+  return text === '' ? undefined : text;
 }

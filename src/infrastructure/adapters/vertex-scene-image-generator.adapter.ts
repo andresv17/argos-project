@@ -85,7 +85,7 @@ export class VertexSceneImageGenerator implements SceneImageGeneratorPort {
 
   async generate(request: SceneGenerationRequest): Promise<SceneGenerationResult> {
     if (request.signal.aborted) return TIMEOUT;
-    const body = buildGeminiBody(request.prompt, request.references, this.modalities);
+    const body = buildGeminiBody(request.prompt, request.references, this.modalities, request.seed);
     if (Buffer.byteLength(body, 'utf8') > this.maxInlineBytes) return FAILED;
 
     const controller = new AbortController();

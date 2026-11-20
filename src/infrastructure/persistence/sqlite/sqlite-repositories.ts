@@ -28,7 +28,7 @@ import {
 } from '../../../generated/index.ts';
 // 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
 import { validateUserPublicProfile, type AuditEntry } from '../../../generated/v31/index.ts';
-import { isStoredPetProfile, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
+import { isStoredPetProfile, type LifeStatus, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import { sqliteSceneConsentRepository, sqliteSceneRepository } from './sqlite-scene-repositories.ts';
 import type {
   AuditLogRepositoryPort,
@@ -191,6 +191,10 @@ interface PetRow extends KeyedRow {
   readonly neutered: number | null;
   readonly microchip_id: string | null;
   readonly birth_date_is_estimate: number;
+  /** 0014 (REQ-FAL7-001): `data` repite estado y fecha (cruzados con las columnas); `version` solo vive en la columna (autoridad del If-Match, EDGE-007-009). */
+  readonly life_status: string;
+  readonly deceased_at: string | null;
+  readonly version: number;
 }
 interface RecordRow {
   readonly id: string;
@@ -355,14 +359,15 @@ function loginAttemptRepository(db: SqliteDatabase): LoginAttemptRepositoryPort 
 
 /** @implements INV-ARCH-004, INV-PET-005, ERR-INTERNAL-UNEXPECTED */
 function petRepository(db: SqliteDatabase): PetRepositoryPort {
-  const columns = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate';
+  const columns = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version';
   const byId = db.prepare<[string], PetRow>(`SELECT ${columns} FROM pets WHERE id = ?`);
   const byOwners = db.prepare<[string], PetRow>(`SELECT ${columns} FROM pets WHERE owner_user_id IN (SELECT value FROM json_each(?))`);
   const upsert = db.prepare(
-    `INSERT INTO pets (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO pets (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (id) DO UPDATE SET owner_user_id = excluded.owner_user_id, data = excluded.data, species = excluded.species,
        species_other = excluded.species_other, neutered = excluded.neutered, microchip_id = excluded.microchip_id,
-       birth_date_is_estimate = excluded.birth_date_is_estimate`,
+       birth_date_is_estimate = excluded.birth_date_is_estimate, life_status = excluded.life_status, deceased_at = excluded.deceased_at,
+       version = CASE WHEN ? = 1 THEN excluded.version ELSE pets.version + 1 END`,
   );
   // INV-PET-005: ON DELETE CASCADE borra en la misma sentencia los registros de los 6 módulos.
   const remove = db.prepare('DELETE FROM pets WHERE id = ?');
@@ -372,8 +377,8 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
   const bumpAvatar = db.prepare<[string, string], AvatarRow>('UPDATE pets SET avatar_version = avatar_version + 1, avatar_object_id = ? WHERE id = ? RETURNING avatar_version, avatar_object_id');
   const dropAvatar = db.prepare('UPDATE pets SET avatar_object_id = NULL WHERE id = ?');
   const raiseAvatar = db.prepare('UPDATE pets SET avatar_version = ? WHERE id = ? AND avatar_version < ?');
-  const toPet = (row: PetRow): PetProfile =>
-    decode(
+  const toPet = (row: PetRow): PetProfile => {
+    const stored = decode(
       'pets',
       row.id,
       row.data,
@@ -385,8 +390,12 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
         p.speciesOther === row.species_other &&
         p.neutered === (row.neutered === null ? null : row.neutered === 1) &&
         p.microchipId === row.microchip_id &&
-        p.birthDateIsEstimate === (row.birth_date_is_estimate === 1),
+        p.birthDateIsEstimate === (row.birth_date_is_estimate === 1) &&
+        (p.lifeStatus ?? 'ALIVE') === row.life_status && // filas anteriores a 007: `data` sin los campos = ALIVE/nulo (0014)
+        (p.deceasedAt ?? null) === row.deceased_at,
     );
+    return { ...stored, lifeStatus: row.life_status as LifeStatus, deceasedAt: row.deceased_at, version: row.version };
+  };
   return {
     async findById(petId) {
       const row = byId.get(petId);
@@ -401,15 +410,21 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
       return byOwners.all(list(ownerUserIds)).map(toPet);
     },
     async save(pet) {
+      // `data` no repite `version` (la columna manda); sin `version` explícita, guardar sobre una fila existente la incrementa (REQ-FAL7-011).
+      const { version, ...stored } = pet;
       upsert.run(
         pet.id,
         pet.ownerUserId,
-        encode('pets', pet.id, pet, isStoredPetProfile),
+        encode('pets', pet.id, stored as PetProfile, isStoredPetProfile),
         pet.species,
         pet.speciesOther,
         pet.neutered === null ? null : pet.neutered ? 1 : 0,
         pet.microchipId,
         pet.birthDateIsEstimate ? 1 : 0,
+        pet.lifeStatus ?? 'ALIVE',
+        pet.deceasedAt ?? null,
+        version ?? 1,
+        version === undefined ? 0 : 1,
       );
     },
     async delete(petId) {
@@ -510,12 +525,13 @@ interface ShareLinkRow {
   readonly revoked_at: string | null;
   readonly include_microchip: number;
   readonly include_clinical_files: number;
+  readonly include_deceased_at: number;
   readonly idempotency_key: string;
   readonly pet_owner_user_id_at_creation: string | null;
 }
 
 const SHARE_LINK_COLUMNS =
-  'id, token_hash, scope, pet_id, household_id, created_by_user_id, created_at, expires_in_days, expires_at, revoked_at, include_microchip, include_clinical_files, idempotency_key, pet_owner_user_id_at_creation';
+  'id, token_hash, scope, pet_id, household_id, created_by_user_id, created_at, expires_in_days, expires_at, revoked_at, include_microchip, include_clinical_files, include_deceased_at, idempotency_key, pet_owner_user_id_at_creation';
 
 const toShareLink = (row: ShareLinkRow): ShareLinkRecord => ({
   id: row.id,
@@ -530,6 +546,7 @@ const toShareLink = (row: ShareLinkRow): ShareLinkRecord => ({
   revokedAt: row.revoked_at,
   includeMicrochip: row.include_microchip === 1,
   includeClinicalFiles: row.include_clinical_files === 1,
+  includeDeceasedAt: row.include_deceased_at === 1,
   idempotencyKey: row.idempotency_key,
   petOwnerUserIdAtCreation: row.pet_owner_user_id_at_creation,
 });
@@ -540,7 +557,7 @@ const toShareLink = (row: ShareLinkRow): ShareLinkRecord => ({
  * @implements REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-010, REQ-VET-012, REQ-VET-013, INV-005-005
  */
 function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
-  const insert = db.prepare(`INSERT INTO share_links (${SHARE_LINK_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const insert = db.prepare(`INSERT INTO share_links (${SHARE_LINK_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const byHash = db.prepare<[string], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE token_hash = ?`);
   const byId = db.prepare<[string], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE id = ?`);
   const byKey = db.prepare<[string, string], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links WHERE created_by_user_id = ? AND idempotency_key = ?`);
@@ -574,6 +591,7 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
           link.revokedAt,
           link.includeMicrochip ? 1 : 0,
           link.includeClinicalFiles ? 1 : 0,
+          link.includeDeceasedAt ? 1 : 0,
           link.idempotencyKey,
           link.petOwnerUserIdAtCreation,
         );

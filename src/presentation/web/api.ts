@@ -9,7 +9,7 @@ import { CSRF_HEADER_NAME, CSRF_HEADER_VALUE, createApiClient } from '../../gene
 import type { components } from '../../generated/api/openapi-types.ts';
 import { ERROR_CATALOG, type ErrorCode } from '../../generated/errors/error-codes.ts';
 import { notifyActivity } from './activity.ts';
-import { humanSchemaMessage } from './schema-messages.ts';
+import { businessRuleMessage, humanSchemaMessage } from './schema-messages.ts';
 
 export type ProblemDetails = components['schemas']['ProblemDetails'];
 export type ApiClient = ReturnType<typeof createApiClient>;
@@ -35,6 +35,9 @@ const isCatalogCode = (code: string): code is ErrorCode => Object.prototype.hasO
 export const RECORD_CONFLICT_CODE = 'ERR-REC-CONFLICT';
 /** Texto de la interfaz para ese 409 (REQ-BOR-005, D-16 A). */
 export const RECORD_CONFLICT_MESSAGE = 'El registro cambió; recarga y vuelve a intentarlo.';
+
+/** 412 de la ficha desactualizada (007, EDGE-007-009): otra persona la cambió; la interfaz recarga y pide reintentar. @implements REQ-FAL7-003 */
+export const isPetVersionConflict = (error: unknown): boolean => error instanceof ApiProblem && error.problem.code === 'ERR-PET-VERSION-CONFLICT';
 
 /** `ProblemDetails` del catálogo para un código, con los campos opcionales que se indiquen. */
 export function catalogProblem(code: ErrorCode, field?: string): ProblemDetails {
@@ -62,7 +65,8 @@ export function toProblem(error: unknown): ProblemDetails {
 /** Texto para el usuario: el `detailTemplate` del catálogo para el código recibido; el de esquema formal se redacta en llano (T293). */
 export function problemMessage(problem: ProblemDetails): string {
   if (problem.code === RECORD_CONFLICT_CODE) return RECORD_CONFLICT_MESSAGE;
-  if (problem.code === 'ERR-SCHEMA-VALIDATION-FAILED') return humanSchemaMessage(typeof problem.field === 'string' ? problem.field : undefined);
+  // El detalle de una regla de negocio (p. ej. fecha posterior al fallecimiento) se conserva; el error técnico crudo de esquema cae en el texto llano por campo.
+  if (problem.code === 'ERR-SCHEMA-VALIDATION-FAILED') return businessRuleMessage(problem.detail) ?? humanSchemaMessage(typeof problem.field === 'string' ? problem.field : undefined);
   return isCatalogCode(problem.code) ? ERROR_CATALOG[problem.code].detailTemplate : problem.detail;
 }
 

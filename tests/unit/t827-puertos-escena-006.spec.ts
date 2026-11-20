@@ -115,7 +115,7 @@ describe('fixture scene-privacy-hooks-spy ajustado (T827: now UTC de ClockPort, 
 
 describe('SceneImageGeneratorPort y SceneJobDispatcherPort nulos (T827; REQ-ESC6-017, REQ-ESC6-031; INV-ESC6-002, INV-ESC6-016; SC-ESC6-025)', () => {
   it('[INV-ESC6-016] el generador nulo devuelve solo un SceneErrorCode (sin cuerpo ni mensaje del proveedor) y no llama a ninguna red', async () => {
-    const result = await new NullSceneImageGenerator().generate({ prompt: 'p', references: [], signal: new AbortController().signal });
+    const result = await new NullSceneImageGenerator().generate({ prompt: 'p', references: [], seed: 0, signal: new AbortController().signal });
     expect(result).toEqual({ ok: false, code: 'ERR-SCENE-GENERATION-FAILED' });
     expect(Object.keys(result).sort()).toEqual(['code', 'ok']);
   });

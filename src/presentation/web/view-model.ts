@@ -209,6 +209,38 @@ export function formatAge(age: ComputedAge): string {
   return `${years}, ${months}`;
 }
 
+/** Estado de vida de la ficha (007, REQ-FAL7-003): una ficha anterior a la 007 no trae el campo y se lee `ALIVE`. */
+export const LIFE_STATUS_LABEL: Readonly<Record<'ALIVE' | 'DECEASED', string>> = { ALIVE: 'Vivo', DECEASED: 'Fallecido' };
+/** Texto de la confirmación al pasar de Fallecido a Vivo, fijado por Neo (REQ-FAL7-003, EDGE-007-016). */
+export const REVIVE_CONFIRMATION_TEXT = 'Al volver a Vivo se reactivarán las alertas';
+/** Aviso al creador al marcar Fallecido (007, T1026, SC-007-016, REQ-FAL7-008): los enlaces veterinarios activos NO se revocan automáticamente. */
+export const DECEASED_LINKS_NOTICE = 'Los enlaces veterinarios activos de esta mascota no se revocan al marcarla como fallecida. Si no quieres que sigan visibles, revócalos desde «Compartir».';
+
+export const isDeceased = (profile: Pick<PetProfile, 'lifeStatus'>): boolean => profile.lifeStatus === 'DECEASED';
+
+/** `YYYY-MM-DD` → `DD/MM/AAAA` sin pasar por `Date` (sin zonas horarias ni cálculo de calendario). */
+export function formatIsoDateEs(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return match === null ? iso : `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+/** Insignia «Fallecido · DD/MM/AAAA»; `null` si la mascota está viva (REQ-FAL7-003). */
+export function deceasedBadgeText(profile: Pick<PetProfile, 'lifeStatus' | 'deceasedAt'>): string | null {
+  if (!isDeceased(profile)) return null;
+  return typeof profile.deceasedAt === 'string' ? `Fallecido · ${formatIsoDateEs(profile.deceasedAt)}` : 'Fallecido';
+}
+
+/** «Vivió …» con la edad que entrega la API (hasta `deceasedAt`, REQ-FAL7-007); «aprox.» si la fecha de nacimiento es estimada. `null` si está viva. */
+export function livedText(profile: Pick<PetProfile, 'lifeStatus' | 'birthDateIsEstimate'>, age: ComputedAge): string | null {
+  if (!isDeceased(profile)) return null;
+  return `Vivió ${profile.birthDateIsEstimate === true ? 'aprox. ' : ''}${formatAge(age)}`;
+}
+
+/** Solo Fallecido → Vivo exige confirmación explícita (REQ-FAL7-003). */
+export function requiresReviveConfirmation(profile: Pick<PetProfile, 'lifeStatus'> | null, next: string): boolean {
+  return profile !== null && isDeceased(profile) && next === 'ALIVE';
+}
+
 export function formatKg(value: number | null): string {
   return value === null ? 'Sin peso' : `${value.toFixed(2)} kg`;
 }

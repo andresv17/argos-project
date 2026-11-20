@@ -28,7 +28,7 @@ interface Ctx {
   close(): Promise<void>;
 }
 
-const PG_SHARE_SQL = ['0007_platform_parameters.sql', '0008_share_links.sql'].map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
+const PG_SHARE_SQL = ['0007_platform_parameters.sql', '0008_share_links.sql', '0011_share_link_deceased_at.sql'].map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
 
 async function localContexts(): Promise<Ctx[]> {
   const engines = await createShareEngines('ADMIN');
@@ -78,6 +78,7 @@ function link(ctx: Ctx, n: number, over: Partial<ShareLinkRecord>): ShareLinkRec
     revokedAt: null,
     includeMicrochip: false,
     includeClinicalFiles: false,
+    includeDeceasedAt: false,
     idempotencyKey: KEY(n),
     petOwnerUserIdAtCreation: ANDRES,
     ...over,

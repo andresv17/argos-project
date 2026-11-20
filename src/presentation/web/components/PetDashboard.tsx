@@ -5,7 +5,7 @@
  * Regla D2: el `open` del bloque de alta es estado local, fijado una sola vez al mostrar el módulo por primera vez
  * (abierto si no hay registros) y que solo cambia el usuario; guardar nunca lo cierra.
  *
- * @implements REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, STATE-ALERT-001, REQ-CLI5-001, SC-005-010
+ * @implements REQ-FAL7-003, REQ-FAL7-007, REQ-PAN7-001, REQ-PAN7-002, REQ-PAN7-003, REQ-PES7-001, REQ-PES7-002, REQ-PES7-003, REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, STATE-ALERT-001, REQ-CLI5-001, SC-005-010
  */
 import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { AlertBadge } from './AlertBadge.tsx';
@@ -18,8 +18,8 @@ import { SymptomLegend } from './SymptomLegend.tsx';
 import { symptomSummary, type SymptomSeverity, type SymptomType } from '../symptoms.ts';
 import { WeightChart, WeightTable } from './WeightChart.tsx';
 import type { FormBody } from '../validation.ts';
-import { RECORD_MODULES, RECORD_SUMMARY, RECORD_WRITE_PERMISSION, type RecordModule } from '../records.ts';
-import { avatarVersionOf, formatAge, formatKg, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
+import { OPTION_B_MODULES, RECORD_MODULES, RECORD_SUMMARY, RECORD_WRITE_PERMISSION, showsBareForm, showsFormOpenByDefault, type RecordModule } from '../records.ts';
+import { avatarVersionOf, deceasedBadgeText, formatAge, livedText, formatIsoDateEs, formatKg, isDeceased, isDeleteConfirmed, isReadOnly, nextFocusIndex, SEX_LABEL, SPECIES_LABEL, type CustomParameterView, type PetDashboardView } from '../view-model.ts';
 
 const CATEGORY_LABEL = Object.fromEntries(
   (RECORD_MODULES.find((m) => m.id === 'customParameters')?.fields.find((f) => f.name === 'category')?.options ?? []).map((o) => [o.value, o.label]),
@@ -242,19 +242,17 @@ function AlertIcon({ kind }: { readonly kind: 'overdue' | 'soon' | 'ok' }): JSX.
   );
 }
 
-/** Tarjeta oliva (decisión D3): recuento completo de `alertsSummary`; «Registrar peso» abre el formulario existente de Peso. */
-function AlertsCard({ dashboard, canRegisterWeight, onRegisterWeight }: {
-  readonly dashboard: PetDashboardView;
-  readonly canRegisterWeight: boolean;
-  readonly onRegisterWeight: () => void;
-}): JSX.Element {
+/** Tarjeta oliva (decisión D3, `D7-03`): «Estado de vacunación» con el recuento completo de `alertsSummary`; sin acciones (REQ-PAN7-001). */
+function AlertsCard({ dashboard }: { readonly dashboard: PetDashboardView }): JSX.Element {
   const summary = dashboard.alertsSummary;
+  const deceased = isDeceased(dashboard.profile); // M2 (REQ-FAL7-004): la tarjeta sigue visible pero sin recuento.
   return (
     <section aria-labelledby="alerts-title" className="col-span-2 grid content-start gap-2 rounded-2xl bg-primary p-5 text-white shadow-sm lg:col-span-5 lg:row-span-2">
       <h3 id="alerts-title" className="text-lg font-semibold">
-        Alertas sanitarias
+        Estado de vacunación
       </h3>
-      <p className="text-2xl font-bold tabular-nums">{`${summary.totalActiveAlerts} alertas activas`}</p>
+      {deceased ? <p className="text-2xl font-bold">Sin alertas (fallecida)</p> : <p className="text-2xl font-bold tabular-nums">{`${summary.totalActiveAlerts} alertas activas`}</p>}
+      {deceased ? null : (
       <ul className="grid gap-1 text-sm">
         <li className="flex items-center gap-2">
           <AlertIcon kind="overdue" />
@@ -269,29 +267,24 @@ function AlertsCard({ dashboard, canRegisterWeight, onRegisterWeight }: {
           <span className="tabular-nums">{`${summary.upToDateCount} al día`}</span>
         </li>
       </ul>
-      {summary.totalActiveAlerts === 0 ? <p className="text-sm">Todo al día</p> : null}
+      )}
+      {!deceased && summary.totalActiveAlerts === 0 ? <p className="text-sm">Todo al día</p> : null}
       <p className="text-sm">{`Dueño: ${dashboard.owner.displayName}`}</p>
-      {canRegisterWeight ? (
-        <div>
-          <button
-            type="button"
-            onClick={onRegisterWeight}
-            className="min-h-12 rounded-full bg-white px-5 text-sm font-semibold text-primary hover:bg-meadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
-          >
-            Registrar peso
-          </button>
-        </div>
-      ) : null}
     </section>
   );
 }
+
+/** Pestaña activa de la ficha: un módulo de registros o el historial de archivos (`[GH:#12]`, ADR-007-02; `RECORD_MODULES` no cambia). */
+export type ActiveTab = RecordModule | 'history';
+
+const HISTORY_TAB = { id: 'history', label: 'Historial / Archivos' } as const;
 
 const STAT_CARD = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 
 export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEditRecord, onDeleteRecord, onEdit, onDelete, onTransfer, editSlot, deleteSlot, transferSlot, mediaSlot }: {
   readonly dashboard: PetDashboardView;
-  readonly activeTab: RecordModule;
-  readonly onTabChange: (tab: RecordModule) => void;
+  readonly activeTab: ActiveTab;
+  readonly onTabChange: (tab: ActiveTab) => void;
   readonly onAddRecord: (module: RecordModule, body: FormBody) => Promise<void>;
   /** Edición de un registro vigente (REQ-BOR-003); sin ella la ficha no ofrece «Editar» en los registros. */
   readonly onEditRecord?: (module: RecordModule, recordId: string, body: FormBody, revision: number) => Promise<void>;
@@ -314,39 +307,47 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const frozenOpen = useRef<Partial<Record<RecordModule, boolean>>>({});
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const [focusRequest, requestFocus] = useReducer((n: number) => n + 1, 0);
-  const activeIndex = Math.max(0, RECORD_MODULES.findIndex((m) => m.id === activeTab));
-  const activeSpec = RECORD_MODULES[activeIndex] ?? RECORD_MODULES[0]!;
-  const canWrite = permissions[RECORD_WRITE_PERMISSION[activeSpec.id]];
-  const recordCount = {
-    weights: dashboard.weights.length,
-    measurements: dashboard.bodyMeasurements.length,
-    vaccinations: dashboard.vaccinations.length,
-    dewormings: dashboard.dewormings.length,
-    visits: dashboard.medicalVisits.length,
-    customParameters: dashboard.customParameters.length,
-  }[activeSpec.id];
-  // D2: se fija al montar el panel del módulo (abierto si está vacío) y no se recalcula; solo lo cambia el usuario.
-  frozenOpen.current[activeSpec.id] ??= recordCount === 0;
-  const formOpen = frozenOpen.current[activeSpec.id] === true;
-
+  // `[GH:#12]`: la pestaña «Historial / Archivos» solo existe fuera de la edición y con `mediaSlot`; si no, el panel activo cae a Peso.
+  const showHistory = editSlot === undefined && mediaSlot !== undefined;
+  const tabs: ReadonlyArray<{ readonly id: ActiveTab; readonly label: string }> = [
+    ...RECORD_MODULES.map((m) => ({ id: m.id, label: m.tabLabel })),
+    ...(showHistory ? [HISTORY_TAB] : []),
+  ];
+  const activeIndex = Math.max(0, tabs.findIndex((t) => t.id === activeTab));
+  const activeId = tabs[activeIndex]!.id;
+  // H-007UI-1: al cambiar de pestaña la activa se desplaza dentro del tablist (con 7 pestañas desborda a 320/1024 px). No se desplaza al montar.
+  const mountedTabs = useRef(false);
   useEffect(() => {
-    if (focusRequest > 0) document.getElementById('weights-recordedAt')?.focus();
-  }, [focusRequest]);
+    if (!mountedTabs.current) {
+      mountedTabs.current = true;
+      return;
+    }
+    const el = tabRefs.current[activeIndex];
+    if (el !== null && el !== undefined && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeIndex]);
+  const activeSpec = RECORD_MODULES.find((m) => m.id === activeId) ?? null;
+  const canWrite = activeSpec === null ? false : permissions[RECORD_WRITE_PERMISSION[activeSpec.id]];
+  const recordCounts = {
+    weights: dashboard.weights,
+    measurements: dashboard.bodyMeasurements,
+    vaccinations: dashboard.vaccinations,
+    dewormings: dashboard.dewormings,
+    visits: dashboard.medicalVisits,
+    customParameters: dashboard.customParameters,
+  };
+  const records: readonly unknown[] = activeSpec === null ? [] : recordCounts[activeSpec.id];
+  // D2: se fija al montar el panel del módulo y no se recalcula; solo lo cambia el usuario. Opción B (`[GH:#14]`): en sus cuatro módulos el formulario sin registros va descubierto
+  // (sin `<details>`), así que el `<details>` que aparece con el primer registro nace plegado; en Consultas y Parámetros el `<details>` nace abierto si no hay registros.
+  if (activeSpec !== null) frozenOpen.current[activeSpec.id] ??= !OPTION_B_MODULES.includes(activeSpec.id) && showsFormOpenByDefault(activeSpec.id, records, canWrite);
+  const formOpen = activeSpec !== null && frozenOpen.current[activeSpec.id] === true;
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number): void => {
-    const next = nextFocusIndex(event.key, index, RECORD_MODULES.length);
+    const next = nextFocusIndex(event.key, index, tabs.length);
     if (next === null) return;
     event.preventDefault();
     tabRefs.current[next]?.focus();
-    const spec = RECORD_MODULES[next];
-    if (spec !== undefined) onTabChange(spec.id);
-  };
-  const registerWeight = (): void => {
-    frozenOpen.current.weights = true;
-    onTabChange('weights');
-    rerender();
-    requestFocus();
+    const tab = tabs[next];
+    if (tab !== undefined) onTabChange(tab.id);
   };
   const readOnly = isReadOnly(permissions);
   const recordActions: ActionsFor | undefined =
@@ -375,9 +376,12 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                   {profile.name}
                 </h2>
                 <p className="text-sm text-text-muted">
-                  {SPECIES_LABEL[profile.species]} · {profile.breed} · {SEX_LABEL[profile.sex]} · nació {profile.birthDate}
+                  {SPECIES_LABEL[profile.species]} · {profile.breed} · {SEX_LABEL[profile.sex]} · nació {formatIsoDateEs(profile.birthDate)}
                 </p>
                 <OwnerBadge owner={dashboard.owner} readOnly={readOnly} />
+                {deceasedBadgeText(profile) === null ? null : (
+                  <p className="w-fit rounded-xl border border-slate-500 bg-slate-100 px-3 py-1 text-sm font-bold text-slate-900">{deceasedBadgeText(profile)}</p>
+                )}
                 {permissions.editPetBasics || permissions.deletePet || (permissions.transferPetOwnership && onTransfer !== undefined) ? (
                   <div className="flex flex-wrap gap-2">
                     {permissions.editPetBasics ? (
@@ -403,10 +407,10 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                 <AvatarExternalLink avatarUrl={profile.avatarUrl} />
               </div>
             </section>
-            <AlertsCard dashboard={dashboard} canRegisterWeight={permissions.writeWeightsAndMeasurements} onRegisterWeight={registerWeight} />
+            <AlertsCard dashboard={dashboard} />
             <section aria-label="Edad" className={`${STAT_CARD} col-span-1 lg:col-span-3`}>
               <p className="text-sm text-text-muted">Edad</p>
-              <p className="text-2xl font-bold tabular-nums">{formatAge(dashboard.computedAge)}</p>
+              <p className="text-2xl font-bold tabular-nums">{livedText(profile, dashboard.computedAge) ?? formatAge(dashboard.computedAge)}</p>
             </section>
             <section aria-label="Último peso" className={`${STAT_CARD} col-span-1 lg:col-span-4`}>
               <p className="text-sm text-text-muted">Último peso</p>
@@ -418,57 +422,57 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
         </>
       )}
       <div role="tablist" aria-label="Módulos de la ficha" className="flex gap-1 overflow-x-auto p-1">
-        {RECORD_MODULES.map((spec, index) => {
-          const selected = spec.id === activeSpec.id;
+        {tabs.map((tab, index) => {
+          const selected = tab.id === activeId;
           return (
             <button
-              key={spec.id}
+              key={tab.id}
               ref={(el) => {
                 tabRefs.current[index] = el;
               }}
-              id={`module-tab-${spec.id}`}
+              id={`module-tab-${tab.id}`}
               type="button"
               role="tab"
               aria-selected={selected}
-              aria-controls={`module-panel-${spec.id}`}
+              aria-controls={`module-panel-${tab.id}`}
               tabIndex={selected ? 0 : -1}
-              onClick={() => onTabChange(spec.id)}
+              onClick={() => onTabChange(tab.id)}
               onKeyDown={(e) => onKeyDown(e, index)}
               className={`relative min-h-12 shrink-0 whitespace-nowrap rounded-full px-4 text-sm text-primary ${RING} ${
                 selected ? 'bg-accent font-semibold after:absolute after:inset-x-4 after:bottom-1.5 after:h-0.5 after:bg-primary' : 'font-medium hover:bg-white'
               }`}
             >
-              {spec.tabLabel}
+              {tab.label}
             </button>
           );
         })}
       </div>
-      <section id={`module-panel-${activeSpec.id}`} role="tabpanel" aria-labelledby={`module-tab-${activeSpec.id}`} tabIndex={0} className={`grid min-w-0 gap-3 rounded-2xl ${RING}`}>
-        {canWrite ? (
-          <details
-            open={formOpen}
-            onToggle={(e) => {
-              const open = (e.currentTarget as HTMLDetailsElement).open;
-              if (frozenOpen.current[activeSpec.id] !== open) {
-                frozenOpen.current[activeSpec.id] = open;
-                rerender();
-              }
-            }}
-          >
-            <summary className={`inline-flex min-h-12 cursor-pointer items-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover ${RING}`}>{RECORD_SUMMARY[activeSpec.id]}</summary>
-            <RecordForm key={`${profile.id}-${activeSpec.id}`} spec={activeSpec} species={profile.species} onSubmit={(body) => onAddRecord(activeSpec.id, body)} />
-          </details>
-        ) : null}
-        <ModuleContent module={activeSpec.id} dashboard={dashboard} canWrite={canWrite} {...(recordActions === undefined ? {} : { actions: recordActions })} />
+      <section id={`module-panel-${activeId}`} role="tabpanel" aria-labelledby={`module-tab-${activeId}`} tabIndex={0} className={`grid min-w-0 gap-3 rounded-2xl ${RING}`}>
+        {activeSpec === null ? (
+          mediaSlot
+        ) : (
+          <>
+            {showsBareForm(activeSpec.id, records, canWrite) ? (
+              <RecordForm key={`${profile.id}-${activeSpec.id}`} spec={activeSpec} species={profile.species} onSubmit={(body) => onAddRecord(activeSpec.id, body)} />
+            ) : canWrite ? (
+              <details
+                open={formOpen}
+                onToggle={(e) => {
+                  const open = (e.currentTarget as HTMLDetailsElement).open;
+                  if (frozenOpen.current[activeSpec.id] !== open) {
+                    frozenOpen.current[activeSpec.id] = open;
+                    rerender();
+                  }
+                }}
+              >
+                <summary className={`inline-flex min-h-12 cursor-pointer items-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover ${RING}`}>{RECORD_SUMMARY[activeSpec.id]}</summary>
+                <RecordForm key={`${profile.id}-${activeSpec.id}`} spec={activeSpec} species={profile.species} onSubmit={(body) => onAddRecord(activeSpec.id, body)} />
+              </details>
+            ) : null}
+            <ModuleContent module={activeSpec.id} dashboard={dashboard} canWrite={canWrite} {...(recordActions === undefined ? {} : { actions: recordActions })} />
+          </>
+        )}
       </section>
-      {editSlot === undefined && mediaSlot !== undefined ? (
-        <section aria-labelledby="history-files-title" className="grid min-w-0 gap-3">
-          <h3 id="history-files-title" className="text-lg font-semibold">
-            Historial / Archivos
-          </h3>
-          {mediaSlot}
-        </section>
-      ) : null}
     </article>
   );
 }

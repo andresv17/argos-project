@@ -132,6 +132,7 @@ test.describe('subida desde el panel de archivos (T615, extremo a extremo)', () 
     await createPetViaApi(context.request, 'Argos', 'CANINE');
     await page.goto('/');
     await page.getByRole('listbox', { name: 'Mascotas' }).getByRole('option').first().click();
+    await page.getByRole('tab', { name: 'Historial / Archivos' }).click();
     await expect(page.locator('#clinical-file')).toBeAttached();
 
     const plain = (await makeImage(page, 'image/jpeg', 80, 40))!;

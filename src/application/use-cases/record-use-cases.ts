@@ -9,7 +9,10 @@
  * Edición y borrado de vacunas (REQ-REC2-003): un registro SUPERSEDED es inmutable con cualquier rol; borrar el posterior
  * devuelve el anterior a vigente (SUPERSEDED se calcula, no se almacena).
  *
- * @implements REQ-REC2-003, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-PET-003, INV-ACC-002, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
+ * REQ-FAL7-005 (007): una mascota fallecida rechaza altas y ediciones cuya fecha de evento RESULTANTE sea posterior a `deceasedAt`; las notas de un registro que ya
+ * era posterior se editan sin cambiar la fecha (EDGE-007-005, EDGE-007-013). Los registros anteriores se consultan, editan y borran como siempre.
+ *
+ * @implements REQ-FAL7-005, EDGE-007-005, EDGE-007-013, REQ-REC2-003, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006, INV-PET-003, INV-ACC-002, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
 import type { BodyMeasurementRecord, MedicalVisitRecord } from '../../generated/index.ts';
@@ -19,7 +22,8 @@ import {
   type DewormingEntryView,
   type VaccinationEntryView,
 } from '../../domain/alerts/sanitary-alert-evaluator.ts';
-import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
+import { assertRecordDateNotAfterDeceasedAt, type PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
+import { getRecordEventDate } from '../../domain/sorting/deterministic-sorter.ts';
 import {
   applyRecordUpdate,
   computeWeightEvolutionSeries,
@@ -51,6 +55,17 @@ const WRITE_ACTION: Readonly<Record<RecordModule, RbacAction>> = {
   customParameters: 'WRITE_APPOINTMENTS_AND_PARAMETERS',
 };
 
+/** Campo de la fecha de evento de cada módulo (para el campo del error de REQ-FAL7-005). */
+const EVENT_DATE_FIELD: Readonly<Record<RecordModule, string>> = {
+  weights: 'recordedAt',
+  bodyMeasurements: 'recordedAt',
+  vaccinations: 'appliedAt',
+  dewormings: 'appliedAt',
+  medicalVisits: 'visitDate',
+  customParameters: 'recordedAt',
+};
+const eventDateField = (module: RecordModule): string => EVENT_DATE_FIELD[module];
+
 /** Opcionales que el registro persistido exige como null cuando la entrada no los trae. */
 const NULLABLE_DEFAULTS: Readonly<Record<RecordModule, Readonly<Record<string, string | null>>>> = {
   weights: { notes: null },
@@ -79,6 +94,7 @@ abstract class AddRecordUseCase<M extends RecordModule, View> {
       await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, WRITE_ACTION[this.module]);
       const valid = validateRecordInput(this.module, input, pet.birthDate, today, pet.species);
+      assertRecordDateNotAfterDeceasedAt(pet, getRecordEventDate(valid as never), eventDateField(this.module), true); // REQ-FAL7-005
       const record = {
         ...NULLABLE_DEFAULTS[this.module],
         ...valid,
@@ -208,6 +224,9 @@ export class UpdateRecordUseCase {
       // D-16 A: la comparación va dentro de la transacción con el candado de mascota; una revisión distinta no cambia ni audita nada.
       if (revisionOf(current) !== ifMatch) throw new DomainErrorV31('ERR-REC-CONFLICT');
       const applied = applyRecordUpdate(module, current, input, pet.birthDate, today, pet.species);
+      // REQ-FAL7-005 / EDGE-007-013: se valida la fecha RESULTANTE; solo si la edición la cambia (las notas de un registro ya posterior se editan).
+      const resultingDate = getRecordEventDate(applied as never);
+      assertRecordDateNotAfterDeceasedAt(pet, resultingDate, eventDateField(module), resultingDate !== getRecordEventDate(current as never));
       const updated = { ...applied, revision: revisionOf(current) + 1 } as RecordOf<RecordModule>;
       assertRecordNotSuperseded(supersededStatus(module, existing, recordId, today));
       // INV-REG-002: la edición que dejaría al propio registro SUPERSEDED (p. ej. una fecha anterior a otra de la misma clave) se rechaza.

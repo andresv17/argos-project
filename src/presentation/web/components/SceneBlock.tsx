@@ -1,6 +1,6 @@
 /**
  * Bloque «Escena del hogar» (feature 006, T875/T876; D6-04 = A, D6-05 = A): en el encabezado de la vista «Hogar» y, para el propietario sin hogar, en «Mis mascotas».
- * Imagen con texto alternativo, estado anunciado en una región `aria-live`, «cambios pendientes: P · generaciones restantes: R», «Se muestran N de M mascotas», aviso
+ * Imagen con texto alternativo, estado anunciado en una región `aria-live`, aviso neutral de cambios pendientes con «Generaciones restantes: R», «Se muestran N de M mascotas», aviso
  * «desactualizada» y un botón único de generación (D6-21, T937): «Crear imagen del hogar», «Regenerar imagen del hogar» o «Reintentar», que siempre pide `action = REGENERATE`
  * (generación limpia desde cero) y, deshabilitado, muestra su motivo visible. La imagen
  * se pide a la ruta propia del ámbito (302 firmada por el servidor): el DOM no guarda URL firmadas (NFR-ESC6-003). `SceneBlockView` es presentacional; `SceneBlock`
@@ -18,7 +18,7 @@ import {
   sceneFailureText,
   sceneAltText,
   sceneImagePath,
-  scenePendingText,
+  scenePendingMessage,
   scenePetsShownText,
   sceneProblemMessage,
   sceneRetryAfter,
@@ -56,6 +56,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
   const generate = view === null ? null : sceneGenerateState(waitSeconds !== null && waitSeconds > 0 ? { ...view, actions: { ...view.actions, retryAfterSeconds: waitSeconds } } : view);
   const generating = view?.status === 'generating';
   const petsShown = view === null ? null : scenePetsShownText(view.pets);
+  const pendingMessage = view === null ? null : scenePendingMessage(view);
   return (
     <section aria-labelledby={titleId} className="grid min-w-0 max-w-full gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <Title id={titleId} className="text-lg font-semibold text-slate-900">
@@ -87,7 +88,12 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
               {view.stale ? (
                 <p className="rounded-xl border border-amber-700 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">{SCENE_STALE_TEXT}</p>
               ) : null}
-              <p className="text-sm font-semibold text-slate-900">{scenePendingText(view)}</p>
+              {pendingMessage === null ? null : (
+                <div role="group" aria-label={pendingMessage.ariaLabel} className="grid gap-1">
+                  <p className="text-sm font-semibold text-slate-900">{pendingMessage.changes}</p>
+                  <p className="text-sm text-slate-900">{pendingMessage.remaining}</p>
+                </div>
+              )}
               {petsShown === null ? null : <p className="text-sm text-slate-900">{petsShown}</p>}
               <div className="flex min-w-0 max-w-full flex-col items-start gap-3 sm:flex-row sm:flex-wrap">
                 <div className="grid min-w-0 max-w-full gap-1">

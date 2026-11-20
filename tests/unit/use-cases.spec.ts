@@ -14,7 +14,6 @@ import {
   GetPetDashboardUseCase,
   ListMyPetsUseCase,
   RegisterPetUseCase,
-  UpdatePetUseCase,
 } from '../../src/application/use-cases/pet-use-cases.ts';
 import {
   AddBodyMeasurementUseCase,
@@ -38,6 +37,7 @@ import {
   envelope,
   fixtures,
   generatedId,
+  petUpdater,
 } from '../fixtures/application-harness.ts';
 import { DUMMY_PASSWORD_HASH, FAKE_HASH_PREFIX } from '../fixtures/test-doubles.ts';
 
@@ -226,7 +226,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
   it('[REQ-PET-001][INV-ARCH-001][INV-ARCH-002] registra una 6.ª mascota sin cupo (EDGE-001) con id, dueño y fechas de los puertos', async () => {
     const { deps, uow } = createHarness();
     const pet = await new RegisterPetUseCase(deps).execute(ANDRES, ROCKY);
-    expect(pet).toEqual({ ...ROCKY, id: generatedId(1), ownerUserId: ANDRES, speciesOther: null, birthDateIsEstimate: false, neutered: null, microchipId: null, avatarUrl: null, breedCode: null, avatarVersion: null, createdAt: NOW, updatedAt: NOW });
+    expect(pet).toEqual({ ...ROCKY, id: generatedId(1), ownerUserId: ANDRES, speciesOther: null, birthDateIsEstimate: false, neutered: null, microchipId: null, avatarUrl: null, breedCode: null, avatarVersion: null, lifeStatus: 'ALIVE', deceasedAt: null, version: 1, createdAt: NOW, updatedAt: NOW });
     expect(uow.snapshot().pets.filter((p) => p.ownerUserId === ANDRES).length).toBe(6);
   });
 
@@ -240,8 +240,8 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
 
   it('[REQ-PET-001][INV-ACC-002][ERR-ACC-FORBIDDEN][ERR-PET-NOT-FOUND] solo el dueño edita: María (hogar ACTIVE) recibe 403; Carlos, Lucía y una mascota inexistente, 404', async () => {
     const { deps, uow } = createHarness();
-    const update = new UpdatePetUseCase(deps);
-    expect(await update.execute(ANDRES, ARGOS.id, { name: 'Argos Magno' })).toEqual({ ...ARGOS, breedCode: null, avatarVersion: null, name: 'Argos Magno', updatedAt: NOW });
+    const update = petUpdater(deps);
+    expect(await update.execute(ANDRES, ARGOS.id, { name: 'Argos Magno' })).toEqual({ ...ARGOS, breedCode: null, avatarVersion: null, lifeStatus: 'ALIVE', deceasedAt: null, version: 2, name: 'Argos Magno', updatedAt: NOW });
     expect(uow.snapshot().pets.find((p) => p.id === ARGOS.id)!.name).toBe('Argos Magno');
     expect(
       await Promise.all([
@@ -256,7 +256,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
 
   it('[REQ-PET-001] UpdatePet aplica INV-PET-006 con los registros de la mascota: el primero de Argos es del 2025-11-12', async () => {
     const { deps } = createHarness();
-    const update = new UpdatePetUseCase(deps);
+    const update = petUpdater(deps);
     expect(await outcome(update.execute(ANDRES, ARGOS.id, { birthDate: '2025-11-13' }))).toBe('ERR-PET-BIRTHDATE-AFTER-RECORDS@birthDate');
     expect((await update.execute(ANDRES, ARGOS.id, { birthDate: '2025-11-12' })).birthDate).toBe('2025-11-12');
     expect(await outcome(update.execute(ANDRES, ARGOS.id, { ownerUserId: MARIA }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@ownerUserId');
@@ -356,7 +356,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     expect(view.vaccinations.map((v) => [v.record.id, v.alert!.status, v.alert!.daysRemaining])).toEqual([[r.vaccinations[0]!.id, 'DUE_SOON', 7]]);
     // 3.1.0 (REQ-SIN-001): la ficha lee los parámetros anteriores a la 004 con symptomType y severity nulos.
     expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements.map(rev), [], [], r.customParameters.map((c) => ({ ...c, symptomType: null, severity: null, revision: 0 }))]);
-    expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([{ ...ARGOS, breedCode: null, avatarVersion: null }, { years: 4, months: 5, totalDays: 1640 }, 1]);
+    expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([{ ...ARGOS, breedCode: null, avatarVersion: null, lifeStatus: 'ALIVE', deceasedAt: null, version: 1 }, { years: 4, months: 5, totalDays: 1640 }, 1]);
   });
 });
 
@@ -368,9 +368,9 @@ describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-0
     const { deps } = createHarness();
     const pet = await new RegisterPetUseCase(deps).execute(ANDRES, { ...RABBIT, species: 'OTHER', speciesOther: 'Erizo africano', neutered: false });
     expect([pet.species, pet.speciesOther, pet.neutered]).toEqual(['OTHER', 'Erizo africano', false]);
-    const back = await new UpdatePetUseCase(deps).execute(ANDRES, pet.id, { species: 'FERRET', speciesOther: null });
+    const back = await petUpdater(deps).execute(ANDRES, pet.id, { species: 'FERRET', speciesOther: null });
     expect([back.species, back.speciesOther]).toEqual(['FERRET', null]);
-    expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, pet.id, { species: 'OTHER', speciesOther: null }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@speciesOther');
+    expect(await outcome(petUpdater(deps).execute(ANDRES, pet.id, { species: 'OTHER', speciesOther: null }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@speciesOther');
   });
 
   it('[REQ-PET4-001][ERR-PET-MICROCHIP-DUPLICATE] el microchip repetido, del mismo propietario o de otro, se rechaza sin guardar nada; editar la misma mascota no choca', async () => {
@@ -381,8 +381,8 @@ describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-0
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Otra', microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
     // REQ-PET4-002: lo único que cambia es el evento del duplicado (transacción independiente); mascotas, registros y auditoría quedan intactos.
     expect([{ ...uow.snapshot(), rateEvents: [] }, uow.snapshot().rateEvents.map((e) => [e.scope, e.userId])]).toEqual([{ ...before, rateEvents: [] }, [['MICROCHIP_DUPLICATE', ANDRES]]]);
-    expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, ARGOS.id, { microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
-    expect(await outcome(new UpdatePetUseCase(deps).execute(ANDRES, first.id, { microchipId: CHIP, name: 'Nube II' }))).toBe('OK');
+    expect(await outcome(petUpdater(deps).execute(ANDRES, ARGOS.id, { microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
+    expect(await outcome(petUpdater(deps).execute(ANDRES, first.id, { microchipId: CHIP, name: 'Nube II' }))).toBe('OK');
     expect(await outcome(register.execute(MARIA, { ...RABBIT, microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
     expect(uow.snapshot().pets.filter((p) => p.microchipId === CHIP)).toHaveLength(1);
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Sin chip' }))).toBe('OK');

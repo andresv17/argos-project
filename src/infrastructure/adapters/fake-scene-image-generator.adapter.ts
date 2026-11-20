@@ -16,6 +16,7 @@ export type FakeSceneMode = 'ok' | 'fail' | 'slow' | 'invalid' | 'echo';
 
 export interface FakeSceneCall {
   readonly prompt: string;
+  readonly seed: number;
   readonly references: ReadonlyArray<{ readonly ref: string; readonly mime: string; readonly byteLength: number }>;
 }
 
@@ -76,7 +77,7 @@ export class FakeSceneImageGenerator implements SceneImageGeneratorPort {
   }
 
   async generate(request: SceneGenerationRequest): Promise<SceneGenerationResult> {
-    this.calls.push({ prompt: request.prompt, references: request.references.map((r) => ({ ref: r.ref, mime: r.mime, byteLength: r.bytes.length })) });
+    this.calls.push({ prompt: request.prompt, seed: request.seed, references: request.references.map((r) => ({ ref: r.ref, mime: r.mime, byteLength: r.bytes.length })) });
     switch (this.mode) {
       case 'fail':
         return { ok: false, code: 'ERR-SCENE-GENERATION-FAILED' };

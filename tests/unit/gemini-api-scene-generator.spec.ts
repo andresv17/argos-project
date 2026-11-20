@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 async function png(echo: string | null = null): Promise<Uint8Array> {
-  const result = await new FakeSceneImageGenerator({ mode: echo === null ? 'ok' : 'echo' }).generate({ prompt: echo ?? 'semilla', references: [], signal: new AbortController().signal });
+  const result = await new FakeSceneImageGenerator({ mode: echo === null ? 'ok' : 'echo' }).generate({ prompt: echo ?? 'semilla', references: [], seed: 0, signal: new AbortController().signal });
   if (!result.ok) throw new Error('sin imagen simulada');
   return result.image.bytes;
 }
@@ -44,7 +44,7 @@ function setup(handler: (call: Call) => Promise<Response> | Response, options: P
   const generator = new GeminiApiSceneImageGenerator({ apiKey: KEY, model: MODEL, timeoutSeconds: 90, fetch: fetchDouble as unknown as typeof fetch, ...options });
   return { generator, calls, fetchDouble };
 }
-const request = (references: SceneGenerationRequest['references'] = [], signal: AbortSignal = new AbortController().signal): SceneGenerationRequest => ({ prompt: PROMPT, references, signal });
+const request = (references: SceneGenerationRequest['references'] = [], signal: AbortSignal = new AbortController().signal): SceneGenerationRequest => ({ prompt: PROMPT, references, seed: 0, signal });
 const ref = (n: number, mime: string, bytes: number[]): SceneGenerationRequest['references'][number] => ({ ref: `IMG_${n}`, mime, bytes: Uint8Array.from(bytes) });
 const bodyOf = (call: Call): { contents: Array<{ role: string; parts: Array<Record<string, unknown>> }>; generationConfig: { responseModalities: string[] } } => JSON.parse(String(call.init.body));
 

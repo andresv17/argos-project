@@ -86,6 +86,8 @@ async function clinicalFilesOf(r: RepositorySet, petId: string): Promise<PetMedi
 export interface ViewOptions {
   readonly includeMicrochip: boolean;
   readonly includeClinicalFiles: boolean;
+  /** Opt-in de `deceasedAt` (007, T1026); ausente equivale a `false`. */
+  readonly includeDeceasedAt?: boolean;
 }
 
 /**
@@ -166,7 +168,7 @@ export class GetSharedSummaryUseCase {
       const resolved = await resolveShare(r, token, access.now);
       if (resolved === null) return null;
       const { link } = resolved;
-      const view = await buildSharedView(r, resolved.pets, link.scope, access.now, { includeMicrochip: link.includeMicrochip, includeClinicalFiles: link.includeClinicalFiles }, link.expiresAt);
+      const view = await buildSharedView(r, resolved.pets, link.scope, access.now, { includeMicrochip: link.includeMicrochip, includeClinicalFiles: link.includeClinicalFiles, includeDeceasedAt: link.includeDeceasedAt }, link.expiresAt);
       return { view, linkId: link.id };
     });
     if (found === null) return access.fail();
@@ -229,11 +231,11 @@ function parseFlag(value: unknown, field: string): boolean {
 export class PreviewClinicalSummaryUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, ref: ShareScopeRef, query: { readonly includeMicrochip?: unknown; readonly includeClinicalFiles?: unknown }): Promise<SharedSummaryView> {
+  async execute(userId: string, ref: ShareScopeRef, query: { readonly includeMicrochip?: unknown; readonly includeClinicalFiles?: unknown; readonly includeDeceasedAt?: unknown }): Promise<SharedSummaryView> {
     const now = this.deps.clock.nowIsoTimestamp();
     return readSnapshot(this.deps, async (r) => {
       const { pets } = await requireShareAuthority(r, userId, ref, true);
-      const options = { includeMicrochip: parseFlag(query.includeMicrochip, 'includeMicrochip'), includeClinicalFiles: parseFlag(query.includeClinicalFiles, 'includeClinicalFiles') };
+      const options = { includeMicrochip: parseFlag(query.includeMicrochip, 'includeMicrochip'), includeClinicalFiles: parseFlag(query.includeClinicalFiles, 'includeClinicalFiles'), includeDeceasedAt: parseFlag(query.includeDeceasedAt, 'includeDeceasedAt') };
       return buildSharedView(r, pets, ref.scope, now, options, null);
     });
   }

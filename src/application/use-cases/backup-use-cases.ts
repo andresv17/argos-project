@@ -1,6 +1,6 @@
 /**
  * Respaldo por usuario sobre UnitOfWorkPort (REQ-BACKUP2-001, REQ-BACKUP2-002), sin HTTP ni SQLite.
- * - Exportación (T278): solo las mascotas del usuario autenticado y sus 6 colecciones, en un sobre 3.1.0 validado contra
+ * - Exportación (T278): solo las mascotas del usuario autenticado y sus 6 colecciones, en un sobre 3.2.0 (007: `lifeStatus` y `deceasedAt`; sin `version`) validado contra
  *   backup-envelope.schema.json, sin ningún campo de propiedad (ni `ownerUserId` ni `exportedByUserId`). Consume cupo de
  *   ERR-RATE-LIMITED y emite, en la misma transacción, el token de confirmación efímero (REQ-ACC-002), que el resultado
  *   entrega como cabecera de respuesta `x-argos-confirmation-token` (nunca dentro del archivo). Nunca incluye usuarios,
@@ -14,10 +14,12 @@
  *   escribe en la misma transacción 1 fila de auditoría IMPORT; tras el commit pide el checkpoint del WAL.
  * Fechas solo de ClockPort (INV-ARCH-001); persistencia solo por UnitOfWorkPort (INV-ARCH-005).
  *
- * @implements REQ-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, REQ-RBAC-001, REQ-ACC-002, ERR-RATE-LIMITED, REQ-PET4-001, INV-PET4-001, REQ-IMP-001, INV-BACKUP-001, STATE-BACKUP-001, ERR-BACKUP-MALFORMED-JSON, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-BACKUP-VERSION-UNSUPPORTED, ERR-BACKUP-SCHEMA-INVALID, ERR-BACKUP-REFERENTIAL-INTEGRITY, ERR-BACKUP-ATOMIC-ROLLBACK, INV-ARCH-001, INV-ARCH-004, INV-ARCH-005
+ * REQ-FAL7-009 (007): el formato se versiona (3.2.0); 3.1.0 y anteriores importan `ALIVE`/nulo; cada mascota importada cumple REQ-FAL7-002 y su `version` no retrocede.
+ *
+ * @implements REQ-FAL7-002, REQ-FAL7-009, EDGE-007-006, EDGE-007-015, REQ-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, REQ-RBAC-001, REQ-ACC-002, ERR-RATE-LIMITED, REQ-PET4-001, INV-PET4-001, REQ-IMP-001, INV-BACKUP-001, STATE-BACKUP-001, ERR-BACKUP-MALFORMED-JSON, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-BACKUP-VERSION-UNSUPPORTED, ERR-BACKUP-SCHEMA-INVALID, ERR-BACKUP-REFERENTIAL-INTEGRITY, ERR-BACKUP-ATOMIC-ROLLBACK, INV-ARCH-001, INV-ARCH-004, INV-ARCH-005
  */
 
-import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
+import { assertLifeStatusInvariant, type PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
   validateBackupEnvelopeV1Legacy,
@@ -35,13 +37,14 @@ import { DomainError as DomainErrorV31, type ErrorCode as ErrorCodeV31 } from '.
 import {
   STATE_BACKUP_001,
   validateBackupEnvelopeV31,
-  type BackupEnvelopeV31,
+  validateBackupEnvelopeV32,
+  type BackupEnvelopeV32,
   type components as ComponentsV31,
   type RollbackFinalState,
   type StateBackup001Event,
   type StateBackup001State,
 } from '../../generated/v31/index.ts';
-import { liftEnvelopeV3ToV31, migrateEnvelopeV2ToV3, migrateLegacyEnvelope } from '../../domain/backup/backup-migration.ts';
+import { liftEnvelopeV31ToV32, liftEnvelopeV3ToV31, migrateEnvelopeV2ToV3, migrateLegacyEnvelope } from '../../domain/backup/backup-migration.ts';
 import { assertBreedConsistency } from '../../domain/pet/breed-catalog.ts';
 import { computeFileDigest, fileDigestMatches } from '../../domain/backup/file-digest.ts';
 import { findHardeningViolation } from '../../domain/backup/import-hardening.ts';
@@ -49,7 +52,7 @@ import { RECORD_MODULES, validateRecord, type RecordModule } from '../../domain/
 import { validateBirthDateNotFuture } from '../../domain/shared/date-utils.ts';
 import { sortHistoricalRecords, sortPetsForListing } from '../../domain/sorting/deterministic-sorter.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
-import { recordAudit } from './audit-support.ts';
+import { auditPetView, recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import { lockPet, type ApplicationDeps } from './use-case-support.ts';
 
@@ -64,7 +67,7 @@ export type ImportPreviewResult = Omit<components['schemas']['ImportPreviewResul
 type BackupDeps = ApplicationDeps;
 
 const MODULES = Object.keys(RECORD_MODULES) as RecordModule[];
-const SUPPORTED_VERSIONS: readonly unknown[] = ['1.0.0', '2.0.0', '3.0.0', '3.1.0'] satisfies readonly SourceSchemaVersion[];
+const SUPPORTED_VERSIONS: readonly unknown[] = ['1.0.0', '2.0.0', '3.0.0', '3.1.0', '3.2.0'] satisfies readonly SourceSchemaVersion[];
 
 /** Límite de CHECKING_PAYLOAD_SIZE, leído de la guarda de la máquina (`bytesRead <= 10485760`). */
 export const MAX_IMPORT_BYTES = Number(/bytesRead <= (\d+)/.exec(STATE_BACKUP_001.states.CHECKING_PAYLOAD_SIZE.guard)![1]);
@@ -161,15 +164,15 @@ function schemaFailure(run: ImportRun, event: StateBackup001Event, validator: un
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/** Sobre 3.1.0 (el 3.0.0 y los anteriores ya elevados) con las mascotas asignadas al usuario que importa (ownerUserId = usuario autenticado). */
-type OwnedEnvelope = Omit<BackupEnvelopeV31, 'pets'> & { readonly pets: PetProfile[] };
+/** Sobre 3.2.0 (el 3.1.0, el 3.0.0 y los anteriores ya elevados) con las mascotas asignadas al usuario que importa (ownerUserId = usuario autenticado). */
+type OwnedEnvelope = Omit<BackupEnvelopeV32, 'pets'> & { readonly pets: PetProfile[] };
 
-const recordsOf = (envelope: Pick<BackupEnvelopeV31, 'records'>) =>
+const recordsOf = (envelope: Pick<BackupEnvelopeV32, 'records'>) =>
   MODULES.flatMap((module) => (envelope.records[module] as Array<{ id: string; petId: string }>).map((record) => ({ module, record })));
 
 /** Resultado de la exportación: el archivo y las cabeceras de la respuesta (el token nunca va dentro del archivo). */
 export interface ExportBackupResult {
-  readonly envelope: BackupEnvelopeV31;
+  readonly envelope: BackupEnvelopeV32;
   readonly json: string;
   readonly fileName: string;
   /** Cabeceras de respuesta: `x-argos-confirmation-token` (43 caracteres base64url; en base solo queda su SHA-256). */
@@ -197,7 +200,8 @@ export class ExportBackupUseCase {
         for (const module of MODULES) collected[module].push(...own[module]);
       }
       const exportedRecords: Record<string, unknown[]> = Object.fromEntries(MODULES.map((module) => [module, sortHistoricalRecords(collected[module] as never)]));
-      // Respaldo 3.1.0 (T617): mascotas con `breedCode` (nulo si la mascota es anterior a la 004) y parámetros con `symptomType` y `severity`
+      // Respaldo 3.2.0 (T1067, REQ-FAL7-009): mascotas con `lifeStatus` y `deceasedAt` (ALIVE/nulo si la mascota es anterior a la 007) y sin `version` (control optimista, no dato del respaldo);
+      // 3.1.0 (T617): mascotas con `breedCode` (nulo si la mascota es anterior a la 004) y parámetros con `symptomType` y `severity`
       // (nulos fuera de SYMPTOM). Ni `avatarVersion`, ni `revision`, ni medios, ni `mediaToDeleteCount` (D-07; este último es de la vista previa) [REQ-BOR-005].
       exportedRecords['customParameters'] = (exportedRecords['customParameters'] as Array<Record<string, unknown>>).map((c) => {
         const { revision: _revision, ...rest } = c;
@@ -208,22 +212,23 @@ export class ExportBackupUseCase {
         exportedRecords[module] = (exportedRecords[module] as Array<Record<string, unknown>>).map(({ revision: _revision, ...rest }) => rest);
       }
       const envelope = {
-        schemaVersion: '3.1.0',
+        schemaVersion: '3.2.0',
         exportedAt: now,
         pets: sortPetsForListing(owned).map(({ ownerUserId: _ownerUserId, breedCode, ...pet }) => {
-          const { avatarVersion: _avatarVersion, ...stored } = pet as typeof pet & { avatarVersion?: unknown };
-          return { ...stored, breedCode: breedCode ?? null };
+          const { avatarVersion: _avatarVersion, version: _version, lifeStatus, deceasedAt, ...stored } = pet as typeof pet & { avatarVersion?: unknown };
+          // Orden de claves fijo (los tres campos al final): la exportación es byte a byte la misma sin importar cómo se guardó la mascota.
+          return { ...stored, breedCode: breedCode ?? null, lifeStatus: lifeStatus ?? 'ALIVE', deceasedAt: deceasedAt ?? null };
         }),
         records: exportedRecords,
       };
       // Un sobre inválido se descubre antes de emitir el token: el rechazo deshace también el consumo de cupo.
-      if (!validateBackupEnvelopeV31(envelope)) {
-        throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'Los datos guardados del usuario no forman un respaldo 3.1.0 válido.');
+      if (!validateBackupEnvelopeV32(envelope)) {
+        throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'Los datos guardados del usuario no forman un respaldo 3.2.0 válido.');
       }
       const token = await this.deps.backupTokens.issue(repositories, userId, now);
       return { pets: envelope.pets, records: envelope.records, issued: token, exportedAt: now };
     });
-    const envelope = { schemaVersion: '3.1.0', exportedAt, pets, records } as unknown as BackupEnvelopeV31;
+    const envelope = { schemaVersion: '3.2.0', exportedAt, pets, records } as unknown as BackupEnvelopeV32;
     return {
       envelope,
       json: JSON.stringify(envelope, null, 2),
@@ -279,24 +284,29 @@ class BackupImportPipeline {
     userId: string,
     parsed: unknown,
     text: string,
-  ): { readonly envelope: BackupEnvelopeV31; readonly sourceSchemaVersion: SourceSchemaVersion } {
+  ): { readonly envelope: BackupEnvelopeV32; readonly sourceSchemaVersion: SourceSchemaVersion } {
     if (!isPlainObject(parsed)) throw run.fail('SCHEMA_INVALID', 'La raíz del respaldo debe ser un objeto JSON.');
     const violation = findHardeningViolation(text);
     if (violation !== null) throw run.fail('PARSE_HARDENING_REJECTED', violation.detail);
     if (!Object.hasOwn(parsed, 'schemaVersion')) throw run.fail('SCHEMA_INVALID', 'Falta schemaVersion.', 'schemaVersion');
     const version = parsed['schemaVersion'];
     if (!SUPPORTED_VERSIONS.includes(version)) {
-      throw run.fail('VERSION_MISMATCH', `schemaVersion ${JSON.stringify(version)} no es 1.0.0, 2.0.0, 3.0.0 ni 3.1.0.`, 'schemaVersion');
+      throw run.fail('VERSION_MISMATCH', `schemaVersion ${JSON.stringify(version)} no es 1.0.0, 2.0.0, 3.0.0, 3.1.0 ni 3.2.0.`, 'schemaVersion');
+    }
+    if (version === '3.2.0') {
+      if (!validateBackupEnvelopeV32(parsed)) throw schemaFailure(run, 'SCHEMA_INVALID', validateBackupEnvelopeV32);
+      run.fire('SCHEMA_V3_VALID');
+      return { envelope: liftEnvelopeV31ToV32(parsed) as unknown as BackupEnvelopeV32, sourceSchemaVersion: '3.2.0' };
     }
     if (version === '3.1.0') {
       if (!validateBackupEnvelopeV31(parsed)) throw schemaFailure(run, 'SCHEMA_INVALID', validateBackupEnvelopeV31);
       run.fire('SCHEMA_V3_VALID');
-      return { envelope: parsed, sourceSchemaVersion: '3.1.0' };
+      return { envelope: liftEnvelopeV31ToV32(parsed) as unknown as BackupEnvelopeV32, sourceSchemaVersion: '3.1.0' };
     }
     if (version === '3.0.0') {
       if (!validateBackupEnvelopeV3(parsed)) throw schemaFailure(run, 'SCHEMA_INVALID', validateBackupEnvelopeV3);
       run.fire('SCHEMA_V3_VALID');
-      return { envelope: liftEnvelopeV3ToV31(parsed) as unknown as BackupEnvelopeV31, sourceSchemaVersion: '3.0.0' };
+      return { envelope: liftEnvelopeV31ToV32(liftEnvelopeV3ToV31(parsed)) as unknown as BackupEnvelopeV32, sourceSchemaVersion: '3.0.0' };
     }
     let legacyV2: BackupEnvelopeV2Legacy;
     if (version === '2.0.0') {
@@ -311,7 +321,7 @@ class BackupImportPipeline {
     const candidate = migrateEnvelopeV2ToV3(legacyV2);
     if (!validateBackupEnvelopeV3(candidate)) throw schemaFailure(run, 'MIGRATION_SCHEMA_INVALID', validateBackupEnvelopeV3);
     run.fire('MIGRATION_SUCCESS');
-    return { envelope: liftEnvelopeV3ToV31(candidate) as unknown as BackupEnvelopeV31, sourceSchemaVersion: version as SourceSchemaVersion };
+    return { envelope: liftEnvelopeV31ToV32(liftEnvelopeV3ToV31(candidate)) as unknown as BackupEnvelopeV32, sourceSchemaVersion: version as SourceSchemaVersion };
   }
 
   /** CHECKING_DOMAIN_INVARIANTS sin almacenamiento: IDs duplicados (en todo el sobre) y huérfanos; INV-PET-*; INV-REC-*. */
@@ -336,6 +346,7 @@ class BackupImportPipeline {
     try {
       for (const pet of envelope.pets) {
         validateBirthDateNotFuture(pet.birthDate, today);
+        assertLifeStatusInvariant(pet, today); // REQ-FAL7-002: DECEASED <=> fecha, >= nacimiento y <= hoy
         assertBreedConsistency(pet.species, pet.breedCode ?? null, pet.breed); // INV-RAZ-001: el código existe, es de la especie y breed = rótulo
       }
       for (const { module, record } of recordsOf(envelope)) {
@@ -388,6 +399,24 @@ async function countMediaToDelete(repositories: RepositorySet, replacedPets: rea
   return repositories.media.countObjectsOfPets(replacedPets.map((pet) => pet.id));
 }
 
+type LifeStatusChange = NonNullable<ImportPreviewResult['lifeStatusChanges']>[number];
+
+/**
+ * REQ-FAL7-009, SC-007-030: mascotas que CONSERVAN su `id` en el reemplazo y cambiarían de estado vital (una ficha sin el campo se lee
+ * `ALIVE`, REQ-FAL7-001/EDGE-007-006). Solo id y estados (REQ-FAL7-010: sin fechas ni nombres), ordenado por `petId` para ser determinista.
+ * @implements REQ-FAL7-009, REQ-FAL7-010
+ */
+function lifeStatusChangesOf(current: readonly PetProfile[], incoming: readonly PetProfile[]): LifeStatusChange[] {
+  const fromById = new Map(current.map((pet) => [pet.id, pet.lifeStatus ?? 'ALIVE'] as const));
+  const changes: LifeStatusChange[] = [];
+  for (const pet of incoming) {
+    const from = fromById.get(pet.id);
+    const to = pet.lifeStatus ?? 'ALIVE';
+    if (from !== undefined && from !== to) changes.push({ petId: pet.id, from, to });
+  }
+  return changes.sort((a, b) => (a.petId < b.petId ? -1 : 1));
+}
+
 /**
  * REQ-BACKUP2-002, modo PREVIEW de STATE-BACKUP-001: mismas etapas que la importación, sin escribir nada (ni datos, ni
  * auditoría). Devuelve conteos, colisiones medidas solo contra mascotas propias, el aviso de mascotas compartidas que
@@ -407,7 +436,7 @@ export class PreviewBackupImportUseCase {
     const run = new ImportRun(observer);
     const { bytes, sourceSchemaVersion, owned } = this.pipeline.prepare(run, userId, payload, 'START_PREVIEW');
     const fileIds = new Set(owned.pets.map((pet) => pet.id));
-    let shared: { petsCount: number; householdsCount: number; petsReplacedCount: number; sameIdPetsCount: number; mediaToDeleteCount: number };
+    let shared: { petsCount: number; householdsCount: number; petsReplacedCount: number; sameIdPetsCount: number; mediaToDeleteCount: number; lifeStatusChanges: readonly LifeStatusChange[] };
     try {
       shared = await this.deps.uow.runInTransaction(async (repositories) => {
         // Solo lectura de lo propio: la previsualización no comprueba IDs ajenos (eso es del commit, I-5), así que no
@@ -426,6 +455,7 @@ export class PreviewBackupImportUseCase {
           petsReplacedCount: current.length,
           sameIdPetsCount: current.filter((pet) => fileIds.has(pet.id)).length,
           mediaToDeleteCount: await countMediaToDelete(repositories, current),
+          lifeStatusChanges: lifeStatusChangesOf(current, owned.pets),
         };
       });
     } catch (error) {
@@ -448,6 +478,7 @@ export class PreviewBackupImportUseCase {
       collisions: { petsReplacedCount: shared.petsReplacedCount, sameIdPetsCount: shared.sameIdPetsCount },
       affectedSharedPets: { petsCount: shared.petsCount, householdsCount: shared.householdsCount },
       mediaToDeleteCount: shared.mediaToDeleteCount,
+      ...(shared.lifeStatusChanges.length > 0 ? { lifeStatusChanges: [...shared.lifeStatusChanges] } : {}),
     };
   }
 }
@@ -522,7 +553,9 @@ export class ImportBackupUseCase {
         // conservan su `id` no retrocede (la fila se recrea con `avatar_object_id = NULL`).
         objectKeys.length = 0;
         const priorAvatarVersions = new Map<string, number>();
+        const priorPetVersions = new Map<string, number>(); // REQ-FAL7-011: la `version` de una ficha que conserva su `id` no retrocede (EDGE-007-009)
         for (const pet of current) {
+          priorPetVersions.set(pet.id, pet.version ?? 1);
           objectKeys.push(...(await repositories.mediaQueue.enqueueObjectsOfPet(pet.id, this.deps.clock.nowIsoTimestamp())));
           priorAvatarVersions.set(pet.id, (await repositories.pets.findAvatar(pet.id))?.version ?? 0);
         }
@@ -546,7 +579,8 @@ export class ImportBackupUseCase {
         }
         for (const [index, pet] of envelope.pets.entries()) {
           try {
-            await repositories.pets.save(pet);
+            const priorVersion = priorPetVersions.get(pet.id);
+            await repositories.pets.save(priorVersion === undefined ? pet : { ...pet, version: priorVersion + 1 });
           } catch (error) {
             if (!isMicrochipGlobalViolation(error)) throw error;
             throw run.propagateUnique(
@@ -611,7 +645,7 @@ async function ownedSnapshot(repositories: RepositorySet, pets: readonly PetProf
   for (const pet of sorted) {
     const records = await repositories.records.listForPet(pet.id);
     snapshot.push({
-      ...pet,
+      ...auditPetView(pet),
       records: Object.fromEntries(
         MODULES.map((module) => [module, [...(records[module] as Array<{ id: string }>)].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))]),
       ),

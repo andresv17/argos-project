@@ -32,6 +32,31 @@ jobs:
     steps:
       - name: Checkout de código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aviso de cambios en terraform/bootstrap.sh (DEUDA-INFRA-BOOTSTRAP-CHECK)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # bootstrap.sh no lo aplica este flujo: sus roles IAM nuevos los aplica Neo a mano ANTES de que infraestructura.yml haga plan o apply.
+          if [ -z "${BASE_SHA:-}" ] || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            BASE_SHA="$(git rev-parse HEAD^1 2>/dev/null || true)"
+          fi
+          if [ -n "${BASE_SHA}" ] && ! git diff --quiet "${BASE_SHA}" HEAD -- terraform/bootstrap.sh; then
+            echo "::warning file=terraform/bootstrap.sh::terraform/bootstrap.sh cambio: aplica manualmente los nuevos roles IAM del bootstrap (bash terraform/bootstrap.sh) antes de que infraestructura.yml haga plan o apply."
+            {
+              echo "### Cambio en terraform/bootstrap.sh"
+              echo
+              echo "Este flujo NO ejecuta el bootstrap. Antes de plan o apply, aplica manualmente los nuevos roles IAM que introduzca el cambio (bash terraform/bootstrap.sh con las variables de scripts/verify-bootstrap-inputs.sh)."
+              echo
+              echo '```text'
+              git diff --stat "${BASE_SHA}" HEAD -- terraform/bootstrap.sh
+              echo '```'
+            } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+          else
+            echo "terraform/bootstrap.sh sin cambios respecto a la base."
+          fi
 
       - name: Instalar Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
