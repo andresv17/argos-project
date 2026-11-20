@@ -7,7 +7,7 @@
  *
  * @implements REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, STATE-ALERT-001, REQ-CLI5-001, SC-005-010
  */
-import { useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { AlertBadge } from './AlertBadge.tsx';
 import { Button } from './Field.tsx';
 import { OwnerBadge } from './OwnerBadge.tsx';
@@ -312,6 +312,16 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   ];
   const activeIndex = Math.max(0, tabs.findIndex((t) => t.id === activeTab));
   const activeId = tabs[activeIndex]!.id;
+  // H-007UI-1: al cambiar de pestaña la activa se desplaza dentro del tablist (con 7 pestañas desborda a 320/1024 px). No se desplaza al montar.
+  const mountedTabs = useRef(false);
+  useEffect(() => {
+    if (!mountedTabs.current) {
+      mountedTabs.current = true;
+      return;
+    }
+    const el = tabRefs.current[activeIndex];
+    if (el !== null && el !== undefined && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeIndex]);
   const activeSpec = RECORD_MODULES.find((m) => m.id === activeId) ?? null;
   const canWrite = activeSpec === null ? false : permissions[RECORD_WRITE_PERMISSION[activeSpec.id]];
   const recordCounts = {

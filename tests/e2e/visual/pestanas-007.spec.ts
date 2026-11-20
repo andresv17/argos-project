@@ -70,7 +70,6 @@ test.describe('siete pestañas de la ficha (007, T1040)', () => {
       await page.keyboard.press('End');
       // El tablist desplaza horizontalmente (overflow-x-auto): el foco debe dejar la última pestaña completa dentro del propio tablist y del viewport.
       await page.waitForTimeout(1000);
-      console.log('DBG', width, JSON.stringify(await tab('Historial / Archivos').evaluate((el) => { const l = el.parentElement!.getBoundingClientRect(); const b = el.getBoundingClientRect(); return { l: l.left, r: l.right, bl: b.left, br: b.right, vw: window.innerWidth, sc: el.parentElement!.scrollLeft, sw: el.parentElement!.scrollWidth, cw: el.parentElement!.clientWidth, foc: document.activeElement?.textContent }; })));
       await expect
         .poll(() =>
           tab('Historial / Archivos').evaluate((el) => {
