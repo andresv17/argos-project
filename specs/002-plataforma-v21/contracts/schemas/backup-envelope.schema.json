@@ -6,7 +6,7 @@
   "x-sdd-metadata": {
     "version": "3.2.0",
     "status": "REVIEW",
-    "supersedes": "3.0.0",
+    "supersedes": "3.1.0",
     "change_type": "MINOR",
     "change_note": "MINOR 3.2.0 (feature 007, T1022/SC-007-030, REQ-FAL7-009): ImportPreviewResult +lifeStatusChanges opcional (array de {petId, from, to}, maxItems 500). Aditiva; consumidores existentes no cambian. MINOR aditiva (feature 007, #13, C3/EDGE-007-015 aprobados por Neo): +BackupPetProfileV32 y +BackupEnvelopeV32 (schemaVersion 3.2.0, formato versionado) con lifeStatus y deceasedAt opcionales; BackupEnvelopeV3 (3.0.0) y los legados no cambian, de modo que 1.0.0, 2.0.0 y 3.0.0 siguen importando como ALIVE/nulo. Un build anterior rechaza 3.2.0 con ERR-BACKUP-VERSION-UNSUPPORTED. sourceSchemaVersion admite 3.2.0.",
     "traceability": [

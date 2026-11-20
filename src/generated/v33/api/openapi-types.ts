@@ -431,7 +431,7 @@ export interface components {
             otherParameters: components["schemas"]["OtherParameterEntry"][];
             clinicalFiles: components["schemas"]["ClinicalFileEntry"][];
         };
-        /** @description Documento raíz [REQ-SUM-001] */
+        /** @description Documento raíz [REQ-SUM-001]; regla condicional (007, O1 de /rama): pets[].profile.deceasedAt solo puede estar presente si disclosure.deceasedAtIncluded es true (ausente o false lo prohíbe), de modo que la garantía de privacidad vive también en el esquema y no solo en el constructor */
         ClinicalSummary: {
             /** @constant */
             summaryVersion: "1.0.0";
@@ -450,7 +450,7 @@ export interface components {
             disclosure: components["schemas"]["SummaryDisclosure"];
             /** @description Mascotas del alcance, ordenadas por (name ASC, id interno ASC); en HOUSEHOLD solo las que el creador posee legalmente y siguen asignadas al hogar (D5-19) */
             pets: components["schemas"]["ClinicalPetSummary"][];
-        };
+        } & unknown;
         /** @description Rótulo de un archivo clínico del resumen, leído de pet_media.original_name tras resolver el token */
         FileLabel: {
             fileId: components["schemas"]["Uuid"];

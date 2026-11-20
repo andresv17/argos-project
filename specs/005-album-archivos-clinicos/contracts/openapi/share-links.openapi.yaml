@@ -5,7 +5,7 @@ info:
   version: 3.4.0
   description: >
     Documento INCREMENTAL de la feature 005 (Fase 4B): contiene solo las 10 operaciones nuevas; el OpenAPI de la 004
-    (3.2.0) permanece LOCKED y se hereda sin cambio. Operaciones autenticadas (cookie + CSRF como el resto): limite del
+    (3.3.0) esta en REVIEW (no LOCKED) y se hereda sin cambio. Operaciones autenticadas (cookie + CSRF como el resto): limite del
     album, creacion y listado de enlaces de solo lectura para el veterinario (mascota u hogar), revocacion y vista previa del
     resumen clinico. Operaciones publicas (sin cookie, sin CSRF, solo GET): resumen y descarga de archivos clinicos por token
     de capacidad. Todas las respuestas de error usan application/problem+json (RFC 9457); los codigos nuevos viven en

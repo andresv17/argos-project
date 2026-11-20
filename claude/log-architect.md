@@ -413,3 +413,10 @@ Sin commit; pendiente re-firma /merovingian.
 - tasks.md:18 reescrita (N2-01=A sustituido por 0 deps npm, D6-23 (f)); spec.md:610 ruta a archivo/aviso-consentimiento-borrador.md.
 - Firmas asentadas: T958 aprobado (aviso v2, C2, DEUDA-006-AVISO-REGENERACION liquidada), OBS-M1, OBS-M2, H-F14-2 mantener, activar SCENE_REAL_DRIVER_ACTIVATED=true (commit local, sin merge/push).
 - Registro nuevo al final de spec.md; notas en T958, T885 y Checkpoint T944..T960. Sin [x]. verify-traceability 006: CUMPLE.
+
+### 2026-11-20 — Architect: Caso B 007 cerrado por Neo (OPCION A: O-3/O-4, O1, M2)
+- 004 openapi 3.2.0 -> 3.3.0 MINOR (supersedes 3.2.0, exportBackup -> BackupEnvelopeV32); 005 share-links.openapi.yaml linea 8 ahora dice REVIEW (no LOCKED).
+- O-4: 002 openapi x-sdd-metadata 3.2.0/supersedes 3.1.0; backup-envelope 002 y 004 supersedes 3.1.0.
+- O1: clinical-summary.schema (005) ClinicalSummary.allOf if/else: pets[].profile.deceasedAt exige disclosure.deceasedAtIncluded true (v33 recompilado). M2: spec 007 REQ-FAL7-004 -> «Sin alertas (fallecida)».
+- Pendiente keymaker: prueba de contrato negativa de O1 y actualizar contracts-004-openapi.spec.ts (pin 3.2.0 -> 3.3.0). Sin [x], sin push.
+- R9 (merovingian T1070): plan.md:28 ADR-007-07 corregido: la huella no cambia (inputs-snapshot.ts sin prompt/estilo/paleta). R1-R3 quedan para T1072, no resueltos.

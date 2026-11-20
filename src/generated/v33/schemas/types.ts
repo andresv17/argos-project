@@ -346,6 +346,33 @@ export type DeceasedAt = null | IsoDate;
  */
 export type MediaMime = "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
 /**
+ * Documento raíz [REQ-SUM-001]; regla condicional (007, O1 de /rama): pets[].profile.deceasedAt solo puede estar presente si disclosure.deceasedAtIncluded es true (ausente o false lo prohíbe), de modo que la garantía de privacidad vive también en el esquema y no solo en el constructor
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "ClinicalSummary".
+ */
+export type ClinicalSummary = {
+  summaryVersion: "1.0.0";
+  generatedAt: IsoTimestamp;
+  scope: SummaryScope;
+  /**
+   * Todo el contenido es registrado por el cuidador y no verificado por un profesional (MAG-005-001, REQ-SUM-007)
+   */
+  dataProvenance: "CAREGIVER_REPORTED_NOT_VERIFIED";
+  /**
+   * El resumen no contiene alertas, banderas, normal/anormal ni texto generado (MAG-005-003, REQ-SUM-008)
+   */
+  automaticInterpretation: "NONE";
+  disclosure: SummaryDisclosure;
+  /**
+   * Mascotas del alcance, ordenadas por (name ASC, id interno ASC); en HOUSEHOLD solo las que el creador posee legalmente y siguen asignadas al hogar (D5-19)
+   *
+   * @minItems 1
+   * @maxItems 100
+   */
+  pets: [ClinicalPetSummary, ...ClinicalPetSummary[]];
+};
+/**
  * Alcance del resumen (mascota u hogar) [REQ-SUM-005]
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
@@ -1608,33 +1635,6 @@ export interface OtherParameterEntry {
   title: string;
   description: string;
   notes: OptionalNotes;
-}
-/**
- * Documento raíz [REQ-SUM-001]
- *
- * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
- * via the `definition` "ClinicalSummary".
- */
-export interface ClinicalSummary {
-  summaryVersion: "1.0.0";
-  generatedAt: IsoTimestamp;
-  scope: SummaryScope;
-  /**
-   * Todo el contenido es registrado por el cuidador y no verificado por un profesional (MAG-005-001, REQ-SUM-007)
-   */
-  dataProvenance: "CAREGIVER_REPORTED_NOT_VERIFIED";
-  /**
-   * El resumen no contiene alertas, banderas, normal/anormal ni texto generado (MAG-005-003, REQ-SUM-008)
-   */
-  automaticInterpretation: "NONE";
-  disclosure: SummaryDisclosure;
-  /**
-   * Mascotas del alcance, ordenadas por (name ASC, id interno ASC); en HOUSEHOLD solo las que el creador posee legalmente y siguen asignadas al hogar (D5-19)
-   *
-   * @minItems 1
-   * @maxItems 100
-   */
-  pets: [ClinicalPetSummary, ...ClinicalPetSummary[]];
 }
 /**
  * Entradas de privacidad del resumen; son parámetros de entrada de buildClinicalSummary (determinismo) [REQ-SUM-003, REQ-SUM-002]

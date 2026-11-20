@@ -6,7 +6,7 @@
   "x-sdd-metadata": {
     "version": "3.2.0",
     "status": "DRAFT",
-    "supersedes": "3.0.0",
+    "supersedes": "3.1.0",
     "change_type": "MINOR",
     "change_note": "MINOR 3.2.0 (feature 007, T1022/SC-007-030, REQ-FAL7-009): ImportPreviewResult +lifeStatusChanges opcional (array de {petId, from, to}, maxItems 500). Aditiva; consumidores existentes no cambian. MINOR 3.1.0 (feature 004): sobre 3.1.0 con breedCode, symptomType y severity, sin avatarVersion, revision ni medios; la importación acepta 3.0.0 y 3.1.0; ImportPreviewResult +mediaToDeleteCount. Coordinacion feature 007 (#13, C3/EDGE-007-015): +BackupPetProfileV32 y +BackupEnvelopeV32 (3.2.0, formato versionado, lifeStatus/deceasedAt opcionales); sourceSchemaVersion admite 3.2.0.",
     "traceability": [

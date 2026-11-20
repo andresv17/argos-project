@@ -8,7 +8,7 @@
     "status": "DRAFT",
     "supersedes": "1.0.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 1.1.0 (feature 007, T1026, C1; DRAFT sin publicar, se pliega aqui la bandera de disclosure sin nuevo bump): disclosure +deceasedAtIncluded (boolean, opcional, fuera de required; ausente equivale a false) para reflejar includeDeceasedAt del enlace; ClinicalProfile +lifeStatus opcional (visible) y +deceasedAt opcional (disclosure opt-in del creador); ambos fuera de required, additionalProperties false se conserva; summaryVersion sigue 1.0.0 (formato del documento aditivo). Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
+    "change_note": "MINOR 1.1.0 (feature 007, T1026, C1; DRAFT sin publicar, se pliega aqui la bandera de disclosure sin nuevo bump): disclosure +deceasedAtIncluded (boolean, opcional, fuera de required; ausente equivale a false) para reflejar includeDeceasedAt del enlace; ClinicalProfile +lifeStatus opcional (visible) y +deceasedAt opcional (disclosure opt-in del creador); ambos fuera de required, additionalProperties false se conserva; summaryVersion sigue 1.0.0 (formato del documento aditivo). Regla condicional if/else en ClinicalSummary (O1 de /rama, decision de Neo): pets[].profile.deceasedAt exige disclosure.deceasedAtIncluded true; sin bump porque sigue DRAFT y no restringe ningun documento valido emitido hasta ahora. Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
     "traceability": [
       "REQ-SUM-001",
       "REQ-SUM-002",
@@ -613,7 +613,43 @@
           "description": "Mascotas del alcance, ordenadas por (name ASC, id interno ASC); en HOUSEHOLD solo las que el creador posee legalmente y siguen asignadas al hogar (D5-19)"
         }
       },
-      "description": "Documento raíz [REQ-SUM-001]"
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": ["disclosure"],
+            "properties": {
+              "disclosure": {
+                "type": "object",
+                "required": ["deceasedAtIncluded"],
+                "properties": {
+                  "deceasedAtIncluded": {"const": true}
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "pets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "profile": {
+                      "type": "object",
+                      "not": {
+                        "required": ["deceasedAt"],
+                        "properties": {"deceasedAt": {}}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "description": "Documento raíz [REQ-SUM-001]; regla condicional (007, O1 de /rama): pets[].profile.deceasedAt solo puede estar presente si disclosure.deceasedAtIncluded es true (ausente o false lo prohíbe), de modo que la garantía de privacidad vive también en el esquema y no solo en el constructor"
     }
   }
 }

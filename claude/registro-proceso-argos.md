@@ -1606,3 +1606,5 @@
 - 2026-11-20 Architect: firmas de Neo (T958, OBS-M1/M2, H-F14-2, activación driver real) y residuos #8a/#8b asentados; verify-traceability 006 CUMPLE. Sin commit.
 2026-11-20 | Keymaker | Cierre Fase 14 (006): activacion T885 (true), endurecimiento token (t953), runbook real/fake; sin commit ni [x]; ver log-keymaker
 - 2026-11-20 | Oracle | 006 Fase 14 cierre final + activacion T885: PASS CON OBS. test:gate PG17 real rc 0 (331 archivos, 5289 pasan, 1 omitida); tsc 0; traza 006 CUMPLE 241/241; oraculos 381/0 debiles; scan-secrets 0; deps/lock/generated/contracts sin cambios; terraform solo README. Hallazgo H-CF-1 (merge a main = driver real en vivo; decision Neo). Acta oracle-006-fase14-cierre-final.md. Sin commit, sin [x].
+2026-11-20 | Architect | Caso B 007: 004 openapi 3.3.0, 005 L8 REVIEW, O-4 supersedes, O1 if/else en clinical-summary (v33), M2 spec REQ-FAL7-004; sin [x]; ver log-architect
+2026-11-20 | Architect | R9 (T1070): plan.md ADR-007-07 corregido a 'sin cambio de huella'; R1-R3 pendientes para T1072
