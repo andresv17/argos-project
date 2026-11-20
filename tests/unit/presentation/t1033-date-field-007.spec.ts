@@ -144,6 +144,16 @@ const fakePicker = (overrides: Partial<{ showPicker: () => void; focus: () => vo
   return { picker: base as unknown as HTMLInputElement, calls };
 };
 
+/** Ejecuta `fn` y dice si terminó sin lanzar (oráculo explícito, sin `.not.toThrow()`). */
+const outcome = (fn: () => void): string => {
+  try {
+    fn();
+    return 'sin error';
+  } catch (e) {
+    return `lanzó ${String(e)}`;
+  }
+};
+
 describe('T1033 DateField: selector de calendario con respaldo seguro (REQ-FEC7-004)', () => {
   it('con showPicker disponible lo usa y no recurre al respaldo', () => {
     const { picker, calls } = fakePicker({});
@@ -153,7 +163,7 @@ describe('T1033 DateField: selector de calendario con respaldo seguro (REQ-FEC7-
 
   it('si showPicker lanza, usa focus y click de respaldo sin propagar el error', () => {
     const { picker, calls } = fakePicker({ showPicker: () => { throw new Error('NotAllowedError'); } });
-    expect(() => openNativePicker(picker)).not.toThrow();
+    expect(outcome(() => openNativePicker(picker))).toBe('sin error');
     expect(calls).toEqual(['focus', 'click']);
   });
 
@@ -166,8 +176,8 @@ describe('T1033 DateField: selector de calendario con respaldo seguro (REQ-FEC7-
 
   it('si el respaldo también lanza, no rompe; sin elemento no hace nada', () => {
     const { picker } = fakePicker({ showPicker: () => { throw new Error('x'); }, focus: () => { throw new Error('y'); } });
-    expect(() => openNativePicker(picker)).not.toThrow();
-    expect(() => openNativePicker(null)).not.toThrow();
+    expect(outcome(() => openNativePicker(picker))).toBe('sin error');
+    expect(outcome(() => openNativePicker(null))).toBe('sin error');
   });
 
   it('elegir una fecha en el calendario reparte los tres segmentos y emite el ISO (handlePick usa parseDateText y commit)', () => {
