@@ -4,11 +4,11 @@
   "title": "BackupEnvelopeSchema",
   "description": "Sobre de respaldo 3.0.0 y lectura de 2.0.0 y 1.0.0 para migración [REQ-BACKUP2-001, REQ-BACKUP2-002, INV-BACKUP-001, STATE-BACKUP-001]",
   "x-sdd-metadata": {
-    "version": "3.1.0",
+    "version": "3.2.0",
     "status": "REVIEW",
     "supersedes": "3.0.0",
     "change_type": "MINOR",
-    "change_note": "MINOR aditiva (feature 007, #13, C3/EDGE-007-015 aprobados por Neo): +BackupPetProfileV32 y +BackupEnvelopeV32 (schemaVersion 3.2.0, formato versionado) con lifeStatus y deceasedAt opcionales; BackupEnvelopeV3 (3.0.0) y los legados no cambian, de modo que 1.0.0, 2.0.0 y 3.0.0 siguen importando como ALIVE/nulo. Un build anterior rechaza 3.2.0 con ERR-BACKUP-VERSION-UNSUPPORTED. sourceSchemaVersion admite 3.2.0.",
+    "change_note": "MINOR 3.2.0 (feature 007, T1022/SC-007-030, REQ-FAL7-009): ImportPreviewResult +lifeStatusChanges opcional (array de {petId, from, to}, maxItems 500). Aditiva; consumidores existentes no cambian. MINOR aditiva (feature 007, #13, C3/EDGE-007-015 aprobados por Neo): +BackupPetProfileV32 y +BackupEnvelopeV32 (schemaVersion 3.2.0, formato versionado) con lifeStatus y deceasedAt opcionales; BackupEnvelopeV3 (3.0.0) y los legados no cambian, de modo que 1.0.0, 2.0.0 y 3.0.0 siguen importando como ALIVE/nulo. Un build anterior rechaza 3.2.0 con ERR-BACKUP-VERSION-UNSUPPORTED. sourceSchemaVersion admite 3.2.0.",
     "traceability": [
       "REQ-BACKUP2-001",
       "REQ-BACKUP2-002",
@@ -1466,6 +1466,21 @@
             "3.0.0",
             "3.2.0"
           ]
+        },
+        "lifeStatusChanges": {
+          "type": "array",
+          "maxItems": 500,
+          "description": "Opcional (007, REQ-FAL7-009, SC-007-030): mascotas cuyo lifeStatus cambiaria al importar por reemplazo, p. ej. DECEASED a ALIVE; ausente o vacio si no hay cambios. Solo identificador y estados, sin datos personales.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["petId", "from", "to"],
+            "properties": {
+              "petId": {"$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"},
+              "from": {"type": "string", "enum": ["ALIVE", "DECEASED"]},
+              "to": {"type": "string", "enum": ["ALIVE", "DECEASED"]}
+            }
+          }
         },
         "fileDigest": {
           "allOf": [

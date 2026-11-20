@@ -40,3 +40,10 @@ Verificado en disco (`H5`): `ClinicalProfile` en `clinical-summary.schema.json` 
 - **Respaldo**: `schemaVersion` `3.2.0` (el `3.1.0` ya lo usa la 004 para medios). `BackupEnvelopeV3` (3.0.0) y los legados no cambian. En 002 se añaden `BackupPetProfileV32`/`BackupEnvelopeV32`; en 004, los mismos sobre `BackupEnvelopeV31` (registros 3.1.0). `ImportPreviewResult`/`ImportBackupResult` admiten `3.2.0` en `sourceSchemaVersion`.
 - **Error**: `ERR-PET-VERSION-CONFLICT` (412, `INV-PET2-001`) en los catálogos de 002 y 004; su índice incremental está en `contracts/errors/error-catalog.json` de 007 (no se compila por separado). `ERR-BACKUP-VERSION-UNSUPPORTED` reformula su detalle (EDGE-007-015).
 - **Auditoría (`/rama` C8)**: `lifeStatus`/`deceasedAt` entran en la vista hasheada por `REQ-AUD-001` con el riesgo equivalente al de `birthDate` (OBS-3), aceptado.
+
+## Enmiendas aditivas posteriores (Architect, Logos 62, 2026-11-19; `REVIEW`/`DRAFT` se mantienen)
+- **exportBackup** (T1022, REQ-FAL7-009): la respuesta de `exportBackup` apunta a `BackupEnvelopeV32` (`schemaVersion` `3.2.0`) en el OpenAPI de 002 (3.1.0 a 3.2.0) y de 004 (ya 3.2.0; antes `BackupEnvelopeV31`). `BackupEnvelopeV32` ya existía en ambos `backup-envelope.schema.json`.
+- **ImportPreviewResult** (T1022, SC-007-030): `+lifeStatusChanges` opcional (array de `{petId, from, to}`, `from`/`to` en `ALIVE|DECEASED`, `maxItems` 500, fuera de `required`). `backup-envelope.schema.json` 3.1.0 a **3.2.0** en 002 y 004 (MINOR; `supersedes` 3.1.0).
+- **ClinicalSummary 005** (T1026, C1): `clinical-summary.schema.json` 1.0.0 a **1.1.0** (MINOR): `ClinicalProfile` +`lifeStatus` (`ALIVE|DECEASED`) y +`deceasedAt` (`IsoDate|null`), ambos opcionales y fuera de `required`; `deceasedAt` solo con disclosure opt-in del creador. `summaryVersion` sigue `1.0.0`.
+- **H-M7-2** (sin contrato): ver ADR-007-07 en `plan.md` y nota bajo `T1072` en `tasks.md`.
+

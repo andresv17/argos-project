@@ -4,11 +4,11 @@
   "title": "ClinicalSummarySchema",
   "description": "Read-model clínico de solo lectura, versionado y por allow-list (feature 005) [REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-006, INV-005-004]. Esquema cerrado: un campo nuevo del dominio NO aparece hasta que este contrato lo declare. Sin nombres de archivo (D5-06: viajan en SharedSummaryView.fileLabels), sin fotos de álbum, sin avatar, sin identificadores de usuario, hogar, mascota ni registro, sin claves ni URLs de objeto, sin `ownerUserId`, sin `revision` y sin interpretación automática (alertas, banderas, normal/anormal o texto generado; MAG-005-003). Las fechas de calendario son `YYYY-MM-DD` tal como se guardaron, sin conversión UTC (MAG-005-004); UTC solo en `generatedAt` y en `createdAt` de archivos.",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "status": "DRAFT",
-    "supersedes": null,
-    "change_type": "MAJOR",
-    "change_note": "Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
+    "supersedes": "1.0.0",
+    "change_type": "MINOR",
+    "change_note": "MINOR 1.1.0 (feature 007, T1026, C1): ClinicalProfile +lifeStatus opcional (visible) y +deceasedAt opcional (disclosure opt-in del creador); ambos fuera de required, additionalProperties false se conserva; summaryVersion sigue 1.0.0 (formato del documento aditivo). Contrato nuevo de la feature 005 (T706). summaryVersion 1.0.0. Entrada única prevista para reportes de IA de la Fase 5 (sin contacto, sin nombres de archivo, sin interpretación).",
     "traceability": [
       "REQ-SUM-001",
       "REQ-SUM-002",
@@ -99,6 +99,18 @@
         },
         "birthDateIsEstimate": {
           "type": "boolean"
+        },
+        "lifeStatus": {
+          "type": "string",
+          "enum": ["ALIVE", "DECEASED"],
+          "description": "Opcional (007, T1026): estado de vida visible en el resumen; ausente equivale a ALIVE para lectores 1.0.0."
+        },
+        "deceasedAt": {
+          "oneOf": [
+            {"$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"},
+            {"type": "null"}
+          ],
+          "description": "Opcional (007, T1026): fecha de fallecimiento; solo se incluye con disclosure opt-in del creador del enlace (desmarcado por defecto)."
         },
         "age": {
           "type": "object",
