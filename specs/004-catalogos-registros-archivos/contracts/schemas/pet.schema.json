@@ -8,7 +8,7 @@
     "status": "DRAFT",
     "supersedes": "3.0.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 3.1.0 (feature 004): +breedCode y +avatarVersion de solo lectura en PetProfile; +breedCode en CreatePetInput y UpdatePetInput (breed opcional con breedCode); microchipId de entrada rechaza relleno y secuencias módulo 10. Corrección de borrador sin cambio de versión (3.1.0 sigue en DRAFT, sin publicar; PATCH no aplica a un contrato aún no aprobado): el patrón MicrochipInput listaba mal las cuatro descendentes módulo 10 que empiezan en 0, 1, 2 y 3; ahora son 098765432109876, 109876543210987, 210987654321098 y 321098765432109 (H-K-004T556-1, REQ-PET4-002).",
+    "change_note": "MINOR 3.1.0 (feature 004): +breedCode y +avatarVersion de solo lectura en PetProfile; +breedCode en CreatePetInput y UpdatePetInput (breed opcional con breedCode); microchipId de entrada rechaza relleno y secuencias módulo 10. Corrección de borrador sin cambio de versión (3.1.0 sigue en DRAFT, sin publicar; PATCH no aplica a un contrato aún no aprobado): el patrón MicrochipInput listaba mal las cuatro descendentes módulo 10 que empiezan en 0, 1, 2 y 3; ahora son 098765432109876, 109876543210987, 210987654321098 y 321098765432109 (H-K-004T556-1, REQ-PET4-002). Coordinacion feature 007 (#13, N2-07-01): +LifeStatus, +DeceasedAt, +PetVersion y sus condicionales en PetProfile, CreatePetInput y UpdatePetInput (opcionales, aditivo); 3.1.0 sigue en DRAFT sin publicar.",
     "traceability": [
       "REQ-PET2-001",
       "REQ-PET2-002",
@@ -92,6 +92,37 @@
       "maxLength": 2048,
       "pattern": "^(https?://|data:image/(png|jpeg|webp);base64,)",
       "description": "Solo http(s) o data-URL de imagen (previene javascript:) [REQ-PET2-001]"
+    },
+    "LifeStatus": {
+      "type": "string",
+      "enum": [
+        "ALIVE",
+        "DECEASED"
+      ],
+      "default": "ALIVE",
+      "description": "Estado de vida de la mascota (feature 007, #13). Defecto ALIVE; el invariante con deceasedAt se valida sobre el estado resultante"
+    },
+    "DeceasedAt": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ]
+        }
+      ],
+      "description": "Fecha ISO YYYY-MM-DD del fallecimiento; obligatoria con DECEASED y nula con ALIVE; >= birthDate y <= hoy (America/Bogota) se validan en el dominio sobre el estado resultante (feature 007, #13)",
+      "x-sdd-error": "ERR-SCHEMA-VALIDATION-FAILED"
+    },
+    "PetVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Version entera >= 1 de la ficha: inicial 1, +1 en cada PATCH de mascota; control optimista con If-Match, 412 ERR-PET-VERSION-CONFLICT si no coincide (feature 007, EDGE-007-009)"
     },
     "ComputedAge": {
       "type": "object",
@@ -223,6 +254,15 @@
           "minimum": 1,
           "readOnly": true,
           "description": "Versión del avatar, derivada de avatar_version/avatar_object_id; solo lectura, nunca entrada ni parte del respaldo [REQ-AVA-001, INV-AVA-001]"
+        },
+        "lifeStatus": {
+          "$ref": "#/$defs/LifeStatus"
+        },
+        "deceasedAt": {
+          "$ref": "#/$defs/DeceasedAt"
+        },
+        "version": {
+          "$ref": "#/$defs/PetVersion"
         }
       },
       "allOf": [
@@ -332,9 +372,41 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "lifeStatus": {
+                "const": "DECEASED"
+              }
+            },
+            "required": [
+              "lifeStatus"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "deceasedAt"
+            ],
+            "properties": {
+              "deceasedAt": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "deceasedAt": {
+                "type": "null"
+              }
+            }
+          }
         }
       ],
-      "description": "[REQ-PET2-001, INV-PET2-001]. speciesOther solo con OTHER."
+      "description": "[REQ-PET2-001, INV-PET2-001]. speciesOther solo con OTHER. Feature 007: lifeStatus, deceasedAt y version son opcionales en el esquema (aditivo); el servidor siempre los emite."
     },
     "EstimatedAge": {
       "type": "object",
@@ -429,6 +501,12 @@
           ],
           "pattern": "^(DOG|CAT)_[A-Z0-9_]{2,40}$",
           "description": "Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003]"
+        },
+        "lifeStatus": {
+          "$ref": "#/$defs/LifeStatus"
+        },
+        "deceasedAt": {
+          "$ref": "#/$defs/DeceasedAt"
         }
       },
       "oneOf": [
@@ -589,6 +667,38 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "lifeStatus": {
+                "const": "DECEASED"
+              }
+            },
+            "required": [
+              "lifeStatus"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "deceasedAt"
+            ],
+            "properties": {
+              "deceasedAt": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "deceasedAt": {
+                "type": "null"
+              }
+            }
+          }
         }
       ],
       "description": "Exactamente uno de birthDate (con birthDateIsEstimate opcional, por defecto false) o estimatedAge; estimatedAge con birthDateIsEstimate = false se rechaza en el dominio. ownerUserId lo fija el servidor con el usuario autenticado y nunca se acepta del cliente [REQ-PET2-001, INV-OWN2-001] | 3.1.0: breed es opcional cuando hay breedCode (ausente o igual al rótulo; texto libre de 1 a 60 con *_OTHER); sin breedCode, breed es obligatorio. avatarVersion no se acepta como entrada [REQ-RAZ-003, REQ-AVA-001]"
@@ -653,9 +763,15 @@
           ],
           "pattern": "^(DOG|CAT)_[A-Z0-9_]{2,40}$",
           "description": "Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003]"
+        },
+        "lifeStatus": {
+          "$ref": "#/$defs/LifeStatus"
+        },
+        "deceasedAt": {
+          "$ref": "#/$defs/DeceasedAt"
         }
       },
-      "description": "Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001]",
+      "description": "Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001] Feature 007: lifeStatus/deceasedAt; DECEASED exige deceasedAt; ALIVE lo exige nulo; el PATCH exige If-Match con la version de la ficha.",
       "allOf": [
         {
           "if": {
@@ -730,6 +846,51 @@
             "type": "object",
             "properties": {
               "breedCode": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "lifeStatus": {
+                "const": "DECEASED"
+              }
+            },
+            "required": [
+              "lifeStatus"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "deceasedAt"
+            ],
+            "properties": {
+              "deceasedAt": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "lifeStatus": {
+                "const": "ALIVE"
+              }
+            },
+            "required": [
+              "lifeStatus"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "deceasedAt": {
                 "type": "null"
               }
             }

@@ -1,11 +1,11 @@
 {
   "description": "Fixtures canónicos NATIVOS de la Feature 002 (válidos e inválidos), redactados desde los contratos 002 y la spec aprobada; no derivan de los de la 001",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "status": "REVIEW",
-    "supersedes": "none",
-    "change_type": "NEW",
-    "change_note": "NUEVO: juego canónico de la 002 para T207. Valida contra identity 3.0.0, pet 3.0.0, medical-records 3.0.0, backup-envelope 3.0.0, audit-entry 1.0.0, common 2.3.0 y error-catalog 3.0.0.",
+    "supersedes": "1.0.0",
+    "change_type": "MINOR",
+    "change_note": "NUEVO: juego canónico de la 002 para T207. Valida contra identity 3.0.0, pet 3.0.0, medical-records 3.0.0, backup-envelope 3.0.0, audit-entry 1.0.0, common 2.3.0 y error-catalog 3.0.0. MINOR 1.1.0 (feature 007, #13): +10 casos de mascota FX-PET-049..058 (lifeStatus/deceasedAt en CreatePetInput y UpdatePetInput), +2 sobres 3.2.0 (FX-BAK) y +FX-ERR-PET-VERSION-CONFLICT; valida contra pet 3.1.0, backup-envelope 3.1.0 y error-catalog 3.1.0.",
     "traceability": [
       "REQ-AUTH2-001",
       "REQ-AUTH2-002",
@@ -2312,6 +2312,135 @@
       "expected": "ERR-SCHEMA-VALIDATION-FAILED",
       "input": {
         "canEdit": true
+      }
+    },
+    {
+      "id": "FX-PET-049",
+      "description": "CreatePetInput sin lifeStatus (defecto ALIVE, retrocompatible)",
+      "requirementId": "REQ-PET2-001",
+      "schema": "CreatePetInput",
+      "expected": "valid",
+      "input": {
+        "name": "Luna",
+        "species": "FELINE",
+        "breed": "Criollo",
+        "sex": "FEMALE",
+        "birthDate": "2015-04-10"
+      }
+    },
+    {
+      "id": "FX-PET-050",
+      "description": "CreatePetInput DECEASED con deceasedAt",
+      "requirementId": "REQ-PET2-001",
+      "schema": "CreatePetInput",
+      "expected": "valid",
+      "input": {
+        "name": "Luna",
+        "species": "FELINE",
+        "breed": "Criollo",
+        "sex": "FEMALE",
+        "birthDate": "2015-04-10",
+        "lifeStatus": "DECEASED",
+        "deceasedAt": "2025-12-01"
+      }
+    },
+    {
+      "id": "FX-PET-051",
+      "description": "CreatePetInput DECEASED sin deceasedAt",
+      "requirementId": "REQ-PET2-001",
+      "schema": "CreatePetInput",
+      "expected": "ERR-SCHEMA-VALIDATION-FAILED",
+      "input": {
+        "name": "Luna",
+        "species": "FELINE",
+        "breed": "Criollo",
+        "sex": "FEMALE",
+        "birthDate": "2015-04-10",
+        "lifeStatus": "DECEASED"
+      }
+    },
+    {
+      "id": "FX-PET-052",
+      "description": "CreatePetInput ALIVE con deceasedAt",
+      "requirementId": "REQ-PET2-001",
+      "schema": "CreatePetInput",
+      "expected": "ERR-SCHEMA-VALIDATION-FAILED",
+      "input": {
+        "name": "Luna",
+        "species": "FELINE",
+        "breed": "Criollo",
+        "sex": "FEMALE",
+        "birthDate": "2015-04-10",
+        "lifeStatus": "ALIVE",
+        "deceasedAt": "2025-12-01"
+      }
+    },
+    {
+      "id": "FX-PET-053",
+      "description": "CreatePetInput con lifeStatus fuera del enum",
+      "requirementId": "REQ-PET2-001",
+      "schema": "CreatePetInput",
+      "expected": "ERR-SCHEMA-VALIDATION-FAILED",
+      "input": {
+        "name": "Luna",
+        "species": "FELINE",
+        "breed": "Criollo",
+        "sex": "FEMALE",
+        "birthDate": "2015-04-10",
+        "lifeStatus": "DEAD"
+      }
+    },
+    {
+      "id": "FX-PET-054",
+      "description": "UpdatePetInput DECEASED con deceasedAt",
+      "requirementId": "REQ-PET2-001",
+      "schema": "UpdatePetInput",
+      "expected": "valid",
+      "input": {
+        "lifeStatus": "DECEASED",
+        "deceasedAt": "2025-12-01"
+      }
+    },
+    {
+      "id": "FX-PET-055",
+      "description": "UpdatePetInput DECEASED sin deceasedAt",
+      "requirementId": "REQ-PET2-001",
+      "schema": "UpdatePetInput",
+      "expected": "ERR-SCHEMA-VALIDATION-FAILED",
+      "input": {
+        "lifeStatus": "DECEASED"
+      }
+    },
+    {
+      "id": "FX-PET-056",
+      "description": "UpdatePetInput ALIVE con deceasedAt nulo (revertir, borra la fecha)",
+      "requirementId": "REQ-PET2-001",
+      "schema": "UpdatePetInput",
+      "expected": "valid",
+      "input": {
+        "lifeStatus": "ALIVE",
+        "deceasedAt": null
+      }
+    },
+    {
+      "id": "FX-PET-057",
+      "description": "UpdatePetInput ALIVE con deceasedAt con fecha",
+      "requirementId": "REQ-PET2-001",
+      "schema": "UpdatePetInput",
+      "expected": "ERR-SCHEMA-VALIDATION-FAILED",
+      "input": {
+        "lifeStatus": "ALIVE",
+        "deceasedAt": "2025-12-01"
+      }
+    },
+    {
+      "id": "FX-PET-058",
+      "description": "UpdatePetInput solo edita deceasedAt (DECEASED a DECEASED; el dominio valida el estado resultante)",
+      "requirementId": "REQ-PET2-001",
+      "schema": "UpdatePetInput",
+      "expected": "valid",
+      "input": {
+        "deceasedAt": "2025-12-02"
       }
     }
   ],
@@ -7158,6 +7287,80 @@
         ]
       },
       "finalState": "ROLLED_BACK"
+    },
+    {
+      "id": "FX-BAK-040",
+      "description": "Sobre 3.2.0 con mascota ALIVE sin campos nuevos (opcionales)",
+      "requirementId": "REQ-BACKUP2-001",
+      "schema": "BackupEnvelopeV32",
+      "expected": "valid",
+      "input": {
+        "schemaVersion": "3.2.0",
+        "exportedAt": "2026-11-19T12:00:00.000Z",
+        "pets": [
+          {
+            "id": "b0000000-0000-4000-8000-0000000000f1",
+            "name": "Luna",
+            "species": "FELINE",
+            "speciesOther": null,
+            "breed": "Criollo",
+            "birthDate": "2015-04-10",
+            "birthDateIsEstimate": false,
+            "sex": "FEMALE",
+            "neutered": true,
+            "microchipId": null,
+            "avatarUrl": null,
+            "createdAt": "2026-02-01T10:00:00.000Z",
+            "updatedAt": "2026-02-01T10:00:00.000Z"
+          }
+        ],
+        "records": {
+          "weights": [],
+          "bodyMeasurements": [],
+          "vaccinations": [],
+          "dewormings": [],
+          "medicalVisits": [],
+          "customParameters": []
+        }
+      }
+    },
+    {
+      "id": "FX-BAK-041",
+      "description": "Sobre 3.2.0 con mascota DECEASED y deceasedAt",
+      "requirementId": "REQ-BACKUP2-001",
+      "schema": "BackupEnvelopeV32",
+      "expected": "valid",
+      "input": {
+        "schemaVersion": "3.2.0",
+        "exportedAt": "2026-11-19T12:00:00.000Z",
+        "pets": [
+          {
+            "id": "b0000000-0000-4000-8000-0000000000f1",
+            "name": "Luna",
+            "species": "FELINE",
+            "speciesOther": null,
+            "breed": "Criollo",
+            "birthDate": "2015-04-10",
+            "birthDateIsEstimate": false,
+            "sex": "FEMALE",
+            "neutered": true,
+            "microchipId": null,
+            "avatarUrl": null,
+            "createdAt": "2026-02-01T10:00:00.000Z",
+            "updatedAt": "2026-02-01T10:00:00.000Z",
+            "lifeStatus": "DECEASED",
+            "deceasedAt": "2025-12-01"
+          }
+        ],
+        "records": {
+          "weights": [],
+          "bodyMeasurements": [],
+          "vaccinations": [],
+          "dewormings": [],
+          "medicalVisits": [],
+          "customParameters": []
+        }
+      }
     }
   ],
   "auditHmac": {
@@ -7900,7 +8103,7 @@
         "code": "ERR-BACKUP-VERSION-UNSUPPORTED",
         "title": "Versión de respaldo no soportada",
         "status": 422,
-        "detail": "La versión del archivo de respaldo debe ser 3.0.0 (o 2.0.0 o 1.0.0 para migración).",
+        "detail": "La versión del archivo de respaldo no está soportada por esta versión de ARGOS. Exporta de nuevo desde una versión igual o posterior, o usa un respaldo 3.0.0 o anterior.",
         "invariantRef": "INV-BACKUP-001",
         "field": null,
         "instance": "/api/backup",
@@ -8250,6 +8453,24 @@
       },
       "expected": "valid",
       "catalogStatus": 422
+    },
+    {
+      "id": "FX-ERR-PET-VERSION-CONFLICT",
+      "description": "Problem Details de ERR-PET-VERSION-CONFLICT",
+      "requirementId": "ERR-PET-VERSION-CONFLICT",
+      "schema": "ProblemDetails",
+      "input": {
+        "type": "urn:argos:error:ERR-PET-VERSION-CONFLICT",
+        "code": "ERR-PET-VERSION-CONFLICT",
+        "title": "Ficha modificada por otra persona",
+        "status": 412,
+        "detail": "Esta ficha cambió, recarga.",
+        "invariantRef": "INV-PET2-001",
+        "field": null,
+        "instance": "/api/pets"
+      },
+      "expected": "valid",
+      "catalogStatus": 412
     },
     {
       "id": "FX-ERR-SHAPE-001",

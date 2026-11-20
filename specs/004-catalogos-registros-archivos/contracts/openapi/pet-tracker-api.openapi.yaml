@@ -19,7 +19,7 @@ info:
     status: DRAFT
     supersedes: 3.1.0
     change_type: MINOR
-    change_note: "3.2.0 (feature 004, MINOR aditiva; enmienda firmada por Neo, H-T591-1): getMediaAccess acepta la cabecera opcional X-Argos-Renewal (enum [\"1\"]) que valida la sesión pero NO actualiza lastActivityAt (INV-AUTH2-002; STATE-AUTH-SESSION-001 3.1.0 de la 002). 3.1.0 (feature 004, T556/T557): registerPet, updatePet e importBackup declaran x-sdd-rate-limit de MICROCHIP_DUPLICATE (5 duplicados por usuario en 24 h, ERR-RATE-LIMITED); importBackup añade la respuesta 429. 3.1.0 (feature 004, enmienda autorizada por Neo sobre contrato LOCKED): deleteAvatar retira la respuesta 502 y mantiene 204 idempotente con cola transaccional (SC-ALM-027, SC-ALM-030, REQ-AVA-001)."
+    change_note: "3.2.0 coordinacion feature 007 (#13, EDGE-007-009): updatePet exige If-Match con la version de la ficha y responde 412 ERR-PET-VERSION-CONFLICT; lifeStatus, deceasedAt y version opcionales en PetProfile y cuerpos de mascota. 3.2.0 (feature 004, MINOR aditiva; enmienda firmada por Neo, H-T591-1): getMediaAccess acepta la cabecera opcional X-Argos-Renewal (enum [\"1\"]) que valida la sesión pero NO actualiza lastActivityAt (INV-AUTH2-002; STATE-AUTH-SESSION-001 3.1.0 de la 002). 3.1.0 (feature 004, T556/T557): registerPet, updatePet e importBackup declaran x-sdd-rate-limit de MICROCHIP_DUPLICATE (5 duplicados por usuario en 24 h, ERR-RATE-LIMITED); importBackup añade la respuesta 429. 3.1.0 (feature 004, enmienda autorizada por Neo sobre contrato LOCKED): deleteAvatar retira la respuesta 502 y mantiene 204 idempotente con cola transaccional (SC-ALM-027, SC-ALM-030, REQ-AVA-001)."
     traceability: [REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AUTH-003, REQ-AUTH-004, REQ-ACC-001, REQ-ACC-002, REQ-TIME-001, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET-004, REQ-OWN-001, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-RBAC-001, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, INV-ACC2-001, INV-ACC2-002, INV-AUTH2-001, INV-AUTH2-002, INV-HOUSE2-001, INV-PET2-001, INV-REC2-002, INV-OWN2-001, REQ-RAZ-003, REQ-ARC-001, REQ-ARC-003, REQ-AVA-001, REQ-ALB-001, REQ-BOR-002, REQ-BOR-005, REQ-IMP-001, REQ-LOG-001, REQ-PET4-002, REQ-GCS-004]
 servers:
   - url: http://127.0.0.1:3100/api
@@ -337,13 +337,14 @@ paths:
     patch:
       tags: [pets]
       operationId: updatePet
-      summary: "Edita datos básicos [REQ-PET2-001, INV-ACC2-002, INV-OWN2-001]"
+      summary: "Edita datos básicos y estado de vida con If-Match obligatorio (version de la ficha) [REQ-PET2-001, INV-ACC2-002, INV-OWN2-001]"
       x-sdd-change: CHANGED
       x-sdd-requirements: [REQ-PET2-001, INV-ACC2-002, INV-OWN2-001]
       x-sdd-rate-limit: "MICROCHIP_DUPLICATE_MAX_PER_WINDOW por MICROCHIP_DUPLICATE_WINDOW_MINUTES y por usuario; solo con microchipId no nulo, el chequeo previo responde 429 sin guardar (configurable; ERR-RATE-LIMITED)"
       x-sdd-rbac-action: "EDIT_PET_BASICS"
       parameters:
         - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/PetIfMatch' }
       requestBody:
         required: true
         content:
@@ -359,6 +360,7 @@ paths:
         '403': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
         '429': { $ref: '#/components/responses/Problem' }
         '500': { $ref: '#/components/responses/Problem' }
@@ -1239,6 +1241,12 @@ components:
       required: true
       description: Obligatoria en toda petición que modifica estado, incluida la exportación (emite token); si falta, ERR-AUTH-CSRF-REJECTED. Se valida antes que la sesión y no renueva actividad [INV-AUTH-007]
       schema: { type: string, const: '1' }
+    PetIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: 'Version vigente de la ficha (profile.version) entre comillas, por ejemplo "3"; ausente o con otro formato da ERR-SCHEMA-VALIDATION-FAILED y desactualizada ERR-PET-VERSION-CONFLICT (412) sin modificar la ficha (feature 007, EDGE-007-009)'
+      schema: { type: string, pattern: '^"\d+"$' }
     ImportConfirmDigest:
       name: X-Argos-Import-Confirm
       in: header

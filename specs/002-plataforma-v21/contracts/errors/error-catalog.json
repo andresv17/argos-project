@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalog",
   "x-sdd-metadata": {
-    "version": "3.0.0",
+    "version": "3.1.0",
     "status": "REVIEW",
-    "supersedes": "2.1.1",
-    "change_type": "MAJOR",
-    "change_note": "MAJOR: se retiran ERR-AUTH-USER-NOT-FOUND y ERR-HOUSE-MEMBER-ALREADY-EXISTS (respuesta uniforme al invitar, R3); se añaden 7 errores; cambian política de contraseña, sesión, matriz de permisos, rango de peso y respaldo 3.0.0. Cada entrada añade type (urn RFC 9457) y requirementRef. PENDIENTES DE NEO (no oficiales hasta su aprobación): ERR-PET-MICROCHIP-DUPLICATE, ERR-RATE-LIMITED y la máquina STATE-ACCOUNT-DELETE-001 (citada en requirementRef/OpenAPI).",
+    "supersedes": "3.0.0",
+    "change_type": "MINOR",
+    "change_note": "MINOR aditiva (feature 007, #13, EDGE-007-009): +ERR-PET-VERSION-CONFLICT (412, control optimista del PATCH de mascota); ERR-BACKUP-VERSION-UNSUPPORTED reformula su detalle para cubrir el respaldo 3.2.0 en builds anteriores (EDGE-007-015). Sin retiros.",
     "removed": [
       "ERR-AUTH-USER-NOT-FOUND",
       "ERR-HOUSE-MEMBER-ALREADY-EXISTS"
@@ -18,7 +18,8 @@
       "ERR-REC-SUPERSEDED-IMMUTABLE",
       "ERR-OWN-TRANSFER-INVALID-TARGET",
       "ERR-PET-MICROCHIP-DUPLICATE",
-      "ERR-RATE-LIMITED"
+      "ERR-RATE-LIMITED",
+      "ERR-PET-VERSION-CONFLICT"
     ],
     "pendingIds": [
       "ERR-PET-MICROCHIP-DUPLICATE",
@@ -52,6 +53,7 @@
       "ERR-PET-FUTURE-BIRTHDATE",
       "ERR-PET-MICROCHIP-DUPLICATE",
       "ERR-PET-NOT-FOUND",
+      "ERR-PET-VERSION-CONFLICT",
       "ERR-RATE-LIMITED",
       "ERR-REC-DATE-BEFORE-BIRTH",
       "ERR-REC-FUTURE-EVENT-DATE",
@@ -63,7 +65,7 @@
       "ERR-SCHEMA-VALIDATION-FAILED"
     ]
   },
-  "version": "3.0.0",
+  "version": "3.1.0",
   "status": "REVIEW",
   "problemDetailsSchema": {
     "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
@@ -194,7 +196,7 @@
       "status": 422,
       "title": "Versión de respaldo no soportada",
       "invariantRef": "INV-BACKUP-001",
-      "detailTemplate": "La versión del archivo de respaldo debe ser 3.0.0 (o 2.0.0 o 1.0.0 para migración).",
+      "detailTemplate": "La versión del archivo de respaldo no está soportada por esta versión de ARGOS. Exporta de nuevo desde una versión igual o posterior, o usa un respaldo 3.0.0 o anterior.",
       "type": "urn:argos:error:ERR-BACKUP-VERSION-UNSUPPORTED",
       "requirementRef": "REQ-BACKUP2-002"
     },
@@ -353,6 +355,15 @@
       "detailTemplate": "El payload incumple el esquema formal, contiene propiedades no autorizadas, un username con mayúsculas, confirmPassword distinto de password, una frase de confirmación distinta de ELIMINAR MI CUENTA o una especie/speciesOther incoherente.",
       "type": "urn:argos:error:ERR-SCHEMA-VALIDATION-FAILED",
       "requirementRef": "REQ-AUTH2-001, INV-PET2-001, REQ-ACC-002"
+    },
+    "ERR-PET-VERSION-CONFLICT": {
+      "type": "urn:argos:error:ERR-PET-VERSION-CONFLICT",
+      "status": 412,
+      "title": "Ficha modificada por otra persona",
+      "invariantRef": "INV-PET2-001",
+      "detailTemplate": "Esta ficha cambió, recarga.",
+      "requirementRef": "EDGE-007-009 (feature 007, #13)",
+      "note": "El If-Match del PATCH de mascota no coincide con la version vigente. El detalle es fijo: no incluye datos de la mascota, lifeStatus ni deceasedAt"
     }
   }
 }

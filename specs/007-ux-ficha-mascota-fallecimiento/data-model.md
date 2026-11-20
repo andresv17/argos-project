@@ -8,7 +8,7 @@
 | --- | --- | --- | --- | --- |
 | `life_status` | `TEXT` | no | `'ALIVE'` | `IN ('ALIVE','DECEASED')` |
 | `deceased_at` | `TEXT` ISO `YYYY-MM-DD` (SQLite) / `DATE` (Postgres) | sí | `NULL` | `CHECK ((life_status = 'DECEASED') = (deceased_at IS NOT NULL))` |
-| `version` (o `updated_at`) | entero / marca de tiempo | no | inicial | Control optimista del `PUT` de mascota (`EDGE-007-009`, decidido); tipo fijado en `T1013`: entero `integer` ≥ 1 (no `updated_at`); aplicado en `T1064` |
+| `version` (o `updated_at`) | entero / marca de tiempo | no | inicial | Control optimista del `PATCH` de mascota (`EDGE-007-009`, decidido); tipo fijado en `T1013`: entero `integer` ≥ 1 (no `updated_at`); aplicado en `T1064` |
 
 Reglas de dominio (no expresables en `CHECK`): `deceased_at >= birth_date` y `deceased_at <= hoy (America/Bogota)`; se validan en `src/domain/pet/pet-invariants.ts` sobre el **estado resultante** y en el esquema JSON.
 

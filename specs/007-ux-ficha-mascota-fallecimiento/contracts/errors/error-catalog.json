@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArgosErrorCatalogFeature007Incremental",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MINOR",
+    "extends": "specs/002-plataforma-v21/contracts/errors/error-catalog.json 3.1.0 (linea 002; coordinado con 004 3.1.0 DRAFT)",
+    "change_note": "Indice INCREMENTAL de la feature 007 (T1013): solo el codigo nuevo ERR-PET-VERSION-CONFLICT (412, control optimista del PATCH de mascota, EDGE-007-009). La fuente compilada es el catalogo de la linea 002 (src/generated/errors) y su coordinacion en 004; este archivo no se compila por separado. ERR-SCHEMA-VALIDATION-FAILED (invariante lifeStatus/deceasedAt, REQ-FAL7-002) y ERR-BACKUP-VERSION-UNSUPPORTED (respaldo 3.2.0 en builds anteriores) se heredan sin cambio de codigo.",
+    "removed": [],
+    "added": [
+      "ERR-PET-VERSION-CONFLICT"
+    ],
+    "inherited": [
+      "ERR-SCHEMA-VALIDATION-FAILED",
+      "ERR-BACKUP-VERSION-UNSUPPORTED"
+    ],
+    "traceability": [
+      "ERR-PET-VERSION-CONFLICT",
+      "ERR-SCHEMA-VALIDATION-FAILED",
+      "ERR-BACKUP-VERSION-UNSUPPORTED"
+    ]
+  },
+  "errors": {
+    "ERR-PET-VERSION-CONFLICT": {
+      "type": "urn:argos:error:ERR-PET-VERSION-CONFLICT",
+      "status": 412,
+      "title": "Ficha modificada por otra persona",
+      "invariantRef": "INV-PET2-001",
+      "detailTemplate": "Esta ficha cambió, recarga.",
+      "requirementRef": "REQ-FAL7-011, EDGE-007-009",
+      "note": "El If-Match del PATCH de mascota no coincide con la version vigente. El detalle es fijo: no incluye datos de la mascota, lifeStatus ni deceasedAt"
+    }
+  }
+}
