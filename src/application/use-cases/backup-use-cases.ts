@@ -399,6 +399,24 @@ async function countMediaToDelete(repositories: RepositorySet, replacedPets: rea
   return repositories.media.countObjectsOfPets(replacedPets.map((pet) => pet.id));
 }
 
+type LifeStatusChange = NonNullable<ImportPreviewResult['lifeStatusChanges']>[number];
+
+/**
+ * REQ-FAL7-009, SC-007-030: mascotas que CONSERVAN su `id` en el reemplazo y cambiarían de estado vital (una ficha sin el campo se lee
+ * `ALIVE`, REQ-FAL7-001/EDGE-007-006). Solo id y estados (REQ-FAL7-010: sin fechas ni nombres), ordenado por `petId` para ser determinista.
+ * @implements REQ-FAL7-009, REQ-FAL7-010
+ */
+function lifeStatusChangesOf(current: readonly PetProfile[], incoming: readonly PetProfile[]): LifeStatusChange[] {
+  const fromById = new Map(current.map((pet) => [pet.id, pet.lifeStatus ?? 'ALIVE'] as const));
+  const changes: LifeStatusChange[] = [];
+  for (const pet of incoming) {
+    const from = fromById.get(pet.id);
+    const to = pet.lifeStatus ?? 'ALIVE';
+    if (from !== undefined && from !== to) changes.push({ petId: pet.id, from, to });
+  }
+  return changes.sort((a, b) => (a.petId < b.petId ? -1 : 1));
+}
+
 /**
  * REQ-BACKUP2-002, modo PREVIEW de STATE-BACKUP-001: mismas etapas que la importación, sin escribir nada (ni datos, ni
  * auditoría). Devuelve conteos, colisiones medidas solo contra mascotas propias, el aviso de mascotas compartidas que
@@ -418,7 +436,7 @@ export class PreviewBackupImportUseCase {
     const run = new ImportRun(observer);
     const { bytes, sourceSchemaVersion, owned } = this.pipeline.prepare(run, userId, payload, 'START_PREVIEW');
     const fileIds = new Set(owned.pets.map((pet) => pet.id));
-    let shared: { petsCount: number; householdsCount: number; petsReplacedCount: number; sameIdPetsCount: number; mediaToDeleteCount: number };
+    let shared: { petsCount: number; householdsCount: number; petsReplacedCount: number; sameIdPetsCount: number; mediaToDeleteCount: number; lifeStatusChanges: readonly LifeStatusChange[] };
     try {
       shared = await this.deps.uow.runInTransaction(async (repositories) => {
         // Solo lectura de lo propio: la previsualización no comprueba IDs ajenos (eso es del commit, I-5), así que no
@@ -437,6 +455,7 @@ export class PreviewBackupImportUseCase {
           petsReplacedCount: current.length,
           sameIdPetsCount: current.filter((pet) => fileIds.has(pet.id)).length,
           mediaToDeleteCount: await countMediaToDelete(repositories, current),
+          lifeStatusChanges: lifeStatusChangesOf(current, owned.pets),
         };
       });
     } catch (error) {
@@ -459,6 +478,7 @@ export class PreviewBackupImportUseCase {
       collisions: { petsReplacedCount: shared.petsReplacedCount, sameIdPetsCount: shared.sameIdPetsCount },
       affectedSharedPets: { petsCount: shared.petsCount, householdsCount: shared.householdsCount },
       mediaToDeleteCount: shared.mediaToDeleteCount,
+      ...(shared.lifeStatusChanges.length > 0 ? { lifeStatusChanges: [...shared.lifeStatusChanges] } : {}),
     };
   }
 }
