@@ -39,7 +39,7 @@
 - [x] T1033 [GH:#11] Pruebas rojas de `DateField` (foco, `aria-label`, emite ISO o vacío, `fieldset`/`legend`, objetivo táctil 44 px) — REQ-FEC7-001, REQ-FEC7-004; SC-007-004. Dep: T1032
 - [x] T1034 [GH:#11] Implementar `components/DateField.tsx` y delegar `type="date"` de `Field.tsx` (usado por `RecordForm` y `PetForm`); sin dependencias nuevas — REQ-FEC7-001, REQ-FEC7-004, REQ-FEC7-005; SC-007-004. Dep: T1033
 - [x] T1035 [GH:#11] E2E Playwright en Chromium, Firefox, WebKit, viewport 390 px y emulación de Android Chrome: escribir fecha sin Tab, `Backspace` en segmento vacío, pegado, 29 de febrero y mes `13`; revisión `/sati` del `DateField` real — REQ-FEC7-004, EDGE-007-001, EDGE-007-002, EDGE-007-018; SC-007-004. Dep: T1034
-- [ ] T1036 [GH:#11] **Condicional** (`EDGE-007-018`, `M7-12`): solo si `T1035` demuestra que `keydown` no basta en WebKit o Android, retroceso sobre `beforeinput` (`deleteContentBackward`) con `keydown` como respaldo y su E2E; si no hay evidencia, queda sin ejecutar — REQ-FEC7-006; SC-007-003. Dep: T1035 **N/A (Neo, 2026-11-20: condicional no disparada; REQ-FEC7-006 excluido por decisión)**
+- [x] T1036 [GH:#11] **Condicional** (`EDGE-007-018`, `M7-12`): solo si `T1035` demuestra que `keydown` no basta en WebKit o Android, retroceso sobre `beforeinput` (`deleteContentBackward`) con `keydown` como respaldo y su E2E; si no hay evidencia, queda sin ejecutar — REQ-FEC7-006; SC-007-003. Dep: T1035 **N/A — COMPLETED BY DECISION (Neo, 2026-11-20: condicional no disparada; REQ-FEC7-006 excluido por decisión)**
 
 ---
 
