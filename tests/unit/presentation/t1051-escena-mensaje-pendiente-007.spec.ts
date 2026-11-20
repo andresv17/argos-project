@@ -20,11 +20,11 @@ const render = (view: SceneViewData): string =>
 const quotaWith = (remaining: number): SceneViewData['quota'] => ({ max: 10, remaining, window: '2026-11', resetsAt: '2026-12-01T05:00:00.000Z' });
 
 describe('T1051 scenePendingMessage (REQ-ESC7-001, REQ-ESC7-002)', () => {
-  it('[SC-007-025] pending = 0: sin aviso (null)', () => {
+  it('[SC-007-025][REQ-ESC7-001] pending = 0: sin aviso (null)', () => {
     expect(scenePendingMessage(sceneView({ pending: 0 }))).toBeNull();
   });
 
-  it('[SC-007-024] pending >= 1: texto neutral decidido por Neo y línea aparte de generaciones restantes', () => {
+  it('[SC-007-024][REQ-ESC7-001] pending >= 1: texto neutral decidido por Neo y línea aparte de generaciones restantes', () => {
     expect(scenePendingMessage(sceneView({ pending: 2, quota: quotaWith(7) }))).toEqual({
       changes: NEUTRAL,
       remaining: 'Generaciones restantes: 7',
@@ -32,7 +32,7 @@ describe('T1051 scenePendingMessage (REQ-ESC7-001, REQ-ESC7-002)', () => {
     });
   });
 
-  it('[SC-007-024] el conteo va en el aria-label, en singular con 1 cambio', () => {
+  it('[SC-007-024][REQ-ESC7-002] el conteo va en el aria-label, en singular con 1 cambio', () => {
     expect(scenePendingMessage(sceneView({ pending: 1 }))?.ariaLabel).toBe('1 cambio pendiente');
     expect(scenePendingMessage(sceneView({ pending: 5 }))?.ariaLabel).toBe('5 cambios pendientes');
   });

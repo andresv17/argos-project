@@ -5,7 +5,7 @@
  * Regla D2: el `open` del bloque de alta es estado local, fijado una sola vez al mostrar el módulo por primera vez
  * (abierto si no hay registros) y que solo cambia el usuario; guardar nunca lo cierra.
  *
- * @implements REQ-FAL7-003, REQ-FAL7-007, REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, STATE-ALERT-001, REQ-CLI5-001, SC-005-010
+ * @implements REQ-FAL7-003, REQ-FAL7-007, REQ-PAN7-001, REQ-PAN7-002, REQ-PAN7-003, REQ-PES7-001, REQ-PES7-002, REQ-PES7-003, REQ-UI-002, REQ-UI-003, REQ-UI-004, REQ-UI-007, REQ-UI2-003, REQ-UI2-006, REQ-BOR-001, REQ-BOR-002, REQ-BOR-003, STATE-ALERT-001, REQ-CLI5-001, SC-005-010
  */
 import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { AlertBadge } from './AlertBadge.tsx';

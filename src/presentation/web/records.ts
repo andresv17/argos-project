@@ -2,7 +2,7 @@
  * Los 6 módulos de registros de la ficha: pestaña, formulario de alta (campos y esquema del contrato) y llamada
  * tipada al cliente generado.
  *
- * @implements REQ-BOR-001, REQ-BOR-003, REQ-UI-002, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
+ * @implements REQ-REG7-001, REQ-REG7-002, REQ-BOR-001, REQ-BOR-003, REQ-UI-002, REQ-REC-001, REQ-REC-002, REQ-REC-003, REQ-REC-004, REQ-REC-005, REQ-REC-006
  */
 import { CSRF_PARAMS, unwrap, type ApiClient } from './api.ts';
 import type { InputSchema } from './validation.ts';

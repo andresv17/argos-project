@@ -17,14 +17,14 @@ const render = (role: 'OWNER' | 'READER', activeTab: RecordModule): string => re
 const card = (markup: string): string => /<section aria-labelledby="alerts-title".*?<\/section>/s.exec(markup)?.[0] ?? '';
 
 describe('T1042 tarjeta «Estado de vacunación» (REQ-PAN7-001..003)', () => {
-  it('[SC-007-021] la tarjeta se titula «Estado de vacunación» y conserva el recuento de alertas', () => {
+  it('[SC-007-021][REQ-PAN7-002] la tarjeta se titula «Estado de vacunación» y conserva el recuento de alertas', () => {
     const markup = card(render('OWNER', 'weights'));
     expect(markup).toContain('>Estado de vacunación</h3>');
     expect(markup).toContain('3 alertas activas');
     expect(markup).toContain('1 vencidas');
   });
 
-  it('[SC-007-022] la tarjeta no contiene «Registrar peso» ni ningún botón (con permiso de escritura y con solo lectura)', () => {
+  it('[SC-007-022][REQ-PAN7-001] la tarjeta no contiene «Registrar peso» ni ningún botón (con permiso de escritura y con solo lectura)', () => {
     for (const role of ['OWNER', 'READER'] as const) {
       const markup = card(render(role, 'weights'));
       expect(markup).not.toContain('Registrar peso');
