@@ -15,6 +15,7 @@
  */
 
 import { createLocalJWKSet, createRemoteJWKSet, errors, jwtVerify, type JSONWebKeySet, type JWTVerifyGetKey } from 'jose';
+import type { GoogleOidcPort } from '../../application/ports/google-oidc.port.ts';
 import { codeChallengeS256, constantTimeEqual } from '../../domain/auth/one-time-token.ts';
 import { GOOGLE_OIDC_ISSUERS, GOOGLE_OIDC_JWKS_URI } from './oidc-verify.ts';
 
@@ -176,5 +177,17 @@ export function createGoogleOidcClient(options: GoogleOidcClientOptions): Google
       if (!configured) throw new GoogleOidcError('NOT_CONFIGURED');
       return verifyIdToken(await exchange(code, codeVerifier), nonce);
     },
+  };
+}
+
+/**
+ * Adaptador del puerto de aplicación (`GoogleOidcPort`) sobre el cliente OIDC y la URL de autorización de este archivo: la capa de aplicación no importa `jose`
+ * ni este módulo (T1121).
+ */
+export function createGoogleOidcPort(options: GoogleOidcClientOptions): GoogleOidcPort {
+  const client = createGoogleOidcClient(options);
+  return {
+    authorizationUrl: (request) => buildGoogleAuthorizationUrl({ clientId: options.clientId, redirectUri: options.redirectUri, ...request }),
+    complete: (input) => client.complete(input),
   };
 }

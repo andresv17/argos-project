@@ -204,7 +204,7 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect(await authenticate.execute('t1')).toBe(ANDRES);
     expect(uow.snapshot().sessions['t1']!.lastActivityAt).toBe('2026-11-05T12:29:59.999Z');
     clock.setClock('2026-11-05', '2026-11-05T12:59:59.000Z');
-    expect(await current.execute('t1')).toEqual({ user: selfProfile(ANDRES), createdAt: NOW, lastActivityAt: '2026-11-05T12:29:59.999Z', idleExpiresAt: '2026-11-05T12:59:59.999Z', absoluteExpiresAt: ABSOLUTE_AT });
+    expect(await current.execute('t1')).toEqual({ user: { ...selfProfile(ANDRES), authMethods: { password: true, google: false } }, createdAt: NOW, lastActivityAt: '2026-11-05T12:29:59.999Z', idleExpiresAt: '2026-11-05T12:59:59.999Z', absoluteExpiresAt: ABSOLUTE_AT });
     clock.setClock('2026-11-05', '2026-11-05T13:00:00.000Z');
     expect(await Promise.all([authenticate.execute('t1'), current.execute('t1'), authenticate.execute(null), current.execute('revocada'), authenticate.execute('desconocido')].map(outcome))).toEqual(
       Array(5).fill('ERR-AUTH-UNAUTHENTICATED@null'),

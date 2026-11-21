@@ -26,6 +26,7 @@ import {
   normalizeLoginIdentifier,
   parseRegisterUserInput,
 } from '../../domain/auth/auth-policies.ts';
+import { authMethodsOf, hasPassword, type AuthMethods } from '../../domain/auth/password-sentinel.ts';
 import { assertAuthenticated, logout, openSession, renewSession, sessionExpiries, type SessionRecord } from '../../domain/auth/session-policy.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
@@ -46,9 +47,13 @@ function parseLoginInput(input: unknown): LoginInput {
   return assertMatchesSchema<LoginInput>('LoginInput', validateLoginInput, input);
 }
 
-/** SessionView 3.0.0: perfil propio, actividad y vencimientos derivados (INV-AUTH2-002). */
-function toSessionView(account: UserAccount, session: SessionRecord): SessionView {
-  return { user: toSelfProfile(account), createdAt: session.createdAt, lastActivityAt: session.lastActivityAt, ...sessionExpiries(session) };
+/**
+ * SessionView 3.0.0: perfil propio, actividad y vencimientos derivados (INV-AUTH2-002). Con `authMethods` (008, contrato de identidad 3.2.0: campo opcional de
+ * `UserSelfProfile`) añade los dos booleanos de métodos de acceso; sin él la forma es la de siempre.
+ */
+export function toSessionView(account: UserAccount, session: SessionRecord, authMethods?: AuthMethods): SessionView {
+  const user = authMethods === undefined ? toSelfProfile(account) : { ...toSelfProfile(account), authMethods };
+  return { user, createdAt: session.createdAt, lastActivityAt: session.lastActivityAt, ...sessionExpiries(session) };
 }
 
 /**
@@ -62,11 +67,11 @@ export async function resolveLoginAccount(repositories: RepositorySet, identifie
   return matches.length === 1 ? matches[0]! : null;
 }
 
-async function startSession(deps: ApplicationDeps, repositories: RepositorySet, account: UserAccount, now: string): Promise<AuthenticatedSession> {
+export async function startSession(deps: ApplicationDeps, repositories: RepositorySet, account: UserAccount, now: string, authMethods?: AuthMethods): Promise<AuthenticatedSession> {
   const sessionToken = deps.tokens.nextSessionToken();
   const session = openSession(account.id, now);
   await repositories.sessions.save(sessionToken, session);
-  return { sessionToken, session: toSessionView(account, session) };
+  return { sessionToken, session: toSessionView(account, session, authMethods) };
 }
 
 async function currentSession(repositories: RepositorySet, sessionToken: string | null): Promise<SessionRecord | null> {
@@ -114,7 +119,8 @@ export class LoginUseCase {
       const failures = await repositories.loginAttempts.listFailures(identifier);
       assertNotLockedOut(failures, now);
       const matches = await this.deps.hasher.verify(credentials.password, account?.passwordHash ?? this.deps.dummyPasswordHash);
-      if (account !== null && matches) {
+      // ADR-008-14: una cuenta sin contraseña (centinela) nunca entra por contraseña, aunque un hasher distinto del scrypt respondiera `true`.
+      if (account !== null && matches && hasPassword(account.passwordHash)) {
         await repositories.loginAttempts.replaceFailures(identifier, []);
         return startSession(this.deps, repositories, account, now);
       }
@@ -175,7 +181,8 @@ export class GetCurrentSessionUseCase {
       const session = assertAuthenticated(await currentSession(repositories, sessionToken), now);
       const account = await repositories.users.findById(session.userId);
       if (account === null) throw new DomainError('ERR-AUTH-UNAUTHENTICATED');
-      return toSessionView(account, session);
+      const identities = await repositories.authIdentities.listByUser(account.id);
+      return toSessionView(account, session, authMethodsOf(account.passwordHash, identities.length));
     });
   }
 }

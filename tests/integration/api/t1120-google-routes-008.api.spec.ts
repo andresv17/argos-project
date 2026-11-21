@@ -219,7 +219,7 @@ describe('T1120 POST /api/auth/google/username (SC-008-002, SC-008-062, EDGE-008
 });
 
 describe('T1120 POST /api/auth/google/link (REQ-VIN8-002)', () => {
-  it('exige sesión (401) y CSRF (403)', async () => {
+  it('[REQ-VIN8-002] exige sesión (401) y CSRF (403)', async () => {
     const { api } = await boot();
     expect((await api.call('POST', '/api/auth/google/link', { body: { currentPassword: PASSWORDS['andres']! } })).status).toBe(401);
     const session = await api.login('andres');

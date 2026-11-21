@@ -8,6 +8,7 @@ import { ChangePasswordUseCase, DeleteAccountUseCase, UpdateProfileUseCase } fro
 import { DeleteAvatarUseCase, GetAvatarUseCase, PutAvatarUseCase } from '../../../application/use-cases/avatar-use-cases.ts';
 import { AssignPetToHouseholdUseCase, ListPetAssignmentsUseCase, UnassignPetFromHouseholdUseCase } from '../../../application/use-cases/assignment-use-cases.ts';
 import { AuthenticateRequestUseCase, GetCurrentSessionUseCase, LoginUseCase, LogoutUseCase, RegisterUserUseCase } from '../../../application/use-cases/auth-use-cases.ts';
+import { ChooseGoogleUsernameUseCase, CompleteGoogleLoginUseCase, StartGoogleLinkUseCase, StartGoogleLoginUseCase } from '../../../application/use-cases/google-auth-use-cases.ts';
 import { ExportBackupUseCase, ImportBackupUseCase, PreviewBackupImportUseCase } from '../../../application/use-cases/backup-use-cases.ts';
 import {
   CancelHouseholdInvitationUseCase,
@@ -54,6 +55,10 @@ export function createUseCases(deps: ApplicationDeps) {
     logout: new LogoutUseCase(deps),
     authenticate: new AuthenticateRequestUseCase(deps),
     currentSession: new GetCurrentSessionUseCase(deps),
+    googleStart: new StartGoogleLoginUseCase(deps),
+    googleComplete: new CompleteGoogleLoginUseCase(deps),
+    googleChooseUsername: new ChooseGoogleUsernameUseCase(deps),
+    googleLink: new StartGoogleLinkUseCase(deps),
     changePassword: new ChangePasswordUseCase(deps),
     updateProfile: new UpdateProfileUseCase(deps),
     deleteAccount: new DeleteAccountUseCase(deps),

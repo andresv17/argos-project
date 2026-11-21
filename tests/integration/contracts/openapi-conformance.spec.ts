@@ -13,19 +13,20 @@ let api: Api | null = null;
  * PENDIENTES explícitas: su ruta en Fastify se implementa en los bloques A (T1112..) y B de la 008; hasta entonces
  * el contrato las declara y la API aún no. Al implementar cada una, quitarla de esta lista (la prueba lo exige).
  */
-const PENDING_008 = ['chooseGoogleUsername', 'completeGoogleLogin', 'startGoogleLink', 'startGoogleLogin'];
+const PENDING_008: string[] = [];
+/** Operaciones de Google (008, T1121): su conformidad con el OpenAPI (302, página 200, 201, 200 de vinculación y 400 uniforme) la ejercita `t1120-google-routes-008.api.spec.ts`; no entran en este recorrido de cuenta única. */
+const GOOGLE_OPERATIONS_IN_T1120 = ['chooseGoogleUsername', 'completeGoogleLogin', 'startGoogleLink', 'startGoogleLogin'];
 afterEach(async () => {
   await api?.close();
   api = null;
 });
 
 describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.yaml', () => {
-  it('[REQ-AUTH2-001][REQ-PET2-001][REQ-HOUSE2-001][REQ-BACKUP2-001][REQ-HOUSE2-002] cada una de las 45 operaciones del OpenAPI tiene su ruta en Fastify (las 4 de Google de la 008 siguen pendientes y explícitas; searchInvitees ya se sirve, T1190)', async () => {
+  it('[REQ-AUTH2-001][REQ-PET2-001][REQ-HOUSE2-001][REQ-BACKUP2-001][REQ-HOUSE2-002] cada una de las 45 operaciones del OpenAPI tiene su ruta en Fastify (las de Google se sirven desde T1121; searchInvitees, T1190)', async () => {
     api = await createApi();
     const missing = OPERATIONS.filter((op) => !api!.app.hasRoute({ method: op.method as 'GET', url: op.path.replace(/\{([^}]+)\}/g, ':$1') }));
     const missingIds = missing.map((op) => op.operationId).sort();
-    expect([OPERATIONS.length, missingIds.filter((id) => !PENDING_008.includes(id))]).toEqual([45, []]);
-    expect(missingIds).toEqual(PENDING_008);
+    expect([OPERATIONS.length, missingIds]).toEqual([45, []]);
   });
 
   it('[ERR-INTERNAL-UNEXPECTED] el validador del contrato rechaza un estado no declarado, un cuerpo que no cumple el esquema y una ruta inexistente', () => {
@@ -42,7 +43,7 @@ describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.ya
     ]);
   });
 
-  it('[REQ-AUTH2-002][REQ-PET2-003][REQ-REC2-002][REQ-HOUSE2-002][REQ-BACKUP2-002][REQ-ACC-002] recorrido feliz por las 40 operaciones implementadas (las 5 pendientes de la 008 quedan fuera): todas responden lo que declara el OpenAPI', async () => {
+  it('[REQ-AUTH2-002][REQ-PET2-003][REQ-REC2-002][REQ-HOUSE2-002][REQ-BACKUP2-002][REQ-ACC-002] recorrido feliz por las 41 operaciones de cuenta única (las 4 de Google las cubre t1120): todas responden lo que declara el OpenAPI', async () => {
     api = await createApi();
     const seen = new Set<string>();
     const call: Api['call'] = async (method, url, options = {}) => {
@@ -107,6 +108,6 @@ describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.ya
     const token = await api.issueConfirmationToken(registered!.id);
     await step('POST', '/api/account/deletion', { cookie: lucia, body: { confirmationPhrase: 'ELIMINAR MI CUENTA', password: 'Clave2027y!x', backupConfirmationToken: token } });
     await step('POST', '/api/auth/logout', { cookie: andres });
-    expect([[...seen].sort(), rejected]).toEqual([OPERATIONS.map((op) => op.operationId).filter((id) => !PENDING_008.includes(id)).sort(), []]);
+    expect([[...seen].sort(), rejected]).toEqual([OPERATIONS.map((op) => op.operationId).filter((id) => !PENDING_008.includes(id) && !GOOGLE_OPERATIONS_IN_T1120.includes(id)).sort(), []]);
   });
 });

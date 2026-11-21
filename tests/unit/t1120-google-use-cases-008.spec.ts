@@ -10,7 +10,6 @@ import { LoginUseCase } from '../../src/application/use-cases/auth-use-cases.ts'
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
 import { hashOneTimeToken } from '../../src/domain/auth/one-time-token.ts';
 import { NO_PASSWORD_SENTINEL } from '../../src/domain/auth/password-sentinel.ts';
-import { DomainError } from '../../src/generated/index.ts';
 import { GoogleOidcError } from '../../src/infrastructure/http/google-oidc-verify.ts';
 import { GOOGLE_CODE, GOOGLE_EMAIL, GOOGLE_SUB, SequentialEntropy, fakeGoogleOidc, type FakeGoogleOidc } from '../fixtures/google-fixtures.ts';
 import { ANDRES, MARIA, PASSWORDS, createHarness, type Harness } from '../fixtures/application-harness.ts';
@@ -50,12 +49,19 @@ const stateOf = (authorizationUrl: string): string => new URL(authorizationUrl).
 const countUsers = async (w: World): Promise<number> => (w.h.uow as unknown as { state: { users: unknown[] } }).state.users.length;
 const identitiesOf = (w: World, userId: string) => w.h.uow.runInTransaction((r) => r.authIdentities.listByUser(userId));
 
-async function failure(promise: Promise<unknown>): Promise<DomainError> {
+interface CaughtDomainError {
+  readonly code: string;
+  readonly status: number;
+  toProblemDetails(instance: string): unknown;
+}
+
+/** Las fábricas de Google viven en el catálogo 3.1.0 (otra clase DomainError con el mismo contrato): se reconoce por forma. */
+async function failure(promise: Promise<unknown>): Promise<CaughtDomainError> {
   try {
     await promise;
   } catch (error) {
-    expect(error).toBeInstanceOf(DomainError);
-    return error as DomainError;
+    expect(error).toMatchObject({ code: expect.stringMatching(/^ERR-/), status: expect.any(Number) });
+    return error as CaughtDomainError;
   }
   throw new Error('se esperaba un error de dominio');
 }
@@ -109,13 +115,14 @@ describe('T1120 iniciar el acceso con Google (REQ-SSO8-001, REQ-SSO8-004, H-A1-4
     w.h.clock.setClock('2026-11-05', '2026-11-05T12:16:00.000Z');
     const fresh = await w.start.execute();
     expect(await flowOf(w, old.oauthToken)).toBeNull();
-    expect(await flowOf(w, young.oauthToken)).not.toBeNull();
-    expect(await flowOf(w, fresh.oauthToken)).not.toBeNull();
+    expect((await flowOf(w, young.oauthToken))?.tokenHash).toBe(hashOneTimeToken(young.oauthToken));
+    expect((await flowOf(w, fresh.oauthToken))?.tokenHash).toBe(hashOneTimeToken(fresh.oauthToken));
   });
 
-  it('sin configuración de Google falla cerrado con el error uniforme', async () => {
-    const bare = new StartGoogleLoginUseCase(w.h.deps);
-    expect((await failure(bare.execute())).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+  it('sin configuración de Google falla cerrado: el inicio no declara 400 en el contrato (500) y el callback y la elección de usuario dan el 400 uniforme', async () => {
+    expect((await failure(new StartGoogleLoginUseCase(w.h.deps).execute())).code).toBe('ERR-INTERNAL-UNEXPECTED');
+    expect((await failure(new CompleteGoogleLoginUseCase(w.h.deps).execute({ oauthToken: null }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect((await failure(new ChooseGoogleUsernameUseCase(w.h.deps).execute(null, { username: 'nueva.persona' }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
   });
 });
 
@@ -280,7 +287,7 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
     const results = await Promise.allSettled([w.choose.execute(token, { username: 'carrera.uno' }), w.choose.execute(token, { username: 'carrera.dos' })]);
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
-    expect((rejected.reason as DomainError).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect((rejected.reason as CaughtDomainError).code).toBe('ERR-AUTH-GOOGLE-FAILED');
     expect(await countUsers(w)).toBe(before + 1);
   });
 
@@ -350,7 +357,7 @@ describe('T1120 vincular Google desde sesión activa (REQ-VIN8-002; ADR-008-14 (
     expect(done.session.user.id).toBe(ANDRES);
     expect(await identitiesOf(w, ANDRES)).toEqual([{ provider: 'GOOGLE', providerSubject: 'sub-de-andres', userId: ANDRES, createdAt: NOW }]);
     const previous = await w.h.uow.runInTransaction((r) => r.sessions.findByToken(old));
-    expect(previous!.revokedAt).not.toBeNull();
+    expect(previous!.revokedAt).toBe(NOW);
     const fresh = await w.h.uow.runInTransaction((r) => r.sessions.findByToken(done.sessionToken));
     expect(fresh!.revokedAt ?? null).toBeNull();
     // INV-VIN8-005: ningún usuario nuevo ni otra cuenta tocada.

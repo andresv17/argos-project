@@ -89,6 +89,16 @@ export interface AppConfig {
   readonly mediaMaxConcurrentUploads: number;
   /** Escena del hogar (feature 006): las 9 variables `ARGOS_SCENE_*` ya validadas y las constantes derivadas de T_GEN. */
   readonly scene: SceneConfig;
+  /** Acceso con Google (feature 008, REQ-SSO8-007): presente solo si las tres variables `GOOGLE_OAUTH_*` están definidas y son válidas; ausente = ruta desactivada (falla cerrado). */
+  readonly google?: GoogleOAuthConfig;
+}
+
+/** @implements REQ-SSO8-007, NFR-008-004, INV-ARCH-006 */
+/** Credenciales de Google OAuth (feature 008). El client id y la URI de redirección son parámetros públicos; el secreto es una propiedad NO enumerable (no sale en JSON, spread ni registros). */
+export interface GoogleOAuthConfig {
+  readonly clientId: string;
+  readonly redirectUri: string;
+  readonly clientSecret: string;
 }
 
 /** Configuración de la escena (feature 006, plan §1.3). */
@@ -301,6 +311,24 @@ export function isValidSceneWorkerUrl(value: string): boolean {
   }
 }
 
+const GOOGLE_CLIENT_ID_NAME = 'GOOGLE_OAUTH_CLIENT_ID';
+const GOOGLE_CLIENT_SECRET_NAME = 'GOOGLE_OAUTH_CLIENT_SECRET';
+const GOOGLE_REDIRECT_URI_NAME = 'GOOGLE_OAUTH_REDIRECT_URI';
+/** Identificador o secreto de OAuth: visible, sin espacios ni comas (misma guardia que el despliegue). */
+const GOOGLE_OAUTH_VALUE_PATTERN = /^[\x21-\x7e]{1,512}$/;
+
+/** URI de redirección fija por entorno: `https` (o `http` solo hacia localhost/127.0.0.1 en desarrollo), sin credenciales, consulta ni fragmento, sin espacios ni comas. Nunca devuelve el valor. */
+export function isValidGoogleRedirectUri(value: string): boolean {
+  if (/[\s,?#]/.test(value) || value.length > 2048) return false;
+  try {
+    const url = new URL(value);
+    const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    return (url.protocol === 'https:' || (url.protocol === 'http:' && local)) && url.hostname !== '' && url.username === '' && url.password === '';
+  } catch {
+    return false;
+  }
+}
+
 const AUDIT_SECRET_NAME = 'ARGOS_AUDIT_HMAC_SECRET';
 /** >= 32 bytes en hexadecimal: 64 o más caracteres hexadecimales, en número par. */
 const AUDIT_SECRET_PATTERN = /^(?:[0-9a-fA-F]{2}){32,}$/;
@@ -393,11 +421,21 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
   const audienceClash = sceneWorkerUrl !== undefined && isPostgres && env[OIDC_AUDIENCE_NAME] !== undefined && sameAudience(sceneWorkerUrl, env[OIDC_AUDIENCE_NAME]);
   if (tasksEmailClash && !sceneInvalid.includes(SCENE_TASKS_SA_NAME)) sceneInvalid.push(SCENE_TASKS_SA_NAME);
   if (audienceClash && !sceneInvalid.includes(SCENE_WORKER_URL_NAME)) sceneInvalid.push(SCENE_WORKER_URL_NAME);
+  // 008 (REQ-SSO8-007): las tres variables o ninguna. Solo se nombran las variables rechazadas, nunca sus valores.
+  const googleId = present(GOOGLE_CLIENT_ID_NAME);
+  const googleSecret = present(GOOGLE_CLIENT_SECRET_NAME);
+  const googleRedirect = present(GOOGLE_REDIRECT_URI_NAME);
+  const googleInvalid: string[] = [];
+  if (googleId !== undefined || googleSecret !== undefined || googleRedirect !== undefined) {
+    if (googleId === undefined || !GOOGLE_OAUTH_VALUE_PATTERN.test(googleId) || googleId.includes(',')) googleInvalid.push(GOOGLE_CLIENT_ID_NAME);
+    if (googleSecret === undefined || !GOOGLE_OAUTH_VALUE_PATTERN.test(googleSecret) || googleSecret.includes(',')) googleInvalid.push(GOOGLE_CLIENT_SECRET_NAME);
+    if (googleRedirect === undefined || !isValidGoogleRedirectUri(googleRedirect)) googleInvalid.push(GOOGLE_REDIRECT_URI_NAME);
+  }
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
   const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret) || (env['NODE_ENV'] !== 'test' && isKnownPublicAuditSecret(auditHmacSecret));
-  if (invalid.size > 0 || sceneInvalid.length > 0 || invalidMediaBucket || invalidSecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience) {
-    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidMediaBucket ? [MEDIA_BUCKET_NAME] : []), ...sceneInvalid, ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
+  if (invalid.size > 0 || sceneInvalid.length > 0 || googleInvalid.length > 0 || invalidMediaBucket || invalidSecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience) {
+    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidMediaBucket ? [MEDIA_BUCKET_NAME] : []), ...sceneInvalid, ...googleInvalid, ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
   }
   const scene: SceneConfig = Object.defineProperty(
     {
@@ -445,5 +483,8 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
     mediaMaxBytesPerOwner: Number(raw.ARGOS_MEDIA_MAX_BYTES_PER_OWNER),
     mediaMaxConcurrentUploads: Number(raw.ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS),
     scene,
+    ...(googleId === undefined || googleSecret === undefined || googleRedirect === undefined
+      ? {}
+      : { google: Object.defineProperty({ clientId: googleId, redirectUri: googleRedirect }, 'clientSecret', { value: googleSecret, enumerable: false, writable: false, configurable: false }) as GoogleOAuthConfig }),
   };
 }
