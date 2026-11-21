@@ -7,7 +7,7 @@
     "supersedes": null,
     "change_type": "MINOR",
     "extends": "specs/002-plataforma-v21/contracts/errors/error-catalog.json (linea 002)",
-    "change_note": "Indice INCREMENTAL vacio de la feature 008: los codigos se redactan en T1110, T1135, T1144 y T1156 tras las decisiones de Neo (D8-01..D8-09). No se compila por separado.",
+    "change_note": "Indice INCREMENTAL vacio de la feature 008, sin cambio de contenido tras la resolucion de Nivel 2 de Neo (2026-11-20): los dos codigos nuevos de 008 viven en los catalogos de las lineas 002 y 004 (3.2.0) porque sus rutas viven alli; el catalogo de aprobacion y de /api/admin pasa a la feature 009. No se compila por separado.",
     "removed": [],
     "added": [],
     "inherited": [],
