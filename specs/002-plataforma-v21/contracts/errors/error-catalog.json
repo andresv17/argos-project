@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalog",
   "x-sdd-metadata": {
-    "version": "3.1.0",
+    "version": "3.2.0",
     "status": "REVIEW",
-    "supersedes": "3.0.0",
+    "supersedes": "3.1.0",
     "change_type": "MINOR",
-    "change_note": "MINOR aditiva (feature 007, #13, EDGE-007-009): +ERR-PET-VERSION-CONFLICT (412, control optimista del PATCH de mascota); ERR-BACKUP-VERSION-UNSUPPORTED reformula su detalle para cubrir el respaldo 3.2.0 en builds anteriores (EDGE-007-015). Sin retiros.",
+    "change_note": "MINOR 3.2.0 (feature 008, Architect 2026-11-20): +ERR-AUTH-GOOGLE-FAILED (400, fallo uniforme del flujo con Google) y +ERR-AUTH-GOOGLE-LINK-CONFLICT (409, vinculación). La contraseña actual incorrecta al vincular reutiliza ERR-AUTH-INVALID-CREDENTIALS; el límite de tasa reutiliza ERR-RATE-LIMITED; sin códigos de aprobación ni de /api/admin (diferidos a 009). MINOR aditiva (feature 007, #13, EDGE-007-009): +ERR-PET-VERSION-CONFLICT (412, control optimista del PATCH de mascota); ERR-BACKUP-VERSION-UNSUPPORTED reformula su detalle para cubrir el respaldo 3.2.0 en builds anteriores (EDGE-007-015). Sin retiros.",
     "removed": [
       "ERR-AUTH-USER-NOT-FOUND",
       "ERR-HOUSE-MEMBER-ALREADY-EXISTS"
@@ -19,7 +19,9 @@
       "ERR-OWN-TRANSFER-INVALID-TARGET",
       "ERR-PET-MICROCHIP-DUPLICATE",
       "ERR-RATE-LIMITED",
-      "ERR-PET-VERSION-CONFLICT"
+      "ERR-PET-VERSION-CONFLICT",
+      "ERR-AUTH-GOOGLE-FAILED",
+      "ERR-AUTH-GOOGLE-LINK-CONFLICT"
     ],
     "pendingIds": [
       "ERR-PET-MICROCHIP-DUPLICATE",
@@ -32,6 +34,8 @@
       "ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD",
       "ERR-ACCOUNT-OWNS-SHARED-PETS",
       "ERR-AUTH-CSRF-REJECTED",
+      "ERR-AUTH-GOOGLE-FAILED",
+      "ERR-AUTH-GOOGLE-LINK-CONFLICT",
       "ERR-AUTH-INVALID-CREDENTIALS",
       "ERR-AUTH-TOO-MANY-ATTEMPTS",
       "ERR-AUTH-UNAUTHENTICATED",
@@ -65,7 +69,7 @@
       "ERR-SCHEMA-VALIDATION-FAILED"
     ]
   },
-  "version": "3.1.0",
+  "version": "3.2.0",
   "status": "REVIEW",
   "problemDetailsSchema": {
     "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
@@ -364,6 +368,24 @@
       "detailTemplate": "Esta ficha cambió, recarga.",
       "requirementRef": "EDGE-007-009 (feature 007, #13)",
       "note": "El If-Match del PATCH de mascota no coincide con la version vigente. El detalle es fijo: no incluye datos de la mascota, lifeStatus ni deceasedAt"
+    },
+    "ERR-AUTH-GOOGLE-FAILED": {
+      "type": "urn:argos:error:ERR-AUTH-GOOGLE-FAILED",
+      "status": 400,
+      "title": "No se pudo completar el acceso con Google",
+      "invariantRef": "INV-AUTH-006",
+      "detailTemplate": "No se pudo completar el acceso con Google. Vuelve a intentarlo desde la pantalla de acceso.",
+      "requirementRef": "REQ-AUTH2-002",
+      "note": "Un único código, estado y detalle para todo fallo del flujo (código inválido, state o nonce desconocido o reutilizado, estado vencido, iss/aud/exp inválidos, email_verified falso, cancelación, correo ambiguo): no distingue la causa ni revela si el correo o el sub existen. El detalle es fijo y nunca incluye correo, sub ni tokens."
+    },
+    "ERR-AUTH-GOOGLE-LINK-CONFLICT": {
+      "type": "urn:argos:error:ERR-AUTH-GOOGLE-LINK-CONFLICT",
+      "status": 409,
+      "title": "No se pudo vincular Google",
+      "invariantRef": "INV-AUTH-006",
+      "detailTemplate": "No se pudo vincular esa cuenta de Google a tu cuenta.",
+      "requirementRef": "REQ-AUTH2-003",
+      "note": "Mismo código y detalle cuando la cuenta ya tiene Google vinculado o cuando ese sub ya pertenece a otra cuenta; no revela cuál."
     }
   }
 }

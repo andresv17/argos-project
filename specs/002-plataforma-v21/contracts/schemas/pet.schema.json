@@ -4,11 +4,11 @@
   "title": "PetProfileSchema",
   "description": "Perfil de mascota multi-especie con dueño, asignaciones y permisos [REQ-PET2-001..003, REQ-OWN-001, REQ-HOUSE2-003]",
   "x-sdd-metadata": {
-    "version": "3.1.0",
+    "version": "3.2.0",
     "status": "REVIEW",
-    "supersedes": "3.0.0",
+    "supersedes": "3.1.0",
     "change_type": "MINOR",
-    "change_note": "MINOR aditiva (feature 007, #13, N2-07-01 aprobada por Neo el 2026-11-19 sobre la linea 002): +LifeStatus (ALIVE|DECEASED, defecto ALIVE), +DeceasedAt (fecha o nulo), +PetVersion (entero >= 1, control optimista); PetProfile, CreatePetInput y UpdatePetInput los aceptan como opcionales con condicional DECEASED => deceasedAt. additionalProperties false se conserva. El 3.1.0 DRAFT de 004 es una linea paralela con su propia historia: absorbe los mismos campos sin cambiar de numeracion (aun DRAFT).",
+    "change_note": "MINOR 3.2.0 (feature 008, #21, Architect 2026-11-20, D8-12 = A): +Biography (string o null, 0..280, sin caracteres de control); PetProfile.biography (opcional en la lectura) y UpdatePetInput.biography (opcional, por el PATCH con If-Match existente). CreatePetInput no cambia. Filas previas = null; retrocompatible. additionalProperties false se conserva. MINOR aditiva (feature 007, #13, N2-07-01 aprobada por Neo el 2026-11-19 sobre la linea 002): +LifeStatus (ALIVE|DECEASED, defecto ALIVE), +DeceasedAt (fecha o nulo), +PetVersion (entero >= 1, control optimista); PetProfile, CreatePetInput y UpdatePetInput los aceptan como opcionales con condicional DECEASED => deceasedAt. additionalProperties false se conserva. El 3.1.0 DRAFT de 004 es una linea paralela con su propia historia: absorbe los mismos campos sin cambiar de numeracion (aun DRAFT).",
     "traceability": [
       "REQ-PET2-001",
       "REQ-PET2-002",
@@ -235,6 +235,9 @@
         },
         "version": {
           "$ref": "#/$defs/PetVersion"
+        },
+        "biography": {
+          "$ref": "#/$defs/Biography"
         }
       },
       "allOf": [
@@ -546,6 +549,9 @@
         },
         "deceasedAt": {
           "$ref": "#/$defs/DeceasedAt"
+        },
+        "biography": {
+          "$ref": "#/$defs/Biography"
         }
       },
       "description": "Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001] Feature 007: lifeStatus/deceasedAt; DECEASED exige deceasedAt; ALIVE lo exige nulo; el PATCH exige If-Match con la version de la ficha.",
@@ -710,6 +716,15 @@
         }
       },
       "description": "[REQ-OWN-001, SC-016]"
+    },
+    "Biography": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 280,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]*$",
+      "description": "Biografía de la mascota (feature 008, #21): texto plano de 0 a 280 caracteres, recortado, sin caracteres de control ni saltos de línea; vacío equivale a null; se muestra siempre como texto, nunca como HTML. NO entra en el payload ni en el prompt de la escena ni en el resumen veterinario (D8-12 = A). La edita quien tiene EDIT_PET_BASICS"
     }
   }
 }

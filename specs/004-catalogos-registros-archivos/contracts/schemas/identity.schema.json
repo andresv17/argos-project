@@ -4,11 +4,11 @@
   "title": "IdentitySchema",
   "description": "Usuarios, sesión, perfil, hogares, membresías con rol, invitaciones y eliminación de cuenta [REQ-AUTH2-*, REQ-ACC-*, REQ-HOUSE2-*, REQ-RBAC-001]",
   "x-sdd-metadata": {
-    "version": "3.1.0",
+    "version": "3.2.0",
     "status": "DRAFT",
-    "supersedes": "3.0.0",
+    "supersedes": "3.1.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 3.1.0 (feature 004): Username admite mayúsculas (unicidad por LOWER, guardado tal como se escribió); LoginInput acepta usuario o correo (254).",
+    "change_note": "MINOR 3.2.0 (feature 008, Architect 2026-11-20, resolución Nivel 2 de Neo): +AuthMethods y UserSelfProfile.authMethods (opcional), +GoogleChooseUsernameInput, +GoogleLinkStartInput, +GoogleAuthorizationView (SSO con Google y vinculación desde sesión activa) y +InviteeSearchPrefix, +InviteeSuggestion, +InviteeSearchResult (autocompletado por username, D8-10 = A: REQ-HOUSE2-001 intacta). Aditiva; sin cambios en InviteMemberInput ni en LoginInput. Sin correo real, sin aprobación de registro ni /api/admin (diferidos a 009). MINOR 3.1.0 (feature 004): Username admite mayúsculas (unicidad por LOWER, guardado tal como se escribió); LoginInput acepta usuario o correo (254).",
     "traceability": [
       "REQ-AUTH2-001",
       "REQ-AUTH2-002",
@@ -172,6 +172,9 @@
         },
         "timezone": {
           "$ref": "#/$defs/Timezone"
+        },
+        "authMethods": {
+          "$ref": "#/$defs/AuthMethods"
         }
       },
       "description": "Perfil del propio usuario; añade email, preferredLanguage y timezone [REQ-AUTH-004, REQ-ACC-001]"
@@ -612,6 +615,104 @@
         "READER"
       ],
       "description": "OWNER es el Propietario Legal de la mascota o el propietario del hogar según la acción [REQ-RBAC-001]"
+    },
+    "AuthMethods": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "password",
+        "google"
+      ],
+      "properties": {
+        "password": {
+          "type": "boolean",
+          "description": "true si la cuenta tiene contraseña definida"
+        },
+        "google": {
+          "type": "boolean",
+          "description": "true si la cuenta tiene una identidad de Google vinculada"
+        }
+      },
+      "description": "Métodos de acceso de la cuenta propia, solo lectura; no expone el sub de Google ni el correo de Google"
+    },
+    "GoogleChooseUsernameInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username"
+      ],
+      "properties": {
+        "username": {
+          "$ref": "#/$defs/Username"
+        }
+      },
+      "description": "Elección del username tras el primer acceso con Google; el cuerpo no admite correo, rol ni estado de cuenta. El estado del flujo viaja en la cookie argos_oauth"
+    },
+    "GoogleLinkStartInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentPassword"
+      ],
+      "properties": {
+        "currentPassword": {
+          "$ref": "#/$defs/LoginPassword"
+        }
+      },
+      "description": "Vincular Google desde sesión activa: exige la contraseña actual de la cuenta [M8-02]"
+    },
+    "GoogleAuthorizationView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorizationUrl"
+      ],
+      "properties": {
+        "authorizationUrl": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048,
+          "pattern": "^https://accounts\\.google\\.com/"
+        }
+      },
+      "description": "URL de autorización de Google a la que navega la SPA; lleva state, nonce y code_challenge PKCE S256; scope openid email"
+    },
+    "InviteeSearchPrefix": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 30,
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "description": "Prefijo de username (mínimo 3 caracteres, mismo alfabeto que Username); se compara sin distinguir mayúsculas"
+    },
+    "InviteeSuggestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username"
+      ],
+      "properties": {
+        "username": {
+          "$ref": "#/$defs/Username"
+        }
+      },
+      "description": "Solo username: nunca correo, nombre visible ni identificador interno"
+    },
+    "InviteeSearchResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/InviteeSuggestion"
+          }
+        }
+      },
+      "description": "Hasta 5 sugerencias; la forma, el estado 200 y el coste son los mismos con o sin coincidencias"
     }
   }
 }

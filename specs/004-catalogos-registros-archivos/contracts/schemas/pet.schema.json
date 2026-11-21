@@ -4,11 +4,11 @@
   "title": "PetProfileSchema",
   "description": "Perfil de mascota multi-especie con dueño, asignaciones y permisos [REQ-PET2-001..003, REQ-OWN-001, REQ-HOUSE2-003]",
   "x-sdd-metadata": {
-    "version": "3.1.0",
+    "version": "3.2.0",
     "status": "DRAFT",
-    "supersedes": "3.0.0",
+    "supersedes": "3.1.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 3.1.0 (feature 004): +breedCode y +avatarVersion de solo lectura en PetProfile; +breedCode en CreatePetInput y UpdatePetInput (breed opcional con breedCode); microchipId de entrada rechaza relleno y secuencias módulo 10. Corrección de borrador sin cambio de versión (3.1.0 sigue en DRAFT, sin publicar; PATCH no aplica a un contrato aún no aprobado): el patrón MicrochipInput listaba mal las cuatro descendentes módulo 10 que empiezan en 0, 1, 2 y 3; ahora son 098765432109876, 109876543210987, 210987654321098 y 321098765432109 (H-K-004T556-1, REQ-PET4-002). Coordinacion feature 007 (#13, N2-07-01): +LifeStatus, +DeceasedAt, +PetVersion y sus condicionales en PetProfile, CreatePetInput y UpdatePetInput (opcionales, aditivo); 3.1.0 sigue en DRAFT sin publicar.",
+    "change_note": "MINOR 3.2.0 (feature 008, #21, Architect 2026-11-20, D8-12 = A): +Biography (string o null, 0..280, sin caracteres de control); PetProfile.biography (opcional en la lectura) y UpdatePetInput.biography (opcional, por el PATCH con If-Match existente). CreatePetInput no cambia. Filas previas = null; retrocompatible. additionalProperties false se conserva. MINOR 3.1.0 (feature 004): +breedCode y +avatarVersion de solo lectura en PetProfile; +breedCode en CreatePetInput y UpdatePetInput (breed opcional con breedCode); microchipId de entrada rechaza relleno y secuencias módulo 10. Corrección de borrador sin cambio de versión (3.1.0 sigue en DRAFT, sin publicar; PATCH no aplica a un contrato aún no aprobado): el patrón MicrochipInput listaba mal las cuatro descendentes módulo 10 que empiezan en 0, 1, 2 y 3; ahora son 098765432109876, 109876543210987, 210987654321098 y 321098765432109 (H-K-004T556-1, REQ-PET4-002). Coordinacion feature 007 (#13, N2-07-01): +LifeStatus, +DeceasedAt, +PetVersion y sus condicionales en PetProfile, CreatePetInput y UpdatePetInput (opcionales, aditivo); 3.1.0 sigue en DRAFT sin publicar.",
     "traceability": [
       "REQ-PET2-001",
       "REQ-PET2-002",
@@ -263,6 +263,9 @@
         },
         "version": {
           "$ref": "#/$defs/PetVersion"
+        },
+        "biography": {
+          "$ref": "#/$defs/Biography"
         }
       },
       "allOf": [
@@ -769,6 +772,9 @@
         },
         "deceasedAt": {
           "$ref": "#/$defs/DeceasedAt"
+        },
+        "biography": {
+          "$ref": "#/$defs/Biography"
         }
       },
       "description": "Parcial. La coherencia species/speciesOther se valida sobre el estado resultante (INV-PET2-001). ownerUserId, id y asignaciones no son editables por aquí [REQ-PET2-001, INV-OWN2-001]. Exige EDIT_PET_BASICS [REQ-RBAC-001] Feature 007: lifeStatus/deceasedAt; DECEASED exige deceasedAt; ALIVE lo exige nulo; el PATCH exige If-Match con la version de la ficha.",
@@ -1020,6 +1026,15 @@
       "pattern": "^(?!(\\d)\\1{14}$)(?!(?:012345678901234|098765432109876|123456789012345|109876543210987|234567890123456|210987654321098|345678901234567|321098765432109|456789012345678|432109876543210|567890123456789|543210987654321|678901234567890|654321098765432|789012345678901|765432109876543|890123456789012|876543210987654|901234567890123|987654321098765)$)\\d{15}$",
       "description": "15 dígitos; rechaza 15 dígitos iguales y las secuencias consecutivas ascendentes o descendentes módulo 10 (123456789012345, 987654321098765) con ERR-SCHEMA-VALIDATION-FAILED; único global [REQ-PET4-001, REQ-PET4-002, INV-PET4-001]",
       "x-sdd-error": "ERR-SCHEMA-VALIDATION-FAILED"
+    },
+    "Biography": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 280,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]*$",
+      "description": "Biografía de la mascota (feature 008, #21): texto plano de 0 a 280 caracteres, recortado, sin caracteres de control ni saltos de línea; vacío equivale a null; se muestra siempre como texto, nunca como HTML. NO entra en el payload ni en el prompt de la escena ni en el resumen veterinario (D8-12 = A). La edita quien tiene EDIT_PET_BASICS"
     }
   }
 }
