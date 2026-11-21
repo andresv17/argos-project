@@ -247,13 +247,32 @@ export class GetSceneUseCase {
 
 const SCENE_IMAGE_FILENAME = 'escena.png';
 
+const ISO_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3})\d*)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
+
+/** Milisegundos desde la época de un instante ISO 8601 con zona, por aritmética de calendario (sin `Date`: la escena es pura, INV-ESC6-002). `null` si no es legible. */
+function epochMsOfIso(iso: string): number | null {
+  const m = ISO_INSTANT.exec(iso);
+  if (m === null) return null;
+  const [year, month, day, hour, minute, second] = [m[1], m[2], m[3], m[4], m[5], m[6]].map(Number) as [number, number, number, number, number, number];
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return null;
+  const y = month <= 2 ? year - 1 : year;
+  const era = Math.floor(y / 400);
+  const yoe = y - era * 400;
+  const doy = Math.floor((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5) + day - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  const days = era * 146097 + doe - 719468;
+  const fraction = m[7] === undefined ? 0 : Number(m[7].padEnd(3, '0'));
+  const offsetMin = m[8] === undefined ? 0 : (m[8] === '-' ? -1 : 1) * (Number(m[9]) * 60 + Number(m[10]));
+  return ((days * 24 + hour) * 60 + minute - offsetMin) * 60_000 + second * 1000 + fraction;
+}
+
 /**
  * Nombre fijo de la descarga (REQ-UX8-002, contrato 006 3.5.0): `argos-hogar-AAAA-MM-DD.png` con el día de la generación de la imagen vigente en la zona de la
  * aplicación (`APP_TIMEZONE`). Sin nombre de mascota ni de hogar (PII). `null` si el instante no es legible.
  */
 export function sceneDownloadFilenameOf(createdAt: string, timeZone: string): string | null {
-  const ms = Date.parse(createdAt);
-  if (Number.isNaN(ms)) return null;
+  const ms = epochMsOfIso(createdAt);
+  if (ms === null) return null;
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).formatToParts(ms).map((p) => [p.type, p.value]));
   return `argos-hogar-${parts['year']}-${parts['month']}-${parts['day']}.png`;
 }
