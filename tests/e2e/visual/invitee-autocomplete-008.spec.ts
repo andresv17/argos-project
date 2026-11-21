@@ -11,7 +11,10 @@ import { apiCall, apiPost, householdIdByName, registerViaApi } from './e2e-suppo
 
 const HOUSE = 'Casa Autocompletado';
 const PASSWORD = 'ClaveE2E2026!';
-const SEEDS = ['pedro.a', 'pedro.b', 'pedro.c'] as const;
+// El backend de E2E es compartido por los proyectos (Chromium, Firefox, WebKit): cada uno usa su propio prefijo de usernames para no chocar (409) ni mezclar candidatos.
+const TAGS: Record<string, string> = { chromium: 'c', firefox: 'f', webkit: 'w' };
+let PREFIX = 'cpedro';
+let SEEDS: string[] = [];
 
 test.describe.configure({ mode: 'serial' });
 
@@ -20,7 +23,9 @@ let householdId: string;
 const pageErrors: string[] = [];
 const inviteeRequests: string[] = [];
 
-test.beforeAll(async ({ browser }) => {
+test.beforeAll(async ({ browser }, testInfo) => {
+  PREFIX = `${TAGS[testInfo.project.name] ?? 'x'}pedro`;
+  SEEDS = [`${PREFIX}.a`, `${PREFIX}.b`, `${PREFIX}.c`];
   for (const username of SEEDS) {
     const context = await browser.newContext();
     await registerViaApi(context.request, username, username, PASSWORD);
@@ -32,9 +37,23 @@ test.beforeAll(async ({ browser }) => {
   page.on('request', (request) => {
     if (request.url().includes('/invitees')) inviteeRequests.push(new URL(request.url()).searchParams.get('q') ?? '');
   });
-  await registerViaApi(context.request, 'ana.auto', 'Ana', PASSWORD);
+  await registerViaApi(context.request, `ana.${PREFIX}`, 'Ana', PASSWORD);
   await apiPost(context.request, '/households', { name: HOUSE });
   householdId = await householdIdByName(context.request, HOUSE);
+  // El cupo por IP (REQ-INV8-005) es compartido por todos los proyectos del mismo servidor: el último caso agota el cupo de la IP y el siguiente proyecto debe esperar,
+  // por condición (no por tiempo fijo), a que la ventana deslizante libere holgura suficiente para sus propias búsquedas (una sola consulta libre no basta).
+  test.setTimeout(180_000);
+  const search = async () => (await apiCall(context.request, 'GET', `/households/${householdId}/invitees?q=${PREFIX.slice(0, 3)}`)).status;
+  await expect
+    .poll(
+      async () => {
+        if ((await search()) === 429) return false; // un rechazo no prolonga la ventana: sondear no la empeora
+        for (let i = 0; i < 11; i += 1) if ((await search()) === 429) return false;
+        return true;
+      },
+      { timeout: 150_000, intervals: [3_000] },
+    )
+    .toBe(true);
   await page.goto('/households');
   await expect(page.getByRole('heading', { name: new RegExp(HOUSE), level: 3 })).toBeVisible();
 });
@@ -54,14 +73,14 @@ const pendingUsernames = async () => {
 test.describe('autocompletado de colaboradores (T1192, Chromium)', () => {
   test('[REQ-INV8-001][SC-008-049] con 2 caracteres no hay búsqueda ni lista; con 3 aparecen las sugerencias solo por username', async () => {
     await combobox().click();
-    await combobox().pressSequentially('pe');
+    await combobox().pressSequentially(PREFIX.slice(0, 2));
     await page.waitForTimeout(600); // más que la espera de 300 ms: si hubiera búsqueda ya habría salido
     expect(inviteeRequests).toEqual([]);
     await expect(listbox()).toBeHidden();
-    await combobox().pressSequentially('d');
-    await expect(options()).toHaveText(['pedro.a', 'pedro.b', 'pedro.c']);
+    await combobox().pressSequentially(PREFIX.slice(2, 3));
+    await expect(options()).toHaveText(SEEDS);
     await expect(combobox()).toHaveAttribute('aria-expanded', 'true');
-    expect(inviteeRequests).toEqual(['ped']);
+    expect(inviteeRequests).toEqual([PREFIX.slice(0, 3)]);
   });
 
   test('[REQ-INV8-005][SC-008-054] flechas y Enter eligen la sugerencia sin enviar el formulario', async () => {
@@ -71,30 +90,30 @@ test.describe('autocompletado de colaboradores (T1192, Chromium)', () => {
     await expect(second).toHaveAttribute('aria-selected', 'true');
     await expect(combobox()).toHaveAttribute('aria-activedescendant', (await second.getAttribute('id'))!);
     await combobox().press('Enter');
-    await expect(combobox()).toHaveValue('pedro.b');
+    await expect(combobox()).toHaveValue(SEEDS[1]!);
     await expect(listbox()).toBeHidden();
     expect(await pendingUsernames()).toEqual([]); // Enter eligió; no invitó
-    expect(inviteeRequests).toEqual(['ped']); // elegir no lanza otra búsqueda
+    expect(inviteeRequests).toEqual([PREFIX.slice(0, 3)]); // elegir no lanza otra búsqueda
   });
 
   test('[REQ-INV8-005][SC-008-054] Escape cierra la lista y conserva lo escrito', async () => {
     await page.waitForTimeout(400); // deja pasar la espera de 300 ms tras elegir (borrar y reescribir el mismo prefijo antes no relanza la búsqueda: ver acta)
     await combobox().fill('');
-    await combobox().pressSequentially('ped');
+    await combobox().pressSequentially(PREFIX.slice(0, 3));
     await expect(options()).toHaveCount(3);
     await combobox().press('Escape');
     await expect(listbox()).toBeHidden();
     await expect(combobox()).toHaveAttribute('aria-expanded', 'false');
-    await expect(combobox()).toHaveValue('ped');
+    await expect(combobox()).toHaveValue(PREFIX.slice(0, 3));
   });
 
   test('[REQ-INV8-005][REQ-HOUSE2-001] se puede escribir un username completo e invitar sin elegir sugerencia', async () => {
     await combobox().fill('');
-    await combobox().pressSequentially('pedro.c');
-    await expect(options()).toHaveText(['pedro.c']); // sugiere, pero no se elige
+    await combobox().pressSequentially(SEEDS[2]!);
+    await expect(options()).toHaveText([SEEDS[2]!]); // sugiere, pero no se elige
     await page.getByRole('form', { name: 'Invitar miembro' }).getByRole('button', { name: 'Invitar' }).click();
     await expect(combobox()).toHaveValue('');
-    await expect.poll(pendingUsernames).toEqual(['pedro.c']);
+    await expect.poll(pendingUsernames).toEqual([SEEDS[2]!]);
     expect(pageErrors).toEqual([]);
   });
 
