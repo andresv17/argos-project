@@ -84,6 +84,8 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
       const run = (sql: string) => this.db.prepare(sql).run({ ...cutoffs, loginAttemptsBefore: loginAttemptsExpiryCutoff(cutoffs.now) }).changes;
       // REQ-LOG-001 / SC-CAT-030: filas de login_attempts sin ningún fallo dentro de la ventana de bloqueo; sin conteo propio (los 5 del contrato operativo no cambian).
       run('DELETE FROM login_attempts WHERE NOT EXISTS (SELECT 1 FROM json_each(login_attempts.failures) WHERE json_each.value >= @loginAttemptsBefore)');
+      // H-RAMA-008-T1134-01 / NFR-008-004: estados de flujo de Google vencidos (incluye el correo y el sub pendientes de las filas USERNAME); sin conteo propio.
+      run('DELETE FROM oauth_flow_states WHERE expires_at <= @now');
       return {
         sessionsPurged: run(
           `DELETE FROM sessions WHERE revoked_at < ${at(", '-7 days'")} OR created_at < ${at(", '-7 days', '-24 hours'")} OR last_activity_at < ${at(", '-7 days', '-30 minutes'")}`,
