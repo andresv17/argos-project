@@ -105,6 +105,8 @@ jobs:
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
           DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_REDIRECT_URI: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           if [ -z "${DATABASE_URL_DIRECT:-}" ]; then unset DATABASE_URL_DIRECT; fi
@@ -214,6 +216,8 @@ jobs:
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
           DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_REDIRECT_URI: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           if [ -z "${DATABASE_URL_DIRECT:-}" ]; then unset DATABASE_URL_DIRECT; fi
