@@ -3,7 +3,7 @@
  * sondeo único cada 3 s. No hay datos de la mascota ni del servidor en los textos de error (INV-ESC6-016); la imagen se pide a la ruta propia del ámbito con
  * `v = imageTag` (etiqueta de caché, INV-ESC6-019) y nunca se guarda una URL firmada en el DOM (NFR-ESC6-003).
  *
- * @implements REQ-UX8-001, REQ-ESC7-001, REQ-ESC7-002, REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021, REQ-ESC6-034, NFR-ESC6-003, NFR-ESC6-004, INV-ESC6-016, INV-ESC6-019
+ * @implements REQ-UX8-001, REQ-UX8-002, EDGE-008-020, EDGE-008-021, REQ-ESC7-001, REQ-ESC7-002, REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021, REQ-ESC6-034, NFR-ESC6-003, NFR-ESC6-004, INV-ESC6-016, INV-ESC6-019
  */
 import type { Scheduler } from './access-renewer.ts';
 import { ERROR_CATALOG } from '../../generated/errors/error-codes.ts';
@@ -256,6 +256,31 @@ export function sceneProblemMessage(code: string, retryAfterSeconds?: number): s
 export function sceneImagePath(scope: SceneScope, imageTag: string | null): string | null {
   if (imageTag === null) return null;
   return scope.kind === 'HOUSEHOLD' ? `/api/households/${scope.householdId}/scene/image?v=${imageTag}` : `/api/me/scene/image?v=${imageTag}`;
+}
+
+/**
+ * Ruta de descarga de la imagen vigente (REQ-UX8-002, EDGE-008-020, contrato 006 3.5.0): la misma ruta propia con `download=1`, que pide al servidor la URL firmada con
+ * `response-content-disposition: attachment`. El atributo HTML `download` por sí solo no basta con la redirección `302` a otro origen. `null` sin imagen vigente.
+ * `download` no elige imagen (INV-ESC6-019): solo cambia el tratamiento del archivo.
+ */
+export function sceneImageDownloadPath(scope: SceneScope, imageTag: string | null): string | null {
+  const path = sceneImagePath(scope, imageTag);
+  return path === null ? null : `${path}&download=1`;
+}
+
+/** Zona del día del nombre de archivo (`APP_TIMEZONE`, igual que la renovación de cuota). */
+const FILENAME_TIME_ZONE = 'America/Bogota';
+const filenameDateFormat = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: FILENAME_TIME_ZONE });
+
+/**
+ * Nombre sugerido del archivo descargado: `argos-hogar-AAAA-MM-DD.png` con el día de `at` en la zona de la aplicación (EDGE-008-021). Sin nombre de mascota ni de hogar
+ * (PII) ni caracteres de control. El nombre definitivo lo fija el servidor en `Content-Disposition`; este es la pista del cliente. `null` si el instante no es legible.
+ */
+export function sceneDownloadFilename(at: string): string | null {
+  const ms = Date.parse(at);
+  if (Number.isNaN(ms)) return null;
+  const parts = Object.fromEntries(filenameDateFormat.formatToParts(ms).map((p) => [p.type, p.value]));
+  return `argos-hogar-${parts.year}-${parts.month}-${parts.day}.png`;
 }
 
 /** Ruta propia de la foto del hogar (302 firmada); `tag` solo etiqueta de caché. */

@@ -6,7 +6,7 @@
  * se pide a la ruta propia del ámbito (302 firmada por el servidor): el DOM no guarda URL firmadas (NFR-ESC6-003). `SceneBlockView` es presentacional; `SceneBlock`
  * es el contenedor (lectura, sondeo cada 3 s mientras `generating`, `Idempotency-Key` nueva por clic).
  *
- * @implements REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, SC-ESC6-131, SC-ESC6-132, SC-ESC6-133, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
+ * @implements REQ-UX8-002, EDGE-008-021, REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, SC-ESC6-131, SC-ESC6-132, SC-ESC6-133, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { browserScheduler } from '../browser-scheduler.ts';
@@ -17,6 +17,8 @@ import {
   SCENE_STALE_TEXT,
   sceneFailureText,
   sceneAltText,
+  sceneDownloadFilename,
+  sceneImageDownloadPath,
   sceneImagePath,
   scenePendingMessage,
   scenePetsShownText,
@@ -53,6 +55,8 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
   const statusId = `${idPrefix}-status`;
   const reasonId = `${idPrefix}-reason`;
   const src = view === null ? null : sceneImagePath(scope, view.imageTag);
+  const downloadHref = view === null ? null : sceneImageDownloadPath(scope, view.imageTag);
+  const downloadName = view === null ? null : sceneDownloadFilename(view.updatedAt);
   const generate = view === null ? null : sceneGenerateState(waitSeconds !== null && waitSeconds > 0 ? { ...view, actions: { ...view.actions, retryAfterSeconds: waitSeconds } } : view);
   const generating = view?.status === 'generating';
   const petsShown = view === null ? null : scenePetsShownText(view.pets);
@@ -101,6 +105,16 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
                     {generate?.label ?? ''}
                   </Button>
                 </div>
+                {downloadHref === null ? null : (
+                  <a
+                    href={downloadHref}
+                    {...(downloadName === null ? {} : { download: downloadName })}
+                    aria-label="Descargar imagen del hogar"
+                    className="inline-flex min-h-12 min-w-11 items-center justify-center rounded-full border border-primary bg-white px-5 text-sm font-semibold text-primary hover:bg-meadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  >
+                    Descargar imagen
+                  </a>
+                )}
               </div>
               {generate?.reason == null ? null : (
                 <p id={reasonId} className="min-w-0 max-w-full text-sm text-slate-800">
