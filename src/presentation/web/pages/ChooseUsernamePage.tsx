@@ -58,10 +58,16 @@ export function ChooseUsernamePage(): JSX.Element {
   const [message, setMessage] = useState<string | null>(null);
   const [restart, setRestart] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** Cuenta de peticiones de foco al campo con error (H-T1122-S1): el efecto actúa tras el render, cuando el campo ya muestra `aria-describedby`. */
+  const [errorFocus, setErrorFocus] = useState(0);
 
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (errorFocus > 0) document.getElementById('choose-username')?.focus();
+  }, [errorFocus]);
 
   const onSubmit = (event: FormEvent): void => {
     event.preventDefault();
@@ -69,6 +75,7 @@ export function ChooseUsernamePage(): JSX.Element {
     const clientErrors = validateInput('GoogleChooseUsernameInput', body);
     setErrors(clientErrors);
     setMessage(null);
+    if (clientErrors['username'] !== undefined) setErrorFocus((n) => n + 1);
     if (Object.keys(clientErrors).length > 0) return;
     setBusy(true);
     session
@@ -79,6 +86,7 @@ export function ChooseUsernamePage(): JSX.Element {
         setErrors(feedback.errors);
         setMessage(feedback.message);
         setRestart(feedback.restart);
+        if (feedback.errors['username'] !== undefined) setErrorFocus((n) => n + 1);
       })
       .finally(() => setBusy(false));
   };
