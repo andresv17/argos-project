@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './Field.tsx';
+import { HOUSEHOLD_LINK_NOTICE } from '../role-help.ts';
 import { createShareApi, ShareApiError, type ShareApi, type ShareLinkList, type ShareLinkView, type ShareScopeName } from '../share-api.ts';
 import { expiryText, formatCalendarDate, shareProblemMessage, STATUS_LABEL } from '../share-view.ts';
 
@@ -38,6 +39,8 @@ export interface ShareLinksViewProps {
   readonly petName: string;
   /** Alcance hogar: solo si la mascota está en un hogar donde el usuario es propietario o ADMIN y posee mascotas; `petCount` = las que se compartirían. */
   readonly household: { readonly petCount: number } | null;
+  /** Quien puede crear enlaces (propietario legal o ADMIN, REQ-VET-001): solo a él se le muestra el aviso de hogar (REQ-ROL8-002, EDGE-008-049). Por omisión `false`. */
+  readonly canCreateLinks?: boolean;
   /** Instante actual del servidor para el texto «Vence el…» (la presentación no lee el reloj). */
   readonly now: string;
   readonly scope: ShareScopeName;
@@ -128,7 +131,7 @@ function LinkRow({ link, props }: { readonly link: ShareLinkView; readonly props
 }
 
 export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
-  const { petName, household, now, scope, expiresInDays, includeMicrochip, includeClinicalFiles, includeDeceasedAt, busy, error, created, copyStatus, list, notice } = props;
+  const { petName, household, canCreateLinks = false, now, scope, expiresInDays, includeMicrochip, includeClinicalFiles, includeDeceasedAt, busy, error, created, copyStatus, list, notice } = props;
   return (
     <section aria-labelledby="share-links-title" className={CARD}>
       <h3 id="share-links-title" className="text-base font-semibold text-slate-900">
@@ -177,8 +180,14 @@ export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
             props.onCreate();
           }}
         >
-          <fieldset className="grid gap-1">
+          <fieldset className="grid gap-1" {...(canCreateLinks ? { 'aria-describedby': 'share-household-hint' } : {})}>
             <legend className={LEGEND}>¿Qué quieres compartir?</legend>
+            {canCreateLinks ? (
+              // REQ-ROL8-002 (#25, D8-13): aviso aprobado por Neo; solo quien puede crear enlaces lo ve y no promete mascotas ajenas (EDGE-008-049).
+              <p id="share-household-hint" data-share-household-hint className="text-sm text-text-muted">
+                {HOUSEHOLD_LINK_NOTICE}
+              </p>
+            ) : null}
             <label className={CHOICE}>
               <input type="radio" name="scope" value="PET" checked={scope === 'PET'} onChange={() => props.onScope('PET')} className={INPUT} />
               {`Solo esta mascota (${petName})`}
@@ -268,11 +277,13 @@ export interface ShareLinksPanelProps {
   readonly petName: string;
   /** Hogar compartible desde la ficha (el contexto activo es un hogar donde el usuario es propietario o ADMIN) con las mascotas propias que entrarían. */
   readonly household: { readonly id: string; readonly petCount: number } | null;
+  /** Quien puede crear enlaces (propietario legal o ADMIN): habilita el aviso de hogar (REQ-ROL8-002). */
+  readonly canCreateLinks?: boolean;
   readonly api?: ShareApi;
 }
 
 /** Contenedor con estado de S4. @implements REQ-VET-001, REQ-VET-005, SC-005-015, SC-005-019, SC-005-040, SC-005-046, SC-005-051 */
-export function ShareLinksPanel({ petId, petName, household, api = createShareApi() }: ShareLinksPanelProps): JSX.Element {
+export function ShareLinksPanel({ petId, petName, household, canCreateLinks = false, api = createShareApi() }: ShareLinksPanelProps): JSX.Element {
   const navigate = useNavigate();
   const [scope, setScope] = useState<ShareScopeName>('PET');
   const [expiresInDays, setExpiresInDays] = useState<1 | 7 | 30>(7);
@@ -370,6 +381,7 @@ export function ShareLinksPanel({ petId, petName, household, api = createShareAp
     <ShareLinksView
       petName={petName}
       household={household === null ? null : { petCount: household.petCount }}
+      canCreateLinks={canCreateLinks}
       now={now}
       scope={scope}
       expiresInDays={expiresInDays}
