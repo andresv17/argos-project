@@ -13,10 +13,24 @@ import { CryptoOneTimeTokenEntropyAdapter } from '../../src/infrastructure/adapt
 
 const scrypt = new ScryptPasswordHasherAdapter();
 
-async function timed(work: () => Promise<unknown>, runs = 3): Promise<number> {
-  const started = performance.now();
-  for (let i = 0; i < runs; i += 1) await work();
-  return (performance.now() - started) / runs;
+/**
+ * H-A21-1: método elegido = MEDICIÓN DE TIEMPO (mediana de 30 corridas por muestra, intercaladas para repartir la deriva de CPU), razón 0.8x..1.25x contra un hash
+ * real. Un dummy con la mitad de coste (N/2) da ~0.5 y uno con r=4 ~0.5: ambos caen fuera del rango. Si el entorno fuese demasiado ruidoso, el plan B es espiar los
+ * parámetros de scrypt de `dummyVerify` y compararlos con los de `hash()`.
+ */
+const SAMPLES = 30;
+const median = (values: number[]): number => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)]!;
+
+async function medianCosts(hashes: Record<string, string>): Promise<Record<string, number>> {
+  const times: Record<string, number[]> = Object.fromEntries(Object.keys(hashes).map((key) => [key, []]));
+  for (let i = 0; i < SAMPLES; i += 1) {
+    for (const [key, hash] of Object.entries(hashes)) {
+      const started = performance.now();
+      await scrypt.verify('MalaClave99', hash);
+      times[key]!.push(performance.now() - started);
+    }
+  }
+  return Object.fromEntries(Object.entries(times).map(([key, values]) => [key, median(values)]));
 }
 
 describe('ADR-008-14 (a): formato imposible para scrypt', () => {
@@ -39,25 +53,19 @@ describe('ADR-008-14 (b): verifyPassword con dummy de coste constante y siempre 
     }
   });
 
-  it('verificar contra el centinela cuesta lo mismo que contra un hash real con contraseña incorrecta (anti-enumeración)', async () => {
+  it('verificar contra el centinela y contra hashes que no parsean cuesta lo mismo que contra un hash real con contraseña incorrecta (anti-enumeración, razón 0.8x..1.25x)', async () => {
     const real = await scrypt.hash('Argos2026a');
     await scrypt.verify('x', real); // calentamiento
-    const realWrong = await timed(() => scrypt.verify('MalaClave99', real));
-    const sentinel = await timed(() => scrypt.verify('MalaClave99', NO_PASSWORD_SENTINEL));
-    expect(realWrong).toBeGreaterThan(5);
-    // Sin dummy el atajo tardaría microsegundos; con dummy el coste es del mismo orden (tolerancia amplia contra ruido de CI).
-    expect(sentinel).toBeGreaterThan(realWrong * 0.4);
-    expect(sentinel).toBeLessThan(realWrong * 3);
-  });
-
-  it('cualquier hash que no parsea se comporta igual que el centinela: false con coste de scrypt', async () => {
-    const real = await scrypt.hash('Argos2026a');
-    const realWrong = await timed(() => scrypt.verify('MalaClave99', real));
-    for (const garbage of ['', 'no-es-un-hash', 'scrypt$x$y$z$a$b']) {
-      expect(await scrypt.verify('MalaClave99', garbage)).toBe(false);
-      expect(await timed(() => scrypt.verify('MalaClave99', garbage))).toBeGreaterThan(realWrong * 0.4);
+    const garbage = ['', 'no-es-un-hash', 'scrypt$x$y$z$a$b'];
+    for (const hash of garbage) expect(await scrypt.verify('MalaClave99', hash)).toBe(false);
+    const costs = await medianCosts({ real, sentinel: NO_PASSWORD_SENTINEL, g1: garbage[1]! });
+    expect(costs['real']).toBeGreaterThan(5);
+    for (const key of ['sentinel', 'g1']) {
+      const ratio = costs[key]! / costs['real']!;
+      expect(ratio, `${key}: razón ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(0.8);
+      expect(ratio, `${key}: razón ${ratio.toFixed(2)}`).toBeLessThanOrEqual(1.25);
     }
-  });
+  }, 60_000);
 
   it('un hash real con la contraseña correcta sigue verificando (sin regresión)', async () => {
     const real = await scrypt.hash('Argos2026a');

@@ -344,7 +344,7 @@ describe('T1120 vincular Google desde sesión activa (REQ-VIN8-002; ADR-008-14 (
     expect((await failure(w.link.execute(ANDRES, { currentPassword: PASSWORDS['andres']! }))).code).toBe('ERR-AUTH-GOOGLE-LINK-CONFLICT');
   });
 
-  it('callback con intención LINK: vincula el sub a ESA cuenta (el correo de Google no tiene que coincidir), revoca las demás sesiones y entrega una sesión nueva', async () => {
+  it('[REQ-VIN8-004] [INV-VIN8-005] callback con intención LINK: vincula el sub a ESA cuenta (el correo de Google no tiene que coincidir), revoca las demás sesiones y entrega una sesión nueva', async () => {
     const old = await w.h.uow.runInTransaction(async (r) => {
       await r.sessions.save('token-previa', { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null } as never);
       return 'token-previa';
@@ -364,7 +364,7 @@ describe('T1120 vincular Google desde sesión activa (REQ-VIN8-002; ADR-008-14 (
     expect(await identitiesOf(w, MARIA)).toEqual([]);
   });
 
-  it('callback LINK cuyo sub ya pertenece a otra cuenta falla uniforme y no añade identidades', async () => {
+  it('[INV-VIN8-005] callback LINK cuyo sub ya pertenece a otra cuenta falla uniforme y no añade identidades', async () => {
     await bornWithGoogle(w);
     const started = await w.link.execute(ANDRES, { currentPassword: PASSWORDS['andres']! });
     expect((await failure(w.complete.execute({ oauthToken: started.oauthToken, code: CODE, state: stateOf(started.authorizationUrl) }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');

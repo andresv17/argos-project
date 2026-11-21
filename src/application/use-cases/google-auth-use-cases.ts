@@ -7,7 +7,7 @@
  * - El alta es insertar-o-recuperar sobre `(provider, provider_subject)` (EDGE-008-030): la cuenta nace con correo verificado y la contraseña centinela (ADR-008-14).
  * - No hay autovinculación por correo (INV-VIN8-005): una identidad se añade a una cuenta existente solo desde su sesión activa con la contraseña actual.
  *
- * @implements REQ-SSO8-001, REQ-SSO8-003, REQ-SSO8-004, REQ-SSO8-005, REQ-VIN8-002, EDGE-008-001, EDGE-008-002, EDGE-008-027, EDGE-008-030, INV-VIN8-005, INV-AUTH-006, INV-ARCH-001, INV-ARCH-002, INV-ARCH-005
+ * @implements REQ-SSO8-001, REQ-SSO8-003, REQ-SSO8-004, REQ-SSO8-005, REQ-VIN8-002, REQ-VIN8-004, EDGE-008-001, EDGE-008-002, EDGE-008-027, EDGE-008-030, INV-VIN8-005, INV-AUTH-006, INV-ARCH-001, INV-ARCH-002, INV-ARCH-005
  */
 
 import {

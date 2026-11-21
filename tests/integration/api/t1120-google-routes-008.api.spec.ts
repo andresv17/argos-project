@@ -238,6 +238,17 @@ describe('T1120 POST /api/auth/google/link (REQ-VIN8-002)', () => {
     expect(cookieNamed(ok, 'argos_oauth')).toContain('SameSite=Lax');
   });
 
+  it('SC-008-061: el límite de tasa de link (por usuario) responde ERR-RATE-LIMITED (429) en la vinculación siguiente al cupo', async () => {
+    const { api } = await boot();
+    const session = await api.login('andres');
+    const link = () => api.call('POST', '/api/auth/google/link', { cookie: session, body: { currentPassword: PASSWORDS['andres']! } });
+    for (let i = 0; i < GOOGLE_AUTH_LIMITS.link.maxPerWindow; i += 1) expect((await link()).status).toBe(200);
+    const limited = await link();
+    expect(limited.status).toBe(429);
+    expect((limited.json as { code: string }).code).toBe('ERR-RATE-LIMITED');
+    expect(cookieNamed(limited, 'argos_oauth')).toBeUndefined();
+  });
+
   it('flujo completo de vinculación: el callback vincula, revoca las demás sesiones y /me muestra authMethods {password, google}', async () => {
     const { api } = await boot();
     const session = await api.login('andres');
