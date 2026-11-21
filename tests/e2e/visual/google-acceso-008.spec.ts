@@ -159,6 +159,27 @@ test.describe('acceso con Google simulado (T1123)', () => {
     await expect(googleButton(page)).toBeVisible();
   });
 
+  test('[REQ-SSO8-003][NFR-008-002] H-T1122-S1: con un usuario inválido o ocupado el foco pasa al campo con el error (WCAG 3.3.1 y 4.1.3)', async ({ page }) => {
+    await page.goto('/elige-usuario');
+    const field = page.getByLabel(/^Usuario/);
+    await expect(page.getByRole('heading', { name: 'Elige tu usuario' })).toBeFocused();
+    // Inválido (validación de cliente): el foco va al campo, que apunta al error con aria-describedby.
+    await field.fill('a b!');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(field).toBeFocused();
+    await expect(field).toHaveAttribute('aria-invalid', 'true');
+    await expect(field).toHaveAttribute('aria-describedby', 'choose-username-error');
+    await expect(page.locator('#choose-username-error')).toBeVisible();
+    // Ocupado (respuesta del servidor): tras enviar, el foco vuelve a estar en el botón y debe moverse de nuevo al campo.
+    await page.route('**/api/auth/google/username', (route) =>
+      route.fulfill({ status: 409, contentType: 'application/problem+json', body: JSON.stringify({ type: 'urn:argos:error:ERR-AUTH-USERNAME-TAKEN', title: 'Nombre de usuario no disponible', status: 409, code: 'ERR-AUTH-USERNAME-TAKEN', detail: 'Ya existe una cuenta con ese nombre de usuario.', field: 'username' }) }),
+    );
+    await field.fill(`${tag}ocupado`);
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(page.locator('#choose-username-error')).toHaveText('Ya existe una cuenta con ese nombre de usuario.');
+    await expect(field).toBeFocused();
+  });
+
   test('[NFR-008-002] accesibilidad (axe WCAG 2.1 AA a 320, 1024 y 1280 px): acceso con Google y «Elige tu usuario», sin desbordamiento', async ({ page }) => {
     await page.goto('/login');
     await expect(googleButton(page)).toBeVisible();
