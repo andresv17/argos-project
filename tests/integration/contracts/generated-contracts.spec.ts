@@ -109,7 +109,7 @@ describe('contratos generados', () => {
   it('INV-ARCH-003: el catálogo generado coincide con error-catalog.json y cada ProblemDetails generado es válido', () => {
     const entries = errorCatalog.errors as Record<string, { status: number }>;
     expect(ERROR_CODES).toEqual(Object.keys(entries).sort());
-    expect(ERROR_CODES).toHaveLength(36); // 35 + ERR-PET-VERSION-CONFLICT (007, EDGE-007-009)
+    expect(ERROR_CODES).toHaveLength(38); // 35 + ERR-PET-VERSION-CONFLICT (007) + ERR-AUTH-GOOGLE-FAILED y ERR-AUTH-GOOGLE-LINK-CONFLICT (008, catálogo 3.2.0)
     for (const code of ERROR_CODES) {
       const error = new DomainError(code);
       expect(error.status).toBe(entries[code]?.status);

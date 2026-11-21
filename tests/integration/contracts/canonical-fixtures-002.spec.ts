@@ -230,10 +230,11 @@ describe('Fixtures canónicos 002 contra los validadores generados', () => {
   });
 
   describe('errorCases: cobertura del catálogo 3.0.0', () => {
-    it('ERR-* cubre exactamente los 36 códigos vigentes (35 + ERR-PET-VERSION-CONFLICT de 007) y ninguno retirado', () => {
+    it('ERR-* cubre exactamente los 36 códigos con caso canónico (35 + ERR-PET-VERSION-CONFLICT de 007) y el catálogo 3.2.0 añade solo los 2 ERR-AUTH-GOOGLE-* de 008 (fixtures canónicos de esos 2 pendientes del /architect: ARCH-008-fixtures-google)', () => {
       const codes = (fx.errorCases as any[]).filter((c) => c.expected === 'valid').map((c) => c.requirementId);
       expect(new Set(codes).size).toBe(36);
-      expect(Object.keys(catalog).sort()).toEqual([...codes].sort());
+      const GOOGLE_008 = ['ERR-AUTH-GOOGLE-FAILED', 'ERR-AUTH-GOOGLE-LINK-CONFLICT'];
+      expect(Object.keys(catalog).sort()).toEqual([...codes, ...GOOGLE_008].sort());
       const txt = JSON.stringify(fx);
       expect(txt).not.toContain('ERR-AUTH-USER-NOT-FOUND');
       expect(txt).not.toContain('ERR-HOUSE-MEMBER-ALREADY-EXISTS');

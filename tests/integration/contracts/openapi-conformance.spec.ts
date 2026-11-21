@@ -7,16 +7,25 @@ import { OPERATIONS, checkResponse } from './openapi-contract.ts';
 
 /**: cada operación del OpenAPI está implementada y sus respuestas reales cumplen el contrato. */
 let api: Api | null = null;
+
+/**
+ * Operaciones del OpenAPI 002 3.3.0 añadidas por la feature 008 (Google SSO, vinculación y autocompletado de invitados).
+ * PENDIENTES explícitas: su ruta en Fastify se implementa en los bloques A (T1112..) y B de la 008; hasta entonces
+ * el contrato las declara y la API aún no. Al implementar cada una, quitarla de esta lista (la prueba lo exige).
+ */
+const PENDING_008 = ['chooseGoogleUsername', 'completeGoogleLogin', 'searchInvitees', 'startGoogleLink', 'startGoogleLogin'];
 afterEach(async () => {
   await api?.close();
   api = null;
 });
 
 describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.yaml', () => {
-  it('[REQ-AUTH2-001][REQ-PET2-001][REQ-HOUSE2-001][REQ-BACKUP2-001][REQ-HOUSE2-002] cada una de las 40 operaciones del OpenAPI tiene su ruta en Fastify', async () => {
+  it('[REQ-AUTH2-001][REQ-PET2-001][REQ-HOUSE2-001][REQ-BACKUP2-001][REQ-HOUSE2-002] cada una de las 45 operaciones del OpenAPI tiene su ruta en Fastify (las 5 de la 008 siguen pendientes y explícitas)', async () => {
     api = await createApi();
     const missing = OPERATIONS.filter((op) => !api!.app.hasRoute({ method: op.method as 'GET', url: op.path.replace(/\{([^}]+)\}/g, ':$1') }));
-    expect([OPERATIONS.length, missing.map((op) => op.operationId)]).toEqual([40, []]);
+    const missingIds = missing.map((op) => op.operationId).sort();
+    expect([OPERATIONS.length, missingIds.filter((id) => !PENDING_008.includes(id))]).toEqual([45, []]);
+    expect(missingIds).toEqual(PENDING_008);
   });
 
   it('[ERR-INTERNAL-UNEXPECTED] el validador del contrato rechaza un estado no declarado, un cuerpo que no cumple el esquema y una ruta inexistente', () => {
@@ -33,7 +42,7 @@ describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.ya
     ]);
   });
 
-  it('[REQ-AUTH2-002][REQ-PET2-003][REQ-REC2-002][REQ-HOUSE2-002][REQ-BACKUP2-002][REQ-ACC-002] recorrido feliz por las 40 operaciones: todas responden lo que declara el OpenAPI', async () => {
+  it('[REQ-AUTH2-002][REQ-PET2-003][REQ-REC2-002][REQ-HOUSE2-002][REQ-BACKUP2-002][REQ-ACC-002] recorrido feliz por las 40 operaciones implementadas (las 5 pendientes de la 008 quedan fuera): todas responden lo que declara el OpenAPI', async () => {
     api = await createApi();
     const seen = new Set<string>();
     const call: Api['call'] = async (method, url, options = {}) => {
@@ -97,6 +106,6 @@ describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.ya
     const token = await api.issueConfirmationToken(registered!.id);
     await step('POST', '/api/account/deletion', { cookie: lucia, body: { confirmationPhrase: 'ELIMINAR MI CUENTA', password: 'Clave2027y!x', backupConfirmationToken: token } });
     await step('POST', '/api/auth/logout', { cookie: andres });
-    expect([[...seen].sort(), rejected]).toEqual([OPERATIONS.map((op) => op.operationId).sort(), []]);
+    expect([[...seen].sort(), rejected]).toEqual([OPERATIONS.map((op) => op.operationId).filter((id) => !PENDING_008.includes(id)).sort(), []]);
   });
 });

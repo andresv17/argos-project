@@ -277,8 +277,9 @@ describe('T510 metadatos', () => {
     for (const file of ['pet', 'medical-records', 'identity', 'audit-entry', 'backup-envelope']) {
       expect(meta(file), file).toEqual(expect.objectContaining({ status: 'DRAFT' }));
     }
-    expect(meta('pet').version).toBe('3.1.0');
-    expect(meta('backup-envelope').version).toBe('3.2.0'); // 007 (T1067, Caso B): MINOR aditiva sobre 3.1.0
+    expect(meta('pet').version).toBe('3.2.0'); // 008 (#21, D8-12 = A): +biography, MINOR aditiva sobre 3.1.0
+    expect(meta('backup-envelope').version).toBe('3.3.0'); // 008 (#21): +BackupEnvelopeV33, MINOR aditiva sobre 3.2.0 (007)
+    expect(meta('identity').version).toBe('3.2.0'); // 008: +AuthMethods, Google*, InviteeSearch*
     expect(meta('media').version).toBe('1.0.0');
   });
 });
