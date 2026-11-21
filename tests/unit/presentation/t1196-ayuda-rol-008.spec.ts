@@ -90,6 +90,16 @@ describe('ayuda de rol en el selector y en la lista de miembros (T1197)', () => 
     expect(markup).not.toMatch(/data-role-help="ADMIN"/);
     expect(markup).toMatch(/<select[^>]*aria-describedby="member-[^"]+-role-help"/);
   });
+
+  it('[GH:#25][REQ-ROL8-001][H-T1197-S1] el selector «Rol de <miembro>» mide al menos 44 px (min-h-11), no 40', () => {
+    const markup = renderToStaticMarkup(h(HouseholdCard, { view: household('OWNER'), myUserId: ME, onMemberAction: noop, onDelete: noop, inviteForm: null, onChangeRole: noop }));
+    const selects = [...markup.matchAll(/<select[^>]*aria-label="Rol de [^"]*"[^>]*>/g)].map((m) => m[0]);
+    expect(selects.length).toBeGreaterThan(0);
+    for (const tag of selects) {
+      expect(tag).toMatch(/class="[^"]*\bmin-h-11\b/);
+      expect(tag).not.toMatch(/\bmin-h-10\b/);
+    }
+  });
 });
 
 describe('aviso de hogar en el diálogo de crear enlace (T1196/T1197)', () => {
