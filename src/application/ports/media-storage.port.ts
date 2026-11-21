@@ -36,6 +36,11 @@ export interface MediaReadUrlRequest {
    * URL viva más allá del enlace. Ausente: el rango de la 004 (30–900), que el resto de las rutas sigue exigiendo.
    */
   readonly allowShortTtl?: boolean;
+  /**
+   * Tratamiento del archivo en `response-content-disposition`. Ausente o `inline`: lectura en línea con `filename` neutro (INV-ARC-004). `attachment`: descarga
+   * de la escena del hogar (REQ-UX8-002, contrato 006 3.5.0), con `filename` fijo `argos-hogar-AAAA-MM-DD.png` y sin PII.
+   */
+  readonly disposition?: 'inline' | 'attachment';
 }
 
 export interface MediaReadUrl {

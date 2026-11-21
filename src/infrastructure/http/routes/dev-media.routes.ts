@@ -19,6 +19,9 @@ export interface DevMediaOptions {
   readonly nodeEnv?: string;
 }
 
+/** `response-content-disposition` de la descarga de la escena (REQ-UX8-002); cualquier otro valor se ignora. */
+const DOWNLOAD_DISPOSITION = /^attachment; filename="argos-hogar-\d{4}-\d{2}-\d{2}\.png"$/;
+
 /** @returns true si la ruta quedó registrada. */
 export function registerDevMediaRoutes(app: FastifyInstance, { useCases }: RouteContext, options: DevMediaOptions): boolean {
   if (options.nodeEnv === 'production') return false;
@@ -28,7 +31,9 @@ export function registerDevMediaRoutes(app: FastifyInstance, { useCases }: Route
     const found = isMediaObjectKey(key) ? await options.storage.get(key) : null;
     if (found === null) return reply.code(404).header('Cache-Control', 'no-store').send({ status: 404 });
     reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff').type(found.contentType);
-    if (!found.contentType.startsWith('image/')) reply.header('Content-Disposition', 'attachment');
+    const requested = (request.query as { 'response-content-disposition'?: unknown } | undefined)?.['response-content-disposition'];
+    if (typeof requested === 'string' && DOWNLOAD_DISPOSITION.test(requested)) reply.header('Content-Disposition', requested);
+    else if (!found.contentType.startsWith('image/')) reply.header('Content-Disposition', 'attachment');
     return reply.send(Buffer.from(found.bytes));
   });
   return true;

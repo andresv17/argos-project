@@ -135,6 +135,24 @@ describe.each(adapters)('MediaStoragePort: conformidad (%s)', (_name, create) =>
     expect(double.requests).toEqual([]);
   });
 
+  it('T1168 (008, REQ-UX8-002, SC-008-036): createReadUrl con disposition attachment acepta SOLO el nombre fijo argos-hogar-AAAA-MM-DD.png y rechaza cualquier otro (incluido el neutro y nombres con PII)', async () => {
+    const port = create();
+    const sceneKey = `scenes/${PET}/images/${ID_A}`;
+    await port.put(sceneKey, bytes, 'image/png');
+    const ok = await port.createReadUrl({ key: sceneKey, contentType: 'image/png', filename: 'argos-hogar-2026-11-05.png', ttlSeconds: 300, disposition: 'attachment' });
+    expect([typeof ok.url, ok.expiresAt]).toEqual(['string', '2099-11-17T12:05:00.000Z']);
+    for (const bad of ['escena.png', 'argos-hogar-2026-11-05.jpg', 'argos-hogar-Luna-2026-11-05.png', 'argos-hogar-2026-11-5.png', 'argos-hogar-2026-11-05.png"; x=1', '../argos-hogar-2026-11-05.png']) {
+      await expect(port.createReadUrl({ key: sceneKey, contentType: 'image/png', filename: bad, ttlSeconds: 300, disposition: 'attachment' }), bad).rejects.toBeInstanceOf(RangeError);
+    }
+  });
+
+  it('T1168 (008, REQ-UX8-002): el nombre fijo de la descarga no sirve en lectura inline (INV-ARC-004 se conserva) y disposition inline equivale a omitirla', async () => {
+    const port = create();
+    await port.put(key(ID_A), bytes, 'application/pdf');
+    await expect(port.createReadUrl({ key: key(ID_A), contentType: 'image/png', filename: 'argos-hogar-2026-11-05.png', ttlSeconds: 300 })).rejects.toBeInstanceOf(RangeError);
+    await expect(port.createReadUrl({ key: key(ID_A), contentType: 'application/pdf', filename: 'archivo.pdf', ttlSeconds: 300, disposition: 'inline' })).resolves.toMatchObject({ expiresAt: '2099-11-17T12:05:00.000Z' });
+  });
+
   it('T811 (006, N2-06 (b)): scenes/ y households/ son claves válidas: put, get, list por prefijo (ordenado, sin mezclarse con pets/), createReadUrl y delete idempotente', async () => {
     const port = create();
     const sceneKey = `scenes/${PET}/images/${ID_A}`;
@@ -174,6 +192,16 @@ describe('adaptador de memoria (T571)', () => {
     expect(url).toBe(`/__dev/media/${key(ID_A)}`);
   });
 
+  it('T1168 (008, REQ-UX8-002, SC-008-037): con attachment la ruta de desarrollo lleva response-content-disposition con el nombre fijo; inline no cambia la URL', async () => {
+    const port = new MemoryMediaStorageAdapter({ now: () => NOW });
+    const attachment = await port.createReadUrl({ key: key(ID_A), contentType: 'image/png', filename: 'argos-hogar-2026-11-05.png', ttlSeconds: 300, disposition: 'attachment' });
+    const inline = await port.createReadUrl({ key: key(ID_A), contentType: 'application/pdf', filename: 'archivo.pdf', ttlSeconds: 300, disposition: 'inline' });
+    const parsed = new URL(attachment.url, 'http://localhost');
+    expect([parsed.pathname, parsed.searchParams.get('response-content-disposition'), inline.url]).toEqual([
+      `/__dev/media/${key(ID_A)}`, 'attachment; filename="argos-hogar-2026-11-05.png"', `/__dev/media/${key(ID_A)}`,
+    ]);
+  });
+
   it('el estado guardado es una copia: mutar el arreglo original no altera el objeto', async () => {
     const port = new MemoryMediaStorageAdapter({ now: () => NOW });
     const source = Uint8Array.from([1, 2, 3]);
@@ -210,6 +238,16 @@ describe('adaptador GCS (T572)', () => {
     expect(parsed.searchParams.get('response-content-disposition')).toBe('inline; filename="foto.webp"');
     expect(parsed.searchParams.get('X-Goog-Signature')).toBe(Buffer.from('firma-de-prueba').toString('hex'));
     expect(expiresAt).toBe('2099-11-17T12:05:00.000Z');
+  });
+
+  it('T1168 (008, REQ-UX8-002, SC-008-037, 006 3.5.0): con attachment la URL V4 firma response-content-disposition attachment con argos-hogar-AAAA-MM-DD.png; sin él sigue inline', async () => {
+    const attachment = await gcs().createReadUrl({ key: key(ID_A, 'photos'), contentType: 'image/png', filename: 'argos-hogar-2026-11-05.png', ttlSeconds: 300, disposition: 'attachment' });
+    const inline = await gcs().createReadUrl({ key: key(ID_A, 'photos'), contentType: 'image/png', filename: 'foto.png', ttlSeconds: 300 });
+    const a = new URL(attachment.url).searchParams;
+    expect([a.get('response-content-disposition'), a.get('response-content-type'), a.get('X-Goog-Expires'), a.get('X-Goog-SignedHeaders')]).toEqual([
+      'attachment; filename="argos-hogar-2026-11-05.png"', 'image/png', '300', 'host',
+    ]);
+    expect(new URL(inline.url).searchParams.get('response-content-disposition')).toBe('inline; filename="foto.png"');
   });
 
   it('el TTL máximo (900) y el mínimo (30) llegan a X-Goog-Expires', async () => {

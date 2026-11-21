@@ -7,7 +7,7 @@
  */
 
 import type { MediaListEntry, MediaObject, MediaReadUrl, MediaReadUrlRequest, MediaStoragePort } from '../../application/ports/media-storage.port.ts';
-import { assertListPrefix, assertMediaKey, assertNeutralFilename, assertTtlSeconds } from './media-storage-guards.ts';
+import { assertListPrefix, assertMediaKey, assertNeutralFilename, assertTtlSeconds, contentDispositionOf } from './media-storage-guards.ts';
 
 export const DEV_MEDIA_PATH = '/__dev/media/';
 
@@ -53,7 +53,9 @@ export class MemoryMediaStorageAdapter implements MediaStoragePort {
   async createReadUrl(request: MediaReadUrlRequest): Promise<MediaReadUrl> {
     assertMediaKey(request.key);
     assertTtlSeconds(request.ttlSeconds, request.allowShortTtl === true);
-    assertNeutralFilename(request.filename);
-    return { url: `${DEV_MEDIA_PATH}${request.key}`, expiresAt: new Date(this.now().getTime() + request.ttlSeconds * 1000).toISOString() };
+    assertNeutralFilename(request.filename, request.disposition);
+    // Con `attachment` (REQ-UX8-002) la ruta de desarrollo recibe el mismo `response-content-disposition` que firmaría GCS; sin él la URL no cambia.
+    const query = request.disposition === 'attachment' ? `?response-content-disposition=${encodeURIComponent(contentDispositionOf(request))}` : '';
+    return { url: `${DEV_MEDIA_PATH}${request.key}${query}`, expiresAt: new Date(this.now().getTime() + request.ttlSeconds * 1000).toISOString() };
   }
 }

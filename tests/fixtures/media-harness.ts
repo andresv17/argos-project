@@ -70,6 +70,10 @@ export class ControlledStorage implements MediaStoragePort {
   failing = new Set<string>();
   /** Se ejecuta antes de cada `put` (puede esperar o provocar cambios concurrentes). */
   beforePut: ((key: string) => Promise<void>) | null = null;
+  /** Solicitudes de `createReadUrl` recibidas (para comprobar disposición y nombre). */
+  readonly readUrlRequests: MediaReadUrlRequest[] = [];
+  /** Con `true` el doble se comporta como un driver SIN URL firmada (la ruta relativa `/__dev/media/…` del adaptador de memoria). */
+  unsigned = false;
 
   constructor(now: () => Date) {
     this.inner = new MemoryMediaStorageAdapter({ now });
@@ -101,8 +105,11 @@ export class ControlledStorage implements MediaStoragePort {
     this.check('createReadUrl', request.key);
     // El adaptador de memoria devuelve una ruta relativa de desarrollo (`/__dev/media/…`); el contrato exige una URL https (MediaAccess.url). El doble
     // conserva las validaciones del adaptador y entrega una URL con la forma de la de GCS (host virtual del bucket).
-    const { expiresAt } = await this.inner.createReadUrl(request);
-    return { url: `https://argos-media-test.storage.googleapis.com/${request.key}?X-Goog-Expires=${request.ttlSeconds}`, expiresAt };
+    this.readUrlRequests.push(request);
+    const inner = await this.inner.createReadUrl(request);
+    if (this.unsigned) return inner;
+    const disposition = request.disposition === 'attachment' ? `&response-content-disposition=${encodeURIComponent(`attachment; filename="${request.filename}"`)}` : '';
+    return { url: `https://argos-media-test.storage.googleapis.com/${request.key}?X-Goog-Expires=${request.ttlSeconds}${disposition}`, expiresAt: inner.expiresAt };
   }
   /** Claves vivas del prefijo (sin pasar por la caída simulada). */
   async keys(prefix = 'pets/'): Promise<string[]> {

@@ -45,6 +45,16 @@ describe('GET /__dev/media/<clave> (T571)', () => {
     await app.close();
   });
 
+  it('T1168 (008, REQ-UX8-002): una imagen con response-content-disposition del nombre fijo se sirve como attachment; cualquier otro valor se ignora', async () => {
+    const { app, cookie, storage } = await setup('test');
+    await storage.put(KEY('photos'), Uint8Array.from([1, 2, 3]), 'image/png');
+    const fixed = 'attachment; filename="argos-hogar-2026-11-05.png"';
+    const ok = await app.inject({ method: 'GET', url: `/__dev/media/${KEY('photos')}?response-content-disposition=${encodeURIComponent(fixed)}`, headers: { cookie } });
+    const other = await app.inject({ method: 'GET', url: `/__dev/media/${KEY('photos')}?response-content-disposition=${encodeURIComponent('attachment; filename="Luna.png"')}`, headers: { cookie } });
+    expect([ok.statusCode, ok.headers['content-disposition'], other.statusCode, other.headers['content-disposition']]).toEqual([200, fixed, 200, undefined]);
+    await app.close();
+  });
+
   it('un PDF se sirve como attachment', async () => {
     const { app, cookie, storage } = await setup('test');
     await storage.put(KEY('files'), Uint8Array.from([0x25, 0x50]), 'application/pdf');

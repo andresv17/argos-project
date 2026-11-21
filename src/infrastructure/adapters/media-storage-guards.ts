@@ -10,6 +10,8 @@ import { isMediaObjectKey } from '../../domain/media/index.ts';
 export const MIN_SIGNED_URL_TTL_SECONDS = 30;
 export const MAX_SIGNED_URL_TTL_SECONDS = 900;
 const NEUTRAL_FILENAME = /^[A-Za-z0-9]{1,16}\.[a-z0-9]{1,8}$/;
+/** Nombre fijo de la descarga de la escena (REQ-UX8-002, 006 3.5.0): sin nombre de mascota ni de hogar. */
+const DOWNLOAD_FILENAME = /^argos-hogar-\d{4}-\d{2}-\d{2}\.png$/;
 
 export function assertMediaKey(key: string): void {
   if (!isMediaObjectKey(key)) throw new RangeError('Clave de medio no válida.');
@@ -26,8 +28,14 @@ export function assertTtlSeconds(ttlSeconds: number, allowShortTtl = false): voi
 }
 
 /** Nombre neutro `foto.jpg`, `archivo.pdf`: letras, dígitos y una extensión; nunca el nombre original (D-14 A). */
-export function assertNeutralFilename(filename: string): void {
-  if (!NEUTRAL_FILENAME.test(filename)) throw new RangeError('Nombre de URL firmada no neutro.');
+export function assertNeutralFilename(filename: string, disposition: 'inline' | 'attachment' = 'inline'): void {
+  const pattern = disposition === 'attachment' ? DOWNLOAD_FILENAME : NEUTRAL_FILENAME;
+  if (!pattern.test(filename)) throw new RangeError('Nombre de URL firmada no neutro.');
+}
+
+/** Valor de `response-content-disposition` de la solicitud (`inline` por omisión). */
+export function contentDispositionOf(request: { readonly filename: string; readonly disposition?: 'inline' | 'attachment' }): string {
+  return `${request.disposition === 'attachment' ? 'attachment' : 'inline'}; filename="${request.filename}"`;
 }
 
 /** Prefijo de listado: vacío no se admite; solo `pets/`, `scenes/` y `households/` con sus UUID y la carpeta fija de cada uno (INV-ARC-003). */
