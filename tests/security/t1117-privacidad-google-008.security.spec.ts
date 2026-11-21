@@ -82,7 +82,7 @@ describe('[NFR-008-004][REQ-SSO8-005] el fallo del flujo con Google no filtra da
       await r.users.insert({ id: 'a0000000-0000-4000-8000-000000000001', username: 'ana', displayName: 'Ana', email: EMAIL, emailVerifiedAt: '2026-11-21T10:00:00.000Z', ...base });
       await r.authIdentities.insertIfAbsent({ provider: 'GOOGLE', providerSubject: SUB, userId: 'a0000000-0000-4000-8000-000000000001', createdAt: base.createdAt });
       await r.oauthFlows.insert({
-        tokenHash: hashOneTimeToken(STATE), phase: 'AUTHORIZATION', intent: 'LOGIN', state: STATE, nonce: NONCE, codeVerifier: VERIFIER, userId: null,
+        tokenHash: hashOneTimeToken(STATE), phase: 'AUTHORIZATION', intent: 'LOGIN', state: STATE, nonce: NONCE, codeVerifier: VERIFIER, userId: null, originSessionHash: null,
         pendingSubject: null, pendingEmail: null, createdAt: base.createdAt, expiresAt: '2026-11-21T10:15:00.000Z', consumedAt: null,
       });
     });
@@ -97,7 +97,7 @@ describe('[NFR-008-004][REQ-SSO8-005] el fallo del flujo con Google no filtra da
     await attempt((r) => r.users.insert({ id: 'a0000000-0000-4000-8000-000000000002', username: 'bea', displayName: 'Bea', email: EMAIL.toUpperCase(), emailVerifiedAt: base.createdAt, ...base }));
     await attempt((r) =>
       r.oauthFlows.insert({
-        tokenHash: hashOneTimeToken(STATE), phase: 'AUTHORIZATION', intent: 'LOGIN', state: STATE, nonce: NONCE, codeVerifier: VERIFIER, userId: null,
+        tokenHash: hashOneTimeToken(STATE), phase: 'AUTHORIZATION', intent: 'LOGIN', state: STATE, nonce: NONCE, codeVerifier: VERIFIER, userId: null, originSessionHash: null,
         pendingSubject: null, pendingEmail: null, createdAt: base.createdAt, expiresAt: '2026-11-21T10:15:00.000Z', consumedAt: null,
       }),
     );

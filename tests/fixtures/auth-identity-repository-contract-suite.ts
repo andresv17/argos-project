@@ -17,10 +17,12 @@ const OTRO = account({ id: 'a0000000-0000-4000-8000-0000000000f3', username: 'ot
 const NOW = '2026-11-21T12:00:00.000Z';
 const LATER = '2026-11-21T12:15:00.000Z';
 const identity = (sub: string, userId: string): AuthIdentityRecord => ({ provider: 'GOOGLE', providerSubject: sub, userId, createdAt: NOW });
+/** SHA-256 hex de 64 caracteres (la forma de `sessions.token_hash`). */
+const ORIGIN_HASH = hashOneTimeToken('sesion-de-origen');
 const hash = (n: string) => hashOneTimeToken(n.repeat(43));
 const authorization = (n: string, over: Partial<OAuthFlowStateRecord> = {}): OAuthFlowStateRecord => ({
   tokenHash: hash(n), phase: 'AUTHORIZATION', intent: 'LOGIN', state: `state-${n}`, nonce: `nonce-${n}`, codeVerifier: `verifier-${n}`, userId: null,
-  pendingSubject: null, pendingEmail: null, createdAt: NOW, expiresAt: LATER, consumedAt: null, ...over,
+  originSessionHash: null, pendingSubject: null, pendingEmail: null, createdAt: NOW, expiresAt: LATER, consumedAt: null, ...over,
 });
 
 async function rejects(promise: Promise<unknown>): Promise<boolean> {
@@ -74,7 +76,7 @@ export function defineAuthIdentityRepositoryContractSuite(adapterName: string, c
       const uow = await prepare();
       const before = await uow.runInTransaction(async (r) => {
         await r.authIdentities.insertIfAbsent(identity('sub-1', ANDRES.id));
-        await r.oauthFlows.insert(authorization('a', { intent: 'LINK', userId: ANDRES.id }));
+        await r.oauthFlows.insert(authorization('a', { intent: 'LINK', userId: ANDRES.id, originSessionHash: ORIGIN_HASH }));
         await r.oauthFlows.insert(authorization('b'));
         return r.users.countReferences(ANDRES.id);
       });
@@ -93,7 +95,7 @@ export function defineAuthIdentityRepositoryContractSuite(adapterName: string, c
     it('[REQ-SSO8-004] el estado del flujo se guarda y se lee tal cual en las dos fases (AUTHORIZATION con PKCE, USERNAME con la identidad pendiente)', async () => {
       const uow = await prepare();
       const username = authorization('u', { phase: 'USERNAME', state: null, nonce: null, codeVerifier: null, pendingSubject: 'sub-9', pendingEmail: 'nuevo@example.test' });
-      const link = authorization('l', { intent: 'LINK', userId: MARIA.id });
+      const link = authorization('l', { intent: 'LINK', userId: MARIA.id, originSessionHash: ORIGIN_HASH });
       const found = await uow.runInTransaction(async (r) => {
         await r.oauthFlows.insert(authorization('a'));
         await r.oauthFlows.insert(username);
@@ -109,6 +111,10 @@ export function defineAuthIdentityRepositoryContractSuite(adapterName: string, c
       expect(await rejects(uow.runInTransaction((r) => r.oauthFlows.insert(authorization('a', { state: 'otro' }))))).toBe(true);
       expect(await rejects(uow.runInTransaction((r) => r.oauthFlows.insert(authorization('b', { state: null }))))).toBe(true);
       expect(await rejects(uow.runInTransaction((r) => r.oauthFlows.insert(authorization('c', { intent: 'LINK' }))))).toBe(true);
+      // [REQ-VIN8-004] [INV-VIN8-005] LINK sin hash de la sesión de origen, hash en LOGIN o hash de longitud distinta de 64: la BD (y la memoria) los rechazan.
+      expect(await rejects(uow.runInTransaction((r) => r.oauthFlows.insert(authorization('d', { intent: 'LINK', userId: ANDRES.id }))))).toBe(true);
+      expect(await rejects(uow.runInTransaction((r) => r.oauthFlows.insert(authorization('e', { originSessionHash: ORIGIN_HASH }))))).toBe(true);
+      expect(await rejects(uow.runInTransaction((r) => r.oauthFlows.insert(authorization('f', { intent: 'LINK', userId: ANDRES.id, originSessionHash: 'corto' }))))).toBe(true);
     });
 
     it('[REQ-SSO8-004, SC-008-005] consume es un compare-and-set: el primero gana, el segundo (state reutilizado) recibe null y la fila queda marcada', async () => {

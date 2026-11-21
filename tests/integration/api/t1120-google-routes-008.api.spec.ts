@@ -249,18 +249,37 @@ describe('T1120 POST /api/auth/google/link (REQ-VIN8-002)', () => {
     expect(cookieNamed(limited, 'argos_oauth')).toBeUndefined();
   });
 
-  it('flujo completo de vinculación: el callback vincula, revoca las demás sesiones y /me muestra authMethods {password, google}', async () => {
+  it('[REQ-VIN8-004] [INV-VIN8-005] flujo completo de vinculación: el callback vincula, conserva la sesión de origen, revoca las demás, NO emite Set-Cookie argos_session y /me muestra authMethods {password, google}', async () => {
     const { api } = await boot();
     const session = await api.login('andres');
     const other = await api.login('andres');
     const ok = await api.call('POST', '/api/auth/google/link', { cookie: session, body: { currentPassword: PASSWORDS['andres']! } });
     const oauth = `argos_oauth=${valueOf(cookieNamed(ok, 'argos_oauth'))}`;
     const st = new URL((ok.json as { authorizationUrl: string }).authorizationUrl).searchParams.get('state')!;
+    expect(cookieNamed(ok, 'argos_session')).toBeUndefined();
     const done = await callback(api, oauth, `code=${GOOGLE_CODE}&state=${st}`);
     expect(done.status).toBe(200);
+    expect(cookieNamed(done, 'argos_session')).toBeUndefined();
+    expect(cookieNamed(done, 'argos_oauth')).toContain('argos_oauth=;');
     expect((await api.call('GET', '/api/auth/me', { cookie: other })).status).toBe(401);
-    const fresh = `argos_session=${valueOf(cookieNamed(done, 'argos_session'))}`;
-    const me = await api.call('GET', '/api/auth/me', { cookie: fresh });
+    const me = await api.call('GET', '/api/auth/me', { cookie: session });
+    expect(me.status).toBe(200);
     expect((me.json as { user: { authMethods: unknown } }).user.authMethods).toEqual({ password: true, google: true });
+  });
+
+  it('[REQ-VIN8-004] [INV-VIN8-005] si la sesión de origen se cerró durante el flujo, el callback LINK responde el 400 uniforme, sin vincular ni emitir cookie de sesión', async () => {
+    const { api } = await boot();
+    const session = await api.login('andres');
+    const ok = await api.call('POST', '/api/auth/google/link', { cookie: session, body: { currentPassword: PASSWORDS['andres']! } });
+    const oauth = `argos_oauth=${valueOf(cookieNamed(ok, 'argos_oauth'))}`;
+    const st = new URL((ok.json as { authorizationUrl: string }).authorizationUrl).searchParams.get('state')!;
+    expect((await api.call('POST', '/api/auth/logout', { cookie: session })).status).toBe(204);
+    const done = await callback(api, oauth, `code=${GOOGLE_CODE}&state=${st}`);
+    expect(done.status).toBe(400);
+    expect((done.json as { code: string }).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect(cookieNamed(done, 'argos_session')).toBeUndefined();
+    const again = await api.login('andres');
+    const me = await api.call('GET', '/api/auth/me', { cookie: again });
+    expect((me.json as { user: { authMethods: unknown } }).user.authMethods).toEqual({ password: true, google: false });
   });
 });

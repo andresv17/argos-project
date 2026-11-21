@@ -80,7 +80,7 @@ describe('[T1116][EDGE-008-036] migración 0017 con filas previas', () => {
     upgrade(migrationsDir);
     db.prepare("INSERT INTO auth_identities VALUES ('GOOGLE', 'sub-1', 'u1', '2026-11-21T10:00:00.000Z')").run();
     const flow = db.prepare(
-      "INSERT INTO oauth_flow_states (token_hash, phase, intent, state, nonce, code_verifier, user_id, created_at, expires_at) VALUES (?, 'AUTHORIZATION', 'LINK', 's', 'n', 'v', 'u1', '2026-11-21T10:00:00.000Z', '2026-11-21T10:15:00.000Z')",
+      `INSERT INTO oauth_flow_states (token_hash, phase, intent, state, nonce, code_verifier, user_id, origin_session_hash, created_at, expires_at) VALUES (?, 'AUTHORIZATION', 'LINK', 's', 'n', 'v', 'u1', '${'c'.repeat(64)}', '2026-11-21T10:00:00.000Z', '2026-11-21T10:15:00.000Z')`,
     );
     flow.run('a'.repeat(64));
     db.prepare('DELETE FROM users WHERE id = ?').run('u1');
@@ -92,21 +92,39 @@ describe('[T1116][EDGE-008-036] migración 0017 con filas previas', () => {
     const { db, migrationsDir } = legacyDatabase();
     upgrade(migrationsDir);
     const insert = db.prepare(
-      'INSERT INTO oauth_flow_states (token_hash, phase, intent, state, nonce, code_verifier, user_id, pending_subject, pending_email, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO oauth_flow_states (token_hash, phase, intent, state, nonce, code_verifier, user_id, origin_session_hash, pending_subject, pending_email, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
     const created = '2026-11-21T10:00:00.000Z';
     const expires = '2026-11-21T10:15:00.000Z';
     const h = (c: string) => c.repeat(64);
-    insert.run(h('a'), 'AUTHORIZATION', 'LOGIN', 's', 'n', 'v', null, null, null, created, expires);
-    insert.run(h('b'), 'AUTHORIZATION', 'LINK', 's', 'n', 'v', 'u1', null, null, created, expires);
-    insert.run(h('c'), 'USERNAME', 'LOGIN', null, null, null, null, 'sub-9', 'x@example.test', created, expires);
-    expect(() => insert.run('corto', 'AUTHORIZATION', 'LOGIN', 's', 'n', 'v', null, null, null, created, expires)).toThrow(/CHECK/);
-    expect(() => insert.run(h('d'), 'AUTHORIZATION', 'LOGIN', null, 'n', 'v', null, null, null, created, expires)).toThrow(/CHECK/);
-    expect(() => insert.run(h('e'), 'AUTHORIZATION', 'LINK', 's', 'n', 'v', null, null, null, created, expires)).toThrow(/CHECK/);
-    expect(() => insert.run(h('f'), 'AUTHORIZATION', 'LOGIN', 's', 'n', 'v', 'u1', null, null, created, expires)).toThrow(/CHECK/);
-    expect(() => insert.run(h('g'), 'USERNAME', 'LOGIN', null, null, null, null, null, null, created, expires)).toThrow(/CHECK/);
-    expect(() => insert.run(h('h'), 'USERNAME', 'LINK', null, null, null, 'u1', 'sub-9', 'x@example.test', created, expires)).toThrow(/CHECK/);
-    expect(() => insert.run(h('i'), 'AUTHORIZATION', 'LOGIN', 's', 'n', 'v', null, null, null, expires, created)).toThrow(/CHECK/);
-    expect(() => insert.run(h('j'), 'DONE', 'LOGIN', 's', 'n', 'v', null, null, null, created, expires)).toThrow(/CHECK/);
+    const ORIGIN = h('9');
+    insert.run(h('a'), 'AUTHORIZATION', 'LOGIN', 's', 'n', 'v', null, null, null, null, created, expires);
+    insert.run(h('b'), 'AUTHORIZATION', 'LINK', 's', 'n', 'v', 'u1', ORIGIN, null, null, created, expires);
+    insert.run(h('c'), 'USERNAME', 'LOGIN', null, null, null, null, null, 'sub-9', 'x@example.test', created, expires);
+    expect(() => insert.run('corto', 'AUTHORIZATION', 'LOGIN', 's', 'n', 'v', null, null, null, null, created, expires)).toThrow(/CHECK/);
+    expect(() => insert.run(h('d'), 'AUTHORIZATION', 'LOGIN', null, 'n', 'v', null, null, null, null, created, expires)).toThrow(/CHECK/);
+    expect(() => insert.run(h('e'), 'AUTHORIZATION', 'LINK', 's', 'n', 'v', null, ORIGIN, null, null, created, expires)).toThrow(/CHECK/);
+    expect(() => insert.run(h('f'), 'AUTHORIZATION', 'LOGIN', 's', 'n', 'v', 'u1', null, null, null, created, expires)).toThrow(/CHECK/);
+    expect(() => insert.run(h('g'), 'USERNAME', 'LOGIN', null, null, null, null, null, null, null, created, expires)).toThrow(/CHECK/);
+    expect(() => insert.run(h('h'), 'USERNAME', 'LINK', null, null, null, 'u1', ORIGIN, 'sub-9', 'x@example.test', created, expires)).toThrow(/CHECK/);
+    expect(() => insert.run(h('i'), 'AUTHORIZATION', 'LOGIN', 's', 'n', 'v', null, null, null, null, expires, created)).toThrow(/CHECK/);
+    expect(() => insert.run(h('j'), 'DONE', 'LOGIN', 's', 'n', 'v', null, null, null, null, created, expires)).toThrow(/CHECK/);
+  });
+
+  it('[REQ-VIN8-004] [INV-VIN8-005] origin_session_hash: LINK sin hash, hash en LOGIN y hash de longitud distinta de 64 los rechaza la base de datos', () => {
+    const { db, migrationsDir } = legacyDatabase();
+    upgrade(migrationsDir);
+    const insert = db.prepare(
+      'INSERT INTO oauth_flow_states (token_hash, phase, intent, state, nonce, code_verifier, user_id, origin_session_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+    const created = '2026-11-21T10:00:00.000Z';
+    const expires = '2026-11-21T10:15:00.000Z';
+    expect(() => insert.run('1'.repeat(64), 'AUTHORIZATION', 'LINK', 's', 'n', 'v', 'u1', null, created, expires)).toThrow(/CHECK/);
+    expect(() => insert.run('2'.repeat(64), 'AUTHORIZATION', 'LOGIN', 's', 'n', 'v', null, '3'.repeat(64), created, expires)).toThrow(/CHECK/);
+    expect(() => insert.run('4'.repeat(64), 'AUTHORIZATION', 'LINK', 's', 'n', 'v', 'u1', 'corto', created, expires)).toThrow(/CHECK/);
+    expect(() => insert.run('5'.repeat(64), 'AUTHORIZATION', 'LINK', 's', 'n', 'v', 'u1', '6'.repeat(65), created, expires)).toThrow(/CHECK/);
+    insert.run('7'.repeat(64), 'AUTHORIZATION', 'LINK', 's', 'n', 'v', 'u1', '8'.repeat(64), created, expires);
+    // Sin clave foránea: la sesión de origen puede desaparecer sin arrastrar el estado.
+    expect(db.prepare("SELECT count(*) AS n FROM pragma_foreign_key_list('oauth_flow_states') WHERE \"from\" = 'origin_session_hash'").get()).toEqual({ n: 0 });
   });
 });

@@ -9,6 +9,7 @@ import {
 import { LoginUseCase } from '../../src/application/use-cases/auth-use-cases.ts';
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
 import { hashOneTimeToken } from '../../src/domain/auth/one-time-token.ts';
+import { sessionTokenHash } from '../../src/infrastructure/persistence/sqlite/sqlite-repositories.ts';
 import { NO_PASSWORD_SENTINEL } from '../../src/domain/auth/password-sentinel.ts';
 import { GoogleOidcError } from '../../src/infrastructure/http/google-oidc-verify.ts';
 import { GOOGLE_CODE, GOOGLE_EMAIL, GOOGLE_SUB, SequentialEntropy, fakeGoogleOidc, type FakeGoogleOidc } from '../fixtures/google-fixtures.ts';
@@ -44,6 +45,7 @@ function world(): World {
   return { h, deps, oidc, start: new StartGoogleLoginUseCase(deps), complete: new CompleteGoogleLoginUseCase(deps), choose: new ChooseGoogleUsernameUseCase(deps), link: new StartGoogleLinkUseCase(deps) };
 }
 
+const ORIGIN = 'token-sesion-origen';
 const flowOf = (w: World, token: string): Promise<OAuthFlowStateRecord | null> => w.h.uow.runInTransaction((r) => r.oauthFlows.findByTokenHash(hashOneTimeToken(token)));
 const stateOf = (authorizationUrl: string): string => new URL(authorizationUrl).searchParams.get('state')!;
 const countUsers = async (w: World): Promise<number> => (w.h.uow as unknown as { state: { users: unknown[] } }).state.users.length;
@@ -311,26 +313,26 @@ describe('T1120 vincular Google desde sesión activa (REQ-VIN8-002; ADR-008-14 (
 
   it('exige la contraseña actual: con una incorrecta responde ERR-AUTH-INVALID-CREDENTIALS, cuenta el intento y no guarda estado', async () => {
     w.h.hasher.reset();
-    expect((await failure(w.link.execute(ANDRES, { currentPassword: 'MalaClave99' }))).code).toBe('ERR-AUTH-INVALID-CREDENTIALS');
+    expect((await failure(w.link.execute(ANDRES, ORIGIN, { currentPassword: 'MalaClave99' }))).code).toBe('ERR-AUTH-INVALID-CREDENTIALS');
     expect(w.h.hasher.calls.filter((c) => c.method === 'verify')).toHaveLength(1);
     const failures = await w.h.uow.runInTransaction((r) => r.loginAttempts.listFailures('andres'));
     expect(failures).toHaveLength(1);
   });
 
   it('con la contraseña correcta devuelve la URL de Google y guarda la intención LINK con el id de usuario', async () => {
-    const started = await w.link.execute(ANDRES, { currentPassword: PASSWORDS['andres']! });
+    const started = await w.link.execute(ANDRES, ORIGIN, { currentPassword: PASSWORDS['andres']! });
     expect(started.authorizationUrl.startsWith('https://accounts.google.com/')).toBe(true);
     expect(await flowOf(w, started.oauthToken)).toMatchObject({ phase: 'AUTHORIZATION', intent: 'LINK', userId: ANDRES });
   });
 
   it('el cuerpo es cerrado y exige currentPassword', async () => {
-    expect((await failure(w.link.execute(ANDRES, { currentPassword: PASSWORDS['andres']!, extra: 1 }))).code).toBe('ERR-SCHEMA-VALIDATION-FAILED');
-    expect((await failure(w.link.execute(ANDRES, {}))).code).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+    expect((await failure(w.link.execute(ANDRES, ORIGIN, { currentPassword: PASSWORDS['andres']!, extra: 1 }))).code).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+    expect((await failure(w.link.execute(ANDRES, ORIGIN, {}))).code).toBe('ERR-SCHEMA-VALIDATION-FAILED');
   });
 
   it('ADR-008-14 (c): una cuenta sin contraseña (centinela) no tiene este flujo: se rechaza sin guardar estado', async () => {
     const googleUser = await bornWithGoogle(w);
-    const error = await failure(w.link.execute(googleUser, { currentPassword: NO_PASSWORD_SENTINEL }));
+    const error = await failure(w.link.execute(googleUser, ORIGIN, { currentPassword: NO_PASSWORD_SENTINEL }));
     expect(error.code).toBe('ERR-AUTH-GOOGLE-LINK-CONFLICT');
     expect(error.status).toBe(409);
     const flows = (w.h.uow as unknown as { state: { oauthFlows: OAuthFlowStateRecord[] } }).state.oauthFlows;
@@ -338,35 +340,89 @@ describe('T1120 vincular Google desde sesión activa (REQ-VIN8-002; ADR-008-14 (
   });
 
   it('una cuenta que ya tiene Google rechaza iniciar otra vinculación con ERR-AUTH-GOOGLE-LINK-CONFLICT', async () => {
-    const started = await w.link.execute(ANDRES, { currentPassword: PASSWORDS['andres']! });
+    await w.h.uow.runInTransaction((r) => r.sessions.save(ORIGIN, { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null }));
+    const started = await w.link.execute(ANDRES, ORIGIN, { currentPassword: PASSWORDS['andres']! });
     await w.complete.execute({ oauthToken: started.oauthToken, code: CODE, state: stateOf(started.authorizationUrl) });
     expect(await identitiesOf(w, ANDRES)).toHaveLength(1);
-    expect((await failure(w.link.execute(ANDRES, { currentPassword: PASSWORDS['andres']! }))).code).toBe('ERR-AUTH-GOOGLE-LINK-CONFLICT');
+    expect((await failure(w.link.execute(ANDRES, ORIGIN, { currentPassword: PASSWORDS['andres']! }))).code).toBe('ERR-AUTH-GOOGLE-LINK-CONFLICT');
   });
 
-  it('[REQ-VIN8-004] [INV-VIN8-005] callback con intención LINK: vincula el sub a ESA cuenta (el correo de Google no tiene que coincidir), revoca las demás sesiones y entrega una sesión nueva', async () => {
-    const old = await w.h.uow.runInTransaction(async (r) => {
-      await r.sessions.save('token-previa', { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null } as never);
-      return 'token-previa';
-    });
+  /** Siembra una sesión de origen (la que inició la vinculación) con las marcas de tiempo dadas. */
+  const seedSession = (token: string, userId: string, over: { createdAt?: string; lastActivityAt?: string; revokedAt?: string | null } = {}) =>
+    w.h.uow.runInTransaction((r) => r.sessions.save(token, { userId, createdAt: NOW, lastActivityAt: NOW, revokedAt: null, ...over }));
+  const sessionOf = (token: string) => w.h.uow.runInTransaction((r) => r.sessions.findByToken(token));
+  const linkCallback = async (token = ORIGIN) => {
     w.oidc.identity = { sub: 'sub-de-andres', email: 'distinto@example.test' };
-    const started = await w.link.execute(ANDRES, { currentPassword: PASSWORDS['andres']! });
-    const done = await w.complete.execute({ oauthToken: started.oauthToken, code: CODE, state: stateOf(started.authorizationUrl) });
-    expect(done.kind).toBe('LINKED');
-    if (done.kind !== 'LINKED') return;
-    expect(done.session.user.id).toBe(ANDRES);
+    const started = await w.link.execute(ANDRES, token, { currentPassword: PASSWORDS['andres']! });
+    return { started, run: () => w.complete.execute({ oauthToken: started.oauthToken, code: CODE, state: stateOf(started.authorizationUrl) }) };
+  };
+
+  it('[REQ-VIN8-004] [INV-VIN8-005] startGoogleLink guarda en el estado LINK el hash de la sesión de origen (el mismo SHA-256 de sessions.token_hash), nunca el token', async () => {
+    await seedSession(ORIGIN, ANDRES);
+    const started = await w.link.execute(ANDRES, ORIGIN, { currentPassword: PASSWORDS['andres']! });
+    const row = await flowOf(w, started.oauthToken);
+    expect(row).toMatchObject({ intent: 'LINK', userId: ANDRES, originSessionHash: sessionTokenHash(ORIGIN) });
+    expect(JSON.stringify(row)).not.toContain(ORIGIN);
+  });
+
+  it('[REQ-VIN8-004] [INV-VIN8-005] callback LINK: vincula el sub a ESA cuenta, conserva la sesión de origen SIN renovarla, revoca las demás y NO entrega sesión ni token', async () => {
+    await seedSession(ORIGIN, ANDRES);
+    await seedSession('token-otra-sesion', ANDRES);
+    await seedSession('token-de-maria', MARIA);
+    const { run } = await linkCallback();
+    const done = await run();
+    expect(done).toEqual({ kind: 'LINKED' });
     expect(await identitiesOf(w, ANDRES)).toEqual([{ provider: 'GOOGLE', providerSubject: 'sub-de-andres', userId: ANDRES, createdAt: NOW }]);
-    const previous = await w.h.uow.runInTransaction((r) => r.sessions.findByToken(old));
-    expect(previous!.revokedAt).toBe(NOW);
-    const fresh = await w.h.uow.runInTransaction((r) => r.sessions.findByToken(done.sessionToken));
-    expect(fresh!.revokedAt ?? null).toBeNull();
-    // INV-VIN8-005: ningún usuario nuevo ni otra cuenta tocada.
+    expect(await sessionOf(ORIGIN)).toEqual({ userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null });
+    expect((await sessionOf('token-otra-sesion'))!.revokedAt).toBe(NOW);
+    expect((await sessionOf('token-de-maria'))!.revokedAt).toBeNull();
+    expect(await identitiesOf(w, MARIA)).toEqual([]);
+  });
+
+  it('[REQ-VIN8-004] [INV-VIN8-005] callback LINK con la sesión de origen revocada durante el flujo: 400 uniforme y no vincula', async () => {
+    await seedSession(ORIGIN, ANDRES);
+    const { run } = await linkCallback();
+    await seedSession(ORIGIN, ANDRES, { revokedAt: NOW });
+    expect((await failure(run())).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect(await identitiesOf(w, ANDRES)).toEqual([]);
+  });
+
+  it('[REQ-VIN8-004] [INV-VIN8-005] callback LINK con la sesión de origen inexistente: 400 uniforme y no vincula', async () => {
+    const { run } = await linkCallback('token-que-nunca-existio');
+    expect((await failure(run())).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect(await identitiesOf(w, ANDRES)).toEqual([]);
+  });
+
+  it('[REQ-VIN8-004] [INV-VIN8-005] callback LINK con la sesión de origen vencida por inactividad (30 min) estando el estado vigente: 400 y no vincula', async () => {
+    w.h.clock.setClock('2026-11-05', '2026-11-05T11:40:00.000Z');
+    await seedSession(ORIGIN, ANDRES, { createdAt: '2026-11-05T11:40:00.000Z', lastActivityAt: '2026-11-05T11:40:00.000Z' });
+    w.h.clock.setClock('2026-11-05', NOW);
+    const { run } = await linkCallback();
+    w.h.clock.setClock('2026-11-05', '2026-11-05T12:11:00.000Z'); // estado vigente hasta 12:15; sesión vencida desde 12:10
+    expect((await failure(run())).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect(await identitiesOf(w, ANDRES)).toEqual([]);
+  });
+
+  it('[REQ-VIN8-004] [INV-VIN8-005] callback LINK con la sesión de origen vencida por el tope de 24 h estando activa: 400 y no vincula', async () => {
+    await seedSession(ORIGIN, ANDRES, { createdAt: '2026-11-04T12:05:00.000Z', lastActivityAt: NOW });
+    const { run } = await linkCallback();
+    w.h.clock.setClock('2026-11-05', '2026-11-05T12:06:00.000Z');
+    expect((await failure(run())).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect(await identitiesOf(w, ANDRES)).toEqual([]);
+  });
+
+  it('[REQ-VIN8-004] [INV-VIN8-005] callback LINK con la sesión de origen de OTRO usuario: 400 y no vincula', async () => {
+    await seedSession(ORIGIN, MARIA);
+    const { run } = await linkCallback();
+    expect((await failure(run())).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect(await identitiesOf(w, ANDRES)).toEqual([]);
     expect(await identitiesOf(w, MARIA)).toEqual([]);
   });
 
   it('[INV-VIN8-005] callback LINK cuyo sub ya pertenece a otra cuenta falla uniforme y no añade identidades', async () => {
     await bornWithGoogle(w);
-    const started = await w.link.execute(ANDRES, { currentPassword: PASSWORDS['andres']! });
+    await w.h.uow.runInTransaction((r) => r.sessions.save(ORIGIN, { userId: ANDRES, createdAt: NOW, lastActivityAt: NOW, revokedAt: null }));
+    const started = await w.link.execute(ANDRES, ORIGIN, { currentPassword: PASSWORDS['andres']! });
     expect((await failure(w.complete.execute({ oauthToken: started.oauthToken, code: CODE, state: stateOf(started.authorizationUrl) }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
     expect(await identitiesOf(w, ANDRES)).toEqual([]);
   });

@@ -312,6 +312,10 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
       expect(flow.checks).toContain("phase IN ('AUTHORIZATION','USERNAME')");
       expect(flow.checks).toContain("intent IN ('LOGIN','LINK')");
       expect(flow.checks).toContain('length(token_hash) = 64');
+      // [REQ-VIN8-004] [INV-VIN8-005] el hash de la sesión de origen: anulable, sin clave foránea, 64 caracteres y obligatorio solo en LINK.
+      expect(flow.columns.get('origin_session_hash'), 'origin_session_hash').toMatchObject({ type: 'TEXT', notNull: false, default: null, references: null });
+      expect(flow.checks).toContain('origin_session_hash IS NULL OR length(origin_session_hash) = 64');
+      expect(flow.checks).toContain("(intent = 'LINK') = (origin_session_hash IS NOT NULL)");
     }
     expect(pg.tables.get('auth_identities')!.checks).toEqual(sqlite.tables.get('auth_identities')!.checks);
     expect(pg.tables.get('oauth_flow_states')!.checks).toEqual(sqlite.tables.get('oauth_flow_states')!.checks);
