@@ -23,18 +23,23 @@ interface ChooseUsernameViewProps {
   /** El flujo ya no es válido (error uniforme de Google): el aviso conduce de vuelta al acceso. */
   readonly restart: boolean;
   readonly busy: boolean;
+  /** Texto de la live region puntual (H-FOCO-1): solo se llena cuando el envío fue con el foco ya dentro del campo; vacío en el resto. */
+  readonly announcement?: string;
   readonly onChange: (name: string, value: string) => void;
   readonly onSubmit: (event: FormEvent) => void;
 }
 
 /** Presentación pura de la pantalla (render estático en las pruebas). */
-export function ChooseUsernameView({ values, errors, message, restart, busy, onChange, onSubmit, titleRef }: ChooseUsernameViewProps & { readonly titleRef?: React.Ref<HTMLHeadingElement> }): JSX.Element {
+export function ChooseUsernameView({ values, errors, message, restart, busy, announcement = '', onChange, onSubmit, titleRef }: ChooseUsernameViewProps & { readonly titleRef?: React.Ref<HTMLHeadingElement> }): JSX.Element {
   return (
     <AuthLayout title="Elige tu usuario" titleId="choose-username-title" {...(titleRef === undefined ? {} : { titleRef })}>
       <p className="mb-3 text-sm text-slate-800">Es el nombre con el que te encontrarán en ARGOS. Podrás cambiar tu nombre visible más adelante.</p>
       <form noValidate aria-labelledby="choose-username-title" onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <TextField id="choose-username" label="Usuario (letras, números, . _ -)" name="username" autoComplete="username" required value={values['username'] ?? ''} onChange={onChange} errors={errors} />
         <FormError message={message} />
+        <p id="choose-username-announce" aria-live="assertive" aria-atomic="true" className="sr-only">
+          {announcement}
+        </p>
         <Button type="submit" disabled={busy}>
           Continuar
         </Button>
@@ -65,12 +70,29 @@ export function ChooseUsernamePage(): JSX.Element {
     titleRef.current?.focus();
   }, []);
 
+  const [announcement, setAnnouncement] = useState('');
+  /** El envío ocurrió con el foco ya en el campo (Enter): `.focus()` no cambia nada y el lector no relee `aria-describedby`; solo entonces se usa la live region (evita la doble lectura). */
+  const submittedInField = useRef(false);
+  const usernameError = useRef<string | undefined>(undefined);
+  usernameError.current = errors['username'];
+
   useEffect(() => {
-    if (errorFocus > 0) document.getElementById('choose-username')?.focus();
+    if (errorFocus === 0) return;
+    const field = document.getElementById('choose-username');
+    if (!submittedInField.current) {
+      field?.focus();
+      return;
+    }
+    // Vaciar y reponer, para que el mismo texto se anuncie de nuevo al repetir el error.
+    setAnnouncement('');
+    const timer = window.setTimeout(() => setAnnouncement(usernameError.current ?? ''), 60);
+    return () => window.clearTimeout(timer);
   }, [errorFocus]);
 
   const onSubmit = (event: FormEvent): void => {
     event.preventDefault();
+    submittedInField.current = document.activeElement?.id === 'choose-username';
+    setAnnouncement('');
     const body = formValues(values, [], []);
     const clientErrors = validateInput('GoogleChooseUsernameInput', body);
     setErrors(clientErrors);
@@ -91,5 +113,5 @@ export function ChooseUsernamePage(): JSX.Element {
       .finally(() => setBusy(false));
   };
 
-  return <ChooseUsernameView values={values} errors={errors} message={message} restart={restart} busy={busy} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} onSubmit={onSubmit} titleRef={titleRef} />;
+  return <ChooseUsernameView values={values} errors={errors} message={message} restart={restart} busy={busy} announcement={announcement} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} onSubmit={onSubmit} titleRef={titleRef} />;
 }
