@@ -1,7 +1,7 @@
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { expect } from 'vitest';
 import type { PlatformParameterPort } from '../../../src/application/ports/platform-parameter.port.ts';
-import type { ApplicationDeps, MediaServices, SceneServices } from '../../../src/application/use-cases/use-case-support.ts';
+import type { ApplicationDeps, GoogleServices, MediaServices, SceneServices } from '../../../src/application/use-cases/use-case-support.ts';
 import { FixedClockAdapter } from '../../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import { buildApp } from '../../../src/infrastructure/http/app.ts';
 import type { MemoryState } from '../../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
@@ -56,7 +56,7 @@ export const username = (id: string) => USERS.find((u) => u.id === id)!.username
 
 export async function createApi(
   state: MemoryState = canonicalState(),
-  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices; readonly platformParameters?: PlatformParameterPort; readonly scene?: SceneServices } = {},
+  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices; readonly platformParameters?: PlatformParameterPort; readonly scene?: SceneServices; readonly google?: GoogleServices } = {},
 ): Promise<Api> {
   const db = openSqliteDatabase(IN_MEMORY_DATABASE);
   const uow = new SqliteUnitOfWork(db);
@@ -71,6 +71,7 @@ export async function createApi(
     ...(options.media === undefined ? {} : { media: options.media }),
     ...(options.platformParameters === undefined ? {} : { platformParameters: options.platformParameters }),
     ...(options.scene === undefined ? {} : { scene: options.scene }),
+    ...(options.google === undefined ? {} : { google: options.google }),
   };
   const app = await buildApp({ deps, cookieSecure: options.cookieSecure ?? false });
 

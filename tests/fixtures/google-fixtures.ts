@@ -1,0 +1,42 @@
+import type { GoogleOidcPort } from '../../src/application/ports/google-oidc.port.ts';
+import type { OneTimeTokenEntropyPort } from '../../src/domain/auth/one-time-token.ts';
+import { buildGoogleAuthorizationUrl, GoogleOidcError } from '../../src/infrastructure/http/google-oidc-verify.ts';
+
+/** Dobles de la Feature 008 (acceso con Google): ninguna red, ninguna credencial real (JWKS y token endpoint simulados en t1114). */
+export const GOOGLE_CLIENT_ID = 'argos-client-id.apps.googleusercontent.com';
+export const GOOGLE_REDIRECT = 'https://argos.test/api/auth/google/callback';
+export const GOOGLE_SUB = 'google-sub-0001';
+export const GOOGLE_EMAIL = 'persona@example.test';
+export const GOOGLE_CODE = '4/0AbCd-code';
+
+/** Entropía determinista: cada llamada devuelve bytes distintos (contador en los dos primeros). */
+export class SequentialEntropy implements OneTimeTokenEntropyPort {
+  private n = 0;
+  nextEntropyBytes(length: number): Uint8Array {
+    this.n += 1;
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i += 1) bytes[i] = (this.n * 31 + i * 7) & 0xff;
+    bytes[0] = this.n & 0xff;
+    bytes[1] = (this.n >> 8) & 0xff;
+    return bytes;
+  }
+}
+
+export interface FakeGoogleOidc extends GoogleOidcPort {
+  readonly completions: Array<{ code: string; codeVerifier: string; nonce: string }>;
+  identity: { sub: string; email: string } | GoogleOidcError;
+}
+
+export function fakeGoogleOidc(): FakeGoogleOidc {
+  const fake: FakeGoogleOidc = {
+    completions: [],
+    identity: { sub: GOOGLE_SUB, email: GOOGLE_EMAIL },
+    authorizationUrl: (p) => buildGoogleAuthorizationUrl({ clientId: GOOGLE_CLIENT_ID, redirectUri: GOOGLE_REDIRECT, ...p }),
+    async complete(p) {
+      fake.completions.push(p);
+      if (fake.identity instanceof GoogleOidcError) throw fake.identity;
+      return fake.identity;
+    },
+  };
+  return fake;
+}
