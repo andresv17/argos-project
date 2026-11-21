@@ -27,7 +27,7 @@ const fixedEntropy = (fill: number): OneTimeTokenEntropyPort & { readonly asked:
   const asked: number[] = [];
   return {
     asked,
-    randomBytes(length: number): Uint8Array {
+    nextEntropyBytes(length: number): Uint8Array {
       asked.push(length);
       return new Uint8Array(length).fill(fill);
     },
@@ -37,7 +37,7 @@ const fixedEntropy = (fill: number): OneTimeTokenEntropyPort & { readonly asked:
 const sequenceEntropy = (): OneTimeTokenEntropyPort => {
   let counter = 0;
   return {
-    randomBytes(length: number): Uint8Array {
+    nextEntropyBytes(length: number): Uint8Array {
       counter += 1;
       return Uint8Array.from({ length }, (_, i) => (counter * 31 + i * 7) % 256);
     },
@@ -58,15 +58,15 @@ describe('[REQ-SSO8-004] generación del identificador opaco', () => {
   it('codifica bytes arbitrarios igual que base64url de Node (incluye los alfabetos - y _)', () => {
     const entropy = sequenceEntropy();
     for (let i = 0; i < 20; i += 1) {
-      const bytes = entropy.randomBytes(32);
-      const probe: OneTimeTokenEntropyPort = { randomBytes: () => bytes };
+      const bytes = entropy.nextEntropyBytes(32);
+      const probe: OneTimeTokenEntropyPort = { nextEntropyBytes: () => bytes };
       expect(generateOneTimeToken(probe)).toBe(Buffer.from(bytes).toString('base64url'));
     }
   });
 
   it('rechaza una entropía que devuelve una longitud distinta de 32 (fail-closed)', () => {
-    const short: OneTimeTokenEntropyPort = { randomBytes: () => new Uint8Array(16) };
-    expect(() => generateOneTimeToken(short)).toThrow();
+    const short: OneTimeTokenEntropyPort = { nextEntropyBytes: () => new Uint8Array(16) };
+    expect(() => generateOneTimeToken(short)).toThrow(RangeError);
   });
 
   it('dos llamadas con entropía distinta producen identificadores distintos', () => {

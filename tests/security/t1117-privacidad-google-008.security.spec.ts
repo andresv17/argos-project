@@ -45,7 +45,7 @@ const expectClean = (text: string): void => {
 };
 
 describe('[NFR-008-004][REQ-SSO8-005] el fallo del flujo con Google no filtra datos personales', () => {
-  it('un error de Postgres con el correo y el sub en `message` y `detail` (violación del índice del titular verificado) responde 500 genérico y el log solo trae SQLSTATE y restricción', async () => {
+  it('[REQ-SSO8-005] un error de Postgres con el correo y el sub en `message` y `detail` (violación del índice del titular verificado) responde 500 genérico y el log solo trae SQLSTATE y restricción', async () => {
     const pgError = Object.assign(new Error(`duplicate key value violates unique constraint "users_email_verified_unique" Key (lower(email))=(${EMAIL}) sub=${SUB}`), {
       code: '23505',
       constraint: 'users_email_verified_unique',
@@ -60,7 +60,7 @@ describe('[NFR-008-004][REQ-SSO8-005] el fallo del flujo con Google no filtra da
     expect(result.logs).toContain('23505');
   });
 
-  it('un GoogleOidcError (verificación fallida) se trata como error imprevisto: cuerpo sin motivo ni datos y log sin el id_token', async () => {
+  it('[REQ-SSO8-005] un GoogleOidcError (verificación fallida) se trata como error imprevisto: cuerpo sin motivo ni datos y log sin el id_token', async () => {
     const result = await runRoute(Object.assign(new GoogleOidcError('NONCE'), { idToken: ID_TOKEN, code: CODE }));
     expect(result.status).toBe(500);
     expectClean(result.body);

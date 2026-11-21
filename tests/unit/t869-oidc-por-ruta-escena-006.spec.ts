@@ -66,11 +66,11 @@ describe('jose 6.2.17 sin versión nueva y con ámbito acotado (T869, N2-07 = A)
     expect([pkg.dependencies?.['jose'], lock.packages['node_modules/jose']?.version]).toEqual(['6.2.17', '6.2.17']);
   });
 
-  it('[REQ-ESC6-033] solo oidc-verify.ts importa jose: nada de src/domain, src/application, rutas ni adaptadores lo toca', () => {
+  it('[REQ-ESC6-033][REQ-SSO8-001] solo oidc-verify.ts (006) y google-oidc-verify.ts (008, Enmienda 3.8.0) importan jose: nada de src/domain, src/application, rutas ni adaptadores lo toca', () => {
     const importers = walk(join(ROOT, 'src'))
       .filter((file) => /from ['"]jose['"]|require\(['"]jose['"]\)|import\(['"]jose['"]\)/.test(readFileSync(file, 'utf8')))
       .map((file) => relative(ROOT, file));
-    expect(importers).toEqual(['src/infrastructure/http/oidc-verify.ts']);
+    expect(importers).toEqual(['src/infrastructure/http/google-oidc-verify.ts', 'src/infrastructure/http/oidc-verify.ts']);
   });
 
   it('[REQ-ESC6-033] el ámbito de jose son exactamente las dos rutas internas: /internal/maintenance y /internal/scene-worker', () => {

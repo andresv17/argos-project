@@ -246,7 +246,7 @@ describe('[REQ-SSO8-004, EDGE-008-001, SC-008-005] state', () => {
   });
 
   it('un state reutilizado pierde el compare-and-set del identificador de un solo uso (segundo callback = fallo)', () => {
-    const issued = issueOneTimeToken({ randomBytes: (n) => new Uint8Array(n).fill(9) }, '2026-11-21T12:00:00.000Z');
+    const issued = issueOneTimeToken({ nextEntropyBytes: (n) => new Uint8Array(n).fill(9) }, '2026-11-21T12:00:00.000Z');
     const record: OneTimeTokenRecord = { tokenHash: hashOneTimeToken(issued.token), expiresAt: issued.expiresAt, consumedAt: null };
     const first = consumeOneTimeToken(record, issued.token, '2026-11-21T12:01:00.000Z');
     const replay = consumeOneTimeToken(first.record, issued.token, '2026-11-21T12:02:00.000Z');

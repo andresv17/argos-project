@@ -4,7 +4,7 @@
  * Ninguna lista garantiza orden: los casos de uso ordenan con las reglas de dominio (INV-SORT-001, REQ-PET-005,
  * INV-HOUSE-005).
  *
- * @implements INV-ARCH-004, INV-ARCH-005, INV-PET-003
+ * @implements INV-ARCH-004, INV-ARCH-005, INV-PET-003, REQ-VIN8-003
  */
 
 import type { MediaKind } from '../../domain/media/index.ts';

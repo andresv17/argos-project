@@ -22,7 +22,7 @@ const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
 
 /** Fuente de entropía inyectada (puerto): devuelve exactamente `length` bytes criptográficamente aleatorios. */
 export interface OneTimeTokenEntropyPort {
-  randomBytes(length: number): Uint8Array;
+  nextEntropyBytes(length: number): Uint8Array;
 }
 
 /** Registro persistido (solo el hash): lo que el dominio necesita para decidir el uso. */
@@ -63,7 +63,7 @@ function hexToBytes(hex: string): Uint8Array {
 
 /** Genera 32 bytes de la entropía inyectada y los codifica en base64url (43 caracteres). Falla cerrado si la entropía no entrega 32 bytes. */
 export function generateOneTimeToken(entropy: OneTimeTokenEntropyPort): string {
-  const bytes = entropy.randomBytes(ONE_TIME_TOKEN_BYTES);
+  const bytes = entropy.nextEntropyBytes(ONE_TIME_TOKEN_BYTES);
   if (bytes.length !== ONE_TIME_TOKEN_BYTES) throw new RangeError('La entropía no entregó los 32 bytes exigidos.');
   return toBase64Url(bytes);
 }
