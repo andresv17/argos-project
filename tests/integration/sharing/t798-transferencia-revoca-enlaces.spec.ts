@@ -3,7 +3,6 @@
  * sobre memoria, SQLite y PostgreSQL 17 real (se OMITE sin TEST_DATABASE_URL).
  */
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
 import { resolveShare } from '../../../src/application/use-cases/shared-view-use-cases.ts';
@@ -28,7 +27,6 @@ interface Ctx {
   close(): Promise<void>;
 }
 
-const PG_SHARE_SQL = ['0007_platform_parameters.sql', '0008_share_links.sql', '0011_share_link_deceased_at.sql'].map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
 
 async function localContexts(): Promise<Ctx[]> {
   const engines = await createShareEngines('ADMIN');
@@ -42,7 +40,7 @@ async function postgresContext(): Promise<Ctx> {
   const url = new URL(TEST_DATABASE_URL ?? '');
   url.searchParams.set('options', `-c search_path=${schema}`);
   const pool: PoolLike = createPostgresPool({ connectionString: url.toString(), pgPoolMax: 4 });
-  await pool.query(`${POSTGRES_SCHEMA_SQL}\n${PG_SHARE_SQL}`);
+  await pool.query(POSTGRES_SCHEMA_SQL);
   const { createPostgresRepositories } = (await import('../../../src/infrastructure/persistence/postgres/postgres-repositories.ts')) as { createPostgresRepositories: (client: PoolClientLike) => RepositorySet };
   const uow = new PostgresUnitOfWork(pool, createPostgresRepositories);
   await seedSqlite(uow, canonicalState());

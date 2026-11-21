@@ -8,7 +8,7 @@
  * Los ids deterministas de B parten de otra secuencia: dos conexiones jamás repiten un id de entidad ni de auditoría.
  */
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { RepositorySet } from '../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.port.ts';
@@ -22,15 +22,12 @@ import { SqliteUnitOfWork } from '../../src/infrastructure/persistence/sqlite/sq
 import { canonicalState, createDeps } from './application-harness.ts';
 import { seedSqlite } from './sqlite-harness.ts';
 import { SpyPasswordHasher } from './test-doubles.ts';
+import { allPostgresMigrationsSql } from './postgres-migrations.ts';
 
 export const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const REPOSITORIES_PATH = '../../src/infrastructure/persistence/postgres/postgres-repositories.ts';
-const POSTGRES_MIGRATIONS = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0006_rate_limit_microchip_scope.sql', '0009_home_scenes.sql', '0010_pet_life_status.sql'];
-
 /** Esquema completo de PostgreSQL (baseline y migraciones posteriores) para las pruebas con base real. */
-export const POSTGRES_SCHEMA_SQL = POSTGRES_MIGRATIONS.map((name) =>
-  readFileSync(new URL(`../../src/infrastructure/persistence/postgres/migrations/${name}`, import.meta.url), 'utf8'),
-).join('\n');
+export const POSTGRES_SCHEMA_SQL = allPostgresMigrationsSql();
 
 /** `prefix` son 8 dígitos hexadecimales: cada conexión y cada tipo de id tiene su propia secuencia. */
 const ids = (prefix: string) => Array.from({ length: 200 }, (_, i) => `${prefix}-0000-4000-8000-${String(i + 1).padStart(12, '0')}`);

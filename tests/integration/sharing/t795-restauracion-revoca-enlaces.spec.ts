@@ -76,7 +76,7 @@ describe.skipIf(TEST_DATABASE_URL === undefined)('T795 PostgreSQL 17: tras resta
     url.searchParams.set('options', `-c search_path=${schema}`);
     const pool = createPostgresPool({ connectionString: url.toString(), pgPoolMax: 1 });
     try {
-      await pool.query(`${POSTGRES_SCHEMA_SQL}\n${read('src/infrastructure/persistence/postgres/migrations/0007_platform_parameters.sql')}\n${read('src/infrastructure/persistence/postgres/migrations/0008_share_links.sql')}\n${read('src/infrastructure/persistence/postgres/migrations/0011_share_link_deceased_at.sql')}`);
+      await pool.query(POSTGRES_SCHEMA_SQL);
       // Sin fixtures de dominio completas: se desactivan las claves foráneas para sembrar solo la tabla bajo prueba.
       await pool.query('ALTER TABLE share_links DISABLE TRIGGER ALL');
       const ins = (id: string, revoked: string | null): Promise<unknown> =>

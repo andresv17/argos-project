@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { UnitOfWorkPort } from '../../../src/application/ports/unit-of-work.port.ts';
 import { RunSceneGenerationUseCase } from '../../../src/application/use-cases/scene-run-use-case.ts';
@@ -17,6 +16,7 @@ import { ControlledStorage } from '../../fixtures/media-harness.ts';
 import { sceneFixture, type SceneFixture } from '../../fixtures/scene-services-fixtures.ts';
 import { seedSqlite } from '../../fixtures/sqlite-harness.ts';
 import { SpyPasswordHasher } from '../../fixtures/test-doubles.ts';
+import { allPostgresMigrationsSql } from '../../fixtures/postgres-migrations.ts';
 
 /**
  * T861 (006, Fase 5): suite de concurrencia de la escena sobre memoria, SQLite y PostgreSQL real (se omite sin TEST_DATABASE_URL): dos solicitudes simultáneas,
@@ -156,11 +156,7 @@ defineConcurrency('SQLite', async () => {
 });
 
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
-const PG_MIGRATIONS = [
-  '0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql',
-  '0006_rate_limit_microchip_scope.sql', '0007_platform_parameters.sql', '0008_share_links.sql', '0009_home_scenes.sql', '0010_pet_life_status.sql', '0011_share_link_deceased_at.sql',
-];
-const PG_SCHEMA = PG_MIGRATIONS.map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
+const PG_SCHEMA = allPostgresMigrationsSql();
 
 describe.skipIf(!TEST_DATABASE_URL)('concurrencia de la escena contra PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no esta definida)', { timeout: 60_000 }, () => {
   defineConcurrency('PostgreSQL', async () => {

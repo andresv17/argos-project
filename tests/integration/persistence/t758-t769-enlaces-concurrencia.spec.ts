@@ -7,7 +7,6 @@
  *    de la lectura, la respuesta es la instantánea coherente del inicio (nunca una mezcla), y la lectura no bloquea ni es bloqueada por la escritura.
  */
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../../src/application/ports/unit-of-work.port.ts';
@@ -25,7 +24,6 @@ import { seedSqlite } from '../../fixtures/sqlite-harness.ts';
 const NOW = '2026-11-05T12:00:00.000Z';
 const HOUSE_REF = { scope: 'HOUSEHOLD', householdId: HOUSEHOLD_ID } as const;
 const PET_REF = { scope: 'PET', petId: ARGOS.id } as const;
-const PG_SHARE_SQL = ['0007_platform_parameters.sql', '0008_share_links.sql', '0011_share_link_deceased_at.sql'].map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
 
 interface Engine {
   readonly name: 'SQLite' | 'PostgreSQL';
@@ -83,7 +81,7 @@ async function postgresEngine(): Promise<Engine> {
   const url = new URL(TEST_DATABASE_URL ?? '');
   url.searchParams.set('options', `-c search_path=${schema}`);
   const pool: PoolLike = createPostgresPool({ connectionString: url.toString(), pgPoolMax: 8 });
-  await pool.query(`${POSTGRES_SCHEMA_SQL}\n${PG_SHARE_SQL}`);
+  await pool.query(POSTGRES_SCHEMA_SQL);
   const { createPostgresRepositories } = (await import('../../../src/infrastructure/persistence/postgres/postgres-repositories.ts')) as { createPostgresRepositories: (client: PoolClientLike) => RepositorySet };
   let last: PoolClientLike | null = null;
   const factory = (client: PoolClientLike): RepositorySet => {
