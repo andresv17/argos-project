@@ -3,7 +3,7 @@
  * sondeo único cada 3 s. No hay datos de la mascota ni del servidor en los textos de error (INV-ESC6-016); la imagen se pide a la ruta propia del ámbito con
  * `v = imageTag` (etiqueta de caché, INV-ESC6-019) y nunca se guarda una URL firmada en el DOM (NFR-ESC6-003).
  *
- * @implements REQ-ESC7-001, REQ-ESC7-002, REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021, REQ-ESC6-034, NFR-ESC6-003, NFR-ESC6-004, INV-ESC6-016, INV-ESC6-019
+ * @implements REQ-UX8-001, REQ-ESC7-001, REQ-ESC7-002, REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021, REQ-ESC6-034, NFR-ESC6-003, NFR-ESC6-004, INV-ESC6-016, INV-ESC6-019
  */
 import type { Scheduler } from './access-renewer.ts';
 import { ERROR_CATALOG } from '../../generated/errors/error-codes.ts';
@@ -20,6 +20,12 @@ const petsWord = (n: number): string => (n === 1 ? '1 mascota' : `${n} mascotas`
 /** Texto alternativo de la imagen: cuántas mascotas hay en la escena (WCAG 1.1.1). */
 export const sceneAltText = (shown: number): string => (shown === 0 ? 'Escena del hogar en pixel art sin mascotas' : `Escena del hogar en pixel art con ${petsWord(shown)}`);
 
+/** Línea de cuota mensual por hogar con fecha de renovación (REQ-UX8-001). Texto PROVISIONAL de la spec 008, pendiente de confirmación de Neo (D8-09). */
+const sceneQuotaText = (quota: SceneViewData['quota']): string => {
+  const date = sceneRenewalDateText(quota.resetsAt);
+  return date === null ? `Generaciones restantes este mes: ${quota.remaining}.` : `Generaciones restantes este mes: ${quota.remaining}. Se renuevan el ${date}.`;
+};
+
 /** Aviso de cambios pendientes (REQ-ESC7-001/002, D7-01): texto neutral (el cambio también puede deberse a un fallecimiento), línea aparte de cuota y conteo solo en `ariaLabel`. */
 export interface ScenePendingMessage {
   readonly changes: string;
@@ -30,12 +36,22 @@ export interface ScenePendingMessage {
 const PENDING_CHANGES_TEXT = 'Hubo cambios en tu hogar o en tus mascotas.';
 const PENDING_INVITE_TEXT = 'Puedes volver a generar tu hogar para ver los cambios.';
 
+/** Zona en que se dice el día de renovación (`APP_TIMEZONE`, America/Bogota; la cuota reinicia el día 1 a las 00:00 allí, REQ-ESC6-011). */
+const RENEWAL_TIME_ZONE = 'America/Bogota';
+const renewalFormat = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long', timeZone: RENEWAL_TIME_ZONE });
+
+/** «1 de diciembre» a partir del `quota.resetsAt` del servidor, en la zona de la aplicación (nunca la del navegador, EDGE-008-019); `null` si el instante no es legible. */
+export function sceneRenewalDateText(resetsAt: string): string | null {
+  const at = Date.parse(resetsAt);
+  return Number.isNaN(at) ? null : renewalFormat.format(at);
+}
+
 /** `null` con `pending = 0`. Si el botón no puede generar (cuota agotada, cooldown, rol…), no se invita a regenerar (EDGE-007-008). */
 export function scenePendingMessage(view: SceneViewData): ScenePendingMessage | null {
   if (view.pending < 1) return null;
   return {
     changes: view.actions.canRegenerate ? `${PENDING_CHANGES_TEXT} ${PENDING_INVITE_TEXT}` : PENDING_CHANGES_TEXT,
-    remaining: `Generaciones restantes: ${view.quota.remaining}`,
+    remaining: sceneQuotaText(view.quota),
     ariaLabel: view.pending === 1 ? '1 cambio pendiente' : `${view.pending} cambios pendientes`,
   };
 }
