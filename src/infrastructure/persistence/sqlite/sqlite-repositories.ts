@@ -355,21 +355,30 @@ function sessionRepository(db: SqliteDatabase): SessionRepositoryPort {
       const hash = sessionTokenHash(token);
       upsert.run(hash, session.userId, encode('sessions', hash.slice(0, 12), session, isSessionRecord), session.createdAt, session.lastActivityAt, session.revokedAt);
     },
+    async findByTokenHash(tokenHash) {
+      const row = byHash.get(tokenHash);
+      return row === undefined ? null : decode('sessions', tokenHash.slice(0, 12), row.data, isSessionRecord, (s) => s.userId === row.user_id && s.createdAt === row.created_at && s.lastActivityAt === row.last_activity_at && s.revokedAt === row.revoked_at);
+    },
     async revokeOthers(userId, keepToken, nowIsoTimestamp) {
-      const keep = sessionTokenHash(keepToken);
-      let revoked = 0;
-      for (const row of ofUser.all(userId)) {
-        if (row.token_hash === keep) continue;
-        const session = decode('sessions', row.token_hash.slice(0, 12), row.data, isSessionRecord);
-        revoke.run(nowIsoTimestamp, encode('sessions', row.token_hash.slice(0, 12), { ...session, revokedAt: nowIsoTimestamp }, isSessionRecord), row.token_hash);
-        revoked += 1;
-      }
-      return revoked;
+      return revokeExcept(userId, sessionTokenHash(keepToken), nowIsoTimestamp);
+    },
+    async revokeOthersByTokenHash(userId, keepTokenHash, nowIsoTimestamp) {
+      return revokeExcept(userId, keepTokenHash, nowIsoTimestamp);
     },
     async deleteByUser(userId) {
       removeByUser.run(userId);
     },
   };
+  function revokeExcept(userId: string, keep: string, nowIsoTimestamp: string): number {
+    let revoked = 0;
+    for (const row of ofUser.all(userId)) {
+      if (row.token_hash === keep) continue;
+      const session = decode('sessions', row.token_hash.slice(0, 12), row.data, isSessionRecord);
+      revoke.run(nowIsoTimestamp, encode('sessions', row.token_hash.slice(0, 12), { ...session, revokedAt: nowIsoTimestamp }, isSessionRecord), row.token_hash);
+      revoked += 1;
+    }
+    return revoked;
+  }
 }
 
 /** @implements ERR-INTERNAL-UNEXPECTED */
@@ -1090,6 +1099,7 @@ interface OAuthFlowRow {
   readonly nonce: string | null;
   readonly code_verifier: string | null;
   readonly user_id: string | null;
+  readonly origin_session_hash: string | null;
   readonly pending_subject: string | null;
   readonly pending_email: string | null;
   readonly created_at: string;
@@ -1103,8 +1113,8 @@ interface OAuthFlowRow {
  * @implements REQ-SSO8-004, REQ-SSO8-003, EDGE-008-007, NFR-008-004
  */
 function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
-  const columns = 'token_hash, phase, intent, state, nonce, code_verifier, user_id, pending_subject, pending_email, created_at, expires_at, consumed_at';
-  const insert = db.prepare(`INSERT INTO oauth_flow_states (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const columns = 'token_hash, phase, intent, state, nonce, code_verifier, user_id, origin_session_hash, pending_subject, pending_email, created_at, expires_at, consumed_at';
+  const insert = db.prepare(`INSERT INTO oauth_flow_states (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const byHash = db.prepare<[string], OAuthFlowRow>(`SELECT ${columns} FROM oauth_flow_states WHERE token_hash = ?`);
   const consume = db.prepare('UPDATE oauth_flow_states SET consumed_at = ? WHERE token_hash = ? AND phase = ? AND consumed_at IS NULL AND expires_at > ?');
   const purge = db.prepare('DELETE FROM oauth_flow_states WHERE expires_at <= ?');
@@ -1116,6 +1126,7 @@ function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
     nonce: row.nonce,
     codeVerifier: row.code_verifier,
     userId: row.user_id,
+    originSessionHash: row.origin_session_hash,
     pendingSubject: row.pending_subject,
     pendingEmail: row.pending_email,
     createdAt: row.created_at,
@@ -1124,7 +1135,7 @@ function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
   });
   return {
     async insert(r) {
-      insert.run(r.tokenHash, r.phase, r.intent, r.state, r.nonce, r.codeVerifier, r.userId, r.pendingSubject, r.pendingEmail, r.createdAt, r.expiresAt, r.consumedAt);
+      insert.run(r.tokenHash, r.phase, r.intent, r.state, r.nonce, r.codeVerifier, r.userId, r.originSessionHash, r.pendingSubject, r.pendingEmail, r.createdAt, r.expiresAt, r.consumedAt);
     },
     async findByTokenHash(tokenHash) {
       const row = byHash.get(tokenHash);

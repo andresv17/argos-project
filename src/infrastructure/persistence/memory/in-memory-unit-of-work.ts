@@ -50,6 +50,7 @@ import type {
   OAuthFlowStateRepositoryPort,
 } from '../../../application/ports/auth-identity.port.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
+import { hashSessionToken } from '../../../domain/auth/session-policy.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
 
@@ -219,6 +220,19 @@ function sessionRepository(state: MemoryState): SessionRepositoryPort {
       let revoked = 0;
       for (const [token, session] of Object.entries(state.sessions)) {
         if (token === keepToken || session.userId !== userId || session.revokedAt !== null) continue;
+        state.sessions[token] = { ...session, revokedAt: nowIsoTimestamp };
+        revoked += 1;
+      }
+      return revoked;
+    },
+    async findByTokenHash(tokenHash) {
+      const token = Object.keys(state.sessions).find((t) => hashSessionToken(t) === tokenHash);
+      return token === undefined ? null : copy(state.sessions[token]!);
+    },
+    async revokeOthersByTokenHash(userId, keepTokenHash, nowIsoTimestamp) {
+      let revoked = 0;
+      for (const [token, session] of Object.entries(state.sessions)) {
+        if (hashSessionToken(token) === keepTokenHash || session.userId !== userId || session.revokedAt !== null) continue;
         state.sessions[token] = { ...session, revokedAt: nowIsoTimestamp };
         revoked += 1;
       }
@@ -690,7 +704,8 @@ function authIdentityRepository(state: MemoryState): AuthIdentityRepositoryPort 
 function isCoherentFlow(f: OAuthFlowStateRecord): boolean {
   const authorization = f.phase === 'AUTHORIZATION' && f.state !== null && f.nonce !== null && f.codeVerifier !== null && f.pendingSubject === null && f.pendingEmail === null;
   const username = f.phase === 'USERNAME' && f.intent === 'LOGIN' && f.state === null && f.nonce === null && f.codeVerifier === null && f.pendingSubject !== null && f.pendingEmail !== null;
-  return f.tokenHash.length === 64 && f.expiresAt > f.createdAt && (authorization || username) && (f.intent === 'LINK') === (f.userId !== null);
+  const originOk = (f.intent === 'LINK') === (f.originSessionHash !== null) && (f.originSessionHash === null || f.originSessionHash.length === 64);
+  return f.tokenHash.length === 64 && f.expiresAt > f.createdAt && (authorization || username) && (f.intent === 'LINK') === (f.userId !== null) && originOk;
 }
 
 /** `oauth_flow_states` (feature 008, REQ-SSO8-004): un solo uso por compare-and-set, vence a los 900 s. */

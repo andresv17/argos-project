@@ -84,6 +84,10 @@ export interface SessionRepositoryPort {
    * (REQ-AUTH2-003: las demás sesiones; la actual se conserva).
    */
   revokeOthers(userId: string, keepToken: string, nowIsoTimestamp: string): Promise<number>;
+  /** Sesión por el SHA-256 hex de su token (el valor de `sessions.token_hash`); `null` si no existe. No renueva ni modifica nada (REQ-VIN8-004). */
+  findByTokenHash(tokenHash: string): Promise<SessionRecord | null>;
+  /** Igual que `revokeOthers`, pero la sesión conservada se identifica por su hash (el callback de Google no tiene el token en claro). */
+  revokeOthersByTokenHash(userId: string, keepTokenHash: string, nowIsoTimestamp: string): Promise<number>;
   /** Borra todas las sesiones del usuario, incluida la actual (B9 (h)). */
   deleteByUser(userId: string): Promise<void>;
 }

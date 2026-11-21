@@ -211,19 +211,38 @@ function sessionRepository(client: PoolClientLike): SessionRepositoryPort {
         [hash, session.userId, encode('sessions', hash.slice(0, 12), session, isSessionRecord), session.createdAt, session.lastActivityAt, session.revokedAt],
       );
     },
-    async revokeOthers(userId, keepToken, nowIsoTimestamp) {
-      // Un solo UPDATE por conjunto: `revoked_at` y `data.revokedAt` cambian juntos y la conservada queda fuera (REQ-AUTH2-003).
-      const result = await client.query(
-        `UPDATE sessions SET revoked_at = $3, data = jsonb_set(data, '{revokedAt}', to_jsonb($3::text))
-         WHERE user_id = $1 AND token_hash <> $2 AND revoked_at IS NULL`,
-        [userId, sessionTokenHash(keepToken), nowIsoTimestamp],
+    async findByTokenHash(tokenHash) {
+      const { rows } = await client.query('SELECT user_id, created_at, last_activity_at, revoked_at, data FROM sessions WHERE token_hash = $1', [tokenHash]);
+      const row = rows[0];
+      if (row === undefined) return null;
+      return decode(
+        'sessions',
+        tokenHash.slice(0, 12),
+        row['data'],
+        isSessionRecord,
+        (s) => s.userId === row['user_id'] && s.createdAt === row['created_at'] && s.lastActivityAt === row['last_activity_at'] && s.revokedAt === row['revoked_at'],
       );
-      return result.rowCount ?? 0;
+    },
+    async revokeOthers(userId, keepToken, nowIsoTimestamp) {
+      return revokeExcept(userId, sessionTokenHash(keepToken), nowIsoTimestamp);
+    },
+    async revokeOthersByTokenHash(userId, keepTokenHash, nowIsoTimestamp) {
+      return revokeExcept(userId, keepTokenHash, nowIsoTimestamp);
     },
     async deleteByUser(userId) {
       await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
     },
   };
+
+  async function revokeExcept(userId: string, keepHash: string, nowIsoTimestamp: string): Promise<number> {
+    // Un solo UPDATE por conjunto: `revoked_at` y `data.revokedAt` cambian juntos y la conservada queda fuera (REQ-AUTH2-003).
+    const result = await client.query(
+      `UPDATE sessions SET revoked_at = $3, data = jsonb_set(data, '{revokedAt}', to_jsonb($3::text))
+       WHERE user_id = $1 AND token_hash <> $2 AND revoked_at IS NULL`,
+      [userId, keepHash, nowIsoTimestamp],
+    );
+    return result.rowCount ?? 0;
+  }
 }
 
 /** @implements INV-AUTH-005, ERR-INTERNAL-UNEXPECTED */

@@ -49,7 +49,7 @@ export function authIdentityRepository(client: PoolClientLike): AuthIdentityRepo
   };
 }
 
-const FLOW_COLUMNS = 'token_hash, phase, intent, state, nonce, code_verifier, user_id, pending_subject, pending_email, created_at, expires_at, consumed_at';
+const FLOW_COLUMNS = 'token_hash, phase, intent, state, nonce, code_verifier, user_id, origin_session_hash, pending_subject, pending_email, created_at, expires_at, consumed_at';
 
 const toFlow = (row: Row): OAuthFlowStateRecord => ({
   tokenHash: String(row['token_hash']),
@@ -59,6 +59,7 @@ const toFlow = (row: Row): OAuthFlowStateRecord => ({
   nonce: nullable(row['nonce']),
   codeVerifier: nullable(row['code_verifier']),
   userId: nullable(row['user_id']),
+  originSessionHash: nullable(row['origin_session_hash']),
   pendingSubject: nullable(row['pending_subject']),
   pendingEmail: nullable(row['pending_email']),
   createdAt: String(row['created_at']),
@@ -69,7 +70,7 @@ const toFlow = (row: Row): OAuthFlowStateRecord => ({
 export function oauthFlowRepository(client: PoolClientLike): OAuthFlowStateRepositoryPort {
   return {
     async insert(r) {
-      await client.query(`INSERT INTO oauth_flow_states (${FLOW_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`, [
+      await client.query(`INSERT INTO oauth_flow_states (${FLOW_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`, [
         r.tokenHash,
         r.phase,
         r.intent,
@@ -77,6 +78,7 @@ export function oauthFlowRepository(client: PoolClientLike): OAuthFlowStateRepos
         r.nonce,
         r.codeVerifier,
         r.userId,
+        r.originSessionHash,
         r.pendingSubject,
         r.pendingEmail,
         r.createdAt,

@@ -19,6 +19,7 @@ import {
   type IssuedOneTimeToken,
 } from '../../domain/auth/one-time-token.ts';
 import { assertUsernameAvailable, invalidCredentialsError } from '../../domain/auth/auth-policies.ts';
+import { hashSessionToken, sessionStateAt } from '../../domain/auth/session-policy.ts';
 import { NO_PASSWORD_SENTINEL, authMethodsOf, hasPassword } from '../../domain/auth/password-sentinel.ts';
 import { DomainError } from '../../generated/index.ts';
 import {
@@ -42,10 +43,10 @@ export interface GoogleAuthorizationStart {
   readonly oauthToken: string;
 }
 
-/** Resultado del retorno de Google: sesión abierta, vinculación hecha (con sesión nueva) o paso «Elige tu usuario» con un identificador nuevo para `argos_oauth`. */
+/** Resultado del retorno de Google: sesión abierta, vinculación hecha (SIN sesión nueva: se conserva la de origen, REQ-VIN8-004) o paso «Elige tu usuario» con un identificador nuevo para `argos_oauth`. */
 export type GoogleCallbackResult =
   | ({ readonly kind: 'SESSION' } & AuthenticatedSession)
-  | ({ readonly kind: 'LINKED' } & AuthenticatedSession)
+  | { readonly kind: 'LINKED' }
   | { readonly kind: 'CHOOSE_USERNAME'; readonly oauthToken: string };
 
 export interface GoogleCallbackInput {
@@ -81,6 +82,7 @@ async function beginAuthorization(
   now: string,
   intent: 'LOGIN' | 'LINK',
   userId: string | null,
+  originSessionHash: string | null,
 ): Promise<GoogleAuthorizationStart> {
   await repositories.oauthFlows.purgeExpired(now);
   const issued = issueOneTimeToken(google.entropy, now);
@@ -95,6 +97,7 @@ async function beginAuthorization(
     nonce,
     codeVerifier,
     userId,
+    originSessionHash,
     pendingSubject: null,
     pendingEmail: null,
     createdAt: now,
@@ -113,6 +116,7 @@ async function insertUsernameStep(repositories: RepositorySet, issued: IssuedOne
     nonce: null,
     codeVerifier: null,
     userId: null,
+    originSessionHash: null,
     pendingSubject: sub,
     pendingEmail: email,
     createdAt: now,
@@ -133,19 +137,20 @@ export class StartGoogleLoginUseCase {
   async execute(): Promise<GoogleAuthorizationStart> {
     const google = requireGoogle(this.deps, serverMisconfigured);
     const now = this.deps.clock.nowIsoTimestamp();
-    return this.deps.uow.runInTransaction((repositories) => beginAuthorization(google, repositories, now, 'LOGIN', null));
+    return this.deps.uow.runInTransaction((repositories) => beginAuthorization(google, repositories, now, 'LOGIN', null, null));
   }
 }
 
-/** @implements REQ-VIN8-002, ADR-008-14 */
+/** @implements REQ-VIN8-002, REQ-VIN8-004, INV-VIN8-005, ADR-008-14 */
 export class StartGoogleLinkUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   /**
    * Vincula Google a la cuenta de la sesión activa. Orden: esquema; cuenta sin contraseña (centinela) => 409 sin tocar el contador; contraseña actual con el contador de
-   * intentos de REQ-LOG-001 (`ERR-AUTH-INVALID-CREDENTIALS`, el fallo se confirma antes de responder); cuenta que ya tiene Google => 409.
+   * intentos de REQ-LOG-001 (`ERR-AUTH-INVALID-CREDENTIALS`, el fallo se confirma antes de responder); cuenta que ya tiene Google => 409. El estado guarda el hash de la sesión
+   * de origen (`sessionToken`, el mismo SHA-256 de `sessions.token_hash`; nunca el token): el retorno de Google no trae la cookie `Strict` y así sabe cuál conservar (H-A21-2).
    */
-  async execute(userId: string, input: unknown): Promise<GoogleAuthorizationStart> {
+  async execute(userId: string, sessionToken: string, input: unknown): Promise<GoogleAuthorizationStart> {
     const valid = assertMatchesSchema<GoogleLinkStartInput>('GoogleLinkStartInput', validateGoogleLinkStartInput, input);
     const google = requireGoogle(this.deps, serverMisconfigured);
     const now = this.deps.clock.nowIsoTimestamp();
@@ -155,7 +160,7 @@ export class StartGoogleLinkUseCase {
       if (!hasPassword(account.passwordHash)) throw googleLinkConflict();
       if (!(await verifyCurrentPassword(this.deps, repositories, account, valid.currentPassword, now))) return null;
       if ((await repositories.authIdentities.listByUser(userId)).length > 0) throw googleLinkConflict();
-      return beginAuthorization(google, repositories, now, 'LINK', userId);
+      return beginAuthorization(google, repositories, now, 'LINK', userId, hashSessionToken(sessionToken));
     });
     if (started === null) throw invalidCredentialsError();
     return started;
@@ -206,17 +211,22 @@ export class CompleteGoogleLoginUseCase {
   private async link(repositories: RepositorySet, flow: OAuthFlowStateRecord, sub: string, now: string): Promise<GoogleCallbackResult> {
     const userId = flow.userId;
     if (userId === null) throw googleFailed();
+    const originHash = flow.originSessionHash;
+    if (originHash === null) throw googleFailed();
+    // REQ-VIN8-004, H-A21-2: la vinculación solo se completa si la sesión que la inició sigue viva (existe, no está revocada, es de la misma cuenta y no venció por inactividad ni por
+    // el tope de 24 h). Se consulta SIN renovarla: el retorno de Google no trae la cookie `Strict`, así que esta comprobación es lo que ata el flujo a la sesión de origen.
+    const origin = await repositories.sessions.findByTokenHash(originHash);
+    if (origin === null || origin.userId !== userId || sessionStateAt(origin, now) !== 'AUTHENTICATED') throw googleFailed();
     const account = await repositories.users.findById(userId);
     if (account === null || !hasPassword(account.passwordHash)) throw googleFailed();
     if ((await repositories.authIdentities.listByUser(userId)).length > 0) throw googleFailed();
     // El correo de Google no tiene que coincidir con el de la cuenta; un `sub` que ya pertenece a otra cuenta (o a esta) no se vincula.
     if (!(await repositories.authIdentities.insertIfAbsent({ provider: 'GOOGLE', providerSubject: sub, userId, createdAt: now }))) throw googleFailed();
-    const opened = await startSession(this.deps, repositories, account, now, authMethodsOf(account.passwordHash, 1));
-    // REQ-VIN8-004: las demás sesiones de la cuenta se revocan; el retorno de Google no trae la cookie `Strict`, así que la sesión vigente es la nueva.
-    await repositories.sessions.revokeOthers(userId, opened.sessionToken, now);
+    // REQ-VIN8-004: se conserva la sesión de origen (la actual) y se revocan las demás; no se emite sesión nueva ni Set-Cookie.
+    await repositories.sessions.revokeOthersByTokenHash(userId, originHash, now);
     // La auditoría no lleva correo ni `sub` (la vista canónica de USER excluye el hash y los datos de Google no entran).
     await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'USER', entityId: userId, previous: account, next: account });
-    return { kind: 'LINKED', ...opened };
+    return { kind: 'LINKED' };
   }
 }
 

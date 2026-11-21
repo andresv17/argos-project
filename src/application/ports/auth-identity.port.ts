@@ -42,6 +42,8 @@ export interface OAuthFlowStateRecord {
   readonly codeVerifier: string | null;
   /** Usuario de la sesión que inicia la vinculación (solo intención LINK). */
   readonly userId: string | null;
+  /** SHA-256 hex (64) del token de la sesión que inició la vinculación, igual a `sessions.token_hash` (solo LINK, obligatorio ahí; `null` en LOGIN). REQ-VIN8-004, H-A21-2. */
+  readonly originSessionHash: string | null;
   readonly pendingSubject: string | null;
   readonly pendingEmail: string | null;
   readonly createdAt: string;
