@@ -2,7 +2,9 @@
  * Harness de Google SIMULADO para los E2E del acceso con Google (Feature 008, T1123). Levanta, dentro del proceso de la prueba, la API real (`createProductionApp` con
  * `googleFetch` y `googleJwks` inyectados: token endpoint y llaves simulados, ninguna red ni credencial real) y una SPA Vite propia que apunta a ella. Los puertos son los de
  * los E2E más 100 (API 3300 y web 5373 con `E2E_API_PORT=3200` y `E2E_WEB_PORT=5273`), de modo que no chocan con el `webServer` de `playwright.config.ts`.
- * El «consentimiento» de Google lo resuelve la prueba interceptando `https://accounts.google.com/**` (ver `googleConsentRoute`): nada sale a internet.
+ * El «consentimiento» de Google lo resuelve el propio harness en el servidor: un gancho `onSend` conserva la URL de autorización real (`lastAuthorizationUrl`) y sustituye el
+ * `Location` hacia `accounts.google.com` por `/api/__sim/google-consent`, que redirige al `callback` con un código de un solo uso (o con `error=access_denied`). La cadena de
+ * redirecciones es HTTP pura, idéntica en Chromium, Firefox y WebKit, y nada sale a internet.
  *
  * @implements REQ-SSO8-001, REQ-SSO8-004, EDGE-008-006
  */
@@ -38,8 +40,8 @@ export interface GoogleSim {
   next: GoogleScenario;
   /** Última URL de retorno al `callback` (con `code` y `state`), para reutilizarla. */
   lastCallbackUrl: string | null;
-  /** Respuesta de Google a la autorización: redirige al callback del servidor con un código de un solo uso (o con `error=access_denied`). */
-  consent(authorizationUrl: string): string;
+  /** Última URL de autorización que el servidor entregó para Google (la real, antes de sustituirla por el consentimiento simulado). */
+  lastAuthorizationUrl: string | null;
   stop(): Promise<void>;
 }
 
@@ -89,6 +91,37 @@ export async function startGoogleSim(): Promise<GoogleSim> {
     GOOGLE_OAUTH_REDIRECT_URI: `${SIM_WEB_URL}/api/auth/google/callback`,
   });
   const app: FastifyInstance = await createProductionApp(config, false, { googleFetch, googleJwks: jwks });
+  const sim: GoogleSim = {
+    next: { kind: 'cancel' },
+    lastCallbackUrl: null,
+    lastAuthorizationUrl: null,
+    async stop() {
+      vite.kill('SIGTERM');
+      await app.close();
+    },
+  };
+  app.addHook('onSend', async (request, reply, payload) => {
+    const location = reply.getHeader('location');
+    if (request.url.startsWith('/api/auth/google/start') && typeof location === 'string' && location.startsWith('https://accounts.google.com/')) {
+      sim.lastAuthorizationUrl = location;
+      const params = new URL(location).searchParams;
+      reply.header('location', `/api/__sim/google-consent?${new URLSearchParams({ state: params.get('state') ?? '', nonce: params.get('nonce') ?? '' }).toString()}`);
+    }
+    return payload;
+  });
+  app.get<{ Querystring: { state?: string; nonce?: string } }>('/api/__sim/google-consent', async (request, reply) => {
+    const callback = new URL(`${SIM_WEB_URL}/api/auth/google/callback`);
+    if (sim.next.kind === 'cancel') {
+      callback.searchParams.set('error', 'access_denied');
+    } else {
+      const code = randomBytes(16).toString('hex');
+      grants.set(code, { nonce: request.query.nonce ?? '', sub: sim.next.sub, email: sim.next.email });
+      callback.searchParams.set('code', code);
+    }
+    callback.searchParams.set('state', request.query.state ?? '');
+    sim.lastCallbackUrl = callback.toString();
+    return reply.redirect(sim.lastCallbackUrl, 302);
+  });
   await app.listen({ host: '127.0.0.1', port: SIM_API_PORT });
 
   const vite: ChildProcess = spawn(process.execPath, ['node_modules/vite/bin/vite.js'], {
@@ -98,28 +131,5 @@ export async function startGoogleSim(): Promise<GoogleSim> {
   });
   await waitFor(`${SIM_WEB_URL}/api/auth/me`, 60_000);
 
-  const sim: GoogleSim = {
-    next: { kind: 'cancel' },
-    lastCallbackUrl: null,
-    consent(authorizationUrl) {
-      const params = new URL(authorizationUrl).searchParams;
-      const state = params.get('state') ?? '';
-      const callback = new URL(`${SIM_WEB_URL}/api/auth/google/callback`);
-      if (sim.next.kind === 'cancel') {
-        callback.searchParams.set('error', 'access_denied');
-      } else {
-        const code = randomBytes(16).toString('hex');
-        grants.set(code, { nonce: params.get('nonce') ?? '', sub: sim.next.sub, email: sim.next.email });
-        callback.searchParams.set('code', code);
-      }
-      callback.searchParams.set('state', state);
-      sim.lastCallbackUrl = callback.toString();
-      return sim.lastCallbackUrl;
-    },
-    async stop() {
-      vite.kill('SIGTERM');
-      await app.close();
-    },
-  };
   return sim;
 }

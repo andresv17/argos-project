@@ -34,11 +34,6 @@ test.afterAll(async () => {
   await sim?.stop();
 });
 
-/** «Google» resuelve el consentimiento: redirige al callback del servidor con el escenario vigente; nada sale a internet. */
-async function routeGoogle(page: Page): Promise<void> {
-  await page.route('https://accounts.google.com/**', (route) => route.fulfill({ status: 302, headers: { location: sim.consent(route.request().url()) } }));
-}
-
 const callbackResponse = (page: Page): Promise<Response> => page.waitForResponse((r) => r.url().includes('/api/auth/google/callback'));
 const googleButton = (page: Page) => page.getByRole('link', { name: 'Continuar con Google' });
 const cookieNamed = async (page: Page, name: string) => (await page.context().cookies()).find((c) => c.name === name);
@@ -46,12 +41,21 @@ const setCookies = async (response: Response): Promise<string> => (await respons
 
 test.describe('acceso con Google simulado (T1123)', () => {
   test('[REQ-SSO8-003][SC-008-002] primer acceso: Google lleva a «Elige tu usuario», se elige el usuario y la sesión queda iniciada', async ({ page }) => {
-    await routeGoogle(page);
     sim.next = { kind: 'login', sub, email };
     await page.goto('/login');
     const callback = callbackResponse(page);
     await googleButton(page).click();
     const landing = await callback;
+    // El botón llevó a startGoogleLogin y el servidor entregó la URL real de Google: code + PKCE S256 + state + nonce + scope «openid email» y la URI de retorno fija.
+    const authorization = new URL(sim.lastAuthorizationUrl!);
+    expect(`${authorization.origin}${authorization.pathname}`).toBe('https://accounts.google.com/o/oauth2/v2/auth');
+    expect(Object.fromEntries(['response_type', 'scope', 'code_challenge_method', 'redirect_uri'].map((k) => [k, authorization.searchParams.get(k)]))).toEqual({
+      response_type: 'code',
+      scope: 'openid email',
+      code_challenge_method: 'S256',
+      redirect_uri: `${SIM_WEB_URL}/api/auth/google/callback`,
+    });
+    expect(['state', 'nonce', 'code_challenge'].every((k) => (authorization.searchParams.get(k) ?? '').length >= 32)).toBe(true);
     expect(landing.status()).toBe(200);
     const cookies = await setCookies(landing);
     expect(cookies).toContain('argos_oauth=');
@@ -73,7 +77,6 @@ test.describe('acceso con Google simulado (T1123)', () => {
   });
 
   test('[REQ-SSO8-004][EDGE-008-006][SC-008-006] cuenta conocida: la cookie Strict no viaja al volver de Google y el 200 del callback la establece; la página navega a /', async ({ page }) => {
-    await routeGoogle(page);
     sim.next = { kind: 'login', sub, email };
     await page.goto('/login');
     await expect(googleButton(page)).toBeVisible();
@@ -94,39 +97,53 @@ test.describe('acceso con Google simulado (T1123)', () => {
     expect(await cookieNamed(page, 'argos_oauth')).toBeUndefined();
   });
 
-  test('[REQ-SSO8-004][EDGE-008-006] state reutilizado: repetir el retorno de Google no abre sesión y falla con el mismo error uniforme', async ({ page, browser }) => {
-    const replay = sim.lastCallbackUrl!;
-    expect(replay).toContain('state=');
-    // En el mismo navegador: el estado ya se consumió y su cookie se retiró.
-    const again = await page.request.get(replay, { maxRedirects: 0 });
-    expect(again.status()).toBe(400);
-    const sameBody = await again.json();
-    expect(sameBody.code).toBe('ERR-AUTH-GOOGLE-FAILED');
-    // En un navegador limpio (sin cookie argos_oauth): idéntico estado, código y cuerpo (no distingue la causa).
-    const fresh = await browser.newContext({ baseURL: SIM_WEB_URL });
-    const other = await fresh.request.get(replay, { maxRedirects: 0 });
-    expect(other.status()).toBe(400);
-    expect(await other.json()).toEqual(sameBody);
-    expect((await fresh.cookies()).find((c) => c.name === 'argos_session')).toBeUndefined();
-    await fresh.close();
+  test('[REQ-SSO8-004][EDGE-008-006] state reutilizado: repetir el retorno con el mismo estado ya consumido no abre sesión y falla con el mismo error uniforme', async ({ page, browser }) => {
+    const request = page.context().request;
+    sim.next = { kind: 'login', sub, email };
+    const start = await request.get('/api/auth/google/start', { maxRedirects: 0 });
+    expect(start.status()).toBe(302);
+    const oauth = /argos_oauth=([^;\s]+)/.exec(start.headers()['set-cookie'] ?? '')?.[1];
+    expect(oauth).toMatch(/^[A-Za-z0-9_-]{32,}$/);
+    const consent = await request.get(start.headers()['location']!, { maxRedirects: 0 });
+    const callbackUrl = consent.headers()['location']!;
+    expect((await request.get(callbackUrl, { maxRedirects: 0 })).status()).toBe(200); // primer retorno: el estado se consume
+    // Repetición con el mismo identificador opaco y el mismo state (p. ej. otro navegador o una pestaña vieja): mismo 400 uniforme, sin sesión.
+    const replayer = await browser.newContext({ baseURL: SIM_WEB_URL });
+    const replay = await replayer.request.get(callbackUrl, { maxRedirects: 0, headers: { cookie: `argos_oauth=${oauth}` } });
+    expect(replay.status()).toBe(400);
+    const replayBody = await replay.json();
+    expect(replayBody.code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect((await replayer.cookies()).find((c) => c.name === 'argos_session')).toBeUndefined();
+    // Sin cookie de flujo: el mismo estado, código y cuerpo (no distingue la causa).
+    const bare = await replayer.request.get(callbackUrl, { maxRedirects: 0 });
+    expect(bare.status()).toBe(400);
+    expect(await bare.json()).toEqual(replayBody);
+    await replayer.close();
   });
 
   test('[REQ-SSO8-004][SC-008-002] cancelación en Google: error uniforme sin sesión, sin reflejar el motivo y sin cookies de flujo', async ({ page }) => {
-    await routeGoogle(page);
     sim.next = { kind: 'cancel' };
     await page.goto('/login');
     const callback = callbackResponse(page);
     await googleButton(page).click();
     const landing = await callback;
     expect(landing.status()).toBe(400);
-    const body = await landing.text();
-    expect(JSON.parse(body).code).toBe('ERR-AUTH-GOOGLE-FAILED');
-    expect(body).not.toContain('access_denied');
     expect(await cookieNamed(page, 'argos_session')).toBeUndefined();
     expect(await cookieNamed(page, 'argos_oauth')).toBeUndefined();
-    await page.goto('/login');
-    await expect(googleButton(page)).toBeVisible();
+    // Hallazgo: el 400 del callback es un `application/problem+json` crudo; Firefox puede tratarlo como descarga y no terminar de navegar. Se sigue en otra pestaña del mismo contexto.
+    const next = await page.context().newPage();
+    await next.goto('/login');
+    await expect(googleButton(next)).toBeVisible();
     expect((await apiCall(page.context().request, 'GET', '/auth/me')).status).toBe(401);
+    // El cuerpo del 400 (que el navegador no siempre conserva tras navegar) se verifica por la misma cadena de redirecciones con el cliente HTTP del contexto.
+    const request = page.context().request;
+    const start = await request.get('/api/auth/google/start', { maxRedirects: 0 });
+    const consent = await request.get(start.headers()['location']!, { maxRedirects: 0 });
+    const failed = await request.get(consent.headers()['location']!, { maxRedirects: 0 });
+    expect(failed.status()).toBe(400);
+    const text = await failed.text();
+    expect(JSON.parse(text).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect(text).not.toContain('access_denied');
   });
 
   test('[REQ-SSO8-003][NFR-008-002] /elige-usuario sin flujo activo: mensaje neutro del catálogo, sin error crudo, y vuelve al acceso', async ({ page }) => {
