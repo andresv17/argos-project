@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArgosErrorCatalogFeature008Incremental",
+  "x-sdd-metadata": {
+    "version": "0.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MINOR",
+    "extends": "specs/002-plataforma-v21/contracts/errors/error-catalog.json (linea 002)",
+    "change_note": "Indice INCREMENTAL vacio de la feature 008: los codigos se redactan en T1110, T1135, T1144 y T1156 tras las decisiones de Neo (D8-01..D8-09). No se compila por separado.",
+    "removed": [],
+    "added": [],
+    "inherited": [],
+    "traceability": []
+  },
+  "errors": {}
+}
