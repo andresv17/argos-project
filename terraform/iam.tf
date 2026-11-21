@@ -92,7 +92,7 @@ resource "google_service_account_iam_member" "deployer_wif" {
   member             = "principalSet://iam.googleapis.com/projects/${data.google_project.this.number}/locations/global/workloadIdentityPools/${var.project_prefix}-github/attribute.job_workflow_ref/${var.github_repository}/.github/workflows/deploy-argos.yml@refs/heads/main"
 }
 
-# argos-deployer: solo metadatos de versiones (secretmanager.versions.list/get) de sus 2 secretos, a nivel de secreto.
+# argos-deployer: solo metadatos de versiones (secretmanager.versions.list/get) de sus 4 secretos (incluido el de Google OAuth, 008), a nivel de secreto.
 # NUNCA secretAccessor (no lee el valor): el paso "Resolver versiones numéricas" de deploy-argos.yml lo necesita (D-30).
 resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_database_url" {
   project   = var.project_id
@@ -111,6 +111,13 @@ resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_audit
 resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_share_ip_hmac" {
   project   = var.project_id
   secret_id = google_secret_manager_secret.share_ip_hmac_secret.secret_id
+  role      = "roles/secretmanager.viewer"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_google_oauth_client_secret" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.google_oauth_client_secret.secret_id
   role      = "roles/secretmanager.viewer"
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }
