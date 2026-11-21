@@ -289,10 +289,13 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       }
       // Como el CHECK cruzado de 0014/0010 (REQ-FAL7-002): DECEASED <=> fecha de fallecimiento.
       if ((pet.lifeStatus === 'DECEASED') !== (pet.deceasedAt != null)) throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Objeto inválido para pets (${pet.id}); no se guarda.`);
+      // Como la columna y el CHECK de 0016/0012 (REQ-BIO8-001, REQ-BIO8-004): biografía de 0 a 280 caracteres, sin caracteres de control; nula o ausente = sin la clave.
+      const { biography = null, ...profile } = pet;
+      if (biography !== null && (biography.length > 280 || /[\u0000-\u001F\u007F]/u.test(biography))) throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Objeto inválido para pets (${pet.id}); no se guarda.`);
       // Como las columnas de 0014/0010 (REQ-FAL7-001, REQ-FAL7-011): estado y fecha completos; sin `version` explícita, guardar sobre una fila existente la incrementa.
       const previous = state.pets.find((p) => p.id === pet.id);
       const version = pet.version ?? (previous === undefined ? 1 : (previous.version ?? 1) + 1);
-      state.pets = [...state.pets.filter((p) => p.id !== pet.id), copy({ ...pet, lifeStatus: pet.lifeStatus ?? 'ALIVE', deceasedAt: pet.deceasedAt ?? null, version })];
+      state.pets = [...state.pets.filter((p) => p.id !== pet.id), copy({ ...profile, lifeStatus: pet.lifeStatus ?? 'ALIVE', deceasedAt: pet.deceasedAt ?? null, version, ...(biography === null ? {} : { biography }) })];
     },
     async delete(petId) {
       state.pets = state.pets.filter((p) => p.id !== petId);

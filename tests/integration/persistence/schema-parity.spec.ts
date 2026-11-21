@@ -33,6 +33,9 @@ const LIFE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migr
 /** T1026 (007): la 0011 de Postgres equivale a la 0015 de SQLite (`share_links.include_deceased_at`, opt-in de `deceasedAt`, SC-007-016). */
 const DECEASED_LINK_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0011_share_link_deceased_at.sql', import.meta.url);
 
+/** T1180 (008, #21): la 0012 de Postgres equivale a la 0016 de SQLite (`pets.biography` anulable, 0..280 caracteres, REQ-BIO8-004). */
+const BIOGRAPHY_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0012_pet_biography.sql', import.meta.url);
+
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
   'audit_log', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'home_scenes', 'household_invitations',
@@ -212,7 +215,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -264,6 +267,29 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
       expect(pets.checks).toContain('version >= 1');
     }
     expect(pg.tables.get('pets')!.checks).toEqual(sqlite.tables.get('pets')!.checks);
+  });
+
+  it('[GH:#21][T1180][REQ-BIO8-004] pets gana biography anulable en ambos motores, sin valor por defecto y con el mismo CHECK de 280 caracteres; la 0012 lo agrega NOT VALID y lo valida; las filas previas quedan NULL', () => {
+    const pg = postgresSchema();
+    for (const schema of [sqlite, pg]) {
+      const pets = schema.tables.get('pets')!;
+      expect(pets.columns.get('biography'), 'biography').toMatchObject({ type: 'TEXT', notNull: false, default: null });
+      expect(pets.checks).toContain('biography IS NULL OR length(biography) <= 280');
+    }
+    expect(pg.tables.get('pets')!.checks).toEqual(sqlite.tables.get('pets')!.checks);
+    const text = readFileSync(BIOGRAPHY_PATH, 'utf8');
+    expect(text).toMatch(/ADD CONSTRAINT pets_biography_check CHECK[^;]+NOT VALID;/);
+    expect(text).toContain('VALIDATE CONSTRAINT pets_biography_check;');
+    const db = openSqliteDatabase(IN_MEMORY_DATABASE);
+    try {
+      db.prepare("INSERT INTO users (id, username, password_hash, data) VALUES ('u1', 'ana', 'x', '{}')").run();
+      db.prepare("INSERT INTO pets (id, owner_user_id, data) VALUES ('p1', 'u1', '{}')").run();
+      expect(db.prepare('SELECT biography FROM pets').get()).toEqual({ biography: null });
+      db.prepare("UPDATE pets SET biography = ? WHERE id = 'p1'").run('a'.repeat(280));
+      expect(() => db.prepare("UPDATE pets SET biography = ? WHERE id = 'p1'").run('a'.repeat(281))).toThrow(/CHECK/);
+    } finally {
+      db.close();
+    }
   });
 
   it('[T1017][REQ-FAL7-001] la 0010 de Postgres agrega los CHECK NOT VALID y los valida; la 0014 de SQLite deja las filas previas ALIVE, sin fecha y en versión 1', () => {
@@ -425,6 +451,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(HOME_PATH, 'utf8'));
         await client.query(readFileSync(LIFE_PATH, 'utf8'));
         await client.query(readFileSync(DECEASED_LINK_PATH, 'utf8'));
+        await client.query(readFileSync(BIOGRAPHY_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

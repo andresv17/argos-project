@@ -13,7 +13,6 @@ import type { RateLimits } from '../../../src/infrastructure/adapters/sliding-wi
 import { dumpSqlite, seedSqlite } from '../../fixtures/sqlite-harness.ts';
 import { SpyPasswordHasher } from '../../fixtures/test-doubles.ts';
 import { checkResponse } from '../contracts/openapi-contract.ts';
-import { validateBackupEnvelopeV32 } from '../../../src/generated/v31/index.ts';
 
 /**
  * API real (Fastify `inject`) sobre SQLite en memoria con el estado canónico, reloj fijo (2026-11-05T12:00:00Z),
@@ -103,11 +102,7 @@ export async function createApi(
       json = undefined;
     }
     const setCookie = ([] as string[]).concat(response.headers['set-cookie'] ?? [])[0] ?? null;
-    if (options.contract !== false && method === 'POST' && url === '/api/backup/export' && response.statusCode === 200) {
-      // CASO B PENDIENTE (007, T1067): la respuesta 200 de exportBackup sigue documentada como BackupEnvelopeV31/V3 en los OpenAPI de 004/002 y el servidor emite
-      // el sobre 3.2.0 (REQ-FAL7-009; conserva lifeStatus/deceasedAt). Hasta que /architect corrija el $ref, el cuerpo se valida contra el esquema 3.2.0 del contrato.
-      expect(validateBackupEnvelopeV32(json), 'sobre de exportación 3.2.0 (BackupEnvelopeV32)').toBe(true);
-    } else if (options.contract !== false) {
+    if (options.contract !== false) {
       const check = checkResponse(method, url, response.statusCode, response.headers['content-type'] as string | undefined, json ?? (text === '' ? undefined : text));
       expect(check.errors, `contrato OpenAPI de ${method} ${url}`).toEqual([]);
     }

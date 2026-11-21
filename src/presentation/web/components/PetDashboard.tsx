@@ -378,6 +378,12 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                 <p className="text-sm text-text-muted">
                   {SPECIES_LABEL[profile.species]} · {profile.breed} · {SEX_LABEL[profile.sex]} · nació {formatIsoDateEs(profile.birthDate)}
                 </p>
+                {profile.biography == null || profile.biography === '' ? null : (
+                  // REQ-BIO8-002 (#21): texto plano (React lo escapa; nunca HTML), visible para quien puede ver la mascota.
+                  <p data-pet-biography className="max-w-prose break-words text-base text-slate-800">
+                    {profile.biography}
+                  </p>
+                )}
                 <OwnerBadge owner={dashboard.owner} readOnly={readOnly} />
                 {deceasedBadgeText(profile) === null ? null : (
                   <p className="w-fit rounded-xl border border-slate-500 bg-slate-100 px-3 py-1 text-sm font-bold text-slate-900">{deceasedBadgeText(profile)}</p>

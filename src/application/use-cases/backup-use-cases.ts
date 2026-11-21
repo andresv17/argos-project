@@ -1,6 +1,6 @@
 /**
  * Respaldo por usuario sobre UnitOfWorkPort (REQ-BACKUP2-001, REQ-BACKUP2-002), sin HTTP ni SQLite.
- * - Exportación (T278): solo las mascotas del usuario autenticado y sus 6 colecciones, en un sobre 3.2.0 (007: `lifeStatus` y `deceasedAt`; sin `version`) validado contra
+ * - Exportación (T278): solo las mascotas del usuario autenticado y sus 6 colecciones, en un sobre 3.3.0 (007: `lifeStatus` y `deceasedAt`; 008: `biography`; sin `version`) validado contra
  *   backup-envelope.schema.json, sin ningún campo de propiedad (ni `ownerUserId` ni `exportedByUserId`). Consume cupo de
  *   ERR-RATE-LIMITED y emite, en la misma transacción, el token de confirmación efímero (REQ-ACC-002), que el resultado
  *   entrega como cabecera de respuesta `x-argos-confirmation-token` (nunca dentro del archivo). Nunca incluye usuarios,
@@ -14,9 +14,10 @@
  *   escribe en la misma transacción 1 fila de auditoría IMPORT; tras el commit pide el checkpoint del WAL.
  * Fechas solo de ClockPort (INV-ARCH-001); persistencia solo por UnitOfWorkPort (INV-ARCH-005).
  *
+ * REQ-BIO8-004 (008, #21): el sobre 3.3.0 añade `biography` (texto o `null`); 3.2.0 y anteriores se importan con `null`, recortada y sin la clave si queda vacía. El respaldo nunca recrea vínculos de Google ni estados de aprobación.
  * REQ-FAL7-009 (007): el formato se versiona (3.2.0); 3.1.0 y anteriores importan `ALIVE`/nulo; cada mascota importada cumple REQ-FAL7-002 y su `version` no retrocede.
  *
- * @implements REQ-FAL7-002, REQ-FAL7-009, EDGE-007-006, EDGE-007-015, REQ-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, REQ-RBAC-001, REQ-ACC-002, ERR-RATE-LIMITED, REQ-PET4-001, INV-PET4-001, REQ-IMP-001, INV-BACKUP-001, STATE-BACKUP-001, ERR-BACKUP-MALFORMED-JSON, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-BACKUP-VERSION-UNSUPPORTED, ERR-BACKUP-SCHEMA-INVALID, ERR-BACKUP-REFERENTIAL-INTEGRITY, ERR-BACKUP-ATOMIC-ROLLBACK, INV-ARCH-001, INV-ARCH-004, INV-ARCH-005
+ * @implements REQ-BIO8-004, EDGE-008-043, REQ-FAL7-002, REQ-FAL7-009, EDGE-007-006, EDGE-007-015, REQ-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, REQ-RBAC-001, REQ-ACC-002, ERR-RATE-LIMITED, REQ-PET4-001, INV-PET4-001, REQ-IMP-001, INV-BACKUP-001, STATE-BACKUP-001, ERR-BACKUP-MALFORMED-JSON, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-BACKUP-VERSION-UNSUPPORTED, ERR-BACKUP-SCHEMA-INVALID, ERR-BACKUP-REFERENTIAL-INTEGRITY, ERR-BACKUP-ATOMIC-ROLLBACK, INV-ARCH-001, INV-ARCH-004, INV-ARCH-005
  */
 
 import { assertLifeStatusInvariant, type PetProfile } from '../../domain/pet/pet-invariants.ts';
@@ -38,7 +39,9 @@ import {
   STATE_BACKUP_001,
   validateBackupEnvelopeV31,
   validateBackupEnvelopeV32,
+  validateBackupEnvelopeV33,
   type BackupEnvelopeV32,
+  type BackupEnvelopeV33,
   type components as ComponentsV31,
   type RollbackFinalState,
   type StateBackup001Event,
@@ -67,7 +70,7 @@ export type ImportPreviewResult = Omit<components['schemas']['ImportPreviewResul
 type BackupDeps = ApplicationDeps;
 
 const MODULES = Object.keys(RECORD_MODULES) as RecordModule[];
-const SUPPORTED_VERSIONS: readonly unknown[] = ['1.0.0', '2.0.0', '3.0.0', '3.1.0', '3.2.0'] satisfies readonly SourceSchemaVersion[];
+const SUPPORTED_VERSIONS: readonly unknown[] = ['1.0.0', '2.0.0', '3.0.0', '3.1.0', '3.2.0', '3.3.0'] satisfies readonly SourceSchemaVersion[];
 
 /** Límite de CHECKING_PAYLOAD_SIZE, leído de la guarda de la máquina (`bytesRead <= 10485760`). */
 export const MAX_IMPORT_BYTES = Number(/bytesRead <= (\d+)/.exec(STATE_BACKUP_001.states.CHECKING_PAYLOAD_SIZE.guard)![1]);
@@ -172,7 +175,7 @@ const recordsOf = (envelope: Pick<BackupEnvelopeV32, 'records'>) =>
 
 /** Resultado de la exportación: el archivo y las cabeceras de la respuesta (el token nunca va dentro del archivo). */
 export interface ExportBackupResult {
-  readonly envelope: BackupEnvelopeV32;
+  readonly envelope: BackupEnvelopeV33;
   readonly json: string;
   readonly fileName: string;
   /** Cabeceras de respuesta: `x-argos-confirmation-token` (43 caracteres base64url; en base solo queda su SHA-256). */
@@ -212,23 +215,23 @@ export class ExportBackupUseCase {
         exportedRecords[module] = (exportedRecords[module] as Array<Record<string, unknown>>).map(({ revision: _revision, ...rest }) => rest);
       }
       const envelope = {
-        schemaVersion: '3.2.0',
+        schemaVersion: '3.3.0',
         exportedAt: now,
         pets: sortPetsForListing(owned).map(({ ownerUserId: _ownerUserId, breedCode, ...pet }) => {
-          const { avatarVersion: _avatarVersion, version: _version, lifeStatus, deceasedAt, ...stored } = pet as typeof pet & { avatarVersion?: unknown };
-          // Orden de claves fijo (los tres campos al final): la exportación es byte a byte la misma sin importar cómo se guardó la mascota.
-          return { ...stored, breedCode: breedCode ?? null, lifeStatus: lifeStatus ?? 'ALIVE', deceasedAt: deceasedAt ?? null };
+          const { avatarVersion: _avatarVersion, version: _version, lifeStatus, deceasedAt, biography, ...stored } = pet as typeof pet & { avatarVersion?: unknown };
+          // Orden de claves fijo (los cuatro campos al final): la exportación es byte a byte la misma sin importar cómo se guardó la mascota.
+          return { ...stored, breedCode: breedCode ?? null, lifeStatus: lifeStatus ?? 'ALIVE', deceasedAt: deceasedAt ?? null, biography: biography ?? null };
         }),
         records: exportedRecords,
       };
       // Un sobre inválido se descubre antes de emitir el token: el rechazo deshace también el consumo de cupo.
-      if (!validateBackupEnvelopeV32(envelope)) {
-        throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'Los datos guardados del usuario no forman un respaldo 3.2.0 válido.');
+      if (!validateBackupEnvelopeV33(envelope)) {
+        throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'Los datos guardados del usuario no forman un respaldo 3.3.0 válido.');
       }
       const token = await this.deps.backupTokens.issue(repositories, userId, now);
       return { pets: envelope.pets, records: envelope.records, issued: token, exportedAt: now };
     });
-    const envelope = { schemaVersion: '3.2.0', exportedAt, pets, records } as unknown as BackupEnvelopeV32;
+    const envelope = { schemaVersion: '3.3.0', exportedAt, pets, records } as unknown as BackupEnvelopeV33;
     return {
       envelope,
       json: JSON.stringify(envelope, null, 2),
@@ -291,7 +294,12 @@ class BackupImportPipeline {
     if (!Object.hasOwn(parsed, 'schemaVersion')) throw run.fail('SCHEMA_INVALID', 'Falta schemaVersion.', 'schemaVersion');
     const version = parsed['schemaVersion'];
     if (!SUPPORTED_VERSIONS.includes(version)) {
-      throw run.fail('VERSION_MISMATCH', `schemaVersion ${JSON.stringify(version)} no es 1.0.0, 2.0.0, 3.0.0, 3.1.0 ni 3.2.0.`, 'schemaVersion');
+      throw run.fail('VERSION_MISMATCH', `schemaVersion ${JSON.stringify(version)} no es 1.0.0, 2.0.0, 3.0.0, 3.1.0, 3.2.0 ni 3.3.0.`, 'schemaVersion');
+    }
+    if (version === '3.3.0') {
+      if (!validateBackupEnvelopeV33(parsed)) throw schemaFailure(run, 'SCHEMA_INVALID', validateBackupEnvelopeV33);
+      run.fire('SCHEMA_V3_VALID');
+      return { envelope: liftEnvelopeV31ToV32(parsed) as unknown as BackupEnvelopeV32, sourceSchemaVersion: '3.3.0' };
     }
     if (version === '3.2.0') {
       if (!validateBackupEnvelopeV32(parsed)) throw schemaFailure(run, 'SCHEMA_INVALID', validateBackupEnvelopeV32);

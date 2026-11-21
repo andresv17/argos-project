@@ -1,7 +1,10 @@
 /**
  * Alta y edición del perfil de una mascota propia (REQ-PET-001). La edición solo se ofrece si `canEdit`.
  *
- * @implements REQ-FAL7-003, REQ-UI-002, REQ-UI-004, REQ-UI-007, REQ-FRM-002, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003
+ * Biografía (008, #21): solo en la edición (el alta no la admite, `CreatePetInput`), 0 a 280 caracteres en una sola línea con contador; texto plano. La edita quien edita los datos
+ * básicos; el formulario ya solo se ofrece a ese rol (REQ-BIO8-001, REQ-RBAC-001).
+ *
+ * @implements REQ-BIO8-001, REQ-FAL7-003, REQ-UI-002, REQ-UI-004, REQ-UI-007, REQ-FRM-002, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button, FormError, SelectField, TextField } from './Field.tsx';
@@ -18,7 +21,10 @@ export type PetFormBody = Record<string, string | number | boolean | null>;
 /** Las 8 especies aprobadas (REQ-PET2-001, INV-PET2-001), en el orden del contrato. */
 export const SPECIES_ORDER: readonly Species[] = ['CANINE', 'FELINE', 'RABBIT', 'FERRET', 'BIRD', 'REPTILE', 'SMALL_MAMMAL', 'OTHER'];
 
-const NULLABLE_FIELDS = ['speciesOther', 'neutered', 'microchipId', 'breedCode', 'deceasedAt'] as const;
+const NULLABLE_FIELDS = ['speciesOther', 'neutered', 'microchipId', 'breedCode', 'deceasedAt', 'biography'] as const;
+
+/** Tope de la biografía del contrato (`Biography.maxLength`, REQ-BIO8-001). */
+export const BIOGRAPHY_MAX_LENGTH = 280;
 
 /** Solo perros y gatos tienen catálogo de razas (REQ-RAZ-003); las otras 6 especies llevan la raza como texto libre. */
 const hasBreedCatalog = (species: string): boolean => species === 'CANINE' || species === 'FELINE';
@@ -59,6 +65,7 @@ export function petFormInitial(profile: PetProfile | null): Record<string, strin
     microchipId: profile?.microchipId ?? '',
     lifeStatus: profile?.lifeStatus ?? 'ALIVE',
     deceasedAt: profile?.deceasedAt ?? '',
+    biography: profile?.biography ?? '',
   };
 }
 
@@ -69,6 +76,7 @@ export function petFormInitial(profile: PetProfile | null): Record<string, strin
 export function petFormBody(profile: PetProfile | null, body: FormBody): PetFormBody {
   const out: PetFormBody = { ...body };
   if (out['species'] !== 'OTHER') delete out['speciesOther'];
+  if (profile === null) delete out['biography']; // el alta no admite la biografía (CreatePetInput): solo se edita
   if (out['lifeStatus'] !== 'DECEASED') delete out['deceasedAt']; // REQ-FAL7-002: ALIVE exige la fecha nula; en la edición con fecha previa se envía null más abajo.
   const species = String(out['species']);
   const code = out['breedCode'];
@@ -116,6 +124,45 @@ export function ReviveConfirmation({ petName, onConfirm, onCancel }: {
           Mantener Fallecido
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Campo de biografía: una línea de hasta 280 caracteres con contador asociado por `aria-describedby` (REQ-BIO8-001, NFR-008-002). */
+export function BiographyField({ id, value, onChange, errors }: {
+  readonly id: string;
+  readonly value: string;
+  readonly onChange: (name: string, value: string) => void;
+  readonly errors: Readonly<Record<string, string>>;
+}): JSX.Element {
+  const error = errors['biography'];
+  const helpId = `${id}-help`;
+  const errorId = `${id}-error`;
+  const over = value.length > BIOGRAPHY_MAX_LENGTH;
+  return (
+    <div className="flex flex-col gap-1 sm:col-span-2">
+      <label htmlFor={id} className="text-sm font-medium text-slate-800">
+        Biografía (opcional)
+      </label>
+      <input
+        id={id}
+        name="biography"
+        type="text"
+        value={value}
+        autoComplete="off"
+        aria-invalid={error === undefined && !over ? undefined : true}
+        aria-describedby={error === undefined ? helpId : `${helpId} ${errorId}`}
+        onChange={(e) => onChange('biography', e.target.value)}
+        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      />
+      <p id={helpId} className={`text-sm ${over ? 'font-semibold text-red-800' : 'text-text-muted'}`}>
+        {`${value.length} de ${BIOGRAPHY_MAX_LENGTH} caracteres. Solo texto, sin saltos de línea.`}
+      </p>
+      {error === undefined ? null : (
+        <p id={errorId} className="text-sm text-red-800">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -276,6 +323,7 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
           {DECEASED_LINKS_NOTICE}
         </p>
       ) : null}
+      {profile === null ? null : <BiographyField id={`${prefix}-biography`} value={form.values.biography ?? ''} onChange={form.onChange} errors={form.errors} />}
       <TextField id={`${prefix}-microchipId`} label="Microchip (15 dígitos, opcional)" name="microchipId" value={form.values.microchipId ?? ''} onChange={form.onChange} errors={form.errors} />
       <TextField id={`${prefix}-avatarUrl`} label="URL del avatar (opcional)" name="avatarUrl" type="url" value={form.values.avatarUrl ?? ''} onChange={form.onChange} errors={form.errors} />
       <p id={`${prefix}-avatarUrl-help`} className="-mt-2 text-sm text-text-muted">

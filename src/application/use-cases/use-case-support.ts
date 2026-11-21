@@ -321,6 +321,12 @@ export function silenceAlertsOfDeceased<E extends { readonly alert: { readonly s
   return deceased ? entries.map((entry) => (entry.alert?.status === 'SUPERSEDED' ? entry : { ...entry, alert: null })) : [...entries];
 }
 
+/** La tarjeta del listado no lleva la biografía (REQ-BIO8-002); la escena tampoco la recibe (REQ-BIO8-003, INV-ESC6-010/017). */
+const withoutBiography = (pet: PetProfile): PetProfile => {
+  const { biography: _biography, ...rest } = pet;
+  return rest;
+};
+
 export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, records: PetRecordCollections, today: string, avatarVersion: number | null = null): PetCardView {
   const weights = computeWeightEvolutionSeries(records.weights);
   const deceased = pet.lifeStatus === 'DECEASED';
@@ -330,7 +336,7 @@ export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, r
     silenceAlertsOfDeceased(deceased, evaluateDewormingAlerts(records.dewormings, today)),
   );
   return {
-    profile: { ...normalizePetProfile(pet), avatarVersion },
+    profile: { ...normalizePetProfile(withoutBiography(pet)), avatarVersion }, // REQ-BIO8-002: la biografía solo viaja en la ficha
     owner,
     myRole: role,
     permissions: petPermissionsFor(role),

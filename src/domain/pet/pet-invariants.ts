@@ -12,7 +12,10 @@
  *   edición; DECEASED -> ALIVE borra la fecha. REQ-FAL7-005: ni altas ni ediciones de registros con fecha resultante posterior a `deceasedAt`.
  *   REQ-FAL7-007: la edad de una fallecida se calcula hasta `deceasedAt`. Los mensajes nunca repiten `lifeStatus` ni `deceasedAt` (REQ-FAL7-010).
  *
- * @implements REQ-PET2-001, INV-PET2-001, REQ-PET-002, INV-PET-002, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS, ERR-PET-MICROCHIP-DUPLICATE, INV-ARCH-001, INV-ARCH-004, REQ-FAL7-001, REQ-FAL7-002, REQ-FAL7-005, REQ-FAL7-007, REQ-FAL7-010, REQ-FAL7-011
+ * - REQ-BIO8-001 (feature 008, #21): `biography` opcional de 0 a 280 caracteres, recortada, sin caracteres de control; vacía equivale a `null`. La ausencia o el `null` se guardan sin la clave
+ *   (la lectura la expone como `null`); NUNCA entra en la escena ni en el resumen veterinario (REQ-BIO8-002/003, INV-ESC6-010/017).
+ *
+ * @implements REQ-BIO8-001, REQ-PET2-001, INV-PET2-001, REQ-PET-002, INV-PET-002, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS, ERR-PET-MICROCHIP-DUPLICATE, INV-ARCH-001, INV-ARCH-004, REQ-FAL7-001, REQ-FAL7-002, REQ-FAL7-005, REQ-FAL7-007, REQ-FAL7-010, REQ-FAL7-011
  */
 
 import { DomainError, type BackupEnvelopeV3, type PetProfile as ContractPetProfile } from '../../generated/index.ts';
@@ -210,6 +213,19 @@ export function assertBirthDateNotAfterRecords(birthDate: string, recordEventDat
   }
 }
 
+/**
+ * REQ-BIO8-001: recorta la biografía de la entrada (`REQ-FRM-001`) y convierte el texto vacío en `null` ANTES de validar el esquema; el resto de la entrada pasa intacto.
+ * Una entrada que no es objeto o una biografía que no es texto se devuelven sin tocar para que el esquema las rechace.
+ * @implements REQ-BIO8-001, REQ-FRM-001, EDGE-008-041
+ */
+export function normalizeBiographyInput(input: unknown): unknown {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return input;
+  const biography = (input as { readonly biography?: unknown }).biography;
+  if (typeof biography !== 'string') return input;
+  const trimmed = biography.trim();
+  return { ...(input as Record<string, unknown>), biography: trimmed === '' ? null : trimmed };
+}
+
 export interface CreatePetCommand {
   readonly id: string;
   readonly ownerUserId: string;
@@ -300,7 +316,7 @@ export interface UpdatePetCommand {
  * @implements REQ-PET2-001, INV-PET2-001, INV-PET-006, INV-OWN-001, ERR-PET-BIRTHDATE-AFTER-RECORDS
  */
 export function updatePetProfile(command: UpdatePetCommand): PetProfile {
-  const { input } = command;
+  const input = normalizeBiographyInput(command.input);
   if (!validateUpdatePetInput(input)) {
     failSchema('UpdatePetInput', validateUpdatePetInput as ValidatorWithErrors);
   }
@@ -343,6 +359,7 @@ export function updatePetProfile(command: UpdatePetCommand): PetProfile {
   updated.lifeStatus = lifeStatus;
   updated.version = (command.pet.version ?? 1) + 1; // REQ-FAL7-011: +1 en cada PATCH de mascota
   updated.deceasedAt = changes.deceasedAt !== undefined ? changes.deceasedAt : lifeStatus === 'ALIVE' && changes.lifeStatus !== undefined ? null : (command.pet.deceasedAt ?? null);
+  if (updated.biography == null) delete updated.biography; // REQ-BIO8-001: vacía o nula se guarda sin la clave
   assertValidPetProfile(updated);
   assertLifeStatusInvariant(updated, command.today);
   // EDGE-007-028: solo se revisan los registros posteriores en la transicion ALIVE->DECEASED o cuando deceasedAt se ADELANTA; una edicion ajena (p. ej. el nombre) de una fallecida con registro heredado posterior no se rechaza.

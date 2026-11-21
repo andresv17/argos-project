@@ -280,7 +280,7 @@ const RECORD_TABLES: { readonly [M in RecordModule]: { readonly table: string; r
 };
 const RECORD_MODULE_NAMES = Object.keys(RECORD_TABLES) as RecordModule[];
 
-const PET_COLUMNS = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version';
+const PET_COLUMNS = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version, biography';
 
 /** @implements INV-ARCH-004, INV-PET-005, REQ-PET2-001, ERR-INTERNAL-UNEXPECTED */
 function petRepository(client: PoolClientLike): PetRepositoryPort {
@@ -301,10 +301,14 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
         p.microchipId === row['microchip_id'] &&
         p.birthDateIsEstimate === (Number(row['birth_date_is_estimate']) === 1) &&
         (p.lifeStatus ?? 'ALIVE') === row['life_status'] && // filas anteriores a 007: `data` sin los campos = ALIVE/nulo (0010)
-        (p.deceasedAt ?? null) === (row['deceased_at'] ?? null),
+        (p.deceasedAt ?? null) === (row['deceased_at'] ?? null) &&
+        (p.biography ?? null) === (row['biography'] ?? null), // filas anteriores a 008: `data` sin el campo = NULL (0012)
     );
     // `version` solo vive en la columna (autoridad del If-Match, EDGE-007-009); `data` no la repite.
-    return { ...stored, lifeStatus: row['life_status'] as LifeStatus, deceasedAt: (row['deceased_at'] as string | null) ?? null, version: Number(row['version']) };
+    // REQ-BIO8-001: sin biografía no hay clave (la lectura de la ficha la expone como null).
+    const { biography: _stored, ...rest } = stored;
+    const biography = (row['biography'] as string | null) ?? null;
+    return { ...rest, lifeStatus: row['life_status'] as LifeStatus, deceasedAt: (row['deceased_at'] as string | null) ?? null, version: Number(row['version']), ...(biography === null ? {} : { biography }) };
   };
   return {
     async findById(petId) {
@@ -326,11 +330,11 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
       // (INV-PET-005, REQ-PET4-001). `data` no repite `version` (la columna manda); sin `version` explícita, guardar sobre una fila existente la incrementa (REQ-FAL7-011).
       const { version, ...stored } = pet;
       await client.query(
-        `INSERT INTO pets (${PET_COLUMNS}) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO pets (${PET_COLUMNS}) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          ON CONFLICT (id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id, data = EXCLUDED.data, species = EXCLUDED.species,
            species_other = EXCLUDED.species_other, neutered = EXCLUDED.neutered, microchip_id = EXCLUDED.microchip_id,
-           birth_date_is_estimate = EXCLUDED.birth_date_is_estimate, life_status = EXCLUDED.life_status, deceased_at = EXCLUDED.deceased_at,
-           version = CASE WHEN $12 = 1 THEN EXCLUDED.version ELSE pets.version + 1 END`,
+           birth_date_is_estimate = EXCLUDED.birth_date_is_estimate, life_status = EXCLUDED.life_status, deceased_at = EXCLUDED.deceased_at, biography = EXCLUDED.biography,
+           version = CASE WHEN $13 = 1 THEN EXCLUDED.version ELSE pets.version + 1 END`,
         [
           pet.id,
           pet.ownerUserId,
@@ -343,6 +347,7 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
           pet.lifeStatus ?? 'ALIVE',
           pet.deceasedAt ?? null,
           version ?? 1,
+          pet.biography ?? null,
           version === undefined ? 0 : 1,
         ],
       );

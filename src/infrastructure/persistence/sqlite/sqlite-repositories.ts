@@ -194,6 +194,7 @@ interface PetRow extends KeyedRow {
   /** 0014 (REQ-FAL7-001): `data` repite estado y fecha (cruzados con las columnas); `version` solo vive en la columna (autoridad del If-Match, EDGE-007-009). */
   readonly life_status: string;
   readonly deceased_at: string | null;
+  readonly biography: string | null;
   readonly version: number;
 }
 interface RecordRow {
@@ -359,14 +360,14 @@ function loginAttemptRepository(db: SqliteDatabase): LoginAttemptRepositoryPort 
 
 /** @implements INV-ARCH-004, INV-PET-005, ERR-INTERNAL-UNEXPECTED */
 function petRepository(db: SqliteDatabase): PetRepositoryPort {
-  const columns = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version';
+  const columns = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version, biography';
   const byId = db.prepare<[string], PetRow>(`SELECT ${columns} FROM pets WHERE id = ?`);
   const byOwners = db.prepare<[string], PetRow>(`SELECT ${columns} FROM pets WHERE owner_user_id IN (SELECT value FROM json_each(?))`);
   const upsert = db.prepare(
-    `INSERT INTO pets (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO pets (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (id) DO UPDATE SET owner_user_id = excluded.owner_user_id, data = excluded.data, species = excluded.species,
        species_other = excluded.species_other, neutered = excluded.neutered, microchip_id = excluded.microchip_id,
-       birth_date_is_estimate = excluded.birth_date_is_estimate, life_status = excluded.life_status, deceased_at = excluded.deceased_at,
+       birth_date_is_estimate = excluded.birth_date_is_estimate, life_status = excluded.life_status, deceased_at = excluded.deceased_at, biography = excluded.biography,
        version = CASE WHEN ? = 1 THEN excluded.version ELSE pets.version + 1 END`,
   );
   // INV-PET-005: ON DELETE CASCADE borra en la misma sentencia los registros de los 6 módulos.
@@ -392,9 +393,12 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
         p.microchipId === row.microchip_id &&
         p.birthDateIsEstimate === (row.birth_date_is_estimate === 1) &&
         (p.lifeStatus ?? 'ALIVE') === row.life_status && // filas anteriores a 007: `data` sin los campos = ALIVE/nulo (0014)
-        (p.deceasedAt ?? null) === row.deceased_at,
+        (p.deceasedAt ?? null) === row.deceased_at &&
+        (p.biography ?? null) === row.biography, // filas anteriores a 008: `data` sin el campo = NULL (0016)
     );
-    return { ...stored, lifeStatus: row.life_status as LifeStatus, deceasedAt: row.deceased_at, version: row.version };
+    // REQ-BIO8-001: sin biografía no hay clave (la lectura de la ficha la expone como null).
+    const { biography: _stored, ...rest } = stored;
+    return { ...rest, lifeStatus: row.life_status as LifeStatus, deceasedAt: row.deceased_at, version: row.version, ...(row.biography === null ? {} : { biography: row.biography }) };
   };
   return {
     async findById(petId) {
@@ -424,6 +428,7 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
         pet.lifeStatus ?? 'ALIVE',
         pet.deceasedAt ?? null,
         version ?? 1,
+        pet.biography ?? null,
         version === undefined ? 0 : 1,
       );
     },

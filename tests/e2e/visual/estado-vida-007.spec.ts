@@ -58,9 +58,9 @@ test.describe('estado de vida de la ficha (007, T1029)', () => {
     const file = testInfo.outputPath('vida.json');
     await download.saveAs(file);
     const envelope = JSON.parse(readFileSync(file, 'utf8')) as { schemaVersion: string; pets: Array<{ lifeStatus: string; deceasedAt: string | null }> };
-    expect([envelope.schemaVersion, envelope.pets[0]?.lifeStatus, envelope.pets[0]?.deceasedAt]).toEqual(['3.2.0', 'DECEASED', '2026-06-10']);
+    expect([envelope.schemaVersion, envelope.pets[0]?.lifeStatus, envelope.pets[0]?.deceasedAt]).toEqual(['3.3.0', 'DECEASED', '2026-06-10']);
     await page.locator('input[type="file"]').setInputFiles(file);
-    await expect(page.getByText('Previsualización (versión 3.2.0)')).toBeVisible();
+    await expect(page.getByText('Previsualización (versión 3.3.0)')).toBeVisible();
     await expect(page.getByText(/volverá a figurar como viva/)).toHaveCount(0);
     await page.getByRole('button', { name: 'Importar respaldo' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Importación completada' })).toBeVisible();

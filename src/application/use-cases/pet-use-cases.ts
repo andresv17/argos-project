@@ -14,7 +14,9 @@
  *   ERR-PET-VERSION-CONFLICT si no coincide, sin cambios ni auditoría; EDGE-007-009) y valida `lifeStatus`/`deceasedAt` sobre el estado resultante.
  * - Una mascota `DECEASED` no genera alertas ni cuenta en `alertsSummary`/`globalAlertStatus` y su edad llega hasta `deceasedAt` (REQ-FAL7-004, REQ-FAL7-007).
  *
- * @implements REQ-FAL7-001, REQ-FAL7-002, REQ-FAL7-004, REQ-FAL7-007, REQ-FAL7-008, REQ-FAL7-011, ERR-PET-VERSION-CONFLICT, EDGE-007-009, EDGE-007-010, REQ-PET4-001, INV-PET4-001, REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
+ * REQ-BIO8-001/002 (008, #21): `UpdatePetUseCase` ya cubre la biografía (acción `EDIT_PET_BASICS`, `If-Match`, recorte y 0..280 en el dominio); la auditoría guarda solo la huella (REQ-AUD-001).
+ *
+ * @implements REQ-BIO8-001, REQ-BIO8-002, REQ-BIO8-003, REQ-FAL7-001, REQ-FAL7-002, REQ-FAL7-004, REQ-FAL7-007, REQ-FAL7-008, REQ-FAL7-011, ERR-PET-VERSION-CONFLICT, EDGE-007-009, EDGE-007-010, REQ-PET4-001, INV-PET4-001, REQ-PET2-001, REQ-PET2-002, REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004, REQ-PET-005, INV-ACC-001, INV-ACC-002, INV-PET-003, ERR-PET-MICROCHIP-DUPLICATE, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, INV-ARCH-001, INV-ARCH-002
  */
 
 import { normalizePetProfile } from '../../domain/pet/pet-invariants.ts';
@@ -139,7 +141,7 @@ export class UpdatePetUseCase {
         await mapMicrochipViolation(() => repositories.pets.save(updated));
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: auditPetView(pet), next: auditPetView(updated) });
         // `pets.save` no toca el avatar (INV-AVA-001); la respuesta lo refleja leyendo su versión actual.
-        return { ...updated, avatarVersion: (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null };
+        return { ...updated, biography: updated.biography ?? null, avatarVersion: (await repositories.pets.findAvatarVersions([petId])).get(petId) ?? null };
       }),
     );
   }
@@ -207,7 +209,8 @@ export class GetPetDashboardUseCase {
       const vaccinations = silenceAlertsOfDeceased(deceased, evaluateVaccinationAlerts(records.vaccinations, today));
       const dewormings = silenceAlertsOfDeceased(deceased, evaluateDewormingAlerts(records.dewormings, today));
       return {
-        profile: { ...normalizePetProfile(pet), avatarVersion },
+        // REQ-BIO8-002: la ficha expone la biografía (null si no hay); la tarjeta del listado, el resumen veterinario y la escena no la llevan.
+        profile: { ...normalizePetProfile(pet), biography: pet.biography ?? null, avatarVersion },
         owner: ownerTag(owner, null),
         myRole: role,
         permissions: petPermissionsFor(role),
