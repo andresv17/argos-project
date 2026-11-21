@@ -169,6 +169,21 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       expect(await rejection(seed(uow, (r) => r.users.insert({ ...MARIA, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa78', username: 'ANDRES' })))).not.toBe('resolved');
     });
 
+    it('[REQ-INV8-001][INV-ARCH-005] usuarios: la búsqueda por prefijo ignora mayúsculas, ordena por LOWER(username), respeta el límite y trata el guion bajo como literal', async () => {
+      const uow = await createUnitOfWork();
+      const names = ['pedro.b', 'Pedro.A', 'pedro_c', 'pedroXd', 'otro.usuario'];
+      await seed(uow, async (r) => {
+        for (const [i, username] of names.entries()) await r.users.insert({ ...MARIA, id: `aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaab${String(i).padStart(3, '0')}`, username });
+      });
+      const found = await read(uow, async (r) => ({
+        all: await r.users.searchUsernamesByPrefix('ped', 10),
+        limited: await r.users.searchUsernamesByPrefix('ped', 2),
+        underscore: await r.users.searchUsernamesByPrefix('pedro_', 10),
+        none: await r.users.searchUsernamesByPrefix('zzz', 10),
+      }));
+      expect(found).toEqual({ all: ['Pedro.A', 'pedro.b', 'pedro_c', 'pedroXd'], limited: ['Pedro.A', 'pedro.b'], underscore: ['pedro_c'], none: [] });
+    });
+
     it('[INV-ARCH-005] sesiones e intentos de login: guardar reemplaza y la lectura devuelve lo último guardado', async () => {
       const uow = await createUnitOfWork();
       await seed(uow, async (r) => {

@@ -227,6 +227,8 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
   const select = 'SELECT id, username, password_hash, email, preferred_language, timezone, data FROM users';
   const byId = db.prepare<[string], UserRow>(`${select} WHERE id = ?`);
   const byUsername = db.prepare<[string], UserRow>(`${select} WHERE lower(username) = lower(?)`);
+  // substr y no LIKE: el `_` del username no debe actuar como comodín (REQ-INV8-001).
+  const byPrefix = db.prepare<[number, string, number], { readonly username: string }>('SELECT username FROM users WHERE substr(lower(username), 1, ?) = ? ORDER BY lower(username) LIMIT ?');
   const byEmail = db.prepare<[string], UserRow>(`${select} WHERE lower(email) = lower(?) LIMIT 2`);
   const byIds = db.prepare<[string], UserRow>(`${select} WHERE id IN (SELECT value FROM json_each(?))`);
   const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone) VALUES (?, ?, ?, ?, ?, ?, ?)');
@@ -267,6 +269,9 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
     async findByUsername(username) {
       const row = byUsername.get(username);
       return row === undefined ? null : toAccount(row);
+    },
+    async searchUsernamesByPrefix(lowerPrefix, limit) {
+      return byPrefix.all([...lowerPrefix].length, lowerPrefix, limit).map((row) => row.username);
     },
     async listByEmail(normalizedEmail) {
       return byEmail.all(normalizedEmail).map(toAccount);

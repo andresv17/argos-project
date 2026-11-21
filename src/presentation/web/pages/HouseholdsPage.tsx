@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Button, FormError, SelectField, TextField } from '../components/Field.tsx';
+import { InviteeCombobox } from '../components/InviteeCombobox.tsx';
 import { HomeScene } from '../components/HomeScene.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { useSession } from '../session.tsx';
@@ -214,7 +215,7 @@ function InviteForm({ householdId, onInvited }: { readonly householdId: string; 
   });
   return (
     <form noValidate aria-label="Invitar miembro" onSubmit={(e) => void form.onSubmit(e)} className="flex flex-wrap items-end gap-3">
-      <TextField id={`invite-${householdId}`} label="Invitar por usuario" name="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
+      <InviteeCombobox id={`invite-${householdId}`} householdId={householdId} label="Invitar por usuario" name="username" value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
       <RoleOnJoinSelect householdId={householdId} value={form.values.roleOnJoin ?? 'READER'} onChange={form.onChange} errors={form.errors} />
       <Button type="submit" disabled={form.busy}>
         Invitar

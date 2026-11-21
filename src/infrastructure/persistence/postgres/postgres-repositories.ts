@@ -130,6 +130,10 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
       const { rows } = await client.query(`${USER_COLUMNS} WHERE LOWER(username) = LOWER($1)`, [username]);
       return rows[0] === undefined ? null : toAccount(rows[0]);
     },
+    async searchUsernamesByPrefix(lowerPrefix, limit) {
+      const { rows } = await client.query('SELECT username FROM users WHERE LEFT(LOWER(username), $1) = $2 ORDER BY LOWER(username) COLLATE "C" LIMIT $3', [[...lowerPrefix].length, lowerPrefix, limit]);
+      return rows.map((row) => String(row['username']));
+    },
     async listByEmail(normalizedEmail) {
       const { rows } = await client.query(`${USER_COLUMNS} WHERE LOWER(email) = LOWER($1) LIMIT 2`, [normalizedEmail]);
       return rows.map(toAccount);

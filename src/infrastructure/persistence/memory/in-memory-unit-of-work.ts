@@ -134,6 +134,13 @@ function userRepository(state: MemoryState): UserRepositoryPort {
     async listByEmail(normalizedEmail) {
       return copy(state.users.filter((u) => u.email !== null && u.email.toLowerCase() === normalizedEmail.toLowerCase()).slice(0, 2));
     },
+    async searchUsernamesByPrefix(lowerPrefix, limit) {
+      return state.users
+        .map((u) => u.username)
+        .filter((name) => name.toLowerCase().startsWith(lowerPrefix))
+        .sort((a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0))
+        .slice(0, limit);
+    },
     async listByIds(userIds) {
       return copy(state.users.filter((u) => userIds.includes(u.id)));
     },

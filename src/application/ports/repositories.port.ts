@@ -40,6 +40,11 @@ export interface UserRepositoryPort {
    * único (002): devuelve hasta 2 filas, de modo que quien llama distingue «una sola cuenta» de «ambiguo» (REQ-LOG-001, EDGE-007).
    */
   listByEmail(normalizedEmail: string): Promise<UserAccount[]>;
+  /**
+   * Usernames (capitalización guardada) cuyo `LOWER(username)` empieza por `lowerPrefix`, ordenados por `LOWER(username)` y limitados a `limit`
+   * (autocompletado de colaboradores, REQ-INV8-001). El prefijo ya viene validado (`[A-Za-z0-9._-]{3,30}`) y en minúsculas; el `_` NO es comodín.
+   */
+  searchUsernamesByPrefix(lowerPrefix: string, limit: number): Promise<string[]>;
   listByIds(userIds: readonly string[]): Promise<UserAccount[]>;
   /** Falla si el id o el username ya existen. */
   insert(user: UserAccount): Promise<void>;

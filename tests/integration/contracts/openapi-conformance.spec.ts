@@ -13,14 +13,14 @@ let api: Api | null = null;
  * PENDIENTES explícitas: su ruta en Fastify se implementa en los bloques A (T1112..) y B de la 008; hasta entonces
  * el contrato las declara y la API aún no. Al implementar cada una, quitarla de esta lista (la prueba lo exige).
  */
-const PENDING_008 = ['chooseGoogleUsername', 'completeGoogleLogin', 'searchInvitees', 'startGoogleLink', 'startGoogleLogin'];
+const PENDING_008 = ['chooseGoogleUsername', 'completeGoogleLogin', 'startGoogleLink', 'startGoogleLogin'];
 afterEach(async () => {
   await api?.close();
   api = null;
 });
 
 describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.yaml', () => {
-  it('[REQ-AUTH2-001][REQ-PET2-001][REQ-HOUSE2-001][REQ-BACKUP2-001][REQ-HOUSE2-002] cada una de las 45 operaciones del OpenAPI tiene su ruta en Fastify (las 5 de la 008 siguen pendientes y explícitas)', async () => {
+  it('[REQ-AUTH2-001][REQ-PET2-001][REQ-HOUSE2-001][REQ-BACKUP2-001][REQ-HOUSE2-002] cada una de las 45 operaciones del OpenAPI tiene su ruta en Fastify (las 4 de Google de la 008 siguen pendientes y explícitas; searchInvitees ya se sirve, T1190)', async () => {
     api = await createApi();
     const missing = OPERATIONS.filter((op) => !api!.app.hasRoute({ method: op.method as 'GET', url: op.path.replace(/\{([^}]+)\}/g, ':$1') }));
     const missingIds = missing.map((op) => op.operationId).sort();
@@ -85,6 +85,7 @@ describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.ya
     await step('POST', `/api/households/${rolesId}/invitations`, { cookie: andres, body: { username: 'maria.v', roleOnJoin: 'CAREGIVER' } });
     await step('POST', `/api/invitations/${rolesId}/accept`, { cookie: await api.login('maria.v') });
     await step('POST', `/api/households/${rolesId}/invitations`, { cookie: andres, body: { username: 'lucia.r', roleOnJoin: 'READER' } });
+    await step('GET', `/api/households/${rolesId}/invitees?q=car`, { cookie: andres }); // searchInvitees (T1190)
     const pending = (await step('GET', `/api/households/${rolesId}`, { cookie: andres })).json as { pendingInvitations: Array<{ invitationId: string }> };
     expect(pending.pendingInvitations).toHaveLength(1);
     await step('DELETE', `/api/households/${rolesId}/invitations/${pending.pendingInvitations[0]!.invitationId}`, { cookie: andres });

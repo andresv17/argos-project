@@ -12,7 +12,10 @@
  * - ChangeMemberRoleUseCase y TransferHouseholdOwnershipUseCase (T246) guardan solo las filas que cambian; la transferencia
  *   también actualiza el propietario del hogar. REMOVE y LEAVE podan las asignaciones de las mascotas del miembro saliente.
  *
- * @implements REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-HOUSE2-001, INV-ARCH-001, INV-ARCH-002
+ * - SearchInviteesUseCase (008, #24) autocompleta por prefijo de username: gestor, prefijo válido (>= 3, sin consultar si no), límite de tasa por usuario e IP, y SIEMPRE
+ *   la misma secuencia de lecturas (candidatos, miembros, invitaciones) con o sin coincidencias; sin auditoría ni escritura.
+ *
+ * @implements REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-HOUSE2-001, INV-ARCH-001, INV-ARCH-002, REQ-INV8-001, REQ-INV8-003, REQ-INV8-004, INV-INV8-001
  */
 
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
@@ -28,7 +31,7 @@ import {
   type TransferHouseholdOwnershipInput,
 } from '../../generated/index.ts';
 // 3.1.0 (feature 004): el username de la invitación admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
-import { validateInviteMemberInput } from '../../generated/v31/index.ts';
+import { validateInviteMemberInput, validateInviteeSearchPrefix, type InviteeSearchResult } from '../../generated/v31/index.ts';
 import {
   applyMembershipEvent,
   changeMemberRole,
@@ -46,7 +49,10 @@ import {
   requireOwner,
   transferHouseholdOwnership,
 } from '../../domain/households/household-policies.ts';
+import { INVITEE_SEARCH_MAX_RESULTS, selectInvitees } from '../../domain/households/invitee-search.ts';
+import { normalizeClientIp } from '../../domain/sharing/client-ip.ts';
 import { matchesPetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
+import type { InviteeSearchLimiterPort } from '../ports/invitee-search-limiter.port.ts';
 import type { InvitationRecord, RepositorySet } from '../ports/repositories.port.ts';
 import { recordAssignmentRemoved, recordAudit } from './audit-support.ts';
 import { keepsCard, petListFilterOf, type PetListQuery } from './pet-use-cases.ts';
@@ -202,6 +208,31 @@ export class InviteMemberUseCase {
 
   private invitationOf(householdId: string, username: string, inviteeUserId: string | null, roleOnJoin: InviteMemberInput['roleOnJoin'], invitedByUserId: string, now: string): InvitationRecord {
     return { invitationId: this.deps.ids.nextId(), householdId, inviteeUsername: username, inviteeUserId, roleOnJoin, invitedByUserId, status: 'INVITED', createdAt: now, respondedAt: null };
+  }
+}
+
+/**
+ * Autocompletado de colaboradores (`searchInvitees`, feature 008 `[GH:#24]`, ADR-008-12). Orden: gestor del hogar (404 sin membresía, 403 sin permiso), prefijo
+ * válido (422 sin consultar), límite de tasa, y una única secuencia de lecturas igual con y sin resultados. Solo devuelve `username`; no registra ni audita nada.
+ * @implements REQ-INV8-001, REQ-INV8-003, REQ-INV8-004, INV-INV8-001, EDGE-008-044, EDGE-008-046, REQ-HOUSE2-001, REQ-RBAC-001
+ */
+export class SearchInviteesUseCase {
+  constructor(private readonly deps: ApplicationDeps, private readonly limiter: InviteeSearchLimiterPort) {}
+
+  async execute(userId: string, householdId: string, query: unknown, clientIp: string): Promise<InviteeSearchResult> {
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const memberships = await repositories.households.listMemberships(householdId);
+      requireManager(memberships, householdId, userId);
+      const prefix = assertMatchesSchema<string>('InviteeSearchPrefix', validateInviteeSearchPrefix, query);
+      this.limiter.consume(userId, normalizeClientIp(clientIp));
+      const active = memberships.filter((m) => m.householdId === householdId && m.status === 'ACTIVE');
+      const invited = (await repositories.invitations.listByHousehold(householdId)).filter((i) => i.status === 'INVITED');
+      const members = await publicProfilesById(repositories, active.map((m) => m.userId));
+      const candidates = await repositories.users.searchUsernamesByPrefix(prefix.toLowerCase(), INVITEE_SEARCH_MAX_RESULTS + 1 + active.length + invited.length);
+      const excluded = [...[...members.values()].map((u) => u.username), ...invited.map((i) => i.inviteeUsername)];
+      const items: InviteeSearchResult['items'] = selectInvitees(candidates, excluded).map((username) => ({ username })) as InviteeSearchResult['items']; // ≤ 5 por selectInvitees
+      return { items };
+    });
   }
 }
 
