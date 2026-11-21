@@ -11,3 +11,27 @@ resource "google_logging_project_exclusion" "shared_token_requests" {
 
   depends_on = [google_project_service.apis]
 }
+
+# Búsqueda de colaboradores (008, H-RAMA-008-J-01, EDGE-008-044/NFR-008-004).
+# La consulta de prefijo (`q`) viaja en la URL y el registro de solicitudes de Cloud Run la guardaría
+# en claro en _Default. La exclusión descarta solo las solicitudes a /invitees?q= de Cloud Run.
+# Pendiente de aplicación por Neo (Nivel 2) tras revisar `terraform plan`.
+resource "google_logging_project_exclusion" "invitees_search_requests" {
+  project     = var.project_id
+  name        = "${var.project_prefix}-exclude-invitees-search-requests"
+  description = "Excluye del sumidero _Default las solicitudes de búsqueda de colaboradores (el término de búsqueda no debe quedar en el registro)."
+  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl:\"/invitees?q=\""
+
+  depends_on = [google_project_service.apis]
+}
+
+# Callback de Google (008, H-RAMA-008-J-02): la URL lleva `code` y `state` de OAuth; no deben quedar en _Default.
+# Pendiente de aplicación por Neo (Nivel 2) tras revisar `terraform plan`.
+resource "google_logging_project_exclusion" "google_auth_callback_requests" {
+  project     = var.project_id
+  name        = "${var.project_prefix}-exclude-google-callback-requests"
+  description = "Excluye del sumidero _Default las solicitudes al callback de Google (code y state no deben quedar en el registro)."
+  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl:\"/api/auth/google/callback\""
+
+  depends_on = [google_project_service.apis]
+}
