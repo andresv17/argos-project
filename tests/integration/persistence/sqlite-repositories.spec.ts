@@ -15,6 +15,7 @@ import { sessionTokenHash } from '../../../src/infrastructure/persistence/sqlite
 import { SqliteUnitOfWork } from '../../../src/infrastructure/persistence/sqlite/sqlite-unit-of-work.ts';
 import { ARGOS as ARGOS_001, HOUSEHOLD, MEMBERSHIPS, envelope as envelope001, fixtures } from '../../fixtures/application-harness.ts';
 import { upgradeEnvelope, upgradePet } from '../../fixtures/storage-upgrade.ts';
+import { defineAuthIdentityRepositoryContractSuite } from '../../fixtures/auth-identity-repository-contract-suite.ts';
 import { defineMediaRepositoryContractSuite } from '../../fixtures/media-repository-contract-suite.ts';
 import { defineRepositoryContractSuite } from '../../fixtures/repository-contract-suite.ts';
 import { dumpSqlite, seedSqlite } from '../../fixtures/sqlite-harness.ts';
@@ -52,6 +53,7 @@ const domainFields = (error: unknown) =>
 
 defineRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 defineMediaRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
+defineAuthIdentityRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 
 describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlite/sqlite-database.ts)', () => {
   it('[INV-PET-005][INV-AUTH-003] las migraciones 0001 a 0017 crean las 31 tablas, activan foreign_keys y quedan registradas una sola vez', () => {

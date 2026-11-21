@@ -11,6 +11,7 @@ import { describe } from 'vitest';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
 import { closePool, createPostgresPool, type PoolClientLike, type PoolLike } from '../../../src/infrastructure/persistence/postgres/postgres-database.ts';
 import { PostgresUnitOfWork } from '../../../src/infrastructure/persistence/postgres/postgres-unit-of-work.ts';
+import { defineAuthIdentityRepositoryContractSuite } from '../../fixtures/auth-identity-repository-contract-suite.ts';
 import { defineMediaRepositoryContractSuite } from '../../fixtures/media-repository-contract-suite.ts';
 import { defineRepositoryContractSuite } from '../../fixtures/repository-contract-suite.ts';
 import { allPostgresMigrationsSql } from '../../fixtures/postgres-migrations.ts';
@@ -83,6 +84,37 @@ describe.skipIf(!TEST_DATABASE_URL)(
           }
           mediaPool = undefined;
           mediaAdmin = undefined;
+        },
+      },
+    );
+    // T1117: repositorios del acceso con Google (auth_identities, oauth_flow_states y correo verificado de users), un esquema desechable por prueba.
+    let ssoPool: PoolLike | undefined;
+    let ssoAdmin: PoolLike | undefined;
+    let ssoSchema = '';
+    defineAuthIdentityRepositoryContractSuite(
+      'PostgreSQL',
+      async () => {
+        ssoSchema = `argos_s_${randomUUID().replaceAll('-', '')}`;
+        ssoAdmin = createPostgresPool({ connectionString: TEST_DATABASE_URL ?? '', pgPoolMax: 1 });
+        await ssoAdmin.query(`CREATE SCHEMA ${ssoSchema}`);
+        const url = new URL(TEST_DATABASE_URL ?? '');
+        url.searchParams.set('options', `-c search_path=${ssoSchema}`);
+        ssoPool = createPostgresPool({ connectionString: url.toString(), pgPoolMax: 4 });
+        await ssoPool.query(BASELINE);
+        const { createPostgresRepositories } = (await import(/* @vite-ignore */ REPOSITORIES_PATH)) as {
+          createPostgresRepositories: (client: PoolClientLike) => RepositorySet;
+        };
+        return new PostgresUnitOfWork(ssoPool, createPostgresRepositories);
+      },
+      {
+        dispose: async () => {
+          if (ssoPool) await closePool(ssoPool);
+          if (ssoAdmin) {
+            await ssoAdmin.query(`DROP SCHEMA IF EXISTS ${ssoSchema} CASCADE`);
+            await closePool(ssoAdmin);
+          }
+          ssoPool = undefined;
+          ssoAdmin = undefined;
         },
       },
     );
