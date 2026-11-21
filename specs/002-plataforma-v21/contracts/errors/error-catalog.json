@@ -385,7 +385,7 @@
       "invariantRef": "INV-AUTH-006",
       "detailTemplate": "No se pudo vincular esa cuenta de Google a tu cuenta.",
       "requirementRef": "REQ-AUTH2-003",
-      "note": "Mismo código y detalle cuando la cuenta ya tiene Google vinculado o cuando ese sub ya pertenece a otra cuenta; no revela cuál."
+      "note": "Se devuelve solo en startGoogleLink cuando la cuenta ya tiene Google vinculado. Un sub ya vinculado a otra cuenta se detecta en el callback y responde el fallo uniforme ERR-AUTH-GOOGLE-FAILED (400)."
     }
   }
 }
