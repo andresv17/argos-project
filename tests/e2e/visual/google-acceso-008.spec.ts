@@ -192,7 +192,7 @@ test.describe('acceso con Google simulado (T1123)', () => {
       w.__ann = [];
       const node = document.getElementById('choose-username-announce');
       if (node === null) return;
-      new MutationObserver(() => w.__ann.push(node.textContent ?? '')).observe(node, { childList: true, characterData: true, subtree: true });
+      new MutationObserver((records) => records.forEach((r) => w.__ann.push(Array.from(r.addedNodes).map((n) => n.textContent ?? '').join('')))).observe(node, { childList: true, characterData: true, subtree: true });
     });
     await field.fill('a b!');
     await field.press('Enter');

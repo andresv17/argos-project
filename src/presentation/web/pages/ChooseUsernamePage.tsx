@@ -83,10 +83,8 @@ export function ChooseUsernamePage(): JSX.Element {
       field?.focus();
       return;
     }
-    // Vaciar y reponer, para que el mismo texto se anuncie de nuevo al repetir el error.
-    setAnnouncement('');
-    const timer = window.setTimeout(() => setAnnouncement(usernameError.current ?? ''), 60);
-    return () => window.clearTimeout(timer);
+    // El envío ya vació la live region (primer render); aquí se repone en otro render, para que el mismo texto se anuncie de nuevo al repetir el error. Sin temporizadores (REQ-UI-002).
+    setAnnouncement(usernameError.current ?? '');
   }, [errorFocus]);
 
   const onSubmit = (event: FormEvent): void => {
