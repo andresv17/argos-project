@@ -135,7 +135,7 @@ describe('[REQ-SSO8-001, EDGE-008-001, SC-008-004] id_token inválido: rechazo u
     ['sub ausente', { sub: undefined }, 'CLAIMS'],
     ['sub vacío', { sub: '' }, 'CLAIMS'],
     ['correo ausente', { email: undefined }, 'CLAIMS'],
-    ['firma de otra llave', { key: undefined }, 'SIGNATURE'],
+    ['firma de otra llave', {}, 'SIGNATURE'],
   ];
 
   for (const [title, claims, reason] of cases) {
