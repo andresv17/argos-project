@@ -179,7 +179,8 @@ jobs:
           DB_VERSION="$(latest_version argos-database-url)"
           HMAC_VERSION="$(latest_version argos-audit-hmac-secret)"
           SHARE_HMAC_VERSION="$(latest_version argos-share-ip-hmac-secret)"
-          for v in "$DB_VERSION" "$HMAC_VERSION" "$SHARE_HMAC_VERSION"; do
+          OAUTH_SECRET_VERSION="$(latest_version argos-google-oauth-client-secret)"
+          for v in "$DB_VERSION" "$HMAC_VERSION" "$SHARE_HMAC_VERSION" "$OAUTH_SECRET_VERSION"; do
             if ! printf '%s' "$v" | grep -Eq '^[0-9]+$'; then
               echo "Versión de secreto no numérica; se aborta el despliegue." >&2
               exit 1
@@ -188,10 +189,12 @@ jobs:
           echo "::add-mask::${DB_VERSION}"
           echo "::add-mask::${HMAC_VERSION}"
           echo "::add-mask::${SHARE_HMAC_VERSION}"
+          echo "::add-mask::${OAUTH_SECRET_VERSION}"
           {
             echo "DB_VERSION=${DB_VERSION}"
             echo "HMAC_VERSION=${HMAC_VERSION}"
             echo "SHARE_HMAC_VERSION=${SHARE_HMAC_VERSION}"
+            echo "OAUTH_SECRET_VERSION=${OAUTH_SECRET_VERSION}"
           } >> "$GITHUB_ENV"
 
       - name: Registrar la revisión que hoy sirve el tráfico (para retroceso)
@@ -208,6 +211,9 @@ jobs:
         env:
           # Variable opcional del repositorio; si falta, la URL pública es la del propio servicio (status.url).
           CONFIG_PUBLIC_BASE_URL: ${{ vars.ARGOS_PUBLIC_BASE_URL }}
+          # 008 (GH:#16, REQ-SSO8-007): contrato de entorno de Google OAuth (terraform/cloud_run.tf). El secreto se referencia por versión en --set-secrets; aquí solo el client id y la URI de redirección (no sensibles, pero sin valores en el repo).
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_REDIRECT_URI: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           TAG="sha-${GITHUB_SHA::7}"
@@ -223,14 +229,23 @@ jobs:
             echo "ARGOS_PUBLIC_BASE_URL no es una URL https válida sin comas ni espacios; se aborta." >&2
             exit 1
           fi
+          # Google OAuth: vacíos o con comas/espacios romperían --set-env-vars; la URI debe ser https (fail-closed).
+          if [ -z "${GOOGLE_OAUTH_CLIENT_ID:-}" ] || printf '%s' "$GOOGLE_OAUTH_CLIENT_ID" | grep -Eq '[,[:space:]]'; then
+            echo "GOOGLE_OAUTH_CLIENT_ID vacío o con comas/espacios en GitHub Secrets; se aborta." >&2
+            exit 1
+          fi
+          if ! printf '%s' "${GOOGLE_OAUTH_REDIRECT_URI:-}" | grep -Eq '^https://[^,[:space:]]+$'; then
+            echo "GOOGLE_OAUTH_REDIRECT_URI no es una URL https válida sin comas ni espacios; se aborta." >&2
+            exit 1
+          fi
           # 006 (T952, D6-22): ARGOS_SCENE_DRIVER=real con Vertex AI por el token del metadata server (sin clave de API ni secreto); modelo y región son el respaldo de platform_parameters.
           # La activación efectiva solo ocurre con la fusión a main y la compuerta T885 (SCENE_REAL_DRIVER_ACTIVATED en app-config.ts).
           gcloud run deploy argos \
             --project "$PROJECT_ID" --region "$REGION" \
             --image "$IMAGE" \
             --no-traffic --tag "$TAG" \
-            --set-env-vars "COOKIE_SECURE=true,ARGOS_SCHEDULER_EMAIL=${ARGOS_SCHEDULER_EMAIL},ARGOS_OIDC_AUDIENCE=${OIDC_AUDIENCE},ARGOS_PUBLIC_BASE_URL=${PUBLIC_BASE_URL},ARGOS_MEDIA_DRIVER=gcs,ARGOS_MEDIA_BUCKET=${ARGOS_MEDIA_BUCKET},ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS=300,ARGOS_MEDIA_MAX_BYTES=10485760,ARGOS_MEDIA_MAX_BYTES_PER_OWNER=1073741824,ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS=4,ARGOS_SCENE_DRIVER=real,ARGOS_SCENE_MODEL=gemini-2.5-flash-image,ARGOS_SCENE_LOCATION=us-central1,ARGOS_SCENE_MAX_PETS=8,ARGOS_SCENE_QUOTA_MAX=10,ARGOS_SCENE_GEN_TIMEOUT_SECONDS=90,ARGOS_SCENE_QUEUE=argos-scene,ARGOS_SCENE_TASKS_SA_EMAIL=${ARGOS_SCENE_TASKS_SA_EMAIL},ARGOS_SCENE_WORKER_URL=${PUBLIC_BASE_URL}/internal/scene-worker,ARGOS_SCENE_PROJECT_ID=${PROJECT_ID}" \
-            --set-secrets "DATABASE_URL=argos-database-url:${DB_VERSION},ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:${HMAC_VERSION},ARGOS_SHARE_IP_HMAC_SECRET=argos-share-ip-hmac-secret:${SHARE_HMAC_VERSION}" \
+            --set-env-vars "COOKIE_SECURE=true,ARGOS_SCHEDULER_EMAIL=${ARGOS_SCHEDULER_EMAIL},ARGOS_OIDC_AUDIENCE=${OIDC_AUDIENCE},ARGOS_PUBLIC_BASE_URL=${PUBLIC_BASE_URL},ARGOS_MEDIA_DRIVER=gcs,ARGOS_MEDIA_BUCKET=${ARGOS_MEDIA_BUCKET},ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS=300,ARGOS_MEDIA_MAX_BYTES=10485760,ARGOS_MEDIA_MAX_BYTES_PER_OWNER=1073741824,ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS=4,ARGOS_SCENE_DRIVER=real,ARGOS_SCENE_MODEL=gemini-2.5-flash-image,ARGOS_SCENE_LOCATION=us-central1,ARGOS_SCENE_MAX_PETS=8,ARGOS_SCENE_QUOTA_MAX=10,ARGOS_SCENE_GEN_TIMEOUT_SECONDS=90,ARGOS_SCENE_QUEUE=argos-scene,ARGOS_SCENE_TASKS_SA_EMAIL=${ARGOS_SCENE_TASKS_SA_EMAIL},ARGOS_SCENE_WORKER_URL=${PUBLIC_BASE_URL}/internal/scene-worker,ARGOS_SCENE_PROJECT_ID=${PROJECT_ID},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI}" \
+            --set-secrets "DATABASE_URL=argos-database-url:${DB_VERSION},ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:${HMAC_VERSION},ARGOS_SHARE_IP_HMAC_SECRET=argos-share-ip-hmac-secret:${SHARE_HMAC_VERSION},GOOGLE_OAUTH_CLIENT_SECRET=argos-google-oauth-client-secret:${OAUTH_SECRET_VERSION}" \
             --startup-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=2,failureThreshold=10,timeoutSeconds=1" \
             --liveness-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=10,failureThreshold=3,timeoutSeconds=1"
           gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format=json > "${RUNNER_TEMP}/service.json"
