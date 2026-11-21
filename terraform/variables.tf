@@ -102,3 +102,26 @@ variable "github_repository" {
     error_message = "github_repository debe tener la forma owner/name (por ejemplo dueno/argos)."
   }
 }
+
+# Google OAuth (008, REQ-SSO8-007). El client secret NO es variable: nunca pasa por Terraform ni por el state; lo carga Neo
+# en Secret Manager fuera de banda (ver secret_manager.tf). El client id no es secreto, pero se trata como configuración por entorno.
+variable "google_oauth_client_id" {
+  description = "Client ID de OAuth 2.0 de Google (no es secreto). Lo inyecta el pipeline como GOOGLE_OAUTH_CLIENT_ID. Llega por TF_VAR_google_oauth_client_id."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]+-[a-z0-9]+\\.apps\\.googleusercontent\\.com$", var.google_oauth_client_id))
+    error_message = "google_oauth_client_id debe tener la forma NUMERO-XXXX.apps.googleusercontent.com."
+  }
+}
+
+# URI de redirección autorizada en la consola de Google, FIJA por entorno (REQ-SSO8-007): nunca se deriva del encabezado Host.
+variable "google_oauth_redirect_uri" {
+  description = "URI de redirección OAuth fija de este entorno (REQ-SSO8-007). Debe coincidir exactamente con la registrada en la consola de Google. Llega por TF_VAR_google_oauth_redirect_uri."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,}/api/auth/google/callback$", var.google_oauth_redirect_uri))
+    error_message = "google_oauth_redirect_uri debe ser https://<host-del-entorno>/api/auth/google/callback (REQ-SSO8-007)."
+  }
+}

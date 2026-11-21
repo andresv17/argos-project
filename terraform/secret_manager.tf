@@ -94,3 +94,27 @@ resource "google_secret_manager_secret_version" "share_ip_hmac_secret" {
     create_before_destroy = true
   }
 }
+
+# Google OAuth (008, REQ-SSO8-007). Solo el contenedor del secreto: NO hay google_secret_manager_secret_version, así que ni el
+# valor ni un marcador entran al repositorio ni al state. Carga inicial (decisión de Neo, fuera de Terraform):
+#   printf '%s' "$VALOR" | gcloud secrets versions add argos-google-oauth-client-secret --data-file=- --project=<project_id>
+# Hasta que exista una versión, Cloud Run no puede arrancar una revisión que referencie este secreto.
+resource "google_secret_manager_secret" "google_oauth_client_secret" {
+  project   = var.project_id
+  secret_id = "${var.project_prefix}-google-oauth-client-secret"
+
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
+
+  replication {
+    auto {}
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.apis]
+}

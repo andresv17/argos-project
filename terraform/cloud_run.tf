@@ -14,6 +14,12 @@
 # 4 subidas simultáneas de 10 MiB de 004 (40 MiB en vuelo) caben de sobra. La concurrencia 20 por instancia no cambia: el tope de subidas lo impone la app.
 # El cambio crea una revisión nueva que puede recibir tráfico sin pasar el smoke test (traffic ignorado): aplicar fuera de un despliegue --no-traffic.
 
+# Google OAuth (008, REQ-SSO8-007): el entorno NO se declara aquí (mismo patrón que los medios; env ignorado y --set-env-vars de
+# deploy-argos.yml reemplaza todo el entorno). Contrato que debe inyectar el pipeline en el despliegue:
+# GOOGLE_OAUTH_CLIENT_ID=<var.google_oauth_client_id>, GOOGLE_OAUTH_REDIRECT_URI=<output google_oauth_redirect_uri>,
+# GOOGLE_OAUTH_CLIENT_SECRET desde Secret Manager (secreto argos-google-oauth-client-secret, versión numérica resuelta por CI, nunca el valor).
+# El secreto solo lo lee argos-run (secretAccessor, iam.tf). Mientras no exista versión, el despliegue con la referencia falla.
+
 resource "google_cloud_run_v2_service" "argos" {
   project  = var.project_id
   name     = "argos"

@@ -182,3 +182,11 @@ resource "google_service_account_iam_member" "run_acts_as_scene_tasks" {
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.run.email}"
 }
+
+# argos-run: lectura del secreto de Google OAuth (008, REQ-SSO8-007), solo a nivel de secreto. Sin roles de proyecto.
+resource "google_secret_manager_secret_iam_member" "run_google_oauth_client_secret" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.google_oauth_client_secret.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.run.email}"
+}
