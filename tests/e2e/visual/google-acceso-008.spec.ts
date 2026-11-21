@@ -172,12 +172,57 @@ test.describe('acceso con Google simulado (T1123)', () => {
     await expect(page.locator('#choose-username-error')).toBeVisible();
     // Ocupado (respuesta del servidor): tras enviar, el foco vuelve a estar en el botón y debe moverse de nuevo al campo.
     await page.route('**/api/auth/google/username', (route) =>
-      route.fulfill({ status: 409, contentType: 'application/problem+json', body: JSON.stringify({ type: 'urn:argos:error:ERR-AUTH-USERNAME-TAKEN', title: 'Nombre de usuario no disponible', status: 409, code: 'ERR-AUTH-USERNAME-TAKEN', detail: 'Ya existe una cuenta con ese nombre de usuario.', field: 'username' }) }),
+      route.fulfill({ status: 409, contentType: 'application/problem+json', body: JSON.stringify({ type: 'urn:argos:error:ERR-AUTH-USERNAME-TAKEN', title: 'Nombre de usuario no disponible', status: 409, code: 'ERR-AUTH-USERNAME-TAKEN', detail: 'Ya existe una cuenta con ese nombre de usuario.', invariantRef: 'INV-AUTH-001', field: 'username' }) }),
     );
     await field.fill(`${tag}ocupado`);
     await page.getByRole('button', { name: 'Continuar' }).click();
     await expect(page.locator('#choose-username-error')).toHaveText('Ya existe una cuenta con ese nombre de usuario.');
     await expect(field).toBeFocused();
+  });
+
+  test('[REQ-SSO8-003][NFR-008-002] H-FOCO-1: enviar con Enter dentro del campo anuncia el error por una live region puntual, también al repetirlo, sin doble lectura (WCAG 4.1.3)', async ({ page }) => {
+    await page.goto('/elige-usuario');
+    const field = page.getByLabel(/^Usuario/);
+    const live = page.locator('#choose-username-announce');
+    const ERROR = page.locator('#choose-username-error');
+    await expect(page.getByRole('heading', { name: 'Elige tu usuario' })).toBeFocused();
+    // Registra cada contenido que toma la live region (vaciar y reponer es lo que hace que un lector vuelva a leerla).
+    await page.evaluate(() => {
+      const w = window as unknown as { __ann: string[] };
+      w.__ann = [];
+      const node = document.getElementById('choose-username-announce');
+      if (node === null) return;
+      new MutationObserver(() => w.__ann.push(node.textContent ?? '')).observe(node, { childList: true, characterData: true, subtree: true });
+    });
+    await field.fill('a b!');
+    await field.press('Enter');
+    await expect(field).toBeFocused();
+    await expect(field).toHaveAttribute('aria-invalid', 'true');
+    await expect(field).toHaveAttribute('aria-describedby', 'choose-username-error');
+    await expect(ERROR).toBeVisible();
+    const message = (await ERROR.textContent()) ?? '';
+    expect(message).not.toBe('');
+    // Live region: asertiva, atómica y con el mismo texto que el error; el error visible no lleva role=alert (una sola vía de anuncio).
+    await expect(live).toHaveAttribute('aria-live', 'assertive');
+    await expect(live).toHaveText(message);
+    await expect(ERROR).not.toHaveAttribute('role', 'alert');
+    // Segundo envío con el mismo error: la live region se vacía y se repone para que se anuncie otra vez.
+    const before = await page.evaluate(() => (window as unknown as { __ann: string[] }).__ann.length);
+    await field.press('Enter');
+    await expect(live).toHaveText(message);
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __ann: string[] }).__ann.slice())).toContain('');
+    const after = await page.evaluate(() => (window as unknown as { __ann: string[] }).__ann.slice(0));
+    expect(after.length).toBeGreaterThan(before);
+    expect(after.slice(before)).toContain('');
+    expect(after[after.length - 1]).toBe(message);
+    await expect(field).toBeFocused();
+    // Con clic en el botón el foco se mueve al campo (el lector lee aria-describedby): la live region queda vacía, sin doble lectura.
+    await page.reload();
+    await field.fill('a b!');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(field).toBeFocused();
+    await expect(ERROR).toBeVisible();
+    await expect(page.locator('#choose-username-announce')).toHaveText('');
   });
 
   test('[NFR-008-002] accesibilidad (axe WCAG 2.1 AA a 320, 1024 y 1280 px): acceso con Google y «Elige tu usuario», sin desbordamiento', async ({ page }) => {
