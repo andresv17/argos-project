@@ -42,7 +42,7 @@ test.describe('formularios de autenticación y mascota (tests/e2e/visual)', () =
       if (m.text().includes('same key')) warnings.push(m.text());
     });
     await page.goto('/register');
-    await page.getByLabel(/Usuario \(minúsculas/).fill(USER.username);
+    await page.getByLabel(/Usuario \(letras/).fill(USER.username);
     await page.getByLabel('Nombre visible').fill(USER.displayName);
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill(USER.password);
     await page.getByLabel('Confirmar contraseña').fill(USER.password);
@@ -102,7 +102,7 @@ test.describe('sesión de la rebanada 1 (tests/e2e/visual)', () => {
 
   test('[REQ-AUTH-003][REQ-AUTH-004][SC-009] iniciar sesión, recargar y seguir autenticado, cerrar sesión y reusar la cookie devuelve 401', async ({ page, context, request, baseURL }) => {
     await page.goto('/register');
-    await page.getByLabel(/Usuario \(minúsculas/).fill(SESSION_USER.username);
+    await page.getByLabel(/Usuario \(letras/).fill(SESSION_USER.username);
     await page.getByLabel('Nombre visible').fill(SESSION_USER.displayName);
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill(SESSION_USER.password);
     await page.getByLabel('Confirmar contraseña').fill(SESSION_USER.password);
