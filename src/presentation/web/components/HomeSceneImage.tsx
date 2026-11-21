@@ -1,9 +1,9 @@
 /**
  * Imagen vigente del hogar en «Mascotas» (feature 006, T919; D6-19, SC-ESC6-110/111): solo visualización. Sin botones, enlaces, campos ni textos de estado,
- * cuota o consentimiento; no pinta nada con 0 hogares, contexto «Mis mascotas», `imageTag = null` o error de lectura. La gestión vive solo en «Hogar».
+ * cuota o consentimiento (enmienda 008, T1172/[GH:#55], REQ-UX8-003: único texto permitido, el rótulo «Mi hogar», PROVISIONAL hasta D8-09); no pinta nada con 0 hogares, contexto «Mis mascotas», `imageTag = null` o error de lectura. La gestión vive solo en «Hogar».
  * La imagen se pide a la ruta propia del hogar (302 firmada por el servidor) y el DOM no guarda URL firmadas (NFR-ESC6-003).
  *
- * @implements REQ-ESC6-019, REQ-ESC6-032, NFR-ESC6-003, SC-ESC6-110, SC-ESC6-111
+ * @implements REQ-UX8-003, REQ-ESC6-019, REQ-ESC6-032, NFR-ESC6-003, SC-ESC6-110, SC-ESC6-111
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createSceneApi } from '../scene-api.ts';
@@ -17,6 +17,7 @@ export function HomeSceneImageView({ householdId, view }: { readonly householdId
   return (
     <figure className="m-0 min-w-0 max-w-full">
       <img src={src} alt={sceneAltText(view.shown)} width={512} height={512} decoding="async" onError={() => setBroken(true)} className="aspect-square h-auto w-full max-w-full rounded-2xl border border-slate-200 bg-meadow object-contain sm:max-w-md" style={{ imageRendering: 'pixelated' }} />
+      <figcaption className="mt-2 text-sm font-semibold text-slate-900">Mi hogar</figcaption>
     </figure>
   );
 }
