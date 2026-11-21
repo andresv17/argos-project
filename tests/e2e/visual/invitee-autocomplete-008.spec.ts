@@ -103,6 +103,7 @@ test.describe('autocompletado de colaboradores (T1192, Chromium)', () => {
     await combobox().fill('');
     await combobox().pressSequentially('qzx');
     await expect(page.locator('p.text-text-muted', { hasText: 'No se encontraron usuarios disponibles para invitar.' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'No se encontraron usuarios disponibles para invitar.' })).toHaveCount(1); // anunciado a lectores de pantalla (H-T1192-2)
     await expect(options()).toHaveCount(0);
     await expect(listbox()).toBeHidden();
     await expect(combobox()).toHaveAttribute('aria-expanded', 'false');

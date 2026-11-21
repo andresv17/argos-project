@@ -92,4 +92,10 @@ describe('marcado accesible del combobox (T1191)', () => {
     expect(markup).not.toMatch(/no existe/i);
     expect(markup).toMatch(/aria-expanded="false"/);
   });
+
+  it('[REQ-INV8-005][SC-008-054] H-T1192-2: con resultados vacíos la región status anuncia el mensaje D8-11 y el párrafo visible no es región viva', () => {
+    const markup = view(ready([]));
+    expect(markup).toMatch(/<p[^>]*id="invite-h1-status"[^>]*role="status"[^>]*>No se encontraron usuarios disponibles para invitar\.<\/p>/);
+    expect(markup).toMatch(/<p class="text-sm text-text-muted">No se encontraron usuarios disponibles para invitar\.<\/p>/);
+  });
 });

@@ -96,7 +96,7 @@ export function InviteeComboboxView({ id, label, name, errors, state, onType, on
       </ul>
       {showEmpty ? <p className="text-sm text-text-muted">{INVITEE_EMPTY_MESSAGE}</p> : null}
       <p id={statusId} role="status" aria-live="polite" className="sr-only">
-        {showEmpty ? '' : inviteeAnnouncement(state)}
+        {inviteeAnnouncement(state)}
       </p>
       {state.open && (state.status === 'rate-limited' || state.status === 'failed') ? <p className="text-sm text-red-800">{inviteeAnnouncement(state)}</p> : null}
       {error === undefined ? null : (

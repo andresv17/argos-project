@@ -1691,3 +1691,74 @@ Aplicado requireManager en InviteMemberUseCase y deletePet en PetDashboard. e2e 
 ## 2026-11-20 keymaker 007 H-1 oracle (contrato age.totalDays)
 - t1026-contrato-deceasedat-disclosure-007.spec.ts: +3 pruebas (DECEASED+totalDays sin/false flag invalida; con true valida; ALIVE valida). Resumen real del constructor sin opt-in + totalDays a mano.
 - Gates: tsc 0; vitest summary 38 ok (t778 verde); oracles 0 debiles; traza 47/51 sin regresion.
+
+## 2026-11-20 keymaker 007 ajustes tras prueba manual de Neo (DateField campo único + error fallecimiento)
+- Ajuste 1 (6e9d2f0, 1fd6b68): DateField = un contenedor con borde + focus-within, segmentos sin borde con «/», botón «Abrir calendario» + input date oculto (openNativePicker: showPicker con respaldo focus/click). date-segments.ts intacto.
+- Ajuste 2 (599a03d): businessRuleMessage (schema-messages) conserva el detail de reglas de negocio (marca REQ-*, sin rastros técnicos); problemFeedback en use-contract-form deja el banner solo para errores sin campo.
+- Gates: tsc 0; vitest unit+integration/presentation 193 archivos 2939 ok; E2E chromium fecha-segmentos 14/14, estado-vida 8/8; traza 007 51/51; oráculos 0 débiles.
+
+## 2026-11-20 keymaker H-ACJ-1 opción B (verify-ci-ready solo tests rastreados)
+- ci-ready-test-reads.mjs: analiza `git ls-files tests/` (fallback a recorrido si no es repo git). Prueba nueva (ii) rastreado vs no rastreado en verify-ci-ready.spec.ts (8 ok). tsc 0.
+
+## 2026-11-20 keymaker 008 bloques F, G, H (UX #53, #54, #55)
+- F [GH:#53] 1c1c899: scene-view.ts (sceneRenewalDateText en America/Bogota, sin new Date por REQ-UI-002; texto «Generaciones restantes este mes: R. Se renuevan el [fecha].» PROVISIONAL D8-09). Prueba t1163; t1051/t875 actualizadas.
+- H [GH:#55] ec50937: figcaption «Mi hogar» en HomeSceneImage (PROVISIONAL D8-09); t1170 nueva; t918 admite solo ese texto (enmienda D6-19).
+- G [GH:#54] CASO B EDGE-008-020 CONFIRMADO: experimento Chromium (ruta mismo origen 302 a otro origen con download=nombre) navega a la URL firmada, NO descarga. Sin código; sin botón. Firefox/WebKit no instalados. Escala a /architect (T1167).
+- Gates: tsc 0; vitest presentation 58 archivos 593 ok; oráculos 0 débiles.
+
+## 2026-11-20 keymaker 008 H-OR-F-2
+- fb750b6: motivo QUOTA_EXHAUSTED sin fecha si resetsAt ilegible; con fecha conserva «1 dic 2026» (t875/t936 lo fijan). +2 pruebas en t1163. Gates: tsc 0; vitest 75 ok; oraculos 0 debiles.
+
+## 2026-11-20 keymaker 008 rebanada 1 (pines 002/004/006, trazas ERR-AUTH-GOOGLE, bloque G)
+- 82127e2 pines: openapi 004 3.4.0/52 ops/BackupEnvelopeV33, schemas pet 3.2.0, backup 3.3.0, identity 3.2.0, catalogo 004 3.2.0 (+2 Google), conteos 38. openapi-conformance: 5 ops 008 PENDING_008 explicito (45 ops; recorrido feliz sobre 40). canonical-fixtures-002: 36 con caso canonico + 2 Google (fixtures pendientes del architect).
+- 30af1b8 trazas: google-errors.ts (fabricas @implements) + pruebas de catalogo; 002 124/124.
+- c4a8c98 G #54: sceneImageDownloadPath/sceneDownloadFilename + enlace «Descargar imagen» (t1166, 10 pruebas). Falta mitad servidor de T1168 (download=1 en rutas, puerto createReadUrl, 200 attachment) y E2E T1169.
+- Gates: tsc 0; contracts+presentation 1185 ok; oraculos 0 debiles; traza 002 124/124, 008 38/87.
+
+## 2026-11-20 keymaker 008 rebanada 2 (T1168 mitad servidor, [GH:#54])
+- Puerto createReadUrl: `disposition?: 'inline'|'attachment'`; guards: attachment solo admite argos-hogar-AAAA-MM-DD.png; gcs firma `response-content-disposition: attachment`; memory agrega ese query a /__dev/media (dev-media lo respeta solo con el nombre fijo).
+- GetSceneImageUseCase(.., {download}) devuelve downloadFilename (fecha image.createdAt en clock.timeZone) y bytes si la URL no es https; scene.routes valida download en {1} (422) y responde 200 attachment sin firma.
+- Pruebas: t1168 unit (9), t1168 api (15), +4 en t570, +1 en t571. Gates: tsc 0; vitest escena 965 ok; oraculos 0 debiles; traza 008 sin FALLA por ERR (38/87).
+
+## 2026-11-20 keymaker H-2 rebanada 1
+REQ-UX8-001/003 añadidos a títulos it (t1163, t1170). Commit local, vitest 16 verdes, tsc rc0.
+
+## 2026-11-20 keymaker 008 bloque K (#25, T1196/T1197)
+- role-help.ts (presentacion; no puede importar can() por INV-ARCH-004): catalogo cerrado ROLE_HELP con acciones afirmadas/negadas por frase + HOUSEHOLD_LINK_NOTICE. Prueba t1196 compara con can() real (lista de acciones leida del fuente de rbac.ts; falla si la matriz cambia).
+- UI: RoleOnJoinSelect (help con aria-describedby), frase bajo Cuidador/Lector en la lista, aviso de hogar en ShareLinksView solo con canCreateLinks (PetsPage ya pinta el panel solo a OWNER/ADMIN). Sin E2E T1198 ni /sati T1197 (fuera de la mision).
+- Gates: tsc 0; vitest presentation 60 archivos 615 ok; traza 008 43/87 (REQ-ROL8-001..003 trazados); oraculos 0 debiles.
+
+## 2026-11-20 keymaker 008 bloque I (#21, T1179..T1183)
+- Dominio: normalizeBiographyInput (trim, vacio=null) antes del esquema en updatePetProfile; sin la clave cuando es null. Persistencia: migraciones sqlite 0016 / pg 0012 (columna anulable + CHECK <=280, mismo texto); repos sqlite/pg/memoria cruzan columna y data. Ficha expone biography (null); tarjeta del listado la omite; resumen veterinario no la copia; escena intacta (t1182: payload, prompt, huella e inputsSnapshot identicos).
+- Respaldo: export 3.3.0 (biography siempre, null si no hay); import acepta 3.3.0, lift recorta y omite vacia; mensaje VERSION_MISMATCH incluye 3.3.0. Caso de uso: se reutiliza UpdatePetUseCase (EDIT_PET_BASICS + If-Match), sin updatePetBiography aparte.
+- UI: BiographyField (solo edicion, contador N de 280, aria-describedby), lectura en PetDashboard como texto escapado.
+- Pruebas: t1179 dominio 8, t1179 api 7, t1180 persistencia 8, t1182 2, t1183 UI 6, parity +1; ~20 pruebas existentes ajustadas a 3.3.0/12 columnas/0012-0016.
+- Pre-existentes ajenos (no tocados): t826 (scene-use-cases usa Date, T1168), session-csrf x3 (5 ops Google pendientes 008).
+
+## 2026-11-21 keymaker 008 O-2 (3bf26bd)
+- Contador de biografía por puntos de código: `[...value].length` en BiographyField (PetForm.tsx) y en el guardado de memoria (in-memory-unit-of-work.ts); ajv ya cuenta puntos de código. +1 prueba de borde (280 emojis = 280, 281 excede) en t1183.
+- Gates: tsc 0; t1179/t1183 15 ok.
+
+## 2026-11-21 keymaker 008 bloque J (#24, T1188/T1190/T1191)
+- Servidor: `SearchInviteesUseCase` (gestor -> prefijo InviteeSearchPrefix 422 -> límite -> misma secuencia de lecturas siempre), dominio puro `selectInvitees`, puerto `users.searchUsernamesByPrefix` (sqlite substr, pg LEFT + COLLATE "C", memoria; el `_` no es comodín), ruta GET `/api/households/:id/invitees` con `Cache-Control: no-store`. Sin auditoría ni escritura; el logger ya reduce la petición a la ruta con plantilla (prueba lo fija).
+- Límite de tasa: `InviteeSearchRateLimiter` en memoria por instancia (usuario + IP efectiva normalizada, reloj inyectado), cifras 30/1 min en `config/invitee-search-config.ts` (constante, NO variable de entorno: decisión pendiente de Neo/Architect si debe ser env). No hay migración (T1189 queda sin ejecutar por D8-10 = A).
+- UI: `invitee-search.ts` (reductor puro: 3 caracteres, descarte de obsoletas, teclado, anuncios) + `InviteeCombobox` (rol combobox/listbox, 300 ms, mensaje D8-11) en InviteForm. Falta `/sati` (320/1024/1280) y E2E T1192 (fuera de la misión).
+- Pruebas: t1188 unit 4, t1188 api 6, t1191 7, contrato de repos +1; PENDING_008 sin searchInvitees en conformance y session-csrf (40/37 -> 41/38); guard de Postgres 22 -> 23. Gates: tsc 0; vitest 5500 ok; oráculos 0 débiles; traza 008 47 -> 52/87.
+
+## 2026-11-21 keymaker 008 parche pruebas bloque J (H-J-1/3/4)
+- t1188 api +5 pruebas: espía de lecturas (Proxy sobre uow) prueba 422 sin leer candidatos/invitaciones/perfiles; la única lectura previa es households.listMemberships (permiso antes que prefijo, por diseño: «cero lecturas» absoluto no es posible). No gestor + prefijo inválido = 404/403. 35 rechazos 422 no consumen cupo. Límite por IP: 15+15 de dos usuarios desde IPv4 e IPv4 mapeada (misma IP normalizada) -> 429; otra IP -> 200. Tope 7/6/5/4 candidatos con exclusiones.
+- Sin defecto de producción. Gates: tsc 0; t1188 api 11 ok; oráculos 0 débiles; traza 008 52/87 (sin cambio).
+
+## 2026-11-21 keymaker 008 T1192 E2E autocompletado (Chromium)
+- tests/e2e/visual/invitee-autocomplete-008.spec.ts, 4 pruebas: 2 chars sin petición ni lista; 3 chars lista con username; flechas+Enter eligen sin enviar; Escape cierra y conserva texto; username completo sin elegir invita (202, pendingInvitations). PASARON en Chromium (4/4, 7 s) con E2E_API_PORT=3200 E2E_WEB_PORT=5273 (3100 ocupado por un dev server ajeno, no tocado). Firefox/WebKit no corridos; sin casos de sin-coincidencias ni 429 en E2E (cubiertos en API/presentación).
+- Hallazgo de producción (no arreglado): tras elegir con Enter, borrar y reescribir el MISMO prefijo en <300 ms no relanza búsqueda (debounced no cambia). El E2E espera 400 ms.
+- Gates: tsc 0; oráculos 0 débiles (427); traza 008 52/87.
+
+## 2026-11-21 keymaker 008 T1192 cierre de brecha OBS-6 (d320b1d)
+- E2E +2 pruebas (6 en total): sin coincidencias (qzx: mensaje neutro D8-11 visible, 0 opciones, lista oculta, aria-expanded false, texto conservado, 1 petición) y límite de tasa (se agota el cupo por API hasta el primer 429; luego el combobox muestra el aviso visible y el anuncio status, 0 opciones, campo editable, Invitar habilitado, sin pageerror).
+- Chromium 6/6 (9 s) con E2E_API_PORT=3200 E2E_WEB_PORT=5273. Firefox y WebKit NO instalados (no instalados por instrucción): falta `npx playwright install firefox webkit`.
+- Gates: tsc 0; oráculos 0 débiles (427). playwright.config.ts intacto y fuera del commit.
+
+## 2026-11-21 keymaker 008 H-T1192-2 región status en sin coincidencias
+- InviteeCombobox.tsx: la región status ya no se vacía en showEmpty (`{inviteeAnnouncement(state)}`); el `<p>` visible sigue sin role/aria-live. Prueba unitaria t1191 (+1, 8 total) y E2E sin coincidencias afirman status con el mensaje D8-11.
+- Gates: tsc 0; t1191 8 ok; E2E Chromium 6/6 (E2E_API_PORT=3200 E2E_WEB_PORT=5273); oráculos 0 débiles (427). playwright.config.ts fuera del commit.
