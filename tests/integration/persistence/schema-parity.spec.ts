@@ -36,21 +36,24 @@ const DECEASED_LINK_PATH = new URL('../../../src/infrastructure/persistence/post
 /** T1180 (008, #21): la 0012 de Postgres equivale a la 0016 de SQLite (`pets.biography` anulable, 0..280 caracteres, REQ-BIO8-004). */
 const BIOGRAPHY_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0012_pet_biography.sql', import.meta.url);
 
+/** T1116 (008, #16): la 0013 de Postgres equivale a la 0017 de SQLite (`users.email_verified_at`, `auth_identities`, `oauth_flow_states`, REQ-SSO8-001, REQ-SSO8-003, REQ-SSO8-004, EDGE-008-036). */
+const GOOGLE_SSO_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0013_google_sso.sql', import.meta.url);
+
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
-  'audit_log', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'home_scenes', 'household_invitations',
-  'household_members', 'household_photos', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'pet_assignments', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
+  'audit_log', 'auth_identities', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'home_scenes', 'household_invitations',
+  'household_members', 'household_photos', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'oauth_flow_states', 'pet_assignments', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
   'scene_attempts', 'scene_consents', 'scene_image_sources', 'scene_quota_carry', 'schema_migrations', 'sessions', 'share_link_audit', 'share_links', 'users', 'vaccinations', 'weights',
 ];
 
 /** Lista canónica de índices del esquema final (T555, 004): los que añaden las migraciones 0007/0008 (SQLite) y 0003/0004 (Postgres) y los de la 002. */
 const CANONICAL_INDEXES = [
-  'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
+  'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'auth_identities_user_id', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
   'home_scenes_household', 'home_scenes_owner', 'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
-  'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'pet_assignments_household_id',
+  'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'oauth_flow_states_expires', 'oauth_flow_states_user_id', 'pet_assignments_household_id',
   'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'scene_attempts_actor_started', 'scene_attempts_idempotency',
   'scene_attempts_scene_started', 'scene_consents_active', 'sessions_user_id', 'share_link_audit_actor', 'share_link_audit_failure_window',
-  'share_link_audit_occurred', 'share_links_created_by', 'share_links_expires', 'share_links_household_active', 'share_links_pet_active', 'share_links_revoked', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
+  'share_link_audit_occurred', 'share_links_created_by', 'share_links_expires', 'share_links_household_active', 'share_links_pet_active', 'share_links_revoked', 'users_email_verified_unique', 'users_username_lower', 'vaccinations_pet_id', 'weights_pet_id',
 ];
 
 /** Diferencias de tipo justificadas en data-model.md §1: data JSON -> JSONB; indicadores 0/1 -> SMALLINT. */
@@ -215,7 +218,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -290,6 +293,30 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     } finally {
       db.close();
     }
+  });
+
+  it('[GH:#16][T1116][REQ-SSO8-001][REQ-SSO8-003] users gana email_verified_at anulable y auth_identities / oauth_flow_states existen con las mismas columnas, CHECK, claves y cascadas en ambos motores', () => {
+    const pg = postgresSchema();
+    for (const schema of [sqlite, pg]) {
+      expect(schema.tables.get('users')!.columns.get('email_verified_at'), 'email_verified_at').toMatchObject({ type: 'TEXT', notNull: false, default: null, references: null });
+      const identities = schema.tables.get('auth_identities')!;
+      expect([...identities.columns.keys()].sort()).toEqual(['created_at', 'provider', 'provider_subject', 'user_id']);
+      expect([...identities.primaryKey].sort()).toEqual(['provider', 'provider_subject']);
+      expect(identities.columns.get('user_id')).toMatchObject({ notNull: true, references: 'users(id) ON DELETE CASCADE' });
+      expect(identities.checks).toContain("provider IN ('GOOGLE')");
+      const flow = schema.tables.get('oauth_flow_states')!;
+      expect(flow.primaryKey).toEqual(['token_hash']);
+      expect(flow.columns.get('user_id')).toMatchObject({ notNull: false, references: 'users(id) ON DELETE CASCADE' });
+      for (const column of ['state', 'nonce', 'code_verifier', 'pending_subject', 'pending_email', 'consumed_at']) expect(flow.columns.get(column), column).toMatchObject({ notNull: false });
+      for (const column of ['phase', 'intent', 'created_at', 'expires_at']) expect(flow.columns.get(column), column).toMatchObject({ notNull: true });
+      expect(flow.checks).toContain("phase IN ('AUTHORIZATION','USERNAME')");
+      expect(flow.checks).toContain("intent IN ('LOGIN','LINK')");
+      expect(flow.checks).toContain('length(token_hash) = 64');
+    }
+    expect(pg.tables.get('auth_identities')!.checks).toEqual(sqlite.tables.get('auth_identities')!.checks);
+    expect(pg.tables.get('oauth_flow_states')!.checks).toEqual(sqlite.tables.get('oauth_flow_states')!.checks);
+    expect(sqlite.indexes.get('users_email_verified_unique')).toMatchObject({ table: 'users', unique: true, columns: 'lower(email)', where: 'email_verified_at IS NOT NULL' });
+    expect(pg.indexes.get('users_email_verified_unique')).toEqual(sqlite.indexes.get('users_email_verified_unique'));
   });
 
   it('[T1017][REQ-FAL7-001] la 0010 de Postgres agrega los CHECK NOT VALID y los valida; la 0014 de SQLite deja las filas previas ALIVE, sin fecha y en versión 1', () => {
@@ -452,6 +479,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(LIFE_PATH, 'utf8'));
         await client.query(readFileSync(DECEASED_LINK_PATH, 'utf8'));
         await client.query(readFileSync(BIOGRAPHY_PATH, 'utf8'));
+        await client.query(readFileSync(GOOGLE_SSO_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

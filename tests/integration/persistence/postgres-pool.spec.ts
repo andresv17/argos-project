@@ -101,10 +101,10 @@ describe('createPostgresPool (doble del constructor, sin Postgres)', () => {
 });
 
 describe('T831 (006): el pool no migra; la ruta 0009_home_scenes.sql existe y es la última de Postgres', () => {
-  it('el directorio de migraciones de Postgres termina en 0012_pet_biography.sql (008: 0012 biografía; 007: 0010 estado de vida, 0011 opt-in del enlace; la 0009_home_scenes.sql es de 006) (el pool nunca las aplica, REQ-PG-006)', () => {
+  it('el directorio de migraciones de Postgres termina en 0013_google_sso.sql (008: 0013 acceso con Google, 0012 biografía; 007: 0010 estado de vida, 0011 opt-in del enlace; la 0009_home_scenes.sql es de 006) (el pool nunca las aplica, REQ-PG-006)', () => {
     const names = readdirSync(new URL('../../../src/infrastructure/persistence/postgres/migrations/', import.meta.url)).sort();
-    expect(names.at(-1)).toBe('0012_pet_biography.sql');
-    expect(names).toHaveLength(12);
+    expect(names.at(-1)).toBe('0013_google_sso.sql');
+    expect(names).toHaveLength(13);
   });
 });
 
