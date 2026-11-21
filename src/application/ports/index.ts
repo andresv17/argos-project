@@ -20,3 +20,4 @@ export * from './scene-image-generator.port.ts';
 export * from './scene-job-dispatcher.port.ts';
 export * from './scene-repositories.port.ts';
 export * from './scene-privacy-hooks.port.ts';
+export * from './auth-identity.port.ts';

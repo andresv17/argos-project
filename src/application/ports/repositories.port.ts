@@ -17,10 +17,16 @@ import type { SessionRecord } from '../../domain/auth/auth-policies.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../domain/records/record-invariants.ts';
 import type { SceneConsentRepository, SceneRepository } from './scene-repositories.port.ts';
+import type { AuthIdentityRepositoryPort, OAuthFlowStateRepositoryPort } from './auth-identity.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
 export interface UserAccount extends UserSelfProfile {
   readonly passwordHash: string;
+  /**
+   * Instante en que Google verificó el correo (feature 008, REQ-SSO8-003). Ausente = correo sin verificar (toda cuenta heredada, EDGE-008-036). Solo lo fija `insert`;
+   * `update` NUNCA lo modifica.
+   */
+  readonly emailVerifiedAt?: string;
 }
 
 export interface UserRepositoryPort {
@@ -40,6 +46,16 @@ export interface UserRepositoryPort {
    * único (002): devuelve hasta 2 filas, de modo que quien llama distingue «una sola cuenta» de «ambiguo» (REQ-LOG-001, EDGE-007).
    */
   listByEmail(normalizedEmail: string): Promise<UserAccount[]>;
+  /**
+   * Titular VERIFICADO del correo (`email_verified_at` no nulo, sin distinguir mayúsculas), o null. Un índice único parcial garantiza a lo sumo uno (REQ-VIN8-003,
+   * INV-VIN8-001); `listByEmail` no sirve para esto porque devuelve a lo sumo 2 filas y podría ocultar al titular verificado entre cuentas sin verificar.
+   */
+  findVerifiedByEmail(normalizedEmail: string): Promise<UserAccount | null>;
+  /**
+   * D8-14, EDGE-008-023: pone `email = NULL` en TODAS las cuentas con ese correo (sin distinguir mayúsculas) y `email_verified_at` nulo; conserva usuario y contraseña.
+   * Devuelve cuántas cuentas liberó. Nunca toca a un titular verificado.
+   */
+  releaseUnverifiedEmail(normalizedEmail: string): Promise<number>;
   /**
    * Usernames (capitalización guardada) cuyo `LOWER(username)` empieza por `lowerPrefix`, ordenados por `LOWER(username)` y limitados a `limit`
    * (autocompletado de colaboradores, REQ-INV8-001). El prefijo ya viene validado (`[A-Za-z0-9._-]{3,30}`) y en minúsculas; el `_` NO es comodín.
@@ -318,4 +334,8 @@ export interface RepositorySet {
   readonly scenes: SceneRepository;
   /** Consentimientos de la escena (feature 006, ADR-006-07). */
   readonly sceneConsents: SceneConsentRepository;
+  /** Identidades externas de Google (feature 008, REQ-SSO8-001): ancladas en `sub`. */
+  readonly authIdentities: AuthIdentityRepositoryPort;
+  /** Estado del flujo OIDC de Google (feature 008, REQ-SSO8-004): un solo uso, 900 s. */
+  readonly oauthFlows: OAuthFlowStateRepositoryPort;
 }

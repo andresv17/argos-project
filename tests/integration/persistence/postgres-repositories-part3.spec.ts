@@ -296,12 +296,12 @@ describe('auditoría (T424, REQ-AUD-001, INV-AUD-001)', () => {
 });
 
 describe('fábrica compuesta createPostgresRepositories (T424, REQ-PG-002, INV-ARCH-005)', () => {
-  it('devuelve las 17 claves de RepositorySet (11 de la 002 más media y mediaQueue de T575, shareLinks y shareAudit de T766, y scenes y sceneConsents nulos de T828), todas sobre el mismo cliente de la transacción', async () => {
+  it('devuelve las 19 claves de RepositorySet (authIdentities y oauthFlows de T1117, 11 de la 002 más media y mediaQueue de T575, shareLinks y shareAudit de T766, y scenes y sceneConsents nulos de T828), todas sobre el mismo cliente de la transacción', async () => {
     const client = fakeClient({ rows: [] });
     const { createPostgresRepositories } = await load();
     const set = createPostgresRepositories(client);
     expect(Object.keys(set).sort()).toEqual(
-      ['assignments', 'auditLog', 'confirmationTokens', 'households', 'invitations', 'loginAttempts', 'media', 'mediaQueue', 'pets', 'rateLimits', 'records', 'sceneConsents', 'scenes', 'sessions', 'shareAudit', 'shareLinks', 'users'],
+      ['assignments', 'auditLog', 'authIdentities', 'confirmationTokens', 'households', 'invitations', 'loginAttempts', 'media', 'mediaQueue', 'oauthFlows', 'pets', 'rateLimits', 'records', 'sceneConsents', 'scenes', 'sessions', 'shareAudit', 'shareLinks', 'users'],
     );
     for (const port of Object.values(set)) expect(typeof port).toBe('object');
     await (set['users'] as { findById(id: string): Promise<unknown> }).findById('u');
