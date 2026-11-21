@@ -10,5 +10,9 @@
 | `/api/admin/*` y sesión de administración | `[GH:#19]` | T1144 | D8-03 |
 | Parámetros de plataforma (`GET`/`PUT`, `If-Match`) | `[GH:#20]` | T1156 | D8-03, D8-08 |
 | Parámetro de descarga de la imagen de escena (condicional) | `[GH:#54]` | T1167 | evidencia de T1166 |
+| Enmienda de `STATE-AUTH-SESSION-001` (004 y 002) si las cuentas nacen `PENDING` | `[GH:#18]` | T1200 | D8-02 |
+| Campo `biography` de mascota (002) y MINOR del sobre de respaldo (004); `ScenePayload` de 006 sin cambio con `D8-12` = A | `[GH:#21]` | T1178 | D8-12 |
+| Ruta de búsqueda de colaboradores y, si `D8-10` = B, enmienda de `REQ-HOUSE2-001` | `[GH:#24]` | T1187 | D8-10, D8-11 |
+| Textos de ayuda de rol y aviso de hogar (catálogo cerrado; sin contrato ejecutable) | `[GH:#25]` | T1195 | D8-13 |
 
 `errors/error-catalog.json` es un **índice incremental vacío** (sin códigos) que solo existe para que la compuerta `verify-traceability.sh` encuentre su fuente; los códigos nuevos se añaden en `T1110`, `T1135`, `T1144` y `T1156`. Todo objeto con `properties` declarará `additionalProperties: false` y límites explícitos.
