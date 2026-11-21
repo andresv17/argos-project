@@ -68,6 +68,8 @@ Todo se crea el día 0; nada queda pendiente de inventar. Solo Neo ejecuta estos
 | Secreto | `TF_VAR_audit_hmac_secret` | Neo, paso 3: >= 32 bytes hex |
 | Secreto | `TF_VAR_share_ip_hmac_secret` | Neo, paso 3: >= 32 bytes hex (HMAC de IP de los enlaces compartidos) |
 | Secreto | `DATABASE_URL_DIRECT` | Neo, paso 3: URL directa (rol `argos_migrator`) |
+| Secreto | `GOOGLE_OAUTH_CLIENT_ID` | Neo, paso 3: `gh secret set GOOGLE_OAUTH_CLIENT_ID --repo <dueno/repo>`; *client id* de Google (parámetro público de configuración; el flujo lo pasa como `TF_VAR`) |
+| Secreto | `GOOGLE_OAUTH_REDIRECT_URI` | Neo, paso 3: `gh secret set GOOGLE_OAUTH_REDIRECT_URI --repo <dueno/repo>`; URI de redirección autorizada, fija por entorno (parámetro público de configuración) |
 | Variable | `TF_VAR_project_id` | `bootstrap.sh` paso 6: ID del proyecto GCP |
 | Variable | `TF_VAR_region` | `bootstrap.sh` paso 6: `us-central1` |
 | Variable | `TF_VAR_billing_account` | `bootstrap.sh` paso 6, desde `ARGOS_BILLING_ACCOUNT`. **Obligatoria**: sin ella el presupuesto no se planifica (REQ-IAC-009) |
