@@ -4,7 +4,7 @@ import type { ContractCheck, Operation } from './openapi-contract.ts';
 import { ajv } from './openapi-contract.ts';
 
 /**
- * El OpenAPI 3.4.0 de la 006 (`home-scene.openapi.yaml`, 13 operaciones) como validador de respuestas reales. Reutiliza el `ajv` del arnés de la 002 (mismos
+ * El OpenAPI 3.5.0 de la 006 (`home-scene.openapi.yaml`, 13 operaciones) como validador de respuestas reales. Reutiliza el `ajv` del arnés de la 002 (mismos
  * esquemas comunes `https://argos.local/contracts/schemas/…`) y añade `scene.schema.json` y `scene-payload.schema.json`; los `$ref` relativos del documento se
  * resuelven contra su propio `$id`. Las operaciones `/api/…` llevan el prefijo del servidor; `/internal/scene-worker` no.
  */
