@@ -6,7 +6,6 @@
  * La prueba contra Postgres real se OMITE sin TEST_DATABASE_URL (se aplaza a T431).
  */
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
 import { DeterministicFaultInjector, InjectedWriteFailure } from '../../../src/infrastructure/persistence/fault-injector.ts';
@@ -17,13 +16,12 @@ import { ARGOS } from '../../fixtures/application-harness.ts';
 import { norm } from '../../fixtures/pg-fake-client.ts';
 import { seedSqlite } from '../../fixtures/sqlite-harness.ts';
 import { upgradePet } from '../../fixtures/storage-upgrade.ts';
+import { allPostgresMigrationsSql } from '../../fixtures/postgres-migrations.ts';
 
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const FIXTURE_PATH = '../../fixtures/pg-fault-injection.ts';
 // Esquema vigente: el baseline y la 0002 (columna `revision` de los 6 registros, T540; los repositorios la leen y la escriben desde T614).
-const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0010_pet_life_status.sql']
-  .map((name) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${name}`, import.meta.url), 'utf8'))
-  .join('\n');
+const BASELINE = allPostgresMigrationsSql();
 
 interface FaultModule {
   faultInjectingRepositories(
