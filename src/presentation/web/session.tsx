@@ -6,10 +6,11 @@
  * temporizadores ni renovación al recuperar el foco: solo la acción de la persona produce peticiones autenticadas, y
  * cada una renueva la inactividad de 30 min en el servidor (INV-AUTH2-002).
  *
- * @implements REQ-UI-005, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH2-002, INV-ARCH-003
+ * @implements REQ-UI-005, REQ-SSO8-003, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH2-002, INV-ARCH-003
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ApiProblem, CSRF_PARAMS, unwrap, type ApiClient } from './api.ts';
+import { submitGoogleUsername } from './google-login.ts';
 import type { Schemas } from './view-model.ts';
 
 export type UserSelfProfile = Schemas['UserSelfProfile'];
@@ -28,6 +29,8 @@ export interface SessionState {
   dropSession(): void;
   register(input: Schemas['RegisterUserInput']): Promise<void>;
   login(input: Schemas['LoginInput']): Promise<void>;
+  /** Primer acceso con Google (008): crea la cuenta con el `username` elegido y deja la sesión iniciada. */
+  chooseGoogleUsername(input: Schemas['GoogleChooseUsernameInput']): Promise<void>;
   logout(): Promise<void>;
 }
 
@@ -77,6 +80,16 @@ export function SessionProvider({ api, children }: { readonly api: ApiClient; re
     [api],
   );
 
+  const chooseGoogleUsername = useCallback(
+    async (input: Schemas['GoogleChooseUsernameInput']) => {
+      const session = await submitGoogleUsername(api, input);
+      setUser(session.user);
+      setTimes({ idleExpiresAt: session.idleExpiresAt, lastActivityAt: session.lastActivityAt });
+      setStatus('AUTHENTICATED');
+    },
+    [api],
+  );
+
   const logout = useCallback(async () => {
     try {
       await unwrap(api.POST('/auth/logout', { params: CSRF_PARAMS }));
@@ -95,8 +108,8 @@ export function SessionProvider({ api, children }: { readonly api: ApiClient; re
   }, []);
 
   const value = useMemo<SessionState>(
-    () => ({ status, user, idleExpiresAt: times?.idleExpiresAt ?? null, lastActivityAt: times?.lastActivityAt ?? null, api, setUser, dropSession, register, login, logout }),
-    [status, user, times, api, dropSession, register, login, logout],
+    () => ({ status, user, idleExpiresAt: times?.idleExpiresAt ?? null, lastActivityAt: times?.lastActivityAt ?? null, api, setUser, dropSession, register, login, chooseGoogleUsername, logout }),
+    [status, user, times, api, dropSession, register, login, chooseGoogleUsername, logout],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

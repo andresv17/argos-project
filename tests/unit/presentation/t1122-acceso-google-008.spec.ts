@@ -89,8 +89,8 @@ describe('pantalla «Elige tu usuario» (T1122, REQ-SSO8-003)', () => {
   });
 
   it('[REQ-SSO8-003] mientras se envía, el botón queda deshabilitado', () => {
-    expect(view({ busy: true })).toMatch(/<button[^>]*disabled[^>]*>Continuar<\/button>/);
-    expect(view()).not.toMatch(/<button[^>]*disabled/);
+    expect(view({ busy: true })).toMatch(/<button[^>]*\sdisabled=""[^>]*>Continuar<\/button>/);
+    expect(view()).not.toMatch(/<button[^>]*\sdisabled=/);
   });
 });
 

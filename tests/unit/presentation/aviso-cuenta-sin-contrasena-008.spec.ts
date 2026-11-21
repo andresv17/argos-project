@@ -23,7 +23,7 @@ const user = (authMethods: UserSelfProfile['authMethods']): UserSelfProfile =>
     ...(authMethods === undefined ? {} : { authMethods }),
   }) as UserSelfProfile;
 const render = (profile: UserSelfProfile): string => {
-  const state = { status: 'AUTHENTICATED', user: profile, idleExpiresAt: null, lastActivityAt: null, api: {} as never, setUser: () => undefined, dropSession: () => undefined, register: noop, login: noop, logout: noop } as SessionState;
+  const state = { status: 'AUTHENTICATED', user: profile, idleExpiresAt: null, lastActivityAt: null, api: {} as never, setUser: () => undefined, dropSession: () => undefined, register: noop, login: noop, chooseGoogleUsername: noop, logout: noop } as SessionState;
   return renderToStaticMarkup(h(MemoryRouter, null, h(SessionContext.Provider, { value: state }, h(AccountPage))));
 };
 

@@ -2,7 +2,7 @@
  * Raíz de la SPA: sesión, rutas y guardia. Las rutas protegidas redirigen a `/login` sin sesión, y las
  * públicas a `/` con sesión. Navegación sin recarga (react-router-dom).
  *
- * @implements REQ-UI-001, REQ-UI-005, REQ-UI-006, REQ-UI2-001, REQ-UI2-004, INV-ARCH-004
+ * @implements REQ-UI-001, REQ-UI-005, REQ-UI-006, REQ-UI2-001, REQ-UI2-004, REQ-SSO8-003, INV-ARCH-004
  */
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { AlbumPage } from './pages/AlbumPage.tsx';
 import { AccountPage } from './pages/AccountPage.tsx';
 import { AppShell } from './pages/AppShell.tsx';
 import { LoginPage, RegisterPage } from './pages/AuthPages.tsx';
+import { ChooseUsernamePage } from './pages/ChooseUsernamePage.tsx';
 import { BackupPage } from './pages/BackupPage.tsx';
 import { HouseholdsPage } from './pages/HouseholdsPage.tsx';
 import { PetsPage } from './pages/PetsPage.tsx';
@@ -38,6 +39,7 @@ export function AppRoutes(): JSX.Element {
     <Routes>
       <Route path="/login" element={<Guard><LoginPage /></Guard>} />
       <Route path="/register" element={<Guard><RegisterPage /></Guard>} />
+      <Route path="/elige-usuario" element={<Guard><ChooseUsernamePage /></Guard>} />
       <Route path="/" element={<Guard><AppShell><PetsPage /></AppShell></Guard>} />
       <Route path="/mascotas/:petId/album" element={<Guard><AppShell><AlbumPage /></AppShell></Guard>} />
       <Route path="/mascotas/:petId/resumen" element={<Guard><AppShell><SummaryPreviewPage /></AppShell></Guard>} />

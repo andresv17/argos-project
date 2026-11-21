@@ -20,12 +20,13 @@ import {
   validateUpdateProfileInput,
   type ValidatorFunction,
 } from '../../generated/schemas/validators.mjs';
-// El alta y la edición de mascota (breedCode, microchip), el registro, el inicio de sesión (usuario o correo, 254) y la invitación (username con
+// El alta y la edición de mascota (breedCode, microchip), el registro, el inicio de sesión (usuario o correo, 254), la elección de usuario tras Google (008) y la invitación (username con
 // mayúsculas) usan el contrato 3.1.0; el resto de formularios sigue en la 002.
 import {
   validateCreateBodyMeasurementInput,
   validateCreateCustomParameterInput,
   validateCreatePetInput,
+  validateGoogleChooseUsernameInput,
   validateInviteMemberInput,
   validateLoginInput,
   validateRegisterUserInput,
@@ -35,6 +36,7 @@ import {
 const VALIDATORS = {
   RegisterUserInput: validateRegisterUserInput,
   LoginInput: validateLoginInput,
+  GoogleChooseUsernameInput: validateGoogleChooseUsernameInput,
   CreatePetInput: validateCreatePetInput,
   UpdatePetInput: validateUpdatePetInput,
   CreateWeightInput: validateCreateWeightInput,
