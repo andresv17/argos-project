@@ -370,7 +370,8 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
       {editSlot ?? (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-12">
-            <section className="col-span-2 flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-7">
+            <section className="col-span-2 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-7">
+              <div className="flex items-start justify-between gap-3">
               <div className="grid min-w-0 gap-2">
                 <h2 id="pet-title" className="break-words text-4xl font-bold lg:text-5xl">
                   {profile.name}
@@ -378,12 +379,6 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                 <p className="text-sm text-text-muted">
                   {SPECIES_LABEL[profile.species]} · {profile.breed} · {SEX_LABEL[profile.sex]} · nació {formatIsoDateEs(profile.birthDate)}
                 </p>
-                {profile.biography == null || profile.biography === '' ? null : (
-                  // REQ-BIO8-002 (#21): texto plano (React lo escapa; nunca HTML), visible para quien puede ver la mascota.
-                  <p data-pet-biography className="max-w-prose break-words text-base text-slate-800">
-                    {profile.biography}
-                  </p>
-                )}
                 <OwnerBadge owner={dashboard.owner} readOnly={readOnly} />
                 {deceasedBadgeText(profile) === null ? null : (
                   <p className="w-fit rounded-xl border border-slate-500 bg-slate-100 px-3 py-1 text-sm font-bold text-slate-900">{deceasedBadgeText(profile)}</p>
@@ -412,6 +407,14 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                 <PetAvatar name={profile.name} petId={profile.id} avatarVersion={avatarVersionOf(profile)} colorToken={dashboard.owner.colorToken} size={96} />
                 <AvatarExternalLink avatarUrl={profile.avatarUrl} />
               </div>
+              </div>
+              {profile.biography == null || profile.biography === '' ? null : (
+                // REQ-BIO8-002 (#21): texto plano (React lo escapa; nunca HTML), visible para quien puede ver la mascota. A ancho completo de la tarjeta, no en la
+                // columna del avatar (H-T1183-S4), y con corte en cualquier punto para palabras o URL sin espacios (H-T1183-S1, WCAG 1.4.10).
+                <p data-pet-biography className="min-w-0 max-w-prose text-base text-slate-800 [overflow-wrap:anywhere]">
+                  {profile.biography}
+                </p>
+              )}
             </section>
             <AlertsCard dashboard={dashboard} />
             <section aria-label="Edad" className={`${STAT_CARD} col-span-1 lg:col-span-3`}>

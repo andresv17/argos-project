@@ -25,6 +25,8 @@ const NULLABLE_FIELDS = ['speciesOther', 'neutered', 'microchipId', 'breedCode',
 
 /** Tope de la biografía del contrato (`Biography.maxLength`, REQ-BIO8-001). */
 export const BIOGRAPHY_MAX_LENGTH = 280;
+/** Texto propio del exceso de longitud: el genérico del esquema dice «falta», que aquí es falso (H-T1183-S2). Es copy de presentación, no del catálogo. */
+export const BIOGRAPHY_TOO_LONG = `La biografía admite hasta ${BIOGRAPHY_MAX_LENGTH} caracteres.`;
 
 /** Solo perros y gatos tienen catálogo de razas (REQ-RAZ-003); las otras 6 especies llevan la raza como texto libre. */
 const hasBreedCatalog = (species: string): boolean => species === 'CANINE' || species === 'FELINE';
@@ -140,12 +142,19 @@ export function BiographyField({ id, value, onChange, errors }: {
   const errorId = `${id}-error`;
   const count = [...value].length; // puntos de código Unicode (como maxLength de JSON Schema), no unidades UTF-16 (O-2)
   const over = count > BIOGRAPHY_MAX_LENGTH;
+  const errorText = error === undefined || !over ? error : BIOGRAPHY_TOO_LONG;
+  // H-T1183-S2 (patrón H-T1122-S1): al enviar con error, el foco va al campo. Depende de `errors` (objeto nuevo en cada envío), no del texto: teclear no roba el foco.
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (error !== undefined) inputRef.current?.focus();
+  }, [errors]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="flex flex-col gap-1 sm:col-span-2">
       <label htmlFor={id} className="text-sm font-medium text-slate-800">
         Biografía (opcional)
       </label>
       <input
+        ref={inputRef}
         id={id}
         name="biography"
         type="text"
@@ -156,12 +165,12 @@ export function BiographyField({ id, value, onChange, errors }: {
         onChange={(e) => onChange('biography', e.target.value)}
         className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       />
-      <p id={helpId} className={`text-sm ${over ? 'font-semibold text-red-800' : 'text-text-muted'}`}>
+      <p id={helpId} {...(over ? { role: 'status' } : {})} className={`text-sm ${over ? 'font-semibold text-red-800' : 'text-text-muted'}`}>
         {`${count} de ${BIOGRAPHY_MAX_LENGTH} caracteres. Solo texto, sin saltos de línea.`}
       </p>
       {error === undefined ? null : (
-        <p id={errorId} className="text-sm text-red-800">
-          {error}
+        <p id={errorId} role="alert" className="text-sm text-red-800">
+          {errorText}
         </p>
       )}
     </div>

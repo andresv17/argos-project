@@ -87,3 +87,27 @@ describe('contador de biografía por puntos de código (O-2)', () => {
     expect(over).toContain('aria-invalid="true"');
   });
 });
+
+describe('hallazgos de /sati sobre la biografía (H-T1183-S1, S2, S4)', () => {
+  it('[GH:#21][NFR-008-002][H-T1183-S1] la biografía de la ficha parte palabras o URL largas (overflow-wrap:anywhere) y su columna no crece con el contenido (min-w-0)', () => {
+    const markup = view('OWNER', 'x'.repeat(280));
+    const tag = /<p[^>]*data-pet-biography[^>]*>/.exec(markup)?.[0] ?? '';
+    expect(tag).toContain('[overflow-wrap:anywhere]');
+    expect(tag).toContain('min-w-0');
+  });
+
+  it('[GH:#21][NFR-008-002][H-T1183-S4] la biografía no comparte columna con el avatar: es hermana de la fila nombre-avatar, a ancho completo de la tarjeta', () => {
+    const markup = view('OWNER', 'Adora el queso');
+    const bio = markup.indexOf('data-pet-biography');
+    const avatar = markup.indexOf('data-pet-avatar') >= 0 ? markup.indexOf('data-pet-avatar') : markup.indexOf('shrink-0');
+    expect(avatar).toBeGreaterThan(-1);
+    expect(bio).toBeGreaterThan(avatar); // va después de la fila que contiene al avatar, no dentro de la columna de texto
+  });
+
+  it('[GH:#21][REQ-BIO8-001][H-T1183-S2] el exceso de longitud se anuncia (role=alert) con un texto propio de longitud, no con el genérico «falta o no tiene un formato válido»', () => {
+    const over = renderToStaticMarkup(h(BiographyField, { id: 'b', value: 'a'.repeat(285), onChange: noop, errors: { biography: humanSchemaMessage('biography') } }));
+    expect(over).toMatch(/<p[^>]*id="b-error"[^>]*role="alert"|<p[^>]*role="alert"[^>]*id="b-error"/);
+    expect(over).toContain('La biografía admite hasta 280 caracteres.');
+    expect(over).not.toContain('falta o no tiene un formato válido');
+  });
+});
