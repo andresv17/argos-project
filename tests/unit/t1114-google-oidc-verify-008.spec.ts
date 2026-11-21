@@ -149,6 +149,9 @@ describe('[REQ-SSO8-001, EDGE-008-001, SC-008-004] id_token inválido: rechazo u
   it('rechaza un id_token sin firma (alg none) y uno firmado con un algoritmo distinto de RS256', async () => {
     const none = `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from(JSON.stringify({ iss: ISSUER, aud: CLIENT_ID, sub: 'x', exp: 9_999_999_999 })).toString('base64url')}.`;
     expect(await reasonOf(client(fakeGoogle({ idToken: async () => none }).fetchImpl).complete({ code: CODE, codeVerifier: VERIFIER, nonce: NONCE }))).toBe('SIGNATURE');
+    const hs = await new SignJWT({ iss: ISSUER, aud: CLIENT_ID, sub: 'x', email: 'persona@example.test', email_verified: true, nonce: NONCE })
+      .setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('5m').sign(new TextEncoder().encode('0123456789abcdef0123456789abcdef'));
+    expect(await reasonOf(client(fakeGoogle({ idToken: async () => hs }).fetchImpl).complete({ code: CODE, codeVerifier: VERIFIER, nonce: NONCE }))).toBe('SIGNATURE');
   });
 
   it('todos los rechazos comparten el mismo mensaje y ninguno contiene correo, sub, nonce, código ni token', async () => {

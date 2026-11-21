@@ -41,7 +41,7 @@ describe('etiquetas app y managed-by (T484)', () => {
   it('todo secreto, repositorio y servicio declarado está cubierto por los casos', () => {
     const count = (f: string, t: string): number => resource(f, t).length;
     expect(count('artifact_registry.tf', 'google_artifact_registry_repository')).toBe(1);
-    expect(count('secret_manager.tf', 'google_secret_manager_secret')).toBe(3);
+    expect(count('secret_manager.tf', 'google_secret_manager_secret')).toBe(4);
     expect(count('cloud_run.tf', 'google_cloud_run_v2_service')).toBe(1);
   });
 
