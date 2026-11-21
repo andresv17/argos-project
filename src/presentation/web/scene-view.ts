@@ -196,6 +196,12 @@ export function createLatestOnly(): { run<T>(read: Promise<T>, apply: (value: T)
 /** Texto del botón deshabilitado con la escena `idle` (sin mascotas ni foto del hogar; la máquina rechaza `idle -> generating`, REQ-ESC6-005). */
 const SCENE_IDLE_TEXT = 'Agrega una mascota o la foto del hogar para crear la imagen.';
 
+/** Motivo con la cuota agotada (H-OR-F-2): conserva la fecha «1 dic 2026» que fijan t875/t936 (SC-ESC6-132); sin instante legible (misma regla que `sceneRenewalDateText`) sale sin fecha. */
+const sceneQuotaExhaustedText = (resetsAt: string): string =>
+  sceneRenewalDateText(resetsAt) === null
+    ? 'Se agotaron las generaciones de este mes; la imagen actual se conserva.'
+    : `Se agotaron las generaciones de este mes. Se reinician el ${uploadDateText(resetsAt)}; la imagen actual se conserva.`;
+
 /**
  * Estado del botón único de generación (D6-21, REQ-ESC6-019, REQ-ESC6-005, REQ-ESC6-007; SC-ESC6-131, SC-ESC6-132). Etiqueta: «Reintentar» con `failed`, «Regenerar imagen del
  * hogar» con imagen vigente y «Crear imagen del hogar» sin ella. Se habilita con `actions.canRegenerate`, sin generación en curso y sin espera; `canUpdate` y `NO_CHANGES` no se leen.
@@ -210,7 +216,7 @@ export function sceneGenerateState(view: SceneViewData): { readonly label: strin
   if (!view.actions.canRegenerate) {
     switch (blockedReason) {
       case 'QUOTA_EXHAUSTED':
-        return blocked(`Se agotaron las generaciones de este mes. Se reinician el ${uploadDateText(view.quota.resetsAt)}; la imagen actual se conserva.`);
+        return blocked(sceneQuotaExhaustedText(view.quota.resetsAt));
       case 'GENERATING':
         return blocked('La imagen se está generando; espera a que termine.');
       case 'CONSENT_REQUIRED':

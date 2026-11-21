@@ -7,7 +7,7 @@ import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SceneBlockView } from '../../../src/presentation/web/components/SceneBlock.tsx';
-import { sceneRenewalDateText, scenePendingMessage } from '../../../src/presentation/web/scene-view.ts';
+import { sceneGenerateState, sceneRenewalDateText, scenePendingMessage } from '../../../src/presentation/web/scene-view.ts';
 import type { SceneViewData } from '../../../src/presentation/web/scene-api.ts';
 import { HOUSEHOLD_ID, sceneView } from './escena-fixtures.ts';
 
@@ -68,5 +68,22 @@ describe('T1163 SceneBlockView (SC-008-034)', () => {
     const html = render(sceneView({ pending: 0 }));
     expect(html).not.toContain('Generaciones restantes');
     expect(html).not.toContain('Se renuevan');
+  });
+});
+
+describe('T1163 motivo del botón con cuota agotada (H-OR-F-2)', () => {
+  const exhausted = (resetsAt: string): SceneViewData =>
+    sceneView({ status: 'outdated', quota: quota(0, resetsAt), actions: { canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: false, blockedReason: 'QUOTA_EXHAUSTED', retryAfterSeconds: null } });
+
+  it('[EDGE-008-019] con fecha legible dice cuándo se reinician (1 dic 2026, texto fijado por SC-ESC6-132)', () => {
+    const state = sceneGenerateState(exhausted('2026-12-01T05:00:00.000Z'));
+    expect(state.disabled).toBe(true);
+    expect(state.reason).toBe('Se agotaron las generaciones de este mes. Se reinician el 1 dic 2026; la imagen actual se conserva.');
+  });
+
+  it('[EDGE-008-019] con fecha ilegible sale sin fecha ni frase de renovación', () => {
+    const state = sceneGenerateState(exhausted('no-es-una-fecha'));
+    expect(state.disabled).toBe(true);
+    expect(state.reason).toBe('Se agotaron las generaciones de este mes; la imagen actual se conserva.');
   });
 });
