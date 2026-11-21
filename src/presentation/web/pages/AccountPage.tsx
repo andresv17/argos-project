@@ -4,14 +4,18 @@
  * guardado solo en memoria, y después se confirma con la frase literal y la contraseña. Solo campos y acciones del contrato 002;
  * la verificación real (frase, contraseña, token, propiedad compartida) es del servidor y sus errores salen del catálogo.
  *
- * @implements REQ-UI2-004, REQ-ACC-001, REQ-ACC-002, REQ-AUTH2-003, REQ-AUTH2-001, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, ERR-ACCOUNT-OWNS-SHARED-PETS, ERR-ACCOUNT-CONFIRMATION-MISMATCH
+ * Vincular Google (T1131, REQ-VIN8-002): con contraseña y sin Google se pide la contraseña actual y la SPA navega a la URL de autorización; con Google vinculado se muestra el estado (de `authMethods`).
+ *
+ * @implements REQ-VIN8-001, REQ-VIN8-002, NFR-008-002, REQ-UI2-004, REQ-ACC-001, REQ-ACC-002, REQ-AUTH2-003, REQ-AUTH2-001, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, ERR-ACCOUNT-OWNS-SHARED-PETS, ERR-ACCOUNT-CONFIRMATION-MISMATCH
  */
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, FormError, PasswordField, SelectField, TextField } from '../components/Field.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
+import { GOOGLE_LINK_FIELD, googleLinkFeedback, startGoogleLink } from '../google-login.ts';
 import { useSession } from '../session.tsx';
 import { useContractForm } from '../use-contract-form.ts';
+import { formValues, validateInput, type FieldErrors } from '../validation.ts';
 import type { Schemas } from '../view-model.ts';
 import { downloadBlob, requestBackupExport } from './BackupPage.tsx';
 
@@ -190,14 +194,99 @@ function NoPasswordNotice(): JSX.Element {
   );
 }
 
+interface GoogleLinkViewProps {
+  readonly values: Readonly<Record<string, string>>;
+  readonly errors: FieldErrors;
+  readonly message: string | null;
+  readonly busy: boolean;
+  readonly onChange: (name: string, value: string) => void;
+  readonly onSubmit: (event: FormEvent) => void;
+}
+
+/** Presentación pura del formulario «Vincular Google» (render estático en las pruebas). Mismos controles de 48 px y tarjeta neutra que el resto del perfil (T1122). */
+export function GoogleLinkView({ values, errors, message, busy, onChange, onSubmit }: GoogleLinkViewProps): JSX.Element {
+  return (
+    <section aria-labelledby="google-link-title" data-google-link className={CARD}>
+      <h2 id="google-link-title" className="text-lg font-semibold">
+        Vincular Google
+      </h2>
+      <p className="max-w-prose text-sm">Vincula tu cuenta de Google para poder entrar también con ella. Te pedimos tu contraseña actual para confirmar que eres tú, y las demás sesiones se cierran al terminar.</p>
+      <form noValidate aria-label="Vincular Google" onSubmit={onSubmit} className="grid gap-3">
+        <PasswordField id="google-link-currentPassword" label="Contraseña actual" name={GOOGLE_LINK_FIELD} autoComplete="current-password" required value={values[GOOGLE_LINK_FIELD] ?? ''} onChange={onChange} errors={errors} />
+        <FormError message={message} />
+        <div>
+          <Button type="submit" variant="secondary" disabled={busy}>
+            Vincular Google
+          </Button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function GoogleLinkSection(): JSX.Element {
+  const { api } = useSession();
+  const [values, setValues] = useState<Readonly<Record<string, string>>>({ [GOOGLE_LINK_FIELD]: '' });
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  /** Peticiones de foco al campo con error (H-T1122-S1): el efecto actúa tras el render, cuando el campo ya muestra `aria-describedby`. Sin temporizadores (REQ-UI-002). */
+  const [errorFocus, setErrorFocus] = useState(0);
+  useEffect(() => {
+    if (errorFocus > 0) document.getElementById('google-link-currentPassword')?.focus();
+  }, [errorFocus]);
+
+  const onSubmit = (event: FormEvent): void => {
+    event.preventDefault();
+    const body = formValues(values, [], []);
+    const clientErrors = validateInput('GoogleLinkStartInput', body);
+    setErrors(clientErrors);
+    setMessage(null);
+    if (Object.keys(clientErrors).length > 0) {
+      setErrorFocus((n) => n + 1);
+      return;
+    }
+    setBusy(true);
+    startGoogleLink(api, body as Schemas['GoogleLinkStartInput'])
+      .then((view) => {
+        // La contraseña ya cumplió su función: no se conserva en el estado mientras el navegador sale hacia Google.
+        setValues({ [GOOGLE_LINK_FIELD]: '' });
+        window.location.assign(view.authorizationUrl);
+      })
+      .catch((error: unknown) => {
+        const feedback = googleLinkFeedback(error instanceof ApiProblem ? error.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED'));
+        setErrors(feedback.errors);
+        setMessage(feedback.message);
+        if (feedback.focusField) setErrorFocus((n) => n + 1);
+      })
+      .finally(() => setBusy(false));
+  };
+
+  return <GoogleLinkView values={values} errors={errors} message={message} busy={busy} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} onSubmit={onSubmit} />;
+}
+
+/** Estado derivado de `authMethods.google`: la cuenta ya tiene Google vinculado. Sin acciones (desvincular es DEUDA-008-DESVINCULAR). */
+function GoogleLinkedStatus(): JSX.Element {
+  return (
+    <section aria-labelledby="google-linked-title" data-google-link className={CARD}>
+      <h2 id="google-linked-title" className="text-lg font-semibold">
+        Google vinculado
+      </h2>
+      <p className="max-w-prose text-sm">Tu cuenta está vinculada con Google: puedes entrar con ella desde la pantalla de acceso.</p>
+    </section>
+  );
+}
+
 export function AccountPage(): JSX.Element {
   const { user } = useSession();
   // Una respuesta sin `authMethods` (opcional en el contrato) se trata como cuenta con contraseña.
   const hasPassword = user?.authMethods?.password !== false;
+  const hasGoogle = user?.authMethods?.google === true;
   return (
     <div className="mx-auto grid max-w-3xl gap-4">
       <h1 className="text-2xl font-bold">Perfil</h1>
       <ProfileSection />
+      {hasGoogle ? <GoogleLinkedStatus /> : hasPassword ? <GoogleLinkSection /> : null}
       {hasPassword ? (
         <>
           <PasswordSection />
