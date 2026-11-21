@@ -291,7 +291,7 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       if ((pet.lifeStatus === 'DECEASED') !== (pet.deceasedAt != null)) throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Objeto inválido para pets (${pet.id}); no se guarda.`);
       // Como la columna y el CHECK de 0016/0012 (REQ-BIO8-001, REQ-BIO8-004): biografía de 0 a 280 caracteres, sin caracteres de control; nula o ausente = sin la clave.
       const { biography = null, ...profile } = pet;
-      if (biography !== null && (biography.length > 280 || /[\u0000-\u001F\u007F]/u.test(biography))) throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Objeto inválido para pets (${pet.id}); no se guarda.`);
+      if (biography !== null && ([...biography].length > 280 || /[\u0000-\u001F\u007F]/u.test(biography))) throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Objeto inválido para pets (${pet.id}); no se guarda.`);
       // Como las columnas de 0014/0010 (REQ-FAL7-001, REQ-FAL7-011): estado y fecha completos; sin `version` explícita, guardar sobre una fila existente la incrementa.
       const previous = state.pets.find((p) => p.id === pet.id);
       const version = pet.version ?? (previous === undefined ? 1 : (previous.version ?? 1) + 1);

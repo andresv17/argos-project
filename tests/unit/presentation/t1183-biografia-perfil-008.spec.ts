@@ -75,3 +75,15 @@ describe('lectura de la biografía en la ficha (T1183)', () => {
     expect(markup).not.toContain('name="biography"');
   });
 });
+
+describe('contador de biografía por puntos de código (O-2)', () => {
+  const emoji = '😀';
+  it('[GH:#21][REQ-BIO8-001] 280 emojis cuentan 280 (no 560): sin marca de exceso; 281 sí exceden', () => {
+    const exact = renderToStaticMarkup(h(BiographyField, { id: 'b', value: emoji.repeat(280), onChange: noop, errors: {} }));
+    expect(exact).toContain('280 de 280 caracteres.');
+    expect(exact).not.toContain('aria-invalid');
+    const over = renderToStaticMarkup(h(BiographyField, { id: 'b', value: emoji.repeat(281), onChange: noop, errors: {} }));
+    expect(over).toContain('281 de 280 caracteres.');
+    expect(over).toContain('aria-invalid="true"');
+  });
+});

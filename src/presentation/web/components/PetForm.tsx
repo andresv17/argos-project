@@ -138,7 +138,8 @@ export function BiographyField({ id, value, onChange, errors }: {
   const error = errors['biography'];
   const helpId = `${id}-help`;
   const errorId = `${id}-error`;
-  const over = value.length > BIOGRAPHY_MAX_LENGTH;
+  const count = [...value].length; // puntos de código Unicode (como maxLength de JSON Schema), no unidades UTF-16 (O-2)
+  const over = count > BIOGRAPHY_MAX_LENGTH;
   return (
     <div className="flex flex-col gap-1 sm:col-span-2">
       <label htmlFor={id} className="text-sm font-medium text-slate-800">
@@ -156,7 +157,7 @@ export function BiographyField({ id, value, onChange, errors }: {
         className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       />
       <p id={helpId} className={`text-sm ${over ? 'font-semibold text-red-800' : 'text-text-muted'}`}>
-        {`${value.length} de ${BIOGRAPHY_MAX_LENGTH} caracteres. Solo texto, sin saltos de línea.`}
+        {`${count} de ${BIOGRAPHY_MAX_LENGTH} caracteres. Solo texto, sin saltos de línea.`}
       </p>
       {error === undefined ? null : (
         <p id={errorId} className="text-sm text-red-800">
