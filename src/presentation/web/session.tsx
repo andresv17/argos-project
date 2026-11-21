@@ -31,7 +31,7 @@ export interface SessionState {
   logout(): Promise<void>;
 }
 
-const SessionContext = createContext<SessionState | null>(null);
+export const SessionContext = createContext<SessionState | null>(null);
 
 export function SessionProvider({ api, children }: { readonly api: ApiClient; readonly children: ReactNode }): JSX.Element {
   const [user, setUser] = useState<UserSelfProfile | null>(null);

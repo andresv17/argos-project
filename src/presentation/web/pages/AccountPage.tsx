@@ -174,13 +174,38 @@ function DangerZone(): JSX.Element {
   );
 }
 
+/**
+ * Cuenta nacida con Google: no tiene contraseña en ARGOS, así que no se ofrecen el cambio de contraseña ni la eliminación con contraseña. Solo se informa (decisión 1 de Neo,
+ * DEUDA-008-GOOGLE-ACCOUNT-DELETE): el borrado de la cuenta se gestiona por soporte mientras tanto. Sin plazos ni garantías legales.
+ */
+function NoPasswordNotice(): JSX.Element {
+  return (
+    <section aria-labelledby="no-password-title" role="note" data-account-no-password className={CARD}>
+      <h2 id="no-password-title" className="text-lg font-semibold">
+        Tu cuenta no tiene contraseña
+      </h2>
+      <p className="max-w-prose text-sm">Tu cuenta se creó con Google, por eso entras con Google y no tienes una contraseña en ARGOS.</p>
+      <p className="max-w-prose text-sm">Por ahora, si quieres eliminar tu cuenta, el borrado lo gestiona el equipo de soporte: no se hace desde esta pantalla.</p>
+    </section>
+  );
+}
+
 export function AccountPage(): JSX.Element {
+  const { user } = useSession();
+  // Una respuesta sin `authMethods` (opcional en el contrato) se trata como cuenta con contraseña.
+  const hasPassword = user?.authMethods?.password !== false;
   return (
     <div className="mx-auto grid max-w-3xl gap-4">
       <h1 className="text-2xl font-bold">Perfil</h1>
       <ProfileSection />
-      <PasswordSection />
-      <DangerZone />
+      {hasPassword ? (
+        <>
+          <PasswordSection />
+          <DangerZone />
+        </>
+      ) : (
+        <NoPasswordNotice />
+      )}
     </div>
   );
 }
