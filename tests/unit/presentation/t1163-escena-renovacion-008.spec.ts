@@ -31,7 +31,7 @@ describe('T1163 fecha de renovación (EDGE-008-019)', () => {
 });
 
 describe('T1163 scenePendingMessage (REQ-UX8-001)', () => {
-  it('[SC-008-032] con pending >= 1 dice «este mes», el conteo y la fecha de renovación; sin «de por vida» ni «diario»', () => {
+  it('[REQ-UX8-001][SC-008-032] con pending >= 1 dice «este mes», el conteo y la fecha de renovación; sin «de por vida» ni «diario»', () => {
     const message = scenePendingMessage(sceneView({ pending: 2, quota: quota(7, '2026-12-01T05:00:00.000Z') }));
     expect(message?.remaining).toBe('Generaciones restantes este mes: 7. Se renuevan el 1 de diciembre.');
     expect(message?.remaining).not.toMatch(/de por vida|diari/i);

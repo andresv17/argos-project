@@ -13,7 +13,7 @@ import { HOUSEHOLD_ID, IMAGE_TAG } from './escena-fixtures.ts';
 const render = (householdId: string | null, view: { imageTag: string | null; shown: number } | null): string => renderToStaticMarkup(h(HomeSceneImageView, { householdId, view }));
 
 describe('T1170 rótulo «Mi hogar» (REQ-UX8-003)', () => {
-  it('[SC-008-039] con imagen hay exactamente 1 figcaption visible con «Mi hogar», dentro del figure y después de la imagen', () => {
+  it('[REQ-UX8-003][SC-008-039] con imagen hay exactamente 1 figcaption visible con «Mi hogar», dentro del figure y después de la imagen', () => {
     const html = render(HOUSEHOLD_ID, { imageTag: IMAGE_TAG, shown: 3 });
     expect(html.match(/<figcaption\b[^>]*>Mi hogar<\/figcaption>/g)).toHaveLength(1);
     expect(html.indexOf('<img')).toBeLessThan(html.indexOf('<figcaption'));
