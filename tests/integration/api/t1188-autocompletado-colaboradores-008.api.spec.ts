@@ -4,6 +4,8 @@ import { createApi, problemOf, type Api } from './api-harness.ts';
 import { account, idOf, stateWith } from '../../fixtures/identity-engines.ts';
 import { buildApp } from '../../../src/infrastructure/http/app.ts';
 import { PRODUCTION_LOGGER_OPTIONS } from '../../../src/infrastructure/http/server.ts';
+import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
+import type { UnitOfWorkPort } from '../../../src/application/ports/unit-of-work.port.ts';
 
 /**
  * T1188 / T1190 (008, bloque J, `[GH:#24]`) `GET /households/{householdId}/invitees?q=` por HTTP sobre SQLite: prefijo mínimo de 3 (422 sin consultar), sin distinguir
@@ -91,5 +93,118 @@ describe('autocompletado de colaboradores por HTTP (T1188, T1190)', () => {
     await app.close();
     const log = lines.join('');
     expect([log.length > 0, log.includes('pedro'), log.includes('invitees?q')]).toEqual([true, false, false]);
+  });
+});
+
+/** Espía de lecturas (H-J-1): registra `repositorio.método` de cada llamada que el caso de uso hace a los repositorios dentro de la transacción. */
+function traceRepositories(repositories: RepositorySet, log: string[]): RepositorySet {
+  return new Proxy(repositories, {
+    get(target, name) {
+      const repository: unknown = Reflect.get(target, name);
+      if (typeof name !== 'string' || typeof repository !== 'object' || repository === null) return repository;
+      return new Proxy(repository, {
+        get(inner, method) {
+          const member: unknown = Reflect.get(inner, method);
+          if (typeof method !== 'string' || typeof member !== 'function') return member;
+          return (...args: unknown[]) => {
+            if (name !== 'sessions') log.push(`${name}.${method}`); // la sesión la lee el middleware de autenticación, no el caso de uso
+            return member.apply(inner, args);
+          };
+        },
+      });
+    },
+  });
+}
+function spyOnReads(): string[] {
+  const log: string[] = [];
+  const original = api.deps.uow;
+  const spied: UnitOfWorkPort = Object.assign(Object.create(original) as UnitOfWorkPort, {
+    runInTransaction: <T,>(work: (repositories: RepositorySet) => Promise<T>) => original.runInTransaction((repositories) => work(traceRepositories(repositories, log))),
+  });
+  (api.deps as { uow: UnitOfWorkPort }).uow = spied;
+  return log;
+}
+const asMember = async (andres: string, hid: string, username: string, roleOnJoin: 'ADMIN' | 'CAREGIVER' | 'READER') => {
+  await api.call('POST', `/api/households/${hid}/invitations`, { cookie: andres, body: { username, roleOnJoin } });
+  await api.call('POST', `/api/invitations/${hid}/accept`, { cookie: await api.login(username) });
+};
+const searchFrom = (cookie: string, hid: string, q: string, remoteAddress: string) =>
+  api.app.inject({ method: 'GET', url: `/api/households/${hid}/invitees?q=${encodeURIComponent(q)}`, headers: { cookie, 'x-argos-request': '1' }, remoteAddress });
+
+describe('oráculos de orden, cupo y tope del autocompletado (H-J-1, H-J-3, H-J-4)', () => {
+  it('[REQ-INV8-001][SC-008-048][SC-008-049] H-J-1: un prefijo corto o inválido da 422 sin consultar candidatos, invitaciones ni perfiles; con prefijo válido sí los consulta', async () => {
+    const { andres, hid } = await setup();
+    const reads = spyOnReads();
+    const perQuery: Array<[string, number, string[]]> = [];
+    for (const q of ['pe', 'p', 'pe%20x', 'ped%20ro', 'ped%25']) {
+      reads.length = 0;
+      const response = await api.call('GET', `/api/households/${hid}/invitees?q=${q}`, { cookie: andres });
+      perQuery.push([q, response.status, [...reads]]);
+    }
+    // La única lectura previa a validar es la de la membresía: el permiso se decide antes que el prefijo.
+    expect(perQuery).toEqual(['pe', 'p', 'pe%20x', 'ped%20ro', 'ped%25'].map((q) => [q, 422, ['households.listMemberships']]));
+    reads.length = 0;
+    expect((await api.call('GET', `/api/households/${hid}/invitees`, { cookie: andres })).status).toBe(422);
+    expect(reads).toEqual(['households.listMemberships']);
+    reads.length = 0;
+    expect((await search(andres, hid, 'ped')).status).toBe(200);
+    expect(reads).toContain('users.searchUsernamesByPrefix');
+    expect(reads).toContain('invitations.listByHousehold');
+  });
+
+  it('[REQ-INV8-001][REQ-RBAC-001][SC-008-048] H-J-1: con prefijo inválido, quien no es gestor recibe 403 o 404 (el permiso va antes que la validación) y solo se lee su membresía', async () => {
+    const { andres, hid } = await setup();
+    const outsider = await api.login('lucia.r');
+    await asMember(andres, hid, 'maria.v', 'READER');
+    const reader = await api.login('maria.v');
+    const reads = spyOnReads();
+    const outcomes: Array<[string, number, string[]]> = [];
+    for (const [who, cookie] of [['ajeno', outsider], ['lector', reader]] as const) {
+      for (const q of ['pe', 'ped']) {
+        reads.length = 0;
+        outcomes.push([`${who}:${q}`, (await search(cookie, hid, q)).status, [...reads]]);
+      }
+    }
+    expect(outcomes).toEqual([
+      ['ajeno:pe', 404, ['households.listMemberships']],
+      ['ajeno:ped', 404, ['households.listMemberships']],
+      ['lector:pe', 403, ['households.listMemberships']],
+      ['lector:ped', 403, ['households.listMemberships']],
+    ]);
+  });
+
+  it('[REQ-INV8-003][EDGE-008-044][SC-008-051] H-J-1: un 422 no consume cupo del limitador (35 rechazos y aun así caben las 30 búsquedas válidas)', async () => {
+    const { andres, hid } = await setup();
+    for (let i = 0; i < 35; i += 1) expect((await search(andres, hid, 'pe')).status).toBe(422);
+    const statuses: number[] = [];
+    for (let i = 0; i < 31; i += 1) statuses.push((await search(andres, hid, 'ped')).status);
+    expect([statuses.slice(0, 30).every((s) => s === 200), statuses[30]]).toEqual([true, 429]);
+  });
+
+  it('[REQ-INV8-003][EDGE-008-044][SC-008-051] H-J-3: el cupo por IP normalizada se agota entre usuarios distintos (IPv4 e IPv4 mapeada cuentan igual) y otra IP no se ve afectada', async () => {
+    const { andres, hid } = await setup();
+    await asMember(andres, hid, 'carlos_88', 'ADMIN');
+    const carlos = await api.login('carlos_88');
+    const sameIp = ['198.51.100.7', '::ffff:198.51.100.7'];
+    const codes: number[] = [];
+    for (let i = 0; i < 15; i += 1) codes.push((await searchFrom(andres, hid, 'ped', sameIp[i % 2]!)).statusCode);
+    for (let i = 0; i < 15; i += 1) codes.push((await searchFrom(carlos, hid, 'ped', sameIp[i % 2]!)).statusCode);
+    expect(codes).toEqual(Array(30).fill(200)); // ningún usuario pasa de 15: solo la IP acumula 30
+    const rejected = await searchFrom(carlos, hid, 'ped', '198.51.100.7');
+    expect([rejected.statusCode, (rejected.json() as { code: string }).code]).toEqual([429, 'ERR-RATE-LIMITED']);
+    expect((await searchFrom(andres, hid, 'ped', '198.51.100.8')).statusCode).toBe(200);
+  });
+
+  it('[REQ-INV8-001][SC-008-049] H-J-4: el tope de 5 no trunca mal: con 7 y 6 candidatos devuelve los 5 primeros; con exactamente 5 devuelve los 5 (el último incluido); con 4, los 4', async () => {
+    const { andres, hid } = await setup();
+    const invite = (username: string) => api.call('POST', `/api/households/${hid}/invitations`, { cookie: andres, body: { username, roleOnJoin: 'READER' } });
+    expect(names(await search(andres, hid, 'ped'))).toEqual(['pedro-d', 'pedro.a', 'Pedro.B', 'pedro.e', 'pedro.f']); // 7 candidatos
+    await invite('pedro_c'); // sale el último del orden: quedan 6
+    expect(names(await search(andres, hid, 'ped'))).toEqual(['pedro-d', 'pedro.a', 'Pedro.B', 'pedro.e', 'pedro.f']);
+    await invite('pedro-d'); // quedan exactamente 5
+    expect(names(await search(andres, hid, 'ped'))).toEqual(['pedro.a', 'Pedro.B', 'pedro.e', 'pedro.f', 'pedro.g']);
+    expect(names(await search(andres, hid, 'pedro.'))).toEqual(['pedro.a', 'Pedro.B', 'pedro.e', 'pedro.f', 'pedro.g']);
+    await invite('pedro.a'); // quedan 4
+    expect(names(await search(andres, hid, 'ped'))).toEqual(['Pedro.B', 'pedro.e', 'pedro.f', 'pedro.g']);
   });
 });
