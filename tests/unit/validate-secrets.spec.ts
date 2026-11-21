@@ -12,6 +12,9 @@ const SCRIPT = join(process.cwd(), 'scripts', 'validate-secrets.mjs');
 const GOOD_DB = 'postgresql://argos_app:s3cr3t-pw@ep-cool-123-pooler.us-east-2.aws.neon.tech/argos?sslmode=require'; // argos-scan:allow
 const GOOD_DIRECT = 'postgresql://argos_migrator:d1rect-pw@ep-cool-123.us-east-2.aws.neon.tech/argos?sslmode=require'; // argos-scan:allow
 const GOOD_HMAC = 'ab'.repeat(32);
+// 008 (GH:#16): valores de FORMA válida de ejemplo; no son credenciales (dominio .invalid y client id de ejemplo).
+const GOOD_CLIENT_ID = '000000000000-example.apps.googleusercontent.com';
+const GOOD_REDIRECT_URI = 'https://example.invalid/api/auth/google/callback';
 
 interface Violation {
   rule: string;
@@ -26,7 +29,13 @@ interface Mod {
 }
 // @ts-expect-error TS7016: módulo .mjs sin declaraciones (se tipa con Mod)
 const load = async (): Promise<Mod> => (await import('../../scripts/validate-secrets.mjs')) as unknown as Mod;
-const ENV = { TF_VAR_database_url: GOOD_DB, TF_VAR_audit_hmac_secret: GOOD_HMAC, DATABASE_URL_DIRECT: GOOD_DIRECT };
+const ENV = {
+  TF_VAR_database_url: GOOD_DB,
+  TF_VAR_audit_hmac_secret: GOOD_HMAC,
+  DATABASE_URL_DIRECT: GOOD_DIRECT,
+  GOOGLE_OAUTH_CLIENT_ID: GOOD_CLIENT_ID,
+  GOOGLE_OAUTH_REDIRECT_URI: GOOD_REDIRECT_URI,
+};
 const rules = async (env: Record<string, string | undefined>): Promise<string[]> => (await load()).validateSecrets(env).violations.map((v) => `${v.variable}:${v.rule}`);
 
 describe('DATABASE_URL de aplicación (REQ-CICD-009)', () => {
@@ -144,6 +153,48 @@ describe('ARGOS_AUDIT_HMAC_SECRET (REQ-SEC-002)', () => {
       expect((await load()).validateSecrets({ ...ENV, TF_VAR_audit_hmac_secret: secret }).ok).toBe(appAccepts);
     },
   );
+});
+
+describe('Google OAuth: client id y URI de redirección (008, GH:#16)', () => {
+  it('[REQ-SSO8-007] con ambos valores de forma válida no hay violaciones', async () => {
+    expect(await rules(ENV)).toEqual([]);
+  });
+
+  it('[REQ-SSO8-007] GOOGLE_OAUTH_CLIENT_ID ausente se rechaza', async () => {
+    const { GOOGLE_OAUTH_CLIENT_ID: _omit, ...rest } = ENV;
+    expect(await rules(rest)).toEqual(['GOOGLE_OAUTH_CLIENT_ID:ausente']);
+  });
+
+  it('[REQ-SSO8-007] GOOGLE_OAUTH_REDIRECT_URI ausente se rechaza', async () => {
+    const { GOOGLE_OAUTH_REDIRECT_URI: _omit, ...rest } = ENV;
+    expect(await rules(rest)).toEqual(['GOOGLE_OAUTH_REDIRECT_URI:ausente']);
+  });
+
+  it.each([
+    ['con espacio', `${GOOD_CLIENT_ID} x`],
+    ['con coma', `${GOOD_CLIENT_ID},otro`],
+  ])('[REQ-SSO8-007] client id %s se rechaza (viaja dentro de --set-env-vars)', async (_n, value) => {
+    expect(await rules({ ...ENV, GOOGLE_OAUTH_CLIENT_ID: value })).toEqual(['GOOGLE_OAUTH_CLIENT_ID:espacio-o-salto']);
+  });
+
+  it('[REQ-SSO8-007] client id vacío se rechaza', async () => {
+    expect(await rules({ ...ENV, GOOGLE_OAUTH_CLIENT_ID: '' })).toEqual(['GOOGLE_OAUTH_CLIENT_ID:vacio']);
+  });
+
+  it.each([
+    ['con espacio', `${GOOD_REDIRECT_URI} x`],
+    ['con coma', `${GOOD_REDIRECT_URI},otra`],
+  ])('[REQ-SSO8-007] URI de redirección %s se rechaza', async (_n, value) => {
+    expect(await rules({ ...ENV, GOOGLE_OAUTH_REDIRECT_URI: value })).toEqual(['GOOGLE_OAUTH_REDIRECT_URI:espacio-o-salto']);
+  });
+
+  it('[REQ-SSO8-007] URI de redirección con http:// se rechaza (solo https)', async () => {
+    expect(await rules({ ...ENV, GOOGLE_OAUTH_REDIRECT_URI: 'http://example.invalid/api/auth/google/callback' })).toEqual(['GOOGLE_OAUTH_REDIRECT_URI:formato']);
+  });
+
+  it('[REQ-SSO8-007] URI de redirección vacía se rechaza', async () => {
+    expect(await rules({ ...ENV, GOOGLE_OAUTH_REDIRECT_URI: '' })).toEqual(['GOOGLE_OAUTH_REDIRECT_URI:vacio']);
+  });
 });
 
 describe('CLI: enmascaramiento y salida (REQ-CICD-009)', () => {
