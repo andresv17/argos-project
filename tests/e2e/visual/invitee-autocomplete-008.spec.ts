@@ -1,7 +1,8 @@
 /**
  * E2E del autocompletado de colaboradores (feature 008, `[GH:#24]`, T1192) en Chromium con la app real: con 2 caracteres no hay búsqueda ni lista; con 3 aparecen las
  * sugerencias (solo `username`); flechas y Enter eligen sin enviar el formulario; Escape cierra la lista conservando lo escrito; y se puede escribir un `username`
- * completo e invitar sin elegir sugerencia. Sin coincidencias y límite de tasa quedan cubiertos por las pruebas de API y de presentación (t1188, t1191).
+ * completo e invitar sin elegir sugerencia; un prefijo sin candidatos muestra el mensaje neutro (D8-11) sin opciones; y, agotado el cupo de búsquedas, el combobox
+ * muestra el mensaje de límite sin romper el formulario.
  *
  * @implements REQ-INV8-001, REQ-INV8-005
  */
@@ -94,6 +95,43 @@ test.describe('autocompletado de colaboradores (T1192, Chromium)', () => {
     await page.getByRole('form', { name: 'Invitar miembro' }).getByRole('button', { name: 'Invitar' }).click();
     await expect(combobox()).toHaveValue('');
     await expect.poll(pendingUsernames).toEqual(['pedro.c']);
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('[REQ-INV8-001][SC-008-049] un prefijo válido sin candidatos muestra el mensaje neutro y ninguna opción', async () => {
+    const before = inviteeRequests.length;
+    await combobox().fill('');
+    await combobox().pressSequentially('qzx');
+    await expect(page.locator('p.text-text-muted', { hasText: 'No se encontraron usuarios disponibles para invitar.' })).toBeVisible();
+    await expect(options()).toHaveCount(0);
+    await expect(listbox()).toBeHidden();
+    await expect(combobox()).toHaveAttribute('aria-expanded', 'false');
+    expect(inviteeRequests.slice(before)).toEqual(['qzx']);
+    await expect(combobox()).toHaveValue('qzx'); // lo escrito se conserva
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('[REQ-INV8-005][SC-008-055] agotado el cupo, el combobox muestra el mensaje de límite y el formulario sigue operativo', async () => {
+    // Se agota el cupo (30 por minuto por usuario) con la misma sesión; se detiene en el primer 429 para no depender de cuántas consultas gastaron las pruebas previas.
+    let limited = false;
+    for (let attempt = 0; attempt < 40 && !limited; attempt += 1) {
+      const outcome = await apiCall(page.context().request, 'GET', `/households/${householdId}/invitees?q=qzx`);
+      limited = outcome.status === 429;
+    }
+    expect(limited).toBe(true);
+    await combobox().fill('');
+    await combobox().pressSequentially('lim');
+    const limitText = 'Hiciste muchas búsquedas seguidas. Espera un momento e inténtalo de nuevo.';
+    await expect(page.locator('p.text-red-800', { hasText: limitText })).toBeVisible(); // aviso visible
+    await expect(page.getByRole('status').filter({ hasText: limitText })).toHaveCount(1); // y anunciado a lectores de pantalla
+    await expect(options()).toHaveCount(0);
+    await expect(listbox()).toBeHidden();
+    // El formulario no se rompe: el campo conserva lo escrito y sigue editable, el botón Invitar sigue habilitado y no hubo errores de página.
+    await expect(combobox()).toHaveValue('lim');
+    await expect(combobox()).toBeEditable();
+    await expect(page.getByRole('form', { name: 'Invitar miembro' }).getByRole('button', { name: 'Invitar' })).toBeEnabled();
+    await combobox().pressSequentially('x');
+    await expect(combobox()).toHaveValue('limx');
     expect(pageErrors).toEqual([]);
   });
 });
