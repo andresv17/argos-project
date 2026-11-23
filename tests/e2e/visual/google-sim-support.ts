@@ -42,6 +42,8 @@ export interface GoogleSim {
   lastCallbackUrl: string | null;
   /** Última URL de autorización que el servidor entregó para Google (la real, antes de sustituirla por el consentimiento simulado). */
   lastAuthorizationUrl: string | null;
+  /** Archivo SQLite de la API simulada: ahí se siembran cuentas `ACTIVE` por repositorio (arnés de T1244). */
+  readonly databasePath: string;
   stop(): Promise<void>;
 }
 
@@ -79,10 +81,11 @@ export async function startGoogleSim(): Promise<GoogleSim> {
     return new Response(JSON.stringify({ id_token: idToken }), { status: 200, headers: { 'content-type': 'application/json' } });
   }) as typeof fetch;
 
+  const databasePath = join(mkdtempSync(join(tmpdir(), 'argos-e2e-google-')), 'argos.sqlite');
   const config = loadAppConfig({
     PORT: String(SIM_API_PORT),
     HOST: '127.0.0.1',
-    DATABASE_PATH: join(mkdtempSync(join(tmpdir(), 'argos-e2e-google-')), 'argos.sqlite'),
+    DATABASE_PATH: databasePath,
     APP_TIMEZONE: 'America/Bogota',
     COOKIE_SECURE: 'false',
     NODE_ENV: 'test',
@@ -95,6 +98,7 @@ export async function startGoogleSim(): Promise<GoogleSim> {
     next: { kind: 'cancel' },
     lastCallbackUrl: null,
     lastAuthorizationUrl: null,
+    databasePath,
     async stop() {
       vite.kill('SIGTERM');
       await app.close();

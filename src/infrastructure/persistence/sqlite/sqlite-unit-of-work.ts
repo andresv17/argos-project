@@ -8,7 +8,7 @@
  * - C-5: un fallo de lectura dentro de `work` (p. ej. un dato corrupto) es un rechazo normal de la transacción; el
  *   caso de uso de importación lo traduce a `STORAGE_READ_FAILED` si ocurre en CHECKING_DOMAIN_INVARIANTS.
  *
- * @implements INV-ARCH-004, INV-ARCH-005, ERR-INTERNAL-UNEXPECTED
+ * @implements INV-ARCH-004, INV-ARCH-005, ERR-INTERNAL-UNEXPECTED, REQ-APR9-007
  */
 
 import { DomainError } from '../../../generated/index.ts';
@@ -103,7 +103,8 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
         invitationsPurged: run(
           `DELETE FROM household_invitations WHERE status IN ('ACCEPTED', 'DECLINED', 'CANCELLED') AND COALESCE(responded_at, created_at) < ${at(", '-90 days'")}`,
         ),
-        auditRowsPurged: run('DELETE FROM audit_log WHERE timestamp < @auditBefore'),
+        // RAMA-T1239-03 (REQ-ADM9-004, ADR-009-08): la auditoría de administración sigue el mismo plazo de 24 meses; sus filas se suman a la clave existente (contrato 003 intacto).
+        auditRowsPurged: run('DELETE FROM audit_log WHERE timestamp < @auditBefore') + run('DELETE FROM admin_audit_entries WHERE occurred_at < @auditBefore'),
       };
     });
     await this.checkpointAfterCommit();

@@ -15,6 +15,9 @@ const SESSION_BODY = { authenticated: true, adminId: 'adm-opaque-7f3a', expiresA
 async function mockAuthenticated(page: Page, onDelete?: (headers: Record<string, string>) => { status: number } ): Promise<{ deletes: Array<Record<string, string>> }> {
   const deletes: Array<Record<string, string>> = [];
   let closed = false;
+  // T1250: el shell autenticado ya pide el contador y las solicitudes; sin sesión real se responden vacíos (la UI de solicitudes se prueba en t1250-solicitudes-admin.spec.ts).
+  await page.route('**/api/admin/pending-count', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pending: 0, warning: false }) }));
+  await page.route('**/api/admin/registrations', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], nextCursor: null }) }));
   await page.route('**/api/admin/session', async (route) => {
     const request = route.request();
     if (request.method() === 'DELETE') {

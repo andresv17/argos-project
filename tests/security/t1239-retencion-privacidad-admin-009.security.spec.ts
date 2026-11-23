@@ -230,6 +230,30 @@ describe('T1239 [RETENCIÓN] sesiones y estados de flujo con purga efectiva (30 
     const remaining = (h.db.prepare("SELECT COUNT(*) AS n FROM admin_sessions WHERE token_hash = ?").get('d'.repeat(64)) as { n: number }).n;
     expect(remaining).toBe(0);
   });
+
+  // HALLAZGO RAMA-T1239-03 (MEDIO): admin_audit_entries sin purga de mantenimiento (24 meses). Acta: architect-009-T1252-retencion-admin.md (opción a).
+  it('[HALLAZGO RAMA-T1239-03] el mantenimiento purga admin_audit_entries anteriores a auditBefore y los suma a auditRowsPurged', async () => {
+    const h = await boot();
+    harness = h;
+    const cutoffs = maintenanceCutoffs(NOW);
+    const dayMs = 24 * HOUR;
+    const shift = (days: number): string => new Date(Date.parse(cutoffs.auditBefore) + days * dayMs).toISOString();
+    const adminId = 'a'.repeat(36);
+    const insertAdmin = h.db.prepare('INSERT INTO admin_audit_entries (id, admin_id, action, object_ref, occurred_at) VALUES (?, ?, ?, NULL, ?)');
+    insertAdmin.run('A'.repeat(36), adminId, 'ADMIN_REGISTRATION_APPROVE', shift(-1)); // vencida
+    insertAdmin.run('B'.repeat(36), adminId, 'ADMIN_REGISTRATION_APPROVE', cutoffs.auditBefore); // frontera exacta: se conserva (< estricto)
+    insertAdmin.run('C'.repeat(36), adminId, 'ADMIN_REGISTRATION_REJECT', NOW); // reciente
+    h.db.prepare('DELETE FROM audit_log').run();
+    h.db
+      .prepare('INSERT INTO audit_log (id, timestamp, executor_user_id, mutation_type, entity_type, entity_id, previous_state_hash, new_state_hash) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)')
+      .run('audit-vencida', shift(-1), 'u-1', 'UPDATE', 'PET', 'p-1');
+    const counts = await new SqliteUnitOfWork(h.db).purgeExpired(cutoffs);
+    const ids = (h.db.prepare('SELECT id FROM admin_audit_entries ORDER BY id').all() as Array<{ id: string }>).map((r) => r.id);
+    expect(ids).toEqual(['B'.repeat(36), 'C'.repeat(36)]);
+    expect(counts.auditRowsPurged).toBe(2);
+    expect(counts).toEqual({ sessionsPurged: expect.any(Number), confirmationTokensPurged: expect.any(Number), membershipsPurged: expect.any(Number), invitationsPurged: expect.any(Number), auditRowsPurged: 2 });
+    expect(Object.keys(counts).sort()).toEqual(['auditRowsPurged', 'confirmationTokensPurged', 'invitationsPurged', 'membershipsPurged', 'sessionsPurged']);
+  });
 });
 
 describe('T1239 [CÓDIGO] los módulos del portal no escriben en logs ni en consola', () => {

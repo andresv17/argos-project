@@ -6,6 +6,7 @@
  * @implements REQ-DEL9-001, REQ-DEL9-002, INV-DEL9-001, EDGE-009-049
  */
 import { expect, test, type Page } from '@playwright/test';
+import { activateInFile } from '../../fixtures/active-accounts.ts';
 import { apiCall, apiPost, registerViaApi } from './e2e-support.ts';
 import { SIM_WEB_URL, startGoogleSim, type GoogleSim } from './google-sim-support.ts';
 
@@ -41,6 +42,12 @@ async function bornWithGoogle(page: Page, sub: string, email: string, username: 
   await expect(page).toHaveURL(/\/elige-usuario$/);
   await page.getByLabel(/^Usuario/).fill(username);
   await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page).toHaveURL(/\/solicitud-en-revision$/); // 009: la cuenta nace PENDING y sin sesión; se aprueba por repositorio (T1244) y se vuelve a entrar con Google
+  await activateInFile(sim.databasePath, username);
+  await page.goto('/login');
+  const signedIn = callbackResponse(page);
+  await page.getByRole('link', { name: 'Continuar con Google' }).click();
+  await signedIn;
   await expect(page).toHaveURL(/\/$/);
   expect((await apiCall(page.context().request, 'GET', '/auth/me')).status).toBe(200);
 }
@@ -121,7 +128,7 @@ test.describe('eliminar la cuenta nacida con Google, con Google simulado (T1221)
     const guest = await browser.newContext({ baseURL: SIM_WEB_URL });
     try {
       const guestName = `${tag}invitado3`;
-      await registerViaApi(guest.request, guestName, 'Invitado', 'InvitadoClave2026!');
+      await registerViaApi(guest.request, guestName, 'Invitado', 'InvitadoClave2026!', sim.databasePath);
       const house = { name: `Casa ${tag} del3`, id: (await apiPost<{ household: { id: string } }>(request, '/households', { name: `Casa ${tag} del3` })).household.id };
       expect((await apiCall(request, 'POST', `/households/${house.id}/invitations`, { username: guestName, roleOnJoin: 'READER' })).status).toBe(202);
       expect((await apiCall(guest.request, 'POST', `/invitations/${house.id}/accept`)).status).toBe(200);

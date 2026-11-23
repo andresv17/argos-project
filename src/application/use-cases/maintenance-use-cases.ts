@@ -1,6 +1,6 @@
 /**
  * Mantenimiento de retención (ADR-002-14): purga sesiones expiradas o revocadas con más de 7 días, tokens de
- * confirmación vencidos, membresías e invitaciones terminales con más de 90 días y auditoría con más de 24 meses.
+ * confirmación vencidos, membresías e invitaciones terminales con más de 90 días y auditoría (`audit_log` y `admin_audit_entries`, sumadas en `auditRowsPurged`) con más de 24 meses.
  * Devuelve solo conteos; no es una mutación del usuario, por eso no escribe fila de auditoría ni registra identificadores.
  *
  * @implements REQ-AUD-001, INV-AUD-001, INV-ARCH-001

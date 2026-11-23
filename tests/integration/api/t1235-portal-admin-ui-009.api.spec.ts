@@ -119,7 +119,9 @@ describe('T1235 [REQ-ADM9-001] [A10] [A16] [A17] entrada y bundle propios del po
 
   it('textos prohibidos en la pantalla de acceso (EDGE-009-008)', () => {
     const source = listFiles(join(ROOT, 'src/presentation/admin')).map((f) => readFileSync(f, 'utf8')).join('\n');
-    for (const banned of ['correo no autorizado', 'no eres administrador', 'solicita acceso', 'pendientes']) expect(source.toLowerCase()).not.toContain(banned);
+    for (const banned of ['correo no autorizado', 'no eres administrador', 'solicita acceso']) expect(source.toLowerCase()).not.toContain(banned);
+    // T1250: «pendientes» solo existe en el panel de solicitudes del shell autenticado; el archivo que contiene la pantalla de acceso no lo menciona (el contador no se filtra sin sesión).
+    expect(readFileSync(join(ROOT, 'src/presentation/admin/AdminPortal.tsx'), 'utf8').toLowerCase()).not.toContain('pendientes');
   });
 
   it('vite construye admin.html como segunda entrada (bundle propio)', () => {

@@ -39,7 +39,7 @@ async function adminSignIn(page: Page): Promise<void> {
 }
 
 test('un usuario normal no tiene rastro de /admin: ni enlaces, ni texto, y /admin solo le muestra la pantalla de acceso', async ({ page, context }) => {
-  await registerViaApi(context.request, `usr_${tag}_a`, 'Usuaria Normal', PASSWORD);
+  await registerViaApi(context.request, `usr_${tag}_a`, 'Usuaria Normal', PASSWORD, sim.databasePath);
   expect(await cookieNames(context)).toEqual(['argos_session']);
   for (const route of ['/', '/profile', '/households']) {
     await page.goto(route);
@@ -68,7 +68,7 @@ test('el administrador entra por /admin con Google simulado y solo recibe su pro
 
 test('las dos sesiones conviven en un mismo navegador sin cruzarse y cerrar una no cierra la otra', async ({ page, context }) => {
   await adminSignIn(page);
-  await registerViaApi(context.request, `usr_${tag}_b`, 'Usuario Dos', PASSWORD);
+  await registerViaApi(context.request, `usr_${tag}_b`, 'Usuario Dos', PASSWORD, sim.databasePath);
   expect(await cookieNames(context)).toEqual(['argos_admin_session', 'argos_session']);
   expect((await context.request.get('/api/admin/session')).status()).toBe(200);
   expect((await apiCall(context.request, 'GET', '/auth/me')).status).toBe(200);
@@ -84,7 +84,7 @@ test('las dos sesiones conviven en un mismo navegador sin cruzarse y cerrar una 
 test('con solo la cookie de usuario (contexto nuevo) la API de administración es indistinguible de una ruta inexistente y ninguna ruta de usuario otorga el rol', async ({ browser }) => {
   const userOnly = await browser.newContext({ baseURL: ADMIN_SIM_WEB_URL });
   try {
-    await registerViaApi(userOnly.request, `usr_${tag}_c`, 'Usuaria Tres', PASSWORD);
+    await registerViaApi(userOnly.request, `usr_${tag}_c`, 'Usuaria Tres', PASSWORD, sim.databasePath);
     const session = await userOnly.request.get('/api/admin/session');
     const unknown = await userOnly.request.get('/api/admin/no-existe');
     expect(session.status()).toBe(404);

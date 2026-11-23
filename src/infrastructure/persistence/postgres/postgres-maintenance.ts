@@ -5,14 +5,14 @@
  *   suma de los lotes. Se ejecuta dentro de la transacción de `PostgresUnitOfWork.purgeExpired` (candado asesor global), así
  *   que ctid no cambia entre la subconsulta y el borrado.
  * - Los umbrales son los de SQLite: sesiones (revocadas > 7 d, > 7 d + 24 h de creación o > 7 d + 30 min inactivas), tokens de
- *   confirmación vencidos, membresías `LEFT`/`REMOVED` y invitaciones terminales > 90 d, y auditoría anterior a `auditBefore`
- *   (24 meses). Las columnas de fecha son TEXT: se convierten con `::timestamptz` explícito y los valores van como `$n`.
+ *   confirmación vencidos, membresías `LEFT`/`REMOVED` y invitaciones terminales > 90 d, y auditoría (`audit_log` y `admin_audit_entries`) anterior a `auditBefore`
+ *   (24 meses; ambas suman a `auditRowsPurged`). Las columnas de fecha son TEXT: se convierten con `::timestamptz` explícito y los valores van como `$n`.
  * - `login_attempts` (REQ-LOG-001, SC-CAT-030): se borran las filas sin ningún fallo dentro de la ventana de bloqueo (TTL = INV-AUTH-005).
  *   No tiene conteo propio: los cinco conteos de retención son los del contrato operativo y el log no cambia.
  * - NO ejecuta el compactador de tablas (el rol `argos_app` no es propietario: lo hace `vacuum-argos.yml`, T473, REQ-PG-011/015),
  *   no escribe filas de auditoría (INV-AUD-001) y devuelve solo conteos. Sin lectura del entorno ni de la tabla de migraciones.
  *
- * @implements REQ-PG-008, REQ-PG-011, INV-AUD-001, REQ-AUD-001
+ * @implements REQ-PG-008, REQ-PG-011, INV-AUD-001, REQ-AUD-001, REQ-APR9-007
  */
 
 import type { MaintenanceCounts, MaintenanceCutoffs } from '../../../application/ports/unit-of-work.port.ts';
@@ -53,6 +53,8 @@ const STEPS: readonly PurgeStep[] = [
     cutoff: (c) => c.now,
   },
   { key: 'auditRowsPurged', table: 'audit_log', where: `timestamp::timestamptz < ${AT_NOW}`, cutoff: (c) => c.auditBefore },
+  // RAMA-T1239-03 (REQ-ADM9-004, ADR-009-08): auditoría de administración con el mismo plazo de 24 meses; suma a la misma clave `auditRowsPurged`.
+  { key: 'auditRowsPurged', table: 'admin_audit_entries', where: `occurred_at::timestamptz < ${AT_NOW}`, cutoff: (c) => c.auditBefore },
 ];
 
 /** Borra por lotes lo vencido y devuelve solo conteos. Debe llamarse dentro de una transacción ya abierta. */

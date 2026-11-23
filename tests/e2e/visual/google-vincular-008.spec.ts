@@ -7,7 +7,7 @@
  * @implements REQ-VIN8-001, REQ-VIN8-002, REQ-VIN8-004, SC-008-009..013, SC-008-014, SC-008-063, NFR-008-002
  */
 import { expect, test, type Page, type Response } from '@playwright/test';
-import { apiCall } from './e2e-support.ts';
+import { apiCall, registerViaApi } from './e2e-support.ts';
 import { SIM_WEB_URL, startGoogleSim, type GoogleSim } from './google-sim-support.ts';
 
 const TAGS: Record<string, string> = { chromium: 'c', firefox: 'f', webkit: 'w' };
@@ -45,8 +45,7 @@ const linkForm = (page: Page) => page.getByRole('form', { name: 'Vincular Google
 /** Cuenta con usuario y contraseña (sesión en el contexto de `page`). */
 async function registerAccount(page: Page, suffix: string): Promise<string> {
   const username = `${tag}vin.${suffix}`;
-  const registered = await apiCall(page.context().request, 'POST', '/auth/register', { username, displayName: `Vinculo ${suffix}`, password: PASSWORD, confirmPassword: PASSWORD });
-  expect(registered.status, JSON.stringify(registered.body)).toBe(201);
+  await registerViaApi(page.context().request, username, `Vinculo ${suffix}`, PASSWORD, sim.databasePath); // 009: cuenta ACTIVE por repositorio (T1244) y sesión por login
   return username;
 }
 

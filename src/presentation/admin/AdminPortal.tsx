@@ -1,11 +1,12 @@
 /**
  * Portal /admin (T1235, diseño de /sati: `.specify/memory/audits/sati-009-T1235-admin-ui.md`). Una sola ruta, dos vistas según `GET /api/admin/session`:
- * pantalla de acceso con Google (sin sesión, sesión vencida o rechazado: idéntica, EDGE-009-008) y shell autenticado vacío con «Cerrar sesión».
- * Sin contador ni funciones (T1241/T1256); sin enlaces a la app de usuarios; no pinta identificadores ni correo.
+ * pantalla de acceso con Google (sin sesión, sesión vencida o rechazado: idéntica, EDGE-009-008) y shell autenticado con «Cerrar sesión».
+ * El shell muestra las solicitudes de registro (T1250: contador, solicitudes paginadas, aprobar/rechazar); sin enlaces a la app de usuarios; no pinta identificadores ni correo.
  *
- * @implements REQ-ADM9-001, NFR-009-001, EDGE-009-008, INV-ADM9-001
+ * @implements REQ-ADM9-001, REQ-APR9-005, NFR-009-001, EDGE-009-008, INV-ADM9-001
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { RegistrationsPanel } from './RegistrationsPanel.tsx';
 
 const SESSION_PATH = '/api/admin/session';
 const GOOGLE_START_PATH = '/api/admin/auth/google/start';
@@ -60,8 +61,14 @@ function AccessScreen({ headingRef }: { readonly headingRef: React.RefObject<HTM
   );
 }
 
-function Shell(props: { readonly signingOut: boolean; readonly error: boolean; readonly onSignOut: () => void; readonly buttonRef: React.RefObject<HTMLButtonElement> }): JSX.Element {
-  const { signingOut, error, onSignOut, buttonRef } = props;
+function Shell(props: {
+  readonly signingOut: boolean;
+  readonly error: boolean;
+  readonly onSignOut: () => void;
+  readonly onSessionLost: () => void;
+  readonly buttonRef: React.RefObject<HTMLButtonElement>;
+}): JSX.Element {
+  const { signingOut, error, onSignOut, onSessionLost, buttonRef } = props;
   return (
     <div className="min-h-screen bg-cream">
       <SkipLink />
@@ -81,13 +88,10 @@ function Shell(props: { readonly signingOut: boolean; readonly error: boolean; r
       </header>
       <main id="main-content" className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="mb-4 break-words text-2xl font-bold text-text-primary">Administración</h1>
-        <section className="max-w-2xl rounded-2xl border border-slate-300 bg-white p-5 sm:p-6">
-          <h2 className="break-words text-lg font-semibold text-text-primary">Sin funciones habilitadas</h2>
-          <p className="mt-2 text-base text-text-primary">Por ahora este portal no ofrece acciones. Las funciones de administración se irán habilitando aquí.</p>
-          <p className="mt-2 text-base text-text-primary">Tu sesión dura 30 minutos como máximo y se cierra sola tras 10 minutos sin actividad.</p>
-        </section>
+        <RegistrationsPanel onSessionLost={onSessionLost} />
+        <p className="mt-4 max-w-3xl text-sm text-text-muted">Tu sesión dura 30 minutos como máximo y se cierra sola tras 10 minutos sin actividad.</p>
         {error ? (
-          <div role="alert" className="mt-4 max-w-2xl text-sm font-medium text-danger">
+          <div role="alert" className="mt-4 max-w-3xl text-sm font-medium text-danger">
             No se pudo cerrar la sesión. Inténtalo de nuevo.
           </div>
         ) : null}
@@ -162,7 +166,7 @@ export function AdminPortal(): JSX.Element {
       </div>
       {view === 'checking' ? <main aria-busy="true" className="min-h-screen bg-cream" /> : null}
       {view === 'anonymous' ? <AccessScreen headingRef={headingRef} /> : null}
-      {view === 'authenticated' ? <Shell signingOut={signingOut} error={closeError} onSignOut={() => void signOut()} buttonRef={buttonRef} /> : null}
+      {view === 'authenticated' ? <Shell signingOut={signingOut} error={closeError} onSignOut={() => void signOut()} onSessionLost={() => void refresh()} buttonRef={buttonRef} /> : null}
     </>
   );
 }
