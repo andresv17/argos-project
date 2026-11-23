@@ -5,7 +5,6 @@
  * EDGE-ESC6-033; SC-ESC6-044, SC-ESC6-045, SC-ESC6-047, SC-ESC6-058.
  */
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { UserAccount } from '../../../src/application/ports/repositories.port.ts';
 import type { SceneAttemptRecord, SceneRecord } from '../../../src/application/ports/scene-repositories.port.ts';
@@ -17,6 +16,7 @@ import { PostgresUnitOfWork } from '../../../src/infrastructure/persistence/post
 import { IN_MEMORY_DATABASE, openSqliteDatabase, type SqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 import { SqliteUnitOfWork } from '../../../src/infrastructure/persistence/sqlite/sqlite-unit-of-work.ts';
 import { fixtures, HOUSEHOLD } from '../../fixtures/application-harness.ts';
+import { allPostgresMigrationsSql } from '../../fixtures/postgres-migrations.ts';
 
 const account = (user: object, passwordHash: string): UserAccount => ({ ...user, email: null, preferredLanguage: 'es', timezone: 'America/Bogota', passwordHash }) as UserAccount;
 const ANDRES = account(fixtures.users[0], 'h-andres');
@@ -181,11 +181,8 @@ defineLifecycleContract(
 );
 
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
-const PG_MIGRATIONS = [
-  '0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql',
-  '0006_rate_limit_microchip_scope.sql', '0007_platform_parameters.sql', '0008_share_links.sql', '0009_home_scenes.sql', '0010_pet_life_status.sql', '0011_share_link_deceased_at.sql',
-];
-const PG_SCHEMA = PG_MIGRATIONS.map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
+// Todas las migraciones vigentes (descubiertas del directorio real: una nueva entra sola; H-J-2, T1116).
+const PG_SCHEMA = allPostgresMigrationsSql();
 
 describe.skipIf(!TEST_DATABASE_URL)('ciclo de vida de la escena contra PostgreSQL real (requiere TEST_DATABASE_URL; se omite si no esta definida)', { timeout: 60_000 }, () => {
   let pool: PoolLike | undefined;

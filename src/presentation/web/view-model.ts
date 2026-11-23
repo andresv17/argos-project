@@ -350,7 +350,8 @@ export function nextFocusIndex(key: string, current: number, count: number): num
 // REQ-UI-005: guardia de rutas
 // ---------------------------------------------------------------------------
 
-export const PUBLIC_PATHS: readonly string[] = ['/login', '/register'];
+/** `/elige-usuario` (008, T1122; `CHOOSE_USERNAME_ROUTE`) es pública: el flujo de Google aún no tiene sesión; con sesión vuelve a `/`. */
+export const PUBLIC_PATHS: readonly string[] = ['/login', '/register', '/elige-usuario'];
 
 /** Redirección de una ruta: protegida sin sesión → `/login`; pública con sesión → `/`; en otro caso `null`. */
 export function routeRedirect(authenticated: boolean, path: string): string | null {

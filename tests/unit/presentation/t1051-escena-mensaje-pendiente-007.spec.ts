@@ -27,7 +27,7 @@ describe('T1051 scenePendingMessage (REQ-ESC7-001, REQ-ESC7-002)', () => {
   it('[SC-007-024][REQ-ESC7-001] pending >= 1: texto neutral decidido por Neo y línea aparte de generaciones restantes', () => {
     expect(scenePendingMessage(sceneView({ pending: 2, quota: quotaWith(7) }))).toEqual({
       changes: NEUTRAL,
-      remaining: 'Generaciones restantes: 7',
+      remaining: 'Generaciones restantes este mes: 7. Se renuevan el 1 de diciembre.',
       ariaLabel: '2 cambios pendientes',
     });
   });
@@ -49,7 +49,7 @@ describe('T1051 scenePendingMessage (REQ-ESC7-001, REQ-ESC7-002)', () => {
     for (const reason of ['QUOTA_EXHAUSTED', 'GENERATING', 'COOLDOWN', 'ROLE', 'CONSENT_REQUIRED'] as const) {
       const message = scenePendingMessage(blocked(reason));
       expect(message?.changes).toBe(NEUTRAL_SIN_INVITACION);
-      expect(message?.remaining).toBe('Generaciones restantes: 0');
+      expect(message?.remaining).toBe('Generaciones restantes este mes: 0. Se renuevan el 1 de diciembre.');
     }
   });
 });
@@ -58,7 +58,7 @@ describe('T1051 SceneBlockView (SC-007-024..026)', () => {
   it('[SC-007-024] con pending >= 1 renderiza el texto neutral, la línea de generaciones restantes aparte y el aria-label con el conteo', () => {
     const html = render(sceneView({ pending: 2, quota: quotaWith(7) }));
     expect(html).toContain(NEUTRAL);
-    expect(html).toContain('<p class="text-sm text-slate-900">Generaciones restantes: 7</p>');
+    expect(html).toContain('<p class="text-sm text-slate-900">Generaciones restantes este mes: 7. Se renuevan el 1 de diciembre.</p>');
     expect(html).toContain('aria-label="2 cambios pendientes"');
   });
 

@@ -55,6 +55,15 @@ import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareAud
 import type { ShareLinkRecord, ShareScope } from '../../../domain/sharing/share-link.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
+import type {
+  AuthIdentityRecord,
+  AuthIdentityRepositoryPort,
+  AuthProvider,
+  OAuthFlowIntent,
+  OAuthFlowPhase,
+  OAuthFlowStateRecord,
+  OAuthFlowStateRepositoryPort,
+} from '../../../application/ports/auth-identity.port.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import { STORED_RECORD_CHECKS, revisionOf, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
@@ -154,6 +163,7 @@ interface UserRow {
   readonly email: string | null;
   readonly preferred_language: string;
   readonly timezone: string;
+  readonly email_verified_at: string | null;
   readonly data: string;
 }
 interface SessionRow {
@@ -194,6 +204,7 @@ interface PetRow extends KeyedRow {
   /** 0014 (REQ-FAL7-001): `data` repite estado y fecha (cruzados con las columnas); `version` solo vive en la columna (autoridad del If-Match, EDGE-007-009). */
   readonly life_status: string;
   readonly deceased_at: string | null;
+  readonly biography: string | null;
   readonly version: number;
 }
 interface RecordRow {
@@ -223,15 +234,19 @@ interface MembershipRow {
 
 /** @implements INV-ARCH-004, INV-AUTH-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED */
 function userRepository(db: SqliteDatabase): UserRepositoryPort {
-  const select = 'SELECT id, username, password_hash, email, preferred_language, timezone, data FROM users';
+  const select = 'SELECT id, username, password_hash, email, email_verified_at, preferred_language, timezone, data FROM users';
   const byId = db.prepare<[string], UserRow>(`${select} WHERE id = ?`);
   const byUsername = db.prepare<[string], UserRow>(`${select} WHERE lower(username) = lower(?)`);
+  // substr y no LIKE: el `_` del username no debe actuar como comodín (REQ-INV8-001).
+  const byPrefix = db.prepare<[number, string, number], { readonly username: string }>('SELECT username FROM users WHERE substr(lower(username), 1, ?) = ? ORDER BY lower(username) LIMIT ?');
   const byEmail = db.prepare<[string], UserRow>(`${select} WHERE lower(email) = lower(?) LIMIT 2`);
   const byIds = db.prepare<[string], UserRow>(`${select} WHERE id IN (SELECT value FROM json_each(?))`);
-  const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const verifiedByEmail = db.prepare<[string], UserRow>(`${select} WHERE lower(email) = lower(?) AND email_verified_at IS NOT NULL LIMIT 1`);
+  const releaseEmail = db.prepare('UPDATE users SET email = NULL WHERE lower(email) = lower(?) AND email_verified_at IS NULL');
+  const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
   const update = db.prepare('UPDATE users SET password_hash = ?, data = ?, email = ?, preferred_language = ?, timezone = ? WHERE id = ? AND username = ?');
   const remove = db.prepare('DELETE FROM users WHERE id = ?');
-  const references = db.prepare<[string, string, string, string, string, string, string, string, string], { readonly n: number }>(
+  const references = db.prepare<[string, string, string, string, string, string, string, string, string, string, string], { readonly n: number }>(
     `SELECT (SELECT COUNT(*) FROM users WHERE id = ?)
           + (SELECT COUNT(*) FROM pets WHERE owner_user_id = ?)
           + (SELECT COUNT(*) FROM households WHERE owner_user_id = ?)
@@ -240,16 +255,25 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
           + (SELECT COUNT(*) FROM household_invitations WHERE invited_by_user_id = ?)
           + (SELECT COUNT(*) FROM household_invitations WHERE invitee_user_id = ?)
           + (SELECT COUNT(*) FROM backup_confirmation_tokens WHERE user_id = ?)
-          + (SELECT COUNT(*) FROM rate_limit_events WHERE subject_user_id = ?) AS n`,
+          + (SELECT COUNT(*) FROM rate_limit_events WHERE subject_user_id = ?)
+          + (SELECT COUNT(*) FROM auth_identities WHERE user_id = ?)
+          + (SELECT COUNT(*) FROM oauth_flow_states WHERE user_id = ?) AS n`,
   );
   const toAccount = (row: UserRow): UserAccount => {
     const profile = decode('users', row.id, row.data, validateUserPublicProfile, (u) => u.id === row.id && u.username === row.username);
     if (typeof row.password_hash !== 'string' || row.password_hash === '') throw corruptData('users', row.id);
     if (row.preferred_language !== 'es' && row.preferred_language !== 'en' && row.preferred_language !== 'pt') throw corruptData('users', row.id);
-    return { ...profile, email: row.email, preferredLanguage: row.preferred_language, timezone: row.timezone, passwordHash: row.password_hash };
+    return {
+      ...profile,
+      email: row.email,
+      preferredLanguage: row.preferred_language,
+      timezone: row.timezone,
+      passwordHash: row.password_hash,
+      ...(row.email_verified_at === null ? {} : { emailVerifiedAt: row.email_verified_at }),
+    };
   };
   const split = (user: UserAccount) => {
-    const { passwordHash, email, preferredLanguage, timezone, ...profile } = user;
+    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, ...profile } = user;
     if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
     return { passwordHash, email, preferredLanguage, timezone, data: encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile) };
   };
@@ -267,15 +291,25 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
       const row = byUsername.get(username);
       return row === undefined ? null : toAccount(row);
     },
+    async searchUsernamesByPrefix(lowerPrefix, limit) {
+      return byPrefix.all([...lowerPrefix].length, lowerPrefix, limit).map((row) => row.username);
+    },
     async listByEmail(normalizedEmail) {
       return byEmail.all(normalizedEmail).map(toAccount);
+    },
+    async findVerifiedByEmail(normalizedEmail) {
+      const row = verifiedByEmail.get(normalizedEmail);
+      return row === undefined ? null : toAccount(row);
+    },
+    async releaseUnverifiedEmail(normalizedEmail) {
+      return releaseEmail.run(normalizedEmail).changes;
     },
     async listByIds(userIds) {
       return byIds.all(list(userIds)).map(toAccount);
     },
     async insert(user) {
       const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
-      insert.run(user.id, user.username, passwordHash, data, email, preferredLanguage, timezone);
+      insert.run(user.id, user.username, passwordHash, data, email, preferredLanguage, timezone, user.emailVerifiedAt ?? null);
     },
     async update(user) {
       const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
@@ -287,7 +321,7 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
       remove.run(userId);
     },
     async countReferences(userId) {
-      return references.get(userId, userId, userId, userId, userId, userId, userId, userId, userId)!.n;
+      return references.get(userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId)!.n;
     },
   };
 }
@@ -321,21 +355,30 @@ function sessionRepository(db: SqliteDatabase): SessionRepositoryPort {
       const hash = sessionTokenHash(token);
       upsert.run(hash, session.userId, encode('sessions', hash.slice(0, 12), session, isSessionRecord), session.createdAt, session.lastActivityAt, session.revokedAt);
     },
+    async findByTokenHash(tokenHash) {
+      const row = byHash.get(tokenHash);
+      return row === undefined ? null : decode('sessions', tokenHash.slice(0, 12), row.data, isSessionRecord, (s) => s.userId === row.user_id && s.createdAt === row.created_at && s.lastActivityAt === row.last_activity_at && s.revokedAt === row.revoked_at);
+    },
     async revokeOthers(userId, keepToken, nowIsoTimestamp) {
-      const keep = sessionTokenHash(keepToken);
-      let revoked = 0;
-      for (const row of ofUser.all(userId)) {
-        if (row.token_hash === keep) continue;
-        const session = decode('sessions', row.token_hash.slice(0, 12), row.data, isSessionRecord);
-        revoke.run(nowIsoTimestamp, encode('sessions', row.token_hash.slice(0, 12), { ...session, revokedAt: nowIsoTimestamp }, isSessionRecord), row.token_hash);
-        revoked += 1;
-      }
-      return revoked;
+      return revokeExcept(userId, sessionTokenHash(keepToken), nowIsoTimestamp);
+    },
+    async revokeOthersByTokenHash(userId, keepTokenHash, nowIsoTimestamp) {
+      return revokeExcept(userId, keepTokenHash, nowIsoTimestamp);
     },
     async deleteByUser(userId) {
       removeByUser.run(userId);
     },
   };
+  function revokeExcept(userId: string, keep: string, nowIsoTimestamp: string): number {
+    let revoked = 0;
+    for (const row of ofUser.all(userId)) {
+      if (row.token_hash === keep) continue;
+      const session = decode('sessions', row.token_hash.slice(0, 12), row.data, isSessionRecord);
+      revoke.run(nowIsoTimestamp, encode('sessions', row.token_hash.slice(0, 12), { ...session, revokedAt: nowIsoTimestamp }, isSessionRecord), row.token_hash);
+      revoked += 1;
+    }
+    return revoked;
+  }
 }
 
 /** @implements ERR-INTERNAL-UNEXPECTED */
@@ -359,14 +402,14 @@ function loginAttemptRepository(db: SqliteDatabase): LoginAttemptRepositoryPort 
 
 /** @implements INV-ARCH-004, INV-PET-005, ERR-INTERNAL-UNEXPECTED */
 function petRepository(db: SqliteDatabase): PetRepositoryPort {
-  const columns = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version';
+  const columns = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version, biography';
   const byId = db.prepare<[string], PetRow>(`SELECT ${columns} FROM pets WHERE id = ?`);
   const byOwners = db.prepare<[string], PetRow>(`SELECT ${columns} FROM pets WHERE owner_user_id IN (SELECT value FROM json_each(?))`);
   const upsert = db.prepare(
-    `INSERT INTO pets (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO pets (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (id) DO UPDATE SET owner_user_id = excluded.owner_user_id, data = excluded.data, species = excluded.species,
        species_other = excluded.species_other, neutered = excluded.neutered, microchip_id = excluded.microchip_id,
-       birth_date_is_estimate = excluded.birth_date_is_estimate, life_status = excluded.life_status, deceased_at = excluded.deceased_at,
+       birth_date_is_estimate = excluded.birth_date_is_estimate, life_status = excluded.life_status, deceased_at = excluded.deceased_at, biography = excluded.biography,
        version = CASE WHEN ? = 1 THEN excluded.version ELSE pets.version + 1 END`,
   );
   // INV-PET-005: ON DELETE CASCADE borra en la misma sentencia los registros de los 6 módulos.
@@ -392,9 +435,12 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
         p.microchipId === row.microchip_id &&
         p.birthDateIsEstimate === (row.birth_date_is_estimate === 1) &&
         (p.lifeStatus ?? 'ALIVE') === row.life_status && // filas anteriores a 007: `data` sin los campos = ALIVE/nulo (0014)
-        (p.deceasedAt ?? null) === row.deceased_at,
+        (p.deceasedAt ?? null) === row.deceased_at &&
+        (p.biography ?? null) === row.biography, // filas anteriores a 008: `data` sin el campo = NULL (0016)
     );
-    return { ...stored, lifeStatus: row.life_status as LifeStatus, deceasedAt: row.deceased_at, version: row.version };
+    // REQ-BIO8-001: sin biografía no hay clave (la lectura de la ficha la expone como null).
+    const { biography: _stored, ...rest } = stored;
+    return { ...rest, lifeStatus: row.life_status as LifeStatus, deceasedAt: row.deceased_at, version: row.version, ...(row.biography === null ? {} : { biography: row.biography }) };
   };
   return {
     async findById(petId) {
@@ -424,6 +470,7 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
         pet.lifeStatus ?? 'ALIVE',
         pet.deceasedAt ?? null,
         version ?? 1,
+        pet.biography ?? null,
         version === undefined ? 0 : 1,
       );
     },
@@ -1012,6 +1059,98 @@ function auditLogRepository(db: SqliteDatabase): AuditLogRepositoryPort {
   };
 }
 
+interface AuthIdentityRow {
+  readonly provider: AuthProvider;
+  readonly provider_subject: string;
+  readonly user_id: string;
+  readonly created_at: string;
+}
+
+/**
+ * `auth_identities` (feature 008, REQ-SSO8-001): la identidad se ancla en `(provider, provider_subject)`; `INSERT … ON CONFLICT DO NOTHING` es el «inserta o recupera» atómico
+ * (EDGE-008-002). El `sub` solo viaja en parámetros enlazados y nunca en un mensaje de error.
+ * @implements REQ-SSO8-001, EDGE-008-002, NFR-008-004
+ */
+function authIdentityRepository(db: SqliteDatabase): AuthIdentityRepositoryPort {
+  const columns = 'provider, provider_subject, user_id, created_at';
+  const bySubject = db.prepare<[string, string], AuthIdentityRow>(`SELECT ${columns} FROM auth_identities WHERE provider = ? AND provider_subject = ?`);
+  const byUser = db.prepare<[string], AuthIdentityRow>(`SELECT ${columns} FROM auth_identities WHERE user_id = ? ORDER BY created_at, provider, provider_subject`);
+  const insert = db.prepare(`INSERT INTO auth_identities (${columns}) VALUES (?, ?, ?, ?) ON CONFLICT (provider, provider_subject) DO NOTHING`);
+  const toIdentity = (row: AuthIdentityRow): AuthIdentityRecord => ({ provider: row.provider, providerSubject: row.provider_subject, userId: row.user_id, createdAt: row.created_at });
+  return {
+    async findBySubject(provider, providerSubject) {
+      const row = bySubject.get(provider, providerSubject);
+      return row === undefined ? null : toIdentity(row);
+    },
+    async listByUser(userId) {
+      return byUser.all(userId).map(toIdentity);
+    },
+    async insertIfAbsent(identity) {
+      return insert.run(identity.provider, identity.providerSubject, identity.userId, identity.createdAt).changes === 1;
+    },
+  };
+}
+
+interface OAuthFlowRow {
+  readonly token_hash: string;
+  readonly phase: OAuthFlowPhase;
+  readonly intent: OAuthFlowIntent;
+  readonly state: string | null;
+  readonly nonce: string | null;
+  readonly code_verifier: string | null;
+  readonly user_id: string | null;
+  readonly origin_session_hash: string | null;
+  readonly pending_subject: string | null;
+  readonly pending_email: string | null;
+  readonly created_at: string;
+  readonly expires_at: string;
+  readonly consumed_at: string | null;
+}
+
+/**
+ * `oauth_flow_states` (feature 008, REQ-SSO8-004, ADR-008-03): estado del flujo en servidor; un solo uso por compare-and-set (`UPDATE … WHERE consumed_at IS NULL AND expires_at > ?`).
+ * La forma de cada fase y de cada intención la imponen los CHECK de la migración 0017. Ningún valor del estado sale en un mensaje de error.
+ * @implements REQ-SSO8-004, REQ-SSO8-003, EDGE-008-007, NFR-008-004
+ */
+function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
+  const columns = 'token_hash, phase, intent, state, nonce, code_verifier, user_id, origin_session_hash, pending_subject, pending_email, created_at, expires_at, consumed_at';
+  const insert = db.prepare(`INSERT INTO oauth_flow_states (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const byHash = db.prepare<[string], OAuthFlowRow>(`SELECT ${columns} FROM oauth_flow_states WHERE token_hash = ?`);
+  const consume = db.prepare('UPDATE oauth_flow_states SET consumed_at = ? WHERE token_hash = ? AND phase = ? AND consumed_at IS NULL AND expires_at > ?');
+  const purge = db.prepare('DELETE FROM oauth_flow_states WHERE expires_at <= ?');
+  const toFlow = (row: OAuthFlowRow): OAuthFlowStateRecord => ({
+    tokenHash: row.token_hash,
+    phase: row.phase,
+    intent: row.intent,
+    state: row.state,
+    nonce: row.nonce,
+    codeVerifier: row.code_verifier,
+    userId: row.user_id,
+    originSessionHash: row.origin_session_hash,
+    pendingSubject: row.pending_subject,
+    pendingEmail: row.pending_email,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    consumedAt: row.consumed_at,
+  });
+  return {
+    async insert(r) {
+      insert.run(r.tokenHash, r.phase, r.intent, r.state, r.nonce, r.codeVerifier, r.userId, r.originSessionHash, r.pendingSubject, r.pendingEmail, r.createdAt, r.expiresAt, r.consumedAt);
+    },
+    async findByTokenHash(tokenHash) {
+      const row = byHash.get(tokenHash);
+      return row === undefined ? null : toFlow(row);
+    },
+    async consume(tokenHash, nowIsoTimestamp, expectedPhase) {
+      if (consume.run(nowIsoTimestamp, tokenHash, expectedPhase, nowIsoTimestamp).changes !== 1) return null;
+      return toFlow(byHash.get(tokenHash)!);
+    },
+    async purgeExpired(nowIsoTimestamp) {
+      return purge.run(nowIsoTimestamp).changes;
+    },
+  };
+}
+
 /**
  * Los repositorios sobre una conexión. Las sentencias se preparan una vez.
  * @implements INV-ARCH-005
@@ -1035,5 +1174,7 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     shareAudit: shareAuditRepository(db),
     scenes: sqliteSceneRepository(db),
     sceneConsents: sqliteSceneConsentRepository(db),
+    authIdentities: authIdentityRepository(db),
+    oauthFlows: oauthFlowRepository(db),
   };
 }

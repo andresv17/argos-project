@@ -4,11 +4,11 @@
   "title": "BackupEnvelopeSchema",
   "description": "Sobre de respaldo 3.1.0; lectura de 3.0.0, 2.0.0 y 1.0.0 para migración [REQ-BACKUP2-001, REQ-BACKUP2-002, INV-BACKUP-001, STATE-BACKUP-001, REQ-IMP-001]",
   "x-sdd-metadata": {
-    "version": "3.2.0",
+    "version": "3.3.0",
     "status": "DRAFT",
-    "supersedes": "3.1.0",
+    "supersedes": "3.2.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 3.2.0 (feature 007, T1022/SC-007-030, REQ-FAL7-009): ImportPreviewResult +lifeStatusChanges opcional (array de {petId, from, to}, maxItems 500). Aditiva; consumidores existentes no cambian. MINOR 3.1.0 (feature 004): sobre 3.1.0 con breedCode, symptomType y severity, sin avatarVersion, revision ni medios; la importación acepta 3.0.0 y 3.1.0; ImportPreviewResult +mediaToDeleteCount. Coordinacion feature 007 (#13, C3/EDGE-007-015): +BackupPetProfileV32 y +BackupEnvelopeV32 (3.2.0, formato versionado, lifeStatus/deceasedAt opcionales); sourceSchemaVersion admite 3.2.0.",
+    "change_note": "MINOR 3.3.0 (feature 008, #21, Architect 2026-11-20, D8-12 = A): +BackupPetProfileV33 y +BackupEnvelopeV33 (schemaVersion 3.3.0, formato versionado) con biography opcional; sourceSchemaVersion admite 3.3.0; 1.0.0 a 3.2.0 siguen importando (biography null). El respaldo no incluye auth_identities ni estados de aprobación. MINOR 3.2.0 (feature 007, T1022/SC-007-030, REQ-FAL7-009): ImportPreviewResult +lifeStatusChanges opcional (array de {petId, from, to}, maxItems 500). Aditiva; consumidores existentes no cambian. MINOR 3.1.0 (feature 004): sobre 3.1.0 con breedCode, symptomType y severity, sin avatarVersion, revision ni medios; la importación acepta 3.0.0 y 3.1.0; ImportPreviewResult +mediaToDeleteCount. Coordinacion feature 007 (#13, C3/EDGE-007-015): +BackupPetProfileV32 y +BackupEnvelopeV32 (3.2.0, formato versionado, lifeStatus/deceasedAt opcionales); sourceSchemaVersion admite 3.2.0.",
     "traceability": [
       "REQ-BACKUP2-001",
       "REQ-BACKUP2-002",
@@ -817,6 +817,323 @@
         }
       },
       "description": "Sobre de respaldo 3.2.0 (feature 007, EDGE-007-015): formato versionado; un build anterior responde ERR-BACKUP-VERSION-UNSUPPORTED sin escritura parcial. Las colecciones de registros son las del 3.1.0."
+    },
+    "BackupPetProfileV33": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "species",
+        "speciesOther",
+        "breed",
+        "breedCode",
+        "birthDate",
+        "birthDateIsEstimate",
+        "sex",
+        "neutered",
+        "microchipId",
+        "avatarUrl",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid"
+        },
+        "name": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 50
+        },
+        "species": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/Species"
+        },
+        "speciesOther": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/SpeciesOther"
+        },
+        "breed": {
+          "type": "string",
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/NonEmptyTrimmedString"
+            }
+          ],
+          "maxLength": 60
+        },
+        "birthDate": {
+          "allOf": [
+            {
+              "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoDate"
+            }
+          ],
+          "description": "<= ClockPort.todayIsoDate() [INV-PET-002] y <= registro más antiguo [INV-PET-006]"
+        },
+        "birthDateIsEstimate": {
+          "type": "boolean"
+        },
+        "sex": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/Sex"
+        },
+        "neutered": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "microchipId": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/MicrochipId"
+        },
+        "avatarUrl": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/AvatarUrl"
+        },
+        "createdAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "updatedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "breedCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(DOG|CAT)_[A-Z0-9_]{2,40}$",
+          "description": "Código único de raza del catálogo (breeds.catalog.json): prefijo DOG_ para CANINE y CAT_ para FELINE; null para las demás especies. Debe existir en el catálogo; lo verifica el dominio [INV-RAZ-001, REQ-RAZ-003]"
+        },
+        "lifeStatus": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/LifeStatus"
+        },
+        "deceasedAt": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/DeceasedAt"
+        },
+        "biography": {
+          "$ref": "https://argos.local/contracts/schemas/pet.schema.json#/$defs/Biography"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "OTHER"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "speciesOther": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "speciesOther": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "CANINE"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^DOG_"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "const": "FELINE"
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^CAT_"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "species": {
+                "enum": [
+                  "RABBIT",
+                  "FERRET",
+                  "BIRD",
+                  "REPTILE",
+                  "SMALL_MAMMAL",
+                  "OTHER"
+                ]
+              }
+            },
+            "required": [
+              "species"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "breedCode": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "lifeStatus": {
+                "const": "DECEASED"
+              }
+            },
+            "required": [
+              "lifeStatus"
+            ]
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "deceasedAt"
+            ],
+            "properties": {
+              "deceasedAt": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "deceasedAt": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ],
+      "description": "Mascota del respaldo 3.2.0 (feature 007): igual que la anterior mas lifeStatus y deceasedAt OPCIONALES (nunca en required); ausentes se importan como ALIVE/nulo [REQ-BACKUP2-002] Perfil de respaldo 3.3.0 (feature 008, #21): como 3.2.0 más biography opcional (string o null, 0..280). No lleva vínculos de Google ni estados de aprobación: un respaldo nunca recrea identidades externas."
+    },
+    "BackupEnvelopeV33": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "exportedAt",
+        "pets",
+        "records"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "3.3.0"
+        },
+        "exportedAt": {
+          "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/IsoTimestamp"
+        },
+        "pets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BackupPetProfileV33"
+          },
+          "description": "Solo mascotas de las que el usuario es Propietario Legal; sin límite de cantidad; puede ser vacío"
+        },
+        "records": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "weights",
+            "bodyMeasurements",
+            "vaccinations",
+            "dewormings",
+            "medicalVisits",
+            "customParameters"
+          ],
+          "properties": {
+            "weights": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BackupWeightRecordV31"
+              }
+            },
+            "bodyMeasurements": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BackupBodyMeasurementRecordV31"
+              }
+            },
+            "vaccinations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BackupVaccinationRecordV31"
+              }
+            },
+            "dewormings": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BackupDewormingRecordV31"
+              }
+            },
+            "medicalVisits": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BackupMedicalVisitRecordV31"
+              }
+            },
+            "customParameters": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BackupCustomParameterRecordV31"
+              }
+            }
+          }
+        }
+      },
+      "description": "Sobre de respaldo 3.3.0 (feature 008, #21): formato versionado; un build anterior responde ERR-BACKUP-VERSION-UNSUPPORTED sin escritura parcial. Las colecciones de registros son las del 3.1.0; el perfil añade biography opcional. Un respaldo 3.2.0 o anterior sin el campo se importa con biography null."
     },
     "LegacySpeciesV2": {
       "type": "string",
@@ -1837,7 +2154,8 @@
             "2.0.0",
             "3.0.0",
             "3.1.0",
-            "3.2.0"
+            "3.2.0",
+          "3.3.0"
           ]
         },
         "lifeStatusChanges": {
@@ -1974,7 +2292,8 @@
             "2.0.0",
             "3.0.0",
             "3.1.0",
-            "3.2.0"
+            "3.2.0",
+          "3.3.0"
           ]
         },
         "importedPetsCount": {

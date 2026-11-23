@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
-import { validateBackupEnvelopeV32 } from '../../../src/generated/v31/index.ts'; // T1067: la exportación es 3.2.0 (REQ-FAL7-009)
+import { validateBackupEnvelopeV33 } from '../../../src/generated/v31/index.ts'; // T1067: la exportación es 3.3.0 (REQ-BIO8-004, REQ-FAL7-009)
 import { createApi, problemOf, type Api } from './api-harness.ts';
 import { ARGOS_ID, LUNA_ID } from './api-fixtures.ts';
 
 /**
- * T271 (fase roja, Rebanada 5, REQ-BACKUP2-001): exportación 3.2.0 por POST con X-Argos-Request, solo mascotas
+ * T271 (fase roja, Rebanada 5, REQ-BACKUP2-001): exportación 3.3.0 por POST con X-Argos-Request, solo mascotas
  * propias, token en la cabecera X-Argos-Confirmation-Token (nunca en el archivo) y límite de ritmo ERR-RATE-LIMITED.
  *
  * @implements REQ-BACKUP2-001, REQ-RBAC-001, REQ-ACC-002, ERR-RATE-LIMITED
@@ -18,8 +18,8 @@ const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const exportAs = (cookie: string | null, extra: { csrf?: boolean } = {}) =>
   api.call('POST', EXPORT, { ...(cookie === null ? {} : { cookie }), ...extra, ...(extra.csrf === false ? { contract: false } : {}) });
 
-describe('exportación 3.2.0 por POST (REQ-BACKUP2-001)', () => {
-  it('[REQ-BACKUP2-001] 200 con sobre 3.2.0 válido, Cache-Control no-store, nombre argos-backup-AAAA-MM-DD.json y sin userId en el archivo', async () => {
+describe('exportación 3.3.0 por POST (REQ-BACKUP2-001)', () => {
+  it('[REQ-BACKUP2-001] 200 con sobre 3.3.0 válido, Cache-Control no-store, nombre argos-backup-AAAA-MM-DD.json y sin userId en el archivo', async () => {
     api = await createApi();
     const r = await exportAs(await api.login('andres'));
     const envelope = r.json as { schemaVersion?: string; pets?: Array<Record<string, unknown>> } & Record<string, unknown>;
@@ -28,10 +28,10 @@ describe('exportación 3.2.0 por POST (REQ-BACKUP2-001)', () => {
       r.headers['cache-control'],
       r.headers['content-disposition'],
       envelope.schemaVersion,
-      validateBackupEnvelopeV32(r.json),
+      validateBackupEnvelopeV33(r.json),
       'exportedByUserId' in envelope,
       envelope.pets?.some((p) => 'ownerUserId' in p || 'userId' in p),
-    ]).toEqual([200, 'no-store', 'attachment; filename="argos-backup-2026-11-05.json"', '3.2.0', true, false, false]);
+    ]).toEqual([200, 'no-store', 'attachment; filename="argos-backup-2026-11-05.json"', '3.3.0', true, false, false]);
   });
 
   it('[REQ-BACKUP2-001][REQ-ACC-002] el token viaja en X-Argos-Confirmation-Token (43 caracteres base64url) y NUNCA dentro del archivo', async () => {
@@ -80,15 +80,15 @@ describe('solo mascotas propias y roles (REQ-BACKUP2-001, REQ-RBAC-001)', () => 
     const out: Record<string, [number, boolean]> = {};
     for (const user of ['andres', 'maria.v', 'carlos_88', 'lucia.r']) {
       const r = await exportAs(await api.login(user));
-      out[user] = [r.status, validateBackupEnvelopeV32(r.json)];
+      out[user] = [r.status, validateBackupEnvelopeV33(r.json)];
     }
     expect(out).toEqual({ andres: [200, true], 'maria.v': [200, true], carlos_88: [200, true], 'lucia.r': [200, true] });
   });
 
-  it('[REQ-BACKUP2-001] un usuario sin mascotas propias obtiene un archivo 3.2.0 válido con pets vacío', async () => {
+  it('[REQ-BACKUP2-001] un usuario sin mascotas propias obtiene un archivo 3.3.0 válido con pets vacío', async () => {
     api = await createApi();
     const r = await exportAs(await api.login('lucia.r'));
-    expect([r.status, validateBackupEnvelopeV32(r.json), (r.json as { pets?: unknown[] }).pets]).toEqual([200, true, []]);
+    expect([r.status, validateBackupEnvelopeV33(r.json), (r.json as { pets?: unknown[] }).pets]).toEqual([200, true, []]);
   });
 
   it('[REQ-BACKUP2-001] la exportación nunca incluye hogares, asignaciones, sesiones ni credenciales', async () => {

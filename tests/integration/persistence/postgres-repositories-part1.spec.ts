@@ -72,7 +72,7 @@ const userRow = (over: Row = {}): Row => ({
   ...over,
 });
 const SESSION = { userId: ANDRES.id, createdAt: NOW, lastActivityAt: NOW, revokedAt: null };
-const SELECT_USER = 'SELECT id, username, password_hash, email, preferred_language, timezone, data FROM users';
+const SELECT_USER = 'SELECT id, username, password_hash, email, email_verified_at, preferred_language, timezone, data FROM users';
 
 /** Toda sentencia emitida usa solo `$1..$n` consecutivos y ningún valor aparece dentro del texto SQL. */
 function expectParametrized(calls: ReadonlyArray<{ sql: string; values: unknown[] }>) {
@@ -114,16 +114,16 @@ describe('usuarios (T422, REQ-PG-002, INV-AUTH-003)', () => {
     expect(client.calls).toEqual([{ sql: `${SELECT_USER} WHERE id = ANY($1::text[])`, values: [[ANDRES.id, 'otro']] }]);
   });
 
-  it('insert: columnas id, username, password_hash, data, email, preferred_language, timezone; el hash nunca va en data (INV-AUTH-003)', async () => {
+  it('insert: columnas id, username, password_hash, data, email, preferred_language, timezone, email_verified_at; el hash nunca va en data (INV-AUTH-003)', async () => {
     const { client, r } = await repos({ rowCount: 1 });
     await r.users.insert(ANDRES);
     expect(client.calls).toHaveLength(1);
     const call = client.calls[0]!;
     expect(call.sql).toBe(
-      'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)',
+      'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)',
     );
     expect(call.values.slice(0, 3)).toEqual([ANDRES.id, ANDRES.username, 'h-andres']);
-    expect(call.values.slice(4)).toEqual([null, 'es', 'America/Bogota']);
+    expect(call.values.slice(4)).toEqual([null, 'es', 'America/Bogota', null]);
     expect(JSON.parse(call.values[3] as string)).toEqual(ANDRES_DATA);
     expect(call.values[3]).not.toContain('h-andres');
     expectParametrized(client.calls);
@@ -153,7 +153,7 @@ describe('usuarios (T422, REQ-PG-002, INV-AUTH-003)', () => {
     expect(client.calls).toEqual([{ sql: 'DELETE FROM users WHERE id = $1', values: [HOSTILE] }]);
   });
 
-  it('countReferences: una sentencia con las 9 tablas, el mismo $1 y el conteo bigint (texto) convertido a número', async () => {
+  it('countReferences: una sentencia con las 11 tablas, el mismo $1 y el conteo bigint (texto) convertido a número', async () => {
     const { client, r } = await repos({ rows: [{ n: '4' }] });
     expect(await r.users.countReferences(ANDRES.id)).toBe(4);
     const call = client.calls[0]!;
@@ -169,6 +169,8 @@ describe('usuarios (T422, REQ-PG-002, INV-AUTH-003)', () => {
       'household_invitations.invitee_user_id',
       'backup_confirmation_tokens.user_id',
       'rate_limit_events.subject_user_id',
+      'auth_identities.user_id',
+      'oauth_flow_states.user_id',
     ]);
   });
 
@@ -327,7 +329,7 @@ describe('código fuente (T422, INV-ARCH-006, T464)', () => {
     // Solo la sección de la parte 1: las partes 2 y 3 (T423, T424) tienen su propia verificación y constantes (nombres de tabla).
     const part1 = source().split('/** Tabla de cada módulo de registros')[0]!;
     const firstArguments = [...part1.matchAll(/client\.query\(\s*(`[^`]*`|'[^']*'|\w+)/g)].map((m) => m[1]!);
-    expect(firstArguments.length).toBe(22); // T547/T548: +1 por users.listByEmail (LOWER(email)); T601: +1 por users.findByIdForUpdate (SELECT … FOR UPDATE)
+    expect(firstArguments.length).toBe(26); // H-A21-2 (REQ-VIN8-004): +1 por sessions.findByTokenHash (parámetro $1, sin interpolar); T1117: +2 por users.findVerifiedByEmail y users.releaseUnverifiedEmail (parámetro $1, sin interpolar); T1190: +1 por users.searchUsernamesByPrefix (parámetros $1..$3, sin interpolar); T547/T548: +1 por users.listByEmail (LOWER(email)); T601: +1 por users.findByIdForUpdate (SELECT … FOR UPDATE)
     for (const argument of firstArguments) {
       const interpolations = [...argument.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1]);
       expect(interpolations.filter((expr) => expr !== 'USER_COLUMNS')).toEqual([]);

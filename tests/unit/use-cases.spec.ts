@@ -204,7 +204,7 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     expect(await authenticate.execute('t1')).toBe(ANDRES);
     expect(uow.snapshot().sessions['t1']!.lastActivityAt).toBe('2026-11-05T12:29:59.999Z');
     clock.setClock('2026-11-05', '2026-11-05T12:59:59.000Z');
-    expect(await current.execute('t1')).toEqual({ user: selfProfile(ANDRES), createdAt: NOW, lastActivityAt: '2026-11-05T12:29:59.999Z', idleExpiresAt: '2026-11-05T12:59:59.999Z', absoluteExpiresAt: ABSOLUTE_AT });
+    expect(await current.execute('t1')).toEqual({ user: { ...selfProfile(ANDRES), authMethods: { password: true, google: false } }, createdAt: NOW, lastActivityAt: '2026-11-05T12:29:59.999Z', idleExpiresAt: '2026-11-05T12:59:59.999Z', absoluteExpiresAt: ABSOLUTE_AT });
     clock.setClock('2026-11-05', '2026-11-05T13:00:00.000Z');
     expect(await Promise.all([authenticate.execute('t1'), current.execute('t1'), authenticate.execute(null), current.execute('revocada'), authenticate.execute('desconocido')].map(outcome))).toEqual(
       Array(5).fill('ERR-AUTH-UNAUTHENTICATED@null'),
@@ -241,7 +241,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
   it('[REQ-PET-001][INV-ACC-002][ERR-ACC-FORBIDDEN][ERR-PET-NOT-FOUND] solo el dueño edita: María (hogar ACTIVE) recibe 403; Carlos, Lucía y una mascota inexistente, 404', async () => {
     const { deps, uow } = createHarness();
     const update = petUpdater(deps);
-    expect(await update.execute(ANDRES, ARGOS.id, { name: 'Argos Magno' })).toEqual({ ...ARGOS, breedCode: null, avatarVersion: null, lifeStatus: 'ALIVE', deceasedAt: null, version: 2, name: 'Argos Magno', updatedAt: NOW });
+    expect(await update.execute(ANDRES, ARGOS.id, { name: 'Argos Magno' })).toEqual({ ...ARGOS, breedCode: null, avatarVersion: null, lifeStatus: 'ALIVE', deceasedAt: null, biography: null, version: 2, name: 'Argos Magno', updatedAt: NOW });
     expect(uow.snapshot().pets.find((p) => p.id === ARGOS.id)!.name).toBe('Argos Magno');
     expect(
       await Promise.all([
@@ -356,7 +356,7 @@ describe('mascotas (src/application/use-cases/pet-use-cases.ts)', () => {
     expect(view.vaccinations.map((v) => [v.record.id, v.alert!.status, v.alert!.daysRemaining])).toEqual([[r.vaccinations[0]!.id, 'DUE_SOON', 7]]);
     // 3.1.0 (REQ-SIN-001): la ficha lee los parámetros anteriores a la 004 con symptomType y severity nulos.
     expect([view.bodyMeasurements, view.dewormings, view.medicalVisits, view.customParameters]).toEqual([r.bodyMeasurements.map(rev), [], [], r.customParameters.map((c) => ({ ...c, symptomType: null, severity: null, revision: 0 }))]);
-    expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([{ ...ARGOS, breedCode: null, avatarVersion: null, lifeStatus: 'ALIVE', deceasedAt: null, version: 1 }, { years: 4, months: 5, totalDays: 1640 }, 1]);
+    expect([view.profile, view.computedAge, view.alertsSummary.totalActiveAlerts]).toEqual([{ ...ARGOS, breedCode: null, avatarVersion: null, lifeStatus: 'ALIVE', deceasedAt: null, biography: null, version: 1 }, { years: 4, months: 5, totalDays: 1640 }, 1]);
   });
 });
 

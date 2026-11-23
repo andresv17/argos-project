@@ -12,6 +12,9 @@ const HMAC = 'TF_VAR_audit_hmac_secret';
 const HMAC_PATTERN = /^(?:[0-9a-fA-F]{2}){32,}$/; // >= 32 bytes hex (app-config.ts AUDIT_SECRET_PATTERN)
 const DEV_HMAC = 'de'.repeat(32); // app-config.ts DEVELOPMENT_AUDIT_HMAC_SECRET
 const FIXTURE_HMAC_SHA256 = 'eaa93b9fcd229b8446cacff0a963d1afe33fa3fd3b6f63343c3227c987f6c592'; // huella, no el valor
+// 008 (GH:#16, H-ORA-5 OBS-1): Google OAuth. Se inyectan en el despliegue como variables de entorno de Cloud Run.
+const OAUTH_CLIENT_ID = 'GOOGLE_OAUTH_CLIENT_ID';
+const OAUTH_REDIRECT_URI = 'GOOGLE_OAUTH_REDIRECT_URI';
 
 // Neo Q3: sin recorte. Cualquier espacio, tabulador o salto (de borde o interno) se rechaza, fail-closed (EDGE-CLD-05).
 // `trim` solo sirve para enmascarar también la forma recortada del valor en los registros.
@@ -47,6 +50,34 @@ function checkDatabaseUrl(name, value, wantPooler, violations) {
   if (!wantPooler && pooler) violations.push({ variable: name, rule: 'pooler-prohibido' });
 }
 
+/** Valor de texto simple (client id): no vacío, sin espacios ni comas (viaja dentro de --set-env-vars). */
+function checkPlainValue(name, value, violations) {
+  if (value === '') {
+    violations.push({ variable: name, rule: 'vacio' });
+    return;
+  }
+  if (/[\s,]/.test(value)) violations.push({ variable: name, rule: 'espacio-o-salto' });
+}
+
+/** URI de redirección: https absoluta, sin espacios ni comas. */
+function checkRedirectUri(name, value, violations) {
+  if (value === '') {
+    violations.push({ variable: name, rule: 'vacio' });
+    return;
+  }
+  if (/[\s,]/.test(value)) {
+    violations.push({ variable: name, rule: 'espacio-o-salto' });
+    return;
+  }
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    url = null;
+  }
+  if (url === null || url.protocol !== 'https:' || url.hostname === '') violations.push({ variable: name, rule: 'formato' });
+}
+
 function checkHmac(name, value, violations) {
   if (/\s/.test(value)) {
     violations.push({ variable: name, rule: 'espacio-o-salto' });
@@ -64,6 +95,8 @@ export function validateSecrets(env) {
     [APP_URL, true, (v) => checkDatabaseUrl(APP_URL, v, true, violations)],
     [HMAC, true, (v) => checkHmac(HMAC, v, violations)],
     [DIRECT_URL, false, (v) => checkDatabaseUrl(DIRECT_URL, v, false, violations)],
+    [OAUTH_CLIENT_ID, true, (v) => checkPlainValue(OAUTH_CLIENT_ID, v, violations)],
+    [OAUTH_REDIRECT_URI, true, (v) => checkRedirectUri(OAUTH_REDIRECT_URI, v, violations)],
   ];
   for (const [name, required, check] of specs) {
     const raw = env[name];
@@ -77,7 +110,7 @@ export function validateSecrets(env) {
 }
 
 function main() {
-  for (const name of [APP_URL, HMAC, DIRECT_URL]) {
+  for (const name of [APP_URL, HMAC, DIRECT_URL, OAUTH_CLIENT_ID, OAUTH_REDIRECT_URI]) {
     const raw = process.env[name];
     if (raw !== undefined) for (const line of maskLines(raw)) console.log(`::add-mask::${line}`);
   }

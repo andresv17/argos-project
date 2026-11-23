@@ -17,6 +17,7 @@ import { RunSceneGenerationUseCase } from '../../application/use-cases/scene-run
 import { SceneLifecycleHooks } from '../../application/use-cases/scene-lifecycle-hooks.ts';
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
 import { CryptoSecureTokenAdapter } from '../adapters/crypto-secure-token.adapter.ts';
+import { CryptoOneTimeTokenEntropyAdapter } from '../adapters/crypto-one-time-token-entropy.adapter.ts';
 import { CryptoUuidAdapter } from '../adapters/crypto-uuid.adapter.ts';
 import { HmacAuditPseudonymAdapter } from '../adapters/hmac-audit-pseudonym.adapter.ts';
 import { RepositoryAuditLogAdapter } from '../adapters/repository-audit-log.adapter.ts';
@@ -34,6 +35,7 @@ import { buildApp } from './app.ts';
 import { mediaBucketHost } from './plugins/security-headers.ts';
 import { cloudLoggerOptions } from './cloud-logging.ts';
 import { installShutdownHandlers } from './graceful-shutdown.ts';
+import { createGoogleOidcPort } from './google-oidc-verify.ts';
 import { createRouteOidcVerifier, type OidcVerifierOptions } from './oidc-verify.ts';
 import { composeSceneServices, type SceneCompositionOptions } from './scene-composition.ts';
 import { createSceneGlobalQuotaMaxReader, loadSceneProviderParameters } from '../config/scene-provider-parameters.ts';
@@ -130,6 +132,9 @@ export interface ProductionAppOptions {
   readonly oidcJwks?: NonNullable<OidcVerifierOptions['jwks']>;
   /** `fetch` de Cloud Tasks y de Vertex AI con el driver `real` (solo pruebas); por defecto el global. */
   readonly sceneFetch?: typeof fetch;
+  /** `fetch` del canje en el token endpoint de Google y JWKS del `id_token` (solo pruebas); por defecto el global y el JWKS público de Google. */
+  readonly googleFetch?: typeof fetch;
+  readonly googleJwks?: NonNullable<Parameters<typeof createGoogleOidcPort>[0]['jwks']>;
 }
 
 export async function createProductionApp(config: AppConfig, logger: boolean = true, options: ProductionAppOptions = {}): Promise<FastifyInstance> {
@@ -180,6 +185,15 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     auditHmacSecret: config.auditHmacSecret ?? DEVELOPMENT_AUDIT_HMAC_SECRET,
     auditIds: ids,
     platformParameters,
+    // 008 (T1121, REQ-SSO8-007): acceso con Google solo con las tres variables GOOGLE_OAUTH_*; sin ellas las operaciones de Google fallan cerrado.
+    ...(config.google === undefined
+      ? {}
+      : {
+          google: {
+            oidc: createGoogleOidcPort({ clientId: config.google.clientId, clientSecret: config.google.clientSecret, redirectUri: config.google.redirectUri, ...(options.googleFetch === undefined ? {} : { fetch: options.googleFetch }), ...(options.googleJwks === undefined ? {} : { jwks: options.googleJwks }) }),
+            entropy: new CryptoOneTimeTokenEntropyAdapter(),
+          },
+        }),
     // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).
     sceneHooks: new SceneLifecycleHooks(),
     ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, ...sceneProvider }) }),

@@ -8,6 +8,7 @@ import { ChangePasswordUseCase, DeleteAccountUseCase, UpdateProfileUseCase } fro
 import { DeleteAvatarUseCase, GetAvatarUseCase, PutAvatarUseCase } from '../../../application/use-cases/avatar-use-cases.ts';
 import { AssignPetToHouseholdUseCase, ListPetAssignmentsUseCase, UnassignPetFromHouseholdUseCase } from '../../../application/use-cases/assignment-use-cases.ts';
 import { AuthenticateRequestUseCase, GetCurrentSessionUseCase, LoginUseCase, LogoutUseCase, RegisterUserUseCase } from '../../../application/use-cases/auth-use-cases.ts';
+import { ChooseGoogleUsernameUseCase, CompleteGoogleLoginUseCase, StartGoogleLinkUseCase, StartGoogleLoginUseCase } from '../../../application/use-cases/google-auth-use-cases.ts';
 import { ExportBackupUseCase, ImportBackupUseCase, PreviewBackupImportUseCase } from '../../../application/use-cases/backup-use-cases.ts';
 import {
   CancelHouseholdInvitationUseCase,
@@ -22,6 +23,7 @@ import {
   ListMyInvitationsUseCase,
   RemoveMemberUseCase,
   RespondInvitationUseCase,
+  SearchInviteesUseCase,
   TransferHouseholdOwnershipUseCase,
 } from '../../../application/use-cases/household-use-cases.ts';
 import { DeleteMediaUseCase, GetAlbumLimitsUseCase, GetMediaAccessUseCase, ListMediaUseCase, UploadMediaUseCase } from '../../../application/use-cases/media-use-cases.ts';
@@ -42,6 +44,8 @@ import {
   DeleteRecordUseCase,
   UpdateRecordUseCase,
 } from '../../../application/use-cases/record-use-cases.ts';
+import { INVITEE_SEARCH_LIMITS } from '../../config/invitee-search-config.ts';
+import { InviteeSearchRateLimiter } from '../invitee-search-rate-limit.ts';
 import type { ApplicationDeps } from '../../../application/use-cases/use-case-support.ts';
 
 export function createUseCases(deps: ApplicationDeps) {
@@ -51,6 +55,10 @@ export function createUseCases(deps: ApplicationDeps) {
     logout: new LogoutUseCase(deps),
     authenticate: new AuthenticateRequestUseCase(deps),
     currentSession: new GetCurrentSessionUseCase(deps),
+    googleStart: new StartGoogleLoginUseCase(deps),
+    googleComplete: new CompleteGoogleLoginUseCase(deps),
+    googleChooseUsername: new ChooseGoogleUsernameUseCase(deps),
+    googleLink: new StartGoogleLinkUseCase(deps),
     changePassword: new ChangePasswordUseCase(deps),
     updateProfile: new UpdateProfileUseCase(deps),
     deleteAccount: new DeleteAccountUseCase(deps),
@@ -70,6 +78,7 @@ export function createUseCases(deps: ApplicationDeps) {
     createHousehold: new CreateHouseholdUseCase(deps),
     inviteMember: new InviteMemberUseCase(deps),
     cancelInvitation: new CancelHouseholdInvitationUseCase(deps),
+    searchInvitees: new SearchInviteesUseCase(deps, new InviteeSearchRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp()), INVITEE_SEARCH_LIMITS)),
     listMyInvitations: new ListMyInvitationsUseCase(deps),
     respondInvitation: new RespondInvitationUseCase(deps),
     removeMember: new RemoveMemberUseCase(deps),

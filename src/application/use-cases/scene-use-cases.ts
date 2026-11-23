@@ -5,7 +5,7 @@
  * `deriveStatus` sobre la huella del estado vivo (REQ-ESC6-003, ADR-006-09); lo único que la lectura materializa es el vencimiento del arrendamiento, por
  * compare-and-set idempotente bajo el candado de la escena (data-model.md §7, `H-TRI-006-12`). El reloj y los identificadores salen de los puertos (INV-ARCH-001/002).
  *
- * @implements REQ-FAL7-006, REQ-ESC6-003, REQ-ESC6-004, REQ-ESC6-005, REQ-ESC6-008, REQ-ESC6-011, REQ-ESC6-019, REQ-ESC6-020, REQ-ESC6-024, REQ-ESC6-032, REQ-ESC6-034, INV-ESC6-007, INV-ESC6-014, INV-ESC6-019, EDGE-ESC6-003, EDGE-ESC6-006, SC-ESC6-014, SC-ESC6-018, SC-ESC6-081, SC-ESC6-093
+ * @implements REQ-UX8-002, REQ-FAL7-006, REQ-ESC6-003, REQ-ESC6-004, REQ-ESC6-005, REQ-ESC6-008, REQ-ESC6-011, REQ-ESC6-019, REQ-ESC6-020, REQ-ESC6-024, REQ-ESC6-032, REQ-ESC6-034, INV-ESC6-007, INV-ESC6-014, INV-ESC6-019, EDGE-ESC6-003, EDGE-ESC6-006, SC-ESC6-014, SC-ESC6-018, SC-ESC6-081, SC-ESC6-093
  */
 
 import { sha256Hex } from '../../domain/audit/sha256.ts';
@@ -247,14 +247,58 @@ export class GetSceneUseCase {
 
 const SCENE_IMAGE_FILENAME = 'escena.png';
 
+const ISO_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3})\d*)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
+
+/** Milisegundos desde la época de un instante ISO 8601 con zona, por aritmética de calendario (sin `Date`: la escena es pura, INV-ESC6-002). `null` si no es legible. */
+function epochMsOfIso(iso: string): number | null {
+  const m = ISO_INSTANT.exec(iso);
+  if (m === null) return null;
+  const [year, month, day, hour, minute, second] = [m[1], m[2], m[3], m[4], m[5], m[6]].map(Number) as [number, number, number, number, number, number];
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return null;
+  const y = month <= 2 ? year - 1 : year;
+  const era = Math.floor(y / 400);
+  const yoe = y - era * 400;
+  const doy = Math.floor((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5) + day - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  const days = era * 146097 + doe - 719468;
+  const fraction = m[7] === undefined ? 0 : Number(m[7].padEnd(3, '0'));
+  const offsetMin = m[8] === undefined ? 0 : (m[8] === '-' ? -1 : 1) * (Number(m[9]) * 60 + Number(m[10]));
+  return ((days * 24 + hour) * 60 + minute - offsetMin) * 60_000 + second * 1000 + fraction;
+}
+
+/**
+ * Nombre fijo de la descarga (REQ-UX8-002, contrato 006 3.5.0): `argos-hogar-AAAA-MM-DD.png` con el día de la generación de la imagen vigente en la zona de la
+ * aplicación (`APP_TIMEZONE`). Sin nombre de mascota ni de hogar (PII). `null` si el instante no es legible.
+ */
+export function sceneDownloadFilenameOf(createdAt: string, timeZone: string): string | null {
+  const ms = epochMsOfIso(createdAt);
+  if (ms === null) return null;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).formatToParts(ms).map((p) => [p.type, p.value]));
+  return `argos-hogar-${parts['year']}-${parts['month']}-${parts['day']}.png`;
+}
+
+export interface SceneImageReadOptions {
+  /** `download=1` (REQ-UX8-002): la URL firmada fija `attachment` y el nombre fijo; no elige imagen (INV-ESC6-019). */
+  readonly download?: boolean;
+}
+
+export interface SceneImageAccess extends MediaReadUrl {
+  readonly mime: string;
+  /** Solo con descarga: nombre fijo `argos-hogar-AAAA-MM-DD.png`. */
+  readonly downloadFilename: string | null;
+  /** Solo con descarga y un almacenamiento sin URL firmada (URL no `https`): cuerpo de la imagen para el `200` con `attachment`. */
+  readonly bytes: Uint8Array | null;
+}
+
 /**
  * `getHouseholdSceneImage` / `getOwnerSceneImage` (REQ-ESC6-019, INV-ESC6-019, SC-ESC6-081): resuelve SIEMPRE la imagen vigente de la escena autorizada (la clave sale
  * del registro, nunca de parámetros); `v` es solo una etiqueta de caché y un valor distinto o antiguo se ignora. Sin acceso o sin imagen: 404 sin escribir nada.
+ * Con `download` (REQ-UX8-002) la URL se firma como `attachment` y, si el almacenamiento no firma, se devuelve el cuerpo para el `200`.
  */
 export class GetSceneImageUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, target: SceneTarget, _v: string | undefined): Promise<MediaReadUrl & { readonly mime: string }> {
+  async execute(userId: string, target: SceneTarget, _v: string | undefined, options: SceneImageReadOptions = {}): Promise<SceneImageAccess> {
     const { deps } = this;
     const media = requireMedia(deps);
     requireScene(deps);
@@ -262,10 +306,23 @@ export class GetSceneImageUseCase {
       const access = await resolveSceneAccess(r, userId, target);
       const scene = await findSceneOf(r, access);
       if (scene === null || scene.image === null) throw new DomainError('ERR-HOUSE-NOT-FOUND', undefined, 'householdId');
-      return { key: sceneImageObjectKey(scene.id, scene.image.id), mime: scene.image.mime };
+      return { key: sceneImageObjectKey(scene.id, scene.image.id), mime: scene.image.mime, createdAt: scene.image.createdAt };
     });
-    const access = await media.storage.createReadUrl({ key: found.key, contentType: found.mime, filename: found.mime === 'image/webp' ? 'escena.webp' : SCENE_IMAGE_FILENAME, ttlSeconds: media.limits.signedUrlTtlSeconds });
-    return { ...access, mime: found.mime };
+    const inlineName = found.mime === 'image/webp' ? 'escena.webp' : SCENE_IMAGE_FILENAME;
+    const downloadFilename = options.download === true ? sceneDownloadFilenameOf(found.createdAt, deps.clock.timeZone) : null;
+    const access = await media.storage.createReadUrl({
+      key: found.key,
+      contentType: found.mime,
+      ttlSeconds: media.limits.signedUrlTtlSeconds,
+      ...(downloadFilename === null ? { filename: inlineName } : { filename: downloadFilename, disposition: 'attachment' as const }),
+    });
+    let bytes: Uint8Array | null = null;
+    if (downloadFilename !== null && !access.url.startsWith('https://')) {
+      const object = await media.storage.get(found.key);
+      if (object === null) throw new DomainError('ERR-HOUSE-NOT-FOUND', undefined, 'householdId');
+      bytes = object.bytes;
+    }
+    return { ...access, mime: found.mime, downloadFilename, bytes };
   }
 }
 

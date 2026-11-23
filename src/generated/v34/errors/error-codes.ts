@@ -47,6 +47,24 @@ export const ERROR_CATALOG = {
     "type": "urn:argos:error:ERR-AUTH-CSRF-REJECTED",
     "requirementRef": "INV-AUTH-007"
   },
+  "ERR-AUTH-GOOGLE-FAILED": {
+    "type": "urn:argos:error:ERR-AUTH-GOOGLE-FAILED",
+    "status": 400,
+    "title": "No se pudo completar el acceso con Google",
+    "invariantRef": "INV-AUTH-006",
+    "detailTemplate": "No se pudo completar el acceso con Google. Vuelve a intentarlo desde la pantalla de acceso.",
+    "requirementRef": "REQ-AUTH2-002",
+    "note": "Un único código, estado y detalle para todo fallo del flujo (código inválido, state o nonce desconocido o reutilizado, estado vencido, iss/aud/exp inválidos, email_verified falso, cancelación, correo ambiguo): no distingue la causa ni revela si el correo o el sub existen. El detalle es fijo y nunca incluye correo, sub ni tokens."
+  },
+  "ERR-AUTH-GOOGLE-LINK-CONFLICT": {
+    "type": "urn:argos:error:ERR-AUTH-GOOGLE-LINK-CONFLICT",
+    "status": 409,
+    "title": "No se pudo vincular Google",
+    "invariantRef": "INV-AUTH-006",
+    "detailTemplate": "No se pudo vincular esa cuenta de Google a tu cuenta.",
+    "requirementRef": "REQ-AUTH2-003",
+    "note": "Se devuelve solo en startGoogleLink cuando la cuenta ya tiene Google vinculado. Un sub ya vinculado a otra cuenta se detecta en el callback y responde el fallo uniforme ERR-AUTH-GOOGLE-FAILED (400)."
+  },
   "ERR-AUTH-INVALID-CREDENTIALS": {
     "status": 401,
     "title": "Credenciales inválidas",

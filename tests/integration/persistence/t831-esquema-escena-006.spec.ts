@@ -44,7 +44,7 @@ describe('T831 las 6 tablas de la escena y sus indices (SC-ESC6-091)', () => {
   it('SQLite crea home_scenes, scene_attempts, scene_image_sources, household_photos, scene_consents y scene_quota_carry', () => {
     const present = tables(open());
     for (const name of ['home_scenes', 'scene_attempts', 'scene_image_sources', 'household_photos', 'scene_consents', 'scene_quota_carry']) expect(present).toContain(name);
-    expect(present).toHaveLength(29);
+    expect(present).toHaveLength(31);
   });
 
   it('los indices nuevos son exactamente los 6 del data-model (3 unicos parciales de escena/intento/consentimiento, 2 de contadores)', () => {

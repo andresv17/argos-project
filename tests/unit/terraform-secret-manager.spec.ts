@@ -24,8 +24,8 @@ describe('terraform/secret_manager.tf (T438)', () => {
     expect(c).toMatch(/resource\s+"google_secret_manager_secret"/);
     expect(c).toContain('database-url');
     expect(c).toContain('audit-hmac-secret');
-    expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(3);
-    expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(3);
+    expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(4);
+    expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(4);
     expect(c).toMatch(/\$\{var\.project_prefix\}-database-url/);
     expect(c).toMatch(/\$\{var\.project_prefix\}-audit-hmac-secret/);
   });

@@ -232,7 +232,22 @@ const EXCLUDED_BY_DECISION = new Map(
         ['REQ-REG7-003', 'Opcion A descartada por Neo (M7-09): sin tarea por diseno; no se implementa ni se prueba.'],
         ['REQ-FEC7-006', 'Condicional a EDGE-007-018 / T1036: sin evidencia de fallo de keydown en WebKit/Android; reactivar solo si /seraph (T1060) detecta el fallo.'],
       ]
-    : [],
+    : feature === '008'
+      ? [
+          ...[
+            ['REQ-SSO8-002', 'Diferido a 009 por D8-01/D8-04=C y M8-01 (spec.md «Diferido a 009»): registro con correo y verificacion.'],
+            ['REQ-SSO8-006', 'Diferido a 009 por D8-01/D8-04=C y M8-01 (spec.md «Diferido a 009»): EmailSenderPort.'],
+            ['REQ-VIN8-005', 'Diferido a 009 por D8-01 y M8-03 (spec.md «Diferido a 009»): desvincular y ultimo metodo.'],
+            ['INV-VIN8-004', 'Diferido a 009 por D8-01 (spec.md «Diferido a 009»): «verificar no vincula», llega con el correo real.'],
+            ['STATE-ACCT8-001', 'Diferido a 009 por D8-01/D8-02 (spec.md «Diferido a 009», Bloque C #18): maquina de aprobacion de cuenta.'],
+            ['INV-ADM8-001', 'Diferido a 009 por D8-01/D8-03/D8-07 (spec.md «Diferido a 009», Bloque D #19): portal /admin.'],
+          ],
+          ...[1, 2, 3, 4, 5].map((n) => [`REQ-APR8-00${n}`, 'Diferido a 009 por D8-01/D8-02 (spec.md «Diferido a 009», Bloque C #18): aprobacion de registro.']),
+          ...[1, 2, 3, 4, 5, 6].map((n) => [`REQ-ADM8-00${n}`, 'Diferido a 009 por D8-01/D8-03/D8-07 (spec.md «Diferido a 009», Bloque D #19): portal /admin.']),
+          ...[1, 2, 3, 4].map((n) => [`REQ-PRM8-00${n}`, 'Diferido a 009 por D8-01/D8-08 (spec.md «Diferido a 009», Bloque E #20): tope de fotos, depende de /admin.']),
+          ['REQ-INV8-002', 'DESCARTADO (no pasa a 009) por D8-10=A (spec.md Bloque J y «Diferido a 009»): sin busqueda por correo; REQ-HOUSE2-001 intacta.'],
+        ]
+      : [],
 );
 const current = new Set([...candidates].filter((id) => !retired.has(id) && !superseded.has(id) && !EXCLUDED_BY_DECISION.has(id)).sort());
 

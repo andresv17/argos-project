@@ -16,6 +16,8 @@ import { registerSecurityHeaders } from './plugins/security-headers.ts';
 import { registerStaticAssets } from './plugins/static-assets.ts';
 import { registerAccountRoutes } from './routes/account.routes.ts';
 import { registerAuthRoutes } from './routes/auth.routes.ts';
+import { registerGoogleAuthRoutes } from './routes/google-auth.routes.ts';
+import { GoogleRateLimiter } from './google-rate-limit.ts';
 import { registerBackupRoutes } from './routes/backup.routes.ts';
 import { registerAssignmentRoutes } from './routes/assignments.routes.ts';
 import { registerOwnershipRoutes } from './routes/ownership.routes.ts';
@@ -75,6 +77,7 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
   registerCsrfGuard(app);
   const context = { useCases: createUseCases(deps), cookieSecure };
   registerAuthRoutes(app, context);
+  registerGoogleAuthRoutes(app, context, new GoogleRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())));
   registerAccountRoutes(app, context);
   registerPetRoutes(app, context);
   registerRecordEditRoutes(app, context);

@@ -192,15 +192,17 @@ export interface BackupEnvelopeV32Shape {
  * Sobre 3.1.0 (o 3.2.0) ya validado -> sobre en forma 3.2.0 para el resto de la importación (T1022, REQ-FAL7-009, EDGE-007-006): cada mascota lleva
  * `lifeStatus` y `deceasedAt`; los respaldos que no los traen (1.0.0, 2.0.0, 3.0.0, 3.1.0 y los de 006) se leen `ALIVE` y sin fecha, y los que sí
  * los traen los conservan. No muta la entrada.
- * @implements REQ-FAL7-009, EDGE-007-006, REQ-FAL7-001
+ * @implements REQ-FAL7-009, EDGE-007-006, REQ-FAL7-001, REQ-BIO8-004
  */
 export function liftEnvelopeV31ToV32<E extends { readonly exportedAt: string; readonly pets: ReadonlyArray<object>; readonly records: object }>(envelope: E): BackupEnvelopeV32Shape {
   return {
     schemaVersion: '3.2.0',
     exportedAt: envelope.exportedAt,
     pets: envelope.pets.map((pet) => {
-      const stored = pet as { lifeStatus?: unknown; deceasedAt?: unknown };
-      return { ...pet, lifeStatus: stored.lifeStatus ?? 'ALIVE', deceasedAt: stored.deceasedAt ?? null };
+      const { biography, ...rest } = pet as { lifeStatus?: unknown; deceasedAt?: unknown; biography?: unknown };
+      // REQ-BIO8-004 (008): la biografía del 3.3.0 se recorta y, vacía o nula, no deja la clave (la importación la guarda como NULL); 3.2.0 y anteriores no la traen.
+      const trimmed = typeof biography === 'string' ? biography.trim() : '';
+      return { ...rest, lifeStatus: rest.lifeStatus ?? 'ALIVE', deceasedAt: rest.deceasedAt ?? null, ...(trimmed === '' ? {} : { biography: trimmed }) };
     }),
     records: envelope.records as Readonly<Record<string, ReadonlyArray<Record<string, unknown>>>>,
   };

@@ -4,15 +4,18 @@
  * contraseña nueva (INV-AUTH2-001) con confirmación y correo opcional; el inicio de sesión no la aplica (REQ-AUTH2-002). El campo de
  * inicio de sesión acepta usuario o correo (REQ-LOG-001); el usuario del registro admite mayúsculas y no exige dígitos (REQ-LOG-002).
  *
- * @implements REQ-UI-005, REQ-UI-004, REQ-AUTH2-001, REQ-LOG-001, REQ-LOG-002, INV-AUTH2-001, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-WEAK-PASSWORD
+ * @implements REQ-UI-005, REQ-UI-004, REQ-SSO8-003, NFR-008-002, REQ-AUTH2-001, REQ-LOG-001, REQ-LOG-002, INV-AUTH2-001, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-WEAK-PASSWORD
  */
+import type { Ref } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, FormError, PasswordField, TextField } from '../components/Field.tsx';
+import { GOOGLE_START_PATH } from '../google-login.ts';
 import { useSession } from '../session.tsx';
 import { useContractForm } from '../use-contract-form.ts';
 import type { Schemas } from '../view-model.ts';
 
-function AuthLayout({ title, children }: { readonly title: string; readonly children: JSX.Element[] }): JSX.Element {
+/** Marco de autenticación. Con `titleId` el encabezado es enfocable por programa (`tabIndex=-1`): las pantallas que llegan por navegación del servidor llevan allí el foco. */
+export function AuthLayout({ title, titleId, titleRef, children }: { readonly title: string; readonly titleId?: string; readonly titleRef?: Ref<HTMLHeadingElement>; readonly children: JSX.Element[] }): JSX.Element {
   // Marco L1 único de autenticación (blueprint §5.1): dos columnas desde 1024 px, apilado debajo; blur solo desde 640 px.
   return (
     <div className="min-h-screen px-4 py-8 sm:px-6 sm:py-10">
@@ -23,11 +26,31 @@ function AuthLayout({ title, children }: { readonly title: string; readonly chil
             <p className="mt-1 text-sm text-text-muted">Pet Health Tracker</p>
           </div>
           <div>
-            <h2 className="mb-4 text-lg font-semibold text-text-primary">{title}</h2>
+            <h2 {...(titleId === undefined ? {} : { id: titleId, tabIndex: -1 })} {...(titleRef === undefined ? {} : { ref: titleRef })} className="mb-4 text-lg font-semibold text-text-primary focus:outline-none">
+              {title}
+            </h2>
             {children}
           </div>
         </main>
       </div>
+    </div>
+  );
+}
+
+/**
+ * «Continuar con Google»: es una navegación (`startGoogleLogin` responde 302 a Google), por eso es un enlace con aspecto de botón de 48 px y no un `button` con script. No guarda
+ * nada en el cliente: el estado del flujo vive en el servidor (cookie `HttpOnly`).
+ */
+function GoogleAccess({ lead }: { readonly lead: string }): JSX.Element {
+  return (
+    <div className="mt-4 grid gap-2">
+      <p className="text-sm text-slate-800">{lead}</p>
+      <a
+        href={GOOGLE_START_PATH}
+        className="inline-flex min-h-12 items-center justify-center rounded-full border border-primary bg-white px-5 text-sm font-semibold text-primary hover:bg-meadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      >
+        Continuar con Google
+      </a>
     </div>
   );
 }
@@ -54,6 +77,7 @@ export function LoginPage(): JSX.Element {
         </Button>
         <p className="text-sm text-text-muted">Si no puedes entrar con tu correo, usa tu usuario.</p>
       </form>
+      <GoogleAccess lead="O entra con tu cuenta de Google, sin contraseña." />
       <p className="mt-4 text-sm text-slate-800">
         ¿No tienes cuenta?{' '}
         <Link to="/register" className="font-semibold text-primary underline">
@@ -88,6 +112,7 @@ export function RegisterPage(): JSX.Element {
           Registrarme
         </Button>
       </form>
+      <GoogleAccess lead="O crea tu cuenta con Google, sin contraseña." />
       <p className="mt-4 text-sm text-slate-800">
         ¿Ya tienes cuenta?{' '}
         <Link to="/login" className="font-semibold text-primary underline">

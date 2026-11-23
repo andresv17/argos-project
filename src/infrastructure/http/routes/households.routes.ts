@@ -10,9 +10,11 @@
  * PATCH .../members/{userId} cambia el rol (cuerpo ChangeRoleInput, 200 HouseholdMemberView) y POST .../ownership-transfer
  * transfiere la propiedad (TransferHouseholdOwnershipInput, 200 HouseholdView); T246.
  *
+ * GET .../invitees?q= (searchInvitees, 008 #24): autocompleta por prefijo de username; `Cache-Control: no-store`; la consulta no se registra (el registro de producción reduce la petición a la ruta con plantilla).
+ *
  * DELETE .../invitations/{invitationId} cancela una invitación INVITED (204; T311, acción RBAC MANAGE_HOUSEHOLD_MEMBERS).
  *
- * @implements T311, REQ-HOUSE-001, REQ-HOUSE2-002, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND
+ * @implements T311, REQ-INV8-001, REQ-INV8-003, REQ-HOUSE-001, REQ-HOUSE2-002, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -48,6 +50,11 @@ export function registerHouseholdRoutes(app: FastifyInstance, { useCases }: Rout
   app.post<HouseholdParams>('/api/households/:householdId/invitations', { onRequest }, async (request, reply) =>
     reply.status(202).send(await useCases.inviteMember.execute(request.userId, request.params.householdId, jsonBody(request.body))),
   );
+
+  app.get<HouseholdParams & { Querystring: { q?: unknown } }>('/api/households/:householdId/invitees', { onRequest }, async (request, reply) => {
+    const result = await useCases.searchInvitees.execute(request.userId, request.params.householdId, request.query.q, request.ip);
+    return reply.header('cache-control', 'no-store').send(result);
+  });
 
   app.delete<InvitationParams>('/api/households/:householdId/invitations/:invitationId', { onRequest }, async (request, reply) => {
     await useCases.cancelInvitation.execute(request.userId, request.params.householdId, request.params.invitationId);

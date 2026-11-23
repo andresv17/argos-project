@@ -22,6 +22,7 @@ const FIELD_PHRASE: Readonly<Record<string, string>> = {
   birthDate: 'la fecha de nacimiento',
   deceasedAt: 'la fecha de fallecimiento',
   lifeStatus: 'el estado',
+  biography: 'la biografía',
   sex: 'el sexo',
   avatarUrl: 'la URL del avatar',
   baseHouseholdId: 'el hogar base',

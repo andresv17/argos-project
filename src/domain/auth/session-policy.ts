@@ -18,6 +18,7 @@ import {
   type StateAuthSession001Event,
   type StateAuthSession001State,
 } from '../../generated/index.ts';
+import { sha256Hex } from '../audit/sha256.ts';
 import { MS_PER_MINUTE, addMillis, toEpochMillis } from './utc-timestamp.ts';
 
 const SESSION_MACHINE = STATE_AUTH_SESSION_001;
@@ -26,6 +27,12 @@ export const SESSION_IDLE_TIMEOUT_MINUTES: number = SESSION_MACHINE.constants.SE
 
 const ABSOLUTE_TTL_MS = SESSION_ABSOLUTE_TTL_HOURS * 60 * MS_PER_MINUTE;
 const IDLE_TIMEOUT_MS = SESSION_IDLE_TIMEOUT_MINUTES * MS_PER_MINUTE;
+
+/**
+ * SHA-256 hex (64) del token de sesión: el mismo valor que `sessions.token_hash` en SQLite y PostgreSQL (los repositorios y `oauth_flow_states.origin_session_hash` lo comparten).
+ * @implements REQ-VIN8-004
+ */
+export const hashSessionToken = (token: string): string => sha256Hex(token);
 
 /** Sesión persistida (el token vive solo en la cookie y, como SHA-256, en el repositorio; nunca en el dominio de salida). */
 export interface SessionRecord {

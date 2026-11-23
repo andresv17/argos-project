@@ -105,6 +105,8 @@ jobs:
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
           DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_REDIRECT_URI: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           if [ -z "${DATABASE_URL_DIRECT:-}" ]; then unset DATABASE_URL_DIRECT; fi
@@ -133,6 +135,8 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           terraform -chdir=terraform plan -input=false -no-color -lock=false -out="${RUNNER_TEMP}/tfplan"
@@ -144,6 +148,8 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           # Borrados de recursos protegidos: rotacion-secreto solo exime google_secret_manager_secret_version; aprobacion-manual exime los demás.
@@ -157,6 +163,8 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           {
@@ -208,6 +216,8 @@ jobs:
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
           DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_REDIRECT_URI: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           if [ -z "${DATABASE_URL_DIRECT:-}" ]; then unset DATABASE_URL_DIRECT; fi
@@ -236,6 +246,8 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           terraform -chdir=terraform plan -input=false -no-color -lock-timeout=5m -out="${RUNNER_TEMP}/tfplan"
@@ -260,6 +272,8 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           # Borrados de recursos protegidos: rotacion-secreto solo exime google_secret_manager_secret_version; aprobacion-manual exime los demás.
@@ -270,6 +284,8 @@ jobs:
           TF_VAR_database_url: ${{ secrets.TF_VAR_database_url }}
           TF_VAR_audit_hmac_secret: ${{ secrets.TF_VAR_audit_hmac_secret }}
           TF_VAR_share_ip_hmac_secret: ${{ secrets.TF_VAR_share_ip_hmac_secret }}
+          TF_VAR_google_oauth_client_id: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          TF_VAR_google_oauth_redirect_uri: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
         run: |
           set -euo pipefail
           terraform -chdir=terraform apply -input=false -no-color -lock-timeout=5m "${RUNNER_TEMP}/tfplan"

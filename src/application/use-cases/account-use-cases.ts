@@ -47,7 +47,7 @@ async function requireAccount(repositories: RepositorySet, userId: string): Prom
  * fallos previos (T210 PENDIENTE: la spec solo fija ese borrado para el inicio de sesión; se elige el comportamiento
  * conservador).
  */
-async function verifyCurrentPassword(deps: ApplicationDeps, repositories: RepositorySet, account: UserAccount, password: string, now: string): Promise<boolean> {
+export async function verifyCurrentPassword(deps: ApplicationDeps, repositories: RepositorySet, account: UserAccount, password: string, now: string): Promise<boolean> {
   const failureKey = normalizeLoginIdentifier(account.username);
   const failures = await repositories.loginAttempts.listFailures(failureKey);
   assertNotLockedOut(failures, now);

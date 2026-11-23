@@ -29,7 +29,7 @@ async function repos(...replies: Reply[]) {
 }
 
 const HOSTILE = "x'; DROP TABLE pets; --";
-const COLS = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version';
+const COLS = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version, biography';
 const CHIP = '123456789012345';
 const PET: PetProfile = { ...ARGOS, species: 'FELINE', neutered: true, microchipId: CHIP, birthDateIsEstimate: true };
 /** Lo que devuelve el repositorio: la ficha sin los campos de 007 se lee ALIVE, sin fecha y en versión 1. */
@@ -46,11 +46,12 @@ const petRow = (pet: PetProfile = PET, over: Record<string, unknown> = {}) => ({
   life_status: pet.lifeStatus ?? 'ALIVE', // 007 (0010): la columna es la autoridad de estado, fecha y versión
   deceased_at: pet.deceasedAt ?? null,
   version: pet.version ?? 1,
+  biography: pet.biography ?? null, // 008 (0012): la columna es la autoridad de la biografía
   ...over,
 });
 
 describe('mascotas (T423, REQ-PG-002, INV-PET-005, REQ-PET2-001)', () => {
-  it('findById: SELECT con las 11 columnas en orden y un parámetro; devuelve la mascota; sin fila devuelve null', async () => {
+  it('findById: SELECT con las 12 columnas en orden y un parámetro; devuelve la mascota; sin fila devuelve null', async () => {
     const { client, r } = await repos({ rows: [petRow()] }, { rows: [] });
     expect(await r.pets.findById(PET.id)).toEqual(PET_READ);
     expect(await r.pets.findById(HOSTILE)).toBeNull();
@@ -74,17 +75,17 @@ describe('mascotas (T423, REQ-PG-002, INV-PET-005, REQ-PET2-001)', () => {
     expect(client.calls).toEqual([{ sql: `SELECT ${COLS} FROM pets WHERE owner_user_id = ANY($1::text[])`, values: [[PET.ownerUserId, 'otro']] }]);
   });
 
-  it('save: UPSERT con las 11 columnas en orden más el indicador de versión explícita; neutered y estimado como 0/1/null; sin interpolación', async () => {
+  it('save: UPSERT con las 12 columnas en orden más el indicador de versión explícita; neutered y estimado como 0/1/null; sin interpolación', async () => {
     const { client, r } = await repos({ rowCount: 1 }, { rowCount: 1 });
     await r.pets.save(PET);
     await r.pets.save({ ...PET, neutered: null, microchipId: null, birthDateIsEstimate: false });
     expect(client.calls[0]!.sql).toBe(
-      `INSERT INTO pets (${COLS}) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id, data = EXCLUDED.data, species = EXCLUDED.species, species_other = EXCLUDED.species_other, neutered = EXCLUDED.neutered, microchip_id = EXCLUDED.microchip_id, birth_date_is_estimate = EXCLUDED.birth_date_is_estimate, life_status = EXCLUDED.life_status, deceased_at = EXCLUDED.deceased_at, version = CASE WHEN $12 = 1 THEN EXCLUDED.version ELSE pets.version + 1 END`,
+      `INSERT INTO pets (${COLS}) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, $10, $11, $12) ON CONFLICT (id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id, data = EXCLUDED.data, species = EXCLUDED.species, species_other = EXCLUDED.species_other, neutered = EXCLUDED.neutered, microchip_id = EXCLUDED.microchip_id, birth_date_is_estimate = EXCLUDED.birth_date_is_estimate, life_status = EXCLUDED.life_status, deceased_at = EXCLUDED.deceased_at, biography = EXCLUDED.biography, version = CASE WHEN $13 = 1 THEN EXCLUDED.version ELSE pets.version + 1 END`,
     );
     const [first, second] = client.calls;
-    expect(first!.values.filter((_, i) => i !== 2)).toEqual([PET.id, PET.ownerUserId, 'FELINE', null, 1, CHIP, 1, 'ALIVE', null, 1, 0]); // sin `version` explícita: indicador 0 (incrementa sobre la fila existente)
+    expect(first!.values.filter((_, i) => i !== 2)).toEqual([PET.id, PET.ownerUserId, 'FELINE', null, 1, CHIP, 1, 'ALIVE', null, 1, null, 0]); // sin `version` explícita: indicador 0 (incrementa sobre la fila existente)
     expect(JSON.parse(first!.values[2] as string)).toEqual(PET);
-    expect(second!.values.filter((_, i) => i !== 2)).toEqual([PET.id, PET.ownerUserId, 'FELINE', null, null, null, 0, 'ALIVE', null, 1, 0]);
+    expect(second!.values.filter((_, i) => i !== 2)).toEqual([PET.id, PET.ownerUserId, 'FELINE', null, null, null, 0, 'ALIVE', null, 1, null, 0]);
     expectParametrized(client.calls);
   });
 
@@ -93,7 +94,7 @@ describe('mascotas (T423, REQ-PG-002, INV-PET-005, REQ-PET2-001)', () => {
     const { client, r } = await repos({ rowCount: 1 }, { rows: [petRow(dead)] });
     await r.pets.save(dead);
     const [call] = client.calls;
-    expect(call!.values.filter((_, i) => i !== 2)).toEqual([PET.id, PET.ownerUserId, 'FELINE', null, 1, CHIP, 1, 'DECEASED', '2026-10-01', 5, 1]);
+    expect(call!.values.filter((_, i) => i !== 2)).toEqual([PET.id, PET.ownerUserId, 'FELINE', null, 1, CHIP, 1, 'DECEASED', '2026-10-01', 5, null, 1]);
     expect(Object.keys(JSON.parse(call!.values[2] as string) as object)).not.toContain('version');
     expect(await r.pets.findById(PET.id)).toEqual(dead);
   });

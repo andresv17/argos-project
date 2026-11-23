@@ -3,7 +3,7 @@
  * sondeo único cada 3 s. No hay datos de la mascota ni del servidor en los textos de error (INV-ESC6-016); la imagen se pide a la ruta propia del ámbito con
  * `v = imageTag` (etiqueta de caché, INV-ESC6-019) y nunca se guarda una URL firmada en el DOM (NFR-ESC6-003).
  *
- * @implements REQ-ESC7-001, REQ-ESC7-002, REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021, REQ-ESC6-034, NFR-ESC6-003, NFR-ESC6-004, INV-ESC6-016, INV-ESC6-019
+ * @implements REQ-UX8-001, REQ-UX8-002, EDGE-008-020, EDGE-008-021, REQ-ESC7-001, REQ-ESC7-002, REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021, REQ-ESC6-034, NFR-ESC6-003, NFR-ESC6-004, INV-ESC6-016, INV-ESC6-019
  */
 import type { Scheduler } from './access-renewer.ts';
 import { ERROR_CATALOG } from '../../generated/errors/error-codes.ts';
@@ -20,6 +20,12 @@ const petsWord = (n: number): string => (n === 1 ? '1 mascota' : `${n} mascotas`
 /** Texto alternativo de la imagen: cuántas mascotas hay en la escena (WCAG 1.1.1). */
 export const sceneAltText = (shown: number): string => (shown === 0 ? 'Escena del hogar en pixel art sin mascotas' : `Escena del hogar en pixel art con ${petsWord(shown)}`);
 
+/** Línea de cuota mensual por hogar con fecha de renovación (REQ-UX8-001). Texto PROVISIONAL de la spec 008, pendiente de confirmación de Neo (D8-09). */
+const sceneQuotaText = (quota: SceneViewData['quota']): string => {
+  const date = sceneRenewalDateText(quota.resetsAt);
+  return date === null ? `Generaciones restantes este mes: ${quota.remaining}.` : `Generaciones restantes este mes: ${quota.remaining}. Se renuevan el ${date}.`;
+};
+
 /** Aviso de cambios pendientes (REQ-ESC7-001/002, D7-01): texto neutral (el cambio también puede deberse a un fallecimiento), línea aparte de cuota y conteo solo en `ariaLabel`. */
 export interface ScenePendingMessage {
   readonly changes: string;
@@ -30,12 +36,22 @@ export interface ScenePendingMessage {
 const PENDING_CHANGES_TEXT = 'Hubo cambios en tu hogar o en tus mascotas.';
 const PENDING_INVITE_TEXT = 'Puedes volver a generar tu hogar para ver los cambios.';
 
+/** Zona en que se dice el día de renovación (`APP_TIMEZONE`, America/Bogota; la cuota reinicia el día 1 a las 00:00 allí, REQ-ESC6-011). */
+const RENEWAL_TIME_ZONE = 'America/Bogota';
+const renewalFormat = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long', timeZone: RENEWAL_TIME_ZONE });
+
+/** «1 de diciembre» a partir del `quota.resetsAt` del servidor, en la zona de la aplicación (nunca la del navegador, EDGE-008-019); `null` si el instante no es legible. */
+export function sceneRenewalDateText(resetsAt: string): string | null {
+  const at = Date.parse(resetsAt);
+  return Number.isNaN(at) ? null : renewalFormat.format(at);
+}
+
 /** `null` con `pending = 0`. Si el botón no puede generar (cuota agotada, cooldown, rol…), no se invita a regenerar (EDGE-007-008). */
 export function scenePendingMessage(view: SceneViewData): ScenePendingMessage | null {
   if (view.pending < 1) return null;
   return {
     changes: view.actions.canRegenerate ? `${PENDING_CHANGES_TEXT} ${PENDING_INVITE_TEXT}` : PENDING_CHANGES_TEXT,
-    remaining: `Generaciones restantes: ${view.quota.remaining}`,
+    remaining: sceneQuotaText(view.quota),
     ariaLabel: view.pending === 1 ? '1 cambio pendiente' : `${view.pending} cambios pendientes`,
   };
 }
@@ -180,6 +196,12 @@ export function createLatestOnly(): { run<T>(read: Promise<T>, apply: (value: T)
 /** Texto del botón deshabilitado con la escena `idle` (sin mascotas ni foto del hogar; la máquina rechaza `idle -> generating`, REQ-ESC6-005). */
 const SCENE_IDLE_TEXT = 'Agrega una mascota o la foto del hogar para crear la imagen.';
 
+/** Motivo con la cuota agotada (H-OR-F-2): conserva la fecha «1 dic 2026» que fijan t875/t936 (SC-ESC6-132); sin instante legible (misma regla que `sceneRenewalDateText`) sale sin fecha. */
+const sceneQuotaExhaustedText = (resetsAt: string): string =>
+  sceneRenewalDateText(resetsAt) === null
+    ? 'Se agotaron las generaciones de este mes; la imagen actual se conserva.'
+    : `Se agotaron las generaciones de este mes. Se reinician el ${uploadDateText(resetsAt)}; la imagen actual se conserva.`;
+
 /**
  * Estado del botón único de generación (D6-21, REQ-ESC6-019, REQ-ESC6-005, REQ-ESC6-007; SC-ESC6-131, SC-ESC6-132). Etiqueta: «Reintentar» con `failed`, «Regenerar imagen del
  * hogar» con imagen vigente y «Crear imagen del hogar» sin ella. Se habilita con `actions.canRegenerate`, sin generación en curso y sin espera; `canUpdate` y `NO_CHANGES` no se leen.
@@ -194,7 +216,7 @@ export function sceneGenerateState(view: SceneViewData): { readonly label: strin
   if (!view.actions.canRegenerate) {
     switch (blockedReason) {
       case 'QUOTA_EXHAUSTED':
-        return blocked(`Se agotaron las generaciones de este mes. Se reinician el ${uploadDateText(view.quota.resetsAt)}; la imagen actual se conserva.`);
+        return blocked(sceneQuotaExhaustedText(view.quota.resetsAt));
       case 'GENERATING':
         return blocked('La imagen se está generando; espera a que termine.');
       case 'CONSENT_REQUIRED':
@@ -234,6 +256,31 @@ export function sceneProblemMessage(code: string, retryAfterSeconds?: number): s
 export function sceneImagePath(scope: SceneScope, imageTag: string | null): string | null {
   if (imageTag === null) return null;
   return scope.kind === 'HOUSEHOLD' ? `/api/households/${scope.householdId}/scene/image?v=${imageTag}` : `/api/me/scene/image?v=${imageTag}`;
+}
+
+/**
+ * Ruta de descarga de la imagen vigente (REQ-UX8-002, EDGE-008-020, contrato 006 3.5.0): la misma ruta propia con `download=1`, que pide al servidor la URL firmada con
+ * `response-content-disposition: attachment`. El atributo HTML `download` por sí solo no basta con la redirección `302` a otro origen. `null` sin imagen vigente.
+ * `download` no elige imagen (INV-ESC6-019): solo cambia el tratamiento del archivo.
+ */
+export function sceneImageDownloadPath(scope: SceneScope, imageTag: string | null): string | null {
+  const path = sceneImagePath(scope, imageTag);
+  return path === null ? null : `${path}&download=1`;
+}
+
+/** Zona del día del nombre de archivo (`APP_TIMEZONE`, igual que la renovación de cuota). */
+const FILENAME_TIME_ZONE = 'America/Bogota';
+const filenameDateFormat = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: FILENAME_TIME_ZONE });
+
+/**
+ * Nombre sugerido del archivo descargado: `argos-hogar-AAAA-MM-DD.png` con el día de `at` en la zona de la aplicación (EDGE-008-021). Sin nombre de mascota ni de hogar
+ * (PII) ni caracteres de control. El nombre definitivo lo fija el servidor en `Content-Disposition`; este es la pista del cliente. `null` si el instante no es legible.
+ */
+export function sceneDownloadFilename(at: string): string | null {
+  const ms = Date.parse(at);
+  if (Number.isNaN(ms)) return null;
+  const parts = Object.fromEntries(filenameDateFormat.formatToParts(ms).map((p) => [p.type, p.value]));
+  return `argos-hogar-${parts.year}-${parts.month}-${parts.day}.png`;
 }
 
 /** Ruta propia de la foto del hogar (302 firmada); `tag` solo etiqueta de caché. */

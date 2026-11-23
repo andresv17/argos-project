@@ -12,17 +12,16 @@ import { describe, expect, it } from 'vitest';
 import type { MaintenanceCounts, MaintenanceCutoffs } from '../../../src/application/ports/unit-of-work.port.ts';
 import { closePool, createPostgresPool, type PoolClientLike } from '../../../src/infrastructure/persistence/postgres/postgres-database.ts';
 import { expectParametrized, norm, type Call } from '../../fixtures/pg-fake-client.ts';
+import { allPostgresMigrationsSql } from '../../fixtures/postgres-migrations.ts';
 
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const MAINTENANCE_PATH = '../../../src/infrastructure/persistence/postgres/postgres-maintenance.ts';
 const UOW_PATH = '../../../src/infrastructure/persistence/postgres/postgres-unit-of-work.ts';
 // Esquema vigente (T831: hasta la 0009 de la escena, que añade 6 tablas que el mantenimiento diario no purga con estas 6 sentencias): el baseline y la 0002 (columna `revision` de los 6 registros, T540; los repositorios la leen y la escriben desde T614).
-const BASELINE = ['0001_baseline.sql', '0002_record_revision.sql', '0003_username_case_insensitive.sql', '0004_pets_microchip_global.sql', '0005_pet_media.sql', '0006_rate_limit_microchip_scope.sql', '0007_platform_parameters.sql', '0008_share_links.sql', '0009_home_scenes.sql', '0010_pet_life_status.sql', '0011_share_link_deceased_at.sql']
-  .map((name) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${name}`, import.meta.url), 'utf8'))
-  .join('\n');
+const BASELINE = allPostgresMigrationsSql();
 
 const CUTOFFS: MaintenanceCutoffs = { now: '2026-11-05T12:00:00.000Z', auditBefore: '2024-11-05T12:00:00.000Z' };
-const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log', 'login_attempts'] as const; // login_attempts (T559, SC-CAT-030) va al final y no tiene conteo propio
+const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log', 'login_attempts', 'oauth_flow_states'] as const; // login_attempts (T559, SC-CAT-030) y oauth_flow_states (T1134, H-RAMA-008-T1134-01) van al final y no tienen conteo propio
 const BATCH = 500;
 
 interface MaintenanceModule {
@@ -89,6 +88,7 @@ describe('purgeExpiredInBatches: forma de las sentencias (REQ-PG-008, REQ-PG-011
       household_invitations: [CUTOFFS.now, BATCH],
       audit_log: [CUTOFFS.auditBefore, BATCH],
       login_attempts: ['2026-11-05T11:45:00.000Z', BATCH], // ahora menos la ventana de bloqueo de 15 min (T559)
+      oauth_flow_states: [CUTOFFS.now, BATCH], // T1134, NFR-008-004
     });
   });
 

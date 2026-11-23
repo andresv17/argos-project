@@ -21,17 +21,17 @@ const paramNames = (path: string, method: string): string[] =>
   (op(path, method).parameters as Json[]).map((p) => (p.$ref as string | undefined)?.split('/').pop() ?? (p.name as string));
 
 describe('T511 versión y metadatos', () => {
-  it('REQ-ARC-001: la API pasa a 3.3.0 (MINOR, 007) en DRAFT y supersede a 3.2.0', () => {
-    expect(doc.info.version).toBe('3.3.0');
-    expect(doc.info['x-sdd-metadata']).toEqual(expect.objectContaining({ version: '3.3.0', status: 'DRAFT', supersedes: '3.2.0', change_type: 'MINOR' }));
+  it('REQ-ARC-001: la API pasa a 3.4.0 (MINOR, 008) en DRAFT y supersede a 3.3.0', () => {
+    expect(doc.info.version).toBe('3.4.0');
+    expect(doc.info['x-sdd-metadata']).toEqual(expect.objectContaining({ version: '3.4.0', status: 'DRAFT', supersedes: '3.3.0', change_type: 'MINOR' }));
   });
 
-  it('REQ-ARC-001: declara exactamente las 7 operaciones nuevas de medios y avatar además de las 40 de la 002', () => {
+  it('REQ-ARC-001: declara exactamente las 7 operaciones nuevas de medios y avatar además de las 40 de la 002 y las 5 de la 008 (startGoogleLogin, completeGoogleLogin, chooseGoogleUsername, startGoogleLink, searchInvitees)', () => {
     const ids = Object.values(doc.paths as Json).flatMap((item) =>
       ['get', 'post', 'put', 'patch', 'delete'].filter((m) => (item as Json)[m]).map((m) => (item as Json)[m].operationId as string),
     );
-    expect(ids).toHaveLength(47);
-    expect(new Set(ids).size).toBe(47);
+    expect(ids).toHaveLength(52);
+    expect(new Set(ids).size).toBe(52);
     for (const id of ['uploadMedia', 'listMedia', 'getMediaAccess', 'deleteMedia', 'putAvatar', 'getAvatar', 'deleteAvatar']) {
       expect(ids).toContain(id);
     }
@@ -126,10 +126,10 @@ describe('T511 rutas existentes cambiadas', () => {
     expect(del.responses['409'].description).toContain('ERR-REC-SUPERSEDED-IMMUTABLE');
   });
 
-  it('REQ-IMP-001: previewBackupImport devuelve ImportPreviewResult y acepta 3.1.0; exportBackup entrega el sobre 3.2.0 (007, T1067: BackupEnvelopeV32)', () => {
+  it('REQ-IMP-001: previewBackupImport devuelve ImportPreviewResult y acepta 3.1.0; exportBackup entrega el sobre 3.3.0 (008, #21: BackupEnvelopeV33)', () => {
     expect(op('/backup/import/preview', 'post').summary).toContain('3.1.0');
     expect(op('/backup/export', 'post').responses['200'].content['application/json'].schema.$ref).toBe(
-      '../schemas/backup-envelope.schema.json#/$defs/BackupEnvelopeV32',
+      '../schemas/backup-envelope.schema.json#/$defs/BackupEnvelopeV33',
     );
   });
 

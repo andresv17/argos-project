@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API
-  version: 3.2.0
+  version: 3.3.0
   description: >
     Contrato formal de la API HTTP local (127.0.0.1:3100, prefijo /api) de la Feature 002 (Plataforma ARGOS v2.1).
     Sustituye a la versión 2.4.0 de la Feature 001 (MAJOR): cuentas con política de contraseña y sesión con inactividad,
@@ -11,13 +11,14 @@ info:
     13 nuevas, 21 cambiadas y 6 vigentes sin cambio (marcadas con x-sdd-change).
     Todas las respuestas de error usan application/problem+json (RFC 9457) con los códigos de contracts/errors/error-catalog.json.
     Un usuario sin permiso de lectura recibe 404 (nunca 403) para no revelar la existencia (INV-ACC2-001).
+    Feature 008 (3.3.0, MINOR): acceso y vinculación con Google (/auth/google/*), autocompletado de colaboradores (/households/{householdId}/invitees), biografía de mascota y respaldo 3.3.0; 6 operaciones nuevas.
   x-sdd-status: REVIEW
   x-sdd-metadata:
-    version: 3.2.0
+    version: 3.3.0
     status: REVIEW
-    supersedes: 3.1.0
+    supersedes: 3.2.0
     change_type: MINOR
-    change_note: "MINOR 3.2.0: exportBackup responde BackupEnvelopeV32 (schemaVersion 3.2.0, REQ-FAL7-009) e ImportPreviewResult +lifeStatusChanges opcional (T1022). Antes, MINOR aditiva (feature 007, #13, N2-07-01 y EDGE-007-009): updatePet exige If-Match con la version de la ficha y responde 412 ERR-PET-VERSION-CONFLICT; PetProfile (en PetCardView y PetDashboardView) y los cuerpos de mascota llevan lifeStatus, deceasedAt y version como opcionales. Sin rutas nuevas."
+    change_note: "3.3.0 (aclaración sin bump, feature 008, Architect 2026-11-21, decisión de Neo Nivel 2, Opción A, ADR-008-03): el callback con intención de vinculación exige la sesión de origen activa (resumen guardado por startGoogleLink), conserva esa sesión, revoca las demás y no emite Set-Cookie argos_session; solo texto, sin cambio de operaciones, códigos ni esquemas. 3.3.0 (feature 008, Architect 2026-11-20, resolución Nivel 2 de Neo, MINOR aditiva): 6 operaciones nuevas sin cambiar ninguna existente: startGoogleLogin, completeGoogleLogin, chooseGoogleUsername y startGoogleLink (acceso con Google y vinculación desde sesión activa con la contraseña actual; cookie argos_oauth SameSite=Lax 900 s según la Enmienda constitucional 3.8.0, argos_session sigue Strict) y searchInvitees (autocompletado por prefijo de username >= 3, hasta 5; D8-10 = A); exportBackup responde BackupEnvelopeV33 (schemaVersion 3.3.0, biography opcional por mascota) y updatePet acepta biography (#21, D8-12 = A). Sin registro con correo, sin verificación, sin aprobación de registro ni /api/admin (diferidos a 009); sin cambio de STATE-AUTH-SESSION-001. Antes: MINOR 3.2.0: exportBackup responde BackupEnvelopeV32 (schemaVersion 3.2.0, REQ-FAL7-009) e ImportPreviewResult +lifeStatusChanges opcional (T1022). Antes, MINOR aditiva (feature 007, #13, N2-07-01 y EDGE-007-009): updatePet exige If-Match con la version de la ficha y responde 412 ERR-PET-VERSION-CONFLICT; PetProfile (en PetCardView y PetDashboardView) y los cuerpos de mascota llevan lifeStatus, deceasedAt y version como opcionales. Sin rutas nuevas."
     traceability: [REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AUTH-003, REQ-AUTH-004, REQ-ACC-001, REQ-ACC-002, REQ-TIME-001, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET-004, REQ-OWN-001, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-RBAC-001, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, INV-ACC2-001, INV-ACC2-002, INV-AUTH2-001, INV-AUTH2-002, INV-HOUSE2-001, INV-PET2-001, INV-REC2-002, INV-OWN2-001]
 servers:
   - url: http://127.0.0.1:3100/api
@@ -118,6 +119,125 @@ paths:
               schema: { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
         '401': { $ref: '#/components/responses/Problem' }
         '500': { $ref: '#/components/responses/Problem' }
+  /auth/google/start:
+    get:
+      tags: [auth]
+      operationId: startGoogleLogin
+      summary: "Inicia el acceso con Google: OIDC authorization code con PKCE S256, state y nonce de un solo uso, scope openid email; responde 302 a Google y entrega la cookie argos_oauth [REQ-AUTH2-002, INV-AUTH-006]"
+      description: "Navegación de la SPA (GET sin cuerpo, sin sesión). El estado real del flujo (state, nonce, verificador PKCE, expires_at 900 s) vive en el servidor; la cookie argos_oauth lleva solo un identificador opaco (HttpOnly, SameSite=Lax, Path=/api/auth/google, Max-Age 900 s, Secure en Cloud). La URI de redirección es fija por entorno, nunca derivada de Host. Sin cuerpo ni parámetros: nada del cliente entra en la URL de Google."
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-AUTH2-002, INV-AUTH-006]
+      x-sdd-rate-limit: "GOOGLE_START_MAX_PER_WINDOW por GOOGLE_START_WINDOW_MINUTES y por IP efectiva (configurable en src/infrastructure/config/; ERR-RATE-LIMITED)"
+      security: []
+      responses:
+        '302':
+          description: "Location = URL de autorización de Google; cuerpo vacío; sin sesión"
+          headers:
+            Location: { description: "https://accounts.google.com/...; no se registra", schema: { type: string, format: uri, pattern: '^https://accounts\.google\.com/' } }
+            Set-Cookie: { $ref: '#/components/headers/OAuthStateCookie' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+        '429': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /auth/google/callback:
+    get:
+      tags: [auth]
+      operationId: completeGoogleLogin
+      summary: "Retorno de Google: canjea el código, verifica el id_token y establece la sesión en una respuesta 200 con página mínima (no en un 302 cross-site) [REQ-AUTH2-002, INV-AUTH-006]"
+      description: "El servidor valida state y nonce contra la cookie argos_oauth (de un solo uso), canjea el código con PKCE, y verifica del id_token la firma (JWKS de Google), iss = https://accounts.google.com, aud = client id de ARGOS, exp, nonce y email_verified = true. La identidad se ancla en sub, nunca en el correo. Casos: (1) sub conocido: sesión nueva (cookie argos_session SameSite=Strict) y la página navega a /; (2) sub desconocido: la cuenta NO se crea todavía, la página lleva a «Elige tu usuario» (POST /auth/google/username) y el estado intermedio expira a 900 s; (3) intención de vinculación (POST /auth/google/link previo): exige que la sesión de origen (la que inició la vinculación, identificada por el resumen guardado en servidor) siga activa, no revocada, del mismo usuario y vigente por inactividad (30 min) y tope (24 h) sin renovarla; si no, falla con el mismo 400 uniforme. Si lo es, vincula el sub a esa cuenta, revoca las demás sesiones conservando la de origen y la página navega a /; este caso NO emite Set-Cookie argos_session (la cookie Strict de origen no viaja en el callback y sigue vigente al navegar a /). Un correo de Google igual al de una cuenta antigua sin correo verificado NO la reclama ni vincula nada: no hay autovinculación por correo (D8-14). La página se sirve con una CSP de página sin script en línea (no API_CSP), p. ej. meta refresh o script del mismo origen. Cualquier fallo responde 400 con el mismo código, cuerpo y estado (ERR-AUTH-GOOGLE-FAILED)."
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-AUTH2-002, INV-AUTH-006]
+      x-sdd-rate-limit: "GOOGLE_CALLBACK_MAX_PER_WINDOW por GOOGLE_CALLBACK_WINDOW_MINUTES y por IP efectiva (configurable; ERR-RATE-LIMITED)"
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: false
+          description: "Código de autorización de Google; ausente si el usuario canceló (llega error)"
+          schema: { type: string, minLength: 1, maxLength: 2048 }
+        - name: state
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 256 }
+        - name: error
+          in: query
+          required: false
+          description: "Código de error de Google (p. ej. access_denied); se trata como fallo uniforme y nunca se refleja en la respuesta"
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        '200':
+          description: "Página mínima que navega a / (sesión establecida o vinculación hecha) o a la pantalla «Elige tu usuario»; Set-Cookie argos_session solo en el caso 1; argos_oauth siempre se retira"
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/SessionCookie' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+            Referrer-Policy: { schema: { type: string, const: no-referrer } }
+          content:
+            text/html:
+              schema: { type: string, maxLength: 4096 }
+        '400': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /auth/google/username:
+    post:
+      tags: [auth]
+      operationId: chooseGoogleUsername
+      summary: "Primer acceso con Google: elige el username y crea la cuenta (sin contraseña, correo verificado por Google) con sesión iniciada [REQ-AUTH2-001, INV-AUTH-001]"
+      description: "Usa el estado intermedio identificado por la cookie argos_oauth (Path=/api/auth/google, 900 s). Inserta o recupera de forma atómica sobre (provider, provider_subject): un segundo intento recupera la cuenta, nunca un 500. El cuerpo es cerrado: no admite correo, rol ni estado de cuenta. Si el correo de Google coincidía con el de una cuenta antigua sin correo verificado, esa cuenta pierde el correo (D8-14) y la nueva lo conserva verificado."
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-AUTH2-001, INV-AUTH-001]
+      x-sdd-rate-limit: "GOOGLE_USERNAME_MAX_PER_WINDOW por GOOGLE_USERNAME_WINDOW_MINUTES y por IP efectiva (configurable; ERR-RATE-LIMITED)"
+      security: []
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/identity.schema.json#/$defs/GoogleChooseUsernameInput' }
+      responses:
+        '201':
+          description: "Cuenta creada y sesión iniciada (cookie argos_session); argos_oauth se retira"
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/SessionCookie' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /auth/google/link:
+    post:
+      tags: [auth]
+      operationId: startGoogleLink
+      summary: "Vincula Google a la cuenta de la sesión activa: exige la contraseña actual y devuelve la URL de autorización [REQ-AUTH2-003, INV-AUTH-006]"
+      description: "Sin autovinculación por correo y sin enlace por correo (M8-02): la prueba de control es la sesión activa más la contraseña actual. Guarda en el servidor la intención de vinculación con el id de usuario y un resumen de la sesión de origen (el mismo SHA-256 hexadecimal que identifica la sesión; nunca el token), y la cookie argos_oauth la identifica. Al volver, el callback exige que esa sesión de origen siga activa, vincula el sub (la dirección de correo de Google no tiene que coincidir), revoca las demás sesiones de la cuenta conservando la de origen y audita sin correo ni sub. Una cuenta sin contraseña (nacida con Google) no tiene este flujo. No hay operación de desvincular en esta versión (M8-03)."
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-AUTH2-003, INV-AUTH-006]
+      x-sdd-rate-limit: "Contador de intentos de contraseña por identificador normalizado (REQ-LOG-001, ERR-AUTH-TOO-MANY-ATTEMPTS) y GOOGLE_LINK_MAX_PER_WINDOW por GOOGLE_LINK_WINDOW_MINUTES y por usuario (ERR-RATE-LIMITED)"
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/identity.schema.json#/$defs/GoogleLinkStartInput' }
+      responses:
+        '200':
+          description: "URL de autorización de Google; Set-Cookie argos_oauth"
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/OAuthStateCookie' }
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/identity.schema.json#/$defs/GoogleAuthorizationView' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /account/password:
     post:
       tags: [account]
@@ -217,7 +337,7 @@ paths:
               schema: { type: string, const: no-store }
           content:
             application/json:
-              schema: { $ref: '../schemas/backup-envelope.schema.json#/$defs/BackupEnvelopeV32' }
+              schema: { $ref: '../schemas/backup-envelope.schema.json#/$defs/BackupEnvelopeV33' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '429': { $ref: '#/components/responses/Problem' }
@@ -810,6 +930,34 @@ paths:
         '422': { $ref: '#/components/responses/Problem' }
         '429': { $ref: '#/components/responses/Problem' }
         '500': { $ref: '#/components/responses/Problem' }
+  /households/{householdId}/invitees:
+    parameters:
+      - { $ref: '#/components/parameters/HouseholdId' }
+    get:
+      tags: [households]
+      operationId: searchInvitees
+      summary: "Autocompleta colaboradores por prefijo de username (mínimo 3 caracteres, hasta 5 resultados, solo username); respuesta de forma y estado uniformes con o sin coincidencias [REQ-HOUSE2-001, REQ-RBAC-001, INV-HOUSE-003]"
+      description: "Solo para quien puede invitar (MANAGE_HOUSEHOLD_MEMBERS). Compara LOWER(username) con el prefijo (D8-10 = A: no hay búsqueda por correo y REQ-HOUSE2-001 «no se invita por correo» no cambia). Excluye al propio invitador, a miembros ACTIVE y a cuentas ya invitadas al hogar sin cambiar la forma de la respuesta. La consulta y los resultados no se escriben en logs ni en auditoría. Un prefijo de menos de 3 caracteres es 422 sin consultar. Cache-Control: no-store."
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-HOUSE2-001, REQ-RBAC-001, INV-HOUSE-003]
+      x-sdd-rbac-action: "MANAGE_HOUSEHOLD_MEMBERS"
+      x-sdd-rate-limit: "INVITEE_SEARCH_MAX_PER_WINDOW por INVITEE_SEARCH_WINDOW_MINUTES y por usuario y por IP efectiva (configurable en src/infrastructure/config/; ERR-RATE-LIMITED)"
+      parameters:
+        - { $ref: '#/components/parameters/InviteeQuery' }
+      responses:
+        '200':
+          description: "Hasta 5 sugerencias; el mismo estado, forma y coste con y sin coincidencias"
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/identity.schema.json#/$defs/InviteeSearchResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
   /households/{householdId}/invitations/{invitationId}:
     parameters:
       - { $ref: '#/components/parameters/HouseholdId' }
@@ -990,6 +1138,9 @@ components:
     SessionCookie:
       description: argos_session=<token>; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400 (Secure en Cloud)
       schema: { type: string }
+    OAuthStateCookie:
+      description: argos_oauth=<id opaco>; HttpOnly; SameSite=Lax; Path=/api/auth/google; Max-Age=900 (Secure en Cloud); de un solo uso. SameSite=Lax solo para esta cookie (Enmienda constitucional 3.8.0); argos_session conserva Strict
+      schema: { type: string }
     ExpiredCookie:
       description: argos_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0
       schema: { type: string }
@@ -1003,6 +1154,12 @@ components:
       required: true
       description: Obligatoria en toda petición que modifica estado, incluida la exportación (emite token); si falta, ERR-AUTH-CSRF-REJECTED. Se valida antes que la sesión y no renueva actividad [INV-AUTH-007]
       schema: { type: string, const: '1' }
+    InviteeQuery:
+      name: q
+      in: query
+      required: true
+      description: "Prefijo de username, mínimo 3 caracteres"
+      schema: { $ref: '../schemas/identity.schema.json#/$defs/InviteeSearchPrefix' }
     PetIfMatch:
       name: If-Match
       in: header

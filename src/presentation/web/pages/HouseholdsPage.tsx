@@ -7,11 +7,14 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Button, FormError, SelectField, TextField } from '../components/Field.tsx';
+import { InviteeCombobox } from '../components/InviteeCombobox.tsx';
 import { HomeScene } from '../components/HomeScene.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { useSession } from '../session.tsx';
+import { roleHelpText } from '../role-help.ts';
 import { ownerSceneVisible } from '../scene-view.ts';
 import { useContractForm } from '../use-contract-form.ts';
+import type { FieldErrors } from '../validation.ts';
 import { useInvitations } from './AppShell.tsx';
 import {
   canChangeRole,
@@ -127,15 +130,22 @@ export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, invite
                 </span>
                 {member.membership.isHouseholdOwner ? <span className="text-xs font-semibold text-slate-800">Propietario</span> : null}
               </span>
+              {roleHelpText(member.membership.role) === null ? null : (
+                // REQ-ROL8-001 (#25): frase de lo que el rol puede y no puede hacer, asociada al rol y al selector por aria-describedby.
+                <p id={`member-${member.membership.membershipId}-role-help`} data-role-help={member.membership.role} className="w-full text-sm text-text-muted">
+                  {roleHelpText(member.membership.role)}
+                </p>
+              )}
               <span className="flex flex-wrap items-center gap-2">
                 {onChangeRole !== undefined && canChangeRole(view, member, myUserId) ? (
                   <label className="flex items-center gap-1 text-sm text-slate-800">
                     <span>Rol de {member.membership.displayName}</span>
                     <select
                       aria-label={`Rol de ${member.membership.displayName}`}
+                      {...(roleHelpText(member.membership.role) === null ? {} : { 'aria-describedby': `member-${member.membership.membershipId}-role-help` })}
                       value={member.membership.role}
                       onChange={(e) => onChangeRole(member.membership.userId, e.target.value as HouseholdRole)}
-                      className="min-h-10 rounded-xl border border-border-strong bg-white px-2 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      className="min-h-11 rounded-xl border border-border-strong bg-white px-2 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       {ASSIGNABLE_ROLES.map((role) => (
                         <option key={role} value={role}>
@@ -165,6 +175,32 @@ export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, invite
   );
 }
 
+/** Selector «Rol al unirse» con la frase de ayuda del rol elegido asociada por `aria-describedby` (REQ-ROL8-001, #25); el Administrador no tiene frase aprobada (D8-13). */
+export function RoleOnJoinSelect({ householdId, value, onChange, errors }: {
+  readonly householdId: string;
+  readonly value: string;
+  readonly onChange: (name: string, value: string) => void;
+  readonly errors: FieldErrors;
+}): JSX.Element {
+  const help = roleHelpText(value as HouseholdRole);
+  return (
+    <SelectField
+      id={`invite-${householdId}-roleOnJoin`}
+      label="Rol al unirse"
+      name="roleOnJoin"
+      value={value}
+      options={[
+        { value: 'ADMIN', label: 'Administrador' },
+        { value: 'CAREGIVER', label: 'Cuidador' },
+        { value: 'READER', label: 'Lector' },
+      ]}
+      onChange={onChange}
+      errors={errors}
+      {...(help === null ? {} : { help: <span data-role-help={value}>{help}</span> })}
+    />
+  );
+}
+
 function InviteForm({ householdId, onInvited }: { readonly householdId: string; readonly onInvited: () => Promise<void> }): JSX.Element {
   const { api } = useSession();
   const form = useContractForm({
@@ -179,20 +215,8 @@ function InviteForm({ householdId, onInvited }: { readonly householdId: string; 
   });
   return (
     <form noValidate aria-label="Invitar miembro" onSubmit={(e) => void form.onSubmit(e)} className="flex flex-wrap items-end gap-3">
-      <TextField id={`invite-${householdId}`} label="Invitar por usuario" name="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
-      <SelectField
-        id={`invite-${householdId}-roleOnJoin`}
-        label="Rol al unirse"
-        name="roleOnJoin"
-        value={form.values.roleOnJoin ?? 'READER'}
-        options={[
-          { value: 'ADMIN', label: 'Administrador' },
-          { value: 'CAREGIVER', label: 'Cuidador' },
-          { value: 'READER', label: 'Lector' },
-        ]}
-        onChange={form.onChange}
-        errors={form.errors}
-      />
+      <InviteeCombobox id={`invite-${householdId}`} householdId={householdId} label="Invitar por usuario" name="username" value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
+      <RoleOnJoinSelect householdId={householdId} value={form.values.roleOnJoin ?? 'READER'} onChange={form.onChange} errors={form.errors} />
       <Button type="submit" disabled={form.busy}>
         Invitar
       </Button>

@@ -60,7 +60,7 @@ Primero ejecute `bash scripts/verify-bootstrap-inputs.sh` (solo lectura local, p
 
 1. `bash terraform/bootstrap.sh` en dry-run (imprime los comandos) y luego `bash terraform/bootstrap.sh --execute`, con `ARGOS_PROJECT_ID`, `ARGOS_GITHUB_REPO`, `ARGOS_BILLING_ACCOUNT` y `ARGOS_GITHUB_REVIEWER` exportadas. El script concede `roles/billing.costsManager` a `argos-terraform@` sobre la **cuenta de facturación** (no de proyecto; requisito del presupuesto, REQ-IAC-009); no se concede a `argos-terraform-plan@` ni se usa `billing.admin`.
 2. El paso 6 del script crea las variables de GitHub y el paso 7 el Environment `produccion` (revisor: Neo, solo rama `main`). El paso 8 solo imprime las órdenes de los secretos.
-3. Neo pega los secretos por entrada estándar: `gh secret set TF_VAR_database_url --repo <dueno/repo>`, `gh secret set TF_VAR_audit_hmac_secret --repo <dueno/repo>`, `gh secret set TF_VAR_share_ip_hmac_secret --repo <dueno/repo>` y `gh secret set DATABASE_URL_DIRECT --repo <dueno/repo>`.
+3. Neo pega los secretos por entrada estándar: `gh secret set TF_VAR_database_url --repo <dueno/repo>`, `gh secret set TF_VAR_audit_hmac_secret --repo <dueno/repo>`, `gh secret set TF_VAR_share_ip_hmac_secret --repo <dueno/repo>` y `gh secret set DATABASE_URL_DIRECT --repo <dueno/repo>`, `gh secret set GOOGLE_OAUTH_CLIENT_ID --repo <dueno/repo>` y `gh secret set GOOGLE_OAUTH_REDIRECT_URI --repo <dueno/repo>`.
 4. Se abre un PR que toque `terraform/**`: el primer plan corre en `infraestructura.yml`; el `apply` solo corre desde `main` tras la aprobación de Neo en `produccion`.
 
 | Tipo | Nombre | Origen |
@@ -69,6 +69,8 @@ Primero ejecute `bash scripts/verify-bootstrap-inputs.sh` (solo lectura local, p
 | Secreto | `TF_VAR_audit_hmac_secret` | Neo (>= 32 bytes hex) |
 | Secreto | `TF_VAR_share_ip_hmac_secret` | Neo (>= 32 bytes hex; HMAC de la IP en la auditoría de enlaces compartidos). Único input humano de la directiva 005: lo lee `infraestructura.yml` y crea el secreto `argos-share-ip-hmac-secret` por Terraform |
 | Secreto | `DATABASE_URL_DIRECT` | Neo (URL directa sin `-pooler`, rol `argos_migrator`); la leen la validación de secretos de `infraestructura.yml` y la migración de `deploy-argos.yml` |
+| Secreto | `GOOGLE_OAUTH_CLIENT_ID` | Neo (ID de cliente OAuth de Google con forma `NUMERO-XXXX.apps.googleusercontent.com`, creado en la consola de Google); lo lee `infraestructura.yml` como `TF_VAR_google_oauth_client_id`. El secreto de cliente de Google no entra en GitHub ni en Terraform |
+| Secreto | `GOOGLE_OAUTH_REDIRECT_URI` | Neo (`https://<host>/api/auth/google/callback`, la misma URI registrada en la consola de Google); lo lee `infraestructura.yml` como `TF_VAR_google_oauth_redirect_uri` |
 | Variable | `TF_VAR_project_id`, `TF_VAR_region` | `bootstrap.sh` paso 6 |
 | Variable | `TF_VAR_billing_account` | `bootstrap.sh` paso 6, desde `ARGOS_BILLING_ACCOUNT`; **obligatoria** (presupuesto, REQ-IAC-009) |
 | Variable | `TF_VAR_custom_domain` | Neo: `""` (F3 desactivado); si GitHub rechaza el valor vacío, no crearla |

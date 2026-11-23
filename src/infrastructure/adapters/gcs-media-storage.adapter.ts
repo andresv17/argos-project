@@ -4,7 +4,7 @@
  *
  * - `createReadUrl`: URL V4 `GET` por host virtual (`https://<bucket>.storage.googleapis.com/<clave>?...`), con `X-Goog-Expires` igual al
  *   TTL, `response-content-type` (tipo detectado) y `response-content-disposition: inline; filename="<nombre neutro>"` firmados (D-14 A,
- *   INV-ARC-004). La firma usa `signBlob` de la cuenta de ejecución (credenciales por defecto de Cloud Run): este código no lee ni crea
+ *   INV-ARC-004); con `disposition: 'attachment'` (descarga de la escena, REQ-UX8-002) el valor es `attachment; filename="argos-hogar-AAAA-MM-DD.png"`. La firma usa `signBlob` de la cuenta de ejecución (credenciales por defecto de Cloud Run): este código no lee ni crea
  *   llaves de cuenta de servicio.
  * - `put` usa carga simple (no reanudable) con validación MD5; `delete` ignora el inexistente; `list` recorre todas las páginas.
  * - Saneado de errores (C-7, NFR-ALM-002, SC-ALM-024): todo fallo del SDK, de la red o de `signBlob` se traduce a
@@ -24,7 +24,7 @@ import {
   type MediaStorageOperation,
   type MediaStoragePort,
 } from '../../application/ports/media-storage.port.ts';
-import { assertListPrefix, assertMediaKey, assertNeutralFilename, assertTtlSeconds } from './media-storage-guards.ts';
+import { assertListPrefix, assertMediaKey, assertNeutralFilename, assertTtlSeconds, contentDispositionOf } from './media-storage-guards.ts';
 
 const BUCKET_NAME = /^[a-z0-9][a-z0-9._-]{1,62}$/;
 
@@ -114,7 +114,7 @@ export class GcsMediaStorageAdapter implements MediaStoragePort {
   async createReadUrl(request: MediaReadUrlRequest): Promise<MediaReadUrl> {
     assertMediaKey(request.key);
     assertTtlSeconds(request.ttlSeconds, request.allowShortTtl === true);
-    assertNeutralFilename(request.filename);
+    assertNeutralFilename(request.filename, request.disposition);
     // Se alinea el inicio al segundo para que X-Goog-Expires sea exactamente el TTL configurado.
     const startMs = Math.floor(this.now().getTime() / 1000) * 1000;
     const expiresMs = startMs + request.ttlSeconds * 1000;
@@ -129,7 +129,7 @@ export class GcsMediaStorageAdapter implements MediaStoragePort {
           accessibleAt: new Date(startMs),
           expires: expiresMs,
           responseType: request.contentType,
-          responseDisposition: `inline; filename="${request.filename}"`,
+          responseDisposition: contentDispositionOf(request),
         });
       return { url, expiresAt: new Date(expiresMs).toISOString() };
     });

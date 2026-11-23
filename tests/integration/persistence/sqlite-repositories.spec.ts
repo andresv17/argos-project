@@ -15,6 +15,7 @@ import { sessionTokenHash } from '../../../src/infrastructure/persistence/sqlite
 import { SqliteUnitOfWork } from '../../../src/infrastructure/persistence/sqlite/sqlite-unit-of-work.ts';
 import { ARGOS as ARGOS_001, HOUSEHOLD, MEMBERSHIPS, envelope as envelope001, fixtures } from '../../fixtures/application-harness.ts';
 import { upgradeEnvelope, upgradePet } from '../../fixtures/storage-upgrade.ts';
+import { defineAuthIdentityRepositoryContractSuite } from '../../fixtures/auth-identity-repository-contract-suite.ts';
 import { defineMediaRepositoryContractSuite } from '../../fixtures/media-repository-contract-suite.ts';
 import { defineRepositoryContractSuite } from '../../fixtures/repository-contract-suite.ts';
 import { dumpSqlite, seedSqlite } from '../../fixtures/sqlite-harness.ts';
@@ -52,9 +53,10 @@ const domainFields = (error: unknown) =>
 
 defineRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 defineMediaRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
+defineAuthIdentityRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 
 describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlite/sqlite-database.ts)', () => {
-  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001 a 0013 crean las 29 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
+  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001 a 0017 crean las 31 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
     const dir = tempDir();
     const path = join(dir, 'datos', 'argos.sqlite');
     const db = openSqliteDatabase(path);
@@ -67,6 +69,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
     expect([...state, versions]).toEqual([
       [
         'audit_log',
+        'auth_identities',
         'backup_confirmation_tokens',
         'body_measurements',
         'custom_parameters',
@@ -79,6 +82,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
         'login_attempts',
         'media_deletion_queue',
         'medical_visits',
+        'oauth_flow_states',
         'pet_assignments',
         'pet_media',
         'pets',
@@ -99,7 +103,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       1,
       'wal',
       [],
-      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql', '0014_pet_life_status.sql', '0015_share_link_deceased_at.sql'],
+      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql', '0014_pet_life_status.sql', '0015_share_link_deceased_at.sql', '0016_pet_biography.sql', '0017_google_sso.sql'],
     ]);
   });
 
@@ -128,7 +132,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       revoked_at: '2026-11-05T13:00:00.000Z',
       data: { userId: 'a0000000-0000-4000-8000-000000000001', createdAt: '2026-11-05T12:00:00.000Z', lastActivityAt: '2026-11-05T12:00:00.000Z', revokedAt: '2026-11-05T13:00:00.000Z' },
     });
-    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql', '0014_pet_life_status.sql', '0015_share_link_deceased_at.sql']]);
+    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql', '0014_pet_life_status.sql', '0015_share_link_deceased_at.sql', '0016_pet_biography.sql', '0017_google_sso.sql']]);
   });
 
   it('[REQ-ACC-001][ERR-INTERNAL-UNEXPECTED] la base rechaza un idioma fuera de es/en/pt, un ámbito de frecuencia desconocido y un rol o estado de invitación inválido', () => {

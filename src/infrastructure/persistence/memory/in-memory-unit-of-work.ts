@@ -43,7 +43,14 @@ import { avatarObjectKey, mediaObjectKey } from '../../../domain/media/index.ts'
 import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
 import { EXPIRY_DAYS, type ShareLinkRecord, type ShareScope } from '../../../domain/sharing/share-link.ts';
 import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
+import type {
+  AuthIdentityRecord,
+  AuthIdentityRepositoryPort,
+  OAuthFlowStateRecord,
+  OAuthFlowStateRepositoryPort,
+} from '../../../application/ports/auth-identity.port.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
+import { hashSessionToken } from '../../../domain/auth/session-policy.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
 
@@ -74,6 +81,10 @@ export interface MemoryState extends SceneMemoryState {
   shareLinks: ShareLinkRecord[];
   /** `share_link_audit` (feature 005, REQ-VET-008). */
   shareAudit: ShareAuditRecord[];
+  /** `auth_identities` (feature 008, REQ-SSO8-001); opcional: ausente = vacía. */
+  authIdentities?: AuthIdentityRecord[];
+  /** `oauth_flow_states` (feature 008, REQ-SSO8-004); opcional: ausente = vacía. */
+  oauthFlows?: OAuthFlowStateRecord[];
   /** Escena del hogar (feature 006): `scenes`, `sceneAttempts`, `sceneConsents` y `sceneQuotaCarry` (opcionales; ausentes = vacías). */
 }
 
@@ -110,6 +121,8 @@ export function emptyMemoryState(): MemoryState {
     auditLog: [],
     shareLinks: [],
     shareAudit: [],
+    authIdentities: [],
+    oauthFlows: [],
     scenes: [],
     sceneAttempts: [],
     sceneConsents: [],
@@ -134,6 +147,25 @@ function userRepository(state: MemoryState): UserRepositoryPort {
     async listByEmail(normalizedEmail) {
       return copy(state.users.filter((u) => u.email !== null && u.email.toLowerCase() === normalizedEmail.toLowerCase()).slice(0, 2));
     },
+    async findVerifiedByEmail(normalizedEmail) {
+      return copy(state.users.find((u) => u.emailVerifiedAt !== undefined && u.email !== null && u.email.toLowerCase() === normalizedEmail.toLowerCase()) ?? null);
+    },
+    async releaseUnverifiedEmail(normalizedEmail) {
+      let released = 0;
+      state.users = state.users.map((u) => {
+        if (u.emailVerifiedAt !== undefined || u.email === null || u.email.toLowerCase() !== normalizedEmail.toLowerCase()) return u;
+        released += 1;
+        return { ...u, email: null };
+      });
+      return released;
+    },
+    async searchUsernamesByPrefix(lowerPrefix, limit) {
+      return state.users
+        .map((u) => u.username)
+        .filter((name) => name.toLowerCase().startsWith(lowerPrefix))
+        .sort((a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0))
+        .slice(0, limit);
+    },
     async listByIds(userIds) {
       return copy(state.users.filter((u) => userIds.includes(u.id)));
     },
@@ -141,16 +173,23 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       if (state.users.some((u) => u.id === user.id || u.username.toLowerCase() === user.username.toLowerCase())) {
         throw new Error(`users: id o username duplicado (${user.id}, ${user.username})`);
       }
+      if (user.emailVerifiedAt !== undefined && user.email !== null && state.users.some((u) => u.emailVerifiedAt !== undefined && u.email?.toLowerCase() === user.email?.toLowerCase())) {
+        throw new Error('users: el correo verificado ya tiene titular'); // índice único parcial users_email_verified_unique
+      }
       state.users.push(copy(user));
     },
     async update(user) {
       const index = state.users.findIndex((u) => u.id === user.id && u.username === user.username);
       if (index < 0) throw new Error(`users: el usuario ${user.id} no existe`);
-      state.users[index] = copy(user);
+      const { emailVerifiedAt: _ignored, ...rest } = copy(user); // update nunca modifica email_verified_at
+      const prior = state.users[index]!.emailVerifiedAt;
+      state.users[index] = prior === undefined ? rest : { ...rest, emailVerifiedAt: prior };
     },
     async delete(userId) {
       state.users = state.users.filter((u) => u.id !== userId);
       state.shareLinks = (state.shareLinks ?? []).filter((l) => l.createdByUserId !== userId); // como ON DELETE CASCADE
+      state.authIdentities = (state.authIdentities ?? []).filter((i) => i.userId !== userId);
+      state.oauthFlows = (state.oauthFlows ?? []).filter((f) => f.userId !== userId);
     },
     async countReferences(userId) {
       return (
@@ -161,7 +200,9 @@ function userRepository(state: MemoryState): UserRepositoryPort {
         Object.values(state.sessions).filter((session) => session.userId === userId).length +
         state.invitations.filter((i) => i.invitedByUserId === userId || i.inviteeUserId === userId).length +
         (state.confirmationTokens[userId] === undefined ? 0 : 1) +
-        state.rateEvents.filter((e) => e.userId === userId).length
+        state.rateEvents.filter((e) => e.userId === userId).length +
+        (state.authIdentities ?? []).filter((i) => i.userId === userId).length +
+        (state.oauthFlows ?? []).filter((f) => f.userId === userId).length
       );
     },
   };
@@ -179,6 +220,19 @@ function sessionRepository(state: MemoryState): SessionRepositoryPort {
       let revoked = 0;
       for (const [token, session] of Object.entries(state.sessions)) {
         if (token === keepToken || session.userId !== userId || session.revokedAt !== null) continue;
+        state.sessions[token] = { ...session, revokedAt: nowIsoTimestamp };
+        revoked += 1;
+      }
+      return revoked;
+    },
+    async findByTokenHash(tokenHash) {
+      const token = Object.keys(state.sessions).find((t) => hashSessionToken(t) === tokenHash);
+      return token === undefined ? null : copy(state.sessions[token]!);
+    },
+    async revokeOthersByTokenHash(userId, keepTokenHash, nowIsoTimestamp) {
+      let revoked = 0;
+      for (const [token, session] of Object.entries(state.sessions)) {
+        if (hashSessionToken(token) === keepTokenHash || session.userId !== userId || session.revokedAt !== null) continue;
         state.sessions[token] = { ...session, revokedAt: nowIsoTimestamp };
         revoked += 1;
       }
@@ -289,10 +343,13 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       }
       // Como el CHECK cruzado de 0014/0010 (REQ-FAL7-002): DECEASED <=> fecha de fallecimiento.
       if ((pet.lifeStatus === 'DECEASED') !== (pet.deceasedAt != null)) throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Objeto inválido para pets (${pet.id}); no se guarda.`);
+      // Como la columna y el CHECK de 0016/0012 (REQ-BIO8-001, REQ-BIO8-004): biografía de 0 a 280 caracteres, sin caracteres de control; nula o ausente = sin la clave.
+      const { biography = null, ...profile } = pet;
+      if (biography !== null && ([...biography].length > 280 || /[\u0000-\u001F\u007F]/u.test(biography))) throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Objeto inválido para pets (${pet.id}); no se guarda.`);
       // Como las columnas de 0014/0010 (REQ-FAL7-001, REQ-FAL7-011): estado y fecha completos; sin `version` explícita, guardar sobre una fila existente la incrementa.
       const previous = state.pets.find((p) => p.id === pet.id);
       const version = pet.version ?? (previous === undefined ? 1 : (previous.version ?? 1) + 1);
-      state.pets = [...state.pets.filter((p) => p.id !== pet.id), copy({ ...pet, lifeStatus: pet.lifeStatus ?? 'ALIVE', deceasedAt: pet.deceasedAt ?? null, version })];
+      state.pets = [...state.pets.filter((p) => p.id !== pet.id), copy({ ...profile, lifeStatus: pet.lifeStatus ?? 'ALIVE', deceasedAt: pet.deceasedAt ?? null, version, ...(biography === null ? {} : { biography }) })];
     },
     async delete(petId) {
       state.pets = state.pets.filter((p) => p.id !== petId);
@@ -623,6 +680,61 @@ function shareAuditRepository(state: MemoryState): ShareLinkAuditRepositoryPort 
   };
 }
 
+/** `auth_identities` (feature 008, REQ-SSO8-001): único por (provider, sub); el usuario debe existir (clave foránea). */
+function authIdentityRepository(state: MemoryState): AuthIdentityRepositoryPort {
+  const all = (): AuthIdentityRecord[] => (state.authIdentities ??= []);
+  return {
+    async findBySubject(provider, providerSubject) {
+      return copy(all().find((i) => i.provider === provider && i.providerSubject === providerSubject) ?? null);
+    },
+    async listByUser(userId) {
+      return copy(all().filter((i) => i.userId === userId));
+    },
+    async insertIfAbsent(identity) {
+      if (!state.users.some((u) => u.id === identity.userId)) throw new Error('auth_identities: el usuario no existe');
+      if (identity.providerSubject === '') throw new Error('auth_identities: provider_subject vacío');
+      if (all().some((i) => i.provider === identity.provider && i.providerSubject === identity.providerSubject)) return false;
+      all().push(copy(identity));
+      return true;
+    },
+  };
+}
+
+/** Forma coherente de una fila de `oauth_flow_states` (los CHECK de la migración 0017/0013). */
+function isCoherentFlow(f: OAuthFlowStateRecord): boolean {
+  const authorization = f.phase === 'AUTHORIZATION' && f.state !== null && f.nonce !== null && f.codeVerifier !== null && f.pendingSubject === null && f.pendingEmail === null;
+  const username = f.phase === 'USERNAME' && f.intent === 'LOGIN' && f.state === null && f.nonce === null && f.codeVerifier === null && f.pendingSubject !== null && f.pendingEmail !== null;
+  const originOk = (f.intent === 'LINK') === (f.originSessionHash !== null) && (f.originSessionHash === null || f.originSessionHash.length === 64);
+  return f.tokenHash.length === 64 && f.expiresAt > f.createdAt && (authorization || username) && (f.intent === 'LINK') === (f.userId !== null) && originOk;
+}
+
+/** `oauth_flow_states` (feature 008, REQ-SSO8-004): un solo uso por compare-and-set, vence a los 900 s. */
+function oauthFlowRepository(state: MemoryState): OAuthFlowStateRepositoryPort {
+  const all = (): OAuthFlowStateRecord[] => (state.oauthFlows ??= []);
+  return {
+    async insert(record) {
+      if (!isCoherentFlow(record)) throw new Error('oauth_flow_states: fila incoherente');
+      if (record.userId !== null && !state.users.some((u) => u.id === record.userId)) throw new Error('oauth_flow_states: el usuario no existe');
+      if (all().some((f) => f.tokenHash === record.tokenHash)) throw new Error('oauth_flow_states: identificador duplicado');
+      all().push(copy(record));
+    },
+    async findByTokenHash(tokenHash) {
+      return copy(all().find((f) => f.tokenHash === tokenHash) ?? null);
+    },
+    async consume(tokenHash, nowIsoTimestamp, expectedPhase) {
+      const index = all().findIndex((f) => f.tokenHash === tokenHash && f.phase === expectedPhase && f.consumedAt === null && f.expiresAt > nowIsoTimestamp);
+      if (index < 0) return null;
+      all()[index] = { ...all()[index]!, consumedAt: nowIsoTimestamp };
+      return copy(all()[index]!);
+    },
+    async purgeExpired(nowIsoTimestamp) {
+      const before = all().length;
+      state.oauthFlows = all().filter((f) => f.expiresAt > nowIsoTimestamp);
+      return before - state.oauthFlows.length;
+    },
+  };
+}
+
 function repositoriesOver(state: MemoryState): RepositorySet {
   return {
     users: userRepository(state),
@@ -642,6 +754,8 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     shareAudit: shareAuditRepository(state),
     scenes: memorySceneRepository(state),
     sceneConsents: memorySceneConsentRepository(state),
+    authIdentities: authIdentityRepository(state),
+    oauthFlows: oauthFlowRepository(state),
   };
 }
 

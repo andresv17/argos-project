@@ -29,6 +29,7 @@ import {
 } from '../../../generated/index.ts';
 // 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
 import { validateUserPublicProfile } from '../../../generated/v31/index.ts';
+import { authIdentityRepository, oauthFlowRepository } from './postgres-auth-repositories.ts';
 import { isStoredPetProfile, type LifeStatus, type PetProfile, type PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
@@ -87,8 +88,8 @@ const isStringArray: Check<string[]> = (value): value is string[] => Array.isArr
 /** COUNT(*) llega como bigint en texto. */
 const count = (row: Row | undefined): number => Number(row?.['n'] ?? 0);
 
-const USER_COLUMNS = 'SELECT id, username, password_hash, email, preferred_language, timezone, data FROM users';
-/** `$1` se reutiliza en las 9 subconsultas: un solo parámetro posicional. */
+const USER_COLUMNS = 'SELECT id, username, password_hash, email, email_verified_at, preferred_language, timezone, data FROM users';
+/** `$1` se reutiliza en las 11 subconsultas: un solo parámetro posicional. */
 const COUNT_REFERENCES =
   'SELECT (SELECT COUNT(*) FROM users WHERE id = $1)' +
   ' + (SELECT COUNT(*) FROM pets WHERE owner_user_id = $1)' +
@@ -98,7 +99,9 @@ const COUNT_REFERENCES =
   ' + (SELECT COUNT(*) FROM household_invitations WHERE invited_by_user_id = $1)' +
   ' + (SELECT COUNT(*) FROM household_invitations WHERE invitee_user_id = $1)' +
   ' + (SELECT COUNT(*) FROM backup_confirmation_tokens WHERE user_id = $1)' +
-  ' + (SELECT COUNT(*) FROM rate_limit_events WHERE subject_user_id = $1) AS n';
+  ' + (SELECT COUNT(*) FROM rate_limit_events WHERE subject_user_id = $1)' +
+  ' + (SELECT COUNT(*) FROM auth_identities WHERE user_id = $1)' +
+  ' + (SELECT COUNT(*) FROM oauth_flow_states WHERE user_id = $1) AS n';
 
 /** @implements INV-ARCH-004, INV-AUTH-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED */
 function userRepository(client: PoolClientLike): UserRepositoryPort {
@@ -109,10 +112,18 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
     const language = row['preferred_language'];
     if (typeof passwordHash !== 'string' || passwordHash === '') throw corruptData('users', id);
     if (language !== 'es' && language !== 'en' && language !== 'pt') throw corruptData('users', id);
-    return { ...profile, email: row['email'] as string | null, preferredLanguage: language, timezone: String(row['timezone']), passwordHash };
+    const verifiedAt = row['email_verified_at'];
+    return {
+      ...profile,
+      email: row['email'] as string | null,
+      preferredLanguage: language,
+      timezone: String(row['timezone']),
+      passwordHash,
+      ...(verifiedAt === null || verifiedAt === undefined ? {} : { emailVerifiedAt: String(verifiedAt) }),
+    };
   };
   const split = (user: UserAccount) => {
-    const { passwordHash, email, preferredLanguage, timezone, ...profile } = user;
+    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, ...profile } = user;
     if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
     return { passwordHash, email, preferredLanguage, timezone, data: encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile) };
   };
@@ -130,9 +141,21 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
       const { rows } = await client.query(`${USER_COLUMNS} WHERE LOWER(username) = LOWER($1)`, [username]);
       return rows[0] === undefined ? null : toAccount(rows[0]);
     },
+    async searchUsernamesByPrefix(lowerPrefix, limit) {
+      const { rows } = await client.query('SELECT username FROM users WHERE LEFT(LOWER(username), $1) = $2 ORDER BY LOWER(username) COLLATE "C" LIMIT $3', [[...lowerPrefix].length, lowerPrefix, limit]);
+      return rows.map((row) => String(row['username']));
+    },
     async listByEmail(normalizedEmail) {
       const { rows } = await client.query(`${USER_COLUMNS} WHERE LOWER(email) = LOWER($1) LIMIT 2`, [normalizedEmail]);
       return rows.map(toAccount);
+    },
+    async findVerifiedByEmail(normalizedEmail) {
+      const { rows } = await client.query(`${USER_COLUMNS} WHERE LOWER(email) = LOWER($1) AND email_verified_at IS NOT NULL LIMIT 1`, [normalizedEmail]);
+      return rows[0] === undefined ? null : toAccount(rows[0]);
+    },
+    async releaseUnverifiedEmail(normalizedEmail) {
+      const result = await client.query('UPDATE users SET email = NULL WHERE LOWER(email) = LOWER($1) AND email_verified_at IS NULL', [normalizedEmail]);
+      return result.rowCount ?? 0;
     },
     async listByIds(userIds) {
       const { rows } = await client.query(`${USER_COLUMNS} WHERE id = ANY($1::text[])`, [[...userIds]]);
@@ -141,8 +164,8 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
     async insert(user) {
       const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
       await client.query(
-        'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)',
-        [user.id, user.username, passwordHash, data, email, preferredLanguage, timezone],
+        'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)',
+        [user.id, user.username, passwordHash, data, email, preferredLanguage, timezone, user.emailVerifiedAt ?? null],
       );
     },
     async update(user) {
@@ -188,19 +211,38 @@ function sessionRepository(client: PoolClientLike): SessionRepositoryPort {
         [hash, session.userId, encode('sessions', hash.slice(0, 12), session, isSessionRecord), session.createdAt, session.lastActivityAt, session.revokedAt],
       );
     },
-    async revokeOthers(userId, keepToken, nowIsoTimestamp) {
-      // Un solo UPDATE por conjunto: `revoked_at` y `data.revokedAt` cambian juntos y la conservada queda fuera (REQ-AUTH2-003).
-      const result = await client.query(
-        `UPDATE sessions SET revoked_at = $3, data = jsonb_set(data, '{revokedAt}', to_jsonb($3::text))
-         WHERE user_id = $1 AND token_hash <> $2 AND revoked_at IS NULL`,
-        [userId, sessionTokenHash(keepToken), nowIsoTimestamp],
+    async findByTokenHash(tokenHash) {
+      const { rows } = await client.query('SELECT user_id, created_at, last_activity_at, revoked_at, data FROM sessions WHERE token_hash = $1', [tokenHash]);
+      const row = rows[0];
+      if (row === undefined) return null;
+      return decode(
+        'sessions',
+        tokenHash.slice(0, 12),
+        row['data'],
+        isSessionRecord,
+        (s) => s.userId === row['user_id'] && s.createdAt === row['created_at'] && s.lastActivityAt === row['last_activity_at'] && s.revokedAt === row['revoked_at'],
       );
-      return result.rowCount ?? 0;
+    },
+    async revokeOthers(userId, keepToken, nowIsoTimestamp) {
+      return revokeExcept(userId, sessionTokenHash(keepToken), nowIsoTimestamp);
+    },
+    async revokeOthersByTokenHash(userId, keepTokenHash, nowIsoTimestamp) {
+      return revokeExcept(userId, keepTokenHash, nowIsoTimestamp);
     },
     async deleteByUser(userId) {
       await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
     },
   };
+
+  async function revokeExcept(userId: string, keepHash: string, nowIsoTimestamp: string): Promise<number> {
+    // Un solo UPDATE por conjunto: `revoked_at` y `data.revokedAt` cambian juntos y la conservada queda fuera (REQ-AUTH2-003).
+    const result = await client.query(
+      `UPDATE sessions SET revoked_at = $3, data = jsonb_set(data, '{revokedAt}', to_jsonb($3::text))
+       WHERE user_id = $1 AND token_hash <> $2 AND revoked_at IS NULL`,
+      [userId, keepHash, nowIsoTimestamp],
+    );
+    return result.rowCount ?? 0;
+  }
 }
 
 /** @implements INV-AUTH-005, ERR-INTERNAL-UNEXPECTED */
@@ -280,7 +322,7 @@ const RECORD_TABLES: { readonly [M in RecordModule]: { readonly table: string; r
 };
 const RECORD_MODULE_NAMES = Object.keys(RECORD_TABLES) as RecordModule[];
 
-const PET_COLUMNS = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version';
+const PET_COLUMNS = 'id, owner_user_id, data, species, species_other, neutered, microchip_id, birth_date_is_estimate, life_status, deceased_at, version, biography';
 
 /** @implements INV-ARCH-004, INV-PET-005, REQ-PET2-001, ERR-INTERNAL-UNEXPECTED */
 function petRepository(client: PoolClientLike): PetRepositoryPort {
@@ -301,10 +343,14 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
         p.microchipId === row['microchip_id'] &&
         p.birthDateIsEstimate === (Number(row['birth_date_is_estimate']) === 1) &&
         (p.lifeStatus ?? 'ALIVE') === row['life_status'] && // filas anteriores a 007: `data` sin los campos = ALIVE/nulo (0010)
-        (p.deceasedAt ?? null) === (row['deceased_at'] ?? null),
+        (p.deceasedAt ?? null) === (row['deceased_at'] ?? null) &&
+        (p.biography ?? null) === (row['biography'] ?? null), // filas anteriores a 008: `data` sin el campo = NULL (0012)
     );
     // `version` solo vive en la columna (autoridad del If-Match, EDGE-007-009); `data` no la repite.
-    return { ...stored, lifeStatus: row['life_status'] as LifeStatus, deceasedAt: (row['deceased_at'] as string | null) ?? null, version: Number(row['version']) };
+    // REQ-BIO8-001: sin biografía no hay clave (la lectura de la ficha la expone como null).
+    const { biography: _stored, ...rest } = stored;
+    const biography = (row['biography'] as string | null) ?? null;
+    return { ...rest, lifeStatus: row['life_status'] as LifeStatus, deceasedAt: (row['deceased_at'] as string | null) ?? null, version: Number(row['version']), ...(biography === null ? {} : { biography }) };
   };
   return {
     async findById(petId) {
@@ -326,11 +372,11 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
       // (INV-PET-005, REQ-PET4-001). `data` no repite `version` (la columna manda); sin `version` explícita, guardar sobre una fila existente la incrementa (REQ-FAL7-011).
       const { version, ...stored } = pet;
       await client.query(
-        `INSERT INTO pets (${PET_COLUMNS}) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO pets (${PET_COLUMNS}) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          ON CONFLICT (id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id, data = EXCLUDED.data, species = EXCLUDED.species,
            species_other = EXCLUDED.species_other, neutered = EXCLUDED.neutered, microchip_id = EXCLUDED.microchip_id,
-           birth_date_is_estimate = EXCLUDED.birth_date_is_estimate, life_status = EXCLUDED.life_status, deceased_at = EXCLUDED.deceased_at,
-           version = CASE WHEN $12 = 1 THEN EXCLUDED.version ELSE pets.version + 1 END`,
+           birth_date_is_estimate = EXCLUDED.birth_date_is_estimate, life_status = EXCLUDED.life_status, deceased_at = EXCLUDED.deceased_at, biography = EXCLUDED.biography,
+           version = CASE WHEN $13 = 1 THEN EXCLUDED.version ELSE pets.version + 1 END`,
         [
           pet.id,
           pet.ownerUserId,
@@ -343,6 +389,7 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
           pet.lifeStatus ?? 'ALIVE',
           pet.deceasedAt ?? null,
           version ?? 1,
+          pet.biography ?? null,
           version === undefined ? 0 : 1,
         ],
       );
@@ -788,5 +835,7 @@ export function createPostgresRepositories(client: PoolClientLike): RepositorySe
     shareAudit: shareAuditRepository(client),
     scenes: postgresSceneRepository(client),
     sceneConsents: postgresSceneConsentRepository(client),
+    authIdentities: authIdentityRepository(client),
+    oauthFlows: oauthFlowRepository(client),
   };
 }

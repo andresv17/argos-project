@@ -6,7 +6,6 @@
  *  - `share_links` y `share_link_audit` quedan FUERA de la exportación (RAMA-005-008): el respaldo no los contiene ni resucita un `token_hash`.
  */
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../../src/application/ports/unit-of-work.port.ts';
@@ -29,7 +28,6 @@ import { KEY, SHARE_IP_SECRET, SequentialShareTokenGenerator, codeOf } from '../
 import { seedSqlite } from '../../fixtures/sqlite-harness.ts';
 import { SpyPasswordHasher } from '../../fixtures/test-doubles.ts';
 
-const PG_SHARE_SQL = ['0007_platform_parameters.sql', '0008_share_links.sql', '0011_share_link_deceased_at.sql'].map((m) => readFileSync(new URL(`../../../src/infrastructure/persistence/postgres/migrations/${m}`, import.meta.url), 'utf8')).join('\n');
 const PET_REF = { scope: 'PET', petId: ARGOS.id } as const;
 
 interface Engine {
@@ -51,7 +49,7 @@ const postgres: MakeEngine = async () => {
   const url = new URL(TEST_DATABASE_URL ?? '');
   url.searchParams.set('options', `-c search_path=${schema}`);
   const pool: PoolLike = createPostgresPool({ connectionString: url.toString(), pgPoolMax: 4 });
-  await pool.query(`${POSTGRES_SCHEMA_SQL}\n${PG_SHARE_SQL}`);
+  await pool.query(POSTGRES_SCHEMA_SQL);
   const { createPostgresRepositories } = (await import('../../../src/infrastructure/persistence/postgres/postgres-repositories.ts')) as { createPostgresRepositories: (client: PoolClientLike) => RepositorySet };
   const uow = new PostgresUnitOfWork(pool, createPostgresRepositories);
   await seedSqlite(uow, validBackupState());

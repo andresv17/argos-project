@@ -27,7 +27,9 @@ import type { MediaStoragePort } from '../ports/media-storage.port.ts';
 import type { AuditLogPort } from '../ports/audit-log.port.ts';
 import type { AuditPseudonymPort } from '../ports/audit-pseudonym.port.ts';
 import type { BackupTokenPort } from '../ports/backup-token.port.ts';
+import type { OneTimeTokenEntropyPort } from '../../domain/auth/one-time-token.ts';
 import type { ClockPort } from '../ports/clock.port.ts';
+import type { GoogleOidcPort } from '../ports/google-oidc.port.ts';
 import type { IdGeneratorPort } from '../ports/id-generator.port.ts';
 import type { PasswordHasherPort } from '../ports/password-hasher.port.ts';
 import type { PlatformParameterPort } from '../ports/platform-parameter.port.ts';
@@ -117,6 +119,15 @@ export interface SceneServices {
   readonly globalQuota?: SceneGlobalQuotaPort;
 }
 
+/**
+ * Acceso con Google (feature 008, `#16`): el proveedor OIDC y la entropía del identificador opaco de `argos_oauth`. Opcional: sin él las operaciones de Google
+ * fallan cerrado con `ERR-AUTH-GOOGLE-FAILED` (la composición lo conecta solo con las tres variables `GOOGLE_OAUTH_*`).
+ */
+export interface GoogleServices {
+  readonly oidc: GoogleOidcPort;
+  readonly entropy: OneTimeTokenEntropyPort;
+}
+
 export interface ApplicationDeps {
   readonly uow: UnitOfWorkPort;
   readonly clock: ClockPort;
@@ -150,6 +161,8 @@ export interface ApplicationDeps {
   readonly sceneHooks?: ScenePrivacyHooksPort;
   /** Servicios de la escena (feature 006, T852). Ausente: los casos de uso de la escena fallan cerrado con un error interno. */
   readonly scene?: SceneServices;
+  /** Acceso con Google (feature 008, T1121). Ausente: las operaciones de Google fallan cerrado. */
+  readonly google?: GoogleServices;
 }
 
 interface ValidatorWithErrors {
@@ -321,6 +334,12 @@ export function silenceAlertsOfDeceased<E extends { readonly alert: { readonly s
   return deceased ? entries.map((entry) => (entry.alert?.status === 'SUPERSEDED' ? entry : { ...entry, alert: null })) : [...entries];
 }
 
+/** La tarjeta del listado no lleva la biografía (REQ-BIO8-002); la escena tampoco la recibe (REQ-BIO8-003, INV-ESC6-010/017). */
+const withoutBiography = (pet: PetProfile): PetProfile => {
+  const { biography: _biography, ...rest } = pet;
+  return rest;
+};
+
 export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, records: PetRecordCollections, today: string, avatarVersion: number | null = null): PetCardView {
   const weights = computeWeightEvolutionSeries(records.weights);
   const deceased = pet.lifeStatus === 'DECEASED';
@@ -330,7 +349,7 @@ export function buildPetCard(pet: PetProfile, owner: OwnerTag, role: RbacRole, r
     silenceAlertsOfDeceased(deceased, evaluateDewormingAlerts(records.dewormings, today)),
   );
   return {
-    profile: { ...normalizePetProfile(pet), avatarVersion },
+    profile: { ...normalizePetProfile(withoutBiography(pet)), avatarVersion }, // REQ-BIO8-002: la biografía solo viaja en la ficha
     owner,
     myRole: role,
     permissions: petPermissionsFor(role),

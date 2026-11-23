@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PetProfile } from '../../src/generated/index.ts';
 import type { LegacyHouseholdMember as HouseholdMember } from '../../src/domain/households/household-policies.ts';
@@ -167,6 +168,21 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       expect(await rejection(seed(uow, (r) => r.users.insert({ ...MARIA, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa77' })))).not.toBe('resolved');
       expect(await rejection(seed(uow, (r) => r.users.insert({ ...MARIA, username: 'otro' })))).not.toBe('resolved');
       expect(await rejection(seed(uow, (r) => r.users.insert({ ...MARIA, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa78', username: 'ANDRES' })))).not.toBe('resolved');
+    });
+
+    it('[REQ-INV8-001][INV-ARCH-005] usuarios: la búsqueda por prefijo ignora mayúsculas, ordena por LOWER(username), respeta el límite y trata el guion bajo como literal', async () => {
+      const uow = await createUnitOfWork();
+      const names = ['pedro.b', 'Pedro.A', 'pedro_c', 'pedroXd', 'otro.usuario'];
+      await seed(uow, async (r) => {
+        for (const [i, username] of names.entries()) await r.users.insert({ ...MARIA, id: `aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaab${String(i).padStart(3, '0')}`, username });
+      });
+      const found = await read(uow, async (r) => ({
+        all: await r.users.searchUsernamesByPrefix('ped', 10),
+        limited: await r.users.searchUsernamesByPrefix('ped', 2),
+        underscore: await r.users.searchUsernamesByPrefix('pedro_', 10),
+        none: await r.users.searchUsernamesByPrefix('zzz', 10),
+      }));
+      expect(found).toEqual({ all: ['Pedro.A', 'pedro.b', 'pedro_c', 'pedroXd'], limited: ['Pedro.A', 'pedro.b'], underscore: ['pedro_c'], none: [] });
     });
 
     it('[INV-ARCH-005] sesiones e intentos de login: guardar reemplaza y la lectura devuelve lo último guardado', async () => {
@@ -356,6 +372,24 @@ export function defineRepositoryContractSuite(adapterName: string, createUnitOfW
       expect(state.map((x) => x?.revokedAt)).toEqual([null, at(120_000), at(1000), null]);
       await seed(uow, (r) => r.sessions.deleteByUser(ANDRES.id));
       expect(await read(uow, async (r) => Promise.all(['actual', 'otra', 'cerrada', 'ajena'].map(async (t) => (await r.sessions.findByToken(t)) !== null)))).toEqual([false, false, false, true]);
+    });
+
+    it('[REQ-VIN8-004][INV-VIN8-005] sesiones por hash: findByTokenHash encuentra la sesión por el SHA-256 de su token y revokeOthersByTokenHash conserva la del hash dado y revoca las demás vigentes del usuario', async () => {
+      const uow = await createUnitOfWork();
+      const sha = (token: string) => createHash('sha256').update(token, 'utf8').digest('hex');
+      await seed(uow, async (r) => {
+        await r.users.insert(ANDRES);
+        await r.users.insert(MARIA);
+        await r.sessions.save('actual', SESSION);
+        await r.sessions.save('otra', SESSION);
+        await r.sessions.save('cerrada', { ...SESSION, revokedAt: at(1000) });
+        await r.sessions.save('ajena', { ...SESSION, userId: MARIA.id });
+      });
+      expect(await read(uow, async (r) => [await r.sessions.findByTokenHash(sha('actual')), await r.sessions.findByTokenHash(sha('no-existe')), await r.sessions.findByTokenHash('corto')])).toEqual([SESSION, null, null]);
+      const revoked = await seed2(uow, (r) => r.sessions.revokeOthersByTokenHash(ANDRES.id, sha('actual'), at(120_000)));
+      const state = await read(uow, async (r) => Promise.all(['actual', 'otra', 'cerrada', 'ajena'].map((t) => r.sessions.findByToken(t))));
+      expect(revoked).toBe(1);
+      expect(state.map((x) => x?.revokedAt)).toEqual([null, at(120_000), at(1000), null]);
     });
 
     it('[INV-AUTH-005] intentos de login: deleteFailures borra los fallos del username', async () => {
