@@ -1,7 +1,7 @@
 # Tasks: SSO con Google, vinculación, biografía, autocompletado de colaboradores, permisos y UX de escena (Feature 008)
 
 **Input**: `specs/008-sso-portal-roles/` (`spec.md`, `plan.md`, `contracts/README.md`); `claude/inbox-feature-008.md`; `claude/decisiones-neo-008-2026-11-20.md`.
-**Estado**: `APPROVED` (firmado por Andrés Vallejo / Neo, Nivel 2, 2026-11-23; 62/64 tareas técnicas `COMPLETED`, cierre humano `T1175` y sincronización `T1176` en curso). Las decisiones `D8-01..D8-14` están resueltas o diferidas (`spec.md`); no queda ninguna decisión de Nivel 2 abierta en 008. El techo de los agentes es `REVIEW`; solo Neo marca `COMPLETED` y fija `APPROVED`/`LOCKED`.
+**Estado**: `APPROVED` / `COMPLETED` (firmado por Andrés Vallejo / Neo, Nivel 2, 2026-11-23; **64/64 tareas `COMPLETED`**, PR #61 fusionado en `main` y desplegado en producción). Las decisiones `D8-01..D8-14` están resueltas o diferidas (`spec.md`); no queda ninguna decisión de Nivel 2 abierta en 008. El techo de los agentes es `REVIEW`; solo Neo marca `COMPLETED` y fija `APPROVED`/`LOCKED`.
 **Numeración**: `T1101..T1200` (007 usó hasta `T1077`; no se reutiliza ningún ID). `T1101..T1176` son el borrador original; `T1177..T1200` se añadieron en la reconciliación previa a `/mouse`. **No se renumera nada**: las tareas diferidas conservan su ID en «Diferido a 009» al final de este archivo. Conteo vigente en 008: **64 tareas** con casilla (`[ ]`); **36 tareas** diferidas a 009 (sin casilla).
 **Sincronización GitHub Projects**: cada bloque `##` lleva su etiqueta `[GH:#N]` y cada tarea de bloque la repite (el script `gh-project-sync.mjs sync --tasks` la lee del encabezado o de la tarea). Cobertura en 008: `#16` Bloque A, `#17` Bloque B, `#53` Bloque F, `#54` Bloque G, `#55` Bloque H, `#21` Bloque I, `#24` Bloque J, `#25` Bloque K. Los Bloques C (`#18`), D (`#19`) y E (`#20`) están en «Diferido a 009» **sin casilla**, de modo que el script no cuenta esas tareas como abiertas de 008. Los bloques F, G, H, I, J y K son el **lote independiente** (sin dependencia de A y B). Gobernanza y cierre son transversales y no llevan etiqueta.
 
@@ -153,8 +153,8 @@
 
 - [x] T1173 [GOV] `/oracle` y `/seraph`: auditoría en disco de los Bloques A, B, F, G, H, I, J y K (diff, pruebas, E2E multi-navegador, accesibilidad) — NFR-008-002; SC-008-001..006, SC-008-009..014, SC-008-032..062. Dep: T1123, T1132, T1165, T1169, T1172, T1185, T1193, T1199
 - [x] T1174 Compuerta final: `bash scripts/verify-traceability.sh --feature 008`, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit`, `npm run test:gate`; `package.json` según `NFR-008-001` — NFR-008-001; SC-008-042. Dep: T1173
-- [ ] T1175 [HUM] Neo: firmas de cierre (`APPROVED`/`LOCKED`, `COMPLETED`, push y merge); ningún agente las ejecuta — SC-008-042. Dep: T1174
-- [ ] T1176 [GOV] `/morpheus`: `node scripts/gh-project-sync.mjs sync --tasks specs/008-sso-portal-roles/tasks.md` al abrir y al cerrar cada bloque — SC-008-042. Dep: T1109
+- [x] T1175 [HUM] Neo: firmas de cierre (`APPROVED`/`LOCKED`, `COMPLETED`, push y merge); ningún agente las ejecuta — SC-008-042. Dep: T1174
+- [x] T1176 [GOV] `/morpheus`: `node scripts/gh-project-sync.mjs sync --tasks specs/008-sso-portal-roles/tasks.md` al abrir y al cerrar cada bloque — SC-008-042. Dep: T1109
 
 ---
 
