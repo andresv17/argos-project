@@ -7,6 +7,7 @@ import { cloudLoggerOptions, redactSecrets } from '../../src/infrastructure/http
 import { GoogleRateLimiter } from '../../src/infrastructure/http/google-rate-limit.ts';
 import { registerProblemDetails } from '../../src/infrastructure/http/plugins/problem-details.ts';
 import { registerGoogleAuthRoutes } from '../../src/infrastructure/http/routes/google-auth.routes.ts';
+import { RegistrationRateLimiter } from '../../src/infrastructure/http/registration-rate-limit.ts';
 import type { UseCases } from '../../src/infrastructure/http/routes/use-cases.ts';
 
 /**
@@ -43,7 +44,7 @@ async function callbackApp(complete: () => Promise<unknown>): Promise<{ app: Fas
   await app.register(cookie);
   registerProblemDetails(app);
   const useCases = { googleComplete: { execute: complete } } as unknown as UseCases;
-  registerGoogleAuthRoutes(app, { useCases, cookieSecure: true }, new GoogleRateLimiter(() => Date.now()));
+  registerGoogleAuthRoutes(app, { useCases, cookieSecure: true }, new GoogleRateLimiter(() => Date.now()), new RegistrationRateLimiter(() => Date.now()));
   return { app, lines };
 }
 

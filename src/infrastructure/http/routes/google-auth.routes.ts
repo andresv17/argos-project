@@ -10,13 +10,14 @@
  *   `POST /api/account/deletion/google` (borrado con la prueba de titularidad; 204 con `argos_session` expirada). El retorno de Google de la intención DELETE usa el mismo callback.
  * - Límite de tasa por IP efectiva (`start`, `callback`, `username`) y por usuario (`link`): `ERR-RATE-LIMITED` uniforme (SC-008-061).
  *
- * @implements REQ-SSO8-001, REQ-SSO8-003, REQ-SSO8-004, REQ-SSO8-005, REQ-VIN8-002, REQ-VIN8-004, INV-VIN8-001, INV-VIN8-005, ADR-008-03, EDGE-008-006, INV-AUTH-003, REQ-DEL9-001, INV-DEL9-001
+ * @implements REQ-SSO8-001, REQ-SSO8-003, REQ-SSO8-004, REQ-SSO8-005, REQ-VIN8-002, REQ-VIN8-004, INV-VIN8-001, INV-VIN8-005, ADR-008-03, EDGE-008-006, INV-AUTH-003, REQ-DEL9-001, INV-DEL9-001, REQ-APR9-002, EDGE-009-040
  */
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { DomainError } from '../../../generated/index.ts';
 import { ONE_TIME_TOKEN_TTL_SECONDS } from '../../../domain/auth/one-time-token.ts';
 import type { GoogleRateLimiter } from '../google-rate-limit.ts';
+import type { RegistrationRateLimiter } from '../registration-rate-limit.ts';
 import { isAccountStatusResult } from '../../../application/use-cases/auth-use-cases.ts';
 import { jsonBody } from '../request-input.ts';
 import { clearSessionCookie, requireSession, sessionTokenOf, setSessionCookie } from '../plugins/session-auth.ts';
@@ -60,7 +61,7 @@ function landingPage(path: string): string {
 }
 
 /** @implements REQ-SSO8-001, REQ-SSO8-003, REQ-SSO8-004, REQ-SSO8-005, REQ-VIN8-002, ADR-008-03, EDGE-008-006 */
-export function registerGoogleAuthRoutes(app: FastifyInstance, { useCases, cookieSecure }: RouteContext, limiter: GoogleRateLimiter): void {
+export function registerGoogleAuthRoutes(app: FastifyInstance, { useCases, cookieSecure }: RouteContext, limiter: GoogleRateLimiter, registrationLimiter: RegistrationRateLimiter): void {
   app.get('/api/auth/google/start', async (request, reply) => {
     limiter.consume('start', request.ip);
     const { authorizationUrl, oauthToken } = await useCases.googleStart.execute();
@@ -99,7 +100,10 @@ export function registerGoogleAuthRoutes(app: FastifyInstance, { useCases, cooki
 
   app.post('/api/auth/google/username', async (request, reply) => {
     limiter.consume('username', request.ip);
+    // EDGE-009-040: el primer acceso con Google (elegir username) comparte el tope de registros nuevos por IP efectiva; solo una cuenta NUEVA (PENDING) gasta cupo.
+    registrationLimiter.assertAllowed(request.ip);
     const result = await useCases.googleChooseUsername.execute(oauthTokenOf(request), jsonBody(request.body));
+    if (isAccountStatusResult(result)) registrationLimiter.recordCreated(request.ip);
     clearOAuthCookie(reply, cookieSecure);
     // 009 (EDGE-009-006): la cuenta nueva nace PENDING y no hay sesión; una cuenta existente ACTIVE (carrera perdida) conserva la sesión.
     if (isAccountStatusResult(result)) return reply.status(201).send(result);

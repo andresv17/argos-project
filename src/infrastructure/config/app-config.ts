@@ -362,6 +362,17 @@ export const ADMIN_ACCESS_LIMIT = { maxFailures: 10, windowMinutes: 15 } as cons
  * `ERR-ADMIN-RATE-LIMITED` con `Retry-After`. Independiente del límite de fallos. Solo aquí viven los números (INV-ARCH-006).
  */
 export const ADMIN_START_LIMIT = { maxStarts: 20, windowMinutes: 15 } as const;
+/**
+ * Límite de registros NUEVOS por IP efectiva (feature 009, T1289, EDGE-009-040, REQ-APR9-002, D9-25 aprobado por Neo, ADR-009-15): `maxNewAccounts` cuentas creadas en `windowMinutes`
+ * (24 h); la siguiente responde `429` `ERR-ACCOUNT-REGISTRATION-RATE-LIMITED` con `Retry-After`, sin crear fila. Aplica al registro con contraseña y al primer acceso con Google
+ * (elegir username). Solo aquí viven los números (INV-ARCH-006).
+ */
+export const REGISTRATION_LIMIT = { maxNewAccounts: 5, windowMinutes: 24 * 60 } as const;
+/**
+ * Umbral de aviso de solicitudes `PENDING` (feature 009, T1289, EDGE-009-040, REQ-APR9-005, D9-25 aprobado por Neo): con MÁS de este número el operador recibe el aviso (el contador
+ * de `/admin` lo muestra; T1247/T1250 lo conectan). Solo aquí vive el número (INV-ARCH-006).
+ */
+export const PENDING_WARNING_THRESHOLD = 50;
 const ADMIN_EMAIL_MAX_LENGTH = 254;
 const ADMIN_EMAIL_LOCAL_MAX_LENGTH = 64;
 const ADMIN_EMAIL_PATTERN = /^[a-z0-9](?:[a-z0-9._%+-]*[a-z0-9])?@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/;

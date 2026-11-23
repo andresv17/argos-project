@@ -19,6 +19,7 @@ import { registerAuthRoutes } from './routes/auth.routes.ts';
 import { registerGoogleAuthRoutes } from './routes/google-auth.routes.ts';
 import { GoogleRateLimiter } from './google-rate-limit.ts';
 import { AdminAccessLimiter } from './admin-rate-limit.ts';
+import { RegistrationRateLimiter } from './registration-rate-limit.ts';
 import { registerAdminRoutes } from './routes/admin.routes.ts';
 import { registerBackupRoutes } from './routes/backup.routes.ts';
 import { registerAssignmentRoutes } from './routes/assignments.routes.ts';
@@ -78,8 +79,10 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
   });
   registerCsrfGuard(app);
   const context = { useCases: createUseCases(deps), cookieSecure };
-  registerAuthRoutes(app, context);
-  registerGoogleAuthRoutes(app, context, new GoogleRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())));
+  // Un solo límite de registros nuevos por IP efectiva (EDGE-009-040) compartido por el alta con contraseña y el primer acceso con Google.
+  const registrationLimiter = new RegistrationRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp()));
+  registerAuthRoutes(app, context, registrationLimiter);
+  registerGoogleAuthRoutes(app, context, new GoogleRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())), registrationLimiter);
   // Portal de administración (feature 009, Fase 3): solo si la composición conectó Google de administración; sin él `/api/admin/*` no existe (404).
   if (deps.admin !== undefined) registerAdminRoutes(app, context, new AdminAccessLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())));
   registerAccountRoutes(app, context);
