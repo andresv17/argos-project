@@ -242,7 +242,7 @@ Decisiones firmadas por Neo el 2026-11-23 tras las actas `/lock`, `/mifune` y `/
 - **SC-009-007** (`EDGE-009-005`): inicio de sesión de cuenta `PENDING`/`REJECTED` (contraseña y Google) no crea sesión útil.
 - **SC-009-008** (`REQ-APR9-006`, diferido): no existe `EmailSenderPort`, adaptador de correo ni dependencia de correo en `src/` ni en `package.json` (`D9-01` = A); `/admin` muestra el contador de pendientes.
 - **SC-009-009** (`REQ-ADM9-001`): sin sesión de administración, `/api/admin/*` y rutas de datos del portal responden igual que una ruta inexistente: mismo 404 que ruta inexistente sin sesión; mismo 403 que ruta inexistente para mutadores sin cabecera X-Argos-Request (guard global INV-AUTH-007); `GET /admin` sirve solo la pantalla de acceso.
-- **SC-009-010** (`NFR-009-001`): captura de pantallas y rutas de usuario idéntica antes y después (registro, menús, perfil): sin referencias a «Administrador».
+- **SC-009-010** (`NFR-009-001`): captura de pantallas y rutas de usuario idéntica antes y después (registro, menús, perfil): cero referencias NUEVAS al portal de administración en la aplicación de usuarios; la línea base cerrada de feature 008 (`role-help.ts`, `view-model.ts`, `HouseholdsPage.tsx`: rol de hogar) queda fija y comprobada por inventario.
 - **SC-009-011** (`INV-ADM9-002`): la cookie de usuario no autoriza `/api/admin/*` y la de administración no autoriza la API de usuarios.
 - **SC-009-012** (`REQ-ADM9-003`): ninguna ruta de usuario puede otorgar el rol de administración (prueba negativa de superficie).
 - **SC-009-013** (`REQ-ADM9-004`): cada acción de `/admin` deja una entrada de auditoría con id de administrador, acción y marca de tiempo, sin valores de prompt.

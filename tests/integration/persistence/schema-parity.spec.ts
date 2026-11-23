@@ -493,6 +493,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(BIOGRAPHY_PATH, 'utf8'));
         await client.query(readFileSync(GOOGLE_SSO_PATH, 'utf8'));
         await client.query(readFileSync(DELETE_INTENT_PATH, 'utf8'));
+        await client.query(readFileSync(ADMIN_PORTAL_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

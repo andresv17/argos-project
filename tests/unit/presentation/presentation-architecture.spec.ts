@@ -46,7 +46,9 @@ describe('arquitectura de la presentación', () => {
 
   it('[REQ-UI-004] el punto de entrada es index.html → src/presentation/web/main.tsx y la presentación v1 ya no existe', () => {
     const index = readFileSync('index.html', 'utf8');
-    const legacy = readdirSync('src/presentation').filter((e) => e !== 'web' && e !== '.gitkeep');
+    // Enmienda T1235 (ADR-009-17): el portal propio `admin` es el único hermano permitido de `web`; cualquier otra carpeta falla.
+    const allowedEntries = ['web', 'admin', '.gitkeep'];
+    const legacy = readdirSync('src/presentation').filter((e) => !allowedEntries.includes(e));
     expect([index.includes('src="/src/presentation/web/main.tsx"'), index.includes('lang="es"'), legacy]).toEqual([true, true, []]);
   });
 });

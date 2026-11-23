@@ -29,6 +29,15 @@ async function mockAuthenticated(page: Page, onDelete?: (headers: Record<string,
   return { deletes };
 }
 
+/**
+ * Tecla de avance de foco. En WebKit sobre macOS, Tab solo recorre campos de formulario: los enlaces y botones exigen Option+Tab (preferencia de Safari
+ * "Press Tab to highlight each item", desactivada por defecto). Verificado: tras Tab, document.activeElement sigue en BODY; con Alt+Tab llega al skip link y
+ * luego al destino. El skip link es enfocable (.focus() funciona), por lo que no es un defecto de la UI. Solo ese caso usa Alt+Tab; Chromium y Firefox siguen con Tab.
+ */
+function focusKey(browserName: string): string {
+  return browserName === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab';
+}
+
 async function openAccess(page: Page): Promise<void> {
   await page.goto('/admin');
   await expect(page.getByRole('link', { name: 'Entrar con Google' })).toBeVisible();
@@ -89,16 +98,17 @@ test.describe('T1235 portal /admin: pantalla de acceso', () => {
     expect(box!.width).toBeGreaterThanOrEqual(44);
   });
 
-  test('A6 teclado: skip link, luego acceso, con anillo visible', async ({ page }) => {
+  test('A6 teclado: skip link, luego acceso, con anillo visible', async ({ page, browserName }) => {
+    const tab = focusKey(browserName);
     await openAccess(page);
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(tab);
     await expect(page.getByRole('link', { name: 'Saltar al contenido' })).toBeFocused();
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(tab);
     const link = page.getByRole('link', { name: 'Entrar con Google' });
     await expect(link).toBeFocused();
     const ring = await link.evaluate((el) => { const s = getComputedStyle(el); return { shadow: s.boxShadow, outline: s.outlineStyle, width: s.outlineWidth }; });
     expect(ring.shadow !== 'none' || (ring.outline !== 'none' && parseFloat(ring.width) >= 2)).toBe(true);
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(tab);
     await expect(link).not.toBeFocused();
   });
 
@@ -178,12 +188,13 @@ test.describe('T1235 portal /admin: shell autenticado vacío', () => {
     expect(box!.width).toBeGreaterThanOrEqual(44);
   });
 
-  test('A7 teclado: skip link, luego Cerrar sesión, con anillo visible', async ({ page }) => {
+  test('A7 teclado: skip link, luego Cerrar sesión, con anillo visible', async ({ page, browserName }) => {
+    const tab = focusKey(browserName);
     await mockAuthenticated(page);
     await openShell(page);
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(tab);
     await expect(page.getByRole('link', { name: 'Saltar al contenido' })).toBeFocused();
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(tab);
     const button = page.getByRole('button', { name: 'Cerrar sesión' });
     await expect(button).toBeFocused();
     const ring = await button.evaluate((el) => { const s = getComputedStyle(el); return { shadow: s.boxShadow, outline: s.outlineStyle, width: s.outlineWidth }; });
