@@ -21,9 +21,9 @@ const paramNames = (path: string, method: string): string[] =>
   (op(path, method).parameters as Json[]).map((p) => (p.$ref as string | undefined)?.split('/').pop() ?? (p.name as string));
 
 describe('T511 versión y metadatos', () => {
-  it('REQ-ARC-001: la API pasa a 3.4.0 (MINOR, 008) en DRAFT y supersede a 3.3.0', () => {
-    expect(doc.info.version).toBe('3.4.0');
-    expect(doc.info['x-sdd-metadata']).toEqual(expect.objectContaining({ version: '3.4.0', status: 'DRAFT', supersedes: '3.3.0', change_type: 'MINOR' }));
+  it('REQ-ARC-001: la API pasa a 3.5.0 (MINOR, 009 T1241) en APPROVED (Neo, 2026-11-23) y supersede a 3.4.0 (008)', () => {
+    expect(doc.info.version).toBe('3.5.0');
+    expect(doc.info['x-sdd-metadata']).toEqual(expect.objectContaining({ version: '3.5.0', status: 'APPROVED', supersedes: '3.4.0', change_type: 'MINOR' }));
   });
 
   it('REQ-ARC-001: declara exactamente las 7 operaciones nuevas de medios y avatar además de las 40 de la 002 y las 5 de la 008 (startGoogleLogin, completeGoogleLogin, chooseGoogleUsername, startGoogleLink, searchInvitees)', () => {
