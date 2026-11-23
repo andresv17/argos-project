@@ -89,6 +89,11 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
       // RAMA-T1239-01/02 (REQ-ADM9-006, NFR-009): flujos OAuth de administración vencidos y sesiones de administración creadas hace más de 30 min (vida absoluta); sin conteo propio.
       run('DELETE FROM admin_oauth_flow_states WHERE expires_at <= @now');
       run(`DELETE FROM admin_sessions WHERE created_at <= ${at(", '-30 minutes'")}`);
+      // REQ-APR9-007 / EDGE-009-007 / NFR-009-004 (T1248): PENDING a 30 días de su creación (`data.createdAt`, sellada al alta) y REJECTED a 30 días de la decisión (`decided_at`);
+      // ACTIVE nunca. Borrar la fila libera el username y, por cascada, el sub de Google (`auth_identities`); sin conteo propio.
+      run(
+        `DELETE FROM users WHERE (account_status = 'PENDING' AND json_extract(data, '$.createdAt') < ${at(", '-30 days'")}) OR (account_status = 'REJECTED' AND decided_at < ${at(", '-30 days'")})`,
+      );
       return {
         sessionsPurged: run(
           `DELETE FROM sessions WHERE revoked_at < ${at(", '-7 days'")} OR created_at < ${at(", '-7 days', '-24 hours'")} OR last_activity_at < ${at(", '-7 days', '-30 minutes'")}`,

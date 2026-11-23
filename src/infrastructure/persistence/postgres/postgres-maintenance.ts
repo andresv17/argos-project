@@ -89,5 +89,12 @@ export async function purgeExpiredInBatches(client: PoolClientLike, cutoffs: Mai
       if (deleted < batchSize) break;
     }
   }
+  // REQ-APR9-007 / EDGE-009-007 / NFR-009-004 (T1248): PENDING a 30 días de su creación (`data.createdAt`) y REJECTED a 30 días de la decisión (`decided_at`); ACTIVE nunca.
+  // La cascada de `auth_identities` libera el sub de Google y el borrado libera el username; sin conteo propio.
+  const accounts = `DELETE FROM users WHERE ctid IN (SELECT ctid FROM users WHERE (account_status = 'PENDING' AND (data->>'createdAt')::timestamptz < ${AT_NOW} - interval '30 days') OR (account_status = 'REJECTED' AND decided_at::timestamptz < ${AT_NOW} - interval '30 days') LIMIT $2)`;
+  for (;;) {
+    const deleted = (await client.query(accounts, [cutoffs.now, batchSize])).rowCount ?? 0;
+    if (deleted < batchSize) break;
+  }
   return counts;
 }
