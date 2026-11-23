@@ -8,7 +8,7 @@
  * - `POST /api/auth/google/username` (CSRF, sin sesión) y `POST /api/auth/google/link` (CSRF, con sesión).
  * - Límite de tasa por IP efectiva (`start`, `callback`, `username`) y por usuario (`link`): `ERR-RATE-LIMITED` uniforme (SC-008-061).
  *
- * @implements REQ-SSO8-001, REQ-SSO8-003, REQ-SSO8-004, REQ-SSO8-005, REQ-VIN8-002, REQ-VIN8-004, INV-VIN8-005, ADR-008-03, EDGE-008-006, INV-AUTH-003
+ * @implements REQ-SSO8-001, REQ-SSO8-003, REQ-SSO8-004, REQ-SSO8-005, REQ-VIN8-002, REQ-VIN8-004, INV-VIN8-001, INV-VIN8-005, ADR-008-03, EDGE-008-006, INV-AUTH-003
  */
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
