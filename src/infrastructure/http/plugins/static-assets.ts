@@ -27,7 +27,10 @@ export async function registerStaticAssets(app: FastifyInstance, { root }: Stati
   // Traversal codificado, barras dobles/invertidas y byte nulo: 404 uniforme antes de tocar el sistema de archivos.
   app.addHook('onRequest', async (request, reply) => {
     const path = request.url.split('?')[0] ?? '';
-    if (!path.startsWith('/api/') && SUSPICIOUS.test(path)) return reply.status(404).type('text/plain; charset=utf-8').send('Not Found');
+    const lower = path.toLowerCase();
+    // SEN-T1238-01: la API de administración no admite rutas no canónicas (porcentaje, punto y coma, barras dobles, puntos): 404 uniforme, nunca la respuesta de la ruta canónica.
+    if ((lower === '/api/admin' || lower.startsWith('/api/admin/')) && (/[%;]/.test(path) || SUSPICIOUS.test(path))) return reply.status(404).type('text/plain; charset=utf-8').send('Not Found');
+    if (!lower.startsWith('/api/') && SUSPICIOUS.test(path)) return reply.status(404).type('text/plain; charset=utf-8').send('Not Found');
     return undefined;
   });
 
@@ -52,7 +55,9 @@ export async function registerStaticAssets(app: FastifyInstance, { root }: Stati
       if (!isRead || !hasAdminEntry) return reply.status(404).type('text/plain; charset=utf-8').send('Not Found');
       return reply.header('Cache-Control', NO_CACHE).sendFile('admin.html');
     }
-    const spa = isRead && !path.startsWith('/api/') && !path.startsWith('/assets/') && !SUSPICIOUS.test(path) && !/\.[^/]*$/.test(path);
+    // SEN-T1238-01: los prefijos reservados se comparan sin distinguir mayúsculas (`/API/…`, `/ASSETS/…` dan el 404 uniforme, nunca el index.html).
+    const lower = path.toLowerCase();
+    const spa = isRead && !lower.startsWith('/api/') && !lower.startsWith('/assets/') && !SUSPICIOUS.test(path) && !/\.[^/]*$/.test(path);
     if (!spa) return reply.status(404).type('text/plain; charset=utf-8').send('Not Found');
     return reply.header('Cache-Control', NO_CACHE).sendFile('index.html');
   });
