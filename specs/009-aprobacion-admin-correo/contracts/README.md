@@ -1,0 +1,5 @@
+# Contratos de la Feature 009 (índice; sin contratos redactados)
+
+Estado: `DRAFT`. Ningún contrato está redactado todavía. Los contratos **nuevos** de la línea 009 se limitan a tres artefactos (MIF-06): `errors/error-catalog.json`, `state-machines/` (`STATE-ACCT9-001`) y `openapi/admin.openapi.yaml` (`/api/admin/*`); no se crea `schemas/`. Los redacta `/architect` en las tareas `[ARCH]` de `tasks.md` (`T1217` eliminación de cuenta sin contraseña y entrada `--feature 009` de los scripts, `T1226` `/api/admin/*`, `T1241` `STATE-ACCT9-001` y aprobación, `T1256` parámetros y coste). Compilar exige la entrada `--feature 009` de `scripts/compile-contracts.sh` y de `scripts/verify-traceability.sh` (Nivel 2, una sola vez).
+
+Contratos **vigentes** que la 009 enmienda (tareas `[ARCH]` `[N2]`; ninguno se ha editado todavía): 002 y 004 por `PENDING` (`T1241`), 006 `SceneView`, catálogo y OpenAPI (`T1257`), `REQ-ESC6-017/031` de 006 por `global` (`T1299`), nota documental de 005 (`T1302`) y texto de 007 (`T1212`, sin bloqueo: `D9-26` = A ya está resuelta; depende solo de `T1206`). `src/generated/` solo cambia al compilar.
