@@ -204,7 +204,7 @@ function defineSceneContract(name: string, create: Factory, dispose: () => Promi
 
     it('[REQ-ESC6-034][H-KEY-F5-3] countFailedAttemptsByScene cuenta solo FAILED con started_at >= since y devuelve el instante del fallo mas antiguo; los exitosos, cancelados y en vuelo no cuentan', async () => {
       const uow = await prepare();
-      const done = (outcome: 'FAILED' | 'SUCCEEDED' | 'CANCELLED', t: number): Partial<SceneAttemptRecord> => ({ startedAt: at(t), finishedAt: at(t + 5), phase: 'DONE', outcome });
+      const done = (outcome: 'FAILED' | 'SUCCEEDED' | 'CANCELLED', t: number): Partial<SceneAttemptRecord> => ({ startedAt: at(t), finishedAt: at(t + 5), phase: 'DONE', outcome, providerCallStartedAt: at(t + 1) }); // 009 `#60`: solo cuentan los intentos con llamada al proveedor
       await uow.runInTransaction(begin(1, NOW, done('FAILED', 0)));
       await uow.runInTransaction(begin(2, at(600), done('SUCCEEDED', 600)));
       await uow.runInTransaction(begin(3, at(1200), done('FAILED', 1200)));

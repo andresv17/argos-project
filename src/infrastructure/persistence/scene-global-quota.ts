@@ -5,7 +5,7 @@
  * esquema nuevo: la tabla `platform_parameters` ya admite las filas (sin migración). Falla CERRADO: cualquier error o ventana inválida devuelve `false`, sin eco del mensaje.
  * La fila queda fuera del respaldo exportable (RAMA-005-008) por pertenecer a `platform_parameters`.
  *
- * @implements REQ-ESC6-017, REQ-ESC6-031
+ * @implements REQ-ESC6-017, REQ-ESC6-031, REQ-LIM9-003, INV-LIM9-002, EDGE-009-042
  */
 
 import type { SceneGlobalQuotaPort } from '../../application/ports/scene-global-quota.port.ts';
@@ -28,15 +28,18 @@ export class SqlSceneGlobalQuota implements SceneGlobalQuotaPort {
     private readonly deps: SqlSceneGlobalQuotaDeps,
     private readonly ensureRow: (key: string, now: string) => Promise<void>,
     private readonly incrementBelow: (key: string, now: string, max: number) => Promise<number>,
+    private readonly decrement: (key: string, now: string) => Promise<void>,
   ) {}
 
   static forSqlite(db: SqliteDatabase, deps: SqlSceneGlobalQuotaDeps): SqlSceneGlobalQuota {
     const insert = db.prepare("INSERT INTO platform_parameters (key, value, description, updated_at, updated_by_user_id) VALUES (?, '0', ?, ?, NULL) ON CONFLICT (key) DO NOTHING");
     const update = db.prepare('UPDATE platform_parameters SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT), updated_at = ? WHERE key = ? AND CAST(value AS INTEGER) < ?');
+    const refund = db.prepare('UPDATE platform_parameters SET value = CAST(CAST(value AS INTEGER) - 1 AS TEXT), updated_at = ? WHERE key = ? AND CAST(value AS INTEGER) > 0');
     return new SqlSceneGlobalQuota(
       deps,
       async (key, now) => void insert.run(key, DESCRIPTION, now),
       async (key, now, max) => update.run(now, key, max).changes,
+      async (key, now) => void refund.run(now, key),
     );
   }
 
@@ -50,7 +53,19 @@ export class SqlSceneGlobalQuota implements SceneGlobalQuotaPort {
         const result = await client.query('UPDATE platform_parameters SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT), updated_at = $1 WHERE key = $2 AND CAST(value AS INTEGER) < $3', [now, key, max]);
         return result.rowCount ?? 0;
       },
+      async (key, now) => {
+        await client.query('UPDATE platform_parameters SET value = CAST(CAST(value AS INTEGER) - 1 AS TEXT), updated_at = $1 WHERE key = $2 AND CAST(value AS INTEGER) > 0', [now, key]);
+      },
     );
+  }
+
+  async refund(window: string): Promise<void> {
+    if (!WINDOW_PATTERN.test(window)) return;
+    try {
+      await this.decrement(`${SCENE_GLOBAL_QUOTA_USED_PREFIX}${window}`, this.deps.now());
+    } catch {
+      // falla cerrado: la unidad queda descontada (sobreconteo conservador, EDGE-009-042)
+    }
   }
 
   async tryConsume(window: string): Promise<boolean> {

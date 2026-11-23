@@ -1,13 +1,14 @@
 /**
  * `buildImagePrompt(payload)`: compila el texto final en inglés de la escena (REQ-ESC6-016, REQ-ESC7-003..008; plan.md §5.3 y ADR-007-07). Pura y determinista: misma entrada, misma
- * salida byte a byte (INV-ESC6-001, SC-ESC6-023). Bloques separados por una línea en blanco. `FROM_SCRATCH`/`REGENERATE` (R4): (1) base de estilo 16-bit; (2) hogar; (3) bloque de
- * fotos (una línea `Pet k (especie): Use IMG_n …` por mascota CON foto, ordinal global 1-based); (4) `Place all N pets…` con N = total visible, solo si N >= 2 (R3, D7-ESC-03); (5) bloque JSON solo de las
- * mascotas SIN foto, con el mismo ordinal global (R1, R2), omitido si no hay ninguna; (6) frase de conteo D7-ESC-01 (N >= 1); `PET_COUNT_RULE` solo con N = 0 (R1); (7) regla de
- * redibujado si el hogar o alguna mascota llevan foto. Sin `STYLE_CLOSING` en estos modos. Incrementales: bloque de cambios, JSON con todas las visibles, frase de conteo,
- * `PET_COUNT_RULE`, redibujado si aplica y `STYLE_CLOSING` 16-bit. El único contenido variable son enums del dominio, `speciesOther` ya saneado (INV-ESC6-011), nombres canónicos
+ * salida byte a byte (INV-ESC6-001, SC-ESC6-023). Bloques separados por una línea en blanco. `FROM_SCRATCH`/`REGENERATE` (R4 enmendada por la 009, REQ-PRO9-003): (1) base de
+ * estilo 16-bit; (2) hogar; (3) bloque de fotos (una línea `Pet k (especie): Use IMG_n …` por mascota CON foto, ordinal global 1-based); (4) `PRESERVATION_BLOCK` una vez si y solo si
+ * hay mascota con foto; (5) bloque JSON solo de las mascotas SIN foto, con el mismo ordinal global (R1, R2), omitido si no hay ninguna; (6) `Place all N pets…` con N = total visible,
+ * solo si N >= 2 (R3, D7-ESC-03); (7) frase de conteo D7-ESC-01 (N >= 1) o `Draw no animals in this room.` con N = 0 (D9-13); (8) regla de redibujado si el hogar o alguna mascota
+ * llevan foto. Sin `STYLE_CLOSING` ni `PET_COUNT_RULE` en estos modos. Incrementales: bloque de cambios, JSON con todas las visibles, frase de conteo, `PET_COUNT_RULE`,
+ * `PRESERVATION_BLOCK` si hay `ADD`/`REPLACE` con foto, redibujado si aplica y `STYLE_CLOSING` 16-bit. El único contenido variable son enums del dominio, `speciesOther` ya saneado (INV-ESC6-011), nombres canónicos
  * de raza y etiquetas `IMG_n`; el texto libre `breed` nunca se lee (`H-KEY-F5-2`). NUNCA se emiten `id`, nombres, `biography` ni `fallbackContext` (INV-ESC6-010, INV-ESC6-017).
  *
- * @implements REQ-ESC6-016, REQ-ESC6-009, REQ-ESC7-003, REQ-ESC7-004, REQ-ESC7-005, REQ-ESC7-006, REQ-ESC7-008, SC-007-036, SC-007-037, SC-007-038, SC-007-039, SC-007-040, SC-007-041, SC-007-043, INV-ESC6-001, INV-ESC6-010, INV-ESC6-011, INV-ESC6-017, EDGE-ESC6-015, EDGE-007-023, EDGE-007-024
+ * @implements REQ-PRO9-001, REQ-PRO9-002, REQ-PRO9-003, REQ-PRO9-004, REQ-PRO9-005, REQ-PRO9-006, REQ-PRO9-007, INV-PRO9-001, INV-PRO9-002, REQ-ESC6-016, REQ-ESC6-009, REQ-ESC7-003, REQ-ESC7-004, REQ-ESC7-005, REQ-ESC7-006, REQ-ESC7-008, SC-007-036, SC-007-037, SC-007-038, SC-007-039, SC-007-040, SC-007-041, SC-007-043, INV-ESC6-001, INV-ESC6-010, INV-ESC6-011, INV-ESC6-017, EDGE-ESC6-015, EDGE-007-023, EDGE-007-024
  */
 
 import type { ScenePayload } from '../../generated/v34/schemas/types.ts';
@@ -21,6 +22,17 @@ export const STYLE_BASE_TEXT =
 /** Regla de redibujado: texto fijo; se emite UNA vez y solo si el hogar o alguna mascota emitida lleva `photoRef` no nulo. */
 export const PIXEL_REDRAW_RULE =
   'Render every wall, floor tile, piece of furniture, plant, and pet as crisp 16-bit retro RPG video-game pixel art with clearly visible individual pixels, sharp pixel-art outlines, and flat cozy indie-game shading.';
+
+/**
+ * Bloque de preservación visual (feature 009, `#57`, REQ-PRO9-002, EDGE-009-044): valor por defecto del literal de Neo. Se emite EXACTAMENTE una vez si y solo si al menos
+ * una mascota visible (`RENDER`, o `ADD`/`REPLACE` en incrementales) lleva foto de referencia (`hasReferencePhoto && photoRef !== null`). El invariante se formula sobre este
+ * bloque lógico y no sobre el literal.
+ */
+export const PRESERVATION_BLOCK =
+  'Translate the pet from the reference photos into a single cohesive 16-bit isometric pixel art illustration. Faithfully preserve each pet species, fur colors, coat patterns, ear shapes, body proportions, and unique markings from the photos so each one is clearly recognizable.';
+
+/** Regla de cero animales de los modos desde cero (REQ-PRO9-005, `D9-13` = A): sustituye a `PET_COUNT_RULE` con N = 0 (que cita un `renderedPetsCount` inexistente). */
+const NO_ANIMALS_RULE = 'Draw no animals in this room.';
 
 /** Cierre de estilo: solo los modos incrementales lo emiten (R4). */
 const STYLE_CLOSING = 'Match the exact 16-bit isometric RPG pixel art style, warm natural lighting, and cozy palette.';
@@ -46,13 +58,14 @@ function scratchBlocks(payload: ScenePayload): string[] {
   const blocks = [householdBlock(payload)];
   // Ordinal global 1-based sobre TODAS las visibles (R2): el bloque de fotos y el JSON lo comparten y son disjuntos.
   const photoLines = rendered.flatMap((pet, i) => (carriesPhoto(pet) ? [`Pet ${i + 1} (${petSpeciesLabel(pet)}): ${petSentence(pet)}`] : []));
-  if (photoLines.length > 0) blocks.push(photoLines.join('\n'));
-  // R3 / D7-ESC-03 (opción C, Neo): la frase «Place…» solo existe para N >= 2; con N = 1 no se emite (el literal de Neo no define singular).
-  if (rendered.length > 1) blocks.push(`Place all ${rendered.length} pets naturally and separately in different cozy spots of the room.`);
+  if (photoLines.length > 0) blocks.push(photoLines.join('\n'), PRESERVATION_BLOCK);
+  // REQ-PRO9-001/003: toda descripción de mascota (líneas con IMG y JSON) precede a «Place…» y a la frase de conteo (INV-PRO9-002).
   const json = sceneSpecBlock(payload, { onlyWithoutPhoto: true });
   if (json !== null) blocks.push(json);
+  // R3 / D7-ESC-03 (opción C, Neo): la frase «Place…» solo existe para N >= 2; con N = 1 no se emite (el literal de Neo no define singular).
+  if (rendered.length > 1) blocks.push(`Place all ${rendered.length} pets naturally and separately in different cozy spots of the room.`);
   blocks.push(...countBlock(payload));
-  if (rendered.length === 0) blocks.push(PET_COUNT_RULE);
+  if (rendered.length === 0) blocks.push(NO_ANIMALS_RULE);
   const household = payload.household.hasReferencePhoto && payload.household.photoRef !== null;
   if (household || rendered.some(carriesPhoto)) blocks.push(PIXEL_REDRAW_RULE);
   return blocks;
@@ -67,7 +80,7 @@ function incrementalBlocks(payload: ScenePayload): string[] {
   for (const pet of payload.pets.filter((p) => p.action === 'REPLACE')) lines.push(`- Replace only: the ${targetDescription(pet)}, redrawn as follows. ${petSentence(pet)}`);
   const intro = `Use ${base} as the exact base scene. Keep the room, furniture, and all ${others} pets in their exact positions and appearance without altering them. Apply only these changes, one per line:`;
   const withPhoto = payload.pets.some((p) => (p.action === 'ADD' || p.action === 'REPLACE') && carriesPhoto(p));
-  return [intro + '\n' + lines.join('\n'), sceneSpecBlock(payload), ...countBlock(payload), PET_COUNT_RULE, ...(withPhoto ? [PIXEL_REDRAW_RULE] : []), STYLE_CLOSING];
+  return [intro + '\n' + lines.join('\n'), sceneSpecBlock(payload), ...countBlock(payload), PET_COUNT_RULE, ...(withPhoto ? [PRESERVATION_BLOCK, PIXEL_REDRAW_RULE] : []), STYLE_CLOSING];
 }
 
 export function buildImagePrompt(payload: ScenePayload): string {

@@ -43,7 +43,7 @@ const failing = (env: EnvironmentSource, activated: boolean | null = true): read
   return ['sin error'];
 };
 const DEV = { NODE_ENV: 'development', ARGOS_DB_DRIVER: 'sqlite', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32) };
-const grantingQuota = (): SceneGlobalQuotaPort => ({ tryConsume: async () => true });
+const grantingQuota = (): SceneGlobalQuotaPort => ({ tryConsume: async () => true, refund: async () => undefined });
 
 describe('selección en app-config.ts (REQ-ESC6-031)', () => {
   it.each(['fake', 'real', 'gemini-api'])('[REQ-ESC6-031] el driver %s es un valor admitido por el esquema (fuera de producción)', (driver) => {

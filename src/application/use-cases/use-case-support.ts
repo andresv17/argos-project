@@ -106,6 +106,10 @@ export interface SceneServices {
   readonly leaseSeconds: number;
   /** T_QUEUE: espera máxima en cola antes del claim. */
   readonly queueWaitSeconds: number;
+  /** Plazo único (s) del intento sin marca de llamada antes de dejar de contar y cerrarse `CANCELLED` (feature 009, EDGE-009-041; valor en `app-config.ts`). */
+  readonly unmarkedAttemptTtlSeconds: number;
+  /** Tope diario de intentos cerrados sin llamada por escena (feature 009, EDGE-009-043, `D9-25`; valor en `app-config.ts`). */
+  readonly maxClosedWithoutCallPerDay: number;
   /** `true` con `ARGOS_SCENE_DRIVER=real`: exige consentimiento vigente (INV-ESC6-014). */
   readonly realDriver: boolean;
   /** Desfase de `APP_TIMEZONE` respecto de UTC en minutos (p. ej. -300) para `quota.resetsAt`. */

@@ -1,4 +1,4 @@
-import { PET_COUNT_RULE, SCENE_SPEC_HEADER } from '../../src/domain/scene/scene-spec.ts';
+import { SCENE_SPEC_HEADER } from '../../src/domain/scene/scene-spec.ts';
 import { deflateSync } from 'node:zlib';
 import fc from 'fast-check';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -267,9 +267,10 @@ describe('XSS y prompt injection en nombres y textos libres (T874, INV-ESC6-011,
     // sigue sin haber ningún carácter hostil de los textos libres.
     for (const prompt of c.fixture.generator.calls.map((call) => call.prompt)) {
       const start = prompt.indexOf(`${SCENE_SPEC_HEADER}\n`) + SCENE_SPEC_HEADER.length + 1;
-      // D6-21: con N >= 1 la línea de conteo por especie va entre el JSON y la regla de conteo.
-      const counted = prompt.indexOf('\n\nExact animal count: ');
-      const end = counted > -1 ? counted : prompt.indexOf(`\n\n${PET_COUNT_RULE}`);
+      // Enmienda 009 (REQ-PRO9-001): el JSON es una sola línea y puede ir seguido de `Place all N pets…` (N >= 2), de la frase de conteo o de la regla de conteo: el fin del
+      // JSON es el primer salto de bloque tras él (el aserto de caracteres hostiles no se relaja).
+      const blockEnd = prompt.indexOf('\n\n', start);
+      const end = blockEnd > -1 ? blockEnd : prompt.length;
       expect(start).toBeGreaterThan(SCENE_SPEC_HEADER.length);
       expect(end).toBeGreaterThan(start);
       expect(typeof JSON.parse(prompt.slice(start, end))).toBe('object');

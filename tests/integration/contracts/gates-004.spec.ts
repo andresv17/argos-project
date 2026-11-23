@@ -145,7 +145,7 @@ describe('T514 verify-oracles.sh --feature 004', () => {
     const ok = run('verify-oracles.sh', ['--feature', '004']);
     expect(ok.status, ok.output).toBe(0);
     expect(ok.output).toContain('feature 004');
-    const unknown = run('verify-oracles.sh', ['--feature', '009']);
+    const unknown = run('verify-oracles.sh', ['--feature', '999']);
     expect(unknown.status).toBe(2);
   });
 

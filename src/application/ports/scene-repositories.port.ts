@@ -154,14 +154,31 @@ export interface SceneRepository {
   lastAttemptStartedAt(sceneId: string): Promise<string | null>;
   /** Inicio más antiguo de los intentos del actor con `started_at >= since` (base de `Retry-After` del tope por actor) o `null`. */
   oldestActorAttemptAt(actorUserId: string, since: string): Promise<string | null>;
-  /** Contadores de `REQ-ESC6-034`: intentos de la escena o del actor con `started_at >= since`. */
+  /** Contador de `REQ-ESC6-034` (enfriamiento de 60 s): TODO intento de la escena con `started_at >= since`, con o sin llamada al proveedor (EDGE-009-030). */
   countAttemptsByScene(sceneId: string, since: string): Promise<number>;
+  /**
+   * Tope por actor de `REQ-ESC6-034` (3) (feature 009, `#60`, REQ-LIM9-002, INV-LIM9-001): intentos del actor con `started_at >= since` que SÍ llegaron a la llamada
+   * (`provider_call_started_at IS NOT NULL`) MÁS los intentos en vuelo (`outcome IS NULL`, aún sin marca) mientras estén activos. Un intento cerrado sin llamada y las
+   * filas heredadas sin marca no cuentan (EDGE-009-029). «Activo» lo acota `cancelStaleUnmarkedAttempts` (plazo único de 10 min, EDGE-009-041). Sin migración.
+   */
   countAttemptsByActor(actorUserId: string, since: string): Promise<number>;
   /**
-   * Tope de fallos de `REQ-ESC6-034` (2) (`H-KEY-F5-3`): intentos de la escena con `outcome = 'FAILED'` y `started_at >= since`; `oldestAt` es el menor `started_at`
-   * de esas filas (`null` si `count = 0`) y es la base de `Retry-After` (`oldestAt + 24 h - now`). `countAttemptsByScene` queda para el enfriamiento de 60 s.
+   * Tope de fallos de `REQ-ESC6-034` (2) (`H-KEY-F5-3`; feature 009, REQ-LIM9-001): intentos de la escena con `outcome = 'FAILED'` **y**
+   * `provider_call_started_at IS NOT NULL` y `started_at >= since`; `oldestAt` es el menor `started_at` de esas filas (`null` si `count = 0`) y es la base de
+   * `Retry-After` (`oldestAt + 24 h - now`). Tres fallos sin llamada a Vertex AI no bloquean 24 h. `countAttemptsByScene` queda para el enfriamiento de 60 s.
    */
   countFailedAttemptsByScene(sceneId: string, since: string): Promise<{ readonly count: number; readonly oldestAt: string | null }>;
+  /**
+   * Tope diario de intentos CERRADOS sin llamada (EDGE-009-043, `D9-25`): intentos de la escena con `outcome` no nulo, `provider_call_started_at IS NULL` y
+   * `started_at >= since`; `oldestAt` es el menor `started_at` (`null` si `count = 0`). Se evalúa con el código de `FAILED_LIMIT`.
+   */
+  countClosedWithoutCallByScene(sceneId: string, since: string): Promise<{ readonly count: number; readonly oldestAt: string | null }>;
+  /**
+   * Plazo único de 10 min del intento sin marca (EDGE-009-041, `P5-01` = B): cierra `CANCELLED` (sin llamada, `finished_at = now`) los intentos de la escena o del actor
+   * sin `outcome` y sin `provider_call_started_at` con `started_at <= startedBefore`; si el intento era el vigente de su escena la libera (`run_state = NULL`, igual
+   * que `closeAttempt` CANCELLED). Devuelve cuántos cerró. Idempotente; nunca toca intentos con marca.
+   */
+  cancelStaleUnmarkedAttempts(sceneId: string, actorUserId: string, startedBefore: string, now: string): Promise<number>;
   /** Arrastre de cuota (EDGE-ESC6-033): `UPSERT` con `consumed := max(valor previo, consumed)`. */
   upsertQuotaCarry(ownerUserId: string, quotaWindow: string, consumedGenerations: number): Promise<void>;
   findQuotaCarry(ownerUserId: string, quotaWindow: string): Promise<number | null>;

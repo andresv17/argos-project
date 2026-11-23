@@ -115,9 +115,13 @@ export async function loadLiveInputs(deps: ApplicationDeps, r: RepositorySet, ac
 }
 
 /** Contadores de `REQ-ESC6-034` leídos bajo el candado de la escena y evaluados por la función pura de dominio (con `Retry-After` exacto). */
-async function evaluateLimits(r: RepositorySet, sceneId: string, actorUserId: string, now: string): Promise<ReturnType<typeof evaluateAttemptLimits>> {
+async function evaluateLimits(deps: ApplicationDeps, r: RepositorySet, sceneId: string, actorUserId: string, now: string): Promise<ReturnType<typeof evaluateAttemptLimits>> {
+  const svc = requireScene(deps);
   const since = shiftIsoTimestamp(now, -ATTEMPT_WINDOW_SECONDS * 1000);
+  // EDGE-009-041 (P5-01 = B): a los 10 min de su inicio el intento sin marca y sin `outcome` se cierra CANCELLED sin llamada y deja de contar para ACTOR_LIMIT.
+  await r.scenes.cancelStaleUnmarkedAttempts(sceneId, actorUserId, shiftIsoTimestamp(now, -svc.unmarkedAttemptTtlSeconds * 1000), now);
   const failed = await r.scenes.countFailedAttemptsByScene(sceneId, since);
+  const closedWithoutCall = await r.scenes.countClosedWithoutCallByScene(sceneId, since);
   return evaluateAttemptLimits({
     now,
     lastStartedAt: await r.scenes.lastAttemptStartedAt(sceneId),
@@ -125,6 +129,7 @@ async function evaluateLimits(r: RepositorySet, sceneId: string, actorUserId: st
     oldestFailedStartedAt: failed.oldestAt,
     startedByActor: await r.scenes.countAttemptsByActor(actorUserId, since),
     oldestActorStartedAt: await r.scenes.oldestActorAttemptAt(actorUserId, since),
+    closedWithoutCall: { count: closedWithoutCall.count, oldestAt: closedWithoutCall.oldestAt, max: svc.maxClosedWithoutCallPerDay },
   });
 }
 
@@ -166,7 +171,7 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
   const petPhotosGranted = await hasActiveConsent(r, svc, userId, 'PET_PHOTOS');
   const householdPhotoGranted = await hasActiveConsent(r, svc, userId, 'HOUSEHOLD_PHOTO');
   const consentRequired = svc.realDriver && !petPhotosGranted && !householdPhotoGranted;
-  const limits = await evaluateLimits(r, scene.id, userId, now);
+  const limits = await evaluateLimits(deps, r, scene.id, userId, now);
   const roleOk = canGenerateScene(access.role);
   const hasChange = pending >= 1 || derived.status === 'failed' || (scene.image === null && hasInputs(live.snapshot));
   const statusOk = derived.status === 'outdated' || derived.status === 'failed';
@@ -432,7 +437,7 @@ export class RequestSceneGenerationUseCase {
       if (remainingQuota({ max: svc.quotaMax, consumed: reading.scene.consumedGenerations, consumedWindow: reading.scene.quotaWindow, currentWindow: window }) < 1) {
         throw new DomainErrorV34('ERR-SCENE-QUOTA-EXCEEDED');
       }
-      const limits = await evaluateLimits(r, scene.id, userId, now);
+      const limits = await evaluateLimits(deps, r, scene.id, userId, now);
       if (!limits.allowed) throw new SceneRateLimitedError(limits.retryAfterSeconds);
 
       const hasImage = reading.scene.image !== null;

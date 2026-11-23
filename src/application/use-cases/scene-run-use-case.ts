@@ -9,7 +9,7 @@
  * publicar y encola el objeto para borrar. Un fallo o timeout no descuenta cuota y deja intacta la imagen anterior. La señal de `T_GEN` entra por parámetro
  * (los temporizadores viven en `infrastructure`). Solo escribe tablas de la escena (INV-ESC6-012). Sin reloj ni entropía propios (INV-ARCH-001/002).
  *
- * @implements REQ-FAL7-006, EDGE-007-014, REQ-ESC6-013, REQ-ESC6-014, REQ-ESC6-027, REQ-ESC6-036, INV-ESC6-003, INV-ESC6-004, INV-ESC6-005, INV-ESC6-012, EDGE-ESC6-003, EDGE-ESC6-004, EDGE-ESC6-005, EDGE-ESC6-006, EDGE-ESC6-009, EDGE-ESC6-021, EDGE-ESC6-024, EDGE-ESC6-025, EDGE-ESC6-026, EDGE-ESC6-027, EDGE-ESC6-028, EDGE-ESC6-031, SC-ESC6-017, SC-ESC6-018, SC-ESC6-020, SC-ESC6-032, SC-ESC6-059, SC-ESC6-062, SC-ESC6-063, SC-ESC6-068, SC-ESC6-069, SC-ESC6-070, SC-ESC6-071
+ * @implements REQ-LIM9-003, REQ-LIM9-006, INV-LIM9-002, EDGE-009-028, EDGE-009-042, REQ-FAL7-006, EDGE-007-014, REQ-ESC6-013, REQ-ESC6-014, REQ-ESC6-027, REQ-ESC6-036, INV-ESC6-003, INV-ESC6-004, INV-ESC6-005, INV-ESC6-012, EDGE-ESC6-003, EDGE-ESC6-004, EDGE-ESC6-005, EDGE-ESC6-006, EDGE-ESC6-009, EDGE-ESC6-021, EDGE-ESC6-024, EDGE-ESC6-025, EDGE-ESC6-026, EDGE-ESC6-027, EDGE-ESC6-028, EDGE-ESC6-031, SC-ESC6-017, SC-ESC6-018, SC-ESC6-020, SC-ESC6-032, SC-ESC6-059, SC-ESC6-062, SC-ESC6-063, SC-ESC6-068, SC-ESC6-069, SC-ESC6-070, SC-ESC6-071
  */
 
 import { avatarObjectKey, householdPhotoObjectKey, sceneImageObjectKey } from '../../domain/media/media-keys.ts';
@@ -143,27 +143,37 @@ export class RunSceneGenerationUseCase {
       return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
     }
 
-    // Cuota GLOBAL mensual (Fase 14, T948, N2-02 = A): descuento atómico ANTES de llamar al proveedor; agotada o ilegible = fallo estable sin llamada (el código visible es el
-    // estable, como en T2; el motivo interno no se expone).
+    // Cuota GLOBAL mensual (Fase 14, T948, N2-02 = A; feature 009 `#60`, ADR-009-01, REQ-LIM9-003, INV-LIM9-002). Orden: (1) verificar vigencia del intento SIN consumir; (2)
+    // `tryConsume` (descuento atómico en el puerto de cuota; agotada o ilegible = fallo estable sin llamada ni marca, el motivo interno no se expone); (3) reverificar y marcar
+    // `provider_call_started_at` ANTES de llamar al proveedor (H-LCK-006-04); si (3) falla porque el intento ya no es el vigente, `refund` devuelve la unidad.
+    // Confirmación de `T1210` (P5-01 = B): `tryConsume` (cliente propio del puerto) y la marca (transacción del `UnitOfWork`) NO comparten transacción; una caída física entre
+    // (2) y (3) deja UNA unidad sobrecontada, aceptada (EDGE-009-042), sin reconciliación periódica.
+    const window = quotaWindowOf(deps.clock.todayIsoDate());
+    const stillCurrent = (r: RepositorySet) =>
+      r.scenes.lockScene(scene.id).then(async () => {
+        const current = await r.scenes.findById(scene.id);
+        return current !== null && current.runState === 'generating' && current.currentAttemptId === attempt.id;
+      });
     if (svc.globalQuota !== undefined) {
+      if (!(await deps.uow.runInTransaction(stillCurrent))) return this.close(scene.id, attempt, 'CANCELLED', null, degraded);
       let allowed = false;
       try {
-        allowed = await svc.globalQuota.tryConsume(quotaWindowOf(deps.clock.todayIsoDate()));
+        allowed = await svc.globalQuota.tryConsume(window);
       } catch {
         allowed = false;
       }
       if (!allowed) return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
     }
 
-    // `provider_call_started_at` se escribe ANTES de llamar al proveedor (H-LCK-006-04).
     const started = await deps.uow.runInTransaction(async (r) => {
-      await r.scenes.lockScene(scene.id);
-      const current = await r.scenes.findById(scene.id);
-      if (current === null || current.runState !== 'generating' || current.currentAttemptId !== attempt.id) return false;
+      if (!(await stillCurrent(r))) return false;
       await r.scenes.markProviderCall(attempt.id, deps.clock.nowIsoTimestamp());
       return true;
     });
-    if (!started) return this.close(scene.id, attempt, 'CANCELLED', null, degraded);
+    if (!started) {
+      if (svc.globalQuota !== undefined) await svc.globalQuota.refund(window);
+      return this.close(scene.id, attempt, 'CANCELLED', null, degraded);
+    }
 
     let generated: Awaited<ReturnType<typeof svc.generator.generate>>;
     try {

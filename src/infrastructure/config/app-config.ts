@@ -134,6 +134,16 @@ export interface SceneConfig {
 
 /** T_QUEUE (INV-ESC6-013): espera máxima en cola antes del claim del worker, en segundos. */
 export const SCENE_QUEUE_WAIT_SECONDS = 600;
+/**
+ * Plazo único del intento de escena sin marca de llamada (feature 009, `#60`, EDGE-009-041, `P5-01` = B, ADR-009-16 (2)): a los 10 min de su inicio un intento sin `outcome`
+ * ni `provider_call_started_at` deja de contar para `ACTOR_LIMIT` y se cierra `CANCELLED` sin llamada. No depende de `lease_expires_at`.
+ */
+export const SCENE_UNMARKED_ATTEMPT_TTL_SECONDS = 600;
+/**
+ * Tope diario de intentos cerrados sin llamada al proveedor por escena (feature 009, `#60`, EDGE-009-043, `D9-25` aprobado por Neo): 20 en 24 h, además del cooldown de
+ * 60 s; responde con el código de `FAILED_LIMIT`. ÚNICA fuente del valor (el dominio lo recibe como dato).
+ */
+export const SCENE_MAX_CLOSED_WITHOUT_CALL_PER_DAY = 20;
 /** T_LEASE = T_GEN + 60 s (INV-ESC6-013; cumple T_LEASE >= T_GEN + 30 s). */
 export const sceneLeaseSeconds = (genTimeoutSeconds: number): number => genTimeoutSeconds + 60;
 /**

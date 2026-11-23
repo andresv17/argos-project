@@ -117,6 +117,12 @@ export class NullSceneRepository implements SceneRepository {
   countAttemptsByActor(_actorUserId: string, _since: string): Promise<number> {
     return Promise.resolve(0);
   }
+  countClosedWithoutCallByScene(_sceneId: string, _since: string): Promise<{ readonly count: number; readonly oldestAt: string | null }> {
+    return Promise.resolve({ count: 0, oldestAt: null });
+  }
+  cancelStaleUnmarkedAttempts(_sceneId: string, _actorUserId: string, _startedBefore: string, _now: string): Promise<number> {
+    return Promise.resolve(0);
+  }
   upsertQuotaCarry(_ownerUserId: string, _quotaWindow: string, _consumedGenerations: number): Promise<void> {
     return Promise.resolve();
   }

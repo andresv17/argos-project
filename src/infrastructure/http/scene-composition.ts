@@ -33,7 +33,7 @@ import {
 import { InProcessSceneDispatcher } from '../adapters/in-process-scene-dispatcher.adapter.ts';
 import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
 import { createVertexSceneGenerator } from '../adapters/vertex-scene-image-generator.adapter.ts';
-import type { AppConfig, SceneConfig } from '../config/app-config.ts';
+import { SCENE_MAX_CLOSED_WITHOUT_CALL_PER_DAY, SCENE_UNMARKED_ATTEMPT_TTL_SECONDS, type AppConfig, type SceneConfig } from '../config/app-config.ts';
 
 /** Tope de bytes de la imagen generada que se acepta del proveedor. */
 const MAX_GENERATED_IMAGE_BYTES = 32 * 1024 * 1024;
@@ -104,6 +104,8 @@ export function composeSceneServices(config: AppConfig, options: SceneCompositio
     genTimeoutSeconds: scene.genTimeoutSeconds,
     leaseSeconds: scene.leaseSeconds,
     queueWaitSeconds: scene.queueWaitSeconds,
+    unmarkedAttemptTtlSeconds: SCENE_UNMARKED_ATTEMPT_TTL_SECONDS,
+    maxClosedWithoutCallPerDay: SCENE_MAX_CLOSED_WITHOUT_CALL_PER_DAY,
     realDriver: gemini || real,
     utcOffsetMinutes: utcOffsetMinutesOf(config.appTimezone, new Date(new SystemClockAdapter(config.appTimezone).nowIsoTimestamp())),
     noticeVersion: gemini ? SCENE_GEMINI_API_NOTICE_VERSION : SCENE_NOTICE_VERSION,
