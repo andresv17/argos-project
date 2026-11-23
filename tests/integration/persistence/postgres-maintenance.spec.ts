@@ -21,7 +21,7 @@ const UOW_PATH = '../../../src/infrastructure/persistence/postgres/postgres-unit
 const BASELINE = allPostgresMigrationsSql();
 
 const CUTOFFS: MaintenanceCutoffs = { now: '2026-11-05T12:00:00.000Z', auditBefore: '2024-11-05T12:00:00.000Z' };
-const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log', 'login_attempts', 'oauth_flow_states'] as const; // login_attempts (T559, SC-CAT-030) y oauth_flow_states (T1134, H-RAMA-008-T1134-01) van al final y no tienen conteo propio
+const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log', 'login_attempts', 'oauth_flow_states', 'admin_oauth_flow_states', 'admin_sessions'] as const; // admin_* (RAMA-T1239-01/02, sin conteo propio); login_attempts (T559, SC-CAT-030) y oauth_flow_states (T1134, H-RAMA-008-T1134-01) van al final y no tienen conteo propio
 const BATCH = 500;
 
 interface MaintenanceModule {
@@ -89,6 +89,8 @@ describe('purgeExpiredInBatches: forma de las sentencias (REQ-PG-008, REQ-PG-011
       audit_log: [CUTOFFS.auditBefore, BATCH],
       login_attempts: ['2026-11-05T11:45:00.000Z', BATCH], // ahora menos la ventana de bloqueo de 15 min (T559)
       oauth_flow_states: [CUTOFFS.now, BATCH], // T1134, NFR-008-004
+      admin_oauth_flow_states: [CUTOFFS.now, BATCH], // RAMA-T1239-01
+      admin_sessions: [CUTOFFS.now, BATCH], // RAMA-T1239-02
     });
   });
 

@@ -86,6 +86,9 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
       run('DELETE FROM login_attempts WHERE NOT EXISTS (SELECT 1 FROM json_each(login_attempts.failures) WHERE json_each.value >= @loginAttemptsBefore)');
       // H-RAMA-008-T1134-01 / NFR-008-004: estados de flujo de Google vencidos (incluye el correo y el sub pendientes de las filas USERNAME); sin conteo propio.
       run("DELETE FROM oauth_flow_states WHERE expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', @now, '-900 seconds')"); // RAMA-03: 900 s de gracia desde la expiración
+      // RAMA-T1239-01/02 (REQ-ADM9-006, NFR-009): flujos OAuth de administración vencidos y sesiones de administración creadas hace más de 30 min (vida absoluta); sin conteo propio.
+      run('DELETE FROM admin_oauth_flow_states WHERE expires_at <= @now');
+      run(`DELETE FROM admin_sessions WHERE created_at <= ${at(", '-30 minutes'")}`);
       return {
         sessionsPurged: run(
           `DELETE FROM sessions WHERE revoked_at < ${at(", '-7 days'")} OR created_at < ${at(", '-7 days', '-24 hours'")} OR last_activity_at < ${at(", '-7 days', '-30 minutes'")}`,

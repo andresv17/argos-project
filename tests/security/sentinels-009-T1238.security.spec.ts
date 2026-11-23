@@ -139,10 +139,10 @@ describe('Sentinel II [MULTI-TENANT] la sesión de un administrador no se puede 
     const a = await createApi(undefined, { admin: kit.admin, staticRoot: staticRootWithAdmin() });
     api = a;
     const first = await adminLogin(a);
-    expect(first.cookie).not.toBeNull();
+    expect(first.cookie).toMatch(new RegExp(`^${ADMIN_SESSION_COOKIE}=[^;\\s]+$`));
     kit.oidc.identity = { sub: ADMIN_SUB_2, email: ADMIN_EMAIL_2 };
     const second = await adminLogin(a);
-    expect(second.cookie).not.toBeNull();
+    expect(second.cookie).toMatch(new RegExp(`^${ADMIN_SESSION_COOKIE}=[^;\\s]+$`));
     expect(second.cookie).not.toBe(first.cookie);
 
     const del = await a.call('DELETE', '/api/admin/session', { cookie: second.cookie, headers: { origin: OWN_ORIGIN }, contract: false, csrf: true });

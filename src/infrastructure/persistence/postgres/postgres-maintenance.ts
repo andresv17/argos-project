@@ -78,5 +78,16 @@ export async function purgeExpiredInBatches(client: PoolClientLike, cutoffs: Mai
     const deleted = (await client.query(flows, [cutoffs.now, batchSize])).rowCount ?? 0;
     if (deleted < batchSize) break;
   }
+  // RAMA-T1239-01/02: flujos OAuth de administración vencidos y sesiones de administración con más de 30 min de vida absoluta; sin conteo propio.
+  const adminTables = [
+    `DELETE FROM admin_oauth_flow_states WHERE ctid IN (SELECT ctid FROM admin_oauth_flow_states WHERE expires_at::timestamptz <= ${AT_NOW} LIMIT $2)`,
+    `DELETE FROM admin_sessions WHERE ctid IN (SELECT ctid FROM admin_sessions WHERE created_at::timestamptz <= ${AT_NOW} - interval '30 minutes' LIMIT $2)`,
+  ];
+  for (const sql of adminTables) {
+    for (;;) {
+      const deleted = (await client.query(sql, [cutoffs.now, batchSize])).rowCount ?? 0;
+      if (deleted < batchSize) break;
+    }
+  }
   return counts;
 }
