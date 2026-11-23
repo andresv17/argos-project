@@ -2,24 +2,25 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 009 (administracion y borrado de cuenta sin contrasena)
-  version: 1.0.0
+  version: 1.1.0
   description: >
     Documento INCREMENTAL y UNICO de la feature 009 (P5-05 = A): contiene solo operaciones nuevas; los OpenAPI de 004 (3.4.0),
     005 y 006 permanecen sin cambio, y deleteAccount de 004 no se edita. Version 1.0.0 (T1217): dos operaciones de USUARIO del
     borrado de una cuenta sin contrasena con reautenticacion reciente con Google (D9-17 = A, REQ-DEL9-001, INV-DEL9-001): inicio de
-    la reautenticacion y borrado. Las rutas de /api/admin/* (acceso con Google de administracion, sesion, registros, parametros)
-    se agregan en este mismo archivo en T1226, T1241 y T1256; ninguna esta declarada todavia. Esquemas inline y cerrados
+    la reautenticacion y borrado. Las rutas de /api/admin/* se agregan en este mismo archivo: T1226 (1.1.0) declara el acceso
+    con Google de administracion, la sesion y el contador de pendientes; registros (T1241) y parametros (T1256) siguen pendientes. Esquemas inline y cerrados
     (additionalProperties: false); errores en application/problem+json (RFC 9457) del catalogo incremental de 009 y de los
-    catalogos heredados. Las cookies de administracion (argos_admin_session, argos_admin_oauth) no existen en las operaciones de
-    usuario de esta version.
+    catalogos heredados. Las cookies de administracion (argos_admin_session, argos_admin_oauth) solo existen en las operaciones
+    /admin/* y nunca autorizan las dos operaciones de usuario.
   x-sdd-status: DRAFT
   x-sdd-metadata:
-    version: 1.0.0
+    version: 1.1.0
     status: DRAFT
     supersedes: null
-    change_type: MAJOR
+    change_type: MINOR
     change_note: "1.0.0 (feature 009, T1217, Architect 2026-11-23): documento nuevo con 2 operaciones de usuario (startAccountDeletionReauth, deleteAccountWithGoogleReauth). La prueba de titularidad es la reautenticacion reciente con Google (nueva intencion de flujo DELETE de oauth_flow_states, max_age, mismo sub vinculado, un solo uso, 900 s) mas la confirmacion explicita; el callback es el de 008 (/auth/google/callback) y NO se edita su contrato aqui (la intencion DELETE y su migracion son T1219). Efectos del borrado = cascada de REQ-ACC-002. D9-24 = A: se rechaza el borrado de una cuenta propietaria con hogares con miembros ACTIVE o mascotas compartidas, sin transferencia automatica. /api/admin/* pendiente de T1226/T1241/T1256."
-    traceability: [REQ-DEL9-001, INV-DEL9-001, REQ-ACC-002, EDGE-009-031, EDGE-009-032, EDGE-009-049]
+    traceability: [REQ-DEL9-001, INV-DEL9-001, REQ-ACC-002, EDGE-009-031, EDGE-009-032, EDGE-009-049, REQ-ADM9-001, REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-005, REQ-ADM9-006, REQ-APR9-005, INV-ADM9-001, INV-ADM9-002, EDGE-009-008, EDGE-009-009, EDGE-009-010, EDGE-009-011, EDGE-009-013, EDGE-009-034, EDGE-009-035, EDGE-009-040, EDGE-009-047]
+    change_note_1_1_0: "1.1.0 (feature 009, T1226, Architect 2026-11-23, MINOR): +5 operaciones de /api/admin/* de la Fase 3 (#19): inicio y callback del flujo OIDC de administracion con Google, lectura y cierre de la sesion de administracion y contador de pendientes. Esquemas inline cerrados; 404 uniforme (text/plain 'Not Found', identico al de una ruta inexistente de /api/) para toda ruta sin sesion de administracion y para todo fallo del callback (correo fuera de la lista, no verificado, state reutilizado, sub distinto del anclado); 429 ERR-ADMIN-RATE-LIMITED solo en inicio y callback (EDGE-009-035, ADR-009-15, D9-25). Sin codigos de error nuevos. Las dos operaciones de borrado de usuario de 1.0.0 no cambian. Depende de la Enmienda 009-A (T1224/T1225, pendiente de firma de Neo) para cookies, Path y jose. Pendientes: aprobar/rechazar y lista de PENDING (T1241), parametros y coste (T1256)."
 servers:
   - url: http://127.0.0.1:3100/api
     description: Servidor local (prefijo /api)
@@ -27,6 +28,8 @@ security:
   - sessionCookie: []
 tags:
   - name: account-deletion
+  - name: admin-auth
+  - name: admin-portal
 
 paths:
   /account/deletion/reauth:
@@ -131,6 +134,177 @@ paths:
         '429': { $ref: '#/components/responses/Problem' }
         '500': { $ref: '#/components/responses/Problem' }
 
+  /admin/auth/google/start:
+    get:
+      tags: [admin-auth]
+      operationId: startAdminGoogleLogin
+      security: []
+      summary: "Inicia el flujo OIDC de administracion con Google: 302 a Google y cookie argos_admin_oauth [REQ-ADM9-006, EDGE-009-035]"
+      description: >
+        Navegacion de la pantalla estatica GET /admin (GET sin cuerpo, sin sesion, sin parametros: nada del cliente entra en la URL de
+        Google). El estado real del flujo (state, nonce, verificador PKCE S256, expires_at 900 s) vive en el servidor en un almacen
+        PROPIO de administracion, distinto de oauth_flow_states de usuarios; la cookie argos_admin_oauth lleva solo un identificador
+        opaco de un solo uso (HttpOnly, SameSite=Lax, Path=/api/admin/auth/google, Max-Age 900 s, Secure en Cloud). La URI de
+        redireccion es la fija por entorno /api/admin/auth/google/callback, nunca derivada de Host. No consulta la lista de
+        administradores (no revela nada). Cuenta contra el limite por IP efectiva de EDGE-009-035 (trustProxy de 1 salto); superado
+        el limite responde 429 ERR-ADMIN-RATE-LIMITED con Retry-After. No toca argos_session ni argos_oauth ni crea cuentas de usuario.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM9-006, REQ-ADM9-004, INV-ADM9-001, EDGE-009-010, EDGE-009-035]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_LOGIN_START"
+      x-sdd-rbac-scope: "plataforma; PLATFORM_ADMIN nunca entra en can(rol, accion) de hogar (INV-ADM9-001)"
+      x-sdd-error-order: [ERR-ADMIN-RATE-LIMITED, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-rate-limit: "Fallos de acceso de administracion por IP efectiva y ventana (D9-25: 10 fallos en 15 min; valores solo en app-config.ts, ADR-009-15); ERR-ADMIN-RATE-LIMITED con Retry-After; nunca por cuenta ni a sesiones validas"
+      responses:
+        '302':
+          description: "Redireccion a https://accounts.google.com/... (state, nonce, PKCE S256); Set-Cookie argos_admin_oauth; la URL no se registra"
+          headers:
+            Location: { description: "https://accounts.google.com/...; no se registra", schema: { type: string, format: uri, pattern: '^https://accounts\.google\.com/' } }
+            Set-Cookie: { $ref: '#/components/headers/AdminOAuthCookie' }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+        '429': { $ref: '#/components/responses/AdminRateLimited' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/auth/google/callback:
+    get:
+      tags: [admin-auth]
+      operationId: completeAdminGoogleLogin
+      security: []
+      summary: "Callback del flujo OIDC de administracion: valida state, nonce, PKCE, id_token, lista cerrada de correos y sub anclado; emite argos_admin_session o 404 uniforme [REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-006]"
+      description: >
+        Valida state y nonce contra la cookie argos_admin_oauth (de un solo uso), canjea el codigo con PKCE y verifica del id_token la
+        firma (JWKS de Google, jose 6.2.17 en google-oidc-verify.ts, Enmienda 009-A), iss, aud, exp, nonce y email_verified = true. El
+        acceso exige correo verificado EN la lista cerrada de correos de configuracion (app-config.ts / Secret Manager / variable de
+        entorno; no editable desde la interfaz) y, si ya hay un sub anclado, sub IGUAL al anclado (EDGE-009-047); el primer acceso
+        ancla el sub. Exito: 200 con una pagina sin script en linea (CSP de pagina, como el callback de 008) que navega a /admin,
+        con Set-Cookie argos_admin_session (HttpOnly, SameSite=Strict, Path=/api/admin, Secure en Cloud, 30 min absolutos y 10 min de
+        inactividad) con identificador NUEVO (rotacion en el callback); la cookie Strict se fija en una respuesta 200 y no en un 302
+        cross-site. Cualquier fallo (state ausente, reutilizado o vencido; codigo o id_token invalido; correo no verificado; correo
+        fuera de la lista; sub distinto del anclado; cancelacion) responde el MISMO 404 uniforme que una ruta inexistente, sin
+        distinguir la causa ni revelar la lista (EDGE-009-008, EDGE-009-034); cuenta contra el limite por IP efectiva y, al superarlo,
+        429 ERR-ADMIN-RATE-LIMITED con Retry-After (EDGE-009-035). No crea ni modifica ninguna cuenta de usuario, no emite
+        argos_session y una cuenta de usuario PENDING no impide el acceso (EDGE-009-013). Consume la cookie argos_admin_oauth (se expira).
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-006, REQ-ADM9-004, INV-ADM9-001, INV-ADM9-002, EDGE-009-008, EDGE-009-009, EDGE-009-010, EDGE-009-034, EDGE-009-035, EDGE-009-047]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_LOGIN_COMPLETE"
+      x-sdd-rbac-scope: "plataforma; PLATFORM_ADMIN nunca entra en can(rol, accion) de hogar (INV-ADM9-001)"
+      x-sdd-error-order: [ERR-ADMIN-RATE-LIMITED, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-rate-limit: "Igual que startAdminGoogleLogin: los fallos de inicio y callback comparten la ventana por IP efectiva (D9-25; app-config.ts)"
+      parameters:
+        - name: code
+          in: query
+          required: false
+          description: "Codigo de autorizacion de Google; cualquier parametro ausente o malformado produce el 404 uniforme, no un 422"
+          schema: { type: string, maxLength: 2048 }
+        - name: state
+          in: query
+          required: false
+          schema: { type: string, maxLength: 256 }
+        - name: error
+          in: query
+          required: false
+          description: "Cancelacion o rechazo en Google; produce el 404 uniforme"
+          schema: { type: string, maxLength: 256 }
+      responses:
+        '200':
+          description: "Acceso concedido: pagina de navegacion sin script en linea; Set-Cookie argos_admin_session (id nuevo) y expiracion de argos_admin_oauth"
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/AdminSessionCookie' }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            text/html:
+              schema: { type: string }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '429': { $ref: '#/components/responses/AdminRateLimited' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/session:
+    get:
+      tags: [admin-portal]
+      operationId: getAdminSession
+      security:
+        - adminSessionCookie: []
+      summary: "Estado de la sesion de administracion vigente [REQ-ADM9-002, EDGE-009-047]"
+      description: >
+        Solo con argos_admin_session valida. En cada peticion de /api/admin/* se revalida que el correo de la sesion siga en la lista
+        vigente; si no, la sesion se revoca y la respuesta es el 404 uniforme (EDGE-009-047). Sin cookie, con cookie vencida, revocada
+        o ajena, o con una cookie de USUARIO (argos_session), responde el MISMO 404 uniforme que una ruta inexistente: cuerpo,
+        cabeceras y secuencia de puertos identicos, y tiempo de respuesta independiente de la existencia de sesion (EDGE-009-008,
+        INV-ADM9-002). Esta lectura NO renueva la inactividad (propuesta de /architect a confirmar en T1229; evita un keep-alive por
+        sondeo); las acciones de mutacion si la renuevan. Nunca devuelve el correo ni el sub.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM9-001, REQ-ADM9-002, INV-ADM9-002, EDGE-009-008, EDGE-009-047]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_SESSION_READ"
+      x-sdd-rbac-scope: "plataforma; PLATFORM_ADMIN nunca entra en can(rol, accion) de hogar (INV-ADM9-001)"
+      x-sdd-error-order: [ERR-INTERNAL-UNEXPECTED]
+      responses:
+        '200':
+          description: "Sesion de administracion vigente"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminSessionView' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '500': { $ref: '#/components/responses/Problem' }
+    delete:
+      tags: [admin-portal]
+      operationId: endAdminSession
+      security:
+        - adminSessionCookie: []
+      summary: "Cierre de sesion explicito de administracion: revoca la sesion y expira argos_admin_session [REQ-ADM9-002, EDGE-009-047]"
+      description: >
+        Exige argos_admin_session valida; sin ella, el 404 uniforme. Verifica el origen (cabecera Origin igual al propio) y la cabecera
+        X-Argos-Request: 1 (REQ-ADM9-005); si falta una de las dos con sesion valida responde 403 ERR-AUTH-CSRF-REJECTED y no revoca.
+        Con sesion valida y CSRF correcto revoca la sesion en el servidor (no solo expira la cookie) y registra la accion en
+        admin_audit_entries (id de administrador y marca de tiempo; REQ-ADM9-004). Idempotente en efecto: una segunda llamada ya no
+        tiene sesion y recibe el 404 uniforme. No afecta a argos_session.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM9-002, REQ-ADM9-004, REQ-ADM9-005, INV-ADM9-002, EDGE-009-011, EDGE-009-047]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_SESSION_END"
+      x-sdd-rbac-scope: "plataforma; PLATFORM_ADMIN nunca entra en can(rol, accion) de hogar (INV-ADM9-001)"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-INTERNAL-UNEXPECTED]
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '204':
+          description: "Sesion revocada; la cookie argos_admin_session se expira"
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/AdminSessionExpiredCookie' }
+        '403':
+          description: "ERR-AUTH-CSRF-REJECTED: falta X-Argos-Request o el origen es ajeno, con sesion de administracion valida"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/pending-count:
+    get:
+      tags: [admin-portal]
+      operationId: getAdminPendingCount
+      security:
+        - adminSessionCookie: []
+      summary: "Contador de cuentas PENDING y aviso de umbral, que se muestra al entrar a /admin (D9-01 = A) [REQ-APR9-005, EDGE-009-040]"
+      description: >
+        Solo con argos_admin_session valida; sin ella, el 404 uniforme. Devuelve cuantas cuentas estan en PENDING (STATE-ACCT9-001) y
+        si superan el umbral de aviso aprobado (D9-25, valor solo en app-config.ts; el umbral numerico NO se expone). La lista
+        paginada y las acciones aprobar y rechazar son de T1241 y no estan en esta version. No modifica estado ni se audita.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-APR9-005, REQ-ADM9-001, INV-ADM9-002, EDGE-009-040]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_PENDING_COUNT_READ"
+      x-sdd-rbac-scope: "plataforma; PLATFORM_ADMIN nunca entra en can(rol, accion) de hogar (INV-ADM9-001)"
+      x-sdd-error-order: [ERR-INTERNAL-UNEXPECTED]
+      responses:
+        '200':
+          description: "Contador de pendientes"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPendingCount' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '500': { $ref: '#/components/responses/Problem' }
+
 components:
   securitySchemes:
     sessionCookie:
@@ -138,7 +312,21 @@ components:
       in: cookie
       name: argos_session
       description: Cookie de sesion de usuario de 002/004 (HttpOnly, SameSite=Strict). Las dos operaciones de esta version son de usuario; ninguna acepta la cookie de administracion.
+    adminSessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_admin_session
+      description: Cookie de sesion de ADMINISTRACION (HttpOnly, SameSite=Strict, Path=/api/admin; Enmienda 009-A). Solo la aceptan las operaciones /admin/*; nunca autoriza la API de usuarios, y argos_session nunca autoriza /admin/* (INV-ADM9-002).
   headers:
+    AdminOAuthCookie:
+      description: argos_admin_oauth=<id opaco>; HttpOnly; SameSite=Lax; Path=/api/admin/auth/google; Max-Age=900 (Secure en Cloud); de un solo uso. SameSite=Lax solo para esta cookie (Enmienda 009-A) porque una cookie Strict no viaja en la navegacion que vuelve desde Google
+      schema: { type: string }
+    AdminSessionCookie:
+      description: "argos_admin_session=<id opaco de 32 bytes base64url, nuevo>; HttpOnly; SameSite=Strict; Path=/api/admin (Secure en Cloud); 30 min absolutos desde su creacion y 10 min de inactividad (Enmienda 009-A). Ademas argos_admin_oauth=; Max-Age=0 (se consume)"
+      schema: { type: string }
+    AdminSessionExpiredCookie:
+      description: argos_admin_session=; HttpOnly; SameSite=Strict; Path=/api/admin; Max-Age=0
+      schema: { type: string }
     NoStore:
       description: "Cache-Control: no-store"
       schema: { type: string, const: 'no-store' }
@@ -153,9 +341,29 @@ components:
       name: X-Argos-Request
       in: header
       required: true
-      description: Obligatoria en toda peticion autenticada que modifica estado; si falta, ERR-AUTH-CSRF-REJECTED. Se valida antes que la sesion y no renueva actividad [INV-AUTH-007]
+      description: La verificacion de origen y de X-Argos-Request se aplica a las operaciones que mutan estado; si falta, ERR-AUTH-CSRF-REJECTED. En endAdminSession, sin sesion responde 404 uniforme, y con sesion valida y sin la cabecera responde 403 ERR-AUTH-CSRF-REJECTED. Se valida antes que la sesion y no renueva actividad [INV-AUTH-007]
       schema: { type: string, const: '1' }
   responses:
+    NotFoundUniform:
+      description: >
+        404 UNIFORME (EDGE-009-008, INV-ADM9-001): el mismo estado, cuerpo (text/plain 'Not Found'), cabeceras y secuencia de puertos
+        que una ruta inexistente de /api/ (src/infrastructure/http/plugins/static-assets.ts), y con tiempo de respuesta independiente
+        de la sesion. No es application/problem+json ni lleva codigo ERR-*: un codigo propio distinguiria la ruta de una inexistente.
+        Cubre: sin sesion de administracion, sesion vencida, revocada o ajena, cookie de usuario, correo retirado de la lista y todo
+        fallo del callback.
+      content:
+        text/plain:
+          schema: { type: string, const: 'Not Found' }
+    AdminRateLimited:
+      description: "ERR-ADMIN-RATE-LIMITED (EDGE-009-035): demasiados fallos desde la IP efectiva en el flujo de Google de administracion; solo en inicio y callback"
+      headers:
+        Retry-After:
+          description: Segundos hasta que expire la ventana de la IP efectiva (entero; valor derivado de app-config.ts, no escrito en el contrato)
+          schema: { type: integer, minimum: 1 }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
     Problem:
       description: Error tipado del catalogo incremental de la 009 o de los catalogos heredados de 004, 005 y 006 (RFC 9457)
       content:
@@ -164,6 +372,28 @@ components:
   schemas:
     ProblemDetails:
       $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails'
+    AdminSessionView:
+      type: object
+      additionalProperties: false
+      required: [authenticated, adminId, expiresAt, idleExpiresAt]
+      description: "[REQ-ADM9-002] Vista cerrada de la sesion de administracion. No incluye correo, sub ni el identificador de sesion."
+      properties:
+        authenticated: { type: boolean, const: true }
+        adminId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: "Identificador opaco del administrador, el mismo que se registra en admin_audit_entries (REQ-ADM9-004); no es un userId de usuario"
+        expiresAt: { type: string, format: date-time, description: "Fin absoluto de la sesion (30 min desde su creacion)" }
+        idleExpiresAt: { type: string, format: date-time, description: "Fin por inactividad (10 min desde la ultima actividad), sin superar expiresAt" }
+    AdminPendingCount:
+      type: object
+      additionalProperties: false
+      required: [pending, warning]
+      description: "[REQ-APR9-005, EDGE-009-040] Contador de cuentas PENDING; el umbral numerico de aviso no se expone."
+      properties:
+        pending: { type: integer, minimum: 0, description: "Cuentas en estado PENDING (STATE-ACCT9-001)" }
+        warning: { type: boolean, description: "true si PENDING supera el umbral de aviso aprobado (D9-25, solo en app-config.ts)" }
     DeletionReauthStarted:
       type: object
       additionalProperties: false
