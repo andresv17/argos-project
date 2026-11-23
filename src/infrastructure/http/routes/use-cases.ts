@@ -4,6 +4,7 @@
  * @implements INV-ARCH-004
  */
 
+import { AuthenticateAdminUseCase, CompleteAdminGoogleLoginUseCase, EndAdminSessionUseCase, StartAdminGoogleLoginUseCase } from '../../../application/use-cases/admin-use-cases.ts';
 import { ChangePasswordUseCase, DeleteAccountUseCase, UpdateProfileUseCase } from '../../../application/use-cases/account-use-cases.ts';
 import { DeleteAccountWithGoogleUseCase, StartAccountDeletionReauthUseCase } from '../../../application/use-cases/account-google-deletion-use-cases.ts';
 import { DeleteAvatarUseCase, GetAvatarUseCase, PutAvatarUseCase } from '../../../application/use-cases/avatar-use-cases.ts';
@@ -60,6 +61,10 @@ export function createUseCases(deps: ApplicationDeps) {
     googleComplete: new CompleteGoogleLoginUseCase(deps),
     googleChooseUsername: new ChooseGoogleUsernameUseCase(deps),
     googleLink: new StartGoogleLinkUseCase(deps),
+    adminStart: new StartAdminGoogleLoginUseCase(deps),
+    adminComplete: new CompleteAdminGoogleLoginUseCase(deps),
+    adminAuthenticate: new AuthenticateAdminUseCase(deps),
+    adminEnd: new EndAdminSessionUseCase(deps),
     changePassword: new ChangePasswordUseCase(deps),
     updateProfile: new UpdateProfileUseCase(deps),
     deleteAccount: new DeleteAccountUseCase(deps),

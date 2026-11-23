@@ -44,6 +44,16 @@ import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLin
 import { EXPIRY_DAYS, type ShareLinkRecord, type ShareScope } from '../../../domain/sharing/share-link.ts';
 import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type {
+  AdminAuditRecord,
+  AdminAuditRepositoryPort,
+  AdminFlowStateRepositoryPort,
+  AdminIdentityRepositoryPort,
+  AdminSessionRepositoryPort,
+  AdminFlowStateRecord,
+  AdminIdentityRecord,
+  AdminSessionRecord,
+} from '../../../application/ports/admin.port.ts';
+import type {
   AuthIdentityRecord,
   AuthIdentityRepositoryPort,
   OAuthFlowStateRecord,
@@ -85,6 +95,11 @@ export interface MemoryState extends SceneMemoryState {
   authIdentities?: AuthIdentityRecord[];
   /** `oauth_flow_states` (feature 008, REQ-SSO8-004); opcional: ausente = vacía. */
   oauthFlows?: OAuthFlowStateRecord[];
+  /** Portal de administración (feature 009, Fase 3); opcionales: ausentes = vacías. */
+  adminIdentities?: AdminIdentityRecord[];
+  adminSessions?: AdminSessionRecord[];
+  adminFlows?: AdminFlowStateRecord[];
+  adminAudit?: AdminAuditRecord[];
   /** Escena del hogar (feature 006): `scenes`, `sceneAttempts`, `sceneConsents` y `sceneQuotaCarry` (opcionales; ausentes = vacías). */
 }
 
@@ -123,6 +138,10 @@ export function emptyMemoryState(): MemoryState {
     shareAudit: [],
     authIdentities: [],
     oauthFlows: [],
+    adminIdentities: [],
+    adminSessions: [],
+    adminFlows: [],
+    adminAudit: [],
     scenes: [],
     sceneAttempts: [],
     sceneConsents: [],
@@ -755,6 +774,97 @@ function oauthFlowRepository(state: MemoryState): OAuthFlowStateRepositoryPort {
   };
 }
 
+/** `admin_identities` (feature 009, REQ-ADM9-003): única por (provider, sub) y por correo; sin relación con `users`. */
+function adminIdentityRepository(state: MemoryState): AdminIdentityRepositoryPort {
+  const all = (): AdminIdentityRecord[] => (state.adminIdentities ??= []);
+  return {
+    async findById(adminId) {
+      return copy(all().find((i) => i.adminId === adminId) ?? null);
+    },
+    async findBySubject(provider, providerSubject) {
+      return copy(all().find((i) => i.provider === provider && i.providerSubject === providerSubject) ?? null);
+    },
+    async findByEmail(email) {
+      return copy(all().find((i) => i.email === email) ?? null);
+    },
+    async insertIfAbsent(identity) {
+      if (identity.adminId.length !== 36 || identity.providerSubject === '' || identity.email.length < 3 || identity.email !== identity.email.toLowerCase()) throw new Error('admin_identities: fila incoherente');
+      if (all().some((i) => i.adminId === identity.adminId || (i.provider === identity.provider && i.providerSubject === identity.providerSubject) || i.email === identity.email)) return false;
+      all().push(copy(identity));
+      return true;
+    },
+  };
+}
+
+/** `admin_sessions` (feature 009, REQ-ADM9-002): solo el hash; revocación por compare-and-set; la actividad no se renueva si está revocada. */
+function adminSessionRepository(state: MemoryState): AdminSessionRepositoryPort {
+  const all = (): AdminSessionRecord[] => (state.adminSessions ??= []);
+  return {
+    async insert(record) {
+      if (record.tokenHash.length !== 64) throw new Error('admin_sessions: hash incoherente');
+      if (!(state.adminIdentities ?? []).some((i) => i.adminId === record.adminId)) throw new Error('admin_sessions: la identidad no existe');
+      if (all().some((s) => s.tokenHash === record.tokenHash)) throw new Error('admin_sessions: identificador duplicado');
+      all().push(copy(record));
+    },
+    async findByTokenHash(tokenHash) {
+      return copy(all().find((s) => s.tokenHash === tokenHash) ?? null);
+    },
+    async touch(tokenHash, lastActivityAt) {
+      const index = all().findIndex((s) => s.tokenHash === tokenHash && s.revokedAt === null);
+      if (index >= 0) all()[index] = { ...all()[index]!, lastActivityAt };
+    },
+    async revoke(tokenHash, revokedAt) {
+      const index = all().findIndex((s) => s.tokenHash === tokenHash && s.revokedAt === null);
+      if (index < 0) return false;
+      all()[index] = { ...all()[index]!, revokedAt };
+      return true;
+    },
+    async purgeCreatedBefore(cutoff) {
+      const before = all().length;
+      state.adminSessions = all().filter((s) => s.createdAt > cutoff);
+      return before - state.adminSessions.length;
+    },
+  };
+}
+
+/** `admin_oauth_flow_states` (feature 009, REQ-ADM9-006): un solo uso por compare-and-set, vence a los 900 s. */
+function adminFlowRepository(state: MemoryState): AdminFlowStateRepositoryPort {
+  const all = (): AdminFlowStateRecord[] => (state.adminFlows ??= []);
+  return {
+    async insert(record) {
+      if (record.tokenHash.length !== 64 || record.state === '' || record.nonce === '' || record.codeVerifier === '' || !(record.expiresAt > record.createdAt)) throw new Error('admin_oauth_flow_states: fila incoherente');
+      if (all().some((f) => f.tokenHash === record.tokenHash)) throw new Error('admin_oauth_flow_states: identificador duplicado');
+      all().push(copy(record));
+    },
+    async consume(tokenHash, nowIsoTimestamp) {
+      const index = all().findIndex((f) => f.tokenHash === tokenHash && f.consumedAt === null && f.expiresAt > nowIsoTimestamp);
+      if (index < 0) return null;
+      all()[index] = { ...all()[index]!, consumedAt: nowIsoTimestamp };
+      return copy(all()[index]!);
+    },
+    async purgeExpired(nowIsoTimestamp) {
+      const before = all().length;
+      state.adminFlows = all().filter((f) => f.expiresAt > nowIsoTimestamp);
+      return before - state.adminFlows.length;
+    },
+  };
+}
+
+/** `admin_audit_entries` (feature 009, REQ-ADM9-004): auditoría propia, sin relación con `users` ni con la identidad. */
+function adminAuditRepository(state: MemoryState): AdminAuditRepositoryPort {
+  const all = (): AdminAuditRecord[] => (state.adminAudit ??= []);
+  return {
+    async insert(record) {
+      if (record.id.length !== 36 || record.adminId.length !== 36 || record.action.length < 1 || record.action.length > 64) throw new Error('admin_audit_entries: fila incoherente');
+      if (all().some((r) => r.id === record.id)) throw new Error('admin_audit_entries: identificador duplicado');
+      all().push(copy(record));
+    },
+    async listByAdmin(adminId) {
+      return copy(all().filter((r) => r.adminId === adminId).sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : a.occurredAt > b.occurredAt ? 1 : a.id < b.id ? -1 : 1)));
+    },
+  };
+}
+
 function repositoriesOver(state: MemoryState): RepositorySet {
   return {
     users: userRepository(state),
@@ -776,6 +886,10 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     sceneConsents: memorySceneConsentRepository(state),
     authIdentities: authIdentityRepository(state),
     oauthFlows: oauthFlowRepository(state),
+    adminIdentities: adminIdentityRepository(state),
+    adminSessions: adminSessionRepository(state),
+    adminFlows: adminFlowRepository(state),
+    adminAudit: adminAuditRepository(state),
   };
 }
 

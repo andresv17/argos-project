@@ -25,7 +25,7 @@ import { Sha256BackupTokenAdapter } from '../adapters/sha256-backup-token.adapte
 import { SlidingWindowRateLimiterAdapter, rateLimitsFrom } from '../adapters/sliding-window-rate-limiter.adapter.ts';
 import { ScryptPasswordHasherAdapter } from '../adapters/scrypt-password-hasher.adapter.ts';
 import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
-import { DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
+import { ADMIN_GOOGLE_CALLBACK_PATH, DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
 import { DEVELOPMENT_SHARE_IP_HMAC_SECRET, loadShareConfig } from '../config/share-config.ts';
 import { CryptoTokenGenerator } from '../adapters/crypto-token-generator.adapter.ts';
 import { SharedAccessLimiter } from '../../application/sharing/shared-access-limiter.ts';
@@ -192,6 +192,17 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
           google: {
             oidc: createGoogleOidcPort({ clientId: config.google.clientId, clientSecret: config.google.clientSecret, redirectUri: config.google.redirectUri, ...(options.googleFetch === undefined ? {} : { fetch: options.googleFetch }), ...(options.googleJwks === undefined ? {} : { jwks: options.googleJwks }) }),
             entropy: new CryptoOneTimeTokenEntropyAdapter(),
+          },
+        }),
+    // 009 (Fase 3, #19; Enmienda 009-A): portal de administración con el MISMO cliente de Google pero la URI de redirección PROPIA, fija por entorno (origen de `GOOGLE_OAUTH_REDIRECT_URI`
+    // más la ruta fija de administración; nunca derivada de `Host`). Lista cerrada de correos solo desde `app-config.ts` (INV-ARCH-006); vacía = nadie entra (falla cerrado).
+    ...(config.google === undefined
+      ? {}
+      : {
+          admin: {
+            oidc: createGoogleOidcPort({ clientId: config.google.clientId, clientSecret: config.google.clientSecret, redirectUri: new URL(ADMIN_GOOGLE_CALLBACK_PATH, config.google.redirectUri).toString(), ...(options.googleFetch === undefined ? {} : { fetch: options.googleFetch }), ...(options.googleJwks === undefined ? {} : { jwks: options.googleJwks }) }),
+            entropy: new CryptoOneTimeTokenEntropyAdapter(),
+            allowedEmails: config.adminEmails,
           },
         }),
     // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).

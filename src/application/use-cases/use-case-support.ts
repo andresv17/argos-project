@@ -132,6 +132,17 @@ export interface GoogleServices {
   readonly entropy: OneTimeTokenEntropyPort;
 }
 
+/**
+ * Portal de administración (feature 009, Fase 3, #19): el proveedor OIDC de Google con la URI de redirección PROPIA de administración, la entropía del identificador opaco de
+ * `argos_admin_oauth` y de `argos_admin_session`, y la lista cerrada de correos de administración ya normalizados (minúsculas), leída solo de `app-config.ts` (INV-ARCH-006) y consultada en
+ * CADA petición (EDGE-009-047). Opcional: sin él las rutas de `/api/admin/*` no existen (404).
+ */
+export interface AdminServices {
+  readonly oidc: GoogleOidcPort;
+  readonly entropy: OneTimeTokenEntropyPort;
+  readonly allowedEmails: readonly string[];
+}
+
 export interface ApplicationDeps {
   readonly uow: UnitOfWorkPort;
   readonly clock: ClockPort;
@@ -167,6 +178,8 @@ export interface ApplicationDeps {
   readonly scene?: SceneServices;
   /** Acceso con Google (feature 008, T1121). Ausente: las operaciones de Google fallan cerrado. */
   readonly google?: GoogleServices;
+  /** Portal de administración (feature 009, Fase 3). Ausente: no hay rutas de administración (404 uniforme). */
+  readonly admin?: AdminServices;
 }
 
 interface ValidatorWithErrors {

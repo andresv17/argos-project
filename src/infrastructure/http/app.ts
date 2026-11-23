@@ -18,6 +18,8 @@ import { registerAccountRoutes } from './routes/account.routes.ts';
 import { registerAuthRoutes } from './routes/auth.routes.ts';
 import { registerGoogleAuthRoutes } from './routes/google-auth.routes.ts';
 import { GoogleRateLimiter } from './google-rate-limit.ts';
+import { AdminAccessLimiter } from './admin-rate-limit.ts';
+import { registerAdminRoutes } from './routes/admin.routes.ts';
 import { registerBackupRoutes } from './routes/backup.routes.ts';
 import { registerAssignmentRoutes } from './routes/assignments.routes.ts';
 import { registerOwnershipRoutes } from './routes/ownership.routes.ts';
@@ -78,6 +80,8 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
   const context = { useCases: createUseCases(deps), cookieSecure };
   registerAuthRoutes(app, context);
   registerGoogleAuthRoutes(app, context, new GoogleRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())));
+  // Portal de administración (feature 009, Fase 3): solo si la composición conectó Google de administración; sin él `/api/admin/*` no existe (404).
+  if (deps.admin !== undefined) registerAdminRoutes(app, context, new AdminAccessLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())));
   registerAccountRoutes(app, context);
   registerPetRoutes(app, context);
   registerRecordEditRoutes(app, context);

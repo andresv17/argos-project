@@ -1,0 +1,138 @@
+/**
+ * Rutas del portal de administración (Feature 009, Fase 3, `#19`; Enmienda constitucional 009-A; contrato `admin.openapi.yaml` 1.2.0).
+ * - `GET /api/admin/auth/google/start`: 302 a Google con la cookie `argos_admin_oauth` (`HttpOnly`, `SameSite=Lax`, `Path=/api/admin/auth/google`, `Max-Age` 900 s, `Secure` en Cloud) con
+ *   SOLO un identificador opaco. No consulta la lista. Bloqueada (429 `ERR-ADMIN-RATE-LIMITED` con `Retry-After`) si la IP efectiva acumuló demasiados fallos (EDGE-009-035).
+ * - `GET /api/admin/auth/google/callback`: éxito = 200 con una página SIN script en línea que navega a `/admin` y `argos_admin_session` (`HttpOnly`, `SameSite=Strict`, `Path=/api/admin`,
+ *   `Secure` en Cloud, identificador NUEVO) en esa misma respuesta, no en un 302 cross-site; cualquier fallo = el MISMO 404 que una ruta inexistente (sin `Set-Cookie`, sin distinguir la causa).
+ * - `GET` y `DELETE /api/admin/session`: sesión de administración o el 404 uniforme; `GET` no renueva la inactividad; `DELETE` exige origen propio y revoca en el servidor.
+ * - Cualquier otra ruta bajo `/api/admin` recorre la MISMA autenticación y responde el 404 uniforme (secuencia de puertos idéntica a la de las rutas ocultas, EDGE-009-008).
+ * - El 404 uniforme se delega al manejador de rutas inexistentes (`reply.callNotFound()`): el mismo cuerpo y las mismas cabeceras que una ruta inexistente de `/api/`, sin código `ERR-*`.
+ * `argos_session` y `argos_oauth` no se leen ni se tocan (INV-ADM9-002).
+ *
+ * @implements REQ-ADM9-001, REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-005, REQ-ADM9-006, INV-ADM9-001, INV-ADM9-002, EDGE-009-008, EDGE-009-011, EDGE-009-035, EDGE-009-047
+ */
+
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { ADMIN_SESSION_MAX_AGE_SECONDS } from '../../../domain/auth/admin-session-policy.ts';
+import { ONE_TIME_TOKEN_TTL_SECONDS } from '../../../domain/auth/one-time-token.ts';
+import { DomainError } from '../../../generated/index.ts';
+import type { AdminAccessLimiter } from '../admin-rate-limit.ts';
+import type { RouteContext } from './use-cases.ts';
+
+export const ADMIN_SESSION_COOKIE = 'argos_admin_session';
+export const ADMIN_SESSION_COOKIE_PATH = '/api/admin';
+export const ADMIN_OAUTH_COOKIE = 'argos_admin_oauth';
+export const ADMIN_OAUTH_COOKIE_PATH = '/api/admin/auth/google';
+/** Pantalla estática del portal (la sirve el bundle de la SPA; T1235). */
+export const ADMIN_PORTAL_PATH = '/admin';
+
+/** CSP estricta de las respuestas autenticadas del portal: sin nada cargable (la API solo devuelve JSON o una página de navegación sin script). */
+export const ADMIN_API_CONTENT_SECURITY_POLICY = "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+const MAX_CODE_LENGTH = 2048;
+const MAX_STATE_LENGTH = 256;
+
+const adminSessionTokenOf = (request: FastifyRequest): string | null => request.cookies[ADMIN_SESSION_COOKIE] ?? null;
+const adminOAuthTokenOf = (request: FastifyRequest): string | null => request.cookies[ADMIN_OAUTH_COOKIE] ?? null;
+
+/** Valor de la consulta si es una cadena no vacía dentro del tope; si no, `undefined` (se trata como ausente, sin reflejarlo). */
+const bounded = (value: unknown, max: number): string | undefined => (typeof value === 'string' && value.length > 0 && value.length <= max ? value : undefined);
+
+const setAdminOAuthCookie = (reply: FastifyReply, token: string, secure: boolean): void => {
+  reply.setCookie(ADMIN_OAUTH_COOKIE, token, { httpOnly: true, sameSite: 'lax', path: ADMIN_OAUTH_COOKIE_PATH, maxAge: ONE_TIME_TOKEN_TTL_SECONDS, secure });
+};
+const clearAdminOAuthCookie = (reply: FastifyReply, secure: boolean): void => {
+  reply.clearCookie(ADMIN_OAUTH_COOKIE, { httpOnly: true, sameSite: 'lax', path: ADMIN_OAUTH_COOKIE_PATH, secure });
+};
+const setAdminSessionCookie = (reply: FastifyReply, token: string, secure: boolean): void => {
+  reply.setCookie(ADMIN_SESSION_COOKIE, token, { httpOnly: true, sameSite: 'strict', path: ADMIN_SESSION_COOKIE_PATH, maxAge: ADMIN_SESSION_MAX_AGE_SECONDS, secure });
+};
+const clearAdminSessionCookie = (reply: FastifyReply, secure: boolean): void => {
+  reply.clearCookie(ADMIN_SESSION_COOKIE, { httpOnly: true, sameSite: 'strict', path: ADMIN_SESSION_COOKIE_PATH, secure });
+};
+
+/** Página mínima del callback: navega con `meta refresh` (sin script en línea, sin enlaces externos). */
+const landingPage = (path: string): string =>
+  `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${path}"><meta name="referrer" content="no-referrer"><title>ARGOS</title></head><body><p>Continuando...</p><p><a href="${path}">Continuar</a></p></body></html>`;
+
+/** El 404 de una ruta inexistente: mismo cuerpo, cabeceras y estado que cualquier otra ruta que no existe. */
+function uniformNotFound(reply: FastifyReply): FastifyReply {
+  reply.callNotFound();
+  return reply;
+}
+
+/** `Origin` presente y EXACTAMENTE igual al origen propio (esquema, host y puerto). `null`, ausente, otro esquema, host o puerto = rechazo (REQ-ADM9-005). */
+function isOwnOrigin(request: FastifyRequest): boolean {
+  const origin = request.headers.origin;
+  if (typeof origin !== 'string') return false;
+  try {
+    const presented = new URL(origin);
+    return presented.origin === origin && presented.origin === new URL(`${request.protocol}://${request.host}`).origin;
+  } catch {
+    return false;
+  }
+}
+
+/** @implements REQ-ADM9-001, REQ-ADM9-002, REQ-ADM9-005, REQ-ADM9-006, INV-ADM9-002, EDGE-009-008, EDGE-009-035 */
+export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecure }: RouteContext, limiter: AdminAccessLimiter): void {
+  app.get('/api/admin/auth/google/start', async (request, reply) => {
+    limiter.assertNotBlocked(request.ip);
+    limiter.consumeStart(request.ip);
+    const { authorizationUrl, oauthToken } = await useCases.adminStart.execute();
+    setAdminOAuthCookie(reply, oauthToken, cookieSecure);
+    return reply.header('cache-control', 'no-store').redirect(authorizationUrl, 302);
+  });
+
+  app.get<{ Querystring: { code?: unknown; state?: unknown; error?: unknown } }>('/api/admin/auth/google/callback', async (request, reply) => {
+    limiter.assertNotBlocked(request.ip);
+    const { code, state, error } = request.query;
+    const result = await useCases.adminComplete.execute({
+      oauthToken: adminOAuthTokenOf(request),
+      code: bounded(code, MAX_CODE_LENGTH),
+      state: bounded(state, MAX_STATE_LENGTH),
+      error: error === undefined ? undefined : 'error',
+    });
+    if (!result.ok) {
+      limiter.recordFailure(request.ip);
+      return uniformNotFound(reply);
+    }
+    clearAdminOAuthCookie(reply, cookieSecure);
+    setAdminSessionCookie(reply, result.sessionToken, cookieSecure);
+    return reply
+      .header('cache-control', 'no-store')
+      .header('referrer-policy', 'no-referrer')
+      .header('content-security-policy', ADMIN_API_CONTENT_SECURITY_POLICY)
+      .type('text/html; charset=utf-8')
+      .status(200)
+      .send(landingPage(ADMIN_PORTAL_PATH));
+  });
+
+  app.get('/api/admin/session', async (request, reply) => {
+    // Sin keep-alive: leer el estado NO renueva la inactividad (REQ-ADM9-002; Neo, T1225).
+    const session = await useCases.adminAuthenticate.execute(adminSessionTokenOf(request), { renew: false });
+    if (session === null) return uniformNotFound(reply);
+    return reply
+      .header('cache-control', 'no-store')
+      .header('content-security-policy', ADMIN_API_CONTENT_SECURITY_POLICY)
+      .status(200)
+      .send({ authenticated: true, adminId: session.adminId, expiresAt: session.expiresAt, idleExpiresAt: session.idleExpiresAt });
+  });
+
+  app.delete('/api/admin/session', async (request, reply) => {
+    const token = adminSessionTokenOf(request);
+    // Sin sesión: 404 uniforme. Con sesión pero origen ajeno o ausente: 403 sin revocar ni auditar (REQ-ADM9-005, EDGE-009-011).
+    if ((await useCases.adminAuthenticate.execute(token, { renew: false })) === null) return uniformNotFound(reply);
+    if (!isOwnOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
+    if (!(await useCases.adminEnd.execute(token))) return uniformNotFound(reply);
+    clearAdminSessionCookie(reply, cookieSecure);
+    return reply.status(204).send();
+  });
+
+  // Todo lo demás bajo /api/admin: la misma lectura de sesión que las rutas reales y el 404 uniforme (con o sin sesión, la ruta no existe). Mantiene idéntica la secuencia de puertos.
+  const hidden = async (request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> => {
+    await useCases.adminAuthenticate.execute(adminSessionTokenOf(request), { renew: false });
+    return uniformNotFound(reply);
+  };
+  app.all('/api/admin', hidden);
+  app.all('/api/admin/*', hidden);
+}

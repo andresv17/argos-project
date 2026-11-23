@@ -5,6 +5,8 @@ import { buildGoogleAuthorizationUrl, GoogleOidcError } from '../../src/infrastr
 /** Dobles de la Feature 008 (acceso con Google): ninguna red, ninguna credencial real (JWKS y token endpoint simulados en t1114). */
 export const GOOGLE_CLIENT_ID = 'argos-client-id.apps.googleusercontent.com';
 export const GOOGLE_REDIRECT = 'https://argos.test/api/auth/google/callback';
+/** URI de redirección del flujo de administración (009-A (c)): fija por entorno, distinta de la de usuarios. */
+export const GOOGLE_ADMIN_REDIRECT = 'https://argos.test/api/admin/auth/google/callback';
 export const GOOGLE_SUB = 'google-sub-0001';
 export const GOOGLE_EMAIL = 'persona@example.test';
 export const GOOGLE_CODE = '4/0AbCd-code';
@@ -31,7 +33,7 @@ export interface FakeGoogleOidc extends GoogleOidcPort {
   authTimeSeconds: number | undefined;
 }
 
-export function fakeGoogleOidc(): FakeGoogleOidc {
+export function fakeGoogleOidc(redirectUri: string = GOOGLE_REDIRECT): FakeGoogleOidc {
   const fake: FakeGoogleOidc = {
     completions: [],
     authorizations: [],
@@ -39,7 +41,7 @@ export function fakeGoogleOidc(): FakeGoogleOidc {
     authTimeSeconds: undefined,
     authorizationUrl: (p) => {
       fake.authorizations.push(p);
-      return buildGoogleAuthorizationUrl({ clientId: GOOGLE_CLIENT_ID, redirectUri: GOOGLE_REDIRECT, ...p });
+      return buildGoogleAuthorizationUrl({ clientId: GOOGLE_CLIENT_ID, redirectUri, ...p });
     },
     async complete(p) {
       fake.completions.push(p);

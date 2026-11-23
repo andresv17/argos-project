@@ -241,7 +241,7 @@ Decisiones firmadas por Neo el 2026-11-23 tras las actas `/lock`, `/mifune` y `/
 - **SC-009-006** (`REQ-APR9-005`): la lista de pendientes de `/admin` pagina y ordena por fecha de solicitud, y acepta aprobar/rechazar con confirmación.
 - **SC-009-007** (`EDGE-009-005`): inicio de sesión de cuenta `PENDING`/`REJECTED` (contraseña y Google) no crea sesión útil.
 - **SC-009-008** (`REQ-APR9-006`, diferido): no existe `EmailSenderPort`, adaptador de correo ni dependencia de correo en `src/` ni en `package.json` (`D9-01` = A); `/admin` muestra el contador de pendientes.
-- **SC-009-009** (`REQ-ADM9-001`): sin sesión de administración, `/api/admin/*` y rutas de datos del portal responden igual que una ruta inexistente; `GET /admin` sirve solo la pantalla de acceso.
+- **SC-009-009** (`REQ-ADM9-001`): sin sesión de administración, `/api/admin/*` y rutas de datos del portal responden igual que una ruta inexistente: mismo 404 que ruta inexistente sin sesión; mismo 403 que ruta inexistente para mutadores sin cabecera X-Argos-Request (guard global INV-AUTH-007); `GET /admin` sirve solo la pantalla de acceso.
 - **SC-009-010** (`NFR-009-001`): captura de pantallas y rutas de usuario idéntica antes y después (registro, menús, perfil): sin referencias a «Administrador».
 - **SC-009-011** (`INV-ADM9-002`): la cookie de usuario no autoriza `/api/admin/*` y la de administración no autoriza la API de usuarios.
 - **SC-009-012** (`REQ-ADM9-003`): ninguna ruta de usuario puede otorgar el rol de administración (prueba negativa de superficie).

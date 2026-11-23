@@ -30,6 +30,7 @@ import {
 // 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
 import { validateUserPublicProfile } from '../../../generated/v31/index.ts';
 import { authIdentityRepository, oauthFlowRepository } from './postgres-auth-repositories.ts';
+import { adminAuditRepository, adminFlowRepository, adminIdentityRepository, adminSessionRepository } from './postgres-admin-repositories.ts';
 import { isStoredPetProfile, type LifeStatus, type PetProfile, type PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
@@ -837,5 +838,9 @@ export function createPostgresRepositories(client: PoolClientLike): RepositorySe
     sceneConsents: postgresSceneConsentRepository(client),
     authIdentities: authIdentityRepository(client),
     oauthFlows: oauthFlowRepository(client),
+    adminIdentities: adminIdentityRepository(client),
+    adminSessions: adminSessionRepository(client),
+    adminFlows: adminFlowRepository(client),
+    adminAudit: adminAuditRepository(client),
   };
 }

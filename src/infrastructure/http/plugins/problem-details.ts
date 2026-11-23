@@ -61,9 +61,11 @@ export function registerProblemDetails(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     const problem = toDomainError(error, request);
     if (problem.code === 'ERR-INTERNAL-UNEXPECTED' && !(error instanceof DomainError) && !(error instanceof DomainErrorV31) && !(error instanceof DomainErrorV33) && !(error instanceof DomainErrorV34) && !(error instanceof DomainErrorV35)) request.log.error({ err: error }, 'error no previsto');
-    // 429 de la escena (REQ-ESC6-034): los segundos de espera viajan en `Retry-After`.
+    // 429 de la escena (REQ-ESC6-034) y de administración (009): los segundos de espera viajan en `Retry-After`.
     const retryAfter = (error as { retryAfterSeconds?: unknown }).retryAfterSeconds;
-    if (problem.code === 'ERR-RATE-LIMITED' && typeof retryAfter === 'number') reply.header('retry-after', String(retryAfter));
+    if ((problem.code === 'ERR-RATE-LIMITED' || problem.code === 'ERR-ADMIN-RATE-LIMITED') && typeof retryAfter === 'number') reply.header('retry-after', String(retryAfter));
+    // 429 de administración (009, EDGE-009-035): sin caché y sin revelar nada más que el código del catálogo.
+    if (problem.code === 'ERR-ADMIN-RATE-LIMITED') reply.header('cache-control', 'no-store');
     return sendProblem(reply, request, problem);
   });
 }

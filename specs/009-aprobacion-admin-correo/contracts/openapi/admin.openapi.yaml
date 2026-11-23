@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 009 (administracion y borrado de cuenta sin contrasena)
-  version: 1.1.0
+  version: 1.2.0
   description: >
     Documento INCREMENTAL y UNICO de la feature 009 (P5-05 = A): contiene solo operaciones nuevas; los OpenAPI de 004 (3.4.0),
     005 y 006 permanecen sin cambio, y deleteAccount de 004 no se edita. Version 1.0.0 (T1217): dos operaciones de USUARIO del
@@ -14,12 +14,14 @@ info:
     /admin/* y nunca autorizan las dos operaciones de usuario.
   x-sdd-status: DRAFT
   x-sdd-metadata:
-    version: 1.1.0
+    version: 1.2.0
     status: DRAFT
     supersedes: null
     change_type: MINOR
     change_note: "1.0.0 (feature 009, T1217, Architect 2026-11-23): documento nuevo con 2 operaciones de usuario (startAccountDeletionReauth, deleteAccountWithGoogleReauth). La prueba de titularidad es la reautenticacion reciente con Google (nueva intencion de flujo DELETE de oauth_flow_states, max_age, mismo sub vinculado, un solo uso, 900 s) mas la confirmacion explicita; el callback es el de 008 (/auth/google/callback) y NO se edita su contrato aqui (la intencion DELETE y su migracion son T1219). Efectos del borrado = cascada de REQ-ACC-002. D9-24 = A: se rechaza el borrado de una cuenta propietaria con hogares con miembros ACTIVE o mascotas compartidas, sin transferencia automatica. /api/admin/* pendiente de T1226/T1241/T1256."
     traceability: [REQ-DEL9-001, INV-DEL9-001, REQ-ACC-002, EDGE-009-031, EDGE-009-032, EDGE-009-049, REQ-ADM9-001, REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-005, REQ-ADM9-006, REQ-APR9-005, INV-ADM9-001, INV-ADM9-002, EDGE-009-008, EDGE-009-009, EDGE-009-010, EDGE-009-011, EDGE-009-013, EDGE-009-034, EDGE-009-035, EDGE-009-040, EDGE-009-047]
+    change_note_1_2_0: "1.2.0 (feature 009, Architect 2026-11-23, MINOR; decision (g) de Neo en Logos): regla transversal x-sdd-admin-mutation-csrf-order: Toda operacion mutante de /api/admin/* sin la cabecera global X-Argos-Request: 1 responde 403 ERR-AUTH-CSRF-REJECTED ANTES de resolver la sesion de administracion (coherente con INV-AUTH-007), con independencia de que haya sesion o no, de modo que no revela su existencia; el 404 uniforme solo aplica despues, a la peticion que si lleva la cabecera y no tiene sesion. Efecto en endAdminSession: sin sesion y sin X-Argos-Request pasa de 404 uniforme a 403 ERR-AUTH-CSRF-REJECTED (la peticion con cabecera y sin sesion sigue en 404 uniforme). Aplica tambien a las operaciones mutantes de /admin/* de T1241 y T1256. Sin operaciones ni codigos nuevos; cambio de comportamiento de una respuesta de 1.1.0, por eso MINOR y no PATCH. El origen (Origin) se valida DESPUES de la sesion, no antes: su fallo sin sesion permanece como 404 uniforme para no filtrar la existencia de la ruta; la regla 403 aplica solo a la ausencia de X-Argos-Request. Contrato y plan (ADR-009-07) APROBADOS por Neo (Nivel 2) el 2026-11-23, comunicado por Morpheus; el estado formal APPROVED/LOCKED lo fija solo Neo, igual que en 1.1.0."
+    x-sdd-admin-mutation-csrf-order: "Toda operacion mutante de /api/admin/* sin la cabecera global X-Argos-Request: 1 responde 403 ERR-AUTH-CSRF-REJECTED ANTES de resolver la sesion de administracion (coherente con INV-AUTH-007), con independencia de que haya sesion o no, de modo que no revela su existencia; el 404 uniforme solo aplica despues, a la peticion que si lleva la cabecera y no tiene sesion"
     change_note_1_1_0: "1.1.0 (feature 009, T1226, Architect 2026-11-23, MINOR): +5 operaciones de /api/admin/* de la Fase 3 (#19): inicio y callback del flujo OIDC de administracion con Google, lectura y cierre de la sesion de administracion y contador de pendientes. Esquemas inline cerrados; 404 uniforme (text/plain 'Not Found', identico al de una ruta inexistente de /api/) para toda ruta sin sesion de administracion y para todo fallo del callback (correo fuera de la lista, no verificado, state reutilizado, sub distinto del anclado); 429 ERR-ADMIN-RATE-LIMITED solo en inicio y callback (EDGE-009-035, ADR-009-15, D9-25). Sin codigos de error nuevos. Las dos operaciones de borrado de usuario de 1.0.0 no cambian. Depende de la Enmienda 009-A (T1224/T1225, pendiente de firma de Neo) para cookies, Path y jose. Pendientes: aprobar/rechazar y lista de PENDING (T1241), parametros y coste (T1256)."
 servers:
   - url: http://127.0.0.1:3100/api
@@ -253,8 +255,7 @@ paths:
         - adminSessionCookie: []
       summary: "Cierre de sesion explicito de administracion: revoca la sesion y expira argos_admin_session [REQ-ADM9-002, EDGE-009-047]"
       description: >
-        Exige argos_admin_session valida; sin ella, el 404 uniforme. Verifica el origen (cabecera Origin igual al propio) y la cabecera
-        X-Argos-Request: 1 (REQ-ADM9-005); si falta una de las dos con sesion valida responde 403 ERR-AUTH-CSRF-REJECTED y no revoca.
+        Orden (decision (g) de Neo, INV-AUTH-007): PRIMERO se verifica la cabecera X-Argos-Request: 1 (REQ-ADM9-005); si falta, responde 403 ERR-AUTH-CSRF-REJECTED ANTES de resolver la sesion de administracion, haya sesion o no (no revela su existencia) y no revoca. Solo despues se exige argos_admin_session valida; sin ella, el 404 uniforme. El origen (cabecera Origin igual al propio) se valida DESPUES de la sesion, para que su fallo sin sesion siga siendo el 404 uniforme y no revele la existencia; con sesion, un origen ajeno responde 403 ERR-AUTH-CSRF-REJECTED.
         Con sesion valida y CSRF correcto revoca la sesion en el servidor (no solo expira la cookie) y registra la accion en
         admin_audit_entries (id de administrador y marca de tiempo; REQ-ADM9-004). Idempotente en efecto: una segunda llamada ya no
         tiene sesion y recibe el 404 uniforme. No afecta a argos_session.
@@ -263,6 +264,7 @@ paths:
       x-sdd-rbac-action: "PLATFORM_ADMIN_SESSION_END"
       x-sdd-rbac-scope: "plataforma; PLATFORM_ADMIN nunca entra en can(rol, accion) de hogar (INV-ADM9-001)"
       x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
       parameters:
         - { $ref: '#/components/parameters/CsrfHeader' }
       responses:
@@ -271,7 +273,7 @@ paths:
           headers:
             Set-Cookie: { $ref: '#/components/headers/AdminSessionExpiredCookie' }
         '403':
-          description: "ERR-AUTH-CSRF-REJECTED: falta X-Argos-Request o el origen es ajeno, con sesion de administracion valida"
+          description: "ERR-AUTH-CSRF-REJECTED: falta X-Argos-Request; se responde antes de resolver la sesion de administracion, con o sin ella (INV-AUTH-007). Un origen ajeno se valida despues de la sesion: sin sesion sigue siendo 404 uniforme"
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetails' }
@@ -341,7 +343,8 @@ components:
       name: X-Argos-Request
       in: header
       required: true
-      description: La verificacion de origen y de X-Argos-Request se aplica a las operaciones que mutan estado; si falta, ERR-AUTH-CSRF-REJECTED. En endAdminSession, sin sesion responde 404 uniforme, y con sesion valida y sin la cabecera responde 403 ERR-AUTH-CSRF-REJECTED. Se valida antes que la sesion y no renueva actividad [INV-AUTH-007]
+      description: >-
+        La verificacion de X-Argos-Request se aplica a las operaciones que mutan estado; si falta, ERR-AUTH-CSRF-REJECTED (el origen se valida despues de la sesion). REGLA PARA TODA OPERACION MUTANTE de /api/admin/*: Toda operacion mutante de /api/admin/* sin la cabecera global X-Argos-Request: 1 responde 403 ERR-AUTH-CSRF-REJECTED ANTES de resolver la sesion de administracion (coherente con INV-AUTH-007), con independencia de que haya sesion o no, de modo que no revela su existencia; el 404 uniforme solo aplica despues, a la peticion que si lleva la cabecera y no tiene sesion. En endAdminSession, sin la cabecera responde 403 con o sin sesion; con la cabecera y sin sesion, 404 uniforme. Se valida antes que la sesion y no renueva actividad [INV-AUTH-007]
       schema: { type: string, const: '1' }
   responses:
     NotFoundUniform:

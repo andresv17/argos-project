@@ -3,7 +3,8 @@
  * Dotfiles (segmentos con punto inicial, también /.well-known/*) dan 404 sin contenido ni SPA; sin listado de directorios; rutas con traversal codificado, barras dobles o invertidas y byte
  * nulo dan 404 sin contenido. El fallback no se aplica a rutas con extensión en el último segmento (parecen archivos:
  * el cliente o el analizador de URL pueden haber normalizado un traversal a /secret.txt, que no debe devolver index.html).
- * @implements REQ-CLD-001, REQ-CLD-009, SC-CLD-022
+ * 009 (REQ-ADM9-001): `GET /admin` cae en el fallback SPA (pantalla de acceso); toda subruta `/admin/…` responde el 404 uniforme (la cookie de administración `Path=/api/admin` nunca viaja a ellas).
+ * @implements REQ-CLD-001, REQ-CLD-009, SC-CLD-022, REQ-ADM9-001, EDGE-009-008
  */
 
 import { sep } from 'node:path';
@@ -43,6 +44,8 @@ export async function registerStaticAssets(app: FastifyInstance, { root }: Stati
   app.setNotFoundHandler(async (request, reply) => {
     const path = request.url.split('?')[0] ?? '';
     const isRead = request.method === 'GET' || request.method === 'HEAD';
+    // 009 (REQ-ADM9-001, EDGE-009-008): del portal solo se sirve `GET /admin` (la pantalla de acceso); cualquier subruta (`/admin/…`) es el mismo 404 que una ruta inexistente de /api/.
+    if (path.startsWith('/admin/')) return reply.status(404).type('text/plain; charset=utf-8').send('Not Found');
     const spa = isRead && !path.startsWith('/api/') && !path.startsWith('/assets/') && !SUSPICIOUS.test(path) && !/\.[^/]*$/.test(path);
     if (!spa) return reply.status(404).type('text/plain; charset=utf-8').send('Not Found');
     return reply.header('Cache-Control', NO_CACHE).sendFile('index.html');

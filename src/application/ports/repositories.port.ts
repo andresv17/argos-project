@@ -18,6 +18,7 @@ import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../domain/records/record-invariants.ts';
 import type { SceneConsentRepository, SceneRepository } from './scene-repositories.port.ts';
 import type { AuthIdentityRepositoryPort, OAuthFlowStateRepositoryPort } from './auth-identity.port.ts';
+import type { AdminAuditRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminSessionRepositoryPort } from './admin.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
 export interface UserAccount extends UserSelfProfile {
@@ -342,4 +343,9 @@ export interface RepositorySet {
   readonly authIdentities: AuthIdentityRepositoryPort;
   /** Estado del flujo OIDC de Google (feature 008, REQ-SSO8-004): un solo uso, 900 s. */
   readonly oauthFlows: OAuthFlowStateRepositoryPort;
+  /** Portal de administración (feature 009, Fase 3, REQ-ADM9-*): identidad, sesión, estado del flujo OIDC y auditoría propios, sin relación con `users`. */
+  readonly adminIdentities: AdminIdentityRepositoryPort;
+  readonly adminSessions: AdminSessionRepositoryPort;
+  readonly adminFlows: AdminFlowStateRepositoryPort;
+  readonly adminAudit: AdminAuditRepositoryPort;
 }
