@@ -12,6 +12,7 @@ import { AccountPage } from '../../../src/presentation/web/pages/AccountPage.tsx
 import { SessionContext, type SessionState, type UserSelfProfile } from '../../../src/presentation/web/session.tsx';
 
 const noop = async (): Promise<void> => undefined;
+const noopAuth = async (): Promise<null> => null;
 const user = (authMethods: UserSelfProfile['authMethods']): UserSelfProfile =>
   ({
     id: 'a0000000-0000-4000-8000-000000000001',
@@ -24,7 +25,7 @@ const user = (authMethods: UserSelfProfile['authMethods']): UserSelfProfile =>
     ...(authMethods === undefined ? {} : { authMethods }),
   }) as UserSelfProfile;
 const render = (profile: UserSelfProfile): string => {
-  const state = { status: 'AUTHENTICATED', user: profile, idleExpiresAt: null, lastActivityAt: null, api: {} as never, setUser: () => undefined, dropSession: () => undefined, register: noop, login: noop, chooseGoogleUsername: noop, logout: noop } as SessionState;
+  const state = { status: 'AUTHENTICATED', user: profile, idleExpiresAt: null, lastActivityAt: null, api: {} as never, setUser: () => undefined, dropSession: () => undefined, register: noopAuth, login: noopAuth, chooseGoogleUsername: noopAuth, logout: noop } as SessionState;
   return renderToStaticMarkup(h(MemoryRouter, null, h(SessionContext.Provider, { value: state }, h(AccountPage))));
 };
 

@@ -7,6 +7,8 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { ApiClient } from './api.ts';
+import { ACCOUNT_STATUS_ROUTE } from './account-status.ts';
+import { AccountStatusPage } from './pages/AccountStatusPage.tsx';
 import { AlbumPage } from './pages/AlbumPage.tsx';
 import { AccountPage } from './pages/AccountPage.tsx';
 import { AppShell } from './pages/AppShell.tsx';
@@ -40,6 +42,8 @@ export function AppRoutes(): JSX.Element {
       <Route path="/login" element={<Guard><LoginPage /></Guard>} />
       <Route path="/register" element={<Guard><RegisterPage /></Guard>} />
       <Route path="/elige-usuario" element={<Guard><ChooseUsernamePage /></Guard>} />
+      <Route path={ACCOUNT_STATUS_ROUTE.PENDING} element={<Guard><AccountStatusPage status="PENDING" /></Guard>} />
+      <Route path={ACCOUNT_STATUS_ROUTE.REJECTED} element={<Guard><AccountStatusPage status="REJECTED" /></Guard>} />
       <Route path="/" element={<Guard><AppShell><PetsPage /></AppShell></Guard>} />
       <Route path="/mascotas/:petId/album" element={<Guard><AppShell><AlbumPage /></AppShell></Guard>} />
       <Route path="/mascotas/:petId/resumen" element={<Guard><AppShell><SummaryPreviewPage /></AppShell></Guard>} />

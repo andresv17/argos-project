@@ -26,10 +26,11 @@ const entries = (catalog.errors ?? catalog) as Record<string, { detailTemplate: 
 const contractText = (code: string): string => entries[code]!.detailTemplate;
 
 const noop = async (): Promise<void> => undefined;
+const noopAuth = async (): Promise<null> => null;
 const user = (authMethods: UserSelfProfile['authMethods']): UserSelfProfile =>
   ({ id: 'a0000000-0000-4000-8000-000000000001', username: 'ana.google', displayName: 'Ana', createdAt: '2026-11-01T00:00:00.000Z', email: 'ana@example.test', preferredLanguage: 'es', timezone: 'America/Bogota', ...(authMethods === undefined ? {} : { authMethods }) }) as UserSelfProfile;
 const page = (profile: UserSelfProfile): string => {
-  const state = { status: 'AUTHENTICATED', user: profile, idleExpiresAt: null, lastActivityAt: null, api: {} as never, setUser: () => undefined, dropSession: () => undefined, register: noop, login: noop, chooseGoogleUsername: noop, logout: noop } as SessionState;
+  const state = { status: 'AUTHENTICATED', user: profile, idleExpiresAt: null, lastActivityAt: null, api: {} as never, setUser: () => undefined, dropSession: () => undefined, register: noopAuth, login: noopAuth, chooseGoogleUsername: noopAuth, logout: noop } as SessionState;
   return renderToStaticMarkup(h(MemoryRouter, null, h(SessionContext.Provider, { value: state }, h(AccountPage))));
 };
 const SECTION = /<section[^>]*data-account-delete-google[^>]*>[\s\S]*?<\/section>/;

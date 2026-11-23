@@ -8,6 +8,7 @@
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ACCOUNT_STATUS_ROUTE } from '../account-status.ts';
 import { ApiProblem, catalogProblem } from '../api.ts';
 import { Button, FormError, TextField } from '../components/Field.tsx';
 import { chooseUsernameFeedback } from '../google-login.ts';
@@ -100,7 +101,7 @@ export function ChooseUsernamePage(): JSX.Element {
     setBusy(true);
     session
       .chooseGoogleUsername(body as Schemas['GoogleChooseUsernameInput'])
-      .then(() => navigate('/', { replace: true }))
+      .then((pending) => navigate(pending === null ? '/' : ACCOUNT_STATUS_ROUTE[pending], { replace: true }))
       .catch((error: unknown) => {
         const feedback = chooseUsernameFeedback(error instanceof ApiProblem ? error.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED'));
         setErrors(feedback.errors);
