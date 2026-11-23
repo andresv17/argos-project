@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --feature)
       if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
-        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003, 004 005 o 006)" >&2
+        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003, 004, 005, 006 o 009)" >&2
         exit 2
       fi
       FEATURE="$2"
@@ -247,7 +247,16 @@ const EXCLUDED_BY_DECISION = new Map(
           ...[1, 2, 3, 4].map((n) => [`REQ-PRM8-00${n}`, 'Diferido a 009 por D8-01/D8-08 (spec.md «Diferido a 009», Bloque E #20): tope de fotos, depende de /admin.']),
           ['REQ-INV8-002', 'DESCARTADO (no pasa a 009) por D8-10=A (spec.md Bloque J y «Diferido a 009»): sin busqueda por correo; REQ-HOUSE2-001 intacta.'],
         ]
-      : [],
+      : feature === '009'
+        ? [
+            ['REQ-APR9-006', 'DIFERIDO sin fase por D9-01 = A (spec.md REQ-APR9-006): sin EmailSenderPort; lo sustituye el contador de /admin (REQ-APR9-005).'],
+            ['REQ-SSO8-002', 'Fuera de alcance de 009 (spec.md «Fuera de alcance»): registro con correo verificado, diferido de 008.'],
+            ['REQ-SSO8-006', 'Fuera de alcance de 009 (spec.md «Fuera de alcance»): EmailSenderPort, diferido de 008.'],
+            ['REQ-VIN8-005', 'Fuera de alcance de 009 (spec.md «Fuera de alcance»): desvincular y ultimo metodo; T1130 se acota al borrado de cuenta.'],
+            ['REQ-APR8-001', 'Diferido de 008 y reemplazado por REQ-APR9-001 (aprobacion de registro, spec.md Bloque C).'],
+            ['STATE-ACCT8-001', 'Diferido de 008 y reemplazado por STATE-ACCT9-001 (contracts/state-machines/account-registration.machine.json).'],
+          ]
+        : [],
 );
 const current = new Set([...candidates].filter((id) => !retired.has(id) && !superseded.has(id) && !EXCLUDED_BY_DECISION.has(id)).sort());
 
