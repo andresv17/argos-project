@@ -3,7 +3,9 @@
  * `admin_audit_entries`, con paridad con SQLite. SQL parametrizado `$n` sin interpolación; un solo uso y revocación con `UPDATE … WHERE … IS NULL` (compare-and-set atómico, sin candado
  * explícito). El correo, el `sub` y los tokens solo viajan en parámetros enlazados y nunca en un mensaje de error (NFR-009-004).
  *
- * @implements REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-006, EDGE-009-047, NFR-009-004, INV-ARCH-005
+ * `registrationRepository` (T1247): lista, contador y decision atomica de cuentas `PENDING` sobre `users` (migracion 0016), con paridad con SQLite.
+ *
+ * @implements REQ-APR9-003, REQ-APR9-005, EDGE-009-002, EDGE-009-039, REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-006, EDGE-009-047, NFR-009-004, INV-ARCH-005
  */
 import type {
   AdminAuditRepositoryPort,
@@ -13,7 +15,11 @@ import type {
   AdminIdentityRepositoryPort,
   AdminProvider,
   AdminSessionRepositoryPort,
+  PendingRegistrationRecord,
+  RegistrationDecisionRepositoryPort,
+  RegistrationMethod,
 } from '../../../application/ports/admin.port.ts';
+import { NO_PASSWORD_SENTINEL } from '../../../domain/auth/password-sentinel.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 
 type Row = Record<string, unknown>;
@@ -118,6 +124,43 @@ export function adminAuditRepository(client: PoolClientLike): AdminAuditReposito
     async listByAdmin(adminId) {
       const { rows } = await client.query(`SELECT ${AUDIT_COLUMNS} FROM admin_audit_entries WHERE admin_id = $1 ORDER BY occurred_at, id`, [adminId]);
       return rows.map((row) => ({ id: String(row['id']), adminId: String(row['admin_id']), action: String(row['action']), objectRef: nullable(row['object_ref']), occurredAt: String(row['occurred_at']) }));
+    },
+  };
+}
+
+/**
+ * Decisión de aprobación (T1247). `decide` es UN `UPDATE ... WHERE account_status = 'PENDING'` y se mira `rowCount === 1`: sin lectura previa ni candado explícito, Postgres serializa las
+ * dos escrituras sobre la misma fila y la perdedora relee `account_status` ya decidido y no afecta ninguna fila (EDGE-009-002, EDGE-009-003). Fecha de creación: `data->>'createdAt'`.
+ */
+export function registrationRepository(client: PoolClientLike): RegistrationDecisionRepositoryPort {
+  const created = "(data->>'createdAt')::timestamptz";
+  const recent = (n: number): string => `account_status = 'PENDING' AND ${created} > $${n}::timestamptz`;
+  const toRecord = (row: Row): PendingRegistrationRecord => ({
+    registrationId: String(row['id']),
+    username: String(row['username']),
+    requestedAt: String(row['requested_at']),
+    method: row['method'] as RegistrationMethod,
+  });
+  const select = `SELECT id, username, data->>'createdAt' AS requested_at, CASE WHEN password_hash = $1 THEN 'GOOGLE' ELSE 'PASSWORD' END AS method FROM users`;
+  return {
+    async countPending(createdAfter) {
+      const { rows } = await client.query(`SELECT COUNT(*) AS n FROM users WHERE ${recent(1)}`, [createdAfter]);
+      return Number(rows[0]!['n']);
+    },
+    async listPending(createdAfter, limit, after) {
+      if (after === null) {
+        const { rows } = await client.query(`${select} WHERE ${recent(2)} ORDER BY ${created}, id LIMIT $3`, [NO_PASSWORD_SENTINEL, createdAfter, limit]);
+        return rows.map(toRecord);
+      }
+      const { rows } = await client.query(
+        `${select} WHERE ${recent(2)} AND (${created} > $3::timestamptz OR (${created} = $3::timestamptz AND id > $4)) ORDER BY ${created}, id LIMIT $5`,
+        [NO_PASSWORD_SENTINEL, createdAfter, after.requestedAt, after.registrationId, limit],
+      );
+      return rows.map(toRecord);
+    },
+    async decide(registrationId, to, decidedBy, decidedAt, createdAfter) {
+      const result = await client.query(`UPDATE users SET account_status = $1, decided_at = $2, decided_by = $3 WHERE id = $4 AND ${recent(5)}`, [to, decidedAt, decidedBy, registrationId, createdAfter]);
+      return result.rowCount === 1;
     },
   };
 }

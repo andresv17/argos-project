@@ -52,6 +52,7 @@ import type {
   AdminFlowStateRecord,
   AdminIdentityRecord,
   AdminSessionRecord,
+  RegistrationDecisionRepositoryPort,
 } from '../../../application/ports/admin.port.ts';
 import type {
   AuthIdentityRecord,
@@ -60,6 +61,7 @@ import type {
   OAuthFlowStateRepositoryPort,
 } from '../../../application/ports/auth-identity.port.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
+import { NO_PASSWORD_SENTINEL } from '../../../domain/auth/password-sentinel.ts';
 import { hashSessionToken } from '../../../domain/auth/session-policy.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
@@ -100,6 +102,8 @@ export interface MemoryState extends SceneMemoryState {
   adminSessions?: AdminSessionRecord[];
   adminFlows?: AdminFlowStateRecord[];
   adminAudit?: AdminAuditRecord[];
+  /** Decision de aprobacion por cuenta (T1247): instante y `adminId` de quien decidio. */
+  userDecisions?: Record<string, { decidedAt: string; decidedBy: string }>;
   /** Escena del hogar (feature 006): `scenes`, `sceneAttempts`, `sceneConsents` y `sceneQuotaCarry` (opcionales; ausentes = vacías). */
 }
 
@@ -870,6 +874,34 @@ function adminAuditRepository(state: MemoryState): AdminAuditRepositoryPort {
   };
 }
 
+/**
+ * Decision de aprobacion en memoria (T1247). Todo el JavaScript de una transicion corre sin cesion, asi que comprobar y fijar en un solo paso es atomico (paridad con el
+ * `UPDATE ... WHERE account_status = 'PENDING'` de SQLite y PostgreSQL). La decision (`decidedAt`, `decidedBy`) queda en `state.userDecisions`.
+ */
+function registrationRepository(state: MemoryState): RegistrationDecisionRepositoryPort {
+  const recent = (createdAfter: string): UserAccount[] => state.users.filter((u) => u.accountStatus === 'PENDING' && u.createdAt > createdAfter);
+  const byAge = (a: UserAccount, b: UserAccount): number => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1);
+  return {
+    async countPending(createdAfter) {
+      return recent(createdAfter).length;
+    },
+    async listPending(createdAfter, limit, after) {
+      return recent(createdAfter)
+        .sort(byAge)
+        .filter((u) => after === null || u.createdAt > after.requestedAt || (u.createdAt === after.requestedAt && u.id > after.registrationId))
+        .slice(0, limit)
+        .map((u) => ({ registrationId: u.id, username: u.username, requestedAt: u.createdAt, method: u.passwordHash === NO_PASSWORD_SENTINEL ? ('GOOGLE' as const) : ('PASSWORD' as const) }));
+    },
+    async decide(registrationId, to, decidedBy, decidedAt, createdAfter) {
+      const index = state.users.findIndex((u) => u.id === registrationId && u.accountStatus === 'PENDING' && u.createdAt > createdAfter);
+      if (index < 0) return false;
+      state.users[index] = { ...state.users[index]!, accountStatus: to };
+      (state.userDecisions ??= {})[registrationId] = { decidedAt, decidedBy };
+      return true;
+    },
+  };
+}
+
 function repositoriesOver(state: MemoryState): RepositorySet {
   return {
     users: userRepository(state),
@@ -895,6 +927,7 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     adminSessions: adminSessionRepository(state),
     adminFlows: adminFlowRepository(state),
     adminAudit: adminAuditRepository(state),
+    registrations: registrationRepository(state),
   };
 }
 

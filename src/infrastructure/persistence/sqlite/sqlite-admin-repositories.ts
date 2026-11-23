@@ -3,7 +3,9 @@
  * Sentencias preparadas con parámetros enlazados (el correo, el `sub` y los hashes nunca se interpolan ni salen en un mensaje de error). Un solo uso del estado del flujo y la revocación
  * son compare-and-set (`UPDATE … WHERE … IS NULL`). Paridad con Postgres: `postgres-admin-repositories.ts`.
  *
- * @implements REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-006, EDGE-009-047, NFR-009-004, INV-ARCH-005
+ * `registrationRepository` (T1247): lista, contador y decisión atómica de cuentas `PENDING` sobre `users` (migración 0020).
+ *
+ * @implements REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-006, REQ-APR9-003, REQ-APR9-005, EDGE-009-002, EDGE-009-039, EDGE-009-047, NFR-009-004, INV-ARCH-005
  */
 
 import type {
@@ -16,7 +18,11 @@ import type {
   AdminProvider,
   AdminSessionRecord,
   AdminSessionRepositoryPort,
+  PendingRegistrationRecord,
+  RegistrationDecisionRepositoryPort,
+  RegistrationMethod,
 } from '../../../application/ports/admin.port.ts';
+import { NO_PASSWORD_SENTINEL } from '../../../domain/auth/password-sentinel.ts';
 import type { SqliteDatabase } from './sqlite-database.ts';
 
 interface IdentityRow {
@@ -145,6 +151,42 @@ export function adminAuditRepository(db: SqliteDatabase): AdminAuditRepositoryPo
     },
     async listByAdmin(adminId) {
       return byAdmin.all(adminId).map((row) => ({ id: row.id, adminId: row.admin_id, action: row.action, objectRef: row.object_ref, occurredAt: row.occurred_at }));
+    },
+  };
+}
+
+interface RegistrationRow {
+  readonly id: string;
+  readonly username: string;
+  readonly requested_at: string;
+  readonly method: RegistrationMethod;
+}
+
+/**
+ * Decisión de aprobación (T1247). `decide` es UN `UPDATE … WHERE account_status = 'PENDING'` y se mira `changes === 1`: no hay lectura previa que decida, de modo que dos
+ * administradores a la vez (o una decisión contra la purga) no pueden ganar los dos (EDGE-009-002, EDGE-009-003). La fecha de creación sale de `data.createdAt` (como la purga de T1248).
+ */
+export function registrationRepository(db: SqliteDatabase): RegistrationDecisionRepositoryPort {
+  const created = "json_extract(data, '$.createdAt')";
+  const columns = `id, username, ${created} AS requested_at, CASE WHEN password_hash = ? THEN 'GOOGLE' ELSE 'PASSWORD' END AS method`;
+  const recent = `account_status = 'PENDING' AND ${created} > ?`;
+  const count = db.prepare<[string], { n: number }>(`SELECT COUNT(*) AS n FROM users WHERE ${recent}`);
+  const first = db.prepare<[string, string, number], RegistrationRow>(`SELECT ${columns} FROM users WHERE ${recent} ORDER BY ${created}, id LIMIT ?`);
+  const next = db.prepare<[string, string, string, string, string, number], RegistrationRow>(
+    `SELECT ${columns} FROM users WHERE ${recent} AND (${created} > ? OR (${created} = ? AND id > ?)) ORDER BY ${created}, id LIMIT ?`,
+  );
+  const decide = db.prepare(`UPDATE users SET account_status = ?, decided_at = ?, decided_by = ? WHERE id = ? AND ${recent}`);
+  const toRecord = (row: RegistrationRow): PendingRegistrationRecord => ({ registrationId: row.id, username: row.username, requestedAt: row.requested_at, method: row.method });
+  return {
+    async countPending(createdAfter) {
+      return count.get(createdAfter)!.n;
+    },
+    async listPending(createdAfter, limit, after) {
+      const rows = after === null ? first.all(NO_PASSWORD_SENTINEL, createdAfter, limit) : next.all(NO_PASSWORD_SENTINEL, createdAfter, after.requestedAt, after.requestedAt, after.registrationId, limit);
+      return rows.map(toRecord);
+    },
+    async decide(registrationId, to, decidedBy, decidedAt, createdAfter) {
+      return decide.run(to, decidedAt, decidedBy, registrationId, createdAfter).changes === 1;
     },
   };
 }

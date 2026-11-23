@@ -5,11 +5,14 @@
  * - `GET /api/admin/auth/google/callback`: éxito = 200 con una página SIN script en línea que navega a `/admin` y `argos_admin_session` (`HttpOnly`, `SameSite=Strict`, `Path=/api/admin`,
  *   `Secure` en Cloud, identificador NUEVO) en esa misma respuesta, no en un 302 cross-site; cualquier fallo = el MISMO 404 que una ruta inexistente (sin `Set-Cookie`, sin distinguir la causa).
  * - `GET` y `DELETE /api/admin/session`: sesión de administración o el 404 uniforme; `GET` no renueva la inactividad; `DELETE` exige origen propio y revoca en el servidor.
+ * - `GET /api/admin/pending-count` (T1247, REQ-APR9-005): contador de `PENDING` vigentes y `warning`; si superan el umbral escribe el aviso del operador (`warnPendingBacklog`, solo conteos).
+ * - `GET /api/admin/registrations` (lista paginada por cursor) y `POST /api/admin/registrations/{id}/approve|reject` (decision atomica con compare-and-set; 404 problem+json
+ *   `ERR-ADMIN-REGISTRATION-NOT-FOUND` si la perdio). Orden: `X-Argos-Request` (403, hook global) -> sesion (404 uniforme) -> validacion (422) -> decision. Solo las decisiones renuevan la inactividad.
  * - Cualquier otra ruta bajo `/api/admin` recorre la MISMA autenticación y responde el 404 uniforme (secuencia de puertos idéntica a la de las rutas ocultas, EDGE-009-008).
  * - El 404 uniforme se delega al manejador de rutas inexistentes (`reply.callNotFound()`): el mismo cuerpo y las mismas cabeceras que una ruta inexistente de `/api/`, sin código `ERR-*`.
  * `argos_session` y `argos_oauth` no se leen ni se tocan (INV-ADM9-002).
  *
- * @implements REQ-ADM9-001, REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-005, REQ-ADM9-006, INV-ADM9-001, INV-ADM9-002, EDGE-009-008, EDGE-009-011, EDGE-009-035, EDGE-009-047
+ * @implements REQ-ADM9-001, REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-005, REQ-ADM9-006, INV-ADM9-001, INV-ADM9-002, EDGE-009-008, EDGE-009-011, EDGE-009-035, EDGE-009-047, REQ-APR9-003, REQ-APR9-005, EDGE-009-040
  */
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -17,6 +20,7 @@ import { ADMIN_SESSION_MAX_AGE_SECONDS } from '../../../domain/auth/admin-sessio
 import { ONE_TIME_TOKEN_TTL_SECONDS } from '../../../domain/auth/one-time-token.ts';
 import { DomainError } from '../../../generated/index.ts';
 import type { AdminAccessLimiter } from '../admin-rate-limit.ts';
+import { warnPendingBacklog } from '../pending-backlog-notice.ts';
 import type { RouteContext } from './use-cases.ts';
 
 export const ADMIN_SESSION_COOKIE = 'argos_admin_session';
@@ -127,6 +131,36 @@ export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecu
     clearAdminSessionCookie(reply, cookieSecure);
     return reply.status(204).send();
   });
+
+  /** Sesion de administracion o `null` tras haber respondido el 404 uniforme (la misma lectura de sesion que el resto de rutas reales). */
+  const requireAdminSession = async (request: FastifyRequest, reply: FastifyReply, renew: boolean) => {
+    const session = await useCases.adminAuthenticate.execute(adminSessionTokenOf(request), { renew });
+    if (session === null) uniformNotFound(reply);
+    return session;
+  };
+  const noStore = (reply: FastifyReply): FastifyReply => reply.header('cache-control', 'no-store').header('content-security-policy', ADMIN_API_CONTENT_SECURITY_POLICY);
+
+  app.get('/api/admin/pending-count', async (request, reply) => {
+    if ((await requireAdminSession(request, reply, false)) === null) return reply;
+    const pending = await useCases.adminPendingCount.execute();
+    const notice = warnPendingBacklog(request.log, pending);
+    return noStore(reply).status(200).send({ pending, warning: notice.exceeded });
+  });
+
+  app.get<{ Querystring: { limit?: unknown; cursor?: unknown } }>('/api/admin/registrations', async (request, reply) => {
+    if ((await requireAdminSession(request, reply, false)) === null) return reply;
+    const { limit, cursor } = request.query;
+    return noStore(reply).status(200).send(await useCases.adminListRegistrations.execute({ limit, cursor }));
+  });
+
+  for (const [action, event] of [['approve', 'APPROVE'], ['reject', 'REJECT']] as const) {
+    app.post<{ Params: { registrationId: string } }>(`/api/admin/registrations/:registrationId/${action}`, async (request, reply) => {
+      const session = await requireAdminSession(request, reply, true);
+      if (session === null) return reply;
+      const decision = await useCases.adminDecideRegistration.execute({ adminId: session.adminId, registrationId: request.params.registrationId, event });
+      return noStore(reply).status(200).send(decision);
+    });
+  }
 
   // Todo lo demás bajo /api/admin: la misma lectura de sesión que las rutas reales y el 404 uniforme (con o sin sesión, la ruta no existe). Mantiene idéntica la secuencia de puertos.
   const hidden = async (request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> => {

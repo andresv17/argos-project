@@ -21,8 +21,13 @@ import { DomainError } from '../../generated/index.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import type { AdminServices, ApplicationDeps } from './use-case-support.ts';
 
-/** Acciones auditadas de administración (cerradas; sin valores). Las acciones de aprobación y parámetros llegan con las Fases 4 y 5. */
-export const ADMIN_AUDIT_ACTIONS = { sessionStart: 'ADMIN_SESSION_START', sessionEnd: 'ADMIN_SESSION_END' } as const;
+/** Acciones auditadas de administración (cerradas; sin valores). Las de aprobación de registros (T1247) están aquí; los parámetros llegan con la Fase 5. */
+export const ADMIN_AUDIT_ACTIONS = {
+  sessionStart: 'ADMIN_SESSION_START',
+  sessionEnd: 'ADMIN_SESSION_END',
+  registrationApprove: 'ADMIN_REGISTRATION_APPROVE',
+  registrationReject: 'ADMIN_REGISTRATION_REJECT',
+} as const;
 
 /** Sin la configuración de administración (`deps.admin` ausente) las operaciones fallan cerrado: es un error de configuración del servidor, nunca un 404 distinguible. */
 function requireAdmin(deps: ApplicationDeps): AdminServices {

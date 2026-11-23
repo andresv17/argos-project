@@ -1,4 +1,4 @@
-import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import type { FastifyInstance, FastifyServerOptions, LightMyRequestResponse } from 'fastify';
 import { expect } from 'vitest';
 import type { PlatformParameterPort } from '../../../src/application/ports/platform-parameter.port.ts';
 import type { UnitOfWorkPort } from '../../../src/application/ports/unit-of-work.port.ts';
@@ -59,7 +59,7 @@ export const username = (id: string) => USERS.find((u) => u.id === id)!.username
 
 export async function createApi(
   state: MemoryState = canonicalState(),
-  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices; readonly platformParameters?: PlatformParameterPort; readonly scene?: SceneServices; readonly google?: GoogleServices; readonly admin?: AdminServices; readonly staticRoot?: string; readonly wrapUow?: (uow: UnitOfWorkPort) => UnitOfWorkPort } = {},
+  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices; readonly platformParameters?: PlatformParameterPort; readonly scene?: SceneServices; readonly google?: GoogleServices; readonly admin?: AdminServices; readonly staticRoot?: string; readonly wrapUow?: (uow: UnitOfWorkPort) => UnitOfWorkPort; readonly logger?: FastifyServerOptions['logger'] } = {},
 ): Promise<Api> {
   const db = openSqliteDatabase(IN_MEMORY_DATABASE);
   const uow = new SqliteUnitOfWork(db);
@@ -77,7 +77,7 @@ export async function createApi(
     ...(options.google === undefined ? {} : { google: options.google }),
     ...(options.admin === undefined ? {} : { admin: options.admin }),
   };
-  const app = await buildApp({ deps, cookieSecure: options.cookieSecure ?? false, ...(options.staticRoot === undefined ? {} : { staticRoot: options.staticRoot }) });
+  const app = await buildApp({ deps, cookieSecure: options.cookieSecure ?? false, ...(options.logger === undefined ? {} : { logger: options.logger }), ...(options.staticRoot === undefined ? {} : { staticRoot: options.staticRoot }) });
 
   async function call(method: string, url: string, options: CallOptions = {}): Promise<ApiResponse> {
     const headers: Record<string, string> = { ...(options.headers ?? {}) };

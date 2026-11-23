@@ -250,6 +250,8 @@ const EXCLUDED_BY_DECISION = new Map(
       : feature === '009'
         ? [
             ['REQ-APR9-006', 'DIFERIDO sin fase por D9-01 = A (spec.md REQ-APR9-006): sin EmailSenderPort; lo sustituye el contador de /admin (REQ-APR9-005).'],
+            // Decision de Neo (Nivel 2, Logos 2026-11-23): REQ-APR9-008 es un requisito retirado, solo quedan notas historicas; no se exige evidencia.
+            ['REQ-APR9-008', 'RETIRADO por decision de Neo (Nivel 2, Logos 2026-11-23): requisito retirado, solo notas historicas (spec.md REQ-APR9-008).'],
             ['REQ-SSO8-002', 'Fuera de alcance de 009 (spec.md «Fuera de alcance»): registro con correo verificado, diferido de 008.'],
             ['REQ-SSO8-006', 'Fuera de alcance de 009 (spec.md «Fuera de alcance»): EmailSenderPort, diferido de 008.'],
             ['REQ-VIN8-005', 'Fuera de alcance de 009 (spec.md «Fuera de alcance»): desvincular y ultimo metodo; T1130 se acota al borrado de cuenta.'],

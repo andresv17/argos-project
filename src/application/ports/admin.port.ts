@@ -82,3 +82,38 @@ export interface AdminAuditRepositoryPort {
   /** Entradas del administrador en orden de marca de tiempo (y de id para desempatar). */
   listByAdmin(adminId: string): Promise<AdminAuditRecord[]>;
 }
+
+/** Método de registro de una solicitud (feature 009, T1247): `GOOGLE` si la cuenta no tiene contraseña propia (centinela), `PASSWORD` si la tiene. */
+export type RegistrationMethod = 'PASSWORD' | 'GOOGLE';
+
+/** Solicitud `PENDING` tal como la ve el portal: nunca el correo, el `sub` ni el hash (NFR-009-004). */
+export interface PendingRegistrationRecord {
+  readonly registrationId: string;
+  readonly username: string;
+  /** `users.data.createdAt`: base de la purga de 30 días (REQ-APR9-007). */
+  readonly requestedAt: string;
+  readonly method: RegistrationMethod;
+}
+
+/** Posición de keyset de la lista: la última fila entregada (orden `requestedAt` ascendente y `registrationId` para desempatar). */
+export interface PendingRegistrationPosition {
+  readonly requestedAt: string;
+  readonly registrationId: string;
+}
+
+/**
+ * Decisión de aprobación de cuentas (feature 009, T1247, REQ-APR9-003, STATE-ACCT9-001). Opera sobre `users` pero vive en el grupo de administración para no ampliar
+ * `UserRepositoryPort` (cuyo `update` NUNCA modifica `account_status`). `createdAfter` es el corte de 30 días (EDGE-009-039): una `PENDING` creada en o antes de ese instante ya no se lista
+ * ni se decide.
+ */
+export interface RegistrationDecisionRepositoryPort {
+  /** Cuántas cuentas siguen `PENDING` dentro de la ventana de 30 días. */
+  countPending(createdAfter: string): Promise<number>;
+  /** Hasta `limit` solicitudes `PENDING` de la ventana, por `requestedAt` ascendente y `registrationId`, a continuación de `after` (o desde el principio si es `null`). */
+  listPending(createdAfter: string, limit: number, after: PendingRegistrationPosition | null): Promise<PendingRegistrationRecord[]>;
+  /**
+   * Compare-and-set ATÓMICO: un único `UPDATE … WHERE id = ? AND account_status = 'PENDING' AND creada dentro de la ventana` que fija el estado destino, `decided_at` y `decided_by`.
+   * `true` solo si ESTA llamada cambió la fila (una fila afectada); `false` si ya no estaba `PENDING`, no existe, o superó la ventana. Sin lectura previa que decida.
+   */
+  decide(registrationId: string, to: 'ACTIVE' | 'REJECTED', decidedBy: string, decidedAt: string, createdAfter: string): Promise<boolean>;
+}
