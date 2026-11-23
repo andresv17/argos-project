@@ -57,6 +57,33 @@ export const ERROR_CATALOG = {
     "detailTemplate": "Tienes mascotas asignadas a hogares con otros miembros activos. Transfiérelas o desasígnalas antes de eliminar tu cuenta.",
     "requirementRef": "REQ-ACC-002"
   },
+  "ERR-ACCOUNT-PENDING": {
+    "type": "urn:argos:error:ERR-ACCOUNT-PENDING",
+    "status": 403,
+    "title": "Solicitud en revisión",
+    "invariantRef": "INV-AUTH-006",
+    "detailTemplate": "La cuenta aún no está aprobada.",
+    "requirementRef": "REQ-APR9-001, REQ-APR9-002, EDGE-009-005",
+    "note": "La guarda de sesión exige account_status ACTIVE como defensa en profundidad: una petición protegida cuya sesión pertenece a una cuenta PENDING (que no debería tener sesión, EDGE-009-038) responde 403 en lugar de servir datos. En el registro y el login normales NO se usa: allí el estado viaja en el cuerpo (AccountStatusView) sin cookie. No incluye username, correo ni fechas."
+  },
+  "ERR-ACCOUNT-REGISTRATION-RATE-LIMITED": {
+    "type": "urn:argos:error:ERR-ACCOUNT-REGISTRATION-RATE-LIMITED",
+    "status": 429,
+    "title": "Demasiados registros",
+    "invariantRef": "INV-AUTH-006",
+    "detailTemplate": "Se superó el límite de solicitudes de registro. Inténtalo de nuevo más tarde.",
+    "requirementRef": "REQ-APR9-002, EDGE-009-040",
+    "note": "Más de 5 registros nuevos por IP efectiva en 24 h (valor aprobado D9-25, solo en app-config.ts, nunca en el detalle); aplica al registro con contraseña y al primer acceso con Google (elegir username). Respuesta uniforme al exceso, sin crear fila y con Retry-After; no cambia la respuesta de username ocupado (ERR-AUTH-USERNAME-TAKEN). Distinto de ERR-RATE-LIMITED para que la SPA muestre su propio texto."
+  },
+  "ERR-ACCOUNT-REJECTED": {
+    "type": "urn:argos:error:ERR-ACCOUNT-REJECTED",
+    "status": 403,
+    "title": "Solicitud no aprobada",
+    "invariantRef": "INV-AUTH-006",
+    "detailTemplate": "La solicitud no fue aprobada.",
+    "requirementRef": "REQ-APR9-001, REQ-APR9-002, EDGE-009-005, EDGE-009-038",
+    "note": "Igual que ERR-ACCOUNT-PENDING para una cuenta REJECTED (la guarda de sesión exige ACTIVE). El rechazo revoca las sesiones de la cuenta, por lo que este código es solo defensa en profundidad. No revela motivo ni fecha de la decisión."
+  },
   "ERR-ADMIN-PARAMETER-PRECONDITION-FAILED": {
     "type": "urn:argos:error:ERR-ADMIN-PARAMETER-PRECONDITION-FAILED",
     "status": 412,

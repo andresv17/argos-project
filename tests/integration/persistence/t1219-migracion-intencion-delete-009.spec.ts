@@ -49,8 +49,8 @@ const INSERT =
   'INSERT INTO oauth_flow_states (token_hash, phase, intent, state, nonce, code_verifier, user_id, origin_session_hash, pending_subject, pending_email, created_at, expires_at, consumed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
 describe('[T1219][REQ-DEL9-001] migración 0018 sobre una base en el estado de producción de 008', () => {
-  it('la 0018 existe (la 0019 de la Fase 3 es posterior) y se aplica sola sobre 0017', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-2)).toBe(MIGRATION);
+  it('la 0018 existe (la 0019 de la Fase 3 y la 0020 de la Fase 4 son posteriores) y se aplica sola sobre 0017', () => {
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-3)).toBe(MIGRATION);
     const { db, migrationsDir } = productionDatabase();
     expect(upgrade(db, migrationsDir)).toEqual([MIGRATION]);
   });

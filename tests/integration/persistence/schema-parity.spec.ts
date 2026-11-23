@@ -45,6 +45,9 @@ const DELETE_INTENT_PATH = new URL('../../../src/infrastructure/persistence/post
 /** T1232 (009, Fase 3, #19): la 0015 de Postgres equivale a la 0019 de SQLite (`admin_identities`, `admin_sessions`, `admin_oauth_flow_states`, `admin_audit_entries`, REQ-ADM9-002..006). */
 const ADMIN_PORTAL_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0015_admin_portal.sql', import.meta.url);
 
+/** T1243 (009, Fase 4, #18): la 0016 de Postgres equivale a la 0020 de SQLite (`users.account_status`, `decided_at`, `decided_by`, REQ-APR9-004, STATE-ACCT9-001). */
+const ACCOUNT_STATUS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0016_account_status.sql', import.meta.url);
+
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
   'admin_audit_entries', 'admin_identities', 'admin_oauth_flow_states', 'admin_sessions', 'audit_log', 'auth_identities', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'home_scenes', 'household_invitations',
@@ -224,7 +227,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -494,6 +497,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(GOOGLE_SSO_PATH, 'utf8'));
         await client.query(readFileSync(DELETE_INTENT_PATH, 'utf8'));
         await client.query(readFileSync(ADMIN_PORTAL_PATH, 'utf8'));
+        await client.query(readFileSync(ACCOUNT_STATUS_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

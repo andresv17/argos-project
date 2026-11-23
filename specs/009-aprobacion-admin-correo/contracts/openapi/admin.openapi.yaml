@@ -2,24 +2,25 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 009 (administracion y borrado de cuenta sin contrasena)
-  version: 1.2.0
+  version: 1.3.0
   description: >
     Documento INCREMENTAL y UNICO de la feature 009 (P5-05 = A): contiene solo operaciones nuevas; los OpenAPI de 004 (3.4.0),
     005 y 006 permanecen sin cambio, y deleteAccount de 004 no se edita. Version 1.0.0 (T1217): dos operaciones de USUARIO del
     borrado de una cuenta sin contrasena con reautenticacion reciente con Google (D9-17 = A, REQ-DEL9-001, INV-DEL9-001): inicio de
     la reautenticacion y borrado. Las rutas de /api/admin/* se agregan en este mismo archivo: T1226 (1.1.0) declara el acceso
-    con Google de administracion, la sesion y el contador de pendientes; registros (T1241) y parametros (T1256) siguen pendientes. Esquemas inline y cerrados
+    con Google de administracion, la sesion y el contador de pendientes; registros de cuentas (T1241, 1.3.0: lista paginada, aprobar, rechazar y supresion anticipada manual) y parametros (T1256, pendiente). Esquemas inline y cerrados
     (additionalProperties: false); errores en application/problem+json (RFC 9457) del catalogo incremental de 009 y de los
     catalogos heredados. Las cookies de administracion (argos_admin_session, argos_admin_oauth) solo existen en las operaciones
     /admin/* y nunca autorizan las dos operaciones de usuario.
-  x-sdd-status: APPROVED
+  x-sdd-status: DRAFT
   x-sdd-metadata:
-    version: 1.2.0
-    status: APPROVED
-    supersedes: null
+    version: 1.3.0
+    status: DRAFT
+    supersedes: 1.2.0
     change_type: MINOR
+    change_note_1_3_0: "1.3.0 (feature 009, T1241, Architect 2026-11-23, MINOR, DRAFT; el estado APPROVED de 1.2.0 NO se hereda: la 1.3.0 la ratifica solo Neo): +4 operaciones de /api/admin/registrations para la aprobacion de registro (#18): listAdminRegistrations (lista paginada por cursor de cuentas PENDING con menos de 30 dias, REQ-APR9-005, EDGE-009-039), approveAdminRegistration y rejectAdminRegistration (decision atomica PENDING -> ACTIVE|REJECTED con compare-and-set, STATE-ACCT9-001, REQ-APR9-003) y suppressAdminRegistration (supresion anticipada manual de PENDING/REJECTED, REQ-APR9-008, EDGE-009-037: exige la atestacion cerrada de verificacion de titularidad y queda en admin_audit_entries; no hay ruta publica ni autoservicio). El contador de pendientes es getAdminPendingCount (1.1.0), sin cambio. Las tres operaciones mutantes siguen la regla x-sdd-admin-mutation-csrf-order de 1.2.0 (403 ERR-AUTH-CSRF-REJECTED antes de resolver la sesion). Una decision o supresion sobre una solicitud purgada, inexistente, ya decidida o de mas de 30 dias responde 404 ERR-ADMIN-REGISTRATION-NOT-FOUND (application/problem+json, solo con sesion de administracion valida) sin revelar el estado previo ni distinguir los casos; sin sesion sigue el 404 uniforme text/plain. La lista y las respuestas no exponen correo ni sub (NFR-009-004). Sin codigos de error nuevos (ERR-ADMIN-REGISTRATION-NOT-FOUND ya existe en el catalogo 1.0.0). Parametros y coste (T1256) siguen pendientes."
     change_note: "1.0.0 (feature 009, T1217, Architect 2026-11-23): documento nuevo con 2 operaciones de usuario (startAccountDeletionReauth, deleteAccountWithGoogleReauth). La prueba de titularidad es la reautenticacion reciente con Google (nueva intencion de flujo DELETE de oauth_flow_states, max_age, mismo sub vinculado, un solo uso, 900 s) mas la confirmacion explicita; el callback es el de 008 (/auth/google/callback) y NO se edita su contrato aqui (la intencion DELETE y su migracion son T1219). Efectos del borrado = cascada de REQ-ACC-002. D9-24 = A: se rechaza el borrado de una cuenta propietaria con hogares con miembros ACTIVE o mascotas compartidas, sin transferencia automatica. /api/admin/* pendiente de T1226/T1241/T1256."
-    traceability: [REQ-DEL9-001, INV-DEL9-001, REQ-ACC-002, EDGE-009-031, EDGE-009-032, EDGE-009-049, REQ-ADM9-001, REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-005, REQ-ADM9-006, REQ-APR9-005, INV-ADM9-001, INV-ADM9-002, EDGE-009-008, EDGE-009-009, EDGE-009-010, EDGE-009-011, EDGE-009-013, EDGE-009-034, EDGE-009-035, EDGE-009-040, EDGE-009-047]
+    traceability: [REQ-DEL9-001, INV-DEL9-001, REQ-ACC-002, EDGE-009-031, EDGE-009-032, EDGE-009-049, REQ-ADM9-001, REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-005, REQ-ADM9-006, REQ-APR9-005, INV-ADM9-001, INV-ADM9-002, EDGE-009-008, EDGE-009-009, EDGE-009-010, EDGE-009-011, EDGE-009-013, EDGE-009-034, EDGE-009-035, EDGE-009-040, EDGE-009-047, REQ-APR9-001, REQ-APR9-003, REQ-APR9-007, REQ-APR9-008, STATE-ACCT9-001, EDGE-009-037, EDGE-009-038, EDGE-009-039, NFR-009-004]
     change_note_1_2_0: "1.2.0 (feature 009, Architect 2026-11-23, MINOR; decision (g) de Neo en Logos): regla transversal x-sdd-admin-mutation-csrf-order: Toda operacion mutante de /api/admin/* sin la cabecera global X-Argos-Request: 1 responde 403 ERR-AUTH-CSRF-REJECTED ANTES de resolver la sesion de administracion (coherente con INV-AUTH-007), con independencia de que haya sesion o no, de modo que no revela su existencia; el 404 uniforme solo aplica despues, a la peticion que si lleva la cabecera y no tiene sesion. Efecto en endAdminSession: sin sesion y sin X-Argos-Request pasa de 404 uniforme a 403 ERR-AUTH-CSRF-REJECTED (la peticion con cabecera y sin sesion sigue en 404 uniforme). Aplica tambien a las operaciones mutantes de /admin/* de T1241 y T1256. Sin operaciones ni codigos nuevos; cambio de comportamiento de una respuesta de 1.1.0, por eso MINOR y no PATCH. El origen (Origin) se valida DESPUES de la sesion, no antes: su fallo sin sesion permanece como 404 uniforme para no filtrar la existencia de la ruta; la regla 403 aplica solo a la ausencia de X-Argos-Request. Contrato y plan (ADR-009-07) APROBADOS por Neo (Nivel 2) el 2026-11-23, comunicado por Morpheus; el estado formal APPROVED/LOCKED lo fija solo Neo, igual que en 1.1.0. APPROVED por Neo (Logos, 2026-11-23)."
     x-sdd-admin-mutation-csrf-order: "Toda operacion mutante de /api/admin/* sin la cabecera global X-Argos-Request: 1 responde 403 ERR-AUTH-CSRF-REJECTED ANTES de resolver la sesion de administracion (coherente con INV-AUTH-007), con independencia de que haya sesion o no, de modo que no revela su existencia; el 404 uniforme solo aplica despues, a la peticion que si lleva la cabecera y no tiene sesion"
     change_note_1_1_0: "1.1.0 (feature 009, T1226, Architect 2026-11-23, MINOR): +5 operaciones de /api/admin/* de la Fase 3 (#19): inicio y callback del flujo OIDC de administracion con Google, lectura y cierre de la sesion de administracion y contador de pendientes. Esquemas inline cerrados; 404 uniforme (text/plain 'Not Found', identico al de una ruta inexistente de /api/) para toda ruta sin sesion de administracion y para todo fallo del callback (correo fuera de la lista, no verificado, state reutilizado, sub distinto del anclado); 429 ERR-ADMIN-RATE-LIMITED solo en inicio y callback (EDGE-009-035, ADR-009-15, D9-25). Sin codigos de error nuevos. Las dos operaciones de borrado de usuario de 1.0.0 no cambian. Depende de la Enmienda 009-A (T1224/T1225, pendiente de firma de Neo) para cookies, Path y jose. Pendientes: aprobar/rechazar y lista de PENDING (T1241), parametros y coste (T1256)."
@@ -32,6 +33,7 @@ tags:
   - name: account-deletion
   - name: admin-auth
   - name: admin-portal
+  - name: admin-registrations
 
 paths:
   /account/deletion/reauth:
@@ -307,6 +309,158 @@ paths:
         '404': { $ref: '#/components/responses/NotFoundUniform' }
         '500': { $ref: '#/components/responses/Problem' }
 
+  /admin/registrations:
+    get:
+      tags: [admin-registrations]
+      operationId: listAdminRegistrations
+      security:
+        - adminSessionCookie: []
+      summary: "Lista paginada de cuentas PENDING (menos de 30 dias) para decidir desde /admin [REQ-APR9-005, EDGE-009-039]"
+      description: >
+        Solo con argos_admin_session valida; sin ella, el 404 uniforme (EDGE-009-008). Vista paginada por cursor opaco, orden fijo por
+        requestedAt ascendente y desempate por registrationId; cada elemento lleva username, fecha de solicitud y metodo de registro
+        (PASSWORD o GOOGLE) y nunca correo, sub ni identificadores de sesion (NFR-009-004). Solo muestra cuentas en PENDING con menos de
+        30 dias desde su creacion: una PENDING mas antigua aun no purgada no aparece ni se puede aprobar (EDGE-009-039). Es lectura:
+        no modifica estado, no renueva la inactividad (igual que getAdminSession) y no se audita. El contador y el aviso de umbral son
+        getAdminPendingCount (1.1.0).
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-APR9-005, REQ-ADM9-001, INV-ADM9-002, EDGE-009-008, EDGE-009-039]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_REGISTRATION_LIST"
+      x-sdd-rbac-scope: "plataforma; PLATFORM_ADMIN nunca entra en can(rol, accion) de hogar (INV-ADM9-001)"
+      x-sdd-error-order: [ERR-SCHEMA-VALIDATION-FAILED, ERR-INTERNAL-UNEXPECTED]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+          description: "Elementos por pagina (1 a 50, por defecto 20)"
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' }
+          description: "Cursor opaco devuelto en nextCursor; un cursor invalido responde ERR-SCHEMA-VALIDATION-FAILED (422)"
+      responses:
+        '200':
+          description: "Pagina de solicitudes pendientes"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminRegistrationPage' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/registrations/{registrationId}/approve:
+    post:
+      tags: [admin-registrations]
+      operationId: approveAdminRegistration
+      security:
+        - adminSessionCookie: []
+      summary: "Aprueba una solicitud: PENDING -> ACTIVE (compare-and-set) [REQ-APR9-003, STATE-ACCT9-001]"
+      description: >
+        Orden: X-Argos-Request (403 antes de la sesion, regla de 1.2.0), sesion de administracion (404 uniforme), validacion del identificador (422) y decision. Transicion atomica PENDING -> ACTIVE con compare-and-set sobre account_status y la fecha de creacion (EDGE-009-039): solo si la solicitud sigue PENDING y no supera 30 dias. Si otra via la decidio, la purga gano o no existe, responde 404 ERR-ADMIN-REGISTRATION-NOT-FOUND sin revelar el estado previo. Con dos administradores a la vez, uno gana y el otro recibe el mismo 404 (EDGE-009-002). Guarda la fecha y el id del administrador de la decision y deja entrada en admin_audit_entries con id de administrador, accion y marca de tiempo, sin correo ni sub (REQ-ADM9-004). No envia correo (D9-04 iv) y no crea sesion: la persona inicia sesion luego.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-APR9-003, REQ-APR9-005, REQ-ADM9-004, REQ-ADM9-005, INV-ADM9-001, INV-ADM9-002, STATE-ACCT9-001, EDGE-009-002, EDGE-009-038, EDGE-009-039]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_REGISTRATION_APPROVE"
+      x-sdd-rbac-scope: "plataforma; PLATFORM_ADMIN nunca entra en can(rol, accion) de hogar (INV-ADM9-001)"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-SCHEMA-VALIDATION-FAILED, ERR-ADMIN-REGISTRATION-NOT-FOUND, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
+      x-sdd-audit: admin_audit_entries
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/RegistrationId' }
+      responses:
+        '200':
+          description: "Solicitud aprobada: accountStatus ACTIVE"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminRegistrationDecision' }
+        '403':
+          description: "ERR-AUTH-CSRF-REJECTED: falta X-Argos-Request; se responde antes de resolver la sesion de administracion, con o sin ella (INV-AUTH-007). Un origen ajeno se valida despues de la sesion: sin sesion sigue siendo 404 uniforme"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '404': { $ref: '#/components/responses/RegistrationNotFound' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/registrations/{registrationId}/reject:
+    post:
+      tags: [admin-registrations]
+      operationId: rejectAdminRegistration
+      security:
+        - adminSessionCookie: []
+      summary: "Rechaza una solicitud: PENDING -> REJECTED (compare-and-set); bloquea el reintento 30 dias [REQ-APR9-003, REQ-APR9-007, STATE-ACCT9-001]"
+      description: >
+        Mismo orden que approveAdminRegistration. Transicion atomica PENDING -> REJECTED con compare-and-set; revoca toda sesion de la cuenta como invariante (defensa en profundidad: una PENDING no tiene sesiones, EDGE-009-038) y conserva la fila 30 dias desde la decision, que ocupa el username o sub y bloquea el reintento hasta la purga (REQ-APR9-007). Si la solicitud ya no esta PENDING, fue purgada o no existe, responde 404 ERR-ADMIN-REGISTRATION-NOT-FOUND sin revelar el estado previo. Deja entrada en admin_audit_entries sin correo ni sub. No envia correo.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-APR9-003, REQ-APR9-005, REQ-APR9-007, REQ-ADM9-004, REQ-ADM9-005, INV-ADM9-001, INV-ADM9-002, STATE-ACCT9-001, EDGE-009-003, EDGE-009-038, EDGE-009-039]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_REGISTRATION_REJECT"
+      x-sdd-rbac-scope: "plataforma; PLATFORM_ADMIN nunca entra en can(rol, accion) de hogar (INV-ADM9-001)"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-SCHEMA-VALIDATION-FAILED, ERR-ADMIN-REGISTRATION-NOT-FOUND, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
+      x-sdd-audit: admin_audit_entries
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/RegistrationId' }
+      responses:
+        '200':
+          description: "Solicitud rechazada: accountStatus REJECTED"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminRegistrationDecision' }
+        '403':
+          description: "ERR-AUTH-CSRF-REJECTED: falta X-Argos-Request; se responde antes de resolver la sesion de administracion, con o sin ella (INV-AUTH-007). Un origen ajeno se valida despues de la sesion: sin sesion sigue siendo 404 uniforme"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '404': { $ref: '#/components/responses/RegistrationNotFound' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/registrations/{registrationId}/suppress:
+    post:
+      tags: [admin-registrations]
+      operationId: suppressAdminRegistration
+      security:
+        - adminSessionCookie: []
+      summary: "Supresion anticipada manual de una cuenta PENDING o REJECTED, solo desde /admin con titularidad verificada [REQ-APR9-008, EDGE-009-037]"
+      description: >
+        Unica via de supresion antes de los 30 dias de purga automatica: NO existe ruta publica no autenticada ni boton de autoservicio (REQ-APR9-008). Mismo orden de verificaciones que approveAdminRegistration. El titular la pide por el canal de contacto publicado en la pantalla de estado; el administrador verifica la titularidad fuera de banda y la registra con la atestacion cerrada ownershipVerification (GOOGLE_REAUTH: reautenticacion con Google del titular; REQUEST_EMAIL: correo de la solicitud). La atestacion no lleva el correo ni el sub: solo el valor del enum se guarda en admin_audit_entries junto al id de administrador, la accion y la marca de tiempo. Solo aplica a cuentas PENDING o REJECTED: borra la fila y libera el identificador (no es una transicion de STATE-ACCT9-001); una cuenta ACTIVE, purgada o inexistente responde 404 ERR-ADMIN-REGISTRATION-NOT-FOUND sin revelar el estado. La purga automatica a 30 dias no cambia. Procedimiento y plazo de respuesta: dictamen de /rama (T1252).
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-APR9-008, REQ-ADM9-004, REQ-ADM9-005, INV-ADM9-001, INV-ADM9-002, STATE-ACCT9-001, EDGE-009-033, EDGE-009-037, NFR-009-004]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_REGISTRATION_SUPPRESS"
+      x-sdd-rbac-scope: "plataforma; PLATFORM_ADMIN nunca entra en can(rol, accion) de hogar (INV-ADM9-001)"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-SCHEMA-VALIDATION-FAILED, ERR-ADMIN-REGISTRATION-NOT-FOUND, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
+      x-sdd-audit: admin_audit_entries
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/RegistrationId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SuppressRegistrationInput' }
+      responses:
+        '204':
+          description: "Solicitud suprimida; sin cuerpo"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+        '403':
+          description: "ERR-AUTH-CSRF-REJECTED: falta X-Argos-Request; se responde antes de resolver la sesion de administracion, con o sin ella (INV-AUTH-007). Un origen ajeno se valida despues de la sesion: sin sesion sigue siendo 404 uniforme"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '404': { $ref: '#/components/responses/RegistrationNotFound' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
 components:
   securitySchemes:
     sessionCookie:
@@ -346,7 +500,18 @@ components:
       description: >-
         La verificacion de X-Argos-Request se aplica a las operaciones que mutan estado; si falta, ERR-AUTH-CSRF-REJECTED (el origen se valida despues de la sesion). REGLA PARA TODA OPERACION MUTANTE de /api/admin/*: Toda operacion mutante de /api/admin/* sin la cabecera global X-Argos-Request: 1 responde 403 ERR-AUTH-CSRF-REJECTED ANTES de resolver la sesion de administracion (coherente con INV-AUTH-007), con independencia de que haya sesion o no, de modo que no revela su existencia; el 404 uniforme solo aplica despues, a la peticion que si lleva la cabecera y no tiene sesion. En endAdminSession, sin la cabecera responde 403 con o sin sesion; con la cabecera y sin sesion, 404 uniforme. Se valida antes que la sesion y no renueva actividad [INV-AUTH-007]
       schema: { type: string, const: '1' }
+    RegistrationId:
+      name: registrationId
+      in: path
+      required: true
+      description: "Identificador opaco de la solicitud (users.id de la cuenta PENDING o REJECTED); uno invalido responde ERR-SCHEMA-VALIDATION-FAILED (422) despues de la sesion"
+      schema: { $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid' }
   responses:
+    RegistrationNotFound:
+      description: "ERR-ADMIN-REGISTRATION-NOT-FOUND (404 application/problem+json), SOLO con sesion de administracion valida: la solicitud no existe, fue purgada, ya fue decidida por otra via o supera 30 dias (compare-and-set perdido, EDGE-009-039). No revela el estado previo ni distingue los casos. Sin sesion de administracion NO se usa: sigue el 404 uniforme text/plain"
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
     NotFoundUniform:
       description: >
         404 UNIFORME (EDGE-009-008, INV-ADM9-001): el mismo estado, cuerpo (text/plain 'Not Found'), cabeceras y secuencia de puertos
@@ -397,6 +562,46 @@ components:
       properties:
         pending: { type: integer, minimum: 0, description: "Cuentas en estado PENDING (STATE-ACCT9-001)" }
         warning: { type: boolean, description: "true si PENDING supera el umbral de aviso aprobado (D9-25, solo en app-config.ts)" }
+    AdminRegistrationItem:
+      type: object
+      additionalProperties: false
+      required: [registrationId, username, requestedAt, method]
+      description: "[REQ-APR9-005] Solicitud PENDING en la lista de /admin. No incluye correo, sub, hash ni sesion (NFR-009-004)."
+      properties:
+        registrationId: { $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid' }
+        username: { type: string, minLength: 1, maxLength: 254, description: "Username de la solicitud tal como se registro" }
+        requestedAt: { type: string, format: date-time, description: "Fecha de la solicitud (users.created_at); base de la purga de 30 dias" }
+        method: { type: string, enum: [PASSWORD, GOOGLE], description: "Metodo de registro (usuario y contrasena, o Google)" }
+    AdminRegistrationPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      description: "[REQ-APR9-005] Pagina de la lista de pendientes; nextCursor es null en la ultima pagina."
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/AdminRegistrationItem' }
+        nextCursor: { type: [string, 'null'], minLength: 1, maxLength: 256, pattern: '^[A-Za-z0-9_-]+$' }
+    AdminRegistrationDecision:
+      type: object
+      additionalProperties: false
+      required: [registrationId, accountStatus, decidedAt]
+      description: "[REQ-APR9-003, STATE-ACCT9-001] Resultado de la decision; accountStatus es el estado destino."
+      properties:
+        registrationId: { $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/Uuid' }
+        accountStatus: { type: string, enum: [ACTIVE, REJECTED] }
+        decidedAt: { type: string, format: date-time, description: "Marca de tiempo de la decision (ClockPort)" }
+    SuppressRegistrationInput:
+      type: object
+      additionalProperties: false
+      required: [ownershipVerification]
+      description: "[REQ-APR9-008, EDGE-009-037] Atestacion cerrada del administrador: la verificacion de titularidad ocurre fuera de banda y aqui solo se registra el metodo. No admite correo, sub ni texto libre."
+      properties:
+        ownershipVerification:
+          type: string
+          enum: [GOOGLE_REAUTH, REQUEST_EMAIL]
+          description: "GOOGLE_REAUTH: reautenticacion con Google del titular; REQUEST_EMAIL: correo de la solicitud. Se guarda en admin_audit_entries"
     DeletionReauthStarted:
       type: object
       additionalProperties: false

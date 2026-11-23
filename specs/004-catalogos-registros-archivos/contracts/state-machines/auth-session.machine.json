@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "id": "STATE-AUTH-SESSION-001",
-  "version": "3.1.0",
-  "status": "REVIEW",
+  "version": "3.2.0",
+  "status": "DRAFT",
   "x-sdd-metadata": {
-    "version": "3.1.0",
-    "status": "REVIEW",
-    "supersedes": "3.0.0",
+    "version": "3.2.0",
+    "status": "DRAFT",
+    "supersedes": "3.1.0",
     "change_type": "MINOR",
-    "change_note": "3.1.0 (MINOR, aditiva; enmienda de la Feature 004 firmada por Neo, H-T591-1): nueva regla passiveRenewalDoesNotTouch y excepción en noPollingInUi para la renovación pasiva de la URL firmada (GET …/media/{mediaId}/access con X-Argos-Renewal: 1 valida la sesión y no escribe lastActivityAt). Sin estados ni transiciones nuevos. 3.0.0 (supersede 2.2.0): MAJOR (T6): vigencia con inactividad de 30 min y tope absoluto de 24 h (sustituye TTL de 7 días), estados EXPIRED_IDLE y REVOKED separados de LOGGED_OUT, revocación por cambio de contraseña y por eliminación de cuenta. La spec la llama 'v2'; el archivo es 3.0.0 porque la 001 ya estaba en 2.2.0.",
+    "change_note": "Enmienda 009 (feature 009, T1241, Architect 2026-11-23, MINOR, DRAFT; MER-01): guardas de STATE-AUTH-SESSION-001: REGISTER_SUCCESS ya no crea sesión (la cuenta nace PENDING sin cookie), LOGIN_SUCCESS y REQUEST exigen account_status ACTIVE, +LOGIN_NOT_ACTIVE (200 con estado, sin cookie) y +ACCOUNT_NOT_ACTIVE (defensa en profundidad), regla accountStatusGuard. Sin estados nuevos. 3.1.0 (MINOR, aditiva; enmienda de la Feature 004 firmada por Neo, H-T591-1): nueva regla passiveRenewalDoesNotTouch y excepción en noPollingInUi para la renovación pasiva de la URL firmada (GET …/media/{mediaId}/access con X-Argos-Renewal: 1 valida la sesión y no escribe lastActivityAt). Sin estados ni transiciones nuevos. 3.0.0 (supersede 2.2.0): MAJOR (T6): vigencia con inactividad de 30 min y tope absoluto de 24 h (sustituye TTL de 7 días), estados EXPIRED_IDLE y REVOKED separados de LOGGED_OUT, revocación por cambio de contraseña y por eliminación de cuenta. La spec la llama 'v2'; el archivo es 3.0.0 porque la 001 ya estaba en 2.2.0.",
     "traceability": [
       "STATE-AUTH-SESSION-001",
       "REQ-AUTH2-001",
@@ -22,7 +22,13 @@
       "INV-AUTH-005",
       "INV-AUTH-006",
       "INV-AUTH-007",
-      "SC-009"
+      "SC-009",
+      "STATE-ACCT9-001",
+      "REQ-APR9-001",
+      "REQ-APR9-002",
+      "EDGE-009-005",
+      "EDGE-009-038",
+      "EDGE-009-040"
     ]
   },
   "machines": {
@@ -45,12 +51,13 @@
         "ANONYMOUS": {
           "on": {
             "REGISTER_SUCCESS": {
-              "target": "AUTHENTICATED",
-              "effect": "crea sesión nueva con token nuevo; createdAt = lastActivityAt = now"
+              "target": "ANONYMOUS",
+              "effect": "crea la cuenta en PENDING (STATE-ACCT9-001) SIN fila de sesión ni cookie; la respuesta lleva AccountStatusView {accountStatus: PENDING} (REQ-APR9-002, EDGE-009-038). Ninguna cuenta nueva nace ACTIVE y el registro ya no pasa a AUTHENTICATED",
+              "guard": "registros nuevos por IP efectiva <= límite (EDGE-009-040); si se excede: ERR-ACCOUNT-REGISTRATION-RATE-LIMITED sin crear fila"
             },
             "LOGIN_SUCCESS": {
               "target": "AUTHENTICATED",
-              "guard": "!isLockedOut(username, now)",
+              "guard": "!isLockedOut(username, now) && account_status === 'ACTIVE'",
               "effect": "resetFailedAttempts(username); crea sesión nueva con token nuevo e ignora cualquier cookie previa; createdAt = lastActivityAt = now"
             },
             "LOGIN_FAILURE": {
@@ -70,6 +77,12 @@
             "LOGOUT": {
               "target": "ANONYMOUS",
               "response": 204
+            },
+            "LOGIN_NOT_ACTIVE": {
+              "target": "ANONYMOUS",
+              "guard": "credenciales válidas && account_status in {PENDING, REJECTED}",
+              "effect": "NO crea fila de sesión ni cookie; responde 200 con AccountStatusView {accountStatus}; no resetea ni registra intentos fallidos adicionales; con credenciales inválidas rige LOGIN_FAILURE uniforme (sin enumeración)",
+              "requirementRef": "REQ-APR9-002, EDGE-009-005, EDGE-009-038"
             }
           }
         },
@@ -77,7 +90,7 @@
           "on": {
             "REQUEST": {
               "target": "AUTHENTICATED",
-              "guard": "revokedAt === null && now < createdAt + 24h && now < lastActivityAt + 30min",
+              "guard": "revokedAt === null && now < createdAt + 24h && now < lastActivityAt + 30min && account_status === 'ACTIVE'",
               "effect": "lastActivityAt = now"
             },
             "ABSOLUTE_TTL_ELAPSED": {
@@ -115,6 +128,13 @@
               "target": "AUTHENTICATED",
               "error": "ERR-AUTH-TOO-MANY-ATTEMPTS",
               "guard": "failedAttempts(username, last 15 min) >= 5"
+            },
+            "ACCOUNT_NOT_ACTIVE": {
+              "target": "REVOKED",
+              "actor": "EXTERNAL",
+              "guard": "account_status in {PENDING, REJECTED}",
+              "error": "ERR-ACCOUNT-PENDING | ERR-ACCOUNT-REJECTED",
+              "note": "guarda de sesión que exige ACTIVE (defensa en profundidad, ADR-009-09); el rechazo de una cuenta revoca sus sesiones como invariante (EDGE-009-003, EDGE-009-038)"
             }
           }
         },
@@ -172,7 +192,8 @@
         "logoutIdempotent": "LOGOUT responde 204 en cualquier estado sin cambiar el estado ni registrar error.",
         "lockoutWindow": "Ventana deslizante de 15 min por username; los fallos de contraseña actual de cambio y eliminación cuentan igual que los del login (INV-AUTH-005, T3). Los intentos bloqueados no se registran.",
         "purge": "Sesiones expiradas o revocadas con más de 7 días y tokens de confirmación vencidos se purgan con un trabajo de mantenimiento sin efecto funcional (T8, P-03).",
-        "reuseOfSecret": "ARGOS_AUDIT_HMAC_SECRET se usa únicamente para el HMAC de auditoría; nunca para tokens de sesión, token de respaldo ni CSRF (P-05)."
+        "reuseOfSecret": "ARGOS_AUDIT_HMAC_SECRET se usa únicamente para el HMAC de auditoría; nunca para tokens de sesión, token de respaldo ni CSRF (P-05).",
+        "accountStatusGuard": "Solo una cuenta ACTIVE (STATE-ACCT9-001) obtiene o conserva sesión. El registro (contraseña o Google) deja la cuenta PENDING sin fila de sesión ni cookie; el login y el primer acceso con Google de una cuenta PENDING o REJECTED con credenciales válidas devuelven AccountStatusView sin cookie; con credenciales inválidas el fallo uniforme de hoy. Las cuentas previas a la 009 son ACTIVE. Enmienda 009 (T1241)."
       }
     }
   }

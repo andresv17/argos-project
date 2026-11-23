@@ -31,7 +31,7 @@ function productionDatabase(): { db: SqliteDatabase; migrationsDir: string } {
   dirs.push(dir);
   const migrationsDir = join(dir, 'migraciones');
   mkdirSync(migrationsDir);
-  for (const name of readdirSync(DEFAULT_MIGRATIONS_DIR)) if (name !== MIGRATION && /^\d{4}_.+\.sql$/.test(name)) copyFileSync(join(DEFAULT_MIGRATIONS_DIR, name), join(migrationsDir, name));
+  for (const name of readdirSync(DEFAULT_MIGRATIONS_DIR)) if (name !== MIGRATION && name < '0020' && /^\d{4}_.+\.sql$/.test(name)) copyFileSync(join(DEFAULT_MIGRATIONS_DIR, name), join(migrationsDir, name));
   const db = openSqliteDatabase(join(dir, 'base.sqlite'), { migrationsDir });
   opened.push(db);
   db.prepare('INSERT INTO users (id, username, password_hash, data) VALUES (?, ?, ?, ?)').run('u1', 'ana', 'hash', JSON.stringify({ id: 'u1', username: 'ana' }));
@@ -53,8 +53,8 @@ const insertIdentity = (db: SqliteDatabase, adminId = ID_A, sub = 'sub-1', email
   db.prepare('INSERT INTO admin_identities (admin_id, provider, provider_subject, email, created_at) VALUES (?, ?, ?, ?, ?)').run(adminId, 'GOOGLE', sub, email, NOW);
 
 describe('T1232 [REQ-ADM9-006] la migración SQLite 0019 sobre una base en el estado de la Fase 2', () => {
-  it('la 0019 existe, es la última de SQLite y se aplica sola sobre 0018', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-1)).toBe(MIGRATION);
+  it('la 0019 existe, es la última de SQLite hasta la 0019 (la 0020 de la Fase 4 la sucede) y se aplica sola sobre 0018', () => {
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().filter((n) => n <= MIGRATION).at(-1)).toBe(MIGRATION);
     const { db, migrationsDir } = productionDatabase();
     expect(upgrade(db, migrationsDir)).toEqual([MIGRATION]);
   });
@@ -150,8 +150,8 @@ describe('T1232 [REQ-ADM9-006] la migración SQLite 0019 sobre una base en el es
 describe('T1232 [REQ-ADM9-006] la migración 0015 de Postgres es la equivalente y la última', () => {
   it('existe, es la última y no tiene BEGIN/COMMIT (el migrador abre la transacción)', () => {
     const names = readdirSync(PG_DIR).sort();
-    expect(names.at(-1)).toBe(PG_MIGRATION);
-    expect(names).toHaveLength(15);
+    expect(names.filter((n) => n <= PG_MIGRATION).at(-1)).toBe(PG_MIGRATION);
+    expect(names.filter((n) => n <= PG_MIGRATION)).toHaveLength(15);
     const sql = readFileSync(new URL(PG_MIGRATION, PG_DIR), 'utf8').replace(/--[^\n]*/g, '');
     expect(sql).not.toMatch(/\b(BEGIN|COMMIT)\b/i);
     for (const table of ['admin_identities', 'admin_sessions', 'admin_oauth_flow_states', 'admin_audit_entries']) expect(sql).toContain(`CREATE TABLE ${table}`);
