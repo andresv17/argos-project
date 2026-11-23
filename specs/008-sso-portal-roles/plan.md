@@ -1,7 +1,7 @@
 # Implementation Plan: SSO con Google, vinculación, biografía, autocompletado de colaboradores, permisos y UX de escena (Feature 008)
 
 **Branch**: `008-sso-portal-roles` | **Date**: 2026-11-20 | **Spec**: `specs/008-sso-portal-roles/spec.md`
-**Estado**: `DRAFT`. **Input**: `spec.md`, `claude/inbox-feature-008.md` (8 ítems de 008; `#18`, `#19` y `#20` pasan a la Feature 009). Reconciliado el 2026-11-20 con la resolución de Nivel 2 de Neo (`claude/decisiones-neo-008-2026-11-20.md`): `D8-01..D8-14` resueltas o diferidas; este plan fija la arquitectura de 008 sin decisiones abiertas.
+**Estado**: `APPROVED` (firmado por Andrés Vallejo / Neo, Nivel 2, 2026-11-23). **Input**: `spec.md`, `claude/inbox-feature-008.md` (8 ítems de 008; `#18`, `#19` y `#20` pasan a la Feature 009). Reconciliado el 2026-11-20 con la resolución de Nivel 2 de Neo (`claude/decisiones-neo-008-2026-11-20.md`): `D8-01..D8-14` resueltas o diferidas; este plan fija la arquitectura de 008 sin decisiones abiertas.
 
 ## Summary
 Tres líneas de trabajo: (0) tres mejoras de colaboración y perfil (`#21` biografía, `#24` autocompletado de colaboradores por prefijo de `username`, `#25` claridad de permisos y aviso de hogar), independientes entre sí; (1) autenticación externa **solo con Google** (`#16`, `#17`): verificador OIDC con `jose` en `google-oidc-verify.ts` y vinculación desde la sesión activa con la contraseña actual; (2) tres mejoras de presentación de la escena (`#53`, `#54`, `#55`). Las líneas 0 y 2 son independientes y pueden entregarse primero. El correo real, el registro con correo, la aprobación de registro (`#18`), el portal `/admin` (`#19`) y el tope de fotos (`#20`) pasan a la Feature 009 (ver «Diferido a 009»).

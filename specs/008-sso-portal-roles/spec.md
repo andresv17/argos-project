@@ -2,7 +2,7 @@
 
 **Feature Branch**: `008-sso-portal-roles` (creada por `/architect` por instrucción de Morpheus; sin push)
 **Created**: 2026-11-20
-**Status**: `DRAFT` (borrador del Architect; el techo de los agentes es `REVIEW`). Reconciliada el 2026-11-20 con la **resolución de Nivel 2 de Neo** (Logos, iter 75, 17 puntos; asiento en `claude/decisiones-neo-008-2026-11-20.md`): las decisiones `D8-01..D8-14` están resueltas o diferidas (ver «Decisiones de Neo (Nivel 2)»). El alcance de 008 queda en `#16` (solo Google), `#17`, `#21`, `#24`, `#25`, `#53`, `#54`, `#55`; `#18`, `#19` y `#20` pasan a la Feature 009 (ver «Diferido a 009»).
+**Status**: `APPROVED` (firmado por Andrés Vallejo / Neo, Nivel 2, 2026-11-23). Reconciliada el 2026-11-20 con la **resolución de Nivel 2 de Neo** (Logos, iter 75, 17 puntos; asiento en `claude/decisiones-neo-008-2026-11-20.md`): las decisiones `D8-01..D8-14` están resueltas o diferidas (ver «Decisiones de Neo (Nivel 2)»). El alcance de 008 queda en `#16` (solo Google), `#17`, `#21`, `#24`, `#25`, `#53`, `#54`, `#55`; `#18`, `#19` y `#20` pasan a la Feature 009 (ver «Diferido a 009»).
 **Input**: `claude/inbox-feature-008.md` (GitHub Project #5; 8 ítems de 008: `[GH:#16]`, `[GH:#17]`, `[GH:#21]`, `[GH:#24]`, `[GH:#25]`, `[GH:#53]`, `[GH:#54]`, `[GH:#55]`; los ítems `[GH:#18]`, `[GH:#19]` y `[GH:#20]` de la versión anterior de esta spec pasan a 009), tratado como el prompt funcional de Neo. Lectura de `specs/004-*` (decisiones diferidas 4 «correo» y 5 «SSO»), `specs/005-*` (`REQ-PRM-001..003`), `specs/006-*` (escena, cuota, `INV-ESC6-010/017`), `specs/002-*` (`REQ-RBAC-001`, `REQ-HOUSE2-001`) y `specs/007-*` (formato de referencia).
 
 ## Verificación de premisas (lectura del estado real en disco, 2026-11-20)

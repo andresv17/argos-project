@@ -295,4 +295,4 @@ Versión 3.6.0 (Enmienda 006, N2-07 y N2-12, 2026-11-18: excepción acotada de p
 
 Versión 3.7.0 (Enmienda 006-bis, N2-13, 2026-11-18: excepción acotada al Principio VI para el driver `gemini-api` solo en desarrollo local privado, sin producción ni usuarios externos) autorizada por Andrés Vallejo (Nivel 2) el 2026-11-18; redactada por `/architect` en estado de borrador, sin `APPROVED` ni `LOCKED`.
 
-Versión 3.8.0 (Enmienda 008, 2026-11-20: `jose` 6.2.17 extendido a `src/infrastructure/http/google-oidc-verify.ts` para el `id_token` de Google, y cookie `argos_oauth` `SameSite=Lax` de 900 s acotada al flujo OIDC, con `argos_session` sin cambio) autorizada por Andrés Vallejo (Nivel 2) el 2026-11-20; redactada por `/architect` en estado de borrador, sin `APPROVED` ni `LOCKED`.
+Versión 3.8.0 (Enmienda 008, 2026-11-20: `jose` 6.2.17 extendido a `src/infrastructure/http/google-oidc-verify.ts` para el `id_token` de Google, y cookie `argos_oauth` `SameSite=Lax` de 900 s acotada al flujo OIDC, con `argos_session` sin cambio) autorizada y firmada (`APPROVED`) por Andrés Vallejo (Nivel 2) el 2026-11-23.
