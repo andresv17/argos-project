@@ -20,6 +20,11 @@ vi.mock('../../../src/infrastructure/adapters/gcs-media-storage.adapter.ts', () 
   },
 }));
 
+// Timeout de ejecución propio (15000 ms) por test: cada test levanta createProductionApp real (arranque completo con 18 migraciones y
+// validadores), lo que roza el default de 5000 ms bajo carga paralela. Medición: .specify/memory/audits/keymaker-009-timeouts-composicion.md.
+// No se relaja ninguna aserción ni se sube el testTimeout global.
+const COMPOSITION_TIMEOUT_MS = 15_000;
+
 const PET = '8d3a4c32-7a9b-4f3e-9a58-2b5ad8b6f001';
 let dir = '';
 beforeAll(() => {
@@ -45,11 +50,11 @@ describe('composición de medios en createProductionApp', () => {
   it('[REQ-GCS-003] con driver gcs construye el adaptador GCS con el bucket de la configuración, compone las rutas de medios (401 sin sesión) y no expone /__dev/media (cae al fallback o 404)', async () => {
     const result = await statuses({ ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-media-test' });
     expect([result, spies.bucket.mock.calls]).toEqual([{ media: 401, hasDevRoute: false }, [['argos-media-test']]]);
-  });
+  }, COMPOSITION_TIMEOUT_MS);
 
   it('[REQ-GCS-003] con driver memory no construye el adaptador GCS y conserva las rutas de medios y /__dev/media', async () => {
     spies.bucket.mockClear();
     const result = await statuses({ ARGOS_MEDIA_DRIVER: 'memory' });
     expect([result, spies.bucket.mock.calls]).toEqual([{ media: 401, hasDevRoute: true }, []]);
-  });
+  }, COMPOSITION_TIMEOUT_MS);
 });
