@@ -28,13 +28,29 @@ describe('[NFR-008-004] mantenimiento purga oauth_flow_states vencidos', () => {
     db.close();
   });
 
+  it('RAMA-03: la purga aplica 900 s de gracia desde la expiración en SQLite (no 24 h): a 899 s se conserva, a 900 s se borra', async () => {
+    const mk = async (nowIso: string) => {
+      const db = openSqliteDatabase(IN_MEMORY_DATABASE);
+      const uow = new SqliteUnitOfWork(db);
+      await uow.runInTransaction(async (r) => {
+        await r.oauthFlows.insert({ tokenHash: hashOneTimeToken('x'), phase: 'USERNAME', intent: 'LOGIN', state: null, nonce: null, codeVerifier: null, userId: null, originSessionHash: null, pendingSubject: 's', pendingEmail: 'e@example.test', createdAt: NOW, expiresAt: '2026-11-21T10:15:00.000Z', consumedAt: null });
+      });
+      await uow.purgeExpired!(maintenanceCutoffs(nowIso));
+      const n = (db.prepare('SELECT COUNT(*) AS n FROM oauth_flow_states').get() as { n: number }).n;
+      db.close();
+      return n;
+    };
+    expect(await mk('2026-11-21T10:29:59.000Z')).toBe(1);
+    expect(await mk('2026-11-21T10:30:00.000Z')).toBe(0);
+  });
+
   it('PostgreSQL: el mantenimiento ejecuta un DELETE por lotes sobre oauth_flow_states con el reloj como umbral', async () => {
     const calls: Array<{ sql: string; params: unknown[] }> = [];
     const client = { query: async (sql: string, params: unknown[] = []) => { calls.push({ sql, params }); return { rows: [], rowCount: 0 }; } };
     await purgeExpiredInBatches(client as never, maintenanceCutoffs(LATER));
     const flow = calls.find((c) => c.sql.includes('oauth_flow_states'))!;
     expect(flow.sql).toMatch(/^DELETE FROM oauth_flow_states WHERE ctid IN/);
-    expect(flow.sql).toContain('expires_at::timestamptz <= $1::timestamptz');
+    expect(flow.sql).toContain("expires_at::timestamptz <= $1::timestamptz - interval '900 seconds'");
     expect(flow.params[0]).toBe(LATER);
   });
 });

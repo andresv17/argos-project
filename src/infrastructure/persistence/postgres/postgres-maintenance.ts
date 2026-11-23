@@ -72,8 +72,8 @@ export async function purgeExpiredInBatches(client: PoolClientLike, cutoffs: Mai
     const deleted = (await client.query(expired, [loginAttemptsExpiryCutoff(cutoffs.now), batchSize])).rowCount ?? 0;
     if (deleted < batchSize) break;
   }
-  // H-RAMA-008-T1134-01 / NFR-008-004: estados de flujo de Google vencidos (correo y sub pendientes incluidos); sin conteo propio.
-  const flows = `DELETE FROM oauth_flow_states WHERE ctid IN (SELECT ctid FROM oauth_flow_states WHERE expires_at::timestamptz <= ${AT_NOW} LIMIT $2)`;
+  // H-RAMA-008-T1134-01 / NFR-008-004: estados de flujo de Google vencidos hace más de 900 s (RAMA-03; correo y sub pendientes incluidos); sin conteo propio.
+  const flows = `DELETE FROM oauth_flow_states WHERE ctid IN (SELECT ctid FROM oauth_flow_states WHERE expires_at::timestamptz <= ${AT_NOW} - interval '900 seconds' LIMIT $2)`;
   for (;;) {
     const deleted = (await client.query(flows, [cutoffs.now, batchSize])).rowCount ?? 0;
     if (deleted < batchSize) break;

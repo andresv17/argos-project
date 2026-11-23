@@ -1,5 +1,6 @@
 /**
  * Aviso de perfil para cuentas nacidas con Google (Feature 008, [GH:#16]; decisión 1 de Neo, DEUDA-008-GOOGLE-ACCOUNT-DELETE; REQ-ACC-002).
+ * T1220 (009, REQ-DEL9-002, SC-009-046): el aviso de soporte se retiró; los casos 1 y 3 verifican su sustitución por la eliminación con Google.
  * Una cuenta sin contraseña (`authMethods.password === false`) no puede pedir una contraseña que no existe: la pantalla Perfil explica en lenguaje llano que la cuenta se creó con
  * Google y que el borrado de cuenta se gestiona por soporte, y no ofrece el cambio de contraseña ni la eliminación con contraseña. Render estático.
  */
@@ -28,14 +29,14 @@ const render = (profile: UserSelfProfile): string => {
 };
 
 describe('aviso de perfil de cuentas sin contraseña (decisión 1 de Neo)', () => {
-  it('[GH:#16][REQ-ACC-002][DEUDA-008-GOOGLE-ACCOUNT-DELETE] sin contraseña: avisa que la cuenta se creó con Google y que el borrado se gestiona por soporte, sin pedir contraseña', () => {
+  it('[GH:#16][REQ-DEL9-002][SC-009-046] sin contraseña: el aviso temporal (soporte) lo sustituye la eliminación con Google (T1220); sigue sin pedir contraseña', () => {
     const markup = render(user({ password: false, google: true }));
-    expect(markup).toMatch(/<[^>]*role="note"[^>]*data-account-no-password[^>]*>|<[^>]*data-account-no-password[^>]*role="note"[^>]*>/);
+    expect(markup).not.toContain('data-account-no-password');
+    expect(markup).not.toContain('soporte');
     expect(markup).toContain('Tu cuenta se creó con Google');
-    expect(markup).toContain('soporte');
     expect(markup).not.toContain('Contraseña actual');
     expect(markup).not.toContain('Cambiar contraseña');
-    expect(markup).not.toContain('Eliminar mi cuenta');
+    expect(markup).toContain('data-account-delete-google');
     expect(markup).toContain('Datos de perfil');
   });
 
@@ -50,10 +51,10 @@ describe('aviso de perfil de cuentas sin contraseña (decisión 1 de Neo)', () =
     }
   });
 
-  it('[GH:#16][REQ-ACC-002] el texto del aviso es llano: sin jerga técnica ni promesas legales o plazos', () => {
+  it('[GH:#16][REQ-DEL9-002] el texto de la zona de eliminación sigue siendo llano: sin jerga técnica ni promesas legales o plazos', () => {
     const markup = render(user({ password: false, google: true }));
-    const notice = /<[^>]*data-account-no-password[^>]*>([\s\S]*?)<\/section>/.exec(markup)?.[1] ?? '';
-    expect(notice.length).toBeGreaterThan(40);
-    expect(notice).not.toMatch(/centinela|hash|OAuth|OIDC|token|Ley|1581|plazo|días|horas|garant/i);
+    const zone = /<[^>]*data-account-delete-google[^>]*>([\s\S]*?)<\/section>/.exec(markup)?.[1] ?? '';
+    expect(zone.length).toBeGreaterThan(40);
+    expect(zone.replace(/<[^>]*>/g, ' ')).not.toMatch(/centinela|hash|OAuth|OIDC|token|Ley|1581|plazo|días|horas|garant/i);
   });
 });

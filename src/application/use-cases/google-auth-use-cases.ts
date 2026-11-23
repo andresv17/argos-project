@@ -19,6 +19,7 @@ import {
   type IssuedOneTimeToken,
 } from '../../domain/auth/one-time-token.ts';
 import { assertUsernameAvailable, invalidCredentialsError } from '../../domain/auth/auth-policies.ts';
+import { ACCOUNT_DELETE_REAUTH_MAX_AGE_SECONDS, isRecentAuthentication } from '../../domain/auth/reauthentication-policy.ts';
 import { hashSessionToken, sessionStateAt } from '../../domain/auth/session-policy.ts';
 import { NO_PASSWORD_SENTINEL, authMethodsOf, hasPassword } from '../../domain/auth/password-sentinel.ts';
 import { DomainError } from '../../generated/index.ts';
@@ -43,10 +44,14 @@ export interface GoogleAuthorizationStart {
   readonly oauthToken: string;
 }
 
-/** Resultado del retorno de Google: sesión abierta, vinculación hecha (SIN sesión nueva: se conserva la de origen, REQ-VIN8-004) o paso «Elige tu usuario» con un identificador nuevo para `argos_oauth`. */
+/**
+ * Resultado del retorno de Google: sesión abierta, vinculación hecha (SIN sesión nueva: se conserva la de origen, REQ-VIN8-004), prueba de titularidad registrada
+ * (009, REQ-DEL9-001: tampoco emite sesión ni borra nada) o paso «Elige tu usuario» con un identificador nuevo para `argos_oauth`.
+ */
 export type GoogleCallbackResult =
   | ({ readonly kind: 'SESSION' } & AuthenticatedSession)
   | { readonly kind: 'LINKED' }
+  | { readonly kind: 'REAUTHENTICATED' }
   | { readonly kind: 'CHOOSE_USERNAME'; readonly oauthToken: string };
 
 export interface GoogleCallbackInput {
@@ -62,12 +67,12 @@ export interface GoogleCallbackInput {
  * Sin la configuración de Google (`deps.google` ausente) las operaciones fallan cerrado. `startGoogleLogin` y `startGoogleLink` no declaran el 400 en el contrato: ahí es
  * un fallo de configuración del servidor (`ERR-INTERNAL-UNEXPECTED`, 500); el callback y la elección de usuario responden el 400 uniforme.
  */
-function requireGoogle(deps: ApplicationDeps, onMissing: () => Error = googleFailed): GoogleServices {
+export function requireGoogle(deps: ApplicationDeps, onMissing: () => Error = googleFailed): GoogleServices {
   if (deps.google === undefined) throw onMissing();
   return deps.google;
 }
 
-const serverMisconfigured = (): Error => new DomainError('ERR-INTERNAL-UNEXPECTED');
+export const serverMisconfigured = (): Error => new DomainError('ERR-INTERNAL-UNEXPECTED');
 
 /** Correo en minúsculas y sin espacios (la unicidad del titular verificado es por `lower(email)`). */
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
@@ -75,14 +80,15 @@ const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 /** Hash del identificador de la cookie si tiene la forma exacta (43 caracteres base64url); `null` si falta o está mal formado. */
 const hashOfCookie = (oauthToken: string | null): string | null => (oauthToken !== null && isWellFormedOneTimeToken(oauthToken) ? hashOneTimeToken(oauthToken) : null);
 
-/** Estado AUTHORIZATION nuevo (intención LOGIN o LINK) y URL de Google. Purga antes los estados vencidos (H-A1-4). */
-async function beginAuthorization(
+/** Estado AUTHORIZATION nuevo (intención LOGIN, LINK o DELETE) y URL de Google. Purga antes los estados vencidos (H-A1-4). `maxAgeSeconds` solo en DELETE (009: autenticación reciente). */
+export async function beginAuthorization(
   google: GoogleServices,
   repositories: RepositorySet,
   now: string,
-  intent: 'LOGIN' | 'LINK',
+  intent: 'LOGIN' | 'LINK' | 'DELETE',
   userId: string | null,
   originSessionHash: string | null,
+  maxAgeSeconds?: number,
 ): Promise<GoogleAuthorizationStart> {
   await repositories.oauthFlows.purgeExpired(now);
   const issued = issueOneTimeToken(google.entropy, now);
@@ -104,7 +110,7 @@ async function beginAuthorization(
     expiresAt: issued.expiresAt,
     consumedAt: null,
   });
-  return { oauthToken: issued.token, authorizationUrl: google.oidc.authorizationUrl({ state, nonce, codeVerifier }) };
+  return { oauthToken: issued.token, authorizationUrl: google.oidc.authorizationUrl({ state, nonce, codeVerifier, ...(maxAgeSeconds === undefined ? {} : { maxAgeSeconds }) }) };
 }
 
 async function insertUsernameStep(repositories: RepositorySet, issued: IssuedOneTimeToken, now: string, sub: string, email: string): Promise<void> {
@@ -180,7 +186,7 @@ export class CompleteGoogleLoginUseCase {
     if (flow === null || flow.state === null || flow.nonce === null || flow.codeVerifier === null) throw googleFailed();
     if (input.error !== undefined || input.code === undefined || input.code === '' || input.state === undefined || input.state === '' || !constantTimeEqual(flow.state, input.state)) throw googleFailed();
 
-    let identity: { readonly sub: string; readonly email: string };
+    let identity: { readonly sub: string; readonly email: string; readonly authTime?: number | undefined };
     try {
       identity = await google.oidc.complete({ code: input.code, codeVerifier: flow.codeVerifier, nonce: flow.nonce });
     } catch {
@@ -189,9 +195,30 @@ export class CompleteGoogleLoginUseCase {
     if (typeof identity.sub !== 'string' || identity.sub === '' || typeof identity.email !== 'string' || identity.email.trim() === '') throw googleFailed();
     const email = normalizeEmail(identity.email);
 
-    return this.deps.uow.runInTransaction((repositories) =>
-      flow.intent === 'LINK' ? this.link(repositories, flow, identity.sub, now) : this.login(google, repositories, identity.sub, email, now),
-    );
+    return this.deps.uow.runInTransaction((repositories) => {
+      if (flow.intent === 'DELETE') return this.proveOwnership(repositories, flow, identity.sub, identity.authTime, now);
+      return flow.intent === 'LINK' ? this.link(repositories, flow, identity.sub, now) : this.login(google, repositories, identity.sub, email, now);
+    });
+  }
+
+  /**
+   * 009 (REQ-DEL9-001, INV-DEL9-001, EDGE-009-031): el retorno de la reautenticación de borrado solo REGISTRA la prueba de titularidad (marca `pendingSubject` de la fila ya
+   * consumida); no abre sesión, no vincula y no borra. Se acredita únicamente si: la sesión de origen sigue viva y es de la misma cuenta, la cuenta sigue sin contraseña, el `sub`
+   * verificado por Google es el vinculado a la cuenta y la autenticación es reciente (`auth_time` dentro de `max_age`). Cualquier otra cosa es el 400 uniforme y no deja marca.
+   */
+  private async proveOwnership(repositories: RepositorySet, flow: OAuthFlowStateRecord, sub: string, authTime: number | undefined, now: string): Promise<GoogleCallbackResult> {
+    const userId = flow.userId;
+    const originHash = flow.originSessionHash;
+    if (userId === null || originHash === null) throw googleFailed();
+    const origin = await repositories.sessions.findByTokenHash(originHash);
+    if (origin === null || origin.userId !== userId || sessionStateAt(origin, now) !== 'AUTHENTICATED') throw googleFailed();
+    const account = await repositories.users.findById(userId);
+    if (account === null || hasPassword(account.passwordHash)) throw googleFailed();
+    const linked = await repositories.authIdentities.listByUser(userId);
+    if (!linked.some((identity) => identity.providerSubject === sub)) throw googleFailed();
+    if (!isRecentAuthentication(authTime, now, ACCOUNT_DELETE_REAUTH_MAX_AGE_SECONDS)) throw googleFailed();
+    if (!(await repositories.oauthFlows.markDeletionProof(flow.tokenHash, sub))) throw googleFailed();
+    return { kind: 'REAUTHENTICATED' };
   }
 
   private async login(google: GoogleServices, repositories: RepositorySet, sub: string, email: string, now: string): Promise<GoogleCallbackResult> {

@@ -16,13 +16,13 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-/** Base con las migraciones 0001..0016 y dos cuentas heredadas con correo (nunca verificado). */
+/** Base con las migraciones 0001..0016 (las posteriores a la 0017, p. ej. la 0018 de 009, quedan fuera: esta suite fija el estado que dejó 008) y dos cuentas heredadas con correo (nunca verificado). */
 function legacyDatabase(): { db: SqliteDatabase; migrationsDir: string } {
   const dir = mkdtempSync(join(tmpdir(), 'argos-sso-'));
   dirs.push(dir);
   const migrationsDir = join(dir, 'migraciones');
   mkdirSync(migrationsDir);
-  for (const name of readdirSync(DEFAULT_MIGRATIONS_DIR)) if (name !== MIGRATION && /^\d{4}_.+\.sql$/.test(name)) copyFileSync(join(DEFAULT_MIGRATIONS_DIR, name), join(migrationsDir, name));
+  for (const name of readdirSync(DEFAULT_MIGRATIONS_DIR)) if (name < MIGRATION && /^\d{4}_.+\.sql$/.test(name)) copyFileSync(join(DEFAULT_MIGRATIONS_DIR, name), join(migrationsDir, name));
   const db = openSqliteDatabase(join(dir, 'base.sqlite'), { migrationsDir });
   opened.push(db);
   const user = db.prepare('INSERT INTO users (id, username, password_hash, data, email) VALUES (?, ?, ?, ?, ?)');
@@ -38,8 +38,8 @@ const upgrade = (migrationsDir: string): string[] => {
 };
 
 describe('[T1116][EDGE-008-036] migración 0017 con filas previas', () => {
-  it('la 0017 existe y es la última de SQLite', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-1)).toBe(MIGRATION);
+  it('la 0017 existe en SQLite (ya no es la última: la 0018 de 009 amplía oauth_flow_states, T1219)', () => {
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort()).toContain(MIGRATION);
   });
 
   it('toda cuenta antigua conserva su correo y queda con email_verified_at = NULL (nada se marca como verificado)', () => {

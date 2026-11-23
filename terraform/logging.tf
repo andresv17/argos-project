@@ -35,3 +35,15 @@ resource "google_logging_project_exclusion" "google_auth_callback_requests" {
 
   depends_on = [google_project_service.apis]
 }
+
+# Callback de Google del portal de administración (009, RAMA-01): la URL lleva `code` y `state` de OAuth, igual que el callback de 008
+# (`/api/admin/auth/google/callback` no contiene la subcadena `/api/auth/google/callback`, así que necesita su propia exclusión).
+# Pendiente de aplicación por Neo (Nivel 2) tras revisar `terraform plan`.
+resource "google_logging_project_exclusion" "admin_google_auth_callback_requests" {
+  project     = var.project_id
+  name        = "${var.project_prefix}-exclude-admin-google-callback-requests"
+  description = "Excluye del sumidero _Default las solicitudes al callback de Google del portal de administración (code y state no deben quedar en el registro)."
+  filter      = "resource.type=\"cloud_run_revision\" AND httpRequest.requestUrl:\"/api/admin/auth/google/callback\""
+
+  depends_on = [google_project_service.apis]
+}

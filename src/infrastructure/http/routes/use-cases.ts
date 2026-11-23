@@ -5,6 +5,7 @@
  */
 
 import { ChangePasswordUseCase, DeleteAccountUseCase, UpdateProfileUseCase } from '../../../application/use-cases/account-use-cases.ts';
+import { DeleteAccountWithGoogleUseCase, StartAccountDeletionReauthUseCase } from '../../../application/use-cases/account-google-deletion-use-cases.ts';
 import { DeleteAvatarUseCase, GetAvatarUseCase, PutAvatarUseCase } from '../../../application/use-cases/avatar-use-cases.ts';
 import { AssignPetToHouseholdUseCase, ListPetAssignmentsUseCase, UnassignPetFromHouseholdUseCase } from '../../../application/use-cases/assignment-use-cases.ts';
 import { AuthenticateRequestUseCase, GetCurrentSessionUseCase, LoginUseCase, LogoutUseCase, RegisterUserUseCase } from '../../../application/use-cases/auth-use-cases.ts';
@@ -62,6 +63,8 @@ export function createUseCases(deps: ApplicationDeps) {
     changePassword: new ChangePasswordUseCase(deps),
     updateProfile: new UpdateProfileUseCase(deps),
     deleteAccount: new DeleteAccountUseCase(deps),
+    startAccountDeletionReauth: new StartAccountDeletionReauthUseCase(deps),
+    deleteAccountWithGoogle: new DeleteAccountWithGoogleUseCase(deps),
     registerPet: new RegisterPetUseCase(deps),
     updatePet: new UpdatePetUseCase(deps),
     deletePet: new DeletePetUseCase(deps),

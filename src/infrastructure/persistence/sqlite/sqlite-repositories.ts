@@ -1109,7 +1109,7 @@ interface OAuthFlowRow {
 
 /**
  * `oauth_flow_states` (feature 008, REQ-SSO8-004, ADR-008-03): estado del flujo en servidor; un solo uso por compare-and-set (`UPDATE … WHERE consumed_at IS NULL AND expires_at > ?`).
- * La forma de cada fase y de cada intención la imponen los CHECK de la migración 0017. Ningún valor del estado sale en un mensaje de error.
+ * La forma de cada fase y de cada intención la imponen los CHECK de las migraciones 0017 y 0018 (009: intención DELETE). Ningún valor del estado sale en un mensaje de error.
  * @implements REQ-SSO8-004, REQ-SSO8-003, EDGE-008-007, NFR-008-004
  */
 function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
@@ -1118,6 +1118,12 @@ function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
   const byHash = db.prepare<[string], OAuthFlowRow>(`SELECT ${columns} FROM oauth_flow_states WHERE token_hash = ?`);
   const consume = db.prepare('UPDATE oauth_flow_states SET consumed_at = ? WHERE token_hash = ? AND phase = ? AND consumed_at IS NULL AND expires_at > ?');
   const purge = db.prepare('DELETE FROM oauth_flow_states WHERE expires_at <= ?');
+  // 009 (T1130, REQ-DEL9-001, INV-DEL9-001): prueba de titularidad = fila DELETE ya consumida y con la marca `pending_subject`; se consume eliminándola (1 fila exacta).
+  const findProof = db.prepare<[string, string, string], OAuthFlowRow>(
+    `SELECT ${columns} FROM oauth_flow_states WHERE intent = 'DELETE' AND user_id = ? AND origin_session_hash = ? AND consumed_at IS NOT NULL AND pending_subject IS NOT NULL AND expires_at > ? ORDER BY consumed_at DESC, token_hash LIMIT 1`,
+  );
+  const markProof = db.prepare("UPDATE oauth_flow_states SET pending_subject = ? WHERE token_hash = ? AND intent = 'DELETE' AND consumed_at IS NOT NULL AND pending_subject IS NULL");
+  const consumeProof = db.prepare("DELETE FROM oauth_flow_states WHERE token_hash = ? AND intent = 'DELETE' AND consumed_at IS NOT NULL AND pending_subject IS NOT NULL AND expires_at > ?");
   const toFlow = (row: OAuthFlowRow): OAuthFlowStateRecord => ({
     tokenHash: row.token_hash,
     phase: row.phase,
@@ -1147,6 +1153,16 @@ function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
     },
     async purgeExpired(nowIsoTimestamp) {
       return purge.run(nowIsoTimestamp).changes;
+    },
+    async findDeletionProof(userId, originSessionHash, nowIsoTimestamp) {
+      const row = findProof.get(userId, originSessionHash, nowIsoTimestamp);
+      return row === undefined ? null : toFlow(row);
+    },
+    async markDeletionProof(tokenHash, verifiedSubject) {
+      return markProof.run(verifiedSubject, tokenHash).changes === 1;
+    },
+    async consumeDeletionProof(tokenHash, nowIsoTimestamp) {
+      return consumeProof.run(tokenHash, nowIsoTimestamp).changes === 1;
     },
   };
 }

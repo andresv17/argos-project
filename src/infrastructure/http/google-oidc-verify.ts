@@ -44,6 +44,8 @@ export class GoogleOidcError extends Error {
 export interface GoogleIdentity {
   readonly sub: string;
   readonly email: string;
+  /** `auth_time` (segundos Unix) si el `id_token` lo trae como número finito; si no, ausente. */
+  readonly authTime?: number | undefined;
 }
 
 export interface GoogleOidcClientOptions {
@@ -72,6 +74,8 @@ export interface GoogleAuthorizationParams {
   readonly state: string;
   readonly nonce: string;
   readonly codeVerifier: string;
+  /** 009: autenticación reciente (`max_age` + `prompt=login`); ausente en el acceso y la vinculación de 008. */
+  readonly maxAgeSeconds?: number | undefined;
 }
 
 /** URL de autorización de Google: `code` + PKCE `S256` + `state` + `nonce` + scope `openid email`. El verificador PKCE y el secreto nunca salen en la URL. */
@@ -85,6 +89,11 @@ export function buildGoogleAuthorizationUrl(params: GoogleAuthorizationParams): 
   url.searchParams.set('nonce', params.nonce);
   url.searchParams.set('code_challenge', codeChallengeS256(params.codeVerifier));
   url.searchParams.set('code_challenge_method', 'S256');
+  if (params.maxAgeSeconds !== undefined) {
+    // 009 (REQ-DEL9-001, INV-DEL9-001): reautenticación reciente; `prompt=login` obliga a Google a pedir las credenciales aunque la sesión de Google siga viva.
+    url.searchParams.set('max_age', String(params.maxAgeSeconds));
+    url.searchParams.set('prompt', 'login');
+  }
   return url.toString();
 }
 
@@ -169,7 +178,8 @@ export function createGoogleOidcClient(options: GoogleOidcClientOptions): Google
     const sub = payload.sub;
     const email = payload['email'];
     if (typeof sub !== 'string' || sub === '' || typeof email !== 'string' || email === '') throw new GoogleOidcError('CLAIMS');
-    return { sub, email };
+    const authTime = payload['auth_time'];
+    return typeof authTime === 'number' && Number.isFinite(authTime) ? { sub, email, authTime } : { sub, email };
   }
 
   return {

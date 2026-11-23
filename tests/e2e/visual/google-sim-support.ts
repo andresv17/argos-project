@@ -68,7 +68,7 @@ export async function startGoogleSim(): Promise<GoogleSim> {
     const grant = grants.get(code);
     grants.delete(code); // un código de Google se canjea una sola vez
     if (grant === undefined || body.get('client_id') !== CLIENT_ID || body.get('client_secret') !== CLIENT_SECRET) return new Response('{"error":"invalid_grant"}', { status: 400 });
-    const idToken = await new SignJWT({ nonce: grant.nonce, email: grant.email, email_verified: true })
+    const idToken = await new SignJWT({ nonce: grant.nonce, email: grant.email, email_verified: true, auth_time: Math.floor(Date.now() / 1000) }) // 009: Google devuelve `auth_time` cuando se pide `max_age` (reautenticación de borrado)
       .setProtectedHeader({ alg: 'RS256', kid: KID })
       .setIssuer('https://accounts.google.com')
       .setAudience(CLIENT_ID)

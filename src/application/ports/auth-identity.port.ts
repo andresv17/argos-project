@@ -30,7 +30,8 @@ export interface AuthIdentityRepositoryPort {
 
 /** AUTHORIZATION: `state`, `nonce` y verificador PKCE esperan el retorno de Google. USERNAME: identidad verificada por Google que espera la elección de `username` (solo LOGIN). */
 export type OAuthFlowPhase = 'AUTHORIZATION' | 'USERNAME';
-export type OAuthFlowIntent = 'LOGIN' | 'LINK';
+/** LOGIN y LINK (008); DELETE (009, T1219): reautenticación reciente con Google para eliminar una cuenta sin contraseña (REQ-DEL9-001, INV-DEL9-001). */
+export type OAuthFlowIntent = 'LOGIN' | 'LINK' | 'DELETE';
 
 export interface OAuthFlowStateRecord {
   /** SHA-256 (hex) del identificador opaco de la cookie `argos_oauth`; el identificador en claro nunca se guarda. */
@@ -40,10 +41,11 @@ export interface OAuthFlowStateRecord {
   readonly state: string | null;
   readonly nonce: string | null;
   readonly codeVerifier: string | null;
-  /** Usuario de la sesión que inicia la vinculación (solo intención LINK). */
+  /** Usuario de la sesión que inicia la vinculación o la reautenticación de borrado (intenciones LINK y DELETE). */
   readonly userId: string | null;
-  /** SHA-256 hex (64) del token de la sesión que inició la vinculación, igual a `sessions.token_hash` (solo LINK, obligatorio ahí; `null` en LOGIN). REQ-VIN8-004, H-A21-2. */
+  /** SHA-256 hex (64) del token de la sesión que inició la vinculación, igual a `sessions.token_hash` (LINK y DELETE, obligatorio ahí; `null` en LOGIN). REQ-VIN8-004, H-A21-2. */
   readonly originSessionHash: string | null;
+  /** USERNAME: `sub` que espera la elección de usuario. DELETE (009): `sub` verificado por Google tras el retorno = MARCA de la prueba de titularidad (`null` mientras no se acredita). */
   readonly pendingSubject: string | null;
   readonly pendingEmail: string | null;
   readonly createdAt: string;
@@ -62,4 +64,13 @@ export interface OAuthFlowStateRepositoryPort {
   consume(tokenHash: string, nowIsoTimestamp: string, expectedPhase: OAuthFlowPhase): Promise<OAuthFlowStateRecord | null>;
   /** Borra las filas con `expiresAt <= now` y devuelve cuántas. */
   purgeExpired(nowIsoTimestamp: string): Promise<number>;
+  /**
+   * Prueba de titularidad para eliminar la cuenta (009, REQ-DEL9-001, INV-DEL9-001), SOLO lectura: la fila DELETE del usuario y de ESA sesión de origen, ya consumida por el
+   * retorno de Google, con la marca `pendingSubject` y vigente (`expiresAt > now`); `null` si no hay (ausente, sin marca, vencida, de otro usuario o de otra sesión).
+   */
+  findDeletionProof(userId: string, originSessionHash: string, nowIsoTimestamp: string): Promise<OAuthFlowStateRecord | null>;
+  /** Marca la fila DELETE ya consumida con el `sub` verificado (`pendingSubject`); `false` si no es DELETE, no se consumió o ya estaba marcada. Un solo uso de la marca. */
+  markDeletionProof(tokenHash: string, verifiedSubject: string): Promise<boolean>;
+  /** Consume la prueba eliminando la fila (compare-and-set: exactamente 1 fila marcada y vigente); `false` si no hay, venció o ya se usó. Se revierte con la transacción. */
+  consumeDeletionProof(tokenHash: string, nowIsoTimestamp: string): Promise<boolean>;
 }

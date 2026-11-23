@@ -702,10 +702,12 @@ function authIdentityRepository(state: MemoryState): AuthIdentityRepositoryPort 
 
 /** Forma coherente de una fila de `oauth_flow_states` (los CHECK de la migración 0017/0013). */
 function isCoherentFlow(f: OAuthFlowStateRecord): boolean {
-  const authorization = f.phase === 'AUTHORIZATION' && f.state !== null && f.nonce !== null && f.codeVerifier !== null && f.pendingSubject === null && f.pendingEmail === null;
+  // 009 (0018): `pendingSubject` solo puede llevar valor en DELETE (marca de la prueba de titularidad).
+  const authorization = f.phase === 'AUTHORIZATION' && f.state !== null && f.nonce !== null && f.codeVerifier !== null && (f.pendingSubject === null || f.intent === 'DELETE') && f.pendingEmail === null;
   const username = f.phase === 'USERNAME' && f.intent === 'LOGIN' && f.state === null && f.nonce === null && f.codeVerifier === null && f.pendingSubject !== null && f.pendingEmail !== null;
-  const originOk = (f.intent === 'LINK') === (f.originSessionHash !== null) && (f.originSessionHash === null || f.originSessionHash.length === 64);
-  return f.tokenHash.length === 64 && f.expiresAt > f.createdAt && (authorization || username) && (f.intent === 'LINK') === (f.userId !== null) && originOk;
+  const bound = f.intent === 'LINK' || f.intent === 'DELETE';
+  const originOk = bound === (f.originSessionHash !== null) && (f.originSessionHash === null || f.originSessionHash.length === 64);
+  return f.tokenHash.length === 64 && f.expiresAt > f.createdAt && (authorization || username) && bound === (f.userId !== null) && originOk;
 }
 
 /** `oauth_flow_states` (feature 008, REQ-SSO8-004): un solo uso por compare-and-set, vence a los 900 s. */
@@ -731,6 +733,24 @@ function oauthFlowRepository(state: MemoryState): OAuthFlowStateRepositoryPort {
       const before = all().length;
       state.oauthFlows = all().filter((f) => f.expiresAt > nowIsoTimestamp);
       return before - state.oauthFlows.length;
+    },
+    async findDeletionProof(userId, originSessionHash, nowIsoTimestamp) {
+      const proofs = all()
+        .filter((f) => f.intent === 'DELETE' && f.userId === userId && f.originSessionHash === originSessionHash && f.consumedAt !== null && f.pendingSubject !== null && f.expiresAt > nowIsoTimestamp)
+        .sort((a, b) => (b.consumedAt! < a.consumedAt! ? -1 : b.consumedAt! > a.consumedAt! ? 1 : a.tokenHash < b.tokenHash ? -1 : 1));
+      return copy(proofs[0] ?? null);
+    },
+    async markDeletionProof(tokenHash, verifiedSubject) {
+      const index = all().findIndex((f) => f.tokenHash === tokenHash && f.intent === 'DELETE' && f.consumedAt !== null && f.pendingSubject === null);
+      if (index < 0) return false;
+      all()[index] = { ...all()[index]!, pendingSubject: verifiedSubject };
+      return true;
+    },
+    async consumeDeletionProof(tokenHash, nowIsoTimestamp) {
+      const index = all().findIndex((f) => f.tokenHash === tokenHash && f.intent === 'DELETE' && f.consumedAt !== null && f.pendingSubject !== null && f.expiresAt > nowIsoTimestamp);
+      if (index < 0) return false;
+      all().splice(index, 1);
+      return true;
     },
   };
 }

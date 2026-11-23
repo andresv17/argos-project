@@ -11,12 +11,19 @@ export interface GoogleAuthorizationRequest {
   readonly nonce: string;
   /** Verificador PKCE (RFC 7636): solo el desafío S256 sale en la URL. */
   readonly codeVerifier: string;
+  /**
+   * 009 (REQ-DEL9-001, INV-DEL9-001): si viene, la autorización exige una autenticación reciente: la URL lleva `max_age` y `prompt=login` y el `id_token` trae `auth_time`.
+   * Solo la reautenticación de borrado de cuenta lo usa; el acceso y la vinculación de 008 no lo envían.
+   */
+  readonly maxAgeSeconds?: number | undefined;
 }
 
 export interface GoogleVerifiedIdentity {
   /** `sub` de Google: ancla de la identidad (EDGE-008-002). Dato personal: nunca a logs ni `detail`/`instance`. */
   readonly sub: string;
   readonly email: string;
+  /** `auth_time` del `id_token` en segundos Unix (instante de la autenticación del titular); ausente si Google no lo envía (solo viaja cuando se pidió `max_age`). */
+  readonly authTime?: number | undefined;
 }
 
 export interface GoogleOidcPort {

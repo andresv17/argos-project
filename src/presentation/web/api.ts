@@ -18,6 +18,33 @@ export function createWebApi(baseUrl = '/api'): ApiClient {
   return createApiClient(baseUrl);
 }
 
+/** Transporte HTTP crudo de la SPA: recibe la ruta bajo `baseUrl` y devuelve la `Response` (también en 4xx/5xx; un fallo de red lanza). */
+export type RawTransport = (path: string, init: { readonly method: string; readonly headers: Record<string, string>; readonly body?: string }) => Promise<Response>;
+
+/**
+ * Transporte por el cliente de `api.ts` para rutas que el OpenAPI 002 no declara (009): no hay otra llamada directa a la red fuera de media/scene/share-api (INV-AUTH2-002).
+ * El cuerpo se envía tal cual (ya serializado por quien llama); la actividad la notifica quien lo usa tras una respuesta correcta.
+ */
+export function createRawTransport(baseUrl = ''): RawTransport {
+  return async (path, init) => {
+    if (init.method !== 'POST') throw new Error('createRawTransport solo admite POST');
+    // El cliente consume el cuerpo de un error para tipar `error`; el middleware conserva una copia intacta de la respuesta para quien llama.
+    const client = createWebApi(baseUrl);
+    let kept: Response | undefined;
+    client.use({
+      onResponse({ response }) {
+        kept = response.clone();
+      },
+    });
+    await (client as unknown as { POST(path: string, options: object): Promise<unknown> }).POST(path, {
+      headers: init.headers,
+      parseAs: 'stream',
+      ...(init.body === undefined ? {} : { body: init.body, bodySerializer: (body: unknown) => body }),
+    });
+    return kept!;
+  };
+}
+
 /** Parámetro de cabecera CSRF que el OpenAPI declara obligatorio en las operaciones mutantes (INV-AUTH-007). */
 export const CSRF_PARAMS = { header: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE } } as const;
 
