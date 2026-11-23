@@ -1,0 +1,15 @@
+/* Estilos del portal /admin (T1235). Mismos tokens que la app de usuarios (tailwind.config.ts); fondo plano, sin degradado ni decoración. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  color: #0f172a;
+  background-color: #f4f8ef;
+}

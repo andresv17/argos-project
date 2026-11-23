@@ -140,8 +140,9 @@ export interface ProductionAppOptions {
 export async function createProductionApp(config: AppConfig, logger: boolean = true, options: ProductionAppOptions = {}): Promise<FastifyInstance> {
   const staticRoot = options.staticRoot ?? resolve(process.cwd(), 'dist');
   const serveStatic = options.staticRoot !== undefined || existsSync(resolve(staticRoot, 'index.html'));
-  // En producción (host 0.0.0.0) sin dist/index.html falla cerrado; en desarrollo se omiten los estáticos.
+  // En producción (host 0.0.0.0) sin dist/index.html o sin dist/admin.html (dist viejo: el portal no puede caer en la app de usuarios, INV-ADM9-002) falla cerrado; en desarrollo se omiten los estáticos.
   if (!serveStatic && config.host === '0.0.0.0') throw new Error('Falta dist/index.html: ejecute el build del frontend');
+  if (options.staticRoot === undefined && serveStatic && config.host === '0.0.0.0' && !existsSync(resolve(staticRoot, 'admin.html'))) throw new Error('Falta dist/admin.html: ejecute el build del frontend');
   const persistence = await composePersistence(config);
   const hasher = new ScryptPasswordHasherAdapter();
   const ids = new CryptoUuidAdapter();

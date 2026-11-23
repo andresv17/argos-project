@@ -3,11 +3,12 @@
  * Dotfiles (segmentos con punto inicial, también /.well-known/*) dan 404 sin contenido ni SPA; sin listado de directorios; rutas con traversal codificado, barras dobles o invertidas y byte
  * nulo dan 404 sin contenido. El fallback no se aplica a rutas con extensión en el último segmento (parecen archivos:
  * el cliente o el analizador de URL pueden haber normalizado un traversal a /secret.txt, que no debe devolver index.html).
- * 009 (REQ-ADM9-001): `GET /admin` cae en el fallback SPA (pantalla de acceso); toda subruta `/admin/…` responde el 404 uniforme (la cookie de administración `Path=/api/admin` nunca viaja a ellas).
+ * 009 (REQ-ADM9-001, T1235): `GET /admin` sirve `admin.html` (entrada y bundle propios del portal: pantalla de acceso; sin `admin.html` en `root` falla cerrado: 404 uniforme, nunca el index.html de usuarios, INV-ADM9-002); toda subruta `/admin/…` responde el 404 uniforme (la cookie de administración `Path=/api/admin` nunca viaja a ellas).
  * @implements REQ-CLD-001, REQ-CLD-009, SC-CLD-022, REQ-ADM9-001, EDGE-009-008
  */
 
-import { sep } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import fastifyStatic from '@fastify/static';
 import type { FastifyInstance } from 'fastify';
 
@@ -21,6 +22,7 @@ const NO_CACHE = 'no-cache';
 const SUSPICIOUS = /%2e|%2f|%5c|%00|\\|\/\/|\.\.|\/\./i;
 
 export async function registerStaticAssets(app: FastifyInstance, { root }: StaticAssetsOptions): Promise<void> {
+  const hasAdminEntry = existsSync(join(root, 'admin.html'));
   const assetsDir = `${root}${sep}assets${sep}`;
   // Traversal codificado, barras dobles/invertidas y byte nulo: 404 uniforme antes de tocar el sistema de archivos.
   app.addHook('onRequest', async (request, reply) => {
@@ -46,6 +48,10 @@ export async function registerStaticAssets(app: FastifyInstance, { root }: Stati
     const isRead = request.method === 'GET' || request.method === 'HEAD';
     // 009 (REQ-ADM9-001, EDGE-009-008): del portal solo se sirve `GET /admin` (la pantalla de acceso); cualquier subruta (`/admin/…`) es el mismo 404 que una ruta inexistente de /api/.
     if (path.startsWith('/admin/')) return reply.status(404).type('text/plain; charset=utf-8').send('Not Found');
+    if (path === '/admin') {
+      if (!isRead || !hasAdminEntry) return reply.status(404).type('text/plain; charset=utf-8').send('Not Found');
+      return reply.header('Cache-Control', NO_CACHE).sendFile('admin.html');
+    }
     const spa = isRead && !path.startsWith('/api/') && !path.startsWith('/assets/') && !SUSPICIOUS.test(path) && !/\.[^/]*$/.test(path);
     if (!spa) return reply.status(404).type('text/plain; charset=utf-8').send('Not Found');
     return reply.header('Cache-Control', NO_CACHE).sendFile('index.html');

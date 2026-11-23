@@ -42,6 +42,13 @@ export function staticRootWithIndex(): string {
   return dir;
 }
 
+/** Como `dist/` de producción tras el build: `index.html` (usuarios) y `admin.html` (portal, entrada propia; sin él `GET /admin` es el 404 uniforme, INV-ADM9-002). */
+export function staticRootWithAdmin(): string {
+  const dir = staticRootWithIndex();
+  writeFileSync(join(dir, 'admin.html'), '<!doctype html><html><head><title>ARGOS</title></head><body><div id="admin-root"></div></body></html>');
+  return dir;
+}
+
 export const setCookies = (r: ApiResponse): string[] => ([] as string[]).concat((r.headers['set-cookie'] as string | string[] | undefined) ?? []);
 export const cookieNamed = (r: ApiResponse, name: string): string | undefined => setCookies(r).find((c) => c.startsWith(`${name}=`));
 export const valueOf = (cookie: string | undefined): string => cookie!.split(';')[0]!.split('=')[1]!;

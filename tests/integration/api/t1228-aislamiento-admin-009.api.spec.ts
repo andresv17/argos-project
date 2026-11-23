@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RepositorySet } from '../../../src/application/ports/repositories.port.ts';
 import type { UnitOfWorkPort } from '../../../src/application/ports/unit-of-work.port.ts';
-import { ADMIN_COOKIE_PATTERN, ADMIN_SESSION_COOKIE, adminKit, adminLogin, observable, staticRootWithIndex } from '../../fixtures/admin-fixtures.ts';
+import { ADMIN_COOKIE_PATTERN, ADMIN_SESSION_COOKIE, adminKit, adminLogin, observable, staticRootWithAdmin } from '../../fixtures/admin-fixtures.ts';
 import { createApi, type Api } from './api-harness.ts';
 
 /**
@@ -43,7 +43,7 @@ function recorder(): { log: string[]; wrap: (uow: UnitOfWorkPort) => UnitOfWorkP
 async function boot(): Promise<{ a: Api; kit: ReturnType<typeof adminKit>; log: string[] }> {
   const kit = adminKit();
   const rec = recorder();
-  const a = await createApi(undefined, { admin: kit.admin, staticRoot: staticRootWithIndex(), wrapUow: rec.wrap });
+  const a = await createApi(undefined, { admin: kit.admin, staticRoot: staticRootWithAdmin(), wrapUow: rec.wrap });
   api = a;
   return { a, kit, log: rec.log };
 }
@@ -151,7 +151,7 @@ describe('T1228 [REQ-ADM9-001] [EDGE-009-008] sin sesión de administración tod
 });
 
 describe('T1228 [REQ-ADM9-001] [SC-009-009] las páginas del portal: solo GET /admin se sirve', () => {
-  it('GET /admin sirve la pantalla de acceso (el index del bundle) sin necesitar sesión ni cookie', async () => {
+  it('GET /admin sirve la pantalla de acceso (el admin.html del bundle) sin necesitar sesión ni cookie', async () => {
     const { a } = await boot();
     const r = await a.call('GET', '/admin', { contract: false });
     expect(r.status).toBe(200);
