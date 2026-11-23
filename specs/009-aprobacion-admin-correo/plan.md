@@ -74,7 +74,7 @@ Fase 0 (compuertas, sin código) → **Fase 1** (`#60` ∥ `#57`) → **Fase 2**
 | `ERR-SCHEMA-VALIDATION-FAILED` | existente | valor inválido de parámetro (`REQ-CFG9-007`) | — |
 | `ERR-ACCOUNT-PENDING`, `ERR-ACCOUNT-REJECTED` | 002 y 004 (MINOR) | registro e inicio de sesión de cuenta no `ACTIVE` (`REQ-APR9-002`, `EDGE-009-005`) | `T1241` |
 | `ERR-ACCOUNT-REGISTRATION-RATE-LIMITED` | 002 y 004 (MINOR) | exceso de registros por IP, respuesta uniforme (`EDGE-009-040`) | `T1241` |
-| `ERR-ADMIN-REGISTRATION-NOT-FOUND` | 009 | decisión o supresión sobre solicitud purgada o inexistente (`EDGE-009-039`) | `T1241` |
+| `ERR-ADMIN-REGISTRATION-NOT-FOUND` | 009 | decisión sobre solicitud purgada o inexistente (`EDGE-009-039`) | `T1241` |
 | `ERR-ACCOUNT-DELETE-REAUTH-REQUIRED` | 009 | reautenticación ausente, vencida o reutilizada (`EDGE-009-031`, uniforme) | `T1217` |
 | `ERR-ACCOUNT-DELETE-HOUSEHOLDS-ACTIVE` | 009 | propietario con miembros `ACTIVE` (`EDGE-009-049`, `D9-24` = A: rechazo, sin transferencia) | `T1217` |
 | `ERR-ADMIN-RATE-LIMITED` | 009 | `429` del flujo de Google de `/admin` (`EDGE-009-035`) | `T1226` |
@@ -86,7 +86,7 @@ Fase 0 (compuertas, sin código) → **Fase 1** (`#60` ∥ `#57`) → **Fase 2**
 Sin catálogo no pasa `verify-traceability.sh --feature 009`: ningún código se queda sin tarea.
 
 ## Riesgos residuales
-`RR-09-01`: mismo origen entre la aplicación de usuarios y `/admin` (XSS cruzado); contenido por cookie `Strict` con `Path` acotado, CSP y prueba de `/trinity` (`D9-06` = A). `RR-09-02`: la cuenta de Google del administrador es el único factor (`D9-02` = B). `RR-09-03`: sin correo, el solicitante solo sabe el resultado al volver a entrar; el administrador depende del contador de `/admin` (`D9-01` = A). `RR-09-04`: la cuenta `PENDING` no tiene sesión desde la cual ejercer el derecho de supresión; `D9-18` aprobado: supresión anticipada por atención manual con operación de `/admin` auditada, sin vector público (`EDGE-009-033`, `EDGE-009-037`, `REQ-APR9-008`); el procedimiento y el plazo los dictamina `/rama`. `RR-09-05`: bajo propagación <= 60 s un cambio de `scene.enabled` o de modelo puede tardar hasta un minuto por instancia.
+`RR-09-01`: mismo origen entre la aplicación de usuarios y `/admin` (XSS cruzado); contenido por cookie `Strict` con `Path` acotado, CSP y prueba de `/trinity` (`D9-06` = A). `RR-09-02`: la cuenta de Google del administrador es el único factor (`D9-02` = B). `RR-09-03`: sin correo, el solicitante solo sabe el resultado al volver a entrar; el administrador depende del contador de `/admin` (`D9-01` = A). `RR-09-04`: la cuenta `PENDING` no tiene sesión desde la cual ejercer el derecho de supresión; `D9-18` aprobado y corte soberano de Neo (2026-11-23): sin supresión anticipada manual ni canal de contacto; la solicitud se purga solo automáticamente a 30 días (`EDGE-009-033`, `REQ-APR9-007`). `RR-09-05`: bajo propagación <= 60 s un cambio de `scene.enabled` o de modelo puede tardar hasta un minuto por instancia.
 
 ## Diferido (sin fase)
 `REQ-APR9-006` (correo al administrador, `D9-01` = A); `REQ-SSO8-002/006` y `EmailSenderPort`; `REQ-VIN8-005` (desvincular y último método); `DEUDA-008-GOOGLE-LINK-2STEP`; `PN-06`; suspensión de cuentas activas; campos extra de `D9-12` (límites de intentos, cuota por propietario, cooldown, máximo de mascotas).

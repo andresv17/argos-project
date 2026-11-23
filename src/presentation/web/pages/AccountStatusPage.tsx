@@ -1,9 +1,9 @@
 /**
  * Pantallas de estado de la solicitud (Feature 009, `[GH:#18]`, T1249): `/solicitud-en-revision` («Tu solicitud está en revisión») y `/solicitud-no-aprobada` («Tu solicitud no fue aprobada.»;
- * textos aprobados `D9-18`). Son públicas, sin sesión y sin marco de aplicación: no consultan mascotas, hogares ni escena. La supresión anticipada (Ley 1581 de 2012) NO tiene botón de
- * autoservicio: la pantalla solo describe el canal de contacto y la verificación de titularidad (EDGE-009-037). El foco entra en el encabezado al abrir (WCAG 2.4.3).
+ * textos aprobados `D9-18`). Son públicas, sin sesión y sin marco de aplicación: no consultan mascotas, hogares ni escena. Sin formulario, botón ni campo: solo avisa de la purga automática a los 30 días.
+ * El foco entra en el encabezado al abrir (WCAG 2.4.3).
  *
- * @implements REQ-APR9-001, REQ-APR9-002, REQ-APR9-008, NFR-009-001, EDGE-009-037; SC-009-001, SC-009-002
+ * @implements REQ-APR9-001, REQ-APR9-002, NFR-009-001; SC-009-001, SC-009-002
  */
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
@@ -28,7 +28,7 @@ export function AccountStatusPage({ status }: { readonly status: PendingAccountS
           Tus datos
         </h3>
         <p className="text-sm text-slate-800">
-          Esta solicitud se suprime sola a los 30 días. Si quieres que se suprima antes, en ejercicio de tus derechos de la Ley 1581 de 2012, pídelo por el canal de contacto de ARGOS desde el correo con el que te registraste. No se hace desde esta pantalla: una persona de ARGOS verifica primero que la cuenta es tuya, por ejemplo pidiéndote que entres de nuevo con tu cuenta de Google, y luego la suprime.
+          Esta solicitud se suprime sola a los 30 días.
         </p>
       </section>
       <p className="mt-4 text-sm text-slate-800">

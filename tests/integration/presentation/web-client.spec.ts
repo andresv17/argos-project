@@ -32,7 +32,7 @@ async function loggedClient(): Promise<ApiClient> {
   const client = createWebApi(await baseUrl());
   const login = await client.POST('/auth/login', { params: CSRF_PARAMS, body: { username: 'andres', password: PASSWORDS['andres']! } });
   const cookie = (login.response.headers.get('set-cookie') ?? '').split(';')[0]!;
-  expect([login.response.status, login.data?.user.id, cookie.startsWith('argos_session=')]).toEqual([200, ANDRES, true]);
+  expect([login.response.status, (login.data as { user?: { id: string } } | undefined)?.user?.id, cookie.startsWith('argos_session=')]).toEqual([200, ANDRES, true]);
   client.use({
     onRequest({ request }) {
       request.headers.set('cookie', cookie);

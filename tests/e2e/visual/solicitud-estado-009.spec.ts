@@ -1,6 +1,6 @@
 /**
  * E2E de las pantallas de estado de la solicitud (feature 009, `[GH:#18]`, T1249): el registro por la SPA termina en «Tu solicitud está en revisión» sin sesión ni cookie,
- * las rutas protegidas siguen llevando a `/login`, «Tu solicitud no fue aprobada.» se muestra en su ruta, el canal de contacto es solo texto y axe no halla violaciones a 320/1024/1280 px.
+ * las rutas protegidas siguen llevando a `/login`, «Tu solicitud no fue aprobada.» se muestra en su ruta, sin formulario, botón ni campo, y axe no halla violaciones a 320/1024/1280 px.
  * El ciclo completo con aprobación y rechazo reales es T1251.
  *
  * @implements REQ-APR9-001, REQ-APR9-002, NFR-009-001; SC-009-001, SC-009-002
@@ -32,10 +32,10 @@ test('[SC-009-001][SC-009-002] registrarse lleva a «Tu solicitud está en revis
   expect((await page.context().cookies()).filter((c) => c.name === 'argos_session')).toEqual([]);
 });
 
-test('[REQ-APR9-002] «Tu solicitud no fue aprobada.» en su ruta; el canal de contacto es texto, sin botón ni formulario', async ({ page }) => {
+test('[REQ-APR9-002] «Tu solicitud no fue aprobada.» en su ruta; sin botón ni formulario', async ({ page }) => {
   await page.goto('/solicitud-no-aprobada');
   await expect(page.getByRole('heading', { name: 'Tu solicitud no fue aprobada.' })).toBeFocused();
-  await expect(page.getByText('Ley 1581 de 2012')).toBeVisible();
+  await expect(page.getByText(/30 días/)).toBeVisible();
   await expect(page.locator('main form, main button, main input')).toHaveCount(0);
 });
 

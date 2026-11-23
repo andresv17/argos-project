@@ -1,9 +1,9 @@
 /**
  * T1249 (009, `[GH:#18]`) pantallas de estado de la solicitud en la SPA: «Tu solicitud está en revisión» (`PENDING`) y «Tu solicitud no fue aprobada.» (`REJECTED`),
- * textos aprobados D9-18; sin sesión ni acceso a mascotas/hogares/escena; canal de contacto de la supresión anticipada manual sin autoservicio (EDGE-009-037).
+ * textos aprobados D9-18; sin sesión ni acceso a mascotas/hogares/escena; aviso de purga automática a los 30 días, sin autoservicio.
  * La revisión visual (320/1024/1280 px, WCAG 2.1 AA) es de `/sati`.
  *
- * @implements REQ-APR9-001, REQ-APR9-002, REQ-APR9-008, NFR-009-001, EDGE-009-005, EDGE-009-006, EDGE-009-037; SC-009-001, SC-009-002
+ * @implements REQ-APR9-001, REQ-APR9-002, NFR-009-001, EDGE-009-005, EDGE-009-006; SC-009-001, SC-009-002
  */
 import { readFileSync } from 'node:fs';
 import { createElement as h } from 'react';
@@ -54,10 +54,9 @@ describe('pantallas de estado (T1249, D9-18)', () => {
     expect(m).not.toContain('está en revisión');
   });
 
-  it('[EDGE-009-037][REQ-APR9-008] ambas pantallas describen el canal de contacto de la supresión, sin formulario ni botón de borrado ni enlace que borre', () => {
+  it('[REQ-APR9-002] ambas pantallas avisan de la purga a los 30 días, sin formulario ni botón de borrado ni enlace que borre', () => {
     for (const status of ['PENDING', 'REJECTED'] as const) {
       const m = screen(status);
-      expect(m).toContain('Ley 1581 de 2012');
       expect(m).toContain('30 días');
       expect(m).not.toMatch(/<form|<button|<input|<textarea/);
       expect(m).not.toMatch(/Eliminar|Borrar|Suprimir ahora/);

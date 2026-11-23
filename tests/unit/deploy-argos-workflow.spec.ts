@@ -332,3 +332,30 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     });
   });
 });
+
+/**
+ * Regresión INV-ESC6-018 (Neo, Nivel 2): ARGOS_SCENE_WORKER_URL es el worker interno de Cloud Tasks y debe apuntar
+ * al Cloud Run nativo (OIDC_AUDIENCE, status.url), nunca a ARGOS_PUBLIC_BASE_URL (tipi.pet), que solo sirve a enlaces públicos.
+ */
+describe('deploy-argos.yml: ARGOS_SCENE_WORKER_URL usa el Cloud Run nativo, no la URL pública (INV-ESC6-018)', () => {
+  const cmd = (): string => body().slice(body().indexOf('gcloud run deploy argos'));
+  const envFlag = (): string => /--set-env-vars\s+"([^"]*)"/.exec(cmd())?.[1] ?? '';
+  const pairOf = (key: string): string => envFlag().split(',').map((x) => x.trim()).find((x) => x.startsWith(`${key}=`)) ?? '';
+
+  it('ARGOS_SCENE_WORKER_URL es exactamente ${OIDC_AUDIENCE}/internal/scene-worker', () => {
+    expect(pairOf('ARGOS_SCENE_WORKER_URL')).toBe('ARGOS_SCENE_WORKER_URL=${OIDC_AUDIENCE}/internal/scene-worker');
+  });
+
+  it('ARGOS_SCENE_WORKER_URL nunca deriva de PUBLIC_BASE_URL', () => {
+    expect(pairOf('ARGOS_SCENE_WORKER_URL')).not.toMatch(/PUBLIC_BASE_URL/);
+    expect(body()).not.toMatch(/ARGOS_SCENE_WORKER_URL=\$\{?PUBLIC_BASE_URL/);
+  });
+
+  it('OIDC_AUDIENCE se obtiene del status.url del servicio Cloud Run desplegado', () => {
+    expect(body()).toMatch(/^\s*OIDC_AUDIENCE="\$\(gcloud run services describe .*--format='value\(status\.url\)'\)"\s*$/m);
+  });
+
+  it('ARGOS_PUBLIC_BASE_URL sigue derivando de PUBLIC_BASE_URL (solo enlaces públicos)', () => {
+    expect(pairOf('ARGOS_PUBLIC_BASE_URL')).toBe('ARGOS_PUBLIC_BASE_URL=${PUBLIC_BASE_URL}');
+  });
+});

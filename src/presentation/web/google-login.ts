@@ -19,8 +19,8 @@ export const CHOOSE_USERNAME_ROUTE = '/elige-usuario';
 /** Código uniforme de todo fallo del flujo (cancelación, `state` reutilizado o vencido, `nonce`, estado intermedio expirado…). */
 const GOOGLE_FAILED_CODE = 'ERR-AUTH-GOOGLE-FAILED';
 
-/** `chooseGoogleUsername`: crea la cuenta con el estado del flujo (cookie `argos_oauth`) y devuelve la sesión iniciada. Lleva la cabecera anti-CSRF y solo el `username`. */
-export function submitGoogleUsername(api: ApiClient, input: Schemas['GoogleChooseUsernameInput']): Promise<Schemas['SessionView']> {
+/** `chooseGoogleUsername`: crea la cuenta con el estado del flujo (cookie `argos_oauth`) y devuelve la sesión iniciada, o `{ accountStatus }` sin sesión si la cuenta queda PENDING (009, 002 3.4.0). Lleva la cabecera anti-CSRF y solo el `username`. */
+export function submitGoogleUsername(api: ApiClient, input: Schemas['GoogleChooseUsernameInput']): Promise<Schemas['SessionView'] | { readonly accountStatus: 'PENDING' | 'REJECTED' }> {
   return unwrap(api.POST('/auth/google/username', { params: CSRF_PARAMS, body: input }));
 }
 

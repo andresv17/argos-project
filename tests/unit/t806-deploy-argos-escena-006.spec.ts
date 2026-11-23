@@ -37,7 +37,7 @@ describe('deploy-argos.yml con la 006 (T806)', () => {
     expect(val('ARGOS_SCENE_QUOTA_MAX')).toBe('10');
     expect(val('ARGOS_SCENE_GEN_TIMEOUT_SECONDS')).toBe('90');
     expect(val('ARGOS_SCENE_QUEUE')).toBe('argos-scene');
-    expect(val('ARGOS_SCENE_WORKER_URL')).toMatch(/^\$\{?PUBLIC_BASE_URL\}?\/internal\/scene-worker$/);
+    expect(val('ARGOS_SCENE_WORKER_URL')).toMatch(/^\$\{?OIDC_AUDIENCE\}?\/internal\/scene-worker$/);
     expect(val('ARGOS_SCENE_TASKS_SA_EMAIL')).toMatch(/^\$\{?ARGOS_SCENE_TASKS_SA_EMAIL\}?$/);
     expect(body).toMatch(/ARGOS_SCENE_TASKS_SA_EMAIL:\s*argos-scene-tasks@\$\{\{\s*vars\.TF_VAR_project_id\s*\}\}\.iam\.gserviceaccount\.com/);
   });

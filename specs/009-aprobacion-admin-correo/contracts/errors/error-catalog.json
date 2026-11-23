@@ -33,7 +33,6 @@
       "REQ-ACC-002",
       "REQ-ADM9-004",
       "REQ-APR9-003",
-      "REQ-APR9-008",
       "REQ-CFG9-001",
       "REQ-CFG9-006",
       "REQ-CFG9-007",
@@ -85,8 +84,8 @@
       "title": "Solicitud de registro no encontrada",
       "invariantRef": "INV-ADM9-001",
       "detailTemplate": "La solicitud de registro no existe o ya no está disponible.",
-      "requirementRef": "REQ-APR9-003, REQ-APR9-008, EDGE-009-039",
-      "note": "Solo para un administrador con sesion valida: decision o supresion sobre una solicitud purgada, inexistente o ya decidida por otra via. No revela el estado previo ni distingue purgada de inexistente. No sustituye el 404 uniforme de rutas ocultas sin sesion de administracion."
+      "requirementRef": "REQ-APR9-003, EDGE-009-039",
+      "note": "Solo para un administrador con sesion valida: decision sobre una solicitud purgada, inexistente o ya decidida por otra via. No revela el estado previo ni distingue purgada de inexistente. No sustituye el 404 uniforme de rutas ocultas sin sesion de administracion."
     },
     "ERR-ADMIN-PARAMETER-PRECONDITION-FAILED": {
       "type": "urn:argos:error:ERR-ADMIN-PARAMETER-PRECONDITION-FAILED",
