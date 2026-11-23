@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { GOOGLE_AUTH_LIMITS } from '../../../src/infrastructure/config/google-auth-config.ts';
+import { activateAccount, sqliteRunner } from '../../fixtures/active-accounts.ts';
 import { PASSWORDS, canonicalState } from '../../fixtures/application-harness.ts';
 import { GOOGLE_CODE, GOOGLE_EMAIL, GOOGLE_SUB, SequentialEntropy, fakeGoogleOidc, type FakeGoogleOidc } from '../../fixtures/google-fixtures.ts';
 import { NEW_PET } from './api-fixtures.ts';
@@ -51,9 +52,13 @@ async function googleLogin(a: Api): Promise<string> {
 async function bornWithGoogle(a: Api, username = 'gina.google'): Promise<{ session: string; userId: string }> {
   const start = await a.call('GET', '/api/auth/google/start', { csrf: false });
   const step = await callback(a, `argos_oauth=${valueOf(cookieNamed(start, 'argos_oauth'))}`, `code=${GOOGLE_CODE}&state=${stateOfUrl(start.headers['location'] as string)}`);
-  const chosen = await a.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username } });
+  const chosen = await a.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username }, contract: false });
   expect(chosen.status).toBe(201);
-  return { session: `argos_session=${valueOf(cookieNamed(chosen, 'argos_session'))}`, userId: (chosen.json as { user: { id: string } }).user.id };
+  // 009 (T1246, EDGE-009-006): la cuenta nace PENDING y sin sesión; el arnés (T1244) la activa y entra de nuevo con Google para obtener la sesión.
+  expect(chosen.json).toEqual({ accountStatus: 'PENDING' });
+  await activateAccount(sqliteRunner(a.db), 'sqlite', username, a.clock.nowIsoTimestamp());
+  const userId = (a.db.prepare('SELECT id FROM users WHERE lower(username) = lower(?)').get(username) as { id: string }).id;
+  return { session: await googleLogin(a), userId };
 }
 
 const startReauth = (a: Api, session: string | null) => a.call('POST', '/api/account/deletion/reauth', { ...(session === null ? {} : { cookie: session }), contract: false });

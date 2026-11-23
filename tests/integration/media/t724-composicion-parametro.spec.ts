@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadAppConfig } from '../../../src/infrastructure/config/app-config.ts';
 import { createProductionApp } from '../../../src/infrastructure/http/server.ts';
+import { activateInFile } from '../../fixtures/active-accounts.ts';
 import { openSqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 
 const CSRF = { 'x-argos-request': '1' };
@@ -35,7 +36,9 @@ describe('T724 composición de parámetros de plataforma en createProductionApp'
     const first = await createProductionApp(loadAppConfig({ NODE_ENV: 'test', DATABASE_PATH: path, ARGOS_MEDIA_DRIVER: 'memory' }), false);
     const register = await first.inject({ method: 'POST', url: '/api/auth/register', headers: CSRF, payload: { username: 'luna.t724', displayName: 'Luna T724', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' } });
     expect(register.statusCode).toBe(201);
-    const cookie = String(register.headers['set-cookie']).split(';')[0]!;
+    await activateInFile(path, 'luna.t724'); // 009 (T1246): el alta nace PENDING y sin sesión; el arnés T1244 la activa
+    const login = await first.inject({ method: 'POST', url: '/api/auth/login', headers: CSRF, payload: { username: 'luna.t724', password: 'Clave2026x!' } });
+    const cookie = String(login.headers['set-cookie']).split(';')[0]!;
     const pet = await first.inject({ method: 'POST', url: '/api/pets', headers: { ...CSRF, cookie }, payload: { name: 'Nube', species: 'CANINE', breed: 'Mestiza', birthDate: '2020-05-01', sex: 'MALE', avatarUrl: null } });
     expect(pet.statusCode).toBe(201);
     const petId = (pet.json() as { id: string }).id;

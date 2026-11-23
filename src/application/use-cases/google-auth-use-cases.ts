@@ -33,7 +33,8 @@ import type { OAuthFlowStateRecord } from '../ports/auth-identity.port.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import { verifyCurrentPassword } from './account-use-cases.ts';
 import { recordAudit } from './audit-support.ts';
-import { startSession, type AuthenticatedSession } from './auth-use-cases.ts';
+import { INITIAL_ACCOUNT_STATUS, isAccountActive, type AccountStatus } from '../../domain/account/account-status.ts';
+import { startSession, type AccountStatusResult, type AuthenticatedSession } from './auth-use-cases.ts';
 import { googleFailed, googleLinkConflict } from './google-errors.ts';
 import { mapUsernameViolation } from './username-violation.ts';
 import { assertMatchesSchema, type ApplicationDeps, type GoogleServices } from './use-case-support.ts';
@@ -50,6 +51,7 @@ export interface GoogleAuthorizationStart {
  */
 export type GoogleCallbackResult =
   | ({ readonly kind: 'SESSION' } & AuthenticatedSession)
+  | { readonly kind: 'ACCOUNT_STATUS'; readonly accountStatus: Exclude<AccountStatus, 'ACTIVE'> }
   | { readonly kind: 'LINKED' }
   | { readonly kind: 'REAUTHENTICATED' }
   | { readonly kind: 'CHOOSE_USERNAME'; readonly oauthToken: string };
@@ -226,6 +228,8 @@ export class CompleteGoogleLoginUseCase {
     if (identity !== null) {
       const account = await repositories.users.findById(identity.userId);
       if (account === null) throw googleFailed();
+      // 009 (REQ-APR9-002, EDGE-009-005, EDGE-009-038): solo una cuenta ACTIVE recibe sesión; PENDING y REJECTED no crean fila de sesión ni cookie (el estado se muestra tras Google verificado).
+      if (!isAccountActive(account.accountStatus)) return { kind: 'ACCOUNT_STATUS', accountStatus: account.accountStatus as Exclude<AccountStatus, 'ACTIVE'> };
       return { kind: 'SESSION', ...(await startSession(this.deps, repositories, account, now, await authMethodsFor(repositories, account))) };
     }
     // REQ-SSO8-005 / EDGE-008-003: el correo de una cuenta con correo VERIFICADO no se reclama ni se vincula; solo una cuenta sin verificar lo libera (al elegir usuario).
@@ -264,7 +268,7 @@ class SubjectAlreadyClaimed extends Error {}
 export class ChooseGoogleUsernameUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(oauthToken: string | null, input: unknown): Promise<AuthenticatedSession> {
+  async execute(oauthToken: string | null, input: unknown): Promise<AuthenticatedSession | AccountStatusResult> {
     // Regla 4: el esquema (cuerpo cerrado: ni correo, ni rol, ni estado de cuenta) se valida antes de tocar el estado del flujo.
     const valid = assertMatchesSchema<GoogleChooseUsernameInput>('GoogleChooseUsernameInput', validateGoogleChooseUsernameInput, input);
     requireGoogle(this.deps);
@@ -282,11 +286,17 @@ export class ChooseGoogleUsernameUseCase {
       const identity = flow?.pendingSubject == null ? null : await repositories.authIdentities.findBySubject('GOOGLE', flow.pendingSubject);
       const account = identity === null ? null : await repositories.users.findById(identity.userId);
       if (account === null) throw googleFailed();
-      return startSession(this.deps, repositories, account, now, await authMethodsFor(repositories, account));
+      return this.outcomeFor(repositories, account, now);
     });
   }
 
-  private async createAccount(repositories: RepositorySet, tokenHash: string, username: string, now: string): Promise<AuthenticatedSession> {
+  /** Cuenta ya existente para ese `sub`: sesión solo si está ACTIVE; si no, el estado sin cookie (009, EDGE-009-005, EDGE-009-006). */
+  private async outcomeFor(repositories: RepositorySet, account: UserAccount, now: string): Promise<AuthenticatedSession | AccountStatusResult> {
+    if (!isAccountActive(account.accountStatus)) return { accountStatus: account.accountStatus as AccountStatus };
+    return startSession(this.deps, repositories, account, now, await authMethodsFor(repositories, account));
+  }
+
+  private async createAccount(repositories: RepositorySet, tokenHash: string, username: string, now: string): Promise<AuthenticatedSession | AccountStatusResult> {
     const flow = await repositories.oauthFlows.consume(tokenHash, now, 'USERNAME');
     if (flow === null || flow.pendingSubject === null || flow.pendingEmail === null) throw googleFailed();
     const sub = flow.pendingSubject;
@@ -296,7 +306,7 @@ export class ChooseGoogleUsernameUseCase {
     if (existing !== null) {
       const account = await repositories.users.findById(existing.userId);
       if (account === null) throw googleFailed();
-      return startSession(this.deps, repositories, account, now, await authMethodsFor(repositories, account));
+      return this.outcomeFor(repositories, account, now);
     }
     const sameUsername = await repositories.users.findByUsername(username);
     if (sameUsername !== null) assertUsernameAvailable(username, [sameUsername.username]);
@@ -313,10 +323,11 @@ export class ChooseGoogleUsernameUseCase {
       preferredLanguage: 'es',
       timezone: this.deps.clock.timeZone,
       passwordHash: NO_PASSWORD_SENTINEL,
+      accountStatus: INITIAL_ACCOUNT_STATUS,
     };
     await mapUsernameViolation(() => repositories.users.insert(account));
     if (!(await repositories.authIdentities.insertIfAbsent({ provider: 'GOOGLE', providerSubject: sub, userId: account.id, createdAt: now }))) throw new SubjectAlreadyClaimed();
     await recordAudit(this.deps, repositories, { executorUserId: account.id, mutationType: 'CREATE', entityType: 'USER', entityId: account.id, previous: null, next: account });
-    return startSession(this.deps, repositories, account, now, authMethodsOf(account.passwordHash, 1));
+    return { accountStatus: INITIAL_ACCOUNT_STATUS }; // 009 (EDGE-009-006): la cuenta nace PENDING sin sesión
   }
 }

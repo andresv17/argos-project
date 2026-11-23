@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { activateAccount, registerActiveAccount, sqliteRunner } from '../../fixtures/active-accounts.ts';
 import { ANA, ELENA, IDENTITY_PASSWORDS, REFERENCE_NOW, REFERENCE_TODAY } from '../../fixtures/identity-fixtures.ts';
 import { createIdentityApi, problemOf, type Api } from './api-harness.ts';
 
@@ -21,11 +22,14 @@ const registration = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe('registro por HTTP (src/infrastructure/http/routes/auth.routes.ts)', () => {
-  it('[REQ-AUTH2-001][SC-001] el registro responde 201 con SessionView 3.0.0 y la cookie argos_session de 24 h, HttpOnly y SameSite=Strict', async () => {
+  it('[REQ-AUTH2-001][SC-001] la cuenta registrada (activada con el arnés T1244, 009) inicia sesión con SessionView 3.0.0 y la cookie argos_session de 24 h, HttpOnly y SameSite=Strict', async () => {
     api = await createIdentityApi();
-    const r = await api.call('POST', '/api/auth/register', { body: registration() });
+    const registered = await api.call('POST', '/api/auth/register', { body: registration(), contract: false });
+    expect([registered.status, registered.json, registered.setCookie]).toEqual([201, { accountStatus: 'PENDING' }, null]); // 009: el alta no inicia sesión
+    await activateAccount(sqliteRunner(api.db), 'sqlite', 'nueva.usuaria', REFERENCE_NOW);
+    const r = await api.call('POST', '/api/auth/login', { body: { username: 'nueva.usuaria', password: 'Clave2026x!' } });
     const view = r.json as { user: Record<string, unknown> };
-    expect([r.status, r.setCookie]).toEqual([201, 'argos_session=token-0001; Max-Age=86400; Path=/; HttpOnly; SameSite=Strict']);
+    expect([r.status, r.setCookie]).toEqual([200, 'argos_session=token-0001; Max-Age=86400; Path=/; HttpOnly; SameSite=Strict']);
     expect(r.json).toEqual({
       user: { id: view.user['id'], username: 'nueva.usuaria', displayName: 'Nueva', createdAt: REFERENCE_NOW, email: null, preferredLanguage: 'es', timezone: 'America/Bogota' },
       createdAt: REFERENCE_NOW,
@@ -38,21 +42,23 @@ describe('registro por HTTP (src/infrastructure/http/routes/auth.routes.ts)', ()
 
   it('[REQ-AUTH2-001][SC-001] tras registrarse la persona queda autenticada, cierra sesión y vuelve a entrar con la política nueva', async () => {
     api = await createIdentityApi();
-    const registered = await api.call('POST', '/api/auth/register', { body: registration() });
-    const me = await api.call('GET', '/api/auth/me', { cookie: registered.cookie });
-    const out = await api.call('POST', '/api/auth/logout', { cookie: registered.cookie });
+    const { cookie } = await registerActiveAccount(api, registration());
+    const me = await api.call('GET', '/api/auth/me', { cookie });
+    const out = await api.call('POST', '/api/auth/logout', { cookie });
     const again = await api.call('POST', '/api/auth/login', { body: { username: 'nueva.usuaria', password: 'Clave2026x!' } });
     expect([me.status, out.status, again.status]).toEqual([200, 204, 200]);
   });
 
   it('[REQ-LOG-002][SC-CAT-016][SC-CAT-017] un username con mayúsculas se acepta y se guarda tal como se escribió; con espacios se rechaza (422); otra alta que solo difiere en mayúsculas da 409 ERR-AUTH-USERNAME-TAKEN; el login entra con cualquier capitalización', async () => {
     api = await createIdentityApi();
-    const upper = await api.call('POST', '/api/auth/register', { body: registration({ username: 'Nueva.Usuaria' }) });
+    const upper = await api.call('POST', '/api/auth/register', { body: registration({ username: 'Nueva.Usuaria' }), contract: false });
+    const storedName = api.db.prepare("SELECT username FROM users WHERE lower(username) = 'nueva.usuaria'").pluck().get();
+    await activateAccount(sqliteRunner(api.db), 'sqlite', 'Nueva.Usuaria', REFERENCE_NOW);
     const spaced = await api.call('POST', '/api/auth/register', { body: registration({ username: '  nueva.usuaria ' }) });
     const clash = await api.call('POST', '/api/auth/register', { body: registration({ username: 'NUEVA.USUARIA' }) });
     const lower = await api.call('POST', '/api/auth/login', { body: { username: 'nueva.usuaria', password: 'Clave2026x!' } });
     const typed = await api.call('POST', '/api/auth/login', { body: { username: 'NUEVA.usuaria ', password: 'Clave2026x!' } });
-    expect([upper.status, (upper.json as { user: { username: string } }).user.username, problemOf(spaced), (spaced.json as { field: string }).field, spaced.setCookie, problemOf(clash), lower.status, typed.status]).toEqual([
+    expect([upper.status, storedName, problemOf(spaced), (spaced.json as { field: string }).field, spaced.setCookie, problemOf(clash), lower.status, typed.status]).toEqual([
       201,
       'Nueva.Usuaria',
       { status: 422, code: 'ERR-SCHEMA-VALIDATION-FAILED' },
@@ -66,12 +72,13 @@ describe('registro por HTTP (src/infrastructure/http/routes/auth.routes.ts)', ()
 
   it('[REQ-AUTH2-001] el correo es opcional, no es único y nunca aparece en la sesión de otra persona', async () => {
     api = await createIdentityApi();
-    const first = await api.call('POST', '/api/auth/register', { body: registration({ email: 'compartido@example.com' }) });
-    const second = await api.call('POST', '/api/auth/register', { body: registration({ username: 'otra.persona', email: 'compartido@example.com' }) });
-    const none = await api.call('POST', '/api/auth/register', { body: registration({ username: 'sin.correo' }) });
+    const first = await api.call('POST', '/api/auth/register', { body: registration({ email: 'compartido@example.com' }), contract: false });
+    const second = await api.call('POST', '/api/auth/register', { body: registration({ username: 'otra.persona', email: 'compartido@example.com' }), contract: false });
+    const none = await api.call('POST', '/api/auth/register', { body: registration({ username: 'sin.correo' }), contract: false });
     const bad = await api.call('POST', '/api/auth/register', { body: registration({ username: 'mal.correo', email: 'no-es-correo' }) });
-    const emailOf = (r: typeof first) => (r.json as { user: { email: string | null } }).user.email;
-    expect([first.status, emailOf(first), second.status, emailOf(second), none.status, emailOf(none), problemOf(bad)]).toEqual([
+    // 009: el alta ya no devuelve el perfil (solo { accountStatus }); el correo guardado se lee de la fila.
+    const emailOf = (username: string) => api.db.prepare('SELECT email FROM users WHERE username = ?').pluck().get(username);
+    expect([first.status, emailOf('nueva.usuaria'), second.status, emailOf('otra.persona'), none.status, emailOf('sin.correo'), problemOf(bad)]).toEqual([
       201,
       'compartido@example.com',
       201,

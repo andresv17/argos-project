@@ -10,8 +10,7 @@ import { DEFAULT_MIGRATIONS_DIR, openSqliteDatabase, runMigrations, type SqliteD
  * con filas previas (cuentas existentes `ACTIVE`, paridad SQLite/Postgres). REQ-APR9-001, REQ-APR9-003, REQ-APR9-004, REQ-APR9-007, EDGE-009-001; SC-009-005.
  * La paridad estática vive en `schema-parity.spec.ts`; la viva (PG17) en `schema-parity.spec.ts` con TEST_DATABASE_URL.
  *
- * Parte 1 (máquina): el módulo `src/domain/account/account-status.ts` lo implementa T1246 (MIF-03, un solo archivo). Hasta entonces estas pruebas están en ROJO por diseño y van
- * marcadas con `it.fails` para no romper la compuerta; `T1246` DEBE quitar `it.fails` (las pruebas deben pasar sin él).
+ * Parte 1 (máquina): el módulo `src/domain/account/account-status.ts` lo implementó T1246 (MIF-03, un solo archivo); las pruebas ya no llevan `it.fails` y pasan.
  */
 const MIGRATION = '0020_account_status.sql';
 const PG_MIGRATION = '0016_account_status.sql';
@@ -39,18 +38,18 @@ const MODULE_PATH = '../../../src/domain/account/account-status.ts';
 const load = async (): Promise<AccountStatusModule> => (await import(/* @vite-ignore */ MODULE_PATH)) as AccountStatusModule;
 const STATES = ['PENDING', 'ACTIVE', 'REJECTED'] as const;
 
-describe('T1242 [STATE-ACCT9-001][REQ-APR9-003] la máquina cerrada de estado de cuenta (rojo hasta T1246)', () => {
+describe('T1242 [STATE-ACCT9-001][REQ-APR9-003] la máquina cerrada de estado de cuenta (T1246)', () => {
   it('el contrato compilado declara los tres estados y solo PENDING -> ACTIVE | REJECTED', () => {
     expect(Object.keys(STATE_ACCT9_001.states).sort()).toEqual([...STATES].sort());
     expect(STATE_ACCT9_001.initialState).toBe('PENDING');
     expect(STATE_ACCT9_001.transitions.map((t) => `${t.from}->${t.to}:${t.event}`).sort()).toEqual(['PENDING->ACTIVE:APPROVE', 'PENDING->REJECTED:REJECT']);
   });
 
-  it.fails('los estados del dominio son exactamente los del contrato', async () => {
+  it('los estados del dominio son exactamente los del contrato', async () => {
     expect([...(await load()).ACCOUNT_STATUSES].sort()).toEqual([...STATES].sort());
   });
 
-  it.fails('PENDING aprueba a ACTIVE y rechaza a REJECTED', async () => {
+  it('PENDING aprueba a ACTIVE y rechaza a REJECTED', async () => {
     const m = await load();
     expect(m.nextAccountStatus('PENDING', 'APPROVE')).toBe('ACTIVE');
     expect(m.nextAccountStatus('PENDING', 'REJECT')).toBe('REJECTED');
@@ -58,7 +57,7 @@ describe('T1242 [STATE-ACCT9-001][REQ-APR9-003] la máquina cerrada de estado de
     expect(m.canTransitionAccountStatus('PENDING', 'REJECTED')).toBe(true);
   });
 
-  it.fails('no existe REJECTED -> PENDING ni REJECTED -> ACTIVE (el reintento solo tras la purga, REQ-APR9-004)', async () => {
+  it('no existe REJECTED -> PENDING ni REJECTED -> ACTIVE (el reintento solo tras la purga, REQ-APR9-004)', async () => {
     const m = await load();
     expect(m.canTransitionAccountStatus('REJECTED', 'PENDING')).toBe(false);
     expect(m.canTransitionAccountStatus('REJECTED', 'ACTIVE')).toBe(false);
@@ -66,7 +65,7 @@ describe('T1242 [STATE-ACCT9-001][REQ-APR9-003] la máquina cerrada de estado de
     expect(m.nextAccountStatus('REJECTED', 'REJECT')).toBeNull();
   });
 
-  it.fails('ACTIVE es terminal para esta máquina y no hay autotransiciones: toda transición fuera de las dos declaradas es inválida', async () => {
+  it('ACTIVE es terminal para esta máquina y no hay autotransiciones: toda transición fuera de las dos declaradas es inválida', async () => {
     const m = await load();
     const allowed = new Set(['PENDING->ACTIVE', 'PENDING->REJECTED']);
     for (const from of STATES) for (const to of STATES) expect(m.canTransitionAccountStatus(from, to), `${from}->${to}`).toBe(allowed.has(`${from}->${to}`));
@@ -74,7 +73,7 @@ describe('T1242 [STATE-ACCT9-001][REQ-APR9-003] la máquina cerrada de estado de
     expect(m.nextAccountStatus('ACTIVE', 'REJECT')).toBeNull();
   });
 
-  it.fails('cada rechazo declarado en rejectedTransitions del contrato es inválido en el dominio', async () => {
+  it('cada rechazo declarado en rejectedTransitions del contrato es inválido en el dominio', async () => {
     const m = await load();
     for (const r of STATE_ACCT9_001.rejectedTransitions) expect(m.canTransitionAccountStatus(r.from as AccountStatus, r.to as AccountStatus), `${r.from}->${r.to}`).toBe(false);
   });

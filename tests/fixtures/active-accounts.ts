@@ -2,9 +2,11 @@
  * Arnés de cuentas ACTIVE (T1244, Feature 009, Fase 4, #18; ADR-009-10; REQ-APR9-004, NFR-009-002; SC-009-005).
  * Cuando T1246 haga que el registro nazca `PENDING` sin sesión, las ≈18 pruebas que registran y esperan sesión necesitan una cuenta `ACTIVE`. Este módulo la crea POR REPOSITORIO
  * (SQL sobre `users`, SQLite y PostgreSQL) sin pasar por la aprobación del portal, y NO cambia la política de registro: hoy el alta ya devuelve sesión y el helper es idempotente
- * (si el alta ya trajo sesión, no toca nada). El motor de MEMORIA no guarda el estado todavía: T1246 amplía `UserAccount`/`MemoryState` y la rama de memoria del arnés.
+ * (si el alta ya trajo sesión, no toca nada). T1246 amplió `UserAccount` con `accountStatus` (ausente = ACTIVE) y los tres motores lo guardan: la rama de memoria del arnés es `activateViaPorts`.
  */
-import type { SqliteDatabase } from '../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
+import type { UnitOfWorkPort } from '../../src/application/ports/unit-of-work.port.ts';
+import { isAccountStatusResult, type AccountStatusResult, type AuthenticatedSession } from '../../src/application/use-cases/auth-use-cases.ts';
+import { openSqliteDatabase, type SqliteDatabase } from '../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 
 /** `admin_id` sintético (UUID v4, 36 caracteres) que firma las aprobaciones del arnés; no existe en `admin_identities` (sin clave foránea). */
 export const HARNESS_ADMIN_ID = '00000000-0000-4000-8000-0000000000aa';
@@ -52,4 +54,44 @@ export async function registerActiveAccount(
   const login = await api.call('POST', '/api/auth/login', { body: { username: body.username, password: body.password } });
   if (login.cookie === null) throw new Error(`registerActiveAccount: el inicio de sesión de ${body.username} no devolvió cookie (estado ${login.status})`);
   return { registered, cookie: login.cookie };
+}
+
+/** Estrecha el resultado de `LoginUseCase`/`ChooseGoogleUsernameUseCase` (unión con `AccountStatusResult` desde T1246) a una sesión; si no la hay, la prueba falla con el estado recibido. */
+export function sessionOf(result: AuthenticatedSession | AccountStatusResult): AuthenticatedSession {
+  if (isAccountStatusResult(result)) throw new Error(`se esperaba una sesión y llegó el estado ${result.accountStatus}`);
+  return result;
+}
+
+/**
+ * Rama de memoria (y de cualquier motor) del arnés, sin SQL: pasa a `ACTIVE` una cuenta ya creada borrándola y reinsertándola con el estado explícito dentro de UNA transacción
+ * (`update` nunca modifica `account_status`; la decisión atómica es T1247). Solo para cuentas sin referencias (recién registradas en la prueba); devuelve el id de la cuenta.
+ */
+export async function activateViaPorts(uow: Pick<UnitOfWorkPort, 'runInTransaction'>, username: string): Promise<string> {
+  return uow.runInTransaction(async (repositories) => {
+    const account = await repositories.users.findByUsername(username);
+    if (account === null) throw new Error(`activateViaPorts: no existe la cuenta ${username}`);
+    await repositories.users.delete(account.id);
+    const { accountStatus: _status, ...active } = account; // ausente = ACTIVE en los tres motores
+    await repositories.users.insert(active);
+    return account.id;
+  });
+}
+
+/** Id de una cuenta por username (para las pruebas cuyo alta ya no devuelve el perfil). */
+export async function accountIdOf(uow: Pick<UnitOfWorkPort, 'runInTransaction'>, username: string): Promise<string> {
+  return uow.runInTransaction(async (repositories) => {
+    const account = await repositories.users.findByUsername(username);
+    if (account === null) throw new Error(`accountIdOf: no existe la cuenta ${username}`);
+    return account.id;
+  });
+}
+
+/** Activa una cuenta en un archivo SQLite que otro proceso de prueba (la app de producción compuesta) tiene abierto: abre su propia conexión, aplica `activateAccount` y la cierra. */
+export async function activateInFile(databasePath: string, username: string, decidedAt: string = '2026-11-23T10:00:00.000Z'): Promise<void> {
+  const db = openSqliteDatabase(databasePath);
+  try {
+    await activateAccount(sqliteRunner(db), 'sqlite', username, decidedAt);
+  } finally {
+    db.close();
+  }
 }

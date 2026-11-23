@@ -4,7 +4,7 @@ import { HAS_POSTGRES, account, idOf, openEngine, stateWith, type EngineName, ty
 import { createIdentityApi, type Api } from './api-harness.ts';
 
 /**
- * T1244 (Feature 009, Fase 4, #18; ADR-009-10): el arnés que crea cuentas ACTIVE por repositorio para las pruebas que registran y esperan sesión. NO cambia la política de registro (T1246).
+ * T1244 (Feature 009, Fase 4, #18; ADR-009-10): el arnés que crea cuentas ACTIVE por repositorio para las pruebas que registran y esperan sesión. La política de registro la cambia T1246 (el alta nace PENDING; el arnés la activa).
  * REQ-APR9-004, NFR-009-002; SC-009-005. Inventario de las pruebas afectadas: `.specify/memory/audits/keymaker-009-T1244-inventory.md`.
  */
 const BODY = { username: 'nueva.t1244', displayName: 'Nueva', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' };
@@ -15,12 +15,12 @@ afterEach(async () => {
 });
 
 describe('T1244 [REQ-APR9-004] registerActiveAccount sobre la API (SQLite)', () => {
-  it('con la política actual (el alta ya devuelve sesión) entrega la cookie del alta y no modifica la fila', async () => {
+  it('con la política de T1246 (el alta nace PENDING y no devuelve cookie) el arnés activa la fila con la decisión del arnés y entra con las mismas credenciales', async () => {
     api = await createIdentityApi();
     const { registered, cookie } = await registerActiveAccount(api, BODY);
-    expect(registered.status).toBe(201);
+    expect([registered.status, registered.json, registered.cookie]).toEqual([201, { accountStatus: 'PENDING' }, null]);
     expect(cookie).toMatch(/^argos_session=/);
-    expect(api.db.prepare('SELECT account_status, decided_at, decided_by FROM users WHERE username = ?').get(BODY.username)).toEqual({ account_status: 'ACTIVE', decided_at: null, decided_by: null });
+    expect(api.db.prepare('SELECT account_status, decided_at, decided_by FROM users WHERE username = ?').get(BODY.username)).toEqual({ account_status: 'ACTIVE', decided_at: '2026-11-23T10:00:00.000Z', decided_by: HARNESS_ADMIN_ID });
     const me = await api.call('GET', '/api/auth/me', { cookie });
     expect(me.status).toBe(200);
   });

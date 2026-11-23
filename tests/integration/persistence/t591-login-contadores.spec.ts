@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { LoginUseCase } from '../../../src/application/use-cases/auth-use-cases.ts';
 import { DomainError } from '../../../src/generated/index.ts';
+import { sessionOf } from '../../fixtures/active-accounts.ts';
 import { ENGINE_NAMES, HAS_POSTGRES, account, idOf, openEngine, stateWith, type EngineName, type IdentityEngine } from '../../fixtures/identity-engines.ts';
 
 const NOW = '2026-11-05T12:00:00.000Z';
@@ -63,7 +64,7 @@ describe.each(ENGINE_NAMES)('H-T591-2 contadores de login independientes (%s)', 
     for (let i = 0; i < 5; i += 1) await failureOf(login.execute({ username: 'ana@ejemplo.com', password: BAD }));
     expect((await failureOf(login.execute({ username: 'ana@ejemplo.com', password: 'Ana2026a' })))?.code).toBe('ERR-AUTH-TOO-MANY-ATTEMPTS');
     expect((await failureOf(login.execute({ username: 'ana.perez', password: BAD })))?.code).toBe('ERR-AUTH-INVALID-CREDENTIALS');
-    expect((await login.execute({ username: 'ANA.PEREZ', password: 'Ana2026a' })).session.user.id).toBe(idOf(1));
+    expect(sessionOf(await login.execute({ username: 'ANA.PEREZ', password: 'Ana2026a' })).session.user.id).toBe(idOf(1));
   });
 
   run('[SC-CAT-030] simetría: 5 fallos con el username no bloquean el correo; un éxito por correo limpia solo la clave del correo', async () => {
@@ -71,7 +72,7 @@ describe.each(ENGINE_NAMES)('H-T591-2 contadores de login independientes (%s)', 
     const login = new LoginUseCase(engine.deps);
     for (let i = 0; i < 5; i += 1) await failureOf(login.execute({ username: 'Ana.Perez', password: BAD }));
     expect((await failureOf(login.execute({ username: 'ana.perez', password: 'Ana2026a' })))?.code).toBe('ERR-AUTH-TOO-MANY-ATTEMPTS');
-    expect((await login.execute({ username: 'ana@ejemplo.com', password: 'Ana2026a' })).session.user.id).toBe(idOf(1));
+    expect(sessionOf(await login.execute({ username: 'ana@ejemplo.com', password: 'Ana2026a' })).session.user.id).toBe(idOf(1));
     expect(await engine.read((r) => r.loginAttempts.listFailures('ana.perez'))).toHaveLength(5);
     expect(await engine.read((r) => r.loginAttempts.listFailures('ana@ejemplo.com'))).toEqual([]);
   });

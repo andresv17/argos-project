@@ -10,6 +10,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadAppConfig } from '../../../src/infrastructure/config/app-config.ts';
 import { createProductionApp } from '../../../src/infrastructure/http/server.ts';
+import { activateInFile } from '../../fixtures/active-accounts.ts';
 import { PDF } from '../../fixtures/media-harness.ts';
 
 const dirs: string[] = [];
@@ -26,8 +27,10 @@ async function start(extra: Record<string, string> = {}) {
   apps.push(app);
   const post = (url: string, body: unknown, cookie?: string, headers: Record<string, string> = {}) =>
     app.inject({ method: 'POST', url, headers: { 'x-argos-request': '1', 'content-type': 'application/json', ...(cookie === undefined ? {} : { cookie }), ...headers }, payload: JSON.stringify(body) });
-  const registered = await post('/api/auth/register', { username: 'prueba', displayName: 'Prueba', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' });
-  const cookie = String(registered.headers['set-cookie']).split(';')[0]!;
+  await post('/api/auth/register', { username: 'prueba', displayName: 'Prueba', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' });
+  await activateInFile(join(dir, 'argos.sqlite'), 'prueba'); // 009 (T1246): el alta nace PENDING y sin sesión; el arnés T1244 la activa
+  const logged = await post('/api/auth/login', { username: 'prueba', password: 'Clave2026x!' });
+  const cookie = String(logged.headers['set-cookie']).split(';')[0]!;
   const pet = await post('/api/pets', { name: 'Lucía', species: 'CANINE', breed: 'Mestiza', birthDate: '2024-03-01', sex: 'FEMALE', avatarUrl: null }, cookie);
   return { app, cookie, petId: (pet.json() as { id: string }).id, post };
 }

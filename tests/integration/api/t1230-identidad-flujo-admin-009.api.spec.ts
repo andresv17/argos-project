@@ -20,6 +20,7 @@ import {
   valueOf,
   ADMIN_COOKIE_PATTERN,
 } from '../../fixtures/admin-fixtures.ts';
+import { activateAccount, sqliteRunner } from '../../fixtures/active-accounts.ts';
 import { GOOGLE_ADMIN_REDIRECT, GOOGLE_CODE, GOOGLE_SUB, SequentialEntropy, fakeGoogleOidc } from '../../fixtures/google-fixtures.ts';
 import { createApi, type Api, type ApiResponse } from './api-harness.ts';
 
@@ -275,7 +276,11 @@ describe('T1230 [REQ-ADM9-003] [INV-ADM9-001] [EDGE-009-013] [SC-009-012] el acc
     const step = await a.call('GET', `/api/auth/google/callback?code=${GOOGLE_CODE}&state=${stateOfUrl(start.headers['location'] as string)}`, { csrf: false, contract: false, cookie: `argos_oauth=${valueOf(cookieNamed(start, 'argos_oauth'))}` });
     const chosen = await a.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'persona.google' }, contract: false });
     expect(chosen.status).toBe(201);
-    const user = `argos_session=${valueOf(cookieNamed(chosen, 'argos_session'))}`;
+    // 009 (T1246, EDGE-009-006): la cuenta nace PENDING y sin sesión; el arnés (T1244) la activa y entra de nuevo con Google para abrir argos_session.
+    await activateAccount(sqliteRunner(a.db), 'sqlite', 'persona.google', a.clock.nowIsoTimestamp());
+    const start2 = await a.call('GET', '/api/auth/google/start', { csrf: false, contract: false });
+    const entered = await a.call('GET', `/api/auth/google/callback?code=${GOOGLE_CODE}&state=${stateOfUrl(start2.headers['location'] as string)}`, { csrf: false, contract: false, cookie: `argos_oauth=${valueOf(cookieNamed(start2, 'argos_oauth'))}` });
+    const user = `argos_session=${valueOf(cookieNamed(entered, 'argos_session'))}`;
     expect((await a.call('GET', '/api/admin/session', { cookie: user, contract: false })).status).toBe(404);
     expect(count(a, 'admin_identities')).toBe(0);
     expect(count(a, 'admin_sessions')).toBe(0);

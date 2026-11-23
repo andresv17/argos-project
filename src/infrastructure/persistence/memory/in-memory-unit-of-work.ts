@@ -200,9 +200,10 @@ function userRepository(state: MemoryState): UserRepositoryPort {
     async update(user) {
       const index = state.users.findIndex((u) => u.id === user.id && u.username === user.username);
       if (index < 0) throw new Error(`users: el usuario ${user.id} no existe`);
-      const { emailVerifiedAt: _ignored, ...rest } = copy(user); // update nunca modifica email_verified_at
+      const { emailVerifiedAt: _ignored, accountStatus: _status, ...rest } = copy(user); // update nunca modifica email_verified_at ni account_status (lo decide la aprobación, T1247)
       const prior = state.users[index]!.emailVerifiedAt;
-      state.users[index] = prior === undefined ? rest : { ...rest, emailVerifiedAt: prior };
+      const priorStatus = state.users[index]!.accountStatus;
+      state.users[index] = { ...rest, ...(prior === undefined ? {} : { emailVerifiedAt: prior }), ...(priorStatus === undefined ? {} : { accountStatus: priorStatus }) };
     },
     async delete(userId) {
       state.users = state.users.filter((u) => u.id !== userId);
@@ -259,6 +260,10 @@ function sessionRepository(state: MemoryState): SessionRepositoryPort {
     },
     async deleteByUser(userId) {
       for (const [token, session] of Object.entries(state.sessions)) if (session.userId === userId) delete state.sessions[token];
+    },
+    async findOwnerAccountStatus(userId) {
+      const owner = state.users.find((u) => u.id === userId);
+      return owner === undefined ? null : (owner.accountStatus ?? 'ACTIVE');
     },
   };
 }

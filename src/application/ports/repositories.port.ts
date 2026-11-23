@@ -7,6 +7,7 @@
  * @implements INV-ARCH-004, INV-ARCH-005, INV-PET-003, REQ-VIN8-003
  */
 
+import type { AccountStatus } from '../../domain/account/account-status.ts';
 import type { MediaKind } from '../../domain/media/index.ts';
 import type { ShareLinkAuditRepositoryPort, ShareLinkRepositoryPort } from './share-link.port.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
@@ -28,6 +29,11 @@ export interface UserAccount extends UserSelfProfile {
    * `update` NUNCA lo modifica.
    */
   readonly emailVerifiedAt?: string;
+  /**
+   * Estado de aprobación (009, STATE-ACCT9-001). Ausente = `ACTIVE` (toda cuenta heredada y toda cuenta de prueba previa a 009); el registro la crea `PENDING` de forma explícita.
+   * Solo `insert` lo fija; `update` NUNCA lo modifica (lo cambia la decisión atómica de T1247).
+   */
+  readonly accountStatus?: AccountStatus;
 }
 
 export interface UserRepositoryPort {
@@ -91,6 +97,11 @@ export interface SessionRepositoryPort {
   revokeOthersByTokenHash(userId: string, keepTokenHash: string, nowIsoTimestamp: string): Promise<number>;
   /** Borra todas las sesiones del usuario, incluida la actual (B9 (h)). */
   deleteByUser(userId: string): Promise<void>;
+  /**
+   * Estado de aprobación de la cuenta dueña de la sesión (009, la guarda exige `ACTIVE`, REQ-APR9-001); `null` si la cuenta no existe. Vive aquí y no en `users` para que la guarda
+   * decida sin cargar el perfil ni mezclarse con las lecturas de cuentas de la ruta.
+   */
+  findOwnerAccountStatus(userId: string): Promise<AccountStatus | null>;
 }
 
 export interface LoginAttemptRepositoryPort {

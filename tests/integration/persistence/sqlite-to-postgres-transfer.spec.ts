@@ -100,8 +100,9 @@ async function transfer() {
   const accounts: Array<{ label: string; sourceUserId: string; username: string; envelopeJson: string; newUserId: string; result: Awaited<ReturnType<ImportBackupUseCase['execute']>> }> = [];
   for (const [label, sourceUserId, username] of [['ANDRES', ANDRES, 'andres'], ['MARIA', MARIA, 'maria.v']] as const) {
     const exported = await source.exporter.execute(sourceUserId);
-    const session = await target.register.execute({ username, displayName: label, password: 'Clave-nueva-123', confirmPassword: 'Clave-nueva-123' });
-    const newUserId = session.session.user.id;
+    const registered = await target.register.execute({ username, displayName: label, password: 'Clave-nueva-123', confirmPassword: 'Clave-nueva-123' });
+    expect(registered).toEqual({ accountStatus: 'PENDING' }); // 009: el alta no inicia sesión; el id de la cuenta nueva sale de la fila escrita en `users`
+    const newUserId = writesTo(target.writes, 'users').at(-1)!.values[0] as string;
     const result = await target.importer.execute(newUserId, exported.json, digestOf(exported.json));
     accounts.push({ label, sourceUserId, username, envelopeJson: exported.json, newUserId, result });
   }
@@ -218,11 +219,11 @@ describe('T430 importación en PostgreSQL con cuentas registradas de nuevo (dobl
     ];
     expect(lost.length).toBeGreaterThan(10);
     for (const [label, value] of lost) expect(everything, label).not.toContain(value);
-    // Las cuentas de nube son nuevas: contraseña propia (hash del doble de pruebas del destino) y sesión nueva.
+    // Las cuentas de nube son nuevas: contraseña propia (hash del doble de pruebas del destino) y, desde 009 (REQ-APR9-001), nacen PENDING y SIN sesión.
     const newUsers = writesTo(target.writes, 'users');
     expect(newUsers).toHaveLength(2);
     for (const write of newUsers) expect(state.users.map((u) => u.id)).not.toContain(write.values[0]);
-    expect(writesTo(target.writes, 'sessions')).toHaveLength(2);
+    expect(writesTo(target.writes, 'sessions')).toHaveLength(0);
     // La auditoría del origen (incluida su fila MIGRATION) no se traslada.
     expect(writesTo(target.writes, 'audit_log').every((w) => w.values[3] !== 'MIGRATION')).toBe(true);
   });

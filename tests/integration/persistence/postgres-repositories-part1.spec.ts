@@ -66,13 +66,14 @@ const userRow = (over: Row = {}): Row => ({
   username: ANDRES.username,
   password_hash: 'h-andres',
   email: null,
+  account_status: 'ACTIVE',
   preferred_language: 'es',
   timezone: 'America/Bogota',
   data: ANDRES_DATA,
   ...over,
 });
 const SESSION = { userId: ANDRES.id, createdAt: NOW, lastActivityAt: NOW, revokedAt: null };
-const SELECT_USER = 'SELECT id, username, password_hash, email, email_verified_at, preferred_language, timezone, data FROM users';
+const SELECT_USER = 'SELECT id, username, password_hash, email, email_verified_at, account_status, preferred_language, timezone, data FROM users';
 
 /** Toda sentencia emitida usa solo `$1..$n` consecutivos y ningún valor aparece dentro del texto SQL. */
 function expectParametrized(calls: ReadonlyArray<{ sql: string; values: unknown[] }>) {
@@ -114,16 +115,16 @@ describe('usuarios (T422, REQ-PG-002, INV-AUTH-003)', () => {
     expect(client.calls).toEqual([{ sql: `${SELECT_USER} WHERE id = ANY($1::text[])`, values: [[ANDRES.id, 'otro']] }]);
   });
 
-  it('insert: columnas id, username, password_hash, data, email, preferred_language, timezone, email_verified_at; el hash nunca va en data (INV-AUTH-003)', async () => {
+  it('insert: columnas id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status; el hash nunca va en data (INV-AUTH-003)', async () => {
     const { client, r } = await repos({ rowCount: 1 });
     await r.users.insert(ANDRES);
     expect(client.calls).toHaveLength(1);
     const call = client.calls[0]!;
     expect(call.sql).toBe(
-      'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)',
+      'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9)',
     );
     expect(call.values.slice(0, 3)).toEqual([ANDRES.id, ANDRES.username, 'h-andres']);
-    expect(call.values.slice(4)).toEqual([null, 'es', 'America/Bogota', null]);
+    expect(call.values.slice(4)).toEqual([null, 'es', 'America/Bogota', null, 'ACTIVE']);
     expect(JSON.parse(call.values[3] as string)).toEqual(ANDRES_DATA);
     expect(call.values[3]).not.toContain('h-andres');
     expectParametrized(client.calls);
@@ -329,7 +330,7 @@ describe('código fuente (T422, INV-ARCH-006, T464)', () => {
     // Solo la sección de la parte 1: las partes 2 y 3 (T423, T424) tienen su propia verificación y constantes (nombres de tabla).
     const part1 = source().split('/** Tabla de cada módulo de registros')[0]!;
     const firstArguments = [...part1.matchAll(/client\.query\(\s*(`[^`]*`|'[^']*'|\w+)/g)].map((m) => m[1]!);
-    expect(firstArguments.length).toBe(26); // H-A21-2 (REQ-VIN8-004): +1 por sessions.findByTokenHash (parámetro $1, sin interpolar); T1117: +2 por users.findVerifiedByEmail y users.releaseUnverifiedEmail (parámetro $1, sin interpolar); T1190: +1 por users.searchUsernamesByPrefix (parámetros $1..$3, sin interpolar); T547/T548: +1 por users.listByEmail (LOWER(email)); T601: +1 por users.findByIdForUpdate (SELECT … FOR UPDATE)
+    expect(firstArguments.length).toBe(27); // T1246 (009): +1 por sessions.findOwnerAccountStatus (parámetro $1, sin interpolar); H-A21-2 (REQ-VIN8-004): +1 por sessions.findByTokenHash (parámetro $1, sin interpolar); T1117: +2 por users.findVerifiedByEmail y users.releaseUnverifiedEmail (parámetro $1, sin interpolar); T1190: +1 por users.searchUsernamesByPrefix (parámetros $1..$3, sin interpolar); T547/T548: +1 por users.listByEmail (LOWER(email)); T601: +1 por users.findByIdForUpdate (SELECT … FOR UPDATE)
     for (const argument of firstArguments) {
       const interpolations = [...argument.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1]);
       expect(interpolations.filter((expr) => expr !== 'USER_COLUMNS')).toEqual([]);

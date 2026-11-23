@@ -17,6 +17,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { DomainError } from '../../../generated/index.ts';
 import { ONE_TIME_TOKEN_TTL_SECONDS } from '../../../domain/auth/one-time-token.ts';
 import type { GoogleRateLimiter } from '../google-rate-limit.ts';
+import { isAccountStatusResult } from '../../../application/use-cases/auth-use-cases.ts';
 import { jsonBody } from '../request-input.ts';
 import { clearSessionCookie, requireSession, sessionTokenOf, setSessionCookie } from '../plugins/session-auth.ts';
 import type { RouteContext } from './use-cases.ts';
@@ -27,6 +28,9 @@ export const OAUTH_COOKIE_PATH = '/api/auth/google';
 export const CHOOSE_USERNAME_PATH = '/elige-usuario';
 /** Ruta de la SPA a la que vuelve la reautenticación de borrado (009, REQ-DEL9-001): el perfil, donde la persona confirma la eliminación. T1220 (/sati) construye la pantalla. */
 export const ACCOUNT_PATH = '/cuenta';
+/** Rutas de la SPA de las pantallas de estado de la solicitud (009, REQ-APR9-002; las construye T1249): el *callback* navega aquí cuando la cuenta del `sub` no está `ACTIVE`. */
+export const PENDING_PATH = '/solicitud-en-revision';
+export const REJECTED_PATH = '/solicitud-no-aprobada';
 
 const MAX_CODE_LENGTH = 2048;
 const MAX_STATE_LENGTH = 256;
@@ -82,6 +86,8 @@ export function registerGoogleAuthRoutes(app: FastifyInstance, { useCases, cooki
       clearOAuthCookie(reply, cookieSecure);
       // REQ-DEL9-001: la reautenticación de borrado tampoco emite `argos_session`: solo registra la prueba y devuelve a la persona al perfil con su sesión de origen.
       if (result.kind === 'REAUTHENTICATED') return reply.status(200).send(landingPage(ACCOUNT_PATH));
+      // 009 (REQ-APR9-002, EDGE-009-005): una cuenta PENDING o REJECTED no recibe `argos_session`; la página lleva a la pantalla de estado (T1249 construye las pantallas).
+      if (result.kind === 'ACCOUNT_STATUS') return reply.status(200).send(landingPage(result.accountStatus === 'REJECTED' ? REJECTED_PATH : PENDING_PATH));
       // REQ-VIN8-004: la vinculación NO emite `argos_session`: la cookie `Strict` de la sesión de origen sigue vigente al navegar a `/` (H-A21-2b).
       if (result.kind === 'SESSION') setSessionCookie(reply, result.sessionToken, cookieSecure);
       return reply.status(200).send(landingPage('/'));
@@ -93,10 +99,12 @@ export function registerGoogleAuthRoutes(app: FastifyInstance, { useCases, cooki
 
   app.post('/api/auth/google/username', async (request, reply) => {
     limiter.consume('username', request.ip);
-    const { sessionToken, session } = await useCases.googleChooseUsername.execute(oauthTokenOf(request), jsonBody(request.body));
+    const result = await useCases.googleChooseUsername.execute(oauthTokenOf(request), jsonBody(request.body));
     clearOAuthCookie(reply, cookieSecure);
-    setSessionCookie(reply, sessionToken, cookieSecure);
-    return reply.status(201).send(session);
+    // 009 (EDGE-009-006): la cuenta nueva nace PENDING y no hay sesión; una cuenta existente ACTIVE (carrera perdida) conserva la sesión.
+    if (isAccountStatusResult(result)) return reply.status(201).send(result);
+    setSessionCookie(reply, result.sessionToken, cookieSecure);
+    return reply.status(201).send(result.session);
   });
 
   app.post('/api/auth/google/link', { onRequest: requireSession(useCases.authenticate) }, async (request, reply) => {

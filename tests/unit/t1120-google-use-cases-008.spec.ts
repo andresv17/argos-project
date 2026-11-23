@@ -13,6 +13,7 @@ import { sessionTokenHash } from '../../src/infrastructure/persistence/sqlite/sq
 import { NO_PASSWORD_SENTINEL } from '../../src/domain/auth/password-sentinel.ts';
 import { GoogleOidcError } from '../../src/infrastructure/http/google-oidc-verify.ts';
 import { GOOGLE_CODE, GOOGLE_EMAIL, GOOGLE_SUB, SequentialEntropy, fakeGoogleOidc, type FakeGoogleOidc } from '../fixtures/google-fixtures.ts';
+import { accountIdOf } from '../fixtures/active-accounts.ts';
 import { ANDRES, MARIA, PASSWORDS, createHarness, type Harness } from '../fixtures/application-harness.ts';
 
 /**
@@ -78,8 +79,8 @@ async function toUsernameStep(w: World): Promise<string> {
 
 async function bornWithGoogle(w: World, username = 'nueva.persona'): Promise<string> {
   const token = await toUsernameStep(w);
-  const session = await w.choose.execute(token, { username });
-  return session.session.user.id;
+  expect(await w.choose.execute(token, { username })).toEqual({ accountStatus: 'PENDING' }); // 009 (EDGE-009-006): la cuenta nace PENDING y no inicia sesión
+  return accountIdOf(w.h.uow, username);
 }
 
 describe('T1120 iniciar el acceso con Google (REQ-SSO8-001, REQ-SSO8-004, H-A1-4)', () => {
@@ -134,8 +135,19 @@ describe('T1120 completar el acceso con Google (REQ-SSO8-001, REQ-SSO8-004, REQ-
     w = world();
   });
 
-  it('SC-008-001: sub conocido abre sesión de esa cuenta, usa el verificador PKCE y el nonce del estado y consume el estado', async () => {
+  it('009 (EDGE-009-005, EDGE-009-006): el sub de una cuenta PENDING NO abre sesión: el retorno devuelve el estado, sin token ni fila de sesión, y consume el estado', async () => {
+    await bornWithGoogle(w);
+    const started = await w.start.execute();
+    const done = await w.complete.execute({ oauthToken: started.oauthToken, code: CODE, state: stateOf(started.authorizationUrl) });
+    expect(done).toEqual({ kind: 'ACCOUNT_STATUS', accountStatus: 'PENDING' });
+    expect(Object.keys((w.h.uow as unknown as { state: { sessions: object } }).state.sessions)).toEqual([]);
+    expect((await flowOf(w, started.oauthToken))!.consumedAt).toBe(NOW);
+  });
+
+  it('SC-008-001: sub conocido (cuenta ACTIVE) abre sesión de esa cuenta, usa el verificador PKCE y el nonce del estado y consume el estado', async () => {
     const userId = await bornWithGoogle(w);
+    // 009: la cuenta nacida con Google es PENDING; se activa en el estado en memoria (la decisión atómica es T1247) para probar el camino ACTIVE.
+    delete (w.h.uow as unknown as { state: { users: Array<{ id: string; accountStatus?: string }> } }).state.users.find((u) => u.id === userId)!.accountStatus;
     const started = await w.start.execute();
     const done = await w.complete.execute({ oauthToken: started.oauthToken, code: CODE, state: stateOf(started.authorizationUrl) });
     expect(done.kind).toBe('SESSION');
@@ -220,14 +232,13 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
     w = world();
   });
 
-  it('crea la cuenta con correo verificado, centinela de contraseña e identidad atómica, inicia sesión y consume el estado', async () => {
+  it('crea la cuenta PENDING con correo verificado, centinela de contraseña e identidad atómica, SIN iniciar sesión, y consume el estado', async () => {
     const token = await toUsernameStep(w);
     const created = await w.choose.execute(token, { username: 'Nueva.Persona' });
-    expect(created.session.user).toMatchObject({ username: 'Nueva.Persona', email: EMAIL });
-    expect(created.sessionToken).toMatch(/^token-/);
-    const account = await w.h.uow.runInTransaction((r) => r.users.findById(created.session.user.id));
-    expect(account).toMatchObject({ passwordHash: NO_PASSWORD_SENTINEL, email: EMAIL, emailVerifiedAt: NOW });
-    expect(await identitiesOf(w, created.session.user.id)).toEqual([{ provider: 'GOOGLE', providerSubject: SUB, userId: created.session.user.id, createdAt: NOW }]);
+    expect(created).toEqual({ accountStatus: 'PENDING' }); // 009 (EDGE-009-006): sin sesión ni token
+    const account = await w.h.uow.runInTransaction((r) => r.users.findByUsername('Nueva.Persona'));
+    expect(account).toMatchObject({ username: 'Nueva.Persona', passwordHash: NO_PASSWORD_SENTINEL, email: EMAIL, emailVerifiedAt: NOW, accountStatus: 'PENDING' });
+    expect(await identitiesOf(w, account!.id)).toEqual([{ provider: 'GOOGLE', providerSubject: SUB, userId: account!.id, createdAt: NOW }]);
     expect((await flowOf(w, token))!.consumedAt).toBe(NOW);
     // SC-008-062: sin contraseña no entra por contraseña, ni con el valor del centinela.
     const login = new LoginUseCase(w.deps);
@@ -246,7 +257,8 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
     const token = await toUsernameStep(w);
     expect((await failure(w.choose.execute(token, { username: 'ANDRES' }))).code).toBe('ERR-AUTH-USERNAME-TAKEN');
     expect((await flowOf(w, token))!.consumedAt).toBeNull();
-    expect((await w.choose.execute(token, { username: 'andres.google' })).session.user.username).toBe('andres.google');
+    expect(await w.choose.execute(token, { username: 'andres.google' })).toEqual({ accountStatus: 'PENDING' });
+    expect((await w.h.uow.runInTransaction((r) => r.users.findByUsername('andres.google')))?.username).toBe('andres.google');
   });
 
   it('EDGE-008-027: el cuerpo es cerrado: rol, estado de cuenta o correo se rechazan con ERR-SCHEMA-VALIDATION-FAILED sin crear nada', async () => {
@@ -275,11 +287,12 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
       await r.users.update({ ...maria, email: EMAIL });
     });
     const token = await toUsernameStep(w);
-    const created = await w.choose.execute(token, { username: 'nueva.persona' });
+    expect(await w.choose.execute(token, { username: 'nueva.persona' })).toEqual({ accountStatus: 'PENDING' });
+    const created = await w.h.uow.runInTransaction((r) => r.users.findByUsername('nueva.persona'));
     const maria = await w.h.uow.runInTransaction((r) => r.users.findById(MARIA));
     expect(maria).toMatchObject({ id: MARIA, email: null });
     expect(maria!.passwordHash).toContain(PASSWORDS['maria.v']!);
-    expect(created.session.user.email).toBe(EMAIL);
+    expect(created?.email).toBe(EMAIL);
     expect(await identitiesOf(w, MARIA)).toEqual([]);
   });
 
@@ -299,8 +312,8 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
     const first = await w.choose.execute(tokenA, { username: 'pestana.uno' });
     const before = await countUsers(w);
     const second = await w.choose.execute(tokenB, { username: 'pestana.dos' });
-    expect(second.session.user.id).toBe(first.session.user.id);
-    expect(second.sessionToken).not.toBe(first.sessionToken);
+    expect([first, second]).toEqual([{ accountStatus: 'PENDING' }, { accountStatus: 'PENDING' }]); // 009: la cuenta recuperada sigue PENDING, sin sesión
+    expect(await w.h.uow.runInTransaction((r) => r.users.findByUsername('pestana.dos'))).toBeNull();
     expect(await countUsers(w)).toBe(before);
   });
 });
