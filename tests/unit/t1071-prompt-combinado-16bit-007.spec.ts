@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/types.ts';
-import { PIXEL_REDRAW_RULE, PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
+import { PIXEL_REDRAW_RULE, INCREMENTAL_PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
 import { petSizeToken } from '../../src/domain/scene/pet-phrases.ts';
 import { PET_COUNT_RULE } from '../../src/domain/scene/scene-spec.ts';
 import { DEFAULT_SCENE_STYLE } from '../../src/domain/scene/scene-payload.ts';
@@ -204,7 +204,7 @@ describe('T1071 cero mascotas (SC-007-039)', () => {
       expect(blocksOf(text)).toContain(NEO_NO_ANIMALS);
       expect(text.includes(PET_COUNT_RULE)).toBe(false);
       expect(text.includes('renderedPetsCount')).toBe(false);
-      expect(countOf(text, PRESERVATION_BLOCK)).toBe(0);
+      expect(countOf(text, INCREMENTAL_PRESERVATION_BLOCK)).toBe(0);
       expect(text.startsWith(`${NEO_STYLE_BASE_TEXT}\n\n`)).toBe(true);
       expect(blocksOf(text)).toContain(household ? neoHouseholdWithPhoto('IMG_1') : NEO_HOUSEHOLD_GENERIC);
     }
@@ -385,9 +385,9 @@ describe('T1071 modos incrementales: misma cabecera y forma, cierre 16-bit (R4, 
 describe('T1071 enmienda 009: bloque de preservación y orden JSON-antes-de-Place (INV-PRO9-001, REQ-PRO9-001)', () => {
   it('[SC-009-029][SC-009-030] PRESERVATION_BLOCK aparece 1 vez con mascota con foto y 0 sin ella (con o sin foto de hogar)', () => {
     // Orden de Neo (2026-11-24): en los modos desde cero el bloque separado desaparece (su contenido va en la línea de cada mascota); los incrementales con foto lo conservan una vez.
-    for (const p of [payload([withPhoto(1, 'IMG_2')], { household: true }), payload([withPhoto(1, 'IMG_1'), pet(2)]), payload([withPhoto(1, 'IMG_2'), cat(2)], { household: true })]) expect(countOf(once(p), PRESERVATION_BLOCK)).toBe(0);
-    expect(countOf(once({ ...payload([pet(1, { action: 'KEEP' }), cat(2, { action: 'ADD', hasReferencePhoto: true, photoRef: 'IMG_2' })], { household: true }), mode: 'INCREMENTAL_ADD', scene: { currentSceneRef: 'IMG_1', maxPets: 8, totalPetsInHousehold: 2 } }), PRESERVATION_BLOCK)).toBe(1);
-    for (const p of [payload([]), payload([pet(1), cat(2)]), payload([pet(1), cat(2)], { household: true })]) expect(countOf(once(p), PRESERVATION_BLOCK)).toBe(0);
+    for (const p of [payload([withPhoto(1, 'IMG_2')], { household: true }), payload([withPhoto(1, 'IMG_1'), pet(2)]), payload([withPhoto(1, 'IMG_2'), cat(2)], { household: true })]) expect(countOf(once(p), INCREMENTAL_PRESERVATION_BLOCK)).toBe(0);
+    expect(countOf(once({ ...payload([pet(1, { action: 'KEEP' }), cat(2, { action: 'ADD', hasReferencePhoto: true, photoRef: 'IMG_2' })], { household: true }), mode: 'INCREMENTAL_ADD', scene: { currentSceneRef: 'IMG_1', maxPets: 8, totalPetsInHousehold: 2 } }), INCREMENTAL_PRESERVATION_BLOCK)).toBe(1);
+    for (const p of [payload([]), payload([pet(1), cat(2)]), payload([pet(1), cat(2)], { household: true })]) expect(countOf(once(p), INCREMENTAL_PRESERVATION_BLOCK)).toBe(0);
   });
 
   it('[SC-009-028] en mixto el JSON precede a «Place all» y la línea de la mascota con foto precede al JSON', () => {

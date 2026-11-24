@@ -2,7 +2,7 @@
  * Bloques editables del prompt de la escena (Feature 009, Fase 5b, #20; T1267, T1303; REQ-CFG9-005, INV-CFG9-002, INV-PRO9-001, EDGE-009-020, EDGE-009-044; contrato interno A-1..A-6 del acta
  * `architect-009-5b-borradores.md`). Hoja del dominio: PURA, sin entorno ni E/S. Es la fuente de verdad de los textos por defecto (los re-exporta `build-image-prompt.ts`); este modulo NO importa
  * `build-image-prompt.ts` (sin ciclo). Lo que impone el CODIGO y no se edita: el orden, el JSON de la escena, las etiquetas `IMG_n`, la frase de conteo y que el bloque de preservacion se emita
- * UNA vez y solo si hay mascota con foto. El unico marcador de sustitucion es `{photoRef}` (referencia `IMG_n` de la foto del hogar), solo en `HOUSEHOLD_WITH_PHOTO`.
+ * UNA vez y solo si hay mascota con foto. El unico marcador de sustitucion es `{photoRef}` (referencia `IMG_n` de la foto del hogar), obligatorio en `HOUSEHOLD_WITH_PHOTO` y opcional en `PRESERVATION_BLOCK` (referencia `IMG_n` de la foto de cada mascota).
  *
  * @implements REQ-CFG9-005, INV-CFG9-002, INV-CFG9-003, INV-PRO9-001, EDGE-009-020, EDGE-009-044, SC-009-024, SC-009-025
  */
@@ -20,7 +20,14 @@ export const PIXEL_REDRAW_RULE =
  * una mascota visible (`RENDER`, o `ADD`/`REPLACE` en incrementales) lleva foto de referencia. El invariante se formula sobre este bloque logico y no sobre el literal.
  */
 export const PRESERVATION_BLOCK =
-  'Translate every pet from the reference photos into a single cohesive 16-bit isometric pixel art illustration. Faithfully preserve each pet\'s species, fur colors, coat patterns, ear shapes, body proportions, and unique markings from the photos so each one is clearly recognizable.';
+  'Translate this pet from {photoRef} into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.';
+
+/** Sustituto de `{photoRef}` en los modos incrementales (la imagen de cada mascota ya viaja etiquetada en su propia linea; repetir `IMG_n` duplicaria la referencia). */
+export const INCREMENTAL_PHOTO_REF_TEXT = 'its reference photo';
+/** Bloque de preservacion tal como se emite en los incrementales: `{photoRef}` nunca llega crudo al proveedor. */
+export const renderIncrementalPreservation = (text: string): string => text.split('{photoRef}').join(INCREMENTAL_PHOTO_REF_TEXT);
+/** Valor por defecto ya renderizado para los incrementales. */
+export const INCREMENTAL_PRESERVATION_BLOCK = renderIncrementalPreservation(PRESERVATION_BLOCK);
 
 /** Hogar con foto de referencia: `{photoRef}` se sustituye por la etiqueta `IMG_n` del hogar. */
 export const HOUSEHOLD_WITH_PHOTO =
@@ -83,7 +90,7 @@ export function validatePromptBlocks(raw: string, maxBlockLength: number): Promp
     const value = record[name];
     if (typeof value !== 'string' || value.trim().length < 1 || value.length > maxBlockLength) return FAIL;
     if (CONTROL_CHARS.test(value) || IMITATION.test(value)) return FAIL;
-    const withoutMarker = name === 'HOUSEHOLD_WITH_PHOTO' ? value.split(PHOTO_REF_MARKER).join('') : value;
+    const withoutMarker = name === 'HOUSEHOLD_WITH_PHOTO' || name === 'PRESERVATION_BLOCK' ? value.split(PHOTO_REF_MARKER).join('') : value;
     if (/[{}$%]/.test(withoutMarker)) return FAIL;
     if (name === 'HOUSEHOLD_WITH_PHOTO' && !value.includes(PHOTO_REF_MARKER)) return FAIL;
     blocks[name] = value;

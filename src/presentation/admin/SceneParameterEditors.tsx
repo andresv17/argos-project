@@ -12,6 +12,7 @@ import {
   BLOCKS_HEADING,
   BLOCKS_HINT,
   BLOCKS_PHOTOREF_HINT,
+  BLOCKS_PHOTOREF_PRESERVATION_HINT,
   BLOCKS_SAVED,
   BLOCK_LABEL,
   BLOCK_NAMES,
@@ -339,7 +340,7 @@ export function BlocksEditor(props: EditorProps): JSX.Element {
           const over = text.length > max;
           const error = errors[name];
           const id = `block-${name}`;
-          const describedBy = [error !== undefined ? `${id}-error` : null, `${id}-count`, name === 'HOUSEHOLD_WITH_PHOTO' ? `${id}-ref` : null].filter((v) => v !== null).join(' ');
+          const describedBy = [error !== undefined ? `${id}-error` : null, `${id}-count`, name === 'HOUSEHOLD_WITH_PHOTO' || name === 'PRESERVATION_BLOCK' ? `${id}-ref` : null].filter((v) => v !== null).join(' ');
           return (
             <div key={name} className="grid gap-2">
               <label htmlFor={id} className="text-sm font-semibold text-text-primary">
@@ -363,9 +364,9 @@ export function BlocksEditor(props: EditorProps): JSX.Element {
               <p id={`${id}-count`} className={`text-sm ${over ? 'font-medium text-danger' : 'text-text-muted'}`}>
                 {text.length} de {max} caracteres
               </p>
-              {name === 'HOUSEHOLD_WITH_PHOTO' ? (
+              {name === 'HOUSEHOLD_WITH_PHOTO' || name === 'PRESERVATION_BLOCK' ? (
                 <p id={`${id}-ref`} className="text-sm text-text-muted">
-                  {BLOCKS_PHOTOREF_HINT}
+                  {name === 'HOUSEHOLD_WITH_PHOTO' ? BLOCKS_PHOTOREF_HINT : BLOCKS_PHOTOREF_PRESERVATION_HINT}
                 </p>
               ) : null}
               {error !== undefined ? (

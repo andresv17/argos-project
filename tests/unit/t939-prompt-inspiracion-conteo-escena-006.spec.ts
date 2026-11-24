@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/types.ts';
-import { PIXEL_REDRAW_RULE, PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
+import { PIXEL_REDRAW_RULE, INCREMENTAL_PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
 import { animalCountLine, petSentence, petSpeciesLabel } from '../../src/domain/scene/pet-phrases.ts';
 import { PET_COUNT_RULE, SCENE_SPEC_HEADER, buildSceneSpec, sceneSpecBlock } from '../../src/domain/scene/scene-spec.ts';
 import { DEFAULT_SCENE_STYLE } from '../../src/domain/scene/scene-payload.ts';
@@ -226,7 +226,7 @@ describe('T939 línea de conteo por especie (SC-ESC6-137)', () => {
     const text = runs(p);
     expect(countLinesOf(text)).toEqual([countLine(3, '2 dogs, 1 cat')]);
     expect(text.includes('rabbit')).toBe(true); // la retirada se describe en «- Remove only:», no en el conteo
-    expect(text.endsWith(`${sceneSpecBlock(p)}\n\n${countLine(3, '2 dogs, 1 cat')}\n\n${PET_COUNT_RULE}\n\n${PRESERVATION_BLOCK}\n\n${PIXEL_REDRAW_RULE}\n\n${STYLE_CLOSING_16}`)).toBe(true);
+    expect(text.endsWith(`${sceneSpecBlock(p)}\n\n${countLine(3, '2 dogs, 1 cat')}\n\n${PET_COUNT_RULE}\n\n${INCREMENTAL_PRESERVATION_BLOCK}\n\n${PIXEL_REDRAW_RULE}\n\n${STYLE_CLOSING_16}`)).toBe(true);
     const onlyRemove = buildImagePrompt(payload('INCREMENTAL_REMOVE', [petBlock(1, { action: 'REMOVE' })], { scene: true }));
     expect(countLinesOf(onlyRemove)).toEqual([]);
   });

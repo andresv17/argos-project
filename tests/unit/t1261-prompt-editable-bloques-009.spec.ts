@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PIXEL_REDRAW_RULE, PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
+import { PIXEL_REDRAW_RULE, INCREMENTAL_PRESERVATION_BLOCK, PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
 import { ADMIN_PARAMETER_CATALOG } from '../../src/domain/platform/admin-parameter-catalog.ts';
 import { DEFAULT_SCENE_STYLE } from '../../src/domain/scene/scene-payload.ts';
 import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/types.ts';
@@ -117,16 +117,16 @@ describe('T1261 [REQ-CFG9-005] el hogar con foto y el genérico se construyen co
 });
 
 describe('T1261 [EDGE-009-044][INV-PRO9-001] bloque de preservación impuesto por el código', () => {
-  it('el PRESERVATION_BLOCK editado aparece UNA vez solo en incrementales con ADD/REPLACE con foto y nunca en desde-cero (orden de Neo 2026-11-24; la regla la impone el código, no el texto)', () => {
+  it('el PRESERVATION_BLOCK editado aparece UNA vez en incrementales con ADD/REPLACE con foto y una vez por mascota con foto en desde-cero (la línea de cada mascota lo usa; la regla la impone el código)', () => {
     const edited = { ...seed(), PRESERVATION_BLOCK: 'KEEP-THE-PETS-EDITED' };
     const cases: Array<[ScenePayload, number]> = [
-      [payload([]), 0], [payload([pet(1)], { household: true }), 0], [payload([withPhoto(1, 'IMG_2')]), 0], [payload([withPhoto(1, 'IMG_2'), withPhoto(2, 'IMG_3')], { household: true }), 0],
+      [payload([]), 0], [payload([pet(1)], { household: true }), 0], [payload([withPhoto(1, 'IMG_2')]), 1], [payload([withPhoto(1, 'IMG_2'), withPhoto(2, 'IMG_3')], { household: true }), 2],
       [payload([{ ...withPhoto(1, 'IMG_2'), action: 'ADD' }], { mode: 'INCREMENTAL_ADD' }), 1],
     ];
     for (const [p, expected] of cases) {
       const out = build(p, edited);
       expect(count(out, 'KEEP-THE-PETS-EDITED')).toBe(expected);
-      expect(out).not.toContain(PRESERVATION_BLOCK);
+      expect(out).not.toContain(INCREMENTAL_PRESERVATION_BLOCK);
     }
   });
 
@@ -159,6 +159,13 @@ describe('T1261 [INV-CFG9-002] enumeración del conjunto cerrado de marcadores (
     expect(m.validatePromptBlocks(json({ ...seed(), HOUSEHOLD_WITH_PHOTO: 'No marker here' }), maxLen())).toMatchObject({ ok: false });
     expect(m.validatePromptBlocks(json({ ...seed(), HOUSEHOLD_GENERIC: 'Room of {photoRef}' }), maxLen())).toMatchObject({ ok: false });
     expect(m.validatePromptBlocks(json(seed()), maxLen())).toMatchObject({ ok: true });
+  });
+
+  it('PRESERVATION_BLOCK admite {photoRef} pero no lo exige (filas heredadas)', async () => {
+    const m = await load();
+    expect(m.validatePromptBlocks(json({ ...seed(), PRESERVATION_BLOCK: 'Keep {photoRef} recognizable.' }), maxLen())).toMatchObject({ ok: true });
+    expect(m.validatePromptBlocks(json({ ...seed(), PRESERVATION_BLOCK: 'Keep the pet recognizable.' }), maxLen())).toMatchObject({ ok: true });
+    expect(m.validatePromptBlocks(json({ ...seed(), PRESERVATION_BLOCK: 'Keep {petName} recognizable.' }), maxLen())).toMatchObject({ ok: false });
   });
 });
 

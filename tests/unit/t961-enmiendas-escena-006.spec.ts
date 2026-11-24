@@ -360,9 +360,9 @@ describe('T961 [REQ-ESC6-016] defecto del prompt mixto (punto 1)', () => {
     expect(REFERENCE_LABEL_PATTERN.test('IMG_2 (Pet 1 - dog):')).toBe(true);
   });
 
-  it('G(c): PRESERVATION_BLOCK habla en singular de «cada mascota» («every pet … each pet\'s»)', () => {
-    expect(PRESERVATION_BLOCK).toContain('Translate every pet from the reference photos');
-    expect(PRESERVATION_BLOCK).toContain("each pet's species");
+  it('G(c): PRESERVATION_BLOCK habla en singular de «esta mascota» con {photoRef} («this pet … its species»)', () => {
+    expect(PRESERVATION_BLOCK).toContain('Translate this pet from {photoRef}');
+    expect(PRESERVATION_BLOCK).toContain('its species');
     expect(DEFAULT_PROMPT_BLOCKS.PRESERVATION_BLOCK).toBe(PRESERVATION_BLOCK);
   });
 });

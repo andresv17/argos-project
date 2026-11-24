@@ -46,7 +46,8 @@ export const QUOTA_HINT = 'Número máximo de imágenes de escena que la platafo
 export const QUOTA_SAVED = 'Tope mensual de escenas guardado.';
 export const BLOCKS_HEADING = 'Texto base de la escena';
 export const BLOCKS_HINT = 'Seis textos que se combinan para pedir la imagen. El orden y el resto del contenido los fija el sistema.';
-export const BLOCKS_PHOTOREF_HINT = '{photoRef} solo puede usarse en el bloque «Hogar con foto» y es obligatorio allí: se sustituye por la foto del hogar. No lo uses en los demás bloques.';
+export const BLOCKS_PHOTOREF_HINT = '{photoRef} solo puede usarse en el bloque «Hogar con foto» y es obligatorio allí: se sustituye por la foto del hogar. No lo uses en los demás bloques, salvo en «Preservación de las mascotas».';
+export const BLOCKS_PHOTOREF_PRESERVATION_HINT = '{photoRef} es opcional en este bloque: se sustituye por la foto de cada mascota (IMG_n). Si no lo incluyes, el sistema antepone «From IMG_n: » para no perder la referencia de la imagen.';
 export const BLOCKS_SAVED = 'Texto base de la escena guardado.';
 export const BLOCKS_BROKEN = 'No se pudo leer el texto base actual. Recarga la página.';
 export const PHOTOREF = '{photoRef}';
@@ -100,7 +101,7 @@ export function blockProblem(name: BlockName, text: string, max: number): string
   if (text.trim().length === 0) return 'Este bloque no puede estar vacío.';
   if (text.length > max) return `Este bloque supera el máximo de ${max} caracteres.`;
   if (name === 'HOUSEHOLD_WITH_PHOTO' && !text.includes(PHOTOREF)) return `Este bloque debe incluir ${PHOTOREF}.`;
-  if (name !== 'HOUSEHOLD_WITH_PHOTO' && text.includes(PHOTOREF)) return `${PHOTOREF} solo puede ir en el bloque «Hogar con foto».`;
+  if (name !== 'HOUSEHOLD_WITH_PHOTO' && name !== 'PRESERVATION_BLOCK' && text.includes(PHOTOREF)) return `${PHOTOREF} solo puede ir en el bloque «Hogar con foto».`;
   return null;
 }
 

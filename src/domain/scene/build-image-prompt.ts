@@ -19,6 +19,7 @@ import {
   PIXEL_REDRAW_RULE,
   PRESERVATION_BLOCK,
   RECOGNIZED_MARKERS,
+  renderIncrementalPreservation,
   STYLE_BASE_TEXT,
   STYLE_CLOSING,
   type PromptBlocks,
@@ -26,6 +27,7 @@ import {
 import { PET_COUNT_RULE, sceneSpecBlock } from './scene-spec.ts';
 import { sanitizeBiography } from './sanitize-free-text.ts';
 
+export { INCREMENTAL_PRESERVATION_BLOCK } from './prompt-blocks.ts';
 export { HOUSEHOLD_GENERIC, HOUSEHOLD_WITH_PHOTO, PIXEL_REDRAW_RULE, PRESERVATION_BLOCK, STYLE_BASE_TEXT, STYLE_CLOSING };
 
 /** Regla de cero animales de los modos desde cero (REQ-PRO9-005, `D9-13` = A): sustituye a `PET_COUNT_RULE` con N = 0 (que cita un `renderedPetsCount` inexistente). */
@@ -47,9 +49,13 @@ const countBlock = (payload: ScenePayload): string[] => {
 const carriesPhoto = (pet: ScenePayload['pets'][number]): boolean => pet.hasReferencePhoto && pet.photoRef !== null;
 
 /** Línea única de una mascota con foto en los modos desde cero: `Pet k (especie): Translate this pet from IMG_n …` + ` Description: "bio".` si hay biografía saneada. */
-function photoPetLine(pet: ScenePayload['pets'][number], ordinal: number): string {
+function photoPetLine(pet: ScenePayload['pets'][number], ordinal: number, blocks: PromptBlocks): string {
   const bio = sanitizeBiography(pet.biography);
-  const base = `Pet ${ordinal} (${petSpeciesLabel(pet)}): Translate this pet from ${pet.photoRef} into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.`;
+  const ref = pet.photoRef as string;
+  const text = blocks.PRESERVATION_BLOCK;
+  // PRESERVATION_BLOCK editable en /admin: `{photoRef}` se sustituye por la referencia `IMG_n` de la mascota; una fila heredada sin el marcador antepone «From IMG_n: » para no perder la imagen.
+  const body = text.includes(RECOGNIZED_MARKERS[0]) ? text.split(RECOGNIZED_MARKERS[0]).join(ref) : `From ${ref}: ${text}`;
+  const base = `Pet ${ordinal} (${petSpeciesLabel(pet)}): ${body}`;
   return bio === null ? base : `${base} Description: ${JSON.stringify(bio)}.`;
 }
 
@@ -58,7 +64,7 @@ function scratchBlocks(payload: ScenePayload, blocks: PromptBlocks): string[] {
   const out = [householdBlock(payload, blocks)];
   // Ordinal global 1-based sobre TODAS las visibles (R2): las líneas de foto y el JSON lo comparten y son disjuntos. Enmienda 2026-11-24 (orden de Neo): UNA línea directa por mascota
   // con foto (sin bloque de preservación ni de biografías aparte, sin PET_BIO_RULE); la biografía YA saneada y consentida cierra esa misma línea como `Description: "…"`.
-  const photoLines = rendered.flatMap((pet, i) => (carriesPhoto(pet) ? [photoPetLine(pet, i + 1)] : []));
+  const photoLines = rendered.flatMap((pet, i) => (carriesPhoto(pet) ? [photoPetLine(pet, i + 1, blocks)] : []));
   if (photoLines.length > 0) out.push(photoLines.join('\n'));
   // REQ-PRO9-001/003: toda descripción de mascota (líneas con IMG y JSON) precede a «Place…» y a la frase de conteo (INV-PRO9-002).
   const json = sceneSpecBlock(payload, { onlyWithoutPhoto: true });
@@ -81,7 +87,7 @@ function incrementalBlocks(payload: ScenePayload, blocks: PromptBlocks): string[
   for (const pet of payload.pets.filter((p) => p.action === 'REPLACE')) lines.push(`- Replace only: the ${targetDescription(pet)}, redrawn as follows. ${petSentence(pet)}`);
   const intro = `Use ${base} as the exact base scene. Keep the room, furniture, and all ${others} pets in their exact positions and appearance without altering them. Apply only these changes, one per line:`;
   const withPhoto = payload.pets.some((p) => (p.action === 'ADD' || p.action === 'REPLACE') && carriesPhoto(p));
-  return [intro + '\n' + lines.join('\n'), sceneSpecBlock(payload), ...countBlock(payload), PET_COUNT_RULE, ...(withPhoto ? [blocks.PRESERVATION_BLOCK, blocks.PIXEL_REDRAW_RULE] : []), blocks.STYLE_CLOSING];
+  return [intro + '\n' + lines.join('\n'), sceneSpecBlock(payload), ...countBlock(payload), PET_COUNT_RULE, ...(withPhoto ? [renderIncrementalPreservation(blocks.PRESERVATION_BLOCK), blocks.PIXEL_REDRAW_RULE] : []), blocks.STYLE_CLOSING];
 }
 
 /** `blocks` ya validado (A-6): un valor invalido nunca llega aqui; sin `blocks` rige el defecto de codigo. */
