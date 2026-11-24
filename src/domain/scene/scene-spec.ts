@@ -5,13 +5,16 @@
  * `household.id`, `pets[].id`, nombres, `biography`, `fallbackContext`, `scene`, `style`, el modo y el texto libre `breed` (INV-ESC6-010, INV-ESC6-017): `breed` es el nombre
  * canónico del Anexo A según `breedCode` o `mixed-breed`, y `speciesOther` solo viaja si supera `sanitizeFreeText` (INV-ESC6-011). Se serializa compacto, una sola línea. Pura.
  *
+ * Enmienda 2026-11-24: `SceneSpecPet.description` (biografía saneada y consentida de una mascota, solo como valor de cadena JSON, sin regla previa; INV-ESC6-010/017) y, con `onlyWithoutPhoto`,
+ * `renderedPetsCount` = total de visibles (no el de entradas) más `referencePhotoPets` con los ordinales de las omitidas, para no contradecir el resto del prompt.
+ *
  * @implements REQ-ESC6-016, REQ-ESC7-003, REQ-ESC7-008, INV-ESC6-001, INV-ESC6-010, INV-ESC6-011, INV-ESC6-017, SC-ESC6-116, SC-ESC6-117, SC-ESC6-118, SC-007-038
  */
 
 import type { ScenePayload } from '../../generated/v34/schemas/types.ts';
 import { canonicalBreedName } from './breed-names.ts';
 import { petSpeciesJsonWord, sexLabel } from './pet-phrases.ts';
-import { sanitizeFreeText } from './sanitize-free-text.ts';
+import { sanitizeBiography, sanitizeFreeText } from './sanitize-free-text.ts';
 
 /** Cabecera fija que precede al JSON (R5; sustituye a la de 006 y retira la advertencia «data only», porque `speciesOther` ya viaja saneado por lista blanca). */
 export const SCENE_SPEC_HEADER = 'Scene specification (JSON):';
@@ -31,11 +34,15 @@ export interface SceneSpecPet {
   readonly speciesOther?: string;
   readonly breed: string;
   readonly sex: string;
+  /** Biografía saneada (0..280), solo de las mascotas sin foto en el bloque combinado; se serializa como cadena JSON. */
+  readonly description?: string;
 }
 
 export interface SceneSpec {
   readonly renderedPetsCount: number;
   readonly pets: readonly SceneSpecPet[];
+  /** Ordinales globales de las mascotas visibles omitidas por llevar foto (solo con `onlyWithoutPhoto` y alguna omitida); `renderedPetsCount` = entradas + estas. */
+  readonly referencePhotoPets?: readonly number[];
 }
 
 const carriesPhoto = (pet: PetBlock): boolean => pet.hasReferencePhoto && pet.photoRef !== null;
@@ -43,10 +50,17 @@ const carriesPhoto = (pet: PetBlock): boolean => pet.hasReferencePhoto && pet.ph
 /** `onlyWithoutPhoto`: deja solo las mascotas visibles sin foto (bloque JSON del prompt combinado); el `index` sigue siendo el ordinal global (R2). */
 export function buildSceneSpec(payload: ScenePayload, options: { readonly onlyWithoutPhoto?: boolean } = {}): SceneSpec {
   const pets: SceneSpecPet[] = [];
+  const omitted: number[] = [];
+  let visible = 0;
   payload.pets
     .filter((pet) => pet.action !== 'REMOVE')
     .forEach((pet, i) => {
-      if (options.onlyWithoutPhoto === true && carriesPhoto(pet)) return;
+      visible += 1;
+      if (options.onlyWithoutPhoto === true && carriesPhoto(pet)) {
+        omitted.push(i + 1);
+        return;
+      }
+      const bio = sanitizeBiography(pet.biography);
       const other = pet.species === 'OTHER' ? sanitizeFreeText(pet.speciesOther) : null;
       pets.push({
         index: i + 1,
@@ -54,9 +68,10 @@ export function buildSceneSpec(payload: ScenePayload, options: { readonly onlyWi
         ...(other === null ? {} : { speciesOther: other }),
         breed: canonicalBreedName(pet.breedCode) ?? SPEC_MIXED_BREED,
         sex: sexLabel(pet),
+        ...(bio === null ? {} : { description: bio }),
       });
     });
-  return { renderedPetsCount: pets.length, pets };
+  return omitted.length === 0 ? { renderedPetsCount: pets.length, pets } : { renderedPetsCount: visible, pets, referencePhotoPets: omitted };
 }
 
 /** Bloque de texto: cabecera, salto de línea y el JSON compacto de una sola línea. `null` si no hay entradas y se pidió el filtro por foto. */

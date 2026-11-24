@@ -19,6 +19,7 @@ import { deriveSceneSeed } from '../../domain/scene/scene-seed.ts';
 import { parseInputsSnapshot, type InputsSnapshot } from '../../domain/scene/inputs-snapshot.ts';
 import { applyPublication, quotaWindowOf } from '../../domain/scene/quota-window.ts';
 import { buildScenePayload } from '../../domain/scene/scene-payload.ts';
+import { referenceLabel, type ReferenceSlotKind } from '../../domain/scene/reference-labels.ts';
 import { shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
 import type { AssetRef, SceneErrorCode } from '../../generated/v34/schemas/types.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
@@ -92,16 +93,17 @@ export class RunSceneGenerationUseCase {
       const last = scene.image === null ? null : parseInputsSnapshot(scene.image.inputsSnapshot);
       const plan = decideMode({ last, now: snapshot, hasImage: scene.image !== null, action: attempt.action }) ?? decideMode({ last: null, now: snapshot, hasImage: false, action: 'UPDATE' });
       if (plan === null || plan.mode !== attempt.mode) return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
-      const slots: Array<{ ref: AssetRef; key: string; required: boolean; petId?: string; household?: true; keep?: true }> = [];
-      if (plan.currentSceneRef !== null && scene.image !== null) slots.push({ ref: plan.currentSceneRef, key: sceneImageObjectKey(scene.id, scene.image.id), required: true });
-      if (plan.householdRef !== null && scene.householdId !== null && snapshot.household !== null) slots.push({ ref: plan.householdRef, key: householdPhotoObjectKey(scene.householdId, snapshot.household), required: false, household: true });
+      const slots: Array<{ ref: AssetRef; key: string; required: boolean; slot: ReferenceSlotKind; petId?: string; household?: true; keep?: true }> = [];
+      if (plan.currentSceneRef !== null && scene.image !== null) slots.push({ ref: plan.currentSceneRef, key: sceneImageObjectKey(scene.id, scene.image.id), required: true, slot: { kind: 'SCENE' } });
+      if (plan.householdRef !== null && scene.householdId !== null && snapshot.household !== null) slots.push({ ref: plan.householdRef, key: householdPhotoObjectKey(scene.householdId, snapshot.household), required: false, slot: { kind: 'HOUSEHOLD' }, household: true });
+      const visibleOrder = plan.pets.filter((p) => p.action !== 'REMOVE').map((p) => p.petId);
       for (const entry of plan.pets) {
         const pet = snapshot.pets.find((p) => p.id === entry.petId);
-        if (entry.ref !== null && pet?.photo != null) slots.push({ ref: entry.ref, key: avatarObjectKey(pet.id, pet.photo), required: false, petId: pet.id, ...(entry.action === 'KEEP' ? { keep: true as const } : {}) });
+        if (entry.ref !== null && pet?.photo != null) slots.push({ ref: entry.ref, key: avatarObjectKey(pet.id, pet.photo), required: false, slot: { kind: 'PET', petOrdinal: visibleOrder.indexOf(pet.id) + 1, species: pet.species }, petId: pet.id, ...(entry.action === 'KEEP' ? { keep: true as const } : {}) });
       }
       // N2-16 (B): las ranuras se entregan y se recortan por número de ranura (escena previa, hogar, ADD/REPLACE y, al final, las KEEP).
       slots.sort((a, b) => slotNumber(a.ref) - slotNumber(b.ref));
-      const loaded: Array<{ ref: AssetRef; required: boolean; mime: string; bytes: Uint8Array; petId?: string; household?: true; keep?: true }> = [];
+      const loaded: Array<{ ref: AssetRef; required: boolean; slot: ReferenceSlotKind; mime: string; bytes: Uint8Array; petId?: string; household?: true; keep?: true }> = [];
       const dropped = new Set<AssetRef>();
       for (const slot of slots) {
         let object: Awaited<ReturnType<typeof media.storage.get>> = null;
@@ -137,10 +139,22 @@ export class RunSceneGenerationUseCase {
         household: delivered.some((l) => l.household === true),
         previousImage: delivered.some((l) => l.required),
       };
-      references = loaded.filter((l) => !dropped.has(l.ref)).map((l, i) => ({ ref: `IMG_${i + 1}` as SceneReferenceImage['ref'], mime: l.mime, bytes: l.bytes }));
+      references = loaded.filter((l) => !dropped.has(l.ref)).map((l, i) => ({ ref: `IMG_${i + 1}` as SceneReferenceImage['ref'], mime: l.mime, bytes: l.bytes, label: referenceLabel(i + 1, l.slot) }));
       // T1306: bloques editados en /admin leidos en caliente; si la lectura falla rige el prompt de codigo (INV-CFG9-003).
       const blocks = svc.promptBlocks === undefined ? undefined : await svc.promptBlocks().catch(() => undefined);
-      prompt = buildImagePrompt(buildScenePayload({ plan: adjusted, last, now: snapshot, householdId: scene.householdId, maxPets: svc.maxPets, totalPets: claim.totalPets }), blocks);
+      // Enmienda 2026-11-24 (INV-ESC6-010/017): la biografía cruda se lee del repositorio (única fuente: el servidor) y `buildScenePayload` la sanea; nunca se registra ni se guarda en el snapshot.
+      const biographies = await deps.uow.runInTransaction(async (r) => {
+        const found = new Map<string, string | null>();
+        for (const entry of adjusted.pets) {
+          if (entry.action === 'REMOVE') continue;
+          const pet = await r.pets.findById(entry.petId);
+          // T968 (C-1, R-1 de `/rama`, decisión de Neo): misma compuerta que la foto de la mascota (`loadLiveInputs`): con el driver real, sin consentimiento `PET_PHOTOS` vigente del propietario no sale su biografía.
+          const consented = pet !== null && (!svc.realDriver || (await hasActiveConsent(r, svc, pet.ownerUserId, 'PET_PHOTOS')));
+          found.set(entry.petId, consented ? (pet.biography ?? null) : null);
+        }
+        return found;
+      });
+      prompt = buildImagePrompt(buildScenePayload({ plan: adjusted, last, now: snapshot, householdId: scene.householdId, maxPets: svc.maxPets, totalPets: claim.totalPets, biographies }), blocks);
     } catch {
       return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
     }

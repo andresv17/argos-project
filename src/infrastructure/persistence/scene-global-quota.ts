@@ -5,7 +5,9 @@
  * esquema nuevo: la tabla `platform_parameters` ya admite las filas (sin migración). Falla CERRADO: cualquier error o ventana inválida devuelve `false`, sin eco del mensaje.
  * La fila queda fuera del respaldo exportable (RAMA-005-008) por pertenecer a `platform_parameters`.
  *
- * @implements REQ-ESC6-017, REQ-ESC6-031, REQ-LIM9-003, INV-LIM9-002, EDGE-009-042
+ * `isExhausted` (enmienda 2026-11-24, REQ-ESC6-039): lectura sin consumo; falla a `false`.
+ *
+ * @implements REQ-ESC6-039, INV-ESC6-021, REQ-ESC6-017, REQ-ESC6-031, REQ-LIM9-003, INV-LIM9-002, EDGE-009-042
  */
 
 import type { SceneGlobalQuotaPort } from '../../application/ports/scene-global-quota.port.ts';
@@ -29,17 +31,20 @@ export class SqlSceneGlobalQuota implements SceneGlobalQuotaPort {
     private readonly ensureRow: (key: string, now: string) => Promise<void>,
     private readonly incrementBelow: (key: string, now: string, max: number) => Promise<number>,
     private readonly decrement: (key: string, now: string) => Promise<void>,
+    private readonly readUsed: (key: string) => Promise<number>,
   ) {}
 
   static forSqlite(db: SqliteDatabase, deps: SqlSceneGlobalQuotaDeps): SqlSceneGlobalQuota {
     const insert = db.prepare("INSERT INTO platform_parameters (key, value, description, updated_at, updated_by_user_id) VALUES (?, '0', ?, ?, NULL) ON CONFLICT (key) DO NOTHING");
     const update = db.prepare('UPDATE platform_parameters SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT), updated_at = ? WHERE key = ? AND CAST(value AS INTEGER) < ?');
     const refund = db.prepare('UPDATE platform_parameters SET value = CAST(CAST(value AS INTEGER) - 1 AS TEXT), updated_at = ? WHERE key = ? AND CAST(value AS INTEGER) > 0');
+    const select = db.prepare<[string], { value: string }>('SELECT value FROM platform_parameters WHERE key = ?');
     return new SqlSceneGlobalQuota(
       deps,
       async (key, now) => void insert.run(key, DESCRIPTION, now),
       async (key, now, max) => update.run(now, key, max).changes,
       async (key, now) => void refund.run(now, key),
+      async (key) => Number(select.get(key)?.value ?? '0'),
     );
   }
 
@@ -56,6 +61,10 @@ export class SqlSceneGlobalQuota implements SceneGlobalQuotaPort {
       async (key, now) => {
         await client.query('UPDATE platform_parameters SET value = CAST(CAST(value AS INTEGER) - 1 AS TEXT), updated_at = $1 WHERE key = $2 AND CAST(value AS INTEGER) > 0', [now, key]);
       },
+      async (key) => {
+        const result = await client.query('SELECT value FROM platform_parameters WHERE key = $1', [key]);
+        return Number(result.rows[0]?.['value'] ?? '0');
+      },
     );
   }
 
@@ -65,6 +74,19 @@ export class SqlSceneGlobalQuota implements SceneGlobalQuotaPort {
       await this.decrement(`${SCENE_GLOBAL_QUOTA_USED_PREFIX}${window}`, this.deps.now());
     } catch {
       // falla cerrado: la unidad queda descontada (sobreconteo conservador, EDGE-009-042)
+    }
+  }
+
+  /** Solo lectura (REQ-ESC6-039): `usado >= máximo` con el tope vigente; sin fila = 0 usado; cualquier fallo o dato ilegible = `false` (sin falsa alarma). No escribe. */
+  async isExhausted(window: string): Promise<boolean> {
+    if (!WINDOW_PATTERN.test(window)) return false;
+    try {
+      const max = await this.deps.readMax();
+      if (!Number.isInteger(max) || max < 1) return false;
+      const used = await this.readUsed(`${SCENE_GLOBAL_QUOTA_USED_PREFIX}${window}`);
+      return Number.isInteger(used) && used >= max;
+    } catch {
+      return false;
     }
   }
 

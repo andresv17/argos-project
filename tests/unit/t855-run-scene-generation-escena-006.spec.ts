@@ -228,7 +228,7 @@ describe('runSceneGeneration (T856): referencias, degradación y límites', () =
     await withAvatar(t, await validPng());
     await t.run.execute(await requested(t), signal());
     expect(t.fixture.generator.calls[0]?.references.map((r) => [r.ref, r.mime])).toEqual([['IMG_1', 'image/png']]);
-    expect(t.fixture.generator.calls[0]?.prompt).toContain('Use IMG_1 as the exact visual reference for this dog.');
+    expect(t.fixture.generator.calls[0]?.prompt).toContain('Pet 1 (dog): Translate this pet from IMG_1 into the 16-bit isometric pixel art illustration');
     expect(sceneOf(t)?.imageDegraded).toBe(false);
   });
 
@@ -443,8 +443,8 @@ describe('runSceneGeneration (T856): consentimiento, cambios y arrendamiento dur
 describe('runSceneGeneration (T929): fotos KEEP, tope de bytes y degradación (N2-16 B+C)', () => {
   const LUNA_AVATAR = 'e1000000-0000-4000-8000-000000000002';
   const consentOf = (userId: string, n: number) => ({ id: `c5000000-0000-4000-8000-00000000002${n}`, userId, scope: 'PET_PHOTOS' as const, providerId: 'vertex-gemini-image', noticeVersion: '1', grantedAt: NOW, revokedAt: null });
-  /** Ranuras `IMG_n` que el texto cita como referencia visual de una mascota (`Use IMG_n as the exact visual reference for this …`); el JSON 16-bit ya no lleva `photoRef` y las KEEP no se citan en el texto. */
-  const photoRefs = (prompt: string): string[] => [...prompt.matchAll(/Use (IMG_\d+) as the exact visual reference for this /g)].map((m) => m[1] ?? '');
+  /** Ranuras `IMG_n` que el texto cita como referencia visual de una mascota (`Translate this pet from IMG_n into …` en desde-cero; `Use IMG_n as the exact visual reference …` en incrementales); el JSON 16-bit ya no lleva `photoRef` y las KEEP no se citan en el texto. */
+  const photoRefs = (prompt: string): string[] => [...prompt.matchAll(/(?:Use|Translate this pet from) (IMG_\d+) (?:as the exact visual reference for this |into the 16-bit isometric pixel art illustration)/g)].map((m) => m[1] ?? '');
 
   /** Escena con imagen previa que viajó con la foto de Argos (Andrés); luego Luna (María) recibe foto: REPLACE de Luna y KEEP de Argos. */
   async function incremental(options: SceneFixtureOptions = {}, sizes: { current: number[] } = { current: [] }) {
@@ -564,7 +564,7 @@ describe('runSceneGeneration (M2, Fase 13): prueba negativa de consentimiento PE
   const LUNA_AVATAR = 'e1000000-0000-4000-8000-000000000002';
   const grantAndres = { id: 'c5000000-0000-4000-8000-000000000031', userId: ANDRES, scope: 'PET_PHOTOS' as const, providerId: 'vertex-gemini-image', noticeVersion: '1', grantedAt: NOW, revokedAt: null };
   const grantMaria = { ...grantAndres, id: 'c5000000-0000-4000-8000-000000000032', userId: MARIA };
-  const photoRefs = (prompt: string): string[] => [...prompt.matchAll(/Use (IMG_\d+) as the exact visual reference for this /g)].map((m) => m[1] ?? '');
+  const photoRefs = (prompt: string): string[] => [...prompt.matchAll(/(?:Use|Translate this pet from) (IMG_\d+) (?:as the exact visual reference for this |into the 16-bit isometric pixel art illustration)/g)].map((m) => m[1] ?? '');
 
   it('[SC-ESC6-134][REQ-ESC6-025][REQ-ESC6-026][EDGE-ESC6-025] REGENERATE: la foto de un dueño sin PET_PHOTOS (ni KEEP ni RENDER) no viaja al proveedor ni entra en scene_image_sources', async () => {
     const t = setup({ realDriver: true });

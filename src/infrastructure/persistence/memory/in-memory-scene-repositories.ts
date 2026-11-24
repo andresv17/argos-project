@@ -134,6 +134,10 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
     async lastAttemptStartedAt(sceneId) {
       return attempts().filter((a) => a.sceneId === sceneId).reduce<string | null>((max, a) => (max === null || a.startedAt > max ? a.startedAt : max), null);
     },
+    async lastAttemptOutcome(sceneId) {
+      const last = attempts().filter((a) => a.sceneId === sceneId).reduce<SceneAttemptRecord | null>((best, a) => (best === null || a.startedAt >= best.startedAt ? a : best), null);
+      return last?.outcome ?? null;
+    },
     async oldestActorAttemptAt(actorUserId, since) {
       return attempts().filter((a) => a.actorUserId === actorUserId && a.startedAt >= since).reduce<string | null>((min, a) => (min === null || a.startedAt < min ? a.startedAt : min), null);
     },

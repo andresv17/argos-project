@@ -12,8 +12,8 @@
  */
 import type { GrantSceneConsentBody, SceneViewData } from './scene-api.ts';
 
-/** Igual a `SCENE_NOTICE_VERSION` del servidor: subió a '2' con el aviso final (T950). */
-export const NOTICE_VERSION = '2';
+/** Igual a `SCENE_NOTICE_VERSION` del servidor: subió a '2' con el aviso final (T950) y a '3' con la biografía enviada (T964, enmienda 2026-11-24). */
+export const NOTICE_VERSION = '3';
 export const NOTICE_PROVIDER_ID = 'vertex-gemini-image';
 export const NOTICE_TITLE = 'Crear la imagen de tu hogar con inteligencia artificial';
 export const NOTICE_INTRO = 'Para dibujar tu hogar y tus mascotas en pixel art, ARGOS envía imágenes a un servicio de inteligencia artificial de terceros. Antes de continuar, lee esto.';
@@ -28,8 +28,9 @@ export const NOTICE_SECTIONS: readonly NoticeSection[] = [
     title: '1. Qué se envía',
     paragraphs: [
       'Se envía la foto de tu hogar, si la subiste y consentiste; el avatar de cada mascota de la que eres Propietario Legal, si consentiste; la imagen de la escena anterior cuando solo se cambian algunas mascotas; y un texto técnico con la especie, la raza y el sexo de cada mascota.',
+      'También se envía la biografía de cada mascota (el texto libre de su ficha, depurado de caracteres especiales y limitado a 280 caracteres) al servicio de inteligencia artificial de imágenes, junto con las instrucciones, tanto de las mascotas con foto como de las que no la tienen. No escribas en la biografía datos que no quieras compartir con el proveedor.',
       'Cada vez que generas o regeneras la escena, ARGOS vuelve a enviar al proveedor la foto de tu hogar y las fotos vigentes de las mascotas con consentimiento, aunque ya las hubiera enviado antes: ARGOS no reutiliza lo enviado, lo reenvía en cada regeneración.',
-      'No se envían nombres de mascotas ni de personas, número de microchip, correo, fechas de nacimiento ni datos clínicos.',
+      'No se envían nombres de mascotas ni de personas, número de microchip, correo, fechas de nacimiento ni datos clínicos de la ficha; lo que escribas dentro de la biografía sí viaja.',
       'La normalización es parcial: ARGOS elimina del archivo los metadatos (ubicación GPS, fecha de la cámara) antes de enviarlo, pero no recodifica ni reduce la imagen; su contenido visual llega tal cual al proveedor.',
     ],
   },
@@ -48,6 +49,7 @@ export const NOTICE_SECTIONS: readonly NoticeSection[] = [
     paragraphs: [
       'Según las condiciones de Google Cloud (Cloud Data Processing Addendum y Service Specific Terms de Vertex AI), tus imágenes no se usan para entrenar los modelos fundacionales de Google. ARGOS las trata como datos del cliente y las envía solo para generar la escena.',
       'La retención de la copia que recibe Google y su borrado se rigen por esas mismas condiciones; ARGOS no controla esa copia y esos datos siguen pendientes de confirmar con la documentación oficial.',
+      'La biografía se lee solo al generar y viaja de forma transitoria en la petición al proveedor; Argos no la guarda en intentos de escena, instantáneas ni registros del servidor. Según los términos de datos de cliente de Google Cloud (Vertex AI), el proveedor no usa datos del cliente para entrenar sus modelos sin permiso, aunque puede conservar temporalmente peticiones hasta 30 días por prevención de abuso.',
     ],
   },
   {
@@ -62,6 +64,7 @@ export const NOTICE_SECTIONS: readonly NoticeSection[] = [
     paragraphs: [
       'La foto del hogar y las escenas generadas no se incluyen en el respaldo ni se restauran al importarlo.',
       'Puedes borrarlas cuando quieras con «Retirar consentimiento y borrar imágenes de la escena»: se borran de inmediato de nuestro almacenamiento. Restos técnicos pueden permanecer en copias de seguridad internas hasta su vencimiento: hasta 6 horas en la recuperación a un instante (PITR) y 14 días en los volcados de la base de datos. La copia que tenga el proveedor se rige por el punto 4.',
+      'Si editas o borras la biografía en la ficha de la mascota (o revocas tu consentimiento), dejará de enviarse en las siguientes generaciones. Puedes retirar la imagen generada del hogar en cualquier momento.',
     ],
   },
 ];
@@ -71,7 +74,7 @@ export const NOTICE_SECTIONS: readonly NoticeSection[] = [
  * Cambian los apartados «A quién se envía», «Dónde se procesa» y el de retención; el resto es el del aviso de Vertex. Texto en revisión hasta la firma de Neo; los términos de datos de la
  * Developer API no tienen fuente en disco y se declaran «pendientes de confirmar» (REQ-ESC6-028).
  */
-export const NOTICE_GEMINI_API_VERSION = 'gemini-api-2';
+export const NOTICE_GEMINI_API_VERSION = 'gemini-api-3';
 export const NOTICE_GEMINI_API_PROVIDER_ID = 'gemini-api';
 
 export const NOTICE_GEMINI_API_SECTIONS: readonly NoticeSection[] = NOTICE_SECTIONS.map((section) => {
@@ -94,6 +97,7 @@ export const NOTICE_GEMINI_API_SECTIONS: readonly NoticeSection[] = NOTICE_SECTI
       title: section.title,
       paragraphs: [
         'Los términos de datos de la Gemini Developer API (retención, uso de las imágenes para entrenamiento según el plan de la clave) están pendientes de confirmar con su documentación oficial. Hasta confirmarlos, este uso local con tu propia clave queda bajo tu responsabilidad y no debe incluir fotos de terceros.',
+        'La biografía de tus mascotas se lee únicamente al generar y viaja de forma transitoria en la petición al proveedor: ARGOS no la almacena en los intentos de escena, en las instantáneas ni en los registros del servidor. Su uso para entrenamiento por parte del proveedor sigue pendiente de confirmar.',
       ],
     };
   }

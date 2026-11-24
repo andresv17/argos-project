@@ -4,6 +4,8 @@
  * iniciados por usuario actor en 24 h. Solo contadores (N2-03 = A: sin bloqueo por huella). Recibe cuentas e instantes como datos; sin reloj (INV-ESC6-001).
  * El exceso se rechaza con `429 ERR-RATE-LIMITED` y `Retry-After` (`blockedReason = COOLDOWN`).
  *
+ * Enmienda 2026-11-24 (REQ-ESC6-034): el enfriamiento de 60 s aplica SOLO si el último intento de la escena terminó `SUCCEEDED`; tras `FAILED`/`CANCELLED` es 0 s.
+ *
  * @implements REQ-LIM9-001, REQ-LIM9-002, EDGE-009-043, REQ-ESC6-034, INV-ESC6-001, INV-ESC6-004, EDGE-ESC6-029, SC-ESC6-072, SC-ESC6-078, SC-ESC6-079
  */
 
@@ -19,6 +21,8 @@ export interface AttemptLimitsInput {
   readonly now: string;
   /** Inicio del intento más reciente de la escena, o `null`. */
   readonly lastStartedAt: string | null;
+  /** Resultado del intento más reciente de la escena (`null` si no hay o sigue en vuelo): el enfriamiento solo rige tras `SUCCEEDED`. */
+  readonly lastOutcome: 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | null;
   /** Intentos `FAILED` de la escena con inicio en las últimas 24 h. */
   readonly failedInWindow: number;
   readonly oldestFailedStartedAt: string | null;
@@ -45,7 +49,7 @@ function windowRetry(oldest: string | null, now: number): number {
 
 export function evaluateAttemptLimits(input: AttemptLimitsInput): AttemptLimitsResult {
   const now = epochMillis(input.now);
-  if (input.lastStartedAt !== null) {
+  if (input.lastStartedAt !== null && input.lastOutcome === 'SUCCEEDED') {
     const readyAt = epochMillis(input.lastStartedAt) + ATTEMPT_COOLDOWN_SECONDS * 1000;
     if (now < readyAt) return { allowed: false, reason: 'COOLDOWN', retryAfterSeconds: secondsUntil(readyAt, now) };
   }

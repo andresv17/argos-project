@@ -8,10 +8,10 @@
  *
  * Con `view.disabled` (feature 009, T1266, REQ-CFG9-003) muestra la caja gris «Función deshabilitada» sin revelar la causa, conserva la imagen vigente y deshabilita el botón.
  *
- * @implements REQ-CFG9-003, EDGE-009-019, REQ-UX8-002, EDGE-008-021, REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, SC-ESC6-131, SC-ESC6-132, SC-ESC6-133, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
+ * @implements REQ-ESC6-039, REQ-CFG9-003, EDGE-009-019, REQ-UX8-002, EDGE-008-021, REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, SC-ESC6-131, SC-ESC6-132, SC-ESC6-133, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { browserScheduler } from '../browser-scheduler.ts';
+import { browserRenewal, browserScheduler } from '../browser-scheduler.ts';
 import { createSceneApi, SceneApiError, type SceneAction, type SceneScope, type SceneViewData } from '../scene-api.ts';
 import {
   createScenePoller,
@@ -28,6 +28,7 @@ import {
   sceneRetryAfter,
   sceneStatusText,
   sceneGenerateState,
+  sceneRefreshingState,
   startCooldownCountdown,
 } from '../scene-view.ts';
 import { Button } from './Field.tsx';
@@ -49,9 +50,11 @@ export interface SceneBlockViewProps {
   readonly headingLevel?: 2 | 4;
   /** Segundos de espera restantes de la cuenta atrás en vivo (SC-ESC6-115); sustituye a `actions.retryAfterSeconds` mientras sea mayor que 0. */
   readonly waitSeconds?: number | null;
+  /** `true` mientras se relee la escena al vencer la espera: el botón muestra «Actualizando…» y no se lee el `retryAfterSeconds` antiguo (defecto de contador, 2026-11-24). */
+  readonly refreshing?: boolean;
 }
 
-export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onRegenerate, onImageError, children, headingLevel = 2, waitSeconds = null }: SceneBlockViewProps): JSX.Element {
+export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onRegenerate, onImageError, children, headingLevel = 2, waitSeconds = null, refreshing = false }: SceneBlockViewProps): JSX.Element {
   const titleId = `${idPrefix}-title`;
   const Title = `h${headingLevel}` as 'h2' | 'h4';
   const statusId = `${idPrefix}-status`;
@@ -60,7 +63,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
   const src = view === null ? null : sceneImagePath(scope, view.imageTag);
   const downloadHref = view === null ? null : sceneImageDownloadPath(scope, view.imageTag);
   const downloadName = view === null ? null : sceneDownloadFilename(view.updatedAt);
-  const generate = view === null ? null : sceneGenerateState(waitSeconds !== null && waitSeconds > 0 ? { ...view, actions: { ...view.actions, retryAfterSeconds: waitSeconds } } : view);
+  const generate = view === null ? null : refreshing ? sceneRefreshingState(view) : sceneGenerateState(waitSeconds !== null && waitSeconds > 0 ? { ...view, actions: { ...view.actions, retryAfterSeconds: waitSeconds } } : view);
   const generating = view?.status === 'generating';
   const petsShown = view === null ? null : scenePetsShownText(view.pets);
   const pendingMessage = view === null ? null : scenePendingMessage(view);
@@ -195,14 +198,15 @@ export function SceneBlock({ scope, idPrefix, headingLevel, reloadToken, childre
   // Espera de intentos (REQ-ESC6-034, SC-ESC6-115): cuenta atrás en vivo cada segundo y una relectura al llegar a 0; el temporizador se cancela al desmontar o al llegar otra espera.
   const [wait, setWait] = useState<{ readonly seconds: number } | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
-    const seconds = view === null || view.actions.blockedReason === 'ROLE' ? null : sceneRetryAfter(view);
+    const seconds = view === null || view.actions.blockedReason === 'ROLE' || view.actions.blockedReason === 'GLOBAL_QUOTA_EXHAUSTED' ? null : sceneRetryAfter(view);
     setWait(seconds === null ? null : { seconds });
   }, [view]);
   useEffect(() => {
     setRemaining(wait === null ? null : wait.seconds);
     if (wait === null) return undefined;
-    return startCooldownCountdown({ seconds: wait.seconds, scheduler: browserScheduler, onTick: setRemaining, onExpire: () => { setRemaining(null); void reload(); } });
+    return startCooldownCountdown({ seconds: wait.seconds, scheduler: browserScheduler, now: browserRenewal.now, onTick: setRemaining, onExpire: () => { setRemaining(null); setRefreshing(true); void reload().finally(() => setRefreshing(false)); } });
   }, [wait, reload]);
 
   const lastToken = useRef(reloadToken);
@@ -232,7 +236,7 @@ export function SceneBlock({ scope, idPrefix, headingLevel, reloadToken, childre
   // `OWNER` sin mascotas, imagen ni consentimiento: no se pinta nada (ni mientras carga); el contenedor sigue montado para releer al cambiar la lista (SC-ESC6-109).
   if (stable.kind === 'OWNER' && (view === null ? status === 'LOADING' : isOwnerSceneEmpty(stable, view))) return <></>;
   return (
-    <SceneBlockView idPrefix={idPrefix} scope={stable} view={view} status={status} error={error} busy={busy} onRegenerate={() => void run('REGENERATE')} onImageError={() => void reload()} waitSeconds={remaining} {...(headingLevel === undefined ? {} : { headingLevel })}>
+    <SceneBlockView idPrefix={idPrefix} scope={stable} view={view} status={status} error={error} busy={busy} onRegenerate={() => void run('REGENERATE')} onImageError={() => void reload()} waitSeconds={remaining} refreshing={refreshing} {...(headingLevel === undefined ? {} : { headingLevel })}>
       {children?.(view, reload)}
     </SceneBlockView>
   );

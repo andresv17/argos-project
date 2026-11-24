@@ -3,7 +3,7 @@
  * sondeo único cada 3 s. No hay datos de la mascota ni del servidor en los textos de error (INV-ESC6-016); la imagen se pide a la ruta propia del ámbito con
  * `v = imageTag` (etiqueta de caché, INV-ESC6-019) y nunca se guarda una URL firmada en el DOM (NFR-ESC6-003).
  *
- * @implements REQ-UX8-001, REQ-UX8-002, EDGE-008-020, EDGE-008-021, REQ-ESC7-001, REQ-ESC7-002, REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021, REQ-ESC6-034, NFR-ESC6-003, NFR-ESC6-004, INV-ESC6-016, INV-ESC6-019
+ * @implements REQ-ESC6-039, INV-ESC6-021, REQ-UX8-001, REQ-UX8-002, EDGE-008-020, EDGE-008-021, REQ-ESC7-001, REQ-ESC7-002, REQ-ESC6-005, REQ-ESC6-019, REQ-ESC6-021, REQ-ESC6-034, NFR-ESC6-003, NFR-ESC6-004, INV-ESC6-016, INV-ESC6-019
  */
 import type { Scheduler } from './access-renewer.ts';
 import { ERROR_CATALOG } from '../../generated/errors/error-codes.ts';
@@ -108,32 +108,94 @@ export function cooldownStep(remaining: number): { readonly text: string | null;
   return { text: sceneWaitText(remaining), next: remaining - 1, refresh: false };
 }
 
+/** Suscripción a «la pestaña vuelve a ser visible»: devuelve la baja. Gancho opcional y NO cableado en el navegador (INV-AUTH2-002 prohíbe eventos de visibilidad en la SPA); sin él rige el reloj real con cada disparo del temporizador. */
+export type VisibilitySubscribe = (onVisible: () => void) => () => void;
+
 /**
- * Cuenta atrás en vivo (SC-ESC6-115): un tick por segundo (`onTick` recibe los segundos restantes) y, al llegar a 0, `onExpire` una sola vez. Un temporizador
- * vivo a la vez, cada uno de un disparo; devuelve la cancelación, que el contenedor llama al desmontar o al recargar la espera. La lógica de paso es `cooldownStep`.
+ * Cuenta atrás en vivo (SC-ESC6-115): un tick por segundo (`onTick` recibe los segundos restantes) y, al llegar a 0, `onExpire` una sola vez. Un temporizador vivo a la vez, cada
+ * uno de un disparo; devuelve la cancelación, que el contenedor llama al desmontar o al recargar la espera. Con `now` (reloj real, defecto del contador congelado 2026-11-24) el
+ * restante se calcula SIEMPRE contra el plazo (`deadline - now()`), no restando 1 por temporizador: un temporizador estrangulado u omitido en una pestaña en segundo plano no
+ * atrasa la cuenta, y, si se inyecta `onVisible`, al recuperar la visibilidad se recalcula al instante (el navegador reanuda los temporizadores al volver a la pestaña y cada disparo recalcula contra el reloj). Sin `now` rige el paso puro `cooldownStep` (descuenta 1 por tick).
  */
-export function startCooldownCountdown({ seconds, scheduler, onTick, onExpire }: { readonly seconds: number; readonly scheduler: Scheduler; readonly onTick: (remaining: number) => void; readonly onExpire: () => void }): () => void {
+export function startCooldownCountdown({
+  seconds,
+  scheduler,
+  now,
+  onVisible,
+  onTick,
+  onExpire,
+}: {
+  readonly seconds: number;
+  readonly scheduler: Scheduler;
+  readonly now?: () => number;
+  readonly onVisible?: VisibilitySubscribe;
+  readonly onTick: (remaining: number) => void;
+  readonly onExpire: () => void;
+}): () => void {
   let cancelled = false;
   let cancelTimer: (() => void) | null = null;
-  const advance = (remaining: number): void => {
-    const step = cooldownStep(remaining);
-    if (step.refresh || step.next === null) {
-      onExpire();
-      return;
-    }
-    cancelTimer = scheduler.after(() => {
-      if (cancelled) return;
-      cancelTimer = null;
-      onTick(step.next ?? 0);
-      advance(step.next ?? 0);
-    }, 1000);
-  };
-  advance(seconds);
-  return () => {
-    cancelled = true;
+  const clearTimer = (): void => {
     cancelTimer?.();
     cancelTimer = null;
   };
+  if (now === undefined) {
+    const advance = (remaining: number): void => {
+      const step = cooldownStep(remaining);
+      if (step.refresh || step.next === null) {
+        onExpire();
+        return;
+      }
+      cancelTimer = scheduler.after(() => {
+        if (cancelled) return;
+        cancelTimer = null;
+        onTick(step.next ?? 0);
+        advance(step.next ?? 0);
+      }, 1000);
+    };
+    advance(seconds);
+    return () => {
+      cancelled = true;
+      clearTimer();
+    };
+  }
+  const deadlineMs = now() + Math.max(0, seconds) * 1000;
+  let lastShown = seconds;
+  let expired = false;
+  const sync = (): void => {
+    if (cancelled || expired) return;
+    clearTimer();
+    const leftMs = deadlineMs - now();
+    const remaining = Math.ceil(leftMs / 1000);
+    if (remaining <= 0) {
+      expired = true;
+      unsubscribe();
+      onExpire();
+      return;
+    }
+    if (remaining !== lastShown) {
+      lastShown = remaining;
+      onTick(remaining);
+    }
+    // Hasta la próxima frontera de segundo (donde el restante baja en 1), nunca menos de 50 ms para no girar en vacío.
+    const toBoundary = leftMs % 1000 === 0 ? 1000 : leftMs % 1000;
+    cancelTimer = scheduler.after(sync, Math.max(50, toBoundary));
+  };
+  const unsubscribe = onVisible === undefined ? (): void => undefined : onVisible(sync);
+  sync();
+  return () => {
+    cancelled = true;
+    clearTimer();
+    unsubscribe();
+  };
+}
+
+/** Texto del botón mientras se relee la escena tras vencer la espera (no se vuelve a leer el `retryAfterSeconds` antiguo hasta que llegue la respuesta del servidor). */
+export const SCENE_REFRESHING_TEXT = 'Actualizando…';
+
+/** Estado del botón durante la relectura al vencer la espera: deshabilitado con «Actualizando…», sin leer `actions.retryAfterSeconds` (defecto de contador, 2026-11-24). */
+export function sceneRefreshingState(view: SceneViewData): { readonly label: string; readonly disabled: true; readonly reason: string } {
+  const label = view.status === 'failed' ? 'Reintentar' : view.imageTag === null ? 'Crear imagen del hogar' : 'Regenerar imagen del hogar';
+  return { label, disabled: true, reason: SCENE_REFRESHING_TEXT };
 }
 
 /** El bloque de la escena `OWNER` se ofrece en «Hogar» solo con la lista ya cargada y 0 hogares (`N2-15` = B, REQ-ESC6-019, SC-ESC6-109). */
@@ -196,6 +258,9 @@ export function createLatestOnly(): { run<T>(read: Promise<T>, apply: (value: T)
 /** Texto del botón deshabilitado con la escena `idle` (sin mascotas ni foto del hogar; la máquina rechaza `idle -> generating`, REQ-ESC6-005). */
 const SCENE_IDLE_TEXT = 'Agrega una mascota o la foto del hogar para crear la imagen.';
 
+/** Cuota GLOBAL mensual agotada (REQ-ESC6-039, enmienda 2026-11-24): texto empaquetado, sin cifras de cuota ni de costos ni del hogar que la consumió. */
+export const SCENE_GLOBAL_QUOTA_TEXT = 'Se agotó el cupo mensual de imágenes de la plataforma. Podrás generar de nuevo el próximo mes o cuando se amplíe el cupo. Tu imagen actual sigue disponible.';
+
 /** Motivo con la cuota agotada (H-OR-F-2): conserva la fecha «1 dic 2026» que fijan t875/t936 (SC-ESC6-132); sin instante legible (misma regla que `sceneRenewalDateText`) sale sin fecha. */
 const sceneQuotaExhaustedText = (resetsAt: string): string =>
   sceneRenewalDateText(resetsAt) === null
@@ -217,6 +282,8 @@ export function sceneGenerateState(view: SceneViewData): { readonly label: strin
     switch (blockedReason) {
       case 'QUOTA_EXHAUSTED':
         return blocked(sceneQuotaExhaustedText(view.quota.resetsAt));
+      case 'GLOBAL_QUOTA_EXHAUSTED':
+        return blocked(SCENE_GLOBAL_QUOTA_TEXT);
       case 'GENERATING':
         return blocked('La imagen se está generando; espera a que termine.');
       case 'CONSENT_REQUIRED':
@@ -238,6 +305,7 @@ const GENERIC_MESSAGE = ERROR_CATALOG['ERR-INTERNAL-UNEXPECTED'].detailTemplate;
 const PROBLEM_TEXT: Readonly<Record<string, string>> = {
   'ERR-SCENE-CONSENT-REQUIRED': 'Antes de crear la imagen debes leer el aviso y dar tu consentimiento.',
   'ERR-SCENE-QUOTA-EXCEEDED': 'Se agotaron las generaciones de este mes. La imagen actual se conserva.',
+  'ERR-SCENE-GLOBAL-QUOTA-EXHAUSTED': SCENE_GLOBAL_QUOTA_TEXT,
   'ERR-SCENE-DISABLED': 'La creación de imágenes no está disponible por ahora. Tu imagen actual sigue disponible.',
   'ERR-SCENE-NOTICE-OUTDATED': 'El aviso cambió. Léelo de nuevo y consiente otra vez.',
   'ERR-ACC-FORBIDDEN': 'Solo el propietario del hogar o un administrador puede cambiar la escena.',
@@ -274,14 +342,14 @@ const FILENAME_TIME_ZONE = 'America/Bogota';
 const filenameDateFormat = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: FILENAME_TIME_ZONE });
 
 /**
- * Nombre sugerido del archivo descargado: `argos-hogar-AAAA-MM-DD.png` con el día de `at` en la zona de la aplicación (EDGE-008-021). Sin nombre de mascota ni de hogar
+ * Nombre sugerido del archivo descargado: `argos-hogar-AAAA-MM-DD.png` (`.jpg`/`.webp` según `mime`, enmienda Nivel 2 de REQ-ESC6-035) con el día de `at` en la zona de la aplicación (EDGE-008-021). Sin nombre de mascota ni de hogar
  * (PII) ni caracteres de control. El nombre definitivo lo fija el servidor en `Content-Disposition`; este es la pista del cliente. `null` si el instante no es legible.
  */
-export function sceneDownloadFilename(at: string): string | null {
+export function sceneDownloadFilename(at: string, mime: string = 'image/png'): string | null {
   const ms = Date.parse(at);
   if (Number.isNaN(ms)) return null;
   const parts = Object.fromEntries(filenameDateFormat.formatToParts(ms).map((p) => [p.type, p.value]));
-  return `argos-hogar-${parts.year}-${parts.month}-${parts.day}.png`;
+  return `argos-hogar-${parts.year}-${parts.month}-${parts.day}.${mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png'}`;
 }
 
 /** Ruta propia de la foto del hogar (302 firmada); `tag` solo etiqueta de caché. */

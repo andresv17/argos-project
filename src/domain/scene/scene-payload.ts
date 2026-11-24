@@ -1,7 +1,7 @@
 /**
  * Construcción del payload de la escena (REQ-ESC6-015; contrato `scene-payload.schema.json` 1.0.0, tipos generados de `v34`). A partir del plan de `decideMode` y de
  * los snapshots de entradas: las mascotas visibles en su orden y, al final, las retiradas (`REMOVE`, tomadas del snapshot anterior). Los textos libres salen ya
- * saneados (INV-ESC6-011; fuera de la lista blanca: valor por defecto); `biography` y `fallbackContext` NUNCA se informan (INV-ESC6-017, SC-ESC6-049); el payload no
+ * saneados (INV-ESC6-011; fuera de la lista blanca: valor por defecto); `biography` se informa SANEADA (`sanitizeBiography`; enmienda 2026-11-24, INV-ESC6-010/017) y `fallbackContext` NUNCA (INV-ESC6-017, SC-ESC6-049); el payload no
  * lleva nombres de mascota ni de usuario (INV-ESC6-010). Pura (INV-ESC6-001).
  *
  * @implements REQ-ESC6-015, REQ-ESC6-009, INV-ESC6-001, INV-ESC6-006, INV-ESC6-010, INV-ESC6-011, INV-ESC6-017, SC-ESC6-022, SC-ESC6-049
@@ -11,8 +11,9 @@ import type { PetBlock, ScenePayload, StyleBlock } from '../../generated/v34/sch
 import type { ModePlan } from './decide-mode.ts';
 import type { InputsSnapshot, SnapshotPet } from './inputs-snapshot.ts';
 import { canonicalBreedName } from './breed-names.ts';
-import { sanitizeFreeText } from './sanitize-free-text.ts';
+import { sanitizeBiography, sanitizeFreeText } from './sanitize-free-text.ts';
 
+/** El `const` de `SchemaVersion` del contrato sigue siendo `1.0.0` (el bump 1.1.0 del esquema es solo de descripciones): el payload declara la versión de su FORMA (enmienda 2026-11-24). */
 export const SCENE_PAYLOAD_SCHEMA_VERSION = '1.0.0';
 
 /** Estilo fijo de la escena (constantes del servidor, no entrada del usuario). */
@@ -35,9 +36,11 @@ export interface BuildScenePayloadInput {
   readonly maxPets: number;
   /** `M`: mascotas asignadas al hogar (incluye las no visibles). */
   readonly totalPets: number;
+  /** Biografía CRUDA por id de mascota (leída del repositorio en el worker); `buildScenePayload` la sanea y nunca la registra. Ausente = sin biografías. */
+  readonly biographies?: ReadonlyMap<string, string | null | undefined>;
 }
 
-function petBlock(pet: SnapshotPet, action: PetBlock['action'], ref: PetBlock['photoRef']): PetBlock {
+function petBlock(pet: SnapshotPet, action: PetBlock['action'], ref: PetBlock['photoRef'], rawBiography: string | null | undefined): PetBlock {
   const speciesOther = pet.species === 'OTHER' ? (sanitizeFreeText(pet.speciesOther) ?? 'animal') : null;
   const hasPhoto = ref !== null;
   return {
@@ -50,15 +53,16 @@ function petBlock(pet: SnapshotPet, action: PetBlock['action'], ref: PetBlock['p
     sex: pet.sex as PetBlock['sex'],
     hasReferencePhoto: hasPhoto,
     photoRef: ref,
+    biography: action === 'REMOVE' ? null : sanitizeBiography(rawBiography),
   };
 }
 
 export function buildScenePayload(input: BuildScenePayloadInput): ScenePayload {
-  const { plan, last, now, householdId, maxPets, totalPets } = input;
+  const { plan, last, now, householdId, maxPets, totalPets, biographies } = input;
   const byId = new Map([...(last?.pets ?? []), ...now.pets].map((p) => [p.id, p]));
   const pets = plan.pets.flatMap((entry) => {
     const pet = byId.get(entry.petId);
-    return pet === undefined ? [] : [petBlock(pet, entry.action, entry.ref)];
+    return pet === undefined ? [] : [petBlock(pet, entry.action, entry.ref, biographies?.get(pet.id))];
   });
   return {
     schemaVersion: SCENE_PAYLOAD_SCHEMA_VERSION,

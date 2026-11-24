@@ -82,6 +82,11 @@ export function selectSceneDispatcher(scene: SceneConfig, options: SceneComposit
   return new InProcessSceneDispatcher((job) => options.run(job, AbortSignal.timeout(timeoutMs)).then(() => undefined), { allowed: true });
 }
 
+/** Registro técnico del generador (solo `scene-generator INVALID_OUTPUT mimeType=<MIME cerrado>`: nunca bytes, prompt ni datos personales). */
+const logSceneGenerator = (line: string): void => {
+  process.stderr.write(`${line}\n`);
+};
+
 /** Generador Vertex AI de la composición `real`: proyecto de la configuración, modelo y región de los parámetros resueltos (o su respaldo de entorno). */
 function composeVertexGenerator(scene: SceneConfig, options: SceneCompositionOptions): SceneServices['generator'] {
   const model = options.providerParameters?.model ?? scene.model;
@@ -94,6 +99,7 @@ function composeVertexGenerator(scene: SceneConfig, options: SceneCompositionOpt
     model,
     ...(read === undefined ? {} : { getParameters: async () => { const p = await read(); return { model: p.model, location: p.location }; } }),
     timeoutSeconds: scene.genTimeoutSeconds,
+    log: logSceneGenerator,
     ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     ...(options.getAccessToken === undefined ? {} : { getAccessToken: () => options.getAccessToken!() }),
   });
@@ -129,7 +135,7 @@ export function composeSceneServices(config: AppConfig, options: SceneCompositio
     generator: real
       ? composeVertexGenerator(scene, options)
       : gemini
-        ? createGeminiApiSceneGenerator({ apiKey: scene.geminiApiKey!, model: scene.geminiModel!, timeoutSeconds: scene.genTimeoutSeconds, ...(options.fetch === undefined ? {} : { fetch: options.fetch }) })
+        ? createGeminiApiSceneGenerator({ apiKey: scene.geminiApiKey!, model: scene.geminiModel!, timeoutSeconds: scene.genTimeoutSeconds, log: logSceneGenerator, ...(options.fetch === undefined ? {} : { fetch: options.fetch }) })
         : new FakeSceneImageGenerator({ mode: 'ok' }),
     dispatcher: selectSceneDispatcher(scene, options),
     ...(options.readPromptBlocks === undefined ? {} : { promptBlocks: options.readPromptBlocks }),

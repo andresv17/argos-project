@@ -290,20 +290,27 @@ describe('getSceneImage (T852): entrega con la etiqueta v solo de caché', () =>
 
 describe('getScene (T914): canRegenerate alineado con limits.allowed y retryAfterSeconds (REQ-ESC6-007, REQ-ESC6-034; INV-ESC6-004)', () => {
   /** Un intento FAILED iniciado hace `ago` segundos con la huella viva (la escena queda `failed`). */
-  async function failedAttempt(t: ReturnType<typeof setup>, ago: number, n = 1): Promise<void> {
+  async function failedAttempt(t: ReturnType<typeof setup>, ago: number, n = 1, outcome: 'FAILED' | 'SUCCEEDED' = 'FAILED'): Promise<void> {
     const fingerprint = await liveFingerprint(t);
     const startedAt = at(-ago);
     await t.h.uow.runInTransaction(async (r) => {
       if (n === 1) await r.scenes.insert(sceneRow());
-      await r.scenes.beginGeneration({ sceneId: SCENE, attempt: attemptRow({ id: `c4000000-0000-4000-8000-00000000000${n}`, resultObjectId: `c3000000-0000-4000-8000-00000000000${n}`, phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', providerCallStartedAt: startedAt, fingerprint, startedAt, finishedAt: startedAt }), now: startedAt, leaseExpiresAt: at(-ago + 1) });
+      await r.scenes.beginGeneration({ sceneId: SCENE, attempt: attemptRow({ id: `c4000000-0000-4000-8000-00000000000${n}`, resultObjectId: `c3000000-0000-4000-8000-00000000000${n}`, phase: 'DONE', outcome, errorCode: outcome === 'FAILED' ? 'ERR-SCENE-GENERATION-FAILED' : null, providerCallStartedAt: startedAt, fingerprint, startedAt, finishedAt: startedAt }), now: startedAt, leaseExpiresAt: at(-ago + 1) });
     });
   }
 
   it('[SC-ESC6-112][SC-ESC6-113] dentro del enfriamiento de 60 s canRegenerate es falso, blockedReason COOLDOWN y retryAfterSeconds el resto exacto (entero)', async () => {
     const t = setup();
-    await failedAttempt(t, 20);
+    await failedAttempt(t, 20, 1, 'SUCCEEDED');
     const view = await t.get.execute(ANDRES, HOUSE);
     expect(view.actions).toEqual({ canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: true, blockedReason: 'COOLDOWN', retryAfterSeconds: 40 });
+  });
+
+  it('[REQ-ESC6-034][SC-ESC6-142] tras un intento FAILED (enmienda 2026-11-24) no hay enfriamiento: a los 20 s canRegenerate es verdadero y retryAfterSeconds null', async () => {
+    const t = setup();
+    await failedAttempt(t, 20);
+    const view = await t.get.execute(ANDRES, HOUSE);
+    expect(view.actions).toEqual({ canUpdate: true, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: null, retryAfterSeconds: null });
   });
 
   it('[SC-ESC6-112][SC-ESC6-113] a los 61 s del intento el enfriamiento venció: canRegenerate verdadero, canUpdate verdadero y retryAfterSeconds null', async () => {
@@ -315,10 +322,10 @@ describe('getScene (T914): canRegenerate alineado con limits.allowed y retryAfte
 
   it('[SC-ESC6-112] a los 60 s exactos el enfriamiento termina (sin segundo extra) y a los 59 s queda 1 s', async () => {
     const exact = setup();
-    await failedAttempt(exact, 60);
+    await failedAttempt(exact, 60, 1, 'SUCCEEDED');
     expect((await exact.get.execute(ANDRES, HOUSE)).actions).toMatchObject({ canRegenerate: true, retryAfterSeconds: null });
     const early = setup();
-    await failedAttempt(early, 59);
+    await failedAttempt(early, 59, 1, 'SUCCEEDED');
     expect((await early.get.execute(ANDRES, HOUSE)).actions).toMatchObject({ canRegenerate: false, retryAfterSeconds: 1 });
   });
 
@@ -331,7 +338,7 @@ describe('getScene (T914): canRegenerate alineado con limits.allowed y retryAfte
 
   it('[SC-ESC6-113] con blockedReason ROLE el retryAfterSeconds real se informa igualmente (el valor por defecto no es bloqueante)', async () => {
     const t = setup();
-    await failedAttempt(t, 20);
+    await failedAttempt(t, 20, 1, 'SUCCEEDED');
     const view = await t.get.execute(MARIA, HOUSE);
     expect(view.actions).toEqual({ canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: false, blockedReason: 'ROLE', retryAfterSeconds: 40 });
   });

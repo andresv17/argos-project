@@ -4,7 +4,7 @@ import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/typ
 import { BREEDS } from '../../src/generated/catalogs/breeds.catalog.ts';
 import { canonicalBreedName, isMixedBreedCode } from '../../src/domain/scene/breed-names.ts';
 import { readFileSync } from 'node:fs';
-import { PIXEL_REDRAW_RULE, PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
+import { PIXEL_REDRAW_RULE, INCREMENTAL_PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
 import { PET_COUNT_RULE, SCENE_SPEC_HEADER, buildSceneSpec } from '../../src/domain/scene/scene-spec.ts';
 import { decideMode } from '../../src/domain/scene/decide-mode.ts';
 import { buildInputsSnapshot, type SnapshotPet } from '../../src/domain/scene/inputs-snapshot.ts';
@@ -105,10 +105,11 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     expect(text).toContain(HOUSEHOLD_GENERIC);
   });
 
-  it('[SC-ESC6-002] con foto de la mascota: «Use IMG_n as the exact visual reference for this <especie>.» con la ranura de photoRef y sin la cola 32-bit', () => {
+  it('[SC-ESC6-002] con foto de la mascota: «Translate this pet from IMG_n into the 16-bit isometric pixel art illustration…» (línea única, orden de Neo 2026-11-24) con la ranura de photoRef y sin la cola 32-bit', () => {
     const text = buildImagePrompt(payload('FROM_SCRATCH', [petBlock(1, { hasReferencePhoto: true, photoRef: 'IMG_3' })]));
-    expect(text).toContain('Pet 1 (dog): Use IMG_3 as the exact visual reference for this dog.');
-    expect(text.includes('faithfully preserving')).toBe(false);
+    expect(text).toContain('Pet 1 (dog): Translate this pet from IMG_3 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.');
+    expect(text.includes('exact visual reference')).toBe(false);
+    expect(text.includes(INCREMENTAL_PRESERVATION_BLOCK)).toBe(false);
     expect(text.includes(SCENE_SPEC_HEADER)).toBe(false);
   });
 
@@ -131,8 +132,8 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     for (const mode of ['FROM_SCRATCH', 'REGENERATE'] as const) {
       const text = buildImagePrompt(payload(mode, [petBlock(1), petBlock(2, { hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { species: 'FELINE', breedCode: 'CAT_SIAMES', breed: 'Siames' })]));
       const lines = text.split('\n').filter((l) => /^Pet \d+ \([^)]*\): /.test(l));
-      expect(lines).toEqual(['Pet 2 (dog): Use IMG_2 as the exact visual reference for this dog.']);
-      expect(jsonBlockOf(text)).toBe('{"renderedPetsCount":2,"pets":[{"index":1,"species":"dog","breed":"mixed-breed","sex":"female"},{"index":3,"species":"cat","breed":"Siamese","sex":"female"}]}');
+      expect(lines).toEqual(['Pet 2 (dog): Translate this pet from IMG_2 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.']);
+      expect(jsonBlockOf(text)).toBe('{"renderedPetsCount":3,"pets":[{"index":1,"species":"dog","breed":"mixed-breed","sex":"female"},{"index":3,"species":"cat","breed":"Siamese","sex":"female"}],"referencePhotoPets":[2]}');
       expect(text).toContain('Place all 3 pets naturally and separately in different cozy spots of the room.');
       expect(text.includes(id(1))).toBe(false);
     }
@@ -157,9 +158,9 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     expect(scratch.indexOf(PIXEL_REDRAW_RULE)).toBeGreaterThan(scratch.indexOf('Place all 2 pets'));
     expect(buildImagePrompt(household).endsWith(PIXEL_REDRAW_RULE)).toBe(true);
     const incremental = buildImagePrompt(addPhoto);
-    expect(incremental.endsWith(`${PRESERVATION_BLOCK}\n\n${PIXEL_REDRAW_RULE}\n\n${STYLE_CLOSING_16}`)).toBe(true); // enmienda 009 (REQ-PRO9-004)
-    expect(scratch.split(PRESERVATION_BLOCK)).toHaveLength(2);
-    expect(buildImagePrompt(household).includes(PRESERVATION_BLOCK)).toBe(false);
+    expect(incremental.endsWith(`${INCREMENTAL_PRESERVATION_BLOCK}\n\n${PIXEL_REDRAW_RULE}\n\n${STYLE_CLOSING_16}`)).toBe(true); // enmienda 009 (REQ-PRO9-004)
+    expect(scratch.split(INCREMENTAL_PRESERVATION_BLOCK)).toHaveLength(1); // orden de Neo 2026-11-24: sin bloque de preservación suelto en desde-cero
+    expect(buildImagePrompt(household).includes(INCREMENTAL_PRESERVATION_BLOCK)).toBe(false);
   });
 
   it('[SC-ESC6-106] sin ningún photoRef PIXEL_REDRAW_RULE aparece 0 veces y el prompt de 0 mascotas sin foto es base + cuarto genérico + regla de conteo (R1: sin JSON ni línea de conteo)', () => {
@@ -176,8 +177,7 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
       [
         STYLE_BASE_TEXT,
         HOUSEHOLD_PHOTO_IMG1,
-        'Pet 1 (dog): Use IMG_2 as the exact visual reference for this dog.\nPet 2 (dog): Use IMG_3 as the exact visual reference for this dog.',
-        PRESERVATION_BLOCK,
+        'Pet 1 (dog): Translate this pet from IMG_2 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.\nPet 2 (dog): Translate this pet from IMG_3 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.',
         'Place all 2 pets naturally and separately in different cozy spots of the room.',
         COUNT_2_DOGS,
         PIXEL_REDRAW_RULE,
@@ -265,11 +265,13 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     }
   });
 
-  it('[SC-ESC6-049][INV-ESC6-017][INV-ESC6-010] biography, fallbackContext e id jamás aparecen en el prompt', () => {
+  it('[SC-ESC6-049][INV-ESC6-017][INV-ESC6-010] fallbackContext e id jamás aparecen en el prompt; la biografía (enmienda 2026-11-24) solo como cadena JSON saneada (campo description, sin regla previa)', () => {
     const p = payload('FROM_SCRATCH', [petBlock(1, { biography: 'Le gusta morder carteros' })]);
     const withContext: ScenePayload = { ...p, household: { ...p.household, fallbackContext: 'Casa con jardin' } };
     const text = buildImagePrompt(withContext);
-    expect([text.includes('carteros'), text.includes('jardin'), text.includes(id(1)), text.includes(id(900))]).toEqual([false, false, false, false]);
+    expect([text.includes('jardin'), text.includes('fallbackContext'), text.includes(id(1)), text.includes(id(900))]).toEqual([false, false, false, false]);
+    expect(text.includes('"description":"Le gusta morder carteros"')).toBe(true);
+    expect(buildImagePrompt(payload('FROM_SCRATCH', [petBlock(1)])).includes('carteros')).toBe(false);
   });
 });
 
@@ -309,7 +311,7 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
         expect(mixed.includes(SCENE_SPEC_HEADER)).toBe(false);
       } else {
         const spec = specOf(mixed);
-        expect(spec.renderedPetsCount).toBe(odd.length);
+        expect(spec.renderedPetsCount).toBe(n); // enmienda 2026-11-24: total visible, no las entradas del JSON
         expect(spec.pets.map((p) => p.index)).toEqual(odd);
         expect(mixed.split(SCENE_SPEC_HEADER)).toHaveLength(2);
       }
@@ -330,7 +332,7 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
   });
 
   it('[SC-ESC6-116][INV-ESC6-010][INV-ESC6-017] el texto completo no contiene household.id, ningún pets[].id, nombres, biography, fallbackContext ni el texto libre de breed', () => {
-    const pets = many(5).map((p, i) => ({ ...p, biography: `biografia-secreta-${i}`, breed: `raza-libre-${i}` }));
+    const pets = many(5).map((p, i) => ({ ...p, breed: `raza-libre-${i}` }));
     const base = payload('FROM_SCRATCH', pets, { photo: true });
     const text = buildImagePrompt({ ...base, household: { ...base.household, fallbackContext: 'contexto-secreto' } });
     for (const leaked of [id(900), ...pets.map((p) => p.id), 'biografia-secreta', 'raza-libre', 'contexto-secreto', 'biography', 'fallbackContext', 'maxPets', 'currentSceneRef', 'totalPetsInHousehold']) expect(text.includes(leaked)).toBe(false);
@@ -381,7 +383,7 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
 
   it('[SC-ESC6-118][SC-ESC6-137] orden de bloques desde cero: estilo, hogar, líneas «Pet k (especie):» (solo con foto), «Place all N pets», JSON (solo sin foto), línea de conteo y PIXEL_REDRAW_RULE (solo con photoRef); sin PET_COUNT_RULE con N >= 1', () => {
     const text = buildImagePrompt(payload('FROM_SCRATCH', [petBlock(1, { hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(2)], { photo: true }));
-    const positions = [STYLE_BASE_TEXT, HOUSEHOLD_PHOTO_IMG1, 'Pet 1 (dog): Use IMG_2 as the exact visual reference for this dog.', PRESERVATION_BLOCK, SCENE_SPEC_HEADER, 'Place all 2 pets', COUNT_2_DOGS, PIXEL_REDRAW_RULE].map((part) => text.indexOf(part));
+    const positions = [STYLE_BASE_TEXT, HOUSEHOLD_PHOTO_IMG1, 'Pet 1 (dog): Translate this pet from IMG_2 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.', SCENE_SPEC_HEADER, 'Place all 2 pets', COUNT_2_DOGS, PIXEL_REDRAW_RULE].map((part) => text.indexOf(part));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(text.endsWith(PIXEL_REDRAW_RULE)).toBe(true);
@@ -399,7 +401,7 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
     expect(spec.pets.map((p) => [p.index, p.species])).toEqual([[1, 'dog'], [2, 'dog'], [3, 'dog']]);
     expect(JSON.stringify(spec)).not.toMatch(/mode|action|household/);
     expect(/^Pet \d+ \(/m.test(text)).toBe(false);
-    const order = ['Apply only these changes', SCENE_SPEC_HEADER, 'Exact animal count: 3 pets in total (3 dogs). Draw only these 3 pets and no additional animals.', PET_COUNT_RULE, PRESERVATION_BLOCK, PIXEL_REDRAW_RULE, STYLE_CLOSING_16].map((part) => text.indexOf(part));
+    const order = ['Apply only these changes', SCENE_SPEC_HEADER, 'Exact animal count: 3 pets in total (3 dogs). Draw only these 3 pets and no additional animals.', PET_COUNT_RULE, INCREMENTAL_PRESERVATION_BLOCK, PIXEL_REDRAW_RULE, STYLE_CLOSING_16].map((part) => text.indexOf(part));
     expect(order.every((p) => p >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(text.endsWith(STYLE_CLOSING_16)).toBe(true);
@@ -413,10 +415,10 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
     expect(text.split(PET_COUNT_RULE)).toHaveLength(2);
   });
 
-  it('[SC-ESC6-116] el número N no está quemado en el código: las constantes de scene-spec.ts no tienen dígitos y el módulo no lee id, nombre, biography, fallbackContext ni breed libre', () => {
+  it('[SC-ESC6-116] el número N no está quemado en el código: las constantes de scene-spec.ts no tienen dígitos y el módulo no lee id, nombre, fallbackContext ni breed libre (la biografía solo entra por sanitizeBiography, enmienda 2026-11-24)', () => {
     const code = readFileSync(new URL('../../src/domain/scene/scene-spec.ts', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     expect(SCENE_SPEC_HEADER).not.toMatch(/\d/);
-    expect(/\.id\b|\.name\b|biography|fallbackContext|\.breed\b|process\.env|Date\.now|Math\.random/.test(code)).toBe(false);
+    expect(/\.id\b|\.name\b|fallbackContext|\.breed\b|process\.env|Date\.now|Math\.random/.test(code)).toBe(false);
   });
 });
 
@@ -483,7 +485,7 @@ describe('buildScenePayload (T841): contrato 1.0.0 extensible', () => {
     expect(JSON.stringify(built).includes('Cabeza')).toBe(false);
   });
 
-  it('[SC-ESC6-049][INV-ESC6-017] el payload saliente nunca lleva biography ni fallbackContext informados', () => {
+  it('[SC-ESC6-049][INV-ESC6-017] el payload saliente sin biografías de entrada no lleva biography informada ni fallbackContext (con ellas, saneadas: t961)', () => {
     const plan = decideMode({ last: null, now, hasImage: false, action: 'UPDATE' })!;
     const built = buildScenePayload({ plan, last: null, now, householdId: id(900), maxPets: 8, totalPets: 2 });
     expect(JSON.stringify(built).includes('fallbackContext')).toBe(false);
@@ -556,8 +558,8 @@ describe('buildImagePrompt (T927): KEEP con foto en incrementales (SC-ESC6-123)'
 
   it('[SC-ESC6-123][INV-ESC6-017] el texto con KEEP con foto no contiene household.id, pets[].id, biography ni fallbackContext, y las claves del JSON son las 16-bit (R5)', () => {
     const payloadBuilt = built();
-    const text = buildImagePrompt({ ...payloadBuilt, pets: payloadBuilt.pets.map((p) => ({ ...p, biography: 'secreto-bio', fallbackContext: 'secreto-ctx' } as PetBlock)) });
-    for (const secret of [id(900), id(1), id(2), id(3), id(4), id(5), id(6), 'secreto-bio', 'secreto-ctx']) expect(text.includes(secret)).toBe(false);
+    const text = buildImagePrompt({ ...payloadBuilt, pets: payloadBuilt.pets.map((p) => ({ ...p, fallbackContext: 'secreto-ctx' } as PetBlock)) });
+    for (const secret of [id(900), id(1), id(2), id(3), id(4), id(5), id(6), 'secreto-ctx']) expect(text.includes(secret)).toBe(false);
     const spec = specOf(text);
     expect(Object.keys(spec)).toEqual(['renderedPetsCount', 'pets']);
     expect(Object.keys(spec.pets[0] ?? {})).toEqual(['index', 'species', 'breed', 'sex']);

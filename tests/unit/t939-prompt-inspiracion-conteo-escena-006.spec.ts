@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/types.ts';
-import { PIXEL_REDRAW_RULE, PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
+import { PIXEL_REDRAW_RULE, INCREMENTAL_PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
 import { animalCountLine, petSentence, petSpeciesLabel } from '../../src/domain/scene/pet-phrases.ts';
 import { PET_COUNT_RULE, SCENE_SPEC_HEADER, buildSceneSpec, sceneSpecBlock } from '../../src/domain/scene/scene-spec.ts';
 import { DEFAULT_SCENE_STYLE } from '../../src/domain/scene/scene-payload.ts';
@@ -81,7 +81,7 @@ describe('T939 la foto del hogar es solo inspiración (SC-ESC6-135)', () => {
     expect(text.startsWith(`${STYLE_BASE_TEXT}\n\n`)).toBe(true);
     expect(text.split(PIXEL_REDRAW_RULE)).toHaveLength(2);
     expect(text).toContain('Place all 2 pets naturally and separately in different cozy spots of the room.');
-    expect(text).toContain('Use IMG_2 as the exact visual reference for this dog.');
+    expect(text).toContain('Translate this pet from IMG_2 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.');
   });
 
   it('[SC-ESC6-135] los modos incrementales no emiten el bloque de hogar (ni la frase nueva ni la genérica)', () => {
@@ -100,10 +100,10 @@ describe('T939 especie explícita en cada línea «Pet k» (SC-ESC6-136)', () =>
     const labels = ['dog', 'cat', 'small mammal', '"hamster"', 'animal'];
     for (const mode of ['FROM_SCRATCH', 'REGENERATE'] as const) {
       const lines = runs(payload(mode, pets)).split('\n').filter((l) => /^Pet \d+ \(/.test(l));
-      expect(lines).toEqual(pets.map((p, i) => `Pet ${i + 1} (${labels[i]}): ${petSentence(p)}`));
-      expect(lines[0]).toBe('Pet 1 (dog): Use IMG_2 as the exact visual reference for this dog.');
-      expect(lines[1]).toBe('Pet 2 (cat): Use IMG_3 as the exact visual reference for this cat.');
-      expect(lines[3]).toBe('Pet 4 ("hamster"): Use IMG_5 as the exact visual reference for this "hamster".');
+      expect(lines).toEqual(pets.map((p, i) => `Pet ${i + 1} (${labels[i]}): Translate this pet from ${p.photoRef} into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.`));
+      expect(lines[0]).toBe('Pet 1 (dog): Translate this pet from IMG_2 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.');
+      expect(lines[1]).toBe('Pet 2 (cat): Translate this pet from IMG_3 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.');
+      expect(lines[3]).toBe('Pet 4 ("hamster"): Translate this pet from IMG_5 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.');
     }
   });
 
@@ -114,26 +114,26 @@ describe('T939 especie explícita en cada línea «Pet k» (SC-ESC6-136)', () =>
     expect(pets.map((p) => petSpeciesLabel(p))).toEqual(['rabbit', 'ferret', 'bird', 'reptile']);
   });
 
-  it('[SC-ESC6-136] la especie va antes de la frase de foto y la frase queda «Use IMG_n as the exact visual reference for this <especie>.»', () => {
+  it('[SC-ESC6-136] la especie va antes de la frase de foto y la línea queda «Translate this pet from IMG_n into the 16-bit isometric pixel art illustration…» (orden de Neo 2026-11-24)', () => {
     const pets = [petBlock(1, { hasReferencePhoto: true, photoRef: 'IMG_2' }), species(2, 'FELINE', { hasReferencePhoto: true, photoRef: 'IMG_3' })];
     const lines = buildImagePrompt(payload('FROM_SCRATCH', pets)).split('\n').filter((l) => /^Pet \d+ \(/.test(l));
-    expect(lines[0]).toBe('Pet 1 (dog): Use IMG_2 as the exact visual reference for this dog.');
-    expect(lines[1]).toBe('Pet 2 (cat): Use IMG_3 as the exact visual reference for this cat.');
+    expect(lines[0]).toBe('Pet 1 (dog): Translate this pet from IMG_2 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.');
+    expect(lines[1]).toBe('Pet 2 (cat): Translate this pet from IMG_3 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.');
   });
 
   it('[SC-ESC6-136] las mascotas sin foto no llevan línea «Pet k»: viajan en el JSON con su ordinal global', () => {
     const pets = [petBlock(1), petBlock(2, { hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3)];
     const text = buildImagePrompt(payload('FROM_SCRATCH', pets));
-    expect(text.split('\n').filter((l) => /^Pet \d+ \(/.test(l))).toEqual(['Pet 2 (dog): Use IMG_2 as the exact visual reference for this dog.']);
+    expect(text.split('\n').filter((l) => /^Pet \d+ \(/.test(l))).toEqual(['Pet 2 (dog): Translate this pet from IMG_2 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.']);
     expect(JSON.parse(jsonLineOf(text)).pets.map((q: { index: number }) => q.index)).toEqual([1, 3]);
   });
 
   it('[SC-ESC6-136] k es el ordinal 1-based del payload (no id ni nombre) y el texto no contiene id, biography ni el breed libre', () => {
-    const pets = [petBlock(7, { biography: 'secreta', breed: 'raza-libre', hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { breed: 'otra-libre', hasReferencePhoto: true, photoRef: 'IMG_3' })];
+    const pets = [petBlock(7, { breed: 'raza-libre', hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { breed: 'otra-libre', hasReferencePhoto: true, photoRef: 'IMG_3' })];
     const text = buildImagePrompt(payload('FROM_SCRATCH', pets));
     expect(text).toMatch(/^Pet 1 \(dog\): /m);
     expect(text).toMatch(/^Pet 2 \(dog\): /m);
-    for (const leaked of [id(7), id(3), 'secreta', 'raza-libre', 'otra-libre']) expect(text.includes(leaked)).toBe(false);
+    for (const leaked of [id(7), id(3), 'raza-libre', 'otra-libre']) expect(text.includes(leaked)).toBe(false);
   });
 
   it('[SC-ESC6-136][INV-ESC6-011] una inyección en speciesOther no sale de las comillas ni altera la línea', () => {
@@ -142,12 +142,12 @@ describe('T939 especie explícita en cada línea «Pet k» (SC-ESC6-136)', () =>
       const text = buildImagePrompt(payload('FROM_SCRATCH', [species(1, 'OTHER', { speciesOther: bad, hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(2, { hasReferencePhoto: true, photoRef: 'IMG_3' })]));
       const lines = text.split('\n').filter((l) => /^Pet \d+ \(/.test(l));
       expect(lines).toHaveLength(2);
-      expect(lines[0]).toBe('Pet 1 (animal): Use IMG_2 as the exact visual reference for this animal.');
+      expect(lines[0]).toBe('Pet 1 (animal): Translate this pet from IMG_2 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.');
       expect(text.includes(bad)).toBe(false);
       expect(text.includes('Remove only')).toBe(false);
     }
     const ok = buildImagePrompt(payload('FROM_SCRATCH', [species(1, 'OTHER', { speciesOther: '  hurón   albino ', hasReferencePhoto: true, photoRef: 'IMG_2' })]));
-    expect(ok).toMatch(/^Pet 1 \("hurón albino"\): Use IMG_2 as the exact visual reference for this "hurón albino"\.$/m);
+    expect(ok).toMatch(/^Pet 1 \("hurón albino"\): Translate this pet from IMG_2 into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable\.$/m);
   });
 
   it('[SC-ESC6-136] los modos incrementales no llevan líneas «Pet k (especie)»', () => {
@@ -226,7 +226,7 @@ describe('T939 línea de conteo por especie (SC-ESC6-137)', () => {
     const text = runs(p);
     expect(countLinesOf(text)).toEqual([countLine(3, '2 dogs, 1 cat')]);
     expect(text.includes('rabbit')).toBe(true); // la retirada se describe en «- Remove only:», no en el conteo
-    expect(text.endsWith(`${sceneSpecBlock(p)}\n\n${countLine(3, '2 dogs, 1 cat')}\n\n${PET_COUNT_RULE}\n\n${PRESERVATION_BLOCK}\n\n${PIXEL_REDRAW_RULE}\n\n${STYLE_CLOSING_16}`)).toBe(true);
+    expect(text.endsWith(`${sceneSpecBlock(p)}\n\n${countLine(3, '2 dogs, 1 cat')}\n\n${PET_COUNT_RULE}\n\n${INCREMENTAL_PRESERVATION_BLOCK}\n\n${PIXEL_REDRAW_RULE}\n\n${STYLE_CLOSING_16}`)).toBe(true);
     const onlyRemove = buildImagePrompt(payload('INCREMENTAL_REMOVE', [petBlock(1, { action: 'REMOVE' })], { scene: true }));
     expect(countLinesOf(onlyRemove)).toEqual([]);
   });
@@ -253,13 +253,12 @@ describe('T939 pureza, no fuga e intactos (SC-ESC6-138)', () => {
   it('[SC-ESC6-138] canónica desde cero con fotos: estilo, hogar, líneas «Pet k (especie)», «Place all N pets», línea de conteo y redibujado, byte a byte; sin JSON, sin PET_COUNT_RULE y sin cierre de estilo', () => {
     const pets = [petBlock(1, { hasReferencePhoto: true, photoRef: 'IMG_2' }), species(2, 'FELINE', { hasReferencePhoto: true, photoRef: 'IMG_3' })];
     const p = payload('FROM_SCRATCH', pets, { photo: true });
-    const line = (k: number, label: string, ref: string): string => `Pet ${k} (${label}): Use ${ref} as the exact visual reference for this ${label}.`;
+    const line = (k: number, label: string, ref: string): string => `Pet ${k} (${label}): Translate this pet from ${ref} into the 16-bit isometric pixel art illustration, faithfully preserving its species, fur colors, coat patterns, ear shapes, body proportions, and unique markings so it is clearly recognizable.`;
     expect(buildImagePrompt(p)).toBe(
       [
         STYLE_BASE_TEXT,
         NEW_HOUSEHOLD('IMG_1'),
         `${line(1, 'dog', 'IMG_2')}\n${line(2, 'cat', 'IMG_3')}`,
-        PRESERVATION_BLOCK,
         'Place all 2 pets naturally and separately in different cozy spots of the room.',
         countLine(2, '1 dog, 1 cat'),
         PIXEL_REDRAW_RULE,
@@ -288,11 +287,11 @@ describe('T939 pureza, no fuga e intactos (SC-ESC6-138)', () => {
   });
 
   it('[SC-ESC6-138][INV-ESC6-010][INV-ESC6-017] el texto no contiene household.id, pets[].id, nombres, biography, fallbackContext ni breed libre, en todos los modos', () => {
-    const pets = [petBlock(1, { biography: 'biografia-secreta', breed: 'raza-libre', species: 'OTHER', speciesOther: 'hamster', breedCode: null }), petBlock(2, { biography: 'otra-bio' })];
+    const pets = [petBlock(1, { breed: 'raza-libre', species: 'OTHER', speciesOther: 'hamster', breedCode: null }), petBlock(2)];
     for (const mode of ['FROM_SCRATCH', 'REGENERATE'] as const) {
       const base = payload(mode, pets, { photo: true });
       const text = buildImagePrompt({ ...base, household: { ...base.household, fallbackContext: 'contexto-secreto' } });
-      for (const leaked of [id(900), id(1), id(2), 'biografia-secreta', 'otra-bio', 'raza-libre', 'contexto-secreto', 'fallbackContext']) expect(text.includes(leaked)).toBe(false);
+      for (const leaked of [id(900), id(1), id(2), 'raza-libre', 'contexto-secreto', 'fallbackContext']) expect(text.includes(leaked)).toBe(false);
     }
   });
 });

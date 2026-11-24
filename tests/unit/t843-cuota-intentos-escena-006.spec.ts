@@ -64,7 +64,7 @@ describe('quota-window (T843): restante y reinicio mensual', () => {
 
 describe('attempt-limits (T843): enfriamiento y topes de intentos iniciados (REQ-ESC6-034)', () => {
   const NOW = '2026-11-05T12:00:00.000Z';
-  const base = { now: NOW, lastStartedAt: null, failedInWindow: 0, oldestFailedStartedAt: null, startedByActor: 0, oldestActorStartedAt: null };
+  const base = { now: NOW, lastStartedAt: null, lastOutcome: null, failedInWindow: 0, oldestFailedStartedAt: null, startedByActor: 0, oldestActorStartedAt: null };
 
   it('[SC-ESC6-078] las constantes son 60 s, 3 fallidos por escena y 12 iniciados por actor en 24 h', () => {
     expect([ATTEMPT_COOLDOWN_SECONDS, MAX_FAILED_ATTEMPTS_PER_SCENE, MAX_STARTED_ATTEMPTS_PER_ACTOR, ATTEMPT_WINDOW_SECONDS]).toEqual([60, 3, 12, 86400]);
@@ -75,9 +75,9 @@ describe('attempt-limits (T843): enfriamiento y topes de intentos iniciados (REQ
   });
 
   it('[SC-ESC6-078] dentro de los 60 s siguientes a otro intento de la escena: COOLDOWN con Retry-After en segundos redondeados hacia arriba', () => {
-    expect(evaluateAttemptLimits({ ...base, lastStartedAt: '2026-11-05T11:59:30.500Z' })).toEqual({ allowed: false, reason: 'COOLDOWN', retryAfterSeconds: 31 });
-    expect(evaluateAttemptLimits({ ...base, lastStartedAt: '2026-11-05T11:59:00.000Z' })).toEqual({ allowed: true });
-    expect(evaluateAttemptLimits({ ...base, lastStartedAt: '2026-11-05T11:58:59.999Z' })).toEqual({ allowed: true });
+    expect(evaluateAttemptLimits({ ...base, lastStartedAt: '2026-11-05T11:59:30.500Z', lastOutcome: 'SUCCEEDED' as const })).toEqual({ allowed: false, reason: 'COOLDOWN', retryAfterSeconds: 31 });
+    expect(evaluateAttemptLimits({ ...base, lastStartedAt: '2026-11-05T11:59:00.000Z', lastOutcome: 'SUCCEEDED' as const })).toEqual({ allowed: true });
+    expect(evaluateAttemptLimits({ ...base, lastStartedAt: '2026-11-05T11:58:59.999Z', lastOutcome: 'SUCCEEDED' as const })).toEqual({ allowed: true });
   });
 
   it('[SC-ESC6-072][EDGE-ESC6-029] a partir de 3 intentos FAILED de la escena en 24 h se rechaza; con 2 se permite', () => {
@@ -95,13 +95,13 @@ describe('attempt-limits (T843): enfriamiento y topes de intentos iniciados (REQ
   });
 
   it('[SC-ESC6-072] precedencia determinista cuando varias reglas fallan a la vez: enfriamiento, luego fallidos de la escena, luego actor', () => {
-    const all = { ...base, lastStartedAt: '2026-11-05T11:59:59.000Z', failedInWindow: 3, startedByActor: 12 };
+    const all = { ...base, lastStartedAt: '2026-11-05T11:59:59.000Z', lastOutcome: 'SUCCEEDED' as const, failedInWindow: 3, startedByActor: 12 };
     expect(evaluateAttemptLimits(all)).toMatchObject({ reason: 'COOLDOWN' });
     expect(evaluateAttemptLimits({ ...all, lastStartedAt: null })).toMatchObject({ reason: 'FAILED_LIMIT' });
     expect(evaluateAttemptLimits({ ...all, lastStartedAt: null, failedInWindow: 0 })).toMatchObject({ reason: 'ACTOR_LIMIT' });
   });
 
   it('[INV-ESC6-004] un fallo no descuenta cuota: la evaluación solo mira conteos y no tiene parámetro de consumo; no hay bloqueo por huella (N2-03 = A)', () => {
-    expect(Object.keys(base).sort()).toEqual(['failedInWindow', 'lastStartedAt', 'now', 'oldestActorStartedAt', 'oldestFailedStartedAt', 'startedByActor']);
+    expect(Object.keys(base).sort()).toEqual(['failedInWindow', 'lastOutcome', 'lastStartedAt', 'now', 'oldestActorStartedAt', 'oldestFailedStartedAt', 'startedByActor']);
   });
 });

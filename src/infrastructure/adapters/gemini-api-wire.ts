@@ -7,6 +7,7 @@
  */
 
 import type { SceneReferenceImage } from '../../application/ports/scene-image-generator.port.ts';
+import { REFERENCE_LABEL_PATTERN } from '../../domain/scene/reference-labels.ts';
 
 /** Host y prefijo de la Developer API de Gemini: constantes (solo este archivo y el adaptador pueden nombrarlos, T889). */
 export const GEMINI_API_ORIGIN = 'https://generativelanguage.googleapis.com';
@@ -33,9 +34,12 @@ export const isSafeGeminiKey = (key: string): boolean => KEY_PATTERN.test(key);
 /** URL exacta de `generateContent` (sin consulta y sin la clave). */
 export const geminiGenerateUrl = (model: string): string => `${GEMINI_API_ORIGIN}${GEMINI_API_PATH_PREFIX}${model}:generateContent`;
 
+const closedLabel = (r: SceneReferenceImage): string => (r.label !== undefined && REFERENCE_LABEL_PATTERN.test(r.label) && r.label.startsWith(`${r.ref} `) ? r.label : `${r.ref}:`);
+
 /**
  * Cuerpo `generateContent`: el texto del prompt primero y luego cada referencia en el orden recibido (`IMG_1..IMG_n`, ya fijado por el worker), con una parte de texto
- * `IMG_n:` antepuesta a cada `inlineData` para que el modelo asocie cada imagen con su etiqueta (SC-ESC6-104). La etiqueta es la del puerto (cadena fija de ranura, sin datos de usuario).
+ * etiqueta antepuesta a cada `inlineData` para que el modelo asocie cada imagen con su etiqueta (SC-ESC6-104): la semántica cerrada del puerto (`IMG_2 (Pet 1 - dog):`, solo enums
+ * de dominio) si cumple `REFERENCE_LABEL_PATTERN` y coincide con su `ref`; si no, `IMG_n:`. Nunca nombres ni texto libre.
  */
 export function buildGeminiBody(prompt: string, references: ReadonlyArray<SceneReferenceImage>, modalities: GeminiModalities, seed: number): string {
   return JSON.stringify({
@@ -44,7 +48,7 @@ export function buildGeminiBody(prompt: string, references: ReadonlyArray<SceneR
         role: 'user',
         parts: [
           { text: prompt },
-          ...references.flatMap((r) => [{ text: `${r.ref}:` }, { inlineData: { mimeType: r.mime, data: Buffer.from(r.bytes).toString('base64') } }]),
+          ...references.flatMap((r) => [{ text: closedLabel(r) }, { inlineData: { mimeType: r.mime, data: Buffer.from(r.bytes).toString('base64') } }]),
         ],
       },
     ],
@@ -84,14 +88,14 @@ const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 export const base64DecodedLength = (data: string): number => Math.floor((data.length * 3) / 4);
 
 export type GeminiDecoded =
-  | { readonly ok: true; readonly mime: 'image/png' | 'image/webp'; readonly bytes: Uint8Array }
+  | { readonly ok: true; readonly mime: 'image/png' | 'image/webp' | 'image/jpeg'; readonly bytes: Uint8Array }
   | { readonly ok: false };
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const ascii = (b: Uint8Array, at: number, n: number): string => String.fromCharCode(...b.subarray(at, at + n));
 
 /**
- * Decodifica el base64 con tope y NO confía en el `mimeType` del proveedor: el tipo sale de la firma de los bytes (PNG o WebP) y debe coincidir con el declarado. La
+ * Decodifica el base64 con tope y NO confía en el `mimeType` del proveedor: el tipo sale de la firma de los bytes (PNG, WebP o JPEG; JPEG por enmienda Nivel 2 de REQ-ESC6-035) y debe coincidir con el declarado. La
  * reescritura por lista blanca (sin `tEXt`) la hace después `validateOutput` del worker (REQ-ESC6-035).
  */
 export function decodeGeminiImage(mimeType: string, data: string, maxBytes: number): GeminiDecoded {
@@ -100,5 +104,17 @@ export function decodeGeminiImage(mimeType: string, data: string, maxBytes: numb
   if (bytes.length === 0 || bytes.length > maxBytes) return { ok: false };
   if (bytes.length >= 8 && PNG_SIGNATURE.every((x, i) => bytes[i] === x)) return mimeType === 'image/png' ? { ok: true, mime: 'image/png', bytes } : { ok: false };
   if (bytes.length >= 12 && ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP') return mimeType === 'image/webp' ? { ok: true, mime: 'image/webp', bytes } : { ok: false };
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return mimeType === 'image/jpeg' ? { ok: true, mime: 'image/jpeg', bytes } : { ok: false };
   return { ok: false };
 }
+
+const CLOSED_MIME_TYPES = new Set(['image/png', 'image/webp', 'image/jpeg', 'image/gif', 'image/bmp', 'image/tiff', 'image/svg+xml', 'image/avif', 'image/heic', 'application/octet-stream']);
+
+/**
+ * Tipo MIME declarado por el proveedor reducido a un conjunto CERRADO para el registro técnico de `INVALID_OUTPUT`: lo que no sea exactamente uno de la lista (parámetros,
+ * mayúsculas, texto libre) sale como `other`. Nunca bytes, prompt ni datos personales.
+ */
+export const closedMimeType = (mimeType: string): string => (CLOSED_MIME_TYPES.has(mimeType) ? mimeType : 'other');
+
+/** Línea del registro técnico de un fallo de salida (solo el MIME cerrado). */
+export const invalidOutputLogLine = (mimeType: string): string => `scene-generator INVALID_OUTPUT mimeType=${closedMimeType(mimeType)}`;

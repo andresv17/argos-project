@@ -74,7 +74,7 @@ function defineBattery(name: string, create: Factory, dispose: () => Promise<voi
         actor: await r.scenes.countAttemptsByActor(ANDRES.id, at(0)),
       }));
       expect(result).toEqual({ failed: { count: 0, oldestAt: null }, actor: 0 });
-      const limits = evaluateAttemptLimits({ now: at(2000), lastStartedAt: at(300), failedInWindow: result.failed.count, oldestFailedStartedAt: result.failed.oldestAt, startedByActor: result.actor, oldestActorStartedAt: null });
+      const limits = evaluateAttemptLimits({ now: at(2000), lastStartedAt: at(300), lastOutcome: 'FAILED', failedInWindow: result.failed.count, oldestFailedStartedAt: result.failed.oldestAt, startedByActor: result.actor, oldestActorStartedAt: null });
       expect(limits).toEqual({ allowed: true });
     });
 
@@ -99,12 +99,24 @@ function defineBattery(name: string, create: Factory, dispose: () => Promise<voi
       expect(await uow.runInTransaction((r) => r.scenes.countAttemptsByActor(ANDRES.id, at(0)))).toBe(0);
     });
 
-    it('[SC-009-043][EDGE-009-030] el cooldown de 60 s se mantiene para todo intento, con o sin marca (lastAttemptStartedAt y countAttemptsByScene no filtran)', async () => {
+    it('[SC-009-043][EDGE-009-030] el cooldown de 60 s se mantiene tras SUCCEEDED (enmienda 2026-11-24: tras FAILED es 0); lastAttemptStartedAt y countAttemptsByScene no filtran', async () => {
       const uow = await prepare();
-      await put(uow, 1, closed('FAILED', 100, false));
+      await put(uow, 1, closed('SUCCEEDED', 100, false));
       const seen = await uow.runInTransaction(async (r) => [await r.scenes.lastAttemptStartedAt(SCENE_ID), await r.scenes.countAttemptsByScene(SCENE_ID, at(0))]);
       expect(seen).toEqual([at(100), 1]);
-      expect(evaluateAttemptLimits({ now: at(130), lastStartedAt: at(100), failedInWindow: 0, oldestFailedStartedAt: null, startedByActor: 0, oldestActorStartedAt: null })).toMatchObject({ allowed: false, reason: 'COOLDOWN' });
+      expect(evaluateAttemptLimits({ now: at(130), lastStartedAt: at(100), lastOutcome: 'SUCCEEDED', failedInWindow: 0, oldestFailedStartedAt: null, startedByActor: 0, oldestActorStartedAt: null })).toMatchObject({ allowed: false, reason: 'COOLDOWN' });
+    });
+
+    it('[REQ-ESC6-034][SC-ESC6-142] lastAttemptOutcome devuelve el resultado del intento MÁS RECIENTE (null sin intentos o con el último en vuelo)', async () => {
+      const uow = await prepare();
+      expect(await uow.runInTransaction((r) => r.scenes.lastAttemptOutcome(SCENE_ID))).toBeNull();
+      await put(uow, 1, closed('SUCCEEDED', 100, true));
+      await put(uow, 2, closed('FAILED', 200, false));
+      expect(await uow.runInTransaction((r) => r.scenes.lastAttemptOutcome(SCENE_ID))).toBe('FAILED');
+      await put(uow, 3, closed('CANCELLED', 300, false));
+      expect(await uow.runInTransaction((r) => r.scenes.lastAttemptOutcome(SCENE_ID))).toBe('CANCELLED');
+      await put(uow, 4, { startedAt: at(400) });
+      expect(await uow.runInTransaction((r) => r.scenes.lastAttemptOutcome(SCENE_ID))).toBeNull();
     });
 
     it('[EDGE-009-041][REQ-LIM9-002] cancelStaleUnmarkedAttempts cierra CANCELLED sin llamada el intento sin outcome ni marca iniciado antes del plazo; deja intactos los marcados, los recientes y los de otra escena/actor; libera la escena', async () => {
@@ -156,7 +168,7 @@ function defineBattery(name: string, create: Factory, dispose: () => Promise<voi
     });
 
     it('[EDGE-009-043] con 20 intentos cerrados sin llamada en 24 h la evaluación responde FAILED_LIMIT (mismo código); con 19 permite; el valor máximo entra como dato', () => {
-      const base = { now: at(5000), lastStartedAt: at(1), failedInWindow: 0, oldestFailedStartedAt: null, startedByActor: 0, oldestActorStartedAt: null };
+      const base = { now: at(5000), lastStartedAt: at(1), lastOutcome: null, failedInWindow: 0, oldestFailedStartedAt: null, startedByActor: 0, oldestActorStartedAt: null };
       expect(evaluateAttemptLimits({ ...base, closedWithoutCall: { count: 19, oldestAt: at(10), max: 20 } })).toEqual({ allowed: true });
       expect(evaluateAttemptLimits({ ...base, closedWithoutCall: { count: 20, oldestAt: at(10), max: 20 } })).toEqual({ allowed: false, reason: 'FAILED_LIMIT', retryAfterSeconds: 86_400 + 10 - 5000 });
     });
@@ -240,6 +252,7 @@ describe('sin migración nueva por #60 (REQ-LIM9-005, SC-009-041)', () => {
     const mentions = readdirSync(dir)
       .filter((f) => f.endsWith('.sql'))
       .filter((f) => readFileSync(join(dir, f), 'utf8').includes('provider_call_started_at'));
-    expect(mentions).toEqual([engine === 'sqlite' ? '0013_home_scenes.sql' : '0009_home_scenes.sql']);
+    // La 0024 de SQLite (006, enmienda N2 JPEG) reconstruye `scene_attempts` y copia la columna tal cual: la declara de nuevo, sin alterarla ni indexarla.
+    expect(mentions).toEqual(engine === 'sqlite' ? ['0013_home_scenes.sql', '0024_home_scenes_image_mime_jpeg.sql'] : ['0009_home_scenes.sql']);
   });
 });

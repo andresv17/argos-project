@@ -176,7 +176,23 @@ describe('validateGeneratedImage (T848): validación de la salida por firma (REQ
     expect(validateGeneratedImage('image/webp', riff([vp8l(2, 2)]), LIMIT)).toMatchObject({ ok: true, mime: 'image/webp' });
   });
 
-  it('[SC-ESC6-085][SC-ESC6-072] termina ERR-SCENE-INVALID-IMAGE: JPEG, tipo declarado distinto de la firma, vacía, APNG, WebP animado, mayor que el tope y más de 25 MP', () => {
+  it('[REQ-ESC6-035] (enmienda N2 JPEG) acepta image/jpeg con la reescritura por lista blanca: sin EXIF/GPS/comentarios ni bytes tras EOI, dimensiones en límites', () => {
+    const input = jpeg([seg(0xe0, enc('JFIF\0')), seg(0xe1, GPS), seg(0xfe, enc('comentario'))], enc('PK\x03\x04zip'));
+    const verdict = validateGeneratedImage('image/jpeg', input, LIMIT);
+    expect(verdict).toMatchObject({ ok: true, mime: 'image/jpeg' });
+    if (!verdict.ok) return;
+    expect(hasBytes(verdict.bytes, GPS)).toBe(false);
+    expect(hasBytes(verdict.bytes, enc('comentario'))).toBe(false);
+    expect(hasBytes(verdict.bytes, enc('PK'))).toBe(false);
+    expect(Array.from(verdict.bytes.slice(-2))).toEqual([0xff, 0xd9]);
+    const big = Uint8Array.from([0xff, 0xd8, ...seg(0xdb, new Array(65).fill(1)), ...seg(0xc0, [8, 0x1f, 0xff, 0x1f, 0xff, 1, 1, 0x11, 0]), ...seg(0xda, [1, 1, 0, 0, 63, 0]), 1, 0xff, 0xd9]);
+    expect(validateGeneratedImage('image/jpeg', big, LIMIT)).toEqual({ ok: false, code: 'ERR-SCENE-INVALID-IMAGE' });
+    expect(validateGeneratedImage('image/jpeg', input, input.length - 1)).toEqual({ ok: false, code: 'ERR-SCENE-INVALID-IMAGE' });
+    expect(validateGeneratedImage('image/png', input, LIMIT)).toEqual({ ok: false, code: 'ERR-SCENE-INVALID-IMAGE' });
+    expect(validateGeneratedImage('image/jpeg', okPng, LIMIT)).toEqual({ ok: false, code: 'ERR-SCENE-INVALID-IMAGE' });
+  });
+
+  it('[SC-ESC6-085][SC-ESC6-072] termina ERR-SCENE-INVALID-IMAGE: JPEG declarado PNG, tipo declarado distinto de la firma, vacía, APNG, WebP animado, mayor que el tope y más de 25 MP', () => {
     const invalid = { ok: false, code: 'ERR-SCENE-INVALID-IMAGE' };
     expect(validateGeneratedImage('image/png', jpeg([]), LIMIT)).toEqual(invalid);
     expect(validateGeneratedImage('image/webp', okPng, LIMIT)).toEqual(invalid);

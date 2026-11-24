@@ -35,6 +35,10 @@ class CountingQuota implements SceneGlobalQuotaPort {
     if (this.afterConsume !== null) await this.afterConsume();
     return true;
   }
+  /** Lectura sin consumo (REQ-ESC6-039): este doble nunca está agotado. */
+  async isExhausted(): Promise<boolean> {
+    return false;
+  }
   async refund(): Promise<void> {
     this.refundCalls += 1;
     if (this.used > 0) this.used -= 1;
@@ -143,7 +147,7 @@ describe('sobreconteo conservador ante caída física (T1280, EDGE-009-042, P5-0
     const db = openSqliteDatabase(IN_MEMORY_DATABASE);
     const quota = SqlSceneGlobalQuota.forSqlite(db, { readMax: async () => 5, now: () => NOW });
     const used = (): number => Number((db.prepare('SELECT value FROM platform_parameters WHERE key = ?').get(`${SCENE_GLOBAL_QUOTA_USED_PREFIX}${WINDOW}`) as { value: string } | undefined)?.value ?? '0');
-    const wrapped: SceneGlobalQuotaPort = { tryConsume: (w) => quota.tryConsume(w).then((ok) => (hook.fn(), ok)), refund: (w) => quota.refund(w) };
+    const wrapped: SceneGlobalQuotaPort = { tryConsume: (w) => quota.tryConsume(w).then((ok) => (hook.fn(), ok)), refund: (w) => quota.refund(w), isExhausted: async () => false };
     return { quota: wrapped, used, crashAfterConsume: (t) => (hook.fn = () => void (t.crashing.crash = true)) };
   };
   const pgMaker = (): ReturnType<Maker['make']> => {
@@ -159,12 +163,12 @@ describe('sobreconteo conservador ante caída física (T1280, EDGE-009-042, P5-0
       },
     };
     const quota = SqlSceneGlobalQuota.forPostgres(client, { readMax: async () => 5, now: () => NOW });
-    const wrapped: SceneGlobalQuotaPort = { tryConsume: (w) => quota.tryConsume(w).then((ok) => (hook.fn(), ok)), refund: (w) => quota.refund(w) };
+    const wrapped: SceneGlobalQuotaPort = { tryConsume: (w) => quota.tryConsume(w).then((ok) => (hook.fn(), ok)), refund: (w) => quota.refund(w), isExhausted: async () => false };
     return { quota: wrapped, used: () => value, crashAfterConsume: (t) => (hook.fn = () => void (t.crashing.crash = true)) };
   };
   const memoryMaker = (): ReturnType<Maker['make']> => {
     const q = new CountingQuota();
-    const wrapped: SceneGlobalQuotaPort = { tryConsume: () => q.tryConsume().then((ok) => (hook.fn(), ok)), refund: () => q.refund() };
+    const wrapped: SceneGlobalQuotaPort = { tryConsume: () => q.tryConsume().then((ok) => (hook.fn(), ok)), refund: () => q.refund(), isExhausted: async () => false };
     return { quota: wrapped, used: () => q.used, crashAfterConsume: (t) => (hook.fn = () => void (t.crashing.crash = true)) };
   };
   const hook = { fn: (): void => undefined };
@@ -185,8 +189,8 @@ describe('sobreconteo conservador ante caída física (T1280, EDGE-009-042, P5-0
     expect(snap(t).sceneAttempts?.[0]?.providerCallStartedAt ?? null).toBeNull();
   });
 
-  it('[EDGE-009-042] no existe reconciliación: el puerto de cuota solo expone tryConsume y refund, y tryConsume y la marca NO comparten transacción (el contador queda descontado tras la caída: sobreconteo, no gasto sin descontar)', () => {
+  it('[EDGE-009-042] no existe reconciliación: el puerto de cuota solo expone tryConsume, refund y la lectura sin consumo isExhausted (REQ-ESC6-039), y tryConsume y la marca NO comparten transacción (el contador queda descontado tras la caída: sobreconteo, no gasto sin descontar)', () => {
     const methods = Object.getOwnPropertyNames(SqlSceneGlobalQuota.prototype).filter((m) => m !== 'constructor');
-    expect(methods.sort()).toEqual(['refund', 'tryConsume']);
+    expect(methods.sort()).toEqual(['isExhausted', 'refund', 'tryConsume']);
   });
 });

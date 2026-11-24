@@ -14,6 +14,8 @@ export interface SceneReferenceImage {
   readonly ref: `IMG_${number}`;
   readonly mime: string;
   readonly bytes: Uint8Array;
+  /** Etiqueta semántica CERRADA (`IMG_2 (Pet 1 - dog):`, solo enums de dominio; `reference-labels.ts`); el cableado la valida y, si falta o no cumple, usa `IMG_n:`. */
+  readonly label?: string;
 }
 
 export interface SceneGenerationRequest {
@@ -27,7 +29,7 @@ export interface SceneGenerationRequest {
 }
 
 export type SceneGenerationResult =
-  | { readonly ok: true; readonly image: { readonly mime: 'image/png' | 'image/webp'; readonly bytes: Uint8Array } }
+  | { readonly ok: true; readonly image: { readonly mime: 'image/png' | 'image/webp' | 'image/jpeg'; readonly bytes: Uint8Array } }
   | { readonly ok: false; readonly code: SceneErrorCode };
 
 export interface SceneImageGeneratorPort {

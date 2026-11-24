@@ -237,7 +237,7 @@ export function fitReferencesWithinBudget(sizes: readonly number[], limit: numbe
 }
 
 export type OutputVerdict =
-  | { readonly ok: true; readonly mime: 'image/png' | 'image/webp'; readonly bytes: Uint8Array }
+  | { readonly ok: true; readonly mime: 'image/png' | 'image/webp' | 'image/jpeg'; readonly bytes: Uint8Array }
   | { readonly ok: false; readonly code: 'ERR-SCENE-INVALID-IMAGE' };
 const INVALID: OutputVerdict = { ok: false, code: 'ERR-SCENE-INVALID-IMAGE' };
 
@@ -312,7 +312,7 @@ function filterOutputWebp(b: Uint8Array): Uint8Array | null {
 
 /**
  * Valida la salida del proveedor por FIRMA y la REESCRIBE por lista blanca (H-ORA-F6-A, REQ-ESC6-035, INV-ESC6-007): devuelve los bytes que se publican. Solo PNG o WebP
- * de un cuadro, tipo declarado igual a la firma, tamaño y megapíxeles; JPEG no se admite. Se conservan C2PA y XMP (N2-03 = A); nunca tEXt, EXIF ni lo posterior al final.
+ * de un cuadro o JPEG (enmienda Nivel 2 de REQ-ESC6-035: reescritura por la lista blanca de `stripJpeg`, sin EXIF ni comentarios), tipo declarado igual a la firma, tamaño y megapíxeles. Se conservan C2PA y XMP (N2-03 = A); nunca tEXt, EXIF ni lo posterior al final.
  */
 export function validateGeneratedImage(declaredMime: string, bytes: Uint8Array, maxBytes: number): OutputVerdict {
   try {
@@ -326,6 +326,11 @@ export function validateGeneratedImage(declaredMime: string, bytes: Uint8Array, 
       if (declaredMime !== 'image/webp') return INVALID;
       const out = filterOutputWebp(bytes);
       return out === null || !withinLimits(webpDimensions(out)) ? INVALID : { ok: true, mime: 'image/webp', bytes: out };
+    }
+    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+      if (declaredMime !== 'image/jpeg') return INVALID;
+      const out = stripJpeg(bytes);
+      return out === null || out.length > maxBytes || !withinLimits(jpegDimensions(out)) ? INVALID : { ok: true, mime: 'image/jpeg', bytes: out };
     }
     return INVALID;
   } catch {

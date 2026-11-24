@@ -11,7 +11,7 @@ export const MIN_SIGNED_URL_TTL_SECONDS = 30;
 export const MAX_SIGNED_URL_TTL_SECONDS = 900;
 const NEUTRAL_FILENAME = /^[A-Za-z0-9]{1,16}\.[a-z0-9]{1,8}$/;
 /** Nombre fijo de la descarga de la escena (REQ-UX8-002, 006 3.5.0): sin nombre de mascota ni de hogar. */
-const DOWNLOAD_FILENAME = /^argos-hogar-\d{4}-\d{2}-\d{2}\.png$/;
+const DOWNLOAD_FILENAME = /^argos-hogar-\d{4}-\d{2}-\d{2}\.(?:png|jpg|webp)$/;
 
 export function assertMediaKey(key: string): void {
   if (!isMediaObjectKey(key)) throw new RangeError('Clave de medio no válida.');

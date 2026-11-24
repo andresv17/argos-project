@@ -52,6 +52,7 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
   const staleOf = db.prepare<[string, string, string], { id: string; scene_id: string }>(
     'SELECT id, scene_id FROM scene_attempts WHERE (scene_id = ? OR actor_user_id = ?) AND outcome IS NULL AND provider_call_started_at IS NULL AND started_at <= ?',
   );
+  const lastOutcome = db.prepare<[string], { o: string | null }>('SELECT outcome AS o FROM scene_attempts WHERE scene_id = ? ORDER BY started_at DESC, id DESC LIMIT 1');
   const lastStarted = db.prepare<[string], { m: string | null }>('SELECT max(started_at) AS m FROM scene_attempts WHERE scene_id = ?');
   const oldestActor = db.prepare<[string, string], { m: string | null }>('SELECT min(started_at) AS m FROM scene_attempts WHERE actor_user_id = ? AND started_at >= ?');
   const countActor = db.prepare<[string, string], { n: number }>(
@@ -168,6 +169,9 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
     },
     async lastAttemptStartedAt(sceneId) {
       return lastStarted.get(sceneId)?.m ?? null;
+    },
+    async lastAttemptOutcome(sceneId) {
+      return (lastOutcome.get(sceneId)?.o ?? null) as 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | null;
     },
     async oldestActorAttemptAt(actorUserId, since) {
       return oldestActor.get(actorUserId, since)?.m ?? null;

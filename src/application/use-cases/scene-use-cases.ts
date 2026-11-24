@@ -5,7 +5,7 @@
  * `deriveStatus` sobre la huella del estado vivo (REQ-ESC6-003, ADR-006-09); lo único que la lectura materializa es el vencimiento del arrendamiento, por
  * compare-and-set idempotente bajo el candado de la escena (data-model.md §7, `H-TRI-006-12`). El reloj y los identificadores salen de los puertos (INV-ARCH-001/002).
  *
- * @implements REQ-CFG9-003, EDGE-009-019, SC-009-021, REQ-UX8-002, REQ-FAL7-006, REQ-ESC6-003, REQ-ESC6-004, REQ-ESC6-005, REQ-ESC6-008, REQ-ESC6-011, REQ-ESC6-019, REQ-ESC6-020, REQ-ESC6-024, REQ-ESC6-032, REQ-ESC6-034, INV-ESC6-007, INV-ESC6-014, INV-ESC6-019, EDGE-ESC6-003, EDGE-ESC6-006, SC-ESC6-014, SC-ESC6-018, SC-ESC6-081, SC-ESC6-093
+ * @implements REQ-ESC6-039, INV-ESC6-021, REQ-CFG9-003, EDGE-009-019, SC-009-021, REQ-UX8-002, REQ-FAL7-006, REQ-ESC6-003, REQ-ESC6-004, REQ-ESC6-005, REQ-ESC6-008, REQ-ESC6-011, REQ-ESC6-019, REQ-ESC6-020, REQ-ESC6-024, REQ-ESC6-032, REQ-ESC6-034, INV-ESC6-007, INV-ESC6-014, INV-ESC6-019, EDGE-ESC6-003, EDGE-ESC6-006, SC-ESC6-014, SC-ESC6-018, SC-ESC6-081, SC-ESC6-093
  */
 
 import { sha256Hex } from '../../domain/audit/sha256.ts';
@@ -125,6 +125,7 @@ async function evaluateLimits(deps: ApplicationDeps, r: RepositorySet, sceneId: 
   return evaluateAttemptLimits({
     now,
     lastStartedAt: await r.scenes.lastAttemptStartedAt(sceneId),
+    lastOutcome: await r.scenes.lastAttemptOutcome(sceneId),
     failedInWindow: failed.count,
     oldestFailedStartedAt: failed.oldestAt,
     startedByActor: await r.scenes.countAttemptsByActor(actorUserId, since),
@@ -172,6 +173,20 @@ async function isSceneDisabled(deps: ApplicationDeps): Promise<boolean> {
   return !(await parameters.isSceneEnabled());
 }
 
+/**
+ * Cuota GLOBAL mensual agotada (REQ-ESC6-039, INV-ESC6-021; enmienda 2026-11-24): lectura SIN consumo por `SceneGlobalQuotaPort.isExhausted`. Sin puerto (driver simulado) o con
+ * una lectura que falla devuelve `false` (sin falsa alarma); el worker sigue protegiendo con `tryConsume`, que falla cerrado.
+ */
+async function isGlobalQuotaExhausted(deps: ApplicationDeps, window: string): Promise<boolean> {
+  const port = requireScene(deps).globalQuota;
+  if (port?.isExhausted === undefined) return false;
+  try {
+    return await port.isExhausted(window);
+  } catch {
+    return false;
+  }
+}
+
 /** Vista de la escena (contrato `SceneView`): estado derivado, cambios pendientes, cuota, acciones habilitadas y consentimiento del usuario que consulta. */
 async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string, access: SceneAccess, reading: SceneReading): Promise<SceneView> {
   const svc = requireScene(deps);
@@ -184,6 +199,7 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
   const limits = await evaluateLimits(deps, r, scene.id, userId, now);
   const roleOk = canGenerateScene(access.role);
   const disabled = await isSceneDisabled(deps);
+  const globalExhausted = await isGlobalQuotaExhausted(deps, window);
   const hasChange = pending >= 1 || derived.status === 'failed' || (scene.image === null && hasInputs(live.snapshot));
   const statusOk = derived.status === 'outdated' || derived.status === 'failed';
   let blockedReason: SceneView['actions']['blockedReason'] = null;
@@ -191,6 +207,7 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
   else if (derived.status === 'generating') blockedReason = 'GENERATING';
   else if (consentRequired) blockedReason = 'CONSENT_REQUIRED';
   else if (remaining < 1) blockedReason = 'QUOTA_EXHAUSTED';
+  else if (globalExhausted) blockedReason = 'GLOBAL_QUOTA_EXHAUSTED';
   else if (!statusOk || !hasChange) blockedReason = 'NO_CHANGES';
   else if (!limits.allowed) blockedReason = 'COOLDOWN';
   return {
@@ -204,7 +221,7 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
     actions: {
       // Deshabilitada: ninguna accion de generar; `blockedReason` conserva la causa de siempre (no revela la configuracion) y la imagen vigente sigue visible.
       canUpdate: blockedReason === null && !disabled,
-      canRegenerate: roleOk && remaining >= 1 && !consentRequired && derived.status !== 'generating' && limits.allowed && !disabled,
+      canRegenerate: roleOk && remaining >= 1 && !globalExhausted && !consentRequired && derived.status !== 'generating' && limits.allowed && !disabled,
       canUploadHouseholdPhoto: access.householdId !== null && canManageHouseholdPhoto(access.role),
       blockedReason,
       retryAfterSeconds: limits.allowed ? null : limits.retryAfterSeconds,
@@ -263,7 +280,8 @@ export class GetSceneUseCase {
   }
 }
 
-const SCENE_IMAGE_FILENAME = 'escena.png';
+/** Extensión por tipo de la imagen vigente (enmienda Nivel 2 de REQ-ESC6-035: la salida puede ser JPEG). */
+const sceneImageExtension = (mime: string): 'png' | 'webp' | 'jpg' => (mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png');
 
 const ISO_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3})\d*)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
 
@@ -285,14 +303,14 @@ function epochMsOfIso(iso: string): number | null {
 }
 
 /**
- * Nombre fijo de la descarga (REQ-UX8-002, contrato 006 3.5.0): `argos-hogar-AAAA-MM-DD.png` con el día de la generación de la imagen vigente en la zona de la
+ * Nombre fijo de la descarga (REQ-UX8-002, contrato 006 3.5.0): `argos-hogar-AAAA-MM-DD.png` (`.jpg` o `.webp` según el tipo de la imagen vigente) con el día de la generación de la imagen vigente en la zona de la
  * aplicación (`APP_TIMEZONE`). Sin nombre de mascota ni de hogar (PII). `null` si el instante no es legible.
  */
-export function sceneDownloadFilenameOf(createdAt: string, timeZone: string): string | null {
+export function sceneDownloadFilenameOf(createdAt: string, timeZone: string, mime: string = 'image/png'): string | null {
   const ms = epochMsOfIso(createdAt);
   if (ms === null) return null;
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).formatToParts(ms).map((p) => [p.type, p.value]));
-  return `argos-hogar-${parts['year']}-${parts['month']}-${parts['day']}.png`;
+  return `argos-hogar-${parts['year']}-${parts['month']}-${parts['day']}.${sceneImageExtension(mime)}`;
 }
 
 export interface SceneImageReadOptions {
@@ -326,8 +344,8 @@ export class GetSceneImageUseCase {
       if (scene === null || scene.image === null) throw new DomainError('ERR-HOUSE-NOT-FOUND', undefined, 'householdId');
       return { key: sceneImageObjectKey(scene.id, scene.image.id), mime: scene.image.mime, createdAt: scene.image.createdAt };
     });
-    const inlineName = found.mime === 'image/webp' ? 'escena.webp' : SCENE_IMAGE_FILENAME;
-    const downloadFilename = options.download === true ? sceneDownloadFilenameOf(found.createdAt, deps.clock.timeZone) : null;
+    const inlineName = `escena.${sceneImageExtension(found.mime)}`;
+    const downloadFilename = options.download === true ? sceneDownloadFilenameOf(found.createdAt, deps.clock.timeZone, found.mime) : null;
     const access = await media.storage.createReadUrl({
       key: found.key,
       contentType: found.mime,
@@ -453,6 +471,8 @@ export class RequestSceneGenerationUseCase {
       if (remainingQuota({ max: svc.quotaMax, consumed: reading.scene.consumedGenerations, consumedWindow: reading.scene.quotaWindow, currentWindow: window }) < 1) {
         throw new DomainErrorV34('ERR-SCENE-QUOTA-EXCEEDED');
       }
+      // REQ-ESC6-039 (enmienda 2026-11-24): cuota global agotada = 409 explícito, sin intento, sin descontar cuota del hogar y sin llamar al generador; antes de los límites de tasa.
+      if (await isGlobalQuotaExhausted(deps, window)) throw new DomainErrorV34('ERR-SCENE-GLOBAL-QUOTA-EXHAUSTED');
       const limits = await evaluateLimits(deps, r, scene.id, userId, now);
       if (!limits.allowed) throw new SceneRateLimitedError(limits.retryAfterSeconds);
 

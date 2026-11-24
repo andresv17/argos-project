@@ -34,9 +34,9 @@ const sceneRow = (over: Partial<SceneRecord> = {}): SceneRecord => ({
   id: SCENE, householdId: HOUSEHOLD.id, ownerUserId: null, runState: null, currentAttemptId: null, leaseExpiresAt: null, image: null, imageDegraded: false,
   consumedGenerations: 0, quotaWindow: '2026-11', createdAt: NOW, updatedAt: NOW, ...over,
 });
-const imageAt = (createdAt: string, mime: 'image/png' | 'image/webp' = 'image/png') => ({ id: IMAGE, mime, sizeBytes: 3, fingerprint: 'a'.repeat(64), inputsSnapshot: '{"v":1}', createdAt });
+const imageAt = (createdAt: string, mime: 'image/png' | 'image/webp' | 'image/jpeg' = 'image/png') => ({ id: IMAGE, mime, sizeBytes: 3, fingerprint: 'a'.repeat(64), inputsSnapshot: '{"v":1}', createdAt });
 
-async function setup(createdAt: string | null = NOW, mime: 'image/png' | 'image/webp' = 'image/png') {
+async function setup(createdAt: string | null = NOW, mime: 'image/png' | 'image/webp' | 'image/jpeg' = 'image/png') {
   const h = createHarness(canonicalState());
   const storage = new ControlledStorage(() => new Date(NOW));
   const deps = { ...withScene(h.deps, sceneFixture({})), media: { storage, limits: { maxBytes: 10_485_760, maxBytesPerOwner: 1_073_741_824, maxConcurrentUploads: 4, signedUrlTtlSeconds: 300 } } };
@@ -55,6 +55,17 @@ describe('sceneDownloadFilenameOf (T1168)', () => {
       sceneDownloadFilenameOf(CREATED_LATE, 'UTC'),
       sceneDownloadFilenameOf('2026-12-31T23:59:59.999Z', 'America/Bogota'),
     ]).toEqual(['argos-hogar-2026-11-05.png', 'argos-hogar-2026-11-06.png', 'argos-hogar-2026-12-31.png']);
+  });
+
+  it('[REQ-ESC6-035] (enmienda N2 JPEG) con image/jpeg el nombre fijo es argos-hogar-AAAA-MM-DD.jpg y el inline escena.jpg; webp y png no cambian', async () => {
+    expect(sceneDownloadFilenameOf(CREATED_LATE, 'America/Bogota', 'image/jpeg')).toBe('argos-hogar-2026-11-05.jpg');
+    expect(sceneDownloadFilenameOf(CREATED_LATE, 'America/Bogota', 'image/webp')).toBe('argos-hogar-2026-11-05.webp');
+    expect(sceneDownloadFilenameOf(CREATED_LATE, 'America/Bogota', 'image/png')).toBe('argos-hogar-2026-11-05.png');
+    const { storage, image } = await setup(CREATED_LATE, 'image/jpeg');
+    const inline = await image.execute(ANDRES, HOUSE, undefined);
+    const download = await image.execute(ANDRES, HOUSE, undefined, { download: true });
+    expect(storage.readUrlRequests.map((r) => [r.contentType, r.filename])).toEqual([['image/jpeg', 'escena.jpg'], ['image/jpeg', 'argos-hogar-2026-11-05.jpg']]);
+    expect([inline.mime, download.downloadFilename]).toEqual(['image/jpeg', 'argos-hogar-2026-11-05.jpg']);
   });
 
   it('[REQ-UX8-002] un instante ilegible no inventa nombre', () => {
