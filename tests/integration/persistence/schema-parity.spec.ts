@@ -47,6 +47,8 @@ const ADMIN_PORTAL_PATH = new URL('../../../src/infrastructure/persistence/postg
 
 /** T1243 (009, Fase 4, #18): la 0016 de Postgres equivale a la 0020 de SQLite (`users.account_status`, `decided_at`, `decided_by`, REQ-APR9-004, STATE-ACCT9-001). */
 const PROVIDER_CALL_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0019_scene_attempts_provider_call.sql', import.meta.url);
+/** T1321 (006, enmienda N2 REQ-ESC6-035): la 0020 de Postgres equivale a la 0024 de SQLite (`home_scenes.image_mime` admite `image/jpeg`). */
+const IMAGE_MIME_JPEG_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0020_home_scenes_image_mime_jpeg.sql', import.meta.url);
 const ACCOUNT_STATUS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0016_account_status.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
@@ -228,7 +230,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -366,15 +368,17 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     for (const value of ['HOME_SCENE', 'SCENE_CONSENT', 'HOUSEHOLD_PHOTO', 'PET_MEDIA']) expect(entityCheck, value).toContain(`'${value}'`);
   });
 
-  it('T831 (006): las 6 tablas de la escena existen en ambos motores con las mismas columnas y los mismos CHECK; image_mime solo PNG/WebP', () => {
-    const pg = postgresSchema([HOME_PATH]);
+  it('T831 (006): las 6 tablas de la escena existen en ambos motores con las mismas columnas y los mismos CHECK; image_mime PNG/WebP/JPEG', () => {
+    const pg = postgresSchema(); // HOME_PATH ya está en la base; reaplicarlo al final pisaría el CHECK ampliado por la 0020 (T1321)
     const scene = ['home_scenes', 'scene_attempts', 'scene_image_sources', 'household_photos', 'scene_consents', 'scene_quota_carry'];
     for (const name of scene) {
       expect(pg.tables.has(name), `Postgres ${name}`).toBe(true);
       expect(sqlite.tables.has(name), `SQLite ${name}`).toBe(true);
       expect(pg.tables.get(name)!.checks, `CHECK de ${name}`).toEqual(sqlite.tables.get(name)!.checks);
     }
-    expect(sqlite.tables.get('home_scenes')!.checks).toContain("image_mime IN ('image/png','image/webp')");
+    expect(sqlite.tables.get('home_scenes')!.checks).toContain("image_mime IN ('image/png','image/webp','image/jpeg')");
+    expect(pg.tables.get('home_scenes')!.checks).toContain("image_mime IN ('image/png','image/webp','image/jpeg')");
+    expect(sqlite.tables.get('home_scenes')!.checks.filter((c) => c.startsWith('image_mime IN '))).toHaveLength(1);
     expect(sqlite.tables.get('scene_attempts')!.checks).toContain("phase IN ('PENDING','RUNNING','DONE')");
     expect(sqlite.tables.get('scene_attempts')!.checks).toContain("outcome IS NULL OR outcome IN ('SUCCEEDED','FAILED','CANCELLED')");
     expect(sqlite.indexes.get('scene_attempts_idempotency')).toMatchObject({ table: 'scene_attempts', unique: true, columns: 'idempotency_key_hash', where: 'idempotency_key_hash IS NOT NULL' });

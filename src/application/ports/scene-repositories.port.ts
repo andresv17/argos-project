@@ -24,7 +24,7 @@ export type SceneConsentScope = 'HOUSEHOLD_PHOTO' | 'PET_PHOTOS';
 /** Imagen vigente (columnas `image_*` de `home_scenes`): a lo sumo una por escena (D6-13 = A). */
 export interface SceneImage {
   readonly id: string;
-  readonly mime: 'image/png' | 'image/webp';
+  readonly mime: 'image/png' | 'image/webp' | 'image/jpeg';
   readonly sizeBytes: number;
   readonly fingerprint: string;
   readonly inputsSnapshot: string;

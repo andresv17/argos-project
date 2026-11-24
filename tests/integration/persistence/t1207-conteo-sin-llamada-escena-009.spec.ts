@@ -252,6 +252,7 @@ describe('sin migración nueva por #60 (REQ-LIM9-005, SC-009-041)', () => {
     const mentions = readdirSync(dir)
       .filter((f) => f.endsWith('.sql'))
       .filter((f) => readFileSync(join(dir, f), 'utf8').includes('provider_call_started_at'));
-    expect(mentions).toEqual([engine === 'sqlite' ? '0013_home_scenes.sql' : '0009_home_scenes.sql']);
+    // La 0024 de SQLite (006, enmienda N2 JPEG) reconstruye `scene_attempts` y copia la columna tal cual: la declara de nuevo, sin alterarla ni indexarla.
+    expect(mentions).toEqual(engine === 'sqlite' ? ['0013_home_scenes.sql', '0024_home_scenes_image_mime_jpeg.sql'] : ['0009_home_scenes.sql']);
   });
 });

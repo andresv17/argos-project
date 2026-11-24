@@ -23,6 +23,12 @@ describe('T1166 nombre de archivo (EDGE-008-021)', () => {
     expect(sceneDownloadFilename('2026-11-19T03:30:00.000Z')).toBe('argos-hogar-2026-11-18.png');
   });
 
+  it('[REQ-ESC6-035] (enmienda N2 JPEG) con image/jpeg la pista es .jpg y con image/webp .webp; sin tipo o png, .png', () => {
+    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z', 'image/jpeg')).toBe('argos-hogar-2026-11-18.jpg');
+    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z', 'image/webp')).toBe('argos-hogar-2026-11-18.webp');
+    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z', 'image/png')).toBe('argos-hogar-2026-11-18.png');
+  });
+
   it('[SC-008-035] un instante ilegible no inventa nombre (null)', () => {
     expect(sceneDownloadFilename('no-es-una-fecha')).toBeNull();
   });

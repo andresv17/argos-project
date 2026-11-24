@@ -130,10 +130,17 @@ describe('respuesta 200 (REQ-ESC6-035, SC-ESC6-099)', () => {
     expect(await t.generator.generate(request())).toEqual({ ok: true, image: { mime: 'image/webp', bytes: WEBP } });
   });
 
-  it('[REQ-ESC6-035][SC-ESC6-099] JPEG, tipo declarado distinto de la firma, firma desconocida, base64 inválido o base64 vacío devuelven ERR-SCENE-INVALID-IMAGE', async () => {
+  it('[REQ-ESC6-035][SC-ESC6-099] (enmienda N2 JPEG) acepta image/jpeg por firma FF D8 FF cuando el tipo declarado es image/jpeg', async () => {
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
+    const t = setup(() => respond(okBody('image/jpeg', jpeg)));
+    expect(await t.generator.generate(request())).toEqual({ ok: true, image: { mime: 'image/jpeg', bytes: jpeg } });
+  });
+
+  it('[REQ-ESC6-035][SC-ESC6-099] tipo declarado distinto de la firma, firma desconocida, base64 inválido o base64 vacío devuelven ERR-SCENE-INVALID-IMAGE (JPEG declarado PNG, PNG declarado JPEG)', async () => {
     const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
     const cases: string[] = [
-      okBody('image/jpeg', jpeg),
+      okBody('image/png', jpeg),
+      okBody('image/jpeg', await png()),
       okBody('image/webp', await png()),
       okBody('image/png', Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])),
       JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: '%%%no es base64%%%' } }] } }] }),
@@ -143,6 +150,17 @@ describe('respuesta 200 (REQ-ESC6-035, SC-ESC6-099)', () => {
       const t = setup(() => respond(body));
       expect(await t.generator.generate(request())).toEqual({ ok: false, code: 'ERR-SCENE-INVALID-IMAGE' });
     }
+  });
+
+  it('[REQ-ESC6-035] el fallo de salida registra solo el tipo MIME declarado cerrado (nunca bytes, prompt ni datos personales)', async () => {
+    const lines: string[] = [];
+    const t = setup(() => respond(okBody('image/gif', Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))), { log: (line: string) => lines.push(line) });
+    expect(await t.generator.generate(request())).toEqual({ ok: false, code: 'ERR-SCENE-INVALID-IMAGE' });
+    expect(lines).toEqual(['scene-generator INVALID_OUTPUT mimeType=image/gif']);
+    const odd = setup(() => respond(okBody('image/png; secreto=abc', Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))), { log: (line: string) => lines.push(line) });
+    await odd.generator.generate(request());
+    expect(lines.at(-1)).toBe('scene-generator INVALID_OUTPUT mimeType=other');
+    expect(lines.join('\n')).not.toMatch(/secreto|secret|AQID/);
   });
 
   it('[SC-ESC6-099] 200 sin imagen, sin candidatos, bloqueo de seguridad o JSON ilegible devuelven ERR-SCENE-GENERATION-FAILED sin copiar el motivo', async () => {

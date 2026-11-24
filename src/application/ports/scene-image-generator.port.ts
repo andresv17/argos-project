@@ -29,7 +29,7 @@ export interface SceneGenerationRequest {
 }
 
 export type SceneGenerationResult =
-  | { readonly ok: true; readonly image: { readonly mime: 'image/png' | 'image/webp'; readonly bytes: Uint8Array } }
+  | { readonly ok: true; readonly image: { readonly mime: 'image/png' | 'image/webp' | 'image/jpeg'; readonly bytes: Uint8Array } }
   | { readonly ok: false; readonly code: SceneErrorCode };
 
 export interface SceneImageGeneratorPort {

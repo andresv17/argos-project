@@ -88,14 +88,14 @@ const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 export const base64DecodedLength = (data: string): number => Math.floor((data.length * 3) / 4);
 
 export type GeminiDecoded =
-  | { readonly ok: true; readonly mime: 'image/png' | 'image/webp'; readonly bytes: Uint8Array }
+  | { readonly ok: true; readonly mime: 'image/png' | 'image/webp' | 'image/jpeg'; readonly bytes: Uint8Array }
   | { readonly ok: false };
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const ascii = (b: Uint8Array, at: number, n: number): string => String.fromCharCode(...b.subarray(at, at + n));
 
 /**
- * Decodifica el base64 con tope y NO confía en el `mimeType` del proveedor: el tipo sale de la firma de los bytes (PNG o WebP) y debe coincidir con el declarado. La
+ * Decodifica el base64 con tope y NO confía en el `mimeType` del proveedor: el tipo sale de la firma de los bytes (PNG, WebP o JPEG; JPEG por enmienda Nivel 2 de REQ-ESC6-035) y debe coincidir con el declarado. La
  * reescritura por lista blanca (sin `tEXt`) la hace después `validateOutput` del worker (REQ-ESC6-035).
  */
 export function decodeGeminiImage(mimeType: string, data: string, maxBytes: number): GeminiDecoded {
@@ -104,5 +104,17 @@ export function decodeGeminiImage(mimeType: string, data: string, maxBytes: numb
   if (bytes.length === 0 || bytes.length > maxBytes) return { ok: false };
   if (bytes.length >= 8 && PNG_SIGNATURE.every((x, i) => bytes[i] === x)) return mimeType === 'image/png' ? { ok: true, mime: 'image/png', bytes } : { ok: false };
   if (bytes.length >= 12 && ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP') return mimeType === 'image/webp' ? { ok: true, mime: 'image/webp', bytes } : { ok: false };
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return mimeType === 'image/jpeg' ? { ok: true, mime: 'image/jpeg', bytes } : { ok: false };
   return { ok: false };
 }
+
+const CLOSED_MIME_TYPES = new Set(['image/png', 'image/webp', 'image/jpeg', 'image/gif', 'image/bmp', 'image/tiff', 'image/svg+xml', 'image/avif', 'image/heic', 'application/octet-stream']);
+
+/**
+ * Tipo MIME declarado por el proveedor reducido a un conjunto CERRADO para el registro técnico de `INVALID_OUTPUT`: lo que no sea exactamente uno de la lista (parámetros,
+ * mayúsculas, texto libre) sale como `other`. Nunca bytes, prompt ni datos personales.
+ */
+export const closedMimeType = (mimeType: string): string => (CLOSED_MIME_TYPES.has(mimeType) ? mimeType : 'other');
+
+/** Línea del registro técnico de un fallo de salida (solo el MIME cerrado). */
+export const invalidOutputLogLine = (mimeType: string): string => `scene-generator INVALID_OUTPUT mimeType=${closedMimeType(mimeType)}`;

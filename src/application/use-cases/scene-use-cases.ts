@@ -280,7 +280,8 @@ export class GetSceneUseCase {
   }
 }
 
-const SCENE_IMAGE_FILENAME = 'escena.png';
+/** Extensión por tipo de la imagen vigente (enmienda Nivel 2 de REQ-ESC6-035: la salida puede ser JPEG). */
+const sceneImageExtension = (mime: string): 'png' | 'webp' | 'jpg' => (mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png');
 
 const ISO_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3})\d*)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
 
@@ -302,14 +303,14 @@ function epochMsOfIso(iso: string): number | null {
 }
 
 /**
- * Nombre fijo de la descarga (REQ-UX8-002, contrato 006 3.5.0): `argos-hogar-AAAA-MM-DD.png` con el día de la generación de la imagen vigente en la zona de la
+ * Nombre fijo de la descarga (REQ-UX8-002, contrato 006 3.5.0): `argos-hogar-AAAA-MM-DD.png` (`.jpg` o `.webp` según el tipo de la imagen vigente) con el día de la generación de la imagen vigente en la zona de la
  * aplicación (`APP_TIMEZONE`). Sin nombre de mascota ni de hogar (PII). `null` si el instante no es legible.
  */
-export function sceneDownloadFilenameOf(createdAt: string, timeZone: string): string | null {
+export function sceneDownloadFilenameOf(createdAt: string, timeZone: string, mime: string = 'image/png'): string | null {
   const ms = epochMsOfIso(createdAt);
   if (ms === null) return null;
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).formatToParts(ms).map((p) => [p.type, p.value]));
-  return `argos-hogar-${parts['year']}-${parts['month']}-${parts['day']}.png`;
+  return `argos-hogar-${parts['year']}-${parts['month']}-${parts['day']}.${sceneImageExtension(mime)}`;
 }
 
 export interface SceneImageReadOptions {
@@ -343,8 +344,8 @@ export class GetSceneImageUseCase {
       if (scene === null || scene.image === null) throw new DomainError('ERR-HOUSE-NOT-FOUND', undefined, 'householdId');
       return { key: sceneImageObjectKey(scene.id, scene.image.id), mime: scene.image.mime, createdAt: scene.image.createdAt };
     });
-    const inlineName = found.mime === 'image/webp' ? 'escena.webp' : SCENE_IMAGE_FILENAME;
-    const downloadFilename = options.download === true ? sceneDownloadFilenameOf(found.createdAt, deps.clock.timeZone) : null;
+    const inlineName = `escena.${sceneImageExtension(found.mime)}`;
+    const downloadFilename = options.download === true ? sceneDownloadFilenameOf(found.createdAt, deps.clock.timeZone, found.mime) : null;
     const access = await media.storage.createReadUrl({
       key: found.key,
       contentType: found.mime,

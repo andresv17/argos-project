@@ -20,7 +20,7 @@ export interface DevMediaOptions {
 }
 
 /** `response-content-disposition` de la descarga de la escena (REQ-UX8-002); cualquier otro valor se ignora. */
-const DOWNLOAD_DISPOSITION = /^attachment; filename="argos-hogar-\d{4}-\d{2}-\d{2}\.png"$/;
+const DOWNLOAD_DISPOSITION = /^attachment; filename="argos-hogar-\d{4}-\d{2}-\d{2}\.(?:png|jpg|webp)"$/;
 
 /** @returns true si la ruta quedó registrada. */
 export function registerDevMediaRoutes(app: FastifyInstance, { useCases }: RouteContext, options: DevMediaOptions): boolean {

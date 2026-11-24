@@ -135,13 +135,16 @@ describe.each(adapters)('MediaStoragePort: conformidad (%s)', (_name, create) =>
     expect(double.requests).toEqual([]);
   });
 
-  it('T1168 (008, REQ-UX8-002, SC-008-036): createReadUrl con disposition attachment acepta SOLO el nombre fijo argos-hogar-AAAA-MM-DD.png y rechaza cualquier otro (incluido el neutro y nombres con PII)', async () => {
+  it('T1168 (008, REQ-UX8-002, SC-008-036): createReadUrl con disposition attachment acepta SOLO el nombre fijo argos-hogar-AAAA-MM-DD.png|jpg|webp (enmienda N2 JPEG de REQ-ESC6-035) y rechaza cualquier otro (incluido el neutro y nombres con PII)', async () => {
     const port = create();
     const sceneKey = `scenes/${PET}/images/${ID_A}`;
     await port.put(sceneKey, bytes, 'image/png');
     const ok = await port.createReadUrl({ key: sceneKey, contentType: 'image/png', filename: 'argos-hogar-2026-11-05.png', ttlSeconds: 300, disposition: 'attachment' });
     expect([typeof ok.url, ok.expiresAt]).toEqual(['string', '2099-11-17T12:05:00.000Z']);
-    for (const bad of ['escena.png', 'argos-hogar-2026-11-05.jpg', 'argos-hogar-Luna-2026-11-05.png', 'argos-hogar-2026-11-5.png', 'argos-hogar-2026-11-05.png"; x=1', '../argos-hogar-2026-11-05.png']) {
+    for (const extension of ['jpg', 'webp']) {
+      await expect(port.createReadUrl({ key: sceneKey, contentType: 'image/png', filename: `argos-hogar-2026-11-05.${extension}`, ttlSeconds: 300, disposition: 'attachment' }), extension).resolves.toMatchObject({ expiresAt: '2099-11-17T12:05:00.000Z' });
+    }
+    for (const bad of ['escena.png', 'argos-hogar-2026-11-05.gif', 'argos-hogar-2026-11-05.jpeg', 'argos-hogar-Luna-2026-11-05.png', 'argos-hogar-2026-11-5.png', 'argos-hogar-2026-11-05.png"; x=1', '../argos-hogar-2026-11-05.png']) {
       await expect(port.createReadUrl({ key: sceneKey, contentType: 'image/png', filename: bad, ttlSeconds: 300, disposition: 'attachment' }), bad).rejects.toBeInstanceOf(RangeError);
     }
   });

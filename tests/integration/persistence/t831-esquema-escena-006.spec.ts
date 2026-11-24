@@ -76,12 +76,12 @@ describe('T831 las 6 tablas de la escena y sus indices (SC-ESC6-091)', () => {
     expect(runs(set("run_state = NULL, lease_expires_at = NULL, current_attempt_id = NULL"))).toBe('ok');
   });
 
-  it('home_scenes.image_mime solo PNG y WebP (INV-ESC6-005); las seis columnas image_* son todas nulas o todas no nulas', () => {
+  it('home_scenes.image_mime solo PNG, WebP y JPEG (INV-ESC6-005, enmienda N2 REQ-ESC6-035: la 0024 amplía el CHECK de la 0013); las seis columnas image_* son todas nulas o todas no nulas', () => {
     const db = open();
     sceneForHousehold(db, 's1', 'h1');
     const image = (mime: string) => () =>
       db.prepare("UPDATE home_scenes SET image_id = 'i1', image_mime = ?, image_size_bytes = 10, image_fingerprint = ?, image_inputs_snapshot = '{\"v\":1}', image_created_at = ? WHERE id = 's1'").run(mime, 'a'.repeat(64), NOW);
-    expect(image('image/jpeg')).toThrow(/CHECK/);
+    expect(runs(image('image/jpeg'))).toBe('ok');
     expect(image('image/gif')).toThrow(/CHECK/);
     expect(runs(image('image/png'))).toBe('ok');
     expect(runs(image('image/webp'))).toBe('ok');
@@ -160,6 +160,6 @@ describe('T831 Postgres 0009 declara las mismas 6 tablas y el CHECK de image_mim
   it('crea las 6 tablas y no usa STRICT, PRAGMA ni GLOB', () => {
     for (const name of ['home_scenes', 'scene_attempts', 'scene_image_sources', 'household_photos', 'scene_consents', 'scene_quota_carry']) expect(sql).toMatch(new RegExp(`CREATE TABLE ${name} \\(`));
     for (const banned of [/\bSTRICT\b/i, /\bPRAGMA\b/i, /\bGLOB\b/i, /strftime/i]) expect(sql.replace(/--[^\n]*/g, '')).not.toMatch(banned);
-    expect(sql).toContain("image_mime IN ('image/png', 'image/webp')");
+    expect(sql).toContain("image_mime IN ('image/png', 'image/webp')"); // la 0009 no se edita: la 0020 amplía el CHECK a JPEG
   });
 });

@@ -244,6 +244,15 @@ describe('respuestas del proveedor sin eco (INV-ESC6-016)', () => {
     expect(JSON.stringify(result).includes('motivo')).toBe(false);
   });
 
+  it('[REQ-ESC6-035] (enmienda N2 JPEG) Vertex devuelve image/jpeg: acepta la firma FF D8 FF y registra el MIME cerrado cuando falla', async () => {
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
+    expect(await setup(async () => respond(okBody('image/jpeg', jpeg))).generator.generate(request())).toEqual({ ok: true, image: { mime: 'image/jpeg', bytes: jpeg } });
+    const lines: string[] = [];
+    const t = setup(async () => respond(okBody('image/png', jpeg)), { log: (line: string) => lines.push(line) });
+    expect(await t.generator.generate(request())).toEqual({ ok: false, code: 'ERR-SCENE-INVALID-IMAGE' });
+    expect(lines).toEqual(['scene-generator INVALID_OUTPUT mimeType=image/png']);
+  });
+
   it('[REQ-ESC6-035] la imagen se decide por la firma de los bytes: un PNG declarado como webp es ERR-SCENE-INVALID-IMAGE', async () => {
     const t = setup(async () => respond(okBody('image/webp', await png())));
     expect(await t.generator.generate(request())).toEqual({ ok: false, code: 'ERR-SCENE-INVALID-IMAGE' });

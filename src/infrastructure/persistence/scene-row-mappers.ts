@@ -28,7 +28,7 @@ export const toSceneRecord = (row: Row): SceneRecord => ({
       ? null
       : {
           id: String(row['image_id']),
-          mime: String(row['image_mime']) as 'image/png' | 'image/webp',
+          mime: String(row['image_mime']) as 'image/png' | 'image/webp' | 'image/jpeg',
           sizeBytes: Number(row['image_size_bytes']),
           fingerprint: String(row['image_fingerprint']),
           inputsSnapshot: String(row['image_inputs_snapshot']),

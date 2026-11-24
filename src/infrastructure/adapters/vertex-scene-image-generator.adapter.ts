@@ -16,6 +16,7 @@ import {
   GEMINI_OUTPUT_MAX_BYTES,
   buildGeminiBody,
   decodeGeminiImage,
+  invalidOutputLogLine,
   isSafeGeminiModel,
   parseGeminiResponse,
   type GeminiModalities,
@@ -48,6 +49,8 @@ export interface VertexSceneImageGeneratorOptions {
   readonly responseModalities?: GeminiModalities;
   readonly maxInlineBytes?: number;
   readonly maxOutputBytes?: number;
+  /** Registro técnico de `INVALID_OUTPUT` (solo `scene-generator INVALID_OUTPUT mimeType=<MIME cerrado>`); sin él no se registra nada. */
+  readonly log?: (line: string) => void;
 }
 
 const FAILED: SceneGenerationResult = { ok: false, code: 'ERR-SCENE-GENERATION-FAILED' };
@@ -64,6 +67,7 @@ export class VertexSceneImageGenerator implements SceneImageGeneratorPort {
   private readonly modalities: GeminiModalities;
   private readonly maxInlineBytes: number;
   private readonly maxOutputBytes: number;
+  private readonly log: ((line: string) => void) | undefined;
   readonly #getAccessToken: (signal: AbortSignal) => Promise<string>;
 
   constructor(options: VertexSceneImageGeneratorOptions) {
@@ -81,6 +85,7 @@ export class VertexSceneImageGenerator implements SceneImageGeneratorPort {
     this.modalities = options.responseModalities ?? ['IMAGE'];
     this.maxInlineBytes = options.maxInlineBytes ?? GEMINI_INLINE_MAX_BYTES;
     this.maxOutputBytes = options.maxOutputBytes ?? GEMINI_OUTPUT_MAX_BYTES;
+    this.log = options.log;
     if (options.getAccessToken !== undefined) this.#getAccessToken = options.getAccessToken;
     else {
       const client = createMetadataTokenClient({ ...(options.fetch === undefined ? {} : { fetch: options.fetch }), ...(options.now === undefined ? {} : { now: options.now }) });
@@ -145,7 +150,9 @@ export class VertexSceneImageGenerator implements SceneImageGeneratorPort {
       const parsed = parseGeminiResponse(text);
       if (parsed.kind === 'none') return FAILED;
       const decoded = decodeGeminiImage(parsed.mimeType, parsed.data, this.maxOutputBytes);
-      return decoded.ok ? { ok: true, image: { mime: decoded.mime, bytes: decoded.bytes } } : INVALID;
+      if (decoded.ok) return { ok: true, image: { mime: decoded.mime, bytes: decoded.bytes } };
+      this.log?.(invalidOutputLogLine(parsed.mimeType)); // solo el MIME cerrado: nunca bytes, prompt ni datos personales
+      return INVALID;
     } catch {
       return controller.signal.aborted ? TIMEOUT : FAILED; // ni el mensaje ni la causa salen del adaptador
     } finally {

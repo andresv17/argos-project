@@ -105,7 +105,7 @@ const insertUser = (db: SqliteDatabase, id: string, status: string, decidedAt: s
 
 describe('T1243 [REQ-APR9-004][SC-009-005][EDGE-009-001] la migración SQLite 0020 sobre una base con cuentas previas', () => {
   it('la 0020 existe, es la penúltima de SQLite (la 0021 de siembra de scene.enabled es de la Fase 5a) y se aplica sola sobre 0019', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-4)).toBe(MIGRATION);
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-5)).toBe(MIGRATION);
     const { db, migrationsDir } = productionDatabase();
     expect(upgrade(db, migrationsDir)).toEqual([MIGRATION]);
   });
@@ -158,7 +158,7 @@ describe('T1243 [REQ-APR9-004][SC-009-005][EDGE-009-001] la migración SQLite 00
 
 describe('T1243 [REQ-APR9-004] la migración 0016 de Postgres es la equivalente y la última', () => {
   it('existe, es la penúltima (la 0017 de siembra de scene.enabled es de la Fase 5a), no tiene BEGIN/COMMIT y es aditiva (solo ALTER TABLE users, sin DROP ni reescritura)', () => {
-    expect(readdirSync(PG_DIR).sort().at(-4)).toBe(PG_MIGRATION);
+    expect(readdirSync(PG_DIR).sort().at(-5)).toBe(PG_MIGRATION);
     const sql = readFileSync(new URL(PG_MIGRATION, PG_DIR), 'utf8').replace(/--[^\n]*/g, '');
     expect(sql).not.toMatch(/\b(BEGIN|COMMIT|DROP|UPDATE|DELETE)\b/i);
     expect(sql).toMatch(/ADD COLUMN account_status TEXT NOT NULL DEFAULT 'ACTIVE'/);
