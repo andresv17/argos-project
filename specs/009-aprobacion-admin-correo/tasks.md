@@ -2,7 +2,7 @@
 
 **Input**: `specs/009-aprobacion-admin-correo/` (`spec.md`, `plan.md`); `claude/inbox-feature-009.md`; `.specify/memory/audits/architect-009-preguntas-neo.md`; decisiones de Neo `D9-01` = A, `D9-02` = B, `D9-04` = A, `D9-09` = A, `D9-15` = A `D9-17` = A, `D9-18`, `D9-19`, `D9-20` y defaults (`D9-03`, `D9-06..08`, `D9-10..14`, `D9-16`); resoluciones de Neo `D9-21..D9-26` y `P5-01..P5-06` (2026-11-23, asentadas por `/architect`); hallazgos de `/lock` en `.specify/memory/audits/lock-009-edge.md`.
 **Estado**: `APPROVED` (aprobado por Andrés Vallejo / Neo, Nivel 2, 2026-11-23; tareas técnicas cerradas `[x]`). El techo de los agentes es `REVIEW`; solo Neo marca `COMPLETED` y fija `APPROVED`/`LOCKED`.
-**Numeración**: `T1201..T1306` (008 usó `T1101..T1200`; `T1130` se **reutiliza a propósito** porque es la deuda de 008 que cierra la Fase 2 y conserva su ID). **107 tareas** con casilla (78 originales + 21 nuevas `T1278..T1298` por el acta `/lock` de `T1204` + 8 nuevas `T1299..T1306` por las actas `/mifune` y `/merovingian` de `T1205`, que van en la fase que les toca aunque su ID sea posterior): Fase 0 = 7, Fase 1 = 15, Fase 2 = 9, Fase 3 = 19, Fase 4 = 18, Fase 5 = 34 (5a = 15, 5b = 19; `scene.global_quota_max` y las tareas de coste pasan a 5b por `P5-06` = B), Cierre = 5.
+**Numeración**: `T1201..T1312` (008 usó `T1101..T1200`; `T1130` se **reutiliza a propósito** porque es la deuda de 008 que cierra la Fase 2 y conserva su ID). **113 tareas** con casilla (78 originales + 21 nuevas `T1278..T1298` por el acta `/lock` de `T1204` + 8 nuevas `T1299..T1306` por las actas `/mifune` y `/merovingian` de `T1205`, que van en la fase que les toca aunque su ID sea posterior): Fase 0 = 7, Fase 1 = 15, Fase 2 = 9, Fase 3 = 19, Fase 4 = 18, Fase 5 = 40 (5a = 15, 5b = 19, 5c = 6; `scene.global_quota_max` y las tareas de coste pasan a 5b por `P5-06` = B), Cierre = 5.
 **Orden obligatorio de fases (decisión de Neo)**: Fase 1 `#60` + `#57` → Fase 2 `T1130` (`(deuda #17)`) → Fase 3 `#19` → Fase 4 `#18` → Fase 5 `#20` (5a y luego 5b; MIF-10). Ninguna tarea de una fase puede empezar antes de la compuerta de la anterior (cada fase tiene su tarea `[GOV]` de compuerta y la primera tarea de la fase siguiente depende de ella).
 **Sincronización GitHub Projects**: cada bloque `##`/`###` lleva su etiqueta `[GH:#N]` y cada tarea la repite. Mapeo: `#60` y `#57` Fase 1; `#17` Fase 2 (deuda de 008: ojo, `gh-project-sync.mjs sync` moverá el Issue `#17` a `In Progress`/`Done`); `#19` Fase 3; `#18` Fase 4; `#20` Fase 5. Las tareas de Fase 0 y Cierre llevan las etiquetas de los ítems que cierran.
 
@@ -193,6 +193,17 @@
 
 ---
 
+### Fase 5c: Enmienda de producción 2026-11-24 (Neo, `fix/009-escena-prod-admin-global`)
+
+- [ ] T1307 [ARCH] [N2] [GH:#20] `/architect`: documentar `D9-27` y `D9-28` (spec 009, spec 006 `REQ-ESC6-017/026/039` nota de enmienda); sin tocar contratos ni `src/` — D9-27, D9-28; SC-009-052..055
+- [ ] T1308 [GH:#20] Implementar el par `gemini-3.1-flash-image-preview` + `global` (75_000 µUSD) junto a `gemini-2.5-flash-image` + `us-central1` (45_000 µUSD), rechazar pares inválidos, endpoint literal `aiplatform.googleapis.com/.../locations/global`, aviso con variante global y `noticeVersion` propia — D9-27; SC-009-052, SC-009-053. Dep: T1307
+- [ ] T1309 [GH:#20] Implementar el reinicio de cuota de todas las cuentas del administrador (sin hogar y hogares con propietario legal) conservando `provider_call_started_at` — D9-28; SC-009-054. Dep: T1307
+- [ ] T1310 [GH:#20] Mostrar siempre «R de M» y fecha de renovación de la cuota del hogar a quien puede generar, y pruebas de los cuatro `SC-009-052..055` — D9-28; SC-009-055. Dep: T1307
+- [ ] T1311 [GH:#20] `/keymaker`: recompilar contratos 009 tras OpenAPI 1.6.0 y alinear `src/generated/v35` (`sceneImagesFit.location` admite `global`) con `bash scripts/compile-contracts.sh` — D9-27 (7); SC-009-052. Dep: T1307
+- [ ] T1312 [GH:#20] Aserción de hogar ajeno en `resetAdminAccountsSceneQuota` (OBS-A del acta `/oracle` 6d8420c): el reinicio no toca la escena de un hogar donde el administrador no es propietario legal — D9-28; SC-009-054. Dep: T1309
+
+---
+
 ## Fase final: Cierre transversal
 
 - [x] T1273 [GOV] [GH:#18, #19, #20, #57, #60] `/oracle` y `/seraph`: auditoría final en disco de las 5 fases (diff, pruebas, E2E multi-navegador, accesibilidad, ausencia de correo y de dependencias nuevas) y revisión de que las enmiendas constitucionales firmadas coinciden con lo implementado — NFR-009-001, NFR-009-002, NFR-009-003, NFR-009-005; SC-009-001..049. Dep: T1216, T1223, T1240, T1253, T1272
@@ -204,7 +215,7 @@
 ---
 
 ### IDs de trazabilidad (1:1 spec → tareas, todas citadas arriba)
-`REQ-APR9-001..008`, `STATE-ACCT9-001`, `STATE-AUTH-SESSION-001`; `REQ-ADM9-001..006`, `INV-ADM9-001`, `INV-ADM9-002`; `REQ-CFG9-001..008`, `INV-CFG9-001..003`; `REQ-PRO9-001..007`, `INV-PRO9-001`, `INV-PRO9-002`; `REQ-LIM9-001..006`, `INV-LIM9-001`, `INV-LIM9-002`; `REQ-DEL9-001`, `REQ-DEL9-002`, `INV-DEL9-001`; `EDGE-009-001..049`; `SC-009-001..051`; `NFR-009-001..005`.
+`REQ-APR9-001..008`, `STATE-ACCT9-001`, `STATE-AUTH-SESSION-001`; `REQ-ADM9-001..006`, `INV-ADM9-001`, `INV-ADM9-002`; `REQ-CFG9-001..008`, `INV-CFG9-001..003`; `REQ-PRO9-001..007`, `INV-PRO9-001`, `INV-PRO9-002`; `REQ-LIM9-001..006`, `INV-LIM9-001`, `INV-LIM9-002`; `REQ-DEL9-001`, `REQ-DEL9-002`, `INV-DEL9-001`; `EDGE-009-001..049`; `SC-009-001..055`; `NFR-009-001..005`.
 
 ### Registro
 - 2026-11-23 `/architect`: tasks.md inicial de la Feature 009. 78 tareas con casilla (Fase 0 = 6, Fase 1 = 10, Fase 2 = 8, Fase 3 = 17, Fase 4 = 13, Fase 5 = 19, Cierre = 5), 0 `[x]`; `REQ-APR9-006` diferido sin casilla. Sin tocar `src/`, `tests/`, `src/generated/` ni contratos existentes.
@@ -215,3 +226,5 @@
 
 - 2026-11-23 `/architect`: asentadas las resoluciones vinculantes de Neo (`D9-21` = A corregida, `D9-22` = A, `D9-23` = A, `D9-24` = A, `D9-25` aprobado, `D9-26` = A; `P5-01` = B, `P5-02` = A, `P5-03` = A, `P5-04` = A, `P5-05` = A, `P5-06` = B). **Tareas movidas de 5a a 5b por `P5-06` = B**: `T1301`, `T1300`, `T1292`, `T1296` (5a = 15, 5b = 19, Fase 5 = 34, total 107 sin cambio); `T1262`, `T1268`, `T1269` y `T1304` pierden `scene.global_quota_max` y la regla de coste; `T1305` y `T1306` la ganan; `T1296` depende ahora de `T1298` (columnas por intento, `D9-22` = A) y `T1298` ya no depende de `T1296`. `T1212` desbloqueada (sin `T1278` en su `Dep`); `T1217` crea el `admin.openapi.yaml` único y `T1226` lo extiende (`P5-05` = A); `T1280` y `T1282` reformuladas para `P5-01` = B (sobreconteo aceptado, sin reconciliación); `T1284`/`T1130`/`T1217` con `D9-24` = A; `T1299` coordinada con `T1254` (`P5-04` = A). Casillas sin cambios (3 `[x]` previas). Sin tocar `src/`, `tests/`, `src/generated/` ni contratos de otras features.
 - 2026-11-23 `/architect`: CORTE SOBERANO de Neo (Nivel 2): `T1290` y `T1291` retiradas (línea conservada, sin `[x]`, IDs de Fase 4 intactos); retirados `REQ-APR9-008`, `EDGE-009-037` y `SC-009-050`; `T1241`, `T1249`, `T1252` y `T1203` limpiadas.
+- 2026-11-24 `/architect`: Fase 5c con `T1307..T1310` (enmienda de Neo: modelo preview + `global`, reinicio de cuota de todas las cuentas del administrador, cuota del hogar visible); todas `[ ]`; `T1307` es esta documentación (queda `[ ]` para firma de Neo).
+- 2026-11-24 `/architect`: Fase 5c suma `T1311` (recompilar contratos tras OpenAPI 1.6.0) y `T1312` (aserción de hogar ajeno, OBS-A); ambas `[ ]`; total 113.

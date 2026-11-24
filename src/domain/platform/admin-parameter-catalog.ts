@@ -38,7 +38,7 @@ export const ADMIN_PARAMETER_KEYS = [
 ] as const;
 export type AdminParameterKey = (typeof ADMIN_PARAMETER_KEYS)[number];
 
-/** Modelos admitidos (lista cerrada de 3, contrato 1.4.0). */
+/** Modelos admitidos: dos pares validos segun D9-27 (gemini-2.5-flash-image + us-central1, 45_000 µUSD; gemini-3.1-flash-image-preview + global, 75_000 µUSD). */
 /** Regiones del catalogo: la lista cerrada mas `global` mientras `SCENE_GLOBAL_LOCATION_ENABLED` (D9-27); el par valido lo decide la tabla de costes. */
 export const SCENE_ALLOWED_LOCATIONS_WITH_GLOBAL: readonly string[] = SCENE_GLOBAL_LOCATION_ENABLED ? [...SCENE_ALLOWED_LOCATIONS, 'global'] : SCENE_ALLOWED_LOCATIONS;
 export const SCENE_ALLOWED_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image'];
