@@ -54,14 +54,14 @@ describe('T1071 R7: driver real, hogar sin consentimiento vigente', () => {
     const call = generator.requests[0];
     expect(call?.references.map((r) => r.ref)).toEqual(['IMG_1']);
     const lines = (call?.prompt ?? '').split('\n');
-    expect(lines.filter((l) => /^Pet \d+ \(\w+\): Use IMG_1 as the exact visual reference for this \w+\.$/.test(l))).toHaveLength(1);
+    expect(lines.filter((l) => /^Pet \d+ \(\w+\): Translate this pet from IMG_1 into the 16-bit isometric pixel art illustration, .*recognizable\.$/.test(l))).toHaveLength(1);
     expect(call?.prompt.includes('inspired by the furniture')).toBe(false);
     expect(call?.prompt.includes('IMG_2')).toBe(false);
-    // Enmienda 009 (INV-PRO9-001): hay una mascota con foto, así que el bloque de preservación aparece una vez, tras la línea `Pet 1` y antes del redibujado.
+    // Orden de Neo 2026-11-24: la mascota con foto va en UNA línea `Pet 1` (sin bloque de preservación suelto), antes del redibujado.
     const prompt = call?.prompt ?? '';
-    expect(prompt.split(PRESERVATION_BLOCK)).toHaveLength(2);
-    expect(prompt.indexOf('Pet 1 (')).toBeLessThan(prompt.indexOf(PRESERVATION_BLOCK));
-    expect(prompt.indexOf(PRESERVATION_BLOCK)).toBeLessThan(prompt.indexOf(PIXEL_REDRAW_RULE));
+    expect(prompt.split(PRESERVATION_BLOCK)).toHaveLength(1);
+    expect(prompt.split('IMG_1')).toHaveLength(2);
+    expect(prompt.indexOf('Pet 1 (')).toBeLessThan(prompt.indexOf(PIXEL_REDRAW_RULE));
     expect(call?.prompt.includes('Design a warm, cozy modern living room interior')).toBe(true);
   });
 });

@@ -117,10 +117,10 @@ describe('T1261 [REQ-CFG9-005] el hogar con foto y el genérico se construyen co
 });
 
 describe('T1261 [EDGE-009-044][INV-PRO9-001] bloque de preservación impuesto por el código', () => {
-  it('el PRESERVATION_BLOCK editado aparece UNA vez si y solo si hay mascota con foto (la regla la impone el código, no el texto)', () => {
+  it('el PRESERVATION_BLOCK editado aparece UNA vez solo en incrementales con ADD/REPLACE con foto y nunca en desde-cero (orden de Neo 2026-11-24; la regla la impone el código, no el texto)', () => {
     const edited = { ...seed(), PRESERVATION_BLOCK: 'KEEP-THE-PETS-EDITED' };
     const cases: Array<[ScenePayload, number]> = [
-      [payload([]), 0], [payload([pet(1)], { household: true }), 0], [payload([withPhoto(1, 'IMG_2')]), 1], [payload([withPhoto(1, 'IMG_2'), withPhoto(2, 'IMG_3')], { household: true }), 1],
+      [payload([]), 0], [payload([pet(1)], { household: true }), 0], [payload([withPhoto(1, 'IMG_2')]), 0], [payload([withPhoto(1, 'IMG_2'), withPhoto(2, 'IMG_3')], { household: true }), 0],
       [payload([{ ...withPhoto(1, 'IMG_2'), action: 'ADD' }], { mode: 'INCREMENTAL_ADD' }), 1],
     ];
     for (const [p, expected] of cases) {

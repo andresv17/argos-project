@@ -64,8 +64,8 @@ const retryAfter = async (promise: Promise<unknown>): Promise<number> => {
   }
   throw new Error('se esperaba un rechazo');
 };
-/** Ranuras `IMG_n` citadas por las líneas de foto del prompt (`Use IMG_n as the exact visual reference for this …`); el JSON 16-bit ya no lleva `photoRef`. */
-const photoRefsOf = (prompt: string): string[] => [...prompt.matchAll(/Use (IMG_\d+) as the exact visual reference for this /g)].map((m) => m[1] ?? '');
+/** Ranuras `IMG_n` citadas por las líneas de foto del prompt (`Translate this pet from IMG_n into …` en desde-cero; `Use IMG_n as the exact visual reference …` en incrementales); el JSON 16-bit ya no lleva `photoRef`. */
+const photoRefsOf = (prompt: string): string[] => [...prompt.matchAll(/(?:Use|Translate this pet from) (IMG_\d+) (?:as the exact visual reference for this |into the 16-bit isometric pixel art illustration)/g)].map((m) => m[1] ?? '');
 
 async function giveAvatar(t: T, petId: string, objectId: string): Promise<void> {
   await t.h.uow.runInTransaction(async (r) => { await r.pets.replaceAvatar(petId, objectId); });

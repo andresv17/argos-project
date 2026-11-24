@@ -275,7 +275,7 @@ describe('T1185 V-B y V-C el API: inyección, validación y privacidad (REQ-BIO8
   });
 });
 
-// SUPERADA en parte por la enmienda 2026-11-24 de la 006 (Neo, Nivel 2; INV-ESC6-010/017): la biografía SANEADA (`sanitizeBiography`) sí viaja en el prompt, solo como cadena JSON tras `PET_BIO_RULE`.
+// SUPERADA en parte por la enmienda 2026-11-24 de la 006 (Neo, Nivel 2; INV-ESC6-010/017): la biografía SANEADA (`sanitizeBiography`) sí viaja en el prompt, solo como cadena JSON (campo `description`, sin regla previa; orden de Neo tras la prueba en vivo).
 // Lo que sigue prohibido: que la lean los adaptadores de IA o el cableado del proveedor, y que entre sin sanear.
 describe('T1185 V-D la biografía llega al prompt de IA solo saneada y como cadena JSON (REQ-BIO8-003, enmienda 2026-11-24 de la 006)', () => {
   const ALLOWED_CODE_READERS = [
@@ -326,9 +326,9 @@ describe('T1185 V-D la biografía llega al prompt de IA solo saneada y como cade
     expect(buildImagePrompt(rootOnly)).toBe(cleanPrompt);
     const dirtyPrompt = buildImagePrompt(dirty);
     expect(dirtyPrompt).not.toBe(cleanPrompt);
-    // Saneada: sin delimitadores y solo como valor de cadena JSON de `bio`.
-    const line = dirtyPrompt.split('\n').find((l) => l.includes('"bio"')) ?? '';
-    expect((JSON.parse(line) as { pets: Array<{ bio: string }> }).pets[0]!.bio).toBe(evil);
+    // Saneada: sin delimitadores y solo como valor de cadena JSON de `description`.
+    const line = dirtyPrompt.split('\n').find((l) => l.includes('"description"')) ?? '';
+    expect((JSON.parse(line) as { pets: Array<{ description: string }> }).pets[0]!.description).toBe(evil);
     expect(dirtyPrompt.split(MARK)).toHaveLength(2);
   });
 });
