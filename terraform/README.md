@@ -90,17 +90,17 @@ Feature 009 (`#19`), Enmienda 009-A. Nada de esto requiere `terraform apply` en 
 - Variable de configuración leída **solo** en `src/infrastructure/config/app-config.ts` (`INV-ARCH-006`). Lista separada por comas, sin espacios obligatorios; el código recorta, normaliza a minúsculas y rechaza duplicados, vacíos y formatos inválidos (el arranque nombra solo la variable, nunca el valor).
 - Ausente o vacía = nadie entra al portal (falla cerrado). Quitar un correo de la lista revoca la sesión de esa persona en la petición siguiente (`EDGE-009-047`).
 - En local, va en `.env` (ver `.env.example`). Ejemplo con placeholders: `ARGOS_ADMIN_EMAILS=admin@example.com,soporte@example.com`.
-- **En producción:** la lista real NO va en el repositorio, en `terraform/` ni en `.env.example`. Se entrega por Secret Manager (secreto `argos-admin-emails`, a crear por Neo), inyectado a Cloud Run como `ARGOS_ADMIN_EMAILS`. Esa creación del secreto y su cableado en `deploy-argos.yml` quedan fuera de esta tarea (cambian el conteo de secretos fijado en las pruebas de Terraform y requieren decisión de Neo).
+- **En producción:** la lista real NO va en el repositorio, en `terraform/` ni en `.env.example`. El contenedor del secreto `argos-admin-emails` está declarado en `terraform/secret_manager.tf` (con bindings mínimos en `terraform/iam.tf` para `argos-run` y `argos-deployer`, sin `secret_version` en Terraform) y `.github/workflows/deploy-argos.yml` resuelve su versión numérica y la inyecta a Cloud Run como `ARGOS_ADMIN_EMAILS`.
 
 **2. URI de redirección de administración (fija por entorno).**
 - Ruta fija: `/api/admin/auth/google/callback`. Nunca se deriva de `Host` (`009-A (c)`).
 - Variable opcional `google_oauth_admin_redirect_uri` (`TF_VAR_google_oauth_admin_redirect_uri`, por defecto vacía). Si se usa, debe ser `https://<host-del-entorno>/api/admin/auth/google/callback`; salida `google_oauth_admin_redirect_uri` para consulta.
 - La URI debe registrarse **además** de la de usuarios (`/api/auth/google/callback`) en el cliente OAuth de Google de cada entorno.
 
-**3. Pasos humanos de Neo (consola de Google, no automatizables por agentes).**
+**3. Pasos humanos de Neo (consola de Google / carga de versión de secreto).**
 1. En Google Cloud Console → APIs y servicios → Credenciales → cliente OAuth de ARGOS del entorno: añadir a *URI de redirección autorizadas* `https://<host-del-entorno>/api/admin/auth/google/callback` (producción y, si aplica, local `http://127.0.0.1:3100/api/admin/auth/google/callback`).
-2. Crear el secreto `argos-admin-emails` en Secret Manager con la lista real (una sola línea, separada por comas), sin pegarla en el chat ni en el repositorio.
-3. Confirmar la lista con Neo antes de cualquier despliegue; `terraform plan`/`apply` solo los ejecuta Neo.
+2. Tras crear el contenedor `argos-admin-emails` vía Terraform (`infraestructura.yml`), cargar la versión con la lista real (una sola línea, separada por comas) mediante `gcloud secrets versions add argos-admin-emails --data-file=- --project=<project_id>`, sin guardar el valor en el repositorio ni en el state.
+3. Confirmar la lista con Neo antes de cualquier despliegue; `terraform plan`/`apply` solo se ejecutan con aprobación de Nivel 2.
 
 ## Secuencia de bootstrap en dos fases (T469 a; REQ-IAC-010, REQ-IAC-012)
 
