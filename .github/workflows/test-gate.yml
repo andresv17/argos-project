@@ -1,22 +1,21 @@
 name: SDD Test Gate (The Architecture Type System)
 
 on:
-  # TEMPORAL (orden Nivel 2 de Neo, 2026-11-24): desactivados los disparadores automáticos en PR/push mientras se validan funcionalidades en producción.
-  # Reactivar descomentando este bloque al cerrar las pruebas funcionales (o revertir este commit).
-  # push:
-  #   branches: [develop]
-  #   paths-ignore:
-  #     - 'terraform/**'
-  #     - 'specs/**'
-  #     - 'docs/**'
-  #     - 'claude/**'
-  # pull_request:
-  #   branches: [main, develop]
-  #   paths-ignore:
-  #     - 'terraform/**'
-  #     - 'specs/**'
-  #     - 'docs/**'
-  #     - 'claude/**'
+  # T487 (D-29): sin push a main (PR ya lo cubre); cambios solo de docs/IaC no gastan minutos.
+  push:
+    branches: [develop]
+    paths-ignore:
+      - 'terraform/**'
+      - 'specs/**'
+      - 'docs/**'
+      - 'claude/**'
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - 'terraform/**'
+      - 'specs/**'
+      - 'docs/**'
+      - 'claude/**'
   # T447 (REQ-CICD-003, REQ-CICD-004): reutilizable por deploy-argos.yml sin credenciales de GCP (H-MERO-009).
   workflow_call:
   workflow_dispatch:
