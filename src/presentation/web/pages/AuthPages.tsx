@@ -8,6 +8,7 @@
  */
 import type { Ref } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ACCOUNT_STATUS_ROUTE } from '../account-status.ts';
 import { Button, FormError, PasswordField, TextField } from '../components/Field.tsx';
 import { GOOGLE_START_PATH } from '../google-login.ts';
 import { useSession } from '../session.tsx';
@@ -62,8 +63,8 @@ export function LoginPage(): JSX.Element {
     schema: 'LoginInput',
     initial: { username: '', password: '' },
     send: async (body) => {
-      await session.login(body as Schemas['LoginInput']);
-      navigate('/', { replace: true });
+      const pending = await session.login(body as Schemas['LoginInput']);
+      navigate(pending === null ? '/' : ACCOUNT_STATUS_ROUTE[pending], { replace: true });
     },
   });
   return (
@@ -95,8 +96,8 @@ export function RegisterPage(): JSX.Element {
     schema: 'RegisterUserInput',
     initial: { username: '', displayName: '', email: '', password: '', confirmPassword: '' },
     send: async (body) => {
-      await session.register(body as Schemas['RegisterUserInput']);
-      navigate('/', { replace: true });
+      const pending = await session.register(body as Schemas['RegisterUserInput']);
+      navigate(pending === null ? '/' : ACCOUNT_STATUS_ROUTE[pending], { replace: true });
     },
   });
   return (

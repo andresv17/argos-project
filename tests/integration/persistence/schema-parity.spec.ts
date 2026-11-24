@@ -39,16 +39,26 @@ const BIOGRAPHY_PATH = new URL('../../../src/infrastructure/persistence/postgres
 /** T1116 (008, #16): la 0013 de Postgres equivale a la 0017 de SQLite (`users.email_verified_at`, `auth_identities`, `oauth_flow_states`, REQ-SSO8-001, REQ-SSO8-003, REQ-SSO8-004, EDGE-008-036). */
 const GOOGLE_SSO_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0013_google_sso.sql', import.meta.url);
 
+/** T1219 (009, deuda #17): la 0014 de Postgres equivale a la 0018 de SQLite (`oauth_flow_states` admite la intención `DELETE`, REQ-DEL9-001, INV-DEL9-001). */
+const DELETE_INTENT_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0014_oauth_flow_delete_intent.sql', import.meta.url);
+
+/** T1232 (009, Fase 3, #19): la 0015 de Postgres equivale a la 0019 de SQLite (`admin_identities`, `admin_sessions`, `admin_oauth_flow_states`, `admin_audit_entries`, REQ-ADM9-002..006). */
+const ADMIN_PORTAL_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0015_admin_portal.sql', import.meta.url);
+
+/** T1243 (009, Fase 4, #18): la 0016 de Postgres equivale a la 0020 de SQLite (`users.account_status`, `decided_at`, `decided_by`, REQ-APR9-004, STATE-ACCT9-001). */
+const PROVIDER_CALL_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0019_scene_attempts_provider_call.sql', import.meta.url);
+const ACCOUNT_STATUS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0016_account_status.sql', import.meta.url);
+
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
 const CANONICAL_TABLES = [
-  'audit_log', 'auth_identities', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'home_scenes', 'household_invitations',
+  'admin_audit_entries', 'admin_identities', 'admin_oauth_flow_states', 'admin_sessions', 'audit_log', 'auth_identities', 'backup_confirmation_tokens', 'body_measurements', 'custom_parameters', 'dewormings', 'home_scenes', 'household_invitations',
   'household_members', 'household_photos', 'households', 'login_attempts', 'media_deletion_queue', 'medical_visits', 'oauth_flow_states', 'pet_assignments', 'pet_media', 'pets', 'platform_parameters', 'rate_limit_events',
   'scene_attempts', 'scene_consents', 'scene_image_sources', 'scene_quota_carry', 'schema_migrations', 'sessions', 'share_link_audit', 'share_links', 'users', 'vaccinations', 'weights',
 ];
 
 /** Lista canónica de índices del esquema final (T555, 004): los que añaden las migraciones 0007/0008 (SQLite) y 0003/0004 (Postgres) y los de la 002. */
 const CANONICAL_INDEXES = [
-  'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'auth_identities_user_id', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
+  'admin_audit_entries_admin_occurred', 'admin_identities_email', 'admin_identities_subject', 'admin_oauth_flow_states_expires', 'admin_sessions_admin_id', 'admin_sessions_created', 'audit_log_entity_id', 'audit_log_executor_user_id', 'audit_log_timestamp', 'auth_identities_user_id', 'body_measurements_pet_id', 'custom_parameters_pet_id', 'dewormings_pet_id',
   'home_scenes_household', 'home_scenes_owner', 'household_invitations_household_id', 'household_invitations_invitee_user_id', 'household_invitations_one_open', 'household_members_household_id',
   'household_members_one_open_per_user', 'household_members_one_owner', 'household_members_user_id', 'medical_visits_pet_id', 'oauth_flow_states_expires', 'oauth_flow_states_user_id', 'pet_assignments_household_id',
   'pet_media_pet_created', 'pets_microchip_global', 'pets_owner_user_id', 'rate_limit_events_subject', 'scene_attempts_actor_started', 'scene_attempts_idempotency',
@@ -167,7 +177,7 @@ function parseSchema(statements: string[]): Schema {
       schema.tables.set(t[1]!, parseCreateTable(t[1]!, t[2]!));
       continue;
     }
-    const alter = /^ALTER TABLE (\w+) ADD COLUMN ([\s\S]+)$/i.exec(stmt.trim());
+    const alter = /^ALTER TABLE (\w+) ADD COLUMN (?:IF NOT EXISTS )?([\s\S]+)$/i.exec(stmt.trim());
     if (alter) {
       const added = parseCreateTable(alter[1]!, alter[2]!);
       for (const [name, column] of added.columns) schema.tables.get(alter[1]!)!.columns.set(name, column);
@@ -218,7 +228,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -310,12 +320,14 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
       for (const column of ['state', 'nonce', 'code_verifier', 'pending_subject', 'pending_email', 'consumed_at']) expect(flow.columns.get(column), column).toMatchObject({ notNull: false });
       for (const column of ['phase', 'intent', 'created_at', 'expires_at']) expect(flow.columns.get(column), column).toMatchObject({ notNull: true });
       expect(flow.checks).toContain("phase IN ('AUTHORIZATION','USERNAME')");
-      expect(flow.checks).toContain("intent IN ('LOGIN','LINK')");
+      // T1219 (009): la intención DELETE amplía el CHECK de `intent` y comparte con LINK el usuario y la sesión de origen.
+      expect(flow.checks).toContain("intent IN ('LOGIN','LINK','DELETE')");
       expect(flow.checks).toContain('length(token_hash) = 64');
       // [REQ-VIN8-004] [INV-VIN8-005] el hash de la sesión de origen: anulable, sin clave foránea, 64 caracteres y obligatorio solo en LINK.
       expect(flow.columns.get('origin_session_hash'), 'origin_session_hash').toMatchObject({ type: 'TEXT', notNull: false, default: null, references: null });
       expect(flow.checks).toContain('origin_session_hash IS NULL OR length(origin_session_hash) = 64');
-      expect(flow.checks).toContain("(intent = 'LINK') = (origin_session_hash IS NOT NULL)");
+      expect(flow.checks).toContain("(intent IN ('LINK','DELETE')) = (origin_session_hash IS NOT NULL)");
+      expect(flow.checks).toContain("(intent IN ('LINK','DELETE')) = (user_id IS NOT NULL)");
     }
     expect(pg.tables.get('auth_identities')!.checks).toEqual(sqlite.tables.get('auth_identities')!.checks);
     expect(pg.tables.get('oauth_flow_states')!.checks).toEqual(sqlite.tables.get('oauth_flow_states')!.checks);
@@ -442,7 +454,7 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     expect(inserts[0]).toContain("'Máximo de fotos de álbum por mascota'");
     const db = openSqliteDatabase(IN_MEMORY_DATABASE);
     try {
-      expect(db.prepare('SELECT key, value, description, updated_by_user_id FROM platform_parameters').all()).toEqual([
+      expect(db.prepare("SELECT key, value, description, updated_by_user_id FROM platform_parameters WHERE key = 'album.max_photos_per_pet'").all()).toEqual([
         { key: 'album.max_photos_per_pet', value: '10', description: 'Máximo de fotos de álbum por mascota', updated_by_user_id: null },
       ]);
     } finally {
@@ -484,6 +496,10 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(DECEASED_LINK_PATH, 'utf8'));
         await client.query(readFileSync(BIOGRAPHY_PATH, 'utf8'));
         await client.query(readFileSync(GOOGLE_SSO_PATH, 'utf8'));
+        await client.query(readFileSync(DELETE_INTENT_PATH, 'utf8'));
+        await client.query(readFileSync(ADMIN_PORTAL_PATH, 'utf8'));
+        await client.query(readFileSync(ACCOUNT_STATUS_PATH, 'utf8'));
+        await client.query(readFileSync(PROVIDER_CALL_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalog",
   "x-sdd-metadata": {
-    "version": "3.2.0",
+    "version": "3.3.0",
     "status": "DRAFT",
-    "supersedes": "3.1.0",
+    "supersedes": "3.2.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 3.2.0 (feature 008, Architect 2026-11-20): +ERR-AUTH-GOOGLE-FAILED (400, fallo uniforme del flujo con Google) y +ERR-AUTH-GOOGLE-LINK-CONFLICT (409, vinculación). La contraseña actual incorrecta al vincular reutiliza ERR-AUTH-INVALID-CREDENTIALS; el límite de tasa reutiliza ERR-RATE-LIMITED; sin códigos de aprobación ni de /api/admin (diferidos a 009). MINOR 3.1.0 (feature 004): 6 errores nuevos (medios y conflicto de revisión, D-16 A); ERR-PET-MICROCHIP-DUPLICATE oficializado con detalle sin datos de terceros; ERR-RATE-LIMITED cita REQ-PET4-002 y REQ-ARC-001. ERR-RATE-LIMITED APROBADO por Neo (T556/T557): ya no es pendiente; su detalle genérico no incluye el microchip (SC-CAT-029: 429 al sexto duplicado en 24 h; el 409 de ERR-PET-MICROCHIP-DUPLICATE no cambia). PENDIENTE DE NEO: STATE-ACCOUNT-DELETE-001 sigue como en la 002. Coordinacion feature 007 (#13, EDGE-007-009): +ERR-PET-VERSION-CONFLICT (412) y detalle de ERR-BACKUP-VERSION-UNSUPPORTED para el respaldo 3.2.0.",
+    "change_note": "Enmienda 009 (feature 009, T1241, Architect 2026-11-23, MINOR, DRAFT; MER-01): +ERR-ACCOUNT-PENDING (403), +ERR-ACCOUNT-REJECTED (403) y +ERR-ACCOUNT-REGISTRATION-RATE-LIMITED (429). Son propiedad de este catalogo (el de 009 no los declara, MER-10). MINOR 3.2.0 (feature 008, Architect 2026-11-20): +ERR-AUTH-GOOGLE-FAILED (400, fallo uniforme del flujo con Google) y +ERR-AUTH-GOOGLE-LINK-CONFLICT (409, vinculación). La contraseña actual incorrecta al vincular reutiliza ERR-AUTH-INVALID-CREDENTIALS; el límite de tasa reutiliza ERR-RATE-LIMITED; sin códigos de aprobación ni de /api/admin (diferidos a 009). MINOR 3.1.0 (feature 004): 6 errores nuevos (medios y conflicto de revisión, D-16 A); ERR-PET-MICROCHIP-DUPLICATE oficializado con detalle sin datos de terceros; ERR-RATE-LIMITED cita REQ-PET4-002 y REQ-ARC-001. ERR-RATE-LIMITED APROBADO por Neo (T556/T557): ya no es pendiente; su detalle genérico no incluye el microchip (SC-CAT-029: 429 al sexto duplicado en 24 h; el 409 de ERR-PET-MICROCHIP-DUPLICATE no cambia). PENDIENTE DE NEO: STATE-ACCOUNT-DELETE-001 sigue como en la 002. Coordinacion feature 007 (#13, EDGE-007-009): +ERR-PET-VERSION-CONFLICT (412) y detalle de ERR-BACKUP-VERSION-UNSUPPORTED para el respaldo 3.2.0.",
     "removed": [],
     "added": [
       "ERR-MEDIA-TOO-LARGE",
@@ -17,7 +17,10 @@
       "ERR-REC-CONFLICT",
       "ERR-PET-VERSION-CONFLICT",
       "ERR-AUTH-GOOGLE-FAILED",
-      "ERR-AUTH-GOOGLE-LINK-CONFLICT"
+      "ERR-AUTH-GOOGLE-LINK-CONFLICT",
+      "ERR-ACCOUNT-PENDING",
+      "ERR-ACCOUNT-REJECTED",
+      "ERR-ACCOUNT-REGISTRATION-RATE-LIMITED"
     ],
     "pendingIds": [
       "STATE-ACCOUNT-DELETE-001"
@@ -27,6 +30,9 @@
       "ERR-ACCOUNT-CONFIRMATION-MISMATCH",
       "ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD",
       "ERR-ACCOUNT-OWNS-SHARED-PETS",
+      "ERR-ACCOUNT-PENDING",
+      "ERR-ACCOUNT-REGISTRATION-RATE-LIMITED",
+      "ERR-ACCOUNT-REJECTED",
       "ERR-AUTH-CSRF-REJECTED",
       "ERR-AUTH-GOOGLE-FAILED",
       "ERR-AUTH-GOOGLE-LINK-CONFLICT",
@@ -69,7 +75,7 @@
       "ERR-SCHEMA-VALIDATION-FAILED"
     ]
   },
-  "version": "3.2.0",
+  "version": "3.3.0",
   "status": "DRAFT",
   "problemDetailsSchema": {
     "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
@@ -431,6 +437,33 @@
       "detailTemplate": "No se pudo vincular esa cuenta de Google a tu cuenta.",
       "requirementRef": "REQ-AUTH2-003",
       "note": "Se devuelve solo en startGoogleLink cuando la cuenta ya tiene Google vinculado. Un sub ya vinculado a otra cuenta se detecta en el callback y responde el fallo uniforme ERR-AUTH-GOOGLE-FAILED (400)."
+    },
+    "ERR-ACCOUNT-PENDING": {
+      "type": "urn:argos:error:ERR-ACCOUNT-PENDING",
+      "status": 403,
+      "title": "Solicitud en revisión",
+      "invariantRef": "INV-AUTH-006",
+      "detailTemplate": "La cuenta aún no está aprobada.",
+      "requirementRef": "REQ-APR9-001, REQ-APR9-002, EDGE-009-005",
+      "note": "La guarda de sesión exige account_status ACTIVE como defensa en profundidad: una petición protegida cuya sesión pertenece a una cuenta PENDING (que no debería tener sesión, EDGE-009-038) responde 403 en lugar de servir datos. En el registro y el login normales NO se usa: allí el estado viaja en el cuerpo (AccountStatusView) sin cookie. No incluye username, correo ni fechas."
+    },
+    "ERR-ACCOUNT-REJECTED": {
+      "type": "urn:argos:error:ERR-ACCOUNT-REJECTED",
+      "status": 403,
+      "title": "Solicitud no aprobada",
+      "invariantRef": "INV-AUTH-006",
+      "detailTemplate": "La solicitud no fue aprobada.",
+      "requirementRef": "REQ-APR9-001, REQ-APR9-002, EDGE-009-005, EDGE-009-038",
+      "note": "Igual que ERR-ACCOUNT-PENDING para una cuenta REJECTED (la guarda de sesión exige ACTIVE). El rechazo revoca las sesiones de la cuenta, por lo que este código es solo defensa en profundidad. No revela motivo ni fecha de la decisión."
+    },
+    "ERR-ACCOUNT-REGISTRATION-RATE-LIMITED": {
+      "type": "urn:argos:error:ERR-ACCOUNT-REGISTRATION-RATE-LIMITED",
+      "status": 429,
+      "title": "Demasiados registros",
+      "invariantRef": "INV-AUTH-006",
+      "detailTemplate": "Se superó el límite de solicitudes de registro. Inténtalo de nuevo más tarde.",
+      "requirementRef": "REQ-APR9-002, EDGE-009-040",
+      "note": "Más de 5 registros nuevos por IP efectiva en 24 h (valor aprobado D9-25, solo en app-config.ts, nunca en el detalle); aplica al registro con contraseña y al primer acceso con Google (elegir username). Respuesta uniforme al exceso, sin crear fila y con Retry-After; no cambia la respuesta de username ocupado (ERR-AUTH-USERNAME-TAKEN). Distinto de ERR-RATE-LIMITED para que la SPA muestre su propio texto."
     }
   }
 }

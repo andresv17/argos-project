@@ -24,6 +24,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
     expect([loadAppConfig({ NODE_ENV: 'test' }), example]).toEqual([
       {
         port: 3100,
+        adminEmails: [],
         host: '127.0.0.1',
         databasePath: './data/argos.sqlite',
         appTimezone: 'America/Bogota',

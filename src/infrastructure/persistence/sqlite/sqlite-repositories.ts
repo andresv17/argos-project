@@ -30,6 +30,7 @@ import {
 import { validateUserPublicProfile, type AuditEntry } from '../../../generated/v31/index.ts';
 import { isStoredPetProfile, type LifeStatus, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import { sqliteSceneConsentRepository, sqliteSceneRepository } from './sqlite-scene-repositories.ts';
+import { adminAuditRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './sqlite-admin-repositories.ts';
 import type {
   AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
@@ -68,6 +69,7 @@ import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts
 import { STORED_RECORD_CHECKS, revisionOf, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 import { isCanonicalUtcTimestamp } from '../../../domain/sorting/deterministic-sorter.ts';
+import { parseAccountStatus, type AccountStatus } from '../../../domain/account/account-status.ts';
 import type Database from 'better-sqlite3';
 import type { SqliteDatabase } from './sqlite-database.ts';
 
@@ -97,6 +99,13 @@ export const isSessionRecord: Check<SessionRecord> = (value): value is SessionRe
   );
 };
 const isStringArray: Check<string[]> = (value): value is string[] => Array.isArray(value) && value.every((x) => typeof x === 'string');
+
+/** Estado de cuenta leído de la columna `account_status`; un valor fuera de la máquina es dato corrupto (la restricción CHECK lo impide). */
+export function accountStatusOf(value: unknown, userId: string): AccountStatus {
+  const status = parseAccountStatus(value);
+  if (status === null) throw corruptData('users', userId);
+  return status;
+}
 
 /**
  * Dato persistido inválido o corrupto (F4).
@@ -164,6 +173,7 @@ interface UserRow {
   readonly preferred_language: string;
   readonly timezone: string;
   readonly email_verified_at: string | null;
+  readonly account_status: string;
   readonly data: string;
 }
 interface SessionRow {
@@ -234,7 +244,7 @@ interface MembershipRow {
 
 /** @implements INV-ARCH-004, INV-AUTH-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED */
 function userRepository(db: SqliteDatabase): UserRepositoryPort {
-  const select = 'SELECT id, username, password_hash, email, email_verified_at, preferred_language, timezone, data FROM users';
+  const select = 'SELECT id, username, password_hash, email, email_verified_at, account_status, preferred_language, timezone, data FROM users';
   const byId = db.prepare<[string], UserRow>(`${select} WHERE id = ?`);
   const byUsername = db.prepare<[string], UserRow>(`${select} WHERE lower(username) = lower(?)`);
   // substr y no LIKE: el `_` del username no debe actuar como comodín (REQ-INV8-001).
@@ -243,7 +253,7 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
   const byIds = db.prepare<[string], UserRow>(`${select} WHERE id IN (SELECT value FROM json_each(?))`);
   const verifiedByEmail = db.prepare<[string], UserRow>(`${select} WHERE lower(email) = lower(?) AND email_verified_at IS NOT NULL LIMIT 1`);
   const releaseEmail = db.prepare('UPDATE users SET email = NULL WHERE lower(email) = lower(?) AND email_verified_at IS NULL');
-  const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
   const update = db.prepare('UPDATE users SET password_hash = ?, data = ?, email = ?, preferred_language = ?, timezone = ? WHERE id = ? AND username = ?');
   const remove = db.prepare('DELETE FROM users WHERE id = ?');
   const references = db.prepare<[string, string, string, string, string, string, string, string, string, string, string], { readonly n: number }>(
@@ -270,10 +280,11 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
       timezone: row.timezone,
       passwordHash: row.password_hash,
       ...(row.email_verified_at === null ? {} : { emailVerifiedAt: row.email_verified_at }),
+      ...(row.account_status === 'ACTIVE' ? {} : { accountStatus: accountStatusOf(row.account_status, row.id) }),
     };
   };
   const split = (user: UserAccount) => {
-    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, ...profile } = user;
+    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, ...profile } = user;
     if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
     return { passwordHash, email, preferredLanguage, timezone, data: encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile) };
   };
@@ -309,7 +320,7 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
     },
     async insert(user) {
       const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
-      insert.run(user.id, user.username, passwordHash, data, email, preferredLanguage, timezone, user.emailVerifiedAt ?? null);
+      insert.run(user.id, user.username, passwordHash, data, email, preferredLanguage, timezone, user.emailVerifiedAt ?? null, user.accountStatus ?? 'ACTIVE');
     },
     async update(user) {
       const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
@@ -337,6 +348,7 @@ function sessionRepository(db: SqliteDatabase): SessionRepositoryPort {
   const ofUser = db.prepare<[string], { readonly token_hash: string; readonly data: string }>('SELECT token_hash, data FROM sessions WHERE user_id = ? AND revoked_at IS NULL');
   const revoke = db.prepare('UPDATE sessions SET revoked_at = ?, data = ? WHERE token_hash = ?');
   const removeByUser = db.prepare('DELETE FROM sessions WHERE user_id = ?');
+  const ownerStatus = db.prepare<[string], { readonly account_status: string }>('SELECT account_status FROM users WHERE id = ?');
   return {
     async findByToken(token) {
       const hash = sessionTokenHash(token);
@@ -367,6 +379,10 @@ function sessionRepository(db: SqliteDatabase): SessionRepositoryPort {
     },
     async deleteByUser(userId) {
       removeByUser.run(userId);
+    },
+    async findOwnerAccountStatus(userId) {
+      const row = ownerStatus.get(userId);
+      return row === undefined ? null : accountStatusOf(row.account_status, userId);
     },
   };
   function revokeExcept(userId: string, keep: string, nowIsoTimestamp: string): number {
@@ -1109,7 +1125,7 @@ interface OAuthFlowRow {
 
 /**
  * `oauth_flow_states` (feature 008, REQ-SSO8-004, ADR-008-03): estado del flujo en servidor; un solo uso por compare-and-set (`UPDATE … WHERE consumed_at IS NULL AND expires_at > ?`).
- * La forma de cada fase y de cada intención la imponen los CHECK de la migración 0017. Ningún valor del estado sale en un mensaje de error.
+ * La forma de cada fase y de cada intención la imponen los CHECK de las migraciones 0017 y 0018 (009: intención DELETE). Ningún valor del estado sale en un mensaje de error.
  * @implements REQ-SSO8-004, REQ-SSO8-003, EDGE-008-007, NFR-008-004
  */
 function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
@@ -1118,6 +1134,12 @@ function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
   const byHash = db.prepare<[string], OAuthFlowRow>(`SELECT ${columns} FROM oauth_flow_states WHERE token_hash = ?`);
   const consume = db.prepare('UPDATE oauth_flow_states SET consumed_at = ? WHERE token_hash = ? AND phase = ? AND consumed_at IS NULL AND expires_at > ?');
   const purge = db.prepare('DELETE FROM oauth_flow_states WHERE expires_at <= ?');
+  // 009 (T1130, REQ-DEL9-001, INV-DEL9-001): prueba de titularidad = fila DELETE ya consumida y con la marca `pending_subject`; se consume eliminándola (1 fila exacta).
+  const findProof = db.prepare<[string, string, string], OAuthFlowRow>(
+    `SELECT ${columns} FROM oauth_flow_states WHERE intent = 'DELETE' AND user_id = ? AND origin_session_hash = ? AND consumed_at IS NOT NULL AND pending_subject IS NOT NULL AND expires_at > ? ORDER BY consumed_at DESC, token_hash LIMIT 1`,
+  );
+  const markProof = db.prepare("UPDATE oauth_flow_states SET pending_subject = ? WHERE token_hash = ? AND intent = 'DELETE' AND consumed_at IS NOT NULL AND pending_subject IS NULL");
+  const consumeProof = db.prepare("DELETE FROM oauth_flow_states WHERE token_hash = ? AND intent = 'DELETE' AND consumed_at IS NOT NULL AND pending_subject IS NOT NULL AND expires_at > ?");
   const toFlow = (row: OAuthFlowRow): OAuthFlowStateRecord => ({
     tokenHash: row.token_hash,
     phase: row.phase,
@@ -1148,6 +1170,16 @@ function oauthFlowRepository(db: SqliteDatabase): OAuthFlowStateRepositoryPort {
     async purgeExpired(nowIsoTimestamp) {
       return purge.run(nowIsoTimestamp).changes;
     },
+    async findDeletionProof(userId, originSessionHash, nowIsoTimestamp) {
+      const row = findProof.get(userId, originSessionHash, nowIsoTimestamp);
+      return row === undefined ? null : toFlow(row);
+    },
+    async markDeletionProof(tokenHash, verifiedSubject) {
+      return markProof.run(verifiedSubject, tokenHash).changes === 1;
+    },
+    async consumeDeletionProof(tokenHash, nowIsoTimestamp) {
+      return consumeProof.run(tokenHash, nowIsoTimestamp).changes === 1;
+    },
   };
 }
 
@@ -1176,5 +1208,11 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     sceneConsents: sqliteSceneConsentRepository(db),
     authIdentities: authIdentityRepository(db),
     oauthFlows: oauthFlowRepository(db),
+    adminIdentities: adminIdentityRepository(db),
+    adminSessions: adminSessionRepository(db),
+    adminFlows: adminFlowRepository(db),
+    adminAudit: adminAuditRepository(db),
+    registrations: registrationRepository(db),
+    adminParameters: adminParameterRepository(db),
   };
 }

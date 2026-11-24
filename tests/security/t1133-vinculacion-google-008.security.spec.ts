@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { GoogleOidcError } from '../../src/infrastructure/http/google-oidc-verify.ts';
+import { activateAccount, sqliteRunner } from '../fixtures/active-accounts.ts';
 import { PASSWORDS, canonicalState } from '../fixtures/application-harness.ts';
 import { GOOGLE_CODE, GOOGLE_EMAIL, SequentialEntropy, fakeGoogleOidc } from '../fixtures/google-fixtures.ts';
 import { createApi, type Api, type ApiResponse } from '../integration/api/api-harness.ts';
@@ -329,9 +330,13 @@ describe('T1133 V-B CSRF de startGoogleLink y del callback (INV-AUTH-007, REQ-VI
     const { api } = await boot();
     const mineGoogle = await loginFlow(api);
     const step = await callback(api, mineGoogle.oauth, `code=${GOOGLE_CODE}&state=${mineGoogle.state}`);
-    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'con.google' } });
-    expect(cookieNamed(chosen, 'argos_session')).toMatch(/SameSite=Strict/i);
-    expect(cookieNamed(chosen, 'argos_session')).toMatch(/HttpOnly/i);
+    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'con.google' }, contract: false });
+    expect(cookieNamed(chosen, 'argos_session')).toBeUndefined(); // 009 (EDGE-009-006): la cuenta nace PENDING, sin sesión
+    await activateAccount(sqliteRunner(api.db), 'sqlite', 'con.google', api.clock.nowIsoTimestamp());
+    const second = await loginFlow(api);
+    const entered = await callback(api, second.oauth, `code=${GOOGLE_CODE}&state=${second.state}`);
+    expect(cookieNamed(entered, 'argos_session')).toMatch(/SameSite=Strict/i);
+    expect(cookieNamed(entered, 'argos_session')).toMatch(/HttpOnly/i);
     const link = await linkFlow(api, 'andres');
     const done = await callback(api, link.oauth, `code=${GOOGLE_CODE}&state=${link.state}`);
     expect(cookieNamed(done, 'argos_session')).toBeUndefined();

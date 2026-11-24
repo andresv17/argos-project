@@ -44,12 +44,25 @@ import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLin
 import { EXPIRY_DAYS, type ShareLinkRecord, type ShareScope } from '../../../domain/sharing/share-link.ts';
 import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type {
+  AdminAuditRecord,
+  AdminAuditRepositoryPort,
+  AdminParameterRepositoryPort,
+  AdminFlowStateRepositoryPort,
+  AdminIdentityRepositoryPort,
+  AdminSessionRepositoryPort,
+  AdminFlowStateRecord,
+  AdminIdentityRecord,
+  AdminSessionRecord,
+  RegistrationDecisionRepositoryPort,
+} from '../../../application/ports/admin.port.ts';
+import type {
   AuthIdentityRecord,
   AuthIdentityRepositoryPort,
   OAuthFlowStateRecord,
   OAuthFlowStateRepositoryPort,
 } from '../../../application/ports/auth-identity.port.ts';
 import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
+import { NO_PASSWORD_SENTINEL } from '../../../domain/auth/password-sentinel.ts';
 import { hashSessionToken } from '../../../domain/auth/session-policy.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
@@ -85,6 +98,15 @@ export interface MemoryState extends SceneMemoryState {
   authIdentities?: AuthIdentityRecord[];
   /** `oauth_flow_states` (feature 008, REQ-SSO8-004); opcional: ausente = vacía. */
   oauthFlows?: OAuthFlowStateRecord[];
+  /** Portal de administración (feature 009, Fase 3); opcionales: ausentes = vacías. */
+  adminIdentities?: AdminIdentityRecord[];
+  adminSessions?: AdminSessionRecord[];
+  adminFlows?: AdminFlowStateRecord[];
+  adminAudit?: AdminAuditRecord[];
+  /** Decision de aprobacion por cuenta (T1247): instante y `adminId` de quien decidio. */
+  userDecisions?: Record<string, { decidedAt: string; decidedBy: string }>;
+  /** `platform_parameters` (T1264): clave -> fila; opcional, ausente = vacia. */
+  platformParameters?: Record<string, { value: string; description: string; updatedAt: string }>;
   /** Escena del hogar (feature 006): `scenes`, `sceneAttempts`, `sceneConsents` y `sceneQuotaCarry` (opcionales; ausentes = vacías). */
 }
 
@@ -123,6 +145,10 @@ export function emptyMemoryState(): MemoryState {
     shareAudit: [],
     authIdentities: [],
     oauthFlows: [],
+    adminIdentities: [],
+    adminSessions: [],
+    adminFlows: [],
+    adminAudit: [],
     scenes: [],
     sceneAttempts: [],
     sceneConsents: [],
@@ -181,9 +207,10 @@ function userRepository(state: MemoryState): UserRepositoryPort {
     async update(user) {
       const index = state.users.findIndex((u) => u.id === user.id && u.username === user.username);
       if (index < 0) throw new Error(`users: el usuario ${user.id} no existe`);
-      const { emailVerifiedAt: _ignored, ...rest } = copy(user); // update nunca modifica email_verified_at
+      const { emailVerifiedAt: _ignored, accountStatus: _status, ...rest } = copy(user); // update nunca modifica email_verified_at ni account_status (lo decide la aprobación, T1247)
       const prior = state.users[index]!.emailVerifiedAt;
-      state.users[index] = prior === undefined ? rest : { ...rest, emailVerifiedAt: prior };
+      const priorStatus = state.users[index]!.accountStatus;
+      state.users[index] = { ...rest, ...(prior === undefined ? {} : { emailVerifiedAt: prior }), ...(priorStatus === undefined ? {} : { accountStatus: priorStatus }) };
     },
     async delete(userId) {
       state.users = state.users.filter((u) => u.id !== userId);
@@ -240,6 +267,10 @@ function sessionRepository(state: MemoryState): SessionRepositoryPort {
     },
     async deleteByUser(userId) {
       for (const [token, session] of Object.entries(state.sessions)) if (session.userId === userId) delete state.sessions[token];
+    },
+    async findOwnerAccountStatus(userId) {
+      const owner = state.users.find((u) => u.id === userId);
+      return owner === undefined ? null : (owner.accountStatus ?? 'ACTIVE');
     },
   };
 }
@@ -702,10 +733,12 @@ function authIdentityRepository(state: MemoryState): AuthIdentityRepositoryPort 
 
 /** Forma coherente de una fila de `oauth_flow_states` (los CHECK de la migración 0017/0013). */
 function isCoherentFlow(f: OAuthFlowStateRecord): boolean {
-  const authorization = f.phase === 'AUTHORIZATION' && f.state !== null && f.nonce !== null && f.codeVerifier !== null && f.pendingSubject === null && f.pendingEmail === null;
+  // 009 (0018): `pendingSubject` solo puede llevar valor en DELETE (marca de la prueba de titularidad).
+  const authorization = f.phase === 'AUTHORIZATION' && f.state !== null && f.nonce !== null && f.codeVerifier !== null && (f.pendingSubject === null || f.intent === 'DELETE') && f.pendingEmail === null;
   const username = f.phase === 'USERNAME' && f.intent === 'LOGIN' && f.state === null && f.nonce === null && f.codeVerifier === null && f.pendingSubject !== null && f.pendingEmail !== null;
-  const originOk = (f.intent === 'LINK') === (f.originSessionHash !== null) && (f.originSessionHash === null || f.originSessionHash.length === 64);
-  return f.tokenHash.length === 64 && f.expiresAt > f.createdAt && (authorization || username) && (f.intent === 'LINK') === (f.userId !== null) && originOk;
+  const bound = f.intent === 'LINK' || f.intent === 'DELETE';
+  const originOk = bound === (f.originSessionHash !== null) && (f.originSessionHash === null || f.originSessionHash.length === 64);
+  return f.tokenHash.length === 64 && f.expiresAt > f.createdAt && (authorization || username) && bound === (f.userId !== null) && originOk;
 }
 
 /** `oauth_flow_states` (feature 008, REQ-SSO8-004): un solo uso por compare-and-set, vence a los 900 s. */
@@ -732,6 +765,177 @@ function oauthFlowRepository(state: MemoryState): OAuthFlowStateRepositoryPort {
       state.oauthFlows = all().filter((f) => f.expiresAt > nowIsoTimestamp);
       return before - state.oauthFlows.length;
     },
+    async findDeletionProof(userId, originSessionHash, nowIsoTimestamp) {
+      const proofs = all()
+        .filter((f) => f.intent === 'DELETE' && f.userId === userId && f.originSessionHash === originSessionHash && f.consumedAt !== null && f.pendingSubject !== null && f.expiresAt > nowIsoTimestamp)
+        .sort((a, b) => (b.consumedAt! < a.consumedAt! ? -1 : b.consumedAt! > a.consumedAt! ? 1 : a.tokenHash < b.tokenHash ? -1 : 1));
+      return copy(proofs[0] ?? null);
+    },
+    async markDeletionProof(tokenHash, verifiedSubject) {
+      const index = all().findIndex((f) => f.tokenHash === tokenHash && f.intent === 'DELETE' && f.consumedAt !== null && f.pendingSubject === null);
+      if (index < 0) return false;
+      all()[index] = { ...all()[index]!, pendingSubject: verifiedSubject };
+      return true;
+    },
+    async consumeDeletionProof(tokenHash, nowIsoTimestamp) {
+      const index = all().findIndex((f) => f.tokenHash === tokenHash && f.intent === 'DELETE' && f.consumedAt !== null && f.pendingSubject !== null && f.expiresAt > nowIsoTimestamp);
+      if (index < 0) return false;
+      all().splice(index, 1);
+      return true;
+    },
+  };
+}
+
+/** `admin_identities` (feature 009, REQ-ADM9-003): única por (provider, sub) y por correo; sin relación con `users`. */
+function adminIdentityRepository(state: MemoryState): AdminIdentityRepositoryPort {
+  const all = (): AdminIdentityRecord[] => (state.adminIdentities ??= []);
+  return {
+    async findById(adminId) {
+      return copy(all().find((i) => i.adminId === adminId) ?? null);
+    },
+    async findBySubject(provider, providerSubject) {
+      return copy(all().find((i) => i.provider === provider && i.providerSubject === providerSubject) ?? null);
+    },
+    async findByEmail(email) {
+      return copy(all().find((i) => i.email === email) ?? null);
+    },
+    async insertIfAbsent(identity) {
+      if (identity.adminId.length !== 36 || identity.providerSubject === '' || identity.email.length < 3 || identity.email !== identity.email.toLowerCase()) throw new Error('admin_identities: fila incoherente');
+      if (all().some((i) => i.adminId === identity.adminId || (i.provider === identity.provider && i.providerSubject === identity.providerSubject) || i.email === identity.email)) return false;
+      all().push(copy(identity));
+      return true;
+    },
+  };
+}
+
+/** `admin_sessions` (feature 009, REQ-ADM9-002): solo el hash; revocación por compare-and-set; la actividad no se renueva si está revocada. */
+function adminSessionRepository(state: MemoryState): AdminSessionRepositoryPort {
+  const all = (): AdminSessionRecord[] => (state.adminSessions ??= []);
+  return {
+    async insert(record) {
+      if (record.tokenHash.length !== 64) throw new Error('admin_sessions: hash incoherente');
+      if (!(state.adminIdentities ?? []).some((i) => i.adminId === record.adminId)) throw new Error('admin_sessions: la identidad no existe');
+      if (all().some((s) => s.tokenHash === record.tokenHash)) throw new Error('admin_sessions: identificador duplicado');
+      all().push(copy(record));
+    },
+    async findByTokenHash(tokenHash) {
+      return copy(all().find((s) => s.tokenHash === tokenHash) ?? null);
+    },
+    async touch(tokenHash, lastActivityAt) {
+      const index = all().findIndex((s) => s.tokenHash === tokenHash && s.revokedAt === null);
+      if (index >= 0) all()[index] = { ...all()[index]!, lastActivityAt };
+    },
+    async revoke(tokenHash, revokedAt) {
+      const index = all().findIndex((s) => s.tokenHash === tokenHash && s.revokedAt === null);
+      if (index < 0) return false;
+      all()[index] = { ...all()[index]!, revokedAt };
+      return true;
+    },
+    async purgeCreatedBefore(cutoff) {
+      const before = all().length;
+      state.adminSessions = all().filter((s) => s.createdAt > cutoff);
+      return before - state.adminSessions.length;
+    },
+  };
+}
+
+/** `admin_oauth_flow_states` (feature 009, REQ-ADM9-006): un solo uso por compare-and-set, vence a los 900 s. */
+function adminFlowRepository(state: MemoryState): AdminFlowStateRepositoryPort {
+  const all = (): AdminFlowStateRecord[] => (state.adminFlows ??= []);
+  return {
+    async insert(record) {
+      if (record.tokenHash.length !== 64 || record.state === '' || record.nonce === '' || record.codeVerifier === '' || !(record.expiresAt > record.createdAt)) throw new Error('admin_oauth_flow_states: fila incoherente');
+      if (all().some((f) => f.tokenHash === record.tokenHash)) throw new Error('admin_oauth_flow_states: identificador duplicado');
+      all().push(copy(record));
+    },
+    async consume(tokenHash, nowIsoTimestamp) {
+      const index = all().findIndex((f) => f.tokenHash === tokenHash && f.consumedAt === null && f.expiresAt > nowIsoTimestamp);
+      if (index < 0) return null;
+      all()[index] = { ...all()[index]!, consumedAt: nowIsoTimestamp };
+      return copy(all()[index]!);
+    },
+    async purgeExpired(nowIsoTimestamp) {
+      const before = all().length;
+      state.adminFlows = all().filter((f) => f.expiresAt > nowIsoTimestamp);
+      return before - state.adminFlows.length;
+    },
+  };
+}
+
+/** `admin_audit_entries` (feature 009, REQ-ADM9-004): auditoría propia, sin relación con `users` ni con la identidad. */
+function adminAuditRepository(state: MemoryState): AdminAuditRepositoryPort {
+  const all = (): AdminAuditRecord[] => (state.adminAudit ??= []);
+  return {
+    async insert(record) {
+      if (record.id.length !== 36 || record.adminId.length !== 36 || record.action.length < 1 || record.action.length > 64) throw new Error('admin_audit_entries: fila incoherente');
+      if (all().some((r) => r.id === record.id)) throw new Error('admin_audit_entries: identificador duplicado');
+      all().push(copy(record));
+    },
+    async listByAdmin(adminId) {
+      return copy(all().filter((r) => r.adminId === adminId).sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : a.occurredAt > b.occurredAt ? 1 : a.id < b.id ? -1 : 1)));
+    },
+  };
+}
+
+/**
+ * Decision de aprobacion en memoria (T1247). Todo el JavaScript de una transicion corre sin cesion, asi que comprobar y fijar en un solo paso es atomico (paridad con el
+ * `UPDATE ... WHERE account_status = 'PENDING'` de SQLite y PostgreSQL). La decision (`decidedAt`, `decidedBy`) queda en `state.userDecisions`.
+ */
+function registrationRepository(state: MemoryState): RegistrationDecisionRepositoryPort {
+  const recent = (createdAfter: string): UserAccount[] => state.users.filter((u) => u.accountStatus === 'PENDING' && u.createdAt > createdAfter);
+  const byAge = (a: UserAccount, b: UserAccount): number => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1);
+  return {
+    async countPending(createdAfter) {
+      return recent(createdAfter).length;
+    },
+    async listPending(createdAfter, limit, after) {
+      return recent(createdAfter)
+        .sort(byAge)
+        .filter((u) => after === null || u.createdAt > after.requestedAt || (u.createdAt === after.requestedAt && u.id > after.registrationId))
+        .slice(0, limit)
+        .map((u) => ({ registrationId: u.id, username: u.username, requestedAt: u.createdAt, method: u.passwordHash === NO_PASSWORD_SENTINEL ? ('GOOGLE' as const) : ('PASSWORD' as const) }));
+    },
+    async decide(registrationId, to, decidedBy, decidedAt, createdAfter) {
+      const index = state.users.findIndex((u) => u.id === registrationId && u.accountStatus === 'PENDING' && u.createdAt > createdAfter);
+      if (index < 0) return false;
+      state.users[index] = { ...state.users[index]!, accountStatus: to };
+      (state.userDecisions ??= {})[registrationId] = { decidedAt, decidedBy };
+      return true;
+    },
+  };
+}
+
+/** Edicion de parametros en memoria (T1264): comprobar y fijar en un solo paso sin cesion es atomico (paridad con el compare-and-set de SQLite y PostgreSQL). */
+function adminParameterRepository(state: MemoryState): AdminParameterRepositoryPort {
+  const rows = (): Record<string, { value: string; description: string; updatedAt: string }> => (state.platformParameters ??= {});
+  return {
+    async find(key) {
+      const row = rows()[key];
+      return row === undefined ? null : { value: row.value, updatedAt: row.updatedAt };
+    },
+    async compareAndSet(key, description, next, expected) {
+      const current = rows()[key];
+      if (expected === null) {
+        if (current !== undefined) return false;
+      } else if (current === undefined || current.value !== expected.value || current.updatedAt !== expected.updatedAt) return false;
+      rows()[key] = { value: next.value, description: current?.description ?? description, updatedAt: next.updatedAt };
+      return true;
+    },
+    async lastEditor(action, key) {
+      const entries = (state.adminAudit ??= []).filter((r) => r.action === action && r.objectRef === key);
+      return entries.length === 0 ? null : entries.reduce((a, b) => (b.occurredAt >= a.occurredAt ? b : a)).adminId;
+    },
+    async resetAdminAccountsSceneQuota(subjects, emails) {
+      const wanted = new Set(emails.map((e) => e.toLowerCase()));
+      const linked = new Set((state.authIdentities ?? []).filter((i) => i.provider === 'GOOGLE' && subjects.includes(i.providerSubject)).map((i) => i.userId));
+      const ids = new Set(state.users.filter((u) => linked.has(u.id) || (u.emailVerifiedAt !== undefined && u.email !== null && wanted.has(u.email.toLowerCase()))).map((u) => u.id));
+      state.scenes = (state.scenes ?? []).map((s) => (s.ownerUserId !== null && ids.has(s.ownerUserId) ? { ...s, consumedGenerations: 0 } : s));
+      state.sceneQuotaCarry = (state.sceneQuotaCarry ?? []).map((c) => (ids.has(c.ownerUserId) ? { ...c, consumedGenerations: 0 } : c));
+      return { accountsReset: ids.size };
+    },
+    async listSceneSpendAttempts(window) {
+      return (state.sceneAttempts ?? []).filter((a) => a.quotaWindow === window).map((a) => ({ providerModel: a.providerModel ?? null, providerLocation: a.providerLocation ?? null, providerCallStartedAt: a.providerCallStartedAt }));
+    },
   };
 }
 
@@ -756,6 +960,12 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     sceneConsents: memorySceneConsentRepository(state),
     authIdentities: authIdentityRepository(state),
     oauthFlows: oauthFlowRepository(state),
+    adminIdentities: adminIdentityRepository(state),
+    adminSessions: adminSessionRepository(state),
+    adminFlows: adminFlowRepository(state),
+    adminAudit: adminAuditRepository(state),
+    registrations: registrationRepository(state),
+    adminParameters: adminParameterRepository(state),
   };
 }
 

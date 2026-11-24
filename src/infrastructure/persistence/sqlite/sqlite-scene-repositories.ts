@@ -44,11 +44,19 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
   const attemptByHash = db.prepare<[string], Row>(`SELECT ${ATTEMPT_COLUMNS} FROM scene_attempts WHERE idempotency_key_hash = ?`);
   const countScene = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM scene_attempts WHERE scene_id = ? AND started_at >= ?');
   const countFailed = db.prepare<[string, string], { n: number; oldest: string | null }>(
-    "SELECT count(*) AS n, min(started_at) AS oldest FROM scene_attempts WHERE scene_id = ? AND outcome = 'FAILED' AND started_at >= ?",
+    "SELECT count(*) AS n, min(started_at) AS oldest FROM scene_attempts WHERE scene_id = ? AND outcome = 'FAILED' AND provider_call_started_at IS NOT NULL AND started_at >= ?",
+  );
+  const countClosedNoCall = db.prepare<[string, string], { n: number; oldest: string | null }>(
+    'SELECT count(*) AS n, min(started_at) AS oldest FROM scene_attempts WHERE scene_id = ? AND outcome IS NOT NULL AND provider_call_started_at IS NULL AND started_at >= ?',
+  );
+  const staleOf = db.prepare<[string, string, string], { id: string; scene_id: string }>(
+    'SELECT id, scene_id FROM scene_attempts WHERE (scene_id = ? OR actor_user_id = ?) AND outcome IS NULL AND provider_call_started_at IS NULL AND started_at <= ?',
   );
   const lastStarted = db.prepare<[string], { m: string | null }>('SELECT max(started_at) AS m FROM scene_attempts WHERE scene_id = ?');
   const oldestActor = db.prepare<[string, string], { m: string | null }>('SELECT min(started_at) AS m FROM scene_attempts WHERE actor_user_id = ? AND started_at >= ?');
-  const countActor = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM scene_attempts WHERE actor_user_id = ? AND started_at >= ?');
+  const countActor = db.prepare<[string, string], { n: number }>(
+    'SELECT count(*) AS n FROM scene_attempts WHERE actor_user_id = ? AND started_at >= ? AND (provider_call_started_at IS NOT NULL OR outcome IS NULL)',
+  );
   const carry = db.prepare(
     'INSERT INTO scene_quota_carry (owner_user_id, quota_window, consumed_generations) VALUES (?, ?, ?) ON CONFLICT (owner_user_id, quota_window) DO UPDATE SET consumed_generations = max(consumed_generations, excluded.consumed_generations)',
   );
@@ -79,7 +87,7 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
   );
   const expireAttempt = db.prepare("UPDATE scene_attempts SET phase = 'DONE', outcome = 'FAILED', error_code = 'ERR-SCENE-LEASE-EXPIRED', finished_at = ? WHERE id = ? AND outcome IS NULL");
   const failScene = db.prepare("UPDATE home_scenes SET run_state = 'failed', lease_expires_at = NULL, updated_at = ? WHERE id = ?");
-  const markCall = db.prepare('UPDATE scene_attempts SET provider_call_started_at = ? WHERE id = ?');
+  const markCall = db.prepare('UPDATE scene_attempts SET provider_call_started_at = ?, provider_model = ?, provider_location = ? WHERE id = ?');
   const closeOne = db.prepare("UPDATE scene_attempts SET phase = 'DONE', outcome = ?, error_code = ?, degraded = ?, finished_at = ? WHERE id = ? AND scene_id = ? AND outcome IS NULL");
   const isCurrent = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM home_scenes WHERE id = ? AND current_attempt_id = ?');
   const publish = db.prepare(
@@ -142,8 +150,8 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
       const closed = attemptById.get(row.current_attempt_id);
       return closed === undefined ? null : toAttemptRecord(closed);
     },
-    async markProviderCall(attemptId, now) {
-      markCall.run(now, attemptId);
+    async markProviderCall(attemptId, now, call) {
+      markCall.run(now, call.model, call.location, attemptId);
     },
     async closeAttempt({ sceneId, attemptId, outcome, errorCode, degraded, now }) {
       if (closeOne.run(outcome, errorCode, degraded ? 1 : 0, now, attemptId, sceneId).changes !== 1) return false;
@@ -173,6 +181,18 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
     },
     async countAttemptsByActor(actorUserId, since) {
       return countActor.get(actorUserId, since)?.n ?? 0;
+    },
+    async countClosedWithoutCallByScene(sceneId, since) {
+      const row = countClosedNoCall.get(sceneId, since);
+      return { count: row?.n ?? 0, oldestAt: (row?.n ?? 0) === 0 ? null : (row?.oldest ?? null) };
+    },
+    async cancelStaleUnmarkedAttempts(sceneId, actorUserId, startedBefore, now) {
+      const stale = staleOf.all(sceneId, actorUserId, startedBefore);
+      for (const row of stale) {
+        cancelAttempt.run(now, row.id);
+        if ((isCurrent.get(row.scene_id, row.id)?.n ?? 0) === 1) idleScene.run(now, row.scene_id);
+      }
+      return stale.length;
     },
     async upsertQuotaCarry(ownerUserId, quotaWindow, consumedGenerations) {
       carry.run(ownerUserId, quotaWindow, consumedGenerations);

@@ -2,6 +2,7 @@
  * T415 (pruebas primero) — formato de registro para Cloud Logging, serializadores y redacción de DATABASE_URL.
  * @implements REQ-CLD-008, SC-CLD-004, INV-AUTH-003, INV-AUD-001, H-RAMA-003
  */
+import { readFileSync } from 'node:fs';
 import { Writable } from 'node:stream';
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
@@ -146,5 +147,14 @@ describe('serializers.err (REQ-CLD-008b)', () => {
   it('acepta un valor no Error sin lanzar', () => {
     expect(serializeError('cadena con 985112345678901')).toEqual({});
     expect(serializeError(null)).toEqual({});
+  });
+});
+
+describe('RAMA-01 exclusión de los callbacks de Google en Cloud Logging (terraform/logging.tf)', () => {
+  const tf = readFileSync(new URL('../../terraform/logging.tf', import.meta.url), 'utf8');
+  it('excluye del sumidero _Default tanto /api/auth/google/callback como /api/admin/auth/google/callback (code y state no deben quedar en el registro)', () => {
+    const filters = [...tf.matchAll(/^\s*filter\s*=\s*"(.*)"\s*$/gm)].map((m) => m[1]!);
+    expect(filters.some((f) => f.includes('httpRequest.requestUrl:\\"/api/auth/google/callback\\"'))).toBe(true);
+    expect(filters.some((f) => f.includes('httpRequest.requestUrl:\\"/api/admin/auth/google/callback\\"'))).toBe(true);
   });
 });

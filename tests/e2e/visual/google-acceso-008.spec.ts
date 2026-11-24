@@ -6,6 +6,7 @@
  * @implements REQ-SSO8-003, REQ-SSO8-004, EDGE-008-006, NFR-008-002
  */
 import { expect, test, type Page, type Response } from '@playwright/test';
+import { activateInFile } from '../../fixtures/active-accounts.ts';
 import { accessibilityFindings, apiCall } from './e2e-support.ts';
 import { SIM_WEB_URL, startGoogleSim, type GoogleSim } from './google-sim-support.ts';
 
@@ -66,6 +67,13 @@ test.describe('acceso con Google simulado (T1123)', () => {
     await expect(heading).toBeFocused();
     await page.getByLabel(/^Usuario/).fill(username);
     await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(page).toHaveURL(/\/solicitud-en-revision$/); // 009: la cuenta nace PENDING, sin sesión
+    expect(await cookieNamed(page, 'argos_session')).toBeUndefined();
+    await activateInFile(sim.databasePath, username); // aprobación por repositorio (arnés de T1244); la persona vuelve a entrar con Google
+    await page.goto('/login');
+    const signedIn = callbackResponse(page);
+    await googleButton(page).click();
+    await signedIn;
     await expect(page).toHaveURL(/\/$/);
     const me = await apiCall<{ user: { username: string; authMethods: { password: boolean; google: boolean } } }>(page.context().request, 'GET', '/auth/me');
     expect(me.status).toBe(200);

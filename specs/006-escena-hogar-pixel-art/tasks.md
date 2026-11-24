@@ -365,6 +365,8 @@
 
 Cobertura verificada contra `spec.md` y el catálogo de errores: 241 IDs (38 `REQ-ESC6`, 20 `INV-ESC6`, 33 `EDGE-ESC6`, 138 `SC-ESC6`, 4 `NFR-ESC6`, `STATE-SCENE-001`, 7 `ERR-SCENE-*`), **0 sin tarea**.
 
+**Nota 2026-11-23 (feature 009, `T1257`, `REQ-CFG9-003`)**: el catálogo de errores 1.1.0 añade `ERR-SCENE-DISABLED` (409; el POST de generación con `scene.enabled = false` se rechaza sin intento ni cuota; sin superficie `SCENE_STATE`). Su implementación y pruebas son de la 009 (`T1258`, `T1260`, `T1262`); no crea ni modifica tareas 006.
+
 ## Dependencias entre fases
 
 Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5 → Fase 6 → Fase 7 → Fase 8 → Fase 9 → Fase 10 → Fase 11 → Fase 12 → Fase 13 → Fase 14 (ni Fase 14, ni Fase 9, ni Fase 10, ni Fase 11, ni Fase 12 ni Fase 13 desbloquean T885). Excepciones explícitas: T814 espera a T833 (tabla `household_photos`); T815 queda roja hasta T862..T868; T810 aporta el `CHECK` de `audit_log` que T832 incluye; T885 queda bloqueada por `N2-10`.

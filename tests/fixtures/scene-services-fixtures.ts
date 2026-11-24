@@ -45,6 +45,8 @@ export function sceneFixture(options: SceneFixtureOptions = {}): SceneFixture {
     genTimeoutSeconds: 90,
     leaseSeconds: 150,
     queueWaitSeconds: 600,
+    unmarkedAttemptTtlSeconds: 600,
+    maxClosedWithoutCallPerDay: 20,
     realDriver: false,
     utcOffsetMinutes: -300,
     noticeVersion: '1',

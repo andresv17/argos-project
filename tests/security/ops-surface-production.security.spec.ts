@@ -31,6 +31,11 @@ const INDEX_HTML = '<!doctype html><html><body><div id="root">ARGOS-SPA</div></b
 const CSRF = { 'x-argos-request': '1' };
 const BEARER = { authorization: 'Bearer token-sintetico-FAKE.aaa.bbb' };
 
+// Timeout de ejecución propio (15000 ms) por test: cada test levanta createProductionApp real (arranque completo con 18 migraciones y
+// validadores), lo que roza el default de 5000 ms bajo carga paralela. Medición: .specify/memory/audits/keymaker-009-timeouts-composicion.md.
+// No se relaja ninguna aserción ni se sube el testTimeout global.
+const COMPOSITION_TIMEOUT_MS = 15_000;
+
 let sandbox: string;
 const open: FastifyInstance[] = [];
 
@@ -63,7 +68,7 @@ describe('H-O-O4-1: superficie operativa sobre createProductionApp (composición
       expect(String(res.headers['content-security-policy']), url).toContain("default-src 'self'");
       expect(res.headers['x-content-type-options'], url).toBe('nosniff');
     }
-  });
+  }, COMPOSITION_TIMEOUT_MS);
 
   it('el mantenimiento gana a los estáticos: sin Authorization 401 (no la SPA ni 404) y con identidad ajena 401 sin purga', async () => {
     const app = await production(loadAppConfig(PG_ENV));
@@ -74,7 +79,7 @@ describe('H-O-O4-1: superficie operativa sobre createProductionApp (composición
     const forged = await app.inject({ method: 'POST', url: '/internal/maintenance', headers: BEARER });
     expect(forged.statusCode).toBe(401);
     expect(mocks.pool.query).not.toHaveBeenCalled();
-  });
+  }, COMPOSITION_TIMEOUT_MS);
 
   it('CSRF sigue activo: POST a una sonda sin X-Argos-Request es 403 y con él 404; GET a la ruta de purga no ejecuta mantenimiento', async () => {
     const app = await production(loadAppConfig(PG_ENV));
@@ -87,7 +92,7 @@ describe('H-O-O4-1: superficie operativa sobre createProductionApp (composición
     expect(get.statusCode).toBeLessThan(500);
     expect(get.body).not.toContain('sessionsPurged');
     expect(mocks.pool.query).not.toHaveBeenCalled();
-  });
+  }, COMPOSITION_TIMEOUT_MS);
 
   it('traversal y dotfiles no filtran contenido fuera de dist/', async () => {
     writeFileSync(join(sandbox, 'secret.txt'), 'SECRETO-PROD-9d2f');
@@ -97,7 +102,7 @@ describe('H-O-O4-1: superficie operativa sobre createProductionApp (composición
       expect(res.statusCode, url).toBeLessThan(500);
       expect(res.body, url).not.toContain('SECRETO-PROD-9d2f');
     }
-  });
+  }, COMPOSITION_TIMEOUT_MS);
 });
 
 describe('H-O-O4-2: guarda de server.ts para POST /internal/maintenance (REQ-SEC-007)', () => {
@@ -106,7 +111,7 @@ describe('H-O-O4-2: guarda de server.ts para POST /internal/maintenance (REQ-SEC
   it('postgres con schedulerEmail y oidcAudience: la ruta existe (401 sin identidad válida, no 404)', async () => {
     const app = await production(loadAppConfig(PG_ENV));
     expect((await app.inject(MAINT)).statusCode).toBe(401);
-  });
+  }, COMPOSITION_TIMEOUT_MS);
 
   it.each([
     ['postgres sin schedulerEmail', { schedulerEmail: null }],
@@ -118,7 +123,7 @@ describe('H-O-O4-2: guarda de server.ts para POST /internal/maintenance (REQ-SEC
     expect(res.statusCode).toBe(404);
     expect(res.body).not.toContain('ARGOS-SPA');
     expect(mocks.pool.query).not.toHaveBeenCalled();
-  });
+  }, COMPOSITION_TIMEOUT_MS);
 
   it('driver sqlite aunque schedulerEmail y oidcAudience estén presentes: 404', async () => {
     const config: AppConfig = {
@@ -128,5 +133,5 @@ describe('H-O-O4-2: guarda de server.ts para POST /internal/maintenance (REQ-SEC
     };
     const app = await production(config);
     expect((await app.inject(MAINT)).statusCode).toBe(404);
-  });
+  }, COMPOSITION_TIMEOUT_MS);
 });

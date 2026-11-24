@@ -21,7 +21,7 @@ const clock = { timeZone: 'America/Bogota', todayIsoDate: () => '2026-11-18', no
 describe('T712 SqlPlatformParameterRepository sobre SQLite (0011_platform_parameters.sql)', () => {
   it('[REQ-PRM-001] la siembra deja album.max_photos_per_pet = 10 con descripción y sin autor', async () => {
     const db = openSqliteDatabase(IN_MEMORY_DATABASE);
-    const row = db.prepare('SELECT key, value, description, updated_at, updated_by_user_id FROM platform_parameters').all() as Array<Record<string, unknown>>;
+    const row = db.prepare("SELECT key, value, description, updated_at, updated_by_user_id FROM platform_parameters WHERE key = 'album.max_photos_per_pet'").all() as Array<Record<string, unknown>>;
     expect(row).toHaveLength(1);
     expect(row[0]).toMatchObject({ key: 'album.max_photos_per_pet', value: '10', description: 'Máximo de fotos de álbum por mascota', updated_by_user_id: null });
     expect(String(row[0]!['updated_at'])).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
@@ -79,7 +79,7 @@ describe.skipIf(!TEST_DATABASE_URL)('T712 SqlPlatformParameterRepository sobre P
 
   it('[REQ-PRM-001] la siembra deja album.max_photos_per_pet = 10 con descripción y sin autor', async () => {
     await withSchema(async (client) => {
-      const { rows } = await client.query('SELECT key, value, description, updated_at, updated_by_user_id FROM platform_parameters');
+      const { rows } = await client.query("SELECT key, value, description, updated_at, updated_by_user_id FROM platform_parameters WHERE key = 'album.max_photos_per_pet'");
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ key: 'album.max_photos_per_pet', value: '10', description: 'Máximo de fotos de álbum por mascota', updated_by_user_id: null });
       expect(String(rows[0].updated_at)).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);

@@ -29,10 +29,10 @@ const entry = (code: string): Entry => {
 };
 
 describe('T512 catálogo de errores 004', () => {
-  it('REQ-ARC-001: el catálogo pasa a 3.2.0 MINOR en DRAFT y lista los 9 errores añadidos (6 de 004, ERR-PET-VERSION-CONFLICT de 007 y 2 de Google de 008)', () => {
-    expect(catalog['x-sdd-metadata']).toEqual(expect.objectContaining({ version: '3.2.0', status: 'DRAFT', supersedes: '3.1.0' }));
+  it('REQ-ARC-001: el catálogo pasa a 3.3.0 MINOR en DRAFT (009 T1241) y lista los 12 errores añadidos (6 de 004, ERR-PET-VERSION-CONFLICT de 007, 2 de Google de 008 y ERR-ACCOUNT-PENDING, ERR-ACCOUNT-REJECTED y ERR-ACCOUNT-REGISTRATION-RATE-LIMITED de 009)', () => {
+    expect(catalog['x-sdd-metadata']).toEqual(expect.objectContaining({ version: '3.3.0', status: 'DRAFT', supersedes: '3.2.0' }));
     expect(catalog['x-sdd-metadata'].added.sort()).toEqual(
-      ['ERR-MEDIA-NOT-FOUND', 'ERR-MEDIA-QUOTA-EXCEEDED', 'ERR-MEDIA-STORAGE-UNAVAILABLE', 'ERR-MEDIA-TOO-LARGE', 'ERR-MEDIA-TYPE-NOT-ALLOWED', 'ERR-REC-CONFLICT', 'ERR-PET-VERSION-CONFLICT', 'ERR-AUTH-GOOGLE-FAILED', 'ERR-AUTH-GOOGLE-LINK-CONFLICT'].sort(),
+      ['ERR-MEDIA-NOT-FOUND', 'ERR-MEDIA-QUOTA-EXCEEDED', 'ERR-MEDIA-STORAGE-UNAVAILABLE', 'ERR-MEDIA-TOO-LARGE', 'ERR-MEDIA-TYPE-NOT-ALLOWED', 'ERR-REC-CONFLICT', 'ERR-PET-VERSION-CONFLICT', 'ERR-AUTH-GOOGLE-FAILED', 'ERR-AUTH-GOOGLE-LINK-CONFLICT', 'ERR-ACCOUNT-PENDING', 'ERR-ACCOUNT-REJECTED', 'ERR-ACCOUNT-REGISTRATION-RATE-LIMITED'].sort(),
     );
   });
 

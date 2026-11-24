@@ -37,7 +37,7 @@ const scene = (over: Partial<SceneRecord> = {}): SceneRecord => ({
 });
 const attempt = (over: Partial<SceneAttemptRecord> = {}): SceneAttemptRecord => ({
   id: attemptId, sceneId: SCENE_ID, actorUserId: ANDRES.id, action: 'UPDATE', mode: 'FROM_SCRATCH', fingerprint: f64, inputsSnapshot: '{"v":1}', resultObjectId: resultId,
-  phase: 'PENDING', claimedAt: null, providerCallStartedAt: null, quotaWindow: '2026-11', quotaMax: 10, outcome: null, errorCode: null, degraded: false,
+  phase: 'PENDING', claimedAt: null, providerCallStartedAt: null, providerModel: null, providerLocation: null, quotaWindow: '2026-11', quotaMax: 10, outcome: null, errorCode: null, degraded: false,
   idempotencyKeyHash: null, idempotencyExpiresAt: null, startedAt: NOW, finishedAt: null, ...over,
 });
 

@@ -1,0 +1,20 @@
+# Trinity 009 T1252 — AppSec Fase 4 (aprobacion de registros) — 2026-11-23
+Dictamen global: PASS CON OBS (0 CRITICO/ALTO/MEDIO; 3 BAJO/OBS). Solo lectura; sin cambios en src/specs/tests/contratos; sin [x] ni commit.
+
+## Por punto
+1. Decision atomica, rol, CSRF, sin fuga — PASS.
+   - CAS: `decide` es un UPDATE ... WHERE account_status='PENDING' AND createdAt>corte, veredicto por filas (sqlite-admin-repositories.ts:178,188-189; postgres-admin-repositories.ts:137,161-163; memory:895-900). Use case sin lectura previa (admin-registration-use-cases.ts:112-120); perdedor = ERR-ADMIN-REGISTRATION-NOT-FOUND uniforme (inexistente/purgada/decidida/>30 d).
+   - Rol: rutas usan sesion de ADMIN (almacen propio argos_admin_session, SameSite=Strict, Path=/api/admin; admin.routes.ts:52,136-140,150-163); sin sesion 404 uniforme; catch-all 404 (165-171). Usuarios normales no tienen cookie admin.
+   - CSRF: hook global onRequest exige X-Argos-Request:1 en POST/PUT/PATCH/DELETE antes de la sesion (csrf-guard.ts:22-28); /api/admin/registrations/* no esta exento. Sin CORS registrado (grep vacio) => la cabecera personalizada no es enviable cross-origin.
+   - Sin fuga: respuesta de decision = {registrationId, accountStatus, decidedAt} (sin username/sub/email); auditoria objectRef=null (admin-registration-use-cases.ts:117). Username solo se muestra en la lista al admin autenticado (necesario para decidir).
+   - OBS-1 (BAJO): los POST approve/reject no validan Origin (solo DELETE /api/admin/session lo hace, admin.routes.ts:129). Cubierto por SameSite=Strict + cabecera custom + sin CORS; se sugiere paridad como defensa en profundidad (no bloquea).
+2. Limite por IP y 409 — PASS CON OBS.
+   - 5/24 h en app-config.ts:370; assertAllowed ANTES, recordCreated tras crear (auth.routes.ts:20-22; google-auth.routes.ts:104-106); 429 ERR-ACCOUNT-REGISTRATION-RATE-LIMITED con Retry-After (registration-rate-limit.ts:16-37). IP = request.ip; trustProxy: 1 salto cuando host 0.0.0.0 (server.ts:233; app.ts:63) => cierra la pregunta abierta TRI-03 de T1238 sobre trustProxy de produccion; Link solo debe confirmar que Cloud use host 0.0.0.0.
+   - 409: findByUsername sin filtrar estado (auth-use-cases.ts:15) => misma respuesta para PENDING/REJECTED/ACTIVE; no distingue estado. 
+   - OBS-2 (BAJO): el 409 no consume cupo, asi que el sondeo de username libre/ocupado en /api/auth/register no tiene tope (prueba real: 8 x 409 seguidos desde una IP). Es el comportamiento contratado (EDGE-009-004) y el username ya es publico en el modelo; riesgo residual enumeracion de nombres. Sugerencia: contar los 409 en un bucket aparte, a decidir por Neo/Architect.
+   - OBS-3 (BAJO, operativo): limitador en memoria por instancia (Cloud Run N instancias => tope N x 5), y comprobar-luego-registrar con await de hash entre medias (TOCTOU). Ráfaga de 12 en paralelo en el arnes: 5x201 + 7x429 (no demostrado el bypass; el arnes serializa). Documentado TRI-03/ADR-009-15; aceptado.
+3. PENDING/REJECTED sin cookie; guarda ACTIVE — PASS.
+   - Register 201 sin cookie (auth.routes.ts:17-24), login devuelve estado sin sesion (auth-use-cases.ts:53; auth.routes.ts:29), Google callback/username igual (google-auth.routes.ts:84,105-109; use-cases:232,295). Credenciales invalidas = fallo uniforme.
+   - Guarda: AuthenticateRequestUseCase exige ACTIVE tras validar sesion (auth-use-cases.ts:97-100), 403 ERR-ACCOUNT-PENDING/REJECTED sin escribir (revierte). Rechazo revoca sesiones (admin-registration-use-cases.ts:115). Todas las rutas de usuario usan requireSession(useCases.authenticate).
+4. SAST — PASS. Semgrep 1.186.0 (instalado, /opt/homebrew/bin/semgrep) con el comando del proyecto (scripts/verify-ci-ready.sh:33): `semgrep scan --config tests/security/sast-rules --error --metrics=off src/presentation/admin src/infrastructure/http` => 5 reglas, 46 archivos, 0 hallazgos, exit 0. Limite: solo reglas del repo (sin registro remoto) y solo archivos rastreados por git.
+5. Hallazgos previos — PASS. t1247 (22), t1288 (7), t1245 (16): 45/45 verdes (vitest). Decision atomica, limites y 409 sin regresion. TRI-03(trustProxy) de T1238 confirmado en codigo.

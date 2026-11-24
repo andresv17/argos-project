@@ -11,7 +11,7 @@ type Row = Record<string, unknown>;
 export const SCENE_COLUMN_LIST =
   'id, household_id, owner_user_id, run_state, current_attempt_id, lease_expires_at, image_id, image_mime, image_size_bytes, image_fingerprint, image_inputs_snapshot, image_created_at, image_degraded, consumed_generations, quota_window, created_at, updated_at';
 export const ATTEMPT_COLUMN_LIST =
-  'id, scene_id, actor_user_id, action, mode, fingerprint, inputs_snapshot, result_object_id, phase, claimed_at, provider_call_started_at, quota_window, quota_max, outcome, error_code, degraded, idempotency_key_hash, idempotency_expires_at, started_at, finished_at';
+  'id, scene_id, actor_user_id, action, mode, fingerprint, inputs_snapshot, result_object_id, phase, claimed_at, provider_call_started_at, provider_model, provider_location, quota_window, quota_max, outcome, error_code, degraded, idempotency_key_hash, idempotency_expires_at, started_at, finished_at';
 export const CONSENT_COLUMN_LIST = 'id, user_id, scope, provider_id, notice_version, granted_at, revoked_at';
 
 const nullable = (value: unknown): string | null => (value === null || value === undefined ? null : String(value));
@@ -73,6 +73,8 @@ export const toAttemptRecord = (row: Row): SceneAttemptRecord => ({
   phase: String(row['phase']) as SceneAttemptRecord['phase'],
   claimedAt: nullable(row['claimed_at']),
   providerCallStartedAt: nullable(row['provider_call_started_at']),
+  providerModel: nullable(row['provider_model']),
+  providerLocation: nullable(row['provider_location']),
   quotaWindow: String(row['quota_window']),
   quotaMax: Number(row['quota_max']),
   outcome: nullable(row['outcome']) as SceneAttemptRecord['outcome'],
@@ -96,6 +98,8 @@ export const attemptValues = (a: SceneAttemptRecord): unknown[] => [
   a.phase,
   a.claimedAt,
   a.providerCallStartedAt,
+  a.providerModel ?? null,
+  a.providerLocation ?? null,
   a.quotaWindow,
   a.quotaMax,
   a.outcome,

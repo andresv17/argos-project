@@ -125,3 +125,16 @@ variable "google_oauth_redirect_uri" {
     error_message = "google_oauth_redirect_uri debe ser https://<host-del-entorno>/api/auth/google/callback (REQ-SSO8-007)."
   }
 }
+
+# URI de redirección del portal de administración de este entorno (feature 009, T1227; 009-A (c)). Ruta fija, nunca derivada de Host.
+# Opcional: vacía = sin alta de la URI de administración en Google. No es secreta. Llega por TF_VAR_google_oauth_admin_redirect_uri.
+variable "google_oauth_admin_redirect_uri" {
+  description = "URI de redirección OAuth del portal de administración de este entorno (ruta fija /api/admin/auth/google/callback). Vacía = no registrada. Debe estar registrada en la consola de Google por Neo."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.google_oauth_admin_redirect_uri == "" || can(regex("^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,}/api/admin/auth/google/callback$", var.google_oauth_admin_redirect_uri))
+    error_message = "google_oauth_admin_redirect_uri debe ser vacía o https://<host-del-entorno>/api/admin/auth/google/callback (feature 009, 009-A (c))."
+  }
+}

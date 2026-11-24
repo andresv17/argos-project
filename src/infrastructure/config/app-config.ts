@@ -35,7 +35,7 @@
  *   `ARGOS_SCENE_WORKER_URL` (https, host `*.run.app`, ruta exacta `/internal/scene-worker`, sin consulta, fragmento, puerto ni credenciales). Con
  *   `NODE_ENV=production` se rechaza `fake`; `real` exige la constante de activación del código (`SCENE_REAL_DRIVER_ACTIVATED`, true desde T885), el modelo y el
  *   proyecto, y en producción además la cuenta de Cloud Tasks y la URL del worker. `T_LEASE = T_GEN + 60` y `T_QUEUE = 600` son constantes de código. Fase 14 (T948/T952,
- *   D6-22): `ARGOS_SCENE_LOCATION` (lista cerrada de regiones; obligatoria con `real`) y `ARGOS_SCENE_GLOBAL_QUOTA_MAX` (1..1000, 5 por defecto; cuota GLOBAL mensual, N2-02) son el
+ *   D6-22): `ARGOS_SCENE_LOCATION` (lista cerrada de regiones; obligatoria con `real`) y `ARGOS_SCENE_GLOBAL_QUOTA_MAX` (1..techo derivado de la tabla de costes aprobada, 5 por defecto; cuota GLOBAL mensual, N2-02) son el
  *   RESPALDO de las filas de `platform_parameters`, que prevalecen (`scene-provider-parameters.ts`). Con `real` el driver es Vertex AI por el metadata server (sin clave de API).
  *   El error nombra solo la variable, nunca el valor.
  * - Una variable inválida produce `AppConfigError` con la lista de variables afectadas; no se arranca con valores
@@ -91,6 +91,8 @@ export interface AppConfig {
   readonly scene: SceneConfig;
   /** Acceso con Google (feature 008, REQ-SSO8-007): presente solo si las tres variables `GOOGLE_OAUTH_*` están definidas y son válidas; ausente = ruta desactivada (falla cerrado). */
   readonly google?: GoogleOAuthConfig;
+  /** Administración de plataforma (feature 009, T1227, REQ-ADM9-003): lista cerrada de correos normalizados (minúsculas); vacía = nadie entra (falla cerrado). */
+  readonly adminEmails: readonly string[];
 }
 
 /** @implements REQ-SSO8-007, NFR-008-004, INV-ARCH-006 */
@@ -121,7 +123,7 @@ export interface SceneConfig {
   readonly projectId: string | null;
   /** Región de Vertex AI (`ARGOS_SCENE_LOCATION`, lista cerrada); `null` si no se definió. Respaldo de `platform_parameters` (T948). */
   readonly location: string | null;
-  /** Cuota GLOBAL mensual de respaldo (`ARGOS_SCENE_GLOBAL_QUOTA_MAX`, 1..1000; 5 por defecto): la fila de `platform_parameters` prevalece (N2-02 = A, T948). */
+  /** Cuota GLOBAL mensual de respaldo (`ARGOS_SCENE_GLOBAL_QUOTA_MAX`, 1..techo derivado de la tabla de costes (111); 5 por defecto): la fila de `platform_parameters` prevalece (N2-02 = A, T948). */
   readonly globalQuotaMax: number;
   /** Modelo del driver `gemini-api` (`ARGOS_SCENE_GEMINI_MODEL`); `null` con `fake` o `real`. */
   readonly geminiModel: string | null;
@@ -134,6 +136,16 @@ export interface SceneConfig {
 
 /** T_QUEUE (INV-ESC6-013): espera máxima en cola antes del claim del worker, en segundos. */
 export const SCENE_QUEUE_WAIT_SECONDS = 600;
+/**
+ * Plazo único del intento de escena sin marca de llamada (feature 009, `#60`, EDGE-009-041, `P5-01` = B, ADR-009-16 (2)): a los 10 min de su inicio un intento sin `outcome`
+ * ni `provider_call_started_at` deja de contar para `ACTOR_LIMIT` y se cierra `CANCELLED` sin llamada. No depende de `lease_expires_at`.
+ */
+export const SCENE_UNMARKED_ATTEMPT_TTL_SECONDS = 600;
+/**
+ * Tope diario de intentos cerrados sin llamada al proveedor por escena (feature 009, `#60`, EDGE-009-043, `D9-25` aprobado por Neo): 20 en 24 h, además del cooldown de
+ * 60 s; responde con el código de `FAILED_LIMIT`. ÚNICA fuente del valor (el dominio lo recibe como dato).
+ */
+export const SCENE_MAX_CLOSED_WITHOUT_CALL_PER_DAY = 20;
 /** T_LEASE = T_GEN + 60 s (INV-ESC6-013; cumple T_LEASE >= T_GEN + 30 s). */
 export const sceneLeaseSeconds = (genTimeoutSeconds: number): number => genTimeoutSeconds + 60;
 /**
@@ -336,6 +348,52 @@ const AUDIT_SECRET_PATTERN = /^(?:[0-9a-fA-F]{2}){32,}$/;
 const validateRawConfig = new Ajv({ allErrors: true }).compile(APP_CONFIG_SCHEMA);
 
 /** Configuración inválida: `variables` lista las variables de entorno rechazadas. */
+/** Variable de la lista cerrada de administradores de plataforma (feature 009, T1227). Solo se lee aquí (INV-ARCH-006). */
+export const ADMIN_EMAILS_NAME = 'ARGOS_ADMIN_EMAILS';
+/** Ruta fija del callback de administración (009-A, (c)): nunca derivada de `Host`. */
+export const ADMIN_GOOGLE_CALLBACK_PATH = '/api/admin/auth/google/callback';
+/**
+ * Límite de fallos del flujo de Google de administración por IP efectiva (feature 009, T1234, EDGE-009-035, D9-25 aprobado por Neo, ADR-009-15): al llegar a `maxFailures` fallos del
+ * callback en `windowMinutes`, el inicio y el callback de esa IP responden `429` con `Retry-After` hasta que expire la ventana. Solo aquí viven los números (INV-ARCH-006).
+ */
+export const ADMIN_ACCESS_LIMIT = { maxFailures: 10, windowMinutes: 15 } as const;
+/**
+ * Tope de INICIOS del flujo de Google de administración por IP efectiva (feature 009, decisión O-2 de Neo): `maxStarts` inicios en `windowMinutes`; el siguiente responde `429`
+ * `ERR-ADMIN-RATE-LIMITED` con `Retry-After`. Independiente del límite de fallos. Solo aquí viven los números (INV-ARCH-006).
+ */
+export const ADMIN_START_LIMIT = { maxStarts: 20, windowMinutes: 15 } as const;
+/**
+ * Límite de registros NUEVOS por IP efectiva (feature 009, T1289, EDGE-009-040, REQ-APR9-002, D9-25 aprobado por Neo, ADR-009-15): `maxNewAccounts` cuentas creadas en `windowMinutes`
+ * (24 h); la siguiente responde `429` `ERR-ACCOUNT-REGISTRATION-RATE-LIMITED` con `Retry-After`, sin crear fila. Aplica al registro con contraseña y al primer acceso con Google
+ * (elegir username). Solo aquí viven los números (INV-ARCH-006).
+ */
+export const REGISTRATION_LIMIT = { maxNewAccounts: 5, windowMinutes: 24 * 60 } as const;
+/**
+ * Umbral de aviso de solicitudes `PENDING` (feature 009, T1289, EDGE-009-040, REQ-APR9-005, D9-25 aprobado por Neo): con MÁS de este número el operador recibe el aviso (el contador
+ * de `/admin` lo muestra; T1247/T1250 lo conectan). Solo aquí vive el número (INV-ARCH-006).
+ */
+export const PENDING_WARNING_THRESHOLD = 50;
+const ADMIN_EMAIL_MAX_LENGTH = 254;
+const ADMIN_EMAIL_LOCAL_MAX_LENGTH = 64;
+const ADMIN_EMAIL_PATTERN = /^[a-z0-9](?:[a-z0-9._%+-]*[a-z0-9])?@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/;
+
+/** Formato de correo de administración: ASCII, sin espacios ni comas, longitud acotada. Nunca devuelve ni registra el valor. */
+export function isValidAdminEmail(value: string): boolean {
+  if (value.length === 0 || value.length > ADMIN_EMAIL_MAX_LENGTH) return false;
+  const at = value.indexOf('@');
+  if (at <= 0 || at > ADMIN_EMAIL_LOCAL_MAX_LENGTH) return false;
+  return ADMIN_EMAIL_PATTERN.test(value);
+}
+
+/** Lee `ARGOS_ADMIN_EMAILS` (separada por comas): recorta, normaliza a minúsculas, rechaza vacíos, duplicados y formatos inválidos. Ausente o vacía = lista vacía. */
+export function parseAdminEmails(raw: string | undefined): { ok: true; emails: string[] } | { ok: false } {
+  if (raw === undefined || raw.trim() === '') return { ok: true, emails: [] };
+  const parts = raw.split(',').map((part) => part.trim().toLowerCase());
+  if (parts.some((part) => !isValidAdminEmail(part))) return { ok: false };
+  if (new Set(parts).size !== parts.length) return { ok: false };
+  return { ok: true, emails: parts };
+}
+
 export class AppConfigError extends Error {
   constructor(public readonly variables: readonly string[]) {
     super(`Configuración inválida: ${variables.join(', ')}. Revisa .env.example.`);
@@ -431,11 +489,14 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
     if (googleSecret === undefined || !GOOGLE_OAUTH_VALUE_PATTERN.test(googleSecret) || googleSecret.includes(',')) googleInvalid.push(GOOGLE_CLIENT_SECRET_NAME);
     if (googleRedirect === undefined || !isValidGoogleRedirectUri(googleRedirect)) googleInvalid.push(GOOGLE_REDIRECT_URI_NAME);
   }
+  // 009 (T1227, REQ-ADM9-003): lista cerrada de administración; un valor inválido rechaza el arranque nombrando solo la variable.
+  const adminParsed = parseAdminEmails(env[ADMIN_EMAILS_NAME]);
+  const adminInvalid = !adminParsed.ok;
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
   const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret) || (env['NODE_ENV'] !== 'test' && isKnownPublicAuditSecret(auditHmacSecret));
-  if (invalid.size > 0 || sceneInvalid.length > 0 || googleInvalid.length > 0 || invalidMediaBucket || invalidSecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience) {
-    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidMediaBucket ? [MEDIA_BUCKET_NAME] : []), ...sceneInvalid, ...googleInvalid, ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
+  if (invalid.size > 0 || sceneInvalid.length > 0 || googleInvalid.length > 0 || adminInvalid || invalidMediaBucket || invalidSecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience) {
+    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidMediaBucket ? [MEDIA_BUCKET_NAME] : []), ...sceneInvalid, ...googleInvalid, ...(adminInvalid ? [ADMIN_EMAILS_NAME] : []), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
   }
   const scene: SceneConfig = Object.defineProperty(
     {
@@ -483,6 +544,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
     mediaMaxBytesPerOwner: Number(raw.ARGOS_MEDIA_MAX_BYTES_PER_OWNER),
     mediaMaxConcurrentUploads: Number(raw.ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS),
     scene,
+    adminEmails: adminParsed.ok ? adminParsed.emails : [],
     ...(googleId === undefined || googleSecret === undefined || googleRedirect === undefined
       ? {}
       : { google: Object.defineProperty({ clientId: googleId, redirectUri: googleRedirect }, 'clientSecret', { value: googleSecret, enumerable: false, writable: false, configurable: false }) as GoogleOAuthConfig }),

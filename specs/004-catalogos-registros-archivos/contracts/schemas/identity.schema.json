@@ -4,11 +4,11 @@
   "title": "IdentitySchema",
   "description": "Usuarios, sesión, perfil, hogares, membresías con rol, invitaciones y eliminación de cuenta [REQ-AUTH2-*, REQ-ACC-*, REQ-HOUSE2-*, REQ-RBAC-001]",
   "x-sdd-metadata": {
-    "version": "3.2.0",
+    "version": "3.3.0",
     "status": "DRAFT",
-    "supersedes": "3.1.0",
+    "supersedes": "3.2.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 3.2.0 (feature 008, Architect 2026-11-20, resolución Nivel 2 de Neo): +AuthMethods y UserSelfProfile.authMethods (opcional), +GoogleChooseUsernameInput, +GoogleLinkStartInput, +GoogleAuthorizationView (SSO con Google y vinculación desde sesión activa) y +InviteeSearchPrefix, +InviteeSuggestion, +InviteeSearchResult (autocompletado por username, D8-10 = A: REQ-HOUSE2-001 intacta). Aditiva; sin cambios en InviteMemberInput ni en LoginInput. Sin correo real, sin aprobación de registro ni /api/admin (diferidos a 009). MINOR 3.1.0 (feature 004): Username admite mayúsculas (unicidad por LOWER, guardado tal como se escribió); LoginInput acepta usuario o correo (254).",
+    "change_note": "Enmienda 009 (feature 009, T1241, Architect 2026-11-23, MINOR, DRAFT; MER-01): +AccountStatus (ACTIVE, PENDING, REJECTED), +UserSelfProfile.accountStatus (opcional; en una SessionView siempre ACTIVE) y +AccountStatusView (cuerpo sin sesion ni cookie de registro y de login de una cuenta PENDING o REJECTED con credenciales validas, REQ-APR9-002, EDGE-009-005, EDGE-009-038). Aditiva; sin cambio en RegisterUserInput ni LoginInput. MINOR 3.2.0 (feature 008, Architect 2026-11-20, resolución Nivel 2 de Neo): +AuthMethods y UserSelfProfile.authMethods (opcional), +GoogleChooseUsernameInput, +GoogleLinkStartInput, +GoogleAuthorizationView (SSO con Google y vinculación desde sesión activa) y +InviteeSearchPrefix, +InviteeSuggestion, +InviteeSearchResult (autocompletado por username, D8-10 = A: REQ-HOUSE2-001 intacta). Aditiva; sin cambios en InviteMemberInput ni en LoginInput. Sin correo real, sin aprobación de registro ni /api/admin (diferidos a 009). MINOR 3.1.0 (feature 004): Username admite mayúsculas (unicidad por LOWER, guardado tal como se escribió); LoginInput acepta usuario o correo (254).",
     "traceability": [
       "REQ-AUTH2-001",
       "REQ-AUTH2-002",
@@ -39,7 +39,12 @@
       "REQ-LOG-001",
       "REQ-LOG-002",
       "INV-LOG-001",
-      "INV-LOG-002"
+      "INV-LOG-002",
+      "REQ-APR9-001",
+      "REQ-APR9-002",
+      "STATE-ACCT9-001",
+      "EDGE-009-005",
+      "EDGE-009-038"
     ]
   },
   "$defs": {
@@ -175,6 +180,9 @@
         },
         "authMethods": {
           "$ref": "#/$defs/AuthMethods"
+        },
+        "accountStatus": {
+          "$ref": "#/$defs/AccountStatus"
         }
       },
       "description": "Perfil del propio usuario; añade email, preferredLanguage y timezone [REQ-AUTH-004, REQ-ACC-001]"
@@ -713,6 +721,32 @@
         }
       },
       "description": "Hasta 5 sugerencias; la forma, el estado 200 y el coste son los mismos con o sin coincidencias"
+    },
+    "AccountStatus": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "PENDING",
+        "REJECTED"
+      ],
+      "description": "Estado de aprobacion de la cuenta (users.account_status, STATE-ACCT9-001). Solo ACTIVE obtiene sesion [REQ-APR9-001]"
+    },
+    "AccountStatusView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accountStatus"
+      ],
+      "properties": {
+        "accountStatus": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "REJECTED"
+          ]
+        }
+      },
+      "description": "Respuesta de registro, de login (credenciales validas) y de primer acceso con Google de una cuenta PENDING o REJECTED: lleva solo el estado, sin sesion ni cookie y sin datos del perfil; la SPA muestra su pantalla de estado y al recargar vuelve a la pantalla de acceso (REQ-APR9-002, EDGE-009-038)"
     }
   }
 }

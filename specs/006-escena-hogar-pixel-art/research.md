@@ -63,6 +63,15 @@ Fuentes registradas por Neo (Nivel 2) como consultadas el 2026-11-19; los agente
 
 Cubren las filas de §2.3 sobre entrenamiento y DPA. Retención, borrado, región, SLA y precios siguen con `[verificar]` hasta que se cite su fuente y **quedan fuera de la firma del texto final del aviso**; Neo confirma el texto final tras `T950` y la revisión de `/rama` (`T958`, `D6-23` (d)).
 
+#### Nota REQ-ESC6-028 (`T1301`, Link, 2026-11-23): lectura de la fuente oficial
+- *Data governance* de Vertex AI: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/data-governance (redirección 301 desde `cloud.google.com/...`; sin fecha en la página). Leída por WebFetch.
+- **No entrenamiento: VERIFICADA.** Texto: "Google won't use your data to train or fine-tune any AI/ML models without your prior permission or instruction." Aplica a todos los modelos gestionados.
+- **Retención de salidas de imagen: NO VERIFICADA.** La página no fija un plazo general para prompts y salidas de modelos de imagen Gemini. Solo da plazos de otras funciones (Interactions API, grounding con Maps 30 d, Deep Research 7 d, Gemini Live 24 h). No se usa ninguno como plazo de imagen.
+- **Residencia: PARCIAL.** "It's processed in the region that serves the request." Con endpoint `global`: "requests and their cached data can be served from any region". Por tanto la residencia solo se sostiene con endpoint regional; si la lista cerrada incluye `global`, REQ-ESC6-028 no se cumple.
+- **Borrado a petición: NO VERIFICADO** en esta página.
+- **Precios (referencia, no Vertex):** la página de precios de Vertex sigue truncada; sin cifras oficiales. Detalle en `specs/009-aprobacion-admin-correo/research-tarifas-vertex-009.md`.
+- Estado: REQ-ESC6-028 queda **abierto** (sin cerrar retención ni borrado). Sin cambios en el texto del aviso ni en contratos.
+
 ## 3. Costo e IAM: resumen de lo que habría que cambiar (solo descripción)
 Ver `plan.md` §7. Nada de esto se ejecuta ni se escribe en `terraform/`.
 

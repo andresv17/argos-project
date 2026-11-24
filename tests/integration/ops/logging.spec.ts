@@ -23,8 +23,9 @@ import { Sha256BackupTokenAdapter } from '../../../src/infrastructure/adapters/s
 import { SlidingWindowRateLimiterAdapter } from '../../../src/infrastructure/adapters/sliding-window-rate-limiter.adapter.ts';
 import { buildApp } from '../../../src/infrastructure/http/app.ts';
 import { cloudLoggerOptions } from '../../../src/infrastructure/http/cloud-logging.ts';
-import { IN_MEMORY_DATABASE, openSqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
+import { IN_MEMORY_DATABASE, openSqliteDatabase, type SqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 import { SqliteUnitOfWork } from '../../../src/infrastructure/persistence/sqlite/sqlite-unit-of-work.ts';
+import { activateAccount, sqliteRunner } from '../../fixtures/active-accounts.ts';
 import { AUDIT_SECRET_HEX } from '../../fixtures/audit-fixtures.ts';
 
 const CLIENT_IP = '203.0.113.77';
@@ -35,7 +36,7 @@ const PASSWORD = 'Lucia2026xyz!';
 const CSRF = { 'x-argos-request': '1', 'content-type': 'application/json' };
 const PET = { name: 'Lucía', species: 'CANINE', breed: 'Mestiza', birthDate: '2024-03-01', sex: 'FEMALE', avatarUrl: null, microchipId: MICROCHIP };
 
-async function appWithCapturedStdout(): Promise<{ app: FastifyInstance; lines: string[] }> {
+async function appWithCapturedStdout(): Promise<{ app: FastifyInstance; lines: string[]; db: SqliteDatabase }> {
   const lines: string[] = [];
   const stream = new Writable({
     write(chunk: Buffer, _encoding, done) {
@@ -63,16 +64,19 @@ async function appWithCapturedStdout(): Promise<{ app: FastifyInstance; lines: s
   };
   const app = await buildApp({ deps, cookieSecure: false, logger: { ...cloudLoggerOptions({ databaseUrl: DATABASE_URL }), stream } });
   app.addHook('onClose', async () => db.close());
-  return { app, lines };
+  return { app, lines, db };
 }
 
-async function login(app: FastifyInstance): Promise<string> {
+async function login(app: FastifyInstance, db: SqliteDatabase): Promise<string> {
   const registered = await app.inject({
     method: 'POST', url: '/api/auth/register', headers: CSRF, remoteAddress: CLIENT_IP,
     payload: { username: 'lucia', password: PASSWORD, confirmPassword: PASSWORD, displayName: 'Lucía', email: 'lucia.privada@example.com' },
   });
   expect(registered.statusCode).toBe(201);
-  const header = registered.headers['set-cookie'];
+  // 009 (T1246): el alta nace PENDING y sin sesión; el arnés T1244 la activa y la persona entra con sus credenciales.
+  await activateAccount(sqliteRunner(db), 'sqlite', 'lucia', '2026-11-23T10:00:00.000Z');
+  const entered = await app.inject({ method: 'POST', url: '/api/auth/login', headers: CSRF, remoteAddress: CLIENT_IP, payload: { username: 'lucia', password: PASSWORD } });
+  const header = entered.headers['set-cookie'];
   const joined = Array.isArray(header) ? header.join(';') : (header ?? '');
   return `argos_session=${/argos_session=([^;]+)/.exec(joined)![1]!}`;
 }
@@ -87,7 +91,7 @@ describe('SC-CLD-004: stdout sin UUID, microchip ni IP', () => {
   it('[REQ-CLD-008] la violación de microchip duplicado no deja el microchip ni la IP en stdout', async () => {
     const captured = await appWithCapturedStdout();
     app = captured.app;
-    const cookie = await login(app);
+    const cookie = await login(app, captured.db);
     const first = await app.inject({ method: 'POST', url: '/api/pets', headers: { ...CSRF, cookie }, remoteAddress: CLIENT_IP, payload: PET });
     expect(first.statusCode).toBe(201);
     const duplicate = await app.inject({ method: 'POST', url: '/api/pets', headers: { ...CSRF, cookie }, remoteAddress: CLIENT_IP, payload: { ...PET, name: 'Otra' } });
@@ -105,7 +109,7 @@ describe('SC-CLD-004: stdout sin UUID, microchip ni IP', () => {
   it('[REQ-CLD-008] un 404 con UUID de mascota inexistente (ruta con plantilla) no deja el UUID ni la IP en stdout', async () => {
     const captured = await appWithCapturedStdout();
     app = captured.app;
-    const cookie = await login(app);
+    const cookie = await login(app, captured.db);
     const missing = await app.inject({ method: 'GET', url: `/api/pets/${MISSING_PET_UUID}/dashboard?ref=correo@privado.example`, headers: { cookie }, remoteAddress: CLIENT_IP });
     expect(missing.statusCode).toBe(404);
 

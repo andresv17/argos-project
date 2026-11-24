@@ -6,11 +6,11 @@
  * SIN reintento interno (un 429 o un 5xx es un intento FALLIDO), `redirect: 'error'`, un único `AbortSignal` (T_GEN + la señal de la petición) que cubre token y proveedor.
  * NUNCA devuelve ni registra el cuerpo del proveedor, la URL, las cabeceras, el token ni el prompt: solo imagen o un código `ERR-SCENE-*` ya existente.
  *
- * @implements REQ-ESC6-017, REQ-ESC6-031, NFR-ESC6-001, INV-ESC6-016, INV-ESC6-018
+ * @implements INV-CFG9-001, REQ-ESC6-017, REQ-ESC6-031, NFR-ESC6-001, INV-ESC6-016, INV-ESC6-018
  */
 
 import type { SceneGenerationRequest, SceneGenerationResult, SceneImageGeneratorPort } from '../../application/ports/scene-image-generator.port.ts';
-import { isAllowedSceneLocation } from '../../domain/scene/provider-parameters.ts';
+import { SCENE_GLOBAL_LOCATION_ENABLED, isAllowedSceneLocation, isSafeSceneModel } from '../../domain/scene/provider-parameters.ts';
 import {
   GEMINI_INLINE_MAX_BYTES,
   GEMINI_OUTPUT_MAX_BYTES,
@@ -24,15 +24,19 @@ import { createMetadataTokenClient } from './metadata-token-client.ts';
 
 /** Sufijo constante del host regional de Vertex AI (solo este archivo lo nombra). */
 const VERTEX_HOST_SUFFIX = '-aiplatform.googleapis.com';
+/** Host de la región `global`: inalcanzable mientras `SCENE_GLOBAL_LOCATION_ENABLED` sea `false` (Enmienda 009-B, condición (g)). */
+const VERTEX_GLOBAL_HOST = 'aiplatform.googleapis.com';
 const PROJECT_PATTERN = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;
 
 export interface VertexSceneImageGeneratorOptions {
   /** `ARGOS_SCENE_PROJECT_ID` ya validado por `app-config.ts`. */
   readonly projectId: string;
-  /** Región en lista cerrada (`platform_parameters` o `ARGOS_SCENE_LOCATION`). */
-  readonly location: string;
-  /** Modelo (`platform_parameters` o `ARGOS_SCENE_MODEL`); se interpola en la ruta. */
-  readonly model: string;
+  /** Región en lista cerrada (`platform_parameters` o `ARGOS_SCENE_LOCATION`). Opcional solo si hay `getParameters`. */
+  readonly location?: string;
+  /** Modelo (`platform_parameters` o `ARGOS_SCENE_MODEL`); se interpola en la ruta. Opcional solo si hay `getParameters`. */
+  readonly model?: string;
+  /** Relectura en caliente (T1265): modelo y región vigentes; la URL se compone EN CADA llamada y un valor inválido o un fallo de lectura falla cerrado sin `fetch`. */
+  readonly getParameters?: () => Promise<{ readonly model: string; readonly location: string }>;
   /** `ARGOS_SCENE_GEN_TIMEOUT_SECONDS` (T_GEN, 10..105). */
   readonly timeoutSeconds: number;
   /** `fetch` inyectable (pruebas); por defecto el global, resuelto en cada llamada. */
@@ -52,7 +56,9 @@ const INVALID: SceneGenerationResult = { ok: false, code: 'ERR-SCENE-INVALID-IMA
 const ENVELOPE_SLACK_BYTES = 64 * 1024;
 
 export class VertexSceneImageGenerator implements SceneImageGeneratorPort {
-  private readonly url: string;
+  private readonly projectId: string;
+  private readonly staticParams: { readonly model: string; readonly location: string } | null;
+  private readonly getParameters: (() => Promise<{ readonly model: string; readonly location: string }>) | undefined;
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch | undefined;
   private readonly modalities: GeminiModalities;
@@ -63,9 +69,13 @@ export class VertexSceneImageGenerator implements SceneImageGeneratorPort {
   constructor(options: VertexSceneImageGeneratorOptions) {
     // Los mensajes no incluyen valor alguno.
     if (!PROJECT_PATTERN.test(options.projectId) || options.projectId.includes('..')) throw new Error('Configuración del adaptador vertex inválida: proyecto.');
-    if (!isAllowedSceneLocation(options.location)) throw new Error('Configuración del adaptador vertex inválida: región.');
-    if (!isSafeGeminiModel(options.model)) throw new Error('Configuración del adaptador vertex inválida: modelo.');
-    this.url = `https://${options.location}${VERTEX_HOST_SUFFIX}/v1/projects/${options.projectId}/locations/${options.location}/publishers/google/models/${options.model}:generateContent`;
+    this.projectId = options.projectId;
+    this.getParameters = options.getParameters;
+    if (options.getParameters === undefined || options.location !== undefined || options.model !== undefined) {
+      if (options.location === undefined || !isAllowedSceneLocation(options.location)) throw new Error('Configuración del adaptador vertex inválida: región.');
+      if (options.model === undefined || !isSafeGeminiModel(options.model) || !isSafeSceneModel(options.model)) throw new Error('Configuración del adaptador vertex inválida: modelo.');
+      this.staticParams = { model: options.model, location: options.location };
+    } else this.staticParams = null;
     this.timeoutMs = options.timeoutSeconds * 1000;
     this.fetchImpl = options.fetch;
     this.modalities = options.responseModalities ?? ['IMAGE'];
@@ -83,8 +93,25 @@ export class VertexSceneImageGenerator implements SceneImageGeneratorPort {
     return {};
   }
 
+  /** URL de la llamada: región y modelo vigentes validados ahora; `null` si no son válidos (anti-SSRF, sin eco del valor). */
+  private async resolveUrl(): Promise<string | null> {
+    const params = this.getParameters === undefined ? this.staticParams : await this.getParameters();
+    if (params === null || typeof params.location !== 'string' || typeof params.model !== 'string') return null;
+    const { location, model } = params;
+    if (!isAllowedSceneLocation(location) || !isSafeGeminiModel(model) || !isSafeSceneModel(model)) return null;
+    const host = SCENE_GLOBAL_LOCATION_ENABLED && location === 'global' ? VERTEX_GLOBAL_HOST : `${location}${VERTEX_HOST_SUFFIX}`;
+    return `https://${host}/v1/projects/${this.projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
+  }
+
   async generate(request: SceneGenerationRequest): Promise<SceneGenerationResult> {
     if (request.signal.aborted) return TIMEOUT;
+    let url: string | null;
+    try {
+      url = await this.resolveUrl();
+    } catch {
+      return FAILED; // lectura de parámetros rota: falla cerrado, sin host por defecto
+    }
+    if (url === null) return FAILED;
     const body = buildGeminiBody(request.prompt, request.references, this.modalities, request.seed);
     if (Buffer.byteLength(body, 'utf8') > this.maxInlineBytes) return FAILED;
 
@@ -96,7 +123,7 @@ export class VertexSceneImageGenerator implements SceneImageGeneratorPort {
       const token = await this.#getAccessToken(controller.signal);
       if (controller.signal.aborted) return TIMEOUT;
       const doFetch = this.fetchImpl ?? globalThis.fetch;
-      const response = await doFetch(this.url, {
+      const response = await doFetch(url, {
         method: 'POST',
         redirect: 'error',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },

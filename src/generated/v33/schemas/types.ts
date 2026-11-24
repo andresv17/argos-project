@@ -5,13 +5,13 @@
  * Source: contracts/schemas/backup-envelope.schema.json (v3.3.0, DRAFT)
  * Source: contracts/schemas/clinical-summary.schema.json (v1.1.0, DRAFT)
  * Source: contracts/schemas/common.schema.json (v2.3.0, REVIEW)
- * Source: contracts/schemas/identity.schema.json (v3.2.0, DRAFT)
+ * Source: contracts/schemas/identity.schema.json (v3.3.0, DRAFT)
  * Source: contracts/schemas/media.schema.json (v1.0.0, DRAFT)
  * Source: contracts/schemas/medical-records.schema.json (v3.1.0, DRAFT)
  * Source: contracts/schemas/pet.schema.json (v3.2.0, DRAFT)
- * Source: contracts/schemas/platform-parameter.schema.json (v1.0.0, DRAFT)
+ * Source: contracts/schemas/platform-parameter.schema.json (v1.1.0, DRAFT)
  * Source: contracts/schemas/share-link.schema.json (v1.1.0, DRAFT)
- * @implements EDGE-005-16, EDGE-005-17, EDGE-005-27, INV-005-001, INV-005-003, INV-005-004, INV-005-005, INV-005-009, INV-ACC2-001, INV-ACC2-002, INV-ALB-001, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-AVA-001, INV-BACKUP-001, INV-ESC6-016, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-LOG-001, INV-LOG-002, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-PET4-001, INV-RAZ-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-REG-003, INV-SIN-001, INV-SIN-002, INV-SORT-001, REQ-ACC-001, REQ-ACC-002, REQ-ALB-001, REQ-ALB5-002, REQ-ALB5-003, REQ-ALB5-005, REQ-ARC-001, REQ-ARC-003, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AVA-001, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-BOR-001, REQ-BOR-005, REQ-ESC6-021, REQ-FAL7-008, REQ-GCS-005, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-IMP-001, REQ-LOG-001, REQ-LOG-002, REQ-MDC-001, REQ-MIG-001, REQ-OWN-001, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET4-001, REQ-PET4-002, REQ-PRM-001, REQ-PRM-002, REQ-PRM-003, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-SIN-001, REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-004, REQ-SUM-006, REQ-SUM-007, REQ-SUM-008, REQ-TIME-001, REQ-VET-001, REQ-VET-002, REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-009, REQ-VET-011, REQ-VET-012, SC-005-004, SC-005-015, SC-005-025, SC-005-027, SC-005-028, SC-005-029, SC-005-030, SC-005-033, SC-005-034, SC-005-035, SC-005-051, SC-007-016, SC-012, SC-014, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-HOUSE-MEMBERSHIP-001
+ * @implements EDGE-005-16, EDGE-005-17, EDGE-005-27, EDGE-009-005, EDGE-009-038, INV-005-001, INV-005-003, INV-005-004, INV-005-005, INV-005-009, INV-ACC2-001, INV-ACC2-002, INV-ALB-001, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-AVA-001, INV-BACKUP-001, INV-ESC6-016, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-LOG-001, INV-LOG-002, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-PET4-001, INV-RAZ-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-REG-003, INV-SIN-001, INV-SIN-002, INV-SORT-001, REQ-ACC-001, REQ-ACC-002, REQ-ALB-001, REQ-ALB5-002, REQ-ALB5-003, REQ-ALB5-005, REQ-APR9-001, REQ-APR9-002, REQ-ARC-001, REQ-ARC-003, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AVA-001, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-BOR-001, REQ-BOR-005, REQ-CFG9-001, REQ-CFG9-007, REQ-ESC6-021, REQ-FAL7-008, REQ-GCS-005, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-IMP-001, REQ-LOG-001, REQ-LOG-002, REQ-MDC-001, REQ-MIG-001, REQ-OWN-001, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET4-001, REQ-PET4-002, REQ-PRM-001, REQ-PRM-002, REQ-PRM-003, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-SIN-001, REQ-SUM-001, REQ-SUM-002, REQ-SUM-003, REQ-SUM-004, REQ-SUM-006, REQ-SUM-007, REQ-SUM-008, REQ-TIME-001, REQ-VET-001, REQ-VET-002, REQ-VET-003, REQ-VET-004, REQ-VET-005, REQ-VET-009, REQ-VET-011, REQ-VET-012, SC-005-004, SC-005-015, SC-005-025, SC-005-027, SC-005-028, SC-005-029, SC-005-030, SC-005-033, SC-005-034, SC-005-035, SC-005-051, SC-007-016, SC-009-017, SC-012, SC-014, STATE-ACCT9-001, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-HOUSE-MEMBERSHIP-001
  */
 
 /**
@@ -439,6 +439,13 @@ export type OwnerColorToken =
   | "OWNER_COLOR_6"
   | "OWNER_COLOR_7"
   | "OWNER_COLOR_8";
+/**
+ * Estado de aprobacion de la cuenta (users.account_status, STATE-ACCT9-001). Solo ACTIVE obtiene sesion [REQ-APR9-001]
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "AccountStatus".
+ */
+export type AccountStatus = "ACTIVE" | "PENDING" | "REJECTED";
 /**
  * Sin política: solo no vacía y de máximo 128 caracteres [REQ-AUTH2-002]
  *
@@ -1749,6 +1756,15 @@ export interface ProblemDetails {
   finalState?: "ROLLED_BACK" | "UNKNOWN";
 }
 /**
+ * Respuesta de registro, de login (credenciales validas) y de primer acceso con Google de una cuenta PENDING o REJECTED: lleva solo el estado, sin sesion ni cookie y sin datos del perfil; la SPA muestra su pantalla de estado y al recargar vuelve a la pantalla de acceso (REQ-APR9-002, EDGE-009-038)
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "AccountStatusView".
+ */
+export interface AccountStatusView {
+  accountStatus: "PENDING" | "REJECTED";
+}
+/**
  * Métodos de acceso de la cuenta propia, solo lectura; no expone el sub de Google ni el correo de Google
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
@@ -2036,6 +2052,7 @@ export interface UserSelfProfile {
   preferredLanguage: PreferredLanguage;
   timezone: Timezone;
   authMethods?: AuthMethods;
+  accountStatus?: AccountStatus;
 }
 /**
  * TRANSFER_OWNERSHIP: el destino es un miembro ACTIVE que no es el propietario [REQ-HOUSE2-002, INV-HOUSE2-001]
@@ -2545,7 +2562,7 @@ export interface PlatformParameter {
   description: string;
   updatedAt: IsoTimestamp;
   /**
-   * Sin FK: el perfil de administrador de plataforma aún no existe [REQ-PRM-003]
+   * Sin FK [REQ-PRM-003]. El administrador de plataforma de la feature 009 no tiene cuenta de usuario (ADR-009-05), por lo que updated_by_user_id queda NULL en las ediciones hechas desde /admin; el autor es el id de admin_identities registrado en admin_audit_entries (REQ-CFG9-007). Solo un userId de usuario puede ocupar este campo si algún flujo futuro lo escribe
    */
   updatedByUserId: Uuid | null;
 }

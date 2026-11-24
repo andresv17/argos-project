@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { LoginUseCase, RegisterUserUseCase } from '../../../src/application/use-cases/auth-use-cases.ts';
 import { InviteMemberUseCase } from '../../../src/application/use-cases/household-use-cases.ts';
 import { DomainError } from '../../../src/generated/index.ts';
+import { activateViaPorts, sessionOf } from '../../fixtures/active-accounts.ts';
 import { ANDRES, HOUSEHOLD, PASSWORDS } from '../../fixtures/application-harness.ts';
 import { ENGINE_NAMES, HAS_POSTGRES, account, idOf, openEngine, stateWith, type EngineName, type IdentityEngine } from '../../fixtures/identity-engines.ts';
 import { DUMMY_PASSWORD_HASH, FAKE_HASH_PREFIX } from '../../fixtures/test-doubles.ts';
@@ -90,25 +91,26 @@ describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (n
     const engine = await open(name);
     const register = new RegisterUserUseCase(engine.deps);
     const created = await register.execute({ username: 'Sofia', displayName: 'Sofía', ...REGISTRATION });
-    expect(created.session.user.username).toBe('Sofia');
+    expect(created).toEqual({ accountStatus: 'PENDING' });
     expect((await engine.read((r) => r.users.findByUsername('sofia')))?.username).toBe('Sofia');
     for (const username of ['and res', 'a@b', 'ab', ' Sofia2 ', 'x'.repeat(31)]) {
       expect(await outcome(register.execute({ username, displayName: 'X', ...REGISTRATION })), username).toBe('ERR-SCHEMA-VALIDATION-FAILED@username');
     }
     const login = new LoginUseCase(engine.deps);
-    const upper = await login.execute({ username: 'SOFIA', password: NEW_PASSWORD });
-    const lower = await login.execute({ username: 'sofia', password: NEW_PASSWORD });
-    expect([upper.session.user.id, lower.session.user.id]).toEqual([created.session.user.id, created.session.user.id]);
+    const sofiaId = await activateViaPorts(engine.uow, 'Sofia'); // 009: el alta nace PENDING y no inicia sesión; la sesión exige la cuenta ACTIVE
+    const upper = sessionOf(await login.execute({ username: 'SOFIA', password: NEW_PASSWORD }));
+    const lower = sessionOf(await login.execute({ username: 'sofia', password: NEW_PASSWORD }));
+    expect([upper.session.user.id, lower.session.user.id]).toEqual([sofiaId, sofiaId]);
     expect(upper.session.user.username).toBe('Sofia');
-    const andres = await login.execute({ username: 'ANDRES', password: PASSWORDS['andres'] });
+    const andres = sessionOf(await login.execute({ username: 'ANDRES', password: PASSWORDS['andres'] }));
     expect(andres.session.user.id).toBe(ANDRES);
   });
 
   run('[SC-CAT-018][REQ-LOG-001][EDGE-007] el correo entra recortado y sin mayúsculas; con el mismo correo en dos cuentas falla con el mismo error genérico que una contraseña incorrecta', async () => {
     const engine = await open(name);
     const login = new LoginUseCase(engine.deps);
-    expect((await login.execute({ username: 'Ana@Ejemplo.COM', password: 'Ana2026a' })).session.user.id).toBe(ANA);
-    expect((await login.execute({ username: ' ana@ejemplo.com ', password: 'Ana2026a' })).session.user.id).toBe(ANA);
+    expect(sessionOf(await login.execute({ username: 'Ana@Ejemplo.COM', password: 'Ana2026a' })).session.user.id).toBe(ANA);
+    expect(sessionOf(await login.execute({ username: ' ana@ejemplo.com ', password: 'Ana2026a' })).session.user.id).toBe(ANA);
     const ambiguous = await failureOf(login.execute({ username: 'casa@ejemplo.com', password: 'Comp2026a' }));
     const wrong = await failureOf(login.execute({ username: 'ana.perez', password: 'incorrecta1!' }));
     expect(shape(ambiguous)).toEqual(shape(wrong));

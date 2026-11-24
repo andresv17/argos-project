@@ -30,6 +30,7 @@ import {
 // 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
 import { validateUserPublicProfile } from '../../../generated/v31/index.ts';
 import { authIdentityRepository, oauthFlowRepository } from './postgres-auth-repositories.ts';
+import { adminAuditRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './postgres-admin-repositories.ts';
 import { isStoredPetProfile, type LifeStatus, type PetProfile, type PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
@@ -52,7 +53,7 @@ import type {
   PetMediaRecord,
   PetMediaRepositoryPort,
 } from '../../../application/ports/repositories.port.ts';
-import { corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
+import { accountStatusOf, corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 import { shareAuditRepository, shareLinkRepository } from './postgres-share-repositories.ts';
 import { postgresSceneConsentRepository, postgresSceneRepository } from './postgres-scene-repositories.ts';
@@ -88,7 +89,7 @@ const isStringArray: Check<string[]> = (value): value is string[] => Array.isArr
 /** COUNT(*) llega como bigint en texto. */
 const count = (row: Row | undefined): number => Number(row?.['n'] ?? 0);
 
-const USER_COLUMNS = 'SELECT id, username, password_hash, email, email_verified_at, preferred_language, timezone, data FROM users';
+const USER_COLUMNS = 'SELECT id, username, password_hash, email, email_verified_at, account_status, preferred_language, timezone, data FROM users';
 /** `$1` se reutiliza en las 11 subconsultas: un solo parámetro posicional. */
 const COUNT_REFERENCES =
   'SELECT (SELECT COUNT(*) FROM users WHERE id = $1)' +
@@ -113,6 +114,7 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
     if (typeof passwordHash !== 'string' || passwordHash === '') throw corruptData('users', id);
     if (language !== 'es' && language !== 'en' && language !== 'pt') throw corruptData('users', id);
     const verifiedAt = row['email_verified_at'];
+    const status = row['account_status'];
     return {
       ...profile,
       email: row['email'] as string | null,
@@ -120,10 +122,11 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
       timezone: String(row['timezone']),
       passwordHash,
       ...(verifiedAt === null || verifiedAt === undefined ? {} : { emailVerifiedAt: String(verifiedAt) }),
+      ...(status === 'ACTIVE' ? {} : { accountStatus: accountStatusOf(status, id) }),
     };
   };
   const split = (user: UserAccount) => {
-    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, ...profile } = user;
+    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, ...profile } = user;
     if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
     return { passwordHash, email, preferredLanguage, timezone, data: encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile) };
   };
@@ -164,8 +167,8 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
     async insert(user) {
       const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
       await client.query(
-        'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)',
-        [user.id, user.username, passwordHash, data, email, preferredLanguage, timezone, user.emailVerifiedAt ?? null],
+        'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9)',
+        [user.id, user.username, passwordHash, data, email, preferredLanguage, timezone, user.emailVerifiedAt ?? null, user.accountStatus ?? 'ACTIVE'],
       );
     },
     async update(user) {
@@ -231,6 +234,10 @@ function sessionRepository(client: PoolClientLike): SessionRepositoryPort {
     },
     async deleteByUser(userId) {
       await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
+    },
+    async findOwnerAccountStatus(userId) {
+      const { rows } = await client.query('SELECT account_status FROM users WHERE id = $1', [userId]);
+      return rows[0] === undefined ? null : accountStatusOf(rows[0]['account_status'], userId);
     },
   };
 
@@ -837,5 +844,11 @@ export function createPostgresRepositories(client: PoolClientLike): RepositorySe
     sceneConsents: postgresSceneConsentRepository(client),
     authIdentities: authIdentityRepository(client),
     oauthFlows: oauthFlowRepository(client),
+    adminIdentities: adminIdentityRepository(client),
+    adminSessions: adminSessionRepository(client),
+    adminFlows: adminFlowRepository(client),
+    adminAudit: adminAuditRepository(client),
+    registrations: registrationRepository(client),
+    adminParameters: adminParameterRepository(client),
   };
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/types.ts';
-import { PIXEL_REDRAW_RULE, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
+import { PIXEL_REDRAW_RULE, PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
 import { animalCountLine, petSentence, petSpeciesLabel } from '../../src/domain/scene/pet-phrases.ts';
 import { PET_COUNT_RULE, SCENE_SPEC_HEADER, buildSceneSpec, sceneSpecBlock } from '../../src/domain/scene/scene-spec.ts';
 import { DEFAULT_SCENE_STYLE } from '../../src/domain/scene/scene-payload.ts';
@@ -30,6 +30,8 @@ const NEW_HOUSEHOLD = (ref: string): string =>
 const PREVIOUS_PHRASE_FRAGMENTS = ['only as loose inspiration', 'Reimagine the entire room from scratch', 'general furniture types', '32-bit', 'like a classic pixel-art indie game'];
 const OLD_HOUSEHOLD_FRAGMENT = "as the exact visual reference for the room's layout";
 const GENERIC_ROOM = 'Design a warm, cozy modern living room interior with honey-colored wooden floors, a soft armchair, pet beds, and a large sunlit window.';
+/** Enmienda 009 (REQ-PRO9-005): N = 0 desde cero. */
+const NO_ANIMALS = 'Draw no animals in this room.';
 const STYLE_CLOSING_16 = 'Match the exact 16-bit isometric RPG pixel art style, warm natural lighting, and cozy palette.';
 const COUNT_PREFIX = 'Exact animal count: ';
 /** Frase de conteo de Neo (D7-ESC-01) para N >= 2; `group` es el desglose por especie. */
@@ -211,7 +213,7 @@ describe('T939 línea de conteo por especie (SC-ESC6-137)', () => {
     const pets = [petBlock(1, { hasReferencePhoto: true, photoRef: 'IMG_2' }), species(2, 'FELINE')];
     const p = payload('FROM_SCRATCH', pets, { photo: true });
     const text = runs(p);
-    expect(text.includes(`${sceneSpecBlock(p, { onlyWithoutPhoto: true })}\n\n${countLine(2, '1 dog, 1 cat')}`)).toBe(true);
+    expect(text.includes(`${sceneSpecBlock(p, { onlyWithoutPhoto: true })}\n\nPlace all 2 pets naturally and separately in different cozy spots of the room.\n\n${countLine(2, '1 dog, 1 cat')}`)).toBe(true); // enmienda 009: JSON, Place all, conteo
     expect(text.endsWith(`${countLine(2, '1 dog, 1 cat')}\n\n${PIXEL_REDRAW_RULE}`)).toBe(true);
     expect(text.includes(PET_COUNT_RULE)).toBe(false);
     const plain = buildImagePrompt(payload('FROM_SCRATCH', [petBlock(1)]));
@@ -224,7 +226,7 @@ describe('T939 línea de conteo por especie (SC-ESC6-137)', () => {
     const text = runs(p);
     expect(countLinesOf(text)).toEqual([countLine(3, '2 dogs, 1 cat')]);
     expect(text.includes('rabbit')).toBe(true); // la retirada se describe en «- Remove only:», no en el conteo
-    expect(text.endsWith(`${sceneSpecBlock(p)}\n\n${countLine(3, '2 dogs, 1 cat')}\n\n${PET_COUNT_RULE}\n\n${PIXEL_REDRAW_RULE}\n\n${STYLE_CLOSING_16}`)).toBe(true);
+    expect(text.endsWith(`${sceneSpecBlock(p)}\n\n${countLine(3, '2 dogs, 1 cat')}\n\n${PET_COUNT_RULE}\n\n${PRESERVATION_BLOCK}\n\n${PIXEL_REDRAW_RULE}\n\n${STYLE_CLOSING_16}`)).toBe(true);
     const onlyRemove = buildImagePrompt(payload('INCREMENTAL_REMOVE', [petBlock(1, { action: 'REMOVE' })], { scene: true }));
     expect(countLinesOf(onlyRemove)).toEqual([]);
   });
@@ -257,6 +259,7 @@ describe('T939 pureza, no fuga e intactos (SC-ESC6-138)', () => {
         STYLE_BASE_TEXT,
         NEW_HOUSEHOLD('IMG_1'),
         `${line(1, 'dog', 'IMG_2')}\n${line(2, 'cat', 'IMG_3')}`,
+        PRESERVATION_BLOCK,
         'Place all 2 pets naturally and separately in different cozy spots of the room.',
         countLine(2, '1 dog, 1 cat'),
         PIXEL_REDRAW_RULE,
@@ -281,7 +284,7 @@ describe('T939 pureza, no fuga e intactos (SC-ESC6-138)', () => {
 
   it('[SC-ESC6-138] sin mascotas y sin foto el prompt es base + cuarto genérico + regla de conteo, sin JSON ni línea de conteo (R1)', () => {
     const p = payload('FROM_SCRATCH', []);
-    expect(buildImagePrompt(p)).toBe([STYLE_BASE_TEXT, GENERIC_ROOM, PET_COUNT_RULE].join('\n\n'));
+    expect(buildImagePrompt(p)).toBe([STYLE_BASE_TEXT, GENERIC_ROOM, NO_ANIMALS].join('\n\n'));
   });
 
   it('[SC-ESC6-138][INV-ESC6-010][INV-ESC6-017] el texto no contiene household.id, pets[].id, nombres, biography, fallbackContext ni breed libre, en todos los modos', () => {

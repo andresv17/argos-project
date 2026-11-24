@@ -101,5 +101,20 @@ export function oauthFlowRepository(client: PoolClientLike): OAuthFlowStateRepos
       const result = await client.query('DELETE FROM oauth_flow_states WHERE expires_at <= $1', [nowIsoTimestamp]);
       return result.rowCount ?? 0;
     },
+    async findDeletionProof(userId, originSessionHash, nowIsoTimestamp) {
+      const { rows } = await client.query(
+        `SELECT ${FLOW_COLUMNS} FROM oauth_flow_states WHERE intent = 'DELETE' AND user_id = $1 AND origin_session_hash = $2 AND consumed_at IS NOT NULL AND pending_subject IS NOT NULL AND expires_at > $3 ORDER BY consumed_at DESC, token_hash LIMIT 1`,
+        [userId, originSessionHash, nowIsoTimestamp],
+      );
+      return rows[0] === undefined ? null : toFlow(rows[0]);
+    },
+    async markDeletionProof(tokenHash, verifiedSubject) {
+      const result = await client.query("UPDATE oauth_flow_states SET pending_subject = $1 WHERE token_hash = $2 AND intent = 'DELETE' AND consumed_at IS NOT NULL AND pending_subject IS NULL", [verifiedSubject, tokenHash]);
+      return (result.rowCount ?? 0) === 1;
+    },
+    async consumeDeletionProof(tokenHash, nowIsoTimestamp) {
+      const result = await client.query("DELETE FROM oauth_flow_states WHERE token_hash = $1 AND intent = 'DELETE' AND consumed_at IS NOT NULL AND pending_subject IS NOT NULL AND expires_at > $2", [tokenHash, nowIsoTimestamp]);
+      return (result.rowCount ?? 0) === 1;
+    },
   };
 }

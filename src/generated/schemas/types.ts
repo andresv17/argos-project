@@ -3,10 +3,10 @@
  * Source: contracts/schemas/audit-entry.schema.json (v1.0.0, REVIEW)
  * Source: contracts/schemas/backup-envelope.schema.json (v3.3.0, REVIEW)
  * Source: contracts/schemas/common.schema.json (v2.3.0, REVIEW)
- * Source: contracts/schemas/identity.schema.json (v3.1.0, REVIEW)
+ * Source: contracts/schemas/identity.schema.json (v3.2.0, DRAFT)
  * Source: contracts/schemas/medical-records.schema.json (v3.0.0, REVIEW)
  * Source: contracts/schemas/pet.schema.json (v3.2.0, REVIEW)
- * @implements INV-ACC2-001, INV-ACC2-002, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-BACKUP-001, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-SORT-001, REQ-ACC-001, REQ-ACC-002, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-MIG-001, REQ-OWN-001, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-TIME-001, SC-012, SC-014, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-HOUSE-MEMBERSHIP-001
+ * @implements EDGE-009-005, EDGE-009-038, INV-ACC2-001, INV-ACC2-002, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-BACKUP-001, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-SORT-001, REQ-ACC-001, REQ-ACC-002, REQ-APR9-001, REQ-APR9-002, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-MIG-001, REQ-OWN-001, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-TIME-001, SC-012, SC-014, STATE-ACCT9-001, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-HOUSE-MEMBERSHIP-001
  */
 
 /**
@@ -332,6 +332,13 @@ export type OwnerColorToken =
   | "OWNER_COLOR_6"
   | "OWNER_COLOR_7"
   | "OWNER_COLOR_8";
+/**
+ * Estado de aprobacion de la cuenta (users.account_status, STATE-ACCT9-001). Solo ACTIVE obtiene sesion [REQ-APR9-001]
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "AccountStatus".
+ */
+export type AccountStatus = "ACTIVE" | "PENDING" | "REJECTED";
 /**
  * Sin política: solo no vacía y de máximo 128 caracteres [REQ-AUTH2-002]
  *
@@ -1117,6 +1124,15 @@ export interface ProblemDetails {
   finalState?: "ROLLED_BACK" | "UNKNOWN";
 }
 /**
+ * Respuesta de registro, de login (credenciales validas) y de primer acceso con Google de una cuenta PENDING o REJECTED: lleva solo el estado, sin sesion ni cookie y sin datos del perfil; la SPA muestra su pantalla de estado y al recargar vuelve a la pantalla de acceso (REQ-APR9-002, EDGE-009-038)
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "AccountStatusView".
+ */
+export interface AccountStatusView {
+  accountStatus: "PENDING" | "REJECTED";
+}
+/**
  * Métodos de acceso de la cuenta propia, solo lectura; no expone el sub de Google ni el correo de Google
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
@@ -1401,6 +1417,7 @@ export interface UserSelfProfile {
   preferredLanguage: PreferredLanguage;
   timezone: Timezone;
   authMethods?: AuthMethods;
+  accountStatus?: AccountStatus;
 }
 /**
  * TRANSFER_OWNERSHIP: el destino es un miembro ACTIVE que no es el propietario [REQ-HOUSE2-002, INV-HOUSE2-001]

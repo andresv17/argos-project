@@ -5,7 +5,7 @@ import type { Config } from 'tailwindcss';
  * Colores de dominio (owner-1..8 y semáforo) se mantienen con sus tonos semánticos; los colores de marca viven aquí.
  */
 const config: Config = {
-  content: ['./index.html', './src/presentation/web/**/*.{ts,tsx}'],
+  content: ['./index.html', './admin.html', './src/presentation/web/**/*.{ts,tsx}', './src/presentation/admin/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {

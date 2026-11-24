@@ -21,7 +21,7 @@ const UOW_PATH = '../../../src/infrastructure/persistence/postgres/postgres-unit
 const BASELINE = allPostgresMigrationsSql();
 
 const CUTOFFS: MaintenanceCutoffs = { now: '2026-11-05T12:00:00.000Z', auditBefore: '2024-11-05T12:00:00.000Z' };
-const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log', 'login_attempts', 'oauth_flow_states'] as const; // login_attempts (T559, SC-CAT-030) y oauth_flow_states (T1134, H-RAMA-008-T1134-01) van al final y no tienen conteo propio
+const TABLES = ['sessions', 'backup_confirmation_tokens', 'household_members', 'household_invitations', 'audit_log', 'admin_audit_entries', 'login_attempts', 'oauth_flow_states', 'admin_oauth_flow_states', 'admin_sessions', 'users'] as const; // users (T1248, REQ-APR9-007, sin conteo propio); admin_* (RAMA-T1239-01/02, sin conteo propio); login_attempts (T559, SC-CAT-030) y oauth_flow_states (T1134, H-RAMA-008-T1134-01) van al final y no tienen conteo propio
 const BATCH = 500;
 
 interface MaintenanceModule {
@@ -87,8 +87,12 @@ describe('purgeExpiredInBatches: forma de las sentencias (REQ-PG-008, REQ-PG-011
       household_members: [CUTOFFS.now, BATCH],
       household_invitations: [CUTOFFS.now, BATCH],
       audit_log: [CUTOFFS.auditBefore, BATCH],
+      admin_audit_entries: [CUTOFFS.auditBefore, BATCH], // RAMA-T1239-03: suma a auditRowsPurged
       login_attempts: ['2026-11-05T11:45:00.000Z', BATCH], // ahora menos la ventana de bloqueo de 15 min (T559)
       oauth_flow_states: [CUTOFFS.now, BATCH], // T1134, NFR-008-004
+      admin_oauth_flow_states: [CUTOFFS.now, BATCH], // RAMA-T1239-01
+      admin_sessions: [CUTOFFS.now, BATCH], // RAMA-T1239-02
+      users: [CUTOFFS.now, BATCH], // T1248, REQ-APR9-007
     });
   });
 
@@ -106,6 +110,7 @@ describe('purgeExpiredInBatches: forma de las sentencias (REQ-PG-008, REQ-PG-011
     expect(sql['household_invitations']).toContain("status IN ('ACCEPTED', 'DECLINED', 'CANCELLED')");
     expect(sql['household_invitations']).toContain("COALESCE(responded_at, created_at)::timestamptz < $1::timestamptz - interval '90 days'");
     expect(sql['audit_log']).toContain('timestamp::timestamptz < $1::timestamptz');
+    expect(sql['admin_audit_entries']).toContain('occurred_at::timestamptz < $1::timestamptz');
   });
 
   it('sin VACUUM, TRUNCATE, ANALYZE, DDL ni escrituras que no sean DELETE (VACUUM es del propietario, T473)', async () => {
@@ -158,6 +163,14 @@ describe('purgeExpiredInBatches: lotes y conteos (REQ-PG-008)', () => {
     const client = purgeClient({ sessions: [3], household_invitations: [null], audit_log: [4] });
     const counts = await purgeExpiredInBatches(client, CUTOFFS);
     expect(counts).toEqual({ sessionsPurged: 3, confirmationTokensPurged: 0, membershipsPurged: 0, invitationsPurged: 0, auditRowsPurged: 4 });
+  });
+
+  it('[RAMA-T1239-03] admin_audit_entries suma a auditRowsPurged junto con audit_log, por lotes (5 + 4 = 9)', async () => {
+    const { purgeExpiredInBatches } = await loadMaintenance();
+    const client = purgeClient({ audit_log: [2, 2], admin_audit_entries: [2, 2, 1] });
+    const counts = await purgeExpiredInBatches(client, CUTOFFS, 2);
+    expect(counts.auditRowsPurged).toBe(9);
+    expect(Object.keys(counts).sort()).toEqual(['auditRowsPurged', 'confirmationTokensPurged', 'invitationsPurged', 'membershipsPurged', 'sessionsPurged']);
   });
 
   it('rechaza un tamaño de lote no entero positivo (sin bucle infinito)', async () => {
@@ -228,6 +241,41 @@ describe.skipIf(!TEST_DATABASE_URL)('purga por lotes en PostgreSQL real (SE OMIT
       client.release();
       expect(counts.sessionsPurged).toBe(5);
       expect((await pool.query('SELECT token_hash FROM sessions')).rows).toEqual([{ token_hash: 'live' }]);
+    } finally {
+      await closePool(pool);
+      await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+      await closePool(admin);
+    }
+  });
+
+  it('[RAMA-T1239-03] purga admin_audit_entries vencidas (frontera exacta se conserva) y las suma a auditRowsPurged; lotes de 2 acumulan 5', async () => {
+    const schema = `argos_t_${randomUUID().replaceAll('-', '')}`;
+    const admin = createPostgresPool({ connectionString: TEST_DATABASE_URL ?? '', pgPoolMax: 1 });
+    await admin.query(`CREATE SCHEMA ${schema}`);
+    const url = new URL(TEST_DATABASE_URL ?? '');
+    url.searchParams.set('options', `-c search_path=${schema}`);
+    const pool = createPostgresPool({ connectionString: url.toString(), pgPoolMax: 2 });
+    try {
+      await pool.query(BASELINE);
+      const adminId = 'a'.repeat(36);
+      const insert = 'INSERT INTO admin_audit_entries (id, admin_id, action, object_ref, occurred_at) VALUES ($1, $2, $3, NULL, $4)';
+      const rows: Array<[string, string]> = [
+        ['A'.repeat(36), '2024-11-04T12:00:00.000Z'], // vencida
+        ['B'.repeat(36), CUTOFFS.auditBefore], // frontera exacta: se conserva
+        ['C'.repeat(36), CUTOFFS.now], // reciente
+      ];
+      for (const [id, at] of rows) await pool.query(insert, [id, adminId, 'ADMIN_REGISTRATION_APPROVE', at]);
+      await pool.query('INSERT INTO audit_log (id, timestamp, executor_user_id, mutation_type, entity_type, entity_id, previous_state_hash, new_state_hash) VALUES ($1, $2, $3, $4, $5, $6, NULL, NULL)', ['audit-vencida', '2024-11-04T12:00:00.000Z', 'u-1', 'UPDATE', 'PET', 'p-1']);
+      const { purgeExpiredInBatches } = await loadMaintenance();
+      const client = await pool.connect();
+      const counts = await purgeExpiredInBatches(client, CUTOFFS, 2);
+      expect(counts).toEqual({ sessionsPurged: 0, confirmationTokensPurged: 0, membershipsPurged: 0, invitationsPurged: 0, auditRowsPurged: 2 });
+      expect((await pool.query('SELECT id FROM admin_audit_entries ORDER BY id')).rows).toEqual([{ id: 'B'.repeat(36) }, { id: 'C'.repeat(36) }]);
+      for (let i = 0; i < 5; i += 1) await pool.query(insert, [`old-${i}`.padEnd(36, 'x'), adminId, 'ADMIN_REGISTRATION_REJECT', '2024-01-01T00:00:00.000Z']);
+      const second = await purgeExpiredInBatches(client, CUTOFFS, 2);
+      client.release();
+      expect(second.auditRowsPurged).toBe(5);
+      expect((await pool.query('SELECT count(*)::int AS n FROM admin_audit_entries')).rows).toEqual([{ n: 2 }]);
     } finally {
       await closePool(pool);
       await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);

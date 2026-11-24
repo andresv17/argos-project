@@ -10,12 +10,18 @@ import type { PlatformParameterRepositoryPort } from '../../application/ports/pl
 import {
   SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY,
   SCENE_PARAM_LOCATION_KEY,
+  SCENE_DEFAULT_GLOBAL_QUOTA_MAX,
+  SCENE_DEFAULT_LOCATION,
+  SCENE_DEFAULT_MODEL,
   SCENE_PARAM_MODEL_KEY,
   SceneParameterError,
+  isAllowedSceneLocation,
+  isSafeSceneModel,
   parseSceneGlobalQuotaMax,
   resolveSceneProviderParameters,
   type SceneProviderParameters,
 } from '../../domain/scene/provider-parameters.ts';
+import { DEFAULT_PROMPT_BLOCKS, PROMPT_BLOCK_MAX_LENGTH, validatePromptBlocks, type PromptBlocks } from '../../domain/scene/prompt-blocks.ts';
 import type { SceneConfig } from './app-config.ts';
 
 type SceneEnvBackup = Pick<SceneConfig, 'globalQuotaMax' | 'model' | 'location'>;
@@ -38,5 +44,62 @@ export function createSceneGlobalQuotaMaxReader(repository: PlatformParameterRep
     const parsed = parseSceneGlobalQuotaMax(raw);
     if (parsed === null) throw new SceneParameterError([SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY]);
     return parsed;
+  };
+}
+
+/** Tope de la caché del lector en caliente: la relectura de `platform_parameters` nunca se retrasa más de 60 s (REQ-CFG9-002, SC-009-023). */
+export const SCENE_PARAMETERS_CACHE_MAX_TTL_MS = 60_000;
+
+/**
+ * Lector EN CALIENTE de modelo, región y tope (T1265; REQ-CFG9-002, INV-CFG9-003, EDGE-009-018, EDGE-009-046): relee las tres filas con caché <= 60 s. Una fila ilegible, fuera de
+ * lista o `global` NO lanza: esa clave cae al respaldo de entorno y, en su defecto, al defecto de código; el valor inválido no se devuelve ni se registra. Si el repositorio falla
+ * la lectura propaga el error (el adaptador falla cerrado).
+ */
+export function createSceneProviderParametersReader(options: {
+  readonly repository: PlatformParameterRepositoryPort;
+  readonly env: SceneEnvBackup;
+  readonly now: () => number;
+  readonly cacheTtlMs?: number;
+}): () => Promise<SceneProviderParameters> {
+  const ttl = Math.min(Math.max(options.cacheTtlMs ?? SCENE_PARAMETERS_CACHE_MAX_TTL_MS, 0), SCENE_PARAMETERS_CACHE_MAX_TTL_MS);
+  let cached: { readonly at: number; readonly value: SceneProviderParameters } | null = null;
+  return async () => {
+    const now = options.now();
+    if (cached !== null && now - cached.at < ttl && now >= cached.at) return cached.value;
+    const [quotaRaw, modelRaw, locationRaw] = await Promise.all([
+      options.repository.findValue(SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY),
+      options.repository.findValue(SCENE_PARAM_MODEL_KEY),
+      options.repository.findValue(SCENE_PARAM_LOCATION_KEY),
+    ]);
+    const quotaParsed = quotaRaw === null ? null : parseSceneGlobalQuotaMax(quotaRaw);
+    const value: SceneProviderParameters = {
+      globalQuotaMax: quotaParsed ?? options.env.globalQuotaMax ?? SCENE_DEFAULT_GLOBAL_QUOTA_MAX,
+      model: modelRaw !== null && isSafeSceneModel(modelRaw) ? modelRaw : (options.env.model ?? SCENE_DEFAULT_MODEL),
+      location: locationRaw !== null && isAllowedSceneLocation(locationRaw) ? locationRaw : (options.env.location ?? SCENE_DEFAULT_LOCATION),
+    };
+    cached = { at: now, value };
+    return value;
+  };
+}
+
+/**
+ * Lector EN CALIENTE de `scene.prompt.blocks` (T1306; REQ-CFG9-002, REQ-CFG9-005, INV-CFG9-003): cache <= 60 s; fila ausente, invalida o ilegible = bloques de codigo, sin lanzar ni devolver el valor.
+ */
+export function createScenePromptBlocksReader(options: { readonly repository: PlatformParameterRepositoryPort; readonly now: () => number; readonly cacheTtlMs?: number }): () => Promise<PromptBlocks> {
+  const ttl = Math.min(Math.max(options.cacheTtlMs ?? SCENE_PARAMETERS_CACHE_MAX_TTL_MS, 0), SCENE_PARAMETERS_CACHE_MAX_TTL_MS);
+  let cached: { readonly at: number; readonly value: PromptBlocks } | null = null;
+  return async () => {
+    const now = options.now();
+    if (cached !== null && now - cached.at < ttl && now >= cached.at) return cached.value;
+    let value: PromptBlocks = DEFAULT_PROMPT_BLOCKS;
+    try {
+      const raw = await options.repository.findValue('scene.prompt.blocks');
+      const checked = raw === null ? null : validatePromptBlocks(raw, PROMPT_BLOCK_MAX_LENGTH);
+      if (checked !== null && checked.ok) value = checked.blocks;
+    } catch {
+      value = DEFAULT_PROMPT_BLOCKS;
+    }
+    cached = { at: now, value };
+    return value;
   };
 }

@@ -57,15 +57,16 @@ function catchDomainError(action: () => unknown): DomainError {
 }
 
 type Expected = [StateAuthSession001State, string | null, number | null];
-/** Oráculo escrito a mano a partir del contrato 3.0.0 (STATE-AUTH-SESSION-001 v3) y D-04, independiente del contrato generado. */
+/** Oráculo escrito a mano a partir del contrato 3.2.0 de la 002 (STATE-AUTH-SESSION-001; enmienda 009 T1241: REGISTER_SUCCESS ya no abre sesión, +LOGIN_NOT_ACTIVE, +ACCOUNT_NOT_ACTIVE, guarda account_status === 'ACTIVE') y D-04, independiente del contrato generado. */
 const SESSION_TABLE: Partial<Record<StateAuthSession001State, Partial<Record<StateAuthSession001Event, Expected>>>> = {
   ANONYMOUS: {
-    REGISTER_SUCCESS: ['AUTHENTICATED', null, null],
+    REGISTER_SUCCESS: ['ANONYMOUS', null, null], // 002 3.2.0: la cuenta nace PENDING sin sesión ni cookie (REQ-APR9-001)
     LOGIN_SUCCESS: ['AUTHENTICATED', null, null],
     LOGIN_FAILURE: ['ANONYMOUS', 'ERR-AUTH-INVALID-CREDENTIALS', null],
     LOGIN_LOCKED: ['ANONYMOUS', 'ERR-AUTH-TOO-MANY-ATTEMPTS', null],
     ACCESS_PROTECTED: ['ANONYMOUS', 'ERR-AUTH-UNAUTHENTICATED', null],
     LOGOUT: ['ANONYMOUS', null, 204],
+    LOGIN_NOT_ACTIVE: ['ANONYMOUS', null, null], // 002 3.2.0: credenciales válidas de cuenta PENDING/REJECTED, 200 con estado y sin cookie
   },
   AUTHENTICATED: {
     REQUEST: ['AUTHENTICATED', null, null],
@@ -77,6 +78,8 @@ const SESSION_TABLE: Partial<Record<StateAuthSession001State, Partial<Record<Sta
     ACCOUNT_DELETED: ['REVOKED', null, null],
     PASSWORD_VERIFY_FAILURE: ['AUTHENTICATED', 'ERR-AUTH-INVALID-CREDENTIALS', null],
     PASSWORD_VERIFY_LOCKED: ['AUTHENTICATED', 'ERR-AUTH-TOO-MANY-ATTEMPTS', null],
+    // 002 3.2.0: guarda de sesión account_status in {PENDING, REJECTED}; el contrato declara el error como unión literal
+    ACCOUNT_NOT_ACTIVE: ['REVOKED', 'ERR-ACCOUNT-PENDING | ERR-ACCOUNT-REJECTED', null],
   },
   EXPIRED_IDLE: { LOGOUT: ['EXPIRED_IDLE', null, 204] },
   EXPIRED: { LOGOUT: ['EXPIRED', null, 204] },
@@ -85,7 +88,7 @@ const SESSION_TABLE: Partial<Record<StateAuthSession001State, Partial<Record<Sta
 };
 
 describe('máquina STATE-AUTH-SESSION-001 (src/domain/auth/auth-policies.ts)', () => {
-  it('[STATE-AUTH-SESSION-001] las 19 transiciones válidas de la v3 coinciden con la spec y las 65 restantes se rechazan', () => {
+  it('[STATE-AUTH-SESSION-001] las 21 transiciones válidas de la 3.2.0 coinciden con la spec y las 75 restantes se rechazan', () => {
     let valid = 0;
     let invalid = 0;
     for (const state of STATE_AUTH_SESSION_001_STATES) {
@@ -103,7 +106,7 @@ describe('máquina STATE-AUTH-SESSION-001 (src/domain/auth/auth-policies.ts)', (
         }
       }
     }
-    expect([valid, invalid]).toEqual([19, 65]);
+    expect([valid, invalid]).toEqual([21, 75]);
   });
 
   it('[STATE-AUTH-SESSION-001][INV-AUTH2-002] las constantes salen del contrato: tope absoluto de 24 h, inactividad de 30 min, 5 fallos y ventana de 15 minutos', () => {

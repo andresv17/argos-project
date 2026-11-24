@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArgosDeterministicErrorCatalogIncremental009",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "extends": "specs/004-catalogos-registros-archivos/contracts/errors/error-catalog.json, specs/005-album-archivos-clinicos/contracts/errors/error-catalog.json y specs/006-escena-hogar-pixel-art/contracts/errors/error-catalog.json (sin editar)",
+    "change_note": "Catalogo INCREMENTAL de la feature 009 (T1217, Architect 2026-11-23): solo los 7 codigos nuevos cuya propiedad es de la linea 009 (MER-10). Los codigos ERR-ACCOUNT-PENDING, ERR-ACCOUNT-REJECTED y ERR-ACCOUNT-REGISTRATION-RATE-LIMITED viven en los catalogos de 002 y 004 (T1241) y ERR-SCENE-DISABLED en el de 006 (T1257): no se declaran aqui. El valor de parametro invalido (REQ-CFG9-007) referencia ERR-SCHEMA-VALIDATION-FAILED ya vigente en 001/004/005/006; no se redefine. El compilador falla si un codigo aparece en mas de un catalogo. Los estados HTTP de los codigos de /api/admin los fija este archivo para que T1226, T1241 y T1256 los referencien sin redefinirlos; las rutas de /api/admin/* se extienden en admin.openapi.yaml en esas tareas.",
+    "removed": [],
+    "added": [
+      "ERR-ACCOUNT-DELETE-REAUTH-REQUIRED",
+      "ERR-ACCOUNT-DELETE-HOUSEHOLDS-ACTIVE",
+      "ERR-ADMIN-RATE-LIMITED",
+      "ERR-ADMIN-REGISTRATION-NOT-FOUND",
+      "ERR-ADMIN-PARAMETER-PRECONDITION-FAILED",
+      "ERR-ADMIN-SCENE-COST-CAP-EXCEEDED",
+      "ERR-ADMIN-QUOTA-RESET-CONFLICT"
+    ],
+    "inherited": [
+      "ERR-ACC-FORBIDDEN",
+      "ERR-ACCOUNT-CONFIRMATION-MISMATCH",
+      "ERR-AUTH-CSRF-REJECTED",
+      "ERR-AUTH-UNAUTHENTICATED",
+      "ERR-INTERNAL-UNEXPECTED",
+      "ERR-RATE-LIMITED",
+      "ERR-SCHEMA-VALIDATION-FAILED"
+    ],
+    "traceability": [
+      "REQ-DEL9-001",
+      "INV-DEL9-001",
+      "REQ-ACC-002",
+      "REQ-ADM9-004",
+      "REQ-APR9-003",
+      "REQ-CFG9-001",
+      "REQ-CFG9-006",
+      "REQ-CFG9-007",
+      "EDGE-009-016",
+      "EDGE-009-023",
+      "EDGE-009-031",
+      "EDGE-009-035",
+      "EDGE-009-036",
+      "EDGE-009-039",
+      "EDGE-009-049"
+    ]
+  },
+  "version": "1.0.0",
+  "status": "DRAFT",
+  "problemDetailsSchema": {
+    "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
+  },
+  "errors": {
+    "ERR-ACCOUNT-DELETE-REAUTH-REQUIRED": {
+      "type": "urn:argos:error:ERR-ACCOUNT-DELETE-REAUTH-REQUIRED",
+      "status": 403,
+      "title": "Se requiere una reautenticación reciente con Google",
+      "invariantRef": "INV-DEL9-001",
+      "detailTemplate": "Para eliminar tu cuenta debes volver a confirmar tu identidad con Google. Inicia la verificación y vuelve a intentarlo.",
+      "requirementRef": "REQ-DEL9-001, EDGE-009-031",
+      "note": "Un unico codigo, estado y detalle para toda prueba de titularidad ausente, vencida (900 s), ya consumida, de otro usuario, de otro sub o con max_age incumplido, y para una cuenta que si tiene contrasena (usa deleteAccount de 004). No revela el sub ni el correo. Es 403 y no 401 para que la interfaz no lo trate como perdida de sesion; la sesion sigue valida."
+    },
+    "ERR-ACCOUNT-DELETE-HOUSEHOLDS-ACTIVE": {
+      "type": "urn:argos:error:ERR-ACCOUNT-DELETE-HOUSEHOLDS-ACTIVE",
+      "status": 409,
+      "title": "La cuenta es propietaria de hogares con miembros activos",
+      "invariantRef": "INV-HOUSE2-001",
+      "detailTemplate": "No puedes eliminar tu cuenta mientras seas propietario de hogares con otros miembros activos o con mascotas compartidas. Transfiere la propiedad o elimina esos hogares y vuelve a intentarlo.",
+      "requirementRef": "REQ-DEL9-001, REQ-ACC-002, EDGE-009-049",
+      "note": "D9-24 = A: rechazo sin transferencia automatica de propiedad y sin perdida de datos. El detalle puede enumerar por nombre los hogares afectados y la respuesta de la operacion deleteAccountWithGoogleReauth lleva ademas la lista estructurada (extension cerrada del problema, ver admin.openapi.yaml). Solapa con ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD / ERR-ACCOUNT-OWNS-SHARED-PETS de 004 (que sigue sirviendo a deleteAccount sin cambios): T1284 verifica en src/ la cascada real de REQ-ACC-002 para no duplicar la regla."
+    },
+    "ERR-ADMIN-RATE-LIMITED": {
+      "type": "urn:argos:error:ERR-ADMIN-RATE-LIMITED",
+      "status": 429,
+      "title": "Demasiados intentos de acceso a administración",
+      "invariantRef": "INV-ADM9-001",
+      "detailTemplate": "Se superó el límite de intentos. Espera unos minutos y vuelve a intentarlo.",
+      "requirementRef": "REQ-ADM9-004, EDGE-009-035",
+      "note": "Solo en el inicio y el callback de /api/admin/auth/google/*; por IP efectiva (trustProxy de 1 salto), nunca por cuenta ni a sesiones validas. Lleva Retry-After. Los valores numericos (10 fallos en 15 min, D9-25) viven solo en app-config.ts y no se escriben en el detalle. Las demas rutas de /api/admin/* sin sesion conservan el 404 uniforme."
+    },
+    "ERR-ADMIN-REGISTRATION-NOT-FOUND": {
+      "type": "urn:argos:error:ERR-ADMIN-REGISTRATION-NOT-FOUND",
+      "status": 404,
+      "title": "Solicitud de registro no encontrada",
+      "invariantRef": "INV-ADM9-001",
+      "detailTemplate": "La solicitud de registro no existe o ya no está disponible.",
+      "requirementRef": "REQ-APR9-003, EDGE-009-039",
+      "note": "Solo para un administrador con sesion valida: decision sobre una solicitud purgada, inexistente o ya decidida por otra via. No revela el estado previo ni distingue purgada de inexistente. No sustituye el 404 uniforme de rutas ocultas sin sesion de administracion."
+    },
+    "ERR-ADMIN-PARAMETER-PRECONDITION-FAILED": {
+      "type": "urn:argos:error:ERR-ADMIN-PARAMETER-PRECONDITION-FAILED",
+      "status": 412,
+      "title": "El parámetro cambió desde que lo leíste",
+      "invariantRef": "INV-CFG9-003",
+      "detailTemplate": "El parámetro fue modificado por otra persona o en otra ventana. Recarga el valor vigente antes de guardar.",
+      "requirementRef": "REQ-CFG9-001, EDGE-009-016",
+      "note": "If-Match desactualizado o distinto de la version vigente de la fila de platform_parameters. No incluye el valor vigente en el detalle."
+    },
+    "ERR-ADMIN-SCENE-COST-CAP-EXCEEDED": {
+      "type": "urn:argos:error:ERR-ADMIN-SCENE-COST-CAP-EXCEEDED",
+      "status": 422,
+      "title": "La combinación supera el tope mensual de gasto",
+      "invariantRef": "INV-CFG9-003",
+      "detailTemplate": "Esta combinación de modelo, región y cuota global superaría el tope mensual de gasto. Elige otra combinación.",
+      "requirementRef": "REQ-CFG9-004, EDGE-009-036",
+      "note": "D9-21 = A corregida (Fase 5b, P5-06 = B): regla de gasto acumulado del mes mas la cuota restante por el coste del par nuevo, contra 5 USD. El detalle no incluye cifras de coste ni el gasto acumulado. La regla y la tabla de costes llegan con T1300/T1301; este codigo se declara ahora para que T1256 lo referencie."
+    },
+    "ERR-ADMIN-QUOTA-RESET-CONFLICT": {
+      "type": "urn:argos:error:ERR-ADMIN-QUOTA-RESET-CONFLICT",
+      "status": 409,
+      "title": "Conflicto al reiniciar la cuota",
+      "invariantRef": "INV-CFG9-003",
+      "detailTemplate": "La cuota cambió mientras se reiniciaba, por ejemplo por una generación en curso. Inténtalo de nuevo.",
+      "requirementRef": "REQ-CFG9-006, EDGE-009-023",
+      "note": "Compare-and-set perdido contra una generacion en curso de las cuentas del administrador. No toca scene.global_quota_used.YYYY-MM y no revela cuentas ajenas."
+    }
+  }
+}

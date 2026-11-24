@@ -4,14 +4,18 @@
  * guardado solo en memoria, y después se confirma con la frase literal y la contraseña. Solo campos y acciones del contrato 002;
  * la verificación real (frase, contraseña, token, propiedad compartida) es del servidor y sus errores salen del catálogo.
  *
+ * Cuenta sin contraseña (009, T1220, REQ-DEL9-001/002): el aviso de T1122 se retira y se ofrece la eliminación con la prueba de titularidad (reautenticación con Google) y el listado de hogares bloqueantes del 409.
+ *
  * Vincular Google (T1131, REQ-VIN8-002): con contraseña y sin Google se pide la contraseña actual y la SPA navega a la URL de autorización; con Google vinculado se muestra el estado (de `authMethods`).
  *
- * @implements REQ-VIN8-001, REQ-VIN8-002, NFR-008-002, REQ-UI2-004, REQ-ACC-001, REQ-ACC-002, REQ-AUTH2-003, REQ-AUTH2-001, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, ERR-ACCOUNT-OWNS-SHARED-PETS, ERR-ACCOUNT-CONFIRMATION-MISMATCH
+ * @implements REQ-DEL9-001, REQ-DEL9-002, INV-DEL9-001, EDGE-009-049, REQ-VIN8-001, REQ-VIN8-002, NFR-008-002, REQ-UI2-004, REQ-ACC-001, REQ-ACC-002, REQ-AUTH2-003, REQ-AUTH2-001, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, ERR-ACCOUNT-OWNS-SHARED-PETS, ERR-ACCOUNT-CONFIRMATION-MISMATCH
  */
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, FormError, PasswordField, SelectField, TextField } from '../components/Field.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
+import { DeletionApiError, createAccountDeletionApi, deletionFeedback, type AffectedHousehold, type DeletionFeedback } from '../account-deletion-google.ts';
+import { humanSchemaMessage } from '../schema-messages.ts';
 import { GOOGLE_LINK_FIELD, googleLinkFeedback, startGoogleLink } from '../google-login.ts';
 import { useSession } from '../session.tsx';
 import { useContractForm } from '../use-contract-form.ts';
@@ -24,6 +28,9 @@ const LANGUAGES = [
   { value: 'en', label: 'Inglés' },
   { value: 'pt', label: 'Portugués' },
 ] as const;
+
+/** Frase literal de `DeleteAccountWithGoogleInput` (REQ-ACC-002 (3)); el servidor la vuelve a verificar. */
+const DELETE_PHRASE = 'ELIMINAR MI CUENTA';
 
 const CARD = 'grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 
@@ -178,19 +185,190 @@ function DangerZone(): JSX.Element {
   );
 }
 
+export interface DeleteGoogleViewProps {
+  readonly phrase: string;
+  readonly errors: FieldErrors;
+  /** Mensaje global (hogares activos u otro error del catálogo). */
+  readonly message: string | null;
+  /** Falta la prueba de titularidad (EDGE-009-031): se muestra junto al botón de Google. */
+  readonly reauthMessage: string | null;
+  /** Hogares bloqueantes del 409 (EDGE-009-049). */
+  readonly households: readonly AffectedHousehold[];
+  /** El respaldo ya se descargó y su token está en memoria. */
+  readonly backupReady: boolean;
+  readonly backupError: string | null;
+  readonly busy: boolean;
+  readonly reauthBusy: boolean;
+  readonly onChange: (name: string, value: string) => void;
+  readonly onReauth: () => void;
+  readonly onDownload: () => void;
+  readonly onSubmit: (event: FormEvent) => void;
+}
+
+const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
 /**
- * Cuenta nacida con Google: no tiene contraseña en ARGOS, así que no se ofrecen el cambio de contraseña ni la eliminación con contraseña. Solo se informa (decisión 1 de Neo,
- * DEUDA-008-GOOGLE-ACCOUNT-DELETE): el borrado de la cuenta se gestiona por soporte mientras tanto. Sin plazos ni garantías legales.
+ * Eliminación de una cuenta sin contraseña (REQ-DEL9-001, REQ-DEL9-002; sustituye al aviso informativo de T1122). Tres pasos: confirmar con Google (prueba de titularidad, D9-17 = A;
+ * la SPA navega a Google y vuelve a este perfil), descargar el respaldo y escribir la frase literal. No hay campo de contraseña. Presentación pura (render estático en las pruebas).
  */
-function NoPasswordNotice(): JSX.Element {
+export function DeleteGoogleView(props: DeleteGoogleViewProps): JSX.Element {
+  const { phrase, errors, message, reauthMessage, households, backupReady, backupError, busy, reauthBusy, onChange, onReauth, onDownload, onSubmit } = props;
+  const showResult = message !== null || households.length > 0;
   return (
-    <section aria-labelledby="no-password-title" role="note" data-account-no-password className={CARD}>
-      <h2 id="no-password-title" className="text-lg font-semibold">
-        Tu cuenta no tiene contraseña
+    <section aria-labelledby="delete-google-title" data-account-delete-google className="grid gap-3 rounded-2xl border-2 border-danger bg-red-50 p-4 text-red-900">
+      <h2 id="delete-google-title" tabIndex={-1} className="text-lg font-semibold">
+        Zona de peligro: eliminar la cuenta
       </h2>
       <p className="max-w-prose text-sm">Tu cuenta se creó con Google, por eso entras con Google y no tienes una contraseña en ARGOS.</p>
-      <p className="max-w-prose text-sm">Por ahora, si quieres eliminar tu cuenta, el borrado lo gestiona el equipo de soporte: no se hace desde esta pantalla.</p>
+      <p className="max-w-prose text-sm">Se eliminan tu cuenta y tus datos. No se puede deshacer. Antes debes descargar un respaldo; el permiso dura 10 minutos y sirve una sola vez.</p>
+      <div className="grid gap-2">
+        <p className="text-sm font-semibold">Paso 1: confirma que eres tú con Google</p>
+        <p id="delete-google-reauth-help" className="max-w-prose text-sm">
+          Google te pedirá volver a confirmar tu identidad y regresarás a esta pantalla.
+        </p>
+        <div>
+          <Button variant="secondary" onClick={onReauth} disabled={reauthBusy} describedBy="delete-google-reauth-help">
+            Confirmar con Google
+          </Button>
+        </div>
+        {reauthMessage === null ? null : (
+          <p role="alert" className="rounded-2xl border border-danger bg-white px-4 py-3 text-sm text-red-900">
+            {reauthMessage}
+          </p>
+        )}
+      </div>
+      <div className="grid gap-2">
+        <p className="text-sm font-semibold">Paso 2: descarga tu respaldo</p>
+        <div>
+          <Button variant="secondary" onClick={onDownload}>
+            Descargar respaldo
+          </Button>
+        </div>
+        <FormError message={backupError} />
+        {backupReady ? (
+          <p role="status" className="text-sm font-semibold">
+            Respaldo descargado. Ya puedes confirmar la eliminación.
+          </p>
+        ) : null}
+      </div>
+      <form noValidate aria-label="Eliminar cuenta con Google" onSubmit={onSubmit} className="grid gap-3">
+        <p className="text-sm font-semibold">Paso 3: escribe la frase para eliminar</p>
+        <TextField id="delete-google-confirmationPhrase" label="Escribe ELIMINAR MI CUENTA" name="confirmationPhrase" required value={phrase} onChange={onChange} errors={errors} />
+        {showResult ? (
+          <div id="delete-google-result" tabIndex={-1} className="grid gap-3">
+            <FormError message={message} />
+            {households.length === 0 ? null : (
+              <div data-delete-households className="grid gap-2 rounded-2xl border border-danger bg-white p-4">
+                <h3 id="delete-google-households-title" className="text-base font-semibold">
+                  Hogares afectados
+                </h3>
+                <ul aria-labelledby="delete-google-households-title" className="grid gap-2">
+                  {households.map((household) => (
+                    <li key={household.householdId} className="min-w-0 break-words text-sm">
+                      <span className="font-semibold">{household.name}</span>
+                      {`: ${plural(household.activeMembers, 'miembro activo', 'miembros activos')} y ${plural(household.sharedPets, 'mascota compartida', 'mascotas compartidas')}`}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : null}
+        <p id="delete-google-submit-help" className="max-w-prose text-sm">
+          {backupReady ? 'La eliminación es definitiva.' : 'Para eliminar, primero descarga el respaldo del paso 2.'}
+        </p>
+        <div>
+          <Button type="submit" variant="danger" disabled={busy || !backupReady} describedBy="delete-google-submit-help">
+            Eliminar mi cuenta
+          </Button>
+        </div>
+      </form>
     </section>
+  );
+}
+
+function DeleteGoogleSection(): JSX.Element {
+  const { api, dropSession } = useSession();
+  const navigate = useNavigate();
+  const deletion = useMemo(() => createAccountDeletionApi(), []);
+  // El token efímero del respaldo vive solo en memoria: nunca en localStorage ni en la URL (REQ-ACC-002).
+  const [token, setToken] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [phrase, setPhrase] = useState('');
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [feedback, setFeedback] = useState<DeletionFeedback>({ message: null, reauthMessage: null, households: [] });
+  const [busy, setBusy] = useState(false);
+  const [reauthBusy, setReauthBusy] = useState(false);
+  /** Peticiones de foco al resultado o al campo con error (WCAG 3.3.1): el efecto actúa tras el render. Sin temporizadores (REQ-UI-002). */
+  const [focusTarget, setFocusTarget] = useState<{ readonly id: string; readonly n: number } | null>(null);
+  useEffect(() => {
+    if (focusTarget !== null) document.getElementById(focusTarget.id)?.focus();
+  }, [focusTarget]);
+  const focus = (id: string): void => setFocusTarget((t) => ({ id, n: (t?.n ?? 0) + 1 }));
+
+  const fail = (error: unknown): DeletionFeedback => (error instanceof DeletionApiError ? deletionFeedback(error) : deletionFeedback(new DeletionApiError('ERR-INTERNAL-UNEXPECTED', 0)));
+
+  const reauth = (): void => {
+    setReauthBusy(true);
+    setFeedback({ message: null, reauthMessage: null, households: [] });
+    deletion
+      .startReauth()
+      .then((url) => window.location.assign(url))
+      .catch((error: unknown) => {
+        const failed = fail(error);
+        setFeedback({ message: null, reauthMessage: failed.message ?? failed.reauthMessage, households: [] });
+        setReauthBusy(false);
+      });
+  };
+  const download = (): void => {
+    setBackupError(null);
+    requestBackupExport(api)
+      .then((exported) => {
+        downloadBlob(exported.blob, exported.fileName);
+        setToken(exported.token);
+      })
+      .catch((e: unknown) => setBackupError(problemMessage(e instanceof ApiProblem ? e.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED'))));
+  };
+  const onSubmit = (event: FormEvent): void => {
+    event.preventDefault();
+    setFeedback({ message: null, reauthMessage: null, households: [] });
+    if (phrase !== DELETE_PHRASE) {
+      setErrors({ confirmationPhrase: humanSchemaMessage('confirmationPhrase') });
+      focus('delete-google-confirmationPhrase');
+      return;
+    }
+    setErrors({});
+    setBusy(true);
+    deletion
+      .deleteAccount({ confirmationPhrase: phrase, ...(token === null ? {} : { backupConfirmationToken: token }) })
+      .then(() => {
+        dropSession();
+        navigate('/login', { replace: true });
+      })
+      .catch((error: unknown) => {
+        const next = fail(error);
+        setFeedback(next);
+        focus(next.reauthMessage === null ? 'delete-google-result' : 'delete-google-title');
+        setBusy(false);
+      });
+  };
+
+  return (
+    <DeleteGoogleView
+      phrase={phrase}
+      errors={errors}
+      message={feedback.message}
+      reauthMessage={feedback.reauthMessage}
+      households={feedback.households}
+      backupReady={token !== null}
+      backupError={backupError}
+      busy={busy}
+      reauthBusy={reauthBusy}
+      onChange={(_name, value) => setPhrase(value)}
+      onReauth={reauth}
+      onDownload={download}
+      onSubmit={onSubmit}
+    />
   );
 }
 
@@ -293,7 +471,7 @@ export function AccountPage(): JSX.Element {
           <DangerZone />
         </>
       ) : (
-        <NoPasswordNotice />
+        <DeleteGoogleSection />
       )}
     </div>
   );

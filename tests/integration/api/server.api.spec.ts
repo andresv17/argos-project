@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadAppConfig } from '../../../src/infrastructure/config/app-config.ts';
+import { activateAccount, sqliteRunner } from '../../fixtures/active-accounts.ts';
+import { openSqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
 import { createProductionApp } from '../../../src/infrastructure/http/server.ts';
 
 /**: composición de producción (SQLite en archivo, scrypt real, tokens aleatorios, reloj de APP_TIMEZONE). */
@@ -20,6 +22,10 @@ describe('arranque de producción (src/infrastructure/http/server.ts)', () => {
     const post = (url: string, body: unknown, cookie?: string) =>
       app.inject({ method: 'POST', url, headers: { 'x-argos-request': '1', 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, payload: JSON.stringify(body) });
     const registered = await post('/api/auth/register', { username: 'prueba', displayName: 'Prueba', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' });
+    // 009 (T1246): el alta nace PENDING; el arnés T1244 la activa por SQL sobre el mismo archivo para probar el login con scrypt real.
+    const admin = openSqliteDatabase(join(dir, 'datos', 'argos.sqlite'));
+    await activateAccount(sqliteRunner(admin), 'sqlite', 'prueba', '2026-11-23T10:00:00.000Z');
+    admin.close();
     const wrong = await post('/api/auth/login', { username: 'prueba', password: 'Clave2026y!' });
     const logged = await post('/api/auth/login', { username: 'prueba', password: 'Clave2026x!' });
     const cookie = String(logged.headers['set-cookie']).split(';')[0]!;

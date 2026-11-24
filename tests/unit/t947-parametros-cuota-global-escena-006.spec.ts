@@ -295,7 +295,7 @@ describe('worker: cuota global agotada no llama al proveedor', () => {
 
   it('[REQ-ESC6-017][REQ-ESC6-031] con tryConsume=false el intento falla con ERR-SCENE-GENERATION-FAILED, el generador recibe 0 llamadas y no se descuenta la cuota por usuario', async () => {
     const tryConsume = vi.fn(async () => false);
-    const t = setup({ tryConsume });
+    const t = setup({ tryConsume, refund: async () => undefined });
     await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, key);
     const outcome = await t.run.execute(jobOf(t), new AbortController().signal);
     expect(outcome).toBe('FAILED');
@@ -309,7 +309,7 @@ describe('worker: cuota global agotada no llama al proveedor', () => {
 
   it('[REQ-ESC6-017] con tryConsume=true se genera y se publica, y el contador global se consulta una sola vez por intento', async () => {
     const tryConsume = vi.fn(async () => true);
-    const t = setup({ tryConsume });
+    const t = setup({ tryConsume, refund: async () => undefined });
     await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, key);
     expect(await t.run.execute(jobOf(t), new AbortController().signal)).toBe('PUBLISHED');
     expect(t.fixture.generator.calls).toHaveLength(1);
@@ -318,6 +318,7 @@ describe('worker: cuota global agotada no llama al proveedor', () => {
 
   it('[REQ-ESC6-017] un tryConsume que lanza se trata como cuota agotada (falla cerrado) y no llama al proveedor', async () => {
     const t = setup({
+      refund: async () => undefined,
       tryConsume: async () => {
         throw new Error('db caída');
       },

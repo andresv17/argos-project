@@ -22,7 +22,8 @@ import { SessionContext, type SessionState } from '../../../src/presentation/web
 import { routeRedirect } from '../../../src/presentation/web/view-model.ts';
 
 const noop = async (): Promise<void> => undefined;
-const state = { status: 'ANONYMOUS', user: null, idleExpiresAt: null, lastActivityAt: null, api: {} as never, setUser: () => undefined, dropSession: () => undefined, register: noop, login: noop, logout: noop, chooseGoogleUsername: noop } as SessionState;
+const noopAuth = async (): Promise<null> => null;
+const state = { status: 'ANONYMOUS', user: null, idleExpiresAt: null, lastActivityAt: null, api: {} as never, setUser: () => undefined, dropSession: () => undefined, register: noopAuth, login: noopAuth, logout: noop, chooseGoogleUsername: noopAuth } as SessionState;
 const inSession = (page: () => JSX.Element): string => renderToStaticMarkup(h(MemoryRouter, null, h(SessionContext.Provider, { value: state }, h(page))));
 const view = (props: { message?: string | null; restart?: boolean; errors?: Record<string, string>; busy?: boolean } = {}): string =>
   renderToStaticMarkup(

@@ -7,6 +7,7 @@
  * @implements INV-ARCH-004, INV-ARCH-005, INV-PET-003, REQ-VIN8-003
  */
 
+import type { AccountStatus } from '../../domain/account/account-status.ts';
 import type { MediaKind } from '../../domain/media/index.ts';
 import type { ShareLinkAuditRepositoryPort, ShareLinkRepositoryPort } from './share-link.port.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
@@ -18,6 +19,7 @@ import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../domain/records/record-invariants.ts';
 import type { SceneConsentRepository, SceneRepository } from './scene-repositories.port.ts';
 import type { AuthIdentityRepositoryPort, OAuthFlowStateRepositoryPort } from './auth-identity.port.ts';
+import type { AdminAuditRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
 export interface UserAccount extends UserSelfProfile {
@@ -27,6 +29,11 @@ export interface UserAccount extends UserSelfProfile {
    * `update` NUNCA lo modifica.
    */
   readonly emailVerifiedAt?: string;
+  /**
+   * Estado de aprobación (009, STATE-ACCT9-001). Ausente = `ACTIVE` (toda cuenta heredada y toda cuenta de prueba previa a 009); el registro la crea `PENDING` de forma explícita.
+   * Solo `insert` lo fija; `update` NUNCA lo modifica (lo cambia la decisión atómica de T1247).
+   */
+  readonly accountStatus?: AccountStatus;
 }
 
 export interface UserRepositoryPort {
@@ -90,6 +97,11 @@ export interface SessionRepositoryPort {
   revokeOthersByTokenHash(userId: string, keepTokenHash: string, nowIsoTimestamp: string): Promise<number>;
   /** Borra todas las sesiones del usuario, incluida la actual (B9 (h)). */
   deleteByUser(userId: string): Promise<void>;
+  /**
+   * Estado de aprobación de la cuenta dueña de la sesión (009, la guarda exige `ACTIVE`, REQ-APR9-001); `null` si la cuenta no existe. Vive aquí y no en `users` para que la guarda
+   * decida sin cargar el perfil ni mezclarse con las lecturas de cuentas de la ruta.
+   */
+  findOwnerAccountStatus(userId: string): Promise<AccountStatus | null>;
 }
 
 export interface LoginAttemptRepositoryPort {
@@ -342,4 +354,13 @@ export interface RepositorySet {
   readonly authIdentities: AuthIdentityRepositoryPort;
   /** Estado del flujo OIDC de Google (feature 008, REQ-SSO8-004): un solo uso, 900 s. */
   readonly oauthFlows: OAuthFlowStateRepositoryPort;
+  /** Portal de administración (feature 009, Fase 3, REQ-ADM9-*): identidad, sesión, estado del flujo OIDC y auditoría propios, sin relación con `users`. */
+  readonly adminIdentities: AdminIdentityRepositoryPort;
+  readonly adminSessions: AdminSessionRepositoryPort;
+  readonly adminFlows: AdminFlowStateRepositoryPort;
+  readonly adminAudit: AdminAuditRepositoryPort;
+  /** Decisión atómica de aprobación de cuentas (feature 009, T1247, REQ-APR9-003). */
+  readonly registrations: RegistrationDecisionRepositoryPort;
+  /** Edición de parámetros de plataforma desde `/admin` (feature 009, Fase 5a, T1264, REQ-CFG9-007). */
+  readonly adminParameters: AdminParameterRepositoryPort;
 }

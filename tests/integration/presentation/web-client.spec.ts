@@ -3,6 +3,7 @@ import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ANDRES, PASSWORDS } from '../../fixtures/application-harness.ts';
+import { activateAccount, sqliteRunner } from '../../fixtures/active-accounts.ts';
 import { createApi, type Api } from '../api/api-harness.ts';
 import { ARGOS_ID, H1 } from '../api/api-fixtures.ts';
 import { ApiProblem, createWebApi, CSRF_PARAMS, problemMessage, unwrap, type ApiClient } from '../../../src/presentation/web/api.ts';
@@ -31,7 +32,7 @@ async function loggedClient(): Promise<ApiClient> {
   const client = createWebApi(await baseUrl());
   const login = await client.POST('/auth/login', { params: CSRF_PARAMS, body: { username: 'andres', password: PASSWORDS['andres']! } });
   const cookie = (login.response.headers.get('set-cookie') ?? '').split(';')[0]!;
-  expect([login.response.status, login.data?.user.id, cookie.startsWith('argos_session=')]).toEqual([200, ANDRES, true]);
+  expect([login.response.status, (login.data as { user?: { id: string } } | undefined)?.user?.id, cookie.startsWith('argos_session=')]).toEqual([200, ANDRES, true]);
   client.use({
     onRequest({ request }) {
       request.headers.set('cookie', cookie);
@@ -87,7 +88,11 @@ describe('cliente generado de la SPA contra la API real', () => {
   it('[REQ-UI-005][REQ-AUTH-004] la sesión de la SPA: registro con la política nueva, recarga con GET /auth/me y logout por el cliente generado', async () => {
     const client = createWebApi(await baseUrl());
     const registered = await client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'nuevo', displayName: 'Nuevo', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' } });
-    const cookie = (registered.response.headers.get('set-cookie') ?? '').split(';')[0]!;
+    // 009 (T1246): el alta nace PENDING y no inicia sesión (sin Set-Cookie); el arnés T1244 la activa y la persona entra con sus credenciales.
+    expect(registered.response.headers.get('set-cookie')).toBeNull();
+    await activateAccount(sqliteRunner(api!.db), 'sqlite', 'nuevo', '2026-11-23T10:00:00.000Z');
+    const entered = await client.POST('/auth/login', { params: CSRF_PARAMS, body: { username: 'nuevo', password: 'Secreto2026!' } });
+    const cookie = (entered.response.headers.get('set-cookie') ?? '').split(';')[0]!;
     const me = await client.GET('/auth/me', { headers: { cookie } });
     const out = await client.POST('/auth/logout', { params: CSRF_PARAMS, headers: { cookie } });
     const after = await client.GET('/auth/me', { headers: { cookie } });

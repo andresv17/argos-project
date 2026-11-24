@@ -279,7 +279,7 @@ describe('T510 metadatos', () => {
     }
     expect(meta('pet').version).toBe('3.2.0'); // 008 (#21, D8-12 = A): +biography, MINOR aditiva sobre 3.1.0
     expect(meta('backup-envelope').version).toBe('3.3.0'); // 008 (#21): +BackupEnvelopeV33, MINOR aditiva sobre 3.2.0 (007)
-    expect(meta('identity').version).toBe('3.2.0'); // 008: +AuthMethods, Google*, InviteeSearch*
+    expect(meta('identity').version).toBe('3.3.0'); // 009 (T1241, MINOR aditiva sobre 3.2.0 de 008): +AccountStatus, UserSelfProfile.accountStatus, +AccountStatusView
     expect(meta('media').version).toBe('1.0.0');
   });
 });

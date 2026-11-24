@@ -3,7 +3,7 @@
  * y cierre de la edición con Cancelar/Guardar sin apilar formularios.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { typeDate, VIEWPORT_WIDTHS } from './e2e-support.ts';
+import { approveAndSignInViaUi, typeDate, VIEWPORT_WIDTHS } from './e2e-support.ts';
 
 const SESSION_USER = { username: 'sesion.e2e', displayName: 'Sesión', password: 'Sesion2026clave!' };
 
@@ -47,7 +47,7 @@ test.describe('formularios de autenticación y mascota (tests/e2e/visual)', () =
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill(USER.password);
     await page.getByLabel('Confirmar contraseña').fill(USER.password);
     await page.getByRole('button', { name: 'Registrarme' }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await approveAndSignInViaUi(page, USER.username, USER.password); // 009: el registro nace PENDING; se aprueba por repositorio (T1244) y se entra
 
     await page.getByRole('button', { name: 'Nueva mascota' }).click();
     await expect(nameInputs(page)).toHaveCount(1);
@@ -107,7 +107,7 @@ test.describe('sesión de la rebanada 1 (tests/e2e/visual)', () => {
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill(SESSION_USER.password);
     await page.getByLabel('Confirmar contraseña').fill(SESSION_USER.password);
     await page.getByRole('button', { name: 'Registrarme' }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await approveAndSignInViaUi(page, SESSION_USER.username, SESSION_USER.password);
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();
     await expect(page).toHaveURL(/\/login$/);
 

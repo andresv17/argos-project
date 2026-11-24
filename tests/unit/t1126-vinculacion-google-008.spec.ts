@@ -37,7 +37,7 @@ function world(): World {
 
 const stateOf = (authorizationUrl: string): string => new URL(authorizationUrl).searchParams.get('state')!;
 const identitiesOf = (w: World, userId: string) => w.h.uow.runInTransaction((r) => r.authIdentities.listByUser(userId));
-const memory = (w: World) => (w.h.uow as unknown as { state: { oauthFlows: Array<{ intent: string }>; users: Array<{ id: string; email: string | null; emailVerifiedAt?: string }>; auditLog: unknown[] } }).state;
+const memory = (w: World) => (w.h.uow as unknown as { state: { oauthFlows: Array<{ intent: string }>; users: Array<{ id: string; username: string; email: string | null; emailVerifiedAt?: string }>; auditLog: unknown[] } }).state;
 const seedSession = (w: World, token: string, userId: string, revokedAt: string | null = null) =>
   w.h.uow.runInTransaction((r) => r.sessions.save(token, { userId, createdAt: NOW, lastActivityAt: NOW, revokedAt }));
 const sessionOf = (w: World, token: string) => w.h.uow.runInTransaction((r) => r.sessions.findByToken(token));
@@ -125,9 +125,10 @@ describe('T1126 startGoogleLink: 409 ERR-AUTH-GOOGLE-LINK-CONFLICT solo aquí (d
     const started = await w.start.execute();
     const step = await w.complete.execute({ oauthToken: started.oauthToken, code: GOOGLE_CODE, state: stateOf(started.authorizationUrl) });
     if (step.kind !== 'CHOOSE_USERNAME') throw new Error('se esperaba CHOOSE_USERNAME');
-    const born = await w.choose.execute(step.oauthToken, { username: 'nacida.google' });
-    await seedSession(w, 'sesion-google', born.session.user.id);
-    const error = await failure(w.link.execute(born.session.user.id, 'sesion-google', { currentPassword: 'CualquierClave99' }));
+    expect(await w.choose.execute(step.oauthToken, { username: 'nacida.google' })).toEqual({ accountStatus: 'PENDING' }); // 009: nace PENDING y sin sesión
+    const bornId = memory(w).users.find((u) => u.username === 'nacida.google')!.id;
+    await seedSession(w, 'sesion-google', bornId);
+    const error = await failure(w.link.execute(bornId, 'sesion-google', { currentPassword: 'CualquierClave99' }));
     expect(error).toMatchObject({ code: 'ERR-AUTH-GOOGLE-LINK-CONFLICT', status: 409 });
     expect(memory(w).oauthFlows.filter((f) => f.intent === 'LINK')).toEqual([]);
   });
@@ -196,10 +197,11 @@ describe('T1126 pre-hijacking y correo (REQ-VIN8-001, REQ-VIN8-003, INV-VIN8-005
     expect(step.kind).toBe('CHOOSE_USERNAME');
     expect(await identitiesOf(w, MARIA)).toEqual([]);
     if (step.kind !== 'CHOOSE_USERNAME') throw new Error('inalcanzable');
-    const created = await w.choose.execute(step.oauthToken, { username: 'victima.real' });
-    expect(created.session.user.id).not.toBe(MARIA);
+    expect(await w.choose.execute(step.oauthToken, { username: 'victima.real' })).toEqual({ accountStatus: 'PENDING' });
+    const createdId = memory(w).users.find((u) => u.username === 'victima.real')!.id;
+    expect(createdId).not.toBe(MARIA);
     expect(await identitiesOf(w, MARIA)).toEqual([]);
-    expect(await identitiesOf(w, created.session.user.id)).toHaveLength(1);
+    expect(await identitiesOf(w, createdId)).toHaveLength(1);
     expect((await sessionOf(w, 'sesion-atacante'))!.revokedAt).toBeNull();
   });
 

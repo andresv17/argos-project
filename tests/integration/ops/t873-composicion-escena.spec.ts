@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from 'jose';
 import type { FastifyInstance } from 'fastify';
+import { activateInFile } from '../../fixtures/active-accounts.ts';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CloudTasksSceneDispatcher } from '../../../src/infrastructure/adapters/cloud-tasks-scene-dispatcher.adapter.ts';
 import { FakeSceneImageGenerator } from '../../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
@@ -46,8 +47,10 @@ async function start(extra: Record<string, string> = {}) {
   apps.push(app);
   const post = (url: string, body: unknown, cookie?: string, headers: Record<string, string> = {}) =>
     app.inject({ method: 'POST', url, headers: { 'x-argos-request': '1', 'content-type': 'application/json', ...(cookie === undefined ? {} : { cookie }), ...headers }, payload: JSON.stringify(body) });
-  const registered = await post('/api/auth/register', { username: 'prueba', displayName: 'Prueba', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' });
-  const cookie = String(registered.headers['set-cookie']).split(';')[0]!;
+  await post('/api/auth/register', { username: 'prueba', displayName: 'Prueba', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' });
+  await activateInFile(join(dir, 'argos.sqlite'), 'prueba'); // 009 (T1246): el alta nace PENDING y sin sesión; el arnés T1244 la activa
+  const logged = await post('/api/auth/login', { username: 'prueba', password: 'Clave2026x!' });
+  const cookie = String(logged.headers['set-cookie']).split(';')[0]!;
   return { app, cookie, post };
 }
 

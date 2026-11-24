@@ -10,9 +10,11 @@ export interface GoogleAuthLimit {
   readonly windowMinutes: number;
 }
 
-export const GOOGLE_AUTH_LIMITS: Readonly<Record<'start' | 'callback' | 'username' | 'link', GoogleAuthLimit>> = {
+export const GOOGLE_AUTH_LIMITS: Readonly<Record<'start' | 'callback' | 'username' | 'link' | 'deleteAccount', GoogleAuthLimit>> = {
   start: { maxPerWindow: 20, windowMinutes: 1 },
   callback: { maxPerWindow: 20, windowMinutes: 1 },
   username: { maxPerWindow: 10, windowMinutes: 1 },
   link: { maxPerWindow: 5, windowMinutes: 15 },
+  /** 009 (TRI-02): `POST /api/account/deletion/google`, por usuario (ERR-RATE-LIMITED). */
+  deleteAccount: { maxPerWindow: 5, windowMinutes: 15 },
 };

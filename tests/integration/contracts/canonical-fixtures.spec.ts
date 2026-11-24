@@ -102,8 +102,8 @@ describe('contracts/examples/canonical-fixtures.json -> src/generated/', () => {
     expect(checks.map(([validate, list]) => list.every((x) => validate(x)))).toEqual([true, true, true, true, true, true]);
   });
 
-  it('[ERR-INTERNAL-UNEXPECTED] ERROR_CATALOG generado coincide con error-catalog.json: los 38 códigos vigentes de la 002 (35 + ERR-PET-VERSION-CONFLICT de 007 + 2 ERR-AUTH-GOOGLE-* de 008) y ninguno más', () => {
+  it('[ERR-INTERNAL-UNEXPECTED] ERROR_CATALOG generado coincide con error-catalog.json: los 41 códigos vigentes de la 002 3.4.0 / catálogo 3.3.0 (35 + ERR-PET-VERSION-CONFLICT de 007 + 2 ERR-AUTH-GOOGLE-* de 008 + ERR-ACCOUNT-PENDING, ERR-ACCOUNT-REJECTED y ERR-ACCOUNT-REGISTRATION-RATE-LIMITED de 009) y ninguno más', () => {
     expect([Object.keys(ERROR_CATALOG).sort(), ERROR_CATALOG['ERR-INTERNAL-UNEXPECTED'].status]).toEqual([Object.keys(catalog.errors).sort(), 500]);
-    expect(Object.keys(ERROR_CATALOG)).toHaveLength(38);
+    expect(Object.keys(ERROR_CATALOG)).toHaveLength(41);
   });
 });

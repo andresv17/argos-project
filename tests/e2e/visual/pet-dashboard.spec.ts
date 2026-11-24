@@ -5,7 +5,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { isoDateFromToday, typeDate } from './e2e-support.ts';
+import { approveAndSignInViaUi, isoDateFromToday, typeDate } from './e2e-support.ts';
 
 const USER = { username: 'duena.dashboard.e2e', displayName: 'Dueña', password: 'Secreto2026a!' };
 
@@ -49,7 +49,7 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill(USER.password);
     await page.getByLabel('Confirmar contraseña').fill(USER.password);
     await page.getByRole('button', { name: 'Registrarme' }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await approveAndSignInViaUi(page, USER.username, USER.password); // 009: nace PENDING; aprobación por repositorio (T1244) y entrada por /login
     await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible();
   });
 

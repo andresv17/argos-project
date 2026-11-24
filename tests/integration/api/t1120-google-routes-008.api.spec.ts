@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { GOOGLE_AUTH_LIMITS } from '../../../src/infrastructure/config/google-auth-config.ts';
 import { GoogleOidcError } from '../../../src/infrastructure/http/google-oidc-verify.ts';
+import { activateAccount, sqliteRunner } from '../../fixtures/active-accounts.ts';
 import { PASSWORDS, canonicalState } from '../../fixtures/application-harness.ts';
 import { GOOGLE_CODE, GOOGLE_EMAIL, SequentialEntropy, fakeGoogleOidc } from '../../fixtures/google-fixtures.ts';
 import { createApi, type Api, type ApiResponse } from './api-harness.ts';
@@ -73,8 +74,10 @@ describe('T1120 GET /api/auth/google/callback (SC-008-001..006, EDGE-008-006, AD
     // Cuenta ya nacida con Google (primer acceso completo).
     const first = await startFlow(api);
     const pending = await callback(api, first.oauth, `code=${GOOGLE_CODE}&state=${first.state}`);
-    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(pending, 'argos_oauth'))}`, body: { username: 'nueva.persona' } });
+    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(pending, 'argos_oauth'))}`, body: { username: 'nueva.persona' }, contract: false });
     expect(chosen.status).toBe(201);
+    // 009 (T1246, EDGE-009-006): la cuenta nace PENDING sin sesión; el arnés (T1244) la activa para que el segundo acceso abra sesión.
+    await activateAccount(sqliteRunner(api.db), 'sqlite', 'nueva.persona', api.clock.nowIsoTimestamp());
     // Segundo acceso: la petición del callback NO trae argos_session (Strict no viaja desde Google; EDGE-008-006).
     const second = await startFlow(api);
     const r = await callback(api, second.oauth, `code=${GOOGLE_CODE}&state=${second.state}`);
@@ -176,14 +179,19 @@ describe('T1120 POST /api/auth/google/username (SC-008-002, SC-008-062, EDGE-008
     return `argos_oauth=${valueOf(cookieNamed(r, 'argos_oauth'))}`;
   }
 
-  it('201 con SessionView, argos_session Strict, argos_oauth retirada y la cuenta sin contraseña (authMethods)', async () => {
+  it('201 con AccountStatusView PENDING (009, EDGE-009-006: sin argos_session), argos_oauth retirada y la cuenta sin contraseña (authMethods) una vez ACTIVE', async () => {
     const { api } = await boot();
     const oauth = await toUsername(api);
-    const r = await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'Nueva.Persona' } });
+    const r = await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'Nueva.Persona' }, contract: false });
     expect(r.status).toBe(201);
-    expect(cookieNamed(r, 'argos_session')).toContain('SameSite=Strict');
+    expect(r.json).toEqual({ accountStatus: 'PENDING' });
+    expect(cookieNamed(r, 'argos_session')).toBeUndefined();
     expect(cookieNamed(r, 'argos_oauth')).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/);
-    const me = await api.call('GET', '/api/auth/me', { cookie: `argos_session=${valueOf(cookieNamed(r, 'argos_session'))}` });
+    await activateAccount(sqliteRunner(api.db), 'sqlite', 'Nueva.Persona', api.clock.nowIsoTimestamp());
+    const again = await startFlow(api);
+    const entered = await callback(api, again.oauth, `code=${GOOGLE_CODE}&state=${again.state}`);
+    expect(cookieNamed(entered, 'argos_session')).toContain('SameSite=Strict');
+    const me = await api.call('GET', '/api/auth/me', { cookie: `argos_session=${valueOf(cookieNamed(entered, 'argos_session'))}` });
     expect((me.json as { user: { authMethods: unknown; email: string } }).user).toMatchObject({ email: GOOGLE_EMAIL, authMethods: { password: false, google: true } });
     // SC-008-062: no entra por contraseña.
     const login = await api.call('POST', '/api/auth/login', { body: { username: 'Nueva.Persona', password: '!no-password!' }, contract: false });
@@ -202,7 +210,7 @@ describe('T1120 POST /api/auth/google/username (SC-008-002, SC-008-062, EDGE-008
     const { api } = await boot();
     const oauth = await toUsername(api);
     expect((await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'andres' } })).status).toBe(409);
-    expect((await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'andres.google' } })).status).toBe(201);
+    expect((await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'andres.google' }, contract: false })).status).toBe(201);
   });
 
   it('sin cookie argos_oauth responde el 400 uniforme', async () => {

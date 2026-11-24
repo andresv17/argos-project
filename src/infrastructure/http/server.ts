@@ -25,7 +25,7 @@ import { Sha256BackupTokenAdapter } from '../adapters/sha256-backup-token.adapte
 import { SlidingWindowRateLimiterAdapter, rateLimitsFrom } from '../adapters/sliding-window-rate-limiter.adapter.ts';
 import { ScryptPasswordHasherAdapter } from '../adapters/scrypt-password-hasher.adapter.ts';
 import { SystemClockAdapter } from '../adapters/system-clock.adapter.ts';
-import { DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
+import { ADMIN_GOOGLE_CALLBACK_PATH, DEVELOPMENT_AUDIT_HMAC_SECRET, loadAppConfig, type AppConfig } from '../config/app-config.ts';
 import { DEVELOPMENT_SHARE_IP_HMAC_SECRET, loadShareConfig } from '../config/share-config.ts';
 import { CryptoTokenGenerator } from '../adapters/crypto-token-generator.adapter.ts';
 import { SharedAccessLimiter } from '../../application/sharing/shared-access-limiter.ts';
@@ -38,7 +38,7 @@ import { installShutdownHandlers } from './graceful-shutdown.ts';
 import { createGoogleOidcPort } from './google-oidc-verify.ts';
 import { createRouteOidcVerifier, type OidcVerifierOptions } from './oidc-verify.ts';
 import { composeSceneServices, type SceneCompositionOptions } from './scene-composition.ts';
-import { createSceneGlobalQuotaMaxReader, loadSceneProviderParameters } from '../config/scene-provider-parameters.ts';
+import { createSceneGlobalQuotaMaxReader, createSceneProviderParametersReader, createScenePromptBlocksReader, loadSceneProviderParameters } from '../config/scene-provider-parameters.ts';
 import type { SceneGlobalQuotaPort } from '../../application/ports/scene-global-quota.port.ts';
 import type { SqlSceneGlobalQuotaDeps } from '../persistence/scene-global-quota.ts';
 import { registerMaintenanceRoute } from './routes/maintenance-routes.ts';
@@ -140,8 +140,9 @@ export interface ProductionAppOptions {
 export async function createProductionApp(config: AppConfig, logger: boolean = true, options: ProductionAppOptions = {}): Promise<FastifyInstance> {
   const staticRoot = options.staticRoot ?? resolve(process.cwd(), 'dist');
   const serveStatic = options.staticRoot !== undefined || existsSync(resolve(staticRoot, 'index.html'));
-  // En producción (host 0.0.0.0) sin dist/index.html falla cerrado; en desarrollo se omiten los estáticos.
+  // En producción (host 0.0.0.0) sin dist/index.html o sin dist/admin.html (dist viejo: el portal no puede caer en la app de usuarios, INV-ADM9-002) falla cerrado; en desarrollo se omiten los estáticos.
   if (!serveStatic && config.host === '0.0.0.0') throw new Error('Falta dist/index.html: ejecute el build del frontend');
+  if (options.staticRoot === undefined && serveStatic && config.host === '0.0.0.0' && !existsSync(resolve(staticRoot, 'admin.html'))) throw new Error('Falta dist/admin.html: ejecute el build del frontend');
   const persistence = await composePersistence(config);
   const hasher = new ScryptPasswordHasherAdapter();
   const ids = new CryptoUuidAdapter();
@@ -157,12 +158,13 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   });
   // 006 (Fase 14, T948/T952): con el driver real, modelo, región y tope global salen de `platform_parameters` (respaldo en el entorno de `config.scene`); una fila inválida
   // rechaza el arranque (nombra la clave, no el valor). El contador global descuenta con una sola sentencia atómica y falla cerrado.
-  const sceneProvider: Pick<SceneCompositionOptions, 'providerParameters' | 'globalQuota' | 'fetch'> = {};
+  const sceneProvider: Pick<SceneCompositionOptions, 'providerParameters' | 'readProviderParameters' | 'globalQuota' | 'fetch'> = {};
   if (config.scene.driver === 'real' && mediaStorage !== null) {
     const providerParameters = await loadSceneProviderParameters(persistence.parameters, config.scene);
     const readMax = createSceneGlobalQuotaMaxReader(persistence.parameters, providerParameters.globalQuotaMax);
     Object.assign(sceneProvider, {
       providerParameters,
+      readProviderParameters: createSceneProviderParametersReader({ repository: persistence.parameters, env: config.scene, now: () => Date.parse(clock.nowIsoTimestamp()) }),
       globalQuota: persistence.sceneGlobalQuota({ readMax, now: () => clock.nowIsoTimestamp() }),
       ...(options.sceneFetch === undefined ? {} : { fetch: options.sceneFetch }),
     });
@@ -194,9 +196,20 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
             entropy: new CryptoOneTimeTokenEntropyAdapter(),
           },
         }),
+    // 009 (Fase 3, #19; Enmienda 009-A): portal de administración con el MISMO cliente de Google pero la URI de redirección PROPIA, fija por entorno (origen de `GOOGLE_OAUTH_REDIRECT_URI`
+    // más la ruta fija de administración; nunca derivada de `Host`). Lista cerrada de correos solo desde `app-config.ts` (INV-ARCH-006); vacía = nadie entra (falla cerrado).
+    ...(config.google === undefined
+      ? {}
+      : {
+          admin: {
+            oidc: createGoogleOidcPort({ clientId: config.google.clientId, clientSecret: config.google.clientSecret, redirectUri: new URL(ADMIN_GOOGLE_CALLBACK_PATH, config.google.redirectUri).toString(), ...(options.googleFetch === undefined ? {} : { fetch: options.googleFetch }), ...(options.googleJwks === undefined ? {} : { jwks: options.googleJwks }) }),
+            entropy: new CryptoOneTimeTokenEntropyAdapter(),
+            allowedEmails: config.adminEmails,
+          },
+        }),
     // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).
     sceneHooks: new SceneLifecycleHooks(),
-    ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, ...sceneProvider }) }),
+    ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, readPromptBlocks: createScenePromptBlocksReader({ repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) }), ...sceneProvider }) }),
     ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter() } }),
     ...(mediaStorage === null
       ? {}

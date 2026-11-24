@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { defineConfig } from 'vitest/config';
+import { join, resolve } from 'node:path';
+import { defineConfig, type Plugin } from 'vitest/config';
 
 /**
  * H-O-004US3-5: las suites contra PostgreSQL real (las que leen TEST_DATABASE_URL) comparten UNA base y `pg_advisory_xact_lock` es un candado
@@ -18,11 +18,21 @@ function postgresSuites(dir: string): string[] {
     .filter((file) => readFileSync(file, 'utf8').includes('TEST_DATABASE_URL'))
     .map((file) => file.replaceAll('\\', '/'));
 }
+/** T1235: en desarrollo `GET /admin` (exacto) se sirve desde `admin.html`; el resto de rutas sigue el fallback SPA de `index.html`. En producción lo hace `static-assets.ts`. */
+const adminEntryInDev: Plugin = {
+  name: 'argos-admin-entry-dev',
+  configureServer(server) {
+    server.middlewares.use((request, _response, next) => {
+      if (request.method === 'GET' && (request.url ?? '').split('?')[0] === '/admin') request.url = '/admin.html';
+      next();
+    });
+  },
+};
 const POSTGRES_SUITES = postgresSuites('tests');
 
 export default defineConfig({
   root: '.',
-  plugins: [react()],
+  plugins: [react(), adminEntryInDev],
   server: {
     host: '127.0.0.1',
     port: Number(process.env['E2E_WEB_PORT'] ?? 5173),
@@ -42,6 +52,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     target: 'es2022',
+    // T1235: el portal /admin tiene su propia entrada y bundle (activos en /assets/admin-*, fuera de /admin/*, que responde 404 uniforme).
+    rollupOptions: { input: { main: resolve(import.meta.dirname, 'index.html'), admin: resolve(import.meta.dirname, 'admin.html') } },
   },
   test: {
     globals: false,

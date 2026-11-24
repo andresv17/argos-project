@@ -82,7 +82,7 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
       if (attempt.idempotencyKeyHash !== null && attempts().some((a) => a.idempotencyKeyHash === attempt.idempotencyKeyHash)) {
         throw Object.assign(new Error('UNIQUE constraint failed: scene_attempts.idempotency_key_hash'), { code: 'SQLITE_CONSTRAINT' });
       }
-      state.sceneAttempts = [...attempts(), copy(attempt)];
+      state.sceneAttempts = [...attempts(), copy({ ...attempt, providerModel: attempt.providerModel ?? null, providerLocation: attempt.providerLocation ?? null })];
       return true;
     },
     async claimAttempt({ sceneId, attemptId, now, leaseExpiresAt }) {
@@ -110,8 +110,8 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
       const closed = attempt === undefined ? undefined : attempts().find((a) => a.id === attempt.id);
       return closed === undefined ? null : copy(closed);
     },
-    async markProviderCall(attemptId, now) {
-      replaceAttempt(attemptId, { providerCallStartedAt: now });
+    async markProviderCall(attemptId, now, call) {
+      replaceAttempt(attemptId, { providerCallStartedAt: now, providerModel: call.model, providerLocation: call.location });
     },
     async closeAttempt({ sceneId, attemptId, outcome, errorCode, degraded, now }) {
       const attempt = attempts().find((a) => a.id === attemptId && a.sceneId === sceneId);
@@ -141,12 +141,26 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
       return attempts().filter((a) => a.sceneId === sceneId && a.startedAt >= since).length;
     },
     async countFailedAttemptsByScene(sceneId, since) {
-      const failed = attempts().filter((a) => a.sceneId === sceneId && a.outcome === 'FAILED' && a.startedAt >= since);
+      const failed = attempts().filter((a) => a.sceneId === sceneId && a.outcome === 'FAILED' && a.providerCallStartedAt !== null && a.startedAt >= since);
       const oldest = failed.reduce<string | null>((min, a) => (min === null || a.startedAt < min ? a.startedAt : min), null);
       return { count: failed.length, oldestAt: oldest };
     },
     async countAttemptsByActor(actorUserId, since) {
-      return attempts().filter((a) => a.actorUserId === actorUserId && a.startedAt >= since).length;
+      return attempts().filter((a) => a.actorUserId === actorUserId && a.startedAt >= since && (a.providerCallStartedAt !== null || a.outcome === null)).length;
+    },
+    async countClosedWithoutCallByScene(sceneId, since) {
+      const closedNoCall = attempts().filter((a) => a.sceneId === sceneId && a.outcome !== null && a.providerCallStartedAt === null && a.startedAt >= since);
+      const oldest = closedNoCall.reduce<string | null>((min, a) => (min === null || a.startedAt < min ? a.startedAt : min), null);
+      return { count: closedNoCall.length, oldestAt: oldest };
+    },
+    async cancelStaleUnmarkedAttempts(sceneId, actorUserId, startedBefore, now) {
+      const stale = attempts().filter((a) => (a.sceneId === sceneId || a.actorUserId === actorUserId) && a.outcome === null && a.providerCallStartedAt === null && a.startedAt <= startedBefore);
+      for (const a of stale) {
+        replaceAttempt(a.id, { phase: 'DONE', outcome: 'CANCELLED', errorCode: null, finishedAt: now });
+        const owner = scenes().find((s) => s.id === a.sceneId);
+        if (owner !== undefined && owner.currentAttemptId === a.id) replaceScene(owner.id, { runState: null, currentAttemptId: null, leaseExpiresAt: null, updatedAt: now });
+      }
+      return stale.length;
     },
     async upsertQuotaCarry(ownerUserId, quotaWindow, consumedGenerations) {
       const existing = carry().find((c) => c.ownerUserId === ownerUserId && c.quotaWindow === quotaWindow);

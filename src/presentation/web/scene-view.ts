@@ -238,6 +238,7 @@ const GENERIC_MESSAGE = ERROR_CATALOG['ERR-INTERNAL-UNEXPECTED'].detailTemplate;
 const PROBLEM_TEXT: Readonly<Record<string, string>> = {
   'ERR-SCENE-CONSENT-REQUIRED': 'Antes de crear la imagen debes leer el aviso y dar tu consentimiento.',
   'ERR-SCENE-QUOTA-EXCEEDED': 'Se agotaron las generaciones de este mes. La imagen actual se conserva.',
+  'ERR-SCENE-DISABLED': 'La creación de imágenes no está disponible por ahora. Tu imagen actual sigue disponible.',
   'ERR-SCENE-NOTICE-OUTDATED': 'El aviso cambió. Léelo de nuevo y consiente otra vez.',
   'ERR-ACC-FORBIDDEN': 'Solo el propietario del hogar o un administrador puede cambiar la escena.',
   'ERR-HOUSE-NOT-FOUND': 'No se encontró la escena de este hogar.',

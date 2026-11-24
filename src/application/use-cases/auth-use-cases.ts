@@ -11,11 +11,15 @@
  *   el usuario y el correo de una misma cuenta tienen contadores independientes y un éxito borra únicamente la clave con la que se entró. Un
  *   correo existente, inexistente o ambiguo se comporta igual (H-T591-2). `verifyCurrentPassword` conserva la clave del username.
  * - Los fallos de login se confirman antes de devolver el error, para que el rollback no los borre.
+ * - 009 (T1246, REQ-APR9-001, REQ-APR9-002, EDGE-009-005, EDGE-009-038): el registro crea la cuenta `PENDING` y NO abre sesión (devuelve `{ accountStatus }`); el login con credenciales
+ *   válidas de una cuenta `PENDING` o `REJECTED` devuelve el estado sin sesión (con credenciales inválidas rige el mismo fallo uniforme); la guarda de sesión exige `ACTIVE`.
  *
- * @implements REQ-AUTH2-001, REQ-AUTH2-002, REQ-LOG-001, REQ-LOG-002, INV-LOG-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH2-002, INV-AUTH-006, INV-ARCH-001, INV-ARCH-002, INV-ARCH-005
+ * @implements STATE-ACCT9-001, REQ-APR9-001, REQ-APR9-002, ERR-ACCOUNT-PENDING, ERR-ACCOUNT-REJECTED, EDGE-009-005, REQ-AUTH2-001, REQ-AUTH2-002, REQ-LOG-001, REQ-LOG-002, INV-LOG-002, REQ-AUTH-003, REQ-AUTH-004, INV-AUTH2-002, INV-AUTH-006, INV-ARCH-001, INV-ARCH-002, INV-ARCH-005
  */
 
 import { DomainError, type SessionView } from '../../generated/index.ts';
+import { DomainError as DomainErrorV35 } from '../../generated/v35/index.ts';
+import { INITIAL_ACCOUNT_STATUS, isAccountActive, type AccountStatus } from '../../domain/account/account-status.ts';
 // 3.1.0 (feature 004): LoginInput acepta usuario o correo hasta 254 caracteres (REQ-LOG-001); el top-level generado sigue en 3.0.0.
 import { validateLoginInput, type LoginInput } from '../../generated/v31/index.ts';
 import {
@@ -32,6 +36,22 @@ import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
 import { mapUsernameViolation } from './username-violation.ts';
 import { assertMatchesSchema, toSelfProfile, type ApplicationDeps } from './use-case-support.ts';
+
+/**
+ * `AccountStatusView` (002 3.4.0 / 004 3.5.0, DRAFT): el cuerpo cerrado que devuelven el registro, el login de una cuenta no `ACTIVE` y la elección de usuario de Google. Sin cookie, sin
+ * perfil y sin correo (REQ-APR9-002).
+ */
+export interface AccountStatusResult {
+  readonly accountStatus: AccountStatus;
+}
+
+/** Cierto si el resultado es el estado de una cuenta no `ACTIVE` (no hay sesión que emitir). */
+export const isAccountStatusResult = (result: AuthenticatedSession | AccountStatusResult): result is AccountStatusResult => !('sessionToken' in result);
+
+/** Error de la guarda de sesión para una cuenta no `ACTIVE` (defensa en profundidad; no revela motivo ni fecha). */
+export function inactiveAccountError(status: AccountStatus): Error {
+  return new DomainErrorV35(status === 'REJECTED' ? 'ERR-ACCOUNT-REJECTED' : 'ERR-ACCOUNT-PENDING');
+}
 
 export interface AuthenticatedSession {
   /** Valor de la cookie argos_session; la capa HTTP lo envía con Set-Cookie. */
@@ -82,7 +102,7 @@ async function currentSession(repositories: RepositorySet, sessionToken: string 
 export class RegisterUserUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(input: unknown): Promise<AuthenticatedSession> {
+  async execute(input: unknown): Promise<AccountStatusResult> {
     const valid = parseRegisterUserInput(input);
     const now = this.deps.clock.nowIsoTimestamp();
     return this.deps.uow.runInTransaction(async (repositories) => {
@@ -97,11 +117,12 @@ export class RegisterUserUseCase {
         preferredLanguage: 'es',
         timezone: this.deps.clock.timeZone,
         passwordHash: await this.deps.hasher.hash(valid.password),
+        accountStatus: INITIAL_ACCOUNT_STATUS,
       };
       // Carrera entre dos altas del mismo username (INV-LOG-001): la base es la última defensa y su violación es ERR-AUTH-USERNAME-TAKEN, no un 500.
       await mapUsernameViolation(() => repositories.users.insert(account));
       await recordAudit(this.deps, repositories, { executorUserId: account.id, mutationType: 'CREATE', entityType: 'USER', entityId: account.id, previous: null, next: account });
-      return startSession(this.deps, repositories, account, now);
+      return { accountStatus: INITIAL_ACCOUNT_STATUS };
     });
   }
 }
@@ -110,7 +131,7 @@ export class RegisterUserUseCase {
 export class LoginUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(input: unknown): Promise<AuthenticatedSession> {
+  async execute(input: unknown): Promise<AuthenticatedSession | AccountStatusResult> {
     const credentials = parseLoginInput(input);
     const identifier = normalizeLoginIdentifier(credentials.username);
     const now = this.deps.clock.nowIsoTimestamp();
@@ -122,6 +143,8 @@ export class LoginUseCase {
       // ADR-008-14: una cuenta sin contraseña (centinela) nunca entra por contraseña, aunque un hasher distinto del scrypt respondiera `true`.
       if (account !== null && matches && hasPassword(account.passwordHash)) {
         await repositories.loginAttempts.replaceFailures(identifier, []);
+        // EDGE-009-005: credenciales válidas de una cuenta PENDING o REJECTED = estado en el cuerpo, sin sesión ni cookie (el fallo con credenciales inválidas sigue siendo el uniforme).
+        if (!isAccountActive(account.accountStatus)) return { accountStatus: account.accountStatus! };
         return startSession(this.deps, repositories, account, now);
       }
       await repositories.loginAttempts.replaceFailures(identifier, [...failures, now]);
@@ -162,9 +185,14 @@ export class AuthenticateRequestUseCase {
   async execute(sessionToken: string | null, options: { readonly renew?: boolean } = {}): Promise<string> {
     const now = this.deps.clock.nowIsoTimestamp();
     return this.deps.uow.runInTransaction(async (repositories) => {
-      if (options.renew === false) return assertAuthenticated(await currentSession(repositories, sessionToken), now).userId;
-      const renewed = renewSession(await currentSession(repositories, sessionToken), now);
-      await repositories.sessions.save(sessionToken!, renewed);
+      const passive = options.renew === false;
+      const current = await currentSession(repositories, sessionToken);
+      const renewed = passive ? assertAuthenticated(current, now) : renewSession(current, now);
+      // 009 (REQ-APR9-001, EDGE-009-038): la guarda exige `ACTIVE`. Una sesión viva de una cuenta que dejó de serlo responde 403 y no escribe nada (el error revierte la transacción).
+      const status = await repositories.sessions.findOwnerAccountStatus(renewed.userId);
+      if (status === null) throw new DomainError('ERR-AUTH-UNAUTHENTICATED');
+      if (!isAccountActive(status)) throw inactiveAccountError(status);
+      if (!passive) await repositories.sessions.save(sessionToken!, renewed);
       return renewed.userId;
     });
   }

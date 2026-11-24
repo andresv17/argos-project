@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { LoginUseCase } from '../../../src/application/use-cases/auth-use-cases.ts';
 import { maintenanceCutoffs } from '../../../src/application/use-cases/maintenance-use-cases.ts';
 import { DomainError } from '../../../src/generated/index.ts';
+import { sessionOf } from '../../fixtures/active-accounts.ts';
 import { ENGINE_NAMES, HAS_POSTGRES, account, idOf, openEngine, stateWith, type EngineName, type IdentityEngine } from '../../fixtures/identity-engines.ts';
 
 const NOW = '2026-11-05T12:00:00.000Z';
@@ -45,8 +46,8 @@ describe.each(ENGINE_NAMES)('T558 login: recorte, cuenta resuelta y purga (%s)',
     expect(await code(login.execute({ username: '  ANA.PEREZ  ', password: 'mala2026Clave!' }))).toBe('ERR-AUTH-INVALID-CREDENTIALS');
     expect(await engine.read((r) => r.loginAttempts.listFailures('ana.perez'))).toEqual([NOW]);
     expect(await engine.read((r) => r.loginAttempts.listFailures('  ana.perez  '))).toEqual([]);
-    const byUser = await login.execute({ username: '  ANA.PEREZ  ', password: 'Ana2026a' });
-    const byMail = await login.execute({ username: '  Ana@Ejemplo.com  ', password: 'Ana2026a' });
+    const byUser = sessionOf(await login.execute({ username: '  ANA.PEREZ  ', password: 'Ana2026a' }));
+    const byMail = sessionOf(await login.execute({ username: '  Ana@Ejemplo.com  ', password: 'Ana2026a' }));
     expect([byUser.session.user.id, byMail.session.user.id]).toEqual([ANA, ANA]);
   });
 

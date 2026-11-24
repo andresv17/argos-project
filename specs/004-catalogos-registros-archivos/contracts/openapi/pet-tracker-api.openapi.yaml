@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API
-  version: 3.4.0
+  version: 3.5.0
   description: >
     Contrato formal de la API HTTP local (127.0.0.1:3100, prefijo /api) de la Feature 002 (Plataforma ARGOS v2.1).
     Sustituye a la versión 2.4.0 de la Feature 001 (MAJOR): cuentas con política de contraseña y sesión con inactividad,
@@ -14,13 +14,13 @@ info:
     Todas las respuestas de error usan application/problem+json (RFC 9457) con los códigos de contracts/errors/error-catalog.json.
     Un usuario sin permiso de lectura recibe 404 (nunca 403) para no revelar la existencia (INV-ACC2-001).
     Feature 008 (3.4.0, MINOR): acceso y vinculación con Google (/auth/google/*), autocompletado de colaboradores (/households/{householdId}/invitees), biografía de mascota y respaldo 3.3.0; 6 operaciones nuevas.
-  x-sdd-status: REVIEW
+  x-sdd-status: APPROVED
   x-sdd-metadata:
-    version: 3.4.0
-    status: DRAFT
-    supersedes: 3.3.0
+    version: 3.5.0
+    status: APPROVED
+    supersedes: 3.4.0
     change_type: MINOR
-    change_note: "3.4.0 (aclaración sin bump, feature 008, Architect 2026-11-21, decisión de Neo Nivel 2, Opción A, ADR-008-03): el callback con intención de vinculación exige la sesión de origen activa (resumen guardado por startGoogleLink), conserva esa sesión, revoca las demás y no emite Set-Cookie argos_session; solo texto, sin cambio de operaciones, códigos ni esquemas. 3.4.0 (feature 008, Architect 2026-11-20, resolución Nivel 2 de Neo, MINOR aditiva): 6 operaciones nuevas sin cambiar ninguna existente: startGoogleLogin, completeGoogleLogin, chooseGoogleUsername y startGoogleLink (acceso con Google y vinculación desde sesión activa con la contraseña actual; cookie argos_oauth SameSite=Lax 900 s según la Enmienda constitucional 3.8.0, argos_session sigue Strict) y searchInvitees (autocompletado por prefijo de username >= 3, hasta 5; D8-10 = A); exportBackup responde BackupEnvelopeV33 (schemaVersion 3.3.0, biography opcional por mascota) y updatePet acepta biography (#21, D8-12 = A). Sin registro con correo, sin verificación, sin aprobación de registro ni /api/admin (diferidos a 009); sin cambio de STATE-AUTH-SESSION-001. Antes: 3.3.0 (feature 007, REQ-FAL7-009, MINOR aditiva; decision de Neo sobre O-3 de /merovingian): exportBackup responde BackupEnvelopeV32 (schemaVersion 3.2.0) en vez de BackupEnvelopeV31; se sube la version porque el contenido cambio bajo el mismo numero 3.2.0 en el commit a49ccbe; ninguna operacion, codigo ni parametro cambia y el importador sigue aceptando 1.0.0 a 3.2.0. 3.2.0 coordinacion feature 007 (#13, EDGE-007-009): updatePet exige If-Match con la version de la ficha y responde 412 ERR-PET-VERSION-CONFLICT; lifeStatus, deceasedAt y version opcionales en PetProfile y cuerpos de mascota. 3.2.0 (feature 004, MINOR aditiva; enmienda firmada por Neo, H-T591-1): getMediaAccess acepta la cabecera opcional X-Argos-Renewal (enum [\"1\"]) que valida la sesión pero NO actualiza lastActivityAt (INV-AUTH2-002; STATE-AUTH-SESSION-001 3.1.0 de la 002). 3.1.0 (feature 004, T556/T557): registerPet, updatePet e importBackup declaran x-sdd-rate-limit de MICROCHIP_DUPLICATE (5 duplicados por usuario en 24 h, ERR-RATE-LIMITED); importBackup añade la respuesta 429. 3.1.0 (feature 004, enmienda autorizada por Neo sobre contrato LOCKED): deleteAvatar retira la respuesta 502 y mantiene 204 idempotente con cola transaccional (SC-ALM-027, SC-ALM-030, REQ-AVA-001)."
+    change_note: "3.5.0 (feature 009, T1241, Architect 2026-11-23, MINOR, DRAFT; MER-01): registerUser deja de iniciar sesion: toda cuenta nueva (usuario y contrasena) nace PENDING y responde 201 con AccountStatusView sin Set-Cookie ni fila de sesion (REQ-APR9-001, REQ-APR9-002, EDGE-009-038); login con credenciales validas de una cuenta PENDING o REJECTED responde 200 con AccountStatusView sin cookie y con credenciales invalidas el 401 uniforme de hoy (EDGE-009-005); chooseGoogleUsername responde 201 con AccountStatusView sin cookie (EDGE-009-006) y completeGoogleLogin no emite sesion para cuentas no ACTIVE; registerUser y chooseGoogleUsername +429 ERR-ACCOUNT-REGISTRATION-RATE-LIMITED (EDGE-009-040); UserSelfProfile.accountStatus; ERR-ACCOUNT-PENDING y ERR-ACCOUNT-REJECTED como guarda de sesion (defensa en profundidad). Cambio de comportamiento de dos respuestas, por eso MINOR segun la decision de T1241. Anterior: 3.4.0 (aclaración sin bump, feature 008, Architect 2026-11-21, decisión de Neo Nivel 2, Opción A, ADR-008-03): el callback con intención de vinculación exige la sesión de origen activa (resumen guardado por startGoogleLink), conserva esa sesión, revoca las demás y no emite Set-Cookie argos_session; solo texto, sin cambio de operaciones, códigos ni esquemas. 3.4.0 (feature 008, Architect 2026-11-20, resolución Nivel 2 de Neo, MINOR aditiva): 6 operaciones nuevas sin cambiar ninguna existente: startGoogleLogin, completeGoogleLogin, chooseGoogleUsername y startGoogleLink (acceso con Google y vinculación desde sesión activa con la contraseña actual; cookie argos_oauth SameSite=Lax 900 s según la Enmienda constitucional 3.8.0, argos_session sigue Strict) y searchInvitees (autocompletado por prefijo de username >= 3, hasta 5; D8-10 = A); exportBackup responde BackupEnvelopeV33 (schemaVersion 3.3.0, biography opcional por mascota) y updatePet acepta biography (#21, D8-12 = A). Sin registro con correo, sin verificación, sin aprobación de registro ni /api/admin (diferidos a 009); sin cambio de STATE-AUTH-SESSION-001. Antes: 3.3.0 (feature 007, REQ-FAL7-009, MINOR aditiva; decision de Neo sobre O-3 de /merovingian): exportBackup responde BackupEnvelopeV32 (schemaVersion 3.2.0) en vez de BackupEnvelopeV31; se sube la version porque el contenido cambio bajo el mismo numero 3.2.0 en el commit a49ccbe; ninguna operacion, codigo ni parametro cambia y el importador sigue aceptando 1.0.0 a 3.2.0. 3.2.0 coordinacion feature 007 (#13, EDGE-007-009): updatePet exige If-Match con la version de la ficha y responde 412 ERR-PET-VERSION-CONFLICT; lifeStatus, deceasedAt y version opcionales en PetProfile y cuerpos de mascota. 3.2.0 (feature 004, MINOR aditiva; enmienda firmada por Neo, H-T591-1): getMediaAccess acepta la cabecera opcional X-Argos-Renewal (enum [\"1\"]) que valida la sesión pero NO actualiza lastActivityAt (INV-AUTH2-002; STATE-AUTH-SESSION-001 3.1.0 de la 002). 3.1.0 (feature 004, T556/T557): registerPet, updatePet e importBackup declaran x-sdd-rate-limit de MICROCHIP_DUPLICATE (5 duplicados por usuario en 24 h, ERR-RATE-LIMITED); importBackup añade la respuesta 429. 3.1.0 (feature 004, enmienda autorizada por Neo sobre contrato LOCKED): deleteAvatar retira la respuesta 502 y mantiene 204 idempotente con cola transaccional (SC-ALM-027, SC-ALM-030, REQ-AVA-001). APPROVED por Neo (Logos/Source, 2026-11-23)."
     traceability: [REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AUTH-003, REQ-AUTH-004, REQ-ACC-001, REQ-ACC-002, REQ-TIME-001, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET-004, REQ-OWN-001, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-RBAC-001, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, INV-ACC2-001, INV-ACC2-002, INV-AUTH2-001, INV-AUTH2-002, INV-HOUSE2-001, INV-PET2-001, INV-REC2-002, INV-OWN2-001, REQ-RAZ-003, REQ-ARC-001, REQ-ARC-003, REQ-AVA-001, REQ-ALB-001, REQ-BOR-002, REQ-BOR-005, REQ-IMP-001, REQ-LOG-001, REQ-PET4-002, REQ-GCS-004]
 servers:
   - url: http://127.0.0.1:3100/api
@@ -42,7 +42,7 @@ paths:
     post:
       tags: [auth]
       operationId: registerUser
-      summary: "Registra un usuario con política de contraseña nueva e inicia sesión [REQ-AUTH2-001, INV-AUTH2-001]"
+      summary: "Registra un usuario con política de contraseña nueva; la cuenta nace PENDING y NO inicia sesión [REQ-AUTH2-001, REQ-APR9-001, REQ-APR9-002, INV-AUTH2-001]"
       x-sdd-change: CHANGED
       x-sdd-requirements: [REQ-AUTH2-001, INV-AUTH2-001]
       security: []
@@ -55,15 +55,18 @@ paths:
             schema: { $ref: '../schemas/identity.schema.json#/$defs/RegisterUserInput' }
       responses:
         '201':
-          description: "Usuario creado y sesión iniciada (cookie argos_session)"
-          headers:
-            Set-Cookie: { $ref: '#/components/headers/SessionCookie' }
+          description: "Solicitud creada: accountStatus PENDING; NO hay Set-Cookie ni fila de sesión (REQ-APR9-002, EDGE-009-038). La SPA muestra «Tu solicitud está en revisión»; sin correo al solicitante"
           content:
             application/json:
-              schema: { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
+              schema: { $ref: '../schemas/identity.schema.json#/$defs/AccountStatusView' }
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+        '429':
+          description: "ERR-ACCOUNT-REGISTRATION-RATE-LIMITED (EDGE-009-040): más de 5 registros nuevos por IP efectiva en 24 h (valor solo en app-config.ts); respuesta uniforme sin crear fila; no cambia el 409 de username ocupado"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
         '500': { $ref: '#/components/responses/Problem' }
   /auth/login:
     post:
@@ -82,12 +85,17 @@ paths:
             schema: { $ref: '../schemas/identity.schema.json#/$defs/LoginInput' }
       responses:
         '200':
-          description: "Sesión iniciada con token nuevo"
+          description: "Cuenta ACTIVE: sesión iniciada con token nuevo (cookie argos_session, SessionView). Cuenta PENDING o REJECTED con credenciales válidas: AccountStatusView SIN Set-Cookie ni fila de sesión (REQ-APR9-002, EDGE-009-005, EDGE-009-038); con credenciales inválidas rige el 401 uniforme"
           headers:
-            Set-Cookie: { $ref: '#/components/headers/SessionCookie' }
+            Set-Cookie:
+              description: "Solo en la variante SessionView (cuenta ACTIVE); nunca en AccountStatusView"
+              schema: { type: string }
           content:
             application/json:
-              schema: { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
+              schema:
+                oneOf:
+                  - { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
+                  - { $ref: '../schemas/identity.schema.json#/$defs/AccountStatusView' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
@@ -147,7 +155,7 @@ paths:
       tags: [auth]
       operationId: completeGoogleLogin
       summary: "Retorno de Google: canjea el código, verifica el id_token y establece la sesión en una respuesta 200 con página mínima (no en un 302 cross-site) [REQ-AUTH2-002, INV-AUTH-006]"
-      description: "El servidor valida state y nonce contra la cookie argos_oauth (de un solo uso), canjea el código con PKCE, y verifica del id_token la firma (JWKS de Google), iss = https://accounts.google.com, aud = client id de ARGOS, exp, nonce y email_verified = true. La identidad se ancla en sub, nunca en el correo. Casos: (1) sub conocido: sesión nueva (cookie argos_session SameSite=Strict) y la página navega a /; (2) sub desconocido: la cuenta NO se crea todavía, la página lleva a «Elige tu usuario» (POST /auth/google/username) y el estado intermedio expira a 900 s; (3) intención de vinculación (POST /auth/google/link previo): exige que la sesión de origen (la que inició la vinculación, identificada por el resumen guardado en servidor) siga activa, no revocada, del mismo usuario y vigente por inactividad (30 min) y tope (24 h) sin renovarla; si no, falla con el mismo 400 uniforme. Si lo es, vincula el sub a esa cuenta, revoca las demás sesiones conservando la de origen y la página navega a /; este caso NO emite Set-Cookie argos_session (la cookie Strict de origen no viaja en el callback y sigue vigente al navegar a /). Un correo de Google igual al de una cuenta antigua sin correo verificado NO la reclama ni vincula nada: no hay autovinculación por correo (D8-14). La página se sirve con una CSP de página sin script en línea (no API_CSP), p. ej. meta refresh o script del mismo origen. Cualquier fallo responde 400 con el mismo código, cuerpo y estado (ERR-AUTH-GOOGLE-FAILED)."
+      description: "El servidor valida state y nonce contra la cookie argos_oauth (de un solo uso), canjea el código con PKCE, y verifica del id_token la firma (JWKS de Google), iss = https://accounts.google.com, aud = client id de ARGOS, exp, nonce y email_verified = true. La identidad se ancla en sub, nunca en el correo. Casos: (1) sub conocido: sesión nueva (cookie argos_session SameSite=Strict) y la página navega a /; (2) sub desconocido: la cuenta NO se crea todavía, la página lleva a «Elige tu usuario» (POST /auth/google/username) y el estado intermedio expira a 900 s; (3) intención de vinculación (POST /auth/google/link previo): exige que la sesión de origen (la que inició la vinculación, identificada por el resumen guardado en servidor) siga activa, no revocada, del mismo usuario y vigente por inactividad (30 min) y tope (24 h) sin renovarla; si no, falla con el mismo 400 uniforme. Si lo es, vincula el sub a esa cuenta, revoca las demás sesiones conservando la de origen y la página navega a /; este caso NO emite Set-Cookie argos_session (la cookie Strict de origen no viaja en el callback y sigue vigente al navegar a /). Un correo de Google igual al de una cuenta antigua sin correo verificado NO la reclama ni vincula nada: no hay autovinculación por correo (D8-14). La página se sirve con una CSP de página sin script en línea (no API_CSP), p. ej. meta refresh o script del mismo origen. Cualquier fallo responde 400 con el mismo código, cuerpo y estado (ERR-AUTH-GOOGLE-FAILED). Enmienda 009 (REQ-APR9-002, EDGE-009-006, EDGE-009-038): en el caso (1), si la cuenta del sub conocido está PENDING o REJECTED, NO se emite argos_session ni se crea fila de sesión: la página lleva a la pantalla de estado correspondiente (el estado solo se muestra tras Google verificado); solo una cuenta ACTIVE recibe sesión."
       x-sdd-change: NEW
       x-sdd-requirements: [REQ-AUTH2-002, INV-AUTH-006]
       x-sdd-rate-limit: "GOOGLE_CALLBACK_MAX_PER_WINDOW por GOOGLE_CALLBACK_WINDOW_MINUTES y por IP efectiva (configurable; ERR-RATE-LIMITED)"
@@ -184,8 +192,8 @@ paths:
     post:
       tags: [auth]
       operationId: chooseGoogleUsername
-      summary: "Primer acceso con Google: elige el username y crea la cuenta (sin contraseña, correo verificado por Google) con sesión iniciada [REQ-AUTH2-001, INV-AUTH-001]"
-      description: "Usa el estado intermedio identificado por la cookie argos_oauth (Path=/api/auth/google, 900 s). Inserta o recupera de forma atómica sobre (provider, provider_subject): un segundo intento recupera la cuenta, nunca un 500. El cuerpo es cerrado: no admite correo, rol ni estado de cuenta. Si el correo de Google coincidía con el de una cuenta antigua sin correo verificado, esa cuenta pierde el correo (D8-14) y la nueva lo conserva verificado."
+      summary: "Primer acceso con Google: elige el username y crea la cuenta PENDING (sin contraseña, correo verificado por Google) sin sesión [REQ-AUTH2-001, REQ-APR9-002, INV-AUTH-001]"
+      description: "Usa el estado intermedio identificado por la cookie argos_oauth (Path=/api/auth/google, 900 s). Inserta o recupera de forma atómica sobre (provider, provider_subject): un segundo intento recupera la cuenta, nunca un 500. El cuerpo es cerrado: no admite correo, rol ni estado de cuenta. Si el correo de Google coincidía con el de una cuenta antigua sin correo verificado, esa cuenta pierde el correo (D8-14) y la nueva lo conserva verificado. Enmienda 009: la cuenta nace PENDING sin sesión; el límite de registros nuevos por IP efectiva (EDGE-009-040) responde 429 ERR-ACCOUNT-REGISTRATION-RATE-LIMITED, además del ERR-RATE-LIMITED del propio paso."
       x-sdd-change: NEW
       x-sdd-requirements: [REQ-AUTH2-001, INV-AUTH-001]
       x-sdd-rate-limit: "GOOGLE_USERNAME_MAX_PER_WINDOW por GOOGLE_USERNAME_WINDOW_MINUTES y por IP efectiva (configurable; ERR-RATE-LIMITED)"
@@ -199,12 +207,10 @@ paths:
             schema: { $ref: '../schemas/identity.schema.json#/$defs/GoogleChooseUsernameInput' }
       responses:
         '201':
-          description: "Cuenta creada y sesión iniciada (cookie argos_session); argos_oauth se retira"
-          headers:
-            Set-Cookie: { $ref: '#/components/headers/SessionCookie' }
+          description: "Cuenta creada en PENDING: AccountStatusView SIN cookie argos_session ni fila de sesión (REQ-APR9-002, EDGE-009-006); argos_oauth se retira"
           content:
             application/json:
-              schema: { $ref: '../schemas/identity.schema.json#/$defs/SessionView' }
+              schema: { $ref: '../schemas/identity.schema.json#/$defs/AccountStatusView' }
         '400': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }

@@ -15,3 +15,9 @@ output "google_oauth_redirect_uri" {
   description = "URI de redirección OAuth fija de este entorno; debe estar registrada en la consola de Google."
   value       = var.google_oauth_redirect_uri
 }
+
+# URI de redirección del portal de administración de este entorno (feature 009, T1227). No es secreta; Neo la registra en la consola de Google.
+output "google_oauth_admin_redirect_uri" {
+  description = "URI de redirección OAuth del portal de administración de este entorno; debe estar registrada en la consola de Google (paso humano de Neo)."
+  value       = var.google_oauth_admin_redirect_uri
+}

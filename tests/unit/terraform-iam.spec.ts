@@ -31,15 +31,16 @@ describe('terraform/iam.tf (T439)', () => {
     expect(ids).toEqual(['argos-deployer', 'argos-run', 'argos-scene-tasks', 'argos-scheduler']);
   });
 
-  it('argos-run solo tiene secretmanager.secretAccessor, sobre los 4 secretos (no a nivel de proyecto); los permisos de medios (T562) los cubre terraform-media.spec.ts', () => {
+  it('argos-run solo tiene secretmanager.secretAccessor, sobre los 5 secretos (no a nivel de proyecto); los permisos de medios (T562) los cubre terraform-media.spec.ts', () => {
     const run = forSa('run').filter((b) => b.type === 'google_secret_manager_secret_iam_member');
-    expect(run.length).toBe(4);
+    expect(run.length).toBe(5);
     for (const b of run) {
       expect(b.type).toBe('google_secret_manager_secret_iam_member');
       expect(roles(b)).toEqual(['roles/secretmanager.secretAccessor']);
     }
     const targets = run.map((b) => b.body.match(/secret_id\s*=\s*([^\n]+)/)?.[1]?.trim()).sort();
     expect(targets).toEqual([
+      'google_secret_manager_secret.admin_emails.secret_id',
       'google_secret_manager_secret.audit_hmac_secret.secret_id',
       'google_secret_manager_secret.database_url.secret_id',
       'google_secret_manager_secret.google_oauth_client_secret.secret_id',
@@ -47,12 +48,13 @@ describe('terraform/iam.tf (T439)', () => {
     ]);
   });
 
-  it('argos-deployer: run.developer, artifactregistry.writer, serviceAccountUser solo sobre argos-run y secretmanager.viewer sobre 4 secretos (D-30)', () => {
+  it('argos-deployer: run.developer, artifactregistry.writer, serviceAccountUser solo sobre argos-run y secretmanager.viewer sobre 5 secretos (D-30)', () => {
     const dep = forSa('deployer');
     expect(dep.flatMap(roles).sort()).toEqual([
       'roles/artifactregistry.writer',
       'roles/iam.serviceAccountUser',
       'roles/run.developer',
+      'roles/secretmanager.viewer',
       'roles/secretmanager.viewer',
       'roles/secretmanager.viewer',
       'roles/secretmanager.viewer',

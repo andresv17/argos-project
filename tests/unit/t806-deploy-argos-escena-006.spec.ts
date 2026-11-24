@@ -37,7 +37,7 @@ describe('deploy-argos.yml con la 006 (T806)', () => {
     expect(val('ARGOS_SCENE_QUOTA_MAX')).toBe('10');
     expect(val('ARGOS_SCENE_GEN_TIMEOUT_SECONDS')).toBe('90');
     expect(val('ARGOS_SCENE_QUEUE')).toBe('argos-scene');
-    expect(val('ARGOS_SCENE_WORKER_URL')).toMatch(/^\$\{?PUBLIC_BASE_URL\}?\/internal\/scene-worker$/);
+    expect(val('ARGOS_SCENE_WORKER_URL')).toMatch(/^\$\{?OIDC_AUDIENCE\}?\/internal\/scene-worker$/);
     expect(val('ARGOS_SCENE_TASKS_SA_EMAIL')).toMatch(/^\$\{?ARGOS_SCENE_TASKS_SA_EMAIL\}?$/);
     expect(body).toMatch(/ARGOS_SCENE_TASKS_SA_EMAIL:\s*argos-scene-tasks@\$\{\{\s*vars\.TF_VAR_project_id\s*\}\}\.iam\.gserviceaccount\.com/);
   });
@@ -51,9 +51,15 @@ describe('deploy-argos.yml con la 006 (T806)', () => {
     expect(keys.filter((k) => k.startsWith('ARGOS_SHARE_'))).toEqual([]);
   });
 
-  it('no añade secretos de la escena: --set-secrets conserva los 3 existentes más GOOGLE_OAUTH_CLIENT_SECRET (008, GH:#16)', () => {
+  it('no añade secretos de la escena: --set-secrets conserva los 3 existentes más GOOGLE_OAUTH_CLIENT_SECRET (008) y ARGOS_ADMIN_EMAILS (009, GH:#19)', () => {
     const secrets = /--set-secrets\s+"([^"]*)"/.exec(deployCmd)?.[1] ?? '';
-    expect(secrets.split(',').map((x) => x.split('=')[0]).sort()).toEqual(['ARGOS_AUDIT_HMAC_SECRET', 'ARGOS_SHARE_IP_HMAC_SECRET', 'DATABASE_URL', 'GOOGLE_OAUTH_CLIENT_SECRET']);
+    expect(secrets.split(',').map((x) => x.split('=')[0]).sort()).toEqual([
+      'ARGOS_ADMIN_EMAILS',
+      'ARGOS_AUDIT_HMAC_SECRET',
+      'ARGOS_SHARE_IP_HMAC_SECRET',
+      'DATABASE_URL',
+      'GOOGLE_OAUTH_CLIENT_SECRET',
+    ]);
     expect(envFlag).not.toMatch(/SECRET|TOKEN|PASSWORD|KEY/i);
   });
 });

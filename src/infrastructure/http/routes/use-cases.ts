@@ -4,7 +4,11 @@
  * @implements INV-ARCH-004
  */
 
+import { AuthenticateAdminUseCase, CompleteAdminGoogleLoginUseCase, EndAdminSessionUseCase, StartAdminGoogleLoginUseCase } from '../../../application/use-cases/admin-use-cases.ts';
+import { ListAdminParametersUseCase, ResetAdminSceneQuotaUseCase, UpdateAdminParameterUseCase } from '../../../application/use-cases/admin-parameter-use-cases.ts';
+import { CountPendingRegistrationsUseCase, DecideRegistrationUseCase, ListPendingRegistrationsUseCase } from '../../../application/use-cases/admin-registration-use-cases.ts';
 import { ChangePasswordUseCase, DeleteAccountUseCase, UpdateProfileUseCase } from '../../../application/use-cases/account-use-cases.ts';
+import { DeleteAccountWithGoogleUseCase, StartAccountDeletionReauthUseCase } from '../../../application/use-cases/account-google-deletion-use-cases.ts';
 import { DeleteAvatarUseCase, GetAvatarUseCase, PutAvatarUseCase } from '../../../application/use-cases/avatar-use-cases.ts';
 import { AssignPetToHouseholdUseCase, ListPetAssignmentsUseCase, UnassignPetFromHouseholdUseCase } from '../../../application/use-cases/assignment-use-cases.ts';
 import { AuthenticateRequestUseCase, GetCurrentSessionUseCase, LoginUseCase, LogoutUseCase, RegisterUserUseCase } from '../../../application/use-cases/auth-use-cases.ts';
@@ -59,9 +63,21 @@ export function createUseCases(deps: ApplicationDeps) {
     googleComplete: new CompleteGoogleLoginUseCase(deps),
     googleChooseUsername: new ChooseGoogleUsernameUseCase(deps),
     googleLink: new StartGoogleLinkUseCase(deps),
+    adminStart: new StartAdminGoogleLoginUseCase(deps),
+    adminComplete: new CompleteAdminGoogleLoginUseCase(deps),
+    adminAuthenticate: new AuthenticateAdminUseCase(deps),
+    adminEnd: new EndAdminSessionUseCase(deps),
+    adminPendingCount: new CountPendingRegistrationsUseCase(deps),
+    adminListRegistrations: new ListPendingRegistrationsUseCase(deps),
+    adminDecideRegistration: new DecideRegistrationUseCase(deps),
+    adminListParameters: new ListAdminParametersUseCase(deps),
+    adminUpdateParameter: new UpdateAdminParameterUseCase(deps),
+    adminResetSceneQuota: new ResetAdminSceneQuotaUseCase(deps),
     changePassword: new ChangePasswordUseCase(deps),
     updateProfile: new UpdateProfileUseCase(deps),
     deleteAccount: new DeleteAccountUseCase(deps),
+    startAccountDeletionReauth: new StartAccountDeletionReauthUseCase(deps),
+    deleteAccountWithGoogle: new DeleteAccountWithGoogleUseCase(deps),
     registerPet: new RegisterPetUseCase(deps),
     updatePet: new UpdatePetUseCase(deps),
     deletePet: new DeletePetUseCase(deps),

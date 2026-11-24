@@ -8,7 +8,7 @@
  * - C-5: un fallo de lectura dentro de `work` (p. ej. un dato corrupto) es un rechazo normal de la transacción; el
  *   caso de uso de importación lo traduce a `STORAGE_READ_FAILED` si ocurre en CHECKING_DOMAIN_INVARIANTS.
  *
- * @implements INV-ARCH-004, INV-ARCH-005, ERR-INTERNAL-UNEXPECTED
+ * @implements INV-ARCH-004, INV-ARCH-005, ERR-INTERNAL-UNEXPECTED, REQ-APR9-007
  */
 
 import { DomainError } from '../../../generated/index.ts';
@@ -85,7 +85,15 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
       // REQ-LOG-001 / SC-CAT-030: filas de login_attempts sin ningún fallo dentro de la ventana de bloqueo; sin conteo propio (los 5 del contrato operativo no cambian).
       run('DELETE FROM login_attempts WHERE NOT EXISTS (SELECT 1 FROM json_each(login_attempts.failures) WHERE json_each.value >= @loginAttemptsBefore)');
       // H-RAMA-008-T1134-01 / NFR-008-004: estados de flujo de Google vencidos (incluye el correo y el sub pendientes de las filas USERNAME); sin conteo propio.
-      run('DELETE FROM oauth_flow_states WHERE expires_at <= @now');
+      run("DELETE FROM oauth_flow_states WHERE expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', @now, '-900 seconds')"); // RAMA-03: 900 s de gracia desde la expiración
+      // RAMA-T1239-01/02 (REQ-ADM9-006, NFR-009): flujos OAuth de administración vencidos y sesiones de administración creadas hace más de 30 min (vida absoluta); sin conteo propio.
+      run('DELETE FROM admin_oauth_flow_states WHERE expires_at <= @now');
+      run(`DELETE FROM admin_sessions WHERE created_at <= ${at(", '-30 minutes'")}`);
+      // REQ-APR9-007 / EDGE-009-007 / NFR-009-004 (T1248): PENDING a 30 días de su creación (`data.createdAt`, sellada al alta) y REJECTED a 30 días de la decisión (`decided_at`);
+      // ACTIVE nunca. Borrar la fila libera el username y, por cascada, el sub de Google (`auth_identities`); sin conteo propio.
+      run(
+        `DELETE FROM users WHERE (account_status = 'PENDING' AND json_extract(data, '$.createdAt') < ${at(", '-30 days'")}) OR (account_status = 'REJECTED' AND decided_at < ${at(", '-30 days'")})`,
+      );
       return {
         sessionsPurged: run(
           `DELETE FROM sessions WHERE revoked_at < ${at(", '-7 days'")} OR created_at < ${at(", '-7 days', '-24 hours'")} OR last_activity_at < ${at(", '-7 days', '-30 minutes'")}`,
@@ -95,7 +103,8 @@ export class SqliteUnitOfWork implements UnitOfWorkPort {
         invitationsPurged: run(
           `DELETE FROM household_invitations WHERE status IN ('ACCEPTED', 'DECLINED', 'CANCELLED') AND COALESCE(responded_at, created_at) < ${at(", '-90 days'")}`,
         ),
-        auditRowsPurged: run('DELETE FROM audit_log WHERE timestamp < @auditBefore'),
+        // RAMA-T1239-03 (REQ-ADM9-004, ADR-009-08): la auditoría de administración sigue el mismo plazo de 24 meses; sus filas se suman a la clave existente (contrato 003 intacto).
+        auditRowsPurged: run('DELETE FROM audit_log WHERE timestamp < @auditBefore') + run('DELETE FROM admin_audit_entries WHERE occurred_at < @auditBefore'),
       };
     });
     await this.checkpointAfterCommit();

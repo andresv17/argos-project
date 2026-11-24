@@ -1,7 +1,8 @@
-import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import type { FastifyInstance, FastifyServerOptions, LightMyRequestResponse } from 'fastify';
 import { expect } from 'vitest';
 import type { PlatformParameterPort } from '../../../src/application/ports/platform-parameter.port.ts';
-import type { ApplicationDeps, GoogleServices, MediaServices, SceneServices } from '../../../src/application/use-cases/use-case-support.ts';
+import type { UnitOfWorkPort } from '../../../src/application/ports/unit-of-work.port.ts';
+import type { AdminServices, ApplicationDeps, GoogleServices, MediaServices, SceneServices } from '../../../src/application/use-cases/use-case-support.ts';
 import { FixedClockAdapter } from '../../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import { buildApp } from '../../../src/infrastructure/http/app.ts';
 import type { MemoryState } from '../../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
@@ -26,6 +27,8 @@ export interface CallOptions {
   readonly csrf?: boolean;
   readonly headers?: Record<string, string>;
   readonly contract?: boolean;
+  /** Dirección remota de la petición (009, EDGE-009-035: el límite del flujo de administración cuenta por IP efectiva). */
+  readonly ip?: string;
 }
 
 export interface ApiResponse {
@@ -56,7 +59,7 @@ export const username = (id: string) => USERS.find((u) => u.id === id)!.username
 
 export async function createApi(
   state: MemoryState = canonicalState(),
-  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices; readonly platformParameters?: PlatformParameterPort; readonly scene?: SceneServices; readonly google?: GoogleServices } = {},
+  options: { readonly cookieSecure?: boolean; readonly rateLimits?: RateLimits; readonly media?: MediaServices; readonly platformParameters?: PlatformParameterPort; readonly scene?: SceneServices; readonly google?: GoogleServices; readonly admin?: AdminServices; readonly staticRoot?: string; readonly wrapUow?: (uow: UnitOfWorkPort) => UnitOfWorkPort; readonly logger?: FastifyServerOptions['logger'] } = {},
 ): Promise<Api> {
   const db = openSqliteDatabase(IN_MEMORY_DATABASE);
   const uow = new SqliteUnitOfWork(db);
@@ -65,15 +68,16 @@ export async function createApi(
   db.exec("DELETE FROM audit_log WHERE mutation_type = 'MIGRATION'");
   const clock = new FixedClockAdapter();
   const hasher = new SpyPasswordHasher();
-  const base = createDeps(uow, clock, hasher, options.rateLimits ?? TEST_RATE_LIMITS);
+  const base = createDeps(options.wrapUow === undefined ? uow : options.wrapUow(uow), clock, hasher, options.rateLimits ?? TEST_RATE_LIMITS);
   const deps: ApplicationDeps = {
     ...base,
     ...(options.media === undefined ? {} : { media: options.media }),
     ...(options.platformParameters === undefined ? {} : { platformParameters: options.platformParameters }),
     ...(options.scene === undefined ? {} : { scene: options.scene }),
     ...(options.google === undefined ? {} : { google: options.google }),
+    ...(options.admin === undefined ? {} : { admin: options.admin }),
   };
-  const app = await buildApp({ deps, cookieSecure: options.cookieSecure ?? false });
+  const app = await buildApp({ deps, cookieSecure: options.cookieSecure ?? false, ...(options.logger === undefined ? {} : { logger: options.logger }), ...(options.staticRoot === undefined ? {} : { staticRoot: options.staticRoot }) });
 
   async function call(method: string, url: string, options: CallOptions = {}): Promise<ApiResponse> {
     const headers: Record<string, string> = { ...(options.headers ?? {}) };
@@ -94,7 +98,7 @@ export async function createApi(
       payload = JSON.stringify(options.body);
       headers['content-type'] ??= 'application/json';
     }
-    const response = await app.inject({ method: method as 'GET', url, headers, ...(payload === undefined ? {} : { payload }) });
+    const response = await app.inject({ method: method as 'GET', url, headers, ...(options.ip === undefined ? {} : { remoteAddress: options.ip }), ...(payload === undefined ? {} : { payload }) });
     const text = response.body;
     let json: unknown = undefined;
     try {

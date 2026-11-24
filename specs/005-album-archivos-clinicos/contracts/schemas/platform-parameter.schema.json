@@ -2,18 +2,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://argos.local/contracts/schemas/platform-parameter.schema.json",
   "title": "PlatformParameterSchema",
-  "description": "Parámetros de plataforma en base de datos (feature 005) [REQ-PRM-001, REQ-PRM-002, REQ-PRM-003]. Sin endpoint ni interfaz de edición; este esquema fija el catálogo de claves conocidas y la forma de la fila para el repositorio y las pruebas de paridad.",
+  "description": "Parámetros de plataforma en base de datos (feature 005) [REQ-PRM-001, REQ-PRM-002, REQ-PRM-003]. Desde la feature 009 la interfaz /admin edita estas filas (T1302; antes: sin endpoint ni interfaz de edición); este esquema fija el catálogo de claves conocidas y la forma de la fila para el repositorio y las pruebas de paridad.",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "status": "DRAFT",
-    "supersedes": null,
-    "change_type": "MAJOR",
-    "change_note": "Contrato nuevo de la feature 005 (T706). T707 (MIF-005-07): la fila no lleva valueType, minValue ni maxValue (sin consumidor); el tipo, el defecto y el rango viven solo en ParameterDefaults (catálogo del código).",
+    "supersedes": "1.0.1",
+    "change_type": "MINOR",
+    "change_note": "1.1.0 (MINOR, feature 009, Architect 2026-11-23, H-5a-01, autorizado por Neo Nivel 2): value.maxLength sube de 200 a 8192 para alojar el bloque de escena editable desde /admin (JSON serializado de los bloques de escena, maxBlockLength=1000 caracteres por bloque); retrocompatible (todo valor de 200 o menos sigue válido), sin migración de tabla (la columna es TEXT) y sin cambio de propiedades, tipos, enum ni required; description conserva maxLength 200. Historial 1.0.1 (PATCH documental, feature 009, T1302, Architect 2026-11-23, MER-09 b): las descripciones «Sin endpoint ni interfaz de edición» y «Sin FK: el perfil de administrador de plataforma aún no existe» dejaron de ser ciertas: desde la feature 009 el portal /admin edita estas filas. Se aclara que updated_by_user_id queda NULL en las ediciones de /admin (el administrador no tiene cuenta de usuario, ADR-009-05) y que el autor es el id de admin_identities en admin_audit_entries; el catálogo de edición de /admin (6 claves) vive en specs/009-aprobacion-admin-correo/contracts/openapi/admin.openapi.yaml y no amplía KnownParameterKey. SIN cambio de forma: propiedades, tipos, enum, required, límites y additionalProperties idénticos. Historial 1.0.0: Contrato nuevo de la feature 005 (T706). T707 (MIF-005-07): la fila no lleva valueType, minValue ni maxValue (sin consumidor); el tipo, el defecto y el rango viven solo en ParameterDefaults (catálogo del código).",
     "traceability": [
       "REQ-PRM-001",
       "REQ-PRM-002",
       "REQ-PRM-003",
-      "SC-005-004"
+      "SC-005-004",
+      "REQ-CFG9-001",
+      "REQ-CFG9-007",
+      "SC-009-017"
     ]
   },
   "$defs": {
@@ -45,7 +48,7 @@
         "value": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 200,
+          "maxLength": 8192,
           "description": "Texto canónico; el dominio lo interpreta con el tipo y el rango del catálogo en código (ParameterDefaults); fuera de rango o ilegible = valor por defecto del código + aviso sin datos [REQ-PRM-002]"
         },
         "description": {
@@ -65,7 +68,7 @@
               "type": "null"
             }
           ],
-          "description": "Sin FK: el perfil de administrador de plataforma aún no existe [REQ-PRM-003]"
+          "description": "Sin FK [REQ-PRM-003]. El administrador de plataforma de la feature 009 no tiene cuenta de usuario (ADR-009-05), por lo que updated_by_user_id queda NULL en las ediciones hechas desde /admin; el autor es el id de admin_identities registrado en admin_audit_entries (REQ-CFG9-007). Solo un userId de usuario puede ocupar este campo si algún flujo futuro lo escribe"
         }
       },
       "description": "Fila de platform_parameters; sin value_type, min_value ni max_value (MIF-005-05/07 de T707: el tipo y el rango viven solo en el catálogo del código)"

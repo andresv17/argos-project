@@ -39,6 +39,7 @@ import {
   generatedId,
   petUpdater,
 } from '../fixtures/application-harness.ts';
+import { sessionOf } from '../fixtures/active-accounts.ts';
 import { DUMMY_PASSWORD_HASH, FAKE_HASH_PREFIX } from '../fixtures/test-doubles.ts';
 
 const NOW = '2026-11-05T12:00:00.000Z';
@@ -70,17 +71,14 @@ async function failure(promise: Promise<unknown>): Promise<DomainError> {
 }
 
 describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
-  it('[REQ-AUTH2-001][INV-ARCH-002] registra con el username exacto, guarda solo el hash y abre una sesión con lastActivityAt y tope de 24 h', async () => {
+  it('[REQ-AUTH2-001][REQ-APR9-001][INV-ARCH-002] registra con el username exacto, guarda solo el hash, deja la cuenta PENDING y NO abre sesión (solo devuelve el estado)', async () => {
     const { deps, uow, hasher } = createHarness();
     const result = await new RegisterUserUseCase(deps).execute({ username: 'sofia.m', displayName: 'Sofía', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' });
     const sofia = { id: generatedId(1), username: 'sofia.m', displayName: 'Sofía', createdAt: NOW };
-    expect(result).toEqual({
-      sessionToken: 'token-0001',
-      session: { user: { ...sofia, email: null, preferredLanguage: 'es', timezone: 'America/Bogota' }, createdAt: NOW, lastActivityAt: NOW, idleExpiresAt: IDLE_AT, absoluteExpiresAt: ABSOLUTE_AT },
-    });
+    expect(result).toEqual({ accountStatus: 'PENDING' });
     const state = uow.snapshot();
-    expect(state.users.find((u) => u.id === sofia.id)).toEqual({ ...sofia, email: null, preferredLanguage: 'es', timezone: 'America/Bogota', passwordHash: `${FAKE_HASH_PREFIX}Clave2026x!` });
-    expect(state.sessions['token-0001']).toEqual({ userId: sofia.id, createdAt: NOW, lastActivityAt: NOW, revokedAt: null });
+    expect(state.users.find((u) => u.id === sofia.id)).toEqual({ ...sofia, email: null, preferredLanguage: 'es', timezone: 'America/Bogota', passwordHash: `${FAKE_HASH_PREFIX}Clave2026x!`, accountStatus: 'PENDING' });
+    expect(state.sessions).toEqual(canonicalState().sessions);
     expect(hasher.calls).toEqual([{ method: 'hash', plain: 'Clave2026x!', hash: null }]);
   });
 
@@ -108,7 +106,7 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     state.loginFailures['andres'] = ['2026-11-05T11:58:00.000Z', '2026-11-05T11:59:00.000Z'];
     const { deps, uow } = createHarness(state);
     const login = new LoginUseCase(deps);
-    expect((await login.execute({ username: 'ANDRES', password: PASSWORDS['andres'] })).session.user.id).toBe(ANDRES);
+    expect(sessionOf(await login.execute({ username: 'ANDRES', password: PASSWORDS['andres'] })).session.user.id).toBe(ANDRES);
     expect(uow.snapshot().loginFailures['andres']).toEqual([]);
     const result = await login.execute({ username: 'andres', password: PASSWORDS['andres'] });
     expect(result).toEqual({

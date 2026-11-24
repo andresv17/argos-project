@@ -4,7 +4,7 @@
  * iniciados por usuario actor en 24 h. Solo contadores (N2-03 = A: sin bloqueo por huella). Recibe cuentas e instantes como datos; sin reloj (INV-ESC6-001).
  * El exceso se rechaza con `429 ERR-RATE-LIMITED` y `Retry-After` (`blockedReason = COOLDOWN`).
  *
- * @implements REQ-ESC6-034, INV-ESC6-001, INV-ESC6-004, EDGE-ESC6-029, SC-ESC6-072, SC-ESC6-078, SC-ESC6-079
+ * @implements REQ-LIM9-001, REQ-LIM9-002, EDGE-009-043, REQ-ESC6-034, INV-ESC6-001, INV-ESC6-004, EDGE-ESC6-029, SC-ESC6-072, SC-ESC6-078, SC-ESC6-079
  */
 
 import { epochMillis } from './utc-instant.ts';
@@ -25,6 +25,11 @@ export interface AttemptLimitsInput {
   /** Intentos iniciados por el actor (todas las escenas) en las últimas 24 h. */
   readonly startedByActor: number;
   readonly oldestActorStartedAt: string | null;
+  /**
+   * Tope diario de intentos CERRADOS sin llamada al proveedor por escena (EDGE-009-043, `D9-25`): responde con el código de `FAILED_LIMIT`. El valor (`max`) viene de
+   * `app-config.ts` (única fuente); si se omite, el tope no se evalúa.
+   */
+  readonly closedWithoutCall?: { readonly count: number; readonly oldestAt: string | null; readonly max: number };
 }
 
 export type AttemptLimitsResult =
@@ -46,6 +51,9 @@ export function evaluateAttemptLimits(input: AttemptLimitsInput): AttemptLimitsR
   }
   if (input.failedInWindow >= MAX_FAILED_ATTEMPTS_PER_SCENE) {
     return { allowed: false, reason: 'FAILED_LIMIT', retryAfterSeconds: windowRetry(input.oldestFailedStartedAt, now) };
+  }
+  if (input.closedWithoutCall !== undefined && input.closedWithoutCall.count >= input.closedWithoutCall.max) {
+    return { allowed: false, reason: 'FAILED_LIMIT', retryAfterSeconds: windowRetry(input.closedWithoutCall.oldestAt, now) };
   }
   if (input.startedByActor >= MAX_STARTED_ATTEMPTS_PER_ACTOR) {
     return { allowed: false, reason: 'ACTOR_LIMIT', retryAfterSeconds: windowRetry(input.oldestActorStartedAt, now) };

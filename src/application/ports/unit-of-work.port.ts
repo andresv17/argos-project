@@ -19,11 +19,14 @@ import type { RepositorySet } from './repositories.port.ts';
  */
 export interface MaintenanceCutoffs {
   readonly now: string;
-  /** Ahora menos 24 meses de calendario: se purgan las filas de auditoría con `timestamp` anterior. */
+  /** Ahora menos 24 meses de calendario: se purgan las filas de `audit_log` (`timestamp`) y de `admin_audit_entries` (`occurred_at`) anteriores. */
   readonly auditBefore: string;
 }
 
-/** Conteos de filas borradas por el mantenimiento: nunca identificadores ni hashes (ADR-002-14, INV-AUD-001). */
+/**
+ * Conteos de filas borradas por el mantenimiento: nunca identificadores ni hashes (ADR-002-14, INV-AUD-001).
+ * `auditRowsPurged` = filas de `audit_log` + filas de `admin_audit_entries` (RAMA-T1239-03): una sola clave, contrato 003 de 5 claves intacto.
+ */
 export interface MaintenanceCounts {
   readonly sessionsPurged: number;
   readonly confirmationTokensPurged: number;

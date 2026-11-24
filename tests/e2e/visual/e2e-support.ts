@@ -6,7 +6,12 @@
  * @implements REQ-UI-004
  */
 import AxeBuilder from '@axe-core/playwright';
+import { randomUUID } from 'node:crypto';
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { ScryptPasswordHasherAdapter } from '../../../src/infrastructure/adapters/scrypt-password-hasher.adapter.ts';
+import { openSqliteDatabase } from '../../../src/infrastructure/persistence/sqlite/sqlite-database.ts';
+import { SqliteUnitOfWork } from '../../../src/infrastructure/persistence/sqlite/sqlite-unit-of-work.ts';
+import { activateInFile } from '../../fixtures/active-accounts.ts';
 
 export const VIEWPORT_WIDTHS = [320, 1024, 1280] as const;
 /** Anchos de la v2.1 (REQ-UI2-008, SC-005): se añade el de 768 px, donde cambia el app shell. */
@@ -62,9 +67,59 @@ export async function apiCall<T = unknown>(
   return { status: response.status(), code, body };
 }
 
-/** Registra al usuario desde el contexto del navegador: la cookie de sesión queda en ese contexto (REQ-AUTH2-001). La contraseña debe cumplir INV-AUTH2-001. */
-export async function registerViaApi(request: APIRequestContext, username: string, displayName: string, password: string): Promise<void> {
-  await apiPost(request, '/auth/register', { username, displayName, password, confirmPassword: password });
+/** Base SQLite del servidor E2E principal (la fija `playwright.config.ts` y los workers la heredan). */
+export function e2eDatabasePath(): string {
+  const path = process.env['ARGOS_E2E_DATABASE'];
+  if (path === undefined) throw new Error('ARGOS_E2E_DATABASE no está definida: los E2E se ejecutan con playwright.config.ts');
+  return path;
+}
+
+/**
+ * Crea una cuenta `ACTIVE` por REPOSITORIO en el archivo SQLite del servidor (arnés de T1244, ADR-009-10) sin pasar por el registro: desde 009 el registro nace `PENDING` sin sesión
+ * y además el límite de altas por IP (EDGE-009-040, 5 por instancia) impediría sembrar las decenas de cuentas de la suite. El hash es el scrypt real del adaptador de producción.
+ */
+export async function seedActiveAccount(databasePath: string, username: string, displayName: string, password: string): Promise<void> {
+  const db = openSqliteDatabase(databasePath);
+  try {
+    const passwordHash = await new ScryptPasswordHasherAdapter().hash(password);
+    await new SqliteUnitOfWork(db).runInTransaction((repositories) =>
+      repositories.users.insert({
+        id: randomUUID(),
+        username,
+        displayName,
+        createdAt: new Date().toISOString(),
+        email: null,
+        preferredLanguage: 'es',
+        timezone: 'America/Bogota',
+        passwordHash,
+      }),
+    );
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Deja al usuario con sesión en el contexto del navegador (REQ-AUTH2-001): cuenta `ACTIVE` sembrada por repositorio (`seedActiveAccount`) e inicio de sesión real por la API, de modo que la
+ * cookie queda en ese contexto. `databasePath` es la base del servidor bajo prueba (por defecto, la del `webServer` principal). La contraseña debe cumplir INV-AUTH2-001.
+ */
+export async function registerViaApi(request: APIRequestContext, username: string, displayName: string, password: string, databasePath: string = e2eDatabasePath()): Promise<void> {
+  await seedActiveAccount(databasePath, username, displayName, password);
+  await apiPost(request, '/auth/login', { username, password }, 200);
+}
+
+/**
+ * Tras registrarse por la interfaz (la SPA termina en `/solicitud-en-revision`, sin sesión), aprueba la cuenta por repositorio (helper de T1244, sin pasar por `/admin`) y entra por `/login`
+ * como lo haría la persona: el resultado es la sesión abierta en `/`.
+ */
+export async function approveAndSignInViaUi(page: Page, username: string, password: string, databasePath: string = e2eDatabasePath()): Promise<void> {
+  await expect(page).toHaveURL(/\/solicitud-en-revision$/);
+  await activateInFile(databasePath, username);
+  await page.goto('/login');
+  await page.getByLabel('Usuario').fill(username);
+  await page.getByLabel('Contraseña').fill(password);
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  await expect(page).toHaveURL(/\/$/);
 }
 
 export async function createPetViaApi(request: APIRequestContext, name: string, species: 'DOG' | 'CAT' | 'CANINE' | 'FELINE', birthDate = '2020-05-01'): Promise<string> {

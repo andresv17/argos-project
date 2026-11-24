@@ -199,5 +199,58 @@ export function defineAuthIdentityRepositoryContractSuite(adapterName: string, c
       expect(result[3]).toMatchObject({ email: 'compartido@example.test', emailVerifiedAt: NOW });
       expect(result[4]).toBe(0);
     });
+    it('[REQ-DEL9-001, INV-DEL9-001] intención DELETE: la fila exige usuario y sesión de origen; una fila DELETE sin ellos o con pending_email se rechaza', async () => {
+      const uow = await prepare();
+      const del = (n: string, over: Partial<OAuthFlowStateRecord> = {}) => authorization(n, { intent: 'DELETE', userId: ANDRES.id, originSessionHash: ORIGIN_HASH, ...over });
+      await uow.runInTransaction((r) => r.oauthFlows.insert(del('d')));
+      expect(await uow.runInTransaction((r) => r.oauthFlows.findByTokenHash(hash('d')))).toEqual(del('d'));
+      expect(await rejects(uow.runInTransaction((r) => r.oauthFlows.insert(del('e', { userId: null }))))).toBe(true);
+      expect(await rejects(uow.runInTransaction((r) => r.oauthFlows.insert(del('f', { originSessionHash: null }))))).toBe(true);
+      expect(await rejects(uow.runInTransaction((r) => r.oauthFlows.insert(del('g', { pendingEmail: 'x@example.test' }))))).toBe(true);
+    });
+
+    it('[REQ-DEL9-001, INV-DEL9-001] prueba de titularidad: solo una fila DELETE ya consumida se marca; sin marca no hay prueba; el consumo es de un solo uso y respeta el vencimiento', async () => {
+      const uow = await prepare();
+      const del = authorization('d', { intent: 'DELETE', userId: ANDRES.id, originSessionHash: ORIGIN_HASH });
+      await uow.runInTransaction((r) => r.oauthFlows.insert(del));
+      const midway = '2026-11-21T12:05:00.000Z';
+      const result = await uow.runInTransaction(async (r) => {
+        const beforeConsume = await r.oauthFlows.markDeletionProof(del.tokenHash, 'sub-1');
+        await r.oauthFlows.consume(del.tokenHash, NOW, 'AUTHORIZATION');
+        const unmarked = await r.oauthFlows.findDeletionProof(ANDRES.id, ORIGIN_HASH, midway);
+        const unmarkedConsume = await r.oauthFlows.consumeDeletionProof(del.tokenHash, midway);
+        const marked = await r.oauthFlows.markDeletionProof(del.tokenHash, 'sub-1');
+        const markedAgain = await r.oauthFlows.markDeletionProof(del.tokenHash, 'sub-2');
+        const found = await r.oauthFlows.findDeletionProof(ANDRES.id, ORIGIN_HASH, midway);
+        const otherUser = await r.oauthFlows.findDeletionProof(MARIA.id, ORIGIN_HASH, midway);
+        const otherSession = await r.oauthFlows.findDeletionProof(ANDRES.id, hashOneTimeToken('otra-sesion'), midway);
+        const expired = await r.oauthFlows.findDeletionProof(ANDRES.id, ORIGIN_HASH, LATER);
+        const expiredConsume = await r.oauthFlows.consumeDeletionProof(del.tokenHash, LATER);
+        return { beforeConsume, unmarked, unmarkedConsume, marked, markedAgain, found, otherUser, otherSession, expired, expiredConsume };
+      });
+      expect(result.beforeConsume).toBe(false);
+      expect(result.unmarked).toBeNull();
+      expect(result.unmarkedConsume).toBe(false);
+      expect([result.marked, result.markedAgain]).toEqual([true, false]);
+      expect(result.found).toMatchObject({ tokenHash: del.tokenHash, intent: 'DELETE', userId: ANDRES.id, originSessionHash: ORIGIN_HASH, pendingSubject: 'sub-1', consumedAt: NOW });
+      expect([result.otherUser, result.otherSession, result.expired, result.expiredConsume]).toEqual([null, null, null, false]);
+      const consumed = await uow.runInTransaction(async (r) => [await r.oauthFlows.consumeDeletionProof(del.tokenHash, midway), await r.oauthFlows.consumeDeletionProof(del.tokenHash, midway), await r.oauthFlows.findDeletionProof(ANDRES.id, ORIGIN_HASH, midway)]);
+      expect(consumed).toEqual([true, false, null]);
+    });
+
+    it('[REQ-DEL9-001, INV-DEL9-001] el consumo de la prueba se revierte con la transacción (un rechazo posterior no la gasta)', async () => {
+      const uow = await prepare();
+      const del = authorization('d', { intent: 'DELETE', userId: ANDRES.id, originSessionHash: ORIGIN_HASH });
+      await uow.runInTransaction(async (r) => {
+        await r.oauthFlows.insert(del);
+        await r.oauthFlows.consume(del.tokenHash, NOW, 'AUTHORIZATION');
+        await r.oauthFlows.markDeletionProof(del.tokenHash, 'sub-1');
+      });
+      expect(await rejects(uow.runInTransaction(async (r) => {
+        expect(await r.oauthFlows.consumeDeletionProof(del.tokenHash, '2026-11-21T12:05:00.000Z')).toBe(true);
+        throw new Error('rechazo posterior');
+      }))).toBe(true);
+      expect(await uow.runInTransaction((r) => r.oauthFlows.findDeletionProof(ANDRES.id, ORIGIN_HASH, '2026-11-21T12:05:00.000Z'))).toMatchObject({ tokenHash: del.tokenHash, pendingSubject: 'sub-1' });
+    });
   });
 }

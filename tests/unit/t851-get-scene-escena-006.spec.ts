@@ -158,7 +158,7 @@ describe('getScene (T852): estado derivado, acciones y cuota', () => {
       await r.scenes.insert(sceneRow());
       for (let n = 3; n >= 1; n -= 1) {
         const startedAt = at(-3600 * n);
-        await r.scenes.beginGeneration({ sceneId: SCENE, attempt: attemptRow({ id: `c4000000-0000-4000-8000-00000000000${n}`, resultObjectId: `c3000000-0000-4000-8000-00000000000${n}`, phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', fingerprint, startedAt, finishedAt: startedAt }), now: startedAt, leaseExpiresAt: at(-3600 * n + 600) });
+        await r.scenes.beginGeneration({ sceneId: SCENE, attempt: attemptRow({ id: `c4000000-0000-4000-8000-00000000000${n}`, resultObjectId: `c3000000-0000-4000-8000-00000000000${n}`, phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', providerCallStartedAt: startedAt, fingerprint, startedAt, finishedAt: startedAt }), now: startedAt, leaseExpiresAt: at(-3600 * n + 600) });
       }
     });
     const view = await t.get.execute(ANDRES, HOUSE);
@@ -295,7 +295,7 @@ describe('getScene (T914): canRegenerate alineado con limits.allowed y retryAfte
     const startedAt = at(-ago);
     await t.h.uow.runInTransaction(async (r) => {
       if (n === 1) await r.scenes.insert(sceneRow());
-      await r.scenes.beginGeneration({ sceneId: SCENE, attempt: attemptRow({ id: `c4000000-0000-4000-8000-00000000000${n}`, resultObjectId: `c3000000-0000-4000-8000-00000000000${n}`, phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', fingerprint, startedAt, finishedAt: startedAt }), now: startedAt, leaseExpiresAt: at(-ago + 1) });
+      await r.scenes.beginGeneration({ sceneId: SCENE, attempt: attemptRow({ id: `c4000000-0000-4000-8000-00000000000${n}`, resultObjectId: `c3000000-0000-4000-8000-00000000000${n}`, phase: 'DONE', outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', providerCallStartedAt: startedAt, fingerprint, startedAt, finishedAt: startedAt }), now: startedAt, leaseExpiresAt: at(-ago + 1) });
     });
   }
 

@@ -162,15 +162,17 @@ describe('T1125 correo sin verificar: regla de D8-14, nunca autovinculación (RE
     const started = await w.start.execute();
     const step = await w.complete.execute({ oauthToken: started.oauthToken, code: GOOGLE_CODE, state: stateOf(started.authorizationUrl) });
     if (step.kind !== 'CHOOSE_USERNAME') throw new Error(`se esperaba CHOOSE_USERNAME y llegó ${step.kind}`);
-    return { step, session: await w.choose.execute(step.oauthToken, { username }) };
+    const session = await w.choose.execute(step.oauthToken, { username });
+    expect(session).toEqual({ accountStatus: 'PENDING' }); // 009 (EDGE-009-006): la cuenta nace PENDING y no inicia sesión
+    return { step, session, account: usersOf(w).find((u) => u.username === username)! };
   }
 
   it('[EDGE-008-003] [EDGE-008-023] cuenta sin verificar con el correo de la víctima (pre-hijacking): la víctima entra con Google, NO queda vinculada a la cuenta del atacante y recibe su cuenta propia con correo verificado', async () => {
     await giveEmail(w, MARIA, EMAIL, false);
-    const { step, session } = await googleSignUp('victima.real');
+    const { step, account } = await googleSignUp('victima.real');
     expect(step.kind).toBe('CHOOSE_USERNAME');
-    expect(session.session.user.id).not.toBe(MARIA);
-    expect(session.session.user.email).toBe(EMAIL);
+    expect(account.id).not.toBe(MARIA);
+    expect(account.email).toBe(EMAIL);
     expect(await identitiesOf(w, MARIA)).toEqual([]);
     const maria = usersOf(w).find((u) => u.id === MARIA)!;
     expect(maria.email).toBeNull();
@@ -182,12 +184,12 @@ describe('T1125 correo sin verificar: regla de D8-14, nunca autovinculación (RE
   it('[EDGE-008-004] dos o más cuentas sin verificar con el mismo correo (distinta capitalización): todas dejan de ser titulares y se crea UNA cuenta nueva con el sub', async () => {
     await giveEmail(w, MARIA, EMAIL, false);
     await giveEmail(w, CARLOS, EMAIL.toUpperCase(), false);
-    const { session } = await googleSignUp('titular.nuevo');
+    const { account } = await googleSignUp('titular.nuevo');
     expect(usersOf(w).find((u) => u.id === MARIA)!.email).toBeNull();
     expect(usersOf(w).find((u) => u.id === CARLOS)!.email).toBeNull();
     expect(await identitiesOf(w, MARIA)).toEqual([]);
     expect(await identitiesOf(w, CARLOS)).toEqual([]);
-    expect(await identitiesOf(w, session.session.user.id)).toHaveLength(1);
+    expect(await identitiesOf(w, account.id)).toHaveLength(1);
     expect(await allIdentityCount(w)).toBe(1);
   });
 

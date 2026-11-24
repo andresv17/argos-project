@@ -222,6 +222,8 @@ describe('requestSceneGeneration (T854): un solo generador e idempotencia', () =
 describe('requestSceneGeneration (T854): contadores y enfriamiento (REQ-ESC6-034)', () => {
   async function fail(t: ReturnType<typeof setup>, n: number): Promise<void> {
     const attempt = attemptsOf(t)[n - 1];
+    // 009 `#60` (REQ-LIM9-001): solo un FAILED con llamada al proveedor (marca `provider_call_started_at`) cuenta para el tope de fallos y el de actor; los FAILED sin llamada no.
+    await t.h.uow.runInTransaction((r) => r.scenes.markProviderCall(attempt?.id ?? '', t.h.clock.nowIsoTimestamp(), { model: 'm', location: 'l' }));
     await t.h.uow.runInTransaction((r) => r.scenes.closeAttempt({ sceneId: attempt?.sceneId ?? '', attemptId: attempt?.id ?? '', outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', degraded: false, now: t.h.clock.nowIsoTimestamp() }));
   }
   const retryAfter = async (promise: Promise<unknown>): Promise<number> => {
@@ -294,7 +296,7 @@ describe('requestSceneGeneration (T854): contadores y enfriamiento (REQ-ESC6-034
         const startedAt = at(-3600 * 12 + n * 600);
         await r.scenes.beginGeneration({
           sceneId: 'c1000000-0000-4000-8000-000000000002',
-          attempt: { id: `c4000000-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`, sceneId: 'c1000000-0000-4000-8000-000000000002', actorUserId: ANDRES, action: 'UPDATE', mode: 'FROM_SCRATCH', fingerprint: 'f'.repeat(64), inputsSnapshot: '{"v":1}', resultObjectId: `c3000000-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`, phase: 'DONE', claimedAt: null, providerCallStartedAt: null, quotaWindow: '2026-11', quotaMax: 10, outcome: 'SUCCEEDED', errorCode: null, degraded: false, idempotencyKeyHash: null, idempotencyExpiresAt: null, startedAt, finishedAt: startedAt },
+          attempt: { id: `c4000000-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`, sceneId: 'c1000000-0000-4000-8000-000000000002', actorUserId: ANDRES, action: 'UPDATE', mode: 'FROM_SCRATCH', fingerprint: 'f'.repeat(64), inputsSnapshot: '{"v":1}', resultObjectId: `c3000000-0000-4000-8000-0000000000${String(n).padStart(2, '0')}`, phase: 'DONE', claimedAt: null, providerCallStartedAt: startedAt, quotaWindow: '2026-11', quotaMax: 10, outcome: 'SUCCEEDED', errorCode: null, degraded: false, idempotencyKeyHash: null, idempotencyExpiresAt: null, startedAt, finishedAt: startedAt },
           now: startedAt, leaseExpiresAt: at(-3600 * 12 + n * 600 + 1),
         });
       }

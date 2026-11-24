@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/types.ts';
-import { PIXEL_REDRAW_RULE, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
+import { PIXEL_REDRAW_RULE, PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
 import { petSizeToken } from '../../src/domain/scene/pet-phrases.ts';
 import { PET_COUNT_RULE } from '../../src/domain/scene/scene-spec.ts';
 import { DEFAULT_SCENE_STYLE } from '../../src/domain/scene/scene-payload.ts';
@@ -23,6 +23,8 @@ const neoCount = (n: number, group: string): string =>
   n === 1
     ? `Exact animal count: 1 pet in total (${group}). Draw only this 1 pet and no additional animals.`
     : `Exact animal count: ${n} pets in total (${group}). Draw only these ${n} pets and no additional animals.`;
+/** Enmienda 009 (T1212/T1215, `D9-26` = A): bloque de preservación visual, una vez si y solo si hay mascota con foto; N = 0 usa esta frase y no `PET_COUNT_RULE`. */
+const NEO_NO_ANIMALS = 'Draw no animals in this room.';
 const neoPlaceAll = (n: number): string => `Place all ${n} pets naturally and separately in different cozy spots of the room.`;
 
 const id = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -113,10 +115,11 @@ describe('T1071 todas con foto (SC-007-036, REQ-ESC7-003/004)', () => {
     expect(blocks[2]!.split('\n')).toHaveLength(2);
     expect(blocks[2]!.startsWith('Pet 1 (dog): Use IMG_2 as the exact visual reference')).toBe(true);
     expect(blocks[2]!.split('\n')[1]!.startsWith('Pet 2 (cat): Use IMG_3 as the exact visual reference')).toBe(true);
-    expect(blocks[3]).toBe(neoPlaceAll(2));
-    expect(blocks[4]).toBe(neoCount(2, '1 dog, 1 cat'));
-    expect(blocks[5]).toBe(NEO_PIXEL_REDRAW_RULE);
-    expect(blocks).toHaveLength(6);
+    expect(blocks[3]).toBe(PRESERVATION_BLOCK);
+    expect(blocks[4]).toBe(neoPlaceAll(2));
+    expect(blocks[5]).toBe(neoCount(2, '1 dog, 1 cat'));
+    expect(blocks[6]).toBe(NEO_PIXEL_REDRAW_RULE);
+    expect(blocks).toHaveLength(7);
   });
 });
 
@@ -198,7 +201,10 @@ describe('T1071 cero mascotas (SC-007-039)', () => {
       expect(text.includes('Exact animal count')).toBe(false);
       expect(text.includes('Place all')).toBe(false);
       expect(text.includes('Pet 1')).toBe(false);
-      expect(blocksOf(text)).toContain(PET_COUNT_RULE);
+      expect(blocksOf(text)).toContain(NEO_NO_ANIMALS);
+      expect(text.includes(PET_COUNT_RULE)).toBe(false);
+      expect(text.includes('renderedPetsCount')).toBe(false);
+      expect(countOf(text, PRESERVATION_BLOCK)).toBe(0);
       expect(text.startsWith(`${NEO_STYLE_BASE_TEXT}\n\n`)).toBe(true);
       expect(blocksOf(text)).toContain(household ? neoHouseholdWithPhoto('IMG_1') : NEO_HOUSEHOLD_GENERIC);
     }
@@ -292,10 +298,11 @@ describe('T1071 R1: PET_COUNT_RULE solo con N = 0 y sin STYLE_CLOSING en modos d
     }
   });
 
-  it('[SC-007-043] con N = 0 aparece PET_COUNT_RULE exactamente una vez y no el cierre de estilo', () => {
+  it('[SC-007-043] con N = 0 (enmienda 009) aparece «Draw no animals in this room.» exactamente una vez, PET_COUNT_RULE 0 veces y no el cierre de estilo', () => {
     for (const mode of ['FROM_SCRATCH', 'REGENERATE'] as const) {
       const text = once(payload([], { mode }));
-      expect(countOf(text, PET_COUNT_RULE)).toBe(1);
+      expect(countOf(text, NEO_NO_ANIMALS)).toBe(1);
+      expect(countOf(text, PET_COUNT_RULE)).toBe(0);
       expect(text.includes('Match the exact')).toBe(false);
     }
   });
@@ -334,19 +341,19 @@ describe('T1071 SC-007-043: los tres ejemplos de Neo byte a byte (salvo el token
   const REDRAW = NEO_PIXEL_REDRAW_RULE;
   it('[SC-007-043] ejemplo 1: hogar + todas con foto', () => {
     const text = once(payload([withPhoto(1, 'IMG_2'), cat(2, { hasReferencePhoto: true, photoRef: 'IMG_3' })], { household: true }));
-    expect(text).toBe([NEO_STYLE_BASE_TEXT, neoHouseholdWithPhoto('IMG_1'), `${photoLine(1, 'dog', 'IMG_2')}\n${photoLine(2, 'cat', 'IMG_3')}`, neoPlaceAll(2), neoCount(2, '1 dog, 1 cat'), REDRAW].join('\n\n'));
+    expect(text).toBe([NEO_STYLE_BASE_TEXT, neoHouseholdWithPhoto('IMG_1'), `${photoLine(1, 'dog', 'IMG_2')}\n${photoLine(2, 'cat', 'IMG_3')}`, PRESERVATION_BLOCK, neoPlaceAll(2), neoCount(2, '1 dog, 1 cat'), REDRAW].join('\n\n'));
   });
 
   it('[SC-007-043] ejemplo 2: sin hogar y ninguna con foto', () => {
     const text = once(payload([pet(1), cat(2)]));
     const json = `${NEO_SPEC_HEADER}\n{"renderedPetsCount":2,"pets":[${jsonPet(1, 'dog')},${jsonPet(2, 'cat')}]}`;
-    expect(text).toBe([NEO_STYLE_BASE_TEXT, NEO_HOUSEHOLD_GENERIC, neoPlaceAll(2), json, neoCount(2, '1 dog, 1 cat')].join('\n\n'));
+    expect(text).toBe([NEO_STYLE_BASE_TEXT, NEO_HOUSEHOLD_GENERIC, json, neoPlaceAll(2), neoCount(2, '1 dog, 1 cat')].join('\n\n'));
   });
 
   it('[SC-007-043][R2][REQ-ESC7-004] ejemplo 3: mixto con hogar; el JSON conserva el ordinal global 2', () => {
     const text = once(payload([withPhoto(1, 'IMG_2'), cat(2)], { household: true }));
     const json = `${NEO_SPEC_HEADER}\n{"renderedPetsCount":1,"pets":[${jsonPet(2, 'cat')}]}`;
-    expect(text).toBe([NEO_STYLE_BASE_TEXT, neoHouseholdWithPhoto('IMG_1'), photoLine(1, 'dog', 'IMG_2'), neoPlaceAll(2), json, neoCount(2, '1 dog, 1 cat'), REDRAW].join('\n\n'));
+    expect(text).toBe([NEO_STYLE_BASE_TEXT, neoHouseholdWithPhoto('IMG_1'), photoLine(1, 'dog', 'IMG_2'), PRESERVATION_BLOCK, json, neoPlaceAll(2), neoCount(2, '1 dog, 1 cat'), REDRAW].join('\n\n'));
   });
 
   it('[R2] sin reindexar con huecos: mascotas 1 y 3 sin foto, 2 con foto -> JSON con índices 1 y 3', () => {
@@ -369,5 +376,18 @@ describe('T1071 modos incrementales: misma cabecera y forma, cierre 16-bit (R4, 
     expect(text.endsWith(NEO_CLOSING_16)).toBe(true);
     expect(text.includes('32-bit')).toBe(false);
     expect(text.includes('- Add: Use IMG_2 as the exact visual reference for this cat.')).toBe(true);
+  });
+});
+
+describe('T1071 enmienda 009: bloque de preservación y orden JSON-antes-de-Place (INV-PRO9-001, REQ-PRO9-001)', () => {
+  it('[SC-009-029][SC-009-030] PRESERVATION_BLOCK aparece 1 vez con mascota con foto y 0 sin ella (con o sin foto de hogar)', () => {
+    for (const p of [payload([withPhoto(1, 'IMG_2')], { household: true }), payload([withPhoto(1, 'IMG_1'), pet(2)]), payload([withPhoto(1, 'IMG_2'), cat(2)], { household: true })]) expect(countOf(once(p), PRESERVATION_BLOCK)).toBe(1);
+    for (const p of [payload([]), payload([pet(1), cat(2)]), payload([pet(1), cat(2)], { household: true })]) expect(countOf(once(p), PRESERVATION_BLOCK)).toBe(0);
+  });
+
+  it('[SC-009-028] en mixto el JSON precede a «Place all» y la preservación precede al JSON', () => {
+    const text = once(payload([withPhoto(1, 'IMG_2'), cat(2)], { household: true }));
+    expect(text.indexOf(PRESERVATION_BLOCK)).toBeLessThan(text.indexOf(NEO_SPEC_HEADER));
+    expect(text.indexOf(NEO_SPEC_HEADER)).toBeLessThan(text.indexOf('Place all'));
   });
 });

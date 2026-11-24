@@ -8,6 +8,7 @@
  * @implements INV-ACC-001, INV-ACC-002, INV-PET-003, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, REQ-FAL7-004, REQ-FAL7-007, EDGE-007-019
  */
 
+import type { PromptBlocks } from '../../domain/scene/prompt-blocks.ts';
 import { computedAgeOf, normalizePetProfile, type PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
@@ -106,6 +107,10 @@ export interface SceneServices {
   readonly leaseSeconds: number;
   /** T_QUEUE: espera máxima en cola antes del claim. */
   readonly queueWaitSeconds: number;
+  /** Plazo único (s) del intento sin marca de llamada antes de dejar de contar y cerrarse `CANCELLED` (feature 009, EDGE-009-041; valor en `app-config.ts`). */
+  readonly unmarkedAttemptTtlSeconds: number;
+  /** Tope diario de intentos cerrados sin llamada por escena (feature 009, EDGE-009-043, `D9-25`; valor en `app-config.ts`). */
+  readonly maxClosedWithoutCallPerDay: number;
   /** `true` con `ARGOS_SCENE_DRIVER=real`: exige consentimiento vigente (INV-ESC6-014). */
   readonly realDriver: boolean;
   /** Desfase de `APP_TIMEZONE` respecto de UTC en minutos (p. ej. -300) para `quota.resetsAt`. */
@@ -117,6 +122,16 @@ export interface SceneServices {
   readonly dispatcher: SceneJobDispatcherPort;
   /** Cuota GLOBAL mensual (Fase 14, T948, N2-02): solo con el driver real; sin puerto el worker no la exige (simulado). */
   readonly globalQuota?: SceneGlobalQuotaPort;
+  /** Modelo y region VIGENTES de la llamada (T1298, D9-22 = A): los guarda `markProviderCall` por intento. Sin valor (driver simulado o gemini-api) el intento registra null (sin proveniencia inventada); la lectura en caliente es de T1254/T1267. */
+  /** Bloques del prompt vigentes (T1306, REQ-CFG9-005): lectura en caliente de `scene.prompt.blocks` (cache <= 60 s). Sin lector o con fallo rige el prompt de codigo. */
+  readonly promptBlocks?: () => Promise<PromptBlocks>;
+  readonly providerCall?: SceneProviderCall | (() => Promise<SceneProviderCall>);
+}
+
+/** Par modelo x region de una llamada al proveedor (T1296 (h): puede ser una funcion async que lee el par EFECTIVO, el mismo que usa el adaptador). */
+export interface SceneProviderCall {
+  readonly model: string;
+  readonly location: string;
 }
 
 /**
@@ -126,6 +141,17 @@ export interface SceneServices {
 export interface GoogleServices {
   readonly oidc: GoogleOidcPort;
   readonly entropy: OneTimeTokenEntropyPort;
+}
+
+/**
+ * Portal de administración (feature 009, Fase 3, #19): el proveedor OIDC de Google con la URI de redirección PROPIA de administración, la entropía del identificador opaco de
+ * `argos_admin_oauth` y de `argos_admin_session`, y la lista cerrada de correos de administración ya normalizados (minúsculas), leída solo de `app-config.ts` (INV-ARCH-006) y consultada en
+ * CADA petición (EDGE-009-047). Opcional: sin él las rutas de `/api/admin/*` no existen (404).
+ */
+export interface AdminServices {
+  readonly oidc: GoogleOidcPort;
+  readonly entropy: OneTimeTokenEntropyPort;
+  readonly allowedEmails: readonly string[];
 }
 
 export interface ApplicationDeps {
@@ -163,6 +189,8 @@ export interface ApplicationDeps {
   readonly scene?: SceneServices;
   /** Acceso con Google (feature 008, T1121). Ausente: las operaciones de Google fallan cerrado. */
   readonly google?: GoogleServices;
+  /** Portal de administración (feature 009, Fase 3). Ausente: no hay rutas de administración (404 uniforme). */
+  readonly admin?: AdminServices;
 }
 
 interface ValidatorWithErrors {

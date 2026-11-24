@@ -10,6 +10,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ApiProblem, CSRF_PARAMS, unwrap, type ApiClient } from './api.ts';
+import { authOutcome, type PendingAccountStatus } from './account-status.ts';
 import { submitGoogleUsername } from './google-login.ts';
 import type { Schemas } from './view-model.ts';
 
@@ -27,10 +28,11 @@ export interface SessionState {
   setUser(user: UserSelfProfile): void;
   /** Cierra la sesión local sin llamar a la API (la cuenta ya fue eliminada y la cookie expiró). */
   dropSession(): void;
-  register(input: Schemas['RegisterUserInput']): Promise<void>;
-  login(input: Schemas['LoginInput']): Promise<void>;
+  /** 009: devuelve `PENDING`/`REJECTED` (sin sesión, sin cookie) o `null` si la sesión quedó iniciada. */
+  register(input: Schemas['RegisterUserInput']): Promise<PendingAccountStatus | null>;
+  login(input: Schemas['LoginInput']): Promise<PendingAccountStatus | null>;
   /** Primer acceso con Google (008): crea la cuenta con el `username` elegido y deja la sesión iniciada. */
-  chooseGoogleUsername(input: Schemas['GoogleChooseUsernameInput']): Promise<void>;
+  chooseGoogleUsername(input: Schemas['GoogleChooseUsernameInput']): Promise<PendingAccountStatus | null>;
   logout(): Promise<void>;
 }
 
@@ -60,34 +62,35 @@ export function SessionProvider({ api, children }: { readonly api: ApiClient; re
     };
   }, [api]);
 
+  /** Solo una `SessionView` inicia sesión; `{ accountStatus }` (009) deja la SPA anónima. */
+  const settle = useCallback((body: Schemas['SessionView'] | { readonly accountStatus: PendingAccountStatus }): PendingAccountStatus | null => {
+    const outcome = authOutcome<Schemas['SessionView']>(body);
+    if (outcome.kind === 'ACCOUNT_STATUS') return outcome.accountStatus;
+    setUser(outcome.session.user);
+    setTimes({ idleExpiresAt: outcome.session.idleExpiresAt, lastActivityAt: outcome.session.lastActivityAt });
+    setStatus('AUTHENTICATED');
+    return null;
+  }, []);
+
   const register = useCallback(
-    async (input: Schemas['RegisterUserInput']) => {
-      const session = await unwrap(api.POST('/auth/register', { params: CSRF_PARAMS, body: input }));
-      setUser(session.user);
-      setTimes({ idleExpiresAt: session.idleExpiresAt, lastActivityAt: session.lastActivityAt });
-      setStatus('AUTHENTICATED');
+    async (input: Schemas['RegisterUserInput']): Promise<PendingAccountStatus | null> => {
+      return settle(await unwrap(api.POST('/auth/register', { params: CSRF_PARAMS, body: input })));
     },
-    [api],
+    [api, settle],
   );
 
   const login = useCallback(
-    async (input: Schemas['LoginInput']) => {
-      const session = await unwrap(api.POST('/auth/login', { params: CSRF_PARAMS, body: input }));
-      setUser(session.user);
-      setTimes({ idleExpiresAt: session.idleExpiresAt, lastActivityAt: session.lastActivityAt });
-      setStatus('AUTHENTICATED');
+    async (input: Schemas['LoginInput']): Promise<PendingAccountStatus | null> => {
+      return settle(await unwrap(api.POST('/auth/login', { params: CSRF_PARAMS, body: input })));
     },
-    [api],
+    [api, settle],
   );
 
   const chooseGoogleUsername = useCallback(
-    async (input: Schemas['GoogleChooseUsernameInput']) => {
-      const session = await submitGoogleUsername(api, input);
-      setUser(session.user);
-      setTimes({ idleExpiresAt: session.idleExpiresAt, lastActivityAt: session.lastActivityAt });
-      setStatus('AUTHENTICATED');
+    async (input: Schemas['GoogleChooseUsernameInput']): Promise<PendingAccountStatus | null> => {
+      return settle(await submitGoogleUsername(api, input));
     },
-    [api],
+    [api, settle],
   );
 
   const logout = useCallback(async () => {
