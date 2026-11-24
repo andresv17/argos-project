@@ -23,14 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # TEMPORAL (orden Nivel 2 de Neo, 2026-11-24): SDD Test Gate desactivado temporalmente durante validación funcional en producción.
-  # Reactivar descomentando `gate:` y `needs: gate` en `audit:` (o revertir este commit).
-  # gate:
-  #   name: Compuerta de pruebas
-  #   uses: ./.github/workflows/test-gate.yml
-  #   permissions:
-  #     contents: read
-
+  # El Test Gate corre en el PR (test-gate.yml); deploy-argos.yml no lo duplica (orden Nivel 2 de Neo, 2026-11-24).
   audit:
     name: npm audit de produccion
     runs-on: ubuntu-latest
