@@ -23,16 +23,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Compuerta de pruebas aislada: sin id-token ni secretos de GCP (H-MERO-009).
-  gate:
-    name: Compuerta de pruebas
-    uses: ./.github/workflows/test-gate.yml
-    permissions:
-      contents: read
+  # TEMPORAL (orden Nivel 2 de Neo, 2026-11-24): SDD Test Gate desactivado temporalmente durante validación funcional en producción.
+  # Reactivar descomentando `gate:` y `needs: gate` en `audit:` (o revertir este commit).
+  # gate:
+  #   name: Compuerta de pruebas
+  #   uses: ./.github/workflows/test-gate.yml
+  #   permissions:
+  #     contents: read
 
   audit:
     name: npm audit de produccion
-    needs: gate
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
