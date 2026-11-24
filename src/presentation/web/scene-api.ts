@@ -30,6 +30,8 @@ export interface SceneViewData {
   readonly lastError: SceneErrorCode | null;
   readonly stale: boolean;
   readonly updatedAt: string;
+  /** `true` si la creación de imágenes está deshabilitada (contrato 006 1.2.0, REQ-CFG9-003); ausente o `false` = habilitada. La imagen vigente sigue visible. */
+  readonly disabled?: boolean;
 }
 export interface SceneNoticeData {
   readonly noticeVersion: string;

@@ -16,8 +16,10 @@ import type {
   AdminIdentityRecord,
   AdminIdentityRepositoryPort,
   AdminProvider,
+  AdminParameterRepositoryPort,
   AdminSessionRecord,
   AdminSessionRepositoryPort,
+  ParameterRowRecord,
   PendingRegistrationRecord,
   RegistrationDecisionRepositoryPort,
   RegistrationMethod,
@@ -187,6 +189,46 @@ export function registrationRepository(db: SqliteDatabase): RegistrationDecision
     },
     async decide(registrationId, to, decidedBy, decidedAt, createdAfter) {
       return decide.run(to, decidedAt, decidedBy, registrationId, createdAfter).changes === 1;
+    },
+  };
+}
+
+/**
+ * Edicion de parametros (T1264). `compareAndSet` es UN `INSERT ... ON CONFLICT DO NOTHING` (fila ausente) o UN `UPDATE ... WHERE key = ? AND value = ? AND updated_at = ?` con `changes === 1`
+ * como veredicto: sin lectura previa que decida. `updated_by_user_id` no se enlaza: queda `NULL` (el autor vive en `admin_audit_entries`, MER-09).
+ */
+export function adminParameterRepository(db: SqliteDatabase): AdminParameterRepositoryPort {
+  const find = db.prepare<[string], { value: string; updated_at: string }>('SELECT value, updated_at FROM platform_parameters WHERE key = ?');
+  const insert = db.prepare('INSERT INTO platform_parameters (key, value, description, updated_at, updated_by_user_id) VALUES (?, ?, ?, ?, NULL) ON CONFLICT (key) DO NOTHING');
+  const update = db.prepare('UPDATE platform_parameters SET value = ?, updated_at = ?, updated_by_user_id = NULL WHERE key = ? AND value = ? AND updated_at = ?');
+  const editor = db.prepare<[string, string], { admin_id: string }>('SELECT admin_id FROM admin_audit_entries WHERE action = ? AND object_ref = ? ORDER BY occurred_at DESC, rowid DESC LIMIT 1');
+  const accounts = db.prepare<[string, string], { id: string }>(
+    `SELECT id FROM users WHERE id IN (SELECT user_id FROM auth_identities WHERE provider = 'GOOGLE' AND provider_subject IN (SELECT value FROM json_each(?)))
+       OR (email_verified_at IS NOT NULL AND lower(email) IN (SELECT value FROM json_each(?)))`,
+  );
+  const scenesOf = db.prepare<[string], { id: string; consumed_generations: number }>('SELECT id, consumed_generations FROM home_scenes WHERE owner_user_id = ? AND consumed_generations > 0');
+  const zeroScene = db.prepare('UPDATE home_scenes SET consumed_generations = 0 WHERE id = ? AND consumed_generations = ?');
+  const carryOf = db.prepare<[string], { quota_window: string; consumed_generations: number }>('SELECT quota_window, consumed_generations FROM scene_quota_carry WHERE owner_user_id = ? AND consumed_generations > 0');
+  const zeroCarry = db.prepare('UPDATE scene_quota_carry SET consumed_generations = 0 WHERE owner_user_id = ? AND quota_window = ? AND consumed_generations = ?');
+  return {
+    async find(key): Promise<ParameterRowRecord | null> {
+      const row = find.get(key);
+      return row === undefined ? null : { value: row.value, updatedAt: row.updated_at };
+    },
+    async compareAndSet(key, description, next, expected) {
+      if (expected === null) return insert.run(key, next.value, description, next.updatedAt).changes === 1;
+      return update.run(next.value, next.updatedAt, key, expected.value, expected.updatedAt).changes === 1;
+    },
+    async lastEditor(action, key) {
+      return editor.get(action, key)?.admin_id ?? null;
+    },
+    async resetAdminAccountsSceneQuota(subjects, emails) {
+      const ids = accounts.all(JSON.stringify(subjects), JSON.stringify(emails.map((e) => e.toLowerCase()))).map((r) => r.id);
+      for (const id of ids) {
+        for (const scene of scenesOf.all(id)) if (zeroScene.run(scene.id, scene.consumed_generations).changes !== 1) return null;
+        for (const row of carryOf.all(id)) if (zeroCarry.run(id, row.quota_window, row.consumed_generations).changes !== 1) return null;
+      }
+      return { accountsReset: ids.length };
     },
   };
 }

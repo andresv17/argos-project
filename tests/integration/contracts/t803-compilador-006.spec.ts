@@ -14,6 +14,7 @@ const SPEC_DIRS = ['004-catalogos-registros-archivos', '005-album-archivos-clini
 const C6 = join(ROOT, 'specs/006-escena-hogar-pixel-art/contracts');
 const SCENE_ERRORS = [
   'ERR-SCENE-CONSENT-REQUIRED',
+  'ERR-SCENE-DISABLED',
   'ERR-SCENE-GENERATION-FAILED',
   'ERR-SCENE-GENERATION-TIMEOUT',
   'ERR-SCENE-INVALID-IMAGE',
@@ -88,13 +89,13 @@ describe('T803 compile-contracts.sh --feature 006 (salida en v34)', () => {
     expect(machine).toContain('STATE-SCENE-001');
   });
 
-  it('SC-ESC6-022: los siete ERR-SCENE-* quedan en el catálogo generado junto a los heredados de 004 y 005', () => {
+  it('SC-ESC6-022: los ocho ERR-SCENE-* (006 catálogo 1.1.0 añade ERR-SCENE-DISABLED, 009 T1257) quedan en el catálogo generado junto a los heredados de 004 y 005', () => {
     const codes = readFileSync(join(out, 'v34/errors/error-codes.ts'), 'utf8');
     for (const code of [...SCENE_ERRORS, 'ERR-MEDIA-QUOTA-EXCEEDED', 'ERR-RATE-LIMITED']) expect(codes, code).toContain(code);
   });
 
   it('SC-ESC6-090: informa la unión de catálogos 004 + 005 + 006', () => {
-    expect(first.output).toMatch(/Catálogos fusionados: \d+ \(004\) \+ \d+ \(005\) \+ 7 \(006\) = \d+ códigos/);
+    expect(first.output).toMatch(/Catálogos fusionados: \d+ \(004\) \+ \d+ \(005\) \+ 8 \(006\) = \d+ códigos/);
   });
 
   it('INV-ARCH-003: no escribe sobre las salidas de 002, 003, 004 ni 005 en el destino', () => {

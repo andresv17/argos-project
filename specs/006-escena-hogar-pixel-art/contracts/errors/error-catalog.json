@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalogIncremental006",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "status": "DRAFT",
-    "supersedes": null,
-    "change_type": "MAJOR",
+    "supersedes": "1.0.0",
+    "change_type": "MINOR",
     "extends": "specs/004-catalogos-registros-archivos/contracts/errors/error-catalog.json 3.1.0 y specs/005-album-archivos-clinicos/contracts/errors/error-catalog.json 1.0.0 (LOCKED o DRAFT sin editar)",
-    "change_note": "Catálogo INCREMENTAL de la feature 006 (M6-B2): solo los 7 códigos nuevos. ERR-ACC-FORBIDDEN, ERR-HOUSE-NOT-FOUND, ERR-PET-NOT-FOUND, ERR-AUTH-*, ERR-SCHEMA-VALIDATION-FAILED, ERR-MEDIA-TYPE-NOT-ALLOWED, ERR-MEDIA-TOO-LARGE, ERR-MEDIA-QUOTA-EXCEEDED, ERR-MEDIA-NOT-FOUND, ERR-MEDIA-STORAGE-UNAVAILABLE, ERR-RATE-LIMITED e ERR-INTERNAL-UNEXPECTED se heredan. Los cuatro códigos con surface = SCENE_STATE se exponen dentro de SceneView.lastError y no como respuesta HTTP de la generación asíncrona. El compilador debe fallar si un código aparece en más de un catálogo. Revisión 2 (2026-11-18): sin códigos nuevos; los límites de intentos y de tasa de REQ-ESC6-034 usan el ERR-RATE-LIMITED heredado (429); los códigos SCENE_STATE no son respuestas HTTP y el mapeador HTTP no los traduce (H-MERO-006-24); el tipo SceneErrorCode de scene.schema.json se genera desde este catálogo (H-MIF-006-12).",
+    "change_note": "1.1.0 (MINOR aditiva, feature 009, T1257, Architect 2026-11-23, REQ-CFG9-003, EDGE-009-019): +ERR-SCENE-DISABLED (409; el POST de generacion con scene.enabled = false se rechaza sin intento ni cuota; sin superficie SCENE_STATE). Ningun codigo existente cambia. Historial 1.0.0: Catálogo INCREMENTAL de la feature 006 (M6-B2): solo los 7 códigos nuevos. ERR-ACC-FORBIDDEN, ERR-HOUSE-NOT-FOUND, ERR-PET-NOT-FOUND, ERR-AUTH-*, ERR-SCHEMA-VALIDATION-FAILED, ERR-MEDIA-TYPE-NOT-ALLOWED, ERR-MEDIA-TOO-LARGE, ERR-MEDIA-QUOTA-EXCEEDED, ERR-MEDIA-NOT-FOUND, ERR-MEDIA-STORAGE-UNAVAILABLE, ERR-RATE-LIMITED e ERR-INTERNAL-UNEXPECTED se heredan. Los cuatro códigos con surface = SCENE_STATE se exponen dentro de SceneView.lastError y no como respuesta HTTP de la generación asíncrona. El compilador debe fallar si un código aparece en más de un catálogo. Revisión 2 (2026-11-18): sin códigos nuevos; los límites de intentos y de tasa de REQ-ESC6-034 usan el ERR-RATE-LIMITED heredado (429); los códigos SCENE_STATE no son respuestas HTTP y el mapeador HTTP no los traduce (H-MERO-006-24); el tipo SceneErrorCode de scene.schema.json se genera desde este catálogo (H-MIF-006-12).",
     "removed": [],
     "added": [
       "ERR-SCENE-CONSENT-REQUIRED",
@@ -16,7 +16,8 @@
       "ERR-SCENE-GENERATION-FAILED",
       "ERR-SCENE-GENERATION-TIMEOUT",
       "ERR-SCENE-INVALID-IMAGE",
-      "ERR-SCENE-LEASE-EXPIRED"
+      "ERR-SCENE-LEASE-EXPIRED",
+      "ERR-SCENE-DISABLED"
     ],
     "inherited": [
       "ERR-ACC-FORBIDDEN",
@@ -48,10 +49,12 @@
       "REQ-ESC6-035",
       "EDGE-ESC6-026",
       "EDGE-ESC6-029",
-      "EDGE-ESC6-032"
+      "EDGE-ESC6-032",
+      "REQ-CFG9-003",
+      "EDGE-009-019"
     ]
   },
-  "version": "1.0.0",
+  "version": "1.1.0",
   "status": "DRAFT",
   "problemDetailsSchema": {
     "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
@@ -119,6 +122,15 @@
       "detailTemplate": "La generación no terminó a tiempo. Tu imagen anterior sigue disponible y no se descontó ningún intento.",
       "requirementRef": "REQ-ESC6-013, EDGE-ESC6-003",
       "surface": "SCENE_STATE"
+    },
+    "ERR-SCENE-DISABLED": {
+      "type": "urn:argos:error:ERR-SCENE-DISABLED",
+      "status": 409,
+      "title": "Función deshabilitada",
+      "invariantRef": "INV-CFG9-003",
+      "detailTemplate": "La creación de imágenes del hogar está deshabilitada por ahora. Tu imagen actual sigue disponible.",
+      "requirementRef": "REQ-CFG9-003, EDGE-009-019",
+      "note": "Respuesta HTTP del POST de generacion (hogar y propietario) con scene.enabled = false (feature 009, 1.1.0): 0 intentos, 0 consumo de cuota y 0 llamadas al generador; se evalua despues de la autorizacion (404/403) y antes de consentimiento, cuota y limites de tasa. No es SCENE_STATE: no viaja en lastError. La imagen vigente se conserva y una generacion ya en curso termina (D9-16 = A). No revela la causa ni la configuracion"
     }
   }
 }

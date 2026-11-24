@@ -5,7 +5,7 @@
  * `deriveStatus` sobre la huella del estado vivo (REQ-ESC6-003, ADR-006-09); lo único que la lectura materializa es el vencimiento del arrendamiento, por
  * compare-and-set idempotente bajo el candado de la escena (data-model.md §7, `H-TRI-006-12`). El reloj y los identificadores salen de los puertos (INV-ARCH-001/002).
  *
- * @implements REQ-UX8-002, REQ-FAL7-006, REQ-ESC6-003, REQ-ESC6-004, REQ-ESC6-005, REQ-ESC6-008, REQ-ESC6-011, REQ-ESC6-019, REQ-ESC6-020, REQ-ESC6-024, REQ-ESC6-032, REQ-ESC6-034, INV-ESC6-007, INV-ESC6-014, INV-ESC6-019, EDGE-ESC6-003, EDGE-ESC6-006, SC-ESC6-014, SC-ESC6-018, SC-ESC6-081, SC-ESC6-093
+ * @implements REQ-CFG9-003, EDGE-009-019, SC-009-021, REQ-UX8-002, REQ-FAL7-006, REQ-ESC6-003, REQ-ESC6-004, REQ-ESC6-005, REQ-ESC6-008, REQ-ESC6-011, REQ-ESC6-019, REQ-ESC6-020, REQ-ESC6-024, REQ-ESC6-032, REQ-ESC6-034, INV-ESC6-007, INV-ESC6-014, INV-ESC6-019, EDGE-ESC6-003, EDGE-ESC6-006, SC-ESC6-014, SC-ESC6-018, SC-ESC6-081, SC-ESC6-093
  */
 
 import { sha256Hex } from '../../domain/audit/sha256.ts';
@@ -162,6 +162,16 @@ async function readScene(deps: ApplicationDeps, r: RepositorySet, access: SceneA
   return { scene, live, derived, last, window, now };
 }
 
+/**
+ * `scene.enabled = false` (feature 009, T1266, REQ-CFG9-003): la funcion esta deshabilitada por el administrador. Lectura con la cache de <= 60 s del puerto de parametros; fila ausente o ilegible
+ * = habilitada (INV-CFG9-003) y sin puerto (o sin el metodo) tambien. Solo gobierna INICIAR una generacion y el indicador de la vista: la generacion en curso termina (D9-16 = A).
+ */
+async function isSceneDisabled(deps: ApplicationDeps): Promise<boolean> {
+  const parameters = deps.platformParameters;
+  if (parameters?.isSceneEnabled === undefined) return false;
+  return !(await parameters.isSceneEnabled());
+}
+
 /** Vista de la escena (contrato `SceneView`): estado derivado, cambios pendientes, cuota, acciones habilitadas y consentimiento del usuario que consulta. */
 async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string, access: SceneAccess, reading: SceneReading): Promise<SceneView> {
   const svc = requireScene(deps);
@@ -173,6 +183,7 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
   const consentRequired = svc.realDriver && !petPhotosGranted && !householdPhotoGranted;
   const limits = await evaluateLimits(deps, r, scene.id, userId, now);
   const roleOk = canGenerateScene(access.role);
+  const disabled = await isSceneDisabled(deps);
   const hasChange = pending >= 1 || derived.status === 'failed' || (scene.image === null && hasInputs(live.snapshot));
   const statusOk = derived.status === 'outdated' || derived.status === 'failed';
   let blockedReason: SceneView['actions']['blockedReason'] = null;
@@ -191,8 +202,9 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
     quota: { max: svc.quotaMax, remaining, window, resetsAt: windowResetsAt(window, svc.utcOffsetMinutes) },
     pets: { shown: live.shown, total: live.total, maxPets: svc.maxPets },
     actions: {
-      canUpdate: blockedReason === null,
-      canRegenerate: roleOk && remaining >= 1 && !consentRequired && derived.status !== 'generating' && limits.allowed,
+      // Deshabilitada: ninguna accion de generar; `blockedReason` conserva la causa de siempre (no revela la configuracion) y la imagen vigente sigue visible.
+      canUpdate: blockedReason === null && !disabled,
+      canRegenerate: roleOk && remaining >= 1 && !consentRequired && derived.status !== 'generating' && limits.allowed && !disabled,
       canUploadHouseholdPhoto: access.householdId !== null && canManageHouseholdPhoto(access.role),
       blockedReason,
       retryAfterSeconds: limits.allowed ? null : limits.retryAfterSeconds,
@@ -201,6 +213,7 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
     lastError: derived.status === 'failed' ? derived.lastError : null,
     stale: scene.image !== null && derived.status !== 'ready',
     updatedAt: scene.updatedAt,
+    ...(disabled ? { disabled: true } : {}),
   };
 }
 
@@ -397,6 +410,9 @@ export class RequestSceneGenerationUseCase {
     const outcome = await deps.uow.runInTransaction(async (r) => {
       const access = await resolveSceneAccess(r, userId, target);
       if (!canGenerateScene(access.role)) throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'householdId');
+      // 009 (T1266, REQ-CFG9-003, EDGE-009-019): con `scene.enabled = false` no se inicia nada. Va DESPUES de autorizar (404/403) y ANTES de consentimiento, cuota, idempotencia y limites de tasa:
+      // sin intento, sin cuota, sin trabajo y sin llamada al generador. No revela la causa. La generacion ya en curso (la ejecuta `RunSceneGenerationUseCase`, sin esta guarda) termina (D9-16 = A).
+      if (await isSceneDisabled(deps)) throw new DomainErrorV34('ERR-SCENE-DISABLED');
       if (svc.realDriver && !(await hasActiveConsent(r, svc, userId, 'PET_PHOTOS')) && !(await hasActiveConsent(r, svc, userId, 'HOUSEHOLD_PHOTO'))) {
         throw new DomainErrorV34('ERR-SCENE-CONSENT-REQUIRED');
       }

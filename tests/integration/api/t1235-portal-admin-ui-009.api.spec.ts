@@ -110,11 +110,20 @@ describe('T1235 [REQ-ADM9-001] [A10] [A16] [A17] entrada y bundle propios del po
   });
 
   it('el enlace de acceso apunta exacto a /api/admin/auth/google/start y el cierre usa DELETE /api/admin/session con X-Argos-Request', () => {
-    const source = listFiles(join(ROOT, 'src/presentation/admin')).map((f) => readFileSync(f, 'utf8')).join('\n');
+    const files = listFiles(join(ROOT, 'src/presentation/admin'));
+    const source = files.map((f) => readFileSync(f, 'utf8')).join('\n');
     expect(source).toContain('/api/admin/auth/google/start');
     expect(source).toContain('/api/admin/session');
     expect(source).toMatch(/X-Argos-Request/i);
-    expect(source).not.toMatch(/adminId|idleExpiresAt/);
+    expect(source).not.toMatch(/idleExpiresAt/);
+    // adminId (clave del cable) solo se lee en AdminPortal.tsx al leer la sesion; el resto usa viewerId.
+    for (const file of files.filter((f) => !f.endsWith('AdminPortal.tsx'))) expect(readFileSync(file, 'utf8'), file).not.toMatch(/adminId/);
+    const portal = readFileSync(join(ROOT, 'src/presentation/admin/AdminPortal.tsx'), 'utf8');
+    const hits = portal.split('\n').filter((line) => /adminId/.test(line));
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits.every((line) => /body\.adminId|adminId\?: unknown/.test(line))).toBe(true);
+    const jsx = portal.slice(portal.indexOf('return ('));
+    expect(jsx).not.toMatch(/adminId/);
   });
 
   it('textos prohibidos en la pantalla de acceso (EDGE-009-008)', () => {

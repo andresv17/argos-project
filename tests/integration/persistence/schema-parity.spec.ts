@@ -453,7 +453,7 @@ describe('paridad estática 0001_baseline.sql + 0002 vs SQLite final (REQ-PG-003
     expect(inserts[0]).toContain("'Máximo de fotos de álbum por mascota'");
     const db = openSqliteDatabase(IN_MEMORY_DATABASE);
     try {
-      expect(db.prepare('SELECT key, value, description, updated_by_user_id FROM platform_parameters').all()).toEqual([
+      expect(db.prepare("SELECT key, value, description, updated_by_user_id FROM platform_parameters WHERE key = 'album.max_photos_per_pet'").all()).toEqual([
         { key: 'album.max_photos_per_pet', value: '10', description: 'Máximo de fotos de álbum por mascota', updated_by_user_id: null },
       ]);
     } finally {

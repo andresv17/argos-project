@@ -13,8 +13,10 @@ import type {
   AdminFlowStateRepositoryPort,
   AdminIdentityRecord,
   AdminIdentityRepositoryPort,
+  AdminParameterRepositoryPort,
   AdminProvider,
   AdminSessionRepositoryPort,
+  ParameterRowRecord,
   PendingRegistrationRecord,
   RegistrationDecisionRepositoryPort,
   RegistrationMethod,
@@ -161,6 +163,52 @@ export function registrationRepository(client: PoolClientLike): RegistrationDeci
     async decide(registrationId, to, decidedBy, decidedAt, createdAfter) {
       const result = await client.query(`UPDATE users SET account_status = $1, decided_at = $2, decided_by = $3 WHERE id = $4 AND ${recent(5)}`, [to, decidedAt, decidedBy, registrationId, createdAfter]);
       return result.rowCount === 1;
+    },
+  };
+}
+
+/**
+ * Edicion de parametros (T1264). Compare-and-set por UNA sentencia (`INSERT ... ON CONFLICT DO NOTHING` o `UPDATE ... WHERE key, value, updated_at`) con `rowCount === 1` como veredicto:
+ * en READ COMMITTED la escritura perdedora reevalua la fila ya cambiada y no afecta ninguna. `updated_by_user_id` queda `NULL`.
+ */
+export function adminParameterRepository(client: PoolClientLike): AdminParameterRepositoryPort {
+  return {
+    async find(key): Promise<ParameterRowRecord | null> {
+      const { rows } = await client.query('SELECT value, updated_at FROM platform_parameters WHERE key = $1', [key]);
+      return rows[0] === undefined ? null : { value: String(rows[0]['value']), updatedAt: String(rows[0]['updated_at']) };
+    },
+    async compareAndSet(key, description, next, expected) {
+      if (expected === null) {
+        const result = await client.query('INSERT INTO platform_parameters (key, value, description, updated_at, updated_by_user_id) VALUES ($1, $2, $3, $4, NULL) ON CONFLICT (key) DO NOTHING', [key, next.value, description, next.updatedAt]);
+        return result.rowCount === 1;
+      }
+      const result = await client.query('UPDATE platform_parameters SET value = $1, updated_at = $2, updated_by_user_id = NULL WHERE key = $3 AND value = $4 AND updated_at = $5', [next.value, next.updatedAt, key, expected.value, expected.updatedAt]);
+      return result.rowCount === 1;
+    },
+    async lastEditor(action, key) {
+      const { rows } = await client.query('SELECT admin_id FROM admin_audit_entries WHERE action = $1 AND object_ref = $2 ORDER BY occurred_at DESC, id DESC LIMIT 1', [action, key]);
+      return rows[0] === undefined ? null : String(rows[0]['admin_id']);
+    },
+    async resetAdminAccountsSceneQuota(subjects, emails) {
+      const { rows: accounts } = await client.query(
+        `SELECT id FROM users WHERE id IN (SELECT user_id FROM auth_identities WHERE provider = 'GOOGLE' AND provider_subject = ANY($1::text[]))
+           OR (email_verified_at IS NOT NULL AND lower(email) = ANY($2::text[]))`,
+        [[...subjects], emails.map((e) => e.toLowerCase())],
+      );
+      for (const account of accounts) {
+        const id = String(account['id']);
+        const { rows: scenes } = await client.query('SELECT id, consumed_generations FROM home_scenes WHERE owner_user_id = $1 AND consumed_generations > 0', [id]);
+        for (const scene of scenes) {
+          const done = await client.query('UPDATE home_scenes SET consumed_generations = 0 WHERE id = $1 AND consumed_generations = $2', [scene['id'], scene['consumed_generations']]);
+          if (done.rowCount !== 1) return null;
+        }
+        const { rows: carry } = await client.query('SELECT quota_window, consumed_generations FROM scene_quota_carry WHERE owner_user_id = $1 AND consumed_generations > 0', [id]);
+        for (const row of carry) {
+          const done = await client.query('UPDATE scene_quota_carry SET consumed_generations = 0 WHERE owner_user_id = $1 AND quota_window = $2 AND consumed_generations = $3', [id, row['quota_window'], row['consumed_generations']]);
+          if (done.rowCount !== 1) return null;
+        }
+      }
+      return { accountsReset: accounts.length };
     },
   };
 }

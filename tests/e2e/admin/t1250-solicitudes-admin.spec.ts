@@ -40,6 +40,7 @@ interface Fake {
 async function fakeAdmin(page: Page, init: Partial<Fake> = {}): Promise<Fake> {
   const fake: Fake = { rows: [], warning: false, pageSize: 20, decisions: [], listCalls: [], decisionStatus: 200, listStatus: 200, ...init };
   await page.route('**/api/admin/session', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(SESSION_BODY) }));
+  await page.route('**/api/admin/parameters', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: ['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.provider_location', 'scene.prompt.blocks'].map((key) => ({ key, valueType: key === 'scene.enabled' ? 'BOOLEAN' : 'INTEGER', value: key === 'scene.enabled' ? 'true' : '5', default: key === 'scene.enabled' ? 'true' : '5', source: 'DATABASE', constraints: { min: 1, max: 50 }, writable: key === 'album.max_photos_per_pet' || key === 'scene.enabled', lastEditedAt: null, lastEditedBy: null, etag: '"etag0000000000aa"' })) }) })); // T1269: el editor de parámetros también carga en el shell
   await page.route('**/api/admin/pending-count', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pending: fake.rows.length, warning: fake.warning }) }));
   await page.route('**/api/admin/registrations**', async (route) => {
     const request = route.request();

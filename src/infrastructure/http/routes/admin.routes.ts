@@ -8,6 +8,7 @@
  * - `GET /api/admin/pending-count` (T1247, REQ-APR9-005): contador de `PENDING` vigentes y `warning`; si superan el umbral escribe el aviso del operador (`warnPendingBacklog`, solo conteos).
  * - `GET /api/admin/registrations` (lista paginada por cursor) y `POST /api/admin/registrations/{id}/approve|reject` (decision atomica con compare-and-set; 404 problem+json
  *   `ERR-ADMIN-REGISTRATION-NOT-FOUND` si la perdio). Orden: `X-Argos-Request` (403, hook global) -> sesion (404 uniforme) -> validacion (422) -> decision. Solo las decisiones renuevan la inactividad.
+ * - `GET /api/admin/parameters` y `PUT /api/admin/parameters/{key}` (T1264, contrato 1.4.0): catalogo cerrado de seis claves y edicion con `If-Match` (412) sin valores en la auditoria.
  * - Cualquier otra ruta bajo `/api/admin` recorre la MISMA autenticación y responde el 404 uniforme (secuencia de puertos idéntica a la de las rutas ocultas, EDGE-009-008).
  * - El 404 uniforme se delega al manejador de rutas inexistentes (`reply.callNotFound()`): el mismo cuerpo y las mismas cabeceras que una ruta inexistente de `/api/`, sin código `ERR-*`.
  * `argos_session` y `argos_oauth` no se leen ni se tocan (INV-ADM9-002).
@@ -21,6 +22,7 @@ import { ONE_TIME_TOKEN_TTL_SECONDS } from '../../../domain/auth/one-time-token.
 import { DomainError } from '../../../generated/index.ts';
 import type { AdminAccessLimiter } from '../admin-rate-limit.ts';
 import { warnPendingBacklog } from '../pending-backlog-notice.ts';
+import { jsonBody } from '../request-input.ts';
 import type { RouteContext } from './use-cases.ts';
 
 export const ADMIN_SESSION_COOKIE = 'argos_admin_session';
@@ -161,6 +163,27 @@ export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecu
       return noStore(reply).status(200).send(decision);
     });
   }
+
+  // Parametros en caliente (T1264, REQ-CFG9-001/007): lista de las seis claves del catalogo y escritura con If-Match. Orden: X-Argos-Request (403, hook global) -> sesion (404 uniforme) -> esquema (422)
+  // -> precondicion (412). La lista no renueva la inactividad; la escritura si.
+  app.get('/api/admin/parameters', async (request, reply) => {
+    if ((await requireAdminSession(request, reply, false)) === null) return reply;
+    return noStore(reply).status(200).send(await useCases.adminListParameters.execute());
+  });
+
+  app.put<{ Params: { key: string }; Body: unknown }>('/api/admin/parameters/:key', async (request, reply) => {
+    const session = await requireAdminSession(request, reply, true);
+    if (session === null) return reply;
+    const view = await useCases.adminUpdateParameter.execute({ adminId: session.adminId, key: request.params.key, ifMatch: request.headers['if-match'], body: jsonBody(request.body) });
+    return noStore(reply).header('etag', view.etag).status(200).send(view);
+  });
+
+  // Reinicio de cuota de las cuentas del administrador (T1268, REQ-CFG9-006): operacion sin clave ni etag. Orden: X-Argos-Request (403, hook global) -> sesion (404) -> cuerpo vacio (422) -> reinicio (409 si pierde la carrera).
+  app.post<{ Body: unknown }>('/api/admin/parameters/scene-quota/reset', async (request, reply) => {
+    const session = await requireAdminSession(request, reply, true);
+    if (session === null) return reply;
+    return noStore(reply).status(200).send(await useCases.adminResetSceneQuota.execute({ adminId: session.adminId, body: request.body }));
+  });
 
   // Todo lo demás bajo /api/admin: la misma lectura de sesión que las rutas reales y el 404 uniforme (con o sin sesión, la ruta no existe). Mantiene idéntica la secuencia de puertos.
   const hidden = async (request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> => {

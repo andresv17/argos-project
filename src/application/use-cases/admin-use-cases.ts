@@ -27,6 +27,8 @@ export const ADMIN_AUDIT_ACTIONS = {
   sessionEnd: 'ADMIN_SESSION_END',
   registrationApprove: 'ADMIN_REGISTRATION_APPROVE',
   registrationReject: 'ADMIN_REGISTRATION_REJECT',
+  parameterUpdate: 'ADMIN_PARAMETER_UPDATE',
+  sceneQuotaReset: 'ADMIN_SCENE_QUOTA_RESET',
 } as const;
 
 /** Sin la configuración de administración (`deps.admin` ausente) las operaciones fallan cerrado: es un error de configuración del servidor, nunca un 404 distinguible. */

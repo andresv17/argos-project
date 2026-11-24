@@ -5,6 +5,7 @@
  */
 
 import { AuthenticateAdminUseCase, CompleteAdminGoogleLoginUseCase, EndAdminSessionUseCase, StartAdminGoogleLoginUseCase } from '../../../application/use-cases/admin-use-cases.ts';
+import { ListAdminParametersUseCase, ResetAdminSceneQuotaUseCase, UpdateAdminParameterUseCase } from '../../../application/use-cases/admin-parameter-use-cases.ts';
 import { CountPendingRegistrationsUseCase, DecideRegistrationUseCase, ListPendingRegistrationsUseCase } from '../../../application/use-cases/admin-registration-use-cases.ts';
 import { ChangePasswordUseCase, DeleteAccountUseCase, UpdateProfileUseCase } from '../../../application/use-cases/account-use-cases.ts';
 import { DeleteAccountWithGoogleUseCase, StartAccountDeletionReauthUseCase } from '../../../application/use-cases/account-google-deletion-use-cases.ts';
@@ -69,6 +70,9 @@ export function createUseCases(deps: ApplicationDeps) {
     adminPendingCount: new CountPendingRegistrationsUseCase(deps),
     adminListRegistrations: new ListPendingRegistrationsUseCase(deps),
     adminDecideRegistration: new DecideRegistrationUseCase(deps),
+    adminListParameters: new ListAdminParametersUseCase(deps),
+    adminUpdateParameter: new UpdateAdminParameterUseCase(deps),
+    adminResetSceneQuota: new ResetAdminSceneQuotaUseCase(deps),
     changePassword: new ChangePasswordUseCase(deps),
     updateProfile: new UpdateProfileUseCase(deps),
     deleteAccount: new DeleteAccountUseCase(deps),

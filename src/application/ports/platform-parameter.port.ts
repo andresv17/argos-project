@@ -19,4 +19,9 @@ export interface ParameterWarning {
 
 export interface PlatformParameterPort {
   getInt(key: KnownParameterKey): Promise<number>;
+  /**
+   * Interruptor `scene.enabled` (feature 009, T1266, REQ-CFG9-003) con la MISMA cache de <= 60 s: `false` solo con la fila `false`; ausente o ilegible = `true` (INV-CFG9-003).
+   * Opcional para no obligar a los dobles de prueba de 005 que solo conocen `getInt`; sin el metodo la escena esta habilitada.
+   */
+  isSceneEnabled?(): Promise<boolean>;
 }

@@ -46,6 +46,7 @@ import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.por
 import type {
   AdminAuditRecord,
   AdminAuditRepositoryPort,
+  AdminParameterRepositoryPort,
   AdminFlowStateRepositoryPort,
   AdminIdentityRepositoryPort,
   AdminSessionRepositoryPort,
@@ -104,6 +105,8 @@ export interface MemoryState extends SceneMemoryState {
   adminAudit?: AdminAuditRecord[];
   /** Decision de aprobacion por cuenta (T1247): instante y `adminId` de quien decidio. */
   userDecisions?: Record<string, { decidedAt: string; decidedBy: string }>;
+  /** `platform_parameters` (T1264): clave -> fila; opcional, ausente = vacia. */
+  platformParameters?: Record<string, { value: string; description: string; updatedAt: string }>;
   /** Escena del hogar (feature 006): `scenes`, `sceneAttempts`, `sceneConsents` y `sceneQuotaCarry` (opcionales; ausentes = vacías). */
 }
 
@@ -902,6 +905,37 @@ function registrationRepository(state: MemoryState): RegistrationDecisionReposit
   };
 }
 
+/** Edicion de parametros en memoria (T1264): comprobar y fijar en un solo paso sin cesion es atomico (paridad con el compare-and-set de SQLite y PostgreSQL). */
+function adminParameterRepository(state: MemoryState): AdminParameterRepositoryPort {
+  const rows = (): Record<string, { value: string; description: string; updatedAt: string }> => (state.platformParameters ??= {});
+  return {
+    async find(key) {
+      const row = rows()[key];
+      return row === undefined ? null : { value: row.value, updatedAt: row.updatedAt };
+    },
+    async compareAndSet(key, description, next, expected) {
+      const current = rows()[key];
+      if (expected === null) {
+        if (current !== undefined) return false;
+      } else if (current === undefined || current.value !== expected.value || current.updatedAt !== expected.updatedAt) return false;
+      rows()[key] = { value: next.value, description: current?.description ?? description, updatedAt: next.updatedAt };
+      return true;
+    },
+    async lastEditor(action, key) {
+      const entries = (state.adminAudit ??= []).filter((r) => r.action === action && r.objectRef === key);
+      return entries.length === 0 ? null : entries.reduce((a, b) => (b.occurredAt >= a.occurredAt ? b : a)).adminId;
+    },
+    async resetAdminAccountsSceneQuota(subjects, emails) {
+      const wanted = new Set(emails.map((e) => e.toLowerCase()));
+      const linked = new Set((state.authIdentities ?? []).filter((i) => i.provider === 'GOOGLE' && subjects.includes(i.providerSubject)).map((i) => i.userId));
+      const ids = new Set(state.users.filter((u) => linked.has(u.id) || (u.emailVerifiedAt !== undefined && u.email !== null && wanted.has(u.email.toLowerCase()))).map((u) => u.id));
+      state.scenes = (state.scenes ?? []).map((s) => (s.ownerUserId !== null && ids.has(s.ownerUserId) ? { ...s, consumedGenerations: 0 } : s));
+      state.sceneQuotaCarry = (state.sceneQuotaCarry ?? []).map((c) => (ids.has(c.ownerUserId) ? { ...c, consumedGenerations: 0 } : c));
+      return { accountsReset: ids.size };
+    },
+  };
+}
+
 function repositoriesOver(state: MemoryState): RepositorySet {
   return {
     users: userRepository(state),
@@ -928,6 +962,7 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     adminFlows: adminFlowRepository(state),
     adminAudit: adminAuditRepository(state),
     registrations: registrationRepository(state),
+    adminParameters: adminParameterRepository(state),
   };
 }
 

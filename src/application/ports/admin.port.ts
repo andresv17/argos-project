@@ -117,3 +117,32 @@ export interface RegistrationDecisionRepositoryPort {
    */
   decide(registrationId: string, to: 'ACTIVE' | 'REJECTED', decidedBy: string, decidedAt: string, createdAfter: string): Promise<boolean>;
 }
+
+/** Fila de `platform_parameters` tal como la ve la edicion de `/admin`: solo texto y marca de tiempo (nunca `updated_by_user_id`). */
+export interface ParameterRowRecord {
+  readonly value: string;
+  readonly updatedAt: string;
+}
+
+/**
+ * Edicion de parametros de plataforma desde `/admin` (feature 009, Fase 5a, T1264, REQ-CFG9-001, REQ-CFG9-007). Escribe en `platform_parameters` SIN tocar `updated_by_user_id` (queda `NULL`):
+ * el autor vive solo en `admin_audit_entries` (MER-09). Opera por clave del catalogo cerrado; no crea claves nuevas (la fila ausente de una clave del catalogo se inserta).
+ */
+export interface AdminParameterRepositoryPort {
+  /** Fila actual o `null` si no existe (sin interpretar). */
+  find(key: string): Promise<ParameterRowRecord | null>;
+  /**
+   * Compare-and-set ATOMICO. `expected = null`: inserta solo si la fila sigue ausente. `expected` presente: un unico `UPDATE ... WHERE key = ? AND value = ? AND updated_at = ?`.
+   * `true` solo si ESTA llamada escribio (una fila afectada); `false` si otra escritura gano. Fija `value` y `updated_at`; `updated_by_user_id` queda `NULL`.
+   */
+  compareAndSet(key: string, description: string, next: ParameterRowRecord, expected: ParameterRowRecord | null): Promise<boolean>;
+  /** Id de administrador de la ULTIMA entrada de `admin_audit_entries` con esa accion y `object_ref = key`; `null` si nunca se edito desde `/admin`. */
+  lastEditor(action: string, key: string): Promise<string | null>;
+  /**
+   * Reinicio de cuota de las cuentas del administrador (T1268, REQ-CFG9-006, opcion A de Neo): identifica las cuentas de usuario por el `sub` de Google vinculado (`auth_identities`) o por un correo
+   * VERIFICADO igual (sin distinguir mayusculas) a uno de `emails`, y pone a cero SOLO `home_scenes.consumed_generations` con `owner_user_id` de esas cuentas y su `scene_quota_carry`. Los hogares
+   * compartidos (`owner_user_id` nulo) y `scene.global_quota_used.*` NO se tocan. Cada fila se pone a cero con compare-and-set sobre el valor leido: si otra escritura lo cambio, devuelve `null`
+   * (el caso de uso revierte la transaccion entera, sin cambios parciales). Devuelve cuantas cuentas coincidieron (puede ser 0), nunca sus ids.
+   */
+  resetAdminAccountsSceneQuota(subjects: readonly string[], emails: readonly string[]): Promise<{ readonly accountsReset: number } | null>;
+}

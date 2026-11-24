@@ -6,7 +6,9 @@
  * se pide a la ruta propia del ámbito (302 firmada por el servidor): el DOM no guarda URL firmadas (NFR-ESC6-003). `SceneBlockView` es presentacional; `SceneBlock`
  * es el contenedor (lectura, sondeo cada 3 s mientras `generating`, `Idempotency-Key` nueva por clic).
  *
- * @implements REQ-UX8-002, EDGE-008-021, REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, SC-ESC6-131, SC-ESC6-132, SC-ESC6-133, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
+ * Con `view.disabled` (feature 009, T1266, REQ-CFG9-003) muestra la caja gris «Función deshabilitada» sin revelar la causa, conserva la imagen vigente y deshabilita el botón.
+ *
+ * @implements REQ-CFG9-003, EDGE-009-019, REQ-UX8-002, EDGE-008-021, REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, SC-ESC6-131, SC-ESC6-132, SC-ESC6-133, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { browserScheduler } from '../browser-scheduler.ts';
@@ -54,6 +56,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
   const Title = `h${headingLevel}` as 'h2' | 'h4';
   const statusId = `${idPrefix}-status`;
   const reasonId = `${idPrefix}-reason`;
+  const disabledId = `${idPrefix}-disabled`;
   const src = view === null ? null : sceneImagePath(scope, view.imageTag);
   const downloadHref = view === null ? null : sceneImageDownloadPath(scope, view.imageTag);
   const downloadName = view === null ? null : sceneDownloadFilename(view.updatedAt);
@@ -74,6 +77,13 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
           <div id={statusId} role="status" aria-live="polite" aria-atomic="true" className="text-sm text-slate-900">
             {view === null ? (status === 'LOADING' ? 'Cargando la escena…' : null) : sceneStatusText(view)}
           </div>
+          {view?.disabled === true ? (
+            // Caja gris sin causa ni configuracion (REQ-CFG9-003, EDGE-009-019): la imagen vigente sigue visible y no hay accion de generar.
+            <div id={disabledId} className="grid gap-1 rounded-2xl border border-slate-400 bg-slate-100 px-4 py-3 text-slate-900">
+              <p className="text-sm font-semibold">Función deshabilitada</p>
+              <p className="text-sm">La creación de imágenes no está disponible por ahora. Tu imagen actual sigue disponible.</p>
+            </div>
+          ) : null}
           {error === null ? null : (
             <p role="alert" className="rounded-2xl border border-danger bg-red-50 px-4 py-3 text-sm text-red-900">
               {error}
@@ -101,7 +111,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
               {petsShown === null ? null : <p className="text-sm text-slate-900">{petsShown}</p>}
               <div className="flex min-w-0 max-w-full flex-col items-start gap-3 sm:flex-row sm:flex-wrap">
                 <div className="grid min-w-0 max-w-full gap-1">
-                  <Button disabled={busy || generate?.disabled === true} {...(generate?.reason == null ? {} : { describedBy: reasonId })} onClick={onRegenerate}>
+                  <Button disabled={busy || generate?.disabled === true || view.disabled === true} {...(view.disabled === true ? { describedBy: generate?.reason == null ? disabledId : `${disabledId} ${reasonId}` } : generate?.reason == null ? {} : { describedBy: reasonId })} onClick={onRegenerate}>
                     {generate?.label ?? ''}
                   </Button>
                 </div>

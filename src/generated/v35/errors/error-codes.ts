@@ -462,6 +462,15 @@ export const ERROR_CATALOG = {
     "requirementRef": "REQ-ESC6-023, REQ-ESC6-025",
     "note": "No revela qué dueño falta ni a quién pertenecen las demás mascotas; 0 llamadas al generador"
   },
+  "ERR-SCENE-DISABLED": {
+    "type": "urn:argos:error:ERR-SCENE-DISABLED",
+    "status": 409,
+    "title": "Función deshabilitada",
+    "invariantRef": "INV-CFG9-003",
+    "detailTemplate": "La creación de imágenes del hogar está deshabilitada por ahora. Tu imagen actual sigue disponible.",
+    "requirementRef": "REQ-CFG9-003, EDGE-009-019",
+    "note": "Respuesta HTTP del POST de generacion (hogar y propietario) con scene.enabled = false (feature 009, 1.1.0): 0 intentos, 0 consumo de cuota y 0 llamadas al generador; se evalua despues de la autorizacion (404/403) y antes de consentimiento, cuota y limites de tasa. No es SCENE_STATE: no viaja en lastError. La imagen vigente se conserva y una generacion ya en curso termina (D9-16 = A). No revela la causa ni la configuracion"
+  },
   "ERR-SCENE-GENERATION-FAILED": {
     "type": "urn:argos:error:ERR-SCENE-GENERATION-FAILED",
     "status": 502,
