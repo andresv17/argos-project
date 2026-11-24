@@ -93,7 +93,7 @@ export class NullSceneRepository implements SceneRepository {
   expireLease(_sceneId: string, _now: string): Promise<SceneAttemptRecord | null> {
     return Promise.resolve(null);
   }
-  markProviderCall(_attemptId: string, _now: string): Promise<void> {
+  markProviderCall(_attemptId: string, _now: string, _call: { readonly model: string | null; readonly location: string | null }): Promise<void> {
     return Promise.resolve();
   }
   closeAttempt(_input: CloseAttemptInput): Promise<boolean> {

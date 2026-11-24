@@ -223,7 +223,7 @@ describe('requestSceneGeneration (T854): contadores y enfriamiento (REQ-ESC6-034
   async function fail(t: ReturnType<typeof setup>, n: number): Promise<void> {
     const attempt = attemptsOf(t)[n - 1];
     // 009 `#60` (REQ-LIM9-001): solo un FAILED con llamada al proveedor (marca `provider_call_started_at`) cuenta para el tope de fallos y el de actor; los FAILED sin llamada no.
-    await t.h.uow.runInTransaction((r) => r.scenes.markProviderCall(attempt?.id ?? '', t.h.clock.nowIsoTimestamp()));
+    await t.h.uow.runInTransaction((r) => r.scenes.markProviderCall(attempt?.id ?? '', t.h.clock.nowIsoTimestamp(), { model: 'm', location: 'l' }));
     await t.h.uow.runInTransaction((r) => r.scenes.closeAttempt({ sceneId: attempt?.sceneId ?? '', attemptId: attempt?.id ?? '', outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', degraded: false, now: t.h.clock.nowIsoTimestamp() }));
   }
   const retryAfter = async (promise: Promise<unknown>): Promise<number> => {

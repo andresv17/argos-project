@@ -81,8 +81,8 @@ export function postgresSceneRepository(client: PoolClientLike): SceneRepository
       const closed = await client.query(`SELECT ${ATTEMPT_COLUMNS} FROM scene_attempts WHERE id = $1`, [row['current_attempt_id']]);
       return closed.rows[0] === undefined ? null : toAttemptRecord(closed.rows[0]);
     },
-    async markProviderCall(attemptId, now) {
-      await client.query('UPDATE scene_attempts SET provider_call_started_at = $1 WHERE id = $2', [now, attemptId]);
+    async markProviderCall(attemptId, now, call) {
+      await client.query('UPDATE scene_attempts SET provider_call_started_at = $1, provider_model = $2, provider_location = $3 WHERE id = $4', [now, call.model, call.location, attemptId]);
     },
     async closeAttempt({ sceneId, attemptId, outcome, errorCode, degraded, now }) {
       const closed = await client.query("UPDATE scene_attempts SET phase = 'DONE', outcome = $1, error_code = $2, degraded = $3, finished_at = $4 WHERE id = $5 AND scene_id = $6 AND outcome IS NULL", [

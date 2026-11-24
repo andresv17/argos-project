@@ -82,7 +82,7 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
       if (attempt.idempotencyKeyHash !== null && attempts().some((a) => a.idempotencyKeyHash === attempt.idempotencyKeyHash)) {
         throw Object.assign(new Error('UNIQUE constraint failed: scene_attempts.idempotency_key_hash'), { code: 'SQLITE_CONSTRAINT' });
       }
-      state.sceneAttempts = [...attempts(), copy(attempt)];
+      state.sceneAttempts = [...attempts(), copy({ ...attempt, providerModel: attempt.providerModel ?? null, providerLocation: attempt.providerLocation ?? null })];
       return true;
     },
     async claimAttempt({ sceneId, attemptId, now, leaseExpiresAt }) {
@@ -110,8 +110,8 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
       const closed = attempt === undefined ? undefined : attempts().find((a) => a.id === attempt.id);
       return closed === undefined ? null : copy(closed);
     },
-    async markProviderCall(attemptId, now) {
-      replaceAttempt(attemptId, { providerCallStartedAt: now });
+    async markProviderCall(attemptId, now, call) {
+      replaceAttempt(attemptId, { providerCallStartedAt: now, providerModel: call.model, providerLocation: call.location });
     },
     async closeAttempt({ sceneId, attemptId, outcome, errorCode, degraded, now }) {
       const attempt = attempts().find((a) => a.id === attemptId && a.sceneId === sceneId);

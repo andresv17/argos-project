@@ -1,4 +1,24 @@
 <!--
+SYNC IMPACT REPORT (3.9.0 -> 3.10.0, 2026-11-23)
+==================
+Version change: 3.9.0 -> 3.10.0
+Bump rationale: MINOR. Enmienda 009-B (P5-02 = A, D9-09 = A, tarea T1255; decisiones de Neo D-1, D-2, D-3 del 2026-11-23):
+  acotación de modelos de la excepción de pago de Vertex AI (Principio VI) a la lista cerrada gemini-2.5-flash-image
+  (deprecado, retiro 2027-03-15, mantenido por D-1 = A con deuda DEUDA-009-MODEL-DEFAULT-2027, fecha límite 2027-02-01),
+  gemini-3.1-flash-image y gemini-3-pro-image; Anexo A (matriz 15 regiones x 3 modelos, coste en micro-USD enteros por
+  intento como cota superior: us-central1 verificado con 45_000 µUSD para gemini-2.5-flash-image y 75_000 µUSD para
+  gemini-3.1-flash-image; gemini-3-pro-image sin celda regional al ser solo global, referencia conservadora 158_160 µUSD;
+  techo derivado floor(5_000_000 / 45_000) = 111 imágenes/mes) y regla de gasto acumulado sobre el tope de 5 USD/mes
+  (sin ampliarlo); región `global` latente y fuera de la Enmienda (SCENE_GLOBAL_LOCATION_ENABLED = false).
+Modified principles: VI (condición (d) de la excepción 006, concretada).
+Modified sections: Principio VI (Enmienda 009-B), Anexo A (nuevo).
+Added/Removed sections: Anexo A.
+Follow-up TODOs: cambio del defecto scene.provider_model antes de 2027-02-01 (DEUDA-009-MODEL-DEFAULT-2027).
+Autorizada y firmada (`APPROVED`) por Andrés Vallejo (Neo, Nivel 2), 2026-11-23 (tarea T1255). Borrador:
+.specify/memory/audits/architect-009-5b-borradores.md.
+-->
+
+<!--
 SYNC IMPACT REPORT (3.8.0 -> 3.9.0, 2026-11-23)
 ==================
 Version change: 3.8.0 -> 3.9.0
@@ -251,6 +271,8 @@ El stack tecnológico y el árbol de carpetas son los de la sección «Technolog
 
 **Excepción acotada de desarrollo local privado: `gemini-api` (Enmienda 006-bis, N2-13, 2026-11-18).** Sin modificar la excepción anterior, se admite el uso del driver `ARGOS_SCENE_DRIVER=gemini-api` (Google Gemini Developer API) de la feature 006 únicamente cuando `NODE_ENV` es distinto de `production` y en el equipo local de Neo (0 usuarios externos). Condiciones: (a) la aplicación no arranca con `gemini-api` si `NODE_ENV=production`, y `SCENE_REAL_DRIVER_ACTIVATED` sigue `false`; esta excepción no activa ni cumple la compuerta del driver real (N2-10, `REQ-ESC6-028`, T885), que sigue rigiendo producción y Vertex; (b) el gasto lo acota Neo con un tope de referencia de 5 USD por mes en la consola del proveedor; (c) la clave `GEMINI_API_KEY` vive solo en el `.env` local ignorado por git y nunca en Terraform, Secret Manager, GitHub Actions ni el repositorio; (d) solo se usa `fetch` nativo de Node 22, sin dependencia npm nueva, con la clave únicamente en la cabecera `x-goog-api-key`; (e) el CI no hace llamadas reales; (f) el envío de fotos exige el consentimiento vigente de la feature (`INV-ESC6-014`); (g) la excepción no cubre ningún otro servicio, modelo ni proveedor, y cualquier ampliación requiere una autorización nueva (Nivel 2).
 
+**Acotación de modelos de la excepción 006 (Enmienda 009-B, `P5-02`, `APPROVED` 3.10.0, 2026-11-23, `T1255`).** Sin modificar el servicio, el proveedor (Google Vertex AI, Gemini Image), el tope ni las condiciones (a)..(d) de la excepción de la feature 006, la condición (d) se concreta así: el único conjunto de modelos de generación de imágenes que la plataforma puede configurar es la **lista cerrada** `gemini-2.5-flash-image`, `gemini-3.1-flash-image` y `gemini-3-pro-image`. Condiciones: (e) el tope de 5 USD equivalentes (22500 COP) por mes **no se amplía** y se garantiza sobre el gasto acumulado del mes por modelo × región, con el coste unitario en micro-USD enteros por intento (cota superior, redondeado hacia arriba) del Anexo A; un par modelo × región sin coste en esa tabla **no es seleccionable** (fail-closed) y el reinicio de cuota de una cuenta no reduce el gasto acumulado; (f) `scene.global_quota_max` es el freno de imágenes y su techo se deriva de la tabla, `floor(5_000_000 / costeMin)` (`111` imágenes/mes con `costeMin = 45_000` µUSD), no es un valor fijo de código; (g) la región `global` **no forma parte** de las regiones admitidas por esta Enmienda: queda declarada latente (constante de código `SCENE_GLOBAL_LOCATION_ENABLED = false`) y su habilitación exige una decisión posterior de Nivel 2 tras el dictamen de ubicación de `/rama` y la enmienda versionada de la feature 006 (`T1299`); (h) `gemini-2.5-flash-image` figura **deprecado por el proveedor con retiro el 2027-03-15** (fuente: página oficial del modelo, consulta 2026-11-23); la Enmienda lo mantiene en la lista **únicamente hasta esa fecha** y a partir de ella deja de ser seleccionable sin necesidad de nueva enmienda; queda registrada la deuda `DEUDA-009-MODEL-DEFAULT-2027` (cambiar el defecto de `scene.provider_model` y su semilla; fecha límite 2027-02-01); (i) añadir, quitar o sustituir un modelo de la lista, o modificar el Anexo A con valores nuevos, requiere una autorización nueva (Nivel 2).
+
 **Rationale**: mantiene reproducible el entorno y acotado el coste de mantenimiento.
 
 ## Technology Stack & Repository Structure
@@ -303,7 +325,7 @@ Esta constitución prevalece sobre cualquier plan, tarea o línea de código.
 - **Revisión de cumplimiento.** Toda revisión verifica el cumplimiento de estos principios. Una desviación aceptada se registra con responsable y condición de cierre en «Complexity Tracking» del plan y como tarea abierta en `tasks.md`.
 - **Guía operativa.** `spec-system.md` y `CLAUDE.md` son la guía de ejecución para agentes; ante una diferencia con este documento prevalece la constitución.
 
-**Version**: 3.9.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-23
+**Version**: 3.10.0 | **Ratified**: 2026-11-05 | **Last Amended**: 2026-11-23
 
 Versión 3.3.0 firmada por Andrés Vallejo (Nivel 2) el 2026-11-15 (tarea T403). Firmada por Neo (Level 2), 2026-11-15.
 
@@ -316,3 +338,44 @@ Versión 3.7.0 (Enmienda 006-bis, N2-13, 2026-11-18: excepción acotada al Princ
 Versión 3.8.0 (Enmienda 008, 2026-11-20: `jose` 6.2.17 extendido a `src/infrastructure/http/google-oidc-verify.ts` para el `id_token` de Google, y cookie `argos_oauth` `SameSite=Lax` de 900 s acotada al flujo OIDC, con `argos_session` sin cambio) autorizada y firmada (`APPROVED`) por Andrés Vallejo (Nivel 2) el 2026-11-23.
 
 Versión 3.9.0 (Enmienda 009-A, 2026-11-23: cookies de administración `argos_admin_session` `SameSite=Strict` `Path=/api/admin` 30/10 min y `argos_admin_oauth` `SameSite=Lax` `Path=/api/admin/auth/google` 900 s, identidad por Google verificado en lista cerrada de configuración y extensión de `jose` 6.2.17 en `google-oidc-verify.ts` al flujo de administración, con `argos_session`/`argos_oauth` sin cambio) autorizada y firmada (`APPROVED`) por Andrés Vallejo (Nivel 2) el 2026-11-23 (tarea T1225).
+
+Versión 3.10.0 (Enmienda 009-B, 2026-11-23: acotación de modelos de la excepción 006 a la lista cerrada `gemini-2.5-flash-image` [deprecado, retiro 2027-03-15], `gemini-3.1-flash-image` y `gemini-3-pro-image`, Anexo A en micro-USD enteros con `us-central1` verificado [`45_000` y `75_000` µUSD; techo derivado `111` imágenes/mes], regla de gasto acumulado <= `5_000_000` µUSD/mes y región `global` latente `SCENE_GLOBAL_LOCATION_ENABLED = false`) autorizada y firmada (`APPROVED`) por Andrés Vallejo (Nivel 2) el 2026-11-23 (tarea T1255).
+
+
+---
+
+## Anexo A — Costes unitarios por modelo × región (Enmienda 009-B, `APPROVED`, 2026-11-23, `T1255`)
+
+**Unidad:** micro-USD enteros por intento de generación (1 USD = 1 000 000), cota superior (imagen de salida 1K a la resolución fija de la plataforma + entradas máximas de 9 imágenes + 2 000 tokens de texto), redondeado hacia arriba (`D-2`). Moneda USD; sin conversión a COP en código. Tope mensual: `5_000_000` micro-USD. Techo derivado de `scene.global_quota_max`: `floor(5_000_000 / 45_000) = 111` imágenes/mes.
+
+**Fuente oficial verificada (consulta 2026-11-23, Nivel 2 / `T1301`):** `https://cloud.google.com/vertex-ai/generative-ai/pricing` y `https://cloud.google.com/vertex-ai/generative-ai/docs/data-governance`.
+- `gemini-2.5-flash-image` (GA, deprecado, retiro `2027-03-15`): salida 1K = 1 290 tokens (`$0.039`) + entrada `$0.30/1M` (~13 610 tok = `$0.0041`) → cota superior **`45_000` µUSD** (`$0.045`/intento).
+- `gemini-3.1-flash-image` (US/EU/global): salida 1K = 1 120 tokens a `$60/1M` (`$0.0672`) + entrada `$0.50/1M` (12 080 tok = `$0.0061`) → cota superior **`75_000` µUSD** (`$0.075`/intento).
+- `gemini-3-pro-image` (solo `global`): cota superior conservadora de referencia **`158_160` µUSD**; al ser solo `global` y quedar `global` fuera de esta Enmienda (`SCENE_GLOBAL_LOCATION_ENABLED = false`), ninguna celda regional queda habilitada.
+
+**Matriz región × modelo** (15 regiones × 3 modelos; `scene.provider_location`):
+
+| Región | `gemini-2.5-flash-image` | `gemini-3.1-flash-image` | `gemini-3-pro-image` |
+|---|---|---|---|
+| `us-central1` | `45_000` µUSD (verificado 2026-11-23) | `75_000` µUSD (verificado 2026-11-23) | NO VERIFICADA (solo `global`) |
+| `us-east1` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `us-east4` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `us-east5` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `us-south1` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `us-west1` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `us-west4` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `northamerica-northeast1` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `europe-west1` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `europe-west2` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `europe-west3` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `europe-west4` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `europe-west9` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `asia-northeast1` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `asia-southeast1` | NO VERIFICADA | NO VERIFICADA | NO VERIFICADA |
+| `global` | FUERA DE LA ENMIENDA (latente) | FUERA DE LA ENMIENDA (latente) | FUERA DE LA ENMIENDA (latente; único endpoint conocido; ref. conservadora `158_160` µUSD) |
+
+Reglas de lectura:
+1. Celda `NO VERIFICADA` = par **no seleccionable** (fail-closed, `EDGE-009-036`). Hoy son seleccionables en `/admin` los dos pares verificados de `us-central1`: `(gemini-2.5-flash-image, us-central1) = 45_000 µUSD` y `(gemini-3.1-flash-image, us-central1) = 75_000 µUSD`.
+2. Una celda pasa a valor solo con URL de fuente, fecha de consulta, disponibilidad regional verificada y estado del modelo, y su cambio requiere autorización de Nivel 2 (cláusula (i)).
+3. `gemini-3-pro-image`: al ser solo `global` y estar `global` latente, no tiene hoy ningún par seleccionable.
+4. Regla de gasto y fail-closed: `specs/009-aprobacion-admin-correo/regla-coste-micro-usd-009.md`.

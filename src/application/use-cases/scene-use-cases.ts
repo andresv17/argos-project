@@ -465,7 +465,7 @@ export class RequestSceneGenerationUseCase {
         sceneId: scene.id,
         attempt: {
           id: attemptId, sceneId: scene.id, actorUserId: userId, action, mode, fingerprint: live.fingerprint, inputsSnapshot: serializeInputsSnapshot(live.snapshot), resultObjectId,
-          phase: 'PENDING', claimedAt: null, providerCallStartedAt: null, quotaWindow: window, quotaMax: svc.quotaMax, outcome: null, errorCode: null, degraded: false,
+          phase: 'PENDING', claimedAt: null, providerCallStartedAt: null, providerModel: null, providerLocation: null, quotaWindow: window, quotaMax: svc.quotaMax, outcome: null, errorCode: null, degraded: false,
           idempotencyKeyHash: sceneIdempotencyHash(userId, scene.id, action, key), idempotencyExpiresAt: shiftIsoTimestamp(now, IDEMPOTENCY_TTL_MS), startedAt: now, finishedAt: null,
         },
         now,

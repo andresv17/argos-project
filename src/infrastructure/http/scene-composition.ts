@@ -15,7 +15,7 @@
 import type { SceneGlobalQuotaPort } from '../../application/ports/scene-global-quota.port.ts';
 import type { SceneJob, SceneJobDispatcherPort } from '../../application/ports/scene-job-dispatcher.port.ts';
 import type { SceneServices } from '../../application/use-cases/use-case-support.ts';
-import type { SceneProviderParameters } from '../../domain/scene/provider-parameters.ts';
+import { SCENE_DEFAULT_LOCATION, SCENE_DEFAULT_MODEL, type SceneProviderParameters } from '../../domain/scene/provider-parameters.ts';
 import { SCENE_GEMINI_API_NOTICE_VERSION, SCENE_GEMINI_API_PROVIDER_ID, SCENE_NOTICE_VERSION, SCENE_PROVIDER_ID } from '../../domain/scene/notice.ts';
 import { CloudTasksSceneDispatcher } from '../adapters/cloud-tasks-scene-dispatcher.adapter.ts';
 import { FakeSceneImageGenerator } from '../adapters/fake-scene-image-generator.adapter.ts';
@@ -126,5 +126,6 @@ export function composeSceneServices(config: AppConfig, options: SceneCompositio
         : new FakeSceneImageGenerator({ mode: 'ok' }),
     dispatcher: selectSceneDispatcher(scene, options),
     ...(real && options.globalQuota !== undefined ? { globalQuota: options.globalQuota } : {}),
+    ...(real ? { providerCall: { model: options.providerParameters?.model ?? scene.model ?? SCENE_DEFAULT_MODEL, location: options.providerParameters?.location ?? scene.location ?? SCENE_DEFAULT_LOCATION } } : {}),
   };
 }

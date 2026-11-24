@@ -121,6 +121,8 @@ export interface SceneServices {
   readonly dispatcher: SceneJobDispatcherPort;
   /** Cuota GLOBAL mensual (Fase 14, T948, N2-02): solo con el driver real; sin puerto el worker no la exige (simulado). */
   readonly globalQuota?: SceneGlobalQuotaPort;
+  /** Modelo y region VIGENTES de la llamada (T1298, D9-22 = A): los guarda `markProviderCall` por intento. Sin valor (driver simulado o gemini-api) el intento registra null (sin proveniencia inventada); la lectura en caliente es de T1254/T1267. */
+  readonly providerCall?: { readonly model: string; readonly location: string };
 }
 
 /**

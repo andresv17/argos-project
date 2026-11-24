@@ -7,6 +7,7 @@
  * @implements REQ-CFG9-001, REQ-CFG9-003, REQ-CFG9-007, REQ-CFG9-008, INV-CFG9-003, EDGE-009-014
  */
 
+import { DEFAULT_PROMPT_BLOCKS, validatePromptBlocks } from '../scene/prompt-blocks.ts';
 import {
   SCENE_ALLOWED_LOCATIONS,
   SCENE_DEFAULT_GLOBAL_QUOTA_MAX,
@@ -23,6 +24,8 @@ import { ALBUM_MAX_PHOTOS_PER_PET_KEY, PARAMETER_CATALOG, interpretParameter } f
 
 export const SCENE_ENABLED_KEY = 'scene.enabled' as const;
 export const SCENE_PROMPT_BLOCKS_KEY = 'scene.prompt.blocks' as const;
+/** A-3: 1000 caracteres por bloque (cota de ergonomia, no de coste ni de seguridad). */
+export const PROMPT_BLOCK_MAX_LENGTH = 1000;
 
 /** Orden FIJO del catalogo (el de la respuesta de `listAdminParameters`). */
 export const ADMIN_PARAMETER_KEYS = [
@@ -42,6 +45,8 @@ export interface AdminParameterConstraints {
   readonly min?: number;
   readonly max?: number;
   readonly allowed?: readonly string[];
+  /** Largo maximo por bloque de `scene.prompt.blocks` (A-3, cota de ergonomia). */
+  readonly maxBlockLength?: number;
 }
 
 export interface AdminParameterSpec {
@@ -118,13 +123,13 @@ export const ADMIN_PARAMETER_CATALOG: Readonly<Record<AdminParameterKey, AdminPa
   [SCENE_PROMPT_BLOCKS_KEY]: {
     key: SCENE_PROMPT_BLOCKS_KEY,
     valueType: 'JSON_BLOCKS',
-    // Provisional: los nombres, la longitud por bloque y el texto vigente los fijan T1261/T1303 (5b). Mientras tanto la clave no es escribible.
-    defaultValue: '{}',
-    constraints: {},
+    // T1267/T1303: el defecto es el JSON canonico de los 6 bloques vigentes; la clave sigue sin ser escribible hasta la firma de T1255 (P5-06 = B).
+    defaultValue: JSON.stringify(DEFAULT_PROMPT_BLOCKS),
+    constraints: { maxBlockLength: PROMPT_BLOCK_MAX_LENGTH },
     writable: false,
     description: 'Bloques del prompt de la escena',
     isCanonical: () => false,
-    isEffective: (raw) => raw.length > 0,
+    isEffective: (raw) => validatePromptBlocks(raw, PROMPT_BLOCK_MAX_LENGTH).ok,
   },
 };
 

@@ -60,6 +60,9 @@ export interface SceneAttemptRecord {
   readonly phase: SceneAttemptPhase;
   readonly claimedAt: string | null;
   readonly providerCallStartedAt: string | null;
+  /** Modelo y region de SU llamada (D9-22 = A, EDGE-009-045; T1298); `null` si el intento no llego a la llamada o es una fila previa. Opcionales al insertar (se guardan al marcar la llamada). */
+  readonly providerModel?: string | null;
+  readonly providerLocation?: string | null;
   readonly quotaWindow: string;
   readonly quotaMax: number;
   readonly outcome: SceneAttemptOutcome | null;
@@ -144,8 +147,8 @@ export interface SceneRepository {
    * y su `actorUserId` es el actor de la auditoría `SCENE_FAILED`, `H-KEY-F5-5`) o `null` si no cambió nada (otra lectura ganó la carrera o el arrendamiento sigue vigente).
    */
   expireLease(sceneId: string, now: string): Promise<SceneAttemptRecord | null>;
-  /** Escribe `provider_call_started_at` antes de llamar al proveedor (H-LCK-006-04). */
-  markProviderCall(attemptId: string, now: string): Promise<void>;
+  /** Escribe `provider_call_started_at` y el modelo y la region de la llamada (D9-22 = A) antes de llamar al proveedor (H-LCK-006-04). Sin valores de prompt. */
+  markProviderCall(attemptId: string, now: string, call: { readonly model: string | null; readonly location: string | null }): Promise<void>;
   /** Cierra el intento sin publicar; `false` si el intento no existe, no es de la escena o ya estaba cerrado. */
   closeAttempt(input: CloseAttemptInput): Promise<boolean>;
   /** T2: publica la imagen y cierra el intento `SUCCEEDED`; devuelve el id de la imagen anterior (para encolar su borrado) o `null`. */

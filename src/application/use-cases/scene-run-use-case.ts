@@ -167,7 +167,7 @@ export class RunSceneGenerationUseCase {
 
     const started = await deps.uow.runInTransaction(async (r) => {
       if (!(await stillCurrent(r))) return false;
-      await r.scenes.markProviderCall(attempt.id, deps.clock.nowIsoTimestamp());
+      await r.scenes.markProviderCall(attempt.id, deps.clock.nowIsoTimestamp(), svc.providerCall ?? { model: null, location: null });
       return true;
     });
     if (!started) {

@@ -50,7 +50,7 @@ const INSERT =
 
 describe('[T1219][REQ-DEL9-001] migración 0018 sobre una base en el estado de producción de 008', () => {
   it('la 0018 existe (la 0019 de la Fase 3, la 0020 de la Fase 4 y la 0021 de la Fase 5a son posteriores) y se aplica sola sobre 0017', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-4)).toBe(MIGRATION);
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-6)).toBe(MIGRATION);
     const { db, migrationsDir } = productionDatabase();
     expect(upgrade(db, migrationsDir)).toEqual([MIGRATION]);
   });

@@ -87,7 +87,7 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
   );
   const expireAttempt = db.prepare("UPDATE scene_attempts SET phase = 'DONE', outcome = 'FAILED', error_code = 'ERR-SCENE-LEASE-EXPIRED', finished_at = ? WHERE id = ? AND outcome IS NULL");
   const failScene = db.prepare("UPDATE home_scenes SET run_state = 'failed', lease_expires_at = NULL, updated_at = ? WHERE id = ?");
-  const markCall = db.prepare('UPDATE scene_attempts SET provider_call_started_at = ? WHERE id = ?');
+  const markCall = db.prepare('UPDATE scene_attempts SET provider_call_started_at = ?, provider_model = ?, provider_location = ? WHERE id = ?');
   const closeOne = db.prepare("UPDATE scene_attempts SET phase = 'DONE', outcome = ?, error_code = ?, degraded = ?, finished_at = ? WHERE id = ? AND scene_id = ? AND outcome IS NULL");
   const isCurrent = db.prepare<[string, string], { n: number }>('SELECT count(*) AS n FROM home_scenes WHERE id = ? AND current_attempt_id = ?');
   const publish = db.prepare(
@@ -150,8 +150,8 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
       const closed = attemptById.get(row.current_attempt_id);
       return closed === undefined ? null : toAttemptRecord(closed);
     },
-    async markProviderCall(attemptId, now) {
-      markCall.run(now, attemptId);
+    async markProviderCall(attemptId, now, call) {
+      markCall.run(now, call.model, call.location, attemptId);
     },
     async closeAttempt({ sceneId, attemptId, outcome, errorCode, degraded, now }) {
       if (closeOne.run(outcome, errorCode, degraded ? 1 : 0, now, attemptId, sceneId).changes !== 1) return false;

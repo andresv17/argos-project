@@ -45,8 +45,9 @@ const upgrade = (db: SqliteDatabase, migrationsDir: string): string[] => {
 const rows = (db: SqliteDatabase) => db.prepare('SELECT key, value, description, updated_at AS updatedAt, updated_by_user_id AS by FROM platform_parameters ORDER BY key').all() as Array<{ key: string; value: string; description: string; updatedAt: string; by: string | null }>;
 
 describe('T1263 [NFR-009-002] migracion SQLite 0021 sobre una base desplegada', () => {
-  it('existe como la ULTIMA migracion de SQLite y se aplica sola sobre 0020', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-1)).toBe(SQLITE_MIGRATION);
+  it('existe en SQLite justo tras 0020 y se aplica sola sobre 0020 (0022/0023 la siguen)', () => {
+    const names = readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort();
+    expect(names[names.indexOf(SQLITE_MIGRATION) - 1]).toBe('0020_account_status.sql');
     const { db, migrationsDir } = deployedDatabase();
     expect(upgrade(db, migrationsDir)).toEqual([SQLITE_MIGRATION]);
   });
@@ -75,7 +76,7 @@ describe('T1263 [NFR-009-002] migracion SQLite 0021 sobre una base desplegada', 
     upgrade(db, migrationsDir);
     const keys = rows(db).map((r) => r.key);
     expect(keys).toEqual(['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_used.2026-11']);
-    for (const absent of ['scene.global_quota_max', 'scene.provider_model', 'scene.provider_location', 'scene.prompt.blocks']) expect(keys).not.toContain(absent);
+    for (const absent of ['scene.global_quota_max', 'scene.provider_model', 'scene.provider_location']) expect(keys).not.toContain(absent);
   });
 
   it('respeta una fila scene.enabled ya existente (p. ej. false puesta a mano): no la pisa ni falla', () => {
@@ -86,13 +87,13 @@ describe('T1263 [NFR-009-002] migracion SQLite 0021 sobre una base desplegada', 
     expect(rows(db).find((r) => r.key === 'scene.enabled')).toEqual({ key: 'scene.enabled', value: 'false', description: 'manual', updatedAt: '2026-11-22T00:00:00.000Z', by: null });
   });
 
-  it('no se aplica dos veces (schema_migrations) y una base nueva con TODAS las migraciones queda con las dos filas sembradas', () => {
+  it('no se aplica dos veces (schema_migrations) y una base nueva con TODAS las migraciones conserva scene.enabled sembrada (T1303 suma scene.prompt.blocks)', () => {
     const { db, migrationsDir } = deployedDatabase();
     upgrade(db, migrationsDir);
     expect(runMigrations(db, migrationsDir)).toEqual([]);
     const fresh = openSqliteDatabase(':memory:');
     opened.push(fresh);
-    expect(rows(fresh).map((r) => [r.key, r.value])).toEqual([['album.max_photos_per_pet', '10'], ['scene.enabled', 'true']]);
+    expect(rows(fresh).map((r) => [r.key, r.value]).filter(([k]) => k !== 'scene.prompt.blocks')).toEqual([['album.max_photos_per_pet', '10'], ['scene.enabled', 'true']]);
   });
 
   it('las migraciones desplegadas 0011 y 0007 NO se editaron: siguen sembrando solo el tope de fotos', () => {
@@ -115,8 +116,9 @@ describe('T1263 paridad SQLite/Postgres (texto de la siembra)', () => {
   const lite = (): string => readFileSync(join(DEFAULT_MIGRATIONS_DIR, SQLITE_MIGRATION), 'utf8');
   const pg = (): string => readFileSync(new URL(PG_MIGRATION, PG_DIR), 'utf8');
 
-  it('Postgres 0017 existe y es la ultima migracion del directorio', () => {
-    expect(readdirSync(PG_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-1)).toBe(PG_MIGRATION);
+  it('Postgres 0017 existe justo tras 0016 (0018/0019 la siguen)', () => {
+    const names = readdirSync(PG_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort();
+    expect(names[names.indexOf(PG_MIGRATION) - 1]).toBe('0016_account_status.sql');
   });
 
   it('ambos motores siembran la MISMA clave, valor, descripcion y autor (NULL)', () => {
@@ -186,7 +188,7 @@ describe.skipIf(!TEST_DATABASE_URL)('T1263 Postgres real (0017_scene_enabled_see
   it('paridad viva: sobre el esquema completo ambos motores terminan con las mismas filas sembradas', async () => {
     await withSchema('9999', async (client) => {
       const { rows } = await client.query('SELECT key, value FROM platform_parameters ORDER BY key');
-      expect(rows).toEqual([{ key: 'album.max_photos_per_pet', value: '10' }, { key: 'scene.enabled', value: 'true' }]);
+      expect(rows.filter((r) => r.key !== 'scene.prompt.blocks')).toEqual([{ key: 'album.max_photos_per_pet', value: '10' }, { key: 'scene.enabled', value: 'true' }]);
     });
   });
 });

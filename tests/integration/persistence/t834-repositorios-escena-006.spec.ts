@@ -54,6 +54,8 @@ const attempt = (n: number, over: Partial<SceneAttemptRecord> = {}): SceneAttemp
   phase: 'PENDING',
   claimedAt: null,
   providerCallStartedAt: null,
+  providerModel: null,
+  providerLocation: null,
   quotaWindow: '2026-11',
   quotaMax: 10,
   outcome: null,
@@ -254,7 +256,7 @@ function defineSceneContract(name: string, create: Factory, dispose: () => Promi
       const uow = await prepare();
       await uow.runInTransaction(begin(1, NOW));
       await uow.runInTransaction((r) => r.scenes.claimAttempt({ sceneId: SCENE_ID, attemptId: attemptId(1), now: at(30), leaseExpiresAt: at(225) }));
-      await uow.runInTransaction((r) => r.scenes.markProviderCall(attemptId(1), at(31)));
+      await uow.runInTransaction((r) => r.scenes.markProviderCall(attemptId(1), at(31), { model: 'm', location: 'l' }));
       expect((await uow.runInTransaction((r) => r.scenes.findAttemptById(attemptId(1))))?.providerCallStartedAt).toBe(at(31));
       const close = (n: number, outcome: 'FAILED' | 'CANCELLED', degraded = false) => (r: RepositorySet) =>
         r.scenes.closeAttempt({ sceneId: SCENE_ID, attemptId: attemptId(n), outcome, errorCode: outcome === 'FAILED' ? 'ERR-SCENE-GENERATION-FAILED' : null, degraded, now: at(100) });
