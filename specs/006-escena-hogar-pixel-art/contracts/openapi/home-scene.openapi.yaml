@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 006 (escena del hogar)
-  version: 3.7.0
+  version: 3.8.0
   description: >
     Documento INCREMENTAL de la feature 006: contiene solo las operaciones nuevas; los OpenAPI de la 004 (3.2.0) y de la 005
     (3.3.0) permanecen sin cambio. Todas las operaciones son autenticadas (cookie + cabecera X-Argos-Request en las que modifican
@@ -19,7 +19,7 @@ info:
     Cache-Control no-store, Referrer-Policy no-referrer y X-Content-Type-Options nosniff.
   x-sdd-status: DRAFT
   x-sdd-metadata:
-    version: 3.7.0
+    version: 3.8.0
     status: DRAFT
     supersedes: 3.5.0
     change_type: MINOR
@@ -457,15 +457,19 @@ components:
         Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
     ImageAttachment:
-      description: "Solo con download=1 y un driver sin URL firmada: cuerpo de la imagen vigente (image/png) como archivo; sin redireccion. Sin download no se usa 200 (se mantiene el 302)"
+      description: "Solo con download=1 y un driver sin URL firmada: cuerpo de la imagen vigente (image/png, image/webp o image/jpeg, fijado por el servidor segun la firma; enmienda 2026-11-24, REQ-ESC6-035) como archivo; sin redireccion. Sin download no se usa 200 (se mantiene el 302)"
       headers:
         Content-Disposition:
-          schema: { type: string, pattern: '^attachment; filename="argos-hogar-\d{4}-\d{2}-\d{2}\.png"$' }
+          schema: { type: string, pattern: '^attachment; filename="argos-hogar-\d{4}-\d{2}-\d{2}\.(png|webp|jpg)"$' }
         Cache-Control: { $ref: '#/components/headers/NoStore' }
         Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
       content:
         image/png:
+          schema: { type: string, format: binary }
+        image/webp:
+          schema: { type: string, format: binary }
+        image/jpeg:
           schema: { type: string, format: binary }
     Problem:
       description: Error tipado del catalogo de la 004, de la 005 o del catalogo incremental de la 006 (RFC 9457)

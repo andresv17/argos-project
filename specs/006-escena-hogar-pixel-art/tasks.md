@@ -356,8 +356,9 @@
 - [ ] T967 Regenerar contratos con `bash scripts/compile-contracts.sh` (nueva salida de `src/generated/`: tipos de `blockedReason` y código de error nuevo) y alinear importaciones; compuertas `npx tsc --noEmit`, `bash scripts/verify-traceability.sh --feature 006`, `bash scripts/verify-oracles.sh`, `npm run test:gate` — REQ-ESC6-039; ERR-SCENE-GLOBAL-QUOTA-EXHAUSTED. Dep: T962, T963, T964, T965, T966
 - [ ] T969 Correcciones E, F, G y H de la rama `fix/006-escena-defectos-uso-real` (implementadas por `/keymaker`, CC-KEY-F15-5..7, sin tarea hasta ahora; documentadas por `/architect` el 2026-11-24, sin cambio de contrato): (E) `SceneBlock.tsx`/`scene-view.ts`: el contador de enfriamiento muestra «Actualizando…» (`sceneRefreshingState`) al llegar a 0 y no relee un `retryAfterSeconds` antiguo hasta que llega la respuesta; (F) `startCooldownCountdown` recalcula contra el reloj real (`deadlineMs - now()`); `visibilitychange` NO se cablea (`INV-AUTH2-002` se mantiene; el gancho `onVisible` queda sin uso); (G) prompt mixto: `renderedPetsCount` = total visible, `referencePhotoPets` con ordinales omitidos para las mascotas sin foto, etiquetas cerradas `IMG_n (Pet k - especie)` (`reference-labels.ts`, validadas por patrón en `gemini-api-wire.ts`) y `PRESERVATION_BLOCK` en singular en el texto por defecto (la fila de producción la actualiza Neo desde `/admin`; la siembra de migración 0018 PG/0022 SQLite conserva el texto viejo por inmutabilidad); (H) prueba estática en `t961` de que el `Dockerfile` copia todos los `.html` de `vite.config.ts` — REQ-ESC6-019, REQ-ESC6-034; INV-ESC6-010, INV-AUTH2-002. Dep: T961
 - [ ] T968 [GOV] Revisión de `/oracle` y, después, de `/rama` sobre el aviso final (`'3'`) antes de cualquier activación en producción; firma de Neo (`[x]` solo de Neo) — REQ-ESC6-026, INV-ESC6-017. Dep: T967. **Avance 2026-11-24**: `/rama` emitió PASS CON CONDICIONES (`C-1`, `C-2`); `C-1` decidida por Neo (biografía solo con consentimiento `PET_PHOTOS` del propietario en driver real; `INV-ESC6-010`, CC-KEY-T968-1) y `C-2` redactada (retención y borrado en las secciones 4 y 6 del aviso, CC-KEY-T968-2); pendiente la revalidación de `/oracle` y la firma de Neo (sigue `[ ]`).
+- [ ] T970 Salida JPEG del generador (enmienda de Neo 2026-11-24, `REQ-ESC6-035`): validación por firma `0xFF 0xD8 0xFF`, `stripJpeg` por lista blanca (conserva dimensiones; descarta APPn/EXIF/COM), migración aditiva del `CHECK` de `home_scenes.image_mime` a `('image/png','image/webp','image/jpeg')` en SQLite y PostgreSQL, servido con `.jpg`, log `INVALID_OUTPUT` con `mimeType` declarado de conjunto cerrado (sin bytes ni prompt); pruebas rojas primero; recompilar `home-scene.openapi.yaml` 3.8.0 (`bash scripts/compile-contracts.sh`) — REQ-ESC6-035; SC-ESC6-085, EDGE-ESC6-029. Dep: T961
 
-**Checkpoint**: T961..T967 y T969 en `REVIEW` con `/oracle` en PASS; `T968` firmada por Neo.
+**Checkpoint**: T961..T967, T969 y T970 en `REVIEW` con `/oracle` en PASS; `T968` firmada por Neo.
 
 ---
 
@@ -379,7 +380,7 @@
 | Fase 12 | 11 |
 | Fase 13 | 9 |
 | Fase 14 | 17 |
-| Fase 15 | 9 |
+| Fase 15 | 10 |
 | **Total** | **169** |
 
 Cobertura verificada contra `spec.md` y el catálogo de errores: 241 IDs (38 `REQ-ESC6`, 20 `INV-ESC6`, 33 `EDGE-ESC6`, 138 `SC-ESC6`, 4 `NFR-ESC6`, `STATE-SCENE-001`, 7 `ERR-SCENE-*`), **0 sin tarea**.
