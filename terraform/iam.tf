@@ -122,6 +122,13 @@ resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_googl
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_admin_emails" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.admin_emails.secret_id
+  role      = "roles/secretmanager.viewer"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 # argos-scheduler: invocar el servicio (OIDC hacia POST /internal/maintenance, REQ-CLD-007).
 resource "google_cloud_run_v2_service_iam_member" "scheduler_invoker" {
   project  = var.project_id
@@ -194,6 +201,14 @@ resource "google_service_account_iam_member" "run_acts_as_scene_tasks" {
 resource "google_secret_manager_secret_iam_member" "run_google_oauth_client_secret" {
   project   = var.project_id
   secret_id = google_secret_manager_secret.google_oauth_client_secret.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.run.email}"
+}
+
+# argos-run: lectura de la lista cerrada de correos del portal /admin (009, REQ-ADM9-003), solo a nivel de secreto.
+resource "google_secret_manager_secret_iam_member" "run_admin_emails" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.admin_emails.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.run.email}"
 }

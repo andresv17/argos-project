@@ -51,9 +51,15 @@ describe('deploy-argos.yml con la 006 (T806)', () => {
     expect(keys.filter((k) => k.startsWith('ARGOS_SHARE_'))).toEqual([]);
   });
 
-  it('no añade secretos de la escena: --set-secrets conserva los 3 existentes más GOOGLE_OAUTH_CLIENT_SECRET (008, GH:#16)', () => {
+  it('no añade secretos de la escena: --set-secrets conserva los 3 existentes más GOOGLE_OAUTH_CLIENT_SECRET (008) y ARGOS_ADMIN_EMAILS (009, GH:#19)', () => {
     const secrets = /--set-secrets\s+"([^"]*)"/.exec(deployCmd)?.[1] ?? '';
-    expect(secrets.split(',').map((x) => x.split('=')[0]).sort()).toEqual(['ARGOS_AUDIT_HMAC_SECRET', 'ARGOS_SHARE_IP_HMAC_SECRET', 'DATABASE_URL', 'GOOGLE_OAUTH_CLIENT_SECRET']);
+    expect(secrets.split(',').map((x) => x.split('=')[0]).sort()).toEqual([
+      'ARGOS_ADMIN_EMAILS',
+      'ARGOS_AUDIT_HMAC_SECRET',
+      'ARGOS_SHARE_IP_HMAC_SECRET',
+      'DATABASE_URL',
+      'GOOGLE_OAUTH_CLIENT_SECRET',
+    ]);
     expect(envFlag).not.toMatch(/SECRET|TOKEN|PASSWORD|KEY/i);
   });
 });

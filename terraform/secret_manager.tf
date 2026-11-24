@@ -118,3 +118,26 @@ resource "google_secret_manager_secret" "google_oauth_client_secret" {
 
   depends_on = [google_project_service.apis]
 }
+
+# Portal /admin (009, REQ-ADM9-003). Solo el contenedor del secreto: NO hay google_secret_manager_secret_version, así que ni
+# los correos ni un marcador entran al repositorio ni al state. Carga inicial (fuera de Terraform):
+#   printf '%s' "$CORREOS" | gcloud secrets versions add argos-admin-emails --data-file=- --project=<project_id>
+resource "google_secret_manager_secret" "admin_emails" {
+  project   = var.project_id
+  secret_id = "${var.project_prefix}-admin-emails"
+
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
+
+  replication {
+    auto {}
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.apis]
+}

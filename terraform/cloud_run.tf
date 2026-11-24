@@ -19,6 +19,7 @@
 # GOOGLE_OAUTH_CLIENT_ID=<var.google_oauth_client_id>, GOOGLE_OAUTH_REDIRECT_URI=<output google_oauth_redirect_uri>,
 # GOOGLE_OAUTH_CLIENT_SECRET desde Secret Manager (secreto argos-google-oauth-client-secret, versión numérica resuelta por CI, nunca el valor).
 # El secreto solo lo lee argos-run (secretAccessor, iam.tf). Mientras no exista versión, el despliegue con la referencia falla.
+# Portal /admin (009, REQ-ADM9-003): ARGOS_ADMIN_EMAILS desde Secret Manager (secreto argos-admin-emails, versión numérica resuelta por CI).
 
 resource "google_cloud_run_v2_service" "argos" {
   project  = var.project_id
