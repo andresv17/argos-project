@@ -160,5 +160,32 @@ describe.each(ENGINES)('T1268 [REQ-CFG9-006] reinicio de cuota de las cuentas de
       expect(after.a).toEqual([['CANCELLED', CALL], ['CANCELLED', CALL], ['FAILED', CALL], ['FAILED', CALL]]);
       expect(after.failedNow.count).toBe(0);
     });
+
+    it('T1312 (OBS-A): aserción de hogar ajeno — si el admin NO es propietario legal del hogar, su escena, su arrastre, su run_state y sus FAILED quedan intactos', async () => {
+      engine = await openEngine(name, stateWith([]));
+      const legalOwner = HOUSEHOLD.ownerUserId;
+      const admin = CANONICAL_USER_IDS.find((u) => u !== legalOwner)!;
+      const HS = 'd0000000-0000-4000-8000-000000000051';
+      const a = attemptOf(51, HS, legalOwner, IN_WINDOW);
+      await engine.uow.runInTransaction(async (r) => {
+        await r.authIdentities.insertIfAbsent({ provider: 'GOOGLE', providerSubject: SUB, userId: admin, createdAt: T0 });
+        await r.scenes.insert(scene(HS, { household: HOUSEHOLD.id }, 4));
+        await r.scenes.upsertQuotaCarry(legalOwner, WINDOW, 6);
+      });
+      await engine.uow.runInTransaction((r) => r.scenes.beginGeneration({ sceneId: HS, attempt: a, now: IN_WINDOW, leaseExpiresAt: '2026-11-24T23:00:00.000Z' }));
+      await engine.uow.runInTransaction((r) => r.scenes.markProviderCall(a.id, CALL, { model: 'gemini-2.5-flash-image', location: 'us-central1' }));
+      await engine.uow.runInTransaction((r) => r.scenes.closeAttempt({ sceneId: HS, attemptId: a.id, outcome: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED', degraded: false, now: NOW }));
+      const snapshot = () =>
+        engine!.read(async (r) => {
+          const row = await r.scenes.findByHouseholdId(HOUSEHOLD.id);
+          const att = await r.scenes.findAttemptById(a.id);
+          return { consumed: row?.consumedGenerations, runState: row?.runState, outcome: att?.outcome, call: att?.providerCallStartedAt, carry: await r.scenes.findQuotaCarry(legalOwner, WINDOW) };
+        });
+      const before = await snapshot();
+      expect(before).toMatchObject({ consumed: 4, runState: 'failed', outcome: 'FAILED', call: CALL });
+      const result = await engine.uow.runInTransaction((r) => r.adminParameters.resetAdminAccountsSceneQuota([SUB], [], SINCE));
+      expect(result).toEqual({ accountsReset: 1 });
+      expect(await snapshot()).toEqual(before);
+    });
   });
 });

@@ -39,7 +39,7 @@ export const NEVER_EDITED = 'Sin ediciones desde este portal';
 export const SAVE_COST_CAP = 'La combinación supera el tope mensual de imágenes. No se ha guardado.';
 export const MODEL_DEPRECATION = 'El modelo gemini-2.5-flash-image se retira el 15 de marzo de 2027; después de esa fecha habrá que elegir otro modelo.';
 export const MODEL_SAVED = 'Modelo de imagen guardado.';
-/** Aviso de EDGE-009-046 antes de guardar (D9-27 (5)): con `global` el procesamiento no queda fijado a una región ni a un país. Texto PROVISIONAL, pendiente de la firma de Neo. */
+/** Aviso de EDGE-009-046 antes de guardar (D9-27 (5)): con `global` el procesamiento no queda fijado a una región ni a un país. Texto aprobado en firme por Neo. */
 export const REGION_NOTICE = 'La región global procesa las imágenes sin fijarlas a una región ni a un país (transferencia internacional). Solo funciona con el modelo gemini-3.1-flash-image-preview; los pares válidos son gemini-2.5-flash-image con us-central1 y gemini-3.1-flash-image-preview con global.';
 export const REGION_SAVED = 'Región guardada.';
 export const QUOTA_HEADING = 'Imágenes de escena al mes';

@@ -107,8 +107,8 @@ export const NOTICE_GEMINI_API_SECTIONS: readonly NoticeSection[] = NOTICE_SECTI
 });
 
 /**
- * Variante GLOBAL del aviso de Vertex (D9-27 (5)): solo cambia «3. Dónde se procesa» para declarar procesamiento sin región ni país fijos. TEXTO PROVISIONAL tomado de la declaración de la spec
- * (D9-27 (4)): el texto legal definitivo lo firma Neo (REQ-ESC6-026).
+ * Variante GLOBAL del aviso de Vertex (D9-27 (5)): solo cambia «3. Dónde se procesa» para declarar procesamiento sin región ni país fijos. Texto aprobado en firme por Neo
+ * (D9-27 (4); REQ-ESC6-026).
  */
 export const NOTICE_GLOBAL_SECTIONS: readonly NoticeSection[] = NOTICE_SECTIONS.map((section) =>
   section.title.startsWith('3.')
