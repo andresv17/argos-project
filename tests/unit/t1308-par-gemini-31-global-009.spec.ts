@@ -24,8 +24,12 @@ const WRITTEN = '2026-11-01T00:00:00.000Z';
 const PROJECT = 'argos-prueba';
 
 describe('T1308 [SC-009-052] tabla de pares válidos y región global', () => {
-  it('la tabla tiene exactamente los dos pares: 45_000 y 75_000 µUSD; el par preview + us-central1 y el nombre sin sufijo son inválidos', () => {
-    expect(SCENE_COST_TABLE_MICRO_USD).toEqual({ [FLASH]: { 'us-central1': 45_000 }, [PREVIEW]: { global: 75_000 } });
+  it('la tabla tiene los dos pares Vertex (45_000 y 75_000 µUSD) y las celdas gemini-api del Anexo A (T1314); el par preview + us-central1 y el nombre sin sufijo en Vertex son inválidos', () => {
+    expect(SCENE_COST_TABLE_MICRO_USD).toEqual({
+      [FLASH]: { 'us-central1': 45_000, 'gemini-api': 45_000 },
+      'gemini-3.1-flash-image': { 'gemini-api': 75_000 },
+      [PREVIEW]: { global: 75_000, 'gemini-api': 75_000 },
+    });
     expect(sceneUnitCost(SCENE_COST_TABLE_MICRO_USD, PREVIEW, 'global')).toBe(75_000);
     expect(isSelectableScenePair(FLASH, 'us-central1')).toBe(true);
     expect(isSelectableScenePair(PREVIEW, 'global')).toBe(true);
@@ -41,8 +45,9 @@ describe('T1308 [SC-009-052] tabla de pares válidos y región global', () => {
   it('la lista cerrada de modelos del catálogo admite el sufijo preview y deja de admitir el nombre sin sufijo; /admin ofrece solo los pares válidos', () => {
     const allowed = ADMIN_PARAMETER_CATALOG['scene.provider_model'].constraints.allowed ?? [];
     expect(allowed).toContain(PREVIEW);
-    expect(allowed).not.toContain('gemini-3.1-flash-image');
-    expect(ADMIN_PARAMETER_CATALOG['scene.provider_model'].isCanonical('gemini-3.1-flash-image')).toBe(false);
+    expect(allowed).toContain('gemini-3.1-flash-image'); // T1314: solo gemini-api (Vertex lo rechaza, ver SC-009-057)
+    expect(ADMIN_PARAMETER_CATALOG['scene.provider_model'].isCanonical('gemini-3.1-flash-image')).toBe(true);
+    expect(deriveLocation('vertex', 'gemini-3.1-flash-image')).toBeNull();
     expect(Object.keys(ADMIN_PARAMETER_CATALOG)).not.toContain('scene.provider_location'); // D9-29: la region se deriva del modelo
     expect([...SELECTABLE_MODELS]).toEqual([FLASH, PREVIEW]);
   });

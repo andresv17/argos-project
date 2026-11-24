@@ -57,9 +57,9 @@ describe('T1307 GET /api/admin/parameters: el caso de uso devuelve sceneImagesFi
     return new ListAdminParametersUseCase(deps);
   };
 
-  it('devuelve items (5, D9-29: sin region) y sceneImagesFit', async () => {
+  it('devuelve items (6: D9-29 sin region, T1314 con scene.provider_driver) y sceneImagesFit solo de pares Vertex', async () => {
     const out = await build([], new Date('2026-11-23T12:00:00.000Z')).execute();
-    expect(out.items).toHaveLength(5);
+    expect(out.items).toHaveLength(6);
     expect(out.sceneImagesFit).toEqual([
       { model: FLASH, location: LOC, imagesFit: 111 },
       { model: FLASH31, location: LOC31, imagesFit: 66 },

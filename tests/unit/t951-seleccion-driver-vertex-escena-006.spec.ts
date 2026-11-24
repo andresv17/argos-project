@@ -8,7 +8,7 @@ import { SCENE_PARAM_MODEL_KEY, SceneParameterError } from '../../src/domain/sce
 import { CloudTasksSceneDispatcher } from '../../src/infrastructure/adapters/cloud-tasks-scene-dispatcher.adapter.ts';
 import { FakeSceneImageGenerator } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
 import { InProcessSceneDispatcher } from '../../src/infrastructure/adapters/in-process-scene-dispatcher.adapter.ts';
-import { VertexSceneImageGenerator } from '../../src/infrastructure/adapters/vertex-scene-image-generator.adapter.ts';
+import { SceneProviderRouter } from '../../src/infrastructure/adapters/scene-provider-router.adapter.ts';
 import { AppConfigError, SCENE_REAL_DRIVER_ACTIVATED, loadAppConfig, type EnvironmentSource } from '../../src/infrastructure/config/app-config.ts';
 import { composeSceneServices } from '../../src/infrastructure/http/scene-composition.ts';
 import { createProductionApp } from '../../src/infrastructure/http/server.ts';
@@ -73,9 +73,10 @@ describe('selección en app-config.ts (REQ-ESC6-031)', () => {
     expect(failing({ NODE_ENV: 'test', ...REAL }, false)).toEqual(['ARGOS_SCENE_DRIVER']);
   });
 
-  it('[REQ-ESC6-031][NFR-ESC6-001] con real el entorno no necesita ninguna clave de API: GEMINI_API_KEY se ignora y no entra en la configuración', () => {
+  it('[REQ-ESC6-031][NFR-ESC6-001][D9-30] con real el entorno no necesita ninguna clave de API (Vertex usa la cuenta de servicio); GEMINI_API_KEY es opcional (proveedor gemini-api seleccionable) y nunca entra en JSON', () => {
+    expect(loadAppConfig({ NODE_ENV: 'test', ...REAL }, { sceneRealDriverActivated: true }).scene.geminiApiKey).toBeNull();
     const config = loadAppConfig({ NODE_ENV: 'test', ...REAL, GEMINI_API_KEY: KEY }, { sceneRealDriverActivated: true });
-    expect(config.scene.geminiApiKey).toBeNull();
+    expect(config.scene.geminiApiKey).toBe(KEY);
     expect(JSON.stringify(config).includes(KEY)).toBe(false);
   });
 
@@ -96,7 +97,7 @@ describe('composición del driver real en scene-composition.ts (REQ-ESC6-017, RE
   it('[REQ-ESC6-017] real compone VertexSceneImageGenerator, despachador de Cloud Tasks, realDriver true y el aviso final de Vertex; sin llamadas de red al componer', () => {
     const quota = grantingQuota();
     const services = composeSceneServices(config(), { run: async () => 'NOOP', fetch: noNetwork, globalQuota: quota });
-    expect(services.generator).toBeInstanceOf(VertexSceneImageGenerator);
+    expect(services.generator).toBeInstanceOf(SceneProviderRouter); // T1314: el enrutador compone Vertex (y gemini-api si hay clave)
     expect(services.generator).not.toBeInstanceOf(FakeSceneImageGenerator);
     expect(services.dispatcher).toBeInstanceOf(CloudTasksSceneDispatcher);
     expect(services.realDriver).toBe(true);
@@ -118,11 +119,11 @@ describe('composición del driver real en scene-composition.ts (REQ-ESC6-017, RE
       run: async () => 'NOOP',
       fetch: fetchDouble,
       globalQuota: grantingQuota(),
-      providerParameters: { model: 'gemini-3-pro-image', location: 'europe-west4', globalQuotaMax: 5 },
+      providerParameters: { model: 'gemini-3.1-flash-image-preview', location: 'global', globalQuotaMax: 5 },
     });
     const result = await services.generator.generate({ prompt: 'p', references: [], seed: 0, signal: new AbortController().signal });
     expect(result.ok).toBe(true);
-    expect(urls[1]).toBe('https://europe-west4-aiplatform.googleapis.com/v1/projects/argos-prod-1234/locations/europe-west4/publishers/google/models/gemini-3-pro-image:generateContent');
+    expect(urls[1]).toBe('https://aiplatform.googleapis.com/v1/projects/argos-prod-1234/locations/global/publishers/google/models/gemini-3.1-flash-image-preview:generateContent');
   });
 
   it('[REQ-ESC6-017] sin parámetros resueltos rige el respaldo de la configuración (modelo y región del entorno)', async () => {

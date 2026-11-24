@@ -5,7 +5,7 @@
  *
  * @implements REQ-CFG9-001, REQ-CFG9-002, REQ-CFG9-003, REQ-CFG9-006, NFR-009-001; SC-009-017, SC-009-018, SC-009-026
  */
-export const PARAMETER_KEYS = ['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.prompt.blocks'] as const;
+export const PARAMETER_KEYS = ['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.provider_driver', 'scene.prompt.blocks'] as const;
 export type ParameterKey = (typeof PARAMETER_KEYS)[number];
 export type ParameterValueType = 'INTEGER' | 'BOOLEAN' | 'STRING' | 'JSON_BLOCKS';
 

@@ -20,8 +20,8 @@ afterEach(async () => {
 
 const NOW = '2026-11-23T12:00:00.000Z';
 const KEY = 'album.max_photos_per_pet';
-const ORDER = ['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.prompt.blocks']; // D9-29: scene.provider_location sale del catalogo; scene.provider_driver entra con T1314
-const WRITABLE_5B = ['scene.global_quota_max', 'scene.provider_model', 'scene.prompt.blocks'];
+const ORDER = ['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.provider_driver', 'scene.prompt.blocks']; // D9-29: scene.provider_location sale del catalogo; T1314: entra scene.provider_driver
+const WRITABLE_5B = ['scene.global_quota_max', 'scene.provider_model', 'scene.provider_driver', 'scene.prompt.blocks'];
 const ETAG = /^"[A-Za-z0-9_-]{8,64}"$/;
 
 interface View {

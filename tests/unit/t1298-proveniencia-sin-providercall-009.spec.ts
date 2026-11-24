@@ -36,7 +36,7 @@ describe('proveniencia del intento sin providerCall (T1298, OBS-O2-1)', () => {
     expect(marked?.providerLocation).toBeNull();
   });
 
-  it('[REQ-CFG9-007] composicion: fake y gemini-api no fijan providerCall; real si fija modelo y region', () => {
+  it('[REQ-CFG9-007] composicion: fake no fija providerCall; gemini-api fija modelo sin region (T1314); real fija modelo y region', () => {
     const env = { NODE_ENV: 'development', ARGOS_DB_DRIVER: 'sqlite', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32) };
     const fake = composeSceneServices(loadAppConfig({ ...env, ARGOS_SCENE_DRIVER: 'fake' }), { run: async () => 'NOOP', fetch: noNetwork });
     const gemini = composeSceneServices(loadAppConfig({ ...env, ARGOS_SCENE_DRIVER: 'gemini-api', GEMINI_API_KEY: KEY, ARGOS_SCENE_GEMINI_MODEL: 'gemini-2.5-flash-image' }), { run: async () => 'NOOP', fetch: noNetwork });
@@ -49,7 +49,7 @@ describe('proveniencia del intento sin providerCall (T1298, OBS-O2-1)', () => {
       { run: async () => 'NOOP', fetch: noNetwork, globalQuota: { tryConsume: async () => true, refund: async () => undefined, isExhausted: async () => false } },
     );
     expect(fake.providerCall).toBeUndefined();
-    expect(gemini.providerCall).toBeUndefined();
+    expect(gemini.providerCall).toEqual({ model: 'gemini-2.5-flash-image', location: null }); // T1314: gemini-api registra el modelo; sin region (D9-29)
     expect(real.providerCall).toEqual({ model: 'gemini-2.5-flash-image', location: 'us-central1' });
   });
 });

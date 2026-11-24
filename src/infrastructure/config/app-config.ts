@@ -128,7 +128,7 @@ export interface SceneConfig {
   /** Modelo del driver `gemini-api` (`ARGOS_SCENE_GEMINI_MODEL`); `null` con `fake` o `real`. */
   readonly geminiModel: string | null;
   /**
-   * Clave del driver `gemini-api` (`GEMINI_API_KEY`); `null` con `fake` o `real`. Propiedad NO enumerable (la definen `loadAppConfig`): no sale en `JSON.stringify`,
+   * Clave del driver `gemini-api` (`GEMINI_API_KEY`); `null` con `fake` y, con `real`, si no se definio (proveedor `gemini-api` sin credenciales, D9-30). Propiedad NO enumerable (la definen `loadAppConfig`): no sale en `JSON.stringify`,
    * spread, `Object.entries` ni registros (REQ-ESC6-038, INV-ESC6-016). Solo se lee por nombre al construir el adaptador.
    */
   readonly geminiApiKey: string | null;
@@ -463,7 +463,10 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
   const geminiKey = present(GEMINI_API_KEY_NAME);
   const geminiModel = present(GEMINI_MODEL_NAME);
   const geminiActive = sceneIsGemini && !production;
-  if (geminiActive && (geminiKey === undefined || !GEMINI_API_KEY_PATTERN.test(geminiKey))) sceneInvalid.push(GEMINI_API_KEY_NAME);
+  // T1314 (D9-30 (3)(8)): con `real` (Vertex, produccion incluida) `GEMINI_API_KEY` es OPCIONAL: si esta presente y es valida compone el proveedor `gemini-api` seleccionable desde /admin; si esta
+  // presente e invalida rechaza el arranque (solo el nombre). Ausente = el proveedor `gemini-api` no tiene credenciales (falla cerrado).
+  const geminiRouted = sceneIsReal && sceneActivated && geminiKey !== undefined;
+  if ((geminiActive || geminiRouted) && (geminiKey === undefined || !GEMINI_API_KEY_PATTERN.test(geminiKey))) sceneInvalid.push(GEMINI_API_KEY_NAME);
   if (geminiActive && (geminiModel === undefined || !isValidGeminiModel(geminiModel))) sceneInvalid.push(GEMINI_MODEL_NAME);
   if (sceneModel === undefined ? needsRealSettings : !isValidSceneModel(sceneModel)) sceneInvalid.push(SCENE_MODEL_NAME);
   const sceneLocation = present(SCENE_LOCATION_NAME);
@@ -516,7 +519,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
       geminiModel: geminiActive ? geminiModel! : null,
     },
     'geminiApiKey',
-    { value: geminiActive ? geminiKey! : null, enumerable: false, writable: false, configurable: false },
+    { value: geminiActive || geminiRouted ? geminiKey! : null, enumerable: false, writable: false, configurable: false },
   ) as SceneConfig;
   return {
     port: Number(raw.PORT),

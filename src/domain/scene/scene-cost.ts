@@ -7,6 +7,9 @@
  * @implements REQ-CFG9-004, REQ-CFG9-008, NFR-009-003, EDGE-009-021, EDGE-009-036
  */
 
+/** Clave de proveedor (no region) de las celdas de la Gemini API en la tabla de costes. */
+export const SCENE_GEMINI_API_COST_KEY = 'gemini-api';
+
 /** Tope mensual de gasto en micro-USD (5 USD). */
 export const SCENE_MONTHLY_CAP_MICRO_USD = 5_000_000;
 
@@ -17,9 +20,15 @@ export type SceneCostTable = Readonly<Record<string, Readonly<Record<string, num
  * = 75_000 µUSD. El par `gemini-3.1-flash-image-preview` + `us-central1`, el nombre `gemini-3.1-flash-image` sin sufijo y cualquier otro par sin coste con fuente son INVALIDOS (INV-CFG9-001).
  */
 export const SCENE_COST_TABLE_MICRO_USD: SceneCostTable = {
-  'gemini-2.5-flash-image': { 'us-central1': 45_000 },
-  'gemini-3.1-flash-image-preview': { global: 75_000 },
+  'gemini-2.5-flash-image': { 'us-central1': 45_000, [SCENE_GEMINI_API_COST_KEY]: 45_000 },
+  'gemini-3.1-flash-image': { [SCENE_GEMINI_API_COST_KEY]: 75_000 },
+  'gemini-3.1-flash-image-preview': { global: 75_000, [SCENE_GEMINI_API_COST_KEY]: 75_000 },
 };
+
+/** Clave de proveedor de las celdas `gemini-api` (D9-30 (7), Enmienda 009-C, Anexo A): la Gemini API no tiene region; la clave del proveedor ocupa el lugar de la region y NUNCA es una region de Vertex. */
+export function sceneCostKeyOf(location: string | null): string {
+  return location === null ? SCENE_GEMINI_API_COST_KEY : location;
+}
 
 export interface SceneSpendAttempt {
   readonly providerModel: string | null;
@@ -61,7 +70,8 @@ export function sceneAccumulatedSpend(attempts: readonly SceneSpendAttempt[], ta
   let total = 0;
   for (const a of attempts) {
     if (a.providerCallStartedAt === null) continue;
-    const unit = a.providerModel === null || a.providerLocation === null ? null : sceneUnitCost(table, a.providerModel, a.providerLocation);
+    // `providerLocation` null con modelo = llamada a la Gemini API (sin region); modelo null = lectura fallida (coste maximo).
+    const unit = a.providerModel === null ? null : sceneUnitCost(table, a.providerModel, sceneCostKeyOf(a.providerLocation));
     total += unit ?? worst;
   }
   return total;
@@ -100,5 +110,10 @@ export function sceneImagesFit(table: SceneCostTable, attempts: readonly SceneSp
   const spent = sceneAccumulatedSpend(attempts, table);
   if (spent === null) return [];
   const margin = Math.max(0, SCENE_MONTHLY_CAP_MICRO_USD - spent);
-  return Object.entries(table).flatMap(([model, byRegion]) => Object.entries(byRegion).map(([location, cost]) => ({ model, location, imagesFit: Math.floor(margin / cost) })));
+  // Contrato 1.7.0: `location` solo admite regiones de Vertex; las celdas `gemini-api` no se listan aqui.
+  return Object.entries(table).flatMap(([model, byRegion]) =>
+    Object.entries(byRegion)
+      .filter(([location]) => location !== SCENE_GEMINI_API_COST_KEY)
+      .map(([location, cost]) => ({ model, location, imagesFit: Math.floor(margin / cost) })),
+  );
 }

@@ -22,6 +22,7 @@ const catalog = (): P[] => [
   base({ key: 'scene.enabled', valueType: 'BOOLEAN', value: 'true', default: 'true', constraints: { allowed: ['true', 'false'] }, writable: true, etag: '"etag-scene-000001"' }),
   base({ key: 'scene.global_quota_max', value: '5', default: '5', constraints: { min: 1, max: 1000 } }),
   base({ key: 'scene.provider_model', valueType: 'STRING', value: 'gemini-2.5-flash-image', default: 'gemini-2.5-flash-image', constraints: { allowed: ['gemini-2.5-flash-image'] } }),
+  base({ key: 'scene.provider_driver', valueType: 'STRING', value: 'vertex', default: 'vertex', constraints: { allowed: ['vertex'] } }),
   base({ key: 'scene.prompt.blocks', valueType: 'JSON_BLOCKS', value: '{"SECRETO":"x"}', default: '{"SECRETO":"x"}', constraints: { maxBlockLength: 800 } }),
 ];
 

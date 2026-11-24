@@ -5,11 +5,13 @@
  * @implements REQ-ESC6-017, REQ-ESC6-031, NFR-ESC6-001
  */
 
-import { SCENE_COST_TABLE_MICRO_USD, sceneCostCeiling } from './scene-cost.ts';
+import { SCENE_COST_TABLE_MICRO_USD, SCENE_GEMINI_API_COST_KEY, sceneCostCeiling } from './scene-cost.ts';
 
 /** Claves en `platform_parameters` (texto); si la fila no existe rige el respaldo de entorno y, en su defecto, el valor por defecto. */
 export const SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY = 'scene.global_quota_max';
 export const SCENE_PARAM_MODEL_KEY = 'scene.provider_model';
+/** D9-30: proveedor de generacion seleccionable en caliente (`vertex` | `gemini-api`). */
+export const SCENE_PARAM_DRIVER_KEY = 'scene.provider_driver';
 /** Prefijo de la fila contador de la ventana mensual: `scene.global_quota_used.YYYY-MM` (valor entero en texto). */
 export const SCENE_GLOBAL_QUOTA_USED_PREFIX = 'scene.global_quota_used.';
 
@@ -60,6 +62,17 @@ export const parseSceneGlobalQuotaMax = (value: string): number | null => {
 
 export type SceneProviderDriver = 'vertex' | 'gemini-api';
 
+/** Lista cerrada de proveedores (D9-30 (1)); el orden es el del catalogo de /admin. */
+export const SCENE_PROVIDER_DRIVERS: readonly SceneProviderDriver[] = ['vertex', 'gemini-api'];
+export const isSceneProviderDriver = (value: string): value is SceneProviderDriver => (SCENE_PROVIDER_DRIVERS as readonly string[]).includes(value);
+
+/** D9-30 (5): modelos por proveedor (Vertex = los 2 pares de D9-27; `gemini-api` = los 3 de la Enmienda 009-C). */
+export const SCENE_MODELS_BY_DRIVER: Readonly<Record<SceneProviderDriver, readonly string[]>> = {
+  vertex: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'],
+  'gemini-api': ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'],
+};
+export const driverSupportsModel = (driver: SceneProviderDriver, model: string): boolean => SCENE_MODELS_BY_DRIVER[driver].includes(model);
+
 /**
  * D9-29: la region NO es un parametro; es una funcion pura del proveedor y del modelo. Vertex: `gemini-2.5-flash-image` => `us-central1` y `gemini-3.1-flash-image-preview` => `global` (los 2 pares con
  * coste de fuente de la tabla); un modelo sin par con coste => `null`. `gemini-api` no tiene region (`null`). Se deriva de la tabla de costes, sin E/S ni reloj.
@@ -67,8 +80,31 @@ export type SceneProviderDriver = 'vertex' | 'gemini-api';
 export function deriveLocation(driver: SceneProviderDriver, model: string): string | null {
   if (driver !== 'vertex') return null;
   if (!Object.prototype.hasOwnProperty.call(SCENE_COST_TABLE_MICRO_USD, model)) return null;
-  const regions = Object.keys(SCENE_COST_TABLE_MICRO_USD[model]!);
+  const regions = Object.keys(SCENE_COST_TABLE_MICRO_USD[model]!).filter((key) => key !== SCENE_GEMINI_API_COST_KEY);
   return regions.length === 1 ? regions[0]! : null;
+}
+
+/**
+ * Seleccion EFECTIVA del proveedor (D9-30 (2)(4)): fila valida > defecto del despliegue. `configured: false` (falla cerrado) si no hay proveedor, si el proveedor no tiene credenciales en el
+ * despliegue o si no admite el modelo vigente. PURO. Nunca recurre al otro proveedor.
+ */
+export interface SceneProviderSelectionInput {
+  readonly rowDriver: string | null;
+  readonly available: readonly SceneProviderDriver[];
+  readonly defaultDriver: SceneProviderDriver | null;
+  readonly model: string;
+}
+export interface SceneProviderSelection {
+  readonly driver: SceneProviderDriver | null;
+  readonly configured: boolean;
+  readonly model: string;
+  readonly location: string | null;
+}
+export function resolveSceneProviderSelection(input: SceneProviderSelectionInput): SceneProviderSelection {
+  const driver: SceneProviderDriver | null = input.rowDriver !== null && isSceneProviderDriver(input.rowDriver) ? input.rowDriver : input.defaultDriver;
+  if (driver === null) return { driver: null, configured: false, model: input.model, location: null };
+  const configured = input.available.includes(driver) && driverSupportsModel(driver, input.model);
+  return { driver, configured, model: input.model, location: deriveLocation(driver, input.model) };
 }
 
 export interface SceneProviderParameters {

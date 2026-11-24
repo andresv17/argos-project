@@ -5,6 +5,7 @@ import type { ApplicationDeps } from '../../src/application/use-cases/use-case-s
 import { SCENE_GEMINI_API_NOTICE_VERSION, SCENE_GEMINI_API_PROVIDER_ID, SCENE_NOTICE_VERSION, SCENE_PROVIDER_ID } from '../../src/domain/scene/notice.ts';
 import { CloudTasksSceneDispatcher } from '../../src/infrastructure/adapters/cloud-tasks-scene-dispatcher.adapter.ts';
 import { FakeSceneImageGenerator } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
+import { SceneProviderRouter } from '../../src/infrastructure/adapters/scene-provider-router.adapter.ts';
 import { GeminiApiSceneImageGenerator } from '../../src/infrastructure/adapters/gemini-api-scene-image-generator.adapter.ts';
 import { InProcessSceneDispatcher } from '../../src/infrastructure/adapters/in-process-scene-dispatcher.adapter.ts';
 import { loadAppConfig } from '../../src/infrastructure/config/app-config.ts';
@@ -30,7 +31,7 @@ const compose = (env: Record<string, string> = ENV) => composeSceneServices(load
 describe('composición gemini-api (T894, SC-ESC6-098)', () => {
   it('[SC-ESC6-098] compone GeminiApiSceneImageGenerator, realDriver true, despachador en proceso, providerId gemini-api y noticeVersion distinta de la de Vertex', () => {
     const services = compose();
-    expect(services.generator).toBeInstanceOf(GeminiApiSceneImageGenerator);
+    expect(services.generator).toBeInstanceOf(SceneProviderRouter); // T1314: enrutador con el proveedor gemini-api
     expect(services.realDriver).toBe(true);
     expect(services.dispatcher).toBeInstanceOf(InProcessSceneDispatcher);
     expect(services.dispatcher).not.toBeInstanceOf(CloudTasksSceneDispatcher);
@@ -50,7 +51,7 @@ describe('composición gemini-api (T894, SC-ESC6-098)', () => {
       expect(services.generator instanceof FakeSceneImageGenerator).toBe(!services.realDriver);
     }
     expect([fake.realDriver, gemini.realDriver]).toEqual([false, true]);
-    expect(gemini.generator).toBeInstanceOf(GeminiApiSceneImageGenerator);
+    expect(gemini.generator).toBeInstanceOf(SceneProviderRouter);
   });
 
   it('[REQ-ESC6-037] el tiempo de T_GEN de la configuración llega al servicio y la composición no hace ninguna llamada de red', () => {

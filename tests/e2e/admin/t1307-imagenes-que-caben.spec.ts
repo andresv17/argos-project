@@ -14,6 +14,7 @@ const catalog = (model = 'gemini-2.5-flash-image'): P[] => [
   p({ key: 'scene.enabled', valueType: 'BOOLEAN', value: 'true', default: 'true', constraints: { allowed: ['true', 'false'] } }),
   p({ key: 'scene.global_quota_max', value: '50', default: '50', constraints: { min: 1, max: 111 }, etag: '"etag-quota-000001"' }),
   p({ key: 'scene.provider_model', valueType: 'STRING', value: model, default: 'gemini-2.5-flash-image', constraints: { allowed: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image'] }, etag: '"etag-model-000001"' }),
+  p({ key: 'scene.provider_driver', valueType: 'STRING', value: 'vertex', default: 'vertex', constraints: { allowed: ['vertex'] } }),
   p({ key: 'scene.prompt.blocks', valueType: 'JSON_BLOCKS', value: JSON.stringify(BLOCKS), default: JSON.stringify(BLOCKS), constraints: { maxBlockLength: 1000 }, etag: '"etag-blocks-000001"' }),
 ];
 const FIT = [{ model: 'gemini-2.5-flash-image', location: 'us-central1', imagesFit: 111 }, { model: 'gemini-3.1-flash-image-preview', location: 'us-central1', imagesFit: 66 }];

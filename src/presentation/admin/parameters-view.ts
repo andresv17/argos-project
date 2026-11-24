@@ -15,6 +15,7 @@ export const KEY_LABEL: Readonly<Record<ParameterKey, string>> = {
   'scene.enabled': 'Generación de escenas',
   'scene.global_quota_max': 'Tope mensual de escenas de la plataforma',
   'scene.provider_model': 'Modelo de imagen',
+  'scene.provider_driver': 'Proveedor de imágenes',
   'scene.prompt.blocks': 'Texto base de la escena',
 };
 
@@ -53,6 +54,14 @@ export const PHOTOREF = '{photoRef}';
 
 /** Modelos que se pueden elegir (D9-27): solo los de los pares válidos; `gemini-3-pro-image` queda latente, sin selección. */
 export const SELECTABLE_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'];
+/** Con el proveedor `gemini-api` (D9-30 (5)) se suma `gemini-3.1-flash-image`; Vertex no lo admite (el servidor responde 422). */
+export const SELECTABLE_MODELS_GEMINI_API: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'];
+/** Proveedores seleccionables (D9-30): el servidor solo lista en `allowed` los que tienen credenciales en este despliegue. */
+export const SELECTABLE_DRIVERS: readonly string[] = ['vertex', 'gemini-api'];
+export const DRIVER_LABEL: Readonly<Record<string, string>> = { vertex: 'Vertex AI (Google Cloud)', 'gemini-api': 'Gemini API (Google AI)' };
+export const DRIVER_HEADING = 'Proveedor de imágenes';
+export const DRIVER_SAVED = 'Proveedor de imágenes guardado.';
+export const DRIVER_NOTICE = 'Solo aparecen los proveedores configurados en este despliegue. Cambiar de proveedor cambia quién trata las imágenes: el aviso de consentimiento se pedirá de nuevo con el del nuevo proveedor.';
 export const DEPRECATED_MODEL = 'gemini-2.5-flash-image';
 
 export const BLOCK_NAMES = ['STYLE_BASE_TEXT', 'HOUSEHOLD_WITH_PHOTO', 'HOUSEHOLD_GENERIC', 'PRESERVATION_BLOCK', 'PIXEL_REDRAW_RULE', 'STYLE_CLOSING'] as const;

@@ -10,6 +10,7 @@
  */
 
 import type { SceneGenerationRequest, SceneGenerationResult, SceneImageGeneratorPort } from '../../application/ports/scene-image-generator.port.ts';
+import { driverSupportsModel } from '../../domain/scene/provider-parameters.ts';
 import {
   GEMINI_API_KEY_HEADER,
   GEMINI_INLINE_MAX_BYTES,
@@ -28,7 +29,12 @@ export interface GeminiApiSceneImageGeneratorOptions {
   /** `GEMINI_API_KEY` ya validada por `app-config.ts`; no se registra ni se copia en ningún mensaje. */
   readonly apiKey: string;
   /** `ARGOS_SCENE_GEMINI_MODEL` (se interpola en la ruta constante del proveedor). */
-  readonly model: string;
+  readonly model?: string;
+  /**
+   * Modelo EN CALIENTE (T1314, D9-30 (5)): lectura por llamada (cache <= 60 s en el lector). Con ella el modelo debe estar en la lista cerrada de `gemini-api` (`SCENE_MODELS_BY_DRIVER`); uno fuera
+   * de la lista o una lectura fallida es `ERR-SCENE-GENERATION-FAILED` sin llamada. Opcional solo si hay `model`.
+   */
+  readonly getModel?: () => Promise<string>;
   /** `ARGOS_SCENE_GEN_TIMEOUT_SECONDS` (T_GEN, 10..105). */
   readonly timeoutSeconds: number;
   /** `fetch` inyectable (pruebas); por defecto el global, resuelto en cada llamada. */
@@ -52,7 +58,8 @@ const ENVELOPE_SLACK_BYTES = 64 * 1024;
 export class GeminiApiSceneImageGenerator implements SceneImageGeneratorPort {
   /** Campo `#` (privado de ES): ni `util.inspect` ni un volcado del objeto lo muestran. */
   readonly #apiKey: string;
-  private readonly url: string;
+  private readonly url: string | null;
+  private readonly getModel: (() => Promise<string>) | undefined;
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch | undefined;
   private readonly modalities: GeminiModalities;
@@ -62,10 +69,11 @@ export class GeminiApiSceneImageGenerator implements SceneImageGeneratorPort {
 
   constructor(options: GeminiApiSceneImageGeneratorOptions) {
     // Los mensajes no incluyen valor alguno (ni de la clave ni del modelo).
-    if (!isSafeGeminiModel(options.model)) throw new Error('Configuración del adaptador gemini-api inválida: modelo.');
+    if (options.getModel === undefined ? options.model === undefined || !isSafeGeminiModel(options.model) : options.model !== undefined && !isSafeGeminiModel(options.model)) throw new Error('Configuración del adaptador gemini-api inválida: modelo.');
     if (!isSafeGeminiKey(options.apiKey)) throw new Error('Configuración del adaptador gemini-api inválida: credencial.');
     this.#apiKey = options.apiKey;
-    this.url = geminiGenerateUrl(options.model);
+    this.url = options.getModel === undefined ? geminiGenerateUrl(options.model!) : null;
+    this.getModel = options.getModel;
     this.timeoutMs = options.timeoutSeconds * 1000;
     this.fetchImpl = options.fetch;
     this.modalities = options.responseModalities ?? ['IMAGE'];
@@ -81,6 +89,17 @@ export class GeminiApiSceneImageGenerator implements SceneImageGeneratorPort {
 
   async generate(request: SceneGenerationRequest): Promise<SceneGenerationResult> {
     if (request.signal.aborted) return TIMEOUT;
+    let url = this.url;
+    if (this.getModel !== undefined) {
+      try {
+        const model = await this.getModel();
+        if (!isSafeGeminiModel(model) || !driverSupportsModel('gemini-api', model)) return FAILED;
+        url = geminiGenerateUrl(model);
+      } catch {
+        return FAILED;
+      }
+    }
+    if (url === null) return FAILED;
     const body = buildGeminiBody(request.prompt, request.references, this.modalities, request.seed);
     if (Buffer.byteLength(body, 'utf8') > this.maxInlineBytes) return FAILED;
 
@@ -90,7 +109,7 @@ export class GeminiApiSceneImageGenerator implements SceneImageGeneratorPort {
     const timer = setTimeout(abort, this.timeoutMs);
     try {
       const doFetch = this.fetchImpl ?? globalThis.fetch;
-      const response = await doFetch(this.url, {
+      const response = await doFetch(url, {
         method: 'POST',
         redirect: 'error',
         headers: { [GEMINI_API_KEY_HEADER]: this.#apiKey, 'content-type': 'application/json' },
