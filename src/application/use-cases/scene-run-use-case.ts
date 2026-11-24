@@ -138,7 +138,9 @@ export class RunSceneGenerationUseCase {
         previousImage: delivered.some((l) => l.required),
       };
       references = loaded.filter((l) => !dropped.has(l.ref)).map((l, i) => ({ ref: `IMG_${i + 1}` as SceneReferenceImage['ref'], mime: l.mime, bytes: l.bytes }));
-      prompt = buildImagePrompt(buildScenePayload({ plan: adjusted, last, now: snapshot, householdId: scene.householdId, maxPets: svc.maxPets, totalPets: claim.totalPets }));
+      // T1306: bloques editados en /admin leidos en caliente; si la lectura falla rige el prompt de codigo (INV-CFG9-003).
+      const blocks = svc.promptBlocks === undefined ? undefined : await svc.promptBlocks().catch(() => undefined);
+      prompt = buildImagePrompt(buildScenePayload({ plan: adjusted, last, now: snapshot, householdId: scene.householdId, maxPets: svc.maxPets, totalPets: claim.totalPets }), blocks);
     } catch {
       return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
     }
@@ -165,9 +167,18 @@ export class RunSceneGenerationUseCase {
       if (!allowed) return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
     }
 
+    // T1296 (h): el par registrado es el EFECTIVO (misma lectura en caliente que el adaptador); si la lectura falla se registra null/null (coste maximo en la regla).
+    let providerCall: { model: string | null; location: string | null } = { model: null, location: null };
+    if (typeof svc.providerCall === 'function') {
+      try {
+        providerCall = await svc.providerCall();
+      } catch {
+        /* null/null: el adaptador falla cerrado con la misma lectura */
+      }
+    } else if (svc.providerCall !== undefined) providerCall = svc.providerCall;
     const started = await deps.uow.runInTransaction(async (r) => {
       if (!(await stillCurrent(r))) return false;
-      await r.scenes.markProviderCall(attempt.id, deps.clock.nowIsoTimestamp(), svc.providerCall ?? { model: null, location: null });
+      await r.scenes.markProviderCall(attempt.id, deps.clock.nowIsoTimestamp(), providerCall);
       return true;
     });
     if (!started) {

@@ -138,7 +138,7 @@ describe('T1261 [EDGE-009-044][INV-PRO9-001] bloque de preservación impuesto po
 });
 
 describe('T1261 [INV-CFG9-002] enumeración del conjunto cerrado de marcadores (LCK-24, antes de implementar)', () => {
-  it('el único marcador de sustitución reconocido es {photoRef} (referencia IMG_n del hogar); buildImagePrompt exporta el conjunto', async () => {
+  it('[INV-CFG9-002] el único marcador de sustitución reconocido es {photoRef} (referencia IMG_n del hogar); buildImagePrompt exporta el conjunto', async () => {
     const m = await load();
     expect([...m.RECOGNIZED_MARKERS]).toEqual(['{photoRef}']);
   });

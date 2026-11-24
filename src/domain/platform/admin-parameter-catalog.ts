@@ -7,13 +7,13 @@
  * @implements REQ-CFG9-001, REQ-CFG9-003, REQ-CFG9-007, REQ-CFG9-008, INV-CFG9-003, EDGE-009-014
  */
 
-import { DEFAULT_PROMPT_BLOCKS, validatePromptBlocks } from '../scene/prompt-blocks.ts';
+import { DEFAULT_PROMPT_BLOCKS, PROMPT_BLOCK_MAX_LENGTH, validatePromptBlocks } from '../scene/prompt-blocks.ts';
 import {
   SCENE_ALLOWED_LOCATIONS,
   SCENE_DEFAULT_GLOBAL_QUOTA_MAX,
   SCENE_DEFAULT_LOCATION,
   SCENE_DEFAULT_MODEL,
-  SCENE_GLOBAL_QUOTA_MAX_CEILING,
+  SCENE_GLOBAL_QUOTA_MAX_DERIVED_CEILING,
   SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY,
   SCENE_PARAM_LOCATION_KEY,
   SCENE_PARAM_MODEL_KEY,
@@ -24,8 +24,7 @@ import { ALBUM_MAX_PHOTOS_PER_PET_KEY, PARAMETER_CATALOG, interpretParameter } f
 
 export const SCENE_ENABLED_KEY = 'scene.enabled' as const;
 export const SCENE_PROMPT_BLOCKS_KEY = 'scene.prompt.blocks' as const;
-/** A-3: 1000 caracteres por bloque (cota de ergonomia, no de coste ni de seguridad). */
-export const PROMPT_BLOCK_MAX_LENGTH = 1000;
+export { PROMPT_BLOCK_MAX_LENGTH };
 
 /** Orden FIJO del catalogo (el de la respuesta de `listAdminParameters`). */
 export const ADMIN_PARAMETER_KEYS = [
@@ -94,8 +93,8 @@ export const ADMIN_PARAMETER_CATALOG: Readonly<Record<AdminParameterKey, AdminPa
     key: SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY,
     valueType: 'INTEGER',
     defaultValue: String(SCENE_DEFAULT_GLOBAL_QUOTA_MAX),
-    constraints: { min: 1, max: SCENE_GLOBAL_QUOTA_MAX_CEILING },
-    writable: false,
+    constraints: { min: 1, max: SCENE_GLOBAL_QUOTA_MAX_DERIVED_CEILING },
+    writable: true,
     description: 'Cuota global mensual de imágenes de escena',
     isCanonical: (raw) => parseSceneGlobalQuotaMax(raw) !== null,
     isEffective: (raw) => parseSceneGlobalQuotaMax(raw) !== null,
@@ -105,7 +104,7 @@ export const ADMIN_PARAMETER_CATALOG: Readonly<Record<AdminParameterKey, AdminPa
     valueType: 'STRING',
     defaultValue: SCENE_DEFAULT_MODEL,
     constraints: { allowed: SCENE_ALLOWED_MODELS },
-    writable: false,
+    writable: true,
     description: 'Modelo de generación de imágenes de escena',
     isCanonical: (raw) => SCENE_ALLOWED_MODELS.includes(raw),
     isEffective: (raw) => SCENE_ALLOWED_MODELS.includes(raw),
@@ -115,7 +114,7 @@ export const ADMIN_PARAMETER_CATALOG: Readonly<Record<AdminParameterKey, AdminPa
     valueType: 'STRING',
     defaultValue: SCENE_DEFAULT_LOCATION,
     constraints: { allowed: SCENE_ALLOWED_LOCATIONS },
-    writable: false,
+    writable: true,
     description: 'Región del proveedor de imágenes de escena',
     isCanonical: isAllowedSceneLocation,
     isEffective: isAllowedSceneLocation,
@@ -123,12 +122,12 @@ export const ADMIN_PARAMETER_CATALOG: Readonly<Record<AdminParameterKey, AdminPa
   [SCENE_PROMPT_BLOCKS_KEY]: {
     key: SCENE_PROMPT_BLOCKS_KEY,
     valueType: 'JSON_BLOCKS',
-    // T1267/T1303: el defecto es el JSON canonico de los 6 bloques vigentes; la clave sigue sin ser escribible hasta la firma de T1255 (P5-06 = B).
+    // T1267/T1303: el defecto es el JSON canonico de los 6 bloques vigentes; desde 5b (T1296) la clave es escribible y el valor se valida con `validatePromptBlocks` (A-2, maxBlockLength 1000).
     defaultValue: JSON.stringify(DEFAULT_PROMPT_BLOCKS),
     constraints: { maxBlockLength: PROMPT_BLOCK_MAX_LENGTH },
-    writable: false,
+    writable: true,
     description: 'Bloques del prompt de la escena',
-    isCanonical: () => false,
+    isCanonical: (raw) => validatePromptBlocks(raw, PROMPT_BLOCK_MAX_LENGTH).ok,
     isEffective: (raw) => validatePromptBlocks(raw, PROMPT_BLOCK_MAX_LENGTH).ok,
   },
 };

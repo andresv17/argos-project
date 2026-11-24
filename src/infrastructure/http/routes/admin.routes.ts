@@ -67,6 +67,9 @@ function uniformNotFound(reply: FastifyReply): FastifyReply {
   return reply;
 }
 
+/** Origen AJENO: `Origin` presente y distinto del propio (incluye `null`). Sin cabecera no cambia el comportamiento (SEN-T1271-01; las escrituras de parametros ya exigen `X-Argos-Request`). */
+const hasForeignOrigin = (request: FastifyRequest): boolean => request.headers.origin !== undefined && !isOwnOrigin(request);
+
 /** `Origin` presente y EXACTAMENTE igual al origen propio (esquema, host y puerto). `null`, ausente, otro esquema, host o puerto = rechazo (REQ-ADM9-005). */
 function isOwnOrigin(request: FastifyRequest): boolean {
   const origin = request.headers.origin;
@@ -174,6 +177,7 @@ export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecu
   app.put<{ Params: { key: string }; Body: unknown }>('/api/admin/parameters/:key', async (request, reply) => {
     const session = await requireAdminSession(request, reply, true);
     if (session === null) return reply;
+    if (hasForeignOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
     const view = await useCases.adminUpdateParameter.execute({ adminId: session.adminId, key: request.params.key, ifMatch: request.headers['if-match'], body: jsonBody(request.body) });
     return noStore(reply).header('etag', view.etag).status(200).send(view);
   });
@@ -182,6 +186,7 @@ export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecu
   app.post<{ Body: unknown }>('/api/admin/parameters/scene-quota/reset', async (request, reply) => {
     const session = await requireAdminSession(request, reply, true);
     if (session === null) return reply;
+    if (hasForeignOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
     return noStore(reply).status(200).send(await useCases.adminResetSceneQuota.execute({ adminId: session.adminId, body: request.body }));
   });
 

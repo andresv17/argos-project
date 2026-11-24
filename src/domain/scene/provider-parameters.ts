@@ -5,6 +5,8 @@
  * @implements REQ-ESC6-017, REQ-ESC6-031, NFR-ESC6-001
  */
 
+import { SCENE_COST_TABLE_MICRO_USD, sceneCostCeiling } from './scene-cost.ts';
+
 /** Claves en `platform_parameters` (texto); si la fila no existe rige el respaldo de entorno y, en su defecto, el valor por defecto. */
 export const SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY = 'scene.global_quota_max';
 export const SCENE_PARAM_MODEL_KEY = 'scene.provider_model';
@@ -15,7 +17,11 @@ export const SCENE_GLOBAL_QUOTA_USED_PREFIX = 'scene.global_quota_used.';
 export const SCENE_DEFAULT_GLOBAL_QUOTA_MAX = 5;
 export const SCENE_DEFAULT_MODEL = 'gemini-2.5-flash-image';
 export const SCENE_DEFAULT_LOCATION = 'us-central1';
-export const SCENE_GLOBAL_QUOTA_MAX_CEILING = 1000;
+/**
+ * Region `global` LATENTE (Enmienda 009-B, condicion (g); EDGE-009-046): constante de CODIGO, no clave de `platform_parameters` ni del catalogo de /admin. Con `false` la region
+ * `global` no esta en la lista cerrada y se rechaza en cualquier forma; activarla exige una enmienda aprobada por Neo.
+ */
+export const SCENE_GLOBAL_LOCATION_ENABLED = false as boolean;
 
 /** Lista cerrada de regiones de Vertex AI admitidas (el host se compone solo con una de ellas, anti-SSRF). */
 export const SCENE_ALLOWED_LOCATIONS: readonly string[] = [
@@ -36,17 +42,21 @@ export const SCENE_ALLOWED_LOCATIONS: readonly string[] = [
   'asia-southeast1',
 ];
 
-export const isAllowedSceneLocation = (value: string): boolean => SCENE_ALLOWED_LOCATIONS.includes(value);
+/** Regiones aceptables: lista cerrada (sensible a caja, sin espacios ni rutas); `global` solo detras de `SCENE_GLOBAL_LOCATION_ENABLED`. */
+export const isAllowedSceneLocation = (value: string): boolean => SCENE_ALLOWED_LOCATIONS.includes(value) || (SCENE_GLOBAL_LOCATION_ENABLED && value === 'global');
 
 const MODEL_PATTERN = /^gemini-[A-Za-z0-9][A-Za-z0-9._-]{0,56}$/;
 /** Modelo seguro para interpolar en la ruta: empieza por `gemini-`, sin `/`, `?`, `#`, espacios ni `..`. */
 export const isSafeSceneModel = (value: string): boolean => MODEL_PATTERN.test(value) && !value.includes('..');
 
+/** Techo del tope global DERIVADO de la tabla de costes aprobada (floor(5_000_000 / costeMin) = 111); 0 con la tabla vacia (nada es editable). */
+export const SCENE_GLOBAL_QUOTA_MAX_DERIVED_CEILING: number = sceneCostCeiling(SCENE_COST_TABLE_MICRO_USD) ?? 0;
+
 const QUOTA_TEXT = /^[1-9][0-9]{0,3}$/;
 export const parseSceneGlobalQuotaMax = (value: string): number | null => {
   if (!QUOTA_TEXT.test(value)) return null;
   const parsed = Number(value);
-  return parsed >= 1 && parsed <= SCENE_GLOBAL_QUOTA_MAX_CEILING ? parsed : null;
+  return parsed >= 1 && parsed <= SCENE_GLOBAL_QUOTA_MAX_DERIVED_CEILING ? parsed : null;
 };
 
 export interface SceneProviderParameters {

@@ -210,6 +210,7 @@ export function adminParameterRepository(db: SqliteDatabase): AdminParameterRepo
   const zeroScene = db.prepare('UPDATE home_scenes SET consumed_generations = 0 WHERE id = ? AND consumed_generations = ?');
   const carryOf = db.prepare<[string], { quota_window: string; consumed_generations: number }>('SELECT quota_window, consumed_generations FROM scene_quota_carry WHERE owner_user_id = ? AND consumed_generations > 0');
   const zeroCarry = db.prepare('UPDATE scene_quota_carry SET consumed_generations = 0 WHERE owner_user_id = ? AND quota_window = ? AND consumed_generations = ?');
+  const spendOf = db.prepare<[string], { provider_model: string | null; provider_location: string | null; provider_call_started_at: string | null }>('SELECT provider_model, provider_location, provider_call_started_at FROM scene_attempts WHERE quota_window = ?');
   return {
     async find(key): Promise<ParameterRowRecord | null> {
       const row = find.get(key);
@@ -221,6 +222,9 @@ export function adminParameterRepository(db: SqliteDatabase): AdminParameterRepo
     },
     async lastEditor(action, key) {
       return editor.get(action, key)?.admin_id ?? null;
+    },
+    async listSceneSpendAttempts(window) {
+      return spendOf.all(window).map((r) => ({ providerModel: r.provider_model, providerLocation: r.provider_location, providerCallStartedAt: r.provider_call_started_at }));
     },
     async resetAdminAccountsSceneQuota(subjects, emails) {
       const ids = accounts.all(JSON.stringify(subjects), JSON.stringify(emails.map((e) => e.toLowerCase()))).map((r) => r.id);

@@ -175,3 +175,28 @@ describe('panel (T1269)', () => {
     expect(html).not.toContain('adm-opaque');
   });
 });
+
+describe('T1307 sceneImagesFit en el cliente (contrato 1.5.0)', () => {
+  const FIT = [{ model: 'gemini-2.5-flash-image', location: 'us-central1', imagesFit: 111 }, { model: 'gemini-3.1-flash-image', location: 'us-central1', imagesFit: 66 }];
+
+  it('[EDGE-009-036] parseSceneImagesFit conserva solo model, location e imagesFit; lo mal formado o ausente da lista vacia (falla cerrado)', async () => {
+    const { parseSceneImagesFit } = await import('../../../src/presentation/admin/parameters-api.ts');
+    expect(parseSceneImagesFit({ items: [], sceneImagesFit: FIT.map((f) => ({ ...f, coste: 1 })) })).toEqual(FIT);
+    expect(parseSceneImagesFit({ items: [] })).toEqual([]);
+    expect(parseSceneImagesFit({ sceneImagesFit: [{ model: 'm', location: 'us-central1', imagesFit: -1 }] })).toEqual([]);
+    expect(parseSceneImagesFit({ sceneImagesFit: [{ model: 'm', location: 'us-central1', imagesFit: 1.5 }] })).toEqual([]);
+    expect(parseSceneImagesFit({ sceneImagesFit: 'x' })).toEqual([]);
+    expect(parseSceneImagesFit(null)).toEqual([]);
+  });
+
+  it('fetchParameterCatalog devuelve las seis vistas y las imagenes que caben', async () => {
+    const { fetchParameterCatalog } = await import('../../../src/presentation/admin/parameters-api.ts');
+    stubFetch(json({ ...CATALOG, sceneImagesFit: FIT }));
+    const out = await fetchParameterCatalog();
+    expect(out.kind).toBe('OK');
+    if (out.kind === 'OK') {
+      expect(out.value.params).toHaveLength(6);
+      expect(out.value.imagesFit).toEqual(FIT);
+    }
+  });
+});

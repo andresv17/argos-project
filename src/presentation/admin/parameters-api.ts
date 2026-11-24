@@ -32,12 +32,13 @@ export interface QuotaResetResult {
   readonly resetAt: string;
 }
 
-/** `SESSION_LOST`: 404 uniforme; `PRECONDITION`: 412 (edición concurrente); `INVALID`: 422; `CONFLICT`: 409 del reinicio; `FAILED`: red, 5xx u otra forma. */
+/** `SESSION_LOST`: 404 uniforme; `PRECONDITION`: 412 (edición concurrente); `INVALID`: 422; `COST_CAP`: 422 `ERR-ADMIN-SCENE-COST-CAP-EXCEEDED` (T1305, sin cifras); `CONFLICT`: 409 del reinicio; `FAILED`: red, 5xx u otra forma. */
 export type ParamOutcome<T> =
   | { readonly kind: 'OK'; readonly value: T }
   | { readonly kind: 'SESSION_LOST' }
   | { readonly kind: 'PRECONDITION' }
   | { readonly kind: 'INVALID' }
+  | { readonly kind: 'COST_CAP' }
   | { readonly kind: 'CONFLICT' }
   | { readonly kind: 'FAILED' };
 
@@ -101,6 +102,38 @@ export function parseParameterCatalog(body: unknown): readonly ParameterView[] |
   return parsed;
 }
 
+/** Imagenes que aun caben por par seleccionable (contrato 1.5.0, solo lectura, sin dinero). */
+export interface ImagesFit {
+  readonly model: string;
+  readonly location: string;
+  readonly imagesFit: number;
+}
+
+/** Tolerante: ausente o mal formado = lista vacia (falla cerrado: no se muestra ninguna cifra, el panel sigue funcionando). */
+export function parseSceneImagesFit(body: unknown): readonly ImagesFit[] {
+  if (typeof body !== 'object' || body === null) return [];
+  const raw = (body as { sceneImagesFit?: unknown }).sceneImagesFit;
+  if (!Array.isArray(raw) || raw.length > 2) return [];
+  const out: ImagesFit[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const { model, location, imagesFit } = entry as Record<string, unknown>;
+    if (typeof model !== 'string' || typeof location !== 'string' || typeof imagesFit !== 'number' || !Number.isInteger(imagesFit) || imagesFit < 0 || imagesFit > 111) return [];
+    out.push({ model, location, imagesFit });
+  }
+  return out;
+}
+
+export interface ParameterCatalog {
+  readonly params: readonly ParameterView[];
+  readonly imagesFit: readonly ImagesFit[];
+}
+
+function parseCatalogWithFit(body: unknown): ParameterCatalog | null {
+  const params = parseParameterCatalog(body);
+  return params === null ? null : { params, imagesFit: parseSceneImagesFit(body) };
+}
+
 function parseQuotaReset(body: unknown): QuotaResetResult | null {
   if (typeof body !== 'object' || body === null) return null;
   const { accountsReset, resetAt } = body as Record<string, unknown>;
@@ -118,7 +151,10 @@ async function call<T>(path: string, init: RequestInit, parse: (body: unknown) =
     }
     if (response.status === 404) return { kind: 'SESSION_LOST' };
     if (response.status === 412) return { kind: 'PRECONDITION' };
-    if (response.status === 422) return { kind: 'INVALID' };
+    if (response.status === 422) {
+      const code = await response.json().then((b: unknown) => (typeof b === 'object' && b !== null ? (b as { code?: unknown }).code : undefined), () => undefined);
+      return { kind: code === 'ERR-ADMIN-SCENE-COST-CAP-EXCEEDED' ? 'COST_CAP' : 'INVALID' };
+    }
     if (response.status === 409) return { kind: 'CONFLICT' };
     return { kind: 'FAILED' };
   } catch {
@@ -127,6 +163,8 @@ async function call<T>(path: string, init: RequestInit, parse: (body: unknown) =
 }
 
 export const fetchParameters = (): Promise<ParamOutcome<readonly ParameterView[]>> => call(BASE, { method: 'GET', headers: { Accept: 'application/json' } }, parseParameterCatalog);
+
+export const fetchParameterCatalog = (): Promise<ParamOutcome<ParameterCatalog>> => call(BASE, { method: 'GET', headers: { Accept: 'application/json' } }, parseCatalogWithFit);
 
 export function updateParameter(key: ParameterKey, value: string, etag: string): Promise<ParamOutcome<ParameterView>> {
   return call(

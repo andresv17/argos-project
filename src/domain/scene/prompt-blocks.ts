@@ -52,12 +52,16 @@ export const DEFAULT_PROMPT_BLOCKS: PromptBlocks = {
 };
 
 export type PromptBlocksValidation = { readonly ok: true; readonly blocks: PromptBlocks } | { readonly ok: false; readonly code: 'ERR-SCHEMA-VALIDATION-FAILED' };
+/** A-3: 1000 caracteres por bloque (cota de ergonomia, no de coste ni de seguridad). */
+export const PROMPT_BLOCK_MAX_LENGTH = 1000;
+
 const FAIL: PromptBlocksValidation = { ok: false, code: 'ERR-SCHEMA-VALIDATION-FAILED' };
 
 /** Texto que imita lo que fija el codigo (etiquetas `IMG_n`, JSON de la escena, conteo, numeracion de mascotas). */
 const IMITATION = /IMG_\d|renderedPetsCount|Scene specification|Exact animal count|^Pet\s+\d/im;
 // eslint-disable-next-line no-control-regex
-const CONTROL_CHARS = /[\u0000-\u0008\u000b-\u001f\u007f]/;
+/** C0 (salvo tab y salto de linea), DEL y C1 (Cc), formato (Cf: U+202E, U+200B, U+FEFF...) y separadores de linea y parrafo (Zl U+2028, Zp U+2029). SEN-T1271-02. */
+const CONTROL_CHARS = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029]|\p{Cf}/u;
 
 /**
  * Valida el valor crudo de `scene.prompt.blocks` (A-2). Nunca devuelve el valor ni un mensaje que lo contenga (INV-CFG9-003). Orden: JSON objeto plano; claves exactas; cada valor

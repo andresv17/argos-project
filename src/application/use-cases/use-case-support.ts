@@ -8,6 +8,7 @@
  * @implements INV-ACC-001, INV-ACC-002, INV-PET-003, INV-ARCH-001, INV-ARCH-002, INV-ARCH-004, ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, REQ-FAL7-004, REQ-FAL7-007, EDGE-007-019
  */
 
+import type { PromptBlocks } from '../../domain/scene/prompt-blocks.ts';
 import { computedAgeOf, normalizePetProfile, type PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
@@ -122,7 +123,15 @@ export interface SceneServices {
   /** Cuota GLOBAL mensual (Fase 14, T948, N2-02): solo con el driver real; sin puerto el worker no la exige (simulado). */
   readonly globalQuota?: SceneGlobalQuotaPort;
   /** Modelo y region VIGENTES de la llamada (T1298, D9-22 = A): los guarda `markProviderCall` por intento. Sin valor (driver simulado o gemini-api) el intento registra null (sin proveniencia inventada); la lectura en caliente es de T1254/T1267. */
-  readonly providerCall?: { readonly model: string; readonly location: string };
+  /** Bloques del prompt vigentes (T1306, REQ-CFG9-005): lectura en caliente de `scene.prompt.blocks` (cache <= 60 s). Sin lector o con fallo rige el prompt de codigo. */
+  readonly promptBlocks?: () => Promise<PromptBlocks>;
+  readonly providerCall?: SceneProviderCall | (() => Promise<SceneProviderCall>);
+}
+
+/** Par modelo x region de una llamada al proveedor (T1296 (h): puede ser una funcion async que lee el par EFECTIVO, el mismo que usa el adaptador). */
+export interface SceneProviderCall {
+  readonly model: string;
+  readonly location: string;
 }
 
 /**

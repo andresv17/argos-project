@@ -189,6 +189,14 @@ export function adminParameterRepository(client: PoolClientLike): AdminParameter
       const { rows } = await client.query('SELECT admin_id FROM admin_audit_entries WHERE action = $1 AND object_ref = $2 ORDER BY occurred_at DESC, id DESC LIMIT 1', [action, key]);
       return rows[0] === undefined ? null : String(rows[0]['admin_id']);
     },
+    async listSceneSpendAttempts(window) {
+      const { rows } = await client.query('SELECT provider_model, provider_location, provider_call_started_at FROM scene_attempts WHERE quota_window = $1', [window]);
+      return rows.map((r) => ({
+        providerModel: r['provider_model'] === null ? null : String(r['provider_model']),
+        providerLocation: r['provider_location'] === null ? null : String(r['provider_location']),
+        providerCallStartedAt: r['provider_call_started_at'] === null ? null : r['provider_call_started_at'] instanceof Date ? r['provider_call_started_at'].toISOString() : String(r['provider_call_started_at']),
+      }));
+    },
     async resetAdminAccountsSceneQuota(subjects, emails) {
       const { rows: accounts } = await client.query(
         `SELECT id FROM users WHERE id IN (SELECT user_id FROM auth_identities WHERE provider = 'GOOGLE' AND provider_subject = ANY($1::text[]))

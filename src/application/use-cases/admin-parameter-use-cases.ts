@@ -5,10 +5,10 @@
  *   la vista muestra lo escrito; lo que rige en caliente tarda hasta 60 s por instancia (la interfaz lo avisa).
  * - Escritura (`updateAdminParameter`): orden esquema (clave del catalogo y escribible, `If-Match`, cuerpo cerrado, valor canonico EXACTO) -> precondicion (412). En UNA transaccion: compara el
  *   etag con la fila, hace compare-and-set de `value` y `updated_at` (`updated_by_user_id` queda `NULL`) y deja UNA entrada de auditoria con el id del administrador y la clave, SIN el valor.
- *   Un valor invalido o una clave no escribible (P5-06 = B: solo `album.max_photos_per_pet` y `scene.enabled` en 5a) NUNCA escribe. Bajar el tope de fotos conserva las fotos (EDGE-009-015).
+ *   Un valor invalido o una clave no escribible NUNCA escribe. En 5b (T1296) modelo, region y tope global pasan ademas por la regla de coste (`ERR-ADMIN-SCENE-COST-CAP-EXCEEDED`, 422, sin escribir). Bajar el tope de fotos conserva las fotos (EDGE-009-015).
  * El etag es opaco y cambia con cada escritura aunque el valor sea igual (porque cambia `updated_at`); una fila ausente tiene el etag de ausencia.
  *
- * @implements REQ-CFG9-001, REQ-CFG9-002, REQ-CFG9-007, REQ-ADM9-004, INV-CFG9-003, EDGE-009-014, EDGE-009-015, EDGE-009-016, SC-009-017, SC-009-018, SC-009-019, SC-009-020, ERR-ADMIN-PARAMETER-PRECONDITION-FAILED, INV-ARCH-001, INV-ARCH-002
+ * @implements ERR-ADMIN-SCENE-COST-CAP-EXCEEDED, REQ-CFG9-001, REQ-CFG9-002, REQ-CFG9-007, REQ-ADM9-004, INV-CFG9-003, EDGE-009-014, EDGE-009-015, EDGE-009-016, SC-009-017, SC-009-018, SC-009-019, SC-009-020, ERR-ADMIN-PARAMETER-PRECONDITION-FAILED, INV-ARCH-001, INV-ARCH-002
  */
 
 import { sha256Hex } from '../../domain/audit/sha256.ts';
@@ -21,10 +21,14 @@ import {
   type AdminParameterKey,
   type AdminParameterSpec,
 } from '../../domain/platform/admin-parameter-catalog.ts';
+import { quotaWindowOf } from '../../domain/scene/quota-window.ts';
+import { SCENE_COST_TABLE_MICRO_USD, evaluateSceneSpendRule, sceneImagesFit, type SceneImagesFit } from '../../domain/scene/scene-cost.ts';
+import { SCENE_GLOBAL_QUOTA_USED_PREFIX, SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY, SCENE_PARAM_LOCATION_KEY, SCENE_PARAM_MODEL_KEY } from '../../domain/scene/provider-parameters.ts';
 import { DomainError } from '../../generated/v35/index.ts';
 import type { ParameterRowRecord } from '../ports/admin.port.ts';
 import { ADMIN_AUDIT_ACTIONS } from './admin-use-cases.ts';
 import type { ApplicationDeps } from './use-case-support.ts';
+import type { RepositorySet } from '../ports/repositories.port.ts';
 
 const invalid = (field: string, detail: string): DomainError => new DomainError('ERR-SCHEMA-VALIDATION-FAILED', detail, field);
 
@@ -70,7 +74,7 @@ function viewOf(spec: AdminParameterSpec, row: ParameterRowRecord | null, lastEd
 export class ListAdminParametersUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(): Promise<{ readonly items: readonly AdminParameterView[] }> {
+  async execute(): Promise<{ readonly items: readonly AdminParameterView[]; readonly sceneImagesFit: readonly SceneImagesFit[] }> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       const items: AdminParameterView[] = [];
       for (const key of ADMIN_PARAMETER_KEYS) {
@@ -78,7 +82,14 @@ export class ListAdminParametersUseCase {
         const editor = row === null ? null : await repositories.adminParameters.lastEditor(ADMIN_AUDIT_ACTIONS.parameterUpdate, key);
         items.push(viewOf(ADMIN_PARAMETER_CATALOG[key], row, editor));
       }
-      return { items };
+      // Contrato 1.5.0: imagenes que aun caben por par (gasto del mes de la zona de la aplicacion); si no se puede calcular, lista vacia (falla cerrado).
+      let fit: readonly SceneImagesFit[] = [];
+      try {
+        fit = sceneImagesFit(SCENE_COST_TABLE_MICRO_USD, await repositories.adminParameters.listSceneSpendAttempts(quotaWindowOf(this.deps.clock.todayIsoDate())));
+      } catch {
+        fit = [];
+      }
+      return { items, sceneImagesFit: fit };
     });
   }
 }
@@ -101,6 +112,7 @@ export class UpdateAdminParameterUseCase {
       const current = await repositories.adminParameters.find(spec.key);
       // El detalle del 412 no incluye el valor vigente (EDGE-009-016).
       if (parameterEtag(spec.key, current) !== ifMatch) throw new DomainError('ERR-ADMIN-PARAMETER-PRECONDITION-FAILED');
+      if (COST_KEYS.has(spec.key)) await this.assertSpendRule(repositories, spec.key, value);
       const written = await repositories.adminParameters.compareAndSet(spec.key, spec.description, { value, updatedAt: now }, current);
       if (!written) throw new DomainError('ERR-ADMIN-PARAMETER-PRECONDITION-FAILED');
       // Solo el id del administrador, la clave y la marca de tiempo: nunca el valor (REQ-CFG9-007).
@@ -108,7 +120,30 @@ export class UpdateAdminParameterUseCase {
       return viewOf(spec, { value, updatedAt: now }, input.adminId);
     });
   }
+
+  /**
+   * Regla de coste (EDGE-009-036, T1296 (i)): con el valor nuevo sustituido en la combinacion vigente (modelo, region, tope), gasto del mes por intento (ventana `quota_window` de la zona
+   * de la aplicacion, America/Bogota) + max(0, tope - usadas) x coste del par <= 5_000_000 micro-USD. Par sin celda verificada = 422 de esquema; exceso o tabla vacia = 422 de tope de gasto.
+   * Sin cifras en el error; si lanza, la transaccion no escribe ni audita.
+   */
+  private async assertSpendRule(repositories: RepositorySet, key: AdminParameterKey, value: string): Promise<void> {
+    const effective = async (k: AdminParameterKey): Promise<string> => effectiveParameter(ADMIN_PARAMETER_CATALOG[k], (await repositories.adminParameters.find(k))?.value ?? null).value;
+    const model = key === SCENE_PARAM_MODEL_KEY ? value : await effective(SCENE_PARAM_MODEL_KEY);
+    const location = key === SCENE_PARAM_LOCATION_KEY ? value : await effective(SCENE_PARAM_LOCATION_KEY);
+    const max = Number(key === SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY ? value : await effective(SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY));
+    const window = quotaWindowOf(this.deps.clock.todayIsoDate());
+    const usedRaw = (await repositories.adminParameters.find(`${SCENE_GLOBAL_QUOTA_USED_PREFIX}${window}`))?.value ?? '0';
+    const used = /^[0-9]{1,9}$/.test(usedRaw) ? Number(usedRaw) : 0;
+    const attempts = await repositories.adminParameters.listSceneSpendAttempts(window);
+    const decision = evaluateSceneSpendRule({ table: SCENE_COST_TABLE_MICRO_USD, attempts, used, model, location, max });
+    if (decision.ok) return;
+    if (decision.reason === 'PAIR_NOT_SELECTABLE') throw invalid('value', 'La combinación de modelo y región no está disponible.');
+    throw new DomainError('ERR-ADMIN-SCENE-COST-CAP-EXCEEDED');
+  }
 }
+
+/** Claves cuyo guardado pasa por la regla de coste (modelo, region y tope global). */
+const COST_KEYS: ReadonlySet<string> = new Set([SCENE_PARAM_MODEL_KEY, SCENE_PARAM_LOCATION_KEY, SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY]);
 
 /**
  * Reinicio de la cuota de escena de las cuentas del administrador (T1268, REQ-CFG9-006, EDGE-009-022, EDGE-009-023; SC-009-026; opcion A de Neo, ADR-009-13): una transaccion que pone a cero SOLO los

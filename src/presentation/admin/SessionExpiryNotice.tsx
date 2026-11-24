@@ -12,6 +12,7 @@ export function SessionExpiryNotice({ expiresAt }: { readonly expiresAt: string 
   useEffect(() => {
     setDue(false);
     if (expiresAt === null) return undefined;
+    // nosemgrep: tests.security.sast-rules.argos-no-entropy-outside-adapters — reloj del navegador solo para armar el aviso de expiración (sin entropía ni dato persistido)
     const delay = sessionWarningDelayMs(expiresAt, Date.now());
     if (delay === null) return undefined;
     const timer = window.setTimeout(() => setDue(true), delay);

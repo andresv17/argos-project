@@ -318,7 +318,8 @@ test('[REQ-CFG9-006][SC-009-026] el reinicio deja a cero la cuota de la cuenta a
   const imageC = await firstImage(c.request, base); // escena de hogar: owner_user_id NULL
   const maxRemaining = imageA.quota.remaining + 1;
   expect(imageA.quota.remaining).toBeLessThan(maxRemaining);
-  const remainingB = (await ownerScene(b)).quota.remaining; // cuenta ajena con cuota consumida (T5 consumió 2)
+  await firstImage(b.request, '/me'); // precondición propia: la cuenta ajena consume 1 (no depende del orden de pruebas)
+  const remainingB = (await ownerScene(b)).quota.remaining; // cuenta ajena con cuota consumida
   expect(remainingB).toBeLessThan(maxRemaining);
   const remainingC = imageC.quota.remaining;
 

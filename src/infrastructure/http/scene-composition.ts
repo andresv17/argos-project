@@ -15,6 +15,7 @@
 import type { SceneGlobalQuotaPort } from '../../application/ports/scene-global-quota.port.ts';
 import type { SceneJob, SceneJobDispatcherPort } from '../../application/ports/scene-job-dispatcher.port.ts';
 import type { SceneServices } from '../../application/use-cases/use-case-support.ts';
+import type { PromptBlocks } from '../../domain/scene/prompt-blocks.ts';
 import { SCENE_DEFAULT_LOCATION, SCENE_DEFAULT_MODEL, type SceneProviderParameters } from '../../domain/scene/provider-parameters.ts';
 import { SCENE_GEMINI_API_NOTICE_VERSION, SCENE_GEMINI_API_PROVIDER_ID, SCENE_NOTICE_VERSION, SCENE_PROVIDER_ID } from '../../domain/scene/notice.ts';
 import { CloudTasksSceneDispatcher } from '../adapters/cloud-tasks-scene-dispatcher.adapter.ts';
@@ -46,6 +47,10 @@ export interface SceneCompositionOptions {
   readonly getAccessToken?: () => Promise<string>;
   /** Modelo, región y tope global ya resueltos desde `platform_parameters` con respaldo en el entorno (T948); sin ellos rige el respaldo de `config.scene` (solo `real`). */
   readonly providerParameters?: SceneProviderParameters;
+  /** Lector en caliente de `scene.prompt.blocks` (T1306; cache <= 60 s). */
+  readonly readPromptBlocks?: () => Promise<PromptBlocks>;
+  /** Lector en caliente de modelo y región (T1265; caché <= 60 s): el generador Vertex compone la URL en cada llamada. Sin él rigen los parámetros resueltos al arrancar. */
+  readonly readProviderParameters?: () => Promise<SceneProviderParameters>;
   /** Cuota global mensual atómica (T948): obligatoria con el driver `real` (no se arranca sin tope de gasto). */
   readonly globalQuota?: SceneGlobalQuotaPort;
 }
@@ -82,10 +87,12 @@ function composeVertexGenerator(scene: SceneConfig, options: SceneCompositionOpt
   const model = options.providerParameters?.model ?? scene.model;
   const location = options.providerParameters?.location ?? scene.location;
   if (scene.projectId === null || model === null || location === null || options.globalQuota === undefined) throw new Error('Configuración del driver real incompleta para la escena.');
+  const read = options.readProviderParameters;
   return createVertexSceneGenerator({
     projectId: scene.projectId,
     location,
     model,
+    ...(read === undefined ? {} : { getParameters: async () => { const p = await read(); return { model: p.model, location: p.location }; } }),
     timeoutSeconds: scene.genTimeoutSeconds,
     ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     ...(options.getAccessToken === undefined ? {} : { getAccessToken: () => options.getAccessToken!() }),
@@ -125,7 +132,11 @@ export function composeSceneServices(config: AppConfig, options: SceneCompositio
         ? createGeminiApiSceneGenerator({ apiKey: scene.geminiApiKey!, model: scene.geminiModel!, timeoutSeconds: scene.genTimeoutSeconds, ...(options.fetch === undefined ? {} : { fetch: options.fetch }) })
         : new FakeSceneImageGenerator({ mode: 'ok' }),
     dispatcher: selectSceneDispatcher(scene, options),
+    ...(options.readPromptBlocks === undefined ? {} : { promptBlocks: options.readPromptBlocks }),
     ...(real && options.globalQuota !== undefined ? { globalQuota: options.globalQuota } : {}),
-    ...(real ? { providerCall: { model: options.providerParameters?.model ?? scene.model ?? SCENE_DEFAULT_MODEL, location: options.providerParameters?.location ?? scene.location ?? SCENE_DEFAULT_LOCATION } } : {}),
+    ...(real && options.readProviderParameters !== undefined
+      ? { providerCall: async () => { const p = await options.readProviderParameters!(); return { model: p.model, location: p.location }; } }
+      : {}),
+    ...(real && options.readProviderParameters === undefined ? { providerCall: { model: options.providerParameters?.model ?? scene.model ?? SCENE_DEFAULT_MODEL, location: options.providerParameters?.location ?? scene.location ?? SCENE_DEFAULT_LOCATION } } : {}),
   };
 }

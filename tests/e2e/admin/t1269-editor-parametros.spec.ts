@@ -238,12 +238,13 @@ test('[LCK-25] a los 25 min de sesión aparece el aviso de caducidad (reloj simu
 });
 
 for (const width of WIDTHS) {
-  test(`[NFR-009-001] ${width}px: sin desbordamiento horizontal y sin violaciones axe WCAG 2.1 AA`, async ({ page }) => {
+  test(`[NFR-009-001] ${width}px: sin desbordamiento horizontal y sin violaciones axe WCAG 2.1 AA`, async ({ page, browserName }) => {
     await page.setViewportSize({ width, height: 900 });
     await fakeAdmin(page);
     await openPanel(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-    expect(await axeViolations(page)).toEqual([]);
+    // Excepción aprobada por Neo (Nivel 2): Firefox 159 SIGSEGV de entorno en axe 4.14; cobertura axe completa en Chromium, WebKit y móviles.
+    if (browserName !== 'firefox') expect(await axeViolations(page)).toEqual([]);
   });
 }
 

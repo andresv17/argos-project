@@ -35,7 +35,7 @@
  *   `ARGOS_SCENE_WORKER_URL` (https, host `*.run.app`, ruta exacta `/internal/scene-worker`, sin consulta, fragmento, puerto ni credenciales). Con
  *   `NODE_ENV=production` se rechaza `fake`; `real` exige la constante de activación del código (`SCENE_REAL_DRIVER_ACTIVATED`, true desde T885), el modelo y el
  *   proyecto, y en producción además la cuenta de Cloud Tasks y la URL del worker. `T_LEASE = T_GEN + 60` y `T_QUEUE = 600` son constantes de código. Fase 14 (T948/T952,
- *   D6-22): `ARGOS_SCENE_LOCATION` (lista cerrada de regiones; obligatoria con `real`) y `ARGOS_SCENE_GLOBAL_QUOTA_MAX` (1..1000, 5 por defecto; cuota GLOBAL mensual, N2-02) son el
+ *   D6-22): `ARGOS_SCENE_LOCATION` (lista cerrada de regiones; obligatoria con `real`) y `ARGOS_SCENE_GLOBAL_QUOTA_MAX` (1..techo derivado de la tabla de costes aprobada, 5 por defecto; cuota GLOBAL mensual, N2-02) son el
  *   RESPALDO de las filas de `platform_parameters`, que prevalecen (`scene-provider-parameters.ts`). Con `real` el driver es Vertex AI por el metadata server (sin clave de API).
  *   El error nombra solo la variable, nunca el valor.
  * - Una variable inválida produce `AppConfigError` con la lista de variables afectadas; no se arranca con valores
@@ -123,7 +123,7 @@ export interface SceneConfig {
   readonly projectId: string | null;
   /** Región de Vertex AI (`ARGOS_SCENE_LOCATION`, lista cerrada); `null` si no se definió. Respaldo de `platform_parameters` (T948). */
   readonly location: string | null;
-  /** Cuota GLOBAL mensual de respaldo (`ARGOS_SCENE_GLOBAL_QUOTA_MAX`, 1..1000; 5 por defecto): la fila de `platform_parameters` prevalece (N2-02 = A, T948). */
+  /** Cuota GLOBAL mensual de respaldo (`ARGOS_SCENE_GLOBAL_QUOTA_MAX`, 1..techo derivado de la tabla de costes (111); 5 por defecto): la fila de `platform_parameters` prevalece (N2-02 = A, T948). */
   readonly globalQuotaMax: number;
   /** Modelo del driver `gemini-api` (`ARGOS_SCENE_GEMINI_MODEL`); `null` con `fake` o `real`. */
   readonly geminiModel: string | null;

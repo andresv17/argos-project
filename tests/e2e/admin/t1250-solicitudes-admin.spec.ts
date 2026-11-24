@@ -83,7 +83,7 @@ test('[REQ-APR9-005][SC-009-008] al entrar muestra el contador de pendientes y c
   await expect(items).toHaveCount(2);
   await expect(items.nth(0)).toContainText('ana_perez');
   await expect(items.nth(0)).toContainText('Método: Usuario y contraseña');
-  await expect(items.nth(0)).toContainText('1 de nov de 2026');
+  await expect(items.nth(0)).toContainText(/1 de nov\.? de 2026/);
   await expect(items.nth(1)).toContainText('luis_g');
   await expect(items.nth(1)).toContainText('Método: Google');
   const html = (await page.content()).toLowerCase();

@@ -128,6 +128,13 @@ export interface ParameterRowRecord {
  * Edicion de parametros de plataforma desde `/admin` (feature 009, Fase 5a, T1264, REQ-CFG9-001, REQ-CFG9-007). Escribe en `platform_parameters` SIN tocar `updated_by_user_id` (queda `NULL`):
  * el autor vive solo en `admin_audit_entries` (MER-09). Opera por clave del catalogo cerrado; no crea claves nuevas (la fila ausente de una clave del catalogo se inserta).
  */
+/** Dato minimo de un intento para la regla de coste (T1296 (i)): solo modelo, region y marca de llamada; nunca prompt, inputs ni ids. */
+export interface SceneSpendAttemptRecord {
+  readonly providerModel: string | null;
+  readonly providerLocation: string | null;
+  readonly providerCallStartedAt: string | null;
+}
+
 export interface AdminParameterRepositoryPort {
   /** Fila actual o `null` si no existe (sin interpretar). */
   find(key: string): Promise<ParameterRowRecord | null>;
@@ -145,4 +152,6 @@ export interface AdminParameterRepositoryPort {
    * (el caso de uso revierte la transaccion entera, sin cambios parciales). Devuelve cuantas cuentas coincidieron (puede ser 0), nunca sus ids.
    */
   resetAdminAccountsSceneQuota(subjects: readonly string[], emails: readonly string[]): Promise<{ readonly accountsReset: number } | null>;
+  /** Intentos de la ventana mensual `quota_window` (YYYY-MM de America/Bogota, fijada al crear el intento) para la regla de coste de `EDGE-009-036`. El filtro es por ventana, no por UTC. */
+  listSceneSpendAttempts(window: string): Promise<readonly SceneSpendAttemptRecord[]>;
 }

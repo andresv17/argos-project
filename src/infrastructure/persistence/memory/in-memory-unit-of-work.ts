@@ -933,6 +933,9 @@ function adminParameterRepository(state: MemoryState): AdminParameterRepositoryP
       state.sceneQuotaCarry = (state.sceneQuotaCarry ?? []).map((c) => (ids.has(c.ownerUserId) ? { ...c, consumedGenerations: 0 } : c));
       return { accountsReset: ids.size };
     },
+    async listSceneSpendAttempts(window) {
+      return (state.sceneAttempts ?? []).filter((a) => a.quotaWindow === window).map((a) => ({ providerModel: a.providerModel ?? null, providerLocation: a.providerLocation ?? null, providerCallStartedAt: a.providerCallStartedAt }));
+    },
   };
 }
 

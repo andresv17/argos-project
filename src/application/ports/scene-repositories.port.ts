@@ -7,7 +7,7 @@
  * Orden de candados en toda transacción de la 006 (ADR-006-07, INV-ESC6-003, INV-ESC6-012): propietario -> mascota -> hogar -> escena. El caso de uso toma los
  * suyos primero; el repositorio de escena toma el de la escena al final (`lockScene`: PostgreSQL `SELECT ... FOR UPDATE`; SQLite ya está bajo `BEGIN IMMEDIATE`).
  *
- * @implements INV-ESC6-003, INV-ESC6-004, INV-ESC6-012, REQ-ESC6-012, REQ-ESC6-034, REQ-ESC6-036, EDGE-ESC6-016, EDGE-ESC6-033, INV-ARCH-005
+ * @implements INV-LIM9-001, REQ-LIM9-004, REQ-LIM9-005, INV-ESC6-003, INV-ESC6-004, INV-ESC6-012, REQ-ESC6-012, REQ-ESC6-034, REQ-ESC6-036, EDGE-ESC6-016, EDGE-ESC6-033, INV-ARCH-005
  */
 
 export const SCENE_LOCK_ORDER = ['OWNER', 'PET', 'HOUSEHOLD', 'SCENE'] as const;

@@ -1,13 +1,19 @@
 # Regla de coste en micro-USD enteros (T1300) — Feature 009
 
-- Estado: **`DRAFT`** (sin `APPROVED` ni `LOCKED`). Autor: `/architect`, 2026-11-23, HEAD dc535bd. Decisiones de Neo (Nivel 2) aplicadas: `D-2` (unidad y cifras) y `D-3`.
-- Traza: `T1300`, `P5-02` = A, `D9-21` = A corregida, `D9-22` = A, `REQ-CFG9-004`, `NFR-009-003`, `EDGE-009-036`, `EDGE-009-045`, `SC-009-051`. Anexo A de la Enmienda 009-B (`.specify/memory/constitution.md`, `DRAFT` 3.10.0).
+- Estado: **`APROBADA` como parte de la Enmienda 009-B (3.10.0)** (`APPROVED` por Neo, Nivel 2, 2026-11-23, `T1255`; esta regla no tiene aprobación propia ni `LOCKED`). Autor: `/architect`, 2026-11-23, HEAD dc535bd. Decisiones de Neo (Nivel 2) aplicadas: `D-2` (unidad y cifras) y `D-3`.
+- Traza: `T1300`, `P5-02` = A, `D9-21` = A corregida, `D9-22` = A, `REQ-CFG9-004`, `NFR-009-003`, `EDGE-009-036`, `EDGE-009-045`, `SC-009-051`. Anexo A de la Enmienda 009-B (`.specify/memory/constitution.md`, `APPROVED` 3.10.0).
 - Desarrollo extendido y ejemplos: `.specify/memory/audits/architect-009-5b-borradores.md` Parte 3 (este documento es la versión normativa breve y prevalece sobre ella donde difieran).
 
 ## 1. Unidad
 
 - Coste `T[m, r]` = **micro-USD enteros por intento** (1 USD = 1 000 000), **cota superior** (imagen de salida a la resolución fija de la plataforma + entradas máximas por intento), **redondeado hacia arriba**. Sin `Number` de punto flotante en el cálculo; sin conversión a COP en código.
-- **Sin cifras de coste** por orden de Morpheus (2026-11-23): cotas de la directiva D-2: no transcritas aquí; se llenan con tarifa oficial de Vertex (T1301 pendiente). `T1301` deja las tarifas `NO VERIFICADA (pendiente tarifa oficial Vertex)`. Un par modelo × región solo es seleccionable cuando su celda del Anexo A tenga valor con fuente y disponibilidad verificada.
+- **Cifras de coste** (fuente única: Anexo A de la Enmienda 009-B, `.specify/memory/constitution.md`, `APPROVED` 3.10.0; esta regla no las modifica, cambiarlas exige autorización de Nivel 2):
+
+| Región | `gemini-2.5-flash-image` | `gemini-3.1-flash-image` | `gemini-3-pro-image` |
+|---|---|---|---|
+| `us-central1` | `45_000` µUSD por intento | `75_000` µUSD por intento | no seleccionable (solo `global`) |
+
+- `gemini-3-pro-image` solo existe en `global`, región **fuera de la Enmienda** (`SCENE_GLOBAL_LOCATION_ENABLED = false`): su referencia conservadora `158_160` µUSD no habilita ninguna celda. Habilitar `global` exige decisión posterior de Nivel 2 (dictamen de `/rama`, enmienda de la feature 006, `T1299`). Un par sin celda con valor en el Anexo A no es seleccionable (fail-closed).
 - `TOPE_USD` = 5, es decir `TOPE_MICRO` = 5_000_000 (constante de la Enmienda 009-B; no editable desde `/admin`).
 
 ## 2. Regla de guardado (fórmula)
@@ -28,7 +34,7 @@ gastoAcumuladoMes + max(0, max' − usadas) × T[m', r']  ≤  5_000_000
 techo = floor( 5_000_000 / costeMin )      // costeMin = mínimo de T sobre los pares seleccionables
 ```
 
-- El valor numérico del techo queda **sin determinar** hasta que exista tarifa oficial.
+- Con la tabla vigente `costeMin = 45_000` y el techo es `111` imágenes/mes (valor fijado por la Enmienda 009-B, Anexo A).
 - Sustituye y **elimina** `SCENE_GLOBAL_QUOTA_MAX_CEILING = 1000`. El defecto de `scene.global_quota_max` debe ser ≤ `techo` (`T1296` lo verifica con la tabla real).
 - El techo es una cota de entrada más débil; la garantía real del tope es la fórmula de la sección 2 con el par efectivo.
 
@@ -48,4 +54,4 @@ Un bloque de prompt es válido si `trim().length >= 1` y `<= maxBlockLength` (10
 
 ## 7. Estado y dependencias
 
-`DRAFT`. Dep. `T1278`, `T1256`, `T1301` (cifras con fuente: pendiente, sin cifras provisionales). `T1292` y `T1296` usan costes de configuración de prueba propios, nunca cifras de producción, hasta `T1301`.
+`APROBADA` con la Enmienda 009-B (3.10.0). Dep. `T1278`, `T1256`. `T1292` y `T1296` pueden usar costes de configuración de prueba propios; las cifras de producción son las del Anexo A citado arriba.

@@ -6,10 +6,14 @@
  * @implements REQ-CFG9-001, REQ-CFG9-002, REQ-CFG9-003, REQ-CFG9-006, NFR-009-001; SC-009-017..021, SC-009-026
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchParameters, resetSceneQuota, updateParameter, type ParameterKey, type ParameterView } from './parameters-api.ts';
+import { BlocksEditor, ModelEditor, QuotaEditor, RegionEditor, type EditorMessage, type EditorScope } from './SceneParameterEditors.tsx';
+import { fetchParameterCatalog, resetSceneQuota, updateParameter, type ImagesFit, type ParameterKey, type ParameterView } from './parameters-api.ts';
 import {
+  ALBUM_HEADING,
+  BLOCKS_INTERNAL_NOTE,
   KEY_LABEL,
   LOAD_FAILED,
+  NEVER_EDITED,
   PHOTO_LOWER_HINT,
   PHOTO_SAVED,
   PROPAGATION_NOTICE,
@@ -42,9 +46,10 @@ const CARD = 'rounded-xl border border-slate-300 bg-white p-4';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type Confirming = 'toggle' | 'reset' | null;
-type Scope = 'album' | 'toggle' | 'reset';
+type Scope = 'album' | 'toggle' | 'reset' | EditorScope;
 const ALBUM: ParameterKey = 'album.max_photos_per_pet';
 const ENABLED: ParameterKey = 'scene.enabled';
+const EDITORS_5B: readonly ParameterKey[] = ['scene.provider_model', 'scene.provider_location', 'scene.global_quota_max', 'scene.prompt.blocks'];
 
 function Facts({ param, viewerId }: { readonly param: ParameterView; readonly viewerId: string | null }): JSX.Element {
   return (
@@ -53,14 +58,23 @@ function Facts({ param, viewerId }: { readonly param: ParameterView; readonly vi
         <dt className="inline">Rango: </dt>
         <dd className="inline">{rangeText(param.constraints)}</dd>
       </div>
-      <div>
-        <dt className="inline">Última edición: </dt>
-        <dd className="inline">{formatEditedAt(param.lastEditedAt)}</dd>
-      </div>
-      <div>
-        <dt className="inline">Editado por: </dt>
-        <dd className="inline">{authorLabel(param.lastEditedBy, viewerId)}</dd>
-      </div>
+      {param.lastEditedAt === null && param.lastEditedBy === null ? (
+        <div>
+          <dt className="inline">Última edición: </dt>
+          <dd className="inline">{NEVER_EDITED}</dd>
+        </div>
+      ) : (
+        <>
+          <div>
+            <dt className="inline">Última edición: </dt>
+            <dd className="inline">{formatEditedAt(param.lastEditedAt)}</dd>
+          </div>
+          <div>
+            <dt className="inline">Editado por: </dt>
+            <dd className="inline">{authorLabel(param.lastEditedBy, viewerId)}</dd>
+          </div>
+        </>
+      )}
     </dl>
   );
 }
@@ -71,6 +85,7 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
   const onSessionLost = useCallback((): void => onSessionLostRef.current(), []);
 
   const [params, setParams] = useState<readonly ParameterView[]>([]);
+  const [imagesFit, setImagesFit] = useState<readonly ImagesFit[]>([]);
   const [state, setState] = useState<LoadState>('loading');
   const [draft, setDraft] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -86,10 +101,11 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
   const load = useCallback(
     async (showLoading: boolean): Promise<void> => {
       if (showLoading) setState('loading');
-      const result = await fetchParameters();
+      const result = await fetchParameterCatalog();
       if (result.kind === 'OK') {
-        setParams(result.value);
-        setDraft(result.value.find((p) => p.key === ALBUM)?.value ?? '');
+        setParams(result.value.params);
+        setImagesFit(result.value.imagesFit);
+        setDraft(result.value.params.find((p) => p.key === ALBUM)?.value ?? '');
         setState('ready');
       } else if (result.kind === 'SESSION_LOST') onSessionLost();
       else setState('error');
@@ -118,7 +134,7 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
     setConfirming(null);
   };
 
-  const failWrite = (scope: Scope, kind: 'PRECONDITION' | 'INVALID' | 'FAILED' | 'CONFLICT' | 'SESSION_LOST' | 'OK'): void => {
+  const failWrite = (scope: Scope, kind: 'PRECONDITION' | 'INVALID' | 'COST_CAP' | 'FAILED' | 'CONFLICT' | 'SESSION_LOST' | 'OK'): void => {
     if (kind === 'SESSION_LOST') onSessionLost();
     else if (kind === 'PRECONDITION') {
       setMessage({ kind: 'error', scope, text: SAVE_PRECONDITION });
@@ -195,7 +211,7 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
   const inline = (scope: Scope): JSX.Element | null => {
     if (message === null || message.scope !== scope) return null;
     return message.kind === 'error' ? (
-      <p role="alert" className="mt-3 text-sm font-medium text-danger">
+      <p role="alert" id={`msg-${scope}`} className="mt-3 text-sm font-medium text-danger">
         {message.text}
       </p>
     ) : (
@@ -204,7 +220,24 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
   };
 
   const enabled = scene?.value === 'true';
-  const readOnly = params.filter((p) => !p.writable);
+  // T1305: las claves de 5b con writable=true tienen su editor; si el servidor las marca de solo lectura se listan en «Otros parámetros» sin campos.
+  const editable = (key: ParameterKey): ParameterView | undefined => params.find((p) => p.key === key && p.writable);
+  const others = params.filter((p) => p.key !== ALBUM && p.key !== ENABLED && !(EDITORS_5B.includes(p.key) && p.writable));
+  const editorProps = (param: ParameterView, scope: EditorScope) => ({
+    param,
+    viewerId,
+    scope,
+    feedback: inline(scope),
+    feedbackId: message?.kind === 'error' && message.scope === scope ? `msg-${scope}` : null,
+    notify: (target: EditorScope, next: EditorMessage | null): void => setMessage(next === null ? null : { ...next, scope: target }),
+    onSaved: replace,
+    onPrecondition: () => void load(false),
+    onSessionLost,
+  });
+  const model = editable('scene.provider_model');
+  const region = editable('scene.provider_location');
+  const quota = editable('scene.global_quota_max');
+  const blocks = editable('scene.prompt.blocks');
 
   return (
     <section aria-labelledby="parameters-heading" className="mt-6 max-w-3xl rounded-2xl border border-slate-300 bg-white p-5 sm:p-6" onKeyDown={(e) => e.key === 'Escape' && close()}>
@@ -229,7 +262,7 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
 
         {state === 'ready' && album !== undefined ? (
           <div data-testid={`param-${ALBUM}`} className={CARD}>
-            <h3 className="break-words text-base font-semibold text-text-primary">{KEY_LABEL[ALBUM]}</h3>
+            <h3 className="break-words text-base font-semibold text-text-primary">{ALBUM_HEADING}</h3>
             <p className="mt-1 text-sm text-text-primary">
               Valor vigente: {album.value} · Valor por defecto: {album.default}
             </p>
@@ -341,20 +374,29 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
           </div>
         ) : null}
 
-        {state === 'ready' && readOnly.length > 0 ? (
+        {state === 'ready' && model !== undefined ? <ModelEditor {...editorProps(model, 'model')} imagesFit={imagesFit} otherValue={region?.value} /> : null}
+        {state === 'ready' && region !== undefined ? <RegionEditor {...editorProps(region, 'region')} imagesFit={imagesFit} otherValue={model?.value} /> : null}
+        {state === 'ready' && quota !== undefined ? <QuotaEditor {...editorProps(quota, 'quota')} /> : null}
+        {state === 'ready' && blocks !== undefined ? <BlocksEditor {...editorProps(blocks, 'blocks')} /> : null}
+
+        {state === 'ready' && others.length > 0 ? (
           <div className={CARD}>
             <h3 className="text-base font-semibold text-text-primary">Otros parámetros</h3>
             <p className="mt-1 text-sm text-text-muted">{READ_ONLY_NOTE}</p>
             <div className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-3">
-              {readOnly.map((param) => (
+              {others.map((param) => (
                 <div key={param.key} data-testid={`param-${param.key}`} className="rounded-lg border border-slate-200 p-3">
                   <h4 className="break-words text-sm font-semibold text-text-primary">{KEY_LABEL[param.key]}</h4>
-                  {param.valueType === 'JSON_BLOCKS' ? null : (
-                    <p className="mt-1 break-words text-sm text-text-primary">
-                      Valor vigente: {param.value} · Valor por defecto: {param.default}
-                    </p>
+                  {param.valueType === 'JSON_BLOCKS' ? (
+                    <p className="mt-1 text-sm text-text-muted">{BLOCKS_INTERNAL_NOTE}</p>
+                  ) : (
+                    <>
+                      <p className="mt-1 break-words text-sm text-text-primary">
+                        Valor vigente: {param.value} · Valor por defecto: {param.default}
+                      </p>
+                      <Facts param={param} viewerId={viewerId} />
+                    </>
                   )}
-                  <Facts param={param} viewerId={viewerId} />
                 </div>
               ))}
             </div>

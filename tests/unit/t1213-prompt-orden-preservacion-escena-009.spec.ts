@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PIXEL_REDRAW_RULE, PRESERVATION_BLOCK, STYLE_BASE_TEXT, buildImagePrompt } from '../../src/domain/scene/build-image-prompt.ts';
 import { DEFAULT_SCENE_STYLE } from '../../src/domain/scene/scene-payload.ts';
@@ -196,5 +198,16 @@ describe('T1214 modos incrementales, N = 0, tope de imágenes, determinismo y pr
     }
     expect(countOf(text, PRESERVATION_BLOCK)).toBe(1);
     expect(text.includes('"id"')).toBe(false);
+  });
+});
+
+describe('REQ-PRO9-007 enmienda documental del orden de bloques', () => {
+  it('[REQ-PRO9-007][SC-009-035] la regla R4 de 007 y la cabecera de build-image-prompt.ts reflejan el orden nuevo de la 009', () => {
+    const spec7 = readFileSync(join(process.cwd(), 'specs/007-ux-ficha-mascota-fallecimiento/spec.md'), 'utf8');
+    expect(spec7).toContain('enmienda 009');
+    expect(spec7).toContain('REQ-ESC7-003');
+    const header = readFileSync(join(process.cwd(), 'src/domain/scene/build-image-prompt.ts'), 'utf8').slice(0, 2500);
+    expect(header).toContain('R4 enmendada por la 009');
+    expect(header).toContain('PRESERVATION_BLOCK');
   });
 });

@@ -21,7 +21,7 @@ afterEach(async () => {
 const NOW = '2026-11-23T12:00:00.000Z';
 const KEY = 'album.max_photos_per_pet';
 const ORDER = ['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.provider_location', 'scene.prompt.blocks'];
-const NOT_WRITABLE_5A = ['scene.global_quota_max', 'scene.provider_model', 'scene.provider_location', 'scene.prompt.blocks'];
+const WRITABLE_5B = ['scene.global_quota_max', 'scene.provider_model', 'scene.provider_location', 'scene.prompt.blocks'];
 const ETAG = /^"[A-Za-z0-9_-]{8,64}"$/;
 
 interface View {
@@ -96,7 +96,7 @@ describe('T1258 [REQ-CFG9-001] [SC-009-017] GET /api/admin/parameters: catalogo 
     expect(album.constraints).toEqual({ min: 1, max: 50 });
     expect(items[1]).toMatchObject({ key: 'scene.enabled', valueType: 'BOOLEAN', default: 'true', writable: true });
     expect(items[1]!.constraints).toEqual({ allowed: ['true', 'false'] });
-    for (const key of NOT_WRITABLE_5A) expect(items.find((i) => i.key === key)!.writable, key).toBe(false);
+    for (const key of WRITABLE_5B) expect(items.find((i) => i.key === key)!.writable, key).toBe(true); // 5b (T1296): ya escribibles con la regla de coste
     for (const item of items) expect(item.etag, item.key).toMatch(ETAG);
   });
 
@@ -216,7 +216,7 @@ describe('T1258 [REQ-CFG9-001] [REQ-CFG9-007] [SC-009-018] PUT: rango y formato,
   });
 });
 
-describe('T1258 [REQ-CFG9-001] [P5-06 = B] sin claves nuevas y claves de 5b no escribibles', () => {
+describe('T1258 [REQ-CFG9-001] [P5-06 = B] sin claves nuevas y claves de 5b con la regla de coste', () => {
   it.each(['scene.foo', 'album.max_photos', 'scene.global_quota_used.2026-11', 'x', 'ALBUM.MAX_PHOTOS_PER_PET'])('la clave %j esta fuera del catalogo: 422 sin crear la fila', async (key) => {
     const b = await boot();
     const r = await put(b, key, '5', '"abcdefgh"');
@@ -224,12 +224,43 @@ describe('T1258 [REQ-CFG9-001] [P5-06 = B] sin claves nuevas y claves de 5b no e
     expect(row(b.a, key)?.value).not.toBe('5');
   });
 
+  it('[REQ-CFG9-008] 5b: scene.global_quota_max, scene.provider_model y scene.provider_location son escribibles dentro del tope de gasto y dejan UNA auditoria sin valor', async () => {
+    const b = await boot();
+    for (const [key, value] of [['scene.global_quota_max', '7'], ['scene.provider_model', 'gemini-3.1-flash-image'], ['scene.provider_location', 'us-central1']] as const) {
+      const r = await putFresh(b, key, value);
+      expect([key, r.status]).toEqual([key, 200]);
+      expect(row(b.a, key)).toEqual({ value, updatedAt: NOW, by: null });
+    }
+    expect(auditRows(b.a).map((a) => [a.action, a.objectRef])).toEqual([
+      ['ADMIN_PARAMETER_UPDATE', 'scene.global_quota_max'],
+      ['ADMIN_PARAMETER_UPDATE', 'scene.provider_model'],
+      ['ADMIN_PARAMETER_UPDATE', 'scene.provider_location'],
+    ]);
+    expect(JSON.stringify(auditRows(b.a))).not.toMatch(/gemini-3\.1|75000|5000000/);
+  });
+
+  it('[REQ-CFG9-004][EDGE-009-036] la combinacion que supera 5_000_000 micro-USD: 422 ERR-ADMIN-SCENE-COST-CAP-EXCEEDED sin escribir ni auditar (66 cabe con el de 75_000, 67 no)', async () => {
+    const b = await boot();
+    setRow(b.a, 'scene.provider_model', 'gemini-3.1-flash-image');
+    expect((await putFresh(b, 'scene.global_quota_max', '66')).status).toBe(200);
+    const before = row(b.a, 'scene.global_quota_max');
+    const auditBefore = auditRows(b.a);
+    const r = await putFresh(b, 'scene.global_quota_max', '67');
+    expect([r.status, codeOf(r)]).toEqual([422, 'ERR-ADMIN-SCENE-COST-CAP-EXCEEDED']);
+    expect(row(b.a, 'scene.global_quota_max')).toEqual(before);
+    expect(auditRows(b.a)).toEqual(auditBefore);
+    expect(r.text).not.toMatch(/\d{5,}/); // sin cifras de coste ni gasto
+  });
+
   it.each([
-    ['scene.global_quota_max', '7'],
-    ['scene.provider_model', 'gemini-2.5-flash-image'],
-    ['scene.provider_location', 'us-central1'],
+    ['scene.provider_model', 'gemini-3-pro-image'],
+    ['scene.provider_location', 'us-east4'],
+    ['scene.provider_location', 'global'],
+    ['scene.provider_location', 'us-central1/../x'],
+    ['scene.global_quota_max', '112'],
+    ['scene.global_quota_max', '1000'],
     ['scene.prompt.blocks', '{}'],
-  ])('[REQ-CFG9-008] %s existe en el catalogo pero NO es escribible en 5a (writable=false): 422 y no escribe', async (key, value) => {
+  ])('[REQ-CFG9-008] %s = %j (par sin celda verificada, region fuera de lista, tope fuera del techo 111 o bloques invalidos): 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir', async (key, value) => {
     const b = await boot();
     const before = row(b.a, key);
     const r = await put(b, key, value, (await viewOf(b, key)).etag);

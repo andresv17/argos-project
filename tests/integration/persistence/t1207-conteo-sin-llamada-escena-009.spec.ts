@@ -224,7 +224,7 @@ describe('SQL de PostgreSQL del conteo sin llamada (doble del cliente; REQ-LIM9-
     ]);
   });
 
-  it('[EDGE-009-043] countClosedWithoutCallByScene: outcome no nulo y provider_call_started_at nulo', async () => {
+  it('[EDGE-009-043][REQ-LIM9-004] countClosedWithoutCallByScene: outcome no nulo y provider_call_started_at nulo', async () => {
     const client = fakeClient({ rows: [{ n: '0', oldest: null }] });
     await createPostgresRepositories(client as never).scenes.countClosedWithoutCallByScene(SCENE_ID, at(0));
     expect(client.calls).toEqual([
@@ -235,7 +235,7 @@ describe('SQL de PostgreSQL del conteo sin llamada (doble del cliente; REQ-LIM9-
 
 describe('sin migración nueva por #60 (REQ-LIM9-005, SC-009-041)', () => {
   const root = join(__dirname, '../../../src/infrastructure/persistence');
-  it.each(['sqlite', 'postgres'])('[SC-009-041] en %s la columna provider_call_started_at se declara solo en la migración que crea scene_attempts y ninguna migración la altera ni la indexa', (engine) => {
+  it.each(['sqlite', 'postgres'])('[SC-009-041][REQ-LIM9-005] en %s la columna provider_call_started_at se declara solo en la migración que crea scene_attempts y ninguna migración la altera ni la indexa', (engine) => {
     const dir = join(root, engine, 'migrations');
     const mentions = readdirSync(dir)
       .filter((f) => f.endsWith('.sql'))

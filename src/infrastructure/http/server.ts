@@ -38,7 +38,7 @@ import { installShutdownHandlers } from './graceful-shutdown.ts';
 import { createGoogleOidcPort } from './google-oidc-verify.ts';
 import { createRouteOidcVerifier, type OidcVerifierOptions } from './oidc-verify.ts';
 import { composeSceneServices, type SceneCompositionOptions } from './scene-composition.ts';
-import { createSceneGlobalQuotaMaxReader, loadSceneProviderParameters } from '../config/scene-provider-parameters.ts';
+import { createSceneGlobalQuotaMaxReader, createSceneProviderParametersReader, createScenePromptBlocksReader, loadSceneProviderParameters } from '../config/scene-provider-parameters.ts';
 import type { SceneGlobalQuotaPort } from '../../application/ports/scene-global-quota.port.ts';
 import type { SqlSceneGlobalQuotaDeps } from '../persistence/scene-global-quota.ts';
 import { registerMaintenanceRoute } from './routes/maintenance-routes.ts';
@@ -158,12 +158,13 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   });
   // 006 (Fase 14, T948/T952): con el driver real, modelo, región y tope global salen de `platform_parameters` (respaldo en el entorno de `config.scene`); una fila inválida
   // rechaza el arranque (nombra la clave, no el valor). El contador global descuenta con una sola sentencia atómica y falla cerrado.
-  const sceneProvider: Pick<SceneCompositionOptions, 'providerParameters' | 'globalQuota' | 'fetch'> = {};
+  const sceneProvider: Pick<SceneCompositionOptions, 'providerParameters' | 'readProviderParameters' | 'globalQuota' | 'fetch'> = {};
   if (config.scene.driver === 'real' && mediaStorage !== null) {
     const providerParameters = await loadSceneProviderParameters(persistence.parameters, config.scene);
     const readMax = createSceneGlobalQuotaMaxReader(persistence.parameters, providerParameters.globalQuotaMax);
     Object.assign(sceneProvider, {
       providerParameters,
+      readProviderParameters: createSceneProviderParametersReader({ repository: persistence.parameters, env: config.scene, now: () => Date.parse(clock.nowIsoTimestamp()) }),
       globalQuota: persistence.sceneGlobalQuota({ readMax, now: () => clock.nowIsoTimestamp() }),
       ...(options.sceneFetch === undefined ? {} : { fetch: options.sceneFetch }),
     });
@@ -208,7 +209,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
         }),
     // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).
     sceneHooks: new SceneLifecycleHooks(),
-    ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, ...sceneProvider }) }),
+    ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, readPromptBlocks: createScenePromptBlocksReader({ repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) }), ...sceneProvider }) }),
     ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter() } }),
     ...(mediaStorage === null
       ? {}

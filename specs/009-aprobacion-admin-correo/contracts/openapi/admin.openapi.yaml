@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 009 (administracion y borrado de cuenta sin contrasena)
-  version: 1.4.0
+  version: 1.5.0
   description: >
     Documento INCREMENTAL y UNICO de la feature 009 (P5-05 = A): contiene solo operaciones nuevas; los OpenAPI de 004 (3.4.0),
     005 y 006 permanecen sin cambio, y deleteAccount de 004 no se edita. Version 1.0.0 (T1217): dos operaciones de USUARIO del
@@ -14,10 +14,11 @@ info:
     /admin/* y nunca autorizan las dos operaciones de usuario.
   x-sdd-status: DRAFT
   x-sdd-metadata:
-    version: 1.4.0
+    version: 1.5.0
     status: DRAFT
-    supersedes: 1.3.0
+    supersedes: 1.4.0
     change_type: MINOR
+    change_note_1_5_0: "1.5.0 (feature 009, Architect 2026-11-23, MINOR aditivo, DRAFT; autorizado por Neo, Nivel 2; el estado de 1.4.0 NO se hereda y lo fija solo Neo): GET /api/admin/parameters (listAdminParameters) pasa a devolver, ademas de items, la propiedad nueva sceneImagesFit: para cada par modelo x region seleccionable de la tabla del Anexo A APROBADO (constitucion 3.10.0; hoy gemini-2.5-flash-image y gemini-3.1-flash-image en us-central1) el numero entero de imagenes que aun caben = parte entera del margen mensual restante dividido por el coste del par, calculado en servidor con el gasto acumulado del mes (America/Bogota, intentos con provider_call_started_at no nulo, coste del par registrado por intento, EDGE-009-045) y el tope mensual de escenas (Principio VI), segun EDGE-009-036 y D9-21 = A corregida; sirve para mostrar el resultado ANTES de guardar (REQ-CFG9-004). Cero significa que el gasto acumulado ya alcanzo o supero el tope y no cabe ninguna imagen con ese par; NO significa par no seleccionable (un par fuera de la tabla no aparece en la lista). Solo lectura (readOnly), bloque cerrado (additionalProperties: false), sin datos personales y sin cifras de dinero: solo el numero de imagenes. No cambia ninguna propiedad existente (items y AdminParameterView intactos) ni ninguna operacion; sin codigos de error nuevos. Tabla vacia o gasto no calculable: lista vacia (falla cerrado). Compilar queda para /keymaker."
     change_note_1_4_0: "1.4.0 (feature 009, T1256, Architect 2026-11-23, MINOR, DRAFT; el estado de 1.3.0 NO se hereda y lo fija solo Neo): +3 operaciones de /api/admin/parameters para los parametros en caliente (#20, Fase 5a): listAdminParameters (catalogo cerrado de 6 claves con valor vigente, defecto, rango del catalogo de codigo, fecha de la ultima edicion y autor tomado de admin_audit_entries, NUNCA de updated_by_user_id, MER-09), updateAdminParameter (PUT con If-Match obligatorio; 412 ERR-ADMIN-PARAMETER-PRECONDITION-FAILED; valor invalido = 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir; sin crear claves: la clave es un enum cerrado y una clave fuera del catalogo o aun no editable es 422) y resetAdminSceneQuota (reinicio de la cuota de las cuentas de usuario del administrador, 409 ERR-ADMIN-QUOTA-RESET-CONFLICT ante compare-and-set perdido; no toca scene.global_quota_used.YYYY-MM). Subfases (P5-06 = B): en 5a solo son escribibles album.max_photos_per_pet y scene.enabled; scene.global_quota_max, scene.provider_model, scene.provider_location y scene.prompt.blocks se DECLARAN en el catalogo con writable = false y su escritura se habilita en 5b (T1292, T1259, T1261) SIN cambio de contrato, porque writable es un dato de la respuesta y no de la forma; ERR-ADMIN-SCENE-COST-CAP-EXCEEDED se referencia en updateAdminParameter pero solo puede emitirse en 5b (regla de coste de T1300/T1301). Los tres codigos ERR-ADMIN-* ya existian en error-catalog.json 1.0.0 (T1217, sin cambio de catalogo); ERR-SCHEMA-VALIDATION-FAILED se referencia y no se redefine. Las mutaciones siguen x-sdd-admin-mutation-csrf-order (403 antes de la sesion). Compilar queda para /keymaker."
     change_note_1_3_0: "1.3.0 (feature 009, T1241, Architect 2026-11-23, MINOR, DRAFT; el estado APPROVED de 1.2.0 NO se hereda: la 1.3.0 la ratifica solo Neo): +3 operaciones de /api/admin/registrations para la aprobacion de registro (#18): listAdminRegistrations (lista paginada por cursor de cuentas PENDING con menos de 30 dias, REQ-APR9-005, EDGE-009-039), approveAdminRegistration y rejectAdminRegistration (decision atomica PENDING -> ACTIVE|REJECTED con compare-and-set, STATE-ACCT9-001, REQ-APR9-003). El contador de pendientes es getAdminPendingCount (1.1.0), sin cambio. Las dos operaciones mutantes siguen la regla x-sdd-admin-mutation-csrf-order de 1.2.0 (403 ERR-AUTH-CSRF-REJECTED antes de resolver la sesion). Una decision sobre una solicitud purgada, inexistente, ya decidida o de mas de 30 dias responde 404 ERR-ADMIN-REGISTRATION-NOT-FOUND (application/problem+json, solo con sesion de administracion valida) sin revelar el estado previo ni distinguir los casos; sin sesion sigue el 404 uniforme text/plain. La lista y las respuestas no exponen correo ni sub (NFR-009-004). Sin codigos de error nuevos (ERR-ADMIN-REGISTRATION-NOT-FOUND ya existe en el catalogo 1.0.0). Parametros y coste (T1256) siguen pendientes. Decision soberana de Neo (Nivel 2, 2026-11-23): se ELIMINA la supresion anticipada manual por canal de contacto; la operacion suppressAdminRegistration y sus esquemas se retiraron ANTES de la ratificacion de 1.3.0 (no hay version publicada que la contenga, por eso no se incrementa la version); la solicitud se purga solo automaticamente a los 30 dias (REQ-APR9-007)."
     change_note: "1.0.0 (feature 009, T1217, Architect 2026-11-23): documento nuevo con 2 operaciones de usuario (startAccountDeletionReauth, deleteAccountWithGoogleReauth). La prueba de titularidad es la reautenticacion reciente con Google (nueva intencion de flujo DELETE de oauth_flow_states, max_age, mismo sub vinculado, un solo uso, 900 s) mas la confirmacion explicita; el callback es el de 008 (/auth/google/callback) y NO se edita su contrato aqui (la intencion DELETE y su migracion son T1219). Efectos del borrado = cascada de REQ-ACC-002. D9-24 = A: se rechaza el borrado de una cuenta propietaria con hogares con miembros ACTIVE o mascotas compartidas, sin transferencia automatica. /api/admin/* pendiente de T1226/T1241/T1256."
@@ -792,14 +793,31 @@ components:
     AdminParameterCatalog:
       type: object
       additionalProperties: false
-      required: [items]
-      description: "[REQ-CFG9-001] Siempre las seis claves del catalogo, en orden fijo del codigo; sin paginacion."
+      required: [items, sceneImagesFit]
+      description: "[REQ-CFG9-001, REQ-CFG9-004] Siempre las seis claves del catalogo, en orden fijo del codigo; sin paginacion. sceneImagesFit (1.5.0) es de solo lectura."
       properties:
         items:
           type: array
           minItems: 6
           maxItems: 6
           items: { $ref: '#/components/schemas/AdminParameterView' }
+        sceneImagesFit:
+          type: array
+          readOnly: true
+          minItems: 0
+          maxItems: 2
+          description: "[EDGE-009-036, D9-21 = A, REQ-CFG9-004; 1.5.0] Una entrada por par modelo x region seleccionable del Anexo A aprobado (hoy 2, ambos us-central1), en el orden de la tabla del codigo. Vacia si la tabla esta vacia o el gasto no es calculable (falla cerrado)."
+          items: { $ref: '#/components/schemas/AdminSceneImagesFit' }
+    AdminSceneImagesFit:
+      type: object
+      additionalProperties: false
+      readOnly: true
+      required: [model, location, imagesFit]
+      description: "[EDGE-009-036; 1.5.0] Imagenes que aun caben para un par seleccionable. No expone coste unitario, gasto acumulado ni tope en dinero, ni datos de personas."
+      properties:
+        model: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$', description: "Modelo del par (clave de la tabla de costes del Anexo A)" }
+        location: { type: string, enum: [us-central1], description: "Region del par; en 1.5.0 solo us-central1 (global y las demas regiones no son seleccionables: Anexo A, celdas NO VERIFICADA)" }
+        imagesFit: { type: integer, minimum: 0, maximum: 111, description: "parte entera del margen mensual restante dividido por el coste del par; 0 = tope mensual alcanzado o superado; maximum 111 = techo derivado del coste minimo del Anexo A" }
     AdminParameterWriteInput:
       type: object
       additionalProperties: false

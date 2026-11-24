@@ -34,6 +34,80 @@ export const RESET_DONE = 'Cuota de escenas reiniciada.';
 export const RESET_NONE = 'No había cuentas de administración con cuota que reiniciar.';
 export const RESET_CONFLICT = 'El contador cambió mientras se reiniciaba. Inténtalo de nuevo.';
 export const RESET_FAILED = 'No se pudo reiniciar la cuota. Inténtalo de nuevo.';
+export const ALBUM_HEADING = 'Fotos del álbum';
+export const NEVER_EDITED = 'Sin ediciones desde este portal';
+export const SAVE_COST_CAP = 'La combinación supera el tope mensual de imágenes. No se ha guardado.';
+export const MODEL_DEPRECATION = 'El modelo gemini-2.5-flash-image se retira el 15 de marzo de 2027; después de esa fecha habrá que elegir otro modelo.';
+export const MODEL_SAVED = 'Modelo de imagen guardado.';
+export const REGION_NOTICE = 'La región global no está disponible: solo se puede usar us-central1.';
+export const REGION_SAVED = 'Región guardada.';
+export const QUOTA_HEADING = 'Imágenes de escena al mes';
+export const QUOTA_HINT = 'Número máximo de imágenes de escena que la plataforma puede crear en un mes, sumando todas las cuentas.';
+export const QUOTA_SAVED = 'Tope mensual de escenas guardado.';
+export const BLOCKS_HEADING = 'Texto base de la escena';
+export const BLOCKS_HINT = 'Seis textos que se combinan para pedir la imagen. El orden y el resto del contenido los fija el sistema.';
+export const BLOCKS_PHOTOREF_HINT = '{photoRef} solo puede usarse en el bloque «Hogar con foto» y es obligatorio allí: se sustituye por la foto del hogar. No lo uses en los demás bloques.';
+export const BLOCKS_SAVED = 'Texto base de la escena guardado.';
+export const BLOCKS_BROKEN = 'No se pudo leer el texto base actual. Recarga la página.';
+export const PHOTOREF = '{photoRef}';
+
+/** Modelos que se pueden elegir (lista cerrada, T1305): `gemini-3-pro-image` solo funciona con la región global y queda latente, sin selección. */
+export const SELECTABLE_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image'];
+/** Única región con pares aprobados (EDGE-009-046): `global` no se ofrece. */
+export const SELECTABLE_LOCATIONS: readonly string[] = ['us-central1'];
+export const DEPRECATED_MODEL = 'gemini-2.5-flash-image';
+
+export const BLOCK_NAMES = ['STYLE_BASE_TEXT', 'HOUSEHOLD_WITH_PHOTO', 'HOUSEHOLD_GENERIC', 'PRESERVATION_BLOCK', 'PIXEL_REDRAW_RULE', 'STYLE_CLOSING'] as const;
+export type BlockName = (typeof BLOCK_NAMES)[number];
+export const BLOCK_LABEL: Readonly<Record<BlockName, string>> = {
+  STYLE_BASE_TEXT: 'Estilo base',
+  HOUSEHOLD_WITH_PHOTO: 'Hogar con foto',
+  HOUSEHOLD_GENERIC: 'Hogar sin foto',
+  PRESERVATION_BLOCK: 'Preservación de las mascotas',
+  PIXEL_REDRAW_RULE: 'Regla de redibujado en píxeles',
+  STYLE_CLOSING: 'Cierre de estilo',
+};
+
+export function selectableOptions(c: ParameterConstraints, selectable: readonly string[]): readonly string[] {
+  return (c.allowed ?? []).filter((v) => selectable.includes(v));
+}
+
+/** Tope mensual: entero canónico entre el mínimo y el máximo derivado que informa el servidor (no se duplica aquí). `null` = válido. */
+export function validateQuota(raw: string, c: ParameterConstraints): string | null {
+  const min = c.min ?? 1;
+  const max = c.max ?? min;
+  if (!/^[1-9]\d*$/.test(raw)) return `Escribe un número entero entre ${min} y ${max}, sin espacios.`;
+  return Number(raw) > max ? `El tope no puede superar ${max} imágenes al mes.` : Number(raw) < min ? `El tope no puede ser menor que ${min}.` : null;
+}
+
+export function parseBlocks(raw: string): Readonly<Record<BlockName, string>> | null {
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (typeof v !== 'object' || v === null || Array.isArray(v)) return null;
+    const out = {} as Record<BlockName, string>;
+    for (const name of BLOCK_NAMES) {
+      const t = (v as Record<string, unknown>)[name];
+      if (typeof t !== 'string') return null;
+      out[name] = t;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+export function blockProblem(name: BlockName, text: string, max: number): string | null {
+  if (text.trim().length === 0) return 'Este bloque no puede estar vacío.';
+  if (text.length > max) return `Este bloque supera el máximo de ${max} caracteres.`;
+  if (name === 'HOUSEHOLD_WITH_PHOTO' && !text.includes(PHOTOREF)) return `Este bloque debe incluir ${PHOTOREF}.`;
+  if (name !== 'HOUSEHOLD_WITH_PHOTO' && text.includes(PHOTOREF)) return `${PHOTOREF} solo puede ir en el bloque «Hogar con foto».`;
+  return null;
+}
+
+export const serializeBlocks = (blocks: Readonly<Record<BlockName, string>>): string => JSON.stringify(Object.fromEntries(BLOCK_NAMES.map((n) => [n, blocks[n]])));
+
+export const BLOCKS_INTERNAL_NOTE = 'Texto interno, no se muestra aquí.';
+export const EDIT_PENDING_NOTE = 'Por ahora solo se puede consultar; la edición de estos valores está en preparación.';
 export const READ_ONLY_NOTE = 'Por ahora solo se puede consultar.';
 
 export function rangeText(c: ParameterConstraints): string {
