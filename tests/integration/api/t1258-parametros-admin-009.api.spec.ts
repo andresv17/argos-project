@@ -20,8 +20,8 @@ afterEach(async () => {
 
 const NOW = '2026-11-23T12:00:00.000Z';
 const KEY = 'album.max_photos_per_pet';
-const ORDER = ['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.provider_location', 'scene.prompt.blocks'];
-const WRITABLE_5B = ['scene.global_quota_max', 'scene.provider_model', 'scene.provider_location', 'scene.prompt.blocks'];
+const ORDER = ['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.prompt.blocks']; // D9-29: scene.provider_location sale del catalogo; scene.provider_driver entra con T1314
+const WRITABLE_5B = ['scene.global_quota_max', 'scene.provider_model', 'scene.prompt.blocks'];
 const ETAG = /^"[A-Za-z0-9_-]{8,64}"$/;
 
 interface View {
@@ -83,8 +83,8 @@ const shapeOf = (r: ApiResponse) => {
   return { status, text: text.replace(/Route \w+:\S+ not found/, 'Route not found'), headers: rest };
 };
 
-describe('T1258 [REQ-CFG9-001] [SC-009-017] GET /api/admin/parameters: catalogo cerrado de seis claves', () => {
-  it('[REQ-CFG9-001][SC-009-017] devuelve SIEMPRE las seis claves en orden fijo, con valor, defecto, restricciones del codigo, writable y etag; Cache-Control no-store', async () => {
+describe('T1258 [REQ-CFG9-001] [SC-009-017] GET /api/admin/parameters: catalogo cerrado (D9-29: la region ya no es una clave)', () => {
+  it('[REQ-CFG9-001][SC-009-017] devuelve SIEMPRE las claves del catalogo en orden fijo (sin scene.provider_location), con valor, defecto, restricciones del codigo, writable y etag; Cache-Control no-store', async () => {
     const b = await boot();
     const r = await list(b);
     expect(r.status).toBe(200);
@@ -224,29 +224,34 @@ describe('T1258 [REQ-CFG9-001] [P5-06 = B] sin claves nuevas y claves de 5b con 
     expect(row(b.a, key)?.value).not.toBe('5');
   });
 
-  it('[REQ-CFG9-008] 5b: scene.global_quota_max, scene.provider_model y scene.provider_location son escribibles dentro del tope de gasto y dejan UNA auditoria sin valor', async () => {
+  it('[REQ-CFG9-008][SC-009-056] 5b (D9-29, selector unico): scene.global_quota_max y scene.provider_model son escribibles y dejan UNA auditoria cada una, sin valor; el modelo no guarda ninguna region', async () => {
     const b = await boot();
-    for (const [key, value] of [['scene.global_quota_max', '7'], ['scene.provider_model', 'gemini-3.1-flash-image-preview'], ['scene.provider_location', 'us-central1']] as const) {
+    for (const [key, value] of [['scene.global_quota_max', '7'], ['scene.provider_model', 'gemini-3.1-flash-image-preview']] as const) {
       const r = await putFresh(b, key, value);
       expect([key, r.status]).toEqual([key, 200]);
       expect(row(b.a, key)).toEqual({ value, updatedAt: NOW, by: null });
     }
-    // D9-27 (SC-009-052): guardar una mitad guarda su pareja valida en la misma transaccion (preview <-> global; us-central1 <-> gemini-2.5-flash-image).
-    expect(row(b.a, 'scene.provider_model')?.value).toBe('gemini-2.5-flash-image');
+    expect(row(b.a, 'scene.provider_location')?.value).toBeUndefined();
     expect(auditRows(b.a).map((a) => [a.action, a.objectRef])).toEqual([
       ['ADMIN_PARAMETER_UPDATE', 'scene.global_quota_max'],
-      ['ADMIN_PARAMETER_UPDATE', 'scene.provider_location'],
       ['ADMIN_PARAMETER_UPDATE', 'scene.provider_model'],
-      ['ADMIN_PARAMETER_UPDATE', 'scene.provider_model'],
-      ['ADMIN_PARAMETER_UPDATE', 'scene.provider_location'],
     ]);
     expect(JSON.stringify(auditRows(b.a))).not.toMatch(/gemini-3\.1|75000|5000000/);
+  });
+
+  it.each(['us-central1', 'global', 'us-east4', 'GLOBAL'])('[SC-009-056][D9-29] escribir scene.provider_location = %j: 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir ni auditar y la fila existente se ignora', async (value) => {
+    const b = await boot();
+    setRow(b.a, 'scene.provider_location', 'us-central1');
+    const r = await put(b, 'scene.provider_location', value, '"abcdefgh"');
+    expect([r.status, codeOf(r)]).toEqual([422, 'ERR-SCHEMA-VALIDATION-FAILED']);
+    expect(row(b.a, 'scene.provider_location')?.value).toBe('us-central1');
+    expect(auditRows(b.a)).toEqual([]);
+    expect(((await list(b)).json as { items: View[] }).items.map((i) => i.key)).not.toContain('scene.provider_location');
   });
 
   it('[REQ-CFG9-004][EDGE-009-036] la combinacion que supera 5_000_000 micro-USD: 422 ERR-ADMIN-SCENE-COST-CAP-EXCEEDED sin escribir ni auditar (66 cabe con el de 75_000, 67 no)', async () => {
     const b = await boot();
     setRow(b.a, 'scene.provider_model', 'gemini-3.1-flash-image-preview');
-    setRow(b.a, 'scene.provider_location', 'global');
     expect((await putFresh(b, 'scene.global_quota_max', '66')).status).toBe(200);
     const before = row(b.a, 'scene.global_quota_max');
     const auditBefore = auditRows(b.a);
@@ -259,14 +264,11 @@ describe('T1258 [REQ-CFG9-001] [P5-06 = B] sin claves nuevas y claves de 5b con 
 
   it.each([
     ['scene.provider_model', 'gemini-3-pro-image'],
-    ['scene.provider_location', 'us-east4'],
     ['scene.provider_model', 'gemini-3.1-flash-image'], // D9-27: sin sufijo deja de estar habilitado
-    ['scene.provider_location', 'GLOBAL'],
-    ['scene.provider_location', 'us-central1/../x'],
     ['scene.global_quota_max', '112'],
     ['scene.global_quota_max', '1000'],
     ['scene.prompt.blocks', '{}'],
-  ])('[REQ-CFG9-008] %s = %j (par sin celda verificada, region fuera de lista, tope fuera del techo 111 o bloques invalidos): 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir', async (key, value) => {
+  ])('[REQ-CFG9-008] %s = %j (modelo sin celda verificada, tope fuera del techo 111 o bloques invalidos): 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir', async (key, value) => {
     const b = await boot();
     const before = row(b.a, key);
     const r = await put(b, key, value, (await viewOf(b, key)).etag);

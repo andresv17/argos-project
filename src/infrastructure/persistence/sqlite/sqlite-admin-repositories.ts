@@ -215,7 +215,9 @@ export function adminParameterRepository(db: SqliteDatabase): AdminParameterRepo
     'SELECT s.id AS id, s.consumed_generations AS consumed_generations FROM home_scenes s WHERE s.household_id IN (SELECT id FROM households WHERE owner_user_id = ?) AND s.consumed_generations > 0',
   );
   const allScenesOf = db.prepare<[string, string], { id: string }>('SELECT s.id AS id FROM home_scenes s WHERE s.owner_user_id = ? OR s.household_id IN (SELECT id FROM households WHERE owner_user_id = ?)');
-  const cancelFailed = db.prepare("UPDATE scene_attempts SET outcome = 'CANCELLED' WHERE scene_id = ? AND outcome = 'FAILED' AND started_at >= ?");
+  // D9-31: marca de reinicio de la escena y del actor; scene_attempts NO se reescribe.
+  const markScene = db.prepare('UPDATE home_scenes SET limits_reset_at = ? WHERE id = ?');
+  const markActor = db.prepare('INSERT INTO scene_actor_limit_marks (user_id, limits_reset_at) VALUES (?, ?) ON CONFLICT (user_id) DO UPDATE SET limits_reset_at = excluded.limits_reset_at');
   const clearFailedScene = db.prepare("UPDATE home_scenes SET run_state = NULL, current_attempt_id = NULL, lease_expires_at = NULL WHERE id = ? AND run_state = 'failed'");
   const spendOf = db.prepare<[string], { provider_model: string | null; provider_location: string | null; provider_call_started_at: string | null }>('SELECT provider_model, provider_location, provider_call_started_at FROM scene_attempts WHERE quota_window = ?');
   return {
@@ -233,14 +235,15 @@ export function adminParameterRepository(db: SqliteDatabase): AdminParameterRepo
     async listSceneSpendAttempts(window) {
       return spendOf.all(window).map((r) => ({ providerModel: r.provider_model, providerLocation: r.provider_location, providerCallStartedAt: r.provider_call_started_at }));
     },
-    async resetAdminAccountsSceneQuota(subjects, emails, failedSince) {
+    async resetAdminAccountsSceneQuota(subjects, emails, resetAt) {
       const ids = accounts.all(JSON.stringify(subjects), JSON.stringify(emails.map((e) => e.toLowerCase()))).map((r) => r.id);
       for (const id of ids) {
         for (const scene of scenesOf.all(id)) if (zeroScene.run(scene.id, scene.consumed_generations).changes !== 1) return null;
         for (const scene of householdScenesOf.all(id)) if (zeroScene.run(scene.id, scene.consumed_generations).changes !== 1) return null;
         for (const row of carryOf.all(id)) if (dropCarry.run(id, row.quota_window, row.consumed_generations).changes !== 1) return null;
+        markActor.run(id, resetAt);
         for (const scene of allScenesOf.all(id, id)) {
-          cancelFailed.run(scene.id, failedSince);
+          markScene.run(resetAt, scene.id);
           clearFailedScene.run(scene.id);
         }
       }

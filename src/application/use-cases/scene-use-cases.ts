@@ -135,16 +135,21 @@ async function evaluateLimits(deps: ApplicationDeps, r: RepositorySet, sceneId: 
   const since = shiftIsoTimestamp(now, -ATTEMPT_WINDOW_SECONDS * 1000);
   // EDGE-009-041 (P5-01 = B): a los 10 min de su inicio el intento sin marca y sin `outcome` se cierra CANCELLED sin llamada y deja de contar para ACTOR_LIMIT.
   await r.scenes.cancelStaleUnmarkedAttempts(sceneId, actorUserId, shiftIsoTimestamp(now, -svc.unmarkedAttemptTtlSeconds * 1000), now);
-  const failed = await r.scenes.countFailedAttemptsByScene(sceneId, since);
-  const closedWithoutCall = await r.scenes.countClosedWithoutCallByScene(sceneId, since);
+  // D9-31 (T1315): cuenta solo intentos con inicio ESTRICTAMENTE posterior a max(ahora - 24 h, marca). Escena: FAILED_LIMIT y cerrados sin llamada; actor: la mayor entre la de la escena y la suya.
+  const marks = await r.scenes.findLimitResetMarks(sceneId, actorUserId);
+  const after = (...stamps: readonly (string | null)[]): string => stamps.reduce<string>((acc, m) => { const next = m === null ? acc : shiftIsoTimestamp(m, 1); return next > acc ? next : acc; }, since);
+  const sceneSince = after(marks.scene);
+  const actorSince = after(marks.scene, marks.actor);
+  const failed = await r.scenes.countFailedAttemptsByScene(sceneId, sceneSince);
+  const closedWithoutCall = await r.scenes.countClosedWithoutCallByScene(sceneId, sceneSince);
   return evaluateAttemptLimits({
     now,
     lastStartedAt: await r.scenes.lastAttemptStartedAt(sceneId),
     lastOutcome: await r.scenes.lastAttemptOutcome(sceneId),
     failedInWindow: failed.count,
     oldestFailedStartedAt: failed.oldestAt,
-    startedByActor: await r.scenes.countAttemptsByActor(actorUserId, since),
-    oldestActorStartedAt: await r.scenes.oldestActorAttemptAt(actorUserId, since),
+    startedByActor: await r.scenes.countAttemptsByActor(actorUserId, actorSince),
+    oldestActorStartedAt: await r.scenes.oldestActorAttemptAt(actorUserId, actorSince),
     closedWithoutCall: { count: closedWithoutCall.count, oldestAt: closedWithoutCall.oldestAt, max: svc.maxClosedWithoutCallPerDay },
   });
 }

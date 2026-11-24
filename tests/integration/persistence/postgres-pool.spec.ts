@@ -101,10 +101,10 @@ describe('createPostgresPool (doble del constructor, sin Postgres)', () => {
 });
 
 describe('T831 (006): el pool no migra; la ruta 0009_home_scenes.sql existe y es la última de Postgres', () => {
-  it('el directorio de migraciones de Postgres termina en 0021_scene_model_preview_global.sql (009 fix producción: 0021 modelo preview + global; 006 enmienda N2: 0020 image/jpeg en home_scenes.image_mime; 009: 0019 modelo y región por intento, 0018 siembra del prompt, 0017 siembra de scene.enabled, 0016 estado de aprobación de la cuenta, 0015 portal de administración, 0014 intención DELETE de oauth_flow_states; 008: 0013 acceso con Google, 0012 biografía; 007: 0010 estado de vida, 0011 opt-in del enlace; la 0009_home_scenes.sql es de 006) (el pool nunca las aplica, REQ-PG-006)', () => {
+  it('el directorio de migraciones de Postgres termina en 0022_scene_limits_reset.sql (009 Fase 5d: 0022 reinicio real de limites, D9-31; 009 fix producción: 0021 modelo preview + global; 006 enmienda N2: 0020 image/jpeg en home_scenes.image_mime; 009: 0019 modelo y región por intento, 0018 siembra del prompt, 0017 siembra de scene.enabled, 0016 estado de aprobación de la cuenta, 0015 portal de administración, 0014 intención DELETE de oauth_flow_states; 008: 0013 acceso con Google, 0012 biografía; 007: 0010 estado de vida, 0011 opt-in del enlace; la 0009_home_scenes.sql es de 006) (el pool nunca las aplica, REQ-PG-006)', () => {
     const names = readdirSync(new URL('../../../src/infrastructure/persistence/postgres/migrations/', import.meta.url)).sort();
-    expect(names.at(-1)).toBe('0021_scene_model_preview_global.sql');
-    expect(names).toHaveLength(21);
+    expect(names.at(-1)).toBe('0022_scene_limits_reset.sql');
+    expect(names).toHaveLength(22);
   });
 });
 

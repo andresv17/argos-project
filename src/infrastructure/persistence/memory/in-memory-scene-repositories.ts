@@ -27,6 +27,9 @@ export interface SceneMemoryState {
   sceneAttempts?: SceneAttemptRecord[];
   sceneConsents?: SceneConsentRecord[];
   sceneQuotaCarry?: SceneQuotaCarryRow[];
+  /** `home_scenes.limits_reset_at` (D9-31): escena -> marca; y `scene_actor_limit_marks`: usuario -> marca. Ausentes = vacias. */
+  sceneLimitResets?: Record<string, string>;
+  actorLimitResets?: Record<string, string>;
   /** `scene_image_sources`: de qué dueños proviene la imagen vigente. */
   sceneImageSources?: SceneImageSourceRow[];
 }
@@ -137,6 +140,9 @@ export function memorySceneRepository(state: SceneMemoryState): SceneRepository 
     async lastAttemptOutcome(sceneId) {
       const last = attempts().filter((a) => a.sceneId === sceneId).reduce<SceneAttemptRecord | null>((best, a) => (best === null || a.startedAt >= best.startedAt ? a : best), null);
       return last?.outcome ?? null;
+    },
+    async findLimitResetMarks(sceneId, actorUserId) {
+      return { scene: state.sceneLimitResets?.[sceneId] ?? null, actor: state.actorLimitResets?.[actorUserId] ?? null };
     },
     async oldestActorAttemptAt(actorUserId, since) {
       return attempts().filter((a) => a.actorUserId === actorUserId && a.startedAt >= since).reduce<string | null>((min, a) => (min === null || a.startedAt < min ? a.startedAt : min), null);

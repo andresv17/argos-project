@@ -5,12 +5,11 @@
  * @implements REQ-ESC6-017, REQ-ESC6-031, NFR-ESC6-001
  */
 
-import { SCENE_COST_TABLE_MICRO_USD, isSelectableScenePair, sceneCostCeiling } from './scene-cost.ts';
+import { SCENE_COST_TABLE_MICRO_USD, sceneCostCeiling } from './scene-cost.ts';
 
 /** Claves en `platform_parameters` (texto); si la fila no existe rige el respaldo de entorno y, en su defecto, el valor por defecto. */
 export const SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY = 'scene.global_quota_max';
 export const SCENE_PARAM_MODEL_KEY = 'scene.provider_model';
-export const SCENE_PARAM_LOCATION_KEY = 'scene.provider_location';
 /** Prefijo de la fila contador de la ventana mensual: `scene.global_quota_used.YYYY-MM` (valor entero en texto). */
 export const SCENE_GLOBAL_QUOTA_USED_PREFIX = 'scene.global_quota_used.';
 
@@ -59,6 +58,19 @@ export const parseSceneGlobalQuotaMax = (value: string): number | null => {
   return parsed >= 1 && parsed <= SCENE_GLOBAL_QUOTA_MAX_DERIVED_CEILING ? parsed : null;
 };
 
+export type SceneProviderDriver = 'vertex' | 'gemini-api';
+
+/**
+ * D9-29: la region NO es un parametro; es una funcion pura del proveedor y del modelo. Vertex: `gemini-2.5-flash-image` => `us-central1` y `gemini-3.1-flash-image-preview` => `global` (los 2 pares con
+ * coste de fuente de la tabla); un modelo sin par con coste => `null`. `gemini-api` no tiene region (`null`). Se deriva de la tabla de costes, sin E/S ni reloj.
+ */
+export function deriveLocation(driver: SceneProviderDriver, model: string): string | null {
+  if (driver !== 'vertex') return null;
+  if (!Object.prototype.hasOwnProperty.call(SCENE_COST_TABLE_MICRO_USD, model)) return null;
+  const regions = Object.keys(SCENE_COST_TABLE_MICRO_USD[model]!);
+  return regions.length === 1 ? regions[0]! : null;
+}
+
 export interface SceneProviderParameters {
   readonly globalQuotaMax: number;
   readonly model: string;
@@ -75,9 +87,10 @@ export class SceneParameterError extends Error {
 
 export interface SceneParameterSources {
   /** Texto de la fila de `platform_parameters` (o `null` si no existe). */
-  readonly db: { readonly globalQuotaMax: string | null; readonly model: string | null; readonly location: string | null };
+  readonly db: { readonly globalQuotaMax: string | null; readonly model: string | null };
   /** Respaldo de entorno ya validado por `app-config.ts` (o `null` si no se definió). */
-  readonly env: { readonly globalQuotaMax: number | null; readonly model: string | null; readonly location: string | null };
+  /** La region de entorno ya no interviene (D9-29): se deriva del modelo. */
+  readonly env: { readonly globalQuotaMax: number | null; readonly model: string | null; readonly location?: string | null };
 }
 
 /** Fila de `platform_parameters` > respaldo de entorno > valor por defecto. Una fila presente pero fuera de rango, de lista o de regex rechaza el arranque. */
@@ -94,13 +107,9 @@ export function resolveSceneProviderParameters(sources: SceneParameterSources): 
     if (isSafeSceneModel(sources.db.model)) model = sources.db.model;
     else invalid.push(SCENE_PARAM_MODEL_KEY);
   }
-  let location = sources.env.location ?? SCENE_DEFAULT_LOCATION;
-  if (sources.db.location !== null) {
-    if (isAllowedSceneLocation(sources.db.location)) location = sources.db.location;
-    else invalid.push(SCENE_PARAM_LOCATION_KEY);
-  }
-  // D9-27 / INV-CFG9-001: una fila de modelo o region de la BD que forme un par sin coste con fuente se rechaza al leer (nombra solo las claves).
-  if (invalid.length === 0 && (sources.db.model !== null || sources.db.location !== null) && !isSelectableScenePair(model, location)) invalid.push(SCENE_PARAM_MODEL_KEY, SCENE_PARAM_LOCATION_KEY);
+  // D9-29 / INV-CFG9-001: la region se deriva del modelo; un modelo sin par con coste de fuente rechaza el arranque (nombra solo la clave).
+  const location = deriveLocation('vertex', model);
+  if (invalid.length === 0 && sources.db.model !== null && location === null) invalid.push(SCENE_PARAM_MODEL_KEY);
   if (invalid.length > 0) throw new SceneParameterError(invalid);
-  return { globalQuotaMax, model, location };
+  return { globalQuotaMax, model, location: location ?? SCENE_DEFAULT_LOCATION };
 }

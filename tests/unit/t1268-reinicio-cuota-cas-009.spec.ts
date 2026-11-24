@@ -156,7 +156,10 @@ describe('T1268 [REQ-CFG9-006] perdida de la carrera del reinicio con el cliente
   it('control: sin perdida, devuelve accountsReset = 2 y cada UPDATE es condicional sobre el valor leido', async () => {
     const { client: calm, updates } = client(null);
     expect(await postgresAdminParameterRepository(calm).resetAdminAccountsSceneQuota([], [EMAIL_A, EMAIL_B], '2026-10-31T12:00:00.000Z')).toEqual({ accountsReset: 2 });
-    expect(updates).toHaveLength(4);
-    expect(updates.every((u) => u.includes('AND consumed_generations ='))).toBe(true);
+    const marks = updates.filter((u) => u.startsWith('INSERT INTO scene_actor_limit_marks'));
+    expect(marks).toHaveLength(2); // D9-31: una marca por cuenta (actor), sin condicion de contador
+    const guarded = updates.filter((u) => !marks.includes(u));
+    expect(guarded).toHaveLength(4);
+    expect(guarded.every((u) => u.includes('AND consumed_generations ='))).toBe(true);
   });
 });

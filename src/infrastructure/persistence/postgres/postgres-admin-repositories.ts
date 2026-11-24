@@ -197,7 +197,7 @@ export function adminParameterRepository(client: PoolClientLike): AdminParameter
         providerCallStartedAt: r['provider_call_started_at'] === null ? null : r['provider_call_started_at'] instanceof Date ? r['provider_call_started_at'].toISOString() : String(r['provider_call_started_at']),
       }));
     },
-    async resetAdminAccountsSceneQuota(subjects, emails, failedSince) {
+    async resetAdminAccountsSceneQuota(subjects, emails, resetAt) {
       const { rows: accounts } = await client.query(
         `SELECT id FROM users WHERE id IN (SELECT user_id FROM auth_identities WHERE provider = 'GOOGLE' AND provider_subject = ANY($1::text[]))
            OR (email_verified_at IS NOT NULL AND lower(email) = ANY($2::text[]))`,
@@ -223,10 +223,11 @@ export function adminParameterRepository(client: PoolClientLike): AdminParameter
           const done = await client.query('DELETE FROM scene_quota_carry WHERE owner_user_id = $1 AND quota_window = $2 AND consumed_generations = $3', [id, row['quota_window'], row['consumed_generations']]);
           if (done.rowCount !== 1) return null;
         }
-        // D9-28: los FAILED de las ultimas 24 h pasan a CANCELLED (provider_call_started_at intacto: el gasto no cambia) y se limpia run_state = 'failed'.
+        // D9-31: marcas de reinicio (escena y actor); scene_attempts NO se reescribe. D9-28: se limpia run_state = 'failed' (una escena con intento activo no se toca).
+        await client.query('INSERT INTO scene_actor_limit_marks (user_id, limits_reset_at) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET limits_reset_at = EXCLUDED.limits_reset_at', [id, resetAt]);
         const { rows: allScenes } = await client.query('SELECT id FROM home_scenes WHERE owner_user_id = $1 OR household_id IN (SELECT id FROM households WHERE owner_user_id = $1)', [id]);
         for (const scene of allScenes) {
-          await client.query("UPDATE scene_attempts SET outcome = 'CANCELLED' WHERE scene_id = $1 AND outcome = 'FAILED' AND started_at >= $2", [scene['id'], failedSince]);
+          await client.query('UPDATE home_scenes SET limits_reset_at = $1 WHERE id = $2', [resetAt, scene['id']]);
           await client.query("UPDATE home_scenes SET run_state = NULL, current_attempt_id = NULL, lease_expires_at = NULL WHERE id = $1 AND run_state = 'failed'", [scene['id']]);
         }
       }

@@ -21,11 +21,9 @@ import {
   type AdminParameterKey,
   type AdminParameterSpec,
 } from '../../domain/platform/admin-parameter-catalog.ts';
-import { ATTEMPT_WINDOW_SECONDS } from '../../domain/scene/attempt-limits.ts';
-import { shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
 import { quotaWindowOf } from '../../domain/scene/quota-window.ts';
-import { SCENE_COST_TABLE_MICRO_USD, evaluateSceneSpendRule, isSelectableScenePair, sceneImagesFit, type SceneImagesFit } from '../../domain/scene/scene-cost.ts';
-import { SCENE_GLOBAL_QUOTA_USED_PREFIX, SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY, SCENE_PARAM_LOCATION_KEY, SCENE_PARAM_MODEL_KEY } from '../../domain/scene/provider-parameters.ts';
+import { SCENE_COST_TABLE_MICRO_USD, evaluateSceneSpendRule, sceneImagesFit, type SceneImagesFit } from '../../domain/scene/scene-cost.ts';
+import { SCENE_GLOBAL_QUOTA_USED_PREFIX, SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY, SCENE_PARAM_MODEL_KEY, deriveLocation } from '../../domain/scene/provider-parameters.ts';
 import { DomainError } from '../../generated/v35/index.ts';
 import type { ParameterRowRecord } from '../ports/admin.port.ts';
 import { ADMIN_AUDIT_ACTIONS } from './admin-use-cases.ts';
@@ -114,16 +112,10 @@ export class UpdateAdminParameterUseCase {
       const current = await repositories.adminParameters.find(spec.key);
       // El detalle del 412 no incluye el valor vigente (EDGE-009-016).
       if (parameterEtag(spec.key, current) !== ifMatch) throw new DomainError('ERR-ADMIN-PARAMETER-PRECONDITION-FAILED');
-      // D9-27: modelo y region son un PAR; si el valor nuevo no es valido con el compañero vigente pero solo tiene una pareja valida, se guarda la pareja en la misma transaccion (sin estado intermedio invalido).
-      const companion = spec.key === SCENE_PARAM_MODEL_KEY || spec.key === SCENE_PARAM_LOCATION_KEY ? await this.companionOf(repositories, spec.key, value) : null;
-      if (COST_KEYS.has(spec.key)) await this.assertSpendRule(repositories, spec.key, value, companion);
+      // D9-29: un solo selector; la region se deriva del modelo y no se guarda. Una clave, una auditoria.
+      if (COST_KEYS.has(spec.key)) await this.assertSpendRule(repositories, spec.key, value);
       const written = await repositories.adminParameters.compareAndSet(spec.key, spec.description, { value, updatedAt: now }, current);
       if (!written) throw new DomainError('ERR-ADMIN-PARAMETER-PRECONDITION-FAILED');
-      if (companion !== null) {
-        const companionCurrent = await repositories.adminParameters.find(companion.key);
-        if (!(await repositories.adminParameters.compareAndSet(companion.key, ADMIN_PARAMETER_CATALOG[companion.key].description, { value: companion.value, updatedAt: now }, companionCurrent))) throw new DomainError('ERR-ADMIN-PARAMETER-PRECONDITION-FAILED');
-        await repositories.adminAudit.insert({ id: this.deps.ids.nextId(), adminId: input.adminId, action: ADMIN_AUDIT_ACTIONS.parameterUpdate, objectRef: companion.key, occurredAt: now });
-      }
       // Solo el id del administrador, la clave y la marca de tiempo: nunca el valor (REQ-CFG9-007).
       await repositories.adminAudit.insert({ id: this.deps.ids.nextId(), adminId: input.adminId, action: ADMIN_AUDIT_ACTIONS.parameterUpdate, objectRef: spec.key, occurredAt: now });
       return viewOf(spec, { value, updatedAt: now }, input.adminId);
@@ -131,30 +123,15 @@ export class UpdateAdminParameterUseCase {
   }
 
   /**
-   * Compañero del par (D9-27, SC-009-052): con el valor nuevo de `key` y el valor vigente de la otra mitad, si el par no tiene coste de fuente pero el valor nuevo tiene EXACTAMENTE una pareja
-   * valida en la tabla, devuelve esa pareja para guardarla junto (atomico). Sin pareja unica (o par ya valido) devuelve `null`: un par invalido se rechaza en `assertSpendRule`.
-   */
-  private async companionOf(repositories: RepositorySet, key: AdminParameterKey, value: string): Promise<{ readonly key: AdminParameterKey; readonly value: string } | null> {
-    const otherKey = key === SCENE_PARAM_MODEL_KEY ? SCENE_PARAM_LOCATION_KEY : SCENE_PARAM_MODEL_KEY;
-    const other = effectiveParameter(ADMIN_PARAMETER_CATALOG[otherKey], (await repositories.adminParameters.find(otherKey))?.value ?? null).value;
-    const [model, location] = key === SCENE_PARAM_MODEL_KEY ? [value, other] : [other, value];
-    if (isSelectableScenePair(model, location)) return null;
-    const pairs = Object.entries(SCENE_COST_TABLE_MICRO_USD).flatMap(([m, byRegion]) => Object.keys(byRegion).map((l) => ({ model: m, location: l })));
-    const matches = pairs.filter((p) => (key === SCENE_PARAM_MODEL_KEY ? p.model === value : p.location === value));
-    if (matches.length !== 1) return null;
-    return { key: otherKey, value: key === SCENE_PARAM_MODEL_KEY ? matches[0]!.location : matches[0]!.model };
-  }
-
-  /**
    * Regla de coste (EDGE-009-036, T1296 (i)): con el valor nuevo sustituido en la combinacion vigente (modelo, region, tope), gasto del mes por intento (ventana `quota_window` de la zona
    * de la aplicacion, America/Bogota) + max(0, tope - usadas) x coste del par <= 5_000_000 micro-USD. Par sin celda verificada = 422 de esquema; exceso o tabla vacia = 422 de tope de gasto.
    * Sin cifras en el error; si lanza, la transaccion no escribe ni audita.
    */
-  private async assertSpendRule(repositories: RepositorySet, key: AdminParameterKey, value: string, companion: { readonly key: AdminParameterKey; readonly value: string } | null = null): Promise<void> {
+  private async assertSpendRule(repositories: RepositorySet, key: AdminParameterKey, value: string): Promise<void> {
     const effective = async (k: AdminParameterKey): Promise<string> => effectiveParameter(ADMIN_PARAMETER_CATALOG[k], (await repositories.adminParameters.find(k))?.value ?? null).value;
-    const pick = async (k: AdminParameterKey): Promise<string> => (key === k ? value : companion !== null && companion.key === k ? companion.value : await effective(k));
-    const model = await pick(SCENE_PARAM_MODEL_KEY);
-    const location = await pick(SCENE_PARAM_LOCATION_KEY);
+    const model = key === SCENE_PARAM_MODEL_KEY ? value : await effective(SCENE_PARAM_MODEL_KEY);
+    // D9-29: ubicacion DERIVADA del modelo (Vertex); un modelo sin par con coste de fuente no es seleccionable.
+    const location = deriveLocation('vertex', model) ?? '';
     const max = Number(key === SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY ? value : await effective(SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY));
     const window = quotaWindowOf(this.deps.clock.todayIsoDate());
     const usedRaw = (await repositories.adminParameters.find(`${SCENE_GLOBAL_QUOTA_USED_PREFIX}${window}`))?.value ?? '0';
@@ -168,7 +145,7 @@ export class UpdateAdminParameterUseCase {
 }
 
 /** Claves cuyo guardado pasa por la regla de coste (modelo, region y tope global). */
-const COST_KEYS: ReadonlySet<string> = new Set([SCENE_PARAM_MODEL_KEY, SCENE_PARAM_LOCATION_KEY, SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY]);
+const COST_KEYS: ReadonlySet<string> = new Set([SCENE_PARAM_MODEL_KEY, SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY]);
 
 /**
  * Reinicio de la cuota de escena de las cuentas del administrador (T1268, REQ-CFG9-006, EDGE-009-022, EDGE-009-023; SC-009-026; opcion A de Neo, ADR-009-13): una transaccion que pone a cero SOLO los
@@ -190,7 +167,7 @@ export class ResetAdminSceneQuotaUseCase {
     return this.deps.uow.runInTransaction(async (repositories) => {
       const identity = await repositories.adminIdentities.findById(input.adminId);
       const subjects = identity === null ? [] : [identity.providerSubject];
-      const result = await repositories.adminParameters.resetAdminAccountsSceneQuota(subjects, emails, shiftIsoTimestamp(now, -ATTEMPT_WINDOW_SECONDS * 1000));
+      const result = await repositories.adminParameters.resetAdminAccountsSceneQuota(subjects, emails, now);
       if (result === null) throw new DomainError('ERR-ADMIN-QUOTA-RESET-CONFLICT');
       await repositories.adminAudit.insert({ id: this.deps.ids.nextId(), adminId: input.adminId, action: ADMIN_AUDIT_ACTIONS.sceneQuotaReset, objectRef: null, occurredAt: now });
       return { accountsReset: result.accountsReset, resetAt: now };

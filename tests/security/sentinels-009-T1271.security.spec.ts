@@ -361,7 +361,7 @@ describe('Sentinel VII - prototype pollution, esquema e inyección en prompt y p
       expect((await putFresh(b, MODEL, m)).status, m).toBe(422);
     }
     for (const l of ['GLOBAL', 'global/', 'global?x', ' global', 'us-central1/../x', 'us-central1?x', 'us-central1#x', ' us-central1', 'US-CENTRAL1', 'us-central1\n', 'evil.example']) {
-      expect((await putFresh(b, LOC, l)).status, JSON.stringify(l)).toBe(422);
+      expect((await putValue(b, LOC, l, DUMMY_ETAG)).status, JSON.stringify(l)).toBe(422); // D9-29: la clave ya no esta en el catalogo
     }
     expect(snapshot(b.a)).toBe(before);
   });
@@ -426,7 +426,7 @@ describe('Sentinel IX - XSS y esquemas peligrosos', () => {
     const b = await boot();
     for (const p of ['<script>alert(1)</script>', 'javascript:alert(1)', 'data:text/html,<img src=x onerror=alert(1)>']) {
       const m = await putFresh(b, MODEL, p);
-      const l = await putFresh(b, LOC, p);
+      const l = await putValue(b, LOC, p, DUMMY_ETAG);
       expect(m.status).toBe(422);
       expect(l.status).toBe(422);
       expect(m.text.includes('<script')).toBe(false);

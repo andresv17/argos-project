@@ -172,6 +172,11 @@ export interface SceneRepository {
    * `provider_call_started_at IS NOT NULL` y `started_at >= since`; `oldestAt` es el menor `started_at` de esas filas (`null` si `count = 0`) y es la base de
    * `Retry-After` (`oldestAt + 24 h - now`). Tres fallos sin llamada a Vertex AI no bloquean 24 h. `countAttemptsByScene` queda para el enfriamiento de 60 s.
    */
+  /**
+   * Marcas de reinicio de limites (D9-31, T1315): `limits_reset_at` de la escena y la del actor (`null` = nunca reiniciada). `evaluateLimits` cuenta solo intentos con inicio estrictamente
+   * posterior a `max(ahora - 24 h, marca)`. Solo lectura: las marcas las escribe `resetAdminAccountsSceneQuota`.
+   */
+  findLimitResetMarks(sceneId: string, actorUserId: string): Promise<{ readonly scene: string | null; readonly actor: string | null }>;
   countFailedAttemptsByScene(sceneId: string, since: string): Promise<{ readonly count: number; readonly oldestAt: string | null }>;
   /**
    * Tope diario de intentos CERRADOS sin llamada (EDGE-009-043, `D9-25`): intentos de la escena con `outcome` no nulo, `provider_call_started_at IS NULL` y

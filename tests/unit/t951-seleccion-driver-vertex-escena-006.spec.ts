@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SceneGlobalQuotaPort } from '../../src/application/ports/scene-global-quota.port.ts';
 import { SCENE_NOTICE_VERSION, SCENE_PROVIDER_ID } from '../../src/domain/scene/notice.ts';
-import { SCENE_PARAM_LOCATION_KEY, SceneParameterError } from '../../src/domain/scene/provider-parameters.ts';
+import { SCENE_PARAM_MODEL_KEY, SceneParameterError } from '../../src/domain/scene/provider-parameters.ts';
 import { CloudTasksSceneDispatcher } from '../../src/infrastructure/adapters/cloud-tasks-scene-dispatcher.adapter.ts';
 import { FakeSceneImageGenerator } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
 import { InProcessSceneDispatcher } from '../../src/infrastructure/adapters/in-process-scene-dispatcher.adapter.ts';
@@ -169,18 +169,18 @@ describe('arranque con real: parámetros de platform_parameters (createProductio
     return createProductionApp(cfg, false, {});
   };
 
-  it('[REQ-ESC6-031] una fila de región fuera de la lista cerrada rechaza el arranque con la clave y sin el valor', async () => {
-    const error = await start({ [SCENE_PARAM_LOCATION_KEY]: 'evil.example' }).then(
+  it('[REQ-ESC6-031] una fila de modelo sin par con coste de fuente (D9-29: la región se deriva) rechaza el arranque con la clave y sin el valor', async () => {
+    const error = await start({ [SCENE_PARAM_MODEL_KEY]: 'gemini-evil-example' }).then(
       () => null,
       (e: unknown) => e,
     );
     expect(error).toBeInstanceOf(SceneParameterError);
-    expect(String((error as Error).message)).toContain(SCENE_PARAM_LOCATION_KEY);
-    expect(String((error as Error).message).includes('evil.example')).toBe(false);
+    expect(String((error as Error).message)).toContain(SCENE_PARAM_MODEL_KEY);
+    expect(String((error as Error).message).includes('gemini-evil-example')).toBe(false);
   });
 
   it('[REQ-ESC6-017] con filas válidas (o sin ellas) la aplicación arranca con el driver real y cierra limpia', async () => {
-    const app = await start({ [SCENE_PARAM_LOCATION_KEY]: 'us-central1' }) // D9-27: la fila debe formar un par valido con el modelo;
+    const app = await start({ [SCENE_PARAM_MODEL_KEY]: 'gemini-2.5-flash-image' }); // D9-29: la region se deriva del modelo
     expect((await app.inject({ method: 'GET', url: '/healthz' })).statusCode).toBe(200);
     await app.close();
     const app2 = await start();

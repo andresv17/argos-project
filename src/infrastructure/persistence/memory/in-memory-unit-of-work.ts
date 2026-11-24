@@ -925,7 +925,7 @@ function adminParameterRepository(state: MemoryState): AdminParameterRepositoryP
       const entries = (state.adminAudit ??= []).filter((r) => r.action === action && r.objectRef === key);
       return entries.length === 0 ? null : entries.reduce((a, b) => (b.occurredAt >= a.occurredAt ? b : a)).adminId;
     },
-    async resetAdminAccountsSceneQuota(subjects, emails, failedSince) {
+    async resetAdminAccountsSceneQuota(subjects, emails, resetAt) {
       const wanted = new Set(emails.map((e) => e.toLowerCase()));
       const linked = new Set((state.authIdentities ?? []).filter((i) => i.provider === 'GOOGLE' && subjects.includes(i.providerSubject)).map((i) => i.userId));
       const ids = new Set(state.users.filter((u) => linked.has(u.id) || (u.emailVerifiedAt !== undefined && u.email !== null && wanted.has(u.email.toLowerCase()))).map((u) => u.id));
@@ -938,7 +938,9 @@ function adminParameterRepository(state: MemoryState): AdminParameterRepositoryP
         return { ...s, ...cleared, consumedGenerations: 0 };
       });
       state.sceneQuotaCarry = (state.sceneQuotaCarry ?? []).filter((c) => !ids.has(c.ownerUserId));
-      state.sceneAttempts = (state.sceneAttempts ?? []).map((a) => (sceneIds.has(a.sceneId) && a.outcome === 'FAILED' && a.startedAt >= failedSince ? { ...a, outcome: 'CANCELLED' as const } : a));
+      // D9-31: marcas de reinicio por escena y por actor; scene_attempts NO se reescribe.
+      state.sceneLimitResets = { ...(state.sceneLimitResets ?? {}), ...Object.fromEntries([...sceneIds].map((id) => [id, resetAt])) };
+      state.actorLimitResets = { ...(state.actorLimitResets ?? {}), ...Object.fromEntries([...ids].map((id) => [id, resetAt])) };
       return { accountsReset: ids.size };
     },
     async listSceneSpendAttempts(window) {

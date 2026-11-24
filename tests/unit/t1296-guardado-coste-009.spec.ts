@@ -54,9 +54,10 @@ const codeOf = async (p: Promise<unknown>): Promise<string> => {
   }
 };
 
-describe('T1296 (i) catalogo: las cuatro claves de 5b son escribibles', () => {
-  it('[REQ-CFG9-008] scene.provider_model, scene.provider_location, scene.global_quota_max y scene.prompt.blocks pasan a writable=true', () => {
-    for (const key of ['scene.provider_model', 'scene.provider_location', 'scene.global_quota_max', 'scene.prompt.blocks'] as const) expect(ADMIN_PARAMETER_CATALOG[key].writable, key).toBe(true);
+describe('T1296 (i) catalogo: las claves de 5b son escribibles (D9-29: sin scene.provider_location)', () => {
+  it('[REQ-CFG9-008] scene.provider_model, scene.global_quota_max y scene.prompt.blocks pasan a writable=true', () => {
+    for (const key of ['scene.provider_model', 'scene.global_quota_max', 'scene.prompt.blocks'] as const) expect(ADMIN_PARAMETER_CATALOG[key].writable, key).toBe(true);
+    expect(Object.keys(ADMIN_PARAMETER_CATALOG)).not.toContain('scene.provider_location');
   });
 });
 
@@ -102,10 +103,8 @@ describe('T1296 (i) pares no verificados y regiones fuera de lista: 422 ERR-SCHE
   it.each([
     ['scene.provider_model', 'gemini-3-pro-image'], // en la lista de 3 modelos, pero sin celda verificada en us-central1
     ['scene.provider_model', 'gemini-9-ficticio'],
-    ['scene.provider_location', 'us-east4'], // en la lista de regiones, sin celda verificada
     ['scene.provider_model', 'gemini-3.1-flash-image'], // D9-27: el nombre sin sufijo deja de estar habilitado
-    ['scene.provider_location', 'GLOBAL'],
-    ['scene.provider_location', 'us-central1/../x'],
+    ['scene.provider_location', 'us-central1'], // D9-29: la clave sale del catalogo
     ['scene.provider_location', 'evil.example'],
   ])('%s = %j', async (key, value) => {
     const t = setup();
@@ -128,7 +127,7 @@ describe('T1296 (i) auditoria: la misma accion de edicion de parametro, sin valo
     await t.put('scene.global_quota_max', '40');
     await t.put('scene.provider_model', FLASH31);
     const entries = t.audits().filter((a) => a.action === 'ADMIN_PARAMETER_UPDATE');
-    expect(entries.map((e) => e.objectRef)).toEqual(['scene.global_quota_max', 'scene.provider_location', 'scene.provider_model']); // D9-27: la pareja global se guarda y audita junto al modelo
+    expect(entries.map((e) => e.objectRef)).toEqual(['scene.global_quota_max', 'scene.provider_model']); // D9-29: una clave, una auditoria (la region se deriva)
     expect(JSON.stringify(entries)).not.toMatch(/"40"|gemini-3\.1|75000|5000000/);
     expect(t.audits().some((a) => a.action !== 'ADMIN_PARAMETER_UPDATE' && a.action !== 'ADMIN_SESSION_START')).toBe(false);
   });
