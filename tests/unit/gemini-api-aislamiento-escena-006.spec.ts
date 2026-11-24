@@ -18,7 +18,10 @@ describe('aislamiento del driver gemini-api (REQ-ESC6-037, INV-ESC6-020, SC-ESC6
   it('[REQ-ESC6-038][INV-ESC6-020] GEMINI_API_KEY y gemini-api no aparecen en terraform/, en los workflows ni en el lock', () => {
     const files = [...walk('terraform'), ...walk('.github/workflows'), 'package-lock.json'].filter((f) => !/\.(tfstate|png|zip)$/.test(f));
     expect(files.length).toBeGreaterThan(3);
-    expect(files.filter((f) => /GEMINI_API_KEY|gemini-api/.test(read(f)))).toEqual([]);
+    // D9-30 (8) / T1316: por enmienda, terraform/ y deploy-argos.yml pueden nombrar GEMINI_API_KEY y el secreto argos-gemini-api-key (solo por secreto, nunca valor); el lock sigue limpio.
+    const allowed = new Set(['terraform/README.md', 'terraform/secret_manager.tf', 'terraform/iam.tf', '.github/workflows/deploy-argos.yml']);
+    expect(files.filter((f) => !allowed.has(f) && /GEMINI_API_KEY|gemini-api/.test(read(f)))).toEqual([]);
+    expect(/GEMINI_API_KEY\s*[:=]\s*['"]?(?!argos-gemini-api-key:)[A-Za-z0-9_-]{20,}/.test(files.map(read).join('\n'))).toBe(false);
   });
 
   it('[SC-ESC6-101] package.json no cambia respecto de HEAD y no declara dependencias de IA o de autenticación de Google', () => {

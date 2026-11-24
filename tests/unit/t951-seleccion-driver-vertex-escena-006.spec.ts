@@ -202,9 +202,14 @@ describe('workflow de despliegue (deploy-argos.yml, REQ-ESC6-031, NFR-ESC6-001)'
   });
 
   it('[NFR-ESC6-001] no define ningún secreto ni variable de API de Gemini: ni GEMINI_API_KEY, ni x-goog-api-key, ni Secret Manager para el proveedor', () => {
-    expect(/GEMINI_API_KEY|x-goog-api-key|GOOGLE_API_KEY|generativelanguage/i.test(wf)).toBe(false);
+    // D9-30 (8) / T1316: GEMINI_API_KEY se inyecta solo como secreto opcional por versión numérica (GEMINI_SECRET_FLAG); nunca valor, x-goog-api-key ni latest.
+    expect(/x-goog-api-key|GOOGLE_API_KEY|generativelanguage/i.test(wf)).toBe(false);
+    expect(wf).not.toMatch(/argos-gemini-api-key:latest/);
+    expect(wf).toMatch(/GEMINI_SECRET_FLAG=""/);
+    expect(wf).toMatch(/GEMINI_SECRET_FLAG=",GEMINI_API_KEY=argos-gemini-api-key:\$\{GEMINI_API_KEY_VERSION\}"/);
     const secrets = /--set-secrets\s+"([^"]+)"/.exec(wf)?.[1] ?? '';
-    expect(secrets.split(',').map((s) => s.split('=')[0])).toEqual(['DATABASE_URL', 'ARGOS_AUDIT_HMAC_SECRET', 'ARGOS_SHARE_IP_HMAC_SECRET', 'GOOGLE_OAUTH_CLIENT_SECRET', 'ARGOS_ADMIN_EMAILS']);
+    expect(secrets.endsWith('${GEMINI_SECRET_FLAG}')).toBe(true);
+    expect(secrets.replace('${GEMINI_SECRET_FLAG}', '').split(',').map((s) => s.split('=')[0])).toEqual(['DATABASE_URL', 'ARGOS_AUDIT_HMAC_SECRET', 'ARGOS_SHARE_IP_HMAC_SECRET', 'GOOGLE_OAUTH_CLIENT_SECRET', 'ARGOS_ADMIN_EMAILS']);
   });
 
   it('[REQ-ESC6-031] sigue sin variables de otros drivers: ni gemini-api ni fake en el despliegue', () => {

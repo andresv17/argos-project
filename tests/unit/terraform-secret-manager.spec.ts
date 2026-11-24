@@ -24,8 +24,11 @@ describe('terraform/secret_manager.tf (T438)', () => {
     expect(c).toMatch(/resource\s+"google_secret_manager_secret"/);
     expect(c).toContain('database-url');
     expect(c).toContain('audit-hmac-secret');
-    expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(5);
-    expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(5);
+    // D9-30 (8) / T1316: 6.º secreto (argos-gemini-api-key), solo contenedor, sin google_secret_manager_secret_version.
+    expect((c.match(/resource\s+"google_secret_manager_secret"\s+"/g) ?? []).length).toBe(6);
+    expect((c.match(/auto\s*\{\s*\}/g) ?? []).length).toBe(6);
+    expect(c).toMatch(/\$\{var\.project_prefix\}-gemini-api-key/);
+    expect(c).not.toMatch(/resource\s+"google_secret_manager_secret_version"\s+"gemini_api_key"/);
     expect(c).toMatch(/\$\{var\.project_prefix\}-database-url/);
     expect(c).toMatch(/\$\{var\.project_prefix\}-audit-hmac-secret/);
   });
