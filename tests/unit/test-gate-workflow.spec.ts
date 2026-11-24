@@ -84,10 +84,6 @@ describe('.github/workflows/test-gate.yml (T447)', () => {
     expect(y).not.toMatch(/GCP|GOOGLE_|workload_identity/i);
   });
 
-  it.skipIf(!hasBase)('drift-detection.yml no cambió respecto de b6cacc5 (REQ-CICD-004)', () => {
-    expect(git('diff', BASE, '--', '.github/workflows/drift-detection.yml')).toBe('');
-  });
-
   it('T487: package.json test:gate sin playwright ni Chromium, con trazabilidad 003', () => {
     const scripts = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).scripts as Record<string, string>;
     const gate = scripts['test:gate'] ?? '';

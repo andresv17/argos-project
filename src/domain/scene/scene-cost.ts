@@ -12,10 +12,13 @@ export const SCENE_MONTHLY_CAP_MICRO_USD = 5_000_000;
 
 export type SceneCostTable = Readonly<Record<string, Readonly<Record<string, number>>>>;
 
-/** Anexo A APROBADO (constitucion 3.10.0): solo los dos pares verificados de us-central1; `global` y los demas pares no son seleccionables. */
+/**
+ * Pares VALIDOS con coste de fuente (D9-27, enmienda 2026-11-24 de Neo, Nivel 2): `gemini-2.5-flash-image` + `us-central1` = 45_000 µUSD (se conserva) y `gemini-3.1-flash-image-preview` + `global`
+ * = 75_000 µUSD. El par `gemini-3.1-flash-image-preview` + `us-central1`, el nombre `gemini-3.1-flash-image` sin sufijo y cualquier otro par sin coste con fuente son INVALIDOS (INV-CFG9-001).
+ */
 export const SCENE_COST_TABLE_MICRO_USD: SceneCostTable = {
   'gemini-2.5-flash-image': { 'us-central1': 45_000 },
-  'gemini-3.1-flash-image': { 'us-central1': 75_000 },
+  'gemini-3.1-flash-image-preview': { global: 75_000 },
 };
 
 export interface SceneSpendAttempt {
@@ -39,6 +42,9 @@ export function sceneUnitCost(table: SceneCostTable, model: string, location: st
   const byRegion = table[model]!;
   return own(byRegion, location) ? byRegion[location]! : null;
 }
+
+/** `true` si el par modelo x region tiene coste en la tabla de pares validos (D9-27; INV-CFG9-001). */
+export const isSelectableScenePair = (model: string, location: string, table: SceneCostTable = SCENE_COST_TABLE_MICRO_USD): boolean => sceneUnitCost(table, model, location) !== null;
 
 /** Techo derivado del tope global: floor(tope / costeMinimo); `null` con la tabla vacia. */
 export function sceneCostCeiling(table: SceneCostTable): number | null {

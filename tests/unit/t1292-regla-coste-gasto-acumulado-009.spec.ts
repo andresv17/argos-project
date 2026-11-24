@@ -33,7 +33,8 @@ interface CostModule {
 const load = async (): Promise<CostModule> => (await import(/* @vite-ignore */ MODULE)) as CostModule;
 
 const FLASH = 'gemini-2.5-flash-image';
-const FLASH31 = 'gemini-3.1-flash-image';
+const FLASH31 = 'gemini-3.1-flash-image-preview'; // D9-27: el par valido es preview + global
+const LOC31 = 'global';
 const PRO = 'gemini-3-pro-image';
 const LOC = 'us-central1';
 const STARTED = '2026-11-10T12:00:00.000Z';
@@ -48,7 +49,7 @@ describe('T1292 [EDGE-009-036] tabla aprobada del Anexo A y techo derivado', () 
     const m = await load();
     expect(m.SCENE_MONTHLY_CAP_MICRO_USD).toBe(5_000_000);
     expect(m.sceneUnitCost(m.SCENE_COST_TABLE_MICRO_USD, FLASH, LOC)).toBe(45_000);
-    expect(m.sceneUnitCost(m.SCENE_COST_TABLE_MICRO_USD, FLASH31, LOC)).toBe(75_000);
+    expect(m.sceneUnitCost(m.SCENE_COST_TABLE_MICRO_USD, FLASH31, LOC31)).toBe(75_000); // D9-27
     for (const [model, byRegion] of Object.entries(m.SCENE_COST_TABLE_MICRO_USD)) for (const cost of Object.values(byRegion)) {
       expect(Number.isInteger(cost), `${model}: micro-USD entero`).toBe(true);
       expect(cost).toBeGreaterThan(0);
@@ -61,7 +62,7 @@ describe('T1292 [EDGE-009-036] tabla aprobada del Anexo A y techo derivado', () 
     expect(m.sceneUnitCost(t, PRO, LOC)).toBeNull();
     expect(m.sceneUnitCost(t, PRO, 'global')).toBeNull();
     expect(m.sceneUnitCost(t, FLASH, 'global')).toBeNull();
-    expect(m.sceneUnitCost(t, FLASH31, 'global')).toBeNull();
+    expect(m.sceneUnitCost(t, FLASH31, LOC)).toBeNull(); // D9-27: preview + us-central1 es invalido
     expect(m.sceneUnitCost(t, FLASH, 'us-east4')).toBeNull();
     expect(m.sceneUnitCost(t, 'gemini-9-ficticio', LOC)).toBeNull();
     expect(m.sceneUnitCost(t, FLASH, 'us-central1/../x')).toBeNull();
@@ -101,7 +102,7 @@ describe('T1292 [EDGE-009-036][SC-009-051] gasto acumulado por intento (provider
   it('un intento FALLIDO con llamada ejecutada cuenta completo (el estado/resultado no reduce el coste)', async () => {
     const m = await load();
     const failed = attempt(FLASH, LOC, STARTED, { status: 'FAILED', errorCode: 'ERR-SCENE-GENERATION-FAILED' });
-    const timedOut = attempt(FLASH31, LOC, STARTED, { status: 'TIMEOUT' });
+    const timedOut = attempt(FLASH31, LOC31, STARTED, { status: 'TIMEOUT' });
     expect(m.sceneAccumulatedSpend([failed, timedOut], m.SCENE_COST_TABLE_MICRO_USD)).toBe(45_000 + 75_000);
   });
 
@@ -143,7 +144,7 @@ describe('T1292 [EDGE-009-036][SC-009-051] formula gastoAcumuladoMes + max(0, ma
   it('con la tabla real: 111 imagenes con el barato caben (4_995_000), 112 no; con el de 75_000 caben 66 (4_950_000) y 67 no', async () => {
     const m = await load();
     const t = m.SCENE_COST_TABLE_MICRO_USD;
-    const run = (model: string, max: number): Decision => m.evaluateSceneSpendRule({ table: t, attempts: [], used: 0, model, location: LOC, max });
+    const run = (model: string, max: number): Decision => m.evaluateSceneSpendRule({ table: t, attempts: [], used: 0, model, location: model === FLASH31 ? LOC31 : LOC, max });
     expect(run(FLASH, 111)).toMatchObject({ ok: true, projectedMicroUsd: 4_995_000 });
     expect(run(FLASH, 112).ok).toBe(false);
     expect(run(FLASH31, 66)).toMatchObject({ ok: true, projectedMicroUsd: 4_950_000 });
@@ -162,7 +163,7 @@ describe('T1292 [EDGE-009-036][SC-009-051] formula gastoAcumuladoMes + max(0, ma
 
 describe('T1292 [EDGE-009-036] pares no seleccionables y fail-closed', () => {
   it.each([
-    [PRO, LOC], [PRO, 'global'], [FLASH, 'global'], [FLASH31, 'global'], [FLASH, 'us-east4'], ['gemini-9-ficticio', LOC],
+    [PRO, LOC], [PRO, 'global'], [FLASH, 'global'], [FLASH31, LOC], [FLASH, 'us-east4'], ['gemini-9-ficticio', LOC],
   ])('el par (%s, %s) se rechaza con PAIR_NOT_SELECTABLE aunque el gasto sea 0', async (model, location) => {
     const m = await load();
     const d = m.evaluateSceneSpendRule({ table: m.SCENE_COST_TABLE_MICRO_USD, attempts: [], used: 0, model, location, max: 1 });
@@ -173,15 +174,15 @@ describe('T1292 [EDGE-009-036] pares no seleccionables y fail-closed', () => {
     const m = await load();
     expect(m.sceneCostCeiling({})).toBeNull();
     expect(m.sceneAccumulatedSpend([], {})).toBeNull();
-    for (const [model, location, max] of [[FLASH, LOC, 1], [FLASH31, LOC, 5], [PRO, 'global', 1000]] as const) {
+    for (const [model, location, max] of [[FLASH, LOC, 1], [FLASH31, LOC31, 5], [PRO, 'global', 1000]] as const) {
       expect(m.evaluateSceneSpendRule({ table: {}, attempts: [], used: 0, model, location, max })).toMatchObject({ ok: false, reason: 'TABLE_EMPTY' });
     }
   });
 
   it('un cambio solo de scene.global_quota_max con el par vigente tambien pasa por la regla (60 gastados a 75_000: max 66 cabe, 67 no)', async () => {
     const m = await load();
-    const rows = many(60, FLASH31, LOC); // 4_500_000
-    const run = (max: number): Decision => m.evaluateSceneSpendRule({ table: m.SCENE_COST_TABLE_MICRO_USD, attempts: rows, used: 60, model: FLASH31, location: LOC, max });
+    const rows = many(60, FLASH31, LOC31); // 4_500_000
+    const run = (max: number): Decision => m.evaluateSceneSpendRule({ table: m.SCENE_COST_TABLE_MICRO_USD, attempts: rows, used: 60, model: FLASH31, location: LOC31, max });
     expect(run(66)).toMatchObject({ ok: true, projectedMicroUsd: 4_950_000 }); // 4_500_000 + 6 x 75_000
     expect(run(67)).toMatchObject({ ok: false, reason: 'SPEND_EXCEEDED' }); // 5_025_000
   });

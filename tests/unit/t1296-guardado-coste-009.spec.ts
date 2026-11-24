@@ -13,7 +13,8 @@ import { canonicalState, createHarness } from '../fixtures/application-harness.t
  * Gasto del mes por intento (quota_window YYYY-MM de la zona America/Bogota, no UTC); usadas = scene.global_quota_used.<ventana>.
  */
 const FLASH = 'gemini-2.5-flash-image';
-const FLASH31 = 'gemini-3.1-flash-image';
+const FLASH31 = 'gemini-3.1-flash-image-preview'; // D9-27: el par valido es preview + global
+const LOC31 = 'global';
 const LOC = 'us-central1';
 const ADMIN = 'ad000000-0000-4000-8000-000000000001';
 const WRITTEN = '2026-11-01T00:00:00.000Z';
@@ -61,7 +62,7 @@ describe('T1296 (i) catalogo: las cuatro claves de 5b son escribibles', () => {
 
 describe('T1296 (i) [EDGE-009-036] el guardado rechaza combinaciones que superan 5_000_000 micro-USD, sin escribir', () => {
   it('global_quota_max: 66 con el par de 75_000 cabe (4_950_000); 67 supera el tope: 422 ERR-ADMIN-SCENE-COST-CAP-EXCEEDED sin escribir ni auditar', async () => {
-    const t = setup({ rows: { 'scene.provider_model': FLASH31 } });
+    const t = setup({ rows: { 'scene.provider_model': FLASH31, 'scene.provider_location': LOC31 } });
     expect((await t.put('scene.global_quota_max', '66')).value).toBe('66');
     const before = await t.rowOf('scene.global_quota_max');
     expect(await codeOf(t.put('scene.global_quota_max', '67'))).toBe('ERR-ADMIN-SCENE-COST-CAP-EXCEEDED');
@@ -79,7 +80,7 @@ describe('T1296 (i) [EDGE-009-036] el guardado rechaza combinaciones que superan
   });
 
   it('la decision no filtra cifras ni el gasto acumulado en el error', async () => {
-    const t = setup({ rows: { 'scene.provider_model': FLASH31 } });
+    const t = setup({ rows: { 'scene.provider_model': FLASH31, 'scene.provider_location': LOC31 } });
     let message = '';
     try { await t.put('scene.global_quota_max', '111'); } catch (e) { message = JSON.stringify({ m: (e as Error).message, d: (e as { detail?: unknown }).detail }); }
     expect(message).not.toMatch(/\d{5,}/);
@@ -92,7 +93,7 @@ describe('T1296 (i) [EDGE-009-036] el guardado rechaza combinaciones que superan
   });
 
   it('el reinicio de cuota no reduce el gasto: usadas = 0 con 66 intentos de 75_000 y max 67 supera el tope', async () => {
-    const t = setup({ rows: { 'scene.provider_model': FLASH31 }, attempts: many(66, '2026-11', FLASH31, LOC) });
+    const t = setup({ rows: { 'scene.provider_model': FLASH31, 'scene.provider_location': LOC31 }, attempts: many(66, '2026-11', FLASH31, LOC31) });
     expect(await codeOf(t.put('scene.global_quota_max', '67'))).toBe('ERR-ADMIN-SCENE-COST-CAP-EXCEEDED');
   });
 });
@@ -102,7 +103,7 @@ describe('T1296 (i) pares no verificados y regiones fuera de lista: 422 ERR-SCHE
     ['scene.provider_model', 'gemini-3-pro-image'], // en la lista de 3 modelos, pero sin celda verificada en us-central1
     ['scene.provider_model', 'gemini-9-ficticio'],
     ['scene.provider_location', 'us-east4'], // en la lista de regiones, sin celda verificada
-    ['scene.provider_location', 'global'],
+    ['scene.provider_model', 'gemini-3.1-flash-image'], // D9-27: el nombre sin sufijo deja de estar habilitado
     ['scene.provider_location', 'GLOBAL'],
     ['scene.provider_location', 'us-central1/../x'],
     ['scene.provider_location', 'evil.example'],
@@ -127,15 +128,15 @@ describe('T1296 (i) auditoria: la misma accion de edicion de parametro, sin valo
     await t.put('scene.global_quota_max', '40');
     await t.put('scene.provider_model', FLASH31);
     const entries = t.audits().filter((a) => a.action === 'ADMIN_PARAMETER_UPDATE');
-    expect(entries.map((e) => e.objectRef)).toEqual(['scene.global_quota_max', 'scene.provider_model']);
+    expect(entries.map((e) => e.objectRef)).toEqual(['scene.global_quota_max', 'scene.provider_location', 'scene.provider_model']); // D9-27: la pareja global se guarda y audita junto al modelo
     expect(JSON.stringify(entries)).not.toMatch(/"40"|gemini-3\.1|75000|5000000/);
     expect(t.audits().some((a) => a.action !== 'ADMIN_PARAMETER_UPDATE' && a.action !== 'ADMIN_SESSION_START')).toBe(false);
   });
 });
 
 describe('T1296 (i) [EDGE-009-036] el mes de la regla es el calendario de America/Bogota (quota_window), no el de UTC', () => {
-  const attempts = (): ReturnType<typeof attempt>[] => [...many(10, '2026-11', FLASH31, LOC), ...many(60, '2026-12', FLASH31, LOC)]; // nov: 750_000; dic: 4_500_000
-  const rows = { 'scene.provider_model': FLASH31 };
+  const attempts = (): ReturnType<typeof attempt>[] => [...many(10, '2026-11', FLASH31, LOC31), ...many(60, '2026-12', FLASH31, LOC31)]; // nov: 750_000; dic: 4_500_000
+  const rows = { 'scene.provider_model': FLASH31, 'scene.provider_location': LOC31 };
 
   it('el 30-nov 22:00 en Bogota (1-dic 03:00 UTC) rige la ventana 2026-11: 750_000 + 56 x 75_000 = 4_950_000 cabe', async () => {
     const t = setup({ rows, attempts: attempts(), now: BOGOTA_NOV_30_22H });

@@ -230,7 +230,11 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
     feedback: inline(scope),
     feedbackId: message?.kind === 'error' && message.scope === scope ? `msg-${scope}` : null,
     notify: (target: EditorScope, next: EditorMessage | null): void => setMessage(next === null ? null : { ...next, scope: target }),
-    onSaved: replace,
+    // D9-27: guardar el modelo o la region puede guardar tambien su pareja valida (otro etag): se relee el catalogo.
+    onSaved: (view: ParameterView): void => {
+      replace(view);
+      if (view.key === 'scene.provider_model' || view.key === 'scene.provider_location') void load(false);
+    },
     onPrecondition: () => void load(false),
     onSessionLost,
   });

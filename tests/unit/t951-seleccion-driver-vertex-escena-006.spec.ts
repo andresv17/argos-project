@@ -180,7 +180,7 @@ describe('arranque con real: parámetros de platform_parameters (createProductio
   });
 
   it('[REQ-ESC6-017] con filas válidas (o sin ellas) la aplicación arranca con el driver real y cierra limpia', async () => {
-    const app = await start({ [SCENE_PARAM_LOCATION_KEY]: 'us-east4' });
+    const app = await start({ [SCENE_PARAM_LOCATION_KEY]: 'us-central1' }) // D9-27: la fila debe formar un par valido con el modelo;
     expect((await app.inject({ method: 'GET', url: '/healthz' })).statusCode).toBe(200);
     await app.close();
     const app2 = await start();

@@ -150,8 +150,11 @@ export interface AdminParameterRepositoryPort {
    * VERIFICADO igual (sin distinguir mayusculas) a uno de `emails`, y pone a cero SOLO `home_scenes.consumed_generations` con `owner_user_id` de esas cuentas y su `scene_quota_carry`. Los hogares
    * compartidos (`owner_user_id` nulo) y `scene.global_quota_used.*` NO se tocan. Cada fila se pone a cero con compare-and-set sobre el valor leido: si otra escritura lo cambio, devuelve `null`
    * (el caso de uso revierte la transaccion entera, sin cambios parciales). Devuelve cuantas cuentas coincidieron (puede ser 0), nunca sus ids.
+   * AMPLIADO (fix 009 produccion, D9-28; SC-009-054): tambien pone a cero las escenas de los hogares donde la cuenta es propietaria legal (`households.owner_user_id`), ELIMINA su `scene_quota_carry`
+   * y desbloquea FAILED_LIMIT: los intentos `FAILED` de esas escenas con `started_at >= failedSince` pasan a `CANCELLED` conservando `provider_call_started_at` (el gasto mensual no cambia) y
+   * `run_state = 'failed'` vuelve a nulo. No toca `scene.global_quota_used.*` ni hogares ajenos.
    */
-  resetAdminAccountsSceneQuota(subjects: readonly string[], emails: readonly string[]): Promise<{ readonly accountsReset: number } | null>;
+  resetAdminAccountsSceneQuota(subjects: readonly string[], emails: readonly string[], failedSince: string): Promise<{ readonly accountsReset: number } | null>;
   /** Intentos de la ventana mensual `quota_window` (YYYY-MM de America/Bogota, fijada al crear el intento) para la regla de coste de `EDGE-009-036`. El filtro es por ventana, no por UTC. */
   listSceneSpendAttempts(window: string): Promise<readonly SceneSpendAttemptRecord[]>;
 }

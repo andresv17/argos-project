@@ -174,13 +174,13 @@ export function SceneConsent({ idPrefix, view, reload, headingLevel }: { readonl
     <SceneConsentView
       idPrefix={idPrefix}
       step={step}
-      sections={noticeSectionsFor(view.consent.providerId)}
+      sections={noticeSectionsFor(view.consent.providerId, view.consent.noticeVersion)}
       accepted={accepted}
       busy={busy}
       confirmRevoke={confirmRevoke}
       error={error}
       onAccept={setAccepted}
-      onGrant={() => void run(async () => api.grantConsent(consentBody(view.consent.providerId)))}
+      onGrant={() => void run(async () => api.grantConsent(consentBody(view.consent.providerId, view.consent.noticeVersion)))}
       onDecline={() => setDismissed(true)}
       onAskRevoke={() => setConfirmRevoke(true)}
       onConfirmRevoke={() =>

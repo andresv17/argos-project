@@ -13,6 +13,7 @@ import { householdPhotoObjectKey, sceneImageObjectKey } from '../../domain/media
 import { isOwnerRow } from '../../domain/households/household-policies.ts';
 import { ATTEMPT_WINDOW_SECONDS, evaluateAttemptLimits } from '../../domain/scene/attempt-limits.ts';
 import { buildInputsSnapshot, computeFingerprint, countPendingChanges, hasInputs, parseInputsSnapshot, serializeInputsSnapshot, type InputsSnapshot, type SnapshotPet } from '../../domain/scene/inputs-snapshot.ts';
+import { SCENE_GLOBAL_NOTICE_VERSION, SCENE_PROVIDER_ID } from '../../domain/scene/notice.ts';
 import { decideMode } from '../../domain/scene/decide-mode.ts';
 import { quotaWindowOf, remainingQuota, windowResetsAt } from '../../domain/scene/quota-window.ts';
 import { canGenerateScene, canManageHouseholdPhoto, type SceneRole } from '../../domain/scene/scene-policy.ts';
@@ -63,7 +64,21 @@ export const findSceneOf = (r: RepositorySet, access: SceneAccess): Promise<Scen
 
 /** Consentimiento vigente del usuario para el ámbito, la versión del aviso y el proveedor actuales (REQ-ESC6-023). */
 export async function hasActiveConsent(r: RepositorySet, svc: SceneServices, userId: string, scope: SceneConsentScope): Promise<boolean> {
-  return (await r.sceneConsents.findActive(userId, scope, svc.providerId, svc.noticeVersion)) !== null;
+  return (await r.sceneConsents.findActive(userId, scope, svc.providerId, await currentNoticeVersion(svc))) !== null;
+}
+
+/**
+ * Versión del aviso VIGENTE (D9-27 (5), REQ-ESC6-026): con el proveedor Vertex y la región efectiva `global` rige la variante `SCENE_GLOBAL_NOTICE_VERSION` (los consentimientos previos piden reconsentir
+ * solo entonces); en cualquier otro caso, la del servidor. Lee el par con la misma lectura en caliente (<= 60 s) que el generador; si falla, rige la versión base (sin inventar una variante).
+ */
+export async function currentNoticeVersion(svc: SceneServices): Promise<string> {
+  if (svc.providerId !== SCENE_PROVIDER_ID || svc.providerCall === undefined) return svc.noticeVersion;
+  try {
+    const call = typeof svc.providerCall === 'function' ? await svc.providerCall() : svc.providerCall;
+    return call.location === 'global' ? SCENE_GLOBAL_NOTICE_VERSION : svc.noticeVersion;
+  } catch {
+    return svc.noticeVersion;
+  }
 }
 
 export interface LiveInputs {
@@ -226,7 +241,7 @@ async function buildView(deps: ApplicationDeps, r: RepositorySet, userId: string
       blockedReason,
       retryAfterSeconds: limits.allowed ? null : limits.retryAfterSeconds,
     },
-    consent: { required: consentRequired, noticeVersion: svc.noticeVersion, providerId: svc.providerId, householdPhotoGranted, petPhotosGranted },
+    consent: { required: consentRequired, noticeVersion: await currentNoticeVersion(svc), providerId: svc.providerId, householdPhotoGranted, petPhotosGranted },
     lastError: derived.status === 'failed' ? derived.lastError : null,
     stale: scene.image !== null && derived.status !== 'ready',
     updatedAt: scene.updatedAt,

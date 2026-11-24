@@ -20,11 +20,18 @@ const petsWord = (n: number): string => (n === 1 ? '1 mascota' : `${n} mascotas`
 /** Texto alternativo de la imagen: cuántas mascotas hay en la escena (WCAG 1.1.1). */
 export const sceneAltText = (shown: number): string => (shown === 0 ? 'Escena del hogar en pixel art sin mascotas' : `Escena del hogar en pixel art con ${petsWord(shown)}`);
 
-/** Línea de cuota mensual por hogar con fecha de renovación (REQ-UX8-001). Texto PROVISIONAL de la spec 008, pendiente de confirmación de Neo (D8-09). */
+/** Línea de cuota mensual por hogar «R de M» con fecha de renovación (REQ-UX8-001; D9-28 (4)). Texto PROVISIONAL de la spec 008, pendiente de confirmación de Neo (D8-09). Sin cifras de cuota global ni de costo. */
 const sceneQuotaText = (quota: SceneViewData['quota']): string => {
   const date = sceneRenewalDateText(quota.resetsAt);
-  return date === null ? `Generaciones restantes este mes: ${quota.remaining}.` : `Generaciones restantes este mes: ${quota.remaining}. Se renuevan el ${date}.`;
+  const count = `Generaciones restantes este mes: ${quota.remaining} de ${quota.max}.`;
+  return date === null ? count : `${count} Se renuevan el ${date}.`;
 };
+
+/**
+ * Cuota mensual del hogar SIEMPRE visible a quien puede generar (D9-28 (4); SC-009-055): con `pending = 0` y con `pending >= 1`, también agotada o bloqueada por enfriamiento o consentimiento.
+ * Solo el rol sin permiso de generar (`blockedReason = 'ROLE'`) no la ve: `null`.
+ */
+export const sceneQuotaLine = (view: SceneViewData): string | null => (view.actions.blockedReason === 'ROLE' ? null : sceneQuotaText(view.quota));
 
 /** Aviso de cambios pendientes (REQ-ESC7-001/002, D7-01): texto neutral (el cambio también puede deberse a un fallecimiento), línea aparte de cuota y conteo solo en `ariaLabel`. */
 export interface ScenePendingMessage {

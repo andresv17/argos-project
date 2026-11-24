@@ -96,14 +96,14 @@ const snapshot = (uow: SqliteUnitOfWork) =>
 describe.each<Target>(['scene', 'carry'])('T1268 [REQ-CFG9-006] perdida de la carrera del reinicio (%s) con SQLite', (target) => {
   it('control sin carrera: reinicia las dos cuentas', async () => {
     const { db } = await seeded(target, { on: false });
-    expect(await adminParameterRepository(db).resetAdminAccountsSceneQuota([], [EMAIL_A, EMAIL_B])).toEqual({ accountsReset: 2 });
+    expect(await adminParameterRepository(db).resetAdminAccountsSceneQuota([], [EMAIL_A, EMAIL_B], '2026-10-31T12:00:00.000Z')).toEqual({ accountsReset: 2 });
   });
 
   it('repositorio: si el contador cambia entre el SELECT y el UPDATE condicional, devuelve null', async () => {
     const armed = { on: false };
     const { db } = await seeded(target, armed);
     armed.on = true;
-    expect(await adminParameterRepository(db).resetAdminAccountsSceneQuota([], [EMAIL_A, EMAIL_B])).toBeNull();
+    expect(await adminParameterRepository(db).resetAdminAccountsSceneQuota([], [EMAIL_A, EMAIL_B], '2026-10-31T12:00:00.000Z')).toBeNull();
   });
 
   it('caso de uso: 409 ERR-ADMIN-QUOTA-RESET-CONFLICT, estado intacto por el rollback y 0 auditorias', async () => {
@@ -136,10 +136,12 @@ describe('T1268 [REQ-CFG9-006] perdida de la carrera del reinicio con el cliente
         if (text.includes('FROM users')) return { rows: [{ id: A.id }, { id: B.id }], rowCount: 2 };
         if (text.includes('SELECT id, consumed_generations FROM home_scenes')) return { rows: [{ id: 's', consumed_generations: 3 }], rowCount: 1 };
         if (text.includes('SELECT quota_window, consumed_generations FROM scene_quota_carry')) return { rows: [{ quota_window: WINDOW, consumed_generations: 2 }], rowCount: 1 };
+        // D9-28: sin escenas de hogar propias ni intentos en el doble; el desbloqueo (SELECT de escenas del alcance) no devuelve filas.
+        if (text.includes('SELECT s.id AS id') || text.startsWith('SELECT id FROM home_scenes')) return { rows: [], rowCount: 0 };
         updates.push(text);
         if (text.startsWith('UPDATE home_scenes')) sceneUpdates += 1;
-        if (text.startsWith('UPDATE scene_quota_carry')) carryUpdates += 1;
-        const lost = (loser === 'home_scenes' && text.startsWith('UPDATE home_scenes') && sceneUpdates === 2) || (loser === 'scene_quota_carry' && text.startsWith('UPDATE scene_quota_carry') && carryUpdates === 2);
+        if (text.startsWith('DELETE FROM scene_quota_carry')) carryUpdates += 1;
+        const lost = (loser === 'home_scenes' && text.startsWith('UPDATE home_scenes') && sceneUpdates === 2) || (loser === 'scene_quota_carry' && text.startsWith('DELETE FROM scene_quota_carry') && carryUpdates === 2);
         return { rows: [], rowCount: lost ? 0 : 1 };
       },
     };
@@ -148,12 +150,12 @@ describe('T1268 [REQ-CFG9-006] perdida de la carrera del reinicio con el cliente
 
   it.each(['home_scenes', 'scene_quota_carry'] as const)('devuelve null si el UPDATE condicional de %s de la segunda cuenta afecta 0 filas', async (loser) => {
     const { client: fake } = client(loser);
-    expect(await postgresAdminParameterRepository(fake).resetAdminAccountsSceneQuota([], [EMAIL_A, EMAIL_B])).toBeNull();
+    expect(await postgresAdminParameterRepository(fake).resetAdminAccountsSceneQuota([], [EMAIL_A, EMAIL_B], '2026-10-31T12:00:00.000Z')).toBeNull();
   });
 
   it('control: sin perdida, devuelve accountsReset = 2 y cada UPDATE es condicional sobre el valor leido', async () => {
     const { client: calm, updates } = client(null);
-    expect(await postgresAdminParameterRepository(calm).resetAdminAccountsSceneQuota([], [EMAIL_A, EMAIL_B])).toEqual({ accountsReset: 2 });
+    expect(await postgresAdminParameterRepository(calm).resetAdminAccountsSceneQuota([], [EMAIL_A, EMAIL_B], '2026-10-31T12:00:00.000Z')).toEqual({ accountsReset: 2 });
     expect(updates).toHaveLength(4);
     expect(updates.every((u) => u.includes('AND consumed_generations ='))).toBe(true);
   });

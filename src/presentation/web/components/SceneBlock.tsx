@@ -23,6 +23,7 @@ import {
   sceneImageDownloadPath,
   sceneImagePath,
   scenePendingMessage,
+  sceneQuotaLine,
   scenePetsShownText,
   sceneProblemMessage,
   sceneRetryAfter,
@@ -67,6 +68,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
   const generating = view?.status === 'generating';
   const petsShown = view === null ? null : scenePetsShownText(view.pets);
   const pendingMessage = view === null ? null : scenePendingMessage(view);
+  const quotaLine = view === null ? null : sceneQuotaLine(view);
   return (
     <section aria-labelledby={titleId} className="grid min-w-0 max-w-full gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <Title id={titleId} className="text-lg font-semibold text-slate-900">
@@ -108,9 +110,10 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
               {pendingMessage === null ? null : (
                 <div role="group" aria-label={pendingMessage.ariaLabel} className="grid gap-1">
                   <p className="text-sm font-semibold text-slate-900">{pendingMessage.changes}</p>
-                  <p className="text-sm text-slate-900">{pendingMessage.remaining}</p>
+                  {quotaLine === null ? null : <p className="text-sm text-slate-900">{pendingMessage.remaining}</p>}
                 </div>
               )}
+              {pendingMessage === null && quotaLine !== null ? <p className="text-sm text-slate-900">{quotaLine}</p> : null}
               {petsShown === null ? null : <p className="text-sm text-slate-900">{petsShown}</p>}
               <div className="flex min-w-0 max-w-full flex-col items-start gap-3 sm:flex-row sm:flex-wrap">
                 <div className="grid min-w-0 max-w-full gap-1">

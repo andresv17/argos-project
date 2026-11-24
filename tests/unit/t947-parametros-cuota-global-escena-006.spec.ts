@@ -44,10 +44,10 @@ describe('valores por defecto y precedencia (fila > entorno > defecto)', () => {
   });
 
   it('[REQ-ESC6-017] la fila de platform_parameters prevalece sobre el entorno', () => {
-    expect(resolveSceneProviderParameters({ db: { globalQuotaMax: '9', model: 'gemini-3-pro-image', location: 'europe-west4' }, env: { globalQuotaMax: 7, model: 'gemini-2.5-flash-image', location: 'us-east4' } })).toEqual({
+    expect(resolveSceneProviderParameters({ db: { globalQuotaMax: '9', model: 'gemini-3.1-flash-image-preview', location: 'global' }, env: { globalQuotaMax: 7, model: 'gemini-2.5-flash-image', location: 'us-east4' } })).toEqual({
       globalQuotaMax: 9,
-      model: 'gemini-3-pro-image',
-      location: 'europe-west4',
+      model: 'gemini-3.1-flash-image-preview',
+      location: 'global',
     });
   });
 
@@ -98,8 +98,8 @@ describe('lectura desde el repositorio de platform_parameters', () => {
   const scene = { globalQuotaMax: 5, model: null, location: null } as const;
 
   it('[REQ-ESC6-017] lee solo las tres claves cerradas y combina con el entorno', async () => {
-    const r = repo({ [SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY]: '3', [SCENE_PARAM_LOCATION_KEY]: 'us-east4' });
-    expect(await loadSceneProviderParameters(r, { globalQuotaMax: 5, model: 'gemini-2.5-flash-image', location: null })).toEqual({ globalQuotaMax: 3, model: 'gemini-2.5-flash-image', location: 'us-east4' });
+    const r = repo({ [SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY]: '3', [SCENE_PARAM_LOCATION_KEY]: 'us-central1' });
+    expect(await loadSceneProviderParameters(r, { globalQuotaMax: 5, model: 'gemini-2.5-flash-image', location: null })).toEqual({ globalQuotaMax: 3, model: 'gemini-2.5-flash-image', location: 'us-central1' });
     expect(r.reads.sort()).toEqual([SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY, SCENE_PARAM_LOCATION_KEY, SCENE_PARAM_MODEL_KEY].sort());
   });
 

@@ -20,7 +20,7 @@ const LOCATION_KEY = 'scene.provider_location';
 const QUOTA_KEY = 'scene.global_quota_max';
 const BLOCKS_KEY = 'scene.prompt.blocks';
 const FLASH = 'gemini-2.5-flash-image';
-const FLASH31 = 'gemini-3.1-flash-image';
+const FLASH31 = 'gemini-3.1-flash-image-preview';
 const PROPAGATION_MS = 75_000;
 
 test.use({ baseURL: ADMIN_SIM_WEB_URL });

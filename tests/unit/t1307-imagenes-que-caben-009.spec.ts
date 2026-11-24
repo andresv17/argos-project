@@ -10,7 +10,8 @@ import { canonicalState, createHarness } from '../fixtures/application-harness.t
  * aprobada, en el orden de la tabla; falla cerrado = lista vacia. EDGE-009-036, REQ-CFG9-004; SC-009-051.
  */
 const FLASH = 'gemini-2.5-flash-image';
-const FLASH31 = 'gemini-3.1-flash-image';
+const FLASH31 = 'gemini-3.1-flash-image-preview'; // D9-27: el par valido es preview + global
+const LOC31 = 'global';
 const LOC = 'us-central1';
 const started = '2026-11-10T12:00:00.000Z';
 let seq = 0;
@@ -26,7 +27,7 @@ describe('T1307 sceneImagesFit (funcion pura)', () => {
   it('sin gasto: 111 con el de 45_000 y 66 con el de 75_000, en el orden de la tabla', () => {
     expect(sceneImagesFit(SCENE_COST_TABLE_MICRO_USD, [])).toEqual([
       { model: FLASH, location: LOC, imagesFit: 111 },
-      { model: FLASH31, location: LOC, imagesFit: 66 },
+      { model: FLASH31, location: LOC31, imagesFit: 66 },
     ]);
   });
 
@@ -38,7 +39,7 @@ describe('T1307 sceneImagesFit (funcion pura)', () => {
   });
 
   it('gasto igual o mayor que el tope: 0 imagenes (no es par no seleccionable); tabla vacia: lista vacia (falla cerrado)', () => {
-    expect(sceneImagesFit(SCENE_COST_TABLE_MICRO_USD, asAttempts(many(70, '2026-11', FLASH31, LOC))).map((f) => f.imagesFit)).toEqual([0, 0]);
+    expect(sceneImagesFit(SCENE_COST_TABLE_MICRO_USD, asAttempts(many(70, '2026-11', FLASH31, LOC31))).map((f) => f.imagesFit)).toEqual([0, 0]);
     expect(sceneImagesFit({}, [])).toEqual([]);
   });
 
@@ -61,12 +62,12 @@ describe('T1307 GET /api/admin/parameters: el caso de uso devuelve sceneImagesFi
     expect(out.items).toHaveLength(6);
     expect(out.sceneImagesFit).toEqual([
       { model: FLASH, location: LOC, imagesFit: 111 },
-      { model: FLASH31, location: LOC, imagesFit: 66 },
+      { model: FLASH31, location: LOC31, imagesFit: 66 },
     ]);
   });
 
   it('usa la ventana de Bogota: el 30-nov 22:00 (1-dic 03:00 UTC) cuenta noviembre; el 1-dic 00:00 Bogota cuenta diciembre', async () => {
-    const rows = [...many(10, '2026-11', FLASH31, LOC), ...many(60, '2026-12', FLASH31, LOC)]; // nov 750_000; dic 4_500_000
+    const rows = [...many(10, '2026-11', FLASH31, LOC31), ...many(60, '2026-12', FLASH31, LOC31)]; // nov 750_000; dic 4_500_000
     const nov = await build(rows, new Date('2026-12-01T03:00:00.000Z')).execute();
     expect(nov.sceneImagesFit.map((f) => f.imagesFit)).toEqual([Math.floor(4_250_000 / 45_000), Math.floor(4_250_000 / 75_000)]);
     const dec = await build(rows, new Date('2026-12-01T05:00:00.000Z')).execute();

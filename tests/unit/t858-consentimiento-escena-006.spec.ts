@@ -99,8 +99,8 @@ describe('grantSceneConsent (T858)', () => {
     expect(snap(t).sceneConsents ?? []).toEqual([]);
   });
 
-  it('[REQ-ESC6-026] el aviso vigente expone solo la versión, el proveedor y los ámbitos', () => {
-    expect(setup().notice.execute()).toEqual({ noticeVersion: '1', providerId: 'vertex-gemini-image', scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] });
+  it('[REQ-ESC6-026] el aviso vigente expone solo la versión, el proveedor y los ámbitos', async () => {
+    expect(await setup().notice.execute()).toEqual({ noticeVersion: '1', providerId: 'vertex-gemini-image', scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] });
   });
 });
 

@@ -33,14 +33,14 @@ describe('T1163 fecha de renovación (EDGE-008-019)', () => {
 describe('T1163 scenePendingMessage (REQ-UX8-001)', () => {
   it('[REQ-UX8-001][SC-008-032] con pending >= 1 dice «este mes», el conteo y la fecha de renovación; sin «de por vida» ni «diario»', () => {
     const message = scenePendingMessage(sceneView({ pending: 2, quota: quota(7, '2026-12-01T05:00:00.000Z') }));
-    expect(message?.remaining).toBe('Generaciones restantes este mes: 7. Se renuevan el 1 de diciembre.');
+    expect(message?.remaining).toBe('Generaciones restantes este mes: 7 de 10. Se renuevan el 1 de diciembre.');
     expect(message?.remaining).not.toMatch(/de por vida|diari/i);
   });
 
   it('[SC-008-033] cuota agotada (0): conserva el texto con la fecha de renovación y no invita a regenerar', () => {
     const view = sceneView({ pending: 3, quota: quota(0, '2026-12-01T05:00:00.000Z'), actions: { canUpdate: false, canRegenerate: false, canUploadHouseholdPhoto: false, blockedReason: 'QUOTA_EXHAUSTED', retryAfterSeconds: null } });
     const message = scenePendingMessage(view);
-    expect(message?.remaining).toBe('Generaciones restantes este mes: 0. Se renuevan el 1 de diciembre.');
+    expect(message?.remaining).toBe('Generaciones restantes este mes: 0 de 10. Se renuevan el 1 de diciembre.');
     expect(message?.changes).toBe('Hubo cambios en tu hogar o en tus mascotas.');
   });
 
@@ -49,7 +49,7 @@ describe('T1163 scenePendingMessage (REQ-UX8-001)', () => {
   });
 
   it('[EDGE-008-019] sin fecha legible queda solo la regla mensual, sin frase de renovación', () => {
-    expect(scenePendingMessage(sceneView({ pending: 1, quota: quota(4, 'x') }))?.remaining).toBe('Generaciones restantes este mes: 4.');
+    expect(scenePendingMessage(sceneView({ pending: 1, quota: quota(4, 'x') }))?.remaining).toBe('Generaciones restantes este mes: 4 de 10.');
   });
 
   it('[SC-008-034] el aria-label sigue con el conteo de cambios, no con la cuota', () => {
@@ -60,14 +60,14 @@ describe('T1163 scenePendingMessage (REQ-UX8-001)', () => {
 describe('T1163 SceneBlockView (SC-008-034)', () => {
   it('[SC-008-034] el bloque pinta la línea de cuota con la fecha y conserva el aria-label numérico', () => {
     const html = render(sceneView({ pending: 2, quota: quota(7, '2026-12-01T05:00:00.000Z') }));
-    expect(html).toContain('<p class="text-sm text-slate-900">Generaciones restantes este mes: 7. Se renuevan el 1 de diciembre.</p>');
+    expect(html).toContain('<p class="text-sm text-slate-900">Generaciones restantes este mes: 7 de 10. Se renuevan el 1 de diciembre.</p>');
     expect(html).toContain('aria-label="2 cambios pendientes"');
   });
 
-  it('[SC-008-033] con pending = 0 el bloque no menciona generaciones ni renovación', () => {
+  it('[SC-008-033][SC-009-055] con pending = 0 el bloque ya no oculta la cuota (D9-28): quien puede generar la ve; sin aviso de cambios', () => {
     const html = render(sceneView({ pending: 0 }));
-    expect(html).not.toContain('Generaciones restantes');
-    expect(html).not.toContain('Se renuevan');
+    expect(html).toContain('Generaciones restantes este mes: 7 de 10. Se renuevan el 1 de diciembre.');
+    expect(html).not.toContain('aria-label="0 cambios');
   });
 });
 

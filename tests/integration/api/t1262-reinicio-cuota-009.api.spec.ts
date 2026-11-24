@@ -112,18 +112,19 @@ describe('T1262 [REQ-CFG9-006] [SC-009-026] el reinicio alcanza SOLO las cuentas
     expect(r.headers['cache-control']).toBe('no-store');
     expect(r.json).toEqual({ accountsReset: 2, resetAt: NOW });
     // Opcion A (Neo): el hogar compartido H1 (owner_user_id NULL) NO se toca.
-    expect(consumedOf(b.a, 'household_id', H1)).toBe(3);
+    // D9-28 (SC-009-054): el hogar de ANDRES (propietario legal vinculado al administrador) tambien se reinicia.
+    expect(consumedOf(b.a, 'household_id', H1)).toBe(0);
     expect(consumedOf(b.a, 'owner_user_id', LUCIA)).toBe(0);
     expect([carryOf(b.a, ANDRES), carryOf(b.a, LUCIA)]).toEqual([0, 0]);
   });
 
-  it('opcion A: una escena de hogar compartido queda intacta tras el reinicio, aunque un miembro sea cuenta del administrador', async () => {
+  it('D9-28 (SC-009-054, sustituye la opcion A): la escena del hogar del que el administrador es propietario legal tambien se reinicia', async () => {
     const b = await boot();
     seedAccounts(b.a);
     const shared = insertScene(b.a, { household: H1 }, 4);
     const own = insertScene(b.a, { user: ANDRES }, 6);
     expect((await reset(b)).status).toBe(200);
-    expect((b.a.db.prepare('SELECT consumed_generations AS n FROM home_scenes WHERE id = ?').get(shared) as { n: number }).n).toBe(4);
+    expect((b.a.db.prepare('SELECT consumed_generations AS n FROM home_scenes WHERE id = ?').get(shared) as { n: number }).n).toBe(0);
     expect((b.a.db.prepare('SELECT consumed_generations AS n FROM home_scenes WHERE id = ?').get(own) as { n: number }).n).toBe(0);
   });
 
@@ -147,7 +148,7 @@ describe('T1262 [REQ-CFG9-006] [SC-009-026] el reinicio alcanza SOLO las cuentas
     expect(globalRow(b.a)).toEqual(before);
   });
 
-  it('no borra el historial de intentos ni las imagenes y deja intacto el consumo del hogar compartido (opcion A): solo cambian los contadores de las cuentas del administrador', async () => {
+  it('no borra el historial de intentos ni las imagenes y reinicia tambien el consumo del hogar propio del administrador (D9-28, SC-009-054)', async () => {
     const b = await boot();
     const cookie = await b.a.login('andres');
     b.a.db.prepare('UPDATE users SET email = ?, email_verified_at = ? WHERE id = ?').run(ADMIN_EMAIL, '2026-11-02T00:00:00.000Z', ANDRES);
@@ -156,11 +157,11 @@ describe('T1262 [REQ-CFG9-006] [SC-009-026] el reinicio alcanza SOLO las cuentas
     expect(consumedOf(b.a, 'household_id', H1)).toBe(1);
     const attempts = (b.a.db.prepare('SELECT COUNT(*) AS n FROM scene_attempts').get() as { n: number }).n;
     expect((await reset(b)).status).toBe(200);
-    expect(consumedOf(b.a, 'household_id', H1)).toBe(1);
+    expect(consumedOf(b.a, 'household_id', H1)).toBe(0);
     expect((b.a.db.prepare('SELECT COUNT(*) AS n FROM scene_attempts').get() as { n: number }).n).toBe(attempts);
     const view = (await b.a.call('GET', `/api/households/${H1}/scene`, { cookie, contract: false })).json as { imageTag: string | null; quota: { max: number; remaining: number } };
     expect(typeof view.imageTag).toBe('string');
-    expect(view.quota.remaining).toBe(view.quota.max - 1);
+    expect(view.quota.remaining).toBe(view.quota.max);
   });
 
   it('un correo de la lista solo cuenta si esta VERIFICADO: sin verificar no hay reinicio (accountsReset = 0 y la escena conserva su consumo)', async () => {
@@ -208,7 +209,7 @@ describe('T1262 [EDGE-009-022] no falla sin escena ni hogar', () => {
     expect((await reset(b)).status).toBe(200);
     const second = await reset(b);
     expect(second.status).toBe(200);
-    expect([consumedOf(b.a, 'household_id', H1), consumedOf(b.a, 'owner_user_id', LUCIA)]).toEqual([3, 0]);
+    expect([consumedOf(b.a, 'household_id', H1), consumedOf(b.a, 'owner_user_id', LUCIA)]).toEqual([0, 0]);
   });
 });
 

@@ -35,16 +35,17 @@ const repoOf = (rows: Record<string, string | null>): { repository: PlatformPara
 const ENV = { globalQuotaMax: null, model: null, location: null } as const;
 
 describe('T1259 [INV-CFG9-001][EDGE-009-018][EDGE-009-046] global latente y lista cerrada', () => {
-  it('SCENE_GLOBAL_LOCATION_ENABLED existe, es exactamente false y es constante de codigo (no clave editable de /admin)', async () => {
+  it('SCENE_GLOBAL_LOCATION_ENABLED existe, es exactamente true (D9-27) y es constante de codigo (no clave editable de /admin)', async () => {
     expect('SCENE_GLOBAL_LOCATION_ENABLED' in providerParameters, 'T1265 debe exportar la constante').toBe(true);
-    expect((providerParameters as Record<string, unknown>)['SCENE_GLOBAL_LOCATION_ENABLED']).toBe(false);
+    expect((providerParameters as Record<string, unknown>)['SCENE_GLOBAL_LOCATION_ENABLED']).toBe(true);
     const { ADMIN_PARAMETER_KEYS } = await import('../../src/domain/platform/admin-parameter-catalog.ts');
     expect(ADMIN_PARAMETER_KEYS.some((k) => /global_location|GLOBAL_LOCATION/i.test(k))).toBe(false);
   });
 
-  it('[INV-CFG9-001] con la constante en false, global no esta en la lista cerrada y se rechaza (en cualquier caja o forma)', () => {
+  it('[INV-CFG9-001] con la constante en true (D9-27), global se admite solo EXACTO (la lista cerrada no cambia) y se rechaza en cualquier otra caja o forma', () => {
     expect(SCENE_ALLOWED_LOCATIONS).not.toContain('global');
-    for (const v of ['global', 'GLOBAL', 'Global', ' global', 'global ', 'global/']) expect(isAllowedSceneLocation(v), JSON.stringify(v)).toBe(false);
+    expect(isAllowedSceneLocation('global')).toBe(true);
+    for (const v of ['GLOBAL', 'Global', ' global', 'global ', 'global/']) expect(isAllowedSceneLocation(v), JSON.stringify(v)).toBe(false);
   });
 
   it.each(FIVE_BAD)('anti-SSRF: la region %j queda fuera de la lista cerrada', (v) => {
@@ -65,12 +66,12 @@ describe('T1259 [REQ-CFG9-002][SC-009-023] relectura en caliente con cache <= 60
     const b = repoOf({ 'scene.provider_model': 'gemini-2.5-flash-image', 'scene.provider_location': 'us-central1' });
     const read = load().createSceneProviderParametersReader({ repository: b.repository, env: ENV, now: () => now });
     expect(await read()).toMatchObject({ model: 'gemini-2.5-flash-image', location: 'us-central1' });
-    b.rows['scene.provider_model'] = 'gemini-3.1-flash-image';
-    b.rows['scene.provider_location'] = 'us-east4';
+    b.rows['scene.provider_model'] = 'gemini-3.1-flash-image-preview';
+    b.rows['scene.provider_location'] = 'global';
     now += 59_000;
     expect(await read()).toMatchObject({ model: 'gemini-2.5-flash-image', location: 'us-central1' });
     now += 1_001; // 60_001 ms desde la primera lectura
-    expect(await read()).toMatchObject({ model: 'gemini-3.1-flash-image', location: 'us-east4' });
+    expect(await read()).toMatchObject({ model: 'gemini-3.1-flash-image-preview', location: 'global' });
   });
 
   it('la cache no es mayor que 60 s aunque se pida mas (cacheTtlMs 10 min se acota a 60_000)', async () => {
@@ -78,9 +79,10 @@ describe('T1259 [REQ-CFG9-002][SC-009-023] relectura en caliente con cache <= 60
     const b = repoOf({ 'scene.provider_model': 'gemini-2.5-flash-image' });
     const read = load().createSceneProviderParametersReader({ repository: b.repository, env: ENV, now: () => now, cacheTtlMs: 600_000 });
     await read();
-    b.rows['scene.provider_model'] = 'gemini-3.1-flash-image';
+    b.rows['scene.provider_model'] = 'gemini-3.1-flash-image-preview';
+    b.rows['scene.provider_location'] = 'global';
     now += 60_001;
-    expect((await read()).model).toBe('gemini-3.1-flash-image');
+    expect((await read()).model).toBe('gemini-3.1-flash-image-preview');
   });
 
   it.each([
@@ -127,11 +129,11 @@ describe('T1259 [INV-CFG9-001][SC-009-022] adaptador Vertex: URL compuesta por l
     let current = { model: 'gemini-2.5-flash-image', location: 'us-central1' };
     const t = await build(async () => current);
     expect((await t.generator.generate(req())).ok).toBe(true);
-    current = { model: 'gemini-3.1-flash-image', location: 'us-east4' };
+    current = { model: 'gemini-3.1-flash-image-preview', location: 'global' };
     expect((await t.generator.generate(req())).ok).toBe(true);
     expect(t.urls).toEqual([
       `https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT}/locations/us-central1/publishers/google/models/gemini-2.5-flash-image:generateContent`,
-      `https://us-east4-aiplatform.googleapis.com/v1/projects/${PROJECT}/locations/us-east4/publishers/google/models/gemini-3.1-flash-image:generateContent`,
+      `https://aiplatform.googleapis.com/v1/projects/${PROJECT}/locations/global/publishers/google/models/gemini-3.1-flash-image-preview:generateContent`,
     ]);
   });
 
@@ -155,7 +157,7 @@ describe('T1259 [INV-CFG9-001][SC-009-022] adaptador Vertex: URL compuesta por l
     expect(t.fetchDouble).not.toHaveBeenCalled();
   });
 
-  it('el host literal de global solo aparece en el adaptador detras de SCENE_GLOBAL_LOCATION_ENABLED (hoy inalcanzable)', () => {
+  it('el host literal de global solo aparece en el adaptador detras de SCENE_GLOBAL_LOCATION_ENABLED (D9-27: alcanzable solo con el par preview + global)', () => {
     const src = readFileSync(join(process.cwd(), 'src/infrastructure/adapters/vertex-scene-image-generator.adapter.ts'), 'utf8');
     const guarded = src.includes('SCENE_GLOBAL_LOCATION_ENABLED');
     const literal = /(^|[^-])aiplatform\.googleapis\.com/.test(src.replaceAll('-aiplatform.googleapis.com', ''));

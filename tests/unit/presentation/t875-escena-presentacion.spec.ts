@@ -50,7 +50,7 @@ describe('T875 textos y reglas puras (REQ-ESC6-005, REQ-ESC6-019)', () => {
   });
 
   it('[SC-ESC6-029][REQ-ESC6-005] aviso neutral de cambios pendientes (T1053, 007) y «Se muestran N de M mascotas» solo si M > N', () => {
-    expect(scenePendingMessage(sceneView({ pending: 2, quota: { max: 10, remaining: 7, window: '2026-11', resetsAt: '2026-12-01T05:00:00.000Z' } }))?.remaining).toBe('Generaciones restantes este mes: 7. Se renuevan el 1 de diciembre.');
+    expect(scenePendingMessage(sceneView({ pending: 2, quota: { max: 10, remaining: 7, window: '2026-11', resetsAt: '2026-12-01T05:00:00.000Z' } }))?.remaining).toBe('Generaciones restantes este mes: 7 de 10. Se renuevan el 1 de diciembre.');
     expect(scenePetsShownText({ shown: 8, total: 11, maxPets: 8 })).toBe('Se muestran 8 de 11 mascotas');
     expect(scenePetsShownText({ shown: 3, total: 3, maxPets: 8 })).toBeNull();
   });
@@ -92,7 +92,7 @@ describe('T875 bloque «Escena del hogar» (REQ-ESC6-019, NFR-ESC6-004)', () => 
     expect(html).toContain(`src="/api/households/${HOUSEHOLD_ID}/scene/image?v=${IMAGE_TAG}"`);
     expect(html).toContain('alt="Escena del hogar en pixel art con 3 mascotas"');
     expect(html).toContain('Hubo cambios en tu hogar o en tus mascotas. Puedes volver a generar tu hogar para ver los cambios.');
-    expect(html).toContain('Generaciones restantes este mes: 7. Se renuevan el 1 de diciembre.');
+    expect(html).toContain('Generaciones restantes este mes: 7 de 10. Se renuevan el 1 de diciembre.');
     expect(html).toMatch(/aria-live="polite"/);
     expect(html).toMatch(/role="status"/);
     expect(html).not.toMatch(/googleapis|X-Goog|Signature|https?:\/\//i);

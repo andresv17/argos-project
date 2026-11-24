@@ -17,7 +17,7 @@ const PNG_SIGNATURE = '89504e470d0a1a0a';
 interface SceneBody {
   readonly imageTag: string | null;
   readonly status: string;
-  readonly quota: { readonly remaining: number; readonly resetsAt: string };
+  readonly quota: { readonly max: number; readonly remaining: number; readonly resetsAt: string };
 }
 
 async function waitForImage(request: APIRequestContext, householdId: string): Promise<SceneBody> {
@@ -61,7 +61,7 @@ test.describe('escena del hogar en «Hogar» (Feature 008)', () => {
       const scene = await apiCall<SceneBody & { pending: number }>(context.request, 'GET', `/households/${householdId}/scene`);
       expect(scene.body.pending).toBeGreaterThan(0);
       const renewal = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long', timeZone: 'America/Bogota' }).format(Date.parse(scene.body.quota.resetsAt));
-      const expected = `Generaciones restantes este mes: ${scene.body.quota.remaining}. Se renuevan el ${renewal}.`;
+      const expected = `Generaciones restantes este mes: ${scene.body.quota.remaining} de ${scene.body.quota.max}. Se renuevan el ${renewal}.`;
 
       await page.goto('/households');
       for (const width of VIEWPORT_WIDTHS) {
