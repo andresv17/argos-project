@@ -21,7 +21,7 @@ const catalog = (): P[] => [
   p({ key: 'album.max_photos_per_pet', constraints: { min: 1, max: 50 } }),
   p({ key: 'scene.enabled', valueType: 'BOOLEAN', value: 'true', default: 'true', constraints: { allowed: ['true', 'false'] } }),
   p({ key: 'scene.global_quota_max', value: '50', default: '50', constraints: { min: 1, max: 111 }, etag: '"etag-quota-000001"' }),
-  p({ key: 'scene.provider_model', valueType: 'STRING', value: 'gemini-2.5-flash-image', default: 'gemini-2.5-flash-image', constraints: { allowed: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image'] }, etag: '"etag-model-000001"' }),
+  p({ key: 'scene.provider_model', valueType: 'STRING', value: 'gemini-2.5-flash-image', default: 'gemini-2.5-flash-image', constraints: { allowed: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3-pro-image'] }, etag: '"etag-model-000001"' }),
   p({ key: 'scene.provider_driver', valueType: 'STRING', value: 'vertex', default: 'vertex', constraints: { allowed: ['vertex'] } }),
   p({ key: 'scene.prompt.blocks', valueType: 'JSON_BLOCKS', value: JSON.stringify(BLOCKS), default: JSON.stringify(BLOCKS), constraints: { maxBlockLength: 1000 }, etag: '"etag-blocks-000001"' }),
 ];
@@ -59,12 +59,12 @@ test('[REQ-CFG9-004] el selector de modelo ofrece solo los dos modelos seleccion
   const fake = await fakeAdmin(page);
   await openPanel(page);
   const select = page.getByLabel('Modelo de imagen', { exact: true });
-  await expect(select.locator('option')).toHaveText(['gemini-2.5-flash-image (se retira el 15 de marzo de 2027)', 'gemini-3.1-flash-image-preview']);
+  await expect(select.locator('option')).toHaveText(['gemini-2.5-flash-image (se retira el 15 de marzo de 2027)', 'gemini-3.1-flash-image']);
   await expect(page.getByTestId('param-scene.provider_model')).toContainText('15 de marzo de 2027');
-  await select.selectOption('gemini-3.1-flash-image-preview');
+  await select.selectOption('gemini-3.1-flash-image');
   await page.getByRole('button', { name: 'Guardar modelo' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Modelo de imagen guardado.' })).toHaveCount(1);
-  expect(fake.puts).toEqual([{ key: 'scene.provider_model', ifMatch: '"etag-model-000001"', body: '{"value":"gemini-3.1-flash-image-preview"}' }]);
+  expect(fake.puts).toEqual([{ key: 'scene.provider_model', ifMatch: '"etag-model-000001"', body: '{"value":"gemini-3.1-flash-image"}' }]);
 });
 
 test('[EDGE-009-046] D9-29: selector único, sin selector de región: la región se deriva del modelo y se avisa junto al selector de modelo; sin cifras de coste', async ({ page }) => {
@@ -79,7 +79,7 @@ test('[EDGE-009-046] D9-29: selector único, sin selector de región: la región
 test('[REQ-CFG9-002] 422 por tope de coste: mensaje sin cifras, asociado al campo, y no se actualiza el valor', async ({ page }) => {
   const fake = await fakeAdmin(page, { putStatus: 422, putCode: 'ERR-ADMIN-SCENE-COST-CAP-EXCEEDED' });
   await openPanel(page);
-  await page.getByLabel('Modelo de imagen', { exact: true }).selectOption('gemini-3.1-flash-image-preview');
+  await page.getByLabel('Modelo de imagen', { exact: true }).selectOption('gemini-3.1-flash-image');
   await page.getByRole('button', { name: 'Guardar modelo' }).click();
   const alert = page.getByRole('alert').filter({ hasText: 'La combinación supera el tope mensual de imágenes. No se ha guardado.' });
   await expect(alert).toHaveCount(1);

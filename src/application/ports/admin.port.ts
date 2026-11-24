@@ -156,6 +156,8 @@ export interface AdminParameterRepositoryPort {
    * cuenta (`scene_actor_limit_marks`), de modo que FAILED_LIMIT, los intentos cerrados sin llamada y ACTOR_LIMIT cuentan solo intentos posteriores. El enfriamiento tras SUCCEEDED no se reinicia.
    */
   resetAdminAccountsSceneQuota(subjects: readonly string[], emails: readonly string[], resetAt: string): Promise<{ readonly accountsReset: number } | null>;
+  /** Ids de usuario de las cuentas del administrador (mismo criterio que `resetAdminAccountsSceneQuota`); solo uso interno para reiniciar el limite en RAM, nunca sale por HTTP. */
+  listAdminAccountUserIds(subjects: readonly string[], emails: readonly string[]): Promise<readonly string[]>;
   /** Intentos de la ventana mensual `quota_window` (YYYY-MM de America/Bogota, fijada al crear el intento) para la regla de coste de `EDGE-009-036`. El filtro es por ventana, no por UTC. */
   listSceneSpendAttempts(window: string): Promise<readonly SceneSpendAttemptRecord[]>;
 }

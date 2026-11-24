@@ -235,6 +235,9 @@ export function adminParameterRepository(db: SqliteDatabase): AdminParameterRepo
     async listSceneSpendAttempts(window) {
       return spendOf.all(window).map((r) => ({ providerModel: r.provider_model, providerLocation: r.provider_location, providerCallStartedAt: r.provider_call_started_at }));
     },
+    async listAdminAccountUserIds(subjects, emails) {
+      return accounts.all(JSON.stringify(subjects), JSON.stringify(emails.map((e) => e.toLowerCase()))).map((r) => r.id);
+    },
     async resetAdminAccountsSceneQuota(subjects, emails, resetAt) {
       const ids = accounts.all(JSON.stringify(subjects), JSON.stringify(emails.map((e) => e.toLowerCase()))).map((r) => r.id);
       for (const id of ids) {

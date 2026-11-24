@@ -21,8 +21,8 @@ describe('T1308 [SC-009-053] versión de aviso vigente según la región efectiv
   });
 
   it('global rige la variante; us-central1, sin lector o con fallo del lector rige la base (sin variante inventada)', async () => {
-    expect(await currentNoticeVersion(svcWith(async () => ({ model: 'gemini-3.1-flash-image-preview', location: 'global' })))).toBe('3-global');
-    expect(await currentNoticeVersion(svcWith({ model: 'gemini-3.1-flash-image-preview', location: 'global' }))).toBe('3-global');
+    expect(await currentNoticeVersion(svcWith(async () => ({ model: 'gemini-3.1-flash-image', location: 'global' })))).toBe('3-global');
+    expect(await currentNoticeVersion(svcWith({ model: 'gemini-3.1-flash-image', location: 'global' }))).toBe('3-global');
     expect(await currentNoticeVersion(svcWith(async () => ({ model: 'gemini-2.5-flash-image', location: 'us-central1' })))).toBe('3');
     expect(await currentNoticeVersion(svcWith(undefined))).toBe('3');
     expect(await currentNoticeVersion(svcWith(async () => { throw new Error('lectura rota'); }))).toBe('3');

@@ -46,8 +46,8 @@ describe('T1323 SQLite 0026_scene_limits_reset.sql', () => {
 
 describe('T1323 Postgres 0022_scene_limits_reset.sql', () => {
   const sql = readFileSync(new URL(PG_MIGRATION, PG_DIR), 'utf8').replace(/--[^\n]*/g, '');
-  it('es la ultima, sin BEGIN/COMMIT, solo aditiva e idempotente (sin DROP ni UPDATE)', () => {
-    expect(readdirSync(PG_DIR).sort().at(-1)).toBe(PG_MIGRATION);
+  it('existe, sin BEGIN/COMMIT, solo aditiva e idempotente (sin DROP ni UPDATE)', () => {
+    expect(readdirSync(PG_DIR).sort()).toContain(PG_MIGRATION); // la 0023 (modelo flash-image) es posterior
     expect(sql).not.toMatch(/\b(BEGIN|COMMIT|DROP|UPDATE)\b|DELETE FROM/i);
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS limits_reset_at TEXT;/);
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS scene_actor_limit_marks/);

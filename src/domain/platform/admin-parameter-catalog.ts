@@ -37,10 +37,10 @@ export const ADMIN_PARAMETER_KEYS = [
 export type AdminParameterKey = (typeof ADMIN_PARAMETER_KEYS)[number];
 
 /**
- * Modelos del selector unico (D9-29, D9-30 (5)): la region NO es un parametro, se deriva del modelo (`deriveLocation`; gemini-2.5-flash-image => us-central1, 45_000 µUSD; gemini-3.1-flash-image-preview =>
+ * Modelos del selector unico (D9-29, D9-30 (5)): la region NO es un parametro, se deriva del modelo (`deriveLocation`; gemini-2.5-flash-image => us-central1, 45_000 µUSD; gemini-3.1-flash-image =>
  * global, 75_000 µUSD, solo Vertex). Union de los modelos de ambos proveedores; cada proveedor admite un subconjunto (`SCENE_MODELS_BY_DRIVER`) y guardar un modelo que el proveedor vigente no admite es 422.
  */
-export const SCENE_ALLOWED_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'];
+export const SCENE_ALLOWED_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image'];
 
 export interface AdminParameterConstraints {
   readonly min?: number;

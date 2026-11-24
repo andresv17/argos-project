@@ -20,7 +20,7 @@ export const SCENE_DEFAULT_MODEL = 'gemini-2.5-flash-image';
 export const SCENE_DEFAULT_LOCATION = 'us-central1';
 /**
  * Region `global` (Enmienda 009-B, condicion (g); EDGE-009-046): constante de CODIGO, no clave de `platform_parameters` ni del catalogo de /admin. Con `false` la region `global` se rechaza en
- * cualquier forma. Activada (`true`) por la enmienda D9-27 (2026-11-24, Neo, Nivel 2) SOLO para el par `gemini-3.1-flash-image-preview` + `global` (host literal fijo, sin residencia regional).
+ * cualquier forma. Activada (`true`) por la enmienda D9-27 (2026-11-24, Neo, Nivel 2) SOLO para el par `gemini-3.1-flash-image` + `global` (host literal fijo, sin residencia regional).
  */
 export const SCENE_GLOBAL_LOCATION_ENABLED = true as boolean;
 
@@ -68,13 +68,13 @@ export const isSceneProviderDriver = (value: string): value is SceneProviderDriv
 
 /** D9-30 (5): modelos por proveedor (Vertex = los 2 pares de D9-27; `gemini-api` = los 3 de la Enmienda 009-C). */
 export const SCENE_MODELS_BY_DRIVER: Readonly<Record<SceneProviderDriver, readonly string[]>> = {
-  vertex: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'],
-  'gemini-api': ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'],
+  vertex: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image'],
+  'gemini-api': ['gemini-2.5-flash-image', 'gemini-3.1-flash-image'],
 };
 export const driverSupportsModel = (driver: SceneProviderDriver, model: string): boolean => SCENE_MODELS_BY_DRIVER[driver].includes(model);
 
 /**
- * D9-29: la region NO es un parametro; es una funcion pura del proveedor y del modelo. Vertex: `gemini-2.5-flash-image` => `us-central1` y `gemini-3.1-flash-image-preview` => `global` (los 2 pares con
+ * D9-29: la region NO es un parametro; es una funcion pura del proveedor y del modelo. Vertex: `gemini-2.5-flash-image` => `us-central1` y `gemini-3.1-flash-image` => `global` (los 2 pares con
  * coste de fuente de la tabla); un modelo sin par con coste => `null`. `gemini-api` no tiene region (`null`). Se deriva de la tabla de costes, sin E/S ni reloj.
  */
 export function deriveLocation(driver: SceneProviderDriver, model: string): string | null {

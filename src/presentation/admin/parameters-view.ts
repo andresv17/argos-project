@@ -53,9 +53,9 @@ export const BLOCKS_BROKEN = 'No se pudo leer el texto base actual. Recarga la p
 export const PHOTOREF = '{photoRef}';
 
 /** Modelos que se pueden elegir (D9-27): solo los de los pares válidos; `gemini-3-pro-image` queda latente, sin selección. */
-export const SELECTABLE_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'];
-/** Con el proveedor `gemini-api` (D9-30 (5)) se suma `gemini-3.1-flash-image`; Vertex no lo admite (el servidor responde 422). */
-export const SELECTABLE_MODELS_GEMINI_API: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'];
+export const SELECTABLE_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image'];
+/** Con el proveedor `gemini-api` (D9-30 (5)) los mismos dos modelos; la región no aplica (sin región). */
+export const SELECTABLE_MODELS_GEMINI_API: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image'];
 /** Proveedores seleccionables (D9-30): el servidor solo lista en `allowed` los que tienen credenciales en este despliegue. */
 export const SELECTABLE_DRIVERS: readonly string[] = ['vertex', 'gemini-api'];
 export const DRIVER_LABEL: Readonly<Record<string, string>> = { vertex: 'Vertex AI (Google Cloud)', 'gemini-api': 'Gemini API (Google AI)' };

@@ -12,28 +12,29 @@ import { SELECTABLE_MODELS } from '../../src/presentation/admin/parameters-view.
 import { canonicalState, createHarness } from '../fixtures/application-harness.ts';
 
 /**
- * T1308 (009, Fase 5c, [GH:#20]; D9-27; SC-009-052, SC-009-053): el par `gemini-3.1-flash-image-preview` + `global` (75_000 µUSD) junto a `gemini-2.5-flash-image` + `us-central1`
- * (45_000 µUSD); el par preview + `us-central1` y el nombre sin sufijo son inválidos en /admin, al leer BD y en el adaptador (INV-CFG9-001); endpoint literal de `global` (anti-SSRF, SC-009-022);
+ * T1308 (009, Fase 5c, [GH:#20]; D9-27; SC-009-052, SC-009-053): el par `gemini-3.1-flash-image` + `global` (75_000 µUSD) junto a `gemini-2.5-flash-image` + `us-central1`
+ * (45_000 µUSD); el par 3.1 + `us-central1` y el nombre retirado `-preview` son inválidos en /admin, al leer BD y en el adaptador (INV-CFG9-001); endpoint literal de `global` (anti-SSRF, SC-009-022);
  * regla de gasto acumulado con 75_000 µUSD y tope de 5 USD/mes (EDGE-009-036). El texto del aviso con variante global lo firma Neo (D9-27 (5)).
  * @implements REQ-CFG9-004, EDGE-009-036, EDGE-009-046, INV-CFG9-001
  */
-const PREVIEW = 'gemini-3.1-flash-image-preview';
+const PREVIEW = 'gemini-3.1-flash-image';
+/** Modelo retirado (404 en Vertex global): ya no es valido en ningun proveedor. */
+const RETIRED = 'gemini-3.1-flash-image-preview';
 const FLASH = 'gemini-2.5-flash-image';
 const ADMIN = 'ad000000-0000-4000-8000-000000000001';
 const WRITTEN = '2026-11-01T00:00:00.000Z';
 const PROJECT = 'argos-prueba';
 
 describe('T1308 [SC-009-052] tabla de pares válidos y región global', () => {
-  it('la tabla tiene los dos pares Vertex (45_000 y 75_000 µUSD) y las celdas gemini-api del Anexo A (T1314); el par preview + us-central1 y el nombre sin sufijo en Vertex son inválidos', () => {
+  it('la tabla tiene exactamente los dos modelos (45_000 us-central1 y 75_000 global) con su celda gemini-api; el par 3.1 + us-central1 y el nombre retirado -preview son inválidos', () => {
     expect(SCENE_COST_TABLE_MICRO_USD).toEqual({
       [FLASH]: { 'us-central1': 45_000, 'gemini-api': 45_000 },
-      'gemini-3.1-flash-image': { 'gemini-api': 75_000 },
       [PREVIEW]: { global: 75_000, 'gemini-api': 75_000 },
     });
     expect(sceneUnitCost(SCENE_COST_TABLE_MICRO_USD, PREVIEW, 'global')).toBe(75_000);
     expect(isSelectableScenePair(FLASH, 'us-central1')).toBe(true);
     expect(isSelectableScenePair(PREVIEW, 'global')).toBe(true);
-    for (const [m, l] of [[PREVIEW, 'us-central1'], [FLASH, 'global'], ['gemini-3.1-flash-image', 'us-central1'], ['gemini-3.1-flash-image', 'global']] as const) expect(isSelectableScenePair(m, l), `${m} ${l}`).toBe(false);
+    for (const [m, l] of [[PREVIEW, 'us-central1'], [FLASH, 'global'], [RETIRED, 'us-central1'], [RETIRED, 'global']] as const) expect(isSelectableScenePair(m, l), `${m} ${l}`).toBe(false);
   });
 
   it('SCENE_GLOBAL_LOCATION_ENABLED es true y `global` es una región admitida (solo exacta, sin variantes)', () => {
@@ -42,12 +43,12 @@ describe('T1308 [SC-009-052] tabla de pares válidos y región global', () => {
     for (const v of ['GLOBAL', 'Global', ' global', 'global/', 'global?x=1']) expect(isAllowedSceneLocation(v), v).toBe(false);
   });
 
-  it('la lista cerrada de modelos del catálogo admite el sufijo preview y deja de admitir el nombre sin sufijo; /admin ofrece solo los pares válidos', () => {
+  it('la lista cerrada de modelos del catálogo es exactamente los dos modelos y ya no admite el nombre retirado -preview; /admin ofrece solo esos', () => {
     const allowed = ADMIN_PARAMETER_CATALOG['scene.provider_model'].constraints.allowed ?? [];
-    expect(allowed).toContain(PREVIEW);
-    expect(allowed).toContain('gemini-3.1-flash-image'); // T1314: solo gemini-api (Vertex lo rechaza, ver SC-009-057)
-    expect(ADMIN_PARAMETER_CATALOG['scene.provider_model'].isCanonical('gemini-3.1-flash-image')).toBe(true);
-    expect(deriveLocation('vertex', 'gemini-3.1-flash-image')).toBeNull();
+    expect([...allowed]).toEqual([FLASH, PREVIEW]);
+    expect(allowed).not.toContain(RETIRED);
+    expect(deriveLocation('vertex', RETIRED)).toBeNull();
+    expect(deriveLocation('gemini-api', RETIRED)).toBeNull();
     expect(Object.keys(ADMIN_PARAMETER_CATALOG)).not.toContain('scene.provider_location'); // D9-29: la region se deriva del modelo
     expect([...SELECTABLE_MODELS]).toEqual([FLASH, PREVIEW]);
   });
@@ -84,7 +85,8 @@ describe('T1308 [SC-009-052][INV-CFG9-001] leer BD: un par inválido se rechaza'
   it('deriveLocation(driver, model): vertex deriva us-central1 / global; gemini-api y modelos sin par no tienen region', () => {
     expect(deriveLocation('vertex', FLASH)).toBe('us-central1');
     expect(deriveLocation('vertex', PREVIEW)).toBe('global');
-    expect(deriveLocation('vertex', 'gemini-3.1-flash-image')).toBeNull();
+    expect(deriveLocation('gemini-api', PREVIEW)).toBeNull();
+    expect(deriveLocation('vertex', RETIRED)).toBeNull();
     expect(deriveLocation('vertex', 'gemini-3-pro-image')).toBeNull();
     expect(deriveLocation('vertex', '__proto__')).toBeNull();
     expect(deriveLocation('gemini-api', FLASH)).toBeNull();
@@ -104,13 +106,13 @@ describe('T1308 [SC-009-052][SC-009-022] adaptador: endpoint literal de global y
   };
   const req = (): never => ({ prompt: 'p', references: [], seed: 0, signal: new AbortController().signal }) as never;
 
-  it('preview + global llama a https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/publishers/google/models/gemini-3.1-flash-image-preview:generateContent', async () => {
+  it('preview + global llama a https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/publishers/google/models/gemini-3.1-flash-image:generateContent', async () => {
     const t = build({ model: PREVIEW, location: 'global' });
     await t.generator.generate(req());
     expect(t.urls).toEqual([`https://aiplatform.googleapis.com/v1/projects/${PROJECT}/locations/global/publishers/google/models/${PREVIEW}:generateContent`]);
   });
 
-  it.each([[PREVIEW, 'us-central1'], [FLASH, 'global'], ['gemini-3.1-flash-image', 'us-central1']])('par inválido %s + %s: falla cerrada SIN fetch', async (model, location) => {
+  it.each([[PREVIEW, 'us-central1'], [FLASH, 'global'], [RETIRED, 'global']])('par inválido %s + %s: falla cerrada SIN fetch', async (model, location) => {
     const t = build({ model, location });
     expect(await t.generator.generate(req())).toEqual({ ok: false, code: 'ERR-SCENE-GENERATION-FAILED' });
     expect(t.fetchDouble).not.toHaveBeenCalled();
@@ -160,9 +162,9 @@ describe('T1308 [SC-009-052] guardado en /admin: selector único (D9-29), sin pa
     expect(t.audits()).toHaveLength(1);
   });
 
-  it('el nombre sin sufijo y un modelo sin pareja se rechazan (422) sin escribir', async () => {
+  it('el nombre retirado -preview y un modelo sin pareja se rechazan (422) sin escribir', async () => {
     const t = setup();
-    expect(await codeOf(t.put('scene.provider_model', 'gemini-3.1-flash-image'))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+    expect(await codeOf(t.put('scene.provider_model', RETIRED))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
     expect(await codeOf(t.put('scene.provider_model', 'gemini-3-pro-image'))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
     expect(await t.rowOf('scene.provider_model')).toBeNull();
     expect(t.audits()).toEqual([]);

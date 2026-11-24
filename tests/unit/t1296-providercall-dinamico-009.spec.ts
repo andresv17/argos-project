@@ -65,11 +65,11 @@ describe('T1296 (h) providerCall dinamico', () => {
     const call = services.providerCall as unknown as () => Promise<{ model: string; location: string }>;
     expect(typeof call).toBe('function');
     expect(await call()).toEqual({ model: 'gemini-2.5-flash-image', location: 'us-central1' });
-    rows['scene.provider_model'] = 'gemini-3.1-flash-image-preview';
+    rows['scene.provider_model'] = 'gemini-3.1-flash-image';
     rows['scene.provider_location'] = 'global';
     now += 59_000;
     expect(await call()).toEqual({ model: 'gemini-2.5-flash-image', location: 'us-central1' }); // dentro de la cache
     now += 1_001;
-    expect(await call()).toEqual({ model: 'gemini-3.1-flash-image-preview', location: 'global' });
+    expect(await call()).toEqual({ model: 'gemini-3.1-flash-image', location: 'global' });
   });
 });

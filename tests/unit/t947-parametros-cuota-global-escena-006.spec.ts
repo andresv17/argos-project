@@ -39,13 +39,13 @@ describe('valores por defecto y precedencia (fila > entorno > defecto)', () => {
   });
 
   it('[REQ-ESC6-017] sin fila rige el respaldo de entorno', () => {
-    expect(resolveSceneProviderParameters({ db: NO_DB, env: { globalQuotaMax: 7, model: 'gemini-3.1-flash-image-preview', location: 'us-east4' } })).toEqual({ globalQuotaMax: 7, model: 'gemini-3.1-flash-image-preview', location: 'global' }); // D9-29: la region de entorno ya no manda; se deriva del modelo
+    expect(resolveSceneProviderParameters({ db: NO_DB, env: { globalQuotaMax: 7, model: 'gemini-3.1-flash-image', location: 'us-east4' } })).toEqual({ globalQuotaMax: 7, model: 'gemini-3.1-flash-image', location: 'global' }); // D9-29: la region de entorno ya no manda; se deriva del modelo
   });
 
   it('[REQ-ESC6-017] la fila de platform_parameters prevalece sobre el entorno', () => {
-    expect(resolveSceneProviderParameters({ db: { globalQuotaMax: '9', model: 'gemini-3.1-flash-image-preview' }, env: { globalQuotaMax: 7, model: 'gemini-2.5-flash-image', location: 'us-east4' } })).toEqual({
+    expect(resolveSceneProviderParameters({ db: { globalQuotaMax: '9', model: 'gemini-3.1-flash-image' }, env: { globalQuotaMax: 7, model: 'gemini-2.5-flash-image', location: 'us-east4' } })).toEqual({
       globalQuotaMax: 9,
-      model: 'gemini-3.1-flash-image-preview',
+      model: 'gemini-3.1-flash-image',
       location: 'global',
     });
   });
@@ -60,7 +60,7 @@ describe('valores por defecto y precedencia (fila > entorno > defecto)', () => {
     }
   });
 
-  it.each(['gemini-2.5-flash-image-x', 'gemini-3-pro-image', 'gemini-3.1-flash-image'])('[REQ-ESC6-031][D9-29] el modelo %j sin par con coste (la region se deriva del modelo) rechaza el arranque y nombra solo la clave del modelo', (raw) => {
+  it.each(['gemini-2.5-flash-image-x', 'gemini-3-pro-image', 'gemini-3.1-flash-image-preview'])('[REQ-ESC6-031][D9-29] el modelo %j sin par con coste (la region se deriva del modelo) rechaza el arranque y nombra solo la clave del modelo', (raw) => {
     expect(() => resolveSceneProviderParameters({ db: { ...NO_DB, model: raw }, env: NO_ENV })).toThrow(new SceneParameterError([SCENE_PARAM_MODEL_KEY]));
   });
 

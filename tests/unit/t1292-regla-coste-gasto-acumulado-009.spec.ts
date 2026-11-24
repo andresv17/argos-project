@@ -33,7 +33,7 @@ interface CostModule {
 const load = async (): Promise<CostModule> => (await import(/* @vite-ignore */ MODULE)) as CostModule;
 
 const FLASH = 'gemini-2.5-flash-image';
-const FLASH31 = 'gemini-3.1-flash-image-preview'; // D9-27: el par valido es preview + global
+const FLASH31 = 'gemini-3.1-flash-image'; // D9-27: el par valido es 3.1 + global
 const LOC31 = 'global';
 const PRO = 'gemini-3-pro-image';
 const LOC = 'us-central1';

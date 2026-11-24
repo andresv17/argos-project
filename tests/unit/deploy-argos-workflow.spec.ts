@@ -43,15 +43,9 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(y).not.toMatch(/workflow_run/);
   });
 
-  it('gate reutiliza test-gate.yml con permissions contents: read, sin id-token ni secretos', () => {
-    const g = job('gate');
-    expect(g).toMatch(/^\s+uses:\s*\.\/\.github\/workflows\/test-gate\.yml\s*$/m);
-    expect(g).toMatch(/^ {4}permissions:\s*\n\s+contents:\s*read\s*$/m);
-    expect(g).not.toMatch(/id-token/);
-    expect(g).not.toMatch(/secrets\./);
-    expect(g).not.toMatch(/secrets:\s*inherit/);
-    expect(g).not.toMatch(/environment:/);
-    expect(g).not.toMatch(/vars\.(GCP|TF_)/);
+  it('el deploy NO duplica el gate: el SDD Test Gate corre en los PR (test-gate.yml) y deploy-argos.yml no lo invoca (262fca8)', () => {
+    expect(body()).not.toMatch(/test-gate\.yml/);
+    expect(jobNames()).not.toContain('gate');
   });
 
   it('solo build-push y deploy tienen id-token: write (push y despliegue exigen GCP) con permissions mínimos', () => {
@@ -85,8 +79,7 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     const uses = [...body().matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)].map((m) => m[1] ?? '');
     expect(uses.length).toBeGreaterThan(0);
     for (const u of uses) {
-      if (u.startsWith('./')) expect(u).toBe('./.github/workflows/test-gate.yml');
-      else if (u.startsWith('actions/')) expect(u).toMatch(/^actions\/[\w.-]+@(v\d+|[0-9a-f]{40})$/);
+      if (u.startsWith('actions/')) expect(u).toMatch(/^actions\/[\w.-]+@(v\d+|[0-9a-f]{40})$/);
       else expect(u).toMatch(/^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/);
     }
     expect(uses.some((u) => u.startsWith('google-github-actions/auth@'))).toBe(true);
@@ -103,10 +96,9 @@ describe('.github/workflows/deploy-argos.yml (T448)', () => {
     expect(needsOf('build-push')).toEqual(['audit']);
   });
 
-  it('el orden exacto de dependencias es gate -> audit -> build-push -> migrate -> deploy (Neo D2)', () => {
-    expect(jobNames()).toEqual(['gate', 'audit', 'build-push', 'migrate', 'deploy']);
-    expect(needsOf('gate')).toEqual([]);
-    expect(needsOf('audit')).toEqual(['gate']);
+  it('el orden exacto de dependencias es audit -> build-push -> migrate -> deploy (el gate vive en los PR)', () => {
+    expect(jobNames()).toEqual(['audit', 'build-push', 'migrate', 'deploy']);
+    expect(needsOf('audit')).toEqual([]);
     expect(needsOf('build-push')).toEqual(['audit']);
     expect(needsOf('migrate')).toEqual(['build-push']);
     expect(needsOf('deploy')).toEqual(['migrate']);

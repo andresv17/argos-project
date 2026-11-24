@@ -320,3 +320,22 @@ describe('T1262 [REQ-ADM9-004] sesion, CSRF, cuerpo y auditoria', () => {
     expect(asKey.status).toBe(422);
   });
 });
+
+describe('D9-31 [REQ-CFG9-006] el 5.º límite (GENERATE 6/hora en RAM) también se reinicia con «Reiniciar cuota»', () => {
+  const generate = (b: Boot, cookie: string, n: number) => b.a.call('POST', '/api/me/scene/generate', { cookie, body: { action: 'UPDATE' }, contract: false, headers: { 'idempotency-key': KEY(500 + n) } });
+
+  it('la cuenta del administrador agota 6/hora (7.ª = 429), tras el reinicio puede generar; una cuenta ajena conserva su bloqueo y el cuerpo HTTP no cambia', async () => {
+    const b = await boot();
+    seedAccounts(b.a);
+    const admin = await b.a.login('andres');
+    const other = await b.a.login('maria.v');
+    for (let n = 1; n <= 6; n += 1) expect([n, (await generate(b, admin, n)).status < 429]).toEqual([n, true]);
+    for (let n = 1; n <= 6; n += 1) expect([n, (await generate(b, other, 10 + n)).status < 429]).toEqual([n, true]);
+    expect((await generate(b, admin, 7)).status).toBe(429);
+    expect((await generate(b, other, 17)).status).toBe(429);
+    const r = await reset(b);
+    expect([r.status, Object.keys(r.json as object).sort()]).toEqual([200, ['accountsReset', 'resetAt']]);
+    expect((await generate(b, admin, 8)).status).not.toBe(429);
+    expect((await generate(b, other, 18)).status).toBe(429);
+  });
+});

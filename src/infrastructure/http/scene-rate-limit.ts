@@ -48,6 +48,11 @@ export class SceneRateLimiter {
     this.events.set(key, live);
   }
 
+  /** Reinicio de limites (D9-31): descarta todos los contadores del usuario (GENERATE, PHOTO y CONSENT). No toca a otros usuarios. */
+  clearUser(userId: string): void {
+    for (const scope of Object.keys(SCENE_RATE_LIMITS)) this.events.delete(`${scope}:${userId}`);
+  }
+
   /** Descarta los usuarios sin eventos vivos para que el mapa no crezca sin tope. */
   private sweep(now: number): void {
     for (const [key, times] of this.events) {

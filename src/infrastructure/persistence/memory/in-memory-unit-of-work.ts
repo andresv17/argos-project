@@ -925,6 +925,11 @@ function adminParameterRepository(state: MemoryState): AdminParameterRepositoryP
       const entries = (state.adminAudit ??= []).filter((r) => r.action === action && r.objectRef === key);
       return entries.length === 0 ? null : entries.reduce((a, b) => (b.occurredAt >= a.occurredAt ? b : a)).adminId;
     },
+    async listAdminAccountUserIds(subjects, emails) {
+      const wanted = new Set(emails.map((e) => e.toLowerCase()));
+      const linked = new Set((state.authIdentities ?? []).filter((i) => i.provider === 'GOOGLE' && subjects.includes(i.providerSubject)).map((i) => i.userId));
+      return state.users.filter((u) => linked.has(u.id) || (u.emailVerifiedAt !== undefined && u.email !== null && wanted.has(u.email.toLowerCase()))).map((u) => u.id);
+    },
     async resetAdminAccountsSceneQuota(subjects, emails, resetAt) {
       const wanted = new Set(emails.map((e) => e.toLowerCase()));
       const linked = new Set((state.authIdentities ?? []).filter((i) => i.provider === 'GOOGLE' && subjects.includes(i.providerSubject)).map((i) => i.userId));
