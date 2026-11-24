@@ -10,7 +10,7 @@ import { canonicalState, createHarness } from '../fixtures/application-harness.t
  * aprobada, en el orden de la tabla; falla cerrado = lista vacia. EDGE-009-036, REQ-CFG9-004; SC-009-051.
  */
 const FLASH = 'gemini-2.5-flash-image';
-const FLASH31 = 'gemini-3.1-flash-image-preview'; // D9-27: el par valido es preview + global
+const FLASH31 = 'gemini-3.1-flash-image'; // D9-27: el par valido es preview + global
 const LOC31 = 'global';
 const LOC = 'us-central1';
 const started = '2026-11-10T12:00:00.000Z';

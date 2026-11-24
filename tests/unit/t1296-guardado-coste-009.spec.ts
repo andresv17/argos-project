@@ -13,7 +13,7 @@ import { canonicalState, createHarness } from '../fixtures/application-harness.t
  * Gasto del mes por intento (quota_window YYYY-MM de la zona America/Bogota, no UTC); usadas = scene.global_quota_used.<ventana>.
  */
 const FLASH = 'gemini-2.5-flash-image';
-const FLASH31 = 'gemini-3.1-flash-image-preview'; // D9-27: el par valido es preview + global
+const FLASH31 = 'gemini-3.1-flash-image'; // D9-27: el par valido es 3.1 + global
 const LOC31 = 'global';
 const LOC = 'us-central1';
 const ADMIN = 'ad000000-0000-4000-8000-000000000001';
@@ -103,7 +103,7 @@ describe('T1296 (i) pares no verificados y regiones fuera de lista: 422 ERR-SCHE
   it.each([
     ['scene.provider_model', 'gemini-3-pro-image'], // en la lista de 3 modelos, pero sin celda verificada en us-central1
     ['scene.provider_model', 'gemini-9-ficticio'],
-    ['scene.provider_model', 'gemini-3.1-flash-image'], // D9-27: el nombre sin sufijo deja de estar habilitado
+    ['scene.provider_model', 'gemini-3.1-flash-image-preview'], // retirado (404 en Vertex global)
     ['scene.provider_location', 'us-central1'], // D9-29: la clave sale del catalogo
     ['scene.provider_location', 'evil.example'],
   ])('%s = %j', async (key, value) => {

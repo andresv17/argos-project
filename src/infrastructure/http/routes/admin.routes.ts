@@ -83,7 +83,7 @@ function isOwnOrigin(request: FastifyRequest): boolean {
 }
 
 /** @implements REQ-ADM9-001, REQ-ADM9-002, REQ-ADM9-005, REQ-ADM9-006, INV-ADM9-002, EDGE-009-008, EDGE-009-035 */
-export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecure }: RouteContext, limiter: AdminAccessLimiter): void {
+export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecure }: RouteContext, limiter: AdminAccessLimiter, onQuotaReset?: (userIds: readonly string[]) => void): void {
   app.get('/api/admin/auth/google/start', async (request, reply) => {
     limiter.assertNotBlocked(request.ip);
     limiter.consumeStart(request.ip);
@@ -187,7 +187,10 @@ export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecu
     const session = await requireAdminSession(request, reply, true);
     if (session === null) return reply;
     if (hasForeignOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
-    return noStore(reply).status(200).send(await useCases.adminResetSceneQuota.execute({ adminId: session.adminId, body: request.body }));
+    const { accountsReset, resetAt, userIds } = await useCases.adminResetSceneQuota.execute({ adminId: session.adminId, body: request.body });
+    // 5.º límite (D9-31): el cupo GENERATE en RAM de las cuentas del administrador se reinicia solo tras confirmar la transacción.
+    onQuotaReset?.(userIds);
+    return noStore(reply).status(200).send({ accountsReset, resetAt });
   });
 
   // Todo lo demás bajo /api/admin: la misma lectura de sesión que las rutas reales y el 404 uniforme (con o sin sesión, la ruta no existe). Mantiene idéntica la secuencia de puertos.

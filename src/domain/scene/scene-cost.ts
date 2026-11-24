@@ -16,13 +16,12 @@ export const SCENE_MONTHLY_CAP_MICRO_USD = 5_000_000;
 export type SceneCostTable = Readonly<Record<string, Readonly<Record<string, number>>>>;
 
 /**
- * Pares VALIDOS con coste de fuente (D9-27, enmienda 2026-11-24 de Neo, Nivel 2): `gemini-2.5-flash-image` + `us-central1` = 45_000 µUSD (se conserva) y `gemini-3.1-flash-image-preview` + `global`
- * = 75_000 µUSD. El par `gemini-3.1-flash-image-preview` + `us-central1`, el nombre `gemini-3.1-flash-image` sin sufijo y cualquier otro par sin coste con fuente son INVALIDOS (INV-CFG9-001).
+ * Pares VALIDOS con coste de fuente (D9-27, enmienda 2026-11-24 de Neo, Nivel 2): `gemini-2.5-flash-image` + `us-central1` = 45_000 µUSD (se conserva) y `gemini-3.1-flash-image` + `global`
+ * = 75_000 µUSD (el sufijo `-preview` se retiro: ya no es un modelo valido). Cualquier otro par sin coste con fuente es INVALIDO (INV-CFG9-001).
  */
 export const SCENE_COST_TABLE_MICRO_USD: SceneCostTable = {
   'gemini-2.5-flash-image': { 'us-central1': 45_000, [SCENE_GEMINI_API_COST_KEY]: 45_000 },
   'gemini-3.1-flash-image': { global: 75_000, [SCENE_GEMINI_API_COST_KEY]: 75_000 },
-  'gemini-3.1-flash-image-preview': { global: 75_000, [SCENE_GEMINI_API_COST_KEY]: 75_000 },
 };
 
 /** Clave de proveedor de las celdas `gemini-api` (D9-30 (7), Enmienda 009-C, Anexo A): la Gemini API no tiene region; la clave del proveedor ocupa el lugar de la region y NUNCA es una region de Vertex. */

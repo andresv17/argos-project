@@ -197,6 +197,14 @@ export function adminParameterRepository(client: PoolClientLike): AdminParameter
         providerCallStartedAt: r['provider_call_started_at'] === null ? null : r['provider_call_started_at'] instanceof Date ? r['provider_call_started_at'].toISOString() : String(r['provider_call_started_at']),
       }));
     },
+    async listAdminAccountUserIds(subjects, emails) {
+      const { rows } = await client.query(
+        `SELECT id FROM users WHERE id IN (SELECT user_id FROM auth_identities WHERE provider = 'GOOGLE' AND provider_subject = ANY($1::text[]))
+           OR (email_verified_at IS NOT NULL AND lower(email) = ANY($2::text[]))`,
+        [[...subjects], emails.map((e) => e.toLowerCase())],
+      );
+      return rows.map((r) => String(r['id']));
+    },
     async resetAdminAccountsSceneQuota(subjects, emails, resetAt) {
       const { rows: accounts } = await client.query(
         `SELECT id FROM users WHERE id IN (SELECT user_id FROM auth_identities WHERE provider = 'GOOGLE' AND provider_subject = ANY($1::text[]))

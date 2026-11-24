@@ -119,11 +119,11 @@ describe('composición del driver real en scene-composition.ts (REQ-ESC6-017, RE
       run: async () => 'NOOP',
       fetch: fetchDouble,
       globalQuota: grantingQuota(),
-      providerParameters: { model: 'gemini-3.1-flash-image-preview', location: 'global', globalQuotaMax: 5 },
+      providerParameters: { model: 'gemini-3.1-flash-image', location: 'global', globalQuotaMax: 5 },
     });
     const result = await services.generator.generate({ prompt: 'p', references: [], seed: 0, signal: new AbortController().signal });
     expect(result.ok).toBe(true);
-    expect(urls[1]).toBe('https://aiplatform.googleapis.com/v1/projects/argos-prod-1234/locations/global/publishers/google/models/gemini-3.1-flash-image-preview:generateContent');
+    expect(urls[1]).toBe('https://aiplatform.googleapis.com/v1/projects/argos-prod-1234/locations/global/publishers/google/models/gemini-3.1-flash-image:generateContent');
   });
 
   it('[REQ-ESC6-017] sin parámetros resueltos rige el respaldo de la configuración (modelo y región del entorno)', async () => {

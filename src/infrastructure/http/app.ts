@@ -84,15 +84,20 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
   registerAuthRoutes(app, context, registrationLimiter);
   registerGoogleAuthRoutes(app, context, new GoogleRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())), registrationLimiter);
   // Portal de administración (feature 009, Fase 3): solo si la composición conectó Google de administración; sin él `/api/admin/*` no existe (404).
-  if (deps.admin !== undefined) registerAdminRoutes(app, context, new AdminAccessLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())));
+  const sceneLimiter = deps.scene !== undefined && deps.media !== undefined ? new SceneRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())) : undefined;
+  if (deps.admin !== undefined) {
+    registerAdminRoutes(app, context, new AdminAccessLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())), (userIds) => {
+      for (const userId of userIds) sceneLimiter?.clearUser(userId);
+    });
+  }
   registerAccountRoutes(app, context);
   registerPetRoutes(app, context);
   registerRecordEditRoutes(app, context);
   // Medios (feature 004): solo si la composición conectó el almacenamiento (REQ-GCS-003); sin él las rutas no existen (404).
   if (deps.media !== undefined) registerMediaRoutes(app, context, deps.media);
   // Escena del hogar (feature 006): solo si la composición conectó la escena y los medios; sin ellos las rutas no existen (404).
-  if (deps.scene !== undefined && deps.media !== undefined) {
-    const limiter = new SceneRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp()));
+  if (deps.scene !== undefined && deps.media !== undefined && sceneLimiter !== undefined) {
+    const limiter = sceneLimiter;
     registerSceneHeaders(app);
     registerSceneRoutes(app, context, limiter);
     registerHouseholdPhotoRoutes(app, context, deps.media, limiter);

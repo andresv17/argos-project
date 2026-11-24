@@ -66,12 +66,12 @@ describe('T1259 [REQ-CFG9-002][SC-009-023] relectura en caliente con cache <= 60
     const b = repoOf({ 'scene.provider_model': 'gemini-2.5-flash-image', 'scene.provider_location': 'us-central1' });
     const read = load().createSceneProviderParametersReader({ repository: b.repository, env: ENV, now: () => now });
     expect(await read()).toMatchObject({ model: 'gemini-2.5-flash-image', location: 'us-central1' });
-    b.rows['scene.provider_model'] = 'gemini-3.1-flash-image-preview';
+    b.rows['scene.provider_model'] = 'gemini-3.1-flash-image';
     b.rows['scene.provider_location'] = 'global';
     now += 59_000;
     expect(await read()).toMatchObject({ model: 'gemini-2.5-flash-image', location: 'us-central1' });
     now += 1_001; // 60_001 ms desde la primera lectura
-    expect(await read()).toMatchObject({ model: 'gemini-3.1-flash-image-preview', location: 'global' });
+    expect(await read()).toMatchObject({ model: 'gemini-3.1-flash-image', location: 'global' });
   });
 
   it('la cache no es mayor que 60 s aunque se pida mas (cacheTtlMs 10 min se acota a 60_000)', async () => {
@@ -79,10 +79,10 @@ describe('T1259 [REQ-CFG9-002][SC-009-023] relectura en caliente con cache <= 60
     const b = repoOf({ 'scene.provider_model': 'gemini-2.5-flash-image' });
     const read = load().createSceneProviderParametersReader({ repository: b.repository, env: ENV, now: () => now, cacheTtlMs: 600_000 });
     await read();
-    b.rows['scene.provider_model'] = 'gemini-3.1-flash-image-preview';
+    b.rows['scene.provider_model'] = 'gemini-3.1-flash-image';
     b.rows['scene.provider_location'] = 'global';
     now += 60_001;
-    expect((await read()).model).toBe('gemini-3.1-flash-image-preview');
+    expect((await read()).model).toBe('gemini-3.1-flash-image');
   });
 
   it.each([
@@ -129,11 +129,11 @@ describe('T1259 [INV-CFG9-001][SC-009-022] adaptador Vertex: URL compuesta por l
     let current = { model: 'gemini-2.5-flash-image', location: 'us-central1' };
     const t = await build(async () => current);
     expect((await t.generator.generate(req())).ok).toBe(true);
-    current = { model: 'gemini-3.1-flash-image-preview', location: 'global' };
+    current = { model: 'gemini-3.1-flash-image', location: 'global' };
     expect((await t.generator.generate(req())).ok).toBe(true);
     expect(t.urls).toEqual([
       `https://us-central1-aiplatform.googleapis.com/v1/projects/${PROJECT}/locations/us-central1/publishers/google/models/gemini-2.5-flash-image:generateContent`,
-      `https://aiplatform.googleapis.com/v1/projects/${PROJECT}/locations/global/publishers/google/models/gemini-3.1-flash-image-preview:generateContent`,
+      `https://aiplatform.googleapis.com/v1/projects/${PROJECT}/locations/global/publishers/google/models/gemini-3.1-flash-image:generateContent`,
     ]);
   });
 

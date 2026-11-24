@@ -357,7 +357,7 @@ describe('Sentinel VII - prototype pollution, esquema e inyección en prompt y p
   it('[VII-6] modelo y región no verificados, global y trampas de ruta: 422 y sin escritura', async () => {
     const b = await boot();
     const before = snapshot(b.a);
-    for (const m of ['gemini-3-pro-image', 'gemini-3.1-flash-image', 'gemini-2.5-flash-image/../../x', 'gemini-2.5-flash-image?x=1', 'gemini-2.5-flash-image ', 'GEMINI-2.5-FLASH-IMAGE', 'https://evil.example/x']) {
+    for (const m of ['gemini-3-pro-image', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image/../../x', 'gemini-2.5-flash-image?x=1', 'gemini-2.5-flash-image ', 'GEMINI-2.5-FLASH-IMAGE', 'https://evil.example/x']) {
       expect((await putFresh(b, MODEL, m)).status, m).toBe(422);
     }
     for (const l of ['GLOBAL', 'global/', 'global?x', ' global', 'us-central1/../x', 'us-central1?x', 'us-central1#x', ' us-central1', 'US-CENTRAL1', 'us-central1\n', 'evil.example']) {

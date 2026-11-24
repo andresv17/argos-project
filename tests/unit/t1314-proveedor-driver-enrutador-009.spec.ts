@@ -28,7 +28,9 @@ import { sceneFixture } from '../fixtures/scene-services-fixtures.ts';
  */
 const FLASH = 'gemini-2.5-flash-image';
 const G31 = 'gemini-3.1-flash-image';
-const PREVIEW = 'gemini-3.1-flash-image-preview';
+const PREVIEW = G31;
+/** Modelo retirado (404 en Vertex global): invalido en ambos proveedores. */
+const RETIRED = 'gemini-3.1-flash-image-preview';
 const KEY = 'AIzaSyTEST-SENTINEL-0000000000000000000'; // argos-scan:allow clave sintetica de prueba
 const ADMIN = 'ad000000-0000-4000-8000-000000000001';
 const WRITTEN = '2026-11-01T00:00:00.000Z';
@@ -41,12 +43,13 @@ const spyGenerator = () => ({ calls: 0, generate: vi.fn(async () => OK) });
 const sel = (driver: SceneProviderDriver | null, configured: boolean, model = FLASH): SceneProviderSelection => ({ driver, configured, model, location: driver === 'vertex' ? deriveLocation('vertex', model) : null });
 
 describe('T1314 [SC-009-058] costes gemini-api del Anexo A (sin region)', () => {
-  it('gemini-2.5-flash-image 45_000; gemini-3.1-flash-image y -preview 75_000 µUSD; deriveLocation de gemini-api es null', () => {
+  it('gemini-2.5-flash-image 45_000; gemini-3.1-flash-image 75_000 µUSD (el -preview retirado no tiene coste); deriveLocation de gemini-api es null', () => {
     expect(sceneUnitCost(SCENE_COST_TABLE_MICRO_USD, FLASH, 'gemini-api')).toBe(45_000);
     expect(sceneUnitCost(SCENE_COST_TABLE_MICRO_USD, G31, 'gemini-api')).toBe(75_000);
     expect(sceneUnitCost(SCENE_COST_TABLE_MICRO_USD, PREVIEW, 'gemini-api')).toBe(75_000);
     for (const m of [FLASH, G31, PREVIEW]) expect(deriveLocation('gemini-api', m), m).toBeNull();
-    expect(deriveLocation('vertex', G31)).toBeNull(); // el nombre sin sufijo NO es un par Vertex
+    expect(sceneUnitCost(SCENE_COST_TABLE_MICRO_USD, RETIRED, 'gemini-api')).toBeNull();
+    expect(deriveLocation('vertex', RETIRED)).toBeNull();
     expect(deriveLocation('vertex', FLASH)).toBe('us-central1');
     expect(deriveLocation('vertex', PREVIEW)).toBe('global');
   });
@@ -68,7 +71,7 @@ describe('T1314 [SC-009-058] costes gemini-api del Anexo A (sin region)', () => 
     const base = { table: SCENE_COST_TABLE_MICRO_USD, attempts: [], used: 0, max: 5 } as const;
     expect(evaluateSceneSpendRule({ ...base, model: G31, location: 'gemini-api' }).ok).toBe(true);
     expect(evaluateSceneSpendRule({ ...base, model: 'gemini-3-pro-image', location: 'gemini-api' })).toEqual({ ok: false, reason: 'PAIR_NOT_SELECTABLE' });
-    expect(evaluateSceneSpendRule({ ...base, model: G31, location: 'global' })).toEqual({ ok: false, reason: 'PAIR_NOT_SELECTABLE' });
+    expect(evaluateSceneSpendRule({ ...base, model: RETIRED, location: 'global' })).toEqual({ ok: false, reason: 'PAIR_NOT_SELECTABLE' });
   });
 });
 
@@ -81,8 +84,10 @@ describe('T1314 [SC-009-057] seleccion efectiva (pura): fila valida > defecto; f
   it('sin ningun proveedor, o con el seleccionado sin credenciales, o sin soporte del modelo: configured=false y NUNCA el otro proveedor', () => {
     expect(resolveSceneProviderSelection({ rowDriver: null, available: [], defaultDriver: null, model: FLASH })).toMatchObject({ driver: null, configured: false });
     expect(resolveSceneProviderSelection({ rowDriver: 'gemini-api', available: ['vertex'], defaultDriver: 'vertex', model: FLASH })).toMatchObject({ driver: 'gemini-api', configured: false });
-    expect(resolveSceneProviderSelection({ rowDriver: 'vertex', available: both, defaultDriver: 'vertex', model: G31 })).toMatchObject({ driver: 'vertex', configured: false });
-    expect(resolveSceneProviderSelection({ rowDriver: 'gemini-api', available: both, defaultDriver: 'vertex', model: G31 })).toMatchObject({ driver: 'gemini-api', configured: true });
+    expect(resolveSceneProviderSelection({ rowDriver: 'vertex', available: both, defaultDriver: 'vertex', model: G31 })).toMatchObject({ driver: 'vertex', configured: true, location: 'global' });
+    expect(resolveSceneProviderSelection({ rowDriver: 'vertex', available: both, defaultDriver: 'vertex', model: RETIRED })).toMatchObject({ driver: 'vertex', configured: false });
+    expect(resolveSceneProviderSelection({ rowDriver: 'gemini-api', available: both, defaultDriver: 'vertex', model: G31 })).toMatchObject({ driver: 'gemini-api', configured: true, location: null });
+    expect(resolveSceneProviderSelection({ rowDriver: 'gemini-api', available: both, defaultDriver: 'vertex', model: RETIRED })).toMatchObject({ driver: 'gemini-api', configured: false });
   });
 });
 
@@ -238,19 +243,17 @@ describe('T1314 [SC-009-057] /admin: catalogo, vista y 422', () => {
     expect(await codeOf(none.put('scene.provider_driver', 'openai'))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
   });
 
-  it('con credenciales de ambos se guarda UNA clave con UNA auditoria sin valor; gemini-api admite los 3 modelos y Vertex solo 2', async () => {
+  it('con credenciales de ambos se guarda UNA clave con UNA auditoria sin valor; ambos proveedores admiten los mismos 2 modelos', async () => {
     const t = setup({}, { available: ['vertex', 'gemini-api'], defaultDriver: 'vertex' });
-    expect(await codeOf(t.put('scene.provider_model', G31))).toBe('ERR-SCHEMA-VALIDATION-FAILED'); // Vertex vigente no admite el nombre sin sufijo
+    expect(await codeOf(t.put('scene.provider_model', RETIRED))).toBe('ERR-SCHEMA-VALIDATION-FAILED'); // retirado: ningun proveedor lo admite
     expect((await t.put('scene.provider_driver', 'gemini-api')).value).toBe('gemini-api');
     expect(t.audits().map((a) => a.objectRef)).toEqual(['scene.provider_driver']);
     expect(JSON.stringify(t.audits())).not.toContain('gemini-api');
-    for (const m of [G31, PREVIEW, FLASH]) expect((await t.put('scene.provider_model', m)).value).toBe(m);
+    for (const m of [G31, FLASH]) expect((await t.put('scene.provider_model', m)).value).toBe(m);
   });
 
-  it('cambiar de proveedor a uno que no admite el modelo vigente es 422 (primero se elige un modelo comun)', async () => {
+  it('cambiar de proveedor con el modelo vigente es valido en ambos sentidos', async () => {
     const t = setup({ 'scene.provider_driver': 'gemini-api', 'scene.provider_model': G31 }, { available: ['vertex', 'gemini-api'], defaultDriver: 'vertex' });
-    expect(await codeOf(t.put('scene.provider_driver', 'vertex'))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
-    expect(await codeOf(t.put('scene.provider_model', PREVIEW))).toBe('OK');
     expect((await t.put('scene.provider_driver', 'vertex')).value).toBe('vertex');
   });
 

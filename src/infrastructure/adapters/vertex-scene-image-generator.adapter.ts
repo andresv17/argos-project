@@ -105,7 +105,7 @@ export class VertexSceneImageGenerator implements SceneImageGeneratorPort {
     if (params === null || typeof params.location !== 'string' || typeof params.model !== 'string') return null;
     const { location, model } = params;
     if (!isAllowedSceneLocation(location) || !isSafeGeminiModel(model) || !isSafeSceneModel(model)) return null;
-    // D9-27 / INV-CFG9-001: solo pares con coste de fuente (p. ej. gemini-3.1-flash-image-preview + us-central1 es invalido): falla cerrado, sin red.
+    // D9-27 / INV-CFG9-001: solo pares con coste de fuente (p. ej. gemini-3.1-flash-image + us-central1 es invalido): falla cerrado, sin red.
     if (this.getParameters !== undefined && !isSelectableScenePair(model, location)) return null;
     const host = SCENE_GLOBAL_LOCATION_ENABLED && location === 'global' ? VERTEX_GLOBAL_HOST : `${location}${VERTEX_HOST_SUFFIX}`;
     return `https://${host}/v1/projects/${this.projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;

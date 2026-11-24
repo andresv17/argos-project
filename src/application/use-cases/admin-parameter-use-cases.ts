@@ -207,7 +207,7 @@ export class ResetAdminSceneQuotaUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   /** `body` llega tal como lo envio el cliente: solo se admite ausente o `{}`. */
-  async execute(input: { readonly adminId: string; readonly body: unknown }): Promise<{ readonly accountsReset: number; readonly resetAt: string }> {
+  async execute(input: { readonly adminId: string; readonly body: unknown }): Promise<{ readonly accountsReset: number; readonly resetAt: string; readonly userIds: readonly string[] }> {
     const body = input.body;
     if (body !== undefined && body !== null && (typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length > 0)) throw invalid('body', 'El reinicio no admite cuerpo.');
     if (this.deps.admin === undefined) throw new DomainError('ERR-INTERNAL-UNEXPECTED');
@@ -216,10 +216,12 @@ export class ResetAdminSceneQuotaUseCase {
     return this.deps.uow.runInTransaction(async (repositories) => {
       const identity = await repositories.adminIdentities.findById(input.adminId);
       const subjects = identity === null ? [] : [identity.providerSubject];
+      const userIds = await repositories.adminParameters.listAdminAccountUserIds(subjects, emails);
       const result = await repositories.adminParameters.resetAdminAccountsSceneQuota(subjects, emails, now);
       if (result === null) throw new DomainError('ERR-ADMIN-QUOTA-RESET-CONFLICT');
       await repositories.adminAudit.insert({ id: this.deps.ids.nextId(), adminId: input.adminId, action: ADMIN_AUDIT_ACTIONS.sceneQuotaReset, objectRef: null, occurredAt: now });
-      return { accountsReset: result.accountsReset, resetAt: now };
+      // `userIds` es interno (reinicio del limite en RAM, D9-31): la ruta lo retira de la respuesta HTTP.
+      return { accountsReset: result.accountsReset, resetAt: now, userIds };
     });
   }
 }
