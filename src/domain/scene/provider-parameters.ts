@@ -68,7 +68,7 @@ export const isSceneProviderDriver = (value: string): value is SceneProviderDriv
 
 /** D9-30 (5): modelos por proveedor (Vertex = los 2 pares de D9-27; `gemini-api` = los 3 de la Enmienda 009-C). */
 export const SCENE_MODELS_BY_DRIVER: Readonly<Record<SceneProviderDriver, readonly string[]>> = {
-  vertex: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'],
+  vertex: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'],
   'gemini-api': ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'],
 };
 export const driverSupportsModel = (driver: SceneProviderDriver, model: string): boolean => SCENE_MODELS_BY_DRIVER[driver].includes(model);

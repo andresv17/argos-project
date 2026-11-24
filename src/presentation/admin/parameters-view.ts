@@ -40,7 +40,7 @@ export const SAVE_COST_CAP = 'La combinación supera el tope mensual de imágene
 export const MODEL_DEPRECATION = 'El modelo gemini-2.5-flash-image se retira el 15 de marzo de 2027; después de esa fecha habrá que elegir otro modelo.';
 export const MODEL_SAVED = 'Modelo de imagen guardado.';
 /** Aviso de EDGE-009-046 junto al selector unico de modelo (D9-29): la region se deriva del modelo; con `global` el procesamiento no queda fijado a una region ni a un pais. */
-export const REGION_NOTICE = 'La región se elige sola según el modelo: gemini-2.5-flash-image se procesa en us-central1 y gemini-3.1-flash-image-preview en la región global, que procesa las imágenes sin fijarlas a una región ni a un país (transferencia internacional).';
+export const REGION_NOTICE = 'La región se elige sola según el modelo: gemini-2.5-flash-image se procesa en us-central1 y gemini-3.1-flash-image en la región global, que procesa las imágenes sin fijarlas a una región ni a un país (transferencia internacional).';
 export const QUOTA_HEADING = 'Imágenes de escena al mes';
 export const QUOTA_HINT = 'Número máximo de imágenes de escena que la plataforma puede crear en un mes, sumando todas las cuentas.';
 export const QUOTA_SAVED = 'Tope mensual de escenas guardado.';
@@ -53,7 +53,7 @@ export const BLOCKS_BROKEN = 'No se pudo leer el texto base actual. Recarga la p
 export const PHOTOREF = '{photoRef}';
 
 /** Modelos que se pueden elegir (D9-27): solo los de los pares válidos; `gemini-3-pro-image` queda latente, sin selección. */
-export const SELECTABLE_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'];
+export const SELECTABLE_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'];
 /** Con el proveedor `gemini-api` (D9-30 (5)) se suma `gemini-3.1-flash-image`; Vertex no lo admite (el servidor responde 422). */
 export const SELECTABLE_MODELS_GEMINI_API: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'];
 /** Proveedores seleccionables (D9-30): el servidor solo lista en `allowed` los que tienen credenciales en este despliegue. */

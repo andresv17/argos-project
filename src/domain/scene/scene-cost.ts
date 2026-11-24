@@ -21,7 +21,7 @@ export type SceneCostTable = Readonly<Record<string, Readonly<Record<string, num
  */
 export const SCENE_COST_TABLE_MICRO_USD: SceneCostTable = {
   'gemini-2.5-flash-image': { 'us-central1': 45_000, [SCENE_GEMINI_API_COST_KEY]: 45_000 },
-  'gemini-3.1-flash-image': { [SCENE_GEMINI_API_COST_KEY]: 75_000 },
+  'gemini-3.1-flash-image': { global: 75_000, [SCENE_GEMINI_API_COST_KEY]: 75_000 },
   'gemini-3.1-flash-image-preview': { global: 75_000, [SCENE_GEMINI_API_COST_KEY]: 75_000 },
 };
 
