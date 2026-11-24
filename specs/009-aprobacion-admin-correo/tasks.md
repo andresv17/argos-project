@@ -195,12 +195,12 @@
 
 ### Fase 5c: Enmienda de producción 2026-11-24 (Neo, `fix/009-escena-prod-admin-global`)
 
-- [ ] T1307 [ARCH] [N2] [GH:#20] `/architect`: documentar `D9-27` y `D9-28` (spec 009, spec 006 `REQ-ESC6-017/026/039` nota de enmienda); sin tocar contratos ni `src/` — D9-27, D9-28; SC-009-052..055
-- [ ] T1308 [GH:#20] Implementar el par `gemini-3.1-flash-image-preview` + `global` (75_000 µUSD) junto a `gemini-2.5-flash-image` + `us-central1` (45_000 µUSD), rechazar pares inválidos, endpoint literal `aiplatform.googleapis.com/.../locations/global`, aviso con variante global y `noticeVersion` propia — D9-27; SC-009-052, SC-009-053. Dep: T1307
-- [ ] T1309 [GH:#20] Implementar el reinicio de cuota de todas las cuentas del administrador (sin hogar y hogares con propietario legal) conservando `provider_call_started_at` — D9-28; SC-009-054. Dep: T1307
-- [ ] T1310 [GH:#20] Mostrar siempre «R de M» y fecha de renovación de la cuota del hogar a quien puede generar, y pruebas de los cuatro `SC-009-052..055` — D9-28; SC-009-055. Dep: T1307
-- [ ] T1311 [GH:#20] `/keymaker`: recompilar contratos 009 tras OpenAPI 1.6.0 y alinear `src/generated/v35` (`sceneImagesFit.location` admite `global`) con `bash scripts/compile-contracts.sh` — D9-27 (7); SC-009-052. Dep: T1307
-- [ ] T1312 [GH:#20] Aserción de hogar ajeno en `resetAdminAccountsSceneQuota` (OBS-A del acta `/oracle` 6d8420c): el reinicio no toca la escena de un hogar donde el administrador no es propietario legal — D9-28; SC-009-054. Dep: T1309
+- [x] T1307 [ARCH] [N2] [GH:#20] `/architect`: documentar `D9-27` y `D9-28` (spec 009, spec 006 `REQ-ESC6-017/026/039` nota de enmienda); sin tocar contratos ni `src/` — D9-27, D9-28; SC-009-052..055
+- [x] T1308 [GH:#20] Implementar el par `gemini-3.1-flash-image-preview` + `global` (75_000 µUSD) junto a `gemini-2.5-flash-image` + `us-central1` (45_000 µUSD), rechazar pares inválidos, endpoint literal `aiplatform.googleapis.com/.../locations/global`, aviso con variante global y `noticeVersion` propia — D9-27; SC-009-052, SC-009-053. Dep: T1307
+- [x] T1309 [GH:#20] Implementar el reinicio de cuota de todas las cuentas del administrador (sin hogar y hogares con propietario legal) conservando `provider_call_started_at` — D9-28; SC-009-054. Dep: T1307
+- [x] T1310 [GH:#20] Mostrar siempre «R de M» y fecha de renovación de la cuota del hogar a quien puede generar, y pruebas de los cuatro `SC-009-052..055` — D9-28; SC-009-055. Dep: T1307
+- [x] T1311 [GH:#20] `/keymaker`: recompilar contratos 009 tras OpenAPI 1.6.0 y alinear `src/generated/v35` (`sceneImagesFit.location` admite `global`) con `bash scripts/compile-contracts.sh` — D9-27 (7); SC-009-052. Dep: T1307
+- [x] T1312 [GH:#20] Aserción de hogar ajeno en `resetAdminAccountsSceneQuota` (OBS-A del acta `/oracle` 6d8420c): el reinicio no toca la escena de un hogar donde el administrador no es propietario legal — D9-28; SC-009-054. Dep: T1309
 
 ---
 
