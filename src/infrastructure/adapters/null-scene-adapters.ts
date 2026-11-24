@@ -105,6 +105,9 @@ export class NullSceneRepository implements SceneRepository {
   lastAttemptStartedAt(_sceneId: string): Promise<string | null> {
     return Promise.resolve(null);
   }
+  lastAttemptOutcome(_sceneId: string): Promise<'SUCCEEDED' | 'FAILED' | 'CANCELLED' | null> {
+    return Promise.resolve(null);
+  }
   oldestActorAttemptAt(_actorUserId: string, _since: string): Promise<string | null> {
     return Promise.resolve(null);
   }

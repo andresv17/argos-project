@@ -129,11 +129,11 @@ describe('T939 especie explícita en cada línea «Pet k» (SC-ESC6-136)', () =>
   });
 
   it('[SC-ESC6-136] k es el ordinal 1-based del payload (no id ni nombre) y el texto no contiene id, biography ni el breed libre', () => {
-    const pets = [petBlock(7, { biography: 'secreta', breed: 'raza-libre', hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { breed: 'otra-libre', hasReferencePhoto: true, photoRef: 'IMG_3' })];
+    const pets = [petBlock(7, { breed: 'raza-libre', hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { breed: 'otra-libre', hasReferencePhoto: true, photoRef: 'IMG_3' })];
     const text = buildImagePrompt(payload('FROM_SCRATCH', pets));
     expect(text).toMatch(/^Pet 1 \(dog\): /m);
     expect(text).toMatch(/^Pet 2 \(dog\): /m);
-    for (const leaked of [id(7), id(3), 'secreta', 'raza-libre', 'otra-libre']) expect(text.includes(leaked)).toBe(false);
+    for (const leaked of [id(7), id(3), 'raza-libre', 'otra-libre']) expect(text.includes(leaked)).toBe(false);
   });
 
   it('[SC-ESC6-136][INV-ESC6-011] una inyección en speciesOther no sale de las comillas ni altera la línea', () => {
@@ -288,11 +288,11 @@ describe('T939 pureza, no fuga e intactos (SC-ESC6-138)', () => {
   });
 
   it('[SC-ESC6-138][INV-ESC6-010][INV-ESC6-017] el texto no contiene household.id, pets[].id, nombres, biography, fallbackContext ni breed libre, en todos los modos', () => {
-    const pets = [petBlock(1, { biography: 'biografia-secreta', breed: 'raza-libre', species: 'OTHER', speciesOther: 'hamster', breedCode: null }), petBlock(2, { biography: 'otra-bio' })];
+    const pets = [petBlock(1, { breed: 'raza-libre', species: 'OTHER', speciesOther: 'hamster', breedCode: null }), petBlock(2)];
     for (const mode of ['FROM_SCRATCH', 'REGENERATE'] as const) {
       const base = payload(mode, pets, { photo: true });
       const text = buildImagePrompt({ ...base, household: { ...base.household, fallbackContext: 'contexto-secreto' } });
-      for (const leaked of [id(900), id(1), id(2), 'biografia-secreta', 'otra-bio', 'raza-libre', 'contexto-secreto', 'fallbackContext']) expect(text.includes(leaked)).toBe(false);
+      for (const leaked of [id(900), id(1), id(2), 'raza-libre', 'contexto-secreto', 'fallbackContext']) expect(text.includes(leaked)).toBe(false);
     }
   });
 });

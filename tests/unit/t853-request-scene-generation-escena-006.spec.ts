@@ -232,15 +232,18 @@ describe('requestSceneGeneration (T854): contadores y enfriamiento (REQ-ESC6-034
     return (error as unknown as { retryAfterSeconds: number }).retryAfterSeconds;
   };
 
-  it('[SC-ESC6-078] enfriamiento: un nuevo intento a menos de 60 s del anterior da 429 ERR-RATE-LIMITED con Retry-After y 0 tareas nuevas', async () => {
+  it('[SC-ESC6-078][SC-ESC6-142] enfriamiento tras SUCCEEDED: un nuevo intento a menos de 60 s del anterior da 429 ERR-RATE-LIMITED con Retry-After y 0 tareas nuevas', async () => {
     const t = setup();
     await t.request.execute(ANDRES, HOUSE, UPDATE, key(1));
-    await fail(t, 1);
+    const first = attemptsOf(t)[0]!;
+    await t.h.uow.runInTransaction((r) =>
+      r.scenes.publishImage({ sceneId: first.sceneId, attemptId: first.id, image: { id: 'c2000000-0000-4000-8000-000000000001', mime: 'image/png', sizeBytes: 9, fingerprint: 'e'.repeat(64), inputsSnapshot: '{"v":1}', createdAt: NOW }, degraded: false, consumedGenerations: 1, quotaWindow: '2026-11', ownerUserIds: [], now: NOW }),
+    );
     t.h.clock.setClock('2026-11-05', at(20));
-    expect(await retryAfter(t.request.execute(ANDRES, HOUSE, UPDATE, key(2)))).toBe(40);
+    expect(await retryAfter(t.request.execute(ANDRES, HOUSE, REGENERATE, key(2)))).toBe(40);
     expect([attemptsOf(t).length, t.fixture.dispatcher.jobs.length]).toEqual([1, 1]);
     t.h.clock.setClock('2026-11-05', at(60));
-    expect((await t.request.execute(ANDRES, HOUSE, UPDATE, key(2))).accepted).toBe(true);
+    expect((await t.request.execute(ANDRES, HOUSE, REGENERATE, key(2))).accepted).toBe(true);
   });
 
   it('[SC-ESC6-079][H-KEY-F5-3] el tercer FAILED en 24 h bloquea con Retry-After = fallo más antiguo + 24 h − ahora; los intentos exitosos no cuentan', async () => {

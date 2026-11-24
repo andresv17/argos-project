@@ -92,7 +92,7 @@ describe('composición gemini-api (T894, SC-ESC6-098)', () => {
   it('[REQ-ESC6-028][SC-ESC6-043] real no usa las variables de gemini-api (T952): sin cuota global no compone y, con ella, compone Vertex sin clave; la constante de activación no cambia', () => {
     const config = loadAppConfigActivated({ NODE_ENV: 'test', ...PROD_SCENE, GEMINI_API_KEY: KEY, ARGOS_SCENE_GEMINI_MODEL: 'gemini-2.5-flash-image' });
     expect(() => composeSceneServices(config, { run: async () => 'NOOP' })).toThrow('Configuración del driver real incompleta');
-    const services = composeSceneServices(config, { run: async () => 'NOOP', fetch: noNetwork, globalQuota: { tryConsume: async () => true, refund: async () => undefined } });
+    const services = composeSceneServices(config, { run: async () => 'NOOP', fetch: noNetwork, globalQuota: { tryConsume: async () => true, refund: async () => undefined, isExhausted: async () => false } });
     expect([services.providerId, services.noticeVersion, services.generator instanceof GeminiApiSceneImageGenerator]).toEqual([SCENE_PROVIDER_ID, SCENE_NOTICE_VERSION, false]);
   });
 });

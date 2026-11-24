@@ -20,7 +20,7 @@ export const PIXEL_REDRAW_RULE =
  * una mascota visible (`RENDER`, o `ADD`/`REPLACE` en incrementales) lleva foto de referencia. El invariante se formula sobre este bloque logico y no sobre el literal.
  */
 export const PRESERVATION_BLOCK =
-  'Translate the pet from the reference photos into a single cohesive 16-bit isometric pixel art illustration. Faithfully preserve each pet species, fur colors, coat patterns, ear shapes, body proportions, and unique markings from the photos so each one is clearly recognizable.';
+  'Translate every pet from the reference photos into a single cohesive 16-bit isometric pixel art illustration. Faithfully preserve each pet\'s species, fur colors, coat patterns, ear shapes, body proportions, and unique markings from the photos so each one is clearly recognizable.';
 
 /** Hogar con foto de referencia: `{photoRef}` se sustituye por la etiqueta `IMG_n` del hogar. */
 export const HOUSEHOLD_WITH_PHOTO =

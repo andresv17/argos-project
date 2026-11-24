@@ -114,6 +114,10 @@ export function postgresSceneRepository(client: PoolClientLike): SceneRepository
       const { rows } = await client.query('SELECT max(started_at) AS m FROM scene_attempts WHERE scene_id = $1', [sceneId]);
       return typeof rows[0]?.['m'] === 'string' ? rows[0]['m'] : null;
     },
+    async lastAttemptOutcome(sceneId) {
+      const { rows } = await client.query('SELECT outcome AS o FROM scene_attempts WHERE scene_id = $1 ORDER BY started_at DESC, id DESC LIMIT 1', [sceneId]);
+      return (typeof rows[0]?.['o'] === 'string' ? rows[0]['o'] : null) as 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | null;
+    },
     async oldestActorAttemptAt(actorUserId, since) {
       const { rows } = await client.query('SELECT min(started_at) AS m FROM scene_attempts WHERE actor_user_id = $1 AND started_at >= $2', [actorUserId, since]);
       return typeof rows[0]?.['m'] === 'string' ? rows[0]['m'] : null;

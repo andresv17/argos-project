@@ -490,6 +490,15 @@ export const ERROR_CATALOG = {
     "requirementRef": "REQ-ESC6-013, EDGE-ESC6-017",
     "surface": "SCENE_STATE"
   },
+  "ERR-SCENE-GLOBAL-QUOTA-EXHAUSTED": {
+    "type": "urn:argos:error:ERR-SCENE-GLOBAL-QUOTA-EXHAUSTED",
+    "status": 409,
+    "title": "Cupo mensual de la plataforma agotado",
+    "invariantRef": "INV-ESC6-021",
+    "detailTemplate": "Se agotó el cupo mensual de imágenes de la plataforma. Podrás generar de nuevo el próximo mes o cuando se amplíe el cupo. Tu imagen actual sigue disponible.",
+    "requirementRef": "REQ-ESC6-039",
+    "note": "Respuesta HTTP del POST de generacion (hogar y propietario) con la cuota global mensual agotada (feature 006, 1.2.0): 0 intentos, 0 consumo de cuota del hogar y 0 llamadas al generador; se evalua despues de autorizacion, ERR-SCENE-DISABLED, consentimiento y cuota del hogar (ERR-SCENE-QUOTA-EXCEEDED) y antes de los limites de tasa (429). La imagen vigente se conserva. Sin cifras de cuota ni de costo en el detalle. Distinto de ERR-SCENE-GENERATION-FAILED, que el worker sigue cerrando sin cambio si tryConsume falla tras iniciar un intento (EDGE-009-042)."
+  },
   "ERR-SCENE-INVALID-IMAGE": {
     "type": "urn:argos:error:ERR-SCENE-INVALID-IMAGE",
     "status": 502,

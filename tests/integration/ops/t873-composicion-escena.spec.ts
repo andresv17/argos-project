@@ -65,7 +65,7 @@ describe('composición de la escena en desarrollo y CI (T873, REQ-ESC6-017, REQ-
   it('[REQ-ESC6-026] el aviso de consentimiento vigente y el desfase horario de APP_TIMEZONE salen de las constantes y de la configuración, no de la petición', () => {
     const bogota = composeSceneServices(loadAppConfig({ NODE_ENV: 'test' }), { run: async () => 'NOOP' });
     const utc = composeSceneServices(loadAppConfig({ NODE_ENV: 'test', APP_TIMEZONE: 'UTC' }), { run: async () => 'NOOP' });
-    expect([bogota.noticeVersion, bogota.providerId, bogota.utcOffsetMinutes, utc.utcOffsetMinutes]).toEqual(['2', 'vertex-gemini-image', -300, 0]);
+    expect([bogota.noticeVersion, bogota.providerId, bogota.utcOffsetMinutes, utc.utcOffsetMinutes]).toEqual(['3', 'vertex-gemini-image', -300, 0]);
   });
 
   it('[INV-ESC6-018][SC-ESC6-087] con el driver real el despachador es el de Cloud Tasks con destino y cuenta de la configuración validada y se prueba con dobles (sin llamadas)', async () => {

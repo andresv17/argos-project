@@ -17,4 +17,9 @@ export interface SceneGlobalQuotaPort {
    * cuota de `REQ-CFG9-006` no toca `scene.global_quota_used.YYYY-MM`.
    */
   refund(window: string): Promise<void>;
+  /**
+   * Lectura de SOLO LECTURA, sin consumo (REQ-ESC6-039, INV-ESC6-021; enmienda 2026-11-24): `true` si la cuota global de la ventana `YYYY-MM` está agotada (usado >= máximo);
+   * `false` si queda cupo o si la lectura falla (sin falsa alarma: el worker sigue protegiendo con `tryConsume`, que falla cerrado). Nunca lanza ni escribe.
+   */
+  isExhausted(window: string): Promise<boolean>;
 }

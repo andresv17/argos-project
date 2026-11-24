@@ -157,7 +157,7 @@ describe('T1071 mixto y ordinal único (SC-007-038, EDGE-007-023, R2)', () => {
     const text = once(payload([withPhoto(1, 'IMG_2'), cat(2)], { household: true }));
     expect(photoOrdinals(text)).toEqual([1]);
     expect(jsonIndexes(text)).toEqual([2]);
-    expect(jsonOf(text)?.renderedPetsCount).toBe(1);
+    expect(jsonOf(text)?.renderedPetsCount).toBe(2);
     expect(blocksOf(text)).toContain(neoPlaceAll(2));
     expect(blocksOf(text)).toContain(neoCount(2, '1 dog, 1 cat'));
     expect(blocksOf(text).at(-1)).toBe(NEO_PIXEL_REDRAW_RULE);
@@ -174,7 +174,7 @@ describe('T1071 mixto y ordinal único (SC-007-038, EDGE-007-023, R2)', () => {
       expect(json).toEqual([1, 3, 5]);
       expect([...photo, ...json].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
       expect(photo.filter((k) => json.includes(k))).toEqual([]);
-      expect(jsonOf(text)?.renderedPetsCount).toBe(3);
+      expect(jsonOf(text)?.renderedPetsCount).toBe(5);
     }
   });
 
@@ -258,7 +258,7 @@ describe('T1071 pureza, determinismo y no fuga (SC-007-041, REQ-ESC7-008)', () =
   });
 
   it('[SC-007-041][REQ-ESC7-008] ningún id, biography, fallbackContext, breed libre, nombre, semilla ni metadatos de escena', () => {
-    const pets = [withPhoto(7, 'IMG_2', { biography: 'biografia-secreta', breed: 'raza-libre-a' }), pet(3, { breed: 'raza-libre-b', biography: 'otra-biografia' })];
+    const pets = [withPhoto(7, 'IMG_2', { breed: 'raza-libre-a' }), pet(3, { breed: 'raza-libre-b' })];
     const base = payload(pets, { household: true });
     const text = once({ ...base, household: { ...base.household, fallbackContext: 'contexto-secreto' } });
     for (const leaked of [id(900), id(7), id(3), 'biografia-secreta', 'otra-biografia', 'raza-libre-a', 'raza-libre-b', 'contexto-secreto', 'biography', 'fallbackContext', 'maxPets', 'currentSceneRef', 'totalPetsInHousehold', 'seed']) {
@@ -352,7 +352,8 @@ describe('T1071 SC-007-043: los tres ejemplos de Neo byte a byte (salvo el token
 
   it('[SC-007-043][R2][REQ-ESC7-004] ejemplo 3: mixto con hogar; el JSON conserva el ordinal global 2', () => {
     const text = once(payload([withPhoto(1, 'IMG_2'), cat(2)], { household: true }));
-    const json = `${NEO_SPEC_HEADER}\n{"renderedPetsCount":1,"pets":[${jsonPet(2, 'cat')}]}`;
+    // Enmienda 2026-11-24 (defecto del prompt mixto): renderedPetsCount = total visible y referencePhotoPets declara las mascotas con foto omitidas del JSON.
+    const json = `${NEO_SPEC_HEADER}\n{"renderedPetsCount":2,"pets":[${jsonPet(2, 'cat')}],"referencePhotoPets":[1]}`;
     expect(text).toBe([NEO_STYLE_BASE_TEXT, neoHouseholdWithPhoto('IMG_1'), photoLine(1, 'dog', 'IMG_2'), PRESERVATION_BLOCK, json, neoPlaceAll(2), neoCount(2, '1 dog, 1 cat'), REDRAW].join('\n\n'));
   });
 

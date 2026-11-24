@@ -11,7 +11,7 @@ import { notifyActivity } from './activity.ts';
 
 export type SceneStatus = 'idle' | 'outdated' | 'generating' | 'ready' | 'failed';
 export type SceneErrorCode = 'ERR-SCENE-GENERATION-FAILED' | 'ERR-SCENE-GENERATION-TIMEOUT' | 'ERR-SCENE-INVALID-IMAGE' | 'ERR-SCENE-LEASE-EXPIRED';
-export type SceneBlockedReason = 'NO_CHANGES' | 'QUOTA_EXHAUSTED' | 'GENERATING' | 'CONSENT_REQUIRED' | 'ROLE' | 'COOLDOWN';
+export type SceneBlockedReason = 'NO_CHANGES' | 'QUOTA_EXHAUSTED' | 'GENERATING' | 'CONSENT_REQUIRED' | 'ROLE' | 'COOLDOWN' | 'GLOBAL_QUOTA_EXHAUSTED';
 export type ConsentScope = 'HOUSEHOLD_PHOTO' | 'PET_PHOTOS';
 /** Uno o los dos alcances (sin repetir), como en el contrato. */
 export type ConsentScopes = [ConsentScope] | [ConsentScope, ConsentScope];

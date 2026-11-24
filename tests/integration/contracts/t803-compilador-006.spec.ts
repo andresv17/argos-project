@@ -95,7 +95,7 @@ describe('T803 compile-contracts.sh --feature 006 (salida en v34)', () => {
   });
 
   it('SC-ESC6-090: informa la unión de catálogos 004 + 005 + 006', () => {
-    expect(first.output).toMatch(/Catálogos fusionados: \d+ \(004\) \+ \d+ \(005\) \+ 8 \(006\) = \d+ códigos/);
+    expect(first.output).toMatch(/Catálogos fusionados: \d+ \(004\) \+ \d+ \(005\) \+ 9 \(006\) = \d+ códigos/);
   });
 
   it('INV-ARCH-003: no escribe sobre las salidas de 002, 003, 004 ni 005 en el destino', () => {

@@ -46,7 +46,7 @@ describe('proveniencia del intento sin providerCall (T1298, OBS-O2-1)', () => {
         ARGOS_SCENE_DRIVER: 'real', ARGOS_SCENE_MODEL: 'gemini-2.5-flash-image', ARGOS_SCENE_LOCATION: 'us-central1', ARGOS_SCENE_PROJECT_ID: 'argos-prod-1234',
         ARGOS_SCENE_TASKS_SA_EMAIL: 'argos-scene-tasks@argos-prod-1234.iam.gserviceaccount.com', ARGOS_SCENE_WORKER_URL: 'https://argos-abcdef-uc.a.run.app/internal/scene-worker',
       }),
-      { run: async () => 'NOOP', fetch: noNetwork, globalQuota: { tryConsume: async () => true, refund: async () => undefined } },
+      { run: async () => 'NOOP', fetch: noNetwork, globalQuota: { tryConsume: async () => true, refund: async () => undefined, isExhausted: async () => false } },
     );
     expect(fake.providerCall).toBeUndefined();
     expect(gemini.providerCall).toBeUndefined();

@@ -61,7 +61,7 @@ describe('T1296 (h) providerCall dinamico', () => {
       ARGOS_SCENE_TASKS_SA_EMAIL: 'argos-scene-tasks@argos-prod-1234.iam.gserviceaccount.com', ARGOS_SCENE_WORKER_URL: 'https://argos-abcdef-uc.a.run.app/internal/scene-worker',
     });
     const read = createSceneProviderParametersReader({ repository, env: config.scene, now: () => now });
-    const services = composeSceneServices(config, { run: async () => 'NOOP', fetch: noNetwork, readProviderParameters: read, globalQuota: { tryConsume: async () => true, refund: async () => undefined } });
+    const services = composeSceneServices(config, { run: async () => 'NOOP', fetch: noNetwork, readProviderParameters: read, globalQuota: { tryConsume: async () => true, refund: async () => undefined, isExhausted: async () => false } });
     const call = services.providerCall as unknown as () => Promise<{ model: string; location: string }>;
     expect(typeof call).toBe('function');
     expect(await call()).toEqual({ model: 'gemini-2.5-flash-image', location: 'us-central1' });

@@ -132,7 +132,7 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
       const text = buildImagePrompt(payload(mode, [petBlock(1), petBlock(2, { hasReferencePhoto: true, photoRef: 'IMG_2' }), petBlock(3, { species: 'FELINE', breedCode: 'CAT_SIAMES', breed: 'Siames' })]));
       const lines = text.split('\n').filter((l) => /^Pet \d+ \([^)]*\): /.test(l));
       expect(lines).toEqual(['Pet 2 (dog): Use IMG_2 as the exact visual reference for this dog.']);
-      expect(jsonBlockOf(text)).toBe('{"renderedPetsCount":2,"pets":[{"index":1,"species":"dog","breed":"mixed-breed","sex":"female"},{"index":3,"species":"cat","breed":"Siamese","sex":"female"}]}');
+      expect(jsonBlockOf(text)).toBe('{"renderedPetsCount":3,"pets":[{"index":1,"species":"dog","breed":"mixed-breed","sex":"female"},{"index":3,"species":"cat","breed":"Siamese","sex":"female"}],"referencePhotoPets":[2]}');
       expect(text).toContain('Place all 3 pets naturally and separately in different cozy spots of the room.');
       expect(text.includes(id(1))).toBe(false);
     }
@@ -265,11 +265,13 @@ describe('buildImagePrompt (T841): plantillas deterministas', () => {
     }
   });
 
-  it('[SC-ESC6-049][INV-ESC6-017][INV-ESC6-010] biography, fallbackContext e id jamás aparecen en el prompt', () => {
+  it('[SC-ESC6-049][INV-ESC6-017][INV-ESC6-010] fallbackContext e id jamás aparecen en el prompt; la biografía (enmienda 2026-11-24) solo como cadena JSON saneada tras PET_BIO_RULE', () => {
     const p = payload('FROM_SCRATCH', [petBlock(1, { biography: 'Le gusta morder carteros' })]);
     const withContext: ScenePayload = { ...p, household: { ...p.household, fallbackContext: 'Casa con jardin' } };
     const text = buildImagePrompt(withContext);
-    expect([text.includes('carteros'), text.includes('jardin'), text.includes(id(1)), text.includes(id(900))]).toEqual([false, false, false, false]);
+    expect([text.includes('jardin'), text.includes('fallbackContext'), text.includes(id(1)), text.includes(id(900))]).toEqual([false, false, false, false]);
+    expect(text.includes('"bio":"Le gusta morder carteros"')).toBe(true);
+    expect(buildImagePrompt(payload('FROM_SCRATCH', [petBlock(1)])).includes('carteros')).toBe(false);
   });
 });
 
@@ -309,7 +311,7 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
         expect(mixed.includes(SCENE_SPEC_HEADER)).toBe(false);
       } else {
         const spec = specOf(mixed);
-        expect(spec.renderedPetsCount).toBe(odd.length);
+        expect(spec.renderedPetsCount).toBe(n); // enmienda 2026-11-24: total visible, no las entradas del JSON
         expect(spec.pets.map((p) => p.index)).toEqual(odd);
         expect(mixed.split(SCENE_SPEC_HEADER)).toHaveLength(2);
       }
@@ -330,7 +332,7 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
   });
 
   it('[SC-ESC6-116][INV-ESC6-010][INV-ESC6-017] el texto completo no contiene household.id, ningún pets[].id, nombres, biography, fallbackContext ni el texto libre de breed', () => {
-    const pets = many(5).map((p, i) => ({ ...p, biography: `biografia-secreta-${i}`, breed: `raza-libre-${i}` }));
+    const pets = many(5).map((p, i) => ({ ...p, breed: `raza-libre-${i}` }));
     const base = payload('FROM_SCRATCH', pets, { photo: true });
     const text = buildImagePrompt({ ...base, household: { ...base.household, fallbackContext: 'contexto-secreto' } });
     for (const leaked of [id(900), ...pets.map((p) => p.id), 'biografia-secreta', 'raza-libre', 'contexto-secreto', 'biography', 'fallbackContext', 'maxPets', 'currentSceneRef', 'totalPetsInHousehold']) expect(text.includes(leaked)).toBe(false);
@@ -413,10 +415,10 @@ describe('buildImagePrompt (T920): especificación JSON saneada y regla de conte
     expect(text.split(PET_COUNT_RULE)).toHaveLength(2);
   });
 
-  it('[SC-ESC6-116] el número N no está quemado en el código: las constantes de scene-spec.ts no tienen dígitos y el módulo no lee id, nombre, biography, fallbackContext ni breed libre', () => {
+  it('[SC-ESC6-116] el número N no está quemado en el código: las constantes de scene-spec.ts no tienen dígitos y el módulo no lee id, nombre, fallbackContext ni breed libre (la biografía solo entra por sanitizeBiography, enmienda 2026-11-24)', () => {
     const code = readFileSync(new URL('../../src/domain/scene/scene-spec.ts', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     expect(SCENE_SPEC_HEADER).not.toMatch(/\d/);
-    expect(/\.id\b|\.name\b|biography|fallbackContext|\.breed\b|process\.env|Date\.now|Math\.random/.test(code)).toBe(false);
+    expect(/\.id\b|\.name\b|fallbackContext|\.breed\b|process\.env|Date\.now|Math\.random/.test(code)).toBe(false);
   });
 });
 
@@ -483,7 +485,7 @@ describe('buildScenePayload (T841): contrato 1.0.0 extensible', () => {
     expect(JSON.stringify(built).includes('Cabeza')).toBe(false);
   });
 
-  it('[SC-ESC6-049][INV-ESC6-017] el payload saliente nunca lleva biography ni fallbackContext informados', () => {
+  it('[SC-ESC6-049][INV-ESC6-017] el payload saliente sin biografías de entrada no lleva biography informada ni fallbackContext (con ellas, saneadas: t961)', () => {
     const plan = decideMode({ last: null, now, hasImage: false, action: 'UPDATE' })!;
     const built = buildScenePayload({ plan, last: null, now, householdId: id(900), maxPets: 8, totalPets: 2 });
     expect(JSON.stringify(built).includes('fallbackContext')).toBe(false);
@@ -556,8 +558,8 @@ describe('buildImagePrompt (T927): KEEP con foto en incrementales (SC-ESC6-123)'
 
   it('[SC-ESC6-123][INV-ESC6-017] el texto con KEEP con foto no contiene household.id, pets[].id, biography ni fallbackContext, y las claves del JSON son las 16-bit (R5)', () => {
     const payloadBuilt = built();
-    const text = buildImagePrompt({ ...payloadBuilt, pets: payloadBuilt.pets.map((p) => ({ ...p, biography: 'secreto-bio', fallbackContext: 'secreto-ctx' } as PetBlock)) });
-    for (const secret of [id(900), id(1), id(2), id(3), id(4), id(5), id(6), 'secreto-bio', 'secreto-ctx']) expect(text.includes(secret)).toBe(false);
+    const text = buildImagePrompt({ ...payloadBuilt, pets: payloadBuilt.pets.map((p) => ({ ...p, fallbackContext: 'secreto-ctx' } as PetBlock)) });
+    for (const secret of [id(900), id(1), id(2), id(3), id(4), id(5), id(6), 'secreto-ctx']) expect(text.includes(secret)).toBe(false);
     const spec = specOf(text);
     expect(Object.keys(spec)).toEqual(['renderedPetsCount', 'pets']);
     expect(Object.keys(spec.pets[0] ?? {})).toEqual(['index', 'species', 'breed', 'sex']);

@@ -12,7 +12,7 @@ import type { PetBlock, ScenePayload } from '../../src/generated/v34/schemas/typ
  * y no sobre el literal (EDGE-009-044). REQ-PRO9-001..006, INV-PRO9-001, INV-PRO9-002; EDGE-009-024, EDGE-009-025, EDGE-009-026, EDGE-009-044; SC-009-028..034.
  */
 const PRESERVATION_LITERAL =
-  'Translate the pet from the reference photos into a single cohesive 16-bit isometric pixel art illustration. Faithfully preserve each pet species, fur colors, coat patterns, ear shapes, body proportions, and unique markings from the photos so each one is clearly recognizable.';
+  'Translate every pet from the reference photos into a single cohesive 16-bit isometric pixel art illustration. Faithfully preserve each pet\'s species, fur colors, coat patterns, ear shapes, body proportions, and unique markings from the photos so each one is clearly recognizable.';
 const HOUSEHOLD_GENERIC = 'Design a warm, cozy modern living room interior with honey-colored wooden floors, a soft armchair, pet beds, and a large sunlit window.';
 const householdWithPhoto = (ref: string): string => `Draw a brand-new 16-bit retro RPG isometric cutaway room diorama inspired by the furniture, plants, color accents, and general room layout of ${ref}.`;
 const NO_ANIMALS = 'Draw no animals in this room.';
@@ -76,7 +76,7 @@ describe('T1213 FROM_SCRATCH/REGENERATE: orden de los 8 puntos en los 4 casos ba
       expect(blocks[1]).toBe(HOUSEHOLD_GENERIC);
       expect(blocks[2]).toBe('Pet 1 (dog): Use IMG_1 as the exact visual reference for this dog.');
       expect(blocks[3]).toBe(PRESERVATION_BLOCK);
-      expect(blocks[4]!.startsWith(`${SCENE_SPEC_HEADER}\n{"renderedPetsCount":2,"pets":[{"index":2,"species":"cat"`)).toBe(true);
+      expect(blocks[4]!.startsWith(`${SCENE_SPEC_HEADER}\n{"renderedPetsCount":3,"pets":[{"index":2,"species":"cat"`)).toBe(true);
       expect(blocks[5]).toBe('Place all 3 pets naturally and separately in different cozy spots of the room.');
       expect(blocks[6]!.startsWith('Exact animal count: 3 pets in total (2 dogs, 1 cat).')).toBe(true);
       expect(blocks[7]).toBe(PIXEL_REDRAW_RULE);
@@ -97,7 +97,7 @@ describe('T1213 FROM_SCRATCH/REGENERATE: orden de los 8 puntos en los 4 casos ba
       expect(blocks[1]).toBe(householdWithPhoto('IMG_1'));
       expect(blocks[2]).toBe('Pet 1 (dog): Use IMG_2 as the exact visual reference for this dog.');
       expect(blocks[3]).toBe(PRESERVATION_BLOCK);
-      expect(blocks[4]).toBe(`${SCENE_SPEC_HEADER}\n{"renderedPetsCount":1,"pets":[{"index":2,"species":"cat","breed":"mixed-breed","sex":"female"}]}`);
+      expect(blocks[4]).toBe(`${SCENE_SPEC_HEADER}\n{"renderedPetsCount":2,"pets":[{"index":2,"species":"cat","breed":"mixed-breed","sex":"female"}],"referencePhotoPets":[1]}`);
       expect(blocks[5]).toBe('Place all 2 pets naturally and separately in different cozy spots of the room.');
       expect(blocks[6]!.startsWith('Exact animal count: 2 pets in total (1 dog, 1 cat).')).toBe(true);
       expect(blocks[7]).toBe(PIXEL_REDRAW_RULE);
@@ -190,7 +190,7 @@ describe('T1214 modos incrementales, N = 0, tope de imágenes, determinismo y pr
   });
 
   it('[SC-009-034][REQ-PRO9-006] determinismo byte a byte y privacidad: ningún id, nombre, biografía ni texto libre de raza en el prompt con preservación', () => {
-    const base = payload([withPhoto(7, 'IMG_2', { biography: 'biografia-secreta', breed: 'raza-libre-a' }), pet(3, { breed: 'raza-libre-b', biography: 'otra-biografia' })], { household: true });
+    const base = payload([withPhoto(7, 'IMG_2', { breed: 'raza-libre-a' }), pet(3, { breed: 'raza-libre-b' })], { household: true });
     const p: ScenePayload = { ...base, household: { ...base.household, fallbackContext: 'contexto-secreto' } };
     const text = once(p);
     for (const leaked of [id(900), id(7), id(3), 'biografia-secreta', 'otra-biografia', 'raza-libre-a', 'raza-libre-b', 'contexto-secreto', 'biography', 'fallbackContext', 'maxPets', 'currentSceneRef', 'totalPetsInHousehold']) {

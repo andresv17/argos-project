@@ -7,6 +7,7 @@
  */
 
 import type { SceneReferenceImage } from '../../application/ports/scene-image-generator.port.ts';
+import { REFERENCE_LABEL_PATTERN } from '../../domain/scene/reference-labels.ts';
 
 /** Host y prefijo de la Developer API de Gemini: constantes (solo este archivo y el adaptador pueden nombrarlos, T889). */
 export const GEMINI_API_ORIGIN = 'https://generativelanguage.googleapis.com';
@@ -33,9 +34,12 @@ export const isSafeGeminiKey = (key: string): boolean => KEY_PATTERN.test(key);
 /** URL exacta de `generateContent` (sin consulta y sin la clave). */
 export const geminiGenerateUrl = (model: string): string => `${GEMINI_API_ORIGIN}${GEMINI_API_PATH_PREFIX}${model}:generateContent`;
 
+const closedLabel = (r: SceneReferenceImage): string => (r.label !== undefined && REFERENCE_LABEL_PATTERN.test(r.label) && r.label.startsWith(`${r.ref} `) ? r.label : `${r.ref}:`);
+
 /**
  * Cuerpo `generateContent`: el texto del prompt primero y luego cada referencia en el orden recibido (`IMG_1..IMG_n`, ya fijado por el worker), con una parte de texto
- * `IMG_n:` antepuesta a cada `inlineData` para que el modelo asocie cada imagen con su etiqueta (SC-ESC6-104). La etiqueta es la del puerto (cadena fija de ranura, sin datos de usuario).
+ * etiqueta antepuesta a cada `inlineData` para que el modelo asocie cada imagen con su etiqueta (SC-ESC6-104): la semántica cerrada del puerto (`IMG_2 (Pet 1 - dog):`, solo enums
+ * de dominio) si cumple `REFERENCE_LABEL_PATTERN` y coincide con su `ref`; si no, `IMG_n:`. Nunca nombres ni texto libre.
  */
 export function buildGeminiBody(prompt: string, references: ReadonlyArray<SceneReferenceImage>, modalities: GeminiModalities, seed: number): string {
   return JSON.stringify({
@@ -44,7 +48,7 @@ export function buildGeminiBody(prompt: string, references: ReadonlyArray<SceneR
         role: 'user',
         parts: [
           { text: prompt },
-          ...references.flatMap((r) => [{ text: `${r.ref}:` }, { inlineData: { mimeType: r.mime, data: Buffer.from(r.bytes).toString('base64') } }]),
+          ...references.flatMap((r) => [{ text: closedLabel(r) }, { inlineData: { mimeType: r.mime, data: Buffer.from(r.bytes).toString('base64') } }]),
         ],
       },
     ],

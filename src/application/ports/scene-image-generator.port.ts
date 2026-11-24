@@ -14,6 +14,8 @@ export interface SceneReferenceImage {
   readonly ref: `IMG_${number}`;
   readonly mime: string;
   readonly bytes: Uint8Array;
+  /** Etiqueta semántica CERRADA (`IMG_2 (Pet 1 - dog):`, solo enums de dominio; `reference-labels.ts`); el cableado la valida y, si falta o no cumple, usa `IMG_n:`. */
+  readonly label?: string;
 }
 
 export interface SceneGenerationRequest {

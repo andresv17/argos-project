@@ -15,7 +15,7 @@ export function sceneView(overrides: Partial<SceneViewData> = {}): SceneViewData
     quota: { max: 10, remaining: 7, window: '2026-11', resetsAt: '2026-12-01T05:00:00.000Z' },
     pets: { shown: 3, total: 3, maxPets: 8 },
     actions: { canUpdate: false, canRegenerate: true, canUploadHouseholdPhoto: true, blockedReason: 'NO_CHANGES', retryAfterSeconds: null },
-    consent: { required: false, noticeVersion: '2', providerId: 'vertex-gemini-image', householdPhotoGranted: true, petPhotosGranted: true },
+    consent: { required: false, noticeVersion: '3', providerId: 'vertex-gemini-image', householdPhotoGranted: true, petPhotosGranted: true },
     lastError: null,
     stale: false,
     updatedAt: '2026-11-18T10:00:00.000Z',

@@ -19,7 +19,14 @@ const KEY = 'scene.prompt.blocks';
 const PG_DIR = new URL('../../../src/infrastructure/persistence/postgres/migrations/', import.meta.url);
 const TEST_DATABASE_URL = process.env['TEST_DATABASE_URL'];
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const SEED = JSON.stringify(DEFAULT_PROMPT_BLOCKS);
+/**
+ * La migración desplegada NO se edita (inmutable): su siembra conserva el texto de #57 en PRESERVATION_BLOCK («Translate the pet…»). El defecto de CÓDIGO pasó al singular «every pet»
+ * (enmienda 2026-11-24, defecto del prompt mixto): la fila ya sembrada en una base existente solo cambiaría con una migración nueva o desde el portal de administración (punto abierto).
+ */
+const LEGACY_PRESERVATION_BLOCK =
+  'Translate the pet from the reference photos into a single cohesive 16-bit isometric pixel art illustration. Faithfully preserve each pet species, fur colors, coat patterns, ear shapes, body proportions, and unique markings from the photos so each one is clearly recognizable.';
+const LEGACY_BLOCKS = { ...DEFAULT_PROMPT_BLOCKS, PRESERVATION_BLOCK: LEGACY_PRESERVATION_BLOCK };
+const SEED = JSON.stringify(LEGACY_BLOCKS);
 
 const opened: SqliteDatabase[] = [];
 const dirs: string[] = [];
@@ -61,7 +68,8 @@ describe('T1303 [REQ-CFG9-005][SC-009-024] migracion SQLite 0022 sobre una base 
     upgrade(db, migrationsDir);
     const row = rows(db).find((r) => r.key === KEY)!;
     expect(row.value).toBe(SEED);
-    expect(row.value).toBe(ADMIN_PARAMETER_CATALOG[KEY].defaultValue);
+    expect(JSON.parse(ADMIN_PARAMETER_CATALOG[KEY].defaultValue as string)).toEqual(DEFAULT_PROMPT_BLOCKS);
+    expect(JSON.parse(row.value)).toEqual({ ...DEFAULT_PROMPT_BLOCKS, PRESERVATION_BLOCK: LEGACY_PRESERVATION_BLOCK });
     expect(row.by).toBeNull();
     expect(row.description.length).toBeGreaterThan(0);
     expect(row.updatedAt).toMatch(ISO);
@@ -73,7 +81,7 @@ describe('T1303 [REQ-CFG9-005][SC-009-024] migracion SQLite 0022 sobre una base 
     const value = rows(db).find((r) => r.key === KEY)!.value;
     const spec = ADMIN_PARAMETER_CATALOG[KEY];
     const max = (spec.constraints as { maxBlockLength?: number }).maxBlockLength ?? 0;
-    expect(validatePromptBlocks(value, max)).toMatchObject({ ok: true, blocks: DEFAULT_PROMPT_BLOCKS });
+    expect(validatePromptBlocks(value, max)).toMatchObject({ ok: true, blocks: LEGACY_BLOCKS });
     expect(spec.isEffective(value)).toBe(true);
   });
 

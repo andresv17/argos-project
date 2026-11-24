@@ -275,13 +275,20 @@ describe('T1185 V-B y V-C el API: inyección, validación y privacidad (REQ-BIO8
   });
 });
 
-describe('T1185 V-D la biografía no llega al prompt de IA ni al payload de la escena (REQ-BIO8-003, D8-12 = A)', () => {
+// SUPERADA en parte por la enmienda 2026-11-24 de la 006 (Neo, Nivel 2; INV-ESC6-010/017): la biografía SANEADA (`sanitizeBiography`) sí viaja en el prompt, solo como cadena JSON tras `PET_BIO_RULE`.
+// Lo que sigue prohibido: que la lean los adaptadores de IA o el cableado del proveedor, y que entre sin sanear.
+describe('T1185 V-D la biografía llega al prompt de IA solo saneada y como cadena JSON (REQ-BIO8-003, enmienda 2026-11-24 de la 006)', () => {
   const ALLOWED_CODE_READERS = [
     'src/application/use-cases/backup-use-cases.ts',
     'src/application/use-cases/pet-use-cases.ts',
+    'src/application/use-cases/scene-run-use-case.ts',
     'src/application/use-cases/use-case-support.ts',
     'src/domain/backup/backup-migration.ts',
     'src/domain/pet/pet-invariants.ts',
+    'src/domain/scene/build-image-prompt.ts',
+    'src/domain/scene/sanitize-free-text.ts',
+    'src/domain/scene/scene-payload.ts',
+    'src/domain/scene/scene-spec.ts',
     'src/infrastructure/persistence/memory/in-memory-unit-of-work.ts',
     'src/infrastructure/persistence/postgres/postgres-repositories.ts',
     'src/infrastructure/persistence/sqlite/sqlite-repositories.ts',
@@ -290,17 +297,17 @@ describe('T1185 V-D la biografía no llega al prompt de IA ni al payload de la e
     'src/presentation/web/schema-messages.ts',
   ];
 
-  it('[REQ-BIO8-003][INV-ESC6-017] en src/ (sin generated) solo los módulos de ficha, persistencia, respaldo y presentación leen «biography» en código; ni dominio de escena, ni casos de uso de escena, ni adaptadores de IA', () => {
+  it('[REQ-BIO8-003][INV-ESC6-017] en src/ (sin generated) solo los módulos de ficha, persistencia, respaldo, presentación y los cinco módulos de escena de la enmienda (worker, saneador, payload, especificación y prompt) leen «biography» en código; nunca los adaptadores de IA', () => {
     const readers = walk(resolve(ROOT, 'src'))
       .filter((file) => !relative(ROOT, file).startsWith('src/generated'))
       .filter((file) => /biography/i.test(stripComments(readFileSync(file, 'utf8'))))
       .map((file) => relative(ROOT, file))
       .sort();
     expect(readers).toEqual(ALLOWED_CODE_READERS);
-    for (const file of readers) expect(file, 'módulo de escena o IA').not.toMatch(/scene|vertex|prompt|gemini|image-generator/i);
+    for (const file of readers) expect(file, 'adaptador o puerto de IA').not.toMatch(/vertex|gemini|image-generator/i);
   });
 
-  it('[REQ-BIO8-003] buildImagePrompt ignora una «biography» maliciosa colada en el payload (en el bloque de mascota o en la raíz): el prompt es idéntico', () => {
+  it('[REQ-BIO8-003][SC-ESC6-143] buildImagePrompt ignora una «biography» colada en la RAÍZ del payload y solo emite la de la mascota saneada y como cadena JSON', () => {
     const id = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
     const pet = { id: id(1), action: 'RENDER', species: 'CANINE', speciesOther: null, breed: 'Criolla', breedCode: 'DOG_CRIOLLA', sex: 'FEMALE', hasReferencePhoto: false, photoRef: null };
     const base = {
@@ -315,9 +322,13 @@ describe('T1185 V-D la biografía no llega al prompt de IA ni al payload de la e
     const dirty = { ...base, biography: evil, pets: [{ ...pet, biography: evil }] } as unknown as ScenePayload;
     const cleanPrompt = buildImagePrompt(clean);
     expect(cleanPrompt.length).toBeGreaterThan(100);
+    const rootOnly = { ...base, biography: evil, pets: [{ ...pet, biography: null }] } as unknown as ScenePayload;
+    expect(buildImagePrompt(rootOnly)).toBe(cleanPrompt);
     const dirtyPrompt = buildImagePrompt(dirty);
-    expect(dirtyPrompt).toBe(cleanPrompt);
-    expect(dirtyPrompt).not.toContain(MARK);
-    expect(dirtyPrompt).not.toContain('Ignore previous');
+    expect(dirtyPrompt).not.toBe(cleanPrompt);
+    // Saneada: sin delimitadores y solo como valor de cadena JSON de `bio`.
+    const line = dirtyPrompt.split('\n').find((l) => l.includes('"bio"')) ?? '';
+    expect((JSON.parse(line) as { pets: Array<{ bio: string }> }).pets[0]!.bio).toBe(evil);
+    expect(dirtyPrompt.split(MARK)).toHaveLength(2);
   });
 });

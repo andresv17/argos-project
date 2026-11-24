@@ -112,7 +112,10 @@ describe('T949 contenido final del aviso (REQ-ESC6-026, REQ-ESC6-028)', () => {
   it('[REQ-ESC6-028] no afirma datos sin fuente: retención, borrado, región exacta del modelo y SLA siguen declarados como pendientes o remitidos al proveedor', () => {
     const retention = NOTICE_SECTIONS.find((s) => s.title.startsWith('4.'))?.paragraphs.join(' ') ?? '';
     expect(retention).toMatch(/pendiente de confirmar|se rige por|según/i);
-    expect(retention).not.toMatch(/\b\d+\s*(días|horas|meses)\b/);
+    // OBS-2 (Neo, 2026-11-24): la única cifra permitida es «hasta 30 días» de prevención de abuso, citada de los términos de datos de cliente de Google Cloud (Vertex AI); cualquier otra cifra sigue prohibida.
+    const sinCifraConFuente = retention.replace('hasta 30 días por prevención de abuso', '');
+    expect(retention).toMatch(/hasta 30 días por prevención de abuso/);
+    expect(sinCifraConFuente).not.toMatch(/\b\d+\s*(días|horas|meses)\b/);
   });
 
   it('[SC-ESC6-040] el texto sigue siendo estático: sin nombres de mascotas ni de personas', () => {

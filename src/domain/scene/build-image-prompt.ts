@@ -6,7 +6,7 @@
  * solo si N >= 2 (R3, D7-ESC-03); (7) frase de conteo D7-ESC-01 (N >= 1) o `Draw no animals in this room.` con N = 0 (D9-13); (8) regla de redibujado si el hogar o alguna mascota
  * llevan foto. Sin `STYLE_CLOSING` ni `PET_COUNT_RULE` en estos modos. Incrementales: bloque de cambios, JSON con todas las visibles, frase de conteo, `PET_COUNT_RULE`,
  * `PRESERVATION_BLOCK` si hay `ADD`/`REPLACE` con foto, redibujado si aplica y `STYLE_CLOSING` 16-bit. El único contenido variable son enums del dominio, `speciesOther` ya saneado (INV-ESC6-011), nombres canónicos
- * de raza y etiquetas `IMG_n`; el texto libre `breed` nunca se lee (`H-KEY-F5-2`). NUNCA se emiten `id`, nombres, `biography` ni `fallbackContext` (INV-ESC6-010, INV-ESC6-017).
+ * de raza y etiquetas `IMG_n`; el texto libre `breed` nunca se lee (`H-KEY-F5-2`). NUNCA se emiten `id`, nombres ni `fallbackContext` (INV-ESC6-010, INV-ESC6-017). Enmienda 2026-11-24: la `biography` YA saneada se emite SOLO como cadena JSON tras `PET_BIO_RULE`: con foto, en un bloque aparte (`PET_BIO_BLOCK`, una línea `Pet k (IMG_n): "…"`) justo tras `PRESERVATION_BLOCK`; sin foto, como `bio` de su entrada del JSON. Sin biografía no se emite nada.
  *
  * @implements REQ-PRO9-001, REQ-PRO9-002, REQ-PRO9-003, REQ-PRO9-004, REQ-PRO9-005, REQ-PRO9-006, REQ-PRO9-007, INV-PRO9-001, INV-PRO9-002, REQ-ESC6-016, REQ-ESC6-009, REQ-ESC7-003, REQ-ESC7-004, REQ-ESC7-005, REQ-ESC7-006, REQ-ESC7-008, SC-007-036, SC-007-037, SC-007-038, SC-007-039, SC-007-040, SC-007-041, SC-007-043, INV-ESC6-001, INV-ESC6-010, INV-ESC6-011, INV-ESC6-017, EDGE-ESC6-015, EDGE-007-023, EDGE-007-024
  */
@@ -24,7 +24,8 @@ import {
   STYLE_CLOSING,
   type PromptBlocks,
 } from './prompt-blocks.ts';
-import { PET_COUNT_RULE, sceneSpecBlock } from './scene-spec.ts';
+import { PET_BIO_BLOCK, PET_BIO_RULE, PET_COUNT_RULE, sceneSpecBlock } from './scene-spec.ts';
+import { sanitizeBiography } from './sanitize-free-text.ts';
 
 export { HOUSEHOLD_GENERIC, HOUSEHOLD_WITH_PHOTO, PIXEL_REDRAW_RULE, PRESERVATION_BLOCK, STYLE_BASE_TEXT, STYLE_CLOSING };
 
@@ -52,6 +53,12 @@ function scratchBlocks(payload: ScenePayload, blocks: PromptBlocks): string[] {
   // Ordinal global 1-based sobre TODAS las visibles (R2): el bloque de fotos y el JSON lo comparten y son disjuntos.
   const photoLines = rendered.flatMap((pet, i) => (carriesPhoto(pet) ? [`Pet ${i + 1} (${petSpeciesLabel(pet)}): ${petSentence(pet)}`] : []));
   if (photoLines.length > 0) out.push(photoLines.join('\n'), blocks.PRESERVATION_BLOCK);
+  // Enmienda 2026-11-24 (INV-ESC6-010/017): biografía de las mascotas CON foto en un bloque aparte, solo como cadena JSON tras la regla fija.
+  const bioLines = rendered.flatMap((pet, i) => {
+    const bio = carriesPhoto(pet) ? sanitizeBiography(pet.biography) : null;
+    return bio === null ? [] : [`Pet ${i + 1} (${pet.photoRef}): ${JSON.stringify(bio)}`];
+  });
+  if (bioLines.length > 0) out.push([PET_BIO_RULE, PET_BIO_BLOCK, ...bioLines].join('\n'));
   // REQ-PRO9-001/003: toda descripción de mascota (líneas con IMG y JSON) precede a «Place…» y a la frase de conteo (INV-PRO9-002).
   const json = sceneSpecBlock(payload, { onlyWithoutPhoto: true });
   if (json !== null) out.push(json);

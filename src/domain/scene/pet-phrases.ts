@@ -34,7 +34,12 @@ function speciesLabel(pet: PetBlock): string {
 export const petSpeciesLabel = (pet: PetBlock): string => speciesLabel(pet);
 
 /** Palabra de especie del JSON de escena (R5): la etiqueta del dominio en inglés; `OTHER` viaja como «other» y su `speciesOther` saneado va aparte. */
-export const petSpeciesJsonWord = (pet: PetBlock): string => (pet.species === 'OTHER' ? 'other' : (SPECIES_LABELS[pet.species] ?? 'animal'));
+export const petSpeciesJsonWord = (pet: PetBlock): string => speciesWord(pet.species);
+
+/** Palabra de especie de un enum de dominio (`OTHER` y desconocidas no llevan texto libre): vocabulario cerrado para el JSON y las etiquetas de imagen. */
+export function speciesWord(species: string): string {
+  return species === 'OTHER' ? 'other' : (SPECIES_LABELS[species] ?? 'animal');
+}
 
 /**
  * Token de talla de la línea de foto («medium dog»). PROVISIONAL (R6, D7-ESC-02): `PetBlock` no tiene talla y el contrato no se toca, así que devuelve vacío. Es el ÚNICO punto

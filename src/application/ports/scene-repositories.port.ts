@@ -155,6 +155,8 @@ export interface SceneRepository {
   publishImage(input: PublishImageInput): Promise<string | null>;
   /** Inicio del intento más reciente de la escena (base del enfriamiento de 60 s y de su `Retry-After`) o `null`. */
   lastAttemptStartedAt(sceneId: string): Promise<string | null>;
+  /** Resultado del intento más reciente de la escena por inicio (`null` si no hay intentos o el último sigue en vuelo): el enfriamiento solo aplica tras `SUCCEEDED` (REQ-ESC6-034, enmienda 2026-11-24). */
+  lastAttemptOutcome(sceneId: string): Promise<'SUCCEEDED' | 'FAILED' | 'CANCELLED' | null>;
   /** Inicio más antiguo de los intentos del actor con `started_at >= since` (base de `Retry-After` del tope por actor) o `null`. */
   oldestActorAttemptAt(actorUserId: string, since: string): Promise<string | null>;
   /** Contador de `REQ-ESC6-034` (enfriamiento de 60 s): TODO intento de la escena con `started_at >= since`, con o sin llamada al proveedor (EDGE-009-030). */
