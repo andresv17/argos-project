@@ -159,6 +159,12 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   // 006 (Fase 14, T948/T952): con el driver real, modelo, región y tope global salen de `platform_parameters` (respaldo en el entorno de `config.scene`); una fila inválida
   // rechaza el arranque (nombra la clave, no el valor). El contador global descuenta con una sola sentencia atómica y falla cerrado.
   const sceneProvider: Pick<SceneCompositionOptions, 'providerParameters' | 'readProviderParameters' | 'globalQuota' | 'fetch'> = {};
+  if (config.scene.driver === 'gemini-api' && mediaStorage !== null) {
+    // T1314 (D9-30 (7)): en local con `gemini-api` rige tambien el contador `scene.global_quota_max` (excepcion 006-bis); sin Vertex no hay lector de region.
+    const providerParameters = await loadSceneProviderParameters(persistence.parameters, config.scene);
+    const readMax = createSceneGlobalQuotaMaxReader(persistence.parameters, providerParameters.globalQuotaMax);
+    Object.assign(sceneProvider, { providerParameters, globalQuota: persistence.sceneGlobalQuota({ readMax, now: () => clock.nowIsoTimestamp() }), ...(options.sceneFetch === undefined ? {} : { fetch: options.sceneFetch }) });
+  }
   if (config.scene.driver === 'real' && mediaStorage !== null) {
     const providerParameters = await loadSceneProviderParameters(persistence.parameters, config.scene);
     const readMax = createSceneGlobalQuotaMaxReader(persistence.parameters, providerParameters.globalQuotaMax);
@@ -209,7 +215,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
         }),
     // 006 (T862..T868): ganchos de privacidad de la escena en la transacción de la causa; sin escena no hay efecto (INV-ESC6-019).
     sceneHooks: new SceneLifecycleHooks(),
-    ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, readPromptBlocks: createScenePromptBlocksReader({ repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) }), ...sceneProvider }) }),
+    ...(mediaStorage === null ? {} : { scene: composeSceneServices(config, { run: runScene, readPromptBlocks: createScenePromptBlocksReader({ repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) }), ...sceneProvider, selectionSource: { repository: persistence.parameters, now: () => Date.parse(clock.nowIsoTimestamp()) } }) }),
     ...(shareSecret === null ? {} : { sharing: { tokens: new CryptoTokenGenerator(), ipHmacSecret: shareSecret, limiter: new SharedAccessLimiter() } }),
     ...(mediaStorage === null
       ? {}

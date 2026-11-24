@@ -108,6 +108,9 @@ export class NullSceneRepository implements SceneRepository {
   lastAttemptOutcome(_sceneId: string): Promise<'SUCCEEDED' | 'FAILED' | 'CANCELLED' | null> {
     return Promise.resolve(null);
   }
+  findLimitResetMarks(_sceneId: string, _actorUserId: string): Promise<{ readonly scene: string | null; readonly actor: string | null }> {
+    return Promise.resolve({ scene: null, actor: null });
+  }
   oldestActorAttemptAt(_actorUserId: string, _since: string): Promise<string | null> {
     return Promise.resolve(null);
   }

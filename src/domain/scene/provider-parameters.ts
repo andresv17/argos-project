@@ -5,12 +5,13 @@
  * @implements REQ-ESC6-017, REQ-ESC6-031, NFR-ESC6-001
  */
 
-import { SCENE_COST_TABLE_MICRO_USD, isSelectableScenePair, sceneCostCeiling } from './scene-cost.ts';
+import { SCENE_COST_TABLE_MICRO_USD, SCENE_GEMINI_API_COST_KEY, sceneCostCeiling } from './scene-cost.ts';
 
 /** Claves en `platform_parameters` (texto); si la fila no existe rige el respaldo de entorno y, en su defecto, el valor por defecto. */
 export const SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY = 'scene.global_quota_max';
 export const SCENE_PARAM_MODEL_KEY = 'scene.provider_model';
-export const SCENE_PARAM_LOCATION_KEY = 'scene.provider_location';
+/** D9-30: proveedor de generacion seleccionable en caliente (`vertex` | `gemini-api`). */
+export const SCENE_PARAM_DRIVER_KEY = 'scene.provider_driver';
 /** Prefijo de la fila contador de la ventana mensual: `scene.global_quota_used.YYYY-MM` (valor entero en texto). */
 export const SCENE_GLOBAL_QUOTA_USED_PREFIX = 'scene.global_quota_used.';
 
@@ -59,6 +60,53 @@ export const parseSceneGlobalQuotaMax = (value: string): number | null => {
   return parsed >= 1 && parsed <= SCENE_GLOBAL_QUOTA_MAX_DERIVED_CEILING ? parsed : null;
 };
 
+export type SceneProviderDriver = 'vertex' | 'gemini-api';
+
+/** Lista cerrada de proveedores (D9-30 (1)); el orden es el del catalogo de /admin. */
+export const SCENE_PROVIDER_DRIVERS: readonly SceneProviderDriver[] = ['vertex', 'gemini-api'];
+export const isSceneProviderDriver = (value: string): value is SceneProviderDriver => (SCENE_PROVIDER_DRIVERS as readonly string[]).includes(value);
+
+/** D9-30 (5): modelos por proveedor (Vertex = los 2 pares de D9-27; `gemini-api` = los 3 de la Enmienda 009-C). */
+export const SCENE_MODELS_BY_DRIVER: Readonly<Record<SceneProviderDriver, readonly string[]>> = {
+  vertex: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'],
+  'gemini-api': ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'],
+};
+export const driverSupportsModel = (driver: SceneProviderDriver, model: string): boolean => SCENE_MODELS_BY_DRIVER[driver].includes(model);
+
+/**
+ * D9-29: la region NO es un parametro; es una funcion pura del proveedor y del modelo. Vertex: `gemini-2.5-flash-image` => `us-central1` y `gemini-3.1-flash-image-preview` => `global` (los 2 pares con
+ * coste de fuente de la tabla); un modelo sin par con coste => `null`. `gemini-api` no tiene region (`null`). Se deriva de la tabla de costes, sin E/S ni reloj.
+ */
+export function deriveLocation(driver: SceneProviderDriver, model: string): string | null {
+  if (driver !== 'vertex') return null;
+  if (!Object.prototype.hasOwnProperty.call(SCENE_COST_TABLE_MICRO_USD, model)) return null;
+  const regions = Object.keys(SCENE_COST_TABLE_MICRO_USD[model]!).filter((key) => key !== SCENE_GEMINI_API_COST_KEY);
+  return regions.length === 1 ? regions[0]! : null;
+}
+
+/**
+ * Seleccion EFECTIVA del proveedor (D9-30 (2)(4)): fila valida > defecto del despliegue. `configured: false` (falla cerrado) si no hay proveedor, si el proveedor no tiene credenciales en el
+ * despliegue o si no admite el modelo vigente. PURO. Nunca recurre al otro proveedor.
+ */
+export interface SceneProviderSelectionInput {
+  readonly rowDriver: string | null;
+  readonly available: readonly SceneProviderDriver[];
+  readonly defaultDriver: SceneProviderDriver | null;
+  readonly model: string;
+}
+export interface SceneProviderSelection {
+  readonly driver: SceneProviderDriver | null;
+  readonly configured: boolean;
+  readonly model: string;
+  readonly location: string | null;
+}
+export function resolveSceneProviderSelection(input: SceneProviderSelectionInput): SceneProviderSelection {
+  const driver: SceneProviderDriver | null = input.rowDriver !== null && isSceneProviderDriver(input.rowDriver) ? input.rowDriver : input.defaultDriver;
+  if (driver === null) return { driver: null, configured: false, model: input.model, location: null };
+  const configured = input.available.includes(driver) && driverSupportsModel(driver, input.model);
+  return { driver, configured, model: input.model, location: deriveLocation(driver, input.model) };
+}
+
 export interface SceneProviderParameters {
   readonly globalQuotaMax: number;
   readonly model: string;
@@ -75,9 +123,10 @@ export class SceneParameterError extends Error {
 
 export interface SceneParameterSources {
   /** Texto de la fila de `platform_parameters` (o `null` si no existe). */
-  readonly db: { readonly globalQuotaMax: string | null; readonly model: string | null; readonly location: string | null };
+  readonly db: { readonly globalQuotaMax: string | null; readonly model: string | null };
   /** Respaldo de entorno ya validado por `app-config.ts` (o `null` si no se definió). */
-  readonly env: { readonly globalQuotaMax: number | null; readonly model: string | null; readonly location: string | null };
+  /** La region de entorno ya no interviene (D9-29): se deriva del modelo. */
+  readonly env: { readonly globalQuotaMax: number | null; readonly model: string | null; readonly location?: string | null };
 }
 
 /** Fila de `platform_parameters` > respaldo de entorno > valor por defecto. Una fila presente pero fuera de rango, de lista o de regex rechaza el arranque. */
@@ -94,13 +143,9 @@ export function resolveSceneProviderParameters(sources: SceneParameterSources): 
     if (isSafeSceneModel(sources.db.model)) model = sources.db.model;
     else invalid.push(SCENE_PARAM_MODEL_KEY);
   }
-  let location = sources.env.location ?? SCENE_DEFAULT_LOCATION;
-  if (sources.db.location !== null) {
-    if (isAllowedSceneLocation(sources.db.location)) location = sources.db.location;
-    else invalid.push(SCENE_PARAM_LOCATION_KEY);
-  }
-  // D9-27 / INV-CFG9-001: una fila de modelo o region de la BD que forme un par sin coste con fuente se rechaza al leer (nombra solo las claves).
-  if (invalid.length === 0 && (sources.db.model !== null || sources.db.location !== null) && !isSelectableScenePair(model, location)) invalid.push(SCENE_PARAM_MODEL_KEY, SCENE_PARAM_LOCATION_KEY);
+  // D9-29 / INV-CFG9-001: la region se deriva del modelo; un modelo sin par con coste de fuente rechaza el arranque (nombra solo la clave).
+  const location = deriveLocation('vertex', model);
+  if (invalid.length === 0 && sources.db.model !== null && location === null) invalid.push(SCENE_PARAM_MODEL_KEY);
   if (invalid.length > 0) throw new SceneParameterError(invalid);
-  return { globalQuotaMax, model, location };
+  return { globalQuotaMax, model, location: location ?? SCENE_DEFAULT_LOCATION };
 }

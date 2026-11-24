@@ -92,7 +92,7 @@ resource "google_service_account_iam_member" "deployer_wif" {
   member             = "principalSet://iam.googleapis.com/projects/${data.google_project.this.number}/locations/global/workloadIdentityPools/${var.project_prefix}-github/attribute.job_workflow_ref/${var.github_repository}/.github/workflows/deploy-argos.yml@refs/heads/main"
 }
 
-# argos-deployer: solo metadatos de versiones (secretmanager.versions.list/get) de sus 4 secretos (incluido el de Google OAuth, 008), a nivel de secreto.
+# argos-deployer: solo metadatos de versiones (secretmanager.versions.list/get) de sus secretos (incluidos el de Google OAuth, 008, y el de Gemini, 009 T1316), a nivel de secreto.
 # NUNCA secretAccessor (no lee el valor): el paso "Resolver versiones numéricas" de deploy-argos.yml lo necesita (D-30).
 resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_database_url" {
   project   = var.project_id
@@ -125,6 +125,14 @@ resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_googl
 resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_admin_emails" {
   project   = var.project_id
   secret_id = google_secret_manager_secret.admin_emails.secret_id
+  role      = "roles/secretmanager.viewer"
+  member    = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# argos-deployer: metadatos de versiones del secreto de Gemini (009, D9-30 (8), T1316), a nivel de secreto. Sin secretAccessor.
+resource "google_secret_manager_secret_iam_member" "deployer_secret_viewer_gemini_api_key" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.gemini_api_key.secret_id
   role      = "roles/secretmanager.viewer"
   member    = "serviceAccount:${google_service_account.deployer.email}"
 }
@@ -209,6 +217,14 @@ resource "google_secret_manager_secret_iam_member" "run_google_oauth_client_secr
 resource "google_secret_manager_secret_iam_member" "run_admin_emails" {
   project   = var.project_id
   secret_id = google_secret_manager_secret.admin_emails.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.run.email}"
+}
+
+# argos-run: lectura del secreto de Gemini (009, D9-30 (8), T1316), solo a nivel de secreto. Sin roles de proyecto.
+resource "google_secret_manager_secret_iam_member" "run_gemini_api_key" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.gemini_api_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.run.email}"
 }

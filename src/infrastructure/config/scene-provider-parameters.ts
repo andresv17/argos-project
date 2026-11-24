@@ -9,32 +9,26 @@
 import type { PlatformParameterRepositoryPort } from '../../application/ports/platform-parameter.port.ts';
 import {
   SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY,
-  SCENE_PARAM_LOCATION_KEY,
   SCENE_DEFAULT_GLOBAL_QUOTA_MAX,
   SCENE_DEFAULT_LOCATION,
+  deriveLocation,
   SCENE_DEFAULT_MODEL,
   SCENE_PARAM_MODEL_KEY,
   SceneParameterError,
-  isAllowedSceneLocation,
   isSafeSceneModel,
   parseSceneGlobalQuotaMax,
   resolveSceneProviderParameters,
   type SceneProviderParameters,
 } from '../../domain/scene/provider-parameters.ts';
 import { DEFAULT_PROMPT_BLOCKS, PROMPT_BLOCK_MAX_LENGTH, validatePromptBlocks, type PromptBlocks } from '../../domain/scene/prompt-blocks.ts';
-import { isSelectableScenePair } from '../../domain/scene/scene-cost.ts';
 import type { SceneConfig } from './app-config.ts';
 
 type SceneEnvBackup = Pick<SceneConfig, 'globalQuotaMax' | 'model' | 'location'>;
 
 /** Fila > entorno > defecto para las tres claves; rechaza (lanza `SceneParameterError`) una fila inválida. */
 export async function loadSceneProviderParameters(repository: PlatformParameterRepositoryPort, env: SceneEnvBackup): Promise<SceneProviderParameters> {
-  const [globalQuotaMax, model, location] = await Promise.all([
-    repository.findValue(SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY),
-    repository.findValue(SCENE_PARAM_MODEL_KEY),
-    repository.findValue(SCENE_PARAM_LOCATION_KEY),
-  ]);
-  return resolveSceneProviderParameters({ db: { globalQuotaMax, model, location }, env: { globalQuotaMax: env.globalQuotaMax, model: env.model, location: env.location } });
+  const [globalQuotaMax, model] = await Promise.all([repository.findValue(SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY), repository.findValue(SCENE_PARAM_MODEL_KEY)]);
+  return resolveSceneProviderParameters({ db: { globalQuotaMax, model }, env: { globalQuotaMax: env.globalQuotaMax, model: env.model } });
 }
 
 /** Lector del tope global que vuelve a consultar la fila en cada llamada (editable luego desde el portal admin); una fila inválida lanza. */
@@ -52,7 +46,7 @@ export function createSceneGlobalQuotaMaxReader(repository: PlatformParameterRep
 export const SCENE_PARAMETERS_CACHE_MAX_TTL_MS = 60_000;
 
 /**
- * Lector EN CALIENTE de modelo, región y tope (T1265; REQ-CFG9-002, INV-CFG9-003, EDGE-009-018, EDGE-009-046): relee las tres filas con caché <= 60 s. Una fila ilegible, fuera de
+ * Lector EN CALIENTE de modelo y tope (la región se deriva del modelo, D9-29) (T1265; REQ-CFG9-002, INV-CFG9-003, EDGE-009-018, EDGE-009-046): relee las dos filas con caché <= 60 s. Una fila ilegible, fuera de
  * lista o `global` NO lanza: esa clave cae al respaldo de entorno y, en su defecto, al defecto de código; el valor inválido no se devuelve ni se registra. Si el repositorio falla
  * la lectura propaga el error (el adaptador falla cerrado).
  */
@@ -67,22 +61,17 @@ export function createSceneProviderParametersReader(options: {
   return async () => {
     const now = options.now();
     if (cached !== null && now - cached.at < ttl && now >= cached.at) return cached.value;
-    const [quotaRaw, modelRaw, locationRaw] = await Promise.all([
-      options.repository.findValue(SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY),
-      options.repository.findValue(SCENE_PARAM_MODEL_KEY),
-      options.repository.findValue(SCENE_PARAM_LOCATION_KEY),
-    ]);
+    const [quotaRaw, modelRaw] = await Promise.all([options.repository.findValue(SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY), options.repository.findValue(SCENE_PARAM_MODEL_KEY)]);
     const quotaParsed = quotaRaw === null ? null : parseSceneGlobalQuotaMax(quotaRaw);
     const envModel = options.env.model ?? SCENE_DEFAULT_MODEL;
-    const envLocation = options.env.location ?? SCENE_DEFAULT_LOCATION;
-    const model = modelRaw !== null && isSafeSceneModel(modelRaw) ? modelRaw : envModel;
-    const location = locationRaw !== null && isAllowedSceneLocation(locationRaw) ? locationRaw : envLocation;
-    // D9-27 / INV-CFG9-001: un par sin coste con fuente nunca se devuelve; cae al respaldo de entorno o al defecto del codigo, sin eco del valor.
-    const paired = modelRaw === null && locationRaw === null ? { model, location } : isSelectableScenePair(model, location) ? { model, location } : { model: envModel, location: envLocation };
+    // D9-29 / INV-CFG9-001: la region se DERIVA del modelo; un modelo sin par con coste de fuente nunca se devuelve y cae al respaldo de entorno o al defecto del codigo, sin eco del valor.
+    const dbModel = modelRaw !== null && isSafeSceneModel(modelRaw) && deriveLocation('vertex', modelRaw) !== null ? modelRaw : null;
+    const model = dbModel ?? (deriveLocation('vertex', envModel) !== null ? envModel : SCENE_DEFAULT_MODEL);
+    const location = deriveLocation('vertex', model) ?? SCENE_DEFAULT_LOCATION;
     const value: SceneProviderParameters = {
       globalQuotaMax: quotaParsed ?? options.env.globalQuotaMax ?? SCENE_DEFAULT_GLOBAL_QUOTA_MAX,
-      model: paired.model,
-      location: paired.location,
+      model,
+      location,
     };
     cached = { at: now, value };
     return value;

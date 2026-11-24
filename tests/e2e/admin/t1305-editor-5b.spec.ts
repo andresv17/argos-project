@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * T1305 (Feature 009, `[GH:#20]`, subfase 5b): editor de modelo, región, tope mensual de escenas y bloques del texto base en `/admin`, con sesión y API simuladas en el navegador.
+ * T1305 (Feature 009, `[GH:#20]`, subfase 5b): editor de modelo (la región se deriva, D9-29), tope mensual de escenas y bloques del texto base en `/admin`, con sesión y API simuladas en el navegador.
  * @implements REQ-CFG9-002, REQ-CFG9-004, REQ-CFG9-005, NFR-009-001; SC-009-022..025, SC-009-051
  */
 const WIDTHS = [320, 1024, 1280] as const;
@@ -22,7 +22,7 @@ const catalog = (): P[] => [
   p({ key: 'scene.enabled', valueType: 'BOOLEAN', value: 'true', default: 'true', constraints: { allowed: ['true', 'false'] } }),
   p({ key: 'scene.global_quota_max', value: '50', default: '50', constraints: { min: 1, max: 111 }, etag: '"etag-quota-000001"' }),
   p({ key: 'scene.provider_model', valueType: 'STRING', value: 'gemini-2.5-flash-image', default: 'gemini-2.5-flash-image', constraints: { allowed: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image'] }, etag: '"etag-model-000001"' }),
-  p({ key: 'scene.provider_location', valueType: 'STRING', value: 'us-central1', default: 'us-central1', constraints: { allowed: ['us-central1', 'global'] }, etag: '"etag-region-000001"' }),
+  p({ key: 'scene.provider_driver', valueType: 'STRING', value: 'vertex', default: 'vertex', constraints: { allowed: ['vertex'] } }),
   p({ key: 'scene.prompt.blocks', valueType: 'JSON_BLOCKS', value: JSON.stringify(BLOCKS), default: JSON.stringify(BLOCKS), constraints: { maxBlockLength: 1000 }, etag: '"etag-blocks-000001"' }),
 ];
 interface Fake { params: P[]; puts: Array<{ key: string; ifMatch: string | undefined; body: string | null }>; putStatus: number; putCode: string }
@@ -64,15 +64,15 @@ test('[REQ-CFG9-004] el selector de modelo ofrece solo los dos modelos seleccion
   await select.selectOption('gemini-3.1-flash-image-preview');
   await page.getByRole('button', { name: 'Guardar modelo' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Modelo de imagen guardado.' })).toHaveCount(1);
-  expect(fake.puts).toEqual([{ key: 'scene.provider_model', ifMatch: '"etag-model-000001"', body: '{"value":"gemini-3.1-flash-image"}' }]);
+  expect(fake.puts).toEqual([{ key: 'scene.provider_model', ifMatch: '"etag-model-000001"', body: '{"value":"gemini-3.1-flash-image-preview"}' }]);
 });
 
-test('[EDGE-009-046] la región ofrece solo us-central1 y avisa que global no está disponible; sin cifras de coste', async ({ page }) => {
+test('[EDGE-009-046] D9-29: selector único, sin selector de región: la región se deriva del modelo y se avisa junto al selector de modelo; sin cifras de coste', async ({ page }) => {
   await fakeAdmin(page);
   await openPanel(page);
-  const select = page.getByLabel('Región del servicio de imagen', { exact: true });
-  await expect(select.locator('option')).toHaveText(['us-central1']);
-  await expect(page.getByTestId('param-scene.provider_location')).toContainText('global no está disponible');
+  await expect(page.getByLabel('Región del servicio de imagen', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('param-scene.provider_location')).toHaveCount(0);
+  await expect(page.getByTestId('param-scene.provider_model')).toContainText('La región se elige sola según el modelo');
   expect(await page.locator('body').innerText()).not.toMatch(/USD|\$|micro/i);
 });
 

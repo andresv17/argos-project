@@ -16,7 +16,7 @@ const ADMIN_SUB = 'google-sub-admin-t1306';
 const PASSWORD = 'Clave-Segura-2026!';
 const CSRF = { 'X-Argos-Request': '1' } as const;
 const MODEL_KEY = 'scene.provider_model';
-const LOCATION_KEY = 'scene.provider_location';
+const LOCATION_KEY = 'scene.provider_location'; // D9-29: ya NO es una clave del catálogo; solo se usa para comprobar que no existe
 const QUOTA_KEY = 'scene.global_quota_max';
 const BLOCKS_KEY = 'scene.prompt.blocks';
 const FLASH = 'gemini-2.5-flash-image';
@@ -67,7 +67,8 @@ async function put(key: string, value: string): Promise<{ status: number; code: 
 }
 
 test('[REQ-CFG9-008][SC-009-022] las claves de 5b son escribibles: el modelo cambia de 2.5 a 3.1 y vuelve a 2.5', async () => {
-  for (const key of [MODEL_KEY, LOCATION_KEY, QUOTA_KEY, BLOCKS_KEY]) expect((await items()).find((i) => i.key === key)!.writable, key).toBe(true);
+  for (const key of [MODEL_KEY, QUOTA_KEY, BLOCKS_KEY]) expect((await items()).find((i) => i.key === key)!.writable, key).toBe(true);
+  expect((await items()).find((i) => i.key === LOCATION_KEY)).toBeUndefined();
   expect(await valueOf(MODEL_KEY)).toBe(FLASH);
   expect((await put(MODEL_KEY, FLASH31)).status).toBe(200);
   expect(await valueOf(MODEL_KEY)).toBe(FLASH31);
@@ -99,13 +100,16 @@ test('[EDGE-009-036] volver al modelo de 45_000 con tope 66 se acepta y el tope 
   expect((await put(QUOTA_KEY, '20')).status).toBe(200);
 });
 
-test('[REQ-CFG9-004][EDGE-009-046] pares no verificados y regiones fuera de lista: 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir', async () => {
-  for (const [key, bad] of [[MODEL_KEY, 'gemini-3-pro-image'], [LOCATION_KEY, 'us-east4'], [LOCATION_KEY, 'global'], [LOCATION_KEY, 'us-central1/../x']] as const) {
+test('[REQ-CFG9-004][EDGE-009-046] D9-29: modelo fuera de lista y clave de región retirada: 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir', async () => {
+  for (const [key, bad] of [[MODEL_KEY, 'gemini-3-pro-image']] as const) {
     const before = await valueOf(key);
     const r = await put(key, bad);
     expect([key, bad, r.status, r.code]).toEqual([key, bad, 422, 'ERR-SCHEMA-VALIDATION-FAILED']);
     expect(await valueOf(key)).toBe(before);
   }
+  // La clave de región ya no existe: el PUT se rechaza con 422 (clave desconocida) y no escribe nada.
+  const gone = await adminContext.request.put(`/api/admin/parameters/${encodeURIComponent(LOCATION_KEY)}`, { headers: { ...CSRF, 'If-Match': '"etag-inexistente"', 'Content-Type': 'application/json' }, data: { value: 'us-central1' } });
+  expect(gone.status()).toBe(422);
 });
 
 interface SceneBody { readonly status: string; readonly imageTag: string | null }

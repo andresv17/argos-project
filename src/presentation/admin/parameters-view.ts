@@ -15,7 +15,7 @@ export const KEY_LABEL: Readonly<Record<ParameterKey, string>> = {
   'scene.enabled': 'Generación de escenas',
   'scene.global_quota_max': 'Tope mensual de escenas de la plataforma',
   'scene.provider_model': 'Modelo de imagen',
-  'scene.provider_location': 'Región del servicio de imagen',
+  'scene.provider_driver': 'Proveedor de imágenes',
   'scene.prompt.blocks': 'Texto base de la escena',
 };
 
@@ -39,9 +39,8 @@ export const NEVER_EDITED = 'Sin ediciones desde este portal';
 export const SAVE_COST_CAP = 'La combinación supera el tope mensual de imágenes. No se ha guardado.';
 export const MODEL_DEPRECATION = 'El modelo gemini-2.5-flash-image se retira el 15 de marzo de 2027; después de esa fecha habrá que elegir otro modelo.';
 export const MODEL_SAVED = 'Modelo de imagen guardado.';
-/** Aviso de EDGE-009-046 antes de guardar (D9-27 (5)): con `global` el procesamiento no queda fijado a una región ni a un país. Texto aprobado en firme por Neo. */
-export const REGION_NOTICE = 'La región global procesa las imágenes sin fijarlas a una región ni a un país (transferencia internacional). Solo funciona con el modelo gemini-3.1-flash-image-preview; los pares válidos son gemini-2.5-flash-image con us-central1 y gemini-3.1-flash-image-preview con global.';
-export const REGION_SAVED = 'Región guardada.';
+/** Aviso de EDGE-009-046 junto al selector unico de modelo (D9-29): la region se deriva del modelo; con `global` el procesamiento no queda fijado a una region ni a un pais. */
+export const REGION_NOTICE = 'La región se elige sola según el modelo: gemini-2.5-flash-image se procesa en us-central1 y gemini-3.1-flash-image-preview en la región global, que procesa las imágenes sin fijarlas a una región ni a un país (transferencia internacional).';
 export const QUOTA_HEADING = 'Imágenes de escena al mes';
 export const QUOTA_HINT = 'Número máximo de imágenes de escena que la plataforma puede crear en un mes, sumando todas las cuentas.';
 export const QUOTA_SAVED = 'Tope mensual de escenas guardado.';
@@ -55,8 +54,14 @@ export const PHOTOREF = '{photoRef}';
 
 /** Modelos que se pueden elegir (D9-27): solo los de los pares válidos; `gemini-3-pro-image` queda latente, sin selección. */
 export const SELECTABLE_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'];
-/** Regiones con pares válidos (D9-27): `us-central1` con gemini-2.5 y `global` con gemini-3.1 preview. Al elegir una mitad el servidor guarda su pareja válida. */
-export const SELECTABLE_LOCATIONS: readonly string[] = ['us-central1', 'global'];
+/** Con el proveedor `gemini-api` (D9-30 (5)) se suma `gemini-3.1-flash-image`; Vertex no lo admite (el servidor responde 422). */
+export const SELECTABLE_MODELS_GEMINI_API: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'];
+/** Proveedores seleccionables (D9-30): el servidor solo lista en `allowed` los que tienen credenciales en este despliegue. */
+export const SELECTABLE_DRIVERS: readonly string[] = ['vertex', 'gemini-api'];
+export const DRIVER_LABEL: Readonly<Record<string, string>> = { vertex: 'Vertex AI (Google Cloud)', 'gemini-api': 'Gemini API (Google AI)' };
+export const DRIVER_HEADING = 'Proveedor de imágenes';
+export const DRIVER_SAVED = 'Proveedor de imágenes guardado.';
+export const DRIVER_NOTICE = 'Solo aparecen los proveedores configurados en este despliegue. Cambiar de proveedor cambia quién trata las imágenes: el aviso de consentimiento se pedirá de nuevo con el del nuevo proveedor.';
 export const DEPRECATED_MODEL = 'gemini-2.5-flash-image';
 
 export const BLOCK_NAMES = ['STYLE_BASE_TEXT', 'HOUSEHOLD_WITH_PHOTO', 'HOUSEHOLD_GENERIC', 'PRESERVATION_BLOCK', 'PIXEL_REDRAW_RULE', 'STYLE_CLOSING'] as const;

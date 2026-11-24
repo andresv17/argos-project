@@ -26,6 +26,8 @@ const CASES: Array<[string, string, string | undefined]> = [
   ['artifact_registry.tf', 'google_artifact_registry_repository', 'argos'],
   ['secret_manager.tf', 'google_secret_manager_secret', 'database_url'],
   ['secret_manager.tf', 'google_secret_manager_secret', 'audit_hmac_secret'],
+  // D9-30 (8) / T1316: el 6.º secreto también lleva app y managed-by.
+  ['secret_manager.tf', 'google_secret_manager_secret', 'gemini_api_key'],
   ['cloud_run.tf', 'google_cloud_run_v2_service', 'argos'],
 ];
 
@@ -41,7 +43,7 @@ describe('etiquetas app y managed-by (T484)', () => {
   it('todo secreto, repositorio y servicio declarado está cubierto por los casos', () => {
     const count = (f: string, t: string): number => resource(f, t).length;
     expect(count('artifact_registry.tf', 'google_artifact_registry_repository')).toBe(1);
-    expect(count('secret_manager.tf', 'google_secret_manager_secret')).toBe(5);
+    expect(count('secret_manager.tf', 'google_secret_manager_secret')).toBe(6);
     expect(count('cloud_run.tf', 'google_cloud_run_v2_service')).toBe(1);
   });
 

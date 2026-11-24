@@ -9,16 +9,14 @@
 
 import { DEFAULT_PROMPT_BLOCKS, PROMPT_BLOCK_MAX_LENGTH, validatePromptBlocks } from '../scene/prompt-blocks.ts';
 import {
-  SCENE_ALLOWED_LOCATIONS,
-  SCENE_GLOBAL_LOCATION_ENABLED,
   SCENE_DEFAULT_GLOBAL_QUOTA_MAX,
-  SCENE_DEFAULT_LOCATION,
   SCENE_DEFAULT_MODEL,
   SCENE_GLOBAL_QUOTA_MAX_DERIVED_CEILING,
   SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY,
-  SCENE_PARAM_LOCATION_KEY,
+  SCENE_PARAM_DRIVER_KEY,
   SCENE_PARAM_MODEL_KEY,
-  isAllowedSceneLocation,
+  SCENE_PROVIDER_DRIVERS,
+  isSceneProviderDriver,
   parseSceneGlobalQuotaMax,
 } from '../scene/provider-parameters.ts';
 import { ALBUM_MAX_PHOTOS_PER_PET_KEY, PARAMETER_CATALOG, interpretParameter } from './platform-parameters.ts';
@@ -33,15 +31,16 @@ export const ADMIN_PARAMETER_KEYS = [
   SCENE_ENABLED_KEY,
   SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY,
   SCENE_PARAM_MODEL_KEY,
-  SCENE_PARAM_LOCATION_KEY,
+  SCENE_PARAM_DRIVER_KEY,
   SCENE_PROMPT_BLOCKS_KEY,
 ] as const;
 export type AdminParameterKey = (typeof ADMIN_PARAMETER_KEYS)[number];
 
-/** Modelos admitidos: dos pares validos segun D9-27 (gemini-2.5-flash-image + us-central1, 45_000 µUSD; gemini-3.1-flash-image-preview + global, 75_000 µUSD). */
-/** Regiones del catalogo: la lista cerrada mas `global` mientras `SCENE_GLOBAL_LOCATION_ENABLED` (D9-27); el par valido lo decide la tabla de costes. */
-export const SCENE_ALLOWED_LOCATIONS_WITH_GLOBAL: readonly string[] = SCENE_GLOBAL_LOCATION_ENABLED ? [...SCENE_ALLOWED_LOCATIONS, 'global'] : SCENE_ALLOWED_LOCATIONS;
-export const SCENE_ALLOWED_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image'];
+/**
+ * Modelos del selector unico (D9-29, D9-30 (5)): la region NO es un parametro, se deriva del modelo (`deriveLocation`; gemini-2.5-flash-image => us-central1, 45_000 µUSD; gemini-3.1-flash-image-preview =>
+ * global, 75_000 µUSD, solo Vertex). Union de los modelos de ambos proveedores; cada proveedor admite un subconjunto (`SCENE_MODELS_BY_DRIVER`) y guardar un modelo que el proveedor vigente no admite es 422.
+ */
+export const SCENE_ALLOWED_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3.1-flash-image-preview'];
 
 export interface AdminParameterConstraints {
   readonly min?: number;
@@ -112,15 +111,16 @@ export const ADMIN_PARAMETER_CATALOG: Readonly<Record<AdminParameterKey, AdminPa
     isCanonical: (raw) => SCENE_ALLOWED_MODELS.includes(raw),
     isEffective: (raw) => SCENE_ALLOWED_MODELS.includes(raw),
   },
-  [SCENE_PARAM_LOCATION_KEY]: {
-    key: SCENE_PARAM_LOCATION_KEY,
+  [SCENE_PARAM_DRIVER_KEY]: {
+    key: SCENE_PARAM_DRIVER_KEY,
     valueType: 'STRING',
-    defaultValue: SCENE_DEFAULT_LOCATION,
-    constraints: { allowed: SCENE_ALLOWED_LOCATIONS_WITH_GLOBAL },
+    // D9-30 (2): el defecto REAL depende del despliegue (`vertex` con configuracion de Vertex; si no, el del entorno); la lista `allowed` de la vista la restringe a los proveedores con credenciales.
+    defaultValue: 'vertex',
+    constraints: { allowed: SCENE_PROVIDER_DRIVERS },
     writable: true,
-    description: 'Región del proveedor de imágenes de escena',
-    isCanonical: isAllowedSceneLocation,
-    isEffective: isAllowedSceneLocation,
+    description: 'Proveedor de generación de imágenes de escena',
+    isCanonical: isSceneProviderDriver,
+    isEffective: isSceneProviderDriver,
   },
   [SCENE_PROMPT_BLOCKS_KEY]: {
     key: SCENE_PROMPT_BLOCKS_KEY,

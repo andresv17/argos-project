@@ -11,7 +11,6 @@ import {
   SCENE_DEFAULT_MODEL,
   SCENE_GLOBAL_QUOTA_USED_PREFIX,
   SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY,
-  SCENE_PARAM_LOCATION_KEY,
   SCENE_PARAM_MODEL_KEY,
   SceneParameterError,
   resolveSceneProviderParameters,
@@ -30,7 +29,7 @@ import { sceneFixture, withScene } from '../fixtures/scene-services-fixtures.ts'
  * global mensual se descuenta con `UPDATE ... WHERE usado < max` atómico (concurrencia y cambio de mes); agotada la cuota devuelve el error tipado vigente y no llama al
  * proveedor. REQ-ESC6-017, REQ-ESC6-031. PostgreSQL real: lo cubre `npm run test:gate` (aquí SQLite real y un doble de `query` para la forma de la sentencia).
  */
-const NO_DB = { globalQuotaMax: null, model: null, location: null } as const;
+const NO_DB = { globalQuotaMax: null, model: null } as const;
 const NO_ENV = { globalQuotaMax: null, model: null, location: null } as const;
 
 describe('valores por defecto y precedencia (fila > entorno > defecto)', () => {
@@ -40,11 +39,11 @@ describe('valores por defecto y precedencia (fila > entorno > defecto)', () => {
   });
 
   it('[REQ-ESC6-017] sin fila rige el respaldo de entorno', () => {
-    expect(resolveSceneProviderParameters({ db: NO_DB, env: { globalQuotaMax: 7, model: 'gemini-2.5-flash-image-x', location: 'us-east4' } })).toEqual({ globalQuotaMax: 7, model: 'gemini-2.5-flash-image-x', location: 'us-east4' });
+    expect(resolveSceneProviderParameters({ db: NO_DB, env: { globalQuotaMax: 7, model: 'gemini-3.1-flash-image-preview', location: 'us-east4' } })).toEqual({ globalQuotaMax: 7, model: 'gemini-3.1-flash-image-preview', location: 'global' }); // D9-29: la region de entorno ya no manda; se deriva del modelo
   });
 
   it('[REQ-ESC6-017] la fila de platform_parameters prevalece sobre el entorno', () => {
-    expect(resolveSceneProviderParameters({ db: { globalQuotaMax: '9', model: 'gemini-3.1-flash-image-preview', location: 'global' }, env: { globalQuotaMax: 7, model: 'gemini-2.5-flash-image', location: 'us-east4' } })).toEqual({
+    expect(resolveSceneProviderParameters({ db: { globalQuotaMax: '9', model: 'gemini-3.1-flash-image-preview' }, env: { globalQuotaMax: 7, model: 'gemini-2.5-flash-image', location: 'us-east4' } })).toEqual({
       globalQuotaMax: 9,
       model: 'gemini-3.1-flash-image-preview',
       location: 'global',
@@ -61,8 +60,8 @@ describe('valores por defecto y precedencia (fila > entorno > defecto)', () => {
     }
   });
 
-  it.each(['us-central1.evil.com', 'US-CENTRAL1', 'mars-1', '', 'us-central1/x'])('[REQ-ESC6-031] la región %j de la fila fuera de la lista cerrada rechaza el arranque', (raw) => {
-    expect(() => resolveSceneProviderParameters({ db: { ...NO_DB, location: raw }, env: NO_ENV })).toThrow(new SceneParameterError([SCENE_PARAM_LOCATION_KEY]));
+  it.each(['gemini-2.5-flash-image-x', 'gemini-3-pro-image', 'gemini-3.1-flash-image'])('[REQ-ESC6-031][D9-29] el modelo %j sin par con coste (la region se deriva del modelo) rechaza el arranque y nombra solo la clave del modelo', (raw) => {
+    expect(() => resolveSceneProviderParameters({ db: { ...NO_DB, model: raw }, env: NO_ENV })).toThrow(new SceneParameterError([SCENE_PARAM_MODEL_KEY]));
   });
 
   it.each(['../x', 'gpt-4', 'gemini/x', 'gemini-a?b', ''])('[REQ-ESC6-031] el modelo %j de la fila fuera de la regex rechaza el arranque', (raw) => {
@@ -71,10 +70,10 @@ describe('valores por defecto y precedencia (fila > entorno > defecto)', () => {
 
   it('[REQ-ESC6-031] varias filas inválidas se listan todas, sin valores', () => {
     try {
-      resolveSceneProviderParameters({ db: { globalQuotaMax: 'x', model: '../y', location: 'zz' }, env: NO_ENV });
+      resolveSceneProviderParameters({ db: { globalQuotaMax: 'x', model: '../y' }, env: NO_ENV });
       throw new Error('debía lanzar');
     } catch (error) {
-      expect((error as SceneParameterError).keys).toEqual([SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY, SCENE_PARAM_MODEL_KEY, SCENE_PARAM_LOCATION_KEY]);
+      expect((error as SceneParameterError).keys).toEqual([SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY, SCENE_PARAM_MODEL_KEY]);
     }
   });
 
@@ -97,10 +96,10 @@ describe('lectura desde el repositorio de platform_parameters', () => {
   };
   const scene = { globalQuotaMax: 5, model: null, location: null } as const;
 
-  it('[REQ-ESC6-017] lee solo las tres claves cerradas y combina con el entorno', async () => {
-    const r = repo({ [SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY]: '3', [SCENE_PARAM_LOCATION_KEY]: 'us-central1' });
+  it('[REQ-ESC6-017] lee solo las dos claves cerradas (D9-29: sin region) y combina con el entorno', async () => {
+    const r = repo({ [SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY]: '3', 'scene.provider_location': 'us-east4' }); // la fila heredada de region NO se lee
     expect(await loadSceneProviderParameters(r, { globalQuotaMax: 5, model: 'gemini-2.5-flash-image', location: null })).toEqual({ globalQuotaMax: 3, model: 'gemini-2.5-flash-image', location: 'us-central1' });
-    expect(r.reads.sort()).toEqual([SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY, SCENE_PARAM_LOCATION_KEY, SCENE_PARAM_MODEL_KEY].sort());
+    expect(r.reads.sort()).toEqual([SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY, SCENE_PARAM_MODEL_KEY].sort());
   });
 
   it('[REQ-ESC6-017] sin filas y sin entorno rigen los valores por defecto', async () => {
@@ -108,7 +107,7 @@ describe('lectura desde el repositorio de platform_parameters', () => {
   });
 
   it('[REQ-ESC6-031] una fila inválida hace fallar el arranque (rechaza) con la clave y sin el valor', async () => {
-    await expect(loadSceneProviderParameters(repo({ [SCENE_PARAM_LOCATION_KEY]: 'evil.example' }), scene)).rejects.toThrow(new SceneParameterError([SCENE_PARAM_LOCATION_KEY]));
+    await expect(loadSceneProviderParameters(repo({ [SCENE_PARAM_MODEL_KEY]: 'gemini-evil-example' }), scene)).rejects.toThrow(new SceneParameterError([SCENE_PARAM_MODEL_KEY]));
   });
 
   it('[REQ-ESC6-017] el lector del tope vuelve a leer la fila en cada llamada (editable desde el portal admin) y una fila inválida lanza', async () => {

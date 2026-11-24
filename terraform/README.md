@@ -102,6 +102,13 @@ Feature 009 (`#19`), Enmienda 009-A. Nada de esto requiere `terraform apply` en 
 2. Tras crear el contenedor `argos-admin-emails` vía Terraform (`infraestructura.yml`), cargar la versión con la lista real (una sola línea, separada por comas) mediante `gcloud secrets versions add argos-admin-emails --data-file=- --project=<project_id>`, sin guardar el valor en el repositorio ni en el state.
 3. Confirmar la lista con Neo antes de cualquier despliegue; `terraform plan`/`apply` solo se ejecutan con aprobación de Nivel 2.
 
+**4. Secreto de la API de Gemini (`argos-gemini-api-key`, 009, D9-30 (8), T1316).**
+- `terraform/secret_manager.tf` declara solo el contenedor del secreto (sin `google_secret_manager_secret_version`: ni la clave ni un marcador entran al repositorio ni al state). Bindings mínimos en `terraform/iam.tf`: `argos-run` con `secretAccessor` a nivel de secreto y `argos-deployer` con `secretmanager.viewer` (sin `secretAccessor`).
+- **Opcional:** sin versión habilitada, `deploy-argos.yml` no referencia `GEMINI_API_KEY` y el despliegue no falla. El proveedor `gemini-api` queda no disponible y falla cerrado (D9-30 (2) y (4)).
+- Cuando existe, `deploy-argos.yml` la inyecta como `GEMINI_API_KEY` con la versión numérica más alta habilitada (`--set-secrets GEMINI_API_KEY=argos-gemini-api-key:<N>`), nunca `latest`.
+- Carga de la clave (paso humano de Neo, fuera de Terraform y de GitHub Actions): `printf '%s' "$CLAVE" | gcloud secrets versions add argos-gemini-api-key --data-file=- --project=<project_id>`. No pegue la clave en el repositorio, en `.env.example` ni en el historial de comandos.
+- Terraform no ejecuta `apply` desde agentes; el `plan`/`apply` solo con aprobación de Nivel 2.
+
 ## Secuencia de bootstrap en dos fases (T469 a; REQ-IAC-010, REQ-IAC-012)
 
 Solo documentación: no cambia ninguna lógica de `bootstrap.sh` ni de Terraform.

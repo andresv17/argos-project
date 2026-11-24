@@ -151,10 +151,11 @@ export interface AdminParameterRepositoryPort {
    * compartidos (`owner_user_id` nulo) y `scene.global_quota_used.*` NO se tocan. Cada fila se pone a cero con compare-and-set sobre el valor leido: si otra escritura lo cambio, devuelve `null`
    * (el caso de uso revierte la transaccion entera, sin cambios parciales). Devuelve cuantas cuentas coincidieron (puede ser 0), nunca sus ids.
    * AMPLIADO (fix 009 produccion, D9-28; SC-009-054): tambien pone a cero las escenas de los hogares donde la cuenta es propietaria legal (`households.owner_user_id`), ELIMINA su `scene_quota_carry`
-   * y desbloquea FAILED_LIMIT: los intentos `FAILED` de esas escenas con `started_at >= failedSince` pasan a `CANCELLED` conservando `provider_call_started_at` (el gasto mensual no cambia) y
-   * `run_state = 'failed'` vuelve a nulo. No toca `scene.global_quota_used.*` ni hogares ajenos.
+   * `run_state = 'failed'` vuelve a nulo (una escena con intento activo `generating` no se toca). No toca `scene.global_quota_used.*` ni hogares ajenos.
+   * REEMPLAZADO (D9-31, T1315): ya NO reescribe `scene_attempts` (ni `outcome` ni `provider_call_started_at`); fija `limits_reset_at = resetAt` en cada escena afectada y en la marca por usuario de cada
+   * cuenta (`scene_actor_limit_marks`), de modo que FAILED_LIMIT, los intentos cerrados sin llamada y ACTOR_LIMIT cuentan solo intentos posteriores. El enfriamiento tras SUCCEEDED no se reinicia.
    */
-  resetAdminAccountsSceneQuota(subjects: readonly string[], emails: readonly string[], failedSince: string): Promise<{ readonly accountsReset: number } | null>;
+  resetAdminAccountsSceneQuota(subjects: readonly string[], emails: readonly string[], resetAt: string): Promise<{ readonly accountsReset: number } | null>;
   /** Intentos de la ventana mensual `quota_window` (YYYY-MM de America/Bogota, fijada al crear el intento) para la regla de coste de `EDGE-009-036`. El filtro es por ventana, no por UTC. */
   listSceneSpendAttempts(window: string): Promise<readonly SceneSpendAttemptRecord[]>;
 }

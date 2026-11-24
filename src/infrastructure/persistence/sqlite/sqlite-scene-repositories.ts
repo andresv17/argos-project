@@ -54,6 +54,8 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
   );
   const lastOutcome = db.prepare<[string], { o: string | null }>('SELECT outcome AS o FROM scene_attempts WHERE scene_id = ? ORDER BY started_at DESC, id DESC LIMIT 1');
   const lastStarted = db.prepare<[string], { m: string | null }>('SELECT max(started_at) AS m FROM scene_attempts WHERE scene_id = ?');
+  const sceneMark = db.prepare<[string], { m: string | null }>('SELECT limits_reset_at AS m FROM home_scenes WHERE id = ?');
+  const actorMark = db.prepare<[string], { m: string | null }>('SELECT limits_reset_at AS m FROM scene_actor_limit_marks WHERE user_id = ?');
   const oldestActor = db.prepare<[string, string], { m: string | null }>('SELECT min(started_at) AS m FROM scene_attempts WHERE actor_user_id = ? AND started_at >= ?');
   const countActor = db.prepare<[string, string], { n: number }>(
     'SELECT count(*) AS n FROM scene_attempts WHERE actor_user_id = ? AND started_at >= ? AND (provider_call_started_at IS NOT NULL OR outcome IS NULL)',
@@ -172,6 +174,9 @@ export function sqliteSceneRepository(db: SqliteDatabase): SceneRepository {
     },
     async lastAttemptOutcome(sceneId) {
       return (lastOutcome.get(sceneId)?.o ?? null) as 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | null;
+    },
+    async findLimitResetMarks(sceneId, actorUserId) {
+      return { scene: sceneMark.get(sceneId)?.m ?? null, actor: actorMark.get(actorUserId)?.m ?? null };
     },
     async oldestActorAttemptAt(actorUserId, since) {
       return oldestActor.get(actorUserId, since)?.m ?? null;

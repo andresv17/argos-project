@@ -22,7 +22,7 @@ const catalog = (): P[] => [
   base({ key: 'scene.enabled', valueType: 'BOOLEAN', value: 'true', default: 'true', constraints: { allowed: ['true', 'false'] }, writable: true, etag: '"etag-scene-000001"' }),
   base({ key: 'scene.global_quota_max', value: '5', default: '5', constraints: { min: 1, max: 1000 } }),
   base({ key: 'scene.provider_model', valueType: 'STRING', value: 'gemini-2.5-flash-image', default: 'gemini-2.5-flash-image', constraints: { allowed: ['gemini-2.5-flash-image'] } }),
-  base({ key: 'scene.provider_location', valueType: 'STRING', value: 'us-central1', default: 'us-central1', constraints: { allowed: ['us-central1'] } }),
+  base({ key: 'scene.provider_driver', valueType: 'STRING', value: 'vertex', default: 'vertex', constraints: { allowed: ['vertex'] } }),
   base({ key: 'scene.prompt.blocks', valueType: 'JSON_BLOCKS', value: '{"SECRETO":"x"}', default: '{"SECRETO":"x"}', constraints: { maxBlockLength: 800 } }),
 ];
 
@@ -88,7 +88,7 @@ test('[REQ-CFG9-001][REQ-CFG9-002] muestra valor vigente, defecto, rango, fecha 
 test('[REQ-CFG9-001] las claves de la subfase 5b (writable=false) no tienen campo ni botón de edición', async ({ page }) => {
   await fakeAdmin(page);
   await openPanel(page);
-  for (const key of ['scene.global_quota_max', 'scene.provider_model', 'scene.provider_location', 'scene.prompt.blocks']) {
+  for (const key of ['scene.global_quota_max', 'scene.provider_model', 'scene.prompt.blocks']) {
     const card = page.getByTestId(`param-${key}`);
     if ((await card.count()) > 0) {
       await expect(card.locator('input, textarea, select, button')).toHaveCount(0);

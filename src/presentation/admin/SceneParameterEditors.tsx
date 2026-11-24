@@ -25,13 +25,17 @@ import {
   QUOTA_HINT,
   QUOTA_SAVED,
   REGION_NOTICE,
-  REGION_SAVED,
   SAVE_COST_CAP,
   SAVE_FAILED,
   SAVE_INVALID,
   SAVE_PRECONDITION,
-  SELECTABLE_LOCATIONS,
+  DRIVER_HEADING,
+  DRIVER_LABEL,
+  DRIVER_NOTICE,
+  DRIVER_SAVED,
+  SELECTABLE_DRIVERS,
   SELECTABLE_MODELS,
+  SELECTABLE_MODELS_GEMINI_API,
   authorLabel,
   blockProblem,
   formatEditedAt,
@@ -57,7 +61,7 @@ const SELECT_ARROW = {
   backgroundRepeat: 'no-repeat',
 } as const;
 
-export type EditorScope = 'model' | 'region' | 'quota' | 'blocks';
+export type EditorScope = 'model' | 'driver' | 'quota' | 'blocks';
 export interface EditorMessage {
   readonly kind: 'ok' | 'error';
   readonly text: string;
@@ -75,8 +79,6 @@ export interface EditorProps {
   readonly onSessionLost: () => void;
   /** Imagenes que aun caben por par (contrato 1.5.0); vacio = no se muestra ninguna cifra. */
   readonly imagesFit?: readonly ImagesFit[];
-  /** Valor vigente de la otra mitad del par (la region para el modelo y el modelo para la region). */
-  readonly otherValue?: string | undefined;
 }
 
 const fitText = (n: number): string => `Imágenes que aún caben: ${n}`;
@@ -184,34 +186,34 @@ function SelectEditor(props: EditorProps & { readonly heading: string; readonly 
   );
 }
 
-export function ModelEditor(props: EditorProps): JSX.Element {
+export function DriverEditor(props: EditorProps): JSX.Element {
+  return (
+    <SelectEditor
+      {...props}
+      id="scene-driver"
+      heading={DRIVER_HEADING}
+      selectable={SELECTABLE_DRIVERS}
+      okText={DRIVER_SAVED}
+      submitLabel="Guardar proveedor"
+      optionText={(v) => DRIVER_LABEL[v] ?? v}
+      fitFor={() => null}
+      notes={[<>{DRIVER_NOTICE}</>]}
+    />
+  );
+}
+
+export function ModelEditor(props: EditorProps & { readonly driver?: string | undefined }): JSX.Element {
   return (
     <SelectEditor
       {...props}
       id="scene-model"
       heading="Modelo de imagen"
-      selectable={SELECTABLE_MODELS}
+      selectable={props.driver === 'gemini-api' ? SELECTABLE_MODELS_GEMINI_API : SELECTABLE_MODELS}
       okText={MODEL_SAVED}
       submitLabel="Guardar modelo"
       optionText={(v) => (v === DEPRECATED_MODEL ? `${v} (se retira el 15 de marzo de 2027)` : v)}
-      fitFor={(v) => props.imagesFit?.find((f) => f.model === v && f.location === props.otherValue)?.imagesFit ?? null}
-      notes={[<>{MODEL_DEPRECATION}</>, <>Solo se pueden elegir los modelos de esta lista.</>]}
-    />
-  );
-}
-
-export function RegionEditor(props: EditorProps): JSX.Element {
-  return (
-    <SelectEditor
-      {...props}
-      id="scene-region"
-      heading="Región del servicio de imagen"
-      selectable={SELECTABLE_LOCATIONS}
-      okText={REGION_SAVED}
-      submitLabel="Guardar región"
-      optionText={(v) => v}
-      fitFor={(v) => props.imagesFit?.find((f) => f.model === props.otherValue && f.location === v)?.imagesFit ?? null}
-      notes={[<>{REGION_NOTICE}</>]}
+      fitFor={(v) => props.imagesFit?.find((f) => f.model === v)?.imagesFit ?? null}
+      notes={[<>{MODEL_DEPRECATION}</>, <>{REGION_NOTICE}</>, <>Solo se pueden elegir los modelos de esta lista.</>]}
     />
   );
 }

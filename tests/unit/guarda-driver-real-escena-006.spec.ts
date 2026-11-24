@@ -86,6 +86,7 @@ describe('código: VertexSceneImageGenerator solo en su archivo y no hay SDK de 
       [
         'src/infrastructure/adapters/fake-scene-image-generator.adapter.ts',
         'src/infrastructure/adapters/null-scene-adapters.ts',
+        'src/infrastructure/adapters/scene-provider-router.adapter.ts', // T1314: enrutador por proveedor (no declara clase Vertex ni Gemini)
         ...(SRC.includes(GEMINI_API_ADAPTER) ? [GEMINI_API_ADAPTER] : []),
         VERTEX_ADAPTER,
       ].sort(),

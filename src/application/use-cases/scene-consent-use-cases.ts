@@ -18,16 +18,17 @@ import type { RepositorySet } from '../ports/repositories.port.ts';
 import type { SceneConsentRecord, SceneRecord } from '../ports/scene-repositories.port.ts';
 import { purgeObjects } from './media-use-cases.ts';
 import { opaqueRef, recordSceneAudit } from './scene-audit.ts';
-import { currentNoticeVersion, hasActiveConsent, requireScene } from './scene-use-cases.ts';
+import { currentNoticeVersion, currentProviderId, hasActiveConsent, requireScene } from './scene-use-cases.ts';
 import type { ApplicationDeps, SceneServices } from './use-case-support.ts';
 
 const SCOPES: readonly ConsentScope[] = ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'];
 
 async function consentState(r: RepositorySet, svc: SceneServices, userId: string): Promise<SceneConsentState> {
   const noticeVersion = await currentNoticeVersion(svc);
+  const providerId = await currentProviderId(svc);
   const householdPhotoGranted = await hasActiveConsent(r, svc, userId, 'HOUSEHOLD_PHOTO');
   const petPhotosGranted = await hasActiveConsent(r, svc, userId, 'PET_PHOTOS');
-  return { required: svc.realDriver && !householdPhotoGranted && !petPhotosGranted, noticeVersion, providerId: svc.providerId, householdPhotoGranted, petPhotosGranted };
+  return { required: svc.realDriver && !householdPhotoGranted && !petPhotosGranted, noticeVersion, providerId, householdPhotoGranted, petPhotosGranted };
 }
 
 const invalid = (detail: string): DomainError => new DomainError('ERR-SCHEMA-VALIDATION-FAILED', detail, 'scopes');
@@ -38,7 +39,7 @@ export class GetSceneNoticeUseCase {
 
   async execute(): Promise<SceneNotice> {
     const svc = requireScene(this.deps);
-    return { noticeVersion: await currentNoticeVersion(svc), providerId: svc.providerId, scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] };
+    return { noticeVersion: await currentNoticeVersion(svc), providerId: await currentProviderId(svc), scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] };
   }
 }
 
@@ -50,6 +51,7 @@ export class GrantSceneConsentUseCase {
     const { deps } = this;
     const svc = requireScene(deps);
     const noticeVersion = await currentNoticeVersion(svc);
+    const providerId = await currentProviderId(svc);
     if (typeof input !== 'object' || input === null || Array.isArray(input)) throw invalid('El cuerpo debe ser un objeto.');
     const body = input as Record<string, unknown>;
     const scopes = body['scopes'];
@@ -59,20 +61,20 @@ export class GrantSceneConsentUseCase {
     if (!Array.isArray(scopes) || scopes.length < 1 || scopes.length > 2 || new Set(scopes).size !== scopes.length || scopes.some((s) => !SCOPES.includes(s as ConsentScope))) {
       throw invalid('scopes debe tener 1 o 2 ámbitos distintos.');
     }
-    if (body['noticeVersion'] !== noticeVersion || body['providerId'] !== svc.providerId) throw new DomainErrorV34('ERR-SCENE-NOTICE-OUTDATED');
+    if (body['noticeVersion'] !== noticeVersion || body['providerId'] !== providerId) throw new DomainErrorV34('ERR-SCENE-NOTICE-OUTDATED');
     return deps.uow.runInTransaction(async (r) => {
       const now = deps.clock.nowIsoTimestamp();
       const created: ConsentScope[] = [];
       for (const scope of scopes as ConsentScope[]) {
-        if ((await r.sceneConsents.findActive(userId, scope, svc.providerId, noticeVersion)) !== null) continue;
-        const record: SceneConsentRecord = { id: deps.ids.nextId(), userId, scope, providerId: svc.providerId, noticeVersion, grantedAt: now, revokedAt: null };
+        if ((await r.sceneConsents.findActive(userId, scope, providerId, noticeVersion)) !== null) continue;
+        const record: SceneConsentRecord = { id: deps.ids.nextId(), userId, scope, providerId, noticeVersion, grantedAt: now, revokedAt: null };
         await r.sceneConsents.grant(record);
         created.push(scope);
       }
       if (created.length > 0) {
         await recordSceneAudit(deps, r, {
           executorUserId: userId, mutationType: 'CREATE', entityType: 'SCENE_CONSENT', entityId: opaqueRef(deps, userId), event: 'SCENE_CONSENT_GRANTED',
-          detail: { actorRef: opaqueRef(deps, userId), scopes: [...created].sort(), noticeVersion, providerId: svc.providerId },
+          detail: { actorRef: opaqueRef(deps, userId), scopes: [...created].sort(), noticeVersion, providerId },
         });
       }
       return consentState(r, svc, userId);
@@ -88,11 +90,12 @@ export class RevokeSceneConsentUseCase {
     const { deps } = this;
     const svc = requireScene(deps);
     const noticeVersion = await currentNoticeVersion(svc);
+    const providerId = await currentProviderId(svc);
     const outcome = await deps.uow.runInTransaction(async (r) => {
       const now = deps.clock.nowIsoTimestamp();
       const revoked: ConsentScope[] = [];
       for (const scope of SCOPES) {
-        const active = await r.sceneConsents.findActive(userId, scope, svc.providerId, noticeVersion);
+        const active = await r.sceneConsents.findActive(userId, scope, providerId, noticeVersion);
         if (active !== null && (await r.sceneConsents.revoke(active.id, now))) revoked.push(scope);
       }
       const latest = await r.sceneConsents.findByUserId(userId);
@@ -100,7 +103,7 @@ export class RevokeSceneConsentUseCase {
       if (revoked.length > 0) {
         await recordSceneAudit(deps, r, {
           executorUserId: userId, mutationType: 'UPDATE', entityType: 'SCENE_CONSENT', entityId: opaqueRef(deps, userId), event: 'SCENE_CONSENT_REVOKED',
-          detail: { actorRef: opaqueRef(deps, userId), scopes: [...revoked].sort(), noticeVersion, providerId: svc.providerId },
+          detail: { actorRef: opaqueRef(deps, userId), scopes: [...revoked].sort(), noticeVersion, providerId },
         });
       }
 

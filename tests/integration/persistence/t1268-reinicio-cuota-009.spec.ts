@@ -120,7 +120,7 @@ describe.each(ENGINES)('T1268 [REQ-CFG9-006] reinicio de cuota de las cuentas de
       expect(read).toEqual({ household: 0, own: 0, carry: [null, 6] });
     });
 
-    it('FAILED de las ultimas 24 h pasan a CANCELLED con provider_call_started_at intacto y run_state failed se limpia; los antiguos y los de otras escenas no cambian', async () => {
+    it('D9-31: scene_attempts NO se reescribe (siguen FAILED con provider_call_started_at intacto), run_state failed se limpia y las marcas limits_reset_at quedan en las escenas y el actor del admin, no en los ajenos', async () => {
       engine = await openEngine(name, stateWith([]));
       const owner = HOUSEHOLD.ownerUserId;
       const other = CANONICAL_USER_IDS.find((u) => u !== owner)!;
@@ -145,7 +145,7 @@ describe.each(ENGINES)('T1268 [REQ-CFG9-006] reinicio de cuota de las cuentas de
       }
       const before = await engine.read(async (r) => ({ hs: (await r.scenes.findByHouseholdId(HOUSEHOLD.id))?.runState, f: (await r.scenes.findByOwnerUserId(other))?.runState }));
       expect(before).toEqual({ hs: 'failed', f: 'failed' });
-      await engine.uow.runInTransaction((r) => r.adminParameters.resetAdminAccountsSceneQuota([SUB], [], '2026-11-23T12:00:00.000Z'));
+      await engine.uow.runInTransaction((r) => r.adminParameters.resetAdminAccountsSceneQuota([SUB], [], NOW));
       const after = await engine.read(async (r) => ({
         hs: (await r.scenes.findByHouseholdId(HOUSEHOLD.id))?.runState ?? null,
         f: (await r.scenes.findByOwnerUserId(other))?.runState,
@@ -153,12 +153,12 @@ describe.each(ENGINES)('T1268 [REQ-CFG9-006] reinicio de cuota de las cuentas de
           const row = await r.scenes.findAttemptById(`d1000000-0000-4000-8000-${String(n).padStart(12, '0')}`);
           return [row?.outcome, row?.providerCallStartedAt];
         })),
-        failedNow: await r.scenes.countFailedAttemptsByScene(HS, '2026-11-23T12:00:00.000Z'),
+        marks: [await r.scenes.findLimitResetMarks(HS, owner), await r.scenes.findLimitResetMarks(FOREIGN, other)],
       }));
       expect(after.hs).toBeNull();
       expect(after.f).toBe('failed');
-      expect(after.a).toEqual([['CANCELLED', CALL], ['CANCELLED', CALL], ['FAILED', CALL], ['FAILED', CALL]]);
-      expect(after.failedNow.count).toBe(0);
+      expect(after.a).toEqual([['FAILED', CALL], ['FAILED', CALL], ['FAILED', CALL], ['FAILED', CALL]]);
+      expect(after.marks).toEqual([{ scene: NOW, actor: NOW }, { scene: null, actor: null }]);
     });
 
     it('T1312 (OBS-A): aserción de hogar ajeno — si el admin NO es propietario legal del hogar, su escena, su arrastre, su run_state y sus FAILED quedan intactos', async () => {

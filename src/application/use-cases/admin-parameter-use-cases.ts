@@ -21,11 +21,18 @@ import {
   type AdminParameterKey,
   type AdminParameterSpec,
 } from '../../domain/platform/admin-parameter-catalog.ts';
-import { ATTEMPT_WINDOW_SECONDS } from '../../domain/scene/attempt-limits.ts';
-import { shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
 import { quotaWindowOf } from '../../domain/scene/quota-window.ts';
-import { SCENE_COST_TABLE_MICRO_USD, evaluateSceneSpendRule, isSelectableScenePair, sceneImagesFit, type SceneImagesFit } from '../../domain/scene/scene-cost.ts';
-import { SCENE_GLOBAL_QUOTA_USED_PREFIX, SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY, SCENE_PARAM_LOCATION_KEY, SCENE_PARAM_MODEL_KEY } from '../../domain/scene/provider-parameters.ts';
+import { SCENE_COST_TABLE_MICRO_USD, evaluateSceneSpendRule, sceneCostKeyOf, sceneImagesFit, type SceneImagesFit } from '../../domain/scene/scene-cost.ts';
+import {
+  SCENE_GLOBAL_QUOTA_USED_PREFIX,
+  SCENE_PARAM_DRIVER_KEY,
+  SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY,
+  SCENE_PARAM_MODEL_KEY,
+  deriveLocation,
+  driverSupportsModel,
+  isSceneProviderDriver,
+  type SceneProviderDriver,
+} from '../../domain/scene/provider-parameters.ts';
 import { DomainError } from '../../generated/v35/index.ts';
 import type { ParameterRowRecord } from '../ports/admin.port.ts';
 import { ADMIN_AUDIT_ACTIONS } from './admin-use-cases.ts';
@@ -56,15 +63,30 @@ export function parameterEtag(key: string, row: ParameterRowRecord | null): stri
   return `"${digest.slice(0, 32)}"`;
 }
 
-function viewOf(spec: AdminParameterSpec, row: ParameterRowRecord | null, lastEditedBy: string | null): AdminParameterView {
-  const { value, source } = effectiveParameter(spec, row?.value ?? null);
+/** Proveedores del despliegue (T1314, D9-30): con credenciales y defecto de la fila ausente. Sin escena compuesta no hay ninguno (falla cerrado). */
+export interface AdminDriverAvailability {
+  readonly available: readonly SceneProviderDriver[];
+  readonly defaultDriver: SceneProviderDriver | null;
+}
+const driversOf = (deps: ApplicationDeps): AdminDriverAvailability => ({
+  available: deps.scene?.providerRouting?.available ?? [],
+  defaultDriver: deps.scene?.providerRouting?.defaultDriver ?? null,
+});
+
+function viewOf(spec: AdminParameterSpec, row: ParameterRowRecord | null, lastEditedBy: string | null, drivers: AdminDriverAvailability): AdminParameterView {
+  const isDriver = spec.key === SCENE_PARAM_DRIVER_KEY;
+  const effective = effectiveParameter(spec, row?.value ?? null);
+  // D9-30 (2)(4): el defecto del proveedor es el del despliegue y `allowed` lista solo los proveedores con credenciales (sin ninguno, el defecto de codigo para no dejar una lista vacia).
+  const driverDefault = drivers.defaultDriver ?? spec.defaultValue;
+  const value = isDriver && effective.source === 'DEFAULT' ? driverDefault : effective.value;
+  const source = effective.source;
   return {
     key: spec.key,
     valueType: spec.valueType,
     value,
-    default: spec.defaultValue,
+    default: isDriver ? driverDefault : spec.defaultValue,
     source,
-    constraints: spec.constraints,
+    constraints: isDriver ? { allowed: drivers.available.length > 0 ? drivers.available : [driverDefault] } : spec.constraints,
     writable: spec.writable,
     lastEditedAt: row?.updatedAt ?? null,
     lastEditedBy,
@@ -82,7 +104,7 @@ export class ListAdminParametersUseCase {
       for (const key of ADMIN_PARAMETER_KEYS) {
         const row = await repositories.adminParameters.find(key);
         const editor = row === null ? null : await repositories.adminParameters.lastEditor(ADMIN_AUDIT_ACTIONS.parameterUpdate, key);
-        items.push(viewOf(ADMIN_PARAMETER_CATALOG[key], row, editor));
+        items.push(viewOf(ADMIN_PARAMETER_CATALOG[key], row, editor, driversOf(this.deps)));
       }
       // Contrato 1.5.0: imagenes que aun caben por par (gasto del mes de la zona de la aplicacion); si no se puede calcular, lista vacia (falla cerrado).
       let fit: readonly SceneImagesFit[] = [];
@@ -114,35 +136,38 @@ export class UpdateAdminParameterUseCase {
       const current = await repositories.adminParameters.find(spec.key);
       // El detalle del 412 no incluye el valor vigente (EDGE-009-016).
       if (parameterEtag(spec.key, current) !== ifMatch) throw new DomainError('ERR-ADMIN-PARAMETER-PRECONDITION-FAILED');
-      // D9-27: modelo y region son un PAR; si el valor nuevo no es valido con el compañero vigente pero solo tiene una pareja valida, se guarda la pareja en la misma transaccion (sin estado intermedio invalido).
-      const companion = spec.key === SCENE_PARAM_MODEL_KEY || spec.key === SCENE_PARAM_LOCATION_KEY ? await this.companionOf(repositories, spec.key, value) : null;
-      if (COST_KEYS.has(spec.key)) await this.assertSpendRule(repositories, spec.key, value, companion);
+      // D9-29: un solo selector; la region se deriva del modelo y no se guarda. Una clave, una auditoria.
+      if (COST_KEYS.has(spec.key)) {
+        await this.assertDriverModel(repositories, spec.key, value);
+        await this.assertSpendRule(repositories, spec.key, value);
+      }
       const written = await repositories.adminParameters.compareAndSet(spec.key, spec.description, { value, updatedAt: now }, current);
       if (!written) throw new DomainError('ERR-ADMIN-PARAMETER-PRECONDITION-FAILED');
-      if (companion !== null) {
-        const companionCurrent = await repositories.adminParameters.find(companion.key);
-        if (!(await repositories.adminParameters.compareAndSet(companion.key, ADMIN_PARAMETER_CATALOG[companion.key].description, { value: companion.value, updatedAt: now }, companionCurrent))) throw new DomainError('ERR-ADMIN-PARAMETER-PRECONDITION-FAILED');
-        await repositories.adminAudit.insert({ id: this.deps.ids.nextId(), adminId: input.adminId, action: ADMIN_AUDIT_ACTIONS.parameterUpdate, objectRef: companion.key, occurredAt: now });
-      }
       // Solo el id del administrador, la clave y la marca de tiempo: nunca el valor (REQ-CFG9-007).
       await repositories.adminAudit.insert({ id: this.deps.ids.nextId(), adminId: input.adminId, action: ADMIN_AUDIT_ACTIONS.parameterUpdate, objectRef: spec.key, occurredAt: now });
-      return viewOf(spec, { value, updatedAt: now }, input.adminId);
+      return viewOf(spec, { value, updatedAt: now }, input.adminId, driversOf(this.deps));
     });
   }
 
+  /** Proveedor efectivo: fila valida o defecto del despliegue (o `vertex`, defecto de codigo, sin enrutador). */
+  private async effectiveDriver(repositories: RepositorySet): Promise<SceneProviderDriver> {
+    const raw = (await repositories.adminParameters.find(SCENE_PARAM_DRIVER_KEY))?.value ?? null;
+    if (raw !== null && isSceneProviderDriver(raw)) return raw;
+    return driversOf(this.deps).defaultDriver ?? 'vertex';
+  }
+
   /**
-   * Compañero del par (D9-27, SC-009-052): con el valor nuevo de `key` y el valor vigente de la otra mitad, si el par no tiene coste de fuente pero el valor nuevo tiene EXACTAMENTE una pareja
-   * valida en la tabla, devuelve esa pareja para guardarla junto (atomico). Sin pareja unica (o par ya valido) devuelve `null`: un par invalido se rechaza en `assertSpendRule`.
+   * D9-30 (4)(5): guardar un proveedor SIN credenciales en el despliegue, o un proveedor/modelo que no se admiten entre si, es 422 sin escribir (sin detalle de secretos ni valores).
+   * Elegir el modelo exige que el proveedor vigente lo admita; elegir el proveedor exige que admita el modelo vigente.
    */
-  private async companionOf(repositories: RepositorySet, key: AdminParameterKey, value: string): Promise<{ readonly key: AdminParameterKey; readonly value: string } | null> {
-    const otherKey = key === SCENE_PARAM_MODEL_KEY ? SCENE_PARAM_LOCATION_KEY : SCENE_PARAM_MODEL_KEY;
-    const other = effectiveParameter(ADMIN_PARAMETER_CATALOG[otherKey], (await repositories.adminParameters.find(otherKey))?.value ?? null).value;
-    const [model, location] = key === SCENE_PARAM_MODEL_KEY ? [value, other] : [other, value];
-    if (isSelectableScenePair(model, location)) return null;
-    const pairs = Object.entries(SCENE_COST_TABLE_MICRO_USD).flatMap(([m, byRegion]) => Object.keys(byRegion).map((l) => ({ model: m, location: l })));
-    const matches = pairs.filter((p) => (key === SCENE_PARAM_MODEL_KEY ? p.model === value : p.location === value));
-    if (matches.length !== 1) return null;
-    return { key: otherKey, value: key === SCENE_PARAM_MODEL_KEY ? matches[0]!.location : matches[0]!.model };
+  private async assertDriverModel(repositories: RepositorySet, key: AdminParameterKey, value: string): Promise<void> {
+    if (key === SCENE_PARAM_DRIVER_KEY) {
+      if (!isSceneProviderDriver(value) || !driversOf(this.deps).available.includes(value)) throw invalid('value', 'El proveedor no está disponible en este despliegue.');
+      const model = effectiveParameter(ADMIN_PARAMETER_CATALOG[SCENE_PARAM_MODEL_KEY], (await repositories.adminParameters.find(SCENE_PARAM_MODEL_KEY))?.value ?? null).value;
+      if (!driverSupportsModel(value, model)) throw invalid('value', 'El proveedor no admite el modelo vigente.');
+    } else if (key === SCENE_PARAM_MODEL_KEY) {
+      if (!driverSupportsModel(await this.effectiveDriver(repositories), value)) throw invalid('value', 'El proveedor vigente no admite ese modelo.');
+    }
   }
 
   /**
@@ -150,11 +175,12 @@ export class UpdateAdminParameterUseCase {
    * de la aplicacion, America/Bogota) + max(0, tope - usadas) x coste del par <= 5_000_000 micro-USD. Par sin celda verificada = 422 de esquema; exceso o tabla vacia = 422 de tope de gasto.
    * Sin cifras en el error; si lanza, la transaccion no escribe ni audita.
    */
-  private async assertSpendRule(repositories: RepositorySet, key: AdminParameterKey, value: string, companion: { readonly key: AdminParameterKey; readonly value: string } | null = null): Promise<void> {
+  private async assertSpendRule(repositories: RepositorySet, key: AdminParameterKey, value: string): Promise<void> {
     const effective = async (k: AdminParameterKey): Promise<string> => effectiveParameter(ADMIN_PARAMETER_CATALOG[k], (await repositories.adminParameters.find(k))?.value ?? null).value;
-    const pick = async (k: AdminParameterKey): Promise<string> => (key === k ? value : companion !== null && companion.key === k ? companion.value : await effective(k));
-    const model = await pick(SCENE_PARAM_MODEL_KEY);
-    const location = await pick(SCENE_PARAM_LOCATION_KEY);
+    const model = key === SCENE_PARAM_MODEL_KEY ? value : await effective(SCENE_PARAM_MODEL_KEY);
+    // D9-29/D9-30 (7): ubicacion DERIVADA del modelo (Vertex) o clave del proveedor `gemini-api` (sin region); un par sin coste de fuente no es seleccionable.
+    const driver = key === SCENE_PARAM_DRIVER_KEY ? (value as SceneProviderDriver) : await this.effectiveDriver(repositories);
+    const location = driver === 'vertex' ? (deriveLocation('vertex', model) ?? '') : sceneCostKeyOf(null);
     const max = Number(key === SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY ? value : await effective(SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY));
     const window = quotaWindowOf(this.deps.clock.todayIsoDate());
     const usedRaw = (await repositories.adminParameters.find(`${SCENE_GLOBAL_QUOTA_USED_PREFIX}${window}`))?.value ?? '0';
@@ -168,7 +194,7 @@ export class UpdateAdminParameterUseCase {
 }
 
 /** Claves cuyo guardado pasa por la regla de coste (modelo, region y tope global). */
-const COST_KEYS: ReadonlySet<string> = new Set([SCENE_PARAM_MODEL_KEY, SCENE_PARAM_LOCATION_KEY, SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY]);
+const COST_KEYS: ReadonlySet<string> = new Set([SCENE_PARAM_MODEL_KEY, SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY, SCENE_PARAM_DRIVER_KEY]);
 
 /**
  * Reinicio de la cuota de escena de las cuentas del administrador (T1268, REQ-CFG9-006, EDGE-009-022, EDGE-009-023; SC-009-026; opcion A de Neo, ADR-009-13): una transaccion que pone a cero SOLO los
@@ -190,7 +216,7 @@ export class ResetAdminSceneQuotaUseCase {
     return this.deps.uow.runInTransaction(async (repositories) => {
       const identity = await repositories.adminIdentities.findById(input.adminId);
       const subjects = identity === null ? [] : [identity.providerSubject];
-      const result = await repositories.adminParameters.resetAdminAccountsSceneQuota(subjects, emails, shiftIsoTimestamp(now, -ATTEMPT_WINDOW_SECONDS * 1000));
+      const result = await repositories.adminParameters.resetAdminAccountsSceneQuota(subjects, emails, now);
       if (result === null) throw new DomainError('ERR-ADMIN-QUOTA-RESET-CONFLICT');
       await repositories.adminAudit.insert({ id: this.deps.ids.nextId(), adminId: input.adminId, action: ADMIN_AUDIT_ACTIONS.sceneQuotaReset, objectRef: null, occurredAt: now });
       return { accountsReset: result.accountsReset, resetAt: now };

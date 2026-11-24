@@ -9,6 +9,7 @@
  */
 
 import type { PromptBlocks } from '../../domain/scene/prompt-blocks.ts';
+import type { SceneProviderDriver, SceneProviderSelection } from '../../domain/scene/provider-parameters.ts';
 import { computedAgeOf, normalizePetProfile, type PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
@@ -126,12 +127,24 @@ export interface SceneServices {
   /** Bloques del prompt vigentes (T1306, REQ-CFG9-005): lectura en caliente de `scene.prompt.blocks` (cache <= 60 s). Sin lector o con fallo rige el prompt de codigo. */
   readonly promptBlocks?: () => Promise<PromptBlocks>;
   readonly providerCall?: SceneProviderCall | (() => Promise<SceneProviderCall>);
+  /**
+   * Enrutamiento por proveedor (T1314, D9-30): proveedores CON credenciales en el despliegue, defecto de la fila ausente y seleccion EFECTIVA en caliente (cache <= 60 s). Sin el, el proveedor es el de
+   * `providerId`/`noticeVersion` (driver simulado). `resolve` nunca lanza hacia el llamador como exito: un fallo de lectura es `configured: false` (falla cerrado).
+   */
+  readonly providerRouting?: SceneProviderRouting;
+}
+
+export interface SceneProviderRouting {
+  readonly available: readonly SceneProviderDriver[];
+  readonly defaultDriver: SceneProviderDriver | null;
+  readonly resolve: () => Promise<SceneProviderSelection>;
 }
 
 /** Par modelo x region de una llamada al proveedor (T1296 (h): puede ser una funcion async que lee el par EFECTIVO, el mismo que usa el adaptador). */
 export interface SceneProviderCall {
   readonly model: string;
-  readonly location: string;
+  /** `null` con `gemini-api` (sin region, D9-29/D9-30). */
+  readonly location: string | null;
 }
 
 /**

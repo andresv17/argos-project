@@ -92,14 +92,15 @@ describe('configuración del driver gemini-api (T890, REQ-ESC6-037, SC-ESC6-097)
     expect(defaulted.scene.geminiApiKey).toBeNull();
     const real = loadAppConfig({ NODE_ENV: 'test', ...PROD_SCENE, GEMINI_API_KEY: SENTINEL_KEY, ARGOS_SCENE_GEMINI_MODEL: MODEL }, { sceneRealDriverActivated: true });
     expect(real.scene.driver).toBe('real');
-    expect(real.scene.geminiApiKey).toBeNull();
+    expect(real.scene.geminiApiKey).toBe(SENTINEL_KEY); // T1314 (D9-30): con real la clave es opcional y habilita el proveedor gemini-api; no es enumerable
+    expect(JSON.stringify(real.scene)).not.toContain(SENTINEL_KEY);
     expect(real.scene.geminiModel).toBeNull();
   });
 
   it('[REQ-ESC6-031] SCENE_REAL_DRIVER_ACTIVATED es true (T885), gemini-api no lo usa y real con las variables de gemini-api presentes las ignora (sin clave en la configuración)', () => {
     expect(SCENE_REAL_DRIVER_ACTIVATED).toBe(true);
     expect(loadAppConfig(DEV).scene.driver).toBe('gemini-api');
-    expect(loadAppConfig({ NODE_ENV: 'test', ...PROD_SCENE, GEMINI_API_KEY: SENTINEL_KEY, ARGOS_SCENE_GEMINI_MODEL: MODEL }).scene.geminiApiKey).toBeNull();
+    expect(loadAppConfig({ NODE_ENV: 'test', ...PROD_SCENE, GEMINI_API_KEY: SENTINEL_KEY, ARGOS_SCENE_GEMINI_MODEL: MODEL }).scene.geminiApiKey).toBe(SENTINEL_KEY);
     expect(failing({ NODE_ENV: 'test', ...PROD_SCENE, GEMINI_API_KEY: SENTINEL_KEY, ARGOS_SCENE_GEMINI_MODEL: MODEL }).variables).toEqual(['sin error']);
   });
 

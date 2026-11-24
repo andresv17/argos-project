@@ -141,3 +141,28 @@ resource "google_secret_manager_secret" "admin_emails" {
 
   depends_on = [google_project_service.apis]
 }
+
+# Gemini API (009, D9-30 (8), T1316). Solo el contenedor del secreto: NO hay google_secret_manager_secret_version, así que ni la clave
+# ni un marcador entran al repositorio ni al state. La carga inicial la hace Neo fuera de Terraform y de GitHub Actions:
+#   printf '%s' "$CLAVE" | gcloud secrets versions add argos-gemini-api-key --data-file=- --project=<project_id>
+# Opcional: sin versión creada, deploy-argos.yml no referencia GEMINI_API_KEY y el despliegue no falla (el proveedor gemini-api queda
+# no disponible y falla cerrado, D9-30 (2) y (4)). Cuando existe, deploy-argos.yml la referencia por versión numérica, nunca latest.
+resource "google_secret_manager_secret" "gemini_api_key" {
+  project   = var.project_id
+  secret_id = "${var.project_prefix}-gemini-api-key"
+
+  labels = {
+    app        = "argos"
+    managed-by = "terraform"
+  }
+
+  replication {
+    auto {}
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.apis]
+}

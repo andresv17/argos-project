@@ -29,7 +29,11 @@ describe('deploy-argos.yml con la 006 (T806)', () => {
     expect(val('ARGOS_SCENE_DRIVER')).toBe('real');
     expect(val('ARGOS_SCENE_MODEL')).toBe('gemini-2.5-flash-image');
     expect(val('ARGOS_SCENE_LOCATION')).toBe('us-central1');
-    expect(body).not.toMatch(/GEMINI_API_KEY|x-goog-api-key/);
+    // D9-30 (8) / T1316 sustituye la prohibición: GEMINI_API_KEY solo por secreto y versión numérica opcional, nunca latest ni x-goog-api-key.
+    expect(body).not.toMatch(/x-goog-api-key/);
+    expect(body).toMatch(/GEMINI_API_KEY=argos-gemini-api-key:\$\{GEMINI_API_KEY_VERSION\}/);
+    expect(body).not.toMatch(/argos-gemini-api-key:latest/);
+    expect(body).not.toMatch(/GEMINI_API_KEY=[^a]/);
   });
 
   it('usa valores dentro de rango y de forma segura para la URL del worker', () => {

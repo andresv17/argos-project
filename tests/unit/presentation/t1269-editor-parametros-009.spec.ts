@@ -36,9 +36,9 @@ const ALBUM = {
 const ENABLED = { ...ALBUM, key: 'scene.enabled', valueType: 'BOOLEAN', value: 'true', default: 'true', constraints: { allowed: ['true', 'false'] }, lastEditedAt: null, lastEditedBy: null };
 const quota = { ...ALBUM, key: 'scene.global_quota_max', value: '5', default: '5', constraints: { min: 1, max: 1000 }, writable: false };
 const model = { ...ALBUM, key: 'scene.provider_model', valueType: 'STRING', value: 'gemini-2.5-flash-image', default: 'gemini-2.5-flash-image', constraints: { allowed: ['gemini-2.5-flash-image'] }, writable: false };
-const region = { ...model, key: 'scene.provider_location', value: 'us-central1', default: 'us-central1' };
+const driver = { ...ALBUM, key: 'scene.provider_driver', valueType: 'STRING', value: 'vertex', default: 'vertex', constraints: { allowed: ['vertex'] }, writable: false };
 const prompt = { ...ALBUM, key: 'scene.prompt.blocks', valueType: 'JSON_BLOCKS', value: '{"a":"b"}', default: '{"a":"b"}', constraints: { maxBlockLength: 800 }, writable: false };
-const CATALOG = { items: [ALBUM, ENABLED, quota, model, region, prompt] };
+const CATALOG = { items: [ALBUM, ENABLED, quota, model, driver, prompt] };
 
 const json = (body: unknown, status = 200, type = 'application/json'): Response => new Response(JSON.stringify(body), { status, headers: { 'content-type': type } });
 function stubFetch(response: Response): ReturnType<typeof vi.fn> {
@@ -49,9 +49,9 @@ function stubFetch(response: Response): ReturnType<typeof vi.fn> {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('forma de las respuestas (T1269)', () => {
-  it('[REQ-CFG9-001] el catálogo trae las seis claves y cada vista conserva solo los campos del contrato', () => {
+  it('[REQ-CFG9-001] el catálogo trae las seis claves (D9-29: sin región; T1314: proveedor) y cada vista conserva solo los campos del contrato', () => {
     const parsed = parseParameterCatalog({ items: CATALOG.items.map((i) => ({ ...i })) });
-    expect(parsed?.map((p) => p.key)).toEqual(['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.provider_location', 'scene.prompt.blocks']);
+    expect(parsed?.map((p) => p.key)).toEqual(['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.provider_driver', 'scene.prompt.blocks']);
     expect(parseParameterView({ ...ALBUM, extra: 'x' })).toEqual(ALBUM);
     expect(parseParameterCatalog({ items: [ALBUM] })).toBeNull();
     expect(parseParameterCatalog(null)).toBeNull();

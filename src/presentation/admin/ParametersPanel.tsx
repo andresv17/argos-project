@@ -6,7 +6,7 @@
  * @implements REQ-CFG9-001, REQ-CFG9-002, REQ-CFG9-003, REQ-CFG9-006, NFR-009-001; SC-009-017..021, SC-009-026
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BlocksEditor, ModelEditor, QuotaEditor, RegionEditor, type EditorMessage, type EditorScope } from './SceneParameterEditors.tsx';
+import { BlocksEditor, DriverEditor, ModelEditor, QuotaEditor, type EditorMessage, type EditorScope } from './SceneParameterEditors.tsx';
 import { fetchParameterCatalog, resetSceneQuota, updateParameter, type ImagesFit, type ParameterKey, type ParameterView } from './parameters-api.ts';
 import {
   ALBUM_HEADING,
@@ -49,7 +49,7 @@ type Confirming = 'toggle' | 'reset' | null;
 type Scope = 'album' | 'toggle' | 'reset' | EditorScope;
 const ALBUM: ParameterKey = 'album.max_photos_per_pet';
 const ENABLED: ParameterKey = 'scene.enabled';
-const EDITORS_5B: readonly ParameterKey[] = ['scene.provider_model', 'scene.provider_location', 'scene.global_quota_max', 'scene.prompt.blocks'];
+const EDITORS_5B: readonly ParameterKey[] = ['scene.provider_model', 'scene.provider_driver', 'scene.global_quota_max', 'scene.prompt.blocks'];
 
 function Facts({ param, viewerId }: { readonly param: ParameterView; readonly viewerId: string | null }): JSX.Element {
   return (
@@ -230,16 +230,13 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
     feedback: inline(scope),
     feedbackId: message?.kind === 'error' && message.scope === scope ? `msg-${scope}` : null,
     notify: (target: EditorScope, next: EditorMessage | null): void => setMessage(next === null ? null : { ...next, scope: target }),
-    // D9-27: guardar el modelo o la region puede guardar tambien su pareja valida (otro etag): se relee el catalogo.
-    onSaved: (view: ParameterView): void => {
-      replace(view);
-      if (view.key === 'scene.provider_model' || view.key === 'scene.provider_location') void load(false);
-    },
+    // D9-29: selector unico; una clave, un etag.
+    onSaved: (view: ParameterView): void => replace(view),
     onPrecondition: () => void load(false),
     onSessionLost,
   });
   const model = editable('scene.provider_model');
-  const region = editable('scene.provider_location');
+  const driver = editable('scene.provider_driver');
   const quota = editable('scene.global_quota_max');
   const blocks = editable('scene.prompt.blocks');
 
@@ -378,8 +375,8 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
           </div>
         ) : null}
 
-        {state === 'ready' && model !== undefined ? <ModelEditor {...editorProps(model, 'model')} imagesFit={imagesFit} otherValue={region?.value} /> : null}
-        {state === 'ready' && region !== undefined ? <RegionEditor {...editorProps(region, 'region')} imagesFit={imagesFit} otherValue={model?.value} /> : null}
+        {state === 'ready' && driver !== undefined ? <DriverEditor {...editorProps(driver, 'driver')} /> : null}
+        {state === 'ready' && model !== undefined ? <ModelEditor {...editorProps(model, 'model')} imagesFit={imagesFit} driver={params.find((x) => x.key === 'scene.provider_driver')?.value} /> : null}
         {state === 'ready' && quota !== undefined ? <QuotaEditor {...editorProps(quota, 'quota')} /> : null}
         {state === 'ready' && blocks !== undefined ? <BlocksEditor {...editorProps(blocks, 'blocks')} /> : null}
 

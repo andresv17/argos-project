@@ -19,9 +19,9 @@ const viewer = () =>
   blocks().filter((b) => b.type === 'google_secret_manager_secret_iam_member' && /roles\/secretmanager\.viewer/.test(b.body));
 
 describe('terraform/iam.tf: permisos de secretos del deployer y binding WIF (T489, D-30)', () => {
-  it('exactamente 5 recursos secretmanager.viewer, del deployer, sobre admin_emails, database_url, audit_hmac_secret, share_ip_hmac_secret y google_oauth_client_secret', () => {
+  it('exactamente 6 recursos secretmanager.viewer (D9-30 (8) / T1316 añade gemini_api_key), del deployer, sobre admin_emails, database_url, audit_hmac_secret, share_ip_hmac_secret y google_oauth_client_secret', () => {
     const v = viewer();
-    expect(v.map((b) => b.name).sort()).toEqual(['deployer_secret_viewer_admin_emails', 'deployer_secret_viewer_audit_hmac', 'deployer_secret_viewer_database_url', 'deployer_secret_viewer_google_oauth_client_secret', 'deployer_secret_viewer_share_ip_hmac']);
+    expect(v.map((b) => b.name).sort()).toEqual(['deployer_secret_viewer_admin_emails', 'deployer_secret_viewer_audit_hmac', 'deployer_secret_viewer_database_url', 'deployer_secret_viewer_gemini_api_key', 'deployer_secret_viewer_google_oauth_client_secret', 'deployer_secret_viewer_share_ip_hmac']);
     for (const b of v) {
       expect(b.body).toMatch(/member\s*=\s*"serviceAccount:\$\{google_service_account\.deployer\.email\}"/);
     }
@@ -29,6 +29,7 @@ describe('terraform/iam.tf: permisos de secretos del deployer y binding WIF (T48
       'google_secret_manager_secret.admin_emails.secret_id',
       'google_secret_manager_secret.audit_hmac_secret.secret_id',
       'google_secret_manager_secret.database_url.secret_id',
+      'google_secret_manager_secret.gemini_api_key.secret_id',
       'google_secret_manager_secret.google_oauth_client_secret.secret_id',
       'google_secret_manager_secret.share_ip_hmac_secret.secret_id',
     ]);
@@ -38,7 +39,7 @@ describe('terraform/iam.tf: permisos de secretos del deployer y binding WIF (T48
     for (const b of blocks()) {
       if (/secretAccessor/.test(b.body)) expect(b.body).not.toContain('google_service_account.deployer');
     }
-    expect(blocks().filter((b) => /secretAccessor/.test(b.body))).toHaveLength(5);
+    expect(blocks().filter((b) => /secretAccessor/.test(b.body))).toHaveLength(6); // D9-30 (8) / T1316: 6 secretAccessor, todos de argos-run
   });
 
   it('ningun roles/secretmanager.* a nivel de proyecto', () => {

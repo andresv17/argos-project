@@ -170,6 +170,12 @@ export class RunSceneGenerationUseCase {
         const current = await r.scenes.findById(scene.id);
         return current !== null && current.runState === 'generating' && current.currentAttemptId === attempt.id;
       });
+    // T1314 (D9-30 (4)): FALLA CERRADO antes de cualquier cuota o llamada. Si el proveedor seleccionado no tiene credenciales (o no admite el modelo vigente, o la lectura falla) el intento se cierra
+    // `FAILED` sin `provider_call_started_at` ni unidad de cuota (INV-LIM9-001); el motivo (`PROVIDER_NOT_CONFIGURED`) lo registra el enrutador sin secretos. Nunca recurre al otro proveedor.
+    if (svc.providerRouting !== undefined) {
+      const selection = await svc.providerRouting.resolve().catch(() => null);
+      if (selection === null || !selection.configured) return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
+    }
     if (svc.globalQuota !== undefined) {
       if (!(await deps.uow.runInTransaction(stillCurrent))) return this.close(scene.id, attempt, 'CANCELLED', null, degraded);
       let allowed = false;

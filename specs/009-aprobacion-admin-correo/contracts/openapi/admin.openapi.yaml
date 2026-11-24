@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 009 (administracion y borrado de cuenta sin contrasena)
-  version: 1.6.1
+  version: 1.7.0
   description: >
     Documento INCREMENTAL y UNICO de la feature 009 (P5-05 = A): contiene solo operaciones nuevas; los OpenAPI de 004 (3.4.0),
     005 y 006 permanecen sin cambio, y deleteAccount de 004 no se edita. Version 1.0.0 (T1217): dos operaciones de USUARIO del
@@ -14,10 +14,11 @@ info:
     /admin/* y nunca autorizan las dos operaciones de usuario.
   x-sdd-status: DRAFT
   x-sdd-metadata:
-    version: 1.6.1
+    version: 1.7.0
     status: DRAFT
-    supersedes: 1.5.0
+    supersedes: 1.6.1
     change_type: MINOR
+    change_note_1_7_0: "1.7.0 (feature 009, Architect 2026-11-24, MINOR, DRAFT; el estado de 1.6.1 NO se hereda y lo fija solo Neo; decisiones D9-29, D9-30 y D9-31, Neo, Nivel 2): (1) AdminParameterKey sustituye scene.provider_location por scene.provider_driver (vertex | gemini-api): la region deja de ser un parametro editable de /admin y se DERIVA del modelo (gemini-2.5-flash-image => us-central1; gemini-3.1-flash-image-preview => global, solo con Vertex; con gemini-api no hay region); el catalogo sigue teniendo seis claves y toda escritura a scene.provider_location es 422 (clave fuera del enum). sceneImagesFit.location se conserva como lectura (D9-29). (2) El guardado atomico de pareja modelo/region de D9-27 (7) queda sustituido: un unico selector escribe solo scene.provider_model (una auditoria parameterUpdate); el guardado de scene.provider_driver exige que el modelo vigente sea admitido por ese proveedor (422 si no) y que el despliegue tenga credenciales de ese proveedor (422 si no; constraints.allowed lista solo los proveedores con credenciales). (3) resetAdminSceneQuota amplia el alcance (D9-31): ademas de consumed_generations y scene_quota_carry reinicia los cuatro limites de intentos mediante la marca limits_reset_at (FAILED_LIMIT, intentos cerrados sin llamada, ACTOR_LIMIT y el estado de fallo de la corrida) sin borrar scene_attempts ni provider_call_started_at; la forma de AdminQuotaResetResult no cambia."
     change_note_1_6_1: "1.6.1 (feature 009, Architect 2026-11-24, PATCH, DRAFT; el estado no se hereda y lo fija solo Neo; acta /oracle 98448fa, OBS-2): solo texto. La descripcion de AdminParameterKey deja de decir lista cerrada de 3 modelos con gemini-3.1-flash-image y global solo tras el dictamen de /rama (D9-23) y pasa a los 2 pares validos de D9-27. Sin cambio de enum, tipos, propiedades ni operaciones."
     change_note_1_6_0: "1.6.0 (feature 009, Architect 2026-11-24, MINOR, DRAFT; el estado de 1.5.0 NO se hereda y lo fija solo Neo; acta /oracle 6d8420c, decision 3, y D9-27): el enum de AdminSceneImagesFit.location pasa de [us-central1] a [us-central1, global] porque el par gemini-3.1-flash-image-preview + global (75_000 microUSD) es seleccionable desde D9-27; el texto de sceneImagesFit dice hoy 2 pares validos (gemini-2.5-flash-image + us-central1 y gemini-3.1-flash-image-preview + global). Aditivo: ninguna propiedad, operacion ni codigo de error nuevos; el guardado atomico de la pareja (D9-27 (7)) no cambia el contrato. Compilar queda para /keymaker (T1311)."
     change_note_1_5_0: "1.5.0 (feature 009, Architect 2026-11-23, MINOR aditivo, DRAFT; autorizado por Neo, Nivel 2; el estado de 1.4.0 NO se hereda y lo fija solo Neo): GET /api/admin/parameters (listAdminParameters) pasa a devolver, ademas de items, la propiedad nueva sceneImagesFit: para cada par modelo x region seleccionable de la tabla del Anexo A APROBADO (constitucion 3.10.0; hoy gemini-2.5-flash-image y gemini-3.1-flash-image en us-central1) el numero entero de imagenes que aun caben = parte entera del margen mensual restante dividido por el coste del par, calculado en servidor con el gasto acumulado del mes (America/Bogota, intentos con provider_call_started_at no nulo, coste del par registrado por intento, EDGE-009-045) y el tope mensual de escenas (Principio VI), segun EDGE-009-036 y D9-21 = A corregida; sirve para mostrar el resultado ANTES de guardar (REQ-CFG9-004). Cero significa que el gasto acumulado ya alcanzo o supero el tope y no cabe ninguna imagen con ese par; NO significa par no seleccionable (un par fuera de la tabla no aparece en la lista). Solo lectura (readOnly), bloque cerrado (additionalProperties: false), sin datos personales y sin cifras de dinero: solo el numero de imagenes. No cambia ninguna propiedad existente (items y AdminParameterView intactos) ni ninguna operacion; sin codigos de error nuevos. Tabla vacia o gasto no calculable: lista vacia (falla cerrado). Compilar queda para /keymaker."
@@ -482,7 +483,7 @@ paths:
         vigente de la clave; si otro administrador o ventana la cambio, 412 ERR-ADMIN-PARAMETER-PRECONDITION-FAILED sin escribir
         (EDGE-009-016); el detalle no incluye el valor vigente. La escritura actualiza value y updated_at en UNA transaccion, deja
         updated_by_user_id en NULL y registra una entrada de admin_audit_entries con id de administrador, clave, accion y marca de tiempo,
-        SIN el valor (ADR-009-08, REQ-CFG9-007). En 5b, un cambio de scene.provider_model, scene.provider_location o
+        SIN el valor (ADR-009-08, REQ-CFG9-007). En 5b, un cambio de scene.provider_model, scene.provider_driver o
         scene.global_quota_max que supere el tope mensual segun la regla de gasto acumulado (EDGE-009-036) responde 422
         ERR-ADMIN-SCENE-COST-CAP-EXCEEDED sin escribir y sin cifras en el detalle. Aplica en caliente sin reiniciar (<= 60 s por instancia).
         Bajar album.max_photos_per_pet por debajo del conteo existente se permite: conserva las fotos y solo bloquea subidas nuevas
@@ -539,8 +540,10 @@ paths:
       summary: "Reinicia a cero la cuota de generaciones de imagen de las cuentas de usuario del administrador [REQ-CFG9-006, EDGE-009-022, EDGE-009-023]"
       description: >
         Es una OPERACION, no un parametro (REQ-CFG9-001 g): no tiene clave ni etag. Orden: X-Argos-Request (403 antes de la sesion, regla
-        de 1.2.0), sesion de administracion (404 uniforme), cuerpo vacio (422 si trae contenido) y reinicio. Alcance (D9-10, ADR-009-13):
-        pone a cero consumed_generations y scene_quota_carry SOLO de las cuentas de usuario del administrador, identificadas por el sub de Google
+        de 1.2.0), sesion de administracion (404 uniforme), cuerpo vacio (422 si trae contenido) y reinicio. Alcance (D9-10, ADR-009-13; 1.7.0, D9-28 y D9-31: ademas de las escenas sin hogar, los hogares donde el administrador es propietario legal y su propio
+        actor_user_id; reinicia los cuatro limites de intentos con la marca limits_reset_at, que hace que FAILED_LIMIT, los intentos cerrados sin llamada y
+        ACTOR_LIMIT cuenten solo intentos posteriores a max(ventana de 24 h, limits_reset_at), sin borrar scene_attempts ni provider_call_started_at; no cambia el
+        gasto mensual de plataforma): pone a cero consumed_generations y scene_quota_carry SOLO de las cuentas de usuario del administrador, identificadas por el sub de Google
         vinculado (auth_identities) o por un correo verificado igual a un correo de la lista cerrada de administradores; NUNCA toca
         scene.global_quota_used.YYYY-MM ni cuentas ajenas. No falla si el administrador no tiene escena ni hogar: devuelve 200 con
         accountsReset = 0 si ninguna cuenta coincide, o deja el contador de la cuenta en cero (EDGE-009-022). Es compare-and-set contra
@@ -735,15 +738,17 @@ components:
         decidedAt: { type: string, format: date-time, description: "Marca de tiempo de la decision (ClockPort)" }
     AdminParameterKey:
       type: string
-      enum: [album.max_photos_per_pet, scene.enabled, scene.global_quota_max, scene.provider_model, scene.provider_location, scene.prompt.blocks]
+      enum: [album.max_photos_per_pet, scene.enabled, scene.global_quota_max, scene.provider_model, scene.provider_driver, scene.prompt.blocks]
       description: >
-        [REQ-CFG9-001, REQ-CFG9-008] Catalogo CERRADO del codigo (app-config.ts / ParameterDefaults); cada clave se corresponde con una fila de
+        [REQ-CFG9-001, REQ-CFG9-008; 1.7.0: scene.provider_location sustituido por scene.provider_driver, D9-29/D9-30] Catalogo CERRADO del codigo (app-config.ts / ParameterDefaults); cada clave se corresponde con una fila de
         platform_parameters (005, sin cambio de forma, MER-09). Una clave nueva exige tocar dominio, siembra y este contrato. Tipo, defecto y
         restricciones: album.max_photos_per_pet = entero, defecto 10, 1..50 (catalogo de 005); scene.enabled = booleano, defecto true;
         scene.global_quota_max = entero, defecto 5, minimo 1 y techo de codigo (hoy 1000; en 5b pasa a derivarse de la tabla de costes,
         T1300); scene.provider_model = texto, regex cerrada del codigo y lista cerrada de modelos con coste en app-config.ts, defecto
-        gemini-2.5-flash-image; scene.provider_location = texto, lista cerrada de regiones de codigo (SCENE_ALLOWED_LOCATIONS), defecto
-        us-central1. Por D9-27 solo hay 2 pares validos modelo x region: gemini-2.5-flash-image + us-central1 (45_000 microUSD) y
+        gemini-2.5-flash-image; scene.provider_driver = texto, lista cerrada vertex | gemini-api (D9-30), defecto vertex en produccion con configuracion de Vertex
+        o el proveedor configurado en el entorno; solo es seleccionable un proveedor con credenciales en el despliegue (falla cerrado). La region
+        NO es un parametro editable (D9-29): se deriva del modelo en el codigo (scene.provider_location ya no esta en el catalogo y su escritura es 422).
+        Con vertex, por D9-27 solo hay 2 pares validos modelo x region: gemini-2.5-flash-image + us-central1 (45_000 microUSD) y
         gemini-3.1-flash-image-preview + global (75_000 microUSD); cualquier otro par (p. ej. gemini-3.1-flash-image-preview + us-central1)
         se rechaza. global ya no depende de un dictamen pendiente de /rama (el dictamen de T1294 queda como riesgo residual aceptado por Neo); scene.prompt.blocks = un unico JSON de
         bloques nombrados genericos (STYLE_BASE_TEXT, hogar con foto, hogar generico, PRESERVATION_BLOCK, PIXEL_REDRAW_RULE, STYLE_CLOSING),
@@ -761,7 +766,7 @@ components:
           minItems: 1
           maxItems: 64
           items: { type: string, minLength: 1, maxLength: 64 }
-          description: "Lista cerrada de valores admitidos (booleano: true y false; modelo; region). Un valor fuera de la lista se rechaza aunque cumpla la regex (INV-CFG9-001)"
+          description: "Lista cerrada de valores admitidos (booleano: true y false; modelo; proveedor: solo los que tienen credenciales en este despliegue, D9-30). Un valor fuera de la lista se rechaza aunque cumpla la regex (INV-CFG9-001)"
         maxBlockLength: { type: integer, minimum: 1, description: "Longitud maxima de cada bloque de scene.prompt.blocks (valor de codigo; lo fija T1261/T1303)" }
     AdminParameterView:
       type: object
@@ -783,7 +788,7 @@ components:
         constraints: { $ref: '#/components/schemas/AdminParameterConstraints' }
         writable:
           type: boolean
-          description: "false para las claves cuya escritura se habilita en la subfase 5b (P5-06 = B: scene.global_quota_max, scene.provider_model, scene.provider_location, scene.prompt.blocks); el dato es de la respuesta, no de la forma, y cambia a true en 5b sin cambiar este contrato"
+          description: "false para las claves cuya escritura se habilita en la subfase 5b (P5-06 = B: scene.global_quota_max, scene.provider_model, scene.provider_driver, scene.prompt.blocks); el dato es de la respuesta, no de la forma, y cambia a true en 5b sin cambiar este contrato"
         lastEditedAt:
           type: [string, 'null']
           format: date-time
@@ -820,7 +825,7 @@ components:
       description: "[EDGE-009-036; 1.5.0] Imagenes que aun caben para un par seleccionable. No expone coste unitario, gasto acumulado ni tope en dinero, ni datos de personas."
       properties:
         model: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$', description: "Modelo del par (clave de la tabla de costes del Anexo A)" }
-        location: { type: string, enum: [us-central1, global], description: "Region del par; en 1.6.0 us-central1 o global (D9-27: global solo con gemini-3.1-flash-image-preview; las demas regiones no son seleccionables)" }
+        location: { type: string, enum: [us-central1, global], description: "Region del par Vertex (solo lectura; derivada del modelo, D9-29); en 1.6.0 us-central1 o global (D9-27: global solo con gemini-3.1-flash-image-preview; las demas regiones no son seleccionables)" }
         imagesFit: { type: integer, minimum: 0, maximum: 111, description: "parte entera del margen mensual restante dividido por el coste del par; 0 = tope mensual alcanzado o superado; maximum 111 = techo derivado del coste minimo del Anexo A" }
     AdminParameterWriteInput:
       type: object

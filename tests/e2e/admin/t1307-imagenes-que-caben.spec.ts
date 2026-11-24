@@ -9,12 +9,12 @@ import { expect, test, type Page } from '@playwright/test';
 interface P { key: string; valueType: string; value: string; default: string; source: 'DATABASE'; constraints: Record<string, unknown>; writable: boolean; lastEditedAt: string | null; lastEditedBy: string | null; etag: string }
 const BLOCKS = { STYLE_BASE_TEXT: 'a', HOUSEHOLD_WITH_PHOTO: 'b {photoRef}', HOUSEHOLD_GENERIC: 'c', PRESERVATION_BLOCK: 'd', PIXEL_REDRAW_RULE: 'e', STYLE_CLOSING: 'f' };
 const p = (over: Partial<P> & Pick<P, 'key'>): P => ({ valueType: 'INTEGER', value: '10', default: '10', source: 'DATABASE', constraints: {}, writable: true, lastEditedAt: null, lastEditedBy: null, etag: '"etag0000000000aa"', ...over });
-const catalog = (model = 'gemini-2.5-flash-image', location = 'us-central1'): P[] => [
+const catalog = (model = 'gemini-2.5-flash-image'): P[] => [
   p({ key: 'album.max_photos_per_pet', constraints: { min: 1, max: 50 } }),
   p({ key: 'scene.enabled', valueType: 'BOOLEAN', value: 'true', default: 'true', constraints: { allowed: ['true', 'false'] } }),
   p({ key: 'scene.global_quota_max', value: '50', default: '50', constraints: { min: 1, max: 111 }, etag: '"etag-quota-000001"' }),
   p({ key: 'scene.provider_model', valueType: 'STRING', value: model, default: 'gemini-2.5-flash-image', constraints: { allowed: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image'] }, etag: '"etag-model-000001"' }),
-  p({ key: 'scene.provider_location', valueType: 'STRING', value: location, default: 'us-central1', constraints: { allowed: ['us-central1', 'global'] }, etag: '"etag-region-000001"' }),
+  p({ key: 'scene.provider_driver', valueType: 'STRING', value: 'vertex', default: 'vertex', constraints: { allowed: ['vertex'] } }),
   p({ key: 'scene.prompt.blocks', valueType: 'JSON_BLOCKS', value: JSON.stringify(BLOCKS), default: JSON.stringify(BLOCKS), constraints: { maxBlockLength: 1000 }, etag: '"etag-blocks-000001"' }),
 ];
 const FIT = [{ model: 'gemini-2.5-flash-image', location: 'us-central1', imagesFit: 111 }, { model: 'gemini-3.1-flash-image-preview', location: 'us-central1', imagesFit: 66 }];
@@ -32,7 +32,7 @@ test('[EDGE-009-036] cada modelo seleccionable muestra «Imágenes que aún cabe
   const select = page.getByLabel('Modelo de imagen', { exact: true });
   await expect(select.locator('option')).toHaveText([
     'gemini-2.5-flash-image (se retira el 15 de marzo de 2027) · Imágenes que aún caben: 111',
-    'gemini-3.1-flash-image · Imágenes que aún caben: 66',
+    'gemini-3.1-flash-image-preview · Imágenes que aún caben: 66',
   ]);
   const card = page.getByTestId('param-scene.provider_model');
   await expect(card).toContainText('Imágenes que aún caben: 111'); // del modelo elegido en el selector
@@ -46,11 +46,11 @@ test('[EDGE-009-036] cada modelo seleccionable muestra «Imágenes que aún cabe
   }
 });
 
-test('[EDGE-009-036] la región us-central1 muestra las imágenes que caben con el modelo vigente; 0 se muestra como 0, no como no seleccionable', async ({ page }) => {
+test('[EDGE-009-036] D9-29: el modelo vigente muestra las imágenes que caben; 0 se muestra como 0, no como no seleccionable', async ({ page }) => {
   await fakeAdmin(page, catalog(), [{ ...FIT[0], imagesFit: 0 }, { ...FIT[1], imagesFit: 0 }]);
   await page.goto('/admin');
-  await expect(page.getByTestId('param-scene.provider_location').getByTestId('images-fit')).toHaveText('Imágenes que aún caben: 0');
-  await expect(page.getByTestId('param-scene.provider_location')).not.toContainText('no seleccionable');
+  await expect(page.getByTestId('param-scene.provider_model').getByTestId('images-fit')).toHaveText('Imágenes que aún caben: 0');
+  await expect(page.getByTestId('param-scene.provider_model')).not.toContainText('no seleccionable');
 });
 
 test('[EDGE-009-036] sin sceneImagesFit (falla cerrado) no se muestra ninguna cifra y el panel sigue funcionando', async ({ page }) => {
@@ -61,11 +61,11 @@ test('[EDGE-009-036] sin sceneImagesFit (falla cerrado) no se muestra ninguna ci
   await expect(page.getByLabel('Modelo de imagen', { exact: true }).locator('option')).toHaveText(['gemini-2.5-flash-image (se retira el 15 de marzo de 2027)', 'gemini-3.1-flash-image-preview']);
 });
 
-test('[REQ-CFG9-004] un valor vigente fuera de la lista (modelo retirado o región) muestra «Valor vigente: X (no seleccionable)»', async ({ page }) => {
-  await fakeAdmin(page, catalog('gemini-3-pro-image', 'global'), FIT);
+test('[REQ-CFG9-004] un valor vigente fuera de la lista (modelo retirado) muestra «Valor vigente: X (no seleccionable)»', async ({ page }) => {
+  await fakeAdmin(page, catalog('gemini-3-pro-image'), FIT);
   await page.goto('/admin');
   await expect(page.getByTestId('param-scene.provider_model')).toContainText('Valor vigente: gemini-3-pro-image (no seleccionable)');
-  await expect(page.getByTestId('param-scene.provider_location')).toContainText('Valor vigente: global (no seleccionable)');
+  await expect(page.getByTestId('param-scene.provider_location')).toHaveCount(0); // D9-29: la región ya no es una clave
 });
 
 test('[NFR-009-001] valor vigente seleccionable: sin la marca «(no seleccionable)»', async ({ page }) => {

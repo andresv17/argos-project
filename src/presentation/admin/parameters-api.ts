@@ -1,11 +1,11 @@
 /**
- * Cliente del portal /admin para el editor de parámetros (Feature 009, `[GH:#20]`, T1269, subfase 5a). Habla solo con `/api/admin/parameters`: `GET` (catálogo de seis claves), `PUT /{key}` con
+ * Cliente del portal /admin para el editor de parámetros (Feature 009, `[GH:#20]`, T1269, subfase 5a). Habla solo con `/api/admin/parameters`: `GET` (catálogo de claves), `PUT /{key}` con
  * `If-Match` (etag tal cual lo devolvió el servidor) y `X-Argos-Request`, y `POST /scene-quota/reset`. Cada respuesta se valida en forma y solo se conservan los campos del contrato.
  * El autor llega como id opaco del administrador: la vista lo traduce a texto y nunca lo pinta.
  *
  * @implements REQ-CFG9-001, REQ-CFG9-002, REQ-CFG9-003, REQ-CFG9-006, NFR-009-001; SC-009-017, SC-009-018, SC-009-026
  */
-export const PARAMETER_KEYS = ['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.provider_location', 'scene.prompt.blocks'] as const;
+export const PARAMETER_KEYS = ['album.max_photos_per_pet', 'scene.enabled', 'scene.global_quota_max', 'scene.provider_model', 'scene.provider_driver', 'scene.prompt.blocks'] as const;
 export type ParameterKey = (typeof PARAMETER_KEYS)[number];
 export type ParameterValueType = 'INTEGER' | 'BOOLEAN' | 'STRING' | 'JSON_BLOCKS';
 
