@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 # Sin scripts de instalación: no se compila better-sqlite3 (external; con postgres no se carga) ni se ejecuta código de paquetes.
 RUN npm ci --ignore-scripts
-COPY tsconfig.json vite.config.ts postcss.config.js tailwind.config.ts index.html ./
+COPY tsconfig.json vite.config.ts postcss.config.js tailwind.config.ts index.html admin.html ./
 COPY scripts/build-server.mjs scripts/build-server.mjs
 COPY src src
 RUN node scripts/build-server.mjs --outdir dist-server && ./node_modules/.bin/vite build
