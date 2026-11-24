@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 009 (administracion y borrado de cuenta sin contrasena)
-  version: 1.7.0
+  version: 1.7.1
   description: >
     Documento INCREMENTAL y UNICO de la feature 009 (P5-05 = A): contiene solo operaciones nuevas; los OpenAPI de 004 (3.4.0),
     005 y 006 permanecen sin cambio, y deleteAccount de 004 no se edita. Version 1.0.0 (T1217): dos operaciones de USUARIO del
@@ -14,10 +14,11 @@ info:
     /admin/* y nunca autorizan las dos operaciones de usuario.
   x-sdd-status: DRAFT
   x-sdd-metadata:
-    version: 1.7.0
+    version: 1.7.1
     status: DRAFT
     supersedes: 1.6.1
     change_type: MINOR
+    change_note_1_7_1: "1.7.1 (feature 009, Architect 2026-11-24, PATCH, DRAFT; el estado no se hereda y lo fija solo Neo; D9-32): solo texto. Se retira gemini-3.1-flash-image-preview de las descripciones (404 en Vertex global, verificado en produccion); quedan gemini-2.5-flash-image + us-central1 (45_000 microUSD) y gemini-3.1-flash-image + global (75_000 microUSD). PATCH y no MINOR porque scene.provider_model es texto con regex, ningun enum del contrato listaba el preview y el enum de location (us-central1, global) no cambia."
     change_note_1_7_0: "1.7.0 (feature 009, Architect 2026-11-24, MINOR, DRAFT; el estado de 1.6.1 NO se hereda y lo fija solo Neo; decisiones D9-29, D9-30 y D9-31, Neo, Nivel 2): (1) AdminParameterKey sustituye scene.provider_location por scene.provider_driver (vertex | gemini-api): la region deja de ser un parametro editable de /admin y se DERIVA del modelo (gemini-2.5-flash-image => us-central1; gemini-3.1-flash-image-preview => global, solo con Vertex; con gemini-api no hay region); el catalogo sigue teniendo seis claves y toda escritura a scene.provider_location es 422 (clave fuera del enum). sceneImagesFit.location se conserva como lectura (D9-29). (2) El guardado atomico de pareja modelo/region de D9-27 (7) queda sustituido: un unico selector escribe solo scene.provider_model (una auditoria parameterUpdate); el guardado de scene.provider_driver exige que el modelo vigente sea admitido por ese proveedor (422 si no) y que el despliegue tenga credenciales de ese proveedor (422 si no; constraints.allowed lista solo los proveedores con credenciales). (3) resetAdminSceneQuota amplia el alcance (D9-31): ademas de consumed_generations y scene_quota_carry reinicia los cuatro limites de intentos mediante la marca limits_reset_at (FAILED_LIMIT, intentos cerrados sin llamada, ACTOR_LIMIT y el estado de fallo de la corrida) sin borrar scene_attempts ni provider_call_started_at; la forma de AdminQuotaResetResult no cambia."
     change_note_1_6_1: "1.6.1 (feature 009, Architect 2026-11-24, PATCH, DRAFT; el estado no se hereda y lo fija solo Neo; acta /oracle 98448fa, OBS-2): solo texto. La descripcion de AdminParameterKey deja de decir lista cerrada de 3 modelos con gemini-3.1-flash-image y global solo tras el dictamen de /rama (D9-23) y pasa a los 2 pares validos de D9-27. Sin cambio de enum, tipos, propiedades ni operaciones."
     change_note_1_6_0: "1.6.0 (feature 009, Architect 2026-11-24, MINOR, DRAFT; el estado de 1.5.0 NO se hereda y lo fija solo Neo; acta /oracle 6d8420c, decision 3, y D9-27): el enum de AdminSceneImagesFit.location pasa de [us-central1] a [us-central1, global] porque el par gemini-3.1-flash-image-preview + global (75_000 microUSD) es seleccionable desde D9-27; el texto de sceneImagesFit dice hoy 2 pares validos (gemini-2.5-flash-image + us-central1 y gemini-3.1-flash-image-preview + global). Aditivo: ninguna propiedad, operacion ni codigo de error nuevos; el guardado atomico de la pareja (D9-27 (7)) no cambia el contrato. Compilar queda para /keymaker (T1311)."
@@ -749,7 +750,7 @@ components:
         o el proveedor configurado en el entorno; solo es seleccionable un proveedor con credenciales en el despliegue (falla cerrado). La region
         NO es un parametro editable (D9-29): se deriva del modelo en el codigo (scene.provider_location ya no esta en el catalogo y su escritura es 422).
         Con vertex, por D9-27 solo hay 2 pares validos modelo x region: gemini-2.5-flash-image + us-central1 (45_000 microUSD) y
-        gemini-3.1-flash-image-preview + global (75_000 microUSD); cualquier otro par (p. ej. gemini-3.1-flash-image-preview + us-central1)
+        gemini-3.1-flash-image + global (75_000 microUSD); cualquier otro par (p. ej. gemini-3.1-flash-image + us-central1)
         se rechaza. global ya no depende de un dictamen pendiente de /rama (el dictamen de T1294 queda como riesgo residual aceptado por Neo); scene.prompt.blocks = un unico JSON de
         bloques nombrados genericos (STYLE_BASE_TEXT, hogar con foto, hogar generico, PRESERVATION_BLOCK, PIXEL_REDRAW_RULE, STYLE_CLOSING),
         con longitud maxima por bloque y conjunto cerrado de marcadores del codigo (INV-CFG9-002; los numeros y los nombres exactos los fija T1261/T1303,
@@ -815,7 +816,7 @@ components:
           readOnly: true
           minItems: 0
           maxItems: 2
-          description: "[EDGE-009-036, D9-21 = A, REQ-CFG9-004; 1.5.0] Una entrada por par modelo x region seleccionable del Anexo A aprobado (hoy 2 pares validos: gemini-2.5-flash-image + us-central1 y gemini-3.1-flash-image-preview + global; D9-27), en el orden de la tabla del codigo. Vacia si la tabla esta vacia o el gasto no es calculable (falla cerrado)."
+          description: "[EDGE-009-036, D9-21 = A, REQ-CFG9-004; 1.5.0] Una entrada por par modelo x region seleccionable del Anexo A aprobado (hoy 2 pares validos: gemini-2.5-flash-image + us-central1 y gemini-3.1-flash-image + global; D9-27), en el orden de la tabla del codigo. Vacia si la tabla esta vacia o el gasto no es calculable (falla cerrado)."
           items: { $ref: '#/components/schemas/AdminSceneImagesFit' }
     AdminSceneImagesFit:
       type: object
@@ -825,7 +826,7 @@ components:
       description: "[EDGE-009-036; 1.5.0] Imagenes que aun caben para un par seleccionable. No expone coste unitario, gasto acumulado ni tope en dinero, ni datos de personas."
       properties:
         model: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$', description: "Modelo del par (clave de la tabla de costes del Anexo A)" }
-        location: { type: string, enum: [us-central1, global], description: "Region del par Vertex (solo lectura; derivada del modelo, D9-29); en 1.6.0 us-central1 o global (D9-27: global solo con gemini-3.1-flash-image-preview; las demas regiones no son seleccionables)" }
+        location: { type: string, enum: [us-central1, global], description: "Region del par Vertex (solo lectura; derivada del modelo, D9-29); en 1.6.0 us-central1 o global (D9-27: global solo con gemini-3.1-flash-image; las demas regiones no son seleccionables)" }
         imagesFit: { type: integer, minimum: 0, maximum: 111, description: "parte entera del margen mensual restante dividido por el coste del par; 0 = tope mensual alcanzado o superado; maximum 111 = techo derivado del coste minimo del Anexo A" }
     AdminParameterWriteInput:
       type: object
