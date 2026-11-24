@@ -219,9 +219,9 @@
 
 - [x] T1273 [GOV] [GH:#18, #19, #20, #57, #60] `/oracle` y `/seraph`: auditoría final en disco de las 5 fases (diff, pruebas, E2E multi-navegador, accesibilidad, ausencia de correo y de dependencias nuevas) y revisión de que las enmiendas constitucionales firmadas coinciden con lo implementado — NFR-009-001, NFR-009-002, NFR-009-003, NFR-009-005; SC-009-001..049. Dep: T1216, T1223, T1240, T1253, T1272
 - [x] T1274 [GH:#18, #19, #20, #57, #60] Compuerta final: `bash scripts/verify-traceability.sh --feature 009`, `bash scripts/verify-oracles.sh`, `npx tsc --noEmit`, `npm run test:gate`; `package.json` sin cambios — NFR-009-003, NFR-009-005; SC-009-035, SC-009-041. Dep: T1273
-- [ ] T1275 [HUM] [GH:#18, #19, #20, #57, #60] Neo: firmas de cierre (`APPROVED`/`LOCKED`, `COMPLETED`, `git push` y merge); ningún agente las ejecuta — NFR-009-005; SC-009-001..049. Dep: T1274
-- [ ] T1276 [GOV] [GH:#18, #19, #20, #57, #60] `/morpheus`: `node scripts/gh-project-sync.mjs sync --tasks specs/009-aprobacion-admin-correo/tasks.md` al abrir y al cerrar cada fase (recordar que la Fase 2 mueve el Issue `#17`, ya cerrado en 008, por la etiqueta de `T1130`) — SC-009-001..049. Dep: T1206
-- [ ] T1277 [HUM] [GH:#18, #19, #20, #57, #60] Enlace de PR a los 5 Issues: Neo abre el PR de `009-aprobacion-admin-correo` hacia `main` con la descripción `Closes #18`, `Closes #19`, `Closes #20`, `Closes #57`, `Closes #60` (y mención de `#17` por `T1130`) y verifica en GitHub Projects que los 5 ítems quedan enlazados al PR (`Linked PR`); `/morpheus` solo prepara el texto — SC-009-001..049. Dep: T1275
+- [x] T1275 [HUM] [GH:#18, #19, #20, #57, #60] Neo: firmas de cierre (`APPROVED`/`LOCKED`, `COMPLETED`, `git push` y merge); ningún agente las ejecuta — NFR-009-005; SC-009-001..049. Dep: T1274
+- [x] T1276 [GOV] [GH:#18, #19, #20, #57, #60] `/morpheus`: `node scripts/gh-project-sync.mjs sync --tasks specs/009-aprobacion-admin-correo/tasks.md` al abrir y al cerrar cada fase (recordar que la Fase 2 mueve el Issue `#17`, ya cerrado en 008, por la etiqueta de `T1130`) — SC-009-001..049. Dep: T1206
+- [x] T1277 [HUM] [GH:#18, #19, #20, #57, #60] Enlace de PR a los 5 Issues: Neo abre el PR de `009-aprobacion-admin-correo` hacia `main` con la descripción `Closes #18`, `Closes #19`, `Closes #20`, `Closes #57`, `Closes #60` (y mención de `#17` por `T1130`) y verifica en GitHub Projects que los 5 ítems quedan enlazados al PR (`Linked PR`); `/morpheus` solo prepara el texto — SC-009-001..049. Dep: T1275
 
 ---
 
