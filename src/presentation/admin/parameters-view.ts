@@ -39,7 +39,8 @@ export const NEVER_EDITED = 'Sin ediciones desde este portal';
 export const SAVE_COST_CAP = 'La combinación supera el tope mensual de imágenes. No se ha guardado.';
 export const MODEL_DEPRECATION = 'El modelo gemini-2.5-flash-image se retira el 15 de marzo de 2027; después de esa fecha habrá que elegir otro modelo.';
 export const MODEL_SAVED = 'Modelo de imagen guardado.';
-export const REGION_NOTICE = 'La región global no está disponible: solo se puede usar us-central1.';
+/** Aviso de EDGE-009-046 antes de guardar (D9-27 (5)): con `global` el procesamiento no queda fijado a una región ni a un país. Texto PROVISIONAL, pendiente de la firma de Neo. */
+export const REGION_NOTICE = 'La región global procesa las imágenes sin fijarlas a una región ni a un país (transferencia internacional). Solo funciona con el modelo gemini-3.1-flash-image-preview; los pares válidos son gemini-2.5-flash-image con us-central1 y gemini-3.1-flash-image-preview con global.';
 export const REGION_SAVED = 'Región guardada.';
 export const QUOTA_HEADING = 'Imágenes de escena al mes';
 export const QUOTA_HINT = 'Número máximo de imágenes de escena que la plataforma puede crear en un mes, sumando todas las cuentas.';
@@ -52,10 +53,10 @@ export const BLOCKS_SAVED = 'Texto base de la escena guardado.';
 export const BLOCKS_BROKEN = 'No se pudo leer el texto base actual. Recarga la página.';
 export const PHOTOREF = '{photoRef}';
 
-/** Modelos que se pueden elegir (lista cerrada, T1305): `gemini-3-pro-image` solo funciona con la región global y queda latente, sin selección. */
-export const SELECTABLE_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image'];
-/** Única región con pares aprobados (EDGE-009-046): `global` no se ofrece. */
-export const SELECTABLE_LOCATIONS: readonly string[] = ['us-central1'];
+/** Modelos que se pueden elegir (D9-27): solo los de los pares válidos; `gemini-3-pro-image` queda latente, sin selección. */
+export const SELECTABLE_MODELS: readonly string[] = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'];
+/** Regiones con pares válidos (D9-27): `us-central1` con gemini-2.5 y `global` con gemini-3.1 preview. Al elegir una mitad el servidor guarda su pareja válida. */
+export const SELECTABLE_LOCATIONS: readonly string[] = ['us-central1', 'global'];
 export const DEPRECATED_MODEL = 'gemini-2.5-flash-image';
 
 export const BLOCK_NAMES = ['STYLE_BASE_TEXT', 'HOUSEHOLD_WITH_PHOTO', 'HOUSEHOLD_GENERIC', 'PRESERVATION_BLOCK', 'PIXEL_REDRAW_RULE', 'STYLE_CLOSING'] as const;

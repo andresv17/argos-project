@@ -15,6 +15,8 @@ import type { GrantSceneConsentBody, SceneViewData } from './scene-api.ts';
 /** Igual a `SCENE_NOTICE_VERSION` del servidor: subió a '2' con el aviso final (T950) y a '3' con la biografía enviada (T964, enmienda 2026-11-24). */
 export const NOTICE_VERSION = '3';
 export const NOTICE_PROVIDER_ID = 'vertex-gemini-image';
+/** Igual a `SCENE_GLOBAL_NOTICE_VERSION` del servidor (D9-27 (5)): variante del aviso mientras la región efectiva es `global`; pide reconsentir solo entonces. */
+export const NOTICE_GLOBAL_VERSION = '3-global';
 export const NOTICE_TITLE = 'Crear la imagen de tu hogar con inteligencia artificial';
 export const NOTICE_INTRO = 'Para dibujar tu hogar y tus mascotas en pixel art, ARGOS envía imágenes a un servicio de inteligencia artificial de terceros. Antes de continuar, lee esto.';
 
@@ -104,8 +106,22 @@ export const NOTICE_GEMINI_API_SECTIONS: readonly NoticeSection[] = NOTICE_SECTI
   return section;
 });
 
-/** Texto del aviso del proveedor que el servidor declara vigente; un proveedor desconocido muestra el aviso por defecto (y su consentimiento se trata como OUTDATED). */
-export const noticeSectionsFor = (providerId: string): readonly NoticeSection[] => (providerId === NOTICE_GEMINI_API_PROVIDER_ID ? NOTICE_GEMINI_API_SECTIONS : NOTICE_SECTIONS);
+/**
+ * Variante GLOBAL del aviso de Vertex (D9-27 (5)): solo cambia «3. Dónde se procesa» para declarar procesamiento sin región ni país fijos. TEXTO PROVISIONAL tomado de la declaración de la spec
+ * (D9-27 (4)): el texto legal definitivo lo firma Neo (REQ-ESC6-026).
+ */
+export const NOTICE_GLOBAL_SECTIONS: readonly NoticeSection[] = NOTICE_SECTIONS.map((section) =>
+  section.title.startsWith('3.')
+    ? {
+        title: section.title,
+        paragraphs: ['En la región global de Google Cloud Vertex AI: el procesamiento no queda fijado a una región ni a un país, lo que implica una transferencia internacional de tus imágenes.'],
+      }
+    : section,
+);
+
+/** Texto del aviso del proveedor que el servidor declara vigente (y su variante global por `noticeVersion`); un proveedor desconocido muestra el aviso por defecto (y su consentimiento se trata como OUTDATED). */
+export const noticeSectionsFor = (providerId: string, noticeVersion?: string): readonly NoticeSection[] =>
+  providerId === NOTICE_GEMINI_API_PROVIDER_ID ? NOTICE_GEMINI_API_SECTIONS : noticeVersion === NOTICE_GLOBAL_VERSION ? NOTICE_GLOBAL_SECTIONS : NOTICE_SECTIONS;
 
 export type ConsentStep = 'GRANTED' | 'ASK' | 'OUTDATED';
 
@@ -114,13 +130,13 @@ export type ConsentStep = 'GRANTED' | 'ASK' | 'OUTDATED';
  * GRANTED si el usuario tiene vigentes los dos alcances (foto del hogar y avatares); ASK en otro caso. El alcance es por usuario (D6-16 = A).
  */
 export function consentStep(consent: SceneViewData['consent']): ConsentStep {
-  const known = (consent.noticeVersion === NOTICE_VERSION && consent.providerId === NOTICE_PROVIDER_ID) || (consent.noticeVersion === NOTICE_GEMINI_API_VERSION && consent.providerId === NOTICE_GEMINI_API_PROVIDER_ID);
+  const known = ((consent.noticeVersion === NOTICE_VERSION || consent.noticeVersion === NOTICE_GLOBAL_VERSION) && consent.providerId === NOTICE_PROVIDER_ID) || (consent.noticeVersion === NOTICE_GEMINI_API_VERSION && consent.providerId === NOTICE_GEMINI_API_PROVIDER_ID);
   if (!known) return 'OUTDATED';
   return consent.householdPhotoGranted && consent.petPhotosGranted ? 'GRANTED' : 'ASK';
 }
 
 /** Cuerpo de `grantSceneConsent` con las constantes del cliente y los dos alcances. */
-export const consentBody = (providerId: string = NOTICE_PROVIDER_ID): GrantSceneConsentBody =>
+export const consentBody = (providerId: string = NOTICE_PROVIDER_ID, noticeVersion?: string): GrantSceneConsentBody =>
   providerId === NOTICE_GEMINI_API_PROVIDER_ID
     ? { noticeVersion: NOTICE_GEMINI_API_VERSION, providerId: NOTICE_GEMINI_API_PROVIDER_ID, scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] }
-    : { noticeVersion: NOTICE_VERSION, providerId: NOTICE_PROVIDER_ID, scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] };
+    : { noticeVersion: noticeVersion === NOTICE_GLOBAL_VERSION ? NOTICE_GLOBAL_VERSION : NOTICE_VERSION, providerId: NOTICE_PROVIDER_ID, scopes: ['HOUSEHOLD_PHOTO', 'PET_PHOTOS'] };

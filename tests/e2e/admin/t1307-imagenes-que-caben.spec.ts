@@ -13,11 +13,11 @@ const catalog = (model = 'gemini-2.5-flash-image', location = 'us-central1'): P[
   p({ key: 'album.max_photos_per_pet', constraints: { min: 1, max: 50 } }),
   p({ key: 'scene.enabled', valueType: 'BOOLEAN', value: 'true', default: 'true', constraints: { allowed: ['true', 'false'] } }),
   p({ key: 'scene.global_quota_max', value: '50', default: '50', constraints: { min: 1, max: 111 }, etag: '"etag-quota-000001"' }),
-  p({ key: 'scene.provider_model', valueType: 'STRING', value: model, default: 'gemini-2.5-flash-image', constraints: { allowed: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3-pro-image'] }, etag: '"etag-model-000001"' }),
+  p({ key: 'scene.provider_model', valueType: 'STRING', value: model, default: 'gemini-2.5-flash-image', constraints: { allowed: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image'] }, etag: '"etag-model-000001"' }),
   p({ key: 'scene.provider_location', valueType: 'STRING', value: location, default: 'us-central1', constraints: { allowed: ['us-central1', 'global'] }, etag: '"etag-region-000001"' }),
   p({ key: 'scene.prompt.blocks', valueType: 'JSON_BLOCKS', value: JSON.stringify(BLOCKS), default: JSON.stringify(BLOCKS), constraints: { maxBlockLength: 1000 }, etag: '"etag-blocks-000001"' }),
 ];
-const FIT = [{ model: 'gemini-2.5-flash-image', location: 'us-central1', imagesFit: 111 }, { model: 'gemini-3.1-flash-image', location: 'us-central1', imagesFit: 66 }];
+const FIT = [{ model: 'gemini-2.5-flash-image', location: 'us-central1', imagesFit: 111 }, { model: 'gemini-3.1-flash-image-preview', location: 'us-central1', imagesFit: 66 }];
 async function fakeAdmin(page: Page, items: P[], fit: unknown): Promise<void> {
   const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   await page.route('**/api/admin/session', (r) => r.fulfill(json({ authenticated: true, adminId: 'adm-opaque', expiresAt: '2030-01-01T00:30:00Z', idleExpiresAt: '2030-01-01T00:10:00Z' })));
@@ -36,7 +36,7 @@ test('[EDGE-009-036] cada modelo seleccionable muestra «Imágenes que aún cabe
   ]);
   const card = page.getByTestId('param-scene.provider_model');
   await expect(card).toContainText('Imágenes que aún caben: 111'); // del modelo elegido en el selector
-  await select.selectOption('gemini-3.1-flash-image');
+  await select.selectOption('gemini-3.1-flash-image-preview');
   await expect(card.getByTestId('images-fit')).toHaveText('Imágenes que aún caben: 66');
   expect(await page.locator('body').innerText()).not.toMatch(/USD|\$|micro/i);
   // Excepción aprobada por Neo (Nivel 2): Firefox 159 SIGSEGV de entorno en axe 4.14; cobertura axe completa en Chromium, WebKit y móviles.
@@ -58,7 +58,7 @@ test('[EDGE-009-036] sin sceneImagesFit (falla cerrado) no se muestra ninguna ci
   await page.goto('/admin');
   await expect(page.getByLabel('Modelo de imagen', { exact: true })).toBeVisible();
   await expect(page.getByTestId('images-fit')).toHaveCount(0);
-  await expect(page.getByLabel('Modelo de imagen', { exact: true }).locator('option')).toHaveText(['gemini-2.5-flash-image (se retira el 15 de marzo de 2027)', 'gemini-3.1-flash-image']);
+  await expect(page.getByLabel('Modelo de imagen', { exact: true }).locator('option')).toHaveText(['gemini-2.5-flash-image (se retira el 15 de marzo de 2027)', 'gemini-3.1-flash-image-preview']);
 });
 
 test('[REQ-CFG9-004] un valor vigente fuera de la lista (modelo retirado o región) muestra «Valor vigente: X (no seleccionable)»', async ({ page }) => {

@@ -209,7 +209,14 @@ export function adminParameterRepository(db: SqliteDatabase): AdminParameterRepo
   const scenesOf = db.prepare<[string], { id: string; consumed_generations: number }>('SELECT id, consumed_generations FROM home_scenes WHERE owner_user_id = ? AND consumed_generations > 0');
   const zeroScene = db.prepare('UPDATE home_scenes SET consumed_generations = 0 WHERE id = ? AND consumed_generations = ?');
   const carryOf = db.prepare<[string], { quota_window: string; consumed_generations: number }>('SELECT quota_window, consumed_generations FROM scene_quota_carry WHERE owner_user_id = ? AND consumed_generations > 0');
-  const zeroCarry = db.prepare('UPDATE scene_quota_carry SET consumed_generations = 0 WHERE owner_user_id = ? AND quota_window = ? AND consumed_generations = ?');
+  const dropCarry = db.prepare('DELETE FROM scene_quota_carry WHERE owner_user_id = ? AND quota_window = ? AND consumed_generations = ?');
+  // D9-28: escenas de los hogares donde la cuenta es propietaria legal (`households.owner_user_id`) y desbloqueo del limite de fallos.
+  const householdScenesOf = db.prepare<[string], { id: string; consumed_generations: number }>(
+    'SELECT s.id AS id, s.consumed_generations AS consumed_generations FROM home_scenes s WHERE s.household_id IN (SELECT id FROM households WHERE owner_user_id = ?) AND s.consumed_generations > 0',
+  );
+  const allScenesOf = db.prepare<[string, string], { id: string }>('SELECT s.id AS id FROM home_scenes s WHERE s.owner_user_id = ? OR s.household_id IN (SELECT id FROM households WHERE owner_user_id = ?)');
+  const cancelFailed = db.prepare("UPDATE scene_attempts SET outcome = 'CANCELLED' WHERE scene_id = ? AND outcome = 'FAILED' AND started_at >= ?");
+  const clearFailedScene = db.prepare("UPDATE home_scenes SET run_state = NULL, current_attempt_id = NULL, lease_expires_at = NULL WHERE id = ? AND run_state = 'failed'");
   const spendOf = db.prepare<[string], { provider_model: string | null; provider_location: string | null; provider_call_started_at: string | null }>('SELECT provider_model, provider_location, provider_call_started_at FROM scene_attempts WHERE quota_window = ?');
   return {
     async find(key): Promise<ParameterRowRecord | null> {
@@ -226,11 +233,16 @@ export function adminParameterRepository(db: SqliteDatabase): AdminParameterRepo
     async listSceneSpendAttempts(window) {
       return spendOf.all(window).map((r) => ({ providerModel: r.provider_model, providerLocation: r.provider_location, providerCallStartedAt: r.provider_call_started_at }));
     },
-    async resetAdminAccountsSceneQuota(subjects, emails) {
+    async resetAdminAccountsSceneQuota(subjects, emails, failedSince) {
       const ids = accounts.all(JSON.stringify(subjects), JSON.stringify(emails.map((e) => e.toLowerCase()))).map((r) => r.id);
       for (const id of ids) {
         for (const scene of scenesOf.all(id)) if (zeroScene.run(scene.id, scene.consumed_generations).changes !== 1) return null;
-        for (const row of carryOf.all(id)) if (zeroCarry.run(id, row.quota_window, row.consumed_generations).changes !== 1) return null;
+        for (const scene of householdScenesOf.all(id)) if (zeroScene.run(scene.id, scene.consumed_generations).changes !== 1) return null;
+        for (const row of carryOf.all(id)) if (dropCarry.run(id, row.quota_window, row.consumed_generations).changes !== 1) return null;
+        for (const scene of allScenesOf.all(id, id)) {
+          cancelFailed.run(scene.id, failedSince);
+          clearFailedScene.run(scene.id);
+        }
       }
       return { accountsReset: ids.length };
     },

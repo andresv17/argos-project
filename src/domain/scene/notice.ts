@@ -9,6 +9,11 @@
 export const SCENE_NOTICE_VERSION = '3';
 export const SCENE_PROVIDER_ID = 'vertex-gemini-image';
 /**
+ * Variante GLOBAL del aviso (D9-27 (5), enmienda 2026-11-24, Neo): rige solo mientras la región efectiva es `global` (procesamiento sin región ni país fijos). Es una clave `noticeVersion` propia, así que
+ * los consentimientos previos (versión '3') piden reconsentir únicamente al activarse `global`. El texto legal de la variante lo firma Neo (REQ-ESC6-026).
+ */
+export const SCENE_GLOBAL_NOTICE_VERSION = '3-global';
+/**
  * Driver `gemini-api` (T895, REQ-ESC6-037; INV-ESC6-014, INV-ESC6-020): proveedor y versión del aviso PROPIOS. Distintos de los de Vertex, así que un consentimiento
  * dado a otro proveedor o a otra versión no sirve y el generador recibe 0 llamadas (EDGE-ESC6-018). El texto del aviso queda en revisión hasta la firma de Neo (REQ-ESC6-026).
  */

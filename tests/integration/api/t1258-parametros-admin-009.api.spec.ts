@@ -226,13 +226,17 @@ describe('T1258 [REQ-CFG9-001] [P5-06 = B] sin claves nuevas y claves de 5b con 
 
   it('[REQ-CFG9-008] 5b: scene.global_quota_max, scene.provider_model y scene.provider_location son escribibles dentro del tope de gasto y dejan UNA auditoria sin valor', async () => {
     const b = await boot();
-    for (const [key, value] of [['scene.global_quota_max', '7'], ['scene.provider_model', 'gemini-3.1-flash-image'], ['scene.provider_location', 'us-central1']] as const) {
+    for (const [key, value] of [['scene.global_quota_max', '7'], ['scene.provider_model', 'gemini-3.1-flash-image-preview'], ['scene.provider_location', 'us-central1']] as const) {
       const r = await putFresh(b, key, value);
       expect([key, r.status]).toEqual([key, 200]);
       expect(row(b.a, key)).toEqual({ value, updatedAt: NOW, by: null });
     }
+    // D9-27 (SC-009-052): guardar una mitad guarda su pareja valida en la misma transaccion (preview <-> global; us-central1 <-> gemini-2.5-flash-image).
+    expect(row(b.a, 'scene.provider_model')?.value).toBe('gemini-2.5-flash-image');
     expect(auditRows(b.a).map((a) => [a.action, a.objectRef])).toEqual([
       ['ADMIN_PARAMETER_UPDATE', 'scene.global_quota_max'],
+      ['ADMIN_PARAMETER_UPDATE', 'scene.provider_location'],
+      ['ADMIN_PARAMETER_UPDATE', 'scene.provider_model'],
       ['ADMIN_PARAMETER_UPDATE', 'scene.provider_model'],
       ['ADMIN_PARAMETER_UPDATE', 'scene.provider_location'],
     ]);
@@ -241,7 +245,8 @@ describe('T1258 [REQ-CFG9-001] [P5-06 = B] sin claves nuevas y claves de 5b con 
 
   it('[REQ-CFG9-004][EDGE-009-036] la combinacion que supera 5_000_000 micro-USD: 422 ERR-ADMIN-SCENE-COST-CAP-EXCEEDED sin escribir ni auditar (66 cabe con el de 75_000, 67 no)', async () => {
     const b = await boot();
-    setRow(b.a, 'scene.provider_model', 'gemini-3.1-flash-image');
+    setRow(b.a, 'scene.provider_model', 'gemini-3.1-flash-image-preview');
+    setRow(b.a, 'scene.provider_location', 'global');
     expect((await putFresh(b, 'scene.global_quota_max', '66')).status).toBe(200);
     const before = row(b.a, 'scene.global_quota_max');
     const auditBefore = auditRows(b.a);
@@ -255,7 +260,8 @@ describe('T1258 [REQ-CFG9-001] [P5-06 = B] sin claves nuevas y claves de 5b con 
   it.each([
     ['scene.provider_model', 'gemini-3-pro-image'],
     ['scene.provider_location', 'us-east4'],
-    ['scene.provider_location', 'global'],
+    ['scene.provider_model', 'gemini-3.1-flash-image'], // D9-27: sin sufijo deja de estar habilitado
+    ['scene.provider_location', 'GLOBAL'],
     ['scene.provider_location', 'us-central1/../x'],
     ['scene.global_quota_max', '112'],
     ['scene.global_quota_max', '1000'],

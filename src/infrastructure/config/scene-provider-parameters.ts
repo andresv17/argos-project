@@ -22,6 +22,7 @@ import {
   type SceneProviderParameters,
 } from '../../domain/scene/provider-parameters.ts';
 import { DEFAULT_PROMPT_BLOCKS, PROMPT_BLOCK_MAX_LENGTH, validatePromptBlocks, type PromptBlocks } from '../../domain/scene/prompt-blocks.ts';
+import { isSelectableScenePair } from '../../domain/scene/scene-cost.ts';
 import type { SceneConfig } from './app-config.ts';
 
 type SceneEnvBackup = Pick<SceneConfig, 'globalQuotaMax' | 'model' | 'location'>;
@@ -72,10 +73,16 @@ export function createSceneProviderParametersReader(options: {
       options.repository.findValue(SCENE_PARAM_LOCATION_KEY),
     ]);
     const quotaParsed = quotaRaw === null ? null : parseSceneGlobalQuotaMax(quotaRaw);
+    const envModel = options.env.model ?? SCENE_DEFAULT_MODEL;
+    const envLocation = options.env.location ?? SCENE_DEFAULT_LOCATION;
+    const model = modelRaw !== null && isSafeSceneModel(modelRaw) ? modelRaw : envModel;
+    const location = locationRaw !== null && isAllowedSceneLocation(locationRaw) ? locationRaw : envLocation;
+    // D9-27 / INV-CFG9-001: un par sin coste con fuente nunca se devuelve; cae al respaldo de entorno o al defecto del codigo, sin eco del valor.
+    const paired = modelRaw === null && locationRaw === null ? { model, location } : isSelectableScenePair(model, location) ? { model, location } : { model: envModel, location: envLocation };
     const value: SceneProviderParameters = {
       globalQuotaMax: quotaParsed ?? options.env.globalQuotaMax ?? SCENE_DEFAULT_GLOBAL_QUOTA_MAX,
-      model: modelRaw !== null && isSafeSceneModel(modelRaw) ? modelRaw : (options.env.model ?? SCENE_DEFAULT_MODEL),
-      location: locationRaw !== null && isAllowedSceneLocation(locationRaw) ? locationRaw : (options.env.location ?? SCENE_DEFAULT_LOCATION),
+      model: paired.model,
+      location: paired.location,
     };
     cached = { at: now, value };
     return value;

@@ -5,7 +5,7 @@
  * @implements REQ-ESC6-017, REQ-ESC6-031, NFR-ESC6-001
  */
 
-import { SCENE_COST_TABLE_MICRO_USD, sceneCostCeiling } from './scene-cost.ts';
+import { SCENE_COST_TABLE_MICRO_USD, isSelectableScenePair, sceneCostCeiling } from './scene-cost.ts';
 
 /** Claves en `platform_parameters` (texto); si la fila no existe rige el respaldo de entorno y, en su defecto, el valor por defecto. */
 export const SCENE_PARAM_GLOBAL_QUOTA_MAX_KEY = 'scene.global_quota_max';
@@ -18,10 +18,10 @@ export const SCENE_DEFAULT_GLOBAL_QUOTA_MAX = 5;
 export const SCENE_DEFAULT_MODEL = 'gemini-2.5-flash-image';
 export const SCENE_DEFAULT_LOCATION = 'us-central1';
 /**
- * Region `global` LATENTE (Enmienda 009-B, condicion (g); EDGE-009-046): constante de CODIGO, no clave de `platform_parameters` ni del catalogo de /admin. Con `false` la region
- * `global` no esta en la lista cerrada y se rechaza en cualquier forma; activarla exige una enmienda aprobada por Neo.
+ * Region `global` (Enmienda 009-B, condicion (g); EDGE-009-046): constante de CODIGO, no clave de `platform_parameters` ni del catalogo de /admin. Con `false` la region `global` se rechaza en
+ * cualquier forma. Activada (`true`) por la enmienda D9-27 (2026-11-24, Neo, Nivel 2) SOLO para el par `gemini-3.1-flash-image-preview` + `global` (host literal fijo, sin residencia regional).
  */
-export const SCENE_GLOBAL_LOCATION_ENABLED = false as boolean;
+export const SCENE_GLOBAL_LOCATION_ENABLED = true as boolean;
 
 /** Lista cerrada de regiones de Vertex AI admitidas (el host se compone solo con una de ellas, anti-SSRF). */
 export const SCENE_ALLOWED_LOCATIONS: readonly string[] = [
@@ -99,6 +99,8 @@ export function resolveSceneProviderParameters(sources: SceneParameterSources): 
     if (isAllowedSceneLocation(sources.db.location)) location = sources.db.location;
     else invalid.push(SCENE_PARAM_LOCATION_KEY);
   }
+  // D9-27 / INV-CFG9-001: una fila de modelo o region de la BD que forme un par sin coste con fuente se rechaza al leer (nombra solo las claves).
+  if (invalid.length === 0 && (sources.db.model !== null || sources.db.location !== null) && !isSelectableScenePair(model, location)) invalid.push(SCENE_PARAM_MODEL_KEY, SCENE_PARAM_LOCATION_KEY);
   if (invalid.length > 0) throw new SceneParameterError(invalid);
   return { globalQuotaMax, model, location };
 }

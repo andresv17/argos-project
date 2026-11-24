@@ -925,12 +925,20 @@ function adminParameterRepository(state: MemoryState): AdminParameterRepositoryP
       const entries = (state.adminAudit ??= []).filter((r) => r.action === action && r.objectRef === key);
       return entries.length === 0 ? null : entries.reduce((a, b) => (b.occurredAt >= a.occurredAt ? b : a)).adminId;
     },
-    async resetAdminAccountsSceneQuota(subjects, emails) {
+    async resetAdminAccountsSceneQuota(subjects, emails, failedSince) {
       const wanted = new Set(emails.map((e) => e.toLowerCase()));
       const linked = new Set((state.authIdentities ?? []).filter((i) => i.provider === 'GOOGLE' && subjects.includes(i.providerSubject)).map((i) => i.userId));
       const ids = new Set(state.users.filter((u) => linked.has(u.id) || (u.emailVerifiedAt !== undefined && u.email !== null && wanted.has(u.email.toLowerCase()))).map((u) => u.id));
-      state.scenes = (state.scenes ?? []).map((s) => (s.ownerUserId !== null && ids.has(s.ownerUserId) ? { ...s, consumedGenerations: 0 } : s));
-      state.sceneQuotaCarry = (state.sceneQuotaCarry ?? []).map((c) => (ids.has(c.ownerUserId) ? { ...c, consumedGenerations: 0 } : c));
+      const ownedHouseholds = new Set(state.households.filter((h) => ids.has(h.ownerUserId)).map((h) => h.id));
+      const inScope = (s: { ownerUserId: string | null; householdId: string | null }): boolean => (s.ownerUserId !== null && ids.has(s.ownerUserId)) || (s.householdId !== null && ownedHouseholds.has(s.householdId));
+      const sceneIds = new Set((state.scenes ?? []).filter(inScope).map((s) => s.id));
+      state.scenes = (state.scenes ?? []).map((s) => {
+        if (!inScope(s)) return s;
+        const cleared = s.runState === 'failed' ? { runState: null, currentAttemptId: null, leaseExpiresAt: null } : {};
+        return { ...s, ...cleared, consumedGenerations: 0 };
+      });
+      state.sceneQuotaCarry = (state.sceneQuotaCarry ?? []).filter((c) => !ids.has(c.ownerUserId));
+      state.sceneAttempts = (state.sceneAttempts ?? []).map((a) => (sceneIds.has(a.sceneId) && a.outcome === 'FAILED' && a.startedAt >= failedSince ? { ...a, outcome: 'CANCELLED' as const } : a));
       return { accountsReset: ids.size };
     },
     async listSceneSpendAttempts(window) {
