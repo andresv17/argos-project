@@ -51,6 +51,8 @@ const PROVIDER_CALL_PATH = new URL('../../../src/infrastructure/persistence/post
 const IMAGE_MIME_JPEG_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0020_home_scenes_image_mime_jpeg.sql', import.meta.url);
 /** T1315 (009, Fase 5d, D9-31): la 0022 de Postgres equivale a la 0026 de SQLite (`home_scenes.limits_reset_at` y la tabla `scene_actor_limit_marks`). */
 const LIMITS_RESET_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0022_scene_limits_reset.sql', import.meta.url);
+/** T1423 (010, Bloque D, #75): la 0024 de Postgres equivale a la 0028 de SQLite (`users.adult_declared_at` y `adult_notice_version`, anulables, REQ-MEN10-001, REQ-MEN10-002). */
+const ADULT_DECLARATION_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0024_adult_declaration.sql', import.meta.url);
 const ACCOUNT_STATUS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0016_account_status.sql', import.meta.url);
 
 /** Lista canónica independiente de ambos esquemas (data-model.md §2). */
@@ -232,7 +234,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...postgresStatements(LIMITS_RESET_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...postgresStatements(LIMITS_RESET_PATH), ...postgresStatements(ADULT_DECLARATION_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -507,6 +509,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(ACCOUNT_STATUS_PATH, 'utf8'));
         await client.query(readFileSync(PROVIDER_CALL_PATH, 'utf8'));
         await client.query(readFileSync(LIMITS_RESET_PATH, 'utf8'));
+        await client.query(readFileSync(ADULT_DECLARATION_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],
