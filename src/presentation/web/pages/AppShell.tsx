@@ -70,6 +70,9 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
         <NavLink to="/cuenta" className={link}>
           Perfil
         </NavLink>
+        <NavLink to="/acerca-de" className={link}>
+          Acerca de
+        </NavLink>
       </nav>
       <div className="flex items-center gap-3">
         <span className="sr-only text-sm text-text-primary min-[480px]:not-sr-only">{displayName}</span>

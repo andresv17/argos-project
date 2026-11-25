@@ -47,6 +47,9 @@ export function AuthLayout({ title, titleId, titleRef, children }: { readonly ti
           <Link to="/terminos" className="inline-flex min-h-8 items-center underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2">
             Términos
           </Link>
+          <Link to="/acerca-de" className="inline-flex min-h-8 items-center underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2">
+            Acerca de
+          </Link>
         </nav>
       </footer>
     </div>

@@ -1,6 +1,6 @@
 /**
  * Normalizador de metadatos de imagen por LISTA BLANCA, sin dependencia npm (feature 006, T848; REQ-ESC6-027, REQ-ESC6-035; INV-ESC6-015; plan.md §5.4; N2-01 = B).
- * `stripImageMetadata` es una función inyectada de `infrastructure`, no un puerto: reescribe el contenedor conservando solo los segmentos permitidos y sin tocar los
+ * `stripImageMetadata` es una función pura del dominio (el adaptador de `infrastructure` solo la reexporta; los casos de uso de `application` la reciben inyectada o la importan de aquí), no un puerto: reescribe el contenedor conservando solo los segmentos permitidos y sin tocar los
  * píxeles (JPEG: SOI, DQT, DHT, SOF*, DRI, SOS con sus datos, EOI y APP14 Adobe; PNG: IHDR, PLTE, tRNS, IDAT, IEND; WebP: VP8, VP8L, VP8X sin indicadores
  * EXIF/XMP/ICC y ALPH). Trunca todo byte posterior al marcador final, verifica el CRC del PNG y que las longitudes cierren exactamente, rechaza PNG y WebP animados
  * y cualquier archivo ilegible (`ok: false` = «ausente»). El recorrido tiene tope de iteraciones y nunca decodifica ni duplica el archivo antes de validar tamaños.

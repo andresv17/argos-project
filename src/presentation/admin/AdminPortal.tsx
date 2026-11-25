@@ -6,6 +6,7 @@
  * @implements REQ-ADM9-001, REQ-APR9-005, NFR-009-001, EDGE-009-008, INV-ADM9-001
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AboutPanel } from './AboutPanel.tsx';
 import { BRAND_NAME } from './brand.ts';
 import { ParametersPanel } from './ParametersPanel.tsx';
 import { RegistrationsPanel } from './RegistrationsPanel.tsx';
@@ -107,6 +108,7 @@ function Shell(props: {
         <SessionExpiryNotice expiresAt={session.expiresAt} />
         <RegistrationsPanel onSessionLost={onSessionLost} />
         <ParametersPanel viewerId={session.viewerId} onSessionLost={onSessionLost} />
+        <AboutPanel onSessionLost={onSessionLost} />
         <p className="mt-4 max-w-3xl text-sm text-text-muted">Tu sesión dura 30 minutos como máximo y se cierra sola tras 10 minutos sin actividad.</p>
         {error ? (
           <div role="alert" className="mt-4 max-w-3xl text-sm font-medium text-danger">

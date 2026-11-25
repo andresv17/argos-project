@@ -9,6 +9,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { ApiClient } from './api.ts';
 import { ACCOUNT_STATUS_ROUTE } from './account-status.ts';
 import { AccountStatusPage } from './pages/AccountStatusPage.tsx';
+import { AboutPage } from './pages/AboutPage.tsx';
 import { AlbumPage } from './pages/AlbumPage.tsx';
 import { AccountPage } from './pages/AccountPage.tsx';
 import { AppShell } from './pages/AppShell.tsx';
@@ -59,12 +60,13 @@ export function AppRoutes(): JSX.Element {
 }
 
 export function App({ api }: { readonly api: ApiClient }): JSX.Element {
-  // La página pública `/shared/{token}` va FUERA de la sesión: no consulta `/auth/me`, no lee ni envía la cookie (REQ-VET-006, INV-005-002). Igual `/privacidad` y `/terminos` (T1413, EDGE-010-004).
+  // La página pública `/shared/{token}` va FUERA de la sesión: no consulta `/auth/me`, no lee ni envía la cookie (REQ-VET-006, INV-005-002). Igual `/privacidad`, `/terminos` (T1413) y `/acerca-de` (T1431), EDGE-010-004.
   return (
     <Routes>
       <Route path="/shared/:token" element={<SharedPage />} />
       <Route path="/privacidad" element={<PrivacyPolicyPage />} />
       <Route path="/terminos" element={<TermsPage />} />
+      <Route path="/acerca-de" element={<AboutPage />} />
       <Route
         path="*"
         element={

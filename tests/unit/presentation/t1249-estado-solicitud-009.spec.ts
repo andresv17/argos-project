@@ -60,8 +60,8 @@ describe('pantallas de estado (T1249, D9-18)', () => {
       expect(m).toContain('30 días');
       expect(m).not.toMatch(/<form|<button|<input|<textarea/);
       expect(m).not.toMatch(/Eliminar|Borrar|Suprimir ahora/);
-      // T1413 (010) añadió el pie legal al marco de acceso: /privacidad y /terminos son los únicos enlaces nuevos (ninguno borra nada).
-      expect([...m.matchAll(/<a [^>]*href="([^"]*)"/g)].map((x) => x[1])).toEqual(['/login', '/privacidad', '/terminos']);
+      // T1413 (010) añadió el pie legal al marco de acceso (/privacidad, /terminos) y T1431 (010) el enlace público /acerca-de: son los únicos enlaces nuevos (ninguno borra nada).
+      expect([...m.matchAll(/<a [^>]*href="([^"]*)"/g)].map((x) => x[1])).toEqual(['/login', '/privacidad', '/terminos', '/acerca-de']);
     }
   });
 
