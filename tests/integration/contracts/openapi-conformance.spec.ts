@@ -58,7 +58,7 @@ describe('conformidad de la API con contracts/openapi/pet-tracker-api.openapi.ya
       if (r.status >= 300) rejected.push(`${method} ${url} -> ${r.status} ${r.text.slice(0, 160)}`);
       return r;
     };
-    await step('POST', '/api/auth/register', { body: { username: 'nueva.usuaria', displayName: 'Nueva', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' } });
+    await step('POST', '/api/auth/register', { body: { adultDeclaration: true, username: 'nueva.usuaria', displayName: 'Nueva', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' } });
     // 009 (T1246): el alta nace PENDING y no inicia sesión; el arnés T1244 la activa y la persona entra con sus credenciales. La conformidad del 201 de registerUser (AccountStatusView) depende del OpenAPI 002 3.4.0 DRAFT recompilado.
     await activateAccount(sqliteRunner(api.db), 'sqlite', 'nueva.usuaria', '2026-11-23T10:00:00.000Z');
     const lucia = (await step('POST', '/api/auth/login', { body: { username: 'nueva.usuaria', password: 'Clave2026x!' } })).cookie!;

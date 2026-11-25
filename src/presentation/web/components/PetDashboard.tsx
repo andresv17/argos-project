@@ -25,7 +25,7 @@ const CATEGORY_LABEL = Object.fromEntries(
   (RECORD_MODULES.find((m) => m.id === 'customParameters')?.fields.find((f) => f.name === 'category')?.options ?? []).map((o) => [o.value, o.label]),
 );
 const DEWORMING_LABEL: Readonly<Record<'INTERNAL' | 'EXTERNAL', string>> = { INTERNAL: 'Interna', EXTERNAL: 'Externa' };
-const RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white';
+const RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2 focus-visible:ring-offset-white';
 
 /** Tipo e intensidad de un síntoma como texto neutro: mismo estilo con cualquier intensidad (INV-SIN-002). */
 function SymptomSummary({ record }: { readonly record: { readonly category: string; readonly symptomType?: SymptomType | null; readonly severity?: SymptomSeverity | null } }): JSX.Element | null {
@@ -247,7 +247,7 @@ function AlertsCard({ dashboard }: { readonly dashboard: PetDashboardView }): JS
   const summary = dashboard.alertsSummary;
   const deceased = isDeceased(dashboard.profile); // M2 (REQ-FAL7-004): la tarjeta sigue visible pero sin recuento.
   return (
-    <section aria-labelledby="alerts-title" className="col-span-2 grid content-start gap-2 rounded-2xl bg-primary p-5 text-white shadow-sm lg:col-span-5 lg:row-span-2">
+    <section aria-labelledby="alerts-title" className="col-span-2 grid content-start gap-2 rounded-2xl bg-primary p-5 text-cream shadow-sm lg:col-span-5 lg:row-span-2">
       <h3 id="alerts-title" className="text-lg font-semibold">
         Estado de vacunación
       </h3>
@@ -474,7 +474,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                   }
                 }}
               >
-                <summary className={`inline-flex min-h-12 cursor-pointer items-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover ${RING}`}>{RECORD_SUMMARY[activeSpec.id]}</summary>
+                <summary className={`inline-flex min-h-12 cursor-pointer items-center rounded-full bg-primary px-5 text-sm font-semibold text-cream hover:bg-primary-hover ${RING}`}>{RECORD_SUMMARY[activeSpec.id]}</summary>
                 <RecordForm key={`${profile.id}-${activeSpec.id}`} spec={activeSpec} species={profile.species} onSubmit={(body) => onAddRecord(activeSpec.id, body)} />
               </details>
             ) : null}

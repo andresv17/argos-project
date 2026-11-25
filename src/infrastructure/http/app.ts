@@ -20,6 +20,7 @@ import { registerGoogleAuthRoutes } from './routes/google-auth.routes.ts';
 import { GoogleRateLimiter } from './google-rate-limit.ts';
 import { AdminAccessLimiter } from './admin-rate-limit.ts';
 import { RegistrationRateLimiter } from './registration-rate-limit.ts';
+import { registerAdminAboutRoutes, registerPublicAboutRoutes } from './routes/about.routes.ts';
 import { registerAdminRoutes } from './routes/admin.routes.ts';
 import { registerBackupRoutes } from './routes/backup.routes.ts';
 import { registerAssignmentRoutes } from './routes/assignments.routes.ts';
@@ -41,6 +42,8 @@ import { createUseCases } from './routes/use-cases.ts';
 export interface HttpAppOptions {
   readonly deps: ApplicationDeps;
   readonly cookieSecure: boolean;
+  /** Base pública de los enlaces (config `ARGOS_PUBLIC_BASE_URL`); sin ella, `http://localhost` (solo pruebas y desarrollo). */
+  readonly publicBaseUrl?: string | null;
   readonly logger?: FastifyServerOptions['logger'];
   /** Saltos de proxy de confianza (REQ-CLD-003). Por defecto `false`. */
   readonly trustProxy?: boolean | number;
@@ -55,7 +58,7 @@ export interface HttpAppOptions {
 }
 
 /** @implements INV-ARCH-004, INV-AUTH-007 */
-export async function buildApp({ deps, cookieSecure, logger = false, trustProxy = false, checkReady, staticRoot, mediaHost, devMedia }: HttpAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = false, trustProxy = false, checkReady, staticRoot, mediaHost, devMedia }: HttpAppOptions): Promise<FastifyInstance> {
   // `frameworkErrors` (EDGE-005-25): la URL mal codificada bajo `/api/shared/` responde el 404 uniforme del enlace veterinario, no el 400 de Fastify.
   const sharedFailure: { current: ReturnType<typeof createSharedFailure> | null } = { current: null };
   const app = Fastify({
@@ -78,7 +81,7 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
     return payload;
   });
   registerCsrfGuard(app);
-  const context = { useCases: createUseCases(deps), cookieSecure };
+  const context = { useCases: createUseCases(deps), cookieSecure, publicBaseUrl: publicBaseUrl ?? 'http://localhost' };
   // Un solo límite de registros nuevos por IP efectiva (EDGE-009-040) compartido por el alta con contraseña y el primer acceso con Google.
   const registrationLimiter = new RegistrationRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp()));
   registerAuthRoutes(app, context, registrationLimiter);
@@ -89,7 +92,11 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
     registerAdminRoutes(app, context, new AdminAccessLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())), (userIds) => {
       for (const userId of userIds) sceneLimiter?.clearUser(userId);
     });
+    // «Acerca de» (feature 010, T1430): escritura solo con sesión de administración (404 uniforme sin ella).
+    registerAdminAboutRoutes(app, context, deps.media);
   }
+  // «Acerca de» público (010, D10-07): anónimo, fuera de toda sesión; la foto solo se sirve si hay medios conectados (sin ellos, 404).
+  registerPublicAboutRoutes(app, context);
   registerAccountRoutes(app, context);
   registerPetRoutes(app, context);
   registerRecordEditRoutes(app, context);

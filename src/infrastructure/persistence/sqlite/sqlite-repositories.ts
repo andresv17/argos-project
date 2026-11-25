@@ -30,7 +30,7 @@ import {
 import { validateUserPublicProfile, type AuditEntry } from '../../../generated/v31/index.ts';
 import { isStoredPetProfile, type LifeStatus, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import { sqliteSceneConsentRepository, sqliteSceneRepository } from './sqlite-scene-repositories.ts';
-import { adminAuditRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './sqlite-admin-repositories.ts';
+import { aboutContentRepository, adminAuditRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './sqlite-admin-repositories.ts';
 import type {
   AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
@@ -173,6 +173,8 @@ interface UserRow {
   readonly preferred_language: string;
   readonly timezone: string;
   readonly email_verified_at: string | null;
+  readonly adult_declared_at: string | null;
+  readonly adult_notice_version: string | null;
   readonly account_status: string;
   readonly data: string;
 }
@@ -244,7 +246,7 @@ interface MembershipRow {
 
 /** @implements INV-ARCH-004, INV-AUTH-003, REQ-ACC-001, REQ-ACC-002, ERR-INTERNAL-UNEXPECTED */
 function userRepository(db: SqliteDatabase): UserRepositoryPort {
-  const select = 'SELECT id, username, password_hash, email, email_verified_at, account_status, preferred_language, timezone, data FROM users';
+  const select = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, data FROM users';
   const byId = db.prepare<[string], UserRow>(`${select} WHERE id = ?`);
   const byUsername = db.prepare<[string], UserRow>(`${select} WHERE lower(username) = lower(?)`);
   // substr y no LIKE: el `_` del username no debe actuar como comodín (REQ-INV8-001).
@@ -253,7 +255,7 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
   const byIds = db.prepare<[string], UserRow>(`${select} WHERE id IN (SELECT value FROM json_each(?))`);
   const verifiedByEmail = db.prepare<[string], UserRow>(`${select} WHERE lower(email) = lower(?) AND email_verified_at IS NOT NULL LIMIT 1`);
   const releaseEmail = db.prepare('UPDATE users SET email = NULL WHERE lower(email) = lower(?) AND email_verified_at IS NULL');
-  const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status, adult_declared_at, adult_notice_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
   const update = db.prepare('UPDATE users SET password_hash = ?, data = ?, email = ?, preferred_language = ?, timezone = ? WHERE id = ? AND username = ?');
   const remove = db.prepare('DELETE FROM users WHERE id = ?');
   const references = db.prepare<[string, string, string, string, string, string, string, string, string, string, string], { readonly n: number }>(
@@ -281,10 +283,12 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
       passwordHash: row.password_hash,
       ...(row.email_verified_at === null ? {} : { emailVerifiedAt: row.email_verified_at }),
       ...(row.account_status === 'ACTIVE' ? {} : { accountStatus: accountStatusOf(row.account_status, row.id) }),
+      ...(row.adult_declared_at === null ? {} : { adultDeclaredAt: row.adult_declared_at }),
+      ...(row.adult_notice_version === null ? {} : { adultNoticeVersion: row.adult_notice_version }),
     };
   };
   const split = (user: UserAccount) => {
-    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, ...profile } = user;
+    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, ...profile } = user;
     if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
     return { passwordHash, email, preferredLanguage, timezone, data: encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile) };
   };
@@ -320,7 +324,7 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
     },
     async insert(user) {
       const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
-      insert.run(user.id, user.username, passwordHash, data, email, preferredLanguage, timezone, user.emailVerifiedAt ?? null, user.accountStatus ?? 'ACTIVE');
+      insert.run(user.id, user.username, passwordHash, data, email, preferredLanguage, timezone, user.emailVerifiedAt ?? null, user.accountStatus ?? 'ACTIVE', user.adultDeclaredAt ?? null, user.adultNoticeVersion ?? null);
     },
     async update(user) {
       const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
@@ -1214,5 +1218,6 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     adminAudit: adminAuditRepository(db),
     registrations: registrationRepository(db),
     adminParameters: adminParameterRepository(db),
+    aboutContent: aboutContentRepository(db),
   };
 }

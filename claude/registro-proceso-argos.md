@@ -1617,3 +1617,734 @@
 - 2026-11-20 [rama] revalidacion 027/028/031 en HEAD fcb4753: analisis de codigo hecho, acta pendiente.
 - 2026-11-20 [rama] revalidacion 027/028/031 en fcb4753: PASS CON OBS (acta .specify/memory/audits/rama-007-revalidacion-027-028.md, sin commit).
 - 2026-11-20 [keymaker] H-1 oracle: +3 pruebas de contrato age.totalDays en t1026-contrato (REQ-FAL7-008/009, INV-005-004); gates verdes, traza 47/51.
+2026-11-20T18:15 — [morpheus] Neo (pegado en terminal): montada 007 en repo principal @3760aa3. Dos ajustes UX antes T1063: (1) DateField unico con calendario y segmentos dd/mm/aaaa; (2) mensaje de fallecimiento sin pisar y sin duplicar en banner. Keymaker + oracle. Sin push, sin [x].
+- 2026-11-20 keymaker 007: ajustes DateField campo único + error fallecimiento (6e9d2f0, 599a03d, 1fd6b68); gates verdes
+2026-11-20T18:21 — [morpheus] Keymaker ajustes UX: 6e9d2f0 (DateField unico), 599a03d (error fallecimiento sin duplicar), 1fd6b68 (oraculo explicito). Gates: tsc 0; vitest 2939 verdes; PW fecha-segmentos 14/14, estado-vida 8/8; traza 51/51. Oracle auditando.
+2026-11-20T18:23 — [morpheus] Oracle ajustes UX: 6e9d2f0 PASS CON OBS, 599a03d PASS CON OBS, 1fd6b68 PASS. Gates: vitest 2939, PW 22/22, traza 51/51, oraculos 0. H-ACJ-1 (media, fuera del lote): smith-006 audit untracked rompe verify-ci-ready en arbol limpio -> decision Neo.
+2026-11-20T18:27 — [morpheus] Neo: H-ACJ-1 no tocar tests/chaos (no versionado). Ejecutar npm run test:gate completo en 007 (repo principal) antes de T1063 y push. Lanzado en background.
+2026-11-20T18:29 — [morpheus] test:gate completo: 5577 pasan, 1 fallo = verify-ci-ready (H-ACJ-1). Neo: opcion B. Keymaker af3ee9fa aplica fix en scripts/lib/ci-ready-test-reads.mjs (solo tests rastreados) + prueba. Luego re-run gate completo y compile 003/006.
+- 2026-11-20 keymaker: H-ACJ-1 opción B, ci-ready-test-reads solo tests rastreados (commit local)
+2026-11-20T18:29 — [morpheus] Keymaker 65d2a18 (H-ACJ-1 B): ci-ready solo tests rastreados; prueba 8/8; ci-ready LISTO. compile 003/006 rc0 sin deriva. test:gate completo re-run en background; oracle 65d2a18 en vuelo.
+2026-11-20T18:31 — [morpheus] Oracle 65d2a18 PASS (ci-ready 8/8, LISTO, tsc 0, tests/chaos intacto). OBS: [x] T797 specs/005 sin commitear ajeno. test:gate final en curso.
+2026-11-20T18:31 — [morpheus] test:gate completo VERDE tras H-ACJ-1 B: 356 archivos, 5579 pasan, 1 omitida, 0 fallos. Compuertas cierre: ci-ready LISTO, oracle 65d2a18 PASS, compile 003/006 sin deriva, tsc 0, traza 51/51 (previa). Pendiente: firma T1063 (Neo) y push/PR (Neo).
+2026-11-20T18:56 — [morpheus] Neo: iniciar Feature 008 desde claude/inbox-feature-008.md (8 items GH #16-#20, #53-#55). Regla nueva: conservar [GH:#N] en tasks.md; al quedar tasks listo y en cada cierre de bloque: node scripts/gh-project-sync.mjs sync --tasks <ruta>. Architect en vuelo (rama main).
+- 2026-11-20 Architect: Feature 008 (rama 008-sso-portal-roles) DRAFT: spec/plan/tasks T1101..T1176, 0 [x], [GH:#16..#20,#53..#55]; D8-01..D8-09 abiertas para Neo; traza 24/59 (sin src/tests). Commit local solo specs/008.
+2026-11-20T19:02 — [morpheus] Architect 008 (rama 008-sso-portal-roles, 7614387): spec/plan/tasks DRAFT, 76 tareas T1101-T1176 con [GH:#N]. 9 decisiones Nivel 2 (D8-01..D8-09) pendientes de Neo. Traza 24/59 (esperada). Lanzados lock (T1107), mifune+merovingian (T1108) en paralelo; mouse (T1109) despues.
+2026-11-20 | Mifune | 008 KISS (spec/plan/tasks en 7614387): 15 hallazgos M8-F01..F15 y 14 recortes M8-01..M8-14; recortes que cambian alcance piden decision de Neo (D8-01/02/03/05, #16/#17). Acta .specify/memory/audits/mifune-008-kiss.md. Sin ediciones de specs/src, sin commit, sin [x].
+2026-11-20T19:03 — [morpheus] Mifune 008: recortes M8-01..14 (registro correo a 009; vincular con contraseña; flag en users no tabla; portal sin modulo aislado; callback 302). ALERTA: M8-04 propone no verificar firma id_token (D8-05=C) -> requiere /trinity o /seraph antes de decidir. Lock y merovingian en vuelo.
+2026-11-20 | Merovingian | 008 impacto (solo lectura): jose fuera de alcance (D8-05 requiere N2), cookie argos_oauth Lax requiere enmienda T1111, STATE-AUTH-SESSION sin tarea, backup 004 sin impacto; acta .specify/memory/audits/merovingian-008-impacto.md; sin commit
+2026-11-20T19:30 — [lock] T1107 revision 008 (solo lectura): 18 hallazgos H-LCK-008-01..18 (6 ALTA: pre-hijacking sin salida, verificar=vincular, admin sin MFA, XSS a /api/admin, escalada por campos, cambios de metodo sin reauth). Acta .specify/memory/audits/lock-008-spec.md. Sin commit ni edicion de spec.
+2026-11-20T19:05 — [morpheus] Lock 008: 18 hallazgos (6 ALTA: H-LCK-01 DoS por cuenta atacante con correo victima; -02 vinculacion sub Google; -03 /admin sin MFA y bloqueo DoS; -04 XSS->/api/admin; -05 campos de estado en registro; -06 desvincular sin reauth). Acta .specify/memory/audits/lock-008-spec.md. Decisiones Neo: D8-02, D8-03, D8-05. Merovingian en vuelo.
+2026-11-20T19:05 — [morpheus] Merovingian 008: constitucion vigente 3.7.0 (no 3.4.0); jose NO autorizada para Google (enmienda MINOR); cookie argos_oauth Lax requiere enmienda constitucional; STATE-AUTH-SESSION con PENDING sin tarea (H-8-02 alto); contratos 002/004 enmiendas MINOR; 005 REQ-PRM-003 contradiccion; npm audit sin salida. Gates de diseño listos: lock, mifune, merovingian. Mouse (T1109) tras reconciliar con Neo.
+2026-11-20T19:41 — [morpheus] Neo: alcance 008 ampliado con #21, #24, #25 (8 items). Architect reconcilia (sin decidir Nivel 2, sin mifune, sin [x]); mouse T1109 despues. Keymaker F/G/H (#53,#54,#55) en paralelo en 008-sso-portal-roles.
+- 2026-11-20 Architect: 008 reconciliada (Bloques I/J/K de #21/#24/#25, T1200 H-8-02, correcciones /lock no decisionales, D8-10..14 abiertas); 100 tareas, 0 [x]; traza 36/85 (solo evidencia de código).
+- 2026-11-20 keymaker 008 F(1c1c899) H(ec50937) listos; G detenido: Caso B EDGE-008-020 confirmado en Chromium (download ignorado con 302 a otro origen).
+2026-11-20T19:46 — [morpheus] Architect d7692a5: 008 reconciliada (bloques I/J/K, T1200 H-8-02; traza 36/85 FAIL solo codigo). Keymaker: F 1c1c899 (#53) y H ec50937 (#55) listos; G (#54) CASO B: 302 firmada impide download -> architect T1167 (Content-Disposition, MINOR 006). Mouse en curso; architect Caso B tras mouse.
+2026-11-20T19:47 — [morpheus] Oracle F/H 008: 1c1c899 PASS CON OBS; ec50937 PASS CON OBS (H-OR-F-2: cuota agotada mantiene su texto, confirmar; T1165 parcial sin E2E; D8-09 pendiente). Bloques F/H en REVIEW, no COMPLETED. Mouse en curso.
+- 2026-11-20 mouse T1109 (008): BLOCKED criterio 1 (ADR-008-03 sin traza en tasks; spec.md:14,85,136). Traza 36/85; 49 FAIL solo código. Acta .specify/memory/audits/mouse-008-estructura.md. Sin commit ni [x].
+2026-11-20T19:48 — [morpheus] Logos encendida (iter 75, IN_PROGRESS, turno neo). Reporte consolidado 008: decisiones D8-01..D8-14, Caso B bloque G, mouse pendiente. Wait --for morpheus en background.
+2026-11-20T19:48 — [morpheus] Mouse T1109 BLOCKED criterio 1: ADR-008-01..13 sin referencia en tasks.md (unico FAIL estructural). Architect ac850f24 corrige (sin decisiones, sin regenerar inbox). Inbox: mouse dice total 8 pero sin #18/#19/#20 -> NO regenerar (ediciones de Neo); decision Neo.
+2026-11-20 Architect: ADR-008-01..13 referenciados en specs/008/tasks.md (sin commit, pendiente de Morpheus)
+2026-11-20T19:49 — [morpheus] Architect ac850f24: ADR-008-01..13 en tasks.md. Commit 12e4d95 (solo tasks.md, trailer Haiku). Mouse re-run en vuelo (a2810dd6) para confirmar criterio 1.
+2026-11-20T19:55 — [mouse] T1109 R2 (008, 12e4d95): PASS criterios 1..7; ADR-008-01..13 con tarea (13/13); traza 36/85, 0 FAIL estructurales, 49 FAIL solo codigo. Acta .specify/memory/audits/mouse-008-estructura-r2.md. Sin commit, sin [x].
+2026-11-20T19:50 — [morpheus] Mouse re-run 008 PASS: criterio 1 cerrado, sin regresion 2..7. Traza 36/85 (49 FAIL solo evidencia codigo). Acta .specify/memory/audits/mouse-008-estructura-r2.md. Estructura lista. Bloques dependientes de D8 esperan decision Neo.
+2026-11-20T19:50 — [morpheus] Neo iter 75 RESUELTO 17 puntos: 008 = #16 solo Google, #17, #21, #24, #25, #53, #54, #55. Fuera a 009: C/D/E (#18,#19,#20) y T1200. D8-02/03/07 y REQ-PRM-003 a 009. D8-04 C. D8-05 A (jose, enmienda 3.8.0). argos_oauth Lax SI (3.8.0). Contratos 002/004 minimos; 006 Content-Disposition SI. D8-10 A, D8-11 neutro, D8-12 A, D8-13/D8-09 aprobados, D8-14 aprobado. H-OR-F-2 CORREGIR (fecha en cuota agotada). Mifune M8-01/02/03 SI. Architect reconcilia; keymaker H-OR-F-2 en paralelo.
+- 2026-11-20 keymaker 008 H-OR-F-2 fb750b6: cuota agotada sin fecha si ilegible (t1163 +2)
+2026-11-20T19:51 — [morpheus] Keymaker fb750b6 (H-OR-F-2): cuota agotada con fecha existente «1 dic 2026» (SC-ESC6-132 en t875/t936); sin ISO crudo; desvio de formato vs «1 de diciembre» a decidir. Oracle en vuelo. Architect reconcilia 008 en paralelo.
+2026-11-20T19:52 — [morpheus] Oracle fb750b6 PASS CON OBS: H-OR-F-2 cerrado en REVIEW. O-1 baja formato 1 dic 2026 vs 1 de diciembre (decision opcional Neo); O-2 baja dia UTC vs zona app (latente). Acta .specify/memory/audits/oracle-008-fb750b6.md. Architect reconciliando; luego mouse + keymaker G/I/J/K/A/B.
+2026-11-20 Architect: 008 reconciliada con resolución Nivel 2 (c8e59e7 constitución 3.8.0, 86fad83 contratos 002/004/006, cebdf9f spec/plan/tasks); 64 tareas vigentes + 36 diferidas a 009, 0 [x]; traza 008 37/87 (50 FAIL solo evidencia de código); 002 gate FALLA por 2 ERR nuevos (esperado hasta keymaker).
+2026-11-20T20:06 — [morpheus] Architect reconcilio 008 (Neo 17 pts): c8e59e7 constitucion 3.8.0; 86fad83 contratos 002/004/005(v33)/006 (6 ops nuevas, ERR-AUTH-GOOGLE-*); cebdf9f spec/plan/tasks (64 casillas + 36 diferidas). Traza 37/87 FAIL codigo. 002 pasa a FALLA (ERR sin trazar) y pines rojos en 004. Mouse R3, oracle contratos, keymaker (pines + trazas + G) en vuelo.
+2026-11-20T20:07 — [morpheus] En vuelo: mouse R3 (cebdf9f), oracle contratos (c8e59e7, 86fad83, cebdf9f), keymaker rebanada 1 (pines 002/004/006, trazas ERR-AUTH-GOOGLE, bloque G #54). Bloques A/B/I/J/K pendientes tras esta rebanada.
+2026-11-20T20:15 — [oracle] Audito 008 Architect (c8e59e7, 86fad83, cebdf9f): PASS CON OBS x3; compile 002/004/005/006 rc0 sin deriva, oraculos 0 debiles, tsc 0, 0 [x]. Acta oracle-008-contratos.md
+2026-11-20 mouse T1109 R3 (008, cebdf9f): PASS criterios 1..7; traza 37/87, 0 FAIL estructurales, 0 [x]; O5 EDGE-008-037/-039 sin cita en tasks (no bloquea). Acta mouse-008-estructura-r3.md
+2026-11-20T20:08 — [morpheus] Mouse R3 PASS 008 (cebdf9f): criterios 1..7 PASS; traza 37/87 (50 FAIL codigo). O5: EDGE-008-037 y -039 sin cita en tasks (architect). A/B: mouse sugiere esperar firma Neo de T1105/T1109; decision: A/B tras oracle de rebanada 1.
+2026-11-20T20:08 — [morpheus] Oracle contratos 008 (c8e59e7, 86fad83, cebdf9f): PASS CON OBS x3 (sin bloqueantes). Lote validado en disco. O-3: prueba payload escena sin biografia en #21. O-2: firma escrita de 3.8.0 (Neo, no bloquea). Keymaker rebanada 1 en vuelo.
+- 2026-11-20 keymaker 008 rebanada 1: 82127e2 pines, 30af1b8 trazas ERR-AUTH-GOOGLE (002 124/124), c4a8c98 boton descarga #54 (cliente; falta servidor download=1 y E2E)
+2026-11-20T20:11 — [morpheus] Keymaker rebanada 1: 82127e2 (pines 002/004/006), 30af1b8 (trazas ERR-AUTH-GOOGLE, traza 002 124/124), c4a8c98 (boton descarga cliente, T1166; servidor pendiente). Traza 008 38/87. ARCH fixtures ERR-AUTH-GOOGLE pendiente. Oracle rebanada 1 + keymaker rebanada 2 (servidor download=1, T1168) en vuelo.
+- 2026-11-20 /oracle: auditoria 008 rebanada 1 (82127e2 PASS CON OBS, 30af1b8 PASS, c4a8c98 PASS CON OBS); acta oracle-008-rebanada1.md; sin commit.
+2026-11-20T20:13 — [morpheus] Oracle rebanada 1 (c4a8c98): 82127e2 PASS CON OBS; 30af1b8 PASS; c4a8c98 PASS CON OBS. H-2 (media): REQ-UX8-001 (t1163) y REQ-UX8-003 (t1170) trazados solo en describe -> keymaker corrige titulos it. H-3: no publicar G sin servidor download=1 (en vuelo, rebanada 2). H-4: nombre usa updatedAt vs fecha generacion. Acta oracle-008-rebanada1.md.
+- 2026-11-20 keymaker 008 rebanada 2: T1168 mitad servidor (download=1 en rutas de imagen de escena, puerto createReadUrl attachment, 200 sin firma). Pruebas t1168 unit/api + t570/t571. Gates verdes.
+2026-11-20T20:15 — [morpheus] Keymaker d48524f (T1168 servidor): download=1 valida {1}; 200 attachment sin firma; 302 sin download sin cambio; media storage con disposicion. Gates: 85 archivos 965 ok; traza 38/87. Oracle d48524f y keymaker H-2 (titulos it) en vuelo. Preguntas: .png vs webp; updatedAt vs createdAt; deteccion driver sin firma por https.
+- 2026-11-20 keymaker: H-2 rebanada 1, REQ-UX8-001/003 en títulos it, commit d851b62
+2026-11-20T20:16 — [morpheus] H-2 d851b62 (titulos it REQ-UX8-001/003). Traza 008 40/87. Siguiente: keymaker bloques K (#25) e I (#21); oracle d48524f en vuelo; d851b62 a oracle en lote siguiente.
+2026-11-20 Oracle: auditoria d48524f (T1168 servidor) PASS CON OBS; acta en audits/oracle-008-d48524f.md
+2026-11-20T20:17 — [morpheus] Oracle d48524f (T1168 servidor): PASS CON OBS. T1168 a REVIEW (sin [x]). H-1168-1 MEDIA: prefijo https:// frágil -> capacidad explicita del puerto (pasada futura). H-1168-2/3 BAJA. Acta oracle-008-d48524f.md.
+2026-11-20T20:30 — [keymaker] 008 bloque K (#25): ayuda de rol derivada de can() + aviso de hogar; t1196 (10 pruebas); tsc 0; traza 008 43/87.
+2026-11-20T21:10 — [keymaker] 008 bloque I (#21): biografia en perfil y respaldo 3.3.0 (migraciones 0016/0012), t1179/t1180/t1182/t1183; tsc 0; traza 008 47/87 (BIO8 y ROL8 trazados).
+2026-11-20T20:31 — [morpheus] Keymaker K 238a89b, I 52c0065. REGRESION a corregir: t826-pureza-escena-006 (scene-use-cases.ts usa Date, de T1168 servidor d48524f) y session-csrf inventario (5 ops Google sin implementar). Traza 008 47/87. Keymaker fix + oracle K/I en vuelo.
+- 2026-11-20 Keymaker: fix regresiones 008 — 4cf6455 (t826 sin Date en scene-use-cases) y ea02518 (session-csrf excluye 5 ops Google pendientes). Gates verdes, sin push.
+2026-11-20T20:32 — [morpheus] Keymaker regresiones: 4cf6455 (t826 sin Date, epochMsOfIso) y ea02518 (session-csrf PENDING_008). Gates: tsc 0; security+gates+t826 498 verdes; ci-ready LISTO. A oracle junto con K/I.
+- 2026-11-20 oracle: auditoría bloques K (238a89b) e I (52c0065) feature 008: PASS CON OBS ambos; acta .specify/memory/audits/oracle-008-bloques-K-I.md
+2026-11-20T20:33 — [morpheus] Oracle K 238a89b PASS CON OBS; I 52c0065 PASS CON OBS. K/I a REVIEW (sin [x]). O-1 frase Administrador sin aprobar (Caso B Neo). O-2 contador UTF-16 vs codepoints (corregir linea). O-3 control chars solo en contrato/dominio/memoria. Acta oracle-008-bloques-K-I.md.
+2026-11-20T20:33 — [morpheus] Logos iter 77 (turno neo): estado 008 consolidado (K, I, F, H, G servidor, regresiones). Pendientes Neo: frase Admin, descarga, fecha, contador; autorizar J y luego A/B. Wait --for morpheus en background.
+2026-11-21T09:31 — [morpheus] Neo reactivo Logos (PAUSE_TIMEOUT -> IN_PROGRESS, turno neo). Consolidado 008 re-enviado (HEAD ea02518). Wait --for morpheus en background.
+2026-11-21T09:31 — [morpheus] Logos: mensaje consolidado escrito con turno neo, pero estado PAUSE_TIMEOUT se preserva (logos.py solo levanta la pausa con emisor neo). No simulo a Neo. Pendiente: que Neo levante la pausa desde Source o terminal.
+2026-11-21T09:32 — [morpheus] HARDLINE: handover claude/handover-morpheus-2026-11-21.md. HEAD 008 ea02518 (full ea02518701dfc753a8e6c34e4582ae148080a1cb). Logos PAUSE_TIMEOUT (Neo levanta). Sin commits ni push en cierre. Pendiente: decisiones Neo (frase Admin, descarga, fecha, contador), bloques J/A/B.
+2026-11-21T09:33 — [morpheus] Despertar de sesión: HEAD ea02518 verificado; 008 0 [x] / 64 [ ]; Logos PAUSE_TIMEOUT (Neo levanta). Pendiente decisiones de Neo y autorización de J/A/B. Sin dispatch ni commits.
+2026-11-21T09:40 — [morpheus] Logos encendida por orden de Neo (terminal): PAUSE_TIMEOUT -> IN_PROGRESS, turno neo. Pendientes de Neo (frase Admin, descarga, fecha, contador, autorizar J y A/B) en logos.json.
+2026-11-21T09:45 — [morpheus] Directiva Neo (Logos iter 78): sin frase Admin; .png fijo + DEUDA-008-MEDIA-SIGNS-URLS; contador por puntos de código; ejecutar O-2 y luego bloque J (T1188..T1191). Despacho keymaker.
+2026-11-21T09:55 — [morpheus] Keymaker entrega 3bf26bd (O-2) y 548ecb7 (J #24). Gates verdes, traza 52/87. Despacho /oracle por lote.
+2026-11-21T10:10 — [morpheus] Oracle lote J: 3bf26bd PASS; 548ecb7 PASS CON OBS (sin FAIL). Parche de pruebas H-J-1/3/4 y T1192 a keymaker. Postgres real pendiente de TEST_DATABASE_URL (Neo/link).
+2026-11-21T10:40 — [morpheus] Keymaker: b0d5a88 (pruebas H-J) y 4e0108e (E2E T1192 4/4 Chromium). Hallazgo baja: debounce. Despacho /oracle.
+2026-11-21T11:05 — [morpheus] Oracle: b0d5a88 PASS, 4e0108e PASS CON OBS (OBS-6 alcance T1192). Despacho keymaker cobertura cruzada; config playwright ajena no se commitea.
+2026-11-21T11:30 — [morpheus] Keymaker d320b1d: T1192 6/6 Chromium; Firefox/WebKit sin instalar (decisión de Neo). Oracle re-audita d320b1d.
+2026-11-21T12:00 — [morpheus] Oracle d320b1d PASS CON OBS (Chromium OK; FF/WebKit pendientes de Neo). Despacho sati T1191. T1193 bloqueado.
+2026-11-21T12:20 — [morpheus] Sati T1191: layout/contraste PASS; defecto MEDIO H-T1192-2 (status vacía en sin coincidencias). Despacho keymaker fix + prueba.
+2026-11-21T12:45 — [morpheus] Keymaker b3922ba (status anuncia D8-11). Despacho oracle.
+2026-11-21T13:05 — [morpheus] Bloque J en REVIEW (Chromium). Commits 3bf26bd 548ecb7 b0d5a88 4e0108e d320b1d b3922ba. Reporte a Neo por Logos; A/B esperan autorización.
+2026-11-21T13:30 — [morpheus] Directiva Neo iter 80: instalar FF/WebKit; T1192 multi-nav + PG 55432 + T1193; A/B autorizados (T1124 sin apply).
+2026-11-21T14:10 — [morpheus] Keymaker 200d9ac: T1192 18/18 tres navegadores; PG17 41/41 (part1 duda de Postgres real). Despacho oracle.
+2026-11-21T14:40 — [morpheus] Oracle 200d9ac PASS CON OBS; H-J-2 abierto: BASELINE de postgres-repositories sin 0012 (28/41 rojas PG17). Despacho keymaker.
+2026-11-21T15:20 — [morpheus] Keymaker H-J-2: ef8ca23 y 6965d52; PG17 persistence+sharing 836 ok 0 rojas. Despacho re-auditoría oracle.
+2026-11-21T15:45 — [morpheus] Oracle re-auditoría H-J-2 PASS CON OBS: H-J-2 CERRADO (6965d52). Siguiente T1193.
+2026-11-21T16:30 — [morpheus] Trinity PASS CON OBS; Rama BLOCKED: ALTO H-RAMA-008-J-01 (log Cloud Run con ?q=). Esperando Sentinels; consolidado a Neo.
+2026-11-21T17:30 — [morpheus] T1193: Rama ALTO confirmado; keymaker c2d1b48 corrige sentinels; oracle c2d1b48 en vuelo. Consolidado a Neo al cerrar.
+2026-11-21T17:45 — [morpheus] Oracle c2d1b48 PASS CON OBS. T1193 bloqueado por ALTO J-01 (Neo decide exclusión Terraform y marco legal). Consolidado por Logos.
+2026-11-21T17:55 — [morpheus] Reporte T1193 escrito en Logos (iter 81); canal en PAUSE_TIMEOUT, Neo debe reanudar. Sin espera activa.
+2026-11-21T18:10 — [morpheus] Logos reanudada por Neo (terminal). Pendientes T1193 (5 puntos).
+2026-11-21T18:20 — [morpheus] Directiva Neo iter 84: /link exclusiones Terraform en disco (sin apply); límite en memoria aceptado; T1176 sync GitHub; luego A y B.
+2026-11-21T18:40 — [morpheus] Link 441a158 exclusiones logging (validate OK). Oracle en vuelo. Apply = Neo.
+2026-11-21T18:55 — [morpheus] Oracle 441a158 PASS CON OBS. T1193 a REVIEW; apply pendiente de Neo. Siguiente A y B.
+2026-11-21T19:40 — [morpheus] Oracle A1 PASS CON OBS. Decisiones Neo: password_hash y smith 3e29017. T1124 en vuelo.
+2026-11-21T20:05 — [morpheus] Link 020ede2 T1124 entregado; oracle en vuelo.
+2026-11-21T20:30 — [morpheus] Oracle 020ede2 PASS CON OBS. Keymaker (conteos, HS256) y Link (viewer, TF_VAR) en vuelo.
+2026-11-21T20:50 — [morpheus] Link 679df2a entregado. Hueco en deploy-argos.yml (decisión Neo). Espero Keymaker conteos.
+2026-11-21T21:40 — [morpheus] Oracle 679df2a PASS CON OBS; 9cf93ea PASS. H-ORA-5: SECRETOS del test en curso (Keymaker); specs/003 queda para Neo.
+2026-11-21T22:05 — [morpheus] Consolidado bloque A a Neo por Logos (4 decisiones). Test github-bootstrap-docs en árbol sin commit.
+2026-11-21T22:20 — [morpheus] Logos reanudada por Neo. Pendientes bloque A (4 decisiones).
+2026-11-21T22:40 — [morpheus] Directiva Neo iter 88: 1A quickstart, 2A centinela password, 3 enmienda REQ-SSO8-007, 4B git rm smith-006, 5 deploy-argos.yml. Despacho architect y link.
+2026-11-21T23:10 — [morpheus] Architect bf5b4a7: enmiendas 003/008; centinela = ADR-008-14. Test bootstrap verde. Espero Link antes de keymaker (índice git).
+2026-11-21T23:40 — [morpheus] Link ad72062 deploy+validate. H5-1 en vuelo. Keymaker: fixtures validate/t806/t951 y 4B.
+2026-11-21T23:55 — [morpheus] Cadena bloque A (3947dfa, 891d66d, ee8b1ab) entregada; tests verdes; oracle en vuelo.
+2026-11-22T00:20 — [morpheus] Oracle cadena bloque A PASS CON OBS: T1112..T1117 y T1124 a REVIEW. Arranca A2 lote 1 (T1120, T1121, centinela ADR-008-14).
+2026-11-22T00:55 — [morpheus] Keymaker A2-1 (59d28fe, 15cb6d8). Oracle en vuelo. Atención: borrado de cuenta de cuentas Google (centinela).
+2026-11-22T01:20 — [morpheus] Oracle A2-1 PASS CON OBS. En vuelo: architect (dictamen LINK, H-A21-2), keymaker (hallazgos prueba). ALTO H-A21-5 para Neo (borrado cuenta Google).
+2026-11-22T01:45 — [morpheus] Logos iter 89 escrito (PAUSE_TIMEOUT, Neo debe reanudar). Keymaker 99b9cc7 entregado; oracle revalidación en vuelo.
+2026-11-22T02:10 — [morpheus] Oracle 99b9cc7 PASS CON OBS: H-A21-1/4/7 cerrados. Pendiente Neo (Logos iter 89).
+2026-11-22T02:30 — [morpheus] Logos reanudada por Neo. Pendientes A2 (4 decisiones).
+2026-11-22T02:45 — [morpheus] Directiva Neo iter 92: A2 decidido (C borrado, A vinculación, 0013/0017 en sitio, límites OK). Despacho architect y keymaker.
+2026-11-22T03:10 — [morpheus] Architect d319857 (Opción A, deudas 009, docs). Regeneración src/generated por keymaker en commit aparte tras su lote en curso.
+2026-11-22T04:10 — [morpheus] Keymaker vinculación origen 0c0823f 778f033 341ba6c. Oracle y regeneración en vuelo.
+2026-11-22T04:30 — [morpheus] Regeneración src/generated d0b92e5 (solo @description). Deriva cerrada.
+2026-11-22T05:00 — [morpheus] Oracle vinculación origen PASS CON OBS: lote apto REVIEW. Despacho keymaker T1122/T1123 y architect H-VO-3.
+2026-11-22T05:20 — [morpheus] Architect e3dc7ca: H-VO-3 cerrado (SC-008-013 -> SC-008-063).
+2026-11-22T06:20 — [morpheus] Keymaker T1122/T1123 (5d79f42, c5583ce, 65e80e6). Oracle y sati en vuelo.
+2026-11-22T06:45 — [morpheus] Sati T1122 PASS CON CAMBIOS; H-T1122-S1 (foco) en vuelo con keymaker.
+2026-11-22T07:10 — [morpheus] Oracle T1122/T1123 aptos REVIEW. Keymaker S1 8602971, 381dc48. Oracle del S1 y arreglo de etiquetas pendientes.
+2026-11-22T07:40 — [morpheus] cdc5baa etiqueta auth-pet-forms; raza select obsoleta en vuelo (a6b9747). PetForm targets decisión aparte.
+2026-11-22T08:10 — [morpheus] Oracle foco elige-usuario PASS CON OBS: H-T1122-S1 cerrado. Mini-lote keymaker (Enter, invariantRef) en vuelo.
+2026-11-22T08:30 — [morpheus] Oracle auth-pet-forms PASS (cdc5baa, 9960495). H-AP-1 deuda menor. Espero mini-lote keymaker.
+2026-11-22T09:00 — [morpheus] Keymaker H-FOCO: 3cfa52f, 46f6275, bac74a6 (sin setTimeout). Oracle en vuelo.
+2026-11-22T09:20 — [morpheus] Bloque A en REVIEW; consolidado a Neo por Logos (5 puntos).
+2026-11-22T09:40 — [morpheus] Logos reanudada por Neo; pendientes cierre bloque A (5 puntos).
+2026-11-22T10:05 — [morpheus] HARDLINE: handover 2026-11-22 (HEAD bac74a6). Logos OFF. A y J en REVIEW; B pendiente; T1193 bloqueada por Neo.
+2026-11-21T14:00 — [morpheus] Inicio de sesión: HEAD bac74a6 verificado, 008 limpio, 0 [x]. Decisiones de Neo pendientes (5). Sin despachos.
+2026-11-21T14:10 — [morpheus] Logos encendida por Neo. Directiva: Bloque B (T1125..T1134). Despacho keymaker T1125/T1126 (pruebas rojas).
+2026-11-21T14:30 — [keymaker] T1125/T1126: leyendo; T1121 ya cubre LINK y D8-14; escribiendo pruebas nuevas (3 archivos) sin código de producción.
+2026-11-21T14:20 — [morpheus] Parada por orden de Neo: keymaker T1125/T1126 detenido. Árbol a revisar.
+2026-11-21T14:40 — [morpheus] Logos reencendida. Directiva Bloque B releída; pido confirmación a Neo antes de retomar (orden previa de parada).
+2026-11-21T14:55 — [morpheus] Neo aprueba A: retomar Bloque B. Redespacho keymaker T1125/T1126.
+2026-11-21T15:00 — [keymaker] T1125/T1126 retomado: git status sin archivos parciales (ninguno de los 3 planeados existe); se escriben desde cero.
+2026-11-21T15:20 — [keymaker] T1125: escrito tests/unit/t1125-fallo-uniforme-google-008.spec.ts (sin producción); falta ejecutar.
+2026-11-21T15:35 — [keymaker] T1125 ejecutado: 8/8 VERDES (T1121 ya implementa D8-14 y el fallo uniforme); no hay rojo posible sin tocar contrato. Sigo con T1126.
+2026-11-21T15:50 — [keymaker] T1126 unit escrito: 10/10 VERDES (T1121 ya lo cubre). Evalúo hueco rojo real vs. contrato (SC-008-014 409 en callback) y capa API.
+2026-11-21T16:10 — [keymaker] T1125/T1126: 3 archivos (24 pruebas) escritos, todos VERDES (T1121 ya implementa); tsc 0, oráculos 0; sin commit. Hallazgo SC-008-014 vs contrato 004 para /architect.
+2026-11-21T15:20 — [morpheus] Keymaker T1125/T1126: 24 pruebas verdes (caracterización), sin commit. H-SC14 (409 vs 400) escalable. Oracle a auditar.
+- 2026-11-21 oracle: T1125/T1126 008 PASS CON OBS (24/24, tsc 0, oraculos 0 debiles); discrepancia SC-008-014 409 (spec/catalogo 004) vs 400 (openapi 004/impl/pruebas) abierta para architect/Neo. Ver log-oracle.
+2026-11-21T15:45 — [morpheus] Oracle T1125/T1126: PASS CON OBS, sin commit. SC-008-014 (409 vs 400) a architect para análisis.
+2026-11-21T16:00 — [architect] H-SC14 analizado: recomienda A (400 uniforme en callback; corregir SC-008-014/T1126); B = decisión Nivel 2 de Neo. Sin ediciones de contrato.
+2026-11-21T16:10 — [morpheus] H-SC14: architect recomienda A (400 uniforme). Escalo a Neo por Logos. Sin commit.
+2026-11-21T16:40 — [morpheus] Neo aprueba A. Despacho architect (spec/tasks/catálogo) y keymaker (pruebas t1125/t1126) en paralelo.
+- 2026-11-21 architect: H-SC14 opción A aplicada en spec 008 (SC-008-014), tasks T1126 y nota LINK-CONFLICT del catálogo 004; regeneración de src/generated pendiente (keymaker). Sin commit.
+2026-11-21T17:05 — [morpheus] Architect aplica A: spec/tasks/catálogo 004 listos sin commit. Espero keymaker. Pendiente Neo: nota gemela en catálogo 002.
+- 2026-11-21 keymaker: T1125/T1126 OBS-1..5 corregidas en 3 archivos de prueba + 3 casos LINK-CONFLICT; sin commit (ver log-keymaker).
+2026-11-21T17:30 — [morpheus] Keymaker alinea pruebas a A: 27/27 verdes. H-429 (429 vs TOO-MANY-ATTEMPTS) anotado. Oracle revalida el lote.
+2026-11-21 oracle: revalida lote T1125/T1126 (opcion A): PASS CON OBS; 27/27, tsc 0, oraculos 0 debiles; H-429 abierto para architect/Neo.
+2026-11-21T18:00 — [morpheus] Commit local 5021cdb: T1125/T1126 (opción A). Pendientes Neo: H-429, nota catálogo 002, regeneración src/generated. Sigue T1128.
+2026-11-21T18:30 — [morpheus] Neo aprueba: T1128 cubierta; H-429 = 429 documentado; notas 002/004 y regeneración. Despacho architect.
+2026-11-21T18:45 — [architect] Nota LINK-CONFLICT 002 alineada a 004 (Opción A) + precedencia H-429 en REQ-VIN8-002. Falta regenerar src/generated (keymaker).
+- 2026-11-21 keymaker: regenerado src/generated (004,005,006,002); solo notas de LINK-CONFLICT en 4 error-codes.ts; tsc 0; drift 30/30; sin commit, pendiente /oracle.
+- 2026-11-21 Oracle: PASS nota LINK-CONFLICT + precedencia H-429 (catalogos 002/004, 4 generados, spec); tsc 0, vitest 27/27, deriva 30/30, oraculos 445/0. Sin commit.
+2026-11-21T19:20 — [morpheus] Commit local 4619d32: notas 002/004 + spec + regeneración. Oracle PASS. Sigue T1131.
+- 2026-11-21 keymaker 008 T1131: decisión de diseño (reusa acta /sati T1122) y pruebas rojas de UI «Vincular Google» en tests/unit/presentation/t1131-vincular-google-008.spec.ts; sin commit.
+- 2026-11-21 keymaker 008 T1131: UI Vincular Google lista (12 pruebas verdes; tsc 0; unit 3167; security 428; oráculos 446/0); sin commit, pendiente /sati y /oracle.
+2026-11-21T20:10 — [morpheus] T1131 entregada (sin commit): 12/12, unit 3167, security 428. Sati y oracle en paralelo.
+- 2026-11-21 Oracle: T1131 008 PASS CON OBS (12/12, tsc 0, unit 3167, oraculos 446/0; DEUDA-008-CALLBACK-400-PROBLEM conocida, 009). Sin commit ni [x].
+2026-11-21T20:40 — [morpheus] Oracle T1131: PASS CON OBS. Espero sati antes de T1132.
+- 2026-11-21 Sati: T1131 008 PASS CON CAMBIOS (axe 0, 320/1024/1280 sin desborde, foco OK); H-T1131-S1 ALTO: error de clave incorrecta muestra texto crudo del catálogo. Acta sati-008-T1131-vincular-google.md. Sin commit ni [x].
+2026-11-21T21:10 — [morpheus] Sati T1131: PASS CON CAMBIOS. Keymaker corrige S1 (ALTO) y S2 (BAJO).
+2026-11-21T21:30 — [keymaker] T1131 S1+S2 corregidos (google-login.ts, AccountPage.tsx, t1131 spec); tsc 0, unit 3168, oráculos CUMPLE. Sin commit.
+2026-11-21T21:40 — [morpheus] Keymaker corrige S1/S2 de T1131: 13/13. Sati y oracle revalidan en paralelo.
+- 2026-11-21 Oracle: revalidacion T1131 008 tras /sati: PASS (13/13, unit 3168, tsc 0, oraculos 446/0, generated/contracts sin cambios). Sin commit.
+2026-11-21T22:00 — [morpheus] Oracle revalida T1131 corregida: PASS. Espero sati antes del commit.
+- 2026-11-21 sati: re-revisión T1131 (008) S1/S2 cerrados, axe 0, 320/1024/1280 sin desbordamiento; PASS; acta sati-008-T1131-vincular-google.md; sin commit.
+2026-11-21T22:30 — [morpheus] Commit local 234fc59: T1131 (Oracle PASS, Sati PASS). Sigue T1132 E2E.
+- 2026-11-21 keymaker T1132: E2E google-vincular-008.spec.ts 12/12 en 3 navegadores (a-e cubiertos, revocación de otras sesiones implementada); sin commit ni [x]; producción intacta.
+2026-11-21T23:10 — [morpheus] Keymaker T1132: E2E 12/12 x 3 navegadores (sin commit). Oracle en vuelo.
+- 2026-11-21 oracle: T1132 PASS CON OBS (12/12 3 motores, tsc 0, oraculos 447/0; SC-008-014 opcion A verificada; revocacion 401/200 real). Sin commit ni [x].
+2026-11-21T23:40 — [morpheus] Oracle T1132: PASS CON OBS. Commit local del E2E. Sigue T1133 (trinity) y T1134 (rama).
+2026-11-21T23:55 — [morpheus] Neo enciende Logos: reanudo canal (PAUSE_TIMEOUT) y espera en segundo plano.
+2026-11-22T00:05 — [morpheus] Directiva Neo: T1133 (trinity) y T1134 (rama) en paralelo. Luego F-K y T1173-T1174.
+2026-11-21 | rama | T1134 privacidad 008 iniciada: auditoria de logs, auditoria, retencion oauth_flow_states y cascada de borrado; sin cambios en src/specs.
+- 2026-11-21 Trinity: T1133 (008 #17) seguridad vinculación Google: PASS CON OBS; t1133-vinculacion-google-008.security.spec.ts 29/29, tests/security 457/457; sin cambios en src/specs; T1133 sin marcar.
+2026-11-22T00:40 — [morpheus] Trinity T1133: PASS CON OBS (29/29). Oracle audita. tsc: GOOGLE_EMAIL sin usar en t1134 (rama).
+2026-11-21 | rama | T1134 privacidad 008: PASS CON OBS. Pruebas t1134 18/18, tsc y verify-oracles OK. Hallazgos: H-RAMA-008-T1134-01 MEDIO (oauth_flow_states sin purga de mantenimiento, correo+sub persisten), -02 y -03 BAJO (redaccion sin patron code/JWT). Terraform callback pendiente de aplicar por Neo. Sin commit ni [x].
+2026-11-22T01:05 — [morpheus] Rama T1134: PASS CON OBS. H-RAMA-01 (MEDIO) a keymaker. -02/-03 diferidos. J-01/J-02 a Neo.
+- 2026-11-21 Oracle: T1133 008 security 29/29 PASS CON OBS (V-B1 umbral 4<5, titulos V-A7/V-D4 sobredimensionados; OBS-1 latencia, OBS-2 DEUDA-2STEP conformes a spec). tsc 0, oraculos 450/0. Sin commit.
+2026-11-22T01:30 — [morpheus] Oracle T1133: PASS CON OBS. Trinity ajusta V-B1, títulos V-A7/V-D4 y aserciones laxas.
+- 2026-11-21 keymaker: H-RAMA-008-T1134-01 corregido (purga oauth_flow_states en mantenimiento SQLite+PG); (b) bloqueado por CHECK de migración; it.fails a retirar por /rama; sin commit.
+2026-11-22T02:00 — [morpheus] Keymaker H-RAMA-01 (a) aplicada. (b) requiere relajar CHECK (decisión Neo). Rama retira it.fails.
+2026-11-22T02:30 — [rama] H-RAMA-008-T1134-01: it.fails retirado; (a) prueba normal en verde (20/20 vitest, tsc 0, oráculos 0 débiles); (b) NO CUBIERTA, pendiente decisión de esquema Neo/architect (it.skip lo rechaza verify-oracles). -02/-03 sin cambios. Sin commit.
+2026-11-22T02:30 — [morpheus] Rama (a) cerrada; (b) decisión de Neo. Oracle audita lote T1134.
+- 2026-11-21 oracle: T1134 parte (a) H-RAMA-008-T1134-01 PASS CON OBS (34 verdes, tsc 0, oraculos 451/0; parte (b) pendiente de decision de Neo, sin commit)
+2026-11-22T02:50 — [morpheus] Oracle T1134 (a): PASS CON OBS. Espero trinity (T1133) para commit y reporte por Logos.
+- 2026-11-21 trinity: T1133 ajustes de Oracle aplicados (V-B1 6 rechazos, títulos V-A7/V-D4, aserciones exactas A6/A8/C4/C5); 29/29, tsc 0, verify-oracles OK; sin commit.
+2026-11-22T03:20 — [morpheus] Trinity ajusta T1133. Oracle revalida (MAX_RETRY=1).
+- 2026-11-21 Oracle: revalidacion T1133 008 PASS CON OBS (29/29, tsc 0, oraculos 451/0; OBS-1..3 cerradas; laxas residuales L253/L432/L471).
+2026-11-22T03:40 — [morpheus] Commits locales 81fb392 (T1133) y 95b5a08 (T1134 a). Reporte a Neo por Logos.
+2026-11-22T03:55 — [morpheus] Neo aprueba B (T1134 b). Documentar B; luego F-K y T1173-T1174.
+2026-11-22T04:10 — [rama] Nota privacidad T1134 (opcion B) añadida como addendum en .specify/memory/audits/rama-008-T1193-privacidad.md. Sin código ni tasks.
+2026-11-22T04:10 — [morpheus] Rama documenta opción B (addendum en rama-008-T1193-privacidad.md). Keymaker F/G en curso.
+- 2026-11-21 keymaker 008: T1165/T1169 E2E nuevo tests/e2e/visual/escena-008.spec.ts (9/9 en 3 navegadores); T1164/T1168/T1170..T1172 ya estaban en disco; tsc 0, oráculos 0 débiles; sin commit, sin [x]; /sati pendiente (otro paso).
+2026-11-22T04:40 — [morpheus] Keymaker F/G: E2E escena-008 9/9. Sati y oracle en paralelo.
+- 2026-11-21 Oracle: auditoria E2E escena-008.spec.ts (T1165/T1169) PASS CON OBS: 9/9 3 navegadores, tsc 0, vitest 110, oracles 452/0; sin commit.
+2026-11-22T05:00 — [morpheus] Oracle E2E escena-008: PASS CON OBS. Espero sati antes del commit F/G.
+- 2026-11-21 sati: revisión F/G escena del hogar (T1165, T1169, T1172) PASS (axe 0 en Chromium/WebKit, Firefox sin axe; sin ALTO/MEDIO; acta sati-008-F-G-escena.md; sin commit).
+2026-11-22T05:30 — [morpheus] Sati PASS F/G. Commit E2E escena-008 y addendum privacidad. Sigue H, I, K y T1173-T1174.
+2026-11-22T05:50 — [morpheus] Neo ordena I, K y T1173-T1174. Arranco I (T1183).
+2026-11-21 keymaker 008 T1183: ya hecho en 52c0065/3bf26bd; verificado tsc 0, 17/17, oráculos 0 débiles; sin cambios; pendiente /sati y T1184
+- 2026-11-21 keymaker 008 T1184: E2E biografia-008.spec.ts 9/9 (chromium/webkit/firefox, 2 corridas), tsc 0, oraculos CUMPLE 453; nacio verde (T1183 ya existe); sin commit ni [x].
+2026-11-22T06:20 — [morpheus] Keymaker T1184: E2E biografia-008 9/9. Oracle T1184, rama y trinity T1185 en paralelo.
+2026-11-21 oracle 008 T1184: PASS CON OBS. biografia-008 9/9, tsc 0, oraculos 453/0 debiles; OBS nota de caracterizacion no declarada en archivo, caso 3 serial, boton Actualizar solo por API.
+2026-11-22T06:45 — [morpheus] Oracle T1184: PASS CON OBS. Ajustes OBS-1 y OBS-3 pendientes con keymaker.
+2026-11-21 sati 008 T1183: FAIL por H-T1183-S1 (ALTO, texto sin espacios desborda a 320 y sale de la tarjeta a 1024/1280); S2 MEDIO error sin role=alert/foco; resto PASS (axe 0, contraste >=7.58, 48 px, foco). Acta sati-008-T1183-biografia.md.
+- 2026-11-21 keymaker 008 T1184: OBS-1/OBS-3 aplicados en biografia-008.spec.ts (solo cabecera/título); E2E 9/9, tsc 0; verify-oracles 1 débil ajeno (t1185:77).
+2026-11-22T07:10 — [morpheus] T1184 ajustes listos (9/9). verify-oracles: oráculo débil en t1185 (línea 77) a trinity.
+2026-11-22T07:25 — [morpheus] Sati T1183: FAIL (ALTO overflow). Keymaker corrige S1/S2/S4.
+2026-11-21 | rama | T1185 privacidad biografía: PASS CON OBS. 10/10 unit nuevos + 109 verdes en 5 archivos relacionados; tsc 0; verify-oracles FALLA por tests/security/t1185-biografia-texto-libre-008.security.spec.ts:77 (archivo ajeno). BAJO-T1185-01 hash sin clave en auditoría. D8-12=A, sin envío a IA. Sin commit ni [x].
+- 2026-11-21 | trinity | T1185 (008 #21) biografía texto libre: PASS CON OBS (1 BAJO: U+0085/U+2028/U+202E aceptados); tests/security/t1185-biografia-texto-libre-008.security.spec.ts 45/45; sin src/specs; sin commit
+- 2026-11-21 keymaker 008 T1183: corregidos S1/S2/S4 (+S3) de /sati en PetDashboard.tsx/PetForm.tsx; tsc 0, vitest 662/662, oráculos CUMPLE; sin commit.
+2026-11-22T08:00 — [morpheus] T1185: rama PASS CON OBS, trinity PASS CON OBS, verify-oracles CUMPLE. Decisiones HMAC y Unicode para Neo.
+2026-11-22T08:20 — [morpheus] Keymaker corrige T1183 (S1-S4). Sati re-revisa en navegador.
+2026-11-21 oracle 008 T1185 unit (10/10) + E2E biografia-008 (9/9) + ajustes OBS-1/3: PASS CON OBS; tsc 0, verify-oracles 455/0 debiles; sin commit.
+2026-11-22T08:40 — [morpheus] Commit local pruebas T1184 y T1185. Pendiente T1183.
+- 2026-11-21 oracle: re-auditoria T1183 008 PASS CON OBS (t1183 10/10, presentation 660, tsc 0, oraculos 455/0); foco/overflow en navegador pendientes de /sati. Sin commit.
+2026-11-22T09:00 — [morpheus] Oracle T1183 re-auditoría: PASS CON OBS. Espero sati para commit.
+- 2026-11-21 keymaker: T1197 ya hecho en 238a89b; verificado (tsc 0, presentation 660, oraculos 455/0). Sin cambios; pendiente /sati y T1198.
+2026-11-22T09:30 — [morpheus] T1197 ya hecha (238a89b). T1198 E2E y sati T1197 en paralelo. Posible hueco canCreateLinks fijo.
+2026-11-21 — [sati] Re-revisión T1183 (S1-S4): PASS. 280 sin espacios sin desbordamiento (3 motores, 320/1024/1280), error propio role=alert con foco, axe 0. Acta .specify/memory/audits/sati-008-T1183-biografia.md. Sin commit.
+2026-11-22T10:00 — [morpheus] Commit local T1183 tras sati PASS y oracle PASS CON OBS.
+2026-11-22T10:20 — [morpheus] Neo: Bloque I cerrado. Deudas HMAC y BIDI diferidas. Sigue K y T1173-T1174.
+2026-11-21 — [oracle] T1173 parcial 008 A,B,F,G,H,I,J: tsc 0, oraculos 456/0 debiles, traza 008 63/88 FALLA (sin cubrir A/B/J = diferidos 009 salvo INV-VIN8-001..003 sin @implements); 0 [x] por agentes; SC-008-053 sin titulo; veredicto PASS CON OBS (F PASS). Sin commit.
+- 2026-11-21 keymaker 008 T1198: E2E roles-ayuda-008.spec.ts 9/9 (chromium/webkit/firefox), tres contextos; Cuidador/Lector sin aviso ni panel (sin hallazgo); tsc 0; oráculos CUMPLE 456/0. Sin commit ni [x].
+2026-11-22T10:45 — [morpheus] Oracle parcial T1173: trazabilidad 63/88. Keymaker @implements B y título J. Neo decide gate con IDs de 009.
+2026-11-22T11:10 — [morpheus] Keymaker T1198: E2E 9/9. Oracle audita T1198 y T1199.
+- 2026-11-21 keymaker: @implements INV-VIN8-001/002/003 en src (traza 63->66/88); SC-008-053 no cubierto por tests de J, reportado sin forzar. Sin commit.
+2026-11-22T11:30 — [morpheus] Keymaker B: @implements OK (66/88, 22 de 009). SC-008-053 prueba nueva en curso.
+- 2026-11-21 oracle: T1198 PASS CON OBS (E2E 9/9, riesgo canCreateLinks sin declarar), T1199 PASS (frases = can(), sin diff en can()/005); tsc 0, verify-oracles 456/0. Sin commit.
+2026-11-22T11:50 — [morpheus] Commit local T1198 E2E. T1199 PASS. Pendiente OBS-1 canCreateLinks.
+- 2026-11-21 keymaker 008: SC-008-053 prueba nueva sc053-sin-busqueda-correo-008.api.spec.ts (verde, caracterización; sin brecha); sin commit, sin [x].
+- 2026-11-21 sati: T1197 ayuda de rol revisada, PASS CON CAMBIOS (S1 MEDIO selector miembro 40 px); acta sati-008-T1197-ayuda-rol.md.
+2026-11-22T12:20 — [morpheus] Neo aprueba opción A: registrar 22 IDs de 009 en verify-traceability. Keymaker en curso.
+2026-11-22T12:45 — [morpheus] Sati T1197: PASS CON CAMBIOS. Keymaker min-h-11 (S1).
+- 2026-11-21 keymaker 008: verify-traceability.sh declara 22 IDs diferidos a 009/descartados (D8-01, D8-10=A); 008 66/66 CUMPLE, 007 sin cambios; oracles CUMPLE, tsc 0. Sin commit.
+- 2026-11-21 oracle: auditoria sc053-sin-busqueda-correo-008.api.spec.ts PASS CON OBS (1/1, tsc 0, oracles 457/0 debiles; sin commit)
+2026-11-22T13:10 — [morpheus] verify-traceability 008: 66/66 CUMPLE (opción A). Oracle audita diff y el ID INV-ADM8-001.
+2026-11-22T13:20 — [morpheus] Commit local prueba SC-008-053 (oracle PASS CON OBS).
+- 2026-11-21 keymaker 008 H-T1197-S1: selector Rol de miembro min-h-10 -> min-h-11 (HouseholdsPage.tsx:148) + prueba t1196; gates verdes, sin commit.
+2026-11-22T13:40 — [morpheus] Keymaker H-T1197-S1 min-h-11 con prueba. Sati revalida altura.
+2026-11-22 oracle: auditoria opcion A verify-traceability 008 PASS (22 IDs en spec Diferido a 009, INV-ADM8-001 incluido; 008 66/66, 007 51/51, oracles 457/0, tsc 0; sin commit)
+2026-11-22T13:50 — [morpheus] Commit local verify-traceability 008 (opción A): 66/66 CUMPLE.
+2026-11-22T14:00 — [morpheus] Compuerta final T1174 en curso (oracle, PG17 55432). Sati revalida T1197.
+- 2026-11-21 /sati: re-revisión T1197 S1 (selector Rol de miembro min-h-11): 44 px a 320/1024/1280, axe 0, sin desborde, aria-describedby ok; S1 CERRADO, PASS. Acta sati-008-T1197-ayuda-rol.md; sin commit.
+2026-11-22T14:20 — [morpheus] Sati PASS H-T1197-S1. Oracle valida corrección antes del commit.
+- 2026-11-21 Oracle: auditoria H-T1197-S1 (min-h-11 select rol): PASS; t1196 11/11, tsc 0, oracles 457/0. Sin commit.
+2026-11-22T14:35 — [morpheus] Commit local H-T1197-S1 (44 px). Sati y oracle PASS.
+2026-11-22T14:50 — [morpheus] Neo: 008 completa en REVIEW. T1173-T1174 con PG17 en vuelo.
+2026-11-22T15:05 — [morpheus] Neo: en espera del acta final de oracle (T1173-T1174, PG17). Espera Logos reanudada.
+- 2026-11-22 Oracle T1174: traceability 008 66/66 PASS; oracles 0 debiles PASS; tsc 0 PASS; verify-ci-ready FAIL (4 tracked sin commit); test:gate BLOQUEADO (Docker/PG 55432 caido a mitad de corrida, 206 ECONNREFUSED). T1174 no cerrable.
+2026-11-22T15:40 — [morpheus] T1174 bloqueada: Docker caído, PG17 inaccesible. index.lock huérfano (Neo). Logos OFF.
+2026-11-22T16:10 — [morpheus] HARDLINE: handover claude/handover-morpheus-2026-11-22.md. HEAD 6415008 (64150085c00d3281e95c68329abaff6cba522140). 008 bloques A,B,F-K en REVIEW. T1173-T1174 BLOQUEADA (Docker/PG17 caídos). index.lock huérfano (solo Neo). Logos OFF. Sin commit ni push en cierre.
+2026-11-23T09:00 — [morpheus] Despertar: 008 en REVIEW (A,B,F–K). Bloqueado: index.lock huérfano (solo Neo) y Docker/PG17 caídos para T1173–T1174.
+2026-11-23T09:30 — [morpheus] Commit local 4323f45 (@implements google-auth, solo comentarios). Despacho /oracle para T1173–T1174 contra PG17 real. Sin push, sin [x].
+2026-11-23T10:00 — [morpheus] Oracle T1174 PASS 6/6 (test:gate exit 0 contra PG17, 6057 tests). Falta T1173 (E2E multi-navegador y accesibilidad) antes del cierre.
+2026-11-23T10:15 — [morpheus] Neo ordena cerrar T1173: /oracle corre 6 suites E2E de 008 en 3 navegadores. Sin [x], sin push.
+2026-11-23T10:40 — [morpheus] T1173 E2E: PASS CON OBS (81/81, 3 navegadores). Pendientes: axe del combobox de invitados (OBS-1) y parte /seraph. Sin [x].
+2026-11-23T11:00 — [morpheus] Neo elige Opción 1: /sati mide axe y 44 px del combobox de invitados (OBS-1) para cerrar T1173. Sin [x].
+- 2026-11-23 sati: T1173 OBS-1 combobox medido en pantalla real, PASS (axe 0/24, 44 px, sin overflow). Acta sati-008-T1173-combobox-invitados.md
+2026-11-23T11:30 — [morpheus] Sati OBS-1: PASS (axe 0/24, 44 px, sin desbordamiento; BAJO H-T1173-S1). Consolidado T1173 en disco; cierre [x] solo Neo.
+2026-11-23T11:45 — [morpheus] Logos encendida. Mensaje de cierre T1173/T1174 a Neo escrito en logos.json; espera turno neo en background.
+2026-11-23T15:00 — [morpheus] Feature 009 iniciada: inbox (5 ítems #18,#19,#20,#57,#60) despachado a /architect. Sin rama ni commit. Reglas GH sync y Linked PR activas.
+2026-11-23T15:30 — [architect] spec 009 DRAFT (32 REQ, 9 INV, 30 EDGE, 43 SC) + preguntas D9-01..D9-16 creadas; esperando Neo. Sin tasks.md ni plan.md.
+2026-11-23T16:00 — [morpheus] Rama 009-aprobacion-admin-correo desde main 917bbf8. Decisiones D9 aprobadas por Neo; /architect redacta plan y tasks con orden F1–F5.
+2026-11-23T17:00 — [architect] 009: spec reconciliada (DRAFT) + plan.md + tasks.md (78 tareas, 5 fases en orden). Pendientes Neo: D9-17..D9-20. verify-traceability 009 falla por falta de contracts/errors/error-catalog.json (contratos = tareas [ARCH]). Sin commit.
+2026-11-23T17:00 — [architect] spec 009 reconciliada; plan.md y tasks.md (78 casillas [ ]) creados. Bloqueos D9-17 (eliminación sin contraseña) y D9-18 (textos PENDING/REJECTED). Esperando Neo.
+2026-11-23T17:30 — [morpheus] Logos encendida. Bloqueos 009 (D9-17, D9-18) y confirmaciones (D9-19, D9-20) escritos en logos.json; espera turno neo.
+2026-11-23T18:00 — [morpheus] Directiva Neo: D9-17=A, D9-18 aprobado, D9-19/20 confirmados, T1201–T1203 firmadas. Lanzo T1204 /lock.
+2026-11-23T19:00 — [lock] T1204 Feature 009: PASS CON CAMBIOS, 26 hallazgos (3 ALTO, 13 MEDIO, 10 BAJO); EDGE-009-035..049 propuestos en .specify/memory/audits/lock-009-edge.md. Sin cambios en spec/plan/tasks.
+2026-11-23T18:30 — [lock] T1204 PASS CON CAMBIOS: 3 ALTO, 13 MEDIO, 10 BAJO; EDGE-009-035..049 propuestos. Despacho /architect antes de T1205/T1206.
+2026-11-23T20:00 — [architect] Feature 009: acta /lock incorporada (EDGE-009-035..049, REQ-APR9-008, SC-009-050, ADR-009-15/16, T1278..T1298, preguntas D9-21..D9-26). Sin commit.
+2026-11-23T19:00 — [architect] Hallazgos lock incorporados: EDGE-035..049, ADR-009-15 pendiente D9-25, 99 tareas. Lanzo T1205 (/mifune, /merovingian).
+2026-11-23T21:00 — [mifune] T1205 KISS 009: PASS CON CAMBIOS, 10 hallazgos (2 ALTO, 4 MEDIO, 4 BAJO). Acta .specify/memory/audits/mifune-009-kiss.md. Sin [x], sin commit.
+2026-11-23T20:00 — [mifune] T1205 PASS CON CAMBIOS: 2 ALTO (MIF-01 cuota, MIF-02 puertos), 4 MEDIO, 4 BAJO. Acta mifune-009-kiss.md.
+2026-11-23T22:00 — [merovingian] T1205 PASS CON CAMBIOS: 0 dependencias nuevas; 12 hallazgos (3 ALTO: MER-01 contratos 002/004 sin declarar, MER-02 tope 5 USD con varios modelos, MER-07 enmienda de 007; 4 MEDIO; 2 BAJO... ver acta). Acta .specify/memory/audits/merovingian-009-impacto.md. Sin [x], sin commit.
+2026-11-23T22:00 — [merovingian] T1205 PASS CON CAMBIOS: 0 dependencias nuevas; 12 hallazgos (4 ALTO: MER-01, MER-02, MER-03, MER-07; 6 MEDIO; 2 BAJO). Acta .specify/memory/audits/merovingian-009-impacto.md. Sin [x], sin commit.
+2026-11-23T20:30 — [merovingian] T1205 PASS CON CAMBIOS: 4 ALTO, 6 MEDIO, 2 BAJO. Acta merovingian-009-impacto.md. Despacho combinado a /architect.
+2026-11-23T23:00 — [architect] Aplicadas actas /mifune y /merovingian a 009: 107 tareas (F5 = 5a 19 + 5b 15), EDGE-009-036 de gasto acumulado como propuesta pendiente D9-21, SC-009-051; preguntas P5-01..P5-06 para Neo. Sin [x], sin commit, sin tocar src/tests/contratos.
+2026-11-23T21:30 — [architect] 107 tareas; mifune y merovingian aplicados salvo P5-01..06 y D9-21..26 (Neo). Despacho /mouse T1206.
+2026-11-23T23:30 — [mouse] T1206 BLOCKED: 1 defecto estructural (spec 009 usa [GH:#17] activa en lineas 32, 69, 161, 291; debe ser «(deuda #17)»). Resto PASS/OBS. Acta mouse-009-estructura.md. Sin commit ni [x].
+2026-11-23T22:00 — [mouse] T1206 BLOCKED por 4 [GH:#17] activas en spec.md. Despacho a /architect para corregir y repetir /mouse.
+2026-11-23T23:00 — [architect] [GH:#17] corregida en spec 009 (4 líneas); T1256 aclarada. Re-despacho /mouse T1206.
+2026-11-23T23:30 — [morpheus] Directiva Neo: P5-01..06 y D9-21..26 resueltos. Orden: architect asienta, mouse R2, sync, commit selectivo 009, Fase 1 hasta T1216. Sin tocar ajenos.
+2026-11-23T23:45 — [mouse] T1206 R2 PASS CON OBS (D-1 resuelto). Architect asienta resoluciones Neo; re-auditoría /mouse final después.
+2026-11-23T23:59 — [architect] Asentadas en spec/plan/tasks las resoluciones de Neo D9-21..26 y P5-01..06; scene.global_quota_max y coste a 5b (5a=15, 5b=19); T1212 desbloqueada. 0 casillas tocadas; sin commit. Pendiente: /mouse final.
+2026-11-24T00:15 — [architect] Resoluciones Neo asentadas en 009 (spec, plan, tasks). Fase 5a=15, 5b=19. Despacho /mouse final T1206.
+2026-11-24T00:40 — [mouse] T1206 re-auditoría final PASS CON OBSERVACIONES (criterios 1..6 OK). Architect corrige textos O-F1..F4.
+2026-11-24T01:00 — [morpheus] 009: sync GitHub (#18,#19,#20,#57,#60 a In Progress); commit de diseño 5e785a2 (sin push). Fase 1 a keymaker.
+2026-11-24T01:30 — [architect] T1212 enmienda 009 de 007 (R4, REQ-ESC7-003 + notas) e inventario de pruebas en audits/architect-009-T1212-enmienda-007.md; traza 007 CUMPLE 51/51; t874 hallazgo; T1212 queda en REVIEW (sin [x]).
+- 2026-11-23 keymaker: Fase 1 de 009 (T1207..T1215 + T1279..T1283) implementada en disco, tsc=0, sin commit; pendiente /oracle T1216.
+2026-11-24T02:00 — [keymaker] Fase 1 entregada (T1207..T1215), tsc 0, 1 fallo preexistente gates-004 para decisión de Neo. Despacho /oracle T1216.
+2026-11-24T03:00 — [oracle] T1216 Fase 1 PASS CON OBS. Rojo: gates-004 (decisión Neo). Corrección SC-007-035 a cargo de architect.
+2026-11-24T03:20 — [architect] SC-007-035 corregida a SC-007-039 en T1212 (tasks.md línea 57). Pendiente Neo: gates-004.
+2026-11-24T04:00 — [morpheus] Directiva Neo: H-1 gates-004 (009->999) autorizado; commit Fase 1 selectivo; Fase 2 hasta T1223. Despacho keymaker H-1.
+2026-11-24T04:30 — [morpheus] Commit local Fase 1 f3e4a1e (sin push). test:gate exit 0. Despacho architect T1217.
+2026-11-24T05:00 — [architect] T1217: contratos base 009 (catálogo 7 códigos, STATE-ACCT9-001, admin.openapi.yaml con 2 ops de borrado) y entradas --feature 009 en compile/verify. Compile OK (ensayo en scratchpad); verify 009 exit 1 solo por evidencia src/tests pendiente. Sin [x].
+2026-11-24T05:00 — [architect] T1217 contratos 009 creados (REVIEW). Pendiente Neo: backupConfirmationToken y 6 exclusiones en verify-traceability. Despacho /oracle.
+2026-11-24T05:30 — [oracle] T1217 contratos PASS CON OBS (acta oracle-009-T1217-contratos.md). Pendiente decisión Neo (backupConfirmationToken, 6 exclusiones).
+2026-11-24T06:00 — [morpheus] Neo firma F0/F1; commit T1217 65b92ce (sin push); sync GitHub OK. Arranca Fase 2.
+2026-11-23 | Keymaker | 009 Fase 2: pruebas rojas T1218/T1284/T1219 escritas (api t1218, migración t1219, suite repos); v35 compilado; migraciones nuevas 0018/0014 (008 ya en producción). Sin commit, sin [x].
+2026-11-23 | Keymaker | 009 Fase 2: T1218/T1219/T1284/T1130 en REVIEW (sin [x], sin commit): tsc 0, vitest 5938 verdes, 1 rojo ajeno (verify-ci-ready, sin seguimiento). Pendiente: T1220 sati, T1221 (Dep T1220), T1222 rama/trinity, T1223 oracle. PG vivo sin ejecutar.
+2026-11-24T07:00 — [keymaker] Fase 2 parcial: T1218, T1219, T1284, T1130 verdes (tsc 0). Decisión Neo: migraciones nuevas 0018/0014 vs 0017/0013 del tasks.
+2026-11-24T08:00 — [morpheus] Neo aprueba migraciones 0018/0014. Sigue Fase 2: T1220 UI+/sati, T1221, T1222, T1223.
+2026-11-24T08:30 — [oracle] Fase 2 parcial PASS CON OBS (42 PG verdes). Pendiente Neo: confirmar alcance extra pending_subject/DELETE (O1). T1220 en curso.
+- 2026-11-23 keymaker: T1220 UI eliminación Google en AccountPage (tests 705 verdes, tsc 0); pendiente /sati y T1221 E2E.
+2026-11-24T09:00 — [keymaker] T1220 UI borrado Google entregada (REVIEW). Despacho /sati (textos nuevos y 320/1024/1280).
+2026-11-24T10:00 — [sati] T1220 PASS CON CAMBIOS (S1 MEDIO foco, S2 texto paso 3). Despacho keymaker: corrección + T1221 E2E.
+2026-11-24T11:00 — [keymaker] T1220 correcciones + T1221 E2E 9/9 (3 navegadores). Despacho /oracle T1220/T1221 y /rama+/trinity T1222 en paralelo.
+- 2026-11-23 /trinity: T1222 AppSec 009 -> PASS CON CAMBIOS (TRI-01 MEDIO auth_time Google real; TRI-02 limite borrado). Acta .specify/memory/audits/trinity-009-T1222-reautenticacion.md. 30/30 pruebas.
+2026-11-24T12:00 — [trinity] T1222 PASS CON CAMBIOS (MEDIO TRI-01 auth_time con Google real; BAJOS). Despacho /rama.
+- 2026-11-23 oracle: T1220/T1221 validadas en disco, PASS CON OBSERVACIONES (acta .specify/memory/audits/oracle-009-T1220-T1221.md); E2E 3/3 y 008 12/12 en chromium/firefox/webkit.
+2026-11-24T12:30 — [oracle] T1220 y T1221 PASS CON OBS (E2E 3/3 x3 navegadores). Commit de Fase 2 al cerrar T1223.
+2026-11-23T13:00 — [rama] T1222 privacidad: PASS CON CAMBIOS (ALTO RAMA-01 callback /admin sin exclusión de logs; MEDIO RAMA-02 exclusión callback pendiente de Neo; MEDIO RAMA-03 purga PG oauth_flow_states; retención propuesta por dato en el acta). Acta .specify/memory/audits/rama-009-T1222-privacidad.md. Sin [x] ni cambios en código.
+2026-11-24T13:00 — [rama] T1222 PASS CON CAMBIOS (ALTO RAMA-01 logs admin antes de T1227; MEDIOS RAMA-02..05). Escala decisiones a Neo.
+2026-11-24T14:00 — [morpheus] Directiva Neo: O1 ok, TRI-01 smoke test autorizado, TRI-02 5/15, retenciones aprobadas, RAMA-01 terraform sin apply. Keymaker aplica ajustes; luego T1223.
+2026-11-24T15:00 — [keymaker] Ajustes T1222 hechos (TRI-02, RAMA-03, RAMA-01; TRI-01 ya cubierto). Despacho /oracle T1223.
+- 2026-11-23 /oracle T1223: FAIL (ORA-T1223-01 fetch sin notifyActivity en account-deletion-google.ts); acta oracle-009-T1223-fase2.md
+2026-11-24T16:00 — [oracle] T1223 FAIL por ORA-T1223-01 (fetch directo en cliente de borrado; INV-AUTH2-002). Despacho keymaker corrección.
+2026-11-24T17:00 — [keymaker] ORA-T1223-01 corregido (3 archivos; lista blanca intacta). Despacho /oracle reconfirmación T1223.
+2026-11-24T18:00 — [morpheus] Commit Fase 2 ef0f8ed (sin push). Reejecuto test:gate sobre el commit.
+2026-11-24T18:30 — [morpheus] test:gate ef0f8ed: 1 timeout de carga (media composition, verde aislado). Relanzo gate completo para confirmar verde.
+2026-11-24T19:00 — [morpheus] Commit 52c73df src/generated/v35 (Neo). Despacho /architect T1224 y T1226 (Fase 3). Espero gate sobre HEAD.
+2026-11-24T19:30 — [morpheus] Gate HEAD: 1 timeout de composición (ops-surface, falla aislado). Keymaker diagnostica si es Fase 2 o preexistente.
+2026-11-24T20:00 — [architect] T1224 borrador Enmienda 009-A y T1226 admin.openapi 1.1.0 entregados (REVIEW). Pendiente /oracle y firma Neo T1225.
+2026-11-24T20:30 — [morpheus] Neo pre-autoriza opción A o B según medición keymaker. Oracle valida T1224/T1226 en curso.
+2026-11-24T21:00 — [keymaker] Diagnóstico: delta Fase 2 ~22% (<30%), causa principal preexistente + carga. Opción A aplicada (15 s en 2 archivos) y gate relanzado.
+
+- 2026-11-23 Oracle: T1224/T1226 PASS CON OBSERVACIONES (acta oracle-009-T1224-T1226-fase3.md; compile exit 0).
+2026-11-24T21:30 — [oracle] T1224/T1226 PASS CON OBS (3 observaciones textuales; 3 decisiones abiertas para Neo en T1225).
+2026-11-24T22:00 — [morpheus] Neo aprueba las 3 decisiones de T1225. Borrador 3.9.0 queda en audits (no en constitution.md, Nivel 2). Architect aplica correcciones textuales.
+2026-11-24T22:30 — [architect] OBS de Oracle y resoluciones T1225 aplicadas (DRAFT). Despacho /oracle reconfirmación breve.
+2026-11-24T23:00 — [oracle] Reconfirmación T1224/T1226 PASS CON OBS (OBS-4 menor). Ambos en REVIEW; firma T1225 de Neo pendiente.
+2026-11-24T23:30 — [keymaker] Gate con A: 4 fallos flaky en audit-secret (proceso hijo bajo carga); aislado verde. Requiere decisión de Neo para ampliar A.
+2026-11-25T00:00 — [morpheus] Neo aprueba opción A en audit-secret. Keymaker aplica, gate y commit selectivo de 3 archivos de timeout.
+2026-11-25T00:30 — [keymaker] test:gate VERDE (exit 0, cobertura 98.86%). Commit 0aad20f. Pendiente firma Neo Fase 2 y T1225.
+2026-11-25T01:00 — [morpheus] Neo firma Fase 2 y enmienda 009-A (3.9.0 en constitution). Commit 897091c. Arranca Fase 3 (#19).
+- 2026-11-25 | Link | T1227 (#19) en REVIEW: ARGOS_ADMIN_EMAILS en app-config.ts (pruebas t1227 verdes), URI admin opcional en terraform (fmt/validate 0), runbook terraform/README.md. Sin apply, sin [x], sin commit. Pendiente Neo: consola Google y secreto argos-admin-emails.
+2026-11-25T02:00 — [link] T1227 REVIEW (config ARGOS_ADMIN_EMAILS, URI, terraform validate 0). Pasos humanos y cableado pendientes de Neo.
+- 2026-11-23 keymaker 009 F3: pruebas rojas T1228..T1233 escritas (api t1228-t1231, persistencia t1232-t1233); sin commit
+- 2026-11-23 keymaker 009 F3: T1228..T1234 verdes (102 pruebas nuevas), migración SQLite 0019 / PG 0015, tsc 0, verify-oracles CUMPLE, traceability 009 52/79; sin commit, REVIEW
+2026-11-25T03:00 — [keymaker] Fase 3 código (T1228..T1234) 102 verdes. Migraciones 0019/0015. Despacho /oracle.
+- 2026-11-23 oracle: 009 T1228..T1234 PASS CON OBSERVACIONES (acta oracle-009-T1228-T1234-fase3.md; 102 tests verdes, trazabilidad 52/79, b/c observados)
+2026-11-25T04:00 — [oracle] T1228..T1234 PASS CON OBS. Escala a Neo O-1 (hash del correo) y O-2 (tope de inicios).
+2026-11-25T05:30 — [morpheus] HARDLINE: handover claude/handover-morpheus-2026-11-25.md. HEAD 897091c (009). Fase 2 y 009-A firmadas. Fase 3 código (T1228..T1234) auditada PASS CON OBS, sin commit; esperando decisiones de Neo (hash del correo, tope de inicios, contrato g).
+2026-11-23T12:50 — [morpheus] Arranque de sesión: estado leído en disco (HEAD 897091c, Fase 3 sin commit, 3 decisiones de Neo pendientes).
+2026-11-23T12:52 — [morpheus] Logos ON. Directiva Neo: resoluciones O-1/O-2/(g) y ejecución T1235..T1240. Despacho /architect para (g).
+2026-11-23T13:00 — [architect] Decisión (g): 403 ERR-AUTH-CSRF-REJECTED antes de resolver sesión en mutantes /api/admin/*; admin.openapi.yaml 1.2.0 (MINOR) + plan ADR-009-07; pendiente /oracle y recompilar.
+
+- 2026-11-23 Oracle: acta oracle-009-admin-csrf-order-1.2.0.md — PASS CON OBS; escalar a Neo firma 1.2.0 + redacción T1228/SC-009-009 y aclarar orden de Origin.
+2026-11-23T12:55 — [morpheus] Oracle 1.2.0 PASS CON OBS; escalo a Neo (firma 1.2.0, T1228/SC-009-009, orden Origin).
+2026-11-23T12:55 — [morpheus] Neo (Logos): (a) sí, (b) sí, (c) Origin después de sesión. Despacho architect y keymaker en paralelo.
+2026-11-23T13:10 — [architect] Aplicados (a)(b)(c) de Neo: contrato 1.2.0 + ADR-009-07 aprobados (status DRAFT intacto), T1228/SC-009-009 reescritos, Origin tras sesión; YAML válido.
+- 2026-11-23 keymaker: 009 OBS-2 (docstring 1.2.0) + O-2 tope 20 inicios/15 min por IP implementado (test rojo->verde t1231); t1228+t1231 29/29, tsc 0; sin commit. Pendiente /oracle.
+- 2026-11-23 Oracle: acta oracle-009-precommit-fase3.md - PASS CON OBS (sin FAIL); commit selectivo 009 listo, excluir MER-11.
+2026-11-23T12:58 — [morpheus] Commit local 82ae495 fase 3 (50 archivos, oracle PASS CON OBS). Siguiente T1235 con /sati.
+2026-11-23 — [sati] T1235 diseño UI /admin (acceso + shell vacío, 320/1024/1280, WCAG AA) en .specify/memory/audits/sati-009-T1235-admin-ui.md; pendiente /keymaker.
+2026-11-23 — [keymaker] T1235 UI /admin implementada (admin.html + src/presentation/admin, bundle /assets/admin-*): vitest 7/7 nuevos, e2e 21/21 axe 0, tsc 0; pendiente /oracle (sin commit).
+- 2026-11-23 [oracle] T1235 auditado: PASS CON OBS; FAIL fallback admin.html->index.html en static-assets.ts:25 (sirve app de usuarios en /admin sin admin.html; fix keymaker fail-closed); SC-009-010 baseline = pregunta N2 a Neo; vitest 68/68, tsc 0, pw 21/21. Acta: .specify/memory/audits/oracle-009-T1235-admin-ui.md
+- 2026-11-23 keymaker: T1235 fix SAFETY FAIL /admin falla cerrado (sin admin.html = 404 uniforme; boot prod exige admin.html); 70 tests verdes, tsc 0; pendiente re-validación /oracle.
+- 2026-11-23 [oracle] T1235 RETRY: PASS (fail-closed /admin: sin admin.html 404 text/plain GET/HEAD/?a=1, nunca app de usuarios; boot guard server.ts:147 ok; vitest 70/70, tsc 0). OBS: dist/ actual viejo sin admin.html -> rebuild antes de deploy. Acta: .specify/memory/audits/oracle-009-T1235-retry.md
+- 2026-11-23 — [morpheus] Commit 3576872 T1235 (oracle retry PASS). Escalo a Neo SC-009-010 (bloquea T1236→T1240).
+- 2026-11-23 — [morpheus] Neo opción 1 SC-009-010; contrato 1.2.0 ratificado; v35 autorizada. Despacho architect.
+- 2026-11-23 architect: 009 SC-009-010/T1236 reescritos (linea base 008 de 3 archivos) y admin.openapi 1.2.0 + ADR-009-07 APPROVED por Neo (Logos); YAML valido.
+- 2026-11-23 architect: 009 plan.md Estado revertido a DRAFT (Neo ratifico solo contrato 1.2.0 y ADR-009-07); sin otros cambios.
+2026-11-23 keymaker: 009 T1236 (inventario 3/3) y T1237 (E2E 12/12 chromium+firefox+webkit) listos para /oracle; v35 recompilado (2 archivos); tsc 0; sin commit.
+- 2026-11-23 [oracle] T1236/T1237 + regen v35 auditados: PASS CON OBS (vitest 72/72, pw chromium 25/25, tsc 0, mutacion T1236 roja). Acta: .specify/memory/audits/oracle-009-T1236-T1237.md
+- 2026-11-23 [trinity] T1238 AppSec /admin: Semgrep 0 hallazgos; t1238 security 28/28 (tests/security 537/537); 0 ALTO/MEDIO. Acta: .specify/memory/audits/trinity-009-T1238.md
+2026-11-23 [sentinels] T1238 swarm 9 vectores: 22 PASS / 1 FAIL (SEN-T1238-01 BAJO: /API/ADMIN/SESSION sirve SPA de usuarios, static-assets.ts:55 → owner keymaker). Acta: .specify/memory/audits/sentinels-009-T1238.md. Sin commit.
+- 2026-11-23 keymaker: fix SEN-T1238-01 en static-assets.ts (prefijos case-insensitive + /api/admin no canónico 404); 22/23 sentinels (variante /./ artefacto de inject), 28/28 portal, api 542/542, tsc 0; sin commit.
+- 2026-11-23 Keymaker: T1238 sentinels variante /./ -> socket real (SEN-T1238-01b); 24/24, 28/28, tsc 0; pendiente /oracle.
+- 2026-11-23 [oracle] T1238 auditado: PASS CON OBS (api 542/542, security 561/561, 2 suites 52/52, tsc 0; mutaciones M1/M2 rojas; 01b real). OBS: actas sentinels/trinity desactualizadas (refrescar antes de commit). Acta: .specify/memory/audits/oracle-009-T1238.md
+- 2026-11-23 — [rama] T1239 (009) privacidad/retención /admin: sin fuga de correo/sub/tokens en logs, audit ni errores; retención: admin_sessions y admin_oauth_flow_states solo se purgan al iniciar acceso (no en mantenimiento), admin_audit_entries sin plazo. 3 MEDIO (RAMA-T1239-01..03). VALIDATION REQUIRED. Acta .specify/memory/audits/rama-009-T1239.md. Sin commit.
+- 2026-11-23 Keymaker: T1239 RAMA-01/02 corregidos (purga mantenimiento admin) + oraculos debiles T1238 fortalecidos; pendiente re-auditoria /oracle.
+- 2026-11-23 [oracle] T1239 re-auditado: PASS CON OBS (64/64 3 suites, persistence 671 ok/212 skip PG real, tsc 0, verify-oracles 0; PG real NO ejecutado). admin_audit retencion sigue pendiente de Neo. Acta: .specify/memory/audits/oracle-009-T1239.md
+- 2026-11-23 [oracle] T1240 compuerta FINAL Fase 3: FAIL (PG17 real ok; persistence 881/883 1 fail schema-parity viva sin 0015 -> keymaker; test:gate 2 fail: schema-parity + presentation-architecture REQ-UI-004 vs src/presentation/admin -> architect/keymaker; traceability 52/79; oracles 0; tsc 0; E2E 73/75: webkit A6/A7 foco skip link). Seraph cookies PASS. Acta: .specify/memory/audits/oracle-009-T1240-fase3-final.md
+- 2026-11-23 Architect: enmienda oráculo REQ-UI-004 (web+admin) + ADR-009-17; spec 4/4 verde; sin commit.
+- 2026-11-23 keymaker T1240 defectos A (parity 0015) y B (WebKit Alt+Tab) corregidos en tests; sin commit.
+- 2026-11-23 [oracle] T1240 reintento: gate VERDE (persistence 882/883, test:gate 415 files 6377 pass cov 98.87%, e2e 25/25/25 chromium/firefox/webkit, tsc/oracles exit 0, trazabilidad 009 solo Fase 4-5 abiertos). Acta oracle-009-T1240-retry.md. [x] pendiente Neo.
+- 2026-11-23 — [morpheus] T1240 gate verde (oracle retry PASS CON OBS). Commit 6421e96. Escalo a Neo: [x] T1240, retención admin_audit_entries, MINOR constitucional.
+- 2026-11-23 — [morpheus] Neo cierra Fase 3 y autoriza Fase 4 (#18). Sync GitHub + commit de tasks.md [x].
+- 2026-11-23 — [architect] T1241 contratos 009 1.3.0 + enmienda MINOR 002/004 (DRAFT) y retención admin_audit_entries 24 meses en spec/plan. Compila /keymaker.
+- 2026-11-23 [Keymaker] 009 T1241 compilado v35; T1242 rojo (it.fails), T1243 migraciones 0020 SQLite/0016 PG verdes, T1244 arnes+inventario; 002/004 NO recompiladas (rompe tsc). REVIEW, sin commit.
+- 2026-11-23 [oracle] 009 T1241..T1244 auditado: PASS CON OBS (persistence+t1244 59 files 899 ok/1 skip PG17 real, tsc 0, verify-oracles 0; full suite 52 fail = deriva 002/004 DRAFT + 1 untracked 0016 en verify-ci-ready). Acta .specify/memory/audits/oracle-009-T1241-T1244.md
+- 2026-11-23 keymaker T1245: pruebas rojas de politica de registro (api 14 rojas/2 verdes de caracterizacion; purga persistence 6 rojas SQLite+PG); tsc 0, oraculos 0; sin commit ni [x]; T1246 pendiente.
+- 2026-11-23 keymaker T1246: máquina account-status.ts + política PENDING en registro/login/guarda/Google; ~25 pruebas migradas; tsc 0; rojos restantes: purga T1248 y deriva 002/004 (ver log-keymaker). Validation Required -> /oracle
+- 2026-11-23 [oracle] 009 T1245+T1246 auditado: PASS CON OBS (tsc 0, oraculos 0, persistence+T1245/T1246 con PG17 915 ok/7 rojas esperadas T1248; suite completa 16 rojas = 4 T1248 + 11 deriva 002/004 + gates-004 + verify-ci). OBS: presentacion rota hasta T1249, no desplegar. Acta .specify/memory/audits/oracle-009-T1245-T1246.md
+- 2026-11-23 keymaker T1248: purga PENDING(createdAt 30d)/REJECTED(decided_at 30d) en mantenimiento SQLite+PG; REVIEW, pendiente /oracle.
+- 2026-11-23 Oracle: T1248 auditado PASS CON OBS, listo para REVIEW (acta .specify/memory/audits/oracle-009-T1248.md)
+- 2026-11-23 /keymaker: T1249 UI estado de solicitud (PENDING/REJECTED) implementada, sin sesión; pruebas unit+E2E Chromium verdes; pendiente /sati (320/1024/1280) y /oracle. Sin [x]/commit.
+- 2026-11-23 /sati: T1249 revisado (axe 0, contraste >=9.4:1); pendiente ajuste keymaker del enlace (48 px + foco) y /oracle. Sin [x]/commit.
+- 2026-11-23 keymaker: T1249 S1 enlace «Volver al acceso» objetivo tactil 48px (test rojo->verde); pendiente /oracle
+- 2026-11-23 [oracle] T1249 auditado: PASS CON OBS (tsc 0, oraculos 0 exit 0, t1249 10/10, e2e chromium 4/4, 48 px real; suite 11 rojos = deriva 002/004 + gates-004 T1288/9; WebKit/FF no corridos). Acta oracle-009-T1249.md
+- 2026-11-23 — [morpheus] Neo: eliminar supresión anticipada; recompilar 002/004/009; fix ARGOS_SCENE_WORKER_URL. Despacho architect y link.
+- 2026-11-23 | Link | ARGOS_SCENE_WORKER_URL: PUBLIC_BASE_URL -> OIDC_AUDIENCE (deploy-argos.yml:247), tests RED->GREEN, INV-ESC6-018 intacto; Validation Required (/oracle)
+- 2026-11-23 /architect: corte soberano de Neo: supresión anticipada manual eliminada de contratos 009, spec, plan y tasks (T1290/T1291 retiradas); 002 3.4.0 y 004 3.5.0 APPROVED; pendiente /keymaker recompilar y limpiar src/tests.
+- 2026-11-23 keymaker: 009 corte soberano sin supresion manual: codigo/tests limpios, 002/004/009 recompilados (guarda INV-ARCH-003 aborta 004/009 hasta commitear 002), tsc 0; reds de contratos por versiones viejas en tests. Sin commit.
+- 2026-11-23 keymaker: guarda 002 desbloqueada (de9aeeb), expectativas 002/004/009 y tabla auth-session 3.2.0 commiteadas; v34/v35 regenerados sin commit; unico rojo gates-004 RATE-LIMITED; tsc 0.
+- 2026-11-23 /oracle: auditoria corte supresion 009 Fase 4 = PASS CON OBS (tsc 0, oracles 0, vitest 6205/1 gates-004 esperado, pw 4/4, v34 requerido por drift CI). Acta .specify/memory/audits/oracle-009-corte-supresion-fase4.md
+- 2026-11-23 — [morpheus] Neo aprueba 57cd4ef. Despacho T1288/T1289 (keymaker).
+- 2026-11-23 — [keymaker] T1288/T1289: limite registro 5/24h por IP efectiva (429 ERR-ACCOUNT-REGISTRATION-RATE-LIMITED) + aviso umbral PENDING>50; en REVIEW para /oracle (sin [x]).
+- 2026-11-23 /oracle: auditoria T1288+T1289 (009) PASS CON OBS (carrera check-then-record por instancia; trustProxy TRI-03; aviso sin cablear hasta T1247/T1250). Acta .specify/memory/audits/oracle-009-T1288-T1289.md. Sin [x].
+- 2026-11-23 — [morpheus] Neo aprueba 482cb1d. Despacho T1247 (keymaker) + exclusión REQ-APR9-008 autorizada.
+- 2026-11-23 [Keymaker] T1247 decision atomica + /api/admin/registrations + contador con aviso: REVIEW pendiente /oracle (tsc 0, oraculos 0, vitest completo verde, PG17 60/60); REQ-APR9-008 excluido por decision de Neo. Sin commit.
+- 2026-11-23 [Oracle] T1247 PASS CON OBS (tsc 0, oraculos 0, vitest 422 files verde, PG17 61 files; trazabilidad 003/005 cerrados, 008 excluido). Acta oracle-009-T1247.md. Sin [x].
+- 2026-11-23 — [morpheus] HARDLINE: handover claude/handover-morpheus-2026-11-23.md. HEAD fc5e17a (009, sin push). Fase 4: T1241..T1249, T1288..T1289, T1247 en commits; pendientes T1250..T1253 y firmas de Neo.
+- 2026-11-23 16:36 — [morpheus] Arranque de sesión: HEAD fc5e17a, Fase 4 en T1250..T1253 pendiente; handover 11-25 marcado como obsoleto (fecha futura). Sin despacho.
+- 2026-11-23 16:40 — [morpheus] Neo enciende la Logos; reanudo canal y dejo mensaje para Neo (estado Fase 4, decisión T1250 / commit de firmas).
+- 2026-11-23 — [morpheus] Directiva Neo A+B: commit tasks.md (firmas), borrado handover 11-25, inicio Fase 4 con T1250.
+- 2026-11-23 [Keymaker] T1250 UI /admin (contador, solicitudes paginadas, aprobar/rechazar con confirmacion) en src/presentation/admin/; unit 11 + E2E Chromium 14 verdes, tsc 0, oraculos 0. REVIEW pendiente /sati + /oracle. Sin [x], sin commit.
+- 2026-11-23 — [morpheus] T1250 keymaker REVIEW (src/presentation/admin/); despacho /sati y luego /oracle.
+- 2026-11-23 Sati T1250: revision diseno solicitudes /admin; unit 11/11, E2E 14/14, sin cambios en src; S1 medio (exito solo sr-only), S2/S3 bajos; sin commit
+- 2026-11-23 /oracle: T1250 (009) PASS CON OBS (tsc 0, oraculos 0, vitest 19/19, pw chromium 14/14; OBS S1 exito solo sr-only, S2 foco, S3 gap 320). Acta audits/oracle-009-T1250.md. Sin [x].
+- 2026-11-23 — [morpheus] T1250 PASS CON OBS (oracle) + sati PASS CON OBS. Despacho T1251 (keymaker).
+- 2026-11-23 [Keymaker] T1251 E2E ciclo aprobacion/rechazo (t1251 3/3 chromium) + migracion de E2E de registro/Google al arnes ACTIVE (seedActiveAccount/approveAndSignInViaUi). REVIEW, sin commit ni [x].
+- 2026-11-23 — [morpheus] T1251 keymaker REVIEW; 4 rojos preexistentes ajenos a 009 (para Neo). Despacho /oracle.
+- 2026-11-23 /oracle: T1251 (009) PASS CON OBS (tsc 0, oraculos 0, pw chromium 28/28; OBS ausencia de correo solo por texto UI, solo chromium; 4 rojos preexistentes ajenos). Acta audits/oracle-009-T1251.md. Sin [x].
+- 2026-11-23 — [morpheus] T1251 PASS CON OBS. Despacho T1252 (rama + trinity).
+- 2026-11-23 [Trinity] T1252 (009) AppSec Fase 4 PASS CON OBS (0 ALTO/MEDIO; 3 BAJO: Origin en POST admin, 409 sin cupo, limite por instancia). Semgrep 0 hallazgos; t1245/t1247/t1288 45/45. Acta audits/trinity-009-T1252.md. Sin [x] ni commit.
+- 2026-11-23 — [morpheus] T1252 trinity PASS CON OBS (semgrep 0). Espera /rama.
+- 2026-11-23 [rama] T1252 (009) FAIL (punto 5: admin_audit_entries sin purga 24 meses, sin prueba; puntos 1-4 PASS CON OBS). Acta audits/rama-009-T1252.md. 66/66 pruebas afectadas verdes (PG no ejecutado). Sin [x], commit ni push.
+- 2026-11-23 — [morpheus] T1252 rama FAIL (punto 5 retención admin_audit 24m). Bloquea T1253. Consulta /architect.
+- 2026-11-23 [architect] T1252 retencion admin_audit_entries 24m: veredicto (a) sumar a auditRowsPurged, sin cambio de contrato ni Neo; prueba roja SQLite+PG definida. Acta audits/architect-009-T1252-retencion-admin.md. Sin [x], commit ni contratos.
+- 2026-11-23 keymaker: T1252 RAMA-T1239-03 implementado (auditRowsPurged suma admin_audit_entries, SQLite+PG); rojo->verde, tsc 0, oraculos 0; REVIEW pendiente /oracle. Sin commit.
+- 2026-11-23 [oracle] RAMA-T1239-03 (retencion admin_audit_entries, T1252 p5): PASS CON OBS (tsc 0, t1239 13/13, PG17 real 17/17, oraculos 0; opcion a cumplida, 3 ediciones aditivas no debilitan; OBS timeout 30s injustificado). Acta oracle-009-T1252-retencion.md. Sin [x].
+- 2026-11-23 — [morpheus] RAMA-T1239-03 oracle PASS CON OBS; espera /rama reaudit.
+- 2026-11-23 [rama] T1252 reauditoria punto 5 (RAMA-T1239-03): PASS CON OBS. SQLite+PG purgan admin_audit_entries (24 m, sumado a auditRowsPurged); 30/30 verdes con TEST_DATABASE_URL (PG real ejecutado); contrato 003 sigue 5 claves. Acta audits/rama-009-T1252.md actualizada. Sin [x], commit ni push.
+- 2026-11-23 — [morpheus] T1252 técnico OK (rama/trinity/oracle PASS CON OBS). Despacho keymaker limpieza + @implements REQ-APR9-007 antes de T1253.
+- 2026-11-23 Keymaker: limpieza pre-T1253 (OBS-1/2, @implements REQ-APR9-007 en src/); solo comentarios/timeout; sin [x], sin commit.
+- 2026-11-23 — [morpheus] Limpieza T1253 OK. Despacho oracle + seraph (compuerta final Fase 4).
+- 2026-11-23 [oracle] T1253 compuerta Fase 4: PASS CON OBS (tsc 0, oraculos 0, test:gate PG17 exit 0, trazabilidad 60/78 sin FAIL de Fase 4; sin correo). Acta audits/oracle-009-T1253-fase4.md. Sin [x]; falta parte /seraph.
+- 2026-11-23 — [morpheus] T1253 oracle PASS CON OBS; espera seraph.
+- 2026-11-23 [seraph] T1253 QA acceso Fase 4: PASS CON OBS (sin sesion para PENDING/REJECTED, decision admin con CAS y CSRF, 409 uniforme; vitest PG17 serial 1520 passed 0 failed; en paralelo fallos transitorios de ajv/timeout). Acta audits/seraph-009-T1253.md. Sin [x].
+- 2026-11-23 — [morpheus] T1253 cerrado en REVIEW (oracle+seraph PASS CON OBS). Reporte a Neo por Logos.
+- 2026-11-23 — [morpheus] Neo aprueba Fase 4 y autoriza commit + Fase 5a hasta T1304.
+- 2026-11-23 — [architect] spec.md l.141/l.190: aclarado auditRowsPurged suma admin_audit_entries (opcion a), sin sexta clave.
+- 2026-11-23 — [morpheus] Commit Fase 4 895e233 (selectivo) + gh-project-sync OK. Inicio Fase 5a.
+- 2026-11-23 — [architect] 009 Fase 5a T1256/T1257/T1302 en REVIEW: admin.openapi 1.4.0, 006 scene 1.2.0 / OpenAPI 3.6.0 / errores 1.1.0 (ERR-SCENE-DISABLED), 005 platform-parameter 1.0.1. Acta architect-009-fase5a-contratos.md. Sin compilar.
+- 2026-11-23 — [keymaker] 009 Fase 5a: compilado 009+006 (tsc 0); rojas T1258 (69), T1260 (13), T1262 (14); migración T1263 0021 SQLite/0017 PG verde en ambos motores; oráculos 0 débiles. Sin commit, sin [x].
+- 2026-11-23 — [architect] 009 T1257: nota en tasks.md 006 citando ERR-SCENE-DISABLED (cierra huérfano de t801). Sin [x], sin commit.
+- 2026-11-23 — [oracle] 009 Fase 5a ola 1 (T1258/T1260/T1262 rojas 96/117 reales, T1263 PG17 14/14): PASS CON OBS (OBS-3 alcance reinicio hogar compartido). tsc 0, oraculos 0. Acta oracle-009-fase5a-ola1.md. Sin [x].
+- 2026-11-23 architect: OBS-3 dictamen: spec no fija alcance de hogar compartido en reinicio de cuota; Blocked, pregunta A/B a Neo (rec. A). Sin ediciones.
+- 2026-11-23 — [morpheus] Escalado Neo: alcance reinicio cuota hogares compartidos (A/B). T1268 en espera; T1264/T1266 en curso.
+- 2026-11-23 — [morpheus] Neo aprueba opción A (reinicio cuota). Architect asienta spec/plan; keymaker T1268 tras T1264/T1266.
+- 2026-11-23 — [architect] Opción A de Neo (alcance reinicio cuota) asentada en spec REQ-CFG9-006/SC-009-026 y plan ADR-009-13. Sin commit.
+- 2026-11-23 [Keymaker] T1264 + T1266 (009 Fase 5a) en REVIEW: /api/admin/parameters (GET/PUT If-Match), scene.enabled (guarda ERR-SCENE-DISABLED, SceneView.disabled, caja gris). t1258/t1260 verdes; T1268 pendiente de OBS-3. Detalle en claude/log-keymaker.md.
+- 2026-11-23 /oracle 009 Fase 5a ola 2 (T1264/T1266): PASS CON OBS (tsc 0, oraculos 0, vitest 100/100, PG17 t1264 12/12). Acta .specify/memory/audits/oracle-009-fase5a-ola2.md. Sin [x].
+- 2026-11-23 — [morpheus] Oracle ola2 T1264/T1266 PASS CON OBS. Espera sati caja y keymaker T1268.
+- 2026-11-23 Sati T1266: revisión diseño caja «Función deshabilitada» 320/1024/1280 (Chromium+axe 0); 1 ajuste aria-describedby en SceneBlock.tsx; 3 dudas BAJO sin decidir
+- 2026-11-23 — [morpheus] Sati caja T1266 PASS CON 1 AJUSTE; dudas S1-S3 para Neo. Espera keymaker T1268.
+- 2026-11-23 Keymaker: T1268 reinicio de cuota admin (opcion A) implementado + t1262 ajustado; tsc/oraculos/t1262/persistence PG verdes; REVIEW pendiente /oracle, sin [x] ni commit.
+- 2026-11-23 [oracle] 009 Fase 5a ola 3 T1262/T1268 reinicio de cuota (opcion A): PASS CON OBS (tsc 0, oraculos 0 debiles, t1262 18/18, t1268 PG17 6/6). OBS-1 rama null/409 sin prueba determinista; OBS-2 PG real sin rama de correo ni exclusiones. Acta oracle-009-fase5a-ola3-reinicio.md. Sin [x]/commit.
+- 2026-11-23 — [morpheus] Oracle ola3 T1262/T1268 PASS CON OBS (micro-ajustes tras T1297).
+- 2026-11-23 keymaker T1293/T1297 EDGE-009-048: ya transaccional en src (sin cambio de codigo); prueba t1293 verde en 3 motores, mutante la rompe; REVIEW /oracle
+- 2026-11-23 [oracle] 009 T1293/T1297 EDGE-009-048: PASS CON OBS (T1297 sin cambio de codigo aceptado; PG17 3/3). Acta audits/oracle-009-fase5a-ola4-fotos.md
+- 2026-11-23 — [morpheus] Oracle ola4 T1293/T1297 PASS CON OBS. Despacho T1269 (editor /admin 5a).
+- 2026-11-23 keymaker: micro-ajustes de pruebas T1268/T1262 (OBS-1/2/3 ola 3): unit CAS null determinista + t1268 correo/exclusiones 3 motores; src/ intacto; REVIEW pendiente /oracle
+- 2026-11-23 — [morpheus] Micro-ajustes T1268 aplicados (9/9 unit, mutante rojo). Espera T1269.
+- 2026-11-23 keymaker: T1269 UI editor de parametros /admin 5a en REVIEW (unit 12/12, E2E 15/15, admin 57/57, tsc 0, oraculos 0); pendiente /oracle + /sati 320/1024/1280; sin [x], sin commit.
+- 2026-11-23 Sati T1269: revisión diseño editor parámetros (320/1024/1280, axe 0); 1 ajuste (foco+aria-describedby en error del tope de fotos); 4 dudas BAJO/MEDIO sin decidir; ver log-sati
+- 2026-11-23 — [morpheus] Sati T1269 PASS CON AJUSTE; S1/S2 a aplicar tras oracle ola5.
+- 2026-11-23 /oracle 009 Fase 5a ola 5 (T1269 editor parametros): PASS CON OBS. tsc 0, oraculos 0, vitest 12/12, pw chromium 50/50 (2 corridas previas con interferencia de otro playwright concurrente). Acta .specify/memory/audits/oracle-009-fase5a-ola5-editor.md. Sin [x].
+- 2026-11-23 keymaker: T1269 ajustes S1/S2/OBS-2/3/4 aplicados (tsc 0, oracles 0 débiles, vitest 12/12, e2e 51/51); sin [x], sin commit.
+- 2026-11-23 Sati T1269 revision formal (OBS-6): 320/1024/1280 PASS; 1 ajuste ParametersPanel (mensajes en linea dentro de la tarjeta); OBS-5 dictamen: mantener tarjeta
+- 2026-11-23 [oracle] 009 ola 6 revalidacion T1269: PASS CON OBS (pw 51/51, tsc/oraculos 0); vitest completo: t1235-api rojo por T1269 (adminId en presentation), t1238 flaky preexistente. Acta oracle-009-fase5a-ola6-revalidacion.md
+- 2026-11-23 Keymaker: OBS-A rename adminId->viewerId parcial; clave de cable adminId del GET session choca con guard t1235; bloqueado a la espera de decision.
+- 2026-11-23 — [morpheus] T1269 BLOQUEADO (guard adminId vs cable). Escalado a Neo. Intento de evasión de guard denegado.
+- 2026-11-23 — [morpheus] Neo aprueba opción 2 (guard t1235 acotado a AdminPortal). Despacho keymaker.
+- 2026-11-23 Keymaker: Opcion 2 de Neo aplicada (AdminPortal lee adminId->viewerId; guard t1235 afinado); gate verde; REVIEW pendiente /oracle T1269.
+- 2026-11-23 /oracle 009 Fase 5a ola 7 (T1269 revalidacion OPCION 2): PASS CON OBS. tsc 0, oraculos 0, vitest 20/20, pw 51/51; guard no relajado, JSX sin adminId, sin trucos. Acta audits/oracle-009-fase5a-ola7-t1269.md. Sin [x].
+- 2026-11-23 — [morpheus] T1269 revalidado PASS CON OBS. Despacho T1270 E2E 5a.
+2026-11-23 Keymaker: T1270 E2E 5a API real (t1270-parametros-5a-real.spec.ts, SC-009-017..021/026) en REVIEW; sin [x], sin commit.
+- 2026-11-23 — [morpheus] T1270 REVIEW (E2E 6/6, admin 64/64). Despacho compuerta T1304.
+- 2026-11-23 /oracle T1304 compuerta 5a: PASS CON OBS. tsc 0, oraculos 0, e2e admin 64/64 (T1270 6/6), test:gate 6677 pass con 1 flaky de tiempo por corrida (t591, t1238; aislados verdes), trazabilidad 67/78 (5b: 5, 5a-etiqueta: INV-CFG9-003, REQ-CFG9-008; Fase 1: 4). Acta oracle-009-T1304-fase5a.md. Sin [x].
+- 2026-11-23 Keymaker: etiquetas INV-CFG9-003/REQ-CFG9-008 en t1258 (solo tests); REQ-CFG9-008 aun requiere @implements en src/. Sin [x], sin commit.
+- 2026-11-23 Keymaker: REQ-CFG9-008 anadido a @implements de admin-parameter-catalog.ts (solo comentario); trazabilidad OK, tsc 0, oracles CUMPLE, t1258 71/71.
+- 2026-11-23 — [morpheus] Cierre técnico subfase 5a. Reporte a Neo por Logos.
+- 2026-11-23 — [morpheus] Neo aprueba 5a y autoriza commit + 5b Ola 1.
+- 2026-11-23 — [morpheus] Commit 5a dc535bd. Ola 1 de 5b en marcha.
+- 2026-11-23 | Link | T1301: tarifas Vertex NO VERIFICADAS (página oficial truncada); disponibilidad parcial; deprecación 2.5-flash-image (2027-03-15) verificada. Entregable specs/009-aprobacion-admin-correo/research-tarifas-vertex-009.md.
+- 2026-11-23 | Rama | T1294 dictamen ubicación 009: (a) provider_model/provider_location PASS CON OBS (códigos, no PII; fila con inputs_snapshot y actor_user_id, retención 30 d); (b) región global FAIL: procesamiento no fijado a us-central1 y sin fuente (fuente externa), global sigue oculta en /admin. Acta .specify/memory/audits/rama-009-T1294-ubicacion.md. Sin [x], commit ni push.
+- 2026-11-23 — [morpheus] T1301 bloqueado (tarifas no verificadas). Espera keymaker T1261/T1295 y rama T1294.
+- 2026-11-23 — [morpheus] T1294 rama: global FAIL (decisión Neo). Espera keymaker T1261/T1295.
+- 2026-11-23 Keymaker: T1261+T1295 pruebas rojas escritas (47 rojas/3 guardas/4 PG omitidas), tsc 0, verify-oracles CUMPLE; sin [x], sin commit; pendiente /oracle.
+- 2026-11-23 /oracle 009 5b ola 1 (T1261/T1295 rojo legitimo): PASS CON OBS. tsc 0, oraculos 0, t1261 36/39 rojos, t1295 11 rojos+4 skip (PG real 15/15 rojos); causa = ausencia de prompt-blocks.ts, bloques en buildImagePrompt y columnas. Acta .specify/memory/audits/oracle-009-5b-ola1-rojo.md. Sin [x].
+- 2026-11-23 — [morpheus] 5b Ola 1 rojo validado PASS CON OBS. Espera borradores architect para punto de control.
+- 2026-11-23 | Architect | 009 5b: borradores DRAFT T1254 (009-B 3.10.0, Anexo costes vacío), T1299 (global NO habilitada), T1300 (regla coste) + dictamen contrato prompt-blocks/markProviderCall confirmado (A-1..A-6). Acta audits/architect-009-5b-borradores.md. T1255 bloqueada por T1301/REQ-ESC6-028. Sin [x], sin commit.
+- 2026-11-23 — [morpheus] Punto de control 5b a Neo por Logos (T1301 bloqueado; D-1..D-4).
+- 2026-11-23 — [morpheus] Neo resuelve bloqueos 5b. Despacho paralelo link/architect/keymaker.
+- 2026-11-23 — [link] T1301 segunda pasada: tarifas Vertex siguen NO VERIFICADAS (página truncada); referencia Developer API no es Vertex; cifra 3-pro 150.000 de la directiva INCONSISTENTE con referencia (158.160); REQ-ESC6-028: no entrenamiento VERIFICADO, retención imágenes NO VERIFICADA, residencia solo regional. Sin [x], sin commit.
+- 2026-11-23 architect: T1254 (constitución 3.10.0 DRAFT + Anexo A), T1299 (nota 006), T1300 (regla coste micro-USD) y MINOR 005 platform-parameter 1.1.0 aplicados como DRAFT; pendiente /oracle y T1255 (Neo).
+- 2026-11-23 — [morpheus] T1301 bloqueado (discrepancia 3-pro); architect DRAFT listo; espera keymaker y luego oracle.
+- 2026-11-23 architect: por orden de pausa de Morpheus retiradas todas las cifras de coste (45_000/75_000/150_000, techo 111) de constitución Anexo A, regla T1300 y tasks; celdas NO VERIFICADA (pendiente tarifa oficial Vertex).
+- 2026-11-23 /oracle 009 5b borradores sin cifras (T1254/T1299/T1300/MINOR 005): PASS CON OBS (oraculos 0, 45 celdas NO VERIFICADA, Version 3.9.0, 4 notas en tasks sin [x]; OBS cifras D-2 nombradas como no confirmadas, regenerar contratos). Acta .specify/memory/audits/oracle-009-5b-borradores.md. Sin [x].
+- 2026-11-23 Architect: OBS-1 corregido, sin cifras de coste en constitution Anexo A y regla-coste-micro-usd-009 (REVIEW).
+- 2026-11-23 — [morpheus] OBS-1 cerrado (grep 0). Espera keymaker; luego compilar contratos y punto de control T1255.
+- 2026-11-23 | Link | T1298 revisión paridad migraciones sqlite 0023 / PG 0019 scene_attempts: APROBADO condicionado a commitear 0018/0019 PG y 0022/0023 sqlite (untracked). Ver claude/log-link.md.
+- 2026-11-23 Keymaker: 009 5b Ola 1 T1267/T1303/T1298 en REVIEW (prompt-blocks.ts, migraciones sqlite 0022/0023 y PG 0018/0019, markProviderCall con {model,location}); /link aprobó paridad; tsc 0, oráculos CUMPLE, persistence+PG17 verde. Sin commit, sin [x], sin cifras de coste.
+- 2026-11-23 Keymaker: recompilados contratos 005/006/009 (solo src/generated/v33 cambia); tsc 0; sin ajuste de pruebas. Ver log-keymaker.
+- 2026-11-23 — [morpheus] 5b ola 2 implementada y contratos regenerados. Despacho oracle ola 2.
+- 2026-11-23 Oracle: 009 5b Ola 2 T1267/T1303/T1298 PASS CON OBS (sin bloqueantes; 3 OBS). Acta oracle-009-5b-ola2.md. Sin [x], sin commit.
+- 2026-11-23 keymaker: micro-corrección oracle 5b Ola 2 (OBS-O2-1 proveniencia null, OBS-O2-2 fixture ADD, OBS-O2-3 revert RENDER) — verde, REVIEW /oracle, sin [x]/commit
+- 2026-11-23 [oracle] 009 5b Ola 2 revalidacion micro-correccion (O2-1/2/3): PASS (tsc 0, oraculos 0, 4 suites 61 verdes, PG17 persistence 979/979). Acta .specify/memory/audits/oracle-009-5b-ola2-revalidacion.md. Sin [x].
+- 2026-11-23 — [morpheus] 5b Ola 2 REVIEW (oracle PASS). Punto de control a Neo (T1255, tarifas, commit).
+- 2026-11-23 — [morpheus] Neo firma 009-B 3.10.0 y autoriza commit Ola 2. Preparo commit.
+- 2026-11-23 — [morpheus] Commit Ola 2 5b + enmienda 009-B 3.10.0 hecho; gh-project-sync.
+- 2026-11-23 Keymaker: T1292+T1259 pruebas ROJAS escritas (54 rojas/13 guardas verdes; tsc 0; oracles CUMPLE). Pendiente /oracle; luego T1265 y T1296. Sin [x], sin commit.
+- 2026-11-23 /oracle 009 5b ola 3 (rojo T1292/T1259): PASS CON OBS. tsc 0, oraculos 0, vitest 54 rojos/13 verdes legitimos. Acta .specify/memory/audits/oracle-009-5b-ola3-rojo.md. Sin [x].
+- 2026-11-23 [architect] regla-coste-micro-usd-009.md: estado APROBADA con Enmienda 009-B 3.10.0 y cifras us-central1 citadas de la constitución. Sin [x]/commit.
+- 2026-11-23 keymaker: T1296 scene-cost.ts + techo 111 y T1265 lector en caliente/Vertex getParameters implementados; t1292 verde, t1259 66/67 (defecto de prueba); REVIEW pendiente /oracle, sin [x], sin commit.
+- 2026-11-23 keymaker: corregida aserción de t1259 (valores en lugar de JSON); t1259 y t1292 verdes.
+- 2026-11-23 /oracle 009 5b ola 4 (T1265/T1296): PASS CON OBS. T1265 ok; T1296 PARCIAL: providerCall estatico vs par en caliente BLOQUEA cierre (subvalora coste), regla sin cablear a /admin ni filtro Bogota. tsc 0, oraculos 0, 67/67, unit+integration 5942 ok, PG17 979 ok. Acta oracle-009-5b-ola4-T1265-T1296.md. Sin [x].
+- 2026-11-23 keymaker: T1296 (h) providerCall dinámico hecho (t1296-providercall-dinamico 4/4); (i) bloqueado: claves writable:false, sin ruta de guardado.
+- 2026-11-23 — [morpheus] T1296 paso 2 bloqueado (writable contrato). Escalado a Neo.
+- 2026-11-23 — [morpheus] Neo resuelve T1296 paso 2 sin cambio de contrato. Keymaker completa; luego T1305..T1274.
+- 2026-11-23 oracle: T1296 paso 1 (h providerCall dinamico) PASS CON OBS (t1296 4/4, t1298 2/2, tsc 0, oracles 0 debiles). Acta oracle-009-5b-T1296-paso1.md. (i) pendiente paso 2.
+- 2026-11-23 — [morpheus] T1296 paso 1 PASS CON OBS. Espera paso 2 (keymaker).
+- 2026-11-23 Sati T1305 (presentación): copy S3/S4/OBS-5 aplicado, 5b writable listado con marcador de edición pendiente; tsc, unit 12/12, E2E t1269 16/16
+- 2026-11-23 — [morpheus] T1305 parcial (copy hecho, editor 5b pendiente de keymaker).
+- 2026-11-23 keymaker: T1296 (i) regla de coste cableada al PUT /api/admin/parameters (4 claves 5b writable), filtro mensual Bogotá en 3 repos; REVIEW pendiente /oracle, sin [x].
+- 2026-11-23 /oracle 009 5b T1296 FINAL ((h)+(i)): PASS CON OBS. tsc 0, oraculos 0, 171/171 + PG17 6/6. OBS: prompt.blocks writable pero isCanonical false; respaldo entorno vs defecto (nota de despliegue); par no verificado doble = bloqueo (nota operacion). Acta oracle-009-5b-T1296-final.md. Sin [x].
+- 2026-11-23 /trinity 009 5b T1271 AppSec: PASS CON OBS (0 ALTO, 1 MEDIO SAST: Date.now() en server.ts:167 y SessionExpiryNotice.tsx:15 => CI rojo; 5 BAJO). Acta trinity-009-T1271-fase5b.md. Sin [x], sin commit.
+- 2026-11-23 keymaker: OBS-1 T1296 (isCanonical prompt.blocks con validatePromptBlocks) y TRI-5B-01 (reloj inyectado en server.ts, nosemgrep en SessionExpiryNotice); semgrep 0 hallazgos.
+- 2026-11-23 T1271 /sentinels (haiku): arranque en solo lectura; discrepancia H-SEN-5B-0 (scene.prompt.blocks ya escribible en disco, TRI-5B-04 desactualizado); prueba nueva tests/security/sentinels-009-T1271.security.spec.ts en curso.
+- 2026-11-23 rama: T1271 privacidad/retención Fase 5b: PASS en provider_* (1), filtro mensual y reinicio (3,4); PASS CON OBS en prompt.blocks (2: no llega al proveedor hoy, aviso sin texto editable); global oculta (5, T1294 vigente). T1239 13/13. Acta rama-009-T1271-fase5b.md. Sin [x], sin commit.
+- 2026-11-23 — [morpheus] T1271 rama PASS CON OBS. Espera sentinels y editor 5b.
+- 2026-11-23 Sati T1305: editor 5b en /admin (modelo, región, tope 111, bloques) en src/presentation/admin/; E2E t1305+t1269 28/28, axe 0; sin [x] ni commit.
+- 2026-11-23 T1271 /sentinels (haiku): 9 vectores sobre parámetros 5b y escena deshabilitada: CONTENIDO, 0 CRITICO/ALTO/MEDIO, 4 BAJO (SEN-T1271-01..04); TRI-5B-04 superado (scene.prompt.blocks escribible). tests/security/sentinels-009-T1271 32/32; tests/security 606/606. Acta .specify/memory/audits/sentinels-009-T1271-fase5b.md. Sin [x], sin commit, sin push.
+- 2026-11-23 Architect: SEN-T1271-04 dictaminado CONFORME (422 malformado/ausente, 412 desfasado); sin cambios; acta architect-009-SEN04-ifmatch.md
+- 2026-11-23 — [morpheus] SEN-04 cerrado conforme. Abiertos SEN-01/02 (keymaker) y SEN-03 (Neo).
+- 2026-11-23 Oracle T1305 editor 5b: PASS CON OBS (E2E 28/28, tsc 0, oraculos CUMPLE); EDGE-009-036 previo a guardar NO construido y es obligatorio (depende T1296). Acta oracle-009-T1305-editor5b.md
+- 2026-11-23 — [morpheus] T1305 oracle PASS CON OBS; falta EDGE-009-036 (dato backend, Neo). Pendiente keymaker.
+- 2026-11-23 — [morpheus] Neo aprueba MINOR 1.5.0 (imágenes que aún caben), SEN-03 mantener, copy aprobado.
+- 2026-11-23 — [architect] admin.openapi.yaml 1.5.0 DRAFT: sceneImagesFit (imágenes que aún caben). Keymaker recompila v35.
+- 2026-11-23 [oracle] admin.openapi.yaml 1.5.0 contrato auditado: FAIL (45_000 y 5_000_000 en description l.820/change_note; resto PASS). Acta oracle-009-admin-1.5.0-contrato.md. Sin [x].
+- 2026-11-23 Architect: texto 1.5.0 openapi corregido (sin cifras de dinero), grep=0, YAML OK; pendiente re-validacion Oracle.
+- 2026-11-23 [oracle] admin.openapi.yaml 1.5.0 revalidacion: PASS (yaml OK, grep=0, forma intacta, maximum 111). Acta oracle-009-admin-1.5.0-revalidacion.md. Sin [x].
+- 2026-11-23 — [morpheus] Contrato 1.5.0 validado (PASS). Keymaker cablea sceneImagesFit.
+- 2026-11-23 keymaker: SEN-01/02, prompt en generación, E2E t1306, contrato 1.5.0 sceneImagesFit servidor+UI; gates verdes, sin [x].
+- 2026-11-23 [sentinels] T1271 reauditoría SEN-01 (Origin ajeno/null/puerto/esquema/caja → 403 sin escribir; HEAD/OPTIONS → 404 uniforme) y SEN-02 (Cf/Zl/Zp/C1/DEL/NUL → 422) PASS; suite tests/security 623/623 serie; residual BAJO SEN-T1271-01b (Referer ajeno sin Origin → 200). Acta sentinels-009-T1271-reaudit.md. Sin [x], sin commit.
+- 2026-11-23 — [morpheus] SEN-01/02 cerrados por sentinels reaudit; SEN-01b aceptado BAJO para T1272.
+- 2026-11-23 /oracle 009 5b ola 8 FINAL (T1305 completa EDGE-009-036, T1306, SEN-01/02, contrato 1.5.0): PASS CON OBS. tsc 0, oraculos 0, pw 38/38, vitest 86/86, PG17 985, security 49/49. Acta oracle-009-5b-ola8-final.md. Sin [x].
+- 2026-11-23 keymaker: OBS-1 ola 8 (t1306 compara bytes de imagen, restaurada == original) y trazabilidad 009 78/78; t1306 5/5.
+- 2026-11-23 Seraph T1272 Fase 5 acceso/QA: PASS CON OBS (security 623/623, 5b 157/157, E2E Chromium 28/28; SEN-01b BAJO aceptable; multi-navegador pendiente a T1273). Acta audits/seraph-009-T1272-fase5.md
+- 2026-11-23 — [morpheus] T1272 seraph PASS CON OBS. Espera oracle T1272; luego T1273 con multi-navegador.
+2026-11-23 [oracle] T1272 Fase 5 completa: PASS CON OBS (compuerta verde, nota despliegue /link pendiente). Acta .specify/memory/audits/oracle-009-T1272-fase5.md. Sin [x], sin commit.
+- 2026-11-23 | Link | T1274 (nota de despliegue Fase 5): creado specs/009-aprobacion-admin-correo/nota-despliegue-fase5.md (documentación). Sin [x], sin commit, sin push.
+- 2026-11-23 — [morpheus] Nota de despliegue Fase 5 lista; decisiones para Neo anotadas.
+- 2026-11-23 Keymaker: T1273 E2E multi-navegador 244 pruebas: 231 verdes; 6 rojas producto (select 23px en WebKit/iOS, t1305), 7 rojas Firefox 'Page crashed' en axe (entorno sospechado); 2 de prueba corregidas (t1250 fecha 'nov.'). Sin [x]/commit.
+- 2026-11-23 sati: select model/region con altura fija 48 px y appearance-none (WebKit/iOS); t1305 24/24 webkit+ios, tsc 0, sin commit.
+- 2026-11-23 — [morpheus] Selects 5b corregidos (sati). Espera diagnóstico Firefox axe.
+- 2026-11-23 Keymaker: diagnostico Firefox axe 'Page crashed' = SIGSEGV nativo Firefox 159 (entorno), no depende de select/ancho/tags; propuesta pendiente de Neo (N2); sin cambios en src/tests.
+- 2026-11-23 Keymaker: excepción Neo N2 Firefox axe en t1269/t1305/t1307; 66 passed ff+chromium, tsc 0, oráculos CUMPLE (sin commit).
+- 2026-11-23 — [morpheus] Excepción Firefox aplicada (66/66). Espera test:gate T1274 para cierre, commit y firmas.
+- 2026-11-23 — [morpheus] DEUDA-009-ENV-MODEL-LOCATION registrada (Neo). Cierre T1273/T1274 en curso.
+- 2026-11-23 — [morpheus] t1270 reset corregido (precondición propia). Espera test:gate de oracle.
+- 2026-11-23 /oracle T1274 compuerta final Fase 5: FAIL. 1 rojo de producto: t1235 (http:// en data-URI del chevron de SceneParameterEditors.tsx l.54). Resto verde: tsc 0, oraculos 0, traza 78/78, E2E 85/86 (flake traza t1270, 3/3 aislado). Acta oracle-009-T1274-cierre.md. Sin [x].
+- 2026-11-23 — [morpheus] Corrección trivial http:// en flecha (keymaker). Luego commit y deploy.
+- 2026-11-23 — [morpheus] CIERRE (/hardline): HEAD 115a848 @ 009-aprobacion-admin-correo; 54 M y 283 ?? (sin commit de Fase 5); handover claude/handover-morpheus-2026-11-23-cierre-fase5.md; sin push; firmas [x] y despliegue pendientes de Neo.
+- 2026-11-23 [morpheus] Inicio de sesión: estado leído en disco (HEAD 115a848, 009 Fase 5 sin commitear, 92 [x]/15 [ ]). H-MOR-START-01: feature.json apunta a 007, rama activa 009. Pendiente Neo: commit selectivo Fase 5 y firmas.
+- 2026-11-23 [morpheus] Inicio de sesión 2.ª: HEAD b89fd90; 009 con 105 [x] y 5 [ ] (T1275..T1277 HUM/GOV; T1290/T1291 retiradas). Sin cambios de código; sync GitHub pendiente de orden de Neo. H-MOR-START-01 abierto.
+- 2026-11-23 [morpheus] Logos ON (Neo). Directiva: verificar 009 @ fd09649 con /oracle + test:gate PG17 + CI PR #68. Despacho oracle.
+- 2026-11-23 /oracle 009 @ fd09649 auditoria forense: PASS CON OBS. tsc 0, oraculos 0, traza 009 78/78, test:gate PG17 rc0 (449 archivos, 6921 pasan, 1 omitida; cobertura 98.89/95.08/98.89), 8 suites terraform/deploy 78/78. CI PR #68: test-gate pending, resto verde. Acta audits/oracle-009-fd09649-auditoria.md. Sin [x], sin commit.
+- 2026-11-23 [morpheus] Oracle fd09649 PASS CON OBS; test-gate CI pass (6m23s). Escalo a Neo por Logos (decisiones T1307, ENV-MODEL-LOCATION, t1270, firmas).
+- 2026-11-23 [morpheus] Logos: wait salió con código 2; logos.json estado COMPLETED, turno neo, iter 165. Sin respuesta de Neo en canal. Sin acciones pendientes de agentes.
+- 2026-11-23 [morpheus] Logos apagada por orden de Neo (estado OFF).
+- 2026-11-23 — [morpheus] CIERRE (/hardline): HEAD fd09649 @ 009-aprobacion-admin-correo; 21 M y 270 ?? (ninguno de código 009); handover claude/handover-morpheus-2026-11-23-cierre-logos.md; Logos OFF; sin push ni commits. Pendiente Neo: T1307, ENV-MODEL-LOCATION, t1270, firmas T1275..T1277.
+- 2026-11-24 [morpheus] Inicio de sesión: main @ 15708c3; PR #68 (009) MERGED en main; tasks 009 110 [x] / 6 [ ]. Logos OFF (no tocada). Pendiente Neo: T1275, T1276, T1277 y decisiones T1307/ENV-MODEL-LOCATION/t1270.
+- 2026-11-24 [morpheus] Logos ON. Rama fix/006-escena-defectos-uso-real @ 15708c3 creada. Ejecutando directiva de 7 correcciones de escena (architect -> keymaker -> oracle).
+- 2026-11-24 [architect] Enmiendas 006 de Neo (biografía en prompt, enfriamiento 0 s tras FAILED, cuota global visible): spec/contratos/tasks Fase 15 T961..T968; traza 006 CUMPLE; sin commit ni [x].
+- 2026-11-24 [morpheus] Architect: enmiendas ESC6 en DRAFT, T961..T968 añadidas, trazabilidad 006 CUMPLE. Despacho keymaker.
+- 2026-11-24 keymaker: Fase 15 T961..T967 implementada (A..H) en disco; tsc 0, oraculos 0, traza 006 CUMPLE; test:gate en curso. Sin [x], sin commit. Puntos abiertos: schemaVersion 1.0.0, siembra migracion PRESERVATION_BLOCK, visibilitychange vs INV-AUTH2-002.
+- 2026-11-24 [morpheus] Keymaker: 8 entregables implementados, gates verdes (tsc 0, oráculos 0, trazabilidad 006 CUMPLE, test:gate 6949 pass). Decisiones abiertas: SCHEMA 1.0.0 vs 1.1.0, visibilitychange no cableado, PRESERVATION seed PG0018/SQLite0022, literal ejemplo 3 cambiado, t1185 reescrita, flake t1238. Despacho oracle.
+- 2026-11-24 [oracle] 006 fix/escena T961..T967: PASS CON OBS. tsc 0, oraculos 0 debiles, trazabilidad 251/251, test:gate rc=0 (6949 verdes, PG17 vivo). OBS: PRESERVATION_BLOCK sembrado inmutable (prod requiere migracion/edicion admin), correcciones E/F/G/H sin T en tasks.md, sin prueba PG de isExhausted, visibilitychange no cableado (INV-AUTH2-002). Acta audits/oracle-006-fix-escena-2026-11-24.md. Sin [x], commit ni push.
+- 2026-11-24 [morpheus] Oracle fix/006 PASS CON OBS. Escalo a Neo por Logos (3 decisiones). Sin commit ni push.
+- 2026-11-24 [morpheus] Neo resuelve (a)-(d). Despacho rama (T968) y architect (T969) en paralelo; commit local selectivo después.
+- 2026-11-24 [architect] T969 añadida (E/F/G/H, [ ]) en tasks.md Fase 15 y línea en nota de enmienda de spec.md; contratos intactos; traza 006 CUMPLE; sin commit.
+- 2026-11-24 [rama] T968 dictamen privacidad aviso v3 y biografía: (1) PASS CON CONDICIONES (R-1 MEDIO: biografía sale aunque el propietario no consintió fotos; decisión Neo C-1); (2) PASS CON CONDICIONES (R-2 MEDIO: retención/borrado de biografía ausentes en §4/§6 del aviso; firma Neo C-2); (3) PASS CON OBS (sin persistencia nueva). Acta audits/rama-T968-aviso-v3-2026-11-24.md. Sin código, specs ni [x].
+- 2026-11-24 [morpheus] Rama T968 PASS CON CONDICIONES: R-1 biografía sin consentimiento de foto y R-2 retención sin redactar. T968 abierta. Escalo a Neo por Logos. Sin commit.
+- 2026-11-24 [morpheus] Neo resuelve C-1 (a) y C-2. Despacho keymaker para aplicarlas, luego oracle y commit local selectivo.
+- 2026-11-24 keymaker: T968 C-1 (biografía solo con PET_PHOTOS del propietario, driver real) y C-2 (aviso v3 §4/§6 retención y borrado, versión intacta) implementadas; tsc 0, oráculos 0, traza 006 CUMPLE, test:gate PG17 rc0 (6957 pass). Sin [x], sin commit.
+- 2026-11-24 [morpheus] Keymaker T968 C-1/C-2 aplicados (8 pruebas, test:gate 6957). Oracle revalida T968. Sin commit.
+- 2026-11-24 [oracle] 006 T968 revalidacion R-1/R-2: PASS CON OBS. tsc 0, oraculos 0, traza 251/251, test:gate rc=0 (6957 pass; 1 flake t1238 en 1a corrida, verde aislado). R-1 misma compuerta que loadLiveInputs; R-2 gemini-api sin 'no entrena' (pendiente). Acta audits/oracle-006-T968-revalidacion-2026-11-24.md
+- 2026-11-24 [morpheus] Oracle T968 PASS CON OBS. Despacho rama (términos Vertex) y architect (INV-ESC6-010 C-1 y cierre T969) en paralelo; luego commit local selectivo.
+- 2026-11-24 [architect] T968: C-1 y C-2 reflejadas en spec.md (INV-ESC6-010, nota de enmienda) y tasks.md; T968 sigue [ ] (firma Neo). Trazabilidad 006 verificada. Sin commit.
+- 2026-11-24 rama: OBS-2 Vertex (no entrenamiento sobre biografía): PARCIAL. Cláusula general verificada en Data governance (docs.cloud.google.com/vertex-ai/generative-ai/docs/data-governance); no define si prompts entran en «your data». Propuesta de redacción sin aplicar. Acta rama-OBS2-vertex-terminos-2026-11-24.md. Sin [x], sin commit.
+- 2026-11-24 [morpheus] Rama OBS-2 PARCIAL: aviso v3 afirma no-entrenamiento de biografía sin fuente verificada. Escalo a Neo. Sin commit.
+- 2026-11-24 [morpheus] Neo resuelve OBS-2 (b) con texto exacto; versión '3' se mantiene. Despacho keymaker, luego oracle y commit local.
+- 2026-11-24 keymaker: OBS-2 aplicado (aviso §4 Vertex, texto de Neo; version '3' intacta); t968/t949 actualizadas; tsc/oraculos/traza/test:gate rc0. Sin [x], sin commit.
+- 2026-11-24 [oracle] 006 OBS-2 revalidacion: PASS CON OBS. Texto §4 Vertex literal a Neo, versiones '3'/'gemini-api-3' intactas, t949 relajacion legitima acotada (unica cifra: 30 dias abuso). tsc 0, oraculos 0, traza 251/251, test:gate 1a rc1 (flake t1238) 2a rc0. Sin [x]. Acta audits/oracle-006-OBS2-revalidacion-2026-11-24.md
+- 2026-11-24 [morpheus] Commit local 504e4a0 en fix/006-escena-defectos-uso-real. Escalo a Neo para prueba en vivo y firma T968. Sin push.
+- 2026-11-24 [morpheus] Logos COMPLETED (sin respuesta de Neo tras 504e4a0). Pendiente: prueba en vivo y firmas.
+- 2026-11-24 [morpheus] Neo ordena formato exacto de prompt (una línea por mascota con foto; sin duplicados; sin PET_BIO_RULE). Keymaker en fix/006-escena-defectos-uso-real; commit local; sin push.
+- 2026-11-24 keymaker: prompt de escena una línea por mascota (sin PET_BIO_RULE/duplicados); gates verdes (tsc 0, 6660 pass, oráculos 0, traza 006 CUMPLE); commit local, sin push ni [x].
+- 2026-11-24 [morpheus] Neo bloqueador JPEG (ERR-SCENE-INVALID-IMAGE). Despacho keymaker (código+migración) y architect (REQ-ESC6-035). Sin push.
+- 2026-11-24 architect: T970 JPEG salida (REQ-ESC6-035 enmendado; openapi 3.8.0 sin recompilar; traza 006 CUMPLE); sin commit.
+- 2026-11-24 [morpheus] Architect REQ-ESC6-035 y T970 listos; openapi 3.8.0 pendiente de compilar tras keymaker.
+- 2026-11-24 keymaker: JPEG en salida del generador (REQ-ESC6-035 N2): decode+stripper+migración SQLite 0024/PG 0020+descarga .jpg+log MIME; commit local 8f9add9; tsc 0, oráculos 0, traza 006 CUMPLE. Sin push ni [x].
+- 2026-11-24 [morpheus] Commit 6457216 (contrato 3.8.0 + JPEG). Lista para prueba en vivo de Neo.
+- 2026-11-24 [morpheus] Neo ordena reconectar PRESERVATION_BLOCK con {photoRef}. Keymaker luego oracle consolidado.
+- 2026-11-24 keymaker: PRESERVATION_BLOCK editable con {photoRef} (build-image-prompt/prompt-blocks/admin); gates verdes; commit local.
+- 2026-11-24 [oracle] 006 consolidado 504e4a0..12651ee: PASS CON OBS. tsc 0, oraculos 0, traza 251/251, contratos recompilados sin diff; vitest 2 corridas rc1 solo por flake t1238 (aislado rc0). Incrementales 'its reference photo' coherente. Playwright t1305 pendiente. Sin [x]. Acta audits/oracle-006-consolidado-2026-11-24.md
+- 2026-11-24 [morpheus] Oracle consolidado PASS CON OBS. Architect enmienda spec 006/009 (docs). Sin push.
+- 2026-11-24 architect: enmiendas OBS-1 (spec 009 PRO9-002/003), OBS-2 (APP14 Adobe en REQ-ESC6-035) y OBS-3 (its reference photo) aplicadas; sin commit ni [x].
+- 2026-11-24 [morpheus] Logos ON. Rama fix/009-escena-prod-admin-global desde origin/main para 3 brechas de producción.
+- 2026-11-24 architect: enmienda producción (D9-27 modelo preview+global 75_000 µUSD, aviso global sin residencia fija; D9-28 reinicio de cuota de todas las cuentas del admin y cuota del hogar visible); T1307..T1310 [ ]; traza 009 y 006 CUMPLE; sin commit ni [x].
+- 2026-11-24 [morpheus] Architect docs fix/009 listas (D9-27, D9-28, T1307..T1310). Keymaker implementa. Riesgo /rama global FAIL aceptado por Neo; reportar.
+- 2026-11-24 keymaker: fix/009-escena-prod-admin-global implementado (D9-27/D9-28, T1308..T1310); gates verdes; commit local, sin push ni [x].
+- 2026-11-24 [oracle] 009 fix/009-escena-prod-admin-global 6d8420c: PASS CON OBS. 3 brechas OK; dec.1 segura (doc pendiente), dec.3 desfase OpenAPI confirmado (no bloquea), dec.4 riesgo real de arranque (SQL en acta). tsc 0, oraculos 0, traza 009/006 CUMPLE, vitest 6970 pass rc0, ci-ready rc0. Sin [x]. Acta audits/oracle-009-prod-6d8420c-2026-11-24.md
+- 2026-11-24 [morpheus] Oracle fix/009 6d8420c PASS CON OBS. Architect documenta pareja atómica y OpenAPI 1.6.0. Neo: SQL despliegue y env Cloud Run.
+- 2026-11-24 architect: D9-27 (7) pareja atómica + xref OBS-F + OpenAPI admin 1.6.0 + T1311/T1312; traza 009 CUMPLE; sin commit ni [x].
+- 2026-11-24 [morpheus] Architect cierra D9-27(7) y OpenAPI 1.6.0 DRAFT. Recompilación espera aprobación de Neo. Logos en espera.
+- 2026-11-24 [morpheus] Neo aprueba migración idempotente, 1.6.0 y aviso global sin PROVISIONAL. Keymaker en fix/009-escena-prod-admin-global.
+2026-11-24 keymaker: fix/009 prod 98448fa (migración PG0021/SQLite0025 preview+global, v35 1.6.0, T1311/T1312 en código, sin PROVISIONAL); sin push ni [x]
+- 2026-11-24 [morpheus] Keymaker 98448fa listo para oracle (migración, 1.6.0, T1312).
+- 2026-11-24 [oracle] 009 fix 98448fa: PASS CON OBS. Migracion PG0021/SQLite0025 OK; transicion (g) segura (BEGIN/COMMIT en migrador; OBS-1 si SQL manual sin transaccion); v35 1.6.0 recompila sin diff; T1312 falla bajo mutacion en 3 motores; PROVISIONAL retirado, versiones '3'/'3-global' intactas. tsc 0, oraculos 0, traza 009/006 0, vitest 6987 pass rc0, ci-ready rc0. OBS-2 doc OpenAPI AdminParameterKey obsoleta. Sin [x]. Acta audits/oracle-009-98448fa-2026-11-24.md
+- 2026-11-24 [morpheus] Oracle 98448fa PASS CON OBS. Architect corrige OBS-2 (1.6.1). Luego commit docs y Logos a Neo.
+- 2026-11-24 architect: OBS-2 aplicada, OpenAPI admin 1.6.1 (texto D9-27) y EDGE-009-046 anotada; src/generated pendiente de recompilar por keymaker; sin commit ni [x].
+- 2026-11-24 [morpheus] b6f0526 docs/contratos 009 1.6.1 listo; oracle revalida.
+- 2026-11-24 /oracle: revalidación b6f0526 (009 OpenAPI 1.6.1 + D9-27) PASS; solo docs/comentario/cabeceras generadas; compile limpio; tsc/oracles/trace 009+006/ci-ready rc=0; T1307..T1312 sin [x]. Acta: .specify/memory/audits/oracle-009-b6f0526-2026-11-24.md
+- 2026-11-24 [morpheus] Logos ON. Rama fix/009-escena-driver-selector-y-reset desde origin/main 1250e3b. 3 correcciones (selector único, driver en prod, reset 4 límites).
+- 2026-11-24 architect: D9-29 (selector único, región derivada), D9-30 (scene.provider_driver, enmienda 009-C borrador 3.11.0), D9-31 (reinicio 4 límites, limits_reset_at); OpenAPI admin 1.7.0 DRAFT; T1313..T1317 [ ]; traza 009+006 CUMPLE; sin commit ni [x].
+- 2026-11-24 [morpheus] Architect docs fix/009-driver-reset (D9-29..31, 1.7.0 DRAFT, T1313..T1317). Keymaker T1313/T1315 y link T1316 en paralelo.
+- 2026-11-24 link: T1316 secreto argos-gemini-api-key en Terraform (secret_manager.tf, iam.tf) y deploy-argos.yml (versión numérica opcional) en disco sin commit; fmt/validate/traza OK; 9 pruebas de infra en rojo por contrato previo (5 secretos, sin GEMINI en workflow), requieren actualizar tests/unit o Enmienda 009-C firmada. Pendiente Neo: firmar 009-C y crear versión del secreto. Sin [x], sin push.
+- 2026-11-24 [morpheus] Link T1316 en disco (sin commit); 6 tests infra de 5 secretos a actualizar a 6 tras keymaker.
+| 2026-11-24 | keymaker | T1313+T1315 (selector único y reset de 4 límites) commit local en fix/009-escena-driver-selector-y-reset; migración SQLite 0026 / PG 0022; abiertos: closedWithoutCall 5 vs 20, run_state failed |
+- 2026-11-24 [morpheus] Keymaker 6a4aabd (T1313, T1315). Pendiente: infra 6 secretos + e2e + commit link + oracle.
+- 2026-11-24 Keymaker: T1316 pruebas de infra (6 secretos, D9-30 (8)) + e2e selector único (D9-29); ver log-keymaker.md
+- 2026-11-24 [oracle] 009 fix/009-driver-selector-y-reset 6a4aabd/86a89c7/a7ac566: PASS CON OBS. T1313 y T1315 OK (3 motores, scene_attempts y gasto intactos), T1316 OK (fmt/validate rc0). tsc 0, oraculos 0, traza 009/006 CUMPLE, vitest 6993 pass rc0 (sin flake t1238). Abiertos: closedWithoutCall 20 vs 5 (SC-009-059 inconsistente), 009-C debe cubrir global/preview/Anexo A. t1306 sin corrida real. Sin [x]. Acta audits/oracle-009-driver-reset-a7ac566-2026-11-24.md
+- 2026-11-24 [morpheus] Oracle a7ac566 PASS CON OBS. Escalo a Neo por Logos (decisiones a, b; firma 009-C; push/PR).
+- 2026-11-24 [morpheus] Neo aprueba (a)=20, (b), 009-C firmada. Architect docs y keymaker T1314 en paralelo.
+- 2026-11-24 architect: decisiones Neo (a)=20 corrige SC-009-059/D9-31, (b) failed->NULL, 009-C APPROVED reflejada en spec 009/tasks/spec 006, v35 desde 1.7.0 autorizada; traza 009+006 CUMPLE; sin commit ni [x].
+- 2026-11-24 keymaker: T1314 scene.provider_driver + enrutador vertex/gemini-api (falla cerrado, costes gemini-api, GEMINI_API_KEY opcional con real, UI DriverEditor); commit local, sin push ni [x]; ver log-keymaker.md
+- 2026-11-24 [morpheus] T1314 lista para prueba manual de Neo (tsc 0). Gates pendientes tras validación.
+- 2026-11-24 [morpheus] Logos ON. Rama chore/009-cierre-escena-prod desde origin/main 1ffba4d (PR #71 fusionado). Cierre final de escena prod.
+- 2026-11-24 link: cierre infra chore/009: terraform fmt rc0, validate rc0, vitest infra 191/191 rc0; todo ya commiteado (sin commit nuevo), sin push. Ver log-link.md.
+- 2026-11-24 architect: D9-32 retira gemini-3.1-flash-image-preview (spec 009/006, constitucion, OpenAPI 1.7.1, T1318..T1320); traza 009/006 CUMPLE; sin commit.
+- 2026-11-24 [oracle] 009 cierre 240b89a: PASS CON OBS. quinto limite y retiro preview OK (migraciones 0023/0027 transaccionales, idempotentes); DERIVA src/generated/v35 (1.7.0->1.7.1, 2 archivos, comentarios) tras compile-contracts; 3 frases contradictorias en spec 009 (L208/L290/L296); tsc 0, oraculos 0, traza 009/006 0; vitest 1 flake t591 (aislado rc0 x2); verify-ci-ready rc1 solo por generados sin commit. Sin [x]. Acta audits/oracle-009-cierre-240b89a-2026-11-24.md
+- 2026-11-24 [morpheus] Oracle 240b89a PASS CON OBS. Architect corrige 3 frases spec 009; luego commit docs + v35.
+- 2026-11-24 Architect: corrige H-ORC-240b-2 en spec 009 (L150/208/290/296); traza verificada.
+- 2026-11-24 architect: Feature 010 redactada en specs/010-tipi-identidad-legal-borde (T1401..T1442, [GH:#65,#66,#67,#75,#33], D10-01..07 abiertas); feature.json actualizado; traza 010 no ejecutable aun (sin rama en script ni error-catalog); sin commit.
+- 2026-11-24 [morpheus] Feature 010 lista; sync GH hecho; decisiones D10-01..07 a Neo por Logos.
+- 2026-11-24 [morpheus] Rama 010-tipi-identidad-legal-borde desde origin/main. D10 aprobadas. Architect + keymaker en paralelo; luego lock y mouse.
+- 2026-11-24 architect: D10-01..07 APPROVED asentadas en spec 010; error-catalog 010 mínimo (3 códigos, DRAFT) creado; T1409 N/A pendiente de T1403; traza 010 CUMPLE; sin commit ni [x].
+- 2026-11-24 Keymaker: verify-traceability.sh admite --feature 010 (TIP10/EDG10/LEG10/MEN10/ACE10/SC-010); 006/009 sin cambios; gates rc 0; commit local.
+- 2026-11-24 lock: T1402 edge-review 010 (solo lectura): FAIL corregible por enmienda; H-01 acceso directo run.app anula límite con HOPS=2 (contradice D10-03/REQ-EDG10-002), H-02 límite en memoria por instancia (no global), H-03 orden declaración vs consumo OAuth (D10-05), H-04 prueba Bloque C inválida (server.ts:240). Acta .specify/memory/audits/lock-010-T1402-edge-2026-11-24.md. Sin [x], sin commit.
+- 2026-11-24 architect: enmienda 010 tras T1402: H-04/05/06 corregidos, EDGE-010-008..012 formalizados, T1443/T1444 nuevas; H-01/02/03 PENDIENTES DE DECISIÓN DE NEO en spec.md; traza 010 CUMPLE; sin [x] ni commit.
+- 2026-11-24 [morpheus] Lock T1402 FAIL corregido en docs; H-01..03 y tope body_markdown a Neo.
+- 2026-11-24 [morpheus] Neo resuelve H-01..03 y tope 20 000. Architect asienta; luego mouse.
+- 2026-11-24 architect: asentadas resoluciones de Neo H-01/02/03=A y tope 20 000 (spec/data-model/tasks 010); sección Pendiente retirada; traza 010 CUMPLE; sin [x] ni commit; listo para /mouse.
+- 2026-11-24 mouse T1403 (010): PASS con observaciones (traza RC=0, 75/75 1:1, 44 [ ], 0 [x], 5 GH presentes). Acta .specify/memory/audits/mouse-010-T1403-estructura-2026-11-24.md. Sin commit, sin [x].
+- 2026-11-24 [morpheus] Mouse T1403 PASS. Escalo a Neo firma y Fase 1.
+- 2026-11-24 [morpheus] Fase 0 010 firmada por Neo. Fase 1 arranca: architect O-1/O-2, keymaker T1404, sati T1405.
+- 2026-11-24 /architect: 010 O-1 (códigos ACE10 citados en spec) y O-2 (rangos expandidos en tasks.md) cerrados; trazabilidad rc 0; sin commit.
+- 2026-11-24 sati: T1405 prototipo Tipi en audits/sati-010-T1405-prototipo-tipi.html; Terracota/Crema 3.67:1 falla AA texto normal (uso restringido propuesto, #A8431F=4.93 opcional); Bosque/Crema 9.67. Sin commit ni [x].
+- 2026-11-24 [morpheus] Sati T1405 prototipo listo; decisión Neo sobre Terracota.
+- 2026-11-24 keymaker: T1404 pruebas rojas Bloque A 010 (tests/unit/t1404-marca-tipi-bloque-a-010.spec.ts, 9/9 rojas, tsc 0); sin commit ni [x]; ver log-keymaker.md
+- 2026-11-24 [morpheus] Neo aprueba (a) Terracota; T1405 [x]. T1407 y T1443 liberadas tras keymaker.
+- 2026-11-24 Keymaker: T1406+T1408 en commit 399632d (t1404 9/9, tsc 0, unit+security rc 0)
+- 2026-11-24 Keymaker: T1407 paleta Tipi/fuentes/logo + T1443 base pública obligatoria en producción; commit local (t1407 14, t1443 3; tsc 0, unit+security rc 0, traza 010 rc 0)
+- 2026-11-24 Sati: validación local Bloque A FAIL (B-1 sin logo, B-2 sin Nunito 800, B-3 «Argos» en AdminPortal.tsx:56,87); / y /cuenta sin validar; acta sati-010-bloque-A-validacion-2026-11-24.md
+- 2026-11-24 [morpheus] Sati Bloque A FAIL (B-1 logo, B-2 Nunito, B-3 Argos admin). Keymaker corrige. Incidente: sati intentó aprobar cuenta con sqlite3 (denegado).
+- 2026-11-24 oracle: Bloque A 010 (f6618c3) PASS CON OBS; commits en alcance, Terracota solo foco, 0 Argos visible, logo+Nunito OK; tsc 0, t1404 11/11, t1407 14/14, unit+security 4247 rc 0, traza 010 rc 0. Acta audits/oracle-010-bloque-A-f6618c3-2026-11-24.md. Pendientes Neo: / y /cuenta, argos-hogar-*, modo oscuro.
+- 2026-11-24 sati: revalidación Bloque A 010 (f6618c3) PASS CON OBS (B-1, B-2, B-3, M-1 OK; 4 pantallas x 4 anchos); / y /cuenta pendientes de cuenta de Neo; acta sati-010-bloque-A-revalidacion-2026-11-24.md
+- 2026-11-24 [morpheus] Bloque A 010 validado; gates T1410 en curso; / y /cuenta pendientes de cuenta APPROVED (Neo).
+- 2026-11-24 keymaker: fix(010) portal admin sin import de web/ (T1235 verde)
+- 2026-11-24 [morpheus] test:gate verde (7108). Bloque A 010 listo para firma de Neo.
+- 2026-11-24 [morpheus] Neo aprueba Bloque A; arranca Bloque B (#67).
+- 2026-11-24 architect: T1412 legal-texts.md 010 (DRAFT, 4 placeholders, 2 proveedores IA, 18+, 7 puntos pendientes de validación legal); sin commit ni [x].
+- 2026-11-24 keymaker: T1411 pruebas rojas Bloque B 010 (tests/unit/t1411-paginas-legales-bloque-b-010.spec.ts, 13 rojas/4 guardas); verify-traceability --task admite T####; commits locales
+- 2026-11-24 architect: spec.md SC-010-007..013 expandido a IDs; legal-texts.md fecha + DRAFT hasta dictamen /rama; trazabilidad 010 y T1411 rc 0
+- 2026-11-24 rama T1414 adelantado: coherencia legal-texts.md vs código. INCUMPLE en 18+ (no existe hasta T1424), cookies admin omitidas, procedimiento de menores sin acción admin ni correo, eliminación Google sin contraseña/respaldo opcional, biografía sin condición PET_PHOTOS en texto, foto del hogar solo en desde cero; aviso gemini-api contrario a D9-30. Acta .specify/memory/audits/rama-010-legal-texts-coherencia-2026-11-24.md. Sin commit ni [x].
+- 2026-11-24 [morpheus] Rama dictamen legal: correcciones en legal-texts; aviso y 3 decisiones a Neo.
+- 2026-11-24 Architect: legal-texts.md corregido según dictamen /rama (pendientes Neo 1, 2, 5; 18+ condicionado a T1424); trazabilidad 010 rc 0.
+- 2026-11-24 [morpheus] Neo resuelve decisiones legales; aviso intacto; architect cierra T1412; keymaker oráculo débil T1411 y T1413.
+- 2026-11-24 Architect: T1412 cerrado en texto (REVIEW) con decisiones de Neo 1..4 en legal-texts.md; aviso sin cambios; traceability 010 rc 0.
+- 2026-11-24 oracle: T1413 (8e635c6+3e40e6b) PASS CON OBS; alcance limpio, rutas fuera de sesión, texto = legal-texts.md con 4 placeholders y sin cláusulas T1424, terracota solo foco; tsc 0, t1411 17/17, oráculos 0, traza T1413 rc 0; ninguna [x]. Acta audits/oracle-010-T1413-8e635c6-2026-11-24.md
+- 2026-11-24 rama T1414 texto publicado vs código: páginas CUMPLE (respaldo/avatarUrl PENDIENTE); Aviso scene-notice.ts INCUMPLE en clave Gemini (:87,:101) y entrenamiento (:52,:54). Acta .specify/memory/audits/rama-010-T1414-texto-publicado-2026-11-24.md. Sin commit ni [x].
+- 2026-11-24 [morpheus] Rama T1414: páginas OK con matiz; aviso incoherente -> Neo decide.
+- 2026-11-24 [morpheus] Neo ratifica: aviso intacto (DEUDA-010-NOTICE), matiz aprobado, avatarUrl a verificar. Cierre Bloque B (T1414, T1415).
+- 2026-11-24 Architect: DEUDA-010-NOTICE asentada en spec.md y tasks.md (cierre Bloque B); sin [x].
+- 2026-11-24 keymaker: T1414/T1415 matiz fotos + avatarUrl en respaldo + trazas LEG10-004/SC-010-007/008/011; gates rc 0; commit local
+- 2026-11-24 sati: T1415 validación local PASS CON OBS (axe 0, 320 sin scroll, contraste >=6.03, tema oscuro no aplica: hallazgo para Neo); acta sati-010-T1415-legal-320-aa-2026-11-24.md
+- 2026-11-24 keymaker: fix(010) marca logo horizontal + t1249 pie legal; t1238 timing flaky
+- 2026-11-24 oracle: Bloque B + logo (3e40e6b..035d3c7, HEAD 035d3c7) PASS CON OBS; alcance limpio, logo horizontal en barra/acceso, SVG 9/9 iguales a guía, t1249 solo amplía enlaces, scene-notice sin diff, T1411..T1415 sin [x]; tsc 0, vitest 53/53, oráculos 0, traza 010 rc 0. Acta audits/oracle-010-bloque-B-035d3c7-2026-11-24.md
+- 2026-11-24 [morpheus] Bloque B oracle PASS CON OBS; test:gate verde; logo corregido; escalo a Neo.
+- 2026-11-24 [morpheus] Neo aprueba Bloque B. Arranca Bloque C (#66). Ajuste logo y Crema en legales.
+- 2026-11-24 keymaker T1417 ARGOS_TRUST_PROXY_HOPS implementado, gates verdes (commit local pendiente de hash en handback)
+- 2026-11-24 oracle: T1417 (23b95f3) PASS CON OBS; trustProxy solo con host 0.0.0.0, nunca true, patrón ^[0-3]$; harness t1416 sin debilitar seguridad (OBS not.toThrow('CODE') más débil); bitácoras ajenas arrastradas en el commit; tsc 0, t1416 24/1skip, app-config 90, oráculos 0, traza T1417 rc 0; ninguna [x] T1416..T1421. Acta audits/oracle-010-T1417-23b95f3-2026-11-24.md
+- 2026-11-24 trinity: T1418 dictamen XFF/IP (HOPS=2 CUMPLE; run.app RIESGO ACEPTADO + H-T1418-01 IPv6 /64, -02 claves/memoria, -03 DoS admin; sin cambios de código) -> .specify/memory/audits/trinity-010-T1418-ip-xff-2026-11-24.md
+- 2026-11-24 [morpheus] Trinity T1418 escala: memoria sin tope y IPv6/puerto; decisión Neo A/B y /64.
+- 2026-11-24 [morpheus] Mensaje guardado en Logos y handover claude/handover-morpheus-2026-11-24.md para mañana.
+- 2026-11-24 [morpheus] CIERRE de sesión: 010 @ 23b95f3; pendiente decisión T1418.
+- 2026-11-25 [morpheus] Logos ON (Neo). Directiva Bloque C: T1418 opción A + IPv6 /64 aprobados; despacho architect+link, luego keymaker y sentinels.
+- 2026-11-25 architect: spec 010 enmendada (ipLimitKey /64 + tope 5 mapas; H-T1418-01 APPROVED, -02 resuelto, -03 BAJO aceptado); nota en tasks.md; sin [x]
+- 2026-11-25 [link] T1419: runbook Cloudflare redactado en specs/010-tipi-identidad-legal-borde/runbook-cloudflare.md (DRAFT, sin Terraform, sin [x]); riesgos H-T1418-01/02 documentados como pendientes de Neo.
+- 2026-11-25 [link] T1419 corregido: sección 10 alineada con la enmienda de spec (H-T1418-01/02 resueltos, -03 aceptado). Sin [x].
+- 2026-11-25 keymaker T1418: ipLimitKey /64 + tope duro en 5 limitadores, t1418 14 pruebas, OBS-3 t1416 cerrada; tsc 0, test:gate rc 0; commit local selectivo
+- 2026-11-25 oracle: T1418 (abfacfa) PASS CON OBS; alcance limpio (solo log-keymaker propio), ipLimitKey verificado en vivo, tope en los 5 mapas, OBS-3 t1416 endurecida; tsc 0, t1418 14 + t1416 24/1skip, oráculos 0, traza 010 rc 0. OBS: shared-view sin /64, SEN-IP-04..09 pendientes. Acta audits/oracle-010-T1418-abfacfa-2026-11-25.md
+- 2026-11-25 sentinels: T1418 SEN-IP-01..09 ejecutados (tests/security/sentinels-010-T1418-ip.security.spec.ts): 8 PASS + SEN-09 PASS por socket TCP; 1 FAIL inject: H-SEN-T1418-01 (ipLimitKey hace trim y acepta \r final). rc=1 (640 pass, 1 skip); tsc 0. Sin [x], sin push.
+- 2026-11-25 keymaker H-SEN-T1418-01: ipLimitKey sin trim (controles/espacio -> invalid); sentinels 18/1skip, t1418 14, tsc 0; oraculos 3 debiles en spec de sentinels (no mio). Sin [x], sin push.
+- 2026-11-25 [sentinels] T1418 oráculos de tests/security/sentinels-010-T1418-ip endurecidos (L102/181 ERR-ACCOUNT-REGISTRATION-RATE-LIMITED, L188 toBeUndefined); verify-oracles rc 0 (0 débiles), vitest rc 0, tsc rc 0. Commit local selectivo, sin push.
+- 2026-11-25 oracle: T1418 revalidación (4dbc441 + b6fde9b) PASS; alcance limpio, ipLimitKey sin trim (CR/LF/NUL/espacios/NBSP -> invalid), oráculos con ERR-* y toBeUndefined; tsc 0, t1418+t1416 38/1skip, sentinels 18/1skip, oráculos 0 débiles, traza 010 rc 0. Acta audits/oracle-010-T1418-revalidacion-2026-11-25.md
+- 2026-11-25 keymaker T1422 rojas (43; mem/SQLite/PG real + HTTP) y T1423 contrato adultDeclaration + compile --feature 010 (v36) + migraciones SQLite 0028/PG 0024; sin [x], sin push
+- 2026-11-25 architect: SC-010-022..026 expandido a IDs explícitos; adult_notice_version fijada en 0.1.0 (DRAFT) en spec.md y legal-texts.md; traza 010 rc 0; sin [x]
+- 2026-11-25 oracle: T1422+T1423 (a45ea50, cc1f7fc) PASS CON OBS; alcance limpio, rojas por falta de implementación (30 fail reales, oráculos fuertes), contratos cerrados sin fecha de nacimiento, migraciones aditivas, compile 002/003/006/010 rc 0 y sin deriva; tsc 0, oráculos 0, traza T1423 rc 0. OBS: PG real no ejecutado, ADULT_NOTICE_VERSION indefinida. Acta audits/oracle-010-T1422-T1423-2026-11-25.md
+- 2026-11-25 keymaker T1424 casilla 18+: validación servidor (antes de existencia y de consumir OAuth), adult_declared_at/adult_notice_version en 3 repos (ADULT_NOTICE_VERSION 0.1.0), RegisterPage y /elige-usuario; pruebas existentes con adultDeclaration; sin [x], sin push
+- 2026-11-25 architect: T1425 legal-texts.md + /terminos + /privacidad con 18+ y procedimiento de menor (0.1.0 DRAFT, placeholders intactos); traza 010 rc 0, tsc 0; pendiente /rama T1426; sin [x], sin push
+- 2026-11-25 oracle: T1425 (8c01cdf) PASS CON OBS; alcance limpio (solo log-architect propio), textos 18+ reflejan casilla/rechazo servidor/fecha+versión 0.1.0/eliminación /cuenta, sin acciones de admin, 4 placeholders literales, sin contacto@tipi.pet en páginas, validación legal pendiente; tsc 0, traza 010 rc 0, t1411 18/18. OBS: 4 (no 5) puntos, t1411 no cubre 18+. Acta audits/oracle-010-T1425-8c01cdf-2026-11-25.md. Sin [x].
+- 2026-11-25 oracle: T1424 (2dce52f) PASS CON OBS; alcance limpio, 422 uniforme antes de existencia y de consumir OAuth, version 0.1.0 solo servidor, update no toca columnas, tests existentes sin debilitar; tsc 0, oráculos 0, traza T1424 rc 0, t1422 con PG17 43/43. OBS: sin test directo de update, pet-dashboard:166 preexistente T1406. Acta audits/oracle-010-T1424-2dce52f-2026-11-25.md
+- 2026-11-25 lock: T1426 flujo Google 18+ (2dce52f) PASS CON OBS; H-01 BAJA carrera misma cookie da 400 tras creación, H-02 BAJA cuerpo sin objeto da ERR-SCHEMA; sin [x]; acta audits/lock-010-T1426-google-2026-11-25.md
+- 2026-11-25 keymaker T1424 OBS-1: prueba de regresión t1424-update-no-toca-adult-010 (mem/SQLite/PG17, 9 verdes; mutación en los 3 motores detectada y revertida); tsc 0, oráculos 0, traza 010 rc 0; sin [x], sin push
+- 2026-11-25 rama: T1426 dictamen menores PASS CON OBS (minimización PASS; puntos legales 1/3/4 aceptables con cambio, 2/5 aceptables; RAMA-T1426-01 MEDIO supresión sin herramienta -> Neo); acta audits/rama-010-T1426-menores-2026-11-25.md; sin [x], sin push
+- 2026-11-25 architect: T1426 redacciones de /rama (Privacidad §3 y §11, Términos §3) aplicadas en legal-texts.md y páginas; 0.1.0 DRAFT; RAMA-T1426-01 no aplicado (Neo); tsc/traza/t1411 rc 0; sin [x], sin push
+- 2026-11-25 oracle: Bloque D parcial (906754d, b17c686, 0ae8459, 1cce3c2) PASS CON OBS; alcance limpio, redacciones idénticas en legal-texts y páginas (DRAFT 0.1.0, 4 placeholders, sin contacto@tipi.pet), RAMA-T1426-01 no aplicado, t1424-update 9/9 con PG17 oráculos fuertes; tsc 0, oráculos 0, traza 010 0, t1411 18/18. Acta audits/oracle-010-bloqueD-parcial-2026-11-25.md. Sin [x].
+- 2026-11-25 sati: T1424 casilla 18+ (2dce52f) validación local PASS CON OBS; 320/1024/1280 en /register y /elige-usuario: etiqueta, foco, teclado, contraste, bloqueo sin marcar, flujo ok, axe 0; playwright wcag+auth-pet+google rc 0 (29/29); OBS-1 foco/anuncio, OBS-2 error persiste. Acta audits/sati-010-T1424-casilla-2026-11-25.md
+- 2026-11-25 keymaker T1424 OBS-1/OBS-2 de sati: role=alert en error de casilla, foco a la casilla en /register si solo falta ella, error limpiado al marcar; prueba t1424-casilla-18 (roja 7/8 -> verde 8/8); tsc 0, playwright 29/29, oráculos 0, traza rc 0; sin [x], sin push
+- 2026-11-25 oracle: cierre Bloque D (a45ea50..759a330, 06e3eb9) PASS CON OBS; 759a330 alcance limpio (Field/AuthPages/ChooseUsername/test + log propio), texto/servidor/contrato intactos, helpers solo afectan la casilla, prueba 8/8 oráculos fuertes; t1422+t1424-update PG17 45/45, traza 010 rc 0; sin bitácoras ajenas. OBS: cableado foco/limpieza sin prueba unitaria, RAMA-T1426-01 pendiente Neo. Acta audits/oracle-010-bloqueD-cierre-2026-11-25.md. Sin [x].
+- 2026-11-25 architect: DEUDA-010-MENOR-SUPRESION y DEUDA-010-LOCK-GOOGLE-MINOR en spec.md; 0.1.0 confirmada por Neo en legal-texts.md §0; sin [x], sin push
+- 2026-11-25 keymaker T1428+T1444 rojas (648a2a7: 125 rojas, 4 guardas verdes) y T1429 contrato about.openapi 1.0.0 + migraciones SQLite 0029/PG 0025 (compile 002..010 rc 0, PG17 verde); A pendiente de decision de Neo; sin [x], sin push
+- 2026-11-25 oracle: Bloque E rojo+contrato (648a2a7, a07e265) PASS CON OBS; alcance limpio sin bitácoras ajenas, rojo real por módulos/rutas inexistentes (46+59 fallos), 4 guardas legítimas (2 verdes por construcción), oráculos fuertes, migraciones 0029/0025 aditivas singleton CHECK 20000, tests actualizados solo número/última (t831/t1423 at(-1)->toContain); tsc 0, oráculos 0, traza T1429 0, compile 010 0 sin deriva. OBS: PG real no ejecutado. Acta audits/oracle-010-bloqueE-rojo-2026-11-25.md. Sin [x].
+- 2026-11-25 architect: dictamen T1428/T1429: +ERR-ACE10-BODY-TOO-LARGE (catalogo 010 1.2.0, about.openapi 1.0.1, compile rc 0), clave about/photo/<uuid> (excepcion INV-ARC-003), foto siempre suma version; spec.md H-ARCH-ACE-*; traza 010 rc 0; sin [x], sin push
+- 2026-11-25 keymaker T1430 Acerca de: casos de uso, repos memoria/SQLite/PG, rutas admin+publica, foto sin EXIF, claves about/photo + conciliacion; T1428 verde en 3 motores (PG17 real), T1444/cliente rojos hasta T1431; traza T1430 rc 1 por SC-010-028..034 agrupados (architect); sin [x], sin push
+- 2026-11-25 architect: spec.md SC-010-027..035 explicitos (#33); traza T1430 rc 0 y 010 rc 0; sin [x], sin push
+- 2026-11-25 oracle: T1430 (f9638bf) PASS CON OBS; alcance limpio, orden CSRF->404 uniforme->origen->cuerpo, CAS 422/412 y foto +1 con limpieza, 413 acotado, sanitizador fuzz 50k sin violaciones, stripper movido a dominio idéntico byte a byte, conciliación about/ no encola la foto viva; tsc 0, oráculos 0, PG17 t1428 81/81 sin omitidas, lote 132/132, traza T1430 rc 0 (no rc 1). Acta audits/oracle-010-T1430-f9638bf-2026-11-25.md. Sin [x].
+- 2026-11-25 keymaker T1431 UI Acerca de: AboutPanel en /admin (If-Match, 20000, preview, 412) y /acerca-de publica fuera de sesion + enlaces pie/menu; T1428 cliente+t1444 48/48, PG17 81/81, tsc 0, oraculos 0, traza rc 0; Playwright 109 ok/3 preexistentes; sin [x], sin push
+- 2026-11-25 oracle: T1431 (51c4d67) PASS CON OBS; alcance limpio, about-markdown web sin imports y fuzz 60k (+16 hostiles) sin etiquetas/atributos/esquemas fuera de lista, /acerca-de fuera de Guard/Session con credentials omit, If-Match+412+20000 ok, t1249 solo +/acerca-de; tsc 0, vitest 58/58, oraculos 0, traza T1431 0; 3 fallos Playwright no tocados por T1431. OBS: href /vil.com (BAJO), sin prueba de AboutPanel. Acta audits/oracle-010-T1431-51c4d67-2026-11-25.md. Sin [x].
+- 2026-11-25 sati: T1431 Acerca de (51c4d67) validación local PASS CON OBS; 320/1024/1280 en /acerca-de y panel /admin: vacío, texto, foto, 412 + recarga, preview, contador, axe 0, contraste >= 6.21; playwright wcag+auth-pet+google rc 0 (29/29), accessibility/ rc 1 por PetForm Día/Mes 36 px (ajeno); OBS-1 scroll horizontal con token largo sin espacios (320/1024, preview 320). Acta audits/sati-010-T1431-about-2026-11-25.md
+- 2026-11-25 keymaker T1431 OBS de oracle/sati: SAFE_HREF sin /\host, render web == servidor para javascript:, pruebas AboutPanel (alt vacio = aviso), reflow 320/1024 (rojo 4/4 -> verde 4/4), boton Vista previa 48 px, anillo en enlaces; tsc 0, PG17 81/81, pw 29/29, oraculos 0, traza rc 0; sin [x], sin push
+- 2026-11-25 oracle: T1431 fix (b2ab1d9) PASS CON OBS; alcance limpio, `/\host` y `//host` bloqueados en servidor y cliente, render web==servidor con 1 nivel de paréntesis (2+ niveles difieren, inerte), pruebas AboutPanel con oráculos fuertes, reflow 4/4; tsc 0, vitest 83/83, oráculos 0, traza T1431 0, pw reflow rc 0. Acta audits/oracle-010-T1431-fix-2026-11-25.md. Sin [x].
+- 2026-11-25 architect: dictamen OBS-3 T1431: photoAlt OPCIONAL (vacío = decorativa, WCAG 1.1.1; público emite alt=""); H-ARCH-ACE-ALT en spec.md, about.schema 1.0.1 PATCH solo descripción, compile 010 rc 0, traza 010 rc 0; sin [x], sin push
+- 2026-11-25 keymaker T1431 prueba H-ARCH-ACE-ALT: /acerca-de emite alt="" con foto y alt vacio, y alt escapado con texto (no-regresion; AboutContent extraido sin cambio de marcado); tsc 0, vitest 27/27, oraculos 0, traza rc 0; sin [x], sin push
+- 2026-11-25 oracle: T1431 cierre (3fbc04b, abec567) PASS; alcance limpio sin bitácoras ajenas, AboutContent extraído literal (misma carga fetch /api/about omit, sin /auth/me), pruebas alt="" y alt escapado fuertes, contrato 1.0.1 PATCH estructura idéntica y generated solo descripción/versión sin deriva; tsc 0, vitest 75/75, oráculos 0, traza T1431 0, compile 010 0. OBS-3 cerrada. Acta audits/oracle-010-T1431-cierre-2026-11-25.md. Sin [x].
+- 2026-11-25 sati: T1431 revalidación (b2ab1d9) PASS CON OBS; OBS-1 reflow 320/1024/1280 ok (script+spec 4/4), OBS-2 botón 48 px, OBS-3 aviso alt ok; OBS-4 anillo en enlaces NO aplicado (selector Tailwind `[&_a]:focus-visible` genera `:focus-visible a`; outline nativo visible, BAJA); pw wcag+auth-pet+google 29/29 rc 0; acta audits/sati-010-T1431-reflow-2026-11-25.md; sin [x], sin push
+2026-11-25 rama: T1432 privacidad foto Acerca de: EXIF PASS, retencion PASS CON OBS, publica PASS CON OBS, auditoria PASS, texto legal FAIL de cobertura (sin mencion de /acerca-de; pendiente abogado); RAMA-T1432-01 MEDIO sin retirada de foto. Acta rama-010-T1432-about-2026-11-25.md. Sin [x], sin push.
+- 2026-11-25 keymaker T1431 OBS-4 sati: anillo Terracota ahora en el enlace (variante [&_a:focus-visible]) en AboutPage y LINK_RING; rojo unit 2/E2E 2 -> verde; tsc 0, vitest 77/77, pw 20/20, oraculos 0, traza rc 0; sin [x], sin push

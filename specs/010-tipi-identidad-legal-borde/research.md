@@ -1,0 +1,6 @@
+# Research — Feature 010
+
+- **Cadena de proxies**: Cloudflare añade la IP del cliente a `X-Forwarded-For`; Cloud Run añade la IP del salto previo (Cloudflare). El cliente solo controla los elementos a la izquierda; con N saltos de confianza contados desde la derecha, el elemento N+1 desde la derecha es el cliente. `CF-Connecting-IP` es una alternativa, pero solo es confiable si el origen solo acepta tráfico de Cloudflare; por eso se propone contar saltos y restringir el ingreso (`D10-03`). [verificar en la documentación vigente de Cloudflare y Cloud Run antes de implementar; no consultada en esta sesión]
+- **Cloudflare Free**: una regla de rate limiting (combinar rutas en una expresión), Email Routing y Access hasta 50 usuarios, según el inbox `#66`. [verificar límites vigentes]
+- **Edad mínima**: el repositorio opera con zona `America/Bogota`; la jurisdicción no está definida (`D10-06`). La norma colombiana de protección de datos trata de forma reforzada los datos de menores, pero este documento **no** es asesoría legal: la decisión `D10-05` debe validarse con un abogado.
+- **Paquete de marca**: `tipi-marca.zip` contiene `svg/`, `png/`, `fonts/` (Nunito 800, Inter 400/600) y `BRAND-TIPI.md`; se descomprime en un directorio nuevo y se copian solo los activos usados.

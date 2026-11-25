@@ -1,6 +1,6 @@
 /**
  * T1166/T1168 (008, Bloque G, [GH:#54]): botón «Descargar imagen» de la escena. Pide la imagen vigente con `download=1` (contrato 006 3.5.0; el atributo `download`
- * se ignora con la redirección 302 a otro origen, EDGE-008-020), con nombre `argos-hogar-AAAA-MM-DD.png` sin PII (EDGE-008-021) y solo con imagen vigente.
+ * se ignora con la redirección 302 a otro origen, EDGE-008-020), con nombre `tipi-hogar-AAAA-MM-DD.png` sin PII (EDGE-008-021) y solo con imagen vigente.
  * REQ-UX8-002; SC-008-035, SC-008-036.
  */
 import { createElement as h } from 'react';
@@ -18,15 +18,15 @@ const render = (view: SceneViewData, scope: SceneScope = HOUSEHOLD): string =>
 const anchor = (html: string): string => html.match(/<a [^>]*>Descargar imagen<\/a>/)?.[0] ?? '';
 
 describe('T1166 nombre de archivo (EDGE-008-021)', () => {
-  it('[SC-008-035] argos-hogar-AAAA-MM-DD.png con el día en America/Bogota, no en UTC', () => {
-    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z')).toBe('argos-hogar-2026-11-18.png');
-    expect(sceneDownloadFilename('2026-11-19T03:30:00.000Z')).toBe('argos-hogar-2026-11-18.png');
+  it('[SC-008-035] tipi-hogar-AAAA-MM-DD.png con el día en America/Bogota, no en UTC', () => {
+    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z')).toBe('tipi-hogar-2026-11-18.png');
+    expect(sceneDownloadFilename('2026-11-19T03:30:00.000Z')).toBe('tipi-hogar-2026-11-18.png');
   });
 
   it('[REQ-ESC6-035] (enmienda N2 JPEG) con image/jpeg la pista es .jpg y con image/webp .webp; sin tipo o png, .png', () => {
-    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z', 'image/jpeg')).toBe('argos-hogar-2026-11-18.jpg');
-    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z', 'image/webp')).toBe('argos-hogar-2026-11-18.webp');
-    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z', 'image/png')).toBe('argos-hogar-2026-11-18.png');
+    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z', 'image/jpeg')).toBe('tipi-hogar-2026-11-18.jpg');
+    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z', 'image/webp')).toBe('tipi-hogar-2026-11-18.webp');
+    expect(sceneDownloadFilename('2026-11-18T10:00:00.000Z', 'image/png')).toBe('tipi-hogar-2026-11-18.png');
   });
 
   it('[SC-008-035] un instante ilegible no inventa nombre (null)', () => {
@@ -35,8 +35,8 @@ describe('T1166 nombre de archivo (EDGE-008-021)', () => {
 
   it('[SC-008-035] el nombre cumple el patrón del contrato y no contiene PII ni caracteres de control', () => {
     const name = sceneDownloadFilename('2027-01-01T05:00:00.000Z');
-    expect(name).toMatch(/^argos-hogar-\d{4}-\d{2}-\d{2}\.png$/);
-    expect(name).toBe('argos-hogar-2027-01-01.png');
+    expect(name).toMatch(/^tipi-hogar-\d{4}-\d{2}-\d{2}\.png$/);
+    expect(name).toBe('tipi-hogar-2027-01-01.png');
   });
 });
 
@@ -56,7 +56,7 @@ describe('T1168 botón «Descargar imagen» en SceneBlockView (SC-008-035, SC-00
   it('[REQ-UX8-002][SC-008-036] con imagen vigente hay un enlace «Descargar imagen» con href download=1, nombre de archivo y aria-label', () => {
     const link = anchor(render(sceneView()));
     expect(link).toContain(`href="/api/households/${HOUSEHOLD_ID}/scene/image?v=${IMAGE_TAG}&amp;download=1"`);
-    expect(link).toContain('download="argos-hogar-2026-11-18.png"');
+    expect(link).toContain('download="tipi-hogar-2026-11-18.png"');
     expect(link).toContain('aria-label="Descargar imagen del hogar"');
     expect(link).toContain('min-h-12');
   });
@@ -73,7 +73,7 @@ describe('T1168 botón «Descargar imagen» en SceneBlockView (SC-008-035, SC-00
   it('[SC-008-035] ni el enlace ni su nombre llevan datos de mascotas ni del hogar', () => {
     const link = anchor(render(sceneView()));
     expect(link).not.toMatch(/Luna|Argos"|Casa/);
-    expect(link.match(/download="([^"]*)"/)?.[1]).toBe('argos-hogar-2026-11-18.png');
+    expect(link.match(/download="([^"]*)"/)?.[1]).toBe('tipi-hogar-2026-11-18.png');
   });
 
   it('[SC-008-036] el DOM no guarda URL firmadas: el href es una ruta propia relativa', () => {

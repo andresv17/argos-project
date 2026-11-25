@@ -211,7 +211,7 @@ describe('T1247 [REQ-APR9-003] [SC-009-003] POST approve: PENDING -> ACTIVE ató
   it('[REQ-APR9-003] 200 {registrationId, accountStatus:ACTIVE, decidedAt}; guarda decided_at y decided_by (admin id); la persona puede entrar después y no se creó sesión', async () => {
     const b = await boot();
     const a = b.a;
-    const reg = await a.call('POST', '/api/auth/register', { body: { username: 'ana.nueva', displayName: 'Ana', password: 'Clave2026x!', confirmPassword: 'Clave2026x!', email: 'ana.nueva@example.test' }, ip: '203.0.113.50', contract: false });
+    const reg = await a.call('POST', '/api/auth/register', { body: { adultDeclaration: true, username: 'ana.nueva', displayName: 'Ana', password: 'Clave2026x!', confirmPassword: 'Clave2026x!', email: 'ana.nueva@example.test' }, ip: '203.0.113.50', contract: false });
     expect(reg.status).toBe(201);
     const id = a.db.prepare("SELECT id FROM users WHERE username = 'ana.nueva'").pluck().get() as string;
     expect(statusOf(a, id).s).toBe('PENDING');
@@ -304,7 +304,7 @@ describe('T1247 [REQ-APR9-003] [REQ-APR9-005] POST reject: PENDING -> REJECTED, 
   it('200 {accountStatus:REJECTED}; guarda decided_at y decided_by; el login con credenciales válidas devuelve {accountStatus:REJECTED} sin cookie', async () => {
     const b = await boot();
     const a = b.a;
-    await a.call('POST', '/api/auth/register', { body: { username: 'rechazada.uno', displayName: 'R', password: 'Clave2026x!', confirmPassword: 'Clave2026x!', email: 'rechazada.uno@example.test' }, ip: '203.0.113.51', contract: false });
+    await a.call('POST', '/api/auth/register', { body: { adultDeclaration: true, username: 'rechazada.uno', displayName: 'R', password: 'Clave2026x!', confirmPassword: 'Clave2026x!', email: 'rechazada.uno@example.test' }, ip: '203.0.113.51', contract: false });
     const id = a.db.prepare("SELECT id FROM users WHERE username = 'rechazada.uno'").pluck().get() as string;
     const r = await reject(a, b.cookie, id);
     expect(r.status).toBe(200);

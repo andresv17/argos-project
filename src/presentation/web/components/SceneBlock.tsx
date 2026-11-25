@@ -126,7 +126,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
                     href={downloadHref}
                     {...(downloadName === null ? {} : { download: downloadName })}
                     aria-label="Descargar imagen del hogar"
-                    className="inline-flex min-h-12 min-w-11 items-center justify-center rounded-full border border-primary bg-white px-5 text-sm font-semibold text-primary hover:bg-meadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    className="inline-flex min-h-12 min-w-11 items-center justify-center rounded-full border border-primary bg-white px-5 text-sm font-semibold text-primary hover:bg-meadow focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
                   >
                     Descargar imagen
                   </a>

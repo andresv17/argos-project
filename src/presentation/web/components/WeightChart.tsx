@@ -24,9 +24,9 @@ export function WeightChart({ entries }: { readonly entries: readonly WeightEntr
         viewBox={`0 0 ${chart.width} ${chart.height}`}
         className="h-auto w-full rounded-2xl border border-slate-200 bg-white"
       >
-        <path d={chart.path} fill="none" stroke="#1d4f3a" strokeWidth={2} />
+        <path d={chart.path} fill="none" className="stroke-primary" strokeWidth={2} />
         {chart.points.map((p) => (
-          <circle key={`${p.x}-${p.y}-${p.label}`} cx={p.x} cy={p.y} r={4} fill="#1d4f3a">
+          <circle key={`${p.x}-${p.y}-${p.label}`} cx={p.x} cy={p.y} r={4} className="fill-primary">
             <title>{p.label}</title>
           </circle>
         ))}
@@ -45,7 +45,7 @@ export function WeightTable({ entries, actionsFor }: {
 }): JSX.Element {
   const rows = weightRows(entries);
   return (
-    <div role="region" aria-label="Evolución de peso (desplazable)" tabIndex={0} className="overflow-x-auto rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+    <div role="region" aria-label="Evolución de peso (desplazable)" tabIndex={0} className="overflow-x-auto rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
       <table className="min-w-full text-left text-sm">
         <caption className="sr-only">Evolución de peso</caption>
         <thead>

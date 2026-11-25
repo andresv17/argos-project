@@ -95,3 +95,117 @@
 - deceasedAt: dato personal asociado al titular, no sensible segun artefactos; sin causa de muerte ni nota libre (C4).
 - Acta: .specify/memory/audits/rama-007-privacidad.md. Sin edicion de specs/src, sin commit, sin [x].
 2026-11-19 | rama | Fase 14 privacidad: PASS CON OBS. Acta rama-006-fase14-privacidad.md. T949 19/19. Condiciones C1 (Neo verifica fuentes DPA), C2 (retencion sin cifra), C3 (region us-central1 vs platform_parameters), C4 (T885), C5 (borrador en spec). Sin commit, sin [x].
+
+## 2026-11-19 · Feature 007 · revalidación de privacidad de includeDeceasedAt (T1012/T1026) · solo lectura
+- Alcance: 005 share-link 1.1.0 (schemas/share-link.schema.json:86-89, :164-167), clinical-summary (:54-57 deceasedAtIncluded, :107-118 lifeStatus/deceasedAt), share-links.openapi 3.4.0 (:5, :418-424, :223, :251), machine :154; src/domain/summary/clinical-summary.ts:41,72,136; shared-view-use-cases.ts sin cableado; audit-support.ts:41. Worktree argos-007 @ a63e285.
+- Veredicto: PASS CON OBSERVACIONES. Default false y gate único en clinical-summary.ts:72; fail-closed porque el flag no está cableado en aplicación.
+- Observaciones: O1 el esquema no liga deceasedAt a deceasedAtIncluded (sin if/then); O2 disclosure no emite deceasedAtIncluded (clinical-summary.ts:136); O3 cableado pendiente, repetir revalidación tras T1026. Sin fuga, sin logs con fecha.
+- Acta: .specify/memory/audits/rama-007-revalidacion-includeDeceasedAt.md (worktree argos-007). Sin ediciones de contratos, src ni tests; sin commit, push ni [x].
+
+## 2026-11-19 · Feature 007 · REVALIDACIÓN T1026 (cableado includeDeceasedAt) · HEAD 94e0865 · solo lectura
+- Cableado verificado en commit 2e099b5: default false en CreateShareLinkUseCase, sameCreation con inmutabilidad (otro valor = ERR-SCHEMA-VALIDATION-FAILED/422), gate único clinical-summary.ts:72, deceasedAtIncluded condicional en :136.
+- Migraciones: SQLite 0015 y Postgres 0011 con CHECK IN (0,1), DEFAULT 0 y sin fuga; paridad schema-parity 15 pasan (1 omitida: Postgres en vivo sin TEST_DATABASE_URL).
+- Pruebas ejecutadas sin editar: UI 5/5, integración 8/8, API 4/4, con afirmaciones de valor. O2 y O3 cerradas. O1 abierta (contrato sin if/then, es de /architect). Obs: respaldo del propietario exporta deceasedAt por diseño (REQ-FAL7-009).
+- Veredicto: PASS CON OBSERVACIONES. Acta actualizada en argos-007 (.specify/memory/audits/rama-007-revalidacion-includeDeceasedAt.md). Sin commit, push ni [x].
+
+## 2026-11-21 · T1193 (Feature 008, #24) · auditoría de privacidad de searchInvitees · HEAD 6965d52 · solo lectura
+- CC: alcance = SearchInviteesUseCase (household-use-cases.ts:223-234), ruta households.routes.ts:54-57, cloud-logging.ts:119-138,154-168, problem-details.ts:29,59-67, use-case-support.ts:165-172, repos PG/SQLite searchUsernamesByPrefix, rate limiter, terraform/logging.tf:6-13, contrato identity 004 (InviteeSearchResult) y openapi 004 (:1171-1205).
+- Pruebas: t1188 unit+api 15/15 verdes; ops/logging + cloud-logging 19/19 verdes. Sin instalación, sin código modificado.
+- H-RAMA-008-J-01 (ALTO): la URL con `?q=` llega al log de solicitudes de la plataforma Cloud Run. terraform/logging.tf solo excluye `/shared/`, no `/invitees`. Propuesta a /link.
+- H-RAMA-008-J-02 (MEDIO, relacionado): NFR-008-004 afirma que el `code`/`state` del callback de Google se redacta en el registro de peticiones, pero la exclusión de plataforma tampoco lo cubre. Verificar a /link.
+- Sin escritura ni recordAudit en la búsqueda; sin logger ni console en el caso de uso; respuesta solo `username`.
+- Próximo paso: redactar .specify/memory/audits/rama-008-T1193-privacidad.md y cerrar la bitácora.
+- Acta escrita: .specify/memory/audits/rama-008-T1193-privacidad.md. Pruebas T1188 15/15 y logging 19/19 verdes.
+- Veredicto: PUNTOS 1-4 PASS (con obs. BAJO), 5 FAIL ALTO (registro de plataforma Cloud Run con ?q=, sin exclusion en terraform/logging.tf), 6 PARCIAL (sin base juridica ni retencion documentadas; Neo decide). Mitigacion recomendada: exclusion tipo T793 para /invitees?q= (a), aplicada por Neo tras terraform plan.
+- Hallazgo relacionado H-RAMA-008-J-02 (MEDIO): NFR-008-004 dice que el code/state del callback de Google se redacta en el registro de peticiones; solo es cierto en la app, no en plataforma.
+- Corregido en el acta: ventana del limitador = 1 minuto (invitee-search-config.ts:12).
+- T1193 NO se marca. Sin commit, push, [x], ni toque a logos.json o al bus central. Bus delegado a Morpheus.
+
+## 2026-11-21 · Feature 008 · T1134 [GOV] privacidad (NFR-008-004, REQ-VIN8-004, SC-008-063) · HEAD d1369af · en curso
+- CC: alcance leído: google-auth-use-cases.ts, google-auth.routes.ts, cloud-logging.ts, audit-support/canonical-view, account-use-cases.ts (DeleteAccount), repos SQLite/PG, migraciones 0013/0017, maintenance-use-cases, terraform/logging.tf.
+- Hipótesis a probar: (a) filas oauth_flow_states consumidas conservan pending_email/pending_subject hasta que arranque otro flujo (purga solo en beginAuthorization; mantenimiento no la incluye); (b) redactSecrets no cubre code/JWT/sub; (c) borrado en cascada de auth_identities y oauth_flow_states.
+- Pruebas nuevas: tests/unit/t1134-*.spec.ts y tests/security/t1134-*.security.spec.ts. Sin tocar src, spec, tasks ni contratos.
+- Pruebas nuevas: tests/unit/t1134-privacidad-retencion-cascada-008.spec.ts (11) y tests/security/t1134-privacidad-logs-callback-008.security.spec.ts (7). 18/18 verdes; 3 defectos reales como it.fails (H-RAMA-008-T1134-01 MEDIO, -02 BAJO, -03 BAJO). Verificado que fallan por la aserción esperada.
+- H-RAMA-008-T1134-01 (MEDIO): oauth_flow_states solo se purga al iniciar un flujo (google-auth-use-cases.ts:87). La purga de mantenimiento (SQLite y PG) no la incluye. Una fila USERNAME consumida conserva pending_email y pending_subject tras vencer, sin límite si no hay tráfico de Google. Propuesta a /keymaker: incluir oauth_flow_states en purgeExpired (ambos motores) y/o anular pending_* al consumir.
+- Logs: el registro de la app solo guarda método y ruta con plantilla (cloud-logging.ts serializeRequest); code/state/error del callback no salen por la app. El registro de plataforma de Cloud Run sigue pendiente: exclusiones en terraform/logging.tf para /api/auth/google/callback y /invitees?q= existen, sin aplicar (Neo, Nivel 2, tras terraform plan). No se ha tocado terraform.
+- Auditoría: la vista canónica excluye email/displayName/passwordHash; el hash no depende del correo; el alta por Google y la vinculación no escriben correo ni sub. Borrado: auth_identities y oauth_flow_states con ON DELETE CASCADE (verificado en SQLite con PRAGMA y en vivo; PG solo por DDL, sin base en esta ejecución).
+- tsc PASS, verify-oracles CUMPLE (450 archivos, 0 oráculos débiles), t1117/t1120/t1125/t1126/t1114/cloud-logging/account-deletion/t582/t1116 verdes (137 antes de añadir las nuevas).
+- Veredicto T1134: PASS CON OBSERVACIONES. Bloqueo de cierre por H-RAMA-008-T1134-01 (MEDIO). Sin commit, sin [x], sin push, sin tocar spec/tasks/contracts/src/terraform.
+
+## 2026-11-21 · Feature 008 · H-RAMA-008-T1134-01 · retirada del it.fails (parte a) y pendiente (b) · sin commit
+- CC: convertida la prueba de purga en `it` normal en tests/unit/t1134-privacidad-retencion-cascada-008.spec.ts. Verifica que la fila USERNAME consumida y vencida (con pending_email/pending_subject) desaparece tras maintenanceCutoffs. Pasa con la purga de keymaker (sqlite-unit-of-work.ts). Sin tocar src/**, spec, tasks, contracts, generated, migraciones, terraform ni logos.
+- Parte (b) NO CUBIERTA: anular pending_* al consumir choca con el CHECK de 0017 (SQLite) y 0013 (PG). Decisión de esquema de Neo/architect. No hay prueba ejecutable: it.skip/it.todo lo marca verify-oracles como oráculo débil (FALLA), así que queda un bloque de comentario "PENDIENTE DE DECISIÓN DE ESQUEMA".
+- Gates: vitest 3 archivos 20/20 verdes (11 + 2 + 7). tsc 0. verify-oracles CUMPLE (451 archivos, 0 débiles).
+- Veredicto: (a) CERRADO con prueba en verde; (b) ABIERTO. -02 y -03 sin cambios. Sin commit, sin [x], sin push.
+
+## 2026-11-21 · Feature 008 · T1134 parte (b) · nota de privacidad (opción B de Neo) · solo documentación
+- CC: decisión de Neo (Nivel 2, opción B): conservar CHECK de 0017 (SQLite) y 0013 (PG); aceptar retención transitoria acotada de pending_email/pending_subject/state en oauth_flow_states.
+- Verificado: CHECK en ambas migraciones exige pending_* en fase USERNAME; purga de mantenimiento en commit 95b5a08; TTL 900 s según plan ADR-008-03 y cookie argos_oauth (no localicé la constante en código).
+- Acción: addendum en .specify/memory/audits/rama-008-T1193-privacidad.md (único documento de privacidad de 008 en disco; no se creó archivo nuevo). Sin cambios en src, tests, migraciones, contracts, generated, terraform ni tasks.md. Sin commit, sin push, sin [x].
+
+## 2026-11-21 · Feature 008 · T1185 [GOV] privacidad de la biografía (#21, REQ-BIO8-002/003/004, NFR-008-004) · HEAD 2359021 · sin commit
+- CC: D8-12 = A verificado en spec.md:173 y :125-128, plan.md:36 (ADR-008-11) y contrato pet 3.2.0 (Biography con pattern sin control de caracteres). El envío a proveedor de IA NO aplica: no hay dictamen de B que emitir. buildImagePrompt, scene-spec, scene-payload y pet-phrases no leen biography; snapshot de escena con lista blanca de campos (inputs-snapshot.ts:41-50, scene-use-cases.ts:106).
+- Prueba nueva: tests/unit/t1185-privacidad-biografia-008.spec.ts (10 tests, verdes). Cubre (a) errores de dominio y auditoría sin el texto, (b) respaldo: el dueño la lleva, la de otra cuenta no; sobre 3.3.0 rechaza control de caracteres, salto de línea y 281; resumen veterinario sin biografía; (c) ficha como texto escapado; guarda estática sin console ni logger en los archivos que mencionan biography.
+- Centinela de escena: no duplicado en T1185 (un snapshot sin el texto daría prueba vacía). Cobertura end-to-end en t1182 (2/2 verdes).
+- Verificado en disco: pet-invariants.ts:221-226,319; use-case-support.ts:338-352; audit-support.ts:44-60 y state-hash.ts:12-14 (solo huella); clinical-summary.ts:67-80 (campos explícitos); backup-use-cases.ts:228,300; backup-migration.ts:202-205.
+- Hallazgos: ninguno ALTO ni MEDIO de producción. BAJO-T1185-01: la auditoría guarda sha256 sin clave del estado de la mascota, que incluye la biografía. Es el diseño de AUD-001 para todos los campos; un texto corto y conocido se podría verificar por fuerza bruta. Propuesta a /architect: valorar HMAC como HmacAuditPseudonymAdapter.
+- Gate: tsc 0. vitest T1185 10/10, t1182 2/2, t1179, t1183, backup-use-cases 82/82 verdes. verify-oracles FALLA por un archivo ajeno: tests/security/t1185-biografia-texto-libre-008.security.spec.ts:77 (not.toBeNull, untracked, creado 15:34 durante esta ejecución, no es mío; 45/45 verdes). Hay que pedir a quien lo escribió que reemplace esa aserción. Tampoco es mío tests/e2e/visual/biografia-008.spec.ts.
+- No toqué src, spec, tasks, contracts, generated, migraciones, terraform, logos ni el bus central. Sin commit, sin [x], sin push.
+
+## 2026-11-23 — T1222 (009): privacidad del borrado con Google y supresión manual
+- Acta: `.specify/memory/audits/rama-009-T1222-privacidad.md`. Veredicto PASS CON CAMBIOS; 1 ALTO (RAMA-01), 3 MEDIO bloqueantes según fase (RAMA-02..04), resto MEDIO/BAJO.
+- Verificado en disco: cascada `eraseAccountInTransaction` (account-use-cases.ts:179-240), migraciones 0018 SQLite y 0014 PG, purga `oauth_flow_states` (SQLite diaria; PG fuera de STEPS), `terraform/logging.tf` (filtro del callback sin prefijo /admin).
+- Sin cambios en src/tests, sin commit, sin `[x]`. Dictamen sobre TRI-05, TRI-06 y el 409 con nombres de hogares incluido en el acta.
+
+## 2026-11-23 · Feature 009 · T1239 [GOV] privacidad y retención del portal /admin (REQ-ADM9-004, NFR-009-004, SC-009-013) · HEAD 4e56270 · sin commit
+- CC: correo en claro y en minúsculas en admin_identities respetado (decisión de Neo, no reabierta). Sin fuga de correo, sub, código, state, nonce, verificador ni tokens en logs (cloud-logging.ts:120, admin.routes.ts:86-94), audit (0019:44-50) ni errores (problem-details.ts:31).
+- Hallazgos: RAMA-T1239-01 (MEDIO) admin_oauth_flow_states sin purga de mantenimiento; RAMA-T1239-02 (MEDIO) admin_sessions purgadas solo al iniciar sesión; RAMA-T1239-03 (MEDIO) admin_audit_entries sin plazo de retención ni purga. Tres BAJO/OBS. Acta: .specify/memory/audits/rama-009-T1239.md.
+- Prueba nueva: tests/security/t1239-retencion-privacidad-admin-009.security.spec.ts (12/12; 2 it.fails = hallazgos -01/-02). Afectadas 73/73 verdes; tsc 0; verify-oracles FALLA por sentinels-009-T1238 (ajeno).
+- Sin tocar src/**, specs/**, generated, MER-11, 008, playwright. Sin commit, sin push, sin [x]. Owners: keymaker (-01, -02), architect + Neo (-03).
+
+## 2026-11-23 · Feature 009 · T1252 [GOV] auditoría /rama (GH:#18; REQ-APR9-001/007, NFR-009-004, EDGE-009-033; SC-009-001/049) · HEAD 82a9cdc · solo lectura
+- Veredicto global: FAIL. 1 minimización PASS CON OBS (REJECTED conserva correo y hash 30 d). 2 purga PASS CON OBS (código SQLite y PG correcto; pruebas solo SQLite). 3 evasión PASS (obs. BAJO: GetCurrentSession y borrados sin guarda ACTIVE). 4 cola PASS CON OBS (límite en memoria por instancia, sin tope global). 5 admin_audit_entries 24 m FAIL: sin purga ni prueba.
+- Pruebas: vitest 7 archivos 66/66 verdes (t1245, t1246, t1247, t1288, t1239). PG no ejecutado (sin TEST_DATABASE_URL).
+- Acta: .specify/memory/audits/rama-009-T1252.md. Sin código, contratos ni generated tocados; sin [x], commit ni push.
+
+## 2026-11-23 · Feature 009 · T1252 reauditoría punto 5 (RAMA-T1239-03) · HEAD 82a9cdc · solo lectura
+- Verificado en disco: SQLite sqlite-unit-of-work.ts:107 y PG postgres-maintenance.ts:57 suman admin_audit_entries (occurred_at < auditBefore, <, frontera conservada) a auditRowsPurged; sin FK; ACTIVE/PENDING no tocados por este paso.
+- Pruebas con TEST_DATABASE_URL: postgres-maintenance.spec.ts + t1239 security: 30/30 verdes; la prueba PG real se ejecuto (no omitida). Fase roja no repetida (sin cambio de codigo).
+- Contrato 003 MaintenanceResult sigue 5 claves. Logs sin datos personales (solo conteos).
+- Veredicto punto 5: PASS CON OBS (OBS-5.1..5.4 BAJO). Acta audits/rama-009-T1252.md: veredicto global pasa a PASS CON OBS. Sin [x], commit ni push.
+
+## 2026-11-23 · Feature 009 · T1294 [GOV] ubicación del tratamiento (REQ-CFG9-004, EDGE-009-018, EDGE-009-046, D9-22/D9-23) · HEAD dc535bd · solo lectura
+- CC: lectura de 006 spec (INV-ESC6-010, REQ-ESC6-017/021/024/026/027/028/031, N2-11), research §2.2-2.3-bis, rama-006-fase14-privacidad.md, data-model §2.5, provider-parameters.ts, adapter Vertex (host por región), 003 spec D-28, 009 spec (EDGE-009-018/036/045/046, REQ-CFG9-004/005, INV-CFG9-002).
+- Hallazgo: `global` puede cambiar la ubicación de procesamiento (fuente externa, no verificada). El aviso vigente (SCENE_NOTICE_VERSION '2') declara us-central1. Veredicto (b) FAIL: `global` sigue oculta.
+- Hallazgo: scene_attempts.provider_model/provider_location son códigos, no datos personales; la fila sí los tiene (inputs_snapshot, actor_user_id). Veredicto (a) PASS CON OBS (O-1, O-2).
+- Hallazgo: REQ-CFG9-005 (prompt editable) viaja al proveedor y no controla texto libre (O-3, MEDIO para T1261/T1271). Lista cerrada: cita de residencia necesaria por región seleccionada (O-4).
+- Acta: .specify/memory/audits/rama-009-T1294-ubicacion.md. Sin edición de código, contratos, tasks.md; sin [x], commit ni push. Sin red: todo lo externo marcado [fuente externa].
+
+## 2026-11-23 · Feature 009 · T1271 parte /rama (privacidad y retención Fase 5b, #20) · solo lectura · sin commit
+- CC: lectura de migraciones 0023 SQLite / 0019 PG, repos de escena y admin, maintenance (30 d), scene-lifecycle-hooks (cuenta), admin-parameter-use-cases (auditoría y reinicio), scene-notice.ts, provider-parameters.ts y catálogo (global oculta). Acta: .specify/memory/audits/rama-009-T1271-fase5b.md.
+- Veredictos: (1) provider_* PASS; (2) prompt.blocks PASS CON OBS (no llega al proveedor hoy; aviso sin texto editable, O-3 de T1294 abierto); (3) filtro mensual y quota_window PASS; (4) reinicio opción A PASS; (5) global oculta y SCENE_GLOBAL_LOCATION_ENABLED = false, T1294 vigente.
+- Grep: 0 log.*/logger.*/console.* en escena y parámetros de 5b; auditoría admin_audit_entries sin columna de valor, objectRef = clave.
+- Test: tests/security/t1239-retencion-privacidad-admin-009.security.spec.ts 13/13 verde en serie (salida real en el acta). No marcado [x]; sin commit, push ni cambios en src/tests.
+- Hallazgos: RAMA-T1271-01 (MEDIO, condición para cablear prompt.blocks), -02 (BAJO, acta de Trinity desactualizada), -03 (BAJO, falta prueba de «sin log» en 5b).
+
+## 2026-11-24 · Feature 010 · T1414 adelantado (coherencia de legal-texts.md con el código) · HEAD 0afc98d · solo lectura
+- Acta: .specify/memory/audits/rama-010-legal-texts-coherencia-2026-11-24.md. Veredictos: (1) datos a IA INCUMPLE parcial (foto del hogar solo en desde cero; falta especie «otra»); (2) proveedores CUMPLE en draft, aviso gemini-api INCUMPLE (describe uso local, contrario a D9-30); (3) biografía: código aplica PET_PHOTOS (T968), texto INCUMPLE; (4) eliminación INCUMPLE en 4 frases (Google sin contraseña, respaldo opcional, cascada solo propietario) y menores INCUMPLE (sin acción admin de bloqueo ni correo); (5) 18+ INCUMPLE hasta T1424; (6) draft CUMPLE, aviso Vertex INCUMPLE en 2 frases.
+- Hallazgos extra: cookies argos_admin_session y argos_admin_oauth omitidas (INCUMPLE); identificador sub de Google omitido; enlaces compartidos resolubles (caducidad 1/7/30 d, revocación, casillas microchip y archivos).
+- Sin cambios en código, specs ni legal-texts.md; sin commit, sin [x].
+
+## 2026-11-24 · Feature 010 · T1414 /rama (texto publicado vs código, HEAD 8e635c6) · solo lectura
+- Verificado en disco: decide-mode, provider-parameters, account-deletion-guards, cookies admin/sesión, app-config (Gemini), scene-notice, share-link, ShareLinks; PP/TP sin ocurrencias de 18+ funcional ni de uso local.
+- Veredictos: 1 CUMPLE con matiz (PP:75 «cada vez»); 2 CUMPLE en páginas, Aviso INCUMPLE (scene-notice.ts:87,101); 3 CUMPLE en páginas, Aviso INCUMPLE (:52,:54); 4 CUMPLE; 5 CUMPLE; 6 CUMPLE; 7 CUMPLE con pendiente operativo; respaldo/avatarUrl PENDIENTE.
+- Acta: .specify/memory/audits/rama-010-T1414-texto-publicado-2026-11-24.md. Sin código, specs ni texto tocados; sin commit, sin [x].
+
+## 2026-11-25 · Feature 010 · T1426 [GOV] dictamen de datos de menores (REQ-MEN10-001..004, D10-05) · HEAD 8c01cdf · solo lectura
+- Verificado en disco: solo casilla booleana (schema cerrado), versión fijada por servidor (0.1.0), declaración en fila users (se borra con la cuenta y con la purga PENDING/REJECTED), fuera del respaldo, sin logs; estado OAuth abandonado se purga. vitest t1422+t1424: 37 pass, 15 skip (PG sin TEST_DATABASE_URL).
+- Veredictos: minimización PASS, cuentas anteriores PASS, retención PASS CON OBS, procedimiento menor PASS CON OBS. Puntos legales: 1 aceptable con cambio, 2 aceptable, 3 aceptable con cambio, 4 aceptable con cambio menor, 5 aceptable. Jurisdicción: no evaluable por /rama (abogado).
+- Hallazgos: RAMA-T1426-01 (MEDIO) supresión sin acción de admin no operable sin romper cascada atómica (runbook o deuda, decide Neo); -02 (BAJO) no pedir documentos al confirmar; -03 (BAJO) Términos §3 sin remisión a condiciones de §10.
+- Acta: .specify/memory/audits/rama-010-T1426-menores-2026-11-25.md. Sin código, specs ni tasks.md; sin [x], sin push. Falta parte /lock (flujo Google).
+
+## 2026-11-25 · Feature 010 · T1432 parte /rama (privacidad de la foto de «Acerca de», #33) · HEAD 3fbc04b · solo lectura
+- CC: EXIF PASS (stripImageMetadata antes de storage.put, about-use-cases.ts; lista blanca JPEG/PNG/WebP, image-metadata-stripper.ts:105,131,181). Retención PASS CON OBS (sustitución con DELETE en la misma petición; conciliación about/ protege la foto viva por clave exacta, 15 min; GCS media sin soft delete ni versionado).
+- Pública PASS CON OBS: sin clave ni ruta de almacenamiento; Cache-Control public max-age=60 sin prueba; Cloudflare no cachea /api/*. Auditoría PASS (ABOUT_UPDATE y ABOUT_PHOTO_UPDATE solo con objectRef=about, sin texto, alt, clave ni bytes).
+- Consentimiento FAIL de cobertura: legal-texts.md sin mención de /acerca-de ni de publicación del operador (0 coincidencias). Sin sustitutos legales: pendiente de abogado (P4-a..e). Hallazgo RAMA-T1432-01 MEDIO: no hay retirada de la foto.
+- Pruebas: vitest 5 archivos, 75 pasan, 21 omitidas (PG sin TEST_DATABASE_URL). Acta: .specify/memory/audits/rama-010-T1432-about-2026-11-25.md. Sin cambios en código, pruebas, specs ni tasks; sin [x], sin push.

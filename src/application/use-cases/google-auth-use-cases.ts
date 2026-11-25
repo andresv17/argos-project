@@ -18,6 +18,7 @@ import {
   issueOneTimeToken,
   type IssuedOneTimeToken,
 } from '../../domain/auth/one-time-token.ts';
+import { ADULT_NOTICE_VERSION, requireAdultDeclaration } from '../../domain/auth/adult-declaration.ts';
 import { assertUsernameAvailable, invalidCredentialsError } from '../../domain/auth/auth-policies.ts';
 import { ACCOUNT_DELETE_REAUTH_MAX_AGE_SECONDS, isRecentAuthentication } from '../../domain/auth/reauthentication-policy.ts';
 import { hashSessionToken, sessionStateAt } from '../../domain/auth/session-policy.ts';
@@ -269,8 +270,9 @@ export class ChooseGoogleUsernameUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(oauthToken: string | null, input: unknown): Promise<AuthenticatedSession | AccountStatusResult> {
+    // 010 (H-03 opción A, EDGE-010-010): `adultDeclaration` se valida ANTES de todo, también antes de consumir el estado OAuth: el 422 no lo consume y el reintento con casilla crea la cuenta.
     // Regla 4: el esquema (cuerpo cerrado: ni correo, ni rol, ni estado de cuenta) se valida antes de tocar el estado del flujo.
-    const valid = assertMatchesSchema<GoogleChooseUsernameInput>('GoogleChooseUsernameInput', validateGoogleChooseUsernameInput, input);
+    const valid = assertMatchesSchema<GoogleChooseUsernameInput>('GoogleChooseUsernameInput', validateGoogleChooseUsernameInput, requireAdultDeclaration(input));
     requireGoogle(this.deps);
     const now = this.deps.clock.nowIsoTimestamp();
     const tokenHash = hashOfCookie(oauthToken);
@@ -324,6 +326,8 @@ export class ChooseGoogleUsernameUseCase {
       timezone: this.deps.clock.timeZone,
       passwordHash: NO_PASSWORD_SENTINEL,
       accountStatus: INITIAL_ACCOUNT_STATUS,
+      adultDeclaredAt: now,
+      adultNoticeVersion: ADULT_NOTICE_VERSION,
     };
     await mapUsernameViolation(() => repositories.users.insert(account));
     if (!(await repositories.authIdentities.insertIfAbsent({ provider: 'GOOGLE', providerSubject: sub, userId: account.id, createdAt: now }))) throw new SubjectAlreadyClaimed();

@@ -26,7 +26,7 @@ import { SpyPasswordHasher } from '../../fixtures/test-doubles.ts';
 
 const REPOSITORIES_PATH = '../../../src/infrastructure/persistence/postgres/postgres-repositories.ts';
 const NEW_PASSWORD = 'Clave2026x!';
-const REGISTRATION = { displayName: 'Nuevo', password: NEW_PASSWORD, confirmPassword: NEW_PASSWORD };
+const REGISTRATION = { displayName: 'Nuevo', password: NEW_PASSWORD, confirmPassword: NEW_PASSWORD, adultDeclaration: true };
 
 interface Setup {
   readonly pool: PoolLike;

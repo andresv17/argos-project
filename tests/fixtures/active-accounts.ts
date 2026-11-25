@@ -48,7 +48,7 @@ export async function registerActiveAccount(
   body: { readonly username: string; readonly password: string; readonly [key: string]: unknown },
   decidedAt: string = '2026-11-23T10:00:00.000Z',
 ): Promise<{ registered: Awaited<ReturnType<RegisteringApi['call']>>; cookie: string }> {
-  const registered = await api.call('POST', '/api/auth/register', { body, contract: false }); // la conformidad del alta la prueban T1245/T1246; el arnés solo necesita la cuenta y la sesión
+  const registered = await api.call('POST', '/api/auth/register', { body: { adultDeclaration: true, ...body }, contract: false }); // la conformidad del alta la prueban T1245/T1246; el arnés solo necesita la cuenta y la sesión
   if (registered.cookie !== null) return { registered, cookie: registered.cookie };
   await activateAccount(sqliteRunner(api.db), 'sqlite', body.username, decidedAt);
   const login = await api.call('POST', '/api/auth/login', { body: { username: body.username, password: body.password } });

@@ -79,7 +79,7 @@ async function toUsernameStep(w: World): Promise<string> {
 
 async function bornWithGoogle(w: World, username = 'nueva.persona'): Promise<string> {
   const token = await toUsernameStep(w);
-  expect(await w.choose.execute(token, { username })).toEqual({ accountStatus: 'PENDING' }); // 009 (EDGE-009-006): la cuenta nace PENDING y no inicia sesión
+  expect(await w.choose.execute(token, { username, adultDeclaration: true })).toEqual({ accountStatus: 'PENDING' }); // 009 (EDGE-009-006): la cuenta nace PENDING y no inicia sesión
   return accountIdOf(w.h.uow, username);
 }
 
@@ -125,7 +125,7 @@ describe('T1120 iniciar el acceso con Google (REQ-SSO8-001, REQ-SSO8-004, H-A1-4
   it('sin configuración de Google falla cerrado: el inicio no declara 400 en el contrato (500) y el callback y la elección de usuario dan el 400 uniforme', async () => {
     expect((await failure(new StartGoogleLoginUseCase(w.h.deps).execute())).code).toBe('ERR-INTERNAL-UNEXPECTED');
     expect((await failure(new CompleteGoogleLoginUseCase(w.h.deps).execute({ oauthToken: null }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
-    expect((await failure(new ChooseGoogleUsernameUseCase(w.h.deps).execute(null, { username: 'nueva.persona' }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect((await failure(new ChooseGoogleUsernameUseCase(w.h.deps).execute(null, { username: 'nueva.persona', adultDeclaration: true }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
   });
 });
 
@@ -234,7 +234,7 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
 
   it('crea la cuenta PENDING con correo verificado, centinela de contraseña e identidad atómica, SIN iniciar sesión, y consume el estado', async () => {
     const token = await toUsernameStep(w);
-    const created = await w.choose.execute(token, { username: 'Nueva.Persona' });
+    const created = await w.choose.execute(token, { username: 'Nueva.Persona', adultDeclaration: true });
     expect(created).toEqual({ accountStatus: 'PENDING' }); // 009 (EDGE-009-006): sin sesión ni token
     const account = await w.h.uow.runInTransaction((r) => r.users.findByUsername('Nueva.Persona'));
     expect(account).toMatchObject({ username: 'Nueva.Persona', passwordHash: NO_PASSWORD_SENTINEL, email: EMAIL, emailVerifiedAt: NOW, accountStatus: 'PENDING' });
@@ -249,15 +249,15 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
 
   it('SC-008-002: el estado es de un solo uso; reintentar con el mismo identificador falla uniforme', async () => {
     const token = await toUsernameStep(w);
-    await w.choose.execute(token, { username: 'nueva.persona' });
-    expect((await failure(w.choose.execute(token, { username: 'otra.persona' }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    await w.choose.execute(token, { username: 'nueva.persona', adultDeclaration: true });
+    expect((await failure(w.choose.execute(token, { username: 'otra.persona', adultDeclaration: true }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
   });
 
   it('un username ocupado responde 409 y NO consume el estado: se puede elegir otro (REQ-LOG-002)', async () => {
     const token = await toUsernameStep(w);
-    expect((await failure(w.choose.execute(token, { username: 'ANDRES' }))).code).toBe('ERR-AUTH-USERNAME-TAKEN');
+    expect((await failure(w.choose.execute(token, { username: 'ANDRES', adultDeclaration: true }))).code).toBe('ERR-AUTH-USERNAME-TAKEN');
     expect((await flowOf(w, token))!.consumedAt).toBeNull();
-    expect(await w.choose.execute(token, { username: 'andres.google' })).toEqual({ accountStatus: 'PENDING' });
+    expect(await w.choose.execute(token, { username: 'andres.google', adultDeclaration: true })).toEqual({ accountStatus: 'PENDING' });
     expect((await w.h.uow.runInTransaction((r) => r.users.findByUsername('andres.google')))?.username).toBe('andres.google');
   });
 
@@ -265,7 +265,7 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
     const token = await toUsernameStep(w);
     const before = await countUsers(w);
     for (const extra of [{ role: 'PLATFORM_ADMIN' }, { accountStatus: 'ACTIVE' }, { email: 'otro@example.test' }, { password: 'Clave2026x' }]) {
-      expect((await failure(w.choose.execute(token, { username: 'nueva.persona', ...extra }))).code).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+      expect((await failure(w.choose.execute(token, { username: 'nueva.persona', ...extra, adultDeclaration: true }))).code).toBe('ERR-SCHEMA-VALIDATION-FAILED');
     }
     expect(await countUsers(w)).toBe(before);
     expect((await flowOf(w, token))!.consumedAt).toBeNull();
@@ -274,11 +274,11 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
   it('sin cookie, con un estado de otra fase o ya vencido falla uniforme', async () => {
     const started = await w.start.execute();
     for (const token of [null, 'corto', started.oauthToken]) {
-      expect((await failure(w.choose.execute(token, { username: 'nueva.persona' }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+      expect((await failure(w.choose.execute(token, { username: 'nueva.persona', adultDeclaration: true }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
     }
     const usernameToken = await toUsernameStep(w);
     w.h.clock.setClock('2026-11-05', '2026-11-05T12:15:00.000Z');
-    expect((await failure(w.choose.execute(usernameToken, { username: 'nueva.persona' }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect((await failure(w.choose.execute(usernameToken, { username: 'nueva.persona', adultDeclaration: true }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
   });
 
   it('D8-14: libera el correo de una cuenta antigua SIN verificar, que conserva su usuario y su contraseña; la nueva conserva el correo verificado', async () => {
@@ -287,7 +287,7 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
       await r.users.update({ ...maria, email: EMAIL });
     });
     const token = await toUsernameStep(w);
-    expect(await w.choose.execute(token, { username: 'nueva.persona' })).toEqual({ accountStatus: 'PENDING' });
+    expect(await w.choose.execute(token, { username: 'nueva.persona', adultDeclaration: true })).toEqual({ accountStatus: 'PENDING' });
     const created = await w.h.uow.runInTransaction((r) => r.users.findByUsername('nueva.persona'));
     const maria = await w.h.uow.runInTransaction((r) => r.users.findById(MARIA));
     expect(maria).toMatchObject({ id: MARIA, email: null });
@@ -299,7 +299,7 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
   it('EDGE-008-030: dos elecciones simultáneas con el mismo estado tienen UN ganador y la otra falla uniforme (nunca un 500)', async () => {
     const token = await toUsernameStep(w);
     const before = await countUsers(w);
-    const results = await Promise.allSettled([w.choose.execute(token, { username: 'carrera.uno' }), w.choose.execute(token, { username: 'carrera.dos' })]);
+    const results = await Promise.allSettled([w.choose.execute(token, { username: 'carrera.uno', adultDeclaration: true }), w.choose.execute(token, { username: 'carrera.dos', adultDeclaration: true })]);
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
     expect((rejected.reason as CaughtDomainError).code).toBe('ERR-AUTH-GOOGLE-FAILED');
@@ -309,9 +309,9 @@ describe('T1120 primer acceso: elegir username (REQ-SSO8-003; SC-008-002, SC-008
   it('EDGE-008-030: si el sub ya tiene cuenta (otra pestaña terminó antes), insertar-o-recuperar devuelve ESA cuenta sin crear otra ni fallar', async () => {
     const tokenA = await toUsernameStep(w);
     const tokenB = await toUsernameStep(w);
-    const first = await w.choose.execute(tokenA, { username: 'pestana.uno' });
+    const first = await w.choose.execute(tokenA, { username: 'pestana.uno', adultDeclaration: true });
     const before = await countUsers(w);
-    const second = await w.choose.execute(tokenB, { username: 'pestana.dos' });
+    const second = await w.choose.execute(tokenB, { username: 'pestana.dos', adultDeclaration: true });
     expect([first, second]).toEqual([{ accountStatus: 'PENDING' }, { accountStatus: 'PENDING' }]); // 009: la cuenta recuperada sigue PENDING, sin sesión
     expect(await w.h.uow.runInTransaction((r) => r.users.findByUsername('pestana.dos'))).toBeNull();
     expect(await countUsers(w)).toBe(before);

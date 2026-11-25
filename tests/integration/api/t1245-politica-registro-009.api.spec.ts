@@ -17,7 +17,7 @@ afterEach(async () => {
   api = null;
 });
 
-const BODY = { username: 'solicitante.t1245', displayName: 'Solicitante', password: 'Clave2026x!', confirmPassword: 'Clave2026x!', email: 'solicitante@example.test' };
+const BODY = { username: 'solicitante.t1245', displayName: 'Solicitante', password: 'Clave2026x!', confirmPassword: 'Clave2026x!', email: 'solicitante@example.test', adultDeclaration: true };
 const REJECTED_AT = '2026-11-01T10:00:00.000Z';
 const sessionRows = (a: Api): number => a.db.prepare('SELECT COUNT(*) FROM sessions').pluck().get() as number;
 const row = (a: Api, name: string) => a.db.prepare('SELECT account_status, decided_at, decided_by FROM users WHERE lower(username) = lower(?)').get(name);
@@ -156,7 +156,7 @@ describe('T1245 [REQ-APR9-002] [EDGE-009-006] [EDGE-009-005] [EDGE-009-004] acce
   const callback = (a: Api, flow: { oauth: string; state: string }) => a.call('GET', `/api/auth/google/callback?code=${GOOGLE_CODE}&state=${flow.state}`, { csrf: false, cookie: flow.oauth, contract: false });
   async function chooseUsername(a: Api, username = 'persona.google') {
     const first = await callback(a, await startFlow(a));
-    return a.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(first, 'argos_oauth'))}`, body: { username }, contract: false });
+    return a.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(first, 'argos_oauth'))}`, body: { username, adultDeclaration: true }, contract: false });
   }
 
   it('el primer acceso con Google (elegir username) crea la cuenta PENDING: 201 con solo { accountStatus: "PENDING" }, sin argos_session ni fila de sesión [EDGE-009-006]', async () => {

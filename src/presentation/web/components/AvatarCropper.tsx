@@ -50,7 +50,7 @@ export function AvatarCropperView(props: AvatarCropperViewProps): JSX.Element {
           accept={PHOTO_ACCEPT}
           disabled={busy}
           onChange={(e) => props.onChoose(e.target.files?.[0] ?? null)}
-          className="min-h-12 w-full min-w-0 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="min-h-12 w-full min-w-0 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
         />
       </div>
       {hasImage ? (
@@ -64,7 +64,7 @@ export function AvatarCropperView(props: AvatarCropperViewProps): JSX.Element {
             onPointerMove={props.onPointerMove}
             onPointerUp={props.onPointerUp}
             style={{ width: previewSize, height: previewSize, touchAction: 'none' }}
-            className="overflow-hidden rounded-full border border-slate-200 bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="overflow-hidden rounded-full border border-slate-200 bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
           >
             <canvas ref={props.canvasRef} width={previewSize} height={previewSize} />
           </div>

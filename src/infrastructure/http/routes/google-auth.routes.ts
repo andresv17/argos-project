@@ -19,6 +19,7 @@ import { ONE_TIME_TOKEN_TTL_SECONDS } from '../../../domain/auth/one-time-token.
 import type { GoogleRateLimiter } from '../google-rate-limit.ts';
 import type { RegistrationRateLimiter } from '../registration-rate-limit.ts';
 import { isAccountStatusResult } from '../../../application/use-cases/auth-use-cases.ts';
+import { ipLimitKey } from '../../../domain/sharing/ip-limit-key.ts';
 import { jsonBody } from '../request-input.ts';
 import { clearSessionCookie, requireSession, sessionTokenOf, setSessionCookie } from '../plugins/session-auth.ts';
 import type { RouteContext } from './use-cases.ts';
@@ -63,14 +64,14 @@ function landingPage(path: string): string {
 /** @implements REQ-SSO8-001, REQ-SSO8-003, REQ-SSO8-004, REQ-SSO8-005, REQ-VIN8-002, ADR-008-03, EDGE-008-006 */
 export function registerGoogleAuthRoutes(app: FastifyInstance, { useCases, cookieSecure }: RouteContext, limiter: GoogleRateLimiter, registrationLimiter: RegistrationRateLimiter): void {
   app.get('/api/auth/google/start', async (request, reply) => {
-    limiter.consume('start', request.ip);
+    limiter.consume('start', ipLimitKey(request.ip));
     const { authorizationUrl, oauthToken } = await useCases.googleStart.execute();
     setOAuthCookie(reply, oauthToken, cookieSecure);
     return reply.header('cache-control', 'no-store').redirect(authorizationUrl, 302);
   });
 
   app.get<{ Querystring: { code?: unknown; state?: unknown; error?: unknown } }>('/api/auth/google/callback', async (request, reply) => {
-    limiter.consume('callback', request.ip);
+    limiter.consume('callback', ipLimitKey(request.ip));
     const { code, state, error } = request.query;
     try {
       const result = await useCases.googleComplete.execute({
@@ -99,7 +100,7 @@ export function registerGoogleAuthRoutes(app: FastifyInstance, { useCases, cooki
   });
 
   app.post('/api/auth/google/username', async (request, reply) => {
-    limiter.consume('username', request.ip);
+    limiter.consume('username', ipLimitKey(request.ip));
     // EDGE-009-040: el primer acceso con Google (elegir username) comparte el tope de registros nuevos por IP efectiva; solo una cuenta NUEVA (PENDING) gasta cupo.
     registrationLimiter.assertAllowed(request.ip);
     const result = await useCases.googleChooseUsername.execute(oauthTokenOf(request), jsonBody(request.body));

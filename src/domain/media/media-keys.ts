@@ -1,16 +1,17 @@
 /**
  * Claves de objeto derivadas solo de UUID v4 en minúsculas y de una carpeta fija (INV-ARC-003): `pets/{petId}/files/{mediaId}`,
  * `pets/{petId}/photos/{mediaId}` y `pets/{petId}/avatar/{avatarObjectId}`. Enmienda MINOR de la 006 (N2-06 (b)): `scenes/{sceneId}/images/{objectId}`
- * y `households/{householdId}/photo/{objectId}`. Sin extensión ni texto del usuario. Se derivan, no se almacenan.
+ * y `households/{householdId}/photo/{objectId}`. Excepción de la 010 (H-ARCH-ACE-KEY, T1430): `about/photo/{objectId}` para la foto singleton de «Acerca de» (sin id de
+ * administrador; el UUID es el `objectId` de cada versión de la foto). Sin extensión ni texto del usuario. Se derivan, no se almacenan.
  *
- * @implements INV-ARC-003, REQ-ARC-004, NFR-ALM-004, REQ-ESC6-018, REQ-ESC6-029, INV-ESC6-009
+ * @implements INV-ARC-003, REQ-ARC-004, NFR-ALM-004, REQ-ESC6-018, REQ-ESC6-029, INV-ESC6-009, REQ-ACE10-002, INV-ACE10-001
  */
 
 import type { MediaKind } from './media-signatures.ts';
 
 const UUID_V4 = '[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const UUID_V4_ONLY = new RegExp(`^${UUID_V4}$`);
-const OBJECT_KEY = new RegExp(`^(?:pets/${UUID_V4}/(?:files|photos|avatar)|scenes/${UUID_V4}/images|households/${UUID_V4}/photo)/${UUID_V4}$`);
+const OBJECT_KEY = new RegExp(`^(?:pets/${UUID_V4}/(?:files|photos|avatar)|scenes/${UUID_V4}/images|households/${UUID_V4}/photo|about/photo)/${UUID_V4}$`);
 
 function requireUuid(value: string): string {
   if (!UUID_V4_ONLY.test(value)) throw new RangeError('Identificador de medio no válido.');
@@ -37,8 +38,13 @@ export function householdPhotoObjectKey(householdId: string, objectId: string): 
   return `households/${requireUuid(householdId)}/photo/${requireUuid(objectId)}`;
 }
 
+/** Foto de «Acerca de» (010, H-ARCH-ACE-KEY). Lanza si el identificador no es UUID v4 en minúsculas. @implements INV-ARC-003, REQ-ACE10-002, INV-ACE10-001 */
+export function aboutPhotoObjectKey(objectId: string): string {
+  return `about/photo/${requireUuid(objectId)}`;
+}
+
 /**
- * true si `key` es exactamente `pets/<uuid>/(files|photos|avatar)/<uuid>`, `scenes/<uuid>/images/<uuid>` o `households/<uuid>/photo/<uuid>`.
+ * true si `key` es exactamente `pets/<uuid>/(files|photos|avatar)/<uuid>`, `scenes/<uuid>/images/<uuid>`, `households/<uuid>/photo/<uuid>` o `about/photo/<uuid>`.
  * @implements INV-ARC-003
  */
 export function isMediaObjectKey(key: string): boolean {
@@ -46,13 +52,13 @@ export function isMediaObjectKey(key: string): boolean {
 }
 
 /** Prefijos que recorre la conciliación diaria de `REQ-GCS-006` (una sola rutina; los de la 006 los añade `N2-06` (b)). */
-export const RECONCILED_PREFIXES: readonly string[] = ['pets/', 'scenes/', 'households/'];
+export const RECONCILED_PREFIXES: readonly string[] = ['pets/', 'scenes/', 'households/', 'about/'];
 
 const PETS_ORPHAN_AGE_MINUTES = 24 * 60;
 /** Un worker zombi puede subir un objeto tras vencer el arrendamiento (H-LCK-006-11): la escena concilia a los 15 min. */
 const SCENE_ORPHAN_AGE_MINUTES = 15;
 
-/** Antigüedad (minutos) a partir de la cual un objeto sin referencia se encola con `DELETE`: 24 h en `pets/`, 15 min en `scenes/` y `households/`. @implements INV-ARC-003, EDGE-ESC6-021 */
+/** Antigüedad (minutos) a partir de la cual un objeto sin referencia se encola con `DELETE`: 24 h en `pets/`, 15 min en `scenes/`, `households/` y `about/`. @implements INV-ARC-003, EDGE-ESC6-021 */
 export function reconciliationAgeMinutes(key: string): number {
   if (!isMediaObjectKey(key)) throw new RangeError('Clave de medio no válida.');
   return key.startsWith('pets/') ? PETS_ORPHAN_AGE_MINUTES : SCENE_ORPHAN_AGE_MINUTES;

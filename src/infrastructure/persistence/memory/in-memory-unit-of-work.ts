@@ -43,6 +43,7 @@ import { avatarObjectKey, mediaObjectKey } from '../../../domain/media/index.ts'
 import { ShareLinkIdempotencyConflictError, type ShareAuditRecord, type ShareLinkAuditRepositoryPort, type ShareLinkRepositoryPort } from '../../../application/ports/share-link.port.ts';
 import { EXPIRY_DAYS, type ShareLinkRecord, type ShareScope } from '../../../domain/sharing/share-link.ts';
 import type { UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
+import type { AboutContentRecord, AboutContentRepositoryPort } from '../../../application/ports/about.port.ts';
 import type {
   AdminAuditRecord,
   AdminAuditRepositoryPort,
@@ -103,6 +104,8 @@ export interface MemoryState extends SceneMemoryState {
   adminSessions?: AdminSessionRecord[];
   adminFlows?: AdminFlowStateRecord[];
   adminAudit?: AdminAuditRecord[];
+  /** `about_content` (feature 010, T1430): singleton; opcional, ausente o `null` = sin contenido. */
+  aboutContent?: AboutContentRecord | null;
   /** Decision de aprobacion por cuenta (T1247): instante y `adminId` de quien decidio. */
   userDecisions?: Record<string, { decidedAt: string; decidedBy: string }>;
   /** `platform_parameters` (T1264): clave -> fila; opcional, ausente = vacia. */
@@ -207,10 +210,12 @@ function userRepository(state: MemoryState): UserRepositoryPort {
     async update(user) {
       const index = state.users.findIndex((u) => u.id === user.id && u.username === user.username);
       if (index < 0) throw new Error(`users: el usuario ${user.id} no existe`);
-      const { emailVerifiedAt: _ignored, accountStatus: _status, ...rest } = copy(user); // update nunca modifica email_verified_at ni account_status (lo decide la aprobación, T1247)
+      const { emailVerifiedAt: _ignored, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, ...rest } = copy(user); // update nunca modifica email_verified_at, account_status (lo decide la aprobación, T1247) ni la declaración 18+ (010)
       const prior = state.users[index]!.emailVerifiedAt;
       const priorStatus = state.users[index]!.accountStatus;
-      state.users[index] = { ...rest, ...(prior === undefined ? {} : { emailVerifiedAt: prior }), ...(priorStatus === undefined ? {} : { accountStatus: priorStatus }) };
+      const priorAdultAt = state.users[index]!.adultDeclaredAt;
+      const priorAdultVersion = state.users[index]!.adultNoticeVersion;
+      state.users[index] = { ...rest, ...(prior === undefined ? {} : { emailVerifiedAt: prior }), ...(priorStatus === undefined ? {} : { accountStatus: priorStatus }), ...(priorAdultAt === undefined ? {} : { adultDeclaredAt: priorAdultAt }), ...(priorAdultVersion === undefined ? {} : { adultNoticeVersion: priorAdultVersion }) };
     },
     async delete(userId) {
       state.users = state.users.filter((u) => u.id !== userId);
@@ -954,6 +959,22 @@ function adminParameterRepository(state: MemoryState): AdminParameterRepositoryP
   };
 }
 
+/** `about_content` en memoria (T1430): singleton con compare-and-set (comprobar y fijar sin cesión es atómico; paridad con SQLite y PostgreSQL). */
+function aboutContentRepository(state: MemoryState): AboutContentRepositoryPort {
+  return {
+    async get() {
+      return state.aboutContent == null ? null : copy(state.aboutContent);
+    },
+    async replace(next, expectedVersion) {
+      const current = state.aboutContent ?? null;
+      if ((current?.version ?? 0) !== expectedVersion) return null;
+      const written: AboutContentRecord = { ...next, version: expectedVersion + 1 };
+      state.aboutContent = written;
+      return copy(written);
+    },
+  };
+}
+
 function repositoriesOver(state: MemoryState): RepositorySet {
   return {
     users: userRepository(state),
@@ -981,6 +1002,7 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     adminAudit: adminAuditRepository(state),
     registrations: registrationRepository(state),
     adminParameters: adminParameterRepository(state),
+    aboutContent: aboutContentRepository(state),
   };
 }
 

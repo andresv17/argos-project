@@ -3,6 +3,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fuentes locales (woff2, sin CDN): Tipi Display 800 (tipografía propia de Tipi, titulares; Tipografía original del autor — uso exclusivo de Tipi), Inter 400/600 (licencia SIL OFL) para el texto. */
+@font-face {
+  font-family: 'Tipi Display';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/tipi-display-latin-800-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/inter-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/inter-latin-600-normal.woff2') format('woff2');
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
@@ -10,6 +35,6 @@ html {
 body {
   min-width: 320px;
   min-height: 100vh;
-  color: #0f172a;
-  background-color: #f4f8ef;
+  color: theme('colors.text-primary');
+  background-color: theme('colors.cream');
 }

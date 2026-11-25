@@ -73,7 +73,7 @@ const userRow = (over: Row = {}): Row => ({
   ...over,
 });
 const SESSION = { userId: ANDRES.id, createdAt: NOW, lastActivityAt: NOW, revokedAt: null };
-const SELECT_USER = 'SELECT id, username, password_hash, email, email_verified_at, account_status, preferred_language, timezone, data FROM users';
+const SELECT_USER = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, data FROM users';
 
 /** Toda sentencia emitida usa solo `$1..$n` consecutivos y ningún valor aparece dentro del texto SQL. */
 function expectParametrized(calls: ReadonlyArray<{ sql: string; values: unknown[] }>) {
@@ -115,16 +115,16 @@ describe('usuarios (T422, REQ-PG-002, INV-AUTH-003)', () => {
     expect(client.calls).toEqual([{ sql: `${SELECT_USER} WHERE id = ANY($1::text[])`, values: [[ANDRES.id, 'otro']] }]);
   });
 
-  it('insert: columnas id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status; el hash nunca va en data (INV-AUTH-003)', async () => {
+  it('insert: columnas id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status, adult_declared_at, adult_notice_version; el hash nunca va en data (INV-AUTH-003)', async () => {
     const { client, r } = await repos({ rowCount: 1 });
     await r.users.insert(ANDRES);
     expect(client.calls).toHaveLength(1);
     const call = client.calls[0]!;
     expect(call.sql).toBe(
-      'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9)',
+      'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status, adult_declared_at, adult_notice_version) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11)',
     );
     expect(call.values.slice(0, 3)).toEqual([ANDRES.id, ANDRES.username, 'h-andres']);
-    expect(call.values.slice(4)).toEqual([null, 'es', 'America/Bogota', null, 'ACTIVE']);
+    expect(call.values.slice(4)).toEqual([null, 'es', 'America/Bogota', null, 'ACTIVE', null, null]);
     expect(JSON.parse(call.values[3] as string)).toEqual(ANDRES_DATA);
     expect(call.values[3]).not.toContain('h-andres');
     expectParametrized(client.calls);

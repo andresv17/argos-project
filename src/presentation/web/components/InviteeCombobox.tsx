@@ -67,7 +67,7 @@ export function InviteeComboboxView({ id, label, name, errors, state, onType, on
           if (onKey(e.key)) e.preventDefault();
         }}
         {...(onBlur === undefined ? {} : { onBlur })}
-        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
       />
       <ul
         id={listId}

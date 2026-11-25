@@ -9,18 +9,22 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: { DEFAULT: '#1d4f3a', hover: '#173f2f' },
-        secondary: '#35573f',
-        accent: { DEFAULT: '#c5f35a', soft: '#e9fbc4' },
-        sky: '#eaf6ff',
-        meadow: '#e6f2ea',
-        cream: '#f4f8ef',
+        // Paleta oficial Tipi (D10-02, REQ-TIP10-003): ÚNICO lugar de los valores. Regla de Neo (Terracota, opción a): `terracota` solo en acentos
+        // decorativos, títulos grandes (>= 24 px, o 18.66 px en negrita), íconos grandes y el anillo de foco; NUNCA en texto normal, enlaces ni botones con etiqueta normal.
+        primary: { DEFAULT: '#1F3D36', hover: '#16302A' },
+        cream: '#EFE8D8',
+        terracota: '#C4552D',
+        // Derivados del Bosque y la Crema (sin colores de marca nuevos).
+        secondary: '#2F5248',
+        accent: { DEFAULT: '#E0D6BD', soft: '#F6F1E4' },
+        sky: '#F7F3E8',
+        meadow: '#E8E6D5',
         'surface-solid': '#ffffff',
-        'text-primary': '#0f172a',
+        'text-primary': '#14231F',
         'text-muted': '#475569',
         'border-strong': '#64748b',
         danger: '#b91c1c',
-        pastel: { mint: '#d9f5e6', cream: '#fbf5dc', sky: '#dbeafe' },
+        pastel: { mint: '#DCE8DD', cream: '#fbf5dc', sky: '#dbeafe' },
         owner: {
           1: '#1d4ed8',
           2: '#047857',
@@ -33,7 +37,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['ui-sans-serif', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        display: ['"Tipi Display"', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         glass: '0 8px 32px rgba(15, 23, 42, 0.06)',

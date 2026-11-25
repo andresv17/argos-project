@@ -7,6 +7,7 @@
  *
  * @implements REQ-APR9-003, REQ-APR9-005, EDGE-009-002, EDGE-009-039, REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-006, EDGE-009-047, NFR-009-004, INV-ARCH-005
  */
+import type { AboutContentRecord, AboutContentRepositoryPort } from '../../../application/ports/about.port.ts';
 import type {
   AdminAuditRepositoryPort,
   AdminFlowStateRecord,
@@ -240,6 +241,36 @@ export function adminParameterRepository(client: PoolClientLike): AdminParameter
         }
       }
       return { accountsReset: accounts.length };
+    },
+  };
+}
+
+/**
+ * `about_content` (feature 010, T1430; migración 0025): singleton `id = 1`. `replace` es UN `INSERT ... ON CONFLICT DO NOTHING` (sin fila, `expectedVersion = 0`) o UN
+ * `UPDATE ... WHERE id = 1 AND version = $n` con `rowCount === 1` como veredicto: Postgres serializa las dos escrituras sobre la misma fila y la perdedora relee la versión ya
+ * subida y no afecta ninguna fila (REQ-ACE10-003, EDGE-010-006). `RETURNING` entrega el registro escrito sin una lectura aparte.
+ */
+export function aboutContentRepository(client: PoolClientLike): AboutContentRepositoryPort {
+  const columns = 'body_markdown, photo_object_key, photo_alt, version, updated_at, updated_by';
+  const toRecord = (row: Row): AboutContentRecord => ({
+    bodyMarkdown: String(row['body_markdown']),
+    photoObjectKey: nullable(row['photo_object_key']),
+    photoAlt: String(row['photo_alt']),
+    version: Number(row['version']),
+    updatedAt: String(row['updated_at']),
+    updatedBy: String(row['updated_by']),
+  });
+  return {
+    async get() {
+      const { rows } = await client.query(`SELECT ${columns} FROM about_content WHERE id = 1`);
+      return rows[0] === undefined ? null : toRecord(rows[0]);
+    },
+    async replace(next, expectedVersion) {
+      const { rows } =
+        expectedVersion === 0
+          ? await client.query(`INSERT INTO about_content (id, ${columns}) VALUES (1, $1, $2, $3, 1, $4, $5) ON CONFLICT (id) DO NOTHING RETURNING ${columns}`, [next.bodyMarkdown, next.photoObjectKey, next.photoAlt, next.updatedAt, next.updatedBy])
+          : await client.query(`UPDATE about_content SET body_markdown = $1, photo_object_key = $2, photo_alt = $3, version = version + 1, updated_at = $4, updated_by = $5 WHERE id = 1 AND version = $6 RETURNING ${columns}`, [next.bodyMarkdown, next.photoObjectKey, next.photoAlt, next.updatedAt, next.updatedBy, expectedVersion]);
+      return rows[0] === undefined ? null : toRecord(rows[0]);
     },
   };
 }

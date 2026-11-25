@@ -11,6 +11,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Field.tsx';
 import { unwrap } from '../api.ts';
 import { useIdleNotice, WARNING_LEAD_MINUTES } from '../idle-notice.ts';
+import { BRAND_NAME } from '../brand.ts';
 import { useSession } from '../session.tsx';
 import { invitationsLabel } from '../view-model.ts';
 
@@ -32,9 +33,9 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
   readonly householdCount?: number;
   readonly onLogout: () => void;
 }): JSX.Element {
-  // Estado activo: relleno lima con texto oliva (7.32:1) y línea de 2 px oliva que evita depender solo del color (WCAG 1.4.11).
+  // Estado activo: relleno Crema oscura con texto Bosque y línea de 2 px oliva que evita depender solo del color (WCAG 1.4.11).
   const link = ({ isActive }: { isActive: boolean }): string =>
-    `relative flex min-h-12 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 text-sm sm:px-4 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+    `relative flex min-h-12 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 text-sm sm:px-4 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
       isActive ? 'bg-accent font-semibold after:absolute after:inset-x-3 sm:after:inset-x-4 after:bottom-1.5 after:h-0.5 after:bg-primary' : 'font-medium underline-offset-4 hover:underline'
     }`;
   return (
@@ -42,14 +43,18 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-10 focus:rounded-full focus:bg-white focus:px-4 focus:py-3 focus:text-primary">
         Saltar al contenido
       </a>
-      <p className="text-lg font-bold tracking-tight text-primary">Argos</p>
+      <p className="flex items-center font-display text-2xl font-extrabold tracking-tight text-primary">
+        {/* Decisión de Neo (T1434): símbolo Tipi + texto «Tipi» en Tipi Display. */}
+        <img src="/brand/tipi-simbolo.svg" alt="" aria-hidden="true" width={48} height={48} className="h-12 w-12" />
+        <span className="ml-2">{BRAND_NAME.toLowerCase()}</span>
+      </p>
       <nav aria-label="Principal" className="flex flex-wrap gap-1">
         <NavLink to="/" end className={link}>
           Mascotas
         </NavLink>
         <NavLink to="/households" className={link}>
           Hogares
-          <span data-household-count={householdCount} className="rounded-full bg-primary px-2 text-xs font-bold tabular-nums text-white">
+          <span data-household-count={householdCount} className="rounded-full bg-primary px-2 text-xs font-bold tabular-nums text-cream">
             <span aria-hidden="true">{householdCount}</span>
             <span className="sr-only">{householdCount === 1 ? '1 hogar' : `${householdCount} hogares`}</span>
             <span className="ml-1 font-normal" aria-hidden="true">hogares</span>
@@ -65,6 +70,9 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
         </NavLink>
         <NavLink to="/cuenta" className={link}>
           Perfil
+        </NavLink>
+        <NavLink to="/acerca-de" className={link}>
+          Acerca de
         </NavLink>
       </nav>
       <div className="flex items-center gap-3">

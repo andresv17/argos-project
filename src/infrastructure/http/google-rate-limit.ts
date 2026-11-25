@@ -3,32 +3,32 @@
  * un cubo por ruta y una clave por IP efectiva (o por usuario en la vinculación). El intento rechazado no prolonga la ventana; la respuesta es el `ERR-RATE-LIMITED`
  * (429) uniforme del catálogo, sin revelar nada del flujo.
  *
- * @implements REQ-SSO8-005, ERR-RATE-LIMITED, INV-ARCH-001
+ * @implements REQ-EDG10-001, REQ-EDG10-003, SC-010-016, REQ-SSO8-005, ERR-RATE-LIMITED, INV-ARCH-001
  */
 
 import { DomainError } from '../../generated/index.ts';
+import { DEFAULT_MAX_TRACKED, setBounded } from './bounded-map.ts';
 import { GOOGLE_AUTH_LIMITS } from '../config/google-auth-config.ts';
 
 export type GoogleRateBucket = keyof typeof GOOGLE_AUTH_LIMITS;
-const MAX_TRACKED_KEYS = 10_000;
 
 export class GoogleRateLimiter {
   private readonly events = new Map<string, number[]>();
 
-  constructor(private readonly now: () => number, private readonly limits: typeof GOOGLE_AUTH_LIMITS = GOOGLE_AUTH_LIMITS) {}
+  constructor(private readonly now: () => number, private readonly limits: typeof GOOGLE_AUTH_LIMITS = GOOGLE_AUTH_LIMITS, private readonly maxTracked: number = DEFAULT_MAX_TRACKED) {}
 
   consume(bucket: GoogleRateBucket, key: string): void {
     const limit = this.limits[bucket];
     const windowMs = limit.windowMinutes * 60_000;
     const now = this.now();
-    if (this.events.size > MAX_TRACKED_KEYS) this.sweep(now);
+    if (this.events.size > this.maxTracked) this.sweep(now);
     const id = `${bucket}:${key}`;
     const live = (this.events.get(id) ?? []).filter((at) => at > now - windowMs);
     if (live.length >= limit.maxPerWindow) {
-      this.events.set(id, live);
+      setBounded(this.events, id, live, this.maxTracked);
       throw new DomainError('ERR-RATE-LIMITED');
     }
-    this.events.set(id, [...live, now]);
+    setBounded(this.events, id, [...live, now], this.maxTracked);
   }
 
   private sweep(now: number): void {

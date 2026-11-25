@@ -8,8 +8,9 @@ import * as mediaDomain from '../../src/domain/media/index.ts';
 import { assertListPrefix, assertMediaKey } from '../../src/infrastructure/adapters/media-storage-guards.ts';
 
 /** Vista tipada de la API nueva de `media-keys.ts` (T812): las pruebas rojas compilan antes de que exista. */
-const { RECONCILED_PREFIXES, householdPhotoObjectKey, isMediaObjectKey, mediaObjectKey, reconciliationAgeMinutes, sceneImageObjectKey } = mediaDomain as unknown as {
+const { RECONCILED_PREFIXES, aboutPhotoObjectKey, householdPhotoObjectKey, isMediaObjectKey, mediaObjectKey, reconciliationAgeMinutes, sceneImageObjectKey } = mediaDomain as unknown as {
   RECONCILED_PREFIXES: readonly string[];
+  aboutPhotoObjectKey(objectId: string): string;
   householdPhotoObjectKey(householdId: string, objectId: string): string;
   isMediaObjectKey(key: string): boolean;
   mediaObjectKey(petId: string, kind: 'FILE' | 'PHOTO', mediaId: string): string;
@@ -74,15 +75,43 @@ describe('T811 assertListPrefix con scenes/ y households/ (sin RangeError)', () 
 
 describe('T811 conciliación: prefijos y antigüedad (H-LCK-006-11, EDGE-ESC6-021)', () => {
   it('REQ-ESC6-029: la rutina existente concilia pets/ (24 h) y añade scenes/ y households/ (15 min); no hay una segunda rutina', () => {
-    expect(RECONCILED_PREFIXES).toEqual(['pets/', 'scenes/', 'households/']);
+    // T1430 (H-ARCH-ACE-KEY): la 010 añade `about/` a la MISMA rutina; las demás reglas no cambian.
+    expect(RECONCILED_PREFIXES).toEqual(['pets/', 'scenes/', 'households/', 'about/']);
     expect(reconciliationAgeMinutes(mediaObjectKey(SCENE, 'FILE', OBJ))).toBe(24 * 60);
     expect(reconciliationAgeMinutes(`pets/${SCENE}/avatar/${OBJ}`)).toBe(24 * 60);
     expect(reconciliationAgeMinutes(sceneImageObjectKey(SCENE, OBJ))).toBe(15);
     expect(reconciliationAgeMinutes(householdPhotoObjectKey(HOUSE, OBJ))).toBe(15);
+    expect(reconciliationAgeMinutes(aboutPhotoObjectKey(OBJ))).toBe(15);
   });
 
   it('INV-ARC-003: reconciliationAgeMinutes rechaza una clave que no es de medios', () => {
     expect(() => reconciliationAgeMinutes(`scenes/${SCENE}/other/${OBJ}`)).toThrow(RangeError);
     expect(() => reconciliationAgeMinutes('')).toThrow(RangeError);
+  });
+});
+
+describe('T1430 claves de «Acerca de» (H-ARCH-ACE-KEY, INV-ARC-003, INV-ACE10-001)', () => {
+  it('about/photo/<uuid>: se deriva solo del UUID de la versión de la foto, sin extensión, sin id de administrador ni texto del usuario', () => {
+    expect(aboutPhotoObjectKey(OBJ)).toBe(`about/photo/${OBJ}`);
+    expect(isMediaObjectKey(aboutPhotoObjectKey(OBJ))).toBe(true);
+    for (const bad of ['', 'x', OBJ.toUpperCase(), `${OBJ}/..`, '../etc', '3f1c0a52-7d3e-1b8a-9a61-0c2f4d5e6a71', `${OBJ}.png`]) expect(() => aboutPhotoObjectKey(bad), bad).toThrow(RangeError);
+  });
+
+  it('isMediaObjectKey rechaza las variantes de about/ (carpeta ajena, segmento extra, extensión, mayúsculas, recorrido, sin uuid)', () => {
+    const invalid = [
+      `about/${OBJ}`, `about/photos/${OBJ}`, `about/files/${OBJ}`, `about/avatar/${OBJ}`, `about/photo/${OBJ}/x`, `about/photo/${OBJ}.png`, `about/photo/${OBJ.toUpperCase()}`,
+      `about/${HOUSE}/photo/${OBJ}`, 'about/photo/', 'about/photo', 'about/../photo/x', `/about/photo/${OBJ}`, `about//photo/${OBJ}`, `About/photo/${OBJ}`,
+    ];
+    for (const key of invalid) expect(isMediaObjectKey(key), key).toBe(false);
+  });
+
+  it('assertMediaKey acepta la clave de about/ y rechaza las demás con RangeError', () => {
+    expect(assertMediaKey(aboutPhotoObjectKey(OBJ))).toBeUndefined();
+    expect(() => assertMediaKey(`about/other/${OBJ}`)).toThrow(RangeError);
+  });
+
+  it('assertListPrefix acepta about/, about/photo/ y un prefijo parcial de uuid, y rechaza carpetas ajenas, mayúsculas y recorridos', () => {
+    for (const prefix of ['about/', 'about/photo', 'about/photo/', `about/photo/${OBJ.slice(0, 8)}`]) expect(assertListPrefix(prefix), prefix).toBeUndefined();
+    for (const prefix of ['about', 'About/', 'about/..', 'about/../', 'about/photos/', `about/${HOUSE}/`, 'about//', 'about/photo/%2e']) expect(() => assertListPrefix(prefix), prefix).toThrow(RangeError);
   });
 });

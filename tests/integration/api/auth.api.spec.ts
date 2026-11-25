@@ -18,6 +18,7 @@ const registration = (overrides: Record<string, unknown> = {}) => ({
   displayName: 'Nueva',
   password: 'Clave2026x!',
   confirmPassword: 'Clave2026x!',
+  adultDeclaration: true,
   ...overrides,
 });
 

@@ -46,10 +46,10 @@ const OVERDUE_HOURS = 48;
 const MINUTE_MS = 60_000;
 
 /**
- * Conciliación diaria (REQ-GCS-006, INV-GCS-002, SC-ALM-031; 006: REQ-ESC6-029, EDGE-ESC6-021): lista los prefijos `pets/`, `scenes/` y `households/` (una sola
- * rutina, `RECONCILED_PREFIXES`) y encola con `DELETE` todo objeto más antiguo que su ventana (24 h en `pets/`, 15 min en `scenes/` y `households/`, porque un
+ * Conciliación diaria (REQ-GCS-006, INV-GCS-002, SC-ALM-031; 006: REQ-ESC6-029, EDGE-ESC6-021): lista los prefijos `pets/`, `scenes/`, `households/` y `about/` (una sola
+ * rutina, `RECONCILED_PREFIXES`) y encola con `DELETE` todo objeto más antiguo que su ventana (24 h en `pets/`, 15 min en `scenes/`, `households/` y `about/`, porque un
  * worker zombi puede subir un objeto tras vencer el arrendamiento) cuya clave no esté referenciada: `pet_media` (derivada) o `pets.avatar_object_id` en `pets/`;
- * `home_scenes.image_id` en `scenes/`; `household_photos.object_id` en `households/`; ni en la cola (incluidas las filas `INTENT`). Las claves que no tienen el
+ * `home_scenes.image_id` en `scenes/`; `household_photos.object_id` en `households/`; `about_content.photo_object_key` en `about/` (010, H-ARCH-ACE-KEY); ni en la cola (incluidas las filas `INTENT`). Las claves que no tienen el
  * formato de los objetos de medios no se tocan. La comprobación y el encolado van en una misma transacción por objeto. Si `list` falla en un prefijo, ese
  * prefijo se omite: la siguiente pasada lo reintenta. Nunca lanza.
  */
@@ -67,9 +67,11 @@ async function reconcileObjects(deps: Pick<ApplicationDeps, 'uow' | 'media'>, no
     for (const entry of entries) {
       if (!isMediaObjectKey(entry.key) || entry.createdAt >= shiftIsoTimestamp(now, -reconciliationAgeMinutes(entry.key) * MINUTE_MS)) continue;
       const [root, ownerId, folder, objectId] = entry.key.split('/') as [string, string, string, string];
+      const aboutKey = root === 'about';
       try {
         const orphan = await deps.uow.runInTransaction(async (r) => {
           if ((await r.mediaQueue.findByKey(entry.key)) !== null) return false;
+          if (aboutKey) return (await r.aboutContent.get())?.photoObjectKey !== entry.key;
           if (root === 'scenes') return (await r.scenes.findById(ownerId))?.image?.id !== objectId;
           if (root === 'households') return (await r.scenes.findHouseholdPhoto(ownerId))?.objectId !== objectId;
           if (folder === 'avatar') return (await r.pets.findAvatar(ownerId))?.objectId !== objectId;

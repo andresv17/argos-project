@@ -20,12 +20,16 @@ import { DomainError as DomainErrorV33 } from '../../../generated/v33/index.ts';
 import { DomainError as DomainErrorV34 } from '../../../generated/v34/index.ts';
 // El catálogo 3.5.0 (feature 009) añade ERR-ACCOUNT-DELETE-* y ERR-ADMIN-*: quinta clase con el mismo contrato.
 import { DomainError as DomainErrorV35 } from '../../../generated/v35/index.ts';
+// El catálogo 3.6.0 (feature 010) añade ERR-MEN10-ADULT-DECLARATION-REQUIRED: sexta clase con el mismo contrato.
+import { DomainError as DomainErrorV36 } from '../../../generated/v36/index.ts';
 import { MAX_IMPORT_BYTES } from '../../../application/use-cases/backup-use-cases.ts';
 
 export const PROBLEM_CONTENT_TYPE = 'application/problem+json; charset=utf-8';
 export const BACKUP_IMPORT_PATH = '/api/backup/import';
-/** `POST /api/pets/<id>/media`, `PUT /api/pets/<id>/avatar` y `PUT /api/households/<id>/photo` (006): rutas de cuerpo crudo de medios. */
-const MEDIA_UPLOAD_PATH = /^\/api\/(?:pets\/[^/]+\/(?:media|avatar)|households\/[^/]+\/photo)$/;
+/** `POST /api/pets/<id>/media`, `PUT /api/pets/<id>/avatar` y `PUT /api/households/<id>/photo` (006) y `PUT /api/admin/about/photo` (010): rutas de cuerpo crudo de medios. */
+const MEDIA_UPLOAD_PATH = /^\/api\/(?:pets\/[^/]+\/(?:media|avatar)|households\/[^/]+\/photo|admin\/about\/photo)$/;
+/** `PUT /api/admin/about` (010, H-ARCH-ACE-413): el JSON de texto que supera el límite de lectura es `ERR-ACE10-BODY-TOO-LARGE` (413), solo en esta ruta. */
+const ABOUT_TEXT_PATH = '/api/admin/about';
 
 /** Ruta de la petición sin la cadena de consulta (campo `instance`). */
 export const requestPath = (request: FastifyRequest) => request.url.split('?')[0] ?? request.url;
@@ -39,11 +43,12 @@ function isFastifyRequestError(error: unknown): error is FastifyError {
  * Traduce cualquier error a un DomainError del catálogo.
  * @implements ERR-INTERNAL-UNEXPECTED, ERR-BACKUP-PAYLOAD-TOO-LARGE
  */
-export function toDomainError(error: unknown, request: FastifyRequest): DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34 | DomainErrorV35 {
-  if (error instanceof DomainError || error instanceof DomainErrorV31 || error instanceof DomainErrorV33 || error instanceof DomainErrorV34 || error instanceof DomainErrorV35) return error;
+export function toDomainError(error: unknown, request: FastifyRequest): DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34 | DomainErrorV35 | DomainErrorV36 {
+  if (error instanceof DomainError || error instanceof DomainErrorV31 || error instanceof DomainErrorV33 || error instanceof DomainErrorV34 || error instanceof DomainErrorV35 || error instanceof DomainErrorV36) return error;
   if (isFastifyRequestError(error)) {
     // Medios y avatar (REQ-ARC-001, REQ-AVA-001): el cuerpo que supera el tope de lectura es ERR-MEDIA-TOO-LARGE (413), no un fallo de esquema.
     if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' && MEDIA_UPLOAD_PATH.test(requestPath(request))) return new DomainErrorV31('ERR-MEDIA-TOO-LARGE');
+    if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' && requestPath(request) === ABOUT_TEXT_PATH && request.method === 'PUT') return new DomainErrorV36('ERR-ACE10-BODY-TOO-LARGE');
     if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' && (requestPath(request) === BACKUP_IMPORT_PATH || requestPath(request) === `${BACKUP_IMPORT_PATH}/preview`)) {
       return new DomainError('ERR-BACKUP-PAYLOAD-TOO-LARGE', `El archivo supera el máximo de ${MAX_IMPORT_BYTES} bytes (10 MB).`, null, 'ROLLED_BACK');
     }
@@ -52,7 +57,7 @@ export function toDomainError(error: unknown, request: FastifyRequest): DomainEr
   return new DomainError('ERR-INTERNAL-UNEXPECTED');
 }
 
-export function sendProblem(reply: FastifyReply, request: FastifyRequest, error: DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34 | DomainErrorV35): FastifyReply {
+export function sendProblem(reply: FastifyReply, request: FastifyRequest, error: DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34 | DomainErrorV35 | DomainErrorV36): FastifyReply {
   return reply.status(error.status).type(PROBLEM_CONTENT_TYPE).send(error.toProblemDetails(requestPath(request)));
 }
 
@@ -60,7 +65,7 @@ export function sendProblem(reply: FastifyReply, request: FastifyRequest, error:
 export function registerProblemDetails(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     const problem = toDomainError(error, request);
-    if (problem.code === 'ERR-INTERNAL-UNEXPECTED' && !(error instanceof DomainError) && !(error instanceof DomainErrorV31) && !(error instanceof DomainErrorV33) && !(error instanceof DomainErrorV34) && !(error instanceof DomainErrorV35)) request.log.error({ err: error }, 'error no previsto');
+    if (problem.code === 'ERR-INTERNAL-UNEXPECTED' && !(error instanceof DomainError) && !(error instanceof DomainErrorV31) && !(error instanceof DomainErrorV33) && !(error instanceof DomainErrorV34) && !(error instanceof DomainErrorV35) && !(error instanceof DomainErrorV36)) request.log.error({ err: error }, 'error no previsto');
     // 429 de la escena (REQ-ESC6-034), de administración y del registro (009): los segundos de espera viajan en `Retry-After`.
     const retryAfter = (error as { retryAfterSeconds?: unknown }).retryAfterSeconds;
     if ((problem.code === 'ERR-RATE-LIMITED' || problem.code === 'ERR-ADMIN-RATE-LIMITED' || problem.code === 'ERR-ACCOUNT-REGISTRATION-RATE-LIMITED') && typeof retryAfter === 'number') reply.header('retry-after', String(retryAfter));

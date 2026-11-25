@@ -44,7 +44,7 @@ async function callbackApp(complete: () => Promise<unknown>): Promise<{ app: Fas
   await app.register(cookie);
   registerProblemDetails(app);
   const useCases = { googleComplete: { execute: complete } } as unknown as UseCases;
-  registerGoogleAuthRoutes(app, { useCases, cookieSecure: true }, new GoogleRateLimiter(() => Date.now()), new RegistrationRateLimiter(() => Date.now()));
+  registerGoogleAuthRoutes(app, { useCases, cookieSecure: true, publicBaseUrl: 'http://127.0.0.1:5173' }, new GoogleRateLimiter(() => Date.now()), new RegistrationRateLimiter(() => Date.now()));
   return { app, lines };
 }
 

@@ -118,7 +118,7 @@ export function ReviveConfirmation({ petName, onConfirm, onCancel }: {
           ref={confirmRef}
           type="button"
           onClick={onConfirm}
-          className="min-h-12 rounded-xl bg-primary px-4 py-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="min-h-12 rounded-xl bg-primary px-4 py-3 font-semibold text-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
         >
           Confirmar y volver a Vivo
         </button>
@@ -163,7 +163,7 @@ export function BiographyField({ id, value, onChange, errors }: {
         aria-invalid={error === undefined && !over ? undefined : true}
         aria-describedby={error === undefined ? helpId : `${helpId} ${errorId}`}
         onChange={(e) => onChange('biography', e.target.value)}
-        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
       />
       <p id={helpId} {...(over ? { role: 'status' } : {})} className={`text-sm ${over ? 'font-semibold text-red-800' : 'text-text-muted'}`}>
         {`${count} de ${BIOGRAPHY_MAX_LENGTH} caracteres. Solo texto, sin saltos de línea.`}
@@ -337,7 +337,7 @@ export function PetForm({ profile, households = [], canAssign = false, onSubmit,
       <TextField id={`${prefix}-microchipId`} label="Microchip (15 dígitos, opcional)" name="microchipId" value={form.values.microchipId ?? ''} onChange={form.onChange} errors={form.errors} />
       <TextField id={`${prefix}-avatarUrl`} label="URL del avatar (opcional)" name="avatarUrl" type="url" value={form.values.avatarUrl ?? ''} onChange={form.onChange} errors={form.errors} />
       <p id={`${prefix}-avatarUrl-help`} className="-mt-2 text-sm text-text-muted">
-        La imagen de este enlace no se muestra como imagen en ARGOS: se abre como enlace en una pestaña nueva.
+        La imagen de este enlace no se muestra como imagen en Tipi: se abre como enlace en una pestaña nueva.
       </p>
       <AvatarExternalLink avatarUrl={form.values.avatarUrl} />
       {profile === null ? (

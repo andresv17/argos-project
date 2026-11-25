@@ -4,18 +4,18 @@
  * Con sesión iniciada vuelve a `/` (la ruta de retorno del *callback*). Sin flujo activo la pantalla es idéntica y el envío falla con el mensaje neutro del catálogo: no revela
  * correo, `sub` ni estado del flujo. El foco entra en el encabezado al abrir la pantalla (WCAG 2.4.3); sin `localStorage`.
  *
- * @implements REQ-SSO8-003, REQ-SSO8-004, NFR-008-002, EDGE-008-006, ERR-AUTH-GOOGLE-FAILED, ERR-AUTH-USERNAME-TAKEN
+ * @implements REQ-MEN10-001, EDGE-010-010, REQ-SSO8-003, REQ-SSO8-004, NFR-008-002, EDGE-008-006, ERR-AUTH-GOOGLE-FAILED, ERR-AUTH-USERNAME-TAKEN
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ACCOUNT_STATUS_ROUTE } from '../account-status.ts';
 import { ApiProblem, catalogProblem } from '../api.ts';
-import { Button, FormError, TextField } from '../components/Field.tsx';
+import { Button, CheckboxField, FormError, TextField } from '../components/Field.tsx';
 import { chooseUsernameFeedback } from '../google-login.ts';
 import { useSession } from '../session.tsx';
 import { formValues, validateInput, type FieldErrors } from '../validation.ts';
 import type { Schemas } from '../view-model.ts';
-import { AuthLayout } from './AuthPages.tsx';
+import { ADULT_DECLARATION_REQUIRED_MESSAGE, AuthLayout, adultErrorsFor } from './AuthPages.tsx';
 
 interface ChooseUsernameViewProps {
   readonly values: Readonly<Record<string, string>>;
@@ -26,17 +26,21 @@ interface ChooseUsernameViewProps {
   readonly busy: boolean;
   /** Texto de la live region puntual (H-FOCO-1): solo se llena cuando el envío fue con el foco ya dentro del campo; vacío en el resto. */
   readonly announcement?: string;
+  /** Casilla «Soy mayor de edad (18+)» (010, REQ-MEN10-001): se exige antes de crear la cuenta PENDING. */
+  readonly adult?: boolean;
+  readonly onAdultChange?: (checked: boolean) => void;
   readonly onChange: (name: string, value: string) => void;
   readonly onSubmit: (event: FormEvent) => void;
 }
 
 /** Presentación pura de la pantalla (render estático en las pruebas). */
-export function ChooseUsernameView({ values, errors, message, restart, busy, announcement = '', onChange, onSubmit, titleRef }: ChooseUsernameViewProps & { readonly titleRef?: React.Ref<HTMLHeadingElement> }): JSX.Element {
+export function ChooseUsernameView({ values, errors, message, restart, busy, announcement = '', adult = false, onAdultChange = () => undefined, onChange, onSubmit, titleRef }: ChooseUsernameViewProps & { readonly titleRef?: React.Ref<HTMLHeadingElement> }): JSX.Element {
   return (
     <AuthLayout title="Elige tu usuario" titleId="choose-username-title" {...(titleRef === undefined ? {} : { titleRef })}>
-      <p className="mb-3 text-sm text-slate-800">Es el nombre con el que te encontrarán en ARGOS. Podrás cambiar tu nombre visible más adelante.</p>
+      <p className="mb-3 text-sm text-slate-800">Es el nombre con el que te encontrarán en Tipi. Podrás cambiar tu nombre visible más adelante.</p>
       <form noValidate aria-labelledby="choose-username-title" onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <TextField id="choose-username" label="Usuario (letras, números, . _ -)" name="username" autoComplete="username" required value={values['username'] ?? ''} onChange={onChange} errors={errors} />
+        <CheckboxField id="choose-adultDeclaration" label="Soy mayor de edad (18+)" name="adultDeclaration" required checked={adult} onChange={(_name, checked) => onAdultChange(checked)} errors={adultErrorsFor(errors, adult)} />
         <FormError message={message} />
         <p id="choose-username-announce" aria-live="assertive" aria-atomic="true" className="sr-only">
           {announcement}
@@ -64,6 +68,7 @@ export function ChooseUsernamePage(): JSX.Element {
   const [message, setMessage] = useState<string | null>(null);
   const [restart, setRestart] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [adult, setAdult] = useState(false);
   /** Cuenta de peticiones de foco al campo con error (H-T1122-S1): el efecto actúa tras el render, cuando el campo ya muestra `aria-describedby`. */
   const [errorFocus, setErrorFocus] = useState(0);
 
@@ -93,14 +98,16 @@ export function ChooseUsernamePage(): JSX.Element {
     submittedInField.current = document.activeElement?.id === 'choose-username';
     setAnnouncement('');
     const body = formValues(values, [], []);
-    const clientErrors = validateInput('GoogleChooseUsernameInput', body);
+    // 010 (REQ-MEN10-001): la casilla no forma parte del esquema 004 (cuerpo cerrado); se exige aparte y se envía solo si está marcada.
+    const clientErrors: FieldErrors = { ...validateInput('GoogleChooseUsernameInput', body), ...(adult ? {} : { adultDeclaration: ADULT_DECLARATION_REQUIRED_MESSAGE }) };
     setErrors(clientErrors);
     setMessage(null);
     if (clientErrors['username'] !== undefined) setErrorFocus((n) => n + 1);
+    else if (clientErrors['adultDeclaration'] !== undefined) document.getElementById('choose-adultDeclaration')?.focus();
     if (Object.keys(clientErrors).length > 0) return;
     setBusy(true);
     session
-      .chooseGoogleUsername(body as Schemas['GoogleChooseUsernameInput'])
+      .chooseGoogleUsername({ ...(body as Schemas['GoogleChooseUsernameInput']), adultDeclaration: true } as Schemas['GoogleChooseUsernameInput'])
       .then((pending) => navigate(pending === null ? '/' : ACCOUNT_STATUS_ROUTE[pending], { replace: true }))
       .catch((error: unknown) => {
         const feedback = chooseUsernameFeedback(error instanceof ApiProblem ? error.problem : catalogProblem('ERR-INTERNAL-UNEXPECTED'));
@@ -112,5 +119,5 @@ export function ChooseUsernamePage(): JSX.Element {
       .finally(() => setBusy(false));
   };
 
-  return <ChooseUsernameView values={values} errors={errors} message={message} restart={restart} busy={busy} announcement={announcement} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} onSubmit={onSubmit} titleRef={titleRef} />;
+  return <ChooseUsernameView values={values} errors={errors} message={message} restart={restart} busy={busy} announcement={announcement} adult={adult} onAdultChange={setAdult} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} onSubmit={onSubmit} titleRef={titleRef} />;
 }

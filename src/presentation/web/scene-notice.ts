@@ -18,7 +18,7 @@ export const NOTICE_PROVIDER_ID = 'vertex-gemini-image';
 /** Igual a `SCENE_GLOBAL_NOTICE_VERSION` del servidor (D9-27 (5)): variante del aviso mientras la región efectiva es `global`; pide reconsentir solo entonces. */
 export const NOTICE_GLOBAL_VERSION = '3-global';
 export const NOTICE_TITLE = 'Crear la imagen de tu hogar con inteligencia artificial';
-export const NOTICE_INTRO = 'Para dibujar tu hogar y tus mascotas en pixel art, ARGOS envía imágenes a un servicio de inteligencia artificial de terceros. Antes de continuar, lee esto.';
+export const NOTICE_INTRO = 'Para dibujar tu hogar y tus mascotas en pixel art, Tipi envía imágenes a un servicio de inteligencia artificial de terceros. Antes de continuar, lee esto.';
 
 export interface NoticeSection {
   readonly title: string;
@@ -31,15 +31,15 @@ export const NOTICE_SECTIONS: readonly NoticeSection[] = [
     paragraphs: [
       'Se envía la foto de tu hogar, si la subiste y consentiste; el avatar de cada mascota de la que eres Propietario Legal, si consentiste; la imagen de la escena anterior cuando solo se cambian algunas mascotas; y un texto técnico con la especie, la raza y el sexo de cada mascota.',
       'También se envía la biografía de cada mascota (el texto libre de su ficha, depurado de caracteres especiales y limitado a 280 caracteres) al servicio de inteligencia artificial de imágenes, junto con las instrucciones, tanto de las mascotas con foto como de las que no la tienen. No escribas en la biografía datos que no quieras compartir con el proveedor.',
-      'Cada vez que generas o regeneras la escena, ARGOS vuelve a enviar al proveedor la foto de tu hogar y las fotos vigentes de las mascotas con consentimiento, aunque ya las hubiera enviado antes: ARGOS no reutiliza lo enviado, lo reenvía en cada regeneración.',
+      'Cada vez que generas o regeneras la escena, Tipi vuelve a enviar al proveedor la foto de tu hogar y las fotos vigentes de las mascotas con consentimiento, aunque ya las hubiera enviado antes: Tipi no reutiliza lo enviado, lo reenvía en cada regeneración.',
       'No se envían nombres de mascotas ni de personas, número de microchip, correo, fechas de nacimiento ni datos clínicos de la ficha; lo que escribas dentro de la biografía sí viaja.',
-      'La normalización es parcial: ARGOS elimina del archivo los metadatos (ubicación GPS, fecha de la cámara) antes de enviarlo, pero no recodifica ni reduce la imagen; su contenido visual llega tal cual al proveedor.',
+      'La normalización es parcial: Tipi elimina del archivo los metadatos (ubicación GPS, fecha de la cámara) antes de enviarlo, pero no recodifica ni reduce la imagen; su contenido visual llega tal cual al proveedor.',
     ],
   },
   {
     title: '2. A quién se envía',
     paragraphs: [
-      'A Google LLC, mediante el servicio Google Cloud Vertex AI (modelo Gemini Image), desde el proyecto de Google Cloud de ARGOS, que es quien contrata el servicio. El modelo exacto puede cambiar con el tiempo y lo fija ARGOS por configuración.',
+      'A Google LLC, mediante el servicio Google Cloud Vertex AI (modelo Gemini Image), desde el proyecto de Google Cloud de Tipi, que es quien contrata el servicio. El modelo exacto puede cambiar con el tiempo y lo fija Tipi por configuración.',
     ],
   },
   {
@@ -49,15 +49,15 @@ export const NOTICE_SECTIONS: readonly NoticeSection[] = [
   {
     title: '4. Cuánto tiempo las conserva el proveedor',
     paragraphs: [
-      'Según las condiciones de Google Cloud (Cloud Data Processing Addendum y Service Specific Terms de Vertex AI), tus imágenes no se usan para entrenar los modelos fundacionales de Google. ARGOS las trata como datos del cliente y las envía solo para generar la escena.',
-      'La retención de la copia que recibe Google y su borrado se rigen por esas mismas condiciones; ARGOS no controla esa copia y esos datos siguen pendientes de confirmar con la documentación oficial.',
-      'La biografía se lee solo al generar y viaja de forma transitoria en la petición al proveedor; Argos no la guarda en intentos de escena, instantáneas ni registros del servidor. Según los términos de datos de cliente de Google Cloud (Vertex AI), el proveedor no usa datos del cliente para entrenar sus modelos sin permiso, aunque puede conservar temporalmente peticiones hasta 30 días por prevención de abuso.',
+      'Según las condiciones de Google Cloud (Cloud Data Processing Addendum y Service Specific Terms de Vertex AI), tus imágenes no se usan para entrenar los modelos fundacionales de Google. Tipi las trata como datos del cliente y las envía solo para generar la escena.',
+      'La retención de la copia que recibe Google y su borrado se rigen por esas mismas condiciones; Tipi no controla esa copia y esos datos siguen pendientes de confirmar con la documentación oficial.',
+      'La biografía se lee solo al generar y viaja de forma transitoria en la petición al proveedor; Tipi no la guarda en intentos de escena, instantáneas ni registros del servidor. Según los términos de datos de cliente de Google Cloud (Vertex AI), el proveedor no usa datos del cliente para entrenar sus modelos sin permiso, aunque puede conservar temporalmente peticiones hasta 30 días por prevención de abuso.',
     ],
   },
   {
     title: '5. No subas fotos con personas',
     paragraphs: [
-      'Las fotos del hogar y de las mascotas pueden mostrar personas sin que lo notes, como personas fortuitas al fondo. ARGOS no detecta personas: no subas fotos donde aparezca alguien, en especial menores.',
+      'Las fotos del hogar y de las mascotas pueden mostrar personas sin que lo notes, como personas fortuitas al fondo. Tipi no detecta personas: no subas fotos donde aparezca alguien, en especial menores.',
       'La imagen de tu hogar la verán todos los miembros activos del hogar. Si el dueño de una mascota no consintió, esa mascota aparece sin su foto.',
     ],
   },
@@ -84,7 +84,7 @@ export const NOTICE_GEMINI_API_SECTIONS: readonly NoticeSection[] = NOTICE_SECTI
     return {
       title: section.title,
       paragraphs: [
-        'A Google LLC, mediante la API pública Gemini Developer API (modelo Gemini Image), con una clave del propietario de esta instalación de ARGOS. Es un uso local y privado de la API pública, no un servicio de Google Cloud contratado por ARGOS. Entidad contratante y nombre exacto del modelo: pendientes de confirmar.',
+        'A Google LLC, mediante la API pública Gemini Developer API (modelo Gemini Image), con una clave del propietario de esta instalación de Tipi. Es un uso local y privado de la API pública, no un servicio de Google Cloud contratado por Tipi. Entidad contratante y nombre exacto del modelo: pendientes de confirmar.',
       ],
     };
   }
@@ -99,7 +99,7 @@ export const NOTICE_GEMINI_API_SECTIONS: readonly NoticeSection[] = NOTICE_SECTI
       title: section.title,
       paragraphs: [
         'Los términos de datos de la Gemini Developer API (retención, uso de las imágenes para entrenamiento según el plan de la clave) están pendientes de confirmar con su documentación oficial. Hasta confirmarlos, este uso local con tu propia clave queda bajo tu responsabilidad y no debe incluir fotos de terceros.',
-        'La biografía de tus mascotas se lee únicamente al generar y viaja de forma transitoria en la petición al proveedor: ARGOS no la almacena en los intentos de escena, en las instantáneas ni en los registros del servidor. Su uso para entrenamiento por parte del proveedor sigue pendiente de confirmar.',
+        'La biografía de tus mascotas se lee únicamente al generar y viaja de forma transitoria en la petición al proveedor: Tipi no la almacena en los intentos de escena, en las instantáneas ni en los registros del servidor. Su uso para entrenamiento por parte del proveedor sigue pendiente de confirmar.',
       ],
     };
   }

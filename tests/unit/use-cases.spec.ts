@@ -73,11 +73,11 @@ async function failure(promise: Promise<unknown>): Promise<DomainError> {
 describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
   it('[REQ-AUTH2-001][REQ-APR9-001][INV-ARCH-002] registra con el username exacto, guarda solo el hash, deja la cuenta PENDING y NO abre sesión (solo devuelve el estado)', async () => {
     const { deps, uow, hasher } = createHarness();
-    const result = await new RegisterUserUseCase(deps).execute({ username: 'sofia.m', displayName: 'Sofía', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' });
+    const result = await new RegisterUserUseCase(deps).execute({ username: 'sofia.m', displayName: 'Sofía', password: 'Clave2026x!', confirmPassword: 'Clave2026x!', adultDeclaration: true });
     const sofia = { id: generatedId(1), username: 'sofia.m', displayName: 'Sofía', createdAt: NOW };
     expect(result).toEqual({ accountStatus: 'PENDING' });
     const state = uow.snapshot();
-    expect(state.users.find((u) => u.id === sofia.id)).toEqual({ ...sofia, email: null, preferredLanguage: 'es', timezone: 'America/Bogota', passwordHash: `${FAKE_HASH_PREFIX}Clave2026x!`, accountStatus: 'PENDING' });
+    expect(state.users.find((u) => u.id === sofia.id)).toEqual({ ...sofia, email: null, preferredLanguage: 'es', timezone: 'America/Bogota', passwordHash: `${FAKE_HASH_PREFIX}Clave2026x!`, accountStatus: 'PENDING', adultDeclaredAt: NOW, adultNoticeVersion: '0.1.0' });
     expect(state.sessions).toEqual(canonicalState().sessions);
     expect(hasher.calls).toEqual([{ method: 'hash', plain: 'Clave2026x!', hash: null }]);
   });
@@ -86,18 +86,18 @@ describe('autenticación (src/application/use-cases/auth-use-cases.ts)', () => {
     const { deps, uow } = createHarness();
     const register = new RegisterUserUseCase(deps);
     const password = { password: 'Clave2026x!', confirmPassword: 'Clave2026x!' };
-    expect(await outcome(register.execute({ username: 'andres', displayName: 'Otro', ...password }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
-    expect(await outcome(register.execute({ username: edge('EDGE-010-').payload.username, displayName: 'Otro', ...password }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
-    expect(await outcome(register.execute({ username: ' andres ', displayName: 'Otro', ...password }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@username');
+    expect(await outcome(register.execute({ username: 'andres', displayName: 'Otro', ...password, adultDeclaration: true }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
+    expect(await outcome(register.execute({ username: edge('EDGE-010-').payload.username, displayName: 'Otro', ...password, adultDeclaration: true }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
+    expect(await outcome(register.execute({ username: ' andres ', displayName: 'Otro', ...password, adultDeclaration: true }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@username');
     expect(uow.snapshot()).toEqual(canonicalState());
   });
 
   it('[REQ-AUTH2-001] contraseña débil da ERR-AUTH-WEAK-PASSWORD; contraseña ausente o confirmación distinta, ERR-SCHEMA-VALIDATION-FAILED', async () => {
     const { deps, uow, hasher } = createHarness();
     const register = new RegisterUserUseCase(deps);
-    expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo', password: 'sindigitos', confirmPassword: 'sindigitos' }))).toBe('ERR-AUTH-WEAK-PASSWORD@password');
-    expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@password');
-    expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo', password: 'Clave2026x!', confirmPassword: 'Clave2026y!' }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@confirmPassword');
+    expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo', password: 'sindigitos', confirmPassword: 'sindigitos', adultDeclaration: true }))).toBe('ERR-AUTH-WEAK-PASSWORD@password');
+    expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo', adultDeclaration: true }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@password');
+    expect(await outcome(register.execute({ username: 'nuevo', displayName: 'Nuevo', password: 'Clave2026x!', confirmPassword: 'Clave2026y!', adultDeclaration: true }))).toBe('ERR-SCHEMA-VALIDATION-FAILED@confirmPassword');
     expect([uow.snapshot(), hasher.calls]).toEqual([canonicalState(), []]);
   });
 

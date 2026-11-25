@@ -29,7 +29,7 @@ export function SummaryPreviewPage({ api }: { readonly api?: ShareApi }): JSX.El
   return (
     <div className="grid min-w-0 gap-3">
       <div className="print-hide">
-        <button type="button" onClick={() => navigate(-1)} className="min-h-11 text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <button type="button" onClick={() => navigate(-1)} className="min-h-11 text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
           Volver
         </button>
       </div>

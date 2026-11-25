@@ -31,7 +31,7 @@ const sceneLeaseSeconds = (configModule as unknown as Record<string, (tGen: numb
  * INV-ESC6-013, INV-ESC6-018; REQ-ESC6-031, REQ-ESC6-011; SC-ESC6-034, SC-ESC6-092, SC-ESC6-087, SC-ESC6-025.
  */
 const SECRET = '1f'.repeat(32);
-const PROD_BASE = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: SECRET, ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
+const PROD_BASE = { NODE_ENV: 'production', ARGOS_PUBLIC_BASE_URL: 'https://tipi.pet', ARGOS_AUDIT_HMAC_SECRET: SECRET, ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
 const SCENE_REAL = {
   ARGOS_SCENE_DRIVER: 'real',
   ARGOS_SCENE_MODEL: 'gemini-2.5-flash-image',

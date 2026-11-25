@@ -100,7 +100,7 @@ async function transfer() {
   const accounts: Array<{ label: string; sourceUserId: string; username: string; envelopeJson: string; newUserId: string; result: Awaited<ReturnType<ImportBackupUseCase['execute']>> }> = [];
   for (const [label, sourceUserId, username] of [['ANDRES', ANDRES, 'andres'], ['MARIA', MARIA, 'maria.v']] as const) {
     const exported = await source.exporter.execute(sourceUserId);
-    const registered = await target.register.execute({ username, displayName: label, password: 'Clave-nueva-123', confirmPassword: 'Clave-nueva-123' });
+    const registered = await target.register.execute({ username, displayName: label, password: 'Clave-nueva-123', confirmPassword: 'Clave-nueva-123', adultDeclaration: true });
     expect(registered).toEqual({ accountStatus: 'PENDING' }); // 009: el alta no inicia sesión; el id de la cuenta nueva sale de la fila escrita en `users`
     const newUserId = writesTo(target.writes, 'users').at(-1)!.values[0] as string;
     const result = await target.importer.execute(newUserId, exported.json, digestOf(exported.json));

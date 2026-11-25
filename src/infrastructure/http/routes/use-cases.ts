@@ -4,6 +4,7 @@
  * @implements INV-ARCH-004
  */
 
+import { GetAdminAboutUseCase, GetPublicAboutPhotoUseCase, GetPublicAboutUseCase, PutAboutPhotoUseCase, UpdateAboutTextUseCase } from '../../../application/use-cases/about-use-cases.ts';
 import { AuthenticateAdminUseCase, CompleteAdminGoogleLoginUseCase, EndAdminSessionUseCase, StartAdminGoogleLoginUseCase } from '../../../application/use-cases/admin-use-cases.ts';
 import { ListAdminParametersUseCase, ResetAdminSceneQuotaUseCase, UpdateAdminParameterUseCase } from '../../../application/use-cases/admin-parameter-use-cases.ts';
 import { CountPendingRegistrationsUseCase, DecideRegistrationUseCase, ListPendingRegistrationsUseCase } from '../../../application/use-cases/admin-registration-use-cases.ts';
@@ -73,6 +74,11 @@ export function createUseCases(deps: ApplicationDeps) {
     adminListParameters: new ListAdminParametersUseCase(deps),
     adminUpdateParameter: new UpdateAdminParameterUseCase(deps),
     adminResetSceneQuota: new ResetAdminSceneQuotaUseCase(deps),
+    getPublicAbout: new GetPublicAboutUseCase(deps),
+    getPublicAboutPhoto: new GetPublicAboutPhotoUseCase(deps),
+    getAdminAbout: new GetAdminAboutUseCase(deps),
+    updateAboutText: new UpdateAboutTextUseCase(deps),
+    putAboutPhoto: new PutAboutPhotoUseCase(deps),
     changePassword: new ChangePasswordUseCase(deps),
     updateProfile: new UpdateProfileUseCase(deps),
     deleteAccount: new DeleteAccountUseCase(deps),
@@ -143,4 +149,6 @@ export type UseCases = ReturnType<typeof createUseCases>;
 export interface RouteContext {
   readonly useCases: UseCases;
   readonly cookieSecure: boolean;
+  /** Base pública de los enlaces, solo de configuración (REQ-TIP10-004, EDGE-010-012); nunca de la petición. */
+  readonly publicBaseUrl: string;
 }

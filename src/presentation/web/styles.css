@@ -3,6 +3,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fuentes locales (woff2, sin CDN): Tipi Display 800 (tipografía propia de Tipi, titulares; Tipografía original del autor — uso exclusivo de Tipi), Inter 400/600 (licencia SIL OFL) para el texto. */
+@font-face {
+  font-family: 'Tipi Display';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/tipi-display-latin-800-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/inter-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/inter-latin-600-normal.woff2') format('woff2');
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
@@ -11,9 +36,9 @@ html {
 body {
   min-width: 320px;
   min-height: 100vh;
-  color: #0f172a;
-  background-color: #e6f2ea;
-  background-image: linear-gradient(160deg, #eaf6ff 0%, #e6f2ea 50%, #f4f8ef 100%);
+  color: theme('colors.text-primary');
+  background-color: theme('colors.meadow');
+  background-image: linear-gradient(160deg, theme('colors.sky') 0%, theme('colors.meadow') 50%, theme('colors.cream') 100%);
   background-attachment: fixed;
 }
 
@@ -21,8 +46,8 @@ body {
 @media (min-width: 1024px) {
   body {
     background-image:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='720' viewBox='0 0 720 720'%3E%3Cg fill='none' stroke='%231d4f3a' stroke-opacity='0.08'%3E%3Ccircle cx='360' cy='360' r='60'/%3E%3Ccircle cx='360' cy='360' r='108'/%3E%3Ccircle cx='360' cy='360' r='156'/%3E%3Ccircle cx='360' cy='360' r='204'/%3E%3Ccircle cx='360' cy='360' r='252'/%3E%3Ccircle cx='360' cy='360' r='300'/%3E%3C/g%3E%3C/svg%3E"),
-      linear-gradient(160deg, #eaf6ff 0%, #e6f2ea 50%, #f4f8ef 100%);
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='720' viewBox='0 0 720 720'%3E%3Cg fill='none' stroke='%231F3D36' stroke-opacity='0.08'%3E%3Ccircle cx='360' cy='360' r='60'/%3E%3Ccircle cx='360' cy='360' r='108'/%3E%3Ccircle cx='360' cy='360' r='156'/%3E%3Ccircle cx='360' cy='360' r='204'/%3E%3Ccircle cx='360' cy='360' r='252'/%3E%3Ccircle cx='360' cy='360' r='300'/%3E%3C/g%3E%3C/svg%3E"),
+      linear-gradient(160deg, theme('colors.sky') 0%, theme('colors.meadow') 50%, theme('colors.cream') 100%);
     background-repeat: no-repeat, no-repeat;
     background-position: right -220px top -220px, center;
     background-size: 720px 720px, auto;
@@ -44,7 +69,7 @@ body {
   body {
     background: #fff !important;
     background-image: none !important;
-    color: #0f172a;
+    color: theme('colors.text-primary');
   }
 
   body {

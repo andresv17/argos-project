@@ -1762,3 +1762,634 @@ REQ-UX8-001/003 añadidos a títulos it (t1163, t1170). Commit local, vitest 16 
 ## 2026-11-21 keymaker 008 H-T1192-2 región status en sin coincidencias
 - InviteeCombobox.tsx: la región status ya no se vacía en showEmpty (`{inviteeAnnouncement(state)}`); el `<p>` visible sigue sin role/aria-live. Prueba unitaria t1191 (+1, 8 total) y E2E sin coincidencias afirman status con el mensaje D8-11.
 - Gates: tsc 0; t1191 8 ok; E2E Chromium 6/6 (E2E_API_PORT=3200 E2E_WEB_PORT=5273); oráculos 0 débiles (427). playwright.config.ts fuera del commit.
+
+## 2026-11-21 keymaker 008 T1192 tres navegadores + H-J-2 Postgres (200d9ac)
+- E2E 18/18 (chromium, firefox, webkit; 2.2 min). Fallos iniciales en firefox/webkit = defectos de la PRUEBA, no de la app: (1) usernames fijos chocaban 409 entre proyectos (backend/BD compartidos) -> prefijo por proyecto (c/f/wpedro); (2) el limite por IP (30/min, por diseño, ventana deslizante) agotado por el caso 429 de un proyecto dejaba sin cupo al siguiente -> beforeAll espera por condicion (sondeo + rafaga de 12 sin 429), sin esperas fijas.
+- PG17 127.0.0.1:55432 con la plantilla de docker-compose.test.yml (argos_test, documentada): part1 24 ok, schema-parity 17 ok (sin TEST_DATABASE_URL parity omite 1). Gates tsc 0, oraculos 0 debiles. Bus central no tocado (restriccion de la mision).
+
+## 2026-11-21 keymaker 008 H-J-2 BASELINE PG completo (ef8ca23 + commit siguiente)
+- Causa: BASELINE/POSTGRES_SCHEMA_SQL con listas manuales sin 0006-0008/0011/0012 (defecto de PRUEBA, no de produccion). Nuevo tests/fixtures/postgres-migrations.ts descubre y aplica todas las migraciones en orden (readdir); usado por 5 suites con BASELINE, concurrent-engines (POSTGRES_SCHEMA_SQL), t766, t861; quitados los PG_SHARE_SQL duplicados (t758, t764, sharing t795/t798).
+- PG17 persistence: antes 111 rojas/774; despues 0 rojas (836 ok, 1 skip condicional preexistente t558) en persistence+sharing. Sin URL: 645 ok/192 skip, 0 rojas. tsc 0; oraculos 0 debiles (428). Sin defectos reales de produccion.
+
+## 2026-11-21 keymaker 008 T1193 corrección H-ORA-T1193-1/-2/-3
+- t1193-invitees-sentinels: createApi(stateWith(EXTRA)) siembra pedro.*; XSS en username afirma 200 + names>0 antes del for; IDOR 2º caso e INVITED = 404 exacto; encabezado documenta POST de fixture en harness en memoria.
+- Prototype pollution: la premisa 422 NO se cumple; __proto__/constructor/prototype son prefijos válidos del alfabeto -> 200 con items []. Fijado a 200 exacto + items [] (más estricto que [200,422]); reportado a Morpheus.
+- Gates: archivo 11/11; tests/security 424/424; tsc 0; oráculos 0 débiles (429).
+
+## 2026-11-21 keymaker 008 lote A1 (#16, T1112..T1117)
+- T1112/T1113 (877988b, 9f63f5a, fix 9015ed0): `src/domain/auth/one-time-token.ts` puro (32 bytes base64url por puerto `nextEntropyBytes`, SHA-256 del dominio, 900 s, CAS puro, tiempo constante, desafío PKCE S256). El nombre `randomBytes` lo veta la compuerta de pureza en domain/.
+- T1114/T1115 (21bbc49, df18960): `google-oidc-verify.ts` (jose 6.2.17, único importador junto a oidc-verify.ts): URL de autorización, canje del código, iss/aud/exp/nonce/email_verified, fallo uniforme `GoogleOidcError(reason cerrado)`. Prueba T869 ajustada (Enmienda 3.8.0).
+- T1116 (1a264bb): migración SQLite 0017 / Postgres 0013 (`users.email_verified_at` + índice único parcial del titular verificado, `auth_identities`, `oauth_flow_states` con CHECK por fase e intención, cascadas). «Liberar» correo = `users.email = NULL` (repo), sin columna. Paridad primero + prueba con filas previas.
+- T1117 (3e29017, 2fb5814): puertos `auth-identity.port.ts`, repos SQLite/PG/memoria, `findVerifiedByEmail`, `releaseUnverifiedEmail`, `emailVerifiedAt` opcional (solo `insert`; `update` no lo toca). Privacidad NFR-008-004 en t1117 security.
+- Gates: tsc 0; vitest completo 5595 ok, 1 rojo ajeno (verify-ci-ready: archivo sin seguimiento .specify/.../smith-006-cadena-intentos.md); tests/security 428 ok; oráculos 0 débiles; traza 008 52 -> 57/87; PG real 55432 persistence sin rojas.
+- Pendiente para A2: `users.password_hash` NOT NULL y los repos rechazan hash vacío: la «cuenta nacida sin contraseña» (T1121) necesita decisión (sentinela no verificable o relajar columna).
+
+## 2026-11-21 keymaker 008 H-ORA-4 + H-A1-1 (conteos de secretos)
+- Verificado terraform/secret_manager.tf: 4 secretos y 4 auto{}. Pruebas: secret-manager 3->4 (recurso y auto{}), iam run accessor 3->4 + nombre google_oauth_client_secret añadido a la lista, iam-secrets accessor 3->4, labels 3->4. Tras 679df2a (Link) también deployer viewer 3->4 en iam y iam-secrets (lista de nombres y secret_id ampliadas). t1114: caso HS256 -> SIGNATURE.
+- Gates: tsc 0; oráculos 0 débiles; unit 3058 ok, 1 roja ajena (github-bootstrap-docs T450: guía sin TF_VAR_google_oauth_* de 679df2a).
+- Incidente: un git stash/pop para comparar basal chocó con hooks que escribieron en log-morpheus/registro; restaurado íntegro (stash pop OK, líneas añadidas reaplicadas).
+
+## 2026-11-21 keymaker 008 GH:#16 SECRETOS de bootstrap (Morpheus)
+- Verificado con grep: infraestructura.yml lee secrets.GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_REDIRECT_URI. Ampliada SECRETOS en tests/unit/github-bootstrap-docs.spec.ts de 4 a 6 nombres (sin tocar comparación ni títulos).
+- Resultado: igualdad exacta verde; 2 rojos nuevos: specs/003-cloud-gcp/quickstart.md no menciona los 2 nombres (terraform/README.md sí, 3 menciones). specs/** vedado: NO commiteado, cambio queda en árbol de trabajo. Para Morpheus/Architect: actualizar quickstart §6.
+
+## 2026-11-21 keymaker 008 lote higiene + fixtures OAuth (decisión 4B)
+- 3947dfa git rm smith-006-cadena-intentos.spec.ts; 891d66d test bootstrap SECRETOS (43/43); ee8b1ab fixtures validate-secrets (45->55, casos ausente/espacio/coma/http/vacío), t806 y t951 a 4 secretos (GOOGLE_OAUTH_CLIENT_SECRET), verificado contra deploy-argos.yml ad72062.
+- Gates: tsc 0; unit 203 archivos/3073 ok, 0 rojas; oráculos 0 débiles (433); verify-ci-ready LISTO PARA CI.
+
+## 2026-11-21 keymaker 008 lote A2-1 (#16, T1120/T1121 + centinela ADR-008-14)
+- 59d28fe pruebas rojas (3 archivos, fallaban por módulos inexistentes); commit feat de T1121 con casos de uso (`google-auth-use-cases.ts`), rutas (`google-auth.routes.ts`), puerto `GoogleOidcPort`, entropía `node:crypto` en infraestructura, límite de tasa (`google-auth-config.ts`: propuesta 20/20/10 por min por IP, link 5/15 min por usuario), config `GOOGLE_OAUTH_*` en app-config (secreto no enumerable) y composición en server.ts.
+- Centinela: `password-sentinel.ts`; scrypt `verify` hace scrypt dummy ante hash que no parsea; Login exige hasPassword; /me añade authMethods; startGoogleLink rechaza centinela con 409. Mutación (quitar dummy) rompe 2 pruebas.
+- Decisiones propias: callback LINK emite sesión nueva y revoca las demás (no hay cookie Strict en el retorno); start/link sin config = 500 (400 no declarado en contrato); ruta SPA `/elige-usuario` provisional para T1122.
+- Gates: tsc 0; vitest completo 5662 ok; PG real 804 ok; oráculos 0 débiles; traza 57 -> 59/87.
+
+## 2026-11-21 keymaker 008 hallazgos A2-1 (H-A21-1, H-A21-4 link, H-A21-7)
+- Commit local de pruebas: centinela con mediana de 30 corridas intercaladas, razón 0.8x..1.25x (mutaciones en copia temporal: sin dummy 0.00, N/2 0.49, r=4 0.49 -> rojo; copia borrada). Prueba link 6a -> 429. REQ-VIN8-004/INV-VIN8-005 en títulos `it`; `@implements` con REQ-VIN8-004 (solo etiqueta).
+- Gates: tsc 0; unit 3114 ok; security 428 ok; oráculos 0 débiles; traza 008 59 -> 61/87.
+
+## 2026-11-22 keymaker 008 H-A21-2 Opción A (origin_session_hash) + aviso de perfil
+- 0c0823f pruebas rojas (t1120 unit 12 rojas, api 2, t1116 3, parity 1, contrato sqlite 7); 778f033 impl.; 341ba6c aviso perfil (3 pruebas de presentación).
+- Migraciones 0013/0017 editadas en sitio: `origin_session_hash TEXT`, CHECK `(intent='LINK')=(origin_session_hash IS NOT NULL)` y longitud 64; se conserva el CHECK `(intent='LINK')=(user_id IS NOT NULL)` (con solo un CHECK combinado, LOGIN con hash pasaría). Sin FK.
+- `hashSessionToken` en domain/session-policy (sha256Hex = sessions.token_hash). Puertos findByTokenHash/revokeOthersByTokenHash en memoria, SQLite y PG. LINK: valida origen (existe, misma cuenta, AUTHENTICATED sin renovar), revoca las demás, devuelve LINKED sin sesión; ruta sin Set-Cookie argos_session.
+- Decisión propia: el contrato dice `authMethods.password` (no hasPassword); se exportó SessionContext para probar AccountPage; sin contraseña se ocultan PasswordSection y DangerZone.
+- Gates: tsc 0; unit 3124; security 428; oráculos 0 débiles (439); PG real persistence 807 ok/1 skip; traza 008 62/88. Fallan 3 pruebas de deriva src/generated vs contracts por edición en vuelo del architect (no mías).
+
+## 2026-11-21 keymaker 008 regeneración src/generated (d319857)
+- Ensayo con --out a scratchpad (004, 005, 006, 002): diff solo en 2 `@description` (completeGoogleLogin caso 3, startGoogleLink) en src/generated/api/openapi-types.ts y v31/api/openapi-types.ts. Regeneración real en orden 004,005,006,002; commit d0b92e5 (solo src/generated).
+- Lección: con src/generated/api modificado sin commitear, el compilador (guarda `git diff --stat -- src/generated/api`) falla dentro de las pruebas; hay que commitear antes de correr tests/integration/contracts (578/578 verde tras el commit). tsc 0.
+
+## 2026-11-21 keymaker 008 T1122 + T1123 (UI de Google y E2E en tres navegadores)
+- 5d79f42 rojas (t1122 unit 11 casos por módulos inexistentes; E2E 6 casos sin botón); c5583ce feat T1122; 65e80e6 E2E T1123. Sin push, sin [x].
+- UI: «Continuar con Google» es un `<a href="/api/auth/google/start">` (navegación; 48 px) en login y registro; `/elige-usuario` (pública, con sesión vuelve a `/`; foco al h2; error neutro del catálogo con role=alert; «Volver al acceso» siempre visible). `session.chooseGoogleUsername` + `google-login.ts`; validador `GoogleChooseUsernameInput` (v31). Sin localStorage.
+- E2E: harness `google-sim-support.ts` (API real en-proceso con googleFetch/googleJwks + Vite propio en puertos +100). Lección: `page.route` NO intercepta la redirección 302 hacia accounts.google.com (llegó al Google real); se resuelve con gancho `onSend` + `/api/__sim/google-consent` en el servidor. Firefox publica la respuesta 400 `problem+json` del callback sin terminar de navegar (parece descarga): se sigue en otra pestaña.
+- Hallazgo (API, no tocada): cancelación/fallo del callback muestra JSON crudo `problem+json`; la SPA no puede darle mensaje neutro. Requiere decisión Architect/Neo (p. ej. página HTML mínima en el 400 del callback).
+- Gates: tsc 0; unit 3135 ok; security 428 ok; oráculos 0 débiles (442); traza 008 62/88 (sin cambio); E2E 6/6 en chromium, firefox y webkit (2 corridas completas estables). E2E previos auth-pet-forms (3 rojas) buscan etiqueta «Usuario (minúsculas» ya obsoleta: preexistentes, no tocados.
+
+## 2026-11-21 keymaker 008 H-T1122-S1 (foco al campo con error en /elige-usuario)
+- Rojo: E2E nuevo en google-acceso-008.spec.ts (sin jsdom, el unit usa render estático): inválido (cliente) y ocupado (409 simulado con page.route) -> `toBeFocused()` sobre el campo; fallaba en chromium. Fix local en ChooseUsernamePage (contador `errorFocus` + efecto que enfoca `#choose-username`); Field.tsx intacto.
+- Gates: tsc 0; unit 3135; security 428; oráculos 0 débiles (442); E2E 21/21 en 3 navegadores (2 corridas limpias; una intermedia con ENOENT de trazas, ruido de infraestructura).
+
+## 2026-11-21 keymaker 008 H-T1122-3 (etiqueta obsoleta en auth-pet-forms)
+- Solo 2 ocurrencias (líneas 45 y 105): `/Usuario \(minúsculas/` -> `/Usuario \(letras/` (texto real: «Usuario (letras, números, . _ -)» en AuthPages.tsx y ChooseUsernamePage.tsx). Commit local de ese único archivo.
+- E2E chromium (3200/5273): 5 ok, 1 rojo (caso L40 crear mascota) por otra suposición obsoleta: `getByLabel('Raza').fill(...)` pero Raza hoy es `<select>`; 1 no corrió (L81, depende del rojo). No tocado (fuera de alcance). medios-csp-wcag y PetForm intactos. tsc 0.
+
+## 2026-11-21 keymaker 004/T550 raza del catálogo en auth-pet-forms (9960495)
+- L55: `getByLabel('Raza').fill('Pastor alemán')` -> `selectOption('DOG_PASTOR_ALEMAN')` (código de src/generated/catalogs/breeds.catalog.ts L194, label «Pastor Alemán», CANINE). El caso no asertaba el texto de raza después: sin otro cambio.
+- E2E chromium (3200/5273): 7/7 verdes, incluido L81 (búsqueda y alta). tsc 0. Solo ese archivo commiteado.
+
+## 2026-11-21 keymaker 008 H-FOCO-1 / H-FOCO-2 (Enter en elige-usuario)
+- 3cfa52f prueba roja (Enter + invariantRef en el 409 simulado); 46f6275 fix con setTimeout (rompió 3 guardas de UI sin temporizadores: REQ-UI-002, session-client, ui-invitation-logs); tercer commit sustituye el temporizador por vaciar en submit y reponer en efecto (sin timers).
+- Live region `<p id=choose-username-announce aria-live=assertive aria-atomic class=sr-only>` solo en ChooseUsernamePage; se llena únicamente si el envío ocurrió con el foco ya en el campo (Enter). Con clic el foco se mueve y el lector lee aria-describedby: región vacía, sin doble lectura. El error visible no lleva role=alert.
+- Lección: la UI no admite setTimeout (solo 3 módulos autorizados por Neo). Gates: tsc 0; E2E 24/24 en 3 navegadores.
+
+## 2026-11-21 keymaker 008 T1125 + T1126 (pruebas rojas, Bloque B #17) — decisión previa
+- Hallazgo de lectura: T1121 (778f033, 15cb6d8) ya implementa `StartGoogleLinkUseCase`, la rama LINK del callback y la regla D8-14 (`findVerifiedByEmail`/`releaseUnverifiedEmail`); t1120 ya cubre gran parte de T1126. Por tanto, parte de las pruebas nuevas nacerán verdes; se reportará cuáles caen en rojo y cuáles ya estaban cubiertas por T1121. No se escribe código de producción.
+- Plan: tests/unit/t1125-fallo-uniforme-google-008.spec.ts, tests/unit/t1126-vinculacion-google-008.spec.ts, tests/integration/api/t1126-vinculacion-google-008.api.spec.ts. Títulos con IDs (REQ-VIN8-*, INV-VIN8-*, EDGE-008-*, SC-008-*).
+- Discrepancia a escalar (no tocar spec): SC-008-014 dice LINK-CONFLICT para «sub ya vinculado a otra cuenta», pero el callback solo declara 400/429 en el contrato 004; hoy responde 400 ERR-AUTH-GOOGLE-FAILED.
+
+## 2026-11-21 keymaker 008 T1125 + T1126 — retoma (Neo aprobó A)
+- git status: no quedó ningún archivo parcial de t1125/t1126 (solo existen t1120/t1121 previos). Decisión: escribir los 3 archivos desde cero según el plan anterior.
+- Resultado T1125/T1126: 3 archivos nuevos SIN commit (tests/unit/t1125-fallo-uniforme-google-008.spec.ts 8, tests/unit/t1126-vinculacion-google-008.spec.ts 10, tests/integration/api/t1126-vinculacion-google-008.api.spec.ts 6). 24/24 VERDES: T1121 (778f033, 15cb6d8) ya implementa D8-14, fallo uniforme y LINK; no existe rojo posible sin tocar contrato. tsc 0; oráculos 0 débiles (445).
+- Decisión: no commitear (la orden condicionaba el commit al rojo esperado). Quedan como pruebas de caracterización/regresión a la espera de decisión de Morpheus/Neo.
+- Hallazgo: SC-008-014 pide ERR-AUTH-GOOGLE-LINK-CONFLICT para «sub ya vinculado a otra cuenta», pero el contrato 004 no declara 409 en completeGoogleLogin; hoy responde 400 ERR-AUTH-GOOGLE-FAILED (INV-VIN8-001 uniforme). Escalar a /architect (spec vs contrato). Lección: users.update nunca toca email_verified_at; sembrar verificado vía estado/insert. El límite de tasa de link (5/15 min) precede al bloqueo (5 fallos) por HTTP.
+
+## 2026-11-21 keymaker 008 T1125/T1126 correcciones OBS de oracle (sin commit)
+- (a) LINK-CONFLICT de startGoogleLink: ya cubierto en t1120 L333/L342; añadidos 2 casos unit (cuenta con Google; cuenta nacida con Google sin contraseña, OBS-5) y 1 HTTP (409 sin argos_oauth).
+- OBS-1 cuerpo completo del 401 comparado; OBS-2 googleCompletions [1,1,0]; OBS-3 HTTP 429 exacto; OBS-4 auditoría HTTP USER/UPDATE (1 fila, entity=executor) y unit '"USER"'.
+- Hallazgo: por HTTP el bloqueo de link devuelve 429 ERR-RATE-LIMITED (límite de ruta 5/15 min precede a ERR-AUTH-TOO-MANY-ATTEMPTS); el test fija eso y no relajado. Sin tocar spec/tasks/contracts.
+
+## 2026-11-21 keymaker 008 regeneración src/generated (sin commit)
+- compile-contracts.sh --feature 004, 005, 006, 002 en ese orden: OK. Diff solo en el campo `note` de ERR-AUTH-GOOGLE-LINK-CONFLICT en 4 archivos error-codes.ts (errors, v31, v33, v34); cero cambios de tipos o lógica; `git diff --stat -- src/generated/api` vacío.
+- Gates: tsc 0; codegen-drift + generated-004 + generated-contracts 30/30 verdes. Sin commit, sin tocar src/** fuera de generated, tests, contracts.
+
+## 2026-11-21 keymaker 008 T1131 (UI «Vincular Google» en el perfil) — decisión previa, sin commit
+- Revisión de diseño vs acta /sati T1122 (sati-008-T1122-acceso-google.md): se reutiliza CARD blanca neutra del perfil, controles de 48 px (min-h-12), botón secundario (borde primario) como «Continuar con Google», sin icono ni decoración, texto slate-800/text-muted, errores de campo bajo el campo y FormError (role=alert) solo para mensajes globales; foco al campo con error siguiendo el patrón H-T1122-S1 (contador errorFocus + efecto; sin temporizadores, REQ-UI-002).
+- Diseño: GoogleLinkView (pura, estática) en AccountPage.tsx: password:true y google:false => formulario «Vincular Google» con PasswordField «Contraseña actual» + botón; google:true => tarjeta role=status «Google vinculado»; password:false sin Google => nada (cuenta sin contraseña no tiene este flujo, REQ-VIN8-002). Lógica pura en google-login.ts: startGoogleLink(api,input) (POST /auth/google/link, CSRF_PARAMS) y googleLinkFeedback(problem): 401 credenciales => error bajo el campo + foco; resto (409/429/...) => mensaje neutro del catálogo, nunca cuerpo crudo. La SPA navega a authorizationUrl con window.location.assign; no guarda nada del flujo.
+- Pruebas primero: tests/unit/presentation/t1131-vincular-google-008.spec.ts (rojas). T1121 no se reimplementa.
+- T1131 resultado (sin commit): rojo inicial 11/12 en t1131-vincular-google-008.spec.ts; tras implementar 12/12 verdes. Cambios: google-login.ts (GOOGLE_LINK_FIELD, startGoogleLink, googleLinkFeedback), AccountPage.tsx (GoogleLinkView, GoogleLinkSection, GoogleLinkedStatus), validation.ts (+GoogleLinkStartInput de v31). Gates: tsc 0; unit 3167/3167; security 428; oráculos 0 débiles (446). E2E de vinculación no existe (T1132, siguiente). Limitación conocida: el fallo del callback LINK sigue siendo JSON crudo (hallazgo previo, API).
+
+## 2026-11-21 keymaker 008 T1131 correcciones /sati S1 (ALTO) y S2 (BAJO) (sin commit)
+- S1: rojo primero (3 fallos); googleLinkFeedback ya no usa el detailTemplate del catálogo para ERR-AUTH-INVALID-CREDENTIALS: texto propio GOOGLE_LINK_WRONG_PASSWORD "La contraseña actual no es correcta." (bajo el campo, con foco). Nueva prueba: sin texto del catálogo, "pérdida de sesión", "ERR-" ni "urn:argos". Resto de errores siguen con problemMessage.
+- S2: quitado role="status" de GoogleLinkedStatus (queda aria-labelledby); la prueba ahora exige ausencia de role=status y presencia de aria-labelledby.
+- Gates: tsc 0; t1131 13/13; unit 3168/3168; verify-oracles 0 débiles (446). src/generated sin cambios. Sin commit ni [x].
+
+## 2026-11-21 keymaker 008 T1132 (E2E de vinculación de Google, sin commit)
+- Nuevo tests/e2e/visual/google-vincular-008.spec.ts (4 casos x 3 navegadores) con el harness google-sim-support.ts (puertos 3700/5773; sim en 3800/5873). Producción intacta.
+- Casos: (b) contraseña mala: error «La contraseña actual no es correcta.» bajo el campo (#google-link-currentPassword-error), foco, aria-invalid, sin navegar, authMethods sin cambio; (a)+(c) vinculación correcta: callback 200 sin Set-Cookie argos_session, cookie de origen idéntica, authMethods {password,google}=true, luego /cuenta muestra «Google vinculado» sin formulario; (e) otra sesión de la cuenta pasa a 401 y la de origen sigue 200 (REQ-VIN8-004 SÍ implementado); (d) sub ya vinculado a otra cuenta: callback 400, cuenta sin vínculo, otra sesión viva, cuerpo ERR-AUTH-GOOGLE-FAILED sin sub ni correo.
+- Lección: la URL de autorización del link es JSON (no 302): se resuelve con page.route a accounts.google.com; WebKit no admite route.fulfill con 302, se usa 200 + meta refresh. Etiqueta de PasswordField incluye « *» oculto: getByLabel no exact, acotado al formulario.
+- Los casos nacieron verdes (T1121/T1131 ya implementan todo; no hay rojo posible). Resultado: 12/12 en chromium, webkit y firefox, 2 corridas limpias; con google-acceso-008 juntos 33/33 en 2 corridas tras el fix de WebKit. tsc 0; oráculos 0 débiles.
+
+## 2026-11-21 — H-RAMA-008-T1134-01 (MEDIO) corregido en parte (a); parte (b) no aplicada
+- (a) HECHO: `DELETE FROM oauth_flow_states WHERE expires_at <= @now` en `sqlite-unit-of-work.ts` (purgeExpired) y paso por lotes equivalente en `postgres-maintenance.ts`; sin conteo propio (MaintenanceCounts intacto). Prueba nueva roja primero: `tests/unit/t1134-purga-mantenimiento-oauth-008.spec.ts` (2). Ajustados `postgres-maintenance.spec.ts` (lista de tablas y valores).
+- (b) NO APLICADO: anular pending_email/pending_subject al consumir viola el CHECK de la migración 0017 (SQLite) y 0013 (PG): fase USERNAME exige ambos NOT NULL. Requeriría relajar el CHECK (migración, Nivel 2/spec). Con (a) la retención queda acotada a 900 s + intervalo de mantenimiento.
+- La it.fails de t1134-privacidad-retencion-cascada-008 ahora reporta «Expect test to fail» (esperado: el defecto está corregido); la retira /rama. tsc limpio, verify-oracles CUMPLE. Sin commit.
+
+## 2026-11-21 keymaker 008 Bloques F/G (T1165, T1169, T1172) — comprobación en disco y E2E nuevo (sin commit)
+- Ya implementado en disco (commits 1c1c899, c4a8c98, d48524f, ec50937): T1164 (scene-view.ts «Generaciones restantes este mes: R. Se renuevan el [fecha].»), T1166/T1168 (cliente: enlace «Descargar imagen» con download=1 y nombre argos-hogar-AAAA-MM-DD.png; servidor: download=1 en las 2 rutas), T1170/T1171/T1172 (figcaption «Mi hogar» en HomeSceneImage.tsx; t918 actualizado). Pruebas unit/API de esos: 105/105 verdes. Dependencias T1164/T1168/T1170/T1171 cumplidas.
+- Faltaba solo E2E: nuevo tests/e2e/visual/escena-008.spec.ts (3 casos x chromium/webkit/firefox): (T1165) texto mensual con fecha calculada desde quota.resetsAt en 320/1024/1280 sin desbordar + axe; (T1169) sin imagen no hay botón; con imagen descarga por clic y teclado, nombre sin PII, bytes PNG, objetivo >= 44 px. Nacieron verdes (código ya existente). Axe omitido en Firefox: la página se cae ("Page crashed") al ejecutar axe, ajeno a la app.
+- Resultado: 9/9 en 2 corridas limpias (E2E_FIREFOX=1 E2E_WEBKIT=1); tsc 0; verify-oracles CUMPLE (452, 0 débiles). Sin tocar spec/tasks/contracts/generated. Observación: comentarios de scene-view.ts y t1170 aún dicen «PROVISIONAL» aunque D8-09 está aprobada (cosmético, no tocado).
+
+## 2026-11-21 keymaker 008 T1183 — comprobación en disco (sin cambios de código, sin commit)
+- Ya implementado y commiteado: 52c0065 (T1179..T1183) y 3bf26bd (contador por puntos de código, O-2). PetForm.tsx: BiographyField (contador «N de 280 caracteres», aria-describedby, solo en edición); PetDashboard.tsx: texto plano en `data-pet-biography`, escapado. Lector/Cuidador: sin botón Editar. Prueba tests/unit/presentation/t1183-biografia-perfil-008.spec.ts (7) cubre SC-008-043/044, EDGE-008-042.
+- Gates: tsc 0; vitest t1183+t1182+t1179 17/17; verify-oracles CUMPLE (452, 0 débiles). No se tocó nada; falta revisión /sati y E2E T1184.
+
+## 2026-11-21 keymaker 008 T1184 — E2E de la biografía (sin commit)
+- Nuevo tests/e2e/visual/biografia-008.spec.ts (3 casos serial x chromium/webkit/firefox, puertos 3700/5773). (1) propietaria: Editar, contador 0 -> N de 280, guarda, ve `[data-pet-biography]` como texto literal (sin <b>), persiste tras recargar y en la API; (2) Lector (invitado y aceptado por UI): ve la biografía, sin «Editar» ni campo, PATCH => 403 ERR-ACC-FORBIDDEN y valor intacto; (3) escena con imagen generada ANTES: tras guardar, imageTag igual, status ready, pending 0, cuota igual y canUpdate=false/NO_CHANGES; control: sumar otra mascota deja pending>0.
+- Nacieron VERDES (T1181..T1183 ya implementados; no hay rojo posible). El caso (3) es de caracterización: pasaría también sin la regla D8-12 solo si la biografía entrara en la huella, y el control prueba que el detector de cambios sí funciona.
+- Resultado: 9/9 en dos corridas limpias (E2E_FIREFOX=1 E2E_WEBKIT=1). tsc 0; verify-oracles CUMPLE (453, 0 débiles). Sin tocar src/spec/tasks/contracts.
+- Lección: PATCH /pets sin If-Match da 422 (apiCall no manda cabeceras); para el control de escena se usó una mascota nueva.
+
+## 2026-11-21 keymaker 008 T1184 — ajustes OBS-1/OBS-3 de /oracle (sin commit)
+- biografia-008.spec.ts: cabecera declara suite de caracterización (nació verde, T1181..T1183 ya implementados). OBS-3: la UI no tiene botón «Actualizar» (solo «Regenerar imagen del hogar» por canRegenerate; scene-view.ts:207), así que afirmar deshabilitado en UI no es viable; se corrigió título y comentario a `canUpdate=false` (NO_CHANGES) en la API. Aserciones intactas.
+- Gates: E2E 9/9; tsc 0; verify-oracles FALLA por 1 oráculo débil AJENO: t1185-biografia-texto-libre-008.security.spec.ts:77 (not.toBeNull()), archivo de otro rol, no tocado.
+
+## 2026-11-21 keymaker 008 T1183 — hallazgos /sati S1, S2, S4 (y S3 barato) corregidos (sin commit)
+- Pruebas rojas primero (3) en t1183-biografia-perfil-008.spec.ts; luego verde. PetDashboard.tsx: la sección del héroe pasa a flex-col; fila nombre/avatar arriba y `<p data-pet-biography>` hermano a ancho completo con `min-w-0 [overflow-wrap:anywhere]` (S1+S4). PetForm.tsx: BIOGRAPHY_TOO_LONG «La biografía admite hasta 280 caracteres.» (presentación, sin tocar catálogo/contrato); error con role=alert y foco al campo vía useEffect sobre `errors` (S2); contador con role=status solo si excede (S3).
+- Gates: vitest tests/unit/presentation + t1182 662/662; tsc 0; verify-oracles CUMPLE (455, 0 débiles). El foco no es verificable en unit (sin DOM); queda para E2E/re-auditoría /sati.
+
+## 2026-11-21 keymaker 008 T1197 — comprobación en disco (sin cambios de código, sin commit)
+- Ya implementado y commiteado en 238a89b (T1196+T1197): role-help.ts (catálogo D8-13 comparado con can()), HouseholdsPage.tsx (RoleOnJoinSelect con help por aria-describedby; lista de miembros con <p id=member-N-role-help> y select aria-describedby; Administrador sin frase), ShareLinks.tsx (aviso HOUSEHOLD_LINK_NOTICE solo si canCreateLinks, fieldset aria-describedby). Prueba t1196-ayuda-rol-008.spec.ts 10/10 (SC-008-056..058).
+- Gates: tsc 0; vitest tests/unit/presentation 65 archivos / 660; verify-oracles CUMPLE (455, 0 débiles). can(), 005, matriz sin cambios. Nada que tocar; falta /sati (320/1024/1280, AA) y T1198 (E2E tres contextos). Observación: PetsPage pasa `canCreateLinks` fijo (solo el propietario llega a ese panel por la matriz); T1198 debe confirmar Cuidador/Lector.
+
+## 2026-11-21 keymaker 008 T1198 — E2E de ayuda de rol y aviso de enlaces (sin commit, sin [x])
+- Nuevo tests/e2e/visual/roles-ayuda-008.spec.ts (3 casos serial x chromium/webkit/firefox, puertos 3700/5773, tres contextos: Ana propietaria, Beto Cuidador, Dario Lector, aceptan por UI). (1) /households: frase D8-13 en «Rol al unirse» (cambia con el rol, ADMIN sin frase, aria-describedby) y en la lista de miembros (Rol de Beto/Dario con descripción accesible exacta); (2) propietaria: aviso `[data-share-household-hint]` en «Compartir con mi veterinario» y fieldset descrito por él; (3) Cuidador y Lector: myRole real por API (CAREGIVER/READER), pestaña «Historial / Archivos» abierta (se comprueba el enlace del álbum para que la ausencia no sea trivial), sin panel, sin título, sin aviso (marcador, fragmento y frase completa); sí ven su propia ayuda en /households.
+- Observación de PetsPage:281 verificada: el panel solo se monta si myRole es OWNER o ADMIN (PetsPage.tsx:~279), así que Cuidador/Lector nunca llegan al panel; NO hay hallazgo. El aviso depende de esa compuerta de rol, no de can() en ejecución (riesgo latente si alguien amplía la condición; el E2E lo atrapa).
+- Nacieron verdes (T1196/T1197 ya implementados). Resultado: 9/9 en chromium, webkit y firefox, 2 corridas limpias. tsc 0; verify-oracles CUMPLE (456, 0 débiles). Sin tocar src/spec/tasks/contracts. Fuera de alcance: rol ADMIN (invitado) viendo el panel con el aviso, no cubierto.
+
+## 2026-11-21 Keymaker: trazabilidad Bloque B (INV-VIN8-001/002/003) y revision Bloque J (SC-008-053), sin commit
+- B: `@implements` anadidos solo en comentarios: google-auth-use-cases.ts (cabecera: INV-VIN8-001/002/003; CompleteGoogleLoginUseCase: 001, 002 por insertIfAbsent/findBySubject; StartGoogleLinkUseCase: 003) y google-auth.routes.ts (INV-VIN8-001, 400 uniforme). Cero logica.
+- J: SC-008-053 («sin busqueda por correo», D8-10=A) NO esta cubierto de verdad: los tests de T1188/1190/1191/1192 no envian un q con correo/«@» ni afirman que no se busca por correo (solo 422 por prefijos con espacio/%). No se fuerza el titulo; falta un caso nuevo (p. ej. q=ana@x.com => 422) que decide /oracle o /morpheus.
+- Gates: tsc 0; t1188 unit 4/4; verify-traceability --feature 008 66/88 (antes 63), purity 0, FALLA por 22 IDs diferidos a 009; verify-oracles 456/0 debiles CUMPLE.
+
+## 2026-11-21 keymaker 008 SC-008-053 — prueba de «sin búsqueda por correo» (sin commit, sin [x])
+- Nuevo tests/integration/api/sc053-sin-busqueda-correo-008.api.spec.ts (1 caso): GET /households/{id}/invitees?q= con 4 formas de correo (pedro.a@example.test, ana@x.com, mayúsculas, «ped@») => 422 ERR-SCHEMA-VALIDATION-FAILED; espía de repositorios: solo `households.listMemberships` (ni users.* ni invitations.*); el cuerpo no refleja el correo ni usernames/dominio.
+- Nació VERDE (la ruta ya rechaza «@»; no hay brecha de privacidad). Es de caracterización: el espía ya está probado como detector real por H-J-1 de t1188 (con prefijo válido sí aparecen users.searchUsernamesByPrefix e invitations.listByHousehold). Sin tocar src/spec/tasks/contracts.
+- Gates: vitest del archivo 1/1; tsc 0; verify-oracles CUMPLE (457, 0 débiles).
+
+## 2026-11-21 keymaker 008 — IDs diferidos a 009/descartados en verify-traceability.sh (Neo aprobó opción A; sin commit, sin [x])
+- scripts/verify-traceability.sh: EXCLUDED_BY_DECISION ahora tiene rama `feature === '008'` (mismo mecanismo y formato que 007: REQ-REG7-003/REQ-FEC7-006) con 22 IDs y motivo citando spec.md «Diferido a 009»: REQ-SSO8-002/006 (D8-04=C, M8-01), REQ-VIN8-005 (M8-03), INV-VIN8-004, STATE-ACCT8-001 y REQ-APR8-001..005 (D8-02, #18), REQ-ADM8-001..006 e INV-ADM8-001 (D8-03/D8-07, #19), REQ-PRM8-001..004 (D8-08, #20), REQ-INV8-002 DESCARTADO por D8-10=A.
+- Añadido INV-ADM8-001 (no estaba en la lista de Morpheus): también figura diferido en spec.md y era el 22.º FAIL (66/88 = 22 fallos).
+- Resultado: 008 66/66 CUMPLE, pureza 0; 007 salida idéntica antes/después (diff vacío, 51/51). verify-oracles CUMPLE (457, 0 débiles); tsc 0. Lógica del resto de features intacta.
+
+## 2026-11-21 keymaker 008 H-T1197-S1 — selector «Rol de <miembro>» a 44 px (sin commit, sin [x])
+- Prueba primero (roja) en t1196-ayuda-rol-008.spec.ts: todo `<select aria-label="Rol de …">` de HouseholdCard lleva min-h-11 y no min-h-10. Implementación: HouseholdsPage.tsx:148 min-h-10 -> min-h-11 (solo clase; sin lógica ni frases).
+- Gates: vitest tests/unit/presentation verde; tsc 0; verify-oracles CUMPLE (457, 0 débiles).
+
+## 2026-11-23 — Feature 009 Fase 1 (bloques A #60 y B #57), /keymaker
+- Rojas primero: t1207 (15 rojas), t1208 (3 rojas), t1279 (2 rojas), t1213 prompt (17 rojas). T1280 verde desde el inicio (afirma el sobreconteo aceptado).
+- Implementado: puerto `refund`, `countClosedWithoutCallByScene`, `cancelStaleUnmarkedAttempts` (3 repos + null adapters), filtros de conteo, orden verificar->tryConsume->reverificar y marcar->refund, constantes en app-config (600 s, 20/día), `PRESERVATION_BLOCK` y nuevo orden de `buildImagePrompt`.
+- T1210: tryConsume (cliente propio) y la marca (UnitOfWork) NO comparten transacción -> sobreconteo conservador existe.
+- Pruebas heredadas actualizadas con motivo: t853, t851, t834 (FAILED sin marca ya no cuenta), t1071 x2, t841, t939, t874, fakes de cuota (refund).
+- Pendiente: gates-004 falla (usa `--feature 009` como "desconocida"), previo e independiente. Sin commit.
+
+## 2026-11-23 keymaker 009 Fase 2 (T1218, T1284, T1219, T1130) — pruebas rojas escritas (sin commit, sin [x])
+- Rojas primero: tests/integration/api/t1218-eliminacion-google-009.api.spec.ts (T1218+T1284, API real/SQLite/Google simulado), tests/integration/persistence/t1219-migracion-intencion-delete-009.spec.ts, y 3 casos en tests/fixtures/auth-identity-repository-contract-suite.ts (findDeletionProof/markDeletionProof/consumeDeletionProof); fixture google-fixtures.ts con authTimeSeconds y authorizations.
+- Decisiones de diseño (no estaban en artefactos, se reportan): (1) 0017/0013 ya están en producción (008 desplegada) => migraciones NUEVAS SQLite 0018 / PG 0014, no edición en sitio; (2) la prueba de titularidad es la fila DELETE consumida + pending_subject = sub verificado (marca), un solo uso por DELETE condicional; (3) max_age = 900 s (reutiliza ONE_TIME_TOKEN_TTL_SECONDS), prompt=login, auth_time del id_token obligatorio; (4) backupConfirmationToken opcional (commit 65b92ce: «opcional, Neo»): ausente no bloquea, presente mal formado/usado = ERR-ACCOUNT-CONFIRMATION-MISMATCH.
+- v35 compilado con scripts/compile-contracts.sh --feature 009 (src/generated/v35, sin edición manual).
+- 2026-11-23 verde: T1218 (23 casos API, antes 23 rojos), T1219 (7 casos migración, antes 7 rojos; SQLite 0018 + PG 0014 nuevas, paridad estática OK, PG vivo NO ejecutado: sin Postgres local), T1284 (4 casos dentro del mismo archivo), T1130 implementado: política `reauthentication-policy.ts`, puertos (`findDeletionProof/markDeletionProof/consumeDeletionProof`, `maxAgeSeconds`, `authTime`), `account-google-deletion-use-cases.ts`, cascada extraída a `eraseAccountInTransaction` (compartida con deleteAccount de 004, sin cambiar sus códigos), rutas `/api/account/deletion/reauth` y `/google`, DomainErrorV35 en problem-details.
+- Pruebas heredadas ajustadas con motivo (nueva migración/v35): sqlite-repositories (lista de migraciones), postgres-pool (última 0014, 14 archivos), t1116 (0017 ya no es la última; la base legada excluye 0018), schema-parity (0014 y CHECK de intent ampliado), codegen-drift (v35 ajeno a la regeneración de 002).
+- Gates: tsc 0; vitest completo 5938 verdes / 1 rojo ajeno (verify-ci-ready: archivos sin seguimiento, se resuelve al commitear); verify-oracles CUMPLE (464, 0 débiles); verify-traceability --feature 009: REQ-DEL9-001, INV-DEL9-001, EDGE-009-031/032/049 trazados; REQ-DEL9-002 pendiente de T1220.
+- NO hecho: UI (T1220 /sati: aviso sigue en AccountPage.tsx:182-192), T1221 E2E (Dep T1220), T1222, T1223.
+
+## 2026-11-23 — T1220 (009, deuda #17): UI del perfil para cuentas sin contraseña
+- Rojo: `tests/unit/presentation/t1220-eliminar-cuenta-google-009.spec.ts` no cargaba (módulo inexistente). Verde tras implementar: `src/presentation/web/account-deletion-google.ts` (fetch propio, patrón scene-api) y `AccountPage.tsx` (`DeleteGoogleView` + `DeleteGoogleSection`; `NoPasswordNotice` retirado).
+- Actualizado `aviso-cuenta-sin-contrasena-008.spec.ts` (casos 1 y 3 invertidos por REQ-DEL9-002/SC-009-046). tsc=0; vitest presentation 67 archivos / 705 tests verdes; verify-oracles CUMPLE (0 débiles). Sin commit; T1220 queda en REVIEW, no [x].
+
+## 2026-11-23 — Feature 009 Fase 3 (#19) portal /admin: pruebas rojas T1228..T1233 escritas (sin commit, sin [x])
+- Rojas primero: t1228 aislamiento, t1229 sesión, t1230 identidad/flujo OIDC, t1231 CSRF/auditoría/límite (tests/integration/api/), t1232 migración y t1233 repositorios (tests/integration/persistence/). Fixtures nuevos: tests/fixtures/admin-fixtures.ts; api-harness con opciones admin/staticRoot/wrapUow/ip; fakeGoogleOidc(redirectUri).
+- Decisiones propias (no están en artefactos, se reportan): acciones de auditoría ADMIN_SESSION_START/ADMIN_SESSION_END; admin_identities guarda el correo (minúsculas) para revalidar la lista (EDGE-009-047); el límite cuenta solo fallos del callback (el inicio solo comprueba el bloqueo); URI de admin derivada del origen de GOOGLE_OAUTH_REDIRECT_URI + ADMIN_GOOGLE_CALLBACK_PATH; migraciones SQLite 0019 / PG 0015.
+
+## 2026-11-23 — 009 Fase 3 (#19): T1228..T1234 en verde (parte de código; sin commit, sin [x], queda en REVIEW)
+- Rojas -> verdes: t1228 (10), t1229 (18), t1230 (18), t1231 (18), t1232 migración (11), t1233 repositorios (22), t1234 composición (5) = 102 verdes, 0 rojos. Migraciones NUEVAS: SQLite 0019_admin_portal.sql y PG 0015_admin_portal.sql (paridad estática en schema-parity.spec.ts); users y audit_log intactos.
+- Código: admin-session-policy.ts (dominio), admin.port.ts, admin-use-cases.ts, repos sqlite/postgres/memoria, admin-rate-limit.ts, routes/admin.routes.ts, app.ts, server.ts (URI admin = origen de GOOGLE_OAUTH_REDIRECT_URI + ADMIN_GOOGLE_CALLBACK_PATH), static-assets (/admin/* = 404), problem-details (Retry-After de ERR-ADMIN-RATE-LIMITED), app-config (ADMIN_ACCESS_LIMIT 10/15).
+- Pruebas heredadas ajustadas con motivo (4 tablas y 4 repos nuevos, 0019/0015): sqlite-repositories, t831, postgres-pool, postgres-repositories-part3, schema-parity, t1219 (base de producción = solo < 0018).
+- Gates: tsc 0; vitest completo 6073 verdes / 1 rojo ajeno (verify-ci-ready: archivos sin seguimiento); verify-oracles CUMPLE (475, 0 débiles); verify-traceability --feature 009: 52/79 (todos los ADM9 trazados; el resto es de Fases 4/5).
+- Pendiente: pending-count (Fase 4, depende de users.account_status), UI T1235, T1236..T1240.
+
+## 2026-11-23 — 009 OBS-2 y O-2 (tope de inicios del flujo admin)
+- OBS-2: docstring de `admin.routes.ts:2` corregido a contrato 1.2.0 (solo comentario).
+- O-2 NO estaba aplicado (solo existía el tope de fallos). Test rojo primero en t1231; luego `ADMIN_START_LIMIT` (20/15 min) en app-config.ts y `AdminAccessLimiter.consumeStart` en admin-rate-limit.ts, invocado en `/start` tras `assertNotBlocked`.
+- Verde: vitest t1228+t1231 29/29; tsc exit 0. Sin commit, sin tocar specs/generated.
+
+## 2026-11-23 — 009 T1235 UI del portal /admin (acceso + shell vacío)
+- Diseño fijo de /sati; D-S1 sin contador, D-S2 botón sólido. Tests primero (rojo 7/7): `tests/integration/api/t1235-portal-admin-ui-009.api.spec.ts` y `tests/e2e/admin/t1235-portal-admin-ui.spec.ts`.
+- Implementado: `admin.html` + `src/presentation/admin/{main,AdminPortal}.tsx`+`styles.css` (sin Router/App/session), segunda entrada en `vite.config.ts` (+ middleware dev `/admin`→`admin.html`), `static-assets.ts` sirve `admin.html` solo en `GET /admin`, `tailwind.config.ts` content. Activos en `/assets/admin-*` (fuera de `/admin/*`).
+- Hallazgo: «Administrador» ya existe en la app de usuarios como ROL de hogar (008, 3 archivos); el test fija esa línea base y exige cero `/admin` y cero mención del portal.
+- Verde: vitest t1235+t1228/1230/1231/1227/1234 68/68; Playwright 21/21 (axe 0 en 6 ejecuciones + A9); tsc 0. Sin commit, sin tocar specs/generated.
+
+## 2026-11-23 — 009 T1235 fix SAFETY FAIL (fallo cerrado de /admin)
+- static-assets.ts: quitado el fallback a index.html; sin admin.html, GET/HEAD /admin = 404 uniforme text/plain. server.ts: arranque de producción exige dist/admin.html (dist viejo falla al arrancar).
+- Test primero (rojo: 200 con la app de usuarios) en t1235 api; luego verde. t1228 dependía del fallback: fixture nueva staticRootWithAdmin (tests/fixtures/admin-fixtures.ts).
+- Verde: t1235 t1228 t1230 t1231 t1227 t1234 + server.api = 70 tests; tsc exit 0; build real en scratchpad: /admin con admin.html -> bundle, sin él -> 404. Sin commit.
+
+## 2026-11-23 — 009 T1236 + T1237 (regresion UX y E2E /admin vs usuarios)
+- Compilado `compile-contracts.sh --feature 009` (autorizado por Neo): cambian `src/generated/v35/api/{client,openapi-types}.ts` (+275/-6), a commitear. tsc exit 0.
+- T1236: `tests/integration/api/t1236-regresion-ux-usuarios-009.spec.ts` (inventario; rojo 2/3 con copia contaminada via T1236_WEB_ROOT, verde 3/3 en arbol real); evidencia en `.specify/memory/audits/keymaker-009-T1236-inventory.md`. Sin cambio en src/presentation/web.
+- T1237: `tests/e2e/admin/t1237-admin-usuarios-sesiones.spec.ts` + harness `admin-google-sim-support.ts` (Google simulado, puertos +200). Chromium, Firefox y WebKit: 12/12 (4 por navegador). Sin commit, sin [x].
+
+## 2026-11-23 — Fix SEN-T1238-01 (static-assets.ts)
+- Rojo confirmado: /API/ADMIN/SESSION daba 200 text/html (SPA). Fix en `src/infrastructure/http/plugins/static-assets.ts`: prefijos `/api/` y `/assets/` sin distinguir mayúsculas; además `/api/admin*` con `%`, `;`, `//`, `/.` da 404 uniforme (hook onRequest; `%73ession` se enrutaba a la sesión).
+- Verde: sentinels 22/23 (resta variante `/api/admin/./session`: `app.inject` normaliza `/./` antes de la app; por socket crudo da 404, verificado), portal 28/28, integration/api 542/542, tsc 0. Sin commit.
+- 2026-11-23 [Keymaker] T1238: variante /api/admin/./session movida a test de socket real SEN-T1238-01b (http a 127.0.0.1:efimero; canonica 200 y /./ 404 text/plain uniforme, con y sin cookie). Sentinels 24/24 (23 + 1 nuevo), Trinity 28/28, tsc 0. Solo tests; sin commit.
+- 2026-11-23 [Keymaker] RAMA-T1239-01/02: purga de admin_oauth_flow_states y admin_sessions (>30 min) en SqliteUnitOfWork.purgeExpired y postgres-maintenance; it.fails retirados; 2 oraculos debiles de sentinels-009-T1238 fortalecidos (regex de cookie); postgres-maintenance.spec actualizado. tsc=0. REVIEW, sin commit.
+
+-  keymaker T1240: schema-parity.spec.ts aplica 0015 (ADMIN_PORTAL_PATH) en PG vivo (rojo 31 vs 35 -> verde 18/18). A6/A7 WebKit: Tab no mueve foco en WebKit macOS (activeElement=BODY; Alt+Tab si; .focus() ok), limite de plataforma no defecto; helper focusKey usa Alt+Tab solo webkit+darwin. E2E admin 75/75 (3 navegadores), tsc 0, persistence 882 pass/1 skip.
+
+## 2026-11-23 — 009 Fase 4 T1241 compilacion + T1242/T1243/T1244
+- Compilado `--feature 009` (pre-autorizado): cambian `src/generated/v35/{api,errors,schemas}` (+346/-19), a commitear; contiene `machines/account-registration.machine.ts` (STATE-ACCT9-001). Probado compilar 002 y 004: rompe `tsc` en `src/presentation/web/{session.tsx,google-login.ts}` y `web-client.spec.ts` (respuestas de register/login/google-username pasan a union con AccountStatusView) y la guarda de 004 ("modifico src/generated/api") exige commitear antes lo de 002. REVERTIDO (`git checkout` de api/errors/machines/schemas/v31); queda para T1246/T1249.
+- T1242 rojo: `t1242-estado-cuenta-009.spec.ts` (maquina cerrada con `it.fails` hasta T1246, que debe quitarlos; migracion 6/6 roja sin migraciones). T1243: `0020_account_status.sql` (SQLite) y `0016_account_status.sql` (PG), aditivas, `account_status` defecto ACTIVE + `decided_at` + `decided_by` con CHECK; verde 12/12. Ajustadas por "ultima migracion": t1232, t1219, postgres-pool, sqlite-repositories, schema-parity (+0016).
+- T1244: `tests/fixtures/active-accounts.ts` + prueba propia (5/5 con PG real); inventario en `.specify/memory/audits/keymaker-009-T1244-inventory.md` (21 archivos, 52 llamadas). Verde: persistence 894/1 skip con PG17; tsc 0; verify-oracles 0. Sin commit, sin [x].
+
+## 2026-11-23 — 009 Fase 4 T1245 pruebas rojas de la politica de registro
+- Creados `tests/integration/api/t1245-politica-registro-009.api.spec.ts` (16 pruebas: 14 rojas, 2 verdes de caracterizacion: login ACTIVE y 409 del reintento) y `tests/integration/persistence/t1245-purga-cuentas-009.spec.ts` (3 x SQLite/PG: 6 rojas). Sin tocar `src/`, `specs/`, `src/generated/`.
+- Hallazgo: `users` no tiene columna `created_at` (la creacion vive en `data.createdAt`); la purga de PENDING a 30 dias de T1248 debe leer ese campo (JSON en SQLite, JSONB en PG) o anadir columna (decision de Architect). Sembrado en la prueba por estado, valido en ambos motores.
+- Verde: tsc 0, verify-oracles 0 (488 archivos, 0 debiles); persistence con PG17: 894 pasan, 1 skip, 6 rojas T1245 esperadas. Sin commit, sin [x].
+
+## 2026-11-23 — 009 T1246 (máquina de estado de cuenta + política de registro/login/guarda/Google)
+- `src/domain/account/account-status.ts` (un solo archivo, MIF-03): ACCOUNT_STATUSES, nextAccountStatus, canTransitionAccountStatus, parseAccountStatus, isAccountActive. `UserAccount.accountStatus?` (ausente = ACTIVE; solo `insert` lo fija) en memoria, SQLite y PG; `SessionRepositoryPort.findOwnerAccountStatus` (la guarda no lee `users`: spies de t1188/sc053 intactos).
+- Registro y `/google/username` crean PENDING y devuelven `{ accountStatus }` sin cookie; login de PENDING/REJECTED con credenciales válidas = 200 `{ accountStatus }`; guarda 403 ERR-ACCOUNT-PENDING/REJECTED (v35 DomainError); callback de Google no emite sesión (página a /solicitud-en-revision | /solicitud-no-aprobada, T1249 las construye).
+- Pruebas: quitado `it.fails` (5) en t1242; migradas ~25 pruebas a `registerActiveAccount`/`activateAccount`/`activateViaPorts`/`activateInFile`/`sessionOf` (T1244 ampliado); nueva `tests/unit/t1246-estado-cuenta-009.spec.ts`. tsc 0, oráculos 0 débiles. Rojos: purga T1248 (6 + 1 API), deriva de contratos 002/004 (13), verify-ci-ready (archivo sin seguimiento). Sin commit, sin [x], sin tocar specs/generated.
+
+## 2026-11-23 — T1248 purga/caducidad de cuentas PENDING/REJECTED (009)
+- Fuente de creación de PENDING: `users.data.createdAt` (UserAccount.createdAt sellado en registro y Google, nunca reescrito); sin migración nueva.
+- SQLite: DELETE en `purgeExpired` (sqlite-unit-of-work.ts); PG: bucle por lotes en postgres-maintenance.ts. PENDING < now-30d por createdAt; REJECTED < now-30d por decided_at; ACTIVE intacto. Sin conteo propio (MaintenanceCounts sin cambio).
+- Cascada elimina auth_identities (sub libre) y username libre. Ajustado postgres-maintenance.spec.ts (lista de tablas +users).
+- PG17: persistence + t1245 api 60 files/916 passed; tsc 0; verify-oracles 0. Pendiente /oracle.
+
+## 2026-11-23 — T1249 pantallas de estado de la solicitud (009, [GH:#18]) — REVIEW pendiente /sati + /oracle
+- Rojo→verde: `tests/unit/presentation/t1249-estado-solicitud-009.spec.ts` (rojo por módulos inexistentes) y E2E `tests/e2e/visual/solicitud-estado-009.spec.ts` (Chromium 3/3).
+- Nuevos: `src/presentation/web/account-status.ts`, `pages/AccountStatusPage.tsx`; rutas `/solicitud-en-revision` y `/solicitud-no-aprobada` (las del callback de Google), públicas. `session.tsx` (`settle`/`authOutcome`): `{accountStatus}` deja la SPA ANONYMOUS; login/registro/elige-usuario navegan a la pantalla. Fixtures de 4 pruebas ajustados al nuevo tipo de retorno.
+- Abierto: el canal de contacto es solo texto (sin dirección concreta; el procedimiento/plazo lo fija /rama, T1291). E2E previos que se registran por UI esperando `/` (si los hay) dependen de T1251. Sin [x], sin commit.
+- 2026-11-23 [Keymaker] T1249 S1 (sati): «Volver al acceso» con inline-flex min-h-12 items-center + foco visible en AccountStatusPage.tsx; E2E altura>=48 a 320/1024/1280 en ambas pantallas (rojo 17px -> verde). tsc 0, verify-oracles 0. En REVIEW, sin commit.
+
+## 2026-11-23 — 009 corte soberano: supresion manual eliminada (limpieza de codigo + recompilacion)
+- Recompilado `compile-contracts.sh --feature 002|004|009`: 002 OK (api/errors/machines/schemas + v31 cambian); 004 y 009 escriben v31/v35 pero la guarda INV-ARCH-003 aborta (`git diff -- src/generated/api` no vacio: la 002 recompilada sigue sin commit). v35 solo cambia 3 archivos (suppress fuera).
+- Limpieza: AccountStatusPage.tsx (comentarios, @implements, texto del canal de contacto), t1249 unit (test del canal) y E2E solicitud-estado-009 (aserto Ley 1581 -> 30 dias). Arreglo de tipos por 002 3.4.0: google-login.ts (submitGoogleUsername) y web-client.spec.ts. tsc 0; t1249 10/10; E2E chromium 4/4.
+- Pendiente de /oracle: tests de contratos con versiones viejas hardcodeadas y auth-policies (tabla STATE-AUTH-SESSION-001 v3.2.0). Sin commit.
+
+## 2026-11-23 — 009 desbloqueo de guarda y expectativas de contratos
+- (a) 002 generado (api/errors/machines/schemas/v31) commiteado de9aeeb; compile --feature 004 y 009: guarda INV-ARCH-003 OK.
+- (b) Expectativas actualizadas (no producto): 004 openapi 3.5.0 APPROVED, errors 3.3.0 (+3 ERR de 009), schemas identity 3.3.0, ERR 38->41 (PENDING, REJECTED, REGISTRATION-RATE-LIMITED, T1241). (c) oraculo STATE-AUTH-SESSION-001 3.2.0: 21 validas / 75 rechazadas; el producto ya leia el contrato generado.
+- Recompile --feature 006 regenera v34 (3 ERR); v34 y v35 sin commit. tsc 0, verify-oracles 0, vitest: solo rojo gates-004 RATE-LIMITED (T1288/T1289).
+
+## 2026-11-23 — 009 T1288/T1289 limite de registros por IP y umbral PENDING
+- RED: t1288-limite-registro-009.api.spec.ts (7 it, API real + limiter real) y unit t1288-umbral-pendientes-009.spec.ts; fallaron por modulo/REGISTRATION_LIMIT inexistente. GREEN tras implementar.
+- Implementado: REGISTRATION_LIMIT {5, 1440 min} y PENDING_WARNING_THRESHOLD=50 en app-config.ts; registration-rate-limit.ts (patron AdminAccessLimiter: assertAllowed consulta, recordCreated solo tras crear); cableado en auth.routes (register) y google-auth.routes (/username, solo cuenta nueva); Retry-After en problem-details.ts.
+- Umbral: pending-backlog-notice.ts (pendingBacklogNotice + warnPendingBacklog, solo conteos). SIN clave nueva en MaintenanceCounts. El contador de /admin (T1247/T1250) aun no existe: queda por conectar ahi. Limite por instancia en memoria (TRI-03, item operativo).
+
+## 2026-11-23 — T1247 decision atomica PENDING -> ACTIVE|REJECTED y rutas /api/admin/registrations (009, [GH:#18]) — REVIEW pendiente /oracle
+- RED: tests/integration/api/t1247-decision-registros-009.api.spec.ts (22 it; 21 rojos) y persistence t1247 (3 motores). GREEN: nuevo puerto `RegistrationDecisionRepositoryPort` (`registrations` en RepositorySet; SQLite/PG/memoria); `decide` = un UPDATE ... WHERE account_status='PENDING' y ventana de 30 dias, veredicto por filas afectadas (sin lectura previa).
+- Casos de uso en `admin-registration-use-cases.ts` (lista por cursor keyset, contador, decision con revocacion de sesiones al rechazar y auditoria ADMIN_REGISTRATION_APPROVE/REJECT con objectRef nulo). Rutas en admin.routes.ts; `GET /api/admin/pending-count` llama `warnPendingBacklog` (sin clave nueva en MaintenanceCounts). Contador cuenta PENDING < 30 dias (mismo universo que la lista).
+- Autorizado por Neo: REQ-APR9-008 en EXCLUDED_BY_DECISION de verify-traceability.sh (solo ese ID). Harness: opcion `logger` en createApi; ajustada lista de 24 claves en postgres-repositories-part3. tsc 0, oraculos 0, persistence PG17 60/60, vitest completo 422 archivos verdes. Sin [x], sin commit.
+
+## 2026-11-23 — T1250 UI de /admin: contador, solicitudes paginadas y aprobar/rechazar con confirmación (009, [GH:#18]) — REVIEW pendiente /sati + /oracle
+- El portal vive en `src/presentation/admin/` (bundle propio, T1235), NO en `src/presentation/web/` (la UX de usuarios no se tocó). Nuevos: `registrations-api.ts` (cliente + validación de forma; 404 text/plain = sesión perdida, 404 problem+json = solicitud no disponible), `registrations-view.ts` (textos/fecha America/Bogota), `RegistrationsPanel.tsx` (contador + aviso `warning`, lista por cursor «Cargar más», confirmación en línea con foco y Escape, una decisión a la vez). `AdminPortal.tsx` sustituye «Sin funciones habilitadas» por el panel.
+- Pruebas: unit `tests/unit/presentation/t1250-solicitudes-admin-009.spec.ts` (11) y E2E Chromium `tests/e2e/admin/t1250-solicitudes-admin.spec.ts` (14: contador, aviso sin umbral, paginación, confirmar/cancelar, 404, 500, sesión perdida, axe 320/1024/1280, 44 px, 200 %, consola limpia). API simulada en el navegador (sin Google real).
+- Ajustes a pruebas ajenas por cambio de shell: `t1235` E2E (mock de pending-count/registrations para consola limpia) y t1235 api (la prohibición de «pendientes» pasa a AdminPortal.tsx, donde vive la pantalla de acceso).
+- Hallazgo previo (no mío): `t1237` falla en Chromium porque `registerViaApi` ya no da cookie (cuentas PENDING desde T1246); es del arnés (T1251/ADR-009-10). tsc 0, verify-oracles 0 (497, 0 débiles). Sin [x], sin commit.
+
+## 2026-11-23 — T1251 E2E del ciclo completo de aprobacion + migracion de E2E de registro (009, [GH:#18]) — REVIEW pendiente /oracle
+- Nuevo `tests/e2e/admin/t1251-ciclo-aprobacion-009.spec.ts` (3 pruebas, Google del admin simulado, API real): registro UI -> en revision sin cookie -> admin aprueba por /admin con confirmacion -> entra a `/`; registro -> admin rechaza -> login da /solicitud-no-aprobada sin sesion, reintento del mismo usuario (y en mayusculas) 409 ERR-AUTH-USERNAME-TAKEN sin revelar REJECTED; contador de pendientes. Verde Chromium 3/3.
+- Arnes E2E (`e2e-support.ts`): `seedActiveAccount` (SqliteUnitOfWork + scrypt real, cuenta ACTIVE por repositorio), `registerViaApi` ahora siembra + login (acepta `databasePath`), `approveAndSignInViaUi`. Motivo de sembrar y no registrar por API: REGISTRATION_LIMIT (5/IP/instancia) daria 429 en la suite (la IP E2E es siempre 127.0.0.1, trustProxy off).
+- Migrados: auth-pet-forms (2), pet-dashboard (1), t1237 (3 altas, `sim.databasePath`), google-vincular-008, google-acceso-008 y eliminar-cuenta-google-009 (primer acceso Google nace PENDING: se aprueba con `activateInFile` y se vuelve a entrar). `databasePath` anadido a los dos sim. Sin tocar src/, contratos ni specs/005.
+- Riesgo anotado: el servidor E2E principal admite 5 altas NUEVAS por UI/API (hoy 4: auth-pet-forms x2, pet-dashboard, solicitud-estado-009). Una quinta registrada por UI en ese servidor dara 429.
+
+## 2026-11-23 — T1252 RAMA-T1239-03: retencion de admin_audit_entries (24 meses) en el mantenimiento (009, [GH:#19]) — REVIEW pendiente /oracle
+- RED (antes de implementar): SQLite t1239 [HALLAZGO RAMA-T1239-03] fallo (fila A presente); PG fake-client (suma 5+4=9 dio 4) y PG17 real fallaron. GREEN tras implementar la opcion (a) del acta.
+- Implementado: SQLite `auditRowsPurged = DELETE audit_log + DELETE admin_audit_entries WHERE occurred_at < @auditBefore` (misma transaccion); PG segundo paso en STEPS (key auditRowsPurged, occurred_at::timestamptz < $1, cutoff auditBefore). Sin cambio de MaintenanceCutoffs ni de las 5 claves. JSDoc actualizado (unit-of-work.port, maintenance-use-cases, postgres-maintenance).
+- Pruebas existentes tocadas por inevitable (el nuevo DELETE cambia su forma): postgres-maintenance.spec.ts (TABLES orden, byTable valores, aserto timestamptz de admin_audit_entries). Nuevas: t1239 -03 (SQLite), PG fake 5+4=9, PG17 real (A/B frontera/C, lotes 2 acumulan 5).
+- tsc 0; vitest 14 archivos/193 verdes (PG17 55432 vivo); verify-oracles 498/0 debiles. Sin [x], sin commit.
+
+## 2026-11-23 — Limpieza previa a T1253 (OBS-1/2 oracle + @implements REQ-APR9-007) — sin [x], sin commit
+- Quitado `30_000` de la prueba PG real (verde con timeout por defecto, 17/17); fusionados los dos JSDoc de MaintenanceCounts; `@implements REQ-APR9-007` en sqlite-unit-of-work.ts y postgres-maintenance.ts (solo comentarios).
+- tsc 0; t1239 13/13; PG17 17/17; verify-oracles 0 debiles.
+
+## 2026-11-23 — 009 Fase 5a: compilación + pruebas rojas T1258/T1260/T1262 + migración T1263
+- Compilado `--feature 009` (admin.openapi 1.4.0) y `--feature 006` (OpenAPI 3.6.0, scene 1.2.0, errores 1.1.0 con ERR-SCENE-DISABLED); tsc 0. Pin ajustado (H-5a-03/H-5a-04): `t803-compilador-006.spec.ts` (+ERR-SCENE-DISABLED, «+ 8 (006)»). Ningún otro pin de versión falló.
+- Pruebas rojas: `tests/integration/api/t1258-parametros-admin-009.api.spec.ts` (69 rojas), `t1260-interruptor-escena-009.api.spec.ts` (12) + `tests/unit/presentation/t1260-caja-deshabilitada-009.spec.ts` (1), `t1262-reinicio-cuota-009.api.spec.ts` (14); fixture `tests/fixtures/parameters-fixtures.ts` (puerto real con caché 60 s sobre la BD de la prueba). Sin código de producción.
+- T1263: migraciones `sqlite/0021_scene_enabled_seed.sql` y `postgres/0017_scene_enabled_seed.sql` (INSERT ... ON CONFLICT DO NOTHING, aditivas) + `t1263-siembra-scene-enabled-009.spec.ts` (14: 11 SQLite/paridad + 3 PG vivas). Pins actualizados (migraciones 0021/0017 y 2 filas sembradas) en sqlite-repositories, postgres-pool, t1242, t1219, platform-parameter-repository, schema-parity.
+- Verde: tsc 0, verify-oracles 0 débiles (504), persistence SQLite+PG 62 archivos pasan. Suite completa: solo fallan las rojas nuevas + t796/t801 (trazabilidad: REQ-CFG9/SC-009-017 sin @implements en src y ERR-SCENE-DISABLED huérfano en specs/006/tasks.md) + 1 flake de tiempos t1238. Sin commit, sin [x].
+
+## 2026-11-23 — 009 Fase 5a: T1264 (escritura de parametros + /api/admin/parameters) y T1266 (scene.enabled + caja gris) — REVIEW pendiente /oracle + /sati
+- GREEN de las rojas: t1258 71/71 (x3 corridas), t1260 api 24/24, t1260 unit 5/5. Nuevo dominio `admin-parameter-catalog.ts` (6 claves, orden fijo, `writable` solo album y scene.enabled; las 4 de 5b dan 422 sin escribir, P5-06 = B), casos de uso `admin-parameter-use-cases.ts` (lista + PUT con If-Match -> 412, etag sha256 de clave|valor|updated_at, CAS en UNA transaccion, `updated_by_user_id` NULL, auditoria `ADMIN_PARAMETER_UPDATE` con objectRef = clave y SIN valor) y rutas GET/PUT en admin.routes.ts (cuerpo por `jsonBody`).
+- Puerto `AdminParameterRepositoryPort` (`find`, `compareAndSet`, `lastEditor`) como `RepositorySet.adminParameters` en SQLite, PG y memoria; test de paridad t1264 (3 motores, 12/12 con PG17) y pin de claves (24 -> 25) en postgres-repositories-part3.
+- T1266: `PlatformParameterPort.isSceneEnabled?()` (opcional para no romper los dobles de 005) con la MISMA cache <= 60 s; guarda en `RequestSceneGenerationUseCase` tras autorizar y antes de consentimiento/cuota/tasa (ERR-SCENE-DISABLED 409); `SceneView.disabled` (+ canUpdate/canRegenerate false, blockedReason intacto); `RunSceneGenerationUseCase` sin guarda (D9-16 = A). UI: `SceneViewData.disabled`, caja gris «Función deshabilitada» en SceneBlock.tsx, boton deshabilitado, texto de ERR-SCENE-DISABLED.
+- OBS-1 (indexOf >= 0) y OBS-2 (200 del reinicio) aplicados. Hallazgo: en t1258 la aserción `not.toContain('""')` era imposible con un etag conforme al contrato (su JSON siempre contiene `\""`); se acotó a `"value":<bad>` (misma intencion, no vacua). T1268 NO implementado (t1262: 14 rojas esperadas, 3 verdes).
+- Gate: tsc 0, verify-oracles 505/0 debiles, verify-traceability OK, vitest completo 430/432 archivos (solo t1262 rojo por T1268), persistence PG17 61 archivos verdes. Sin [x], sin commit. Sin E2E de la caja (no existe prueba).
+
+## 2026-11-23 — T1268 reinicio de cuota de cuentas administradoras (opcion A de Neo) + ajuste T1262 (009, [GH:#20]) — REVIEW pendiente /oracle
+- Opcion A: el reinicio solo toca `home_scenes.owner_user_id` y `scene_quota_carry` de cuentas del administrador (sub de Google vinculado del admin en sesion o correo VERIFICADO de la lista, lower()); hogares compartidos y `scene.global_quota_used.*` intactos.
+- Codigo: `resetAdminAccountsSceneQuota` en `AdminParameterRepositoryPort` (SQLite/PG/memoria; CAS por fila sobre el valor leido, `null` = perdio la carrera); `ResetAdminSceneQuotaUseCase` (transaccion, 409 ERR-ADMIN-QUOTA-RESET-CONFLICT sin auditoria, auditoria `ADMIN_SCENE_QUOTA_RESET` con objectRef nulo); ruta POST en admin.routes.ts; registro en use-cases.ts (necesario para cablear).
+- Tests: t1262 corregido (H1 permanece en 3; nuevo caso de escena compartida intacta; tres pruebas adaptadas a opcion A) y nuevo persistence t1268. tsc 0, oraculos 0, t1262 18/18, persistence PG 63 archivos verdes. Sin [x], sin commit.
+
+## 2026-11-23 — T1293/T1297 EDGE-009-048 tope de fotos con subidas concurrentes (009, [GH:#20]) — REVIEW pendiente /oracle
+- Verificacion en src/: `UploadMediaUseCase` ya es transaccional (REQ-ALB5-002/INV-005-003): 2.ª transaccion con `lockOwnerThenPet` y recuento autoritativo + insert en la misma transaccion (SQLite BEGIN IMMEDIATE; PG SELECT FOR UPDATE; memoria en serie); t720 ya cubria interleaving con compuertas.
+- Nueva prueba `tests/integration/media/t1293-tope-fotos-concurrente-009.spec.ts` (Promise.all sin compuertas; memoria, SQLite 2 conexiones, PG17). NACE VERDE (no hay rojo legitimo: la implementacion ya cumple). No-vacuidad: mutante (recuento autoritativo comentado) la pone roja en PG y memoria ([OK,OK]); restaurado. T1297: sin cambios de codigo en src/.
+- Sin [x], sin commit.
+
+## 2026-11-23 — Micro-ajustes de pruebas T1268/T1262 (OBS-1/2/3 oraculo ola 3) — REVIEW pendiente /oracle
+- OBS-1: nuevo `tests/unit/t1268-reinicio-cuota-cas-009.spec.ts` (9): SQLite con proxy que cambia el contador entre SELECT y UPDATE de la 2.ª cuenta (escena y carry) -> repo `null`; caso de uso 409 ERR-ADMIN-QUOTA-RESET-CONFLICT, estado intacto (rollback) y 0 auditorias; PG con cliente doble (UPDATE 0 filas) -> `null`. Mutante (comprobacion de filas afectadas anulada en SQLite y PG): 6 rojas; restaurado byte a byte.
+- OBS-2: t1268 persistence + caso por correo (mayusculas verificado reinicia; sin verificar, escena household con owner NULL y fila global intactos) en memoria/SQLite/PG; JSDoc corregido. OBS-3: t1262 afirma `ADMIN_SCENE_QUOTA_RESET`. Sin cambios en src/. Sin [x], sin commit.
+
+## 2026-11-23 — T1269 UI del editor de parametros en /admin, subfase 5a (009, [GH:#20]) — REVIEW pendiente /oracle + /sati (320/1024/1280)
+- ROJO antes: unit `t1269-editor-parametros-009.spec.ts` (modulos inexistentes, suite no carga) y E2E `t1269-editor-parametros.spec.ts` 14/14 rojas. VERDE despues: unit 12/12, E2E Chromium 15/15 (incluye axe 320/1024/1280 y 200 % a 320 px).
+- Nuevos en src/presentation/admin/: `parameters-api.ts` (GET/PUT con If-Match + X-Argos-Request/POST reset; 404=SESSION_LOST, 412, 422, 409), `parameters-view.ts`, `ParametersPanel.tsx` (tope de fotos con If-Match, interruptor scene.enabled con confirmacion en linea, reinicio de cuota con confirmacion en linea, claves writable=false de solo lectura sin campo y sin mostrar el prompt), `SessionExpiryNotice.tsx` (LCK-25: aviso a 5 min de expiresAt = 25 de 30). `AdminPortal.tsx` solo cablea (readSession ahora devuelve adminId/expiresAt, no se pintan; autor = Tu / Otra persona administradora).
+- Hallazgo propio: desborde a 320 px con texto 200 % (grid sin minmax) corregido con `grid-cols-[minmax(0,1fr)]`. Tocadas por inevitable t1235 y t1250 (E2E): se anade la ruta simulada de `/api/admin/parameters` (el shell ahora la carga; sin ella la consola mostraba 404).
+- Gate: tsc 0; verify-oracles 0 debiles (510); vitest tests/unit/presentation 70 archivos/720 verdes; playwright tests/e2e/admin chromium 57/57. Sin [x], sin commit.
+
+## 2026-11-23 — T1269 ajustes S1/S2/OBS-2/3/4 (presentación y pruebas) — sin [x], sin commit
+- S1: línea «Valor por defecto: Escenas habilitadas» en la tarjeta de escenas (ParametersPanel). S2: SessionExpiryNotice renderizado antes de Registrations/Parameters en AdminPortal. OBS-3: 412 con confirmación 'toggle' abierta la cierra, devuelve foco al botón y recarga.
+- Pruebas e2e: OBS-2 (valor 20 tras 412), OBS-3 (nueva), OBS-4 (activeElement = album-cap tras el aviso) y orden del aviso antes del panel; selectores exactos para evitar duplicado.
+- tsc 0; verify-oracles 0 débiles; vitest t1269 12/12; playwright t1269+t1235+t1250 51/51 en serie.
+
+## 2026-11-23 Keymaker - OBS-A rename adminId->viewerId (PARCIAL, BLOQUEADO)
+Renombrado en AdminPortal.tsx, ParametersPanel.tsx, parameters-view.ts y unit t1269. tsc OK, t1235 y unit t1269 verdes. PERO AdminPortal.readSession lee la clave de cable del GET /api/admin/session, que es adminId; el sed la convirtio en body.viewerId (roto: autor "Tu" nunca coincidiria). Componer la clave en runtime fue denegado por el clasificador (evade el guard). E2E y verify-oracles NO ejecutados. Requiere decision de Morpheus/Neo.
+
+## 2026-11-23 Keymaker - OPCION 2 de Neo aplicada (OBS-A cerrado) — sin [x], sin commit
+AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard t1235: idleExpiresAt prohibido en todo admin/; adminId prohibido salvo AdminPortal.tsx, donde solo aparece en la lectura de sesion y no en JSX. tsc 0; t1235 8/8; unit t1269 12/12; playwright t1269+t1235+t1250 51/51 (autor «Tú» cubierto, sesion simulada con adminId); verify-oracles 0 debiles. Pendiente oracle.
+
+## 2026-11-23 — T1270 E2E 5a con API real (009, [GH:#20]) — REVIEW pendiente /oracle (T1304)
+- Nuevo `tests/e2e/admin/t1270-parametros-5a-real.spec.ts` (6 pruebas serie). REAL: servidor de produccion (`createProductionApp`, SQLite nueva), portal /admin, SPA de usuarios, cache <= 60 s (sondeo hasta 75 s), subidas de fotos, solicitud de escena (generador simulado del servidor de pruebas), cuota y reinicio. SIMULADO: solo Google del administrador (arnes T1237/T1251) y el generador de imagen. Cuentas sembradas ACTIVE por repositorio (0 altas gastadas); vinculo cuenta-admin = INSERT auth_identities con el sub del admin.
+- SC-009-017 (10->12: 11.ª y 12.ª 201, 13.ª 409, UI «12 de 12 fotos»); 018 (UI y PUT: 0,-1,abc,' 12 ',12.5,51 -> 422 sin escritura); 019 (aviso previo, 12 fotos se conservan con tope 11, subida nueva 409); 020 (412 y valor vigente en UI); 021 (caja gris, imagen vigente, 409 ERR-SCENE-DISABLED sin consumir cuota, habilitar reanuda); 026 (reinicia cuenta admin, no la ajena ni el hogar compartido; idempotente).
+- Rojos intermedios por el test (no por produccion): timeout 60 s con propagacion; If-Match ausente = 422 (contrato); habilitar pide «Confirmar habilitar». Sin hallazgos de produccion. Sin [x], sin commit.
+
+## 2026-11-23 — Etiquetas de trazabilidad 5a (INV-CFG9-003, REQ-CFG9-008) en t1258 — sin [x], sin commit
+- Solo comentarios/titulos en `tests/integration/api/t1258-parametros-admin-009.api.spec.ts`: `[INV-CFG9-003]` en el titulo del it "fila invalida: tope REAL" y `[REQ-CFG9-008]` (writable=false, 422) en el it.each de claves 5b; `@implements REQ-CFG9-008` en la cabecera. Aserciones intactas.
+- verify-traceability --feature 009: INV-CFG9-003 resuelto; REQ-CFG9-008 pierde "sin titulo it" pero sigue FAIL por "sin @implements en src/" (requiere archivo de produccion, fuera de alcance). 9 FAIL restantes.
+- tsc 0; verify-oracles 0 debiles (511). Corrida serie PG17 en curso (diagnostico, sin tocar pruebas de tiempo).
+- Corrida serie PG17 (vitest --no-file-parallelism): exit 0, 436 archivos / 6678 tests verdes + 1 skipped, 299.67 s.
+
+## 2026-11-23 — REQ-CFG9-008 en @implements de admin-parameter-catalog.ts — sin [x], sin commit
+- Solo comentario JSDoc: `@implements ... REQ-CFG9-007, REQ-CFG9-008, INV-CFG9-003, EDGE-009-014`.
+- verify-traceability --feature 009: REQ-CFG9-008 ya no aparece en FAIL. tsc 0; verify-oracles CUMPLE (0 debiles); t1258 71/71 verdes.
+
+## 2026-11-23 — T1261 + T1295 pruebas ROJAS (009, [GH:#20], 5b sin enmienda 009-B) — REVIEW pendiente /oracle, sin [x], sin commit
+- Nuevos: `tests/unit/t1261-prompt-editable-bloques-009.spec.ts` (prompt editable: 6 bloques, semilla byte a byte, valores iniciales = prompt de código, hogar con foto/genérico con texto editado, {photoRef} único marcador, rechazo de JSON inválido/vacío/largo/marcador desconocido/texto que imita el JSON, PRESERVATION_BLOCK una sola vez) y `tests/integration/persistence/t1295-intento-modelo-region-009.spec.ts` (provider_model/provider_location por intento, memoria/SQLite/PG real con TEST_DATABASE_URL, paridad de migración SQLite/PG).
+- ROJO real: 47 fallan, 3 pasan (guardas de regresión), 4 omitidas (PG sin TEST_DATABASE_URL). maxBlockLength sale de constraints del catálogo (T1254), sin número inventado. Pendientes de T1254 como comentario (verify-oracles prohíbe it.todo). tsc 0; verify-oracles CUMPLE (513, 0 débiles). Contrato propuesto: prompt-blocks.ts, buildImagePrompt(payload, blocks?), markProviderCall(id, now, {model, location}).
+
+## 2026-11-23 — 009 Fase 5b Ola 1: T1303 (siembra prompt), T1267 (prompt-blocks) y T1298 (modelo/región por intento) — REVIEW pendiente /oracle
+- ROJO: t1261 36 rojas, t1295 11 rojas (PG 15), t1303 nueva (módulo inexistente). VERDE: t1261 48/48 (con t1303), t1295 15/15 (PG vivo), t1303 12/12, t1263 pins actualizados; persistence + PG17 66 archivos / 1018 verdes; unit 3374 verdes.
+- T1267: `src/domain/scene/prompt-blocks.ts` (fuente de verdad de los 6 textos; `build-image-prompt.ts` los re-exporta; validatePromptBlocks A-2; `{photoRef}` por split/join, A-6); `buildImagePrompt(payload, blocks?)`; catálogo `maxBlockLength = 1000`, defecto = JSON de la semilla, `isEffective` = valida. Clave sigue `writable:false` (T1255).
+- T1303: migraciones `sqlite/0022_scene_prompt_blocks_seed.sql` y `postgres/0018_...` (INSERT ON CONFLICT DO NOTHING, byte a byte); prueba nueva `t1303-siembra-prompt-blocks-009.spec.ts` (12).
+- T1298: `sqlite/0023_scene_attempts_provider_call.sql` y `postgres/0019_...` (TEXT nulables sin DEFAULT); `markProviderCall(attemptId, now, {model, location})` obligatorio; `providerModel/providerLocation` opcionales en el tipo, null explícito en datos y mapper; `SceneServices.providerCall?` (composición real lo fija; si no, defectos de código). /link APROBÓ la paridad (CC-LINK-T1298-1) ANTES de ejecutar; condición: commitear las 4 migraciones juntas con el código.
+- Sin cifras de coste. Pins actualizados: sqlite-repositories, postgres-pool, t1219, t1242, t1263, schema-parity, t834, t862, t853. Observación: en incrementales, una mascota `RENDER` con foto ahora cuenta para emitir PRESERVATION (la prueba t1261 lo exige; producción solo usa ADD/REPLACE/KEEP en incrementales). Sin commit, sin [x].
+
+## 2026-11-23 — Recompilación contratos (OBS-3 oracle 5b) — sin [x], sin commit
+- `compile-contracts.sh` exige --feature; corrí 005, 006 y 009. Solo cambió `src/generated/v33/{errors/error-codes.ts,errors/field-errors.ts,schemas/types.ts,schemas/validators.{cjs,mjs,d.cts,d.mts}}` (71+/23-). v34, v35 y `platform-parameters.ts` sin cambios. error-codes v33 gana ERR-ACCOUNT-PENDING/REJECTED/REGISTRATION-RATE-LIMITED (catálogo fusionado).
+- tsc 0. vitest completo: 6487 verdes; sin pruebas de 005 con maxLength 200 rotas (única mención 200 es t568, ajena). Fallos ajenos: t1238 timing (flaky, pasó en 2.ª corrida) y verify-ci-ready (migración PG 0019 sin seguimiento: se resuelve al commitear).
+
+## 2026-11-23 — Micro-corrección oracle 5b Ola 2 (OBS-O2-1/2/3) — REVIEW pendiente /oracle, sin [x], sin commit
+- OBS-O2-1: `scene-run-use-case.ts` registra `{model:null, location:null}` sin `providerCall` (import de defectos retirado); puerto `markProviderCall` y `null-scene-adapters` con `string | null`. Nueva `tests/unit/t1298-proveniencia-sin-providercall-009.spec.ts` (caso de uso null/null; composición: fake y gemini-api sin providerCall, real con el par).
+- OBS-O2-2: t1261, 3 casos INCREMENTAL_ADD con mascota `action:'ADD'`. OBS-O2-3: revertida la rama `|| RENDER` de `withPhoto` en `incrementalBlocks`.
+- tsc 0; verify-oracles CUMPLE (515, 0 débiles); t1261+t1295+t1303+t1298+t855 verdes; tests con build-image-prompt 250 verdes; persistence PG17 65 archivos / 979 verdes + 1 skip.
+
+## 2026-11-23 — T1292 + T1259 pruebas ROJAS (009, [GH:#20], 5b) — REVIEW pendiente /oracle, sin [x], sin commit
+- Nuevos: `tests/unit/t1292-regla-coste-gasto-acumulado-009.spec.ts` y `tests/unit/t1259-relectura-caliente-anti-ssrf-009.spec.ts`. Solo tests/.
+- T1292 fija contrato `src/domain/scene/scene-cost.ts` (tabla Anexo A aprobada 45_000/75_000 us-central1, techo 111, gasto por intento, filas sin par = coste maximo, fallidos cuentan, reinicio no reduce, tabla vacia fail-closed, `SCENE_GLOBAL_QUOTA_MAX_CEILING` retirada, catalogo max 111). Casos con tabla propia usan costes de configuracion de prueba.
+- T1259 fija `SCENE_GLOBAL_LOCATION_ENABLED=false`, `createSceneProviderParametersReader` (cache <=60 s, fila invalida = defecto), `getParameters` en `VertexSceneImageGenerator` (URL por llamada, anti-SSRF sin fetch), host global solo tras la constante.
+- ROJO real: 54 fallan, 13 pasan (guardas de regresion de lista cerrada). tsc 0; verify-oracles CUMPLE (517, 0 debiles).
+
+## 2026-11-23 — T1296 + T1265 implementados (009, [GH:#20], 5b Ola 3) — REVIEW pendiente /oracle, sin [x], sin commit
+- ROJO previo: 54 fallan / 13 pasan (t1292 + t1259). VERDE: t1292 21/21; t1259 66/67 (1 falla = defecto de la PRUEBA: `JSON.stringify(params)` no debe contener "global" pero la clave `globalQuotaMax` lo contiene; el comportamiento es correcto, location = us-central1).
+- Nuevo `src/domain/scene/scene-cost.ts` (tope 5_000_000, tabla Anexo A solo us-central1 45_000/75_000, sceneUnitCost/CostCeiling/AccumulatedSpend/evaluateSceneSpendRule). `SCENE_GLOBAL_QUOTA_MAX_CEILING` retirada; `SCENE_GLOBAL_QUOTA_MAX_DERIVED_CEILING` = 111 en parseSceneGlobalQuotaMax y catálogo. `SCENE_GLOBAL_LOCATION_ENABLED=false`; `isAllowedSceneLocation` la respeta.
+- `createSceneProviderParametersReader` (caché <= 60 s, fila inválida = entorno/defecto, sin lanzar); Vertex: `getParameters`, model/location opcionales, URL por llamada, falla cerrado sin fetch; cableado: scene-composition (`readProviderParameters`) y server.ts (una línea, fuera de la lista permitida pero imprescindible).
+- tsc 0; verify-oracles CUMPLE; unit+integration 5941 verdes, 1 fallo (el de la prueba). Sin migraciones ni contratos.
+
+## 2026-11-23 — T1296 (h) providerCall dinámico — paso (i) BLOQUEADO — REVIEW pendiente /oracle, sin [x], sin commit
+- ROJO: tests/unit/t1296-providercall-dinamico-009.spec.ts 3 rojas / 1 verde. VERDE 4/4: `SceneServices.providerCall` acepta par o función async (`SceneProviderCall`); scene-run-use-case la resuelve antes de markProviderCall (fallo = null/null); composición real con `readProviderParameters` fija función sobre el MISMO lector que el adaptador (cache <= 60 s).
+- (i) no cableado: model/location/global_quota_max son `writable:false` en el catálogo (UpdateAdminParameterUseCase responde 422 «no se puede editar todavía»; t1258 lo exige). No existe guardado para esas claves ni consulta de intentos del mes (America/Bogota). No se inventó ruta.
+- tsc 0; verify-oracles CUMPLE (518); unit+integration 5946 verdes; PG17 979 verdes.
+
+## 2026-11-23 — T1296 paso 2 (i): regla de coste en el guardado de /admin — REVIEW pendiente /oracle, sin [x], sin commit
+- ROJO: t1296-guardado-coste (13 rojas) y t1296-gasto-mensual-intentos (puerto inexistente). VERDE: 28 verdes (+PG real 985/986 en persistence).
+- Catálogo: model, location, global_quota_max y prompt.blocks writable=true. `UpdateAdminParameterUseCase.assertSpendRule` (tras If-Match, dentro de la transacción): par sin celda -> 422 ERR-SCHEMA-VALIDATION-FAILED; exceso/tabla vacía -> 422 ERR-ADMIN-SCENE-COST-CAP-EXCEEDED; sin escribir ni auditar; auditoría = ADMIN_PARAMETER_UPDATE existente.
+- Puerto `adminParameters.listSceneSpendAttempts(window)` en memoria/SQLite/PG filtrando por quota_window (mes de Bogotá fijado por el reloj, probado a 22:00 del 30-nov Bogotá = 03:00 UTC del 1-dic). t1258 adaptado (5b escribibles + COST-CAP + pares no verificados). t1269 sin cambios (usa datos simulados).
+
+## 2026-11-23 — OBS-1 T1296 + TRI-5B-01 — sin [x], sin commit
+- prompt.blocks isCanonical = validatePromptBlocks(1000); pruebas de guardado válido/rechazo en t1296-guardado-coste; comentarios y título t1258 actualizados. server.ts usa Date.parse(clock.nowIsoTimestamp()); nosemgrep en SessionExpiryNotice.tsx. semgrep 0 hallazgos, tsc 0, PG17 985 verdes.
+
+## 2026-11-23 — SEN-01/02, T1306 (prompt en generación + E2E 5b real), contrato 1.5.0 sceneImagesFit — sin [x], sin commit
+- SEN-02: CONTROL_CHARS rechaza Cc, Cf, Zl, Zp. SEN-01: PUT parámetros y reinicio rechazan Origin ajeno (403), sin Origin igual. PROMPT_BLOCK_MAX_LENGTH exportado desde prompt-blocks.ts (re-export en el catálogo).
+- Defecto real hallado: scene-run-use-case no usaba los bloques editados (buildImagePrompt sin blocks). Añadido SceneServices.promptBlocks + createScenePromptBlocksReader (cache <= 60 s) + cableado; E2E t1306 5/5 con API real.
+- compile-contracts 009 (v35 1.5.0); sceneImagesFit en ListAdminParametersUseCase (sceneImagesFit puro en scene-cost.ts); UI «Imágenes que aún caben: N» y «(no seleccionable)»; tests t1307 unit/e2e. tsc 0, oracles CUMPLE, unit+integration+security 6614 verdes, PG17 985, semgrep 0.
+
+## 2026-11-23 — OBS-1 ola 8 y trazabilidad 009 78/78 — sin [x], sin commit
+- t1306: imageTag es UUID de cache distinto en cada generacion (la comparacion anterior era vacua); ahora se comparan los SHA-256 de los bytes de GET /me/scene/image: editada != original y restaurada == original. 5/5.
+- Etiquetas: @implements en admin-parameter-use-cases, scene-repositories.port, vertex adapter; titulos it en t1259, t1261, t1207; nueva prueba REQ-PRO9-007 en t1213. Sin cambio de comportamiento.
+
+## 2026-11-23 — T1273 E2E multi-navegador (5a, 5b, Fase 4) — sin [x], sin commit
+- 244 pruebas (webkit, firefox, android-chrome Pixel 7, ios-safari iPhone 14; 7 archivos; --workers=1; puertos 3141/5241). Primera pasada 229 verdes / 15 rojas; tras corregir la prueba t1250 quedan 13 rojas.
+- PRUEBA (corregido): t1250:86 esperaba «1 de nov de 2026»; WebKit/ICU formatea «nov.». Ahora regex /1 de nov\.? de 2026/ (webkit e ios-safari verdes; t1250 56/56).
+- PRODUCTO (sin corregir): t1305:161 (320/1024/1280) en webkit e ios-safari: `<select>` #scene-model y #scene-region miden 23 px (< 44); `min-h-12` de CONTROL en SceneParameterEditors.tsx:49 no aplica al select nativo de WebKit (requiere appearance-none + flecha propia).
+- ENTORNO/NAVEGADOR (sospechado): firefox «Page crashed» dentro de AxeBuilder en t1269:241 (x3), t1305:161 (x3), t1307:29; determinista (reprueba), el resto de pruebas con axe en Firefox pasan.
+
+## 2026-11-23 — DIAGNOSTICO Firefox «Page crashed» en axe (t1269/t1305/t1307) — solo lectura, sin cambios en src/ ni tests
+- Reproduce con 1 pagina (t1269 5a, sin select) y 1 aserción: Firefox 159.0 (Playwright 1.65, firefox-1572) SIGSEGV del proceso de contenido (señal 11); Chromium 158 y WebKit 27.2 pasan (0 violaciones). Independiente de ancho (320/1024/1280), de select, de runOnly (wcag2a falla; wcag2aa/wcag21aa pasan) y de setLegacyMode.
+- Reglas que lo disparan solas: aria-allowed-attr, aria-conditional-attr, aria-prohibited-attr, hidden-content, label-content-name-mismatch, landmark-unique, nested-interactive. HTML estático idéntico (con CSS) en Firefox: sin crash. Clonar/reserializar el DOM vivo (misma marcación): sin crash. Causa = estado de nodos vivos + segfault nativo Firefox; no la marcación. Decisión N2 pendiente de Neo. Scripts en scratchpad/ffdiag.
+
+## 2026-11-23 — Excepción Firefox axe (aprobada por Neo N2)
+- Editadas t1269 (~L241-247), t1305 (~L161-174), t1307 (~L29-45): bajo browserName==='firefox' se omite solo AxeBuilder.analyze (comentario con la cita de la excepción); resto de aserciones intactas.
+- E2E firefox+chromium en serie: 66 passed (puertos 3143/5243 porque 3141/5241 ocupados por otra corrida chromium ajena). tsc=0; verify-oracles CUMPLE (0 débiles). Sin commit, sin [x].
+
+## 2026-11-24 — Fase 15 T961..T967 (enmiendas 006 + defectos de uso real) — sin [x], sin commit, sin push
+- CC-KEY-F15-1 (A, T962): `AttemptLimitsInput.lastOutcome` + puerto `lastAttemptOutcome(sceneId)` (memoria, SQLite, PostgreSQL, nulo); enfriamiento de 60 s solo con `SUCCEEDED`; topes 3/24 h y 12/24 h intactos.
+- CC-KEY-F15-2 (B, T963): `sanitizeBiography`; el worker lee la biografía cruda por `r.pets.findById` y `buildScenePayload` la sanea (`biographies` map; fuera de snapshot/huella/logs). `SCENE_PAYLOAD_SCHEMA_VERSION` SE QUEDA en '1.0.0': el `const` de `SchemaVersion` del contrato sigue '1.0.0' (el 1.1.0 es solo de descripciones) y el tipo generado lo exige. Prompt: con foto, bloque `PET_BIO_RULE`+`PET_BIO_BLOCK`+líneas `Pet k (IMG_n): "…"` tras `PRESERVATION_BLOCK`; sin foto, `bio` en el JSON precedido de `PET_BIO_RULE`.
+- CC-KEY-F15-3 (C, T964): aviso '3' / 'gemini-api-3' en servidor y cliente + párrafo explícito de la biografía; t875/t873/fixtures actualizados.
+- CC-KEY-F15-4 (D, T965/T966): `SceneGlobalQuotaPort.isExhausted` (SQL SQLite/PG sobre `platform_parameters`, falla a false); getScene `GLOBAL_QUOTA_EXHAUSTED` (orden REQ-ESC6-039), request 409 antes de `evaluateLimits`; presentación `SCENE_GLOBAL_QUOTA_TEXT`.
+- CC-KEY-F15-5 (E/F): `sceneRefreshingState` («Actualizando…») durante la relectura; `startCooldownCountdown` con `now` (reloj real). El gancho `onVisible` existe pero NO se cablea: INV-AUTH2-002 (tests de seguridad/presentación) prohíben `visibilitychange` en la SPA; queda decisión de Neo.
+- CC-KEY-F15-6 (G): `renderedPetsCount` = total visible + `referencePhotoPets` con `onlyWithoutPhoto`; etiqueta cerrada `IMG_n (…):` (`reference-labels.ts`, validada por patrón en `gemini-api-wire.ts`); `PRESERVATION_BLOCK` en singular. La siembra de migración (0018 PG/0022 SQLite) conserva el texto viejo (inmutable): punto abierto.
+- CC-KEY-F15-7 (H): prueba estática Dockerfile vs `vite.config.ts` en `t961`.
+- Pruebas: nuevo `tests/unit/t961-enmiendas-escena-006.spec.ts` (24); actualizadas t843, t851, t853, t875, t841, t939, t1071, t1182, t1185, t1207, t1208, t1213, t1296, t1298, t947, t951, t803, t873, t1303. HONESTIDAD TDD: las pruebas nuevas se escribieron tras la implementación (no hubo fase roja previa registrada).
+
+## 2026-11-24 — T968 C-1 / C-2 (condiciones de /rama R-1, R-2) — sin [x], sin commit, sin push
+- CC-KEY-T968-1 (C-1, R-1, opción a): `scene-run-use-case.ts` (lectura de biografía): con driver real solo se lee la biografía si `hasActiveConsent(r, svc, pet.ownerUserId, 'PET_PHOTOS')`; es el mismo chequeo y la misma regla `!svc.realDriver || consentimiento` de la foto en `loadLiveInputs` (scene-use-cases.ts:105). Con driver simulado no hay compuerta (igual que la foto): la biografía viaja.
+- Prueba: nuevo `tests/unit/t968-biografia-consentimiento-escena-006.spec.ts`; roja primero (propietario sin consentimiento: biografía presente en el prompt), verde tras el cambio. Cubre real sin/con consentimiento de ambos, y simulado.
+- CC-KEY-T968-2 (C-2, R-2): `scene-notice.ts` §4 (Vertex y gemini-api) y §6 (ambos): cláusulas de retención (lectura solo al generar, tránsito, no almacenada en intentos/instantáneas/registros; Vertex: el proveedor no la usa para entrenar) y de borrado (editar/borrar biografía o revocar consentimiento detiene el envío; retirar imagen en cualquier momento). Decisión: en §4 gemini-api NO se afirma la ausencia de entrenamiento (sin fuente, REQ-ESC6-028): se deja «pendiente de confirmar». NOTICE_VERSION '3' / 'gemini-api-3' intactos; ninguna prueba fija hash del aviso (t877/t949/t961 siguen verdes sin cambios); las aserciones del texto nuevo van en t968.
+- Gates: tsc rc 0; verify-oracles CUMPLE (0 débiles) rc 0; verify-traceability --feature 006 CUMPLE rc 0; test:gate (PG17 55432) rc 0: 451 archivos, 6957 pasan, 1 omitida.
+
+## 2026-11-24 — OBS-2 Vertex (texto exacto de Neo en aviso §4) — sin [x], sin commit, sin push
+- CC-KEY-OBS2-1: `scene-notice.ts` §4 Vertex: tercer párrafo (biografía) sustituido por el texto literal de Neo (términos de datos de cliente de Google Cloud/Vertex; no entrena sin permiso; retención temporal hasta 30 días por abuso). gemini-api §4 intacto («pendiente de confirmar»). NOTICE_VERSION '3' / 'gemini-api-3' intactos.
+- Pruebas: t968 (aserciones §4 Vertex a la frase nueva) y t949 (regla «sin cifras» ahora admite solo «hasta 30 días por prevención de abuso», fuente citada). Ninguna prueba fija hash del aviso.
+- Gates: tsc rc 0; oráculos CUMPLE (0 débiles); traza 006 CUMPLE; test:gate PG17 rc 0 en 2a corrida (1a: fallo t949 por la cifra, corregido).
+- Corrección: test:gate corrida 1 falló t949 (cifra, corregido); corrida 2 rc 1 solo por flake t1238 (medianas, 1.190 ms); corrida 3 rc 0 (6957 pass, 1 omitida).
+
+## 2026-11-24 — 006: una línea por mascota en el prompt (orden Nivel 2 de Neo tras prueba en vivo de 504e4a0)
+- Eliminados `PET_BIO_RULE`, `PET_BIO_BLOCK`, bloque «Pet biographies», frase «Use IMG_n as the exact visual reference…» y `PRESERVATION_BLOCK` suelto en desde-cero (incrementales lo conservan).
+- Nueva línea única `Pet k (especie): Translate this pet from IMG_n …` (+ ` Description: "…".` con biografía saneada); JSON sin foto usa `description` (antes `bio`) sin regla previa.
+- Pruebas actualizadas (t841, t939, t961, t1071 x2, t1182, t1185, t1213, t1261, t855, t938) + nueva t1320 con el ejemplo exacto de Neo. Gates: tsc 0, vitest 6660 pass, oráculos 0, traza 006 CUMPLE. Commit local, sin push.
+
+## 2026-11-24 — 006: admitir image/jpeg en la salida del generador (enmienda Nivel 2 de REQ-ESC6-035, orden de Neo tras prueba en vivo de 18ece42) — commit 8f9add9, sin push
+- CC-KEY-JPEG-1: `decodeGeminiImage` acepta firma FF D8 FF con `image/jpeg`; `validateGeneratedImage` aplica `stripJpeg` (sin EXIF/comentarios, trunca tras EOI, límites de dimensiones y tamaño); tipo declarado distinto de la firma sigue siendo INVALID.
+- CC-KEY-JPEG-2: migración ADITIVA SQLite 0024 y Postgres 0020 `home_scenes_image_mime_jpeg` (numeración por familia, igual que 0023/0019). SQLite reconstruye `home_scenes` resguardando `scene_attempts`/`scene_image_sources` (DROP TABLE con FK ON dispararía la cascada); Postgres DROP + ADD CONSTRAINT. 0013/0009 intactas.
+- CC-KEY-JPEG-3: descarga `.jpg`/`.webp`/`.png` según `image_mime` (`scene-use-cases`, `scene-view` con parámetro opcional); guardas de nombre (`media-storage-guards`, `dev-media.routes`) admiten png|jpg|webp (el contrato ya lo declara). Log técnico `scene-generator INVALID_OUTPUT mimeType=<MIME cerrado|other>` en ambos adaptadores (opción `log`, cableada en `scene-composition`).
+- Pruebas: nueva t1321 (SQLite sin pérdida + PG vivo) y casos JPEG en gemini/vertex/t847/t1168/t1166/t570; actualizadas t831, schema-parity, pool, sqlite-repositories, t1207, t1219, t1242. Rojo primero verificado (11 fallos) antes de implementar.
+- Gates: tsc 0; vitest completo 6971 pass con 2 fallos AJENOS (T803 deriva v34 por la enmienda del contrato en paralelo sin regenerar; verify-ci-ready por archivos sin seguimiento); oráculos 0; traza 006 CUMPLE.
+
+## 2026-11-24 — 006: PRESERVATION_BLOCK editable en /admin con {photoRef} (orden Nivel 2 de Neo vía Morpheus) — commit local, sin push
+- CC-KEY-PRES-1: defecto `Translate this pet from {photoRef} into the 16-bit …` (ejemplo t1320 de Neo intacto: renderizado sale idéntico). `validatePromptBlocks` admite `{photoRef}` en PRESERVATION_BLOCK sin exigirlo. `photoPetLine` lee `blocks.PRESERVATION_BLOCK`, sustituye con split/join; fila heredada sin marcador antepone `From IMG_n: `.
+- CC-KEY-PRES-2: incrementales usan `renderIncrementalPreservation` (`{photoRef}` -> «its reference photo», sin repetir IMG_n; evita fuga del marcador y duplicar la referencia). UI /admin: pista nueva para PRESERVATION_BLOCK; `blockProblem` lo permite.
+- TDD: rojas primero en t1320 (4) y t1261 (1); pruebas t841/t939/t961/t1071/t1213/t1261 ajustadas a `INCREMENTAL_PRESERVATION_BLOCK`. Gates: tsc 0; vitest completo PG 55432 6978 pass; oráculos 0 débiles; traza 006 CUMPLE.
+
+## 2026-11-24 — fix/009-escena-prod-admin-global: reinicio amplio, cuota visible, gemini-3.1 preview + global (orden Nivel 2 de Neo vía Morpheus; D9-27/D9-28, SC-009-052..055) — commit local, sin push ni [x]
+- CC-KEY-009P-1 (D9-28): `resetAdminAccountsSceneQuota(subjects, emails, failedSince)` en memoria/SQLite/PG: pone a cero escenas sin hogar y de hogares con propietario legal, ELIMINA su `scene_quota_carry`, pasa FAILED de 24 h a CANCELLED (provider_call_started_at intacto) y limpia run_state failed. Global y hogares ajenos intactos.
+- CC-KEY-009P-2 (D9-28 (4)): `sceneQuotaLine` en scene-view/SceneBlock: «Generaciones restantes este mes: R de M. Se renuevan el <fecha>.» siempre salvo blockedReason ROLE.
+- CC-KEY-009P-3 (D9-27): tabla {2.5+us-central1 45_000; 3.1-preview+global 75_000}, SCENE_GLOBAL_LOCATION_ENABLED true, par validado en BD/lector/adaptador/guardado; el guardado de una mitad guarda su pareja única atómicamente; aviso con variante `3-global`.
+
+## 2026-11-24 — fix/009 producción: migración preview+global, v35 alineado, T1312, aviso sin PROVISIONAL (orden Nivel 2 de Neo vía Morpheus) — commit 98448fa, sin push ni [x]
+- CC-KEY-009Q-1: migración ADITIVA idempotente SQLite 0025 / Postgres 0021 `scene_model_preview_global` (numeración propuesta por Neo libre): si `scene.provider_model = 'gemini-3.1-flash-image'` fija `scene.provider_location = 'global'` (crea o sobrescribe) y cambia el modelo a `-preview`; otro valor no se toca. Prueba nueva t1322 (rojo primero: 14 fallos; SQLite+PG vivo, idempotencia, no-toca-otros). Listas de migraciones ajustadas (t1219, t1242, sqlite-repositories, postgres-pool).
+- CC-KEY-009Q-2: `compile-contracts.sh --feature 009`: solo cambió v35 (client.ts, openapi-types.ts; location `us-central1 | global`). T1311 en código.
+- CC-KEY-009Q-3: T1312 aserción de hogar ajeno añadida a t1268 (3 motores); ya pasaba (la implementación ya respetaba el propietario legal), sin cambio de producción.
+- CC-KEY-009Q-4: retiradas marcas PROVISIONAL de NOTICE_GLOBAL_SECTIONS y REGION_NOTICE (comentarios); texto y noticeVersion intactos.
+- Gates: tsc 0; vitest 449 archivos/6987 pass rc 0; oráculos 0 débiles rc 0; traza 009 y 006 CUMPLE rc 0; verify-ci-ready rc 0 (tras commit).
+
+## 2026-11-24 — fix/009-escena-driver-selector-y-reset: T1313 selector único + T1315 reinicio real de 4 límites (orden Nivel 2 de Neo vía Morpheus) — commit local, sin push ni [x]
+- CC-KEY-009R-1 (T1313, D9-29): `deriveLocation(driver, model)` puro en `provider-parameters.ts` (2.5 -> us-central1, 3.1-preview -> global, gemini-api/otro -> null); `scene.provider_location` fuera de catálogo, lector y /admin (422 por clave desconocida); guardado atómico de pareja retirado (una clave, una auditoría); UI sin RegionEditor, aviso de región junto al selector de modelo. Contrato 1.7.0 DRAFT compilado a v35 (`compile-contracts.sh --feature 009`).
+- CC-KEY-009R-2 (T1315, D9-31): marca `home_scenes.limits_reset_at` + tabla mínima `scene_actor_limit_marks` (tabla y no columna de `users`: no toca identidad, cascada al borrar cuenta). Migración aditiva SQLite 0026 / PG 0022. `evaluateLimits` usa `max(since24h, marca + 1 ms)`; el reinicio YA NO reescribe `scene_attempts` (se retira FAILED -> CANCELLED de D9-28). maxClosedWithoutCallPerDay sigue en 20 (Neo dijo 5): punto abierto.
+- Gates: tsc 0; oráculos 0; traza 009 y 006 0; vitest 6982 pass, 10 fallos AJENOS (terraform/.github sin commit de /link T1316 y verify-ci-ready por archivos sin seguimiento).
+
+## 2026-11-24 — T1316 pruebas de infra + e2e del selector único (misión Morpheus, cierre de fix/009-escena-driver-selector-y-reset) — commit T1316 local, sin push ni [x]
+- CC-KEY-T1316-1 (D9-30 (8)): pruebas de infra al contrato de 6 secretos y GEMINI_API_KEY opcional por versión numérica (nunca latest): terraform-secret-manager, terraform-labels, terraform-iam (accessor 6; viewer 9), terraform-iam-secrets, t806, t951, gemini-api-aislamiento. terraform fmt -check rc 0; validate rc 0.
+- CC-KEY-T1316-2 (D9-29): e2e t1235/t1250/t1269/t1305/t1306/t1307 al selector único (sin scene.provider_location ni selector de región; ids de modelo -preview). Playwright chromium: t1235/t1250/t1269/t1305/t1307 pasan (mock); t1306 (servidor real, 75 s de propagación) NO ejecutada.
+- Puntos abiertos de Neo sin tocar: closedWithoutCall (20 en código; Neo dijo 5) y run_state='failed'.
+
+## 2026-11-24 — fix/009-escena-driver-selector-y-reset: T1314 scene.provider_driver y enrutador vertex/gemini-api (orden Nivel 2 de Neo vía Morpheus; D9-30; 009-C firmada) — commit local, sin push ni [x]
+- CC-KEY-T1314-1 (D9-30 (1)(4)(5)): `scene.provider_driver` en el catálogo (orden: tras scene.provider_model), lista cerrada vertex|gemini-api, `allowed` de la vista = solo proveedores con credenciales (defecto del despliegue); 422 al guardar un proveedor sin credenciales o que no admite el modelo vigente (y al revés). Modelos: Vertex 2.5 + 3.1-preview; gemini-api 2.5 + 3.1 + 3.1-preview.
+- CC-KEY-T1314-2 (D9-30 (3)(4)): `SceneProviderRouter` (infra) compone Vertex (config `real`) y gemini-api (`GEMINI_API_KEY`); lector en caliente `createSceneProviderSelectionReader` (caché <= 60 s, fallo de lectura = falla cerrado sin cachear). `SceneServices.providerRouting`; el worker cierra FAILED sin marca ni cuota ANTES de `tryConsume` si `configured=false`; nunca cae al otro proveedor.
+- CC-KEY-T1314-3 (D9-30 (7)): tabla de costes con clave de proveedor `gemini-api` (2.5=45_000; 3.1 y 3.1-preview=75_000, Anexo A firmado); `deriveLocation` null para gemini-api; `sceneImagesFit` sigue solo con pares Vertex (contrato 1.7.0). `GEMINI_API_KEY` ahora opcional con `real` (inválida = arranque rechazado nombrando solo la variable). Aviso/consentimiento siguen al proveedor efectivo (`currentProviderId`/`currentNoticeVersion`: variante gemini-api existente, texto legal intacto).
+- UI /admin: PARAMETER_KEYS y DriverEditor (sin esto el cliente rechazaba el catálogo de 6 claves). v35 ya estaba compilado (sin diff). Sin persistencia nueva (fila ausente = defecto), sin migración.
+
+## 2026-11-24 — 010-tipi-identidad-legal-borde: verify-traceability admite --feature 010 (misión Morpheus) — commit local, sin push ni [x]
+- CC-KEY-010-1: `FEAT10` + `FEAT6` ampliado (familia 006: EDGE/SC/rangos, 1:1 spec→tasks, evidencia informativa); `OWNED_010` = REQ|INV|NFR-(TIP10|EDG10|LEG10|MEN10|ACE10), EDGE-010 y SC-010. D10-NN no casa con NUM_ID: sin exigencia de código.
+- Gates: 010 rc 0 (52 vigentes, 1:1 70/70, trazados 9/52); 009 rc 0 (83/83, igual); 006 rc 0 (301/251/206, igual); tsc 0.
+
+## 2026-11-24 — 010-tipi-identidad-legal-borde: T1404 pruebas ROJAS del Bloque A [GH:#65] (misión Morpheus, Fase 1) — sin commit, sin push ni [x]
+- CC-KEY-T1404-1: `tests/unit/t1404-marca-tipi-bloque-a-010.spec.ts` (9 pruebas, 9 ROJAS por la razón correcta): (a) «Argos» visible en index.html/admin.html (2 títulos) y en src/presentation/web (20 líneas: AppShell, AuthPages, SharedSummary, PetForm, AccountPage, AccountStatusPage, ChooseUsernamePage, scene-notice, `argos-backup.json`, `argos-hogar-*.png`); lista blanca D10-01 (X-Argos-*, argos_*, ARGOS_*, urn:argos, nosemgrep); (b) falta `src/presentation/web/brand.ts` (BRAND_NAME='Tipi'), `<title>` sin Tipi, sin favicon.svg, AppShell/AuthPages sin import de brand; (c) sin `AppConfig.publicBaseUrl` (ARGOS_PUBLIC_BASE_URL) y el enlace público con trustProxy refleja `https://evil.example` (EDGE-010-012) en vez de la base configurada; `share-links.routes.ts` usa request.host/protocol.
+- Nombres propuestos (a confirmar en T1406/T1408): `brand.ts`/BRAND_NAME, `AppConfig.publicBaseUrl`, `RouteContext.publicBaseUrl`. Prueba local: rojo ejecutado con vitest (no requiere dev server). Gate: tsc 0.
+
+## 2026-11-24 — 010 T1406 marca Tipi + T1408 base pública (misión Morpheus) — commit 399632d local, sin push ni [x]
+- CC-KEY-T1406-1: `brand.ts` (BRAND_NAME='Tipi'); títulos, favicon (`public/favicon.svg`), UI, scene-notice, descargas `tipi-backup.json`/`tipi-hogar-*` (cliente). t1404 9/9 verde.
+- CC-KEY-T1408-1: `AppConfig.publicBaseUrl` (ARGOS_PUBLIC_BASE_URL, origen sin barra; inválida rechaza arranque), `RouteContext.publicBaseUrl`; share-links ignora Host/X-Forwarded-Host. Sin variable: server.ts usa `http://127.0.0.1:<port>`.
+- Tests ajustados por la marca: api.spec, t1166, t968 (texto legal), t1235, app-config.spec, t1134. Gates: tsc 0; vitest unit+security 276/4231 rc 0; integration/api 55/55 tras ajuste t1235. Abierto: filename servidor `argos-hogar-*` (contrato 006) y e2e escena-008 sin tocar.
+
+## 2026-11-24 — 010 T1407 paleta Tipi/fuentes/logo + T1443 base pública obligatoria en producción (misión Morpheus) — commit local, sin push ni [x]
+- CC-KEY-T1407-1: paleta Tipi única en tailwind.config.ts (primary #1F3D36, cream #EFE8D8, terracota #C4552D; derivados accent/meadow/sky); styles.css con theme(); Nunito 800 + Inter 400/600 woff2 locales en public/fonts; logo símbolo simple en cabecera; favicon claro/oscuro, PNG 16/32/48/180, íconos 512/1024. Terracota solo en anillo de foco; botón primario Bosque+Crema.
+- CC-KEY-T1443-1: ARGOS_PUBLIC_BASE_URL obligatoria con NODE_ENV=production (falla cerrado, nombra solo la variable); fixtures de production ajustados. Pruebas: t1407 (14) y t1443 api (3). Gates: tsc 0; unit+security 277/4245 rc 0; traza 010 rc 0. Abierto para Neo: filename servidor argos-hogar-* (contrato 006).
+
+## 2026-11-24 fix regresion T1235: admin/brand.ts propio (BRAND_NAME Tipi), paridad en t1404; gates verdes.
+
+## 2026-11-24 — 010 T1411 pruebas ROJAS Bloque B [GH:#67] — commit local, sin push ni [x]
+- CC-KEY-T1411-1: t1411-paginas-legales-bloque-b-010.spec.ts (17: 13 rojas, 4 guardas verdes: /shared fuera de sesión, bootstrap sin auth/me, 3 rutas con SPA fallback 200 HTML). Nombres propuestos: PrivacyPolicyPage/TermsPage en pages/, footer en AuthPages. Script: --task T[0-9]{3,4}. Abierto: SC-010-008/009 «desconocido» en --task T1411 (spec los agrupa como SC-010-007..013).
+
+## 2026-11-24 — 010 Bloque B T1414/T1415: matiz fotos, respaldo/avatarUrl, trazas — commit local, sin push ni [x]
+- CC-KEY-T1414-1: «cada vez» de fotos -> «cuando la escena incluye o conserva a la mascota» (PP §6 y legal-texts.md; TermsPage sin esa frase). avatarUrl: `pet-invariants.ts:280` lo toma del campo libre «URL del avatar (opcional)» (`PetForm.tsx:338`); el respaldo lo exporta tal cual (`backup-use-cases.ts:221` solo quita avatarVersion; esquema `backup-envelope.schema.json:154`, maxLength 2048). Imagen subida (avatar_object_id) NO va. Texto: «de cada mascota solo viaja la dirección del avatar si la escribiste» (PP §6, TP §11, legal-texts.md).
+- Trazas: @implements REQ-LEG10-004/SC-010-007/008 en AuthPages.tsx; SC-010-011 en PP/TP/LegalLayout; título it con [SC-010-008]. SC-010-011 sigue PENDING (sin it en tests; axe/320 es de T1415 con /sati).
+- Prueba local dev: /privacidad y /terminos sin /auth/me, 320 px sin scroll, claro/oscuro. Gates rc 0.
+
+## 2026-11-24 — fix(010) marca: logo horizontal en cabeceras/acceso; simbolo simple solo <=32 px (BRAND-TIPI §2/§5). T1404 actualizado. t1249 ajustado al pie legal (T1413). Flaky t1238 EDGE-009-012 (3/3 verde aislado).
+
+## 2026-11-24 T1417 (Bloque C) ARGOS_TRUST_PROXY_HOPS
+- app-config.ts: trustProxyHops 0..3 (defecto 1, vacía/inválida rechazada nombrando solo la variable); server.ts: trustProxy = host 0.0.0.0 ? hops : false (H-04 intacto); .env.example y app-config.spec actualizados.
+- t1416 24/25 verde (1 omitida H-01 A); harness: entrada «ATACANTE, , BORDE» -> «ATACANTE, , CLIENTE, BORDE»; oráculos toThrow con código ERR-*.
+- Prueba local curl (servidor real, hops=2): A 5x201, 6a 429, con 1 y 3 falsos al inicio 429; B 201. Con hops=1 B 429 (EDGE-010-002).
+
+## 2026-11-25 T1418 (Bloque C) ipLimitKey + tope duro en los 5 limitadores (H-T1418-01/02)
+- CC-KEY-T1418-1: src/domain/sharing/ip-limit-key.ts (IPv4 sin puerto, IPv6 /64 `v6:<4 grupos>`, sin [ ] ni %zona, ::ffff: a IPv4, minusculas, invalidas a `invalid`, idempotente) y src/infrastructure/http/bounded-map.ts (setBounded: descarta la entrada mas antigua). Aplicado en registration, admin (failures+starts), google (en rutas start/callback/username), invitee-search (use case + limitador) y scene (solo tope: su clave es userId, no IP). Tope inyectable (ultimo parametro) para pruebas.
+- Pruebas: tests/unit/t1418-ip-limit-key-010.spec.ts (14); t1416: 4 `not.toThrow('CODE')` -> `toBeUndefined()` (OBS-3). SEN-IP-04..09 no existen aun en tests/security (de /sentinels).
+- Gates: tsc 0; t1416 24/1skip, t1418 14, t1188 4; test:gate rc 0 (6891 pass); oraculos 0; traza --feature 010 rc 0. Sin [x], sin push.
+
+## 2026-11-25 H-SEN-T1418-01 (BAJO) ipLimitKey sin trim
+- ip-limit-key.ts: se elimina `ip.trim()`; regex FORBIDDEN_CHARS (espacio, controles C0/DEL/C1, separadores Unicode) -> cubo `invalid`. Resto del comportamiento intacto.
+- sentinels T1418 18 pass/1 skip (EDGE-010-008 documental); t1418 unit 14; tsc 0.
+- verify-oracles: 3 debiles en tests/security/sentinels-010-T1418-ip.security.spec.ts (l.102,181,188; toThrow() sin ERR-*), archivo de /sentinels, no tocado por regla.
+
+## 2026-11-25 — 010 Bloque D T1422 (rojas) + T1423 (contrato y datos; Nivel 2 PREAUTORIZADA por Neo en Logos) — commits locales, sin push ni [x]
+- CC-KEY-T1422-1: t1422-declaracion-mayoria-010 (persistence, memoria/SQLite/PostgreSQL real, 12 por motor) + .api (HTTP, 7). 43 rojas por falta de implementación (columna inexistente, `adultDeclaration` rechazado como propiedad extra, 201 sin declaración); tsc 0. Campo `adultDeclaration` (solo `true`); `UserAccount.adultDeclaredAt`/`adultNoticeVersion`; 422 ERR-MEN10 uniforme, validado ANTES de existencia de usuario y ANTES de consumir el estado OAuth (H-03 A); carrera dos pestañas EDGE-010-005. Commit a45ea50.
+- CC-KEY-T1423-1: contratos 010 nuevos: schemas/adult-declaration.schema.json (AdultDeclaration const true + x-sdd-error, AdultNoticeVersion, RegisterUserWithAdultDeclarationInput, GoogleChooseUsernameWithAdultDeclarationInput) y openapi/adult-declaration.openapi.yaml (registerUser, chooseGoogleUsername; DRAFT 1.0.0). Catálogo error-catalog.json intacto (ERR-MEN10 ya declarado, DRAFT; el estado APPROVED lo fija solo Neo). scripts/compile-contracts.sh admite `--feature 010` -> src/generated/v36 (determinista; 002/003/006 siguen rc 0 y conservan v36).
+- CC-KEY-T1423-2: migraciones SQLite 0028_adult_declaration.sql y Postgres 0024_adult_declaration.sql (columnas TEXT anulables sin DEFAULT, CHECK ambas-o-ninguna, versión 1..32); schema-parity.spec.ts amplía ADULT_DECLARATION_PATH (18/18); t1423 migración (6, PG vivo) y contrato (8).
+- Abierto para /architect: SC-010-023/024 «desconocido» en verify-traceability --task T1422/T1423 (spec los agrupa como SC-010-022..026, igual que pasó con SC-010-008/009); valor de ADULT_NOTICE_VERSION no definido (tests exigen SemVer). Para T1424: importar DomainError de generated/v36, el esquema 002/004 rechaza `adultDeclaration` como propiedad extra, y muchas pruebas existentes registran sin declaración.
+
+## 2026-11-25 — 010 Bloque D T1424 casilla 18+ (servidor, tres repositorios, RegisterPage y /elige-usuario) — commit local, sin push ni [x]
+- CC-KEY-T1424-1: `src/domain/auth/adult-declaration.ts` (ADULT_NOTICE_VERSION = "0.1.0" única; `requireAdultDeclaration` con `validateAdultDeclaration` y DomainError de generated/v36, 422 ERR-MEN10 uniforme). Registro: se valida ANTES del esquema y de la existencia del usuario; Google: ANTES de `oauthFlows.consume` (H-03 A, el 422 no consume el estado). `UserAccount.adultDeclaredAt/adultNoticeVersion` solo en `insert` (update no los toca) en memoria, SQLite y Postgres; problem-details acepta DomainError v36.
+- UI: `CheckboxField` + casilla «Soy mayor de edad (18+)» en RegisterPage y ChooseUsernamePage (el cliente solo envía `adultDeclaration: true`, nunca la versión); `useContractForm` admite `extraErrors`.
+- OBS-4: 100+ llamadas de registro/Google en pruebas y fixtures reciben `adultDeclaration: true` (solo dato de entrada, sin tocar aserciones); SQL esperado y fila PENDING en postgres-repositories-part1 y use-cases.spec ampliados con las columnas nuevas; e2e de Playwright marcan la casilla.
+- Gates: tsc 0; t1422 (mem/SQLite/PG17 36 + HTTP 7) y t1423 verdes con TEST_DATABASE_URL; test:gate completo con PG17 (ver handback); verify-oracles 0 débiles; traza --feature 010 rc 0. Playwright adaptado: 49 pasan; falla preexistente pet-dashboard:166 (nombre `argos-backup` vs `tipi-backup`, T1406), ajena a T1424.
+
+## 2026-11-25 — 010 T1424 OBS-1 de /oracle: regresión de update vs adult_* — commit local, sin push ni [x]
+- CC-KEY-T1424-OBS1: tests/integration/persistence/t1424-update-no-toca-adult-010.spec.ts (memoria/SQLite/PG17, 3 por motor): update con valores falsos conserva declaración original; entidad sin campos no la borra; cuenta anterior no recibe declaración retroactiva. src/ intacto.
+- Mutación manual temporal (revertida, src limpio): memoria dejando de filtrar adult_*, SQLite y PG añadiendo adult_* al UPDATE; cada una hizo fallar 3/3 de su motor. Gates: tsc 0, t1424 9/9 con PG17, oráculos 0 débiles, traza 010 rc 0.
+
+## 2026-11-25 — 010 T1424 OBS-1/OBS-2 de /sati: foco y error de la casilla 18+ — commit local, sin push ni [x]
+- CC-KEY-T1424-SATI: CheckboxField (Field.tsx) con role="alert" en su error; AuthPages.tsx: `shouldFocusAdultCheckbox` (enfoca la casilla en /register solo si es lo único que falta; otros campos sin cambio) y `adultErrorsFor` (marcar la casilla limpia error y aria-invalid; también aplicado en /elige-usuario). Textos y servidor intactos.
+- Prueba tests/unit/presentation/t1424-casilla-18-foco-y-error-010.spec.ts (8): roja 7/8 antes del arreglo (alerta ausente, helpers inexistentes), verde 8/8 después. No hay jsdom: foco y limpieza se prueban sobre los helpers puros y el marcado estático.
+- Gates: tsc 0; vitest presentation+t1411 756 verdes; playwright wcag+auth-pet-forms+google-008 29/29 rc 0; oráculos rc 0; traza T1424 rc 0.
+
+## 2026-11-25 — 010 Bloque E T1428 + T1444 (rojas) y T1429 (contrato y datos; Nivel 2 PREAUTORIZADA por Neo) — commits locales, sin push ni [x]
+- CC-KEY-T1428-1 (648a2a7): rojas de «Acerca de». persistence t1428 (20 casos x memoria/SQLite/PG17 = 60), api t1428 (21), unit markdown dominio+cliente (37), t1444 ruta pública (11; 2 guardas verdes). Interfaz PROPUESTA documentada en las cabeceras: `RepositorySet.aboutContent.get/replace(next, expectedVersion)`, `about-use-cases.ts` (4 casos de uso), `domain/about/about-markdown.ts`, `web/about-markdown.ts`, `web/pages/AboutPage.tsx`, `admin/AboutPanel.tsx`. Rutas: GET /api/about, GET /api/about/photo, GET|PUT /api/admin/about, PUT /api/admin/about/photo. Auditoría ABOUT_UPDATE / ABOUT_PHOTO_UPDATE objeto `about`.
+- CC-KEY-T1429-1: contrato en archivo NUEVO `about.openapi.yaml` 1.0.0 + `about.schema.json` (no admin 1.8.0: editar 009 movería v35 y su estado). body_markdown maxLength 20000 (20001 = 422 ERR-SCHEMA-VALIDATION-FAILED); foto SIEMPRE incrementa version; If-Match "<version>" (ausente/mal formado 422, obsoleto 412). Catálogo 010 a 1.1.0 (hereda ERR-MEDIA-STORAGE-UNAVAILABLE; los dos ERR-ACE10 ya existían). Migraciones SQLite 0029 y Postgres 0025 (tabla singleton sin filas). Tests de «última migración» actualizados (postgres-pool, sqlite-repositories, schema-parity, t831, t1423).
+- Gates: compile --feature 010/002/003/004/005/006/009 rc 0, sin deriva fuera de v36; tsc 0; oráculos 0; migraciones sobre copia de la BD local y PG17 verdes (t1429 6/6); tests/contracts+api+unit 4412 verdes.
+- A (pet-dashboard:166): premisa de Neo no coincide con el producto; NO se cambió nada (ver handback).
+
+## 2026-11-25 — 010 Bloque E T1430 (caso de uso, repositorios 3 motores, rutas admin/pública, foto) — commit local, sin push ni [x]
+- CC-KEY-T1430-1: `about-use-cases.ts` (4 casos + `GetPublicAboutPhotoUseCase`; CAS con If-Match `"<n>"`, 412/422, foto SIEMPRE suma version, INTENT+put+tx final, limpia el objeto en 412, auditoría ABOUT_UPDATE/ABOUT_PHOTO_UPDATE objeto `about`), `domain/about/about-markdown.ts` (sin HTML, esquemas ni imágenes; idempotente; nunca alarga el texto, para no violar el CHECK 20 000), puerto `about.port.ts` + `aboutContent` en memoria/SQLite/PG, rutas `about.routes.ts` (sesión en `onRequest`, antes del cuerpo: sin sesión un cuerpo gigante da el 404 uniforme). 413: `ERR-ACE10-BODY-TOO-LARGE` solo en PUT /api/admin/about; foto cruda `ERR-MEDIA-TOO-LARGE` (problem-details.ts).
+- CC-KEY-T1430-2 (H-ARCH-ACE-KEY): `about/photo/<uuid>` en OBJECT_KEY, `aboutPhotoObjectKey`, `'about/'` en RECONCILED_PREFIXES (15 min por la regla existente), patrón en LIST_PREFIXES, comentario del puerto, y rama `about` en la conciliación (`about_content.photo_object_key`; sin ella el mantenimiento habría borrado la foto viva). El normalizador EXIF pasó a `src/domain/images/` (re-export en el adaptador) porque `application` no puede importar `infrastructure` (layer-dependencies) y el dominio de medios prohíbe VP8X (t568); las pruebas de T1428 no se tocaron.
+- Pruebas: T1428 persistencia 60/60 con PG17 real (55432), API 21/21, markdown servidor 19/19 (la mitad cliente y t1444 siguen rojas: T1431). Nuevas: t1430 API orden/413 (7), conciliación about/ (2), propiedades markdown (3, 1500 corridas c/u), claves en media-keys-escena-006 y t568; actualizados el conteo de claves de RepositorySet (postgres-part3) y RECONCILED_PREFIXES. tsc 0; oráculos 0 débiles.
+- Abierto para /architect: `verify-traceability --task T1430` rc 1 por SC-010-028..034 «desconocido» (la spec los agrupa como SC-010-027..035; mismo patrón que T1411/T1422); los 11 IDs tienen src y tests (OK).
+
+## 2026-11-25 — 010 Bloque E T1431 UI «Acerca de» (admin + /acerca-de) — commit local, sin push ni [x]
+- CC-KEY-T1431-1: `admin/AboutPanel.tsx` + `about-api.ts` (foto con If-Match del etag mostrado, texto con maxLength 20000 y contador, vista previa, 412 con bloque de recarga y foco) montado en AdminPortal; `web/pages/AboutPage.tsx` (fuera de sesion, `credentials: 'omit'`, foto responsiva con alt, estado vacio/error) y ruta `/acerca-de` en App antes del comodin; enlace en pie de acceso (login/registro/estado) y en AppShell.
+- `web/about-markdown.ts` (renderAboutMarkdown): depuracion propia + escape total + lista cerrada de etiquetas; la capa web NO puede importar del dominio (presentation-architecture), por eso no reutiliza el sanitizador del servidor. `# titulo` del texto baja un nivel en la pagina (un solo h1).
+- t1249 (009): el pie de las pantallas de estado ahora lista tambien `/acerca-de` (misma practica que T1413). OBS-1 de /oracle: el comentario obsoleto estaba en `src/domain/images/image-metadata-stripper.ts` l.3 (no en el adaptador); corregido.
+- Gates: tsc 0; T1428 cliente + t1444 48/48; t1428 PG17 81/81; tests/unit 3746 verdes; oraculos 0; traza T1431 rc 0; Playwright visual+a11y 109 ok, 3 fallos NO de T1431 (pet-dashboard:166 y household:160 + medios-csp-wcag:121 fallan igual sin mis cambios: los dos ultimos verificados con stash).
+
+## 2026-11-25 — 010 T1431 observaciones de /oracle y /sati — commit local, sin push ni [x]
+- CC-KEY-T1431-OBS: SAFE_HREF y SAFE_DESTINATION rechazan `/\host` y `//host` (`\/(?![\/\\])`); el LINK del render web acepta un nivel de paréntesis anidado (`[x](javascript:alert(1))` -> `<p>x</p>`, igual que el servidor, sin `)` suelto). AboutPanel: ConflictNotice/BodyEditor/altWarning exportados y probados (If-Match con fetch simulado, 412 role=alert + recarga, maxLength 20000 + contador); alt vacío con foto = AVISO que no bloquea (el contrato admite photoAlt vacío); botón Vista previa a 48 px.
+- Reflow: min-w-0 en hijos de grillas + [overflow-wrap:anywhere] en .about-text y vista previa; E2E tests/e2e/accessibility/acerca-de-reflow-010.spec.ts (320/1024, página y panel): rojo 4/4 antes (scrollWidth 2576..2688), verde 4/4 después. Anillo Terracota en enlaces del texto aplicado vía [&_a]:focus-visible.
+- Gates: tsc 0, vitest 83, PG17 81/81, playwright wcag+auth-pet+google 29/29, oráculos 0, traza T1431 rc 0. t1235-portal-admin (5 fallos) idénticos sin mis cambios (previos).
+
+## 2026-11-25 — 010 T1431 prueba H-ARCH-ACE-ALT (alt vacio = decorativa) — commit local, sin push ni [x]
+- CC-KEY-T1431-ALT: AboutPage ya emitia `alt={photoAlt}` (alt="" con vacio): prueba de NO-REGRESION, sin rojo previo. Para renderizar sin efectos extraje el bloque publicado a `AboutContent` (exportado, mismo marcado). 2 pruebas nuevas en t1431-acerca-de-observaciones-010: alt="" sin nombre/ruta; alt con texto escapado.
+- Gates: tsc 0, vitest 27/27, oraculos 0, traza T1431 rc 0.
+
+## 2026-11-25 — 010 T1431 OBS-4 de /sati (anillo Terracota en enlaces) — commit local, sin push ni [x]
+- CC-KEY-T1431-OBS4: `[&_a]:focus-visible:ring-*` compilaba a `:focus-visible a` (contenedor). Cambiado a `[&_a:focus-visible]:ring-2/ring-terracota/ring-offset-2` + `[&_a:focus]:outline-none` en AboutPage.tsx y LINK_RING (ahora exportado) de AboutPanel.tsx.
+- Pruebas: unit (clases en AboutContent renderizado + LINK_RING; ojo `&amp;` en el marcado) y 2 E2E en acerca-de-reflow-010 (getComputedStyle box-shadow != none y outline != auto, en pagina y vista previa). Rojo 2+2 sin el cambio, verde con el.
+- Nota: Tailwind outline-none emite `outline: 2px solid transparent` (outline-style solid, no none); la E2E exige que no sea `auto` (nativo).
+- Gates: tsc 0, vitest 77/77, playwright reflow+wcag 20/20, oraculos 0, traza T1431 rc 0.
+
+## 2026-11-25 — 010 T1432 hallazgos de /trinity (TRI-01/02/03) — commit local, sin push ni [x]
+- CC-KEY-T1432-TRI: `about-markdown.ts` ahora produce un arbol (`parseAboutMarkdown`); `about-markdown-view.tsx` lo pinta como elementos React (sin innerHTML, sin nosemgrep) en AboutPage y AboutPanel. `renderAboutMarkdown` queda como serializador de prueba con la misma salida; en entradas patologicas de `*`/`_` el arbol anida bien donde antes salia HTML mal anidado.
+- TRI-03: destino con espacio/U+2028/2029 en los extremos ya NO es enlace (target !== target.trim()). TRI-02: t1185 verde por el refactor; EXCEPCION ACOTADA en ui-invitation-logs (fetch): el infractor real era `pages/AboutPage.tsx` (no about-api.ts, que esta fuera de web/): GET publico credentials 'omit', sin notifyActivity; la prueba ademas lo exige. REQUIERE visto bueno de /architect.
+- Gates: tsc 0, vitest presentation+t1428 818/818, tests/security rc 0, semgrep rc 0 (0 hallazgos), oraculos 0, traza T1432 rc 0.
+
+## 2026-11-25 — 010 T1432 ORA-T1432-01 (reintento unico) — commit local, sin push ni [x]
+- CC-KEY-T1432-ORA01: `emphasis()` ahora aplica los 4 patrones EN CADENA sobre el texto escapado (misma semantica del render viejo) y lee las etiquetas generadas como arbol; asi el enfasis anidado queda anidado a cualquier profundidad y no hay marcadores en banda (U+E000/E001 de la entrada se conservan; `<` del usuario ya es `&lt;`, no puede fingir etiqueta). Cierre sin par se ignora; abiertas se cierran al final.
+- Pruebas t1432-render-equivalencia-010 (9): 6 anidados exactos, 2 PUA, propiedad fast-check 20000 corridas contra tests/fixtures/about-markdown-legacy-e384094.ts (copia de e384094^). Rojo 8/9 sin el arreglo, verde 9/9. Exclusiones: TRI-03 (espacios al borde del destino) y viejo mal anidado (pila strong/em).
+- Diferencias (300k entradas sembradas, mismo alfabeto, offset 1): ANTES (e384094) 141591 de 298925 comparables; DESPUES 0. Excluidas: 1075 mal anidadas (todas difieren solo de serializacion, HTML viejo invalido), 0 TRI-03 en la muestra (rara en el alfabeto; cubierta por pruebas previas).
+- Gates: tsc 0, vitest presentation+t1428 827/827, security 641 rc 0 (sin flaky), semgrep 0, oraculos 0, traza T1432 rc 0.
+
+## 2026-11-25 — 010 T1432 ORA-T1432-04 (emphasis promueve abiertas intermedias) + pet-dashboard 3.3.0 — commit local, sin push ni [x]
+- CC-KEY-T1432-ORA04: autorizado por Neo (acotado). `emphasis()` ya no hace `stack.length = at + 1`: al cerrar, las etiquetas abiertas intermedias se PROMUEVEN a su padre (cerradas, con su contenido). `**x _y** z_` -> `<strong>x <em>y</em></strong> z` (texto "x y z"). Sin innerHTML; lista cerrada, SAFE_HREF y rel intactos.
+- Propiedad t1432-render-equivalencia: compara texto visible (quitar etiquetas del vocabulario cerrado + decodificar entidades; sin parser HTML instalado) tambien con viejo mal anidado, exige nuevo bien anidado; unica exclusion TRI-03. Alfabeto +4 atomos para cruzar enfasis. Rojo (3 fallos) con about-markdown.ts de HEAD -> verde 11/11. Diferencias de texto visible en 300k sembradas: ANTES 125, DESPUES 0 (202 solo serializacion).
+- pet-dashboard.spec.ts schemaVersion '3.2.0' -> '3.3.0' (autorizado; nombre argos-backup intacto): playwright 8/8 rc 0.
+- Gates: tsc 0, vitest presentation+t1428 829/829, security 641 rc 0, semgrep 0, oraculos 0, traza T1432 0.
+
+## 2026-11-25 — 010 T1431 guarda T1235 (admin no importa web/) — commit local, sin push ni [x]
+- CC-KEY-T1431-ADMIN: AboutPanel importaba `../web/about-markdown-view.tsx`. Opcion (a) descartada: presentation-architecture solo admite `web`/`admin` bajo src/presentation y web solo importa de web/. Elegida (b): copias byte a byte `admin/about-markdown.ts` y `admin/about-markdown-view.tsx`; AboutPanel importa la local.
+- Prueba nueva t1431-about-markdown-copia-admin-010 (identidad de fuentes + mismo arbol/render). Guardas tocadas: ninguna.
+- Gates: tsc 0, t1235 8/8, presentation+t1428+security 1472 rc 0, unit 3791 rc 0, semgrep 0, oraculos 0, traza T1431 0.
+
+## 2026-11-25 — 010 T1433 compuerta de cobertura de ramas (94.79% -> 95.04%) — commit local, sin push ni [x]
+- CC-KEY-T1433-COV: `vitest --coverage` solo mide src/domain y src/application; la copia admin (presentation) NO cuenta. Las 12 ramas sin cubrir del codigo nuevo estaban en about-use-cases.ts (9) y domain/about/about-markdown.ts (3). Umbral y config intactos.
+- Prueba nueva tests/integration/persistence/t1433-acerca-de-ramas-010.spec.ts (13): If-Match fuera de rango seguro (412), alt sobre tope (422), CAS perdido en texto y foto (412, sin huerfanos), descarte caido, PNG con CRC corrupto (422), foto publica con storage caido/objeto ausente/no imagen, sanitizador (<...>, titulo, tope de pasadas). Cierra OBS-1: propiedad t1432 parametrizada tambien sobre la copia admin (solo anadido).
+- Gates: tsc 0, vitest dirigido 846/846, coverage rc 0 (ramas 4411/4641 = 95.04%), oraculos 0, traza T1432 0.
+
+## 2026-11-25 — 010 integracion tipografia Tipi Display 800 (reemplaza Nunito en font-display) — commit local, sin push ni [x]
+- Zip actualizado extraido en scratchpad; copiado solo public/fonts/tipi-display-latin-800-normal.woff2 (16 656 B, cabecera wOF2); el 700 no se copia (sin consumidor). @font-face web+admin y tailwind display apuntan a 'Tipi Display'; 2 tests (t1404, t1407) ajustados de Nunito a Tipi Display. Licencia: comentario con TODO de registrar el texto en README.
+- nunito-latin-800-normal.woff2 se conserva (referenciado solo en specs/010 research/tasks/spec). Gates: tsc rc 0; sin test:gate ni servidor por orden de Neo.
+
+## 2026-11-25 — 010 T1434 decisiones de Neo: logo simbolo+texto, contacto, Nunito — commit local, sin push ni [x]
+- Cabeceras AuthPages/AppShell/LegalLayout/AboutPage: tipi-simbolo.svg (decorativo) + texto `Tipi` en font-display; AdminPortal conserva logo horizontal. Tests t1404/t1407/t1411 ajustados solo en esa expectativa. Contacto `contacto@tipi.pet` en legal-texts (cuerpo), Privacy y Terms; 3 placeholders restantes y 0.1.0 DRAFT intactos (t1411: expectativa del placeholder de contacto).
+- nunito woff2 eliminado (0 refs en src/tests/tailwind; quedan solo en specs/010 research/tasks/spec); licencia styles web/admin = «Tipografía original del autor — uso exclusivo de Tipi». tsc rc 0; sin gate ni servidor.
+
+## 2026-11-25 — 010 wordmark «tipi» en minuscula en las 4 cabeceras — commit local, sin push ni [x]
+- Decision de Neo: texto junto a tipi-simbolo.svg = `{BRAND_NAME.toLowerCase()}` (AuthPages, AppShell, LegalLayout, AboutPage); BRAND_NAME='Tipi' intacto para prosa/title. t1411 (regex de LegalLayout) alineada a `BRAND_NAME.toLowerCase()`. tsc rc 0; sin gate ni servidor.

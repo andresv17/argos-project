@@ -3,7 +3,7 @@
 #
 # Uso:
 #   bash scripts/compile-contracts.sh                      feature 002 por defecto (override: ARGOS_FEATURE=NNN), salida en src/generated/
-#   bash scripts/compile-contracts.sh --feature 001|002|003|004|005|006|009  elige la feature cuyos contratos se compilan
+#   bash scripts/compile-contracts.sh --feature 001|002|003|004|005|006|009|010  elige la feature cuyos contratos se compilan
 #   bash scripts/compile-contracts.sh --contracts DIR      (solo 004, pruebas) lee los contratos de DIR en vez de <feature>/contracts
 #   bash scripts/compile-contracts.sh --out DIR            escribe en DIR en vez del destino por defecto (pruebas, comparaciones)
 #
@@ -40,6 +40,13 @@
 # toma los esquemas de la 004 (common.schema.json para ProblemDetails y Uuid) porque la 009 no define esquemas propios. Los contratos de
 # origen no se tocan; el $ref absoluto `https://argos.local/contracts/schemas/` del OpenAPI se normaliza a `../schemas/` en el ensayo.
 #
+# Feature 010 (T1423, Bloque D): compila contracts/ incremental de la 010 (errors/, schemas/ y openapi/; sin state-machines/) a <out>/v36/
+# (nunca v31, v33, v34, v35, api, errors, machines, schemas, ops ni catalogs). Fusiona los catálogos de errores de 004 + 005 + 006 + 009 + 010 en un
+# directorio de ensayo (duplicados prohibidos; `inherited` debe existir en la unión 004+005+006+009; `added` debe coincidir con sus códigos) y compila
+# los esquemas de la 004 (para resolver los $ref a identity y common) junto con los de la 010 (x-sdd-metadata validada). El ensayo no lleva máquinas
+# de estado (la 010 no define ninguna). Los contratos de origen no se tocan; el $ref absoluto `https://argos.local/contracts/schemas/` del OpenAPI
+# se normaliza a `../schemas/` en el ensayo.
+#
 # Salida: 0 = compilado; 1 = falta un contrato o falla el generador; 2 = uso inválido o feature desconocida.
 set -euo pipefail
 
@@ -50,7 +57,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --feature)
       if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
-        echo "[SDD Contract Compiler] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003, 004, 005, 006 o 009)" >&2
+        echo "[SDD Contract Compiler] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003, 004, 005, 006, 009 o 010)" >&2
         exit 2
       fi
       FEATURE="$2"
@@ -87,8 +94,9 @@ case "$FEATURE" in
   005) FEATURE_DIR="specs/005-album-archivos-clinicos" ;;
   006) FEATURE_DIR="specs/006-escena-hogar-pixel-art" ;;
   009) FEATURE_DIR="specs/009-aprobacion-admin-correo" ;;
+  010) FEATURE_DIR="specs/010-tipi-identidad-legal-borde" ;;
   *)
-    echo "[SDD Contract Compiler] Feature desconocida: $FEATURE (admitidas: 001, 002, 003, 004, 005, 006, 009)" >&2
+    echo "[SDD Contract Compiler] Feature desconocida: $FEATURE (admitidas: 001, 002, 003, 004, 005, 006, 009, 010)" >&2
     exit 2
     ;;
 esac
@@ -106,6 +114,12 @@ echo "[SDD Contract Compiler] Verificando existencia de contratos en $CONTRACTS_
 if [[ "$FEATURE" == "003" ]]; then
   CONTRACT_FILES=(
     "openapi/ops.openapi.yaml"
+  )
+elif [[ "$FEATURE" == "010" ]]; then
+  CONTRACT_FILES=(
+    "schemas/adult-declaration.schema.json"
+    "openapi/adult-declaration.openapi.yaml"
+    "errors/error-catalog.json"
   )
 elif [[ "$FEATURE" == "009" ]]; then
   CONTRACT_FILES=(
@@ -503,6 +517,103 @@ JS
   exit 0
 fi
 
+if [[ "$FEATURE" == "010" ]]; then
+  OUT_DIR="${OUT_DIR:-src/generated}"
+  case "${OUT_DIR%/}" in
+    src/generated/api|src/generated/errors|src/generated/machines|src/generated/schemas|src/generated/ops|src/generated/v31|src/generated/v33|src/generated/v34|src/generated/v35|src/generated/catalogs|"$PWD/src/generated/api"|"$PWD/src/generated/errors"|"$PWD/src/generated/machines"|"$PWD/src/generated/schemas"|"$PWD/src/generated/ops"|"$PWD/src/generated/v31"|"$PWD/src/generated/v33"|"$PWD/src/generated/v34"|"$PWD/src/generated/v35"|"$PWD/src/generated/catalogs")
+      echo "[ERROR] La 010 no puede escribir sobre artefactos de la 002, 003, 004, 005, 006 o 009 ($OUT_DIR); destino admitido: src/generated/ (raíz) o un directorio ajeno" >&2
+      exit 2
+      ;;
+  esac
+  C4_DIR="specs/004-catalogos-registros-archivos/contracts"
+  C5_DIR="specs/005-album-archivos-clinicos/contracts"
+  C6_DIR="specs/006-escena-hogar-pixel-art/contracts"
+  C9_DIR="specs/009-aprobacion-admin-correo/contracts"
+  for inherited_dir in "$C4_DIR" "$C5_DIR" "$C6_DIR" "$C9_DIR"; do
+    if [[ ! -d "$inherited_dir" ]]; then
+      echo "[ERROR] La 010 hereda de la 004, la 005, la 006 y la 009 y falta $inherited_dir" >&2
+      exit 1
+    fi
+  done
+  STAGE_DIR="$(mktemp -d)"
+  trap 'rm -rf "$STAGE_DIR"' EXIT
+  echo "[SDD Contract Compiler] Fusionando catálogos 004 + 005 + 006 + 009 + 010 y preparando ensayo (feature 010)..."
+  SDD_C4="$C4_DIR" SDD_C5="$C5_DIR" SDD_C6="$C6_DIR" SDD_C9="$C9_DIR" SDD_C10="$CONTRACTS_DIR" SDD_STAGE="$STAGE_DIR" node --input-type=module - <<'JS'
+import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const { SDD_C4: c4, SDD_C5: c5, SDD_C6: c6, SDD_C9: c9, SDD_C10: c10, SDD_STAGE: stage } = process.env;
+const die = (message) => {
+  console.error(`[ERROR] ${message}`);
+  process.exit(1);
+};
+const readJson = (path) => {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (e) {
+    return die(`no se pudo leer ${path}: ${e.message}`);
+  }
+};
+
+// Catálogos: el de la 010 es incremental; se fusiona con la unión 004 + 005 + 006 + 009 sin pisar ningún código (duplicados prohibidos).
+const errorsOf = (dir, label) => (readJson(join(dir, 'errors/error-catalog.json')).errors ?? die(`el catálogo de la ${label} no declara "errors"`));
+const union = {};
+const counts = {};
+for (const [label, dir] of [['004', c4], ['005', c5], ['006', c6], ['009', c9]]) {
+  const entries = errorsOf(dir, label);
+  counts[label] = Object.keys(entries).length;
+  for (const code of Object.keys(entries)) {
+    if (code in union) die(`código de error duplicado en los catálogos de ${label} y uno anterior: ${code}`);
+    union[code] = entries[code];
+  }
+}
+const cat10 = readJson(join(c10, 'errors/error-catalog.json'));
+const e10 = cat10.errors ?? die('el catálogo de la 010 no declara "errors"');
+for (const code of Object.keys(e10)) {
+  if (code in union) die(`código de error duplicado en los catálogos de 010 y uno de 004/005/006/009: ${code}`);
+}
+const meta10 = cat10['x-sdd-metadata'] ?? die('el catálogo de la 010 no declara x-sdd-metadata');
+for (const code of meta10.inherited ?? []) {
+  if (!(code in union)) die(`el catálogo de la 010 hereda ${code}, que no existe en los catálogos de la 004, la 005, la 006 ni la 009`);
+}
+const added = [...(meta10.added ?? [])].sort().join(',');
+if (added !== Object.keys(e10).sort().join(',')) die('x-sdd-metadata.added del catálogo de la 010 no coincide con sus códigos');
+mkdirSync(join(stage, 'errors'), { recursive: true });
+writeFileSync(join(stage, 'errors/error-catalog.json'), JSON.stringify({ ...cat10, errors: { ...union, ...e10 } }, null, 2));
+
+// Esquemas: los de la 004 (de los que dependen los $ref a identity y common) más los de la 010, con x-sdd-metadata validado.
+mkdirSync(join(stage, 'schemas'), { recursive: true });
+cpSync(join(c4, 'schemas'), join(stage, 'schemas'), { recursive: true });
+const SEMVER = /^\d+\.\d+\.\d+$/;
+const STATUS = new Set(['DRAFT', 'REVIEW', 'APPROVED', 'LOCKED']);
+const metaOk = (meta) => meta && SEMVER.test(meta.version ?? '') && STATUS.has(meta.status) && Array.isArray(meta.traceability) && meta.traceability.length > 0;
+for (const file of readdirSync(join(c10, 'schemas')).filter((f) => f.endsWith('.schema.json')).sort()) {
+  const doc = readJson(join(c10, 'schemas', file));
+  if (!metaOk(doc['x-sdd-metadata'])) die(`${file}: x-sdd-metadata inválido (se exige version semver, status y traceability no vacía)`);
+  delete doc.$ref;
+  writeFileSync(join(stage, 'schemas', file), JSON.stringify(doc, null, 2));
+}
+
+// Máquinas: la 010 no define ninguna (el generador exige el directorio, vacío). OpenAPI: solo el de la 010 (x-sdd-metadata válida).
+mkdirSync(join(stage, 'state-machines'), { recursive: true });
+mkdirSync(join(stage, 'openapi'), { recursive: true });
+for (const file of readdirSync(join(c10, 'openapi')).filter((f) => f.endsWith('.openapi.yaml'))) {
+  const text = readFileSync(join(c10, 'openapi', file), 'utf8').replaceAll('https://argos.local/contracts/schemas/', '../schemas/');
+  if (!/x-sdd-metadata:/.test(text) || !/traceability: \[/.test(text)) die(`${file}: sin x-sdd-metadata ni traceability`);
+  writeFileSync(join(stage, 'openapi', file), text);
+}
+console.log(`[SDD Contract Compiler] Catálogos fusionados: ${counts['004']} (004) + ${counts['005']} (005) + ${counts['006']} (006) + ${counts['009']} (009) + ${Object.keys(e10).length} (010) = ${Object.keys(union).length + Object.keys(e10).length} códigos`);
+JS
+  echo "[SDD Contract Compiler] Regenerando $OUT_DIR/v36 (feature 010)..."
+  node scripts/codegen.mjs --contracts "$STAGE_DIR" --out "${OUT_DIR%/}/v36"
+  if [[ -n "$(git diff --stat -- src/generated/api 2>/dev/null)" ]]; then
+    echo "[ERROR] La compilación de la 010 modificó src/generated/api (INV-ARCH-003)" >&2
+    exit 1
+  fi
+  echo "[SDD Contract Compiler] git diff --stat -- src/generated/api vacío: OK"
+  exit 0
+fi
+
 CODEGEN_ARGS=(--contracts "$CONTRACTS_DIR")
 if [[ -n "$OUT_DIR" ]]; then
   CODEGEN_ARGS+=(--out "$OUT_DIR")
@@ -514,14 +625,14 @@ fi
 TARGET_DIR="${OUT_DIR:-src/generated}"
 KEEP_DIR="$(mktemp -d)"
 trap 'rm -rf "$KEEP_DIR"' EXIT
-for foreign in ops catalogs v31 v33 v34 v35; do
+for foreign in ops catalogs v31 v33 v34 v35 v36; do
   if [[ -d "$TARGET_DIR/$foreign" ]]; then
     mv "$TARGET_DIR/$foreign" "$KEEP_DIR/$foreign"
   fi
 done
 restore_foreign() {
   mkdir -p "$TARGET_DIR"
-  for foreign in ops catalogs v31 v33 v34 v35; do
+  for foreign in ops catalogs v31 v33 v34 v35 v36; do
     if [[ -d "$KEEP_DIR/$foreign" ]]; then
       rm -rf "${TARGET_DIR:?}/$foreign"
       mv "$KEEP_DIR/$foreign" "$TARGET_DIR/$foreign"

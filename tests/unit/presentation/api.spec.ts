@@ -38,7 +38,7 @@ describe('errores de la API en la SPA', () => {
   });
 
   it('[REQ-BACKUP-001] el nombre del archivo exportado sale de Content-Disposition', () => {
-    expect([attachmentFileName('attachment; filename="argos-backup-2026-11-09.json"'), attachmentFileName(null)]).toEqual(['argos-backup-2026-11-09.json', 'argos-backup.json']);
+    expect([attachmentFileName('attachment; filename="argos-backup-2026-11-09.json"'), attachmentFileName(null)]).toEqual(['argos-backup-2026-11-09.json', 'tipi-backup.json']);
   });
 
   it('[STATE-BACKUP-001][REQ-BACKUP-002] la importación muestra el resultado o el error con su finalState', () => {

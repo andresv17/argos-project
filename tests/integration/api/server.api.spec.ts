@@ -21,7 +21,7 @@ describe('arranque de producción (src/infrastructure/http/server.ts)', () => {
     const app = await createProductionApp(config, false);
     const post = (url: string, body: unknown, cookie?: string) =>
       app.inject({ method: 'POST', url, headers: { 'x-argos-request': '1', 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, payload: JSON.stringify(body) });
-    const registered = await post('/api/auth/register', { username: 'prueba', displayName: 'Prueba', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' });
+    const registered = await post('/api/auth/register', { adultDeclaration: true, username: 'prueba', displayName: 'Prueba', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' });
     // 009 (T1246): el alta nace PENDING; el arnés T1244 la activa por SQL sobre el mismo archivo para probar el login con scrypt real.
     const admin = openSqliteDatabase(join(dir, 'datos', 'argos.sqlite'));
     await activateAccount(sqliteRunner(admin), 'sqlite', 'prueba', '2026-11-23T10:00:00.000Z');

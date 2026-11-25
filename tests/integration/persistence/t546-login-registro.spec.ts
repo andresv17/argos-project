@@ -72,12 +72,12 @@ describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (n
   run('[SC-CAT-016][REQ-LOG-002][INV-LOG-001][EDGE-009] «ana.perez» y «ANA.PEREZ» chocan con «Ana.Perez» (ERR-AUTH-USERNAME-TAKEN) sin crear nada; «maria_01» y «maria» coexisten', async () => {
     const engine = await open(name);
     const register = new RegisterUserUseCase(engine.deps);
-    expect(await outcome(register.execute({ username: 'ana.perez', displayName: 'Otra', ...REGISTRATION }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
-    expect(await outcome(register.execute({ username: 'ANA.PEREZ', displayName: 'Otra', ...REGISTRATION }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
+    expect(await outcome(register.execute({ username: 'ana.perez', displayName: 'Otra', ...REGISTRATION, adultDeclaration: true }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
+    expect(await outcome(register.execute({ username: 'ANA.PEREZ', displayName: 'Otra', ...REGISTRATION, adultDeclaration: true }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
     expect(await engine.read((r) => r.users.listByIds([ANA]))).toHaveLength(1);
-    expect(await outcome(register.execute({ username: 'maria_01', displayName: 'Uno', ...REGISTRATION }))).toBe('OK');
-    expect(await outcome(register.execute({ username: 'maria', displayName: 'Dos', ...REGISTRATION }))).toBe('OK');
-    expect(await outcome(register.execute({ username: 'Maria_01', displayName: 'Tres', ...REGISTRATION }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
+    expect(await outcome(register.execute({ username: 'maria_01', displayName: 'Uno', ...REGISTRATION, adultDeclaration: true }))).toBe('OK');
+    expect(await outcome(register.execute({ username: 'maria', displayName: 'Dos', ...REGISTRATION, adultDeclaration: true }))).toBe('OK');
+    expect(await outcome(register.execute({ username: 'Maria_01', displayName: 'Tres', ...REGISTRATION, adultDeclaration: true }))).toBe('ERR-AUTH-USERNAME-TAKEN@username');
   });
 
   run('[SC-CAT-016][INV-LOG-001] la base impone la unicidad por LOWER(username) aunque el caso de uso no la compruebe: insertar «ANA.PEREZ» directo falla', async () => {
@@ -90,11 +90,11 @@ describe.each(ENGINE_NAMES)('T546 identidad sin distinguir mayúsculas (%s)', (n
   run('[SC-CAT-017][REQ-LOG-002] «Andres» sin dígitos se registra y se guarda tal como se escribió; «and res» y «a@b» se rechazan; «ANDRES» y «andres» entran a la misma cuenta', async () => {
     const engine = await open(name);
     const register = new RegisterUserUseCase(engine.deps);
-    const created = await register.execute({ username: 'Sofia', displayName: 'Sofía', ...REGISTRATION });
+    const created = await register.execute({ username: 'Sofia', displayName: 'Sofía', ...REGISTRATION, adultDeclaration: true });
     expect(created).toEqual({ accountStatus: 'PENDING' });
     expect((await engine.read((r) => r.users.findByUsername('sofia')))?.username).toBe('Sofia');
     for (const username of ['and res', 'a@b', 'ab', ' Sofia2 ', 'x'.repeat(31)]) {
-      expect(await outcome(register.execute({ username, displayName: 'X', ...REGISTRATION })), username).toBe('ERR-SCHEMA-VALIDATION-FAILED@username');
+      expect(await outcome(register.execute({ username, displayName: 'X', ...REGISTRATION, adultDeclaration: true })), username).toBe('ERR-SCHEMA-VALIDATION-FAILED@username');
     }
     const login = new LoginUseCase(engine.deps);
     const sofiaId = await activateViaPorts(engine.uow, 'Sofia'); // 009: el alta nace PENDING y no inicia sesión; la sesión exige la cuenta ACTIVE

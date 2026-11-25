@@ -27,7 +27,7 @@ import {
 } from '../view-model.ts';
 
 const FIELD_CLASS =
-  'min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
+  'min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
 
 export function PetFilter({ q, species, onChange }: {
   readonly q: string;
@@ -120,7 +120,7 @@ export function PetCardList({ cards, activePetId, onSelect, emptyHint }: {
             data-pet-id={card.profile.id}
             onClick={() => onSelect(card.profile.id)}
             onKeyDown={(e) => onKeyDown(e, index)}
-            className={`flex min-h-12 w-[148px] shrink-0 cursor-pointer snap-start flex-col items-center gap-1 rounded-2xl p-2 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white lg:w-full ${
+            className={`flex min-h-12 w-[148px] shrink-0 cursor-pointer snap-start flex-col items-center gap-1 rounded-2xl p-2 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2 focus-visible:ring-offset-white lg:w-full ${
               selected ? 'border-2 border-primary bg-accent-soft' : 'border-2 border-transparent bg-white hover:bg-meadow'
             }`}
           >

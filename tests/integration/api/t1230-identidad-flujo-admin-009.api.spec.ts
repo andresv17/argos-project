@@ -274,7 +274,7 @@ describe('T1230 [REQ-ADM9-003] [INV-ADM9-001] [EDGE-009-013] [SC-009-012] el acc
     api = a;
     const start = await a.call('GET', '/api/auth/google/start', { csrf: false, contract: false });
     const step = await a.call('GET', `/api/auth/google/callback?code=${GOOGLE_CODE}&state=${stateOfUrl(start.headers['location'] as string)}`, { csrf: false, contract: false, cookie: `argos_oauth=${valueOf(cookieNamed(start, 'argos_oauth'))}` });
-    const chosen = await a.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'persona.google' }, contract: false });
+    const chosen = await a.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'persona.google', adultDeclaration: true }, contract: false });
     expect(chosen.status).toBe(201);
     // 009 (T1246, EDGE-009-006): la cuenta nace PENDING y sin sesión; el arnés (T1244) la activa y entra de nuevo con Google para abrir argos_session.
     await activateAccount(sqliteRunner(a.db), 'sqlite', 'persona.google', a.clock.nowIsoTimestamp());
@@ -288,7 +288,7 @@ describe('T1230 [REQ-ADM9-003] [INV-ADM9-001] [EDGE-009-013] [SC-009-012] el acc
 
   it('el cuerpo de registro con campos de rol o isAdmin no crea administrador (el rol no existe en el modelo de usuarios)', async () => {
     const { a } = await boot();
-    const r = await a.call('POST', '/api/auth/register', { body: { username: 'intruso', password: 'Contrasena-Segura-123', role: 'PLATFORM_ADMIN', isAdmin: true }, contract: false });
+    const r = await a.call('POST', '/api/auth/register', { body: { adultDeclaration: true, username: 'intruso', password: 'Contrasena-Segura-123', role: 'PLATFORM_ADMIN', isAdmin: true }, contract: false });
     expect([201, 422]).toContain(r.status);
     expect(count(a, 'admin_identities')).toBe(0);
     const cookie = r.cookie;

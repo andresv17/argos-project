@@ -11,8 +11,8 @@ import { ACCOUNT_STATUS_TITLE, type PendingAccountStatus } from '../account-stat
 import { AuthLayout } from './AuthPages.tsx';
 
 const LEAD: Readonly<Record<PendingAccountStatus, string>> = {
-  PENDING: 'Cuando se revise tu solicitud, podrás entrar con el mismo usuario y la misma contraseña, o con Google. Mientras tanto no tienes acceso a ARGOS. No te enviaremos correo: vuelve a entrar más tarde para ver el resultado.',
-  REJECTED: 'Con esta cuenta no puedes entrar a ARGOS.',
+  PENDING: 'Cuando se revise tu solicitud, podrás entrar con el mismo usuario y la misma contraseña, o con Google. Mientras tanto no tienes acceso a Tipi. No te enviaremos correo: vuelve a entrar más tarde para ver el resultado.',
+  REJECTED: 'Con esta cuenta no puedes entrar a Tipi.',
 };
 
 export function AccountStatusPage({ status }: { readonly status: PendingAccountStatus }): JSX.Element {
@@ -32,7 +32,7 @@ export function AccountStatusPage({ status }: { readonly status: PendingAccountS
         </p>
       </section>
       <p className="mt-4 text-sm text-slate-800">
-        <Link to="/login" className="inline-flex min-h-12 items-center rounded font-semibold text-primary underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+        <Link to="/login" className="inline-flex min-h-12 items-center rounded font-semibold text-primary underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2">
           Volver al acceso
         </Link>
       </p>

@@ -105,7 +105,7 @@ describe('T1125 correo titular verificado de otra cuenta: fallo uniforme (REQ-VI
     const first = await w2.start.execute();
     const pending = await w2.complete.execute({ oauthToken: first.oauthToken, code: GOOGLE_CODE, state: stateOf(first.authorizationUrl) });
     if (pending.kind !== 'CHOOSE_USERNAME') throw new Error('se esperaba CHOOSE_USERNAME');
-    await w2.choose.execute(pending.oauthToken, { username: 'titular.google' });
+    await w2.choose.execute(pending.oauthToken, { username: 'titular.google', adultDeclaration: true });
     w2.oidc.identity = { sub: 'sub-b', email: EMAIL };
     seen.push(await observe(w2, await callbackOf(w2)));
 
@@ -116,7 +116,7 @@ describe('T1125 correo titular verificado de otra cuenta: fallo uniforme (REQ-VI
     const step = await w3.complete.execute({ oauthToken: started.oauthToken, code: GOOGLE_CODE, state: stateOf(started.authorizationUrl) });
     if (step.kind !== 'CHOOSE_USERNAME') throw new Error('se esperaba CHOOSE_USERNAME');
     await giveEmail(w3, CARLOS, EMAIL, true);
-    seen.push(await observe(w3, () => w3.choose.execute(step.oauthToken, { username: 'nueva.persona' })));
+    seen.push(await observe(w3, () => w3.choose.execute(step.oauthToken, { username: 'nueva.persona', adultDeclaration: true })));
 
     for (const o of seen) expect(o).toMatchObject({ code: 'ERR-AUTH-GOOGLE-FAILED', status: 400 });
     expect(new Set(seen.map((o) => o.body)).size).toBe(1);
@@ -144,7 +144,7 @@ describe('T1125 correo titular verificado de otra cuenta: fallo uniforme (REQ-VI
     if (step.kind !== 'CHOOSE_USERNAME') throw new Error('se esperaba CHOOSE_USERNAME');
     await giveEmail(w, CARLOS, EMAIL, true);
     const users = usersOf(w).length;
-    expect((await observe(w, () => w.choose.execute(step.oauthToken, { username: 'nueva.persona' }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
+    expect((await observe(w, () => w.choose.execute(step.oauthToken, { username: 'nueva.persona', adultDeclaration: true }))).code).toBe('ERR-AUTH-GOOGLE-FAILED');
     expect(usersOf(w).find((u) => u.id === MARIA)!.email).toBe(EMAIL);
     expect(usersOf(w).find((u) => u.id === CARLOS)!.email).toBe(EMAIL);
     expect(usersOf(w)).toHaveLength(users);
@@ -162,7 +162,7 @@ describe('T1125 correo sin verificar: regla de D8-14, nunca autovinculación (RE
     const started = await w.start.execute();
     const step = await w.complete.execute({ oauthToken: started.oauthToken, code: GOOGLE_CODE, state: stateOf(started.authorizationUrl) });
     if (step.kind !== 'CHOOSE_USERNAME') throw new Error(`se esperaba CHOOSE_USERNAME y llegó ${step.kind}`);
-    const session = await w.choose.execute(step.oauthToken, { username });
+    const session = await w.choose.execute(step.oauthToken, { username, adultDeclaration: true });
     expect(session).toEqual({ accountStatus: 'PENDING' }); // 009 (EDGE-009-006): la cuenta nace PENDING y no inicia sesión
     return { step, session, account: usersOf(w).find((u) => u.username === username)! };
   }

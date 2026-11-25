@@ -31,6 +31,9 @@
 # propios (incluidos los códigos del catálogo incremental) y que toda tarea consultada con --task cite al menos un ID. Los IDs de
 # 002..005 que su spec cita se aceptan en la compuerta por tarea. La evidencia de código es INFORMATIVA hasta implementar la feature
 # (SDD_STRICT_EVIDENCE=1 la vuelve bloqueante, compuerta de cierre), de modo que sobre el paquete DRAFT sale con 0.
+# Feature 010: mismo patrón que la 006 (prefijos NFR/SC/EDGE, rangos y segmento numérico `010` o alfanumérico `TIP10|EDG10|LEG10|MEN10|ACE10`);
+# sus IDs propios son REQ|INV|NFR|EDGE-(TIP10|EDG10|LEG10|MEN10|ACE10|010)-NNN y SC-010-NNN. Las decisiones `D10-NN` NO son REQ: no
+# casan con el patrón de IDs y no exigen evidencia de código. Evidencia de código INFORMATIVA hasta implementar (SDD_STRICT_EVIDENCE=1 la vuelve bloqueante).
 # IDs retirados: fallan la compuerta final; en la compuerta por tarea se avisan (RETIRED WARN) sin fallar.
 #
 # Salida: 0 = cumple; 1 = incumple; 2 = uso inválido o fuente ausente.
@@ -42,15 +45,15 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --feature)
       if [[ $# -lt 2 || ! "$2" =~ ^[0-9]{3}$ ]]; then
-        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003, 004, 005, 006 o 009)" >&2
+        echo "[SDD Traceability Gate] Uso: --feature NNN (tres dígitos, p. ej. 001, 002, 003, 004, 005, 006, 009 o 010)" >&2
         exit 2
       fi
       FEATURE="$2"
       shift 2
       ;;
     --task)
-      if [[ $# -lt 2 || ! "$2" =~ ^T[0-9]{3}[a-z]?$ ]]; then
-        echo "[SDD Traceability Gate] Uso: --task T### (o T###a)" >&2
+      if [[ $# -lt 2 || ! "$2" =~ ^T[0-9]{3,4}[a-z]?$ ]]; then
+        echo "[SDD Traceability Gate] Uso: --task T### o T#### (o T###a)" >&2
         exit 2
       fi
       TASK_ID="$2"
@@ -98,7 +101,10 @@ const FEAT4 = feature === '004';
 // Feature 005 (T709): ver cabecera. No relaja nada de 001..004; solo añade reconocimiento de prefijos propios.
 const FEAT5 = feature === '005';
 // Feature 006 (T802): ver cabecera. Solo añade reconocimiento de prefijos propios (EDGE) y la rama de 1:1; 001..005 no cambian.
-const FEAT6 = feature === '006';
+// Feature 010: reutiliza la rama de la 006 (patrón de IDs con EDGE/SC/rangos, 1:1 spec→tasks, evidencia informativa) con sus propios IDs.
+const FEAT10 = feature === '010';
+const FEAT6 = feature === '006' || FEAT10;
+const OWNED_010 = /^(?:(?:REQ|INV|NFR)-(?:TIP10|EDG10|LEG10|MEN10|ACE10)|(?:EDGE|SC)-010)-\d{3}$/;
 const OWNED_006 = /^(?:(?:REQ|INV|NFR|SC|EDGE)-ESC6-\d{3}|STATE-SCENE-\d{3}|ERR-SCENE-[A-Z0-9]+(?:-[A-Z0-9]+)*)$/;
 const OWNED_005 =
   /^(?:REQ-(?:ALB5|CAN|CLI5|PRM|SUM|VET)|INV-005|NFR-005|SC-005|STATE-SHARE)-\d{3}$/;
@@ -372,15 +378,15 @@ if (FEAT5) {
   out(`[SDD Traceability Gate] Spec→tasks 1:1: ${ownedIds.length - orphans.length}/${ownedIds.length} IDs propios de la 005 mapeados en tasks.md (evidencia de código bloqueante)`);
 }
 if (FEAT6) {
-  // Spec→tasks.md 1:1 de los IDs propios de la 006 (spec y catálogo incremental); los rangos de tasks.md cuentan expandidos.
+  // Spec→tasks.md 1:1 de los IDs propios de la 006 y la 010 (spec y catálogo incremental); los rangos de tasks.md cuentan expandidos.
   const tasksText = readFileSync(TASKS, 'utf8');
   const inTasks = new Set([...(tasksText.match(NUM_ID) ?? []), ...rangeIds(tasksText), ...(tasksText.match(ERR_ID) ?? [])]);
   const specText = readFileSync(SPEC, 'utf8');
-  const ownedIds = [...new Set([...(specText.match(NUM_ID) ?? []), ...rangeIds(specText), ...catalogCodes])].filter((id) => OWNED_006.test(id) && !retired.has(id));
+  const ownedIds = [...new Set([...(specText.match(NUM_ID) ?? []), ...rangeIds(specText), ...catalogCodes])].filter((id) => (FEAT10 ? OWNED_010 : OWNED_006).test(id) && !retired.has(id));
   const orphans = ownedIds.filter((id) => !inTasks.has(id));
   for (const id of orphans) err(`  FAIL  ${id}  huérfano: no aparece en ${TASKS} (spec→tasks 1:1)`);
   if (orphans.length > 0) failed = true;
-  out(`[SDD Traceability Gate] Spec→tasks 1:1: ${ownedIds.length - orphans.length}/${ownedIds.length} IDs propios de la 006 mapeados en tasks.md (${strictEvidence ? 'evidencia de código bloqueante' : 'evidencia de código informativa'})`);
+  out(`[SDD Traceability Gate] Spec→tasks 1:1: ${ownedIds.length - orphans.length}/${ownedIds.length} IDs propios de la ${feature} mapeados en tasks.md (${strictEvidence ? 'evidencia de código bloqueante' : 'evidencia de código informativa'})`);
 }
 let traced = 0;
 for (const id of required) {

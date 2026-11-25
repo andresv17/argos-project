@@ -157,7 +157,7 @@ export function DateField({ id, label, name, value, onChange, errors, required =
           type="button"
           aria-label="Abrir calendario"
           onClick={() => openNativePicker(pickerRef.current)}
-          className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-text-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-text-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="5" width="18" height="16" rx="2" />

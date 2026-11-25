@@ -87,7 +87,7 @@ describe('cliente generado de la SPA contra la API real', () => {
 
   it('[REQ-UI-005][REQ-AUTH-004] la sesión de la SPA: registro con la política nueva, recarga con GET /auth/me y logout por el cliente generado', async () => {
     const client = createWebApi(await baseUrl());
-    const registered = await client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'nuevo', displayName: 'Nuevo', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' } });
+    const registered = await client.POST('/auth/register', { params: CSRF_PARAMS, body: { adultDeclaration: true, username: 'nuevo', displayName: 'Nuevo', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' } });
     // 009 (T1246): el alta nace PENDING y no inicia sesión (sin Set-Cookie); el arnés T1244 la activa y la persona entra con sus credenciales.
     expect(registered.response.headers.get('set-cookie')).toBeNull();
     await activateAccount(sqliteRunner(api!.db), 'sqlite', 'nuevo', '2026-11-23T10:00:00.000Z');
@@ -101,7 +101,7 @@ describe('cliente generado de la SPA contra la API real', () => {
 
   it('[REQ-UI-005][ERR-AUTH-WEAK-PASSWORD] el cliente generado recibe ERR-AUTH-WEAK-PASSWORD como ApiProblem con el campo password', async () => {
     const client = createWebApi(await baseUrl());
-    const error = await unwrap(client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'debil', displayName: 'Débil', password: 'corta', confirmPassword: 'corta' } })).catch((e: unknown) => e);
+    const error = await unwrap(client.POST('/auth/register', { params: CSRF_PARAMS, body: { adultDeclaration: true, username: 'debil', displayName: 'Débil', password: 'corta', confirmPassword: 'corta' } })).catch((e: unknown) => e);
     expect(error instanceof ApiProblem ? [error.problem.status, error.problem.code, error.problem.field] : null).toEqual([422, 'ERR-AUTH-WEAK-PASSWORD', 'password']);
   });
 });
@@ -147,7 +147,7 @@ describe('presentación de la Rebanada 6 contra la API real (T284)', () => {
 
   it('[REQ-UI-005][ERR-SCHEMA-VALIDATION-FAILED] el rechazo real del registro con un usuario inválido llega a la UI sin el texto técnico del esquema formal', async () => {
     const client = createWebApi(await baseUrl());
-    const error = await unwrap(client.POST('/auth/register', { params: CSRF_PARAMS, body: { username: 'con espacios', displayName: 'X', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' } })).catch((e: unknown) => e);
+    const error = await unwrap(client.POST('/auth/register', { params: CSRF_PARAMS, body: { adultDeclaration: true, username: 'con espacios', displayName: 'X', password: 'Secreto2026!', confirmPassword: 'Secreto2026!' } })).catch((e: unknown) => e);
     const shown = error instanceof ApiProblem ? [error.problem.code, problemMessage(error.problem).includes('El payload incumple el esquema formal')] : null;
     expect(shown).toEqual(['ERR-SCHEMA-VALIDATION-FAILED', false]);
   });

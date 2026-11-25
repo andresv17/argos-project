@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
+  aboutPhotoObjectKey,
   avatarObjectKey,
   canonicalExtension,
   canonicalMediaName,
@@ -251,6 +252,13 @@ describe('claves de objeto: solo UUID (INV-ARC-003, SC-ALM-007)', () => {
     const valid = [`pets/${PET}/files/${ID}`, `pets/${PET}/photos/${ID}`, `pets/${PET}/avatar/${ID}`];
     const invalid = [`pets/${PET}/files/${ID}.pdf`, `pets/${PET}/docs/${ID}`, `pets/${PET}/files/${ID}/x`, `/pets/${PET}/files/${ID}`, `pets/${PET}/files/${ID}\n`, 'pets/../x', `other/${PET}/files/${ID}`, `pets/${PET}/files/Análisis Luna.pdf`, '', `pets/${PET}/files/`];
     expect([valid.map(isMediaObjectKey), invalid.map(isMediaObjectKey)]).toEqual([[true, true, true], invalid.map(() => false)]);
+  });
+
+  it('T1430 (H-ARCH-ACE-KEY): la foto de Acerca de about/photo/<uuid> es la única clave sin id de propietario y no admite variantes', () => {
+    expect(isMediaObjectKey(aboutPhotoObjectKey(ID))).toBe(true);
+    expect(aboutPhotoObjectKey(ID)).toBe(`about/photo/${ID}`);
+    expect([`about/photo/${ID}.jpg`, `about/photo/${PET}/${ID}`, `about/${ID}`, `about/photos/${ID}`, 'about/photo/'].map(isMediaObjectKey)).toEqual([false, false, false, false, false]);
+    for (const bad of ['../x', 'foto.jpg', ID.toUpperCase(), `${ID} `, '', 'x']) expect(() => aboutPhotoObjectKey(bad), bad).toThrow(RangeError);
   });
 
   it('propiedad: toda clave generada pasa isMediaObjectKey y no contiene texto de usuario', () => {

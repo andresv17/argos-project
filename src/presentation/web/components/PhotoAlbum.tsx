@@ -40,7 +40,7 @@ export interface PhotoAlbumViewProps {
   readonly onCancelDelete?: () => void;
 }
 
-const FIELD = 'min-h-12 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
+const FIELD = 'min-h-12 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
 const none = (): void => undefined;
 
 export function PhotoAlbumView(props: PhotoAlbumViewProps): JSX.Element {
@@ -234,7 +234,7 @@ export function PhotoAlbum({ petId, petName, canUpload = false, canDelete = fals
 
   return (
     <div className="grid min-w-0 gap-4">
-      <Link to="/" className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+      <Link to="/" className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
         Volver a la ficha
       </Link>
       <PhotoAlbumView

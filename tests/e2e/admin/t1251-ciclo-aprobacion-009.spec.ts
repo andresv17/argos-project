@@ -51,6 +51,7 @@ async function registerViaUi(page: Page, username: string, displayName: string):
   await page.getByLabel(/^Nombre visible/).fill(displayName);
   await page.getByLabel(/^Contraseña \(/).fill(PASSWORD);
   await page.getByLabel(/^Confirmar contraseña/).fill(PASSWORD);
+  await page.getByLabel('Soy mayor de edad (18+)').check();
   await page.getByRole('button', { name: 'Registrarme' }).click();
   await expect(page).toHaveURL(/\/solicitud-en-revision$/);
   await expect(page.getByRole('heading', { name: 'Tu solicitud está en revisión' })).toBeFocused();
@@ -119,9 +120,9 @@ test('[REQ-APR9-002][REQ-APR9-007][SC-009-002][SC-009-007][SC-009-049] registro 
   }
 
   // Bloqueo del reintento: el MISMO usuario (también con otra capitalización) recibe el mismo 409 que un usuario ocupado, sin revelar el rechazo y sin sesión.
-  const taken = await apiCall<{ code: string }>(page.context().request, 'POST', '/auth/register', { username, displayName: 'Otra Vez', password: PASSWORD, confirmPassword: PASSWORD });
+  const taken = await apiCall<{ code: string }>(page.context().request, 'POST', '/auth/register', { adultDeclaration: true, username, displayName: 'Otra Vez', password: PASSWORD, confirmPassword: PASSWORD });
   expect([taken.status, taken.code]).toEqual([409, 'ERR-AUTH-USERNAME-TAKEN']);
-  const upper = await apiCall<{ code: string }>(page.context().request, 'POST', '/auth/register', { username: username.toUpperCase(), displayName: 'Otra Vez', password: PASSWORD, confirmPassword: PASSWORD });
+  const upper = await apiCall<{ code: string }>(page.context().request, 'POST', '/auth/register', { adultDeclaration: true, username: username.toUpperCase(), displayName: 'Otra Vez', password: PASSWORD, confirmPassword: PASSWORD });
   expect([upper.status, upper.code]).toEqual([409, 'ERR-AUTH-USERNAME-TAKEN']);
   expect(JSON.stringify(taken.body) + JSON.stringify(upper.body)).not.toMatch(/REJECTED|accountStatus|rechaz/i);
   expect(await cookieNames(page.context())).toEqual([]);
@@ -132,6 +133,7 @@ test('[REQ-APR9-002][REQ-APR9-007][SC-009-002][SC-009-007][SC-009-049] registro 
   await page.getByLabel(/^Nombre visible/).fill('Otra Vez');
   await page.getByLabel(/^Contraseña \(/).fill(PASSWORD);
   await page.getByLabel(/^Confirmar contraseña/).fill(PASSWORD);
+  await page.getByLabel('Soy mayor de edad (18+)').check();
   await page.getByRole('button', { name: 'Registrarme' }).click();
   await expect(page).toHaveURL(/\/register$/);
   await expect(page.getByRole('alert').or(page.locator('[id$="-error"]')).first()).toBeVisible();

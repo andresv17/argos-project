@@ -21,6 +21,7 @@
  *   Es un secreto: el error nombra solo la variable, nunca el valor.
  *   Con postgres sale en `AppConfig.databaseUrl` (único lector de `process.env`, T428); `null` con sqlite o memory.
  * - `ARGOS_PG_POOL_MAX` (REQ-PG-010): entero 1..10 sin ceros a la izquierda (5).
+ * - `ARGOS_TRUST_PROXY_HOPS` (REQ-EDG10-001): entero 0..3 (defecto 1); vacía o inválida se rechaza nombrando solo la variable.
  * - `ARGOS_SCHEDULER_EMAIL` y `ARGOS_OIDC_AUDIENCE` (REQ-SEC-007, D-A1): obligatorias con `postgres` (correo
  *   `*.iam.gserviceaccount.com`; URL `https:` sin credenciales ni espacios); `null` con sqlite o memory. El error nombra solo la variable.
  * - Medios (T566, REQ-GCS-003, REQ-ARC-001, REQ-ARC-005, SC-ALM-023): `ARGOS_MEDIA_DRIVER` `gcs` o `memory` (`memory` por defecto; vacío se
@@ -55,6 +56,8 @@ export interface AppConfig {
   readonly databasePath: string;
   readonly appTimezone: string;
   readonly cookieSecure: boolean;
+  /** Base pública de los enlaces (`ARGOS_PUBLIC_BASE_URL`, REQ-TIP10-004, EDGE-010-012): origen http(s) sin barra final; `null` si no se definió (solo fuera de producción; con `NODE_ENV=production` es obligatoria, T1443). */
+  readonly publicBaseUrl: string | null;
   readonly exportMaxPerWindow: number;
   readonly exportWindowMinutes: number;
   readonly inviteMaxPerWindow: number;
@@ -69,6 +72,8 @@ export interface AppConfig {
   readonly dbDriver: 'sqlite' | 'postgres' | 'memory';
   /** Tamaño máximo del pool de PostgreSQL (ARGOS_PG_POOL_MAX, 1..10). */
   readonly pgPoolMax: number;
+  /** Saltos de proxy de confianza (`ARGOS_TRUST_PROXY_HOPS`, REQ-EDG10-001, D10-03): entero 0..3, defecto 1; `2` solo con Cloudflare activo. `trustProxy: true` está prohibido. */
+  readonly trustProxyHops: 0 | 1 | 2 | 3;
   /** Cuenta de servicio del Scheduler (ARGOS_SCHEDULER_EMAIL); obligatoria con postgres, null en otro driver. No se registra. */
   readonly schedulerEmail: string | null;
   /** Audiencia OIDC https (ARGOS_OIDC_AUDIENCE); obligatoria con postgres, null en otro driver. No se registra. */
@@ -174,6 +179,7 @@ interface RawAppConfig {
   ARGOS_AUDIT_RETENTION_DAYS: string;
   ARGOS_DB_DRIVER: 'sqlite' | 'postgres' | 'memory';
   ARGOS_PG_POOL_MAX: string;
+  ARGOS_TRUST_PROXY_HOPS: string;
   ARGOS_MEDIA_DRIVER: 'gcs' | 'memory';
   ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS: string;
   ARGOS_MEDIA_MAX_BYTES: string;
@@ -201,6 +207,7 @@ export const APP_CONFIG_DEFAULTS: Readonly<RawAppConfig> = {
   ARGOS_AUDIT_RETENTION_DAYS: '730',
   ARGOS_DB_DRIVER: 'sqlite',
   ARGOS_PG_POOL_MAX: '5',
+  ARGOS_TRUST_PROXY_HOPS: '1',
   ARGOS_MEDIA_DRIVER: 'memory',
   ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS: '300',
   ARGOS_MEDIA_MAX_BYTES: '10485760',
@@ -238,6 +245,7 @@ export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
     ARGOS_AUDIT_RETENTION_DAYS: { type: 'string', pattern: POSITIVE_INTEGER },
     ARGOS_DB_DRIVER: { type: 'string', enum: ['sqlite', 'postgres', 'memory'] },
     ARGOS_PG_POOL_MAX: { type: 'string', pattern: '^(?:[1-9]|10)$' },
+    ARGOS_TRUST_PROXY_HOPS: { type: 'string', pattern: '^[0-3]$' },
     ARGOS_MEDIA_DRIVER: { type: 'string', enum: ['gcs', 'memory'] },
     ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS: { type: 'string', pattern: '^(?:[3-9][0-9]|[1-8][0-9]{2}|900)$' },
     ARGOS_MEDIA_MAX_BYTES: { type: 'string', pattern: '^[1-9][0-9]{0,7}$' },
@@ -249,7 +257,7 @@ export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
     ARGOS_SCENE_GEN_TIMEOUT_SECONDS: { type: 'string', pattern: '^(?:[1-9][0-9]|10[0-5])$' },
     ARGOS_SCENE_QUEUE: { type: 'string', pattern: '^[A-Za-z][A-Za-z0-9_-]{0,99}$' },
   },
-  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES', 'MICROCHIP_DUPLICATE_MAX_PER_WINDOW', 'MICROCHIP_DUPLICATE_WINDOW_MINUTES', 'ARGOS_AUDIT_RETENTION_DAYS', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX', 'ARGOS_MEDIA_DRIVER', 'ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS', 'ARGOS_MEDIA_MAX_BYTES', 'ARGOS_MEDIA_MAX_BYTES_PER_OWNER', 'ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS', 'ARGOS_SCENE_DRIVER', 'ARGOS_SCENE_MAX_PETS', 'ARGOS_SCENE_QUOTA_MAX', 'ARGOS_SCENE_GEN_TIMEOUT_SECONDS', 'ARGOS_SCENE_QUEUE'],
+  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES', 'MICROCHIP_DUPLICATE_MAX_PER_WINDOW', 'MICROCHIP_DUPLICATE_WINDOW_MINUTES', 'ARGOS_AUDIT_RETENTION_DAYS', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX', 'ARGOS_TRUST_PROXY_HOPS', 'ARGOS_MEDIA_DRIVER', 'ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS', 'ARGOS_MEDIA_MAX_BYTES', 'ARGOS_MEDIA_MAX_BYTES_PER_OWNER', 'ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS', 'ARGOS_SCENE_DRIVER', 'ARGOS_SCENE_MAX_PETS', 'ARGOS_SCENE_QUOTA_MAX', 'ARGOS_SCENE_GEN_TIMEOUT_SECONDS', 'ARGOS_SCENE_QUEUE'],
   additionalProperties: false,
 };
 
@@ -293,6 +301,17 @@ const SCENE_WORKER_URL_NAME = 'ARGOS_SCENE_WORKER_URL';
 const SCENE_LOCATION_NAME = 'ARGOS_SCENE_LOCATION';
 const SCENE_GLOBAL_QUOTA_NAME = 'ARGOS_SCENE_GLOBAL_QUOTA_MAX';
 const GEMINI_API_KEY_NAME = 'GEMINI_API_KEY';
+const PUBLIC_BASE_URL_NAME = 'ARGOS_PUBLIC_BASE_URL';
+/** Origen http(s) sin ruta, consulta, fragmento ni credenciales; se tolera una barra final. */
+function normalizePublicBaseUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '' || url.pathname !== '/' || /[?#]/.test(value)) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
 const GEMINI_MODEL_NAME = 'ARGOS_SCENE_GEMINI_MODEL';
 /** Clave de la Developer API: sin patrón de formato del proveedor; 20..256 caracteres visibles (sin espacios ni saltos de línea: evita inyectar cabeceras). */
 const GEMINI_API_KEY_PATTERN = /^[\x21-\x7e]{20,256}$/;
@@ -419,7 +438,7 @@ function isKnownPublicAuditSecret(value: string): boolean {
 }
 
 /** Variables cuyo valor vacío explícito no equivale a «ausente» (D-26 y T409). */
-const STRICT_EMPTY_KEYS: ReadonlySet<string> = new Set(['HOST', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX', 'ARGOS_MEDIA_DRIVER']);
+const STRICT_EMPTY_KEYS: ReadonlySet<string> = new Set(['HOST', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX', 'ARGOS_TRUST_PROXY_HOPS', 'ARGOS_MEDIA_DRIVER']);
 
 export type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 
@@ -495,11 +514,15 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
   // 009 (T1227, REQ-ADM9-003): lista cerrada de administración; un valor inválido rechaza el arranque nombrando solo la variable.
   const adminParsed = parseAdminEmails(env[ADMIN_EMAILS_NAME]);
   const adminInvalid = !adminParsed.ok;
+  const publicBaseRaw = present(PUBLIC_BASE_URL_NAME);
+  const publicBaseUrl = publicBaseRaw === undefined ? null : normalizePublicBaseUrl(publicBaseRaw);
+  // T1443 (EDGE-010-003, decisión de Neo): con NODE_ENV=production la base es OBLIGATORIA (falla cerrado); en desarrollo el servidor usa http://127.0.0.1:<port>.
+  const invalidPublicBase = publicBaseRaw === undefined ? env['NODE_ENV'] === 'production' : publicBaseUrl === null;
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
   const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret) || (env['NODE_ENV'] !== 'test' && isKnownPublicAuditSecret(auditHmacSecret));
-  if (invalid.size > 0 || sceneInvalid.length > 0 || googleInvalid.length > 0 || adminInvalid || invalidMediaBucket || invalidSecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience) {
-    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidMediaBucket ? [MEDIA_BUCKET_NAME] : []), ...sceneInvalid, ...googleInvalid, ...(adminInvalid ? [ADMIN_EMAILS_NAME] : []), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
+  if (invalid.size > 0 || sceneInvalid.length > 0 || googleInvalid.length > 0 || adminInvalid || invalidMediaBucket || invalidSecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience || invalidPublicBase) {
+    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidMediaBucket ? [MEDIA_BUCKET_NAME] : []), ...sceneInvalid, ...googleInvalid, ...(adminInvalid ? [ADMIN_EMAILS_NAME] : []), ...(invalidPublicBase ? [PUBLIC_BASE_URL_NAME] : []), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
   }
   const scene: SceneConfig = Object.defineProperty(
     {
@@ -527,6 +550,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
     databasePath: raw.DATABASE_PATH,
     appTimezone: raw.APP_TIMEZONE,
     cookieSecure: raw.COOKIE_SECURE === 'true',
+    publicBaseUrl,
     exportMaxPerWindow: Number(raw.EXPORT_MAX_PER_WINDOW),
     exportWindowMinutes: Number(raw.EXPORT_WINDOW_MINUTES),
     inviteMaxPerWindow: Number(raw.INVITE_MAX_PER_WINDOW),
@@ -537,6 +561,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
     auditHmacSecret,
     dbDriver: raw.ARGOS_DB_DRIVER,
     pgPoolMax: Number(raw.ARGOS_PG_POOL_MAX),
+    trustProxyHops: Number(raw.ARGOS_TRUST_PROXY_HOPS) as AppConfig['trustProxyHops'],
     schedulerEmail: isPostgres ? env[SCHEDULER_EMAIL_NAME]! : null,
     oidcAudience: isPostgres ? env[OIDC_AUDIENCE_NAME]! : null,
     databaseUrl: isPostgres ? env[DATABASE_URL_NAME]! : null,

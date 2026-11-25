@@ -4,10 +4,11 @@
  * memoria de la instancia con el reloj inyectado (INV-ARCH-001); el exceso es `429 ERR-RATE-LIMITED` con `Retry-After` en segundos. Es un tope de abuso por instancia,
  * no un contador transaccional: el control duro del gasto son la cuota por hogar y los topes de intentos de `REQ-ESC6-034`, que viven en la transacción.
  *
- * @implements REQ-ESC6-034, ERR-RATE-LIMITED, INV-ARCH-001
+ * @implements REQ-EDG10-003, SC-010-016, REQ-ESC6-034, ERR-RATE-LIMITED, INV-ARCH-001
  */
 
 import { DomainError } from '../../generated/index.ts';
+import { DEFAULT_MAX_TRACKED, setBounded } from './bounded-map.ts';
 
 export type SceneRateScope = 'GENERATE' | 'PHOTO' | 'CONSENT';
 
@@ -26,26 +27,25 @@ export class SceneRouteRateLimitedError extends DomainError {
   }
 }
 
-const MAX_TRACKED_KEYS = 10_000;
 
 export class SceneRateLimiter {
   private readonly events = new Map<string, number[]>();
 
-  constructor(private readonly now: () => number) {}
+  constructor(private readonly now: () => number, private readonly maxTracked: number = DEFAULT_MAX_TRACKED) {}
 
   /** Registra el evento del usuario o lanza el 429 si ya agotó el cupo de la ventana (los rechazos no prolongan la ventana). */
   consume(scope: SceneRateScope, userId: string): void {
     const { max, windowMs } = SCENE_RATE_LIMITS[scope];
     const now = this.now();
-    if (this.events.size > MAX_TRACKED_KEYS) this.sweep(now);
+    if (this.events.size > this.maxTracked) this.sweep(now);
     const key = `${scope}:${userId}`;
     const live = (this.events.get(key) ?? []).filter((at) => at > now - windowMs);
     if (live.length >= max) {
-      this.events.set(key, live);
+      setBounded(this.events, key, live, this.maxTracked);
       throw new SceneRouteRateLimitedError(Math.max(1, Math.ceil((live[0]! + windowMs - now) / 1000)));
     }
     live.push(now);
-    this.events.set(key, live);
+    setBounded(this.events, key, live, this.maxTracked);
   }
 
   /** Reinicio de limites (D9-31): descarta todos los contadores del usuario (GENERATE, PHOTO y CONSENT). No toca a otros usuarios. */

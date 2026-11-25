@@ -74,7 +74,7 @@ describe('T1120 GET /api/auth/google/callback (SC-008-001..006, EDGE-008-006, AD
     // Cuenta ya nacida con Google (primer acceso completo).
     const first = await startFlow(api);
     const pending = await callback(api, first.oauth, `code=${GOOGLE_CODE}&state=${first.state}`);
-    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(pending, 'argos_oauth'))}`, body: { username: 'nueva.persona' }, contract: false });
+    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(pending, 'argos_oauth'))}`, body: { username: 'nueva.persona', adultDeclaration: true }, contract: false });
     expect(chosen.status).toBe(201);
     // 009 (T1246, EDGE-009-006): la cuenta nace PENDING sin sesión; el arnés (T1244) la activa para que el segundo acceso abra sesión.
     await activateAccount(sqliteRunner(api.db), 'sqlite', 'nueva.persona', api.clock.nowIsoTimestamp());
@@ -182,7 +182,7 @@ describe('T1120 POST /api/auth/google/username (SC-008-002, SC-008-062, EDGE-008
   it('201 con AccountStatusView PENDING (009, EDGE-009-006: sin argos_session), argos_oauth retirada y la cuenta sin contraseña (authMethods) una vez ACTIVE', async () => {
     const { api } = await boot();
     const oauth = await toUsername(api);
-    const r = await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'Nueva.Persona' }, contract: false });
+    const r = await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'Nueva.Persona', adultDeclaration: true }, contract: false });
     expect(r.status).toBe(201);
     expect(r.json).toEqual({ accountStatus: 'PENDING' });
     expect(cookieNamed(r, 'argos_session')).toBeUndefined();
@@ -201,28 +201,28 @@ describe('T1120 POST /api/auth/google/username (SC-008-002, SC-008-062, EDGE-008
   it('exige el encabezado CSRF (403) y un cuerpo cerrado (422 de esquema), sin crear nada', async () => {
     const { api } = await boot();
     const oauth = await toUsername(api);
-    expect((await api.call('POST', '/api/auth/google/username', { cookie: oauth, csrf: false, body: { username: 'nueva.persona' } })).status).toBe(403);
-    const closed = await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'nueva.persona', role: 'PLATFORM_ADMIN' } });
+    expect((await api.call('POST', '/api/auth/google/username', { cookie: oauth, csrf: false, body: { username: 'nueva.persona', adultDeclaration: true } })).status).toBe(403);
+    const closed = await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'nueva.persona', adultDeclaration: true, role: 'PLATFORM_ADMIN' } });
     expect([closed.status, (closed.json as { code: string }).code]).toEqual([422, 'ERR-SCHEMA-VALIDATION-FAILED']);
   });
 
   it('un username ocupado responde 409 y conserva el estado para reintentar', async () => {
     const { api } = await boot();
     const oauth = await toUsername(api);
-    expect((await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'andres' } })).status).toBe(409);
-    expect((await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'andres.google' }, contract: false })).status).toBe(201);
+    expect((await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'andres', adultDeclaration: true } })).status).toBe(409);
+    expect((await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'andres.google', adultDeclaration: true }, contract: false })).status).toBe(201);
   });
 
   it('sin cookie argos_oauth responde el 400 uniforme', async () => {
     const { api } = await boot();
-    const r = await api.call('POST', '/api/auth/google/username', { body: { username: 'nueva.persona' } });
+    const r = await api.call('POST', '/api/auth/google/username', { body: { username: 'nueva.persona', adultDeclaration: true } });
     expect([r.status, (r.json as { code: string }).code]).toEqual([400, 'ERR-AUTH-GOOGLE-FAILED']);
   });
 
   it('SC-008-061: el límite de tasa de /username responde 429', async () => {
     const { api } = await boot();
-    for (let i = 0; i < GOOGLE_AUTH_LIMITS.username.maxPerWindow; i += 1) expect((await api.call('POST', '/api/auth/google/username', { body: { username: 'nueva.persona' } })).status).toBe(400);
-    expect((await api.call('POST', '/api/auth/google/username', { body: { username: 'nueva.persona' } })).status).toBe(429);
+    for (let i = 0; i < GOOGLE_AUTH_LIMITS.username.maxPerWindow; i += 1) expect((await api.call('POST', '/api/auth/google/username', { body: { username: 'nueva.persona', adultDeclaration: true } })).status).toBe(400);
+    expect((await api.call('POST', '/api/auth/google/username', { body: { username: 'nueva.persona', adultDeclaration: true } })).status).toBe(429);
   });
 });
 

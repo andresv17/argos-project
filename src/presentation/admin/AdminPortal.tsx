@@ -6,6 +6,8 @@
  * @implements REQ-ADM9-001, REQ-APR9-005, NFR-009-001, EDGE-009-008, INV-ADM9-001
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AboutPanel } from './AboutPanel.tsx';
+import { BRAND_NAME } from './brand.ts';
 import { ParametersPanel } from './ParametersPanel.tsx';
 import { RegistrationsPanel } from './RegistrationsPanel.tsx';
 import { SessionExpiryNotice } from './SessionExpiryNotice.tsx';
@@ -15,7 +17,7 @@ const GOOGLE_START_PATH = '/api/admin/auth/google/start';
 
 type View = 'checking' | 'anonymous' | 'authenticated';
 
-const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
+const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
 
 interface SessionInfo {
   readonly viewerId: string | null;
@@ -52,14 +54,15 @@ function AccessScreen({ headingRef }: { readonly headingRef: React.RefObject<HTM
       <SkipLink />
       <main id="main-content" className="mx-auto max-w-md px-4 py-8 sm:pt-16 lg:pt-24">
         <section className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm sm:p-6">
-          <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-bold text-primary focus:outline-none">
-            Argos
+          <h1 ref={headingRef} tabIndex={-1} className="font-display text-3xl font-extrabold text-primary focus:outline-none">
+            {/* Guía de marca: pantalla de acceso con el logo completo (wordmark en curvas). */}
+            <img src="/brand/tipi-logo-horizontal.svg" alt={BRAND_NAME} width={266} height={150} className="h-24 w-auto max-w-full" />
           </h1>
           <p className="text-sm text-text-muted">Administración</p>
           <p className="mt-4 text-base text-text-primary">Este acceso es solo para el equipo administrador. Entra con la cuenta de Google autorizada.</p>
           <a
             href={GOOGLE_START_PATH}
-            className={`mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover ${FOCUS_RING}`}
+            className={`mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary bg-primary px-5 text-sm font-semibold text-cream hover:bg-primary-hover ${FOCUS_RING}`}
           >
             Entrar con Google
           </a>
@@ -84,7 +87,11 @@ function Shell(props: {
       <SkipLink />
       <header className="border-b border-slate-300 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap sm:justify-between sm:px-6">
-          <p className="font-semibold text-primary">Argos · Administración</p>
+          <p className="flex items-center gap-2 font-semibold text-primary">
+            {/* Guía de marca: barra superior con el logo horizontal. */}
+            <img src="/brand/tipi-logo-horizontal.svg" alt={BRAND_NAME} width={266} height={150} className="h-12 w-auto" />
+            <span aria-hidden="true">·</span> Administración
+          </p>
           <button
             ref={buttonRef}
             type="button"
@@ -101,6 +108,7 @@ function Shell(props: {
         <SessionExpiryNotice expiresAt={session.expiresAt} />
         <RegistrationsPanel onSessionLost={onSessionLost} />
         <ParametersPanel viewerId={session.viewerId} onSessionLost={onSessionLost} />
+        <AboutPanel onSessionLost={onSessionLost} />
         <p className="mt-4 max-w-3xl text-sm text-text-muted">Tu sesión dura 30 minutos como máximo y se cierra sola tras 10 minutos sin actividad.</p>
         {error ? (
           <div role="alert" className="mt-4 max-w-3xl text-sm font-medium text-danger">

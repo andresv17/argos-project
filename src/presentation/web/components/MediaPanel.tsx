@@ -48,7 +48,7 @@ export interface MediaPanelViewProps {
 }
 
 const KIND_LABEL: Readonly<Record<MediaKind, string>> = { FILE: 'Archivo', PHOTO: 'Foto' };
-const FIELD = 'min-h-12 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
+const FIELD = 'min-h-12 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
 const dateText = (iso: string): string => iso.slice(0, 10);
 
 export function Viewer({ viewer, onClose }: { readonly viewer: ViewerState; readonly onClose: () => void }): JSX.Element {
@@ -75,7 +75,7 @@ export function Viewer({ viewer, onClose }: { readonly viewer: ViewerState; read
       {url !== null && !isPdf ? <img src={url} alt={item.originalName} decoding="async" className="max-h-[70vh] w-full rounded-xl object-contain" /> : null}
       {url !== null && isPdf ? <iframe title={`PDF ${item.originalName}`} src={url} className="hidden h-[70vh] w-full rounded-xl border border-slate-200 sm:block" /> : null}
       {url !== null ? (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
           Abrir o descargar
         </a>
       ) : null}

@@ -50,7 +50,7 @@ import {
   transferHouseholdOwnership,
 } from '../../domain/households/household-policies.ts';
 import { INVITEE_SEARCH_MAX_RESULTS, selectInvitees } from '../../domain/households/invitee-search.ts';
-import { normalizeClientIp } from '../../domain/sharing/client-ip.ts';
+import { ipLimitKey } from '../../domain/sharing/ip-limit-key.ts';
 import { matchesPetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import type { InviteeSearchLimiterPort } from '../ports/invitee-search-limiter.port.ts';
 import type { InvitationRecord, RepositorySet } from '../ports/repositories.port.ts';
@@ -214,7 +214,7 @@ export class InviteMemberUseCase {
 /**
  * Autocompletado de colaboradores (`searchInvitees`, feature 008 `[GH:#24]`, ADR-008-12). Orden: gestor del hogar (404 sin membresía, 403 sin permiso), prefijo
  * válido (422 sin consultar), límite de tasa, y una única secuencia de lecturas igual con y sin resultados. Solo devuelve `username`; no registra ni audita nada.
- * @implements REQ-INV8-001, REQ-INV8-003, REQ-INV8-004, INV-INV8-001, EDGE-008-044, EDGE-008-046, REQ-HOUSE2-001, REQ-RBAC-001
+ * @implements REQ-EDG10-003, REQ-INV8-001, REQ-INV8-003, REQ-INV8-004, INV-INV8-001, EDGE-008-044, EDGE-008-046, REQ-HOUSE2-001, REQ-RBAC-001
  */
 export class SearchInviteesUseCase {
   constructor(private readonly deps: ApplicationDeps, private readonly limiter: InviteeSearchLimiterPort) {}
@@ -224,7 +224,7 @@ export class SearchInviteesUseCase {
       const memberships = await repositories.households.listMemberships(householdId);
       requireManager(memberships, householdId, userId);
       const prefix = assertMatchesSchema<string>('InviteeSearchPrefix', validateInviteeSearchPrefix, query);
-      this.limiter.consume(userId, normalizeClientIp(clientIp));
+      this.limiter.consume(userId, ipLimitKey(clientIp));
       const active = memberships.filter((m) => m.householdId === householdId && m.status === 'ACTIVE');
       const invited = (await repositories.invitations.listByHousehold(householdId)).filter((i) => i.status === 'INVITED');
       const members = await publicProfilesById(repositories, active.map((m) => m.userId));

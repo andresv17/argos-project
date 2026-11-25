@@ -30,6 +30,7 @@ import {
   normalizeLoginIdentifier,
   parseRegisterUserInput,
 } from '../../domain/auth/auth-policies.ts';
+import { ADULT_NOTICE_VERSION, requireAdultDeclaration } from '../../domain/auth/adult-declaration.ts';
 import { authMethodsOf, hasPassword, type AuthMethods } from '../../domain/auth/password-sentinel.ts';
 import { assertAuthenticated, logout, openSession, renewSession, sessionExpiries, type SessionRecord } from '../../domain/auth/session-policy.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
@@ -103,7 +104,8 @@ export class RegisterUserUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(input: unknown): Promise<AccountStatusResult> {
-    const valid = parseRegisterUserInput(input);
+    // 010 (REQ-MEN10-001, INV-MEN10-001): la declaración 18+ se exige ANTES del esquema y de cualquier consulta de existencia; el rechazo es uniforme.
+    const valid = parseRegisterUserInput(requireAdultDeclaration(input));
     const now = this.deps.clock.nowIsoTimestamp();
     return this.deps.uow.runInTransaction(async (repositories) => {
       const existing = await repositories.users.findByUsername(valid.username);
@@ -118,6 +120,8 @@ export class RegisterUserUseCase {
         timezone: this.deps.clock.timeZone,
         passwordHash: await this.deps.hasher.hash(valid.password),
         accountStatus: INITIAL_ACCOUNT_STATUS,
+        adultDeclaredAt: now,
+        adultNoticeVersion: ADULT_NOTICE_VERSION,
       };
       // Carrera entre dos altas del mismo username (INV-LOG-001): la base es la última defensa y su violación es ERR-AUTH-USERNAME-TAKEN, no un 500.
       await mapUsernameViolation(() => repositories.users.insert(account));

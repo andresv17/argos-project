@@ -17,7 +17,7 @@ afterEach(async () => {
 const IP_A = '203.0.113.10';
 const IP_B = '203.0.113.11';
 const WINDOW_MS = REGISTRATION_LIMIT.windowMinutes * 60_000;
-const body = (name: string) => ({ username: name, displayName: 'Solicitante', password: 'Clave2026x!', confirmPassword: 'Clave2026x!', email: `${name}@example.test` });
+const body = (name: string) => ({ username: name, displayName: 'Solicitante', password: 'Clave2026x!', confirmPassword: 'Clave2026x!', email: `${name}@example.test`, adultDeclaration: true });
 const register = (a: Api, name: string, ip: string, headers: Record<string, string> = {}) => a.call('POST', '/api/auth/register', { body: body(name), ip, headers, contract: false });
 const users = (a: Api): number => a.db.prepare('SELECT COUNT(*) FROM users').pluck().get() as number;
 const at = (a: Api, ms: number): void => {
