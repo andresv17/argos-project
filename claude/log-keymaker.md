@@ -2345,3 +2345,7 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 - CC-KEY-T1431-OBS: SAFE_HREF y SAFE_DESTINATION rechazan `/\host` y `//host` (`\/(?![\/\\])`); el LINK del render web acepta un nivel de paréntesis anidado (`[x](javascript:alert(1))` -> `<p>x</p>`, igual que el servidor, sin `)` suelto). AboutPanel: ConflictNotice/BodyEditor/altWarning exportados y probados (If-Match con fetch simulado, 412 role=alert + recarga, maxLength 20000 + contador); alt vacío con foto = AVISO que no bloquea (el contrato admite photoAlt vacío); botón Vista previa a 48 px.
 - Reflow: min-w-0 en hijos de grillas + [overflow-wrap:anywhere] en .about-text y vista previa; E2E tests/e2e/accessibility/acerca-de-reflow-010.spec.ts (320/1024, página y panel): rojo 4/4 antes (scrollWidth 2576..2688), verde 4/4 después. Anillo Terracota en enlaces del texto aplicado vía [&_a]:focus-visible.
 - Gates: tsc 0, vitest 83, PG17 81/81, playwright wcag+auth-pet+google 29/29, oráculos 0, traza T1431 rc 0. t1235-portal-admin (5 fallos) idénticos sin mis cambios (previos).
+
+## 2026-11-25 — 010 T1431 prueba H-ARCH-ACE-ALT (alt vacio = decorativa) — commit local, sin push ni [x]
+- CC-KEY-T1431-ALT: AboutPage ya emitia `alt={photoAlt}` (alt="" con vacio): prueba de NO-REGRESION, sin rojo previo. Para renderizar sin efectos extraje el bloque publicado a `AboutContent` (exportado, mismo marcado). 2 pruebas nuevas en t1431-acerca-de-observaciones-010: alt="" sin nombre/ruta; alt con texto escapado.
+- Gates: tsc 0, vitest 27/27, oraculos 0, traza T1431 rc 0.

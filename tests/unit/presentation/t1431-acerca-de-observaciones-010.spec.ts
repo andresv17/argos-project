@@ -11,6 +11,7 @@ import { sanitizeAboutMarkdown } from '../../../src/domain/about/about-markdown.
 import { BodyEditor, ConflictNotice, altWarning } from '../../../src/presentation/admin/AboutPanel.tsx';
 import { saveAboutPhoto, saveAboutText } from '../../../src/presentation/admin/about-api.ts';
 import { renderAboutMarkdown } from '../../../src/presentation/web/about-markdown.ts';
+import { AboutContent } from '../../../src/presentation/web/pages/AboutPage.tsx';
 
 describe('T1431 OBS-1 (oracle): rutas relativas que el navegador trata como protocolo-relativas', () => {
   const cases: ReadonlyArray<readonly [string, boolean]> = [
@@ -99,5 +100,24 @@ describe('T1431 OBS-3 (oracle, sati): AboutPanel', () => {
     expect(altWarning('/api/about/photo?v=1', '   ')).toBe(altWarning('/api/about/photo?v=1', ''));
     expect(altWarning('/api/about/photo?v=1', 'Equipo en la clínica')).toBeNull();
     expect(altWarning(null, '')).toBeNull();
+  });
+});
+
+describe('T1431 OBS-3 (architect H-ARCH-ACE-ALT): alt de la foto en la página pública', () => {
+  const photoUrl = '/api/about/photo?v=3';
+  const render = (photoAlt: string): string => renderToStaticMarkup(h(AboutContent, { about: { bodyMarkdown: 'Hola', photoUrl, photoAlt } }));
+  const photoTag = (markup: string): string => /<img[^>]*src="\/api\/about\/photo\?v=3"[^>]*>/.exec(markup)?.[0] ?? '';
+
+  it('[REQ-ACE10-001] con foto y alt vacío emite alt="" (decorativa), sin nombre de archivo ni ruta como alt', () => {
+    const tag = photoTag(render(''));
+    expect(tag).toMatch(/\salt=""/);
+    expect(tag).not.toMatch(/alt="[^"]/);
+    expect(tag).not.toMatch(/alt="[^"]*(photo|\.png|\.jpe?g|\/api)/i);
+  });
+
+  it('[REQ-ACE10-001] con alt no vacío lo emite escapado', () => {
+    const tag = photoTag(render('Equipo "Tipi" <b>&</b>'));
+    expect(tag).toContain('alt="Equipo &quot;Tipi&quot; &lt;b&gt;&amp;&lt;/b&gt;"');
+    expect(tag).not.toContain('<b>');
   });
 });
