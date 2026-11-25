@@ -102,7 +102,7 @@ describe('T961 [INV-ESC6-010][INV-ESC6-017][SC-ESC6-143] biografía en payload y
   });
 
   it('buildScenePayload informa la biografía saneada, deja fallbackContext fuera y declara la versión del contrato', () => {
-    const snap: SnapshotPet = { id: id(1), species: 'CANINE', speciesOther: null, breed: 'x', breedCode: 'DOG_CRIOLLA', sex: 'FEMALE', photo: null };
+    const snap: SnapshotPet = { id: id(1), species: 'CANINE', breedCode: 'DOG_CRIOLLA', sex: 'FEMALE', photo: null };
     const now = buildInputsSnapshot({ householdPhoto: null, pets: [snap, { ...snap, id: id(2) }] });
     const plan = decideMode({ last: null, now, hasImage: false, action: 'UPDATE' })!;
     const built = buildScenePayload({ plan, last: null, now, householdId: null, maxPets: 8, totalPets: 2, biographies: new Map([[id(1), ' Juega  "con" <pelotas> '], [id(2), '   ']]) });

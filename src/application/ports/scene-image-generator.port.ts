@@ -19,7 +19,12 @@ export interface SceneReferenceImage {
 }
 
 export interface SceneGenerationRequest {
-  /** Texto compilado de `buildImagePrompt` (determinista). */
+  /**
+   * Texto compilado de `buildImagePrompt` (determinista). INV-IA11-002 (011, REQ-IA11-003, D11-08 = A): el prompt vive SOLO en memoria durante la llamada. Regla para todo
+   * adaptador (incluidos los futuros que consulten un LLM): no se persiste, no se devuelve en `SceneGenerationResult` ni en errores, no se registra en logs ni en trazas,
+   * no se incrusta en los bytes de la imagen y no se hashea para guardar. Contiene biografías saneadas de mascotas: es dato derivado de personas. Solo sale del proceso
+   * en el cuerpo de la petición al proveedor y nunca se conserva su copia.
+   */
   readonly prompt: string;
   readonly references: ReadonlyArray<SceneReferenceImage>;
   /** Semilla determinista del intento (`deriveSceneSeed(attempt.id)`, REQ-ESC7-007): el adaptador real la traslada a `generationConfig.seed`; no se persiste ni se registra. */

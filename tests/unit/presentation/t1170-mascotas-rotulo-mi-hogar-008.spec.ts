@@ -7,7 +7,7 @@ import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { HomeSceneImageView } from '../../../src/presentation/web/components/HomeSceneImage.tsx';
-import { sceneAltText } from '../../../src/presentation/web/scene-view.ts';
+import { SCENE_AI_LABEL as AI_LABEL, sceneAltText } from '../../../src/presentation/web/scene-view.ts';
 import { HOUSEHOLD_ID, IMAGE_TAG } from './escena-fixtures.ts';
 
 const render = (householdId: string | null, view: { imageTag: string | null; shown: number } | null): string => renderToStaticMarkup(h(HomeSceneImageView, { householdId, view }));
@@ -15,7 +15,10 @@ const render = (householdId: string | null, view: { imageTag: string | null; sho
 describe('T1170 rótulo «Mi hogar» (REQ-UX8-003)', () => {
   it('[REQ-UX8-003][SC-008-039] con imagen hay exactamente 1 figcaption visible con «Mi hogar», dentro del figure y después de la imagen', () => {
     const html = render(HOUSEHOLD_ID, { imageTag: IMAGE_TAG, shown: 3 });
-    expect(html.match(/<figcaption\b[^>]*>Mi hogar<\/figcaption>/g)).toHaveLength(1);
+    const captions = html.match(/<figcaption\b[^>]*>[\s\S]*?<\/figcaption>/g) ?? [];
+    expect(captions).toHaveLength(1);
+    expect(captions[0]).toMatch(/<span\b[^>]*>Mi hogar<\/span>/);
+    expect(captions[0]).toContain(AI_LABEL);
     expect(html.indexOf('<img')).toBeLessThan(html.indexOf('<figcaption'));
     expect(html.indexOf('</figcaption>')).toBeLessThan(html.indexOf('</figure>'));
   });

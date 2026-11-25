@@ -71,6 +71,14 @@ const IMITATION = /IMG_\d|renderedPetsCount|Scene specification|Exact animal cou
 const CONTROL_CHARS = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029]|\p{Cf}/u;
 
 /**
+ * P-6 (OBS-5, S11): defensa PARCIAL contra datos personales en la plantilla. Rechaza «@» (correos y menciones), URLs con esquema (`xxx://`) o `www.`, y 7 o mas digitos seguidos
+ * (telefonos, documentos; tambien con separadores simples ` `, `-`, `.` entre digitos).
+ * NO detecta: nombres propios de personas o mascotas, direcciones, numeros escritos con letras, cifras de hasta 6 digitos, dominios sin `www.` ni esquema (p. ej. `ejemplo.com`),
+ * ni texto ofuscado (p. ej. «arroba», «punto»). No es un detector de PII; la advertencia fija de /admin sigue siendo la barrera principal.
+ */
+const PERSONAL_DATA = /@|[a-z][a-z0-9+.-]*:\/\/|\bwww\.|\d(?:[ .-]?\d){6,}/i;
+
+/**
  * Valida el valor crudo de `scene.prompt.blocks` (A-2). Nunca devuelve el valor ni un mensaje que lo contenga (INV-CFG9-003). Orden: JSON objeto plano; claves exactas; cada valor
  * cadena no vacia y dentro de `maxBlockLength`; marcadores; imitaciones; una sola aparicion del bloque de preservacion; sin caracteres de control.
  */
@@ -89,7 +97,7 @@ export function validatePromptBlocks(raw: string, maxBlockLength: number): Promp
   for (const name of PROMPT_BLOCK_NAMES) {
     const value = record[name];
     if (typeof value !== 'string' || value.trim().length < 1 || value.length > maxBlockLength) return FAIL;
-    if (CONTROL_CHARS.test(value) || IMITATION.test(value)) return FAIL;
+    if (CONTROL_CHARS.test(value) || IMITATION.test(value) || PERSONAL_DATA.test(value)) return FAIL;
     const withoutMarker = name === 'HOUSEHOLD_WITH_PHOTO' || name === 'PRESERVATION_BLOCK' ? value.split(PHOTO_REF_MARKER).join('') : value;
     if (/[{}$%]/.test(withoutMarker)) return FAIL;
     if (name === 'HOUSEHOLD_WITH_PHOTO' && !value.includes(PHOTO_REF_MARKER)) return FAIL;

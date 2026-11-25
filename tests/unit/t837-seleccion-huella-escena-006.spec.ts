@@ -21,8 +21,6 @@ const assigned = (n: number, at: string) => ({ id: id(n), assignedAt: at });
 const pet = (n: number, photo: string | null = null, extra: Partial<SnapshotPet> = {}): SnapshotPet => ({
   id: id(n),
   species: 'CANINE',
-  speciesOther: null,
-  breed: 'Criollo',
   breedCode: 'DOG_CRIOLLA',
   sex: 'FEMALE',
   photo,
@@ -68,11 +66,11 @@ describe('selectVisiblePets (T837): orden total y tope N', () => {
 });
 
 describe('inputs-snapshot (T837): JSON canónico y huella SHA-256', () => {
-  it('[INV-ESC6-001] el snapshot serializa con claves ordenadas, sin espacios y con v = 1; la huella es el SHA-256 de esa cadena', () => {
+  it('[INV-ESC6-001] el snapshot serializa con claves ordenadas, sin espacios y con v = 2 (011, REQ-IA11-004: sin texto libre); la huella es el SHA-256 de esa cadena', () => {
     const snapshot = buildInputsSnapshot({ householdPhoto: 'h-1', pets: [pet(1, 'p-1')] });
     const text = serializeInputsSnapshot(snapshot);
     expect(text).toBe(
-      `{"household":"h-1","pets":[{"breed":"Criollo","breedCode":"DOG_CRIOLLA","id":"${id(1)}","photo":"p-1","sex":"FEMALE","species":"CANINE","speciesOther":null}],"v":1}`,
+      `{"household":"h-1","pets":[{"breedCode":"DOG_CRIOLLA","id":"${id(1)}","photo":"p-1","sex":"FEMALE","species":"CANINE"}],"v":2}`,
     );
     expect(computeFingerprint(snapshot)).toBe(sha256Hex(text));
     expect(computeFingerprint(snapshot)).toHaveLength(64);
@@ -111,13 +109,13 @@ describe('inputs-snapshot (T837): JSON canónico y huella SHA-256', () => {
     expect(hasInputs(EMPTY_INPUTS_SNAPSHOT)).toBe(false);
     expect(hasInputs(buildInputsSnapshot({ householdPhoto: 'h', pets: [] }))).toBe(true);
     expect(hasInputs(buildInputsSnapshot({ householdPhoto: null, pets: [pet(1)] }))).toBe(true);
-    expect(computeFingerprint(EMPTY_INPUTS_SNAPSHOT)).toBe(sha256Hex('{"household":null,"pets":[],"v":1}'));
+    expect(computeFingerprint(EMPTY_INPUTS_SNAPSHOT)).toBe(sha256Hex('{"household":null,"pets":[],"v":2}'));
   });
 
   it('[REQ-ESC6-004] parseInputsSnapshot recupera lo serializado y devuelve null ante texto inválido o de otra versión', () => {
     const snapshot = buildInputsSnapshot({ householdPhoto: 'h', pets: [pet(1, 'p')] });
     expect(parseInputsSnapshot(serializeInputsSnapshot(snapshot))).toEqual(snapshot);
-    expect([parseInputsSnapshot('no es json'), parseInputsSnapshot('{"v":2,"household":null,"pets":[]}'), parseInputsSnapshot('[]')]).toEqual([null, null, null]);
+    expect([parseInputsSnapshot('no es json'), parseInputsSnapshot('{"v":3,"household":null,"pets":[]}'), parseInputsSnapshot('[]')]).toEqual([null, null, null]);
   });
 });
 

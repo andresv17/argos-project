@@ -50,3 +50,7 @@ La premisa «NOMBRE-HOGAR como pestaña propia» sigue sin confirmar en disco; `
 ## Fuera de esta acta
 - No se marca ninguna tarea `[x]`; `T1501` queda `[ ]` hasta que Neo firme el cierre formal.
 - Constantes nuevas (`MAX_DELEGATES = 20`, `MAX_HOUSEHOLDS_PER_USER = 5`, miniatura 96 px, página 24) las implementa `/keymaker` en `app-config.ts` (Nivel 2 ya autorizado por esta directiva para su valor; las migraciones nuevas siguen requiriendo la autorización de cada tarea `[N2]`).
+
+## Deuda operativa — Bloque C (ORA-3, 2026-11-25)
+- **DEUDA-011-RETENCION-CONSOLA**: evidencia de retención en Cloud SQL y Cloud Logging, aportada manualmente por Neo fuera de agentes (consola de GCP). No bloquea el Bloque C; se revisa en el cierre de Feature (`T1559`). Relacionada con `EDGE-011-018`.
+- **Pendiente de ratificación de Neo (ORA-2)**: con `D-1`, editar solo `speciesOther` o `breed` ya no genera cambio pendiente de escena (RABBIT/OTHER: raza libre no refresca la imagen). Recogido en `REQ-IA11-004`.

@@ -8,6 +8,7 @@ import { STYLE_BASE_TEXT } from '../../src/domain/scene/build-image-prompt.ts';
 import { FakeSceneImageGenerator } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
 import { ANDRES, ANDRES_PETS, ARGOS, HOUSEHOLD, LUNA, MARIA, canonicalState, createHarness } from '../fixtures/application-harness.ts';
 import { ControlledStorage } from '../fixtures/media-harness.ts';
+import { withTextChunk } from '../fixtures/png-text-chunk.ts';
 import { sceneFixture, withScene, type SceneFixtureOptions } from '../fixtures/scene-services-fixtures.ts';
 
 /**
@@ -27,10 +28,13 @@ const ABSENT = { sceneId: 'c1000000-0000-4000-8000-0000000000aa', attemptId: 'c4
 /** Generador que ejecuta una acción mientras «el proveedor trabaja» (cambios concurrentes, retiro de consentimiento, avance del reloj). */
 class HookedGenerator implements SceneImageGeneratorPort {
   during: (() => Promise<void>) | null = null;
+  /** Transforma la respuesta del proveedor (p. ej. inyectar un `tEXt` hostil, 011/MIF-011-04). */
+  after: ((request: SceneGenerationRequest, result: SceneGenerationResult) => SceneGenerationResult) | null = null;
   constructor(readonly inner: FakeSceneImageGenerator) {}
   async generate(request: SceneGenerationRequest): Promise<SceneGenerationResult> {
     if (this.during !== null) await this.during();
-    return this.inner.generate(request);
+    const result = await this.inner.generate(request);
+    return this.after === null ? result : this.after(request, result);
   }
 }
 
@@ -88,7 +92,7 @@ describe('runSceneGeneration (T856): camino feliz y T2 atómico', () => {
     const t = setup();
     await t.run.execute(await requested(t), signal());
     expect(t.fixture.generator.calls).toHaveLength(1);
-    const prompt = t.fixture.generator.calls[0]?.prompt ?? '';
+    const prompt = t.fixture.generator.prompts[0] ?? '';
     expect(prompt.startsWith(STYLE_BASE_TEXT)).toBe(true);
     expect(prompt.includes(ARGOS.name)).toBe(false);
     expect(prompt.includes(ARGOS.id)).toBe(false);
@@ -97,11 +101,12 @@ describe('runSceneGeneration (T856): camino feliz y T2 atómico', () => {
 });
 
 describe('runSceneGeneration (H-ORA-F6-A): filtro de salida antes del put', () => {
-  it('[REQ-ESC6-035][INV-ESC6-007] con un generador en modo eco (prompt en tEXt) el objeto publicado NO contiene tEXt ni el prompt y sizeBytes es el del objeto publicado', async () => {
-    const t = setup({ mode: 'echo' });
+  it('[REQ-ESC6-035][INV-ESC6-007] con un proveedor que devuelve un PNG con el prompt en un tEXt (PNG hostil armado en la prueba; el simulado ya no tiene modo eco, MIF-011-04) el objeto publicado NO contiene tEXt ni el prompt y sizeBytes es el del objeto publicado', async () => {
+    const t = setup();
+    t.hooked.after = (request, result) => (result.ok ? { ...result, image: { ...result.image, bytes: withTextChunk(result.image.bytes, 'prompt', request.prompt) } } : result);
     const j = await requested(t);
     expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
-    const prompt = t.fixture.generator.calls[0]?.prompt ?? '';
+    const prompt = t.fixture.generator.prompts[0] ?? '';
     expect(prompt.length).toBeGreaterThan(20);
     const stored = await t.storage.get(`scenes/${j.sceneId}/images/${snap(t).sceneAttempts?.[0]?.resultObjectId}`);
     const text = Buffer.from(stored!.bytes).toString('latin1');
@@ -163,7 +168,7 @@ describe('runSceneGeneration (T856): fallos sin descuento y con la imagen anteri
     const imageId = sceneOf(t)?.image?.id ?? '';
     await t.h.uow.runInTransaction(async (r) => {
       const pet = (await r.pets.findById(ARGOS.id))!;
-      await r.pets.save({ ...pet, breed: 'Mestizo cambiado', breedCode: null });
+      await r.pets.save({ ...pet, sex: pet.sex === 'MALE' ? 'FEMALE' : 'MALE' });
     });
     t.h.clock.setClock('2026-11-05', at(120));
     return imageId;
@@ -228,7 +233,7 @@ describe('runSceneGeneration (T856): referencias, degradación y límites', () =
     await withAvatar(t, await validPng());
     await t.run.execute(await requested(t), signal());
     expect(t.fixture.generator.calls[0]?.references.map((r) => [r.ref, r.mime])).toEqual([['IMG_1', 'image/png']]);
-    expect(t.fixture.generator.calls[0]?.prompt).toContain('Pet 1 (dog): Translate this pet from IMG_1 into the 16-bit isometric pixel art illustration');
+    expect(t.fixture.generator.prompts[0]).toContain('Pet 1 (dog): Translate this pet from IMG_1 into the 16-bit isometric pixel art illustration');
     expect(sceneOf(t)?.imageDegraded).toBe(false);
   });
 
@@ -365,7 +370,7 @@ describe('runSceneGeneration (T856): consentimiento, cambios y arrendamiento dur
     t.hooked.during = async () => {
       await t.h.uow.runInTransaction(async (r) => {
         const pet = (await r.pets.findById(ARGOS.id))!;
-        await r.pets.save({ ...pet, breed: 'Otra raza', breedCode: null });
+        await r.pets.save({ ...pet, sex: pet.sex === 'MALE' ? 'FEMALE' : 'MALE' });
       });
     };
     expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
@@ -410,7 +415,7 @@ describe('runSceneGeneration (T856): consentimiento, cambios y arrendamiento dur
     const previous = sceneOf(t)?.image?.id ?? '';
     await t.h.uow.runInTransaction(async (r) => {
       const pet = (await r.pets.findById(ARGOS.id))!;
-      await r.pets.save({ ...pet, breed: 'Mestizo cambiado', breedCode: null });
+      await r.pets.save({ ...pet, sex: pet.sex === 'MALE' ? 'FEMALE' : 'MALE' });
     });
     t.h.clock.setClock('2026-11-05', at(120));
     const j = await requested(t, 2);
@@ -468,11 +473,12 @@ describe('runSceneGeneration (T929): fotos KEEP, tope de bytes y degradación (N
     expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
     expect(snap(t).sceneAttempts?.[1]?.mode).toBe('INCREMENTAL_REPLACE');
     const call = t.fixture.generator.calls[1];
+    const callPrompt = t.fixture.generator.prompts[1] ?? '';
     expect(call?.references.map((r) => r.ref)).toEqual(['IMG_1', 'IMG_2', 'IMG_3']);
     expect(sizes.current).toHaveLength(3);
     // El texto solo cita la foto de la REPLACE (IMG_2); la KEEP (IMG_3) viaja únicamente como referencia de imagen y no aparece en el texto.
-    expect(photoRefs(call?.prompt ?? '')).toEqual(['IMG_2']);
-    expect((call?.prompt ?? '').includes('IMG_3')).toBe(false);
+    expect(photoRefs(callPrompt)).toEqual(['IMG_2']);
+    expect(callPrompt.includes('IMG_3')).toBe(false);
     expect(sceneOf(t)?.imageDegraded).toBe(false);
     expect(snap(t).sceneImageSources?.map((x) => x.ownerUserId).sort()).toEqual([ARGOS.ownerUserId, LUNA.ownerUserId].sort());
   });
@@ -482,8 +488,9 @@ describe('runSceneGeneration (T929): fotos KEEP, tope de bytes y degradación (N
     const j = await firstThenLuna(t);
     expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
     const call = t.fixture.generator.calls[1];
+    const callPrompt = t.fixture.generator.prompts[1] ?? '';
     expect(call?.references.map((r) => r.ref)).toEqual(['IMG_1', 'IMG_2']);
-    expect(photoRefs(call?.prompt ?? '')).toEqual(['IMG_2']);
+    expect(photoRefs(callPrompt)).toEqual(['IMG_2']);
     expect(snap(t).sceneAttempts?.[1]?.degraded).toBe(false);
     expect(sceneOf(t)?.imageDegraded).toBe(false);
     expect((await t.get.execute(ANDRES, HOUSE)).status).not.toBe('outdated');
@@ -494,7 +501,7 @@ describe('runSceneGeneration (T929): fotos KEEP, tope de bytes y degradación (N
     const j = await firstThenLuna(t);
     expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
     expect(t.fixture.generator.calls[1]?.references.map((r) => r.ref)).toEqual(['IMG_1']);
-    expect(photoRefs(t.fixture.generator.calls[1]?.prompt ?? '')).toEqual([]);
+    expect(photoRefs(t.fixture.generator.prompts[1] ?? '')).toEqual([]);
     expect(snap(t).sceneAttempts?.[1]?.degraded).toBe(true);
     expect(sceneOf(t)?.imageDegraded).toBe(true);
   });
@@ -525,8 +532,9 @@ describe('runSceneGeneration (T929): fotos KEEP, tope de bytes y degradación (N
     expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
     expect(snap(t).sceneAttempts?.[1]?.mode).toBe('INCREMENTAL_REPLACE');
     const call = t.fixture.generator.calls[1];
+    const callPrompt = t.fixture.generator.prompts[1] ?? '';
     expect(call?.references.map((r) => r.ref)).toEqual(['IMG_1', 'IMG_2', 'IMG_3']);
-    const prompt = call?.prompt ?? '';
+    const prompt = callPrompt;
     const json = JSON.parse(prompt.slice(prompt.indexOf('{'), prompt.lastIndexOf('}') + 1)) as { renderedPetsCount: number; pets: Array<Record<string, unknown>> };
     // JSON 16-bit (R5): sin photoRef ni hasReferencePhoto; lista todas las visibles con el ordinal global y su conteo coincide.
     expect(json.renderedPetsCount).toBe(json.pets.length);
@@ -574,7 +582,7 @@ describe('runSceneGeneration (M2, Fase 13): prueba negativa de consentimiento PE
     expect(await t.run.execute(j, signal())).toBe('PUBLISHED');
     expect(t.fixture.generator.calls).toHaveLength(1);
     expect(t.fixture.generator.calls[0]?.references).toEqual([]);
-    expect(photoRefs(t.fixture.generator.calls[0]?.prompt ?? '')).toEqual([]);
+    expect(photoRefs(t.fixture.generator.prompts[0] ?? '')).toEqual([]);
     expect(snap(t).sceneImageSources ?? []).toEqual([]);
   });
 
@@ -589,8 +597,9 @@ describe('runSceneGeneration (M2, Fase 13): prueba negativa de consentimiento PE
     t.h.clock.setClock('2026-11-05', at(120));
     expect(await t.run.execute(await requested(t, 2, 'REGENERATE'), signal())).toBe('PUBLISHED');
     const second = t.fixture.generator.calls[1];
+    const secondPrompt = t.fixture.generator.prompts[1] ?? '';
     expect(second?.references).toHaveLength(1);
-    expect(photoRefs(second?.prompt ?? '')).toHaveLength(1);
+    expect(photoRefs(secondPrompt)).toHaveLength(1);
     expect(snap(t).sceneImageSources?.map((x) => x.ownerUserId)).toEqual([ARGOS.ownerUserId]);
   });
 });

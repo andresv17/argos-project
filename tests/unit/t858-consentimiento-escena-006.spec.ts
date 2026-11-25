@@ -187,7 +187,7 @@ describe('revokeSceneConsent (T858)', () => {
     expect((snap(t).sceneImageSources ?? []).map((x) => x.ownerUserId)).toEqual([ANDRES]);
     const imageId = snap(t).scenes?.[0]?.image?.id;
     // Un intento en vuelo cuyo snapshot incluye la mascota de MARIA (sin foto enviada).
-    await t.h.uow.runInTransaction(async (r) => { const pet = (await r.pets.findById(ARGOS.id))!; await r.pets.save({ ...pet, breed: 'Cambio', breedCode: null }); });
+    await t.h.uow.runInTransaction(async (r) => { const pet = (await r.pets.findById(ARGOS.id))!; await r.pets.save({ ...pet, sex: pet.sex === 'MALE' ? 'FEMALE' : 'MALE' }); });
     t.h.clock.setClock('2026-11-05', '2026-11-05T12:05:00.000Z');
     await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, key(2));
     await t.revoke.execute(MARIA);

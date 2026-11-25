@@ -35,7 +35,7 @@ async function generate(biography: string | null) {
   const snapshot = parseInputsSnapshot(final.inputsSnapshot)!;
   const plan = decideMode({ last: null, now: snapshot, hasImage: false, action: 'UPDATE' })!;
   const payload = buildScenePayload({ plan, last: null, now: snapshot, householdId: HOUSEHOLD.id, maxPets: 8, totalPets: snapshot.pets.length });
-  return { outcome, prompt: fixture.generator.calls[0]?.prompt ?? '', fingerprint: final.fingerprint, inputsSnapshot: final.inputsSnapshot, payload, storedBiography: h.uow.snapshot().pets.find((p) => p.id === ARGOS.id)?.biography };
+  return { outcome, prompt: fixture.generator.prompts[0] ?? '', fingerprint: final.fingerprint, inputsSnapshot: final.inputsSnapshot, payload, storedBiography: h.uow.snapshot().pets.find((p) => p.id === ARGOS.id)?.biography };
 }
 
 describe('la biografía en la escena tras la enmienda 2026-11-24 (T1182, T961)', () => {

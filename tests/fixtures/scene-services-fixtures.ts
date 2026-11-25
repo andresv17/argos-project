@@ -36,7 +36,7 @@ export interface SceneFixture {
 }
 
 export function sceneFixture(options: SceneFixtureOptions = {}): SceneFixture {
-  const generator = new FakeSceneImageGenerator({ mode: options.mode ?? 'ok' });
+  const generator = new FakeSceneImageGenerator({ mode: options.mode ?? 'ok', capturePrompts: true });
   const dispatcher = new SpySceneDispatcher();
   const { mode: _mode, images: imageOverrides, ...rest } = options;
   const services: SceneServices = {

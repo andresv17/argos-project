@@ -4,7 +4,7 @@ import { RunSceneGenerationUseCase } from '../../src/application/use-cases/scene
 import { GetSceneUseCase, RequestSceneGenerationUseCase, type SceneTarget } from '../../src/application/use-cases/scene-use-cases.ts';
 import { UpdatePetUseCase } from '../../src/application/use-cases/pet-use-cases.ts';
 import type { ApplicationDeps } from '../../src/application/use-cases/use-case-support.ts';
-import { buildInputsSnapshot, parseInputsSnapshot, serializeInputsSnapshot } from '../../src/domain/scene/inputs-snapshot.ts';
+import { parseInputsSnapshot } from '../../src/domain/scene/inputs-snapshot.ts';
 import { FakeSceneImageGenerator } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
 import { ANDRES, ARGOS, HOUSEHOLD, canonicalState, createHarness } from '../fixtures/application-harness.ts';
 import { ControlledStorage } from '../fixtures/media-harness.ts';
@@ -60,8 +60,8 @@ describe('REQ-FAL7-006: una mascota DECEASED no se dibuja ni cuenta en pets.show
     const snapshot = parseInputsSnapshot(attempt.inputsSnapshot);
     expect(snapshot?.pets.length).toBeGreaterThan(0);
     expect(snapshot!.pets.some((p) => p.id === ARGOS.id)).toBe(false);
-    expect(Object.keys(snapshot!.pets[0] ?? {}).sort()).toEqual(['breed', 'breedCode', 'id', 'photo', 'sex', 'species', 'speciesOther']);
-    const legacy = serializeInputsSnapshot(buildInputsSnapshot({ householdPhoto: null, pets: [{ id: ARGOS.id, species: 'CANINE', speciesOther: null, breed: 'Pastor Alemán', breedCode: null, sex: 'MALE', photo: null }] }));
+    expect(Object.keys(snapshot!.pets[0] ?? {}).sort()).toEqual(['breedCode', 'id', 'photo', 'sex', 'species']);
+    const legacy = JSON.stringify({ v: 1, household: null, pets: [{ id: ARGOS.id, species: 'CANINE', speciesOther: null, breed: 'Pastor Alemán', breedCode: null, sex: 'MALE', photo: null }] });
     expect(parseInputsSnapshot(legacy)?.pets.map((p) => p.id)).toEqual([ARGOS.id]);
   });
 

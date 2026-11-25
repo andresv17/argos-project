@@ -54,7 +54,7 @@ describe('REQ-ESC7-007: la solicitud al generador lleva deriveSceneSeed(attempt.
     expect(stored).not.toMatch(/"seed"/i);
     expect(attempt.inputsSnapshot).not.toContain(String(seed));
     expect(attempt.fingerprint).not.toContain(String(seed));
-    expect(t.fixture.generator.calls[0]!.prompt).not.toContain(String(seed));
+    expect(t.fixture.generator.prompts[0]).not.toContain(String(seed));
   });
 });
 

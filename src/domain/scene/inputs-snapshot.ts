@@ -1,10 +1,12 @@
 /**
  * Snapshot canónico de las entradas de la escena y su huella (REQ-ESC6-004; data-model.md §2.6). Contiene solo lo que cambia la imagen: el objeto de la foto
- * efectiva del hogar y, por mascota visible, `id`, `species`, `speciesOther`, `breed`, `breedCode`, `sex` y el objeto del avatar efectivo. NUNCA nombres de
- * mascota ni de usuario, microchip, fechas ni datos clínicos (INV-ESC6-010, INV-ESC6-016): `buildInputsSnapshot` copia campo por campo. La huella es el SHA-256
+ * efectiva del hogar y, por mascota visible, `id` (UUID opaco), `species`, `breedCode`, `sex` (enums cerrados) y el objeto del avatar efectivo (referencia opaca).
+ * Versión 2 (011, T1519/T1521, REQ-IA11-004, D11-08 = A, decisión D-1 de Neo): SIN texto libre (`speciesOther`, `breed`), nunca nombres ni biografías. El
+ * parser lee v1 (que traía ese texto) y lo descarta. NUNCA nombres de mascota ni de usuario, microchip, fechas ni datos clínicos (INV-ESC6-010, INV-ESC6-016):
+ * `buildInputsSnapshot` copia campo por campo. La huella es el SHA-256
  * puro de `domain/audit` sobre el JSON canónico (misma entrada, mismos bytes, INV-ESC6-001). Sin reloj ni entropía.
  *
- * @implements REQ-ESC6-004, INV-ESC6-001, INV-ESC6-008, INV-ESC6-010, EDGE-ESC6-001, EDGE-ESC6-002, EDGE-ESC6-012, SC-ESC6-003, SC-ESC6-031
+ * @implements REQ-ESC6-004, INV-ESC6-001, INV-ESC6-008, INV-ESC6-010, EDGE-ESC6-001, EDGE-ESC6-002, EDGE-ESC6-012, SC-ESC6-003, SC-ESC6-031, REQ-IA11-004
  */
 
 import { canonicalJson } from '../audit/canonical-json.ts';
@@ -13,8 +15,6 @@ import { sha256Hex } from '../audit/sha256.ts';
 export interface SnapshotPet {
   readonly id: string;
   readonly species: string;
-  readonly speciesOther: string | null;
-  readonly breed: string;
   readonly breedCode: string | null;
   readonly sex: string;
   /** Identificador del objeto del avatar efectivo (consentimiento vigente) o `null`. */
@@ -22,7 +22,7 @@ export interface SnapshotPet {
 }
 
 export interface InputsSnapshot {
-  readonly v: 1;
+  readonly v: 2;
   /** Identificador del objeto de la foto del hogar efectiva o `null`. */
   readonly household: string | null;
   /** En el orden de selección de D6-11. */
@@ -36,13 +36,11 @@ export interface InputsSnapshotInput {
 
 export function buildInputsSnapshot(input: InputsSnapshotInput): InputsSnapshot {
   return {
-    v: 1,
+    v: 2,
     household: input.householdPhoto,
     pets: input.pets.map((p) => ({
       id: p.id,
       species: p.species,
-      speciesOther: p.speciesOther,
-      breed: p.breed,
       breedCode: p.breedCode,
       sex: p.sex,
       photo: p.photo,
@@ -73,12 +71,12 @@ const isNullableString = (value: unknown): value is string | null => value === n
 function parsePet(value: unknown): SnapshotPet | null {
   if (typeof value !== 'object' || value === null) return null;
   const p = value as Record<string, unknown>;
-  if (!isString(p['id']) || !isString(p['species']) || !isNullableString(p['speciesOther']) || !isString(p['breed'])) return null;
-  if (!isNullableString(p['breedCode']) || !isString(p['sex']) || !isNullableString(p['photo'])) return null;
-  return { id: p['id'], species: p['species'], speciesOther: p['speciesOther'], breed: p['breed'], breedCode: p['breedCode'], sex: p['sex'], photo: p['photo'] };
+  if (!isString(p['id']) || !isString(p['species']) || !isNullableString(p['breedCode']) || !isString(p['sex']) || !isNullableString(p['photo'])) return null;
+  // v1 traía además `speciesOther` y `breed` (texto libre): se ignoran, no se copian.
+  return { id: p['id'], species: p['species'], breedCode: p['breedCode'], sex: p['sex'], photo: p['photo'] };
 }
 
-/** Lee un snapshot guardado; `null` si no es JSON, no es versión 1 o tiene otra forma. */
+/** Lee un snapshot guardado (v2, o v1 heredada sin su texto libre); `null` si no es JSON, no es versión 1 ni 2 o tiene otra forma. */
 export function parseInputsSnapshot(text: string): InputsSnapshot | null {
   let raw: unknown;
   try {
@@ -88,7 +86,7 @@ export function parseInputsSnapshot(text: string): InputsSnapshot | null {
   }
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
-  if (r['v'] !== 1 || !isNullableString(r['household']) || !Array.isArray(r['pets'])) return null;
+  if ((r['v'] !== 1 && r['v'] !== 2) || !isNullableString(r['household']) || !Array.isArray(r['pets'])) return null;
   const pets = r['pets'].map(parsePet);
   if (pets.some((p) => p === null)) return null;
   return buildInputsSnapshot({ householdPhoto: r['household'], pets: pets as SnapshotPet[] });
@@ -106,4 +104,14 @@ export function countPendingChanges(last: InputsSnapshot | null, now: InputsSnap
   for (const [id, text] of current) if (previous.get(id) !== text) changes += 1;
   for (const id of previous.keys()) if (!current.has(id)) changes += 1;
   return changes;
+}
+
+/**
+ * Saneado de un snapshot histórico (migración 0030 SQLite / 0026 PostgreSQL, T1519): lo reescribe en v2 sin texto libre y recalcula su huella con el mismo código
+ * que la aplicación. `null` si el texto no es un snapshot legible (la fila no se toca). Idempotente: un v2 limpio vuelve idéntico. Pura.
+ */
+export function sanitizeStoredSnapshot(text: string): { readonly text: string; readonly fingerprint: string } | null {
+  const parsed = parseInputsSnapshot(text);
+  if (parsed === null) return null;
+  return { text: serializeInputsSnapshot(parsed), fingerprint: computeFingerprint(parsed) };
 }

@@ -11,8 +11,6 @@ const id = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(
 const pet = (n: number, photo: string | null = null, extra: Partial<SnapshotPet> = {}): SnapshotPet => ({
   id: id(n),
   species: 'CANINE',
-  speciesOther: null,
-  breed: 'Criollo',
   breedCode: 'DOG_CRIOLLA',
   sex: 'FEMALE',
   photo,
@@ -153,7 +151,7 @@ describe('decideMode (T839): modos incrementales', () => {
   });
 
   it('[REQ-ESC6-009] razas criollas y especies sin catálogo no cambian el modo; un cambio de raza o sexo de una mascota es REPLACE', () => {
-    const plan = decideMode({ last: snap(null, pet(1)), now: snap(null, pet(1, null, { breed: 'Otra', breedCode: 'DOG_OTHER' })), hasImage: true, action: 'UPDATE' });
+    const plan = decideMode({ last: snap(null, pet(1)), now: snap(null, pet(1, null, { breedCode: 'DOG_OTHER' })), hasImage: true, action: 'UPDATE' });
     expect(plan?.mode).toBe('INCREMENTAL_REPLACE');
   });
 

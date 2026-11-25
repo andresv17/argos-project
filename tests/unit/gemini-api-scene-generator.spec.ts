@@ -3,6 +3,7 @@ import type { SceneGenerationRequest } from '../../src/application/ports/scene-i
 import { GeminiApiSceneImageGenerator } from '../../src/infrastructure/adapters/gemini-api-scene-image-generator.adapter.ts';
 import { FakeSceneImageGenerator } from '../../src/infrastructure/adapters/fake-scene-image-generator.adapter.ts';
 import { validateGeneratedImage } from '../../src/infrastructure/adapters/image-metadata-stripper.ts';
+import { withTextChunk } from '../fixtures/png-text-chunk.ts';
 
 /**
  * T892 (006, tramo `gemini-api`): adaptador `GeminiApiSceneImageGenerator` con `fetch` SIMULADO (0 llamadas de red). URL exacta sin `?`, clave solo en la cabecera
@@ -19,10 +20,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** PNG simulado; con `echo` se le inyecta un trozo `tEXt` con ese texto (el simulado ya no tiene modo eco, 011/MIF-011-04). */
 async function png(echo: string | null = null): Promise<Uint8Array> {
-  const result = await new FakeSceneImageGenerator({ mode: echo === null ? 'ok' : 'echo' }).generate({ prompt: echo ?? 'semilla', references: [], seed: 0, signal: new AbortController().signal });
+  const result = await new FakeSceneImageGenerator({ mode: 'ok' }).generate({ prompt: echo ?? 'semilla', references: [], seed: 0, signal: new AbortController().signal });
   if (!result.ok) throw new Error('sin imagen simulada');
-  return result.image.bytes;
+  return echo === null ? result.image.bytes : withTextChunk(result.image.bytes, 'prompt', echo);
 }
 const WEBP = Uint8Array.from([...new TextEncoder().encode('RIFF'), 12, 0, 0, 0, ...new TextEncoder().encode('WEBP'), ...new TextEncoder().encode('VP8L'), 0, 0, 0, 0]);
 const b64 = (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64');
