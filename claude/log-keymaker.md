@@ -2296,3 +2296,8 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 - CC-KEY-T1418-1: src/domain/sharing/ip-limit-key.ts (IPv4 sin puerto, IPv6 /64 `v6:<4 grupos>`, sin [ ] ni %zona, ::ffff: a IPv4, minusculas, invalidas a `invalid`, idempotente) y src/infrastructure/http/bounded-map.ts (setBounded: descarta la entrada mas antigua). Aplicado en registration, admin (failures+starts), google (en rutas start/callback/username), invitee-search (use case + limitador) y scene (solo tope: su clave es userId, no IP). Tope inyectable (ultimo parametro) para pruebas.
 - Pruebas: tests/unit/t1418-ip-limit-key-010.spec.ts (14); t1416: 4 `not.toThrow('CODE')` -> `toBeUndefined()` (OBS-3). SEN-IP-04..09 no existen aun en tests/security (de /sentinels).
 - Gates: tsc 0; t1416 24/1skip, t1418 14, t1188 4; test:gate rc 0 (6891 pass); oraculos 0; traza --feature 010 rc 0. Sin [x], sin push.
+
+## 2026-11-25 H-SEN-T1418-01 (BAJO) ipLimitKey sin trim
+- ip-limit-key.ts: se elimina `ip.trim()`; regex FORBIDDEN_CHARS (espacio, controles C0/DEL/C1, separadores Unicode) -> cubo `invalid`. Resto del comportamiento intacto.
+- sentinels T1418 18 pass/1 skip (EDGE-010-008 documental); t1418 unit 14; tsc 0.
+- verify-oracles: 3 debiles en tests/security/sentinels-010-T1418-ip.security.spec.ts (l.102,181,188; toThrow() sin ERR-*), archivo de /sentinels, no tocado por regla.

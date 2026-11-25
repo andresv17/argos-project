@@ -13,6 +13,8 @@ const OCTET = '(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)';
 const IPV4 = new RegExp(`^${OCTET}(?:\\.${OCTET}){3}$`);
 const IPV4_WITH_PORT = new RegExp(`^(${OCTET}(?:\\.${OCTET}){3}):\\d{1,5}$`);
 const MAPPED_V4 = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/;
+// Cualquier espacio o carácter de control (CR, LF, TAB, NUL, SOH, DEL, C1, separadores Unicode) invalida la entrada: no se recorta (H-SEN-T1418-01).
+const FORBIDDEN_CHARS = /[\u0000-\u0020\u007f-\u00a0\u1680\u2000-\u200f\u2028-\u202f\u205f-\u2064\u3000\ufeff]/;
 const CANONICAL_V6 = /^v6:[0-9a-f]{4}(?::[0-9a-f]{4}){3}$/;
 
 function expandIpv6(ip: string): string[] | null {
@@ -28,7 +30,8 @@ function expandIpv6(ip: string): string[] | null {
 
 export function ipLimitKey(ip: string): string {
   if (typeof ip !== 'string' || ip.length > MAX_RAW_LENGTH) return INVALID_IP_KEY;
-  let value = ip.trim().toLowerCase();
+  if (FORBIDDEN_CHARS.test(ip)) return INVALID_IP_KEY;
+  let value = ip.toLowerCase();
   if (CANONICAL_V6.test(value)) return value;
   if (value.startsWith('[')) {
     const close = value.indexOf(']');
