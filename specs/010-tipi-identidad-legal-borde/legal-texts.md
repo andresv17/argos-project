@@ -14,7 +14,7 @@
 - Cada bloque `PRIVACIDAD` y `TÉRMINOS` de abajo es el contenido de `PrivacyPolicyPage.tsx` y `TermsPage.tsx`. Un `##` equivale a un `h2`; cada página lleva un solo `h1`.
 - **Placeholders literales (D10-06)**, no se rellenan hasta que Neo entregue los valores definitivos en `T1437`. Deben aparecer **tal cual**, con corchetes y mayúsculas:
   1. `[NOMBRE DEL RESPONSABLE O PROYECTO]`
-  2. `[CORREO DE CONTACTO / PRIVACIDAD]` (valor previsto: `contacto@tipi.pet` con Email Routing; **no** se escribe en el texto hasta `T1437`)
+  2. `[CORREO DE CONTACTO / PRIVACIDAD]` (resuelto a **`contacto@tipi.pet`** por decisión Nivel 2 de Neo en `T1434`, 2026-11-25; Email Routing activo en Cloudflare)
   3. `[PAÍS / JURISDICCIÓN]`
   4. `[FECHA DE ÚLTIMA ACTUALIZACIÓN]`
 - Los marcadores `(pendiente de validación legal)` dentro del texto se publican **visibles** hasta que Neo los retire tras la validación externa.

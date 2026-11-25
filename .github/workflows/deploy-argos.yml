@@ -225,6 +225,8 @@ jobs:
         env:
           # Variable opcional del repositorio; si falta, la URL pública es la del propio servicio (status.url).
           CONFIG_PUBLIC_BASE_URL: ${{ vars.ARGOS_PUBLIC_BASE_URL }}
+          # 010 (GH:#66, REQ-EDG10-001, D10-03): saltos de proxy de confianza (0..3, defecto 1; 2 con Cloudflare activo).
+          CONFIG_TRUST_PROXY_HOPS: ${{ vars.ARGOS_TRUST_PROXY_HOPS }}
           # 008 (GH:#16, REQ-SSO8-007): contrato de entorno de Google OAuth (terraform/cloud_run.tf). El secreto se referencia por versión en --set-secrets; aquí solo el client id y la URI de redirección (no sensibles, pero sin valores en el repo).
           GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_REDIRECT_URI: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
@@ -243,6 +245,11 @@ jobs:
             echo "ARGOS_PUBLIC_BASE_URL no es una URL https válida sin comas ni espacios; se aborta." >&2
             exit 1
           fi
+          TRUST_PROXY_HOPS="${CONFIG_TRUST_PROXY_HOPS:-1}"
+          if ! printf '%s' "$TRUST_PROXY_HOPS" | grep -Eq '^[0-3]$'; then
+            echo "ARGOS_TRUST_PROXY_HOPS debe ser un entero entre 0 y 3; se aborta." >&2
+            exit 1
+          fi
           # Google OAuth: vacíos o con comas/espacios romperían --set-env-vars; la URI debe ser https (fail-closed).
           if [ -z "${GOOGLE_OAUTH_CLIENT_ID:-}" ] || printf '%s' "$GOOGLE_OAUTH_CLIENT_ID" | grep -Eq '[,[:space:]]'; then
             echo "GOOGLE_OAUTH_CLIENT_ID vacío o con comas/espacios en GitHub Secrets; se aborta." >&2
@@ -258,7 +265,7 @@ jobs:
             --project "$PROJECT_ID" --region "$REGION" \
             --image "$IMAGE" \
             --no-traffic --tag "$TAG" \
-            --set-env-vars "COOKIE_SECURE=true,ARGOS_SCHEDULER_EMAIL=${ARGOS_SCHEDULER_EMAIL},ARGOS_OIDC_AUDIENCE=${OIDC_AUDIENCE},ARGOS_PUBLIC_BASE_URL=${PUBLIC_BASE_URL},ARGOS_MEDIA_DRIVER=gcs,ARGOS_MEDIA_BUCKET=${ARGOS_MEDIA_BUCKET},ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS=300,ARGOS_MEDIA_MAX_BYTES=10485760,ARGOS_MEDIA_MAX_BYTES_PER_OWNER=1073741824,ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS=4,ARGOS_SCENE_DRIVER=real,ARGOS_SCENE_MODEL=gemini-2.5-flash-image,ARGOS_SCENE_LOCATION=us-central1,ARGOS_SCENE_MAX_PETS=8,ARGOS_SCENE_QUOTA_MAX=10,ARGOS_SCENE_GEN_TIMEOUT_SECONDS=90,ARGOS_SCENE_QUEUE=argos-scene,ARGOS_SCENE_TASKS_SA_EMAIL=${ARGOS_SCENE_TASKS_SA_EMAIL},ARGOS_SCENE_WORKER_URL=${OIDC_AUDIENCE}/internal/scene-worker,ARGOS_SCENE_PROJECT_ID=${PROJECT_ID},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI}" \
+            --set-env-vars "COOKIE_SECURE=true,ARGOS_SCHEDULER_EMAIL=${ARGOS_SCHEDULER_EMAIL},ARGOS_OIDC_AUDIENCE=${OIDC_AUDIENCE},ARGOS_PUBLIC_BASE_URL=${PUBLIC_BASE_URL},ARGOS_TRUST_PROXY_HOPS=${TRUST_PROXY_HOPS},ARGOS_MEDIA_DRIVER=gcs,ARGOS_MEDIA_BUCKET=${ARGOS_MEDIA_BUCKET},ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS=300,ARGOS_MEDIA_MAX_BYTES=10485760,ARGOS_MEDIA_MAX_BYTES_PER_OWNER=1073741824,ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS=4,ARGOS_SCENE_DRIVER=real,ARGOS_SCENE_MODEL=gemini-2.5-flash-image,ARGOS_SCENE_LOCATION=us-central1,ARGOS_SCENE_MAX_PETS=8,ARGOS_SCENE_QUOTA_MAX=10,ARGOS_SCENE_GEN_TIMEOUT_SECONDS=90,ARGOS_SCENE_QUEUE=argos-scene,ARGOS_SCENE_TASKS_SA_EMAIL=${ARGOS_SCENE_TASKS_SA_EMAIL},ARGOS_SCENE_WORKER_URL=${OIDC_AUDIENCE}/internal/scene-worker,ARGOS_SCENE_PROJECT_ID=${PROJECT_ID},GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID},GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI}" \
             --set-secrets "DATABASE_URL=argos-database-url:${DB_VERSION},ARGOS_AUDIT_HMAC_SECRET=argos-audit-hmac-secret:${HMAC_VERSION},ARGOS_SHARE_IP_HMAC_SECRET=argos-share-ip-hmac-secret:${SHARE_HMAC_VERSION},GOOGLE_OAUTH_CLIENT_SECRET=argos-google-oauth-client-secret:${OAUTH_SECRET_VERSION},ARGOS_ADMIN_EMAILS=argos-admin-emails:${ADMIN_EMAILS_VERSION}${GEMINI_SECRET_FLAG}" \
             --startup-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=2,failureThreshold=10,timeoutSeconds=1" \
             --liveness-probe "httpGet.path=/healthz,httpGet.port=8080,periodSeconds=10,failureThreshold=3,timeoutSeconds=1"

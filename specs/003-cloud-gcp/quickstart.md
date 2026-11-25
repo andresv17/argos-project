@@ -74,6 +74,7 @@ Todo se crea el día 0; nada queda pendiente de inventar. Solo Neo ejecuta estos
 | Variable | `TF_VAR_region` | `bootstrap.sh` paso 6: `us-central1` |
 | Variable | `TF_VAR_billing_account` | `bootstrap.sh` paso 6, desde `ARGOS_BILLING_ACCOUNT`. **Obligatoria**: sin ella el presupuesto no se planifica (REQ-IAC-009) |
 | Variable | `ARGOS_PUBLIC_BASE_URL` | Neo: URL pública https de la app, sin comas ni espacios (la lee `deploy-argos.yml`; si no es válida, el despliegue aborta) |
+| Variable | `ARGOS_TRUST_PROXY_HOPS` | Neo: entero `0..3` de saltos de proxy de confianza (defecto `1`; `2` con Cloudflare activo delante de Cloud Run; la lee `deploy-argos.yml`) |
 | Variable | `TF_VAR_custom_domain` | Neo: `""` (F3 desactivado; el script solo imprime la orden, y si GitHub rechaza el valor vacío no se crea la variable: se evalúa como vacía) |
 | Variable | `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`, `GCP_TERRAFORM_SA`, `GCP_TERRAFORM_PLAN_SA`, `TF_STATE_BUCKET` | `bootstrap.sh` paso 6 |
 | Environment | `produccion` | `bootstrap.sh` paso 7: revisor requerido: Neo |

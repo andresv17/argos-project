@@ -10,6 +10,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY tsconfig.json vite.config.ts postcss.config.js tailwind.config.ts index.html admin.html ./
 COPY scripts/build-server.mjs scripts/build-server.mjs
+COPY public public
 COPY src src
 RUN node scripts/build-server.mjs --outdir dist-server && ./node_modules/.bin/vite build
 

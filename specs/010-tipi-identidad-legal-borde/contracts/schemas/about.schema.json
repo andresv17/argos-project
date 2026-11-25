@@ -5,7 +5,7 @@
   "description": "Seccion publica «Acerca de» (singleton about_content) [REQ-ACE10-001, REQ-ACE10-002, REQ-ACE10-003, REQ-ACE10-004, INV-ACE10-001, EDGE-010-006, EDGE-010-011]. Esquemas INCREMENTALES de la feature 010: ningun esquema de 004..009 se edita. La vista publica NUNCA incluye la clave del objeto de la foto, la version, el autor ni rutas de almacenamiento.",
   "x-sdd-metadata": {
     "version": "1.0.1",
-    "status": "DRAFT",
+    "status": "APPROVED",
     "supersedes": null,
     "change_type": "PATCH",
     "change_note": "1.0.1 (Architect 2026-11-25, dictamen OBS-3 de T1431: solo descripcion de AboutPhotoAlt; el alt es OPCIONAL, cadena vacia = imagen decorativa valida (WCAG 1.1.1, H-ARCH-ACE-ALT); ninguna propiedad, tipo ni limite cambia). 1.0.0 (feature 010, Bloque E, T1429, Keymaker con autorizacion expresa de Neo Nivel 2 en Logos, 2026-11-25; D10-07 y EDGE-010-011 APPROVED 2026-11-24): +AboutBodyMarkdown (tope 20 000 caracteres, EDGE-010-011), +AboutPhotoAlt (texto alternativo, 0..300), +AboutVersion y +AboutEtag (CAS; sin fila la version es 0 y el etag \"0\"), +AboutTextInput (cuerpo cerrado de la escritura de texto), +PublicAbout (vista publica cerrada de 4 propiedades) y +AdminAbout (vista de administracion con version y etag). Decision de T1429 (EDGE-010-006): subir o reemplazar la foto SIEMPRE incrementa `version` (una escritura de foto con version obsoleta pierde con 412 frente a un texto ya guardado, y viceversa). El Markdown se sanitiza en servidor al guardar (sin HTML, sin esquemas ejecutables, sin imagenes) y en cliente al pintar (D10-07). Estado DRAFT: lo fija solo Neo.",
