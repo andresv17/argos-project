@@ -38,11 +38,12 @@ export function contentDispositionOf(request: { readonly filename: string; reado
   return `${request.disposition === 'attachment' ? 'attachment' : 'inline'}; filename="${request.filename}"`;
 }
 
-/** Prefijo de listado: vacío no se admite; solo `pets/`, `scenes/` y `households/` con sus UUID y la carpeta fija de cada uno (INV-ARC-003). */
+/** Prefijo de listado: vacío no se admite; solo `pets/`, `scenes/`, `households/` y `about/photo/` (010, H-ARCH-ACE-KEY) con sus UUID y la carpeta fija de cada uno (INV-ARC-003). */
 const LIST_PREFIXES: readonly RegExp[] = [
   /^pets\/(?:[0-9a-f-]{1,36}(?:\/(?:files|photos|avatar)?(?:\/[0-9a-f-]{0,36})?)?)?$/,
   /^scenes\/(?:[0-9a-f-]{1,36}(?:\/(?:images)?(?:\/[0-9a-f-]{0,36})?)?)?$/,
   /^households\/(?:[0-9a-f-]{1,36}(?:\/(?:photo)?(?:\/[0-9a-f-]{0,36})?)?)?$/,
+  /^about\/(?:photo(?:\/[0-9a-f-]{0,36})?)?$/,
 ];
 export function assertListPrefix(prefix: string): void {
   if (!LIST_PREFIXES.some((pattern) => pattern.test(prefix))) throw new RangeError('Prefijo de medios no válido.');

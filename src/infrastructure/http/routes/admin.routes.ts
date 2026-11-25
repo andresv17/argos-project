@@ -38,7 +38,7 @@ export const ADMIN_API_CONTENT_SECURITY_POLICY = "default-src 'none'; base-uri '
 const MAX_CODE_LENGTH = 2048;
 const MAX_STATE_LENGTH = 256;
 
-const adminSessionTokenOf = (request: FastifyRequest): string | null => request.cookies[ADMIN_SESSION_COOKIE] ?? null;
+export const adminSessionTokenOf = (request: FastifyRequest): string | null => request.cookies[ADMIN_SESSION_COOKIE] ?? null;
 const adminOAuthTokenOf = (request: FastifyRequest): string | null => request.cookies[ADMIN_OAUTH_COOKIE] ?? null;
 
 /** Valor de la consulta si es una cadena no vacía dentro del tope; si no, `undefined` (se trata como ausente, sin reflejarlo). */
@@ -62,13 +62,13 @@ const landingPage = (path: string): string =>
   `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${path}"><meta name="referrer" content="no-referrer"><title>ARGOS</title></head><body><p>Continuando...</p><p><a href="${path}">Continuar</a></p></body></html>`;
 
 /** El 404 de una ruta inexistente: mismo cuerpo, cabeceras y estado que cualquier otra ruta que no existe. */
-function uniformNotFound(reply: FastifyReply): FastifyReply {
+export function uniformNotFound(reply: FastifyReply): FastifyReply {
   reply.callNotFound();
   return reply;
 }
 
 /** Origen AJENO: `Origin` presente y distinto del propio (incluye `null`). Sin cabecera no cambia el comportamiento (SEN-T1271-01; las escrituras de parametros ya exigen `X-Argos-Request`). */
-const hasForeignOrigin = (request: FastifyRequest): boolean => request.headers.origin !== undefined && !isOwnOrigin(request);
+export const hasForeignOrigin = (request: FastifyRequest): boolean => request.headers.origin !== undefined && !isOwnOrigin(request);
 
 /** `Origin` presente y EXACTAMENTE igual al origen propio (esquema, host y puerto). `null`, ausente, otro esquema, host o puerto = rechazo (REQ-ADM9-005). */
 function isOwnOrigin(request: FastifyRequest): boolean {

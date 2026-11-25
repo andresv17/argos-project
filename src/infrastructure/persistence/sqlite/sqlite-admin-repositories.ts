@@ -8,6 +8,7 @@
  * @implements REQ-ADM9-002, REQ-ADM9-003, REQ-ADM9-004, REQ-ADM9-006, REQ-APR9-003, REQ-APR9-005, EDGE-009-002, EDGE-009-039, EDGE-009-047, NFR-009-004, INV-ARCH-005
  */
 
+import type { AboutContentRecord, AboutContentRepositoryPort } from '../../../application/ports/about.port.ts';
 import type {
   AdminAuditRecord,
   AdminAuditRepositoryPort,
@@ -251,6 +252,49 @@ export function adminParameterRepository(db: SqliteDatabase): AdminParameterRepo
         }
       }
       return { accountsReset: ids.length };
+    },
+  };
+}
+
+interface AboutRow {
+  readonly body_markdown: string;
+  readonly photo_object_key: string | null;
+  readonly photo_alt: string;
+  readonly version: number;
+  readonly updated_at: string;
+  readonly updated_by: string;
+}
+
+/**
+ * `about_content` (feature 010, T1430; migración 0029): singleton `id = 1`. `replace` es UN `INSERT ... ON CONFLICT DO NOTHING` (sin fila, `expectedVersion = 0`) o UN
+ * `UPDATE ... WHERE id = 1 AND version = ?` con `changes === 1` como veredicto: sin lectura previa que decida (REQ-ACE10-003, EDGE-010-006).
+ */
+export function aboutContentRepository(db: SqliteDatabase): AboutContentRepositoryPort {
+  const columns = 'body_markdown, photo_object_key, photo_alt, version, updated_at, updated_by';
+  const find = db.prepare<[], AboutRow>(`SELECT ${columns} FROM about_content WHERE id = 1`);
+  const insert = db.prepare('INSERT INTO about_content (id, body_markdown, photo_object_key, photo_alt, version, updated_at, updated_by) VALUES (1, ?, ?, ?, 1, ?, ?) ON CONFLICT (id) DO NOTHING');
+  const update = db.prepare('UPDATE about_content SET body_markdown = ?, photo_object_key = ?, photo_alt = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id = 1 AND version = ?');
+  const toRecord = (row: AboutRow): AboutContentRecord => ({
+    bodyMarkdown: row.body_markdown,
+    photoObjectKey: row.photo_object_key,
+    photoAlt: row.photo_alt,
+    version: row.version,
+    updatedAt: row.updated_at,
+    updatedBy: row.updated_by,
+  });
+  return {
+    async get() {
+      const row = find.get();
+      return row === undefined ? null : toRecord(row);
+    },
+    async replace(next, expectedVersion) {
+      const written =
+        expectedVersion === 0
+          ? insert.run(next.bodyMarkdown, next.photoObjectKey, next.photoAlt, next.updatedAt, next.updatedBy).changes === 1
+          : update.run(next.bodyMarkdown, next.photoObjectKey, next.photoAlt, next.updatedAt, next.updatedBy, expectedVersion).changes === 1;
+      if (!written) return null;
+      const row = find.get();
+      return row === undefined ? null : toRecord(row);
     },
   };
 }

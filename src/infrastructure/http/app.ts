@@ -20,6 +20,7 @@ import { registerGoogleAuthRoutes } from './routes/google-auth.routes.ts';
 import { GoogleRateLimiter } from './google-rate-limit.ts';
 import { AdminAccessLimiter } from './admin-rate-limit.ts';
 import { RegistrationRateLimiter } from './registration-rate-limit.ts';
+import { registerAdminAboutRoutes, registerPublicAboutRoutes } from './routes/about.routes.ts';
 import { registerAdminRoutes } from './routes/admin.routes.ts';
 import { registerBackupRoutes } from './routes/backup.routes.ts';
 import { registerAssignmentRoutes } from './routes/assignments.routes.ts';
@@ -91,7 +92,11 @@ export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = fal
     registerAdminRoutes(app, context, new AdminAccessLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())), (userIds) => {
       for (const userId of userIds) sceneLimiter?.clearUser(userId);
     });
+    // «Acerca de» (feature 010, T1430): escritura solo con sesión de administración (404 uniforme sin ella).
+    registerAdminAboutRoutes(app, context, deps.media);
   }
+  // «Acerca de» público (010, D10-07): anónimo, fuera de toda sesión; la foto solo se sirve si hay medios conectados (sin ellos, 404).
+  registerPublicAboutRoutes(app, context);
   registerAccountRoutes(app, context);
   registerPetRoutes(app, context);
   registerRecordEditRoutes(app, context);

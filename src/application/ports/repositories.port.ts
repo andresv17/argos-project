@@ -19,6 +19,7 @@ import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import type { RecordModule, RecordOf } from '../../domain/records/record-invariants.ts';
 import type { SceneConsentRepository, SceneRepository } from './scene-repositories.port.ts';
 import type { AuthIdentityRepositoryPort, OAuthFlowStateRepositoryPort } from './auth-identity.port.ts';
+import type { AboutContentRepositoryPort } from './about.port.ts';
 import type { AdminAuditRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
@@ -369,4 +370,6 @@ export interface RepositorySet {
   readonly registrations: RegistrationDecisionRepositoryPort;
   /** Edición de parámetros de plataforma desde `/admin` (feature 009, Fase 5a, T1264, REQ-CFG9-007). */
   readonly adminParameters: AdminParameterRepositoryPort;
+  /** Sección pública «Acerca de» (feature 010, T1430, REQ-ACE10-004): singleton con compare-and-set por versión. */
+  readonly aboutContent: AboutContentRepositoryPort;
 }
