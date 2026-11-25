@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArgosDeterministicErrorCatalogIncremental011",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "APPROVED",
+    "supersedes": null,
+    "change_type": "MINOR",
+    "extends": "catalogos de 001..010 (sin editar)",
+    "change_note": "Catalogo INCREMENTAL MINIMO de la feature 011 (Nivel 2 Neo, 2026-11-25): base vacia para habilitar verify-traceability --feature 011 en Fase 0. Los codigos ERR-ADM11-*, ERR-HOG11-* y ERR-PRF11-* se anaden por bloque en sus tareas [ARCH] [N2] (T1524, T1548, T1553) mediante enmiendas MINOR.",
+    "removed": [],
+    "added": [],
+    "inherited": [
+      "ERR-AUTH-CSRF-REJECTED",
+      "ERR-INTERNAL-UNEXPECTED",
+      "ERR-SCHEMA-VALIDATION-FAILED",
+      "ERR-MEDIA-STORAGE-UNAVAILABLE",
+      "ERR-MEDIA-TOO-LARGE"
+    ],
+    "traceability": [
+      "REQ-ADM11-003",
+      "REQ-HOG11-004",
+      "REQ-PRF11-001"
+    ]
+  },
+  "version": "1.0.0",
+  "status": "APPROVED",
+  "problemDetailsSchema": {
+    "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
+  },
+  "errors": {}
+}
