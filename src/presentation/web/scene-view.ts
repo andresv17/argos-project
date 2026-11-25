@@ -17,6 +17,9 @@ const MAX_POLL_ERRORS = 3;
 
 const petsWord = (n: number): string => (n === 1 ? '1 mascota' : `${n} mascotas`);
 
+/** Etiqueta visible y accesible de toda imagen de escena generada por IA (D11-07 = A, REQ-IA11-001/002, INV-IA11-001): constante única; vive en la interfaz, nunca en los bytes de la imagen. Texto sujeto al dictamen de `/rama` (T1513). */
+export const SCENE_AI_LABEL = 'Imagen generada con inteligencia artificial';
+
 /** Texto alternativo de la imagen: cuántas mascotas hay en la escena (WCAG 1.1.1). */
 export const sceneAltText = (shown: number): string => (shown === 0 ? 'Escena del hogar en pixel art sin mascotas' : `Escena del hogar en pixel art con ${petsWord(shown)}`);
 
