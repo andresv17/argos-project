@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { renderAboutMarkdown } from '../about-markdown.ts';
+import { AboutMarkdownView } from '../about-markdown-view.tsx';
 import { BRAND_NAME } from '../brand.ts';
 
 interface PublicAbout {
@@ -34,7 +34,9 @@ export function AboutContent({ about }: { readonly about: PublicAbout }): JSX.El
         {about.photoUrl !== null ? (
           <img src={about.photoUrl} alt={about.photoAlt} className="h-auto max-h-[28rem] w-full rounded-2xl object-cover" />
         ) : null}
-        <div className="about-text grid min-w-0 gap-3 text-base leading-relaxed [overflow-wrap:anywhere] [&>*]:min-w-0 [&_a]:rounded-sm [&_a:focus]:outline-none [&_a:focus-visible]:ring-2 [&_a:focus-visible]:ring-terracota [&_a:focus-visible]:ring-offset-2 [&_a]:font-semibold [&_a]:text-primary [&_a]:underline [&_h2]:text-2xl [&_h2]:font-bold [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: renderAboutMarkdown(about.bodyMarkdown, 1) }} />
+        <div className="about-text grid min-w-0 gap-3 text-base leading-relaxed [overflow-wrap:anywhere] [&>*]:min-w-0 [&_a]:rounded-sm [&_a:focus]:outline-none [&_a:focus-visible]:ring-2 [&_a:focus-visible]:ring-terracota [&_a:focus-visible]:ring-offset-2 [&_a]:font-semibold [&_a]:text-primary [&_a]:underline [&_h2]:text-2xl [&_h2]:font-bold [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6">
+          <AboutMarkdownView source={about.bodyMarkdown} headingOffset={1} />
+        </div>
       </div>
   );
 }

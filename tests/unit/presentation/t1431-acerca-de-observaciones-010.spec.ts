@@ -141,3 +141,30 @@ describe('T1431 OBS-4 (sati): anillo de foco Terracota en los enlaces del texto'
     assertRing(LINK_RING);
   });
 });
+
+describe('T1432 TRI-01/TRI-03 (trinity): render como árbol React y destino con espacios al borde', () => {
+  const HOSTILE = ['<script>alert(1)</script>', '[x](javascript:alert(1))', '[x](JaVa\tScRiPt:alert(1))', '![i](https://a/b.png)', '<img src=x onerror=alert(1)>', '[x](/\\evil.com)', '[x](data:text/html,<b>)'];
+
+  it('[EDGE-010-007] AboutContent emite elementos (sin etiquetas ni atributos ajenos) para cargas hostiles', () => {
+    for (const payload of HOSTILE) {
+      const html = renderToStaticMarkup(h(AboutContent, { about: { bodyMarkdown: payload, photoUrl: null, photoAlt: '' } }));
+      expect(html, payload).not.toMatch(/<(script|img|iframe|style)\b|\bon[a-z]+=|javascript:|data:text/i);
+    }
+  });
+
+  it('[REQ-ACE10-001] el enlace valido sale como <a href rel="noopener noreferrer"> y el texto se escapa', () => {
+    const html = renderToStaticMarkup(h(AboutContent, { about: { bodyMarkdown: 'a & <b> [ok](https://e.org/x?a=1&b=2) **n** *c*', photoUrl: null, photoAlt: '' } }));
+    expect(html).toContain('<a href="https://e.org/x?a=1&amp;b=2" rel="noopener noreferrer">ok</a>');
+    expect(html).toContain('<strong>n</strong>');
+    expect(html).toContain('<em>c</em>');
+    expect(html).toContain('a &amp; ');
+  });
+
+  it('[EDGE-010-007][TRI-03] un destino con espacios o U+2028/2029 en los extremos NO es enlace (no se recorta)', () => {
+    for (const target of [' https://e.org', 'https://e.org ', ' https://e.org', 'https://e.org ', '\t/ruta']) {
+      const out = renderAboutMarkdown(`[x](${target})`);
+      expect(out, JSON.stringify(target)).toBe('<p>x</p>');
+    }
+    expect(renderAboutMarkdown('[x](https://e.org)')).toBe('<p><a href="https://e.org" rel="noopener noreferrer">x</a></p>');
+  });
+});

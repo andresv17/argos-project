@@ -5,7 +5,7 @@
  * @implements REQ-ACE10-002, EDGE-010-006, EDGE-010-011, D10-07
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { renderAboutMarkdown } from '../web/about-markdown.ts';
+import { AboutMarkdownView } from '../web/about-markdown-view.tsx';
 import { ABOUT_ALT_MAX_CHARS, ABOUT_BODY_MAX_CHARS, fetchAdminAbout, saveAboutPhoto, saveAboutText, type AboutOutcome, type AdminAbout } from './about-api.ts';
 
 const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
@@ -210,8 +210,9 @@ export function AboutPanel({ onSessionLost }: { readonly onSessionLost: () => vo
                 role="region"
                 data-about-preview
                 className={`grid min-h-40 min-w-0 gap-3 rounded-xl border border-slate-300 bg-cream p-4 text-base leading-relaxed [overflow-wrap:anywhere] [&>*]:min-w-0 ${LINK_RING} [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6`}
-                dangerouslySetInnerHTML={{ __html: renderAboutMarkdown(body, 1) }}
-              />
+              >
+                <AboutMarkdownView source={body} headingOffset={1} />
+              </div>
             ) : (
               <BodyEditor body={body} onChange={setBody} />
             )}

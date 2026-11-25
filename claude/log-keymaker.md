@@ -2355,3 +2355,8 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 - Pruebas: unit (clases en AboutContent renderizado + LINK_RING; ojo `&amp;` en el marcado) y 2 E2E en acerca-de-reflow-010 (getComputedStyle box-shadow != none y outline != auto, en pagina y vista previa). Rojo 2+2 sin el cambio, verde con el.
 - Nota: Tailwind outline-none emite `outline: 2px solid transparent` (outline-style solid, no none); la E2E exige que no sea `auto` (nativo).
 - Gates: tsc 0, vitest 77/77, playwright reflow+wcag 20/20, oraculos 0, traza T1431 rc 0.
+
+## 2026-11-25 — 010 T1432 hallazgos de /trinity (TRI-01/02/03) — commit local, sin push ni [x]
+- CC-KEY-T1432-TRI: `about-markdown.ts` ahora produce un arbol (`parseAboutMarkdown`); `about-markdown-view.tsx` lo pinta como elementos React (sin innerHTML, sin nosemgrep) en AboutPage y AboutPanel. `renderAboutMarkdown` queda como serializador de prueba con la misma salida; en entradas patologicas de `*`/`_` el arbol anida bien donde antes salia HTML mal anidado.
+- TRI-03: destino con espacio/U+2028/2029 en los extremos ya NO es enlace (target !== target.trim()). TRI-02: t1185 verde por el refactor; EXCEPCION ACOTADA en ui-invitation-logs (fetch): el infractor real era `pages/AboutPage.tsx` (no about-api.ts, que esta fuera de web/): GET publico credentials 'omit', sin notifyActivity; la prueba ademas lo exige. REQUIERE visto bueno de /architect.
+- Gates: tsc 0, vitest presentation+t1428 818/818, tests/security rc 0, semgrep rc 0 (0 hallazgos), oraculos 0, traza T1432 rc 0.
