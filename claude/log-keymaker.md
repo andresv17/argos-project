@@ -2366,3 +2366,9 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 - Pruebas t1432-render-equivalencia-010 (9): 6 anidados exactos, 2 PUA, propiedad fast-check 20000 corridas contra tests/fixtures/about-markdown-legacy-e384094.ts (copia de e384094^). Rojo 8/9 sin el arreglo, verde 9/9. Exclusiones: TRI-03 (espacios al borde del destino) y viejo mal anidado (pila strong/em).
 - Diferencias (300k entradas sembradas, mismo alfabeto, offset 1): ANTES (e384094) 141591 de 298925 comparables; DESPUES 0. Excluidas: 1075 mal anidadas (todas difieren solo de serializacion, HTML viejo invalido), 0 TRI-03 en la muestra (rara en el alfabeto; cubierta por pruebas previas).
 - Gates: tsc 0, vitest presentation+t1428 827/827, security 641 rc 0 (sin flaky), semgrep 0, oraculos 0, traza T1432 rc 0.
+
+## 2026-11-25 — 010 T1432 ORA-T1432-04 (emphasis promueve abiertas intermedias) + pet-dashboard 3.3.0 — commit local, sin push ni [x]
+- CC-KEY-T1432-ORA04: autorizado por Neo (acotado). `emphasis()` ya no hace `stack.length = at + 1`: al cerrar, las etiquetas abiertas intermedias se PROMUEVEN a su padre (cerradas, con su contenido). `**x _y** z_` -> `<strong>x <em>y</em></strong> z` (texto "x y z"). Sin innerHTML; lista cerrada, SAFE_HREF y rel intactos.
+- Propiedad t1432-render-equivalencia: compara texto visible (quitar etiquetas del vocabulario cerrado + decodificar entidades; sin parser HTML instalado) tambien con viejo mal anidado, exige nuevo bien anidado; unica exclusion TRI-03. Alfabeto +4 atomos para cruzar enfasis. Rojo (3 fallos) con about-markdown.ts de HEAD -> verde 11/11. Diferencias de texto visible en 300k sembradas: ANTES 125, DESPUES 0 (202 solo serializacion).
+- pet-dashboard.spec.ts schemaVersion '3.2.0' -> '3.3.0' (autorizado; nombre argos-backup intacto): playwright 8/8 rc 0.
+- Gates: tsc 0, vitest presentation+t1428 829/829, security 641 rc 0, semgrep 0, oraculos 0, traza T1432 0.

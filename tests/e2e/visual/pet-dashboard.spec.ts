@@ -165,7 +165,7 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     const envelope = JSON.parse(readFileSync(backupPath, 'utf8')) as { schemaVersion: string; pets: Array<{ name: string }> };
     expect([download.suggestedFilename().match(/^argos-backup-\d{4}-\d{2}-\d{2}\.json$/) !== null, envelope.schemaVersion, envelope.pets.map((p) => p.name).sort()]).toEqual([
       true,
-      '3.2.0', // 007/T1067: la exportación es 3.2.0 (lifeStatus y deceasedAt)
+      '3.3.0', // 010: la exportación es 3.3.0 (007/T1067 la subió a 3.2.0 por lifeStatus y deceasedAt)
       ['Argos', 'Ñandú'],
     ]);
     await page.locator('input[type="file"]').setInputFiles(backupPath);

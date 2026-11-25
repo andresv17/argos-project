@@ -58,7 +58,7 @@ const GENERATED_TAG = /(<\/?(?:strong|em)>)/;
 
 /**
  * Énfasis con la MISMA semántica de siempre: los cuatro patrones se aplican en cadena sobre el texto ESCAPADO (el `<` del usuario ya es `&lt;`, así que las únicas etiquetas que pueden aparecer son las generadas aquí; no hay marcadores en banda y cualquier carácter de la entrada, U+E000/E001 incluidos, se conserva). Después las etiquetas se leen
- * como árbol: el énfasis anidado (`**a _b_ c**`) queda anidado. Una etiqueta de cierre sin par se ignora y las abiertas se cierran al final (HTML mal anidado del render viejo).
+ * como árbol: el énfasis anidado (`**a _b_ c**`) queda anidado. Una etiqueta de cierre sin par se ignora, las abiertas intermedias se promueven a su padre al cerrar y las que sigan abiertas se cierran al final (HTML mal anidado del render viejo: el texto visible se conserva siempre).
  */
 function emphasis(raw: string): AboutInline[] {
   const tagged = escapeHtml(raw)
@@ -78,7 +78,11 @@ function emphasis(raw: string): AboutInline[] {
     if (part.startsWith('</')) {
       const at = stack.map((node) => node.t).lastIndexOf(name);
       if (at < 0) return;
-      stack.length = at + 1;
+      // Etiquetas abiertas entre medias (`**x _y** z_`): se PROMUEVEN a su padre (se cierran conservando su contenido), jamás se descartan; el navegador tampoco elimina texto al reparar HTML mal anidado.
+      while (stack.length > at + 1) {
+        const inner = stack.pop()!;
+        current().push({ t: inner.t, c: inner.c });
+      }
       const node = stack.pop()!;
       current().push({ t: node.t, c: node.c });
     } else {
