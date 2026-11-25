@@ -164,7 +164,7 @@ describe('T1416 [EDGE-010-002] HOPS=1 detrás de Cloudflare: todos comparten IP 
     const ipB1 = await mis.ip(`${CLIENT_B}, ${EDGE}`);
     const ipB2 = await ok.ip(`${CLIENT_B}, ${EDGE}`);
     expect(() => limiter.assertAllowed(ipB1)).toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
-    expect(() => limiter.assertAllowed(ipB2)).not.toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
+    expect(limiter.assertAllowed(ipB2)).toBeUndefined();
   });
 });
 
@@ -177,7 +177,7 @@ describe('T1416 [REQ-EDG10-003] [SC-010-016] límites por IP real: dos clientes 
     expect(a).not.toBe(b);
     for (let i = 0; i < 5; i += 1) limiter.recordCreated(a);
     expect(() => limiter.assertAllowed(a)).toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
-    expect(() => limiter.assertAllowed(b)).not.toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
+    expect(limiter.assertAllowed(b)).toBeUndefined();
   });
   it('login de /admin 10/15 min: el cliente A se bloquea y el cliente B no', async () => {
     const limiter = new AdminAccessLimiter(() => 1_000_000);
@@ -187,7 +187,7 @@ describe('T1416 [REQ-EDG10-003] [SC-010-016] límites por IP real: dos clientes 
     expect(a).not.toBe(b);
     for (let i = 0; i < 10; i += 1) limiter.recordFailure(a);
     expect(() => limiter.assertNotBlocked(a)).toThrow('ERR-ADMIN-RATE-LIMITED');
-    expect(() => limiter.assertNotBlocked(b)).not.toThrow('ERR-ADMIN-RATE-LIMITED');
+    expect(limiter.assertNotBlocked(b)).toBeUndefined();
   });
   it('un XFF inyectado no permite rotar la IP para evadir el tope de registro (HOPS=2): la IP resuelta es siempre la del cliente real', async () => {
     const app = await instance(2);
@@ -220,7 +220,7 @@ describe('T1416 [EDGE-010-009] [H-02 A] contador de registro «por instancia y p
     expect(() => before.assertAllowed(real)).toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
     now += 60_000;
     const restarted = new RegistrationRateLimiter(() => now);
-    expect(() => restarted.assertAllowed(real)).not.toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
+    expect(restarted.assertAllowed(real)).toBeUndefined();
   });
 });
 

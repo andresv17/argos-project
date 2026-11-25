@@ -2291,3 +2291,8 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 - app-config.ts: trustProxyHops 0..3 (defecto 1, vacía/inválida rechazada nombrando solo la variable); server.ts: trustProxy = host 0.0.0.0 ? hops : false (H-04 intacto); .env.example y app-config.spec actualizados.
 - t1416 24/25 verde (1 omitida H-01 A); harness: entrada «ATACANTE, , BORDE» -> «ATACANTE, , CLIENTE, BORDE»; oráculos toThrow con código ERR-*.
 - Prueba local curl (servidor real, hops=2): A 5x201, 6a 429, con 1 y 3 falsos al inicio 429; B 201. Con hops=1 B 429 (EDGE-010-002).
+
+## 2026-11-25 T1418 (Bloque C) ipLimitKey + tope duro en los 5 limitadores (H-T1418-01/02)
+- CC-KEY-T1418-1: src/domain/sharing/ip-limit-key.ts (IPv4 sin puerto, IPv6 /64 `v6:<4 grupos>`, sin [ ] ni %zona, ::ffff: a IPv4, minusculas, invalidas a `invalid`, idempotente) y src/infrastructure/http/bounded-map.ts (setBounded: descarta la entrada mas antigua). Aplicado en registration, admin (failures+starts), google (en rutas start/callback/username), invitee-search (use case + limitador) y scene (solo tope: su clave es userId, no IP). Tope inyectable (ultimo parametro) para pruebas.
+- Pruebas: tests/unit/t1418-ip-limit-key-010.spec.ts (14); t1416: 4 `not.toThrow('CODE')` -> `toBeUndefined()` (OBS-3). SEN-IP-04..09 no existen aun en tests/security (de /sentinels).
+- Gates: tsc 0; t1416 24/1skip, t1418 14, t1188 4; test:gate rc 0 (6891 pass); oraculos 0; traza --feature 010 rc 0. Sin [x], sin push.
