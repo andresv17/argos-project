@@ -708,3 +708,7 @@ Sin commit; pendiente re-firma /merovingian.
 ## 2026-11-25 — 010 T1426: redacciones de /rama aplicadas (menores)
 - Privacidad §3 (plazo de la declaración 18+), Privacidad §11 (sin documentos de identidad al revisar) y Términos §3 (eliminación desde /cuenta con condiciones de la sección 10), idénticas en legal-texts.md y en /privacidad y /terminos. Versión 0.1.0 DRAFT, 4 placeholders intactos, sin contacto@tipi.pet.
 - No aplicado RAMA-T1426-01 (decide Neo). scene-notice y LegalLayout sin tocar. tsc 0, traza 010 rc 0, t1411 rc 0. Sin [x], sin push.
+
+## 2026-11-25 — 010 deudas de menores y Google, versión 0.1.0 confirmada (decisiones de Neo en Logos)
+- spec.md (tabla de decisiones): `DEUDA-010-MENOR-SUPRESION` (nunca DELETE manual en SQL; supresión por el caso de uso transaccional de /cuenta; ref. RAMA-T1426-01) y `DEUDA-010-LOCK-GOOGLE-MINOR` (H-01, H-02 BAJA, fuera de 010; ref. lock-010-T1426-google).
+- legal-texts.md §0: 0.1.0 confirmada por Neo para DRAFT; 1.0.0 solo tras validación legal externa (T1437). tasks.md sin cambios míos (solo los [x] de Neo). Sin src/tests, sin push.
