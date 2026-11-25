@@ -14,7 +14,7 @@ const SECRETOS = ['TF_VAR_database_url', 'TF_VAR_audit_hmac_secret', 'TF_VAR_sha
 const VARIABLES = [
   'TF_VAR_project_id', 'TF_VAR_region', 'TF_VAR_custom_domain', 'TF_VAR_billing_account',
   'GCP_WIF_PROVIDER', 'GCP_DEPLOY_SA', 'GCP_TERRAFORM_SA', 'GCP_TERRAFORM_PLAN_SA', 'TF_STATE_BUCKET',
-  'ARGOS_PUBLIC_BASE_URL',
+  'ARGOS_PUBLIC_BASE_URL', 'ARGOS_TRUST_PROXY_HOPS',
 ];
 const DOCS = ['terraform/README.md', 'specs/003-cloud-gcp/quickstart.md'];
 
