@@ -53,9 +53,9 @@ function AccessScreen({ headingRef }: { readonly headingRef: React.RefObject<HTM
       <SkipLink />
       <main id="main-content" className="mx-auto max-w-md px-4 py-8 sm:pt-16 lg:pt-24">
         <section className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm sm:p-6">
-          <h1 ref={headingRef} tabIndex={-1} className="flex items-center gap-2 font-display text-3xl font-extrabold text-primary focus:outline-none">
-            <img src="/brand/tipi-simbolo-simple.svg" alt="" width={32} height={32} className="h-8 w-8" />
-            {BRAND_NAME}
+          <h1 ref={headingRef} tabIndex={-1} className="font-display text-3xl font-extrabold text-primary focus:outline-none">
+            {/* Guía de marca: pantalla de acceso con el logo completo (wordmark en curvas). */}
+            <img src="/brand/tipi-logo-horizontal.svg" alt={BRAND_NAME} width={266} height={150} className="h-24 w-auto max-w-full" />
           </h1>
           <p className="text-sm text-text-muted">Administración</p>
           <p className="mt-4 text-base text-text-primary">Este acceso es solo para el equipo administrador. Entra con la cuenta de Google autorizada.</p>
@@ -87,8 +87,9 @@ function Shell(props: {
       <header className="border-b border-slate-300 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap sm:justify-between sm:px-6">
           <p className="flex items-center gap-2 font-semibold text-primary">
-            <img src="/brand/tipi-simbolo-simple.svg" alt="" width={28} height={28} className="h-7 w-7" />
-            {BRAND_NAME} · Administración
+            {/* Guía de marca: barra superior con el logo horizontal. */}
+            <img src="/brand/tipi-logo-horizontal.svg" alt={BRAND_NAME} width={266} height={150} className="h-12 w-auto" />
+            <span aria-hidden="true">·</span> Administración
           </p>
           <button
             ref={buttonRef}

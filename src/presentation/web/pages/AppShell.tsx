@@ -43,9 +43,9 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-10 focus:rounded-full focus:bg-white focus:px-4 focus:py-3 focus:text-primary">
         Saltar al contenido
       </a>
-      <p className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight text-primary">
-        <img src="/brand/tipi-simbolo-simple.svg" alt="" width={28} height={28} className="h-7 w-7" />
-        {BRAND_NAME}
+      <p className="flex items-center font-display text-2xl font-extrabold tracking-tight text-primary">
+        {/* Guía de marca: barra superior con el logo horizontal (nunca el símbolo simple, que es solo para ≤32 px). */}
+        <img src="/brand/tipi-logo-horizontal.svg" alt={BRAND_NAME} width={266} height={150} className="h-12 w-auto" />
       </p>
       <nav aria-label="Principal" className="flex flex-wrap gap-1">
         <NavLink to="/" end className={link}>
