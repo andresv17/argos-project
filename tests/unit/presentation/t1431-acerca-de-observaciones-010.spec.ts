@@ -8,7 +8,7 @@ import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sanitizeAboutMarkdown } from '../../../src/domain/about/about-markdown.ts';
-import { BodyEditor, ConflictNotice, altWarning } from '../../../src/presentation/admin/AboutPanel.tsx';
+import { BodyEditor, ConflictNotice, LINK_RING, altWarning } from '../../../src/presentation/admin/AboutPanel.tsx';
 import { saveAboutPhoto, saveAboutText } from '../../../src/presentation/admin/about-api.ts';
 import { renderAboutMarkdown } from '../../../src/presentation/web/about-markdown.ts';
 import { AboutContent } from '../../../src/presentation/web/pages/AboutPage.tsx';
@@ -119,5 +119,25 @@ describe('T1431 OBS-3 (architect H-ARCH-ACE-ALT): alt de la foto en la página p
     const tag = photoTag(render('Equipo "Tipi" <b>&</b>'));
     expect(tag).toContain('alt="Equipo &quot;Tipi&quot; &lt;b&gt;&amp;&lt;/b&gt;"');
     expect(tag).not.toContain('<b>');
+  });
+});
+
+describe('T1431 OBS-4 (sati): anillo de foco Terracota en los enlaces del texto', () => {
+  // `[&_a]:focus-visible:ring-*` compila a `.x:focus-visible a` (estado en el contenedor, no en el enlace). La variante correcta pone el estado en el enlace: `[&_a:focus-visible]:ring-*`.
+  const classes = (markup: string): string => /class="([^"]*about-text[^"]*)"/.exec(markup)?.[1]?.replaceAll('&amp;', '&') ?? '';
+  const assertRing = (cls: string): void => {
+    expect(cls).toContain('[&_a:focus-visible]:ring-2');
+    expect(cls).toContain('[&_a:focus-visible]:ring-terracota');
+    expect(cls).toContain('[&_a:focus-visible]:ring-offset-2');
+    expect(cls).toContain('[&_a:focus]:outline-none');
+    expect(cls).not.toMatch(/\[&_a\]:focus(-visible)?:/);
+  };
+
+  it('[REQ-ACE10-001] la página pública aplica el anillo al enlace (no al contenedor)', () => {
+    assertRing(classes(renderToStaticMarkup(h(AboutContent, { about: { bodyMarkdown: '[x](/ruta)', photoUrl: null, photoAlt: '' } }))));
+  });
+
+  it('[REQ-ACE10-002] la vista previa del panel comparte la misma variante', () => {
+    assertRing(LINK_RING);
   });
 });

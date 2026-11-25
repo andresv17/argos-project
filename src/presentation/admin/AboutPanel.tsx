@@ -14,7 +14,7 @@ const PRIMARY = `${BUTTON} border-primary bg-primary text-cream hover:bg-primary
 const OUTLINE = `${BUTTON} border-primary bg-white text-primary hover:bg-meadow`;
 const FIELD = `w-full rounded-xl border border-slate-400 bg-white px-3 py-2 text-base text-text-primary ${FOCUS_RING}`;
 
-const LINK_RING = '[&_a]:rounded-sm [&_a]:focus:outline-none [&_a]:focus-visible:ring-2 [&_a]:focus-visible:ring-terracota [&_a]:focus-visible:ring-offset-2';
+export const LINK_RING = '[&_a]:rounded-sm [&_a:focus]:outline-none [&_a:focus-visible]:ring-2 [&_a:focus-visible]:ring-terracota [&_a:focus-visible]:ring-offset-2';
 
 /**
  * Aviso (no bloquea) cuando hay foto publicada y el texto alternativo está vacío: REQ-ACE10-001 pide `alt` accesible en la página pública, pero el contrato admite `photoAlt` vacío

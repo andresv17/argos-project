@@ -2349,3 +2349,9 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 ## 2026-11-25 — 010 T1431 prueba H-ARCH-ACE-ALT (alt vacio = decorativa) — commit local, sin push ni [x]
 - CC-KEY-T1431-ALT: AboutPage ya emitia `alt={photoAlt}` (alt="" con vacio): prueba de NO-REGRESION, sin rojo previo. Para renderizar sin efectos extraje el bloque publicado a `AboutContent` (exportado, mismo marcado). 2 pruebas nuevas en t1431-acerca-de-observaciones-010: alt="" sin nombre/ruta; alt con texto escapado.
 - Gates: tsc 0, vitest 27/27, oraculos 0, traza T1431 rc 0.
+
+## 2026-11-25 — 010 T1431 OBS-4 de /sati (anillo Terracota en enlaces) — commit local, sin push ni [x]
+- CC-KEY-T1431-OBS4: `[&_a]:focus-visible:ring-*` compilaba a `:focus-visible a` (contenedor). Cambiado a `[&_a:focus-visible]:ring-2/ring-terracota/ring-offset-2` + `[&_a:focus]:outline-none` en AboutPage.tsx y LINK_RING (ahora exportado) de AboutPanel.tsx.
+- Pruebas: unit (clases en AboutContent renderizado + LINK_RING; ojo `&amp;` en el marcado) y 2 E2E en acerca-de-reflow-010 (getComputedStyle box-shadow != none y outline != auto, en pagina y vista previa). Rojo 2+2 sin el cambio, verde con el.
+- Nota: Tailwind outline-none emite `outline: 2px solid transparent` (outline-style solid, no none); la E2E exige que no sea `auto` (nativo).
+- Gates: tsc 0, vitest 77/77, playwright reflow+wcag 20/20, oraculos 0, traza T1431 rc 0.

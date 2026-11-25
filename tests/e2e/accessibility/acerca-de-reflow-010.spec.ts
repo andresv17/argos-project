@@ -42,3 +42,38 @@ for (const width of WIDTHS) {
     expect(scroll, `scrollWidth ${scroll} > clientWidth ${client}`).toBeLessThanOrEqual(client);
   });
 }
+
+/**
+ * T1431 OBS-4 de /sati (WCAG 2.4.7): el enlace del texto enfocado por teclado muestra el anillo Terracota (box-shadow) y no el outline nativo.
+ * `[&_a]:focus-visible:ring-*` compilaba a `:focus-visible a` (contenedor), por lo que el enlace conservaba el outline azul del navegador.
+ */
+async function expectLinkRing(page: Page, link: ReturnType<Page['locator']>): Promise<void> {
+  await link.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  const style = await link.evaluate((a) => ({ focusVisible: a.matches(':focus-visible'), shadow: getComputedStyle(a).boxShadow, outline: getComputedStyle(a).outlineStyle }));
+  expect(style.focusVisible).toBe(true);
+  expect(style.shadow, 'anillo Terracota ausente (box-shadow none)').not.toBe('none');
+  expect(style.outline, 'outline nativo (auto) del navegador en lugar del anillo').not.toBe('auto');
+}
+
+test('[WCAG 2.4.7] /acerca-de: el enlace del texto enfocado por teclado muestra el anillo y no el outline nativo', async ({ page }) => {
+  await page.route('**/api/about', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ bodyMarkdown: 'Texto [enlace](/ruta) fin', photoUrl: null, photoAlt: '' }) }));
+  await page.goto('/acerca-de');
+  await expectLinkRing(page, page.locator('.about-text a').first());
+});
+
+test('[WCAG 2.4.7] vista previa del panel /admin: el enlace enfocado muestra el anillo y no el outline nativo', async ({ page }) => {
+  await page.route('**/api/admin/pending-count', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pending: 0, warning: false }) }));
+  await page.route('**/api/admin/registrations', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], nextCursor: null }) }));
+  await page.route('**/api/admin/parameters', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) }));
+  await page.route('**/api/admin/session', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true, adminId: 'adm-opaque-7f3a', expiresAt: '2030-01-01T00:30:00Z', idleExpiresAt: '2030-01-01T00:10:00Z' }) }),
+  );
+  await page.route('**/api/admin/about', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ bodyMarkdown: 'Texto [enlace](/ruta) fin', photoUrl: null, photoAlt: '', updatedAt: null, version: 1, etag: '"1"' }) }),
+  );
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Vista previa' }).click();
+  await expectLinkRing(page, page.getByRole('region', { name: 'Vista previa del texto' }).locator('a').first());
+});
