@@ -93,6 +93,16 @@ describe('T1404 (b) el nombre sale del módulo `brand` y el título lo usa (REQ-
       expect(text, file).not.toMatch(/>\s*Tipi\s*</);
     }
   });
+
+  it('[REQ-TIP10-001] el portal admin tiene su propia constante de marca (sin importar de web/) y coincide con la de web', async () => {
+    const adminBrandPath = '../../src/presentation/admin/brand.ts';
+    const webBrandPath = '../../src/presentation/web/brand.ts';
+    const adminMod = (await import(/* @vite-ignore */ adminBrandPath)) as { BRAND_NAME?: unknown };
+    const webMod = (await import(/* @vite-ignore */ webBrandPath)) as { BRAND_NAME?: unknown };
+    expect(adminMod.BRAND_NAME).toBe('Tipi');
+    expect(adminMod.BRAND_NAME).toBe(webMod.BRAND_NAME);
+    expect(readFileSync(join(ADMIN, 'AdminPortal.tsx'), 'utf8')).toMatch(/from ['"]\.\/brand\.ts['"]/);
+  });
 });
 
 describe('T1404 (c) la base de los enlaces sale de configuración, no de la petición (REQ-TIP10-004, EDGE-010-012, SC-010-004)', () => {

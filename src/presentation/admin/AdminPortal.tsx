@@ -6,7 +6,7 @@
  * @implements REQ-ADM9-001, REQ-APR9-005, NFR-009-001, EDGE-009-008, INV-ADM9-001
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BRAND_NAME } from '../web/brand.ts';
+import { BRAND_NAME } from './brand.ts';
 import { ParametersPanel } from './ParametersPanel.tsx';
 import { RegistrationsPanel } from './RegistrationsPanel.tsx';
 import { SessionExpiryNotice } from './SessionExpiryNotice.tsx';
