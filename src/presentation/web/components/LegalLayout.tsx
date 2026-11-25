@@ -2,7 +2,7 @@
  * Marco de las páginas legales públicas (`/privacidad`, `/terminos`; T1413, REQ-LEG10-003). Sin sesión ni API: un solo `h1`, secciones con `h2`, enlace de regreso
  * y `id="main-content"`. El terracota no se usa en texto ni enlaces (solo el anillo de foco).
  *
- * @implements REQ-LEG10-003, INV-LEG10-001
+ * @implements REQ-LEG10-003, INV-LEG10-001, SC-010-011
  */
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';

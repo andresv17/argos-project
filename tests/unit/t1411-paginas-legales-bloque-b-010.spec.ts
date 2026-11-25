@@ -138,7 +138,7 @@ describe('T1411 (c) rutas públicas fuera de la sesión (REQ-LEG10-001, INV-LEG1
 
 describe('T1411 (d) pie con ambos enlaces en login y registro (REQ-LEG10-004, SC-010-008)', () => {
   for (const comp of ['LoginPage', 'RegisterPage'] as const) {
-    it(`[REQ-LEG10-004] ${comp} muestra un pie discreto con enlaces a /privacidad y /terminos`, async () => {
+    it(`[REQ-LEG10-004][SC-010-008] ${comp} muestra un pie discreto con enlaces a /privacidad y /terminos`, async () => {
       const { SessionProvider } = await import('../../src/presentation/web/session.tsx');
       const pages = (await import('../../src/presentation/web/pages/AuthPages.tsx')) as unknown as Record<string, ComponentType>;
       const { api } = spyApi();

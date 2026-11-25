@@ -2,7 +2,7 @@
  * Términos de uso públicos (`/terminos`, T1413). Texto cerrado de `legal-texts.md` (T1412) con los placeholders literales (D10-06) y SIN la declaración en el registro
  * (condicionada a T1424: no se describen funciones inexistentes, REQ-LEG10-002). Sin props, sin sesión, sin API.
  *
- * @implements REQ-LEG10-001, REQ-LEG10-003, REQ-LEG10-005, INV-LEG10-001, EDGE-010-004
+ * @implements REQ-LEG10-001, REQ-LEG10-003, REQ-LEG10-005, INV-LEG10-001, EDGE-010-004, SC-010-011
  */
 import { LegalLayout, LegalList, LegalSection } from '../components/LegalLayout.tsx';
 
@@ -64,7 +64,7 @@ export function TermsPage(): JSX.Element {
       </LegalSection>
       <LegalSection heading="11. Disponibilidad y responsabilidad">
         <p>
-          El servicio se ofrece «tal cual», sin garantía de disponibilidad continua. Haz respaldos de tus datos con la función de exportación de la cuenta (las fotos y archivos no van en el respaldo). Límites de responsabilidad y garantías aplicables en {JURISDICTION}: pendiente de validación legal.
+          El servicio se ofrece «tal cual», sin garantía de disponibilidad continua. Haz respaldos de tus datos con la función de exportación de la cuenta (las fotos y archivos no van en el respaldo; de cada mascota solo viaja la dirección del avatar si la escribiste, no la imagen). Límites de responsabilidad y garantías aplicables en {JURISDICTION}: pendiente de validación legal.
         </p>
       </LegalSection>
       <LegalSection heading="12. Cambios y terminación">

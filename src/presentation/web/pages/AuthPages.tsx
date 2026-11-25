@@ -4,7 +4,7 @@
  * contraseña nueva (INV-AUTH2-001) con confirmación y correo opcional; el inicio de sesión no la aplica (REQ-AUTH2-002). El campo de
  * inicio de sesión acepta usuario o correo (REQ-LOG-001); el usuario del registro admite mayúsculas y no exige dígitos (REQ-LOG-002).
  *
- * @implements REQ-UI-005, REQ-UI-004, REQ-SSO8-003, NFR-008-002, REQ-AUTH2-001, REQ-LOG-001, REQ-LOG-002, INV-AUTH2-001, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-WEAK-PASSWORD
+ * @implements REQ-LEG10-004, SC-010-007, SC-010-008, REQ-UI-005, REQ-UI-004, REQ-SSO8-003, NFR-008-002, REQ-AUTH2-001, REQ-LOG-001, REQ-LOG-002, INV-AUTH2-001, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-WEAK-PASSWORD
  */
 import type { Ref } from 'react';
 import { Link, useNavigate } from 'react-router-dom';

@@ -2,7 +2,7 @@
  * Política de privacidad pública (`/privacidad`, T1413). Texto cerrado de `legal-texts.md` (T1412) con los 4 placeholders literales (D10-06) y SIN las cláusulas
  * condicionadas a T1424 (la declaración de mayoría de edad aún no existe: no se describen funciones inexistentes, REQ-LEG10-002). Sin props, sin sesión, sin API.
  *
- * @implements REQ-LEG10-001, REQ-LEG10-003, REQ-LEG10-005, INV-LEG10-001, EDGE-010-004
+ * @implements REQ-LEG10-001, REQ-LEG10-003, REQ-LEG10-005, INV-LEG10-001, EDGE-010-004, SC-010-011
  */
 import { LegalLayout, LegalList, LegalSection } from '../components/LegalLayout.tsx';
 
@@ -66,13 +66,13 @@ export function PrivacyPolicyPage(): JSX.Element {
           Cada proveedor tiene su propio aviso y su propio consentimiento. Si cambia el proveedor o el texto del aviso, se te pide consentir de nuevo antes de volver a generar.
         </p>
         <p>
-          <strong>Qué se envía al proveedor activo, y cuándo:</strong> cada vez que generas o regeneras la escena, Tipi envía:
+          <strong>Qué se envía al proveedor activo, y cuándo:</strong> al generar o regenerar la escena, Tipi envía:
         </p>
         <ol className="grid list-decimal gap-2 pl-6">
           <li>
             la foto de tu hogar, si la subiste y consentiste, <strong>solo cuando la escena se genera desde cero</strong> (primera generación, cambio de la foto del hogar o regeneración completa); en los cambios parciales (incrementales) no se vuelve a enviar;
           </li>
-          <li>la foto de cada mascota de la que eres Propietario Legal, si consentiste;</li>
+          <li>la foto de cada mascota de la que eres Propietario Legal, si consentiste y cuando la escena incluye o conserva a la mascota;</li>
           <li>la imagen de la escena anterior, cuando solo se cambian algunas mascotas;</li>
           <li>
             un texto técnico con las instrucciones y la especie, la raza y el sexo de cada mascota; cuando la especie es «otra», también el nombre de especie que escribiste;
@@ -91,7 +91,7 @@ export function PrivacyPolicyPage(): JSX.Element {
           <strong>Dónde se procesa y cuánto se conserva</strong>: depende del proveedor y de su configuración. Con Vertex AI, la región depende del modelo activo: con gemini-2.5-flash-image, la región us-central1 (Iowa, EE. UU.); con gemini-3.1-flash-image, la región «global», en la que el procesamiento no queda fijado a una región ni a un país. En ambos casos supone una transferencia internacional de tus imágenes. Con Gemini Developer API, la región de procesamiento y el régimen de datos de ese proveedor están pendientes de confirmación y de validación legal; Tipi no afirma aquí una región. La retención por parte de Google, el uso de tus imágenes para entrenar modelos y las condiciones según el tipo de cuenta del proveedor se rigen por las condiciones de Google y están <strong>pendientes de validación legal</strong>; Tipi no controla la copia que recibe el proveedor.
         </p>
         <p>
-          <strong>Sin respaldo</strong>: la foto del hogar y las escenas generadas no se incluyen en el respaldo de la cuenta ni se restauran al importarlo.
+          <strong>Sin respaldo</strong>: la foto del hogar y las escenas generadas no se incluyen en el respaldo de la cuenta ni se restauran al importarlo. Tampoco se incluyen las imágenes de las mascotas ni los archivos clínicos; el respaldo solo lleva, si la escribiste en la ficha, la dirección (URL) del avatar de cada mascota, no la imagen.
         </p>
       </LegalSection>
       <LegalSection heading="7. Enlaces compartidos">
