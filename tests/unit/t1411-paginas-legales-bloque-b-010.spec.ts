@@ -116,7 +116,7 @@ describe('T1411 (c) rutas públicas fuera de la sesión (REQ-LEG10-001, INV-LEG1
   for (const { route, name, file } of PAGES) {
     it(`[EDGE-010-004] App en ${route} muestra la página legal sin «Cargando…» y sin tocar la API`, async () => {
       const { Page, error } = await loadPage(file, name);
-      expect(Page, error).not.toBeNull();
+      expect(typeof Page, error).toBe('function');
       const { App } = await import('../../src/presentation/web/App.tsx');
       const { api, calls } = spyApi();
       const html = renderToStaticMarkup(h(MemoryRouter, { initialEntries: [route] }, h(App, { api })));
