@@ -278,7 +278,7 @@ export function PetsPage(): JSX.Element {
                       canDelete={dashboard.permissions.deleteHealthEvents}
                     />
                     {dashboard.myRole === 'OWNER' || dashboard.myRole === 'ADMIN' ? (
-                      <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} canCreateLinks />
+                      <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} canCreateLinks hideScopeChoice={shareHousehold === null} />
                     ) : null}
                     <Link
                       to={`/mascotas/${dashboard.profile.id}/album`}
