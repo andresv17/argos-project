@@ -40,6 +40,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         auditHmacSecret: null,
         dbDriver: 'sqlite',
         pgPoolMax: 5,
+        trustProxyHops: 1,
         schedulerEmail: null,
         oidcAudience: null,
         databaseUrl: null,

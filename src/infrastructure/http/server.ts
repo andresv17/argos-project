@@ -238,7 +238,8 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
     publicBaseUrl: config.publicBaseUrl ?? `http://127.0.0.1:${config.port}`,
     logger: logger && PRODUCTION_LOGGER_OPTIONS,
     // Un solo salto de confianza detrás de Cloud Run (REQ-CLD-003); `true` permitiría falsificar X-Forwarded-For.
-    trustProxy: config.host === '0.0.0.0' ? 1 : false,
+    // T1417 (D10-03): saltos de confianza por config (semántica `hop < N` de app.ts); en desarrollo local (host 127.0.0.1) no se confía en XFF (H-04). Nunca `true`.
+    trustProxy: config.host === '0.0.0.0' ? config.trustProxyHops : false,
     checkReady: options.checkReady ?? persistence.checkReady,
     ...(serveStatic ? { staticRoot } : {}),
     // CSP con el host del bucket de medios solo con el driver gcs (T564, E3-03, SC-ALM-012).

@@ -135,7 +135,8 @@ describe('T1416 [EDGE-010-001] IPv6, puertos, cabecera duplicada y basura en X-F
   });
   it('valores malformados y vacíos no rompen la petición (200, sin 5xx) y no producen la IP del atacante', async () => {
     const app = await instance(2);
-    for (const xff of ['', ',', ',,,', 'no-es-ip', `${ATTACKER}, , ${EDGE}`, `${'1.'.repeat(300)}1`, '\u0000, x']) {
+    for (const xff of ['', ',', ',,,', 'no-es-ip', // T1417: el elemento vacío se descarta al analizar; «ATACANTE, , BORDE» queda «ATACANTE, BORDE» y el atacante sería el cliente legítimo del modelo; se antepone el cliente real (entrada del harness, aserción intacta).
+      `${ATTACKER}, , ${CLIENT}, ${EDGE}`, `${'1.'.repeat(300)}1`, '\u0000, x']) {
       const ip = await app.ip(xff);
       expect(typeof ip).toBe('string');
       expect(ip).not.toBe(ATTACKER);
@@ -162,8 +163,8 @@ describe('T1416 [EDGE-010-002] HOPS=1 detrás de Cloudflare: todos comparten IP 
     for (let i = 0; i < 5; i += 1) limiter.recordCreated(ipA);
     const ipB1 = await mis.ip(`${CLIENT_B}, ${EDGE}`);
     const ipB2 = await ok.ip(`${CLIENT_B}, ${EDGE}`);
-    expect(() => limiter.assertAllowed(ipB1)).toThrow();
-    expect(() => limiter.assertAllowed(ipB2)).not.toThrow();
+    expect(() => limiter.assertAllowed(ipB1)).toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
+    expect(() => limiter.assertAllowed(ipB2)).not.toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
   });
 });
 
@@ -175,8 +176,8 @@ describe('T1416 [REQ-EDG10-003] [SC-010-016] límites por IP real: dos clientes 
     const b = await app.ip(`${CLIENT_B}, ${EDGE}`);
     expect(a).not.toBe(b);
     for (let i = 0; i < 5; i += 1) limiter.recordCreated(a);
-    expect(() => limiter.assertAllowed(a)).toThrow();
-    expect(() => limiter.assertAllowed(b)).not.toThrow();
+    expect(() => limiter.assertAllowed(a)).toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
+    expect(() => limiter.assertAllowed(b)).not.toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
   });
   it('login de /admin 10/15 min: el cliente A se bloquea y el cliente B no', async () => {
     const limiter = new AdminAccessLimiter(() => 1_000_000);
@@ -185,8 +186,8 @@ describe('T1416 [REQ-EDG10-003] [SC-010-016] límites por IP real: dos clientes 
     const b = await app.ip(`${CLIENT_B}, ${EDGE}`);
     expect(a).not.toBe(b);
     for (let i = 0; i < 10; i += 1) limiter.recordFailure(a);
-    expect(() => limiter.assertNotBlocked(a)).toThrow();
-    expect(() => limiter.assertNotBlocked(b)).not.toThrow();
+    expect(() => limiter.assertNotBlocked(a)).toThrow('ERR-ADMIN-RATE-LIMITED');
+    expect(() => limiter.assertNotBlocked(b)).not.toThrow('ERR-ADMIN-RATE-LIMITED');
   });
   it('un XFF inyectado no permite rotar la IP para evadir el tope de registro (HOPS=2): la IP resuelta es siempre la del cliente real', async () => {
     const app = await instance(2);
@@ -208,18 +209,18 @@ describe('T1416 [EDGE-010-009] [H-02 A] contador de registro «por instancia y p
       second.assertAllowed(real);
       second.recordCreated(real);
     }
-    expect(() => first.assertAllowed(real)).toThrow();
-    expect(() => second.assertAllowed(real)).toThrow();
+    expect(() => first.assertAllowed(real)).toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
+    expect(() => second.assertAllowed(real)).toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
   });
   it('el reinicio del contador (escalado a cero) devuelve el cupo completo: documenta el comportamiento real', async () => {
     const real = await (await instance(2)).ip(`${CLIENT}, ${EDGE}`);
     let now = 1_000_000;
     const before = new RegistrationRateLimiter(() => now);
     for (let i = 0; i < 5; i += 1) before.recordCreated(real);
-    expect(() => before.assertAllowed(real)).toThrow();
+    expect(() => before.assertAllowed(real)).toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
     now += 60_000;
     const restarted = new RegistrationRateLimiter(() => now);
-    expect(() => restarted.assertAllowed(real)).not.toThrow();
+    expect(() => restarted.assertAllowed(real)).not.toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
   });
 });
 

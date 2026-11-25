@@ -21,6 +21,7 @@
  *   Es un secreto: el error nombra solo la variable, nunca el valor.
  *   Con postgres sale en `AppConfig.databaseUrl` (único lector de `process.env`, T428); `null` con sqlite o memory.
  * - `ARGOS_PG_POOL_MAX` (REQ-PG-010): entero 1..10 sin ceros a la izquierda (5).
+ * - `ARGOS_TRUST_PROXY_HOPS` (REQ-EDG10-001): entero 0..3 (defecto 1); vacía o inválida se rechaza nombrando solo la variable.
  * - `ARGOS_SCHEDULER_EMAIL` y `ARGOS_OIDC_AUDIENCE` (REQ-SEC-007, D-A1): obligatorias con `postgres` (correo
  *   `*.iam.gserviceaccount.com`; URL `https:` sin credenciales ni espacios); `null` con sqlite o memory. El error nombra solo la variable.
  * - Medios (T566, REQ-GCS-003, REQ-ARC-001, REQ-ARC-005, SC-ALM-023): `ARGOS_MEDIA_DRIVER` `gcs` o `memory` (`memory` por defecto; vacío se
@@ -71,6 +72,8 @@ export interface AppConfig {
   readonly dbDriver: 'sqlite' | 'postgres' | 'memory';
   /** Tamaño máximo del pool de PostgreSQL (ARGOS_PG_POOL_MAX, 1..10). */
   readonly pgPoolMax: number;
+  /** Saltos de proxy de confianza (`ARGOS_TRUST_PROXY_HOPS`, REQ-EDG10-001, D10-03): entero 0..3, defecto 1; `2` solo con Cloudflare activo. `trustProxy: true` está prohibido. */
+  readonly trustProxyHops: 0 | 1 | 2 | 3;
   /** Cuenta de servicio del Scheduler (ARGOS_SCHEDULER_EMAIL); obligatoria con postgres, null en otro driver. No se registra. */
   readonly schedulerEmail: string | null;
   /** Audiencia OIDC https (ARGOS_OIDC_AUDIENCE); obligatoria con postgres, null en otro driver. No se registra. */
@@ -176,6 +179,7 @@ interface RawAppConfig {
   ARGOS_AUDIT_RETENTION_DAYS: string;
   ARGOS_DB_DRIVER: 'sqlite' | 'postgres' | 'memory';
   ARGOS_PG_POOL_MAX: string;
+  ARGOS_TRUST_PROXY_HOPS: string;
   ARGOS_MEDIA_DRIVER: 'gcs' | 'memory';
   ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS: string;
   ARGOS_MEDIA_MAX_BYTES: string;
@@ -203,6 +207,7 @@ export const APP_CONFIG_DEFAULTS: Readonly<RawAppConfig> = {
   ARGOS_AUDIT_RETENTION_DAYS: '730',
   ARGOS_DB_DRIVER: 'sqlite',
   ARGOS_PG_POOL_MAX: '5',
+  ARGOS_TRUST_PROXY_HOPS: '1',
   ARGOS_MEDIA_DRIVER: 'memory',
   ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS: '300',
   ARGOS_MEDIA_MAX_BYTES: '10485760',
@@ -240,6 +245,7 @@ export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
     ARGOS_AUDIT_RETENTION_DAYS: { type: 'string', pattern: POSITIVE_INTEGER },
     ARGOS_DB_DRIVER: { type: 'string', enum: ['sqlite', 'postgres', 'memory'] },
     ARGOS_PG_POOL_MAX: { type: 'string', pattern: '^(?:[1-9]|10)$' },
+    ARGOS_TRUST_PROXY_HOPS: { type: 'string', pattern: '^[0-3]$' },
     ARGOS_MEDIA_DRIVER: { type: 'string', enum: ['gcs', 'memory'] },
     ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS: { type: 'string', pattern: '^(?:[3-9][0-9]|[1-8][0-9]{2}|900)$' },
     ARGOS_MEDIA_MAX_BYTES: { type: 'string', pattern: '^[1-9][0-9]{0,7}$' },
@@ -251,7 +257,7 @@ export const APP_CONFIG_SCHEMA: JSONSchemaType<RawAppConfig> = {
     ARGOS_SCENE_GEN_TIMEOUT_SECONDS: { type: 'string', pattern: '^(?:[1-9][0-9]|10[0-5])$' },
     ARGOS_SCENE_QUEUE: { type: 'string', pattern: '^[A-Za-z][A-Za-z0-9_-]{0,99}$' },
   },
-  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES', 'MICROCHIP_DUPLICATE_MAX_PER_WINDOW', 'MICROCHIP_DUPLICATE_WINDOW_MINUTES', 'ARGOS_AUDIT_RETENTION_DAYS', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX', 'ARGOS_MEDIA_DRIVER', 'ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS', 'ARGOS_MEDIA_MAX_BYTES', 'ARGOS_MEDIA_MAX_BYTES_PER_OWNER', 'ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS', 'ARGOS_SCENE_DRIVER', 'ARGOS_SCENE_MAX_PETS', 'ARGOS_SCENE_QUOTA_MAX', 'ARGOS_SCENE_GEN_TIMEOUT_SECONDS', 'ARGOS_SCENE_QUEUE'],
+  required: ['PORT', 'HOST', 'DATABASE_PATH', 'APP_TIMEZONE', 'COOKIE_SECURE', 'EXPORT_MAX_PER_WINDOW', 'EXPORT_WINDOW_MINUTES', 'INVITE_MAX_PER_WINDOW', 'INVITE_WINDOW_MINUTES', 'MICROCHIP_DUPLICATE_MAX_PER_WINDOW', 'MICROCHIP_DUPLICATE_WINDOW_MINUTES', 'ARGOS_AUDIT_RETENTION_DAYS', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX', 'ARGOS_TRUST_PROXY_HOPS', 'ARGOS_MEDIA_DRIVER', 'ARGOS_MEDIA_SIGNED_URL_TTL_SECONDS', 'ARGOS_MEDIA_MAX_BYTES', 'ARGOS_MEDIA_MAX_BYTES_PER_OWNER', 'ARGOS_MEDIA_MAX_CONCURRENT_UPLOADS', 'ARGOS_SCENE_DRIVER', 'ARGOS_SCENE_MAX_PETS', 'ARGOS_SCENE_QUOTA_MAX', 'ARGOS_SCENE_GEN_TIMEOUT_SECONDS', 'ARGOS_SCENE_QUEUE'],
   additionalProperties: false,
 };
 
@@ -432,7 +438,7 @@ function isKnownPublicAuditSecret(value: string): boolean {
 }
 
 /** Variables cuyo valor vacío explícito no equivale a «ausente» (D-26 y T409). */
-const STRICT_EMPTY_KEYS: ReadonlySet<string> = new Set(['HOST', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX', 'ARGOS_MEDIA_DRIVER']);
+const STRICT_EMPTY_KEYS: ReadonlySet<string> = new Set(['HOST', 'ARGOS_DB_DRIVER', 'ARGOS_PG_POOL_MAX', 'ARGOS_TRUST_PROXY_HOPS', 'ARGOS_MEDIA_DRIVER']);
 
 export type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 
@@ -555,6 +561,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
     auditHmacSecret,
     dbDriver: raw.ARGOS_DB_DRIVER,
     pgPoolMax: Number(raw.ARGOS_PG_POOL_MAX),
+    trustProxyHops: Number(raw.ARGOS_TRUST_PROXY_HOPS) as AppConfig['trustProxyHops'],
     schedulerEmail: isPostgres ? env[SCHEDULER_EMAIL_NAME]! : null,
     oidcAudience: isPostgres ? env[OIDC_AUDIENCE_NAME]! : null,
     databaseUrl: isPostgres ? env[DATABASE_URL_NAME]! : null,
