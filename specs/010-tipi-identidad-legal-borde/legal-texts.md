@@ -9,6 +9,8 @@
 
 ## 0. Uso de este documento (para `T1413`, no se publica)
 
+- **Versión del texto 18+ (`adult_notice_version`, `H-ARCH-ADULT-VERSION`, 2026-11-25)**: SemVer `N.N.N`. Valor vigente mientras este documento sea `DRAFT`: **`0.1.0`** (constante única del servidor para `T1424`; el cliente no la envía). Reglas: patch = redacción sin cambio de efecto; minor = cambio de efecto o de datos de la cláusula 18+; major = cambio de edad mínima. Pasa a `1.0.0` solo cuando Neo apruebe la publicación tras la validación legal externa (potestad Nivel 2); `T1425` enmienda los textos sin cambiar el valor hasta esa aprobación.
+
 - Cada bloque `PRIVACIDAD` y `TÉRMINOS` de abajo es el contenido de `PrivacyPolicyPage.tsx` y `TermsPage.tsx`. Un `##` equivale a un `h2`; cada página lleva un solo `h1`.
 - **Placeholders literales (D10-06)**, no se rellenan hasta que Neo entregue los valores definitivos en `T1437`. Deben aparecer **tal cual**, con corchetes y mayúsculas:
   1. `[NOMBRE DEL RESPONSABLE O PROYECTO]`

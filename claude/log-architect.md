@@ -425,3 +425,277 @@ Sin commit; pendiente re-firma /merovingian.
 - clinical-summary.schema.json (005, 1.1.0 DRAFT sin bump): age.required = years, months; allOf if/else cerrado (additionalProperties false con props enumeradas, deceasedAt false, DECEASED sin opt-in => age.totalDays false). Cerrar el if con lista completa de props conserva la semantica (11 casos Ajv OK); t778 pasa 5/5 sin tocarla.
 - spec.md/plan.md: reglas R1-R3 y R7 (R7 verificado: scene-use-cases.ts:104-109 filtra consentimiento solo con driver real); deudas EDGE-029/030/032 como nota. Sin [x], sin src/tests.
 - Compile 002/004/005/006 rc 0; src/generated/v33 regenerado. Rojos esperados hasta keymaker: 3 tests t1026 + 1 error tsc (t1026 l.52, totalDays opcional).
+
+### 2026-11-20 — Architect: Feature 008 iniciada (rama 008-sso-portal-roles, DRAFT)
+- Creados specs/008-sso-portal-roles/{spec,plan,tasks}.md y contracts/{README.md,errors/error-catalog.json (indice vacio)}. Tareas T1101..T1176, 0 [x], etiquetas [GH:#16..#20,#53..#55] en cada bloque y tarea.
+- Decisiones abiertas para Neo: D8-01 (dividir 008/009), D8-02 (politica de aprobacion #18), D8-03/D8-07 (identidad admin #19), D8-04 (proveedor de correo), D8-05/D8-06 (verificacion id_token / scope), D8-08 (rango tope fotos), D8-09 (textos #53/#55).
+- Hallazgos: cookie argos_session Strict no viaja en el callback de Google (ADR-008-03); correo de cuentas antiguas no verificado ni unico (pre-hijacking, EDGE-008-003); ADMIN ya es rol de hogar (usar PLATFORM_ADMIN); jose autorizada solo en oidc-verify.ts; D6-19 (Mascotas sin textos) enmendada por #55.
+- verify-traceability --feature 008: 24/59 (falla esperada: sin src/tests; el script no tiene modo informativo para 008 y su --task solo acepta T###). Sin tocar src/, tests/, src/generated/.
+
+### 2026-11-20 — Architect: reconciliación 008 antes de /mouse (T1109) con #21, #24, #25
+- spec/plan/tasks/contracts README de 008: Bloques I (#21, T1177..T1185), J (#24, T1186..T1193), K (#25, T1194..T1199) y T1200 (H-8-02, STATE-AUTH-SESSION-001); D8-10..D8-14 nuevas para Neo. Total 100 tareas (76 + 24), 0 [x]. Bloques F, G, H intactos.
+- /lock EDGE-008-023..040 incorporadas (012/SC-020 corregidos, INV-VIN8-004, TTL únicos: argos_oauth 600 s -> 900 s, email_verified_at NULL heredado); lo que implica política queda atado a D8-14/D8-03/D8-02/M8-03. M8-01..M8-14 NO aplicadas. Constitución citada 3.7.0; jose ya no «autorizada» (H-8-01).
+- verify-traceability --feature 008: 36/85 (49 FAIL solo de evidencia de código). Sin src/, tests/, generated.
+
+### 2026-11-20 — Architect: corrección FAIL /mouse 008 (ADR-008-01..13 en tasks.md)
+- Añadidos ADR-008-01..13 a 13 tareas (T1114,T1126,T1111+T1121,T1119,T1138,T1149,T1158,T1164,T1168,T1172,T1182,T1190,T1196); sin renumerar, sin [x]. Commit NO hecho (prohibición del rol); lo ejecuta Morpheus.
+
+### 2026-11-20 — Architect: reconciliación 008 con la resolución de Nivel 2 de Neo (iter 75, 17 puntos)
+- Commits locales: c8e59e7 (constitución 3.7.0 -> 3.8.0: jose en google-oidc-verify.ts + cookie argos_oauth Lax 900 s), 86fad83 (contratos 002 openapi 3.3.0/identity 3.1.0/pet 3.2.0/backup 3.3.0/errores 3.2.0; 004 3.4.0/3.2.0/3.2.0/3.3.0/3.2.0; 006 openapi 3.5.0 download=1; src/generated regenerado v31, v33, v34 y línea 002), cebdf9f (spec/plan/tasks 008 + claude/decisiones-neo-008-2026-11-20.md).
+- 008 queda con 64 tareas con casilla y 36 diferidas a 009 (sin casilla, mismos IDs); C/D/E y T1200 en «Diferido a 009»; 0 [x]. Se añaden INV-VIN8-005, SC-008-061/062. IDs de 008 fuera del texto de los contratos 002/004/006 (la compuerta de 002/004 los trata como vigentes).
+- Hallazgos: verify-traceability --feature 002 pasa de CUMPLE a FALLA por ERR-AUTH-GOOGLE-FAILED y ERR-AUTH-GOOGLE-LINK-CONFLICT sin @implements/prueba (rojo esperado hasta keymaker); 005 se recompiló (v33) porque depende de 004; compile exige api limpio: orden 004, 005, 006 y 002 al final.
+- Lecturas para Neo: D8-06 sin pronunciamiento (se mantiene A); D8-13/D8-09 texto citado = D8-09; M8-04/05/06 no elegidas (callback 200).
+
+### 2026-11-21 — Architect: enmiendas documentales 003 quickstart, REQ-SSO8-007 y centinela de contraseña (Neo, Nivel 2)
+- 003 quickstart sección 6: dos filas (GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_REDIRECT_URI). 008 spec: REQ-SSO8-007 (solo client_secret en Secret Manager) y REQ-SSO8-003 (centinela `!no-password!`, verifyPassword dummy constante, hasPassword false, startGoogleLink rechaza).
+- plan.md: ADR-008-05 estaba ocupado (#18, Diferido a 009); la decisión quedó como ADR-008-14. Bootstrap docs 43/43 verde; trazabilidad 008: 57/87 (FALLA esperada, solo evidencia de código). Sin src/tests/contratos.
+
+### 2026-11-21 — Architect: dictamen H-A21-2/2b (vinculación Google atada a la sesión de origen)
+- Entregado .specify/memory/audits/architect-008-A2-link-sesion.md (sin commit; sin tocar contracts/src/tests/specs). Opción B refutada (Strict no viaja en el retorno de Google); Opción A recomendada (hash = sessions.token_hash en oauth_flow_states, sin Set-Cookie, revokeOthers con la de origen); H-A21-2b se cierra ajustando implementación.
+- Hallazgo: A no cierra el robo de argos_oauth (atacante vincula su propio sub); cierre real = alternativa C (confirmación en dos pasos), propuesta como deuda 009. Requiere aprobación de Neo (esquema, contrato 004 3.4.1, spec/plan).
+
+### 2026-11-21 — Architect: Opción A de vinculación aplicada en documentos (commit d319857, decisión de Neo Nivel 2)
+- spec 008: REQ-VIN8-002 (sesión de origen activa, origin_session_hash = sessions.token_hash), REQ-VIN8-004 literal (conserva origen, sin Set-Cookie), EDGE-008-050, SC-008-063; plan: ADR-008-03 nota LINK y ADR-008-15 (límites 20/20/10/5 confirmados); tasks: T1121/T1126/T1122 anotadas.
+- Deudas en «Diferido a 009» (spec y tasks, sin casilla): DEUDA-008-GOOGLE-LINK-2STEP y DEUDA-008-GOOGLE-ACCOUNT-DELETE (aviso de perfil por hasPassword false; soporte manual Ley 1581/2012; cierre obligatorio vía T1130).
+- OpenAPI 004 (3.4.0) y 002 (3.3.0): texto del callback caso 3 y startGoogleLink, aclaración sin bump (siguen DRAFT; tests fijan 3.4.0). Compilar exige regenerar src/generated (solo comentarios de openapi-types.ts): NO hecho. Rojos: codegen-drift (2) y generated-004 (1). Trazabilidad 008: 61/87 -> 62/88.
+
+### 2026-11-21 — Architect: H-VO-3 (SC-008-013 inexistente en T1129 y T1134)
+- tasks.md líneas 64 y 68: `SC-008-013` sustituido por `SC-008-063` (verificado literal en spec.md:194). 061..062 no aplican (límite de tasa y cuenta sin contraseña). Sin más citas en specs/008. Trazabilidad 008 62/88 (sin cambio); bootstrap docs verde. Commit local solo tasks.md.
+
+### 2026-11-21 — Architect: análisis H-SC14 (SC-008-014 409 vs 400 en el callback LINK), solo análisis
+- Contradicción: spec.md:189 y tasks.md:62 (T1126) piden `ERR-AUTH-GOOGLE-LINK-CONFLICT` (409) para «sub ya vinculado a otra cuenta»; el catálogo 004 (`error-catalog.json:426-433`) lo admite en su nota; pero el openapi 004 del callback (L145-L180) solo declara 400/429/500 y `google-auth-use-cases.ts:222-224` responde 400 `ERR-AUTH-GOOGLE-FAILED`. `startGoogleLink` (L160-162) sí da 409, pero ahí el «sub» aún no se conoce: solo cubre «cuenta ya tiene Google».
+- Recomendación: Opción A (400 uniforme en callback; corregir texto de SC-008-014 y T1126). Las pruebas t1126 (api L90-105) ya fijan 400. B exige decisión Nivel 2 de Neo (enmienda de contrato 004). Sin ediciones de contratos/src; sin commit.
+
+### 2026-11-21 — Architect: H-SC14 opción A aplicada (decisión de Neo, Nivel 2)
+- spec.md SC-008-014 y tasks.md T1126: 409 `ERR-AUTH-GOOGLE-LINK-CONFLICT` solo en `startGoogleLink` (cuenta con Google ya vinculado); `sub` ya vinculado a otra cuenta = 400 uniforme `ERR-AUTH-GOOGLE-FAILED` en el callback, sin vincular. INV-VIN8-001 y SC-008-012 sin cambio (no se contradicen).
+- Nota de LINK-CONFLICT en `004/contracts/errors/error-catalog.json` reescrita (código y status intactos; JSON válido). La nota está compilada en `src/generated/v34/errors/error-codes.ts` y `src/generated/errors/error-codes.ts` (esta última viene del catálogo 002, que tiene la misma nota en L388 y NO se tocó): regenerar lo hace keymaker en commit aparte. Sin commit, sin src/tests.
+
+### 2026-11-21 — Architect: notas LINK-CONFLICT (002/004) y precedencia H-429 (aprobado por Neo)
+- 004 error-catalog (L433): nota ya alineada a Opción A (sin cambio adicional). 002 error-catalog (L388): nota gemela con la misma redacción (enmienda autorizada por Neo); código y status intactos.
+- spec.md REQ-VIN8-002: añadida precedencia H-429 (limitador HTTP 5/15 min -> 429 ERR-RATE-LIMITED primero; bloqueo REQ-LOG-001 en casos de uso -> ERR-AUTH-TOO-MANY-ATTEMPTS). Cifras sin cambio.
+- Ambos JSON parsean. Sin src/tests, sin regenerar (keymaker), sin commit.
+
+### 2026-11-23 — Architect: Feature 009 spec reconciliada + plan.md + tasks.md (DRAFT, sin commit)
+- spec.md: decisiones D9-01/02/04/09/15 y defaults aplicados; añadidos Bloque F (REQ-DEL9-001/002, INV-DEL9-001), REQ-APR9-007, REQ-ADM9-006, EDGE-009-031..034, SC-009-044..049; REQ-APR9-006 diferido; INV-LIM9-001 reconciliada con D9-11 (intento en vuelo); REQ-ADM9-002 con Path=/api/admin. Propuestas D9-17..D9-20 pendientes de Neo.
+- plan.md (14 ADR, 2 enmiendas N2) y tasks.md (T1201..T1277, 78 tareas, T1130 reutilizada con [GH:#17]); contracts/README.md índice sin contratos. verify-traceability --feature 009 falla por fuente ausente contracts/errors/error-catalog.json (esperado: contratos son tareas [ARCH]); cotejo manual 47/47 IDs propios, SC y EDGE cubiertos.
+
+### 2026-11-23 — Architect: incorporación del acta /lock T1204 a la Feature 009 (DRAFT, sin commit)
+- spec.md: EDGE-009-035..049 (texto del acta), REQ-APR9-008, SC-009-050; EDGE-009-033 sustituido por la vía manual de EDGE-009-037 (D9-18 aprobado); D9-17..D9-20 pasan a decididas; precisiones LCK-17/18/20/22/24/26; enmienda de REQ-PRO9-007 sobre 007 solo como nota firmable (LCK-16).
+- plan.md: ADR-009-15 (números de límites, propuesta pendiente de firma de Neo) y ADR-009-16 (decisiones técnicas); RR-09-04 actualizado. Preguntas D9-21..D9-26 en architect-009-preguntas-neo.md (Parte 4).
+- tasks.md: 21 tareas nuevas T1278..T1298, todas [ ]; D9-18 corregido. Sin tocar src/, tests/, contratos ni casillas.
+
+### 2026-11-23 — Architect: aplicadas actas /mifune y /merovingian (T1205) a la Feature 009 (DRAFT, sin commit)
+- plan.md: MIF-02/03/05/06/08/09/10 aplicados; tabla de contratos vigentes enmendados (002/004/005/006/007/008), ADR-01+02 fusionadas, ADR-06 corregida (migración oauth_flow_states), autoría de /admin sin updated_by_user_id, tabla de códigos de error (MER-10), ADR-16 con EDGE-036 de gasto acumulado (propuesta pendiente D9-21).
+- spec.md: EDGE-009-036 reescrita (gasto acumulado, modelo x región, techo derivado), EDGE-009-045, REQ-CFG9-007, INV-CFG9-002, SC-009-051. tasks.md: 107 tareas (+8 T1299..T1306), Fase 5 en 5a (19) y 5b (15), T1212 bloqueada hasta D9-26. Preguntas P5-01..P5-06 en la Parte 5 del acta. Sin tocar src/, tests/, contratos ni casillas.
+
+### 2026-11-23 — Architect: asentadas resoluciones de Neo D9-21..26 y P5-01..06 en la Feature 009 (DRAFT, sin commit)
+- spec.md: EDGE-009-035/036/040/041/042/043/045/046/049 reescritos o precisados; nota de REQ-PRO9-007 pasa a resolución; REQ-DEL9-001 y REQ-CFG9-001/004 precisados; tabla única de decisiones firmadas; SC-009-041 y SC-009-051 ajustados.
+- plan.md: ADR-009-01 y ADR-009-16 (1)(2)(4) reescritos (plazo único 10 min, sobreconteo aceptado); ADR-009-15 aprobada; Enmienda 009-B con tabla de costes; 007 y 006 como enmiendas versionadas; operaciones de borrado en el admin.openapi.yaml único.
+- tasks.md: T1301, T1300, T1292, T1296 movidas de 5a a 5b (5a=15, 5b=19, total 107); T1212 desbloqueada; T1217/T1226/T1280/T1282/T1284/T1295/T1298/T1299 reescritas. Sin casillas nuevas. Acta de preguntas con Partes 4 y 5 «resuelta por Neo».
+
+### 2026-11-23 — Architect: T1212 enmienda versionada de 007 (orden del prompt, 009) (sin commit; tasks.md sin tocar)
+- 007/spec.md: nota de versión en cabecera; «Enmienda 009» en REQ-ESC7-003, R4 (orden de 8 puntos de REQ-PRO9-003), R1, REQ-ESC7-006, SC-007-039 y SC-007-043 (texto previo conservado). Los IDs de 009 se citan sin prefijo `REQ-` para no romper la compuerta de 007.
+- 006/spec.md: nota de versión al final de REQ-ESC6-016 (orden desde cero superado por 007/009).
+- Inventario: `.specify/memory/audits/architect-009-T1212-enmienda-007.md` (4 pruebas + hallazgo t874; SC-007-035 no es de prompt: la cita de T1212 es errónea).
+- `verify-traceability.sh --feature 007`: CUMPLE (51/51).
+
+## 2026-11-24 — T1217 contratos base de 009 (REVIEW, sin marcar [x])
+- Creados en `specs/009-aprobacion-admin-correo/contracts/`: `errors/error-catalog.json` (1.0.0, 7 códigos propios), `state-machines/account-registration.machine.json` (STATE-ACCT9-001, adelanta T1241 (b)) y `openapi/admin.openapi.yaml` (1.0.0, `startAccountDeletionReauth` y `deleteAccountWithGoogleReauth`, esquemas inline cerrados; `HouseholdsActiveProblem` extiende ProblemDetails con `households`). README actualizado.
+- Scripts (N2, Neo autorizó): entrada `--feature 009` en `compile-contracts.sh` (ensayo 004+005+006+009, salida `v35/`) y en `verify-traceability.sh` (usage + 6 exclusiones por decisión justificadas). 006 y 008 sin regresión.
+- Decisión abierta para Neo: si el borrado Google exige `backupConfirmationToken` (declarado opcional como en 004). Solape de `ERR-ACCOUNT-DELETE-HOUSEHOLDS-ACTIVE` con `ERR-ACCOUNT-OWNS-SHARED-*` de 004 (T1284 verifica `src/`).
+
+## 2026-11-23 — Decisión (g) de Neo: CSRF 403 antes de resolver sesión en /api/admin/* mutantes
+- `admin.openapi.yaml` 1.1.0 -> 1.2.0 (MINOR, igual criterio que 1.1.0; cambia la respuesta de endAdminSession sin sesión y sin cabecera: 404 -> 403). Regla en `x-sdd-metadata.x-sdd-admin-mutation-csrf-order`, `change_note_1_2_0`, descripción de endAdminSession, 403 y parámetro CsrfHeader.
+- `plan.md` ADR-009-07 recoge la misma regla. No se tocó `src/generated/**`, constitución ni tareas. Pendiente: recompilar contratos (tarea con firma de Neo) y contraste de /oracle.
+
+## 2026-11-23 — Fallos de Neo (a)(b)(c): contrato 1.2.0 y ADR-009-07 aprobados; Origin después de sesión
+- `admin.openapi.yaml` 1.2.0: quitado el Origin del orden previo a la sesión (endAdminSession descripción y 403, CsrfHeader); change_note 1.2.0 explica que Origin va después de la sesión para no filtrar existencia y registra la aprobación de Neo. `x-sdd-status` se deja `DRAFT` (precedente 1.1.0: el estado formal lo fija solo Neo). YAML válido (node `yaml`).
+- `plan.md` ADR-009-07: Origin después de sesión; 403 solo por falta de `X-Argos-Request`; nota de aprobación de Neo.
+- T1228 (tasks.md) y SC-009-009 (spec.md) reescritos con el texto exacto de Neo (404 sin sesión / 403 mutadores sin cabecera, guard INV-AUTH-007). No se tocó src/tests/generated/constitución ni marcas de tareas.
+
+## 2026-11-23 — 009 SC-009-010/T1236 reescritos y ratificacion APPROVED (fallo Neo, Logos, opcion 1)
+- spec.md SC-009-010, tasks.md T1236 y plan.md (fila UI) -> «cero referencias NUEVAS al portal»; linea base 008 fija en 3 archivos (role-help.ts, view-model.ts, HouseholdsPage.tsx; verificado por grep).
+- admin.openapi.yaml 1.2.0: x-sdd-status y x-sdd-metadata.status = APPROVED; change_note_1_2_0 con «APPROVED por Neo (Logos, 2026-11-23)». plan.md Estado + ADR-009-07 = APPROVED. YAML parsea. Sin tocar src/tests/generated/constitution ni [x].
+## 2026-11-23 — 009 plan.md Estado revertido a DRAFT (alcance de ratificacion)
+- plan.md linea 4: APPROVED -> DRAFT (pendiente de firma de Neo); la ratificacion de Logos cubre SOLO admin.openapi 1.2.0 y ADR-009-07 (nota APPROVED de ADR intacta). Nada mas tocado.
+
+## 2026-11-23 — Enmienda oráculo REQ-UI-004 (T1240)
+- `presentation-architecture.spec.ts:50` permitía solo `web`/`.gitkeep`; T1235 añadió `src/presentation/admin/`.
+- Añadido ADR-009-17 en plan.md; oráculo ahora permite exactamente `web`, `admin`, `.gitkeep` (lista cerrada, sin comodín).
+- Rojo (falla en `admin`) -> verde 4/4; estricto verificado con copia scratch (`zzz-probe` detectada).
+
+## 2026-11-23 — T1241 contratos de aprobación (Fase 4, #18) + retención 24 meses (RAMA-T1239-03)
+- Retención `admin_audit_entries` = 24 meses (decisión Neo) escrita en spec (REQ-ADM9-004, NFR-009-004) y plan (ADR-009-08, ADR-009-16 punto 8), igual que `audit_log`.
+- Línea 009: `admin.openapi.yaml` 1.2.0 -> 1.3.0 DRAFT (+list/approve/reject/suppress de `/admin/registrations`); `STATE-ACCT9-001` y `ERR-ADMIN-REGISTRATION-NOT-FOUND` ya existían (T1217), sin cambio; sin `schemas/` (MIF-06).
+- Enmienda MINOR paralela DRAFT: 002 OpenAPI 3.4.0 / errores 3.3.0 / auth-session 3.2.0 / identity 3.2.0; 004 OpenAPI 3.5.0 / errores 3.3.0 / auth-session 3.2.0 / identity 3.3.0 (+AccountStatus, AccountStatusView, 3 ERR-ACCOUNT-*).
+- YAML/JSON parsean y sus `$ref` locales resuelven; compilar y T1242 quedan para `/keymaker`. Sin tocar constitución, src ni tests.
+
+## 2026-11-23 — Corte soberano de Neo: eliminar supresión anticipada manual (009)
+- Retirada de `suppressAdminRegistration` y `SuppressRegistrationInput` (ownershipVerification) de `admin.openapi.yaml`; versión 1.3.0 DRAFT sin cambio (nunca ratificada, solo nota en change_note; la 1.3.0 pasa de 4 a 3 operaciones).
+- Limpiados `account-registration.machine.json`, `error-catalog.json`, `contracts/README.md`, `spec.md` (REQ-APR9-008, EDGE-009-037, SC-009-050 eliminados sin renumerar; EDGE-009-033 reescrito), `plan.md` y `tasks.md` (T1290/T1291 retiradas con línea conservada, sin `[x]`).
+- OpenAPI 002 3.4.0 y 004 3.5.0 pasan a APPROVED (Logos/Source, 2026-11-23); sin referencias a supresión en ellas. Pendiente keymaker: recompilar y limpiar src/tests.
+- 2026-11-23 T1252: diseno retencion admin_audit_entries (opcion a, auditRowsPurged); ver audits/architect-009-T1252-retencion-admin.md
+
+## 2026-11-23 — T1252 aclaracion spec (RAMA-T1239-03)
+- spec.md REQ-ADM9-004 (l.141) y NFR-009-004 (l.190): frase aclaratoria: conteo de admin_audit_entries se suma a auditRowsPurged (003), sin sexta clave (opcion a del acta). Sin cambio de requisitos, IDs, contratos ni plan.
+
+## 2026-11-23 — 009 Fase 5a: contratos T1256, T1257, T1302 (REVIEW, sin [x], sin commit)
+- `admin.openapi.yaml` 1.3.0 -> 1.4.0: +listAdminParameters, updateAdminParameter (If-Match/412), resetAdminSceneQuota; 4 claves `scene.*` con `writable=false` hasta 5b (P5-06=B). Los 3 ERR-ADMIN-* ya existían (T1217): catálogo 009 sin cambio.
+- 006: `scene.schema.json` 1.2.0 (`SceneView.disabled` opcional; MIF-07: ningún estado sirve), OpenAPI 3.6.0 (409 ERR-SCENE-DISABLED, nota «3.4.0» corregida), catálogo 1.1.0 (+ERR-SCENE-DISABLED). 005 `platform-parameter.schema.json` 1.0.1 (PATCH documental, sin cambio de forma).
+- Acta: `.specify/memory/audits/architect-009-fase5a-contratos.md` (H-5a-01: value maxLength 200 vs JSON de prompt, a decidir en 5b). Sin compilar ni tocar src/generated.
+
+## 2026-11-23 — 009 T1257: cita documental de ERR-SCENE-DISABLED en tasks.md 006 (REVIEW, sin [x], sin commit)
+- Compuerta t801 fallaba: ERR-SCENE-DISABLED huérfano. Añadida nota tras la línea de cobertura de `specs/006-escena-hogar-pixel-art/tasks.md` citando ERR-SCENE-DISABLED, 009 T1257 y REQ-CFG9-003. Sin cambiar IDs, requisitos ni contratos.
+
+## 2026-11-23 — 009 OBS-3 (T1262/T1268): alcance del reinicio sobre hogar compartido (dictamen, sin editar spec)
+- Lectura: spec REQ-CFG9-006/D9-10/EDGE-009-022/SC-009-026, plan ADR-009-13, tasks T1262/T1268. Ninguno enumera tablas ni dice si un hogar compartido (home_scenes.owner_user_id NULL, household_id) se reinicia; EDGE-009-022 solo dice "sin escena o sin hogar: no falla".
+- Dictamen: la spec NO fija el alcance. STATUS Blocked, pregunta de Nivel 2 a Neo (A: solo owner_user_id + carry; B: tambien hogares que el admin posee/administra). Recomendacion: A. Sin editar archivos.
+
+## 2026-11-23 — 009 OBS-3: opción A de Neo asentada en spec/plan
+- Editados: spec.md REQ-CFG9-006 y SC-009-026; plan.md ADR-009-13. Una frase aclaratoria por sitio: el reinicio solo toca contadores con owner_user_id de identidad del admin; hogares compartidos (owner_user_id NULL + household_id) intactos.
+- Sin D9-27, sin cambios de IDs/contratos/tasks.md (T1262/T1268 no enumeran tablas; sin nota). Sin [x], sin commit.
+
+## 2026-11-23 — 009 Fase 5b: borradores T1254, T1299, T1300 y dictamen de contrato prompt-blocks (DRAFT, sin [x], sin commit)
+- Acta `.specify/memory/audits/architect-009-5b-borradores.md`: Enmienda 009-B (3.10.0) con Anexo A de costes VACIO (NO VERIFICADA, T1301); 2.5-flash-image deprecado: recomendada opcion A (mantener con vigencia hasta 2027-03-15); condiciones C1..C7 previas a T1255.
+- T1299: declara global NO habilitada (T1294 FAIL), condiciones 1..8; propone constante de codigo SCENE_GLOBAL_LOCATION_ENABLED=false (no BD). T1300: formula de gasto acumulado, techo floor(5/costeMin) fail-closed, micro-USD enteros.
+- Dictamen contrato: prompt-blocks/buildImagePrompt/markProviderCall CONFIRMADOS con ajustes A-1..A-6 (constantes a prompt-blocks.ts con re-export; maxBlockLength propuesto 1000; providerModel/Location opcionales en el tipo). Dudas Neo D-1..D-4. Sin tocar spec/plan/contratos/src/tests.
+
+## 2026-11-23 — Fase 5b: T1254, T1299, T1300 y MINOR 005 aplicados como DRAFT (decisiones D-1..D-3 de Neo)
+- constitution.md: cláusula (e)..(i) del Principio VI, cabecera SYNC IMPACT 3.10.0 DRAFT y Anexo A (15 regiones x 3 modelos); línea «Version» sigue 3.9.0 (009-A intacta). Las 45 celdas regionales NO VERIFICADA (T1301 sin tarifas ni disponibilidad); cotas D-2 45_000/75_000/150_000 anotadas aparte como decreto de Neo; techo 111.
+- D-1 = A: gemini-2.5-flash-image con (h) hasta 2027-03-15 y deuda DEUDA-009-MODEL-DEFAULT-2027 (2027-02-01).
+- 006 spec.md: nota T1299 (global latente, SCENE_GLOBAL_LOCATION_ENABLED = false, condiciones 1..8 abiertas). Nueva regla: specs/009.../regla-coste-micro-usd-009.md (T1300).
+- 005 platform-parameter.schema.json 1.0.1 -> 1.1.0 MINOR: value.maxLength 200 -> 8192 (H-5a-01); sin compilar (lo hace /keymaker). tasks.md: solo notas de estado, sin [x]. Sin tocar src/ ni tests/.
+
+## 2026-11-23 — Pausa parcial (Morpheus): sin cifras de coste
+- Retiradas cifras D-2 y techo 111 de constitution.md (cláusula f y Anexo A), regla-coste-micro-usd-009.md y notas de tasks.md; discrepancia 3-pro 158.160 vs 150.000 anotada. Celdas: NO VERIFICADA (pendiente tarifa oficial Vertex). Resto (T1299, fórmula T1300, MINOR 005) intacto.
+
+## 2026-11-23 — Architect: OBS-1 oracle-009-5b (corrección documental)
+- Eliminadas cifras de coste (45_000/75_000/150_000/158.160) de constitution.md Anexo A (l.349) y regla-coste-micro-usd-009.md (l.10); nota D-2 «no transcritas aquí; T1301 pendiente».
+- D-1, D-2 (unidad), D-3 y condiciones abiertas intactas; Version 3.9.0 intacta. Sin [x], sin commit.
+
+## 2026-11-23 — Architect: regla-coste-micro-usd-009.md a APROBADA con Enmienda 009-B 3.10.0
+- Estado DRAFT -> «APROBADA como parte de la Enmienda 009-B (3.10.0)»; sección 1 con tabla us-central1 (45_000 / 75_000 µUSD, 3-pro solo global ref. 158_160 fuera de enmienda) citando Anexo A; sección 3 techo 111; sección 7 actualizada.
+- Fórmula, fail-closed, reinicio, D-3 y condiciones de global intactos. Constitución/Version sin tocar. Sin [x], commit ni push.
+
+## 2026-11-23 — Architect: dictamen SEN-T1271-04 (If-Match)
+- Contrato: ausente/malformado = 422, bien formado desfasado = 412 (IfMatch l.639; op l.472). Código conforme (use-cases :99/:107). Falso positivo; sin cambio de código ni contrato. Acta .specify/memory/audits/architect-009-SEN04-ifmatch.md. Sin [x], commit ni push.
+
+## 2026-11-23 — Architect: admin.openapi.yaml 1.4.0 -> 1.5.0 DRAFT (sceneImagesFit)
+- Autorizado por Neo (Nivel 2). GET /api/admin/parameters: +sceneImagesFit (readOnly, array 0..2 de AdminSceneImagesFit {model, location=us-central1, imagesFit 0..111}); imagesFit = floor(max(0, 5_000_000 - gastoAcumuladoMes)/coste(par)); 0 = tope alcanzado. Sin USD, sin datos personales, items intacto. Cita EDGE-009-036, D9-21, REQ-CFG9-004, Anexo A 3.10.0.
+- change_note_1_5_0 añadida; version 1.5.0 DRAFT, APPROVED fuera. Sin src/tests, sin [x], sin commit.
+
+## 2026-11-23 — Architect: correccion de texto 1.5.0 (oracle FAIL documental)
+- admin.openapi.yaml: imagesFit.description (l.820) y change_note_1_5_0 (l.21) sin cifras de dinero (quitados 45_000, 5_000_000, USD/micro-USD, SCENE_MONTHLY_CAP_MICRO_USD).
+- Forma, enums, required y version 1.5.0 DRAFT intactos. YAML parsea OK; grep de cifras/USD = 0.
+- Sin [x], sin commit, sin push; src/ y tests/ intactos.
+
+## 2026-11-24 — Architect: enmiendas 006 (Neo N2) rama fix/006-escena-defectos-uso-real
+- (1) INV-ESC6-010/017 + REQ-ESC6-026: biografía saneada (sanitizeBiography) en prompt con y sin foto (SceneSpecPet.bio / PET_BIO_BLOCK, PET_BIO_RULE); noticeVersion '3' / 'gemini-api-3'. (2) REQ-ESC6-034: enfriamiento 60 s solo tras SUCCEEDED; 0 s tras FAILED/CANCELLED; topes 3/24h y 12/24h intactos. (3) Nuevos REQ-ESC6-039, INV-ESC6-021, ERR-SCENE-GLOBAL-QUOTA-EXHAUSTED (409), blockedReason GLOBAL_QUOTA_EXHAUSTED, puerto isExhausted sin consumo.
+- Contratos DRAFT: scene-payload 1.1.0, scene 1.3.0, error-catalog 1.2.0, openapi 3.7.0; state-machine sin cambio. SC-ESC6-139..144; tasks Fase 15 T961..T968 (todas [ ]). compile-contracts OK; verify-traceability --feature 006 CUMPLE (251/251). Sin src/tests, sin commit.
+
+## 2026-11-24 — Architect: T969 (documentar correcciones E/F/G/H de fix/006)
+- tasks.md: T969 [ ] en Fase 15 (E contador «Actualizando…», F reloj real sin visibilitychange/INV-AUTH2-002, G prompt mixto IMG_n y PRESERVATION singular, H prueba estática Dockerfile); numeración, checkpoint y tabla (Fase 15 = 9, total 169) actualizados.
+- spec.md: línea fechada 2026-11-24 en la nota de enmienda. Contratos intactos, sin recompilar. verify-traceability --feature 006: CUMPLE. Sin src/tests, [x] ni commit.
+
+## 2026-11-24 — Architect: T968 cerrada documentalmente (C-1 y C-2)
+- spec.md: INV-ESC6-010 + condición C-1 (biografía solo con PET_PHOTOS vigente del propietario en driver real; simulado sí; restricción adicional); nota de enmienda 2026-11-24 con línea de C-1/C-2 (aviso v3 §4 y §6, REQ-ESC6-026 sin cambio de versión).
+- tasks.md: T968 con avance C-1/C-2; sigue [ ] (firma de Neo). T969 confirmada con E/F/G/H. Contratos intactos, sin recompilar, sin src/tests/commit.
+
+## 2026-11-24 — Architect: T970 (salida JPEG, REQ-ESC6-035)
+- spec.md: REQ-ESC6-035 enmendado (JPEG, stripJpeg, CHECK aditivo SQLite/PG, .jpg, log INVALID_OUTPUT con MIME cerrado); EDGE-ESC6-029 alineado; línea fechada en la nota de enmienda.
+- Contratos: scene.schema.json sin cambio (su enum de mime es la foto de ENTRADA, ya incluye jpeg). home-scene.openapi.yaml 3.7.0 -> 3.8.0 (ImageAttachment admite webp/jpeg y filename .png|.webp|.jpg). Sin recompilar (src/ intacto).
+- tasks.md: T970 [ ] (Fase 15, conteo 10). verify-traceability --feature 006: CUMPLE. Sin src/tests/commit/[x].
+
+## 2026-11-24 — Architect: enmiendas OBS-1/2/3 (acta oracle-006-consolidado)
+- spec 009: REQ-PRO9-002/003, INV-PRO9-001, SC-009-029 enmendados (una línea por mascota con foto; PRESERVATION_BLOCK por mascota con {photoRef}->IMG_n; regla "From IMG_n: " sin marcador; incrementales una vez con "its reference photo"); línea en Registro.
+- spec 006: REQ-ESC6-035 documenta la excepción APP14 "Adobe" de stripJpeg (12 bytes, sin datos personales); decisión OBS-3 en la nota de enmienda 2026-11-24. Contratos intactos, sin src/tests/commit/[x].
+
+## 2026-11-24 — Architect: enmienda producción (fix/009-escena-prod-admin-global)
+- Neo (N2): modelo gemini-3.1-flash-image-preview + global (75_000 µUSD) admitido; gemini-2.5-flash-image + us-central1 (45_000) se conserva; preview + us-central1 inválido. Global sin residencia regional fija; aviso con variante global y noticeVersion propia (reconsentimiento).
+- Reinicio de cuota del admin: todas sus cuentas (sin hogar + hogares donde es propietario legal), conserva provider_call_started_at. Cuota del hogar R de M y fecha de renovación siempre visibles a quien puede generar.
+- Spec 009: D9-27/D9-28 (IDs de decisión, no REQ, porque la compuerta exige evidencia en src/tests), SC-009-052..055, Fase 5c T1307..T1310 [ ] (111 tareas). Spec 006: nota de enmienda. Dictamen rama T1294 intacto (riesgo residual aceptado). verify-traceability 009 y 006: CUMPLE. Sin src/tests/contratos/commit/[x].
+
+## 2026-11-24 — Architect: acta oracle 6d8420c (OBS-D, OBS-F, OpenAPI 1.6.0)
+- spec 009: D9-27 (7) guardado atómico de pareja modelo/región (pareja única en tabla, CAS sobre ambas filas, 412, 2 auditorías mismo occurredAt sin valor, 422 sin pareja única). Decisión: If-Match solo de la clave editada; compañero verificado por CAS en la transacción. Sin cambio de contrato. OBS-F: referencia cruzada a D9-27 en REQ-CFG9-004 y fila D9-09.
+- admin.openapi.yaml 1.5.0 -> 1.6.0 (MINOR): sceneImagesFit.location enum [us-central1, global], «hoy 2 pares válidos». Sin recompilar.
+- tasks.md: T1311 (recompilar/alinear v35), T1312 (hogar ajeno, OBS-A); total 113. verify-traceability --feature 009: CUMPLE. Sin src/tests/commit/[x].
+
+## 2026-11-24 — Architect: OBS-2 acta oracle 98448fa (OpenAPI admin 1.6.1)
+- admin.openapi.yaml 1.6.0 -> 1.6.1 (PATCH, solo texto): descripcion de AdminParameterKey ajustada a D9-27 (2 pares validos, global sin dictamen pendiente); change_note_1_6_1. Sin cambio de enum ni tipos.
+- spec.md: EDGE-009-046 anotada "sustituido por D9-27" (REQ-CFG9-004 ya lo tenia). Sin recompilar: src/generated/v35/api/openapi-types.ts (descripcion JSDoc) queda para /keymaker. Sin src/tests/commit/[x].
+
+## 2026-11-24 — Architect: fix/009-escena-driver-selector-y-reset (D9-29, D9-30, D9-31)
+- spec 009: D9-29 (selector único de modelo; región derivada: 2.5 ⇒ us-central1, 3.1-preview ⇒ global, gemini-api sin región; scene.provider_location sale del catálogo, sustituye el guardado atómico de pareja de D9-27 (7)), D9-30 (scene.provider_driver vertex|gemini-api en caliente, enrutador con caché <= 60 s, falla cerrado, 3 modelos en gemini-api, secreto argos-gemini-api-key por versión numérica), D9-31 (reinicio de 4 límites con limits_reset_at; scene_attempts y provider_call_started_at intactos); SC-009-056..060; notas en REQ-CFG9-004/006. Decisiones D9-xx (no REQ) por la regla de la compuerta.
+- Contrato: admin.openapi.yaml 1.6.1 -> 1.7.0 (MINOR, DRAFT; scene.provider_location -> scene.provider_driver en AdminParameterKey; sceneImagesFit.location se conserva). Sin recompilar (T1313). Enmienda constitucional 009-C (3.10.0 -> 3.11.0) en BORRADOR: .specify/memory/audits/enmienda-009-C-borrador.md, sin tocar constitution.md ni firmar.
+- tasks.md Fase 5d T1313..T1317 [ ] (118 tareas); nota de enmienda en spec 006. Traza 009 y 006: CUMPLE. Abiertos para Neo: costes oficiales de gemini-api (fail-closed en producción), closedWithoutCall 5 vs 20 (D9-25), semántica de run_state='failed', privacidad de gemini-api (/rama). Sin src/tests/commit/push/[x].
+
+## 2026-11-24 — Architect: decisiones de Neo (a)(b)(c)(d) sobre fix/009-driver-selector-y-reset
+- (a) closedWithoutCall = 20 confirmado: SC-009-059 y D9-31 (c) corregidos de 5 a 20 (D9-25, EDGE-009-043; sin cambio de código). (b) run_state='failed' -> NULL con current_attempt_id NULL; generating, scene_attempts y provider_call_started_at intactos (D9-31, SC-009-059).
+- (c) 009-C APPROVED 3.11.0 verificada contra constitution.md. Contradicciones corregidas: D9-30 "en borrador" y (7) "bloqueante abierto/[verificar]" (ahora costes del Anexo A: 45_000/75_000/75_000 gemini-api; Vertex 2 pares); T1314/T1315 y línea de Fase 5d en tasks.md; spec 006 (nota 009-C "pendiente de firma", REQ-ESC6-037 (1) marcada sustituida, tope 20). Lista de modelos de gemini-api coincide con la constitución.
+- (d) Compilación v35 desde OpenAPI 1.7.0 autorizada (anotado). OpenAPI sigue DRAFT (estado solo de Neo). verify-traceability 009 y 006: CUMPLE. Sin src/tests/commit/push/[x].
+
+## 2026-11-24 — Architect: D9-32 retirada de gemini-3.1-flash-image-preview (chore/009-cierre-escena-prod)
+- spec 009: D9-32 (preview retirado, 404 en Vertex global verificado en produccion; migracion PG 0023 / SQLite 0027); menciones normativas -preview -> sin sufijo en 009 y 006; historicas fechadas conservadas.
+- Constitucion: preview fuera del Anexo A (tabla/lista) y de 009-C; firma intacta; linea fechada de retirada (Neo, Logos). OpenAPI admin 1.7.0 -> 1.7.1 PATCH (solo texto; sin enum con el preview).
+- tasks: T1318..T1320 [ ] (121 tareas). verify-traceability 009 y 006: CUMPLE. Sin src/tests/commit/push/[x]/recompilar.
+
+## 2026-11-24 Architect: correccion menor H-ORC-240b-2
+- spec.md 009: L150 (nota "tras D9-32 son 2 modelos" + circularidad), L208 D9-09, L290 SC-009-052 (rechaza -preview y pares no listados), L296 SC-009-058 (duplicado). Sin tocar src/tests.
+
+## 2026-11-24 — Architect: Feature 010 (Tipi identidad, legal, borde) — spec, plan, tasks
+- Carpeta `specs/010-tipi-identidad-legal-borde/` (spec, plan, tasks T1401..T1442, research, data-model, quickstart); `.specify/feature.json` apunta a ella. Etiquetas `[GH:#65/#66/#67/#75/#33]` presentes en cada bloque y tarea; T1438..T1442 asocian el Linked PR por Issue.
+- Orden: #65 -> #67 -> #66 -> #75 -> #33. Decisiones abiertas D10-01..D10-07 para Neo (renombre interno, /admin editable, spoofing XFF, Cloudflare manual vs Terraform, edad minima, placeholders legales, /acerca-de publica). Gates: /rama (#67,#75,#33), /trinity+/sentinels (#66,#33), /lock (T1402), /mouse una vez (T1403), /sati (#65,#67,#33).
+- verify-traceability --feature 010: el script no tiene rama 010 y exige contracts/errors/error-catalog.json (ausente, no se crea sin N2): rc 2 "Fuente ausente". Tarea pendiente N2: ampliar script y crear contratos. Sin src/tests/commit/push/casillas marcadas.
+
+## 2026-11-24 — Architect: decisiones D10-01..D10-07 APPROVED asentadas (010)
+- spec.md: tabla «Decisiones de Neo» D10-01..07, todas `APPROVED` 2026-11-24 (spec sigue DRAFT). REQ-TIP10-005 no se implementa (D10-02, T1409 N/A tras T1403, sin marcar); EDG10-001 con ARGOS_TRUST_PROXY_HOPS 0..3 y nota EDGE-010-002; MEN10-001 con código de error. tasks.md: T1409, T1423, T1429 actualizadas; 0 casillas marcadas, 50 etiquetas [GH:#N] intactas.
+- Creado contracts/errors/error-catalog.json 1.0.0 DRAFT (mínimo): ERR-MEN10-ADULT-DECLARATION-REQUIRED, ERR-ACE10-PHOTO-INVALID, ERR-ACE10-PRECONDITION-FAILED. JSON parsea. Sin recompilar. verify-traceability --feature 010: CUMPLE (70/70 IDs). Sin src/tests/commit/push.
+
+## 2026-11-24 — Architect: enmienda 010 tras T1402 de /lock
+- spec.md: H-06 (REQ-MEN10-002 vigente); EDGE-010-001..007 ampliados; formalizados EDGE-010-008..012 (011 con propuesta 20 000 caracteres); sección «Pendiente de decisión de Neo» con H-01, H-02, H-03 (dos opciones cada una, sin decidir). quickstart paso 4 y T1417/Bloque C corregidos (H-04: ARGOS_HOST=0.0.0.0 o prueba de unidad del parser).
+- tasks.md: nuevas T1443 (EDGE-010-003, Bloque A) y T1444 (/acerca-de sin /auth/me y enlaces, H-05); T1411, T1416, T1418, T1422, T1428, T1429, T1432, T1404, T1408 ampliadas; total 44, 0 casillas marcadas. verify-traceability --feature 010: CUMPLE rc 0. Sin src/tests/commit/push.
+
+## 2026-11-24 — Asiento de resoluciones de Neo en Feature 010 (H-01/H-02/H-03, tope body_markdown)
+- Neo (Nivel 2, Logos) resolvió H-01=A (acceso directo *.run.app aceptado, anula REQ-EDG10-003 en ese camino), H-02=A (límite «por instancia y por IP real», sin tabla), H-03=A (adultDeclaration antes de consumir estado OAuth; 422 no lo consume), EDGE-010-011 = 20 000 caracteres.
+- Editados: spec.md (REQ-EDG10-002/003, REQ-MEN10-001, SC-010-014..021, EDGE-010-002/005/008/009/010/011; sección «Pendiente» retirada y reemplazada por «Decisiones de Neo» APPROVED 2026-11-24), data-model.md (tope), tasks.md (T1416, T1418, T1419, T1422, T1428, T1429). Sin src/tests, sin [x], sin commit. H-04 confirmado.
+- verify-traceability.sh --feature 010: CUMPLE (rc 0).
+
+## 2026-11-24 — Feature 010: cierre de O-1 y O-2 (mouse T1403)
+- O-1: spec.md cita `ERR-ACE10-PHOTO-INVALID` (422) en REQ-ACE10-002 y `ERR-ACE10-PRECONDITION-FAILED` (412) en REQ-ACE10-003.
+- O-2: tasks.md expande rangos REQ/INV/EDGE/SC a IDs explícitos (18 líneas); se dejan intactas T1401..T1403 y T1409 (firmadas, incluidos sus rangos).
+- verify-traceability --feature 010 rc 0; sin [x] nuevos, sin commit.
+
+## 2026-11-24 — 010 Bloque B, T1412 (legal-texts.md)
+- Redactado specs/010-tipi-identidad-legal-borde/legal-texts.md (DRAFT): bloques PRIVACIDAD y TÉRMINOS, tabla de verificación contra disco y resumen de puntos pendientes de validación legal (7).
+- 4 placeholders literales (D10-06); ambos proveedores de IA (Vertex y Gemini Developer API) y biografía con consentimiento (009-C, aviso v3); cláusula 18+ y supresión (D10-05) con constancia de validación legal externa.
+- Sin cifras de cuota/coste ni plazos de retención; retención del enlace /shared y de copias marcadas pendientes de validación (verificar en T1414).
+- Sin src/tests, sin commit, sin [x]. verify-traceability --feature 010 ver registro.
+
+## 2026-11-24 — 010 Bloque B: rangos SC y fecha en legal-texts (hallazgo T1411)
+- spec.md líneas 53 y 119: `SC-010-007..013` expandido a 7 IDs explícitos (solo texto). tasks.md ya citaba IDs explícitos (T1411, T1413 sin rango).
+- legal-texts.md: añadida fecha 2026-11-24 y nota «DRAFT hasta dictamen de /rama»; decisión de no publicar sin validación legal intacta.
+- verify-traceability --feature 010 y --task T1411: ver registro. Sin src/tests, commit ni [x].
+
+## 2026-11-24 — 010 legal-texts.md: correcciones del dictamen /rama (T1412/T1414)
+- Solo legal-texts.md (DRAFT). §6: foto del hogar solo en desde cero, especie «otra», condición PET_PHOTOS (también sin foto), «no se copia en los registros de escena», región por modelo; §3: sub de Google, auditoría e intentos de escena; §7: caducidad 1/7/30, revocación, casillas; §8: cookies admin; §10: Google sin contraseña, respaldo opcional, hogar solo propietario.
+- Bloques 18+ (§3, §11, Terms §3) condicionados a T1424. Menores: redacción provisional, sin acción de admin ni correo (pendiente Neo 2). Gemini API y clave: pendiente Neo 1. Plazos de copias: pendiente de verificación, sin cifras.
+- Sin tocar scene-notice/notice, src/tests; sin commit/[x]. verify-traceability --feature 010 rc 0.
+
+## 2026-11-24 — 010 T1412 cerrado con decisiones de Neo (Logos)
+- legal-texts.md (DRAFT): clave de Gemini API = clave operativa de Tipi (Secret Manager, 009-C/D9-30), sin uso local ni clave propia (/privacidad §6, /terminos §7); menores = canal [CORREO DE CONTACTO / PRIVACIDAD] + eliminación directa en /cuenta, sin REQ ni botón; copias internas sin cifras («respaldos internos temporales con retención acotada que se purgan automáticamente»); aviso sin cambios (scene-notice.ts/notice.ts intactos).
+- Hallazgos del dictamen ya incorporados (foto del hogar solo desde cero, Google sin contraseña, cookies admin, 18+ condicionado a T1424). tasks.md T1412: texto de estado REVIEW, sin [x].
+- verify-traceability --feature 010 rc 0. Sin src/tests, commit ni push.
+
+## 2026-11-24 — DEUDA-010-NOTICE (decisión de Neo vía Morpheus)
+- spec.md: fila DEUDA-010-NOTICE en «Decisiones de Neo — H-01..» (scene-notice.ts v3→v4 diferido; líneas :52,:54,:68,:87,:101).
+- tasks.md: línea sin casilla tras T1415 (cierre Bloque B). Sin src/tests, commit ni [x].
+
+## 2026-11-25 — 010 spec: ipLimitKey y H-T1418-01..03 (autorizado por Neo en Logos)
+- spec.md: REQ-EDG10-003 y SC-010-016 por clave normalizada ipLimitKey (IPv6 /64, IPv4 sin puerto, sin [ ] ni %zona, ::ffff: a IPv4, minúsculas, 'invalid') y tope duro por antigüedad en 5 mapas.
+- Tabla de decisiones: H-T1418-01 APPROVED, -02 resuelto en código, -03 riesgo BAJO aceptado (runbook T1419). Dictamen trinity-010-T1418.
+- tasks.md: solo nota; sin [x], commit ni push.
+
+## 2026-11-25 — 010 SC-010-022..026 expandido y versión 18+ (hallazgos keymaker T1422/T1423)
+- spec.md: `SC-010-022..026` (Independent Test de US4 y Success Criteria) expandido a 5 IDs explícitos, contenido normativo intacto; SC-010-023/024 dejan de salir «desconocido».
+- `adult_notice_version` = SemVer N.N.N, constante única `ADULT_NOTICE_VERSION = "0.1.0"` mientras legal-texts.md sea DRAFT; 1.0.0 solo con aprobación de Neo. Registrado en spec.md (REQ-MEN10-001, H-ARCH-ADULT-VERSION) y legal-texts.md §0.
+- verify-traceability --feature 010 rc 0; --task T1422 sin FAIL de desconocidos. Sin src/tests/contracts, sin [x], sin push.

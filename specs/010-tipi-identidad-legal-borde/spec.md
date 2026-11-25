@@ -64,7 +64,7 @@ Aprobadas por Neo en Logos el 2026-11-24 (asentadas por `/architect`; no constit
 5. **Given** OAuth Google (usuarios y `/admin`), sesiones y escenas, **Then** operan sin regresiones.
 
 ### User Story 4 — Menores de edad `[GH:#75]` (P2)
-**Independent Test**: `SC-010-022..026`.
+**Independent Test**: `SC-010-022, SC-010-023, SC-010-024, SC-010-025, SC-010-026`.
 1. **Given** el registro, **When** no declaro ser mayor de edad, **Then** no puedo registrarme y el mensaje no revela datos de otras cuentas.
 2. **Given** `/terminos`, **Then** indica la edad mínima y qué ocurre si se detecta una cuenta de menor.
 
@@ -102,7 +102,7 @@ Aprobadas por Neo en Logos el 2026-11-24 (asentadas por `/architect`; no constit
 - **INV-LEG10-001**: las rutas legales no hacen ninguna llamada de red a la API.
 
 ### `[GH:#75]` Menores de edad
-- **REQ-MEN10-001** (Declaración de mayoría de edad, `D10-05` APPROVED; error `ERR-MEN10-ADULT-DECLARATION-REQUIRED`): el registro por usuario/contraseña y por Google exige marcar «Soy mayor de edad»; el servidor rechaza el registro sin declaración (no solo la interfaz) con error del catálogo; el valor aceptado y la versión del texto se guardan con la cuenta (columna nueva, migración, **N2**). **Orden (`H-03` APPROVED):** `adultDeclaration` se valida antes de consumir el estado OAuth `USERNAME`; el `422` no consume el estado y el reintento con declaración crea la cuenta.
+- **REQ-MEN10-001** (Declaración de mayoría de edad, `D10-05` APPROVED; error `ERR-MEN10-ADULT-DECLARATION-REQUIRED`): el registro por usuario/contraseña y por Google exige marcar «Soy mayor de edad»; el servidor rechaza el registro sin declaración (no solo la interfaz) con error del catálogo; el valor aceptado y la versión del texto se guardan con la cuenta (columna nueva, migración, **N2**). **Orden (`H-03` APPROVED):** `adultDeclaration` se valida antes de consumir el estado OAuth `USERNAME`; el `422` no consume el estado y el reintento con declaración crea la cuenta. **Versión del texto (`H-ARCH-ADULT-VERSION`, fijada por `/architect` 2026-11-25):** `adult_notice_version` es SemVer `N.N.N` (patrón del contrato `AdultNoticeVersion`), la fija el servidor y nunca el cliente. Constante única `ADULT_NOTICE_VERSION = "0.1.0"` mientras `legal-texts.md` esté `DRAFT` (hasta la firma de `T1425`); cambia solo por decisión de `/architect` con la enmienda de los textos 18+ (patch: redacción sin cambio de efecto; minor: cambio de efecto o de datos; major: cambio de la edad mínima) y pasa a `1.0.0` únicamente cuando Neo apruebe la publicación (Nivel 2).
 - **REQ-MEN10-002** (Cuentas anteriores): las cuentas existentes siguen entrando sin cambios; no se les exige declaración retroactiva (requisito vigente por `D10-05` APPROVED, «cuentas anteriores intactas»; `/rama` lo confirma en `T1426`, sin cambiar el requisito).
 - **REQ-MEN10-003** (Mínimo dato): no se pide fecha de nacimiento ni documento.
 - **REQ-MEN10-004** (Texto): `/terminos` y `/privacidad` declaran la edad mínima y el procedimiento ante una cuenta de menor detectada (supresión a petición, canal `[CORREO DE CONTACTO / PRIVACIDAD]`).
@@ -119,7 +119,7 @@ Aprobadas por Neo en Logos el 2026-11-24 (asentadas por `/architect`; no constit
 - **SC-010-001..006** (`#65`): búsqueda de `Argos` visible = 0; logo/favicon claro y oscuro 16..512 px; tokens únicos; `tipi.pet` genera enlaces; compuertas verdes.
 - **SC-010-007, SC-010-008, SC-010-009, SC-010-010, SC-010-011, SC-010-012, SC-010-013** (`#67`): rutas públicas sin `/auth/me`; pie en login y registro; 7 puntos cubiertos; placeholders presentes; axe sin violaciones AA; 320 px.
 - **SC-010-014..021** (`#66`): IP real con 2 saltos (`SC-010-014`); spoofing de XFF sin efecto **salvo acceso directo a `*.run.app`** (`SC-010-015`, `H-01`); límites «por instancia y por clave normalizada `ipLimitKey(ip)`» (IPv6 por /64; IPv4 sin puerto; inválidas al cubo `invalid`; tope duro con descarte por antigüedad en los 5 mapas) por cliente (`SC-010-016`, `H-02`, `H-T1418-01/02`; pruebas `SEN-IP-04..09`); `429` en el borde (verificación manual en producción por Neo); Email Routing operativo; OAuth y escenas sin regresión; costo $0; `/api/admin/*` no cacheado.
-- **SC-010-022..026** (`#75`): registro sin declaración rechazado por API; mensaje sin enumeración; cuentas previas intactas; texto legal con edad mínima.
+- **SC-010-022, SC-010-023, SC-010-024, SC-010-025, SC-010-026** (`#75`): registro sin declaración rechazado por API; mensaje sin enumeración; cuentas previas intactas; texto legal con edad mínima.
 - **SC-010-027..035** (`#33`): vista con foto/texto; estado vacío; publicación inmediata; XSS neutralizado; `404` sin sesión admin; EXIF eliminado; límites de formato/peso; sin rutas internas expuestas; auditoría de cambio.
 
 ## Edge cases (ampliados tras `T1402` de `/lock`, acta `.specify/memory/audits/lock-010-T1402-edge-2026-11-24.md`)
