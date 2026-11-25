@@ -53,35 +53,43 @@ export type AboutBlock =
   | { readonly t: 'p'; readonly c: readonly AboutInline[] }
   | { readonly t: 'list'; readonly ordered: boolean; readonly items: readonly (readonly AboutInline[])[] };
 
-const STASH = /\uE000(\d+)\uE001/;
+const ENTITIES: Readonly<Record<string, string>> = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" };
+const GENERATED_TAG = /(<\/?(?:strong|em)>)/;
 
-/** Énfasis sobre texto SIN escapar: cada coincidencia se aparta con un marcador privado y luego se resuelve (el `em` puede envolver un `strong`, igual que antes). */
+/**
+ * Énfasis con la MISMA semántica de siempre: los cuatro patrones se aplican en cadena sobre el texto ESCAPADO (el `<` del usuario ya es `&lt;`, así que las únicas etiquetas que pueden aparecer son las generadas aquí; no hay marcadores en banda y cualquier carácter de la entrada, U+E000/E001 incluidos, se conserva). Después las etiquetas se leen
+ * como árbol: el énfasis anidado (`**a _b_ c**`) queda anidado. Una etiqueta de cierre sin par se ignora y las abiertas se cierran al final (HTML mal anidado del render viejo).
+ */
 function emphasis(raw: string): AboutInline[] {
-  const stash: AboutInline[] = [];
-  const keep = (t: 'strong' | 'em', inner: string): string => {
-    stash.push({ t, c: [{ t: 'text', v: inner }] });
-    return `\uE000${stash.length - 1}\uE001`;
-  };
-  const text = raw
-    .replace(/[\uE000\uE001]/g, '\uFFFD')
-    .replace(/\*\*([^*\n]+?)\*\*/g, (_m, inner: string) => keep('strong', inner))
-    .replace(/(^|[^\w])__([^_\n]+?)__(?!\w)/g, (_m, pre: string, inner: string) => pre + keep('strong', inner))
-    .replace(/\*([^*\n]+?)\*/g, (_m, inner: string) => keep('em', inner))
-    .replace(/(^|[^\w])_([^_\n]+?)_(?!\w)/g, (_m, pre: string, inner: string) => pre + keep('em', inner));
-  const expand = (value: string): AboutInline[] => {
-    const parts = value.split(new RegExp(STASH.source, 'g'));
-    const out: AboutInline[] = [];
-    parts.forEach((part, index) => {
-      if (index % 2 === 0) {
-        if (part !== '') out.push({ t: 'text', v: part });
-        return;
-      }
-      const node = stash[Number(part)]!;
-      out.push(node.t === 'em' ? { t: 'em', c: node.c.flatMap((child) => (child.t === 'text' ? expand(child.v) : [child])) } : node);
-    });
-    return out;
-  };
-  return expand(text);
+  const tagged = escapeHtml(raw)
+    .replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^\w])__([^_\n]+?)__(?!\w)/g, '$1<strong>$2</strong>')
+    .replace(/\*([^*\n]+?)\*/g, '<em>$1</em>')
+    .replace(/(^|[^\w])_([^_\n]+?)_(?!\w)/g, '$1<em>$2</em>');
+  const root: AboutInline[] = [];
+  const stack: { readonly t: 'strong' | 'em'; readonly c: AboutInline[] }[] = [];
+  const current = (): AboutInline[] => (stack.length > 0 ? stack[stack.length - 1]!.c : root);
+  tagged.split(GENERATED_TAG).forEach((part, index) => {
+    if (index % 2 === 0) {
+      if (part !== '') current().push({ t: 'text', v: part.replace(/&(amp|lt|gt|quot|#39);/g, (_m, name: string) => ENTITIES[name]!) });
+      return;
+    }
+    const name = part.replace(/[<\/>]/g, '') as 'strong' | 'em';
+    if (part.startsWith('</')) {
+      const at = stack.map((node) => node.t).lastIndexOf(name);
+      if (at < 0) return;
+      stack.length = at + 1;
+      const node = stack.pop()!;
+      current().push({ t: node.t, c: node.c });
+    } else {
+      stack.push({ t: name, c: [] });
+    }
+  });
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    current().push({ t: node.t, c: node.c });
+  }
+  return root;
 }
 
 function inline(raw: string): AboutInline[] {
