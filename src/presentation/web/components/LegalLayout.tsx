@@ -6,11 +6,17 @@
  */
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { BRAND_NAME } from '../brand.ts';
 
 export function LegalLayout({ title, updated, children }: { readonly title: string; readonly updated: string; readonly children: ReactNode }): JSX.Element {
   return (
-    <div lang="es" className="min-h-screen px-4 py-8 sm:px-6 sm:py-10">
+    <div lang="es" className="min-h-screen bg-cream px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-3xl rounded-3xl border border-white/40 bg-white/90 p-6 shadow-glass sm:bg-white/70 sm:supports-[backdrop-filter]:backdrop-blur-md">
+        <header className="mb-4">
+          <Link to="/login" className="inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2">
+            <img src="/brand/tipi-logo-horizontal.svg" alt={BRAND_NAME} width={266} height={150} className="h-12 w-auto max-w-full" />
+          </Link>
+        </header>
         <main id="main-content" className="legal-text break-words text-text-primary">
           <p className="mb-4 text-sm">
             <Link to="/login" className="font-semibold text-primary underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2">

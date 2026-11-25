@@ -178,3 +178,13 @@ describe('T1411 (e) servidor: rutas públicas con cookie de sesión caducada res
     });
   }
 });
+
+describe('T1413 ajuste de marca: logo horizontal y fondo Crema (orden de Neo)', () => {
+  it('LegalLayout lleva el logo horizontal h-12 enlazado a /login con alt de marca, y legales y acceso usan el token cream (no meadow)', () => {
+    const legal = read('src/presentation/web/components/LegalLayout.tsx');
+    expect(legal).toMatch(/<Link to="\/login"[^>]*>\s*<img src="\/brand\/tipi-logo-horizontal\.svg" alt=\{BRAND_NAME\}[^>]*h-12/);
+    expect(legal).toMatch(/min-h-screen bg-cream/);
+    expect(legal).not.toMatch(/bg-meadow/);
+    expect(read('src/presentation/web/pages/AuthPages.tsx')).toMatch(/min-h-screen bg-cream/);
+  });
+});

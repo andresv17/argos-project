@@ -20,7 +20,7 @@ import type { Schemas } from '../view-model.ts';
 export function AuthLayout({ title, titleId, titleRef, children }: { readonly title: string; readonly titleId?: string; readonly titleRef?: Ref<HTMLHeadingElement>; readonly children: JSX.Element[] }): JSX.Element {
   // Marco L1 único de autenticación (blueprint §5.1): dos columnas desde 1024 px, apilado debajo; blur solo desde 640 px.
   return (
-    <div className="min-h-screen px-4 py-8 sm:px-6 sm:py-10">
+    <div className="min-h-screen bg-cream px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-4xl rounded-3xl border border-white/40 bg-white/90 p-6 shadow-glass sm:bg-white/70 sm:supports-[backdrop-filter]:backdrop-blur-md">
         <main id="main-content" className="grid gap-6 lg:grid-cols-2 lg:items-center">
           <div>
