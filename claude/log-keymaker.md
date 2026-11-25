@@ -2313,3 +2313,7 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 - UI: `CheckboxField` + casilla «Soy mayor de edad (18+)» en RegisterPage y ChooseUsernamePage (el cliente solo envía `adultDeclaration: true`, nunca la versión); `useContractForm` admite `extraErrors`.
 - OBS-4: 100+ llamadas de registro/Google en pruebas y fixtures reciben `adultDeclaration: true` (solo dato de entrada, sin tocar aserciones); SQL esperado y fila PENDING en postgres-repositories-part1 y use-cases.spec ampliados con las columnas nuevas; e2e de Playwright marcan la casilla.
 - Gates: tsc 0; t1422 (mem/SQLite/PG17 36 + HTTP 7) y t1423 verdes con TEST_DATABASE_URL; test:gate completo con PG17 (ver handback); verify-oracles 0 débiles; traza --feature 010 rc 0. Playwright adaptado: 49 pasan; falla preexistente pet-dashboard:166 (nombre `argos-backup` vs `tipi-backup`, T1406), ajena a T1424.
+
+## 2026-11-25 — 010 T1424 OBS-1 de /oracle: regresión de update vs adult_* — commit local, sin push ni [x]
+- CC-KEY-T1424-OBS1: tests/integration/persistence/t1424-update-no-toca-adult-010.spec.ts (memoria/SQLite/PG17, 3 por motor): update con valores falsos conserva declaración original; entidad sin campos no la borra; cuenta anterior no recibe declaración retroactiva. src/ intacto.
+- Mutación manual temporal (revertida, src limpio): memoria dejando de filtrar adult_*, SQLite y PG añadiendo adult_* al UPDATE; cada una hizo fallar 3/3 de su motor. Gates: tsc 0, t1424 9/9 con PG17, oráculos 0 débiles, traza 010 rc 0.
