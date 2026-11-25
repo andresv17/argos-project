@@ -182,7 +182,7 @@ describe('T1411 (e) servidor: rutas públicas con cookie de sesión caducada res
 describe('T1413 ajuste de marca: logo horizontal y fondo Crema (orden de Neo)', () => {
   it('LegalLayout lleva el logo horizontal h-12 enlazado a /login con alt de marca, y legales y acceso usan el token cream (no meadow)', () => {
     const legal = read('src/presentation/web/components/LegalLayout.tsx');
-    expect(legal).toMatch(/<Link to="\/login"[^>]*>\s*<span[^>]*><img src="\/brand\/tipi-simbolo\.svg"[^>]*h-12[^>]*\/><span[^>]*font-display[^>]*>\{BRAND_NAME\}/);
+    expect(legal).toMatch(/<Link to="\/login"[^>]*>\s*<span[^>]*><img src="\/brand\/tipi-simbolo\.svg"[^>]*h-12[^>]*\/><span[^>]*font-display[^>]*>\{BRAND_NAME\.toLowerCase\(\)\}/);
     expect(legal).toMatch(/min-h-screen bg-cream/);
     expect(legal).not.toMatch(/bg-meadow/);
     expect(read('src/presentation/web/pages/AuthPages.tsx')).toMatch(/min-h-screen bg-cream/);

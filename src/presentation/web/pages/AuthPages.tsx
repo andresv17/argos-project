@@ -27,7 +27,7 @@ export function AuthLayout({ title, titleId, titleRef, children }: { readonly ti
           <div>
             <h1 className="font-display text-4xl font-extrabold tracking-tight text-primary">
               {/* Decisión de Neo (T1434): símbolo Tipi + texto «Tipi» en Tipi Display. */}
-              <span className="inline-flex items-center gap-3"><img src="/brand/tipi-simbolo.svg" alt="" aria-hidden="true" width={96} height={96} className="h-24 w-24" /><span className="font-display text-5xl font-extrabold tracking-tight text-primary">{BRAND_NAME}</span></span>
+              <span className="inline-flex items-center gap-3"><img src="/brand/tipi-simbolo.svg" alt="" aria-hidden="true" width={96} height={96} className="h-24 w-24" /><span className="font-display text-5xl font-extrabold tracking-tight text-primary">{BRAND_NAME.toLowerCase()}</span></span>
             </h1>
             <p className="mt-1 text-sm text-text-muted">Pet Health Tracker</p>
           </div>

@@ -2390,3 +2390,6 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 ## 2026-11-25 — 010 T1434 decisiones de Neo: logo simbolo+texto, contacto, Nunito — commit local, sin push ni [x]
 - Cabeceras AuthPages/AppShell/LegalLayout/AboutPage: tipi-simbolo.svg (decorativo) + texto `Tipi` en font-display; AdminPortal conserva logo horizontal. Tests t1404/t1407/t1411 ajustados solo en esa expectativa. Contacto `contacto@tipi.pet` en legal-texts (cuerpo), Privacy y Terms; 3 placeholders restantes y 0.1.0 DRAFT intactos (t1411: expectativa del placeholder de contacto).
 - nunito woff2 eliminado (0 refs en src/tests/tailwind; quedan solo en specs/010 research/tasks/spec); licencia styles web/admin = «Tipografía original del autor — uso exclusivo de Tipi». tsc rc 0; sin gate ni servidor.
+
+## 2026-11-25 — 010 wordmark «tipi» en minuscula en las 4 cabeceras — commit local, sin push ni [x]
+- Decision de Neo: texto junto a tipi-simbolo.svg = `{BRAND_NAME.toLowerCase()}` (AuthPages, AppShell, LegalLayout, AboutPage); BRAND_NAME='Tipi' intacto para prosa/title. t1411 (regex de LegalLayout) alineada a `BRAND_NAME.toLowerCase()`. tsc rc 0; sin gate ni servidor.

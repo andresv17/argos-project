@@ -46,7 +46,7 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
       <p className="flex items-center font-display text-2xl font-extrabold tracking-tight text-primary">
         {/* Decisión de Neo (T1434): símbolo Tipi + texto «Tipi» en Tipi Display. */}
         <img src="/brand/tipi-simbolo.svg" alt="" aria-hidden="true" width={48} height={48} className="h-12 w-12" />
-        <span className="ml-2">{BRAND_NAME}</span>
+        <span className="ml-2">{BRAND_NAME.toLowerCase()}</span>
       </p>
       <nav aria-label="Principal" className="flex flex-wrap gap-1">
         <NavLink to="/" end className={link}>
