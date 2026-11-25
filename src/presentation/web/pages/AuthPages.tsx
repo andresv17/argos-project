@@ -38,6 +38,16 @@ export function AuthLayout({ title, titleId, titleRef, children }: { readonly ti
           </div>
         </main>
       </div>
+      <footer className="mx-auto mt-4 max-w-4xl text-center text-sm text-text-muted">
+        <nav aria-label="Información legal" className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+          <Link to="/privacidad" className="inline-flex min-h-8 items-center underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2">
+            Privacidad
+          </Link>
+          <Link to="/terminos" className="inline-flex min-h-8 items-center underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2">
+            Términos
+          </Link>
+        </nav>
+      </footer>
     </div>
   );
 }
