@@ -38,7 +38,7 @@ export interface ClinicalFilesPanelViewProps {
   readonly onPage: (page: number) => void;
 }
 
-const FIELD = 'min-h-12 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
+const FIELD = 'min-h-12 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
 const typeLabel = (item: MediaItem): string => (item.mime === 'application/pdf' ? 'PDF' : 'Imagen');
 
 export function ClinicalFilesPanelView(props: ClinicalFilesPanelViewProps): JSX.Element {

@@ -282,7 +282,7 @@ export function PetsPage(): JSX.Element {
                     ) : null}
                     <Link
                       to={`/mascotas/${dashboard.profile.id}/album`}
-                      className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota"
                     >
                       Ver el álbum de fotos
                     </Link>

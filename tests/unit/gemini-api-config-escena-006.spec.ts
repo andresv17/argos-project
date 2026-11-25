@@ -9,7 +9,7 @@ import { PROD_SCENE } from '../fixtures/scene-config-fixtures.ts';
  */
 const SENTINEL_KEY = 'AIzaSyTEST-SENTINEL-0000000000000000000'; // argos-scan:allow clave sintetica de prueba
 const MODEL = 'gemini-2.5-flash-image';
-const PROD_BASE = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
+const PROD_BASE = { NODE_ENV: 'production', ARGOS_PUBLIC_BASE_URL: 'https://tipi.pet', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
 const DEV = { NODE_ENV: 'development', ARGOS_DB_DRIVER: 'sqlite', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_SCENE_DRIVER: 'gemini-api', GEMINI_API_KEY: SENTINEL_KEY, ARGOS_SCENE_GEMINI_MODEL: MODEL } as const;
 
 function failing(env: EnvironmentSource): { readonly variables: readonly string[]; readonly message: string } {

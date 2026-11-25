@@ -13,6 +13,8 @@ export const PROD_SCENE = {
   ARGOS_SCENE_PROJECT_ID: 'argos-prod-1234',
   ARGOS_SCENE_TASKS_SA_EMAIL: 'argos-scene-tasks@argos-prod-1234.iam.gserviceaccount.com',
   ARGOS_SCENE_WORKER_URL: 'https://argos-abcdef-uc.a.run.app/internal/scene-worker',
+  /** T1443 (EDGE-010-003): obligatoria con NODE_ENV=production. */
+  ARGOS_PUBLIC_BASE_URL: 'https://tipi.pet',
 } as const;
 
 /** `loadAppConfig` con la constante de activación del driver real fijada a verdadera (solo pruebas en proceso). */

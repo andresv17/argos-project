@@ -55,7 +55,7 @@ export interface AppConfig {
   readonly databasePath: string;
   readonly appTimezone: string;
   readonly cookieSecure: boolean;
-  /** Base pública de los enlaces (`ARGOS_PUBLIC_BASE_URL`, REQ-TIP10-004, EDGE-010-012): origen http(s) sin barra final; `null` si no se definió. */
+  /** Base pública de los enlaces (`ARGOS_PUBLIC_BASE_URL`, REQ-TIP10-004, EDGE-010-012): origen http(s) sin barra final; `null` si no se definió (solo fuera de producción; con `NODE_ENV=production` es obligatoria, T1443). */
   readonly publicBaseUrl: string | null;
   readonly exportMaxPerWindow: number;
   readonly exportWindowMinutes: number;
@@ -510,7 +510,8 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
   const adminInvalid = !adminParsed.ok;
   const publicBaseRaw = present(PUBLIC_BASE_URL_NAME);
   const publicBaseUrl = publicBaseRaw === undefined ? null : normalizePublicBaseUrl(publicBaseRaw);
-  const invalidPublicBase = publicBaseRaw !== undefined && publicBaseUrl === null;
+  // T1443 (EDGE-010-003, decisión de Neo): con NODE_ENV=production la base es OBLIGATORIA (falla cerrado); en desarrollo el servidor usa http://127.0.0.1:<port>.
+  const invalidPublicBase = publicBaseRaw === undefined ? env['NODE_ENV'] === 'production' : publicBaseUrl === null;
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
   const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret) || (env['NODE_ENV'] !== 'test' && isKnownPublicAuditSecret(auditHmacSecret));

@@ -29,9 +29,9 @@ import {
   pendingCountText,
 } from './registrations-view.ts';
 
-const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
+const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
 const BUTTON = `inline-flex min-h-12 w-full items-center justify-center rounded-full border px-5 text-sm font-semibold sm:w-auto ${FOCUS_RING}`;
-const PRIMARY = `${BUTTON} border-primary bg-primary text-white hover:bg-primary-hover`;
+const PRIMARY = `${BUTTON} border-primary bg-primary text-cream hover:bg-primary-hover`;
 const OUTLINE = `${BUTTON} border-primary bg-white text-primary hover:bg-meadow`;
 const DANGER_OUTLINE = `${BUTTON} border-danger bg-white text-danger hover:bg-red-50`;
 const DANGER = `${BUTTON} border-danger bg-danger text-white hover:bg-red-800`;
@@ -217,7 +217,7 @@ export function RegistrationsPanel({ onSessionLost: onSessionLostProp }: { reado
                       ))}
                     </div>
                   ) : (
-                    <div ref={confirmRef} role="group" tabIndex={-1} aria-labelledby={`confirm-${index}`} className="mt-3 rounded-lg border border-slate-300 bg-cream p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    <div ref={confirmRef} role="group" tabIndex={-1} aria-labelledby={`confirm-${index}`} className="mt-3 rounded-lg border border-slate-300 bg-cream p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
                       <p id={`confirm-${index}`} className="break-words text-base font-semibold text-text-primary">
                         {confirmQuestion(active.action, item.username)}
                       </p>

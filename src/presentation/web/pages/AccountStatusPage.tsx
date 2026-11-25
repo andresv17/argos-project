@@ -32,7 +32,7 @@ export function AccountStatusPage({ status }: { readonly status: PendingAccountS
         </p>
       </section>
       <p className="mt-4 text-sm text-slate-800">
-        <Link to="/login" className="inline-flex min-h-12 items-center rounded font-semibold text-primary underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+        <Link to="/login" className="inline-flex min-h-12 items-center rounded font-semibold text-primary underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2">
           Volver al acceso
         </Link>
       </p>

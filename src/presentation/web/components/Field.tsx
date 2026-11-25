@@ -45,7 +45,7 @@ export function TextField({ id, label, name, value, onChange, errors, type = 'te
         aria-invalid={error === undefined ? undefined : true}
         aria-describedby={error === undefined ? undefined : errorId}
         onChange={(e) => onChange(name, e.target.value)}
-        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
       />
       {error === undefined ? null : (
         <p id={errorId} className="text-sm text-red-800">
@@ -83,14 +83,14 @@ export function PasswordField({ id, label, name, value, onChange, errors, requir
           aria-invalid={error === undefined ? undefined : true}
           aria-describedby={error === undefined ? undefined : errorId}
           onChange={(e) => onChange(name, e.target.value)}
-          className="min-h-12 w-0 min-w-[14rem] flex-1 basis-56 rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="min-h-12 w-0 min-w-[14rem] flex-1 basis-56 rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
         />
         <button
           type="button"
           aria-pressed={visible}
           aria-controls={id}
           onClick={() => setVisible((v) => !v)}
-          className="min-h-12 shrink-0 rounded-full border border-primary bg-white px-4 text-sm font-semibold text-primary hover:bg-meadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="min-h-12 shrink-0 rounded-full border border-primary bg-white px-4 text-sm font-semibold text-primary hover:bg-meadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
         >
           Mostrar contraseña
         </button>
@@ -133,7 +133,7 @@ export function SelectField({ id, label, name, value, options, onChange, errors,
         aria-invalid={error === undefined ? undefined : true}
         {...(describedBy === '' ? {} : { 'aria-describedby': describedBy })}
         onChange={(e) => onChange(name, e.target.value)}
-        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -179,7 +179,7 @@ export function Button({ children, type = 'button', onClick, variant = 'primary'
 }): JSX.Element {
   // Botones píldora de 48 px de alto (ui_blueprint §1.4). Contraste: blanco/oliva 9.41:1, blanco/peligro 6.47:1, oliva/blanco 9.41:1.
   const styles = {
-    primary: 'bg-primary text-white hover:bg-primary-hover',
+    primary: 'bg-primary text-cream hover:bg-primary-hover',
     secondary: 'border border-primary bg-white text-primary hover:bg-meadow',
     danger: 'bg-danger text-white hover:bg-red-800',
   } as const;
@@ -190,7 +190,7 @@ export function Button({ children, type = 'button', onClick, variant = 'primary'
       {...(ariaLabel === undefined ? {} : { 'aria-label': ariaLabel })}
       {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
       {...(onClick === undefined ? {} : { onClick })}
-      className={`min-h-12 rounded-full px-5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60 ${styles[variant]}`}
+      className={`min-h-12 rounded-full px-5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2 disabled:opacity-60 ${styles[variant]}`}
     >
       {children}
     </button>

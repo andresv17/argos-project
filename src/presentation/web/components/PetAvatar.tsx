@@ -28,7 +28,7 @@ export function AvatarExternalLink({ avatarUrl }: { readonly avatarUrl: string |
   const href = externalAvatarLink(avatarUrl);
   if (href === null) return null;
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
       Ver enlace externo
     </a>
   );

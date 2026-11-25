@@ -48,8 +48,8 @@ import {
   type BlockName,
 } from './parameters-view.ts';
 
-const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
-const PRIMARY = `inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover sm:w-auto ${FOCUS_RING}`;
+const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
+const PRIMARY = `inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary bg-primary px-5 text-sm font-semibold text-cream hover:bg-primary-hover sm:w-auto ${FOCUS_RING}`;
 const CARD = 'rounded-xl border border-slate-300 bg-white p-4';
 const CONTROL = `min-h-12 w-full rounded-lg border border-slate-400 bg-white px-3 text-base text-text-primary ${FOCUS_RING}`;
 // WebKit ignora min-height en el select nativo: sin apariencia nativa, altura fija en px y flecha propia (NFR-009-001, >= 44 px).

@@ -35,7 +35,7 @@ export interface HouseholdPhotoViewProps {
   readonly headingLevel?: 3 | 5;
 }
 
-const FIELD = 'min-h-12 w-full min-w-0 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
+const FIELD = 'min-h-12 w-full min-w-0 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
 
 export function HouseholdPhotoView({ idPrefix, photoState, photoSrc, canUpload, chosenName, uploading, confirmDelete, error, onPhotoLoad, onPhotoError, onChoose, onUpload, onAskDelete, onConfirmDelete, onCancelDelete, headingLevel = 3 }: HouseholdPhotoViewProps): JSX.Element {
   const titleId = `${idPrefix}-photo-title`;

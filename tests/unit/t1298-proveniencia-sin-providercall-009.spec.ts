@@ -42,7 +42,7 @@ describe('proveniencia del intento sin providerCall (T1298, OBS-O2-1)', () => {
     const gemini = composeSceneServices(loadAppConfig({ ...env, ARGOS_SCENE_DRIVER: 'gemini-api', GEMINI_API_KEY: KEY, ARGOS_SCENE_GEMINI_MODEL: 'gemini-2.5-flash-image' }), { run: async () => 'NOOP', fetch: noNetwork });
     const real = composeSceneServices(
       loadAppConfigActivated({
-        NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media',
+        NODE_ENV: 'production', ARGOS_PUBLIC_BASE_URL: 'https://tipi.pet', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media',
         ARGOS_SCENE_DRIVER: 'real', ARGOS_SCENE_MODEL: 'gemini-2.5-flash-image', ARGOS_SCENE_LOCATION: 'us-central1', ARGOS_SCENE_PROJECT_ID: 'argos-prod-1234',
         ARGOS_SCENE_TASKS_SA_EMAIL: 'argos-scene-tasks@argos-prod-1234.iam.gserviceaccount.com', ARGOS_SCENE_WORKER_URL: 'https://argos-abcdef-uc.a.run.app/internal/scene-worker',
       }),

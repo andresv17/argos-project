@@ -49,7 +49,7 @@ function GoogleAccess({ lead }: { readonly lead: string }): JSX.Element {
       <p className="text-sm text-slate-800">{lead}</p>
       <a
         href={GOOGLE_START_PATH}
-        className="inline-flex min-h-12 items-center justify-center rounded-full border border-primary bg-white px-5 text-sm font-semibold text-primary hover:bg-meadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="inline-flex min-h-12 items-center justify-center rounded-full border border-primary bg-white px-5 text-sm font-semibold text-primary hover:bg-meadow focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
       >
         Continuar con Google
       </a>

@@ -104,7 +104,7 @@ export function SceneConsentView({ idPrefix, step, accepted, busy, confirmRevoke
           {step === 'ASK' ? (
             <>
               <div className="flex items-start gap-3">
-                <input id={checkId} type="checkbox" checked={accepted} onChange={(e) => onAccept(e.target.checked)} className="mt-1 h-6 w-6 shrink-0 rounded border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
+                <input id={checkId} type="checkbox" checked={accepted} onChange={(e) => onAccept(e.target.checked)} className="mt-1 h-6 w-6 shrink-0 rounded border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2" />
                 <label htmlFor={checkId} className={PROSE}>
                   Entiendo y consiento el envío de la foto de mi hogar y de los avatares de las mascotas de las que eres Propietario Legal a Google Vertex AI para generar la imagen. Consiento solo por mis propios datos.
                 </label>
@@ -136,7 +136,7 @@ export function SceneNoticeCollapsed({ onRead }: { readonly onRead: () => void }
     <div className="grid gap-1">
       <p className={PROSE}>La escena usa fotos de tu hogar y de tus mascotas solo si das tu consentimiento.</p>
       <div>
-        <button type="button" onClick={onRead} className="min-h-12 font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <button type="button" onClick={onRead} className="min-h-12 font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
           Leer el aviso
         </button>
       </div>

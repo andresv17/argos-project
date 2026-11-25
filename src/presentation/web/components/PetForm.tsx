@@ -118,7 +118,7 @@ export function ReviveConfirmation({ petName, onConfirm, onCancel }: {
           ref={confirmRef}
           type="button"
           onClick={onConfirm}
-          className="min-h-12 rounded-xl bg-primary px-4 py-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="min-h-12 rounded-xl bg-primary px-4 py-3 font-semibold text-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
         >
           Confirmar y volver a Vivo
         </button>
@@ -163,7 +163,7 @@ export function BiographyField({ id, value, onChange, errors }: {
         aria-invalid={error === undefined && !over ? undefined : true}
         aria-describedby={error === undefined ? helpId : `${helpId} ${errorId}`}
         onChange={(e) => onChange('biography', e.target.value)}
-        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="min-h-12 w-full rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
       />
       <p id={helpId} {...(over ? { role: 'status' } : {})} className={`text-sm ${over ? 'font-semibold text-red-800' : 'text-text-muted'}`}>
         {`${count} de ${BIOGRAPHY_MAX_LENGTH} caracteres. Solo texto, sin saltos de línea.`}

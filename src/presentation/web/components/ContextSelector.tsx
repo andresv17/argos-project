@@ -41,7 +41,7 @@ export function ContextSelector({ options, activeId, onSelect }: {
             tabIndex={selected ? 0 : -1}
             onClick={() => onSelect(option.id)}
             onKeyDown={(e) => onKeyDown(e, index)}
-            className={`relative min-h-12 shrink-0 whitespace-nowrap rounded-full px-4 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+            className={`relative min-h-12 shrink-0 whitespace-nowrap rounded-full px-4 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
               selected ? 'bg-accent font-semibold after:absolute after:inset-x-4 after:bottom-1.5 after:h-0.5 after:bg-primary' : 'font-medium hover:bg-white'
             }`}
           >

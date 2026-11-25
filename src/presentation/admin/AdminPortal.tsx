@@ -15,7 +15,7 @@ const GOOGLE_START_PATH = '/api/admin/auth/google/start';
 
 type View = 'checking' | 'anonymous' | 'authenticated';
 
-const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
+const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
 
 interface SessionInfo {
   readonly viewerId: string | null;
@@ -59,7 +59,7 @@ function AccessScreen({ headingRef }: { readonly headingRef: React.RefObject<HTM
           <p className="mt-4 text-base text-text-primary">Este acceso es solo para el equipo administrador. Entra con la cuenta de Google autorizada.</p>
           <a
             href={GOOGLE_START_PATH}
-            className={`mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover ${FOCUS_RING}`}
+            className={`mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary bg-primary px-5 text-sm font-semibold text-cream hover:bg-primary-hover ${FOCUS_RING}`}
           >
             Entrar con Google
           </a>

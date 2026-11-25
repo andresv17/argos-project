@@ -28,7 +28,7 @@ const GEMINI_API_ADAPTER = GEMINI_API_ALLOWED[0];
 /** Fase 14 (T946, D6-22): el adaptador Vertex es el ÚNICO archivo que declara su clase y nombra el host `aiplatform.googleapis.com`. */
 const VERTEX_ADAPTER = 'src/infrastructure/adapters/vertex-scene-image-generator.adapter.ts';
 const outsideAllowlist = (f: string): boolean => !(GEMINI_API_ALLOWED as readonly string[]).includes(f);
-const PROD_BASE = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
+const PROD_BASE = { NODE_ENV: 'production', ARGOS_PUBLIC_BASE_URL: 'https://tipi.pet', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
 
 function failingVariables(env: EnvironmentSource, activated?: boolean): readonly string[] {
   try {

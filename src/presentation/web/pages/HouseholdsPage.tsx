@@ -145,7 +145,7 @@ export function HouseholdCard({ view, myUserId, onMemberAction, onDelete, invite
                       {...(roleHelpText(member.membership.role) === null ? {} : { 'aria-describedby': `member-${member.membership.membershipId}-role-help` })}
                       value={member.membership.role}
                       onChange={(e) => onChangeRole(member.membership.userId, e.target.value as HouseholdRole)}
-                      className="min-h-11 rounded-xl border border-border-strong bg-white px-2 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      className="min-h-11 rounded-xl border border-border-strong bg-white px-2 text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota"
                     >
                       {ASSIGNABLE_ROLES.map((role) => (
                         <option key={role} value={role}>

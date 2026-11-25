@@ -172,7 +172,7 @@ function PetSection({ pet, index, only, props, names }: { readonly pet: Clinical
               </span>
               <span className="tabular-nums text-slate-800">{`Subido el ${formatCalendarDate(f.createdAt)} · ${sizeText(f.sizeBytes)}`}</span>
               {href === null ? null : (
-                <a href={href} target="_blank" rel="noopener noreferrer" aria-label={`Descargar ${name}`} className="print-hide w-fit min-h-11 font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <a href={href} target="_blank" rel="noopener noreferrer" aria-label={`Descargar ${name}`} className="print-hide w-fit min-h-11 font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
                   Descargar
                 </a>
               )}
@@ -208,7 +208,7 @@ export function SharedSummaryDocument(props: SharedSummaryDocumentProps): JSX.El
         <p className="text-sm text-slate-800">Datos registrados por el cuidador; no verificados por un profesional.</p>
         <p className="print-only text-sm text-slate-900">Datos al momento de esta consulta; pueden cambiar</p>
         <div>
-          <button type="button" onClick={props.onPrint} className="print-hide min-h-12 rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+          <button type="button" onClick={props.onPrint} className="print-hide min-h-12 rounded-full bg-primary px-5 text-sm font-semibold text-cream hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2">
             Imprimir / Guardar como PDF
           </button>
         </div>
