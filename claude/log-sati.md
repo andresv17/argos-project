@@ -224,3 +224,7 @@
 - Acta: .specify/memory/audits/sati-010-T1431-reflow-2026-11-25.md. Mismo harness (API+Vite Google simulado, BD temporal), axe 0, sin editar src/ ni pruebas.
 - OBS-1 reflow con token largo: sin scroll H en /acerca-de y vista previa a 320/1024/1280; acerca-de-reflow-010 rc 0 (4/4). OBS-2 «Vista previa» 48 px. OBS-3 aviso de alt vacío visible, describedby, no bloquea. Playwright 29/29 rc 0.
 - OBS-4 NO corregida (BAJA): `[&_a]:focus-visible:ring-*` compila a `:focus-visible a`; en el enlace box-shadow none, outline nativo azul. Sugerido `[&_a:focus-visible]:ring-*` en AboutPage.tsx:37 y AboutPanel.tsx:17.
+
+## 2026-11-25 — Revisión tipografía propia Tipi Display (zip en raíz)
+- Acta `.specify/memory/audits/sati-010-tipografia-display-2026-11-25.md`: PASS CON OBS. woff2 válidos (wOF2, 16.1/16.5 KB), 0 glifos españoles faltantes, contraste Bosque/Crema 9.67, Terracota 3.67 (solo grande), 2.63 sobre Bosque (prohibido), 320/1024/1280 sin desborde.
+- OBS-1 MEDIA: «¡» casi idéntico a «i» (no desciende); OBS-2 Á choca con vértice; OBS-3 sin licencia en metadatos. Diff de styles.css (web y admin) y tailwind.config.ts propuesto, NO aplicado. Nada en src/tests/public; sin [x], sin push.
