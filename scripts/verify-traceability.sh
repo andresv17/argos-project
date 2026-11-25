@@ -52,8 +52,8 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --task)
-      if [[ $# -lt 2 || ! "$2" =~ ^T[0-9]{3}[a-z]?$ ]]; then
-        echo "[SDD Traceability Gate] Uso: --task T### (o T###a)" >&2
+      if [[ $# -lt 2 || ! "$2" =~ ^T[0-9]{3,4}[a-z]?$ ]]; then
+        echo "[SDD Traceability Gate] Uso: --task T### o T#### (o T###a)" >&2
         exit 2
       fi
       TASK_ID="$2"
