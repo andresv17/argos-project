@@ -33,7 +33,7 @@ Este texto está pendiente de validación legal externa y puede cambiar antes de
 
 ## 1. Quién es el responsable
 
-El responsable del tratamiento de tus datos es [NOMBRE DEL RESPONSABLE O PROYECTO]. Para cualquier consulta sobre privacidad, escribe a [CORREO DE CONTACTO / PRIVACIDAD]. Esta política se rige por la jurisdicción de [PAÍS / JURISDICCIÓN] (pendiente de validación legal).
+El responsable del tratamiento de tus datos es [NOMBRE DEL RESPONSABLE O PROYECTO]. Para cualquier consulta sobre privacidad, escribe a contacto@tipi.pet. Esta política se rige por la jurisdicción de [PAÍS / JURISDICCIÓN] (pendiente de validación legal).
 
 ## 2. Qué es Tipi
 
@@ -108,7 +108,7 @@ No usamos cookies de publicidad ni de analítica de terceros (ni Google Analytic
 - Puedes ver y corregir tus datos y los de tus mascotas desde la aplicación.
 - Puedes **eliminar tu cuenta y tus datos** desde la sección «Cuenta» (`/cuenta`, zona de peligro). Si tu cuenta usa contraseña, debes confirmar con tu contraseña, escribir la frase de confirmación y haber descargado antes el respaldo de la cuenta. Si tu cuenta se creó con Google (sin contraseña), confirmas de nuevo con Google y escribes la frase de confirmación; descargar el respaldo es opcional. La eliminación borra tu cuenta, tus mascotas con sus registros, tus archivos, fotos y avatares y tus sesiones. Si eres propietario de un hogar y su único miembro activo, el hogar se elimina con la cuenta. La eliminación se bloquea mientras seas propietario de un hogar con otros miembros activos o tengas mascotas asignadas a un hogar con otros miembros activos: antes debes transferirlas o desasignarlas.
 - Restos técnicos pueden permanecer en respaldos internos temporales con retención acotada que se purgan automáticamente (plazos concretos: pendiente de validación legal; no se publican cifras).
-- También puedes pedir la eliminación o consultar tus datos escribiendo a [CORREO DE CONTACTO / PRIVACIDAD].
+- También puedes pedir la eliminación o consultar tus datos escribiendo a contacto@tipi.pet.
 - Los derechos concretos que te asisten, y los plazos de respuesta, dependen de [PAÍS / JURISDICCIÓN] (pendiente de validación legal).
 
 ## 11. Mayoría de edad y supresión de cuentas de menores
@@ -117,7 +117,7 @@ Tipi está dirigido a personas **mayores de 18 años**.
 
 Para registrarte, con usuario y contraseña o con Google, debes marcar la casilla «Soy mayor de edad (18+)». El servidor rechaza el registro si no la marcas, y guarda con tu cuenta la fecha de la declaración y la versión del texto. No pedimos ni verificamos fecha de nacimiento ni documento, de modo que la declaración se basa en tu palabra (pendiente de validación legal si es suficiente en [PAÍS / JURISDICCIÓN]). Las cuentas creadas antes de que existiera esta casilla siguen funcionando y no se les exige una declaración retroactiva.
 
-Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a [CORREO DE CONTACTO / PRIVACIDAD] indicando la cuenta (nombre de usuario). El responsable del servicio revisará la solicitud y, si se confirma, procederá a la supresión de la cuenta y sus datos. Para revisar la solicitud no pediremos documentos de identidad de la persona menor ni de nadie más: usaremos solo los datos de la cuenta y de tu mensaje, que conservaremos únicamente el tiempo necesario para atenderla. Además, la propia persona titular puede eliminar su cuenta directamente desde `/cuenta` (sección 10). Plazo de respuesta y supresión: pendiente de validación legal. (Nota, no se publica; decisión de Neo 2: el canal es el contacto; no hay botón ni acción de administración para esto, y no se promete aviso por correo.)
+Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a contacto@tipi.pet indicando la cuenta (nombre de usuario). El responsable del servicio revisará la solicitud y, si se confirma, procederá a la supresión de la cuenta y sus datos. Para revisar la solicitud no pediremos documentos de identidad de la persona menor ni de nadie más: usaremos solo los datos de la cuenta y de tu mensaje, que conservaremos únicamente el tiempo necesario para atenderla. Además, la propia persona titular puede eliminar su cuenta directamente desde `/cuenta` (sección 10). Plazo de respuesta y supresión: pendiente de validación legal. (Nota, no se publica; decisión de Neo 2: el canal es el contacto; no hay botón ni acción de administración para esto, y no se promete aviso por correo.)
 
 ## 12. Cambios en esta política
 
@@ -125,7 +125,7 @@ Si cambiamos esta política, actualizaremos la fecha indicada al principio. Si e
 
 ## 13. Contacto
 
-[NOMBRE DEL RESPONSABLE O PROYECTO] — [CORREO DE CONTACTO / PRIVACIDAD].
+[NOMBRE DEL RESPONSABLE O PROYECTO] — contacto@tipi.pet.
 
 ---
 
@@ -139,7 +139,7 @@ Este texto está pendiente de validación legal externa y puede cambiar antes de
 
 ## 1. Quién ofrece el servicio
 
-Tipi lo ofrece [NOMBRE DEL RESPONSABLE O PROYECTO]. Contacto: [CORREO DE CONTACTO / PRIVACIDAD]. Estos términos se rigen por la jurisdicción de [PAÍS / JURISDICCIÓN] (pendiente de validación legal).
+Tipi lo ofrece [NOMBRE DEL RESPONSABLE O PROYECTO]. Contacto: contacto@tipi.pet. Estos términos se rigen por la jurisdicción de [PAÍS / JURISDICCIÓN] (pendiente de validación legal).
 
 ## 2. Qué es y qué no es Tipi
 
@@ -149,7 +149,7 @@ Tipi es una herramienta informativa y de registro personal para mascotas. **No s
 
 Para usar Tipi debes ser **mayor de 18 años**.
 
-Debes declararlo al registrarte, con usuario y contraseña o con Google: al marcar «Soy mayor de edad (18+)» declaras que eres mayor de edad. Si esta declaración no es cierta, podemos suprimir la cuenta y sus datos, como se explica en la política de privacidad. Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a [CORREO DE CONTACTO / PRIVACIDAD]; la persona titular también puede eliminar su cuenta desde `/cuenta`, con las condiciones descritas en la sección 10 de la política de privacidad. (Edad mínima y efectos de la declaración en [PAÍS / JURISDICCIÓN]: pendiente de validación legal.)
+Debes declararlo al registrarte, con usuario y contraseña o con Google: al marcar «Soy mayor de edad (18+)» declaras que eres mayor de edad. Si esta declaración no es cierta, podemos suprimir la cuenta y sus datos, como se explica en la política de privacidad. Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a contacto@tipi.pet; la persona titular también puede eliminar su cuenta desde `/cuenta`, con las condiciones descritas en la sección 10 de la política de privacidad. (Edad mínima y efectos de la declaración en [PAÍS / JURISDICCIÓN]: pendiente de validación legal.)
 
 ## 4. Tu cuenta
 
@@ -192,7 +192,7 @@ Podemos actualizar estos términos; la fecha de arriba indica la última versió
 
 ## 13. Ley aplicable y contacto
 
-Ley y foro aplicables: [PAÍS / JURISDICCIÓN] (pendiente de validación legal). Contacto: [CORREO DE CONTACTO / PRIVACIDAD].
+Ley y foro aplicables: [PAÍS / JURISDICCIÓN] (pendiente de validación legal). Contacto: contacto@tipi.pet.
 
 ---
 

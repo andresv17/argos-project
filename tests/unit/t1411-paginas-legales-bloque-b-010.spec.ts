@@ -12,7 +12,7 @@ import type { ApiClient } from '../../src/presentation/web/api.ts';
 
 /**
  * T1411 (Feature 010, Bloque B, [GH:#67]) PRUEBAS ROJAS: páginas legales públicas `/privacidad` y `/terminos`, pie en login y registro,
- * rutas fuera de sesión (EDGE-010-004), cláusula de mayoría de edad (D10-05) y los 4 placeholders literales (D10-06).
+ * rutas fuera de sesión (EDGE-010-004), cláusula de mayoría de edad (D10-05) y los 3 placeholders literales (D10-06).
  * Rojas a propósito hasta T1413 (páginas, rutas en App.tsx, pie en AuthPages). No dependen del texto exacto de `legal-texts.md` (T1412):
  * solo de estructura, rutas, placeholders literales y la presencia de la cláusula de mayoría de edad.
  *
@@ -26,7 +26,7 @@ const WEB = join(ROOT, 'src', 'presentation', 'web');
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8');
 const textOf = (html: string): string => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
 
-const PLACEHOLDERS = ['[NOMBRE DEL RESPONSABLE O PROYECTO]', '[CORREO DE CONTACTO / PRIVACIDAD]', '[PAÍS / JURISDICCIÓN]', '[FECHA DE ÚLTIMA ACTUALIZACIÓN]'] as const;
+const PLACEHOLDERS = ['[NOMBRE DEL RESPONSABLE O PROYECTO]', '[PAÍS / JURISDICCIÓN]', '[FECHA DE ÚLTIMA ACTUALIZACIÓN]'] as const;
 const ADULT = /mayor(es)? de edad|mayoría de edad|18\s*(años|\+)/i;
 
 type Loaded = { readonly Page: ComponentType | null; readonly error: string };
@@ -79,13 +79,13 @@ describe('T1411 (b) cláusula de mayoría de edad y placeholders literales (D10-
       expect(textOf(await renderPage(file, name))).toMatch(ADULT);
     });
   }
-  it('[SC-010-009] los 4 placeholders literales aparecen sin rellenar entre /privacidad y /terminos (D10-06)', async () => {
+  it('[SC-010-009] los 3 placeholders literales aparecen sin rellenar entre /privacidad y /terminos (D10-06)', async () => {
     const all = (await Promise.all(PAGES.map(({ file, name }) => renderPage(file, name)))).map(textOf).join('\n');
     for (const placeholder of PLACEHOLDERS) expect(all, placeholder).toContain(placeholder);
   });
-  it('[SC-010-009] la política de privacidad cita el placeholder de contacto y la fecha de última actualización', async () => {
+  it('[SC-010-009] la política de privacidad cita el correo de contacto y la fecha de última actualización', async () => {
     const text = textOf(await renderPage('PrivacyPolicyPage.tsx', 'PrivacyPolicyPage'));
-    expect(text).toContain('[CORREO DE CONTACTO / PRIVACIDAD]');
+    expect(text).toContain('contacto@tipi.pet');
     expect(text).toContain('[FECHA DE ÚLTIMA ACTUALIZACIÓN]');
   });
 });
@@ -182,7 +182,7 @@ describe('T1411 (e) servidor: rutas públicas con cookie de sesión caducada res
 describe('T1413 ajuste de marca: logo horizontal y fondo Crema (orden de Neo)', () => {
   it('LegalLayout lleva el logo horizontal h-12 enlazado a /login con alt de marca, y legales y acceso usan el token cream (no meadow)', () => {
     const legal = read('src/presentation/web/components/LegalLayout.tsx');
-    expect(legal).toMatch(/<Link to="\/login"[^>]*>\s*<img src="\/brand\/tipi-logo-horizontal\.svg" alt=\{BRAND_NAME\}[^>]*h-12/);
+    expect(legal).toMatch(/<Link to="\/login"[^>]*>\s*<span[^>]*><img src="\/brand\/tipi-simbolo\.svg"[^>]*h-12[^>]*\/><span[^>]*font-display[^>]*>\{BRAND_NAME\}/);
     expect(legal).toMatch(/min-h-screen bg-cream/);
     expect(legal).not.toMatch(/bg-meadow/);
     expect(read('src/presentation/web/pages/AuthPages.tsx')).toMatch(/min-h-screen bg-cream/);

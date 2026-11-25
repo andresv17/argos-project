@@ -44,8 +44,9 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
         Saltar al contenido
       </a>
       <p className="flex items-center font-display text-2xl font-extrabold tracking-tight text-primary">
-        {/* Guía de marca: barra superior con el logo horizontal (nunca el símbolo simple, que es solo para ≤32 px). */}
-        <img src="/brand/tipi-logo-horizontal.svg" alt={BRAND_NAME} width={266} height={150} className="h-12 w-auto" />
+        {/* Decisión de Neo (T1434): símbolo Tipi + texto «Tipi» en Tipi Display. */}
+        <img src="/brand/tipi-simbolo.svg" alt="" aria-hidden="true" width={48} height={48} className="h-12 w-12" />
+        <span className="ml-2">{BRAND_NAME}</span>
       </p>
       <nav aria-label="Principal" className="flex flex-wrap gap-1">
         <NavLink to="/" end className={link}>

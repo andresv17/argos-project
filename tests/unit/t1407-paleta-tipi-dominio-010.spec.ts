@@ -105,7 +105,7 @@ describe('T1407 (c) logo y favicon (REQ-TIP10-002, SC-010-002)', () => {
 
   it('[REQ-TIP10-002] la cabecera usa el logo horizontal y, bajo 32 px, el símbolo simple', () => {
     const shell = read('src/presentation/web/pages/AppShell.tsx');
-    expect(shell).toMatch(/tipi-logo-horizontal|tipi-simbolo-simple/);
+    expect(shell).toMatch(/tipi-logo-horizontal|tipi-simbolo/);
   });
 });
 

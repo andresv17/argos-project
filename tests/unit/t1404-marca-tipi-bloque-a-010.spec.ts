@@ -64,7 +64,8 @@ describe('T1404 (a) ninguna aparición visible de «Argos» en la interfaz (REQ-
       // Cambio de expectativa (corrección de marca, BRAND-TIPI.md §2 y §5): barra superior y pantallas de acceso usan el logo
       // HORIZONTAL; el símbolo simple es solo para ≤32 px (favicon/íconos) y el logo completo nunca baja de 32 px. La intención
       // (el logo del paquete es visible) no cambia.
-      expect(readFileSync(file, 'utf8'), file).toMatch(/\/brand\/tipi-logo-horizontal\.svg/);
+      // Decisión de Neo (T1434): las cabeceras web usan el símbolo + texto «Tipi»; el portal admin conserva el logo horizontal.
+      expect(readFileSync(file, 'utf8'), file).toMatch(file.includes('admin') ? /\/brand\/tipi-logo-horizontal\.svg/ : /\/brand\/tipi-simbolo\.svg/);
       expect(readFileSync(file, 'utf8'), file).not.toMatch(/tipi-simbolo-simple\.svg/);
     }
     expect(readFileSync(join(WEB, 'pages/AuthPages.tsx'), 'utf8')).toMatch(/<h1[^>]*font-display[^>]*font-extrabold/);

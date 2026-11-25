@@ -2386,3 +2386,7 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 ## 2026-11-25 — 010 integracion tipografia Tipi Display 800 (reemplaza Nunito en font-display) — commit local, sin push ni [x]
 - Zip actualizado extraido en scratchpad; copiado solo public/fonts/tipi-display-latin-800-normal.woff2 (16 656 B, cabecera wOF2); el 700 no se copia (sin consumidor). @font-face web+admin y tailwind display apuntan a 'Tipi Display'; 2 tests (t1404, t1407) ajustados de Nunito a Tipi Display. Licencia: comentario con TODO de registrar el texto en README.
 - nunito-latin-800-normal.woff2 se conserva (referenciado solo en specs/010 research/tasks/spec). Gates: tsc rc 0; sin test:gate ni servidor por orden de Neo.
+
+## 2026-11-25 — 010 T1434 decisiones de Neo: logo simbolo+texto, contacto, Nunito — commit local, sin push ni [x]
+- Cabeceras AuthPages/AppShell/LegalLayout/AboutPage: tipi-simbolo.svg (decorativo) + texto `Tipi` en font-display; AdminPortal conserva logo horizontal. Tests t1404/t1407/t1411 ajustados solo en esa expectativa. Contacto `contacto@tipi.pet` en legal-texts (cuerpo), Privacy y Terms; 3 placeholders restantes y 0.1.0 DRAFT intactos (t1411: expectativa del placeholder de contacto).
+- nunito woff2 eliminado (0 refs en src/tests/tailwind; quedan solo en specs/010 research/tasks/spec); licencia styles web/admin = «Tipografía original del autor — uso exclusivo de Tipi». tsc rc 0; sin gate ni servidor.

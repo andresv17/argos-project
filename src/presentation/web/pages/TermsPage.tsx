@@ -6,7 +6,7 @@
  */
 import { LegalLayout, LegalList, LegalSection } from '../components/LegalLayout.tsx';
 
-const CONTACT = '[CORREO DE CONTACTO / PRIVACIDAD]';
+const CONTACT = 'contacto@tipi.pet';
 const OWNER = '[NOMBRE DEL RESPONSABLE O PROYECTO]';
 const JURISDICTION = '[PAÍS / JURISDICCIÓN]';
 
