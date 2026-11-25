@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 010 (seccion publica Acerca de)
-  version: 1.0.0
+  version: 1.0.1
   description: >
     Documento INCREMENTAL de la feature 010 (Bloque E, #33): lectura publica de la seccion «Acerca de» (D10-07) y su gestion exclusiva en el portal /admin.
     Es un archivo NUEVO y no una version 1.8.0 de admin.openapi.yaml de 009 para no alterar lo ya compilado de 009 (src/generated/v35) ni su estado. Los OpenAPI de 004, 005, 006, 009 y el
@@ -10,11 +10,11 @@ info:
     (404 uniforme sin ella, patron de 009). Errores en application/problem+json (RFC 9457) del catalogo incremental de 010 y de los heredados.
   x-sdd-status: DRAFT
   x-sdd-metadata:
-    version: 1.0.0
+    version: 1.0.1
     status: DRAFT
     supersedes: null
-    change_type: MAJOR
-    change_note: "1.0.0 (feature 010, Bloque E, T1429, Keymaker con autorizacion expresa de Neo Nivel 2 en Logos, 2026-11-25; D10-07 y EDGE-010-011 APPROVED 2026-11-24): documento nuevo con 5 operaciones: getPublicAbout (GET /about), getPublicAboutPhoto (GET /about/photo), getAdminAbout (GET /admin/about), updateAboutText (PUT /admin/about) y putAboutPhoto (PUT /admin/about/photo). Reglas: (1) tope de body_markdown de 20 000 caracteres (20 001 = 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir; un cuerpo mayor que el limite de lectura = 413); (2) CAS con If-Match `\"<version>\"` (obsoleto = 412 ERR-ACE10-PRECONDITION-FAILED; ausente o mal formado = 422 ERR-SCHEMA-VALIDATION-FAILED, como los parametros de 009); (3) la foto SIEMPRE incrementa `version` (EDGE-010-006), se valida por firma (JPEG, PNG, WebP; SVG, HTML, XML y PDF se rechazan, INV-ARC-002), se reescribe sin metadatos (INV-ACE10-001) y un formato o peso invalido es 422 ERR-ACE10-PHOTO-INVALID; (4) el almacenamiento caido es 502 ERR-MEDIA-STORAGE-UNAVAILABLE sin estado mixto; (5) auditoria propia admin_audit_entries: ABOUT_UPDATE y ABOUT_PHOTO_UPDATE sobre el objeto `about`, sin valores. Mutaciones: X-Argos-Request (403 antes de la sesion), sesion (404 uniforme), origen (403), esquema (422), precondicion (412). Estado DRAFT: lo fija solo Neo."
+    change_type: PATCH
+    change_note: "1.0.1 (Architect 2026-11-25, dictamen T1428/T1429: el 413 de PUT /admin/about se tipa con ERR-ACE10-BODY-TOO-LARGE del catalogo 010 1.2.0; ninguna operacion ni esquema cambia). 1.0.0 (feature 010, Bloque E, T1429, Keymaker con autorizacion expresa de Neo Nivel 2 en Logos, 2026-11-25; D10-07 y EDGE-010-011 APPROVED 2026-11-24): documento nuevo con 5 operaciones: getPublicAbout (GET /about), getPublicAboutPhoto (GET /about/photo), getAdminAbout (GET /admin/about), updateAboutText (PUT /admin/about) y putAboutPhoto (PUT /admin/about/photo). Reglas: (1) tope de body_markdown de 20 000 caracteres (20 001 = 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir; un cuerpo mayor que el limite de lectura = 413); (2) CAS con If-Match `\"<version>\"` (obsoleto = 412 ERR-ACE10-PRECONDITION-FAILED; ausente o mal formado = 422 ERR-SCHEMA-VALIDATION-FAILED, como los parametros de 009); (3) la foto SIEMPRE incrementa `version` (EDGE-010-006), se valida por firma (JPEG, PNG, WebP; SVG, HTML, XML y PDF se rechazan, INV-ARC-002), se reescribe sin metadatos (INV-ACE10-001) y un formato o peso invalido es 422 ERR-ACE10-PHOTO-INVALID; (4) el almacenamiento caido es 502 ERR-MEDIA-STORAGE-UNAVAILABLE sin estado mixto; (5) auditoria propia admin_audit_entries: ABOUT_UPDATE y ABOUT_PHOTO_UPDATE sobre el objeto `about`, sin valores. Mutaciones: X-Argos-Request (403 antes de la sesion), sesion (404 uniforme), origen (403), esquema (422), precondicion (412). Estado DRAFT: lo fija solo Neo."
     traceability: [REQ-ACE10-001, REQ-ACE10-002, REQ-ACE10-003, REQ-ACE10-004, INV-ACE10-001, EDGE-010-004, EDGE-010-006, EDGE-010-007, EDGE-010-011]
 servers:
   - url: http://127.0.0.1:3100/api
@@ -100,11 +100,11 @@ paths:
       description: >
         Orden: X-Argos-Request (403 antes de la sesion), sesion de administracion (404 uniforme), origen (403 si es ajeno), esquema (422: If-Match ausente o mal formado, cuerpo invalido,
         bodyMarkdown de mas de 20 000 caracteres), precondicion (412). El texto se guarda SANITIZADO (sin HTML, sin javascript:/vbscript:/data:, sin imagenes) [D10-07, EDGE-010-007]. Suma 1 a version,
-        conserva la foto vigente y escribe una entrada ABOUT_UPDATE en admin_audit_entries sin el texto. Un rechazo no escribe ni audita. Un cuerpo mayor que el limite de lectura del servidor es 413.
+        conserva la foto vigente y escribe una entrada ABOUT_UPDATE en admin_audit_entries sin el texto. Un rechazo no escribe ni audita. Un cuerpo mayor que el limite de lectura del servidor es 413 ERR-ACE10-BODY-TOO-LARGE.
       x-sdd-change: NEW
       x-sdd-requirements: [REQ-ACE10-002, REQ-ACE10-003, REQ-ACE10-004, EDGE-010-006, EDGE-010-007, EDGE-010-011]
       x-sdd-rbac-action: "PLATFORM_ADMIN_ABOUT_UPDATE"
-      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-SCHEMA-VALIDATION-FAILED, ERR-ACE10-PRECONDITION-FAILED, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-ACE10-BODY-TOO-LARGE, ERR-SCHEMA-VALIDATION-FAILED, ERR-ACE10-PRECONDITION-FAILED, ERR-INTERNAL-UNEXPECTED]
       x-sdd-csrf-before-session: true
       x-sdd-audit: admin_audit_entries
       parameters:
@@ -136,7 +136,7 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetails' }
         '413':
-          description: "Cuerpo mayor que el limite de lectura del servidor (payload gigante, EDGE-010-011); no se procesa ni se escribe"
+          description: "ERR-ACE10-BODY-TOO-LARGE: cuerpo mayor que el limite de lectura del servidor (payload gigante, EDGE-010-011); no se procesa ni se escribe ni se audita"
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetails' }

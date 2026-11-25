@@ -712,3 +712,8 @@ Sin commit; pendiente re-firma /merovingian.
 ## 2026-11-25 — 010 deudas de menores y Google, versión 0.1.0 confirmada (decisiones de Neo en Logos)
 - spec.md (tabla de decisiones): `DEUDA-010-MENOR-SUPRESION` (nunca DELETE manual en SQL; supresión por el caso de uso transaccional de /cuenta; ref. RAMA-T1426-01) y `DEUDA-010-LOCK-GOOGLE-MINOR` (H-01, H-02 BAJA, fuera de 010; ref. lock-010-T1426-google).
 - legal-texts.md §0: 0.1.0 confirmada por Neo para DRAFT; 1.0.0 solo tras validación legal externa (T1437). tasks.md sin cambios míos (solo los [x] de Neo). Sin src/tests, sin push.
+
+## 2026-11-25 — 010 dictamen T1428/T1429 antes de T1430 (3 puntos del keymaker)
+- 413: opción (a) por convención (ERR-MEDIA-TOO-LARGE 004, ERR-BACKUP-PAYLOAD-TOO-LARGE 001/002): +ERR-ACE10-BODY-TOO-LARGE en catálogo 010 1.2.0 y about.openapi 1.0.1 (error-order y 413); compile --feature 010 rc 0 sin deriva en src/generated/api.
+- Claves: `about/photo/<uuid-v4>` (excepción a INV-ARC-003, patrón 006); media-keys + guards (LIST_PREFIXES, RECONCILED_PREFIXES, 15 min); adaptadores memoria/GCS no cambian. Registrado en spec.md (H-ARCH-ACE-KEY).
+- Foto siempre suma version y mapeo FST_ERR_CTP_BODY_TOO_LARGE→413 en /api/admin/about* confirmados (H-ARCH-ACE-413, -VERSION). traza 010 rc 0. Sin src/tests, sin [x], sin push.
