@@ -4,12 +4,12 @@
  * contraseña nueva (INV-AUTH2-001) con confirmación y correo opcional; el inicio de sesión no la aplica (REQ-AUTH2-002). El campo de
  * inicio de sesión acepta usuario o correo (REQ-LOG-001); el usuario del registro admite mayúsculas y no exige dígitos (REQ-LOG-002).
  *
- * @implements REQ-LEG10-004, SC-010-007, SC-010-008, REQ-UI-005, REQ-UI-004, REQ-SSO8-003, NFR-008-002, REQ-AUTH2-001, REQ-LOG-001, REQ-LOG-002, INV-AUTH2-001, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-WEAK-PASSWORD
+ * @implements REQ-MEN10-001, REQ-LEG10-004, SC-010-007, SC-010-008, REQ-UI-005, REQ-UI-004, REQ-SSO8-003, NFR-008-002, REQ-AUTH2-001, REQ-LOG-001, REQ-LOG-002, INV-AUTH2-001, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-WEAK-PASSWORD
  */
-import type { Ref } from 'react';
+import { useState, type Ref } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ACCOUNT_STATUS_ROUTE } from '../account-status.ts';
-import { Button, FormError, PasswordField, TextField } from '../components/Field.tsx';
+import { Button, CheckboxField, FormError, PasswordField, TextField } from '../components/Field.tsx';
 import { GOOGLE_START_PATH } from '../google-login.ts';
 import { BRAND_NAME } from '../brand.ts';
 import { useSession } from '../session.tsx';
@@ -103,14 +103,20 @@ export function LoginPage(): JSX.Element {
   );
 }
 
+/** Texto de la casilla 18+ sin marcar (REQ-MEN10-001): igual al detalle del catálogo 010 (`ERR-MEN10-ADULT-DECLARATION-REQUIRED`); el servidor repite la exigencia. */
+export const ADULT_DECLARATION_REQUIRED_MESSAGE = 'Para crear la cuenta debes declarar que eres mayor de edad.';
+
 export function RegisterPage(): JSX.Element {
   const session = useSession();
   const navigate = useNavigate();
+  // 010 (REQ-MEN10-001, REQ-MEN10-003): solo la casilla «Soy mayor de edad (18+)»; ni fecha de nacimiento ni documento. La versión del texto la fija el servidor.
+  const [adult, setAdult] = useState(false);
   const form = useContractForm({
     schema: 'RegisterUserInput',
     initial: { username: '', displayName: '', email: '', password: '', confirmPassword: '' },
+    extraErrors: () => (adult ? {} : { adultDeclaration: ADULT_DECLARATION_REQUIRED_MESSAGE }),
     send: async (body) => {
-      const pending = await session.register(body as Schemas['RegisterUserInput']);
+      const pending = await session.register({ ...(body as Schemas['RegisterUserInput']), adultDeclaration: true } as Schemas['RegisterUserInput']);
       navigate(pending === null ? '/' : ACCOUNT_STATUS_ROUTE[pending], { replace: true });
     },
   });
@@ -122,6 +128,7 @@ export function RegisterPage(): JSX.Element {
         <TextField id="register-email" label="Correo (opcional)" name="email" type="email" autoComplete="email" value={form.values.email ?? ''} onChange={form.onChange} errors={form.errors} />
         <PasswordField id="register-password" label="Contraseña (10 a 128, con mayúscula, número y símbolo)" name="password" autoComplete="new-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
         <PasswordField id="register-confirmPassword" label="Confirmar contraseña" name="confirmPassword" autoComplete="new-password" required value={form.values.confirmPassword ?? ''} onChange={form.onChange} errors={form.errors} />
+        <CheckboxField id="register-adultDeclaration" label="Soy mayor de edad (18+)" name="adultDeclaration" required checked={adult} onChange={(_name, checked) => setAdult(checked)} errors={form.errors} />
         <FormError errors={form.errors} message={form.message} />
         <Button type="submit" disabled={form.busy}>
           Registrarme

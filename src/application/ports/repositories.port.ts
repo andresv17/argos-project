@@ -34,6 +34,12 @@ export interface UserAccount extends UserSelfProfile {
    * Solo `insert` lo fija; `update` NUNCA lo modifica (lo cambia la decisión atómica de T1247).
    */
   readonly accountStatus?: AccountStatus;
+  /**
+   * Declaración de mayoría de edad (010, REQ-MEN10-001): instante (reloj inyectado) y versión SemVer del texto aceptado. Ausentes = cuenta anterior a 010 (REQ-MEN10-002, sin
+   * declaración retroactiva). Solo `insert` los fija; `update` NUNCA los modifica. Sin fecha de nacimiento ni documento (REQ-MEN10-003).
+   */
+  readonly adultDeclaredAt?: string;
+  readonly adultNoticeVersion?: string;
 }
 
 export interface UserRepositoryPort {

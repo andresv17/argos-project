@@ -33,9 +33,11 @@ export function useContractForm(options: {
   readonly numeric?: readonly string[];
   readonly booleans?: readonly string[];
   readonly resetOnSuccess?: boolean;
+  /** Errores de controles que no pertenecen al esquema del contrato (p. ej. la casilla 18+ de 010); vacío = sin error. */
+  readonly extraErrors?: () => FieldErrors;
   readonly send: (body: FormBody) => Promise<void>;
 }): ContractForm {
-  const { schema, initial, numeric = [], booleans = [], resetOnSuccess = false, send } = options;
+  const { schema, initial, numeric = [], booleans = [], resetOnSuccess = false, extraErrors, send } = options;
   const [values, setValues] = useState<Readonly<Record<string, string>>>(initial);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<string | null>(null);
@@ -46,7 +48,7 @@ export function useContractForm(options: {
   const onSubmit = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
     const body = formValues(values, numeric, booleans);
-    const clientErrors = validateInput(schema, body);
+    const clientErrors = { ...validateInput(schema, body), ...(extraErrors?.() ?? {}) };
     setErrors(clientErrors);
     setMessage(null);
     if (Object.keys(clientErrors).length > 0) return;

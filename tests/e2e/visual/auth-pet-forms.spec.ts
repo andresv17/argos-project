@@ -46,6 +46,7 @@ test.describe('formularios de autenticación y mascota (tests/e2e/visual)', () =
     await page.getByLabel('Nombre visible').fill(USER.displayName);
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill(USER.password);
     await page.getByLabel('Confirmar contraseña').fill(USER.password);
+    await page.getByLabel('Soy mayor de edad (18+)').check();
     await page.getByRole('button', { name: 'Registrarme' }).click();
     await approveAndSignInViaUi(page, USER.username, USER.password); // 009: el registro nace PENDING; se aprueba por repositorio (T1244) y se entra
 
@@ -106,6 +107,7 @@ test.describe('sesión de la rebanada 1 (tests/e2e/visual)', () => {
     await page.getByLabel('Nombre visible').fill(SESSION_USER.displayName);
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill(SESSION_USER.password);
     await page.getByLabel('Confirmar contraseña').fill(SESSION_USER.password);
+    await page.getByLabel('Soy mayor de edad (18+)').check();
     await page.getByRole('button', { name: 'Registrarme' }).click();
     await approveAndSignInViaUi(page, SESSION_USER.username, SESSION_USER.password);
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();

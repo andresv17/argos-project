@@ -41,7 +41,7 @@ describe('precedencia de validación en la frontera HTTP', () => {
 
   it('[REQ-AUTH2-001] reglas 4 y 5: el username no se normaliza (espacios → esquema; solo difiere en mayúsculas → 409 por LOWER) y el esquema va antes del dominio', async () => {
     api = await createApi();
-    const body = (username: string, password: string) => ({ username, displayName: 'Otro', password, confirmPassword: password });
+    const body = (username: string, password: string) => ({ username, displayName: 'Otro', password, confirmPassword: password, adultDeclaration: true });
     const notNormalized = await api.call('POST', '/api/auth/register', { body: body('  ANDRES ', 'Clave2026x!') });
     const taken = await api.call('POST', '/api/auth/register', { body: body('andres', 'Clave2026x!') });
     const schemaBeforeDomain = await api.call('POST', '/api/auth/register', { body: body('andres', 'abcdefghij') });

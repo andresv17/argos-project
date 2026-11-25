@@ -90,7 +90,7 @@ test('con solo la cookie de usuario (contexto nuevo) la API de administración e
     expect(session.status()).toBe(404);
     expect(await session.text()).toBe(await unknown.text());
     // SC-009-012: un intento de otorgarse el rol por el registro no produce cookie de administración ni acceso al portal.
-    await apiCall(userOnly.request, 'POST', '/auth/register', { username: `usr_${tag}_d`, displayName: 'X', password: PASSWORD, confirmPassword: PASSWORD, role: 'ADMIN', isAdmin: true });
+    await apiCall(userOnly.request, 'POST', '/auth/register', { adultDeclaration: true, username: `usr_${tag}_d`, displayName: 'X', password: PASSWORD, confirmPassword: PASSWORD, role: 'ADMIN', isAdmin: true });
     expect((await userOnly.cookies()).map((c) => c.name)).not.toContain('argos_admin_session');
     expect((await userOnly.request.get('/api/admin/session')).status()).toBe(404);
   } finally {

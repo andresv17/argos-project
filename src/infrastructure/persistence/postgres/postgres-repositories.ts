@@ -89,7 +89,7 @@ const isStringArray: Check<string[]> = (value): value is string[] => Array.isArr
 /** COUNT(*) llega como bigint en texto. */
 const count = (row: Row | undefined): number => Number(row?.['n'] ?? 0);
 
-const USER_COLUMNS = 'SELECT id, username, password_hash, email, email_verified_at, account_status, preferred_language, timezone, data FROM users';
+const USER_COLUMNS = 'SELECT id, username, password_hash, email, email_verified_at, adult_declared_at, adult_notice_version, account_status, preferred_language, timezone, data FROM users';
 /** `$1` se reutiliza en las 11 subconsultas: un solo parámetro posicional. */
 const COUNT_REFERENCES =
   'SELECT (SELECT COUNT(*) FROM users WHERE id = $1)' +
@@ -115,6 +115,8 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
     if (language !== 'es' && language !== 'en' && language !== 'pt') throw corruptData('users', id);
     const verifiedAt = row['email_verified_at'];
     const status = row['account_status'];
+    const adultAt = row['adult_declared_at'];
+    const adultVersion = row['adult_notice_version'];
     return {
       ...profile,
       email: row['email'] as string | null,
@@ -123,10 +125,12 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
       passwordHash,
       ...(verifiedAt === null || verifiedAt === undefined ? {} : { emailVerifiedAt: String(verifiedAt) }),
       ...(status === 'ACTIVE' ? {} : { accountStatus: accountStatusOf(status, id) }),
+      ...(adultAt === null || adultAt === undefined ? {} : { adultDeclaredAt: String(adultAt) }),
+      ...(adultVersion === null || adultVersion === undefined ? {} : { adultNoticeVersion: String(adultVersion) }),
     };
   };
   const split = (user: UserAccount) => {
-    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, ...profile } = user;
+    const { passwordHash, email, preferredLanguage, timezone, emailVerifiedAt: _verifiedAt, accountStatus: _status, adultDeclaredAt: _adultAt, adultNoticeVersion: _adultVersion, ...profile } = user;
     if (passwordHash === '') throw new DomainError('ERR-INTERNAL-UNEXPECTED', `Usuario sin hash de contraseña (${user.id}); no se guarda.`);
     return { passwordHash, email, preferredLanguage, timezone, data: encode<UserPublicProfile>('users', user.id, profile, validateUserPublicProfile) };
   };
@@ -167,8 +171,8 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
     async insert(user) {
       const { passwordHash, email, preferredLanguage, timezone, data } = split(user);
       await client.query(
-        'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9)',
-        [user.id, user.username, passwordHash, data, email, preferredLanguage, timezone, user.emailVerifiedAt ?? null, user.accountStatus ?? 'ACTIVE'],
+        'INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status, adult_declared_at, adult_notice_version) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11)',
+        [user.id, user.username, passwordHash, data, email, preferredLanguage, timezone, user.emailVerifiedAt ?? null, user.accountStatus ?? 'ACTIVE', user.adultDeclaredAt ?? null, user.adultNoticeVersion ?? null],
       );
     },
     async update(user) {

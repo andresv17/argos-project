@@ -64,7 +64,7 @@ describe('T1125 fallo uniforme por HTTP (INV-VIN8-001, REQ-VIN8-001; SC-008-009,
     const flow = await loginFlow(api);
     const step = await callback(api, flow.oauth, `code=${GOOGLE_CODE}&state=${flow.state}`);
     expect(step.status).toBe(200);
-    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'victima.real' }, contract: false });
+    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'victima.real', adultDeclaration: true }, contract: false });
     expect(chosen.status).toBe(201);
     expect(chosen.json).toEqual({ accountStatus: 'PENDING' }); // 009 (EDGE-009-006): sin sesión; el correo verificado se lee de la fila
     expect(api.db.prepare("SELECT email FROM users WHERE username = 'victima.real'").pluck().get()).toBe(GOOGLE_EMAIL);

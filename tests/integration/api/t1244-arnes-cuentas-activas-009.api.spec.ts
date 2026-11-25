@@ -7,7 +7,7 @@ import { createIdentityApi, type Api } from './api-harness.ts';
  * T1244 (Feature 009, Fase 4, #18; ADR-009-10): el arnés que crea cuentas ACTIVE por repositorio para las pruebas que registran y esperan sesión. La política de registro la cambia T1246 (el alta nace PENDING; el arnés la activa).
  * REQ-APR9-004, NFR-009-002; SC-009-005. Inventario de las pruebas afectadas: `.specify/memory/audits/keymaker-009-T1244-inventory.md`.
  */
-const BODY = { username: 'nueva.t1244', displayName: 'Nueva', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' };
+const BODY = { username: 'nueva.t1244', displayName: 'Nueva', password: 'Clave2026x!', confirmPassword: 'Clave2026x!', adultDeclaration: true };
 let api: Api | null = null;
 afterEach(async () => {
   await api?.close();

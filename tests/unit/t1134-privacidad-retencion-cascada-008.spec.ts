@@ -167,7 +167,7 @@ describe('[NFR-008-004][REQ-VIN8-004] auditoría sin correo ni sub de Google', (
     const started = await start.execute();
     const chooser = await complete.execute({ oauthToken: started.oauthToken, code: GOOGLE_CODE, state: new URL(started.authorizationUrl).searchParams.get('state')! });
     expect(chooser).toMatchObject({ kind: 'CHOOSE_USERNAME' });
-    await choose.execute((chooser as { oauthToken: string }).oauthToken, { username: 'nueva.t1134' });
+    await choose.execute((chooser as { oauthToken: string }).oauthToken, { username: 'nueva.t1134', adultDeclaration: true });
     const audit = memoryAudit();
     expect(audit).toContain('"CREATE"');
     expect(audit).not.toContain(EMAIL);
@@ -180,7 +180,7 @@ describe('[NFR-008-004][REQ-VIN8-004] auditoría sin correo ni sub de Google', (
     oidc.identity = { sub: SUB, email: EMAIL };
     const started = await start.execute();
     const chooser = await complete.execute({ oauthToken: started.oauthToken, code: GOOGLE_CODE, state: new URL(started.authorizationUrl).searchParams.get('state')! });
-    await choose.execute((chooser as { oauthToken: string }).oauthToken, { username: 'nueva.t1134' });
+    await choose.execute((chooser as { oauthToken: string }).oauthToken, { username: 'nueva.t1134', adultDeclaration: true });
     const rows = (h.uow as unknown as { state: { auditLog: Array<{ previousStateHash: string | null; newStateHash: string | null }> } }).state.auditLog;
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {

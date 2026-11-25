@@ -57,6 +57,50 @@ export function TextField({ id, label, name, value, onChange, errors, type = 'te
 }
 
 /**
+ * Casilla de verificación accesible (010, REQ-MEN10-001): etiqueta asociada, error en `aria-describedby` y `aria-invalid`; objetivo táctil de 48 px.
+ *
+ * @implements REQ-UI-004, REQ-MEN10-001
+ */
+export function CheckboxField({ id, label, name, checked, onChange, errors, required = false }: {
+  readonly id: string;
+  readonly label: string;
+  readonly name: string;
+  readonly checked: boolean;
+  readonly onChange: (name: string, checked: boolean) => void;
+  readonly errors: FieldErrors;
+  readonly required?: boolean;
+}): JSX.Element {
+  const error = errors[name];
+  const errorId = `${id}-error`;
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="flex min-h-12 items-center gap-3 text-sm font-medium text-slate-800">
+        <input
+          id={id}
+          name={name}
+          type="checkbox"
+          checked={checked}
+          required={required}
+          aria-invalid={error === undefined ? undefined : true}
+          aria-describedby={error === undefined ? undefined : errorId}
+          onChange={(e) => onChange(name, e.target.checked)}
+          className="h-6 w-6 shrink-0 rounded border-border-strong accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
+        />
+        <span>
+          {label}
+          {required ? <span aria-hidden="true"> *</span> : null}
+        </span>
+      </label>
+      {error === undefined ? null : (
+        <p id={errorId} className="text-sm text-red-800">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * Campo de contraseña con botón "Mostrar contraseña" (alterna `type`); el botón (nombre accesible visible
  * "Mostrar contraseña", estado en `aria-pressed`, sin `aria-label` para no duplicar el campo en `getByLabel`).
  *

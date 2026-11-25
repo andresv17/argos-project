@@ -41,6 +41,7 @@ async function bornWithGoogle(page: Page, sub: string, email: string, username: 
   await callback;
   await expect(page).toHaveURL(/\/elige-usuario$/);
   await page.getByLabel(/^Usuario/).fill(username);
+  await page.getByLabel('Soy mayor de edad (18+)').check();
   await page.getByRole('button', { name: 'Continuar' }).click();
   await expect(page).toHaveURL(/\/solicitud-en-revision$/); // 009: la cuenta nace PENDING y sin sesión; se aprueba por repositorio (T1244) y se vuelve a entrar con Google
   await activateInFile(sim.databasePath, username);

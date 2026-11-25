@@ -34,7 +34,7 @@ describe('T724 composición de parámetros de plataforma en createProductionApp'
   it('[SC-005-004][SC-005-034] limits sigue la fila: 10 sembrado, 12 editado y 10 con un valor ilegible', async () => {
     const path = join(dir, 'argos.sqlite');
     const first = await createProductionApp(loadAppConfig({ NODE_ENV: 'test', DATABASE_PATH: path, ARGOS_MEDIA_DRIVER: 'memory' }), false);
-    const register = await first.inject({ method: 'POST', url: '/api/auth/register', headers: CSRF, payload: { username: 'luna.t724', displayName: 'Luna T724', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' } });
+    const register = await first.inject({ method: 'POST', url: '/api/auth/register', headers: CSRF, payload: { adultDeclaration: true, username: 'luna.t724', displayName: 'Luna T724', password: 'Clave2026x!', confirmPassword: 'Clave2026x!' } });
     expect(register.statusCode).toBe(201);
     await activateInFile(path, 'luna.t724'); // 009 (T1246): el alta nace PENDING y sin sesión; el arnés T1244 la activa
     const login = await first.inject({ method: 'POST', url: '/api/auth/login', headers: CSRF, payload: { username: 'luna.t724', password: 'Clave2026x!' } });

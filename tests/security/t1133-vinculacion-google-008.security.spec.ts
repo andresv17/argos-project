@@ -79,7 +79,7 @@ describe('T1133 V-A pre-hijacking (EDGE-008-003, EDGE-008-023, INV-VIN8-005, REQ
     // Antes de elegir usuario no hay identidad ni sesión: el paso intermedio no vincula nada.
     expect(identityRows(api)).toEqual([]);
     expect(cookieNamed(step, 'argos_session')).toBeUndefined();
-    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'victima.real' } });
+    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'victima.real', adultDeclaration: true } });
     expect(chosen.status).toBe(201);
     const rows = identityRows(api);
     expect(rows).toHaveLength(1);
@@ -96,7 +96,7 @@ describe('T1133 V-A pre-hijacking (EDGE-008-003, EDGE-008-023, INV-VIN8-005, REQ
     oidc.identity = { sub: 'sub-victima', email: GOOGLE_EMAIL };
     const first = await loginFlow(api);
     const step = await callback(api, first.oauth, `code=${GOOGLE_CODE}&state=${first.state}`);
-    await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'victima.real' } });
+    await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'victima.real', adultDeclaration: true } });
     // Un segundo `sub` (otro Google) con ese mismo correo, ahora VERIFICADO en la cuenta de la víctima: fallo uniforme, sin tocar usuarios.
     oidc.identity = { sub: 'sub-impostor', email: GOOGLE_EMAIL };
     const before = usersDump(api);
@@ -263,10 +263,10 @@ describe('T1133 V-B CSRF de startGoogleLink y del callback (INV-AUTH-007, REQ-VI
     const flow = await loginFlow(api);
     const step = await callback(api, flow.oauth, `code=${GOOGLE_CODE}&state=${flow.state}`);
     const oauth = `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`;
-    const forged = await api.call('POST', '/api/auth/google/username', { cookie: oauth, csrf: false, body: { username: 'forzado.x' }, contract: false });
+    const forged = await api.call('POST', '/api/auth/google/username', { cookie: oauth, csrf: false, body: { username: 'forzado.x', adultDeclaration: true }, contract: false });
     expect(forged.status).toBe(403);
     expect(identityRows(api)).toEqual([]);
-    const real = await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'legitimo.x' } });
+    const real = await api.call('POST', '/api/auth/google/username', { cookie: oauth, body: { username: 'legitimo.x', adultDeclaration: true } });
     expect(real.status).toBe(201);
   });
 
@@ -330,7 +330,7 @@ describe('T1133 V-B CSRF de startGoogleLink y del callback (INV-AUTH-007, REQ-VI
     const { api } = await boot();
     const mineGoogle = await loginFlow(api);
     const step = await callback(api, mineGoogle.oauth, `code=${GOOGLE_CODE}&state=${mineGoogle.state}`);
-    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'con.google' }, contract: false });
+    const chosen = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'con.google', adultDeclaration: true }, contract: false });
     expect(cookieNamed(chosen, 'argos_session')).toBeUndefined(); // 009 (EDGE-009-006): la cuenta nace PENDING, sin sesión
     await activateAccount(sqliteRunner(api.db), 'sqlite', 'con.google', api.clock.nowIsoTimestamp());
     const second = await loginFlow(api);
@@ -433,7 +433,7 @@ describe('T1133 V-C enumeración y respuesta uniforme (INV-VIN8-001, REQ-VIN8-00
     oidc.identity = { sub: 'sub-nuevo', email: 'nuevo@example.test' };
     const f = await loginFlow(api);
     const step = await callback(api, f.oauth, `code=${GOOGLE_CODE}&state=${f.state}`);
-    const taken = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'andres' }, contract: false });
+    const taken = await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'andres', adultDeclaration: true }, contract: false });
     expect(taken.status).toBeGreaterThanOrEqual(400);
     expect(taken.text).not.toMatch(/nuevo@example|sub-nuevo|andres@/i);
     expect(identityRows(api)).toEqual([]);
@@ -446,7 +446,7 @@ describe('T1133 V-D tiempos y coste deterministas (INV-VIN8-001; sin reloj de pa
     oidc.identity = { sub: 'sub-g', email: 'g@example.test' };
     const f = await loginFlow(api);
     const step = await callback(api, f.oauth, `code=${GOOGLE_CODE}&state=${f.state}`);
-    await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'solo.google' } });
+    await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'solo.google', adultDeclaration: true } });
     const attempt = async (user: string, password: string) => {
       api.hasher.reset();
       const r = await api.call('POST', '/api/auth/login', { body: { username: user, password } });
@@ -470,7 +470,7 @@ describe('T1133 V-D tiempos y coste deterministas (INV-VIN8-001; sin reloj de pa
     oidc.identity = { sub: 'sub-g', email: 'g@example.test' };
     const f = await loginFlow(api);
     const step = await callback(api, f.oauth, `code=${GOOGLE_CODE}&state=${f.state}`);
-    await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'solo.google' } });
+    await api.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username: 'solo.google', adultDeclaration: true } });
     for (const password of ['!no-password!', '', 'Cualquiera123x']) {
       const r = await api.call('POST', '/api/auth/login', { body: { username: 'solo.google', password }, contract: false });
       expect(r.status).toBeGreaterThanOrEqual(400);

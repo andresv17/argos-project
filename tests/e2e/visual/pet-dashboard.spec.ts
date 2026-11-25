@@ -43,11 +43,13 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     await page.getByLabel('Nombre visible').fill(USER.displayName);
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill('corta');
     await page.getByLabel('Confirmar contraseña').fill('corta');
+    await page.getByLabel('Soy mayor de edad (18+)').check();
     await page.getByRole('button', { name: 'Registrarme' }).click();
     await expect(page.getByText('La contraseña debe tener entre 10 y 128 caracteres')).toBeVisible();
     await expect(page).toHaveURL(/\/register$/);
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill(USER.password);
     await page.getByLabel('Confirmar contraseña').fill(USER.password);
+    await page.getByLabel('Soy mayor de edad (18+)').check();
     await page.getByRole('button', { name: 'Registrarme' }).click();
     await approveAndSignInViaUi(page, USER.username, USER.password); // 009: nace PENDING; aprobación por repositorio (T1244) y entrada por /login
     await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible();

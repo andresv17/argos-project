@@ -15,6 +15,7 @@ test('[SC-009-001][SC-009-002] registrarse lleva a «Tu solicitud está en revis
   await page.getByLabel(/^Nombre visible/).fill('Pendiente Prueba');
   await page.getByLabel(/^Contraseña \(/).fill('Clave2026x!Ab');
   await page.getByLabel(/^Confirmar contraseña/).fill('Clave2026x!Ab');
+  await page.getByLabel('Soy mayor de edad (18+)').check();
   await page.getByRole('button', { name: 'Registrarme' }).click();
   await expect(page).toHaveURL(/\/solicitud-en-revision$/);
   await expect(page.getByRole('heading', { name: 'Tu solicitud está en revisión' })).toBeFocused();

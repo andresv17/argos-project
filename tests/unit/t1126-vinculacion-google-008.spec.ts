@@ -125,7 +125,7 @@ describe('T1126 startGoogleLink: 409 ERR-AUTH-GOOGLE-LINK-CONFLICT solo aquí (d
     const started = await w.start.execute();
     const step = await w.complete.execute({ oauthToken: started.oauthToken, code: GOOGLE_CODE, state: stateOf(started.authorizationUrl) });
     if (step.kind !== 'CHOOSE_USERNAME') throw new Error('se esperaba CHOOSE_USERNAME');
-    expect(await w.choose.execute(step.oauthToken, { username: 'nacida.google' })).toEqual({ accountStatus: 'PENDING' }); // 009: nace PENDING y sin sesión
+    expect(await w.choose.execute(step.oauthToken, { username: 'nacida.google', adultDeclaration: true })).toEqual({ accountStatus: 'PENDING' }); // 009: nace PENDING y sin sesión
     const bornId = memory(w).users.find((u) => u.username === 'nacida.google')!.id;
     await seedSession(w, 'sesion-google', bornId);
     const error = await failure(w.link.execute(bornId, 'sesion-google', { currentPassword: 'CualquierClave99' }));
@@ -197,7 +197,7 @@ describe('T1126 pre-hijacking y correo (REQ-VIN8-001, REQ-VIN8-003, INV-VIN8-005
     expect(step.kind).toBe('CHOOSE_USERNAME');
     expect(await identitiesOf(w, MARIA)).toEqual([]);
     if (step.kind !== 'CHOOSE_USERNAME') throw new Error('inalcanzable');
-    expect(await w.choose.execute(step.oauthToken, { username: 'victima.real' })).toEqual({ accountStatus: 'PENDING' });
+    expect(await w.choose.execute(step.oauthToken, { username: 'victima.real', adultDeclaration: true })).toEqual({ accountStatus: 'PENDING' });
     const createdId = memory(w).users.find((u) => u.username === 'victima.real')!.id;
     expect(createdId).not.toBe(MARIA);
     expect(await identitiesOf(w, MARIA)).toEqual([]);

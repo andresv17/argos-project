@@ -67,6 +67,7 @@ test.describe('axe-core a 320, 1024 y 1280 px (tests/e2e/accessibility)', () => 
     const empty = await accessibilityFindings(page, 'registro');
     await page.getByLabel('Contraseña (10 a 128, con mayúscula, número y símbolo)').fill('corta');
     await page.getByLabel('Confirmar contraseña').fill('corta');
+    await page.getByLabel('Soy mayor de edad (18+)').check();
     await page.getByRole('button', { name: 'Registrarme' }).click();
     await expect(page.getByText('La contraseña debe tener entre 10 y 128 caracteres')).toBeVisible();
     expect([...empty, ...(await accessibilityFindings(page, 'registro-errores'))]).toEqual([]);

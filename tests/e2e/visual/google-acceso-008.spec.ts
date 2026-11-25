@@ -66,6 +66,7 @@ test.describe('acceso con Google simulado (T1123)', () => {
     const heading = page.getByRole('heading', { name: 'Elige tu usuario' });
     await expect(heading).toBeFocused();
     await page.getByLabel(/^Usuario/).fill(username);
+    await page.getByLabel('Soy mayor de edad (18+)').check();
     await page.getByRole('button', { name: 'Continuar' }).click();
     await expect(page).toHaveURL(/\/solicitud-en-revision$/); // 009: la cuenta nace PENDING, sin sesión
     expect(await cookieNamed(page, 'argos_session')).toBeUndefined();
@@ -158,6 +159,7 @@ test.describe('acceso con Google simulado (T1123)', () => {
     await page.goto('/elige-usuario');
     await expect(page.getByRole('heading', { name: 'Elige tu usuario' })).toBeFocused();
     await page.getByLabel(/^Usuario/).fill(`${tag}sinflujo`);
+    await page.getByLabel('Soy mayor de edad (18+)').check();
     await page.getByRole('button', { name: 'Continuar' }).click();
     const alert = page.getByRole('alert');
     await expect(alert).toHaveText(NEUTRAL);
@@ -173,6 +175,7 @@ test.describe('acceso con Google simulado (T1123)', () => {
     await expect(page.getByRole('heading', { name: 'Elige tu usuario' })).toBeFocused();
     // Inválido (validación de cliente): el foco va al campo, que apunta al error con aria-describedby.
     await field.fill('a b!');
+    await page.getByLabel('Soy mayor de edad (18+)').check();
     await page.getByRole('button', { name: 'Continuar' }).click();
     await expect(field).toBeFocused();
     await expect(field).toHaveAttribute('aria-invalid', 'true');
@@ -183,6 +186,7 @@ test.describe('acceso con Google simulado (T1123)', () => {
       route.fulfill({ status: 409, contentType: 'application/problem+json', body: JSON.stringify({ type: 'urn:argos:error:ERR-AUTH-USERNAME-TAKEN', title: 'Nombre de usuario no disponible', status: 409, code: 'ERR-AUTH-USERNAME-TAKEN', detail: 'Ya existe una cuenta con ese nombre de usuario.', invariantRef: 'INV-AUTH-001', field: 'username' }) }),
     );
     await field.fill(`${tag}ocupado`);
+    await page.getByLabel('Soy mayor de edad (18+)').check();
     await page.getByRole('button', { name: 'Continuar' }).click();
     await expect(page.locator('#choose-username-error')).toHaveText('Ya existe una cuenta con ese nombre de usuario.');
     await expect(field).toBeFocused();
@@ -227,6 +231,7 @@ test.describe('acceso con Google simulado (T1123)', () => {
     // Con clic en el botón el foco se mueve al campo (el lector lee aria-describedby): la live region queda vacía, sin doble lectura.
     await page.reload();
     await field.fill('a b!');
+    await page.getByLabel('Soy mayor de edad (18+)').check();
     await page.getByRole('button', { name: 'Continuar' }).click();
     await expect(field).toBeFocused();
     await expect(ERROR).toBeVisible();

@@ -70,7 +70,7 @@ async function appWithCapturedStdout(): Promise<{ app: FastifyInstance; lines: s
 async function login(app: FastifyInstance, db: SqliteDatabase): Promise<string> {
   const registered = await app.inject({
     method: 'POST', url: '/api/auth/register', headers: CSRF, remoteAddress: CLIENT_IP,
-    payload: { username: 'lucia', password: PASSWORD, confirmPassword: PASSWORD, displayName: 'Lucía', email: 'lucia.privada@example.com' },
+    payload: { adultDeclaration: true, username: 'lucia', password: PASSWORD, confirmPassword: PASSWORD, displayName: 'Lucía', email: 'lucia.privada@example.com' },
   });
   expect(registered.statusCode).toBe(201);
   // 009 (T1246): el alta nace PENDING y sin sesión; el arnés T1244 la activa y la persona entra con sus credenciales.

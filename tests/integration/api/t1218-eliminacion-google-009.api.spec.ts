@@ -52,7 +52,7 @@ async function googleLogin(a: Api): Promise<string> {
 async function bornWithGoogle(a: Api, username = 'gina.google'): Promise<{ session: string; userId: string }> {
   const start = await a.call('GET', '/api/auth/google/start', { csrf: false });
   const step = await callback(a, `argos_oauth=${valueOf(cookieNamed(start, 'argos_oauth'))}`, `code=${GOOGLE_CODE}&state=${stateOfUrl(start.headers['location'] as string)}`);
-  const chosen = await a.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username }, contract: false });
+  const chosen = await a.call('POST', '/api/auth/google/username', { cookie: `argos_oauth=${valueOf(cookieNamed(step, 'argos_oauth'))}`, body: { username, adultDeclaration: true }, contract: false });
   expect(chosen.status).toBe(201);
   // 009 (T1246, EDGE-009-006): la cuenta nace PENDING y sin sesión; el arnés (T1244) la activa y entra de nuevo con Google para obtener la sesión.
   expect(chosen.json).toEqual({ accountStatus: 'PENDING' });
