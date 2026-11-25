@@ -203,3 +203,9 @@
 - Veredictos: minimización PASS, cuentas anteriores PASS, retención PASS CON OBS, procedimiento menor PASS CON OBS. Puntos legales: 1 aceptable con cambio, 2 aceptable, 3 aceptable con cambio, 4 aceptable con cambio menor, 5 aceptable. Jurisdicción: no evaluable por /rama (abogado).
 - Hallazgos: RAMA-T1426-01 (MEDIO) supresión sin acción de admin no operable sin romper cascada atómica (runbook o deuda, decide Neo); -02 (BAJO) no pedir documentos al confirmar; -03 (BAJO) Términos §3 sin remisión a condiciones de §10.
 - Acta: .specify/memory/audits/rama-010-T1426-menores-2026-11-25.md. Sin código, specs ni tasks.md; sin [x], sin push. Falta parte /lock (flujo Google).
+
+## 2026-11-25 · Feature 010 · T1432 parte /rama (privacidad de la foto de «Acerca de», #33) · HEAD 3fbc04b · solo lectura
+- CC: EXIF PASS (stripImageMetadata antes de storage.put, about-use-cases.ts; lista blanca JPEG/PNG/WebP, image-metadata-stripper.ts:105,131,181). Retención PASS CON OBS (sustitución con DELETE en la misma petición; conciliación about/ protege la foto viva por clave exacta, 15 min; GCS media sin soft delete ni versionado).
+- Pública PASS CON OBS: sin clave ni ruta de almacenamiento; Cache-Control public max-age=60 sin prueba; Cloudflare no cachea /api/*. Auditoría PASS (ABOUT_UPDATE y ABOUT_PHOTO_UPDATE solo con objectRef=about, sin texto, alt, clave ni bytes).
+- Consentimiento FAIL de cobertura: legal-texts.md sin mención de /acerca-de ni de publicación del operador (0 coincidencias). Sin sustitutos legales: pendiente de abogado (P4-a..e). Hallazgo RAMA-T1432-01 MEDIO: no hay retirada de la foto.
+- Pruebas: vitest 5 archivos, 75 pasan, 21 omitidas (PG sin TEST_DATABASE_URL). Acta: .specify/memory/audits/rama-010-T1432-about-2026-11-25.md. Sin cambios en código, pruebas, specs ni tasks; sin [x], sin push.
