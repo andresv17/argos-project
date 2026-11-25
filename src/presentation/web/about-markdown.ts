@@ -33,8 +33,9 @@ function clean(source: string): string {
   return current.replace(/[<>]/g, '');
 }
 
-const SAFE_HREF = /^(?:https?:\/\/[^\s"'<>]+|mailto:[^\s"'<>]+|\/(?!\/)[^\s"'<>]*|#[^\s"'<>]*)$/i;
-const LINK = /\[([^\]\n]+)\]\(([^)\n]*)\)/g;
+const SAFE_HREF = /^(?:https?:\/\/[^\s"'<>]+|mailto:[^\s"'<>]+|\/(?![\/\\])[^\s"'<>]*|#[^\s"'<>]*)$/i;
+/** Destino con un nivel de paréntesis anidado (`[x](javascript:alert(1))`): igual que el servidor, el `)` interno no cierra el enlace y no queda suelto en el texto. */
+const LINK = /\[([^\]\n]+)\]\(((?:[^()\n]|\([^()\n]*\))*)\)/g;
 
 export function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');

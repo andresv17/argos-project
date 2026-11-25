@@ -14,6 +14,41 @@ const PRIMARY = `${BUTTON} border-primary bg-primary text-cream hover:bg-primary
 const OUTLINE = `${BUTTON} border-primary bg-white text-primary hover:bg-meadow`;
 const FIELD = `w-full rounded-xl border border-slate-400 bg-white px-3 py-2 text-base text-text-primary ${FOCUS_RING}`;
 
+const LINK_RING = '[&_a]:rounded-sm [&_a]:focus:outline-none [&_a]:focus-visible:ring-2 [&_a]:focus-visible:ring-terracota [&_a]:focus-visible:ring-offset-2';
+
+/**
+ * Aviso (no bloquea) cuando hay foto publicada y el texto alternativo está vacío: REQ-ACE10-001 pide `alt` accesible en la página pública, pero el contrato admite `photoAlt` vacío
+ * (imagen decorativa), así que el panel avisa en lugar de impedir guardar. Sin foto no hay nada que describir.
+ */
+export function altWarning(photoUrl: string | null, alt: string): string | null {
+  return photoUrl !== null && alt.trim() === '' ? 'La foto no tiene texto alternativo: las personas que usan lector de pantalla no sabrán qué muestra. Descríbela en pocas palabras.' : null;
+}
+
+/** Bloque de conflicto 412: alerta anunciada, con foco programático y botón que recarga la versión vigente. */
+export function ConflictNotice({ onReload, innerRef }: { readonly onReload: () => void; readonly innerRef?: React.Ref<HTMLDivElement> }): JSX.Element {
+  return (
+    <div ref={innerRef} tabIndex={-1} role="alert" className={`rounded-xl border border-danger bg-red-50 p-4 text-sm text-text-primary ${FOCUS_RING}`}>
+      <p className="font-semibold">Otra persona guardó cambios mientras editabas (versión desactualizada).</p>
+      <p className="mt-1">Recarga para ver la versión vigente; los cambios de este formulario no se guardaron.</p>
+      <button type="button" onClick={onReload} className={`${OUTLINE} mt-3`}>
+        Recargar la versión vigente
+      </button>
+    </div>
+  );
+}
+
+/** Campo del texto (tope 20 000 en el propio campo) con su contador. */
+export function BodyEditor({ body, onChange }: { readonly body: string; readonly onChange: (value: string) => void }): JSX.Element {
+  return (
+    <>
+      <textarea id="about-body" rows={12} maxLength={ABOUT_BODY_MAX_CHARS} value={body} onChange={(event) => onChange(event.target.value)} aria-describedby="about-count" className={FIELD} />
+      <p id="about-count" className="text-sm text-text-muted">
+        {body.length} de {ABOUT_BODY_MAX_CHARS} caracteres. El HTML, las imágenes y los enlaces no seguros se eliminan al guardar.
+      </p>
+    </>
+  );
+}
+
 type LoadState = 'loading' | 'ready' | 'error';
 type Notice = { readonly kind: 'ok' | 'error'; readonly text: string } | null;
 
@@ -92,6 +127,7 @@ export function AboutPanel({ onSessionLost }: { readonly onSessionLost: () => vo
     if (fileRef.current !== null) fileRef.current.value = '';
   };
 
+  const altHint = altWarning(saved?.photoUrl ?? null, alt);
   return (
     <section aria-labelledby="about-heading" className="mt-6 max-w-3xl rounded-2xl border border-slate-300 bg-white p-5 shadow-sm sm:p-6">
       <h2 id="about-heading" className="text-xl font-bold text-text-primary">
@@ -112,15 +148,9 @@ export function AboutPanel({ onSessionLost }: { readonly onSessionLost: () => vo
         </div>
       ) : null}
       {load === 'ready' && saved !== null ? (
-        <div className="mt-4 grid gap-5">
+        <div className="mt-4 grid gap-5 [&>*]:min-w-0">
           {conflict ? (
-            <div ref={conflictRef} tabIndex={-1} role="alert" className={`rounded-xl border border-danger bg-red-50 p-4 text-sm text-text-primary ${FOCUS_RING}`}>
-              <p className="font-semibold">Otra persona guardó cambios mientras editabas (versión desactualizada).</p>
-              <p className="mt-1">Recarga para ver la versión vigente; los cambios de este formulario no se guardaron.</p>
-              <button type="button" onClick={() => void reload()} className={`${OUTLINE} mt-3`}>
-                Recargar la versión vigente
-              </button>
-            </div>
+            <ConflictNotice innerRef={conflictRef} onReload={() => void reload()} />
           ) : null}
 
           <div className="grid gap-2">
@@ -149,7 +179,20 @@ export function AboutPanel({ onSessionLost }: { readonly onSessionLost: () => vo
             <label htmlFor="about-alt" className="text-sm font-medium text-text-primary">
               Texto alternativo de la foto
             </label>
-            <input id="about-alt" type="text" maxLength={ABOUT_ALT_MAX_CHARS} value={alt} onChange={(event) => setAlt(event.target.value)} className={FIELD} />
+            <input
+              id="about-alt"
+              type="text"
+              maxLength={ABOUT_ALT_MAX_CHARS}
+              value={alt}
+              onChange={(event) => setAlt(event.target.value)}
+              aria-describedby={altHint === null ? undefined : 'about-alt-hint'}
+              className={FIELD}
+            />
+            {altHint !== null ? (
+              <p id="about-alt-hint" className="text-sm font-medium text-text-primary">
+                Aviso: {altHint}
+              </p>
+            ) : null}
           </div>
 
           <div className="grid gap-2">
@@ -157,7 +200,7 @@ export function AboutPanel({ onSessionLost }: { readonly onSessionLost: () => vo
               <label htmlFor="about-body" className="text-sm font-medium text-text-primary">
                 Texto (Markdown básico)
               </label>
-              <button type="button" aria-pressed={preview} onClick={() => setPreview((value) => !value)} className={`${OUTLINE} !min-h-10`}>
+              <button type="button" aria-pressed={preview} onClick={() => setPreview((value) => !value)} className={OUTLINE}>
                 {preview ? 'Volver al editor' : 'Vista previa'}
               </button>
             </div>
@@ -165,15 +208,13 @@ export function AboutPanel({ onSessionLost }: { readonly onSessionLost: () => vo
               <div
                 aria-label="Vista previa del texto"
                 role="region"
-                className="grid min-h-40 gap-3 rounded-xl border border-slate-300 bg-cream p-4 text-base leading-relaxed [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
+                data-about-preview
+                className={`grid min-h-40 min-w-0 gap-3 rounded-xl border border-slate-300 bg-cream p-4 text-base leading-relaxed [overflow-wrap:anywhere] [&>*]:min-w-0 ${LINK_RING} [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6`}
                 dangerouslySetInnerHTML={{ __html: renderAboutMarkdown(body, 1) }}
               />
             ) : (
-              <textarea id="about-body" rows={12} maxLength={ABOUT_BODY_MAX_CHARS} value={body} onChange={(event) => setBody(event.target.value)} aria-describedby="about-count" className={FIELD} />
+              <BodyEditor body={body} onChange={setBody} />
             )}
-            <p id="about-count" className="text-sm text-text-muted">
-              {body.length} de {ABOUT_BODY_MAX_CHARS} caracteres. El HTML, las imágenes y los enlaces no seguros se eliminan al guardar.
-            </p>
           </div>
 
           <div>

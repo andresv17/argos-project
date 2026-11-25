@@ -73,11 +73,11 @@ export function AboutPage(): JSX.Element {
           ) : null}
           {empty ? <p className="mt-4 text-base text-text-muted">Aún no hay información publicada. Vuelve pronto.</p> : null}
           {about !== null && !empty ? (
-            <div className="mt-4 grid gap-4">
+            <div className="mt-4 grid gap-4 [&>*]:min-w-0">
               {about.photoUrl !== null ? (
                 <img src={about.photoUrl} alt={about.photoAlt} className="h-auto max-h-[28rem] w-full rounded-2xl object-cover" />
               ) : null}
-              <div className="about-text grid gap-3 text-base leading-relaxed [&_a]:font-semibold [&_a]:text-primary [&_a]:underline [&_h2]:text-2xl [&_h2]:font-bold [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: renderAboutMarkdown(about.bodyMarkdown, 1) }} />
+              <div className="about-text grid min-w-0 gap-3 text-base leading-relaxed [overflow-wrap:anywhere] [&>*]:min-w-0 [&_a]:rounded-sm [&_a]:focus:outline-none [&_a]:focus-visible:ring-2 [&_a]:focus-visible:ring-terracota [&_a]:focus-visible:ring-offset-2 [&_a]:font-semibold [&_a]:text-primary [&_a]:underline [&_h2]:text-2xl [&_h2]:font-bold [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: renderAboutMarkdown(about.bodyMarkdown, 1) }} />
             </div>
           ) : null}
         </main>
