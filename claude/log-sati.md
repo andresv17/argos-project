@@ -214,3 +214,8 @@
 - Acta: .specify/memory/audits/sati-010-T1424-casilla-2026-11-25.md. Capturas en scratchpad (fuera del repo). Sin edición de src/ ni pruebas.
 - /register y /elige-usuario a 320/1024/1280: etiqueta asociada, Tab+Espacio, foco Terracota 4.48:1, texto 14.63:1, error 8.31:1; sin marcar 0 POST y error en el formulario; marcada -> 201 y /solicitud-en-revision. axe 0 violaciones. Playwright wcag+auth-pet-forms+google-acceso rc 0 (29/29).
 - OBS-1 (BAJA) en /register con solo la casilla faltante el foco queda en el botón y el error no tiene role=alert; OBS-2 el error persiste tras marcar.
+
+## 2026-11-25 — Validación local T1431 Acerca de (51c4d67): PASS CON OBS (feature 010, sin [x])
+- Acta: .specify/memory/audits/sati-010-T1431-about-2026-11-25.md. Capturas y scripts en scratchpad/t1431 (fuera del repo). Sin edición de src/ ni pruebas. Harness: API+Vite con Google simulado de tests/e2e/admin (BD temporal; es la única vía de sesión admin), ambos procesos detenidos.
+- /acerca-de y panel /admin a 320/1024/1280: vacío, texto, foto, 412 con botón de recarga y foco, contador, vista previa, subida PUT con If-Match; axe 0 violaciones; contraste mínimo 6.21; foco Terracota; sin llamadas a /auth/me. Playwright wcag+auth-pet+google rc 0 (29/29); accessibility/ rc 1 por 1 fallo PetForm Día/Mes 36 px (ajeno a T1431).
+- OBS-1 (MEDIA-BAJA) una palabra/URL larga sin espacios genera scroll horizontal a 320 y 1024 en /acerca-de y a 320 en la vista previa (min-content de la grilla); OBS-2 botón «Vista previa» 40 px; OBS-3 alt vacío se publica sin exigencia.
