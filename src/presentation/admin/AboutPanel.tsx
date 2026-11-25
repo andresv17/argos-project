@@ -5,7 +5,7 @@
  * @implements REQ-ACE10-002, EDGE-010-006, EDGE-010-011, D10-07
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AboutMarkdownView } from '../web/about-markdown-view.tsx';
+import { AboutMarkdownView } from './about-markdown-view.tsx';
 import { ABOUT_ALT_MAX_CHARS, ABOUT_BODY_MAX_CHARS, fetchAdminAbout, saveAboutPhoto, saveAboutText, type AboutOutcome, type AdminAbout } from './about-api.ts';
 
 const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';

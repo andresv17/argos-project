@@ -2372,3 +2372,8 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 - Propiedad t1432-render-equivalencia: compara texto visible (quitar etiquetas del vocabulario cerrado + decodificar entidades; sin parser HTML instalado) tambien con viejo mal anidado, exige nuevo bien anidado; unica exclusion TRI-03. Alfabeto +4 atomos para cruzar enfasis. Rojo (3 fallos) con about-markdown.ts de HEAD -> verde 11/11. Diferencias de texto visible en 300k sembradas: ANTES 125, DESPUES 0 (202 solo serializacion).
 - pet-dashboard.spec.ts schemaVersion '3.2.0' -> '3.3.0' (autorizado; nombre argos-backup intacto): playwright 8/8 rc 0.
 - Gates: tsc 0, vitest presentation+t1428 829/829, security 641 rc 0, semgrep 0, oraculos 0, traza T1432 0.
+
+## 2026-11-25 — 010 T1431 guarda T1235 (admin no importa web/) — commit local, sin push ni [x]
+- CC-KEY-T1431-ADMIN: AboutPanel importaba `../web/about-markdown-view.tsx`. Opcion (a) descartada: presentation-architecture solo admite `web`/`admin` bajo src/presentation y web solo importa de web/. Elegida (b): copias byte a byte `admin/about-markdown.ts` y `admin/about-markdown-view.tsx`; AboutPanel importa la local.
+- Prueba nueva t1431-about-markdown-copia-admin-010 (identidad de fuentes + mismo arbol/render). Guardas tocadas: ninguna.
+- Gates: tsc 0, t1235 8/8, presentation+t1428+security 1472 rc 0, unit 3791 rc 0, semgrep 0, oraculos 0, traza T1431 0.
