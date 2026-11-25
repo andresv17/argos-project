@@ -8,6 +8,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { renderAboutMarkdown as legacyRender } from '../../fixtures/about-markdown-legacy-e384094.ts';
 import { renderAboutMarkdown } from '../../../src/presentation/web/about-markdown.ts';
+import { renderAboutMarkdown as renderAboutMarkdownAdmin } from '../../../src/presentation/admin/about-markdown.ts';
 
 describe('T1432 ORA-T1432-01: énfasis anidado, salida exacta', () => {
   const cases: ReadonlyArray<readonly [string, string]> = [
@@ -78,5 +79,30 @@ describe('T1432 ORA-T1432-03: propiedad nuevo == viejo (render congelado de e384
   it('[EDGE-010-007] énfasis cruzado: `**x _y** z_` no pierde "y" (texto visible "x y z")', () => {
     expect(visibleText(renderAboutMarkdown('**x _y** z_'))).toBe('x y z');
     expect(visibleText(renderAboutMarkdown('**x _y** z_'))).toBe(visibleText(legacyRender('**x _y** z_')));
+  });
+});
+
+// OBS-1 de /oracle sobre 31b5d46: la copia de admin/ (AboutPanel) cumple la MISMA equivalencia con el render congelado, por comportamiento y no solo por identidad de fuentes.
+describe('T1432 copia admin: la misma equivalencia con el render congelado (OBS-1 oracle, 31b5d46)', () => {
+  const input = fc.array(fc.constantFrom(...ALPHABET), { minLength: 0, maxLength: 40 }).map((parts) => parts.join(''));
+  it('[EDGE-010-007] copia admin: 0 diferencias salvo TRI-03; viejo mal anidado conserva el texto visible y el nuevo sale bien anidado', () => {
+    fc.assert(
+      fc.property(input, fc.constantFrom(0, 1), (source, offset) => {
+        const old = legacyRender(source, offset);
+        if (hasEdgeSpaceTarget(source)) return true;
+        const current = renderAboutMarkdownAdmin(source, offset);
+        expect(wellNested(current)).toBe(true);
+        expect(visibleText(current)).toBe(visibleText(old));
+        if (wellNested(old)) expect(current).toBe(old);
+        return true;
+      }),
+      { numRuns: 20000, seed: 1432 },
+    );
+  });
+  it('[EDGE-010-007] copia admin: salida exacta de énfasis anidado/cruzado y marcadores privados U+E000/U+E001', () => {
+    expect(renderAboutMarkdownAdmin('**a _b_ c**')).toBe('<p><strong>a <em>b</em> c</strong></p>');
+    expect(renderAboutMarkdownAdmin('**x _y** z_')).toBe('<p><strong>x <em>y</em></strong> z</p>');
+    expect(visibleText(renderAboutMarkdownAdmin('**x _y** z_'))).toBe(visibleText(legacyRender('**x _y** z_')));
+    expect(renderAboutMarkdownAdmin('a\uE000b\uE001c')).toBe(renderAboutMarkdown('a\uE000b\uE001c'));
   });
 });

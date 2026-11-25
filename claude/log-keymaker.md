@@ -2377,3 +2377,8 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 - CC-KEY-T1431-ADMIN: AboutPanel importaba `../web/about-markdown-view.tsx`. Opcion (a) descartada: presentation-architecture solo admite `web`/`admin` bajo src/presentation y web solo importa de web/. Elegida (b): copias byte a byte `admin/about-markdown.ts` y `admin/about-markdown-view.tsx`; AboutPanel importa la local.
 - Prueba nueva t1431-about-markdown-copia-admin-010 (identidad de fuentes + mismo arbol/render). Guardas tocadas: ninguna.
 - Gates: tsc 0, t1235 8/8, presentation+t1428+security 1472 rc 0, unit 3791 rc 0, semgrep 0, oraculos 0, traza T1431 0.
+
+## 2026-11-25 — 010 T1433 compuerta de cobertura de ramas (94.79% -> 95.04%) — commit local, sin push ni [x]
+- CC-KEY-T1433-COV: `vitest --coverage` solo mide src/domain y src/application; la copia admin (presentation) NO cuenta. Las 12 ramas sin cubrir del codigo nuevo estaban en about-use-cases.ts (9) y domain/about/about-markdown.ts (3). Umbral y config intactos.
+- Prueba nueva tests/integration/persistence/t1433-acerca-de-ramas-010.spec.ts (13): If-Match fuera de rango seguro (412), alt sobre tope (422), CAS perdido en texto y foto (412, sin huerfanos), descarte caido, PNG con CRC corrupto (422), foto publica con storage caido/objeto ausente/no imagen, sanitizador (<...>, titulo, tope de pasadas). Cierra OBS-1: propiedad t1432 parametrizada tambien sobre la copia admin (solo anadido).
+- Gates: tsc 0, vitest dirigido 846/846, coverage rc 0 (ramas 4411/4641 = 95.04%), oraculos 0, traza T1432 0.
