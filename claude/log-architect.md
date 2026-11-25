@@ -730,3 +730,7 @@ Sin commit; pendiente re-firma /merovingian.
 - APROBADA: AboutPage.tsx tiene un único fetch (GET /api/about, credentials 'omit'), sin notifyActivity ni métodos de escritura; la guarda conserva toEqual exacto, así que otro archivo nuevo con fetch sigue fallando. Pública, sin sesión: no notifica actividad (INV-AUTH2-002).
 - spec.md `H-ARCH-ACE-FETCH`. Observación: admin/about-api.ts (sesión, fuera de la guarda por ruta) no llama notifyActivity; no es objeto de este dictamen, se deja a oracle/keymaker si procede.
 - security ui-invitation-logs rc 0 (9/9). Sin src/tests, sin [x], sin push.
+
+## 2026-11-25 — 010 decisiones de Neo tras dictamen rama T1432
+- spec.md: `DEUDA-010-ABOUT-DELETE-PHOTO` (foto = REEMPLAZO, retirada futura, contrato 1.8.0 intacto), `DEC-010-ABOUT-LEGAL-REVIEW` (abogado externo antes de T1437, pendiente legal, sin redactar), `DEC-010-E2E-SCHEMAVERSION` (3.2.0→3.3.0 autorizado), `NOTA-010-TIPI-FUENTE` (pendiente /sati,/keymaker antes de T1434).
+- Sin src/tests, sin [x], sin push, sin stash.
