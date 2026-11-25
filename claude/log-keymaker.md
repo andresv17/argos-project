@@ -2317,3 +2317,8 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 ## 2026-11-25 — 010 T1424 OBS-1 de /oracle: regresión de update vs adult_* — commit local, sin push ni [x]
 - CC-KEY-T1424-OBS1: tests/integration/persistence/t1424-update-no-toca-adult-010.spec.ts (memoria/SQLite/PG17, 3 por motor): update con valores falsos conserva declaración original; entidad sin campos no la borra; cuenta anterior no recibe declaración retroactiva. src/ intacto.
 - Mutación manual temporal (revertida, src limpio): memoria dejando de filtrar adult_*, SQLite y PG añadiendo adult_* al UPDATE; cada una hizo fallar 3/3 de su motor. Gates: tsc 0, t1424 9/9 con PG17, oráculos 0 débiles, traza 010 rc 0.
+
+## 2026-11-25 — 010 T1424 OBS-1/OBS-2 de /sati: foco y error de la casilla 18+ — commit local, sin push ni [x]
+- CC-KEY-T1424-SATI: CheckboxField (Field.tsx) con role="alert" en su error; AuthPages.tsx: `shouldFocusAdultCheckbox` (enfoca la casilla en /register solo si es lo único que falta; otros campos sin cambio) y `adultErrorsFor` (marcar la casilla limpia error y aria-invalid; también aplicado en /elige-usuario). Textos y servidor intactos.
+- Prueba tests/unit/presentation/t1424-casilla-18-foco-y-error-010.spec.ts (8): roja 7/8 antes del arreglo (alerta ausente, helpers inexistentes), verde 8/8 después. No hay jsdom: foco y limpieza se prueban sobre los helpers puros y el marcado estático.
+- Gates: tsc 0; vitest presentation+t1411 756 verdes; playwright wcag+auth-pet-forms+google-008 29/29 rc 0; oráculos rc 0; traza T1424 rc 0.

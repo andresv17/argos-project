@@ -6,7 +6,7 @@
  *
  * @implements REQ-MEN10-001, REQ-LEG10-004, SC-010-007, SC-010-008, REQ-UI-005, REQ-UI-004, REQ-SSO8-003, NFR-008-002, REQ-AUTH2-001, REQ-LOG-001, REQ-LOG-002, INV-AUTH2-001, ERR-AUTH-INVALID-CREDENTIALS, ERR-AUTH-USERNAME-TAKEN, ERR-AUTH-TOO-MANY-ATTEMPTS, ERR-AUTH-WEAK-PASSWORD
  */
-import { useState, type Ref } from 'react';
+import { useState, type FormEvent, type Ref } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ACCOUNT_STATUS_ROUTE } from '../account-status.ts';
 import { Button, CheckboxField, FormError, PasswordField, TextField } from '../components/Field.tsx';
@@ -14,6 +14,7 @@ import { GOOGLE_START_PATH } from '../google-login.ts';
 import { BRAND_NAME } from '../brand.ts';
 import { useSession } from '../session.tsx';
 import { useContractForm } from '../use-contract-form.ts';
+import { formValues, validateInput, type FieldErrors } from '../validation.ts';
 import type { Schemas } from '../view-model.ts';
 
 /** Marco de autenticación. Con `titleId` el encabezado es enfocable por programa (`tabIndex=-1`): las pantallas que llegan por navegación del servidor llevan allí el foco. */
@@ -106,6 +107,18 @@ export function LoginPage(): JSX.Element {
 /** Texto de la casilla 18+ sin marcar (REQ-MEN10-001): igual al detalle del catálogo 010 (`ERR-MEN10-ADULT-DECLARATION-REQUIRED`); el servidor repite la exigencia. */
 export const ADULT_DECLARATION_REQUIRED_MESSAGE = 'Para crear la cuenta debes declarar que eres mayor de edad.';
 
+/** OBS-2 (T1424): una casilla ya marcada no conserva su error ni `aria-invalid` hasta el siguiente envío. */
+export function adultErrorsFor(errors: FieldErrors, adult: boolean): FieldErrors {
+  if (!adult || errors['adultDeclaration'] === undefined) return errors;
+  const { adultDeclaration: _resolved, ...rest } = errors;
+  return rest;
+}
+
+/** OBS-1 (T1424): el foco va a la casilla solo si es lo único que falta; con otros campos inválidos no se altera el foco. */
+export function shouldFocusAdultCheckbox(schemaErrors: FieldErrors, adult: boolean): boolean {
+  return !adult && Object.keys(schemaErrors).length === 0;
+}
+
 export function RegisterPage(): JSX.Element {
   const session = useSession();
   const navigate = useNavigate();
@@ -120,15 +133,19 @@ export function RegisterPage(): JSX.Element {
       navigate(pending === null ? '/' : ACCOUNT_STATUS_ROUTE[pending], { replace: true });
     },
   });
+  const onSubmit = (e: FormEvent): void => {
+    if (shouldFocusAdultCheckbox(validateInput('RegisterUserInput', formValues(form.values, [], [])), adult)) document.getElementById('register-adultDeclaration')?.focus();
+    void form.onSubmit(e);
+  };
   return (
     <AuthLayout title="Crear cuenta">
-      <form noValidate aria-label="Crear cuenta" onSubmit={(e) => void form.onSubmit(e)} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <form noValidate aria-label="Crear cuenta" onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <TextField id="register-username" label="Usuario (letras, números, . _ -)" name="username" autoComplete="username" required value={form.values.username ?? ''} onChange={form.onChange} errors={form.errors} />
         <TextField id="register-displayName" label="Nombre visible" name="displayName" autoComplete="name" required value={form.values.displayName ?? ''} onChange={form.onChange} errors={form.errors} />
         <TextField id="register-email" label="Correo (opcional)" name="email" type="email" autoComplete="email" value={form.values.email ?? ''} onChange={form.onChange} errors={form.errors} />
         <PasswordField id="register-password" label="Contraseña (10 a 128, con mayúscula, número y símbolo)" name="password" autoComplete="new-password" required value={form.values.password ?? ''} onChange={form.onChange} errors={form.errors} />
         <PasswordField id="register-confirmPassword" label="Confirmar contraseña" name="confirmPassword" autoComplete="new-password" required value={form.values.confirmPassword ?? ''} onChange={form.onChange} errors={form.errors} />
-        <CheckboxField id="register-adultDeclaration" label="Soy mayor de edad (18+)" name="adultDeclaration" required checked={adult} onChange={(_name, checked) => setAdult(checked)} errors={form.errors} />
+        <CheckboxField id="register-adultDeclaration" label="Soy mayor de edad (18+)" name="adultDeclaration" required checked={adult} onChange={(_name, checked) => setAdult(checked)} errors={adultErrorsFor(form.errors, adult)} />
         <FormError errors={form.errors} message={form.message} />
         <Button type="submit" disabled={form.busy}>
           Registrarme

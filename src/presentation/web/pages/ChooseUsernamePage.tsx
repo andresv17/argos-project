@@ -15,7 +15,7 @@ import { chooseUsernameFeedback } from '../google-login.ts';
 import { useSession } from '../session.tsx';
 import { formValues, validateInput, type FieldErrors } from '../validation.ts';
 import type { Schemas } from '../view-model.ts';
-import { ADULT_DECLARATION_REQUIRED_MESSAGE, AuthLayout } from './AuthPages.tsx';
+import { ADULT_DECLARATION_REQUIRED_MESSAGE, AuthLayout, adultErrorsFor } from './AuthPages.tsx';
 
 interface ChooseUsernameViewProps {
   readonly values: Readonly<Record<string, string>>;
@@ -40,7 +40,7 @@ export function ChooseUsernameView({ values, errors, message, restart, busy, ann
       <p className="mb-3 text-sm text-slate-800">Es el nombre con el que te encontrarán en Tipi. Podrás cambiar tu nombre visible más adelante.</p>
       <form noValidate aria-labelledby="choose-username-title" onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <TextField id="choose-username" label="Usuario (letras, números, . _ -)" name="username" autoComplete="username" required value={values['username'] ?? ''} onChange={onChange} errors={errors} />
-        <CheckboxField id="choose-adultDeclaration" label="Soy mayor de edad (18+)" name="adultDeclaration" required checked={adult} onChange={(_name, checked) => onAdultChange(checked)} errors={errors} />
+        <CheckboxField id="choose-adultDeclaration" label="Soy mayor de edad (18+)" name="adultDeclaration" required checked={adult} onChange={(_name, checked) => onAdultChange(checked)} errors={adultErrorsFor(errors, adult)} />
         <FormError message={message} />
         <p id="choose-username-announce" aria-live="assertive" aria-atomic="true" className="sr-only">
           {announcement}

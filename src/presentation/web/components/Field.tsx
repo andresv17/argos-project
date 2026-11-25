@@ -92,7 +92,7 @@ export function CheckboxField({ id, label, name, checked, onChange, errors, requ
         </span>
       </label>
       {error === undefined ? null : (
-        <p id={errorId} className="text-sm text-red-800">
+        <p id={errorId} role="alert" className="text-sm text-red-800">
           {error}
         </p>
       )}
