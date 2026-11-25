@@ -219,3 +219,8 @@
 - Acta: .specify/memory/audits/sati-010-T1431-about-2026-11-25.md. Capturas y scripts en scratchpad/t1431 (fuera del repo). Sin edición de src/ ni pruebas. Harness: API+Vite con Google simulado de tests/e2e/admin (BD temporal; es la única vía de sesión admin), ambos procesos detenidos.
 - /acerca-de y panel /admin a 320/1024/1280: vacío, texto, foto, 412 con botón de recarga y foco, contador, vista previa, subida PUT con If-Match; axe 0 violaciones; contraste mínimo 6.21; foco Terracota; sin llamadas a /auth/me. Playwright wcag+auth-pet+google rc 0 (29/29); accessibility/ rc 1 por 1 fallo PetForm Día/Mes 36 px (ajeno a T1431).
 - OBS-1 (MEDIA-BAJA) una palabra/URL larga sin espacios genera scroll horizontal a 320 y 1024 en /acerca-de y a 320 en la vista previa (min-content de la grilla); OBS-2 botón «Vista previa» 40 px; OBS-3 alt vacío se publica sin exigencia.
+
+## 2026-11-25 — Revalidación T1431 tras fix b2ab1d9: PASS CON OBS (feature 010, sin [x])
+- Acta: .specify/memory/audits/sati-010-T1431-reflow-2026-11-25.md. Mismo harness (API+Vite Google simulado, BD temporal), axe 0, sin editar src/ ni pruebas.
+- OBS-1 reflow con token largo: sin scroll H en /acerca-de y vista previa a 320/1024/1280; acerca-de-reflow-010 rc 0 (4/4). OBS-2 «Vista previa» 48 px. OBS-3 aviso de alt vacío visible, describedby, no bloquea. Playwright 29/29 rc 0.
+- OBS-4 NO corregida (BAJA): `[&_a]:focus-visible:ring-*` compila a `:focus-visible a`; en el enlace box-shadow none, outline nativo azul. Sugerido `[&_a:focus-visible]:ring-*` en AboutPage.tsx:37 y AboutPanel.tsx:17.
