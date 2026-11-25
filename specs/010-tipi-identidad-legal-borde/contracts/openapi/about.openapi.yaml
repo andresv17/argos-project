@@ -8,10 +8,10 @@ info:
     Es un archivo NUEVO y no una version 1.8.0 de admin.openapi.yaml de 009 para no alterar lo ya compilado de 009 (src/generated/v35) ni su estado. Los OpenAPI de 004, 005, 006, 009 y el
     de declaracion de mayoria de edad de 010 permanecen sin cambio. Lectura publica anonima (sin sesion, sin cookie, sin X-Argos-Request); escritura solo con sesion de administracion
     (404 uniforme sin ella, patron de 009). Errores en application/problem+json (RFC 9457) del catalogo incremental de 010 y de los heredados.
-  x-sdd-status: DRAFT
+  x-sdd-status: APPROVED
   x-sdd-metadata:
     version: 1.0.1
-    status: DRAFT
+    status: APPROVED
     supersedes: null
     change_type: PATCH
     change_note: "1.0.1 (Architect 2026-11-25, dictamen T1428/T1429: el 413 de PUT /admin/about se tipa con ERR-ACE10-BODY-TOO-LARGE del catalogo 010 1.2.0; ninguna operacion ni esquema cambia). 1.0.0 (feature 010, Bloque E, T1429, Keymaker con autorizacion expresa de Neo Nivel 2 en Logos, 2026-11-25; D10-07 y EDGE-010-011 APPROVED 2026-11-24): documento nuevo con 5 operaciones: getPublicAbout (GET /about), getPublicAboutPhoto (GET /about/photo), getAdminAbout (GET /admin/about), updateAboutText (PUT /admin/about) y putAboutPhoto (PUT /admin/about/photo). Reglas: (1) tope de body_markdown de 20 000 caracteres (20 001 = 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir; un cuerpo mayor que el limite de lectura = 413); (2) CAS con If-Match `\"<version>\"` (obsoleto = 412 ERR-ACE10-PRECONDITION-FAILED; ausente o mal formado = 422 ERR-SCHEMA-VALIDATION-FAILED, como los parametros de 009); (3) la foto SIEMPRE incrementa `version` (EDGE-010-006), se valida por firma (JPEG, PNG, WebP; SVG, HTML, XML y PDF se rechazan, INV-ARC-002), se reescribe sin metadatos (INV-ACE10-001) y un formato o peso invalido es 422 ERR-ACE10-PHOTO-INVALID; (4) el almacenamiento caido es 502 ERR-MEDIA-STORAGE-UNAVAILABLE sin estado mixto; (5) auditoria propia admin_audit_entries: ABOUT_UPDATE y ABOUT_PHOTO_UPDATE sobre el objeto `about`, sin valores. Mutaciones: X-Argos-Request (403 antes de la sesion), sesion (404 uniforme), origen (403), esquema (422), precondicion (412). Estado DRAFT: lo fija solo Neo."

@@ -1,6 +1,6 @@
 # Implementation Plan: Identidad Tipi, legal, borde, menores y Acerca de (Feature 010)
 
-**Spec**: `spec.md` | **Tasks**: `tasks.md` | **Estado**: `DRAFT`
+**Spec**: `spec.md` | **Tasks**: `tasks.md` | **Estado**: `APPROVED` (2026-11-25, Nivel 2 Neo)
 
 ## Resumen técnico
 Cinco cambios casi independientes sobre la base 009: (1) módulo `brand` + tokens + activos del paquete `tipi-marca.zip`; (2) dos páginas React públicas; (3) configuración del número de saltos de proxy y runbook de Cloudflare; (4) declaración de mayoría de edad en el registro (columna + error de catálogo); (5) contenido «Acerca de» (tabla singleton + rutas admin/públicas). Sin dependencias nuevas (`package.json` intacto).

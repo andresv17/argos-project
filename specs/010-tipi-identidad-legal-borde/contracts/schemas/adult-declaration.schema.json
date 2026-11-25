@@ -5,7 +5,7 @@
   "description": "Declaracion de mayoria de edad (18+) del registro con usuario y contrasena y del paso /elige-usuario de Google [REQ-MEN10-001, REQ-MEN10-002, REQ-MEN10-003, INV-MEN10-001, EDGE-010-005, EDGE-010-010]. Esquemas INCREMENTALES de la feature 010: los de 004 (RegisterUserInput, GoogleChooseUsernameInput) no se editan; la API los reemplaza por estos dos cuerpos.",
   "x-sdd-metadata": {
     "version": "1.0.0",
-    "status": "DRAFT",
+    "status": "APPROVED",
     "supersedes": null,
     "change_type": "MAJOR",
     "change_note": "1.0.0 (feature 010, Bloque D, T1423, Keymaker con autorizacion expresa de Neo Nivel 2 en Logos, 2026-11-25; D10-05 y H-03 APPROVED 2026-11-24): +AdultDeclaration (booleano; solo `true` cuenta), +AdultNoticeVersion (version SemVer del texto aceptado, valor de servidor; el cliente NUNCA la envia), +RegisterUserWithAdultDeclarationInput (RegisterUserInput de 004 mas `adultDeclaration` obligatorio) y +GoogleChooseUsernameWithAdultDeclarationInput (GoogleChooseUsernameInput de 004 mas `adultDeclaration` obligatorio). Cuerpos cerrados: sin fecha de nacimiento ni documento (REQ-MEN10-003). La validacion en servidor devuelve 422 ERR-MEN10-ADULT-DECLARATION-REQUIRED ante ausencia, `false`, `null` o cualquier valor que no sea el booleano `true`, ANTES de comprobar la existencia del usuario o del correo (INV-MEN10-001) y, en Google, ANTES de consumir el estado OAuth USERNAME (H-03, opcion A: el 422 no consume el estado y el reintento con declaracion crea la cuenta). Estado DRAFT: lo fija solo Neo.",

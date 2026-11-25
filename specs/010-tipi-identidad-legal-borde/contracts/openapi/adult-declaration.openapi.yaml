@@ -8,10 +8,10 @@ info:
     declaracion «Soy mayor de edad (18+)» (D10-05, REQ-MEN10-001). Los OpenAPI de 004 (3.5.0), 005, 006 y 009 permanecen sin cambio; estas dos
     operaciones los reemplazan en cuanto a requestBody (mismos operationId, ruta, respuestas y limites). Errores en application/problem+json
     (RFC 9457) del catalogo incremental de 010 y de los heredados. Sin fecha de nacimiento ni documento (REQ-MEN10-003).
-  x-sdd-status: DRAFT
+  x-sdd-status: APPROVED
   x-sdd-metadata:
     version: 1.0.0
-    status: DRAFT
+    status: APPROVED
     supersedes: null
     change_type: MAJOR
     change_note: "1.0.0 (feature 010, Bloque D, T1423, Keymaker con autorizacion expresa de Neo Nivel 2 en Logos, 2026-11-25; D10-05 y H-03 APPROVED 2026-11-24): documento nuevo con registerUser y chooseGoogleUsername con adultDeclaration obligatorio en el cuerpo. Orden de validacion: la declaracion se comprueba ANTES de la existencia del usuario o del correo (INV-MEN10-001: el 422 es identico exista o no el usuario) y, en Google, ANTES de consumir el estado OAuth USERNAME (H-03 opcion A: el 422 no consume el estado ni retira la cookie argos_oauth; el reintento con declaracion crea la cuenta). El resto de respuestas y limites no cambia (201 AccountStatusView PENDING sin sesion, 409 username ocupado, 429). Cuentas anteriores intactas (REQ-MEN10-002). Estado DRAFT: lo fija solo Neo."
