@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArgosDeterministicErrorCatalogIncremental010",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "extends": "catalogos de 001..009 (sin editar)",
+    "change_note": "Catalogo INCREMENTAL MINIMO de la feature 010 (Architect 2026-11-24, D10-05 y D10-07 APPROVED): solo los codigos que las tareas T1423 y T1429 nombran. Los codigos de las areas TIP10, EDG10 y LEG10 no se declaran: ninguna tarea los nombra (EDG10 y LEG10 no producen errores de API). El 404 uniforme de /api/admin/about sin sesion reutiliza el patron de 009. El valor invalido de esquema referencia ERR-SCHEMA-VALIDATION-FAILED ya vigente. Se extiende al implementar si una tarea nueva lo exige.",
+    "removed": [],
+    "added": [
+      "ERR-MEN10-ADULT-DECLARATION-REQUIRED",
+      "ERR-ACE10-PHOTO-INVALID",
+      "ERR-ACE10-PRECONDITION-FAILED"
+    ],
+    "inherited": [
+      "ERR-AUTH-CSRF-REJECTED",
+      "ERR-INTERNAL-UNEXPECTED",
+      "ERR-SCHEMA-VALIDATION-FAILED"
+    ],
+    "traceability": [
+      "REQ-MEN10-001",
+      "INV-MEN10-001",
+      "REQ-ACE10-002",
+      "REQ-ACE10-003"
+    ]
+  },
+  "version": "1.0.0",
+  "status": "DRAFT",
+  "problemDetailsSchema": {
+    "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
+  },
+  "errors": {
+    "ERR-MEN10-ADULT-DECLARATION-REQUIRED": {
+      "type": "urn:argos:error:ERR-MEN10-ADULT-DECLARATION-REQUIRED",
+      "status": 422,
+      "title": "Declaracion de mayoria de edad requerida",
+      "invariantRef": "INV-MEN10-001",
+      "detailTemplate": "Para crear la cuenta debes declarar que eres mayor de edad.",
+      "requirementRef": "REQ-MEN10-001",
+      "note": "Registro con usuario/contrasena y paso /elige-usuario de Google, antes de crear la cuenta PENDING. Se valida en servidor. El detalle es uniforme: no revela si el usuario o el correo ya existen (INV-MEN10-001). Sin fecha de nacimiento ni documento (REQ-MEN10-003)."
+    },
+    "ERR-ACE10-PHOTO-INVALID": {
+      "type": "urn:argos:error:ERR-ACE10-PHOTO-INVALID",
+      "status": 422,
+      "title": "Foto de Acerca de no valida",
+      "invariantRef": "INV-ACE10-001",
+      "detailTemplate": "La foto no cumple el formato o el peso permitidos.",
+      "requirementRef": "REQ-ACE10-002",
+      "note": "Solo en /api/admin/about con sesion de administracion. Formato y peso como 004/005; la foto publicada se almacena sin EXIF."
+    },
+    "ERR-ACE10-PRECONDITION-FAILED": {
+      "type": "urn:argos:error:ERR-ACE10-PRECONDITION-FAILED",
+      "status": 412,
+      "title": "El contenido de Acerca de cambio",
+      "invariantRef": "INV-ACE10-001",
+      "detailTemplate": "El contenido cambio desde que lo abriste. Recarga e intenta de nuevo.",
+      "requirementRef": "REQ-ACE10-003",
+      "note": "CAS/versionado del singleton about_content (If-Match). Sin sesion de administracion el endpoint responde 404 uniforme, no este codigo."
+    }
+  }
+}
