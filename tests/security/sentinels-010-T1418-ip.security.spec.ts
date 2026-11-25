@@ -99,7 +99,7 @@ describe('SEN-IP-04 misma IP con puerto distinto comparte contador (H-T1418-02, 
     expect(ipLimitKey(seen[1]!)).toBe(CLIENT);
     const limiter = new RegistrationRateLimiter(() => NOW, ONE_PER_DAY);
     limiter.recordCreated(seen[0]!);
-    expect(() => limiter.assertAllowed(seen[1]!)).toThrow();
+    expect(() => limiter.assertAllowed(seen[1]!)).toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
   });
 });
 
@@ -178,14 +178,14 @@ describe('SEN-IP-07 mismo /64 comparte tope de registro (H-T1418-01, REQ-EDG10-0
     expect(ipLimitKey(seen[0]!)).toBe(ipLimitKey(seen[1]!));
     const limiter = new RegistrationRateLimiter(() => NOW, ONE_PER_DAY);
     limiter.recordCreated(seen[0]!);
-    expect(() => limiter.assertAllowed(seen[1]!)).toThrow();
+    expect(() => limiter.assertAllowed(seen[1]!)).toThrow('ERR-ACCOUNT-REGISTRATION-RATE-LIMITED');
   });
 
   it('dos /64 distintos no se comparten', () => {
     expect(ipLimitKey('2001:db8:1:2::1')).not.toBe(ipLimitKey('2001:db8:1:3::1'));
     const limiter = new RegistrationRateLimiter(() => NOW, ONE_PER_DAY);
     limiter.recordCreated('2001:db8:1:2::1');
-    expect(() => limiter.assertAllowed('2001:db8:1:3::1')).not.toThrow();
+    expect(limiter.assertAllowed('2001:db8:1:3::1')).toBeUndefined();
   });
 });
 
