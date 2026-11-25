@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/about.schema.json",
+  "title": "AboutSchema",
+  "description": "Seccion publica «Acerca de» (singleton about_content) [REQ-ACE10-001, REQ-ACE10-002, REQ-ACE10-003, REQ-ACE10-004, INV-ACE10-001, EDGE-010-006, EDGE-010-011]. Esquemas INCREMENTALES de la feature 010: ningun esquema de 004..009 se edita. La vista publica NUNCA incluye la clave del objeto de la foto, la version, el autor ni rutas de almacenamiento.",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "1.0.0 (feature 010, Bloque E, T1429, Keymaker con autorizacion expresa de Neo Nivel 2 en Logos, 2026-11-25; D10-07 y EDGE-010-011 APPROVED 2026-11-24): +AboutBodyMarkdown (tope 20 000 caracteres, EDGE-010-011), +AboutPhotoAlt (texto alternativo, 0..300), +AboutVersion y +AboutEtag (CAS; sin fila la version es 0 y el etag \"0\"), +AboutTextInput (cuerpo cerrado de la escritura de texto), +PublicAbout (vista publica cerrada de 4 propiedades) y +AdminAbout (vista de administracion con version y etag). Decision de T1429 (EDGE-010-006): subir o reemplazar la foto SIEMPRE incrementa `version` (una escritura de foto con version obsoleta pierde con 412 frente a un texto ya guardado, y viceversa). El Markdown se sanitiza en servidor al guardar (sin HTML, sin esquemas ejecutables, sin imagenes) y en cliente al pintar (D10-07). Estado DRAFT: lo fija solo Neo.",
+    "traceability": [
+      "REQ-ACE10-001",
+      "REQ-ACE10-002",
+      "REQ-ACE10-003",
+      "REQ-ACE10-004",
+      "INV-ACE10-001",
+      "EDGE-010-006",
+      "EDGE-010-007",
+      "EDGE-010-011"
+    ]
+  },
+  "$defs": {
+    "AboutBodyMarkdown": {
+      "type": "string",
+      "maxLength": 20000,
+      "description": "Texto narrativo en Markdown basico. Tope de 20 000 caracteres (~80 KB UTF-8, APPROVED 2026-11-24, EDGE-010-011): 20 000 se aceptan, 20 001 se rechazan con 422 ERR-SCHEMA-VALIDATION-FAILED. El servidor lo guarda SANITIZADO (sin HTML arbitrario, sin javascript:/vbscript:/data:, sin imagenes) [D10-07, EDGE-010-007]; la cadena vacia es el estado vacio"
+    },
+    "AboutPhotoAlt": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "Texto alternativo accesible de la foto (REQ-ACE10-001); cadena vacia si no hay foto"
+    },
+    "AboutVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Version del singleton para compare-and-set (REQ-ACE10-003). 0 = aun sin contenido; el primer guardado crea la version 1 y cada escritura de texto o de foto suma 1 (EDGE-010-006)"
+    },
+    "AboutEtag": {
+      "type": "string",
+      "pattern": "^\"[0-9]+\"$",
+      "description": "Etag fuerte `\"<version>\"` (comillas dobles incluidas); es el valor que se manda en If-Match"
+    },
+    "AboutPhotoUrl": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^/api/about/photo(\\?v=[0-9]+)?$",
+      "description": "Ruta publica de la foto en el servidor (INV-ACE10-001: sin EXIF); `null` si no hay foto. Nunca la clave del objeto ni una URL de almacenamiento [REQ-ACE10-003]"
+    },
+    "AboutTextInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bodyMarkdown",
+        "photoAlt"
+      ],
+      "properties": {
+        "bodyMarkdown": {
+          "$ref": "#/$defs/AboutBodyMarkdown"
+        },
+        "photoAlt": {
+          "$ref": "#/$defs/AboutPhotoAlt"
+        }
+      },
+      "description": "Cuerpo de PUT /admin/about: texto y alt. La foto y la version no viajan aqui (la version va en If-Match; la foto, en su propia operacion)"
+    },
+    "PublicAbout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bodyMarkdown",
+        "photoUrl",
+        "photoAlt",
+        "updatedAt"
+      ],
+      "properties": {
+        "bodyMarkdown": {
+          "$ref": "#/$defs/AboutBodyMarkdown"
+        },
+        "photoUrl": {
+          "$ref": "#/$defs/AboutPhotoUrl"
+        },
+        "photoAlt": {
+          "$ref": "#/$defs/AboutPhotoAlt"
+        },
+        "updatedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "Instante de la ultima escritura (UTC); `null` en el estado vacio"
+        }
+      },
+      "description": "Vista publica CERRADA: estado vacio = `{ bodyMarkdown: \"\", photoUrl: null, photoAlt: \"\", updatedAt: null }`. Sin clave de objeto, version, autor ni ruta de almacenamiento [REQ-ACE10-003, SC-010-032]"
+    },
+    "AdminAbout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bodyMarkdown",
+        "photoUrl",
+        "photoAlt",
+        "updatedAt",
+        "version",
+        "etag"
+      ],
+      "properties": {
+        "bodyMarkdown": {
+          "$ref": "#/$defs/AboutBodyMarkdown"
+        },
+        "photoUrl": {
+          "$ref": "#/$defs/AboutPhotoUrl"
+        },
+        "photoAlt": {
+          "$ref": "#/$defs/AboutPhotoAlt"
+        },
+        "updatedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "version": {
+          "$ref": "#/$defs/AboutVersion"
+        },
+        "etag": {
+          "$ref": "#/$defs/AboutEtag"
+        }
+      },
+      "description": "Vista de administracion: la publica mas `version` y `etag`. No incluye el id ni el correo del administrador ni la clave del objeto"
+    }
+  }
+}

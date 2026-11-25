@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalogIncremental010",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "status": "DRAFT",
     "supersedes": null,
-    "change_type": "MAJOR",
+    "change_type": "MINOR",
     "extends": "catalogos de 001..009 (sin editar)",
-    "change_note": "Catalogo INCREMENTAL MINIMO de la feature 010 (Architect 2026-11-24, D10-05 y D10-07 APPROVED): solo los codigos que las tareas T1423 y T1429 nombran. Los codigos de las areas TIP10, EDG10 y LEG10 no se declaran: ninguna tarea los nombra (EDG10 y LEG10 no producen errores de API). El 404 uniforme de /api/admin/about sin sesion reutiliza el patron de 009. El valor invalido de esquema referencia ERR-SCHEMA-VALIDATION-FAILED ya vigente. Se extiende al implementar si una tarea nueva lo exige.",
+    "change_note": "Catalogo INCREMENTAL MINIMO de la feature 010 (Architect 2026-11-24, D10-05 y D10-07 APPROVED): solo los codigos que las tareas T1423 y T1429 nombran. Los codigos de las areas TIP10, EDG10 y LEG10 no se declaran: ninguna tarea los nombra (EDG10 y LEG10 no producen errores de API). El 404 uniforme de /api/admin/about sin sesion reutiliza el patron de 009. El valor invalido de esquema referencia ERR-SCHEMA-VALIDATION-FAILED ya vigente. Se extiende al implementar si una tarea nueva lo exige. 1.1.0 (T1429, Keymaker con autorizacion de Neo Nivel 2, 2026-11-25): sin codigos nuevos; solo se declaran como heredados ERR-MEDIA-STORAGE-UNAVAILABLE (502) y ERR-SCHEMA-VALIDATION-FAILED ya listado, que las operaciones /admin/about referencian. Observacion para /architect: el 413 de un cuerpo JSON gigante en PUT /admin/about no tiene codigo de catalogo propio (se propone ERR-ACE10-BODY-TOO-LARGE si se quiere tipar).",
     "removed": [],
     "added": [
       "ERR-MEN10-ADULT-DECLARATION-REQUIRED",
@@ -17,16 +17,22 @@
     "inherited": [
       "ERR-AUTH-CSRF-REJECTED",
       "ERR-INTERNAL-UNEXPECTED",
-      "ERR-SCHEMA-VALIDATION-FAILED"
+      "ERR-SCHEMA-VALIDATION-FAILED",
+      "ERR-MEDIA-STORAGE-UNAVAILABLE"
     ],
     "traceability": [
       "REQ-MEN10-001",
       "INV-MEN10-001",
       "REQ-ACE10-002",
-      "REQ-ACE10-003"
+      "REQ-ACE10-003",
+      "REQ-ACE10-001",
+      "REQ-ACE10-004",
+      "INV-ACE10-001",
+      "EDGE-010-006",
+      "EDGE-010-011"
     ]
   },
-  "version": "1.0.0",
+  "version": "1.1.0",
   "status": "DRAFT",
   "problemDetailsSchema": {
     "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"

@@ -1,0 +1,261 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Argos Pet Health & Biometric Tracker API - delta de la feature 010 (seccion publica Acerca de)
+  version: 1.0.0
+  description: >
+    Documento INCREMENTAL de la feature 010 (Bloque E, #33): lectura publica de la seccion «Acerca de» (D10-07) y su gestion exclusiva en el portal /admin.
+    Es un archivo NUEVO y no una version 1.8.0 de admin.openapi.yaml de 009 para no alterar lo ya compilado de 009 (src/generated/v35) ni su estado. Los OpenAPI de 004, 005, 006, 009 y el
+    de declaracion de mayoria de edad de 010 permanecen sin cambio. Lectura publica anonima (sin sesion, sin cookie, sin X-Argos-Request); escritura solo con sesion de administracion
+    (404 uniforme sin ella, patron de 009). Errores en application/problem+json (RFC 9457) del catalogo incremental de 010 y de los heredados.
+  x-sdd-status: DRAFT
+  x-sdd-metadata:
+    version: 1.0.0
+    status: DRAFT
+    supersedes: null
+    change_type: MAJOR
+    change_note: "1.0.0 (feature 010, Bloque E, T1429, Keymaker con autorizacion expresa de Neo Nivel 2 en Logos, 2026-11-25; D10-07 y EDGE-010-011 APPROVED 2026-11-24): documento nuevo con 5 operaciones: getPublicAbout (GET /about), getPublicAboutPhoto (GET /about/photo), getAdminAbout (GET /admin/about), updateAboutText (PUT /admin/about) y putAboutPhoto (PUT /admin/about/photo). Reglas: (1) tope de body_markdown de 20 000 caracteres (20 001 = 422 ERR-SCHEMA-VALIDATION-FAILED sin escribir; un cuerpo mayor que el limite de lectura = 413); (2) CAS con If-Match `\"<version>\"` (obsoleto = 412 ERR-ACE10-PRECONDITION-FAILED; ausente o mal formado = 422 ERR-SCHEMA-VALIDATION-FAILED, como los parametros de 009); (3) la foto SIEMPRE incrementa `version` (EDGE-010-006), se valida por firma (JPEG, PNG, WebP; SVG, HTML, XML y PDF se rechazan, INV-ARC-002), se reescribe sin metadatos (INV-ACE10-001) y un formato o peso invalido es 422 ERR-ACE10-PHOTO-INVALID; (4) el almacenamiento caido es 502 ERR-MEDIA-STORAGE-UNAVAILABLE sin estado mixto; (5) auditoria propia admin_audit_entries: ABOUT_UPDATE y ABOUT_PHOTO_UPDATE sobre el objeto `about`, sin valores. Mutaciones: X-Argos-Request (403 antes de la sesion), sesion (404 uniforme), origen (403), esquema (422), precondicion (412). Estado DRAFT: lo fija solo Neo."
+    traceability: [REQ-ACE10-001, REQ-ACE10-002, REQ-ACE10-003, REQ-ACE10-004, INV-ACE10-001, EDGE-010-004, EDGE-010-006, EDGE-010-007, EDGE-010-011]
+servers:
+  - url: http://127.0.0.1:3100/api
+    description: Servidor local (prefijo /api)
+security:
+  - sessionCookie: []
+tags:
+  - name: about
+  - name: admin-about
+
+paths:
+  /about:
+    get:
+      tags: [about]
+      operationId: getPublicAbout
+      security: []
+      summary: "Lee el contenido publico de Acerca de (anonimo; estado vacio limpio si no hay datos) [REQ-ACE10-001, EDGE-010-004]"
+      description: "Sin sesion, sin cookie y sin X-Argos-Request: con una cookie de sesion caducada o ajena responde igual (nunca 401 ni redireccion; la cookie no se lee). La respuesta es la vista cerrada PublicAbout: sin clave de objeto, version, autor ni rutas de almacenamiento."
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ACE10-001, REQ-ACE10-003, EDGE-010-004]
+      responses:
+        '200':
+          description: "Contenido vigente o el estado vacio"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/about.schema.json#/$defs/PublicAbout' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /about/photo:
+    get:
+      tags: [about]
+      operationId: getPublicAboutPhoto
+      security: []
+      summary: "Entrega la foto publica (sin EXIF) por 200 con el tipo detectado o 302 a una URL firmada de corta vida [REQ-ACE10-001, INV-ACE10-001]"
+      description: "Anonima. Sin foto: 404. La respuesta no lleva Set-Cookie. La URL firmada, si la hay, es de corta vida y de solo lectura; la clave del objeto nunca se expone en JSON."
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ACE10-001, REQ-ACE10-003, INV-ACE10-001]
+      responses:
+        '200':
+          description: "Bytes de la foto (image/jpeg, image/png o image/webp), sin metadatos"
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        '302':
+          description: "Redireccion a la URL firmada de lectura (Location)"
+          headers:
+            Location: { schema: { type: string } }
+        '404':
+          description: "Aun no hay foto publicada"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/about:
+    get:
+      tags: [admin-about]
+      operationId: getAdminAbout
+      security:
+        - adminSessionCookie: []
+      summary: "Lee el contenido de Acerca de con su version y etag para editarlo [REQ-ACE10-002, REQ-ACE10-003]"
+      description: "Sin sesion de administracion: el 404 uniforme (text/plain 'Not Found', identico al de una ruta inexistente de /api/admin). No renueva la inactividad."
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ACE10-002, REQ-ACE10-003]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_ABOUT_READ"
+      responses:
+        '200':
+          description: "Vista de administracion (sin id ni correo del administrador, sin clave de objeto)"
+          headers:
+            ETag: { $ref: '#/components/headers/AboutETag' }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/about.schema.json#/$defs/AdminAbout' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '500': { $ref: '#/components/responses/Problem' }
+    put:
+      tags: [admin-about]
+      operationId: updateAboutText
+      security:
+        - adminSessionCookie: []
+      summary: "Guarda el texto y el alt de Acerca de con control optimista If-Match; publicacion inmediata [REQ-ACE10-002, REQ-ACE10-003, EDGE-010-011]"
+      description: >
+        Orden: X-Argos-Request (403 antes de la sesion), sesion de administracion (404 uniforme), origen (403 si es ajeno), esquema (422: If-Match ausente o mal formado, cuerpo invalido,
+        bodyMarkdown de mas de 20 000 caracteres), precondicion (412). El texto se guarda SANITIZADO (sin HTML, sin javascript:/vbscript:/data:, sin imagenes) [D10-07, EDGE-010-007]. Suma 1 a version,
+        conserva la foto vigente y escribe una entrada ABOUT_UPDATE en admin_audit_entries sin el texto. Un rechazo no escribe ni audita. Un cuerpo mayor que el limite de lectura del servidor es 413.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ACE10-002, REQ-ACE10-003, REQ-ACE10-004, EDGE-010-006, EDGE-010-007, EDGE-010-011]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_ABOUT_UPDATE"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-SCHEMA-VALIDATION-FAILED, ERR-ACE10-PRECONDITION-FAILED, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
+      x-sdd-audit: admin_audit_entries
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/about.schema.json#/$defs/AboutTextInput' }
+      responses:
+        '200':
+          description: "Contenido guardado: vista con la nueva version y etag"
+          headers:
+            ETag: { $ref: '#/components/headers/AboutETag' }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/about.schema.json#/$defs/AdminAbout' }
+        '403':
+          description: "ERR-AUTH-CSRF-REJECTED: falta X-Argos-Request (antes de la sesion, con o sin ella) u origen ajeno con sesion valida"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '412':
+          description: "ERR-ACE10-PRECONDITION-FAILED: If-Match distinto de la version vigente (edicion concurrente o foto subida entre tanto, EDGE-010-006); no se escribe y el detalle no incluye el contenido"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '413':
+          description: "Cuerpo mayor que el limite de lectura del servidor (payload gigante, EDGE-010-011); no se procesa ni se escribe"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '422':
+          description: "ERR-SCHEMA-VALIDATION-FAILED: If-Match ausente o mal formado, cuerpo invalido o bodyMarkdown de mas de 20 000 caracteres; sin escritura ni auditoria"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/about/photo:
+    put:
+      tags: [admin-about]
+      operationId: putAboutPhoto
+      security:
+        - adminSessionCookie: []
+      summary: "Sube o reemplaza la foto de Acerca de (cuerpo crudo, tipo por firma, sin EXIF) con If-Match; incrementa version [REQ-ACE10-002, INV-ACE10-001, EDGE-010-006]"
+      description: >
+        Cuerpo crudo de imagen (como el avatar de 004 y la foto del hogar de 006): el tipo lo decide la firma (JPEG, PNG, WebP), nunca el Content-Type ni un nombre. SVG, HTML, XML, PDF, texto y archivos
+        vacios o truncados se rechazan por firma (422 ERR-ACE10-PHOTO-INVALID, INV-ARC-002, EDGE-010-007); el peso maximo es el de las fotos de 004 (ARGOS_MEDIA_MAX_BYTES; un byte mas es 422 y el cuerpo
+        que supera el limite de lectura es 413). Se reescribe por lista blanca SIN EXIF, XMP, comentarios ni bytes tras el final (INV-ACE10-001). SIEMPRE incrementa version (EDGE-010-006), conserva el texto
+        y deja una entrada ABOUT_PHOTO_UPDATE sin clave ni bytes. Si el almacenamiento no responde: 502 ERR-MEDIA-STORAGE-UNAVAILABLE y no cambia nada; si la version cambio mientras se subia el objeto: 412 y el objeto
+        subido se limpia (sin huerfanos). Reemplazar encola el borrado de la foto anterior. Mismo orden de errores que updateAboutText.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ACE10-002, REQ-ACE10-003, REQ-ACE10-004, INV-ACE10-001, EDGE-010-006, EDGE-010-007]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_ABOUT_PHOTO_UPDATE"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-SCHEMA-VALIDATION-FAILED, ERR-ACE10-PHOTO-INVALID, ERR-ACE10-PRECONDITION-FAILED, ERR-MEDIA-STORAGE-UNAVAILABLE, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
+      x-sdd-audit: admin_audit_entries
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          '*/*':
+            schema: { type: string, format: binary }
+      responses:
+        '200':
+          description: "Foto publicada: vista con la nueva version y etag"
+          headers:
+            ETag: { $ref: '#/components/headers/AboutETag' }
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/about.schema.json#/$defs/AdminAbout' }
+        '403':
+          description: "ERR-AUTH-CSRF-REJECTED: falta X-Argos-Request u origen ajeno con sesion valida"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '412':
+          description: "ERR-ACE10-PRECONDITION-FAILED: If-Match no vigente (otro guardado o foto entre tanto); el objeto subido no queda huerfano"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '413':
+          description: "Cuerpo mayor que el limite de lectura (ARGOS_MEDIA_MAX_BYTES + 1)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '422':
+          description: "ERR-ACE10-PHOTO-INVALID (formato por firma o peso) o ERR-SCHEMA-VALIDATION-FAILED (If-Match ausente o mal formado); sin escritura ni auditoria"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '500': { $ref: '#/components/responses/Problem' }
+        '502':
+          description: "ERR-MEDIA-STORAGE-UNAVAILABLE: el almacenamiento no respondio; ni el publico ni la administracion ven un estado mixto"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_session
+      description: Cookie de sesion de usuario de 002/004 (HttpOnly, SameSite=Strict). Las dos operaciones publicas de este documento son anonimas (security vacio por operacion).
+    adminSessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_admin_session
+      description: Cookie de sesion de administracion de 009 (HttpOnly, SameSite=Strict, Path=/api/admin). Las operaciones /admin/about solo la aceptan a ella; la cookie de usuario no autoriza.
+  parameters:
+    CsrfHeader:
+      name: X-Argos-Request
+      in: header
+      required: true
+      description: "Cabecera anti-CSRF global; en las mutaciones de /api/admin/* si falta responde 403 ERR-AUTH-CSRF-REJECTED ANTES de resolver la sesion de administracion (regla x-sdd-admin-mutation-csrf-order de 009 1.2.0)"
+      schema: { type: string, const: '1' }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: "Etag vigente `\"<version>\"` tal como lo devolvio getAdminAbout o la ultima escritura (comillas dobles incluidas; `\"0\"` si aun no hay contenido). Ausente o con otra forma: 422 ERR-SCHEMA-VALIDATION-FAILED; correcto pero ya no vigente: 412 ERR-ACE10-PRECONDITION-FAILED. No se acepta comodin"
+      schema: { type: string, pattern: '^"[0-9]+"$' }
+  headers:
+    AboutETag:
+      description: "Etag fuerte `\"<version>\"` del contenido"
+      schema: { $ref: '../schemas/about.schema.json#/$defs/AboutEtag' }
+    NoStore:
+      description: no-store
+      schema: { type: string, const: no-store }
+  responses:
+    NotFoundUniform:
+      description: >
+        404 UNIFORME (EDGE-009-008, INV-ADM9-001): el mismo estado, cuerpo (text/plain 'Not Found'), cabeceras y secuencia de puertos que una ruta inexistente de /api/admin, sin sesion de administracion
+        valida (incluida la cookie de usuario). No es application/problem+json ni lleva codigo ERR-*.
+      content:
+        text/plain:
+          schema: { type: string, const: 'Not Found' }
+    Problem:
+      description: Error tipado del catalogo incremental de la 010 o de los catalogos heredados (RFC 9457)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails'

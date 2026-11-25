@@ -45,8 +45,8 @@ const insertUser = (db: SqliteDatabase, id: string, at: string | null, version: 
   db.prepare('INSERT INTO users (id, username, password_hash, data, adult_declared_at, adult_notice_version) VALUES (?, ?, ?, ?, ?, ?)').run(id, `user-${id}`, 'hash', '{}', at, version);
 
 describe('T1423 [REQ-MEN10-001][REQ-MEN10-002] la migración SQLite 0028 sobre una base con cuentas previas', () => {
-  it('se aplica sola sobre la base previa, es la última y no toca otras tablas', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-1)).toBe(MIGRATION);
+  it('se aplica sola sobre la base previa y no toca otras tablas', () => {
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort()).toContain(MIGRATION); // T1429: ya no es la última (0029 about_content)
     const { db, migrationsDir } = previousDatabase();
     const tables = () => db.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name <> 'users' AND name <> 'schema_migrations' ORDER BY name").all();
     const otherBefore = tables();
@@ -95,8 +95,8 @@ describe('T1423 [REQ-MEN10-001][REQ-MEN10-002] la migración SQLite 0028 sobre u
 });
 
 describe('T1423 [REQ-MEN10-001] la migración 0024 de Postgres es la equivalente y la última', () => {
-  it('existe, es la última, no tiene BEGIN/COMMIT y es aditiva (solo ALTER TABLE users, sin DROP, UPDATE ni DELETE)', () => {
-    expect(postgresMigrationFiles().at(-1)).toBe(PG_MIGRATION);
+  it('existe, no tiene BEGIN/COMMIT y es aditiva (solo ALTER TABLE users, sin DROP, UPDATE ni DELETE)', () => {
+    expect(postgresMigrationFiles()).toContain(PG_MIGRATION); // T1429: ya no es la última (0025 about_content)
     const sql = readFileSync(new URL(PG_MIGRATION, PG_DIR), 'utf8').replace(/--[^\n]*/g, '');
     expect(sql).not.toMatch(/\b(BEGIN|COMMIT|DROP|UPDATE|DELETE)\b/i);
     expect(sql).toMatch(/ADD COLUMN adult_declared_at TEXT;/);
