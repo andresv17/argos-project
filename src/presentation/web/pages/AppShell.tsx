@@ -11,6 +11,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Field.tsx';
 import { unwrap } from '../api.ts';
 import { useIdleNotice, WARNING_LEAD_MINUTES } from '../idle-notice.ts';
+import { BRAND_NAME } from '../brand.ts';
 import { useSession } from '../session.tsx';
 import { invitationsLabel } from '../view-model.ts';
 
@@ -42,7 +43,7 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-10 focus:rounded-full focus:bg-white focus:px-4 focus:py-3 focus:text-primary">
         Saltar al contenido
       </a>
-      <p className="text-lg font-bold tracking-tight text-primary">Argos</p>
+      <p className="text-lg font-bold tracking-tight text-primary">{BRAND_NAME}</p>
       <nav aria-label="Principal" className="flex flex-wrap gap-1">
         <NavLink to="/" end className={link}>
           Mascotas

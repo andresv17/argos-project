@@ -29,6 +29,7 @@ describe('configuración (src/infrastructure/config/app-config.ts)', () => {
         databasePath: './data/argos.sqlite',
         appTimezone: 'America/Bogota',
         cookieSecure: false,
+        publicBaseUrl: null,
         exportMaxPerWindow: 5,
         exportWindowMinutes: 15,
         inviteMaxPerWindow: 20,

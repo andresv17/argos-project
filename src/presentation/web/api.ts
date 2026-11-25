@@ -117,7 +117,7 @@ export async function unwrap<T>(request: Promise<FetchResult<T>>): Promise<T> {
 }
 
 /** Nombre del archivo de `Content-Disposition` (exportación de respaldo). */
-export function attachmentFileName(header: string | null, fallback = 'argos-backup.json'): string {
+export function attachmentFileName(header: string | null, fallback = 'tipi-backup.json'): string {
   const match = header === null ? null : /filename="([^"]+)"/.exec(header);
   return match?.[1] ?? fallback;
 }

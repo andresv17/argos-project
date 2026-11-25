@@ -41,6 +41,8 @@ import { createUseCases } from './routes/use-cases.ts';
 export interface HttpAppOptions {
   readonly deps: ApplicationDeps;
   readonly cookieSecure: boolean;
+  /** Base pública de los enlaces (config `ARGOS_PUBLIC_BASE_URL`); sin ella, `http://localhost` (solo pruebas y desarrollo). */
+  readonly publicBaseUrl?: string | null;
   readonly logger?: FastifyServerOptions['logger'];
   /** Saltos de proxy de confianza (REQ-CLD-003). Por defecto `false`. */
   readonly trustProxy?: boolean | number;
@@ -55,7 +57,7 @@ export interface HttpAppOptions {
 }
 
 /** @implements INV-ARCH-004, INV-AUTH-007 */
-export async function buildApp({ deps, cookieSecure, logger = false, trustProxy = false, checkReady, staticRoot, mediaHost, devMedia }: HttpAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = false, trustProxy = false, checkReady, staticRoot, mediaHost, devMedia }: HttpAppOptions): Promise<FastifyInstance> {
   // `frameworkErrors` (EDGE-005-25): la URL mal codificada bajo `/api/shared/` responde el 404 uniforme del enlace veterinario, no el 400 de Fastify.
   const sharedFailure: { current: ReturnType<typeof createSharedFailure> | null } = { current: null };
   const app = Fastify({
@@ -78,7 +80,7 @@ export async function buildApp({ deps, cookieSecure, logger = false, trustProxy 
     return payload;
   });
   registerCsrfGuard(app);
-  const context = { useCases: createUseCases(deps), cookieSecure };
+  const context = { useCases: createUseCases(deps), cookieSecure, publicBaseUrl: publicBaseUrl ?? 'http://localhost' };
   // Un solo límite de registros nuevos por IP efectiva (EDGE-009-040) compartido por el alta con contraseña y el primer acceso con Google.
   const registrationLimiter = new RegistrationRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp()));
   registerAuthRoutes(app, context, registrationLimiter);

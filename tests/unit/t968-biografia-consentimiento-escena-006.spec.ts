@@ -70,7 +70,7 @@ describe('T968 [C-2][R-2][REQ-ESC6-026] retención y borrado de la biografía en
     const t = section(NOTICE_SECTIONS, '4.');
     // OBS-2 (Neo, 2026-11-24): redacción literal basada en los términos de datos de cliente de Google Cloud (Vertex AI); sustituye «únicamente… no la almacena… no la usa para entrenar modelos».
     expect(t).toMatch(/La biografía se lee solo al generar y viaja de forma transitoria en la petición al proveedor/);
-    expect(t).toMatch(/Argos no la guarda en intentos de escena, instantáneas ni registros del servidor/);
+    expect(t).toMatch(/Tipi no la guarda en intentos de escena, instantáneas ni registros del servidor/);
     expect(t).toMatch(/términos de datos de cliente de Google Cloud \(Vertex AI\), el proveedor no usa datos del cliente para entrenar sus modelos sin permiso/);
     expect(t).toMatch(/conservar temporalmente peticiones hasta 30 días por prevención de abuso/);
   });

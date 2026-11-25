@@ -235,6 +235,7 @@ export async function createProductionApp(config: AppConfig, logger: boolean = t
   const app = await buildApp({
     deps,
     cookieSecure: config.cookieSecure,
+    publicBaseUrl: config.publicBaseUrl ?? `http://127.0.0.1:${config.port}`,
     logger: logger && PRODUCTION_LOGGER_OPTIONS,
     // Un solo salto de confianza detrás de Cloud Run (REQ-CLD-003); `true` permitiría falsificar X-Forwarded-For.
     trustProxy: config.host === '0.0.0.0' ? 1 : false,

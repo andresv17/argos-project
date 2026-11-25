@@ -34,7 +34,7 @@ interface ChooseUsernameViewProps {
 export function ChooseUsernameView({ values, errors, message, restart, busy, announcement = '', onChange, onSubmit, titleRef }: ChooseUsernameViewProps & { readonly titleRef?: React.Ref<HTMLHeadingElement> }): JSX.Element {
   return (
     <AuthLayout title="Elige tu usuario" titleId="choose-username-title" {...(titleRef === undefined ? {} : { titleRef })}>
-      <p className="mb-3 text-sm text-slate-800">Es el nombre con el que te encontrarán en ARGOS. Podrás cambiar tu nombre visible más adelante.</p>
+      <p className="mb-3 text-sm text-slate-800">Es el nombre con el que te encontrarán en Tipi. Podrás cambiar tu nombre visible más adelante.</p>
       <form noValidate aria-labelledby="choose-username-title" onSubmit={onSubmit} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <TextField id="choose-username" label="Usuario (letras, números, . _ -)" name="username" autoComplete="username" required value={values['username'] ?? ''} onChange={onChange} errors={errors} />
         <FormError message={message} />

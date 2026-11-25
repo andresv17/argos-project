@@ -55,6 +55,8 @@ export interface AppConfig {
   readonly databasePath: string;
   readonly appTimezone: string;
   readonly cookieSecure: boolean;
+  /** Base pública de los enlaces (`ARGOS_PUBLIC_BASE_URL`, REQ-TIP10-004, EDGE-010-012): origen http(s) sin barra final; `null` si no se definió. */
+  readonly publicBaseUrl: string | null;
   readonly exportMaxPerWindow: number;
   readonly exportWindowMinutes: number;
   readonly inviteMaxPerWindow: number;
@@ -293,6 +295,17 @@ const SCENE_WORKER_URL_NAME = 'ARGOS_SCENE_WORKER_URL';
 const SCENE_LOCATION_NAME = 'ARGOS_SCENE_LOCATION';
 const SCENE_GLOBAL_QUOTA_NAME = 'ARGOS_SCENE_GLOBAL_QUOTA_MAX';
 const GEMINI_API_KEY_NAME = 'GEMINI_API_KEY';
+const PUBLIC_BASE_URL_NAME = 'ARGOS_PUBLIC_BASE_URL';
+/** Origen http(s) sin ruta, consulta, fragmento ni credenciales; se tolera una barra final. */
+function normalizePublicBaseUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '' || url.pathname !== '/' || /[?#]/.test(value)) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
 const GEMINI_MODEL_NAME = 'ARGOS_SCENE_GEMINI_MODEL';
 /** Clave de la Developer API: sin patrón de formato del proveedor; 20..256 caracteres visibles (sin espacios ni saltos de línea: evita inyectar cabeceras). */
 const GEMINI_API_KEY_PATTERN = /^[\x21-\x7e]{20,256}$/;
@@ -495,11 +508,14 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
   // 009 (T1227, REQ-ADM9-003): lista cerrada de administración; un valor inválido rechaza el arranque nombrando solo la variable.
   const adminParsed = parseAdminEmails(env[ADMIN_EMAILS_NAME]);
   const adminInvalid = !adminParsed.ok;
+  const publicBaseRaw = present(PUBLIC_BASE_URL_NAME);
+  const publicBaseUrl = publicBaseRaw === undefined ? null : normalizePublicBaseUrl(publicBaseRaw);
+  const invalidPublicBase = publicBaseRaw !== undefined && publicBaseUrl === null;
   const rawSecret = env[AUDIT_SECRET_NAME];
   const auditHmacSecret = rawSecret === undefined || rawSecret === '' ? null : rawSecret;
   const invalidSecret = auditHmacSecret === null ? env['NODE_ENV'] !== 'test' : !AUDIT_SECRET_PATTERN.test(auditHmacSecret) || (env['NODE_ENV'] !== 'test' && isKnownPublicAuditSecret(auditHmacSecret));
-  if (invalid.size > 0 || sceneInvalid.length > 0 || googleInvalid.length > 0 || adminInvalid || invalidMediaBucket || invalidSecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience) {
-    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidMediaBucket ? [MEDIA_BUCKET_NAME] : []), ...sceneInvalid, ...googleInvalid, ...(adminInvalid ? [ADMIN_EMAILS_NAME] : []), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
+  if (invalid.size > 0 || sceneInvalid.length > 0 || googleInvalid.length > 0 || adminInvalid || invalidMediaBucket || invalidSecret || invalidDatabaseUrl || invalidSchedulerEmail || invalidOidcAudience || invalidPublicBase) {
+    throw new AppConfigError([...keys.filter((key) => invalid.has(key)), ...(invalidDatabaseUrl ? [DATABASE_URL_NAME] : []), ...(invalidSchedulerEmail ? [SCHEDULER_EMAIL_NAME] : []), ...(invalidOidcAudience ? [OIDC_AUDIENCE_NAME] : []), ...(invalidMediaBucket ? [MEDIA_BUCKET_NAME] : []), ...sceneInvalid, ...googleInvalid, ...(adminInvalid ? [ADMIN_EMAILS_NAME] : []), ...(invalidPublicBase ? [PUBLIC_BASE_URL_NAME] : []), ...(invalidSecret ? [AUDIT_SECRET_NAME] : [])]);
   }
   const scene: SceneConfig = Object.defineProperty(
     {
@@ -527,6 +543,7 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
     databasePath: raw.DATABASE_PATH,
     appTimezone: raw.APP_TIMEZONE,
     cookieSecure: raw.COOKIE_SECURE === 'true',
+    publicBaseUrl,
     exportMaxPerWindow: Number(raw.EXPORT_MAX_PER_WINDOW),
     exportWindowMinutes: Number(raw.EXPORT_WINDOW_MINUTES),
     inviteMaxPerWindow: Number(raw.INVITE_MAX_PER_WINDOW),

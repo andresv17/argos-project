@@ -10,6 +10,7 @@
  *
  * @implements REQ-SUM-004, REQ-SUM-005, REQ-SUM-007, REQ-SUM-008, REQ-VET-009, INV-005-009, SC-005-031, SC-005-032, SC-005-035, SC-005-047
  */
+import { BRAND_NAME } from '../brand.ts';
 import type { ClinicalPetView, SharedSummaryViewModel } from '../share-api.ts';
 import { SEVERITY_LABEL, SYMPTOM_TYPE_LABEL } from '../symptoms.ts';
 import { decimalEs, DEWORMING_TYPE_LABEL, formatCalendarDate, formatUtcStamp, labelOf, PARAMETER_CATEGORY_LABEL, SEX_LABEL, SPECIES_LABEL } from '../share-view.ts';
@@ -197,7 +198,7 @@ export function SharedSummaryDocument(props: SharedSummaryDocumentProps): JSX.El
         </p>
       ) : null}
       <header className="grid min-w-0 gap-1">
-        <p className="print-hide text-xs font-semibold tracking-widest text-text-muted">ARGOS</p>
+        <p className="print-hide text-xs font-semibold tracking-widest text-text-muted">{BRAND_NAME.toUpperCase()}</p>
         <h1 id="summary-title" className="text-xl font-semibold text-slate-900 break-after-avoid">
           {title}
         </h1>

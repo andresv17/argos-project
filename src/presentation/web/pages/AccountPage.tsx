@@ -219,7 +219,7 @@ export function DeleteGoogleView(props: DeleteGoogleViewProps): JSX.Element {
       <h2 id="delete-google-title" tabIndex={-1} className="text-lg font-semibold">
         Zona de peligro: eliminar la cuenta
       </h2>
-      <p className="max-w-prose text-sm">Tu cuenta se creó con Google, por eso entras con Google y no tienes una contraseña en ARGOS.</p>
+      <p className="max-w-prose text-sm">Tu cuenta se creó con Google, por eso entras con Google y no tienes una contraseña en Tipi.</p>
       <p className="max-w-prose text-sm">Se eliminan tu cuenta y tus datos. No se puede deshacer. Antes debes descargar un respaldo; el permiso dura 10 minutos y sirve una sola vez.</p>
       <div className="grid gap-2">
         <p className="text-sm font-semibold">Paso 1: confirma que eres tú con Google</p>

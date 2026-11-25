@@ -88,7 +88,7 @@ describe('T1235 [REQ-ADM9-001] [A10] [A16] [A17] entrada y bundle propios del po
   it('admin.html: lang es, título, viewport, robots noindex, referrer no-referrer, sin script en línea ni recursos remotos', () => {
     const html = admin();
     expect(html).toContain('<html lang="es">');
-    expect(html).toContain('<title>Administración — ARGOS</title>');
+    expect(html).toContain('<title>Administración — Tipi</title>');
     expect(html).toContain('name="viewport" content="width=device-width, initial-scale=1"');
     expect(html).toContain('name="robots" content="noindex, nofollow"');
     expect(html).toContain('name="referrer" content="no-referrer"');

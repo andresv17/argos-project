@@ -143,4 +143,6 @@ export type UseCases = ReturnType<typeof createUseCases>;
 export interface RouteContext {
   readonly useCases: UseCases;
   readonly cookieSecure: boolean;
+  /** Base pública de los enlaces, solo de configuración (REQ-TIP10-004, EDGE-010-012); nunca de la petición. */
+  readonly publicBaseUrl: string;
 }

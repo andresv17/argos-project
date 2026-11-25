@@ -349,14 +349,14 @@ const FILENAME_TIME_ZONE = 'America/Bogota';
 const filenameDateFormat = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: FILENAME_TIME_ZONE });
 
 /**
- * Nombre sugerido del archivo descargado: `argos-hogar-AAAA-MM-DD.png` (`.jpg`/`.webp` según `mime`, enmienda Nivel 2 de REQ-ESC6-035) con el día de `at` en la zona de la aplicación (EDGE-008-021). Sin nombre de mascota ni de hogar
+ * Nombre sugerido del archivo descargado: `tipi-hogar-AAAA-MM-DD.png` (`.jpg`/`.webp` según `mime`, enmienda Nivel 2 de REQ-ESC6-035) con el día de `at` en la zona de la aplicación (EDGE-008-021). Sin nombre de mascota ni de hogar
  * (PII) ni caracteres de control. El nombre definitivo lo fija el servidor en `Content-Disposition`; este es la pista del cliente. `null` si el instante no es legible.
  */
 export function sceneDownloadFilename(at: string, mime: string = 'image/png'): string | null {
   const ms = Date.parse(at);
   if (Number.isNaN(ms)) return null;
   const parts = Object.fromEntries(filenameDateFormat.formatToParts(ms).map((p) => [p.type, p.value]));
-  return `argos-hogar-${parts.year}-${parts.month}-${parts.day}.${mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png'}`;
+  return `tipi-hogar-${parts.year}-${parts.month}-${parts.day}.${mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png'}`;
 }
 
 /** Ruta propia de la foto del hogar (302 firmada); `tag` solo etiqueta de caché. */
