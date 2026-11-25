@@ -69,7 +69,7 @@ Aprobadas por Neo en Logos el 2026-11-24 (asentadas por `/architect`; no constit
 2. **Given** `/terminos`, **Then** indica la edad mínima y qué ocurre si se detecta una cuenta de menor.
 
 ### User Story 5 — Acerca de administrable `[GH:#33]` (P3)
-**Independent Test**: `SC-010-027..035`.
+**Independent Test**: `SC-010-027, SC-010-028, SC-010-029, SC-010-030, SC-010-031, SC-010-032, SC-010-033, SC-010-034, SC-010-035`.
 1. **Given** `/acerca-de`, **Then** veo foto centrada con texto alternativo y el texto debajo; sin contenido cargado veo un estado vacío limpio.
 2. **Given** `/admin`, **When** subo la foto y guardo el texto, **Then** la vista pública lo refleja de inmediato.
 3. **Given** texto con HTML o script, **Then** se renderiza sanitizado; solo una sesión `/admin` puede escribir; la vista pública no expone rutas de almacenamiento.
@@ -120,7 +120,7 @@ Aprobadas por Neo en Logos el 2026-11-24 (asentadas por `/architect`; no constit
 - **SC-010-007, SC-010-008, SC-010-009, SC-010-010, SC-010-011, SC-010-012, SC-010-013** (`#67`): rutas públicas sin `/auth/me`; pie en login y registro; 7 puntos cubiertos; placeholders presentes; axe sin violaciones AA; 320 px.
 - **SC-010-014..021** (`#66`): IP real con 2 saltos (`SC-010-014`); spoofing de XFF sin efecto **salvo acceso directo a `*.run.app`** (`SC-010-015`, `H-01`); límites «por instancia y por clave normalizada `ipLimitKey(ip)`» (IPv6 por /64; IPv4 sin puerto; inválidas al cubo `invalid`; tope duro con descarte por antigüedad en los 5 mapas) por cliente (`SC-010-016`, `H-02`, `H-T1418-01/02`; pruebas `SEN-IP-04..09`); `429` en el borde (verificación manual en producción por Neo); Email Routing operativo; OAuth y escenas sin regresión; costo $0; `/api/admin/*` no cacheado.
 - **SC-010-022, SC-010-023, SC-010-024, SC-010-025, SC-010-026** (`#75`): registro sin declaración rechazado por API; mensaje sin enumeración; cuentas previas intactas; texto legal con edad mínima.
-- **SC-010-027..035** (`#33`): vista con foto/texto; estado vacío; publicación inmediata; XSS neutralizado; `404` sin sesión admin; EXIF eliminado; límites de formato/peso; sin rutas internas expuestas; auditoría de cambio.
+- **SC-010-027, SC-010-028, SC-010-029, SC-010-030, SC-010-031, SC-010-032, SC-010-033, SC-010-034, SC-010-035** (`#33`): vista con foto/texto; estado vacío; publicación inmediata; XSS neutralizado; `404` sin sesión admin; EXIF eliminado; límites de formato/peso; sin rutas internas expuestas; auditoría de cambio.
 
 ## Edge cases (ampliados tras `T1402` de `/lock`, acta `.specify/memory/audits/lock-010-T1402-edge-2026-11-24.md`)
 - **EDGE-010-001** (`#66`): XFF con IP IPv6, con puertos o más de N elementos; cabecera duplicada. Tarea: `T1416`, `T1418`.

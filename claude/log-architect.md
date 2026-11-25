@@ -717,3 +717,7 @@ Sin commit; pendiente re-firma /merovingian.
 - 413: opción (a) por convención (ERR-MEDIA-TOO-LARGE 004, ERR-BACKUP-PAYLOAD-TOO-LARGE 001/002): +ERR-ACE10-BODY-TOO-LARGE en catálogo 010 1.2.0 y about.openapi 1.0.1 (error-order y 413); compile --feature 010 rc 0 sin deriva en src/generated/api.
 - Claves: `about/photo/<uuid-v4>` (excepción a INV-ARC-003, patrón 006); media-keys + guards (LIST_PREFIXES, RECONCILED_PREFIXES, 15 min); adaptadores memoria/GCS no cambian. Registrado en spec.md (H-ARCH-ACE-KEY).
 - Foto siempre suma version y mapeo FST_ERR_CTP_BODY_TOO_LARGE→413 en /api/admin/about* confirmados (H-ARCH-ACE-413, -VERSION). traza 010 rc 0. Sin src/tests, sin [x], sin push.
+
+## 2026-11-25 — 010 T1430: expansión SC-010-027..035 en spec.md
+- Independent Test de la historia y línea de Success Criteria (#33) listan ahora los 9 IDs explícitos (mismo patrón que SC-010-022..026); 9 frases para 9 IDs, contenido normativo intacto. Mapeo ID-frase no inventado.
+- verify-traceability --feature 010 --task T1430 rc 0 (antes rc 1) y --feature 010 rc 0. Sin src/tests, sin [x], sin push.
