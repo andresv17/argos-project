@@ -721,3 +721,7 @@ Sin commit; pendiente re-firma /merovingian.
 ## 2026-11-25 — 010 T1430: expansión SC-010-027..035 en spec.md
 - Independent Test de la historia y línea de Success Criteria (#33) listan ahora los 9 IDs explícitos (mismo patrón que SC-010-022..026); 9 frases para 9 IDs, contenido normativo intacto. Mapeo ID-frase no inventado.
 - verify-traceability --feature 010 --task T1430 rc 0 (antes rc 1) y --feature 010 rc 0. Sin src/tests, sin [x], sin push.
+
+## 2026-11-25 — 010 dictamen OBS-3 de T1431: política de photoAlt con foto
+- Opción (b): alt OPCIONAL; vacío con foto = imagen decorativa válida (WCAG 1.1.1, H67); la vista pública emite `alt=""` siempre presente. Motivo: la foto se sube por operación sin alt y el alt viaja en PUT de texto con If-Match; obligarlo bloquearía editar solo el texto y no hay operación de quitar foto. Aviso no bloqueante de la UI se mantiene.
+- spec.md `H-ARCH-ACE-ALT`; about.schema 1.0.1 PATCH (solo descripción de AboutPhotoAlt); compile --feature 010 rc 0; traza 010 rc 0. Sin src/tests, sin [x], sin push.

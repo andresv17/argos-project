@@ -114,7 +114,7 @@ export interface components {
         AboutBodyMarkdown: string;
         /** @description Ruta publica de la foto en el servidor (INV-ACE10-001: sin EXIF); `null` si no hay foto. Nunca la clave del objeto ni una URL de almacenamiento [REQ-ACE10-003] */
         AboutPhotoUrl: string | null;
-        /** @description Texto alternativo accesible de la foto (REQ-ACE10-001); cadena vacia si no hay foto */
+        /** @description Texto alternativo accesible de la foto (REQ-ACE10-001). Opcional, 0..300: con foto, la cadena vacia es valida y significa imagen decorativa (la vista publica emite alt="", nunca omite el atributo ni usa el nombre de archivo; WCAG 1.1.1); la UI de administracion avisa sin bloquear. Sin foto, es cadena vacia [H-ARCH-ACE-ALT] */
         AboutPhotoAlt: string;
         /** @description Vista publica CERRADA: estado vacio = `{ bodyMarkdown: "", photoUrl: null, photoAlt: "", updatedAt: null }`. Sin clave de objeto, version, autor ni ruta de almacenamiento [REQ-ACE10-003, SC-010-032] */
         PublicAbout: {
