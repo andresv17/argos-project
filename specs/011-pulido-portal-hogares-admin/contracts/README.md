@@ -5,7 +5,7 @@ Ningún contrato se escribe hasta que Neo resuelva la decisión de la que depend
 | Contrato previsto | Depende de | Tarea `[ARCH]` | Notas |
 | --- | --- | --- | --- |
 | `openapi/admin.openapi.yaml` (011, MINOR sobre 009) + `schemas/admin-delegate.schema.json` | `D11-01`, `D11-03`, `D11-04` | `T1524` | Rutas `/api/admin/administrators*`; matriz operación→roles |
-| `state-machines/admin-delegate.machine.json` (`STATE-ADM11-001`, `ACTIVE ↔ DISABLED`) | `D11-04` | `T1524` | Cerrada; sin transiciones implícitas |
+| `state-machines/admin-delegate.machine.json` (`STATE-ADM11-001`, `ACTIVE ↔ DISABLED`; el sentido DISABLED→ACTIVE solo si `D11-04` = A) | `D11-04` | `T1524` | Cerrada; sin transiciones implícitas |
 | `errors/error-catalog.json` (011) | todas | por bloque | Códigos `ERR-ADM11-*`, `ERR-HOG11-*`, `ERR-PRF11-*` |
 | Enmienda de enlaces de veterinario (005, MINOR) | `D11-06` = B | `T1507` | Lista de `petIds`; migración Nivel 2 |
 | Enmienda de la vista pública con foto | `D11-09` ≠ C | `T1534` | Excepción al invariante de privacidad de 005 |

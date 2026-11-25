@@ -13,7 +13,7 @@
 - **Prueba local primero**: en cada bloque la tarea `[LOCAL]` precede a `npx tsc --noEmit`, `npm run test:gate`, `bash scripts/verify-oracles.sh` y `bash scripts/verify-traceability.sh --feature 011 --task T####`, que van **solo al cierre del bloque**. Los agentes no levantan `npm run dev` ni ejecutan `test:gate`; las pruebas rojas del TDD se ejecutan con Vitest dirigido por archivo, no con la compuerta.
 - **Cierre de bloque**: la tarea de cierre incluye `node scripts/gh-project-sync.mjs sync --tasks specs/011-pulido-portal-hogares-admin/tasks.md` (mueve el Issue a `In Progress`/`Done`) y un comentario breve en el Issue.
 - **TDD (constitución IV)**: pruebas rojas antes de implementar; cada implementación depende de su tarea de pruebas.
-- **Dependencias**: ninguna nueva (`package.json` intacto). Sin `git push`, sin despliegue, sin llamadas reales a Google ni a Vertex AI en CI.
+- **Dependencias**: ninguna nueva (`package.json` intacto). Sin `git push`, sin despliegue, sin llamadas reales a Google ni al proveedor de imágenes (`vertex` o `gemini-api`) en CI.
 - **Caso B** (contrato vs implementación): vuelve a `/architect` (`MAX_HOPS = 2`).
 - **Bitácora**: cada tarea cerrada deja registro en `claude/log-<personaje>.md` y una línea en `claude/registro-proceso-argos.md` antes de responder.
 - **Roles**: los roles de plataforma de `/admin` van separados de los de hogar; `/admin` solo con Google SSO, sin contraseñas propias.
@@ -36,7 +36,7 @@
 
 ### Bloque A — [GH:#64] Hogares embebe NOMBRE-HOGAR y compartir con veterinario donde corresponde
 
-**Goal**: una sola página de Hogares con todas sus funciones, compartir por hogar con selección real y sin la pregunta inútil en la ficha de la mascota.
+**Goal**: una sola página de Hogares (condicionado a `D11-05`) con todas sus funciones, compartir por hogar con selección real y sin la pregunta inútil en la ficha de la mascota.
 **Independent Test**: `SC-011-001..009`.
 **Bloqueado por**: `D11-05`, `D11-06` (T1501).
 
@@ -53,7 +53,7 @@
 
 ### Bloque B — [GH:#72] Etiquetar contenido generado con IA
 
-**Goal**: toda imagen generada por IA lleva indicación visible y accesible en todas las superficies.
+**Goal**: toda imagen generada por IA lleva indicación visible y accesible en todas las superficies (descarga y forma condicionadas a `D11-07`).
 **Independent Test**: `SC-011-010..014`.
 **Bloqueado por**: `D11-07` (T1501).
 
@@ -87,7 +87,7 @@
 **Independent Test**: `SC-011-021..034`.
 **Bloqueado por**: `D11-01`, `D11-03`, `D11-04` (T1501); `D11-02` solo condiciona una tarea adicional futura.
 
-- [ ] T1524 [ARCH] [N2] [GH:#63] `/architect`: contratos de roles tras `D11-01`: `admin.openapi.yaml` 011 (`/api/admin/administrators*`), `admin-delegate.schema.json`, `STATE-ADM11-001` (`ACTIVE ↔ DISABLED`), `error-catalog.json` 011, matriz operación→roles (cada operación de `/api/admin/*` vigente mapeada a roles), migración SQLite+Postgres de la tabla de delegados y acciones de auditoría nuevas (`additionalProperties: false`, límites explícitos). Dep: T1501, T1504 — REQ-ADM11-001, REQ-ADM11-002, REQ-ADM11-003, REQ-ADM11-007
+- [ ] T1524 [ARCH] [N2] [GH:#63] `/architect`: contratos de roles tras `D11-01`: `admin.openapi.yaml` 011 (`/api/admin/administrators*`), `admin-delegate.schema.json`, `STATE-ADM11-001` (`ACTIVE ↔ DISABLED`; el sentido DISABLED→ACTIVE está condicionado a `D11-04`, la opción B solo permite recrear), `error-catalog.json` 011, matriz operación→roles (cada operación de `/api/admin/*` vigente mapeada a roles), migración SQLite+Postgres de la tabla de delegados y acciones de auditoría nuevas (`additionalProperties: false`, límites explícitos). Dep: T1501, T1504 — REQ-ADM11-001, REQ-ADM11-002, REQ-ADM11-003, REQ-ADM11-007
 - [ ] T1525 [GH:#63] Pruebas rojas (Memoria, SQLite y Postgres): delegado entra con Google y ancla `sub`; rol no autorizado → rechazo de servidor sin efectos; desactivar/rebajar rige en la siguiente petición; `ARGOS_ADMIN_EMAILS` no revocable ni degradable; último super-administrador protegido bajo transacción (`EDGE-011-002`); tabla vacía no impide el acceso raíz (`INV-ADM11-002`); auditoría sin correos en logs; prueba de arquitectura de separación de dominios de rol (ADR-011-02). Dep: T1524 — REQ-ADM11-001..007, INV-ADM11-001, INV-ADM11-002; SC-011-021..034
 - [ ] T1526 [GOV] [GH:#63] `/trinity` + `/seraph` + `/sentinels`: escalada de privilegios entre roles, IDOR sobre `admin_id`, revocación en carrera, anclaje de `sub`, enumeración de correos y CSRF de las rutas nuevas. Dep: T1524 — REQ-ADM11-003, REQ-ADM11-004, REQ-ADM11-006
 - [ ] T1527 [GH:#63] Implementar dominio (`PlatformRole`, matriz, reglas de bloqueo), repositorio de delegados en las tres implementaciones, casos de uso (alta, cambio de rol, desactivación/reactivación según `D11-04`), middleware que resuelve el rol por petición (ADR-011-01) y rutas `/api/admin/administrators*`. Dep: T1525, T1526 — REQ-ADM11-001..007
@@ -132,7 +132,7 @@
 
 **Goal**: el hogar reúne en solo lectura las fotos de álbum de sus mascotas asignadas, respetando permisos.
 **Independent Test**: `SC-011-045..052`.
-**Bloqueado por**: `D11-11`; después del Bloque A.
+**Bloqueado por**: `D11-11`; después del Bloque A. Alcance, orden y permisos del álbum (REQ-ALB11-001/002, SC-011-045) condicionados a `D11-11`.
 
 - [ ] T1542 [ARCH] [N2] [GH:#62] Contrato de lectura del álbum del hogar (ruta de solo lectura, paginación con tope, forma de la respuesta sin claves de objeto, errores de catálogo); sin tablas nuevas (ADR-011-04). Dep: T1501, T1504 — REQ-ALB11-001, REQ-ALB11-003
 - [ ] T1543 [GH:#62] Pruebas rojas (Memoria, SQLite y Postgres): agrega solo `PHOTO` de mascotas con asignación vigente al hogar; respeta permisos efectivos por mascota (`REQ-RBAC-001`); mascota en dos hogares aparece en ambos y desaparece al borrar (`EDGE-011-006`); salida de la mascota la retira; archivos clínicos fuera; tope y paginación. Dep: T1542 — REQ-ALB11-001, REQ-ALB11-002, REQ-ALB11-003; SC-011-045..052
@@ -145,7 +145,7 @@
 
 **Goal**: dejar por escrito si hay tope (hoy no existe) y, si Neo lo fija, aplicarlo de forma determinista.
 **Independent Test**: `SC-011-053..056`.
-**Bloqueado por**: `D11-12`.
+**Bloqueado por**: `D11-12`. `EDGE-011-008` y «crear y/o aceptar» solo aplican si `D11-12` fija tope.
 
 - [ ] T1548 [ARCH] [GH:#74] Registrar en `spec.md` el resultado de la validación (hoy no existe tope) y la decisión de Neo `D11-12`; si hay tope: constante o parámetro, regla en `household-policies.ts`, código de error de catálogo y puntos de aplicación (crear, aceptar invitación, invitaciones pendientes). Si `D11-12` = A, las tareas `T1549..T1552` se cierran como «sin cambio». Dep: T1501 — REQ-HOG11-004
 - [ ] T1549 [GH:#74] Pruebas rojas (solo si hay tope): crear y aceptar invitación respetan el tope; carrera de dos aceptaciones simultáneas no lo supera; quien ya lo supera conserva sus hogares (`EDGE-011-008`); error determinista. Dep: T1548 — REQ-HOG11-004; SC-011-053..056

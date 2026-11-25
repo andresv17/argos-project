@@ -17,8 +17,8 @@
 | `#64`: «Compartir con veterinario por hogar está en otra sección» | `ShareLinks.tsx` ya ofrece alcance `PET` y alcance `HOUSEHOLD` (todas las mascotas del hogar de las que se es propietario/ADMIN: `petCount`); el alcance hogar se ofrece **desde la ficha de la mascota**, no desde la página del hogar. No existe selección de un **subconjunto** de mascotas. | Mover/duplicar la entrada de compartir a la vista del hogar es de interfaz; el subconjunto sería cambio de contrato y migración (`D11-06`). |
 | `#64`: «en Mascotas la pregunta "¿Qué quieres compartir?" es inútil» | Cierto: `ShareLinks.tsx:184` pinta `<legend>¿Qué quieres compartir?</legend>` también cuando solo hay una opción útil (la mascota abierta). | Se oculta la pregunta cuando no hay elección real (`REQ-HOG11-006`); en el hogar se ofrece selección. |
 | `#64`: «Hogares como pestaña superior y NOMBRE-HOGAR en la pestaña principal» | `AppShell.tsx` tiene `Mascotas` y `Hogares` (con contador); `HouseholdsPage.tsx` (390 líneas) lista y gestiona hogares. La separación «pestaña NOMBRE-HOGAR junto a Mascotas» **no se encontró como pestaña propia**: se confirmará en la prueba local de `T1503` (puede ser el selector de contexto `ContextSelector.tsx`). | Se registra como hallazgo por confirmar; la decisión de estructura es `D11-05`. |
-| `#72`: «toda foto o consulta a IA lleva marca» | La única IA generativa hoy es la **escena del hogar** (imagen de Vertex AI, 006/009): `HomeScene.tsx`, `HomeSceneImage.tsx`. **No existe consulta de texto a un LLM ni «integracionistas LLM»** en `src/` (la memoria del inbox los menciona en `#73`). | El alcance de `#72` y `#73` se acota a lo que existe; lo futuro se cubre con una regla de puerto (`D11-07`, `D11-08`). |
-| `#73`: «actualmente podemos ver lo que se envió al generar una escena» | Hallazgo: el `FakeSceneImageGenerator` (modo `echo`, desarrollo/CI) incrusta el prompt en un fragmento `tEXt` del PNG (`pngOf(request.prompt, …)`); el adaptador de Vertex declara no registrar el prompt; `scene_attempts` guarda `inputs_snapshot` (datos de entrada, no el texto del prompt). **El canal exacto por el que Neo ve el prompt no está confirmado en producción.** | Tarea de auditoría de superficies (`T1520`) antes de decidir; el requisito es «ningún prompt de usuario persistido ni visible» salvo necesidad estricta (`D11-08`). |
+| `#72`: «toda foto o consulta a IA lleva marca» | La única IA generativa hoy es la **escena del hogar** (imagen del proveedor configurado, `vertex` o `gemini-api` (D9-30), 006/009): `HomeScene.tsx`, `HomeSceneImage.tsx`. **No existe consulta de texto a un LLM ni «integracionistas LLM»** en `src/` (la memoria del inbox los menciona en `#73`). | El alcance de `#72` y `#73` se acota a lo que existe; lo futuro se cubre con una regla de puerto (`D11-07`, `D11-08`). |
+| `#73`: «actualmente podemos ver lo que se envió al generar una escena» | Hallazgo: el `FakeSceneImageGenerator` (modo `echo`, desarrollo/CI) incrusta el prompt en un fragmento `tEXt` del PNG (`pngOf(request.prompt, …)`); el adaptador real (`vertex` o `gemini-api`) declara no registrar el prompt; `scene_attempts` guarda `inputs_snapshot` (datos de entrada, no el texto del prompt). **El canal exacto por el que Neo ve el prompt no está confirmado en producción.** | Tarea de auditoría de superficies (`T1520`) antes de decidir; el requisito es «ningún prompt de usuario persistido ni visible» salvo necesidad estricta (`D11-08`). |
 | `#31`: «incluir la foto de la mascota en la vista del veterinario» | **Contradice un invariante vigente**: `clinical-summary.ts` excluye explícitamente álbum, **avatar**, correo, ids y claves de objeto de la vista pública (005, `D5-xx`). | Incluir la foto cambia el contrato de la vista pública y exige decisión de privacidad (`D11-09`); el reordenamiento visual en secciones **no** depende de ella. |
 | `#59`: «la foto del hogar se ve muy grande» | `HouseholdPhoto.tsx` (176 líneas) la muestra a tamaño completo, leída del almacenamiento en cada acceso. | Opciones en `D11-10`. |
 | `#62`: «álbum del hogar con las fotos de las mascotas asignadas» | `PhotoAlbum.tsx` es por mascota (`pet_media` tipo `PHOTO`, clave `pets/{petId}/photos/{uuid}`, tope por mascota `album.max_photos_per_pet`). No existe vista agregada por hogar. | Es una **vista de solo lectura** agregada; alcance y permisos en `D11-11`. |
@@ -35,7 +35,7 @@
 
 ### User Story 1 — Compartir con veterinario desde un solo lugar claro `[GH:#64]` (P1)
 **Independent Test**: `SC-011-001..009`.
-1. **Given** una persona con uno o varios hogares, **When** abre «Hogares», **Then** ve un único lugar que reúne la gestión del hogar (miembros, invitaciones, foto, escena) y la acción de compartir con veterinario, sin una segunda pestaña con el nombre del hogar (`D11-05`).
+1. **Given** una persona con uno o varios hogares, **When** abre «Hogares», **Then** ve un único lugar que reúne la gestión del hogar (miembros, invitaciones, foto, escena) y la acción de compartir con veterinario, sin una segunda pestaña con el nombre del hogar (condicionado a `D11-05`: la opción C mantiene ambas con enlace cruzado).
 2. **Given** la ficha de una mascota, **When** crea un enlace para el veterinario, **Then** el formulario **no** pregunta «¿Qué quieres compartir?» (solo existe esa mascota) y muestra el nombre de la mascota como dato.
 3. **Given** el hogar con 2 o más mascotas, **When** crea un enlace desde el hogar, **Then** elige qué mascotas incluir (una, varias o todas, según `D11-06`).
 4. **Given** las funciones actuales del hogar (invitar, miembros, transferir propiedad, escena), **When** se reorganiza, **Then** ninguna se pierde ni cambia de permisos.
@@ -83,7 +83,7 @@
 ## Requirements
 
 ### Roles de plataforma en /admin `[GH:#63]`
-- **REQ-ADM11-001** (Dos niveles de acceso): el super-administrador raíz es quien figura en `ARGOS_ADMIN_EMAILS` (fuera de la base de datos); los delegados viven en una tabla nueva de administradores delegados con `admin_id` (UUID), correo en minúsculas, **rol de plataforma**, estado (`ACTIVE`/`DISABLED`), autor del alta y marcas de tiempo, sin FK a `users`. Sin contraseñas ni credenciales locales (regla de Neo). El correo de la lista de configuración **siempre** concede acceso total aunque la tabla esté vacía.
+- **REQ-ADM11-001** (Dos niveles de acceso): el super-administrador raíz es quien figura en `ARGOS_ADMIN_EMAILS` (fuera de la base de datos); los delegados viven en una tabla nueva de administradores delegados con `admin_id` (UUID), correo en minúsculas, **rol de plataforma**, estado (`ACTIVE`/`DISABLED`; la reactivación DISABLED→ACTIVE está condicionada a `D11-04`), autor del alta y marcas de tiempo, sin FK a `users`. Sin contraseñas ni credenciales locales (regla de Neo). El correo de la lista de configuración **siempre** concede acceso total aunque la tabla esté vacía.
 - **REQ-ADM11-002** (Roles de plataforma separados de los de hogar): el rol de plataforma es un conjunto cerrado propio; ningún valor coincide con `OWNER/ADMIN/CAREGIVER/READER` y ninguna función de hogar lee el rol de plataforma ni al revés. Nombres y alcance: `D11-01` (propuesta del inbox: super-admin, operador, soporte/moderador; **no decidido**).
 - **REQ-ADM11-003** (Autorización en servidor): cada operación `/api/admin/*` declara el conjunto de roles que la autorizan; el servidor rechaza con `403`/error de catálogo las no autorizadas **antes** de ejecutar efectos; la interfaz oculta lo no autorizado como comodidad, no como control.
 - **REQ-ADM11-004** (Revocación inmediata): el rol y el estado del delegado se leen en **cada** petición; desactivar o rebajar surte efecto en la siguiente y cierra o degrada su sesión (sin esperar la caducidad de 30 min/10 min).
@@ -95,7 +95,7 @@
 - **INV-ADM11-002**: la ausencia o vaciedad de la tabla de delegados nunca impide el acceso de emergencia del super-administrador raíz.
 
 ### Hogares unificados y compartir `[GH:#64]`
-- **REQ-HOG11-001** (Página única del hogar): la gestión del hogar (miembros, invitaciones, foto, escena, compartir, álbum) se reúne bajo «Hogares» en una sola página; la estructura exacta de navegación es `D11-05`.
+- **REQ-HOG11-001** (Página única del hogar; condicionado a `D11-05`, la opción C mantiene ambas entradas): la gestión del hogar (miembros, invitaciones, foto, escena, compartir, álbum) se reúne bajo «Hogares» en una sola página; la estructura exacta de navegación es `D11-05`.
 - **REQ-HOG11-002** (Sin pérdida de funciones): invitar, aceptar/rechazar, salir, retirar miembro, transferir propiedad, escena y foto conservan comportamiento, permisos y contratos (`REQ-RBAC-001`, `STATE-HOUSE-MEMBERSHIP-001`).
 - **REQ-HOG11-005** (Compartir desde el hogar): el hogar ofrece crear, listar y revocar enlaces de veterinario con alcance hogar; la selección de mascotas incluidas es `D11-06`.
 - **REQ-HOG11-006** (Sin pregunta inútil): en la ficha de la mascota, cuando el alcance elegible es una sola mascota, no se muestra «¿Qué quieres compartir?»; se muestra el nombre de la mascota como contexto. La pregunta (o su equivalente de selección) solo aparece donde hay elección real (hogar).
@@ -103,7 +103,7 @@
 
 ### Etiquetado de contenido generado con IA `[GH:#72]`
 - **REQ-IA11-001**: toda imagen generada por IA se muestra con una indicación visible y accesible (texto asociado a la imagen para lectores de pantalla) de que fue generada con IA; forma, texto y alcance en `D11-07`.
-- **REQ-IA11-002**: la indicación acompaña a la imagen en todas las superficies donde se muestra (vista del hogar, vista compartida si la incluye, descarga); no depende de que la imagen conserve metadatos.
+- **REQ-IA11-002** (forma y alcance condicionados a `D11-07`): la indicación acompaña a la imagen en todas las superficies donde se muestra (vista del hogar, vista compartida si la incluye y, si `D11-07` lo incluye, descarga); no depende de que la imagen conserve metadatos.
 - **INV-IA11-001**: contenido real de la persona (fotos subidas) **no** se etiqueta como IA; solo lo generado.
 
 ### Prompts de usuario no persistidos ni visibles `[GH:#73]`
@@ -122,13 +122,13 @@
 - **REQ-HOG11-003**: la foto del hogar se muestra en miniatura o se oculta con indicación de que existe, según `D11-10`; sin descargar el objeto completo en cada acceso cuando la opción lo permita.
 
 ### Álbum del hogar `[GH:#62]`
-- **REQ-ALB11-001**: el hogar muestra un álbum de solo lectura con las fotos de álbum (`PHOTO`) de las mascotas asignadas al hogar, agrupadas por mascota; sin copiar objetos ni crear tablas de fotos nuevas.
-- **REQ-ALB11-002**: ve el álbum quien tiene lectura en el hogar; una foto solo aparece si la persona ya podría verla en la ficha de esa mascota (mismos permisos efectivos, `REQ-RBAC-001`).
+- **REQ-ALB11-001** (alcance y orden condicionados a `D11-11`): el hogar muestra un álbum de solo lectura con las fotos de álbum (`PHOTO`) de las mascotas asignadas al hogar, agrupadas por mascota; sin copiar objetos ni crear tablas de fotos nuevas.
+- **REQ-ALB11-002** (condicionado a `D11-11`, quién ve): ve el álbum quien tiene lectura en el hogar; una foto solo aparece si la persona ya podría verla en la ficha de esa mascota (mismos permisos efectivos, `REQ-RBAC-001`).
 - **REQ-ALB11-003**: paginado o con carga progresiva, con tope por solicitud; las fotos se sirven por los mismos endpoints de 004 (`Cache-Control` y `Vary: Cookie` vigentes).
 - **Alcance, orden y archivos clínicos**: `D11-11`.
 
 ### Tope de hogares `[GH:#74]`
-- **REQ-HOG11-004**: se confirma por escrito que hoy no hay tope; si Neo fija uno (`D11-12`), el servidor lo valida en crear hogar y/o aceptar invitación con error de catálogo determinista, bajo transacción (sin condición de carrera), y la interfaz lo informa antes de intentar.
+- **REQ-HOG11-004** («crear y/o aceptar» condicionado a `D11-12`): se confirma por escrito que hoy no hay tope; si Neo fija uno (`D11-12`), el servidor lo valida en crear hogar y/o aceptar invitación con error de catálogo determinista, bajo transacción (sin condición de carrera), y la interfaz lo informa antes de intentar.
 
 ### Foto de perfil `[GH:#78]`
 - **REQ-PRF11-001**: la persona puede tener una foto de perfil visible en el encabezado y en `/cuenta`, y quitarla; vía (Google, subida o ambas) en `D11-13`.
@@ -141,15 +141,15 @@ Cada decisión indica opciones; **ninguna está elegida**. «Bloquea» indica qu
 
 | ID | Pregunta | Opciones | Bloquea |
 | --- | --- | --- | --- |
-| `D11-01` | Nombres y alcance de los roles de plataforma (`#63`) | **A**: los 3 del inbox (Super-admin, Operador: parámetros/escenas/cuotas/aprobaciones; Soporte: solo aprobaciones). **B**: 2 roles (Super-admin y Moderador de aprobaciones). **C**: matriz de permisos editable por operación (más flexible, más superficie). Además: ¿el super-admin delegado puede gestionar administradores o solo el raíz? | T1506.. (Bloque `#63`) |
+| `D11-01` | Nombres y alcance de los roles de plataforma (`#63`) | **A**: los 3 del inbox (Super-admin, Operador: parámetros/escenas/cuotas/aprobaciones; Soporte: solo aprobaciones). **B**: 2 roles (Super-admin y Moderador de aprobaciones). **C**: matriz de permisos editable por operación (más flexible, más superficie). Además: ¿el super-admin delegado puede gestionar administradores o solo el raíz? | T1524..T1531 (Bloque D, `#63`) |
 | `D11-02` | 2FA para roles admin y super-admin (`#63`) | **A**: delegarlo a Google y exigir señal en el ID token (`amr`/`acr`) si es verificable. **B**: exigirlo por política de Workspace de la organización (fuera del código). **C**: segundo factor propio (TOTP): choca con «sin credenciales propias». **D**: no exigir. Depende del resultado de la investigación `T1505`. | Solo `T1505` informa; ninguna tarea de implementación de 2FA existe hasta decidir |
-| `D11-03` | Alta de delegados: ¿límite de delegados, ¿dominios permitidos?, ¿qué ve el super-admin al agregar un correo que ya tiene cuenta de usuario? | A: sin límite ni dominios. B: tope de N delegados. C: lista de dominios. | T1507 |
-| `D11-04` | ¿Un delegado desactivado puede reactivarse o solo se vuelve a crear? | A: reactivar. B: solo crear de nuevo (nuevo `admin_id`). | T1507 |
+| `D11-03` | Alta de delegados: ¿límite de delegados, ¿dominios permitidos?, ¿qué ve el super-admin al agregar un correo que ya tiene cuenta de usuario? | A: sin límite ni dominios. B: tope de N delegados. C: lista de dominios. | T1524, T1527 (Bloque D, `#63`) |
+| `D11-04` | ¿Un delegado desactivado puede reactivarse o solo se vuelve a crear? | A: reactivar. B: solo crear de nuevo (nuevo `admin_id`). | T1524, T1527 (Bloque D, `#63`) |
 | `D11-05` | Estructura de navegación de Hogares (`#64`) | **A**: «Hogares» única, con lista y detalle por hogar con pestañas internas (Resumen, Miembros, Mascotas, Compartir, Álbum, Escena). **B**: quitar la entrada NOMBRE-HOGAR y dejar solo «Hogares» (mismo contenido actual más Compartir). **C**: mantener ambas con enlace cruzado. | Bloque `#64`, `#59`, `#62` |
-| `D11-06` | Compartir por hogar: ¿subconjunto de mascotas? | **A**: alcance hogar = todas las del hogar (como hoy), sin subconjunto. **B**: selección de 1..N mascotas (cambia contrato 005 a MINOR y requiere migración Nivel 2). | T1510.. (compartir en hogar) |
+| `D11-06` | Compartir por hogar: ¿subconjunto de mascotas? | **A**: alcance hogar = todas las del hogar (como hoy), sin subconjunto. **B**: selección de 1..N mascotas (cambia contrato 005 a MINOR y requiere migración Nivel 2). | T1507, T1508 (compartir en hogar, Bloque A) |
 | `D11-07` | Etiquetado IA (`#72`): forma y alcance | Forma: **A** texto visible bajo la imagen; **B** marca de agua incrustada en los bytes; **C** ambas. Alcance: solo escena del hogar (única IA hoy) o también cualquier futura consulta. Texto exacto y revisión legal (`/rama`). | Bloque `#72` |
 | `D11-08` | Prompts (`#73`): qué se puede conservar | **A**: nada del prompt de la persona, ni hash. **B**: solo versión de plantilla y huella no reversible para depuración. Y: ¿el prompt genérico editable de `/admin` sigue visible para administradores (es configuración, no dato de usuario)? Y: ¿qué hacer con `inputs_snapshot`? | Bloque `#73` |
-| `D11-09` | Foto de la mascota en el informe del veterinario (`#31`) | **A**: sí, solo el avatar de la mascota (excepción al invariante de 005). **B**: sí, avatar y una foto de álbum elegida. **C**: no (solo reordenar). Implica privacidad (`/rama`) y contrato de la vista pública. | T1523 (foto) |
+| `D11-09` | Foto de la mascota en el informe del veterinario (`#31`) | **A**: sí, solo el avatar de la mascota (excepción al invariante de 005). **B**: sí, avatar y una foto de álbum elegida. **C**: no (solo reordenar). Implica privacidad (`/rama`) y contrato de la vista pública. | T1534, T1535 (foto, Bloque E) |
 | `D11-10` | Foto del hogar (`#59`) | **A**: miniatura (p. ej. máx. 96 px de lado). **B**: oculta con «ya hay una imagen guardada» y botón «ver». **C**: miniatura bajo demanda (carga al pulsar). | Bloque `#59` |
 | `D11-11` | Álbum del hogar (`#62`) | Alcance: ¿solo `PHOTO` de mascotas **asignadas hoy**? ¿incluye fallecidas? ¿incluye la foto del hogar? ¿archivos clínicos fuera (por defecto sí fuera)? Orden: por mascota o cronológico. Quién ve: lectores del hogar o solo quien ya ve cada mascota. | Bloque `#62` |
 | `D11-12` | Tope de hogares (`#74`) | **A**: sin tope (confirmar). **B**: tope de hogares que una persona puede **crear/poseer** (N a definir). **C**: tope de hogares a los que puede **pertenecer** (incluye invitaciones aceptadas) (N a definir). **D**: tope también de invitaciones pendientes. Valor de N y editable en `/admin` o constante: decisión. | Bloque `#74` |
@@ -171,10 +171,11 @@ Rangos por historia (expandidos en `tasks.md`): `SC-011-001..009` (`#64`), `SC-0
 - **SC-011-025**: Given un correo de `ARGOS_ADMIN_EMAILS`, When se intenta desactivarlo desde la interfaz, Then se rechaza.
 - **SC-011-035**: Given el enlace público con 2 mascotas, Then cada mascota ocupa una sección diferenciada y no hay scroll horizontal a 320 px.
 - **SC-011-041**: Given un hogar con foto, Then la foto ocupa a lo sumo lo definido por `D11-10` y no se descarga completa en la carga inicial (si aplica).
-- **SC-011-045**: Given un hogar con 2 mascotas con 3 fotos cada una, Then el álbum muestra 6 fotos agrupadas por mascota.
+- **SC-011-045** (condicionado a `D11-11`: alcance, orden y permisos): Given un hogar con 2 mascotas con 3 fotos cada una, Then el álbum muestra 6 fotos agrupadas por mascota.
 - **SC-011-053**: Given la decisión `D11-12`, Then el servidor aplica el valor o documenta que no hay tope, con prueba de condición de carrera si hay tope.
 - **SC-011-057**: Given una cuenta con foto de perfil, Then se muestra en encabezado y perfil y se puede quitar; tras eliminar la cuenta no queda objeto huérfano.
 - (Los demás IDs de cada rango se redactan en `tasks.md` con su prueba, mismo patrón que SC-010-022..026.)
+- **Nota de trazabilidad (OBS-4 del `/oracle`)**: los SC-011 individuales de los rangos citados se redactarán como IDs explícitos (uno por línea) **antes de T1511**. La trazabilidad 1:1 depende de dos piezas de Nivel 2 pendientes de Neo: crear `contracts/errors/error-catalog.json` 011 y dar soporte 011 a `scripts/verify-traceability.sh`. Hasta entonces `--feature 011` devuelve rc 2 (esperado). Esta enmienda no crea ni edita ni el catálogo ni el script.
 
 ## Edge Cases (`EDGE-011-NNN`)
 - **EDGE-011-001**: el super-administrador raíz se agrega también como delegado: se ignora el alta (la lista de configuración manda).
@@ -184,7 +185,7 @@ Rangos por historia (expandidos en `tasks.md`): `SC-011-001..009` (`#64`), `SC-0
 - **EDGE-011-005**: enlace de hogar creado antes de que una mascota salga del hogar: el enlace conserva su alcance vigente (regla de 005); se documenta, sin cambio.
 - **EDGE-011-006**: mascota compartida por dos hogares: su foto aparece en ambos álbumes; si se borra, desaparece de ambos.
 - **EDGE-011-007**: foto de perfil de Google no disponible (red, 404): la interfaz cae a iniciales/símbolo sin error visible.
-- **EDGE-011-008**: persona que ya supera el tope tras fijarlo: conserva los hogares existentes, no puede crear/aceptar más (sin expulsiones).
+- **EDGE-011-008** (condicionado a `D11-12`; solo aplica si hay tope): persona que ya supera el tope tras fijarlo: conserva los hogares existentes, no puede crear/aceptar más (sin expulsiones).
 
 ## Non-Functional Requirements
 - **NFR-011-001** (Accesibilidad): todas las pantallas nuevas o modificadas cumplen WCAG 2.2 AA y reflow 320/1024/1280 (`/sati` valida).
