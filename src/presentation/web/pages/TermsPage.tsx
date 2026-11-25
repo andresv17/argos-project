@@ -1,6 +1,6 @@
 /**
- * Términos de uso públicos (`/terminos`, T1413). Texto cerrado de `legal-texts.md` (T1412) con los placeholders literales (D10-06) y SIN la declaración en el registro
- * (condicionada a T1424: no se describen funciones inexistentes, REQ-LEG10-002). Sin props, sin sesión, sin API.
+ * Términos de uso públicos (`/terminos`, T1413). Texto cerrado de `legal-texts.md` (T1412) con los placeholders literales (D10-06) y, desde T1425 (REQ-MEN10-004), con la
+ * declaración 18+ del registro ya implementada en T1424 (texto 0.1.0 DRAFT). Sin props, sin sesión, sin API.
  *
  * @implements REQ-LEG10-001, REQ-LEG10-003, REQ-LEG10-005, INV-LEG10-001, EDGE-010-004, SC-010-011
  */
@@ -26,6 +26,9 @@ export function TermsPage(): JSX.Element {
       <LegalSection heading="3. Mayoría de edad (18+)">
         <p>
           Para usar Tipi debes ser <strong>mayor de 18 años</strong>.
+        </p>
+        <p>
+          Debes declararlo al registrarte, con usuario y contraseña o con Google: al marcar «Soy mayor de edad (18+)» declaras que eres mayor de edad. Si esta declaración no es cierta, podemos suprimir la cuenta y sus datos, como se explica en la política de privacidad. Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a {CONTACT}; la persona titular también puede eliminar su cuenta desde <code>/cuenta</code>. (Edad mínima y efectos de la declaración en {JURISDICTION}: pendiente de validación legal.)
         </p>
       </LegalSection>
       <LegalSection heading="4. Tu cuenta">

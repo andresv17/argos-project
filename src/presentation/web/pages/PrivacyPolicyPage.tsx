@@ -1,6 +1,6 @@
 /**
- * Política de privacidad pública (`/privacidad`, T1413). Texto cerrado de `legal-texts.md` (T1412) con los 4 placeholders literales (D10-06) y SIN las cláusulas
- * condicionadas a T1424 (la declaración de mayoría de edad aún no existe: no se describen funciones inexistentes, REQ-LEG10-002). Sin props, sin sesión, sin API.
+ * Política de privacidad pública (`/privacidad`, T1413). Texto cerrado de `legal-texts.md` (T1412) con los 4 placeholders literales (D10-06). T1425 (REQ-MEN10-004):
+ * incorpora la declaración de mayoría de edad (casilla «Soy mayor de edad (18+)», implementada en T1424; texto 0.1.0 DRAFT) y el procedimiento ante cuenta de menor. Sin props, sin sesión, sin API.
  *
  * @implements REQ-LEG10-001, REQ-LEG10-003, REQ-LEG10-005, INV-LEG10-001, EDGE-010-004, SC-010-011
  */
@@ -33,6 +33,9 @@ export function PrivacyPolicyPage(): JSX.Element {
           </li>
           <li>
             <strong>Registros técnicos y de auditoría</strong>: un registro de acciones de la cuenta (por ejemplo, la eliminación), identificado con un seudónimo y no con tus datos directos; un registro de las acciones de la administración del servicio, sin correo ni identificador de Google; y los intentos de generación de escena, con el modelo, la región y la cuenta que los inició. Plazo de conservación: pendiente de validación legal.
+          </li>
+          <li>
+            <strong>Declaración de mayoría de edad</strong>: la fecha en que declaraste ser mayor de edad y la versión del texto vigente en ese momento. No pedimos fecha de nacimiento ni documento de identidad. (Plazo de conservación de la declaración: pendiente de validación legal.)
           </li>
           <li>
             <strong>Técnicos</strong>: cookies de sesión y de inicio de sesión (ver sección 8) y datos mínimos de funcionamiento y seguridad del servicio, como la dirección IP para limitar abusos (el periodo de conservación de estos registros: pendiente de validación legal).
@@ -142,6 +145,9 @@ export function PrivacyPolicyPage(): JSX.Element {
       <LegalSection heading="11. Mayoría de edad y supresión de cuentas de menores">
         <p>
           Tipi está dirigido a personas <strong>mayores de 18 años</strong>.
+        </p>
+        <p>
+          Para registrarte, con usuario y contraseña o con Google, debes marcar la casilla «Soy mayor de edad (18+)». El servidor rechaza el registro si no la marcas, y guarda con tu cuenta la fecha de la declaración y la versión del texto. No pedimos ni verificamos fecha de nacimiento ni documento, de modo que la declaración se basa en tu palabra (pendiente de validación legal si es suficiente en {JURISDICTION}). Las cuentas creadas antes de que existiera esta casilla siguen funcionando y no se les exige una declaración retroactiva.
         </p>
         <p>
           Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a {CONTACT} indicando la cuenta (nombre de usuario). El responsable del servicio revisará la solicitud y, si se confirma, procederá a la supresión de la cuenta y sus datos. Además, la propia persona titular puede eliminar su cuenta directamente desde <code>/cuenta</code> (sección 10). Plazo de respuesta y supresión: pendiente de validación legal.

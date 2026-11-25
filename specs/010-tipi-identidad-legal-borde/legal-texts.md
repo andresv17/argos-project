@@ -18,7 +18,7 @@
   3. `[PAÍS / JURISDICCIÓN]`
   4. `[FECHA DE ÚLTIMA ACTUALIZACIÓN]`
 - Los marcadores `(pendiente de validación legal)` dentro del texto se publican **visibles** hasta que Neo los retire tras la validación externa.
-- Las frases del bloque «Cláusula de mayoría de edad» dependen de `REQ-MEN10-001`/`D10-05` (casilla en el registro, `adult_declared_at`, `adult_notice_version`). Si `T1413` se publica antes de que exista esa casilla, esa cláusula **no** se publica (no se describen funciones inexistentes, `REQ-LEG10-002`).
+- **`T1425` (2026-11-25)**: las cláusulas 18+ (Privacidad §3 y §11, Términos §3) ya no están condicionadas: la casilla «Soy mayor de edad (18+)», `adult_declared_at` y `adult_notice_version` existen desde `T1424`. Texto con versión `0.1.0` (`DRAFT`); procedimiento ante cuenta de menor = contacto `[CORREO DE CONTACTO / PRIVACIDAD]` (valor previsto `contacto@tipi.pet`, sin escribirlo hasta `T1437`) y eliminación desde `/cuenta`, sin acción de administración. Pendientes de `/rama` en `T1426`: suficiencia de la declaración sin verificación de edad, plazo de respuesta y supresión, conservación de la declaración, edad mínima por jurisdicción.
 - Sin cifras de cuota ni de coste en el texto legal (instrucción de Neo). Tampoco se publican plazos de retención de proveedores ni cifras de copias internas (decisión de Neo 3): las copias internas se describen como «respaldos internos temporales con retención acotada que se purgan automáticamente», y la retención del proveedor se remite a sus condiciones.
 
 ---
@@ -44,7 +44,7 @@ Tipi es una herramienta de registro personal para llevar la salud y los datos bi
 - **Cuenta**: nombre de usuario, contraseña (guardada solo de forma protegida, nunca en claro), nombre para mostrar, correo si lo indicas, idioma y zona horaria. Si te registras con Google, usamos tu identificador de cuenta de Google (no tu contraseña de Google) y el correo verificado para crear tu cuenta.
 - **Mascotas y hogar**: fichas, registros de salud, archivos y fotos que subes tú, y la composición de tu hogar y de sus miembros.
 - **Registros técnicos y de auditoría**: un registro de acciones de la cuenta (por ejemplo, la eliminación), identificado con un seudónimo y no con tus datos directos; un registro de las acciones de la administración del servicio, sin correo ni identificador de Google; y los intentos de generación de escena, con el modelo, la región y la cuenta que los inició. Plazo de conservación: pendiente de validación legal.
-- **[CONDICIONADO A T1424: solo cuando la declaración esté implementada y probada; no se publica antes] Declaración de mayoría de edad**: la fecha en que declaraste ser mayor de edad y la versión del texto que aceptaste. No pedimos fecha de nacimiento ni documento de identidad.
+- **Declaración de mayoría de edad**: la fecha en que declaraste ser mayor de edad y la versión del texto vigente en ese momento. No pedimos fecha de nacimiento ni documento de identidad. (Plazo de conservación de la declaración: pendiente de validación legal.)
 - **Técnicos**: cookies de sesión y de inicio de sesión (ver sección 8) y datos mínimos de funcionamiento y seguridad del servicio, como la dirección IP para limitar abusos (el periodo de conservación de estos registros: pendiente de validación legal).
 
 ## 4. Para qué los usamos
@@ -115,11 +115,9 @@ No usamos cookies de publicidad ni de analítica de terceros (ni Google Analytic
 
 Tipi está dirigido a personas **mayores de 18 años**.
 
-[CONDICIONADO A T1424: solo cuando la declaración esté implementada y probada; no se publica antes] Para registrarte debes declarar que eres mayor de edad; la declaración se valida en el servidor y se guarda con la fecha y la versión del texto. No pedimos ni verificamos fecha de nacimiento ni documento (pendiente de validación legal si esta declaración es suficiente en [PAÍS / JURISDICCIÓN]).
+Para registrarte, con usuario y contraseña o con Google, debes marcar la casilla «Soy mayor de edad (18+)». El servidor rechaza el registro si no la marcas, y guarda con tu cuenta la fecha de la declaración y la versión del texto. No pedimos ni verificamos fecha de nacimiento ni documento, de modo que la declaración se basa en tu palabra (pendiente de validación legal si es suficiente en [PAÍS / JURISDICCIÓN]). Las cuentas creadas antes de que existiera esta casilla siguen funcionando y no se les exige una declaración retroactiva.
 
-Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a [CORREO DE CONTACTO / PRIVACIDAD] indicando la cuenta (nombre de usuario). El responsable del servicio revisará la solicitud y, si se confirma, procederá a la supresión de la cuenta y sus datos. Además, la propia persona titular puede eliminar su cuenta directamente desde `/cuenta` (sección 10). Plazo de respuesta y supresión: pendiente de validación legal. (Nota para T1413, no se publica; decisión de Neo 2: el canal es el contacto; no hay botón ni acción de administración para esto, y no se promete aviso por correo.)
-
-[CONDICIONADO A T1424 y a la migración de T1423] Las cuentas creadas antes de que existiera esta declaración siguen funcionando, y no se les exige declaración retroactiva.
+Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a [CORREO DE CONTACTO / PRIVACIDAD] indicando la cuenta (nombre de usuario). El responsable del servicio revisará la solicitud y, si se confirma, procederá a la supresión de la cuenta y sus datos. Además, la propia persona titular puede eliminar su cuenta directamente desde `/cuenta` (sección 10). Plazo de respuesta y supresión: pendiente de validación legal. (Nota, no se publica; decisión de Neo 2: el canal es el contacto; no hay botón ni acción de administración para esto, y no se promete aviso por correo.)
 
 ## 12. Cambios en esta política
 
@@ -151,7 +149,7 @@ Tipi es una herramienta informativa y de registro personal para mascotas. **No s
 
 Para usar Tipi debes ser **mayor de 18 años**.
 
-[CONDICIONADO A T1424: solo cuando la declaración esté implementada y probada; no se publica antes] Debes declararlo al registrarte (con usuario y contraseña o con Google). Al marcar «Soy mayor de edad (18+)» declaras que eres mayor de edad. Si esta declaración no es cierta, podemos suprimir la cuenta y sus datos como se explica en la política de privacidad. (Edad mínima y efectos de la declaración en [PAÍS / JURISDICCIÓN]: pendiente de validación legal.)
+Debes declararlo al registrarte, con usuario y contraseña o con Google: al marcar «Soy mayor de edad (18+)» declaras que eres mayor de edad. Si esta declaración no es cierta, podemos suprimir la cuenta y sus datos, como se explica en la política de privacidad. Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a [CORREO DE CONTACTO / PRIVACIDAD]; la persona titular también puede eliminar su cuenta desde `/cuenta`. (Edad mínima y efectos de la declaración en [PAÍS / JURISDICCIÓN]: pendiente de validación legal.)
 
 ## 4. Tu cuenta
 
@@ -230,4 +228,4 @@ Ley y foro aplicables: [PAÍS / JURISDICCIÓN] (pendiente de validación legal).
 
 - Valores definitivos de los placeholders (`T1437`, Neo).
 - Implementación de páginas y rutas (`T1413`); dictamen `/rama` (`T1414`).
-- Enmienda por edad mínima: `T1425` (`REQ-MEN10-004`). El procedimiento ante cuenta de menor queda como canal de contacto (decisión de Neo 2), sin REQ nueva.
+- Enmienda por edad mínima: hecha en `T1425` (`REQ-MEN10-004`, estado `REVIEW`). El procedimiento ante cuenta de menor queda como canal de contacto (decisión de Neo 2), sin REQ nueva; validación legal en `T1426`.

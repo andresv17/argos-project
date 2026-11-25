@@ -699,3 +699,8 @@ Sin commit; pendiente re-firma /merovingian.
 - spec.md: `SC-010-022..026` (Independent Test de US4 y Success Criteria) expandido a 5 IDs explícitos, contenido normativo intacto; SC-010-023/024 dejan de salir «desconocido».
 - `adult_notice_version` = SemVer N.N.N, constante única `ADULT_NOTICE_VERSION = "0.1.0"` mientras legal-texts.md sea DRAFT; 1.0.0 solo con aprobación de Neo. Registrado en spec.md (REQ-MEN10-001, H-ARCH-ADULT-VERSION) y legal-texts.md §0.
 - verify-traceability --feature 010 rc 0; --task T1422 sin FAIL de desconocidos. Sin src/tests/contracts, sin [x], sin push.
+
+## 2026-11-25 — 010 T1425: edad mínima 18+ y procedimiento ante cuenta de menor (REQ-MEN10-004)
+- legal-texts.md (DRAFT) y páginas /terminos §3 y /privacidad §3 y §11: cláusulas 18+ sin condicionar (casilla «Soy mayor de edad (18+)» existe desde T1424), versión 0.1.0, sin fecha de nacimiento ni documento; cuentas anteriores intactas.
+- Menores: contacto [CORREO DE CONTACTO / PRIVACIDAD] (previsto contacto@tipi.pet, placeholder intacto hasta T1437) y eliminación desde /cuenta; sin acción de administración. scene-notice y LegalLayout sin tocar.
+- Pendiente /rama T1426: suficiencia de la declaración sin verificar edad, plazo de respuesta/supresión, conservación de la declaración, edad mínima por jurisdicción. verify-traceability --feature 010 rc 0, tsc 0, t1411 18/18. Sin [x], sin push.
