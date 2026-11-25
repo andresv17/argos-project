@@ -2300,3 +2300,4 @@
 - 2026-11-24 [morpheus] Bloque B oracle PASS CON OBS; test:gate verde; logo corregido; escalo a Neo.
 - 2026-11-24 [morpheus] Neo aprueba Bloque B. Arranca Bloque C (#66). Ajuste logo y Crema en legales.
 - 2026-11-24 keymaker T1417 ARGOS_TRUST_PROXY_HOPS implementado, gates verdes (commit local pendiente de hash en handback)
+- 2026-11-25 rama: T1426 dictamen menores PASS CON OBS (minimización PASS; puntos legales 1/3/4 aceptables con cambio, 2/5 aceptables; RAMA-T1426-01 MEDIO supresión sin herramienta -> Neo); acta audits/rama-010-T1426-menores-2026-11-25.md; sin [x], sin push
