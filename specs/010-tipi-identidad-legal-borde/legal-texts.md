@@ -44,7 +44,7 @@ Tipi es una herramienta de registro personal para llevar la salud y los datos bi
 - **Cuenta**: nombre de usuario, contraseña (guardada solo de forma protegida, nunca en claro), nombre para mostrar, correo si lo indicas, idioma y zona horaria. Si te registras con Google, usamos tu identificador de cuenta de Google (no tu contraseña de Google) y el correo verificado para crear tu cuenta.
 - **Mascotas y hogar**: fichas, registros de salud, archivos y fotos que subes tú, y la composición de tu hogar y de sus miembros.
 - **Registros técnicos y de auditoría**: un registro de acciones de la cuenta (por ejemplo, la eliminación), identificado con un seudónimo y no con tus datos directos; un registro de las acciones de la administración del servicio, sin correo ni identificador de Google; y los intentos de generación de escena, con el modelo, la región y la cuenta que los inició. Plazo de conservación: pendiente de validación legal.
-- **Declaración de mayoría de edad**: la fecha en que declaraste ser mayor de edad y la versión del texto vigente en ese momento. No pedimos fecha de nacimiento ni documento de identidad. (Plazo de conservación de la declaración: pendiente de validación legal.)
+- **Declaración de mayoría de edad**: la fecha en que declaraste ser mayor de edad y la versión del texto vigente en ese momento. No pedimos fecha de nacimiento ni documento de identidad. La conservamos mientras exista tu cuenta y se elimina junto con ella; no se incluye en el respaldo que descargas. (Pendiente de validación legal.)
 - **Técnicos**: cookies de sesión y de inicio de sesión (ver sección 8) y datos mínimos de funcionamiento y seguridad del servicio, como la dirección IP para limitar abusos (el periodo de conservación de estos registros: pendiente de validación legal).
 
 ## 4. Para qué los usamos
@@ -117,7 +117,7 @@ Tipi está dirigido a personas **mayores de 18 años**.
 
 Para registrarte, con usuario y contraseña o con Google, debes marcar la casilla «Soy mayor de edad (18+)». El servidor rechaza el registro si no la marcas, y guarda con tu cuenta la fecha de la declaración y la versión del texto. No pedimos ni verificamos fecha de nacimiento ni documento, de modo que la declaración se basa en tu palabra (pendiente de validación legal si es suficiente en [PAÍS / JURISDICCIÓN]). Las cuentas creadas antes de que existiera esta casilla siguen funcionando y no se les exige una declaración retroactiva.
 
-Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a [CORREO DE CONTACTO / PRIVACIDAD] indicando la cuenta (nombre de usuario). El responsable del servicio revisará la solicitud y, si se confirma, procederá a la supresión de la cuenta y sus datos. Además, la propia persona titular puede eliminar su cuenta directamente desde `/cuenta` (sección 10). Plazo de respuesta y supresión: pendiente de validación legal. (Nota, no se publica; decisión de Neo 2: el canal es el contacto; no hay botón ni acción de administración para esto, y no se promete aviso por correo.)
+Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a [CORREO DE CONTACTO / PRIVACIDAD] indicando la cuenta (nombre de usuario). El responsable del servicio revisará la solicitud y, si se confirma, procederá a la supresión de la cuenta y sus datos. Para revisar la solicitud no pediremos documentos de identidad de la persona menor ni de nadie más: usaremos solo los datos de la cuenta y de tu mensaje, que conservaremos únicamente el tiempo necesario para atenderla. Además, la propia persona titular puede eliminar su cuenta directamente desde `/cuenta` (sección 10). Plazo de respuesta y supresión: pendiente de validación legal. (Nota, no se publica; decisión de Neo 2: el canal es el contacto; no hay botón ni acción de administración para esto, y no se promete aviso por correo.)
 
 ## 12. Cambios en esta política
 
@@ -149,7 +149,7 @@ Tipi es una herramienta informativa y de registro personal para mascotas. **No s
 
 Para usar Tipi debes ser **mayor de 18 años**.
 
-Debes declararlo al registrarte, con usuario y contraseña o con Google: al marcar «Soy mayor de edad (18+)» declaras que eres mayor de edad. Si esta declaración no es cierta, podemos suprimir la cuenta y sus datos, como se explica en la política de privacidad. Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a [CORREO DE CONTACTO / PRIVACIDAD]; la persona titular también puede eliminar su cuenta desde `/cuenta`. (Edad mínima y efectos de la declaración en [PAÍS / JURISDICCIÓN]: pendiente de validación legal.)
+Debes declararlo al registrarte, con usuario y contraseña o con Google: al marcar «Soy mayor de edad (18+)» declaras que eres mayor de edad. Si esta declaración no es cierta, podemos suprimir la cuenta y sus datos, como se explica en la política de privacidad. Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a [CORREO DE CONTACTO / PRIVACIDAD]; la persona titular también puede eliminar su cuenta desde `/cuenta`, con las condiciones descritas en la sección 10 de la política de privacidad. (Edad mínima y efectos de la declaración en [PAÍS / JURISDICCIÓN]: pendiente de validación legal.)
 
 ## 4. Tu cuenta
 

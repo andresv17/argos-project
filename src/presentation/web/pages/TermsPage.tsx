@@ -28,7 +28,7 @@ export function TermsPage(): JSX.Element {
           Para usar Tipi debes ser <strong>mayor de 18 años</strong>.
         </p>
         <p>
-          Debes declararlo al registrarte, con usuario y contraseña o con Google: al marcar «Soy mayor de edad (18+)» declaras que eres mayor de edad. Si esta declaración no es cierta, podemos suprimir la cuenta y sus datos, como se explica en la política de privacidad. Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a {CONTACT}; la persona titular también puede eliminar su cuenta desde <code>/cuenta</code>. (Edad mínima y efectos de la declaración en {JURISDICTION}: pendiente de validación legal.)
+          Debes declararlo al registrarte, con usuario y contraseña o con Google: al marcar «Soy mayor de edad (18+)» declaras que eres mayor de edad. Si esta declaración no es cierta, podemos suprimir la cuenta y sus datos, como se explica en la política de privacidad. Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a {CONTACT}; la persona titular también puede eliminar su cuenta desde <code>/cuenta</code>, con las condiciones descritas en la sección 10 de la política de privacidad. (Edad mínima y efectos de la declaración en {JURISDICTION}: pendiente de validación legal.)
         </p>
       </LegalSection>
       <LegalSection heading="4. Tu cuenta">

@@ -35,7 +35,7 @@ export function PrivacyPolicyPage(): JSX.Element {
             <strong>Registros técnicos y de auditoría</strong>: un registro de acciones de la cuenta (por ejemplo, la eliminación), identificado con un seudónimo y no con tus datos directos; un registro de las acciones de la administración del servicio, sin correo ni identificador de Google; y los intentos de generación de escena, con el modelo, la región y la cuenta que los inició. Plazo de conservación: pendiente de validación legal.
           </li>
           <li>
-            <strong>Declaración de mayoría de edad</strong>: la fecha en que declaraste ser mayor de edad y la versión del texto vigente en ese momento. No pedimos fecha de nacimiento ni documento de identidad. (Plazo de conservación de la declaración: pendiente de validación legal.)
+            <strong>Declaración de mayoría de edad</strong>: la fecha en que declaraste ser mayor de edad y la versión del texto vigente en ese momento. No pedimos fecha de nacimiento ni documento de identidad. La conservamos mientras exista tu cuenta y se elimina junto con ella; no se incluye en el respaldo que descargas. (Pendiente de validación legal.)
           </li>
           <li>
             <strong>Técnicos</strong>: cookies de sesión y de inicio de sesión (ver sección 8) y datos mínimos de funcionamiento y seguridad del servicio, como la dirección IP para limitar abusos (el periodo de conservación de estos registros: pendiente de validación legal).
@@ -150,7 +150,7 @@ export function PrivacyPolicyPage(): JSX.Element {
           Para registrarte, con usuario y contraseña o con Google, debes marcar la casilla «Soy mayor de edad (18+)». El servidor rechaza el registro si no la marcas, y guarda con tu cuenta la fecha de la declaración y la versión del texto. No pedimos ni verificamos fecha de nacimiento ni documento, de modo que la declaración se basa en tu palabra (pendiente de validación legal si es suficiente en {JURISDICTION}). Las cuentas creadas antes de que existiera esta casilla siguen funcionando y no se les exige una declaración retroactiva.
         </p>
         <p>
-          Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a {CONTACT} indicando la cuenta (nombre de usuario). El responsable del servicio revisará la solicitud y, si se confirma, procederá a la supresión de la cuenta y sus datos. Además, la propia persona titular puede eliminar su cuenta directamente desde <code>/cuenta</code> (sección 10). Plazo de respuesta y supresión: pendiente de validación legal.
+          Si crees que una cuenta pertenece a una persona menor de 18 años, escribe a {CONTACT} indicando la cuenta (nombre de usuario). El responsable del servicio revisará la solicitud y, si se confirma, procederá a la supresión de la cuenta y sus datos. Para revisar la solicitud no pediremos documentos de identidad de la persona menor ni de nadie más: usaremos solo los datos de la cuenta y de tu mensaje, que conservaremos únicamente el tiempo necesario para atenderla. Además, la propia persona titular puede eliminar su cuenta directamente desde <code>/cuenta</code> (sección 10). Plazo de respuesta y supresión: pendiente de validación legal.
         </p>
       </LegalSection>
       <LegalSection heading="12. Cambios en esta política">

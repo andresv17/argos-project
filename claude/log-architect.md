@@ -704,3 +704,7 @@ Sin commit; pendiente re-firma /merovingian.
 - legal-texts.md (DRAFT) y páginas /terminos §3 y /privacidad §3 y §11: cláusulas 18+ sin condicionar (casilla «Soy mayor de edad (18+)» existe desde T1424), versión 0.1.0, sin fecha de nacimiento ni documento; cuentas anteriores intactas.
 - Menores: contacto [CORREO DE CONTACTO / PRIVACIDAD] (previsto contacto@tipi.pet, placeholder intacto hasta T1437) y eliminación desde /cuenta; sin acción de administración. scene-notice y LegalLayout sin tocar.
 - Pendiente /rama T1426: suficiencia de la declaración sin verificar edad, plazo de respuesta/supresión, conservación de la declaración, edad mínima por jurisdicción. verify-traceability --feature 010 rc 0, tsc 0, t1411 18/18. Sin [x], sin push.
+
+## 2026-11-25 — 010 T1426: redacciones de /rama aplicadas (menores)
+- Privacidad §3 (plazo de la declaración 18+), Privacidad §11 (sin documentos de identidad al revisar) y Términos §3 (eliminación desde /cuenta con condiciones de la sección 10), idénticas en legal-texts.md y en /privacidad y /terminos. Versión 0.1.0 DRAFT, 4 placeholders intactos, sin contacto@tipi.pet.
+- No aplicado RAMA-T1426-01 (decide Neo). scene-notice y LegalLayout sin tocar. tsc 0, traza 010 rc 0, t1411 rc 0. Sin [x], sin push.
