@@ -38,7 +38,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        display: ['Nunito', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['"Tipi Display"', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         glass: '0 8px 32px rgba(15, 23, 42, 0.06)',

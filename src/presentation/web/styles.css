@@ -3,13 +3,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Fuentes locales (woff2 del paquete de marca, licencia SIL OFL; sin CDN): Nunito 800 para el título de la app, Inter 400/600 para el texto. */
+/* Fuentes locales (woff2, sin CDN): Tipi Display 800 (tipografía propia de Tipi, titulares; licencia confirmada por Neo, TODO: registrar el texto de la licencia en el README), Inter 400/600 (licencia SIL OFL) para el texto. */
 @font-face {
-  font-family: 'Nunito';
+  font-family: 'Tipi Display';
   font-style: normal;
   font-weight: 800;
   font-display: swap;
-  src: url('/fonts/nunito-latin-800-normal.woff2') format('woff2');
+  src: url('/fonts/tipi-display-latin-800-normal.woff2') format('woff2');
 }
 
 @font-face {

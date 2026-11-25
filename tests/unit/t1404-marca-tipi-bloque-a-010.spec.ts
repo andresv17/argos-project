@@ -59,7 +59,7 @@ describe('T1404 (a) ninguna aparición visible de «Argos» en la interfaz (REQ-
     expect(found).toEqual([]);
   });
 
-  it('[REQ-TIP10-002] AuthPages, AppShell y AdminPortal muestran el logo del paquete y el título usa Nunito 800 (B-1, B-2)', () => {
+  it('[REQ-TIP10-002] AuthPages, AppShell y AdminPortal muestran el logo del paquete y el título usa Tipi Display 800 (B-1, B-2)', () => {
     for (const file of [join(WEB, 'pages/AuthPages.tsx'), join(WEB, 'pages/AppShell.tsx'), join(ADMIN, 'AdminPortal.tsx')]) {
       // Cambio de expectativa (corrección de marca, BRAND-TIPI.md §2 y §5): barra superior y pantallas de acceso usan el logo
       // HORIZONTAL; el símbolo simple es solo para ≤32 px (favicon/íconos) y el logo completo nunca baja de 32 px. La intención

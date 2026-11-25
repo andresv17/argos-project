@@ -46,11 +46,11 @@ describe('T1407 (a) tokens Tipi centralizados (REQ-TIP10-003, SC-010-003)', () =
     }
   });
 
-  it('[REQ-TIP10-003] Nunito 800 (título) e Inter 400/600 (texto) declaradas con woff2 locales, sin CDN', () => {
+  it('[REQ-TIP10-003] Tipi Display 800 (título) e Inter 400/600 (texto) declaradas con woff2 locales, sin CDN', () => {
     const css = read('src/presentation/web/styles.css');
-    expect(css).toMatch(/font-family:\s*['"]?Nunito/);
+    expect(css).toMatch(/font-family:\s*['"]?Tipi Display/);
     expect(css).toMatch(/font-family:\s*['"]?Inter/);
-    for (const font of ['nunito-latin-800-normal', 'inter-latin-400-normal', 'inter-latin-600-normal']) {
+    for (const font of ['tipi-display-latin-800-normal', 'inter-latin-400-normal', 'inter-latin-600-normal']) {
       expect(existsSync(join(ROOT, 'public', 'fonts', `${font}.woff2`)), font).toBe(true);
       expect(css).toContain(`${font}.woff2`);
     }
@@ -58,7 +58,7 @@ describe('T1407 (a) tokens Tipi centralizados (REQ-TIP10-003, SC-010-003)', () =
     expect(net).toEqual([]);
     const family = (config.theme?.extend?.fontFamily ?? {}) as Record<string, string[]>;
     expect(family['sans']?.[0]).toMatch(/Inter/);
-    expect(family['display']?.[0]).toMatch(/Nunito/);
+    expect(family['display']?.[0]).toMatch(/Tipi Display/);
   });
 });
 
