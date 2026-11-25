@@ -47,6 +47,8 @@ import type { AboutContentRecord, AboutContentRepositoryPort } from '../../../ap
 import type {
   AdminAuditRecord,
   AdminAuditRepositoryPort,
+  AdminDelegateRecord,
+  AdminDelegateRepositoryPort,
   AdminParameterRepositoryPort,
   AdminFlowStateRepositoryPort,
   AdminIdentityRepositoryPort,
@@ -104,6 +106,8 @@ export interface MemoryState extends SceneMemoryState {
   adminSessions?: AdminSessionRecord[];
   adminFlows?: AdminFlowStateRecord[];
   adminAudit?: AdminAuditRecord[];
+  /** `admin_delegates` (feature 011); opcional: ausente = vacía. */
+  adminDelegates?: AdminDelegateRecord[];
   /** `about_content` (feature 010, T1430): singleton; opcional, ausente o `null` = sin contenido. */
   aboutContent?: AboutContentRecord | null;
   /** Decision de aprobacion por cuenta (T1247): instante y `adminId` de quien decidio. */
@@ -152,6 +156,7 @@ export function emptyMemoryState(): MemoryState {
     adminSessions: [],
     adminFlows: [],
     adminAudit: [],
+    adminDelegates: [],
     scenes: [],
     sceneAttempts: [],
     sceneConsents: [],
@@ -810,6 +815,13 @@ function adminIdentityRepository(state: MemoryState): AdminIdentityRepositoryPor
       all().push(copy(identity));
       return true;
     },
+    async deleteById(adminId) {
+      const before = all().length;
+      state.adminIdentities = all().filter((i) => i.adminId !== adminId);
+      // ON DELETE CASCADE de admin_sessions.
+      state.adminSessions = (state.adminSessions ?? []).filter((session) => session.adminId !== adminId);
+      return state.adminIdentities.length < before;
+    },
   };
 }
 
@@ -840,6 +852,76 @@ function adminSessionRepository(state: MemoryState): AdminSessionRepositoryPort 
       const before = all().length;
       state.adminSessions = all().filter((s) => s.createdAt > cutoff);
       return before - state.adminSessions.length;
+    },
+    async deleteByAdminId(adminId) {
+      const before = all().length;
+      state.adminSessions = all().filter((s) => s.adminId !== adminId);
+      return before - state.adminSessions.length;
+    },
+  };
+}
+
+/**
+ * `admin_delegates` (feature 011): paridad con SQLite/PostgreSQL. Único por correo solo entre filas vivas (`ACTIVE` | `INVITED`, ORA-1 b) y por `(provider, sub)` solo entre `ACTIVE`; todas las
+ * escrituras son compare-and-set sobre el estado leído. La unidad de trabajo de memoria serializa por cola, de modo que `lockForGuard` no hace nada.
+ */
+function adminDelegateRepository(state: MemoryState): AdminDelegateRepositoryPort {
+  const all = (): AdminDelegateRecord[] => (state.adminDelegates ??= []);
+  const live = (record: Pick<AdminDelegateRecord, 'status'>): boolean => record.status === 'ACTIVE' || record.status === 'INVITED';
+  const coherent = (r: AdminDelegateRecord): boolean =>
+    r.adminId.length === 36 &&
+    r.email.length >= 3 &&
+    r.email === r.email.toLowerCase() &&
+    ['SUPER_ADMIN', 'OPERATOR', 'SUPPORT'].includes(r.role) &&
+    ['INVITED', 'ACTIVE', 'DISABLED'].includes(r.status) &&
+    (r.provider === null) === (r.providerSubject === null);
+  const conflicts = (candidate: AdminDelegateRecord, ignoreId: string | null): boolean =>
+    all().some(
+      (other) =>
+        other.adminId !== ignoreId &&
+        (other.adminId === candidate.adminId ||
+          (live(other) && live(candidate) && other.email === candidate.email) ||
+          (other.status === 'ACTIVE' && candidate.status === 'ACTIVE' && other.provider === candidate.provider && other.providerSubject === candidate.providerSubject)),
+    );
+  const ordered = (): AdminDelegateRecord[] => [...all()].sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.adminId < b.adminId ? -1 : a.adminId > b.adminId ? 1 : 0));
+  return {
+    async lockForGuard() {},
+    async findById(adminId) {
+      return copy(all().find((d) => d.adminId === adminId) ?? null);
+    },
+    async findLiveByEmail(email) {
+      return copy(all().find((d) => live(d) && d.email === email) ?? null);
+    },
+    async list(limit) {
+      return copy(ordered().slice(0, limit));
+    },
+    async countRows() {
+      return all().length;
+    },
+    async countOccupied(now, excludeAdminId) {
+      return all().filter((d) => d.adminId !== excludeAdminId && (d.status === 'ACTIVE' || (d.status === 'INVITED' && d.invitedExpiresAt !== null && d.invitedExpiresAt >= now))).length;
+    },
+    async countActiveSuperAdmins(excludeEmails, excludeAdminId) {
+      return all().filter((d) => d.adminId !== excludeAdminId && d.status === 'ACTIVE' && d.role === 'SUPER_ADMIN' && !excludeEmails.includes(d.email)).length;
+    },
+    async insert(record) {
+      if (!coherent(record) || conflicts(record, null)) return false;
+      all().push(copy(record));
+      return true;
+    },
+    async replace(next, expected) {
+      const index = all().findIndex((d) => d.adminId === expected.adminId && d.status === expected.status && d.role === expected.role && d.updatedAt === expected.updatedAt && d.providerSubject === expected.providerSubject);
+      if (index < 0 || !coherent(next) || conflicts(next, expected.adminId)) return false;
+      all()[index] = copy(next);
+      return true;
+    },
+    async anchor(adminId, provider, providerSubject, now) {
+      const index = all().findIndex((d) => d.adminId === adminId && d.status === 'INVITED' && d.providerSubject === null && d.invitedExpiresAt !== null && d.invitedExpiresAt >= now);
+      if (index < 0) return false;
+      const next: AdminDelegateRecord = { ...all()[index]!, status: 'ACTIVE', provider, providerSubject, anchoredAt: now, invitedExpiresAt: null, updatedAt: now };
+      if (conflicts(next, adminId)) return false;
+      all()[index] = next;
+      return true;
     },
   };
 }
@@ -1000,6 +1082,7 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     adminSessions: adminSessionRepository(state),
     adminFlows: adminFlowRepository(state),
     adminAudit: adminAuditRepository(state),
+    adminDelegates: adminDelegateRepository(state),
     registrations: registrationRepository(state),
     adminParameters: adminParameterRepository(state),
     aboutContent: aboutContentRepository(state),

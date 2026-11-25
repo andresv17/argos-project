@@ -369,6 +369,28 @@ const validateRawConfig = new Ajv({ allErrors: true }).compile(APP_CONFIG_SCHEMA
 /** Configuración inválida: `variables` lista las variables de entorno rechazadas. */
 /** Variable de la lista cerrada de administradores de plataforma (feature 009, T1227). Solo se lee aquí (INV-ARCH-006). */
 export const ADMIN_EMAILS_NAME = 'ARGOS_ADMIN_EMAILS';
+
+/**
+ * Administradores delegados de `/admin` (feature 011, REQ-ADM11-001, D11-03 = B+A, H-1; INV-ARCH-006: viven SOLO aquí y los lee la capa de aplicación por inyección).
+ * - `ADMIN_DELEGATE_ACTIVE_LIMIT`: tope de delegados vigentes (`ACTIVE` + `INVITED` no caducadas).
+ * - `ADMIN_DELEGATE_INVITATION_TTL_HOURS`: caducidad de la invitación (`invited_expires_at = invited_at + 72 h`).
+ * - `ADMIN_DELEGATE_ROW_LIMIT`: tope de filas totales de la tabla (incluidas `DISABLED`); mismo código de error que el tope de vigentes.
+ *
+ * @implements REQ-ADM11-001, INV-ARCH-006
+ */
+export const ADMIN_DELEGATE_ACTIVE_LIMIT = 20;
+export const ADMIN_DELEGATE_INVITATION_TTL_HOURS = 72;
+export const ADMIN_DELEGATE_ROW_LIMIT = 100;
+/**
+ * Retención de delegados `DISABLED` (D-1, aprobada por Neo, Logos iter 228): al vencer los 365 días se anonimizan correo y `sub`. La purga automática NO existe aún: DEUDA-011-PURGA-DELEGADOS (fuera de #63).
+ * @implements REQ-ADM11-001, INV-ARCH-006
+ */
+export const ADMIN_DELEGATE_DISABLED_RETENTION_DAYS = 365;
+/**
+ * Retención de invitaciones caducadas (D-2, aprobada por Neo, Logos iter 228): días tras la caducidad de las 72 h; al vencer se purga la fila `INVITED` caducada. Purga pendiente: DEUDA-011-PURGA-DELEGADOS (fuera de #63).
+ * @implements REQ-ADM11-001, INV-ARCH-006
+ */
+export const ADMIN_DELEGATE_EXPIRED_INVITATION_RETENTION_DAYS = 30;
 /** Ruta fija del callback de administración (009-A, (c)): nunca derivada de `Host`. */
 export const ADMIN_GOOGLE_CALLBACK_PATH = '/api/admin/auth/google/callback';
 /**
@@ -513,7 +535,8 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
   }
   // 009 (T1227, REQ-ADM9-003): lista cerrada de administración; un valor inválido rechaza el arranque nombrando solo la variable.
   const adminParsed = parseAdminEmails(env[ADMIN_EMAILS_NAME]);
-  const adminInvalid = !adminParsed.ok;
+  // 011 (F-03, H-2b, EDGE-011-011): con NODE_ENV=production la lista raíz NO puede estar vacía (siempre hay al menos un SUPER_ADMIN raíz); en desarrollo y pruebas se permite vacía.
+  const adminInvalid = !adminParsed.ok || (env['NODE_ENV'] === 'production' && adminParsed.emails.length === 0);
   const publicBaseRaw = present(PUBLIC_BASE_URL_NAME);
   const publicBaseUrl = publicBaseRaw === undefined ? null : normalizePublicBaseUrl(publicBaseRaw);
   // T1443 (EDGE-010-003, decisión de Neo): con NODE_ENV=production la base es OBLIGATORIA (falla cerrado); en desarrollo el servidor usa http://127.0.0.1:<port>.

@@ -20,7 +20,7 @@ import type { RecordModule, RecordOf } from '../../domain/records/record-invaria
 import type { SceneConsentRepository, SceneRepository } from './scene-repositories.port.ts';
 import type { AuthIdentityRepositoryPort, OAuthFlowStateRepositoryPort } from './auth-identity.port.ts';
 import type { AboutContentRepositoryPort } from './about.port.ts';
-import type { AdminAuditRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
+import type { AdminAuditRepositoryPort, AdminDelegateRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
 export interface UserAccount extends UserSelfProfile {
@@ -366,6 +366,8 @@ export interface RepositorySet {
   readonly adminSessions: AdminSessionRepositoryPort;
   readonly adminFlows: AdminFlowStateRepositoryPort;
   readonly adminAudit: AdminAuditRepositoryPort;
+  /** Administradores delegados y sus roles de plataforma (feature 011, REQ-ADM11-001..007). */
+  readonly adminDelegates: AdminDelegateRepositoryPort;
   /** Decisión atómica de aprobación de cuentas (feature 009, T1247, REQ-APR9-003). */
   readonly registrations: RegistrationDecisionRepositoryPort;
   /** Edición de parámetros de plataforma desde `/admin` (feature 009, Fase 5a, T1264, REQ-CFG9-007). */

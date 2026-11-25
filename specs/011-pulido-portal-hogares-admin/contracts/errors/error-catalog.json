@@ -2,14 +2,25 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalogIncremental011",
   "x-sdd-metadata": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "status": "APPROVED",
     "supersedes": null,
     "change_type": "MINOR",
     "extends": "catalogos de 001..010 (sin editar)",
-    "change_note": "Catalogo INCREMENTAL MINIMO de la feature 011 (Nivel 2 Neo, 2026-11-25): base vacia para habilitar verify-traceability --feature 011 en Fase 0. Los codigos ERR-ADM11-*, ERR-HOG11-* y ERR-PRF11-* se anaden por bloque en sus tareas [ARCH] [N2] (T1524, T1548, T1553) mediante enmiendas MINOR.",
+    "change_note": "Catalogo INCREMENTAL MINIMO de la feature 011 (Nivel 2 Neo, 2026-11-25): base vacia para habilitar verify-traceability --feature 011 en Fase 0. Los codigos ERR-ADM11-*, ERR-HOG11-* y ERR-PRF11-* se anaden por bloque en sus tareas [ARCH] [N2] (T1524, T1548, T1553) mediante enmiendas MINOR. 1.1.0 (T1524, Architect 2026-11-25, MINOR aditiva; solo anade, no cambia ni retira los existentes; el estado de 1.0.0 NO se hereda de forma automatica y lo fija solo Neo): +10 codigos ERR-ADM11-* de la gestion de administradores delegados (/api/admin/administrators*) y de la autorizacion por rol. DENIED uniforme (INVITED caducada, DISABLED, sin rol, sin ancla, correo distinto, rol desconocido) NO tiene codigo propio: reutiliza el 404 uniforme del callback de 009 (H-4, EDGE-009-008). Los codigos ERR-HOG11-* y ERR-PRF11-* siguen pendientes de T1548 y T1553.",
     "removed": [],
-    "added": [],
+    "added": [
+      "ERR-ADM11-ROLE-NOT-AUTHORIZED",
+      "ERR-ADM11-GRANT-FORBIDDEN",
+      "ERR-ADM11-SELF-MODIFICATION-FORBIDDEN",
+      "ERR-ADM11-DELEGATE-LIMIT-REACHED",
+      "ERR-ADM11-LAST-SUPER-ADMIN",
+      "ERR-ADM11-ROOT-PROTECTED",
+      "ERR-ADM11-INVALID-TRANSITION",
+      "ERR-ADM11-DELEGATE-NOT-FOUND",
+      "ERR-ADM11-EMAIL-CONFIRMATION-MISMATCH",
+      "ERR-ADM11-PRECONDITION-FAILED"
+    ],
     "inherited": [
       "ERR-AUTH-CSRF-REJECTED",
       "ERR-INTERNAL-UNEXPECTED",
@@ -20,13 +31,115 @@
     "traceability": [
       "REQ-ADM11-003",
       "REQ-HOG11-004",
-      "REQ-PRF11-001"
+      "REQ-PRF11-001",
+      "REQ-ADM11-001",
+      "REQ-ADM11-005",
+      "REQ-ADM11-004",
+      "INV-ADM11-001",
+      "INV-ADM11-002",
+      "EDGE-011-001",
+      "EDGE-011-002",
+      "EDGE-011-003",
+      "EDGE-011-009",
+      "EDGE-011-010",
+      "EDGE-011-011"
     ]
   },
-  "version": "1.0.0",
+  "version": "1.1.0",
   "status": "APPROVED",
   "problemDetailsSchema": {
     "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
   },
-  "errors": {}
+  "errors": {
+    "ERR-ADM11-ROLE-NOT-AUTHORIZED": {
+      "type": "urn:argos:error:ERR-ADM11-ROLE-NOT-AUTHORIZED",
+      "status": 403,
+      "title": "Tu rol de administración no permite esta operación",
+      "invariantRef": "INV-ADM11-001",
+      "detailTemplate": "Tu rol de administración no autoriza esta operación. Si lo necesitas, pide a un super-administrador que revise tu rol.",
+      "requirementRef": "REQ-ADM11-003",
+      "note": "Solo con sesion de administracion VALIDA y rol efectivo ya resuelto desde BD en esta peticion; sin sesion sigue el 404 uniforme de 009. Se responde ANTES de leer el cuerpo y de cualquier efecto (registro central de roles por ruta, H-7). No nombra la operacion ni el rol requerido. Un rol desconocido en BD no llega aqui: es sin acceso (404 uniforme)."
+    },
+    "ERR-ADM11-GRANT-FORBIDDEN": {
+      "type": "urn:argos:error:ERR-ADM11-GRANT-FORBIDDEN",
+      "status": 403,
+      "title": "No puedes conceder ni modificar ese rol",
+      "invariantRef": "INV-ADM11-001",
+      "detailTemplate": "Esta operación sobre roles de super-administrador solo la puede hacer el administrador raíz.",
+      "requirementRef": "REQ-ADM11-005, EDGE-011-003",
+      "note": "H-6: un SUPER_ADMIN delegado no puede asignar ni retirar SUPER_ADMIN, ni cambiar, desactivar o reactivar a otro SUPER_ADMIN. Depende solo del actor y del rol destino/objetivo, nunca del correo, de modo que no enumera cuentas. Sin cambios en BD."
+    },
+    "ERR-ADM11-SELF-MODIFICATION-FORBIDDEN": {
+      "type": "urn:argos:error:ERR-ADM11-SELF-MODIFICATION-FORBIDDEN",
+      "status": 403,
+      "title": "No puedes modificarte a ti mismo",
+      "invariantRef": "INV-ADM11-001",
+      "detailTemplate": "No puedes cambiar tu propio rol ni tu propio estado. Pide a otro administrador autorizado que lo haga.",
+      "requirementRef": "REQ-ADM11-005",
+      "note": "H-6: autopromocion y auto-modificacion (rol, estado) prohibidas para cualquier rol, tambien para un delegado sobre su propio adminId. Se evalua antes de la guarda del ultimo SUPER_ADMIN y sin efectos."
+    },
+    "ERR-ADM11-DELEGATE-LIMIT-REACHED": {
+      "type": "urn:argos:error:ERR-ADM11-DELEGATE-LIMIT-REACHED",
+      "status": 409,
+      "title": "Se alcanzó el límite de administradores delegados",
+      "invariantRef": "INV-ADM11-002",
+      "detailTemplate": "Se alcanzó el límite de administradores delegados. Desactiva a alguien o espera a que caduque una invitación antes de añadir otro.",
+      "requirementRef": "REQ-ADM11-001, EDGE-011-009, EDGE-011-010",
+      "note": "Unico rechazo diferenciable del alta (H-4). Un solo codigo para los dos topes: 20 delegados vigentes (ACTIVE + INVITED no caducadas) y el total de filas incluidas DISABLED (100); asi no hay un segundo diferenciador. En INVITE se evalua ANTES de resolver el correo (no depende de si el correo existe); tambien en REINVITE y REACTIVATE. Conteo y escritura en la misma transaccion; en carrera solo una prospera. Los valores numericos viven solo en app-config.ts y no se escriben en el detalle."
+    },
+    "ERR-ADM11-LAST-SUPER-ADMIN": {
+      "type": "urn:argos:error:ERR-ADM11-LAST-SUPER-ADMIN",
+      "status": 409,
+      "title": "No se puede dejar la plataforma sin super-administrador",
+      "invariantRef": "INV-ADM11-002",
+      "detailTemplate": "Esta operación dejaría la plataforma sin super-administrador. Debe quedar al menos uno.",
+      "requirementRef": "REQ-ADM11-005, EDGE-011-002, EDGE-011-011",
+      "note": "Total de SUPER_ADMIN efectivos = |ARGOS_ADMIN_EMAILS| + |delegados SUPER_ADMIN ACTIVE|; ninguna operacion lo deja en cero. Guarda unica del servicio de dominio, serializada con SELECT ... FOR UPDATE (PostgreSQL) o BEGIN IMMEDIATE (SQLite) y cubre degradar, desactivar y cancelar. Con el compare-and-set perdido en una carrera, el segundo recibe este codigo."
+    },
+    "ERR-ADM11-ROOT-PROTECTED": {
+      "type": "urn:argos:error:ERR-ADM11-ROOT-PROTECTED",
+      "status": 409,
+      "title": "Esa cuenta es del administrador raíz",
+      "invariantRef": "INV-ADM11-002",
+      "detailTemplate": "Las cuentas del administrador raíz no se pueden degradar, desactivar ni revocar desde la interfaz.",
+      "requirementRef": "REQ-ADM11-005, EDGE-011-001, EDGE-011-003",
+      "note": "Objetivo cuyo correo esta en ARGOS_ADMIN_EMAILS (p. ej. fila delegada preexistente). El alta con un correo raiz NO produce este error: se ignora con la respuesta uniforme 202 (EDGE-011-001, H-4)."
+    },
+    "ERR-ADM11-INVALID-TRANSITION": {
+      "type": "urn:argos:error:ERR-ADM11-INVALID-TRANSITION",
+      "status": 409,
+      "title": "Esa operación no es válida para el estado actual",
+      "invariantRef": "INV-ADM11-001",
+      "detailTemplate": "Esa operación no es válida para el estado actual del administrador delegado.",
+      "requirementRef": "REQ-ADM11-001, REQ-ADM11-005",
+      "note": "Transicion no declarada en STATE-ADM11-001 (p. ej. desactivar un DISABLED, reactivar un ACTIVE, reactivar un DISABLED sin sub ancla, re-invitar un ACTIVE). Solo la ven los SUPER_ADMIN autorizados sobre un adminId existente. Sin cambios en BD."
+    },
+    "ERR-ADM11-DELEGATE-NOT-FOUND": {
+      "type": "urn:argos:error:ERR-ADM11-DELEGATE-NOT-FOUND",
+      "status": 404,
+      "title": "Administrador delegado no encontrado",
+      "invariantRef": "INV-ADM11-001",
+      "detailTemplate": "No se encontró el administrador delegado indicado.",
+      "requirementRef": "REQ-ADM11-003",
+      "note": "Solo con sesion valida y rol SUPER_ADMIN: el adminId no existe en la tabla de delegados (la raiz no tiene fila). Un adminId con formato invalido es 422 ERR-SCHEMA-VALIDATION-FAILED. Misma respuesta para ids inexistentes y para el de la raiz."
+    },
+    "ERR-ADM11-EMAIL-CONFIRMATION-MISMATCH": {
+      "type": "urn:argos:error:ERR-ADM11-EMAIL-CONFIRMATION-MISMATCH",
+      "status": 422,
+      "title": "Los correos no coinciden",
+      "invariantRef": "INV-ADM11-001",
+      "detailTemplate": "Los dos correos no coinciden. Escríbelos de nuevo.",
+      "requirementRef": "REQ-ADM11-001",
+      "note": "H-1: confirmacion explicita del correo en el alta. email y emailConfirmation difieren tras normalizar. El detalle y los logs NO repiten el correo (H-9). Es un error de forma del formulario y no revela si el correo existe; se evalua antes de cualquier lectura de la tabla."
+    },
+    "ERR-ADM11-PRECONDITION-FAILED": {
+      "type": "urn:argos:error:ERR-ADM11-PRECONDITION-FAILED",
+      "status": 412,
+      "title": "El administrador delegado cambió; vuelve a cargar",
+      "invariantRef": "INV-ADM11-001",
+      "detailTemplate": "El administrador delegado cambió desde que lo cargaste. Vuelve a cargar la lista e inténtalo de nuevo.",
+      "requirementRef": "REQ-ADM11-004",
+      "note": "If-Match correcto en forma pero ya no vigente (control optimista de escrituras sobre un delegado; EDGE-011-015). Ausente o con otra forma: 422 ERR-SCHEMA-VALIDATION-FAILED. No muta nada."
+    }
+  }
 }

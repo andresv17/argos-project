@@ -30,7 +30,7 @@ import {
 import { validateUserPublicProfile, type AuditEntry } from '../../../generated/v31/index.ts';
 import { isStoredPetProfile, type LifeStatus, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import { sqliteSceneConsentRepository, sqliteSceneRepository } from './sqlite-scene-repositories.ts';
-import { aboutContentRepository, adminAuditRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './sqlite-admin-repositories.ts';
+import { aboutContentRepository, adminAuditRepository, adminDelegateRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './sqlite-admin-repositories.ts';
 import type {
   AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
@@ -1216,6 +1216,7 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     adminSessions: adminSessionRepository(db),
     adminFlows: adminFlowRepository(db),
     adminAudit: adminAuditRepository(db),
+    adminDelegates: adminDelegateRepository(db),
     registrations: registrationRepository(db),
     adminParameters: adminParameterRepository(db),
     aboutContent: aboutContentRepository(db),

@@ -9,6 +9,7 @@
 import cookie from '@fastify/cookie';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
+import { registerAdminGate } from './admin-gate.ts';
 import { registerCsrfGuard } from './plugins/csrf-guard.ts';
 import { registerProblemDetails } from './plugins/problem-details.ts';
 import { registerDevMediaRoutes, type DevMediaOptions } from './routes/dev-media.routes.ts';
@@ -95,6 +96,8 @@ export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = fal
     // «Acerca de» (feature 010, T1430): escritura solo con sesión de administración (404 uniforme sin ella).
     registerAdminAboutRoutes(app, context, deps.media);
   }
+    // Puerta unica por peticion de /api/admin/* (011, H-7): antes de montar cualquier ruta de administracion (un hook global solo alcanza a las rutas posteriores).
+    registerAdminGate(app, context.useCases);
   // «Acerca de» público (010, D10-07): anónimo, fuera de toda sesión; la foto solo se sirve si hay medios conectados (sin ellos, 404).
   registerPublicAboutRoutes(app, context);
   registerAccountRoutes(app, context);

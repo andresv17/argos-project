@@ -5,6 +5,15 @@
  */
 
 import { GetAdminAboutUseCase, GetPublicAboutPhotoUseCase, GetPublicAboutUseCase, PutAboutPhotoUseCase, UpdateAboutTextUseCase } from '../../../application/use-cases/about-use-cases.ts';
+import {
+  ChangeAdminDelegateRoleUseCase,
+  DisableAdminDelegateUseCase,
+  InviteAdminDelegateUseCase,
+  ListAdminDelegatesUseCase,
+  ReactivateAdminDelegateUseCase,
+  ReinviteAdminDelegateUseCase,
+  type AdminDelegateLimits,
+} from '../../../application/use-cases/admin-delegate-use-cases.ts';
 import { AuthenticateAdminUseCase, CompleteAdminGoogleLoginUseCase, EndAdminSessionUseCase, StartAdminGoogleLoginUseCase } from '../../../application/use-cases/admin-use-cases.ts';
 import { ListAdminParametersUseCase, ResetAdminSceneQuotaUseCase, UpdateAdminParameterUseCase } from '../../../application/use-cases/admin-parameter-use-cases.ts';
 import { CountPendingRegistrationsUseCase, DecideRegistrationUseCase, ListPendingRegistrationsUseCase } from '../../../application/use-cases/admin-registration-use-cases.ts';
@@ -49,9 +58,17 @@ import {
   DeleteRecordUseCase,
   UpdateRecordUseCase,
 } from '../../../application/use-cases/record-use-cases.ts';
+import { ADMIN_DELEGATE_ACTIVE_LIMIT, ADMIN_DELEGATE_INVITATION_TTL_HOURS, ADMIN_DELEGATE_ROW_LIMIT } from '../../config/app-config.ts';
 import { INVITEE_SEARCH_LIMITS } from '../../config/invitee-search-config.ts';
 import { InviteeSearchRateLimiter } from '../invitee-search-rate-limit.ts';
 import type { ApplicationDeps } from '../../../application/use-cases/use-case-support.ts';
+
+/** Cifras de los delegados de `/admin` (feature 011, INV-ARCH-006): viven solo en `app-config.ts` y la composición las inyecta a la capa de aplicación. */
+const ADMIN_DELEGATE_LIMITS: AdminDelegateLimits = {
+  activeLimit: ADMIN_DELEGATE_ACTIVE_LIMIT,
+  invitationTtlHours: ADMIN_DELEGATE_INVITATION_TTL_HOURS,
+  rowLimit: ADMIN_DELEGATE_ROW_LIMIT,
+};
 
 export function createUseCases(deps: ApplicationDeps) {
   return {
@@ -68,6 +85,12 @@ export function createUseCases(deps: ApplicationDeps) {
     adminComplete: new CompleteAdminGoogleLoginUseCase(deps),
     adminAuthenticate: new AuthenticateAdminUseCase(deps),
     adminEnd: new EndAdminSessionUseCase(deps),
+    adminListDelegates: new ListAdminDelegatesUseCase(deps, ADMIN_DELEGATE_LIMITS),
+    adminInviteDelegate: new InviteAdminDelegateUseCase(deps, ADMIN_DELEGATE_LIMITS),
+    adminChangeDelegateRole: new ChangeAdminDelegateRoleUseCase(deps, ADMIN_DELEGATE_LIMITS),
+    adminDisableDelegate: new DisableAdminDelegateUseCase(deps, ADMIN_DELEGATE_LIMITS),
+    adminReactivateDelegate: new ReactivateAdminDelegateUseCase(deps, ADMIN_DELEGATE_LIMITS),
+    adminReinviteDelegate: new ReinviteAdminDelegateUseCase(deps, ADMIN_DELEGATE_LIMITS),
     adminPendingCount: new CountPendingRegistrationsUseCase(deps),
     adminListRegistrations: new ListPendingRegistrationsUseCase(deps),
     adminDecideRegistration: new DecideRegistrationUseCase(deps),

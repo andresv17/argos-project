@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/admin-delegate.schema.json",
+  "title": "AdminDelegateSchema",
+  "description": "Administradores delegados de /admin y roles de plataforma [REQ-ADM11-001, REQ-ADM11-002, REQ-ADM11-003, REQ-ADM11-005, REQ-ADM11-006, REQ-ADM11-007, INV-ADM11-001, INV-ADM11-002]. Esquemas INCREMENTALES de la feature 011; ningun valor de PlatformRole coincide con OWNER/ADMIN/CAREGIVER/READER (REQ-ADM11-002). Todos los objetos son cerrados y con limites explicitos.",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "APPROVED",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "1.0.0 (feature 011, T1524, Architect 2026-11-25; decisiones D11-01 = A + H-6 = B, D11-03 = B+A, D11-04 = A, H-1, H-4, H-5 aprobadas por Neo): +PlatformRole (SUPER_ADMIN | OPERATOR | SUPPORT, conjunto cerrado; tipo nominal en domain/admin/), +DelegateStatus (INVITED | ACTIVE | DISABLED, STATE-ADM11-001), +AdminDelegateView (vista para SUPER_ADMIN; incluye correo porque el gestor debe identificar al delegado, y nunca sub, hash ni sesion), +AdminDelegatePage, +InviteAdminDelegateInput (confirmacion explicita del correo, H-1), +ChangeAdminDelegateRoleInput, +ReactivateAdminDelegateInput (rol explicito, D11-04/H-5), +AdminDelegateAccepted (respuesta uniforme del alta, H-4), +AdminSelfView (rol efectivo para que la interfaz oculte lo no autorizado; no es control, REQ-ADM11-003), +AdminAuditAction (lista cerrada de acciones; la columna admin_audit_entries.action no cambia, MIF-011-01). Estado DRAFT: lo fija solo Neo. DERIVADAS (no dictadas por Neo, ORA-1, para revision): (d) ADMIN_DELEGATE_ROW_LIMIT = 100 como tope de filas totales (incluidas DISABLED; trinity H-5, valor fijado por T1524); (e) transicion REINVITE (INVITED -> INVITED y DISABLED sin sub -> INVITED) para la re-invitacion explicita de H-1; (f) AdminSelfView y la operacion getAdminSelf; (b) INVITATION_CANCELLED (misma derivada que INVITED -> DISABLED al cancelar) como accion de auditoria separada de DISABLED.",
+    "traceability": [
+      "REQ-ADM11-001",
+      "REQ-ADM11-002",
+      "REQ-ADM11-003",
+      "REQ-ADM11-004",
+      "REQ-ADM11-005",
+      "REQ-ADM11-006",
+      "REQ-ADM11-007",
+      "INV-ADM11-001",
+      "INV-ADM11-002",
+      "STATE-ADM11-001"
+    ]
+  },
+  "x-sdd-constants": {
+    "ADMIN_DELEGATE_ACTIVE_LIMIT": {
+      "value": 20,
+      "where": "app-config.ts (INV-ARCH-006); lo anade /keymaker, no esta tarea",
+      "rule": "tope de delegados vigentes = ACTIVE + INVITED no caducadas; se comprueba y escribe en la misma transaccion en alta, anclaje, reactivacion y re-invitacion (EDGE-011-009, EDGE-011-010)"
+    },
+    "ADMIN_DELEGATE_INVITATION_TTL_HOURS": {
+      "value": 72,
+      "where": "app-config.ts (INV-ARCH-006)",
+      "rule": "caducidad de INVITED (H-1); invited_expires_at = invited_at + 72 h calculado con ClockPort"
+    },
+    "ADMIN_DELEGATE_ROW_LIMIT": {
+      "value": 100,
+      "where": "app-config.ts (INV-ARCH-006)",
+      "rule": "tope del total de filas de la tabla de delegados incluidas las DISABLED (nota trinity H-5 del spec; DERIVADA, valor fijado por T1524); el rechazo usa el MISMO codigo ERR-ADM11-DELEGATE-LIMIT-REACHED que el tope de 20, de modo que no hay un segundo diferenciador"
+    }
+  },
+  "$defs": {
+    "PlatformRole": {
+      "type": "string",
+      "enum": ["SUPER_ADMIN", "OPERATOR", "SUPPORT"],
+      "description": "Rol de plataforma: conjunto cerrado propio (D11-01 = A). SUPER_ADMIN: todas las operaciones y la gestion de delegados; OPERATOR: parametros, escenas, cuotas, Acerca de y aprobaciones; SUPPORT: solo aprobaciones. Un valor desconocido en BD = sin acceso (falla cerrada, REQ-ADM11-003). Nunca se compara por subcadena (H-8). El CHECK de BD repite este conjunto."
+    },
+    "DelegateStatus": {
+      "type": "string",
+      "enum": ["INVITED", "ACTIVE", "DISABLED"],
+      "description": "Estado del delegado (STATE-ADM11-001). La caducidad de INVITED NO es un estado almacenado: se deriva de invited_expires_at y del reloj; una INVITED caducada responde DENIED uniforme (404 uniforme del callback) y solo una re-invitacion explicita la renueva."
+    },
+    "DelegateEmailInput": {
+      "type": "string",
+      "minLength": 6,
+      "maxLength": 254,
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._%+-]*[A-Za-z0-9])?@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\\.[A-Za-z]{2,}$",
+      "description": "Correo tal como lo escribe quien da el alta; el servidor lo recorta, lo pasa a minusculas y aplica el mismo formato de ADMIN_EMAIL_PATTERN de app-config.ts (parte local <= 64). Sin espacios ni comas. Nunca se registra ni se devuelve en errores (H-9)."
+    },
+    "DelegateEmail": {
+      "type": "string",
+      "minLength": 6,
+      "maxLength": 254,
+      "pattern": "^[a-z0-9](?:[a-z0-9._%+-]*[a-z0-9])?@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\\.[a-z]{2,}$",
+      "description": "Correo normalizado en minusculas (identico al que acepta app-config.ts). Solo se devuelve a un SUPER_ADMIN en AdminDelegateView; nunca en errores, logs ni auditoria."
+    },
+    "AdminId": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "description": "admin_id (UUID v4 de IdGeneratorPort); nunca derivado del correo ni del sub. Es el mismo id de admin_identities y de admin_audit_entries."
+    },
+    "AdminDelegateView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adminId", "email", "role", "status", "isAnchored", "invitedAt", "invitedExpiresAt", "anchoredAt", "disabledAt", "createdAt", "updatedAt", "etag"],
+      "description": "Vista de un delegado para un SUPER_ADMIN [REQ-ADM11-001]. No incluye provider_subject, sub, hash, sesion ni el autor del alta en claro (created_by_admin_id solo vive en BD y auditoria).",
+      "properties": {
+        "adminId": { "$ref": "#/$defs/AdminId" },
+        "email": { "$ref": "#/$defs/DelegateEmail" },
+        "role": { "$ref": "#/$defs/PlatformRole" },
+        "status": { "$ref": "#/$defs/DelegateStatus" },
+        "isAnchored": { "type": "boolean", "description": "true si ya hay (provider, provider_subject) anclado; el valor del sub nunca se expone" },
+        "invitedAt": { "type": ["string", "null"], "format": "date-time", "description": "Instante de la ultima invitacion; null si nunca estuvo en INVITED" },
+        "invitedExpiresAt": { "type": ["string", "null"], "format": "date-time", "description": "invitedAt + 72 h; null fuera de INVITED. Una INVITED con invitedExpiresAt pasado es una invitacion caducada (la interfaz la muestra como tal; el servidor la trata como DENIED)" },
+        "anchoredAt": { "type": ["string", "null"], "format": "date-time", "description": "Instante del primer anclaje (INVITED -> ACTIVE); null si no anclado" },
+        "disabledAt": { "type": ["string", "null"], "format": "date-time", "description": "Instante de la ultima desactivacion; null si no esta DISABLED" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "etag": { "type": "string", "pattern": "^\"[A-Za-z0-9_-]{8,64}\"$", "description": "Valor para If-Match de las escrituras sobre este delegado (control optimista; derivado de adminId y updatedAt)" }
+      }
+    },
+    "AdminDelegatePage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items", "activeCount", "activeLimit"],
+      "description": "Lista completa de delegados (a lo sumo ADMIN_DELEGATE_ROW_LIMIT filas, por eso sin cursor), ordenada por createdAt ascendente y adminId. activeCount cuenta ACTIVE + INVITED vigentes (lo que consume el tope de 20).",
+      "properties": {
+        "items": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/AdminDelegateView" } },
+        "activeCount": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "activeLimit": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Valor de ADMIN_DELEGATE_ACTIVE_LIMIT (20); lo lee la interfaz, no lo duplica" }
+      }
+    },
+    "InviteAdminDelegateInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["email", "emailConfirmation", "role"],
+      "description": "Alta por correo [REQ-ADM11-001, H-1]. El formulario muestra el correo normalizado y exige repetirlo: email y emailConfirmation deben ser iguales tras normalizar; si no, 422 ERR-ADM11-EMAIL-CONFIRMATION-MISMATCH (sin eco del correo). Asignar SUPER_ADMIN solo lo permite la raiz (H-6).",
+      "properties": {
+        "email": { "$ref": "#/$defs/DelegateEmailInput" },
+        "emailConfirmation": { "$ref": "#/$defs/DelegateEmailInput" },
+        "role": { "$ref": "#/$defs/PlatformRole" }
+      }
+    },
+    "ChangeAdminDelegateRoleInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role"],
+      "description": "Cambio de rol de un delegado ACTIVE o INVITED [REQ-ADM11-005]. Un SUPER_ADMIN delegado solo alterna entre OPERATOR y SUPPORT; conceder o retirar SUPER_ADMIN es exclusivo de la raiz (H-6).",
+      "properties": { "role": { "$ref": "#/$defs/PlatformRole" } }
+    },
+    "ReactivateAdminDelegateInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role"],
+      "description": "Reactivacion DISABLED -> ACTIVE [D11-04 = A, H-5]: el rol se indica de forma explicita (no se restaura el anterior); conserva admin_id y sub; cuenta contra el tope de 20 dentro de la transaccion.",
+      "properties": { "role": { "$ref": "#/$defs/PlatformRole" } }
+    },
+    "AdminDelegateAccepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepted"],
+      "description": "Respuesta UNIFORME del alta [H-4, INV-ADM9-002]: mismo codigo HTTP (202), cuerpo y forma para alta nueva, duplicado, correo raiz, correo de usuario existente y invitacion ya vigente. No dice si se creo algo, no devuelve adminId ni consulta la tabla users. El tope (409 ERR-ADM11-DELEGATE-LIMIT-REACHED) es el unico rechazo diferenciable y se evalua ANTES de resolver el correo, de modo que no depende de el.",
+      "properties": { "accepted": { "type": "boolean", "const": true } }
+    },
+    "AdminSelfView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adminId", "role", "isRoot"],
+      "description": "Rol efectivo del administrador autenticado, resuelto desde BD en esta peticion (REQ-ADM11-003). Solo para que la interfaz oculte lo no autorizado como comodidad; no es un control y NUNCA lo usa el servidor para autorizar.",
+      "properties": {
+        "adminId": { "$ref": "#/$defs/AdminId" },
+        "role": { "$ref": "#/$defs/PlatformRole" },
+        "isRoot": { "type": "boolean", "description": "true si el correo esta en ARGOS_ADMIN_EMAILS (SUPER_ADMIN raiz; unico que concede o revoca SUPER_ADMIN)" }
+      }
+    },
+    "AdminAuditAction": {
+      "type": "string",
+      "enum": [
+        "ADMIN_DELEGATE_INVITED",
+        "ADMIN_DELEGATE_REINVITED",
+        "ADMIN_DELEGATE_ANCHORED",
+        "ADMIN_DELEGATE_ROLE_CHANGED",
+        "ADMIN_DELEGATE_DISABLED",
+        "ADMIN_DELEGATE_INVITATION_CANCELLED",
+        "ADMIN_DELEGATE_REACTIVATED"
+      ],
+      "maxLength": 64,
+      "description": "Lista cerrada de acciones de auditoria de 011 (REQ-ADM11-007): vive en codigo y contrato; admin_audit_entries.action es texto 1..64 sin lista cerrada en el esquema, de modo que no requiere migracion (MIF-011-01). El autor es el admin_id actuante (en ANCHORED, el propio delegado), el object_ref es el admin_id objetivo; nunca el correo."
+    }
+  }
+}

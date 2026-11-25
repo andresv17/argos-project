@@ -11,6 +11,8 @@
 import type { AboutContentRecord, AboutContentRepositoryPort } from '../../../application/ports/about.port.ts';
 import type {
   AdminAuditRecord,
+  AdminDelegateRecord,
+  AdminDelegateRepositoryPort,
   AdminAuditRepositoryPort,
   AdminFlowStateRecord,
   AdminFlowStateRepositoryPort,
@@ -42,6 +44,7 @@ export function adminIdentityRepository(db: SqliteDatabase): AdminIdentityReposi
   const bySubject = db.prepare<[string, string], IdentityRow>(`SELECT ${columns} FROM admin_identities WHERE provider = ? AND provider_subject = ?`);
   const byEmail = db.prepare<[string], IdentityRow>(`SELECT ${columns} FROM admin_identities WHERE email = ?`);
   const insert = db.prepare(`INSERT INTO admin_identities (${columns}) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`);
+  const remove = db.prepare('DELETE FROM admin_identities WHERE admin_id = ?');
   const toIdentity = (row: IdentityRow): AdminIdentityRecord => ({ adminId: row.admin_id, provider: row.provider, providerSubject: row.provider_subject, email: row.email, createdAt: row.created_at });
   return {
     async findById(adminId) {
@@ -58,6 +61,10 @@ export function adminIdentityRepository(db: SqliteDatabase): AdminIdentityReposi
     },
     async insertIfAbsent(identity) {
       return insert.run(identity.adminId, identity.provider, identity.providerSubject, identity.email, identity.createdAt).changes === 1;
+    },
+    async deleteById(adminId) {
+      // `admin_sessions.admin_id` tiene ON DELETE CASCADE: las sesiones de la identidad retirada se borran con ella.
+      return remove.run(adminId).changes === 1;
     },
   };
 }
@@ -77,6 +84,7 @@ export function adminSessionRepository(db: SqliteDatabase): AdminSessionReposito
   const touch = db.prepare('UPDATE admin_sessions SET last_activity_at = ? WHERE token_hash = ? AND revoked_at IS NULL');
   const revoke = db.prepare('UPDATE admin_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL');
   const purge = db.prepare('DELETE FROM admin_sessions WHERE created_at <= ?');
+  const removeByAdmin = db.prepare('DELETE FROM admin_sessions WHERE admin_id = ?');
   return {
     async insert(record: AdminSessionRecord) {
       insert.run(record.tokenHash, record.adminId, record.createdAt, record.lastActivityAt, record.revokedAt);
@@ -93,6 +101,9 @@ export function adminSessionRepository(db: SqliteDatabase): AdminSessionReposito
     },
     async purgeCreatedBefore(cutoff) {
       return purge.run(cutoff).changes;
+    },
+    async deleteByAdminId(adminId) {
+      return removeByAdmin.run(adminId).changes;
     },
   };
 }
@@ -295,6 +306,119 @@ export function aboutContentRepository(db: SqliteDatabase): AboutContentReposito
       if (!written) return null;
       const row = find.get();
       return row === undefined ? null : toRecord(row);
+    },
+  };
+}
+
+interface DelegateRow {
+  readonly admin_id: string;
+  readonly email: string;
+  readonly role: string;
+  readonly status: string;
+  readonly provider: AdminProvider | null;
+  readonly provider_subject: string | null;
+  readonly invited_at: string | null;
+  readonly invited_expires_at: string | null;
+  readonly anchored_at: string | null;
+  readonly disabled_at: string | null;
+  readonly created_by_admin_id: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+/**
+ * `admin_delegates` (feature 011, T1527; migración 0031). Sentencias preparadas con parámetros enlazados (el correo y el `sub` nunca se interpolan ni salen en un mensaje de error). Cada escritura es un
+ * compare-and-set (`changes === 1` como veredicto); la unidad de trabajo ya sostiene `BEGIN IMMEDIATE`, que serializa la guarda del último SUPER_ADMIN y los topes (H-2a), de modo que `lockForGuard`
+ * no añade nada. Un índice único parcial rechaza una segunda fila viva con el mismo correo (ORA-1 b): `insert` y `replace` devuelven `false` ante esa violación. Paridad con Postgres.
+ *
+ * @implements REQ-ADM11-001, REQ-ADM11-005, REQ-ADM11-006, STATE-ADM11-001, EDGE-011-009, EDGE-011-010, EDGE-011-019
+ */
+export function adminDelegateRepository(db: SqliteDatabase): AdminDelegateRepositoryPort {
+  const columns = 'admin_id, email, role, status, provider, provider_subject, invited_at, invited_expires_at, anchored_at, disabled_at, created_by_admin_id, created_at, updated_at';
+  const byId = db.prepare<[string], DelegateRow>(`SELECT ${columns} FROM admin_delegates WHERE admin_id = ?`);
+  const liveByEmail = db.prepare<[string], DelegateRow>(`SELECT ${columns} FROM admin_delegates WHERE email = ? AND status IN ('ACTIVE', 'INVITED')`);
+  const page = db.prepare<[number], DelegateRow>(`SELECT ${columns} FROM admin_delegates ORDER BY created_at, admin_id LIMIT ?`);
+  const rows = db.prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM admin_delegates');
+  const occupied = db.prepare<[string, string], { n: number }>(
+    "SELECT COUNT(*) AS n FROM admin_delegates WHERE admin_id <> ? AND (status = 'ACTIVE' OR (status = 'INVITED' AND invited_expires_at >= ?))",
+  );
+  const superAdmins = db.prepare<[string, string], { n: number }>(
+    "SELECT COUNT(*) AS n FROM admin_delegates WHERE admin_id <> ? AND status = 'ACTIVE' AND role = 'SUPER_ADMIN' AND email NOT IN (SELECT value FROM json_each(?))",
+  );
+  const insert = db.prepare(`INSERT INTO admin_delegates (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const update = db.prepare(
+    `UPDATE admin_delegates SET role = ?, status = ?, provider = ?, provider_subject = ?, invited_at = ?, invited_expires_at = ?, anchored_at = ?, disabled_at = ?, updated_at = ?
+     WHERE admin_id = ? AND status = ? AND role = ? AND updated_at = ? AND provider_subject IS ?`,
+  );
+  const anchor = db.prepare(
+    `UPDATE admin_delegates SET status = 'ACTIVE', provider = ?, provider_subject = ?, anchored_at = ?, invited_expires_at = NULL, updated_at = ?
+     WHERE admin_id = ? AND status = 'INVITED' AND provider_subject IS NULL AND invited_expires_at >= ?`,
+  );
+  const toRecord = (row: DelegateRow): AdminDelegateRecord => ({
+    adminId: row.admin_id,
+    email: row.email,
+    role: row.role,
+    status: row.status,
+    provider: row.provider,
+    providerSubject: row.provider_subject,
+    invitedAt: row.invited_at,
+    invitedExpiresAt: row.invited_expires_at,
+    anchoredAt: row.anchored_at,
+    disabledAt: row.disabled_at,
+    createdByAdminId: row.created_by_admin_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
+  /** `true` si la sentencia violó un índice único o un CHECK (el llamador lo traduce a «no escribió»); cualquier otro error se propaga. */
+  const isConstraintViolation = (error: unknown): boolean => String((error as { code?: unknown }).code ?? '').startsWith('SQLITE_CONSTRAINT');
+  return {
+    async lockForGuard() {},
+    async findById(adminId) {
+      const row = byId.get(adminId);
+      return row === undefined ? null : toRecord(row);
+    },
+    async findLiveByEmail(email) {
+      const row = liveByEmail.get(email);
+      return row === undefined ? null : toRecord(row);
+    },
+    async list(limit) {
+      return page.all(limit).map(toRecord);
+    },
+    async countRows() {
+      return rows.get()!.n;
+    },
+    async countOccupied(now, excludeAdminId) {
+      return occupied.get(excludeAdminId ?? '', now)!.n;
+    },
+    async countActiveSuperAdmins(excludeEmails, excludeAdminId) {
+      return superAdmins.get(excludeAdminId ?? '', JSON.stringify(excludeEmails))!.n;
+    },
+    async insert(r) {
+      try {
+        return insert.run(r.adminId, r.email, r.role, r.status, r.provider, r.providerSubject, r.invitedAt, r.invitedExpiresAt, r.anchoredAt, r.disabledAt, r.createdByAdminId, r.createdAt, r.updatedAt).changes === 1;
+      } catch (error) {
+        if (isConstraintViolation(error)) return false;
+        throw error;
+      }
+    },
+    async replace(next, expected) {
+      try {
+        return (
+          update.run(next.role, next.status, next.provider, next.providerSubject, next.invitedAt, next.invitedExpiresAt, next.anchoredAt, next.disabledAt, next.updatedAt, expected.adminId, expected.status, expected.role, expected.updatedAt, expected.providerSubject)
+            .changes === 1
+        );
+      } catch (error) {
+        if (isConstraintViolation(error)) return false;
+        throw error;
+      }
+    },
+    async anchor(adminId, provider, providerSubject, now) {
+      try {
+        return anchor.run(provider, providerSubject, now, now, adminId, now).changes === 1;
+      } catch (error) {
+        if (isConstraintViolation(error)) return false;
+        throw error;
+      }
     },
   };
 }

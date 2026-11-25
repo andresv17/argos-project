@@ -21,10 +21,28 @@
 | `D11-13` = **D** | Subida propia con recorte reutilizando `AvatarCropper`, con copia opcional de `picture` de Google como valor inicial (SSRF: host cerrado `lh3.googleusercontent.com` + timeout + límite de tamaño + limpieza EXIF; fallback a iniciales `EDGE-011-007`; visible solo para la propia cuenta `REQ-PRF11-002`; borrada al eliminar la cuenta `INV-PRF11-001`). | REQ-PRF11-001, REQ-PRF11-002; INV-PRF11-001; EDGE-011-007; SC-011-057..062; T1553, T1555 |
 | `D11-ORDEN` | Aprobado el orden de `plan.md`: Fase 0 → P1 (A `#64`, B `#72`, C `#73`, D `#63`) → P2 (E `#31`, F `#59`, G `#62`, H `#74`, I `#78`) → Fase final. | plan.md «Summary»; tasks.md |
 
-## Decisiones DERIVADAS — para revisión de Neo (no dictadas por Neo; ORA-1)
+## Derivadas ratificadas por Neo (Logos iter 226)
+Ratificadas por Neo 2026-11-25 junto con ORA-1 (b) (Logos iter 226, mensaje registrado en `claude/log-morpheus.md`, entrada «Neo (Logos, iter 226)»).
 - (a) El tope de 20 delegados cuenta `ACTIVE` + `INVITED` vigentes (no caducadas), comprobado en alta, anclaje y reactivación (`REQ-ADM11-001`; el acta `D11-03` dice «20 activos»).
 - (b) Cancelar una invitación pendiente = `INVITED` → `DISABLED` (`STATE-ADM11-001`).
 - (c) `REQ-ADM11-005` incluido en la Dep de `T1524`.
+- (d) `ADMIN_DELEGATE_ROW_LIMIT = 100` como tope de filas totales (incluidas `DISABLED`).
+- (e) Transición `REINVITE` (`INVITED` → `INVITED` y `DISABLED` sin `sub` → `INVITED`) para la re-invitación explícita (`H-1`).
+- (f) `AdminSelfView` y la operación `getAdminSelf` (`GET /api/admin/me`).
+- (g) Mismo `admin_id` en `admin_delegates` y `admin_identities`.
+- (h) Tope evaluado antes de resolver el correo (anti-enumeración).
+
+| Letra | Estado | Referencia |
+| --- | --- | --- |
+| ORA-1 (b) | ratificada (UNIQUE parcial por estado ACTIVE/INVITED, SQLite+PG) | Logos iter 226 |
+| (a) | ratificada | Logos iter 226 |
+| (b) | ratificada | Logos iter 226 |
+| (c) | ratificada | Logos iter 226 |
+| (d) | ratificada | Logos iter 226 |
+| (e) | ratificada | Logos iter 226 |
+| (f) | ratificada | Logos iter 226 |
+| (g) | ratificada | Logos iter 226 |
+| (h) | ratificada | Logos iter 226 |
 
 ## Hallazgo pendiente para `T1503`
 La premisa «NOMBRE-HOGAR como pestaña propia» sigue sin confirmar en disco; `T1503` (prueba local de Neo) la cierra y registra aquí su resultado: `PENDIENTE`. Aclaración (ORA-3): es una **verificación de prueba local, no una decisión abierta**; no contradice «ninguna decisión de Neo queda abierta».
@@ -54,3 +72,16 @@ La premisa «NOMBRE-HOGAR como pestaña propia» sigue sin confirmar en disco; `
 ## Deuda operativa — Bloque C (ORA-3, 2026-11-25)
 - **DEUDA-011-RETENCION-CONSOLA**: evidencia de retención en Cloud SQL y Cloud Logging, aportada manualmente por Neo fuera de agentes (consola de GCP). No bloquea el Bloque C; se revisa en el cierre de Feature (`T1559`). Relacionada con `EDGE-011-018`.
 - **Pendiente de ratificación de Neo (ORA-2)**: con `D-1`, editar solo `speciesOther` o `breed` ya no genera cambio pendiente de escena (RABBIT/OTHER: raza libre no refresca la imagen). Recogido en `REQ-IA11-004`.
+
+
+## Directiva de Neo 2026-11-25 (Logos iter 228) — ratificación de (i) y retención/privacidad de delegados
+
+| Letra | Resolución de Neo | Aplicada en |
+| --- | --- | --- |
+| (i) | Índice único parcial `admin_delegates_active_subject`: **RATIFICADA** (se retira la etiqueta «DERIVADA»; queda «ratificada por Neo 2026-11-25») | spec `REQ-ADM11-006`, `EDGE-011-019`; anexo |
+| D-1 | Conservación de delegados `DISABLED` = 12 meses (365 días), `ADMIN_DELEGATE_DISABLED_RETENTION_DAYS`; al vencer, anonimizar correo y `sub`, conservando `admin_id` opaco para `admin_audit_entries` | spec «Retención de delegados»; anexo |
+| D-2 | Invitaciones `INVITED` caducadas: 30 días tras la caducidad de las 72 h, `ADMIN_DELEGATE_EXPIRED_INVITATION_RETENTION_DAYS`; al vencer, purga de la fila | ídem |
+| D-3 | `admin_identities` (`sub` y correo) de un `DISABLED` se retiran/anonimizan al vencer el plazo de D-1; durante los 12 meses se conservan para reactivación (`D11-04`) | ídem |
+| D-4 | Filtro en servidor del listado para `SUPER_ADMIN` delegado (solo `OPERATOR` y `SUPPORT`; nunca correos de otros `SUPER_ADMIN` delegados ni de la raíz); lo implementa `/keymaker` | `REQ-ADM11-003`, `NFR-011-002` |
+| `DEUDA-011-PURGA-DELEGADOS` | Job de purga (D-1..D-3) en `/internal/maintenance` fuera de #63; hoy no se purga nada | spec; anexo |
+| OBS-5 / `DEUDA-011-PRIVACIDAD-DELEGADOS` | `/privacidad` y `legal-texts.md` §3 sin tratamiento de delegados; ligada a revisión legal externa (0.1.0 DRAFT → 1.0.0); no dar de alta delegados externos en producción hasta actualizar `/privacidad`; no bloquea el cierre de código del Bloque D | spec; anexo |

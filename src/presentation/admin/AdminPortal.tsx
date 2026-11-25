@@ -7,6 +7,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AboutPanel } from './AboutPanel.tsx';
+import { AdministratorsPanel } from './AdministratorsPanel.tsx';
+import { fetchSelf } from './administrators-api.ts';
+import { canSeeParameters, type SelfView } from './administrators-view.ts';
 import { BRAND_NAME } from './brand.ts';
 import { ParametersPanel } from './ParametersPanel.tsx';
 import { RegistrationsPanel } from './RegistrationsPanel.tsx';
@@ -82,6 +85,21 @@ function Shell(props: {
   readonly buttonRef: React.RefObject<HTMLButtonElement>;
 }): JSX.Element {
   const { signingOut, error, onSignOut, onSessionLost, session, buttonRef } = props;
+  // T1528: rol efectivo solo para ocultar lo no autorizado (comodidad); el servidor autoriza cada operación. Sin respuesta, no se oculta nada salvo el panel de delegados.
+  const [self, setSelf] = useState<SelfView | null>(null);
+  const lostRef = useRef(onSessionLost);
+  lostRef.current = onSessionLost;
+  useEffect(() => {
+    let alive = true;
+    void fetchSelf().then((result) => {
+      if (!alive) return;
+      if (result.kind === 'OK') setSelf(result.value);
+      else if (result.kind === 'SESSION_LOST') lostRef.current();
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   return (
     <div className="min-h-screen bg-cream">
       <SkipLink />
@@ -107,8 +125,9 @@ function Shell(props: {
         <h1 className="mb-4 break-words text-2xl font-bold text-text-primary">Administración</h1>
         <SessionExpiryNotice expiresAt={session.expiresAt} />
         <RegistrationsPanel onSessionLost={onSessionLost} />
-        <ParametersPanel viewerId={session.viewerId} onSessionLost={onSessionLost} />
-        <AboutPanel onSessionLost={onSessionLost} />
+        {canSeeParameters(self) ? <ParametersPanel viewerId={session.viewerId} onSessionLost={onSessionLost} /> : null}
+        {canSeeParameters(self) ? <AboutPanel onSessionLost={onSessionLost} /> : null}
+        <AdministratorsPanel self={self} onSessionLost={onSessionLost} />
         <p className="mt-4 max-w-3xl text-sm text-text-muted">Tu sesión dura 30 minutos como máximo y se cierra sola tras 10 minutos sin actividad.</p>
         {error ? (
           <div role="alert" className="mt-4 max-w-3xl text-sm font-medium text-danger">

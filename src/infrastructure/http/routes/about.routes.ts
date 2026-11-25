@@ -14,7 +14,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { MediaServices } from '../../../application/use-cases/use-case-support.ts';
 import { DomainError } from '../../../generated/index.ts';
 import { jsonBody, rawBody } from '../request-input.ts';
-import { ADMIN_API_CONTENT_SECURITY_POLICY, adminSessionTokenOf, hasForeignOrigin, uniformNotFound } from './admin.routes.ts';
+import { adminSessionOfRequest } from '../admin-session-context.ts';
+import { ADMIN_API_CONTENT_SECURITY_POLICY, hasForeignOrigin, uniformNotFound } from './admin.routes.ts';
 import type { RouteContext } from './use-cases.ts';
 
 /** Límite de lectura del JSON de texto: 20 000 caracteres como máximo (hasta 6 bytes por unidad `\uXXXX`) más el alt y la envoltura, con holgura. */
@@ -45,10 +46,10 @@ export function registerPublicAboutRoutes(app: FastifyInstance, { useCases }: Ro
 export function registerAdminAboutRoutes(app: FastifyInstance, { useCases }: RouteContext, media: MediaServices | undefined): void {
   const noStore = (reply: FastifyReply): FastifyReply => reply.header('cache-control', 'no-store').header('content-security-policy', ADMIN_API_CONTENT_SECURITY_POLICY);
 
-  /** `onRequest` de la administración: sesión (404 uniforme) y, en las escrituras, origen propio (403). Antes de leer cualquier cuerpo. */
+  /** `onRequest` de la administración: sesión y rol (404 uniforme / 403 por rol) ya resueltos por la puerta única (`admin-gate.ts`, 011) y, en las escrituras, origen propio (403). Antes de leer cualquier cuerpo. */
   const adminGate = (write: boolean) => async (request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply | undefined> => {
-    const session = await useCases.adminAuthenticate.execute(adminSessionTokenOf(request), { renew: write });
-    if (session === null) return uniformNotFound(reply);
+    const session = adminSessionOfRequest(request);
+    if (session === undefined) return uniformNotFound(reply);
     if (write && hasForeignOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
     adminOf.set(request, session.adminId);
     return undefined;

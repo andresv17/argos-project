@@ -126,6 +126,8 @@ const NUM_ID = FEAT6
   ? /\b(?:REQ|INV|STATE|NFR|SC)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g
   : /\b(?:REQ|INV|STATE)-[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d{3}\b/g;
 const ERR_ID = /\bERR-[A-Z]+(?:-[A-Z0-9]+)+\b/g;
+// 011 (T1524): ERR_ID exige letras puras en el primer segmento y por eso no reconoce ERR-ADM11-* (el segmento lleva dígitos); este patrón solo se usa en la rama 1:1 de la 011 (OWNED_011 ya declara esos prefijos).
+const ERR_ID_011 = /\bERR-(?:ADM11|HOG11|IA11|VET11|ALB11|PRF11)(?:-[A-Z0-9]+)+\b/g;
 const taskId = process.env.SDD_TASK_ID ?? '';
 
 const out = (line) => console.log(line);
@@ -386,7 +388,7 @@ if (FEAT5) {
 if (FEAT6) {
   // Spec→tasks.md 1:1 de los IDs propios de 006, 010 y 011 (spec y catálogo incremental); los rangos de tasks.md cuentan expandidos.
   const tasksText = readFileSync(TASKS, 'utf8');
-  const inTasks = new Set([...(tasksText.match(NUM_ID) ?? []), ...rangeIds(tasksText), ...(tasksText.match(ERR_ID) ?? [])]);
+  const inTasks = new Set([...(tasksText.match(NUM_ID) ?? []), ...rangeIds(tasksText), ...(tasksText.match(ERR_ID) ?? []), ...(FEAT11 ? (tasksText.match(ERR_ID_011) ?? []) : [])]);
   const specText = readFileSync(SPEC, 'utf8');
   const ownedPattern = FEAT11 ? OWNED_011 : FEAT10 ? OWNED_010 : OWNED_006;
   const ownedIds = [...new Set([...(specText.match(NUM_ID) ?? []), ...rangeIds(specText), ...catalogCodes])].filter((id) => ownedPattern.test(id) && !retired.has(id));
