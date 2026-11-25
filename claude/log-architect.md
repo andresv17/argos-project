@@ -725,3 +725,8 @@ Sin commit; pendiente re-firma /merovingian.
 ## 2026-11-25 — 010 dictamen OBS-3 de T1431: política de photoAlt con foto
 - Opción (b): alt OPCIONAL; vacío con foto = imagen decorativa válida (WCAG 1.1.1, H67); la vista pública emite `alt=""` siempre presente. Motivo: la foto se sube por operación sin alt y el alt viaja en PUT de texto con If-Match; obligarlo bloquearía editar solo el texto y no hay operación de quitar foto. Aviso no bloqueante de la UI se mantiene.
 - spec.md `H-ARCH-ACE-ALT`; about.schema 1.0.1 PATCH (solo descripción de AboutPhotoAlt); compile --feature 010 rc 0; traza 010 rc 0. Sin src/tests, sin [x], sin push.
+
+## 2026-11-25 — 010 visto bueno a la excepción fetch de AboutPage (T1432 TRI-02, e384094)
+- APROBADA: AboutPage.tsx tiene un único fetch (GET /api/about, credentials 'omit'), sin notifyActivity ni métodos de escritura; la guarda conserva toEqual exacto, así que otro archivo nuevo con fetch sigue fallando. Pública, sin sesión: no notifica actividad (INV-AUTH2-002).
+- spec.md `H-ARCH-ACE-FETCH`. Observación: admin/about-api.ts (sesión, fuera de la guarda por ruta) no llama notifyActivity; no es objeto de este dictamen, se deja a oracle/keymaker si procede.
+- security ui-invitation-logs rc 0 (9/9). Sin src/tests, sin [x], sin push.
