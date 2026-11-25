@@ -24,7 +24,10 @@ export function AuthLayout({ title, titleId, titleRef, children }: { readonly ti
       <div className="mx-auto max-w-4xl rounded-3xl border border-white/40 bg-white/90 p-6 shadow-glass sm:bg-white/70 sm:supports-[backdrop-filter]:backdrop-blur-md">
         <main id="main-content" className="grid gap-6 lg:grid-cols-2 lg:items-center">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-primary">{BRAND_NAME}</h1>
+            <h1 className="flex items-center gap-3 font-display text-4xl font-extrabold tracking-tight text-primary">
+              <img src="/brand/tipi-simbolo-simple.svg" alt="" width={40} height={40} className="h-10 w-10" />
+              {BRAND_NAME}
+            </h1>
             <p className="mt-1 text-sm text-text-muted">Pet Health Tracker</p>
           </div>
           <div>

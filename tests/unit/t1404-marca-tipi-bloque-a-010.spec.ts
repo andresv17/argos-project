@@ -21,6 +21,7 @@ import type { RouteContext } from '../../src/infrastructure/http/routes/use-case
  */
 const ROOT = join(import.meta.dirname, '..', '..');
 const WEB = join(ROOT, 'src', 'presentation', 'web');
+const ADMIN = join(ROOT, 'src', 'presentation', 'admin');
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8');
 
 function walk(dir: string): string[] {
@@ -51,6 +52,18 @@ describe('T1404 (a) ninguna aparición visible de «Argos» en la interfaz (REQ-
   it('[REQ-TIP10-001] src/presentation/web no contiene «Argos» visible fuera de la lista blanca de identificadores internos', () => {
     const found = walk(WEB).flatMap((file) => visibleArgos(relative(ROOT, file), readFileSync(file, 'utf8')));
     expect(found).toEqual([]);
+  });
+
+  it('[REQ-TIP10-001] src/presentation/admin no contiene «Argos» visible (portal /admin, B-3 de la validación de Bloque A)', () => {
+    const found = walk(ADMIN).flatMap((file) => visibleArgos(relative(ROOT, file), readFileSync(file, 'utf8')));
+    expect(found).toEqual([]);
+  });
+
+  it('[REQ-TIP10-002] AuthPages, AppShell y AdminPortal muestran el logo del paquete y el título usa Nunito 800 (B-1, B-2)', () => {
+    for (const file of [join(WEB, 'pages/AuthPages.tsx'), join(WEB, 'pages/AppShell.tsx'), join(ADMIN, 'AdminPortal.tsx')]) {
+      expect(readFileSync(file, 'utf8'), file).toMatch(/\/brand\/tipi-simbolo-simple\.svg/);
+    }
+    expect(readFileSync(join(WEB, 'pages/AuthPages.tsx'), 'utf8')).toMatch(/<h1[^>]*font-display[^>]*font-extrabold/);
   });
 });
 

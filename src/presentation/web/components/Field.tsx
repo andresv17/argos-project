@@ -83,7 +83,7 @@ export function PasswordField({ id, label, name, value, onChange, errors, requir
           aria-invalid={error === undefined ? undefined : true}
           aria-describedby={error === undefined ? undefined : errorId}
           onChange={(e) => onChange(name, e.target.value)}
-          className="min-h-12 w-0 min-w-[14rem] flex-1 basis-56 rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
+          className="min-h-12 w-0 min-w-0 flex-1 basis-56 rounded-xl border border-border-strong bg-white px-3 py-3 text-text-primary placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2"
         />
         <button
           type="button"
