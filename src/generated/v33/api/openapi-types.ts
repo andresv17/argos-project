@@ -489,7 +489,7 @@ export interface components {
             fileLabels: components["schemas"]["FileLabel"][];
             /** @description Caducidad del enlace («Enlace vigente hasta», MAG-005-008); null en la vista previa autenticada */
             validUntil: components["schemas"]["IsoTimestamp"] | null;
-            /** @description Opcional y aditivo (1.2.0, feature 011, T1534, ENM-005-3.5.0, opción C de Neo): ids de las mascotas del alcance vigente del enlace, uno por elemento de summary.pets y en el mismo orden, para que la SPA arme GET /shared/{token}/pets/{petId}/avatar. Solo en el envoltorio: ClinicalSummary no lleva ids de mascota (REQ-SUM-003). Ausente en la vista previa autenticada. La ruta de avatar valida que el petId esté en el alcance vigente y responde 404 uniforme si no */
+            /** @description Opcional y aditivo (1.2.0, feature 011, T1534, ENM-005-3.5.0, opción C de Neo): ids de las mascotas del alcance vigente del enlace, uno por elemento de summary.pets y en el mismo orden, para que la SPA arme GET /shared/{token}/pets/{petId}/avatar. Solo en el envoltorio: ClinicalSummary no lleva ids de mascota (REQ-SUM-003). También se emite en la vista previa autenticada de OWNER/ADMIN (autorizado por Neo, Nivel 2, sin exposición pública: la vista previa exige sesión y no tiene ruta pública). La ruta de avatar valida que el petId esté en el alcance vigente y responde 404 uniforme si no */
             petIds?: string[];
         };
     };

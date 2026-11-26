@@ -170,7 +170,7 @@ export class GetSharedSummaryUseCase {
       if (resolved === null) return null;
       const { link } = resolved;
       const view = await buildSharedView(r, resolved.pets, link.scope, access.now, { includeMicrochip: link.includeMicrochip, includeClinicalFiles: link.includeClinicalFiles, includeDeceasedAt: link.includeDeceasedAt }, link.expiresAt);
-      // `petIds` (1.2.0, ENM-005-3.5.0): mismos ids y mismo orden que `summary.pets`; solo la ruta pública, nunca la vista previa.
+      // `petIds` (1.2.0, ENM-005-3.5.0): mismos ids y mismo orden que `summary.pets`; la ruta pública y, por autorización de Neo, también la vista previa autenticada (OWNER/ADMIN).
       return { view: { ...view, petIds: orderPetsForSummary(resolved.pets).map((p) => p.id) }, linkId: link.id };
     });
     if (found === null) return access.fail();
