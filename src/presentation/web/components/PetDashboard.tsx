@@ -280,7 +280,7 @@ export type ActiveTab = RecordModule | 'history' | 'album' | 'share';
 const HISTORY_TAB = { id: 'history', label: 'Historial / Archivos' } as const;
 /** REQ-PET11-002 / SC-011-064: pestaña «Álbum», la última (tras «Historial / Archivos» y «Compartir»); solo existe con `albumSlot` y fuera de la edición. */
 const ALBUM_TAB = { id: 'album', label: 'Álbum' } as const;
-/** REQ-PET11-001 / SC-011-063: pestaña «Compartir», entre «Historial / Archivos» y «Álbum»; solo existe con `shareSlot` (OWNER/ADMIN) y fuera de la edición. */
+/** REQ-PET11-001 / SC-011-063: pestaña «Compartir», entre «Historial / Archivos» y «Álbum»; solo existe con `shareSlot` (propietario o administrador de la mascota) y fuera de la edición. */
 const SHARE_TAB = { id: 'share', label: 'Compartir' } as const;
 
 const STAT_CARD = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
@@ -308,7 +308,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   readonly mediaSlot?: ReactNode;
   /** REQ-PET11-002: álbum de fotos de la mascota (`PhotoAlbum`); la página lo pasa a quien puede leer la mascota. Sin él no hay pestaña «Álbum». */
   readonly albumSlot?: ReactNode;
-  /** REQ-PET11-001: panel de enlaces para el veterinario (`ShareLinksPanel`); la página lo pasa solo a OWNER/ADMIN. Sin él no hay pestaña «Compartir». */
+  /** REQ-PET11-001: panel de enlaces para el veterinario (`ShareLinksPanel`); la página lo pasa solo al propietario o administrador de la mascota. Sin él no hay pestaña «Compartir». */
   readonly shareSlot?: ReactNode;
 }): JSX.Element {
   const { profile, permissions } = dashboard;
