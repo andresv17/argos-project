@@ -40,10 +40,12 @@ test.describe('enlace veterinario en móvil emulado a 320 px (T758..T766)', () =
   });
 
   const section = () => ownerPage.getByRole('region', { name: 'Compartir con mi veterinario' });
+  const openShareTab = () => ownerPage.getByRole('tab', { name: 'Compartir', exact: true }).click();
   const overflow = (page: Page) => page.evaluate(() => [window.innerWidth, document.documentElement.scrollWidth]);
 
   test('[SC-005-040][REQ-VET-001] la ficha ofrece «Compartir con mi veterinario» con las casillas desmarcadas, 7 días por defecto y sin desbordar a 320 px', async () => {
     await ownerPage.goto('/');
+    await openShareTab(); // REQ-PET11-001: el panel vive en la pestaña «Compartir» de la ficha
     await expect(section()).toBeVisible();
     await expect(section().getByLabel('Incluir el número de microchip')).not.toBeChecked();
     await expect(section().getByLabel('Incluir archivos clínicos')).not.toBeChecked();
@@ -156,6 +158,7 @@ test.describe('enlace veterinario en móvil emulado a 320 px (T758..T766)', () =
       if (r.request().method() === 'POST' && r.url().includes('/share-links')) created.push(r.url());
     });
     await ownerPage.goto('/');
+    await openShareTab();
     await section().getByLabel('Incluir archivos clínicos').check();
     await section().getByRole('button', { name: 'Ver vista previa del resumen' }).click();
     await expect(ownerPage).toHaveURL(new RegExp(`/mascotas/${petId}/resumen\\?includeMicrochip=false&includeClinicalFiles=true`));
@@ -179,6 +182,7 @@ test.describe('enlace veterinario en móvil emulado a 320 px (T758..T766)', () =
     expect(printed).toContain('Datos al momento de esta consulta; pueden cambiar');
     await ownerPage.emulateMedia({ media: 'screen' });
     await ownerPage.getByRole('button', { name: 'Volver' }).click();
+    await openShareTab(); // la ficha vuelve a abrirse en «Peso»; el panel vive en la pestaña «Compartir» (REQ-PET11-001)
     await expect(section()).toBeVisible();
     await expect(section().getByText('1 de 20 enlaces activos')).toBeVisible();
   });
@@ -189,6 +193,7 @@ test.describe('enlace veterinario en móvil emulado a 320 px (T758..T766)', () =
       if (r.method() === 'DELETE') deletes.push(r.url());
     });
     await ownerPage.reload();
+    await openShareTab();
     await section().getByRole('button', { name: 'Revocar', exact: true }).click();
     await expect(section().getByText('¿Revocar este enlace? Dejará de funcionar de inmediato.')).toBeVisible();
     await section().getByRole('button', { name: 'Cancelar' }).last().click();

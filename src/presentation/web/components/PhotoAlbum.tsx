@@ -183,7 +183,8 @@ export function PhotoAlbumView(props: PhotoAlbumViewProps): JSX.Element {
 }
 
 /** Contenedor: pide la página de fotos y la URL firmada de cada una; reintenta una vez por imagen si la URL falla. */
-export function PhotoAlbum({ petId, petName, canUpload = false, canDelete = false }: { readonly petId: string; readonly petName: string; readonly canUpload?: boolean; readonly canDelete?: boolean }): JSX.Element {
+/** `embedded` (011, REQ-PET11-002): dentro de la pestaña «Álbum» de la ficha; sin enlace «Volver a la ficha» y con encabezado h4 e ids propios. */
+export function PhotoAlbum({ petId, petName, canUpload = false, canDelete = false, embedded = false }: { readonly petId: string; readonly petName: string; readonly canUpload?: boolean; readonly canDelete?: boolean; readonly embedded?: boolean }): JSX.Element {
   const api = useMemo(() => createMediaApi(), []);
   const [items, setItems] = useState<readonly MediaItem[]>([]);
   const [urls, setUrls] = useState<Readonly<Record<string, string>>>({});
@@ -274,10 +275,13 @@ export function PhotoAlbum({ petId, petName, canUpload = false, canDelete = fals
 
   return (
     <div className="grid min-w-0 gap-4">
-      <Link to="/" className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
-        Volver a la ficha
-      </Link>
+      {embedded ? null : (
+        <Link to="/" className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
+          Volver a la ficha
+        </Link>
+      )}
       <PhotoAlbumView
+        {...(embedded ? { headingLevel: 4 as const, idPrefix: 'pet-album' } : {})}
         petName={petName}
         items={items}
         urls={urls}

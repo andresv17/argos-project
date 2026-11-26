@@ -275,13 +275,17 @@ function AlertsCard({ dashboard }: { readonly dashboard: PetDashboardView }): JS
 }
 
 /** Pestaña activa de la ficha: un módulo de registros o el historial de archivos (`[GH:#12]`, ADR-007-02; `RECORD_MODULES` no cambia). */
-export type ActiveTab = RecordModule | 'history';
+export type ActiveTab = RecordModule | 'history' | 'album' | 'share';
 
 const HISTORY_TAB = { id: 'history', label: 'Historial / Archivos' } as const;
+/** REQ-PET11-002 / SC-011-064: pestaña «Álbum», la última (tras «Historial / Archivos» y «Compartir»); solo existe con `albumSlot` y fuera de la edición. */
+const ALBUM_TAB = { id: 'album', label: 'Álbum' } as const;
+/** REQ-PET11-001 / SC-011-063: pestaña «Compartir», entre «Historial / Archivos» y «Álbum»; solo existe con `shareSlot` (OWNER/ADMIN) y fuera de la edición. */
+const SHARE_TAB = { id: 'share', label: 'Compartir' } as const;
 
 const STAT_CARD = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 
-export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEditRecord, onDeleteRecord, onEdit, onDelete, onTransfer, editSlot, deleteSlot, transferSlot, mediaSlot }: {
+export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEditRecord, onDeleteRecord, onEdit, onDelete, onTransfer, editSlot, deleteSlot, transferSlot, mediaSlot, albumSlot, shareSlot }: {
   readonly dashboard: PetDashboardView;
   readonly activeTab: ActiveTab;
   readonly onTabChange: (tab: ActiveTab) => void;
@@ -300,8 +304,12 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   readonly deleteSlot?: ReactNode;
   /** Modo TRANSFER: panel en línea bajo el hero. */
   readonly transferSlot?: ReactNode;
-  /** Panel de archivos y acceso al álbum (T581, T588); no se muestra mientras se edita el perfil. */
+  /** Panel de archivos clínicos (T581); no se muestra mientras se edita el perfil. */
   readonly mediaSlot?: ReactNode;
+  /** REQ-PET11-002: álbum de fotos de la mascota (`PhotoAlbum`); la página lo pasa a quien puede leer la mascota. Sin él no hay pestaña «Álbum». */
+  readonly albumSlot?: ReactNode;
+  /** REQ-PET11-001: panel de enlaces para el veterinario (`ShareLinksPanel`); la página lo pasa solo a OWNER/ADMIN. Sin él no hay pestaña «Compartir». */
+  readonly shareSlot?: ReactNode;
 }): JSX.Element {
   const { profile, permissions } = dashboard;
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -309,9 +317,13 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   // `[GH:#12]`: la pestaña «Historial / Archivos» solo existe fuera de la edición y con `mediaSlot`; si no, el panel activo cae a Peso.
   const showHistory = editSlot === undefined && mediaSlot !== undefined;
+  const showAlbum = editSlot === undefined && albumSlot !== undefined;
+  const showShare = editSlot === undefined && shareSlot !== undefined;
   const tabs: ReadonlyArray<{ readonly id: ActiveTab; readonly label: string }> = [
     ...RECORD_MODULES.map((m) => ({ id: m.id, label: m.tabLabel })),
     ...(showHistory ? [HISTORY_TAB] : []),
+    ...(showShare ? [SHARE_TAB] : []),
+    ...(showAlbum ? [ALBUM_TAB] : []),
   ];
   const activeIndex = Math.max(0, tabs.findIndex((t) => t.id === activeTab));
   const activeId = tabs[activeIndex]!.id;
@@ -458,7 +470,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
       </div>
       <section id={`module-panel-${activeId}`} role="tabpanel" aria-labelledby={`module-tab-${activeId}`} tabIndex={0} className={`grid min-w-0 gap-3 rounded-2xl ${RING}`}>
         {activeSpec === null ? (
-          mediaSlot
+          activeId === 'share' ? shareSlot : activeId === 'album' ? albumSlot : mediaSlot
         ) : (
           <>
             {showsBareForm(activeSpec.id, records, canWrite) ? (
