@@ -79,7 +79,7 @@ export interface SharedSummaryViewModel {
   };
   readonly fileLabels: ReadonlyArray<{ readonly fileId: string; readonly displayName: string }>;
   readonly validUntil: string | null;
-  /** 1.2.0 (ENM-005-3.5.0): ids de las mascotas del alcance, en el orden de `summary.pets`; solo en la vista pública por token (nunca en la vista previa). */
+  /** 1.2.0 (ENM-005-3.5.0): ids de las mascotas del alcance, en el orden de `summary.pets`; en la vista pública por token y, por autorización de Neo, también en la vista previa autenticada. */
   readonly petIds?: readonly string[];
 }
 
@@ -116,7 +116,7 @@ export const sharedAvatarPath = (token: string, petId: string): string => `/api/
 
 /**
  * Ruta de la imagen del avatar en la vista previa AUTENTICADA (D5-15, REQ-SUM-004): proxy de la misma origen `/api/pets/{petId}/avatar` con la sesión del propietario.
- * La vista previa no lleva `petIds` (solo la ruta pública los trae, ENM-005-3.5.0), así que solo el alcance de una mascota conoce su id; la de un hogar no pinta imagen.
+ * La vista previa lleva `petIds` (ENM-005-3.5.0, autorizado por Neo): el avatar de cada mascota sale de `petIds[i]`; con alcance de una mascota sin `petIds`, se usa el id de la ruta.
  */
 export const previewAvatarPath = (petId: string | undefined): string | null => (petId === undefined || petId === '' ? null : `/api/pets/${encodeURIComponent(petId)}/avatar`);
 

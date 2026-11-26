@@ -42,7 +42,7 @@ export function SummaryPreviewPage({ api }: { readonly api?: ShareApi }): JSX.El
           Cargando…
         </p>
       ) : (
-        <SharedSummaryDocument view={view} mode="PREVIEW" downloadHref={null} onPrint={() => window.print()} avatarHref={() => (householdId === undefined ? previewAvatarPath(petId) : null)} />
+        <SharedSummaryDocument view={view} mode="PREVIEW" downloadHref={null} onPrint={() => window.print()} avatarHref={(i) => previewAvatarPath(view.petIds?.[i] ?? (householdId === undefined ? petId : undefined))} />
       )}
     </div>
   );

@@ -329,7 +329,7 @@ describe('T1533 avatar compartido: TR-4 secuencia fija y contador (ENM-005-3.5.0
 });
 
 describe('T1533 SharedSummaryView.petIds 1.2.0 (opción C)', () => {
-  it('[REQ-VET11-002] la vista pública trae petIds (uuid, mismo orden que summary.pets) fuera de clinical-summary; la vista previa autenticada no lo trae', async () => {
+  it('[REQ-VET11-002] la vista pública trae petIds (uuid, mismo orden que summary.pets) fuera de clinical-summary; la vista previa autenticada también lo trae, alineado con summary.pets', async () => {
     api = await createShareApi();
     const house = await makeLink({}, `/api/households/${HOUSEHOLD_ID}/share-links`, 1);
     const pub = (await api.publicGet(`/api/shared/${house.token}/summary`)).json as { petIds?: string[]; summary: { pets: Array<{ profile: { name: string } }> } };
@@ -341,9 +341,12 @@ describe('T1533 SharedSummaryView.petIds 1.2.0 (opción C)', () => {
     expect(names).toEqual(pub.summary.pets.map((p) => p.profile.name));
     const preview = await api.call('GET', `/api/households/${HOUSEHOLD_ID}/clinical-summary`, { cookie: house.cookie });
     expect(preview.status).toBe(200);
-    expect((preview.json as { petIds?: unknown }).petIds).toBeUndefined();
+    const pv = preview.json as { petIds?: string[]; summary: { pets: Array<{ profile: { name: string } }> } };
+    expect(pv.petIds).toEqual(pub.petIds);
+    const previewNames = await Promise.all(pv.petIds!.map(async (id) => (await api.deps.uow.runInTransaction((r) => r.pets.findById(id)))?.name));
+    expect(previewNames).toEqual(pv.summary.pets.map((p) => p.profile.name));
     const petPreview = await api.call('GET', `/api/pets/${ARGOS.id}/clinical-summary`, { cookie: house.cookie });
-    expect((petPreview.json as { petIds?: unknown }).petIds).toBeUndefined();
+    expect((petPreview.json as { petIds?: unknown }).petIds).toEqual([ARGOS.id]);
     expect(JSON.stringify((pub as unknown as { summary: unknown }).summary)).not.toContain(ARGOS.id);
   });
 });

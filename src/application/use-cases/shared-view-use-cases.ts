@@ -283,7 +283,9 @@ export class PreviewClinicalSummaryUseCase {
     return readSnapshot(this.deps, async (r) => {
       const { pets } = await requireShareAuthority(r, userId, ref, true);
       const options = { includeMicrochip: parseFlag(query.includeMicrochip, 'includeMicrochip'), includeClinicalFiles: parseFlag(query.includeClinicalFiles, 'includeClinicalFiles'), includeDeceasedAt: parseFlag(query.includeDeceasedAt, 'includeDeceasedAt') };
-      return buildSharedView(r, pets, ref.scope, now, options, null);
+      const view = await buildSharedView(r, pets, ref.scope, now, options, null);
+      // `petIds` (1.2.0, ENM-005-3.5.0, autorizado por Neo): mismos ids y mismo orden que `summary.pets`; la ruta de avatar de la vista previa valida la pertenencia.
+      return { ...view, petIds: orderPetsForSummary(pets).map((p) => p.id) };
     });
   }
 }
