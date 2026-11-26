@@ -23,16 +23,26 @@ import type { FieldErrors } from '../validation.ts';
 import { useInvitations } from './AppShell.tsx';
 import { HOUSEHOLD_LIMIT_NOTICE, householdLimitReached, limitFocusTarget, type LimitFocusAction } from '../household-limit.ts';
 import {
+  alertsLine,
+  alertTone,
   canChangeRole,
   canDeleteHousehold,
   canTransferHousehold,
+  deceasedBadgeText,
+  formatIsoDateEs,
+  householdAlertsText,
   HOUSEHOLD_ROLE_LABEL,
   invitationsLabel,
+  membersByRoleText,
   MEMBER_ACTION_LABEL,
   MEMBERSHIP_LABEL,
   memberActions,
   nextFocusIndex,
   ownerBadge,
+  petAgeWeightLine,
+  petIdentityLine,
+  petsBySpeciesText,
+  type PetCardView,
   type HouseholdView,
   type HouseholdRole,
   type MemberAction,
@@ -246,7 +256,8 @@ function InviteForm({ householdId, onInvited }: { readonly householdId: string; 
   );
 }
 
-type PetRow = { readonly profile: { readonly id: string; readonly name: string; readonly ownerUserId: string } };
+/** REQ-HOG11-008: el servidor ya entrega la tarjeta completa en `GET /households/{id}/pets`; la fila declara los campos que usa. */
+type PetRow = Pick<PetCardView, 'profile' | 'computedAge' | 'latestWeightKg' | 'alertsSummary'>;
 
 export const HOUSEHOLD_TABS = [
   { key: 'resumen', label: 'Resumen' },
@@ -330,6 +341,7 @@ function useHouseholdPets(householdId: string): { readonly pets: readonly PetRow
   return { pets, failed };
 }
 
+const PET_TONE_CLASS = { DANGER: 'bg-red-100 text-red-900', WARNING: 'bg-amber-100 text-amber-900', NEUTRAL: 'bg-slate-100 text-slate-800' } as const;
 const PANEL = 'grid min-w-0 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 
 function HouseholdDetail(props: {
@@ -356,6 +368,9 @@ export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, 
   const id = view.household.id;
   const mine = pets === null ? [] : pets.filter((p) => p.profile.ownerUserId === myUserId);
   const activeMembers = view.members.filter((m) => m.membership.status === 'ACTIVE').length;
+  const ownerName = view.members.find((m) => m.membership.isHouseholdOwner)?.membership.displayName ?? null;
+  const createdAt = (view.household as { readonly createdAt?: string }).createdAt;
+  const createdText = typeof createdAt === 'string' ? formatIsoDateEs(createdAt.slice(0, 10)) : null;
   const canShare = view.isHouseholdOwner || view.myRole === 'ADMIN';
   const label = HOUSEHOLD_TABS.find((t) => t.key === tab)?.label ?? '';
   return (
@@ -368,12 +383,31 @@ export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, 
         <h3 className="sr-only">{label}</h3>
         {tab === 'resumen' ? (
           <div className={PANEL}>
-            <p className="text-sm">
-              Tu rol: {HOUSEHOLD_ROLE_LABEL[view.myRole]}
-              {view.isHouseholdOwner ? ' (Propietario)' : ''}
-            </p>
-            <p className="text-sm">{activeMembers === 1 ? '1 miembro activo' : `${activeMembers} miembros activos`}</p>
-            <p className="text-sm">{pets === null ? 'Cargando mascotas…' : pets.length === 1 ? '1 mascota asignada' : `${pets.length} mascotas asignadas`}</p>
+            <section aria-label="Hogar" className="grid gap-1 text-sm">
+              <h4 className="font-semibold">Hogar</h4>
+              {createdText === null ? null : <p>Creado el {createdText}</p>}
+              {ownerName === null ? null : <p>Propietario: {ownerName}</p>}
+              <p>
+                Tu rol: {HOUSEHOLD_ROLE_LABEL[view.myRole]}
+                {view.isHouseholdOwner ? ' (Propietario)' : ''}
+              </p>
+              <p>{activeMembers === 1 ? '1 miembro activo' : `${activeMembers} miembros activos`}</p>
+              {membersByRoleText(view.members) === '' ? null : <p>{membersByRoleText(view.members)}</p>}
+            </section>
+            <section aria-labelledby="hogar-resumen-mascotas" className="grid gap-1 text-sm">
+              <h4 id="hogar-resumen-mascotas" className="font-semibold">
+                Mascotas
+              </h4>
+              {pets === null ? (
+                <p>Cargando mascotas…</p>
+              ) : (
+                <>
+                  <p>{pets.length === 1 ? '1 mascota asignada' : `${pets.length} mascotas asignadas`}{pets.length > 0 ? ` · ${mine.length} ${mine.length === 1 ? 'tuya' : 'tuyas'}` : ''}</p>
+                  {pets.length > 0 ? <p>{petsBySpeciesText(pets)}</p> : null}
+                  {pets.length > 0 ? <p>{householdAlertsText(pets)}</p> : null}
+                </>
+              )}
+            </section>
           </div>
         ) : null}
         {tab === 'miembros' ? children : null}
@@ -390,8 +424,17 @@ export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, 
             ) : (
               <ul aria-label={`Mascotas de ${view.household.name}`} className="divide-y divide-slate-200">
                 {pets.map((pet) => (
-                  <li key={pet.profile.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                    <span>{pet.profile.name}</span>
+                  <li key={pet.profile.id} data-pet-id={pet.profile.id} className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <span className="grid min-w-0 gap-0.5">
+                      <span className="break-words font-semibold">{pet.profile.name}</span>
+                      <span className="break-words text-text-muted">{petIdentityLine(pet.profile)}</span>
+                      <span className="break-words tabular-nums text-text-muted">{petAgeWeightLine(pet)}</span>
+                    </span>
+                    {deceasedBadgeText(pet.profile) === null ? (
+                      <span className={`rounded-[10px] px-2 text-xs font-bold ${PET_TONE_CLASS[alertTone(pet.alertsSummary)]}`}>{alertsLine(pet.alertsSummary)}</span>
+                    ) : (
+                      <span className="whitespace-nowrap rounded-[10px] border border-slate-500 bg-slate-100 px-2 text-xs font-bold text-slate-900">{deceasedBadgeText(pet.profile)}</span>
+                    )}
                   </li>
                 ))}
               </ul>

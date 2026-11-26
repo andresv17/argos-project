@@ -77,7 +77,12 @@ export function alertBadge(alert: AlertStateMetadata): AlertBadgeModel {
 
 /** Contador de alertas de una tarjeta (REQ-UI-001): solo OVERDUE y DUE_SOON. */
 export function alertCounters(summary: ActiveSanitaryAlertsSummary): string {
-  return `${summary.overdueCount} vencidas · ${summary.dueSoonCount} próximas`;
+  return countersText(summary.overdueCount, summary.dueSoonCount);
+}
+
+/** Concordancia de número (OBS-1 Sati T1573): «1 vencida» / «2 vencidas», «1 próxima» / «2 próximas». */
+export function countersText(overdue: number, dueSoon: number): string {
+  return `${overdue} ${overdue === 1 ? 'vencida' : 'vencidas'} · ${dueSoon} ${dueSoon === 1 ? 'próxima' : 'próximas'}`;
 }
 
 export type AlertTone = 'DANGER' | 'WARNING' | 'NEUTRAL';
@@ -420,6 +425,48 @@ export function canDeleteHousehold(view: HouseholdView): boolean {
 
 /** «1 mascota» / «2 mascotas»: cantidad con el sustantivo en singular cuando es exactamente 1. */
 export const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+// ---------------------------------------------------------------------------
+// REQ-HOG11-008 (opción B): datos cortos del hogar, solo con lo que ya llega en HouseholdView y PetCardView
+// ---------------------------------------------------------------------------
+
+/** «Perro · Labrador · Macho»: especie, raza y sexo de la ficha (sin avatar). */
+export function petIdentityLine(profile: Pick<PetProfile, 'species' | 'breed' | 'sex'>): string {
+  return [SPECIES_LABEL[profile.species], profile.breed, SEX_LABEL[profile.sex]].filter((part) => typeof part === 'string' && part !== '').join(' · ');
+}
+
+/** «3 años, 2 meses · 12.40 kg»: edad calculada por el servidor (o «Vivió …» si falleció) y último peso. */
+export function petAgeWeightLine(card: Pick<PetCardView, 'profile' | 'computedAge' | 'latestWeightKg'>): string {
+  return `${livedText(card.profile, card.computedAge) ?? formatAge(card.computedAge)} · ${formatKg(card.latestWeightKg)}`;
+}
+
+/** Miembros ACTIVE por rol, «1 Administrador · 2 Cuidadores · 1 Lector»; sin nombres ni usuarios. */
+export function membersByRoleText(members: readonly HouseholdMemberView[]): string {
+  const PLURAL: Readonly<Record<HouseholdRole, readonly [string, string]>> = { ADMIN: ['Administrador', 'Administradores'], CAREGIVER: ['Cuidador', 'Cuidadores'], READER: ['Lector', 'Lectores'] };
+  const active = members.filter((m) => m.membership.status === 'ACTIVE');
+  return (['ADMIN', 'CAREGIVER', 'READER'] as const)
+    .map((role) => ({ role, n: active.filter((m) => m.membership.role === role).length }))
+    .filter((r) => r.n > 0)
+    .map((r) => `${r.n} ${PLURAL[r.role][r.n === 1 ? 0 : 1]}`)
+    .join(' · ');
+}
+
+/** Mascotas por especie, «Perro: 2 · Gato: 1», en el orden del catálogo de especies. */
+export function petsBySpeciesText(pets: ReadonlyArray<Pick<PetCardView, 'profile'>>): string {
+  return (Object.keys(SPECIES_LABEL) as Species[])
+    .map((sp) => ({ sp, n: pets.filter((p) => p.profile.species === sp).length }))
+    .filter((r) => r.n > 0)
+    .map((r) => `${SPECIES_LABEL[r.sp]}: ${r.n}`)
+    .join(' · ');
+}
+
+/** Alertas agregadas solo de mascotas vivas (las fallecidas no aportan, REQ-FAL7-004). */
+export function householdAlertsText(pets: ReadonlyArray<Pick<PetCardView, 'profile' | 'alertsSummary'>>): string {
+  const alive = pets.filter((p) => !isDeceased(p.profile));
+  const overdue = alive.reduce((sum, p) => sum + p.alertsSummary.overdueCount, 0);
+  const dueSoon = alive.reduce((sum, p) => sum + p.alertsSummary.dueSoonCount, 0);
+  return overdue === 0 && dueSoon === 0 ? 'Ninguna mascota requiere atención' : `Alertas: ${countersText(overdue, dueSoon)}`;
+}
 
 export function invitationsLabel(count: number): string {
   return count === 1 ? '1 invitación pendiente' : `${count} invitaciones pendientes`;
