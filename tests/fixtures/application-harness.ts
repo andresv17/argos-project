@@ -1,3 +1,4 @@
+import { MAX_HOUSEHOLDS_PER_USER } from '../../src/infrastructure/config/app-config.ts';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { BackupEnvelopeV3, Household, PetProfile, UserPublicProfile } from '../../src/generated/index.ts';
@@ -99,6 +100,7 @@ export function createDeps(uow: UnitOfWorkPort, clock: ClockPort, hasher: Passwo
     auditPseudonym: new HmacAuditPseudonymAdapter(),
     auditHmacSecret: AUDIT_SECRET_HEX,
     auditIds: new DeterministicIdAdapter(AUDIT_ROW_IDS),
+    maxHouseholdsPerUser: MAX_HOUSEHOLDS_PER_USER,
   };
 }
 

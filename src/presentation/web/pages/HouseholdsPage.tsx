@@ -3,7 +3,7 @@
  * invitaciones (con contador de pendientes), retirar miembros o cancelar invitaciones, abandonar y eliminar.
  * Las acciones visibles dependen de `myRole` de la API; la API aplica INV-HOUSE-002.
  *
- * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, REQ-UI2-005, REQ-HOUSE2-001, REQ-HOUSE2-002, ERR-HOUSE-OWNER-CANNOT-LEAVE, REQ-HOG11-001, REQ-HOG11-002, REQ-HOG11-005
+ * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, REQ-UI2-005, REQ-HOUSE2-001, REQ-HOUSE2-002, ERR-HOUSE-OWNER-CANNOT-LEAVE, REQ-HOG11-001, REQ-HOG11-002, REQ-HOG11-005, REQ-HOG11-004, INV-HOG11-001, SC-011-053, SC-011-054, SC-011-055, SC-011-056, EDGE-011-008, EDGE-011-016
  *
  * Feature 011 (#64, D11-05 = A): página única con la lista de hogares y el detalle del hogar elegido con pestañas internas Resumen, Miembros, Mascotas, Compartir, Álbum
  * y Escena. Reutiliza los componentes y endpoints existentes (sin ruta ni contrato nuevos, D11-06 = A).
@@ -21,6 +21,7 @@ import { ownerSceneVisible } from '../scene-view.ts';
 import { useContractForm } from '../use-contract-form.ts';
 import type { FieldErrors } from '../validation.ts';
 import { useInvitations } from './AppShell.tsx';
+import { HOUSEHOLD_LIMIT_NOTICE, householdLimitReached, limitFocusTarget, type LimitFocusAction } from '../household-limit.ts';
 import {
   canChangeRole,
   canDeleteHousehold,
@@ -50,16 +51,26 @@ export function transferHouseholdText(view: HouseholdView, targetUserId: string)
   return `¿Transferir la propiedad del hogar ${view.household.name} a ${target}? Conservarás el rol de Administrador.`;
 }
 
-export function InvitationList({ invitations, onAccept, onDecline }: {
+export function InvitationList({ invitations, onAccept, onDecline, atLimit = false, noticeRef, headingRef }: {
   readonly invitations: readonly InvitationView[];
+  /** REQ-HOG11-004: la lista de hogares ya alcanza el tope; se avisa y «Aceptar» no se ofrece (la invitación sigue abierta, EDGE-011-016). */
+  readonly atLimit?: boolean;
+  /** S-2 (2.4.3): destinos de foco al alcanzar el tope (aviso y encabezado, `tabIndex=-1`). */
+  readonly noticeRef?: React.RefObject<HTMLParagraphElement>;
+  readonly headingRef?: React.RefObject<HTMLHeadingElement>;
   readonly onAccept: (householdId: string) => void;
   readonly onDecline: (householdId: string) => void;
 }): JSX.Element {
   return (
     <section aria-labelledby="invitations-title" className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 id="invitations-title" className="text-lg font-semibold">
+      <h2 id="invitations-title" ref={headingRef} tabIndex={-1} className="text-lg font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
         Invitaciones <span className="text-sm font-normal text-text-muted">({invitationsLabel(invitations.length)})</span>
       </h2>
+      {atLimit && invitations.length > 0 ? (
+        <p id="invitations-limit-notice" ref={noticeRef} tabIndex={-1} className="text-sm font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
+          {HOUSEHOLD_LIMIT_NOTICE}
+        </p>
+      ) : null}
       {invitations.length === 0 ? (
         <p className="text-sm text-text-muted">No tienes invitaciones pendientes.</p>
       ) : (
@@ -70,7 +81,9 @@ export function InvitationList({ invitations, onAccept, onDecline }: {
                 <strong>{inv.household.name}</strong> · invita {inv.invitedBy.displayName} (@{inv.invitedBy.username})
               </span>
               <span className="flex gap-2">
-                <Button onClick={() => onAccept(inv.household.id)}>Aceptar</Button>
+                <Button disabled={atLimit} {...(atLimit ? { describedBy: 'invitations-limit-notice' } : {})} onClick={() => onAccept(inv.household.id)}>
+                  Aceptar
+                </Button>
                 <Button variant="secondary" onClick={() => onDecline(inv.household.id)}>
                   Rechazar
                 </Button>
@@ -417,6 +430,13 @@ export function HouseholdsPage(): JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<HouseholdTabKey>(DEFAULT_TAB);
 
+  // S-2 (2.4.3): al alcanzar el tope por una acción propia el botón activado queda deshabilitado; el foco pasa al aviso (o al encabezado) en vez de caer en `body`.
+  const lastLimitAction = useRef<LimitFocusAction | null>(null);
+  const wasLimitReached = useRef(false);
+  const createNoticeRef = useRef<HTMLParagraphElement>(null);
+  const invitationsNoticeRef = useRef<HTMLParagraphElement>(null);
+  const invitationsHeadingRef = useRef<HTMLHeadingElement>(null);
+
   const load = useCallback(async (): Promise<void> => {
     try {
       const [h, i] = await Promise.all([unwrap(api.GET('/households')), unwrap(api.GET('/invitations'))]);
@@ -432,6 +452,15 @@ export function HouseholdsPage(): JSX.Element {
   useEffect(() => {
     void load();
   }, [api]);
+
+  const limitReached = householdLimitReached(households.length);
+  useEffect(() => {
+    const target = limitFocusTarget(wasLimitReached.current, limitReached, lastLimitAction.current, invitations.length);
+    wasLimitReached.current = limitReached;
+    if (target === null) return;
+    lastLimitAction.current = null;
+    (target === 'CREATE_NOTICE' ? createNoticeRef : target === 'INVITATIONS_NOTICE' ? invitationsNoticeRef : invitationsHeadingRef).current?.focus();
+  }, [limitReached, invitations.length]);
 
   const run = async (action: () => Promise<unknown>): Promise<void> => {
     setError(null);
@@ -488,7 +517,13 @@ export function HouseholdsPage(): JSX.Element {
         <div className="grid min-w-0 content-start gap-4 lg:col-span-1">
           <InvitationList
             invitations={invitations}
-            onAccept={(householdId) => void run(() => unwrap(api.POST('/invitations/{householdId}/accept', { params: { ...CSRF_PARAMS, path: { householdId } } })))}
+            atLimit={householdLimitReached(households.length)}
+            noticeRef={invitationsNoticeRef}
+            headingRef={invitationsHeadingRef}
+            onAccept={(householdId) => {
+              lastLimitAction.current = 'ACCEPT';
+              void run(() => unwrap(api.POST('/invitations/{householdId}/accept', { params: { ...CSRF_PARAMS, path: { householdId } } })));
+            }}
             onDecline={(householdId) => void run(() => unwrap(api.POST('/invitations/{householdId}/decline', { params: { ...CSRF_PARAMS, path: { householdId } } })))}
           />
           <form
@@ -496,13 +531,19 @@ export function HouseholdsPage(): JSX.Element {
             aria-label="Crear hogar"
             onSubmit={(e) => {
               setNotice(null);
+              lastLimitAction.current = 'CREATE';
               void createForm.onSubmit(e);
             }}
             className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
           >
             <TextField id="household-name" label="Nombre del nuevo hogar" name="name" required value={createForm.values.name ?? ''} onChange={createForm.onChange} errors={createForm.errors} />
+            {householdLimitReached(households.length) ? (
+              <p id="household-limit-notice" ref={createNoticeRef} tabIndex={-1} role="status" className="text-sm font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
+                {HOUSEHOLD_LIMIT_NOTICE}
+              </p>
+            ) : null}
             <div>
-              <Button type="submit" disabled={createForm.busy}>
+              <Button type="submit" disabled={createForm.busy || householdLimitReached(households.length)} {...(householdLimitReached(households.length) ? { describedBy: 'household-limit-notice' } : {})}>
                 Crear hogar
               </Button>
             </div>

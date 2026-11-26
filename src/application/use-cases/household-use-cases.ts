@@ -35,6 +35,7 @@ import { validateInviteMemberInput, validateInviteeSearchPrefix, type InviteeSea
 import {
   applyMembershipEvent,
   changeMemberRole,
+  assertHouseholdCapacity,
   createHousehold,
   activeMembersInOrder,
   householdPets,
@@ -149,12 +150,28 @@ async function memberView(repositories: RepositorySet, memberships: readonly Leg
   return { membership: toMemberDto(row, user), colorToken: ownerColorTokens(memberships, row.householdId).get(row.userId) ?? null };
 }
 
-/** @implements REQ-HOUSE-001 */
+/**
+ * Tope de hogares activos (REQ-HOG11-004, INV-HOG11-001): toma el candado del usuario (`SELECT ... FOR UPDATE` en PostgreSQL; SQLite ya serializa con `BEGIN IMMEDIATE`)
+ * ANTES de contar, para que dos operaciones concurrentes del mismo usuario no lean el mismo conteo; conteo e inserción van en la misma transacción del llamador.
+ * Cuenta solo membresías ACTIVE (EDGE-011-016).
+ * @implements REQ-HOG11-004, INV-HOG11-001, SC-011-053, SC-011-054, SC-011-055, SC-011-056, EDGE-011-008, EDGE-011-016
+ */
+async function requireHouseholdCapacity(deps: ApplicationDeps, repositories: RepositorySet, userId: string): Promise<void> {
+  // El máximo lo inyecta la composición desde `app-config.ts` (INV-ARCH-006, INV-ARCH-004); sin él (deps de pruebas de otras features) la guarda no se evalúa.
+  const max = deps.maxHouseholdsPerUser;
+  if (max === undefined) return;
+  await repositories.users.findByIdForUpdate(userId);
+  const active = (await repositories.households.listMembershipsOfUsers([userId])).filter((m) => m.status === 'ACTIVE').length;
+  assertHouseholdCapacity(active, max);
+}
+
+/** @implements REQ-HOUSE-001, REQ-HOG11-004, INV-HOG11-001, EDGE-011-008 */
 export class CreateHouseholdUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(userId: string, input: unknown): Promise<HouseholdView> {
     return this.deps.uow.runInTransaction(async (repositories) => {
+      await requireHouseholdCapacity(this.deps, repositories, userId);
       const { household, ownerMembership } = createHousehold({
         householdId: this.deps.ids.nextId(),
         membershipId: this.deps.ids.nextId(),
@@ -258,7 +275,7 @@ export class ListMyInvitationsUseCase {
   }
 }
 
-/** @implements REQ-HOUSE-003, REQ-HOUSE2-001 */
+/** @implements REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOG11-004, INV-HOG11-001, EDGE-011-016 */
 export class RespondInvitationUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
@@ -274,6 +291,8 @@ export class RespondInvitationUseCase {
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'HOUSEHOLD_INVITATION', entityId: invitation.invitationId, previous: invitation, next: declined });
         return 204 as const;
       }
+      // El rechazo por tope lanza antes de tocar la invitación: la transacción revierte y queda OPEN (EDGE-011-016).
+      await requireHouseholdCapacity(this.deps, repositories, userId);
       const memberships = await repositories.households.listMemberships(householdId);
       const row = membershipFromAcceptedInvitation({ memberships, invitation, userId, membershipId: this.deps.ids.nextId(), nowIsoTimestamp: now });
       const accepted: InvitationRecord = { ...invitation, status: 'ACCEPTED', respondedAt: now };

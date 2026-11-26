@@ -12,7 +12,7 @@
  *   para el OWNER (D-01); color del dueño por firstJoinedAt ASC, userId ASC; colorToken nulo fuera del hogar.
  * - STATE-HOUSE-MEMBERSHIP-001: tabla de transiciones leída del contrato generado.
  *
- * @implements REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-HOUSE-001, INV-HOUSE-002, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, STATE-HOUSE-MEMBERSHIP-001, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-OWNER-CANNOT-LEAVE, ERR-HOUSE-INVITATION-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND, INV-ARCH-004
+ * @implements REQ-HOUSE-001, REQ-HOUSE2-001, REQ-HOUSE-003, REQ-HOUSE-004, REQ-HOUSE-005, INV-HOUSE-001, INV-HOUSE-002, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, STATE-HOUSE-MEMBERSHIP-001, ERR-HOUSE-NOT-FOUND, ERR-HOUSE-OWNER-CANNOT-LEAVE, ERR-HOUSE-INVITATION-NOT-FOUND, ERR-HOUSE-MEMBERSHIP-NOT-FOUND, INV-ARCH-004, REQ-HOG11-004, INV-HOG11-001, SC-011-053, SC-011-054, SC-011-055, SC-011-056, EDGE-011-008, EDGE-011-016, ERR-HOG11-HOUSEHOLD-LIMIT-REACHED
  */
 
 import {
@@ -29,11 +29,22 @@ import {
   type StateHouseMembership001State,
   type UserPublicProfile,
 } from '../../generated/index.ts';
+import { DomainError as DomainErrorV37 } from '../../generated/v37/index.ts';
 import { effectiveRole, type PetHouseholdAssignment, type RoleMembership } from '../access/effective-role.ts';
 import { petPermissionsFor, type PetPermissions, type RbacRole } from '../access/rbac.ts';
 import { assertCanonicalCreatedAt, sortPetsForListing } from '../sorting/deterministic-sorter.ts';
 
 const MEMBERSHIP_MACHINE = STATE_HOUSE_MEMBERSHIP_001;
+
+/**
+ * Tope de hogares ACTIVOS por persona (REQ-HOG11-004, INV-HOG11-001, D11-12 = B+C). Regla pura: el máximo llega inyectado por la composición (INV-ARCH-006).
+ * Rechaza con `activeCount >= max`, de modo que quien ya supera el tope (EDGE-011-008) no puede sumar otro pero conserva los suyos; es el mismo error en cada llamada.
+ * `activeCount` cuenta solo membresías ACTIVE (no INVITED, DECLINED, LEFT ni REMOVED; EDGE-011-016).
+ * @implements REQ-HOG11-004, INV-HOG11-001, EDGE-011-008, EDGE-011-016, ERR-HOG11-HOUSEHOLD-LIMIT-REACHED
+ */
+export function assertHouseholdCapacity(activeCount: number, max: number): void {
+  if (activeCount >= max) throw new DomainErrorV37('ERR-HOG11-HOUSEHOLD-LIMIT-REACHED');
+}
 
 /**
  * Fila de membresía que entiende la lógica heredada de la 001 (OWNER/MEMBER, INVITED dentro de la misma fila) y que

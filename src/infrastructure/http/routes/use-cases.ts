@@ -58,7 +58,7 @@ import {
   DeleteRecordUseCase,
   UpdateRecordUseCase,
 } from '../../../application/use-cases/record-use-cases.ts';
-import { ADMIN_DELEGATE_ACTIVE_LIMIT, ADMIN_DELEGATE_INVITATION_TTL_HOURS, ADMIN_DELEGATE_ROW_LIMIT } from '../../config/app-config.ts';
+import { ADMIN_DELEGATE_ACTIVE_LIMIT, ADMIN_DELEGATE_INVITATION_TTL_HOURS, ADMIN_DELEGATE_ROW_LIMIT, MAX_HOUSEHOLDS_PER_USER } from '../../config/app-config.ts';
 import { INVITEE_SEARCH_LIMITS } from '../../config/invitee-search-config.ts';
 import { InviteeSearchRateLimiter } from '../invitee-search-rate-limit.ts';
 import type { ApplicationDeps } from '../../../application/use-cases/use-case-support.ts';
@@ -70,7 +70,10 @@ const ADMIN_DELEGATE_LIMITS: AdminDelegateLimits = {
   rowLimit: ADMIN_DELEGATE_ROW_LIMIT,
 };
 
-export function createUseCases(deps: ApplicationDeps) {
+export function createUseCases(baseDeps: ApplicationDeps) {
+  // Composición del tope de hogares (REQ-HOG11-004, INV-HOG11-001): la cifra viene solo de `app-config.ts` y se inyecta a la capa de aplicación.
+  // Se delega por prototipo (no se copia): las lecturas de `uow` y demás siguen siendo en vivo sobre `baseDeps`.
+  const deps: ApplicationDeps = Object.create(baseDeps, { maxHouseholdsPerUser: { value: baseDeps.maxHouseholdsPerUser ?? MAX_HOUSEHOLDS_PER_USER, enumerable: true } }) as ApplicationDeps;
   return {
     register: new RegisterUserUseCase(deps),
     login: new LoginUseCase(deps),

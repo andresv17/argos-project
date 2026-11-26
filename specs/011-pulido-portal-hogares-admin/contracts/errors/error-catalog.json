@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalogIncremental011",
   "x-sdd-metadata": {
-    "version": "1.1.0",
+    "version": "1.2.0",
     "status": "APPROVED",
     "supersedes": null,
     "change_type": "MINOR",
     "extends": "catalogos de 001..010 (sin editar)",
-    "change_note": "Catalogo INCREMENTAL MINIMO de la feature 011 (Nivel 2 Neo, 2026-11-25): base vacia para habilitar verify-traceability --feature 011 en Fase 0. Los codigos ERR-ADM11-*, ERR-HOG11-* y ERR-PRF11-* se anaden por bloque en sus tareas [ARCH] [N2] (T1524, T1548, T1553) mediante enmiendas MINOR. 1.1.0 (T1524, Architect 2026-11-25, MINOR aditiva; solo anade, no cambia ni retira los existentes; el estado de 1.0.0 NO se hereda de forma automatica y lo fija solo Neo): +10 codigos ERR-ADM11-* de la gestion de administradores delegados (/api/admin/administrators*) y de la autorizacion por rol. DENIED uniforme (INVITED caducada, DISABLED, sin rol, sin ancla, correo distinto, rol desconocido) NO tiene codigo propio: reutiliza el 404 uniforme del callback de 009 (H-4, EDGE-009-008). Los codigos ERR-HOG11-* y ERR-PRF11-* siguen pendientes de T1548 y T1553.",
+    "change_note": "Catalogo INCREMENTAL MINIMO de la feature 011 (Nivel 2 Neo, 2026-11-25): base vacia para habilitar verify-traceability --feature 011 en Fase 0. Los codigos ERR-ADM11-*, ERR-HOG11-* y ERR-PRF11-* se anaden por bloque en sus tareas [ARCH] [N2] (T1524, T1548, T1553) mediante enmiendas MINOR. 1.1.0 (T1524, Architect 2026-11-25, MINOR aditiva; solo anade, no cambia ni retira los existentes; el estado de 1.0.0 NO se hereda de forma automatica y lo fija solo Neo): +10 codigos ERR-ADM11-* de la gestion de administradores delegados (/api/admin/administrators*) y de la autorizacion por rol. DENIED uniforme (INVITED caducada, DISABLED, sin rol, sin ancla, correo distinto, rol desconocido) NO tiene codigo propio: reutiliza el 404 uniforme del callback de 009 (H-4, EDGE-009-008). Los codigos ERR-HOG11-* y ERR-PRF11-* siguen pendientes de T1548 y T1553. 1.2.0 (T1548, Architect 2026-11-25, MINOR aditiva; solo anade, no cambia ni retira los existentes; el estado NO se hereda de forma automatica y lo fija solo Neo): +1 codigo ERR-HOG11-HOUSEHOLD-LIMIT-REACHED (tope de 5 hogares activos por persona, D11-12 = B+C) al crear un hogar (createHousehold) y al aceptar una invitacion (acceptInvitation). Los codigos ERR-PRF11-* siguen pendientes de T1553.",
     "removed": [],
     "added": [
       "ERR-ADM11-ROLE-NOT-AUTHORIZED",
@@ -19,7 +19,8 @@
       "ERR-ADM11-INVALID-TRANSITION",
       "ERR-ADM11-DELEGATE-NOT-FOUND",
       "ERR-ADM11-EMAIL-CONFIRMATION-MISMATCH",
-      "ERR-ADM11-PRECONDITION-FAILED"
+      "ERR-ADM11-PRECONDITION-FAILED",
+      "ERR-HOG11-HOUSEHOLD-LIMIT-REACHED"
     ],
     "inherited": [
       "ERR-AUTH-CSRF-REJECTED",
@@ -42,10 +43,13 @@
       "EDGE-011-003",
       "EDGE-011-009",
       "EDGE-011-010",
-      "EDGE-011-011"
+      "EDGE-011-011",
+      "INV-HOG11-001",
+      "EDGE-011-008",
+      "EDGE-011-016"
     ]
   },
-  "version": "1.1.0",
+  "version": "1.2.0",
   "status": "APPROVED",
   "problemDetailsSchema": {
     "$ref": "https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails"
@@ -140,6 +144,15 @@
       "detailTemplate": "El administrador delegado cambió desde que lo cargaste. Vuelve a cargar la lista e inténtalo de nuevo.",
       "requirementRef": "REQ-ADM11-004",
       "note": "If-Match correcto en forma pero ya no vigente (control optimista de escrituras sobre un delegado; EDGE-011-015). Ausente o con otra forma: 422 ERR-SCHEMA-VALIDATION-FAILED. No muta nada."
+    },
+    "ERR-HOG11-HOUSEHOLD-LIMIT-REACHED": {
+      "type": "urn:argos:error:ERR-HOG11-HOUSEHOLD-LIMIT-REACHED",
+      "status": 409,
+      "title": "Alcanzaste el límite de hogares",
+      "invariantRef": "INV-HOG11-001",
+      "detailTemplate": "Ya perteneces al máximo de hogares permitido. Sal de alguno de tus hogares antes de crear otro o de aceptar esta invitación.",
+      "requirementRef": "REQ-HOG11-004, EDGE-011-008, EDGE-011-010, EDGE-011-016",
+      "note": "D11-12 = B+C. Se devuelve al crear un hogar (createHousehold) y al aceptar una invitacion (acceptInvitation) cuando la persona ya tiene MAX_HOUSEHOLDS_PER_USER membresias ACTIVE (propietario incluido; sin contar INVITED, DECLINED, LEFT ni REMOVED). 409 por conflicto con el estado actual del recurso (misma familia que ERR-ADM11-DELEGATE-LIMIT-REACHED); 422 queda para errores de forma. Conteo e insercion en la misma runInTransaction; en carrera solo una prospera (EDGE-011-010). La invitacion rechazada por el tope NO cambia de estado: queda OPEN y reintentable (EDGE-011-016). Quien ya supera el tope conserva sus hogares, sin expulsion (EDGE-011-008). El numero vive solo en app-config.ts y no se escribe en el detalle. Sin endpoint de conteo: la interfaz avisa antes con la lista ya cargada (MIF-011-09); este codigo es la guarda autoritativa del servidor. No hay tope de invitaciones pendientes."
     }
   }
 }

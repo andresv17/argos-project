@@ -151,6 +151,11 @@ export const SCENE_UNMARKED_ATTEMPT_TTL_SECONDS = 600;
  * 60 s; responde con el código de `FAILED_LIMIT`. ÚNICA fuente del valor (el dominio lo recibe como dato).
  */
 export const SCENE_MAX_CLOSED_WITHOUT_CALL_PER_DAY = 20;
+/**
+ * Tope de hogares ACTIVOS por persona (feature 011, `#74`, REQ-HOG11-004, INV-HOG11-001, D11-12 = B+C aprobado por Neo). ÚNICA fuente del valor (el dominio lo recibe como dato;
+ * la interfaz lleva un espejo en `household-limit.ts`). Aplica al crear un hogar y al aceptar una invitación.
+ */
+export const MAX_HOUSEHOLDS_PER_USER = 5;
 /** T_LEASE = T_GEN + 60 s (INV-ESC6-013; cumple T_LEASE >= T_GEN + 30 s). */
 export const sceneLeaseSeconds = (genTimeoutSeconds: number): number => genTimeoutSeconds + 60;
 /**

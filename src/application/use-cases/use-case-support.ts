@@ -168,6 +168,11 @@ export interface AdminServices {
 }
 
 export interface ApplicationDeps {
+  /**
+   * Tope de hogares ACTIVOS por persona (feature 011, REQ-HOG11-004, INV-HOG11-001): lo inyecta la composición desde `MAX_HOUSEHOLDS_PER_USER` (`app-config.ts`, única fuente).
+   * Lo leen crear hogar y aceptar invitación; ausente = la guarda no se evalúa (deps de pruebas ajenas a la feature).
+   */
+  readonly maxHouseholdsPerUser?: number;
   readonly uow: UnitOfWorkPort;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;
