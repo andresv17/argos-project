@@ -1,15 +1,18 @@
 /**
  * Vista del resumen clínico de solo lectura (S5 de `/sati`, T775, T777, T779; REQ-SUM-004, REQ-SUM-005, REQ-SUM-007, REQ-SUM-008, REQ-VET-009; SC-005-031, SC-005-032,
- * SC-005-035, SC-005-047): UNA pieza con dos puertas, la página pública `/shared/{token}` (`mode = PUBLIC`) y la vista previa autenticada del propietario
+ * SC-005-035, SC-005-047; T1535: REQ-VET11-001, REQ-VET11-002, REQ-VET11-003): UNA pieza con dos puertas, la página pública `/shared/{token}` (`mode = PUBLIC`) y la vista previa autenticada del propietario
  * (`mode = PREVIEW`, D5-15). Cero formularios y cero campos editables: el único control es «Imprimir / Guardar como PDF». Cada módulo siempre aparece (vacío dice
- * «Sin registros.»). Sin gráficos, miniaturas, `<img>`, `<iframe>`, scripts ni recursos de terceros (CSP `default-src 'none'`, `style-src 'self'`): no hay estilos en línea.
+ * «Sin registros.»). Sin gráficos, `<iframe>`, scripts ni recursos de terceros (CSP `default-src 'none'`, `style-src 'self'`): no hay estilos en línea. Informe: una tarjeta por mascota con su
+ * `<h2>`; la ÚNICA imagen posible es el avatar de la mascota en el encabezado de su sección (D11-09 = A, ENM-005-3.5.0), que el contenedor pide a la ruta dedicada del enlace
+ * mediante `avatarHref`; sin esa función (vista previa) o sin imagen no se emite `<img>`; si la carga falla, la imagen se retira sin dejar hueco.
  * El nombre original del archivo (`fileLabels`) es contenido del cuidador SIN verificar: se muestra SIEMPRE como nodo de texto (React lo escapa), con `translate="no"`,
  * nunca en el título ni en la URL, y se oculta en papel. El resumen no trae interpretación automática (REQ-SUM-008).
  *
  * `SharedSummaryDocument` es presentacional; el contenedor que pide los datos es `SharedPage`/`SummaryPreviewPage`.
  *
- * @implements REQ-SUM-004, REQ-SUM-005, REQ-SUM-007, REQ-SUM-008, REQ-VET-009, INV-005-009, SC-005-031, SC-005-032, SC-005-035, SC-005-047
+ * @implements REQ-VET11-001, REQ-VET11-002, REQ-VET11-003, INV-VET11-001, REQ-SUM-004, REQ-SUM-005, REQ-SUM-007, REQ-SUM-008, REQ-VET-009, INV-005-009, SC-005-031, SC-005-032, SC-005-035, SC-005-047
  */
+import { useState } from 'react';
 import { BRAND_NAME } from '../brand.ts';
 import type { ClinicalPetView, SharedSummaryViewModel } from '../share-api.ts';
 import { SEVERITY_LABEL, SYMPTOM_TYPE_LABEL } from '../symptoms.ts';
@@ -24,6 +27,15 @@ export interface SharedSummaryDocumentProps {
   /** Ruta de descarga de un archivo clínico (solo la página pública; la vista previa no descarga). */
   readonly downloadHref: ((fileId: string) => string) | null;
   readonly onPrint: () => void;
+  /** URL del avatar de la mascota en la posición `petIndex` (ruta dedicada del enlace); ausente o `null` = sin imagen (vista previa, mascota sin foto). */
+  readonly avatarHref?: ((petIndex: number) => string | null) | null;
+}
+
+/** Avatar de 64 px del encabezado; sin `srcset`, sin credenciales cruzadas ni referente; si falla la carga se retira. */
+function PetAvatar({ href, name }: { readonly href: string; readonly name: string }): JSX.Element | null {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return <img src={href} alt={`Foto de perfil de ${name}`} width={64} height={64} referrerPolicy="no-referrer" loading="lazy" decoding="async" onError={() => setFailed(true)} className="h-16 w-16 shrink-0 rounded-full border border-slate-200 object-cover" />;
 }
 
 const NONE = <p className="text-sm text-slate-700">Sin registros.</p>;
@@ -43,15 +55,18 @@ function Rows({ children }: { readonly children: JSX.Element[] }): JSX.Element {
 
 const sizeText = (bytes: number): string => (bytes < 1024 ? `${bytes} B` : bytes < 1_048_576 ? `${decimalEs(Math.round(bytes / 102.4) / 10)} KB` : `${decimalEs(Math.round(bytes / 104_857.6) / 10)} MB`);
 
-function PetSection({ pet, index, only, props, names }: { readonly pet: ClinicalPetView; readonly index: number; readonly only: boolean; readonly props: SharedSummaryDocumentProps; readonly names: ReadonlyMap<string, string> }): JSX.Element {
+function PetSection({ pet, index, props, names }: { readonly pet: ClinicalPetView; readonly index: number; readonly props: SharedSummaryDocumentProps; readonly names: ReadonlyMap<string, string> }): JSX.Element {
   const { profile } = pet;
   const disclosure = props.view.summary.disclosure;
-  const Heading = only ? 'h2' : 'h2';
+  const avatar = props.avatarHref == null ? null : props.avatarHref(index);
   return (
-    <section id={`pet-${index + 1}`} aria-labelledby={`pet-${index + 1}-title`} className={`grid min-w-0 gap-1 ${index === 0 ? '' : 'pet-break'}`}>
-      <Heading id={`pet-${index + 1}-title`} className="text-lg font-semibold text-slate-900 break-after-avoid">
-        {profile.name}
-      </Heading>
+    <section id={`pet-${index + 1}`} aria-labelledby={`pet-${index + 1}-title`} className={`grid min-w-0 gap-1 rounded-xl border border-slate-300 bg-white p-3 sm:p-4 ${index === 0 ? '' : 'pet-break'}`}>
+      <div className="flex min-w-0 flex-wrap items-center gap-3 break-after-avoid">
+        {avatar === null ? null : <PetAvatar href={avatar} name={profile.name} />}
+        <h2 id={`pet-${index + 1}-title`} className="min-w-0 break-words text-lg font-semibold text-slate-900">
+          {profile.name}
+        </h2>
+      </div>
       <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-slate-900">
         <dt className="font-semibold">Especie</dt>
         <dd>{profile.species === 'OTHER' && profile.speciesOther !== null ? profile.speciesOther : (SPECIES_LABEL[profile.species] ?? profile.species)}</dd>
@@ -213,12 +228,12 @@ export function SharedSummaryDocument(props: SharedSummaryDocumentProps): JSX.El
           </button>
         </div>
         {household ? (
-          <nav aria-label="Mascotas del resumen" className="print-hide text-sm text-slate-900">
+          <nav aria-label="Mascotas del resumen" className="print-hide min-w-0 break-words [overflow-wrap:anywhere] text-sm text-slate-900">
             Mascotas:{' '}
             {summary.pets.map((pet, i) => (
-              <span key={`nav-${i}`}>
+              <span key={`nav-${i}`} className="min-w-0 break-words [overflow-wrap:anywhere]">
                 {i === 0 ? '' : ' · '}
-                <a href={`#pet-${i + 1}`} className="font-semibold text-primary underline">
+                <a href={`#pet-${i + 1}`} className="min-w-0 break-words [overflow-wrap:anywhere] rounded-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
                   {pet.profile.name}
                 </a>
               </span>
@@ -227,7 +242,7 @@ export function SharedSummaryDocument(props: SharedSummaryDocumentProps): JSX.El
         ) : null}
       </header>
       {summary.pets.map((pet, index) => (
-        <PetSection key={`pet-${index}`} pet={pet} index={index} only={summary.pets.length === 1} props={props} names={names} />
+        <PetSection key={`pet-${index}`} pet={pet} index={index} props={props} names={names} />
       ))}
     </article>
   );

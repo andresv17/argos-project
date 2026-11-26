@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { SharedSummaryDocument, SharedUnavailable } from '../components/SharedSummary.tsx';
-import { createShareApi, ShareApiError, type ShareApi, type SharedSummaryViewModel } from '../share-api.ts';
+import { createShareApi, ShareApiError, sharedAvatarPath, type ShareApi, type SharedSummaryViewModel } from '../share-api.ts';
 
 type State = { readonly kind: 'LOADING' } | { readonly kind: 'READY'; readonly view: SharedSummaryViewModel } | { readonly kind: 'NOT_FOUND' } | { readonly kind: 'RATE_LIMITED' } | { readonly kind: 'ERROR' };
 
@@ -45,7 +45,15 @@ export function SharedPage({ api }: { readonly api?: ShareApi }): JSX.Element {
           Cargando…
         </p>
       ) : state.kind === 'READY' ? (
-        <SharedSummaryDocument view={state.view} mode="PUBLIC" downloadHref={(fileId) => `/api/shared/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}`} onPrint={() => window.print()} />
+        <SharedSummaryDocument
+          view={state.view}
+          mode="PUBLIC"
+          downloadHref={(fileId) => `/api/shared/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}`} onPrint={() => window.print()}
+          avatarHref={(i) => {
+            const petId = state.view.petIds?.[i];
+            return petId === undefined ? null : sharedAvatarPath(token, petId);
+          }}
+        />
       ) : state.kind === 'ERROR' ? (
         <p role="alert" className="p-4 text-slate-900">
           No se pudo cargar el resumen. Recarga la página; si el problema sigue, pide un enlace nuevo.

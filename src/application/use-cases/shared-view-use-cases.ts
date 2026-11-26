@@ -14,17 +14,18 @@
  * - Límite de tasa por IP efectiva ANTES de tocar la base (429 sin escritura ni resolución); todo fallo cuenta una vez; sin exención de token válido (PN-11).
  * - La auditoría de un acceso válido es fail-closed: si falla, no se sirve el resumen (error interno).
  *
- * @implements REQ-VET-002, REQ-VET-006, REQ-VET-007, REQ-VET-008, REQ-VET-009, REQ-VET-011, REQ-SUM-004, ERR-SHARE-RATE-LIMITED, INV-005-001, INV-005-002, INV-005-006, INV-005-007, INV-005-008, INV-005-009, SC-005-016, SC-005-017, SC-005-021, SC-005-022, SC-005-023, SC-005-026, SC-005-035, SC-005-036, SC-005-037, SC-005-049, NFR-005-001, NFR-005-002, NFR-005-004 (el resumen se calcula bajo demanda, sin dependencias ni recursos de pago nuevos), EDGE-005-14, EDGE-005-23, EDGE-005-24, MIF-005-04
+ * @implements REQ-VET11-002, INV-VET11-001, ENM-005-3.5.0, REQ-VET-002, REQ-VET-006, REQ-VET-007, REQ-VET-008, REQ-VET-009, REQ-VET-011, REQ-SUM-004, ERR-SHARE-RATE-LIMITED, INV-005-001, INV-005-002, INV-005-006, INV-005-007, INV-005-008, INV-005-009, SC-005-016, SC-005-017, SC-005-021, SC-005-022, SC-005-023, SC-005-026, SC-005-035, SC-005-036, SC-005-037, SC-005-049, NFR-005-001, NFR-005-002, NFR-005-004 (el resumen se calcula bajo demanda, sin dependencias ni recursos de pago nuevos), EDGE-005-14, EDGE-005-23, EDGE-005-24, MIF-005-04
  */
 import { toRoleMembership, isOwnerRow } from '../../domain/households/household-policies.ts';
 import { effectiveRole } from '../../domain/access/effective-role.ts';
-import { MEDIA_PAGE_SIZE, mediaObjectKey, neutralFilename, type MediaMime } from '../../domain/media/index.ts';
+import { avatarObjectKey, detectMediaType, MEDIA_PAGE_SIZE, mediaObjectKey, neutralFilename, type MediaMime } from '../../domain/media/index.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
+import { stripImageMetadata } from '../../domain/images/image-metadata-stripper.ts';
 import { normalizeClientIp } from '../../domain/sharing/client-ip.ts';
 import { fileLabel } from '../../domain/sharing/file-label.ts';
 import { deriveStatus, failureWindowStart, signedUrlTtlSeconds, type ShareLinkRecord } from '../../domain/sharing/share-link.ts';
 import { hashToken } from '../../domain/sharing/share-token.ts';
-import { buildClinicalSummary, type SummaryClinicalFileInput, type SummaryPetInput } from '../../domain/summary/clinical-summary.ts';
+import { buildClinicalSummary, orderPetsForSummary, type SummaryClinicalFileInput, type SummaryPetInput } from '../../domain/summary/clinical-summary.ts';
 import { DomainError } from '../../generated/index.ts';
 import { DomainError as DomainErrorV33, type SharedSummaryView } from '../../generated/v33/index.ts';
 import type { MediaStoragePort } from '../ports/media-storage.port.ts';
@@ -169,7 +170,8 @@ export class GetSharedSummaryUseCase {
       if (resolved === null) return null;
       const { link } = resolved;
       const view = await buildSharedView(r, resolved.pets, link.scope, access.now, { includeMicrochip: link.includeMicrochip, includeClinicalFiles: link.includeClinicalFiles, includeDeceasedAt: link.includeDeceasedAt }, link.expiresAt);
-      return { view, linkId: link.id };
+      // `petIds` (1.2.0, ENM-005-3.5.0): mismos ids y mismo orden que `summary.pets`; solo la ruta pública, nunca la vista previa.
+      return { view: { ...view, petIds: orderPetsForSummary(resolved.pets).map((p) => p.id) }, linkId: link.id };
     });
     if (found === null) return access.fail();
     await access.ok(found.linkId);
@@ -213,6 +215,51 @@ export class GetSharedFileUseCase {
     }
     await access.ok(found.linkId);
     return { url };
+  }
+}
+
+export interface SharedAvatarImage {
+  readonly mime: 'image/jpeg' | 'image/png' | 'image/webp';
+  readonly bytes: Uint8Array;
+}
+
+/**
+ * Avatar de una mascota del alcance del token (ENM-005-3.5.0, D11-09 = A, T1535). Misma resolución, mismo contador y mismo 404 uniforme que `GetSharedSummaryUseCase`.
+ * - TR-4: el estado del avatar se lee con el id de la mascota YA resuelta del alcance (o `NIL`), jamás con el texto de la ruta; `storage.get` solo con token válido,
+ *   mascota en alcance y avatar presente.
+ * - TR-1: toda lectura pasa por `stripImageMetadata`; se sirven el mime y los bytes del resultado, nunca el `contentType` almacenado. Objeto ausente, saneado fallido
+ *   (ilegible, animado) o cualquier fallo del almacenamiento: el MISMO 404 (no hay 500 que distinga «tiene avatar»).
+ * @implements REQ-VET11-002, REQ-VET-006, REQ-VET-007, REQ-VET-008, INV-005-002, INV-005-007, ENM-005-3.5.0
+ */
+export class GetSharedPetAvatarUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(token: string, petId: string, clientIp: string): Promise<SharedAvatarImage> {
+    const access = new PublicAccess(this.deps, clientIp);
+    access.assertNotLimited();
+    const found = await readSnapshot(this.deps, async (r) => {
+      const resolved = await resolveShare(r, token, access.now);
+      const pet = resolved === null ? undefined : resolved.pets.find((p) => p.id === petId);
+      const state = await r.pets.findAvatar(pet === undefined ? NIL : pet.id);
+      if (resolved === null || pet === undefined || state === null || state.objectId === null) return null;
+      return { key: avatarObjectKey(pet.id, state.objectId), linkId: resolved.link.id };
+    });
+    if (found === null) return access.fail();
+    let image: SharedAvatarImage | null = null;
+    try {
+      const object = await requireMedia(this.deps).storage.get(found.key);
+      // El tipo sale de la FIRMA de los bytes, no del `contentType` almacenado (TR-1); un tipo fuera de JPEG/PNG/WebP es «ausente».
+      const detected = object === null ? null : detectMediaType(object.bytes);
+      if (object !== null && detected !== null && detected.ok && (detected.mime === 'image/jpeg' || detected.mime === 'image/png' || detected.mime === 'image/webp')) {
+        const stripped = stripImageMetadata(detected.mime, object.bytes);
+        if (stripped.ok) image = { mime: stripped.mime, bytes: stripped.bytes };
+      }
+    } catch {
+      image = null;
+    }
+    if (image === null) return access.fail();
+    await access.ok(found.linkId);
+    return image;
   }
 }
 

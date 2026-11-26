@@ -4,11 +4,11 @@
   "title": "ShareLinkSchema",
   "description": "Enlace de solo lectura para el veterinario y su envoltorio de vista (feature 005) [REQ-VET-001..013, REQ-SUM-004]. El token NUNCA aparece fuera de CreateShareLinkResult.url (INV-005-005); las listas solo llevan metadatos. Sin nombre del hogar (D5-23).",
   "x-sdd-metadata": {
-    "version": "1.1.0",
-    "status": "DRAFT",
-    "supersedes": "1.0.0",
+    "version": "1.2.0",
+    "status": "APPROVED",
+    "supersedes": "1.1.0",
     "change_type": "MINOR",
-    "change_note": "MINOR 1.1.0 (feature 007, T1026, C1, SC-007-016): CreateShareLinkInput +includeDeceasedAt (boolean, default false, opcional, fuera de required) y ShareLinkView +includeDeceasedAt (boolean, opcional, fuera de required); additionalProperties false se conserva; inmutable tras crear, como includeMicrochip. Un cliente que no lo envia obtiene false (comportamiento 1.0.0); un consumidor de 1.0.0 ignora el campo nuevo de la vista. Historial: Contrato nuevo de la feature 005 (T706). SharedSummaryView resuelve el canal contractual del nombre original (B1 de /merovingian): el nombre viaja solo en fileLabels, nunca dentro de ClinicalSummary. T707: IdempotencyKey y CreateShareLinkReplay (EDGE-005-16/17); displayName vacío = «Archivo» (EDGE-005-27); nota MIF-005-10 sobre revokedAt.",
+    "change_note": "MINOR 1.2.0 (feature 011, T1534, ENM-005-3.5.0, opción C de Neo, Logos iter 232): SharedSummaryView +petIds (array de uuid, opcional, fuera de required, maxItems 100, orden de summary.pets); additionalProperties false se conserva; un lector 1.1.0 que ignore el campo nuevo sigue funcionando y clinical-summary no cambia. Historial: MINOR 1.1.0 (feature 007, T1026, C1, SC-007-016): CreateShareLinkInput +includeDeceasedAt (boolean, default false, opcional, fuera de required) y ShareLinkView +includeDeceasedAt (boolean, opcional, fuera de required); additionalProperties false se conserva; inmutable tras crear, como includeMicrochip. Un cliente que no lo envia obtiene false (comportamiento 1.0.0); un consumidor de 1.0.0 ignora el campo nuevo de la vista. Historial: Contrato nuevo de la feature 005 (T706). SharedSummaryView resuelve el canal contractual del nombre original (B1 de /merovingian): el nombre viaja solo en fileLabels, nunca dentro de ClinicalSummary. T707: IdempotencyKey y CreateShareLinkReplay (EDGE-005-16/17); displayName vacío = «Archivo» (EDGE-005-27); nota MIF-005-10 sobre revokedAt.",
     "traceability": [
       "REQ-VET-001",
       "REQ-VET-002",
@@ -18,6 +18,7 @@
       "REQ-VET-009",
       "REQ-VET-011",
       "REQ-VET-012",
+      "ENM-005-3.5.0",
       "REQ-SUM-004",
       "INV-005-001",
       "INV-005-005",
@@ -327,6 +328,16 @@
             }
           ],
           "description": "Caducidad del enlace («Enlace vigente hasta», MAG-005-008); null en la vista previa autenticada"
+        },
+        "petIds": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": "Opcional y aditivo (1.2.0, feature 011, T1534, ENM-005-3.5.0, opción C de Neo): ids de las mascotas del alcance vigente del enlace, uno por elemento de summary.pets y en el mismo orden, para que la SPA arme GET /shared/{token}/pets/{petId}/avatar. Solo en el envoltorio: ClinicalSummary no lleva ids de mascota (REQ-SUM-003). Ausente en la vista previa autenticada. La ruta de avatar valida que el petId esté en el alcance vigente y responde 404 uniforme si no"
         }
       },
       "description": "Envoltorio cerrado de la ruta pública y de la vista previa. Canal contractual del nombre original: ClinicalSummary permanece sin nombres (REQ-SUM-003, REQ-SUM-006) [REQ-VET-009, REQ-SUM-004]"

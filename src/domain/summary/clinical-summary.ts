@@ -46,6 +46,9 @@ type ScopeName = ClinicalSummary['scope'];
 /** Comparación por unidades de código (determinista, sin configuración regional). */
 const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
+/** Orden de `summary.pets` (nombre, id): lo comparte `SharedSummaryView.petIds` para que ambos listados coincidan posición a posición (ENM-005-3.5.0). */
+export const orderPetsForSummary = <T extends { readonly name: string; readonly id: string }>(pets: readonly T[]): T[] => [...pets].sort((a, b) => compare(a.name, b.name) || compare(a.id, b.id));
+
 /** (fecha DESC, id DESC). */
 function sortedByDateDesc<T extends { readonly id: string }>(rows: readonly T[], dateOf: (row: T) => string): T[] {
   return [...rows].sort((a, b) => compare(dateOf(b), dateOf(a)) || compare(b.id, a.id));
