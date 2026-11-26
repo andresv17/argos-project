@@ -274,7 +274,7 @@ const DEFAULT_TAB: HouseholdTabKey = 'miembros';
 const tabId = (householdId: string, key: string): string => `household-${householdId}-tab-${key}`;
 const panelId = (householdId: string): string => `household-${householdId}-panel`;
 
-/** Pestañas internas del detalle del hogar: `tablist` WAI-ARIA con foco itinerante (flechas, Inicio, Fin) y activación automática, como `ContextSelector`. */
+/** Pestañas internas del detalle del hogar (TECHDEBT-011-ALB-TAB320: la barra se parte en filas en vez de hacer scroll interno, así ninguna pestaña —«Álbum»— queda recortada a 320 px): `tablist` WAI-ARIA con foco itinerante (flechas, Inicio, Fin) y activación automática, como `ContextSelector`. */
 export function HouseholdTabs({ householdId, active, onSelect }: { readonly householdId: string; readonly active: HouseholdTabKey; readonly onSelect: (key: HouseholdTabKey) => void }): JSX.Element {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number): void => {
@@ -286,7 +286,7 @@ export function HouseholdTabs({ householdId, active, onSelect }: { readonly hous
     if (tab !== undefined) onSelect(tab.key);
   };
   return (
-    <div role="tablist" aria-label="Secciones del hogar" className="flex gap-1 overflow-x-auto p-1">
+    <div role="tablist" aria-label="Secciones del hogar" className="flex flex-wrap gap-1 p-1">
       {HOUSEHOLD_TABS.map((tab, index) => {
         const selected = tab.key === active;
         return (
@@ -303,8 +303,8 @@ export function HouseholdTabs({ householdId, active, onSelect }: { readonly hous
             tabIndex={selected ? 0 : -1}
             onClick={() => onSelect(tab.key)}
             onKeyDown={(e) => onKeyDown(e, index)}
-            className={`relative min-h-12 shrink-0 whitespace-nowrap rounded-full px-4 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
-              selected ? 'bg-accent font-semibold after:absolute after:inset-x-4 after:bottom-1.5 after:h-0.5 after:bg-primary' : 'font-medium hover:bg-white'
+            className={`relative min-h-12 shrink-0 whitespace-nowrap rounded-full px-3 text-sm sm:px-4 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+              selected ? 'bg-accent font-semibold after:absolute after:inset-x-3 after:bottom-1.5 sm:after:inset-x-4 after:h-0.5 after:bg-primary' : 'font-medium hover:bg-white'
             }`}
           >
             {tab.label}
