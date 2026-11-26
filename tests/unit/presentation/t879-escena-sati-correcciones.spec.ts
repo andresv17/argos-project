@@ -7,7 +7,7 @@
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { applyDialogFocus, dialogFocusTransition, type FocusTarget } from '../../../src/presentation/web/dialog-focus.ts';
+import { applyDialogFocus, dialogFocusTransition, firstEnabledTarget, shouldFocusAfterThumbLoad, type FocusTarget } from '../../../src/presentation/web/dialog-focus.ts';
 import { HouseholdPhotoView, type HouseholdPhotoViewProps } from '../../../src/presentation/web/components/HouseholdPhoto.tsx';
 import { SceneBlockView } from '../../../src/presentation/web/components/SceneBlock.tsx';
 import { SceneConsentView, SceneNoticeCollapsed, type SceneConsentViewProps } from '../../../src/presentation/web/components/SceneConsent.tsx';
@@ -23,7 +23,7 @@ function consent(overrides: Partial<SceneConsentViewProps> = {}): string {
 }
 function photo(overrides: Partial<HouseholdPhotoViewProps> = {}): string {
   return renderToStaticMarkup(
-    h(HouseholdPhotoView, { idPrefix: 'e', photoState: 'ABSENT', photoSrc: `/api/households/${HOUSEHOLD_ID}/photo`, canUpload: true, chosenName: null, uploading: false, confirmDelete: false, error: null, onPhotoLoad: noop, onPhotoError: noop, onChoose: noop, onUpload: noop, onAskDelete: noop, onConfirmDelete: noop, onCancelDelete: noop, ...overrides }),
+    h(HouseholdPhotoView, { idPrefix: 'e', photoState: 'ABSENT', photoSrc: `/api/households/${HOUSEHOLD_ID}/photo`, canUpload: true, chosenName: null, uploading: false, confirmDelete: false, error: null, thumbState: 'IDLE', thumbSrc: null, enlarged: false, onPhotoError: noop, onShowPhoto: noop, onToggleEnlarge: noop, onChoose: noop, onUpload: noop, onAskDelete: noop, onConfirmDelete: noop, onCancelDelete: noop, ...overrides }),
   );
 }
 function block(overrides: Record<string, unknown> = {}): string {
@@ -61,6 +61,26 @@ describe('T879 H-S2 gestión de foco en los alertdialog (WCAG 2.4.3, 4.1.2)', ()
     applyDialogFocus('RETURN', { dialog: null, trigger: null, fallback: t('fallback') });
     applyDialogFocus('NONE', { dialog: t('dialog'), trigger: t('trigger'), fallback: t('fallback') });
     expect(calls).toEqual(['dialog', 'trigger', 'fallback']);
+  });
+
+  it('S-1 (011 Bloque F): el retorno salta botones disabled y enfoca el primero habilitado; sin ninguno, el encabezado', () => {
+    const calls: string[] = [];
+    const t = (name: string, disabled: boolean): FocusTarget & { disabled: boolean } => ({ disabled, focus: () => void calls.push(name) });
+    const trigger = firstEnabledTarget([t('reemplazar', true), t('quitar', false)]);
+    applyDialogFocus('RETURN', { dialog: null, trigger, fallback: t('fallback', false) });
+    const none = firstEnabledTarget([t('subir', true)]);
+    expect(none).toBeNull();
+    applyDialogFocus('RETURN', { dialog: null, trigger: none, fallback: t('fallback', false) });
+    expect(calls).toEqual(['quitar', 'fallback']);
+  });
+
+  it('S-2 (011 Bloque F): el foco va a «Ampliar» solo al pasar de LOADING a READY y se anuncia «Miniatura cargada» con role=status', () => {
+    expect(shouldFocusAfterThumbLoad('LOADING', 'READY')).toBe(true);
+    expect(shouldFocusAfterThumbLoad('IDLE', 'READY')).toBe(false);
+    expect(shouldFocusAfterThumbLoad('LOADING', 'IDLE')).toBe(false);
+    const ready = photo({ photoState: 'PRESENT', thumbState: 'READY', thumbSrc: 'blob:x' });
+    expect(ready).toMatch(/role="status"[^>]*>Miniatura cargada</);
+    expect(photo({ photoState: 'PRESENT', thumbState: 'IDLE' })).not.toContain('Miniatura cargada');
   });
 
   it('los diálogos son enfocables (tabIndex -1) y los textos de apoyo siguen presentes', () => {

@@ -4,28 +4,38 @@
  * en el DOM. La foto de referencia de cada mascota es su avatar: aquí solo se explica, no hay otro selector. `HouseholdPhotoView` es presentacional;
  * `HouseholdPhoto` es el contenedor.
  *
- * @implements REQ-ESC6-001, REQ-ESC6-002, EDGE-ESC6-012, EDGE-ESC6-013, SC-ESC6-002, SC-ESC6-004, SC-ESC6-019
+ * Feature 011 (T1539, D11-10 = C): la carga inicial solo muestra el indicador «Ya hay una foto del hogar guardada» y «Ver foto» (la presencia se comprueba sin
+ * descargar el objeto); «Ver foto» carga bajo demanda una miniatura de máx. `THUMBNAIL_MAX_PX` generada con canvas; «Ampliar» muestra la foto completa.
+ *
+ * @implements REQ-ESC6-001, REQ-ESC6-002, REQ-HOG11-003, EDGE-ESC6-012, EDGE-ESC6-013, SC-ESC6-002, SC-ESC6-004, SC-ESC6-019, SC-011-041, SC-011-042, SC-011-043, SC-011-044
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createSceneApi, SceneApiError } from '../scene-api.ts';
 import { PHOTO_ACCEPT } from '../media-view.ts';
 import { browserPhotoPort, PhotoReexportError, reexportPhoto } from '../photo-reexport.ts';
+import { browserThumbnailPort, makeThumbnail, THUMBNAIL_MAX_PX } from '../photo-thumbnail.ts';
 import { householdPhotoPath, sceneProblemMessage } from '../scene-view.ts';
-import { useDialogFocus } from '../dialog-focus.ts';
+import { shouldFocusAfterThumbLoad, useDialogFocus } from '../dialog-focus.ts';
 import { Button } from './Field.tsx';
 
 export interface HouseholdPhotoViewProps {
   readonly idPrefix: string;
-  /** `CHECKING`: aún no se sabe si hay foto (una sonda oculta carga la ruta propia). */
+  /** `CHECKING`: aún no se sabe si hay foto (se comprueba por la API sin descargar el objeto). */
   readonly photoState: 'CHECKING' | 'PRESENT' | 'ABSENT';
+  /** Ruta propia de la foto completa: solo se usa al ampliar. */
   readonly photoSrc: string;
+  readonly thumbState: 'IDLE' | 'LOADING' | 'READY';
+  /** Miniatura (blob local) o, si el navegador no pudo generarla, la ruta propia acotada por CSS al tope. */
+  readonly thumbSrc: string | null;
+  readonly enlarged: boolean;
   readonly canUpload: boolean;
   readonly chosenName: string | null;
   readonly uploading: boolean;
   readonly confirmDelete: boolean;
   readonly error: string | null;
-  readonly onPhotoLoad: () => void;
   readonly onPhotoError: () => void;
+  readonly onShowPhoto: () => void;
+  readonly onToggleEnlarge: () => void;
   readonly onChoose: (file: File | null) => void;
   readonly onUpload: () => void;
   readonly onAskDelete: () => void;
@@ -37,13 +47,19 @@ export interface HouseholdPhotoViewProps {
 
 const FIELD = 'min-h-12 w-full min-w-0 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
 
-export function HouseholdPhotoView({ idPrefix, photoState, photoSrc, canUpload, chosenName, uploading, confirmDelete, error, onPhotoLoad, onPhotoError, onChoose, onUpload, onAskDelete, onConfirmDelete, onCancelDelete, headingLevel = 3 }: HouseholdPhotoViewProps): JSX.Element {
+export function HouseholdPhotoView({ idPrefix, photoState, photoSrc, thumbState, thumbSrc, enlarged, canUpload, chosenName, uploading, confirmDelete, error, onPhotoError, onShowPhoto, onToggleEnlarge, onChoose, onUpload, onAskDelete, onConfirmDelete, onCancelDelete, headingLevel = 3 }: HouseholdPhotoViewProps): JSX.Element {
   const titleId = `${idPrefix}-photo-title`;
   const fileId = `${idPrefix}-photo-file`;
   const dialogId = `${idPrefix}-photo-delete`;
   const present = photoState === 'PRESENT';
   const Title = `h${headingLevel}` as 'h3' | 'h5';
   const { dialogRef, triggerRef, fallbackRef } = useDialogFocus(confirmDelete);
+  const thumbActionsRef = useRef<HTMLDivElement>(null);
+  const prevThumb = useRef(thumbState);
+  useEffect(() => {
+    if (shouldFocusAfterThumbLoad(prevThumb.current, thumbState)) thumbActionsRef.current?.querySelector('button')?.focus();
+    prevThumb.current = thumbState;
+  }, [thumbState]);
   return (
     <section aria-labelledby={titleId} className="grid min-w-0 max-w-full gap-3 rounded-2xl border border-slate-300 bg-white p-4">
       <Title id={titleId} ref={fallbackRef} tabIndex={-1} className="text-base font-semibold text-slate-900">
@@ -55,9 +71,22 @@ export function HouseholdPhotoView({ idPrefix, photoState, photoSrc, canUpload, 
           {error}
         </p>
       )}
-      {photoState === 'CHECKING' ? <img src={photoSrc} alt="" aria-hidden="true" className="hidden" onLoad={onPhotoLoad} onError={onPhotoError} /> : null}
       {present ? (
-        <img src={photoSrc} alt="Foto de referencia del hogar" loading="lazy" decoding="async" onError={onPhotoError} className="mx-auto h-auto max-h-64 w-full max-w-full rounded-2xl border border-slate-200 object-contain sm:max-w-md" />
+        <div className="grid min-w-0 gap-2">
+          <p className="text-sm font-semibold text-slate-900">Ya hay una foto del hogar guardada</p>
+          {thumbState === 'READY' && thumbSrc !== null ? (
+            <img src={thumbSrc} alt="Miniatura de la foto del hogar" decoding="async" style={{ maxWidth: `${THUMBNAIL_MAX_PX}px`, maxHeight: `${THUMBNAIL_MAX_PX}px` }} className="h-auto w-auto rounded-xl border border-slate-200 object-contain" />
+          ) : null}
+          {enlarged ? <img src={photoSrc} alt="Foto de referencia del hogar" decoding="async" onError={onPhotoError} className="mx-auto h-auto max-h-64 w-full max-w-full rounded-2xl border border-slate-200 object-contain sm:max-w-md" /> : null}
+          <p role="status" className="sr-only">
+            {thumbState === 'READY' ? 'Miniatura cargada' : ''}
+          </p>
+          <div ref={thumbActionsRef} className="flex flex-wrap gap-2">
+            {thumbState === 'IDLE' ? <Button variant="secondary" onClick={onShowPhoto}>Ver foto</Button> : null}
+            {thumbState === 'LOADING' ? <Button variant="secondary" disabled>Cargando…</Button> : null}
+            {thumbState === 'READY' ? <Button variant="secondary" onClick={onToggleEnlarge}>{enlarged ? 'Reducir' : 'Ampliar'}</Button> : null}
+          </div>
+        </div>
       ) : photoState === 'ABSENT' ? (
         <p className="text-sm font-semibold text-slate-900">Aún no hay foto del hogar.</p>
       ) : null}
@@ -104,11 +133,56 @@ export function HouseholdPhoto({ householdId, idPrefix, canUpload, reload, headi
   const api = useMemo(() => createSceneApi(), []);
   const [photoState, setPhotoState] = useState<'CHECKING' | 'PRESENT' | 'ABSENT'>('CHECKING');
   const [tag, setTag] = useState<string | null>(null);
+  const [thumbState, setThumbState] = useState<'IDLE' | 'LOADING' | 'READY'>('IDLE');
+  const [thumbSrc, setThumbSrc] = useState<string | null>(null);
+  const [enlarged, setEnlarged] = useState(false);
+  const objectUrl = useRef<string | null>(null);
   const [chosen, setChosen] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fail = (e: unknown): void => setError(e instanceof PhotoReexportError ? e.message : sceneProblemMessage(e instanceof SceneApiError ? e.code : 'ERR-INTERNAL-UNEXPECTED', e instanceof SceneApiError ? e.retryAfterSeconds : undefined));
+
+  const dropThumb = (): void => {
+    if (objectUrl.current !== null) URL.revokeObjectURL(objectUrl.current);
+    objectUrl.current = null;
+    setThumbSrc(null);
+    setThumbState('IDLE');
+    setEnlarged(false);
+  };
+  useEffect(() => {
+    let live = true;
+    api.householdPhotoExists(householdId).then(
+      (exists) => live && setPhotoState(exists ? 'PRESENT' : 'ABSENT'),
+      (e: unknown) => {
+        if (!live) return;
+        setPhotoState('ABSENT');
+        fail(e);
+      },
+    );
+    return () => {
+      live = false;
+      if (objectUrl.current !== null) URL.revokeObjectURL(objectUrl.current);
+    };
+  }, [api, householdId]);
+  const showPhoto = async (): Promise<void> => {
+    setThumbState('LOADING');
+    setError(null);
+    try {
+      const original = await api.getHouseholdPhotoBlob(householdId);
+      const mini = await makeThumbnail(original, browserThumbnailPort());
+      if (mini === null) {
+        setThumbSrc(tag === null ? `/api/households/${householdId}/photo` : householdPhotoPath(householdId, tag));
+      } else {
+        objectUrl.current = URL.createObjectURL(mini);
+        setThumbSrc(objectUrl.current);
+      }
+      setThumbState('READY');
+    } catch (e) {
+      setThumbState('IDLE');
+      fail(e);
+    }
+  };
 
   const upload = async (): Promise<void> => {
     if (chosen === null || uploading) return;
@@ -117,6 +191,7 @@ export function HouseholdPhoto({ householdId, idPrefix, canUpload, reload, headi
     try {
       const payload = await reexportPhoto(chosen, browserPhotoPort());
       const saved = await api.putHouseholdPhoto(householdId, payload.blob);
+      dropThumb();
       setTag(saved.tag);
       setPhotoState('PRESENT');
       setChosen(null);
@@ -133,6 +208,7 @@ export function HouseholdPhoto({ householdId, idPrefix, canUpload, reload, headi
     setError(null);
     try {
       await api.deleteHouseholdPhoto(householdId);
+      dropThumb();
       setTag(null);
       setPhotoState('ABSENT');
       await reload();
@@ -147,13 +223,17 @@ export function HouseholdPhoto({ householdId, idPrefix, canUpload, reload, headi
       idPrefix={idPrefix}
       photoState={photoState}
       photoSrc={tag === null ? `/api/households/${householdId}/photo` : householdPhotoPath(householdId, tag)}
+      thumbState={thumbState}
+      thumbSrc={thumbSrc}
+      enlarged={enlarged}
       canUpload={canUpload}
       chosenName={chosen === null ? null : chosen.name}
       uploading={uploading}
       confirmDelete={confirmDelete}
       error={error}
-      onPhotoLoad={() => setPhotoState('PRESENT')}
       onPhotoError={() => setPhotoState('ABSENT')}
+      onShowPhoto={() => void showPhoto()}
+      onToggleEnlarge={() => setEnlarged((v) => !v)}
       onChoose={setChosen}
       onUpload={() => void upload()}
       onAskDelete={() => setConfirmDelete(true)}
