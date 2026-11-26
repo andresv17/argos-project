@@ -377,5 +377,18 @@ export function adminDelegateRepository(client: PoolClientLike): AdminDelegateRe
          WHERE admin_id = $4 AND status = 'INVITED' AND provider_subject IS NULL AND invited_expires_at >= $3`,
         [provider, providerSubject, now, adminId],
       ),
+    async purgeExpiredInvitations(invitedBefore) {
+      const result = await client.query("DELETE FROM admin_delegates WHERE status = 'INVITED' AND invited_at IS NOT NULL AND invited_at < $1", [invitedBefore]);
+      return result.rowCount ?? 0;
+    },
+    async anonymizeDisabledBefore(disabledBefore) {
+      const { rows } = await client.query(
+        `UPDATE admin_delegates SET email = 'anon-' || admin_id || '@anonimizado.invalid', provider = NULL, provider_subject = NULL
+         WHERE status = 'DISABLED' AND disabled_at < $1 AND (provider_subject IS NOT NULL OR email <> 'anon-' || admin_id || '@anonimizado.invalid')
+         RETURNING admin_id`,
+        [disabledBefore],
+      );
+      return rows.map((row) => String(row['admin_id']));
+    },
   };
 }

@@ -941,6 +941,21 @@ function adminDelegateRepository(state: MemoryState): AdminDelegateRepositoryPor
       all()[index] = next;
       return true;
     },
+    async purgeExpiredInvitations(invitedBefore) {
+      const before = all().length;
+      state.adminDelegates = all().filter((d) => !(d.status === 'INVITED' && d.invitedAt !== null && d.invitedAt < invitedBefore));
+      return before - state.adminDelegates.length;
+    },
+    async anonymizeDisabledBefore(disabledBefore) {
+      const done: string[] = [];
+      state.adminDelegates = all().map((d) => {
+        const marker = `anon-${d.adminId}@anonimizado.invalid`;
+        if (d.status !== 'DISABLED' || d.disabledAt === null || !(d.disabledAt < disabledBefore) || (d.email === marker && d.providerSubject === null)) return d;
+        done.push(d.adminId);
+        return { ...d, email: marker, provider: null, providerSubject: null };
+      });
+      return done;
+    },
   };
 }
 

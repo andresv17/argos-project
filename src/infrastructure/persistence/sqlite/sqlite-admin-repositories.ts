@@ -354,6 +354,12 @@ export function adminDelegateRepository(db: SqliteDatabase): AdminDelegateReposi
     `UPDATE admin_delegates SET status = 'ACTIVE', provider = ?, provider_subject = ?, anchored_at = ?, invited_expires_at = NULL, updated_at = ?
      WHERE admin_id = ? AND status = 'INVITED' AND provider_subject IS NULL AND invited_expires_at >= ?`,
   );
+  // Purga y anonimización de la retención (DEUDA-011-PURGA-DELEGADOS): solo parámetros enlazados; el marcador de correo se deriva del `admin_id` en SQL.
+  const purgeInvitations = db.prepare("DELETE FROM admin_delegates WHERE status = 'INVITED' AND invited_at IS NOT NULL AND invited_at < ?");
+  const pendingAnonymization = db.prepare<[string], { admin_id: string }>(
+    "SELECT admin_id FROM admin_delegates WHERE status = 'DISABLED' AND disabled_at < ? AND (provider_subject IS NOT NULL OR email <> 'anon-' || admin_id || '@anonimizado.invalid') ORDER BY admin_id",
+  );
+  const anonymize = db.prepare("UPDATE admin_delegates SET email = 'anon-' || admin_id || '@anonimizado.invalid', provider = NULL, provider_subject = NULL WHERE admin_id = ? AND status = 'DISABLED'");
   const toRecord = (row: DelegateRow): AdminDelegateRecord => ({
     adminId: row.admin_id,
     email: row.email,
@@ -419,6 +425,14 @@ export function adminDelegateRepository(db: SqliteDatabase): AdminDelegateReposi
         if (isConstraintViolation(error)) return false;
         throw error;
       }
+    },
+    async purgeExpiredInvitations(invitedBefore) {
+      return purgeInvitations.run(invitedBefore).changes;
+    },
+    async anonymizeDisabledBefore(disabledBefore) {
+      const ids = pendingAnonymization.all(disabledBefore).map((row) => row.admin_id);
+      for (const id of ids) anonymize.run(id);
+      return ids;
     },
   };
 }

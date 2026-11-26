@@ -176,18 +176,57 @@ export async function purgeSceneData(deps: Pick<ApplicationDeps, 'uow' | 'clock'
   }
 }
 
+/** Conteos de la purga de delegados: solo números, nunca correos ni identificadores. */
+export interface DelegateMaintenanceResult {
+  readonly invitationsPurged: number;
+  readonly disabledAnonymized: number;
+}
+
+const NO_DELEGATE_PURGE: DelegateMaintenanceResult = { invitationsPurged: 0, disabledAnonymized: 0 };
+
+/**
+ * Retención por defecto de delegados cuando no se inyecta `adminDelegateRetention` (autorizado por Neo, Nivel 2). Duplica a propósito los valores de
+ * `ADMIN_DELEGATE_*` de `infrastructure/config/app-config.ts` (la capa de aplicación no importa infraestructura); si cambian allí, cambian aquí.
+ */
+const DEFAULT_DELEGATE_RETENTION = { invitationTtlHours: 72, expiredInvitationRetentionDays: 30, disabledRetentionDays: 365 } as const;
+
+/**
+ * Purga diaria de delegados de `/admin` (feature 011, DEUDA-011-PURGA-DELEGADOS, D-1 y D-2): borra las invitaciones `INVITED` con más de `expiredInvitationRetentionDays` días tras su caducidad
+ * (`invited_at` + `invitationTtlHours`) y anonimiza correo y `sub` de los delegados `DISABLED` con más de `disabledRetentionDays` días, retirando su identidad de acceso (`admin_identities`).
+ * Se conserva el `admin_id` opaco (la auditoría lo referencia). Nunca toca filas `ACTIVE`. Sin `adminDelegateRetention` en las deps aplica `DEFAULT_DELEGATE_RETENTION`; la inyectada gana. Una transacción; no escribe auditoría ni
+ * registra correos ni identificadores. Nunca lanza: la siguiente pasada lo reintenta.
+ * @implements REQ-ADM11-001, INV-ARCH-006
+ */
+export async function purgeDelegateData(deps: Pick<ApplicationDeps, 'uow' | 'clock' | 'adminDelegateRetention'>): Promise<DelegateMaintenanceResult> {
+  const retention = deps.adminDelegateRetention ?? DEFAULT_DELEGATE_RETENTION;
+  try {
+    const now = deps.clock.nowIsoTimestamp();
+    const invitedBefore = shiftIsoTimestamp(now, -(retention.invitationTtlHours * HOUR_MS + retention.expiredInvitationRetentionDays * DAY_MS));
+    const disabledBefore = shiftIsoTimestamp(now, -retention.disabledRetentionDays * DAY_MS);
+    return await deps.uow.runInTransaction(async (r) => {
+      const invitationsPurged = await r.adminDelegates.purgeExpiredInvitations(invitedBefore);
+      const anonymized = await r.adminDelegates.anonymizeDisabledBefore(disabledBefore);
+      for (const adminId of anonymized) await r.adminIdentities.deleteById(adminId);
+      return { invitationsPurged, disabledAnonymized: anonymized.length };
+    });
+  } catch {
+    return NO_DELEGATE_PURGE;
+  }
+}
+
 /**
  * Ejecuta una pasada de mantenimiento con el reloj de la aplicación; sin almacenamiento con purga devuelve ceros. Con medios conectados recorre también
  * la cola de borrado y entrega su resultado a `onMediaQueue` (la respuesta de `/internal/maintenance` conserva sus 5 conteos).
  */
 export async function runMaintenance(
-  deps: Pick<ApplicationDeps, 'uow' | 'clock' | 'media'>,
+  deps: Pick<ApplicationDeps, 'uow' | 'clock' | 'media' | 'adminDelegateRetention'>,
   onMediaQueue?: (result: MediaQueueResult) => void,
 ): Promise<MaintenanceCounts> {
   const queue = await runMediaQueueMaintenance(deps);
   if (deps.media !== undefined) onMediaQueue?.(queue);
   await purgeShareData(deps);
   await purgeSceneData(deps);
+  await purgeDelegateData(deps);
   if (deps.uow.purgeExpired === undefined) return NO_PURGE;
   return deps.uow.purgeExpired(maintenanceCutoffs(deps.clock.nowIsoTimestamp()));
 }

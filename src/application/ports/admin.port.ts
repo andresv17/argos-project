@@ -221,4 +221,15 @@ export interface AdminDelegateRepositoryPort {
    * Fija `provider`, `provider_subject`, `anchored_at`, `updated_at` y borra `invited_expires_at`. `true` solo si ESTA llamada anclo.
    */
   anchor(adminId: string, provider: AdminProvider, providerSubject: string, now: string): Promise<boolean>;
+  /**
+   * Purga de invitaciones caducadas (DEUDA-011-PURGA-DELEGADOS, D-2): borra las filas `INVITED` con `invited_at` ESTRICTAMENTE anterior a `invitedBefore` (el llamador resta la caducidad de 72 h y los 30 días
+   * de retención al reloj) y devuelve cuántas. Nunca toca filas `ACTIVE` ni `DISABLED`. Solo conteo: no devuelve ni registra correos.
+   */
+  purgeExpiredInvitations(invitedBefore: string): Promise<number>;
+  /**
+   * Anonimización de bajas (D-1): en las filas `DISABLED` con `disabled_at` ESTRICTAMENTE anterior a `disabledBefore` sustituye el correo por un marcador derivado del `admin_id` (`anon-<admin_id>@anonimizado.invalid`)
+   * y borra `provider` y `provider_subject`; conserva `admin_id`, rol, fechas y `created_by_admin_id`. Idempotente (no vuelve a tocar una fila ya anonimizada). Devuelve los `admin_id` anonimizados (opacos) para que
+   * el llamador retire sus identidades; nunca devuelve correos ni `sub`.
+   */
+  anonymizeDisabledBefore(disabledBefore: string): Promise<readonly string[]>;
 }

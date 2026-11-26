@@ -123,7 +123,18 @@ describe('T1525 ni el contrato ni el código ofrecen «eliminar» un delegado (H
     const all = sourceFiles('src');
     const text = (file: string) => readFileSync(file, 'utf8');
     expect(all.filter((file) => /app\.delete(?:<[^>]*>)?\(\s*[`'"]\/api\/admin\/administrators/.test(text(file)))).toEqual([]);
-    expect(all.filter((file) => /DELETE\s+FROM\s+admin_delegates/i.test(text(file)))).toEqual([]);
+    // Única excepción autorizada por Neo (DEUDA-011-PURGA-DELEGADOS, D-2): la purga de retención de invitaciones `INVITED` caducadas (nunca ACTIVE ni DISABLED); cualquier otro borrado sigue prohibido.
+    expect(all.filter((file) => /DELETE\s+FROM\s+admin_delegates(?!\s+WHERE\s+status\s*=\s*'INVITED'\s+AND\s+invited_at\s+IS\s+NOT\s+NULL\s+AND\s+invited_at\s*<)/i.test(text(file)))).toEqual([]);
     expect(all.filter((file) => /admin_delegates/.test(text(file))).length).toBeGreaterThan(0);
+  });
+
+  it('[INV-ADM11-001] la excepcion de purga es estricta: el patron rechaza DELETE sin WHERE, sobre otros estados, concatenado o sin la cota de invited_at', () => {
+    const bad = (sql: string) => /DELETE\s+FROM\s+admin_delegates(?!\s+WHERE\s+status\s*=\s*'INVITED'\s+AND\s+invited_at\s+IS\s+NOT\s+NULL\s+AND\s+invited_at\s*<)/i.test(sql);
+    expect(bad('DELETE FROM admin_delegates')).toBe(true);
+    expect(bad("DELETE FROM admin_delegates WHERE status = 'DISABLED' AND invited_at IS NOT NULL AND invited_at < $1")).toBe(true);
+    expect(bad("DELETE FROM admin_delegates WHERE status = 'INVITED'")).toBe(true);
+    expect(bad("DELETE FROM admin_delegates WHERE status = 'INVITED' OR 1=1")).toBe(true);
+    expect(bad('DELETE FROM admin_delegates WHERE status = ' + 'x')).toBe(true);
+    expect(bad("DELETE FROM admin_delegates WHERE status = 'INVITED' AND invited_at IS NOT NULL AND invited_at < $1")).toBe(false);
   });
 });
