@@ -114,6 +114,12 @@ export interface ShareApi {
 /** Ruta de la imagen del avatar de una mascota del enlace; el token y el id solo viajan en la ruta y la respuesta nunca los refleja. */
 export const sharedAvatarPath = (token: string, petId: string): string => `/api/shared/${encodeURIComponent(token)}/pets/${encodeURIComponent(petId)}/avatar`;
 
+/**
+ * Ruta de la imagen del avatar en la vista previa AUTENTICADA (D5-15, REQ-SUM-004): proxy de la misma origen `/api/pets/{petId}/avatar` con la sesión del propietario.
+ * La vista previa no lleva `petIds` (solo la ruta pública los trae, ENM-005-3.5.0), así que solo el alcance de una mascota conoce su id; la de un hogar no pinta imagen.
+ */
+export const previewAvatarPath = (petId: string | undefined): string | null => (petId === undefined || petId === '' ? null : `/api/pets/${encodeURIComponent(petId)}/avatar`);
+
 export function createShareApi(fetchImpl: typeof fetch = (...args) => fetch(...args), baseUrl = '/api'): ShareApi {
   /** `authenticated`: toda petición de la sesión notifica la actividad (INV-AUTH2-002); la lectura pública por token no tiene sesión y no la notifica. */
   async function send(path: string, init: RequestInit, authenticated = true): Promise<Response> {
