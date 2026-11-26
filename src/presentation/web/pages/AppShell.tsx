@@ -4,11 +4,16 @@
  * va en el flujo superior, dentro del marco, para que el orden de foco coincida con el visual), contadores de hogares e
  * invitaciones, botón de cierre de sesión siempre visible y aviso previo de expiración de sesión (REQ-UI-005).
  *
- * @implements REQ-UI-004, REQ-UI-005, REQ-UI-006, REQ-UI2-001, REQ-UI2-008
+ * Foto de perfil de la cuenta (011, #78, REQ-PRF11-001): el marco consulta una vez `GET /account/avatar/meta` y la comparte con `/cuenta` (`useUserAvatar`); sin foto, con un fallo de la consulta
+ * o si la imagen no carga, el encabezado muestra las iniciales sin error visible (EDGE-011-007).
+ *
+ * @implements REQ-UI-004, REQ-UI-005, REQ-UI-006, REQ-UI2-001, REQ-UI2-008, REQ-PRF11-001
  */
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Field.tsx';
+import { UserAvatar } from '../components/UserAvatar.tsx';
+import { createUserAvatarApi } from '../user-avatar-api.ts';
 import { unwrap } from '../api.ts';
 import { useIdleNotice, WARNING_LEAD_MINUTES } from '../idle-notice.ts';
 import { BRAND_NAME } from '../brand.ts';
@@ -27,10 +32,24 @@ export function useInvitations(): InvitationsState {
   return useContext(InvitationsContext);
 }
 
-export function ShellHeader({ displayName, pendingInvitations, householdCount = 0, onLogout }: {
+/** Versión de la foto de perfil de la cuenta (`null` = sin foto) y su actualización tras subir, reemplazar o quitar (011, #78). */
+interface UserAvatarState {
+  readonly avatarVersion: number | null;
+  setAvatarVersion(version: number | null): void;
+}
+
+const UserAvatarContext = createContext<UserAvatarState>({ avatarVersion: null, setAvatarVersion: () => undefined });
+
+export function useUserAvatar(): UserAvatarState {
+  return useContext(UserAvatarContext);
+}
+
+export function ShellHeader({ displayName, pendingInvitations, householdCount = 0, avatarVersion = null, onLogout }: {
   readonly displayName: string;
   readonly pendingInvitations: number;
   readonly householdCount?: number;
+  /** Versión de la foto de perfil de la propia cuenta (011); ausente o `null` = iniciales. */
+  readonly avatarVersion?: number | null;
   readonly onLogout: () => void;
 }): JSX.Element {
   // Estado activo: relleno Crema oscura con texto Bosque y línea de 2 px oliva que evita depender solo del color (WCAG 1.4.11).
@@ -76,6 +95,7 @@ export function ShellHeader({ displayName, pendingInvitations, householdCount = 
         </NavLink>
       </nav>
       <div className="flex items-center gap-3">
+        <UserAvatar displayName={displayName} avatarVersion={avatarVersion} size={40} />
         <span className="sr-only text-sm text-text-primary min-[480px]:not-sr-only">{displayName}</span>
         <Button variant="secondary" onClick={onLogout}>
           Cerrar sesión
@@ -90,6 +110,7 @@ export function AppShell({ children }: { readonly children: ReactNode }): JSX.El
   const navigate = useNavigate();
   const [count, setCount] = useState(0);
   const [householdCount, setHouseholdCount] = useState(0);
+  const [avatarVersion, setAvatarVersion] = useState<number | null>(null);
   const idleWarning = useIdleNotice(session.idleExpiresAt, session.lastActivityAt);
   const refresh = useCallback(() => {
     unwrap(session.api.GET('/invitations'))
@@ -100,15 +121,31 @@ export function AppShell({ children }: { readonly children: ReactNode }): JSX.El
       .catch(() => setHouseholdCount(0));
   }, [session.api]);
   useEffect(refresh, [refresh]);
+  // Foto de perfil (011): una sola consulta de la versión; cualquier fallo deja las iniciales sin error visible (EDGE-011-007).
+  useEffect(() => {
+    let cancelled = false;
+    createUserAvatarApi()
+      .meta()
+      .then((meta) => {
+        if (!cancelled) setAvatarVersion(meta.avatarVersion);
+      })
+      .catch(() => {
+        if (!cancelled) setAvatarVersion(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const onLogout = (): void => {
     void session.logout().then(() => navigate('/login', { replace: true }));
   };
   return (
     <InvitationsContext.Provider value={{ count, householdCount, refresh }}>
+      <UserAvatarContext.Provider value={{ avatarVersion, setAvatarVersion }}>
       <div className="min-h-screen px-4 py-4 text-text-primary sm:px-6 sm:py-6">
         {/* Marco L1 único (blueprint §2.5): blur solo desde 640 px y con soporte; en móvil, blanco 90 % sin backdrop-filter. */}
         <div className="mx-auto max-w-7xl rounded-3xl border border-white/40 bg-white/90 p-4 shadow-glass sm:bg-white/70 sm:p-6 sm:supports-[backdrop-filter]:backdrop-blur-md">
-          <ShellHeader displayName={session.user?.displayName ?? ''} pendingInvitations={count} householdCount={householdCount} onLogout={onLogout} />
+          <ShellHeader displayName={session.user?.displayName ?? ''} pendingInvitations={count} householdCount={householdCount} avatarVersion={avatarVersion} onLogout={onLogout} />
           {idleWarning ? (
             <p role="status" className="mb-4 rounded-2xl border border-amber-700 bg-amber-100 px-4 py-3 text-sm text-amber-900">
               {`Tu sesión expira pronto por inactividad (en menos de ${WARNING_LEAD_MINUTES} minutos). Realiza cualquier acción para mantenerla abierta.`}
@@ -119,6 +156,7 @@ export function AppShell({ children }: { readonly children: ReactNode }): JSX.El
           </main>
         </div>
       </div>
+      </UserAvatarContext.Provider>
     </InvitationsContext.Provider>
   );
 }

@@ -144,6 +144,11 @@ export function avatarImagePath(petId: string, avatarVersion: number | null): st
   return avatarVersion === null ? null : `/api/pets/${petId}/avatar?v=${avatarVersion}`;
 }
 
+/** Ruta de la foto de perfil de la PROPIA cuenta: proxy autenticado de la misma origen con `?v=<avatarVersion>` y sin id de usuario; null sin foto. @implements REQ-PRF11-001, REQ-PRF11-002 */
+export function userAvatarImagePath(avatarVersion: number | null): string | null {
+  return avatarVersion === null ? null : `/api/account/avatar?v=${avatarVersion}`;
+}
+
 /** `avatarVersion` del perfil (entero >= 1) o null; el tipo 002 de la SPA aún no lo declara, por eso se lee sin suponer su forma. @implements REQ-AVA-001 */
 export function avatarVersionOf(profile: object): number | null {
   const value: unknown = Reflect.get(profile, 'avatarVersion');

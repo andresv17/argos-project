@@ -18,7 +18,7 @@
 | `D11-10` = **C** | Indicador compacto «Ya hay una foto del hogar guardada» + botón «Ver foto» que carga bajo demanda una miniatura de máx. 96 px (cero descarga del objeto en carga inicial); se mantienen ampliar/reemplazar/borrar. | REQ-HOG11-003; SC-011-041..044 |
 | `D11-11` | Solo `PHOTO` (archivos clínicos fuera) de mascotas asignadas al hogar, incluidas fallecidas mientras sigan asignadas; foto del hogar excluida (`#59`). Agrupadas por mascota (alfabético; más recientes primero). Visibilidad: solo miembros activos y mascotas que ya puede ver (`REQ-RBAC-001`). Paginación de 24 fotos **por mascota** con carga progresiva por mascota sobre el endpoint de 004; álbum compuesto en la UI sin contrato ni ruta nuevos. | REQ-ALB11-001, 002, 003; SC-011-045..052; ADR-011-04; EDGE-011-006 |
 | `D11-12` = **B+C** | Se confirma por escrito que **no existía tope** de hogares. Máximo **5** hogares activos por usuario (creados/propios + invitaciones aceptadas; `MAX_HOUSEHOLDS_PER_USER = 5` en `app-config.ts`), validado transaccionalmente al crear hogar y al aceptar invitación (`EDGE-011-008`: sin expulsar existentes). Sin tope separado de invitaciones pendientes. | REQ-HOG11-004; EDGE-011-008; SC-011-053..056 |
-| `D11-13` = **D** | Subida propia con recorte reutilizando `AvatarCropper`, con copia opcional de `picture` de Google como valor inicial (SSRF: host cerrado `lh3.googleusercontent.com` + timeout + límite de tamaño + limpieza EXIF; fallback a iniciales `EDGE-011-007`; visible solo para la propia cuenta `REQ-PRF11-002`; borrada al eliminar la cuenta `INV-PRF11-001`). | REQ-PRF11-001, REQ-PRF11-002; INV-PRF11-001; EDGE-011-007; SC-011-057..062; T1553, T1555 |
+| `D11-13` = **D** → **C** (enmendada, ver abajo) | ~~Subida propia con recorte + copia opcional de `picture` de Google~~ (reemplazada). Vigente: **solo subida propia** con recorte reutilizando `AvatarCropper`; fallback a iniciales `EDGE-011-007`; visible solo para la propia cuenta `REQ-PRF11-002`; borrada al eliminar la cuenta `INV-PRF11-001`. | REQ-PRF11-001, REQ-PRF11-002; INV-PRF11-001; EDGE-011-007; SC-011-057..062; T1553, T1555 |
 | `D11-ORDEN` | Aprobado el orden de `plan.md`: Fase 0 → P1 (A `#64`, B `#72`, C `#73`, D `#63`) → P2 (E `#31`, F `#59`, G `#62`, H `#74`, I `#78`) → Fase final. | plan.md «Summary»; tasks.md |
 
 ## Derivadas ratificadas por Neo (Logos iter 226)
@@ -85,3 +85,26 @@ La premisa «NOMBRE-HOGAR como pestaña propia» sigue sin confirmar en disco; `
 | D-4 | Filtro en servidor del listado para `SUPER_ADMIN` delegado (solo `OPERATOR` y `SUPPORT`; nunca correos de otros `SUPER_ADMIN` delegados ni de la raíz); lo implementa `/keymaker` | `REQ-ADM11-003`, `NFR-011-002` |
 | `DEUDA-011-PURGA-DELEGADOS` | Job de purga (D-1..D-3) en `/internal/maintenance` fuera de #63; hoy no se purga nada | spec; anexo |
 | OBS-5 / `DEUDA-011-PRIVACIDAD-DELEGADOS` | `/privacidad` y `legal-texts.md` §3 sin tratamiento de delegados; ligada a revisión legal externa (0.1.0 DRAFT → 1.0.0); no dar de alta delegados externos en producción hasta actualizar `/privacidad`; no bloquea el cierre de código del Bloque D | spec; anexo |
+
+## Enmienda 2026-11-25 (Logos iter 244) — D11-13 = C
+
+- **Decisión**: `D11-13` = **C** (Opción A de la consulta de Morpheus aprobada por Neo, Nivel 2). Solo subida propia de foto de perfil con recorte (`AvatarCropper`) y fallback a iniciales.
+- **Motivo**: simplificación de alcance y cero superficie SSRF externa (sin descarga de `picture`/`lh3.googleusercontent.com`).
+- **Efecto**: se elimina la copia de `picture` de Google en 011. `EDGE-011-012`, `EDGE-011-013`, `MER-11-04` y `MER-11-05` quedan N/A por simplificación (conservados con nota). La importación desde Google queda registrada como **mejora futura fuera de 011**.
+- **Aplicada en**: `spec.md` (REQ-PRF11-001/002, INV-PRF11-001, SC-011-057..062), `tasks.md` (Bloque I, T1553..T1557). Acta: `.specify/memory/audits/architect-011-D11-13-C-bloqueI-2026-11-25.md`.
+
+## Feedback de Neo 2026-11-25 (terminal): REQ-PET11-001 aprobado
+
+- **Decisión**: se aprueba `REQ-PET11-001`: pestaña propia «Compartir» en la ficha de mascota (última, `OWNER`/`ADMIN` por rol actual, fuera de edición), con el mismo `ShareLinksPanel` de Hogar; «Historial / Archivos» solo para documentos clínicos y radiografías (`ClinicalFilesPanel` + enlace al Álbum). Solo UI, sin contratos, rutas ni documentos.
+- **Aplicada en**: `spec.md` (REQ-PET11-001, SC-011-063), `tasks.md` (T1562..T1565, sin `[x]`). Acta: `.specify/memory/audits/architect-011-feedback-neo-compartir-foto-2026-11-25.md`.
+- **Pendiente de Neo (sin resolver)**: la foto de la mascota en el informe depende de re-subirla en dev (driver de medios `memory`; los reinicios de `tsx watch` borran los bytes). Neo decide **T-NEW-B** (almacenamiento de medios en disco para dev) o solo documentarlo.
+
+## Feedback de Neo 2026-11-25 (terminal): REQ-PET11-002 (Álbum propio en la ficha de mascota) aprobado
+
+- **Decisión**: se aprueba `REQ-PET11-002`: pestaña propia «Álbum» en la ficha de mascota (fotos `PHOTO`, paginación, permisos `READ_MEDIA`); «Historial / Archivos» solo con `ClinicalFilesPanel`. Solo UI, sin contratos, rutas ni documentos.
+- **Aplicada en**: `spec.md` (REQ-PET11-002, SC-011-064), `tasks.md` (T1566..T1569, sin `[x]`).
+
+## Feedback de Neo 2026-11-25 (terminal): opción B aprobada para datos extra de Hogar (REQ-HOG11-008)
+
+- **Decisión**: opción B («algo corto, concreto; en mascotas ya ve todo»). Pestaña Mascotas: especie · raza · sexo, edad · último peso e insignia de alertas o «Fallecido», sin avatar. Pestaña Resumen: creado, propietario, tu rol, miembros por rol, mascotas (total, tuyas, por especie) y alertas de vivas. Sin correos, usuarios, última actividad ni próximos registros. Solo UI, sin contratos, endpoints ni cambio de acceso.
+- **Aplicada en**: `spec.md` (REQ-HOG11-008, SC-011-065), `tasks.md` (T1570..T1573, sin `[x]`). Diagnóstico: `.specify/memory/audits/architect-011-feedback-neo-datos-hogar-2026-11-25.md`.

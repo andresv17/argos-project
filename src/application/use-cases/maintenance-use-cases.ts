@@ -46,10 +46,10 @@ const OVERDUE_HOURS = 48;
 const MINUTE_MS = 60_000;
 
 /**
- * Conciliación diaria (REQ-GCS-006, INV-GCS-002, SC-ALM-031; 006: REQ-ESC6-029, EDGE-ESC6-021): lista los prefijos `pets/`, `scenes/`, `households/` y `about/` (una sola
- * rutina, `RECONCILED_PREFIXES`) y encola con `DELETE` todo objeto más antiguo que su ventana (24 h en `pets/`, 15 min en `scenes/`, `households/` y `about/`, porque un
+ * Conciliación diaria (REQ-GCS-006, INV-GCS-002, SC-ALM-031; 006: REQ-ESC6-029, EDGE-ESC6-021): lista los prefijos `pets/`, `scenes/`, `households/`, `about/` y `users/` (una sola
+ * rutina, `RECONCILED_PREFIXES`) y encola con `DELETE` todo objeto más antiguo que su ventana (24 h en `pets/`, 15 min en `scenes/`, `households/`, `about/` y `users/`, porque un
  * worker zombi puede subir un objeto tras vencer el arrendamiento) cuya clave no esté referenciada: `pet_media` (derivada) o `pets.avatar_object_id` en `pets/`;
- * `home_scenes.image_id` en `scenes/`; `household_photos.object_id` en `households/`; `about_content.photo_object_key` en `about/` (010, H-ARCH-ACE-KEY); ni en la cola (incluidas las filas `INTENT`). Las claves que no tienen el
+ * `home_scenes.image_id` en `scenes/`; `household_photos.object_id` en `households/`; `about_content.photo_object_key` en `about/` (010, H-ARCH-ACE-KEY); `users.avatar_object_id` en `users/` (011, ENM-004-MINOR); ni en la cola (incluidas las filas `INTENT`). Las claves que no tienen el
  * formato de los objetos de medios no se tocan. La comprobación y el encolado van en una misma transacción por objeto. Si `list` falla en un prefijo, ese
  * prefijo se omite: la siguiente pasada lo reintenta. Nunca lanza.
  */
@@ -74,6 +74,7 @@ async function reconcileObjects(deps: Pick<ApplicationDeps, 'uow' | 'media'>, no
           if (aboutKey) return (await r.aboutContent.get())?.photoObjectKey !== entry.key;
           if (root === 'scenes') return (await r.scenes.findById(ownerId))?.image?.id !== objectId;
           if (root === 'households') return (await r.scenes.findHouseholdPhoto(ownerId))?.objectId !== objectId;
+          if (root === 'users') return (await r.users.findAvatar(ownerId))?.objectId !== objectId; // ENM-004-MINOR (011, #78)
           if (folder === 'avatar') return (await r.pets.findAvatar(ownerId))?.objectId !== objectId;
           return (await r.media.findById(ownerId, objectId))?.kind !== (folder === 'photos' ? 'PHOTO' : 'FILE');
         });

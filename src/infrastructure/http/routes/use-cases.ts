@@ -40,6 +40,7 @@ import {
   SearchInviteesUseCase,
   TransferHouseholdOwnershipUseCase,
 } from '../../../application/use-cases/household-use-cases.ts';
+import { DeleteUserAvatarUseCase, GetUserAvatarMetaUseCase, GetUserAvatarUseCase, PutUserAvatarUseCase } from '../../../application/use-cases/user-avatar-use-cases.ts';
 import { DeleteMediaUseCase, GetAlbumLimitsUseCase, GetMediaAccessUseCase, ListMediaUseCase, UploadMediaUseCase } from '../../../application/use-cases/media-use-cases.ts';
 import { GetSceneNoticeUseCase, GrantSceneConsentUseCase, RevokeSceneConsentUseCase } from '../../../application/use-cases/scene-consent-use-cases.ts';
 import { DeleteHouseholdPhotoUseCase, GetHouseholdPhotoUseCase, PutHouseholdPhotoUseCase } from '../../../application/use-cases/scene-photo-use-cases.ts';
@@ -152,6 +153,10 @@ export function createUseCases(baseDeps: ApplicationDeps) {
     putAvatar: new PutAvatarUseCase(deps),
     getAvatar: new GetAvatarUseCase(deps),
     deleteAvatar: new DeleteAvatarUseCase(deps),
+    putUserAvatar: new PutUserAvatarUseCase(deps),
+    getUserAvatar: new GetUserAvatarUseCase(deps),
+    getUserAvatarMeta: new GetUserAvatarMetaUseCase(deps),
+    deleteUserAvatar: new DeleteUserAvatarUseCase(deps),
     createShareLink: new CreateShareLinkUseCase(deps),
     listShareLinks: new ListShareLinksUseCase(deps),
     revokeShareLink: new RevokeShareLinkUseCase(deps),

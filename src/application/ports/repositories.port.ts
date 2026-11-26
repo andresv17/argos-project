@@ -83,6 +83,15 @@ export interface UserRepositoryPort {
   /** Borra la fila del usuario (B9 (j) de STATE-ACCOUNT-DELETE-001). */
   delete(userId: string): Promise<void>;
   /**
+   * Estado de la foto de perfil (`avatar_version`, `avatar_object_id`; feature 011, #78, REQ-PRF11-001); null si el usuario no existe. Sin tabla ni puerto nuevo (MIF-011-02): son columnas de `users`
+   * y NO viven en `users.data`, de modo que `update` (perfil) no puede revertirlas.
+   */
+  findAvatar(userId: string): Promise<AvatarState | null>;
+  /** Cambia la foto: `avatar_version = avatar_version + 1` y `avatar_object_id = :objectId` en una sola sentencia y devuelve el estado nuevo (la versión solo crece). Falla si el usuario no existe. */
+  replaceAvatar(userId: string, objectId: string): Promise<AvatarState>;
+  /** Quita la foto: `avatar_object_id = NULL`; `avatar_version` NO cambia ni se reinicia. */
+  clearAvatar(userId: string): Promise<void>;
+  /**
    * Filas de cualquier tabla que referencian al usuario por id (mascotas, hogares, membresías, sesiones, invitaciones,
    * token, eventos de frecuencia) más su propia fila. Postcondición B10: 0 tras eliminar la cuenta.
    */

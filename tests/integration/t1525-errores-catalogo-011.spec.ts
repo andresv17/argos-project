@@ -72,9 +72,9 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-describe('T1525 el catálogo de errores 011 (1.2.0) tiene una prueba que produce cada código', () => {
+describe('T1525 el catálogo de errores 011 (1.3.0) tiene una prueba que produce cada código', () => {
   it('[INV-ADM11-001] el catálogo trae exactamente los diez ERR-ADM11-* acordados y cada uno tiene su productor (o es el de la guarda de dominio)', () => {
-    expect(CATALOG.version).toBe('1.2.0'); // 1.2.0 (T1548): suma ERR-HOG11-HOUSEHOLD-LIMIT-REACHED; los diez ERR-ADM11-* no cambian
+    expect(CATALOG.version).toBe('1.3.0'); // 1.3.0 (T1553): suma ERR-PRF11-AVATAR-NOT-FOUND y ERR-PRF11-AVATAR-INVALID-IMAGE; 1.2.0 (T1548): suma ERR-HOG11-HOUSEHOLD-LIMIT-REACHED; los diez ERR-ADM11-* no cambian
     expect(ADM11.map((e) => e.code).sort()).toEqual([...Object.keys(PRODUCERS), 'ERR-ADM11-LAST-SUPER-ADMIN'].sort());
   });
 

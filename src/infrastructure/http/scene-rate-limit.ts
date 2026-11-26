@@ -8,15 +8,18 @@
  */
 
 import { DomainError } from '../../generated/index.ts';
+import { USER_AVATAR_PUT_MAX_PER_WINDOW, USER_AVATAR_PUT_WINDOW_MINUTES } from '../config/app-config.ts';
 import { DEFAULT_MAX_TRACKED, setBounded } from './bounded-map.ts';
 
-export type SceneRateScope = 'GENERATE' | 'PHOTO' | 'CONSENT';
+/** `USER_AVATAR` (011, #78, Trinity H-7): subidas de la foto de perfil de la cuenta, ámbito cerrado de tipo, contador en memoria por instancia (límite aproximado con varias instancias; se asume). */
+export type SceneRateScope = 'GENERATE' | 'PHOTO' | 'CONSENT' | 'USER_AVATAR';
 
 const HOUR_MS = 3_600_000;
 export const SCENE_RATE_LIMITS: Readonly<Record<SceneRateScope, { readonly max: number; readonly windowMs: number }>> = {
   GENERATE: { max: 6, windowMs: HOUR_MS },
   PHOTO: { max: 10, windowMs: HOUR_MS },
   CONSENT: { max: 10, windowMs: HOUR_MS },
+  USER_AVATAR: { max: USER_AVATAR_PUT_MAX_PER_WINDOW, windowMs: USER_AVATAR_PUT_WINDOW_MINUTES * 60_000 },
 };
 
 /** 429 con los segundos de espera; el manejador de errores los traduce a `Retry-After`. */

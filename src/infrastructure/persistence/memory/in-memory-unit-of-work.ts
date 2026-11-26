@@ -91,6 +91,8 @@ export interface MemoryState extends SceneMemoryState {
   mediaQueue: MediaDeletionEntry[];
   /** `avatar_version` y `avatar_object_id` por mascota; una mascota sin entrada tiene versión 0 y sin avatar. */
   avatars: Record<string, AvatarState>;
+  /** `users.avatar_version` y `users.avatar_object_id` por usuario (feature 011, #78); opcional: ausente = nadie tiene foto. */
+  userAvatars?: Record<string, AvatarState>;
   /** Filas de auditoría en orden de inserción (REQ-AUD-001). */
   auditLog: AuditEntry[];
   /** `share_links` (feature 005, REQ-VET-*): solo el hash del token. */
@@ -227,6 +229,22 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       state.shareLinks = (state.shareLinks ?? []).filter((l) => l.createdByUserId !== userId); // como ON DELETE CASCADE
       state.authIdentities = (state.authIdentities ?? []).filter((i) => i.userId !== userId);
       state.oauthFlows = (state.oauthFlows ?? []).filter((f) => f.userId !== userId);
+      if (state.userAvatars !== undefined) delete state.userAvatars[userId]; // la foto es una columna de `users`: cae con la fila
+    },
+    async findAvatar(userId) {
+      if (!state.users.some((u) => u.id === userId)) return null;
+      return copy(state.userAvatars?.[userId] ?? { version: 0, objectId: null });
+    },
+    async replaceAvatar(userId, objectId) {
+      if (!state.users.some((u) => u.id === userId)) throw new Error('users: el usuario no existe');
+      const avatars = (state.userAvatars ??= {});
+      const next = { version: (avatars[userId]?.version ?? 0) + 1, objectId };
+      avatars[userId] = next;
+      return copy(next);
+    },
+    async clearAvatar(userId) {
+      const current = state.userAvatars?.[userId];
+      if (current !== undefined) state.userAvatars![userId] = { version: current.version, objectId: null };
     },
     async countReferences(userId) {
       return (

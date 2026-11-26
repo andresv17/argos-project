@@ -156,6 +156,13 @@ export const SCENE_MAX_CLOSED_WITHOUT_CALL_PER_DAY = 20;
  * la interfaz lleva un espejo en `household-limit.ts`). Aplica al crear un hogar y al aceptar una invitación.
  */
 export const MAX_HOUSEHOLDS_PER_USER = 5;
+/**
+ * Foto de perfil de la cuenta (feature 011, `#78`, REQ-PRF11-001, SC-011-061, INV-ARCH-006; anexo `user-avatar-annex.md` §4). ÚNICA fuente de los límites: 512 KiB, imagen cuadrada de 64..1024 px
+ * y 10 subidas por hora y usuario (contador en memoria por instancia).
+ */
+export { USER_AVATAR_MAX_BYTES, USER_AVATAR_MIN_SIDE, USER_AVATAR_MAX_SIDE } from '../../domain/media/user-avatar-limits.ts';
+export const USER_AVATAR_PUT_MAX_PER_WINDOW = 10;
+export const USER_AVATAR_PUT_WINDOW_MINUTES = 60;
 /** T_LEASE = T_GEN + 60 s (INV-ESC6-013; cumple T_LEASE >= T_GEN + 30 s). */
 export const sceneLeaseSeconds = (genTimeoutSeconds: number): number => genTimeoutSeconds + 60;
 /**

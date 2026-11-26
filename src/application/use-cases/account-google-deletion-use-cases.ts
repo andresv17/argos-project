@@ -19,7 +19,7 @@ import { DomainError as DomainErrorV35 } from '../../generated/v35/index.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import { eraseAccountInTransaction, type ErasureBlock } from './account-use-cases.ts';
 import { beginAuthorization, requireGoogle, serverMisconfigured, type GoogleAuthorizationStart } from './google-auth-use-cases.ts';
-import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
+import { purgeObjects, reinforcePrefix, reinforceUserPrefix } from './media-use-cases.ts';
 import type { ApplicationDeps } from './use-case-support.ts';
 
 /** Frase literal de `DeleteAccountWithGoogleInput` (igual que `STATE-ACCOUNT-DELETE-001`). */
@@ -156,6 +156,7 @@ export class DeleteAccountWithGoogleUseCase {
     // Tras el commit: borrado inmediato de los objetos y refuerzo por `list` (REQ-GCS-004); lo que falle lo reintenta el mantenimiento.
     await purgeObjects(this.deps, objectKeys);
     await reinforcePrefix(this.deps, ownedPetIdsForCleanup);
+    await reinforceUserPrefix(this.deps, userId); // 011 (INV-PRF11-001): la foto de perfil y lo que sobre bajo `users/<userId>/`
     // Checkpoint del WAL con truncado (ADR-002-13). Un fallo no revierte la eliminación.
     await this.deps.uow.checkpointAfterCommit?.();
     return 204;
