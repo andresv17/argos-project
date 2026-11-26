@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchDelegates, inviteDelegate, writeDelegate } from './administrators-api.ts';
-import { browserRenewal } from '../web/browser-scheduler.ts';
+import { systemClock, type Clock } from './admin-clock.ts';
 import {
   ACTION_DONE,
   ACTION_LABEL,
@@ -252,14 +252,14 @@ export function AdministratorsView(props: AdministratorsViewProps): JSX.Element 
   );
 }
 
-export function AdministratorsPanel({ self, onSessionLost: onSessionLostProp }: { readonly self: SelfView | null; readonly onSessionLost: () => void }): JSX.Element | null {
+export function AdministratorsPanel({ self, onSessionLost: onSessionLostProp, clock = systemClock }: { readonly self: SelfView | null; readonly onSessionLost: () => void; readonly clock?: Clock }): JSX.Element | null {
   const lostRef = useRef(onSessionLostProp);
   lostRef.current = onSessionLostProp;
   const onSessionLost = useCallback((): void => lostRef.current(), []);
   const visible = canSeeAdministrators(self);
   const [items, setItems] = useState<readonly DelegateView[]>([]);
   const [counts, setCounts] = useState({ activeCount: 0, activeLimit: 20 });
-  const [nowMs, setNowMs] = useState(() => browserRenewal.now());
+  const [nowMs, setNowMs] = useState(() => clock());
   const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [message, setMessage] = useState<PanelMessage | null>(null);
   const [busy, setBusy] = useState(false);
@@ -279,13 +279,13 @@ export function AdministratorsPanel({ self, onSessionLost: onSessionLostProp }: 
       if (result.kind === 'OK') {
         setItems(result.value.items);
         setCounts({ activeCount: result.value.activeCount, activeLimit: result.value.activeLimit });
-        setNowMs(browserRenewal.now());
+        setNowMs(clock());
         setRoleDraft({});
         setListState('ready');
       } else if (result.kind === 'SESSION_LOST') onSessionLost();
       else if (!quiet) setListState('error');
     },
-    [onSessionLost],
+    [onSessionLost, clock],
   );
 
   useEffect(() => {
