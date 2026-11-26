@@ -13,7 +13,7 @@ describe('ARGOS_AUDIT_HMAC_SECRET obligatoria fuera de pruebas (src/infrastructu
   it.each(['development', 'production', undefined])('[REQ-AUD-001][SC-014] con NODE_ENV=%s y sin la variable, AppConfigError cita solo su nombre', (nodeEnv) => {
     let caught: unknown;
     try {
-      loadAppConfig(nodeEnv === undefined ? {} : { NODE_ENV: nodeEnv, ...(nodeEnv === 'production' ? PROD_MEDIA : {}) });
+      loadAppConfig(nodeEnv === undefined ? {} : { NODE_ENV: nodeEnv, ...(nodeEnv === 'production' ? { ...PROD_MEDIA, ARGOS_ADMIN_EMAILS: 'admin.raiz@example.test' } : {}) });
     } catch (error) {
       caught = error;
     }

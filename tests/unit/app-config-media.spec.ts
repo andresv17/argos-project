@@ -8,7 +8,7 @@ import { PROD_SCENE, loadAppConfigActivated as loadAppConfig } from '../fixtures
 const BUCKET = 'argos-argos-prod-1234-media';
 const PROD_SECRET = '1f'.repeat(32);
 // T830 (SC-ESC6-025): en production también se exige el driver real de la escena; el fixture lo aporta para aislar la variable de medios.
-const PROD = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET, ...PROD_SCENE };
+const PROD = { NODE_ENV: 'production', ARGOS_ADMIN_EMAILS: 'admin.raiz@example.test', ARGOS_AUDIT_HMAC_SECRET: PROD_SECRET, ...PROD_SCENE };
 
 function failing(env: Record<string, string | undefined>): { variables: readonly string[]; message: string } {
   try {

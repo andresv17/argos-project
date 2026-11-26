@@ -112,7 +112,7 @@ describe('T1407 (c) logo y favicon (REQ-TIP10-002, SC-010-002)', () => {
 describe('T1443 (d) ARGOS_PUBLIC_BASE_URL obligatoria en producción (EDGE-010-003, REQ-TIP10-004, SC-010-004)', () => {
   // PROD_SCENE ya trae ARGOS_PUBLIC_BASE_URL (T1443): se quita para probar su ausencia.
   const { ARGOS_PUBLIC_BASE_URL: _omitted, ...SCENE_WITHOUT_BASE } = PROD_SCENE as typeof PROD_SCENE & { ARGOS_PUBLIC_BASE_URL?: string };
-  const PROD: Record<string, string> = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: 'ab'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'tipi-test-media', ...SCENE_WITHOUT_BASE };
+  const PROD: Record<string, string> = { NODE_ENV: 'production', ARGOS_ADMIN_EMAILS: 'admin.raiz@example.test', ARGOS_AUDIT_HMAC_SECRET: 'ab'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'tipi-test-media', ...SCENE_WITHOUT_BASE };
   const keys = (env: Record<string, string>): string[] | null => {
     try {
       loadAppConfig(env);
