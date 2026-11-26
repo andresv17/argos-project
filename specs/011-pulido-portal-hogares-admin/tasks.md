@@ -177,6 +177,7 @@ Solo registro; ninguna fila se cierra aquí (sin `[x]`). Estado de todas: `OPEN`
 | TECHDEBT-011-ALB-O2 | Ráfaga de peticiones `/access` por mascota en la carga inicial del álbum del hogar (sin endpoint agregado, `MIF-011-03`). | Baja | Acta de `/trinity` T1546 (O-2) | T1546, T1544 |
 | TECHDEBT-011-ALB-OBS4 | El álbum muestra la imagen completa, sin miniatura (el hogar con foto ya usa miniatura bajo demanda, `D11-10`). | Baja | `/oracle` T1547 (OBS-4) | T1547, T1544 |
 | TECHDEBT-011-ALB-TAB320 | La pestaña «Álbum» queda recortada a 320 px en `HouseholdTabs` (scroll interno de la barra de pestañas). | Baja | `/sati` T1544 | T1544, T1545 |
+| TECHDEBT-011-PREVIEW-AVATAR-HOGAR | `OPEN`. La vista previa del informe de hogar no muestra el avatar de las mascotas porque la vista previa no incluye `petIds`; requiere un cambio de contrato futuro (fuera de 011). | Baja | `/keymaker` (fix #31, commit `2ee0162`), autorizado por Neo | T1553, T1556 |
 | DEUDA-011-LEGAL-AVATAR-PERFIL | `OPEN`. El texto legal vigente (`legal-texts.md` de 010, 0.1.0 `DRAFT`) no cubre la foto de perfil de la cuenta (#78): pendiente de la revisión legal externa (0.1.0 `DRAFT` a 1.0.0) antes de publicar. No bloquea `T1556` ni el cierre del Bloque I (decisión de Neo H-03, Logos iter 248). | Media | `/rama` T1555 (H-03) | T1553, T1556 |
 
 ---

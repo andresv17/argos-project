@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchDelegates, inviteDelegate, writeDelegate } from './administrators-api.ts';
+import { browserRenewal } from '../web/browser-scheduler.ts';
 import {
   ACTION_DONE,
   ACTION_LABEL,
@@ -258,7 +259,7 @@ export function AdministratorsPanel({ self, onSessionLost: onSessionLostProp }: 
   const visible = canSeeAdministrators(self);
   const [items, setItems] = useState<readonly DelegateView[]>([]);
   const [counts, setCounts] = useState({ activeCount: 0, activeLimit: 20 });
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [nowMs, setNowMs] = useState(() => browserRenewal.now());
   const [listState, setListState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [message, setMessage] = useState<PanelMessage | null>(null);
   const [busy, setBusy] = useState(false);
@@ -278,7 +279,7 @@ export function AdministratorsPanel({ self, onSessionLost: onSessionLostProp }: 
       if (result.kind === 'OK') {
         setItems(result.value.items);
         setCounts({ activeCount: result.value.activeCount, activeLimit: result.value.activeLimit });
-        setNowMs(Date.now());
+        setNowMs(browserRenewal.now());
         setRoleDraft({});
         setListState('ready');
       } else if (result.kind === 'SESSION_LOST') onSessionLost();
