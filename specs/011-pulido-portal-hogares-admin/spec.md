@@ -186,6 +186,13 @@ Rangos por historia (expandidos en `tasks.md`): `SC-011-001..009` (`#64`), `SC-0
 - **SC-011-035**: Given el enlace público con 2 mascotas, Then cada mascota ocupa una sección diferenciada y no hay scroll horizontal a 320 px.
 - **SC-011-041**: Given un hogar con foto, Then la carga inicial muestra solo el indicador «Ya hay una foto del hogar guardada» sin descargar el objeto, y «Ver foto» carga una miniatura de máx. 96 px (`D11-10` = C).
 - **SC-011-045** (`D11-11`): Given un hogar con 2 mascotas con 3 fotos cada una, Then el álbum muestra 6 fotos `PHOTO` agrupadas por mascota (alfabético, recientes primero), sin archivos clínicos ni foto del hogar, con 24 fotos por mascota y carga progresiva por mascota.
+- **SC-011-046** (`D11-11`, `REQ-ALB11-002`): Given un usuario que no es miembro activo del hogar, o una mascota que esa persona no puede ver, Then el álbum no se muestra o no incluye esa mascota (permisos efectivos por mascota, `REQ-RBAC-001`).
+- **SC-011-047** (`D11-11`, `REQ-ALB11-001`): Given mascotas con asignación vigente al hogar (incluidas las fallecidas asignadas), Then sus fotos `PHOTO` aparecen; y When una mascota sale del hogar, Then el álbum deja de mostrarla sin copiar archivos.
+- **SC-011-048** (`EDGE-011-006`): Given una mascota compartida por dos hogares, Then su foto aparece en ambos álbumes; y When se borra, Then desaparece de ambos.
+- **SC-011-049** (`D11-11`, `REQ-ALB11-001`): Given un hogar con archivos clínicos (`FILE`) y foto del hogar, Then el álbum solo agrega `PHOTO` de mascotas, sin archivos clínicos ni foto del hogar.
+- **SC-011-050** (`REQ-ALB11-003`): Given una mascota con más de 24 fotos, Then el álbum carga 24 fotos por mascota con carga progresiva por mascota sobre el endpoint de 004 (constante única, `INV-ARCH-006`).
+- **SC-011-051** (`EDGE-011-017`): Given el recorrido del álbum, Then el orden es alfabético por mascota y recientes primero, sin saltos ni repeticiones ante borrado entre páginas, mascotas homónimas o cambio de nombre.
+- **SC-011-052** (`MIF-011-03`, `F-15`): Given el álbum del hogar, Then se compone en la interfaz sobre los endpoints existentes de 004, sin contrato, ruta ni tabla nuevos, y las fotos se sirven con `Cache-Control` `private` y `Vary: Cookie` vigentes.
 - **SC-011-053**: Given una persona con 5 hogares activos, When crea un hogar o acepta una invitación, Then el servidor rechaza con error determinista; con dos aceptaciones simultáneas desde 4 hogares solo una prospera (`D11-12` = B+C).
 - **SC-011-057**: Given una cuenta con foto de perfil, Then se muestra en encabezado y perfil y se puede quitar; tras eliminar la cuenta no queda objeto huérfano.
 - (Los demás IDs de cada rango se redactan en `tasks.md` con su prueba, mismo patrón que SC-010-022..026.)

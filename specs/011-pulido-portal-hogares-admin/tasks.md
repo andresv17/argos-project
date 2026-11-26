@@ -135,12 +135,12 @@
 **Independent Test**: `SC-011-045..052`.
 **Decisiones aplicadas**: `D11-11` (solo `PHOTO`; mascotas asignadas incluidas fallecidas; sin foto del hogar; por mascota alfabético, recientes primero; miembros activos y mascotas ya visibles; 24 fotos por mascota con carga progresiva por mascota) y `MIF-011-03` = SÍ (álbum compuesto en la UI sobre los endpoints existentes de fotos por mascota de 004; sin contrato ni ruta nuevos). Después del Bloque A.
 
-- [ ] T1542 [ARCH] [GH:#62] **N/A, sin cambio** (`MIF-011-03` = SÍ): no hay contrato ni ruta nueva de álbum del hogar ni cursor compuesto global; el álbum se compone en la interfaz sobre los endpoints existentes de fotos por mascota (004). Se conserva por trazabilidad (ADR-011-04). Dep: T1501, T1504 — REQ-ALB11-001, REQ-ALB11-003
-- [ ] T1543 [GH:#62] Pruebas rojas (Memoria, SQLite y Postgres): agrega solo `PHOTO` de mascotas con asignación vigente al hogar (incluidas fallecidas asignadas; sin foto del hogar), agrupadas por mascota alfabético y recientes primero; respeta permisos efectivos por mascota (`REQ-RBAC-001`); mascota en dos hogares aparece en ambos y desaparece al borrar (`EDGE-011-006`); salida de la mascota la retira; archivos clínicos fuera; solo miembros activos; paginación de 24 fotos **por mascota** con carga progresiva por mascota sobre el endpoint de 004, orden alfabético por mascota y más recientes primero, sin saltos ni repeticiones ante borrado entre páginas, mascotas homónimas o cambio de nombre (`EDGE-011-017`); verificación pendiente para `/seraph` o `/trinity` (lock F-15): valor de `Cache-Control` (`private`) de las fotos del álbum en dispositivo compartido. Dep: T1542 — REQ-ALB11-001, REQ-ALB11-002, REQ-ALB11-003; SC-011-045..052
-- [ ] T1544 [GH:#62] Implementar `HouseholdAlbum.tsx` (reutiliza `PhotoAlbum`) dentro de la página de Hogares, componiendo en la interfaz las fotos por mascota sobre los endpoints existentes de 004 (sin caso de uso ni ruta nuevos de álbum de hogar). Dep: T1543, T1508 — REQ-ALB11-001..003
+- [x] T1542 [ARCH] [GH:#62] **N/A, sin cambio** (`MIF-011-03` = SÍ): no hay contrato ni ruta nueva de álbum del hogar ni cursor compuesto global; el álbum se compone en la interfaz sobre los endpoints existentes de fotos por mascota (004). Se conserva por trazabilidad (ADR-011-04). Dep: T1501, T1504 — REQ-ALB11-001, REQ-ALB11-003
+- [x] T1543 [GH:#62] Pruebas rojas (Memoria, SQLite y Postgres): agrega solo `PHOTO` de mascotas con asignación vigente al hogar (incluidas fallecidas asignadas; sin foto del hogar), agrupadas por mascota alfabético y recientes primero; respeta permisos efectivos por mascota (`REQ-RBAC-001`); mascota en dos hogares aparece en ambos y desaparece al borrar (`EDGE-011-006`); salida de la mascota la retira; archivos clínicos fuera; solo miembros activos; paginación de 24 fotos **por mascota** con carga progresiva por mascota sobre el endpoint de 004, orden alfabético por mascota y más recientes primero, sin saltos ni repeticiones ante borrado entre páginas, mascotas homónimas o cambio de nombre (`EDGE-011-017`); verificación pendiente para `/seraph` o `/trinity` (lock F-15): valor de `Cache-Control` (`private`) de las fotos del álbum en dispositivo compartido. Dep: T1542 — REQ-ALB11-001, REQ-ALB11-002, REQ-ALB11-003; SC-011-045..052
+- [x] T1544 [GH:#62] Implementar `HouseholdAlbum.tsx` (reutiliza `PhotoAlbum`) dentro de la página de Hogares, componiendo en la interfaz las fotos por mascota sobre los endpoints existentes de 004 (sin caso de uso ni ruta nuevos de álbum de hogar). Dep: T1543, T1508 — REQ-ALB11-001..003
 - [ ] T1545 [LOCAL] [GH:#62] **Prueba local manual** (`npm run dev`): hogar con 2 mascotas con 3 fotos cada una; ver el álbum agrupado, con un segundo usuario de rol lector, mover una mascota fuera del hogar y recargar, borrar una foto y recargar; 320/1024/1280 px. Dep: T1544 — SC-011-045..052
-- [ ] T1546 [GOV] [GH:#62] `/trinity` (IDOR entre hogares y mascotas, claves de objeto no expuestas) y `/sati`. Dep: T1545 — NFR-011-001, NFR-011-002
-- [ ] T1547 [GH:#62] **Cierre del Bloque G**: `npx tsc --noEmit` → `npm run test:gate` → `bash scripts/verify-oracles.sh` → `bash scripts/verify-traceability.sh --feature 011 --task T1544`; `/oracle`. Luego `node scripts/gh-project-sync.mjs sync --tasks specs/011-pulido-portal-hogares-admin/tasks.md`. Dep: T1546 — SC-011-045..052
+- [x] T1546 [GOV] [GH:#62] `/trinity` (IDOR entre hogares y mascotas, claves de objeto no expuestas) y `/sati`. Dep: T1545 — NFR-011-001, NFR-011-002
+- [x] T1547 [GH:#62] **Cierre del Bloque G**: `npx tsc --noEmit` → `npm run test:gate` → `bash scripts/verify-oracles.sh` → `bash scripts/verify-traceability.sh --feature 011 --task T1544`; `/oracle`. Luego `node scripts/gh-project-sync.mjs sync --tasks specs/011-pulido-portal-hogares-admin/tasks.md`. Dep: T1546 — SC-011-045..052
 
 ### Bloque H — [GH:#74] Validar máximo de hogares
 
@@ -166,6 +166,17 @@
 - [ ] T1556 [GH:#78] Implementar caso de uso, adaptadores, rutas y UI (`AccountPage.tsx`, `AppShell.tsx`, reutilizando `AvatarCropper`). Dep: T1554, T1555 — REQ-PRF11-001, REQ-PRF11-002, INV-PRF11-001
 - [ ] T1557 [LOCAL] [GH:#78] **Prueba local manual** (`npm run dev`): subir y recortar una foto (y/o copiar la de Google como valor inicial), verla en encabezado y perfil, quitarla, eliminar una cuenta de prueba y comprobar que no queda objeto; 320/1024/1280 px. Dep: T1556 — SC-011-057..062
 - [ ] T1558 [GH:#78] **Cierre del Bloque I**: `npx tsc --noEmit` → `npm run test:gate` → `bash scripts/verify-oracles.sh` → `bash scripts/verify-traceability.sh --feature 011 --task T1556`; `/sati` y `/oracle`. Luego `node scripts/gh-project-sync.mjs sync --tasks specs/011-pulido-portal-hogares-admin/tasks.md`. Dep: T1557 — SC-011-057..062
+
+### Deuda formal de la Feature 011 (registrada por `/architect`, decisión de Neo Nivel 2, Logos iter 240)
+
+Solo registro; ninguna fila se cierra aquí (sin `[x]`). Estado de todas: `OPEN`.
+
+| ID | Descripción | Severidad | Origen | Tarea de referencia |
+|----|-------------|-----------|--------|---------------------|
+| TECHDEBT-011-ALB-O1 | El servidor acepta `kind=FILE` con el mismo permiso `READ_MEDIA`: «solo `PHOTO`» no es un invariante de servidor, solo de la interfaz (`D11-11`). | Media | Acta de `/trinity` T1546 (O-1) | T1546, T1543 |
+| TECHDEBT-011-ALB-O2 | Ráfaga de peticiones `/access` por mascota en la carga inicial del álbum del hogar (sin endpoint agregado, `MIF-011-03`). | Baja | Acta de `/trinity` T1546 (O-2) | T1546, T1544 |
+| TECHDEBT-011-ALB-OBS4 | El álbum muestra la imagen completa, sin miniatura (el hogar con foto ya usa miniatura bajo demanda, `D11-10`). | Baja | `/oracle` T1547 (OBS-4) | T1547, T1544 |
+| TECHDEBT-011-ALB-TAB320 | La pestaña «Álbum» queda recortada a 320 px en `HouseholdTabs` (scroll interno de la barra de pestañas). | Baja | `/sati` T1544 | T1544, T1545 |
 
 ---
 

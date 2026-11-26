@@ -7,6 +7,10 @@
  * según los permisos; el contador «N de M fotos» y el estado «Álbum lleno» salen de `getAlbumLimits` (el tope no se cablea) y tras un 409 ERR-MEDIA-ALBUM-LIMIT
  * se vuelve a pedir `getAlbumLimits`.
  *
+ * Feature 011 (T1544, REQ-ALB11-001, REQ-ALB11-003): `PhotoAlbumView` también compone el álbum del hogar (solo lectura, un bloque por mascota): `headingLevel` y `idPrefix`
+ * evitan encabezados h1 e ids repetidos, y `onLoadMore` sustituye el paginador por la carga progresiva «Ver más fotos» (con `page = 1` la numeración del texto alternativo
+ * cuenta desde la primera foto cargada).
+ *
  * @implements SC-005-001, REQ-ALB-001, INV-ALB-001, REQ-ARC-003, REQ-ALB5-001, REQ-ALB5-002, REQ-ALB5-003, REQ-ALB5-004, REQ-ALB5-005
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -14,6 +18,7 @@ import { Link } from 'react-router-dom';
 import { Button } from './Field.tsx';
 import { createMediaApi, MediaApiError, type AlbumLimits, type MediaItem } from '../media-api.ts';
 import { ALBUM_PAGE_SIZE, albumPageCount, mediaProblemMessage, PHOTO_ACCEPT, uploadDateText } from '../media-view.ts';
+import { loadMoreFocusTarget } from '../dialog-focus.ts';
 import { browserPhotoPort, PhotoReexportError, reexportPhoto } from '../photo-reexport.ts';
 
 export interface PhotoAlbumViewProps {
@@ -38,6 +43,13 @@ export interface PhotoAlbumViewProps {
   readonly onAskDelete?: (id: string) => void;
   readonly onConfirmDelete?: (item: MediaItem) => void;
   readonly onCancelDelete?: () => void;
+  /** Nivel del encabezado «Álbum de …» (1 por defecto; 4 dentro de la pestaña Álbum del hogar). */
+  readonly headingLevel?: 1 | 4;
+  /** Prefijo de los ids internos (`album-title`, `album-count`, `album-file`) cuando hay varios álbumes en la misma página. */
+  readonly idPrefix?: string;
+  /** Carga progresiva (álbum del hogar): sustituye al paginador Anterior/Siguiente. */
+  readonly onLoadMore?: () => void;
+  readonly loadingMore?: boolean;
 }
 
 const FIELD = 'min-h-12 rounded-xl border border-border-strong bg-white px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
@@ -47,16 +59,30 @@ export function PhotoAlbumView(props: PhotoAlbumViewProps): JSX.Element {
   const { petName, items, urls, page, total, status, error, onPage, onImageError, limits = null } = props;
   const { canUpload = false, canDelete = false, uploading = false, chosenName = null, confirmDeleteId = null } = props;
   const { onChoose = none, onUpload = none, onAskDelete = none, onConfirmDelete = none, onCancelDelete = none } = props;
+  const { headingLevel = 1, idPrefix = 'album', onLoadMore, loadingMore = false } = props;
+  const Heading: 'h1' | 'h4' = headingLevel === 1 ? 'h1' : 'h4';
   const pages = albumPageCount(total);
+  // OBS-1 (2.4.3): al terminar «Ver más fotos» el foco pasa a la primera foto nueva o, si no llegó ninguna, al encabezado de la mascota.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const itemRefs = useRef<Array<HTMLLIElement | null>>([]);
+  const wasLoadingMore = useRef(false);
+  const settledCount = useRef(items.length);
+  useEffect(() => {
+    const target = loadMoreFocusTarget(wasLoadingMore.current, loadingMore, settledCount.current, items.length);
+    if (target === 'HEADING') headingRef.current?.focus();
+    else if (target !== null) (itemRefs.current[target] ?? headingRef.current)?.focus();
+    wasLoadingMore.current = loadingMore;
+    if (!loadingMore) settledCount.current = items.length;
+  }, [loadingMore, items.length]);
   const counter = limits === null ? null : `${limits.photoCount} de ${limits.maxPhotosPerPet} fotos`;
   const full = limits !== null && limits.photoCount >= limits.maxPhotosPerPet;
   return (
-    <section aria-labelledby="album-title" className="grid min-w-0 gap-4">
-      <h1 id="album-title" className="text-xl font-semibold text-slate-900">
+    <section aria-labelledby={`${idPrefix}-title`} className="grid min-w-0 gap-4">
+      <Heading id={`${idPrefix}-title`} ref={headingRef} tabIndex={-1} className={headingLevel === 1 ? 'text-xl font-semibold text-slate-900' : 'text-base font-semibold text-slate-900'}>
         Álbum de {petName}
-      </h1>
+      </Heading>
       {counter === null ? null : (
-        <p id="album-count" className="text-sm font-semibold text-slate-900">
+        <p id={`${idPrefix}-count`} className="text-sm font-semibold text-slate-900">
           {counter}
         </p>
       )}
@@ -69,10 +95,10 @@ export function PhotoAlbumView(props: PhotoAlbumViewProps): JSX.Element {
       {canUpload && !full ? (
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex min-w-0 flex-col gap-1">
-            <label htmlFor="album-file" className="text-sm font-medium text-slate-800">
+            <label htmlFor={`${idPrefix}-file`} className="text-sm font-medium text-slate-800">
               Elegir foto
             </label>
-            <input id="album-file" type="file" accept={PHOTO_ACCEPT} disabled={uploading} onChange={(e) => onChoose(e.target.files?.[0] ?? null)} className={`${FIELD} w-full min-w-0`} />
+            <input id={`${idPrefix}-file`} type="file" accept={PHOTO_ACCEPT} disabled={uploading} onChange={(e) => onChoose(e.target.files?.[0] ?? null)} className={`${FIELD} w-full min-w-0`} />
           </div>
           <Button disabled={uploading || chosenName === null} onClick={onUpload}>
             {uploading ? 'Subiendo…' : 'Subir'}
@@ -95,7 +121,7 @@ export function PhotoAlbumView(props: PhotoAlbumViewProps): JSX.Element {
           {items.map((item, index) => {
             const url = urls[item.id];
             return (
-              <li key={item.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <li key={item.id} ref={(el) => { itemRefs.current[index] = el; }} tabIndex={onLoadMore === undefined ? undefined : -1} className="overflow-hidden rounded-2xl border border-slate-200 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
                 {url === undefined ? (
                   <div className="aspect-square w-full bg-meadow" aria-hidden="true" />
                 ) : (
@@ -125,7 +151,21 @@ export function PhotoAlbumView(props: PhotoAlbumViewProps): JSX.Element {
           })}
         </ul>
       )}
-      {total > 24 ? (
+      {onLoadMore !== undefined ? (
+        <p role="status" className="sr-only">
+          {status === 'READY' && total > 0 ? `${items.length} de ${total} fotos de ${petName}` : ''}
+        </p>
+      ) : null}
+      {onLoadMore !== undefined ? (
+        items.length < total ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-slate-800">{`${items.length} de ${total} fotos`}</span>
+            <Button variant="secondary" disabled={loadingMore} ariaLabel={loadingMore ? `Cargando fotos de ${petName}` : `Ver más fotos de ${petName}`} onClick={onLoadMore}>
+              {loadingMore ? 'Cargando…' : 'Ver más fotos'}
+            </Button>
+          </div>
+        ) : null
+      ) : total > ALBUM_PAGE_SIZE ? (
         <nav aria-label="Páginas del álbum" className="flex items-center justify-between gap-2">
           <Button variant="secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>
             Anterior

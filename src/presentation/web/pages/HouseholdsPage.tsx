@@ -9,12 +9,12 @@
  * y Escena. Reutiliza los componentes y endpoints existentes (sin ruta ni contrato nuevos, D11-06 = A).
  */
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { Button, FormError, SelectField, TextField } from '../components/Field.tsx';
 import { InviteeCombobox } from '../components/InviteeCombobox.tsx';
 import { HomeScene } from '../components/HomeScene.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
+import { HouseholdAlbum } from '../components/HouseholdAlbum.tsx';
 import { useSession } from '../session.tsx';
 import { roleHelpText } from '../role-help.ts';
 import { ownerSceneVisible } from '../scene-view.ts';
@@ -372,16 +372,13 @@ export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, 
               <p role="alert" className="text-sm font-semibold text-red-900">No pudimos cargar las mascotas del hogar. Recarga la página para intentarlo de nuevo.</p>
             ) : pets.length === 0 ? (
               <p className="text-sm text-slate-800">Este hogar aún no tiene mascotas asignadas. Quien sea dueño puede asignarlas desde «Editar» en la ficha de la mascota.</p>
+            ) : tab === 'album' ? (
+              <HouseholdAlbum householdName={view.household.name} pets={pets.map((pet) => ({ id: pet.profile.id, name: pet.profile.name }))} />
             ) : (
-              <ul aria-label={tab === 'album' ? `Álbumes de ${view.household.name}` : `Mascotas de ${view.household.name}`} className="divide-y divide-slate-200">
+              <ul aria-label={`Mascotas de ${view.household.name}`} className="divide-y divide-slate-200">
                 {pets.map((pet) => (
                   <li key={pet.profile.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                     <span>{pet.profile.name}</span>
-                    {tab === 'album' ? (
-                      <Link to={`/mascotas/${pet.profile.id}/album`} className="min-h-11 content-center font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
-                        {`Ver el álbum de ${pet.profile.name}`}
-                      </Link>
-                    ) : null}
                   </li>
                 ))}
               </ul>

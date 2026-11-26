@@ -29,6 +29,15 @@ export function shouldFocusAfterThumbLoad(prev: 'IDLE' | 'LOADING' | 'READY', ne
   return prev === 'LOADING' && next === 'READY';
 }
 
+/**
+ * T1544 OBS-1 (2.4.3): tras «Ver más fotos» el foco no puede caer en `body`. Devuelve el índice de la primera foto nueva si llegaron fotos, o `'HEADING'` (encabezado de la mascota)
+ * si no llegó ninguna. Reutiliza `shouldFocusAfterThumbLoad` para la transición LOADING -> READY; `null` si no hay que mover el foco.
+ */
+export function loadMoreFocusTarget(wasLoadingMore: boolean, isLoadingMore: boolean, prevCount: number, nextCount: number): number | 'HEADING' | null {
+  if (!shouldFocusAfterThumbLoad(wasLoadingMore ? 'LOADING' : 'IDLE', isLoadingMore ? 'LOADING' : 'READY')) return null;
+  return nextCount > prevCount ? prevCount : 'HEADING';
+}
+
 export function applyDialogFocus(transition: DialogFocusTransition, targets: { readonly dialog: FocusTarget | null; readonly trigger: FocusTarget | null; readonly fallback: FocusTarget | null }): void {
   if (transition === 'ENTER') targets.dialog?.focus();
   else if (transition === 'RETURN') (targets.trigger ?? targets.fallback)?.focus();
