@@ -74,6 +74,7 @@ export function computeCareOccurrences(input: { routines: readonly OccurrenceRou
     if (!r.ongoing && r.endDate !== null && r.endDate < date) continue;
     for (const time of r.timesOfDay) {
       const ms = bogotaInstantMs(date, time);
+      // R-2 (Neo): la v1 (sin `supersedesRoutineId`) rige desde `startDate` 00:00 Bogotá, no desde su creación; las v2+ rigen desde su `effectiveFrom`.
       if (r.supersedesRoutineId && ms < Date.parse(r.effectiveFrom)) continue;
       if (r.effectiveTo !== null && ms >= Date.parse(r.effectiveTo)) continue;
       const entry = entries.find((e) => e.revertedAt === null && e.seriesId === r.seriesId && e.occurrenceDate === date && e.occurrenceTime === time) ?? null;

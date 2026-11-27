@@ -5,6 +5,7 @@
  * @implements REQ-CAR12-001, REQ-CAR12-002, SC-012-025, SC-012-026, SC-012-037, SC-012-088, ERR-CAR12-ROUTINE-LIMIT, ERR-CAR12-ROUTINE-STALE, ERR-SCHEMA-VALIDATION-FAILED
  */
 import { DomainError } from '../../generated/v38/index.ts';
+import { isIsoCalendarDate } from '../shared/date-utils.ts';
 import { CARE_DOSE_MAX, MAX_ROUTINES_PER_PET, MAX_ROUTINE_ROWS_PER_PET } from '../platform/feature-012-limits.ts';
 
 export const ROUTINE_KINDS = ['MEDICATION', 'MEAL', 'WALK', 'OTHER'] as const;
@@ -13,8 +14,17 @@ export type RoutineKind = (typeof ROUTINE_KINDS)[number];
 export const DOSE_UNITS = ['MG', 'MCG', 'ML', 'IU', 'TABLET', 'DROP'] as const;
 export type DoseUnit = (typeof DOSE_UNITS)[number];
 
-/** Por encima de estos valores se exige `confirmHighDose = true` (guarda anti-tecleo). IU no tiene umbral. */
-export const HIGH_DOSE_THRESHOLDS: Readonly<Partial<Record<DoseUnit, number>>> = { MG: 500, MCG: 500, ML: 20, TABLET: 4, DROP: 10 };
+export const SPECIES_GROUPS = ['CANINE_FELINE', 'OTHER_SPECIES'] as const;
+export type CareSpeciesGroup = (typeof SPECIES_GROUPS)[number];
+
+/**
+ * Umbral por grupo de especie (`DOSE_CONFIRM_THRESHOLDS`, care-routine.schema.json 0.1.2): por encima se exige `confirmHighDose = true` (guarda anti-tecleo).
+ * OTHER_SPECIES e IU no tienen guarda numérica (cifras pendientes de veterinario humano, DEUDA-012-VALIDACION-VET-UMBRALES).
+ */
+export const DOSE_CONFIRM_THRESHOLDS: Readonly<Record<CareSpeciesGroup, Readonly<Partial<Record<DoseUnit, number>>>>> = {
+  CANINE_FELINE: { MG: 500, MCG: 500, ML: 20, TABLET: 4, DROP: 10 },
+  OTHER_SPECIES: {},
+};
 
 export interface ValidatedCareRoutine {
   readonly kind: RoutineKind;
@@ -42,19 +52,12 @@ export interface CareRoutineRow extends ValidatedCareRoutine {
 
 const invalid = (field: string, detail?: string): DomainError => new DomainError('ERR-SCHEMA-VALIDATION-FAILED', detail, field);
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-const isDate = (v: unknown): v is string => {
-  if (typeof v !== 'string') return false;
-  const m = DATE.exec(v);
-  if (!m) return false;
-  const d = new Date(`${v}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
-};
+const isDate = (v: unknown): v is string => typeof v === 'string' && isIsoCalendarDate(v);
 const absent = (v: unknown): boolean => v === undefined || v === null;
 const cpLen = (s: string): number => [...s].length;
 const decimals3 = (n: number): boolean => Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6;
 
-function validateDose(amount: unknown, unit: unknown, confirm: boolean): { amount: number; unit: DoseUnit } {
+function validateDose(amount: unknown, unit: unknown, confirm: boolean, speciesGroup: CareSpeciesGroup): { amount: number; unit: DoseUnit } {
   if (typeof unit !== 'string' || !(DOSE_UNITS as readonly string[]).includes(unit)) throw invalid('doseUnit');
   if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount > CARE_DOSE_MAX) throw invalid('doseAmount');
   const u = unit as DoseUnit;
@@ -63,13 +66,13 @@ function validateDose(amount: unknown, unit: unknown, confirm: boolean): { amoun
   } else if (u === 'DROP') {
     if (!Number.isInteger(amount)) throw invalid('doseAmount');
   } else if (!decimals3(amount)) throw invalid('doseAmount');
-  const threshold = HIGH_DOSE_THRESHOLDS[u];
+  const threshold = DOSE_CONFIRM_THRESHOLDS[speciesGroup][u];
   if (threshold !== undefined && amount > threshold && !confirm) throw invalid('confirmHighDose');
   return { amount, unit: u };
 }
 
 /** Valida y normaliza una rutina (alta o fusión de edición). `confirmHighDose` solo es guarda de tecleo: no se persiste. */
-export function validateCareRoutine(input: Record<string, unknown>): ValidatedCareRoutine {
+export function validateCareRoutine(input: Record<string, unknown>, speciesGroup: CareSpeciesGroup): ValidatedCareRoutine {
   const kind = input['kind'];
   if (typeof kind !== 'string' || !(ROUTINE_KINDS as readonly string[]).includes(kind)) throw invalid('kind');
   const title = input['title'];
@@ -94,7 +97,7 @@ export function validateCareRoutine(input: Record<string, unknown>): ValidatedCa
   let doseUnit: DoseUnit | null = null;
   if (kind === 'MEDICATION') {
     if (endDate === null && !ongoing) throw invalid('endDate');
-    const dose = validateDose(input['doseAmount'], input['doseUnit'], input['confirmHighDose'] === true);
+    const dose = validateDose(input['doseAmount'], input['doseUnit'], input['confirmHighDose'] === true, speciesGroup);
     doseAmount = dose.amount;
     doseUnit = dose.unit;
   } else if (!absent(input['doseAmount']) || !absent(input['doseUnit'])) {
@@ -133,8 +136,8 @@ export interface RoutineUpdatePlan {
 
 const sameList = (a: readonly unknown[], b: readonly unknown[]): boolean => a.length === b.length && a.every((v, i) => v === b[i]);
 
-/** Plan de edición: versiona si cambian dosis, unidad u horarios; si no, edita en el sitio. Pura (el id nuevo lo da `newId`). */
-export function planRoutineUpdate(current: CareRoutineRow, patch: Record<string, unknown>, now: string, newId: () => string = () => globalThis.crypto.randomUUID()): RoutineUpdatePlan {
+/** Plan de edición: versiona si cambian dosis, unidad u horarios; si no, edita en el sitio. Pura (el id nuevo lo inyecta el caso de uso en `newId`; el dominio no genera entropía). */
+export function planRoutineUpdate(current: CareRoutineRow, patch: Record<string, unknown>, now: string, speciesGroup: CareSpeciesGroup, newId: string): RoutineUpdatePlan {
   const merged: Record<string, unknown> = { ...current };
   for (const [k, v] of Object.entries(patch)) if (v !== undefined) merged[k] = v;
   if ('endDate' in patch && patch['endDate'] !== undefined && patch['ongoing'] === undefined) merged['ongoing'] = false;
@@ -142,12 +145,12 @@ export function planRoutineUpdate(current: CareRoutineRow, patch: Record<string,
   const doseChanged = merged['doseAmount'] !== current.doseAmount || merged['doseUnit'] !== current.doseUnit;
   // Una dosis ya aceptada no pide confirmar de nuevo al editar otros campos; una dosis nueva sí.
   merged['confirmHighDose'] = doseChanged ? patch['confirmHighDose'] === true : true;
-  const valid = validateCareRoutine(merged);
+  const valid = validateCareRoutine(merged, speciesGroup);
   const versioned = doseChanged || !sameList(valid.timesOfDay, current.timesOfDay);
   if (!versioned) {
     return { versioned: false, closed: null, next: { ...current, ...valid, version: current.version + 1 } };
   }
   const closed: CareRoutineRow = { ...current, active: false, effectiveTo: now };
-  const next: CareRoutineRow = { ...current, ...valid, id: newId(), supersedesRoutineId: current.id, effectiveFrom: now, effectiveTo: null, active: true, version: 1 };
+  const next: CareRoutineRow = { ...current, ...valid, id: newId, supersedesRoutineId: current.id, effectiveFrom: now, effectiveTo: null, active: true, version: 1 };
   return { versioned: true, next, closed };
 }

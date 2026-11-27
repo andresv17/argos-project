@@ -64,7 +64,7 @@ export function assertCanRevert(input: { actor: RevertActor; entry: { performedB
 }
 
 /** `limit`: 50 por defecto, entero 1..100; fuera de rango, 422. */
-export function clampCareLogLimit(limit: number | undefined): number {
+export function parseCareLogLimit(limit: number | undefined): number {
   if (limit === undefined) return CARE_LOG_PAGE_DEFAULT;
   if (!Number.isInteger(limit) || limit < 1 || limit > CARE_LOG_PAGE_MAX) throw invalid('limit');
   return limit;
