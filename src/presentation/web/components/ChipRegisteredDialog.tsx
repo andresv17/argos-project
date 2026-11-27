@@ -1,6 +1,6 @@
 /**
  * Diálogo «Este microchip ya está registrado» (Feature 012, Bloque B, T1636; REQ-CHP12-001, REQ-CHP12-003, REQ-CHP12-004, INV-CHP12-003): aparece tras el 409 `ERR-CHP12-MICROCHIP-REGISTERED` del alta
- * o la edición y ofrece tres salidas: (1) corregir el número (error de tipeo), (2) solicitar co-propiedad y (3) «es mía» (disputa con evidencia). El texto NUNCA dice quién tiene el chip ni si hay mascota
+ * o la edición y ofrece tres salidas: (1) corregir el número (error de tipeo), (2) solicitar copropiedad y (3) «es mía» (disputa con evidencia). El texto NUNCA dice quién tiene el chip ni si hay mascota
  * viva: tras enviar solo confirma que la solicitud se RECIBIÓ (el 202 es idéntico exista o no la fila). El foco entra al encabezado al abrir (WCAG 2.4.3).
  *
  * @implements REQ-CHP12-001, REQ-CHP12-003, REQ-CHP12-004, INV-CHP12-003
@@ -54,7 +54,7 @@ export function ChipRegisteredDialog({ chip, api, onCorrect, onClose }: {
               Corregir el número (me equivoqué al escribirlo)
             </Button>
             <Button variant="secondary" onClick={() => setStep('CLAIM')}>
-              Solicitar co-propiedad
+              Solicitar copropiedad
             </Button>
             <Button variant="secondary" onClick={() => setStep('DISPUTE')}>
               Es mía: abrir una disputa
@@ -90,9 +90,9 @@ export function ChipRegisteredDialog({ chip, api, onCorrect, onClose }: {
             Evidencia
             <input type="file" multiple accept={EVIDENCE_ACCEPT} onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, MAX_EVIDENCE_FILES))} className="rounded-xl border border-border-strong bg-white px-3 py-2" />
           </label>
-          <p className="text-xs text-slate-700">{files.length === 0 ? 'Sin archivos elegidos.' : `${files.length} archivo(s) elegido(s).`}</p>
+          <p id="chip-files-help" aria-live="polite" className="text-xs text-slate-700">{files.length === 0 ? 'Sin archivos elegidos: elige al menos uno para abrir la disputa.' : `${files.length} archivo(s) elegido(s).`}</p>
           <div className="flex flex-wrap gap-2">
-            <Button disabled={busy || files.length === 0} onClick={() => void run(() => api.openDispute(chip, files))}>
+            <Button disabled={busy || files.length === 0} describedBy="chip-files-help" onClick={() => void run(() => api.openDispute(chip, files))}>
               {busy ? 'Enviando…' : 'Abrir la disputa'}
             </Button>
             <Button variant="secondary" onClick={() => setStep('CHOOSE')}>
@@ -146,7 +146,14 @@ export function MyChipRequests({ api }: { readonly api: ChipApi }): JSX.Element 
       alive = false;
     };
   }, [api]);
-  if (failed || items === null || items.length === 0) return null;
+  if (failed) {
+    return (
+      <p role="alert" className="rounded-2xl border border-border-strong bg-white p-4 text-sm font-semibold text-red-900">
+        No pudimos cargar tus solicitudes de microchip. Recarga la página para intentarlo de nuevo.
+      </p>
+    );
+  }
+  if (items === null || items.length === 0) return null;
   return (
     <section aria-labelledby="my-chip-requests-title" className="rounded-2xl border border-border-strong bg-white p-4">
       <h3 id="my-chip-requests-title" className="font-semibold text-slate-900">
@@ -155,9 +162,9 @@ export function MyChipRequests({ api }: { readonly api: ChipApi }): JSX.Element 
       <ul className="mt-2 grid gap-2 text-sm">
         {items.map((item) => (
           <li key={item.id} className="rounded-xl border border-slate-300 px-3 py-2">
-            <span className="font-semibold">{item.action === 'CHIP_DISPUTE' ? 'Disputa' : 'Co-propiedad'}</span>
+            <span className="font-semibold">{item.action === 'CHIP_DISPUTE' ? 'Disputa' : 'Copropiedad'}</span>
             {` · microchip terminado en ${item.chipLast4} · `}
-            {item.outcome !== null ? OUTCOME_TEXT[item.outcome] : (STATUS_TEXT[item.status] ?? item.status)}
+            {item.outcome !== null ? (OUTCOME_TEXT[item.outcome] ?? item.outcome) : (STATUS_TEXT[item.status] ?? item.status)}
           </li>
         ))}
       </ul>

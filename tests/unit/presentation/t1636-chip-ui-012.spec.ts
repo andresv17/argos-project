@@ -67,7 +67,7 @@ describe('T1636 diálogo «Este microchip ya está registrado»', () => {
     const html = renderToStaticMarkup(h(ChipRegisteredDialog, { chip: '985112345678901', api: createChipApi(fakeFetch([{ status: 202 }], [])), onCorrect: () => undefined, onClose: () => undefined }));
     expect(html).toContain('Este microchip ya está registrado');
     expect(html).toContain('Corregir el número');
-    expect(html).toContain('Solicitar co-propiedad');
+    expect(html).toContain('Solicitar copropiedad');
     expect(html).toContain('Es mía: abrir una disputa');
     expect(html).not.toContain('985112345678901');
     expect(html).not.toMatch(/ya existe una mascota|pertenece a/);

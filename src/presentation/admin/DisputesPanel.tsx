@@ -31,17 +31,17 @@ const OUTLINE = `${BUTTON} border-primary bg-white text-primary hover:bg-meadow`
 
 export const KIND_LABEL: Readonly<Record<DisputeKind, string>> = {
   CHIP_APPROPRIATION: 'Apropiación de microchip',
-  CO_OWNER_ABSENT_OR_BLOCKING: 'Co-propietario ausente o bloqueante',
+  CO_OWNER_ABSENT_OR_BLOCKING: 'Copropietario ausente o bloqueante',
   PRINCIPAL_ABSENT: 'Propietario principal ausente',
 };
 export const PHASE_LABEL = { NONE: 'Sin decisión registrada', AWAITING_CONFIRMATION: 'Decisión registrada, a la espera de confirmación', SCHEDULED_EXECUTION: 'Ejecución programada (ventana de 72 h)' } as const;
 const RESOLUTION_LABEL: Readonly<Record<Resolution, string>> = {
   REJECT: 'Rechazar (sin cambios)',
-  ADD_CO_OWNER: 'Agregar al reclamante como co-propietario',
+  ADD_CO_OWNER: 'Agregar al reclamante como copropietario',
   REQUEST_CHANGE_PRINCIPAL: 'Cambiar el propietario principal',
-  END_CO_OWNERSHIP: 'Terminar la co-propiedad del ausente',
+  END_CO_OWNERSHIP: 'Terminar la copropiedad del ausente',
 };
-const MOOT_LABEL: Readonly<Record<MootReason, string>> = { PET_GONE: 'La mascota ya no existe', REQUESTER_NOT_ACTIVE: 'El reclamante ya no está activo', TARGET_LEFT: 'El co-propietario salió', TARGET_NOT_ACTIVE: 'El co-propietario ya no está activo', TRIGGER_LOST: 'Se perdió el desencadenante' };
+const MOOT_LABEL: Readonly<Record<MootReason, string>> = { PET_GONE: 'La mascota ya no existe', REQUESTER_NOT_ACTIVE: 'El reclamante ya no está activo', TARGET_LEFT: 'El copropietario salió', TARGET_NOT_ACTIVE: 'El copropietario ya no está activo', TRIGGER_LOST: 'Se perdió el desencadenante' };
 
 /** Resolución permitida por tipo (espejo de la validación del servidor; el servidor decide). */
 export function resolutionsFor(kind: DisputeKind): readonly Resolution[] {
@@ -50,10 +50,20 @@ export function resolutionsFor(kind: DisputeKind): readonly Resolution[] {
   return ['REJECT', 'END_CO_OWNERSHIP'];
 }
 
+const ROLE_LABEL: Readonly<Record<string, string>> = { SUPER_ADMIN: 'superadministrador', OPERATOR: 'operador', SUPPORT: 'soporte', OWNER: 'propietario', PRINCIPAL: 'propietario principal', CO_OWNER: 'copropietario', REQUESTER: 'reclamante', CLAIMANT: 'reclamante' };
+const roleText = (role: string): string => ROLE_LABEL[role] ?? role;
+
+/** Fecha legible en español (p. ej. «1 dic 2026, 14:30»); si no se puede interpretar, devuelve el texto recibido. */
+const readableDate = (iso: string, withTime: boolean): string => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString('es', withTime ? { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' } : { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 const fail = (outcome: Outcome<unknown>): string => {
   switch (outcome.kind) {
     case 'FORBIDDEN':
-      return outcome.code === 'ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT' ? 'No puedes intervenir en este caso (eres parte o no eres una persona distinta del resolutor).' : 'Operación no permitida. Si es la decisión o la confirmación, vuelve a intentarlo; confirmar exige haber leído antes la evidencia.';
+      return outcome.code === 'ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT' ? 'No puedes intervenir en este caso: eres parte del caso, o ya registraste la decisión y la confirmación debe hacerla otra persona administradora.' : 'Operación no permitida. Si es la decisión o la confirmación, vuelve a intentarlo; confirmar exige haber leído antes la evidencia.';
     case 'STALE':
       return 'El caso cambió mientras decidías. Recarga la cola.';
     case 'INVALID':
@@ -69,8 +79,9 @@ export function DisputesPanel({ onSessionLost }: { readonly onSessionLost: () =>
   const [reason, setReason] = useState('');
   const [resolution, setResolution] = useState<Resolution>('REJECT');
   const [moot, setMoot] = useState<MootReason>('PET_GONE');
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ readonly text: string; readonly isError: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const reasonInvalid = message?.isError === true && message.text.startsWith('Revisa los datos');
   const heading = useRef<HTMLHeadingElement>(null);
   const lost = useRef(onSessionLost);
   lost.current = onSessionLost;
@@ -79,7 +90,7 @@ export function DisputesPanel({ onSessionLost }: { readonly onSessionLost: () =>
   const unwrap = useCallback(<T,>(outcome: Outcome<T>): T | null => {
     if (outcome.kind === 'OK') return outcome.value;
     if (outcome.kind === 'SESSION_LOST') lost.current();
-    else setMessage(fail(outcome));
+    else setMessage({ text: fail(outcome), isError: true });
     return null;
   }, []);
 
@@ -99,7 +110,7 @@ export function DisputesPanel({ onSessionLost }: { readonly onSessionLost: () =>
     if (next === null) return;
     setFile(next);
     setReason('');
-    setMessage(done);
+    setMessage({ text: done, isError: false });
     await reload();
   };
 
@@ -126,9 +137,13 @@ export function DisputesPanel({ onSessionLost }: { readonly onSessionLost: () =>
       <h2 id="disputes-title" className="text-xl font-semibold text-slate-900">
         Disputas de microchip
       </h2>
-      {message === null ? null : (
+      {message === null ? null : message.isError ? (
+        <p role="alert" className="mt-2 rounded-xl border-2 border-danger px-3 py-2 text-sm font-semibold text-danger">
+          {`Error: ${message.text}`}
+        </p>
+      ) : (
         <p role="status" className="mt-2 text-sm font-medium text-slate-900">
-          {message}
+          {message.text}
         </p>
       )}
       {items === null ? <p className="mt-2 text-sm">Cargando…</p> : null}
@@ -140,11 +155,11 @@ export function DisputesPanel({ onSessionLost }: { readonly onSessionLost: () =>
               {KIND_LABEL[item.kind]}
               {item.chipLast4 === undefined ? '' : ` · microchip terminado en ${item.chipLast4}`}
             </p>
-            <p>{`${PHASE_LABEL[item.decisionPhase]} · plazo ${item.slaDueAt.slice(0, 10)}${item.slaOverdue ? ' (vencido)' : ''}`}</p>
+            <p>{`${PHASE_LABEL[item.decisionPhase]} · plazo ${readableDate(item.slaDueAt, false)}${item.slaOverdue ? ' (vencido)' : ''}`}</p>
             {item.iAmParty === true ? (
               <p className="font-semibold text-danger">Recusada: eres parte de este caso.</p>
             ) : (
-              <button type="button" className={`${OUTLINE} mt-2`} onClick={() => void open(item.disputeId)}>
+              <button type="button" aria-label={`Abrir expediente: ${KIND_LABEL[item.kind]}${item.chipLast4 === undefined ? '' : `, microchip terminado en ${item.chipLast4}`}`} className={`${OUTLINE} mt-2`} onClick={() => void open(item.disputeId)}>
                 Abrir expediente
               </button>
             )}
@@ -157,15 +172,15 @@ export function DisputesPanel({ onSessionLost }: { readonly onSessionLost: () =>
             {`Expediente · ${KIND_LABEL[file.kind]}`}
           </h3>
           <p>{`${PHASE_LABEL[file.decisionPhase]}${file.resolution === undefined ? '' : ` · decisión: ${RESOLUTION_LABEL[file.resolution]}`}`}</p>
-          {file.executesAfter === undefined ? null : <p>{`Se ejecutará después de ${file.executesAfter}.`}</p>}
+          {file.executesAfter === undefined ? null : <p>{`Se ejecutará después del ${readableDate(file.executesAfter, true)}.`}</p>}
           <p>{`Partes: ${file.parties.map((p) => p.alias).join(' y ')} (seudonimizadas).`}</p>
-          <p>{file.actors.length === 0 ? 'Sin decisiones registradas.' : `Actores: ${file.actors.map((a) => `${a.alias} (${a.role})`).join(', ')}.`}</p>
+          <p>{file.actors.length === 0 ? 'Sin decisiones registradas.' : `Actores: ${file.actors.map((a) => `${a.alias} (${roleText(a.role)})`).join(', ')}.`}</p>
           <h4 className="mt-2 font-semibold">Evidencia</h4>
           <ul className="grid gap-1">
             {file.evidence.map((ev, index) => (
               <li key={ev.evidenceId} className="flex flex-wrap items-center gap-2">
                 <span>{`Archivo ${index + 1} · ${ev.contentType} · ${Math.ceil(ev.bytes / 1024)} KB · ${ev.readByMe === true ? 'leído por ti' : 'sin leer'}`}</span>
-                <button type="button" className={OUTLINE} onClick={() => void read(ev.evidenceId)}>
+                <button type="button" aria-label={`Leer archivo ${index + 1}`} className={OUTLINE} onClick={() => void read(ev.evidenceId)}>
                   Leer
                 </button>
               </li>
@@ -173,8 +188,16 @@ export function DisputesPanel({ onSessionLost }: { readonly onSessionLost: () =>
           </ul>
           <label className="mt-3 flex flex-col gap-1 font-semibold">
             Motivo (obligatorio, hasta 500 caracteres)
-            <textarea value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} className="min-h-20 rounded-xl border border-border-strong px-3 py-2 font-normal" />
+            <textarea value={reason} maxLength={500} aria-invalid={reasonInvalid ? true : undefined} aria-describedby={reasonInvalid ? 'dispute-reason-help dispute-reason-error' : 'dispute-reason-help'} onChange={(e) => setReason(e.target.value)} className="min-h-20 rounded-xl border border-border-strong px-3 py-2 font-normal" />
           </label>
+          <p id="dispute-reason-help" className="text-sm">
+            {reason.trim() === '' ? 'Escribe el motivo para habilitar «Registrar decisión», «Prorrogar la congelación», «Confirmar la decisión» y «Cancelar la ejecución programada».' : 'Motivo listo.'}
+          </p>
+          {reasonInvalid ? (
+            <p id="dispute-reason-error" className="text-sm font-semibold text-danger">
+              Error: el motivo es obligatorio (hasta 500 caracteres).
+            </p>
+          ) : null}
           {file.decisionPhase === 'NONE' ? (
             <div className="mt-3 grid gap-2">
               <label className="flex flex-col gap-1 font-semibold">
@@ -189,16 +212,21 @@ export function DisputesPanel({ onSessionLost }: { readonly onSessionLost: () =>
               </label>
               <p className="text-xs">Al registrar se pide una reverificación de un solo uso. Si cambia la titularidad, un segundo administrador distinto debe confirmarla.</p>
               <div className="flex flex-wrap gap-2">
-                <button type="button" disabled={busy || reason.trim() === ''} className={PRIMARY} onClick={() => void act(() => resolveDispute(file.disputeId, resolution, reason), 'Decisión registrada.')}>
+                <button type="button" disabled={busy || reason.trim() === ''} aria-describedby="dispute-reason-help" className={PRIMARY} onClick={() => void act(() => resolveDispute(file.disputeId, resolution, reason), 'Decisión registrada.')}>
                   Registrar decisión
                 </button>
-                <button type="button" disabled={busy || reason.trim() === '' || file.freezeExtensionGranted === true} className={OUTLINE} onClick={() => void act(() => extendFreeze(file.disputeId, reason), 'Congelación prorrogada.')}>
+                <button type="button" disabled={busy || reason.trim() === '' || file.freezeExtensionGranted === true} aria-describedby={file.freezeExtensionGranted === true ? 'dispute-extend-help' : 'dispute-reason-help'} className={OUTLINE} onClick={() => void act(() => extendFreeze(file.disputeId, reason), 'Congelación prorrogada.')}>
                   Prorrogar la congelación (una vez)
                 </button>
               </div>
+              {file.freezeExtensionGranted === true ? (
+                <p id="dispute-extend-help" className="text-sm">
+                  La congelación ya se prorrogó una vez; no se puede prorrogar de nuevo.
+                </p>
+              ) : null}
               <div className="flex flex-wrap items-end gap-2">
                 <label className="flex flex-col gap-1 font-semibold">
-                  Cerrar sin efecto
+                  Motivo de cierre sin efecto
                   <select value={moot} onChange={(e) => setMoot(e.target.value as MootReason)} className="min-h-12 rounded-xl border border-border-strong px-3 font-normal">
                     {(file.kind === 'CHIP_APPROPRIATION' ? (['PET_GONE', 'REQUESTER_NOT_ACTIVE'] as const) : (['TARGET_LEFT', 'TARGET_NOT_ACTIVE', 'REQUESTER_NOT_ACTIVE', 'TRIGGER_LOST', 'PET_GONE'] as const)).map((m) => (
                       <option key={m} value={m}>
@@ -216,14 +244,14 @@ export function DisputesPanel({ onSessionLost }: { readonly onSessionLost: () =>
           {file.decisionPhase === 'AWAITING_CONFIRMATION' ? (
             <div className="mt-3 grid gap-2">
               <p className="font-semibold">Solo un segundo administrador distinto del resolutor puede confirmar, y debe haber leído antes toda la evidencia.</p>
-              <button type="button" disabled={busy || reason.trim() === ''} className={PRIMARY} onClick={() => void act(() => confirmDispute(file.disputeId, reason), 'Decisión confirmada y ejecutada.')}>
+              <button type="button" disabled={busy || reason.trim() === ''} aria-describedby="dispute-reason-help" className={PRIMARY} onClick={() => void act(() => confirmDispute(file.disputeId, reason), 'Decisión confirmada y ejecutada.')}>
                 Confirmar la decisión
               </button>
             </div>
           ) : null}
           {file.decisionPhase === 'SCHEDULED_EXECUTION' ? (
             <div className="mt-3">
-              <button type="button" disabled={busy || reason.trim() === ''} className={OUTLINE} onClick={() => void act(() => cancelExecution(file.disputeId, reason), 'Ejecución cancelada.')}>
+              <button type="button" disabled={busy || reason.trim() === ''} aria-describedby="dispute-reason-help" className={OUTLINE} onClick={() => void act(() => cancelExecution(file.disputeId, reason), 'Ejecución cancelada.')}>
                 Cancelar la ejecución programada
               </button>
             </div>
