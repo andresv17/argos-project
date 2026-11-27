@@ -1,6 +1,6 @@
 # Despliegue rolling del Bloque A (012) — procedimiento
 
-- **Estado:** `DRAFT` — pendiente de aprobación de Neo (Level 2). No se ejecuta ningún despliegue con este documento hasta su aprobación.
+- **Estado:** `APPROVED` — **Opción B (ventana de mantenimiento)** aprobada por Neo (Level 2), 2026-11-27. (Nota: las migraciones `0034`/`0030` de `B-1` y `0035`/`0031` de `B-4` ya cuentan con aprobación Nivel 2 de Neo).
 - **Tarea:** `T1626` (`lock R-08`, `NFR-012-010`, `SC-012-105`, `EDGE-012-062`).
 - **Ejecutor previsto:** `/link`, con autorización de Neo.
 - **Alcance:** procedimiento de despliegue de la migración del Bloque A (`0034` SQLite / `0030` PostgreSQL, tabla `audit_log` y `owner_requests`, `pet_co_owners`, `pets.ownership_version`). La 012 no despliega, no modifica `terraform/`, `.github/workflows/` ni los archivos de H-01.
@@ -70,4 +70,4 @@ Ninguna de las dos está implementada hoy. Se requieren cambios de workflow o de
 
 ## 7. Aprobación
 
-- [ ] Neo aprueba el procedimiento y elige opción A o B. Fecha: ____ Firma: ____ (pendiente)
+- [x] Neo aprueba el procedimiento y elige **Opción B (ventana de mantenimiento)**. Fecha: 2026-11-27 · Firma: Andrés Vallejo (Neo — Sovereign Level 2 Authority)
