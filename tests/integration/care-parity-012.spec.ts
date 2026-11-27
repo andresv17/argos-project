@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { AddWeightRecordUseCase } from '../../src/application/use-cases/record-use-cases.ts';
 import { CreateShareLinkUseCase } from '../../src/application/use-cases/share-link-use-cases.ts';
 import { GetSharedSummaryUseCase } from '../../src/application/use-cases/shared-view-use-cases.ts';
-import { ANDRES, CARE_ENGINE_FACTORIES, HOUSEHOLD_ID, LUCIA, MARIA, MEAL, MED, NOW, PET, accessRows, careCases, codeOf, logRows, routineRows, type CareEngine } from '../fixtures/care-012.ts';
+import { ANDRES, CARE_ENGINE_FACTORIES, EARLY, HOUSEHOLD_ID, LUCIA, LUNA, MARIA, MEAL, MED, NOW, PET, accessRows, careCases, codeOf, logRows, routineRows, type CareEngine } from '../fixtures/care-012.ts';
 import { KEY } from '../fixtures/share-harness.ts';
 
 /**
@@ -22,26 +22,28 @@ afterEach(async () => {
 
 const FORBIDDEN = 'ERR-ACC-FORBIDDEN';
 const INVALID = 'ERR-SCHEMA-VALIDATION-FAILED';
-const ok = (entry: { entry?: unknown } | unknown): Record<string, unknown> => ((entry as { entry?: Record<string, unknown> }).entry ?? entry) as Record<string, unknown>;
+/** Desenvuelve `{ entry, created }` (F4): la entrada del registro. */
+const ok = (result: unknown): Record<string, unknown> => (result as { entry: Record<string, unknown> }).entry;
+const created = (result: unknown): boolean => (result as { created: boolean }).created;
 const occ = (routineId: string, time = '09:00', status = 'DONE', extra: Record<string, unknown> = {}) => ({ routineId, occurrenceDate: '2026-11-26', occurrenceTime: time, status, ...extra });
 
 for (const factory of CARE_ENGINE_FACTORIES) {
   describe.skipIf(!factory.enabled)(`T1654 paridad de cuidado (${factory.name})`, { timeout: 60_000 }, () => {
-    const boot = async (role?: 'ADMIN' | 'CAREGIVER' | 'READER') => {
+    const boot = async (role?: 'ADMIN' | 'CAREGIVER' | 'READER' | 'MEMBER') => {
       engine = await factory.make(role);
-      engine.setNow(NOW);
+      engine.setNow(EARLY); // R-1: el reloj solo avanza; effective_to >= effective_from
       return { use: careCases(engine.deps), engine };
     };
     const grant = (use: ReturnType<typeof careCases>, level: 'VIEW_ONLY' | 'BASIC_LOG', extra: Record<string, unknown> = {}) => use.setAccess(ANDRES, PET, MARIA, { level, ...extra });
 
-    it('[SC-012-025][SC-012-026] un titular crea y lista una rutina de medicina; un CAREGIVER, un ADMIN y un READER reciben 403 ERR-ACC-FORBIDDEN sin escribir (incluida medicación)', async () => {
+    it('[SC-012-025][SC-012-026] un titular crea y lista una rutina de medicina; un CAREGIVER, un ADMIN, un MEMBER y un READER reciben 403 ERR-ACC-FORBIDDEN sin escribir (incluida medicación)', async () => {
       const { use, engine: e } = await boot();
       const routine = (await use.createRoutine(ANDRES, PET, MED)) as unknown as { id: string; seriesId: string; version: number; active: boolean };
       expect(routine.active).toBe(true);
       expect(((await use.listRoutines(ANDRES, PET)) as unknown as { items: Array<{ id: string }> }).items.map((r) => r.id)).toEqual([routine.id]);
-      for (const role of ['CAREGIVER', 'ADMIN', 'READER'] as const) {
+      for (const role of ['CAREGIVER', 'ADMIN', 'READER', 'MEMBER'] as const) {
         const other = await factory.make(role);
-        other.setNow(NOW);
+        other.setNow(EARLY);
         expect(await codeOf(careCases(other.deps).createRoutine(MARIA, PET, MED))).toBe(FORBIDDEN);
         expect(await codeOf(careCases(other.deps).createRoutine(MARIA, PET, { ...MEAL }))).toBe(FORBIDDEN);
         expect(await routineRows(other)).toEqual([]);
@@ -125,6 +127,7 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       await grant(use, 'VIEW_ONLY');
       expect(await codeOf(use.log(MARIA, PET, occ(routine.id, '08:00')))).toBe(FORBIDDEN);
       expect(await logRows(e)).toEqual([]);
+      expect(((await use.householdToday(MARIA, HOUSEHOLD_ID)) as unknown as { pets: unknown[] }).pets).toHaveLength(1); // R-8: el cuidador ve su mascota asignada en el hogar
       const mine = (await use.myAccess(MARIA, PET)) as unknown as Record<string, unknown>;
       expect(mine).toMatchObject({ caregiver: true, level: 'VIEW_ONLY', canViewRoutines: true, canLogCare: false, canManageRoutines: false, clinicalPermissionsUnchanged: true });
       const weight = await new AddWeightRecordUseCase(e.deps).execute(MARIA, PET, { recordedAt: '2026-11-05', weightKg: 33.1 });
@@ -132,8 +135,8 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       expect(await codeOf(use.createRoutine(MARIA, PET, { ...MEAL }))).toBe(FORBIDDEN);
     });
 
-    it('[SC-012-026][T-C5] ADMIN y READER del hogar no leen rutinas, pendientes ni historial (403) y el hogar les responde 200 con grupos vacíos; un ajeno recibe el 404 uniforme', async () => {
-      for (const role of ['ADMIN', 'READER'] as const) {
+    it('[SC-012-026][T-C5] ADMIN, MEMBER y READER del hogar no leen rutinas, pendientes ni historial (403) y el hogar les responde 200 con grupos vacíos; un ajeno recibe el 404 uniforme', async () => {
+      for (const role of ['ADMIN', 'MEMBER', 'READER'] as const) {
         const { use } = await boot(role);
         await use.createRoutine(ANDRES, PET, MED);
         expect(await codeOf(use.listRoutines(MARIA, PET))).toBe(FORBIDDEN);
@@ -163,9 +166,12 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       const routine = (await use.createRoutine(ANDRES, PET, MED)) as unknown as { id: string };
       await grant(use, 'BASIC_LOG');
       engine!.setNow('2026-11-26T13:30:00.000Z');
-      const first = ok(await use.log(MARIA, PET, occ(routine.id, '08:00')));
-      const again = ok(await use.log(MARIA, PET, occ(routine.id, '08:00')));
-      expect(again['id']).toBe(first['id']);
+      const firstResult = await use.log(MARIA, PET, occ(routine.id, '08:00'));
+      const againResult = await use.log(MARIA, PET, occ(routine.id, '08:00'));
+      const first = ok(firstResult);
+      expect(created(firstResult)).toBe(true); // 201
+      expect(created(againResult)).toBe(false); // 200: reintento del mismo autor
+      expect(ok(againResult)['id']).toBe(first['id']);
       expect(await logRows(e)).toHaveLength(1);
       expect(await codeOf(use.log(MARIA, PET, occ(routine.id, '08:00', 'SKIPPED', { note: 'No quiso' })))).toBe('ERR-CAR12-ALREADY-LOGGED');
       await use.revert(MARIA, PET, first['id'] as string);
@@ -190,6 +196,7 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       const { use, engine: e } = await boot();
       const routine = (await use.createRoutine(ANDRES, PET, { ...MED, timesOfDay: ['08:00', '10:30', '12:00'], startDate: '2026-11-20' })) as unknown as { id: string };
       await grant(use, 'BASIC_LOG');
+      engine!.setNow(NOW);
       const OUT = 'ERR-CAR12-OUT-OF-WINDOW';
       expect(await codeOf(use.log(MARIA, PET, { ...occ(routine.id, '08:00'), occurrenceDate: '2026-11-24' }))).toBe(OUT);
       expect(await codeOf(use.log(MARIA, PET, occ(routine.id, '10:30')))).toBe(OUT); // DONE 30 min en el futuro
@@ -208,6 +215,7 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       const a = ok(await use.log(MARIA, PET, occ(routine.id, '08:00')));
       engine!.setNow('2026-11-26T13:35:00.000Z');
       expect(ok(await use.revert(MARIA, PET, a['id'] as string))['revertedAt']).toBe('2026-11-26T13:35:00.000Z');
+      expect(ok(await use.revert(MARIA, PET, a['id'] as string))['revertedAt']).toBe('2026-11-26T13:35:00.000Z'); // R-8: revertir lo ya revertido es 200 idempotente
       engine!.setNow('2026-11-26T13:36:00.000Z');
       const b = ok(await use.log(MARIA, PET, occ(routine.id, '08:00')));
       engine!.setNow('2026-11-26T13:50:00.000Z'); // 14 min después
@@ -235,40 +243,50 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       expect(weight.record.weightKg).toBe(33.1);
     });
 
-    it('[SC-012-036][T-C2] un nivel solo lo concede un titular a un CAREGIVER ACTIVE; el ADMIN no; un destino ajeno da 404 uniforme; una fila obsoleta da 409 ROUTINE-STALE; retirar es idempotente', async () => {
+    it('[SC-012-036][T-C2][R-8] un nivel solo lo concede un titular a un CAREGIVER ACTIVE; el ADMIN no; un destino ajeno da 404 uniforme; un careUntil pasado da 422; una fila obsoleta da 409 ROUTINE-STALE; retirar es idempotente', async () => {
       const { use, engine: e } = await boot();
       expect(await codeOf(use.setAccess(ANDRES, PET, LUCIA, { level: 'BASIC_LOG' }))).toBe('ERR-PET-NOT-FOUND');
-      const created = (await grant(use, 'VIEW_ONLY')) as unknown as { version: number };
+      const granted = (await grant(use, 'VIEW_ONLY')) as unknown as { created: boolean; access: { version: number } };
+      expect(granted.created).toBe(true); // 201: concesión nueva
       expect(await codeOf(grant(use, 'BASIC_LOG'))).toBe('ERR-CAR12-ROUTINE-STALE'); // reemplazar exige expectedVersion
-      expect(await codeOf(use.setAccess(ANDRES, PET, MARIA, { level: 'BASIC_LOG', expectedVersion: created.version }))).toBe('OK');
+      const replaced = (await use.setAccess(ANDRES, PET, MARIA, { level: 'BASIC_LOG', expectedVersion: granted.access.version })) as unknown as { created: boolean };
+      expect(replaced.created).toBe(false); // 200: reemplazo de nivel
+      expect(await codeOf(grant(use, 'VIEW_ONLY', { careUntil: '2026-11-25', expectedVersion: 2 }))).toBe(INVALID); // careUntil pasado (hoy 2026-11-26): 422
       expect((await accessRows(e)).map((r) => [r['userId'], r['level']])).toEqual([[MARIA, 'BASIC_LOG']]);
       await use.removeAccess(ANDRES, PET, MARIA);
       await use.removeAccess(ANDRES, PET, MARIA);
       expect(await accessRows(e)).toEqual([]);
     });
 
-    it('[SC-012-038] historial paginado: limit ≤ 100 (101 da 422), cursor estable sin repetidos ni huecos y atado a mascota y filtros (alterado: 422)', async () => {
+    it('[SC-012-038][R-7] historial paginado: limit ≤ 100 (101 da 422), orden más recientes primero (INV-SORT-001), cursor estable sin repetidos ni huecos y atado a mascota y filtros (alterado, de otra mascota o con otros filtros: 422)', async () => {
       const { use } = await boot();
       const routine = (await use.createRoutine(ANDRES, PET, { ...MEAL, timesOfDay: ['06:00', '07:00', '08:00', '09:00'] })) as unknown as { id: string };
-      for (const time of ['06:00', '07:00', '08:00', '09:00']) await use.log(ANDRES, PET, occ(routine.id, time));
+      const ids: string[] = [];
+      const minutes = ['15:00', '15:01', '15:02', '15:03'];
+      for (const [i, time] of ['06:00', '07:00', '08:00', '09:00'].entries()) {
+        engine!.setNow(`2026-11-26T${minutes[i]}:00.000Z`); // performedAt distinto y creciente en cada registro
+        ids.push(ok(await use.log(ANDRES, PET, occ(routine.id, time)))['id'] as string);
+      }
       expect(await codeOf(use.history(ANDRES, PET, { limit: 101 }))).toBe(INVALID);
       const p1 = (await use.history(ANDRES, PET, { limit: 2 })) as unknown as { items: Array<{ id: string }>; nextCursor: string };
       const p2 = (await use.history(ANDRES, PET, { limit: 2, cursor: p1.nextCursor })) as unknown as { items: Array<{ id: string }>; nextCursor: string | null };
-      expect([...p1.items, ...p2.items].map((i) => i.id)).toHaveLength(4);
-      expect(new Set([...p1.items, ...p2.items].map((i) => i.id)).size).toBe(4);
+      expect([...p1.items, ...p2.items].map((i) => i.id)).toEqual([...ids].reverse()); // más recientes primero, sin repetidos ni huecos
       expect(p2.nextCursor).toBeNull();
       expect(await codeOf(use.history(ANDRES, PET, { limit: 2, cursor: `${p1.nextCursor}x` }))).toBe(INVALID);
       expect(await codeOf(use.history(ANDRES, PET, { limit: 2, cursor: p1.nextCursor, from: '2026-11-01' }))).toBe(INVALID);
+      expect(await codeOf(use.history(ANDRES, LUNA.id, { limit: 2, cursor: p1.nextCursor }))).toBe(INVALID); // cursor de otra mascota
     });
 
     it('[SC-012-039][REQ-VET12-008] el enlace público de veterinario no contiene rutinas, registros de cuidado ni sus notas', async () => {
       const { use, engine: e } = await boot();
       const routine = (await use.createRoutine(ANDRES, PET, { ...MED, title: 'RUTINA-SECRETA-ZZ' })) as unknown as { id: string };
+      engine!.setNow(NOW);
       await use.log(ANDRES, PET, occ(routine.id, '08:00', 'SKIPPED', { note: 'NOTA-SECRETA-ZZ' }));
       await new CreateShareLinkUseCase(e.deps).execute(ANDRES, { scope: 'PET', petId: PET }, KEY(1), { expiresInDays: 7 });
       const token = (e.deps.sharing as unknown as { tokens: { issued: string[] } }).tokens.issued.at(-1)!;
       const summary = await new GetSharedSummaryUseCase(e.deps).execute(token, '203.0.113.7');
       const text = JSON.stringify(summary);
+      expect(text).toContain('Argos'); // control positivo (R-6): el resumen no está vacío
       expect(text).not.toContain('RUTINA-SECRETA-ZZ');
       expect(text).not.toContain('NOTA-SECRETA-ZZ');
       expect(text).not.toMatch(/care(Routine|Log)|caregiver/i);
@@ -278,6 +296,7 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       const { use } = await boot();
       expect(await use.today(ANDRES, PET)).toMatchObject({ date: '2026-11-26', timezone: 'America/Bogota', graceMinutes: 60, items: [] });
       expect(await use.listAccess(ANDRES, PET)).toEqual({ items: [] });
+      expect(await codeOf(use.householdToday(ANDRES, '00000000-0000-4000-8000-0000000000fe'))).toBe('ERR-HOUSE-NOT-FOUND'); // R-8
       expect(await use.myAccess(ANDRES, PET)).toMatchObject({ caregiver: false, canViewRoutines: true, canLogCare: true, canManageRoutines: true });
     });
 

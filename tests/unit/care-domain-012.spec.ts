@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assertExpectedVersion, assertRoutineCapacity, planRoutineUpdate, validateCareRoutine } from '../../src/domain/care/care-routine.ts';
 import { bogotaCivilDate, computeCareOccurrences } from '../../src/domain/care/care-occurrences.ts';
-import { assertCanRevert, assertLogWindow, assertSkipNote, clampCareLogLimit, decideExistingEntry } from '../../src/domain/care/care-log.ts';
+import { assertCanRevert, assertLogWindow, assertSkipNote, parseCareLogLimit, decideExistingEntry } from '../../src/domain/care/care-log.ts';
 import { computeMyCareAccess } from '../../src/domain/care/care-permissions.ts';
 import { canActOnPet } from '../../src/domain/access/can-act-on-pet.ts';
 import * as limits from '../../src/domain/platform/feature-012-limits.ts';
@@ -26,6 +26,8 @@ const codeOf = (action: () => unknown): [string, number] => {
   throw new Error('no lanzó ningún DomainError');
 };
 const INVALID: [string, number] = ['ERR-SCHEMA-VALIDATION-FAILED', 422];
+const CF = 'CANINE_FELINE' as const;
+const NEW_ID = 'r2-nuevo';
 const NOW = '2026-11-26T15:00:00.000Z'; // 10:00 Bogotá, jueves (ISO 4)
 
 const med = (extra: Record<string, unknown> = {}) => ({
@@ -72,16 +74,16 @@ describe('T1653 [SC-012-088][REQ-CAR12-001] constantes de cuidado en feature-012
 
 describe('T1653 [SC-012-025][SC-012-088] validateCareRoutine: catálogo de unidades, paso y umbrales de confirmación (guarda anti-tecleo)', () => {
   it('[SC-012-025] una rutina de medicina válida se acepta y normaliza el orden de timesOfDay', () => {
-    const out = validateCareRoutine(med({ timesOfDay: ['20:00', '08:00'] }));
+    const out = validateCareRoutine(med({ timesOfDay: ['20:00', '08:00'] }), CF);
     expect(out.timesOfDay).toEqual(['08:00', '20:00']);
     expect(out.doseAmount).toBe(250);
     expect(out.doseUnit).toBe('MG');
   });
 
   it('[SC-012-088] UNIT NO existe en el catálogo (se retira): se rechaza; MG, MCG, ML, IU, TABLET y DROP se aceptan', () => {
-    expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'UNIT', doseAmount: 5 })))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'UNIT', doseAmount: 5 }), CF))).toEqual(INVALID);
     for (const [unit, amount] of [['MG', 10], ['MCG', 10], ['ML', 2], ['IU', 4.5], ['TABLET', 0.5], ['DROP', 3]] as const) {
-      expect(validateCareRoutine(med({ doseUnit: unit, doseAmount: amount })).doseUnit).toBe(unit);
+      expect(validateCareRoutine(med({ doseUnit: unit, doseAmount: amount }), CF).doseUnit).toBe(unit);
     }
   });
 
@@ -92,55 +94,71 @@ describe('T1653 [SC-012-025][SC-012-088] validateCareRoutine: catálogo de unida
     ['TABLET', 4, 4.25],
     ['DROP', 10, 11],
   ] as const)('[SC-012-088] %s: hasta %s se acepta sin confirmar; %s exige confirmHighDose = true (422 sin ella; con ella se acepta)', (unit, atLimit, above) => {
-    expect(validateCareRoutine(med({ doseUnit: unit, doseAmount: atLimit })).doseAmount).toBe(atLimit);
-    expect(codeOf(() => validateCareRoutine(med({ doseUnit: unit, doseAmount: above })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ doseUnit: unit, doseAmount: above, confirmHighDose: false })))).toEqual(INVALID);
-    expect(validateCareRoutine(med({ doseUnit: unit, doseAmount: above, confirmHighDose: true })).doseAmount).toBe(above);
+    expect(validateCareRoutine(med({ doseUnit: unit, doseAmount: atLimit }), CF).doseAmount).toBe(atLimit);
+    expect(codeOf(() => validateCareRoutine(med({ doseUnit: unit, doseAmount: above }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ doseUnit: unit, doseAmount: above, confirmHighDose: false }), CF))).toEqual(INVALID);
+    expect(validateCareRoutine(med({ doseUnit: unit, doseAmount: above, confirmHighDose: true }), CF).doseAmount).toBe(above);
   });
 
   it('[SC-012-088][maggie M-2] TABLET: múltiplos de 0,25 con mínimo 0,25; 0,125, 0,1, 0 y negativos se rechazan', () => {
-    for (const ok of [0.25, 0.5, 0.75, 1, 2.25]) expect(validateCareRoutine(med({ doseUnit: 'TABLET', doseAmount: ok })).doseAmount).toBe(ok);
-    for (const bad of [0.125, 0.1, 0.3, 0, -0.25, 1.1]) expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'TABLET', doseAmount: bad })))).toEqual(INVALID);
+    for (const ok of [0.25, 0.5, 0.75, 1, 2.25]) expect(validateCareRoutine(med({ doseUnit: 'TABLET', doseAmount: ok }), CF).doseAmount).toBe(ok);
+    for (const bad of [0.125, 0.1, 0.3, 0, -0.25, 1.1]) expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'TABLET', doseAmount: bad }), CF))).toEqual(INVALID);
   });
 
   it('[SC-012-088] DROP: entero ≥ 1 (1,5 y 0 se rechazan); MG/MCG/ML/IU: > 0 con 3 decimales como máximo (0,0001 y 0 se rechazan, 0,001 se acepta)', () => {
-    expect(validateCareRoutine(med({ doseUnit: 'DROP', doseAmount: 1 })).doseAmount).toBe(1);
-    for (const bad of [1.5, 0, 0.5]) expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'DROP', doseAmount: bad })))).toEqual(INVALID);
+    expect(validateCareRoutine(med({ doseUnit: 'DROP', doseAmount: 1 }), CF).doseAmount).toBe(1);
+    for (const bad of [1.5, 0, 0.5]) expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'DROP', doseAmount: bad }), CF))).toEqual(INVALID);
     for (const unit of ['MG', 'MCG', 'ML', 'IU']) {
-      expect(validateCareRoutine(med({ doseUnit: unit, doseAmount: 0.001 })).doseAmount).toBe(0.001);
-      expect(codeOf(() => validateCareRoutine(med({ doseUnit: unit, doseAmount: 0.0001 })))).toEqual(INVALID);
-      expect(codeOf(() => validateCareRoutine(med({ doseUnit: unit, doseAmount: 0 })))).toEqual(INVALID);
+      expect(validateCareRoutine(med({ doseUnit: unit, doseAmount: 0.001 }), CF).doseAmount).toBe(0.001);
+      expect(codeOf(() => validateCareRoutine(med({ doseUnit: unit, doseAmount: 0.0001 }), CF))).toEqual(INVALID);
+      expect(codeOf(() => validateCareRoutine(med({ doseUnit: unit, doseAmount: 0 }), CF))).toEqual(INVALID);
+    }
+  });
+
+  it('[F1][SC-012-088] OTHER_SPECIES: 600 MG se acepta sin confirmHighDose (cifras pendientes de veterinario humano); IU nunca exige confirmación; CANINE_FELINE conserva su umbral', () => {
+    expect(validateCareRoutine(med({ doseUnit: 'MG', doseAmount: 600 }), 'OTHER_SPECIES').doseAmount).toBe(600);
+    expect(validateCareRoutine(med({ doseUnit: 'TABLET', doseAmount: 8 }), 'OTHER_SPECIES').doseAmount).toBe(8);
+    expect(validateCareRoutine(med({ doseUnit: 'IU', doseAmount: 90000 }), CF).doseAmount).toBe(90000);
+    expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'MG', doseAmount: 600 }), CF))).toEqual(INVALID);
+    const other = { id: 'r1', seriesId: 'se1', petId: 'p1', ...validateCareRoutine(med(), 'OTHER_SPECIES'), active: true, effectiveFrom: '2026-11-20T05:00:00.000Z', effectiveTo: null, supersedesRoutineId: null, version: 1 };
+    expect(planRoutineUpdate(other, { doseAmount: 600 }, NOW, 'OTHER_SPECIES', NEW_ID).next.doseAmount).toBe(600);
+  });
+
+  it('[R-8][SC-012-088] tope DoseAmount: 100000 se acepta y 100000,001 se rechaza incluso con confirmHighDose (en ambos grupos de especie)', () => {
+    for (const group of ['CANINE_FELINE', 'OTHER_SPECIES'] as const) {
+      expect(validateCareRoutine(med({ doseAmount: 100000, confirmHighDose: true }), group).doseAmount).toBe(100000);
+      expect(codeOf(() => validateCareRoutine(med({ doseAmount: 100000.001, confirmHighDose: true }), group))).toEqual(INVALID);
     }
   });
 
   it('[SC-012-088] MEDICATION exige dosis y unidad; MEAL/WALK/OTHER no llevan dosis', () => {
-    expect(codeOf(() => validateCareRoutine(med({ doseAmount: undefined })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ doseUnit: undefined })))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ doseAmount: undefined }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ doseUnit: undefined }), CF))).toEqual(INVALID);
     for (const kind of ['MEAL', 'WALK', 'OTHER']) {
-      expect(codeOf(() => validateCareRoutine(med({ kind })))).toEqual(INVALID);
-      expect(validateCareRoutine(med({ kind, doseAmount: undefined, doseUnit: undefined })).doseAmount).toBeNull();
+      expect(codeOf(() => validateCareRoutine(med({ kind }), CF))).toEqual(INVALID);
+      expect(validateCareRoutine(med({ kind, doseAmount: undefined, doseUnit: undefined }), CF).doseAmount).toBeNull();
     }
   });
 
   it('[SC-012-088][maggie A-3] una medicina sin endDate ni ongoing se rechaza; con ambos también (XOR); endDate < startDate se rechaza; ongoing sin endDate se acepta', () => {
-    expect(codeOf(() => validateCareRoutine(med({ endDate: undefined })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ endDate: '2026-12-04', ongoing: true })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ endDate: '2026-11-19' })))).toEqual(INVALID);
-    expect(validateCareRoutine(med({ endDate: undefined, ongoing: true })).ongoing).toBe(true);
+    expect(codeOf(() => validateCareRoutine(med({ endDate: undefined }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ endDate: '2026-12-04', ongoing: true }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ endDate: '2026-11-19' }), CF))).toEqual(INVALID);
+    expect(validateCareRoutine(med({ endDate: undefined, ongoing: true }), CF).ongoing).toBe(true);
   });
 
   it('[SC-012-025] límites de forma: título 1–60, instrucciones ≤ 300, 1–6 horas HH:MM sin repetir, 1–7 días ISO sin repetir', () => {
-    expect(codeOf(() => validateCareRoutine(med({ title: '' })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ title: 'x'.repeat(61) })))).toEqual(INVALID);
-    expect(validateCareRoutine(med({ title: 'x'.repeat(60) })).title).toHaveLength(60);
-    expect(codeOf(() => validateCareRoutine(med({ instructions: 'x'.repeat(301) })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ timesOfDay: [] })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ timesOfDay: ['01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00'] })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ timesOfDay: ['08:00', '08:00'] })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ timesOfDay: ['24:00'] })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ daysOfWeek: [0] })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ daysOfWeek: [8] })))).toEqual(INVALID);
-    expect(codeOf(() => validateCareRoutine(med({ daysOfWeek: [1, 1] })))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ title: '' }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ title: 'x'.repeat(61) }), CF))).toEqual(INVALID);
+    expect(validateCareRoutine(med({ title: 'x'.repeat(60) }), CF).title).toHaveLength(60);
+    expect(codeOf(() => validateCareRoutine(med({ instructions: 'x'.repeat(301) }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ timesOfDay: [] }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ timesOfDay: ['01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00'] }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ timesOfDay: ['08:00', '08:00'] }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ timesOfDay: ['24:00'] }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ daysOfWeek: [0] }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ daysOfWeek: [8] }), CF))).toEqual(INVALID);
+    expect(codeOf(() => validateCareRoutine(med({ daysOfWeek: [1, 1] }), CF))).toEqual(INVALID);
   });
 });
 
@@ -158,13 +176,14 @@ describe('T1653 [SC-012-037] assertRoutineCapacity: 20 activas y 100 filas total
 });
 
 describe('T1653 [SC-012-026][SC-012-088] planRoutineUpdate y assertExpectedVersion: versionado de dosis (M-7, A-04) y ERR-CAR12-ROUTINE-STALE (H-C2)', () => {
-  const current = { id: 'r1', seriesId: 'se1', petId: 'p1', ...validateCareRoutine(med()), active: true, effectiveFrom: '2026-11-20T05:00:00.000Z', effectiveTo: null, supersedesRoutineId: null, version: 3 };
+  const current = { id: 'r1', seriesId: 'se1', petId: 'p1', ...validateCareRoutine(med(), CF), active: true, effectiveFrom: '2026-11-20T05:00:00.000Z', effectiveTo: null, supersedesRoutineId: null, version: 3 };
 
   it('cambiar dosis, unidad u horarios inserta una fila nueva (mismo seriesId, supersedesRoutineId, effectiveFrom = ahora) y cierra la anterior', () => {
     for (const patch of [{ doseAmount: 300 }, { doseUnit: 'ML', doseAmount: 5 }, { timesOfDay: ['09:00'] }]) {
-      const plan = planRoutineUpdate(current, patch, NOW);
+      const plan = planRoutineUpdate(current, patch, NOW, CF, NEW_ID);
       expect(plan.versioned).toBe(true);
-      expect(plan.next.id).not.toBe('r1');
+      expect(plan.next.id).toBe(NEW_ID);
+      expect(plan.next.version).toBe(1);
       expect(plan.next.seriesId).toBe('se1');
       expect(plan.next.supersedesRoutineId).toBe('r1');
       expect(plan.next.effectiveFrom).toBe(NOW);
@@ -175,16 +194,16 @@ describe('T1653 [SC-012-026][SC-012-088] planRoutineUpdate y assertExpectedVersi
   });
 
   it('cambiar solo título, instrucciones, días o endDate edita en el sitio (misma fila, sin cerrar nada)', () => {
-    const plan = planRoutineUpdate(current, { title: 'Amoxicilina 250', daysOfWeek: [1, 3] }, NOW);
+    const plan = planRoutineUpdate(current, { title: 'Amoxicilina 250', daysOfWeek: [1, 3] }, NOW, CF, NEW_ID);
     expect(plan.versioned).toBe(false);
     expect(plan.closed).toBeNull();
-    expect(plan.next).toMatchObject({ id: 'r1', seriesId: 'se1', title: 'Amoxicilina 250', daysOfWeek: [1, 3], active: true });
+    expect(plan.next).toMatchObject({ id: 'r1', seriesId: 'se1', title: 'Amoxicilina 250', daysOfWeek: [1, 3], active: true, version: 4 }); // la edición en el sitio incrementa version (3 -> 4)
   });
 
   it('enviar la misma dosis y los mismos horarios no versiona; una dosis nueva por encima del umbral exige confirmHighDose también al editar', () => {
-    expect(planRoutineUpdate(current, { doseAmount: 250, timesOfDay: ['08:00', '20:00'] }, NOW).versioned).toBe(false);
-    expect(codeOf(() => planRoutineUpdate(current, { doseAmount: 600 }, NOW))).toEqual(INVALID);
-    expect(planRoutineUpdate(current, { doseAmount: 600, confirmHighDose: true }, NOW).next.doseAmount).toBe(600);
+    expect(planRoutineUpdate(current, { doseAmount: 250, timesOfDay: ['08:00', '20:00'] }, NOW, CF, NEW_ID).versioned).toBe(false);
+    expect(codeOf(() => planRoutineUpdate(current, { doseAmount: 600 }, NOW, CF, NEW_ID))).toEqual(INVALID);
+    expect(planRoutineUpdate(current, { doseAmount: 600, confirmHighDose: true }, NOW, CF, NEW_ID).next.doseAmount).toBe(600);
   });
 
   it('[H-C2] expectedVersion distinta, fila ya sustituida o rutina inactiva: ERR-CAR12-ROUTINE-STALE 409; con la versión vigente no lanza', () => {
@@ -244,6 +263,20 @@ describe('T1653 [SC-012-027][SC-012-028] computeCareOccurrences: función pura r
     const overdue = at('2026-11-26T14:01:00.000Z'); // 09:01
     expect(overdue.state).toBe('OVERDUE');
     expect(overdue.instructions).toBeNull();
+  });
+
+  it('[R-2][SC-012-027] la v1 (sin supersedesRoutineId) rige desde startDate 00:00 Bogotá aunque se creara después: una toma del mismo día anterior a la creación sale con v1; una v2 solo rige desde su effectiveFrom', () => {
+    const created = '2026-11-26T15:00:00.000Z'; // 10:00 Bogotá
+    const v1 = routine('v1', { seriesId: 'S', timesOfDay: ['06:00', '09:00'], startDate: '2026-11-26', effectiveFrom: created });
+    expect(compute([v1], [], '2026-11-26T20:00:00.000Z').items.map((i) => `${i.occurrenceTime}:${i.routineId}`)).toEqual(['06:00:v1', '09:00:v1']);
+    const v2 = routine('v2', { seriesId: 'S', timesOfDay: ['06:00', '09:00'], startDate: '2026-11-26', supersedesRoutineId: 'v1', effectiveFrom: created });
+    expect(compute([v2], [], '2026-11-26T20:00:00.000Z').items).toEqual([]);
+  });
+
+  it('[SC-012-028] frontera exacta de 60 min: a hora + 59 min 59 s sigue PENDING; a hora + 60 min exactos pasa a OVERDUE', () => {
+    const at = (iso: string) => compute([routine('a', { timesOfDay: ['08:00'] })], [], iso).items[0]!.state;
+    expect(at('2026-11-26T13:59:59.000Z')).toBe('PENDING'); // 08:59:59 Bogotá
+    expect(at('2026-11-26T14:00:00.000Z')).toBe('OVERDUE'); // 09:00:00
   });
 
   it('[SC-012-028] DONE y SKIPPED salen con su entrada y conservan su estado aunque pase la gracia; una entrada revertida no cuenta', () => {
@@ -310,6 +343,16 @@ describe('T1653 [SC-012-034] assertLogWindow: ventana de registro de 24 h, DONE 
     expect(codeOf(win('2026-11-26', '10:15', 'SKIPPED'))).toEqual(OUT);
     expect(() => win('2026-11-26', '10:00', 'SKIPPED')()).not.toThrow(Error);
     expect(() => win('2026-11-26', '08:00', 'SKIPPED')()).not.toThrow(Error);
+  });
+
+  it('[R-8] fronteras en segundos: 24 h exactas se aceptan y 24 h + 1 s no; DONE a 15 min exactos se acepta y a 15 min + 1 s no; late cambia exactamente a los 60 min', () => {
+    const w = (occurrenceDate: string, occurrenceTime: string, status: 'DONE' | 'SKIPPED', now: string) => () => assertLogWindow({ occurrenceDate, occurrenceTime, status, now });
+    expect(() => w('2026-11-25', '10:00', 'DONE', NOW)()).not.toThrow(Error);
+    expect(codeOf(w('2026-11-25', '10:00', 'DONE', '2026-11-26T15:00:01.000Z'))).toEqual(OUT);
+    expect(() => w('2026-11-26', '10:15', 'DONE', NOW)()).not.toThrow(Error);
+    expect(codeOf(w('2026-11-26', '10:15', 'DONE', '2026-11-26T14:59:59.000Z'))).toEqual(OUT);
+    expect(assertLogWindow({ occurrenceDate: '2026-11-26', occurrenceTime: '09:00', status: 'DONE', now: NOW }).late).toBe(true); // exactamente 60 min
+    expect(assertLogWindow({ occurrenceDate: '2026-11-26', occurrenceTime: '09:00', status: 'DONE', now: '2026-11-26T14:59:59.000Z' }).late).toBe(false);
   });
 
   it('late: false hasta hora + 60 min, true después (ocurrencia OVERDUE dentro de la ventana, M-04)', () => {
@@ -383,12 +426,12 @@ describe('T1653 [SC-012-033] assertCanRevert: deshacer 10 min para el autor o un
   });
 });
 
-describe('T1653 [SC-012-038] clampCareLogLimit: paginación de 100 como máximo (50 por defecto)', () => {
+describe('T1653 [SC-012-038] parseCareLogLimit: paginación de 100 como máximo (50 por defecto)', () => {
   it('por defecto 50; 1 y 100 se aceptan; 0, 101, negativos y no enteros se rechazan con 422', () => {
-    expect(clampCareLogLimit(undefined)).toBe(50);
-    expect(clampCareLogLimit(1)).toBe(1);
-    expect(clampCareLogLimit(100)).toBe(100);
-    for (const bad of [0, 101, -5, 2.5, Number.NaN]) expect(codeOf(() => clampCareLogLimit(bad))).toEqual(INVALID);
+    expect(parseCareLogLimit(undefined)).toBe(50);
+    expect(parseCareLogLimit(1)).toBe(1);
+    expect(parseCareLogLimit(100)).toBe(100);
+    for (const bad of [0, 101, -5, 2.5, Number.NaN]) expect(codeOf(() => parseCareLogLimit(bad))).toEqual(INVALID);
   });
 });
 
@@ -443,7 +486,7 @@ describe('T1653 [SC-012-030][SC-012-036][SC-012-077] computeMyCareAccess: titula
     const mine = access('c', ms, [row('c', 'VIEW_ONLY')]);
     expect(mine.clinicalPermissionsUnchanged).toBe(true);
     for (const action of ['WRITE_HEALTH_EVENTS', 'WRITE_WEIGHTS_AND_MEASUREMENTS'] as const) {
-      expect(canActOnPet({ id: 'c' }, pet, action, households(ms))).toBe(true);
+      expect(canActOnPet({ id: 'c' }, pet, action, households(ms) as unknown as Parameters<typeof canActOnPet>[3])).toBe(true);
     }
     expect(access('principal', []).clinicalPermissionsUnchanged).toBe(true);
   });

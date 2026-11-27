@@ -2,7 +2,7 @@
  * Arnés de la feature 012 (Bloque C, #26; T1654): los MISMOS casos de uso de cuidado sobre memoria, SQLite en memoria y PostgreSQL 17 real (se OMITE sin `TEST_DATABASE_URL`).
  * ANDRES es el propietario principal de ARGOS; MARIA toma el rol de hogar indicado (`ADMIN`, `CAREGIVER` o `READER`; el arnés heredado no sabe de `MEMBER`) con ARGOS asignada al hogar.
  *
- * ROJO hasta T1655: importa módulos que aún no existen (`care-routine-use-cases.ts`, `care-log-use-cases.ts`). La API es la SUPUESTA por T1654 (nombres de los `operationId` de `care.openapi.yaml`):
+ * Los casos de uso devuelven `{ entry, created }` (registro) y `{ access, created }` (nivel) para que HTTP distinga 201 de 200 (F4). ROJO hasta T1655: importa módulos que aún no existen (`care-routine-use-cases.ts`, `care-log-use-cases.ts`). La API es la SUPUESTA por T1654 (nombres de los `operationId` de `care.openapi.yaml`):
  * `execute(actorUserId, petId, ...)` como el resto de casos de uso. Los puertos `repositories.careRoutines`, `repositories.careLog` y `repositories.caregiverAccess` exponen `listByPet(petId)` con filas en camelCase.
  */
 import { DomainError } from '../../src/generated/index.ts';
@@ -24,19 +24,22 @@ import { CreateCareLogEntryUseCase, ListCareLogUseCase, RevertCareLogEntryUseCas
 import { eraseAccountInTransaction } from '../../src/application/use-cases/account-use-cases.ts';
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import type { HouseholdRole } from './record-engines.ts';
-import { ANDRES, ARGOS, CARLOS, LUCIA, MARIA, USERS } from './application-harness.ts';
+import { ANDRES, ARGOS, CARLOS, LUCIA, LUNA, MARIA, USERS } from './application-harness.ts';
 import { createPostgresConcurrentEngine, TEST_DATABASE_URL, type ConcurrentEngine } from './concurrent-engines.ts';
-import { createShareEngines, HOUSEHOLD_ID, type ShareEngine } from './share-harness.ts';
+import { createShareEngines, HOUSEHOLD_ID, SequentialShareTokenGenerator, SHARE_IP_SECRET, type ShareEngine } from './share-harness.ts';
+import { SharedAccessLimiter } from '../../src/application/sharing/shared-access-limiter.ts';
 
-export { ANDRES, ARGOS, CARLOS, LUCIA, MARIA, HOUSEHOLD_ID };
+export { ANDRES, ARGOS, CARLOS, LUCIA, LUNA, MARIA, HOUSEHOLD_ID };
 export const HAS_POSTGRES = TEST_DATABASE_URL !== undefined && TEST_DATABASE_URL !== '';
 export const PET = ARGOS.id;
 /** Jueves 2026-11-26 10:00 America/Bogota (UTC-5 fijo). */
 export const NOW = '2026-11-26T15:00:00.000Z';
+/** Reloj inicial de cada motor: 00:00 Bogotá del mismo día. Las pruebas solo AVANZAN el reloj (nunca retroceden: CHECK effective_to >= effective_from). */
+export const EARLY = '2026-11-26T05:00:00.000Z';
 export const usernameOf = (userId: string): string => USERS.find((u) => u.id === userId)!.username;
 
 export type Row = Record<string, unknown>;
-export type CareRole = Extract<HouseholdRole, 'ADMIN' | 'CAREGIVER' | 'READER'>;
+export type CareRole = HouseholdRole | 'MEMBER';
 
 export interface CareEngine {
   readonly name: 'memoria' | 'SQLite' | 'PostgreSQL';
@@ -61,17 +64,18 @@ const fromShare = (engine: ShareEngine): CareEngine => ({
 });
 
 const fromConcurrent = async (engine: ConcurrentEngine, role: CareRole): Promise<CareEngine> => {
-  const deps = engine.depsA();
+  // R-4: SC-012-039 crea un enlace; sin `deps.sharing` el caso de uso lanza ERR-INTERNAL-UNEXPECTED en PostgreSQL.
+  const deps: ApplicationDeps = { ...engine.depsA(), sharing: { tokens: new SequentialShareTokenGenerator(), ipHmacSecret: SHARE_IP_SECRET, limiter: new SharedAccessLimiter() } };
   await deps.uow.runInTransaction(async (r) => {
     const members = await r.households.listMemberships(HOUSEHOLD_ID);
-    await r.households.saveMembership({ ...members.find((m) => m.userId === MARIA)!, role, status: 'ACTIVE' });
+    await r.households.saveMembership({ ...members.find((m) => m.userId === MARIA)!, role: role as HouseholdRole, status: 'ACTIVE' });
   });
   return { name: 'PostgreSQL', deps, run: (work) => deps.uow.runInTransaction(work), setNow: (iso) => (deps.clock as FixedClockAdapter).setClock(iso.slice(0, 10), iso), dispose: () => engine.dispose() };
 };
 
 export const CARE_ENGINE_FACTORIES: readonly CareEngineFactory[] = [
-  { name: 'memoria', enabled: true, make: async (role = 'CAREGIVER') => fromShare((await createShareEngines(role)).find((e) => e.name === 'memoria')!) },
-  { name: 'SQLite', enabled: true, make: async (role = 'CAREGIVER') => fromShare((await createShareEngines(role)).find((e) => e.name === 'SQLite')!) },
+  { name: 'memoria', enabled: true, make: async (role = 'CAREGIVER') => fromShare((await createShareEngines(role as HouseholdRole)).find((e) => e.name === 'memoria')!) },
+  { name: 'SQLite', enabled: true, make: async (role = 'CAREGIVER') => fromShare((await createShareEngines(role as HouseholdRole)).find((e) => e.name === 'SQLite')!) },
   { name: 'PostgreSQL', enabled: HAS_POSTGRES, make: async (role = 'CAREGIVER') => fromConcurrent(await createPostgresConcurrentEngine(), role) },
 ];
 
