@@ -56,7 +56,7 @@ defineMediaRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb
 defineAuthIdentityRepositoryContractSuite('SQLite', () => new SqliteUnitOfWork(memoryDb()));
 
 describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlite/sqlite-database.ts)', () => {
-  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001 a 0032 crean las 38 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
+  it('[INV-PET-005][INV-AUTH-003] las migraciones 0001 a 0033 crean las 40 tablas, activan foreign_keys y quedan registradas una sola vez', () => {
     const dir = tempDir();
     const path = join(dir, 'datos', 'argos.sqlite');
     const db = openSqliteDatabase(path);
@@ -89,7 +89,9 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
         'media_deletion_queue',
         'medical_visits',
         'oauth_flow_states',
+        'owner_requests',
         'pet_assignments',
+        'pet_co_owners',
         'pet_media',
         'pets',
         'platform_parameters',
@@ -110,7 +112,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       1,
       'wal',
       [],
-      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql', '0014_pet_life_status.sql', '0015_share_link_deceased_at.sql', '0016_pet_biography.sql', '0017_google_sso.sql', '0018_oauth_flow_delete_intent.sql', '0019_admin_portal.sql', '0020_account_status.sql', '0021_scene_enabled_seed.sql', '0022_scene_prompt_blocks_seed.sql', '0023_scene_attempts_provider_call.sql', '0024_home_scenes_image_mime_jpeg.sql', '0025_scene_model_preview_global.sql', '0026_scene_limits_reset.sql', '0027_scene_model_flash_image.sql', '0028_adult_declaration.sql', '0029_about_content.sql', '0030_scene_snapshot_v2.sql', '0031_admin_delegates.sql', '0032_user_avatar.sql'],
+      ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql', '0014_pet_life_status.sql', '0015_share_link_deceased_at.sql', '0016_pet_biography.sql', '0017_google_sso.sql', '0018_oauth_flow_delete_intent.sql', '0019_admin_portal.sql', '0020_account_status.sql', '0021_scene_enabled_seed.sql', '0022_scene_prompt_blocks_seed.sql', '0023_scene_attempts_provider_call.sql', '0024_home_scenes_image_mime_jpeg.sql', '0025_scene_model_preview_global.sql', '0026_scene_limits_reset.sql', '0027_scene_model_flash_image.sql', '0028_adult_declaration.sql', '0029_about_content.sql', '0030_scene_snapshot_v2.sql', '0031_admin_delegates.sql', '0032_user_avatar.sql', '0033_co_ownership.sql'],
     ]);
   });
 
@@ -139,7 +141,7 @@ describe('migraciones y apertura de SQLite (src/infrastructure/persistence/sqlit
       revoked_at: '2026-11-05T13:00:00.000Z',
       data: { userId: 'a0000000-0000-4000-8000-000000000001', createdAt: '2026-11-05T12:00:00.000Z', lastActivityAt: '2026-11-05T12:00:00.000Z', revokedAt: '2026-11-05T13:00:00.000Z' },
     });
-    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql', '0014_pet_life_status.sql', '0015_share_link_deceased_at.sql', '0016_pet_biography.sql', '0017_google_sso.sql', '0018_oauth_flow_delete_intent.sql', '0019_admin_portal.sql', '0020_account_status.sql', '0021_scene_enabled_seed.sql', '0022_scene_prompt_blocks_seed.sql', '0023_scene_attempts_provider_call.sql', '0024_home_scenes_image_mime_jpeg.sql', '0025_scene_model_preview_global.sql', '0026_scene_limits_reset.sql', '0027_scene_model_flash_image.sql', '0028_adult_declaration.sql', '0029_about_content.sql', '0030_scene_snapshot_v2.sql', '0031_admin_delegates.sql', '0032_user_avatar.sql']]);
+    expect([repeated, versions]).toEqual([[], ['0001_init.sql', '0002_account_identity.sql', '0003_pets_species_and_weight_grams.sql', '0004_roles_and_pet_assignments.sql', '0005_audit_log_and_clinical_columns.sql', '0006_record_revision.sql', '0007_username_case_insensitive.sql', '0008_pets_microchip_global.sql', '0009_pet_media.sql', '0010_rate_limit_microchip_scope.sql', '0011_platform_parameters.sql', '0012_share_links.sql', '0013_home_scenes.sql', '0014_pet_life_status.sql', '0015_share_link_deceased_at.sql', '0016_pet_biography.sql', '0017_google_sso.sql', '0018_oauth_flow_delete_intent.sql', '0019_admin_portal.sql', '0020_account_status.sql', '0021_scene_enabled_seed.sql', '0022_scene_prompt_blocks_seed.sql', '0023_scene_attempts_provider_call.sql', '0024_home_scenes_image_mime_jpeg.sql', '0025_scene_model_preview_global.sql', '0026_scene_limits_reset.sql', '0027_scene_model_flash_image.sql', '0028_adult_declaration.sql', '0029_about_content.sql', '0030_scene_snapshot_v2.sql', '0031_admin_delegates.sql', '0032_user_avatar.sql', '0033_co_ownership.sql']]);
   });
 
   it('[REQ-ACC-001][ERR-INTERNAL-UNEXPECTED] la base rechaza un idioma fuera de es/en/pt, un ámbito de frecuencia desconocido y un rol o estado de invitación inválido', () => {
