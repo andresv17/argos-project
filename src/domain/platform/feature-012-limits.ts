@@ -77,3 +77,26 @@ export const ARBITRATION_DELAY_HOURS = 72;
 export const ADMIN_STEPUP_WINDOW_MINUTES = 5;
 export const DECISION_REASON_MAX_CHARS = 500;
 export const ARBITER_AUDIT_RETENTION_DAYS = 1095;
+
+/** Modo Cuidador (Bloque C, REQ-CAR12-001..007): topes y ventanas de rutinas y registro de cuidado. */
+export const MAX_ROUTINES_PER_PET = 20;
+/** Filas totales (versiones incluidas) por mascota. */
+export const MAX_ROUTINE_ROWS_PER_PET = 100;
+/** Gracia tras la hora de una ocurrencia antes de pasar a `OVERDUE` y de marcar `late`. */
+export const OVERDUE_GRACE_MINUTES = 60;
+/** Ventana de registro hacia atrás. */
+export const CARE_LOG_BACKFILL_HOURS = 24;
+/** Tolerancia de un `DONE` registrado antes de la hora de la ocurrencia. */
+export const CARE_LOG_EARLY_TOLERANCE_MINUTES = 15;
+/** Plazo para deshacer un registro propio (o de cualquiera, si es titular). */
+export const CARE_LOG_UNDO_MINUTES = 10;
+export const CARE_LOG_PAGE_MAX = 100;
+export const CARE_LOG_PAGE_DEFAULT = 50;
+export const CARE_LOG_WRITES_PER_USER_PER_HOUR = 120;
+export const CARE_ROUTINE_WRITES_PER_USER_PER_HOUR = 60;
+export const CARE_LOG_REVERT_WRITES_PER_USER_PER_HOUR = 30;
+export const CARE_TIMEZONE = 'America/Bogota';
+/** America/Bogota es UTC-5 fijo (sin horario de verano, D12-12). */
+export const CARE_UTC_OFFSET_HOURS = -5;
+/** Tope de `doseAmount` (NUMERIC(9,3), data-model.md). */
+export const CARE_DOSE_MAX = 100000;
