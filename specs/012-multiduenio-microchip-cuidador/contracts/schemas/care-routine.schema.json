@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://argos.local/contracts/schemas/care-routine.schema.json",
   "title": "CareRoutineSchema",
-  "description": "Rutinas de cuidado y dosis de una mascota [REQ-CAR12-001, REQ-CAR12-007, REQ-CAR12-008, D12-11, D12-12, D12-13]. Esquemas INCREMENTALES de la feature 012 (DRAFT). Objetos cerrados. Sin ordenes clinicas: ARGOS registra la indicacion que escribe el propietario; no calcula ni verifica dosis ni interacciones.",
+  "description": "Rutinas de cuidado y dosis de una mascota [REQ-CAR12-001, REQ-CAR12-007, REQ-CAR12-008, D12-11, D12-12, D12-13]. Esquemas INCREMENTALES de la feature 012 (DRAFT). Objetos cerrados. Sin ordenes clinicas: Tipi registra la indicacion que escribe el propietario; no calcula ni verifica dosis ni interacciones.",
   "x-sdd-metadata": {
     "version": "0.1.2",
     "status": "APPROVED",
