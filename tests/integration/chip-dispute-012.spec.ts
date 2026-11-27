@@ -106,6 +106,18 @@ for (const factory of ENGINE_FACTORIES) {
       expect(await codeOfChip(open.execute(ANDRES, { microchipId: CHIP_A, evidence: EVIDENCE }))).toBe('OK');
     });
 
+    it('[SC-012-111][D1] el cooldown depende solo del historial propio: tras un REJECT propio el chip LIBRE da el mismo 409 que el chip ocupado', async () => {
+      const { e, luna, open, admin } = await setup(factory);
+      await open.execute(ANDRES, { microchipId: CHIP_A, evidence: EVIDENCE });
+      const [row] = await openRows(e, luna.id);
+      const resolve = new admin.ResolveChipDisputeUseCase(e.deps) as unknown as { execute(a: Admin, id: string, body: { resolution: 'REJECT' }): Promise<unknown> };
+      await resolve.execute(ARBITER, String(row!['id']), { resolution: 'REJECT' });
+      e.setNow(daysAfter(10));
+      expect(await codeOfChip(open.execute(ANDRES, { microchipId: CHIP_A, evidence: EVIDENCE }))).toBe('ERR-CHP12-DISPUTE-COOLDOWN'); // chip ocupado
+      await e.run((r) => r.pets.delete(luna.id)); // chip libre: sin mascota; la reserva ya no existe tras el REJECT
+      expect(await codeOfChip(open.execute(ANDRES, { microchipId: CHIP_A, evidence: EVIDENCE }))).toBe('ERR-CHP12-DISPUTE-COOLDOWN');
+    });
+
     it('[SC-012-102][D12-07] el árbitro no puede ser parte: sin person_id o con el mismo person_id que el resolutor se falla CERRADO con ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT (texto neutro)', async () => {
       const { e, luna, open, admin } = await setup(factory);
       await open.execute(ANDRES, { microchipId: CHIP_A, evidence: EVIDENCE });
