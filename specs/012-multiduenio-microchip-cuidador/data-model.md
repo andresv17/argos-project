@@ -91,15 +91,17 @@
 | Columna | Tipo | Restricciones |
 | --- | --- | --- |
 | `id` | TEXT (UUID) | PK |
-| `pet_id` | TEXT | NOT NULL, FK `pets(id)` ON DELETE CASCADE |
+| `series_id` | TEXT (UUID, `length = 36`) | NOT NULL; **rutina lógica** (`seriesId` del contrato 0.1.2, A-05): todas las versiones de una rutina comparten el mismo `series_id`; índice `care_routines_series (series_id)` |
+| `pet_id` | TEXT | NOT NULL, FK `pets(id)` ON DELETE CASCADE (**decisión de data-model vigente; ver «PENDIENTE NEO» bajo `pet_caregiver_access`**) |
 | `kind` | TEXT | NOT NULL, CHECK IN (`MEDICATION`,`MEAL`,`WALK`,`OTHER`) |
 | `title` | TEXT | NOT NULL, 1–60 |
 | `instructions` | TEXT | NOT NULL DEFAULT '', ≤ 300 |
 | `dose_amount` | NUMERIC(8,3) | NULL; obligatorio y > 0 si `kind = 'MEDICATION'`; paso 0,25 si `TABLET` (dominio) |
-| `dose_unit` | TEXT | NULL, CHECK IN (`MG`,`MCG`,`ML`,`TABLET`,`DROP`) (**`UNIT` retirada**, `Neo-Maggie`); obligatorio si hay dosis |
+| `dose_unit` | TEXT | NULL, CHECK IN (`MG`,`MCG`,`ML`,`IU`,`TABLET`,`DROP`) (**`IU` incorporada por A-01 del schema 0.1.2; `UNIT` retirada**, `Neo-Maggie`; cifras de umbral de `IU` PENDIENTES de veterinario humano); obligatorio si hay dosis |
 | `times_of_day` | TEXT (JSON array `HH:MM`) | NOT NULL, 1–6 elementos ordenados y únicos |
 | `days_of_week` | TEXT (JSON array 1–7) | NOT NULL |
-| `start_date`, `end_date`, `effective_from`, `effective_to` | TEXT `YYYY-MM-DD` | NOT NULL, NULL, NOT NULL, NULL; `end_date >= start_date` |
+| `start_date`, `end_date` | TEXT `YYYY-MM-DD` | NOT NULL, NULL; `end_date >= start_date` |
+| `effective_from`, `effective_to` | TEXT **date-time** ISO (instante, no `YYYY-MM-DD`; schema 0.1.2, A-04: vigencia por instante) | NOT NULL, NULL; CHECK `effective_to IS NULL OR effective_to >= effective_from` |
 | `ongoing` | INTEGER | NOT NULL DEFAULT 0; regla de dominio y `CHECK`: si `kind = 'MEDICATION'` entonces `end_date IS NOT NULL XOR ongoing = 1` |
 | `supersedes_routine_id` | TEXT | NULL, FK `care_routines(id)` (versionado de dosis/horario, `M-7`) |
 | `active` | INTEGER | NOT NULL DEFAULT 1 |
@@ -108,13 +110,15 @@
 
 Tope: `MAX_ROUTINES_PER_PET = 20` filas con `active = 1` (regla de dominio) y techo `MAX_ROUTINE_ROWS_PER_PET = 100` filas totales por mascota (`m-1`). Cambiar dosis, unidad u horarios inserta una fila nueva con `supersedes_routine_id` y cierra la anterior (`active = 0`, `effective_to`).
 
-**`care_log_entries`**: `id` PK; `routine_id` FK `care_routines(id)` ON DELETE CASCADE; `occurrence_date` TEXT, `occurrence_time` TEXT `HH:MM`; `status` CHECK IN (`DONE`,`SKIPPED`); `late` INTEGER NOT NULL DEFAULT 0; `performed_at` TEXT ISO UTC (reloj del servidor); `performed_by_user_id` TEXT **NULL** FK `users(id)` ON DELETE SET NULL; `note` TEXT ≤ 140; `reverted_at` TEXT ISO UTC NULL, `reverted_by_user_id` TEXT NULL FK SET NULL, `revert_reason` TEXT NULL (obligatorio al revertir fuera de `CARE_LOG_UNDO_MINUTES`, `M-6`); UNIQUE parcial `(routine_id, occurrence_date, occurrence_time) WHERE reverted_at IS NULL`. **Sin `idempotency_key`** (`P-10`). Índice `(routine_id, occurrence_date)`. Las **ocurrencias no se persisten** (ADR-012-04).
+**`care_log_entries`**: `id` PK; `routine_id` FK `care_routines(id)` ON DELETE CASCADE; **`series_id` TEXT NOT NULL (`length = 36`; copia de `care_routines.series_id`, A-05)**; `occurrence_date` TEXT, `occurrence_time` TEXT `HH:MM`; `status` CHECK IN (`DONE`,`SKIPPED`); `late` INTEGER NOT NULL DEFAULT 0; `performed_at` TEXT ISO UTC (reloj del servidor); `performed_by_user_id` TEXT **NULL** FK `users(id)` ON DELETE SET NULL; `note` TEXT ≤ 140; `reverted_at` TEXT ISO UTC NULL, `reverted_by_user_id` TEXT NULL FK SET NULL, `revert_reason` TEXT NULL (obligatorio al revertir fuera de `CARE_LOG_UNDO_MINUTES`, `M-6`); **UNIQUE parcial `care_log_entries_occurrence` sobre `(series_id, occurrence_date, occurrence_time) WHERE reverted_at IS NULL`** (A-05: unicidad por rutina lógica, no por fila-versión, para impedir el doble registro tras un cambio de dosis; sustituye a la clave `(routine_id, ...)`). **Sin `idempotency_key`** (`P-10`). Índice `(routine_id, occurrence_date)`. Las **ocurrencias no se persisten** (ADR-012-04).
 
 **`pet_caregiver_access`** (`D12-09`): `pet_id` FK `pets(id)` ON DELETE CASCADE, `user_id` FK `users(id)` ON DELETE CASCADE, `level` CHECK IN (`VIEW_ONLY`,`BASIC_LOG`), `care_until` TEXT NULL, `granted_by_user_id` TEXT **NULL** FK `users(id)` ON DELETE SET NULL, `granted_at`, `version`; UNIQUE `(pet_id, user_id)`; solo aplica si el usuario es `CAREGIVER` `ACTIVE` de un hogar con la mascota asignada; sin fila el cuidador conserva los permisos clínicos del rol (`D12-10 = A`) y el Modo Cuidador es `VIEW_ONLY`.
 
+**Borrado desde `pets` (estado de la implementación de `T1652`):** las migraciones `0039` (SQLite) y `0035` (PostgreSQL) usan `ON DELETE CASCADE` desde `pets` hacia `care_routines` y `pet_caregiver_access`, y desde `care_routines` hacia `care_log_entries`, **como decisión de data-model, mientras Neo no decida lo contrario**. **PENDIENTE NEO: CASCADE o RESTRICT de pets hacia registros clínicos y columna de retención (1095/365/30).** Decisión abierta, sin decidir aquí: (a) si el borrado de `pets` arrastra (`CASCADE`) o bloquea (`RESTRICT`) los registros clínicos de cuidado; (b) si se añade una columna de vencimiento o la purga se calcula por `kind` + `occurrence_date`/`reverted_at`; el plazo de purga de `care_log_entries` y su columna de vencimiento **no quedan fijados** hasta esa decisión (la implementación actual no tiene columna de vencimiento).
+
 **Reglas de acceso del Bloque C (Neo, 2026-11-27, v0.1.2 de los contratos)**: solo **titulares** (propietario principal y co-propietario `ACTIVE`) definen rutinas (incluida medicación) y conceden, cambian o retiran filas de `pet_caregiver_access` (`granted_by_user_id` y auditoría); el `ADMIN` del hogar no. Leen rutinas y registros solo los titulares y los `CAREGIVER` `ACTIVE` con `VIEW_ONLY`/`BASIC_LOG` vigente; `ADMIN`, `MEMBER` y `READER` no (`T-C5`). `care_until` es **inclusivo**: el nivel rige hasta las 23:59:59 de `America/Bogota` del día indicado (`T-C3`). Topes por usuario y hora: 120 (`care_log_entries`), 60 (`care_routines` y niveles) y 30 (reversión), cubos independientes (`H-C1`). Conflicto de versión de rutina o nivel: `ERR-CAR12-ROUTINE-STALE` (`H-C2`, catálogo 0.3.0, DRAFT pendiente de Neo).
 
-Retención (ver matriz): `MEDICATION` 1095 días, `MEAL`/`WALK`/`OTHER` 365 días desde `occurrence_date`, revertidos 30 días; al fallecer (007) las rutinas pasan a `active = 0`.
+Retención (ver matriz; plazos de purga de `care_log_entries` PENDIENTES de Neo, ver marcador arriba): `MEDICATION` 1095 días, `MEAL`/`WALK`/`OTHER` 365 días desde `occurrence_date`, revertidos 30 días; al fallecer (007) las rutinas pasan a `active = 0`.
 
 ## Bloque `#32` — Ficha QR `[GH:#32]`
 - **`users.phone`** TEXT NULL (E.164 validado por dominio); **sin** `users.show_phone_on_emergency_card` (el opt-in es por mascota, `Neo-I`). Dato personal: base legal, aviso y retención en la matriz; se elimina con la cuenta.
