@@ -8,6 +8,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { CoOwnershipApiError, createCoOwnershipApi, ownershipProblemMessage } from '../../../src/presentation/web/co-ownership-api.ts';
 import { OwnersPanel, OwnershipInbox } from '../../../src/presentation/web/components/CoOwners.tsx';
+import { PetDashboard } from '../../../src/presentation/web/components/PetDashboard.tsx';
+import { activeOwnerCount, canOfferLeave, hasMultipleActiveOwners } from '../../../src/presentation/web/co-ownership-gating.ts';
+import { dashboardAs } from './rebanada6-fixtures.ts';
 
 const PET = '44444444-4444-4444-8444-444444444401';
 interface Call {
@@ -111,3 +114,78 @@ describe('T1617 accesibilidad del panel y de la bandeja (WCAG 2.4.3, 1.4.11, 4.1
     expect(src).toContain('No tienes invitaciones ni solicitudes pendientes.');
   });
 });
+
+/**
+ * H-K1 (opción A, Neo 2026-11-27), S-07 y S-08: gating de la ficha y del panel. Sin DOM simulado (Principio VI, sin dependencias nuevas): render estático de la ficha
+ * y verificación del cableado en el código fuente; el servidor conserva `ERR-OWN12-APPROVAL-PENDING` y `ERR-OWN12-LAST-OWNER`.
+ */
+describe('H-K1 gating de Eliminar y Transferir con varios propietarios ACTIVE', () => {
+  const noop = (): void => undefined;
+  const asyncNoop = async (): Promise<void> => undefined;
+  const render = (multiOwner: boolean, withOwnersTab: boolean): string =>
+    renderToStaticMarkup(
+      h(PetDashboard, {
+        dashboard: dashboardAs('OWNER'),
+        activeTab: 'weights',
+        onTabChange: noop,
+        onAddRecord: asyncNoop,
+        onEdit: noop,
+        onDelete: noop,
+        onTransfer: noop,
+        multiOwner,
+        ...(withOwnersTab ? { ownersSlot: h('div', null, 'panel') } : {}),
+      }),
+    );
+  const NOTICE = 'Con más de un propietario, eliminar o transferir necesita la aprobación de todos.';
+
+  it('[REQ-OWN12-004] con un solo propietario ACTIVE se ofrecen Eliminar y Transferir y no hay aviso', () => {
+    const markup = render(false, true);
+    expect([markup.includes('>Eliminar<'), markup.includes('>Transferir propiedad<'), markup.includes(NOTICE)]).toEqual([true, true, false]);
+  });
+
+  it('[REQ-OWN12-004][INV-OWN12-004] con más de un propietario ACTIVE no existen Eliminar ni Transferir y aparece la línea con el enlace «Ir a Propietarios»', () => {
+    const markup = render(true, true);
+    expect([markup.includes('>Eliminar<'), markup.includes('>Transferir propiedad<'), markup.includes('>Editar<')]).toEqual([false, false, true]);
+    expect(markup).toMatch(/Con más de un propietario, eliminar o transferir necesita la aprobación de todos\. <button[^>]*>Ir a Propietarios<\/button>/);
+  });
+
+  it('[REQ-OWN12-004] el conteo cuenta al principal y a los co-propietarios ACTIVE, no a las invitaciones; desconocido conserva el comportamiento previo', () => {
+    const row = (status: 'ACTIVE' | 'INVITED') => ({ status }) as never;
+    expect([activeOwnerCount({ coOwners: [] }), activeOwnerCount({ coOwners: [row('INVITED')] }), activeOwnerCount({ coOwners: [row('ACTIVE')] }), activeOwnerCount({ coOwners: [row('ACTIVE'), row('ACTIVE')] })]).toEqual([1, 1, 2, 3]);
+    expect([hasMultipleActiveOwners(null), hasMultipleActiveOwners(1), hasMultipleActiveOwners(2)]).toEqual([false, false, true]);
+  });
+
+  it('[REQ-OWN12-004] la página pasa multiOwner solo al propietario y con el conteo de la misma mascota', () => {
+    const page = readFileSync(new URL('../../../src/presentation/web/pages/PetsPage.tsx', import.meta.url), 'utf8');
+    expect(page).toContain("multiOwner={dashboard.myRole === 'OWNER' && ownerInfo?.petId === dashboard.profile.id && hasMultipleActiveOwners(ownerInfo.count)}");
+    expect(page).toContain('onOwnershipLoaded');
+  });
+});
+
+describe('S-07 «Salir de esta mascota» y S-08 confirmación de «Pedir eliminar la mascota»', () => {
+  const src = readFileSync(new URL('../../../src/presentation/web/components/CoOwners.tsx', import.meta.url), 'utf8');
+
+  it('[REQ-OWN12-006] «Salir» solo se ofrece con más de un propietario ACTIVE (la API conserva ERR-OWN12-LAST-OWNER)', () => {
+    expect(canOfferLeave({ coOwners: [] })).toBe(false);
+    expect(canOfferLeave({ coOwners: [{ status: 'INVITED' } as never] })).toBe(false);
+    expect(canOfferLeave({ coOwners: [{ status: 'ACTIVE' } as never] })).toBe(true);
+    expect(src).toMatch(/\{canOfferLeave\(ownership\) \? \(\s*<div className="grid gap-2">\s*\{confirmLeave/);
+  });
+
+  it('[REQ-OWN12-004] «Pedir eliminar la mascota» abre un grupo con foco gestionado y aria-describedby; solo «Confirmar» envía la solicitud', () => {
+    // El botón inicial solo abre la confirmación.
+    expect(src).toMatch(/onClick=\{\(\) => setConfirmDelete\(true\)\}>\s*Pedir eliminar la mascota/);
+    // El envío vive únicamente dentro del grupo de confirmación, tras «Confirmar».
+    expect(occurrencesOf(src, "createRequest(petId, { action: 'DELETE_PET' })")).toBe(1);
+    expect(src).toMatch(/role="group" aria-labelledby="owners-delete-title" aria-describedby="owners-delete-desc"/);
+    expect(src).toContain('id="owners-delete-desc"');
+    expect(src).toMatch(/describedBy="owners-delete-desc"[\s\S]*?createRequest\(petId, \{ action: 'DELETE_PET' \}\)[\s\S]*?Confirmar\s*<\/Button>\s*<Button variant="secondary" onClick=\{\(\) => setConfirmDelete\(false\)\}>\s*Cancelar/);
+    // Foco al grupo al abrir y al encabezado al cerrar (WCAG 2.4.3); Esc cancela.
+    expect(src).toContain('(confirmDelete ? confirmDeleteRef.current : headingRef.current)?.focus()');
+    expect(src).toContain("event.key === 'Escape'");
+  });
+});
+
+function occurrencesOf(text: string, needle: string): number {
+  return text.split(needle).length - 1;
+}

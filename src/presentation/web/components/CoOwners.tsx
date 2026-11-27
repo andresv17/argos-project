@@ -15,6 +15,7 @@ import {
   type OwnerRequestItem,
   type OwnershipView,
 } from '../co-ownership-api.ts';
+import { canOfferLeave } from '../co-ownership-gating.ts';
 import { Button } from './Field.tsx';
 
 const messageOf = (error: unknown): string => ownershipProblemMessage(error instanceof CoOwnershipApiError ? error.code : 'ERR-INTERNAL-UNEXPECTED');
@@ -68,12 +69,14 @@ function OwnersList({ ownership }: { readonly ownership: OwnershipView }): JSX.E
 }
 
 /** @implements REQ-OWN12-002, REQ-OWN12-004, REQ-OWN12-006, INV-OWN12-004 */
-export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = createCoOwnershipApi() }: {
+export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwnershipLoaded, api = createCoOwnershipApi() }: {
   readonly petId: string;
   readonly petName: string;
   readonly currentUserId: string;
   /** La salida o la eliminación aprobada cambian lo que el usuario ve: la página recarga su lista. */
   readonly onChanged?: () => void;
+  /** H-K1: avisa a la ficha del número de propietarios ACTIVE tras cada lectura, para ocultar Eliminar/Transferir. */
+  readonly onOwnershipLoaded?: (view: OwnershipView) => void;
   readonly api?: CoOwnershipApi;
 }): JSX.Element {
   const [ownership, setOwnership] = useState<OwnershipView | null>(null);
@@ -84,6 +87,12 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
   const [confirmLeave, setConfirmLeave] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
+  // La función de aviso cambia en cada render de la ficha: se lee por referencia para no relanzar la consulta.
+  const loadedRef = useRef(onOwnershipLoaded);
+  loadedRef.current = onOwnershipLoaded;
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirmDeleteRef = useRef<HTMLDivElement>(null);
+  const deleteMounted = useRef(false);
   const leaveMounted = useRef(false);
   // WCAG 2.4.3: al abrir o cerrar la confirmación de salida el botón pulsado se desmonta; el foco pasa a un elemento estable.
   useEffect(() => {
@@ -93,10 +102,20 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
     }
     (confirmLeave ? confirmRef.current : headingRef.current)?.focus();
   }, [confirmLeave]);
+  // S-08: igual para la confirmación de «Pedir eliminar la mascota»: foco al grupo al abrir y al encabezado al cerrar.
+  useEffect(() => {
+    if (!deleteMounted.current) {
+      deleteMounted.current = true;
+      return;
+    }
+    (confirmDelete ? confirmDeleteRef.current : headingRef.current)?.focus();
+  }, [confirmDelete]);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      setOwnership(await api.getOwnership(petId));
+      const view = await api.getOwnership(petId);
+      setOwnership(view);
+      loadedRef.current?.(view);
     } catch (e) {
       setError(messageOf(e));
     }
@@ -194,9 +213,11 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
             <div className="grid min-w-0 gap-2 rounded-xl border border-border-strong p-3">
               <p className="text-sm font-semibold text-slate-900">Acciones que necesitan la aprobación de los demás propietarios</p>
               <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" disabled={busy} onClick={() => void run(async () => { await api.createRequest(petId, { action: 'DELETE_PET' }); return 'Pediste eliminar la mascota. Los demás propietarios deben aprobarlo (vence en 7 días).'; })}>
-                  Pedir eliminar la mascota
-                </Button>
+                {confirmDelete ? null : (
+                  <Button variant="secondary" disabled={busy} onClick={() => setConfirmDelete(true)}>
+                    Pedir eliminar la mascota
+                  </Button>
+                )}
                 {isPrincipal
                   ? coOwnersActive.map((row) => (
                       <Button key={row.id} variant="secondary" disabled={busy} ariaLabel={`Pedir que @${row.username} sea el propietario principal`} onClick={() => void run(async () => { await api.createRequest(petId, { action: 'CHANGE_PRINCIPAL', targetUserId: row.userId }); return `Pediste que @${row.username} sea el propietario principal.`; })}>
@@ -205,8 +226,23 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
                     ))
                   : null}
               </div>
+              {confirmDelete ? (
+                <div ref={confirmDeleteRef} tabIndex={-1} role="group" aria-labelledby="owners-delete-title" aria-describedby="owners-delete-desc" onKeyDown={(event) => { if (event.key === 'Escape') setConfirmDelete(false); }} className="grid gap-2 rounded-xl border border-danger bg-red-50 p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
+                  <p id="owners-delete-title" className="text-sm font-semibold text-red-900">{`¿Pedir eliminar a ${petName}?`}</p>
+                  <p id="owners-delete-desc" className="text-sm text-red-900">Se enviará una solicitud a los demás propietarios. La mascota solo se elimina si todos la aprueban antes de 7 días; mientras tanto no cambia nada.</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="danger" disabled={busy} describedBy="owners-delete-desc" onClick={() => void run(async () => { await api.createRequest(petId, { action: 'DELETE_PET' }); return 'Pediste eliminar la mascota. Los demás propietarios deben aprobarlo (vence en 7 días).'; }, () => setConfirmDelete(false))}>
+                      Confirmar
+                    </Button>
+                    <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
+          {canOfferLeave(ownership) ? (
           <div className="grid gap-2">
             {confirmLeave ? (
               <div ref={confirmRef} tabIndex={-1} role="group" aria-label="Confirmar la salida" className="grid gap-2 rounded-xl border border-danger bg-red-50 p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
@@ -230,6 +266,7 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
               </div>
             )}
           </div>
+          ) : null}
         </>
       )}
     </section>

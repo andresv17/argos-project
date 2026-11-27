@@ -17,6 +17,8 @@ import { HomeSceneImage } from '../components/HomeSceneImage.tsx';
 import { PetReferenceNote } from '../components/HouseholdPhoto.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { OwnersPanel, OwnershipInbox } from '../components/CoOwners.tsx';
+import { createCoOwnershipApi, type OwnershipView } from '../co-ownership-api.ts';
+import { activeOwnerCount, hasMultipleActiveOwners } from '../co-ownership-gating.ts';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { PhotoAlbum } from '../components/PhotoAlbum.tsx';
 import { principalHouseholdId } from '../scene-view.ts';
@@ -55,6 +57,8 @@ export function PetsPage(): JSX.Element {
   const [mode, setMode] = useState<Mode>('VIEW');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // H-K1: número de propietarios ACTIVE de la mascota abierta (solo se consulta al propietario); `null` mientras se desconoce.
+  const [ownerInfo, setOwnerInfo] = useState<{ readonly petId: string; readonly count: number } | null>(null);
   const cardsRequest = useRef(0);
   const dashboardRequest = useRef(0);
 
@@ -106,6 +110,22 @@ export function PetsPage(): JSX.Element {
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
+
+  // H-K1: la ficha del propietario consulta cuántos propietarios ACTIVE hay para decidir si ofrece Eliminar/Transferir; si falla, conserva el comportamiento previo (el servidor rechaza con 409).
+  useEffect(() => {
+    if (dashboard === null || dashboard.myRole !== 'OWNER') return;
+    let cancelled = false;
+    const petId = dashboard.profile.id;
+    createCoOwnershipApi()
+      .getOwnership(petId)
+      .then((view) => {
+        if (!cancelled) setOwnerInfo({ petId, count: activeOwnerCount(view) });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [dashboard]);
 
   const refreshAll = async (): Promise<void> => {
     await loadCards();
@@ -244,6 +264,7 @@ export function PetsPage(): JSX.Element {
                 onDeleteRecord={onDeleteRecord}
                 onEdit={() => setMode('EDIT')}
                 onDelete={() => setMode('DELETE')}
+                multiOwner={dashboard.myRole === 'OWNER' && ownerInfo?.petId === dashboard.profile.id && hasMultipleActiveOwners(ownerInfo.count)}
                 onTransfer={() => {
                   setNotice(null);
                   setMode('TRANSFER');
@@ -297,7 +318,7 @@ export function PetsPage(): JSX.Element {
                     }
                   : {})}
                 {...(user !== null && dashboard.myRole === 'OWNER'
-                  ? { ownersSlot: <OwnersPanel key={`owners-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} currentUserId={user.id} onChanged={() => void refreshAll()} /> }
+                  ? { ownersSlot: <OwnersPanel key={`owners-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} currentUserId={user.id} onChanged={() => void refreshAll()} onOwnershipLoaded={(view: OwnershipView) => setOwnerInfo({ petId: dashboard.profile.id, count: activeOwnerCount(view) })} /> }
                   : {})}
                 {...(mode === 'TRANSFER' && dashboard.permissions.transferPetOwnership
                   ? {

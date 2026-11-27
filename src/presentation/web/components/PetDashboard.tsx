@@ -16,6 +16,7 @@ import { RecordActions } from './RecordActions.tsx';
 import { RecordForm } from './RecordForm.tsx';
 import { SymptomLegend } from './SymptomLegend.tsx';
 import { symptomSummary, type SymptomSeverity, type SymptomType } from '../symptoms.ts';
+import { MULTI_OWNER_LINK_TEXT, MULTI_OWNER_NOTICE_TEXT } from '../co-ownership-gating.ts';
 import { WeightChart, WeightTable } from './WeightChart.tsx';
 import type { FormBody } from '../validation.ts';
 import { OPTION_B_MODULES, RECORD_MODULES, RECORD_SUMMARY, RECORD_WRITE_PERMISSION, showsBareForm, showsFormOpenByDefault, type RecordModule } from '../records.ts';
@@ -287,7 +288,7 @@ const OWNERS_TAB = { id: 'owners', label: 'Propietarios' } as const;
 
 const STAT_CARD = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 
-export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEditRecord, onDeleteRecord, onEdit, onDelete, onTransfer, editSlot, deleteSlot, transferSlot, mediaSlot, albumSlot, shareSlot, ownersSlot }: {
+export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, onEditRecord, onDeleteRecord, onEdit, onDelete, onTransfer, multiOwner = false, editSlot, deleteSlot, transferSlot, mediaSlot, albumSlot, shareSlot, ownersSlot }: {
   readonly dashboard: PetDashboardView;
   readonly activeTab: ActiveTab;
   readonly onTabChange: (tab: ActiveTab) => void;
@@ -300,6 +301,8 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
   readonly onDelete: () => void;
   /** REQ-OWN-001: abre el panel de transferencia; el botón solo existe si lo pasa la página y `transferPetOwnership` es cierto. */
   readonly onTransfer?: () => void;
+  /** H-K1 (opción A): con más de un propietario ACTIVE no se ofrecen «Eliminar» ni «Transferir»; en su lugar un enlace a la pestaña «Propietarios». El servidor conserva el 409. */
+  readonly multiOwner?: boolean;
   /** Modo EDIT: formulario que sustituye al hero y al bento mientras dura. */
   readonly editSlot?: ReactNode;
   /** Modo DELETE: diálogo en línea bajo el hero. */
@@ -402,21 +405,33 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                   <p className="w-fit rounded-xl border border-slate-500 bg-slate-100 px-3 py-1 text-sm font-bold text-slate-900">{deceasedBadgeText(profile)}</p>
                 )}
                 {permissions.editPetBasics || permissions.deletePet || (permissions.transferPetOwnership && onTransfer !== undefined) ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {permissions.editPetBasics ? (
                       <Button variant="secondary" onClick={onEdit}>
                         Editar
                       </Button>
                     ) : null}
-                    {permissions.transferPetOwnership && onTransfer !== undefined ? (
+                    {!multiOwner && permissions.transferPetOwnership && onTransfer !== undefined ? (
                       <Button variant="secondary" onClick={onTransfer}>
                         Transferir propiedad
                       </Button>
                     ) : null}
-                    {permissions.deletePet ? (
+                    {!multiOwner && permissions.deletePet ? (
                       <Button variant="danger" onClick={onDelete}>
                         Eliminar
                       </Button>
+                    ) : null}
+                    {multiOwner && (permissions.deletePet || permissions.transferPetOwnership) ? (
+                      <p className="min-w-0 text-sm text-slate-700" data-testid="multi-owner-notice">
+                        {MULTI_OWNER_NOTICE_TEXT}{' '}
+                        {showOwners ? (
+                          <button type="button" onClick={() => onTabChange('owners')} className="min-h-11 rounded font-semibold text-slate-900 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
+                            {MULTI_OWNER_LINK_TEXT}
+                          </button>
+                        ) : (
+                          MULTI_OWNER_LINK_TEXT
+                        )}
+                      </p>
                     ) : null}
                   </div>
                 ) : null}
