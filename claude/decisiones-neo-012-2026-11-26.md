@@ -203,3 +203,14 @@ Nivel 1 confirmado por Neo: `MICROCHIP_IMPORT_MAX_PETS = 10`; `OWNERSHIP_LOCK_TI
 - `trinity C-5`: `REQ-OWN12-006`, `SC-012-094`, `EDGE-012-058`.
 - `rama R-A2`, `R-A4`, `R-A5`: `REQ-CHP12-008`, `data-model` (seudonimización no es anonimización), `REQ-QR12-006`, `SC-012-116`, `T1682`.
 - Decisiones de Nivel 1 del arquitecto a confirmar: constantes `MICROCHIP_IMPORT_MAX_PETS = 10` y `OWNERSHIP_LOCK_TIMEOUT_MS` (valor en `T1616`); `target_last_active_at` derivado en lectura sin columna nueva en `users` (fuente fijada en `T1627`); el regex `[0-9]{15}` se aplica en el comprobador nuevo sin tocar el `^\d{15}$` citado de 004 (`REQ-CHP12-002`).
+
+## Resoluciones de Neo sobre T1612 (H-02, H-09, H-16) — aplicadas en DRAFT
+**2026-11-26 — `/architect` (DRAFT), cierre de `trinity` T1612 (Bloque A).** `H-01, H-03..H-08, H-10..H-15` aplicados como texto de contrato (sin `[x]`). Neo resolvió los tres restantes el 2026-11-26 y se aplicaron en `spec.md`, `data-model.md`, `tasks.md` y `contracts/` (sin `[x]`, sin firmar nada nuevo):
+
+| ID | Resolución de Neo | Aplicado en |
+| --- | --- | --- |
+| **H-02** | **Opción (a) APROBADA**: contar **todo intento** de invitación en `CO_OWNER_INVITES_PER_USER_PER_DAY` (atómico, antes de resolver el `username`), sin filas ficticias; **residual aceptado explícitamente** (mismo criterio que `REQ-HOUSE2-001`) | `REQ-OWN12-002`, `INV-OWN12-004`, `SC-012-075` |
+| **H-09** | **Propuesta reforzada APROBADA**: `ABSENCE_MIN_INACTIVE_DAYS = 14` y las 2 solicitudes críticas expiradas en 60 días deben ser **secuenciales** (no paralelas; `DELETE_PET` no cuenta, según la propuesta de `trinity`) | `REQ-OWN12-009`, `SC-012-091..093`, `EDGE-012-056/057`, `data-model`, `T1627`, constantes |
+| **H-16** | **Reconciliado con la firma APPROVED de Neo (2026-11-26)**: `ENM-002-MINOR-012` y `ENM-005-A` `APPROVED` en cabeceras de anexos, `contracts/README.md` y tabla del anexo §1; contratos máquina `DRAFT` hasta superar `T1612` | anexos, README, `spec.md` |
+
+`H-17` (INFO): regla Semgrep contra comparar `ownerUserId` fuera de `canActOnPet` (T1621) sigue sin existir; es bloqueante de `T1620`.

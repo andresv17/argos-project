@@ -55,7 +55,7 @@ Texto vigente de la 002, citado por `specs/002-*/spec.md`: `REQ-OWN-001` dice qu
 
 Con co-propiedad **cada co-propietario puede asignar a hogares distintos**, de modo que la regla se reformula (`REQ-OWN12-007`):
 
-> **Todo hogar donde la mascota está asignada tiene como miembro `ACTIVE` al co-propietario que la asignó** (`pet_household_assignments.assigned_by_user_id`).
+> **Todo hogar donde la mascota está asignada tiene como miembro `ACTIVE` al co-propietario que la asignó** (`pet_assignments.assigned_by_user_id`).
 
 - La **poda** de `household-policies` se hace por **`assigned_by_user_id`** y no por `ownerUserId`: al `LEFT`/`REMOVED` de un miembro, o al salir o suprimirse un co-propietario, se retiran solo las asignaciones hechas por esa persona a ese hogar.
 - Un co-propietario solo **desasigna** lo que asignó.
