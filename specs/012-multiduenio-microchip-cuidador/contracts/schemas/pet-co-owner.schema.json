@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/pet-co-owner.schema.json",
+  "title": "PetCoOwnerSchema",
+  "description": "Co-propiedad de una mascota [REQ-OWN12-001..003, REQ-OWN12-006, INV-OWN12-003, INV-OWN12-004]. Esquemas INCREMENTALES de la feature 012 (DRAFT). Objetos cerrados. Nunca exponen correo, telefono ni hogar de los co-propietarios.",
+  "x-sdd-metadata": {
+    "version": "0.1.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "0.1.0 (feature 012, T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo): +CoOwnerStatus (STATE-COOWN12-001), +PetCoOwner, +OwnershipState, +InviteCoOwnerRequest, +InviteCoOwnerAccepted (202 uniforme), +LeavePetRequest, +LeavePetResult. successorUserId se descarta sin error ni efecto cuando no procede (REQ-OWN12-006); el resultado devuelve siempre el principal resultante y nunca el motivo de un descarte (trinity C-5).",
+    "traceability": [
+      "STATE-COOWN12-001",
+      "REQ-OWN12-001",
+      "REQ-OWN12-002",
+      "REQ-OWN12-003",
+      "REQ-OWN12-006",
+      "REQ-OWN12-011",
+      "INV-OWN12-003",
+      "INV-OWN12-004",
+      "INV-OWN12-005",
+      "EDGE-012-001",
+      "EDGE-012-042",
+      "SC-012-075"
+    ]
+  },
+  "x-sdd-constants": {
+    "MAX_CO_OWNERS_PER_PET": {
+      "value": 3,
+      "where": "src/domain/platform/feature-012-limits.ts (INV-ARCH-006; app-config.ts no se toca, H-01)",
+      "rule": "principal incluido; las invitaciones INVITED cuentan"
+    },
+    "CO_OWNER_INVITE_TTL_DAYS": {
+      "value": 7,
+      "where": "feature-012-limits.ts",
+      "rule": "expires_at = invited_at + 7 dias; expiracion perezosa"
+    },
+    "CO_OWNER_INVITES_PER_USER_PER_DAY": {
+      "value": 5,
+      "where": "feature-012-limits.ts",
+      "rule": "por invitador; excedido = 429 ERR-RATE-LIMITED (heredado)"
+    }
+  },
+  "$defs": {
+    "CoOwnerStatus": {
+      "type": "string",
+      "enum": [
+        "INVITED",
+        "ACTIVE",
+        "DECLINED",
+        "CANCELLED",
+        "EXPIRED",
+        "LEFT",
+        "PROMOTED",
+        "ENDED"
+      ],
+      "description": "STATE-COOWN12-001. Solo ACTIVE lee y escribe como propietario; INVITED/DECLINED/CANCELLED/EXPIRED/LEFT/PROMOTED/ENDED no leen (INV-ACC2-001 enmendado)."
+    },
+    "CoOwnerPrincipalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "userId",
+        "username"
+      ],
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 32,
+          "description": "username publico; longitud maxima = la de username de 002"
+        }
+      }
+    },
+    "PetCoOwner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "petId",
+        "userId",
+        "username",
+        "status",
+        "joinedAt",
+        "invitedAt",
+        "expiresAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "petId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 32,
+          "description": "username publico; longitud maxima = la de username de 002"
+        },
+        "status": {
+          "$ref": "#/$defs/CoOwnerStatus"
+        },
+        "invitedByUsername": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3,
+          "maxLength": 32
+        },
+        "invitedAt": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 20,
+          "maxLength": 32
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 20,
+          "maxLength": 32
+        },
+        "joinedAt": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "minLength": 20,
+              "maxLength": 32
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "leftAt": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "minLength": 20,
+              "maxLength": 32
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "promotionKind": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "DESIGNATED",
+            "AUTO",
+            null
+          ],
+          "description": "Solo en filas PROMOTED (N2-R3)"
+        }
+      }
+    },
+    "PromotionNotice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pending"
+      ],
+      "properties": {
+        "pending": {
+          "type": "boolean",
+          "description": "true mientras promotion_notice_ack_at sea NULL en la fila PROMOTED del usuario; la interfaz muestra «Ahora eres propietario principal de {mascota}» (rama R-10). Aviso derivado, sin tabla de notificaciones."
+        }
+      }
+    },
+    "AbsenceNotice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "open",
+        "respondable"
+      ],
+      "properties": {
+        "open": {
+          "type": "boolean",
+          "description": "Hay una disputa por ausencia UNDER_REVIEW cuyo target es este usuario. Sin identidad del solicitante ni evidencia (Neo-K)."
+        },
+        "respondable": {
+          "type": "boolean",
+          "description": "true si el target aun no dejo su respuesta unica (escritura unica: UPDATE ... WHERE target_response IS NULL)"
+        },
+        "frozenUntil": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "minLength": 20,
+              "maxLength": 32
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "OwnershipState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "petId",
+        "ownershipVersion",
+        "principal",
+        "coOwners",
+        "promotionNotice",
+        "absenceNotice"
+      ],
+      "properties": {
+        "petId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "ownershipVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "principal": {
+          "$ref": "#/$defs/CoOwnerPrincipalRef"
+        },
+        "coOwners": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/PetCoOwner"
+          },
+          "description": "ACTIVE e INVITED; solo visible a principal y co-propietarios ACTIVE. Cota = MAX_CO_OWNERS_PER_PET."
+        },
+        "promotionNotice": {
+          "$ref": "#/$defs/PromotionNotice"
+        },
+        "absenceNotice": {
+          "$ref": "#/$defs/AbsenceNotice"
+        }
+      }
+    },
+    "InviteCoOwnerRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username"
+      ],
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 32,
+          "description": "username digitado; con mas de un propietario ACTIVE se sella en la solicitud INVITE_CO_OWNER y se borra al decidir (trinity R-09)"
+        }
+      }
+    },
+    "InviteCoOwnerAccepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "RECEIVED",
+          "description": "Cuerpo UNICO del 202 para username inexistente, no elegible, existente o accion que quedo como solicitud (INV-OWN12-004, SC-012-075)"
+        }
+      }
+    },
+    "LeavePetRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "successorUserId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36,
+          "description": "Designacion opcional (REQ-OWN12-006): co-propietario ACTIVE de esa mascota distinto de quien sale; se valida dentro de la transaccion y se descarta sin error ni efecto si no procede (la salida nunca se bloquea)"
+        }
+      }
+    },
+    "LeavePetResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "petId",
+        "principal"
+      ],
+      "properties": {
+        "petId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "principal": {
+          "$ref": "#/$defs/CoOwnerPrincipalRef",
+          "description": "El principal resultante; nunca el motivo de una designacion descartada (trinity C-5)"
+        }
+      }
+    }
+  }
+}
