@@ -2,6 +2,7 @@
  * T1617 (Feature 012, Bloque A, #22): cliente HTTP de co-propiedad de la SPA y panel «Propietarios» (REQ-OWN12-002, REQ-OWN12-004, INV-OWN12-004). Cliente con `fetch` simulado (cabecera CSRF,
  * rutas del OpenAPI de la 012, 404 sin distinguir terceros) y render estático del panel y de la bandeja; el recorrido en dos navegadores es la prueba manual T1618.
  */
+import { readFileSync } from 'node:fs';
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -62,5 +63,51 @@ describe('T1617 panel «Propietarios» y bandeja', () => {
     expect(panel).toContain('Cargando propietarios');
     // Solo queda la región live vacía y oculta (WCAG 4.1.3): sin sección ni encabezado visibles.
     expect(renderToStaticMarkup(h(OwnershipInbox, {}))).toBe('<div role="status" aria-live="polite" class="sr-only"></div>');
+  });
+});
+
+/**
+ * Accesibilidad (sati T1619, oracle): el repositorio no incluye testing-library ni DOM simulado, y no se añaden dependencias; el cableado del foco y de los estilos se verifica
+ * sobre el render estático (regiones live) y sobre el código fuente del componente. El recorrido real con teclado queda en la prueba manual T1618.
+ */
+describe('T1617 accesibilidad del panel y de la bandeja (WCAG 2.4.3, 1.4.11, 4.1.3)', () => {
+  const src = readFileSync(new URL('../../../src/presentation/web/components/CoOwners.tsx', import.meta.url), 'utf8');
+  const occurrences = (needle: string): number => src.split(needle).length - 1;
+
+  it('[REQ-OWN12-002] el panel monta las regiones role=alert y role=status desde el primer render', () => {
+    const panel = renderToStaticMarkup(h(OwnersPanel, { petId: PET, petName: 'Argos', currentUserId: 'u1' }));
+    expect(panel).toContain('<div role="alert"></div>');
+    expect(panel).toContain('<div role="status" aria-live="polite"></div>');
+  });
+
+  it('[REQ-OWN12-002] input, tarjetas y bandeja usan border-border-strong; no queda border-border sin sufijo en el componente', () => {
+    expect(src).toMatch(/id="owners-invite"[\s\S]*?border-border-strong/);
+    expect(occurrences('rounded-xl border border-border-strong')).toBeGreaterThanOrEqual(4);
+    expect(src).not.toMatch(/border-border(?!-strong)/);
+  });
+
+  it('[REQ-OWN12-002] el botón Enviar invitación y el input apuntan a owners-invite-help, que existe', () => {
+    expect(src).toContain('aria-describedby="owners-invite-help"');
+    expect(src).toContain('describedBy="owners-invite-help"');
+    expect(src).toContain('id="owners-invite-help"');
+  });
+
+  it('[REQ-OWN12-004] el foco pasa al encabezado tras aceptar, rechazar o resolver solicitudes (run de la bandeja) y tras cancelar la invitación', () => {
+    // La bandeja enfoca su encabezado en la rama de éxito de run(); aceptar, rechazar, aprobar, rechazar y cancelar solicitud pasan todos por run().
+    expect(src).toMatch(/await refresh\(\);\s*\/\/[^\n]*\n\s*inboxHeadingRef\.current\?\.focus\(\)/);
+    for (const label of ['Invitación aceptada.', 'Invitación rechazada.', 'Solicitud aprobada.', 'Solicitud rechazada.', 'Solicitud cancelada.']) expect(src).toContain(label);
+    // Cancelar una invitación enviada pasa el encabezado del panel como destino.
+    expect(src).toMatch(/cancelInvitation\(petId, row\.id\)[^\n]*headingRef\.current\?\.focus\(\)/);
+  });
+
+  it('[REQ-OWN12-006] al pulsar Salir el foco va al grupo de confirmación y al cancelarla vuelve al encabezado', () => {
+    expect(src).toContain('(confirmLeave ? confirmRef.current : headingRef.current)?.focus()');
+    expect(src).toMatch(/ref=\{confirmRef\} tabIndex=\{-1\} role="group" aria-label="Confirmar la salida"/);
+  });
+
+  it('[REQ-OWN12-004] la bandeja vacía tras una acción no desmonta el encabezado: el foco no cae a body', () => {
+    expect(src).toContain('if (empty && !acted) return live;');
+    expect(src).toMatch(/setActed\(true\)/);
+    expect(src).toContain('No tienes invitaciones ni solicitudes pendientes.');
   });
 });
