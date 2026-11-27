@@ -166,7 +166,7 @@ export function evaluateOwnerRequest(request: SealedOwnerRequest, vote: OwnerReq
   const approvals = request.approvals.some((approval) => approval.u === vote.userId) ? [...request.approvals] : [...request.approvals, { u: vote.userId, at: now }];
   const everyone = request.approverSet.every((approver) => approvals.some((approval) => approval.u === approver));
   if (!everyone) return { status: 'PENDING', execute: false, approvals };
-  if (request.action === 'INVITE_CO_OWNER' && context.coOwnerRows.filter(occupiesSlot).length >= MAX_CO_OWNERS_PER_PET - 1) {
+  if ((request.action === 'INVITE_CO_OWNER' || request.action === 'CLAIM_CO_OWNERSHIP') && context.coOwnerRows.filter(occupiesSlot).length >= MAX_CO_OWNERS_PER_PET - 1) {
     return { status: 'REJECTED', execute: false, approvals, errorCode: 'ERR-OWN12-CO-OWNER-LIMIT' };
   }
   return { status: 'APPROVED', execute: true, approvals };

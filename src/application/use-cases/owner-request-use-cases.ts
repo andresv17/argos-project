@@ -399,7 +399,30 @@ async function executeCritical(deps: ApplicationDeps, repositories: RepositorySe
       }
       return { objectKeys: [], deletedPetId: null, rejectedWith: null };
     }
+    case 'CLAIM_CO_OWNERSHIP': {
+      // T1635 (REQ-CHP12-003): la aprobación de TODOS los propietarios crea la co-propiedad del solicitante (tope y congelación ya revalidados bajo el bloqueo por mascota).
+      const requester = request.requesterUserId;
+      if (requester === null || owners.includes(requester) || rows.some((row) => row.userId === requester && effectiveCoOwnerStatus(row, now) === 'INVITED')) throw new DomainError('ERR-OWN12-STALE');
+      await bumpOrRetry(repositories, petId, state);
+      await repositories.coOwners.insert({
+        id: deps.ids.nextId(),
+        petId,
+        userId: requester,
+        userPseudonym: null,
+        status: 'ACTIVE',
+        invitedByUserId: null,
+        invitedAt: now,
+        expiresAt: now,
+        joinedAt: now,
+        leftAt: null,
+        promotionKind: null,
+        promotionNoticeAckAt: null,
+        version: 1,
+      });
+      await recordOwnershipAudit(deps, repositories, actorUserId, 'CO_OWNER_ACCEPTED', petId, null, { status: 'ACTIVE', via: 'CLAIM' });
+      return { objectKeys: [], deletedPetId: null, rejectedWith: null };
+    }
     default:
-      throw new DomainError('ERR-OWN12-STALE'); // CLAIM_CO_OWNERSHIP y CHIP_DISPUTE pertenecen a los bloques #23 y a /admin
+      throw new DomainError('ERR-OWN12-STALE'); // CHIP_DISPUTE se ejecuta solo desde /admin (chip-dispute-admin-use-cases.ts)
   }
 }

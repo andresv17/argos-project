@@ -84,6 +84,15 @@ export interface OwnerRequestRecord {
   readonly resolvedByUserId: string | null;
   readonly secondApproverUserId: string | null;
   readonly executesAfter: string | null;
+  /**
+   * Arbitraje de `/admin` (T1648, migración 0037/0033): administradores que decidieron/confirmaron y copia seudónima de su `person_id` (sin FK). Opcionales: una fila sin arbitraje las omite (= null).
+   * Nunca se exponen al reclamante ni a los propietarios (INV-CHP12-006).
+   */
+  readonly resolvedByAdminId?: string | null;
+  readonly secondApproverAdminId?: string | null;
+  readonly resolvedByPersonId?: string | null;
+  readonly secondApproverPersonId?: string | null;
+  readonly secondApprovedAt?: string | null;
   readonly version: number;
 }
 
@@ -105,4 +114,11 @@ export interface OwnerRequestRepositoryPort {
   pseudonymizeUser(userId: string, pseudonym: string): Promise<void>;
   /** Mantenimiento: borra por id las filas indicadas; devuelve cuántas. */
   deleteByIds(ids: readonly string[]): Promise<number>;
+  /**
+   * Reserva del chip (INV-CHP12-009, T1646): ¿hay una `CHIP_DISPUTE` `CHIP_APPROPRIATION` en `UNDER_REVIEW` con ese `chip_hmac` y `expires_at > now`? SIEMPRE se ejecuta, con o sin mascota (la reserva
+   * sobrevive a la eliminación de la mascota y a la caducidad de la congelación; se libera al cerrarse la disputa por `RESOLVED` o `EXPIRED`).
+   */
+  hasOpenChipReservation(chipHmac: string, nowIso: string): Promise<boolean>;
+  /** Solicitudes con ese ancla `chip_hmac` (reclamaciones y disputas), por `createdAt` e `id`: la ancla sobrevive a la mascota (SC-012-079). */
+  listByChipHmac(chipHmac: string): Promise<OwnerRequestRecord[]>;
 }

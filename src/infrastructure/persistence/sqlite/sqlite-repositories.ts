@@ -70,6 +70,7 @@ import { STORED_RECORD_CHECKS, revisionOf, type RecordModule, type RecordOf } fr
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 import { isCanonicalUtcTimestamp } from '../../../domain/sorting/deterministic-sorter.ts';
 import { parseAccountStatus, type AccountStatus } from '../../../domain/account/account-status.ts';
+import { sqliteDisputeEvidenceRepository, sqliteIpRateEventRepository } from './sqlite-chip-repositories.ts';
 import { sqliteCoOwnerRepository, sqliteOwnerRequestRepository, sqliteOwnershipOps } from './sqlite-ownership-repositories.ts';
 import type Database from 'better-sqlite3';
 import type { SqliteDatabase } from './sqlite-database.ts';
@@ -1250,5 +1251,7 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     aboutContent: aboutContentRepository(db),
     coOwners: sqliteCoOwnerRepository(db),
     ownerRequests: sqliteOwnerRequestRepository(db),
+    ipRateEvents: sqliteIpRateEventRepository(db),
+    disputeEvidence: sqliteDisputeEvidenceRepository(db),
   };
 }

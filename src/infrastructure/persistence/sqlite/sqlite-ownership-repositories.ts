@@ -62,13 +62,16 @@ export function sqliteOwnerRequestRepository(db: SqliteDatabase): OwnerRequestRe
   const all = db.prepare<[], SqlRow>(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests ORDER BY created_at, id`);
   const ofRequester = db.prepare<[string], SqlRow>(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE requester_user_id = ? ORDER BY created_at, id`);
   const byId = db.prepare<[string], SqlRow>(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE id = ?`);
-  const insert = db.prepare(`INSERT INTO owner_requests (${OWNER_REQUEST_COLUMNS}) VALUES (${placeholders(34)})`);
+  const insert = db.prepare(`INSERT INTO owner_requests (${OWNER_REQUEST_COLUMNS}) VALUES (${placeholders(39)})`);
   const update = db.prepare(
     `UPDATE owner_requests SET status = ?, approver_set = ?, approvals = ?, rejected_by = ?, rejected_by_pseudonym = ?, message = ?, decided_at = ?, stale_reason = ?, target_username_sealed = ?,
        target_response = ?, requester_user_id = ?, requester_pseudonym = ?, target_user_id = ?, frozen_until = ?, freeze_extended_at = ?, sla_due_at = ?, escalated_at = ?, resolved_at = ?,
-       resolution = ?, moot_reason = ?, resolved_by_user_id = ?, second_approver_user_id = ?, executes_after = ?, version = version + 1 WHERE id = ? AND status = ?`,
+       resolution = ?, moot_reason = ?, resolved_by_user_id = ?, second_approver_user_id = ?, executes_after = ?, resolved_by_admin_id = ?, second_approver_admin_id = ?, resolved_by_person_id = ?,
+       second_approver_person_id = ?, second_approved_at = ?, version = version + 1 WHERE id = ? AND status = ?`,
   );
   const deleteById = db.prepare('DELETE FROM owner_requests WHERE id = ?');
+  const reserved = db.prepare<[string, string], { id: string }>("SELECT id FROM owner_requests WHERE chip_hmac = ? AND action = 'CHIP_DISPUTE' AND dispute_reason = 'CHIP_APPROPRIATION' AND status = 'UNDER_REVIEW' AND expires_at > ? LIMIT 1");
+  const ofChip = db.prepare<[string], SqlRow>(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE chip_hmac = ? ORDER BY created_at, id`);
   const mentioning = db.prepare<[string, string, string, string, string, string, string], SqlRow>(
     `SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE requester_user_id = ? OR target_user_id = ? OR rejected_by = ? OR resolved_by_user_id = ? OR second_approver_user_id = ? OR approver_set LIKE ? OR approvals LIKE ?`,
   );
@@ -97,7 +100,8 @@ export function sqliteOwnerRequestRepository(db: SqliteDatabase): OwnerRequestRe
         update.run(
           row.status, JSON.stringify(row.approverSet), JSON.stringify(row.approvals), row.rejectedBy, row.rejectedByPseudonym, row.message, row.decidedAt, row.staleReason, row.targetUsernameSealed,
           row.targetResponse, row.requesterUserId, row.requesterPseudonym, row.targetUserId, row.frozenUntil, row.freezeExtendedAt, row.slaDueAt, row.escalatedAt, row.resolvedAt,
-          row.resolution, row.mootReason, row.resolvedByUserId, row.secondApproverUserId, row.executesAfter, row.id, expectedStatus,
+          row.resolution, row.mootReason, row.resolvedByUserId, row.secondApproverUserId, row.executesAfter, row.resolvedByAdminId ?? null, row.secondApproverAdminId ?? null, row.resolvedByPersonId ?? null,
+          row.secondApproverPersonId ?? null, row.secondApprovedAt ?? null, row.id, expectedStatus,
         ).changes === 1
       );
     },
@@ -112,6 +116,12 @@ export function sqliteOwnerRequestRepository(db: SqliteDatabase): OwnerRequestRe
           `UPDATE owner_requests SET requester_user_id = ?, requester_pseudonym = ?, target_user_id = ?, rejected_by = ?, rejected_by_pseudonym = ?, resolved_by_user_id = ?, second_approver_user_id = ?, approver_set = ?, approvals = ? WHERE id = ?`,
         ).run(next.requesterUserId, next.requesterPseudonym, next.targetUserId, next.rejectedBy, next.rejectedByPseudonym, next.resolvedByUserId, next.secondApproverUserId, JSON.stringify(next.approverSet), JSON.stringify(next.approvals), row.id);
       }
+    },
+    async hasOpenChipReservation(chipHmac, nowIso) {
+      return reserved.get(chipHmac, nowIso) !== undefined;
+    },
+    async listByChipHmac(chipHmac) {
+      return ofChip.all(chipHmac).map(toOwnerRequestRecord);
     },
     async deleteByIds(ids) {
       let removed = 0;
@@ -128,6 +138,7 @@ export function sqliteOwnershipOps(db: SqliteDatabase) {
     "UPDATE pets SET owner_user_id = ?, data = json_set(data, '$.ownerUserId', ?), ownership_version = ownership_version + 1 WHERE id = ? AND owner_user_id = ? AND ownership_version = ?",
   );
   const bump = db.prepare('UPDATE pets SET ownership_version = ownership_version + 1 WHERE id = ? AND ownership_version = ?');
+  const holder = db.prepare<[string], { id: string; owner_user_id: string }>('SELECT id, owner_user_id FROM pets WHERE microchip_id = ? LIMIT 1');
   const toState = (row: { owner_user_id: string; ownership_version: number } | undefined): OwnershipState | null => (row === undefined ? null : { ownerUserId: row.owner_user_id, ownershipVersion: row.ownership_version });
   return {
     async findOwnership(petId: string): Promise<OwnershipState | null> {
@@ -141,6 +152,10 @@ export function sqliteOwnershipOps(db: SqliteDatabase) {
     },
     async bumpOwnershipVersion(petId: string, expectedOwnershipVersion: number): Promise<number> {
       return bump.run(petId, expectedOwnershipVersion).changes;
+    },
+    async findMicrochipHolder(microchipId: string): Promise<{ petId: string; ownerUserId: string } | null> {
+      const row = holder.get(microchipId);
+      return row === undefined ? null : { petId: row.id, ownerUserId: row.owner_user_id };
     },
   };
 }

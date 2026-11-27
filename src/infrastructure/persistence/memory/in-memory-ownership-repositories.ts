@@ -122,6 +122,12 @@ export function memoryOwnerRequestRepository(state: OwnershipMemoryState): Owner
     async pseudonymizeUser(userId, pseudonym) {
       state.ownerRequests = rows().map((r) => (mentionsUser(r, userId) ? scrubUserFromRequest(r, userId, pseudonym) : r));
     },
+    async hasOpenChipReservation(chipHmac, nowIso) {
+      return rows().some((r) => r.chipHmac === chipHmac && r.action === 'CHIP_DISPUTE' && r.disputeReason === 'CHIP_APPROPRIATION' && r.status === 'UNDER_REVIEW' && r.expiresAt > nowIso);
+    },
+    async listByChipHmac(chipHmac) {
+      return copy(rows().filter((r) => r.chipHmac === chipHmac).sort(byCreated));
+    },
     async deleteByIds(ids) {
       const wanted = new Set(ids);
       const before = rows().length;
@@ -132,7 +138,7 @@ export function memoryOwnerRequestRepository(state: OwnershipMemoryState): Owner
 }
 
 /** Operaciones de propiedad de `pets` en memoria. */
-export function memoryOwnershipOps(state: OwnershipMemoryState): Pick<PetRepositoryPort, 'findOwnership' | 'findOwnershipForUpdate' | 'compareAndSetOwner' | 'bumpOwnershipVersion'> {
+export function memoryOwnershipOps(state: OwnershipMemoryState): Pick<PetRepositoryPort, 'findOwnership' | 'findOwnershipForUpdate' | 'compareAndSetOwner' | 'bumpOwnershipVersion' | 'findMicrochipHolder'> {
   const versions = (): Record<string, number> => (state.ownershipVersions ??= {}); // solo en escrituras
   const read = (petId: string): OwnershipState | null => {
     const pet = state.pets.find((p) => p.id === petId);
@@ -151,6 +157,10 @@ export function memoryOwnershipOps(state: OwnershipMemoryState): Pick<PetReposit
       state.pets = state.pets.map((p) => (p.id === petId ? { ...p, ownerUserId: newOwnerUserId } : p));
       versions()[petId] = expectedOwnershipVersion + 1;
       return 1;
+    },
+    async findMicrochipHolder(microchipId) {
+      const pet = state.pets.find((p) => p.microchipId === microchipId);
+      return pet === undefined ? null : { petId: pet.id, ownerUserId: pet.ownerUserId };
     },
     async bumpOwnershipVersion(petId, expectedOwnershipVersion) {
       const current = read(petId);

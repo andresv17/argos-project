@@ -21,6 +21,8 @@ import type { SceneConsentRepository, SceneRepository } from './scene-repositori
 import type { AuthIdentityRepositoryPort, OAuthFlowStateRepositoryPort } from './auth-identity.port.ts';
 import type { AboutContentRepositoryPort } from './about.port.ts';
 import type { CoOwnerRepositoryPort, OwnerRequestRepositoryPort } from './co-ownership.port.ts';
+import type { IpRateEventRepositoryPort } from './ip-rate-events.port.ts';
+import type { DisputeEvidenceRepositoryPort } from './dispute-evidence.port.ts';
 import type { AdminAuditRepositoryPort, AdminDelegateRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
@@ -227,6 +229,11 @@ export interface PetRepositoryPort {
   compareAndSetOwner(petId: string, expectedOwnerUserId: string, expectedOwnershipVersion: number, newOwnerUserId: string): Promise<number>;
   /** `ownership_version + 1` sin cambiar el principal (entra o sale un co-propietario, se ejecuta una acción), condicionado a la versión leída; devuelve las filas afectadas. */
   bumpOwnershipVersion(petId: string, expectedOwnershipVersion: number): Promise<number>;
+  /**
+   * Mascota que tiene ese microchip entre TODAS las filas (fallecidas incluidas), sin depender del predicado de un índice (INV-CHP12-002): el comprobador único de unicidad y reserva
+   * (`chip-uniqueness.ts`, T1646) es el único consumidor. `null` si ningún registro lo tiene.
+   */
+  findMicrochipHolder(microchipId: string): Promise<{ readonly petId: string; readonly ownerUserId: string } | null>;
 }
 
 /** Principal actual y versión de propiedad de la mascota (`pets.owner_user_id`, `pets.ownership_version`). */
@@ -415,4 +422,8 @@ export interface RepositorySet {
   readonly coOwners: CoOwnerRepositoryPort;
   /** Solicitudes de propietarios (feature 012): aprobación conjunta, reclamación y disputa en una sola tabla `owner_requests`. */
   readonly ownerRequests: OwnerRequestRepositoryPort;
+  /** Contadores de intentos de chip por usuario, IP y global (012 #23, T1640). */
+  readonly ipRateEvents: IpRateEventRepositoryPort;
+  /** Evidencia de disputas de chip (012 #23, T1641). */
+  readonly disputeEvidence: DisputeEvidenceRepositoryPort;
 }

@@ -33,6 +33,9 @@ import { assertMicrochipWithinLimit, withDuplicateRecording } from './microchip-
 import { computeWeightEvolutionSeries, withSymptomFields } from '../../domain/records/record-invariants.ts';
 import { matchesPetListFilter, sortHistoricalRecords, sortPetsForListing, type PetListFilter } from '../../domain/sorting/deterministic-sorter.ts';
 import { assignOwnedPetToHousehold } from './assignment-use-cases.ts';
+import { assertPetNotFrozen } from './co-ownership-support.ts';
+import { countChipAttempt, type ChipRequestContext } from './chip-ip-rate-limit.ts';
+import { assertMicrochipAvailable } from './chip-uniqueness.ts';
 import { auditPetView, recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import {
@@ -92,7 +95,9 @@ function baseHouseholdIdOf(input: unknown): string | undefined {
 export class RegisterPetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  async execute(userId: string, input: unknown): Promise<PetProfileView> {
+  async execute(userId: string, input: unknown, context: ChipRequestContext = {}): Promise<PetProfileView> {
+    // REQ-CHP12-005: TODO intento con `microchipId` cuenta (usuario, IP, global) ANTES de resolver y fuera de la transacción de negocio; el 429 es uniforme.
+    await countChipAttempt(this.deps, userId, input, context);
     return withDuplicateRecording(this.deps, userId, () =>
       this.deps.uow.runInTransaction(async (repositories) => {
         const pet = createPetProfile({
@@ -104,6 +109,8 @@ export class RegisterPetUseCase {
         });
         // REQ-PET4-002: chequeo previo del límite de duplicados (429 sin guardar), tras validar la entrada y antes de guardar.
         await assertMicrochipWithinLimit(this.deps, repositories, userId, pet.microchipId !== null);
+        // REQ-CHP12-001/006: comprobador ÚNICO de unicidad y reserva (split de error); el índice global queda como red de seguridad ante carreras.
+        if (pet.microchipId !== null) await assertMicrochipAvailable(this.deps, repositories, userId, pet.microchipId);
         await mapMicrochipViolation(() => repositories.pets.save(pet));
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'CREATE', entityType: 'PET', entityId: pet.id, previous: null, next: auditPetView(pet) });
         const baseHouseholdId = baseHouseholdIdOf(input);
@@ -123,7 +130,8 @@ export class UpdatePetUseCase {
    * Orden: candado de mascota, acceso (404 antes que 403), `If-Match` presente, comparación de la versión BAJO EL CANDADO (distinta: 412 sin cambios ni
    * auditoría), esquema y dominio sobre el estado resultante.
    */
-  async execute(userId: string, petId: string, input: unknown, ifMatch: number | null): Promise<PetProfileView> {
+  async execute(userId: string, petId: string, input: unknown, ifMatch: number | null, context: ChipRequestContext = {}): Promise<PetProfileView> {
+    await countChipAttempt(this.deps, userId, input, context); // REQ-CHP12-005 (antes de resolver, fuera de la transacción de negocio)
     return withDuplicateRecording(this.deps, userId, () =>
       this.deps.uow.runInTransaction(async (repositories) => {
         await lockPet(repositories, petId); // REQ-FAL7-011, EDGE-007-010: candado de mascota antes de leer la mascota y los registros
@@ -139,8 +147,12 @@ export class UpdatePetUseCase {
           recordEventDates: collectRecordEventDates(petId, records),
           records,
         });
+        // REQ-CHP12-004 (INV-CHP12-005): con una disputa abierta no se marca fallecida la mascota ni se cambia su chip (la reserva conserva el chip anterior).
+        const chipChanged = updated.microchipId !== pet.microchipId;
+        if (chipChanged || (updated.lifeStatus === 'DECEASED' && pet.lifeStatus !== 'DECEASED')) await assertPetNotFrozen(repositories, petId, this.deps.clock.nowIsoTimestamp());
         // REQ-PET4-002: solo si cambia el microchip (repetir el propio valor no puede violar `pets_microchip_global`).
-        await assertMicrochipWithinLimit(this.deps, repositories, userId, updated.microchipId !== null && updated.microchipId !== pet.microchipId);
+        await assertMicrochipWithinLimit(this.deps, repositories, userId, updated.microchipId !== null && chipChanged);
+        if (updated.microchipId !== null && chipChanged) await assertMicrochipAvailable(this.deps, repositories, userId, updated.microchipId);
         await mapMicrochipViolation(() => repositories.pets.save(updated));
         await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'UPDATE', entityType: 'PET', entityId: petId, previous: auditPetView(pet), next: auditPetView(updated) });
         // `pets.save` no toca el avatar (INV-AVA-001); la respuesta lo refleja leyendo su versión actual.
@@ -174,6 +186,7 @@ export class DeletePetUseCase {
     const objectKeys = await this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, 'DELETE_PET');
+      await assertPetNotFrozen(repositories, petId, this.deps.clock.nowIsoTimestamp()); // REQ-CHP12-004: la disputa abierta congela la baja
       // REQ-OWN12-004 (j): con más de un propietario ACTIVE la baja exige la aprobación conjunta (`POST /pets/{petId}/owner-requests`), nunca la ruta directa.
       if ((await repositories.coOwners.listByPet(petId)).some((row) => row.status === 'ACTIVE')) throw new DomainErrorV38('ERR-OWN12-APPROVAL-PENDING');
       return deletePetInTransaction(this.deps, repositories, userId, pet);

@@ -56,6 +56,7 @@ import type {
 import { accountStatusOf, corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 import { shareAuditRepository, shareLinkRepository } from './postgres-share-repositories.ts';
+import { postgresDisputeEvidenceRepository, postgresIpRateEventRepository } from './postgres-chip-repositories.ts';
 import { postgresCoOwnerRepository, postgresOwnerRequestRepository, postgresOwnershipOps } from './postgres-ownership-repositories.ts';
 import { postgresSceneConsentRepository, postgresSceneRepository } from './postgres-scene-repositories.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
@@ -877,5 +878,7 @@ export function createPostgresRepositories(client: PoolClientLike): RepositorySe
     aboutContent: aboutContentRepository(client),
     coOwners: postgresCoOwnerRepository(client),
     ownerRequests: postgresOwnerRequestRepository(client),
+    ipRateEvents: postgresIpRateEventRepository(client),
+    disputeEvidence: postgresDisputeEvidenceRepository(client),
   };
 }

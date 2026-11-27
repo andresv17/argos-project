@@ -166,7 +166,13 @@ export async function openAbsenceDisputes(repositories: RepositorySet, petId: st
  * aprobación de cualquier solicitud de esa mascota fallan con `ERR-CHP12-CHIP-FROZEN` (cuerpo sin datos de la disputa). `LEAVE` queda permitido: no pasa por aquí.
  */
 export async function assertPetNotFrozen(repositories: RepositorySet, petId: string, now: string): Promise<void> {
-  if ((await openAbsenceDisputes(repositories, petId)).some((d) => d.frozenUntil !== null && d.frozenUntil > now)) throw new DomainError('ERR-CHP12-CHIP-FROZEN');
+  // T1635: la congelación cubre TODA disputa abierta de la mascota (por chip o por ausencia, REQ-CHP12-004, INV-CHP12-005); `frozen_until` caducado la levanta, la reserva del chip no.
+  if ((await openDisputes(repositories, petId)).some((d) => d.frozenUntil !== null && d.frozenUntil > now)) throw new DomainError('ERR-CHP12-CHIP-FROZEN');
+}
+
+/** Todas las `CHIP_DISPUTE` `UNDER_REVIEW` de la mascota (por chip y por ausencia). */
+export async function openDisputes(repositories: RepositorySet, petId: string): Promise<OwnerRequestRecord[]> {
+  return (await repositories.ownerRequests.listByPet(petId)).filter((r) => r.action === 'CHIP_DISPUTE' && r.status === 'UNDER_REVIEW');
 }
 
 /**

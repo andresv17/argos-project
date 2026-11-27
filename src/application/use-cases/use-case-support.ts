@@ -26,6 +26,7 @@ import { toRoleMembership } from '../../domain/households/household-policies.ts'
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import type { PetRecordCollections } from '../../domain/pet/pet-invariants.ts';
 import { computeWeightEvolutionSeries } from '../../domain/records/record-invariants.ts';
+import type { MalwareScannerPort } from '../ports/malware-scanner.port.ts';
 import type { MediaStoragePort } from '../ports/media-storage.port.ts';
 import type { AuditLogPort } from '../ports/audit-log.port.ts';
 import type { AuditPseudonymPort } from '../ports/audit-pseudonym.port.ts';
@@ -215,6 +216,15 @@ export interface ApplicationDeps {
   readonly google?: GoogleServices;
   /** Portal de administración (feature 009, Fase 3). Ausente: no hay rutas de administración (404 uniforme). */
   readonly admin?: AdminServices;
+  /** Log estructurado de servidor (feature 012, T1640): solo eventos operativos sin PII ni chip (p. ej. el aviso del 70 % del contador global). Ausente = sin aviso. */
+  readonly structuredLog?: StructuredLogPort;
+  /** Análisis antimalware de la evidencia de disputas (feature 012, T1641). Ausente: la subida de evidencia falla cerrada (503). */
+  readonly malwareScanner?: MalwareScannerPort;
+}
+
+/** Puerto mínimo del log estructurado de servidor para eventos operativos. */
+export interface StructuredLogPort {
+  warn(event: string, fields: Readonly<Record<string, unknown>>): void;
 }
 
 interface ValidatorWithErrors {

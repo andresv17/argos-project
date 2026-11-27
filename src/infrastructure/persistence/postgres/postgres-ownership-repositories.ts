@@ -79,17 +79,19 @@ export function postgresOwnerRequestRepository(client: PoolClientLike): OwnerReq
       return rows[0] === undefined ? null : toOwnerRequestRecord(rows[0]);
     },
     async insert(row) {
-      await client.query(`INSERT INTO owner_requests (${OWNER_REQUEST_COLUMNS}) VALUES (${slots(34)})`, ownerRequestParams(row));
+      await client.query(`INSERT INTO owner_requests (${OWNER_REQUEST_COLUMNS}) VALUES (${slots(39)})`, ownerRequestParams(row));
     },
     async update(row: OwnerRequestRecord, expectedStatus) {
       const result = await client.query(
         `UPDATE owner_requests SET status = $1, approver_set = $2, approvals = $3, rejected_by = $4, rejected_by_pseudonym = $5, message = $6, decided_at = $7, stale_reason = $8, target_username_sealed = $9,
            target_response = $10, requester_user_id = $11, requester_pseudonym = $12, target_user_id = $13, frozen_until = $14, freeze_extended_at = $15, sla_due_at = $16, escalated_at = $17, resolved_at = $18,
-           resolution = $19, moot_reason = $20, resolved_by_user_id = $21, second_approver_user_id = $22, executes_after = $23, version = version + 1 WHERE id = $24 AND status = $25`,
+           resolution = $19, moot_reason = $20, resolved_by_user_id = $21, second_approver_user_id = $22, executes_after = $23, resolved_by_admin_id = $24, second_approver_admin_id = $25, resolved_by_person_id = $26,
+           second_approver_person_id = $27, second_approved_at = $28, version = version + 1 WHERE id = $29 AND status = $30`,
         [
           row.status, JSON.stringify(row.approverSet), JSON.stringify(row.approvals), row.rejectedBy, row.rejectedByPseudonym, row.message, row.decidedAt, row.staleReason, row.targetUsernameSealed,
           row.targetResponse, row.requesterUserId, row.requesterPseudonym, row.targetUserId, row.frozenUntil, row.freezeExtendedAt, row.slaDueAt, row.escalatedAt, row.resolvedAt,
-          row.resolution, row.mootReason, row.resolvedByUserId, row.secondApproverUserId, row.executesAfter, row.id, expectedStatus,
+          row.resolution, row.mootReason, row.resolvedByUserId, row.secondApproverUserId, row.executesAfter, row.resolvedByAdminId ?? null, row.secondApproverAdminId ?? null, row.resolvedByPersonId ?? null,
+          row.secondApproverPersonId ?? null, row.secondApprovedAt ?? null, row.id, expectedStatus,
         ],
       );
       return result.rowCount === 1;
@@ -109,6 +111,14 @@ export function postgresOwnerRequestRepository(client: PoolClientLike): OwnerReq
           [next.requesterUserId, next.requesterPseudonym, next.targetUserId, next.rejectedBy, next.rejectedByPseudonym, next.resolvedByUserId, next.secondApproverUserId, JSON.stringify(next.approverSet), JSON.stringify(next.approvals), row.id],
         );
       }
+    },
+    async hasOpenChipReservation(chipHmac, nowIso) {
+      const { rows } = await client.query("SELECT id FROM owner_requests WHERE chip_hmac = $1 AND action = 'CHIP_DISPUTE' AND dispute_reason = 'CHIP_APPROPRIATION' AND status = 'UNDER_REVIEW' AND expires_at > $2 LIMIT 1", [chipHmac, nowIso]);
+      return rows.length > 0;
+    },
+    async listByChipHmac(chipHmac) {
+      const { rows } = await client.query(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE chip_hmac = $1 ORDER BY created_at, id`, [chipHmac]);
+      return rows.map(toOwnerRequestRecord);
     },
     async deleteByIds(ids) {
       if (ids.length === 0) return 0;
@@ -146,6 +156,10 @@ export function postgresOwnershipOps(client: PoolClientLike) {
     async bumpOwnershipVersion(petId: string, expectedOwnershipVersion: number): Promise<number> {
       const result = await client.query('UPDATE pets SET ownership_version = ownership_version + 1 WHERE id = $1 AND ownership_version = $2', [petId, expectedOwnershipVersion]);
       return result.rowCount ?? 0;
+    },
+    async findMicrochipHolder(microchipId: string): Promise<{ petId: string; ownerUserId: string } | null> {
+      const { rows } = await client.query('SELECT id, owner_user_id FROM pets WHERE microchip_id = $1 LIMIT 1', [microchipId]);
+      return rows[0] === undefined ? null : { petId: String(rows[0]['id']), ownerUserId: String(rows[0]['owner_user_id']) };
     },
   };
 }

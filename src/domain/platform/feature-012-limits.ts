@@ -41,3 +41,36 @@ export const DISPUTE_REJECTED_COOLDOWN_DAYS = 90;
 
 /** Milisegundos de un día: para fechas de vencimiento sobre `ClockPort` (sin aritmética de calendario local). */
 export const DAY_MS = 86_400_000;
+
+/**
+ * Bloque B (#23, T1635..T1646): reclamación de chip, contadores por IP, evidencia y arbitraje. Cifras de `chip-claim.schema.json` y `admin-disputes.schema.json` (`x-sdd-constants`).
+ * @implements REQ-CHP12-003, REQ-CHP12-004, REQ-CHP12-005, REQ-CHP12-008, REQ-CHP12-009, INV-ARCH-006
+ */
+/** TTL de `CLAIM_CO_OWNERSHIP` y cooldown tras un rechazo por `(solicitante, chip_hmac)`. */
+export const CHIP_CLAIM_TTL_DAYS = 14;
+export const CHIP_CLAIM_COOLDOWN_DAYS = 30;
+export const CLAIM_MESSAGE_MAX_CHARS = 280;
+/** Contadores de todo intento con `microchipId` (N2-R4): usuario 10, IP 30, global 1000, ventana móvil de 24 h; aviso `warn` al 70 % del global. */
+export const MICROCHIP_LOOKUP_MAX_PER_USER_PER_DAY = 10;
+export const MICROCHIP_LOOKUP_MAX_PER_IP_PER_DAY = 30;
+export const MICROCHIP_LOOKUP_MAX_GLOBAL_PER_DAY = 1000;
+export const MICROCHIP_LOOKUP_GLOBAL_WARN_RATIO = 0.7;
+export const MICROCHIP_LOOKUP_WINDOW_MS = 86_400_000;
+/** Peticiones multipart de `openChipDispute` por usuario/IP y día (rama NUEVO-4): valor inicial = el de los intentos de chip; pendiente de confirmación de Neo. */
+export const CHIP_MULTIPART_MAX_PER_USER_PER_DAY = 10;
+export const CHIP_MULTIPART_MAX_PER_IP_PER_DAY = 30;
+/** Retención de `ip_rate_events` (la ventana es de 24 h; la purga de mantenimiento corre a las 25 h). */
+export const IP_RATE_EVENTS_RETENTION_HOURS = 25;
+/** Evidencia de disputa (REQ-CHP12-008). */
+export const DISPUTE_EVIDENCE_MAX_FILES = 5;
+export const DISPUTE_EVIDENCE_MAX_PIXELS = 16_000_000;
+export const DISPUTE_EVIDENCE_RETENTION_DAYS = 365;
+export const DISPUTE_EVIDENCE_STAGING_TTL_HOURS = 24;
+export const DISPUTE_EVIDENCE_URL_TTL_SECONDS = 300;
+/** Arbitraje (REQ-CHP12-009). */
+export const DISPUTE_FREEZE_EXTENSION_DAYS = 30;
+export const DISPUTE_FREEZE_ABSOLUTE_MAX_DAYS = 60;
+export const ARBITRATION_DELAY_HOURS = 72;
+export const ADMIN_STEPUP_WINDOW_MINUTES = 5;
+export const DECISION_REASON_MAX_CHARS = 500;
+export const ARBITER_AUDIT_RETENTION_DAYS = 1095;

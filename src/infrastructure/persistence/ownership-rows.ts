@@ -12,7 +12,7 @@ export type SqlRow = Record<string, unknown>;
 
 export const CO_OWNER_COLUMNS = 'id, pet_id, user_id, user_pseudonym, status, invited_by_user_id, invited_at, expires_at, joined_at, left_at, promotion_kind, promotion_notice_ack_at, version';
 export const OWNER_REQUEST_COLUMNS =
-  'id, action, pet_id, pet_version, requester_user_id, requester_pseudonym, target_user_id, target_username_sealed, target_response, trigger_request_ids, status, approver_set, approvals, rejected_by, rejected_by_pseudonym, message, created_at, expires_at, decided_at, stale_reason, dispute_reason, chip_last4, chip_hmac, frozen_until, freeze_extended_at, sla_due_at, escalated_at, resolved_at, resolution, moot_reason, resolved_by_user_id, second_approver_user_id, executes_after, version';
+  'id, action, pet_id, pet_version, requester_user_id, requester_pseudonym, target_user_id, target_username_sealed, target_response, trigger_request_ids, status, approver_set, approvals, rejected_by, rejected_by_pseudonym, message, created_at, expires_at, decided_at, stale_reason, dispute_reason, chip_last4, chip_hmac, frozen_until, freeze_extended_at, sla_due_at, escalated_at, resolved_at, resolution, moot_reason, resolved_by_user_id, second_approver_user_id, executes_after, version, resolved_by_admin_id, second_approver_admin_id, resolved_by_person_id, second_approver_person_id, second_approved_at';
 
 const corrupt = (table: string, key: string): DomainError => new DomainError('ERR-INTERNAL-UNEXPECTED', `Dato corrupto en ${table} (${key}); la transacción se descarta.`);
 const str = (value: unknown): string | null => (value === null || value === undefined ? null : String(value));
@@ -89,6 +89,11 @@ export function toOwnerRequestRecord(row: SqlRow): OwnerRequestRecord {
     secondApproverUserId: str(row['second_approver_user_id']),
     executesAfter: str(row['executes_after']),
     version: Number(row['version']),
+    resolvedByAdminId: str(row['resolved_by_admin_id']),
+    secondApproverAdminId: str(row['second_approver_admin_id']),
+    resolvedByPersonId: str(row['resolved_by_person_id']),
+    secondApproverPersonId: str(row['second_approver_person_id']),
+    secondApprovedAt: str(row['second_approved_at']),
   };
 }
 
@@ -97,6 +102,7 @@ export const ownerRequestParams = (r: OwnerRequestRecord): unknown[] => [
   r.triggerRequestIds === null ? null : JSON.stringify(r.triggerRequestIds), r.status, JSON.stringify(r.approverSet), JSON.stringify(r.approvals),
   r.rejectedBy, r.rejectedByPseudonym, r.message, r.createdAt, r.expiresAt, r.decidedAt, r.staleReason, r.disputeReason, r.chipLast4, r.chipHmac,
   r.frozenUntil, r.freezeExtendedAt, r.slaDueAt, r.escalatedAt, r.resolvedAt, r.resolution, r.mootReason, r.resolvedByUserId, r.secondApproverUserId, r.executesAfter, r.version,
+  r.resolvedByAdminId ?? null, r.secondApproverAdminId ?? null, r.resolvedByPersonId ?? null, r.secondApproverPersonId ?? null, r.secondApprovedAt ?? null,
 ];
 
 /** Terminales de `pet_co_owners` (sin `INVITED`/`ACTIVE`). */

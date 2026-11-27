@@ -69,6 +69,7 @@ import { NO_PASSWORD_SENTINEL } from '../../../domain/auth/password-sentinel.ts'
 import { hashSessionToken } from '../../../domain/auth/session-policy.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { OwnerRequestRecord, PetCoOwnerRecord } from '../../../application/ports/co-ownership.port.ts';
+import { memoryDisputeEvidenceRepository, memoryIpRateEventRepository, type ChipMemoryState } from './in-memory-chip-repositories.ts';
 import { memoryCoOwnerRepository, memoryOwnerRequestRepository, memoryOwnershipOps } from './in-memory-ownership-repositories.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
 
@@ -116,6 +117,9 @@ export interface MemoryState extends SceneMemoryState {
   coOwners?: PetCoOwnerRecord[];
   ownerRequests?: OwnerRequestRecord[];
   ownershipVersions?: Record<string, number>;
+  /** Bloque B (#23): `ip_rate_events` y `dispute_evidence`; opcionales: ausentes = vacíos. */
+  ipRateEvents?: ChipMemoryState['ipRateEvents'];
+  disputeEvidence?: ChipMemoryState['disputeEvidence'];
   /** `about_content` (feature 010, T1430): singleton; opcional, ausente o `null` = sin contenido. */
   aboutContent?: AboutContentRecord | null;
   /** Decision de aprobacion por cuenta (T1247): instante y `adminId` de quien decidio. */
@@ -1145,6 +1149,8 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     aboutContent: aboutContentRepository(state),
     coOwners: memoryCoOwnerRepository(state),
     ownerRequests: memoryOwnerRequestRepository(state),
+    ipRateEvents: memoryIpRateEventRepository(state),
+    disputeEvidence: memoryDisputeEvidenceRepository(state),
   };
 }
 
