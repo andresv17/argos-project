@@ -610,7 +610,7 @@ export type CreateOwnerRequest = {
    */
   targetUserId?: string;
   /**
-   * Texto plano sin marcado, normalizado NFC antes de validar; rechaza caracteres de control (U+0000-U+001F, U+007F) y de reordenamiento bidireccional (U+202A-U+202E, U+2066-U+2069) con 400 ERR-VALIDATION; se borra en TODO estado terminal (INV-OWN12-005, H-07 de T1612)
+   * Texto plano sin marcado, normalizado NFC antes de validar; rechaza caracteres de control (U+0000-U+001F, U+007F) y de reordenamiento bidireccional (U+202A-U+202E, U+2066-U+2069) con 422 ERR-SCHEMA-VALIDATION-FAILED; se borra en TODO estado terminal (INV-OWN12-005, H-07 de T1612)
    */
   message?: string;
 };
@@ -2284,7 +2284,7 @@ export interface OpenAbsenceDisputeRequest {
   disputeReason: AbsenceDisputeReason;
 }
 /**
- * Listado autenticado «mis solicitudes»: solo filas reales y propias o donde el usuario es aprobador (lock R-11). Cada fila sigue la tabla normativa de OwnerRequestView; las de mascotas donde el usuario ya no es propietario ACTIVE salen reducidas (H-07). cursor ligado al usuario autenticado; cursor invalido o ajeno = 400 ERR-VALIDATION uniforme (H-15)
+ * Listado autenticado «mis solicitudes»: solo filas reales y propias o donde el usuario es aprobador (lock R-11). Cada fila sigue la tabla normativa de OwnerRequestView; las de mascotas donde el usuario ya no es propietario ACTIVE salen reducidas (H-07). cursor ligado al usuario autenticado; cursor invalido o ajeno = 422 ERR-SCHEMA-VALIDATION-FAILED uniforme (H-15)
  *
  * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
  * via the `definition` "OwnerRequestList".

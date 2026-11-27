@@ -807,15 +807,8 @@ for (const code of Object.keys(e12)) {
   if (code in union) die(`código de error duplicado en los catálogos de 012 y uno de 004/005/006/009/010/011: ${code}`);
 }
 const meta12 = cat12['x-sdd-metadata'] ?? die('el catálogo de la 012 no declara x-sdd-metadata');
-// Salvedad T1616 (hallazgo para /architect): el catálogo de la 012 lista `ERR-VALIDATION` como heredado, pero ningún catálogo 004..011 lo define (el código real es ERR-SCHEMA-VALIDATION-FAILED).
-// No se edita el contrato APPROVED; solo ese código se tolera con aviso, cualquier otro heredado inexistente sigue siendo error.
-const UNRESOLVED_INHERITED_WAIVED = new Set(['ERR-VALIDATION']);
 for (const code of meta12.inherited ?? []) {
   if (code in union) continue;
-  if (UNRESOLVED_INHERITED_WAIVED.has(code)) {
-    console.warn(`[AVISO] el catálogo de la 012 hereda ${code}, que no existe en 004..011 (tolerado, ver T1616)`);
-    continue;
-  }
   die(`el catálogo de la 012 hereda ${code}, que no existe en los catálogos de la 004, la 005, la 006, la 009, la 010 ni la 011`);
 }
 const added = [...(meta12.added ?? [])].sort().join(',');
@@ -864,7 +857,7 @@ for (const file of readdirSync(join(c12, 'openapi')).filter((f) => f.endsWith('.
 console.log(`[SDD Contract Compiler] Catálogos fusionados: ${counts['004']} (004) + ${counts['005']} (005) + ${counts['006']} (006) + ${counts['009']} (009) + ${counts['010']} (010) + ${counts['011']} (011) + ${Object.keys(e12).length} (012) = ${Object.keys(union).length + Object.keys(e12).length} códigos`);
 JS
   echo "[SDD Contract Compiler] Regenerando $OUT_DIR/v38 (feature 012)..."
-  SDD_AJV_STRICT_REQUIRED=false node scripts/codegen.mjs --contracts "$STAGE_DIR" --out "${OUT_DIR%/}/v38"
+  node scripts/codegen.mjs --contracts "$STAGE_DIR" --out "${OUT_DIR%/}/v38"
   if [[ -n "$(git diff --stat -- src/generated/api 2>/dev/null)" ]]; then
     echo "[ERROR] La compilación de la 012 modificó src/generated/api (INV-ARCH-003)" >&2
     exit 1

@@ -176,7 +176,7 @@ export interface paths {
         put?: never;
         /**
          * Crea una solicitud de accion critica (DELETE_PET, TRANSFER_PRINCIPAL, CHANGE_PRINCIPAL) [REQ-OWN12-004]
-         * @description Con mas de un propietario ACTIVE la accion exige la aprobacion de TODOS los demas (maximo tope - 1 aprobaciones; el solicitante no vota; INVITED no vota) y vive en la tabla unica owner_requests (STATE-OWNREQ12-001). Con un unico propietario ACTIVE no se crea solicitud: la accion se ejecuta como hoy por las rutas existentes de 002/004 (REQ-OWN12-004 j) y este endpoint responde 400 ERR-VALIDATION. Se sellan (action, target_user_id, pet_version, approver_set). Una sola solicitud viva por (pet, action); el vencimiento perezoso se materializa ANTES de evaluar el UNIQUE (una PENDING vencida no bloquea). Autorizacion antes que conflicto; 429 por OWNER_REQUESTS_PER_USER_PER_PET_PER_DAY (H-10). Congelacion de disputa: 409 ERR-CHP12-CHIP-FROZEN. Mascota ajena: 404 uniforme. NO existe accion que elimine o degrade a otro co-propietario (INV-OWN12-002).
+         * @description Con mas de un propietario ACTIVE la accion exige la aprobacion de TODOS los demas (maximo tope - 1 aprobaciones; el solicitante no vota; INVITED no vota) y vive en la tabla unica owner_requests (STATE-OWNREQ12-001). Con un unico propietario ACTIVE no se crea solicitud: la accion se ejecuta como hoy por las rutas existentes de 002/004 (REQ-OWN12-004 j) y este endpoint responde 422 ERR-SCHEMA-VALIDATION-FAILED. Se sellan (action, target_user_id, pet_version, approver_set). Una sola solicitud viva por (pet, action); el vencimiento perezoso se materializa ANTES de evaluar el UNIQUE (una PENDING vencida no bloquea). Autorizacion antes que conflicto; 429 por OWNER_REQUESTS_PER_USER_PER_PET_PER_DAY (H-10). Congelacion de disputa: 409 ERR-CHP12-CHIP-FROZEN. Mascota ajena: 404 uniforme. NO existe accion que elimine o degrade a otro co-propietario (INV-OWN12-002).
          */
         post: operations["createOwnerRequest"];
         delete?: never;
@@ -194,7 +194,7 @@ export interface paths {
         };
         /**
          * Listado autenticado «mis solicitudes»: propias y las que debo decidir [REQ-OWN12-004, REQ-CHP12-003, lock R-11]
-         * @description Solo filas REALES donde el usuario es solicitante, aprobador o target; nunca revela la existencia de solicitudes ajenas. Las PENDING con expires_at <= now se devuelven como EXPIRED (expiracion perezosa). Paginado por cursor estable (limit <= 100), cursor ligado al usuario autenticado: cursor invalido o ajeno = 400 ERR-VALIDATION uniforme (H-15). Cada fila sigue la tabla «campos por accion x rol» de OwnerRequestView (H-01): CHIP_DISPUTE nunca lleva requesterUsername, approvers ni targetUsername; CLAIM_CO_OWNERSHIP y CHIP_APPROPRIATION con role REQUESTER llevan petId, petName, approvers y targetUsername = null; detalle completo solo a quien HOY es propietario ACTIVE de esa mascota (o destinatario de invitacion vigente), al resto la fila sale REDUCIDA (id, action, status, role, createdAt, expiresAt, decidedAt) (H-07); targetUsername y message = null en todo estado terminal. Cache-Control: private, no-store.
+         * @description Solo filas REALES donde el usuario es solicitante, aprobador o target; nunca revela la existencia de solicitudes ajenas. Las PENDING con expires_at <= now se devuelven como EXPIRED (expiracion perezosa). Paginado por cursor estable (limit <= 100), cursor ligado al usuario autenticado: cursor invalido o ajeno = 422 ERR-SCHEMA-VALIDATION-FAILED uniforme (H-15). Cada fila sigue la tabla «campos por accion x rol» de OwnerRequestView (H-01): CHIP_DISPUTE nunca lleva requesterUsername, approvers ni targetUsername; CLAIM_CO_OWNERSHIP y CHIP_APPROPRIATION con role REQUESTER llevan petId, petName, approvers y targetUsername = null; detalle completo solo a quien HOY es propietario ACTIVE de esa mascota (o destinatario de invitacion vigente), al resto la fila sale REDUCIDA (id, action, status, role, createdAt, expiresAt, decidedAt) (H-07); targetUsername y message = null en todo estado terminal. Cache-Control: private, no-store.
          */
         get: operations["listMyOwnerRequests"];
         put?: never;
@@ -437,7 +437,7 @@ export interface components {
              * @description Destinatario: co-propietario ACTIVE para TRANSFER_PRINCIPAL y CHANGE_PRINCIPAL; no se admite en DELETE_PET
              */
             targetUserId?: string;
-            /** @description Texto plano sin marcado, normalizado NFC antes de validar; rechaza caracteres de control (U+0000-U+001F, U+007F) y de reordenamiento bidireccional (U+202A-U+202E, U+2066-U+2069) con 400 ERR-VALIDATION; se borra en TODO estado terminal (INV-OWN12-005, H-07 de T1612) */
+            /** @description Texto plano sin marcado, normalizado NFC antes de validar; rechaza caracteres de control (U+0000-U+001F, U+007F) y de reordenamiento bidireccional (U+202A-U+202E, U+2066-U+2069) con 422 ERR-SCHEMA-VALIDATION-FAILED; se borra en TODO estado terminal (INV-OWN12-005, H-07 de T1612) */
             message?: string;
         } & (unknown & unknown);
         /** @enum {string} */
@@ -495,7 +495,7 @@ export interface components {
             frozenUntil?: string | null;
             mootReason?: components["schemas"]["MootReason"] | null;
         } & (unknown & unknown & unknown & unknown);
-        /** @description Listado autenticado «mis solicitudes»: solo filas reales y propias o donde el usuario es aprobador (lock R-11). Cada fila sigue la tabla normativa de OwnerRequestView; las de mascotas donde el usuario ya no es propietario ACTIVE salen reducidas (H-07). cursor ligado al usuario autenticado; cursor invalido o ajeno = 400 ERR-VALIDATION uniforme (H-15) */
+        /** @description Listado autenticado «mis solicitudes»: solo filas reales y propias o donde el usuario es aprobador (lock R-11). Cada fila sigue la tabla normativa de OwnerRequestView; las de mascotas donde el usuario ya no es propietario ACTIVE salen reducidas (H-07). cursor ligado al usuario autenticado; cursor invalido o ajeno = 422 ERR-SCHEMA-VALIDATION-FAILED uniforme (H-15) */
         OwnerRequestList: {
             items: components["schemas"]["OwnerRequestView"][];
             nextCursor?: string | null;
@@ -607,7 +607,6 @@ export interface operations {
                     "application/json": components["schemas"]["InviteCoOwnerAccepted"];
                 };
             };
-            400: components["responses"]["Problem"];
             401: components["responses"]["Problem"];
             403: components["responses"]["CsrfForbidden"];
             404: components["responses"]["Problem"];
@@ -620,6 +619,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            422: components["responses"]["Problem"];
             429: components["responses"]["Problem"];
             /** @description ERR-OWN12-RETRYABLE (lock_timeout o invariante; Retry-After) */
             503: {
@@ -881,7 +881,6 @@ export interface operations {
                     "application/json": components["schemas"]["OwnerRequestView"];
                 };
             };
-            400: components["responses"]["Problem"];
             401: components["responses"]["Problem"];
             403: components["responses"]["CsrfForbidden"];
             404: components["responses"]["Problem"];
@@ -894,6 +893,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            422: components["responses"]["Problem"];
             429: components["responses"]["Problem"];
             /** @description ERR-OWN12-RETRYABLE */
             503: {
@@ -927,8 +927,8 @@ export interface operations {
                     "application/json": components["schemas"]["OwnerRequestList"];
                 };
             };
-            400: components["responses"]["Problem"];
             401: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     getOwnerRequest: {
@@ -1111,7 +1111,6 @@ export interface operations {
                     "application/json": components["schemas"]["AbsenceDisputeOpened"];
                 };
             };
-            400: components["responses"]["Problem"];
             401: components["responses"]["Problem"];
             403: components["responses"]["CsrfForbidden"];
             404: components["responses"]["Problem"];
@@ -1124,6 +1123,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            422: components["responses"]["Problem"];
             429: components["responses"]["Problem"];
             /** @description ERR-OWN12-RETRYABLE */
             503: {
@@ -1161,7 +1161,6 @@ export interface operations {
                 };
                 content?: never;
             };
-            400: components["responses"]["Problem"];
             401: components["responses"]["Problem"];
             403: components["responses"]["CsrfForbidden"];
             404: components["responses"]["Problem"];
@@ -1174,6 +1173,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+            422: components["responses"]["Problem"];
         };
     };
 }

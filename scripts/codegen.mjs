@@ -156,8 +156,6 @@ function createAjv(esm) {
   const instance = new Ajv2020({
   strict: true,
   strictTypes: true,
-  // La 012 (T1616) declara `required` dentro de `if/then/not` sin repetir `properties` en esa rama: solo su compilación relaja strictRequired (SDD_AJV_STRICT_REQUIRED=false); el resto de la strict mode sigue activo.
-  ...(process.env.SDD_AJV_STRICT_REQUIRED === 'false' ? { strictRequired: false } : {}),
   allowUnionTypes: true,
   allErrors: true,
   // DEUDA-VAL-001: con 2, Ajv tolera restos de hasta 0.01 centésimas y acepta p. ej. weightKg 32.85001.

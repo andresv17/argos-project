@@ -7,7 +7,7 @@
     "supersedes": null,
     "change_type": "MINOR",
     "extends": "catalogos de 001..011 (sin editar)",
-    "change_note": "Catalogo INCREMENTAL de la feature 012 (T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo). Redacta de una vez TODOS los codigos previstos de la feature (ERR-OWN12-*, ERR-CHP12-*, ERR-CAR12-*, ERR-QR12-*, ERR-VET12-*) porque verify-traceability --feature 012 y contracts/README los listan; los bloques B, C, D y E refinan su cuerpo en T1630, T1650, T1670 y T1690 mediante enmiendas MINOR. Codigos DERIVADOS para revision de Neo: ERR-OWN12-APPROVAL-PENDING, ERR-OWN12-LAST-OWNER, ERR-OWN12-RETRYABLE (fija el error reintentable de REQ-OWN12-011) y ERR-QR12-CONSENT-REQUIRED. P-1..P-7 (Neo, 2026-11-26) aplicados: el vencimiento EXPIRED de una disputa no activa el cooldown; P-5 endurece el disparador de ERR-CHP12-ABSENCE-NOT-ELIGIBLE. Se REUTILIZAN sin redefinir: ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, ERR-RATE-LIMITED, ERR-VALIDATION, ERR-SHARE-LINK-LIMIT, ERR-PET-MICROCHIP-DUPLICATE (004; ahora solo mismo dueño) y ERR-ACCOUNT-OWNS-SHARED-PETS (002; acotado por ENM-002-MINOR-012). Cierre de T1612 (2026-11-26, DRAFT): ERR-QR12-CONSENT-REQUIRED aclarado (solo solicitante; note no se serializa; H-14).",
+    "change_note": "Catalogo INCREMENTAL de la feature 012 (T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo). Redacta de una vez TODOS los codigos previstos de la feature (ERR-OWN12-*, ERR-CHP12-*, ERR-CAR12-*, ERR-QR12-*, ERR-VET12-*) porque verify-traceability --feature 012 y contracts/README los listan; los bloques B, C, D y E refinan su cuerpo en T1630, T1650, T1670 y T1690 mediante enmiendas MINOR. Codigos DERIVADOS para revision de Neo: ERR-OWN12-APPROVAL-PENDING, ERR-OWN12-LAST-OWNER, ERR-OWN12-RETRYABLE (fija el error reintentable de REQ-OWN12-011) y ERR-QR12-CONSENT-REQUIRED. P-1..P-7 (Neo, 2026-11-26) aplicados: el vencimiento EXPIRED de una disputa no activa el cooldown; P-5 endurece el disparador de ERR-CHP12-ABSENCE-NOT-ELIGIBLE. Se REUTILIZAN sin redefinir: ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, ERR-RATE-LIMITED, ERR-SCHEMA-VALIDATION-FAILED, ERR-SHARE-LINK-LIMIT, ERR-PET-MICROCHIP-DUPLICATE (004; ahora solo mismo dueño) y ERR-ACCOUNT-OWNS-SHARED-PETS (002; acotado por ENM-002-MINOR-012). Cierre de T1612 (2026-11-26, DRAFT): ERR-QR12-CONSENT-REQUIRED aclarado (solo solicitante; note no se serializa; H-14).",
     "removed": [],
     "added": [
       "ERR-OWN12-CO-OWNER-LIMIT",
@@ -42,8 +42,7 @@
       "ERR-PET-NOT-FOUND",
       "ERR-RATE-LIMITED",
       "ERR-SCHEMA-VALIDATION-FAILED",
-      "ERR-SHARE-LINK-LIMIT",
-      "ERR-VALIDATION"
+      "ERR-SHARE-LINK-LIMIT"
     ],
     "traceability": [
       "REQ-OWN12-002",
