@@ -8,7 +8,7 @@
 import { notifyActivity } from './activity.ts';
 
 export type CareKind = 'MEDICATION' | 'MEAL' | 'WALK' | 'OTHER';
-export type DoseUnit = 'MG' | 'MCG' | 'ML' | 'IU' | 'TABLET' | 'DROP';
+export type DoseUnit = 'MG' | 'MCG' | 'ML' | 'TABLET' | 'DROP';
 export type OccurrenceState = 'PENDING' | 'DONE' | 'SKIPPED' | 'OVERDUE';
 export type CaregiverLevel = 'VIEW_ONLY' | 'BASIC_LOG';
 

@@ -86,6 +86,21 @@ describe('rutinas, pendientes y registro (REQ-CAR12-001, REQ-CAR12-003, REQ-CAR1
   });
 });
 
+describe('catálogo cerrado de unidades de dosis (REQ-CAR12-001, D12-11)', () => {
+  it('[REQ-CAR12-001] IU y UNIT ya no existen: crear con ellas es 422 ERR-SCHEMA-VALIDATION-FAILED y no se escribe nada; MG, MCG, ML, TABLET y DROP se aceptan (201)', async () => {
+    const { andres } = await setup();
+    for (const doseUnit of ['IU', 'UNIT']) {
+      const r = await api.call('POST', `${base}/routines`, { cookie: andres, body: { ...MED, doseUnit, doseAmount: 4.5 }, ...NC });
+      expect([r.status, problemOf(r).code], doseUnit).toEqual([422, 'ERR-SCHEMA-VALIDATION-FAILED']);
+    }
+    expect(((await api.call('GET', `${base}/routines`, { cookie: andres, ...NC })).json as { items: unknown[] }).items).toHaveLength(0);
+    for (const [doseUnit, doseAmount] of [['MG', 10], ['MCG', 10], ['ML', 2], ['TABLET', 0.5], ['DROP', 3]] as const) {
+      const r = await api.call('POST', `${base}/routines`, { cookie: andres, body: { ...MED, doseUnit, doseAmount }, ...NC });
+      expect(r.status, doseUnit).toBe(201);
+    }
+  });
+});
+
 describe('límites de la capa HTTP (R-3, H-C1)', () => {
   it('el cubo de registros corta en 120/h con 429 ERR-RATE-LIMITED y Retry-After; el de reversiones es propio y sigue disponible; pasada la hora se libera', async () => {
     const { andres } = await setup();

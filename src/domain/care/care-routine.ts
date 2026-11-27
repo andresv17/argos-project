@@ -10,8 +10,8 @@ import { CARE_DOSE_MAX, MAX_ROUTINES_PER_PET, MAX_ROUTINE_ROWS_PER_PET } from '.
 
 export const ROUTINE_KINDS = ['MEDICATION', 'MEAL', 'WALK', 'OTHER'] as const;
 export type RoutineKind = (typeof ROUTINE_KINDS)[number];
-/** `UNIT` fue retirada del catálogo. */
-export const DOSE_UNITS = ['MG', 'MCG', 'ML', 'IU', 'TABLET', 'DROP'] as const;
+/** Catálogo estrictamente cerrado (REQ-CAR12-001 / D12-11): `UNIT` e `IU` fueron retiradas (schema 0.1.3). */
+export const DOSE_UNITS = ['MG', 'MCG', 'ML', 'TABLET', 'DROP'] as const;
 export type DoseUnit = (typeof DOSE_UNITS)[number];
 
 export const SPECIES_GROUPS = ['CANINE_FELINE', 'OTHER_SPECIES'] as const;
@@ -19,7 +19,7 @@ export type CareSpeciesGroup = (typeof SPECIES_GROUPS)[number];
 
 /**
  * Umbral por grupo de especie (`DOSE_CONFIRM_THRESHOLDS`, care-routine.schema.json 0.1.2): por encima se exige `confirmHighDose = true` (guarda anti-tecleo).
- * OTHER_SPECIES e IU no tienen guarda numérica (cifras pendientes de veterinario humano, DEUDA-012-VALIDACION-VET-UMBRALES).
+ * OTHER_SPECIES no tiene guarda numérica (cifras pendientes de veterinario humano, DEUDA-012-VALIDACION-VET-UMBRALES).
  */
 export const DOSE_CONFIRM_THRESHOLDS: Readonly<Record<CareSpeciesGroup, Readonly<Partial<Record<DoseUnit, number>>>>> = {
   CANINE_FELINE: { MG: 500, MCG: 500, ML: 20, TABLET: 4, DROP: 10 },

@@ -30,7 +30,7 @@ export function canOfferRevert(input: { readonly canLogCare: boolean; readonly c
 }
 
 export const KIND_LABEL: Readonly<Record<CareKind, string>> = { MEDICATION: 'Medicina', MEAL: 'Comida', WALK: 'Paseo', OTHER: 'Otra tarea' };
-export const UNIT_LABEL: Readonly<Record<DoseUnit, string>> = { MG: 'mg', MCG: 'mcg', ML: 'ml', IU: 'UI', TABLET: 'tableta(s)', DROP: 'gota(s)' };
+export const UNIT_LABEL: Readonly<Record<DoseUnit, string>> = { MG: 'mg', MCG: 'mcg', ML: 'ml', TABLET: 'tableta(s)', DROP: 'gota(s)' };
 export const STATE_LABEL: Readonly<Record<OccurrenceState, string>> = { PENDING: 'Pendiente', DONE: 'Hecho', SKIPPED: 'Omitido', OVERDUE: 'Atrasado' };
 export const LEVEL_LABEL: Readonly<Record<CaregiverLevel, string>> = { VIEW_ONLY: 'Solo ver el cuidado', BASIC_LOG: 'Ver y registrar el cuidado' };
 export const WEEKDAYS: ReadonlyArray<{ readonly n: number; readonly label: string }> = [

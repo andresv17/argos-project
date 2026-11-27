@@ -80,9 +80,10 @@ describe('T1653 [SC-012-025][SC-012-088] validateCareRoutine: catálogo de unida
     expect(out.doseUnit).toBe('MG');
   });
 
-  it('[SC-012-088] UNIT NO existe en el catálogo (se retira): se rechaza; MG, MCG, ML, IU, TABLET y DROP se aceptan', () => {
+  it('[SC-012-088] UNIT e IU NO existen en el catálogo (se retiran): se rechazan; MG, MCG, ML, TABLET y DROP se aceptan', () => {
     expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'UNIT', doseAmount: 5 }), CF))).toEqual(INVALID);
-    for (const [unit, amount] of [['MG', 10], ['MCG', 10], ['ML', 2], ['IU', 4.5], ['TABLET', 0.5], ['DROP', 3]] as const) {
+    expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'IU', doseAmount: 4.5 }), CF))).toEqual(INVALID);
+    for (const [unit, amount] of [['MG', 10], ['MCG', 10], ['ML', 2], ['TABLET', 0.5], ['DROP', 3]] as const) {
       expect(validateCareRoutine(med({ doseUnit: unit, doseAmount: amount }), CF).doseUnit).toBe(unit);
     }
   });
@@ -105,20 +106,19 @@ describe('T1653 [SC-012-025][SC-012-088] validateCareRoutine: catálogo de unida
     for (const bad of [0.125, 0.1, 0.3, 0, -0.25, 1.1]) expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'TABLET', doseAmount: bad }), CF))).toEqual(INVALID);
   });
 
-  it('[SC-012-088] DROP: entero ≥ 1 (1,5 y 0 se rechazan); MG/MCG/ML/IU: > 0 con 3 decimales como máximo (0,0001 y 0 se rechazan, 0,001 se acepta)', () => {
+  it('[SC-012-088] DROP: entero ≥ 1 (1,5 y 0 se rechazan); MG/MCG/ML: > 0 con 3 decimales como máximo (0,0001 y 0 se rechazan, 0,001 se acepta)', () => {
     expect(validateCareRoutine(med({ doseUnit: 'DROP', doseAmount: 1 }), CF).doseAmount).toBe(1);
     for (const bad of [1.5, 0, 0.5]) expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'DROP', doseAmount: bad }), CF))).toEqual(INVALID);
-    for (const unit of ['MG', 'MCG', 'ML', 'IU']) {
+    for (const unit of ['MG', 'MCG', 'ML']) {
       expect(validateCareRoutine(med({ doseUnit: unit, doseAmount: 0.001 }), CF).doseAmount).toBe(0.001);
       expect(codeOf(() => validateCareRoutine(med({ doseUnit: unit, doseAmount: 0.0001 }), CF))).toEqual(INVALID);
       expect(codeOf(() => validateCareRoutine(med({ doseUnit: unit, doseAmount: 0 }), CF))).toEqual(INVALID);
     }
   });
 
-  it('[F1][SC-012-088] OTHER_SPECIES: 600 MG se acepta sin confirmHighDose (cifras pendientes de veterinario humano); IU nunca exige confirmación; CANINE_FELINE conserva su umbral', () => {
+  it('[F1][SC-012-088] OTHER_SPECIES: 600 MG se acepta sin confirmHighDose (cifras pendientes de veterinario humano); CANINE_FELINE conserva su umbral', () => {
     expect(validateCareRoutine(med({ doseUnit: 'MG', doseAmount: 600 }), 'OTHER_SPECIES').doseAmount).toBe(600);
     expect(validateCareRoutine(med({ doseUnit: 'TABLET', doseAmount: 8 }), 'OTHER_SPECIES').doseAmount).toBe(8);
-    expect(validateCareRoutine(med({ doseUnit: 'IU', doseAmount: 90000 }), CF).doseAmount).toBe(90000);
     expect(codeOf(() => validateCareRoutine(med({ doseUnit: 'MG', doseAmount: 600 }), CF))).toEqual(INVALID);
     const other = { id: 'r1', seriesId: 'se1', petId: 'p1', ...validateCareRoutine(med(), 'OTHER_SPECIES'), active: true, effectiveFrom: '2026-11-20T05:00:00.000Z', effectiveTo: null, supersedesRoutineId: null, version: 1 };
     expect(planRoutineUpdate(other, { doseAmount: 600 }, NOW, 'OTHER_SPECIES', NEW_ID).next.doseAmount).toBe(600);
