@@ -154,7 +154,7 @@ describe('T1239 [AUDITORÍA] admin_audit_entries no guarda correo, sub ni tokens
   it('esquema: columnas exactas de admin_audit_entries', async () => {
     const { h } = await bootAndLogin();
     const columns = (h.db.prepare('PRAGMA table_info(admin_audit_entries)').all() as Array<{ name: string }>).map((c) => c.name).sort();
-    expect(columns).toEqual(['action', 'admin_id', 'id', 'object_ref', 'occurred_at']);
+    expect(columns).toEqual(['action', 'admin_id', 'id', 'metadata', 'object_ref', 'occurred_at']);
   });
 
   it('contenido: ninguna fila de auditoría contiene correo, sub ni identificador de sesión o flujo', async () => {

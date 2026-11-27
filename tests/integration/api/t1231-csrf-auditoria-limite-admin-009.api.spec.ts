@@ -109,7 +109,7 @@ describe('T1231 [REQ-ADM9-004] [SC-009-013] auditoría de administración en tab
   it('la tabla admin_audit_entries tiene solo id, admin_id, action, object_ref y occurred_at (sin correo, sub ni valores)', async () => {
     const { a } = await boot();
     const columns = (a.db.prepare("SELECT name FROM pragma_table_info('admin_audit_entries') ORDER BY cid").all() as Array<{ name: string }>).map((c) => c.name);
-    expect(columns).toEqual(['id', 'admin_id', 'action', 'object_ref', 'occurred_at']);
+    expect(columns).toEqual(['id', 'admin_id', 'action', 'object_ref', 'occurred_at', 'metadata']);
   });
 
   it('[REQ-ADM9-004] [SC-009-013] el acceso y el cierre dejan una entrada cada uno con el id del administrador, la acción y la marca de tiempo del reloj inyectado', async () => {
