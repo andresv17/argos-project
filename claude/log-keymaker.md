@@ -2651,3 +2651,9 @@ Migraciones SQLite 0038 / PostgreSQL 0034 (ADD COLUMN metadata TEXT NULL). Motiv
 - UI: care-api.ts, care-view.ts, components/CarePanel.tsx (Hoy, Rutinas, Niveles), pestana `care` en PetDashboard y careSlot en PetsPage para OWNER y CAREGIVER. ADMIN de hogar NO edita rutinas ni concede niveles (contrato H-C3); la tarea decia "propietario/ADMIN", se siguio el contrato.
 - R-1 verificado: DeactivateCareRoutineUseCase fija effectiveTo y updatedAt = now; prueba de ruta nueva lo cubre. Sin cambios de codigo necesarios.
 - Pruebas: tests/integration/api/care-routes-012.api.spec.ts (4) y tests/unit/presentation/t1656-modo-cuidador-012.spec.ts (7).
+
+## 2026-11-27 - T1656 rebote: cupo R-3 tras potestad y marca Tipi (Keymaker)
+- Decision de Neo: el cupo R-3 se consume DESPUES de sesion, CSRF y potestad. Los 7 casos de uso de escritura de cuidado (care-log/care-routine) reciben un gancho opcional `afterAuthorization` (tipo en care-support.ts) invocado justo tras requireTitular/canLogCare; care.routes.ts lo cablea con `quota(bucket, request)` y ya no consume en onRequest. Orden: 403 -> cupo -> 404 -> 422 -> 409 (D-A intacto).
+- care-view.ts: DOSE_DISCLAIMER y CARE_NO_REMINDERS_NOTICE usan BRAND_NAME (brand.ts); texto identico al contrato; comentario corregido (solo "Sin notificaciones" es del contrato).
+- tests/integration/api/care-routes-012.api.spec.ts: +2 casos (403 no gasta cupo; 403 precede al 429). Las iteraciones 120/30 ya usaban al titular (superan la potestad).
+- Gates: tsc rc 0; verify-oracles rc 0; verify-traceability --feature 012 --task T1656 rc 0; presentacion 98 archivos/1011 tests verdes.

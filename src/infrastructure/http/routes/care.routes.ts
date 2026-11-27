@@ -3,7 +3,7 @@
  * (`/pets/{petId}/care/today`, `/households/{householdId}/care/today`), registro de cumplimiento (`/pets/{petId}/care/log`, `.../{entryId}/revert`) y niveles de cuidador
  * (`/pets/{petId}/care/access`). Toda ruta exige sesión (CSRF antes, en el plugin global); la potestad y el 404 uniforme los resuelve el caso de uso (orden D-A).
  * TODA respuesta autenticada lleva `Cache-Control: private, no-store` y `Vary: Cookie` (T-C13). Tres cubos de límite en esta capa (R-3, H-C1): 120/h registros, 60/h rutinas y niveles, 30/h
- * reversiones; el exceso es `429 ERR-RATE-LIMITED` con `Retry-After`. Los casos de uso no llevan límite.
+ * reversiones; el exceso es `429 ERR-RATE-LIMITED` con `Retry-After`, y el cupo se consume tras la potestad (gancho `afterAuthorization` del caso de uso). Los casos de uso no llevan contador.
  *
  * @implements REQ-CAR12-001, REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-005, REQ-CAR12-006, REQ-CAR12-008, SC-012-025, SC-012-026, SC-012-030, ERR-RATE-LIMITED
  */
@@ -48,11 +48,13 @@ export function registerCareRoutes(app: FastifyInstance, { useCases }: RouteCont
       return payload;
     });
     const onRequest = requireSession(useCases.authenticate);
-    const limited = (bucket: CareRateScope) => async (request: FastifyRequest): Promise<void> => limiter.consume(bucket, request.userId);
-    const logWrite = { onRequest: [onRequest, limited('LOG')] };
-    const revertWrite = { onRequest: [onRequest, limited('REVERT')] };
-    const routineWrite = { onRequest: [onRequest, limited('ROUTINE')] };
+    // R-3 (decisión de Neo 2026-11-27): el cupo se gasta DESPUÉS de sesión, CSRF y potestad; el caso de uso invoca este gancho justo tras la potestad (403 -> cupo -> 404 -> 422 -> 409), de modo que
+    // un 403 no gasta cupo ni se ve precedido por un 429, y los 404/422 que ya superaron la potestad sí cuentan.
+    const quota = (bucket: CareRateScope, request: FastifyRequest) => (): void => limiter.consume(bucket, request.userId);
     const read = { onRequest };
+    const logWrite = read;
+    const revertWrite = read;
+    const routineWrite = read;
 
     scope.get<PetParams>('/api/pets/:petId/care/routines', read, async (request) => {
       const includeInactive = booleanQuery((request.query as Record<string, unknown>)['includeInactive'], 'includeInactive');
@@ -60,19 +62,19 @@ export function registerCareRoutes(app: FastifyInstance, { useCases }: RouteCont
     });
 
     scope.post<PetParams>('/api/pets/:petId/care/routines', routineWrite, async (request, reply) => {
-      const result = await useCases.createCareRoutine.execute(request.userId, request.params.petId, objectBody(request.body));
+      const result = await useCases.createCareRoutine.execute(request.userId, request.params.petId, objectBody(request.body), quota('ROUTINE', request));
       return reply.status(201).send(result);
     });
 
     scope.get<RoutineParams>('/api/pets/:petId/care/routines/:routineId', read, async (request) => useCases.getCareRoutine.execute(request.userId, request.params.petId, request.params.routineId));
 
     scope.patch<RoutineParams>('/api/pets/:petId/care/routines/:routineId', routineWrite, async (request, reply) => {
-      const result = await useCases.updateCareRoutine.execute(request.userId, request.params.petId, request.params.routineId, objectBody(request.body));
+      const result = await useCases.updateCareRoutine.execute(request.userId, request.params.petId, request.params.routineId, objectBody(request.body), quota('ROUTINE', request));
       return reply.status(result['versioned'] === true ? 201 : 200).send(result);
     });
 
     scope.post<RoutineParams>('/api/pets/:petId/care/routines/:routineId/deactivate', routineWrite, async (request) =>
-      useCases.deactivateCareRoutine.execute(request.userId, request.params.petId, request.params.routineId, objectBody(request.body)),
+      useCases.deactivateCareRoutine.execute(request.userId, request.params.petId, request.params.routineId, objectBody(request.body), quota('ROUTINE', request)),
     );
 
     scope.get<PetParams>('/api/pets/:petId/care/today', read, async (request) => useCases.getPetCareToday.execute(request.userId, request.params.petId));
@@ -105,12 +107,12 @@ export function registerCareRoutes(app: FastifyInstance, { useCases }: RouteCont
     });
 
     scope.post<PetParams>('/api/pets/:petId/care/log', logWrite, async (request, reply) => {
-      const { entry, created } = await useCases.createCareLogEntry.execute(request.userId, request.params.petId, objectBody(request.body));
+      const { entry, created } = await useCases.createCareLogEntry.execute(request.userId, request.params.petId, objectBody(request.body), quota('LOG', request));
       return reply.status(created ? 201 : 200).send(entry);
     });
 
     scope.post<EntryParams>('/api/pets/:petId/care/log/:entryId/revert', revertWrite, async (request) => {
-      const { entry } = await useCases.revertCareLogEntry.execute(request.userId, request.params.petId, request.params.entryId, objectBody(request.body, true));
+      const { entry } = await useCases.revertCareLogEntry.execute(request.userId, request.params.petId, request.params.entryId, objectBody(request.body, true), quota('REVERT', request));
       return entry;
     });
 
@@ -119,12 +121,12 @@ export function registerCareRoutes(app: FastifyInstance, { useCases }: RouteCont
     scope.get<PetParams>('/api/pets/:petId/care/access/me', read, async (request) => useCases.getMyCareAccess.execute(request.userId, request.params.petId));
 
     scope.put<AccessParams>('/api/pets/:petId/care/access/:userId', routineWrite, async (request, reply) => {
-      const { access, created } = await useCases.setCaregiverAccess.execute(request.userId, request.params.petId, request.params.userId, objectBody(request.body));
+      const { access, created } = await useCases.setCaregiverAccess.execute(request.userId, request.params.petId, request.params.userId, objectBody(request.body), quota('ROUTINE', request));
       return reply.status(created ? 201 : 200).send(access);
     });
 
     scope.delete<AccessParams>('/api/pets/:petId/care/access/:userId', routineWrite, async (request, reply) => {
-      await useCases.removeCaregiverAccess.execute(request.userId, request.params.petId, request.params.userId);
+      await useCases.removeCaregiverAccess.execute(request.userId, request.params.petId, request.params.userId, quota('ROUTINE', request));
       return reply.status(204).send();
     });
   });

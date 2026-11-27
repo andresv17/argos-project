@@ -2,15 +2,17 @@
  * Textos y reglas de presentación del Modo Cuidador (Feature 012, Bloque C, #26; T1656; REQ-CAR12-004, REQ-CAR12-005, REQ-CAR12-008, EDGE-012-049). Presentación pura, sin leer el servidor: la
  * pantalla solo ofrece lo que `access/me` dice que el servidor permite, y el servidor vuelve a comprobarlo en cada escritura.
  */
+import { BRAND_NAME } from './brand.ts';
 import type { CareKind, CareOccurrenceView, CaregiverLevel, ConflictInfo, DoseUnit, MyCareAccessView, OccurrenceState } from './care-api.ts';
 
-/** Aviso de límites de producto (REQ-CAR12-008): sin recordatorios, sin consejo clínico; el texto literal lo fija el contrato. */
+/** Avisos de límites de producto (REQ-CAR12-008): sin consejo clínico (literal del contrato) y sin recordatorios. */
 export const CARE_LIMITS_NOTICE = 'Las instrucciones las define el propietario; ante dudas consulta al veterinario';
-export const CARE_NO_REMINDERS_NOTICE = 'Tipi no envía recordatorios ni notificaciones: revisa esta pantalla a la hora de cada tarea.';
+/** Solo «Sin notificaciones» viene del contrato (REQ-CAR12-008); el resto de la frase es texto de producto. */
+export const CARE_NO_REMINDERS_NOTICE = `${BRAND_NAME} no envía recordatorios ni notificaciones: revisa esta pantalla a la hora de cada tarea.`;
 /** Advertencia de doble administración (maggie M-4, REQ-CAR12-003): literal del contrato. */
 export const DOUBLE_DOSE_WARNING = 'Registrar la toma no la impide: verifica en el registro antes de darla';
 /** Texto del editor de medicación (contrato `createCareRoutine`): literal. */
-export const DOSE_DISCLAIMER = 'Tipi registra la indicación que escribes; no calcula ni verifica dosis, ni interacciones. Sigue siempre la indicación de tu veterinario.';
+export const DOSE_DISCLAIMER = `${BRAND_NAME} registra la indicación que escribes; no calcula ni verifica dosis, ni interacciones. Sigue siempre la indicación de tu veterinario.`;
 export const TIMEZONE_LABEL = 'Hora de Bogotá';
 
 export const KIND_LABEL: Readonly<Record<CareKind, string>> = { MEDICATION: 'Medicina', MEAL: 'Comida', WALK: 'Paseo', OTHER: 'Otra tarea' };

@@ -113,4 +113,18 @@ describe('límites de la capa HTTP (R-3, H-C1)', () => {
     expect((await api.call('DELETE', `${base}/access/${MARIA}`, { cookie: andres, ...NC })).status).toBe(429);
     expect((await api.call('GET', `${base}/routines`, { cookie: andres, ...NC })).status).toBe(200);
   });
+  it('[R-3] un 403 de potestad no gasta cupo: tras más intentos que el tope sigue siendo 403 (nunca 429) y no vacía el cupo del propio usuario', async () => {
+    const { andres, maria } = await setup(); // maria es CAREGIVER sin fila de nivel: VIEW_ONLY
+    for (let i = 0; i < 125; i += 1) expect((await api.call('POST', `${base}/log`, { cookie: maria, body: {}, ...NC })).status).toBe(403);
+    for (let i = 0; i < 65; i += 1) expect((await api.call('POST', `${base}/routines`, { cookie: maria, body: {}, ...NC })).status).toBe(403);
+    for (let i = 0; i < 35; i += 1) expect((await api.call('POST', `${base}/log/${ANDRES}/revert`, { cookie: maria, ...NC })).status).toBe(403);
+    expect((await api.call('POST', `${base}/log`, { cookie: andres, body: {}, ...NC })).status).toBe(422);
+  });
+
+  it('[R-3] con el cupo agotado, el 403 precede al 429: quien agotó su cupo como titular y pierde la potestad recibe 403, no 429', async () => {
+    const { andres, maria } = await setup();
+    for (let i = 0; i < 30; i += 1) expect((await api.call('POST', `${base}/log/${ANDRES}/revert`, { cookie: andres, ...NC })).status).toBe(404);
+    expect((await api.call('POST', `${base}/log/${ANDRES}/revert`, { cookie: andres, ...NC })).status).toBe(429);
+    expect((await api.call('POST', `${base}/log/${ANDRES}/revert`, { cookie: maria, ...NC })).status).toBe(403);
+  });
 });

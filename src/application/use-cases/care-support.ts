@@ -21,6 +21,9 @@ export const invalidField = (field: string): DomainError => new DomainError('ERR
 export const forbidden = (): DomainError => new DomainError('ERR-ACC-FORBIDDEN', undefined, 'petId');
 export const petNotFound = (): DomainError => new DomainError('ERR-PET-NOT-FOUND', undefined, 'petId');
 
+/** Gancho opcional de la capa HTTP que el caso de uso invoca JUSTO DESPUÉS de superar la potestad (R-3: el cupo solo gasta peticiones que pasan sesión, CSRF y potestad); puede lanzar el 429. */
+export type AfterAuthorization = () => void;
+
 export interface CareContext {
   readonly pet: PetProfile;
   readonly titular: boolean;

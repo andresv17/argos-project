@@ -1,7 +1,7 @@
 /**
  * Casos de uso del registro de cuidado (Feature 012, Bloque C, #26; T1655): registrar (`{ entry, created }`: 201 vs 200), revertir e historial paginado.
  * Autor, hora y `late` los fija el servidor (se ignoran los valores del cliente); la unicidad es por SERIE lógica (A-05) y la dosis de la entrada es la de la versión que cubre la OCURRENCIA (A-04).
- * SIN limitador de escrituras: los cubos 120/60/30 son de T1656 (R-3).
+ * SIN limitador propio: los cubos 120/60/30 (R-3) viven en la capa HTTP y se consumen por el gancho `afterAuthorization`, tras la potestad.
  *
  * @implements REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-007, REQ-CAR12-009, SC-012-029, SC-012-030, SC-012-031, SC-012-032, SC-012-033, SC-012-034, SC-012-038, SC-012-076, ERR-CAR12-ALREADY-LOGGED, ERR-CAR12-OUT-OF-WINDOW
  */
@@ -11,7 +11,7 @@ import { bogotaInstantMs, isoWeekday } from '../../domain/care/care-time.ts';
 import { isIsoCalendarDate } from '../../domain/shared/date-utils.ts';
 import { isUniqueViolationOf } from './unique-violation.ts';
 import { CARE_LOG_UNIQUE_SQLITE_MESSAGE, type CareLogRecord, type CareRoutineRecord } from '../ports/care.port.ts';
-import { DELETED_USER_NAME, decodeCareLogCursor, encodeCareLogCursor, forbidden, invalidField, petNotFound, presentEntry, requireCareContext, usernamesById } from './care-support.ts';
+import { DELETED_USER_NAME, type AfterAuthorization, decodeCareLogCursor, encodeCareLogCursor, forbidden, invalidField, petNotFound, presentEntry, requireCareContext, usernamesById } from './care-support.ts';
 import { lockPet, type ApplicationDeps } from './use-case-support.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -50,12 +50,13 @@ function occursOn(r: CareRoutineRecord, date: string, time: string): boolean {
 export class CreateCareLogEntryUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  execute(actorUserId: string, petId: string, input: Record<string, unknown>): Promise<{ entry: Record<string, unknown>; created: boolean }> {
+  execute(actorUserId: string, petId: string, input: Record<string, unknown>, afterAuthorization?: AfterAuthorization): Promise<{ entry: Record<string, unknown>; created: boolean }> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId);
       const now = this.deps.clock.nowIsoTimestamp();
       const ctx = await requireCareContext(repositories, actorUserId, petId, now);
       if (!ctx.access.canLogCare) throw forbidden();
+      afterAuthorization?.();
       const { routineId, occurrenceDate, occurrenceTime, status } = input;
       if (typeof routineId !== 'string' || !UUID.test(routineId)) throw invalidField('routineId');
       if (typeof occurrenceDate !== 'string' || !isIsoCalendarDate(occurrenceDate)) throw invalidField('occurrenceDate');
@@ -121,12 +122,13 @@ export class CreateCareLogEntryUseCase {
 export class RevertCareLogEntryUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  execute(actorUserId: string, petId: string, entryId: string, input: Record<string, unknown> = {}): Promise<{ entry: Record<string, unknown> }> {
+  execute(actorUserId: string, petId: string, entryId: string, input: Record<string, unknown> = {}, afterAuthorization?: AfterAuthorization): Promise<{ entry: Record<string, unknown> }> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId);
       const now = this.deps.clock.nowIsoTimestamp();
       const ctx = await requireCareContext(repositories, actorUserId, petId, now);
       if (!ctx.titular && !ctx.access.canLogCare) throw forbidden();
+      afterAuthorization?.();
       const entry = UUID.test(entryId) ? await repositories.careLog.findById(petId, entryId) : null;
       if (entry === null) throw petNotFound();
       const reason = plainText(input['reason'], 'reason', 140);

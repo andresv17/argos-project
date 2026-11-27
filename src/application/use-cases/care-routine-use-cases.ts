@@ -14,7 +14,7 @@ import { isIsoCalendarDate } from '../../domain/shared/date-utils.ts';
 import { requireActiveMembership } from '../../domain/households/household-policies.ts';
 import type { CareRoutineRecord, CaregiverAccessRecord, CareLevelValue } from '../ports/care.port.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
-import { forbidden, invalidField, petNotFound, presentAccess, presentEntry, presentRoutine, requireCareContext, usernamesById, careAccessOf, type CareContext } from './care-support.ts';
+import { forbidden, invalidField, petNotFound, presentAccess, presentEntry, presentRoutine, requireCareContext, usernamesById, careAccessOf, type AfterAuthorization, type CareContext } from './care-support.ts';
 import { lockPet, requireReadablePet, type ApplicationDeps } from './use-case-support.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,12 +37,13 @@ function expectedVersionOf(input: Record<string, unknown>): number {
 export class CreateCareRoutineUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  execute(actorUserId: string, petId: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
+  execute(actorUserId: string, petId: string, input: Record<string, unknown>, afterAuthorization?: AfterAuthorization): Promise<Record<string, unknown>> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId);
       const now = this.deps.clock.nowIsoTimestamp();
       const ctx = await requireCareContext(repositories, actorUserId, petId, now);
       requireTitular(ctx);
+      afterAuthorization?.();
       const valid = validateCareRoutine(input, speciesToDoseGroup(ctx.pet.species));
       assertRoutineCapacity({ activeCount: await repositories.careRoutines.countActive(petId), totalRows: (await repositories.careRoutines.listByPet(petId)).length, replacing: false });
       const id = this.deps.ids.nextId();
@@ -70,12 +71,13 @@ export class CreateCareRoutineUseCase {
 export class UpdateCareRoutineUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  execute(actorUserId: string, petId: string, routineId: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
+  execute(actorUserId: string, petId: string, routineId: string, input: Record<string, unknown>, afterAuthorization?: AfterAuthorization): Promise<Record<string, unknown>> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId);
       const now = this.deps.clock.nowIsoTimestamp();
       const ctx = await requireCareContext(repositories, actorUserId, petId, now);
       requireTitular(ctx);
+      afterAuthorization?.();
       const current = UUID.test(routineId) ? await repositories.careRoutines.findById(petId, routineId) : null;
       if (current === null) throw petNotFound();
       // D-A (Neo): 403 -> 404 -> 422 -> 409. Primero la forma (expectedVersion y captura fusionada, 422); después STALE y por último el tope de filas (409).
@@ -102,12 +104,13 @@ export class UpdateCareRoutineUseCase {
 export class DeactivateCareRoutineUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  execute(actorUserId: string, petId: string, routineId: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
+  execute(actorUserId: string, petId: string, routineId: string, input: Record<string, unknown>, afterAuthorization?: AfterAuthorization): Promise<Record<string, unknown>> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId);
       const now = this.deps.clock.nowIsoTimestamp();
       const ctx = await requireCareContext(repositories, actorUserId, petId, now);
       requireTitular(ctx);
+      afterAuthorization?.();
       const current = UUID.test(routineId) ? await repositories.careRoutines.findById(petId, routineId) : null;
       if (current === null) throw petNotFound();
       assertExpectedVersion(current, expectedVersionOf(input));
@@ -211,12 +214,13 @@ async function isValidCaregiverTarget(repositories: RepositorySet, targetUserId:
 export class SetCaregiverAccessUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  execute(actorUserId: string, petId: string, targetUserId: string, input: Record<string, unknown>): Promise<{ access: Record<string, unknown>; created: boolean }> {
+  execute(actorUserId: string, petId: string, targetUserId: string, input: Record<string, unknown>, afterAuthorization?: AfterAuthorization): Promise<{ access: Record<string, unknown>; created: boolean }> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId);
       const now = this.deps.clock.nowIsoTimestamp();
       const ctx = await requireCareContext(repositories, actorUserId, petId, now);
       requireTitular(ctx);
+      afterAuthorization?.();
       // T-C4: el 404 del destino precede al 422 y al 409 para que un 409 no confirme que el destino tiene fila.
       if (!UUID.test(targetUserId) || !(await isValidCaregiverTarget(repositories, targetUserId, ctx, now))) throw petNotFound();
       const level = input['level'];
@@ -240,11 +244,12 @@ export class SetCaregiverAccessUseCase {
 export class RemoveCaregiverAccessUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
-  execute(actorUserId: string, petId: string, targetUserId: string): Promise<{ removed: boolean }> {
+  execute(actorUserId: string, petId: string, targetUserId: string, afterAuthorization?: AfterAuthorization): Promise<{ removed: boolean }> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId);
       const ctx = await requireCareContext(repositories, actorUserId, petId, this.deps.clock.nowIsoTimestamp());
       requireTitular(ctx);
+      afterAuthorization?.();
       return { removed: await repositories.caregiverAccess.remove(petId, targetUserId) };
     });
   }
