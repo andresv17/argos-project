@@ -68,6 +68,8 @@ const CO_OWNERSHIP_RATE_PATH = new URL('../../../src/infrastructure/persistence/
 const DISPUTE_EVIDENCE_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0032_dispute_evidence_ip_rate_events.sql', import.meta.url);
 /** T1648 (012, Bloque B, #23): la 0033 de Postgres equivale a la 0037 de SQLite (`admin_identities.person_id` y columnas `*_admin_id`/`*_person_id` de `owner_requests`, FK RESTRICT, REQ-CHP12-009). */
 const ADMIN_DISPUTE_ACTORS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0033_admin_dispute_actors.sql', import.meta.url);
+/** H-01 (012, Bloque B, #23): la 0034 de Postgres equivale a la 0038 de SQLite (`admin_audit_entries.metadata` TEXT NULL, motivo de decisión del arbitraje, NFR-012-006 N-E). */
+const ADMIN_AUDIT_METADATA_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0034_admin_audit_metadata.sql', import.meta.url);
 const USER_AVATAR_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0028_user_avatar.sql', import.meta.url);
 const ACCOUNT_STATUS_PATH = new URL('../../../src/infrastructure/persistence/postgres/migrations/0016_account_status.sql', import.meta.url);
 
@@ -266,7 +268,7 @@ function postgresStatements(path: URL = BASELINE_PATH): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
-const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...postgresStatements(LIMITS_RESET_PATH), ...postgresStatements(ADULT_DECLARATION_PATH), ...postgresStatements(ABOUT_CONTENT_PATH), ...postgresStatements(ADMIN_DELEGATES_PATH), ...postgresStatements(USER_AVATAR_PATH), ...postgresStatements(CO_OWNERSHIP_PATH), ...postgresStatements(CO_OWNERSHIP_AUDIT_PATH), ...postgresStatements(CO_OWNERSHIP_RATE_PATH), ...postgresStatements(DISPUTE_EVIDENCE_PATH), ...postgresStatements(ADMIN_DISPUTE_ACTORS_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
+const postgresSchema = (extra: URL[] = []): Schema => parseSchema([...postgresStatements(), ...postgresStatements(REVISION_PATH), ...postgresStatements(USERNAME_PATH), ...postgresStatements(MICROCHIP_PATH), ...postgresStatements(RATE_SCOPE_PATH), ...postgresStatements(MEDIA_PATH), ...postgresStatements(PLATFORM_PATH), ...postgresStatements(SHARE_PATH), ...postgresStatements(HOME_PATH), ...postgresStatements(LIFE_PATH), ...postgresStatements(DECEASED_LINK_PATH), ...postgresStatements(BIOGRAPHY_PATH), ...postgresStatements(GOOGLE_SSO_PATH), ...postgresStatements(DELETE_INTENT_PATH), ...postgresStatements(ADMIN_PORTAL_PATH), ...postgresStatements(ACCOUNT_STATUS_PATH), ...postgresStatements(PROVIDER_CALL_PATH), ...postgresStatements(IMAGE_MIME_JPEG_PATH), ...postgresStatements(LIMITS_RESET_PATH), ...postgresStatements(ADULT_DECLARATION_PATH), ...postgresStatements(ABOUT_CONTENT_PATH), ...postgresStatements(ADMIN_DELEGATES_PATH), ...postgresStatements(USER_AVATAR_PATH), ...postgresStatements(CO_OWNERSHIP_PATH), ...postgresStatements(CO_OWNERSHIP_AUDIT_PATH), ...postgresStatements(CO_OWNERSHIP_RATE_PATH), ...postgresStatements(DISPUTE_EVIDENCE_PATH), ...postgresStatements(ADMIN_DISPUTE_ACTORS_PATH), ...postgresStatements(ADMIN_AUDIT_METADATA_PATH), ...extra.flatMap((path) => postgresStatements(path))]);
 
 const expectedPgType = (column: string, sqliteType: string): string =>
   column === 'data' ? 'JSONB' : SMALLINT_FLAGS.has(column) ? 'SMALLINT' : sqliteType;
@@ -550,6 +552,7 @@ describe.skipIf(!TEST_DATABASE_URL)(
         await client.query(readFileSync(CO_OWNERSHIP_RATE_PATH, 'utf8'));
         await client.query(readFileSync(DISPUTE_EVIDENCE_PATH, 'utf8'));
         await client.query(readFileSync(ADMIN_DISPUTE_ACTORS_PATH, 'utf8'));
+        await client.query(readFileSync(ADMIN_AUDIT_METADATA_PATH, 'utf8'));
         const { rows } = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
           'SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1',
           [schemaName],

@@ -1020,7 +1020,8 @@ function adminAuditRepository(state: MemoryState): AdminAuditRepositoryPort {
     async insert(record) {
       if (record.id.length !== 36 || record.adminId.length !== 36 || record.action.length < 1 || record.action.length > 64) throw new Error('admin_audit_entries: fila incoherente');
       if (all().some((r) => r.id === record.id)) throw new Error('admin_audit_entries: identificador duplicado');
-      all().push(copy(record));
+      if (record.metadata != null && (record.metadata.length < 2 || record.metadata.length > 4096)) throw new Error('admin_audit_entries: metadata incoherente');
+      all().push(copy(record.metadata == null ? { id: record.id, adminId: record.adminId, action: record.action, objectRef: record.objectRef, occurredAt: record.occurredAt } : record));
     },
     async listByAdmin(adminId) {
       return copy(all().filter((r) => r.adminId === adminId).sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : a.occurredAt > b.occurredAt ? 1 : a.id < b.id ? -1 : 1)));

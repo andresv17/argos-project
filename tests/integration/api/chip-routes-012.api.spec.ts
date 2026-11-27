@@ -216,6 +216,13 @@ describe('cola de disputas de /admin (REQ-CHP12-009, INV-CHP12-006, EDGE-012-043
     const done = await as(admins.two, 'POST', `/api/admin/disputes/${id}/confirm`, { reason: 'Confirmado', stepUpGrantId: confirmGrant2.grantId });
     expect(done.status).toBe(200);
     expect(done.json).toMatchObject({ status: 'RESOLVED', decisionPhase: 'NONE' });
+    // H-01 (a): el motivo de decisión vive SOLO en `admin_audit_entries.metadata` de los eventos de arbitraje (se purga con la auditoría); person_id nunca.
+    const audit = api.db.prepare("SELECT action, metadata FROM admin_audit_entries WHERE action IN ('DISPUTE_DECISION_RECORDED', 'DISPUTE_DECISION_CONFIRMED') ORDER BY occurred_at, rowid").all() as Array<{ action: string; metadata: string | null }>;
+    expect(audit).toEqual([
+      { action: 'DISPUTE_DECISION_RECORDED', metadata: JSON.stringify({ reason: 'Documentos verificados' }) },
+      { action: 'DISPUTE_DECISION_CONFIRMED', metadata: JSON.stringify({ reason: 'Confirmado' }) },
+    ]);
+    expect(JSON.stringify(api.db.prepare('SELECT * FROM admin_audit_entries').all())).not.toMatch(/persona_000/);
     expect((await api.call('GET', `/api/pets/${petId}/ownership`, { cookie: andres, ...NC })).status).toBe(200);
     // SUPER_ADMIN (raíz) ve los identificadores de los actores; el aviso al reclamante es solo el desenlace.
     const closed = (await as(admins.one, 'GET', `/api/admin/disputes/${id}`)).json as { actors: unknown[]; actorIdentities?: unknown[] };

@@ -2,7 +2,7 @@
  * Rutas de la cola de disputas de `/admin` (Feature 012, Bloque B, #23, T1636; `contracts/openapi/admin-disputes.openapi.yaml`, APPROVED): 9 operaciones bajo `/api/admin/disputes`.
  * - La puerta única (`admin-gate.ts`) ya resolvió sesión y rol (404 uniforme sin sesión, 403 `ERR-ADM11-ROLE-NOT-AUTHORIZED` para `SUPPORT`) ANTES de leer el cuerpo; el registro central de roles declara las 9 filas.
  * - `resolve` y `confirm` exigen un `StepUpGrant` vigente y de UN SOLO USO ligado a `(adminId, disputeId, acción)` (`assertStepUpGrant`): sin él, 403 genérico de `/admin` sin código de catálogo nuevo.
- * - `person_id` del administrador se lee de `admin_identities` en cada petición; ausente = el caso de uso falla cerrado con `ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT`. Nunca se auditan `person_id` ni el motivo libre.
+ * - `person_id` del administrador se lee de `admin_identities` en cada petición; ausente = el caso de uso falla cerrado con `ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT`. Nunca se audita `person_id`; el motivo de decisión (<= 500) de `resolve`/`confirm` se guarda solo en `admin_audit_entries.metadata` (H-01 (a)) y se purga con la auditoría.
  * - Expediente inexistente = 404 uniforme; `AdminForbiddenError` = 403 genérico. Todas las respuestas llevan `Cache-Control: no-store`.
  *
  * @implements REQ-CHP12-004, REQ-CHP12-008, REQ-CHP12-009, INV-CHP12-004, INV-CHP12-006, EDGE-012-043, EDGE-012-060, EDGE-012-061, EDGE-012-064, SC-012-098, SC-012-104

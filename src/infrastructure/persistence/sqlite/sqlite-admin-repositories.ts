@@ -157,18 +157,19 @@ interface AuditRow {
   readonly action: string;
   readonly object_ref: string | null;
   readonly occurred_at: string;
+  readonly metadata: string | null;
 }
 
 export function adminAuditRepository(db: SqliteDatabase): AdminAuditRepositoryPort {
-  const columns = 'id, admin_id, action, object_ref, occurred_at';
-  const insert = db.prepare(`INSERT INTO admin_audit_entries (${columns}) VALUES (?, ?, ?, ?, ?)`);
+  const columns = 'id, admin_id, action, object_ref, occurred_at, metadata';
+  const insert = db.prepare(`INSERT INTO admin_audit_entries (${columns}) VALUES (?, ?, ?, ?, ?, ?)`);
   const byAdmin = db.prepare<[string], AuditRow>(`SELECT ${columns} FROM admin_audit_entries WHERE admin_id = ? ORDER BY occurred_at, id`);
   return {
     async insert(r: AdminAuditRecord) {
-      insert.run(r.id, r.adminId, r.action, r.objectRef, r.occurredAt);
+      insert.run(r.id, r.adminId, r.action, r.objectRef, r.occurredAt, r.metadata ?? null);
     },
     async listByAdmin(adminId) {
-      return byAdmin.all(adminId).map((row) => ({ id: row.id, adminId: row.admin_id, action: row.action, objectRef: row.object_ref, occurredAt: row.occurred_at }));
+      return byAdmin.all(adminId).map((row) => ({ id: row.id, adminId: row.admin_id, action: row.action, objectRef: row.object_ref, occurredAt: row.occurred_at, ...(row.metadata === null ? {} : { metadata: row.metadata }) }));
     },
   };
 }

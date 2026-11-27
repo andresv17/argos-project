@@ -143,9 +143,10 @@ export async function loadForArbitration(deps: ApplicationDeps, repositories: Re
   return { dispute, now };
 }
 
-export async function auditArbiter(deps: ApplicationDeps, repositories: RepositorySet, actor: ArbiterActor, action: string, disputeId: string, now: string): Promise<void> {
-  // Solo ids internos: `person_id`, motivo libre y datos de las partes nunca se auditan aquí (rama NUEVO-7).
-  await repositories.adminAudit.insert({ id: deps.auditIds.nextId(), adminId: actor.adminId, action, objectRef: `dispute:${disputeId}`, occurredAt: now });
+export async function auditArbiter(deps: ApplicationDeps, repositories: RepositorySet, actor: ArbiterActor, action: string, disputeId: string, now: string, reason?: string): Promise<void> {
+  // `person_id` y datos de las partes nunca se auditan aquí (rama NUEVO-7). Solo el motivo de decisión (<= 500, ya validado) de resolve/confirm va en `metadata` (H-01 (a), N-E: se purga con la auditoría).
+  const metadata = reason === undefined ? null : JSON.stringify({ reason: reason.normalize('NFC') });
+  await repositories.adminAudit.insert({ id: deps.auditIds.nextId(), adminId: actor.adminId, action, objectRef: `dispute:${disputeId}`, occurredAt: now, metadata });
 }
 
 /** Cierra la disputa: fila terminal + retención de la evidencia desde `closed_at`. */
@@ -220,7 +221,7 @@ export class ResolveChipDisputeUseCase {
         if (!(await repositories.ownerRequests.update(next, 'UNDER_REVIEW'))) throw stale();
         result = { ...next, version: dispute.version + 1 };
       }
-      await auditArbiter(deps, repositories, actor, body.resolution === 'REJECT' ? 'DISPUTE_REJECTED' : 'DISPUTE_DECISION_RECORDED', disputeId, now);
+      await auditArbiter(deps, repositories, actor, body.resolution === 'REJECT' ? 'DISPUTE_REJECTED' : 'DISPUTE_DECISION_RECORDED', disputeId, now, body.reason);
       return result;
     });
   }
@@ -297,7 +298,7 @@ export class ConfirmChipDisputeDecisionUseCase {
         if (!read) throw new AdminForbiddenError(); // debe haber leído la evidencia antes de confirmar
       }
       const closed = await executeDecision(deps, repositories, dispute, { adminId: columns.adminId, personId: columns.personId }, now);
-      await auditArbiter(deps, repositories, actor, 'DISPUTE_DECISION_CONFIRMED', disputeId, now);
+      await auditArbiter(deps, repositories, actor, 'DISPUTE_DECISION_CONFIRMED', disputeId, now, body.reason);
       return closed;
     });
   }

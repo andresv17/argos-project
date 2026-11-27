@@ -132,16 +132,16 @@ export function adminFlowRepository(client: PoolClientLike): AdminFlowStateRepos
   };
 }
 
-const AUDIT_COLUMNS = 'id, admin_id, action, object_ref, occurred_at';
+const AUDIT_COLUMNS = 'id, admin_id, action, object_ref, occurred_at, metadata';
 
 export function adminAuditRepository(client: PoolClientLike): AdminAuditRepositoryPort {
   return {
     async insert(r) {
-      await client.query(`INSERT INTO admin_audit_entries (${AUDIT_COLUMNS}) VALUES ($1, $2, $3, $4, $5)`, [r.id, r.adminId, r.action, r.objectRef, r.occurredAt]);
+      await client.query(`INSERT INTO admin_audit_entries (${AUDIT_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6)`, [r.id, r.adminId, r.action, r.objectRef, r.occurredAt, r.metadata ?? null]);
     },
     async listByAdmin(adminId) {
       const { rows } = await client.query(`SELECT ${AUDIT_COLUMNS} FROM admin_audit_entries WHERE admin_id = $1 ORDER BY occurred_at, id`, [adminId]);
-      return rows.map((row) => ({ id: String(row['id']), adminId: String(row['admin_id']), action: String(row['action']), objectRef: nullable(row['object_ref']), occurredAt: String(row['occurred_at']) }));
+      return rows.map((row) => ({ id: String(row['id']), adminId: String(row['admin_id']), action: String(row['action']), objectRef: nullable(row['object_ref']), occurredAt: String(row['occurred_at']), ...(row['metadata'] === null || row['metadata'] === undefined ? {} : { metadata: String(row['metadata']) }) }));
     },
   };
 }

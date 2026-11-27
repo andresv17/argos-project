@@ -86,6 +86,8 @@ export interface AdminAuditRecord {
   readonly action: string;
   readonly objectRef: string | null;
   readonly occurredAt: string;
+  /** Metadatos opcionales (JSON de texto, <= 4096); ausente (clave omitida al leer) en filas sin motivo y previas a la migración 0038 (SQLite) / 0034 (PostgreSQL). Hoy solo el motivo de decisión del arbitraje de disputas (feature 012). */
+  readonly metadata?: string | null;
 }
 
 export interface AdminAuditRepositoryPort {
