@@ -225,6 +225,56 @@ describe('cola de disputas de /admin (REQ-CHP12-009, INV-CHP12-006, EDGE-012-043
     expect(mine.items[0]!.outcome).toBe('RESOLVED_APPROVED');
   });
 
+  it('[H-06][INV-CHP12-004] un administrador OPERATOR (delegado, no raíz) no recibe actorIdentities en una disputa cerrada con actores, y el SUPER_ADMIN sí', async () => {
+    const { andres } = await setup();
+    const admins = await twoAdmins();
+    // El segundo administrador deja de ser raíz y pasa a delegado ACTIVE con rol OPERATOR (el rol se resuelve en cada petición).
+    kit.emails.splice(kit.emails.indexOf(ADMIN_EMAIL_2), 1);
+    const identity = api.db.prepare('SELECT admin_id FROM admin_identities WHERE email = ?').get(ADMIN_EMAIL_2) as { admin_id: string };
+    const stamp = '2026-11-01T00:00:00.000Z';
+    api.db
+      .prepare("INSERT INTO admin_delegates (admin_id, email, role, status, provider, provider_subject, anchored_at, created_by_admin_id, created_at, updated_at) VALUES (?, ?, 'OPERATOR', 'ACTIVE', 'GOOGLE', ?, ?, ?, ?, ?)")
+      .run(identity.admin_id, ADMIN_EMAIL_2, ADMIN_SUB_2, stamp, identity.admin_id, stamp, stamp);
+    expect((await api.call('POST', '/api/chip-disputes', { cookie: andres, raw: form([{ name: 'microchipId', value: CHIP }, { name: 'evidence', file: png() }]), headers: MULTIPART, ...NC })).status).toBe(202);
+    const id = ((await as(admins.one, 'GET', '/api/admin/disputes')).json as { items: Array<{ disputeId: string }> }).items[0]!.disputeId;
+    const evidenceId = ((await as(admins.one, 'GET', `/api/admin/disputes/${id}`)).json as { evidence: Array<{ evidenceId: string }> }).evidence[0]!.evidenceId;
+    const grant = async (cookie: string, action: 'resolve' | 'confirm') => ((await as(cookie, 'POST', `/api/admin/disputes/${id}/step-up`, { disputeId: id, action })).json as { grantId: string }).grantId;
+    expect((await as(admins.one, 'POST', `/api/admin/disputes/${id}/resolve`, { resolution: 'ADD_CO_OWNER', reason: 'Documentos verificados', stepUpGrantId: await grant(admins.one, 'resolve') })).status).toBe(200);
+    expect((await as(admins.two, 'GET', `/api/admin/disputes/${id}/evidence/${evidenceId}`)).status).toBe(200);
+    // El OPERATOR confirma y recibe la vista cerrada con los dos actores, sin `actorIdentities`.
+    const done = await as(admins.two, 'POST', `/api/admin/disputes/${id}/confirm`, { reason: 'Confirmado', stepUpGrantId: await grant(admins.two, 'confirm') });
+    expect(done.status).toBe(200);
+    const operatorView = (await as(admins.two, 'GET', `/api/admin/disputes/${id}`)).json as { actors: Array<{ alias: string; role: string }>; actorIdentities?: unknown };
+    expect(operatorView.actors).toEqual([{ alias: 'Resolutor', role: 'SUPER_ADMIN' }, { alias: 'Segundo aprobador', role: 'OPERATOR' }]);
+    expect('actorIdentities' in operatorView).toBe(false);
+    expect('actorIdentities' in (done.json as object)).toBe(false);
+    expect(((await as(admins.one, 'GET', `/api/admin/disputes/${id}`)).json as { actorIdentities?: unknown[] }).actorIdentities).toHaveLength(2);
+  });
+
+  it('[H-06][REQ-CHP12-009] el step-up de resolve vence a los 5 minutos y un grant ajeno no sirve; ambos 403 genérico y la disputa no cambia', async () => {
+    const { andres } = await setup();
+    const admins = await twoAdmins();
+    expect((await api.call('POST', '/api/chip-disputes', { cookie: andres, raw: form([{ name: 'microchipId', value: CHIP }, { name: 'evidence', file: png() }]), headers: MULTIPART, ...NC })).status).toBe(202);
+    const id = ((await as(admins.one, 'GET', '/api/admin/disputes')).json as { items: Array<{ disputeId: string }> }).items[0]!.disputeId;
+    const resolveWith = (cookie: string, grantId: string) => as(cookie, 'POST', `/api/admin/disputes/${id}/resolve`, { resolution: 'ADD_CO_OWNER', reason: 'Documentos verificados', stepUpGrantId: grantId });
+    const issue = async (cookie: string) => ((await as(cookie, 'POST', `/api/admin/disputes/${id}/step-up`, { disputeId: id, action: 'resolve' })).json as { grantId: string }).grantId;
+
+    // grant ajeno: emitido al administrador dos, usado por el uno
+    expect((await resolveWith(admins.one, await issue(admins.two))).status).toBe(403);
+
+    // grant propio expirado: a 4 min 59 s aún vale (se prueba aparte); a 5 min exactos ya no
+    const issuedAt = api.clock.nowIsoTimestamp();
+    const expired = await issue(admins.one);
+    const later = new Date(Date.parse(issuedAt) + 5 * 60_000).toISOString();
+    api.clock.setClock(later.slice(0, 10), later);
+    expect((await resolveWith(admins.one, expired)).status).toBe(403);
+    api.clock.setClock(issuedAt.slice(0, 10), issuedAt);
+    const stillValid = await issue(admins.one);
+    const almost = new Date(Date.parse(issuedAt) + 5 * 60_000 - 1000).toISOString();
+    api.clock.setClock(almost.slice(0, 10), almost);
+    expect((await resolveWith(admins.one, stillValid)).status).toBe(200);
+  });
+
   it('[deny-by-default] sin sesión de administración 404 uniforme; la cookie de usuario no autoriza /admin; cuerpos con campos extra 422', async () => {
     const { andres } = await setup();
     const admins = await twoAdmins();
