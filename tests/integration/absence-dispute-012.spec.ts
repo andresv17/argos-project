@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { GetOwnerRequestUseCase } from '../../src/application/use-cases/owner-request-use-cases.ts';
+import { ERROR_CATALOG } from '../../src/generated/v38/errors/error-codes.ts';
 import { OpenAbsenceDisputeUseCase, RespondAbsenceDisputeUseCase } from '../../src/application/use-cases/absence-dispute-use-cases.ts';
 import type { OwnerRequestRecord } from '../../src/application/ports/co-ownership.port.ts';
 import { ANDRES, CARLOS, ENGINE_FACTORIES, MARIA, PET, allRequestRows, cases, codeOf, makeCoOwners, requestRows, unshare, type Engine012 } from '../fixtures/co-ownership-012.ts';
@@ -141,6 +143,24 @@ for (const factory of ENGINE_FACTORIES) {
       expect((await use.ownership(MARIA, PET)).absenceNotice).toEqual({ open: true, respondable: true, frozenUntil: at(60) });
       expect((await use.ownership(ANDRES, PET)).absenceNotice).toEqual({ open: true, respondable: false, frozenUntil: at(60) });
       expect(JSON.stringify((await use.ownership(MARIA, PET)).absenceNotice)).not.toContain(ANDRES);
+    });
+
+    it('[INV-OWN12-004][S-4] el target de una disputa por ausencia recibe por el detalle el mismo 404 {status, code} que una solicitud inexistente; el solicitante sí la ve y los terceros reciben el mismo 404', async () => {
+      engine = await factory.make();
+      await scenario(engine);
+      await open(engine, ANDRES, MARIA);
+      const [dispute] = await disputes(engine);
+      const id = dispute!['id'] as string;
+      const get = new GetOwnerRequestUseCase(engine.deps);
+      const shape = async (actor: string, requestId: string): Promise<{ status: number | null; code: string }> => {
+        const code = await codeOf(get.execute(actor, requestId));
+        return { code, status: code === 'OK' ? null : (ERROR_CATALOG as Record<string, { status: number }>)[code]?.status ?? null };
+      };
+      const missing = await shape(MARIA, ID(99));
+      expect(missing).toEqual({ status: 404, code: 'ERR-PET-NOT-FOUND' });
+      expect(await shape(MARIA, id)).toEqual(missing); // el target
+      expect(await shape(CARLOS, id)).toEqual(missing); // un tercero
+      expect((await shape(ANDRES, id)).code).toBe('OK'); // quien la abrió
     });
   });
 }
