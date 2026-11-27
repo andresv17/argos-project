@@ -67,7 +67,7 @@
     "CARE_LOG_RETENTION_DAYS": {
       "value": 365,
       "where": "feature-012-limits.ts",
-      "rule": "registros de MEAL/WALK/OTHER desde occurrence_date; rutinas inactivas 365 dias desde su desactivacion (effective_to; Reserva 1 de T1661, Neo 2026-11-27), no desde la ultima ocurrencia"
+      "rule": "registros de MEAL/WALK/OTHER desde occurrence_date; rutinas inactivas 365 dias desde su desactivacion (la desactivacion fija effective_to y updated_at = now, invariante R-1, incluido el hook de fallecimiento de 007; Reserva 1 de T1661, Neo 2026-11-27), no desde la ultima ocurrencia"
     },
     "CARE_TIMEZONE": {
       "value": "America/Bogota",
