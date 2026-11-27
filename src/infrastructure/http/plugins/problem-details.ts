@@ -31,7 +31,7 @@ import { MAX_IMPORT_BYTES } from '../../../application/use-cases/backup-use-case
 export const PROBLEM_CONTENT_TYPE = 'application/problem+json; charset=utf-8';
 export const BACKUP_IMPORT_PATH = '/api/backup/import';
 /** `POST /api/pets/<id>/media`, `PUT /api/pets/<id>/avatar` y `PUT /api/households/<id>/photo` (006) `PUT /api/admin/about/photo` (010) y `PUT /api/account/avatar` (011, #78, Trinity H-1): rutas de cuerpo crudo de medios. */
-const MEDIA_UPLOAD_PATH = /^\/api\/(?:pets\/[^/]+\/(?:media|avatar)|households\/[^/]+\/photo|admin\/about\/photo|account\/avatar)$/;
+const MEDIA_UPLOAD_PATH = /^\/api\/(?:pets\/[^/]+\/(?:media|avatar)|households\/[^/]+\/photo|admin\/about\/photo|account\/avatar|chip-disputes)$/;
 /** `PUT /api/admin/about` (010, H-ARCH-ACE-413): el JSON de texto que supera el límite de lectura es `ERR-ACE10-BODY-TOO-LARGE` (413), solo en esta ruta. */
 const ABOUT_TEXT_PATH = '/api/admin/about';
 
@@ -73,6 +73,8 @@ export function registerProblemDetails(app: FastifyInstance): void {
     // 429 de la escena (REQ-ESC6-034), de administración y del registro (009): los segundos de espera viajan en `Retry-After`.
     const retryAfter = (error as { retryAfterSeconds?: unknown }).retryAfterSeconds;
     if ((problem.code === 'ERR-RATE-LIMITED' || problem.code === 'ERR-ADMIN-RATE-LIMITED' || problem.code === 'ERR-ACCOUNT-REGISTRATION-RATE-LIMITED') && typeof retryAfter === 'number') reply.header('retry-after', String(retryAfter));
+    // 503 reintentable de la 012: `Retry-After` CONSTANTE, idéntico para cualquier chip (REQ-OWN12-011, trinity H-A1).
+    if (problem.code === 'ERR-OWN12-RETRYABLE') reply.header('retry-after', '2');
     // 429 de administración (009, EDGE-009-035): sin caché y sin revelar nada más que el código del catálogo.
     if (problem.code === 'ERR-ADMIN-RATE-LIMITED') reply.header('cache-control', 'no-store');
     return sendProblem(reply, request, problem);

@@ -22,7 +22,7 @@ import { DAY_MS, DISPUTE_EVIDENCE_MAX_FILES, DISPUTE_FREEZE_MAX_DAYS, DISPUTE_MA
 import type { OwnerRequestRecord } from '../ports/co-ownership.port.ts';
 import type { EvidenceContentType } from '../ports/dispute-evidence.port.ts';
 import { CHIP_REQUEST_ACCEPTED, requireChipFormat, type ChipRequestAcceptedResult } from './chip-claim-use-cases.ts';
-import { countChipAttempt, type ChipRequestContext } from './chip-ip-rate-limit.ts';
+import { countChipAttempt, recordChipAttempt, type ChipRequestContext } from './chip-ip-rate-limit.ts';
 import { chipHmacOf, chipLast4 } from './chip-uniqueness.ts';
 import { materializeExpiredInvitations, ownersOf, recordOwnershipAudit, runOwnershipTransaction } from './co-ownership-support.ts';
 import { mapStorageError, purgeObjects, requireMedia } from './media-use-cases.ts';
@@ -165,5 +165,18 @@ export class OpenChipDisputeUseCase {
       return; // la fila INTENT sigue; el mantenimiento la convierte en DELETE
     }
     await purgeObjects(this.deps, keys);
+  }
+}
+
+/**
+ * Contador de PETICIONES multipart de `openChipDispute` (ámbito `CHIP_MULTIPART`, usuario -> IP; REQ-CHP12-005, rama NUEVO-4): la ruta lo consume ANTES de parsear el cuerpo. Cuenta toda petición que
+ * llega a este paso (también las que luego dan 422 o el 413 por archivo); el 411 y el 413 por `Content-Length` se deciden antes y no cuentan. @throws `ERR-RATE-LIMITED` (429 uniforme).
+ * @implements REQ-CHP12-005, SC-012-100
+ */
+export class ConsumeChipMultipartUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(actorUserId: string, context: ChipRequestContext = {}): Promise<void> {
+    await recordChipAttempt(this.deps, { userId: actorUserId, ip: context.ip ?? null, trustProxyHops: context.trustProxyHops ?? 0, scope: 'CHIP_MULTIPART' });
   }
 }

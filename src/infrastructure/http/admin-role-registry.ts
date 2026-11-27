@@ -50,6 +50,16 @@ export const ADMIN_ROUTE_REGISTRY: readonly AdminRouteEntry[] = [
   { method: 'POST', path: '/api/admin/administrators/{adminId}/disable', access: SUPER_ONLY },
   { method: 'POST', path: '/api/admin/administrators/{adminId}/reactivate', access: SUPER_ONLY },
   { method: 'POST', path: '/api/admin/administrators/{adminId}/reinvite', access: SUPER_ONLY },
+  // 012 (T1636, admin-disputes.openapi.yaml): cola de disputas y arbitraje; SUPPORT queda fuera (deny-by-default).
+  { method: 'GET', path: '/api/admin/disputes', access: OPERATIONS },
+  { method: 'GET', path: '/api/admin/disputes/{disputeId}', access: OPERATIONS },
+  { method: 'GET', path: '/api/admin/disputes/{disputeId}/evidence/{evidenceId}', access: OPERATIONS },
+  { method: 'POST', path: '/api/admin/disputes/{disputeId}/extend-freeze', access: OPERATIONS },
+  { method: 'POST', path: '/api/admin/disputes/{disputeId}/step-up', access: OPERATIONS },
+  { method: 'POST', path: '/api/admin/disputes/{disputeId}/resolve', access: OPERATIONS },
+  { method: 'POST', path: '/api/admin/disputes/{disputeId}/confirm', access: OPERATIONS },
+  { method: 'POST', path: '/api/admin/disputes/{disputeId}/cancel-execution', access: OPERATIONS },
+  { method: 'POST', path: '/api/admin/disputes/{disputeId}/close-moot', access: OPERATIONS },
 ];
 
 /** Resultado de consultar el registro para una ruta montada. */

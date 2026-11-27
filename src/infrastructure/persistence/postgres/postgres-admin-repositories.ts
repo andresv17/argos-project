@@ -46,6 +46,10 @@ export function adminIdentityRepository(client: PoolClientLike): AdminIdentityRe
   };
   return {
     findById: (adminId) => one('admin_id = $1', [adminId]),
+    async findPersonId(adminId) {
+      const { rows } = await client.query('SELECT person_id FROM admin_identities WHERE admin_id = $1', [adminId]);
+      return rows[0] === undefined ? null : nullable(rows[0]['person_id']);
+    },
     findBySubject: (provider, providerSubject) => one('provider = $1 AND provider_subject = $2', [provider, providerSubject]),
     findByEmail: (email) => one('email = $1', [email]),
     async insertIfAbsent(identity) {

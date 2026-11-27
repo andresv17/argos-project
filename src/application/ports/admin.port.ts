@@ -17,10 +17,14 @@ export interface AdminIdentityRecord {
   /** Correo en minúsculas del acceso que ancló la identidad; solo sirve para revalidar la lista cerrada en cada petición (EDGE-009-047). */
   readonly email: string;
   readonly createdAt: string;
+  /** `person_id` opaco de persona física verificada (012, T1648); solo lo asigna SUPER_ADMIN. Ausente o `null` = sin asignar (el control dual falla cerrado). */
+  readonly personId?: string | null;
 }
 
 export interface AdminIdentityRepositoryPort {
   findById(adminId: string): Promise<AdminIdentityRecord | null>;
+  /** `person_id` del administrador o `null` (sin asignar o identidad inexistente). */
+  findPersonId(adminId: string): Promise<string | null>;
   findBySubject(provider: AdminProvider, providerSubject: string): Promise<AdminIdentityRecord | null>;
   findByEmail(email: string): Promise<AdminIdentityRecord | null>;
   /** Inserta si no existe ni el `(provider, sub)` ni el correo (`ON CONFLICT DO NOTHING`): `true` si insertó, `false` si ya existía alguno de los dos (la existente no cambia). */

@@ -43,6 +43,7 @@ export function adminIdentityRepository(db: SqliteDatabase): AdminIdentityReposi
   const byId = db.prepare<[string], IdentityRow>(`SELECT ${columns} FROM admin_identities WHERE admin_id = ?`);
   const bySubject = db.prepare<[string, string], IdentityRow>(`SELECT ${columns} FROM admin_identities WHERE provider = ? AND provider_subject = ?`);
   const byEmail = db.prepare<[string], IdentityRow>(`SELECT ${columns} FROM admin_identities WHERE email = ?`);
+  const personById = db.prepare<[string], { person_id: string | null }>('SELECT person_id FROM admin_identities WHERE admin_id = ?');
   const insert = db.prepare(`INSERT INTO admin_identities (${columns}) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`);
   const remove = db.prepare('DELETE FROM admin_identities WHERE admin_id = ?');
   const toIdentity = (row: IdentityRow): AdminIdentityRecord => ({ adminId: row.admin_id, provider: row.provider, providerSubject: row.provider_subject, email: row.email, createdAt: row.created_at });
@@ -50,6 +51,9 @@ export function adminIdentityRepository(db: SqliteDatabase): AdminIdentityReposi
     async findById(adminId) {
       const row = byId.get(adminId);
       return row === undefined ? null : toIdentity(row);
+    },
+    async findPersonId(adminId) {
+      return personById.get(adminId)?.person_id ?? null;
     },
     async findBySubject(provider, providerSubject) {
       const row = bySubject.get(provider, providerSubject);

@@ -111,7 +111,7 @@ const conflict = (): DomainError => new DomainError('ERR-CHP12-DISPUTE-ARBITRATI
 const stale = (): DomainError => new DomainError('ERR-OWN12-STALE');
 
 /** ¿El administrador es parte? Por la cuenta de usuario vinculada a su correo: solicitante, `target`, principal o co-propietario de la mascota. Sin identidad o sin cuenta vinculada: no es parte. */
-async function isParty(repositories: RepositorySet, actor: ArbiterActor, dispute: OwnerRequestRecord): Promise<boolean> {
+export async function isParty(repositories: RepositorySet, actor: ArbiterActor, dispute: OwnerRequestRecord): Promise<boolean> {
   const identity = await repositories.adminIdentities.findById(actor.adminId);
   if (identity === null) return false;
   const linked = (await repositories.users.listByEmail(identity.email.trim().toLowerCase())).map((u) => u.id);
@@ -127,13 +127,13 @@ async function isParty(repositories: RepositorySet, actor: ArbiterActor, dispute
   return linked.some((id) => parties.has(id));
 }
 
-interface Loaded {
+export interface Loaded {
   readonly dispute: OwnerRequestRecord;
   readonly now: string;
 }
 
 /** Carga común dentro de la transacción de escritura: rol (deny-by-default), existencia, vigencia y recusación. */
-async function loadForArbitration(deps: ApplicationDeps, repositories: RepositorySet, actor: ArbiterActor, disputeId: string, options: { readonly requireUnderReview?: boolean } = {}): Promise<Loaded> {
+export async function loadForArbitration(deps: ApplicationDeps, repositories: RepositorySet, actor: ArbiterActor, disputeId: string, options: { readonly requireUnderReview?: boolean } = {}): Promise<Loaded> {
   if (actor.role !== 'SUPER_ADMIN' && actor.role !== 'OPERATOR') throw new DomainError('ERR-ADM11-ROLE-NOT-AUTHORIZED');
   const dispute = await repositories.ownerRequests.findById(disputeId);
   if (dispute === null || dispute.action !== 'CHIP_DISPUTE') throw new DisputeNotFoundError();
@@ -143,7 +143,7 @@ async function loadForArbitration(deps: ApplicationDeps, repositories: Repositor
   return { dispute, now };
 }
 
-async function auditArbiter(deps: ApplicationDeps, repositories: RepositorySet, actor: ArbiterActor, action: string, disputeId: string, now: string): Promise<void> {
+export async function auditArbiter(deps: ApplicationDeps, repositories: RepositorySet, actor: ArbiterActor, action: string, disputeId: string, now: string): Promise<void> {
   // Solo ids internos: `person_id`, motivo libre y datos de las partes nunca se auditan aquí (rama NUEVO-7).
   await repositories.adminAudit.insert({ id: deps.auditIds.nextId(), adminId: actor.adminId, action, objectRef: `dispute:${disputeId}`, occurredAt: now });
 }

@@ -852,6 +852,9 @@ function adminIdentityRepository(state: MemoryState): AdminIdentityRepositoryPor
     async findBySubject(provider, providerSubject) {
       return copy(all().find((i) => i.provider === provider && i.providerSubject === providerSubject) ?? null);
     },
+    async findPersonId(adminId) {
+      return all().find((i) => i.adminId === adminId)?.personId ?? null;
+    },
     async findByEmail(email) {
       return copy(all().find((i) => i.email === email) ?? null);
     },
