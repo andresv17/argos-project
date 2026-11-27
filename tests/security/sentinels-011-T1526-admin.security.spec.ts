@@ -1,4 +1,3 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   DELEGATE_ROOT_EMAIL,
@@ -31,7 +30,6 @@ import {
 
 type Row = { backend: string; sentinel: string; label: string; status: number; code: string | undefined; expected: string; pass: boolean; note: string };
 const ROWS: Row[] = [];
-const OUT_DIR = '/private/tmp/claude-501/-Users-andresvalejo-Documents-Tecnica-Proyecto-Argos/ccab4498-b9d4-4865-801f-8abdf8224462/scratchpad';
 
 const SA_EMAIL = 'super.delegado@example.test';
 const SA2_EMAIL = 'super.dos@example.test';
@@ -321,8 +319,6 @@ for (const backend of ['memory', 'sqlite'] as Backend[]) {
   describe(`T1526 Sentinels 9 vectores sobre /api/admin/me y /api/admin/administrators* (${backend})`, { timeout: 180_000 }, () => {
     it('ejecuta la batería y no encuentra desviaciones frente al contrato 1.8.0', async () => {
       await runBattery(backend);
-      mkdirSync(OUT_DIR, { recursive: true });
-      writeFileSync(`${OUT_DIR}/t1526-rows-${backend}.json`, JSON.stringify(ROWS.filter((r) => r.backend === backend), null, 2));
       const failed = ROWS.filter((r) => r.backend === backend && !r.pass);
       expect(failed.map((r) => `${r.sentinel} ${r.label} -> ${r.status} ${r.code ?? ''} (esperado ${r.expected}) ${r.note}`)).toEqual([]);
     });
