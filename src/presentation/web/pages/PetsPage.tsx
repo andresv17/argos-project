@@ -4,7 +4,7 @@
  *
  * @implements REQ-UI-001, REQ-UI-002, REQ-UI-007, REQ-PET-004, REQ-CLI5-001
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebouncedValue } from '../use-debounced-value.ts';
 import { ContextSelector, PET_PANEL_ID } from '../components/ContextSelector.tsx';
 import { Button, FormError } from '../components/Field.tsx';
@@ -18,11 +18,13 @@ import { PetReferenceNote } from '../components/HouseholdPhoto.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { OwnersPanel, OwnershipInbox } from '../components/CoOwners.tsx';
 import { createCoOwnershipApi, type OwnershipView } from '../co-ownership-api.ts';
+import { createChipApi } from '../chip-api.ts';
+import { ChipRegisteredDialog, MyChipRequests } from '../components/ChipRegisteredDialog.tsx';
 import { activeOwnerCount, hasMultipleActiveOwners } from '../co-ownership-gating.ts';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { PhotoAlbum } from '../components/PhotoAlbum.tsx';
 import { principalHouseholdId } from '../scene-view.ts';
-import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, isPetVersionConflict, problemMessage, unwrap } from '../api.ts';
+import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, isMicrochipRegistered, isPetVersionConflict, problemMessage, unwrap } from '../api.ts';
 import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
 import type { FormBody } from '../validation.ts';
 import { useSession } from '../session.tsx';
@@ -138,8 +140,21 @@ export function PetsPage(): JSX.Element {
     setError(null);
   };
 
+  // 012 (T1636): el 409 «microchip registrado» no se muestra como error del formulario: abre el diálogo de tres salidas (corregir, co-propiedad, es mía). El chip se guarda solo para enviarlo.
+  const chipApi = useMemo(() => createChipApi(), []);
+  const [chipDialog, setChipDialog] = useState<string | null>(null);
+  const askAboutChip = (body: PetFormBody): void => {
+    const value = (body as Record<string, unknown>)['microchipId'];
+    setChipDialog(typeof value === 'string' ? value : '');
+  };
+
   const createPet = async (body: PetFormBody): Promise<void> => {
-    const pet = await unwrap(api.POST('/pets', { params: CSRF_PARAMS, body: body as unknown as Schemas['CreatePetInput'] }));
+    const pet = await unwrap(api.POST('/pets', { params: CSRF_PARAMS, body: body as unknown as Schemas['CreatePetInput'] })).catch((e: unknown) => {
+      if (!isMicrochipRegistered(e)) throw e;
+      askAboutChip(body);
+      return null;
+    });
+    if (pet === null) return;
     setMode('VIEW');
     setContextId(MINE_CONTEXT_ID);
     setActivePetId(pet.id);
@@ -153,6 +168,10 @@ export function PetsPage(): JSX.Element {
     try {
       await unwrap(api.PATCH('/pets/{petId}', { params: { header: { ...CSRF_PARAMS.header, 'If-Match': `"${version}"` }, path: { petId: activePetId } }, body: body as Schemas['UpdatePetInput'] }));
     } catch (e) {
+      if (isMicrochipRegistered(e)) {
+        askAboutChip(body);
+        return;
+      }
       // 412: la ficha cambió; se recarga y el formulario (con `key` por versión) vuelve a montarse con lo vigente, junto al mensaje fijo del catálogo.
       if (isPetVersionConflict(e)) {
         setError(messageOf(e));
@@ -213,6 +232,7 @@ export function PetsPage(): JSX.Element {
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <h1 className="sr-only">Mascotas</h1>
       <OwnershipInbox onChanged={() => void refreshAll()} />
+      <MyChipRequests api={chipApi} />
       <ContextSelector options={options} activeId={contextId} onSelect={onSelectContext} />
       <div id={PET_PANEL_ID} role="tabpanel" aria-labelledby={`context-tab-${contextId}`} className="grid min-w-0 grid-cols-1 gap-4">
         <PetFilter
@@ -244,6 +264,17 @@ export function PetsPage(): JSX.Element {
           </section>
           <section aria-label="Ficha de la mascota" className="grid min-w-0 grid-cols-1 content-start gap-3">
             <FormError message={error} />
+            {chipDialog === null ? null : (
+              <ChipRegisteredDialog
+                chip={chipDialog}
+                api={chipApi}
+                onCorrect={() => {
+                  setChipDialog(null);
+                  document.querySelector<HTMLInputElement>('input[name="microchipId"]')?.focus();
+                }}
+                onClose={() => setChipDialog(null)}
+              />
+            )}
             {notice === null ? null : (
               <p role="status" className="rounded-2xl border border-emerald-700 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
                 {notice}

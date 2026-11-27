@@ -63,6 +63,11 @@ export const RECORD_CONFLICT_CODE = 'ERR-REC-CONFLICT';
 /** Texto de la interfaz para ese 409 (REQ-BOR-005, D-16 A). */
 export const RECORD_CONFLICT_MESSAGE = 'El registro cambió; recarga y vuelve a intentarlo.';
 
+/** Código del 409 «microchip registrado por otra cuenta» (012, REQ-CHP12-001): tampoco está en el catálogo 002 de la SPA; abre el diálogo de tres salidas. @implements REQ-CHP12-001 */
+export const MICROCHIP_REGISTERED_CODE = 'ERR-CHP12-MICROCHIP-REGISTERED';
+export const MICROCHIP_REGISTERED_MESSAGE = 'Ese número de microchip no se puede usar en este registro. Revisa que esté bien escrito o elige una de las opciones.';
+export const isMicrochipRegistered = (error: unknown): boolean => error instanceof ApiProblem && error.problem.code === MICROCHIP_REGISTERED_CODE;
+
 /** 412 de la ficha desactualizada (007, EDGE-007-009): otra persona la cambió; la interfaz recarga y pide reintentar. @implements REQ-FAL7-003 */
 export const isPetVersionConflict = (error: unknown): boolean => error instanceof ApiProblem && error.problem.code === 'ERR-PET-VERSION-CONFLICT';
 
@@ -84,7 +89,7 @@ export function catalogProblem(code: ErrorCode, field?: string): ProblemDetails 
 export function toProblem(error: unknown): ProblemDetails {
   if (typeof error === 'object' && error !== null && typeof (error as { code?: unknown }).code === 'string') {
     const candidate = error as ProblemDetails;
-    if (isCatalogCode(candidate.code) || candidate.code === RECORD_CONFLICT_CODE) return candidate;
+    if (isCatalogCode(candidate.code) || candidate.code === RECORD_CONFLICT_CODE || candidate.code === MICROCHIP_REGISTERED_CODE) return candidate;
   }
   return catalogProblem('ERR-INTERNAL-UNEXPECTED');
 }
@@ -92,6 +97,7 @@ export function toProblem(error: unknown): ProblemDetails {
 /** Texto para el usuario: el `detailTemplate` del catálogo para el código recibido; el de esquema formal se redacta en llano (T293). */
 export function problemMessage(problem: ProblemDetails): string {
   if (problem.code === RECORD_CONFLICT_CODE) return RECORD_CONFLICT_MESSAGE;
+  if (problem.code === MICROCHIP_REGISTERED_CODE) return MICROCHIP_REGISTERED_MESSAGE;
   // El detalle de una regla de negocio (p. ej. fecha posterior al fallecimiento) se conserva; el error técnico crudo de esquema cae en el texto llano por campo.
   if (problem.code === 'ERR-SCHEMA-VALIDATION-FAILED') return businessRuleMessage(problem.detail) ?? humanSchemaMessage(typeof problem.field === 'string' ? problem.field : undefined);
   return isCatalogCode(problem.code) ? ERROR_CATALOG[problem.code].detailTemplate : problem.detail;

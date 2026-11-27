@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AboutPanel } from './AboutPanel.tsx';
 import { AdministratorsPanel } from './AdministratorsPanel.tsx';
+import { DisputesPanel } from './DisputesPanel.tsx';
 import { fetchSelf } from './administrators-api.ts';
 import { canSeeParameters, type SelfView } from './administrators-view.ts';
 import { BRAND_NAME } from './brand.ts';
@@ -125,6 +126,7 @@ function Shell(props: {
         <h1 className="mb-4 break-words text-2xl font-bold text-text-primary">Administración</h1>
         <SessionExpiryNotice expiresAt={session.expiresAt} />
         <RegistrationsPanel onSessionLost={onSessionLost} />
+        {canSeeParameters(self) ? <DisputesPanel onSessionLost={onSessionLost} /> : null}
         {canSeeParameters(self) ? <ParametersPanel viewerId={session.viewerId} onSessionLost={onSessionLost} /> : null}
         {canSeeParameters(self) ? <AboutPanel onSessionLost={onSessionLost} /> : null}
         <AdministratorsPanel self={self} onSessionLost={onSessionLost} />
