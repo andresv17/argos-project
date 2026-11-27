@@ -85,3 +85,15 @@ Propietarios actuales: «se abrió un caso de revisión sobre el microchip termi
 6. **`trinity N-1` — ACEPTADO por Neo (Nivel 2, 2026-11-27) como residual `N2-R4`**: canal de tiempo entre el `202` con fila y el `202` sin fila; consistente con la igualdad estructural de llamadas y el candado `chip_hmac` previo. La iteración 0.4 lo reduce (la subida ocurre antes de los candados); no se iguala con cola ni latencia fija.
 7. **`trinity` discrepancia 1 — CONFIRMADO por Neo (Nivel 2, 2026-11-27)**: el intento bloqueado con `429` no se registra y la ventana no se prolonga (alineado con el código vigente).
 8. La **base legal** del tratamiento de la evidencia y el aviso del QR siguen en `DEUDA-012-LEGAL-DISPUTAS-QR` (`T1643`); la cola **no se habilita en producción** sin ella.
+
+## 11. Enmienda ENM-012-ADMIN-AUDIT-METADATA (MINOR, firmada por Neo, Nivel 2, 2026-11-27)
+
+Enmienda **acotada y aditiva** a este anexo. **No cambia** el estado `APPROVED` ni ningún texto anterior; firmada por Neo (decisión de Nivel 2, 2026-11-27, opción (a) del conflicto entre el invariante de privacidad de la 009 y la columna `metadata` de `H-01`). Versión del anexo: MINOR. **No edita** ningún archivo de la 009.
+
+1. **Columna admitida:** `admin_audit_entries.metadata` (`TEXT NULL`, `CHECK` de longitud 2..4096; migraciones `0038` en SQLite y `0034` en PostgreSQL, de `H-01`). Es aditiva.
+2. **Uso exclusivo:** el **motivo de la decisión de arbitraje** (≤ `DECISION_REASON_MAX_CHARS = 500` caracteres, serializado como JSON `{"reason": "..."}`), escrito **solo** en `resolve` y `confirm`. Ninguna otra columna ni otro uso de `metadata` queda permitido (ni otras acciones, ni otros campos, ni valores que no sean ese JSON).
+3. **Purga:** el motivo se purga **con la fila** de `admin_audit_entries` a los **24 meses** (`R-1`, `D6`, §8); no hay purga separada ni más retención.
+4. **Alcance de la 009:** el invariante de la 009 sigue **vigente** para el resto de la tabla: sin correo, `sub`, tokens ni valores fuera de `id`, `admin_id`, `action`, `object_ref`, `occurred_at`, **excepto** `metadata` en el caso de §11.2.
+5. **Aviso de redacción (`rama B-01`):** el motivo puede contener datos de terceros; la interfaz muestra, junto al campo, el texto exacto «No incluyas datos personales de terceros en el motivo.»
+
+Trazabilidad: `ENM-012-ADMIN-AUDIT-METADATA`, `REQ-CHP12-007`, `D6`, `R-1`, `H-01`. Acta: `.specify/memory/audits/architect-012-ENM-ADMIN-AUDIT-METADATA-2026-11-27.md`.
