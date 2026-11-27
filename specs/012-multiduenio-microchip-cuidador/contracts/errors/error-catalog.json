@@ -4,7 +4,7 @@
   "x-sdd-metadata": {
     "version": "0.3.0",
     "status": "APPROVED",
-    "amendment_status": {"0.3.0": "DRAFT, pendiente de aprobacion de Neo (CLAUDE.md 1.1); alcance: solo la entrada ERR-CAR12-ROUTINE-STALE. El APPROVED de este bloque cubre unicamente lo previo a 0.3.0"},
+    "amendment_status": {"0.3.0": "APPROVED por Neo (Nivel 2, 2026-11-27); alcance: entrada ERR-CAR12-ROUTINE-STALE."},
     "supersedes": null,
     "change_type": "MINOR",
     "extends": "catalogos de 001..011 (sin editar)",
