@@ -8,7 +8,7 @@
     "status": "DRAFT",
     "supersedes": null,
     "change_type": "MAJOR",
-    "change_note": "0.1.0 (feature 012, T1648, Architect 2026-11-27, DRAFT; autorizada por Neo Nivel 2; el estado lo fija solo Neo): documento NUEVO. +AdminDisputeQueueItem y +AdminDisputeQueue (cola con filtros y SLA), +AdminDisputeFile (expediente), +AdminDisputeEvidenceItem, +AdminActorColumns (columnas de administrador y de persona: resolved_by_admin_id, resolved_by_person_id, second_approver_admin_id, second_approver_person_id; resuelve trinity N-3 (a): los administradores viven en admin_identities, no en users), +DecisionPhase (derivado: NONE, AWAITING_CONFIRMATION, SCHEDULED_EXECUTION), +StepUpRequest y +StepUpGrant (reautenticacion; PROPUESTA de ventana ADMIN_STEPUP_WINDOW_MINUTES = 5, a confirmar por Neo al aprobar), +ResolveDisputeRequest, +ConfirmDisputeRequest, +CancelExecutionRequest, +ExtendFreezeRequest, +CloseMootRequest, +DisputePartyView (alias Parte A / Parte B u userId opaco). Persona distinta (annex §7.1): el confirmador debe diferir del resolutor por admin_id Y por person_id. Sin cambios en 011 ni en chip-claim.schema.json.",
+    "change_note": "0.1.0 (feature 012, T1648, Architect 2026-11-27, DRAFT; autorizada por Neo Nivel 2; el estado lo fija solo Neo): documento NUEVO. +AdminDisputeQueueItem y +AdminDisputeQueue (cola con filtros y SLA), +AdminDisputeFile (expediente), +AdminDisputeEvidenceItem, +AdminActorColumns (columnas de administrador y de persona: resolved_by_admin_id, resolved_by_person_id, second_approver_admin_id, second_approver_person_id; resuelve trinity N-3 (a): los administradores viven en admin_identities, no en users), +DecisionPhase (derivado: NONE, AWAITING_CONFIRMATION, SCHEDULED_EXECUTION), +StepUpRequest y +StepUpGrant (reautenticacion; ventana ADMIN_STEPUP_WINDOW_MINUTES = 5 fijada por Neo), +ResolveDisputeRequest, +ConfirmDisputeRequest, +CancelExecutionRequest, +ExtendFreezeRequest, +CloseMootRequest, +DisputePartyView (alias Parte A / Parte B u userId opaco). Persona distinta (annex §7.1): el confirmador debe diferir del resolutor por admin_id Y por person_id. Sin cambios en 011 ni en chip-claim.schema.json. DRAFT 0.8 (Architect 2026-11-27, sin aprobar; decisiones de Neo): person_id opaco de persona fisica verificada asignado por SUPER_ADMIN, falla cerrada si falta o coincide (N-A); DisputeResolutionNotice.outcome = RESOLVED_APPROVED | RESOLVED_REJECTED | EXPIRED con resolvedAt = closed_at (N-C); AdminDisputeFile.actors expone solo alias y rol, salvo SUPER_ADMIN (N-D); ancla closed_at del audit retention y purga del motivo (N-E); ADMIN_STEPUP_WINDOW_MINUTES = 5 y DECISION_REASON_MAX_CHARS = 500 fijadas; falta de step-up = 403 generico sin codigo nuevo. DRAFT 0.9 (Architect 2026-11-27, sin aprobar; rama v0.8): AdminActorView separada en AdminActorView (alias y rol, todos) y +AdminActorIdentity (adminId y personId, solo SUPER_ADMIN, via AdminDisputeFile.actorIdentities) (NUEVO-3); DisputeResolutionNotice.outcome reutiliza chip-claim ChipRequestOutcome y se cablea en listMyChipRequests (NUEVO-2); tabla fisica admin_identities.person_id y FK en data-model.md, migracion de T1648 (NUEVO-1); retencion de person_id y resolved_by_person_id en data-model.md (NUEVO-7).",
     "traceability": [
       "STATE-OWNREQ12-001",
       "REQ-CHP12-004",
@@ -35,12 +35,12 @@
     "ADMIN_STEPUP_WINDOW_MINUTES": {
       "value": 5,
       "where": "feature-012-limits.ts",
-      "rule": "PROPUESTA DRAFT de T1648 (annex §7.3, 011 no define step-up): vigencia de la reautenticacion; un StepUpGrant es de UN SOLO USO, ligado a (adminId, disputeId, accion resolve|confirm) y se consume al ejecutar la operacion; Neo confirma o cambia el valor al aprobar"
+      "rule": "FIJADA por Neo (Nivel 2, 2026-11-27) (annex §7.3, 011 no define step-up): vigencia de la reautenticacion; un StepUpGrant es de UN SOLO USO, ligado a (adminId, disputeId, accion resolve|confirm) y se consume al ejecutar la operacion"
     },
     "DISPUTE_SLA_BUSINESS_DAYS": { "value": 15, "where": "feature-012-limits.ts", "rule": "SLA operativo; vencido escala a SUPER_ADMIN, no cambia de estado" },
     "DISPUTE_FREEZE_EXTENSION_DAYS": { "value": 30, "where": "feature-012-limits.ts", "rule": "una sola prorroga con motivo; techo absoluto DISPUTE_FREEZE_ABSOLUTE_MAX_DAYS = 60" },
     "ARBITRATION_DELAY_HOURS": { "value": 72, "where": "feature-012-limits.ts", "rule": "ventana de aviso solo en CO_OWNER_ABSENT_OR_BLOCKING y PRINCIPAL_ABSENT; el temporizador solo ejecuta una decision ya registrada por un humano" },
-    "DECISION_REASON_MAX_CHARS": { "value": 500, "where": "feature-012-limits.ts", "rule": "PROPUESTA DRAFT de T1648: puntos de codigo, texto plano, escapado de salida; motivo obligatorio y auditado (sin identidad ni correo)" }
+    "DECISION_REASON_MAX_CHARS": { "value": 500, "where": "feature-012-limits.ts", "rule": "FIJADA por Neo (Nivel 2, 2026-11-27): puntos de codigo, texto plano, escapado de salida; motivo obligatorio y auditado (sin identidad ni correo); se purga junto con la auditoria al vencer ARBITER_AUDIT_RETENTION_DAYS contado desde closed_at (rama N-E)" }
   },
   "$defs": {
     "OpaqueId": {
@@ -51,7 +51,7 @@
     "DisputeId": { "$ref": "#/$defs/OpaqueId" },
     "EvidenceId": { "$ref": "#/$defs/OpaqueId" },
     "AdminId": { "$ref": "#/$defs/OpaqueId" },
-    "PersonId": { "$ref": "#/$defs/OpaqueId", "description": "Identificador de la PERSONA fisica detras de una o varias cuentas de administrador; sirve para «persona distinta» (annex §7.1). Nunca es el correo." },
+    "PersonId": { "$ref": "#/$defs/OpaqueId", "description": "Identificador OPACO de persona fisica verificada (no de cuenta), asignado por SUPER_ADMIN en el registro de operadores (Neo, 2026-11-27, N-A); sirve para «persona distinta» (annex §7.1). Regla de no colision por correo verificado y revision manual. Si falta o coincide con el del resolutor: FALLA CERRADA con ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT. Nunca es el correo." },
     "PartyAlias": { "type": "string", "enum": ["Parte A", "Parte B"], "description": "Alias estable DENTRO de un expediente (rama F-08). No se reutiliza entre expedientes." },
     "DisputePartyView": {
       "type": "object",
@@ -77,7 +77,7 @@
     "AdminActorColumns": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Columnas nuevas de owner_requests (T1633/T1648; trinity N-3 (a)): los administradores viven en admin_identities (0019_admin_portal.sql), NO en users, por eso resolved_by_user_id y second_approver_user_id (FK a users) no sirven. Los ids son internos y NO se exponen al usuario final; el arbitro de OTRO caso ve solo el rol.",
+      "description": "Columnas nuevas de owner_requests (T1633/T1648; trinity N-3 (a)): los administradores viven en admin_identities (0019_admin_portal.sql), NO en users, por eso resolved_by_user_id y second_approver_user_id (FK a users) no sirven. Columnas de BD: los ids son internos y NO se exponen al usuario final. La vista del expediente usa AdminActorView (alias y rol) y, solo para SUPER_ADMIN, AdminActorIdentity; no esta forma. La tabla fisica de operadores y las FK las declara data-model.md (rama NUEVO-1; migracion de T1648).",
       "properties": {
         "resolved_by_admin_id": { "$ref": "#/$defs/AdminId" },
         "resolved_by_person_id": { "$ref": "#/$defs/PersonId" },
@@ -86,6 +86,27 @@
         "resolved_at": { "type": "string", "format": "date-time" },
         "second_approved_at": { "type": "string", "format": "date-time" },
         "executes_after": { "type": "string", "format": "date-time" }
+      }
+    },
+    "AdminActorView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alias", "role"],
+      "description": "Vista del actor administrativo en el expediente para TODOS los roles autorizados (SUPER_ADMIN y OPERATOR) (rama N-D, NUEVO-3, Neo 2026-11-27): SOLO alias y rol; esta forma NO contiene adminId ni personId. Los identificadores van en AdminActorIdentity, solo para SUPER_ADMIN.",
+      "properties": {
+        "alias": { "type": "string", "enum": ["Resolutor", "Segundo aprobador"] },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "OPERATOR"] }
+      }
+    },
+    "AdminActorIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alias", "adminId", "personId"],
+      "description": "Identificadores del actor administrativo (rama N-D, NUEVO-3): SOLO se devuelve a SUPER_ADMIN, en AdminDisputeFile.actorIdentities, enlazado por alias a AdminActorView. Se OMITE por completo (el campo actorIdentities no existe) para OPERATOR; la restriccion vive en la forma, no solo en la descripcion. adminId = id interno de admin_identities; personId = identificador opaco de persona fisica (nunca el correo).",
+      "properties": {
+        "alias": { "type": "string", "enum": ["Resolutor", "Segundo aprobador"] },
+        "adminId": { "$ref": "#/$defs/AdminId" },
+        "personId": { "$ref": "#/$defs/PersonId" }
       }
     },
     "EvidenceFileMeta": {
@@ -152,7 +173,8 @@
         "targetLastActiveAt": { "type": "string", "format": "date-time" },
         "targetResponse": { "type": "string", "maxLength": 280, "description": "Respuesta unica del target, texto plano, escapada de salida; se borra al resolver" },
         "evidence": { "type": "array", "items": { "$ref": "#/$defs/EvidenceFileMeta" }, "maxItems": 5 },
-        "actors": { "$ref": "#/$defs/AdminActorColumns" }
+        "actors": { "type": "array", "maxItems": 2, "items": { "$ref": "#/$defs/AdminActorView" }, "description": "Resolutor y segundo aprobador, para todos los roles: SOLO alias y rol (N-D); sin ids internos ni person_id" },
+        "actorIdentities": { "type": "array", "maxItems": 2, "items": { "$ref": "#/$defs/AdminActorIdentity" }, "description": "SOLO SUPER_ADMIN (NUEVO-3): adminId y personId de cada actor, por alias. Para OPERATOR la respuesta no incluye este campo" }
       }
     },
     "StepUpRequest": {
@@ -227,11 +249,11 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["requestId", "outcome", "resolvedAt"],
-      "description": "Aviso de resolucion visible a propietarios y reclamante (rama F-09, Neo 2026-11-27): SOLO desenlace cerrado, ID de solicitud y fecha. Sin identidad de la otra parte ni del arbitro.",
+      "description": "Aviso de resolucion visible a propietarios y reclamante (rama F-09 y N-C, Neo 2026-11-27): SOLO desenlace cerrado de la disputa, ID de solicitud y fecha (resolvedAt = closed_at, tambien en EXPIRED). Sin identidad de la otra parte ni del arbitro. Cableado (NUEVO-2): el reclamante lo recibe como outcome y resolvedAt de ChipRequestView en listMyChipRequests (chip-claim.openapi.yaml); el enum es chip-claim.schema.json#/$defs/ChipRequestOutcome.",
       "properties": {
         "requestId": { "$ref": "#/$defs/OpaqueId" },
-        "outcome": { "type": "string", "enum": ["APPROVED", "REJECTED", "EXPIRED"] },
-        "resolvedAt": { "type": "string", "format": "date-time" }
+        "outcome": { "$ref": "chip-claim.schema.json#/$defs/ChipRequestOutcome" },
+        "resolvedAt": { "type": "string", "format": "date-time", "description": "closed_at de la disputa (tambien en EXPIRED)" }
       }
     }
   }

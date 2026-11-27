@@ -224,9 +224,9 @@
       "status": 403,
       "title": "No puedes arbitrar este caso",
       "invariantRef": "INV-CHP12-006",
-      "detailTemplate": "No puedes resolver este caso porque eres parte de él.",
+      "detailTemplate": "No puedes resolver este caso con esta cuenta.",
       "requirementRef": "REQ-CHP12-009, EDGE-012-043, INV-CHP12-006, SC-012-104",
-      "note": "Recusación del árbitro: SUPER_ADMIN u OPERATOR que sea dueño, co-propietario, reclamante o solicitante de esa mascota. Superficie de /admin (T1632); registrado aquí por el prefijo y el catálogo único de la 012. T1632: superficie y codigos de la cola en admin-disputes-annex.md; politica de 403 propia de /admin (sesion de administrador, no la de usuario), distinta de H-05 de co-ownership.openapi.yaml."
+      "note": "Recusación del árbitro: SUPER_ADMIN u OPERATOR que sea dueño, co-propietario, reclamante o solicitante de esa mascota. También se emite, con el MISMO texto y estado, en el control dual (confirm) cuando falta person_id del administrador o coincide con el del resolutor (falla cerrada, N-A; rama NUEVO-6, DRAFT 0.9): el texto único «No puedes resolver este caso con esta cuenta.» no revela el vínculo, el motivo ni la identidad del otro administrador; src/generated/ conserva el texto anterior hasta recompilar con compile-contracts. Superficie de /admin (T1632); registrado aquí por el prefijo y el catálogo único de la 012. T1632: superficie y codigos de la cola en admin-disputes-annex.md; politica de 403 propia de /admin (sesion de administrador, no la de usuario), distinta de H-05 de co-ownership.openapi.yaml."
     },
     "ERR-CHP12-DISPUTE-COOLDOWN": {
       "type": "urn:argos:error:ERR-CHP12-DISPUTE-COOLDOWN",

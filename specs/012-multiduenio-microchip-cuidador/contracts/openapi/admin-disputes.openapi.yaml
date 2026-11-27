@@ -13,13 +13,12 @@ info:
     ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT sin indicar el vinculo; se repite dentro de la transaccion y queda auditado.
 
     SEUDONIMIZACION (rama F-08, Neo 2026-11-27): el arbitro ve SOLO identificadores seudonimizados u opacos (userId opaco o alias Parte A / Parte B) con metadatos y evidencia; NUNCA correo, nombre real, direccion ni
-    telefono; no existe accion de revelar identidad. La respuesta de aviso a las partes (DisputeResolutionNotice, F-09) contiene solo desenlace cerrado, ID de solicitud y fecha.
+    telefono; no existe accion de revelar identidad. La respuesta de aviso a las partes (DisputeResolutionNotice, F-09 y N-C) contiene solo el desenlace cerrado de la disputa (RESOLVED_APPROVED, RESOLVED_REJECTED o EXPIRED), ID de solicitud y fecha (closed_at, tambien en EXPIRED). El expediente expone actors solo con alias y rol (AdminActorView), sin ids internos ni person_id, para todos los roles; los identificadores (adminId y personId) van aparte en actorIdentities (AdminActorIdentity), campo presente SOLO para SUPER_ADMIN y ausente para OPERATOR (N-D, NUEVO-3). La respuesta de aviso al reclamante se sirve por listMyChipRequests (chip-claim.openapi.yaml: outcome y resolvedAt), no por una ruta de /admin (NUEVO-2). person_id es un identificador opaco de persona fisica verificada asignado por SUPER_ADMIN (N-A): si falta o coincide con el del resolutor, falla cerrada con 403 ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT.
 
     CONTROL DUAL Y STEP-UP (annex §7; trinity H-A3, N-3): en CHIP_APPROPRIATION la UNICA via para desenlaces que cambian titularidad es el control dual (resolve + confirm por un segundo administrador DISTINTO por
     admin_id Y por person_id, que tampoco es parte y que leyo antes la evidencia); la ventana de 72 h solo existe en CO_OWNER_ABSENT_OR_BLOCKING y PRINCIPAL_ABSENT (cancelable por cualquier administrador no parte).
     resolve y confirm exigen un StepUpGrant vigente y de un solo uso (POST /admin/disputes/{disputeId}/step-up). ESTADO DE ESPERA: «decision registrada, a la espera de confirmacion» es el campo DERIVADO
-    decisionPhase = AWAITING_CONFIRMATION; la fila sigue en UNDER_REVIEW (STATE-OWNREQ12-001 no cambia). Sin reautenticacion vigente: rechazo generico de /admin (403, sin codigo nuevo en esta version DRAFT; si Neo
-    prefiere ERR-ADM12-STEPUP-REQUIRED se anade al catalogo por MINOR) y no se ejecuta nada. REJECT no requiere control dual ni ventana (activa el cooldown de 90 dias). Cero transferencia automatica (INV-CHP12-006).
+    decisionPhase = AWAITING_CONFIRMATION; la fila sigue en UNDER_REVIEW (STATE-OWNREQ12-001 no cambia). Sin reautenticacion vigente: 403 generico de /admin, SIN codigo de catalogo nuevo (decision de Neo, Nivel 2, 2026-11-27), y no se ejecuta nada. Constantes fijadas por Neo: ADMIN_STEPUP_WINDOW_MINUTES = 5 y DECISION_REASON_MAX_CHARS = 500. REJECT no requiere control dual ni ventana (activa el cooldown de 90 dias). Cero transferencia automatica (INV-CHP12-006).
 
     Errores en application/problem+json (RFC 9457). Cache-Control: no-store en todas las respuestas.
   x-sdd-status: DRAFT
@@ -28,7 +27,7 @@ info:
     status: DRAFT
     supersedes: null
     change_type: MAJOR
-    change_note: "0.1.0 (feature 012, T1648, Architect 2026-11-27, DRAFT, sin aprobar; autorizada por Neo Nivel 2): documento nuevo con 9 operaciones: listAdminDisputes, getAdminDispute, getAdminDisputeEvidence, extendAdminDisputeFreeze, stepUpAdminDispute, resolveAdminDispute, confirmAdminDisputeDecision, cancelAdminDisputeExecution, closeAdminDisputeMoot. Rutas y nombres PROPUESTOS en annex §2 quedan fijados solo al aprobar Neo. Sin cambios en 011."
+    change_note: "0.1.0 (feature 012, T1648, Architect 2026-11-27, DRAFT, sin aprobar; autorizada por Neo Nivel 2): documento nuevo con 9 operaciones: listAdminDisputes, getAdminDispute, getAdminDisputeEvidence, extendAdminDisputeFreeze, stepUpAdminDispute, resolveAdminDispute, confirmAdminDisputeDecision, cancelAdminDisputeExecution, closeAdminDisputeMoot. Rutas y nombres PROPUESTOS en annex §2 quedan fijados solo al aprobar Neo. Sin cambios en 011. DRAFT 0.9 (Architect 2026-11-27, sin aprobar; rama v0.8): actors (AdminActorView, alias y rol) separado de actorIdentities (AdminActorIdentity, solo SUPER_ADMIN) en getAdminDispute y las operaciones que devuelven AdminDisputeFile (NUEVO-3); aviso de resolucion servido por listMyChipRequests (NUEVO-2)."
     traceability: [REQ-CHP12-004, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007, STATE-OWNREQ12-001, EDGE-012-043, EDGE-012-060, EDGE-012-061, EDGE-012-064, SC-012-020, SC-012-080, SC-012-082, SC-012-098, SC-012-104]
   x-sdd-roles: [SUPER_ADMIN, OPERATOR]
 servers:
@@ -78,7 +77,7 @@ paths:
       x-sdd-roles: [SUPER_ADMIN, OPERATOR]
       x-sdd-requirements: [REQ-CHP12-004, REQ-CHP12-008, INV-CHP12-004, SC-012-020]
       description: >
-        Expediente (annex §4): ancla, estado, plazos, SLA, decisionPhase, partes SOLO seudonimizadas (alias Parte A / Parte B u userId opaco, F-08), evidencia sin contenido, respuesta unica del target (escapada) y columnas de administrador y de persona. 403 ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT si el administrador es parte. La apertura se audita.
+        Expediente (annex §4): ancla, estado, plazos, SLA, decisionPhase, partes SOLO seudonimizadas (alias Parte A / Parte B u userId opaco, F-08), evidencia sin contenido, respuesta unica del target (escapada) y actors (solo alias y rol, AdminActorView) mas actorIdentities (AdminActorIdentity: adminId y personId, solo en la respuesta a SUPER_ADMIN y omitido para OPERATOR, N-D, NUEVO-3). Solo administradores: una parte del caso no puede llamar esta operacion (403 ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT, EDGE-012-043); el reclamante ve su estado por listMyChipRequests. 403 ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT si el administrador es parte. La apertura se audita.
       parameters:
         - { $ref: '#/components/parameters/DisputeIdPath' }
       responses:
@@ -160,7 +159,7 @@ paths:
       x-sdd-roles: [SUPER_ADMIN, OPERATOR]
       x-sdd-requirements: [REQ-CHP12-009, INV-CHP12-006]
       description: >
-        PROPUESTA DRAFT de T1648 (011 no define step-up). Reverifica la identidad del administrador y devuelve un StepUpGrant ligado a (adminId, disputeId, accion), de UN SOLO USO y vigente ADMIN_STEPUP_WINDOW_MINUTES. No cambia ningun estado de la disputa. Se audita.
+        Contrato DRAFT de T1648 (011 no define step-up). Reverifica la identidad del administrador y devuelve un StepUpGrant ligado a (adminId, disputeId, accion), de UN SOLO USO y vigente ADMIN_STEPUP_WINDOW_MINUTES = 5 (fijada por Neo). No cambia ningun estado de la disputa. Se audita.
       parameters:
         - { $ref: '#/components/parameters/DisputeIdPath' }
         - { $ref: '#/components/parameters/CsrfHeader' }
@@ -191,7 +190,7 @@ paths:
       x-sdd-roles: [SUPER_ADMIN, OPERATOR]
       x-sdd-requirements: [REQ-CHP12-009, INV-CHP12-006, EDGE-012-060, SC-012-104]
       description: >
-        Exige StepUpGrant vigente y motivo. Desenlaces cerrados (DisputeResolution). Segun el tipo: CHIP_APPROPRIATION con desenlace que cambia titularidad = control dual (decisionPhase pasa a AWAITING_CONFIRMATION; no ejecuta); CO_OWNER_ABSENT_OR_BLOCKING y PRINCIPAL_ABSENT pueden elegir control dual o ventana (executes_after = now + 72 h, decisionPhase = SCHEDULED_EXECUTION); REJECT cierra el caso (cooldown de 90 dias). Registra resolved_by_admin_id y resolved_by_person_id. Revalida el rol y que no es parte dentro de la transaccion. El temporizador no decide: solo ejecuta una decision humana ya registrada.
+        Exige StepUpGrant vigente y motivo. Desenlaces cerrados (DisputeResolution). Segun el tipo: CHIP_APPROPRIATION con desenlace que cambia titularidad = control dual (decisionPhase pasa a AWAITING_CONFIRMATION; no ejecuta); CO_OWNER_ABSENT_OR_BLOCKING y PRINCIPAL_ABSENT pueden elegir control dual o ventana (executes_after = now + 72 h, decisionPhase = SCHEDULED_EXECUTION); REJECT cierra el caso (cooldown de 90 dias). Registra resolved_by_admin_id y resolved_by_person_id (person_id opaco de persona fisica verificada; si falta, falla cerrada con ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT). Revalida el rol y que no es parte dentro de la transaccion. El temporizador no decide: solo ejecuta una decision humana ya registrada.
       parameters:
         - { $ref: '#/components/parameters/DisputeIdPath' }
         - { $ref: '#/components/parameters/CsrfHeader' }
@@ -342,7 +341,7 @@ components:
         text/plain:
           schema: { type: string, const: 'Not Found' }
     ForbiddenRoleCsrfOrConflict:
-      description: "403: ERR-AUTH-CSRF-REJECTED (falta X-Argos-Request), ERR-ADM11-ROLE-NOT-AUTHORIZED (SUPPORT, antes de leer el cuerpo), ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT (el administrador es parte; sin indicar el vinculo) o rechazo generico de /admin por falta de reautenticacion vigente (step-up)"
+      description: "403: ERR-AUTH-CSRF-REJECTED (falta X-Argos-Request), ERR-ADM11-ROLE-NOT-AUTHORIZED (SUPPORT, antes de leer el cuerpo), ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT (el administrador es parte; sin indicar el vinculo) o 403 generico de /admin por falta de reautenticacion vigente (step-up), sin codigo de catalogo nuevo; tambien ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT en confirm si falta person_id o coincide con el del resolutor (falla cerrada)"
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/ProblemDetails' }
