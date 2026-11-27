@@ -88,7 +88,7 @@ export function sqliteCareRoutineRepository(db: SqliteDatabase): CareRoutineRepo
   const ofPet = db.prepare<[string], Row>(`SELECT ${ROUTINE_COLUMNS} FROM care_routines WHERE pet_id = ? ORDER BY effective_from, id`);
   const count = db.prepare<[string], { n: number }>('SELECT COUNT(*) AS n FROM care_routines WHERE pet_id = ? AND active = 1');
   const purgeInactive = db.prepare(
-    'DELETE FROM care_routines WHERE active = 0 AND updated_at < ? AND NOT EXISTS (SELECT 1 FROM care_routines s WHERE s.supersedes_routine_id = care_routines.id)',
+    'DELETE FROM care_routines WHERE active = 0 AND updated_at < ? AND NOT EXISTS (SELECT 1 FROM care_routines s WHERE s.supersedes_routine_id = care_routines.id) AND NOT EXISTS (SELECT 1 FROM care_log_entries e WHERE e.routine_id = care_routines.id)',
   );
   return {
     async insert(r) {

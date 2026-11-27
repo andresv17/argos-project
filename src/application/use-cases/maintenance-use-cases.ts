@@ -333,7 +333,7 @@ const NO_CARE_PURGE: CareMaintenanceResult = { entriesPurged: 0, routinesPurged:
 /**
  * Purga diaria del Modo Cuidador (feature 012, T1661, REQ-CAR12-007, SC-012-089; techo máximo, no piso; sin job nuevo ni columna de retención): borra los registros de `MEDICATION` con `occurrence_date` anterior a hoy - 1095 días,
  * los de `MEAL`/`WALK`/`OTHER` anterior a hoy - 365, los revertidos con `reverted_at` anterior a ahora - 30 días y, después, las rutinas inactivas (`active = false`) desactivadas hace más de 365 días (`updated_at`; lectura del
- * data-model, reserva para Architect: x-sdd-constants dice «desde su última ocurrencia») que ninguna versión posterior referencia. Un registro con exactamente N días de antigüedad aún se conserva. «Hoy» es `todayIsoDate`
+ * data-model, reserva para Architect: x-sdd-constants dice «desde su última ocurrencia») que ninguna versión posterior referencia y que ya no tienen registros vivos (D-D(b), Neo: una rutina con registros se conserva hasta que el último venza). Un registro con exactamente N días de antigüedad aún se conserva. «Hoy» es `todayIsoDate`
  * (America/Bogota). Los registros van antes que las rutinas para contar cada borrado donde corresponde (la cascada de la rutina solo arrastra lo que aún queda). Una transacción; no escribe auditoría ni registra identificadores.
  * Nunca lanza: la siguiente pasada lo reintenta.
  * @implements REQ-CAR12-007, SC-012-089

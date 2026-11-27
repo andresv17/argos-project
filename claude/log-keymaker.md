@@ -2609,3 +2609,34 @@ CoOwners.tsx: efecto adicional devuelve el foco al disparador «Pedir eliminar l
 ## 2026-11-27 — reserva 1 oracle-012 (foco al montar CoOwners)
 - CoOwners.tsx: deleteInitRef descarta el montaje; deleteMounted pasa a ser 'confirmacion estuvo abierta' (true al abrir, false tras enfocar el disparador). Cadena literal del aserto previo intacta (no editable).
 - Prueba de cableado añadida en t1617. Gates: tsc 0, traceability 012 0, vitest presentation 982/982 (94 archivos).
+
+## 2026-11-27 — Bloque B (#23): commits a/d/e, fase 2 BLOQUEADA, migraciones T1633/T1648, rojas T1634
+- (a) ea3801c firmas APPROVED + tasks.md. (b) NO-OP: las 14 actas intermedias ya estaban versionadas en 687fd7c/e855f44 (git ls-files); sin commit.
+- (c) BLOQUEADO: `compile-contracts.sh --feature 012` falla en codegen: nombre de tipo duplicado "MicrochipId" (pet.schema.json de 004 vs chip-claim.schema.json $defs.MicrochipId, ya APPROVED). Sin cambios en src/generated. Requiere /architect + Neo (renombrar el $defs de chip-claim, p. ej. ChipClaimMicrochipId, o decidir la deduplicacion en codegen).
+- (d) dbb826b migraciones SQLite 0036/0037 y PG 0032/0033 (dispute_evidence, ip_rate_events; admin_identities.person_id; owner_requests *_admin_id RESTRICT, *_person_id, second_approved_at). Pruebas de paridad actualizadas; PG17 efimero (puerto 55477) 1197 verdes; contenedor retirado.
+- (e) 206e80b pruebas rojas T1634 (4 specs + fixtures/chip-012.ts): 46 rojas por modulo ausente (23 PG omitidas). tsc 0, oracles 0, traceability 012 CUMPLE.
+
+## 2026-11-27 — Bloque B (#23) FASE VERDE: pasos 0-2 y tramos T1635/T1640, T1641, T1642, T1645/T1646
+- Paso 0 4df7f12 (renombre ChipClaimMicrochipId). Paso 1 2ae1303: compile-contracts --feature 012 FALLABA tras el renombre (alias `DisputeId` -> `OpaqueId` sin declarar por json-schema-to-typescript, y refs relativas sin `./` en openapi-typescript); se corrigio en scripts/codegen.mjs (alias explicitos y prefijo `./`), sin tocar contratos; v38 regenerado con texto neutro NUEVO-6. Paso 2 18ef5bc: referencias 0037/0033 unificadas.
+- T1635/T1640: split de error (chip-uniqueness.ts, un solo comprobador, mismas llamadas), contadores usuario/IP/global (chip-ip-rate-limit.ts + ip_rate_events), reclamacion (+ejecucion CLAIM_CO_OWNERSHIP en owner-request), apertura de disputa, repos 3 motores. T1641: saneo de evidencia (dominio), puerto antimalware + adaptador determinista, retencion/huerfanos. T1642: arbitraje (control dual, step-up, ventana 72 h). T1645/T1646: aviso solo desenlace, reserva, importacion EDGE-012-044.
+- Decisiones/desviaciones: ver bloque DETAILS del reporte (closed_at derivado, motivo sin columna, reencodificacion sin codec, SC-012-017 pide `role` fuera del contrato, 004-era tests con DUPLICATE cross-owner).
+
+## 2026-11-27 — Bloque B (#23): decisiones de Neo 1-6, T1636 (HTTP + UI) y T1643
+- c08cda6: SC-012-017 sin `role` (ya estaba en chip-claim-012.spec), 17 pruebas 004 cross-owner reapuntadas a ERR-CHP12-MICROCHIP-REGISTERED (el mismo dueño conserva DUPLICATE), `CHIP_DISPUTE_BODY_MAX_BYTES=15728640`, `MICROCHIP_IMPORT_MAX_PETS=50` (tope con 429 en la importación, SC-012-117), multipart 10/30 ya vigentes.
+- 0a246e5 (T1636 HTTP): chip.routes.ts (claims, disputes multipart, chip-requests), admin-disputes.routes.ts (9 ops), multipart-form.ts, admin-stepup-store.ts (grant 1 uso, 5 min, en memoria), vistas de cola/expediente, `findPersonId` en admin_identities (3 motores), Retry-After constante en 503, registro de roles. app.ts y server.ts staged SIN H-01 (blob de HEAD + mis hunks; el árbol de trabajo conserva H-01).
+- cfab7f7 (T1636 UI): ChipRegisteredDialog (3 salidas), MyChipRequests, DisputesPanel en /admin. 1d294b8 (T1643): claude/deuda-012-legal-disputas-qr.md + textos D1..D6 en legal-texts.md (010, DRAFT).
+- Pendientes honestos: motivo de decisión NO persistido (audit_log solo guarda hashes y admin_audit_entries.object_ref <=128: sin columna nueva no cabe 500 chars; decisión 6 requiere migración o aceptar solo hash); step-up = sesión vigente + origen propio (la reverificación real con Google queda para Neo); person_id sin vía de asignación (solo SQL).
+
+## 2026-11-27 — Acta oracle bloque B (H-01 c, H-06, H-07)
+- H-06 hecho: 2 pruebas de ruta en chip-routes-012.api.spec.ts (OPERATOR sin actorIdentities; grant ajeno y step-up vencido a 5 min). Commit local selectivo.
+- H-01 (c) BLOQUEADO: `admin_audit_entries` NO tiene columna metadata (id, admin_id, action, object_ref<=128, occurred_at) y ninguna tabla de auditoria la tiene; requiere migracion (prohibida). No se toco codigo ni el comentario de la ruta.
+- H-07 NO aplicado: la lectura se audita solo por `dispute:<id>` sin evidenceId; per-evidencia exige cambiar objectRef, vista y confirm (>10 lineas).
+
+### 2026-11-27 Keymaker - H-01 (a) admin_audit_entries.metadata
+Migraciones SQLite 0038 / PostgreSQL 0034 (ADD COLUMN metadata TEXT NULL). Motivo de resolve/confirm en metadata JSON {"reason"}; puerto y repos sqlite/pg/memoria; PG real (docker 55432) persistence 82/82. Sin push.
+
+## 2026-11-27 - T1655/T1661 cierre con D-A, D-B, D-D(b) (Keymaker)
+- D-A: UpdateCareRoutineUseCase valida 422 (expectedVersion + captura fusionada) antes de STALE y de LIMIT; Create ya validaba 422 antes de LIMIT. Pruebas de paridad ajustadas (LIMIT exige confirmHighDose).
+- D-B: care-species-group.ts sin "PENDIENTE APROBACION NEO"; mapeo CANINE/FELINE -> CANINE_FELINE, resto -> OTHER_SPECIES.
+- D-D(b): guarda NOT EXISTS care_log_entries en purgeInactiveBefore (memoria, SQLite, PG); caso nuevo en care-retention-012 (MEDICATION inactiva 365<d<1095 sobrevive; se purga >1095).
+- Gates: tsc rc 0; verify-oracles rc 0; traceability T1655 rc 0; test:gate 12 fallos ajenos (H-01 terraform/workflow, verify-ci-ready, 2 de migraciones 0030/31 claves previas a este cambio).

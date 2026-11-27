@@ -43,7 +43,7 @@ export interface CareRoutineRepositoryPort {
   countActive(petId: string): Promise<number>;
   /**
    * Retención (T1661): borra las rutinas inactivas (`active = false`) cuyo `updatedAt` (la desactivación) es ANTERIOR a `before`, y que ninguna otra fila referencia por `supersedesRoutineId` (FK sin cascada: la cadena de versiones se
-   * poda de la más nueva a la más vieja en pasadas sucesivas). Sus registros salen en cascada. Devuelve cuántas rutinas borró.
+   * poda de la más nueva a la más vieja en pasadas sucesivas). D-D(b): una rutina con registros vivos en `care_log_entries` se conserva (se purga cuando el último registro vence). Devuelve cuántas rutinas borró.
    */
   purgeInactiveBefore(before: string): Promise<number>;
 }

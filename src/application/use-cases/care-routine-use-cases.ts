@@ -78,14 +78,11 @@ export class UpdateCareRoutineUseCase {
       requireTitular(ctx);
       const current = UUID.test(routineId) ? await repositories.careRoutines.findById(petId, routineId) : null;
       if (current === null) throw petNotFound();
+      // D-A (Neo): 403 -> 404 -> 422 -> 409. Primero la forma (expectedVersion y captura fusionada, 422); después STALE y por último el tope de filas (409).
       const expected = expectedVersionOf(input);
-      assertExpectedVersion(current, expected);
       const { expectedVersion: _expected, ...patch } = input;
-      // Una edición que versionaría (dosis, unidad u horarios distintos) con la mascota ya en el techo de filas se rechaza antes de validar la captura (409 de estado antes que 422).
-      const sameList = (a: unknown, b: readonly unknown[]): boolean => a === undefined || (Array.isArray(a) && a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i]));
-      const wouldVersion = (patch['doseAmount'] !== undefined && patch['doseAmount'] !== current.doseAmount) || (patch['doseUnit'] !== undefined && patch['doseUnit'] !== current.doseUnit) || !sameList(patch['timesOfDay'], current.timesOfDay);
-      if (wouldVersion) assertRoutineCapacity({ activeCount: 0, totalRows: (await repositories.careRoutines.listByPet(petId)).length, replacing: true });
       const plan = planRoutineUpdate(toRow(current), patch, now, speciesToDoseGroup(ctx.pet.species), this.deps.ids.nextId());
+      assertExpectedVersion(current, expected);
       if (plan.versioned) {
         assertRoutineCapacity({ activeCount: await repositories.careRoutines.countActive(petId), totalRows: (await repositories.careRoutines.listByPet(petId)).length, replacing: true });
         const closed: CareRoutineRecord = { ...current, active: false, effectiveTo: now, updatedAt: now };

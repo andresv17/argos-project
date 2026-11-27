@@ -77,7 +77,7 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       expect(await logIds(engine)).toEqual([ID(11), ID(13), ID(14)].sort());
     });
 
-    it('[SC-012-089] las rutinas inactivas se purgan a 365 días desde su desactivación con sus registros; las activas y las recientes no; una versión referenciada por otra se conserva hasta que su sucesora se purga', async () => {
+    it('[SC-012-089] las rutinas inactivas se purgan a 365 días desde su desactivación (sin registros vivos, D-D(b)); las activas y las recientes no; una versión referenciada por otra se conserva hasta que su sucesora se purga', async () => {
       engine = await factory.make();
       await engine.run(async (r) => {
         await r.careRoutines.insert(routine(1, { active: false, updatedAt: instantAgo(365) })); // frontera: se conserva
@@ -87,13 +87,32 @@ for (const factory of CARE_ENGINE_FACTORIES) {
         await r.careRoutines.insert(routine(4, { active: false, updatedAt: instantAgo(800), effectiveFrom: '2024-01-01T00:00:00.000Z' }));
         await r.careRoutines.insert(routine(5, { active: false, updatedAt: instantAgo(500), seriesId: ID(4), supersedesRoutineId: ID(4), effectiveFrom: '2024-02-01T00:00:00.000Z' }));
         await r.careRoutines.insert(routine(6, { active: true, seriesId: ID(4), supersedesRoutineId: ID(5), effectiveFrom: '2024-03-01T00:00:00.000Z' }));
-        await r.careLog.insert(entry(21, ID(2), dateAgo(5)));
-        await r.careLog.insert(entry(22, ID(1), dateAgo(5)));
+        await r.careLog.insert(entry(22, ID(1), dateAgo(5))); // ID(1) conserva su rutina por D-D(b); ID(2) no tiene registros
       });
       engine.setNow(NOW);
       expect(await purgeCareData(engine.deps)).toEqual({ entriesPurged: 0, routinesPurged: 1 }); // solo ID(2); ID(4) e ID(5) están referenciadas
       expect(await routineIds(engine)).toEqual([ID(1), ID(3), ID(4), ID(5), ID(6)].sort());
       expect(await logIds(engine)).toEqual([ID(22)]);
+    });
+
+    it('[SC-012-089] D-D(b): una rutina MEDICATION inactiva > 365 d con un registro < 1095 d sobrevive; se purga con su registro al superar 1095 d; MEAL inactiva con registro vigente también se conserva', async () => {
+      engine = await factory.make();
+      await engine.run(async (r) => {
+        await r.careRoutines.insert(medication(1, { active: false, updatedAt: instantAgo(400) }));
+        await r.careLog.insert(entry(11, ID(1), dateAgo(500)));
+        await r.careRoutines.insert(routine(2, { active: false, updatedAt: instantAgo(400) }));
+        await r.careLog.insert(entry(21, ID(2), dateAgo(100)));
+      });
+      engine.setNow(NOW);
+      expect(await purgeCareData(engine.deps)).toEqual({ entriesPurged: 0, routinesPurged: 0 });
+      expect(await routineIds(engine)).toEqual([ID(1), ID(2)].sort());
+      expect(await logIds(engine)).toEqual([ID(11), ID(21)].sort());
+      // Pasa el tiempo: el registro MEDICATION supera 1095 d y sale; su rutina, ya sin registros, se purga en la misma pasada.
+      engine.setNow('2030-06-15T12:00:00.000Z');
+      const later = await purgeCareData(engine.deps);
+      expect(later.routinesPurged).toBeGreaterThanOrEqual(1);
+      expect(await routineIds(engine)).toEqual([]);
+      expect(await logIds(engine)).toEqual([]);
     });
 
     it('[SC-012-089] runMaintenance incluye la purga de cuidado y devuelve los conteos de siempre', async () => {

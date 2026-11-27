@@ -111,7 +111,7 @@ export function postgresCareRoutineRepository(client: PoolClientLike): CareRouti
     },
     async purgeInactiveBefore(before) {
       const result = await client.query(
-        'DELETE FROM care_routines WHERE active = 0 AND updated_at < $1 AND NOT EXISTS (SELECT 1 FROM care_routines s WHERE s.supersedes_routine_id = care_routines.id)',
+        'DELETE FROM care_routines WHERE active = 0 AND updated_at < $1 AND NOT EXISTS (SELECT 1 FROM care_routines s WHERE s.supersedes_routine_id = care_routines.id) AND NOT EXISTS (SELECT 1 FROM care_log_entries e WHERE e.routine_id = care_routines.id)',
         [before],
       );
       return result.rowCount ?? 0;

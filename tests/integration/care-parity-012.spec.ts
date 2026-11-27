@@ -85,7 +85,11 @@ for (const factory of CARE_ENGINE_FACTORIES) {
         current = result.routine;
       }
       expect(await routineRows(e)).toHaveLength(100);
-      expect(await codeOf(use.updateRoutine(ANDRES, PET, current.id, { doseAmount: 999, expectedVersion: current.version }))).toBe('ERR-CAR12-ROUTINE-LIMIT');
+      // D-A (Neo): 422 antes que 409; una captura inválida con la mascota en el techo da 422, no LIMIT.
+      expect(await codeOf(use.updateRoutine(ANDRES, PET, current.id, { doseAmount: 999, expectedVersion: current.version }))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+      expect(await codeOf(use.updateRoutine(ANDRES, PET, current.id, { doseAmount: 999, confirmHighDose: true, expectedVersion: current.version }))).toBe('ERR-CAR12-ROUTINE-LIMIT');
+      // 422 también precede a STALE.
+      expect(await codeOf(use.updateRoutine(ANDRES, PET, current.id, { doseAmount: 999, expectedVersion: current.version + 5 }))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
       expect(await routineRows(e)).toHaveLength(100);
     });
 

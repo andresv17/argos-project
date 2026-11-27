@@ -2679,3 +2679,180 @@
 - 2026-11-27 [oracle] foco T1619 + errata MINOR: CUMPLE CON RESERVAS (foco robado al montar CoOwners); acta oracle-012-2026-11-27-foco-errata-MINOR.md
 - 2026-11-27 [morpheus] oracle foco: robo de foco al montar detectado; keymaker corrige en curso.
 - 2026-11-27 keymaker: reserva 1 oracle-012 resuelta (foco del disparador solo en transicion true->false; CoOwners.tsx + t1617), gates verdes.
+- 2026-11-27 /oracle: revalidacion foco 075252c CUMPLE (tsc 0, traza 0, t1617 19/19); acta oracle-012-2026-11-27-revalidacion-foco-075252c.md
+- 2026-11-27 [morpheus] revalidacion foco 075252c CUMPLE; Bloque B DRAFT en curso.
+- 2026-11-27 [architect] Bloque B contratos DRAFT T1630/T1631/T1632 redactados (chip-claim openapi+schema, 2 anexos, catalogo 0.2.0); traza rc=0; a Neo: aprobar DRAFT y errata 001 (propuesta).
+- 2026-11-27 [morpheus] Bloque B DRAFT (architect) entregado; commit local y revision trinity/rama en curso.
+- 2026-11-27 [morpheus] commit 8dee07e (errata MINOR + DRAFT Bloque B). Revisiones trinity/rama en curso.
+- 2026-11-27 [trinity] Bloque B DRAFT (T1630..T1632) revisado: APTO CON RESERVAS (0 critico, 4 alto, 8 medio, 6 bajo, 5 info); acta .specify/memory/audits/trinity-012-bloqueB-DRAFT-2026-11-27.md
+- 2026-11-27 [morpheus] trinity DRAFT Bloque B: APTO CON RESERVAS (4 ALTO). Iteracion architect 0.3 tras rama.
+- 2026-11-27 [rama] Revision DRAFT Bloque B (T1630-T1632): NO CUMPLE (sellable tras correcciones). ALTO: F-01 expedientes EXPIRED sin ancla de purga (delete_after usa resolved_at), F-02 contradiccion de encolado al borrar cuenta/mascota (data-model L136), F-03 evidencia identifica al reclamante tras borrado, F-04 error-catalog 0.2.0 declara APPROVED. Acta: .specify/memory/audits/rama-012-bloqueB-DRAFT-2026-11-27.md. Solo lectura, sin commit.
+- 2026-11-27 [morpheus] rama DRAFT Bloque B NO CUMPLE (F-01..F-13). Iteracion architect 0.3 unica con trinity.
+- 2026-11-27 [architect] Bloque B DRAFT 0.3 (trinity+rama aplicados salvo H-A2, F-03, F-05, F-08, F-09, errata 001 = PENDIENTE NEO); acta architect-012-bloqueB-v03-2026-11-27.md; traceability rc=0.
+- 2026-11-27 [morpheus] Bloque B v0.3 aplicado; segunda revision trinity+rama en curso.
+- 2026-11-27 [rama] Segunda revision DRAFT 0.3 Bloque B (T1630-T1632): NO CUMPLE (sellable tras correcciones textuales). Cerrados: F-02, F-04, F-06, F-12, F-13. Parciales: F-01 (ancla closed_at no propagada a spec.md:95/174/297 ni tasks T1641), F-07 (SC-012-118 sin numerar, oraculo debil), F-10 y F-11 (contrato cerrado, spec.md:85/95 y codigo sin candado chip_hmac). Marcadores Neo F-03, F-05, F-08, F-09 presentes y sin decidir. Nuevos: N-01 ALTO reserva del chip contradictoria en EXPIRED (data-model:150). Acta: .specify/memory/audits/rama-012-bloqueB-v03-2026-11-27.md. Solo lectura, sin commits.
+- 2026-11-27 [trinity] 2a revision Bloque B v0.3: H-A1/H-A3/H-A4/M-1/M-2/M-4/B-5 CERRADOS en texto; 3 MEDIO nuevos (N-1 tiempo 202, N-2 candado global en subida, N-3 step-up/admin id); veredicto APTO CON RESERVAS; acta trinity-012-bloqueB-v03-2026-11-27.md.
+- 2026-11-27 [morpheus] rama v0.3 NO CUMPLE (N-01,N-02 ALTO); iteracion 0.4 tras trinity.
+- 2026-11-27 [morpheus] trinity v0.3 APTO CON RESERVAS; iteracion 0.4 con rama N-01..N-06 y trinity N-2/B-N1..B-N5.
+- 2026-11-27 [architect] Iteracion DRAFT 0.4 Bloque B aplicada (rama N-01..N-06, trinity N-2/B-N1..B-N5); PENDIENTE NEO H-A2, N-1, contador bloqueado, T1648; verify-traceability 012 rc=0. Acta architect-012-bloqueB-v04-2026-11-27.md.
+- 2026-11-27 [morpheus] Bloque B v0.4 aplicada; re-auditoria rama/trinity/oracle en curso.
+- 2026-11-27 [oracle] Validacion consistencia DRAFT 0.4 Bloque B: CUMPLE CON RESERVAS (4 incidencias); trace rc=0, oracles rc=0, JSON/YAML parsean; sin APPROVED nuevos. Acta oracle-012-bloqueB-v04-2026-11-27.md
+- 2026-11-27 [morpheus] v0.4 validacion disco: CUMPLE CON RESERVAS (4 incidencias). Esperando trinity y oracle.
+- 2026-11-27 [rama] re-auditoria DRAFT 0.4 Bloque B: N-02, N-04, N-06, F-02, F-04, F-12, F-13 CERRADOS; reserva en EXPIRED CERRADA en data-model pero ABIERTA en spec.md:311,387,388 y tasks.md:89 (N-07 ALTO, texto); veredicto NO CUMPLE corregible sin decision Neo; acta rama-012-bloqueB-v04-2026-11-27.md.
+- 2026-11-27 [morpheus] rama v0.4: NO CUMPLE por N-07 (texto); trinity pendiente; iteracion 0.5 tras trinity.
+- 2026-11-27 [trinity] Re-auditoria Bloque B DRAFT 0.4: APTO CON RESERVAS (0 MEDIO nuevos, 5 BAJO). N-2/B-N1/B-N3/B-N4/B-N5 cerrados; N-1, H-A2 PENDIENTE NEO; N-3 depende de T1648; B-N2 parcial. Acta trinity-012-bloqueB-v04-2026-11-27.md
+- 2026-11-27 [morpheus] trinity v0.4 APTO CON RESERVAS; iteracion 0.5 texto en curso.
+- 2026-11-27 [architect] Bloque B DRAFT 0.5 (012, solo texto): N-07/N-09, oracle 1/3/4, trinity B-N8..B-N12 aplicados; gates rc=0; errata renombrada a errata-MINOR-bloqueB-v04.md; acta architect-012-bloqueB-v05; PENDIENTE NEO intacto.
+- 2026-11-27 [morpheus] architect v0.5 aplicada; oracle validacion en curso.
+- 2026-11-27 | oracle | Bloque B DRAFT 0.5 (T1630..T1632): CUMPLE CON RESERVAS, traceability rc=0, oracles rc=0; acta oracle-012-bloqueB-v05-2026-11-27.md
+- 2026-11-27 [morpheus] oracle v0.5 CUMPLE CON RESERVAS; paquete de decisiones a Neo por Logos.
+- 2026-11-27 [morpheus] Logos reactivada por Neo; paquete de decisiones Bloque B en canal; espera de Neo en curso.
+- 2026-11-27 [morpheus] Neo aprueba 1-13 (T1619 [x], constantes 1095/30/24, errata 001 y E-B firmadas, T1648 autorizada); Bloque B APPROVED aun no. Architect aplica; rama y oracle despues.
+- 2026-11-27 [architect] Bloque B v0.6 DRAFT: decisiones de Neo aplicadas (E-B1/B3/B4, constantes, F-03/08/09, SC-012-118/119, T1648 + contratos admin-disputes DRAFT); gates rc=0; contratos B siguen DRAFT. Acta architect-012-bloqueB-v06-2026-11-27.md.
+- 2026-11-27 [morpheus] architect v0.6 aplicada; rama + oracle en curso antes del commit selectivo.
+- 2026-11-27 | oracle | Bloque B DRAFT 0.6 (T1630..T1632, T1648): CUMPLE CON RESERVAS, traceability rc=0 (297/297), oracles rc=0; acta oracle-012-bloqueB-v06-2026-11-27.md
+- 2026-11-27 [morpheus] oracle v0.6 CUMPLE CON RESERVAS; commit selectivo tras rama.
+- 2026-11-27 [rama] re-auditoria v0.6 Bloque B: N-07, F-03, F-05, F-08, BACKUP=30, STAGING=24, SC-012-118/119 CERRADOS (texto); F-09 PARCIAL; N-A ALTO persona distinta sin fuente (T1648); NUEVOS MEDIO N-B..N-F; NO CUMPLE; acta .specify/memory/audits/rama-012-bloqueB-v06-2026-11-27.md. Solo lectura, sin commits.
+- 2026-11-27 [morpheus] rama v0.6 NO CUMPLE (N-A ALTO person_id, decision Neo); commit snapshot DRAFT en curso.
+- 2026-11-27 [morpheus] commit 687fd7c Bloque B DRAFT v0.6 local; architect pasada texto rama.
+- 2026-11-27 [architect] Bloque B v0.7 (pasada de texto N-B/F/G/H/I; N-A/C/D/E pendiente Neo); traceability 012 rc=0; sin commits.
+- 2026-11-27 [morpheus] v0.7 Bloque B: texto cerrado; decisiones de diseño a Neo por Logos.
+- 2026-11-27 [morpheus] Neo fija 1-8 de v0.7 (person_id, aviso, actors, retencion, SC-120, step-up 5/500, 403 generico, pixels 16MP, ClamAV). Architect v0.8 en curso; rama y oracle despues.
+- 2026-11-27 [architect] v0.8 Bloque B: decisiones 1-8 de Neo aplicadas a spec, data-model, annex, schemas y OpenAPI (DRAFT, sin aprobar); traceability 012 rc=0, oracles rc=0. Acta architect-012-bloqueB-v08.
+- 2026-11-27 [morpheus] architect v0.8 Bloque B aplicada; rama + oracle final en curso.
+- 2026-11-27 /oracle: Bloque B v0.8 (T1630..T1632, T1648) CUMPLE CON RESERVAS (3 menores); trace 012 298/298 rc=0, oracles rc=0; sin cambios de codigo; acta .specify/memory/audits/oracle-012-bloqueB-v08-2026-11-27.md; sin aprobacion.
+- 2026-11-27 [morpheus] oracle v0.8 CUMPLE CON RESERVAS; espera rama final.
+- 2026-11-27 [morpheus] re-auditoría final Bloque B v0.8 (rama, solo lectura): CUMPLE CON RESERVAS; cerrados N-A (contrato), N-B, N-F, N-H, N-I; PARCIALES N-C (sin cableado), N-D (schema mezcla ids), N-E (chip-claim sin ancla), N-G (T1646 residual); MEDIOS nuevos: person_id sin tabla física declarada en T1633/T1648, retención admin_identities sin regla. No APPROVED. Acta .specify/memory/audits/rama-012-bloqueB-v08-2026-11-27.md.
+- 2026-11-27 [morpheus] rama v0.8 CUMPLE CON RESERVAS; architect v0.9 en curso.
+- 2026-11-27 [architect] v0.9 Bloque B: NUEVO-1..8 de rama aplicados en contratos/data-model/tasks (DRAFT, sin APPROVED, sin [x]); PENDIENTE NEO: FK/baja de operador y aviso de resolucion a propietarios; gates rc=0. Acta audits/architect-012-bloqueB-v09-2026-11-27.md.
+- 2026-11-27 /oracle: Bloque B v0.9 (T1630..T1632, T1633 dep, T1640, T1641, T1648) CUMPLE CON RESERVAS (3 menores; data-model.md:85 aun cita T1646 para topes multipart); trace 012 298/298 rc=0, oracles rc=0; sin cambios de codigo; acta .specify/memory/audits/oracle-012-bloqueB-v09-2026-11-27.md; sin aprobacion.
+- 2026-11-27 /architect: data-model.md:85 referencia T1646 -> T1640/T1641 (reserva menor oracle Bloque B v0.9); DRAFT, sin commit.
+- 2026-11-27 [morpheus] commit e855f44 Bloque B DRAFT v0.9 local; paquete a Neo para APPROVED.
+- 2026-11-27 [morpheus] Neo aprueba Bloque B APPROVED (7 contratos), decisiones 2-4, actas intermedias commit aparte. Keymaker: commits, v38, migraciones T1633+T1648, rojas T1634, luego oracle.
+- 2026-11-27 [keymaker] Bloque B: commits ea3801c (a), dbb826b (d), 206e80b (e); (b) no-op (actas ya versionadas); (c) BLOQUEADO por codegen: tipo duplicado MicrochipId (pet.schema vs chip-claim.schema) -> /architect + Neo.
+- 2026-11-27 [morpheus] keymaker fases 1,3,4 hechas; fase 2 bloqueada por MicrochipId duplicado (decision Neo). Oracle sobre dbb826b/206e80b.
+- 2026-11-27 [oracle] Bloque B ea3801c/dbb826b/206e80b: CUMPLE CON RESERVAS (tsc/trazab/oraculos rc=0; persistence SQLite y PG17 verdes; rojas T1634 fallan por modulo ausente). Acta: .specify/memory/audits/oracle-012-bloqueB-migraciones-T1633-T1648-2026-11-27.md
+- 2026-11-27 [morpheus] oracle fases 3/4 CUMPLE CON RESERVAS; fase 2 bloqueada (MicrochipId): decision Neo.
+- 2026-11-27 [morpheus] Neo aprueba 1A (ChipClaimMicrochipId) y 2A; [x] T1633/T1634/T1648 (31 [x]); fase VERDE Bloque B. Architect rename -> keymaker.
+- 2026-11-27 architect: errata MINOR MicrochipId→ChipClaimMicrochipId en chip-claim.schema.json (Neo N2); gates rc=0; pendiente compile-contracts (keymaker).
+- 2026-11-27 [keymaker] Bloque B fase VERDE: tramos T1635/T1640, T1641, T1642, T1645/T1646 en rama 012; T1634 verde salvo SC-012-017 (aserto `role` fuera de contrato OwnershipState); tests 004 con DUPLICATE cross-owner superados por el split (reportados a morpheus).
+- 2026-11-27 [morpheus] fase VERDE keymaker 4df7f12..49243e7; rojas SC-012-017 y 004 DUPLICATE (decision Neo); oracle en curso.
+- 2026-11-27 [oracle] acta bloque B fase VERDE 206e80b..49243e7: CUMPLE CON RESERVAS (tsc/trace/oracles rc=0, sin deriva src/generated); rojas SC-012-017 y 004 DUPLICATE aceptadas; ver .specify/memory/audits/oracle-012-bloqueB-fase-verde-2026-11-27.md
+- 2026-11-27 [morpheus] oracle fase verde CUMPLE CON RESERVAS; decisiones Neo: SC-012-017 role y 004 pinados.
+- 2026-11-27 [morpheus] HARDLINE: HEAD 49243e7 (012 fase verde Bloque B local, sin push). Handover claude/handover-morpheus-2026-11-27-cierre-fase-verde.md. Pendiente Neo: decisiones fase verde (Logos PAUSE_TIMEOUT).
+- 2026-11-27 [morpheus] Neo responde fase verde (1-8). Keymaker: aplicar 1-6, T1636 y T1643; luego oracle.
+- 2026-11-27 [morpheus] inicio de sesion: HEAD 49243e7, Logos en PAUSE_TIMEOUT (manual). Despacho keymaker: decisiones 1-6 de fase verde + T1636 + T1643, luego oracle.
+- 2026-11-27 [morpheus] Logos ENCENDIDA por Neo (resume OK, iter 48/80). Directiva: keymaker decisiones 1-6 + T1636 (UI + /admin/disputes) + T1643; luego oracle. Keymaker ampliado por mensaje.
+- 2026-11-27 [keymaker] decisiones Neo 1-6 aplicadas (c08cda6), T1636 HTTP+UI (0a246e5, cfab7f7) y T1643 (1d294b8) en rama 012, sin push; app.ts/server.ts sin hunks H-01; gates tsc/trace/oracles rc=0; pendiente oracle 49243e7..1d294b8.
+- 2026-11-27 [morpheus] keymaker 1d294b8 (T1636+T1643, 4 commits locales, sin push). Reservas 1-7 abiertas. Despacho oracle sobre 49243e7..1d294b8.
+- 2026-11-27 [oracle] 49243e7..1d294b8 (T1636+T1643): CUMPLE CON RESERVAS; gates tsc/trace/oracles/trace T1635/vitest rc=0 (218 verdes); bloqueantes prod: H-01 motivo no persistido, H-02 person_id sin via, H-03 step-up nominal/en memoria; sin cambios H-01 ni 005. Acta .specify/memory/audits/oracle-012-bloqueB-T1636-T1643-2026-11-27.md
+- 2026-11-27 [morpheus] oracle 1d294b8: CUMPLE CON RESERVAS. Bloqueantes producción H-01/H-02/H-03 escalados a Neo por Logos.
+- 2026-11-27 [morpheus] Neo ACEPTA base verde 49243e7..1d294b8; resoluciones H-01(c), H-02(b), H-03(b), H-04, H-06; Bloque C DRAFT autorizado (T1650, T1660, T1651). Despacho keymaker + architect.
+- 2026-11-27 [morpheus] keymaker 341e9a7 H-06 OK; H-01(c) bloqueado (no existe metadata en admin_audit_entries); H-07 no aplicado. Escalado a Neo por Logos.
+- 2026-11-27 [morpheus] Neo: H-01 opción (a) migración metadata (SQLite 0038 / PG 0034). Despacho keymaker.
+- 2026-11-27 [architect] Bloque C DRAFT T1650 (care.openapi + 3 schemas, 0.1.0 DRAFT) + errata H-04 chip-claim 0.2.1 + quickstart H-02 + deuda-012-admin-stepup-prod (H-03). trace rc=0, compile rc=0, oracles rc=1 ajeno (keymaker H-01). Acta .specify/memory/audits/architect-012-bloqueC-draft-2026-11-27.md; sin commit.
+- 2026-11-27 [morpheus] architect Bloque C DRAFT 0.1.0 + H-04 0.2.1 + H-02/H-03 en disco (sin commit). Puntos H-C1..H-C3 para Neo. Despacho maggie y trinity (T1651). verify-oracles rc=1 por test H-01 en curso de keymaker.
+- 2026-11-27 [maggie] T1651 dictamen Bloque C (care.openapi + 3 schemas, DRAFT 0.1.0): CONDICIONADO. ALTOS A-01 (sin IU para insulina), A-02 (umbrales sin especie), A-03 (DONE de toma futura mismo dia), A-04 (vigencia por dia, dosis mal snapshot), A-05 (UNIQUE por fila-version, doble registro). H-C4: SKIPPED BASIC_LOG permitido; en MEDICATION exige note y late. Detalle .specify/memory/audits/maggie-012-bloqueC-T1651-2026-11-27.md. Sin edicion de contratos ni [x].
+- 2026-11-27 [trinity] T1651 Bloque C contratos DRAFT 0.1.0 revisados: APTO CON RESERVAS (0 ALTO; 7 MEDIO T-C1..T-C7, 8 BAJO, 3 INFO); H-C1 valores aceptables como trabajo, H-C2 sin objecion, H-C3 riesgo documentado sin decidir. Acta .specify/memory/audits/trinity-012-bloqueC-T1651-2026-11-27.md; sin cambios en contratos ni commit.
+- 2026-11-27 [morpheus] maggie T1651: CONDICIONADO (5 ALTOS). Despacho architect 0.1.1 (A/M no dependientes de H-C1..H-C3). Trinity en curso.
+- 2026-11-27 [morpheus] trinity T1651: APTO CON RESERVAS (0 ALTO, 7 MEDIO). Hallazgos de contrato añadidos a architect 0.1.1. Decisiones Neo pendientes: H-C1, H-C3, T-C5.
+- 2026-11-27 [architect] T1650 Bloque C contratos DRAFT 0.1.1 (MINOR) publicados: maggie A-01..A-05, M-02, M-04..M-06, B-01 + trinity T-C1/2/3/4/7/9/12/13. Pendientes Neo: H-C1, H-C2, H-C3 (M-01, M-03), T-C5. Trace rc=0, oracles rc=0. Acta .specify/memory/audits/architect-012-bloqueC-v011-2026-11-27.md; sin commit.
+- 2026-11-27 [morpheus] architect 0.1.1 Bloque C DRAFT publicado; gates rc=0. Pendiente keymaker (H-01 + commit). Después Logos consolidado a Neo (H-C1, H-C2, H-C3, T-C5, T-C3).
+
+- 2026-11-27 Keymaker: H-01 (a) migracion 0038/0034 admin_audit_entries.metadata + motivo de arbitraje persistido; gates tsc/trace/oracles rc=0.
+- 2026-11-27 [oracle] auditoria H-01(a)+H-06 (1d294b8..75d9c38) y Bloque C DRAFT 0.1.1: CUMPLE CON RESERVAS (R-1 purga real 24 meses no 1095; R-2 prorroga/cancel sin motivo persistido). tsc/trace/oracles/vitest rc=0; PG real no disponible. Acta .specify/memory/audits/oracle-012-H01-BlocC-draft-2026-11-27.md
+- 2026-11-27 [morpheus] bc91f63 commit selectivo (Bloque C draft + errata + deuda + 10 [x] Neo). PG real OK 4/4. Consolidado a Neo por Logos.
+- 2026-11-27 [morpheus] Neo aprueba 75d9c38..bc91f63; resuelve H-C1..H-C3, T-C5, T-C3, R-1 (24m), R-2; [x] T1636 (39). Despacho architect Bloque C final, keymaker comentario R-1, gates T1638/T1644/T1647.
+- 2026-11-27 [morpheus] keymaker 8fa69f2 R-1 (comentario 24 meses). Architect revisa 1095 residuales en specs/012.
+- 2026-11-27 [sati] T1638 auditoria diseno/WCAG Bloque B (ChipRegisteredDialog, MyChipRequests, DisputesPanel): APTO CON RESERVAS (0 bloq, 3 medias, 6 bajas); privacidad alias OK. Acta .specify/memory/audits/sati-012-bloqueB-T1638-2026-11-27.md
+- 2026-11-27 /seraph T1638 Bloque B 012: APTO CON RESERVAS (S-01/S-02 MEDIO origen en mutaciones admin y sin prueba; deuda STEPUP-PROD abierta); 65 pass rc=0. Acta .specify/memory/audits/seraph-012-bloqueB-T1638-2026-11-27.md
+- 2026-11-27 [morpheus] sati T1638 APTO CON RESERVAS; keymaker corrige A11Y-B-01..03 y TXT-B-06..08. Bajas a deuda.
+- 2026-11-27 [trinity] T1647 re-auditoria seguridad Bloque B (admin-disputes, chip.routes, vistas): APTO CON RESERVAS (NO APTO prod hasta DEUDA-012-ADMIN-STEPUP-PROD). Semgrep rc=0, 0 hallazgos. Acta .specify/memory/audits/trinity-012-bloqueB-T1647-2026-11-27.md; R-02/R-03/R-09 y /rama fuera de este pase.
+- 2026-11-27 [morpheus] seraph T1638 APTO CON RESERVAS: S-01 (Origin en todas las mutaciones de disputa) y S-02/S-03 pasan a keymaker en cola tras sati.
+- 2026-11-27 [morpheus] trinity T1647 parcial: APTO CON RESERVAS (código); bloqueo prod = DEUDA step-up. T-04 (WINDOW_72H single-human) decisión Neo. T-02/T-03 a keymaker en cola. Falta rama T1647, R-02/R-03/R-09 y mouse.
+- 2026-11-27 [sentinels] T1638 (Bloque B): 8 PASS / 1 FAIL. H-T1638-01 MEDIO: 409 ERR-CHP12-DISPUTE-LIMIT al repetir disputa sobre chip ocupado (chip-dispute-use-cases.ts:101) frente a 202 en chip libre (:90), oraculo vs INV-CHP12-003. Prueba nueva tests/integration/api/sentinels-012-bloqueB-T1638.api.spec.ts (rc 1). Acta .specify/memory/audits/sentinels-012-bloqueB-T1638-2026-11-27.md. Sin [x], sin commit.
+- 2026-11-27 [morpheus] sentinels T1638 BLOCKED: V6 FAIL (409 vs 202 en chip ocupado, INV-CHP12-003). Architect confirma semántica; keymaker corrige; rerun.
+- 2026-11-27 [rama] T1644 re-auditoria ciclo de vida (Bloque B): NO CUMPLE. A-01 ALTO (person_id sin NULL tras 1095 d; purga de delegados bloqueada por FK RESTRICT y silenciosa). Acta .specify/memory/audits/rama-012-bloqueB-T1644-2026-11-27.md. Sin cambios en src, sin commit.
+- 2026-11-27 [morpheus] rama T1644: NO CUMPLE (A-01 ALTO baja de operador con expedientes; M-02 decisión Neo). Pendiente en próximo Logos.
+- 2026-11-27 [morpheus] Neo aprueba 8fa69f2..772c7b8; V6 202 uniforme; T-04 aceptar; S-01 aplicar; ERR-CAR12-ROUTINE-STALE a T1650. Despacho architect y keymaker.
+- 2026-11-27 [architect] Bloque C contratos 0.1.2 DRAFT (H-C1 120/60/30, H-C2 ERR-CAR12-ROUTINE-STALE catalogo 0.3.0 DRAFT, H-C3/M-01/M-03 solo titulares, T-C5, T-C3, R-1 data-model 24m) + deuda-012-validacion-vet-umbrales (T1660). trace/oracles rc=0. Acta .specify/memory/audits/architect-012-bloqueC-v012-final-2026-11-27.md
+- 2026-11-27 [architect] V6 H-T1638-01 aplicado (202 uniforme en repeticion de disputa; DISPUTE-LIMIT solo tope 3), ROUTINE-STALE trazado en T1650; trace 299/299. Acta: .specify/memory/audits/architect-012-V6-T1650-final-2026-11-27.md
+- 2026-11-27 [morpheus] HEAD c8abd7a: V6 (5d6b930), S-01..S-03+T-02 (d742d63), T-03 (c8abd7a). Trazabilidad 012 CUMPLE. Despacho commit contratos, sentinels, seraph, trinity, mouse.
+- 2026-11-27 [morpheus] fc36186 contratos 0.1.2 + V6 (DRAFT). src/generated/v38 regenerado sin commit (espera aprobación ROUTINE-STALE).
+- 2026-11-27 [seraph] QA seguridad 012 Bloque B c8abd7a: APTO CON RESERVAS (SER-01 Low, SER-02/03 Info); unit rc=0, sentinels T1638 rc=0. Acta: .specify/memory/audits/seraph-012-bloqueB-claim-c8abd7a-2026-11-27.md
+- 2026-11-27 [mouse] Bloque C 012 pasada única: BLOCKED. verify-traceability --feature 012 rc=0 (299/299). Defectos a architect: D-1 error-catalog x-sdd-metadata 0.3.0 dice APPROVED sin estar aprobado; D-2 REQ-CAR12-002 y SC-012-040 sin cita por ID en tasks; D-3 ERR-HOUSE-NOT-FOUND fuera de inherited. Acta .specify/memory/audits/mouse-012-bloqueC-unica-2026-11-27.md. Sin commit, sin [x].
+- 2026-11-27 trinity: T1647 R-02/R-03/R-09 sobre c8abd7a; R-09 CUMPLE, R-02/R-03 fuera de superficie HTTP/admin (parcial); semgrep rc=0 0 hallazgos. Acta: .specify/memory/audits/trinity-012-bloqueB-T1647-R02-R03-R09-c8abd7a-2026-11-27.md
+- 2026-11-27 [morpheus] mouse Bloque C BLOCKED: D-1 (estado catálogo), D-2 (cita REQ-CAR12-002), D-3. Architect corrige.
+- 2026-11-27 [morpheus] trinity T1647 R-09 CUMPLE, R-03 CUMPLE parcial (falta supresión), R-02 pendiente pase de aplicación. T1647 sigue [ ].
+- 2026-11-27 [architect] Bloque C 012: D-1 (amendment_status 0.3.0 DRAFT), D-2 (REQ-CAR12-002 en T1653, SC-012-040 en T1654), D-3 (ERR-HOUSE-NOT-FOUND inherited). traceability rc=0 299/299, oracles rc=0. Acta: .specify/memory/audits/architect-012-bloqueC-mouse-D1-D3-2026-11-27.md
+- 2026-11-27 [sentinels] Re-ejecucion T1638 Bloque B sobre HEAD c8abd7a: spec 25/25 rc=0; V1..V9 sin FAIL (V6 cerrado); S-02 PASS; T-02 PARCIAL (quema grant propio en fallo de claim, H-T1638-02 BAJO; concurrencia verificada por sonda, sin prueba). Arbol con src/generated y origin-verify sin commit (no auditado). Acta .specify/memory/audits/sentinels-012-bloqueB-T1638-rerun-c8abd7a-2026-11-27.md. Sin [x], sin commit.
+- 2026-11-27 [morpheus] sentinels re-run c8abd7a 25/25 (V6 cerrado). Pendientes: H-T1638-02 (Neo), H-T1638-04 y R-V6 (keymaker), H-T1638-05 (architect).
+- 2026-11-27 [architect] H-T1638-05: contrato contradictorio (spec.md:91/SC-012-111/openapi:8 cooldown tras precondiciones vs openapi:120,151/catalog:241 antes, M-4); codigo (use-cases:105) sigue la primera => oraculo acotado BAJO; decision de Neo. Acta: .specify/memory/audits/architect-012-cooldown-INV-CHP12-003-2026-11-27.md
+- 2026-11-27 [morpheus] architect cooldown: contrato contradictorio (A spec vs B openapi). Código = A. Decisión Neo (recomendado B).
+- 2026-11-27 [oracle] auditoría rango 1d294b8..d5d6d47: NO CUMPLE solo por verify-oracles rc=1 (O-01 sentinels spec:389,402 not.toThrow débil); tsc 0, trace 0, vitest 42/42; sin archivos vedados, 39 [x]=Neo, catálogo 0.3.0 DRAFT. Acta .specify/memory/audits/oracle-012-rango-1d294b8-d5d6d47-2026-11-27.md
+- 2026-11-27 [morpheus] oracle rango: NO CUMPLE solo verify-oracles (O-01 aserciones débiles en sentinels). Keymaker corrige (MAX_RETRY=1).
+- 2026-11-27 [morpheus] keymaker 56de9e0 O-01 cerrado (verify-oracles rc=0). Oracle revalida.
+- 2026-11-27 [oracle] revalidación 56de9e0: CUMPLE; O-01 cerrado; tsc 0, oracles 0, trace 0, vitest 29/29; solo toca el spec de T1638; sin vedados ni [x] nuevos desde d5d6d47. Acta oracle-012-revalidacion-O01-56de9e0-2026-11-27.md
+- 2026-11-27 [morpheus] Neo aprueba D1..D9 y firma contratos 0.1.2 + catálogo 0.3.0; [x] T1638/T1650/T1651/T1660 (43). Despacho architect (textos) y keymaker (código D1 + v38 + commit).
+- 2026-11-27 [morpheus] keymaker 441b1e8 (D1 cooldown B), 0f19197 (v38 D3), b3b1cd4 ([x] Neo). Architect textos pendientes; recompilar tras su commit.
+- 2026-11-27 architect: acta D1/D6/D7/D8/D9 aplicada en spec.md, admin-disputes-annex.md, data-model.md (solo texto; gates rc=0, 299/299). Ver .specify/memory/audits/architect-012-decisiones-D1-D9-2026-11-27.md
+- 2026-11-27 [morpheus] architect textos D1/D6/D7/D8/D9 listos. Keymaker commitea y recompila; rama re-audita T1644.
+- 2026-11-27 [morpheus] keymaker 6900551 textos D1-D9. Contratos Bloque C y catálogo 0.3.0 firmados por Neo pendientes de commit (keymaker).
+- 2026-11-27 [morpheus] keymaker 7a269b9 firma D3: contratos Bloque C 0.1.2 y catálogo 0.3.0 APPROVED en repo. v38 sin cambios.
+- 2026-11-27 [rama] Re-auditoria T1644 con D8 sobre b3b1cd4 + textos en disco: NO CUMPLE. A-01 y person_id NULL ABIERTOS (maintenance-use-cases.ts:213, :216-217); M-02 y M-04 CERRADOS por texto; M-01 (admin-use-cases.ts:202) y M-03 ABIERTOS. Acta .specify/memory/audits/rama-012-bloqueB-T1644-D8-2026-11-27.md. Sin cambios en src, sin commit, sin [x].
+- 2026-11-27 [morpheus] rama T1644 D8 NO CUMPLE (A-01, person_id NULL, M-01, M-03). Keymaker implementa sin cambiar timing; pregunta de momento a Neo.
+- 2026-11-27 [morpheus] Neo: anonimización D8 = 365 días (b); annex basta texto. Misión: T1644 cierre, T1647, Bloque C migraciones y rojas.
+- 2026-11-27 [morpheus] keymaker D8 commits f754467/9004754/f96e16d. CONFLICTO Nivel 2: t1231/t1239 (009 privacidad) vs columna metadata de H-01. Neo decide.
+- 2026-11-27 [morpheus] Neo aprueba (a) metadata con enmienda acotada en annex 012 + aviso UI. Prohibido git stash. Despacho architect (annex) y keymaker (asertos + UI).
+- 2026-11-27 [architect] ENM-012-ADMIN-AUDIT-METADATA: §11 nueva en admin-disputes-annex.md (MINOR, APPROVED intacto, firmada Neo N2). Acta architect-012-ENM-ADMIN-AUDIT-METADATA-2026-11-27.md. Sin tocar 009/src/tests.
+- 2026-11-27 [rama] Re-auditoria T1644 con D8 sobre f96e16d (solo lectura): CUMPLE CON RESERVAS. A-01, A-01b, M-01 y M-03 cerrados en codigo; prueba D8 pasa en memoria/SQLite (14 OK), PG omitida sin TEST_DATABASE_URL (R-PG-1 MEDIO). Nota Keymaker PG: ruta ACTIVE termina en COMMIT sobre tx abortada = ROLLBACK sin error, DENIED correcto; riesgo BAJO de fragilidad y divergencia SQLite. R-ACT-1 para Neo. Acta .specify/memory/audits/rama-012-bloqueB-T1644-D8-reaudit-f96e16d-2026-11-27.md. Sin src, sin commit, sin [x].
+- 2026-11-27 [morpheus] 09d913e enmienda ENM-012-ADMIN-AUDIT-METADATA; 3447202 asertos 009; 3c54544 aviso UI. Oracle sobre f754467..09d913e.
+- 2026-11-27 [morpheus] rama T1644: CUMPLE CON RESERVAS. Pendiente PG real y regresión M-01 (keymaker). R-ACT-1 a Neo.
+- 2026-11-27 [oracle] f754467..09d913e D8+metadata+B-01: CUMPLE CON RESERVAS (PG real no ejecutado; falta regresion M-01). Acta oracle-012-D8-metadata-f754467-09d913e-2026-11-27.md.
+- 2026-11-27 [morpheus] oracle f754467..09d913e CUMPLE CON RESERVAS (O-01 PG real, O-02 regresión M-01 en curso keymaker).
+- 2026-11-27 [morpheus] Neo acepta R-ACT-1. Despacho trinity (R-02/R-03/R-09 app) y mouse (T1647) en solo lectura.
+- 2026-11-27 [mouse] T1647 HEAD 09d913e: verify-traceability --feature 012 rc=0 CUMPLE; BLOCKED por D-1 (R-02/R-03/R-09 ambiguos entre lock y trinity, MAYOR), D-2 (REQ-CHP12-003 sin cita literal), W-1 (T1632 sin ID). Acta .specify/memory/audits/mouse-012-bloqueB-T1647-2026-11-27.md. Sin [x], sin commit, sin edición de contratos/specs.
+- 2026-11-27 [morpheus] mouse T1647 BLOCKED: D-1 ambigüedad R-02/R-03/R-09 en tasks.md:90. Architect corrige texto.
+- 2026-11-27 architect: 012 T1647 mouse D-1/D-2/W-1 corregidos en tasks.md (l.74, 77, 90); gates rc=0; acta architect-012-T1647-mouse-D1-D2-W1-2026-11-27.md; sin commit.
+- 2026-11-27 [trinity] T1647 pase de capa aplicacion/persistencia R-02/R-03/R-09 (HEAD 09d913e): CUMPLEN por lectura; R-03 = la supresion PROCEDE y reserva el chip (N2-R2), no se bloquea. Sin CRITICO/MAYOR. Pendiente: correr R-02 con PG real (TEST_DATABASE_URL; 8 pruebas omitidas) y test compuesto erase->re-registro. Acta .specify/memory/audits/trinity-012-bloqueB-T1647-aplicacion-2026-11-27.md
+- 2026-11-27 [morpheus] 348faa3 M-01 regresión; PG real OK; 305df23 tasks.md texto T1647. Oracle sobre 09d913e..348faa3. Keymaker inicia T1652.
+- 2026-11-27 [morpheus] trinity T1647 aplicación: R-02/R-03/R-09 CUMPLEN por lectura; A1 (PG real) pendiente, A2 menor. Mouse revalida.
+- 2026-11-27 [mouse] T1647 revalidación (HEAD 348faa3, tras 305df23): D-1/D-2/W-1 cerrados; trazabilidad rc=0 (299/299); veredicto PASS. Acta .specify/memory/audits/mouse-012-bloqueB-T1647-revalidacion-2026-11-27.md
+- 2026-11-27 [morpheus] mouse T1647 revalidación PASS. T1647 listo para firma de Neo tras R-02 PG real.
+- 2026-11-27 [oracle] cierre Bloque B 09d913e..348faa3: T1644 CUMPLE (D8+M-01 regresion SQLite/PG real, tsc/oracles/traza rc0, vitest 31/31 con PG); T1647 CUMPLE CON RESERVAS (mouse PASS tras 305df23; falta acta /rama de supresion/retencion/rejected_by). Sin [x] (43), sin vedados. Acta oracle-012-cierre-BlocB-T1644-T1647-348faa3-2026-11-27.md
+- 2026-11-27 [morpheus] oracle 09d913e..348faa3: T1644 CUMPLE; T1647 CUMPLE CON RESERVAS (falta pase rama + A2). Despacho rama.
+- 2026-11-27 [rama] T1647 pase /rama (HEAD 348faa3, solo lectura): (a) CUMPLE CON RESERVAS, (b) CUMPLE CON RESERVAS, (c) CUMPLE CON RESERVAS. Sin prueba de SC-012-096/EDGE-012-053 ni del límite 1095 d; PII residual en evidencia (decisión Neo). Acta .specify/memory/audits/rama-012-bloqueB-T1647-supresion-retencion-rejected-2026-11-27.md
+- 2026-11-27 [morpheus] rama T1647 pase: CUMPLE CON RESERVAS (a)(b)(c). Decisiones Neo A-R2, C-R2. Keymaker: pruebas SC-012-096 y frontera 1095.
+- 2026-11-27 [morpheus] T1652 en local (c9b7f7f, 4146607, ec77ba2). Decisión Neo: CASCADE vs RESTRICT antes de T1655. Oracle T1652, architect data-model, keymaker tests.
+- 2026-11-27 [architect] data-model Bloque C alineado con T1652 (series_id+UNIQUE A-05, IU, effective_* date-time, CASCADE declarado, PENDIENTE NEO retencion). Acta architect-012-data-model-bloqueC-T1652-2026-11-27.md. Sin commit.
+- 2026-11-27 [oracle] T1652 auditada (ec77ba2): CUMPLE CON RESERVAS. tsc/oracles/traceability rc=0; vitest t1652+schema-parity 26/26 con PG real. Menores: dose_amount NUMERIC(8,3) vs 100000; t831 (42->45) lo rompe T1652 (t1429/t1613 preexistentes). CASCADE vs RESTRICT sigue pendiente de Neo. Acta oracle-012-T1652-migraciones-ec77ba2-2026-11-27.md.
+- 2026-11-27 [morpheus] oracle T1652 CUMPLE CON RESERVAS: D5 NUMERIC(9,3) y t831 a keymaker. CASCADE/RESTRICT a Neo.
+- 2026-11-27 [morpheus] Neo aprueba CASCADE y retención techo sin columna; NUMERIC(9,3) aprobado. Architect nota data-model; keymaker NUMERIC(9,3) y pruebas T1647; oracle cierre.
+- 2026-11-27 [morpheus] keymaker 6388e04 + 5fd72e5 en verde (PG real). D5 bloqueado por permiso en src/ -> Neo. Borde 1095 estricto -> Neo.
+- 2026-11-27 [morpheus] keymaker 85371c7 D5 NUMERIC(9,3) aplicado. Oracle de cierre sobre 85371c7.
+- 2026-11-27 [morpheus] Neo ratifica NUMERIC(9,3) y borde <. Keymaker T1653/T1654 rojas; oracle cierre en curso.
+- 2026-11-27 [oracle] Cierre T1644/T1647/T1652 sobre 85371c7: T1644 CUMPLE; T1647 y T1652 CUMPLE CON RESERVAS. Gates rc 0, PG real 108/108 (sin PG 88+20 omitidas), D5 solo cambia NUMERIC(9,3), 43 [x] sin cambio. Acta oracle-012-cierre-T1644-T1647-T1652-85371c7-2026-11-27.md
+- 2026-11-27 [morpheus] oracle cierre 85371c7: T1644 CUMPLE; T1647 y T1652 CUMPLEN CON RESERVAS; PG real 108/108. Firmas y A-R2 para Neo.
+- 2026-11-27 [morpheus] Neo firma T1644, T1647, T1652 [x] (46). A-R2 aceptado. Bloque C: rojas -> verde (T1655, T1661, T1662) -> T1656.
+- 2026-11-27 [morpheus] keymaker rojas T1653 (3e9aae5) y T1654 (115fa8a). Oracle de firmas supuestas; keymaker dominio T1655.
+- 2026-11-27 [morpheus] keymaker dba20eb dominio care T1655 tramo 1: T1653 52/52 verdes. Tramo 2 (repos y casos de uso) tras oracle de firmas.
+- 2026-11-27 [oracle] Rojas T1653/T1654 CUMPLE CON RESERVAS (F1 especie, F2 id, F3 pureza dba20eb trace rc=1, R-1 reloj/CHECK, R-3 tope 60). Acta oracle-012-BlocC-rojas-T1653-T1654-2026-11-27.md
+- 2026-11-27 [morpheus] oracle rojas: traceability rc=1 (purity dba20eb). Keymaker corrige F1-F7, R-1, R-4, R-6..R-8. R-2 y R-3 a Neo.
+- 2026-11-27 [morpheus] Neo resuelve R-2 (v1 desde 00:00 Bogotá) y R-3 (límite en HTTP T1656). Keymaker informado.
+- 2026-11-27 [morpheus] keymaker efb0835 + c439f73: pureza 0, care-domain 57/57. Oracle de revalidación.
+- 2026-11-27 [oracle] Revalidación c439f73 dominio+rojas Bloque C: CUMPLE CON RESERVAS (F1-F5,F7,R-1,R-2,R-4,R-6,R-7 cerrados; R-8 parcial; mapeo especie->grupo NO definido en contrato). vitest 57/57, trace rc=0, oracles rc=0, tsc rc=2 5 err (T1655 pendiente). Acta oracle-012-BlocC-dominio-revalidacion-c439f73-2026-11-27.md
+- 2026-11-27 [morpheus] oracle c439f73 CUMPLE CON RESERVAS. Gap mapeo especie->grupo dosis a Neo. Keymaker tramo 2 con propuesta pendiente.
+- 2026-11-27 [morpheus] keymaker T1655 tramo 2 (f75f0f0, 7eb8b58, 7f61dbf): gates verdes con PG. Oracle sobre el tramo.
+- 2026-11-27 [oracle] T1655 tramo 2 (f75f0f0..7f61dbf): CUMPLE CON RESERVAS (hogar omite mascotas sin rutinas = desviacion no amparada, no bloqueante; orden 409/422 rutinas sin fijar; mapeo especie pendiente Neo). vitest 183/183 con PG real, sqlite+pg 142/142, tsc 0, oracles 0, trace 012 0 (pureza 0). Acta oracle-012-BlocC-T1655-tramo2-f75f0f0-7f61dbf-2026-11-27.md
+- 2026-11-27 [morpheus] oracle T1655 tramo 2 CUMPLE CON RESERVAS. Decisiones Neo: orden 409/422, mapeo especie. Filtro hogar a quitar (keymaker).
+- 2026-11-27 [morpheus] keymaker ec4573b hogar sin filtro de rutinas (PG verde). Oracle de revalidación.
+- 2026-11-27 Oracle: revalidación ec4573b hogar (012 Bloque C) CUMPLE CON RESERVAS (R1 redacción contrato); gates rc 0 (PG 63/63, tsc, oracles, traz). Acta oracle-012-BlocC-hogar-ec4573b-2026-11-27.md
+- 2026-11-27 [morpheus] oracle ec4573b CUMPLE CON RESERVAS. Visibilidad contractual. Keymaker T1661 y T1662.
+- 2026-11-27 [morpheus] keymaker b1016b1 T1661 (retención PG verde); T1662 bloqueada (código auditoría y campo Bloque D). Oracle sobre b1016b1.
+- 2026-11-27 [morpheus] CIERRE DE SESIÓN: HEAD b1016b1 (012, ahead 93, sin push). Bloques A y B cerrados (46 [x]). Bloque C en curso: T1653/T1654/T1655 (tramos 1 y 2)/T1661 en local con gates verdes y PG real; T1662 bloqueada; T1656 pendiente. Decisiones Neo pendientes: orden 403/404/422/409, mapeo especie, T1662, cascada MEDICATION vs SC-012-089. Handover claude/handover-morpheus-2026-11-27-cierre-carec.md.
+- 2026-11-27 oracle: T1661 (b1016b1) CUMPLE CON RESERVAS; R1 aceptable, R2 OK, R3 (cascada rutina inactiva borra MEDICATION <1095d vs SC-012-089) decisión de Neo; gates rc0, PG real sí. Acta: .specify/memory/audits/oracle-012-T1661-retencion-b1016b1-2026-11-27.md
+- 2026-11-27 [morpheus] oracle T1661 b1016b1 CUMPLE CON RESERVAS (post-cierre). R3 cascada MEDICATION vs SC-012-089 pendiente de Neo: (a) techo documentado o (b) guarda.
+- 2026-11-27 [morpheus] LOGOS ON por orden de Neo. Turno a neo con decisiones D-A/B/C/D pendientes (feature 012, HEAD b1016b1).
+- 2026-11-27 [morpheus] Neo resuelve D-A SI, D-B SI, D-C (b), D-D (b); firma T1653/T1654. Despacho architect->keymaker->oracle.
+- 2026-11-27 /architect: D-A/D-B/Reserva1 aplicadas en contratos 012 Modo Cuidador (care.openapi, care-routine.schema, spec, data-model); compile OK; APPROVED intacto.
+- 2026-11-27 keymaker: cierre T1655/T1661 (D-A orden 403-404-422-409, D-B mapeo definitivo, D-D(b) guarda NOT EXISTS en 3 motores); sin marcar [x]; pendiente oracle.

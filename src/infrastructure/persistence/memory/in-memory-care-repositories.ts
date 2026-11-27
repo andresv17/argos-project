@@ -51,10 +51,10 @@ export function memoryCareRoutineRepository(state: CareMemoryState): CareRoutine
     },
     async purgeInactiveBefore(before) {
       const referenced = new Set(rows().map((r) => r.supersedesRoutineId).filter((id) => id !== null));
-      const doomed = new Set(rows().filter((r) => !r.active && r.updatedAt < before && !referenced.has(r.id)).map((r) => r.id));
+      // D-D(b): una rutina inactiva con registros vivos en `care_log_entries` se conserva (el registro más largo, p. ej. MEDICATION 1095 d, no pierde su rutina).
+      const withLog = new Set((state.careLog ?? []).map((e) => e.routineId));
+      const doomed = new Set(rows().filter((r) => !r.active && r.updatedAt < before && !referenced.has(r.id) && !withLog.has(r.id)).map((r) => r.id));
       state.careRoutines = rows().filter((r) => !doomed.has(r.id));
-      // ON DELETE CASCADE: los registros de la rutina salen con ella.
-      state.careLog = (state.careLog ?? []).filter((e) => !doomed.has(e.routineId));
       return doomed.size;
     },
   };
