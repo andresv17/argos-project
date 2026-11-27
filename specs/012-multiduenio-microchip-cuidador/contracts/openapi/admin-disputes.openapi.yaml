@@ -21,10 +21,10 @@ info:
     decisionPhase = AWAITING_CONFIRMATION; la fila sigue en UNDER_REVIEW (STATE-OWNREQ12-001 no cambia). Sin reautenticacion vigente: 403 generico de /admin, SIN codigo de catalogo nuevo (decision de Neo, Nivel 2, 2026-11-27), y no se ejecuta nada. Constantes fijadas por Neo: ADMIN_STEPUP_WINDOW_MINUTES = 5 y DECISION_REASON_MAX_CHARS = 500. REJECT no requiere control dual ni ventana (activa el cooldown de 90 dias). Cero transferencia automatica (INV-CHP12-006).
 
     Errores en application/problem+json (RFC 9457). Cache-Control: no-store en todas las respuestas.
-  x-sdd-status: DRAFT
+  x-sdd-status: APPROVED
   x-sdd-metadata:
     version: 0.1.0
-    status: DRAFT
+    status: APPROVED
     supersedes: null
     change_type: MAJOR
     change_note: "0.1.0 (feature 012, T1648, Architect 2026-11-27, DRAFT, sin aprobar; autorizada por Neo Nivel 2): documento nuevo con 9 operaciones: listAdminDisputes, getAdminDispute, getAdminDisputeEvidence, extendAdminDisputeFreeze, stepUpAdminDispute, resolveAdminDispute, confirmAdminDisputeDecision, cancelAdminDisputeExecution, closeAdminDisputeMoot. Rutas y nombres PROPUESTOS en annex §2 quedan fijados solo al aprobar Neo. Sin cambios en 011. DRAFT 0.9 (Architect 2026-11-27, sin aprobar; rama v0.8): actors (AdminActorView, alias y rol) separado de actorIdentities (AdminActorIdentity, solo SUPER_ADMIN) en getAdminDispute y las operaciones que devuelven AdminDisputeFile (NUEVO-3); aviso de resolucion servido por listMyChipRequests (NUEVO-2)."

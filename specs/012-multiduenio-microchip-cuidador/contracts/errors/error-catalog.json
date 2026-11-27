@@ -3,7 +3,7 @@
   "title": "ArgosDeterministicErrorCatalogIncremental012",
   "x-sdd-metadata": {
     "version": "0.2.0",
-    "status": "DRAFT",
+    "status": "APPROVED",
     "supersedes": null,
     "change_type": "MINOR",
     "extends": "catalogos de 001..011 (sin editar)",
