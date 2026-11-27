@@ -43,10 +43,10 @@ describe('T1652 [REQ-CAR12-001][REQ-CAR12-007] care_routines (SQLite 0039)', () 
     const db = openSqliteDatabase(IN_MEMORY_DATABASE);
     seed(db);
     insertRoutine(db, routine());
-    insertRoutine(db, routine({ [IDX.id]: R2, [IDX.unit]: 'IU' }));
     const bad = (over: Partial<Record<number, unknown>>): void => expect(() => insertRoutine(db, routine({ [IDX.id]: ID(90), ...over }))).toThrow(/CHECK constraint failed/);
     bad({ [IDX.kind]: 'BATH' });
     bad({ [IDX.unit]: 'UNIT' });
+    bad({ [IDX.unit]: 'IU' }); // IU rechazada (0040: triggers sobre 0039)
     bad({ [IDX.amount]: 0 });
     bad({ [IDX.amount]: 100001 });
     bad({ [IDX.amount]: null }); // unidad sin dosis, y MEDICATION exige dosis
@@ -146,10 +146,11 @@ describe('T1652 [REQ-CAR12-004][REQ-CAR12-006] pet_caregiver_access (SQLite 0039
   });
 });
 
+const PG_SQL_SIN_IU = readFileSync(new URL('../../../src/infrastructure/persistence/postgres/migrations/0036_care_dose_unit_sin_iu.sql', import.meta.url), 'utf8');
 const PG_SQL = readFileSync(new URL('../../../src/infrastructure/persistence/postgres/migrations/0035_care_mode.sql', import.meta.url), 'utf8');
 
 describe.skipIf(process.env['TEST_DATABASE_URL'] === undefined)('T1652 PostgreSQL real (TEST_DATABASE_URL): mismos CHECK y UNIQUE parcial de serie + fecha + hora', () => {
-  it('aplica 0035 y rechaza lo mismo que SQLite', async () => {
+  it('aplica 0035 + 0036 y rechaza lo mismo que SQLite', async () => {
     const { Client } = await import('pg');
     const client = new Client({ connectionString: process.env['TEST_DATABASE_URL']! });
     await client.connect();
@@ -160,12 +161,13 @@ describe.skipIf(process.env['TEST_DATABASE_URL'] === undefined)('T1652 PostgreSQ
       await client.query('CREATE TABLE users (id TEXT PRIMARY KEY)');
       await client.query('CREATE TABLE pets (id TEXT PRIMARY KEY)');
       await client.query(PG_SQL);
+      await client.query(PG_SQL_SIN_IU); // 0036 sobre el estado ya con 0035
       await client.query('INSERT INTO users VALUES ($1), ($2)', [U1, U2]);
       await client.query('INSERT INTO pets VALUES ($1)', [P1]);
       const ins = `INSERT INTO care_routines (${ROUTINE_COLS}) VALUES (${Array.from({ length: 18 }, (_, i) => `$${i + 1}`).join(',')})`;
       await client.query(ins, routine());
-      await client.query(ins, routine({ [IDX.id]: R2, [IDX.unit]: 'IU' }));
-      for (const over of [{ [IDX.kind]: 'BATH' }, { [IDX.unit]: 'UNIT' }, { [IDX.amount]: 0 }, { [IDX.amount]: null }, { [IDX.times]: 'no es arreglo' }, { [IDX.ongoing]: 2 }, { [IDX.end]: '2026-11-01' }, { [IDX.end]: '2026-12-01', [IDX.ongoing]: 1 }, { [IDX.end]: null, [IDX.ongoing]: 0 }]) {
+      await client.query(ins, routine({ [IDX.id]: R2, [IDX.unit]: 'DROP' }));
+      for (const over of [{ [IDX.kind]: 'BATH' }, { [IDX.unit]: 'UNIT' }, { [IDX.unit]: 'IU' }, { [IDX.amount]: 0 }, { [IDX.amount]: null }, { [IDX.times]: 'no es arreglo' }, { [IDX.ongoing]: 2 }, { [IDX.end]: '2026-11-01' }, { [IDX.end]: '2026-12-01', [IDX.ongoing]: 1 }, { [IDX.end]: null, [IDX.ongoing]: 0 }]) {
         await expect(client.query(ins, routine({ [IDX.id]: ID(90), ...over })), JSON.stringify(over)).rejects.toThrow(/check constraint/i);
       }
       const log = 'INSERT INTO care_log_entries (id, routine_id, series_id, occurrence_date, occurrence_time, status, performed_at, performed_by_user_id, reverted_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)';
