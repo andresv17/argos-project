@@ -4,11 +4,11 @@
   "title": "CareRoutineSchema",
   "description": "Rutinas de cuidado y dosis de una mascota [REQ-CAR12-001, REQ-CAR12-007, REQ-CAR12-008, D12-11, D12-12, D12-13]. Esquemas INCREMENTALES de la feature 012 (DRAFT). Objetos cerrados. Sin ordenes clinicas: ARGOS registra la indicacion que escribe el propietario; no calcula ni verifica dosis ni interacciones.",
   "x-sdd-metadata": {
-    "version": "0.1.1",
+    "version": "0.1.2",
     "status": "DRAFT",
     "supersedes": null,
     "change_type": "MINOR",
-    "change_note": "0.1.1 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; dictamen /maggie A-01..A-05, B-01 y hallazgos de contrato de /trinity): +IU en DoseUnit (A-01); DOSE_CONFIRM_THRESHOLDS por grupo de especie, ya no regla universal, cifras fuera de CANINE_FELINE e IU PENDIENTES de veterinario humano (A-02); +seriesId (clave logica de la rutina, A-05); effectiveFrom/effectiveTo pasan de date a date-time (vigencia por instante, A-04); CareRoutineList.maxItems 100 (B-01). Sin tocar H-C2 (se mantiene ERR-PET-VERSION-CONFLICT; ERR-CAR12-ROUTINE-STALE PENDIENTE DE NEO). Historial: 0.1.0 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo) (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +CareKind, +DoseUnit (MG|MCG|ML|TABLET|DROP; UNIT retirada, D12-11), +DoseAmount, +TimesOfDay, +DaysOfWeek, +CareRoutine (una fila por version, M-7), +CreateCareRoutineRequest (confirmHighDose anti-tecleo), +UpdateCareRoutineRequest (expectedVersion), +RoutineWriteResult (versioned), +CareRoutineList, +DeactivateCareRoutineRequest. Umbrales de captura = valores de trabajo (DEUDA-012-VALIDACION-VET-UMBRALES).",
+    "change_note": "0.1.2 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; NO APPROVED; resoluciones de Neo): H-C2 expectedVersion obsoleta o fila sustituida = 409 ERR-CAR12-ROUTINE-STALE (enmienda MINOR 0.3.0 del catalogo, entrada DRAFT pendiente de Neo); H-C3 y M-01 solo titulares definen rutinas, incluida MEDICATION (no ADMIN del hogar). Historial: 0.1.1 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; dictamen /maggie A-01..A-05, B-01 y hallazgos de contrato de /trinity): +IU en DoseUnit (A-01); DOSE_CONFIRM_THRESHOLDS por grupo de especie, ya no regla universal, cifras fuera de CANINE_FELINE e IU PENDIENTES de veterinario humano (A-02); +seriesId (clave logica de la rutina, A-05); effectiveFrom/effectiveTo pasan de date a date-time (vigencia por instante, A-04); CareRoutineList.maxItems 100 (B-01).  Historial: 0.1.0 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo) (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +CareKind, +DoseUnit (MG|MCG|ML|TABLET|DROP; UNIT retirada, D12-11), +DoseAmount, +TimesOfDay, +DaysOfWeek, +CareRoutine (una fila por version, M-7), +CreateCareRoutineRequest (confirmHighDose anti-tecleo), +UpdateCareRoutineRequest (expectedVersion), +RoutineWriteResult (versioned), +CareRoutineList, +DeactivateCareRoutineRequest. Umbrales de captura = valores de trabajo (DEUDA-012-VALIDACION-VET-UMBRALES).",
     "traceability": [
       "REQ-CAR12-001",
       "REQ-CAR12-007",
@@ -452,10 +452,10 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 1000000,
-          "description": "Version de la fila que el cliente vio; si no coincide con la fila vigente (por ejemplo, otra edicion ya la sustituyo), 409 ERR-PET-VERSION-CONFLICT (se mantiene; la alternativa ERR-CAR12-ROUTINE-STALE es H-C2, PENDIENTE DE NEO; en cualquiera de las dos la interfaz recarga la rutina y avisa de revisar dosis y horario)"
+          "description": "Version de la fila que el cliente vio; si no coincide con la fila vigente (por ejemplo, otra edicion ya la sustituyo), 409 ERR-CAR12-ROUTINE-STALE (H-C2, Neo; cuerpo sin datos de la fila sustituida; la interfaz recarga la rutina y avisa de revisar dosis y horario)"
         }
       },
-      "description": "Edicion parcial de una rutina VIGENTE (active = true). Cambiar doseAmount, doseUnit o timesOfDay NO sobrescribe: el servidor inserta una version nueva y cierra la anterior (RoutineWriteResult.versioned = true, status 201). Cambiar solo title, instructions, daysOfWeek, endDate u ongoing edita la fila en el sitio (versioned = false, status 200). kind no cambia nunca. Solo propietario/co-propietario ACTIVE o ADMIN del hogar; un CAREGIVER recibe 403 ERR-ACC-FORBIDDEN (SC-012-026)."
+      "description": "Edicion parcial de una rutina VIGENTE (active = true). Cambiar doseAmount, doseUnit o timesOfDay NO sobrescribe: el servidor inserta una version nueva y cierra la anterior (RoutineWriteResult.versioned = true, status 201). Cambiar solo title, instructions, daysOfWeek, endDate u ongoing edita la fila en el sitio (versioned = false, status 200). kind no cambia nunca. Solo titulares (propietario principal o co-propietario ACTIVE; H-C3, M-01); el ADMIN del hogar, un CAREGIVER, MEMBER y READER reciben 403 ERR-ACC-FORBIDDEN (SC-012-026)."
     },
     "RoutineWriteResult": {
       "type": "object",

@@ -4,11 +4,11 @@
   "title": "CareLogEntrySchema",
   "description": "Pendientes del dia y registro de cumplimiento de rutinas [REQ-CAR12-002, REQ-CAR12-003, REQ-CAR12-005, REQ-CAR12-007, REQ-CAR12-009, D12-12, D12-13, Neo-P P-10]. Esquemas INCREMENTALES de la feature 012 (DRAFT). Objetos cerrados. El registro evita el doble registro y muestra quien registro; no impide la doble administracion fisica (maggie M-4).",
   "x-sdd-metadata": {
-    "version": "0.1.1",
+    "version": "0.1.2",
     "status": "DRAFT",
     "supersedes": null,
     "change_type": "MINOR",
-    "change_note": "0.1.1 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; dictamen /maggie y /trinity): UNIQUE sobre la serie logica (seriesId, fecha, hora) (A-05); doseAmountAtTime/doseUnitAtTime de la version que cubre la OCURRENCIA (A-04); DONE solo con la ocurrencia en curso o vencida y SKIPPED no anticipado (A-03, tolerancia de trabajo 15 min); reintento del mismo autor con otro status = 409 (M-02, T-C1); SKIPPED: note obligatoria en MEDICATION, late tambien para omisiones, omision visible al propietario (M-04, H-C4); ventana de 24 h igual para todos los roles, contada desde la ocurrencia (M-05); reversion con cubo propio y 429 con Retry-After (M-06; cifras H-C1 PENDIENTES de Neo); cursor del historial atado a petId y filtros, routineId ajeno, includeReverted de no titulares (T-C7); +revertedByDisplayName y +revertReason solo titulares (T-C9). M-01 y M-03 (H-C3) y T-C5 PENDIENTES de Neo. Historial: 0.1.0 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo) (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +LogStatus, +OccurrenceState (PENDING|DONE|SKIPPED|OVERDUE), +CareOccurrence (sin instrucciones en OVERDUE, m-3), +CarePendingToday, +CareHouseholdToday, +CareLogEntry (autor segun rol, REQ-CAR12-009), +CreateCareLogEntryRequest, +RevertCareLogEntryRequest, +CareLogConflict (409 con autor y hora), +CareLogPage (cursor estable, limit <= 100). Sin idempotency_key (P-10): mismo autor y misma ocurrencia = 200 con la fila existente; otro autor = 409.",
+    "change_note": "0.1.2 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; NO APPROVED; resoluciones de Neo): H-C1 constantes CARE_LOG_WRITES_PER_USER_PER_HOUR = 120, CARE_ROUTINE_WRITES_PER_USER_PER_HOUR = 60 y CARE_LOG_REVERT_WRITES_PER_USER_PER_HOUR = 30 (cubos independientes, 429 con Retry-After); H-C3, M-03 y T-C5: ADMIN sale de las matrices de registro, reversion, historial, autor visible y revertedBy; solo titulares, y cuidadores VIEW_ONLY/BASIC_LOG vigentes leen; MEMBER, READER y ADMIN no ven registros. CareHouseholdToday.criticalAllergies (H-C5) sigue null mientras REQ-QR12-002 (Bloque D) no exista. Historial: 0.1.1 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; dictamen /maggie y /trinity): UNIQUE sobre la serie logica (seriesId, fecha, hora) (A-05); doseAmountAtTime/doseUnitAtTime de la version que cubre la OCURRENCIA (A-04); DONE solo con la ocurrencia en curso o vencida y SKIPPED no anticipado (A-03, tolerancia de trabajo 15 min); reintento del mismo autor con otro status = 409 (M-02, T-C1); SKIPPED: note obligatoria en MEDICATION, late tambien para omisiones, omision visible al propietario (M-04, H-C4); ventana de 24 h igual para todos los roles, contada desde la ocurrencia (M-05); reversion con cubo propio y 429 con Retry-After (M-06; cifras H-C1 PENDIENTES de Neo); cursor del historial atado a petId y filtros, routineId ajeno, includeReverted de no titulares (T-C7); +revertedByDisplayName y +revertReason solo titulares (T-C9). M-01 y M-03 (H-C3) y T-C5 PENDIENTES de Neo. Historial: 0.1.0 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo) (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +LogStatus, +OccurrenceState (PENDING|DONE|SKIPPED|OVERDUE), +CareOccurrence (sin instrucciones en OVERDUE, m-3), +CarePendingToday, +CareHouseholdToday, +CareLogEntry (autor segun rol, REQ-CAR12-009), +CreateCareLogEntryRequest, +RevertCareLogEntryRequest, +CareLogConflict (409 con autor y hora), +CareLogPage (cursor estable, limit <= 100). Sin idempotency_key (P-10): mismo autor y misma ocurrencia = 200 con la fila existente; otro autor = 409.",
     "traceability": [
       "REQ-CAR12-002",
       "REQ-CAR12-003",
@@ -37,12 +37,27 @@
     "CARE_LOG_UNDO_MINUTES": {
       "value": 10,
       "where": "feature-012-limits.ts",
-      "rule": "plazo de reversion por quien registro; despues solo propietario/ADMIN con reason (M-6)"
+      "rule": "plazo de reversion por quien registro; despues solo los titulares (propietario principal y co-propietario ACTIVE) con reason (M-6, H-C3)"
+    },
+    "CARE_LOG_WRITES_PER_USER_PER_HOUR": {
+      "value": 120,
+      "where": "feature-012-limits.ts",
+      "rule": "H-C1 (Neo 2026-11-27): tope de createCareLogEntry (care_log_entries) por usuario y hora (ventana movil); superado: 429 ERR-RATE-LIMITED con Retry-After. La reversion NO cuenta aqui"
+    },
+    "CARE_ROUTINE_WRITES_PER_USER_PER_HOUR": {
+      "value": 60,
+      "where": "feature-012-limits.ts",
+      "rule": "H-C1 (Neo 2026-11-27): tope por usuario y hora (ventana movil) de las escrituras de rutinas (create, update, deactivate; care_routines) y de niveles de cuidador (set, remove), en un solo cubo; superado: 429 ERR-RATE-LIMITED con Retry-After"
+    },
+    "CARE_LOG_REVERT_WRITES_PER_USER_PER_HOUR": {
+      "value": 30,
+      "where": "feature-012-limits.ts",
+      "rule": "H-C1 (Neo 2026-11-27): cubo PROPIO de revertCareLogEntry por usuario y hora (ventana movil), independiente de los de 120 y 60 (M-06); superado: 429 ERR-RATE-LIMITED con Retry-After"
     },
     "CARE_LOG_BACKFILL_HOURS": {
       "value": 24,
       "where": "feature-012-limits.ts",
-      "rule": "TODOS los roles (cuidadores, propietarios, co-propietarios y ADMIN) registran solo ocurrencias cuyo instante fecha+hora de Bogota no sea anterior a ahora - 24 h (contada desde la OCURRENCIA hasta el reloj del servidor); fuera: 422 ERR-CAR12-OUT-OF-WINDOW sin excepcion por rol (M-05); un DONE o SKIPPED sobre OVERDUE dentro de la ventana queda late"
+      "rule": "TODOS los roles con potestad de registro (cuidadores BASIC_LOG, propietarios y co-propietarios) registran solo ocurrencias cuyo instante fecha+hora de Bogota no sea anterior a ahora - 24 h (contada desde la OCURRENCIA hasta el reloj del servidor); fuera: 422 ERR-CAR12-OUT-OF-WINDOW sin excepcion por rol (M-05); un DONE o SKIPPED sobre OVERDUE dentro de la ventana queda late"
     },
     "CARE_LOG_EARLY_TOLERANCE_MINUTES": {
       "value": 15,
@@ -67,7 +82,7 @@
         "DONE",
         "SKIPPED"
       ],
-      "description": "SKIPPED lo marcan propietarios, co-propietarios, ADMIN y cuidadores BASIC_LOG (decision H-C4 dictaminada por /maggie). note: obligatoria (1-140) cuando la rutina es MEDICATION; opcional en MEAL, WALK y OTHER. Tambien admite late. Un SKIPPED de MEDICATION se muestra al propietario como toma omitida (estado derivado visible, sin notificacion push, DEUDA-012-RECORDATORIOS)."
+      "description": "SKIPPED lo marcan propietarios, co-propietarios y cuidadores BASIC_LOG (decision H-C4 dictaminada por /maggie). note: obligatoria (1-140) cuando la rutina es MEDICATION; opcional en MEAL, WALK y OTHER. Tambien admite late. Un SKIPPED de MEDICATION se muestra al propietario como toma omitida (estado derivado visible, sin notificacion push, DEUDA-012-RECORDATORIOS)."
     },
     "OccurrenceState": {
       "type": "string",
@@ -180,7 +195,7 @@
               "type": "null"
             }
           ],
-          "description": "T-C9: nombre visible de quien revirtio; solo para propietarios, co-propietarios y ADMIN con includeReverted = true; null en los demas casos. Nunca ids ni correos."
+          "description": "T-C9: nombre visible de quien revirtio; solo para titulares (propietarios y co-propietarios) con includeReverted = true; null en los demas casos. Nunca ids ni correos."
         },
         "revertReason": {
           "oneOf": [
@@ -218,7 +233,7 @@
           ]
         }
       },
-      "description": "Registro de cumplimiento de una ocurrencia (una sola entrada vigente por ocurrencia: UNIQUE parcial (series_id, occurrence_date, occurrence_time) WHERE reverted_at IS NULL, sobre la rutina LOGICA y no sobre la fila-version, para impedir doble registro tras un cambio de dosis (A-05); sin idempotency_key, P-10). Privacidad (REQ-CAR12-009): propietarios, co-propietarios y ADMIN ven el nombre visible del autor ('Usuario eliminado' si la cuenta se borro); un cuidador solo lo ve en sus propios registros (performedByMe = true) y en el 409 de conflicto, y en los demas recibe null. Nunca expone ids de usuario ni correos. doseAmountAtTime/doseUnitAtTime copian la dosis de la version de la rutina que cubria la OCURRENCIA (su instante fecha+hora de Bogota), NO la vigente al registrar (M-7, A-04); routineId es esa version. Auditoria interna (T-C9): quien revirtio y con que reason se conserva siempre; se expone solo a titulares (revertedByDisplayName, revertReason)."
+      "description": "Registro de cumplimiento de una ocurrencia (una sola entrada vigente por ocurrencia: UNIQUE parcial (series_id, occurrence_date, occurrence_time) WHERE reverted_at IS NULL, sobre la rutina LOGICA y no sobre la fila-version, para impedir doble registro tras un cambio de dosis (A-05); sin idempotency_key, P-10). Privacidad (REQ-CAR12-009): los titulares (propietarios y co-propietarios) ven el nombre visible del autor ('Usuario eliminado' si la cuenta se borro); un cuidador solo lo ve en sus propios registros (performedByMe = true) y en el 409 de conflicto, y en los demas recibe null. Nunca expone ids de usuario ni correos. doseAmountAtTime/doseUnitAtTime copian la dosis de la version de la rutina que cubria la OCURRENCIA (su instante fecha+hora de Bogota), NO la vigente al registrar (M-7, A-04); routineId es esa version. Auditoria interna (T-C9): quien revirtio y con que reason se conserva siempre; se expone solo a titulares (revertedByDisplayName, revertReason)."
     },
     "CareLogConflict": {
       "type": "object",
@@ -475,7 +490,7 @@
           }
         }
       },
-      "description": "Modo Cuidador por hogar: agrupa por mascota solo las que el solicitante puede leer (REQ-CAR12-005). criticalAllergies sale de REQ-QR12-002 (Bloque D) y es null mientras ese campo no exista; no muestra datos de otros miembros ni correos."
+      "description": "Modo Cuidador por hogar: agrupa por mascota solo aquellas sobre las que el solicitante tiene acceso de cuidado (titular, o CAREGIVER con VIEW_ONLY o BASIC_LOG vigente; ADMIN, MEMBER y READER no, T-C5) (REQ-CAR12-005). criticalAllergies sale de REQ-QR12-002 (Bloque D) y es null mientras ese campo no exista; no muestra datos de otros miembros ni correos."
     },
     "CreateCareLogEntryRequest": {
       "type": "object",
@@ -517,7 +532,7 @@
           "description": "Texto plano, NFC, sin caracteres de control ni bidi; escapado en la salida. Obligatoria (1-140) si status = SKIPPED y la rutina es MEDICATION (M-04); opcional en los demas casos"
         }
       },
-      "description": "Registra DONE o SKIPPED de una ocurrencia. performedAt, performedBy y late los fija el servidor (reloj del servidor, America/Bogota). routineId puede ser cualquier fila de la serie; el servidor resuelve la version que cubre el instante de la ocurrencia (dia, hora y vigencia por instante, A-04); si la ocurrencia no existe segun la rutina, o routineId no existe o pertenece a OTRA mascota: el MISMO 422 ERR-SCHEMA-VALIDATION-FAILED, idéntico en cuerpo, cabeceras y coste (T-C4). Ventana (todos los roles, M-05, A-03): ocurrencia anterior a ahora - CARE_LOG_BACKFILL_HOURS, DONE de una ocurrencia mas alla de ahora + CARE_LOG_EARLY_TOLERANCE_MINUTES, o SKIPPED anticipado: 422 ERR-CAR12-OUT-OF-WINDOW. SKIPPED de una rutina MEDICATION exige note (1-140; sin ella 422 ERR-SCHEMA-VALIDATION-FAILED); en MEAL, WALK y OTHER es opcional. Reintento del mismo autor: 200 con la fila vigente SOLO si status coincide; con otro status 409 ERR-CAR12-ALREADY-LOGGED (existing con el status guardado) y el cliente debe revertir y volver a registrar (M-02, T-C1). Solo propietarios, co-propietarios, ADMIN y CAREGIVER con BASIC_LOG vigente; VIEW_ONLY y otros: 403 ERR-ACC-FORBIDDEN (verificado en el servidor en cada peticion, EDGE-012-015)."
+      "description": "Registra DONE o SKIPPED de una ocurrencia. performedAt, performedBy y late los fija el servidor (reloj del servidor, America/Bogota). routineId puede ser cualquier fila de la serie; el servidor resuelve la version que cubre el instante de la ocurrencia (dia, hora y vigencia por instante, A-04); si la ocurrencia no existe segun la rutina, o routineId no existe o pertenece a OTRA mascota: el MISMO 422 ERR-SCHEMA-VALIDATION-FAILED, idéntico en cuerpo, cabeceras y coste (T-C4). Ventana (todos los roles, M-05, A-03): ocurrencia anterior a ahora - CARE_LOG_BACKFILL_HOURS, DONE de una ocurrencia mas alla de ahora + CARE_LOG_EARLY_TOLERANCE_MINUTES, o SKIPPED anticipado: 422 ERR-CAR12-OUT-OF-WINDOW. SKIPPED de una rutina MEDICATION exige note (1-140; sin ella 422 ERR-SCHEMA-VALIDATION-FAILED); en MEAL, WALK y OTHER es opcional. Reintento del mismo autor: 200 con la fila vigente SOLO si status coincide; con otro status 409 ERR-CAR12-ALREADY-LOGGED (existing con el status guardado) y el cliente debe revertir y volver a registrar (M-02, T-C1). Solo titulares (propietarios y co-propietarios) y CAREGIVER con BASIC_LOG vigente; VIEW_ONLY, ADMIN, MEMBER, READER y otros: 403 ERR-ACC-FORBIDDEN (verificado en el servidor en cada peticion, EDGE-012-015)."
     },
     "RevertCareLogEntryRequest": {
       "type": "object",
@@ -528,10 +543,10 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 140,
-          "description": "Obligatorio al revertir pasados CARE_LOG_UNDO_MINUTES (solo propietario/ADMIN); opcional dentro del plazo"
+          "description": "Obligatorio al revertir pasados CARE_LOG_UNDO_MINUTES (solo titulares); opcional dentro del plazo"
         }
       },
-      "description": "Revierte (anula) un registro: queda reverted_at, la ocurrencia vuelve a estar libre. Quien registro (o un propietario/ADMIN) puede dentro de CARE_LOG_UNDO_MINUTES = 10; despues solo propietario/ADMIN con reason (sin reason: 422 ERR-SCHEMA-VALIDATION-FAILED; un cuidador fuera de plazo: 403 ERR-ACC-FORBIDDEN). Revertir un registro ya revertido devuelve 200 con la misma fila, pero SOLO tras superar la comprobacion de potestad (T-C4). La reversion no cuenta contra el tope de escritura de registros: tiene cubo propio o exencion (M-06; cifras PENDIENTES de Neo, H-C1) y su 429 lleva Retry-After. Se audita quien revirtio y con que reason (T-C9)."
+      "description": "Revierte (anula) un registro: queda reverted_at, la ocurrencia vuelve a estar libre. Quien registro (o un titular) puede dentro de CARE_LOG_UNDO_MINUTES = 10; despues solo los titulares con reason (sin reason: 422 ERR-SCHEMA-VALIDATION-FAILED; un cuidador fuera de plazo: 403 ERR-ACC-FORBIDDEN). Revertir un registro ya revertido devuelve 200 con la misma fila, pero SOLO tras superar la comprobacion de potestad (T-C4). La reversion no cuenta contra el tope de escritura de registros: tiene cubo propio de 30 por usuario y hora (CARE_LOG_REVERT_WRITES_PER_USER_PER_HOUR, M-06, H-C1 de Neo) y su 429 lleva Retry-After. Se audita quien revirtio y con que reason (T-C9)."
     },
     "CareLogPage": {
       "type": "object",
@@ -563,7 +578,7 @@
           ]
         }
       },
-      "description": "Historial de registros, mas recientes primero; limit <= 100. El cursor esta atado a petId, a los filtros y al rol del solicitante: un cursor alterado o de otra mascota o filtro responde el mismo 422 ERR-SCHEMA-VALIDATION-FAILED (T-C7). includeReverted = true solo lo honran propietarios, co-propietarios y ADMIN; para cualquier otro rol se ignora en silencio (sin 403, sin oraculo)"
+      "description": "Historial de registros, mas recientes primero; limit <= 100. El cursor esta atado a petId, a los filtros y al rol del solicitante: un cursor alterado o de otra mascota o filtro responde el mismo 422 ERR-SCHEMA-VALIDATION-FAILED (T-C7). includeReverted = true solo lo honran los titulares (propietarios y co-propietarios); para cualquier otro rol se ignora en silencio (sin 403, sin oraculo)"
     }
   }
 }

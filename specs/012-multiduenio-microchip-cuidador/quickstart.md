@@ -37,7 +37,7 @@
 4. Repetir con rechazo y reintento antes del enfriamiento (`SC-012-018`).
 5. B abre «Alguien se apropió de mi mascota» y adjunta evidencia: disputa `UNDER_REVIEW`; A no puede transferir esa mascota (`SC-012-019`); el caso aparece en la cola de `/admin` solo para `SUPER_ADMIN`/`OPERATOR`; ninguna propiedad cambia sola (`SC-012-020`).
 6. Sondear con 11 chips **distintos, libres u ocupados**: tras el décimo intento llega el mismo `429` en ambos casos (`SC-012-021`, `SC-012-078`, `SC-012-100`; cifra de `N2-R4`: 10 por usuario). Revisar el log de la API: sin chip completo (`SC-012-022`).
-7. Disputa: B abre una segunda disputa sobre el mismo chip y una cuarta simultánea: `ERR-CHP12-DISPUTE-LIMIT` (`SC-012-080`). Un propietario intenta eliminar la mascota en disputa: `ERR-CHP12-CHIP-FROZEN` (`SC-012-081`). Revisar los avisos: sin identidad del otro dueño (`SC-012-090`).
+7. Disputa: B repite la disputa sobre el mismo chip (mismo `202` `RECEIVED`, sin fila duplicada, `V6`) y abre una cuarta simultánea: `ERR-CHP12-DISPUTE-LIMIT` (`SC-012-080`). Un propietario intenta eliminar la mascota en disputa: `ERR-CHP12-CHIP-FROZEN` (`SC-012-081`). Revisar los avisos: sin identidad del otro dueño (`SC-012-090`).
 8. Reserva del chip: con la disputa abierta, el dueño actual (único propietario) elimina su cuenta; otra cuenta intenta registrar el chip y recibe el mismo `409` uniforme (`SC-012-096`); tras caducar la congelación el `409` persiste (`SC-012-097`). `/admin` concede una prórroga y rechaza la segunda (`SC-012-098`); tras un rechazo, reabrir antes de 90 días da `ERR-CHP12-DISPUTE-COOLDOWN`. En «mis solicitudes» el solicitante ve solo su fila real (`SC-012-101`).
 
 ### Bloque `#26` — Cuidador `[GH:#26]` (SC-012-025..040)

@@ -43,7 +43,7 @@ Por disputa: ancla (`chip_last4` + referencia interna del chip, o `pet_id` y `ta
 
 | Regla | Valor | Fuente | Comportamiento contractual |
 | --- | --- | --- | --- |
-| Disputas abiertas por usuario y ancla | 1 (chip, o `(pet_id, target_user_id)`) | `Neo-E` | `409 ERR-CHP12-DISPUTE-LIMIT`, evaluado **antes** de las precondiciones y solo sobre filas propias, igual para cualquier chip (iteración 0.3, `trinity M-4`) |
+| Disputas abiertas por usuario y ancla | 1 por `(pet_id, target_user_id)` en las de ausencia (`409 ERR-CHP12-DISPUTE-LIMIT`); en `CHIP_APPROPRIATION` la repetición sobre el mismo chip responde `202` uniforme `RECEIVED` sin fila duplicada (V6, `H-T1638-01`, Neo 2026-11-27) | `Neo-E` | El `409` de chip es solo el tope propio de 3 abiertas, evaluado **antes** de las precondiciones y solo sobre filas propias, igual para cualquier chip (iteración 0.3, `trinity M-4`) |
 | Simultáneas por usuario | `MAX_OPEN_DISPUTES_PER_USER = 3`, todas las clases | `Neo-E` | ídem; una de ausencia (sin chip) cuenta |
 | SLA operativo | `DISPUTE_SLA_BUSINESS_DAYS = 15` días hábiles (lunes–viernes, sin festivos en el Escalón 1) | `Neo-E` | Vencido: el caso **escala a `SUPER_ADMIN`**, se marca vencido en la cola; **no cambia de estado** |
 | Congelación inicial | `DISPUTE_FREEZE_MAX_DAYS = 30` desde la apertura (`frozen_until`) | `N2-R5` | Caduca sola; el caso **sigue `UNDER_REVIEW`** y la reserva del chip **no** caduca con ella |
