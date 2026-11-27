@@ -179,7 +179,6 @@ export class GetHouseholdCareTodayUseCase {
         if (pet === null) continue;
         const ctx = await careAccessOf(repositories, actorUserId, pet, now);
         if (!ctx.access.canViewRoutines) continue;
-        if ((await repositories.careRoutines.listByPet(pet.id)).length === 0) continue; // sin rutinas no hay nada que cuidar hoy
         const today = await todayOf(repositories, actorUserId, ctx, now);
         pets.push({ petId: pet.id, petName: pet.name, criticalAllergies: null, items: today.items });
       }

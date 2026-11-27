@@ -130,7 +130,8 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       await grant(use, 'VIEW_ONLY');
       expect(await codeOf(use.log(MARIA, PET, occ(routine.id, '08:00')))).toBe(FORBIDDEN);
       expect(await logRows(e)).toEqual([]);
-      expect(((await use.householdToday(MARIA, HOUSEHOLD_ID)) as unknown as { pets: unknown[] }).pets).toHaveLength(1); // R-8: el cuidador ve su mascota asignada en el hogar
+      const seen = ((await use.householdToday(MARIA, HOUSEHOLD_ID)) as unknown as { pets: Array<{ petId: string; items: unknown[] }> }).pets;
+      expect(seen.filter((p) => p.petId === PET)).toHaveLength(1); // R-8: el cuidador ve su mascota asignada en el hogar
       const mine = (await use.myAccess(MARIA, PET)) as unknown as Record<string, unknown>;
       expect(mine).toMatchObject({ caregiver: true, level: 'VIEW_ONLY', canViewRoutines: true, canLogCare: false, canManageRoutines: false, clinicalPermissionsUnchanged: true });
       const weight = await new AddWeightRecordUseCase(e.deps).execute(MARIA, PET, { recordedAt: '2026-11-05', weightKg: 33.1 });
@@ -147,11 +148,20 @@ for (const factory of CARE_ENGINE_FACTORIES) {
         expect(await codeOf(use.history(MARIA, PET))).toBe(FORBIDDEN);
         expect(await codeOf(use.listAccess(MARIA, PET))).toBe(FORBIDDEN);
         expect(await codeOf(use.setAccess(MARIA, PET, MARIA, { level: 'BASIC_LOG' }))).toBe(FORBIDDEN); // el ADMIN no concede niveles (H-C3)
-        expect(((await use.householdToday(MARIA, HOUSEHOLD_ID)) as unknown as { pets: unknown[] }).pets).toEqual([]);
+        const groups = ((await use.householdToday(MARIA, HOUSEHOLD_ID)) as unknown as { pets: Array<{ petId: string; items: unknown[] }> }).pets;
+        expect(groups.filter((p) => p.petId === PET)).toEqual([]); // sin acceso de cuidado a ARGOS: no aparece (solo su propia mascota, con items vacío)
+        expect(groups.every((p) => p.items.length === 0)).toBe(true);
         expect(await codeOf(use.today(LUCIA, PET))).toBe('ERR-PET-NOT-FOUND');
         await engine!.dispose();
         engine = null;
       }
+    });
+
+    it('[SC-012-026][R-8] un cuidador con acceso a una mascota sin rutinas la ve en el hogar con items vacío (el criterio es el acceso, no las rutinas)', async () => {
+      const { use } = await boot();
+      await grant(use, 'VIEW_ONLY');
+      const result = (await use.householdToday(MARIA, HOUSEHOLD_ID)) as unknown as { pets: Array<{ petId: string; items: unknown[] }> };
+      expect(result.pets.filter((p) => p.petId === PET)).toEqual([expect.objectContaining({ petId: PET, items: [] })]);
     });
 
     it('[SC-012-031] dos cuidadores sobre la misma toma: el segundo recibe 409 ERR-CAR12-ALREADY-LOGGED y NO queda una segunda fila', async () => {
