@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ArgosDeterministicErrorCatalogIncremental012",
   "x-sdd-metadata": {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "status": "APPROVED",
     "supersedes": null,
     "change_type": "MINOR",
     "extends": "catalogos de 001..011 (sin editar)",
-    "change_note": "Catalogo INCREMENTAL de la feature 012 (T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo). Redacta de una vez TODOS los codigos previstos de la feature (ERR-OWN12-*, ERR-CHP12-*, ERR-CAR12-*, ERR-QR12-*, ERR-VET12-*) porque verify-traceability --feature 012 y contracts/README los listan; los bloques B, C, D y E refinan su cuerpo en T1630, T1650, T1670 y T1690 mediante enmiendas MINOR. Codigos DERIVADOS para revision de Neo: ERR-OWN12-APPROVAL-PENDING, ERR-OWN12-LAST-OWNER, ERR-OWN12-RETRYABLE (fija el error reintentable de REQ-OWN12-011) y ERR-QR12-CONSENT-REQUIRED. P-1..P-7 (Neo, 2026-11-26) aplicados: el vencimiento EXPIRED de una disputa no activa el cooldown; P-5 endurece el disparador de ERR-CHP12-ABSENCE-NOT-ELIGIBLE. Se REUTILIZAN sin redefinir: ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, ERR-RATE-LIMITED, ERR-SCHEMA-VALIDATION-FAILED, ERR-SHARE-LINK-LIMIT, ERR-PET-MICROCHIP-DUPLICATE (004; ahora solo mismo dueño) y ERR-ACCOUNT-OWNS-SHARED-PETS (002; acotado por ENM-002-MINOR-012). Cierre de T1612 (2026-11-26, DRAFT): ERR-QR12-CONSENT-REQUIRED aclarado (solo solicitante; note no se serializa; H-14).",
+    "change_note": "Catalogo INCREMENTAL de la feature 012 (T1610, Architect 2026-11-26, DRAFT; el estado lo fija solo Neo). Redacta de una vez TODOS los codigos previstos de la feature (ERR-OWN12-*, ERR-CHP12-*, ERR-CAR12-*, ERR-QR12-*, ERR-VET12-*) porque verify-traceability --feature 012 y contracts/README los listan; los bloques B, C, D y E refinan su cuerpo en T1630, T1650, T1670 y T1690 mediante enmiendas MINOR. Codigos DERIVADOS para revision de Neo: ERR-OWN12-APPROVAL-PENDING, ERR-OWN12-LAST-OWNER, ERR-OWN12-RETRYABLE (fija el error reintentable de REQ-OWN12-011) y ERR-QR12-CONSENT-REQUIRED. P-1..P-7 (Neo, 2026-11-26) aplicados: el vencimiento EXPIRED de una disputa no activa el cooldown; P-5 endurece el disparador de ERR-CHP12-ABSENCE-NOT-ELIGIBLE. Se REUTILIZAN sin redefinir: ERR-PET-NOT-FOUND, ERR-ACC-FORBIDDEN, ERR-RATE-LIMITED, ERR-SCHEMA-VALIDATION-FAILED, ERR-SHARE-LINK-LIMIT, ERR-PET-MICROCHIP-DUPLICATE (004; ahora solo mismo dueño) y ERR-ACCOUNT-OWNS-SHARED-PETS (002; acotado por ENM-002-MINOR-012). Cierre de T1612 (2026-11-26, DRAFT): ERR-QR12-CONSENT-REQUIRED aclarado (solo solicitante; note no se serializa; H-14). 0.2.0 (feature 012, T1630, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo; MINOR de TEXTO, sin codigos nuevos ni removidos): refina notas y requirementRef de los siete ERR-CHP12-* con las rutas de chip-claim.openapi.yaml (createChipClaim, openChipDispute, listMyChipRequests) y del anexo microchip-error-split-annex.md (rutas que escriben pets.microchip_id, mismo dueno vs otra cuenta, reserva con o sin mascota); ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT remite a admin-disputes-annex.md.",
     "removed": [],
     "added": [
       "ERR-OWN12-CO-OWNER-LIMIT",
@@ -45,36 +45,6 @@
       "ERR-SHARE-LINK-LIMIT"
     ],
     "traceability": [
-      "REQ-OWN12-002",
-      "REQ-OWN12-003",
-      "REQ-OWN12-004",
-      "REQ-OWN12-006",
-      "REQ-OWN12-009",
-      "REQ-OWN12-011",
-      "INV-OWN12-001",
-      "INV-OWN12-003",
-      "INV-OWN12-004",
-      "INV-OWN12-007",
-      "INV-OWN12-006",
-      "REQ-CHP12-001",
-      "REQ-CHP12-003",
-      "REQ-CHP12-004",
-      "REQ-CHP12-009",
-      "INV-CHP12-001",
-      "INV-CHP12-003",
-      "INV-CHP12-005",
-      "INV-CHP12-006",
-      "REQ-CAR12-001",
-      "REQ-CAR12-003",
-      "REQ-QR12-001",
-      "REQ-QR12-003",
-      "REQ-QR12-005",
-      "REQ-QR12-006",
-      "INV-QR12-003",
-      "INV-QR12-005",
-      "REQ-VET12-001",
-      "REQ-VET12-003",
-      "INV-VET12-001",
       "EDGE-012-001",
       "EDGE-012-007",
       "EDGE-012-025",
@@ -86,7 +56,43 @@
       "EDGE-012-044",
       "EDGE-012-047",
       "EDGE-012-059",
+      "EDGE-012-066",
       "EDGE-012-068",
+      "INV-CHP12-001",
+      "INV-CHP12-003",
+      "INV-CHP12-005",
+      "INV-CHP12-006",
+      "INV-CHP12-009",
+      "INV-OWN12-001",
+      "INV-OWN12-003",
+      "INV-OWN12-004",
+      "INV-OWN12-006",
+      "INV-OWN12-007",
+      "INV-QR12-003",
+      "INV-QR12-005",
+      "INV-VET12-001",
+      "NFR-012-008",
+      "REQ-CAR12-001",
+      "REQ-CAR12-003",
+      "REQ-CHP12-001",
+      "REQ-CHP12-002",
+      "REQ-CHP12-003",
+      "REQ-CHP12-004",
+      "REQ-CHP12-005",
+      "REQ-CHP12-006",
+      "REQ-CHP12-009",
+      "REQ-OWN12-002",
+      "REQ-OWN12-003",
+      "REQ-OWN12-004",
+      "REQ-OWN12-006",
+      "REQ-OWN12-009",
+      "REQ-OWN12-011",
+      "REQ-QR12-001",
+      "REQ-QR12-003",
+      "REQ-QR12-005",
+      "REQ-QR12-006",
+      "REQ-VET12-001",
+      "REQ-VET12-003",
       "SC-012-018",
       "SC-012-031",
       "SC-012-034",
@@ -97,11 +103,15 @@
       "SC-012-080",
       "SC-012-087",
       "SC-012-091",
+      "SC-012-097",
       "SC-012-098",
+      "SC-012-101",
       "SC-012-103",
       "SC-012-106",
+      "SC-012-111",
+      "SC-012-112",
       "SC-012-115",
-      "NFR-012-008"
+      "SC-012-117"
     ]
   },
   "version": "0.1.0",
@@ -179,8 +189,8 @@
       "title": "Este microchip ya está registrado",
       "invariantRef": "INV-CHP12-001",
       "detailTemplate": "Ese número de microchip no se puede usar en este registro. Si crees que corresponde a tu mascota, puedes solicitar co-propiedad o abrir una reclamación.",
-      "requirementRef": "REQ-CHP12-001, REQ-CHP12-004, EDGE-012-044, EDGE-012-068",
-      "note": "Cuerpo y cabeceras idénticos siempre (sin nombre, dueño, hogar, fecha, número de co-propietarios ni estado de la mascota, fallecida incluida) y mismas llamadas al repositorio, tanto para chip ocupado como para chip reservado por una disputa CHIP_APPROPRIATION UNDER_REVIEW (con o sin mascota). Nunca indica cuál chip chocó en importaciones. Oráculo 201/409 residual aceptado por Neo (N2-R4)."
+      "requirementRef": "REQ-CHP12-001, REQ-CHP12-004, EDGE-012-044, EDGE-012-068, REQ-CHP12-006, INV-CHP12-009, SC-012-097, SC-012-112, SC-012-117",
+      "note": "Cuerpo y cabeceras idénticos siempre (sin nombre, dueño, hogar, fecha, número de co-propietarios ni estado de la mascota, fallecida incluida) y mismas llamadas al repositorio, tanto para chip ocupado como para chip reservado por una disputa CHIP_APPROPRIATION UNDER_REVIEW (con o sin mascota). Nunca indica cuál chip chocó en importaciones. Oráculo 201/409 residual aceptado por Neo (N2-R4). T1630/T1631: es la respuesta de TODA ruta que escribe pets.microchip_id (alta, edicion, importacion de respaldo, restauracion, /admin, semilla) con chip ocupado por OTRA cuenta o reservado (con o sin mascota); el mismo dueno recibe ERR-PET-MICROCHIP-DUPLICATE (004). Componente OpenAPI: chip-claim.openapi.yaml#/components/responses/MicrochipRegistered. Detalle: microchip-error-split-annex.md."
     },
     "ERR-CHP12-CLAIM-COOLDOWN": {
       "type": "urn:argos:error:ERR-CHP12-CLAIM-COOLDOWN",
@@ -188,8 +198,8 @@
       "title": "Debes esperar para volver a solicitar este microchip",
       "invariantRef": "INV-CHP12-003",
       "detailTemplate": "Tu solicitud anterior para este microchip fue rechazada. Podrás intentarlo de nuevo más adelante.",
-      "requirementRef": "REQ-CHP12-003, SC-012-018",
-      "note": "Cooldown CHIP_CLAIM_COOLDOWN_DAYS por par (solicitante, chip_hmac), no por mascota. Solo se evalúa tras superar las precondiciones que dan el 202 uniforme. No revela la fecha exacta ni quién rechazó."
+      "requirementRef": "REQ-CHP12-003, SC-012-018, INV-CHP12-003, SC-012-101",
+      "note": "Cooldown CHIP_CLAIM_COOLDOWN_DAYS por par (solicitante, chip_hmac), no por mascota. Solo se evalúa tras superar las precondiciones que dan el 202 uniforme. No revela la fecha exacta ni quién rechazó. T1630: unico 409 posible de createChipClaim; CHIP_CLAIM_COOLDOWN_DAYS = 30 tras un REJECTED de ese solicitante sobre ese chip_hmac; solo se evalua cuando existe una fila real propia previa (no es oraculo para terceros)."
     },
     "ERR-CHP12-CHIP-FROZEN": {
       "type": "urn:argos:error:ERR-CHP12-CHIP-FROZEN",
@@ -197,8 +207,8 @@
       "title": "La operación está en pausa por una revisión",
       "invariantRef": "INV-CHP12-005",
       "detailTemplate": "Esta operación está en pausa mientras se revisa un caso. Inténtalo de nuevo cuando termine la revisión.",
-      "requirementRef": "REQ-CHP12-004, REQ-OWN12-009, EDGE-012-037",
-      "note": "Nombre histórico del código: cubre la congelación por chip (CHIP_APPROPRIATION) y por pet_id (disputas por ausencia). Bloquea DELETE_PET, TRANSFER_PRINCIPAL, CHANGE_PRINCIPAL, INVITE_CO_OWNER, la aprobación de solicitudes y, en chip, marcar fallecida o cambiar el chip. No bloquea LEAVE ni la supresión de cuenta. Cuerpo sin datos de la disputa ni identidad del reclamante (Neo-K)."
+      "requirementRef": "REQ-CHP12-004, REQ-OWN12-009, EDGE-012-037, INV-CHP12-005, SC-012-019, SC-012-081",
+      "note": "Nombre histórico del código: cubre la congelación por chip (CHIP_APPROPRIATION) y por pet_id (disputas por ausencia). Bloquea DELETE_PET, TRANSFER_PRINCIPAL, CHANGE_PRINCIPAL, INVITE_CO_OWNER, la aprobación de solicitudes y, en chip, marcar fallecida o cambiar el chip. No bloquea LEAVE ni la supresión de cuenta. Cuerpo sin datos de la disputa ni identidad del reclamante (Neo-K). T1630: en la rama de chip se emite al aprobar una CLAIM_CO_OWNERSHIP sobre mascotas afectadas (voto de approveOwnerRequest), nunca en createChipClaim ni openChipDispute."
     },
     "ERR-CHP12-DISPUTE-LIMIT": {
       "type": "urn:argos:error:ERR-CHP12-DISPUTE-LIMIT",
@@ -206,8 +216,8 @@
       "title": "Alcanzaste el límite de disputas abiertas",
       "invariantRef": "INV-CHP12-004",
       "detailTemplate": "Ya tienes una disputa abierta sobre este caso o el máximo de disputas abiertas permitido.",
-      "requirementRef": "REQ-CHP12-004, SC-012-080",
-      "note": "Máx. 1 disputa abierta por usuario y ancla (chip, o (pet_id, target_user_id) en las de ausencia) y MAX_OPEN_DISPUTES_PER_USER = 3 simultáneas contando todas las clases. Solo se evalúa tras las precondiciones de apertura; la cifra no se escribe en el detalle."
+      "requirementRef": "REQ-CHP12-004, SC-012-080, EDGE-012-066, SC-012-111",
+      "note": "Máx. 1 disputa abierta por usuario y ancla (chip, o (pet_id, target_user_id) en las de ausencia) y MAX_OPEN_DISPUTES_PER_USER = 3 simultáneas contando todas las clases. Solo se evalúa tras las precondiciones de apertura; la cifra no se escribe en el detalle. T1630: solo en openChipDispute y openAbsenceDispute, tras superar las precondiciones de apertura; antes de ellas se responde el 202 uniforme."
     },
     "ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT": {
       "type": "urn:argos:error:ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT",
@@ -215,8 +225,8 @@
       "title": "No puedes arbitrar este caso",
       "invariantRef": "INV-CHP12-006",
       "detailTemplate": "No puedes resolver este caso porque eres parte de él.",
-      "requirementRef": "REQ-CHP12-009, EDGE-012-043",
-      "note": "Recusación del árbitro: SUPER_ADMIN u OPERATOR que sea dueño, co-propietario, reclamante o solicitante de esa mascota. Superficie de /admin (T1632); registrado aquí por el prefijo y el catálogo único de la 012."
+      "requirementRef": "REQ-CHP12-009, EDGE-012-043, INV-CHP12-006, SC-012-104",
+      "note": "Recusación del árbitro: SUPER_ADMIN u OPERATOR que sea dueño, co-propietario, reclamante o solicitante de esa mascota. Superficie de /admin (T1632); registrado aquí por el prefijo y el catálogo único de la 012. T1632: superficie y codigos de la cola en admin-disputes-annex.md; politica de 403 propia de /admin (sesion de administrador, no la de usuario), distinta de H-05 de co-ownership.openapi.yaml."
     },
     "ERR-CHP12-DISPUTE-COOLDOWN": {
       "type": "urn:argos:error:ERR-CHP12-DISPUTE-COOLDOWN",
@@ -224,8 +234,8 @@
       "title": "Debes esperar para volver a abrir esta disputa",
       "invariantRef": "INV-CHP12-006",
       "detailTemplate": "Una disputa anterior sobre este mismo caso fue rechazada. Podrás abrir otra más adelante.",
-      "requirementRef": "REQ-CHP12-004, SC-012-098",
-      "note": "Cooldown DISPUTE_REJECTED_COOLDOWN_DAYS = 90 tras un REJECT decidido por /admin, por par (solicitante, chip) o (solicitante, pet_id, target_user_id). El cierre sin efecto (moot_reason) y el vencimiento EXPIRED por DISPUTE_MAX_OPEN_DAYS (P-1) NO lo activan."
+      "requirementRef": "REQ-CHP12-004, SC-012-098, EDGE-012-066, SC-012-111",
+      "note": "Cooldown DISPUTE_REJECTED_COOLDOWN_DAYS = 90 tras un REJECT decidido por /admin, por par (solicitante, chip) o (solicitante, pet_id, target_user_id). El cierre sin efecto (moot_reason) y el vencimiento EXPIRED por DISPUTE_MAX_OPEN_DAYS (P-1) NO lo activan. T1630: solo en openChipDispute y openAbsenceDispute, tras superar las precondiciones; no muestra fecha ni el motivo de /admin."
     },
     "ERR-CHP12-ABSENCE-NOT-ELIGIBLE": {
       "type": "urn:argos:error:ERR-CHP12-ABSENCE-NOT-ELIGIBLE",
