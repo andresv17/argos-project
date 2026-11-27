@@ -97,7 +97,7 @@
 | `title` | TEXT | NOT NULL, 1–60 |
 | `instructions` | TEXT | NOT NULL DEFAULT '', ≤ 300 |
 | `dose_amount` | NUMERIC(9,3) (**aprobado por Neo, Nivel 2, 2026-11-27: ampliado desde `NUMERIC(8,3)` en PostgreSQL `0035`; lo aplica `/keymaker`**) | NULL; obligatorio y > 0 si `kind = 'MEDICATION'`; paso 0,25 si `TABLET` (dominio) |
-| `dose_unit` | TEXT | NULL, CHECK IN (`MG`,`MCG`,`ML`,`IU`,`TABLET`,`DROP`) (**`IU` incorporada por A-01 del schema 0.1.2; `UNIT` retirada**, `Neo-Maggie`; cifras de umbral de `IU` PENDIENTES de veterinario humano); obligatorio si hay dosis |
+| `dose_unit` | TEXT | NULL, CHECK IN (`MG`,`MCG`,`ML`,`TABLET`,`DROP`) (**`IU` y `UNIT` retiradas del catálogo**; `IU` retirada por decisión de Neo, schema 0.1.3); obligatorio si hay dosis |
 | `times_of_day` | TEXT (JSON array `HH:MM`) | NOT NULL, 1–6 elementos ordenados y únicos |
 | `days_of_week` | TEXT (JSON array 1–7) | NOT NULL |
 | `start_date`, `end_date` | TEXT `YYYY-MM-DD` | NOT NULL, NULL; `end_date >= start_date` |

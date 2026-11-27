@@ -4,11 +4,11 @@
   "title": "CareRoutineSchema",
   "description": "Rutinas de cuidado y dosis de una mascota [REQ-CAR12-001, REQ-CAR12-007, REQ-CAR12-008, D12-11, D12-12, D12-13]. Esquemas INCREMENTALES de la feature 012 (DRAFT). Objetos cerrados. Sin ordenes clinicas: Tipi registra la indicacion que escribe el propietario; no calcula ni verifica dosis ni interacciones.",
   "x-sdd-metadata": {
-    "version": "0.1.2",
+    "version": "0.1.3",
     "status": "APPROVED",
     "supersedes": null,
     "change_type": "MINOR",
-    "change_note": "0.1.2 + aclaracion Neo 2026-11-27 sin cambio de forma (D-B mapeo especie a grupo de dosis CANINE y FELINE -> CANINE_FELINE, resto y desconocidas -> OTHER_SPECIES; Reserva 1 de T1661 rutinas inactivas 365 dias desde su desactivacion; D-A orden 403 -> 404 -> 422 -> 409 en crear y editar): 0.1.2 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; NO APPROVED; resoluciones de Neo): H-C2 expectedVersion obsoleta o fila sustituida = 409 ERR-CAR12-ROUTINE-STALE (enmienda MINOR 0.3.0 del catalogo, entrada DRAFT pendiente de Neo); H-C3 y M-01 solo titulares definen rutinas, incluida MEDICATION (no ADMIN del hogar). Historial: 0.1.1 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; dictamen /maggie A-01..A-05, B-01 y hallazgos de contrato de /trinity): +IU en DoseUnit (A-01); DOSE_CONFIRM_THRESHOLDS por grupo de especie, ya no regla universal, cifras fuera de CANINE_FELINE e IU PENDIENTES de veterinario humano (A-02); +seriesId (clave logica de la rutina, A-05); effectiveFrom/effectiveTo pasan de date a date-time (vigencia por instante, A-04); CareRoutineList.maxItems 100 (B-01).  Historial: 0.1.0 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo) (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +CareKind, +DoseUnit (MG|MCG|ML|TABLET|DROP; UNIT retirada, D12-11), +DoseAmount, +TimesOfDay, +DaysOfWeek, +CareRoutine (una fila por version, M-7), +CreateCareRoutineRequest (confirmHighDose anti-tecleo), +UpdateCareRoutineRequest (expectedVersion), +RoutineWriteResult (versioned), +CareRoutineList, +DeactivateCareRoutineRequest. Umbrales de captura = valores de trabajo (DEUDA-012-VALIDACION-VET-UMBRALES).",
+    "change_note": "0.1.3 (enmienda MINOR, decision de Neo 2026-11-27, REQ-CAR12-001 / D12-11): se RETIRA la unidad IU (insulina) del catalogo; DoseUnit queda estrictamente cerrado en MG|MCG|ML|TABLET|DROP; se elimina IU de DOSE_CONFIRM_THRESHOLDS; estado APPROVED sin re-firma. Historial: 0.1.2 + aclaracion Neo 2026-11-27 sin cambio de forma (D-B mapeo especie a grupo de dosis CANINE y FELINE -> CANINE_FELINE, resto y desconocidas -> OTHER_SPECIES; Reserva 1 de T1661 rutinas inactivas 365 dias desde su desactivacion; D-A orden 403 -> 404 -> 422 -> 409 en crear y editar): 0.1.2 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; NO APPROVED; resoluciones de Neo): H-C2 expectedVersion obsoleta o fila sustituida = 409 ERR-CAR12-ROUTINE-STALE (enmienda MINOR 0.3.0 del catalogo, entrada DRAFT pendiente de Neo); H-C3 y M-01 solo titulares definen rutinas, incluida MEDICATION (no ADMIN del hogar). Historial: 0.1.1 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; dictamen /maggie A-01..A-05, B-01 y hallazgos de contrato de /trinity): +IU en DoseUnit (A-01); DOSE_CONFIRM_THRESHOLDS por grupo de especie, ya no regla universal, cifras fuera de CANINE_FELINE e IU PENDIENTES de veterinario humano (A-02); +seriesId (clave logica de la rutina, A-05); effectiveFrom/effectiveTo pasan de date a date-time (vigencia por instante, A-04); CareRoutineList.maxItems 100 (B-01).  Historial: 0.1.0 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo) (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +CareKind, +DoseUnit (MG|MCG|ML|TABLET|DROP; UNIT retirada, D12-11), +DoseAmount, +TimesOfDay, +DaysOfWeek, +CareRoutine (una fila por version, M-7), +CreateCareRoutineRequest (confirmHighDose anti-tecleo), +UpdateCareRoutineRequest (expectedVersion), +RoutineWriteResult (versioned), +CareRoutineList, +DeactivateCareRoutineRequest. Umbrales de captura = valores de trabajo (DEUDA-012-VALIDACION-VET-UMBRALES).",
     "traceability": [
       "REQ-CAR12-001",
       "REQ-CAR12-007",
@@ -44,20 +44,18 @@
           "MCG": 500,
           "ML": 20,
           "TABLET": 4,
-          "DROP": 10,
-          "IU": null
+          "DROP": 10
         },
         "OTHER_SPECIES": {
           "MG": null,
           "MCG": null,
           "ML": null,
           "TABLET": null,
-          "DROP": null,
-          "IU": null
+          "DROP": null
         }
       },
       "where": "feature-012-limits.ts",
-      "rule": "MAPEO ESPECIE -> GRUPO (D-B, Neo 2026-11-27): CANINE y FELINE -> CANINE_FELINE; todas las demas especies y cualquier especie desconocida o no mapeada -> OTHER_SPECIES. Guarda de TECLEO por grupo de especie de la mascota (CANINE_FELINE frente a OTHER_SPECIES: conejo, hurón, ave, reptil, pequeño mamifero, otras); ya NO es una regla universal (A-02). Confirmacion explicita (confirmHighDose = true) si la dosis por toma SUPERA el umbral del grupo y la unidad. Cifras de CANINE_FELINE: valores de trabajo heredados de 0.1.0; null = SIN CIFRA, PENDIENTE de un veterinario colegiado humano (DEUDA-012-VALIDACION-VET-UMBRALES, T1660; incluye IU y todo OTHER_SPECIES). Con umbral null el dominio no aplica guarda numerica y la interfaz NO afirma que la dosis sea segura. Alternativa de guarda relativa (confirmar si la dosis nueva difiere de la version anterior mas de un factor) queda como opcion pendiente. No son limite de dosis clinica ni consejo clinico"
+      "rule": "MAPEO ESPECIE -> GRUPO (D-B, Neo 2026-11-27): CANINE y FELINE -> CANINE_FELINE; todas las demas especies y cualquier especie desconocida o no mapeada -> OTHER_SPECIES. Guarda de TECLEO por grupo de especie de la mascota (CANINE_FELINE frente a OTHER_SPECIES: conejo, hurón, ave, reptil, pequeño mamifero, otras); ya NO es una regla universal (A-02). Confirmacion explicita (confirmHighDose = true) si la dosis por toma SUPERA el umbral del grupo y la unidad. Cifras de CANINE_FELINE: valores de trabajo heredados de 0.1.0; null = SIN CIFRA, PENDIENTE de un veterinario colegiado humano (DEUDA-012-VALIDACION-VET-UMBRALES, T1660; incluye todo OTHER_SPECIES). Con umbral null el dominio no aplica guarda numerica y la interfaz NO afirma que la dosis sea segura. Alternativa de guarda relativa (confirmar si la dosis nueva difiere de la version anterior mas de un factor) queda como opcion pendiente. No son limite de dosis clinica ni consejo clinico"
     },
     "CARE_LOG_RETENTION_DAYS_MEDICATION": {
       "value": 1095,
@@ -91,11 +89,10 @@
         "MG",
         "MCG",
         "ML",
-        "IU",
         "TABLET",
         "DROP"
       ],
-      "description": "Catalogo cerrado (D12-11). UNIT queda retirada por riesgo de confusion; IU (unidades internacionales) se incorpora para insulina (A-01, maggie 2026-11-27). IU: decimal > 0 con 3 decimales como maximo; paso y umbral de confirmacion PENDIENTES de veterinario humano (DEUDA-012-VALIDACION-VET-UMBRALES)."
+      "description": "Catalogo cerrado (D12-11). UNIT queda retirada por riesgo de confusion; IU (unidades internacionales, insulina) queda retirada del catalogo por decision de Neo (0.1.3). Valores exactos: MG, MCG, ML, TABLET, DROP."
     },
     "DoseAmount": {
       "type": "number",
@@ -374,7 +371,7 @@
           "description": "Confirmacion explicita de una dosis sobre el umbral de captura de la especie de la mascota (REQ-CAR12-001, A-02); sin ella y con dosis sobre el umbral: 422 ERR-SCHEMA-VALIDATION-FAILED. Es guarda anti-tecleo, NO validacion clinica ni promesa de seguridad; sin umbral definido para la combinacion especie/unidad no se aplica."
         }
       },
-      "description": "Crea una rutina. Orden de comprobaciones (D-A): 403 potestad -> 404 existencia de la mascota -> 422 esquema/dominio -> 409 ERR-CAR12-ROUTINE-LIMIT. Reglas de dominio (ademas del esquema): MEDICATION exige doseAmount y doseUnit; (endDate no nulo) XOR (ongoing = true) en MEDICATION y endDate >= startDate; MEAL/WALK/OTHER no llevan dosis (doseAmount y doseUnit nulos u omitidos); TABLET solo multiplos de 0,25 con minimo 0,25; DROP entero >= 1; MG/MCG/ML > 0 con 3 decimales como maximo; UNIT NO existe en el catalogo; IU solo para dosis de insulina u otras unidades internacionales, paso y umbral pendientes de veterinario; timesOfDay ordenado y sin repetidos (el servidor normaliza el orden); tope MAX_ROUTINES_PER_PET rutinas activas (409 ERR-CAR12-ROUTINE-LIMIT)."
+      "description": "Crea una rutina. Orden de comprobaciones (D-A): 403 potestad -> 404 existencia de la mascota -> 422 esquema/dominio -> 409 ERR-CAR12-ROUTINE-LIMIT. Reglas de dominio (ademas del esquema): MEDICATION exige doseAmount y doseUnit; (endDate no nulo) XOR (ongoing = true) en MEDICATION y endDate >= startDate; MEAL/WALK/OTHER no llevan dosis (doseAmount y doseUnit nulos u omitidos); TABLET solo multiplos de 0,25 con minimo 0,25; DROP entero >= 1; MG/MCG/ML > 0 con 3 decimales como maximo; UNIT NO existe en el catalogo; IU NO existe en el catalogo (retirada, 0.1.3); timesOfDay ordenado y sin repetidos (el servidor normaliza el orden); tope MAX_ROUTINES_PER_PET rutinas activas (409 ERR-CAR12-ROUTINE-LIMIT)."
     },
     "UpdateCareRoutineRequest": {
       "type": "object",
