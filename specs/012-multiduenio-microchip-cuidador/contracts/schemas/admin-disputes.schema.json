@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/admin-disputes.schema.json",
+  "title": "AdminDisputesSchema",
+  "description": "Cola de disputas de /admin (feature 012, T1648, DRAFT) [REQ-CHP12-004, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007]. Vistas y cuerpos SOBRE las filas owner_requests con action = CHIP_DISPUTE; NO define maquina de estados propia (rige STATE-OWNREQ12-001, owner-request.machine.json): el estado «decision registrada, a la espera de confirmacion» es un campo DERIVADO (decisionPhase) de las columnas de decision, no un estado nuevo. Objetos cerrados. El arbitro ve SOLO identificadores seudonimizados u opacos (userId opaco o alias Parte A / Parte B), nunca correo, nombre real, direccion ni telefono (rama F-08, Neo 2026-11-27). Traduce admin-disputes-annex.md §2-§9 sin editar 011.",
+  "x-sdd-metadata": {
+    "version": "0.1.0",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "0.1.0 (feature 012, T1648, Architect 2026-11-27, DRAFT; autorizada por Neo Nivel 2; el estado lo fija solo Neo): documento NUEVO. +AdminDisputeQueueItem y +AdminDisputeQueue (cola con filtros y SLA), +AdminDisputeFile (expediente), +AdminDisputeEvidenceItem, +AdminActorColumns (columnas de administrador y de persona: resolved_by_admin_id, resolved_by_person_id, second_approver_admin_id, second_approver_person_id; resuelve trinity N-3 (a): los administradores viven en admin_identities, no en users), +DecisionPhase (derivado: NONE, AWAITING_CONFIRMATION, SCHEDULED_EXECUTION), +StepUpRequest y +StepUpGrant (reautenticacion; PROPUESTA de ventana ADMIN_STEPUP_WINDOW_MINUTES = 5, a confirmar por Neo al aprobar), +ResolveDisputeRequest, +ConfirmDisputeRequest, +CancelExecutionRequest, +ExtendFreezeRequest, +CloseMootRequest, +DisputePartyView (alias Parte A / Parte B u userId opaco). Persona distinta (annex §7.1): el confirmador debe diferir del resolutor por admin_id Y por person_id. Sin cambios en 011 ni en chip-claim.schema.json.",
+    "traceability": [
+      "STATE-OWNREQ12-001",
+      "REQ-CHP12-004",
+      "REQ-CHP12-007",
+      "REQ-CHP12-008",
+      "REQ-CHP12-009",
+      "REQ-CHP12-010",
+      "INV-CHP12-004",
+      "INV-CHP12-005",
+      "INV-CHP12-006",
+      "INV-CHP12-007",
+      "EDGE-012-043",
+      "EDGE-012-060",
+      "EDGE-012-061",
+      "EDGE-012-064",
+      "SC-012-020",
+      "SC-012-080",
+      "SC-012-082",
+      "SC-012-098",
+      "SC-012-104"
+    ]
+  },
+  "x-sdd-constants": {
+    "ADMIN_STEPUP_WINDOW_MINUTES": {
+      "value": 5,
+      "where": "feature-012-limits.ts",
+      "rule": "PROPUESTA DRAFT de T1648 (annex §7.3, 011 no define step-up): vigencia de la reautenticacion; un StepUpGrant es de UN SOLO USO, ligado a (adminId, disputeId, accion resolve|confirm) y se consume al ejecutar la operacion; Neo confirma o cambia el valor al aprobar"
+    },
+    "DISPUTE_SLA_BUSINESS_DAYS": { "value": 15, "where": "feature-012-limits.ts", "rule": "SLA operativo; vencido escala a SUPER_ADMIN, no cambia de estado" },
+    "DISPUTE_FREEZE_EXTENSION_DAYS": { "value": 30, "where": "feature-012-limits.ts", "rule": "una sola prorroga con motivo; techo absoluto DISPUTE_FREEZE_ABSOLUTE_MAX_DAYS = 60" },
+    "ARBITRATION_DELAY_HOURS": { "value": 72, "where": "feature-012-limits.ts", "rule": "ventana de aviso solo en CO_OWNER_ABSENT_OR_BLOCKING y PRINCIPAL_ABSENT; el temporizador solo ejecuta una decision ya registrada por un humano" },
+    "DECISION_REASON_MAX_CHARS": { "value": 500, "where": "feature-012-limits.ts", "rule": "PROPUESTA DRAFT de T1648: puntos de codigo, texto plano, escapado de salida; motivo obligatorio y auditado (sin identidad ni correo)" }
+  },
+  "$defs": {
+    "OpaqueId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{8,64}$",
+      "description": "Identificador opaco (no derivable, no es el id de BD de users ni el correo). Se usa para disputas, evidencias, administradores y personas."
+    },
+    "DisputeId": { "$ref": "#/$defs/OpaqueId" },
+    "EvidenceId": { "$ref": "#/$defs/OpaqueId" },
+    "AdminId": { "$ref": "#/$defs/OpaqueId" },
+    "PersonId": { "$ref": "#/$defs/OpaqueId", "description": "Identificador de la PERSONA fisica detras de una o varias cuentas de administrador; sirve para «persona distinta» (annex §7.1). Nunca es el correo." },
+    "PartyAlias": { "type": "string", "enum": ["Parte A", "Parte B"], "description": "Alias estable DENTRO de un expediente (rama F-08). No se reutiliza entre expedientes." },
+    "DisputePartyView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alias", "role"],
+      "properties": {
+        "alias": { "$ref": "#/$defs/PartyAlias" },
+        "userId": { "$ref": "#/$defs/OpaqueId", "description": "OPCIONAL: userId opaco seudonimizado (HMAC reidentificable solo con la clave, no es anonimizacion). Nunca correo, nombre real, direccion ni telefono (F-08)." },
+        "role": { "type": "string", "enum": ["CLAIMANT", "OWNER", "CO_OWNER", "TARGET", "REQUESTER"] }
+      }
+    },
+    "DisputeKind": { "$ref": "owner-request.schema.json#/$defs/DisputeReason" },
+    "DecisionPhase": {
+      "type": "string",
+      "enum": ["NONE", "AWAITING_CONFIRMATION", "SCHEDULED_EXECUTION"],
+      "description": "DERIVADO de las columnas de decision; NO es un estado de STATE-OWNREQ12-001 (la fila sigue UNDER_REVIEW). NONE: sin decision registrada. AWAITING_CONFIRMATION: resolve registrado, falta el segundo administrador (control dual; unica via en CHIP_APPROPRIATION). SCHEDULED_EXECUTION: ventana de 72 h corriendo (solo disputas por ausencia), cancelable hasta executes_after."
+    },
+    "DisputeResolution": {
+      "type": "string",
+      "enum": ["REJECT", "ADD_CO_OWNER", "REQUEST_CHANGE_PRINCIPAL", "END_CO_OWNERSHIP"],
+      "description": "Lista cerrada (REQ-CHP12-009). END_CO_OWNERSHIP solo en CO_OWNER_ABSENT_OR_BLOCKING; REQUEST_CHANGE_PRINCIPAL en CHIP_APPROPRIATION y PRINCIPAL_ABSENT. No existe eliminar mascota, transferir ni expulsar al principal."
+    },
+    "AdminActorColumns": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Columnas nuevas de owner_requests (T1633/T1648; trinity N-3 (a)): los administradores viven en admin_identities (0019_admin_portal.sql), NO en users, por eso resolved_by_user_id y second_approver_user_id (FK a users) no sirven. Los ids son internos y NO se exponen al usuario final; el arbitro de OTRO caso ve solo el rol.",
+      "properties": {
+        "resolved_by_admin_id": { "$ref": "#/$defs/AdminId" },
+        "resolved_by_person_id": { "$ref": "#/$defs/PersonId" },
+        "second_approver_admin_id": { "$ref": "#/$defs/AdminId" },
+        "second_approver_person_id": { "$ref": "#/$defs/PersonId" },
+        "resolved_at": { "type": "string", "format": "date-time" },
+        "second_approved_at": { "type": "string", "format": "date-time" },
+        "executes_after": { "type": "string", "format": "date-time" }
+      }
+    },
+    "EvidenceFileMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceId", "contentType", "bytes"],
+      "description": "Metadatos de la evidencia, SIN contenido (annex §4). Nunca se lista el contenido ni la clave del almacen.",
+      "properties": {
+        "evidenceId": { "$ref": "#/$defs/EvidenceId" },
+        "contentType": { "$ref": "chip-claim.schema.json#/$defs/EvidenceContentType" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "readByMe": { "type": "boolean", "description": "El administrador autenticado ya la leyo (lectura auditada); requisito previo de confirm (annex §7.1, trinity B-1)" }
+      }
+    },
+    "AdminDisputeQueueItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disputeId", "kind", "status", "createdAt", "slaDueAt", "slaOverdue", "decisionPhase"],
+      "properties": {
+        "disputeId": { "$ref": "#/$defs/DisputeId" },
+        "kind": { "$ref": "#/$defs/DisputeKind" },
+        "status": { "$ref": "owner-request.schema.json#/$defs/OwnerRequestStatus" },
+        "chipLast4": { "type": "string", "pattern": "^[0-9]{4}$", "description": "Solo en CHIP_APPROPRIATION; nunca el chip completo" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "frozenUntil": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time", "description": "created_at + DISPUTE_MAX_OPEN_DAYS (60 dias)" },
+        "slaDueAt": { "type": "string", "format": "date-time" },
+        "slaOverdue": { "type": "boolean" },
+        "decisionPhase": { "$ref": "#/$defs/DecisionPhase" },
+        "iAmParty": { "type": "boolean", "description": "true = el administrador esta recusado (EDGE-012-043): la fila se muestra sin abrir expediente" }
+      }
+    },
+    "AdminDisputeQueue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items"],
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/$defs/AdminDisputeQueueItem" }, "maxItems": 100 },
+        "nextCursor": { "type": "string", "minLength": 1, "maxLength": 256, "description": "Cursor opaco ligado al administrador autenticado" }
+      }
+    },
+    "AdminDisputeFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disputeId", "kind", "status", "createdAt", "decisionPhase", "parties"],
+      "description": "Expediente (annex §4). NUNCA correo, telefono, nombre real, direccion, chip completo ni identidad cruzada.",
+      "properties": {
+        "disputeId": { "$ref": "#/$defs/DisputeId" },
+        "kind": { "$ref": "#/$defs/DisputeKind" },
+        "status": { "$ref": "owner-request.schema.json#/$defs/OwnerRequestStatus" },
+        "chipLast4": { "type": "string", "pattern": "^[0-9]{4}$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "frozenUntil": { "type": "string", "format": "date-time" },
+        "freezeExtensionGranted": { "type": "boolean" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "slaDueAt": { "type": "string", "format": "date-time" },
+        "slaOverdue": { "type": "boolean" },
+        "decisionPhase": { "$ref": "#/$defs/DecisionPhase" },
+        "resolution": { "$ref": "#/$defs/DisputeResolution" },
+        "mootReason": { "$ref": "owner-request.schema.json#/$defs/MootReason" },
+        "executesAfter": { "type": "string", "format": "date-time" },
+        "parties": { "type": "array", "items": { "$ref": "#/$defs/DisputePartyView" }, "maxItems": 8, "description": "Intervinientes SOLO seudonimizados (F-08)" },
+        "triggerRequests": { "type": "array", "maxItems": 10, "description": "Solo disputas por ausencia: por cada solicitud sellada, creador (alias), created_at y expires_at", "items": { "type": "object", "additionalProperties": false, "required": ["createdAt", "expiresAt"], "properties": { "creatorAlias": { "$ref": "#/$defs/PartyAlias" }, "createdAt": { "type": "string", "format": "date-time" }, "expiresAt": { "type": "string", "format": "date-time" } } } },
+        "targetLastActiveAt": { "type": "string", "format": "date-time" },
+        "targetResponse": { "type": "string", "maxLength": 280, "description": "Respuesta unica del target, texto plano, escapada de salida; se borra al resolver" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/EvidenceFileMeta" }, "maxItems": 5 },
+        "actors": { "$ref": "#/$defs/AdminActorColumns" }
+      }
+    },
+    "StepUpRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disputeId", "action"],
+      "description": "Reautenticacion del administrador (annex §7.3). El mecanismo concreto (reverificacion del proveedor de identidad de 009) lo ejecuta el servidor; el cuerpo solo liga la reautenticacion a UNA operacion.",
+      "properties": {
+        "disputeId": { "$ref": "#/$defs/DisputeId" },
+        "action": { "type": "string", "enum": ["resolve", "confirm"] }
+      }
+    },
+    "StepUpGrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["grantId", "expiresAt"],
+      "properties": {
+        "grantId": { "$ref": "#/$defs/OpaqueId", "description": "Un solo uso; se envia en resolve o confirm" },
+        "expiresAt": { "type": "string", "format": "date-time", "description": "now + ADMIN_STEPUP_WINDOW_MINUTES" }
+      }
+    },
+    "DecisionReason": { "type": "string", "minLength": 1, "maxLength": 500, "description": "Motivo obligatorio y auditado; texto plano; sin correo ni identidad (annex §7, §8)" },
+    "ResolveDisputeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolution", "reason", "stepUpGrantId"],
+      "properties": {
+        "resolution": { "$ref": "#/$defs/DisputeResolution" },
+        "reason": { "$ref": "#/$defs/DecisionReason" },
+        "stepUpGrantId": { "$ref": "#/$defs/OpaqueId" },
+        "executionMode": { "type": "string", "enum": ["DUAL_CONTROL", "WINDOW_72H"], "description": "El servidor FIJA la via por el tipo de disputa: CHIP_APPROPRIATION solo admite DUAL_CONTROL (no elegible); en CO_OWNER_ABSENT_OR_BLOCKING y PRINCIPAL_ABSENT se puede elegir cualquiera de las dos. Un valor no permitido = 422. REJECT no requiere ninguna." }
+      }
+    },
+    "ConfirmDisputeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "stepUpGrantId"],
+      "description": "Segundo administrador (control dual). Debe diferir del resolutor por admin_id Y por person_id, no ser parte y haber leido antes la evidencia (lectura auditada). Motivo PROPIO (trinity B-1).",
+      "properties": {
+        "reason": { "$ref": "#/$defs/DecisionReason" },
+        "stepUpGrantId": { "$ref": "#/$defs/OpaqueId" }
+      }
+    },
+    "CancelExecutionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": { "reason": { "$ref": "#/$defs/DecisionReason" } }
+    },
+    "ExtendFreezeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": { "reason": { "$ref": "#/$defs/DecisionReason" } }
+    },
+    "CloseMootRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mootReason"],
+      "properties": { "mootReason": { "$ref": "owner-request.schema.json#/$defs/MootReason" } }
+    },
+    "EvidenceDownload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "expiresAt"],
+      "properties": {
+        "url": { "type": "string", "format": "uri", "description": "URL firmada de <= 5 minutos; Content-Disposition attachment y X-Content-Type-Options nosniff" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DisputeResolutionNotice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestId", "outcome", "resolvedAt"],
+      "description": "Aviso de resolucion visible a propietarios y reclamante (rama F-09, Neo 2026-11-27): SOLO desenlace cerrado, ID de solicitud y fecha. Sin identidad de la otra parte ni del arbitro.",
+      "properties": {
+        "requestId": { "$ref": "#/$defs/OpaqueId" },
+        "outcome": { "type": "string", "enum": ["APPROVED", "REJECTED", "EXPIRED"] },
+        "resolvedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

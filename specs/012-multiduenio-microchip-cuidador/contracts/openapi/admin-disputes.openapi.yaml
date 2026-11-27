@@ -1,0 +1,361 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: "Argos Pet Health & Biometric Tracker API - delta de la feature 012 (cola de disputas de /admin, T1648, #23)"
+  version: 0.1.0
+  description: >
+    Documento INCREMENTAL de la feature 012 (T1648, Bloque B, #23), DRAFT, autorizado por Neo (Nivel 2, 2026-11-27); su APPROVED es solo de Neo. Archivo NUEVO: traduce admin-disputes-annex.md §2-§9 a OpenAPI/schema SIN editar
+    011 (admin.openapi.yaml 1.8.0, admin-roles-annex.md) ni 009. Sesion: cookie argos_admin_session de 009 (nunca la de usuario); el rol se resuelve desde BD en cada peticion y de nuevo dentro de la transaccion
+    de escritura (EDGE-011-015). Politica de roles (annex §2, deny-by-default): SOLO SUPER_ADMIN y OPERATOR; SUPPORT no ve ni conoce la cola (403 ERR-ADM11-ROLE-NOT-AUTHORIZED antes de leer el cuerpo);
+    sin sesion de administracion: 404 uniforme de 009. Toda ruta debe figurar en el registro central de rutas de 011 (prueba meta T1525). X-Argos-Request obligatorio en toda escritura (403 ERR-AUTH-CSRF-REJECTED).
+
+    ARBITRO NO ES PARTE (EDGE-012-043): el administrador no puede abrir el expediente, decidir, confirmar, prorrogar ni cancelar si es parte (por la cuenta de usuario vinculada a su correo); 403
+    ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT sin indicar el vinculo; se repite dentro de la transaccion y queda auditado.
+
+    SEUDONIMIZACION (rama F-08, Neo 2026-11-27): el arbitro ve SOLO identificadores seudonimizados u opacos (userId opaco o alias Parte A / Parte B) con metadatos y evidencia; NUNCA correo, nombre real, direccion ni
+    telefono; no existe accion de revelar identidad. La respuesta de aviso a las partes (DisputeResolutionNotice, F-09) contiene solo desenlace cerrado, ID de solicitud y fecha.
+
+    CONTROL DUAL Y STEP-UP (annex §7; trinity H-A3, N-3): en CHIP_APPROPRIATION la UNICA via para desenlaces que cambian titularidad es el control dual (resolve + confirm por un segundo administrador DISTINTO por
+    admin_id Y por person_id, que tampoco es parte y que leyo antes la evidencia); la ventana de 72 h solo existe en CO_OWNER_ABSENT_OR_BLOCKING y PRINCIPAL_ABSENT (cancelable por cualquier administrador no parte).
+    resolve y confirm exigen un StepUpGrant vigente y de un solo uso (POST /admin/disputes/{disputeId}/step-up). ESTADO DE ESPERA: «decision registrada, a la espera de confirmacion» es el campo DERIVADO
+    decisionPhase = AWAITING_CONFIRMATION; la fila sigue en UNDER_REVIEW (STATE-OWNREQ12-001 no cambia). Sin reautenticacion vigente: rechazo generico de /admin (403, sin codigo nuevo en esta version DRAFT; si Neo
+    prefiere ERR-ADM12-STEPUP-REQUIRED se anade al catalogo por MINOR) y no se ejecuta nada. REJECT no requiere control dual ni ventana (activa el cooldown de 90 dias). Cero transferencia automatica (INV-CHP12-006).
+
+    Errores en application/problem+json (RFC 9457). Cache-Control: no-store en todas las respuestas.
+  x-sdd-status: DRAFT
+  x-sdd-metadata:
+    version: 0.1.0
+    status: DRAFT
+    supersedes: null
+    change_type: MAJOR
+    change_note: "0.1.0 (feature 012, T1648, Architect 2026-11-27, DRAFT, sin aprobar; autorizada por Neo Nivel 2): documento nuevo con 9 operaciones: listAdminDisputes, getAdminDispute, getAdminDisputeEvidence, extendAdminDisputeFreeze, stepUpAdminDispute, resolveAdminDispute, confirmAdminDisputeDecision, cancelAdminDisputeExecution, closeAdminDisputeMoot. Rutas y nombres PROPUESTOS en annex §2 quedan fijados solo al aprobar Neo. Sin cambios en 011."
+    traceability: [REQ-CHP12-004, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007, STATE-OWNREQ12-001, EDGE-012-043, EDGE-012-060, EDGE-012-061, EDGE-012-064, SC-012-020, SC-012-080, SC-012-082, SC-012-098, SC-012-104]
+  x-sdd-roles: [SUPER_ADMIN, OPERATOR]
+servers:
+  - url: http://127.0.0.1:3100/api
+    description: Servidor local (prefijo /api)
+security:
+  - adminSessionCookie: []
+tags:
+  - name: admin-disputes
+
+paths:
+  /admin/disputes:
+    get:
+      tags: [admin-disputes]
+      operationId: listAdminDisputes
+      summary: "Cola de disputas (filtros, SLA) [REQ-CHP12-004, REQ-CHP12-007]"
+      x-sdd-change: NEW
+      x-sdd-roles: [SUPER_ADMIN, OPERATOR]
+      x-sdd-requirements: [REQ-CHP12-004, REQ-CHP12-007, SC-012-098]
+      description: >
+        Cola de filas owner_requests con action = CHIP_DISPUTE (CHIP_APPROPRIATION, CO_OWNER_ABSENT_OR_BLOCKING, PRINCIPAL_ABSENT) en UNDER_REVIEW. Filtros: kind, slaOverdue, decisionPhase. Orden estable slaDueAt ASC, disputeId ASC.
+        Las filas donde el administrador es parte llevan iAmParty = true y no permiten abrir el expediente (EDGE-012-043). SIN correo ni identidad: solo kind, chipLast4, fechas y SLA. Paginado por cursor (limit <= 100).
+      parameters:
+        - { name: kind, in: query, required: false, schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/DisputeKind' } }
+        - { name: slaOverdue, in: query, required: false, schema: { type: boolean } }
+        - { name: decisionPhase, in: query, required: false, schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/DecisionPhase' } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+        - { name: cursor, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 256 } }
+      responses:
+        '200':
+          description: "Pagina de la cola"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/AdminDisputeQueue' }
+        '403': { $ref: '#/components/responses/ForbiddenRoleCsrfOrConflict' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /admin/disputes/{disputeId}:
+    get:
+      tags: [admin-disputes]
+      operationId: getAdminDispute
+      summary: "Expediente seudonimizado [REQ-CHP12-004, REQ-CHP12-008]"
+      x-sdd-change: NEW
+      x-sdd-roles: [SUPER_ADMIN, OPERATOR]
+      x-sdd-requirements: [REQ-CHP12-004, REQ-CHP12-008, INV-CHP12-004, SC-012-020]
+      description: >
+        Expediente (annex §4): ancla, estado, plazos, SLA, decisionPhase, partes SOLO seudonimizadas (alias Parte A / Parte B u userId opaco, F-08), evidencia sin contenido, respuesta unica del target (escapada) y columnas de administrador y de persona. 403 ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT si el administrador es parte. La apertura se audita.
+      parameters:
+        - { $ref: '#/components/parameters/DisputeIdPath' }
+      responses:
+        '200':
+          description: "Expediente"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/AdminDisputeFile' }
+        '403': { $ref: '#/components/responses/ForbiddenRoleCsrfOrConflict' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '409': { $ref: '#/components/responses/StateConflict' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /admin/disputes/{disputeId}/evidence/{evidenceId}:
+    get:
+      tags: [admin-disputes]
+      operationId: getAdminDisputeEvidence
+      summary: "URL firmada de la evidencia (lectura auditada) [REQ-CHP12-008]"
+      x-sdd-change: NEW
+      x-sdd-roles: [SUPER_ADMIN, OPERATOR]
+      x-sdd-requirements: [REQ-CHP12-008, INV-CHP12-004, SC-012-082]
+      description: >
+        Solo si el administrador no es parte. Devuelve URL firmada de <= 5 minutos (Content-Disposition attachment, X-Content-Type-Options nosniff). CADA lectura se audita (quien, disputa, archivo; sin contenido). Los propietarios y el target nunca ven la evidencia.
+      parameters:
+        - { $ref: '#/components/parameters/DisputeIdPath' }
+        - { $ref: '#/components/parameters/EvidenceIdPath' }
+      responses:
+        '200':
+          description: "URL firmada"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/EvidenceDownload' }
+        '403': { $ref: '#/components/responses/ForbiddenRoleCsrfOrConflict' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '409': { $ref: '#/components/responses/StateConflict' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /admin/disputes/{disputeId}/extend-freeze:
+    post:
+      tags: [admin-disputes]
+      operationId: extendAdminDisputeFreeze
+      summary: "Prorroga unica de la congelacion [EDGE-012-061]"
+      x-sdd-change: NEW
+      x-sdd-roles: [SUPER_ADMIN, OPERATOR]
+      x-sdd-requirements: [REQ-CHP12-004, EDGE-012-061, SC-012-098]
+      description: >
+        Una sola prorroga de DISPUTE_FREEZE_EXTENSION_DAYS = 30 con motivo obligatorio y auditado; techo absoluto de 60 dias desde la apertura. Segunda prorroga o superar el techo: 409 (problema generico de /admin). Sin efecto automatico.
+      parameters:
+        - { $ref: '#/components/parameters/DisputeIdPath' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/ExtendFreezeRequest' }
+      responses:
+        '200':
+          description: "Expediente actualizado"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/AdminDisputeFile' }
+        '403': { $ref: '#/components/responses/ForbiddenRoleCsrfOrConflict' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '409': { $ref: '#/components/responses/StateConflict' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /admin/disputes/{disputeId}/step-up:
+    post:
+      tags: [admin-disputes]
+      operationId: stepUpAdminDispute
+      summary: "Reautenticacion de un solo uso para resolve o confirm [REQ-CHP12-009]"
+      x-sdd-change: NEW
+      x-sdd-roles: [SUPER_ADMIN, OPERATOR]
+      x-sdd-requirements: [REQ-CHP12-009, INV-CHP12-006]
+      description: >
+        PROPUESTA DRAFT de T1648 (011 no define step-up). Reverifica la identidad del administrador y devuelve un StepUpGrant ligado a (adminId, disputeId, accion), de UN SOLO USO y vigente ADMIN_STEPUP_WINDOW_MINUTES. No cambia ningun estado de la disputa. Se audita.
+      parameters:
+        - { $ref: '#/components/parameters/DisputeIdPath' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/StepUpRequest' }
+      responses:
+        '201':
+          description: "Grant emitido"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/StepUpGrant' }
+        '403': { $ref: '#/components/responses/ForbiddenRoleCsrfOrConflict' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '409': { $ref: '#/components/responses/StateConflict' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /admin/disputes/{disputeId}/resolve:
+    post:
+      tags: [admin-disputes]
+      operationId: resolveAdminDispute
+      summary: "Registra la decision del arbitro principal [REQ-CHP12-009]"
+      x-sdd-change: NEW
+      x-sdd-roles: [SUPER_ADMIN, OPERATOR]
+      x-sdd-requirements: [REQ-CHP12-009, INV-CHP12-006, EDGE-012-060, SC-012-104]
+      description: >
+        Exige StepUpGrant vigente y motivo. Desenlaces cerrados (DisputeResolution). Segun el tipo: CHIP_APPROPRIATION con desenlace que cambia titularidad = control dual (decisionPhase pasa a AWAITING_CONFIRMATION; no ejecuta); CO_OWNER_ABSENT_OR_BLOCKING y PRINCIPAL_ABSENT pueden elegir control dual o ventana (executes_after = now + 72 h, decisionPhase = SCHEDULED_EXECUTION); REJECT cierra el caso (cooldown de 90 dias). Registra resolved_by_admin_id y resolved_by_person_id. Revalida el rol y que no es parte dentro de la transaccion. El temporizador no decide: solo ejecuta una decision humana ya registrada.
+      parameters:
+        - { $ref: '#/components/parameters/DisputeIdPath' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/ResolveDisputeRequest' }
+      responses:
+        '200':
+          description: "Decision registrada"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/AdminDisputeFile' }
+        '403': { $ref: '#/components/responses/ForbiddenRoleCsrfOrConflict' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '409': { $ref: '#/components/responses/StateConflict' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /admin/disputes/{disputeId}/confirm:
+    post:
+      tags: [admin-disputes]
+      operationId: confirmAdminDisputeDecision
+      summary: "Confirma la decision (segundo administrador, persona distinta) [REQ-CHP12-009]"
+      x-sdd-change: NEW
+      x-sdd-roles: [SUPER_ADMIN, OPERATOR]
+      x-sdd-requirements: [REQ-CHP12-009, INV-CHP12-006, SC-012-104]
+      description: >
+        Solo con decisionPhase = AWAITING_CONFIRMATION. Exige StepUpGrant vigente, motivo propio, haber leido la evidencia (lectura auditada) y que el confirmador difiera del resolutor por admin_id Y por person_id (dos cuentas del mismo humano no cuentan) y no sea parte. Ejecuta en UNA transaccion con ownership_version + 1, invalida solicitudes obsoletas (STALE) y audita. Si la revalidacion falla: cierre sin efecto con moot_reason, nunca ejecucion parcial.
+      parameters:
+        - { $ref: '#/components/parameters/DisputeIdPath' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/ConfirmDisputeRequest' }
+      responses:
+        '200':
+          description: "Decision ejecutada"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/AdminDisputeFile' }
+        '403': { $ref: '#/components/responses/ForbiddenRoleCsrfOrConflict' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '409': { $ref: '#/components/responses/StateConflict' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /admin/disputes/{disputeId}/cancel-execution:
+    post:
+      tags: [admin-disputes]
+      operationId: cancelAdminDisputeExecution
+      summary: "Cancela la ventana de 72 h (veto) [EDGE-012-060]"
+      x-sdd-change: NEW
+      x-sdd-roles: [SUPER_ADMIN, OPERATOR]
+      x-sdd-requirements: [REQ-CHP12-009, EDGE-012-060, SC-012-104]
+      description: >
+        Solo disputas por ausencia con decisionPhase = SCHEDULED_EXECUTION y hasta executes_after. Cancelable por el arbitro principal, por SUPER_ADMIN y por CUALQUIER otro administrador que no sea parte; motivo obligatorio. El caso vuelve a UNDER_REVIEW sin cambiar nada.
+      parameters:
+        - { $ref: '#/components/parameters/DisputeIdPath' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/CancelExecutionRequest' }
+      responses:
+        '200':
+          description: "Ventana cancelada"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/AdminDisputeFile' }
+        '403': { $ref: '#/components/responses/ForbiddenRoleCsrfOrConflict' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '409': { $ref: '#/components/responses/StateConflict' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /admin/disputes/{disputeId}/close-moot:
+    post:
+      tags: [admin-disputes]
+      operationId: closeAdminDisputeMoot
+      summary: "Cierre sin efecto [REQ-CHP12-004]"
+      x-sdd-change: NEW
+      x-sdd-roles: [SUPER_ADMIN, OPERATOR]
+      x-sdd-requirements: [REQ-CHP12-004, EDGE-012-064]
+      description: >
+        resolution = REJECT con moot_reason; NO activa el cooldown de 90 dias. El paso del tiempo no cuenta como TRIGGER_LOST. Libera la reserva del chip.
+      parameters:
+        - { $ref: '#/components/parameters/DisputeIdPath' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/CloseMootRequest' }
+      responses:
+        '200':
+          description: "Caso cerrado sin efecto"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/AdminDisputeFile' }
+        '403': { $ref: '#/components/responses/ForbiddenRoleCsrfOrConflict' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '409': { $ref: '#/components/responses/StateConflict' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    adminSessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_admin_session
+      description: Cookie de sesion de ADMINISTRACION de 009 (HttpOnly, SameSite=Strict, Path=/api/admin). No lleva el rol; argos_session nunca autoriza /admin/* (INV-ADM9-002).
+  headers:
+    NoStore:
+      description: "Cache-Control: no-store"
+      schema: { type: string, const: 'no-store' }
+  parameters:
+    CsrfHeader:
+      name: X-Argos-Request
+      in: header
+      required: true
+      description: "Cabecera global anti-CSRF; si falta, 403 ERR-AUTH-CSRF-REJECTED antes de resolver la sesion de administracion."
+      schema: { type: string, const: '1' }
+    DisputeIdPath:
+      name: disputeId
+      in: path
+      required: true
+      description: "Identificador opaco de la disputa; uno invalido responde 422 ERR-SCHEMA-VALIDATION-FAILED despues de la sesion y del rol; uno inexistente, 404 uniforme"
+      schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/DisputeId' }
+    EvidenceIdPath:
+      name: evidenceId
+      in: path
+      required: true
+      schema: { $ref: 'https://argos.local/contracts/schemas/admin-disputes.schema.json#/$defs/EvidenceId' }
+  responses:
+    NotFoundUniform:
+      description: "404 UNIFORME de 009 (sin sesion de administracion, sesion vencida, cookie de usuario o acceso DENIED): text/plain 'Not Found', sin codigo ERR-*"
+      content:
+        text/plain:
+          schema: { type: string, const: 'Not Found' }
+    ForbiddenRoleCsrfOrConflict:
+      description: "403: ERR-AUTH-CSRF-REJECTED (falta X-Argos-Request), ERR-ADM11-ROLE-NOT-AUTHORIZED (SUPPORT, antes de leer el cuerpo), ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT (el administrador es parte; sin indicar el vinculo) o rechazo generico de /admin por falta de reautenticacion vigente (step-up)"
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    StateConflict:
+      description: "409 problema generico de /admin: estado incompatible (decisionPhase equivocado, segunda prorroga, techo de 60 dias, confirmador no distinto por persona, vencida la ventana)"
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Problem:
+      description: Error tipado del catalogo (RFC 9457)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails'

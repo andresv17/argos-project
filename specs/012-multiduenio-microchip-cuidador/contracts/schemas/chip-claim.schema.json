@@ -4,11 +4,11 @@
   "title": "ChipClaimSchema",
   "description": "Reclamacion de co-propiedad y disputa por apropiacion de un microchip [REQ-CHP12-001..005, REQ-CHP12-007, INV-CHP12-001, INV-CHP12-003, INV-CHP12-009]. Vistas SOBRE la tabla unica owner_requests (acciones CLAIM_CO_OWNERSHIP y CHIP_DISPUTE con dispute_reason = CHIP_APPROPRIATION); NO define maquina de estados propia: la maquina es STATE-OWNREQ12-001 (owner-request.machine.json). Reutiliza por $ref OwnerRequestStatus, DisputeReason y MootReason de owner-request.schema.json. Objetos cerrados. NUNCA expone chip completo (solo los ultimos 4), chip_hmac, mascota, propietarios, hogar, fechas ni evidencia del otro dueno, ni la identidad del arbitro (Neo-K, INV-CHP12-007). La unica respuesta de la reclamacion y de la apertura de disputa es el 202 uniforme ChipRequestAccepted (sin claimId, sin disputeId: INV-CHP12-003).",
   "x-sdd-metadata": {
-    "version": "0.1.0",
+    "version": "0.2.0",
     "status": "DRAFT",
     "supersedes": null,
-    "change_type": "MAJOR",
-    "change_note": "0.1.0 (feature 012, T1630, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +MicrochipId (^[0-9]{15}$ explicito, no \\d), +CreateChipClaimRequest (chip + mensaje <= 280), +OpenChipDisputeForm (multipart: chip + 1..5 evidencias; tipos cerrados), +ChipRequestAccepted (202 uniforme sin claimId/disputeId), +ChipRequestView y +ChipRequestList (listado autenticado «mis solicitudes» de chip, solo filas reales y propias, chipLast4), +ChipDisputeResolution (resultado visible al reclamante), +ChipDisputeMootReason (subconjunto de moot_reason aplicable a CHIP_APPROPRIATION: PET_GONE, REQUESTER_NOT_ACTIVE). dispute_reason y moot_reason se reutilizan de owner-request.schema.json sin redefinirse. Sin chip_conflict ni columna nueva (REQ-CHP12-006).",
+    "change_type": "MINOR",
+    "change_note": "0.1.0 (feature 012, T1630, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +MicrochipId (^[0-9]{15}$ explicito, no \\d), +CreateChipClaimRequest (chip + mensaje <= 280), +OpenChipDisputeForm (multipart: chip + 1..5 evidencias; tipos cerrados), +ChipRequestAccepted (202 uniforme sin claimId/disputeId), +ChipRequestView y +ChipRequestList (listado autenticado «mis solicitudes» de chip, solo filas reales y propias, chipLast4), +ChipDisputeResolution (resultado visible al reclamante), +ChipDisputeMootReason (subconjunto de moot_reason aplicable a CHIP_APPROPRIATION: PET_GONE, REQUESTER_NOT_ACTIVE). dispute_reason y moot_reason se reutilizan de owner-request.schema.json sin redefinirse. Sin chip_conflict ni columna nueva (REQ-CHP12-006). Iteracion 0.4 (2026-11-27, DRAFT, sin aprobar): saneo y subida de evidencia antes de los candados (N-2); PDF se rechaza, no se rasteriza (B-N2); el intento bloqueado no se registra (B-N3; confirmado por Neo en 0.6). Iteracion 0.3 (2026-11-27, DRAFT, sin aprobar): saneo profundo de evidencia (PDF activo, pixeles, reencodificacion, antimalware; H-A4, F-11), cuerpo multipart y contador antes de parsear (M-1), contadores atomicos (M-2), constantes nuevas SIN valor decidido CHIP_DISPUTE_BODY_MAX_BYTES, DISPUTE_EVIDENCE_MAX_PIXELS y CHIP_MULTIPART_MAX_PER_USER_PER_DAY; H-A2 (oraculo del listado) aceptado por Neo en 0.6 como residual N2-R4. Iteracion 0.5 (2026-11-27, DRAFT, sin aprobar; version alineada a 0.2.0 con error-catalog.json, oracle incidencia 3): el 413 por Content-Length y el 411 no cuentan en el contador multipart (B-N9); constante DISPUTE_EVIDENCE_STAGING_TTL_HOURS (B-N10). Iteracion 0.6 (2026-11-27, DRAFT, sin aprobar; decisiones de Neo Nivel 2): change_type MINOR (no MAJOR) con version 0.2.0 coherente; DISPUTE_EVIDENCE_STAGING_TTL_HOURS = 24, +ARBITER_AUDIT_RETENTION_DAYS = 1095, +BACKUP_MAX_RETENTION_DAYS = 30; antimalware condicion BLOQUEANTE de produccion con stub determinista en dev/CI; contador bloqueado confirmado; H-A2 aceptado como residual N2-R4.",
     "traceability": [
       "STATE-OWNREQ12-001",
       "REQ-CHP12-001",
@@ -63,10 +63,40 @@
       "where": "feature-012-limits.ts",
       "rule": "solo tras REJECT decidido por /admin; ni moot_reason ni EXPIRED lo activan"
     },
+    "CHIP_DISPUTE_BODY_MAX_BYTES": {
+      "value": null,
+      "where": "feature-012-limits.ts",
+      "rule": "DRAFT 0.3 (trinity M-1): tope de bytes del cuerpo multipart COMPLETO de openChipDispute, decidido por Content-Length antes de leerlo (413); valor a fijar en T1646 como DISPUTE_EVIDENCE_MAX_FILES x tope por archivo de 004 mas margen de formulario; no decidido aqui"
+    },
+    "DISPUTE_EVIDENCE_MAX_PIXELS": {
+      "value": null,
+      "where": "feature-012-limits.ts",
+      "rule": "DRAFT 0.3 (trinity H-A4): limite de pixeles por imagen de evidencia, comprobado en la cabecera antes de decodificar (bomba de descompresion); valor a fijar en T1646; no decidido aqui"
+    },
+    "CHIP_MULTIPART_MAX_PER_USER_PER_DAY": {
+      "value": null,
+      "where": "feature-012-limits.ts",
+      "rule": "DRAFT 0.3 (trinity M-1): contador de peticiones multipart de openChipDispute por usuario (y por IP, HMAC), ventana movil de 24 h, atomico, consumido ANTES de parsear; ambito CHIP_MULTIPART (por usuario en rate_limit_events y por IP HMAC en ip_rate_events, data-model.md); cuenta tambien las que acaban en 422 o en 413 por archivo (paso 4), pero NO las rechazadas con 411 ni con 413 por Content-Length, que se deciden antes del contador (trinity B-N9); valor inicial propuesto igual a MICROCHIP_LOOKUP_MAX_PER_USER_PER_DAY / _PER_IP_PER_DAY, a confirmar en T1646"
+    },
+    "DISPUTE_EVIDENCE_STAGING_TTL_HOURS": {
+      "value": 24,
+      "where": "feature-012-limits.ts",
+      "rule": "DRAFT 0.5 (trinity B-N10): TTL de los objetos del area de espera de evidencias (subidos antes de los candados, sin fila); un barrido de huerfanos sobre el prefijo del area de espera borra lo vencido; valor 24 h fijado por Neo (Nivel 2, 2026-11-27)"
+    },
+    "ARBITER_AUDIT_RETENTION_DAYS": {
+      "value": 1095,
+      "where": "feature-012-limits.ts",
+      "rule": "retencion propia de la auditoria del arbitraje de disputas (rama F-05); fijada por Neo (Nivel 2, 2026-11-27); tras purgar la evidencia las filas conservan solo disputeId, id interno del administrador, accion e instante"
+    },
+    "BACKUP_MAX_RETENTION_DAYS": {
+      "value": 30,
+      "where": "feature-012-limits.ts",
+      "rule": "ventana maxima de retencion de copias de la base de datos, instantaneas y versiones del almacen de medios (rama F-06); fijada por Neo (Nivel 2, 2026-11-27); una restauracion no reintroduce lo purgado (SC-012-119)"
+    },
     "MICROCHIP_LOOKUP_MAX_PER_USER_PER_DAY": {
       "value": 10,
       "where": "feature-012-limits.ts",
-      "rule": "ventana movil de 24 h; cuenta TODO intento con microchipId de formato valido, incluidos la reclamacion y la apertura de disputa (REQ-CHP12-005, N2-R4)"
+      "rule": "ventana movil de 24 h; cuenta TODO intento con microchipId de formato valido, incluidos la reclamacion y la apertura de disputa (REQ-CHP12-005, N2-R4); incremento atomico; el intento bloqueado por este contador NO se registra y no prolonga la ventana ni incrementa IP ni global (DRAFT 0.4, alineado a co-ownership-support.ts ~95, trinity B-N3; criterio CONFIRMADO por Neo, Nivel 2, 2026-11-27)"
     }
   },
   "$defs": {
@@ -108,7 +138,7 @@
         "image/png",
         "image/webp"
       ],
-      "description": "Tipos cerrados (REQ-CHP12-008): nunca SVG ni HTML. El servidor decide por firma de contenido (magic bytes), no por la cabecera ni la extension; EXIF y metadatos se sanean al subir."
+      "description": "Tipos cerrados (REQ-CHP12-008): nunca SVG ni HTML. El servidor decide por firma de contenido (magic bytes), no por la cabecera ni la extension; El servidor decide por firma de contenido y SANEA TODA evidencia valida, igual para cualquier chip (iteracion 0.3, trinity H-A4, rama F-11): (a) imagenes: se decodifican con limite de pixeles y de memoria (DISPUTE_EVIDENCE_MAX_PIXELS) ANTES de reservar buffers y se REENCODIFICAN siempre (descarta EXIF, XMP, perfiles y cualquier cola de datos poliglota JPEG+ZIP/HTML); (b) PDF: se RECHAZA (422, nunca se rasteriza, trinity B-N2) el que contenga JavaScript, /OpenAction, /AA, /Launch, XFA, archivos embebidos, RichMedia o formularios activos, y se eliminan los metadatos del documento (Info, XMP); (c) analisis antimalware (producto por determinar en T1646; condicion BLOQUEANTE para produccion en el checklist de release junto con DEUDA-012-LEGAL-DISPUTAS-QR; en dev/CI se prueba con un puerto/stub determinista sin llamadas externas) ANTES de subir al area de espera; si no esta disponible, falla cerrada con 503 ERR-OWN12-RETRYABLE. Ninguna de estas comprobaciones depende del chip."
     },
     "OpenChipDisputeForm": {
       "type": "object",
@@ -128,9 +158,9 @@
           "items": {
             "type": "string",
             "format": "binary",
-            "description": "Parte multipart de tipo EvidenceContentType; maximo de bytes por archivo y por usuario los de 004 (ARGOS_MEDIA_MAX_BYTES, REQ-ARC-005)"
+            "description": "Parte multipart de tipo EvidenceContentType; maximo de bytes por archivo y por usuario los de 004 (ARGOS_MEDIA_MAX_BYTES, REQ-ARC-005); cuerpo total <= CHIP_DISPUTE_BODY_MAX_BYTES, decidido por Content-Length antes de leerlo"
           },
-          "description": "1..DISPUTE_EVIDENCE_MAX_FILES evidencias documentales. Se validan (tipo, firma, tamano) ANTES de resolver el chip: un archivo invalido da 422 igual para chip libre u ocupado, sin consulta al registro y sin contarse. Si la apertura termina en el 202 sin fila, ningun archivo se persiste."
+          "description": "1..DISPUTE_EVIDENCE_MAX_FILES evidencias documentales. Se validan (tipo, firma, tamano) ANTES de resolver el chip: un archivo invalido da 422 igual para chip libre u ocupado, sin consulta al registro y sin contarse. Antes de parsear se valida por cabeceras y tope total de cuerpo y se consume el contador multipart; el parser rechaza partes duplicadas (microchipId) o desconocidas y mas de 1 + 5 partes. Los archivos se sanean y se suben a un area de espera ANTES de tomar candados (iteracion 0.4, trinity N-2); si la apertura termina en el 202 sin fila, ningun archivo queda asociado y los del area de espera se encolan para borrado; el registro de claves y la creacion de la fila son una unidad y los huerfanos se encolan para borrado (trinity B-5)."
         }
       },
       "description": "Formulario multipart/form-data de POST /chip-disputes (CHIP_DISPUTE, dispute_reason = CHIP_APPROPRIATION fijo por la ruta; el cuerpo NO lleva dispute_reason). La evidencia viaja EN LA MISMA peticion: subirla despues contra un id seria un oraculo de existencia (INV-CHP12-003)."
@@ -350,7 +380,7 @@
           "maxLength": 256
         }
       },
-      "description": "Listado autenticado «mis solicitudes» de chip (lock R-11): SOLO filas reales cuyo solicitante es el usuario autenticado; nunca filas ajenas ni filas inexistentes (los 202 sin fila no aparecen). Orden estable created_at DESC, id DESC. Cursor opaco ligado al usuario autenticado: cursor invalido o ajeno = 422 ERR-SCHEMA-VALIDATION-FAILED uniforme (H-15). Las PENDING con expires_at <= now se devuelven EXPIRED (expiracion perezosa)."
+      "description": "Listado autenticado «mis solicitudes» de chip (lock R-11): SOLO filas reales cuyo solicitante es el usuario autenticado; nunca filas ajenas ni filas inexistentes (los 202 sin fila no aparecen). RESIDUAL ACEPTADO por Neo (trinity H-A2, Nivel 2, 2026-11-27, N2-R4): la presencia o ausencia de fila tras un intento es un oraculo de existencia del chip de una mascota viva ajena (o con reserva), acotado (el solicitante ya conoce el chip enviado, sin identidad ajena) y mitigado por REQ-CHP12-005; no se redisena (ver listMyChipRequests en chip-claim.openapi.yaml). Orden estable created_at DESC, id DESC. Cursor opaco ligado al usuario autenticado: cursor invalido o ajeno = 422 ERR-SCHEMA-VALIDATION-FAILED uniforme (H-15). Las PENDING con expires_at <= now se devuelven EXPIRED (expiracion perezosa)."
     }
   }
 }

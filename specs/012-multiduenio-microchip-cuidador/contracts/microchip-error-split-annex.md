@@ -7,7 +7,7 @@ Estado: `DRAFT` (redactó `/architect` el 2026-11-27; **la aprobación a `APPROV
 | Enmienda | Qué cambia | Qué NO se toca | Aprobación |
 | --- | --- | --- | --- |
 | `ENM-002-MINOR-012-CHIP` | §2 (clases de error) y §3 (comprobador único y rutas) | Índice `pets_microchip_global` (SQLite 0008, PG 0004), precheck `SC-CAT-025`, `ERR-PET-MICROCHIP-DUPLICATE` (cuerpo vigente), `pet.schema.json` de 004 | `DRAFT`; Neo (pendiente) |
-| **Propuesta de errata a la 001** (§5) | Orden de validación en `CHECKING_DOMAIN_INVARIANTS` de `STATE-BACKUP-001` | **No se aplica a la 001** (Nivel 2) | **Propuesta para Neo** |
+| **Errata a la 001** (§5) | Orden de validación en `CHECKING_DOMAIN_INVARIANTS` de `STATE-BACKUP-001` | **No se edita la 001** (Nivel 2; la edita solo Neo) | **APROBADA por Neo (2026-11-27)**; ratifica la propuesta |
 
 ## 2. Dos clases de respuesta, una regla
 
@@ -26,8 +26,9 @@ Reglas:
 2. **Uniformidad por clase (`INV-CHP12-001`).** Dentro de cada clase, cuerpo y cabeceras son idénticos y las **llamadas al repositorio son estructuralmente las mismas** (espías, `SC-012-014`, `SC-012-097`); la latencia es solo informativa y no bloqueante (`Neo-P` P-15). **Entre clases** el cuerpo difiere por diseño (mismo dueño vs otro dueño): es el único canal que 012 acepta, y solo revela al usuario algo que ya sabe (que **él mismo** tiene ese chip).
 3. **Cobertura total (`INV-CHP12-002`).** La consulta recorre **todas** las mascotas con ese chip, fallecidas incluidas, sin apoyarse en el predicado del índice. El índice sigue siendo la red de seguridad (violación `23505`/`UNIQUE` en carrera: se traduce a la **misma clase** que habría dado la consulta; ver §4).
 4. **Fallecida.** El chip de una mascota fallecida **sigue bloqueado** (`Neo-F+L`); si es de otra cuenta, `ERR-CHP12-MICROCHIP-REGISTERED` sin distinguir fallecida.
-5. **Intento contado.** Todo intento con chip de formato válido cuenta en los tres contadores antes de resolverse (`REQ-CHP12-005`); un `429` uniforme **sustituye** a ambas clases cuando se supera cualquier tope.
+5. **Intento contado.** Todo intento con chip de formato válido cuenta en los tres contadores antes de resolverse (`REQ-CHP12-005`); un `429` uniforme **sustituye** a ambas clases cuando se supera cualquier tope. **Iteración 0.3 (`trinity M-2`):** el incremento es **atómico** (inserción condicionada al conteo o bloqueo por sujeto; una ráfaga paralela no supera el tope); el intento bloqueado por el contador de usuario o de IP **no se registra** (la inserción condicionada no inserta con el tope lleno), **no prolonga la ventana** y **no** incrementa los siguientes (un solo usuario o una IP compartida no agota el global); **iteración 0.4: alineado con el código vigente `co-ownership-support.ts` ~95; criterio CONFIRMADO por Neo, Nivel 2, 2026-11-27** (`trinity` discrepancia 1); los contadores son compartidos por alta, edición, importación, `createChipClaim` y `openChipDispute` (el texto previo de `REQ-CHP12-005` decía «alta o edición»: errata en `errata-MINOR-bloqueB-v04.md`).
 6. **Registro y auditoría.** Solo los últimos 4 dígitos; nunca el chip completo (`SC-012-022`).
+7. **Candado sin oráculo (`trinity H-A1`, `rama F-10`; iteración 0.3).** El comprobador del §3, en **toda** ruta que escribe `pets.microchip_id` y en `createChipClaim` y `openChipDispute`, se ejecuta **siempre** bajo (i) el candado global del `UnitOfWork` (`pg_advisory_xact_lock`, `lock_timeout` 3000 ms, ya implementado en `1dcc063`) y (ii) un candado asesor por `chip_hmac` (SQLite: `BEGIN IMMEDIATE`), tomados **antes** de consultar y **sea cual sea** el chip (exista o no mascota o reserva). El agotamiento de espera de cualquiera de los dos es el **mismo** `503 ERR-OWN12-RETRYABLE` (`Retry-After` constante) para cualquier chip, de modo que el `503` no revela existencia. El candado por mascota (`SELECT … FOR UPDATE`) solo se toma **dentro** de la rama que crea fila, ya bajo los dos anteriores, y su agotamiento **no** produce `503` (202 uniforme sin fila en las rutas de reclamación y disputa). Esto alinea el contrato con lo implementado (candado global) y con `REQ-OWN12-011`; el candado por `chip_hmac` es nuevo y lo implementa `T1646`.
 
 ## 3. Comprobador único de unicidad y reserva (`INV-CHP12-009`)
 
@@ -48,7 +49,11 @@ Se **retiran** de la superficie pública: cualquier mensaje que nombre «la masc
 
 `src/application/use-cases/backup-use-cases.ts` hoy traduce la violación del índice `pets_microchip_global` al guardar (≈ líneas 594–598) siempre a `ERR-PET-MICROCHIP-DUPLICATE`. Con la enmienda: **mismo dueño → `ERR-PET-MICROCHIP-DUPLICATE`; otra cuenta → `ERR-CHP12-MICROCHIP-REGISTERED`** (cuerpo uniforme, sin `Mascota n.º`, sin `pet.name`). El comprobador se ejecuta **antes** de `pets.save` y de `assertNoForeignIds` (§5); la traducción de la violación del índice queda solo como red de seguridad ante carrera, con la misma clasificación (releer titularidad dentro de la transacción). Declaración de errores permitidos: `backup-import.machine.json` (002) enumera `ERR-PET-MICROCHIP-DUPLICATE`; la 012 **añade** `ERR-CHP12-MICROCHIP-REGISTERED` a los errores admisibles de la importación por **este anexo** (referencia, sin editar la máquina de 002; `T1635`/`T1646`).
 
-## 5. Propuesta de errata — orden en `CHECKING_DOMAIN_INVARIANTS` (**para Neo, Nivel 2; NO aplicada a la 001**)
+## 4 bis. Iteración DRAFT 0.3 (2026-11-27): alineación con las revisiones de `trinity` y `rama`
+
+Aplicada sin decisión de Neo: regla 7 del §2 (candado sin oráculo) y la atomicidad de la regla 5 (el criterio del intento bloqueado se corrigió en la iteración 0.4: no se registra; confirmado por Neo el 2026-11-27). **No** tocado: la errata a la 001 del §5 (sigue «propuesta para Neo») y el criterio de `H-A2` (listado de `listMyChipRequests`; aceptado por Neo el 2026-11-27 como residual `N2-R4`). Importación y restauración (`trinity B-2`): el `429` de un lote de N chips debe evaluarse **antes** de cualquier consulta al registro; la política cuando `MICROCHIP_IMPORT_MAX_PETS` supere el tope diario de usuario y el descuento de chips propios en la restauración quedan fijados en `T1646` (sin decisión nueva aquí).
+
+## 5. Errata — orden en `CHECKING_DOMAIN_INVARIANTS` (**APROBADA por Neo, Nivel 2, 2026-11-27; la 001 no se edita desde la 012**)
 
 **Laguna** (dictamen `/architect` 2026-11-27, `.specify/memory/audits/architect-012-EDGE-044-orden-2026-11-27.md`): `specs/001-pet-health-tracker/spec.md:251` (`STATE-BACKUP-001`) asigna `ERR-BACKUP-REFERENTIAL-INTEGRITY` a «IDs huérfanos, duplicados o ajenos» y propaga «otro código específico» para el resto, y `spec.md:162` devuelve «el primer fallo en orden», pero **no ordena el chip frente a los IDs ajenos**. Un respaldo ajeno con chip ya registrado incumple ambos a la vez.
 
@@ -56,7 +61,7 @@ Se **retiran** de la superficie pública: cualquier mensaje que nombre «la masc
 
 **Alternativa descartada (b):** dejar ganar `ERR-BACKUP-REFERENTIAL-INTEGRITY` y relajar la prueba `co-ownership-parity-012.spec.ts:343-353`: el mensaje de IDs ajenos permitiría a un atacante, con un respaldo fabricado, distinguir «mi chip choca» de «mis IDs chocan» y dejaría al intento fuera del contador uniforme. Se descarta (`architect` dictamen).
 
-**Estado**: propuesta. **Hasta que Neo la firme, la 001 queda intacta**; el orden se rige por la 012 (posterior y específica; `REQ-OWN12-008` (b), `EDGE-012-044`) y la prueba `EDGE-012-044` sigue roja hasta `T1646`.
+**Estado**: **aprobada por Neo (2026-11-27)** y ratificada por este anexo. **La 001 queda intacta** en esta pasada; el orden se rige por la 012 (posterior y específica; `REQ-OWN12-008` (b), `EDGE-012-044`) y la prueba `EDGE-012-044` sigue roja hasta `T1646`.
 
 ## 6. Pruebas exigidas (cierran en `T1634`/`T1646`)
 
@@ -65,5 +70,5 @@ Se **retiran** de la superficie pública: cualquier mensaje que nombre «la masc
 ## 7. Decisiones para Neo
 
 1. **Aprobar** `DRAFT → APPROVED` de este anexo (`ENM-002-MINOR-012-CHIP`).
-2. **Firmar o rechazar** la errata de orden de §5 sobre la 001 (Nivel 2; la 001 solo la edita Neo).
+2. ~~Firmar o rechazar la errata de orden de §5~~ **Firmada por Neo (2026-11-27)**; la edición de texto de la 001, si se desea, la hace solo Neo.
 3. Confirmar que el invitado `INVITED` cuenta como «otra cuenta» para el split (§2, regla 1; decisión derivada de `REQ-CHP12-001`, que solo exime a principal y co-propietario `ACTIVE`).
