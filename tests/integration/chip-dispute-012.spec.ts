@@ -71,9 +71,11 @@ for (const factory of ENGINE_FACTORIES) {
     });
 
     it('[SC-012-098] límites de disputa: una abierta por (usuario, chip) y como máximo MAX_OPEN_DISPUTES_PER_USER = 3 por usuario', async () => {
-      const { e, open } = await setup(factory);
+      const { e, luna, open } = await setup(factory);
       expect(await codeOfChip(open.execute(ANDRES, { microchipId: CHIP_A, evidence: EVIDENCE }))).toBe('OK');
-      expect(await codeOfChip(open.execute(ANDRES, { microchipId: CHIP_A, evidence: EVIDENCE }))).toBe('ERR-CHP12-DISPUTE-LIMIT');
+      // Repetir sobre un chip con disputa propia abierta: 202 uniforme y SIN fila duplicada (H-T1638-01); el 409 queda para el tope propio de 3.
+      expect(await codeOfChip(open.execute(ANDRES, { microchipId: CHIP_A, evidence: EVIDENCE }))).toBe('OK');
+      expect(await openRows(e, luna.id)).toHaveLength(1);
       for (const [i, chip] of ['985112345678903', '985112345678904'].entries()) {
         await new RegisterPetUseCase(e.deps).execute(MARIA, REG(`Pet${i}`, chip));
         expect(await codeOfChip(open.execute(ANDRES, { microchipId: chip, evidence: EVIDENCE }))).toBe('OK');

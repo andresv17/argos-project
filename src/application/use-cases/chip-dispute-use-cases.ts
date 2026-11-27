@@ -85,6 +85,10 @@ export class OpenChipDisputeUseCase {
     try {
       created = await runOwnershipTransaction(deps, async (repositories) => {
         const now = deps.clock.nowIsoTimestamp();
+        const mine = await repositories.ownerRequests.listByRequester(actorUserId);
+        const open = openOnes(mine, now);
+        if (open.length >= MAX_OPEN_DISPUTES_PER_USER) throw new DomainError('ERR-CHP12-DISPUTE-LIMIT'); // tope PROPIO, evaluado ANTES de consultar el chip (no revela su estado)
+        if (open.some((r) => r.chipHmac === anchor)) return false; // repetir sobre un chip con disputa propia abierta: 202 uniforme, sin fila duplicada (H-T1638-01)
         const holder = await repositories.pets.findMicrochipHolder(chip);
         const reserved = await repositories.ownerRequests.hasOpenChipReservation(anchor, now);
         if (holder === null && !reserved) return false; // chip sin mascota ni reserva: 202 idéntico, SIN fila
@@ -96,9 +100,6 @@ export class OpenChipDisputeUseCase {
           const rows = await materializeExpiredInvitations(repositories, await repositories.coOwners.listByPet(holder.petId), now);
           if (ownersOf(state.ownerUserId, rows).includes(actorUserId) || rows.some((r) => r.userId === actorUserId && r.status === 'INVITED')) return false; // nadie congela su propia mascota
         }
-        const mine = await repositories.ownerRequests.listByRequester(actorUserId);
-        const open = openOnes(mine, now);
-        if (open.some((r) => r.chipHmac === anchor) || open.length >= MAX_OPEN_DISPUTES_PER_USER) throw new DomainError('ERR-CHP12-DISPUTE-LIMIT');
         const cooldownStart = addMillis(now, -DISPUTE_REJECTED_COOLDOWN_DAYS * DAY_MS);
         if (mine.some((r) => r.action === 'CHIP_DISPUTE' && r.chipHmac === anchor && r.resolution === 'REJECT' && r.mootReason === null && r.resolvedAt !== null && r.resolvedAt > cooldownStart)) {
           throw new DomainError('ERR-CHP12-DISPUTE-COOLDOWN'); // solo tras REJECT de /admin; EXPIRED y el cierre sin efecto no lo activan (P-1)
