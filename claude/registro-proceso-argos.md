@@ -2666,3 +2666,16 @@
 - [2026-11-27] architect: dictamen EDGE-012-044 -> (a) el codigo esta mal; chip registrado precede a integridad referencial en la importacion (B-2 sigue rojo, keymaker en Bloque B). Ver .specify/memory/audits/architect-012-EDGE-044-orden-2026-11-27.md
 - 2026-11-27 [morpheus] dictamen architect EDGE-012-044: codigo mal, B-2 roja hasta T1646; errata T1631 a Neo. Fixture races en curso.
 - 2026-11-27 [keymaker] fixture races 012 corregido (ids/reloj estables); PG17 races 21/22, queda roja lock_timeout por mascota (src, Bloque B); EDGE-012-044 sigue roja.
+- 2026-11-27 [morpheus] fixture races 28e72ce; gap real src lock mascota PG -> architect dictamen en curso.
+- 2026-11-27 [architect] dictamen lock mascota PG (architect-012-lock-mascota-PG-2026-11-27.md): lock_timeout 3 s sobre el candado global en tx de propiedad, 55P03->ERR-OWN12-RETRYABLE; solo implementacion + errata MINOR de texto opcional (Neo aprueba).
+- 2026-11-27 [morpheus] dictamen lock PG entregado; keymaker a2cc802 en curso.
+- 2026-11-27 [keymaker] lock acotado PG implementado (dictamen architect): races PG17 22/22, EDGE-012-044 sigue roja (B-2); acta pg17-012-lock-acotado-2026-11-27.md.
+- 2026-11-27 /oracle: auditoria 012 28e72ce..HEAD CUMPLE CON RESERVAS (gates rc=0, PG17 races 22/22, parity solo EDGE-012-044 roja); acta .specify/memory/audits/oracle-012-2026-11-27-28e72ce-HEAD.md
+- 2026-11-27 [morpheus] Neo aprueba PG17 1dcc063; errata MINOR + foco T1619 + Bloque B contratos autorizados; push NO.
+- 2026-11-27 [architect] Errata MINOR REQ-OWN12-011/NFR-012-008 + limpieza spec.md 012 (RES1 conservado, 0 revertidos), trazab. rc=0; acta architect-012-errata-MINOR-y-spec-limpieza-2026-11-27.md
+- 2026-11-27 [morpheus] architect errata MINOR lista (3 hunks spec.md); Bloque B DRAFT en despacho.
+- 2026-11-27 keymaker: menores de foco sati T1619 corregidos (1b80b71), tsc/trace rc=0, presentation 981 verdes
+- 2026-11-27 [morpheus] keymaker foco T1619 commit local; oracle en curso sobre foco y errata.
+- 2026-11-27 [oracle] foco T1619 + errata MINOR: CUMPLE CON RESERVAS (foco robado al montar CoOwners); acta oracle-012-2026-11-27-foco-errata-MINOR.md
+- 2026-11-27 [morpheus] oracle foco: robo de foco al montar detectado; keymaker corrige en curso.
+- 2026-11-27 keymaker: reserva 1 oracle-012 resuelta (foco del disparador solo en transicion true->false; CoOwners.tsx + t1617), gates verdes.

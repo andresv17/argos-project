@@ -2602,3 +2602,10 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 ## 2026-11-27 lock acotado PG (dictamen architect 1-5)
 - src: port runInTransaction(options.boundedLockWait), PostgresUnitOfWork SET LOCAL lock_timeout 3000ms + 55P03->ERR-OWN12-RETRYABLE solo en el candado global; helper runOwnershipTransaction en 4 archivos de casos de uso; JSDoc de 2 niveles.
 - tests: unitaria pg-lock-acotado-012; fixtures reenvian options y lectura read-only del principal (spec:26). tsc rc=0, trace rc=0, PG17 races 22/22, parity solo EDGE-012-044 roja (B-2). Acta pg17-012-lock-acotado-2026-11-27.md.
+
+## 2026-11-27 — Menores de foco sati T1619 (1b80b71)
+CoOwners.tsx: efecto adicional devuelve el foco al disparador «Pedir eliminar la mascota» (span ref + querySelector) al cerrar; se conserva el efecto previo para no alterar asertos. PetDashboard.tsx: «Ir a Propietarios» marca foco pendiente y enfoca #owners-title. +2 pruebas de cableado en t1617. Gates: tsc 0, traceability 012 0, presentation 94 archivos/981 verdes.
+
+## 2026-11-27 — reserva 1 oracle-012 (foco al montar CoOwners)
+- CoOwners.tsx: deleteInitRef descarta el montaje; deleteMounted pasa a ser 'confirmacion estuvo abierta' (true al abrir, false tras enfocar el disparador). Cadena literal del aserto previo intacta (no editable).
+- Prueba de cableado añadida en t1617. Gates: tsc 0, traceability 012 0, vitest presentation 982/982 (94 archivos).

@@ -189,6 +189,14 @@ describe('S-07 «Salir de esta mascota» y S-08 confirmación de «Pedir elimina
     expect(src).toMatch(/<span ref=\{deleteTriggerRef\}[^>]*>\s*<Button variant="secondary" disabled=\{busy\} onClick=\{\(\) => setConfirmDelete\(true\)\}>\s*Pedir eliminar la mascota/);
     expect(src).toMatch(/if \(!deleteMounted\.current \|\| confirmDelete\) return;\s*deleteTriggerRef\.current\?\.querySelector\('button'\)\?\.focus\(\)/);
   });
+
+  it('[REQ-OWN12-004] (oracle reserva 1) el foco al disparador solo ocurre en la transición confirmación abierta a cerrada, no en el montaje inicial (WCAG 3.2.1)', () => {
+    // El montaje inicial se descarta con una ref propia; la ref de estado previo solo se arma al abrir la confirmación.
+    expect(src).toMatch(/if \(!deleteInitRef\.current\) \{\s*deleteInitRef\.current = true;\s*return;\s*\}\s*if \(confirmDelete\) deleteMounted\.current = true;/);
+    // Tras enfocar el disparador la ref se desarma: sin apertura previa no hay foco.
+    expect(src).toMatch(/\.focus\(\);\s*deleteMounted\.current = false;/);
+    expect(occurrencesOf(src, 'deleteMounted.current = true')).toBe(1);
+  });
 });
 
 describe('(sati T1619) «Ir a Propietarios» mueve el foco al encabezado del panel', () => {

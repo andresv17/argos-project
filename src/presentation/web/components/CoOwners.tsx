@@ -92,6 +92,8 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
   loadedRef.current = onOwnershipLoaded;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const confirmDeleteRef = useRef<HTMLDivElement>(null);
+  const deleteInitRef = useRef(false);
+  // Recuerda si la confirmación estuvo abierta: el foco al disparador solo ocurre en la transición true → false (WCAG 3.2.1: nada se enfoca al montar).
   const deleteMounted = useRef(false);
   const deleteTriggerRef = useRef<HTMLSpanElement>(null);
   const leaveMounted = useRef(false);
@@ -105,16 +107,18 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
   }, [confirmLeave]);
   // S-08: igual para la confirmación de «Pedir eliminar la mascota»: foco al grupo al abrir y al encabezado al cerrar.
   useEffect(() => {
-    if (!deleteMounted.current) {
-      deleteMounted.current = true;
+    if (!deleteInitRef.current) {
+      deleteInitRef.current = true;
       return;
     }
+    if (confirmDelete) deleteMounted.current = true;
     (confirmDelete ? confirmDeleteRef.current : headingRef.current)?.focus();
   }, [confirmDelete]);
   // WCAG 2.4.3: el disparador «Pedir eliminar la mascota» se remonta al cerrar la confirmación; el foco vuelve a él (no al encabezado). Corre tras el efecto anterior, con el botón ya montado.
   useEffect(() => {
     if (!deleteMounted.current || confirmDelete) return;
     deleteTriggerRef.current?.querySelector('button')?.focus();
+    deleteMounted.current = false;
   }, [confirmDelete]);
 
   const refresh = useCallback(async (): Promise<void> => {
