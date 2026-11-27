@@ -17,7 +17,7 @@ import { CO_OWNER_INVITE_TTL_DAYS, DAY_MS, MAX_CO_OWNERS_PER_PET, OWNER_APPROVAL
 import type { OwnerRequestRecord, PetCoOwnerRecord } from '../ports/co-ownership.port.ts';
 import type { OwnershipState, RepositorySet } from '../ports/repositories.port.ts';
 import { transferPetOwnership } from '../../domain/pet/ownership-transfer.ts';
-import { assertPetNotFrozen, effectiveCoOwnerStatus, materializeExpiredInvitations, materializeExpiredRequests, ownersOf, recordOwnershipAudit, requireOwner, retryable, revokeLinksOfNonOwners, settledRequest } from './co-ownership-support.ts';
+import { assertPetNotFrozen, chargeOwnershipAttempt, effectiveCoOwnerStatus, materializeExpiredInvitations, materializeExpiredRequests, ownersOf, recordOwnershipAudit, requireOwner, retryable, revokeLinksOfNonOwners, settledRequest } from './co-ownership-support.ts';
 import { recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import { deletePetInTransaction } from './pet-use-cases.ts';
@@ -79,6 +79,7 @@ export class CreateOwnerRequestUseCase {
   async execute(actorUserId: string, petId: string, input: unknown): Promise<OwnerRequestView> {
     const body = assertMatchesSchema<CreateOwnerRequest>('CreateOwnerRequest', validateCreateOwnerRequest, input);
     const { deps } = this;
+    await chargeOwnershipAttempt(deps, 'OWNER_REQUEST', actorUserId, async () => petId); // H-10: crear cuenta por intento (429 antes de cualquier efecto)
     return deps.uow.runInTransaction(async (repositories) => {
       await requireOwner(repositories, actorUserId, petId); // autorización antes del bloqueo
       const state = await repositories.pets.findOwnershipForUpdate(petId);
@@ -185,6 +186,11 @@ abstract class VoteOnOwnerRequest {
 
   protected async vote(actorUserId: string, requestId: string, type: OwnerRequestVote['type']): Promise<OwnerRequestView> {
     const { deps } = this;
+    await chargeOwnershipAttempt(deps, 'OWNER_REQUEST', actorUserId, async (repositories) => {
+      const found = await repositories.ownerRequests.findById(requestId);
+      if (found === null || found.petId === null) throw notFound();
+      return found.petId;
+    }); // H-10: aprobar y rechazar cuentan por intento; un tercero recibe el 404 uniforme sin consumir cupo
     const result = await deps.uow.runInTransaction<VoteResult>(async (repositories) => {
       const found = await repositories.ownerRequests.findById(requestId);
       if (found === null || found.petId === null) throw notFound();

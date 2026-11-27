@@ -75,6 +75,18 @@ export async function requireOwner(repositories: RepositorySet, userId: string, 
   return { pet, rows };
 }
 
+/**
+ * Contador por intento de la 012 (B-4; H-02 y H-10) en su propia transacción, que CONFIRMA aunque el intento falle después. Primero autoriza (404 uniforme a terceros: quien no es propietario no
+ * consume cupo ni distingue una mascota inexistente) y después consume el ámbito propio; rechazado con 429 no registra nada (la ventana no se prolonga). No usa el ámbito `INVITE` de los hogares.
+ * El ámbito `OWNER_REQUEST` cuenta por usuario (la tabla `rate_limit_events` no guarda la mascota): el tope diario rige entre todas sus mascotas.
+ */
+export async function chargeOwnershipAttempt(deps: ApplicationDeps, scope: 'CO_OWNER_INVITE' | 'OWNER_REQUEST', actorUserId: string, petIdOf: (repositories: RepositorySet) => Promise<string>): Promise<void> {
+  await deps.uow.runInTransaction(async (repositories) => {
+    await requireOwner(repositories, actorUserId, await petIdOf(repositories));
+    if (!(await deps.rateLimiter.tryConsume(repositories, scope, actorUserId, deps.clock.nowIsoTimestamp()))) throw new DomainError('ERR-RATE-LIMITED');
+  });
+}
+
 /** Estado efectivo de una fila: una `INVITED` vencida se lee `EXPIRED` (vigencia `[invited_at, expires_at)`). */
 export const effectiveCoOwnerStatus = (row: Pick<PetCoOwnerRecord, 'status' | 'expiresAt'>, now: string): CoOwnerStatus => (row.status === 'INVITED' && now >= row.expiresAt ? 'EXPIRED' : row.status);
 

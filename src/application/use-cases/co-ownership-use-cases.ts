@@ -7,12 +7,11 @@
  */
 
 import { DomainError } from '../../generated/v38/index.ts';
-import { DomainError as DomainErrorRoot } from '../../generated/index.ts';
 import { validateInviteCoOwnerRequest, validateLeavePetRequest, type InviteCoOwnerAccepted, type InviteCoOwnerRequest, type LeavePetRequest, type LeavePetResult, type OwnershipState, type PetCoOwner } from '../../generated/v38/index.ts';
 import { isPrincipalOfPet } from '../../domain/access/pet-ownership.ts';
 import { addMillis } from '../../domain/auth/utc-timestamp.ts';
 import { assertRoomForCoOwner, planLeave, requiresJointApproval, sealApproverSet, type LeavePlan } from '../../domain/pet/co-ownership.ts';
-import { CO_OWNER_INVITES_PER_USER_PER_DAY, CO_OWNER_INVITE_TTL_DAYS, DAY_MS, OWNER_APPROVAL_TTL_DAYS } from '../../domain/platform/feature-012-limits.ts';
+import { CO_OWNER_INVITE_TTL_DAYS, DAY_MS, OWNER_APPROVAL_TTL_DAYS } from '../../domain/platform/feature-012-limits.ts';
 import type { PetCoOwnerRecord } from '../ports/co-ownership.port.ts';
 import type { RepositorySet } from '../ports/repositories.port.ts';
 import { recordAssignmentRemoved } from './audit-support.ts';
@@ -26,6 +25,7 @@ import {
   openAbsenceDisputes,
   ownersOf,
   recordOwnershipAudit,
+  chargeOwnershipAttempt,
   requireOwner,
   retryable,
   revokeLinksOfNonOwners,
@@ -35,7 +35,6 @@ import {
 import { assertMatchesSchema, type ApplicationDeps } from './use-case-support.ts';
 
 const notFound = (): DomainError => new DomainError('ERR-PET-NOT-FOUND', undefined, 'petId');
-const RATE_WINDOW_MS = DAY_MS;
 
 /** Normaliza el `username` digitado (NFC, recortado, minúsculas): `Bob` y `bob` dan la misma respuesta (H-11). */
 const normalizeUsername = (value: unknown): unknown => (typeof value === 'string' ? value.normalize('NFC').trim().toLowerCase() : value);
@@ -71,15 +70,8 @@ export class InviteCoOwnerUseCase {
     const normalized = typeof input === 'object' && input !== null ? { ...(input as Record<string, unknown>), username: normalizeUsername((input as Record<string, unknown>)['username']) } : input;
     const { username } = assertMatchesSchema<InviteCoOwnerRequest>('InviteCoOwnerRequest', validateInviteCoOwnerRequest, normalized);
     const { deps } = this;
-    // Transacción 1 (confirma aunque el intento falle después): autorización y contador por intento. Rechazado con 429 no registra nada (la ventana no se prolonga).
-    await deps.uow.runInTransaction(async (repositories) => {
-      await requireOwner(repositories, actorUserId, petId);
-      const now = deps.clock.nowIsoTimestamp();
-      // El contador de la 012 comparte ámbito `INVITE` con las invitaciones de hogar hasta que una migración (Nivel 2) añada el ámbito propio; se evalúa con SUS cifras (5 por día).
-      const used = await repositories.rateLimits.countSince('INVITE', actorUserId, addMillis(now, -RATE_WINDOW_MS));
-      if (used >= CO_OWNER_INVITES_PER_USER_PER_DAY) throw new DomainErrorRoot('ERR-RATE-LIMITED');
-      await deps.rateLimiter.record(repositories, 'INVITE', actorUserId, now);
-    });
+    // Transacción 1 (confirma aunque el intento falle después): autorización y contador por intento del ámbito propio CO_OWNER_INVITE (H-02).
+    await chargeOwnershipAttempt(deps, 'CO_OWNER_INVITE', actorUserId, async () => petId);
     return deps.uow.runInTransaction(async (repositories) => {
       await requireOwner(repositories, actorUserId, petId);
       const state = await repositories.pets.findOwnershipForUpdate(petId);

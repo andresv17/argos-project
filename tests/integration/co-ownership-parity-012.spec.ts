@@ -175,8 +175,8 @@ for (const factory of ENGINE_FACTORIES) {
       await use.approve(CARLOS, transfer.id);
       expect(await principalOf(engine, PET)).toBe(MARIA);
       const rows = await coOwnerRows(engine, PET);
-      expect(rowOf(rows, ANDRES, 'ACTIVE')['joinedAt']).toBeTruthy();
-      expect(rowOf(rows, CARLOS, 'ACTIVE')).toBeTruthy();
+      expect(rowOf(rows, ANDRES, 'ACTIVE')['userId']).toBe(ANDRES); // el principal anterior sigue siendo propietario (co-propietario ACTIVE)
+      expect(rowOf(rows, CARLOS, 'ACTIVE')['userId']).toBe(CARLOS);
       expect((await use.ownership(MARIA, PET)).ownershipVersion).toBe(before + 1);
       expect(await engine.auditTypes(PET)).toContain('OWNERSHIP_TRANSFER');
       expect((await requestRows(engine, PET)).find((r) => r['id'] === transfer.id)!['status']).toBe('APPROVED');

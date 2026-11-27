@@ -146,7 +146,8 @@ export interface ConfirmationTokenRepositoryPort {
   deleteForUser(userId: string): Promise<void>;
 }
 
-export type RateLimitScope = 'EXPORT' | 'INVITE' | 'MICROCHIP_DUPLICATE';
+/** `CO_OWNER_INVITE` y `OWNER_REQUEST`: ámbitos propios de la co-propiedad (012, B-4; migraciones 0035 SQLite / 0031 PostgreSQL). */
+export type RateLimitScope = 'EXPORT' | 'INVITE' | 'MICROCHIP_DUPLICATE' | 'CO_OWNER_INVITE' | 'OWNER_REQUEST';
 
 export interface RateLimitEvent {
   readonly id: string;

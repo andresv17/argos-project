@@ -11,13 +11,22 @@ import type { IdGeneratorPort } from '../../application/ports/id-generator.port.
 import type { RateLimitScope, RateLimiterPort } from '../../application/ports/rate-limiter.port.ts';
 import type { RepositorySet } from '../../application/ports/repositories.port.ts';
 import { addMillis } from '../../domain/auth/utc-timestamp.ts';
+import { CO_OWNER_INVITES_PER_USER_PER_DAY, OWNER_REQUESTS_PER_USER_PER_PET_PER_DAY } from '../../domain/platform/feature-012-limits.ts';
 import type { AppConfig } from '../config/app-config.ts';
 
 export interface RateLimit {
   readonly maxPerWindow: number;
   readonly windowMinutes: number;
 }
-export type RateLimits = Readonly<Record<RateLimitScope, RateLimit>>;
+/** Los ámbitos de la 012 son opcionales: sin entrada rigen las constantes de `feature-012-limits.ts` (no dependen de `app-config.ts`, tocado por H-01). */
+type CoOwnershipScope = 'CO_OWNER_INVITE' | 'OWNER_REQUEST';
+export type RateLimits = Readonly<Record<Exclude<RateLimitScope, CoOwnershipScope>, RateLimit>> & Readonly<Partial<Record<CoOwnershipScope, RateLimit>>>;
+
+/** H-02: intentos de invitación por invitador y día; H-10: solicitudes críticas (crear, aprobar, rechazar) por usuario y día. */
+const CO_OWNERSHIP_LIMITS: Readonly<Record<CoOwnershipScope, RateLimit>> = {
+  CO_OWNER_INVITE: { maxPerWindow: CO_OWNER_INVITES_PER_USER_PER_DAY, windowMinutes: 1440 },
+  OWNER_REQUEST: { maxPerWindow: OWNER_REQUESTS_PER_USER_PER_PET_PER_DAY, windowMinutes: 1440 },
+};
 
 /** Límites de la configuración validada (EXPORT_*, INVITE_* y MICROCHIP_DUPLICATE_*). @implements INV-ARCH-006 */
 export const rateLimitsFrom = (
@@ -46,7 +55,7 @@ export class SlidingWindowRateLimiterAdapter implements RateLimiterPort {
 
   /** @implements REQ-PET4-002 */
   async isExhausted(repositories: RepositorySet, scope: RateLimitScope, userId: string, nowIsoTimestamp: string): Promise<boolean> {
-    const { maxPerWindow, windowMinutes } = this.limits[scope];
+    const { maxPerWindow, windowMinutes } = this.limits[scope] ?? CO_OWNERSHIP_LIMITS[scope as CoOwnershipScope];
     const windowStart = addMillis(nowIsoTimestamp, -windowMinutes * 60_000);
     return (await repositories.rateLimits.countSince(scope, userId, windowStart)) >= maxPerWindow;
   }
