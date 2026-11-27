@@ -4,7 +4,7 @@
  * acciones críticas (eliminar la mascota o cambiar de principal) y reconocer el aviso «Ahora eres propietario principal». La bandeja lista las invitaciones recibidas y las solicitudes propias o
  * por decidir. La decisión la toma la API (404 uniforme a terceros); la UI solo ofrece lo que la API permite y traduce sus códigos a texto.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CoOwnershipApiError,
   createCoOwnershipApi,
@@ -15,7 +15,7 @@ import {
   type OwnerRequestItem,
   type OwnershipView,
 } from '../co-ownership-api.ts';
-import { Button, FormError } from './Field.tsx';
+import { Button } from './Field.tsx';
 
 const messageOf = (error: unknown): string => ownershipProblemMessage(error instanceof CoOwnershipApiError ? error.code : 'ERR-INTERNAL-UNEXPECTED');
 
@@ -36,17 +36,30 @@ const STATUS_LABEL: Readonly<Record<string, string>> = {
   UNDER_REVIEW: 'En revisión',
   RESOLVED: 'Resuelta',
 };
+/** Región live persistente (montada vacía y luego llenada): WCAG 4.1.3. */
+function LiveRegions({ error, notice }: { readonly error: string | null; readonly notice: string | null }): JSX.Element {
+  return (
+    <>
+      <div role="alert">
+        {error === null ? null : <p className="rounded-2xl border border-danger bg-red-50 px-4 py-3 text-sm text-red-900">{error}</p>}
+      </div>
+      <div role="status" aria-live="polite">
+        {notice === null ? null : <p className="rounded-2xl border border-primary bg-meadow px-4 py-3 text-sm text-slate-900">{notice}</p>}
+      </div>
+    </>
+  );
+}
 const dateOf = (iso: string): string => iso.slice(0, 10);
 
 /** Propietarios de la mascota con su estado (texto, no solo color). */
 function OwnersList({ ownership }: { readonly ownership: OwnershipView }): JSX.Element {
   return (
     <ul className="grid min-w-0 gap-2" aria-label="Propietarios">
-      <li className="rounded-xl border border-slate-200 p-3 text-sm text-slate-900">
+      <li className="rounded-xl border border-border-strong p-3 text-sm text-slate-900">
         <span className="font-semibold">@{ownership.principal.username}</span> · Propietario principal
       </li>
       {ownership.coOwners.map((row) => (
-        <li key={row.id} className="rounded-xl border border-slate-200 p-3 text-sm text-slate-900">
+        <li key={row.id} className="rounded-xl border border-border-strong p-3 text-sm text-slate-900">
           <span className="font-semibold">@{row.username}</span> · {row.status === 'INVITED' ? `Invitación pendiente (vence ${dateOf(row.expiresAt)})` : 'Co-propietario'}
         </li>
       ))}
@@ -69,6 +82,17 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const confirmRef = useRef<HTMLDivElement>(null);
+  const leaveMounted = useRef(false);
+  // WCAG 2.4.3: al abrir o cerrar la confirmación de salida el botón pulsado se desmonta; el foco pasa a un elemento estable.
+  useEffect(() => {
+    if (!leaveMounted.current) {
+      leaveMounted.current = true;
+      return;
+    }
+    (confirmLeave ? confirmRef.current : headingRef.current)?.focus();
+  }, [confirmLeave]);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -102,21 +126,16 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
 
   return (
     <section aria-labelledby="owners-title" className="grid min-w-0 gap-4">
-      <h3 id="owners-title" className="text-base font-semibold text-slate-900">
+      <h3 id="owners-title" ref={headingRef} tabIndex={-1} className="text-base font-semibold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
         Propietarios de {petName}
       </h3>
-      <FormError message={error} />
-      {notice === null ? null : (
-        <p role="status" className="rounded-2xl border border-primary bg-meadow px-4 py-3 text-sm text-slate-900">
-          {notice}
-        </p>
-      )}
+      <LiveRegions error={error} notice={notice} />
       {ownership === null ? (
         <p className="text-sm text-slate-700">Cargando propietarios…</p>
       ) : (
         <>
           {ownership.promotionNotice.pending ? (
-            <div role="status" className="grid gap-2 rounded-xl border border-primary bg-meadow p-3">
+            <div className="grid gap-2 rounded-xl border border-primary bg-meadow p-3">
               <p className="text-sm font-semibold text-slate-900">Ahora eres propietario principal de {petName}.</p>
               <div>
                 <Button variant="secondary" disabled={busy} onClick={() => void run(async () => { await api.ackPromotion(petId); return null; })}>
@@ -151,11 +170,11 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
               autoComplete="off"
               maxLength={32}
               aria-describedby="owners-invite-help"
-              className="min-h-12 rounded-xl border border-slate-300 px-3 text-sm text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota"
+              className="min-h-12 rounded-xl border border-border-strong bg-white px-3 text-sm text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota"
             />
             <p id="owners-invite-help" className="text-sm text-slate-700">{`Una mascota admite hasta 3 propietarios, contando las invitaciones pendientes (hoy: ${slotsUsed}). Con más de un propietario, las acciones críticas necesitan la aprobación de todos.`}</p>
             <div>
-              <Button type="submit" disabled={busy || username.trim() === '' || slotsUsed >= 3}>
+              <Button type="submit" describedBy="owners-invite-help" disabled={busy || username.trim() === '' || slotsUsed >= 3}>
                 Enviar invitación
               </Button>
             </div>
@@ -165,14 +184,14 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
               {ownership.coOwners
                 .filter((r) => r.status === 'INVITED')
                 .map((row) => (
-                  <Button key={row.id} variant="secondary" disabled={busy} ariaLabel={`Cancelar la invitación a @${row.username}`} onClick={() => void run(async () => { await api.cancelInvitation(petId, row.id); return 'Invitación cancelada.'; })}>
+                  <Button key={row.id} variant="secondary" disabled={busy} ariaLabel={`Cancelar la invitación a @${row.username}`} onClick={() => void run(async () => { await api.cancelInvitation(petId, row.id); return 'Invitación cancelada.'; }, () => headingRef.current?.focus())}>
                     {`Cancelar invitación a @${row.username}`}
                   </Button>
                 ))}
             </div>
           ) : null}
           {coOwnersActive.length > 0 ? (
-            <div className="grid min-w-0 gap-2 rounded-xl border border-slate-200 p-3">
+            <div className="grid min-w-0 gap-2 rounded-xl border border-border-strong p-3">
               <p className="text-sm font-semibold text-slate-900">Acciones que necesitan la aprobación de los demás propietarios</p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" disabled={busy} onClick={() => void run(async () => { await api.createRequest(petId, { action: 'DELETE_PET' }); return 'Pediste eliminar la mascota. Los demás propietarios deben aprobarlo (vence en 7 días).'; })}>
@@ -190,7 +209,7 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
           ) : null}
           <div className="grid gap-2">
             {confirmLeave ? (
-              <div className="grid gap-2 rounded-xl border border-danger bg-red-50 p-3">
+              <div ref={confirmRef} tabIndex={-1} role="group" aria-label="Confirmar la salida" className="grid gap-2 rounded-xl border border-danger bg-red-50 p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
                 <p className="text-sm font-semibold text-red-900">
                   {isPrincipal ? 'Vas a salir como propietario principal: el principal pasa al co-propietario más antiguo.' : 'Vas a dejar de ser propietario de esta mascota.'}
                 </p>
@@ -220,7 +239,7 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, api = cr
 function RequestRow({ item, busy, onApprove, onReject, onCancel }: { readonly item: OwnerRequestItem; readonly busy: boolean; readonly onApprove: () => void; readonly onReject: () => void; readonly onCancel: () => void }): JSX.Element {
   const mine = item.role === 'REQUESTER';
   return (
-    <li className="grid min-w-0 gap-2 rounded-xl border border-slate-200 p-3">
+    <li className="grid min-w-0 gap-2 rounded-xl border border-border-strong p-3">
       <p className="min-w-0 break-words text-sm text-slate-900">
         <span className="font-semibold">{ACTION_LABEL[item.action]}</span>
         {item.petName === undefined || item.petName === null ? '' : ` · ${item.petName}`}
@@ -252,6 +271,8 @@ export function OwnershipInbox({ onChanged, api = createCoOwnershipApi() }: { re
   const [requests, setRequests] = useState<OwnerRequestItem[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [announce, setAnnounce] = useState<string | null>(null);
+  const inboxHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -266,12 +287,16 @@ export function OwnershipInbox({ onChanged, api = createCoOwnershipApi() }: { re
     void refresh();
   }, [refresh]);
 
-  const run = async (work: () => Promise<void>): Promise<void> => {
+  const run = async (work: () => Promise<unknown>, done: string): Promise<void> => {
     setBusy(true);
     setError(null);
+    setAnnounce(null);
     try {
       await work();
       await refresh();
+      // El botón pulsado desaparece con su fila: el foco pasa al encabezado de la bandeja (WCAG 2.4.3) y la región live lo anuncia (4.1.3).
+      inboxHeadingRef.current?.focus();
+      setAnnounce(done);
       onChanged?.();
     } catch (e) {
       setError(messageOf(e));
@@ -280,21 +305,29 @@ export function OwnershipInbox({ onChanged, api = createCoOwnershipApi() }: { re
     }
   };
 
-  if (error === null && (invitations?.length ?? 0) === 0 && (requests?.length ?? 0) === 0) return null;
+  const empty = error === null && (invitations?.length ?? 0) === 0 && (requests?.length ?? 0) === 0;
+  const live = (
+    <div role="status" aria-live="polite" className="sr-only">
+      {announce}
+    </div>
+  );
+  if (empty) return live;
   return (
-    <section aria-labelledby="ownership-inbox-title" className="grid min-w-0 gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-      <h2 id="ownership-inbox-title" className="text-base font-semibold text-slate-900">
+    <>
+    {live}
+    <section aria-labelledby="ownership-inbox-title" className="grid min-w-0 gap-3 rounded-2xl border border-border-strong bg-white p-4">
+      <h2 id="ownership-inbox-title" ref={inboxHeadingRef} tabIndex={-1} className="text-base font-semibold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
         Invitaciones y solicitudes de propiedad
       </h2>
-      <FormError message={error} />
+      <div role="alert">{error === null ? null : <p className="rounded-2xl border border-danger bg-red-50 px-4 py-3 text-sm text-red-900">{error}</p>}</div>
       {(invitations?.length ?? 0) > 0 ? (
         <ul className="grid min-w-0 gap-2" aria-label="Invitaciones recibidas">
           {invitations!.map((inv) => (
-            <li key={inv.coOwnerId} className="grid min-w-0 gap-2 rounded-xl border border-slate-200 p-3">
+            <li key={inv.coOwnerId} className="grid min-w-0 gap-2 rounded-xl border border-border-strong p-3">
               <p className="min-w-0 break-words text-sm text-slate-900">{`@${inv.invitedByUsername} te invita a ser propietario de ${inv.petName} (vence ${dateOf(inv.expiresAt)}).`}</p>
               <div className="flex flex-wrap gap-2">
-                <Button disabled={busy} ariaLabel={`Aceptar la invitación para ${inv.petName}`} onClick={() => void run(() => api.acceptInvitation(inv.coOwnerId))}>Aceptar</Button>
-                <Button variant="secondary" disabled={busy} ariaLabel={`Rechazar la invitación para ${inv.petName}`} onClick={() => void run(() => api.declineInvitation(inv.coOwnerId))}>Rechazar</Button>
+                <Button disabled={busy} ariaLabel={`Aceptar la invitación para ${inv.petName}`} onClick={() => void run(() => api.acceptInvitation(inv.coOwnerId), 'Invitación aceptada.')}>Aceptar</Button>
+                <Button variant="secondary" disabled={busy} ariaLabel={`Rechazar la invitación para ${inv.petName}`} onClick={() => void run(() => api.declineInvitation(inv.coOwnerId), 'Invitación rechazada.')}>Rechazar</Button>
               </div>
             </li>
           ))}
@@ -307,13 +340,14 @@ export function OwnershipInbox({ onChanged, api = createCoOwnershipApi() }: { re
               key={item.id}
               item={item}
               busy={busy}
-              onApprove={() => void run(async () => { await api.approve(item.id); })}
-              onReject={() => void run(async () => { await api.reject(item.id); })}
-              onCancel={() => void run(() => api.cancelRequest(item.id))}
+              onApprove={() => void run(async () => { await api.approve(item.id); }, 'Solicitud aprobada.')}
+              onReject={() => void run(async () => { await api.reject(item.id); }, 'Solicitud rechazada.')}
+              onCancel={() => void run(() => api.cancelRequest(item.id), 'Solicitud cancelada.')}
             />
           ))}
         </ul>
       ) : null}
     </section>
+    </>
   );
 }

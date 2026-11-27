@@ -60,6 +60,7 @@ describe('T1617 panel «Propietarios» y bandeja', () => {
     expect(panel).toContain('aria-labelledby="owners-title"');
     expect(panel).toContain('Propietarios de Argos');
     expect(panel).toContain('Cargando propietarios');
-    expect(renderToStaticMarkup(h(OwnershipInbox, {}))).toBe('');
+    // Solo queda la región live vacía y oculta (WCAG 4.1.3): sin sección ni encabezado visibles.
+    expect(renderToStaticMarkup(h(OwnershipInbox, {}))).toBe('<div role="status" aria-live="polite" class="sr-only"></div>');
   });
 });
