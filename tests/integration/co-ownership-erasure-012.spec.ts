@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { CreateShareLinkUseCase } from '../../src/application/use-cases/share-link-use-cases.ts';
 import { GetSharedSummaryUseCase } from '../../src/application/use-cases/shared-view-use-cases.ts';
-import { ANDRES, ENGINE_FACTORIES, MARIA, NOW, PET, allRequestRows, cases, codeOf, makeCoOwners, unshare, type Engine012 } from '../fixtures/co-ownership-012.ts';
-import { KEY } from '../fixtures/share-harness.ts';
+import { ANDRES, CARLOS, ENGINE_FACTORIES, MARIA, NOW, PET, allRequestRows, cases, codeOf, makeCoOwners, unshare, type Engine012 } from '../fixtures/co-ownership-012.ts';
+import { HOUSEHOLD_ID, KEY } from '../fixtures/share-harness.ts';
 
 /**
  * T1622 (Feature 012, Bloque A, #22; `/keymaker`): `eraseAccountInTransaction` con co-propiedad sobre memoria, SQLite y PostgreSQL (se OMITE sin `TEST_DATABASE_URL`): sucesión del principal, `LEFT` del co-propietario,
@@ -77,6 +77,35 @@ for (const factory of ENGINE_FACTORIES) {
       expect(rows[0]).toMatchObject({ status: 'LEFT', userId: null, userPseudonym: pseudonym });
       expect(JSON.stringify(rows)).not.toContain(MARIA);
       expect((await engine.run((r) => r.pets.findById(PET)))?.ownerUserId).toBe(ANDRES);
+    });
+
+    it('[SC-012-076][NFR-012-009] ninguna columna de usuario del Bloque A conserva el ID de la cuenta suprimida: pet_co_owners, owner_requests (incl. rejected_by, resolved_by, second_approver, approver_set, approvals), pet_assignments y share_links', async () => {
+      engine = await factory.make();
+      const use = cases(engine.deps);
+      await unshare(engine.deps);
+      await makeCoOwners(engine, [MARIA, CARLOS]);
+      engine.setNow(NOW);
+      await use.request(CARLOS, PET, { action: 'DELETE_PET' }); // CARLOS solicitante; aprobadores sellados [ANDRES, MARIA]
+      await engine.run(async (r) => {
+        await r.assignments.save({ petId: PET, householdId: HOUSEHOLD_ID, assignedByUserId: CARLOS, assignedAt: NOW });
+        await r.ownerRequests.insert({
+          id: '92000000-0000-4000-8000-000000000001', action: 'CHANGE_PRINCIPAL', petId: PET, petVersion: 1, requesterUserId: CARLOS, requesterPseudonym: null, targetUserId: CARLOS, targetUsernameSealed: null, targetResponse: null, triggerRequestIds: null,
+          status: 'REJECTED', approverSet: [ANDRES, CARLOS], approvals: [{ u: CARLOS, at: NOW }], rejectedBy: CARLOS, rejectedByPseudonym: null, message: null, createdAt: NOW, expiresAt: NOW, decidedAt: NOW, staleReason: null,
+          disputeReason: null, chipLast4: null, chipHmac: null, frozenUntil: null, freezeExtendedAt: null, slaDueAt: null, escalatedAt: null, resolvedAt: null, resolution: null, mootReason: null, resolvedByUserId: CARLOS, secondApproverUserId: CARLOS, executesAfter: null, version: 1,
+        });
+      });
+      if (engine.sharing) await new CreateShareLinkUseCase(engine.deps).execute(CARLOS, { scope: 'PET', petId: PET }, KEY(3), { expiresInDays: 7 });
+      expect(await codeOf(use.erase(CARLOS))).toBe('OK');
+      const everything = JSON.stringify([
+        await engine.run((r) => r.coOwners.listByPet(PET)),
+        await allRequestRows(engine),
+        await engine.run((r) => r.assignments.listByPet(PET)),
+        engine.sharing ? await linksOf(engine) : [],
+      ]);
+      expect(everything).not.toContain(CARLOS);
+      const pseudonym = engine.deps.auditPseudonym.hmacUserId(CARLOS, engine.deps.auditHmacSecret);
+      const stored = (await allRequestRows(engine)).find((r) => r['id'] === '92000000-0000-4000-8000-000000000001')!;
+      expect(stored).toMatchObject({ requesterUserId: null, targetUserId: null, rejectedBy: null, resolvedByUserId: null, secondApproverUserId: null, requesterPseudonym: pseudonym, rejectedByPseudonym: pseudonym });
     });
   });
 }

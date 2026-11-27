@@ -7,6 +7,7 @@
  */
 
 import { RECONCILED_PREFIXES, isMediaObjectKey, reconciliationAgeMinutes } from '../../domain/media/index.ts';
+import { OWNERSHIP_TERMINAL_RETENTION_DAYS } from '../../domain/platform/feature-012-limits.ts';
 import { retentionCutoffs } from '../../domain/sharing/share-link.ts';
 import { monthlyAnniversary, parseIsoCalendarDate, shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
 import type { MaintenanceCounts, MaintenanceCutoffs } from '../ports/unit-of-work.port.ts';
@@ -214,6 +215,56 @@ export async function purgeDelegateData(deps: Pick<ApplicationDeps, 'uow' | 'clo
   }
 }
 
+/** Conteos de la purga de co-propiedad: solo números, nunca identificadores. */
+export interface OwnershipMaintenanceResult {
+  readonly coOwnersPurged: number;
+  readonly requestsPurged: number;
+}
+
+const NO_OWNERSHIP_PURGE: OwnershipMaintenanceResult = { coOwnersPurged: 0, requestsPurged: 0 };
+
+/**
+ * Purga diaria de co-propiedad (feature 012, NFR-012-009, T1623; patrón de `purgeDelegateData`, sin job nuevo): filas terminales de `pet_co_owners` y solicitudes de `owner_requests` terminales (`APPROVED`,
+ * `REJECTED`, `EXPIRED`, `CANCELLED`, o `PENDING` ya vencida) con más de `OWNERSHIP_TERMINAL_RETENTION_DAYS` = 90 días desde su decisión, y las disputas por ausencia resueltas con más de
+ * `DISPUTE_ABSENCE_RETENTION_DAYS` = 90 días desde su `RESOLVED`/`EXPIRED`. **H-08 de `trinity` T1612 (`P-2`)**: la purga EXCLUYE toda solicitud referenciada por `trigger_request_ids` de una disputa no terminal, y la
+ * retención de la solicitud sellada cuenta desde el `RESOLVED`/`EXPIRED` de la disputa (`TRIGGER_LOST` nunca puede originarse en la purga). Las disputas de apropiación de chip (365 días con evidencia) las purga el Bloque #23.
+ * Una transacción; no escribe auditoría ni registra identificadores. Nunca lanza: la siguiente pasada lo reintenta.
+ * @implements NFR-012-009, REQ-OWN12-009, REQ-CHP12-008
+ */
+export async function purgeOwnershipData(deps: Pick<ApplicationDeps, 'uow' | 'clock'>): Promise<OwnershipMaintenanceResult> {
+  try {
+    const now = deps.clock.nowIsoTimestamp();
+    const cutoff = shiftIsoTimestamp(now, -OWNERSHIP_TERMINAL_RETENTION_DAYS * DAY_MS);
+    return await deps.uow.runInTransaction(async (r) => {
+      const coOwnersPurged = await r.coOwners.purgeTerminalBefore(cutoff);
+      const requests = await r.ownerRequests.listAll();
+      const NON_TERMINAL_DISPUTE = new Set(['PENDING', 'UNDER_REVIEW']);
+      const terminalDate = (request: (typeof requests)[number]): string => request.resolvedAt ?? request.decidedAt ?? request.expiresAt;
+      // Solicitudes selladas por una disputa: protegidas mientras la disputa siga viva; después, 90 días desde que ella terminó.
+      const retainedUntil = new Map<string, string>();
+      for (const dispute of requests.filter((x) => x.action === 'CHIP_DISPUTE' && x.triggerRequestIds !== null)) {
+        const stamp = NON_TERMINAL_DISPUTE.has(dispute.status) ? '9999-12-31T23:59:59.999Z' : terminalDate(dispute);
+        for (const id of dispute.triggerRequestIds ?? []) if ((retainedUntil.get(id) ?? '') < stamp) retainedUntil.set(id, stamp);
+      }
+      const TERMINAL = new Set(['APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED', 'RESOLVED']);
+      const doomed = requests
+        .filter((x) => {
+          if (x.action === 'CHIP_DISPUTE') return x.disputeReason !== 'CHIP_APPROPRIATION' && TERMINAL.has(x.status) && terminalDate(x) < cutoff;
+          if (x.action === 'CLAIM_CO_OWNERSHIP') return false; // las reclamaciones llegan con el Bloque #23 (T1630)
+          const terminal = TERMINAL.has(x.status) || (x.status === 'PENDING' && x.expiresAt < now);
+          if (!terminal) return false;
+          const reference = retainedUntil.get(x.id);
+          const effective = reference !== undefined && reference > terminalDate(x) ? reference : terminalDate(x);
+          return effective < cutoff;
+        })
+        .map((x) => x.id);
+      return { coOwnersPurged, requestsPurged: await r.ownerRequests.deleteByIds(doomed) };
+    });
+  } catch {
+    return NO_OWNERSHIP_PURGE;
+  }
+}
+
 /**
  * Ejecuta una pasada de mantenimiento con el reloj de la aplicación; sin almacenamiento con purga devuelve ceros. Con medios conectados recorre también
  * la cola de borrado y entrega su resultado a `onMediaQueue` (la respuesta de `/internal/maintenance` conserva sus 5 conteos).
@@ -227,6 +278,7 @@ export async function runMaintenance(
   await purgeShareData(deps);
   await purgeSceneData(deps);
   await purgeDelegateData(deps);
+  await purgeOwnershipData(deps);
   if (deps.uow.purgeExpired === undefined) return NO_PURGE;
   return deps.uow.purgeExpired(maintenanceCutoffs(deps.clock.nowIsoTimestamp()));
 }
