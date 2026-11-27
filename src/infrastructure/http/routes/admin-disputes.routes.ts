@@ -66,6 +66,26 @@ export function registerAdminDisputeRoutes(app: FastifyInstance, { useCases }: R
     }
   };
 
+  /** Reserva el grant, ejecuta y lo consume solo si el caso de uso termina; un fallo (409, etc.) lo libera para no quemarlo (T-02). */
+  const withGrant = async <T>(grantId: string, expected: { adminId: string; disputeId: string; action: 'resolve' | 'confirm' }, work: () => Promise<T>): Promise<T> => {
+    stepUps.claim(grantId, expected, useCases.nowIso());
+    try {
+      const result = await work();
+      stepUps.finish(grantId);
+      return result;
+    } catch (error) {
+      stepUps.release(grantId);
+      throw error;
+    }
+  };
+
+  /** Origen ajeno en una mutación de disputa: 403 genérico antes de leer el cuerpo ni tocar el caso (S-01). */
+  const foreign = (request: FastifyRequest, reply: FastifyReply): boolean => {
+    if (!hasForeignOrigin(request)) return false;
+    forbidden(request, reply);
+    return true;
+  };
+
   type Params = { Params: { disputeId: string } };
   const disputeId = (request: FastifyRequest<Params>): string => requireId(request.params.disputeId, 'disputeId');
 
@@ -82,6 +102,7 @@ export function registerAdminDisputeRoutes(app: FastifyInstance, { useCases }: R
   });
 
   app.post<Params & { Body: unknown }>('/api/admin/disputes/:disputeId/extend-freeze', async (request, reply) => {
+    if (foreign(request, reply)) return reply;
     const id = disputeId(request);
     const reason = requireReason(strictBody(request.body, ['reason'])['reason']);
     return guarded(request, reply, async (actor) => useCases.adminDisputeFile(actor, await useCases.adminExtendDisputeFreeze.execute(actor, id, { reason })));
@@ -107,6 +128,7 @@ export function registerAdminDisputeRoutes(app: FastifyInstance, { useCases }: R
   });
 
   app.post<Params & { Body: unknown }>('/api/admin/disputes/:disputeId/resolve', async (request, reply) => {
+    if (foreign(request, reply)) return reply;
     const id = disputeId(request);
     const body = strictBody(request.body, ['resolution', 'reason', 'stepUpGrantId', 'executionMode']);
     const resolution = body['resolution'];
@@ -116,29 +138,32 @@ export function registerAdminDisputeRoutes(app: FastifyInstance, { useCases }: R
     const reason = requireReason(body['reason']);
     const grantId = requireId(body['stepUpGrantId'], 'stepUpGrantId');
     return guarded(request, reply, async (actor) => {
-      stepUps.consume(grantId, { adminId: actor.adminId, disputeId: id, action: 'resolve' }, useCases.nowIso());
-      return useCases.adminDisputeFile(actor, await useCases.adminResolveDispute.execute(actor, id, { resolution, reason, ...(mode === undefined ? {} : { executionMode: mode }) }));
+      return withGrant(grantId, { adminId: actor.adminId, disputeId: id, action: 'resolve' }, async () =>
+        useCases.adminDisputeFile(actor, await useCases.adminResolveDispute.execute(actor, id, { resolution, reason, ...(mode === undefined ? {} : { executionMode: mode }) })),
+      );
     });
   });
 
   app.post<Params & { Body: unknown }>('/api/admin/disputes/:disputeId/confirm', async (request, reply) => {
+    if (foreign(request, reply)) return reply;
     const id = disputeId(request);
     const body = strictBody(request.body, ['reason', 'stepUpGrantId']);
     const reason = requireReason(body['reason']);
     const grantId = requireId(body['stepUpGrantId'], 'stepUpGrantId');
     return guarded(request, reply, async (actor) => {
-      stepUps.consume(grantId, { adminId: actor.adminId, disputeId: id, action: 'confirm' }, useCases.nowIso());
-      return useCases.adminDisputeFile(actor, await useCases.adminConfirmDispute.execute(actor, id, { reason }));
+      return withGrant(grantId, { adminId: actor.adminId, disputeId: id, action: 'confirm' }, async () => useCases.adminDisputeFile(actor, await useCases.adminConfirmDispute.execute(actor, id, { reason })));
     });
   });
 
   app.post<Params & { Body: unknown }>('/api/admin/disputes/:disputeId/cancel-execution', async (request, reply) => {
+    if (foreign(request, reply)) return reply;
     const id = disputeId(request);
     const reason = requireReason(strictBody(request.body, ['reason'])['reason']);
     return guarded(request, reply, async (actor) => useCases.adminDisputeFile(actor, await useCases.adminCancelDisputeExecution.execute(actor, id, { reason })));
   });
 
   app.post<Params & { Body: unknown }>('/api/admin/disputes/:disputeId/close-moot', async (request, reply) => {
+    if (foreign(request, reply)) return reply;
     const id = disputeId(request);
     const mootReason = strictBody(request.body, ['mootReason'])['mootReason'];
     if (typeof mootReason !== 'string' || !['TARGET_LEFT', 'TARGET_NOT_ACTIVE', 'REQUESTER_NOT_ACTIVE', 'TRIGGER_LOST', 'PET_GONE'].includes(mootReason)) throw invalid('mootReason');

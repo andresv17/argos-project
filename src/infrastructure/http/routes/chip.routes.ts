@@ -14,6 +14,7 @@ import { DomainError } from '../../../generated/index.ts';
 import { DomainError as DomainErrorV31 } from '../../../generated/v31/index.ts';
 import { CHIP_DISPUTE_BODY_MAX_BYTES } from '../../../domain/platform/feature-012-limits.ts';
 import type { ChipRequestItem } from '../../../application/use-cases/chip-claim-use-cases.ts';
+import { hasForeignOrigin } from './admin.routes.ts';
 import { multipartBoundary, parseDisputeForm } from '../multipart-form.ts';
 import { PROBLEM_CONTENT_TYPE, requestPath } from '../plugins/problem-details.ts';
 import { jsonBody } from '../request-input.ts';
@@ -70,7 +71,12 @@ export function registerChipRoutes(app: FastifyInstance, { useCases }: RouteCont
     return undefined;
   };
 
-  app.post('/api/chip-disputes', { onRequest: [onRequest, gate], bodyLimit: CHIP_DISPUTE_BODY_MAX_BYTES }, async (request, reply) => {
+  // Origen ajeno en la apertura de disputa: 403 `ERR-AUTH-CSRF-REJECTED` tras la sesión y ANTES de leer cabeceras multipart o cuerpo, sin contar (S-01).
+  const ownOrigin = async (request: FastifyRequest): Promise<void> => {
+    if (hasForeignOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
+  };
+
+  app.post('/api/chip-disputes', { onRequest: [onRequest, ownOrigin, gate], bodyLimit: CHIP_DISPUTE_BODY_MAX_BYTES }, async (request, reply) => {
     const boundary = multipartBoundary(request.headers['content-type'])!;
     const body = request.body instanceof Uint8Array ? request.body : new Uint8Array();
     const form = parseDisputeForm(body, boundary);
