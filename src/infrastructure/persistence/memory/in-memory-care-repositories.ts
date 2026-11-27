@@ -49,6 +49,14 @@ export function memoryCareRoutineRepository(state: CareMemoryState): CareRoutine
     async countActive(petId) {
       return rows().filter((r) => r.petId === petId && r.active).length;
     },
+    async purgeInactiveBefore(before) {
+      const referenced = new Set(rows().map((r) => r.supersedesRoutineId).filter((id) => id !== null));
+      const doomed = new Set(rows().filter((r) => !r.active && r.updatedAt < before && !referenced.has(r.id)).map((r) => r.id));
+      state.careRoutines = rows().filter((r) => !doomed.has(r.id));
+      // ON DELETE CASCADE: los registros de la rutina salen con ella.
+      state.careLog = (state.careLog ?? []).filter((e) => !doomed.has(e.routineId));
+      return doomed.size;
+    },
   };
 }
 
@@ -86,6 +94,15 @@ export function memoryCareLogRepository(state: CareMemoryState): CareLogReposito
     async findActiveByOccurrence(seriesId, occurrenceDate, occurrenceTime) {
       const found = rows().find((r) => r.revertedAt === null && r.seriesId === seriesId && r.occurrenceDate === occurrenceDate && r.occurrenceTime === occurrenceTime);
       return found === undefined ? null : copy(withDose(found));
+    },
+    async purgeExpired(cutoffs) {
+      const kindOf = (routineId: string) => (state.careRoutines ?? []).find((r) => r.id === routineId)?.kind;
+      const before = rows().length;
+      state.careLog = rows().filter((e) => {
+        const limit = kindOf(e.routineId) === 'MEDICATION' ? cutoffs.medicationBefore : cutoffs.otherBefore;
+        return !(e.occurrenceDate < limit || (e.revertedAt !== null && e.revertedAt < cutoffs.revertedBefore));
+      });
+      return before - state.careLog.length;
     },
   };
 }

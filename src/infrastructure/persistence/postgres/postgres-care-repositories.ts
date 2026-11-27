@@ -109,6 +109,13 @@ export function postgresCareRoutineRepository(client: PoolClientLike): CareRouti
       const { rows } = await client.query('SELECT COUNT(*) AS n FROM care_routines WHERE pet_id = $1 AND active = 1', [petId]);
       return Number(rows[0]!['n']);
     },
+    async purgeInactiveBefore(before) {
+      const result = await client.query(
+        'DELETE FROM care_routines WHERE active = 0 AND updated_at < $1 AND NOT EXISTS (SELECT 1 FROM care_routines s WHERE s.supersedes_routine_id = care_routines.id)',
+        [before],
+      );
+      return result.rowCount ?? 0;
+    },
   };
 }
 
@@ -140,6 +147,14 @@ export function postgresCareLogRepository(client: PoolClientLike): CareLogReposi
     async findActiveByOccurrence(seriesId, date, time) {
       const { rows } = await client.query(`${ENTRY_SELECT} WHERE e.series_id = $1 AND e.occurrence_date = $2 AND e.occurrence_time = $3 AND e.reverted_at IS NULL`, [seriesId, date, time]);
       return rows[0] === undefined ? null : toEntry(rows[0]);
+    },
+    async purgeExpired(cutoffs) {
+      const result = await client.query(
+        `DELETE FROM care_log_entries WHERE occurrence_date < (CASE WHEN (SELECT kind FROM care_routines r WHERE r.id = care_log_entries.routine_id) = 'MEDICATION' THEN $1 ELSE $2 END)
+           OR (reverted_at IS NOT NULL AND reverted_at < $3)`,
+        [cutoffs.medicationBefore, cutoffs.otherBefore, cutoffs.revertedBefore],
+      );
+      return result.rowCount ?? 0;
     },
   };
 }

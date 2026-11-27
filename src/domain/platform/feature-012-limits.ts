@@ -100,3 +100,12 @@ export const CARE_TIMEZONE = 'America/Bogota';
 export const CARE_UTC_OFFSET_HOURS = -5;
 /** Tope de `doseAmount` (NUMERIC(9,3), data-model.md). */
 export const CARE_DOSE_MAX = 100000;
+
+/**
+ * Retención del Modo Cuidador (T1661, REQ-CAR12-007, SC-012-089; techo máximo, no piso, aprobado por Neo 2026-11-27): días desde `occurrence_date` por tipo de rutina, desde `reverted_at` en los revertidos y desde
+ * la desactivación (`updated_at`) en las rutinas inactivas. Sin columna de retención: el mantenimiento calcula el corte.
+ */
+export const CARE_LOG_MEDICATION_RETENTION_DAYS = 1095;
+export const CARE_LOG_OTHER_RETENTION_DAYS = 365;
+export const CARE_LOG_REVERTED_RETENTION_DAYS = 30;
+export const CARE_ROUTINE_INACTIVE_RETENTION_DAYS = 365;

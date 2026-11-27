@@ -87,6 +87,9 @@ export function sqliteCareRoutineRepository(db: SqliteDatabase): CareRoutineRepo
   const byId = db.prepare<[string, string], Row>(`SELECT ${ROUTINE_COLUMNS} FROM care_routines WHERE id = ? AND pet_id = ?`);
   const ofPet = db.prepare<[string], Row>(`SELECT ${ROUTINE_COLUMNS} FROM care_routines WHERE pet_id = ? ORDER BY effective_from, id`);
   const count = db.prepare<[string], { n: number }>('SELECT COUNT(*) AS n FROM care_routines WHERE pet_id = ? AND active = 1');
+  const purgeInactive = db.prepare(
+    'DELETE FROM care_routines WHERE active = 0 AND updated_at < ? AND NOT EXISTS (SELECT 1 FROM care_routines s WHERE s.supersedes_routine_id = care_routines.id)',
+  );
   return {
     async insert(r) {
       insert.run(
@@ -111,6 +114,9 @@ export function sqliteCareRoutineRepository(db: SqliteDatabase): CareRoutineRepo
     async countActive(petId) {
       return count.get(petId)!.n;
     },
+    async purgeInactiveBefore(before) {
+      return Number(purgeInactive.run(before).changes);
+    },
   };
 }
 
@@ -126,6 +132,10 @@ export function sqliteCareLogRepository(db: SqliteDatabase): CareLogRepositoryPo
   const revert = db.prepare('UPDATE care_log_entries SET reverted_at = ?, reverted_by_user_id = ?, revert_reason = ? WHERE id = ?');
   const byId = db.prepare<[string, string], Row>(`${ENTRY_SELECT} WHERE e.id = ? AND r.pet_id = ?`);
   const ofPet = db.prepare<[string], Row>(`${ENTRY_SELECT} WHERE r.pet_id = ? ORDER BY e.occurrence_date, e.occurrence_time, e.performed_at, e.id`);
+  const purge = db.prepare(
+    `DELETE FROM care_log_entries WHERE occurrence_date < (CASE WHEN (SELECT kind FROM care_routines r WHERE r.id = care_log_entries.routine_id) = 'MEDICATION' THEN ? ELSE ? END)
+       OR (reverted_at IS NOT NULL AND reverted_at < ?)`,
+  );
   const active = db.prepare<[string, string, string], Row>(`${ENTRY_SELECT} WHERE e.series_id = ? AND e.occurrence_date = ? AND e.occurrence_time = ? AND e.reverted_at IS NULL`);
   return {
     async insert(e) {
@@ -145,6 +155,9 @@ export function sqliteCareLogRepository(db: SqliteDatabase): CareLogRepositoryPo
     async findActiveByOccurrence(seriesId, date, time) {
       const row = active.get(seriesId, date, time);
       return row === undefined ? null : toEntry(row);
+    },
+    async purgeExpired(cutoffs) {
+      return Number(purge.run(cutoffs.medicationBefore, cutoffs.otherBefore, cutoffs.revertedBefore).changes);
     },
   };
 }

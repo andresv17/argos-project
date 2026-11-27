@@ -7,7 +7,15 @@
  */
 
 import { RECONCILED_PREFIXES, isMediaObjectKey, reconciliationAgeMinutes } from '../../domain/media/index.ts';
-import { ARBITER_AUDIT_RETENTION_DAYS, DISPUTE_ABSENCE_RETENTION_DAYS, OWNERSHIP_TERMINAL_RETENTION_DAYS } from '../../domain/platform/feature-012-limits.ts';
+import {
+  ARBITER_AUDIT_RETENTION_DAYS,
+  CARE_LOG_MEDICATION_RETENTION_DAYS,
+  CARE_LOG_OTHER_RETENTION_DAYS,
+  CARE_LOG_REVERTED_RETENTION_DAYS,
+  CARE_ROUTINE_INACTIVE_RETENTION_DAYS,
+  DISPUTE_ABSENCE_RETENTION_DAYS,
+  OWNERSHIP_TERMINAL_RETENTION_DAYS,
+} from '../../domain/platform/feature-012-limits.ts';
 import { purgeIpRateEvents } from './chip-ip-rate-limit.ts';
 import { executeDueDisputeDecisions } from './chip-dispute-admin-use-cases.ts';
 import { expireLapsedDisputes, purgeExpiredDisputeEvidence, sweepOrphanDisputeEvidence } from './chip-dispute-retention.ts';
@@ -314,6 +322,41 @@ export async function purgeOwnershipData(deps: Pick<ApplicationDeps, 'uow' | 'cl
   }
 }
 
+/** Conteos de la purga de cuidado: solo números. */
+export interface CareMaintenanceResult {
+  readonly entriesPurged: number;
+  readonly routinesPurged: number;
+}
+
+const NO_CARE_PURGE: CareMaintenanceResult = { entriesPurged: 0, routinesPurged: 0 };
+
+/**
+ * Purga diaria del Modo Cuidador (feature 012, T1661, REQ-CAR12-007, SC-012-089; techo máximo, no piso; sin job nuevo ni columna de retención): borra los registros de `MEDICATION` con `occurrence_date` anterior a hoy - 1095 días,
+ * los de `MEAL`/`WALK`/`OTHER` anterior a hoy - 365, los revertidos con `reverted_at` anterior a ahora - 30 días y, después, las rutinas inactivas (`active = false`) desactivadas hace más de 365 días (`updated_at`; lectura del
+ * data-model, reserva para Architect: x-sdd-constants dice «desde su última ocurrencia») que ninguna versión posterior referencia. Un registro con exactamente N días de antigüedad aún se conserva. «Hoy» es `todayIsoDate`
+ * (America/Bogota). Los registros van antes que las rutinas para contar cada borrado donde corresponde (la cascada de la rutina solo arrastra lo que aún queda). Una transacción; no escribe auditoría ni registra identificadores.
+ * Nunca lanza: la siguiente pasada lo reintenta.
+ * @implements REQ-CAR12-007, SC-012-089
+ */
+export async function purgeCareData(deps: Pick<ApplicationDeps, 'uow' | 'clock'>): Promise<CareMaintenanceResult> {
+  try {
+    const now = deps.clock.nowIsoTimestamp();
+    const dateBefore = (days: number): string => shiftIsoTimestamp(`${deps.clock.todayIsoDate()}T00:00:00.000Z`, -days * DAY_MS).slice(0, 10);
+    return await deps.uow.runInTransaction(async (r) => {
+      const entriesPurged = await r.careLog.purgeExpired({
+        medicationBefore: dateBefore(CARE_LOG_MEDICATION_RETENTION_DAYS),
+        otherBefore: dateBefore(CARE_LOG_OTHER_RETENTION_DAYS),
+        revertedBefore: shiftIsoTimestamp(now, -CARE_LOG_REVERTED_RETENTION_DAYS * DAY_MS),
+      });
+      const routinesPurged = await r.careRoutines.purgeInactiveBefore(shiftIsoTimestamp(now, -CARE_ROUTINE_INACTIVE_RETENTION_DAYS * DAY_MS));
+      return { entriesPurged, routinesPurged };
+    });
+  } catch (error) {
+    reportMaintenanceFailure('purgeCareData', error);
+    return NO_CARE_PURGE;
+  }
+}
+
 /**
  * Ejecuta una pasada de mantenimiento con el reloj de la aplicación; sin almacenamiento con purga devuelve ceros. Con medios conectados recorre también
  * la cola de borrado y entrega su resultado a `onMediaQueue` (la respuesta de `/internal/maintenance` conserva sus 5 conteos).
@@ -335,6 +378,7 @@ export async function runMaintenance(
   await purgeSceneData(deps);
   await purgeDelegateData(deps);
   await purgeOwnershipData(deps);
+  await purgeCareData(deps);
   if (deps.uow.purgeExpired === undefined) return NO_PURGE;
   return deps.uow.purgeExpired(maintenanceCutoffs(deps.clock.nowIsoTimestamp()));
 }

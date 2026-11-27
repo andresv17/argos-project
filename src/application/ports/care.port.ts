@@ -41,6 +41,11 @@ export interface CareRoutineRepositoryPort {
   listByPet(petId: string): Promise<CareRoutineRecord[]>;
   /** Filas con `active = true` (las versiones sustituidas no cuentan). */
   countActive(petId: string): Promise<number>;
+  /**
+   * Retención (T1661): borra las rutinas inactivas (`active = false`) cuyo `updatedAt` (la desactivación) es ANTERIOR a `before`, y que ninguna otra fila referencia por `supersedesRoutineId` (FK sin cascada: la cadena de versiones se
+   * poda de la más nueva a la más vieja en pasadas sucesivas). Sus registros salen en cascada. Devuelve cuántas rutinas borró.
+   */
+  purgeInactiveBefore(before: string): Promise<number>;
 }
 
 export type CareLogStatusValue = 'DONE' | 'SKIPPED';
@@ -76,6 +81,11 @@ export interface CareLogRepositoryPort {
   listByPet(petId: string): Promise<CareLogRecord[]>;
   /** Fila NO revertida de la ocurrencia de la serie lógica. */
   findActiveByOccurrence(seriesId: string, occurrenceDate: string, occurrenceTime: string): Promise<CareLogRecord | null>;
+  /**
+   * Retención (T1661): borra los registros cuya `occurrenceDate` es ANTERIOR a `medicationBefore` (rutina `MEDICATION`) o a `otherBefore` (`MEAL`/`WALK`/`OTHER`), o cuyo `revertedAt` es ANTERIOR a `revertedBefore`.
+   * Las fechas son `YYYY-MM-DD`; `revertedBefore` es un instante ISO UTC. Devuelve cuántos registros borró.
+   */
+  purgeExpired(cutoffs: { readonly medicationBefore: string; readonly otherBefore: string; readonly revertedBefore: string }): Promise<number>;
 }
 
 export type CareLevelValue = 'BASIC_LOG' | 'VIEW_ONLY';
