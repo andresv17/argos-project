@@ -7,7 +7,10 @@
  */
 
 import { RECONCILED_PREFIXES, isMediaObjectKey, reconciliationAgeMinutes } from '../../domain/media/index.ts';
-import { OWNERSHIP_TERMINAL_RETENTION_DAYS } from '../../domain/platform/feature-012-limits.ts';
+import { ARBITER_AUDIT_RETENTION_DAYS, OWNERSHIP_TERMINAL_RETENTION_DAYS } from '../../domain/platform/feature-012-limits.ts';
+import { purgeIpRateEvents } from './chip-ip-rate-limit.ts';
+import { executeDueDisputeDecisions } from './chip-dispute-admin-use-cases.ts';
+import { expireLapsedDisputes, purgeExpiredDisputeEvidence, sweepOrphanDisputeEvidence } from './chip-dispute-retention.ts';
 import { retentionCutoffs } from '../../domain/sharing/share-link.ts';
 import { monthlyAnniversary, parseIsoCalendarDate, shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
 import type { MaintenanceCounts, MaintenanceCutoffs } from '../ports/unit-of-work.port.ts';
@@ -247,10 +250,15 @@ export async function purgeOwnershipData(deps: Pick<ApplicationDeps, 'uow' | 'cl
         for (const id of dispute.triggerRequestIds ?? []) if ((retainedUntil.get(id) ?? '') < stamp) retainedUntil.set(id, stamp);
       }
       const TERMINAL = new Set(['APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED', 'RESOLVED']);
+      const withEvidence = new Set<string>();
+      for (const x of requests) if (x.action === 'CHIP_DISPUTE' && (await r.disputeEvidence.listByRequest(x.id)).length > 0) withEvidence.add(x.id);
       const doomed = requests
         .filter((x) => {
+          if (x.action === 'CHIP_DISPUTE' && x.disputeReason === 'CHIP_APPROPRIATION') return TERMINAL.has(x.status) && !withEvidence.has(x.id) && terminalDate(x) < shiftIsoTimestamp(now, -ARBITER_AUDIT_RETENTION_DAYS * DAY_MS);
           if (x.action === 'CHIP_DISPUTE') return x.disputeReason !== 'CHIP_APPROPRIATION' && TERMINAL.has(x.status) && terminalDate(x) < cutoff;
-          if (x.action === 'CLAIM_CO_OWNERSHIP') return false; // las reclamaciones llegan con el Bloque #23 (T1630)
+          // Bloque B (#23): las reclamaciones terminales siguen la misma retención de 90 días; el expediente de una disputa de chip se conserva ARBITER_AUDIT_RETENTION_DAYS (1095) desde su
+          // cierre (`closed_at`) y SOLO cuando su evidencia ya fue purgada (`dispute_evidence` es RESTRICT: primero las filas de evidencia, SC-012-118).
+          if (x.action === 'CLAIM_CO_OWNERSHIP') return TERMINAL.has(x.status) && terminalDate(x) < cutoff;
           const terminal = TERMINAL.has(x.status) || (x.status === 'PENDING' && x.expiresAt < now);
           if (!terminal) return false;
           const reference = retainedUntil.get(x.id);
@@ -273,6 +281,13 @@ export async function runMaintenance(
   deps: Pick<ApplicationDeps, 'uow' | 'clock' | 'media' | 'adminDelegateRetention'>,
   onMediaQueue?: (result: MediaQueueResult) => void,
 ): Promise<MaintenanceCounts> {
+  // Bloque B (#23) ANTES de la cola de medios: contadores por IP (25 h), vencimiento de disputas (60 d), evidencia vencida (365 d desde `closed_at`: filas físicas + claves a la cola en una unidad, SC-012-118)
+  // y barrido de huérfanos del área de espera (24 h). La cola de medios que sigue borra los objetos. Nunca lanzan.
+  await purgeIpRateEvents(deps);
+  await expireLapsedDisputes(deps).catch(() => 0);
+  await purgeExpiredDisputeEvidence(deps).catch(() => 0);
+  await sweepOrphanDisputeEvidence(deps);
+  if ((deps as Partial<ApplicationDeps>).ids !== undefined) await executeDueDisputeDecisions(deps as unknown as ApplicationDeps).catch(() => 0);
   const queue = await runMediaQueueMaintenance(deps);
   if (deps.media !== undefined) onMediaQueue?.(queue);
   await purgeShareData(deps);
