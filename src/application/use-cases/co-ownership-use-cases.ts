@@ -18,9 +18,12 @@ import type { RepositorySet } from '../ports/repositories.port.ts';
 import { recordAssignmentRemoved } from './audit-support.ts';
 import {
   effectiveCoOwnerStatus,
+  assertPetNotFrozen,
   liveSlots,
   materializeExpiredInvitations,
   materializeExpiredRequests,
+  mootAbsenceDisputesOnLeave,
+  openAbsenceDisputes,
   ownersOf,
   recordOwnershipAudit,
   requireOwner,
@@ -84,6 +87,7 @@ export class InviteCoOwnerUseCase {
       const now = deps.clock.nowIsoTimestamp();
       const rows = await materializeExpiredInvitations(repositories, await repositories.coOwners.listByPet(petId), now);
       if (!ownersOf(state.ownerUserId, rows).includes(actorUserId)) throw notFound();
+      await assertPetNotFrozen(repositories, petId, now);
       const target = await repositories.users.findByUsername(username);
       const eligible = target !== null && (target.accountStatus ?? 'ACTIVE') === 'ACTIVE'; // PENDING_APPROVAL y cuentas no activas no son elegibles (misma respuesta)
       if (target !== null && (isPrincipalOfPet(target.id, state) || rows.some((row) => row.userId === target.id && (row.status === 'ACTIVE' || row.status === 'INVITED')))) throw new DomainError('ERR-OWN12-ALREADY-OWNER');
@@ -305,6 +309,7 @@ export async function applyLeave(
     }
     for (const rowId of plan.cancelInvitedRowIds) await repositories.coOwners.transition(rowId, 'INVITED', { status: 'CANCELLED', leftAt: now });
     await withdrawDepartingOwner(deps, repositories, petId, leavingUserId, now);
+    await mootAbsenceDisputesOnLeave(deps, repositories, petId, leavingUserId, now);
     await revokeLinksOfNonOwners(deps, repositories, petId, leavingUserId, now);
     return { plan, resultingPrincipalUserId: plan.resultingPrincipalUserId };
   }
@@ -345,13 +350,17 @@ export class GetPetOwnershipUseCase {
       const shown = [...live, ...expired].slice(0, 2);
       const usernames = await usernamesOf(repositories, [state.ownerUserId, ...shown.map((r) => r.userId), ...shown.map((r) => r.invitedByUserId)]);
       const pending = rows.some((r) => r.userId === actorUserId && r.status === 'PROMOTED' && r.promotionNoticeAckAt === null);
+      // Aviso derivado de la disputa por ausencia: sin identidad del solicitante ni evidencia (Neo-K); solo el `target` puede responder y una sola vez.
+      const disputes = (await openAbsenceDisputes(repositories, petId)).filter((d) => d.frozenUntil !== null);
+      const mine = disputes.find((d) => d.targetUserId === actorUserId);
+      const absenceNotice = { open: disputes.length > 0, respondable: mine !== undefined && mine.targetResponse === null, frozenUntil: (mine ?? disputes[0])?.frozenUntil ?? null };
       return {
         petId,
         ownershipVersion: state.ownershipVersion,
         principal: { userId: state.ownerUserId, username: usernames.get(state.ownerUserId) ?? '' },
         coOwners: shown.map((row) => coOwnerView(row, usernames, now)) as OwnershipState['coOwners'],
         promotionNotice: { pending },
-        absenceNotice: { open: false, respondable: false, frozenUntil: null },
+        absenceNotice: absenceNotice,
       };
     });
   }

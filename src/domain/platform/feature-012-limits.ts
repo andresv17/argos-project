@@ -30,6 +30,14 @@ export const ABSENCE_MIN_INACTIVE_DAYS = 14;
 export const ABSENCE_RESPONSE_MAX_CHARS = 280;
 /** Retención de la disputa por ausencia desde su `RESOLVED`/`EXPIRED` (P-2). */
 export const DISPUTE_ABSENCE_RETENTION_DAYS = 90;
+/** Disputas abiertas por usuario (todas las clases, REQ-CHP12-004) y SLA de arbitraje en días hábiles. */
+export const MAX_OPEN_DISPUTES_PER_USER = 3;
+export const DISPUTE_SLA_BUSINESS_DAYS = 15;
+/** Congelación inicial y plazo máximo abierto de una disputa (ADR-012-08, N2-R5, P-1): vence `EXPIRED` sin cooldown. */
+export const DISPUTE_FREEZE_MAX_DAYS = 30;
+export const DISPUTE_MAX_OPEN_DAYS = 60;
+/** Cooldown del solicitante tras una disputa rechazada por `/admin` (N2-R5). */
+export const DISPUTE_REJECTED_COOLDOWN_DAYS = 90;
 
 /** Milisegundos de un día: para fechas de vencimiento sobre `ClockPort` (sin aritmética de calendario local). */
 export const DAY_MS = 86_400_000;

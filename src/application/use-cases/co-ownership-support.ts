@@ -132,3 +132,31 @@ export async function revokeLinksOfNonOwners(deps: ApplicationDeps, repositories
     }
   }
 }
+
+const ABSENCE_REASONS: ReadonlySet<string> = new Set(['CO_OWNER_ABSENT_OR_BLOCKING', 'PRINCIPAL_ABSENT']);
+
+/** Disputas por ausencia `UNDER_REVIEW` de la mascota (la congelación es por `pet_id`, REQ-OWN12-009). */
+export async function openAbsenceDisputes(repositories: RepositorySet, petId: string): Promise<OwnerRequestRecord[]> {
+  return (await repositories.ownerRequests.listByPet(petId)).filter((r) => r.action === 'CHIP_DISPUTE' && r.status === 'UNDER_REVIEW' && r.disputeReason !== null && ABSENCE_REASONS.has(r.disputeReason));
+}
+
+/**
+ * Congelación derivada (REQ-OWN12-009, SC-012-092): mientras haya una disputa por ausencia `UNDER_REVIEW` con `frozen_until > now`, `DELETE_PET`, `TRANSFER_PRINCIPAL`, `CHANGE_PRINCIPAL`, `INVITE_CO_OWNER` y la
+ * aprobación de cualquier solicitud de esa mascota fallan con `ERR-CHP12-CHIP-FROZEN` (cuerpo sin datos de la disputa). `LEAVE` queda permitido: no pasa por aquí.
+ */
+export async function assertPetNotFrozen(repositories: RepositorySet, petId: string, now: string): Promise<void> {
+  if ((await openAbsenceDisputes(repositories, petId)).some((d) => d.frozenUntil !== null && d.frozenUntil > now)) throw new DomainError('ERR-CHP12-CHIP-FROZEN');
+}
+
+/**
+ * Salir (`LEAVE`) deja sin efecto la disputa por ausencia que lo involucra, sin cooldown (`REJECT` con `moot_reason`): `TARGET_LEFT` si sale el `target`, `REQUESTER_NOT_ACTIVE` si sale el solicitante. Se borra la
+ * respuesta del `target` en el mismo `UPDATE` (CHECK de vida de E-3). La disputa NO bloquea la salida.
+ */
+export async function mootAbsenceDisputesOnLeave(deps: ApplicationDeps, repositories: RepositorySet, petId: string, leavingUserId: string, now: string): Promise<void> {
+  for (const dispute of await openAbsenceDisputes(repositories, petId)) {
+    const reason = dispute.targetUserId === leavingUserId ? 'TARGET_LEFT' : dispute.requesterUserId === leavingUserId ? 'REQUESTER_NOT_ACTIVE' : null;
+    if (reason === null) continue;
+    await repositories.ownerRequests.update(settledRequest(dispute, { status: 'RESOLVED', resolution: 'REJECT', mootReason: reason, resolvedAt: now, decidedAt: now }), 'UNDER_REVIEW');
+    await recordOwnershipAudit(deps, repositories, leavingUserId, 'OWNER_REQUEST_EXPIRED', petId, null, { moot: reason });
+  }
+}

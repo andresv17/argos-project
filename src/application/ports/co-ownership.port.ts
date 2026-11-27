@@ -92,6 +92,8 @@ export interface OwnerRequestRepositoryPort {
   listByPet(petId: string): Promise<OwnerRequestRecord[]>;
   /** Solicitudes de cualquiera de esas mascotas (UNA lectura), por `createdAt` e `id`. */
   listByPets(petIds: readonly string[]): Promise<OwnerRequestRecord[]>;
+  /** Solicitudes cuyo solicitante es el usuario (cualquier mascota, incluida una ya eliminada): límite de disputas abiertas y cooldown del solicitante (REQ-CHP12-004). */
+  listByRequester(userId: string): Promise<OwnerRequestRecord[]>;
   /** Todas las solicitudes, incluidas las de mascota ya eliminada (`petId` nulo): expedientes que sobreviven a la mascota (INV-CHP12-005). */
   listAll(): Promise<OwnerRequestRecord[]>;
   findById(id: string): Promise<OwnerRequestRecord | null>;

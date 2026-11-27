@@ -60,6 +60,7 @@ export function sqliteOwnerRequestRepository(db: SqliteDatabase): OwnerRequestRe
   const ofPet = db.prepare<[string], SqlRow>(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE pet_id = ? ORDER BY created_at, id`);
   const ofPets = db.prepare<[string], SqlRow>(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE pet_id IN (SELECT value FROM json_each(?)) ORDER BY created_at, id`);
   const all = db.prepare<[], SqlRow>(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests ORDER BY created_at, id`);
+  const ofRequester = db.prepare<[string], SqlRow>(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE requester_user_id = ? ORDER BY created_at, id`);
   const byId = db.prepare<[string], SqlRow>(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE id = ?`);
   const insert = db.prepare(`INSERT INTO owner_requests (${OWNER_REQUEST_COLUMNS}) VALUES (${placeholders(34)})`);
   const update = db.prepare(
@@ -77,6 +78,9 @@ export function sqliteOwnerRequestRepository(db: SqliteDatabase): OwnerRequestRe
     },
     async listByPets(petIds) {
       return ofPets.all(JSON.stringify([...petIds])).map(toOwnerRequestRecord);
+    },
+    async listByRequester(userId) {
+      return ofRequester.all(userId).map(toOwnerRequestRecord);
     },
     async listAll() {
       return all.all().map(toOwnerRequestRecord);

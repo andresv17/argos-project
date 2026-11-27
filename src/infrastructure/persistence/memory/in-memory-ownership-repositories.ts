@@ -96,6 +96,9 @@ export function memoryOwnerRequestRepository(state: OwnershipMemoryState): Owner
       const wanted = new Set(petIds);
       return copy(rows().filter((r) => r.petId !== null && wanted.has(r.petId)).sort(byCreated));
     },
+    async listByRequester(userId) {
+      return copy(rows().filter((r) => r.requesterUserId === userId).sort(byCreated));
+    },
     async listAll() {
       return copy([...rows()].sort(byCreated));
     },

@@ -17,7 +17,7 @@ import { CO_OWNER_INVITE_TTL_DAYS, DAY_MS, MAX_CO_OWNERS_PER_PET, OWNER_APPROVAL
 import type { OwnerRequestRecord, PetCoOwnerRecord } from '../ports/co-ownership.port.ts';
 import type { OwnershipState, RepositorySet } from '../ports/repositories.port.ts';
 import { transferPetOwnership } from '../../domain/pet/ownership-transfer.ts';
-import { effectiveCoOwnerStatus, materializeExpiredInvitations, materializeExpiredRequests, ownersOf, recordOwnershipAudit, requireOwner, retryable, revokeLinksOfNonOwners, settledRequest } from './co-ownership-support.ts';
+import { assertPetNotFrozen, effectiveCoOwnerStatus, materializeExpiredInvitations, materializeExpiredRequests, ownersOf, recordOwnershipAudit, requireOwner, retryable, revokeLinksOfNonOwners, settledRequest } from './co-ownership-support.ts';
 import { recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import { deletePetInTransaction } from './pet-use-cases.ts';
@@ -88,6 +88,7 @@ export class CreateOwnerRequestUseCase {
       const owners = ownersOf(state.ownerUserId, rows);
       if (!owners.includes(actorUserId)) throw notFound();
       // REQ-OWN12-004 (j): con un solo propietario ACTIVE no hay aprobaciones; la acción se ejecuta por las rutas de 002/004.
+      await assertPetNotFrozen(repositories, petId, now);
       if (!requiresJointApproval(owners.length)) throw new DomainErrorRoot('ERR-SCHEMA-VALIDATION-FAILED', 'Con un único propietario no se crean solicitudes: la acción se ejecuta directamente.', 'action');
       const target = body.targetUserId ?? null;
       if (body.action === 'CHANGE_PRINCIPAL') {
@@ -197,6 +198,7 @@ abstract class VoteOnOwnerRequest {
       const rows = await materializeExpiredInvitations(repositories, await repositories.coOwners.listByPet(petId), now);
       const owners = ownersOf(state.ownerUserId, rows);
       const context = { petVersion: state.ownershipVersion, principalUserId: state.ownerUserId, currentOwners: owners, coOwnerRows: rows };
+      if (type === 'APPROVE') await assertPetNotFrozen(repositories, petId, now);
       let outcome;
       try {
         outcome = evaluateOwnerRequest(sealedOf(request), { type, userId: actorUserId }, context, now);

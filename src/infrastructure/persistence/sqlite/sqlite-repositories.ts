@@ -371,6 +371,7 @@ function sessionRepository(db: SqliteDatabase): SessionRepositoryPort {
   const ofUser = db.prepare<[string], { readonly token_hash: string; readonly data: string }>('SELECT token_hash, data FROM sessions WHERE user_id = ? AND revoked_at IS NULL');
   const revoke = db.prepare('UPDATE sessions SET revoked_at = ?, data = ? WHERE token_hash = ?');
   const removeByUser = db.prepare('DELETE FROM sessions WHERE user_id = ?');
+  const lastActivity = db.prepare<[string], { last: string | null }>('SELECT MAX(last_activity_at) AS last FROM sessions WHERE user_id = ?');
   const ownerStatus = db.prepare<[string], { readonly account_status: string }>('SELECT account_status FROM users WHERE id = ?');
   return {
     async findByToken(token) {
@@ -402,6 +403,9 @@ function sessionRepository(db: SqliteDatabase): SessionRepositoryPort {
     },
     async deleteByUser(userId) {
       removeByUser.run(userId);
+    },
+    async findLastActivityOfUser(userId) {
+      return lastActivity.get(userId)?.last ?? null;
     },
     async findOwnerAccountStatus(userId) {
       const row = ownerStatus.get(userId);

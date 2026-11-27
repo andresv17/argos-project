@@ -65,6 +65,10 @@ export function postgresOwnerRequestRepository(client: PoolClientLike): OwnerReq
       const { rows } = await client.query(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE pet_id = ANY($1::text[]) ORDER BY created_at, id`, [[...petIds]]);
       return rows.map(toOwnerRequestRecord);
     },
+    async listByRequester(userId) {
+      const { rows } = await client.query(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE requester_user_id = $1 ORDER BY created_at, id`, [userId]);
+      return rows.map(toOwnerRequestRecord);
+    },
     async listAll() {
       const { rows } = await client.query(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests ORDER BY created_at, id`);
       return rows.map(toOwnerRequestRecord);

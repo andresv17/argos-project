@@ -115,6 +115,11 @@ export interface SessionRepositoryPort {
   /** Borra todas las sesiones del usuario, incluida la actual (B9 (h)). */
   deleteByUser(userId: string): Promise<void>;
   /**
+   * Instante de la última petición autenticada del usuario: el mayor `last_activity_at` de sus sesiones (vigentes, vencidas o revocadas, mientras el mantenimiento no las purgue); `null` si no conserva ninguna (feature 012,
+   * REQ-OWN12-009: fuente de `target_last_active_at`, fijada en T1627; derivada de lectura, sin columna nueva en `users`).
+   */
+  findLastActivityOfUser(userId: string): Promise<string | null>;
+  /**
    * Estado de aprobación de la cuenta dueña de la sesión (009, la guarda exige `ACTIVE`, REQ-APR9-001); `null` si la cuenta no existe. Vive aquí y no en `users` para que la guarda
    * decida sin cargar el perfil ni mezclarse con las lecturas de cuentas de la ruta.
    */

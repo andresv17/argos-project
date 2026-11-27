@@ -292,6 +292,9 @@ function sessionRepository(state: MemoryState): SessionRepositoryPort {
       const token = Object.keys(state.sessions).find((t) => hashSessionToken(t) === tokenHash);
       return token === undefined ? null : copy(state.sessions[token]!);
     },
+    async findLastActivityOfUser(userId) {
+      return Object.values(state.sessions).filter((s) => s.userId === userId).map((s) => s.lastActivityAt).sort().at(-1) ?? null;
+    },
     async revokeOthersByTokenHash(userId, keepTokenHash, nowIsoTimestamp) {
       let revoked = 0;
       for (const [token, session] of Object.entries(state.sessions)) {

@@ -253,6 +253,10 @@ function sessionRepository(client: PoolClientLike): SessionRepositoryPort {
     async deleteByUser(userId) {
       await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
     },
+    async findLastActivityOfUser(userId) {
+      const { rows } = await client.query('SELECT MAX(last_activity_at) AS last FROM sessions WHERE user_id = $1', [userId]);
+      return (rows[0]?.['last'] as string | null | undefined) ?? null;
+    },
     async findOwnerAccountStatus(userId) {
       const { rows } = await client.query('SELECT account_status FROM users WHERE id = $1', [userId]);
       return rows[0] === undefined ? null : accountStatusOf(rows[0]['account_status'], userId);
