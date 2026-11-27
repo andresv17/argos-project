@@ -163,6 +163,25 @@ for (const factory of ENGINE_FACTORIES) {
       expect(await principalOf(engine, PET)).toBe(ANDRES);
     });
 
+    it('[REQ-OWN12-004][EDGE-012-009] TRANSFER_PRINCIPAL a un miembro de hogar que aun no es propietario: con la aprobacion del co-propietario el destino pasa a principal, el principal anterior queda como co-propietario ACTIVE y se audita OWNERSHIP_TRANSFER; CHANGE_PRINCIPAL a un no propietario o TRANSFER a un propietario se rechazan', async () => {
+      engine = await factory.make();
+      const use = cases(engine.deps);
+      await makeCoOwners(engine, [CARLOS]);
+      expect(await codeOf(use.request(ANDRES, PET, { action: 'CHANGE_PRINCIPAL', targetUserId: MARIA }))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+      expect(await codeOf(use.request(ANDRES, PET, { action: 'TRANSFER_PRINCIPAL', targetUserId: CARLOS }))).toBe('ERR-SCHEMA-VALIDATION-FAILED');
+      const transfer = await use.request(ANDRES, PET, { action: 'TRANSFER_PRINCIPAL', targetUserId: MARIA });
+      expect(transfer.status).toBe('PENDING');
+      const before = (await use.ownership(ANDRES, PET)).ownershipVersion;
+      await use.approve(CARLOS, transfer.id);
+      expect(await principalOf(engine, PET)).toBe(MARIA);
+      const rows = await coOwnerRows(engine, PET);
+      expect(rowOf(rows, ANDRES, 'ACTIVE')['joinedAt']).toBeTruthy();
+      expect(rowOf(rows, CARLOS, 'ACTIVE')).toBeTruthy();
+      expect((await use.ownership(MARIA, PET)).ownershipVersion).toBe(before + 1);
+      expect(await engine.auditTypes(PET)).toContain('OWNERSHIP_TRANSFER');
+      expect((await requestRows(engine, PET)).find((r) => r['id'] === transfer.id)!['status']).toBe('APPROVED');
+    });
+
     it('[SC-012-005][SC-012-010][SC-012-074] dos acciones críticas distintas aprobadas a la vez: exactamente una surte efecto (APPROVED) y la otra queda EXPIRED con ERR-OWN12-STALE; ownership_version sube una sola vez', async () => {
       engine = await factory.make();
       const use = cases(engine.deps);

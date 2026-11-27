@@ -105,6 +105,19 @@ for (const factory of RACE_FACTORIES) {
       const stored = (await requestRows(seeded(engine), PET)).find((r) => r['id'] === request.id)!;
       expect(['APPROVED', 'EXPIRED']).toContain(stored['status']);
     });
+
+    it('[SC-012-095][REQ-OWN12-004] TRANSFER_PRINCIPAL a un miembro de hogar (no propietario) aprobada || LEAVE del aprobador: o se transfiere al destino o queda EXPIRED/STALE; ownership_version y principal siguen coherentes', async () => {
+      engine = await factory.make();
+      await makeCoOwners(seeded(engine), [CARLOS]);
+      const request = await cases(engine.a).request(ANDRES, PET, { action: 'TRANSFER_PRINCIPAL', targetUserId: MARIA });
+      const [approve, leave] = await Promise.all([codeOf(cases(engine.a).approve(CARLOS, request.id)), codeOf(engine.b((deps) => cases(deps).leave(CARLOS, PET)))]);
+      expect(['OK', 'ERR-OWN12-STALE', 'ERR-OWN12-LAST-OWNER']).toContain(approve);
+      expect(['OK', 'ERR-OWN12-LAST-OWNER']).toContain(leave);
+      expect([ANDRES, MARIA]).toContain(await principalOf(seeded(engine), PET));
+      await assertSerialInvariant(engine);
+      const stored = (await requestRows(seeded(engine), PET)).find((r) => r['id'] === request.id)!;
+      expect(['APPROVED', 'EXPIRED']).toContain(stored['status']);
+    });
   });
 }
 
