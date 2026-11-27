@@ -273,6 +273,8 @@ export function OwnershipInbox({ onChanged, api = createCoOwnershipApi() }: { re
   const [error, setError] = useState<string | null>(null);
   const [announce, setAnnounce] = useState<string | null>(null);
   const inboxHeadingRef = useRef<HTMLHeadingElement>(null);
+  // Tras una acción la sección sigue montada aunque quede vacía: el encabezado es el destino estable del foco (WCAG 2.4.3).
+  const [acted, setActed] = useState(false);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -291,6 +293,7 @@ export function OwnershipInbox({ onChanged, api = createCoOwnershipApi() }: { re
     setBusy(true);
     setError(null);
     setAnnounce(null);
+    setActed(true);
     try {
       await work();
       await refresh();
@@ -311,7 +314,7 @@ export function OwnershipInbox({ onChanged, api = createCoOwnershipApi() }: { re
       {announce}
     </div>
   );
-  if (empty) return live;
+  if (empty && !acted) return live;
   return (
     <>
     {live}
@@ -320,6 +323,7 @@ export function OwnershipInbox({ onChanged, api = createCoOwnershipApi() }: { re
         Invitaciones y solicitudes de propiedad
       </h2>
       <div role="alert">{error === null ? null : <p className="rounded-2xl border border-danger bg-red-50 px-4 py-3 text-sm text-red-900">{error}</p>}</div>
+      {empty ? <p className="text-sm text-slate-700">No tienes invitaciones ni solicitudes pendientes.</p> : null}
       {(invitations?.length ?? 0) > 0 ? (
         <ul className="grid min-w-0 gap-2" aria-label="Invitaciones recibidas">
           {invitations!.map((inv) => (
