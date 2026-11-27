@@ -587,7 +587,7 @@ export const ERROR_CATALOG = {
     "status": 409,
     "title": "Ya hay una solicitud en curso para esta acción",
     "invariantRef": "INV-OWN12-001",
-    "detailTemplate": "Ya existe una solicitud pendiente de esta acción para esta mascota. Espera su resolución o cancélala.",
+    "detailTemplate": "Esta acción necesita la aprobación de los demás propietarios de la mascota. Si ya hay una solicitud en curso, espera su resolución o cancélala; si no, pídela desde «Acciones que necesitan la aprobación…».",
     "requirementRef": "REQ-OWN12-004, EDGE-012-030",
     "note": "UNIQUE parcial (pet_id, action) WHERE status = PENDING para las acciones críticas. DERIVADA para revisión de Neo: el nombre figuraba en la lista prevista de contracts/README sin cuerpo; aplica solo a co-propietarios ACTIVE de la mascota (el resto recibe el 404 uniforme)."
   },

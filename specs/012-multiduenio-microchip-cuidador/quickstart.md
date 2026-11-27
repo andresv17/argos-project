@@ -28,6 +28,7 @@
 5e. Carrera de salida (prueba automatizada, no manual): `LEAVE` del principal y del co-propietario simultáneos en los tres motores (`SC-012-095`).
 6. Con tope alcanzado, invitar a un tercero: error del catálogo (`SC-012-004`).
 7. Enlace de veterinario `PET` creado por B que luego sale: abrir → 404 uniforme (`SC-012-011`).
+8. Regla H-K1 (`contracts/propuesta-UI-H-K1.md`, `APPROVED`, Opción A): con más de un propietario `ACTIVE`, la ficha de la mascota **no muestra** «Eliminar» ni «Transferir» (a ningún propietario) y sí la línea con enlace: «Con más de un propietario, eliminar o transferir necesita la aprobación de todos. Ir a Propietarios», que lleva al panel «Propietarios» (`REQ-OWN12-004`, `INV-OWN12-004`). Con un solo propietario `ACTIVE` ambos botones aparecen como siempre. Revisar el enlace con teclado y a 320/1024/1280 px. El `409 ERR-OWN12-APPROVAL-PENDING` se mantiene en servidor (defensa en profundidad) y su texto cubre solicitud en curso y rechazo directo (`errata-APPROVAL-PENDING-detail.md`).
 
 ### Bloque `#23` — Microchip duplicado `[GH:#23]` (SC-012-013..024)
 1. A registra una mascota con chip `982000123456789`. B intenta registrar el mismo chip: mensaje uniforme sin datos de A (`SC-012-013`). A intenta registrar el mismo chip en otra mascota suya: error propio `ERR-PET-MICROCHIP-DUPLICATE` (`SC-012-079`). Marcar fallecida la mascota de A: el chip sigue bloqueado para B.
