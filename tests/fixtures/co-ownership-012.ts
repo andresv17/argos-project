@@ -99,19 +99,22 @@ export interface RaceFactory {
   make(): Promise<RaceEngine>;
 }
 
-const fromRace = (engine: ConcurrentEngine, name: RaceEngine['name']): RaceEngine => ({
+const fromRace = (engine: ConcurrentEngine, name: RaceEngine['name']): RaceEngine => {
+  const a = engine.depsA();
+  return {
   name,
-  a: engine.depsA(),
+  a,
   b: (call) => engine.asClientB(call).result,
   holdingA: (first) => {
     const entered = gate();
     const hold = gate();
-    const result = first(engine.depsA(holdBeforeCommit(engine.uowA, () => entered.open(), hold.promise)));
+    const result = first({ ...a, uow: holdBeforeCommit(engine.uowA, () => entered.open(), hold.promise) });
     return { entered: entered.promise, release: () => hold.open(), result };
   },
-  setNow: (iso) => (engine.depsA().clock as FixedClockAdapter).setClock(iso.slice(0, 10), iso),
+  setNow: (iso) => (a.clock as FixedClockAdapter).setClock(iso.slice(0, 10), iso),
   dispose: () => engine.dispose(),
-});
+  };
+};
 
 export const RACE_FACTORIES: readonly RaceFactory[] = [
   {

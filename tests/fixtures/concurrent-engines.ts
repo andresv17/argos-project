@@ -95,6 +95,12 @@ function depsWithIds(uow: UnitOfWorkPort, entityPrefix: string, auditPrefix: str
   return { ...createDeps(uow, new FixedClockAdapter(), new SpyPasswordHasher()), ids: new DeterministicIdAdapter(ids(entityPrefix)), auditIds: new DeterministicIdAdapter(ids(auditPrefix)) };
 }
 
+/** Dependencias de la conexión A construidas UNA vez por motor: reloj, ids y auditIds compartidos entre todas las llamadas a depsA(uow), para que la secuencia determinista no se reinicie (audit_log_pkey). */
+function stableDepsA(base: UnitOfWorkPort): (uow?: UnitOfWorkPort) => ApplicationDeps {
+  const shared = depsWithIds(base, 'aaaaaaa1', 'aaaaaaa2');
+  return (uow = base) => ({ ...shared, uow });
+}
+
 const isBusy = (error: unknown) => typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'SQLITE_BUSY';
 
 export async function createSqliteConcurrentEngine(): Promise<ConcurrentEngine> {
@@ -112,7 +118,7 @@ export async function createSqliteConcurrentEngine(): Promise<ConcurrentEngine> 
     name: 'SQLite',
     uowA,
     uowB,
-    depsA: (uow = uowA) => depsWithIds(uow, 'aaaaaaa1', 'aaaaaaa2'),
+    depsA: stableDepsA(uowA),
     asClientB(call) {
       let busy = 0;
       const counting = countingWork(uowB);
@@ -156,7 +162,7 @@ export async function createPostgresConcurrentEngine(): Promise<ConcurrentEngine
     name: 'PostgreSQL',
     uowA,
     uowB,
-    depsA: (uow = uowA) => depsWithIds(uow, 'aaaaaaa1', 'aaaaaaa2'),
+    depsA: stableDepsA(uowA),
     asClientB(call) {
       const counting = countingWork(uowB);
       return { result: call(depsWithIds(counting.uow, 'ccccccc1', 'ccccccc2')), workStarts: counting.starts, busyRejections: () => 0 };

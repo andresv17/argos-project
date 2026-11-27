@@ -2521,3 +2521,80 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 - Ramas globales 94.64% (4811/5083) -> 95.21% (4892/5138). Nuevas: tests/unit/t1553-admin-acceso-delegados-comportamiento-011.spec.ts (20 tests: anclaje raiz, delegado ACTIVE/INVITED, reciclaje de identidades, carreras, cierre de sesion) y t1553-user-avatar-image-comportamiento-011.spec.ts (19 tests: TOO_LARGE/TYPE/INVALID, PNG/JPEG/WebP, todas las cabeceras).
 - Avatar: 0 ramas nuevas (las 9 restantes de user-avatar-image.ts son defensivas e inalcanzables tras el saneado); admin-use-cases: 24 -> 3 sin cubrir (161, 175, 180 inalcanzables por el flujo). Sin cambios de produccion.
 - tsc=0; semgrep src/ 0; verify-oracles CUMPLE (corregido un not.toBeNull propio); test:gate rc=1 solo por 8 pruebas rojas de H-01 (terraform/workflow).
+
+## 2026-11-26 — TECHDEBT-011-PREVIEW-AVATAR-HOGAR (avatar en vista previa de Hogar)
+- compile-contracts.sh sin --feature no toca v33; con --feature 005 solo cambian 4 archivos de v33 (descripcion de petIds, sin cambio de forma). Commit 5e112f7.
+- Hallazgo: la vista previa NO emitia petIds (t1533 afirmaba lo contrario); se anadio petIds en PreviewClinicalSummaryUseCase y se actualizo la prueba t1533. UI: avatarHref con view.petIds[i] con respaldo a petId de ruta. Commit ac0c64d.
+- Fila TECHDEBT retirada de tasks.md (commit 5bc4739). tsc 0, semgrep 0, t750/t770/t778/t1533/t1535 verdes, traza011 0, oraculos 0; test:gate 9 rojas = 8 H-01 + 1 intermitente (sentinels-010-T1418 SEN-IP-07, verde aislada). Sin [x].
+
+## 2026-11-26 — TECHDEBT-011-ALB-TAB320 (commit 166e6c0) y DEUDA-011-PURGA-DELEGADOS (DETENIDA)
+- TAB320: HouseholdTabs pasa de overflow-x-auto a flex-wrap (px-3 sm:px-4), sin scroll interno; prueba t1544-tabs-320-011.spec.ts; fila retirada de tasks.md. tsc 0, semgrep 0, traza 0, oraculos 0.
+- PURGA-DELEGADOS: NO implementada. Bloqueos: (1) ops.openapi.yaml MaintenanceResult es additionalProperties:false con 5 conteos fijos, sin delegados; (2) AdminDelegateRepositoryPort (src/application/ports/admin.port.ts, vetado) carece de metodos de purga. Reportado a Morpheus.
+
+## 2026-11-26 — fix OUT_DIR quemado en sentinels-011-T1526-admin (CI PR #82)
+- Eliminados OUT_DIR, mkdirSync/writeFileSync y import node:fs; la bateria valida en memoria sobre ROWS (logica `failed` intacta).
+- Suite 2/2 verde, tsc 0, verify-oracles 0 (623 archivos, 0 debiles). Commit solo de ese archivo; sin push, sin [x].
+
+## 2026-11-26 — T1609 verify-traceability reconoce --feature 012
+- La carpeta ya resolvia por glob specs/012-*/; se anadio FEAT12 a la rama FEAT6 (1:1 spec->tasks, evidencia informativa) con OWNED_012 y ERR_ID_012 (OWN12|CAR12|QR12|CHP12|VET12; NFR/EDGE/SC-012; STATE CHIPCLAIM12|OWNAPR12|COOWN12).
+- --feature 011 rc 0 (CUMPLE), 010 rc 0; --feature 012 rc 2: "Fuente ausente: contracts/errors/error-catalog.json" (contracts/ solo tiene README; lo crea /architect). No forzado.
+- Solo scripts/verify-traceability.sh; sin push, sin [x].
+
+## 2026-11-26 — T1613 migraciones co-propiedad (commit 14e4370)
+- SQLite 0033_co_ownership.sql y PostgreSQL 0029_co_ownership.sql: pets.ownership_version, pet_co_owners, owner_requests (tabla unica), indices/UNIQUE parciales, pet_assignments.assigned_by_user_id NULLable con FK SET NULL (SQLite reconstruye la tabla; PG DROP NOT NULL + FK NOT VALID/VALIDATE). La tabla real se llama pet_assignments (el data-model dice pet_household_assignments).
+- Desviacion declarada: marcas de tiempo TEXT ISO (convencion del repo; INTEGER de PG seria de 32 bits) y sin CHECK numerico del techo de 60 dias de frozen_until (regla de dominio). dispute_evidence queda para el Bloque #23.
+- Nuevo t1613-migracion-co-propiedad-012.spec.ts (7 pruebas verdes); paridad extendida (SET NULL, DROP NOT NULL, FK) y 6 aserciones de "ultima migracion/numero de tablas" actualizadas. persistence 891 verdes, tsc 0.
+
+## 2026-11-26 — T1614 pruebas rojas de dominio (commit 974adb3)
+- tests/unit/co-ownership-domain-012.spec.ts y can-act-on-pet-012.spec.ts: API supuesta (co-ownership.ts, can-act-on-pet.ts, feature-012-limits.ts) cubre SC-012-004..010, 012, 071..075, 094, 103 (estados cerrados, tope, quorum sellado, STALE, sucesion, LEAVE, ultimo dueno, matriz acciones x roles, nadie elimina a otro).
+- Rojas por modulo ausente; tsc solo TS2307 (precedente T236). verify-oracles 0 debiles, traza 012 CUMPLE.
+
+## 2026-11-26 — T1615 pruebas rojas de integracion y paridad (commit ce59bca)
+- Fixture co-ownership-012.ts + co-ownership-parity-012.spec.ts (memoria, SQLite, PG skipIf) + co-ownership-races-012.spec.ts (SQLite 2 conexiones, PG 2 sesiones, lock_timeout). Casos de uso y puertos coOwners/ownerRequests SUPUESTOS desde los operationId del OpenAPI.
+- No cubiertas (sin casos de uso aun): END_CO_OWNERSHIP vs LEAVE, apertura de disputa vs LEAVE, ADD_CO_OWNER(claimant) vs LEAVE; columnas care_*/caregiver/emergency de SC-012-076 llegan con #26/#32. Hallazgo: compile-contracts.sh no acepta --feature 012 (src/generated sin ERR-OWN12-*).
+
+## 2026-11-26 — T1616 co-propiedad (Bloque A, #22): dominio, puertos, repos, casos de uso (commits 68ec963, 2db01b6 y el de cierre)
+- compile-contracts.sh --feature 012 -> src/generated/v38 (catalogo 004..012 = 106 codigos). Salvedades: ERR-VALIDATION heredado sin definicion en 004..011 (tolerado con aviso, hallazgo para /architect) y strictRequired de Ajv relajado solo para la 012 (SDD_AJV_STRICT_REQUIRED).
+- Dominio puro: co-ownership.ts, can-act-on-pet.ts, pet-ownership.ts (unica primitiva que compara ownerUserId), feature-012-limits.ts (OWNERSHIP_LOCK_TIMEOUT_MS = 3000). Puertos coOwners/ownerRequests + 3 motores (memoria, SQLite, PG sin probar con PG real).
+- Casos de uso: invitar (contador por intento en transaccion aparte), aceptar/rechazar/cancelar, LEAVE con sucesion (applyLeave, 2 intentos y ERR-OWN12-RETRYABLE), solicitudes con quorum sellado; eraseAccountInTransaction con sucesion y seudonimizacion (T1622 en el mismo cuerpo).
+- Ajustes a pruebas rojas: makeCoOwners aprueba la solicitud de invitacion (REQ-OWN12-004), TRANSFER->CHANGE_PRINCIPAL a co-propietario (EDGE-012-009), unshare disuelve Casa Vallejo, release 005 PN-08 por transferencia real. Pendientes: audit CHECK (migracion 0034/0030 propuesta N2), import ERR-CHP12-MICROCHIP-REGISTERED (Bloque B).
+
+## 2026-11-26 — T1621 (c14ef70), T1622 (887c2fc) y T1623
+- T1621: regla Semgrep argos-no-owner-compare-outside-can-act-on-pet (src/domain y src/application; exentos can-act-on-pet.ts y pet-ownership.ts), comprobacion estatica en ci-ready-sast-static.mjs y prueba (semgrep --test + escaneo real 0 hallazgos). Migracion de access-policy, effective-role, ownership-transfer, household-policies, backup, shared-view y share-link a pet-ownership.
+- T1622: pseudonymizePetOwnerSnapshot (R-04) en los 3 motores; pruebas de supresion (enlace del co-propietario sobrevive, enlaces propios caen, PENDING de mascota eliminada -> CANCELLED, LEFT con seudonimo).
+- T1623: purgeOwnershipData en runMaintenance (patron purgeDelegateData): 90 dias, excluye trigger_request_ids de disputas no terminales y cuenta desde el RESOLVED (P-2). Prueba T0+97 con disputa abierta. Las disputas de apropiacion (365 d) quedan al Bloque B.
+
+## 2026-11-26 — T1627 disparador y ancla de la disputa por ausencia (commit de este bloque)
+- absence-trigger.ts (puro): >= 2 solicitudes SECUENCIALES expiradas por TTL en 60 dias, target en approver_set sin voto/rechazo (DELETE_PET ignorada salvo como prueba de vida), piso de 14 dias y condicion desde la mas antigua (aplica la mas estricta; <= en el borde). Sin Date en dominio (purity gate).
+- absence-dispute-use-cases.ts: apertura bajo bloqueo por mascota, disparador SELLADO en trigger_request_ids, ancla (pet_id, target_user_id), 404 uniforme a no propietarios, ERR-CHP12-ABSENCE-NOT-ELIGIBLE sin causa, limites 3 abiertas y cooldown 90 d; respuesta unica <= 280 puntos de codigo; congelacion por pet_id (permite LEAVE) y moot TARGET_LEFT.
+- Fuente de target_last_active_at fijada: sessions.last_activity_at (nuevo sessions.findLastActivityOfUser). LIMITACION: sesiones se purgan 7 d tras vencer (ADR-002-14): la actividad de solo lectura previa no es observable; reportado.
+
+## 2026-11-27 — Bloque B-3/B-4, T1617 y T1625 (commits 2d1fb09, 572a58c, 374a998, a6310e9, 8a68218)
+- CC-B3: retirados UNRESOLVED_INHERITED_WAIVED (compile-contracts.sh) y SDD_AJV_STRICT_REQUIRED (codegen.mjs y compile); v38 regenerado con la errata (ERR-SCHEMA-VALIDATION-FAILED 422, strictRequired sin relajar). POST de solicitud con un unico propietario = 422 ERR-SCHEMA-VALIDATION-FAILED confirmado por HTTP (co-ownership.api.spec.ts). Commit 2d1fb09.
+- CC-TRANSFER: TRANSFER_PRINCIPAL no tenia cobertura tras el cambio a CHANGE_PRINCIPAL; anadidos caso de paridad (aprobacion, co-propietario anterior ACTIVE, OWNERSHIP_TRANSFER) y carrera con LEAVE del aprobador. Races/parity ahora admiten 404 del aprobador que ya salio y solicitud PENDING (efecto del contador B-4: el cargo es una transaccion previa). Commit 572a58c.
+- CC-B4: migraciones SQLite 0035 y PostgreSQL 0031 (ambitos CO_OWNER_INVITE y OWNER_REQUEST, patron 0010/0006 sin perdida de datos + precheck de huerfanos). Limites en el adaptador con constantes de feature-012-limits (sin tocar app-config.ts por H-01). LIMITACION: rate_limit_events no guarda mascota; OWNER_REQUEST cuenta 10/dia por usuario entre todas sus mascotas (el contrato dice por usuario y mascota; hallazgo para /architect). Commit 374a998.
+- CC-T1617: rutas co-ownership.routes.ts (13 rutas), GetOwnerRequestUseCase nuevo, DomainError v38 registrado en problem-details.ts (sin eso un error 012 daba 500), panel Propietarios (pestana) y OwnershipInbox. app.ts: solo import + registro, staged via cacheinfo sobre HEAD; los hunks de H-01 siguen sin commitear en el arbol. Allowlist INV-AUTH2-002 ampliada con co-ownership-api.ts. Commit a6310e9. Sin prototipo /sati ni prueba visual (T1618/T1619 pendientes).
+- CC-T1625: tests/security/exploits/co-ownership-012.security.spec.ts (17 pruebas, H-01..H-07, H-09, H-10, H-11, H-15, H-02). B-2 intacto: 2 pruebas EDGE-012-044 siguen rojas. Commit 8a68218.
+- 2026-11-27 CC-RES1: OWNER_REQUESTS_PER_USER_PER_PET_PER_DAY -> OWNER_REQUESTS_PER_USER_PER_DAY (feature-012-limits.ts, sliding-window-rate-limiter.adapter.ts; valor 10 y 1440 min intactos; las pruebas no usaban el nombre). tasks.md con los 22 [x] de Neo incluido. Commit 77b3e65. tsc rc=0, trazabilidad 012 rc=0. T1625 renombrado listo; [x] lo pone Neo.
+- 2026-11-27 CC-SERAPH-T1619: S-1/S-2/S-6 en co-ownership-012-seraph-T1619.security.spec.ts (6 pruebas; CSRF con csrf:false en 10 rutas POST, 401 ERR-AUTH-UNAUTHENTICATED en 14 rutas, ex propietario/INVITED/DECLINED -> 404). S-3 (404 con status+code+cuerpo identico a mascota inexistente, instance normalizada, cancel con fila INVITED real de carlos) y S-5 (aserciones exactas) en co-ownership-012.security.spec.ts. Sin bug de produccion. Observacion: el voto duplicado del mismo aprobador responde 200 idempotente (fijado). S-4 no tocado. Commit 03b596a.
+
+- 2026-11-27 [keymaker] sati T1619 S-01..S-05 en CoOwners.tsx: border-border-strong (+bg-white en input) en input y tarjetas; foco a h3/h2 (tabIndex -1) o al grupo de confirmacion de salida tras desmontar botones; regiones role=alert/status persistentes (bandeja anuncia aceptar/rechazar/aprobar/cancelar); describedBy en Enviar invitacion. Test t1617 ajustado (bandeja vacia = solo region live oculta). H-K2: texto unico en co-ownership-api.ts; el catalogo (detailTemplate, src/generated) sigue diciendo "Ya existe una solicitud pendiente": requiere errata de contrato (architect). Gates tsc=0, trace=0, vitest presentation 967/967.
+
+## 2026-11-27 — Reservas oracle 1 y 2 (012, CoOwners a11y)
+- CC: OwnershipInbox conserva la seccion montada tras una accion (estado `acted`) y muestra "No tienes invitaciones ni solicitudes pendientes."; inicial vacio sigue pintando solo la region live.
+- Reserva 1: el repo NO tiene testing-library ni jsdom; sin anadir dependencias, los asertos de t1617 son render estatico (alert/status) + lectura del fuente (foco, border-border-strong, aria-describedby). Brecha: no se ejecuta foco real; cubre T1618 manual.
+- Gates: tsc=0, verify-traceability 012=0, presentation 996 verdes, co-ownership exploits 23 verdes.
+
+## 2026-11-27 — Misión /morpheus (Nivel 2 Neo): H-K1 + S-4 + S-07 + S-08
+- Commit 09eb82c: contratos + v38 recompilados (`compile-contracts.sh --feature 012`; detailTemplate de ERR-OWN12-APPROVAL-PENDING y errata RES1), errata, propuesta H-K1, deploy-rolling-bloque-A, T1626 con referencia (sigue `[ ]`). Ninguna prueba comparaba el detail antiguo.
+- Commit 48939a6 (UI): `co-ownership-gating.ts`; PetsPage consulta `getOwnership` y pasa `multiOwner`; PetDashboard oculta Eliminar/Transferir y muestra «Con más de un propietario, eliminar o transferir necesita la aprobación de todos. Ir a Propietarios»; CoOwners oculta «Salir» con un único ACTIVE (S-07) y exige grupo de confirmación con foco/Esc/aria-describedby antes de «Pedir eliminar» (S-08). Pruebas en t1617-propietarios-012.spec.ts.
+- Commit cce4a4b (S-4): GetOwnerRequestUseCase no abre el atajo de propietario a una CHIP_DISPUTE; prueba de regresión en absence-dispute-012.spec.ts (falla sin el fix).
+- Gates: tsc rc=0; verify-traceability --feature 012 rc=0; rojas solo las 2 de EDGE-012-044 (B-2). Sin dependencias nuevas, sin push, H-01/specs 004-005 intactos.
+
+## 2026-11-27 PG17 real T1620 + commit firma T1626
+- Commit local 0d6db33 (firma T1626, tasks.md + deploy-rolling-bloque-A.md). 24 [x] verificadas, ninguna extra.
+- PG17 real (docker postgres:17.12): 177 ok, 4 rojas (chip registrado en respaldo x3 motores; lock_timeout LEAVE 2 sesiones PG + 23505 audit_log). Acta .specify/memory/audits/pg17-012-T1620-2026-11-27.md. Contenedor eliminado.
+
+## 2026-11-27 fix fixture races 012 (aec3b1a)
+- tests/fixtures: depsA estable por motor (ids/auditIds/reloj una vez), holdingA y setNow reutilizan race.a. Sin tocar src ni asertos.
+- tsc rc=0; races sin PG 14 ok; PG17: races 21/22 (roja: lock_timeout por mascota, hallazgo src), parity 59 ok + 3 rojas EDGE-012-044 (B-2 intacta). Acta pg17-012-races-fixture-2026-11-27.md. Contenedor eliminado.
