@@ -2640,3 +2640,8 @@ Migraciones SQLite 0038 / PostgreSQL 0034 (ADD COLUMN metadata TEXT NULL). Motiv
 - D-B: care-species-group.ts sin "PENDIENTE APROBACION NEO"; mapeo CANINE/FELINE -> CANINE_FELINE, resto -> OTHER_SPECIES.
 - D-D(b): guarda NOT EXISTS care_log_entries en purgeInactiveBefore (memoria, SQLite, PG); caso nuevo en care-retention-012 (MEDICATION inactiva 365<d<1095 sobrevive; se purga >1095).
 - Gates: tsc rc 0; verify-oracles rc 0; traceability T1655 rc 0; test:gate 12 fallos ajenos (H-01 terraform/workflow, verify-ci-ready, 2 de migraciones 0030/31 claves previas a este cambio).
+
+## 2026-11-27 - alinear contadores migraciones/RepositorySet (Keymaker)
+- Atribucion: claves careRoutines/careLog/caregiverAccess = 012 (7eb8b58, T1652/T1654). SQLite 0031 admin_delegates (1486eaf) y 0032 user_avatar (70b47df) = 011; 0033 (14e4370), 0034 (5f36a6b), 0035..0039 = 012. PG 0027/0028 = 011; 0029..0035 = 012.
+- Pruebas: postgres-repositories-part3 (31 -> 34 claves) y t1517 (at(-6) -> at(-10) en SQLite 0030 y PG 0026). Solo expectativas; sin cambios en src/contratos. Sin bug real.
+- Gates: tsc rc 0; 2 archivos 51/51; verify-oracles rc 0; traceability T1655 CUMPLE.

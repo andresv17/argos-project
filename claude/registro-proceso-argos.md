@@ -2856,3 +2856,4 @@
 - 2026-11-27 [morpheus] Neo resuelve D-A SI, D-B SI, D-C (b), D-D (b); firma T1653/T1654. Despacho architect->keymaker->oracle.
 - 2026-11-27 /architect: D-A/D-B/Reserva1 aplicadas en contratos 012 Modo Cuidador (care.openapi, care-routine.schema, spec, data-model); compile OK; APPROVED intacto.
 - 2026-11-27 keymaker: cierre T1655/T1661 (D-A orden 403-404-422-409, D-B mapeo definitivo, D-D(b) guarda NOT EXISTS en 3 motores); sin marcar [x]; pendiente oracle.
+- 2026-11-27 keymaker: alineados contadores de RepositorySet (34) y migraciones (at(-10)) en 2 pruebas; sin tocar src/contratos.
