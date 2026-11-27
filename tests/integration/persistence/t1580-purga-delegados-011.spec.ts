@@ -6,12 +6,13 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AdminDelegateRecord } from '../../../src/application/ports/admin.port.ts';
+import type { OwnerRequestRecord } from '../../../src/application/ports/co-ownership.port.ts';
 import type { UnitOfWorkPort } from '../../../src/application/ports/unit-of-work.port.ts';
 import { purgeDelegateData, runMaintenance } from '../../../src/application/use-cases/maintenance-use-cases.ts';
 import { FixedClockAdapter } from '../../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import { ADMIN_DELEGATE_DISABLED_RETENTION_DAYS, ADMIN_DELEGATE_EXPIRED_INVITATION_RETENTION_DAYS, ADMIN_DELEGATE_INVITATION_TTL_HOURS } from '../../../src/infrastructure/config/app-config.ts';
 import { InMemoryUnitOfWork } from '../../../src/infrastructure/persistence/memory/in-memory-unit-of-work.ts';
-import { canonicalState } from '../../fixtures/application-harness.ts';
+import { ANDRES, ARGOS, canonicalState } from '../../fixtures/application-harness.ts';
 import { createPostgresConcurrentEngine, createSqliteConcurrentEngine, TEST_DATABASE_URL } from '../../fixtures/concurrent-engines.ts';
 
 const NOW = '2026-11-26T12:00:00.000Z';
@@ -65,6 +66,14 @@ const active = (n: number): AdminDelegateRecord => ({
   status: 'ACTIVE',
   disabledAt: null,
   updatedAt: at(-1000 * DAY),
+});
+
+/** Expediente cerrado de una disputa de chip arbitrada por el operador `adminId` (012, D8): `resolved_by_admin_id` es FK RESTRICT hacia `admin_identities`. */
+const dispute = (n: number, adminId: string, disputeReason: 'CHIP_APPROPRIATION' | 'CO_OWNER_ABSENT_OR_BLOCKING', resolvedAt: string): OwnerRequestRecord => ({
+  id: id(500 + n), action: 'CHIP_DISPUTE', petId: ARGOS.id, petVersion: 1, requesterUserId: ANDRES, requesterPseudonym: null, targetUserId: null, targetUsernameSealed: null, targetResponse: null,
+  triggerRequestIds: null, status: 'RESOLVED', approverSet: [], approvals: [], rejectedBy: null, rejectedByPseudonym: null, message: null, createdAt: at(-700 * DAY), expiresAt: at(-600 * DAY),
+  decidedAt: resolvedAt, staleReason: null, disputeReason, chipLast4: disputeReason === 'CHIP_APPROPRIATION' ? '1234' : null, chipHmac: disputeReason === 'CHIP_APPROPRIATION' ? 'h'.repeat(64) : null, frozenUntil: null, freezeExtendedAt: null, slaDueAt: null, escalatedAt: null, resolvedAt, resolution: 'REJECT',
+  mootReason: null, resolvedByUserId: null, secondApproverUserId: null, executesAfter: null, resolvedByAdminId: adminId, secondApproverAdminId: null, version: 1,
 });
 
 interface Engine {
@@ -149,6 +158,43 @@ for (const factory of FACTORIES) {
       expect((await get(e, 4))!.providerSubject).toBe('sub-activo-4');
       expect((await identity(e, 4))?.providerSubject).toBe("sub-activo-4");
       expect((await identity(e, 2))?.providerSubject).toBe("sub-baja-2");
+    });
+
+    it('[D8 de 012] operador DISABLED con expediente RESOLVED: la pasada sigue, la identidad queda anonimizada y NO borrada, y person_id solo pasa a NULL tras el plazo (1095 d apropiación / 90 d ausencia)', async () => {
+      const e = await boot([disabled(1, at(-366 * DAY)), disabled(2, at(-366 * DAY)), disabled(3, at(-366 * DAY))]);
+      await e.uow.runInTransaction(async (r) => {
+        // Se reinsertan las identidades 1 y 3 con su person_id opaco (la asignación la hace SUPER_ADMIN; aquí solo se siembra).
+        for (const n of [1, 3]) {
+          const row = disabled(n, at(-366 * DAY));
+          await r.adminIdentities.deleteById(id(n));
+          await r.adminIdentities.insertIfAbsent({ adminId: id(n), provider: 'GOOGLE', providerSubject: row.providerSubject!, email: row.email, createdAt: row.createdAt, personId: `persona_000${n}` });
+        }
+        await r.ownerRequests.insert(dispute(1, id(1), 'CHIP_APPROPRIATION', at(-100 * DAY))); // plazo: closed_at + 1095 d = +995 d
+        await r.ownerRequests.insert(dispute(3, id(3), 'CO_OWNER_ABSENT_OR_BLOCKING', at(-91 * DAY))); // plazo: closed_at + 90 d = ya vencido
+      });
+      const run = (offsetDays: number) => {
+        const c = new FixedClockAdapter();
+        const iso = at(offsetDays * DAY);
+        c.setClock(iso.slice(0, 10), iso);
+        return purgeDelegateData({ uow: e.uow, clock: c, adminDelegateRetention: RETENTION });
+      };
+      const personOf = (n: number) => e.uow.runInTransaction((r) => r.adminIdentities.findPersonId(id(n)));
+      expect(await run(0)).toEqual({ invitationsPurged: 0, disabledAnonymized: 3 }); // la pasada NO se revierte por la FK RESTRICT
+      // Con expediente: identidad conservada y anonimizada (vínculo intacto); sin expediente: retirada.
+      const kept = (await identity(e, 1))!;
+      expect(kept.email).toBe(`anon-${id(1)}@anonimizado.invalid`);
+      expect(kept.providerSubject).toBe(`anon-${id(1)}`);
+      expect((await identity(e, 3))!.email).toBe(`anon-${id(3)}@anonimizado.invalid`);
+      expect(await identity(e, 2)).toBeNull();
+      expect(await e.uow.runInTransaction((r) => r.ownerRequests.findById(id(501)))).toMatchObject({ resolvedByAdminId: id(1) });
+      // person_id: apropiación aún dentro de 1095 d; ausencia ya vencida (90 d).
+      expect(await personOf(1)).toBe('persona_0001');
+      expect(await personOf(3)).toBeNull();
+      expect((await run(994)).disabledAnonymized).toBe(0);
+      expect(await personOf(1)).toBe('persona_0001'); // 1 día antes del plazo
+      await run(996);
+      expect(await personOf(1)).toBeNull(); // plazo vencido: person_id = NULL, la identidad anonimizada sigue
+      expect((await identity(e, 1))!.email).toBe(`anon-${id(1)}@anonimizado.invalid`);
     });
 
     it('es idempotente y no impide invitar de nuevo el mismo correo', async () => {

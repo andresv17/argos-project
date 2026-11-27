@@ -7,12 +7,13 @@
  */
 
 import { RECONCILED_PREFIXES, isMediaObjectKey, reconciliationAgeMinutes } from '../../domain/media/index.ts';
-import { ARBITER_AUDIT_RETENTION_DAYS, OWNERSHIP_TERMINAL_RETENTION_DAYS } from '../../domain/platform/feature-012-limits.ts';
+import { ARBITER_AUDIT_RETENTION_DAYS, DISPUTE_ABSENCE_RETENTION_DAYS, OWNERSHIP_TERMINAL_RETENTION_DAYS } from '../../domain/platform/feature-012-limits.ts';
 import { purgeIpRateEvents } from './chip-ip-rate-limit.ts';
 import { executeDueDisputeDecisions } from './chip-dispute-admin-use-cases.ts';
 import { expireLapsedDisputes, purgeExpiredDisputeEvidence, sweepOrphanDisputeEvidence } from './chip-dispute-retention.ts';
 import { retentionCutoffs } from '../../domain/sharing/share-link.ts';
 import { monthlyAnniversary, parseIsoCalendarDate, shiftIsoTimestamp } from '../../domain/shared/date-utils.ts';
+import type { RepositorySet } from '../ports/repositories.port.ts';
 import type { MaintenanceCounts, MaintenanceCutoffs } from '../ports/unit-of-work.port.ts';
 import type { ApplicationDeps } from './use-case-support.ts';
 
@@ -210,11 +211,50 @@ export async function purgeDelegateData(deps: Pick<ApplicationDeps, 'uow' | 'clo
     return await deps.uow.runInTransaction(async (r) => {
       const invitationsPurged = await r.adminDelegates.purgeExpiredInvitations(invitedBefore);
       const anonymized = await r.adminDelegates.anonymizeDisabledBefore(disabledBefore);
-      for (const adminId of anonymized) await r.adminIdentities.deleteById(adminId);
+      // D8 (012): con expedientes (`resolved_by_admin_id` / `second_approver_admin_id`, FK RESTRICT) la identidad NO se borra: se anonimiza y se conserva el vínculo. Sin expedientes, se retira.
+      const requests = anonymized.length > 0 ? await r.ownerRequests.listAll() : [];
+      for (const adminId of anonymized) {
+        if (requests.some((x) => x.resolvedByAdminId === adminId || x.secondApproverAdminId === adminId)) await r.adminIdentities.anonymizeIdentity(adminId);
+        else await r.adminIdentities.deleteById(adminId);
+      }
+      await releaseExpiredPersonIds(r, deps.clock.nowIsoTimestamp());
       return { invitationsPurged, disabledAnonymized: anonymized.length };
     });
-  } catch {
+  } catch (error) {
+    reportMaintenanceFailure('purgeDelegateData', error);
     return NO_DELEGATE_PURGE;
+  }
+}
+
+/** Traza de un fallo de mantenimiento sin PII: solo la tarea y el nombre del tipo de error (nunca el mensaje, que puede traer correos o identificadores). La transacción ya se revirtió; la siguiente pasada reintenta. */
+function reportMaintenanceFailure(task: string, error: unknown): void {
+  console.error(`[maintenance] ${task} falló y se revirtió (${error instanceof Error ? error.name : 'Unknown'}); se reintenta en la próxima pasada`);
+}
+
+/**
+ * D8 (012): `person_id = NULL` en las identidades de operador ya anonimizadas cuando venció el plazo de su ÚLTIMO expediente: `closed_at` (= `resolved_at ?? decided_at ?? expires_at`) + 1095 días en
+ * apropiación de chip (`ARBITER_AUDIT_RETENTION_DAYS`), + 90 días en ausencia (`DISPUTE_ABSENCE_RETENTION_DAYS`) o en cualquier otro expediente (`OWNERSHIP_TERMINAL_RETENTION_DAYS`). Un expediente
+ * aún abierto lo retiene. Sin expedientes restantes (ya purgados) el plazo venció. Nunca toca a operadores activos.
+ */
+async function releaseExpiredPersonIds(r: RepositorySet, now: string): Promise<void> {
+  const candidates = await r.adminIdentities.listAnonymizedWithPersonId();
+  if (candidates.length === 0) return;
+  const requests = await r.ownerRequests.listAll();
+  for (const adminId of candidates) {
+    let releaseAt = '';
+    let open = false;
+    for (const x of requests) {
+      if (x.resolvedByAdminId !== adminId && x.secondApproverAdminId !== adminId) continue;
+      if (x.status === 'PENDING' || x.status === 'UNDER_REVIEW') {
+        open = true;
+        break;
+      }
+      const closedAt = x.resolvedAt ?? x.decidedAt ?? x.expiresAt;
+      const days = x.action === 'CHIP_DISPUTE' && x.disputeReason === 'CHIP_APPROPRIATION' ? ARBITER_AUDIT_RETENTION_DAYS : x.action === 'CHIP_DISPUTE' ? DISPUTE_ABSENCE_RETENTION_DAYS : OWNERSHIP_TERMINAL_RETENTION_DAYS;
+      const due = shiftIsoTimestamp(closedAt, days * DAY_MS);
+      if (due > releaseAt) releaseAt = due;
+    }
+    if (!open && releaseAt < now) await r.adminIdentities.clearPersonId(adminId);
   }
 }
 
@@ -268,7 +308,8 @@ export async function purgeOwnershipData(deps: Pick<ApplicationDeps, 'uow' | 'cl
         .map((x) => x.id);
       return { coOwnersPurged, requestsPurged: await r.ownerRequests.deleteByIds(doomed) };
     });
-  } catch {
+  } catch (error) {
+    reportMaintenanceFailure('purgeOwnershipData', error);
     return NO_OWNERSHIP_PURGE;
   }
 }
