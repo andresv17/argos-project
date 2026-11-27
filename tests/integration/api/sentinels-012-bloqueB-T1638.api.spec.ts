@@ -6,6 +6,8 @@ import { canonicalState } from '../../fixtures/application-harness.ts';
 import { ControlledStorage, DEFAULT_LIMITS } from '../../fixtures/media-harness.ts';
 import { createApi, problemOf, type Api } from './api-harness.ts';
 import { NEW_PET } from './api-fixtures.ts';
+import { AdminStepUpStore } from '../../../src/infrastructure/http/admin-stepup-store.ts';
+import { AdminForbiddenError } from '../../../src/application/use-cases/chip-dispute-admin-use-cases.ts';
 
 /**
  * SENTINELS T1638 (Feature 012, Bloque B, #23): 9 vectores de exploit sobre multipart, chip y /admin de disputas.
@@ -212,7 +214,7 @@ describe('V6 chip duplicados', () => {
     const second = await open(andres, payload);
     expect([first.status, second.status, second.text]).toEqual([202, 202, '{"status":"RECEIVED"}']);
     const rows = (await as(andres, 'GET', '/api/chip-requests')).json as { items: Array<{ action: string }> };
-    expect(rows.items.filter((r) => r.action === 'CHIP_DISPUTE').length).toBeLessThanOrEqual(2);
+    expect(rows.items.filter((r) => r.action === 'CHIP_DISPUTE').length).toBe(1);
   });
 });
 
@@ -360,5 +362,54 @@ describe('T-02 el grant se consume tras el caso de uso', () => {
     const ok = await callWith(first.cookie!, `/api/admin/disputes/${id}/resolve`, body);
     const replay = await callWith(first.cookie!, `/api/admin/disputes/${id}/resolve`, body);
     expect([ok.status, replay.status]).toEqual([200, 403]);
+  });
+});
+
+describe('H-T1638-04 concurrencia sobre un grant reservado', () => {
+  const NOW_ISO = '2026-11-05T12:00:00.000Z';
+  const expected = { adminId: 'admin_1', disputeId: 'disp_1', action: 'resolve' } as const;
+  const issue = (store: AdminStepUpStore, adminId = 'admin_1') => store.issue({ adminId, disputeId: 'disp_1', action: 'resolve', now: NOW_ISO, newId: () => 'grant_x' + adminId }).grantId;
+
+  it('con el grant reservado (claim sin finish ni release) una petición concurrente con el mismo id recibe 403 y la reserva se conserva', () => {
+    const store = new AdminStepUpStore();
+    const id = issue(store);
+    store.claim(id, expected, NOW_ISO);
+    expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError);
+    expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError); // el rechazo concurrente no borra la reserva
+    store.finish(id);
+    expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError); // tras finish ya no existe
+  });
+
+  it('tras release el grant vuelve a servir una sola vez y tras finish no sirve', () => {
+    const store = new AdminStepUpStore();
+    const id = issue(store);
+    store.claim(id, expected, NOW_ISO);
+    expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError);
+    store.release(id);
+    expect(() => store.claim(id, expected, NOW_ISO)).not.toThrow();
+    expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError); // reservado de nuevo
+    store.finish(id);
+    expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError);
+  });
+
+  it('un claim de otro administrador no borra la reserva del dueño: sigue rechazando al concurrente y release la devuelve', () => {
+    const store = new AdminStepUpStore();
+    const id = issue(store);
+    store.claim(id, expected, NOW_ISO);
+    expect(() => store.claim(id, { ...expected, adminId: 'admin_2' }, NOW_ISO)).toThrow(AdminForbiddenError);
+    expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError);
+    store.release(id);
+    expect(() => store.claim(id, expected, NOW_ISO)).not.toThrow();
+  });
+
+  it('HTTP: dos resolve simultáneos con el mismo grant dan exactamente un 200 y un 403 genérico', async () => {
+    const { andres } = await setup();
+    const admins = await twoAdmins();
+    await open(andres, form([{ name: 'microchipId', value: CHIP_A }, { name: 'evidence', file: png() }]));
+    const [id] = await queue(admins.one);
+    const grantId = ((await as(admins.one, 'POST', `/api/admin/disputes/${id}/step-up`, { disputeId: id, action: 'resolve' })).json as { grantId: string }).grantId;
+    const body = { resolution: 'REJECT', reason: 'Documentos verificados', stepUpGrantId: grantId };
+    const [x, y] = await Promise.all([as(admins.one, 'POST', `/api/admin/disputes/${id}/resolve`, body), as(admins.one, 'POST', `/api/admin/disputes/${id}/resolve`, body)]);
+    expect([x.status, y.status].sort()).toEqual([200, 403]);
   });
 });
