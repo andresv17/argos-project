@@ -3,7 +3,10 @@
  * Source: contracts/schemas/admin-disputes.schema.json (v0.1.0, APPROVED)
  * Source: contracts/schemas/audit-entry.schema.json (v3.2.0, DRAFT)
  * Source: contracts/schemas/backup-envelope.schema.json (v3.3.0, DRAFT)
- * Source: contracts/schemas/chip-claim.schema.json (v0.2.0, APPROVED)
+ * Source: contracts/schemas/care-log-entry.schema.json (v0.1.2, APPROVED)
+ * Source: contracts/schemas/care-routine.schema.json (v0.1.2, APPROVED)
+ * Source: contracts/schemas/caregiver-access.schema.json (v0.1.2, APPROVED)
+ * Source: contracts/schemas/chip-claim.schema.json (v0.2.1, APPROVED)
  * Source: contracts/schemas/common.schema.json (v2.3.0, REVIEW)
  * Source: contracts/schemas/identity.schema.json (v3.3.0, DRAFT)
  * Source: contracts/schemas/media.schema.json (v1.0.0, DRAFT)
@@ -11,7 +14,7 @@
  * Source: contracts/schemas/owner-request.schema.json (v0.1.0, APPROVED)
  * Source: contracts/schemas/pet-co-owner.schema.json (v0.1.0, APPROVED)
  * Source: contracts/schemas/pet.schema.json (v3.2.0, DRAFT)
- * @implements EDGE-009-005, EDGE-009-038, EDGE-012-001, EDGE-012-028, EDGE-012-030, EDGE-012-040, EDGE-012-042, EDGE-012-043, EDGE-012-056, EDGE-012-057, EDGE-012-059, EDGE-012-060, EDGE-012-061, EDGE-012-064, EDGE-012-066, INV-ACC2-001, INV-ACC2-002, INV-ALB-001, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-AVA-001, INV-BACKUP-001, INV-CHP12-001, INV-CHP12-003, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007, INV-CHP12-009, INV-ESC6-016, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-LOG-001, INV-LOG-002, INV-OWN12-001, INV-OWN12-002, INV-OWN12-003, INV-OWN12-004, INV-OWN12-005, INV-OWN12-006, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-PET4-001, INV-RAZ-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-REG-003, INV-SIN-001, INV-SIN-002, INV-SORT-001, NFR-012-009, REQ-ACC-001, REQ-ACC-002, REQ-ALB-001, REQ-APR9-001, REQ-APR9-002, REQ-ARC-001, REQ-ARC-003, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AVA-001, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-BOR-001, REQ-BOR-005, REQ-CHP12-001, REQ-CHP12-002, REQ-CHP12-003, REQ-CHP12-004, REQ-CHP12-005, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, REQ-ESC6-021, REQ-GCS-005, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-IMP-001, REQ-LOG-001, REQ-LOG-002, REQ-MDC-001, REQ-MIG-001, REQ-OWN-001, REQ-OWN12-001, REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-004, REQ-OWN12-006, REQ-OWN12-009, REQ-OWN12-011, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET4-001, REQ-PET4-002, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-SIN-001, REQ-TIME-001, SC-012, SC-012-016, SC-012-020, SC-012-073, SC-012-075, SC-012-080, SC-012-082, SC-012-091, SC-012-092, SC-012-093, SC-012-098, SC-012-101, SC-012-103, SC-012-104, SC-012-111, SC-012-115, SC-014, STATE-ACCT9-001, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-COOWN12-001, STATE-HOUSE-MEMBERSHIP-001, STATE-OWNREQ12-001
+ * @implements EDGE-009-005, EDGE-009-038, EDGE-012-001, EDGE-012-014, EDGE-012-015, EDGE-012-028, EDGE-012-030, EDGE-012-040, EDGE-012-042, EDGE-012-043, EDGE-012-047, EDGE-012-048, EDGE-012-049, EDGE-012-056, EDGE-012-057, EDGE-012-059, EDGE-012-060, EDGE-012-061, EDGE-012-064, EDGE-012-066, INV-ACC2-001, INV-ACC2-002, INV-ALB-001, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-AVA-001, INV-BACKUP-001, INV-CHP12-001, INV-CHP12-003, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007, INV-CHP12-009, INV-ESC6-016, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-LOG-001, INV-LOG-002, INV-OWN12-001, INV-OWN12-002, INV-OWN12-003, INV-OWN12-004, INV-OWN12-005, INV-OWN12-006, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-PET4-001, INV-RAZ-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-REG-003, INV-SIN-001, INV-SIN-002, INV-SORT-001, NFR-012-009, REQ-ACC-001, REQ-ACC-002, REQ-ALB-001, REQ-APR9-001, REQ-APR9-002, REQ-ARC-001, REQ-ARC-003, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AVA-001, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-BOR-001, REQ-BOR-005, REQ-CAR12-001, REQ-CAR12-002, REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-005, REQ-CAR12-006, REQ-CAR12-007, REQ-CAR12-008, REQ-CAR12-009, REQ-CHP12-001, REQ-CHP12-002, REQ-CHP12-003, REQ-CHP12-004, REQ-CHP12-005, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, REQ-ESC6-021, REQ-GCS-005, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-IMP-001, REQ-LOG-001, REQ-LOG-002, REQ-MDC-001, REQ-MIG-001, REQ-OWN-001, REQ-OWN12-001, REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-004, REQ-OWN12-006, REQ-OWN12-009, REQ-OWN12-011, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET4-001, REQ-PET4-002, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-SIN-001, REQ-TIME-001, SC-012, SC-012-016, SC-012-020, SC-012-025, SC-012-026, SC-012-027, SC-012-028, SC-012-029, SC-012-030, SC-012-031, SC-012-032, SC-012-033, SC-012-034, SC-012-036, SC-012-037, SC-012-038, SC-012-039, SC-012-073, SC-012-075, SC-012-077, SC-012-080, SC-012-082, SC-012-088, SC-012-089, SC-012-091, SC-012-092, SC-012-093, SC-012-098, SC-012-101, SC-012-103, SC-012-104, SC-012-111, SC-012-115, SC-014, STATE-ACCT9-001, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-COOWN12-001, STATE-HOUSE-MEMBERSHIP-001, STATE-OWNREQ12-001
  */
 
 /**
@@ -462,6 +465,81 @@ export type BackupPetProfileV33 = {
  * via the `definition` "Biography".
  */
 export type Biography = string | null;
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CareKind".
+ */
+export type CareKind = "MEDICATION" | "MEAL" | "WALK" | "OTHER";
+/**
+ * Catalogo cerrado (D12-11). UNIT queda retirada por riesgo de confusion; IU (unidades internacionales) se incorpora para insulina (A-01, maggie 2026-11-27). IU: decimal > 0 con 3 decimales como maximo; paso y umbral de confirmacion PENDIENTES de veterinario humano (DEUDA-012-VALIDACION-VET-UMBRALES).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "DoseUnit".
+ */
+export type DoseUnit = "MG" | "MCG" | "ML" | "IU" | "TABLET" | "DROP";
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "OccurrenceState".
+ */
+export type OccurrenceState = "PENDING" | "DONE" | "SKIPPED" | "OVERDUE";
+/**
+ * SKIPPED lo marcan propietarios, co-propietarios y cuidadores BASIC_LOG (decision H-C4 dictaminada por /maggie). note: obligatoria (1-140) cuando la rutina es MEDICATION; opcional en MEAL, WALK y OTHER. Tambien admite late. Un SKIPPED de MEDICATION se muestra al propietario como toma omitida (estado derivado visible, sin notificacion push, DEUDA-012-RECORDATORIOS).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "LogStatus".
+ */
+export type LogStatus = "DONE" | "SKIPPED";
+/**
+ * Decimal > 0 con 3 decimales como maximo; las reglas por unidad (paso, minimo, umbral de confirmacion) son de dominio
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "DoseAmount".
+ */
+export type DoseAmount = number;
+/**
+ * 1..6 horas HH:MM, ordenadas y sin repetidos
+ *
+ * @minItems 1
+ * @maxItems 6
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "TimesOfDay".
+ *
+ * Items: HH:MM, 24 h, hora de Bogota (America/Bogota fija, D12-12 = B, DEUDA-012-TZ)
+ */
+export type TimesOfDay =
+  | [string]
+  | [string, string]
+  | [string, string, string]
+  | [string, string, string, string]
+  | [string, string, string, string, string]
+  | [string, string, string, string, string, string];
+/**
+ * 1..7 dias, sin repetidos
+ *
+ * @minItems 1
+ * @maxItems 7
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "DaysOfWeek".
+ *
+ * Items: ISO 8601: 1 = lunes ... 7 = domingo
+ */
+export type DaysOfWeek =
+  | [number]
+  | [number, number]
+  | [number, number, number]
+  | [number, number, number, number]
+  | [number, number, number, number, number]
+  | [number, number, number, number, number, number]
+  | [number, number, number, number, number, number, number];
+/**
+ * VIEW_ONLY lee rutinas, pendientes y registros; BASIC_LOG ademas crea y revierte registros de cumplimiento. Ninguno crea ni edita rutinas, datos de la mascota ni citas.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CaregiverLevel".
+ */
+export type CaregiverLevel = "VIEW_ONLY" | "BASIC_LOG";
 /**
  * Regla unica de formato (REQ-CHP12-002, lock H-21): exactamente 15 digitos ASCII [0-9] (no \d, que en algunos motores admite digitos Unicode). El cliente normaliza espacios y guiones ANTES de enviar. Un valor que no cumple devuelve 422 ERR-SCHEMA-VALIDATION-FAILED sin consultar el registro y NO cuenta como intento. Nunca se serializa completo en respuestas, registros de aplicacion ni auditoria: solo los ultimos 4 digitos.
  *
@@ -2238,6 +2316,360 @@ export interface ImportPreviewResult {
    * Archivos, fotos y avatares de las mascotas que el reemplazo elimina (D-15 A) [REQ-IMP-001]
    */
   mediaToDeleteCount: number;
+}
+/**
+ * Modo Cuidador por hogar: agrupa por mascota solo aquellas sobre las que el solicitante tiene acceso de cuidado (titular, o CAREGIVER con VIEW_ONLY o BASIC_LOG vigente; ADMIN, MEMBER y READER no, T-C5) (REQ-CAR12-005). criticalAllergies sale de REQ-QR12-002 (Bloque D) y es null mientras ese campo no exista; no muestra datos de otros miembros ni correos.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CareHouseholdToday".
+ */
+export interface CareHouseholdToday {
+  date: string;
+  timezone: "America/Bogota";
+  /**
+   * @maxItems 50
+   */
+  pets: {
+    petId: string;
+    petName: string;
+    criticalAllergies: string | null;
+    /**
+     * @maxItems 720
+     */
+    items: CareOccurrence[];
+  }[];
+}
+/**
+ * Ocurrencia calculada en lectura (funcion pura rutina x dia, ADR-012-04; nada se materializa). instructions es null cuando state = OVERDUE: el estado vencido NO lleva mensaje de instruccion (maggie m-3). logEntry es la entrada vigente (DONE o SKIPPED) o null.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CareOccurrence".
+ */
+export interface CareOccurrence {
+  routineId: string;
+  kind: CareKind;
+  title: string;
+  doseAmount: number | null;
+  doseUnit: DoseUnit | null;
+  instructions: string | null;
+  occurrenceDate: string;
+  /**
+   * HH:MM, 24 h, hora de Bogota (America/Bogota fija, D12-12 = B, DEUDA-012-TZ)
+   */
+  occurrenceTime: string;
+  state: OccurrenceState;
+  logEntry: CareLogEntry | null;
+}
+/**
+ * Registro de cumplimiento de una ocurrencia (una sola entrada vigente por ocurrencia: UNIQUE parcial (series_id, occurrence_date, occurrence_time) WHERE reverted_at IS NULL, sobre la rutina LOGICA y no sobre la fila-version, para impedir doble registro tras un cambio de dosis (A-05); sin idempotency_key, P-10). Privacidad (REQ-CAR12-009): los titulares (propietarios y co-propietarios) ven el nombre visible del autor ('Usuario eliminado' si la cuenta se borro); un cuidador solo lo ve en sus propios registros (performedByMe = true) y en el 409 de conflicto, y en los demas recibe null. Nunca expone ids de usuario ni correos. doseAmountAtTime/doseUnitAtTime copian la dosis de la version de la rutina que cubria la OCURRENCIA (su instante fecha+hora de Bogota), NO la vigente al registrar (M-7, A-04); routineId es esa version. Auditoria interna (T-C9): quien revirtio y con que reason se conserva siempre; se expone solo a titulares (revertedByDisplayName, revertReason).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CareLogEntry".
+ */
+export interface CareLogEntry {
+  id: string;
+  routineId: string;
+  occurrenceDate: string;
+  /**
+   * HH:MM, 24 h, hora de Bogota (America/Bogota fija, D12-12 = B, DEUDA-012-TZ)
+   */
+  occurrenceTime: string;
+  status: LogStatus;
+  /**
+   * Derivado por el servidor: DONE o SKIPPED registrado despues de hora + OVERDUE_GRACE_MINUTES (REQ-CAR12-003, M-04); el cliente no lo envia
+   */
+  late: boolean;
+  performedAt: string;
+  performedByDisplayName: string | null;
+  performedByMe: boolean;
+  note: string;
+  revertedAt: string | null;
+  /**
+   * T-C9: nombre visible de quien revirtio; solo para titulares (propietarios y co-propietarios) con includeReverted = true; null en los demas casos. Nunca ids ni correos.
+   */
+  revertedByDisplayName?: string | null;
+  /**
+   * T-C9: motivo de la reversion; mismas reglas de visibilidad que revertedByDisplayName
+   */
+  revertReason?: string | null;
+  doseAmountAtTime: number | null;
+  doseUnitAtTime: DoseUnit | null;
+}
+/**
+ * ProblemDetails del 409 ERR-CAR12-ALREADY-LOGGED con el miembro adicional 'existing' (ProblemDetails comun es cerrado). El 409 evita el doble REGISTRO de la ocurrencia; NO impide la doble administracion fisica (maggie M-4).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CareLogConflict".
+ */
+export interface CareLogConflict {
+  type: string;
+  code: "ERR-CAR12-ALREADY-LOGGED";
+  title: string;
+  status: 409;
+  detail: string;
+  invariantRef: string;
+  /**
+   * Autor y hora de la entrada vigente: lo unico que el 409 revela a un cuidador de otra persona (REQ-CAR12-009, SC-012-031)
+   */
+  existing: {
+    performedByDisplayName: string;
+    performedAt: string;
+    status: LogStatus;
+  };
+}
+/**
+ * Historial de registros, mas recientes primero; limit <= 100. El cursor esta atado a petId, a los filtros y al rol del solicitante: un cursor alterado o de otra mascota o filtro responde el mismo 422 ERR-SCHEMA-VALIDATION-FAILED (T-C7). includeReverted = true solo lo honran los titulares (propietarios y co-propietarios); para cualquier otro rol se ignora en silencio (sin 403, sin oraculo)
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CareLogPage".
+ */
+export interface CareLogPage {
+  /**
+   * @maxItems 100
+   */
+  items: CareLogEntry[];
+  nextCursor: string | null;
+}
+/**
+ * Pendientes del dia civil de Bogota de UNA mascota; la pantalla rotula las horas como 'hora de Bogota' (maggie m-4). Sin notificaciones (DEUDA-012-RECORDATORIOS).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CarePendingToday".
+ */
+export interface CarePendingToday {
+  date: string;
+  timezone: "America/Bogota";
+  graceMinutes: 60;
+  /**
+   * Orden cronologico estable (hora, luego titulo, luego routineId; INV-SORT-001). 20 rutinas x 6 horas = 120 por mascota como maximo.
+   *
+   * @maxItems 720
+   */
+  items: CareOccurrence[];
+}
+/**
+ * Registra DONE o SKIPPED de una ocurrencia. performedAt, performedBy y late los fija el servidor (reloj del servidor, America/Bogota). routineId puede ser cualquier fila de la serie; el servidor resuelve la version que cubre el instante de la ocurrencia (dia, hora y vigencia por instante, A-04); si la ocurrencia no existe segun la rutina, o routineId no existe o pertenece a OTRA mascota: el MISMO 422 ERR-SCHEMA-VALIDATION-FAILED, idéntico en cuerpo, cabeceras y coste (T-C4). Ventana (todos los roles, M-05, A-03): ocurrencia anterior a ahora - CARE_LOG_BACKFILL_HOURS, DONE de una ocurrencia mas alla de ahora + CARE_LOG_EARLY_TOLERANCE_MINUTES, o SKIPPED anticipado: 422 ERR-CAR12-OUT-OF-WINDOW. SKIPPED de una rutina MEDICATION exige note (1-140; sin ella 422 ERR-SCHEMA-VALIDATION-FAILED); en MEAL, WALK y OTHER es opcional. Reintento del mismo autor: 200 con la fila vigente SOLO si status coincide; con otro status 409 ERR-CAR12-ALREADY-LOGGED (existing con el status guardado) y el cliente debe revertir y volver a registrar (M-02, T-C1). Solo titulares (propietarios y co-propietarios) y CAREGIVER con BASIC_LOG vigente; VIEW_ONLY, ADMIN, MEMBER, READER y otros: 403 ERR-ACC-FORBIDDEN (verificado en el servidor en cada peticion, EDGE-012-015).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CreateCareLogEntryRequest".
+ */
+export interface CreateCareLogEntryRequest {
+  routineId: string;
+  occurrenceDate: string;
+  /**
+   * HH:MM, 24 h, hora de Bogota (America/Bogota fija, D12-12 = B, DEUDA-012-TZ)
+   */
+  occurrenceTime: string;
+  status: LogStatus;
+  /**
+   * Texto plano, NFC, sin caracteres de control ni bidi; escapado en la salida. Obligatoria (1-140) si status = SKIPPED y la rutina es MEDICATION (M-04); opcional en los demas casos
+   */
+  note?: string;
+}
+/**
+ * Revierte (anula) un registro: queda reverted_at, la ocurrencia vuelve a estar libre. Quien registro (o un titular) puede dentro de CARE_LOG_UNDO_MINUTES = 10; despues solo los titulares con reason (sin reason: 422 ERR-SCHEMA-VALIDATION-FAILED; un cuidador fuera de plazo: 403 ERR-ACC-FORBIDDEN). Revertir un registro ya revertido devuelve 200 con la misma fila, pero SOLO tras superar la comprobacion de potestad (T-C4). La reversion no cuenta contra el tope de escritura de registros: tiene cubo propio de 30 por usuario y hora (CARE_LOG_REVERT_WRITES_PER_USER_PER_HOUR, M-06, H-C1 de Neo) y su 429 lleva Retry-After. Se audita quien revirtio y con que reason (T-C9).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "RevertCareLogEntryRequest".
+ */
+export interface RevertCareLogEntryRequest {
+  /**
+   * Obligatorio al revertir pasados CARE_LOG_UNDO_MINUTES (solo titulares); opcional dentro del plazo
+   */
+  reason?: string;
+}
+/**
+ * Version vigente o historica de una rutina. Una rutina MEDICATION es una fila por version: cambiar dosis, unidad u horarios inserta una fila nueva (supersedesRoutineId, mismo seriesId, effectiveFrom = instante de la escritura) y cierra la anterior (active = false, effectiveTo = ese instante), de modo que un registro conserve la dosis de la version que cubria su OCURRENCIA, no la vigente al registrar (M-7, A-04). No expone el id del autor (created_by_user_id queda interno; REQ-CAR12-009).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CareRoutine".
+ */
+export interface CareRoutine {
+  id: string;
+  /**
+   * Identificador de la rutina LOGICA, comun a todas sus versiones (filas); la primera version lo toma de su propio id. La unicidad del registro de cumplimiento se define sobre (seriesId, fecha, hora), no sobre la fila-version (A-05).
+   */
+  seriesId: string;
+  petId: string;
+  kind: CareKind;
+  title: string;
+  /**
+   * Texto plano; escapado en la salida; sin consejo clinico (REQ-CAR12-008)
+   */
+  instructions: string;
+  doseAmount: DoseAmount | null;
+  doseUnit: DoseUnit | null;
+  timesOfDay: TimesOfDay;
+  daysOfWeek: DaysOfWeek;
+  startDate: string;
+  endDate: string | null;
+  ongoing: boolean;
+  active: boolean;
+  /**
+   * Instante (reloj del servidor, hora de Bogota) desde el que rige esta version; una ocurrencia pertenece a la version cuyo [effectiveFrom, effectiveTo) cubre su instante fecha+hora de Bogota (A-04)
+   */
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  supersedesRoutineId: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+/**
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CareRoutineList".
+ */
+export interface CareRoutineList {
+  /**
+   * Por defecto solo vigentes; includeInactive = true agrega las versiones sustituidas e inactivas (a lo sumo MAX_ROUTINE_ROWS_PER_PET = 100)
+   *
+   * @maxItems 100
+   */
+  items: CareRoutine[];
+}
+/**
+ * Crea una rutina. Reglas de dominio (ademas del esquema): MEDICATION exige doseAmount y doseUnit; (endDate no nulo) XOR (ongoing = true) en MEDICATION y endDate >= startDate; MEAL/WALK/OTHER no llevan dosis (doseAmount y doseUnit nulos u omitidos); TABLET solo multiplos de 0,25 con minimo 0,25; DROP entero >= 1; MG/MCG/ML > 0 con 3 decimales como maximo; UNIT NO existe en el catalogo; IU solo para dosis de insulina u otras unidades internacionales, paso y umbral pendientes de veterinario; timesOfDay ordenado y sin repetidos (el servidor normaliza el orden); tope MAX_ROUTINES_PER_PET rutinas activas (409 ERR-CAR12-ROUTINE-LIMIT).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CreateCareRoutineRequest".
+ */
+export interface CreateCareRoutineRequest {
+  kind: CareKind;
+  title: string;
+  /**
+   * Texto plano; escapado en la salida; sin consejo clinico (REQ-CAR12-008)
+   */
+  instructions?: string;
+  doseAmount?: DoseAmount | null;
+  doseUnit?: DoseUnit | null;
+  timesOfDay: TimesOfDay;
+  daysOfWeek: DaysOfWeek;
+  startDate: string;
+  endDate?: string | null;
+  ongoing?: boolean;
+  /**
+   * Confirmacion explicita de una dosis sobre el umbral de captura de la especie de la mascota (REQ-CAR12-001, A-02); sin ella y con dosis sobre el umbral: 422 ERR-SCHEMA-VALIDATION-FAILED. Es guarda anti-tecleo, NO validacion clinica ni promesa de seguridad; sin umbral definido para la combinacion especie/unidad no se aplica.
+   */
+  confirmHighDose?: boolean;
+}
+/**
+ * Desactiva (active = false, effectiveTo = instante de la desactivacion, hora de Bogota; las ocurrencias anteriores siguen registrables, A-04); no borra: los registros pasados se conservan hasta su retencion
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "DeactivateCareRoutineRequest".
+ */
+export interface DeactivateCareRoutineRequest {
+  expectedVersion: number;
+}
+/**
+ * Resultado de editar: la fila vigente tras la escritura y, si hubo version nueva, el id de la fila sustituida
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "RoutineWriteResult".
+ */
+export interface RoutineWriteResult {
+  routine: CareRoutine;
+  versioned: boolean;
+  supersededRoutineId: string | null;
+}
+/**
+ * Edicion parcial de una rutina VIGENTE (active = true). Cambiar doseAmount, doseUnit o timesOfDay NO sobrescribe: el servidor inserta una version nueva y cierra la anterior (RoutineWriteResult.versioned = true, status 201). Cambiar solo title, instructions, daysOfWeek, endDate u ongoing edita la fila en el sitio (versioned = false, status 200). kind no cambia nunca. Solo titulares (propietario principal o co-propietario ACTIVE; H-C3, M-01); el ADMIN del hogar, un CAREGIVER, MEMBER y READER reciben 403 ERR-ACC-FORBIDDEN (SC-012-026).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "UpdateCareRoutineRequest".
+ */
+export interface UpdateCareRoutineRequest {
+  title?: string;
+  /**
+   * Texto plano; escapado en la salida; sin consejo clinico (REQ-CAR12-008)
+   */
+  instructions?: string;
+  doseAmount?: DoseAmount | null;
+  doseUnit?: DoseUnit | null;
+  timesOfDay?: TimesOfDay;
+  daysOfWeek?: DaysOfWeek;
+  startDate?: string;
+  endDate?: string | null;
+  ongoing?: boolean;
+  /**
+   * Confirmacion explicita de una dosis sobre el umbral de captura de la especie de la mascota (REQ-CAR12-001, A-02); sin ella y con dosis sobre el umbral: 422 ERR-SCHEMA-VALIDATION-FAILED. Es guarda anti-tecleo, NO validacion clinica ni promesa de seguridad; sin umbral definido para la combinacion especie/unidad no se aplica.
+   */
+  confirmHighDose?: boolean;
+  /**
+   * Version de la fila que el cliente vio; si no coincide con la fila vigente (por ejemplo, otra edicion ya la sustituyo), 409 ERR-CAR12-ROUTINE-STALE (H-C2, Neo; cuerpo sin datos de la fila sustituida; la interfaz recarga la rutina y avisa de revisar dosis y horario)
+   */
+  expectedVersion: number;
+}
+/**
+ * Nivel de cuidado concedido a un CAREGIVER ACTIVE para UNA mascota. Sin id del que concedio (granted_by_user_id queda interno).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CaregiverAccess".
+ */
+export interface CaregiverAccess {
+  petId: string;
+  userId: string;
+  username: string;
+  level: CaregiverLevel;
+  careUntil: string | null;
+  /**
+   * careUntil vencido: el nivel ya no aplica (SC-012-036); la fila se conserva 30 dias
+   */
+  expired: boolean;
+  grantedAt: string;
+  version: number;
+}
+/**
+ * Solo las FILAS de nivel existentes de la mascota (items). Un CAREGIVER ACTIVE sin fila NO aparece aqui y vale VIEW_ONLY por defecto; el titular lo identifica en la lista de miembros del hogar (002) y le concede nivel con PUT /pets/{petId}/care/access/{userId}, que crea la fila (T-C12). Auditoria interna de grant, cambio y retiro (quien, cuando, a quien, nivel, careUntil; sin correos) (T-C9). La fila queda ligada a la membresia: la salida del cuidador del hogar (LEFT/REMOVED), el cambio de su rol o la desasignacion de la mascota BORRAN o invalidan la fila en la misma transaccion; reinvitarlo como CAREGIVER empieza en VIEW_ONLY sin reactivar un nivel antiguo (T-C2).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "CaregiverAccessList".
+ */
+export interface CaregiverAccessList {
+  /**
+   * @maxItems 50
+   */
+  items: CaregiverAccess[];
+}
+/**
+ * Permisos efectivos del solicitante sobre rutinas y registros de cuidado de la mascota. Para titulares (propietarios y co-propietarios): caregiver = false, canViewRoutines/canLogCare/canManageRoutines = true (canManageRoutines cubre definir medicacion y gestionar niveles). Para ADMIN del hogar, MEMBER y READER sin ser cuidadores (T-C5): caregiver = false, level = null, canViewRoutines = canLogCare = canManageRoutines = false. Para un CAREGIVER: canManageRoutines = false siempre.
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "MyCareAccess".
+ */
+export interface MyCareAccess {
+  petId: string;
+  /**
+   * El solicitante es CAREGIVER ACTIVE de un hogar donde la mascota esta asignada
+   */
+  caregiver: boolean;
+  level: CaregiverLevel | null;
+  /**
+   * true si no hay fila de nivel (o vencio): el Modo Cuidador es VIEW_ONLY por defecto (REQ-CAR12-006)
+   */
+  defaultedToViewOnly: boolean;
+  careUntil: string | null;
+  canViewRoutines: boolean;
+  canLogCare: boolean;
+  canManageRoutines: boolean;
+  /**
+   * Constante documental: VIEW_ONLY/BASIC_LOG NO restringen los permisos clinicos de CAREGIVER (eventos sanitarios, pesos, medidas, archivos y fotos; D12-10 = A, Neo-B, EDGE-012-049). La interfaz no debe presentar VIEW_ONLY como modo de solo lectura general.
+   */
+  clinicalPermissionsUnchanged: true;
+}
+/**
+ * Concede o cambia el nivel. careUntil (opcional, >= hoy de Bogota) vence el nivel (SC-012-036): vigente mientras la fecha de hoy en America/Bogota (reloj del servidor) sea <= careUntil, es decir, careUntil es INCLUSIVO (T-C3, Neo): el nivel rige hasta las 23:59:59 de America/Bogota del dia indicado y deja de aplicar a las 00:00:00 de Bogota del dia siguiente (sin hora de corte configurable); un careUntil pasado no se acepta (422) y uno ya vencido se trata como VIEW_ONLY por defecto (T-C3). Lo concede solo un titular (propietario principal o co-propietario ACTIVE), nunca el ADMIN del hogar (H-C3, M-03). Solo a un miembro ACTIVE con rol CAREGIVER de un hogar con la mascota asignada; otro destino: 404 ERR-PET-NOT-FOUND (anti-enumeracion).
+ *
+ * This interface was referenced by `ArgosContractsIndex`'s JSON-Schema
+ * via the `definition` "SetCaregiverAccessRequest".
+ */
+export interface SetCaregiverAccessRequest {
+  level: CaregiverLevel;
+  careUntil?: string | null;
+  /**
+   * Obligatorio al reemplazar una fila existente (409 ERR-CAR12-ROUTINE-STALE si no coincide; H-C2); se omite al crear
+   */
+  expectedVersion?: number;
 }
 /**
  * Unico cuerpo 2xx de createChipClaim y openChipDispute. IDENTICO byte a byte y con las mismas cabeceras para: chip libre, chip ocupado con fila creada, chip propio del solicitante, solicitud ya pendiente (idempotente), chip sin mascota ni reserva y toda precondicion fallida (INV-CHP12-003, SC-012-101, SC-012-111). No devuelve claimId ni disputeId: el solicitante consulta listMyChipRequests.

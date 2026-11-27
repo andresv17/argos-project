@@ -3,7 +3,10 @@
  * Source: contracts/schemas/admin-disputes.schema.json (v0.1.0, APPROVED)
  * Source: contracts/schemas/audit-entry.schema.json (v3.2.0, DRAFT)
  * Source: contracts/schemas/backup-envelope.schema.json (v3.3.0, DRAFT)
- * Source: contracts/schemas/chip-claim.schema.json (v0.2.0, APPROVED)
+ * Source: contracts/schemas/care-log-entry.schema.json (v0.1.2, APPROVED)
+ * Source: contracts/schemas/care-routine.schema.json (v0.1.2, APPROVED)
+ * Source: contracts/schemas/caregiver-access.schema.json (v0.1.2, APPROVED)
+ * Source: contracts/schemas/chip-claim.schema.json (v0.2.1, APPROVED)
  * Source: contracts/schemas/common.schema.json (v2.3.0, REVIEW)
  * Source: contracts/schemas/identity.schema.json (v3.3.0, DRAFT)
  * Source: contracts/schemas/media.schema.json (v1.0.0, DRAFT)
@@ -11,10 +14,10 @@
  * Source: contracts/schemas/owner-request.schema.json (v0.1.0, APPROVED)
  * Source: contracts/schemas/pet-co-owner.schema.json (v0.1.0, APPROVED)
  * Source: contracts/schemas/pet.schema.json (v3.2.0, DRAFT)
- * @implements EDGE-009-005, EDGE-009-038, EDGE-012-001, EDGE-012-028, EDGE-012-030, EDGE-012-040, EDGE-012-042, EDGE-012-043, EDGE-012-056, EDGE-012-057, EDGE-012-059, EDGE-012-060, EDGE-012-061, EDGE-012-064, EDGE-012-066, INV-ACC2-001, INV-ACC2-002, INV-ALB-001, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-AVA-001, INV-BACKUP-001, INV-CHP12-001, INV-CHP12-003, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007, INV-CHP12-009, INV-ESC6-016, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-LOG-001, INV-LOG-002, INV-OWN12-001, INV-OWN12-002, INV-OWN12-003, INV-OWN12-004, INV-OWN12-005, INV-OWN12-006, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-PET4-001, INV-RAZ-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-REG-003, INV-SIN-001, INV-SIN-002, INV-SORT-001, NFR-012-009, REQ-ACC-001, REQ-ACC-002, REQ-ALB-001, REQ-APR9-001, REQ-APR9-002, REQ-ARC-001, REQ-ARC-003, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AVA-001, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-BOR-001, REQ-BOR-005, REQ-CHP12-001, REQ-CHP12-002, REQ-CHP12-003, REQ-CHP12-004, REQ-CHP12-005, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, REQ-ESC6-021, REQ-GCS-005, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-IMP-001, REQ-LOG-001, REQ-LOG-002, REQ-MDC-001, REQ-MIG-001, REQ-OWN-001, REQ-OWN12-001, REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-004, REQ-OWN12-006, REQ-OWN12-009, REQ-OWN12-011, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET4-001, REQ-PET4-002, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-SIN-001, REQ-TIME-001, SC-012, SC-012-016, SC-012-020, SC-012-073, SC-012-075, SC-012-080, SC-012-082, SC-012-091, SC-012-092, SC-012-093, SC-012-098, SC-012-101, SC-012-103, SC-012-104, SC-012-111, SC-012-115, SC-014, STATE-ACCT9-001, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-COOWN12-001, STATE-HOUSE-MEMBERSHIP-001, STATE-OWNREQ12-001
+ * @implements EDGE-009-005, EDGE-009-038, EDGE-012-001, EDGE-012-014, EDGE-012-015, EDGE-012-028, EDGE-012-030, EDGE-012-040, EDGE-012-042, EDGE-012-043, EDGE-012-047, EDGE-012-048, EDGE-012-049, EDGE-012-056, EDGE-012-057, EDGE-012-059, EDGE-012-060, EDGE-012-061, EDGE-012-064, EDGE-012-066, INV-ACC2-001, INV-ACC2-002, INV-ALB-001, INV-ARC-001, INV-ARC-002, INV-ARC-003, INV-ARC-004, INV-ARCH-001, INV-ARCH-003, INV-AUD-001, INV-AUTH-001, INV-AUTH-003, INV-AUTH-006, INV-AUTH2-001, INV-AUTH2-002, INV-AVA-001, INV-BACKUP-001, INV-CHP12-001, INV-CHP12-003, INV-CHP12-004, INV-CHP12-005, INV-CHP12-006, INV-CHP12-007, INV-CHP12-009, INV-ESC6-016, INV-HOUSE-003, INV-HOUSE-004, INV-HOUSE-005, INV-HOUSE2-001, INV-LOG-001, INV-LOG-002, INV-OWN12-001, INV-OWN12-002, INV-OWN12-003, INV-OWN12-004, INV-OWN12-005, INV-OWN12-006, INV-OWN2-001, INV-PET-002, INV-PET-003, INV-PET-006, INV-PET2-001, INV-PET4-001, INV-RAZ-001, INV-REC-001, INV-REC-003, INV-REC-004, INV-REC-005, INV-REC-006, INV-REC2-002, INV-REG-003, INV-SIN-001, INV-SIN-002, INV-SORT-001, NFR-012-009, REQ-ACC-001, REQ-ACC-002, REQ-ALB-001, REQ-APR9-001, REQ-APR9-002, REQ-ARC-001, REQ-ARC-003, REQ-AUD-001, REQ-AUTH-003, REQ-AUTH-004, REQ-AUTH2-001, REQ-AUTH2-002, REQ-AUTH2-003, REQ-AVA-001, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-BOR-001, REQ-BOR-005, REQ-CAR12-001, REQ-CAR12-002, REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-005, REQ-CAR12-006, REQ-CAR12-007, REQ-CAR12-008, REQ-CAR12-009, REQ-CHP12-001, REQ-CHP12-002, REQ-CHP12-003, REQ-CHP12-004, REQ-CHP12-005, REQ-CHP12-007, REQ-CHP12-008, REQ-CHP12-009, REQ-CHP12-010, REQ-ESC6-021, REQ-GCS-005, REQ-HOUSE-001, REQ-HOUSE-003, REQ-HOUSE2-001, REQ-HOUSE2-002, REQ-HOUSE2-003, REQ-HOUSE2-004, REQ-IMP-001, REQ-LOG-001, REQ-LOG-002, REQ-MDC-001, REQ-MIG-001, REQ-OWN-001, REQ-OWN12-001, REQ-OWN12-002, REQ-OWN12-003, REQ-OWN12-004, REQ-OWN12-006, REQ-OWN12-009, REQ-OWN12-011, REQ-PET-002, REQ-PET-004, REQ-PET2-001, REQ-PET2-002, REQ-PET2-003, REQ-PET4-001, REQ-PET4-002, REQ-RAZ-001, REQ-RAZ-002, REQ-RAZ-003, REQ-RBAC-001, REQ-REC-002, REQ-REC-005, REQ-REC-006, REQ-REC2-001, REQ-REC2-002, REQ-REC2-003, REQ-SIN-001, REQ-TIME-001, SC-012, SC-012-016, SC-012-020, SC-012-025, SC-012-026, SC-012-027, SC-012-028, SC-012-029, SC-012-030, SC-012-031, SC-012-032, SC-012-033, SC-012-034, SC-012-036, SC-012-037, SC-012-038, SC-012-039, SC-012-073, SC-012-075, SC-012-077, SC-012-080, SC-012-082, SC-012-088, SC-012-089, SC-012-091, SC-012-092, SC-012-093, SC-012-098, SC-012-101, SC-012-103, SC-012-104, SC-012-111, SC-012-115, SC-014, STATE-ACCT9-001, STATE-ALERT-001, STATE-AUTH-SESSION-001, STATE-BACKUP-001, STATE-COOWN12-001, STATE-HOUSE-MEMBERSHIP-001, STATE-OWNREQ12-001
  */
 import type { ErrorObject } from 'ajv';
-import type { AbsenceDisputeOpened, AbsenceDisputeReason, AbsenceNotice, AbsenceResponseRequest, AccountStatus, AccountStatusView, AdminActorColumns, AdminActorIdentity, AdminActorView, AdminDisputeFile, AdminDisputeQueue, AdminDisputeQueueItem, AdminId, AlertStatus, ApproverVote, AuditCanonicalViewRules, AuditEntityId, AuditEntityType, AuditEntry, AuditExecutor, AuditMutationType, AuditPseudonym, AuditRetentionPolicy, AuthMethods, AvatarUrl, AvatarVersionResult, BackupBodyMeasurementRecordV3, BackupBodyMeasurementRecordV31, BackupCustomParameterRecordV3, BackupCustomParameterRecordV31, BackupDewormingRecordV3, BackupDewormingRecordV31, BackupEnvelopeV1Legacy, BackupEnvelopeV2Legacy, BackupEnvelopeV3, BackupEnvelopeV31, BackupEnvelopeV32, BackupEnvelopeV33, BackupMedicalVisitRecordV3, BackupMedicalVisitRecordV31, BackupPetProfileV3, BackupPetProfileV31, BackupPetProfileV32, BackupPetProfileV33, BackupVaccinationRecordV3, BackupVaccinationRecordV31, BackupWeightRecordV3, BackupWeightRecordV31, Biography, BodyMeasurementRecord, CancelExecutionRequest, ChangePasswordInput, ChangeRoleInput, ChipClaimMicrochipId, ChipDisputeMootReason, ChipDisputeResolution, ChipRequestAccepted, ChipRequestAction, ChipRequestList, ChipRequestOutcome, ChipRequestView, ClaimMessage, CloseMootRequest, CoOwnerPrincipalRef, CoOwnerStatus, ComputedAge, ConfirmDisputeRequest, ConfirmationToken, CreateBodyMeasurementInput, CreateChipClaimRequest, CreateCustomParameterInput, CreateDewormingInput, CreateHouseholdInput, CreateMedicalVisitInput, CreateOwnerRequest, CreatePetInput, CreateVaccinationInput, CreateWeightInput, CriticalAction, CustomParameterRecord, DeceasedAt, DecisionPhase, DecisionReason, DeleteAccountInput, DewormingRecord, DisplayName, DisputeId, DisputeKind, DisputePartyView, DisputeReason, DisputeResolution, DisputeResolutionNotice, Email, EstimatedAge, EvidenceContentType, EvidenceDownload, EvidenceFileMeta, EvidenceId, ExtendFreezeRequest, GoogleAuthorizationView, GoogleChooseUsernameInput, GoogleLinkStartInput, HmacSha256Hex, Household, HouseholdInvitation, HouseholdMember, HouseholdRole, ImportBackupResult, ImportPreviewResult, InviteCoOwnerAccepted, InviteCoOwnerRequest, InviteMemberInput, InviteeSearchPrefix, InviteeSearchResult, InviteeSuggestion, IsoDate, IsoTimestamp, LeavePetRequest, LeavePetResult, LegacyBodyMeasurementRecordV1, LegacyBodyMeasurementRecordV2, LegacyCustomParameterRecordV1, LegacyCustomParameterRecordV2, LegacyDewormingRecordV1, LegacyDewormingRecordV2, LegacyMedicalVisitRecordV1, LegacyMedicalVisitRecordV2, LegacyPetProfileV1, LegacyPetProfileV2, LegacySpeciesV2, LegacyVaccinationRecordV1, LegacyVaccinationRecordV2, LegacyWeightRecordV1, LegacyWeightRecordV2, LifeStatus, LoginInput, LoginPassword, MediaAccess, MediaItem, MediaKind, MediaMime, MediaPage, MedicalVisitRecord, MembershipLifecycleState, MicrochipId, MicrochipInput, MootReason, NonEmptyTrimmedString, OpaqueId, OpenAbsenceDisputeRequest, OpenChipDisputeForm, OptionalNotes, OwnerColorToken, OwnerRequestAction, OwnerRequestList, OwnerRequestStatus, OwnerRequestView, OwnerTag, OwnershipState, PartyAlias, Password, PersonId, PetAssignment, PetCoOwner, PetEffectiveRole, PetPermissions, PetProfile, PetVersion, PreferredLanguage, ProblemDetails, PromotionNotice, RbacAction, RbacRole, RecordCollection, RegisterUserInput, ResolveDisputeRequest, SessionView, Sex, Sha256Hex, Species, SpeciesOther, SpeciesWeightLimits, StaleReason, StepUpGrant, StepUpRequest, Timezone, TransferHouseholdOwnershipInput, TransferPetOwnershipInput, TransferPetOwnershipResult, UpdateBodyMeasurementInput, UpdateCustomParameterInput, UpdateDewormingInput, UpdateMedicalVisitInput, UpdatePetInput, UpdateProfileInput, UpdateVaccinationInput, UpdateWeightInput, UserPublicProfile, UserSelfProfile, Username, Uuid, VaccinationRecord, WeightRecord } from './types';
+import type { AbsenceDisputeOpened, AbsenceDisputeReason, AbsenceNotice, AbsenceResponseRequest, AccountStatus, AccountStatusView, AdminActorColumns, AdminActorIdentity, AdminActorView, AdminDisputeFile, AdminDisputeQueue, AdminDisputeQueueItem, AdminId, AlertStatus, ApproverVote, AuditCanonicalViewRules, AuditEntityId, AuditEntityType, AuditEntry, AuditExecutor, AuditMutationType, AuditPseudonym, AuditRetentionPolicy, AuthMethods, AvatarUrl, AvatarVersionResult, BackupBodyMeasurementRecordV3, BackupBodyMeasurementRecordV31, BackupCustomParameterRecordV3, BackupCustomParameterRecordV31, BackupDewormingRecordV3, BackupDewormingRecordV31, BackupEnvelopeV1Legacy, BackupEnvelopeV2Legacy, BackupEnvelopeV3, BackupEnvelopeV31, BackupEnvelopeV32, BackupEnvelopeV33, BackupMedicalVisitRecordV3, BackupMedicalVisitRecordV31, BackupPetProfileV3, BackupPetProfileV31, BackupPetProfileV32, BackupPetProfileV33, BackupVaccinationRecordV3, BackupVaccinationRecordV31, BackupWeightRecordV3, BackupWeightRecordV31, Biography, BodyMeasurementRecord, CancelExecutionRequest, CareHouseholdToday, CareKind, CareLogConflict, CareLogEntry, CareLogPage, CareOccurrence, CarePendingToday, CareRoutine, CareRoutineList, CaregiverAccess, CaregiverAccessList, CaregiverLevel, ChangePasswordInput, ChangeRoleInput, ChipClaimMicrochipId, ChipDisputeMootReason, ChipDisputeResolution, ChipRequestAccepted, ChipRequestAction, ChipRequestList, ChipRequestOutcome, ChipRequestView, ClaimMessage, CloseMootRequest, CoOwnerPrincipalRef, CoOwnerStatus, ComputedAge, ConfirmDisputeRequest, ConfirmationToken, CreateBodyMeasurementInput, CreateCareLogEntryRequest, CreateCareRoutineRequest, CreateChipClaimRequest, CreateCustomParameterInput, CreateDewormingInput, CreateHouseholdInput, CreateMedicalVisitInput, CreateOwnerRequest, CreatePetInput, CreateVaccinationInput, CreateWeightInput, CriticalAction, CustomParameterRecord, DaysOfWeek, DeactivateCareRoutineRequest, DeceasedAt, DecisionPhase, DecisionReason, DeleteAccountInput, DewormingRecord, DisplayName, DisputeId, DisputeKind, DisputePartyView, DisputeReason, DisputeResolution, DisputeResolutionNotice, DoseAmount, DoseUnit, Email, EstimatedAge, EvidenceContentType, EvidenceDownload, EvidenceFileMeta, EvidenceId, ExtendFreezeRequest, GoogleAuthorizationView, GoogleChooseUsernameInput, GoogleLinkStartInput, HmacSha256Hex, Household, HouseholdInvitation, HouseholdMember, HouseholdRole, ImportBackupResult, ImportPreviewResult, InviteCoOwnerAccepted, InviteCoOwnerRequest, InviteMemberInput, InviteeSearchPrefix, InviteeSearchResult, InviteeSuggestion, IsoDate, IsoTimestamp, LeavePetRequest, LeavePetResult, LegacyBodyMeasurementRecordV1, LegacyBodyMeasurementRecordV2, LegacyCustomParameterRecordV1, LegacyCustomParameterRecordV2, LegacyDewormingRecordV1, LegacyDewormingRecordV2, LegacyMedicalVisitRecordV1, LegacyMedicalVisitRecordV2, LegacyPetProfileV1, LegacyPetProfileV2, LegacySpeciesV2, LegacyVaccinationRecordV1, LegacyVaccinationRecordV2, LegacyWeightRecordV1, LegacyWeightRecordV2, LifeStatus, LogStatus, LoginInput, LoginPassword, MediaAccess, MediaItem, MediaKind, MediaMime, MediaPage, MedicalVisitRecord, MembershipLifecycleState, MicrochipId, MicrochipInput, MootReason, MyCareAccess, NonEmptyTrimmedString, OccurrenceState, OpaqueId, OpenAbsenceDisputeRequest, OpenChipDisputeForm, OptionalNotes, OwnerColorToken, OwnerRequestAction, OwnerRequestList, OwnerRequestStatus, OwnerRequestView, OwnerTag, OwnershipState, PartyAlias, Password, PersonId, PetAssignment, PetCoOwner, PetEffectiveRole, PetPermissions, PetProfile, PetVersion, PreferredLanguage, ProblemDetails, PromotionNotice, RbacAction, RbacRole, RecordCollection, RegisterUserInput, ResolveDisputeRequest, RevertCareLogEntryRequest, RoutineWriteResult, SessionView, SetCaregiverAccessRequest, Sex, Sha256Hex, Species, SpeciesOther, SpeciesWeightLimits, StaleReason, StepUpGrant, StepUpRequest, TimesOfDay, Timezone, TransferHouseholdOwnershipInput, TransferPetOwnershipInput, TransferPetOwnershipResult, UpdateBodyMeasurementInput, UpdateCareRoutineRequest, UpdateCustomParameterInput, UpdateDewormingInput, UpdateMedicalVisitInput, UpdatePetInput, UpdateProfileInput, UpdateVaccinationInput, UpdateWeightInput, UserPublicProfile, UserSelfProfile, Username, Uuid, VaccinationRecord, WeightRecord } from './types';
 
 export interface ValidatorFunction<T> {
   (data: unknown): data is T;
@@ -72,6 +75,18 @@ export declare const validateBackupWeightRecordV31: ValidatorFunction<BackupWeig
 export declare const validateBiography: ValidatorFunction<Biography>;
 export declare const validateBodyMeasurementRecord: ValidatorFunction<BodyMeasurementRecord>;
 export declare const validateCancelExecutionRequest: ValidatorFunction<CancelExecutionRequest>;
+export declare const validateCareHouseholdToday: ValidatorFunction<CareHouseholdToday>;
+export declare const validateCareKind: ValidatorFunction<CareKind>;
+export declare const validateCareLogConflict: ValidatorFunction<CareLogConflict>;
+export declare const validateCareLogEntry: ValidatorFunction<CareLogEntry>;
+export declare const validateCareLogPage: ValidatorFunction<CareLogPage>;
+export declare const validateCareOccurrence: ValidatorFunction<CareOccurrence>;
+export declare const validateCarePendingToday: ValidatorFunction<CarePendingToday>;
+export declare const validateCareRoutine: ValidatorFunction<CareRoutine>;
+export declare const validateCareRoutineList: ValidatorFunction<CareRoutineList>;
+export declare const validateCaregiverAccess: ValidatorFunction<CaregiverAccess>;
+export declare const validateCaregiverAccessList: ValidatorFunction<CaregiverAccessList>;
+export declare const validateCaregiverLevel: ValidatorFunction<CaregiverLevel>;
 export declare const validateChangePasswordInput: ValidatorFunction<ChangePasswordInput>;
 export declare const validateChangeRoleInput: ValidatorFunction<ChangeRoleInput>;
 export declare const validateChipClaimMicrochipId: ValidatorFunction<ChipClaimMicrochipId>;
@@ -90,6 +105,8 @@ export declare const validateComputedAge: ValidatorFunction<ComputedAge>;
 export declare const validateConfirmDisputeRequest: ValidatorFunction<ConfirmDisputeRequest>;
 export declare const validateConfirmationToken: ValidatorFunction<ConfirmationToken>;
 export declare const validateCreateBodyMeasurementInput: ValidatorFunction<CreateBodyMeasurementInput>;
+export declare const validateCreateCareLogEntryRequest: ValidatorFunction<CreateCareLogEntryRequest>;
+export declare const validateCreateCareRoutineRequest: ValidatorFunction<CreateCareRoutineRequest>;
 export declare const validateCreateChipClaimRequest: ValidatorFunction<CreateChipClaimRequest>;
 export declare const validateCreateCustomParameterInput: ValidatorFunction<CreateCustomParameterInput>;
 export declare const validateCreateDewormingInput: ValidatorFunction<CreateDewormingInput>;
@@ -101,6 +118,8 @@ export declare const validateCreateVaccinationInput: ValidatorFunction<CreateVac
 export declare const validateCreateWeightInput: ValidatorFunction<CreateWeightInput>;
 export declare const validateCriticalAction: ValidatorFunction<CriticalAction>;
 export declare const validateCustomParameterRecord: ValidatorFunction<CustomParameterRecord>;
+export declare const validateDaysOfWeek: ValidatorFunction<DaysOfWeek>;
+export declare const validateDeactivateCareRoutineRequest: ValidatorFunction<DeactivateCareRoutineRequest>;
 export declare const validateDeceasedAt: ValidatorFunction<DeceasedAt>;
 export declare const validateDecisionPhase: ValidatorFunction<DecisionPhase>;
 export declare const validateDecisionReason: ValidatorFunction<DecisionReason>;
@@ -113,6 +132,8 @@ export declare const validateDisputePartyView: ValidatorFunction<DisputePartyVie
 export declare const validateDisputeReason: ValidatorFunction<DisputeReason>;
 export declare const validateDisputeResolution: ValidatorFunction<DisputeResolution>;
 export declare const validateDisputeResolutionNotice: ValidatorFunction<DisputeResolutionNotice>;
+export declare const validateDoseAmount: ValidatorFunction<DoseAmount>;
+export declare const validateDoseUnit: ValidatorFunction<DoseUnit>;
 export declare const validateEmail: ValidatorFunction<Email>;
 export declare const validateEstimatedAge: ValidatorFunction<EstimatedAge>;
 export declare const validateEvidenceContentType: ValidatorFunction<EvidenceContentType>;
@@ -156,6 +177,7 @@ export declare const validateLegacyVaccinationRecordV2: ValidatorFunction<Legacy
 export declare const validateLegacyWeightRecordV1: ValidatorFunction<LegacyWeightRecordV1>;
 export declare const validateLegacyWeightRecordV2: ValidatorFunction<LegacyWeightRecordV2>;
 export declare const validateLifeStatus: ValidatorFunction<LifeStatus>;
+export declare const validateLogStatus: ValidatorFunction<LogStatus>;
 export declare const validateLoginInput: ValidatorFunction<LoginInput>;
 export declare const validateLoginPassword: ValidatorFunction<LoginPassword>;
 export declare const validateMediaAccess: ValidatorFunction<MediaAccess>;
@@ -168,7 +190,9 @@ export declare const validateMembershipLifecycleState: ValidatorFunction<Members
 export declare const validateMicrochipId: ValidatorFunction<MicrochipId>;
 export declare const validateMicrochipInput: ValidatorFunction<MicrochipInput>;
 export declare const validateMootReason: ValidatorFunction<MootReason>;
+export declare const validateMyCareAccess: ValidatorFunction<MyCareAccess>;
 export declare const validateNonEmptyTrimmedString: ValidatorFunction<NonEmptyTrimmedString>;
+export declare const validateOccurrenceState: ValidatorFunction<OccurrenceState>;
 export declare const validateOpaqueId: ValidatorFunction<OpaqueId>;
 export declare const validateOpenAbsenceDisputeRequest: ValidatorFunction<OpenAbsenceDisputeRequest>;
 export declare const validateOpenChipDisputeForm: ValidatorFunction<OpenChipDisputeForm>;
@@ -197,7 +221,10 @@ export declare const validateRbacRole: ValidatorFunction<RbacRole>;
 export declare const validateRecordCollection: ValidatorFunction<RecordCollection>;
 export declare const validateRegisterUserInput: ValidatorFunction<RegisterUserInput>;
 export declare const validateResolveDisputeRequest: ValidatorFunction<ResolveDisputeRequest>;
+export declare const validateRevertCareLogEntryRequest: ValidatorFunction<RevertCareLogEntryRequest>;
+export declare const validateRoutineWriteResult: ValidatorFunction<RoutineWriteResult>;
 export declare const validateSessionView: ValidatorFunction<SessionView>;
+export declare const validateSetCaregiverAccessRequest: ValidatorFunction<SetCaregiverAccessRequest>;
 export declare const validateSex: ValidatorFunction<Sex>;
 export declare const validateSha256Hex: ValidatorFunction<Sha256Hex>;
 export declare const validateSpecies: ValidatorFunction<Species>;
@@ -206,11 +233,13 @@ export declare const validateSpeciesWeightLimits: ValidatorFunction<SpeciesWeigh
 export declare const validateStaleReason: ValidatorFunction<StaleReason>;
 export declare const validateStepUpGrant: ValidatorFunction<StepUpGrant>;
 export declare const validateStepUpRequest: ValidatorFunction<StepUpRequest>;
+export declare const validateTimesOfDay: ValidatorFunction<TimesOfDay>;
 export declare const validateTimezone: ValidatorFunction<Timezone>;
 export declare const validateTransferHouseholdOwnershipInput: ValidatorFunction<TransferHouseholdOwnershipInput>;
 export declare const validateTransferPetOwnershipInput: ValidatorFunction<TransferPetOwnershipInput>;
 export declare const validateTransferPetOwnershipResult: ValidatorFunction<TransferPetOwnershipResult>;
 export declare const validateUpdateBodyMeasurementInput: ValidatorFunction<UpdateBodyMeasurementInput>;
+export declare const validateUpdateCareRoutineRequest: ValidatorFunction<UpdateCareRoutineRequest>;
 export declare const validateUpdateCustomParameterInput: ValidatorFunction<UpdateCustomParameterInput>;
 export declare const validateUpdateDewormingInput: ValidatorFunction<UpdateDewormingInput>;
 export declare const validateUpdateMedicalVisitInput: ValidatorFunction<UpdateMedicalVisitInput>;
