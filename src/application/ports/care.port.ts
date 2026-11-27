@@ -98,3 +98,6 @@ export interface CaregiverAccessRepositoryPort {
   /** `true` si había fila; idempotente. */
   remove(petId: string, userId: string): Promise<boolean>;
 }
+
+/** Mensaje de SQLite de la violación del índice parcial `care_log_entries_occurrence` (la memoria lo imita; PostgreSQL la reconoce por el nombre del índice). */
+export const CARE_LOG_UNIQUE_SQLITE_MESSAGE = 'UNIQUE constraint failed: care_log_entries.series_id, care_log_entries.occurrence_date, care_log_entries.occurrence_time';

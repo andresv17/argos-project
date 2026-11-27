@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { AddWeightRecordUseCase } from '../../src/application/use-cases/record-use-cases.ts';
 import { CreateShareLinkUseCase } from '../../src/application/use-cases/share-link-use-cases.ts';
 import { GetSharedSummaryUseCase } from '../../src/application/use-cases/shared-view-use-cases.ts';
-import { ANDRES, CARE_ENGINE_FACTORIES, EARLY, HOUSEHOLD_ID, LUCIA, LUNA, MARIA, MEAL, MED, NOW, PET, accessRows, careCases, codeOf, logRows, routineRows, type CareEngine } from '../fixtures/care-012.ts';
+import { ANDRES, CARE_ENGINE_FACTORIES, EARLY, HOUSEHOLD_ID, LUCIA, MARIA, MEAL, MED, NOW, PET, accessRows, careCases, codeOf, logRows, routineRows, type CareEngine } from '../fixtures/care-012.ts';
 import { KEY } from '../fixtures/share-harness.ts';
+import { ANDRES_PETS } from '../fixtures/application-harness.ts';
 
 /**
  * T1654 (Feature 012, Bloque C, #26; PRUEBAS ROJAS hasta T1655; `/keymaker`): integración y paridad Memoria / SQLite / PostgreSQL del cuidado por casos de uso (el servidor autoriza, no la UI): rutinas, tope de 20 y de 100 filas,
@@ -20,6 +21,8 @@ afterEach(async () => {
   engine = null;
 });
 
+/** Otra mascota de ANDRES (titular): el cursor de ARGOS no vale en ella (LUNA es de MARIA: ANDRES recibiría 403 antes de llegar al cursor). */
+const OTHER_OWN_PET = ANDRES_PETS.find((p) => p.id !== PET)!.id;
 const FORBIDDEN = 'ERR-ACC-FORBIDDEN';
 const INVALID = 'ERR-SCHEMA-VALIDATION-FAILED';
 /** Desenvuelve `{ entry, created }` (F4): la entrada del registro. */
@@ -274,7 +277,7 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       expect(p2.nextCursor).toBeNull();
       expect(await codeOf(use.history(ANDRES, PET, { limit: 2, cursor: `${p1.nextCursor}x` }))).toBe(INVALID);
       expect(await codeOf(use.history(ANDRES, PET, { limit: 2, cursor: p1.nextCursor, from: '2026-11-01' }))).toBe(INVALID);
-      expect(await codeOf(use.history(ANDRES, LUNA.id, { limit: 2, cursor: p1.nextCursor }))).toBe(INVALID); // cursor de otra mascota
+      expect(await codeOf(use.history(ANDRES, OTHER_OWN_PET, { limit: 2, cursor: p1.nextCursor }))).toBe(INVALID); // cursor de otra mascota
     });
 
     it('[SC-012-039][REQ-VET12-008] el enlace público de veterinario no contiene rutinas, registros de cuidado ni sus notas', async () => {
@@ -289,7 +292,7 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       expect(text).toContain('Argos'); // control positivo (R-6): el resumen no está vacío
       expect(text).not.toContain('RUTINA-SECRETA-ZZ');
       expect(text).not.toContain('NOTA-SECRETA-ZZ');
-      expect(text).not.toMatch(/care(Routine|Log)|caregiver/i);
+      expect(text).not.toMatch(/care(Routine|Log)|caregiverAccess|pet_caregiver/i); // 'CAREGIVER_REPORTED_NOT_VERIFIED' (dataProvenance existente) no es cuidado
     });
 
     it('[SC-012-040] regresión sin cuidadores: un hogar sin niveles ni rutinas devuelve pendientes vacíos y lista de niveles vacía; el propietario conserva todo', async () => {
@@ -306,6 +309,9 @@ for (const factory of CARE_ENGINE_FACTORIES) {
       await grant(use, 'BASIC_LOG');
       engine!.setNow('2026-11-26T13:30:00.000Z');
       await use.log(MARIA, PET, occ(routine.id, '08:00'));
+      await e.run(async (r) => {
+        for (const a of (await r.assignments.listByHousehold(HOUSEHOLD_ID)).filter((x) => x.assignedByUserId === MARIA)) await r.assignments.remove(a.petId, HOUSEHOLD_ID); // sus mascotas propias dejan de estar compartidas: si no, borrar la cuenta se bloquea
+      });
       await use.erase(MARIA);
       const rows = await logRows(e);
       expect(rows).toHaveLength(1);

@@ -4,13 +4,14 @@
  *
  * @implements REQ-CAR12-001, REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-006, INV-ARCH-005
  */
-import type {
-  CareLogRecord,
-  CareLogRepositoryPort,
-  CareRoutineRecord,
-  CareRoutineRepositoryPort,
-  CaregiverAccessRecord,
-  CaregiverAccessRepositoryPort,
+import {
+  CARE_LOG_UNIQUE_SQLITE_MESSAGE,
+  type CareLogRecord,
+  type CareLogRepositoryPort,
+  type CareRoutineRecord,
+  type CareRoutineRepositoryPort,
+  type CaregiverAccessRecord,
+  type CaregiverAccessRepositoryPort,
 } from '../../../application/ports/care.port.ts';
 
 /** Parte del estado de memoria del Bloque C (opcional: ausente = vacía). */
@@ -25,8 +26,6 @@ const copy = <T>(value: T): T => structuredClone(value);
 const blankToNull = (value: string | null): string | null => (value === '' ? null : value);
 const normalizeRoutine = (row: CareRoutineRecord): CareRoutineRecord => ({ ...copy(row), instructions: blankToNull(row.instructions) });
 const normalizeEntry = (row: CareLogRecord): CareLogRecord => ({ ...copy(row), note: blankToNull(row.note) });
-/** Mensaje de la violación de SQLite del índice parcial `care_log_entries_occurrence` (la memoria la imita). */
-export const CARE_LOG_UNIQUE_SQLITE_MESSAGE = 'UNIQUE constraint failed: care_log_entries.series_id, care_log_entries.occurrence_date, care_log_entries.occurrence_time';
 
 export function memoryCareRoutineRepository(state: CareMemoryState): CareRoutineRepositoryPort {
   const rows = (): CareRoutineRecord[] => (state.careRoutines ??= []);
