@@ -26,6 +26,7 @@ import { registerAdminRoutes } from './routes/admin.routes.ts';
 import { registerBackupRoutes } from './routes/backup.routes.ts';
 import { registerAssignmentRoutes } from './routes/assignments.routes.ts';
 import { registerOwnershipRoutes } from './routes/ownership.routes.ts';
+import { registerCoOwnershipRoutes } from './routes/co-ownership.routes.ts';
 import { registerHouseholdRoutes } from './routes/households.routes.ts';
 import { registerOpsRoutes } from './routes/ops-routes.ts';
 import { registerPetRoutes } from './routes/pets.routes.ts';
@@ -122,6 +123,7 @@ export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = fal
   registerHouseholdRoutes(app, context);
   registerAssignmentRoutes(app, context);
   registerOwnershipRoutes(app, context);
+  registerCoOwnershipRoutes(app, context);
   registerBackupRoutes(app, context);
   if (devMedia !== undefined) registerDevMediaRoutes(app, context, devMedia);
   if (checkReady !== undefined) registerOpsRoutes(app, { checkReady });

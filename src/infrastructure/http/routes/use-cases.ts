@@ -47,6 +47,24 @@ import { DeleteHouseholdPhotoUseCase, GetHouseholdPhotoUseCase, PutHouseholdPhot
 import { GetSceneImageUseCase, GetSceneUseCase, RequestSceneGenerationUseCase } from '../../../application/use-cases/scene-use-cases.ts';
 import { CreateShareLinkUseCase, ListShareLinksUseCase, RevokeShareLinkUseCase } from '../../../application/use-cases/share-link-use-cases.ts';
 import { GetSharedFileUseCase, GetSharedPetAvatarUseCase, GetSharedSummaryUseCase, PreviewClinicalSummaryUseCase } from '../../../application/use-cases/shared-view-use-cases.ts';
+import {
+  AcceptCoOwnerInvitationUseCase,
+  AckPromotionNoticeUseCase,
+  CancelCoOwnerInvitationUseCase,
+  DeclineCoOwnerInvitationUseCase,
+  GetPetOwnershipUseCase,
+  InviteCoOwnerUseCase,
+  LeavePetUseCase,
+  ListMyCoOwnerInvitationsUseCase,
+} from '../../../application/use-cases/co-ownership-use-cases.ts';
+import {
+  ApproveOwnerRequestUseCase,
+  CancelOwnerRequestUseCase,
+  CreateOwnerRequestUseCase,
+  GetOwnerRequestUseCase,
+  ListMyOwnerRequestsUseCase,
+  RejectOwnerRequestUseCase,
+} from '../../../application/use-cases/owner-request-use-cases.ts';
 import { TransferPetOwnershipUseCase } from '../../../application/use-cases/ownership-use-cases.ts';
 import { DeletePetUseCase, GetPetDashboardUseCase, ListMyPetsUseCase, RegisterPetUseCase, UpdatePetUseCase } from '../../../application/use-cases/pet-use-cases.ts';
 import {
@@ -142,6 +160,20 @@ export function createUseCases(baseDeps: ApplicationDeps) {
     assignPetToHousehold: new AssignPetToHouseholdUseCase(deps),
     unassignPetFromHousehold: new UnassignPetFromHouseholdUseCase(deps),
     transferPetOwnership: new TransferPetOwnershipUseCase(deps),
+    getPetOwnership: new GetPetOwnershipUseCase(deps),
+    inviteCoOwner: new InviteCoOwnerUseCase(deps),
+    cancelCoOwnerInvitation: new CancelCoOwnerInvitationUseCase(deps),
+    leavePet: new LeavePetUseCase(deps),
+    ackPromotionNotice: new AckPromotionNoticeUseCase(deps),
+    listMyCoOwnerInvitations: new ListMyCoOwnerInvitationsUseCase(deps),
+    acceptCoOwnerInvitation: new AcceptCoOwnerInvitationUseCase(deps),
+    declineCoOwnerInvitation: new DeclineCoOwnerInvitationUseCase(deps),
+    createOwnerRequest: new CreateOwnerRequestUseCase(deps),
+    listMyOwnerRequests: new ListMyOwnerRequestsUseCase(deps),
+    getOwnerRequest: new GetOwnerRequestUseCase(deps),
+    approveOwnerRequest: new ApproveOwnerRequestUseCase(deps),
+    rejectOwnerRequest: new RejectOwnerRequestUseCase(deps),
+    cancelOwnerRequest: new CancelOwnerRequestUseCase(deps),
     exportBackup: new ExportBackupUseCase(deps),
     previewBackupImport: new PreviewBackupImportUseCase(deps),
     importBackup: new ImportBackupUseCase(deps),

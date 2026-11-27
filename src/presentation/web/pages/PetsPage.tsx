@@ -16,6 +16,7 @@ import { AvatarEditor } from '../components/AvatarCropper.tsx';
 import { HomeSceneImage } from '../components/HomeSceneImage.tsx';
 import { PetReferenceNote } from '../components/HouseholdPhoto.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
+import { OwnersPanel, OwnershipInbox } from '../components/CoOwners.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { PhotoAlbum } from '../components/PhotoAlbum.tsx';
 import { principalHouseholdId } from '../scene-view.ts';
@@ -191,6 +192,7 @@ export function PetsPage(): JSX.Element {
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4">
       <h1 className="sr-only">Mascotas</h1>
+      <OwnershipInbox onChanged={() => void refreshAll()} />
       <ContextSelector options={options} activeId={contextId} onSelect={onSelectContext} />
       <div id={PET_PANEL_ID} role="tabpanel" aria-labelledby={`context-tab-${contextId}`} className="grid min-w-0 grid-cols-1 gap-4">
         <PetFilter
@@ -293,6 +295,9 @@ export function PetsPage(): JSX.Element {
                         <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} canCreateLinks hideScopeChoice={shareHousehold === null} />
                       ),
                     }
+                  : {})}
+                {...(user !== null && dashboard.myRole === 'OWNER'
+                  ? { ownersSlot: <OwnersPanel key={`owners-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} currentUserId={user.id} onChanged={() => void refreshAll()} /> }
                   : {})}
                 {...(mode === 'TRANSFER' && dashboard.permissions.transferPetOwnership
                   ? {

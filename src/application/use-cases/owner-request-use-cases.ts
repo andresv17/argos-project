@@ -173,6 +173,31 @@ export class ListMyOwnerRequestsUseCase {
   }
 }
 
+/**
+ * Detalle de una solicitud (`getOwnerRequest`): la ve su solicitante, quien debe decidirla y todo propietario ACTIVE de la mascota (también el que entró después del sellado, H-14); la vista se
+ * reduce si ya no es propietario ACTIVE (H-07). Terceros, solicitudes inexistentes y `CHIP_DISPUTE` ajenas: el mismo 404 uniforme (INV-OWN12-004).
+ * @implements REQ-OWN12-004, INV-OWN12-004
+ */
+export class GetOwnerRequestUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  async execute(actorUserId: string, requestId: string): Promise<OwnerRequestListItem> {
+    const { deps } = this;
+    return deps.uow.runInTransaction(async (repositories) => {
+      const request = await repositories.ownerRequests.findById(requestId);
+      if (request === null) throw notFound();
+      const involved = request.requesterUserId === actorUserId || request.approverSet.includes(actorUserId);
+      let visible = involved;
+      if (!visible && request.petId !== null) {
+        const state = await repositories.pets.findOwnership(request.petId);
+        visible = state !== null && ownersOf(state.ownerUserId, await repositories.coOwners.listByPet(request.petId)).includes(actorUserId);
+      }
+      if (!visible) throw notFound();
+      return toView(repositories, request, actorUserId, deps.clock.nowIsoTimestamp());
+    });
+  }
+}
+
 /** Resultado de un voto: el estado final se confirma y, si hay error, se lanza tras el commit. */
 interface VoteResult {
   readonly view: OwnerRequestListItem;
