@@ -42,7 +42,7 @@ for (const backend of ['memory', 'sqlite'] as Backend[]) {
       responses.push(await env.call('POST', '/api/admin/administrators', { cookie: root, body: { email: CANARY, emailConfirmation: CANARY, role: 'GOD' } }));
       responses.push(await invite(env, op.cookie, CANARY, 'SUPPORT'));
       responses.push(await invite(env, sa.cookie, CANARY, 'SUPER_ADMIN'));
-      await fillSlots(env, root, 20);
+      await fillSlots(env, root, 18); // operador + super ya ocupan 2 de las 20 plazas
       responses.push(await invite(env, root, CANARY, 'SUPPORT'));
       expect(responses.map((r) => r.status)).toEqual([422, 422, 422, 403, 403, 409]);
       for (const r of responses) expect([r.status, noCanary(r.text)]).toEqual([r.status, true]);
