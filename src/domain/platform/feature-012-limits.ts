@@ -56,9 +56,12 @@ export const MICROCHIP_LOOKUP_MAX_PER_IP_PER_DAY = 30;
 export const MICROCHIP_LOOKUP_MAX_GLOBAL_PER_DAY = 1000;
 export const MICROCHIP_LOOKUP_GLOBAL_WARN_RATIO = 0.7;
 export const MICROCHIP_LOOKUP_WINDOW_MS = 86_400_000;
-/** Peticiones multipart de `openChipDispute` por usuario/IP y día (rama NUEVO-4): valor inicial = el de los intentos de chip; pendiente de confirmación de Neo. */
+/** Peticiones multipart de `openChipDispute` por usuario/IP y día (rama NUEVO-4): 10 por usuario y 30 por IP (decisión de Neo, Nivel 2, 2026-11-27). */
 export const CHIP_MULTIPART_MAX_PER_USER_PER_DAY = 10;
 export const CHIP_MULTIPART_MAX_PER_IP_PER_DAY = 30;
+/** Tope del cuerpo multipart COMPLETO de `openChipDispute` (15 MiB, decidido por Neo 2026-11-27) y de mascotas con chip por importación de respaldo (50; `SC-012-117`). */
+export const CHIP_DISPUTE_BODY_MAX_BYTES = 15_728_640;
+export const MICROCHIP_IMPORT_MAX_PETS = 50;
 /** Retención de `ip_rate_events` (la ventana es de 24 h; la purga de mantenimiento corre a las 25 h). */
 export const IP_RATE_EVENTS_RETENTION_HOURS = 25;
 /** Evidencia de disputa (REQ-CHP12-008). */

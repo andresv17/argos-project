@@ -51,7 +51,8 @@ for (const factory of ENGINE_FACTORIES) {
       await new mod.CreateChipClaimUseCase(engine.deps).execute(ANDRES, { microchipId: CHIP_A });
       const [request] = await requestRows(engine, luna.id);
       expect(await codeOfChip(cases(engine.deps).approve(MARIA, String(request!['id'])))).toBe('OK');
-      expect((await cases(engine.deps).ownership(ANDRES, luna.id)) as unknown).toMatchObject({ role: 'CO_OWNER' });
+      const state = (await cases(engine.deps).ownership(ANDRES, luna.id)) as unknown as { coOwners: Array<{ userId: string; status: string }> };
+      expect(state.coOwners).toEqual([expect.objectContaining({ userId: ANDRES, status: 'ACTIVE' })]);
     });
 
     it('[SC-012-018] tras un rechazo, reintentar el MISMO chip antes de CHIP_CLAIM_COOLDOWN_DAYS (30) da ERR-CHP12-CLAIM-COOLDOWN; pasados 30 días se admite', async () => {

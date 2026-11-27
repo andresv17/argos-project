@@ -132,9 +132,11 @@ describe.each(ENGINE_NAMES)('T552 microchip único global (%s)', (name) => {
     expect(own.json['code']).toBe('ERR-PET-MICROCHIP-DUPLICATE');
     expect(own.json['detail']).toBe(DETAIL);
     expect(own.json['field']).toBe('microchipId');
-    expect(foreign.body).toBe(own.body);
+    // Split REQ-CHP12-001: el duplicado de OTRA cuenta es ERR-CHP12-MICROCHIP-REGISTERED (el del mismo dueño conserva ERR-PET-MICROCHIP-DUPLICATE).
+    expect(foreign.json['code']).toBe('ERR-CHP12-MICROCHIP-REGISTERED');
     // Misma ruta de código: el INSERT es el único acceso a mascotas; no hay consulta previa por propietario.
-    expect(ownCalls.filter((c) => c === 'save')).toHaveLength(1);
+    // INV-CHP12-001: el comprobador único resuelve el titular del chip con las MISMAS llamadas para el duplicado propio y el ajeno (ya no es el INSERT el que decide).
+    expect(ownCalls.length).toBeGreaterThan(0);
     expect(foreignCalls).toEqual(ownCalls);
     expect(ownCalls).not.toContain('listByOwners');
 
@@ -153,7 +155,8 @@ describe.each(ENGINE_NAMES)('T552 microchip único global (%s)', (name) => {
     const same = await http.patch(andres, `/api/pets/${petId}`, { microchipId: CHIP, name: 'Nube II' });
     expect([own.status, foreign.status, same.status]).toEqual([409, 409, 200]);
     // La ruta (`instance`) lleva el id de la mascota que se edita; el resto del cuerpo es idéntico.
-    expect({ ...foreign.json, instance: null }).toEqual({ ...own.json, instance: null });
+    expect(own.json['code']).toBe('ERR-PET-MICROCHIP-DUPLICATE');
+    expect(foreign.json['code']).toBe('ERR-CHP12-MICROCHIP-REGISTERED');
     expect(own.json['detail']).toBe(DETAIL);
     expect(await http.engine.read((r) => r.pets.findById(LUNA.id).then((p) => p?.microchipId))).toBeNull();
   });
@@ -196,7 +199,7 @@ describe.each(ENGINE_NAMES)('T552 microchip único global (%s)', (name) => {
     expect(isMicrochipGlobalViolation(duplicate)).toBe(true);
   });
 
-  run('[SC-CAT-024][REQ-IMP-001][EDGE-016] importar un respaldo cuyo microchip ya tiene OTRO usuario falla con ERR-PET-MICROCHIP-DUPLICATE (ROLLED_BACK), nombra la mascota propia del archivo y no modifica nada ni nombra al tercero', async () => {
+  run('[SC-CAT-024][REQ-IMP-001][EDGE-016] importar un respaldo cuyo microchip ya tiene OTRO usuario falla con ERR-CHP12-MICROCHIP-REGISTERED (ROLLED_BACK; split REQ-CHP12-001, EDGE-012-044) y no modifica nada ni nombra al tercero', async () => {
     const state = validBackupState();
     state.pets = state.pets.map((p) => (p.id === LUNA.id ? { ...p, microchipId: CHIP } : p));
     const engine = await openEngine(name, state);
@@ -209,9 +212,7 @@ describe.each(ENGINE_NAMES)('T552 microchip único global (%s)', (name) => {
     const snapshot = async () => engine.read(async (r) => JSON.stringify([await r.pets.listByOwners([ANDRES]), await r.pets.listByOwners([MARIA])]));
     const before = await snapshot();
     const error = await failure(importer.execute(ANDRES, file, digestOf(file)));
-    expect([error.code, error.status, error.field, error.finalState]).toEqual(['ERR-PET-MICROCHIP-DUPLICATE', 409, 'microchipId', 'ROLLED_BACK']);
-    expect(error.detail).toContain('n.º 1');
-    expect(error.detail).toContain(String(envelope.pets[0]!['name']));
+    expect([error.code, error.status, error.field, error.finalState]).toEqual(['ERR-CHP12-MICROCHIP-REGISTERED', 409, null, null]); // 409 uniforme del comprobador único: sin campo ni estado final (no indica cuál chip, EDGE-012-044); el estado queda intacto (snapshot)
     for (const leaked of [CHIP, LUNA.name, MARIA, LUNA.id]) expect(error.detail, leaked).not.toContain(leaked);
     expect(await snapshot()).toBe(before);
   });

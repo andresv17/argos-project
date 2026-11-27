@@ -33,6 +33,7 @@ import {
   type ErrorCode,
 } from '../../generated/index.ts';
 import { isMicrochipGlobalViolation } from './microchip-violation.ts';
+import { MICROCHIP_IMPORT_MAX_PETS } from '../../domain/platform/feature-012-limits.ts';
 import { recordChipAttempt } from './chip-ip-rate-limit.ts';
 import { assertMicrochipAvailable } from './chip-uniqueness.ts';
 import { isMicrochipDuplicateError, microchipLimitError, recordMicrochipDuplicate } from './microchip-rate-limit.ts';
@@ -545,6 +546,7 @@ export class ImportBackupUseCase {
     // REQ-PET4-002 (ADR-004-04): chequeo previo del límite de duplicados; el 429 se lanza antes de tocar nada y sin transición de la máquina.
     // REQ-OWN12-008 (b), REQ-CHP12-005, SC-012-117: cada chip del archivo cuenta como un intento (lote atómico, 429 uniforme) ANTES de resolver nada y fuera de la transacción del commit.
     const importedChips = envelope.pets.map((pet) => pet.microchipId).filter((chip): chip is string => chip !== null);
+    if (importedChips.length > MICROCHIP_IMPORT_MAX_PETS) throw new DomainError('ERR-RATE-LIMITED'); // SC-012-117: el lote supera el tope: 429 uniforme, sin contar ni importar
     if (importedChips.length > 0) await recordChipAttempt(this.deps, { userId, count: importedChips.length });
     let limited: DomainError | null = null;
     const objectKeys: string[] = [];

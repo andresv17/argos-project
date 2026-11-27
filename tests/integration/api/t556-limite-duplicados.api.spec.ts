@@ -35,7 +35,8 @@ const chipN = (n: number) => `9810200000${String(10000 + n)}`; // 15 dígitos, n
 // contracts-004-openapi.spec.ts): las llamadas que esperan 429 pasan `contract: false` y se comprueba el código y el estado del problema.
 const NO_CONTRACT = { contract: false } as const;
 const RATE = { status: 429, code: 'ERR-RATE-LIMITED' };
-const DUP = { status: 409, code: 'ERR-PET-MICROCHIP-DUPLICATE' };
+// Split REQ-CHP12-001: el chip de OTRA cuenta (aquí María es la titular) responde ERR-CHP12-MICROCHIP-REGISTERED; el límite de duplicados sigue contándolo (REQ-PET4-002).
+const DUP = { status: 409, code: 'ERR-CHP12-MICROCHIP-REGISTERED' };
 const events = () => api.db.prepare("SELECT COUNT(*) FROM rate_limit_events WHERE scope = 'MICROCHIP_DUPLICATE'").pluck().get() as number;
 const petsWithChip = (chip: string) => api.db.prepare('SELECT COUNT(*) FROM pets WHERE microchip_id = ?').pluck().get(chip) as number;
 
@@ -102,8 +103,9 @@ describe('T556/T557 límite de duplicados de microchip (REQ-PET4-002, SC-CAT-029
 
     const dupFile = withChip(CHIP);
     const first = await importAs(dupFile);
-    expect([problemOf(first).status, problemOf(first).code, events()]).toEqual([409, 'ERR-PET-MICROCHIP-DUPLICATE', 1]);
-    for (let i = 0; i < 4; i += 1) await api.call('POST', '/api/pets', { cookie: andres, body: petInput({ name: `Intento ${i}`, microchipId: CHIP }) });
+    // EDGE-012-044: el chip de otra cuenta en la importación lo rechaza el comprobador único (cuenta en CHIP_LOOKUP, no como evento de duplicado).
+    expect([problemOf(first).status, problemOf(first).code, events()]).toEqual([409, 'ERR-CHP12-MICROCHIP-REGISTERED', 0]);
+    for (let i = 0; i < 5; i += 1) await api.call('POST', '/api/pets', { cookie: andres, body: petInput({ name: `Intento ${i}`, microchipId: CHIP }) });
     expect(events()).toBe(5);
 
     const own = () => JSON.stringify(['pets', 'weights', 'vaccinations'].map((t) => api.db.prepare(`SELECT * FROM ${t} ORDER BY 1`).all()));

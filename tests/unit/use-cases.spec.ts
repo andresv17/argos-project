@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../src/generated/index.ts';
 // El catálogo 3.1.0 cambia el detalle y el invariante de ERR-PET-MICROCHIP-DUPLICATE: su error es de la clase 3.1.0 (mismo contrato).
 import { DomainError as DomainErrorV31 } from '../../src/generated/v31/index.ts';
+import { DomainError as DomainErrorV38 } from '../../src/generated/v38/index.ts';
 import {
   AuthenticateRequestUseCase,
   GetCurrentSessionUseCase,
@@ -55,7 +56,7 @@ async function outcome(promise: Promise<unknown>): Promise<string> {
     await promise;
     return 'OK';
   } catch (error) {
-    if (error instanceof DomainError || error instanceof DomainErrorV31) return `${error.code}@${String(error.field)}`;
+    if (error instanceof DomainError || error instanceof DomainErrorV31 || error instanceof DomainErrorV38) return `${error.code}@${String(error.field)}`;
     throw error;
   }
 }
@@ -378,10 +379,12 @@ describe('especies, microchip y peso por especie en los casos de uso (REQ-PET2-0
     const before = uow.snapshot();
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Otra', microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
     // REQ-PET4-002: lo único que cambia es el evento del duplicado (transacción independiente); mascotas, registros y auditoría quedan intactos.
-    expect([{ ...uow.snapshot(), rateEvents: [] }, uow.snapshot().rateEvents.map((e) => [e.scope, e.userId])]).toEqual([{ ...before, rateEvents: [] }, [['MICROCHIP_DUPLICATE', ANDRES]]]);
+    // Cada intento con chip deja además su evento CHIP_LOOKUP (REQ-CHP12-005): se excluye de la comparación del resto del estado.
+    expect([{ ...uow.snapshot(), rateEvents: [], ipRateEvents: [] }, uow.snapshot().rateEvents.map((e) => [e.scope, e.userId])]).toEqual([{ ...before, rateEvents: [], ipRateEvents: [] }, [['MICROCHIP_DUPLICATE', ANDRES]]]);
     expect(await outcome(petUpdater(deps).execute(ANDRES, ARGOS.id, { microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
     expect(await outcome(petUpdater(deps).execute(ANDRES, first.id, { microchipId: CHIP, name: 'Nube II' }))).toBe('OK');
-    expect(await outcome(register.execute(MARIA, { ...RABBIT, microchipId: CHIP }))).toBe('ERR-PET-MICROCHIP-DUPLICATE@microchipId');
+    // Split REQ-CHP12-001: el chip de OTRA cuenta es ERR-CHP12-MICROCHIP-REGISTERED.
+    expect(await outcome(register.execute(MARIA, { ...RABBIT, microchipId: CHIP }))).toMatch(/^ERR-CHP12-MICROCHIP-REGISTERED/);
     expect(uow.snapshot().pets.filter((p) => p.microchipId === CHIP)).toHaveLength(1);
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Sin chip' }))).toBe('OK');
     expect(await outcome(register.execute(ANDRES, { ...RABBIT, name: 'Sin chip 2' }))).toBe('OK');
