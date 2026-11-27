@@ -20,6 +20,7 @@
  * @implements REQ-BIO8-004, EDGE-008-043, REQ-FAL7-002, REQ-FAL7-009, EDGE-007-006, EDGE-007-015, REQ-BACKUP-001, REQ-BACKUP-002, REQ-BACKUP2-001, REQ-BACKUP2-002, REQ-AUD-001, REQ-RBAC-001, REQ-ACC-002, ERR-RATE-LIMITED, REQ-PET4-001, INV-PET4-001, REQ-IMP-001, INV-BACKUP-001, STATE-BACKUP-001, ERR-BACKUP-MALFORMED-JSON, ERR-BACKUP-PAYLOAD-TOO-LARGE, ERR-BACKUP-VERSION-UNSUPPORTED, ERR-BACKUP-SCHEMA-INVALID, ERR-BACKUP-REFERENTIAL-INTEGRITY, ERR-BACKUP-ATOMIC-ROLLBACK, INV-ARCH-001, INV-ARCH-004, INV-ARCH-005
  */
 
+import { isPrincipalOfPet } from '../../domain/access/pet-ownership.ts';
 import { assertLifeStatusInvariant, type PetProfile } from '../../domain/pet/pet-invariants.ts';
 import {
   DomainError,
@@ -383,7 +384,7 @@ class BackupImportPipeline {
 
   /** INV-BACKUP-001: ningún ID del sobre puede pertenecer ya a una mascota o un registro de otro usuario. */
   async assertNoForeignIds(run: ImportRun, repositories: RepositorySet, userId: string, envelope: OwnedEnvelope): Promise<void> {
-    const ownedByOther = async (petId: string) => (await repositories.pets.findById(petId))?.ownerUserId !== userId;
+    const ownedByOther = async (petId: string) => !isPrincipalOfPet(userId, (await repositories.pets.findById(petId)) ?? { ownerUserId: '' });
     for (const pet of envelope.pets) {
       if ((await repositories.pets.findById(pet.id)) !== null && (await ownedByOther(pet.id))) {
         throw run.fail('ORPHAN_DUPLICATE_OR_FOREIGN_ID', 'El archivo contiene un identificador que no se puede importar.', 'pets');

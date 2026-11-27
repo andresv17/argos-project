@@ -68,6 +68,8 @@ import type { SessionRecord } from '../../../domain/auth/auth-policies.ts';
 import { NO_PASSWORD_SENTINEL } from '../../../domain/auth/password-sentinel.ts';
 import { hashSessionToken } from '../../../domain/auth/session-policy.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
+import type { OwnerRequestRecord, PetCoOwnerRecord } from '../../../application/ports/co-ownership.port.ts';
+import { memoryCoOwnerRepository, memoryOwnerRequestRepository, memoryOwnershipOps } from './in-memory-ownership-repositories.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
 
 const RECORD_MODULE_NAMES: readonly RecordModule[] = ['weights', 'bodyMeasurements', 'vaccinations', 'dewormings', 'medicalVisits', 'customParameters'];
@@ -110,6 +112,10 @@ export interface MemoryState extends SceneMemoryState {
   adminAudit?: AdminAuditRecord[];
   /** `admin_delegates` (feature 011); opcional: ausente = vacía. */
   adminDelegates?: AdminDelegateRecord[];
+  /** Co-propiedad (feature 012, #22): `pet_co_owners`, `owner_requests` y `pets.ownership_version` (sin entrada = 1); opcionales: ausentes = vacíos. */
+  coOwners?: PetCoOwnerRecord[];
+  ownerRequests?: OwnerRequestRecord[];
+  ownershipVersions?: Record<string, number>;
   /** `about_content` (feature 010, T1430): singleton; opcional, ausente o `null` = sin contenido. */
   aboutContent?: AboutContentRecord | null;
   /** Decision de aprobacion por cuenta (T1247): instante y `adminId` de quien decidio. */
@@ -150,6 +156,8 @@ export function emptyMemoryState(): MemoryState {
     mediaQueue: [],
     avatars: {},
     auditLog: [],
+    coOwners: [],
+    ownerRequests: [],
     shareLinks: [],
     shareAudit: [],
     authIdentities: [],
@@ -416,6 +424,9 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       state.media = state.media.filter((m) => m.petId !== petId); // como ON DELETE CASCADE (la cola no se toca: no tiene clave foránea)
       state.shareLinks = (state.shareLinks ?? []).filter((l) => l.petId !== petId); // como ON DELETE CASCADE
       delete state.avatars[petId];
+      if (state.coOwners !== undefined) state.coOwners = state.coOwners.filter((c) => c.petId !== petId); // como ON DELETE CASCADE de pet_co_owners
+      if (state.ownerRequests !== undefined) state.ownerRequests = state.ownerRequests.map((r) => (r.petId === petId ? { ...r, petId: null } : r)); // como ON DELETE SET NULL (INV-CHP12-005)
+      if (state.ownershipVersions !== undefined) delete state.ownershipVersions[petId];
     },
     async findAvatarVersions(petIds) {
       const wanted = new Set(petIds);
@@ -440,6 +451,7 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       const current = state.avatars[petId] ?? { version: 0, objectId: null };
       if (version > current.version) state.avatars[petId] = { version, objectId: current.objectId };
     },
+    ...memoryOwnershipOps(state),
   };
 }
 
@@ -1119,6 +1131,8 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     registrations: registrationRepository(state),
     adminParameters: adminParameterRepository(state),
     aboutContent: aboutContentRepository(state),
+    coOwners: memoryCoOwnerRepository(state),
+    ownerRequests: memoryOwnerRequestRepository(state),
   };
 }
 

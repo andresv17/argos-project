@@ -21,6 +21,9 @@
 
 import { normalizePetProfile } from '../../domain/pet/pet-invariants.ts';
 import { DomainError, type components, type Species } from '../../generated/index.ts';
+import { DomainError as DomainErrorV38 } from '../../generated/v38/index.ts';
+import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
+import type { RepositorySet } from '../ports/repositories.port.ts';
 import { petPermissionsFor } from '../../domain/access/rbac.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
 import { ownerTag } from '../../domain/households/household-policies.ts';
@@ -148,6 +151,22 @@ export class UpdatePetUseCase {
 }
 
 /** @implements REQ-PET-004, INV-ACC-002, ERR-ACC-FORBIDDEN, ERR-PET-NOT-FOUND, INV-ARCH-005 */
+/**
+ * Baja de la mascota dentro de la transacción en curso (REQ-PET-004, REQ-GCS-004, REQ-ESC6-029): escena, cola de medios, registros, mascota y auditoría `DELETE`. Devuelve las claves de objetos que
+ * deben borrarse DESPUÉS del COMMIT. La usan `DeletePetUseCase` y la ejecución de una solicitud `DELETE_PET` aprobada (feature 012, REQ-OWN12-004).
+ * @implements REQ-PET-004, INV-PET-005, REQ-GCS-004
+ */
+export async function deletePetInTransaction(deps: ApplicationDeps, repositories: RepositorySet, executorUserId: string, pet: PetProfile): Promise<string[]> {
+  // 006 (T862, REQ-ESC6-029/030): ANTES de borrar, la escena retira su imagen vigente si la mascota consta en ella (misma transacción; si lanza, la baja se revierte).
+  await deps.sceneHooks?.onPetRemoved(repositories, { petId: pet.id, cause: 'PET_DELETED', now: deps.clock.nowIsoTimestamp() });
+  // REQ-GCS-004: los medios y el avatar vigentes entran en la cola en la MISMA transacción; GCS no participa de ella.
+  const keys = await repositories.mediaQueue.enqueueObjectsOfPet(pet.id, deps.clock.nowIsoTimestamp());
+  await repositories.records.deleteForPet(pet.id);
+  await repositories.pets.delete(pet.id);
+  await recordAudit(deps, repositories, { executorUserId, mutationType: 'DELETE', entityType: 'PET', entityId: pet.id, previous: auditPetView(pet), next: null });
+  return keys;
+}
+
 export class DeletePetUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
@@ -155,14 +174,9 @@ export class DeletePetUseCase {
     const objectKeys = await this.deps.uow.runInTransaction(async (repositories) => {
       await lockPet(repositories, petId); // REQ-BOR-005: candado de mascota antes de cualquier otra lectura
       const { pet } = await requirePetAction(repositories, userId, petId, 'DELETE_PET');
-      // 006 (T862, REQ-ESC6-029/030): ANTES de borrar, la escena retira su imagen vigente si la mascota consta en ella (misma transacción; si lanza, la baja se revierte).
-      await this.deps.sceneHooks?.onPetRemoved(repositories, { petId, cause: 'PET_DELETED', now: this.deps.clock.nowIsoTimestamp() });
-      // REQ-GCS-004: los medios y el avatar vigentes entran en la cola en la MISMA transacción; GCS no participa de ella.
-      const keys = await repositories.mediaQueue.enqueueObjectsOfPet(petId, this.deps.clock.nowIsoTimestamp());
-      await repositories.records.deleteForPet(petId);
-      await repositories.pets.delete(petId);
-      await recordAudit(this.deps, repositories, { executorUserId: userId, mutationType: 'DELETE', entityType: 'PET', entityId: petId, previous: auditPetView(pet), next: null });
-      return keys;
+      // REQ-OWN12-004 (j): con más de un propietario ACTIVE la baja exige la aprobación conjunta (`POST /pets/{petId}/owner-requests`), nunca la ruta directa.
+      if ((await repositories.coOwners.listByPet(petId)).some((row) => row.status === 'ACTIVE')) throw new DomainErrorV38('ERR-OWN12-APPROVAL-PENDING');
+      return deletePetInTransaction(this.deps, repositories, userId, pet);
     });
     // Tras el COMMIT: borrado inmediato e idempotente de cada objeto, refuerzo por `list` del prefijo; lo que falle lo reintenta el mantenimiento.
     await purgeObjects(this.deps, objectKeys);
@@ -171,7 +185,6 @@ export class DeletePetUseCase {
   }
 }
 
-/** @implements REQ-PET2-002, REQ-PET-005, REQ-PET-002 */
 export class ListMyPetsUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 

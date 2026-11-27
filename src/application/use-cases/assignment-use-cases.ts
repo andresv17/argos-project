@@ -13,14 +13,20 @@ import type { PetAssignmentRecord, RepositorySet } from '../ports/repositories.p
 import { assignmentAuditId, recordAudit } from './audit-support.ts';
 import { requirePetAction, type ApplicationDeps } from './use-case-support.ts';
 
+/**
+ * Proyección al contrato de 002 (`assignedByUserId` es texto): tras la supresión de la cuenta de quien asignó (FK `ON DELETE SET NULL`, REQ-OWN12-007, NFR-012-009)
+ * la asignación pasa a ser del principal actual, el ancla de compatibilidad.
+ */
+export const toPetAssignment = (record: PetAssignmentRecord, principalUserId: string): PetAssignment => ({ ...record, assignedByUserId: record.assignedByUserId ?? principalUserId });
+
 /** @implements REQ-HOUSE2-003, INV-OWN2-001, ERR-ACC-FORBIDDEN, ERR-PET-NOT-FOUND */
 export class ListPetAssignmentsUseCase {
   constructor(private readonly deps: ApplicationDeps) {}
 
   async execute(userId: string, petId: string): Promise<PetAssignment[]> {
     return this.deps.uow.runInTransaction(async (repositories) => {
-      await requirePetAction(repositories, userId, petId, 'ASSIGN_PET_TO_HOUSEHOLDS');
-      return repositories.assignments.listByPet(petId);
+      const { pet } = await requirePetAction(repositories, userId, petId, 'ASSIGN_PET_TO_HOUSEHOLDS');
+      return (await repositories.assignments.listByPet(petId)).map((a) => toPetAssignment(a, pet.ownerUserId));
     });
   }
 }
@@ -32,7 +38,7 @@ export class AssignPetToHouseholdUseCase {
   async execute(userId: string, petId: string, householdId: string): Promise<PetAssignment> {
     return this.deps.uow.runInTransaction(async (repositories) => {
       const { pet } = await requirePetAction(repositories, userId, petId, 'ASSIGN_PET_TO_HOUSEHOLDS');
-      return assignOwnedPetToHousehold(this.deps, repositories, userId, pet, householdId);
+      return toPetAssignment(await assignOwnedPetToHousehold(this.deps, repositories, userId, pet, householdId), pet.ownerUserId);
     });
   }
 }
@@ -49,15 +55,16 @@ export async function assignOwnedPetToHousehold(
   executorUserId: string,
   pet: { readonly id: string; readonly ownerUserId: string },
   householdId: string,
-): Promise<PetAssignment> {
+): Promise<PetAssignmentRecord> {
   const petId = pet.id;
-  const ownerIsActive = (await repositories.households.listMembershipsOfUsers([pet.ownerUserId])).some(
+  // REQ-OWN12-007: cada propietario asigna SOLO a hogares donde es miembro ACTIVE; la asignación queda a su nombre (`assigned_by_user_id`).
+  const ownerIsActive = (await repositories.households.listMembershipsOfUsers([executorUserId])).some(
     (m) => m.householdId === householdId && m.status === 'ACTIVE',
   );
   if (!ownerIsActive) throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'householdId');
   const existing = (await repositories.assignments.listByPet(petId)).find((a) => a.householdId === householdId);
   if (existing !== undefined) return existing;
-  const created: PetAssignmentRecord = { petId, householdId, assignedByUserId: pet.ownerUserId, assignedAt: deps.clock.nowIsoTimestamp() };
+  const created: PetAssignmentRecord = { petId, householdId, assignedByUserId: executorUserId, assignedAt: deps.clock.nowIsoTimestamp() };
   await repositories.assignments.save(created);
   await recordAudit(deps, repositories, { executorUserId, mutationType: 'ASSIGN', entityType: 'PET_ASSIGNMENT', entityId: assignmentAuditId(deps, petId, householdId), previous: null, next: created });
   return created;
@@ -69,8 +76,10 @@ export class UnassignPetFromHouseholdUseCase {
 
   async execute(userId: string, petId: string, householdId: string): Promise<204> {
     return this.deps.uow.runInTransaction(async (repositories) => {
-      await requirePetAction(repositories, userId, petId, 'ASSIGN_PET_TO_HOUSEHOLDS');
+      const { pet } = await requirePetAction(repositories, userId, petId, 'ASSIGN_PET_TO_HOUSEHOLDS');
       const existing = (await repositories.assignments.listByPet(petId)).find((a) => a.householdId === householdId);
+      // REQ-OWN12-007: cada propietario solo desasigna las asignaciones que hizo; las huérfanas (asignador suprimido) son del principal.
+      if (existing !== undefined && (existing.assignedByUserId ?? pet.ownerUserId) !== userId) throw new DomainError('ERR-ACC-FORBIDDEN', undefined, 'householdId');
       if (existing !== undefined) {
         // 006 (T863, REQ-ESC6-030, D6-17): la desasignación retira y purga la imagen vigente y cancela el intento en vuelo, ANTES de quitar la asignación y en la misma transacción.
         await this.deps.sceneHooks?.onPetUnassigned(repositories, { petId, householdId, now: this.deps.clock.nowIsoTimestamp() });

@@ -12,6 +12,7 @@
  */
 
 import { validateTransferPetOwnershipInput, type TransferPetOwnershipInput, type TransferPetOwnershipResult } from '../../generated/index.ts';
+import { DomainError as DomainErrorV38 } from '../../generated/v38/index.ts';
 import { deriveStatus, retentionCutoffs } from '../../domain/sharing/share-link.ts';
 import { transferPetOwnership } from '../../domain/pet/ownership-transfer.ts';
 import { auditPetView, recordAssignmentRemoved, recordAudit } from './audit-support.ts';
@@ -25,6 +26,8 @@ export class TransferPetOwnershipUseCase {
     return this.deps.uow.runInTransaction(async (repositories) => {
       await repositories.shareLinks.lockScope('PET', petId);
       const { pet } = await requirePetAction(repositories, actorUserId, petId, 'TRANSFER_PET_OWNERSHIP');
+      // 012 (REQ-OWN12-004 (j)): con más de un propietario ACTIVE el cambio de principal exige aprobación conjunta (`owner_requests`), nunca esta ruta directa.
+      if ((await repositories.coOwners.listByPet(petId)).some((row) => row.status === 'ACTIVE')) throw new DomainErrorV38('ERR-OWN12-APPROVAL-PENDING');
       const { targetUserId } = assertMatchesSchema<TransferPetOwnershipInput>('TransferPetOwnershipInput', validateTransferPetOwnershipInput, input);
       const before = await repositories.assignments.listByPet(petId);
       const out = transferPetOwnership({

@@ -22,7 +22,7 @@ import { eraseAccountInTransaction } from '../../src/application/use-cases/accou
 import { FixedClockAdapter } from '../../src/infrastructure/adapters/fixed-clock.adapter.ts';
 import { ANDRES, ARGOS, CARLOS, LUCIA, MARIA, USERS } from './application-harness.ts';
 import { createPostgresConcurrentEngine, createSqliteConcurrentEngine, gate, holdBeforeCommit, TEST_DATABASE_URL, type ConcurrentEngine } from './concurrent-engines.ts';
-import { createShareEngines, type ShareEngine } from './share-harness.ts';
+import { createShareEngines, HOUSEHOLD_ID, type ShareEngine } from './share-harness.ts';
 
 export { ANDRES, ARGOS, CARLOS, LUCIA, MARIA };
 export const HAS_POSTGRES = TEST_DATABASE_URL !== undefined && TEST_DATABASE_URL !== '';
@@ -190,7 +190,14 @@ export async function makeCoOwners(engine: Pick<Engine012, 'deps' | 'run' | 'set
     minute += 1;
     engine.setNow(`2026-11-26T10:${String(minute).padStart(2, '0')}:00.000Z`);
     await use.invite(principal, petId, usernameOf(userId));
-    const row = (await coOwnerRows(engine, petId)).find((x) => x['userId'] === userId && x['status'] === 'INVITED')!;
+    const invited = async (): Promise<Row | undefined> => (await coOwnerRows(engine, petId)).find((x) => x['userId'] === userId && x['status'] === 'INVITED');
+    let row = await invited();
+    if (row === undefined) {
+      // T1616 (REQ-OWN12-004): con más de un propietario ACTIVE invitar es una acción crítica; los demás propietarios aprueban y la ejecución crea la invitación.
+      const request = (await requestRows(engine, petId)).find((x) => x['action'] === 'INVITE_CO_OWNER' && x['status'] === 'PENDING')!;
+      for (const approver of request['approverSet'] as string[]) await use.approve(approver, request['id'] as string);
+      row = (await invited())!;
+    }
     await use.accept(userId, row['id'] as string);
     ids.push(row['id'] as string);
   }
@@ -201,10 +208,15 @@ export async function makeCoOwners(engine: Pick<Engine012, 'deps' | 'run' | 'set
 /** Todas las solicitudes (incluidas las de mascota ya eliminada, `petId` nulo): para las disputas que sobreviven a la mascota (`INV-CHP12-005`). */
 export const allRequestRows = (engine: { run: Engine012['run'] }): Promise<Row[]> => engine.run(async (r) => [...(await r.ownerRequests.listAll())] as unknown as Row[]);
 
-/** Quita las asignaciones a hogares de la mascota: así `ERR-ACCOUNT-OWNS-SHARED-PETS` no interfiere con las carreras de supresión (002 sigue intacta y se prueba aparte). */
-export async function unshare(deps: ApplicationDeps, petId: string = PET): Promise<void> {
+/**
+ * Disuelve el hogar compartido del estado canónico (Casa Vallejo: ANDRES propietario con MARIA y las asignaciones de ARGOS y de LUNA): así ni `ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD` ni `ERR-ACCOUNT-OWNS-SHARED-PETS`
+ * (reglas de 002, que la 012 no cambia) interfieren con las pruebas de supresión de cuenta y sus carreras. T1616: la versión anterior solo quitaba las asignaciones de la mascota y dejaba a ANDRES como
+ * propietario de un hogar con otro miembro ACTIVE, que bloquea la supresión por 002.
+ */
+export async function unshare(deps: ApplicationDeps, _petId: string = PET): Promise<void> {
   await deps.uow.runInTransaction(async (r) => {
-    for (const assignment of await r.assignments.listByPet(petId)) await r.assignments.remove(petId, assignment.householdId);
+    await r.assignments.deleteForHousehold(HOUSEHOLD_ID);
+    await r.households.deleteMembershipsOfUser(MARIA);
   });
 }
 

@@ -20,6 +20,7 @@ import {
   type UserSelfProfile,
 } from '../../generated/index.ts';
 import { effectiveRole } from '../../domain/access/effective-role.ts';
+import { isOwnerOfPet, isPrincipalOfPet } from '../../domain/access/pet-ownership.ts';
 import { can, petPermissionsFor, type PetAction, type RbacRole } from '../../domain/access/rbac.ts';
 import { toRoleMembership } from '../../domain/households/household-policies.ts';
 import { evaluateDewormingAlerts, evaluateVaccinationAlerts, summarizeSanitaryAlerts } from '../../domain/alerts/sanitary-alert-evaluator.ts';
@@ -277,7 +278,8 @@ export interface PetAccess {
  * los hogares donde la mascota está asignada (INV-ACC2-001). Null si no tiene acceso.
  */
 export async function effectiveRoleOf(repositories: RepositorySet, userId: string, pet: PetProfile): Promise<RbacRole | null> {
-  if (pet.ownerUserId === userId) return 'OWNER';
+  // 012 (REQ-OWN12-005, REQ-OWN12-010): el principal y todo co-propietario ACTIVE cuentan como Propietario Legal; se evalúa en CADA petición (sin caché de rol, EDGE-012-015).
+  if (isOwnerOfPet(userId, { ownerUserId: pet.ownerUserId, coOwners: await repositories.coOwners.listByPet(pet.id) })) return 'OWNER';
   const assignments = await repositories.assignments.listByPet(pet.id);
   const memberships = (await repositories.households.listMembershipsOfUsers([userId])).map(toRoleMembership);
   return effectiveRole({ id: userId }, pet, memberships, assignments);
@@ -297,6 +299,13 @@ export interface VisiblePet {
 export async function listVisiblePets(repositories: RepositorySet, userId: string): Promise<VisiblePet[]> {
   const pets = new Map<string, PetProfile>();
   for (const pet of await repositories.pets.listByOwners([userId])) pets.set(pet.id, pet);
+  // 012: las mascotas donde el usuario es co-propietario ACTIVE (REQ-OWN12-005).
+  const coOwned = (await repositories.coOwners.listByUser(userId)).filter((r) => r.status === 'ACTIVE');
+  for (const row of coOwned) {
+    if (pets.has(row.petId)) continue;
+    const pet = await repositories.pets.findById(row.petId);
+    if (pet !== null) pets.set(pet.id, pet);
+  }
   const memberships = await repositories.households.listMembershipsOfUsers([userId]);
   for (const membership of memberships.filter((m) => m.status === 'ACTIVE')) {
     for (const assignment of await repositories.assignments.listByHousehold(membership.householdId)) {
@@ -308,7 +317,8 @@ export async function listVisiblePets(repositories: RepositorySet, userId: strin
   const roleRows = memberships.map(toRoleMembership);
   const visible: VisiblePet[] = [];
   for (const pet of pets.values()) {
-    const role = pet.ownerUserId === userId ? 'OWNER' : effectiveRole({ id: userId }, pet, roleRows, await repositories.assignments.listByPet(pet.id));
+    const coOwners = coOwned.filter((row) => row.petId === pet.id);
+    const role = isOwnerOfPet(userId, { ownerUserId: pet.ownerUserId, coOwners }) ? 'OWNER' : effectiveRole({ id: userId }, pet, roleRows, await repositories.assignments.listByPet(pet.id));
     if (role !== null) visible.push({ pet, role });
   }
   return visible;
@@ -335,7 +345,7 @@ export async function lockOwnerThenPet(repositories: RepositorySet, petId: strin
     if (unlocked === null) return;
     await repositories.users.findByIdForUpdate(unlocked.ownerUserId);
     const locked = await repositories.pets.findByIdForUpdate(petId);
-    if (locked === null || locked.ownerUserId === unlocked.ownerUserId) return;
+    if (locked === null || isPrincipalOfPet(unlocked.ownerUserId, locked)) return;
   }
   throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'El propietario de la mascota cambió durante el bloqueo; reintenta.');
 }

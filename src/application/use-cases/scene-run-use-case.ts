@@ -12,6 +12,7 @@
  * @implements REQ-LIM9-003, REQ-LIM9-006, INV-LIM9-002, EDGE-009-028, EDGE-009-042, REQ-FAL7-006, EDGE-007-014, REQ-ESC6-013, REQ-ESC6-014, REQ-ESC6-027, REQ-ESC6-036, INV-ESC6-003, INV-ESC6-004, INV-ESC6-005, INV-ESC6-012, EDGE-ESC6-003, EDGE-ESC6-004, EDGE-ESC6-005, EDGE-ESC6-006, EDGE-ESC6-009, EDGE-ESC6-021, EDGE-ESC6-024, EDGE-ESC6-025, EDGE-ESC6-026, EDGE-ESC6-027, EDGE-ESC6-028, EDGE-ESC6-031, SC-ESC6-017, SC-ESC6-018, SC-ESC6-020, SC-ESC6-032, SC-ESC6-059, SC-ESC6-062, SC-ESC6-063, SC-ESC6-068, SC-ESC6-069, SC-ESC6-070, SC-ESC6-071
  */
 
+import { isPrincipalOfPet } from '../../domain/access/pet-ownership.ts';
 import { avatarObjectKey, householdPhotoObjectKey, sceneImageObjectKey } from '../../domain/media/media-keys.ts';
 import { buildImagePrompt } from '../../domain/scene/build-image-prompt.ts';
 import { decideMode, type ModePlan } from '../../domain/scene/decide-mode.ts';
@@ -375,7 +376,7 @@ export class RunSceneGenerationUseCase {
       // REQ-FAL7-006, EDGE-007-014: una mascota de la huella que pasó a DECEASED durante la generación cancela la publicación (CANCELLED, sin cuota).
       if (pet.lifeStatus === 'DECEASED') return null;
       const assignments = await r.assignments.listByPet(pet.id);
-      const placed = scene.householdId !== null ? assignments.some((a) => a.householdId === scene.householdId) : pet.ownerUserId === scene.ownerUserId && assignments.length === 0;
+      const placed = scene.householdId !== null ? assignments.some((a) => a.householdId === scene.householdId) : isPrincipalOfPet(scene.ownerUserId ?? '', pet) && assignments.length === 0;
       if (!placed) return null;
       const photoSent = entry.photo !== null && (sent === null || sent.petIds.has(pet.id));
       if (photoSent) {

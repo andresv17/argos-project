@@ -8,6 +8,7 @@
  */
 
 import { DomainError, type PetProfile } from '../../generated/index.ts';
+import { isPrincipalOfPet } from './pet-ownership.ts';
 
 /** Usuario autenticado que pide el acceso. */
 export interface AccessSubject {
@@ -43,7 +44,7 @@ export function canRead(
   pet: AccessTarget,
   memberships: readonly AccessMembership[],
 ): boolean {
-  if (pet.ownerUserId === user.id) {
+  if (isPrincipalOfPet(user.id, pet)) {
     return true;
   }
   const ownerHouseholds = activeHouseholdsOf(pet.ownerUserId, memberships);
@@ -60,7 +61,7 @@ export function canRead(
  * @implements INV-ACC-002
  */
 export function canWrite(user: AccessSubject, pet: AccessTarget): boolean {
-  return pet.ownerUserId === user.id;
+  return isPrincipalOfPet(user.id, pet);
 }
 
 /**

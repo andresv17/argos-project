@@ -35,6 +35,10 @@ import { sessionStateAt } from '../../domain/auth/session-policy.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix, reinforceUserPrefix } from './media-use-cases.ts';
+import { chooseSuccessor } from '../../domain/pet/co-ownership.ts';
+import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
+import { settledRequest, withEffectiveStatus } from './co-ownership-support.ts';
+import { applyLeave } from './co-ownership-use-cases.ts';
 import { assertMatchesAnnotatedSchema, assertMatchesSchema, toSelfProfile, type ApplicationDeps } from './use-case-support.ts';
 
 async function requireAccount(repositories: RepositorySet, userId: string): Promise<UserAccount> {
@@ -190,11 +194,22 @@ export async function eraseAccountInTransaction(
   const householdIds = [...new Set(own.map((m) => m.householdId))];
   const memberships = (await Promise.all(householdIds.map((id) => repositories.households.listMemberships(id)))).flat();
   const plan = planHouseholdsForDeletion(userId, memberships);
-  // B5: mascotas propias asignadas a un hogar con otro miembro ACTIVE; B6: aserción de seguridad.
-  const ownedPets = await repositories.pets.listByOwners([userId]);
+  // 012 (REQ-OWN12-008 (c), REQ-OWN12-011): una mascota con un co-propietario ACTIVE NO se elimina con la cuenta de su principal: hereda el de menor `joined_at`. Solo se eliminan las que no tienen sucesor.
+  // Las mascotas se procesan en orden estable `pet_id ASC` (sin interbloqueos) y el bloqueo por mascota lo toma `applyLeave`.
+  const allOwnedPets = (await repositories.pets.listByOwners([userId])).sort((a, b) => (a.id < b.id ? -1 : 1));
+  const coOwnedPetIds = (await repositories.coOwners.listByUser(userId)).filter((row) => row.status === 'ACTIVE').map((row) => row.petId);
+  const inheriting: string[] = [];
+  const ownedPets: PetProfile[] = [];
+  for (const pet of allOwnedPets) {
+    const successor = chooseSuccessor({ leavingUserId: userId, coOwners: withEffectiveStatus(await repositories.coOwners.listByPet(pet.id), now), accountDeletion: true });
+    if (successor === null) ownedPets.push(pet);
+    else inheriting.push(pet.id);
+  }
   const ownedPetIds = ownedPets.map((p) => p.id);
+  const staying = [...new Set([...inheriting, ...coOwnedPetIds])];
+  // B5: mascotas propias SIN sucesor asignadas a un hogar con otro miembro ACTIVE; B6: aserción de seguridad (las de co-propiedad se desasignan antes de la cascada).
   const assignmentLists = await Promise.all([
-    ...ownedPetIds.map((id) => repositories.assignments.listByPet(id)),
+    ...[...ownedPetIds, ...staying].map((id) => repositories.assignments.listByPet(id)),
     ...plan.cascadeHouseholdIds.map((id) => repositories.assignments.listByHousehold(id)),
   ]);
   const assignments = assignmentLists.flat();
@@ -204,9 +219,11 @@ export async function eraseAccountInTransaction(
   if (plan.blockingHouseholdIds.length > 0 || petPlan.blockingAssignments.length > 0) {
     throw params.rejectBlocked({ blockingHouseholdIds: plan.blockingHouseholdIds, blockingAssignments: petPlan.blockingAssignments, memberships: [...memberships, ...assignedMemberships] });
   }
-  if (petPlan.foreignAssignmentsInCascade.length > 0) {
+  if (planPetAssignmentsForDeletion(userId, [...ownedPetIds, ...staying], assignments, assignedMemberships, plan.cascadeHouseholdIds).foreignAssignmentsInCascade.length > 0) {
     throw new DomainError('ERR-INTERNAL-UNEXPECTED', 'Un hogar en cascada contiene asignaciones de mascotas de otra persona; se revierte sin borrar datos ajenos.');
   }
+  // 012: sucesión del principal y salida del co-propietario ANTES de la auditoría de la cuenta (así B8 seudonimiza también sus filas), en orden `pet_id ASC` bajo el bloqueo por mascota.
+  for (const petId of [...staying].sort()) await applyLeave(deps, repositories, { petId, leavingUserId: userId, accountDeletion: true });
   // 006 (T865, REQ-ESC6-029, REQ-ESC6-032): ANTES de borrar nada, la escena encola sus objetos y la foto, arrastra la cuota y seudonimiza sus columnas sin FK; misma transacción.
   await deps.sceneHooks?.onAccountDeleting(repositories, { userId, pseudonym, householdIds: [...plan.cascadeHouseholdIds], now });
   // B7: una sola fila ACCOUNT_DELETE/USER con el HMAC en executorUserId y entityId (sin userId en claro).
@@ -215,6 +232,11 @@ export async function eraseAccountInTransaction(
   await deps.auditLog.pseudonymizeUser(repositories, userId, pseudonym);
   // B9: de hoja a raíz.
   for (const pet of ownedPets) {
+    // 012 (REQ-PET-004, NFR-012-009): las invitaciones se cancelan y las solicitudes no-disputa `PENDING` pasan a `CANCELLED` (se conservan 90 días; el expediente de una disputa sobrevive con `pet_id` nulo, INV-CHP12-005).
+    for (const row of await repositories.coOwners.listByPet(pet.id)) if (row.status === 'INVITED') await repositories.coOwners.transition(row.id, 'INVITED', { status: 'CANCELLED', leftAt: now });
+    for (const request of await repositories.ownerRequests.listByPet(pet.id)) {
+      if (request.status === 'PENDING' && request.action !== 'CHIP_DISPUTE') await repositories.ownerRequests.update(settledRequest(request, { status: 'CANCELLED', decidedAt: now }), 'PENDING');
+    }
     objectKeys.push(...(await repositories.mediaQueue.enqueueObjectsOfPet(pet.id, now)));
     await repositories.records.deleteForPet(pet.id);
     await repositories.assignments.deleteForPet(pet.id);
@@ -236,6 +258,9 @@ export async function eraseAccountInTransaction(
   // 011 (#78, INV-PRF11-001, SC-011-060, Trinity H-8/H-9): la foto de perfil entra en la cola con `DELETE` en ESTA transacción, con el candado del usuario tomado (un `PUT` en vuelo ya no
   // puede publicar una foto nueva: su transacción final ve la fila ausente y descarta su objeto). Mismo camino para la vía con contraseña y la de Google.
   await repositories.users.findByIdForUpdate(userId);
+  // 012 (NFR-012-009, SC-012-076, SC-012-108): `user_id`, `invited_by_user_id`, `requester`, `target`, `rejected_by`, `resolved_by`, `second_approver`, `approver_set` y `approvals` pasan a NULL / seudónimo.
+  await repositories.coOwners.pseudonymizeUser(userId, pseudonym);
+  await repositories.ownerRequests.pseudonymizeUser(userId, pseudonym);
   const avatar = await repositories.users.findAvatar(userId);
   if (avatar !== null && avatar.objectId !== null) {
     const avatarKey = userAvatarObjectKey(userId, avatar.objectId);

@@ -96,7 +96,7 @@ for (const factory of RACE_FACTORIES) {
     it('[SC-012-095][REQ-OWN12-004] solicitud aprobada || LEAVE del aprobador: o se ejecuta y luego el sucesor la revierte por salida, o queda EXPIRED/STALE; en ambos órdenes el principal final es A y la solicitud no deja efecto parcial', async () => {
       engine = await factory.make();
       await makeCoOwners(seeded(engine), [MARIA]);
-      const request = await cases(engine.a).request(ANDRES, PET, { action: 'TRANSFER_PRINCIPAL', targetUserId: MARIA });
+      const request = await cases(engine.a).request(ANDRES, PET, { action: 'CHANGE_PRINCIPAL', targetUserId: MARIA });
       const [approve, leave] = await Promise.all([codeOf(cases(engine.a).approve(MARIA, request.id)), codeOf(engine.b((deps) => cases(deps).leave(MARIA, PET)))]);
       expect(['OK', 'ERR-OWN12-STALE', 'ERR-OWN12-LAST-OWNER']).toContain(approve);
       expect(['OK', 'ERR-OWN12-LAST-OWNER']).toContain(leave);

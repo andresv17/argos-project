@@ -18,6 +18,7 @@
  */
 import { toRoleMembership, isOwnerRow } from '../../domain/households/household-policies.ts';
 import { effectiveRole } from '../../domain/access/effective-role.ts';
+import { isOwnerOfPet, isPrincipalOfPet } from '../../domain/access/pet-ownership.ts';
 import { avatarObjectKey, detectMediaType, MEDIA_PAGE_SIZE, mediaObjectKey, neutralFilename, type MediaMime } from '../../domain/media/index.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
 import { stripImageMetadata } from '../../domain/images/image-metadata-stripper.ts';
@@ -62,11 +63,15 @@ export async function resolveShare(r: RepositorySet, token: string, now: string)
   const petAssignments = await r.assignments.listByPet(link?.petId ?? NIL);
   const householdAssignments = await r.assignments.listByHousehold(link?.householdId ?? NIL);
   const owned = await r.pets.listByOwners([creator]);
+  const coOwners = await r.coOwners.listByPet(link?.petId ?? NIL);
   if (link === null || deriveStatus(link, now) !== 'ACTIVE') return null;
   if (link.scope === 'PET') {
-    if (pet === null || pet.ownerUserId !== link.petOwnerUserIdAtCreation) return null;
+    // ENM-005-A (REQ-VET-002/011, INV-OWN12-005): la autoridad del creador se evalúa EN EL MOMENTO DEL ACCESO (principal o co-propietario ACTIVE); si salió, 404 uniforme al instante.
+    if (pet === null) return null;
+    if (isOwnerOfPet(creator, { ownerUserId: pet.ownerUserId, coOwners })) return { link, pets: [pet] };
+    // Creado como ADMIN de hogar (nunca propietario): vale mientras el principal siga siendo el del momento de la creación (PN-08; §2.2 de ENM-005-A lo revoca además de forma explícita).
     const role = effectiveRole({ id: creator }, pet, memberships.map(toRoleMembership), petAssignments);
-    return role === 'OWNER' || role === 'ADMIN' ? { link, pets: [pet] } : null;
+    return role === 'ADMIN' && link.petOwnerUserIdAtCreation !== null && isPrincipalOfPet(link.petOwnerUserIdAtCreation, pet) ? { link, pets: [pet] } : null;
   }
   const manager = memberships.some((m) => m.householdId === link.householdId && m.status === 'ACTIVE' && (isOwnerRow(m) || m.role === 'ADMIN'));
   const assigned = new Set(householdAssignments.map((a) => a.petId));

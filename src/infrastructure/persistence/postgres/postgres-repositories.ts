@@ -56,6 +56,7 @@ import type {
 import { accountStatusOf, corruptData, encodeRecord, isSessionRecord, sessionTokenHash, withRevision } from '../sqlite/sqlite-repositories.ts';
 import type { PoolClientLike } from './postgres-database.ts';
 import { shareAuditRepository, shareLinkRepository } from './postgres-share-repositories.ts';
+import { postgresCoOwnerRepository, postgresOwnerRequestRepository, postgresOwnershipOps } from './postgres-ownership-repositories.ts';
 import { postgresSceneConsentRepository, postgresSceneRepository } from './postgres-scene-repositories.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
 import { STORED_RECORD_CHECKS, type RecordModule, type RecordOf } from '../../../domain/records/record-invariants.ts';
@@ -442,6 +443,7 @@ function petRepository(client: PoolClientLike): PetRepositoryPort {
     async raiseAvatarVersion(petId, version) {
       await client.query('UPDATE pets SET avatar_version = $1 WHERE id = $2 AND avatar_version < $1', [version, petId]);
     },
+    ...postgresOwnershipOps(client),
   };
 }
 
@@ -781,7 +783,7 @@ function assignmentRepository(client: PoolClientLike): PetAssignmentRepositoryPo
   const toRecord = (row: Row): PetAssignmentRecord => ({
     petId: row['pet_id'] as string,
     householdId: row['household_id'] as string,
-    assignedByUserId: row['assigned_by_user_id'] as string,
+    assignedByUserId: (row['assigned_by_user_id'] as string | null) ?? null,
     assignedAt: row['assigned_at'] as string,
   });
   return {
@@ -869,5 +871,7 @@ export function createPostgresRepositories(client: PoolClientLike): RepositorySe
     registrations: registrationRepository(client),
     adminParameters: adminParameterRepository(client),
     aboutContent: aboutContentRepository(client),
+    coOwners: postgresCoOwnerRepository(client),
+    ownerRequests: postgresOwnerRequestRepository(client),
   };
 }

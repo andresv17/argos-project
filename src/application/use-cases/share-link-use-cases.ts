@@ -13,6 +13,7 @@
  */
 import { retentionCutoffs, computeExpiresAt, deriveStatus, isExpiryDays, isRevocationNoop, DEFAULT_EXPIRY_DAYS, MAX_ACTIVE_SHARE_LINKS, type ShareLinkRecord } from '../../domain/sharing/share-link.ts';
 import { hashToken } from '../../domain/sharing/share-token.ts';
+import { isOwnerOfPet } from '../../domain/access/pet-ownership.ts';
 import { DomainError } from '../../generated/index.ts';
 import { DomainError as DomainErrorV33, type CreateShareLinkInput, type ShareLinkList, type ShareLinkView } from '../../generated/v33/index.ts';
 import { validateCreateShareLinkInput } from '../../generated/v33/index.ts';
@@ -140,7 +141,10 @@ export class ListShareLinksUseCase {
 /** El creador, el propietario legal (PET) o el propietario o ADMIN del hogar (HOUSEHOLD) pueden revocar. */
 async function mayRevoke(r: RepositorySet, userId: string, link: ShareLinkRecord): Promise<boolean> {
   if (link.createdByUserId === userId) return true;
-  if (link.scope === 'PET') return (await r.pets.findById(link.petId!))?.ownerUserId === userId;
+  if (link.scope === 'PET') {
+    const pet = await r.pets.findById(link.petId!);
+    return pet !== null && isOwnerOfPet(userId, { ownerUserId: pet.ownerUserId, coOwners: await r.coOwners.listByPet(pet.id) }); // 012: cualquier propietario ACTIVE puede revocar
+  }
   return isHouseholdManager(await r.households.listMembershipsOfUsers([userId]), link.householdId!);
 }
 

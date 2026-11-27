@@ -10,6 +10,7 @@
  * @implements REQ-OWN12-005, REQ-OWN12-010, INV-ACC2-001, INV-ACC2-002, INV-OWN12-002, REQ-RBAC-001
  */
 
+import { isOwnerOfPet, isPrincipalOfPet } from './pet-ownership.ts';
 import { effectiveRole, type PetHouseholdAssignment, type RoleMembership } from './effective-role.ts';
 import { can, type PetAction } from './rbac.ts';
 
@@ -32,6 +33,7 @@ export const ALL_PET_ACTIONS: readonly PetAction[] = [
   'CREATE_SHARE_LINK',
 ];
 export type ActOnPetAction = PetAction;
+export { isOwnerOfPet, isPrincipalOfPet };
 
 export interface ActOnPetSubject {
   readonly id: string;
@@ -49,15 +51,10 @@ export interface ActOnPetHouseholds {
   readonly assignments: readonly PetHouseholdAssignment[];
 }
 
-/** ¿Es el principal o un co-propietario `ACTIVE`? (la comparación con `ownerUserId` vive SOLO en este módulo, regla Semgrep REQ-OWN12-010). */
-export function isOwnerOfPet(userId: string, pet: Pick<ActOnPetTarget, 'ownerUserId' | 'coOwners'>): boolean {
-  return pet.ownerUserId === userId || pet.coOwners.some((row) => row.userId === userId && row.status === 'ACTIVE');
-}
-
 export function canActOnPet(user: ActOnPetSubject, pet: ActOnPetTarget, action: ActOnPetAction, households: ActOnPetHouseholds): boolean {
   if (!ALL_PET_ACTIONS.includes(action)) return false;
-  if (pet.ownerUserId === user.id) return can('OWNER', action);
-  if (pet.coOwners.some((row) => row.userId === user.id && row.status === 'ACTIVE')) return action === 'EXPORT_IMPORT_BACKUP' ? false : can('OWNER', action);
+  if (isPrincipalOfPet(user.id, pet)) return can('OWNER', action);
+  if (isOwnerOfPet(user.id, pet)) return action === 'EXPORT_IMPORT_BACKUP' ? false : can('OWNER', action);
   const role = effectiveRole({ id: user.id }, { id: pet.id, ownerUserId: pet.ownerUserId }, households.memberships, households.assignments);
   if (role === null) return false;
   return action === 'EXPORT_IMPORT_BACKUP' ? false : can(role, action);

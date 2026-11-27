@@ -20,6 +20,7 @@ import type { RecordModule, RecordOf } from '../../domain/records/record-invaria
 import type { SceneConsentRepository, SceneRepository } from './scene-repositories.port.ts';
 import type { AuthIdentityRepositoryPort, OAuthFlowStateRepositoryPort } from './auth-identity.port.ts';
 import type { AboutContentRepositoryPort } from './about.port.ts';
+import type { CoOwnerRepositoryPort, OwnerRequestRepositoryPort } from './co-ownership.port.ts';
 import type { AdminAuditRepositoryPort, AdminDelegateRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
@@ -206,6 +207,26 @@ export interface PetRepositoryPort {
    * conservar la versión de la existente con el mismo `id` para que la caché `?v=` no sirva una imagen antigua (REQ-IMP-001, INV-AVA-001).
    */
   raiseAvatarVersion(petId: string, version: number): Promise<void>;
+  /** Principal y `ownership_version` de la mascota sin tomar candado (REQ-OWN12-004); null si no existe. */
+  findOwnership(petId: string): Promise<OwnershipState | null>;
+  /**
+   * Como `findOwnership` pero con el bloqueo de la fila de la mascota (`SELECT … FOR UPDATE` en PostgreSQL con `lock_timeout` = `OWNERSHIP_LOCK_TIMEOUT_MS`, que vencido lanza `ERR-OWN12-RETRYABLE`;
+   * `BEGIN IMMEDIATE` ya es el candado en SQLite y las transacciones de memoria van en serie, REQ-OWN12-011). Primera lectura de toda transición de propiedad, DESPUÉS de autorizar.
+   */
+  findOwnershipForUpdate(petId: string): Promise<OwnershipState | null>;
+  /**
+   * `UPDATE pets SET owner_user_id = :nuevo, ownership_version = ownership_version + 1 WHERE id = :id AND owner_user_id = :esperado AND ownership_version = :leída` (REQ-OWN12-011);
+   * devuelve las filas afectadas (0 = otra transición se adelantó). Mantiene `data.ownerUserId` coherente con la columna.
+   */
+  compareAndSetOwner(petId: string, expectedOwnerUserId: string, expectedOwnershipVersion: number, newOwnerUserId: string): Promise<number>;
+  /** `ownership_version + 1` sin cambiar el principal (entra o sale un co-propietario, se ejecuta una acción), condicionado a la versión leída; devuelve las filas afectadas. */
+  bumpOwnershipVersion(petId: string, expectedOwnershipVersion: number): Promise<number>;
+}
+
+/** Principal actual y versión de propiedad de la mascota (`pets.owner_user_id`, `pets.ownership_version`). */
+export interface OwnershipState {
+  readonly ownerUserId: string;
+  readonly ownershipVersion: number;
 }
 
 /** Avatar de la mascota: la versión nunca decrece; `objectId` nulo = sin avatar (REQ-AVA-001). */
@@ -319,7 +340,8 @@ export interface HouseholdRepositoryPort {
 export interface PetAssignmentRecord {
   readonly petId: string;
   readonly householdId: string;
-  readonly assignedByUserId: string;
+  /** Quien asignó la mascota (REQ-OWN12-007); `null` tras la supresión de su cuenta (FK `ON DELETE SET NULL`, NFR-012-009). */
+  readonly assignedByUserId: string | null;
   readonly assignedAt: string;
 }
 
@@ -383,4 +405,8 @@ export interface RepositorySet {
   readonly adminParameters: AdminParameterRepositoryPort;
   /** Sección pública «Acerca de» (feature 010, T1430, REQ-ACE10-004): singleton con compare-and-set por versión. */
   readonly aboutContent: AboutContentRepositoryPort;
+  /** Co-propiedad de mascotas (feature 012, Bloque A, #22): filas de `pet_co_owners`. */
+  readonly coOwners: CoOwnerRepositoryPort;
+  /** Solicitudes de propietarios (feature 012): aprobación conjunta, reclamación y disputa en una sola tabla `owner_requests`. */
+  readonly ownerRequests: OwnerRequestRepositoryPort;
 }

@@ -4,7 +4,7 @@ import { computeFileDigest } from '../../src/domain/backup/file-digest.ts';
 import { ExportBackupUseCase, ImportBackupUseCase } from '../../src/application/use-cases/backup-use-cases.ts';
 import { CreateShareLinkUseCase } from '../../src/application/use-cases/share-link-use-cases.ts';
 import { GetSharedSummaryUseCase } from '../../src/application/use-cases/shared-view-use-cases.ts';
-import { ANDRES, CARLOS, ENGINE_FACTORIES, LUCIA, MARIA, NOW, PET, allRequestRows, cases, codeOf, coOwnerRows, makeCoOwners, principalOf, requestRows, usernameOf, withZeroRowOwnerWrites, type Engine012, type Row } from '../fixtures/co-ownership-012.ts';
+import { ANDRES, CARLOS, ENGINE_FACTORIES, LUCIA, MARIA, NOW, PET, allRequestRows, cases, codeOf, coOwnerRows, makeCoOwners, principalOf, requestRows, unshare, usernameOf, withZeroRowOwnerWrites, type Engine012, type Row } from '../fixtures/co-ownership-012.ts';
 import { HOUSEHOLD_ID, KEY } from '../fixtures/share-harness.ts';
 
 /**
@@ -35,6 +35,7 @@ for (const factory of ENGINE_FACTORIES) {
     it('[SC-012-001][SC-012-002] A invita a B: B sigue sin acceso (404) hasta aceptar; al aceptar ambos ven la mascota en «Mis mascotas» y ambos editan datos básicos', async () => {
       engine = await factory.make();
       const use = cases(engine.deps);
+      await unshare(engine.deps); // T1616: el estado canónico comparte ARGOS con MARIA por el hogar; aquí el único acceso posible es la co-propiedad
       engine.setNow(NOW);
       expect(await use.invite(ANDRES, PET, usernameOf(MARIA))).toEqual({ status: 'RECEIVED' });
       const invited = rowOf(await coOwnerRows(engine, PET), MARIA, 'INVITED');
@@ -166,7 +167,7 @@ for (const factory of ENGINE_FACTORIES) {
       engine = await factory.make();
       const use = cases(engine.deps);
       await makeCoOwners(engine, [MARIA]);
-      const transfer = await use.request(ANDRES, PET, { action: 'TRANSFER_PRINCIPAL', targetUserId: MARIA });
+      const transfer = await use.request(ANDRES, PET, { action: 'CHANGE_PRINCIPAL', targetUserId: MARIA });
       const remove = await use.request(MARIA, PET, { action: 'DELETE_PET' });
       expect([transfer.status, remove.status]).toEqual(['PENDING', 'PENDING']);
       const before = (await use.ownership(ANDRES, PET)).ownershipVersion;
@@ -241,6 +242,7 @@ for (const factory of ENGINE_FACTORIES) {
     it('[SC-012-076][SC-012-099] eliminación de cuenta del principal con co-propietario ACTIVE: la mascota NO se borra, hereda el de menor joined_at, se cancelan invitaciones y no queda ningún ID de la cuenta en claro', async () => {
       engine = await factory.make();
       const use = cases(engine.deps);
+      await unshare(engine.deps); // T1616: sin hogar compartido que bloquee la supresión por 002
       await makeCoOwners(engine, [MARIA]);
       engine.setNow(NOW);
       await use.invite(MARIA, PET, usernameOf(CARLOS)); // aprobada por el principal: queda como solicitud con ANDRES en el conjunto sellado
@@ -253,7 +255,9 @@ for (const factory of ENGINE_FACTORIES) {
       expect(everything).not.toContain(ANDRES);
       const rows = await coOwnerRows(engine, PET);
       for (const column of ['invitedByUserId']) expect(rows.every((r) => r[column] !== ANDRES)).toBe(true);
-      if (request !== undefined) expect([request['requesterUserId'], idsIn(request['approverSet']), idsIn(request['approvals'])].join('|')).not.toContain(ANDRES);
+      // T1616: se relee la solicitud DESPUÉS de la supresión (la copia anterior conserva el ID previo a la seudonimización).
+      const stored = (await requestRows(engine, PET)).find((r) => r['id'] === request?.['id']);
+      if (stored !== undefined) expect([stored['requesterUserId'], idsIn(stored['approverSet']), idsIn(stored['approvals'])].join('|')).not.toContain(ANDRES);
       expect(await engine.auditTypes(PET)).toContain('PRINCIPAL_AUTO_PROMOTED');
     });
 
@@ -292,6 +296,7 @@ for (const factory of ENGINE_FACTORIES) {
     it('[N2-R2][INV-CHP12-005][SC-012-095] supresión del ÚNICO propietario con una disputa de apropiación abierta: procede (REQ-PET-004), la mascota se elimina, el expediente y su chip_hmac sobreviven con pet_id nulo y la cuenta no deja ID en claro', async () => {
       engine = await factory.make();
       const use = cases(engine.deps);
+      await unshare(engine.deps); // T1616: sin hogar compartido que bloquee la supresión por 002
       await engine.run(async (r) => {
         for (const assignment of await r.assignments.listByPet(PET)) await r.assignments.remove(PET, assignment.householdId);
         await r.ownerRequests.insert({

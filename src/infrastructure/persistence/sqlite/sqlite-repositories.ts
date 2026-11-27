@@ -70,6 +70,7 @@ import { STORED_RECORD_CHECKS, revisionOf, type RecordModule, type RecordOf } fr
 import { weightKgToGrams } from '../../../domain/records/weight-limits.ts';
 import { isCanonicalUtcTimestamp } from '../../../domain/sorting/deterministic-sorter.ts';
 import { parseAccountStatus, type AccountStatus } from '../../../domain/account/account-status.ts';
+import { sqliteCoOwnerRepository, sqliteOwnerRequestRepository, sqliteOwnershipOps } from './sqlite-ownership-repositories.ts';
 import type Database from 'better-sqlite3';
 import type { SqliteDatabase } from './sqlite-database.ts';
 
@@ -199,7 +200,7 @@ interface InvitationRow {
 interface AssignmentRow {
   readonly pet_id: string;
   readonly household_id: string;
-  readonly assigned_by_user_id: string;
+  readonly assigned_by_user_id: string | null;
   readonly assigned_at: string;
 }
 interface KeyedRow {
@@ -535,6 +536,7 @@ function petRepository(db: SqliteDatabase): PetRepositoryPort {
     async raiseAvatarVersion(petId, version) {
       raiseAvatar.run(version, petId, version);
     },
+    ...sqliteOwnershipOps(db),
   };
 }
 
@@ -1238,5 +1240,7 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     registrations: registrationRepository(db),
     adminParameters: adminParameterRepository(db),
     aboutContent: aboutContentRepository(db),
+    coOwners: sqliteCoOwnerRepository(db),
+    ownerRequests: sqliteOwnerRequestRepository(db),
   };
 }
