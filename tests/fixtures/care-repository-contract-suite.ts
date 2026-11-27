@@ -31,7 +31,7 @@ const entry = (n: number, over: Row = {}): Row => ({
   id: lid(n), petId: ARGOS.id, routineId: rid(1), seriesId: rid(1), occurrenceDate: '2026-11-26', occurrenceTime: '08:00', status: 'DONE', note: null, late: false, performedByUserId: MARIA.id, performedAt: `2026-11-26T13:0${n}:00.000Z`,
   doseAmountAtTime: 250, doseUnitAtTime: 'MG', revertedAt: null, revertedByUserId: null, revertReason: null, ...over,
 });
-const access = (userId: string, over: Row = {}): Row => ({ petId: ARGOS.id, userId, level: 'BASIC_LOG', careUntil: null, grantedByUserId: ANDRES.id, version: 1, createdAt: T0, updatedAt: T0, ...over });
+const access = (userId: string, over: Row = {}): Row => ({ petId: ARGOS.id, userId, level: 'BASIC_LOG', careUntil: null, grantedByUserId: ANDRES.id, grantedAt: T0, version: 1, ...over });
 
 type CareRepos = {
   careRoutines: { insert(r: Row): Promise<void>; update(r: Row): Promise<void>; findById(petId: string, id: string): Promise<Row | null>; listByPet(petId: string): Promise<Row[]>; countActive(petId: string): Promise<number> };

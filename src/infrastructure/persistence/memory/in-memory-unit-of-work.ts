@@ -70,12 +70,13 @@ import { hashSessionToken } from '../../../domain/auth/session-policy.ts';
 import type { PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type { OwnerRequestRecord, PetCoOwnerRecord } from '../../../application/ports/co-ownership.port.ts';
 import { memoryDisputeEvidenceRepository, memoryIpRateEventRepository, type ChipMemoryState } from './in-memory-chip-repositories.ts';
+import { memoryCareLogRepository, memoryCareRoutineRepository, memoryCaregiverAccessRepository, type CareMemoryState } from './in-memory-care-repositories.ts';
 import { memoryCoOwnerRepository, memoryOwnerRequestRepository, memoryOwnershipOps } from './in-memory-ownership-repositories.ts';
 import type { RecordModule, RecordOf } from '../../../domain/records/record-invariants.ts';
 
 const RECORD_MODULE_NAMES: readonly RecordModule[] = ['weights', 'bodyMeasurements', 'vaccinations', 'dewormings', 'medicalVisits', 'customParameters'];
 
-export interface MemoryState extends SceneMemoryState {
+export interface MemoryState extends SceneMemoryState, CareMemoryState {
   users: UserAccount[];
   sessions: Record<string, SessionRecord>;
   loginFailures: Record<string, string[]>;
@@ -242,6 +243,10 @@ function userRepository(state: MemoryState): UserRepositoryPort {
       state.authIdentities = (state.authIdentities ?? []).filter((i) => i.userId !== userId);
       state.oauthFlows = (state.oauthFlows ?? []).filter((f) => f.userId !== userId);
       if (state.userAvatars !== undefined) delete state.userAvatars[userId]; // la foto es una columna de `users`: cae con la fila
+      // Modo Cuidador (012 #26): niveles del usuario caen (CASCADE); autor, revertidor y concedente quedan NULL (SET NULL, SC-012-076).
+      if (state.caregiverAccess !== undefined) state.caregiverAccess = state.caregiverAccess.filter((a) => a.userId !== userId).map((a) => (a.grantedByUserId === userId ? { ...a, grantedByUserId: null } : a));
+      if (state.careRoutines !== undefined) state.careRoutines = state.careRoutines.map((r) => (r.createdByUserId === userId ? { ...r, createdByUserId: null } : r));
+      if (state.careLog !== undefined) state.careLog = state.careLog.map((e) => (e.performedByUserId === userId || e.revertedByUserId === userId ? { ...e, performedByUserId: e.performedByUserId === userId ? null : e.performedByUserId, revertedByUserId: e.revertedByUserId === userId ? null : e.revertedByUserId } : e));
     },
     async findAvatar(userId) {
       if (!state.users.some((u) => u.id === userId)) return null;
@@ -434,6 +439,13 @@ function petRepository(state: MemoryState): PetRepositoryPort {
       if (state.coOwners !== undefined) state.coOwners = state.coOwners.filter((c) => c.petId !== petId); // como ON DELETE CASCADE de pet_co_owners
       if (state.ownerRequests !== undefined) state.ownerRequests = state.ownerRequests.map((r) => (r.petId === petId ? { ...r, petId: null } : r)); // como ON DELETE SET NULL (INV-CHP12-005)
       if (state.ownershipVersions !== undefined) delete state.ownershipVersions[petId];
+      // Modo Cuidador (012 #26): ON DELETE CASCADE de rutinas, sus registros y los niveles de la mascota.
+      if (state.careRoutines !== undefined) {
+        const gone = new Set(state.careRoutines.filter((r) => r.petId === petId).map((r) => r.id));
+        state.careRoutines = state.careRoutines.filter((r) => r.petId !== petId);
+        if (state.careLog !== undefined) state.careLog = state.careLog.filter((e) => !gone.has(e.routineId));
+      }
+      if (state.caregiverAccess !== undefined) state.caregiverAccess = state.caregiverAccess.filter((a) => a.petId !== petId);
     },
     async findAvatarVersions(petIds) {
       const wanted = new Set(petIds);
@@ -1175,6 +1187,9 @@ function repositoriesOver(state: MemoryState): RepositorySet {
     ownerRequests: memoryOwnerRequestRepository(state),
     ipRateEvents: memoryIpRateEventRepository(state),
     disputeEvidence: memoryDisputeEvidenceRepository(state),
+    careRoutines: memoryCareRoutineRepository(state),
+    careLog: memoryCareLogRepository(state),
+    caregiverAccess: memoryCaregiverAccessRepository(state),
   };
 }
 

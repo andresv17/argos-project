@@ -23,6 +23,7 @@ import type { AboutContentRepositoryPort } from './about.port.ts';
 import type { CoOwnerRepositoryPort, OwnerRequestRepositoryPort } from './co-ownership.port.ts';
 import type { IpRateEventRepositoryPort } from './ip-rate-events.port.ts';
 import type { DisputeEvidenceRepositoryPort } from './dispute-evidence.port.ts';
+import type { CareLogRepositoryPort, CareRoutineRepositoryPort, CaregiverAccessRepositoryPort } from './care.port.ts';
 import type { AdminAuditRepositoryPort, AdminDelegateRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
@@ -426,4 +427,8 @@ export interface RepositorySet {
   readonly ipRateEvents: IpRateEventRepositoryPort;
   /** Evidencia de disputas de chip (012 #23, T1641). */
   readonly disputeEvidence: DisputeEvidenceRepositoryPort;
+  /** Modo Cuidador (012 #26, T1655): rutinas, registro de cumplimiento y niveles de cuidador. */
+  readonly careRoutines: CareRoutineRepositoryPort;
+  readonly careLog: CareLogRepositoryPort;
+  readonly caregiverAccess: CaregiverAccessRepositoryPort;
 }

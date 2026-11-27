@@ -57,6 +57,7 @@ import { accountStatusOf, corruptData, encodeRecord, isSessionRecord, sessionTok
 import type { PoolClientLike } from './postgres-database.ts';
 import { shareAuditRepository, shareLinkRepository } from './postgres-share-repositories.ts';
 import { postgresDisputeEvidenceRepository, postgresIpRateEventRepository } from './postgres-chip-repositories.ts';
+import { postgresCareLogRepository, postgresCareRoutineRepository, postgresCaregiverAccessRepository } from './postgres-care-repositories.ts';
 import { postgresCoOwnerRepository, postgresOwnerRequestRepository, postgresOwnershipOps } from './postgres-ownership-repositories.ts';
 import { postgresSceneConsentRepository, postgresSceneRepository } from './postgres-scene-repositories.ts';
 import { isLegacyHouseholdMember, isOwnerRow, type LegacyHouseholdMember } from '../../../domain/households/household-policies.ts';
@@ -880,5 +881,8 @@ export function createPostgresRepositories(client: PoolClientLike): RepositorySe
     ownerRequests: postgresOwnerRequestRepository(client),
     ipRateEvents: postgresIpRateEventRepository(client),
     disputeEvidence: postgresDisputeEvidenceRepository(client),
+    careRoutines: postgresCareRoutineRepository(client),
+    careLog: postgresCareLogRepository(client),
+    caregiverAccess: postgresCaregiverAccessRepository(client),
   };
 }
