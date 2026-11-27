@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { DomainError } from '../../src/generated/index.ts';
 import {
   CO_OWNER_STATUSES,
   assertRoomForCoOwner,
@@ -39,11 +38,13 @@ const T_MID = '2026-11-29T10:00:00.000Z';
 const T_EXP = '2026-12-03T10:00:00.000Z'; // expires_at sellado de las solicitudes de prueba
 const T_AFTER = '2026-12-04T10:00:00.000Z';
 
+// T1616: el dominio lanza el `DomainError` de la 012 (catálogo fusionado 004..012, `src/generated/v38`), clase distinta de la del catálogo raíz; se reconoce por forma, no por `instanceof`.
+const isDomainError = (error: unknown): error is { code: string; status: number } => error instanceof Error && error.name === 'DomainError' && typeof (error as { code?: unknown }).code === 'string' && typeof (error as { status?: unknown }).status === 'number';
 const codeOf = (action: () => unknown): [string, number] => {
   try {
     action();
   } catch (error) {
-    if (error instanceof DomainError) return [error.code, error.status];
+    if (isDomainError(error)) return [error.code, error.status];
     throw error;
   }
   throw new Error('no lanzó ningún DomainError');
@@ -131,6 +132,7 @@ describe('T1614 [REQ-OWN12-004][INV-OWN12-001] quórum sellado', () => {
     status: 'PENDING',
     createdAt: T0,
     expiresAt: T_EXP,
+    principalUserId: A,
     ...over,
   });
   const context = (over: Partial<OwnerRequestContext> = {}): OwnerRequestContext => ({
