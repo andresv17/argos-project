@@ -64,5 +64,22 @@
 4. Desasignar una de las 2 del hogar: reabrir; queda 1; desasignar la otra: 404 (`SC-012-057`, `SC-012-058`).
 5. Abrir enlaces `PET` y `HOUSEHOLD` antiguos: sin cambios (`SC-012-060`). Ficha → Compartir: sin selector (`SC-012-055`).
 
+### Operación inicial de `/admin` para la cola de disputas (`T1637`, resolución `H-02` opción (b), Neo, Nivel 2, 2026-11-27)
+
+La cola de disputas exige que cada administrador que resuelva o confirme tenga `admin_identities.person_id` (identificador opaco de persona física, 8–64 caracteres `[A-Za-z0-9_-]`, único entre administradores; `admin-disputes-annex.md` §7.1). **No existe ruta ni interfaz para asignarlo** (decisión de Neo): la asignación es **manual por SQL** y la hace Neo en local. Sin `person_id` la cola falla cerrada (`403 ERR-CHP12-DISPUTE-ARBITRATION-CONFLICT`: nadie puede resolver ni confirmar), lo cual es el comportamiento correcto.
+
+1. **Operación inicial de `SUPER_ADMIN` (raíz).** Poner el correo de Neo en `ARGOS_ADMIN_EMAILS` del `.env` local (no se toca `.env.example` ni `app-config.ts`, `H-01`) y entrar una vez a `/admin` con Google: el correo de `ARGOS_ADMIN_EMAILS` se resuelve como `SUPER_ADMIN` raíz y crea su fila en `admin_identities`. Un segundo administrador (control dual, `OPERATOR` o `SUPER_ADMIN` delegado) se invita desde «Administradores» de `/admin` con la raíz (`inviteAdminDelegate`, 011) y entra una vez con su Google para anclar su fila.
+2. **Asignar `person_id` (una vez por persona, SQLite local; el valor es opaco y distinto por persona, nunca el mismo para dos cuentas del mismo humano):**
+   ```sql
+   -- Ver las filas existentes (admin_id, correo):
+   SELECT admin_id, email, person_id FROM admin_identities;
+   -- Asignar (reemplazar el correo y el valor opaco; mínimo 8 caracteres):
+   UPDATE admin_identities SET person_id = 'persona-neo-01' WHERE email = 'correo-del-administrador@ejemplo.com' AND person_id IS NULL;
+   UPDATE admin_identities SET person_id = 'persona-op-01'  WHERE email = 'correo-del-segundo-admin@ejemplo.com' AND person_id IS NULL;
+   ```
+   El índice único parcial rechaza dos administradores con el mismo `person_id`. Para el control dual de `CHIP_APPROPRIATION` hacen falta **dos personas distintas** con `person_id` y distinto `admin_id`; el segundo administrador no puede ser parte del caso (ni vinculado por correo a una cuenta de usuario implicada).
+3. **Comprobar:** `SELECT email, person_id FROM admin_identities WHERE person_id IS NOT NULL;` debe listar a ambos. La prueba de `T1637` abre la cola `/admin` con cada uno (la reautenticación del step-up en local es nominal; la real es `DEUDA-012-ADMIN-STEPUP-PROD`, `claude/deuda-012-admin-stepup-prod.md`).
+4. **Producción:** el mismo `UPDATE` sobre PostgreSQL lo ejecuta Neo con acceso a la base; no es una operación de agentes ni de la aplicación. Una ruta o interfaz de asignación para `SUPER_ADMIN` queda **fuera de la 012** y solo se abre si Neo lo decide.
+
 ## 3. Bitácora de la prueba local
 Cada bloque deja en `claude/` una nota con fecha, cuentas usadas, resultado por paso y capturas opcionales (sin datos personales reales); el hallazgo se registra como `H-*` si falla. **Ninguna** tarea de compuerta de un bloque comienza sin esa nota.

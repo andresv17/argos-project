@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/caregiver-access.schema.json",
+  "title": "CaregiverAccessSchema",
+  "description": "Niveles de permiso del cuidador por mascota [REQ-CAR12-004, REQ-CAR12-006, D12-09, D12-10 = A, Neo-B]. Esquemas INCREMENTALES de la feature 012 (DRAFT). Objetos cerrados. NO enmienda REQ-RBAC-001: el nivel solo gobierna rutinas y registros de cuidado.",
+  "x-sdd-metadata": {
+    "version": "0.1.1",
+    "status": "DRAFT",
+    "supersedes": null,
+    "change_type": "MINOR",
+    "change_note": "0.1.1 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; hallazgos de contrato de /trinity): la fila de nivel se invalida al salir el cuidador, cambiar su rol o desasignarse la mascota (T-C2); careUntil vigente mientras hoy_Bogota <= careUntil (T-C3); CaregiverAccessList aclarada (T-C12); auditoria de grant/remove (T-C9). Quien concede niveles (H-C3, M-03) y READER/MEMBER (T-C5) PENDIENTES de Neo. Historial: 0.1.0 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo) (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +CaregiverLevel (VIEW_ONLY|BASIC_LOG), +CaregiverAccess, +SetCaregiverAccessRequest (careUntil opcional), +CaregiverAccessList, +MyCareAccess (clinicalPermissionsUnchanged). Sin fila de nivel: el cuidador conserva los permisos clinicos del rol y el Modo Cuidador es VIEW_ONLY por defecto. Ningun cuidador accede al QR ni a enlaces de veterinario (INV-VET12-004).",
+    "traceability": [
+      "REQ-CAR12-004",
+      "REQ-CAR12-006",
+      "SC-012-026",
+      "SC-012-030",
+      "SC-012-036",
+      "SC-012-077",
+      "EDGE-012-015",
+      "EDGE-012-049"
+    ]
+  },
+  "$defs": {
+    "CaregiverLevel": {
+      "type": "string",
+      "enum": [
+        "VIEW_ONLY",
+        "BASIC_LOG"
+      ],
+      "description": "VIEW_ONLY lee rutinas, pendientes y registros; BASIC_LOG ademas crea y revierte registros de cumplimiento. Ninguno crea ni edita rutinas, datos de la mascota ni citas."
+    },
+    "CaregiverAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "petId",
+        "userId",
+        "username",
+        "level",
+        "careUntil",
+        "expired",
+        "grantedAt",
+        "version"
+      ],
+      "properties": {
+        "petId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "username": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 32
+        },
+        "level": {
+          "$ref": "#/$defs/CaregiverLevel"
+        },
+        "careUntil": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "minLength": 10,
+              "maxLength": 10
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expired": {
+          "type": "boolean",
+          "description": "careUntil vencido: el nivel ya no aplica (SC-012-036); la fila se conserva 30 dias"
+        },
+        "grantedAt": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 20,
+          "maxLength": 32
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        }
+      },
+      "description": "Nivel de cuidado concedido a un CAREGIVER ACTIVE para UNA mascota. Sin id del que concedio (granted_by_user_id queda interno)."
+    },
+    "SetCaregiverAccessRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level"
+      ],
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/CaregiverLevel"
+        },
+        "careUntil": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "minLength": 10,
+              "maxLength": 10
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expectedVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000,
+          "description": "Obligatorio al reemplazar una fila existente (409 ERR-PET-VERSION-CONFLICT si no coincide); se omite al crear"
+        }
+      },
+      "description": "Concede o cambia el nivel. careUntil (opcional, >= hoy de Bogota) vence el nivel (SC-012-036): vigente mientras la fecha de hoy en America/Bogota (reloj del servidor) sea <= careUntil, es decir, careUntil es INCLUSIVO y el nivel deja de aplicar a las 00:00 de Bogota del dia siguiente; un careUntil pasado no se acepta (422) y uno ya vencido se trata como VIEW_ONLY por defecto (T-C3). Solo a un miembro ACTIVE con rol CAREGIVER de un hogar con la mascota asignada; otro destino: 404 ERR-PET-NOT-FOUND (anti-enumeracion)."
+    },
+    "CaregiverAccessList": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/CaregiverAccess"
+          }
+        }
+      },
+      "description": "Solo las FILAS de nivel existentes de la mascota (items). Un CAREGIVER ACTIVE sin fila NO aparece aqui y vale VIEW_ONLY por defecto; el propietario lo identifica en la lista de miembros del hogar (002) y le concede nivel con PUT /pets/{petId}/care/access/{userId}, que crea la fila (T-C12). Auditoria interna de grant, cambio y retiro (quien, cuando, a quien, nivel, careUntil; sin correos) (T-C9). La fila queda ligada a la membresia: la salida del cuidador del hogar (LEFT/REMOVED), el cambio de su rol o la desasignacion de la mascota BORRAN o invalidan la fila en la misma transaccion; reinvitarlo como CAREGIVER empieza en VIEW_ONLY sin reactivar un nivel antiguo (T-C2)."
+    },
+    "MyCareAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "petId",
+        "caregiver",
+        "level",
+        "defaultedToViewOnly",
+        "careUntil",
+        "canViewRoutines",
+        "canLogCare",
+        "canManageRoutines",
+        "clinicalPermissionsUnchanged"
+      ],
+      "properties": {
+        "petId": {
+          "type": "string",
+          "format": "uuid",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "caregiver": {
+          "type": "boolean",
+          "description": "El solicitante es CAREGIVER ACTIVE de un hogar donde la mascota esta asignada"
+        },
+        "level": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CaregiverLevel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "defaultedToViewOnly": {
+          "type": "boolean",
+          "description": "true si no hay fila de nivel (o vencio): el Modo Cuidador es VIEW_ONLY por defecto (REQ-CAR12-006)"
+        },
+        "careUntil": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "minLength": 10,
+              "maxLength": 10
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "canViewRoutines": {
+          "type": "boolean"
+        },
+        "canLogCare": {
+          "type": "boolean"
+        },
+        "canManageRoutines": {
+          "type": "boolean"
+        },
+        "clinicalPermissionsUnchanged": {
+          "const": true,
+          "description": "Constante documental: VIEW_ONLY/BASIC_LOG NO restringen los permisos clinicos de CAREGIVER (eventos sanitarios, pesos, medidas, archivos y fotos; D12-10 = A, Neo-B, EDGE-012-049). La interfaz no debe presentar VIEW_ONLY como modo de solo lectura general."
+        }
+      },
+      "description": "Permisos efectivos del solicitante sobre rutinas y registros de cuidado de la mascota. Para propietarios, co-propietarios y ADMIN: caregiver = false, canViewRoutines/canLogCare/canManageRoutines = true."
+    }
+  }
+}

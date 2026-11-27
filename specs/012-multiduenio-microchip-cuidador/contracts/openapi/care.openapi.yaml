@@ -1,0 +1,519 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Argos Pet Health & Biometric Tracker API - delta de la feature 012 (Modo Cuidador, #26)
+  version: 0.1.1
+  description: >
+    Documento INCREMENTAL de la feature 012 (T1650, Bloque C, #26). Archivo NUEVO: no altera lo compilado de 002..011. Rutinas de cuidado (medicinas con dosis, comidas, paseos), pendientes del dia
+    calculados en lectura (ADR-012-04: las ocurrencias no se materializan), registro de cumplimiento y niveles VIEW_ONLY / BASIC_LOG del cuidador por mascota. Sin pagos, sin recordatorios push/correo
+    y sin consejo clinico (REQ-CAR12-008). Errores en application/problem+json (RFC 9457).
+
+    NO ENMIENDA REQ-RBAC-001 (D12-10 = A, Neo-B, EDGE-012-049): VIEW_ONLY y BASIC_LOG gobiernan SOLO rutinas y registros de cuidado; un CAREGIVER (incluso VIEW_ONLY) conserva sus permisos clinicos
+    (eventos sanitarios, pesos, medidas, archivos y fotos) en las rutas de 005/004, que este documento no toca. La interfaz no presenta VIEW_ONLY como modo de solo lectura general.
+
+    MATRIZ DE AUTORIZACION (verificada en el servidor en CADA peticion, sin cache de rol: EDGE-012-015; la pertenencia se lee de BD y se revalida dentro de la transaccion de escritura):
+    propietario principal / co-propietario ACTIVE y ADMIN del hogar: leen, definen rutinas, registran y revierten, y administran niveles [PENDIENTE DE NEO, H-C3/M-03: esta linea contradice las operaciones de niveles, que dicen solo propietario principal o co-propietario ACTIVE; tambien PENDIENTE M-01, si ADMIN define rutinas MEDICATION; y T-C5, si MEMBER/READER ven rutinas];
+    CAREGIVER ACTIVE con BASIC_LOG vigente: lee y registra/revierte registros de cumplimiento; CAREGIVER con VIEW_ONLY, sin fila de nivel o con careUntil vencido: solo lee (VIEW_ONLY por defecto, REQ-CAR12-006).
+    POLITICA DE 404/403: quien no puede LEER la mascota recibe el 404 uniforme ERR-PET-NOT-FOUND (anti-enumeracion). Quien puede leerla y carece de potestad de escritura recibe 403 ERR-ACC-FORBIDDEN
+    (SC-012-026, SC-012-030). 403 ERR-AUTH-CSRF-REJECTED por falta de X-Argos-Request antes de la sesion. Ningun CAREGIVER accede al QR ni a enlaces de veterinario (INV-VET12-004); rutinas, registros y notes no
+    salen en el enlace publico de veterinario ni en el QR (REQ-CAR12-009, SC-012-039).
+
+    DIA CIVIL: America/Bogota fija (D12-12 = B, DEUDA-012-TZ); toda hora HH:MM es hora de Bogota. Reloj del servidor para performedAt, ventanas y OVERDUE.
+    IDEMPOTENCIA DEL REGISTRO (Neo-P P-10, EDGE-012-047): sin idempotency_key. La unicidad es POR RUTINA LOGICA (seriesId + fecha + hora de la ocurrencia), no por fila-version, para impedir el doble registro tras un cambio de dosis (A-05). Mismo autor, misma ocurrencia y MISMO status: 200 con la fila vigente existente
+    (una sola fila). Mismo autor con OTRO status (por ejemplo DONE guardado y SKIPPED reenviado): 409 ERR-CAR12-ALREADY-LOGGED con la fila existente, nunca 200 con el estado anterior (M-02, T-C1); la correccion es revertir y volver a registrar. Otro autor: 409 ERR-CAR12-ALREADY-LOGGED con nombre visible, hora y estado. El registro evita el doble REGISTRO, no la doble administracion fisica (maggie M-4): junto al boton la pantalla advierte «Registrar la toma no la impide: verifica en el registro antes de darla».
+    VERSIONADO: editar dosis, unidad u horarios inserta una version nueva y cierra la anterior; editar la fila anterior ya sustituida responde 409 ERR-PET-VERSION-CONFLICT (se mantiene en 0.1.1; la alternativa ERR-CAR12-ROUTINE-STALE es la decision H-C2, PENDIENTE DE NEO; en cualquiera de las dos la interfaz, al recibir ese 409 sobre una rutina, la recarga y avisa de revisar dosis y horario antes de guardar). VIGENCIA POR INSTANTE (A-04): effectiveFrom/effectiveTo son instantes (date-time, hora de Bogota); cada ocurrencia pertenece a la version que cubre su instante fecha+hora, y el registro copia la dosis de ESA version, no de la vigente al registrar; desactivar a las 15:00 no borra ni cancela la toma de las 08:00.
+    LIMITES: 429 ERR-RATE-LIMITED con Retry-After en las escrituras de createCareLogEntry (cifra CARE_LOG_WRITES_PER_USER_PER_HOUR: PENDIENTE DE NEO, H-C1) y en las de rutinas y niveles (CARE_ROUTINE_WRITES_PER_USER_PER_HOUR: PENDIENTE DE NEO, H-C1; este documento no fija cifras). revertCareLogEntry NO queda bajo el tope de escritura de registros: tiene cubo propio (cifra tambien pendiente de Neo) o exencion, de modo que un error de toque pueda corregirse dentro de CARE_LOG_UNDO_MINUTES; su 429 incluye Retry-After (M-06). Textos (title, instructions, note): NFC, sin control ni bidi (422 ERR-SCHEMA-VALIDATION-FAILED), escapados en la salida.
+    VENTANA DE REGISTRO (A-03, M-05): aplica IGUAL a cuidadores, propietarios, co-propietarios y ADMIN, sin excepcion por rol. Se cuenta desde el instante de la OCURRENCIA (fecha+hora de Bogota) hasta el reloj del servidor: no se registran ocurrencias anteriores a 24 h (CARE_LOG_BACKFILL_HOURS). Tampoco se registra como DONE una toma futura (hora > ahora + CARE_LOG_EARLY_TOLERANCE_MINUTES, valor de trabajo 15) ni se anticipa un SKIPPED: 422 ERR-CAR12-OUT-OF-WINDOW. SKIPPED: en MEDICATION exige note (1-140) y admite late; en MEAL, WALK y OTHER la note es opcional; BASIC_LOG puede SKIPPED (H-C4); la omision de una MEDICATION se muestra al propietario como toma omitida, sin notificacion push.
+    NIVELES Y MEMBRESIA (T-C2, T-C3): la fila de nivel queda ligada a la membresia; la salida del cuidador del hogar, el cambio de su rol o la desasignacion de la mascota la borran o invalidan en la misma transaccion, y reinvitarlo como CAREGIVER no revive un nivel anterior. careUntil es inclusivo: vigente mientras hoy en America/Bogota (reloj del servidor) <= careUntil. AUDITORIA (T-C9): conceder, cambiar y retirar niveles, y revertir registros, generan traza interna seudonimizada (quien, cuando, a quien, nivel, careUntil, reason); revertedBy y revertReason se exponen solo a titulares.
+    CACHE (T-C13): TODAS las respuestas autenticadas de este documento (lecturas y 2xx de escritura) llevan Cache-Control: private, no-store y Vary: Cookie (components.headers.CacheControl / Vary).
+    Retencion y borrado en el mantenimiento existente (REQ-CAR12-007): MEDICATION 1095 dias, resto 365, revertidos 30, desde occurrence_date; mascota fallecida igual (EDGE-012-016).
+  x-sdd-status: DRAFT
+  x-sdd-metadata:
+    version: 0.1.1
+    status: DRAFT
+    supersedes: null
+    change_type: MINOR
+    change_note: "0.1.1 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; dictamen /maggie A-01..A-05, M-02, M-04, M-05, M-06, B-01 y hallazgos de contrato de /trinity T-C1, T-C2, T-C3, T-C4, T-C7, T-C9, T-C12, T-C13): IU, guardas por especie, DONE no anticipado, vigencia por instante, unicidad por serie logica, 409 si el reintento cambia el status, SKIPPED con note obligatoria en MEDICATION, ventana de 24 h para todos, reversion fuera del tope con Retry-After, ordenes de comprobacion explicitos, cursor atado, Cache-Control global. PENDIENTES DE NEO (no decididos): H-C1 (cifras 120/h y 60/h), H-C2 (ERR-PET-VERSION-CONFLICT frente a ERR-CAR12-ROUTINE-STALE), H-C3 con M-01 y M-03 (quien concede niveles y si ADMIN define medicacion), T-C5 (READER/MEMBER ven rutinas). Historial: 0.1.0 (feature 012, T1650, Bloque C, Architect 2026-11-27, DRAFT; el estado lo fija solo Neo): +rutas de rutinas, pendientes del dia, historial y registro de cumplimiento, reversion, niveles de cuidador. Sin enmienda a REQ-RBAC-001."
+    traceability: [REQ-CAR12-001, REQ-CAR12-002, REQ-CAR12-003, REQ-CAR12-004, REQ-CAR12-005, REQ-CAR12-006, REQ-CAR12-007, REQ-CAR12-008, REQ-CAR12-009, SC-012-025, SC-012-026, SC-012-027, SC-012-028, SC-012-029, SC-012-030, SC-012-031, SC-012-032, SC-012-033, SC-012-034, SC-012-036, SC-012-037, SC-012-038, SC-012-039, SC-012-077, SC-012-088, EDGE-012-015, EDGE-012-047, EDGE-012-049]
+servers:
+  - url: http://127.0.0.1:3100/api
+    description: Servidor local (prefijo /api)
+security:
+  - sessionCookie: []
+tags:
+  - name: care-routines
+  - name: care-today
+  - name: care-log
+  - name: caregiver-access
+
+paths:
+  /pets/{petId}/care/routines:
+    get:
+      tags: [care-routines]
+      operationId: listCareRoutines
+      summary: "Lista las rutinas de cuidado de la mascota [REQ-CAR12-001, REQ-CAR12-004]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-001, REQ-CAR12-004]
+      description: "Cualquier persona que pueda leer la mascota con acceso de cuidado (propietarios, ADMIN, CAREGIVER con cualquier nivel). Por defecto solo vigentes; includeInactive = true agrega versiones sustituidas e inactivas. Cache-Control: private, no-store."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - name: includeInactive
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: "Rutinas"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-routine.schema.json#/$defs/CareRoutineList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [care-routines]
+      operationId: createCareRoutine
+      summary: "Crea una rutina (propietario, co-propietario o ADMIN) [REQ-CAR12-001]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-001, REQ-CAR12-008, SC-012-025, SC-012-026, SC-012-037, SC-012-088]
+      description: >
+        El cuidador no define rutinas: 403 ERR-ACC-FORBIDDEN (SC-012-026). Valida dosis por unidad (catalogo MG|MCG|ML|IU|TABLET|DROP; IU para insulina, A-01; UNIT y TABLET 0,125 se rechazan; MEDICATION exige endDate o ongoing) y exige
+        confirmHighDose = true cuando la dosis supera el umbral de la ESPECIE de la mascota y la unidad (guarda de tecleo, no limite clinico ni promesa de seguridad; sin umbral definido no se aplica; cifras por especie e IU PENDIENTES de veterinario humano, DEUDA-012-VALIDACION-VET-UMBRALES, A-02) (422 ERR-SCHEMA-VALIDATION-FAILED en caso contrario); el editor de medicacion muestra el texto «ARGOS registra la indicacion que escribes; no calcula ni verifica dosis, ni interacciones.
+        Sigue siempre la indicacion de tu veterinario.» Tope de rutinas activas por mascota: 409 ERR-CAR12-ROUTINE-LIMIT.
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/care-routine.schema.json#/$defs/CreateCareRoutineRequest' }
+      responses:
+        '201':
+          description: "Rutina creada"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-routine.schema.json#/$defs/CareRoutine' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403':
+          description: "ERR-ACC-FORBIDDEN (lector sin potestad de definir) o ERR-AUTH-CSRF-REJECTED"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-CAR12-ROUTINE-LIMIT"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /pets/{petId}/care/routines/{routineId}:
+    get:
+      tags: [care-routines]
+      operationId: getCareRoutine
+      summary: "Detalle de una version de rutina [REQ-CAR12-001]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-001]
+      description: "Par {petId}/{routineId} que no se pertenece: 404 uniforme ERR-PET-NOT-FOUND."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/RoutineId' }
+      responses:
+        '200':
+          description: "Rutina"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-routine.schema.json#/$defs/CareRoutine' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      tags: [care-routines]
+      operationId: updateCareRoutine
+      summary: "Edita una rutina vigente; dosis, unidad u horarios crean version nueva [REQ-CAR12-001]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-001, SC-012-026, SC-012-088, EDGE-012-014]
+      description: >
+        Solo la version vigente (active = true) con expectedVersion igual a su version. Cambiar doseAmount, doseUnit o timesOfDay NO sobrescribe: inserta una fila nueva (supersedesRoutineId, mismo seriesId, effectiveFrom = instante de la escritura en hora de Bogota),
+        cierra la anterior (effectiveTo = ese mismo instante) y responde 201 con versioned = true; el cambio rige hacia adelante: las ocurrencias anteriores a ese instante, aunque se registren despues, conservan la dosis de la version anterior (M-7, A-04). Otros cambios editan en el sitio (200, versioned = false).
+        Fila ya sustituida o version distinta: 409 ERR-PET-VERSION-CONFLICT (H-C2, ERR-CAR12-ROUTINE-STALE PENDIENTE DE NEO). Rutina inactiva: 409 ERR-PET-VERSION-CONFLICT (reactivar = crear una nueva). El tope de rutinas se evalua con la fila nueva sustituyendo a la anterior (no suma).
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/RoutineId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/care-routine.schema.json#/$defs/UpdateCareRoutineRequest' }
+      responses:
+        '200':
+          description: "Editada en el sitio"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-routine.schema.json#/$defs/RoutineWriteResult' }
+        '201':
+          description: "Version nueva creada"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-routine.schema.json#/$defs/RoutineWriteResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403':
+          description: "ERR-ACC-FORBIDDEN o ERR-AUTH-CSRF-REJECTED"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-PET-VERSION-CONFLICT (version obsoleta, fila sustituida o inactiva)"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /pets/{petId}/care/routines/{routineId}/deactivate:
+    post:
+      tags: [care-routines]
+      operationId: deactivateCareRoutine
+      summary: "Desactiva una rutina vigente (no borra) [REQ-CAR12-001, REQ-CAR12-007]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-001, REQ-CAR12-007]
+      description: "Solo propietario/co-propietario o ADMIN. active = false y effectiveTo = instante de la desactivacion (hora de Bogota); las ocurrencias anteriores a ese instante siguen pendientes y registrables (A-04) y los registros pasados se conservan hasta su retencion. Ya inactiva o version distinta: 409 ERR-PET-VERSION-CONFLICT."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/RoutineId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/care-routine.schema.json#/$defs/DeactivateCareRoutineRequest' }
+      responses:
+        '200':
+          description: "Rutina desactivada"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-routine.schema.json#/$defs/CareRoutine' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403':
+          description: "ERR-ACC-FORBIDDEN o ERR-AUTH-CSRF-REJECTED"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-PET-VERSION-CONFLICT"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /pets/{petId}/care/today:
+    get:
+      tags: [care-today]
+      operationId: getPetCareToday
+      summary: "Pendientes del dia de una mascota (Modo Cuidador) [REQ-CAR12-002, REQ-CAR12-005]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-002, REQ-CAR12-005, REQ-CAR12-008, SC-012-027, SC-012-028]
+      description: >
+        Funcion pura rutina x dia civil de Bogota (respeta daysOfWeek, startDate, endDate, ongoing y la version vigente), con estado PENDING | DONE | SKIPPED | OVERDUE (OVERDUE = hora + 60 min; sin texto de instruccion).
+        Orden cronologico estable (INV-SORT-001). La pantalla rotula «hora de Bogota» y muestra «Las instrucciones las define el propietario; ante dudas consulta al veterinario». Sin notificaciones.
+        Cache-Control: private, no-store.
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+      responses:
+        '200':
+          description: "Pendientes de hoy"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-log-entry.schema.json#/$defs/CarePendingToday' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /households/{householdId}/care/today:
+    get:
+      tags: [care-today]
+      operationId: getHouseholdCareToday
+      summary: "Pendientes del dia del hogar, agrupados por mascota [REQ-CAR12-005]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-005, REQ-CAR12-009]
+      description: "Solo las mascotas asignadas al hogar que el solicitante puede leer con acceso de cuidado. Miembro ajeno al hogar o hogar inexistente: 404 uniforme ERR-HOUSE-NOT-FOUND (002). No muestra datos de otros miembros ni correos."
+      parameters:
+        - { $ref: '#/components/parameters/HouseholdId' }
+      responses:
+        '200':
+          description: "Pendientes de hoy del hogar"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-log-entry.schema.json#/$defs/CareHouseholdToday' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /pets/{petId}/care/log:
+    get:
+      tags: [care-log]
+      operationId: listCareLog
+      summary: "Historial de registros de cuidado (paginado) [REQ-CAR12-003, REQ-CAR12-007, REQ-CAR12-009]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-003, REQ-CAR12-007, REQ-CAR12-009, SC-012-038]
+      description: "limit <= 100 (por defecto 50) y cursor opaco estable. Mas recientes primero. Autor visible solo segun rol (REQ-CAR12-009). Los registros revertidos no se listan salvo includeReverted = true, que SOLO honran propietarios, co-propietarios y ADMIN (para cualquier otro rol se ignora en silencio: sin 403 ni diferencia observable) y que entonces agrega revertedByDisplayName y revertReason (T-C9). El cursor esta atado a petId, a los filtros y al rol; un cursor alterado, de otra mascota o de otros filtros responde el mismo 422 ERR-SCHEMA-VALIDATION-FAILED. routineId de otra mascota o inexistente: 200 con items vacios, indistinguible de una rutina propia sin registros (T-C7). Cache-Control: private, no-store."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200, pattern: '^[A-Za-z0-9_-]+$' }
+        - name: routineId
+          in: query
+          required: false
+          schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }
+        - name: includeReverted
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: "Pagina de registros"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-log-entry.schema.json#/$defs/CareLogPage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [care-log]
+      operationId: createCareLogEntry
+      summary: "Registra una toma, comida o paseo (DONE o SKIPPED) [REQ-CAR12-003, REQ-CAR12-004]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-003, REQ-CAR12-004, SC-012-029, SC-012-030, SC-012-031, SC-012-032, SC-012-034, EDGE-012-047, EDGE-012-048]
+      description: >
+        Orden de comprobacion: X-Argos-Request (403) -> sesion (401) -> lectura de la mascota (404 uniforme) -> potestad de registro desde BD (403 ERR-ACC-FORBIDDEN: VIEW_ONLY, sin nivel, careUntil vencido, rol distinto)
+        -> esquema (422) -> routineId existente y de ESTA mascota y ocurrencia existente segun la rutina (422 ERR-SCHEMA-VALIDATION-FAILED; un routineId ajeno da el MISMO 422 que uno inexistente, identico en cuerpo, cabeceras y coste, T-C4) -> ventana (422 ERR-CAR12-OUT-OF-WINDOW:
+        mas de 24 h atras, DONE futuro mas alla de la tolerancia o SKIPPED anticipado; igual para todos los roles, A-03, M-05) -> note obligatoria en SKIPPED de MEDICATION (422) -> insercion bajo el UNIQUE parcial por serie logica (A-05).
+        Mismo autor, misma ocurrencia y mismo status: 200 con la fila vigente (sin segunda fila). Mismo autor con status distinto, u otro autor: 409 ERR-CAR12-ALREADY-LOGGED con autor, hora y estado (CareLogConflict; M-02, T-C1).
+        performedAt, autor y late los fija el servidor; un DONE o SKIPPED sobre una ocurrencia OVERDUE dentro de la ventana se acepta y queda late = true (M-04). doseAmountAtTime/doseUnitAtTime salen de la version que cubre la ocurrencia (A-04). Un SKIPPED de MEDICATION se muestra al propietario como toma omitida (sin push).
+        Un SKIPPED de un nivel o rol no listado: 403. La correccion es siempre revertir y volver a registrar.
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/care-log-entry.schema.json#/$defs/CreateCareLogEntryRequest' }
+      responses:
+        '200':
+          description: "Reintento del mismo autor con el MISMO status: la fila vigente existente (con otro status: 409)"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-log-entry.schema.json#/$defs/CareLogEntry' }
+        '201':
+          description: "Registro creado"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-log-entry.schema.json#/$defs/CareLogEntry' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403':
+          description: "ERR-ACC-FORBIDDEN o ERR-AUTH-CSRF-REJECTED"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-CAR12-ALREADY-LOGGED (otro autor, o el mismo autor con status distinto, ya registro la ocurrencia; incluye autor, hora y estado)"
+          content:
+            application/problem+json:
+              schema: { $ref: '../schemas/care-log-entry.schema.json#/$defs/CareLogConflict' }
+        '422':
+          description: "ERR-CAR12-OUT-OF-WINDOW o ERR-SCHEMA-VALIDATION-FAILED"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '429': { $ref: '#/components/responses/Problem' }
+  /pets/{petId}/care/log/{entryId}/revert:
+    post:
+      tags: [care-log]
+      operationId: revertCareLogEntry
+      summary: "Revierte un registro de cuidado [REQ-CAR12-003]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-003, SC-012-033]
+      description: >
+        Orden de comprobacion (T-C4): X-Argos-Request (403) -> sesion (401) -> lectura de la mascota (404 uniforme) -> potestad de reversion (403 ERR-ACC-FORBIDDEN) -> existencia de la entrada en ESTA mascota (404 uniforme) -> reason (422) -> idempotencia (revertir un registro ya revertido: 200 con la misma fila, solo tras superar la potestad, para no devolver datos de la fila a quien no puede revertir).
+        Quien registro (o un propietario/co-propietario/ADMIN) dentro de CARE_LOG_UNDO_MINUTES = 10; despues solo propietario/co-propietario/ADMIN con reason obligatorio (422 ERR-SCHEMA-VALIDATION-FAILED sin motivo).
+        Un cuidador fuera de plazo, uno sin BASIC_LOG o uno que no es el autor: 403 ERR-ACC-FORBIDDEN. Par {petId}/{entryId} que no se pertenece: 404 uniforme. La reversion se audita (quien y reason, T-C9) y NO cuenta contra el tope de escritura de registros: cubo propio o exencion (M-06; cifras PENDIENTES de Neo, H-C1).
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/EntryId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '../schemas/care-log-entry.schema.json#/$defs/RevertCareLogEntryRequest' }
+      responses:
+        '200':
+          description: "Registro revertido (revertedAt informado)"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/care-log-entry.schema.json#/$defs/CareLogEntry' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403':
+          description: "ERR-ACC-FORBIDDEN o ERR-AUTH-CSRF-REJECTED"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429':
+          description: "ERR-RATE-LIMITED del cubo propio de reversion (si no se opta por exencion); incluye Retry-After (M-06)"
+          headers:
+            Retry-After:
+              description: "Segundos hasta poder reintentar"
+              schema: { type: integer, minimum: 1, maximum: 3600 }
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+  /pets/{petId}/care/access:
+    get:
+      tags: [caregiver-access]
+      operationId: listCaregiverAccess
+      summary: "Niveles concedidos a los cuidadores de la mascota (propietarios) [REQ-CAR12-004, REQ-CAR12-006]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-004, REQ-CAR12-006]
+      description: "Solo propietario principal o co-propietario ACTIVE; cualquier otro lector recibe 403 ERR-ACC-FORBIDDEN y quien no lee la mascota, 404 uniforme. Cache-Control: private, no-store."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+      responses:
+        '200':
+          description: "Niveles"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/caregiver-access.schema.json#/$defs/CaregiverAccessList' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403':
+          description: "ERR-ACC-FORBIDDEN"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '404': { $ref: '#/components/responses/Problem' }
+  /pets/{petId}/care/access/me:
+    get:
+      tags: [caregiver-access]
+      operationId: getMyCareAccess
+      summary: "Permisos efectivos del solicitante sobre rutinas y registros de cuidado [REQ-CAR12-004, REQ-CAR12-006]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-004, REQ-CAR12-006, SC-012-030, SC-012-036, EDGE-012-015, EDGE-012-049]
+      description: "Lo calcula el servidor desde BD en cada peticion (nivel, careUntil, rol, pertenencia); la interfaz lo usa para mostrar u ocultar acciones, pero NUNCA sustituye la comprobacion de cada escritura. clinicalPermissionsUnchanged documenta que VIEW_ONLY no restringe los permisos clinicos del rol CAREGIVER."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+      responses:
+        '200':
+          description: "Permisos efectivos"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/caregiver-access.schema.json#/$defs/MyCareAccess' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+  /pets/{petId}/care/access/{userId}:
+    put:
+      tags: [caregiver-access]
+      operationId: setCaregiverAccess
+      summary: "Concede o cambia el nivel de un cuidador (propietarios) [REQ-CAR12-004, REQ-CAR12-006]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-004, REQ-CAR12-006, SC-012-030, SC-012-036, EDGE-012-015]
+      description: >
+        Solo propietario principal o co-propietario ACTIVE. El destino debe ser CAREGIVER ACTIVE de un hogar con la mascota asignada; otro destino (inexistente, de otro rol o ajeno): 404 uniforme ERR-PET-NOT-FOUND.
+        Orden de comprobacion (T-C4): X-Argos-Request (403) -> sesion (401) -> lectura de la mascota (404 uniforme) -> potestad (403) -> destino valido (404 uniforme) -> esquema (422) -> expectedVersion (409); el 404 del destino precede siempre al 409 y al 422 para que un 409 no confirme que el destino tiene fila. [Quien concede: PENDIENTE DE NEO, H-C3/M-03.]
+        Crear no lleva expectedVersion; reemplazar una fila existente la exige (409 ERR-PET-VERSION-CONFLICT). Un cambio a VIEW_ONLY o un careUntil vencido rige desde la SIGUIENTE peticion del cuidador (sin cache de rol, EDGE-012-015). careUntil es inclusivo (vigente mientras hoy en America/Bogota <= careUntil, T-C3). Conceder, cambiar y retirar se auditan (T-C9). La fila se invalida si el cuidador sale del hogar, cambia de rol o se desasigna la mascota (T-C2).
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/UserId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/caregiver-access.schema.json#/$defs/SetCaregiverAccessRequest' }
+      responses:
+        '200':
+          description: "Nivel actualizado"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/caregiver-access.schema.json#/$defs/CaregiverAccess' }
+        '201':
+          description: "Nivel concedido"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/caregiver-access.schema.json#/$defs/CaregiverAccess' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403':
+          description: "ERR-ACC-FORBIDDEN o ERR-AUTH-CSRF-REJECTED"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409':
+          description: "ERR-PET-VERSION-CONFLICT"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+    delete:
+      tags: [caregiver-access]
+      operationId: removeCaregiverAccess
+      summary: "Retira la fila de nivel (el cuidador vuelve a VIEW_ONLY por defecto) [REQ-CAR12-006]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-CAR12-006, EDGE-012-015]
+      description: "Solo propietario principal o co-propietario ACTIVE. No retira al miembro del hogar ni sus permisos clinicos; solo borra el nivel. Idempotente: sin fila, 204."
+      parameters:
+        - { $ref: '#/components/parameters/PetId' }
+        - { $ref: '#/components/parameters/UserId' }
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '204': { description: "Nivel retirado (o no existia)" }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403':
+          description: "ERR-ACC-FORBIDDEN o ERR-AUTH-CSRF-REJECTED"
+          content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_session
+      description: Cookie de sesion de usuario de 001/002 (nunca la de /admin).
+  parameters:
+    PetId:
+      name: petId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    RoutineId:
+      name: routineId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    EntryId:
+      name: entryId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    HouseholdId:
+      name: householdId
+      in: path
+      required: true
+      schema: { type: string, format: uuid, minLength: 36, maxLength: 36 }
+    CsrfHeader:
+      name: X-Argos-Request
+      in: header
+      required: true
+      description: Obligatoria en toda peticion que modifica estado; si falta, ERR-AUTH-CSRF-REJECTED (INV-AUTH-007)
+      schema: { type: string, const: '1' }
+  headers:
+    CacheControl:
+      description: "private, no-store en TODAS las respuestas autenticadas del documento (T-C13)"
+      schema: { type: string, const: 'private, no-store' }
+    Vary:
+      description: "Cookie en todas las respuestas autenticadas (T-C13)"
+      schema: { type: string, const: 'Cookie' }
+  responses:
+    Problem:
+      description: Error tipado del catalogo contracts/errors/error-catalog.json (RFC 9457); ERR-PET-NOT-FOUND es el 404 uniforme
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails'
