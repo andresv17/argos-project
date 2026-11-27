@@ -4,6 +4,7 @@
   "x-sdd-metadata": {
     "version": "0.3.0",
     "status": "APPROVED",
+    "amendment_status": {"0.3.0": "DRAFT, pendiente de aprobacion de Neo (CLAUDE.md 1.1); alcance: solo la entrada ERR-CAR12-ROUTINE-STALE. El APPROVED de este bloque cubre unicamente lo previo a 0.3.0"},
     "supersedes": null,
     "change_type": "MINOR",
     "extends": "catalogos de 001..011 (sin editar)",
@@ -38,6 +39,7 @@
       "ERR-ACC-FORBIDDEN",
       "ERR-ACCOUNT-OWNS-SHARED-PETS",
       "ERR-AUTH-CSRF-REJECTED",
+      "ERR-HOUSE-NOT-FOUND",
       "ERR-INTERNAL-UNEXPECTED",
       "ERR-PET-MICROCHIP-DUPLICATE",
       "ERR-PET-NOT-FOUND",
