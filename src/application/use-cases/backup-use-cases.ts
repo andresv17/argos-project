@@ -33,6 +33,8 @@ import {
   type ErrorCode,
 } from '../../generated/index.ts';
 import { isMicrochipGlobalViolation } from './microchip-violation.ts';
+import { recordChipAttempt } from './chip-ip-rate-limit.ts';
+import { assertMicrochipAvailable } from './chip-uniqueness.ts';
 import { isMicrochipDuplicateError, microchipLimitError, recordMicrochipDuplicate } from './microchip-rate-limit.ts';
 // UNIQUE_CONSTRAINT_VIOLATED lanza la clase 3.1.0 (catálogo 3.1.0), la misma que usa microchip-violation.ts; el resto de la importación conserva la de la 002.
 import { DomainError as DomainErrorV31, type ErrorCode as ErrorCodeV31 } from '../../generated/v31/index.ts';
@@ -541,12 +543,21 @@ export class ImportBackupUseCase {
     // REQ-PET4-001, REQ-IMP-001 (3): el microchip es único en todo el sistema y lo impone `pets_microchip_global` al guardar; si OTRO usuario ya lo
     // tiene, la importación falla completa con el error uniforme y el detalle nombra solo la mascota PROPIA del archivo (posición y nombre).
     // REQ-PET4-002 (ADR-004-04): chequeo previo del límite de duplicados; el 429 se lanza antes de tocar nada y sin transición de la máquina.
+    // REQ-OWN12-008 (b), REQ-CHP12-005, SC-012-117: cada chip del archivo cuenta como un intento (lote atómico, 429 uniforme) ANTES de resolver nada y fuera de la transacción del commit.
+    const importedChips = envelope.pets.map((pet) => pet.microchipId).filter((chip): chip is string => chip !== null);
+    if (importedChips.length > 0) await recordChipAttempt(this.deps, { userId, count: importedChips.length });
     let limited: DomainError | null = null;
     const objectKeys: string[] = [];
     let replacedPetIds: string[] = [];
     let sceneHookFailure: unknown = null;
     try {
       await this.deps.uow.runInTransaction(async (repositories) => {
+        // EDGE-012-044: el MISMO comprobador de unicidad y reserva del alta, ANTES de la integridad referencial: un chip de otra cuenta o reservado por una disputa falla CERRADO con el 409
+        // uniforme (sin indicar cuál) y sin importar ninguna mascota. Las mascotas del propio usuario las reemplaza la importación: no cuentan como ocupantes.
+        if (importedChips.length > 0) {
+          const replaced = new Set((await repositories.pets.listByOwners([userId])).map((pet) => pet.id));
+          for (const chip of importedChips) await assertMicrochipAvailable(this.deps, repositories, userId, chip, replaced);
+        }
         await this.pipeline.assertNoForeignIds(run, repositories, userId, envelope);
         // INVARIANTS_VALID (guard): la confirmación debe ser el fileDigest de los bytes leídos (errorIfDigestMismatch).
         if (!fileDigestMatches(confirmDigest, fileDigest)) throw mismatch;
@@ -620,6 +631,7 @@ export class ImportBackupUseCase {
       await reinforcePrefix(this.deps, replacedPetIds);
     } catch (error) {
       if (limited !== null && error === limited) throw error;
+      if ((error as { code?: unknown })?.code === 'ERR-CHP12-MICROCHIP-REGISTERED') throw error; // 409 uniforme del comprobador único (EDGE-012-044)
       if (sceneHookFailure !== null && error === sceneHookFailure) throw error;
       // El duplicado cuenta como un evento del usuario; se registra fuera de la transacción ya terminada (best effort).
       if (isMicrochipDuplicateError(error)) await recordMicrochipDuplicate(this.deps, userId);
