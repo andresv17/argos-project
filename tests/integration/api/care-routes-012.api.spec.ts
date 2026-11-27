@@ -128,3 +128,25 @@ describe('límites de la capa HTTP (R-3, H-C1)', () => {
     expect((await api.call('POST', `${base}/log/${ANDRES}/revert`, { cookie: maria, ...NC })).status).toBe(403);
   });
 });
+
+describe('guardas de titular (H-2 de /kid): el CAREGIVER recibe 403 y el servidor no escribe', () => {
+  it('[REQ-CAR12-004] un CAREGIVER BASIC_LOG no edita (PATCH), no desactiva ni concede o retira niveles (PUT/DELETE): 403 ERR-ACC-FORBIDDEN y la rutina y los niveles quedan intactos', async () => {
+    const { andres, maria } = await setup();
+    const routine = (await api.call('POST', `${base}/routines`, { cookie: andres, body: MED, ...NC })).json as { id: string; version: number };
+    expect((await api.call('PUT', `${base}/access/${MARIA}`, { cookie: andres, body: { level: 'BASIC_LOG' }, ...NC })).status).toBe(201);
+    const before = (await api.call('GET', `${base}/access`, { cookie: andres, ...NC })).json;
+
+    const patch = await api.call('PATCH', `${base}/routines/${routine.id}`, { cookie: maria, body: { expectedVersion: routine.version, doseAmount: 999, title: 'Cambiada' }, ...NC });
+    expect([patch.status, problemOf(patch).code]).toEqual([403, 'ERR-ACC-FORBIDDEN']);
+    const off = await api.call('POST', `${base}/routines/${routine.id}/deactivate`, { cookie: maria, body: { expectedVersion: routine.version }, ...NC });
+    expect([off.status, problemOf(off).code]).toEqual([403, 'ERR-ACC-FORBIDDEN']);
+    const put = await api.call('PUT', `${base}/access/${MARIA}`, { cookie: maria, body: { level: 'VIEW_ONLY' }, ...NC });
+    expect([put.status, problemOf(put).code]).toEqual([403, 'ERR-ACC-FORBIDDEN']);
+    const del = await api.call('DELETE', `${base}/access/${MARIA}`, { cookie: maria, ...NC });
+    expect([del.status, problemOf(del).code]).toEqual([403, 'ERR-ACC-FORBIDDEN']);
+
+    const after = (await api.call('GET', `${base}/routines/${routine.id}`, { cookie: andres, ...NC })).json;
+    expect(after).toMatchObject({ id: routine.id, title: MED.title, doseAmount: 250, version: routine.version, active: true, effectiveTo: null });
+    expect((await api.call('GET', `${base}/access`, { cookie: andres, ...NC })).json).toEqual(before);
+  });
+});

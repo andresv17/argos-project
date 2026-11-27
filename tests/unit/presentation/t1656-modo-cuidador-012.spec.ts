@@ -7,7 +7,7 @@ import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { CareApiError, careProblemMessage, createCareApi, type MyCareAccessView } from '../../../src/presentation/web/care-api.ts';
-import { CARE_LIMITS_NOTICE, DOSE_DISCLAIMER, DOUBLE_DOSE_WARNING, bogotaTimeOf, conflictText, groupByTime, levelDescription, parseTimes } from '../../../src/presentation/web/care-view.ts';
+import { CARE_LIMITS_NOTICE, CARE_UNDO_MINUTES, REVERT_FORBIDDEN_TEXT, TIMEZONE_INLINE, canOfferRevert, DOSE_DISCLAIMER, DOUBLE_DOSE_WARNING, bogotaTimeOf, conflictText, groupByTime, levelDescription, parseTimes } from '../../../src/presentation/web/care-view.ts';
 import { CarePanel } from '../../../src/presentation/web/components/CarePanel.tsx';
 import { PetDashboard } from '../../../src/presentation/web/components/PetDashboard.tsx';
 import { dashboardAs } from './rebanada6-fixtures.ts';
@@ -104,5 +104,33 @@ describe('T1656 pestaña «Modo Cuidador»', () => {
     expect(markup).toContain(`aria-labelledby="care-title-${PET}"`);
     expect(markup).toContain('Modo Cuidador de Argos');
     expect(markup).toContain('Cargando');
+  });
+});
+
+describe('T1658 reglas de presentación corregidas', () => {
+  const NOW = Date.parse('2026-11-26T15:00:00.000Z');
+  const entry = (minutesAgo: number, performedByMe = true) => ({ performedByMe, performedAt: new Date(NOW - minutesAgo * 60_000).toISOString(), revertedAt: null });
+  const input = (over: Partial<Parameters<typeof canOfferRevert>[0]>) => ({ canLogCare: true, canManageRoutines: false, entry: entry(1), nowMs: NOW, ...over });
+
+  it('[H-1 kid] «Deshacer» se ofrece al autor no titular solo dentro de 10 minutos, igual que el servidor; el titular siempre y un ajeno nunca', () => {
+    expect(CARE_UNDO_MINUTES).toBe(10);
+    expect(canOfferRevert(input({}))).toBe(true);
+    expect(canOfferRevert(input({ entry: entry(10) }))).toBe(true);
+    expect(canOfferRevert(input({ entry: entry(10.5) }))).toBe(false);
+    expect(canOfferRevert(input({ entry: entry(30, false) }))).toBe(false);
+    expect(canOfferRevert(input({ entry: entry(1, false) }))).toBe(false);
+    expect(canOfferRevert(input({ canManageRoutines: true, entry: entry(300, false) }))).toBe(true);
+    expect(canOfferRevert(input({ canLogCare: false }))).toBe(false);
+    expect(canOfferRevert(input({ entry: { ...entry(1), revertedAt: '2026-11-26T14:59:00.000Z' } }))).toBe(false);
+    expect(canOfferRevert(input({ entry: null }))).toBe(false);
+  });
+
+  it('[H-1 kid] el 403 de reversión explica la ventana de 10 minutos y no le pide al cuidador que revise su nivel', () => {
+    expect(REVERT_FORBIDDEN_TEXT).toContain('10 minutos');
+    expect(REVERT_FORBIDDEN_TEXT.toLowerCase()).not.toContain('nivel');
+  });
+
+  it('[B-1 sati] «Bogotá» conserva su mayúscula dentro de la frase', () => {
+    expect(TIMEZONE_INLINE).toBe('hora de Bogotá');
   });
 });

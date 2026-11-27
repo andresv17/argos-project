@@ -3,7 +3,7 @@ import { speciesToDoseGroup } from '../../src/domain/care/care-species-group.ts'
 import { SPECIES } from '../../src/domain/pet/species.ts';
 
 /**
- * T1655 tramo 2: mapeo especie a grupo de dosis. PENDIENTE APROBACIÓN NEO: la tabla es la propuesta del oráculo; esta prueba la fija como valor de trabajo.
+ * T1655 tramo 2: mapeo especie a grupo de dosis. La aprobación de Neo consta en el schema (2026-11-27); esta prueba fija la tabla aprobada.
  *
  * @implements REQ-CAR12-001, SC-012-088
  */

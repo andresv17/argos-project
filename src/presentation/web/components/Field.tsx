@@ -210,7 +210,7 @@ export function FormError({ errors, message }: { readonly errors?: FieldErrors; 
   );
 }
 
-export function Button({ children, type = 'button', onClick, variant = 'primary', disabled = false, ariaLabel, describedBy }: {
+export function Button({ children, type = 'button', onClick, variant = 'primary', disabled = false, ariaLabel, describedBy, id }: {
   readonly children: ReactNode;
   readonly type?: 'button' | 'submit';
   readonly onClick?: () => void;
@@ -220,6 +220,8 @@ export function Button({ children, type = 'button', onClick, variant = 'primary'
   readonly ariaLabel?: string;
   /** Id del texto que explica por qué el botón está deshabilitado (WCAG 1.3.1, 3.3.2). */
   readonly describedBy?: string;
+  /** Id estable para devolver el foco al disparador al cerrar un formulario inline (WCAG 2.4.3). */
+  readonly id?: string;
 }): JSX.Element {
   // Botones píldora de 48 px de alto (ui_blueprint §1.4). Contraste: blanco/oliva 9.41:1, blanco/peligro 6.47:1, oliva/blanco 9.41:1.
   const styles = {
@@ -231,6 +233,7 @@ export function Button({ children, type = 'button', onClick, variant = 'primary'
     <button
       type={type}
       disabled={disabled}
+      {...(id === undefined ? {} : { id })}
       {...(ariaLabel === undefined ? {} : { 'aria-label': ariaLabel })}
       {...(describedBy === undefined ? {} : { 'aria-describedby': describedBy })}
       {...(onClick === undefined ? {} : { onClick })}

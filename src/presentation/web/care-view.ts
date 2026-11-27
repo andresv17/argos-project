@@ -14,6 +14,20 @@ export const DOUBLE_DOSE_WARNING = 'Registrar la toma no la impide: verifica en 
 /** Texto del editor de medicación (contrato `createCareRoutine`): literal. */
 export const DOSE_DISCLAIMER = `${BRAND_NAME} registra la indicación que escribes; no calcula ni verifica dosis, ni interacciones. Sigue siempre la indicación de tu veterinario.`;
 export const TIMEZONE_LABEL = 'Hora de Bogotá';
+/** La misma etiqueta dentro de una frase («08:00 (hora de Bogotá)»): solo cambia la inicial; «Bogotá» conserva su mayúscula. */
+export const TIMEZONE_INLINE = 'hora de Bogotá';
+/** Ventana de deshacer del autor no titular (CARE_LOG_UNDO_MINUTES del dominio, espejo de presentación; el servidor decide). */
+export const CARE_UNDO_MINUTES = 10;
+/** 403 al deshacer: el motivo real es la ventana de 10 minutos o la autoría, no el nivel del cuidador. */
+export const REVERT_FORBIDDEN_TEXT = `No puedes deshacer este registro. Quien lo hizo puede deshacerlo solo durante los primeros ${CARE_UNDO_MINUTES} minutos; pasado ese tiempo, solo un propietario puede hacerlo.`;
+
+/** Ofrecer «Deshacer»: un titular siempre (pasados 10 minutos con motivo); el autor no titular solo dentro de la ventana, igual que el servidor (`assertCanRevert`). */
+export function canOfferRevert(input: { readonly canLogCare: boolean; readonly canManageRoutines: boolean; readonly entry: { readonly performedByMe: boolean; readonly performedAt: string; readonly revertedAt: string | null } | null; readonly nowMs: number }): boolean {
+  const { entry } = input;
+  if (!input.canLogCare || entry === null || entry.revertedAt !== null) return false;
+  if (input.canManageRoutines) return true;
+  return entry.performedByMe && input.nowMs - Date.parse(entry.performedAt) <= CARE_UNDO_MINUTES * 60_000;
+}
 
 export const KIND_LABEL: Readonly<Record<CareKind, string>> = { MEDICATION: 'Medicina', MEAL: 'Comida', WALK: 'Paseo', OTHER: 'Otra tarea' };
 export const UNIT_LABEL: Readonly<Record<DoseUnit, string>> = { MG: 'mg', MCG: 'mcg', ML: 'ml', IU: 'UI', TABLET: 'tableta(s)', DROP: 'gota(s)' };
