@@ -386,7 +386,7 @@ describe('H-T1638-04 concurrencia sobre un grant reservado', () => {
     store.claim(id, expected, NOW_ISO);
     expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError);
     store.release(id);
-    expect(() => store.claim(id, expected, NOW_ISO)).not.toThrow();
+    expect(store.claim(id, expected, NOW_ISO)).toBeUndefined(); // claim sin error: reserva el grant (devuelve void)
     expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError); // reservado de nuevo
     store.finish(id);
     expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError);
@@ -399,7 +399,8 @@ describe('H-T1638-04 concurrencia sobre un grant reservado', () => {
     expect(() => store.claim(id, { ...expected, adminId: 'admin_2' }, NOW_ISO)).toThrow(AdminForbiddenError);
     expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError);
     store.release(id);
-    expect(() => store.claim(id, expected, NOW_ISO)).not.toThrow();
+    expect(store.claim(id, expected, NOW_ISO)).toBeUndefined(); // claim sin error: reserva el grant (devuelve void)
+    expect(() => store.claim(id, expected, NOW_ISO)).toThrow(AdminForbiddenError); // y queda reservado de nuevo
   });
 
   it('HTTP: dos resolve simultáneos con el mismo grant dan exactamente un 200 y un 403 genérico', async () => {
