@@ -11,7 +11,7 @@ CREATE TABLE care_routines (
   kind TEXT NOT NULL CHECK (kind IN ('MEDICATION', 'MEAL', 'WALK', 'OTHER')),
   title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 60),
   instructions TEXT NOT NULL DEFAULT '' CHECK (length(instructions) <= 300),
-  dose_amount NUMERIC(8,3) CHECK (dose_amount IS NULL OR (dose_amount > 0 AND dose_amount <= 100000)),
+  dose_amount NUMERIC(9,3) CHECK (dose_amount IS NULL OR (dose_amount > 0 AND dose_amount <= 100000)),
   dose_unit TEXT CHECK (dose_unit IS NULL OR dose_unit IN ('MG', 'MCG', 'ML', 'IU', 'TABLET', 'DROP')),
   times_of_day TEXT NOT NULL CHECK (times_of_day LIKE '[%]' AND length(times_of_day) BETWEEN 9 AND 80),
   days_of_week TEXT NOT NULL CHECK (days_of_week LIKE '[%]' AND length(days_of_week) BETWEEN 3 AND 30),
