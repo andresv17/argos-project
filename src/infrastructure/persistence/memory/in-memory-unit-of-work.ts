@@ -871,6 +871,26 @@ function adminIdentityRepository(state: MemoryState): AdminIdentityRepositoryPor
       state.adminSessions = (state.adminSessions ?? []).filter((session) => session.adminId !== adminId);
       return state.adminIdentities.length < before;
     },
+    async anonymizeIdentity(adminId) {
+      const index = all().findIndex((i) => i.adminId === adminId);
+      if (index < 0) return false;
+      const current = all()[index]!;
+      all()[index] = { ...current, email: `anon-${adminId}@anonimizado.invalid`, providerSubject: `anon-${adminId}` };
+      state.adminSessions = (state.adminSessions ?? []).filter((session) => session.adminId !== adminId);
+      return true;
+    },
+    async listAnonymizedWithPersonId() {
+      return all()
+        .filter((i) => (i.personId ?? null) !== null && i.email === `anon-${i.adminId}@anonimizado.invalid`)
+        .map((i) => i.adminId)
+        .sort();
+    },
+    async clearPersonId(adminId) {
+      const index = all().findIndex((i) => i.adminId === adminId && (i.personId ?? null) !== null);
+      if (index < 0) return false;
+      all()[index] = { ...all()[index]!, personId: null };
+      return true;
+    },
   };
 }
 

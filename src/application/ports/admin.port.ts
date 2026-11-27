@@ -34,6 +34,15 @@ export interface AdminIdentityRepositoryPort {
    * (`ON DELETE CASCADE`). La auditoría conserva el `admin_id` (sin clave foránea). `true` si existía.
    */
   deleteById(adminId: string): Promise<boolean>;
+  /**
+   * Baja con expedientes (feature 012, decisión D8 de Neo): conserva la fila (el vínculo `admin_id` de `owner_requests`, FK RESTRICT) y anonimiza la identidad: correo `anon-<admin_id>@anonimizado.invalid` y
+   * `provider_subject` `anon-<admin_id>` (liberan el correo y el `sub`); borra sus sesiones. Idempotente. `true` si la fila existía.
+   */
+  anonymizeIdentity(adminId: string): Promise<boolean>;
+  /** `admin_id` de las identidades ya anonimizadas (correo marcador) que conservan `person_id` (D8: se anula al vencer el plazo del último expediente). */
+  listAnonymizedWithPersonId(): Promise<string[]>;
+  /** Pone `person_id = NULL`; `true` si lo cambió. */
+  clearPersonId(adminId: string): Promise<boolean>;
 }
 
 export interface AdminSessionRecord {
