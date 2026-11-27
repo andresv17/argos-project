@@ -105,6 +105,8 @@ export interface OwnerRequestRepositoryPort {
   listByRequester(userId: string): Promise<OwnerRequestRecord[]>;
   /** Todas las solicitudes, incluidas las de mascota ya eliminada (`petId` nulo): expedientes que sobreviven a la mascota (INV-CHP12-005). */
   listAll(): Promise<OwnerRequestRecord[]>;
+  /** Disputas de chip abiertas (`UNDER_REVIEW`, con SLA y sin vencer a `now`) ordenadas por `slaDueAt` e `id`: la cola de `/admin` filtra en el almacén, no en memoria (T-03). */
+  listOpenDisputes(now: string): Promise<OwnerRequestRecord[]>;
   findById(id: string): Promise<OwnerRequestRecord | null>;
   /** Falla si viola un UNIQUE parcial (una sola solicitud viva por `(pet, action)`). */
   insert(row: OwnerRequestRecord): Promise<void>;

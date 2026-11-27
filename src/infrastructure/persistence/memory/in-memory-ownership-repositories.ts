@@ -102,6 +102,9 @@ export function memoryOwnerRequestRepository(state: OwnershipMemoryState): Owner
     async listAll() {
       return copy([...rows()].sort(byCreated));
     },
+    async listOpenDisputes(now) {
+      return copy(rows().filter((r) => r.action === 'CHIP_DISPUTE' && r.status === 'UNDER_REVIEW' && r.slaDueAt !== null && r.expiresAt > now).sort((a, b) => (a.slaDueAt! < b.slaDueAt! ? -1 : a.slaDueAt! > b.slaDueAt! ? 1 : a.id < b.id ? -1 : 1)));
+    },
     async findById(id) {
       const found = rows().find((r) => r.id === id);
       return found === undefined ? null : copy(found);

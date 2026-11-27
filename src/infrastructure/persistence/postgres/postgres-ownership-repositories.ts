@@ -74,6 +74,10 @@ export function postgresOwnerRequestRepository(client: PoolClientLike): OwnerReq
       const { rows } = await client.query(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests ORDER BY created_at, id`);
       return rows.map(toOwnerRequestRecord);
     },
+    async listOpenDisputes(now) {
+      const { rows } = await client.query(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE action = 'CHIP_DISPUTE' AND status = 'UNDER_REVIEW' AND sla_due_at IS NOT NULL AND expires_at > $1 ORDER BY sla_due_at, id`, [now]);
+      return rows.map(toOwnerRequestRecord);
+    },
     async findById(id) {
       const { rows } = await client.query(`SELECT ${OWNER_REQUEST_COLUMNS} FROM owner_requests WHERE id = $1`, [id]);
       return rows[0] === undefined ? null : toOwnerRequestRecord(rows[0]);

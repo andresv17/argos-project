@@ -86,12 +86,10 @@ export class ListChipDisputesUseCase {
     const after = query.cursor === undefined ? null : decodeCursor(actor.adminId, query.cursor as string);
     return deps.uow.runInTransaction(async (repositories) => {
       const now = deps.clock.nowIsoTimestamp();
-      const rows = (await repositories.ownerRequests.listAll())
-        .filter((r) => r.action === 'CHIP_DISPUTE' && r.status === 'UNDER_REVIEW' && r.expiresAt > now && r.slaDueAt !== null)
+      const rows = (await repositories.ownerRequests.listOpenDisputes(now))
         .filter((r) => kind === undefined || r.disputeReason === kind)
         .filter((r) => phase === undefined || decisionPhaseOf(r) === phase)
         .filter((r) => overdue === undefined || (now > r.slaDueAt!) === overdue)
-        .sort((a, b) => (a.slaDueAt! < b.slaDueAt! ? -1 : a.slaDueAt! > b.slaDueAt! ? 1 : a.id < b.id ? -1 : 1))
         .filter((r) => after === null || r.slaDueAt! > after.slaDueAt || (r.slaDueAt! === after.slaDueAt && r.id > after.id));
       const page = rows.slice(0, limit);
       const items: AdminDisputeQueueItem[] = [];
