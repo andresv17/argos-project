@@ -2645,3 +2645,9 @@ Migraciones SQLite 0038 / PostgreSQL 0034 (ADD COLUMN metadata TEXT NULL). Motiv
 - Atribucion: claves careRoutines/careLog/caregiverAccess = 012 (7eb8b58, T1652/T1654). SQLite 0031 admin_delegates (1486eaf) y 0032 user_avatar (70b47df) = 011; 0033 (14e4370), 0034 (5f36a6b), 0035..0039 = 012. PG 0027/0028 = 011; 0029..0035 = 012.
 - Pruebas: postgres-repositories-part3 (31 -> 34 claves) y t1517 (at(-6) -> at(-10) en SQLite 0030 y PG 0026). Solo expectativas; sin cambios en src/contratos. Sin bug real.
 - Gates: tsc rc 0; 2 archivos 51/51; verify-oracles rc 0; traceability T1655 CUMPLE.
+
+## 2026-11-27 - T1656 rutas HTTP y UI del Modo Cuidador (Keymaker)
+- HTTP: routes/care.routes.ts (14 operaciones de care.openapi.yaml; plugin encapsulado con Cache-Control private,no-store y Vary Cookie), care-rate-limit.ts (R-3: 3 cubos LOG 120/h, ROUTINE 60/h compartido con niveles, REVERT 30/h; 429 ERR-RATE-LIMITED + Retry-After; casos de uso sin limite), GetCareRoutineUseCase (faltaba getCareRoutine), registro en use-cases.ts y 3 hunks en app.ts (imports + 1 linea; sin tocar H-01), problem-details.ts adjunta `existing` al 409 ERR-CAR12-ALREADY-LOGGED (CareLogConflict).
+- UI: care-api.ts, care-view.ts, components/CarePanel.tsx (Hoy, Rutinas, Niveles), pestana `care` en PetDashboard y careSlot en PetsPage para OWNER y CAREGIVER. ADMIN de hogar NO edita rutinas ni concede niveles (contrato H-C3); la tarea decia "propietario/ADMIN", se siguio el contrato.
+- R-1 verificado: DeactivateCareRoutineUseCase fija effectiveTo y updatedAt = now; prueba de ruta nueva lo cubre. Sin cambios de codigo necesarios.
+- Pruebas: tests/integration/api/care-routes-012.api.spec.ts (4) y tests/unit/presentation/t1656-modo-cuidador-012.spec.ts (7).

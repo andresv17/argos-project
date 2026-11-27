@@ -132,6 +132,21 @@ export class ListCareRoutinesUseCase {
   }
 }
 
+/** Detalle de una versión de rutina: mismos lectores que la lista; un par {petId}/{routineId} que no se pertenece es el 404 uniforme. @implements REQ-CAR12-001, REQ-CAR12-004 */
+export class GetCareRoutineUseCase {
+  constructor(private readonly deps: ApplicationDeps) {}
+
+  execute(actorUserId: string, petId: string, routineId: string): Promise<Record<string, unknown>> {
+    return this.deps.uow.runInTransaction(async (repositories) => {
+      const ctx = await requireCareContext(repositories, actorUserId, petId, this.deps.clock.nowIsoTimestamp());
+      requireViewer(ctx);
+      const row = UUID.test(routineId) ? await repositories.careRoutines.findById(petId, routineId) : null;
+      if (row === null) throw petNotFound();
+      return presentRoutine(row);
+    });
+  }
+}
+
 async function todayOf(repositories: RepositorySet, viewerId: string, ctx: CareContext, now: string): Promise<{ date: string; items: CareOccurrence[]; timezone: string; graceMinutes: number }> {
   const date = bogotaCivilDate(now);
   const routines = await repositories.careRoutines.listByPet(ctx.pet.id);

@@ -21,6 +21,7 @@ import { createCoOwnershipApi, type OwnershipView } from '../co-ownership-api.ts
 import { createChipApi } from '../chip-api.ts';
 import { ChipRegisteredDialog, MyChipRequests } from '../components/ChipRegisteredDialog.tsx';
 import { activeOwnerCount, hasMultipleActiveOwners } from '../co-ownership-gating.ts';
+import { CarePanel } from '../components/CarePanel.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { PhotoAlbum } from '../components/PhotoAlbum.tsx';
 import { principalHouseholdId } from '../scene-view.ts';
@@ -350,6 +351,9 @@ export function PetsPage(): JSX.Element {
                   : {})}
                 {...(user !== null && dashboard.myRole === 'OWNER'
                   ? { ownersSlot: <OwnersPanel key={`owners-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} currentUserId={user.id} onChanged={() => void refreshAll()} onOwnershipLoaded={(view: OwnershipView) => setOwnerInfo({ petId: dashboard.profile.id, count: activeOwnerCount(view) })} /> }
+                  : {})}
+                {...(dashboard.myRole === 'OWNER' || dashboard.myRole === 'CAREGIVER'
+                  ? { careSlot: <CarePanel key={`care-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} /> }
                   : {})}
                 {...(mode === 'TRANSFER' && dashboard.permissions.transferPetOwnership
                   ? {

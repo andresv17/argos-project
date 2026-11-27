@@ -65,6 +65,20 @@ import {
   ListMyOwnerRequestsUseCase,
   RejectOwnerRequestUseCase,
 } from '../../../application/use-cases/owner-request-use-cases.ts';
+import { CreateCareLogEntryUseCase, ListCareLogUseCase, RevertCareLogEntryUseCase } from '../../../application/use-cases/care-log-use-cases.ts';
+import {
+  CreateCareRoutineUseCase,
+  DeactivateCareRoutineUseCase,
+  GetCareRoutineUseCase,
+  GetHouseholdCareTodayUseCase,
+  GetMyCareAccessUseCase,
+  GetPetCareTodayUseCase,
+  ListCareRoutinesUseCase,
+  ListCaregiverAccessUseCase,
+  RemoveCaregiverAccessUseCase,
+  SetCaregiverAccessUseCase,
+  UpdateCareRoutineUseCase,
+} from '../../../application/use-cases/care-routine-use-cases.ts';
 import { CreateChipClaimUseCase, ListMyChipRequestsUseCase } from '../../../application/use-cases/chip-claim-use-cases.ts';
 import { prepareDisputeEvidence, type RawEvidenceFile } from '../../../application/use-cases/chip-evidence.ts';
 import { ConsumeChipMultipartUseCase, OpenChipDisputeUseCase } from '../../../application/use-cases/chip-dispute-use-cases.ts';
@@ -191,6 +205,21 @@ export function createUseCases(baseDeps: ApplicationDeps) {
     approveOwnerRequest: new ApproveOwnerRequestUseCase(deps),
     rejectOwnerRequest: new RejectOwnerRequestUseCase(deps),
     cancelOwnerRequest: new CancelOwnerRequestUseCase(deps),
+    // 012, Bloque C (#26, T1656): rutinas, pendientes del día, registro de cumplimiento y niveles del cuidador (los límites viven en la capa HTTP, R-3).
+    listCareRoutines: new ListCareRoutinesUseCase(deps),
+    createCareRoutine: new CreateCareRoutineUseCase(deps),
+    getCareRoutine: new GetCareRoutineUseCase(deps),
+    updateCareRoutine: new UpdateCareRoutineUseCase(deps),
+    deactivateCareRoutine: new DeactivateCareRoutineUseCase(deps),
+    getPetCareToday: new GetPetCareTodayUseCase(deps),
+    getHouseholdCareToday: new GetHouseholdCareTodayUseCase(deps),
+    listCareLog: new ListCareLogUseCase(deps),
+    createCareLogEntry: new CreateCareLogEntryUseCase(deps),
+    revertCareLogEntry: new RevertCareLogEntryUseCase(deps),
+    listCaregiverAccess: new ListCaregiverAccessUseCase(deps),
+    getMyCareAccess: new GetMyCareAccessUseCase(deps),
+    setCaregiverAccess: new SetCaregiverAccessUseCase(deps),
+    removeCaregiverAccess: new RemoveCaregiverAccessUseCase(deps),
     // 012, Bloque B (#23, T1636): reclamación y disputa por chip, «mis solicitudes» y cola de arbitraje de /admin.
     createChipClaim: new CreateChipClaimUseCase(deps),
     openChipDispute: new OpenChipDisputeUseCase(deps),

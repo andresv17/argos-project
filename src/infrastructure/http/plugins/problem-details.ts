@@ -62,7 +62,11 @@ export function toDomainError(error: unknown, request: FastifyRequest): DomainEr
 }
 
 export function sendProblem(reply: FastifyReply, request: FastifyRequest, error: DomainError | DomainErrorV31 | DomainErrorV33 | DomainErrorV34 | DomainErrorV35 | DomainErrorV36 | DomainErrorV37 | DomainErrorV38): FastifyReply {
-  return reply.status(error.status).type(PROBLEM_CONTENT_TYPE).send(error.toProblemDetails(requestPath(request)));
+  const problem: Record<string, unknown> = { ...error.toProblemDetails(requestPath(request)) };
+  // 012, REQ-CAR12-009 (`CareLogConflict`): el 409 de doble registro lleva autor visible, hora y estado de la ocurrencia en conflicto (lo fija el caso de uso).
+  const existing = (error as { existing?: unknown }).existing;
+  if (error.code === 'ERR-CAR12-ALREADY-LOGGED' && typeof existing === 'object' && existing !== null) problem['existing'] = existing;
+  return reply.status(error.status).type(PROBLEM_CONTENT_TYPE).send(problem);
 }
 
 /** @implements ERR-INTERNAL-UNEXPECTED */
