@@ -658,6 +658,7 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
   const activeHousehold = db.prepare<[string, string], { n: number }>(`SELECT count(*) AS n FROM share_links WHERE scope = 'HOUSEHOLD' AND household_id = ? AND revoked_at IS NULL AND expires_at > ?`);
   const revoke = db.prepare('UPDATE share_links SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL AND expires_at > ?');
   const purge = db.prepare('DELETE FROM share_links WHERE expires_at < ? OR revoked_at < ?');
+  const pseudonymizeSnapshot = db.prepare('UPDATE share_links SET pet_owner_user_id_at_creation = ? WHERE pet_owner_user_id_at_creation = ?');
   const all = db.prepare<[], ShareLinkRow>(`SELECT ${SHARE_LINK_COLUMNS} FROM share_links ORDER BY id`);
   return {
     async lockScope() {
@@ -710,6 +711,9 @@ function shareLinkRepository(db: SqliteDatabase): ShareLinkRepositoryPort {
     },
     async purge(cutoffExclusive) {
       return purge.run(cutoffExclusive, cutoffExclusive).changes;
+    },
+    async pseudonymizePetOwnerSnapshot(userId, pseudonym) {
+      return pseudonymizeSnapshot.run(pseudonym, userId).changes;
     },
     async listAll() {
       return all.all().map(toShareLink);

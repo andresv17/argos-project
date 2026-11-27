@@ -62,6 +62,11 @@ export interface ShareLinkRepositoryPort {
   revoke(id: string, now: string): Promise<boolean>;
   /** Borra los vencidos o revocados anteriores al corte y devuelve cuántos. */
   purge(cutoffExclusive: string): Promise<number>;
+  /**
+   * Supresión de cuenta (feature 012, rama R-04, SC-012-108): sustituye `pet_owner_user_id_at_creation = userId` por el seudónimo HMAC en los enlaces de OTROS creadores (la columna es NOT NULL en `PET` y no tiene clave
+   * foránea; los enlaces del propio usuario caen por cascada con él). Devuelve cuántas filas cambió.
+   */
+  pseudonymizePetOwnerSnapshot(userId: string, pseudonym: string): Promise<number>;
   /** Todas las filas por id: solo para verificación y paridad de pruebas; ninguna ruta lo usa. */
   listAll(): Promise<ShareLinkRecord[]>;
 }

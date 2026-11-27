@@ -709,6 +709,15 @@ function shareLinkRepository(state: MemoryState): ShareLinkRepositoryPort {
       state.shareLinks = links().map((l) => (l.id === id ? { ...l, revokedAt: now } : l));
       return true;
     },
+    async pseudonymizePetOwnerSnapshot(userId, pseudonym) {
+      let changed = 0;
+      state.shareLinks = links().map((l) => {
+        if (l.petOwnerUserIdAtCreation !== userId) return l;
+        changed += 1;
+        return { ...l, petOwnerUserIdAtCreation: pseudonym };
+      });
+      return changed;
+    },
     async purge(cutoffExclusive) {
       const before = links().length;
       state.shareLinks = links().filter((l) => !(l.expiresAt < cutoffExclusive || (l.revokedAt !== null && l.revokedAt < cutoffExclusive)));

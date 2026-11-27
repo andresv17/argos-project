@@ -98,6 +98,10 @@ export function shareLinkRepository(client: PoolClientLike): ShareLinkRepository
       const result = await client.query('DELETE FROM share_links WHERE expires_at < $1 OR revoked_at < $1', [cutoffExclusive]);
       return result.rowCount ?? 0;
     },
+    async pseudonymizePetOwnerSnapshot(userId, pseudonym) {
+      const result = await client.query('UPDATE share_links SET pet_owner_user_id_at_creation = $1 WHERE pet_owner_user_id_at_creation = $2', [pseudonym, userId]);
+      return result.rowCount ?? 0;
+    },
     async listAll() {
       const { rows } = await client.query(`SELECT ${LINK_COLUMNS} FROM share_links ORDER BY id`);
       return rows.map(toLink);

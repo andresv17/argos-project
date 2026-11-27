@@ -261,6 +261,7 @@ export async function eraseAccountInTransaction(
   // 012 (NFR-012-009, SC-012-076, SC-012-108): `user_id`, `invited_by_user_id`, `requester`, `target`, `rejected_by`, `resolved_by`, `second_approver`, `approver_set` y `approvals` pasan a NULL / seudónimo.
   await repositories.coOwners.pseudonymizeUser(userId, pseudonym);
   await repositories.ownerRequests.pseudonymizeUser(userId, pseudonym);
+  await repositories.shareLinks.pseudonymizePetOwnerSnapshot(userId, pseudonym); // rama R-04: enlaces de OTROS creadores que guardaron al principal que se va
   const avatar = await repositories.users.findAvatar(userId);
   if (avatar !== null && avatar.objectId !== null) {
     const avatarKey = userAvatarObjectKey(userId, avatar.objectId);
