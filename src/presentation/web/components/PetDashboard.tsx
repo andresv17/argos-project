@@ -346,6 +346,13 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
     const el = tabRefs.current[activeIndex];
     if (el !== null && el !== undefined && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [activeIndex]);
+  // WCAG 2.4.3 / 4.1.3: «Ir a Propietarios» cambia de pestaña y mueve el foco al encabezado del panel (tabIndex=-1), que anuncia el cambio.
+  const focusOwnersPending = useRef(false);
+  useEffect(() => {
+    if (!focusOwnersPending.current || activeId !== 'owners') return;
+    focusOwnersPending.current = false;
+    document.getElementById('owners-title')?.focus();
+  }, [activeId]);
   const activeSpec = RECORD_MODULES.find((m) => m.id === activeId) ?? null;
   const canWrite = activeSpec === null ? false : permissions[RECORD_WRITE_PERMISSION[activeSpec.id]];
   const recordCounts = {
@@ -425,7 +432,7 @@ export function PetDashboard({ dashboard, activeTab, onTabChange, onAddRecord, o
                       <p className="min-w-0 text-sm text-slate-700" data-testid="multi-owner-notice">
                         {MULTI_OWNER_NOTICE_TEXT}{' '}
                         {showOwners ? (
-                          <button type="button" onClick={() => onTabChange('owners')} className="min-h-11 rounded font-semibold text-slate-900 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
+                          <button type="button" onClick={() => { focusOwnersPending.current = true; onTabChange('owners'); }} className="min-h-11 rounded font-semibold text-slate-900 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
                             {MULTI_OWNER_LINK_TEXT}
                           </button>
                         ) : (

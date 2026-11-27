@@ -184,6 +184,22 @@ describe('S-07 «Salir de esta mascota» y S-08 confirmación de «Pedir elimina
     expect(src).toContain('(confirmDelete ? confirmDeleteRef.current : headingRef.current)?.focus()');
     expect(src).toContain("event.key === 'Escape'");
   });
+
+  it('[REQ-OWN12-004] (sati T1619) al cerrar la confirmación el foco vuelve al disparador «Pedir eliminar la mascota», no al encabezado', () => {
+    expect(src).toMatch(/<span ref=\{deleteTriggerRef\}[^>]*>\s*<Button variant="secondary" disabled=\{busy\} onClick=\{\(\) => setConfirmDelete\(true\)\}>\s*Pedir eliminar la mascota/);
+    expect(src).toMatch(/if \(!deleteMounted\.current \|\| confirmDelete\) return;\s*deleteTriggerRef\.current\?\.querySelector\('button'\)\?\.focus\(\)/);
+  });
+});
+
+describe('(sati T1619) «Ir a Propietarios» mueve el foco al encabezado del panel', () => {
+  const src = readFileSync(new URL('../../../src/presentation/web/components/PetDashboard.tsx', import.meta.url), 'utf8');
+  const owners = readFileSync(new URL('../../../src/presentation/web/components/CoOwners.tsx', import.meta.url), 'utf8');
+
+  it('[REQ-OWN12-002] el enlace marca el foco pendiente y cambia de pestaña; el efecto enfoca #owners-title, que es un encabezado con tabIndex=-1', () => {
+    expect(src).toContain("onClick={() => { focusOwnersPending.current = true; onTabChange('owners'); }}");
+    expect(src).toMatch(/if \(!focusOwnersPending\.current \|\| activeId !== 'owners'\) return;\s*focusOwnersPending\.current = false;\s*document\.getElementById\('owners-title'\)\?\.focus\(\)/);
+    expect(owners).toMatch(/<h3 id="owners-title" ref=\{headingRef\} tabIndex=\{-1\}/);
+  });
 });
 
 function occurrencesOf(text: string, needle: string): number {

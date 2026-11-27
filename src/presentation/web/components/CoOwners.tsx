@@ -93,6 +93,7 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
   const [confirmDelete, setConfirmDelete] = useState(false);
   const confirmDeleteRef = useRef<HTMLDivElement>(null);
   const deleteMounted = useRef(false);
+  const deleteTriggerRef = useRef<HTMLSpanElement>(null);
   const leaveMounted = useRef(false);
   // WCAG 2.4.3: al abrir o cerrar la confirmación de salida el botón pulsado se desmonta; el foco pasa a un elemento estable.
   useEffect(() => {
@@ -109,6 +110,11 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
       return;
     }
     (confirmDelete ? confirmDeleteRef.current : headingRef.current)?.focus();
+  }, [confirmDelete]);
+  // WCAG 2.4.3: el disparador «Pedir eliminar la mascota» se remonta al cerrar la confirmación; el foco vuelve a él (no al encabezado). Corre tras el efecto anterior, con el botón ya montado.
+  useEffect(() => {
+    if (!deleteMounted.current || confirmDelete) return;
+    deleteTriggerRef.current?.querySelector('button')?.focus();
   }, [confirmDelete]);
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -214,9 +220,11 @@ export function OwnersPanel({ petId, petName, currentUserId, onChanged, onOwners
               <p className="text-sm font-semibold text-slate-900">Acciones que necesitan la aprobación de los demás propietarios</p>
               <div className="flex flex-wrap gap-2">
                 {confirmDelete ? null : (
-                  <Button variant="secondary" disabled={busy} onClick={() => setConfirmDelete(true)}>
-                    Pedir eliminar la mascota
-                  </Button>
+                  <span ref={deleteTriggerRef} className="contents">
+                    <Button variant="secondary" disabled={busy} onClick={() => setConfirmDelete(true)}>
+                      Pedir eliminar la mascota
+                    </Button>
+                  </span>
                 )}
                 {isPrincipal
                   ? coOwnersActive.map((row) => (
