@@ -6,6 +6,9 @@
  *   `SET LOCAL` es de transacción: compatible con PgBouncer en modo transacción (nunca el de sesión). El mismo tope
  *   ocioso se fija además a nivel de rol en la migración, no aquí.
  * - `pg_advisory_xact_lock` serializa a los escritores de todas las instancias, como `BEGIN IMMEDIATE` en SQLite (INV-ARCH-005).
+ * - Dos niveles de bloqueo (REQ-OWN12-011): (1) candado asesor global, con `lock_timeout` de 10 s por defecto o de `OWNERSHIP_LOCK_TIMEOUT_MS` (3 s) en las
+ *   transacciones de propiedad (`boundedLockWait`), cuyo vencimiento (SQLSTATE 55P03) es `ERR-OWN12-RETRYABLE`; (2) `SELECT ... FOR UPDATE` por mascota
+ *   (repositorios de propiedad), defensa en profundidad. Orden: global y luego mascotas en `pet_id ASC`. Sin la opcion, 55P03 se propaga (003 intacto).
  * - Convención C-6 (la del adaptador SQLite): si `work` lanza o el `COMMIT` falla, se hace `ROLLBACK` y la promesa se rechaza con
  *   el error original; si el `ROLLBACK` falla, los cambios pueden haber quedado confirmados y se rechaza con DomainError
  *   `ERR-INTERNAL-UNEXPECTED` y `finalState` `UNKNOWN`. En ese caso el cliente se destruye en lugar de devolverse al pool.
@@ -18,9 +21,11 @@
  */
 
 import { DomainError } from '../../../generated/index.ts';
+import { DomainError as DomainErrorV38 } from '../../../generated/v38/index.ts';
 import type { RepositorySet } from '../../../application/ports/repositories.port.ts';
 import type { MaintenanceCounts, MaintenanceCutoffs, UnitOfWorkPort } from '../../../application/ports/unit-of-work.port.ts';
 import type { PoolClientLike, PoolLike } from './postgres-database.ts';
+import { OWNERSHIP_LOCK_TIMEOUT_MS } from '../../../domain/platform/feature-012-limits.ts';
 import { purgeExpiredInBatches } from './postgres-maintenance.ts';
 
 /** Constante de Argos del candado asesor global (ASCII de "ARGOS"). */
@@ -36,6 +41,9 @@ const SESSION_CAPS: readonly string[] = [
   `SET LOCAL idle_in_transaction_session_timeout = '${PG_IDLE_IN_TRANSACTION_TIMEOUT}'`,
 ];
 const ADVISORY_LOCK_SQL = 'SELECT pg_advisory_xact_lock($1)';
+const OWNERSHIP_LOCK_TIMEOUT_SQL = `SET LOCAL lock_timeout = '${OWNERSHIP_LOCK_TIMEOUT_MS}ms'`;
+const isLockNotAvailable = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && (error as { code?: unknown }).code === '55P03';
 
 const isConnectionReset = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ECONNRESET';
@@ -47,8 +55,8 @@ export class PostgresUnitOfWork implements UnitOfWorkPort {
     private readonly createRepositories: (client: PoolClientLike) => RepositorySet,
   ) {}
 
-  runInTransaction<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
-    return this.transaction((client) => work(this.createRepositories(client)));
+  runInTransaction<T>(work: (repositories: RepositorySet) => Promise<T>, options?: { readonly boundedLockWait?: boolean }): Promise<T> {
+    return this.transaction((client) => work(this.createRepositories(client)), options?.boundedLockWait === true);
   }
 
   /**
@@ -81,11 +89,17 @@ export class PostgresUnitOfWork implements UnitOfWorkPort {
     return this.transaction((client) => purgeExpiredInBatches(client, cutoffs));
   }
 
-  private async transaction<T>(work: (client: PoolClientLike) => Promise<T>): Promise<T> {
+  private async transaction<T>(work: (client: PoolClientLike) => Promise<T>, boundedLockWait = false): Promise<T> {
     const client = await this.begin();
     try {
       for (const sql of SESSION_CAPS) await client.query(sql);
-      await client.query(ADVISORY_LOCK_SQL, [PG_ADVISORY_LOCK_KEY]);
+      if (boundedLockWait) await client.query(OWNERSHIP_LOCK_TIMEOUT_SQL);
+      try {
+        await client.query(ADVISORY_LOCK_SQL, [PG_ADVISORY_LOCK_KEY]);
+      } catch (error) {
+        if (boundedLockWait && isLockNotAvailable(error)) throw new DomainErrorV38('ERR-OWN12-RETRYABLE');
+        throw error;
+      }
       const result = await work(client);
       await client.query('COMMIT');
       client.release();

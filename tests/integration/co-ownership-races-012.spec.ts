@@ -23,7 +23,7 @@ afterEach(async () => {
 
 const NOW = '2026-11-26T11:00:00.000Z';
 const active = (rows: Row[]): string[] => rows.filter((r) => r['status'] === 'ACTIVE').map((r) => r['userId'] as string);
-const seeded = (race: RaceEngine) => ({ deps: race.a, run: <T>(work: (r: RepositorySet) => Promise<T>): Promise<T> => race.a.uow.runInTransaction(work), setNow: (iso: string) => race.setNow(iso) });
+const seeded = (race: RaceEngine) => ({ deps: race.a, run: <T>(work: (r: RepositorySet) => Promise<T>): Promise<T> => race.a.uow.runInTransaction(work), read: <T>(work: (r: RepositorySet) => Promise<T>): Promise<T> => race.a.uow.runReadOnly === undefined ? race.a.uow.runInTransaction(work) : race.a.uow.runReadOnly(work), setNow: (iso: string) => race.setNow(iso) });
 
 /** Invariante común: si la mascota existe, su principal existe, está vivo y no figura como LEFT/PROMOTED-fuera. */
 async function assertSerialInvariant(race: RaceEngine): Promise<void> {

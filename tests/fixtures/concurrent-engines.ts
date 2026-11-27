@@ -45,13 +45,13 @@ export function gate(): Gate {
 /** Unidad de trabajo que, tras ejecutar el trabajo y ANTES de confirmar, avisa y espera: la transacción queda abierta con sus candados. */
 export function holdBeforeCommit(uow: UnitOfWorkPort, entered: () => void, hold: Promise<void>): UnitOfWorkPort {
   return {
-    runInTransaction: <T>(work: (repositories: RepositorySet) => Promise<T>) =>
+    runInTransaction: <T>(work: (repositories: RepositorySet) => Promise<T>, options?: Parameters<UnitOfWorkPort['runInTransaction']>[1]) =>
       uow.runInTransaction(async (repositories) => {
         const result = await work(repositories);
         entered();
         await hold;
         return result;
-      }),
+      }, options),
   };
 }
 
@@ -67,11 +67,11 @@ function countingWork(uow: UnitOfWorkPort): { readonly uow: UnitOfWorkPort; star
   let starts = 0;
   return {
     uow: {
-      runInTransaction: <T>(work: (repositories: RepositorySet) => Promise<T>) =>
+      runInTransaction: <T>(work: (repositories: RepositorySet) => Promise<T>, options?: Parameters<UnitOfWorkPort['runInTransaction']>[1]) =>
         uow.runInTransaction((repositories) => {
           starts += 1;
           return work(repositories);
-        }),
+        }, options),
     },
     starts: () => starts,
   };

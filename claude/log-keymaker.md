@@ -2598,3 +2598,7 @@ AdminPortal.readSession lee body.adminId -> estado viewerId (no se pinta). Guard
 ## 2026-11-27 fix fixture races 012 (aec3b1a)
 - tests/fixtures: depsA estable por motor (ids/auditIds/reloj una vez), holdingA y setNow reutilizan race.a. Sin tocar src ni asertos.
 - tsc rc=0; races sin PG 14 ok; PG17: races 21/22 (roja: lock_timeout por mascota, hallazgo src), parity 59 ok + 3 rojas EDGE-012-044 (B-2 intacta). Acta pg17-012-races-fixture-2026-11-27.md. Contenedor eliminado.
+
+## 2026-11-27 lock acotado PG (dictamen architect 1-5)
+- src: port runInTransaction(options.boundedLockWait), PostgresUnitOfWork SET LOCAL lock_timeout 3000ms + 55P03->ERR-OWN12-RETRYABLE solo en el candado global; helper runOwnershipTransaction en 4 archivos de casos de uso; JSDoc de 2 niveles.
+- tests: unitaria pg-lock-acotado-012; fixtures reenvian options y lectura read-only del principal (spec:26). tsc rc=0, trace rc=0, PG17 races 22/22, parity solo EDGE-012-044 roja (B-2). Acta pg17-012-lock-acotado-2026-11-27.md.

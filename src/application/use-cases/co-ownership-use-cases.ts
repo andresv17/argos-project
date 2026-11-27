@@ -27,6 +27,7 @@ import {
   recordOwnershipAudit,
   chargeOwnershipAttempt,
   requireOwner,
+  runOwnershipTransaction,
   retryable,
   revokeLinksOfNonOwners,
   settledRequest,
@@ -72,7 +73,7 @@ export class InviteCoOwnerUseCase {
     const { deps } = this;
     // Transacción 1 (confirma aunque el intento falle después): autorización y contador por intento del ámbito propio CO_OWNER_INVITE (H-02).
     await chargeOwnershipAttempt(deps, 'CO_OWNER_INVITE', actorUserId, async () => petId);
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       await requireOwner(repositories, actorUserId, petId);
       const state = await repositories.pets.findOwnershipForUpdate(petId);
       if (state === null) throw notFound();
@@ -183,7 +184,7 @@ export class AcceptCoOwnerInvitationUseCase {
 
   async execute(actorUserId: string, coOwnerId: string): Promise<PetCoOwner> {
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       const now = deps.clock.nowIsoTimestamp();
       const first = await ownInvitation(repositories, actorUserId, coOwnerId, now);
       const state = await repositories.pets.findOwnershipForUpdate(first.petId);
@@ -213,7 +214,7 @@ export class DeclineCoOwnerInvitationUseCase {
 
   async execute(actorUserId: string, coOwnerId: string): Promise<204> {
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       const now = deps.clock.nowIsoTimestamp();
       const row = await ownInvitation(repositories, actorUserId, coOwnerId, now);
       if (row.status === 'DECLINED') return 204 as const; // idempotente sobre el estado final propio (H-06)
@@ -230,7 +231,7 @@ export class CancelCoOwnerInvitationUseCase {
 
   async execute(actorUserId: string, petId: string, coOwnerId: string): Promise<204> {
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       const { rows } = await requireOwner(repositories, actorUserId, petId);
       const row = rows.find((r) => r.id === coOwnerId);
       if (row === undefined) throw notFound(); // par {petId}/{coOwnerId} cruzado o inexistente: 404 uniforme
@@ -249,7 +250,7 @@ export class ListMyCoOwnerInvitationsUseCase {
 
   async execute(actorUserId: string): Promise<Array<{ coOwnerId: string; petName: string; invitedByUsername: string; expiresAt: string }>> {
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       const now = deps.clock.nowIsoTimestamp();
       const live = (await repositories.coOwners.listByUser(actorUserId)).filter((row) => effectiveCoOwnerStatus(row, now) === 'INVITED');
       const usernames = await usernamesOf(repositories, live.map((row) => row.invitedByUserId));
@@ -314,7 +315,7 @@ export class LeavePetUseCase {
 
   async execute(actorUserId: string, petId: string, input: unknown): Promise<LeavePetResult> {
     const { successorUserId } = assertMatchesSchema<LeavePetRequest>('LeavePetRequest', validateLeavePetRequest, input);
-    return this.deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(this.deps, async (repositories) => {
       await requireOwner(repositories, actorUserId, petId); // autorización antes del bloqueo (H-03)
       const applied = await applyLeave(this.deps, repositories, { petId, leavingUserId: actorUserId, designatedUserId: successorUserId ?? null });
       const principalUserId = applied.resultingPrincipalUserId;
@@ -331,7 +332,7 @@ export class GetPetOwnershipUseCase {
 
   async execute(actorUserId: string, petId: string): Promise<OwnershipState> {
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       await requireOwner(repositories, actorUserId, petId);
       const state = await repositories.pets.findOwnership(petId);
       if (state === null) throw notFound();
@@ -364,7 +365,7 @@ export class AckPromotionNoticeUseCase {
 
   async execute(actorUserId: string, petId: string): Promise<204> {
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       const rows = (await repositories.coOwners.listByPet(petId)).filter((r) => r.userId === actorUserId && r.status === 'PROMOTED');
       if (rows.length === 0) throw notFound();
       for (const row of rows) if (row.promotionNoticeAckAt === null) await repositories.coOwners.acknowledgePromotion(row.id, deps.clock.nowIsoTimestamp());

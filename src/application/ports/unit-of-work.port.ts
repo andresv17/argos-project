@@ -36,7 +36,11 @@ export interface MaintenanceCounts {
 }
 
 export interface UnitOfWorkPort {
-  runInTransaction<T>(work: (repositories: RepositorySet) => Promise<T>): Promise<T>;
+  /**
+   * `options.boundedLockWait` (REQ-OWN12-011): las transacciones de propiedad acotan la espera del candado de escritura a `OWNERSHIP_LOCK_TIMEOUT_MS`;
+   * vencida, el adaptador PostgreSQL lanza `ERR-OWN12-RETRYABLE` (sin escritura parcial). SQLite y memoria ignoran la opcion.
+   */
+  runInTransaction<T>(work: (repositories: RepositorySet) => Promise<T>, options?: { readonly boundedLockWait?: boolean }): Promise<T>;
   /**
    * Lectura coherente de UNA instantánea (feature 005, REQ-VET-006, EDGE-005-14, SC-005-049): PostgreSQL abre `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY`
    * (no toma el candado asesor global: una lectura no bloquea ni es bloqueada por las escrituras); SQLite lee sobre el WAL con `query_only`; memoria trabaja

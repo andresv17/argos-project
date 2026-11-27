@@ -76,6 +76,15 @@ export async function requireOwner(repositories: RepositorySet, userId: string, 
 }
 
 /**
+ * Unico punto de entrada de toda transaccion de propiedad (REQ-OWN12-011, NFR-012-008): pide al adaptador que la espera del candado de escritura
+ * (en PostgreSQL, el candado asesor global de REQ-PG-004) quede acotada por `OWNERSHIP_LOCK_TIMEOUT_MS`; vencida, `ERR-OWN12-RETRYABLE`.
+ * SQLite y memoria ignoran la opcion. Todo caso de uso que llame a `findOwnershipForUpdate` o `applyLeave` DEBE usar este helper.
+ */
+export function runOwnershipTransaction<T>(deps: Pick<ApplicationDeps, 'uow'>, work: (repositories: RepositorySet) => Promise<T>): Promise<T> {
+  return deps.uow.runInTransaction(work, { boundedLockWait: true });
+}
+
+/**
  * Contador por intento de la 012 (B-4; H-02 y H-10) en su propia transacción, que CONFIRMA aunque el intento falle después. Primero autoriza (404 uniforme a terceros: quien no es propietario no
  * consume cupo ni distingue una mascota inexistente) y después consume el ámbito propio; rechazado con 429 no registra nada (la ventana no se prolonga). No usa el ámbito `INVITE` de los hogares.
  * El ámbito `OWNER_REQUEST` cuenta por usuario (la tabla `rate_limit_events` no guarda la mascota): el tope diario rige entre todas sus mascotas.

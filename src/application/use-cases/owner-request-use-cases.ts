@@ -17,7 +17,7 @@ import { CO_OWNER_INVITE_TTL_DAYS, DAY_MS, MAX_CO_OWNERS_PER_PET, OWNER_APPROVAL
 import type { OwnerRequestRecord, PetCoOwnerRecord } from '../ports/co-ownership.port.ts';
 import type { OwnershipState, RepositorySet } from '../ports/repositories.port.ts';
 import { transferPetOwnership } from '../../domain/pet/ownership-transfer.ts';
-import { assertPetNotFrozen, chargeOwnershipAttempt, effectiveCoOwnerStatus, materializeExpiredInvitations, materializeExpiredRequests, ownersOf, recordOwnershipAudit, requireOwner, retryable, revokeLinksOfNonOwners, settledRequest } from './co-ownership-support.ts';
+import { runOwnershipTransaction, assertPetNotFrozen, chargeOwnershipAttempt, effectiveCoOwnerStatus, materializeExpiredInvitations, materializeExpiredRequests, ownersOf, recordOwnershipAudit, requireOwner, retryable, revokeLinksOfNonOwners, settledRequest } from './co-ownership-support.ts';
 import { recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
 import { deletePetInTransaction } from './pet-use-cases.ts';
@@ -80,7 +80,7 @@ export class CreateOwnerRequestUseCase {
     const body = assertMatchesSchema<CreateOwnerRequest>('CreateOwnerRequest', validateCreateOwnerRequest, input);
     const { deps } = this;
     await chargeOwnershipAttempt(deps, 'OWNER_REQUEST', actorUserId, async () => petId); // H-10: crear cuenta por intento (429 antes de cualquier efecto)
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       await requireOwner(repositories, actorUserId, petId); // autorización antes del bloqueo
       const state = await repositories.pets.findOwnershipForUpdate(petId);
       if (state === null) throw notFound();
@@ -161,7 +161,7 @@ export class ListMyOwnerRequestsUseCase {
 
   async execute(actorUserId: string): Promise<OwnerRequestListItem[]> {
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       const now = deps.clock.nowIsoTimestamp();
       const petIds = new Set<string>((await repositories.pets.listByOwners([actorUserId])).map((p) => p.id));
       for (const row of await repositories.coOwners.listByUser(actorUserId)) if (row.status === 'ACTIVE') petIds.add(row.petId);
@@ -183,7 +183,7 @@ export class GetOwnerRequestUseCase {
 
   async execute(actorUserId: string, requestId: string): Promise<OwnerRequestListItem> {
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       const request = await repositories.ownerRequests.findById(requestId);
       if (request === null) throw notFound();
       const involved = request.requesterUserId === actorUserId || request.approverSet.includes(actorUserId);
@@ -217,7 +217,7 @@ abstract class VoteOnOwnerRequest {
       if (found === null || found.petId === null) throw notFound();
       return found.petId;
     }); // H-10: aprobar y rechazar cuentan por intento; un tercero recibe el 404 uniforme sin consumir cupo
-    const result = await deps.uow.runInTransaction<VoteResult>(async (repositories) => {
+    const result = await runOwnershipTransaction<VoteResult>(deps, async (repositories) => {
       const found = await repositories.ownerRequests.findById(requestId);
       if (found === null || found.petId === null) throw notFound();
       const petId = found.petId;
@@ -302,7 +302,7 @@ export class CancelOwnerRequestUseCase {
 
   async execute(actorUserId: string, requestId: string): Promise<204> {
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       const found = await repositories.ownerRequests.findById(requestId);
       if (found === null || found.requesterUserId !== actorUserId || found.petId === null || found.action === 'CHIP_DISPUTE') throw notFound();
       if (found.status === 'CANCELLED') return 204 as const;

@@ -37,7 +37,7 @@ import { recordAudit } from './audit-support.ts';
 import { purgeObjects, reinforcePrefix, reinforceUserPrefix } from './media-use-cases.ts';
 import { chooseSuccessor } from '../../domain/pet/co-ownership.ts';
 import type { PetProfile } from '../../domain/pet/pet-invariants.ts';
-import { settledRequest, withEffectiveStatus } from './co-ownership-support.ts';
+import { runOwnershipTransaction, settledRequest, withEffectiveStatus } from './co-ownership-support.ts';
 import { applyLeave } from './co-ownership-use-cases.ts';
 import { assertMatchesAnnotatedSchema, assertMatchesSchema, toSelfProfile, type ApplicationDeps } from './use-case-support.ts';
 
@@ -130,7 +130,7 @@ export class DeleteAccountUseCase {
     // REQ-GCS-004: claves de medios y avatares de todas las mascotas propias; se encolan en la transacción y se borran tras el COMMIT.
     const objectKeys: string[] = [];
     let ownedPetIdsForCleanup: string[] = [];
-    await this.deps.uow.runInTransaction(async (repositories) => {
+    await runOwnershipTransaction(this.deps, async (repositories) => {
       objectKeys.length = 0;
       // B2: la sesión y la cuenta siguen vigentes (petición simultánea).
       const account = await repositories.users.findById(userId);

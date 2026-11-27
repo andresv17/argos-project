@@ -182,7 +182,9 @@ export function cases(deps: ApplicationDeps) {
 /** Filas de co-propiedad y de solicitudes de una mascota (camelCase), por los puertos. */
 export const coOwnerRows = (engine: { run: Engine012['run'] }, petId: string): Promise<Row[]> => engine.run(async (r) => [...(await r.coOwners.listByPet(petId))] as unknown as Row[]);
 export const requestRows = (engine: { run: Engine012['run'] }, petId: string): Promise<Row[]> => engine.run(async (r) => [...(await r.ownerRequests.listByPet(petId))] as unknown as Row[]);
-export const principalOf = (engine: { run: Engine012['run'] }, petId: string): Promise<string | null> => engine.run(async (r) => (await r.pets.findById(petId))?.ownerUserId ?? null);
+/** Lectura del principal; con `read` (instantanea sin candado asesor global, `runReadOnly`) no queda detras de una transaccion de escritura que retiene el candado (REQ-OWN12-011). */
+export const principalOf = (engine: { run: Engine012['run']; read?: Engine012['run'] }, petId: string): Promise<string | null> =>
+  (engine.read ?? engine.run)(async (r) => (await r.pets.findById(petId))?.ownerUserId ?? null);
 
 /** Invita y acepta en orden, separando `joined_at` un minuto entre una y otra (la antigüedad decide la sucesión). */
 export async function makeCoOwners(engine: Pick<Engine012, 'deps' | 'run' | 'setNow'>, userIds: readonly string[], petId: string = PET, principal: string = ANDRES): Promise<string[]> {
@@ -243,5 +245,5 @@ export function withZeroRowOwnerWrites(deps: ApplicationDeps): { readonly deps: 
         },
       }),
     }) as RepositorySet;
-  return { deps: { ...deps, uow: { ...deps.uow, runInTransaction: (work) => deps.uow.runInTransaction((r) => work(wrap(r))) } }, attempts: () => attempts };
+  return { deps: { ...deps, uow: { ...deps.uow, runInTransaction: (work, options) => deps.uow.runInTransaction((r) => work(wrap(r)), options) } }, attempts: () => attempts };
 }

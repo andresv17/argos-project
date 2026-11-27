@@ -1,6 +1,7 @@
 /**
  * Repositorios PostgreSQL de la co-propiedad (Feature 012, Bloque A, #22): misma firma y reglas que SQLite y memoria. SQL siempre parametrizado con `$n`.
- * El bloqueo por mascota (REQ-OWN12-011) es `SELECT … FROM pets WHERE id = $1 FOR UPDATE` con `SET LOCAL lock_timeout = OWNERSHIP_LOCK_TIMEOUT_MS`; vencido (SQLSTATE 55P03) lanza `ERR-OWN12-RETRYABLE`.
+ * Dos niveles de bloqueo (REQ-OWN12-011): el primero es el candado asesor global del UnitOfWork, cuya espera se acota con `boundedLockWait` (3 s, 55P03 -> `ERR-OWN12-RETRYABLE`); el segundo, defensa en profundidad, es el de la fila de la mascota:
+ * el bloqueo por mascota es `SELECT … FROM pets WHERE id = $1 FOR UPDATE` con `SET LOCAL lock_timeout = OWNERSHIP_LOCK_TIMEOUT_MS`; vencido (SQLSTATE 55P03) lanza `ERR-OWN12-RETRYABLE`.
  *
  * @implements REQ-OWN12-001, REQ-OWN12-004, REQ-OWN12-011, NFR-012-006, NFR-012-008, STATE-COOWN12-001, STATE-OWNREQ12-001
  */

@@ -17,7 +17,7 @@ import { addMillis } from '../../domain/auth/utc-timestamp.ts';
 import { addBusinessDays, evaluateAbsenceTrigger } from '../../domain/pet/absence-trigger.ts';
 import { DAY_MS, DISPUTE_FREEZE_MAX_DAYS, DISPUTE_MAX_OPEN_DAYS, DISPUTE_REJECTED_COOLDOWN_DAYS, DISPUTE_SLA_BUSINESS_DAYS, MAX_OPEN_DISPUTES_PER_USER } from '../../domain/platform/feature-012-limits.ts';
 import type { OwnerRequestRecord } from '../ports/co-ownership.port.ts';
-import { materializeExpiredInvitations, materializeExpiredRequests, openAbsenceDisputes, ownersOf, recordOwnershipAudit, requireOwner } from './co-ownership-support.ts';
+import { materializeExpiredInvitations, runOwnershipTransaction, materializeExpiredRequests, openAbsenceDisputes, ownersOf, recordOwnershipAudit, requireOwner } from './co-ownership-support.ts';
 import { assertMatchesSchema, type ApplicationDeps } from './use-case-support.ts';
 
 const notFound = (): DomainError => new DomainError('ERR-PET-NOT-FOUND', undefined, 'petId');
@@ -30,7 +30,7 @@ export class OpenAbsenceDisputeUseCase {
   async execute(actorUserId: string, petId: string, input: unknown): Promise<AbsenceDisputeOpened> {
     const body = assertMatchesSchema<OpenAbsenceDisputeRequest>('OpenAbsenceDisputeRequest', validateOpenAbsenceDisputeRequest, input);
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       await requireOwner(repositories, actorUserId, petId); // autorización (404 uniforme) ANTES del bloqueo (H-03)
       const state = await repositories.pets.findOwnershipForUpdate(petId);
       if (state === null) throw notFound();
@@ -114,7 +114,7 @@ export class RespondAbsenceDisputeUseCase {
     const { response } = assertMatchesSchema<AbsenceResponseRequest>('AbsenceResponseRequest', validateAbsenceResponseRequest, normalized);
     if ([...response].length > 280) throw new DomainErrorRoot('ERR-SCHEMA-VALIDATION-FAILED', 'La respuesta no puede superar 280 caracteres.', 'response');
     const { deps } = this;
-    return deps.uow.runInTransaction(async (repositories) => {
+    return runOwnershipTransaction(deps, async (repositories) => {
       await requireOwner(repositories, actorUserId, petId);
       const first = (await openAbsenceDisputes(repositories, petId)).find((d) => d.targetUserId === actorUserId);
       if (first === undefined) throw notFound(); // sin disputa abierta para ese usuario: 404 uniforme
