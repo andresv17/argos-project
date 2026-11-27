@@ -229,3 +229,39 @@ Ley y foro aplicables: [PAÍS / JURISDICCIÓN] (pendiente de validación legal).
 - Valores definitivos de los placeholders (`T1437`, Neo).
 - Implementación de páginas y rutas (`T1413`); dictamen `/rama` (`T1414`).
 - Enmienda por edad mínima: hecha en `T1425` (`REQ-MEN10-004`, estado `REVIEW`). El procedimiento ante cuenta de menor queda como canal de contacto (decisión de Neo 2), sin REQ nueva; validación legal en `T1426`.
+
+---
+
+## Avisos de disputa de microchip — Feature 012 (`T1643`, `[GH:#23]`)
+
+**Estado**: `DRAFT` (borrador de `/keymaker` por `T1643`, 2026-11-27; versión del texto **`0.1.0`**). Ningún agente lo pasa a `APPROVED` ni `LOCKED` (potestad de Neo, Nivel 2). **No se publica, ni se habilita la cola de disputas de `/admin` en producción, antes de la validación legal externa** (`DEUDA-012-LEGAL-DISPUTAS-QR`, `claude/deuda-012-legal-disputas-qr.md`); al validarse pasa de `0.1.0` a `1.0.0`. Este texto **no es asesoría legal** (misma constancia obligatoria de `D10-05`). Trazas: `REQ-CHP12-008`, `REQ-CHP12-010`, `INV-CHP12-007`, `F-03`, `F-09`, `N-C`.
+
+Reglas de redacción (`INV-CHP12-007`): ningún aviso incluye cuenta, hogar, nombre de mascota, fecha de la otra parte, evidencia, identidad del árbitro ni el chip completo. Los marcadores `(pendiente de validación legal)` se publican visibles hasta que Neo los retire.
+
+### D1. Aviso a los propietarios actuales cuando se abre una disputa por apropiación (estado derivado en la aplicación)
+
+> Se abrió un caso de revisión sobre el microchip terminado en {últimos 4} de una de tus mascotas. Un equipo de administración lo revisará. Mientras dure, no podrás eliminar la mascota ni cambiar de propietario principal. No necesitas hacer nada ahora. (pendiente de validación legal)
+
+### D2. Aviso a la persona que reclama o disputa, al cerrarse el caso (solo el desenlace)
+
+> Tu solicitud sobre el microchip terminado en {últimos 4} terminó el {fecha de cierre}: {Resuelta a tu favor | Resuelta sin cambios | Venció sin resolución}. No podemos darte más detalles sobre el caso. (pendiente de validación legal)
+
+### D3. Aviso a quien es parte de una disputa por ausencia (sin chip; sin identidad del solicitante)
+
+> Se abrió un caso de revisión sobre tu participación en una mascota compartida. Un equipo de administración lo revisará y puede pedirte información. No se muestra quién lo solicitó. (pendiente de validación legal)
+
+### D4. Texto previo a subir la evidencia de una disputa («Es mía»)
+
+> Para revisar tu caso necesitamos documentos que demuestren que la mascota es tuya (por ejemplo, el carné o un registro veterinario). Pueden contener datos personales: sube solo lo necesario y tapa lo que no haga falta. Solo el equipo de administración los verá, nunca los propietarios actuales. Guardamos los archivos mientras el caso está abierto y los eliminamos 365 días después de cerrarse. Si eliminas tu cuenta mientras el caso sigue abierto o dentro de ese plazo, podemos conservar la evidencia hasta que termine la revisión y venza ese plazo, solo para resolver y poder defender la decisión. (pendiente de validación legal)
+
+### D5. Texto del diálogo «Este microchip ya está registrado» (sin oráculo)
+
+> Ese número no se puede usar en este registro. Por privacidad no podemos decirte nada más sobre él. Puedes corregirlo si lo escribiste mal, solicitar co-propiedad o, si la mascota es tuya, abrir una disputa con evidencia. Al enviar una solicitud solo te confirmamos que la recibimos, exista o no una mascota con ese número.
+
+### D6. Pendientes para la validación legal externa (`DEUDA-012-LEGAL-DISPUTAS-QR`)
+
+1. **`F-03` (`REQ-CHP12-008`, condición antes de producción)**: validar la excepción de conservación de la evidencia tras el borrado de la cuenta del reclamante (D4, última frase): base legal, finalidad, plazo y minimización.
+2. Evidencia de disputa como dato personal en su contenido (`rama R-A2`): documentos de terceros, datos de salud animal y datos que identifiquen a personas.
+3. Retención de 365 días desde `closed_at` y purga previa a la eliminación de la fila (orden de purga ya implementado).
+4. Aviso al propietario (D1) y al reclamante (D2): suficiencia del aviso derivado sin correo ni tabla de notificaciones.
+5. Pasos del QR y del teléfono público (`REQ-QR12-004/006`) se anexan en `T1682`.
