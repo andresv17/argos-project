@@ -22,7 +22,7 @@ import { loadAppConfigActivated } from '../fixtures/scene-config-fixtures.ts';
  */
 const root = process.cwd();
 const read = (p: string): string => readFileSync(join(root, p), 'utf8');
-const PROD_BASE = { NODE_ENV: 'production', ARGOS_PUBLIC_BASE_URL: 'https://tipi.pet', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
+const PROD_BASE = { NODE_ENV: 'production', ARGOS_ADMIN_EMAILS: 'admin.raiz@example.test', ARGOS_PUBLIC_BASE_URL: 'https://tipi.pet', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media' };
 const REAL = {
   ARGOS_SCENE_DRIVER: 'real',
   ARGOS_SCENE_MODEL: 'gemini-2.5-flash-image',

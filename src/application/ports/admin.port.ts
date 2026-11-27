@@ -25,6 +25,11 @@ export interface AdminIdentityRepositoryPort {
   findByEmail(email: string): Promise<AdminIdentityRecord | null>;
   /** Inserta si no existe ni el `(provider, sub)` ni el correo (`ON CONFLICT DO NOTHING`): `true` si insertó, `false` si ya existía alguno de los dos (la existente no cambia). */
   insertIfAbsent(identity: AdminIdentityRecord): Promise<boolean>;
+  /**
+   * Retira una identidad que ya no pertenece a ningún delegado vigente (feature 011, EDGE-011-019: correo reciclado tras una baja): libera su correo y su `sub` para un anclaje nuevo y borra sus sesiones
+   * (`ON DELETE CASCADE`). La auditoría conserva el `admin_id` (sin clave foránea). `true` si existía.
+   */
+  deleteById(adminId: string): Promise<boolean>;
 }
 
 export interface AdminSessionRecord {
@@ -45,6 +50,8 @@ export interface AdminSessionRepositoryPort {
   revoke(tokenHash: string, revokedAt: string): Promise<boolean>;
   /** Borra las sesiones creadas en `cutoff` o antes (ya no pueden estar vigentes) y devuelve cuántas. */
   purgeCreatedBefore(cutoff: string): Promise<number>;
+  /** Borra TODAS las sesiones del administrador (feature 011, REQ-ADM11-004: desactivar revoca de inmediato, en la misma transacción) y devuelve cuántas. */
+  deleteByAdminId(adminId: string): Promise<number>;
 }
 
 export interface AdminFlowStateRecord {
@@ -160,4 +167,69 @@ export interface AdminParameterRepositoryPort {
   listAdminAccountUserIds(subjects: readonly string[], emails: readonly string[]): Promise<readonly string[]>;
   /** Intentos de la ventana mensual `quota_window` (YYYY-MM de America/Bogota, fijada al crear el intento) para la regla de coste de `EDGE-009-036`. El filtro es por ventana, no por UTC. */
   listSceneSpendAttempts(window: string): Promise<readonly SceneSpendAttemptRecord[]>;
+}
+
+/**
+ * Fila de `admin_delegates` (feature 011, migración SQLite 0031 / PostgreSQL 0027). `role` y `status` viajan CRUDOS (texto de la base): el dominio los interpreta con `toDelegate` y un valor
+ * desconocido deja sin acceso (falla cerrada, REQ-ADM11-003). Sin clave foránea hacia `users`; el correo nunca sale de estos repositorios hacia logs ni errores (H-9).
+ */
+export interface AdminDelegateRecord {
+  /** UUID v4 de `IdGeneratorPort`; el MISMO id de `admin_identities` y de la auditoría. */
+  readonly adminId: string;
+  /** Correo normalizado en minúsculas. */
+  readonly email: string;
+  readonly role: string;
+  readonly status: string;
+  readonly provider: AdminProvider | null;
+  /** `sub` anclado (dato personal: nunca a vistas, logs ni errores); nulo hasta el primer acceso. */
+  readonly providerSubject: string | null;
+  readonly invitedAt: string | null;
+  readonly invitedExpiresAt: string | null;
+  readonly anchoredAt: string | null;
+  readonly disabledAt: string | null;
+  readonly createdByAdminId: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/**
+ * Delegados de `/admin` (feature 011). Todas las escrituras ocurren dentro de la transacción serializada de la unidad de trabajo (`BEGIN IMMEDIATE` en SQLite; candado asesor más
+ * `SELECT ... FOR UPDATE` en PostgreSQL, H-2a) y cada una es un compare-and-set: el veredicto es `changes === 1`, sin lectura previa que decida.
+ */
+export interface AdminDelegateRepositoryPort {
+  /**
+   * Toma los candados de fila que serializan la guarda del último SUPER_ADMIN y los topes (H-2a): PostgreSQL `SELECT ... FOR UPDATE` sobre las filas `ACTIVE`/`INVITED`; SQLite y memoria no hacen
+   * nada (la transacción ya sostiene el candado de escritura). Se llama al principio de toda escritura de delegados y de todo anclaje.
+   */
+  lockForGuard(): Promise<void>;
+  findById(adminId: string): Promise<AdminDelegateRecord | null>;
+  /** La fila `ACTIVE` o `INVITED` con ese correo (a lo sumo una por el índice único parcial, ORA-1 b); `null` si solo hay filas `DISABLED` o ninguna. */
+  findLiveByEmail(email: string): Promise<AdminDelegateRecord | null>;
+  /** A lo sumo `limit` filas por `created_at` ascendente y `admin_id`. */
+  list(limit: number): Promise<AdminDelegateRecord[]>;
+  countRows(): Promise<number>;
+  /** Delegados que ocupan plaza (`ACTIVE` + `INVITED` con `invited_expires_at >= now`), sin contar a `excludeAdminId` si se indica. */
+  countOccupied(now: string, excludeAdminId: string | null): Promise<number>;
+  /** Delegados `ACTIVE` con rol `SUPER_ADMIN` cuyo correo NO está en `excludeEmails`, sin contar a `excludeAdminId` (puede ser `null`). */
+  countActiveSuperAdmins(excludeEmails: readonly string[], excludeAdminId: string | null): Promise<number>;
+  /** Inserta; `false` si el índice único parcial por correo vivo (`ACTIVE`/`INVITED`) o el `admin_id` ya existen. */
+  insert(record: AdminDelegateRecord): Promise<boolean>;
+  /** Reemplaza los campos mutables si la fila sigue igual (mismos `status`, `role`, `updated_at` y `provider_subject` que `expected`); `false` si otra escritura ganó. */
+  replace(next: AdminDelegateRecord, expected: AdminDelegateRecord): Promise<boolean>;
+  /**
+   * Anclaje (INVITED -> ACTIVE) con compare-and-set: `UPDATE ... WHERE admin_id = ? AND status = 'INVITED' AND provider_subject IS NULL AND invited_expires_at >= now`.
+   * Fija `provider`, `provider_subject`, `anchored_at`, `updated_at` y borra `invited_expires_at`. `true` solo si ESTA llamada anclo.
+   */
+  anchor(adminId: string, provider: AdminProvider, providerSubject: string, now: string): Promise<boolean>;
+  /**
+   * Purga de invitaciones caducadas (DEUDA-011-PURGA-DELEGADOS, D-2): borra las filas `INVITED` con `invited_at` ESTRICTAMENTE anterior a `invitedBefore` (el llamador resta la caducidad de 72 h y los 30 días
+   * de retención al reloj) y devuelve cuántas. Nunca toca filas `ACTIVE` ni `DISABLED`. Solo conteo: no devuelve ni registra correos.
+   */
+  purgeExpiredInvitations(invitedBefore: string): Promise<number>;
+  /**
+   * Anonimización de bajas (D-1): en las filas `DISABLED` con `disabled_at` ESTRICTAMENTE anterior a `disabledBefore` sustituye el correo por un marcador derivado del `admin_id` (`anon-<admin_id>@anonimizado.invalid`)
+   * y borra `provider` y `provider_subject`; conserva `admin_id`, rol, fechas y `created_by_admin_id`. Idempotente (no vuelve a tocar una fila ya anonimizada). Devuelve los `admin_id` anonimizados (opacos) para que
+   * el llamador retire sus identidades; nunca devuelve correos ni `sub`.
+   */
+  anonymizeDisabledBefore(disabledBefore: string): Promise<readonly string[]>;
 }

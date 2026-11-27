@@ -151,6 +151,18 @@ export const SCENE_UNMARKED_ATTEMPT_TTL_SECONDS = 600;
  * 60 s; responde con el código de `FAILED_LIMIT`. ÚNICA fuente del valor (el dominio lo recibe como dato).
  */
 export const SCENE_MAX_CLOSED_WITHOUT_CALL_PER_DAY = 20;
+/**
+ * Tope de hogares ACTIVOS por persona (feature 011, `#74`, REQ-HOG11-004, INV-HOG11-001, D11-12 = B+C aprobado por Neo). ÚNICA fuente del valor (el dominio lo recibe como dato;
+ * la interfaz lleva un espejo en `household-limit.ts`). Aplica al crear un hogar y al aceptar una invitación.
+ */
+export const MAX_HOUSEHOLDS_PER_USER = 5;
+/**
+ * Foto de perfil de la cuenta (feature 011, `#78`, REQ-PRF11-001, SC-011-061, INV-ARCH-006; anexo `user-avatar-annex.md` §4). ÚNICA fuente de los límites: 512 KiB, imagen cuadrada de 64..1024 px
+ * y 10 subidas por hora y usuario (contador en memoria por instancia).
+ */
+export { USER_AVATAR_MAX_BYTES, USER_AVATAR_MIN_SIDE, USER_AVATAR_MAX_SIDE } from '../../domain/media/user-avatar-limits.ts';
+export const USER_AVATAR_PUT_MAX_PER_WINDOW = 10;
+export const USER_AVATAR_PUT_WINDOW_MINUTES = 60;
 /** T_LEASE = T_GEN + 60 s (INV-ESC6-013; cumple T_LEASE >= T_GEN + 30 s). */
 export const sceneLeaseSeconds = (genTimeoutSeconds: number): number => genTimeoutSeconds + 60;
 /**
@@ -369,6 +381,28 @@ const validateRawConfig = new Ajv({ allErrors: true }).compile(APP_CONFIG_SCHEMA
 /** Configuración inválida: `variables` lista las variables de entorno rechazadas. */
 /** Variable de la lista cerrada de administradores de plataforma (feature 009, T1227). Solo se lee aquí (INV-ARCH-006). */
 export const ADMIN_EMAILS_NAME = 'ARGOS_ADMIN_EMAILS';
+
+/**
+ * Administradores delegados de `/admin` (feature 011, REQ-ADM11-001, D11-03 = B+A, H-1; INV-ARCH-006: viven SOLO aquí y los lee la capa de aplicación por inyección).
+ * - `ADMIN_DELEGATE_ACTIVE_LIMIT`: tope de delegados vigentes (`ACTIVE` + `INVITED` no caducadas).
+ * - `ADMIN_DELEGATE_INVITATION_TTL_HOURS`: caducidad de la invitación (`invited_expires_at = invited_at + 72 h`).
+ * - `ADMIN_DELEGATE_ROW_LIMIT`: tope de filas totales de la tabla (incluidas `DISABLED`); mismo código de error que el tope de vigentes.
+ *
+ * @implements REQ-ADM11-001, INV-ARCH-006
+ */
+export const ADMIN_DELEGATE_ACTIVE_LIMIT = 20;
+export const ADMIN_DELEGATE_INVITATION_TTL_HOURS = 72;
+export const ADMIN_DELEGATE_ROW_LIMIT = 100;
+/**
+ * Retención de delegados `DISABLED` (D-1, aprobada por Neo, Logos iter 228): al vencer los 365 días se anonimizan correo y `sub`. La purga automática NO existe aún: DEUDA-011-PURGA-DELEGADOS (fuera de #63).
+ * @implements REQ-ADM11-001, INV-ARCH-006
+ */
+export const ADMIN_DELEGATE_DISABLED_RETENTION_DAYS = 365;
+/**
+ * Retención de invitaciones caducadas (D-2, aprobada por Neo, Logos iter 228): días tras la caducidad de las 72 h; al vencer se purga la fila `INVITED` caducada. Purga pendiente: DEUDA-011-PURGA-DELEGADOS (fuera de #63).
+ * @implements REQ-ADM11-001, INV-ARCH-006
+ */
+export const ADMIN_DELEGATE_EXPIRED_INVITATION_RETENTION_DAYS = 30;
 /** Ruta fija del callback de administración (009-A, (c)): nunca derivada de `Host`. */
 export const ADMIN_GOOGLE_CALLBACK_PATH = '/api/admin/auth/google/callback';
 /**
@@ -513,7 +547,8 @@ export function loadAppConfig(env: EnvironmentSource = process.env, options: Loa
   }
   // 009 (T1227, REQ-ADM9-003): lista cerrada de administración; un valor inválido rechaza el arranque nombrando solo la variable.
   const adminParsed = parseAdminEmails(env[ADMIN_EMAILS_NAME]);
-  const adminInvalid = !adminParsed.ok;
+  // 011 (F-03, H-2b, EDGE-011-011): con NODE_ENV=production la lista raíz NO puede estar vacía (siempre hay al menos un SUPER_ADMIN raíz); en desarrollo y pruebas se permite vacía.
+  const adminInvalid = !adminParsed.ok || (env['NODE_ENV'] === 'production' && adminParsed.emails.length === 0);
   const publicBaseRaw = present(PUBLIC_BASE_URL_NAME);
   const publicBaseUrl = publicBaseRaw === undefined ? null : normalizePublicBaseUrl(publicBaseRaw);
   // T1443 (EDGE-010-003, decisión de Neo): con NODE_ENV=production la base es OBLIGATORIA (falla cerrado); en desarrollo el servidor usa http://127.0.0.1:<port>.

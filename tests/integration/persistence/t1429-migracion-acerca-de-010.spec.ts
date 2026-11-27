@@ -49,7 +49,7 @@ const insert = (db: SqliteDatabase, row: { id?: number; body?: string; key?: str
 
 describe('T1429 [REQ-ACE10-004] la migración SQLite 0029 (about_content)', () => {
   it('se aplica sola sobre la base previa, es la última, no toca otras tablas y deja la tabla SIN filas (estado vacío = versión 0)', () => {
-    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-1)).toBe(MIGRATION);
+    expect(readdirSync(DEFAULT_MIGRATIONS_DIR).filter((n) => /^\d{4}_.+\.sql$/.test(n)).sort().at(-4)).toBe(MIGRATION); // 011: la 0030 (saneado del snapshot de escena), la 0031 (admin_delegates) y la 0032 (user_avatar, T1556) son posteriores
     const { db, migrationsDir } = previousDatabase();
     const tables = () => db.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name <> 'about_content' AND name <> 'schema_migrations' ORDER BY name").all();
     const before = tables();
@@ -91,7 +91,7 @@ describe('T1429 [REQ-ACE10-004] la migración SQLite 0029 (about_content)', () =
 
 describe('T1429 [REQ-ACE10-004] la migración 0025 de Postgres es la equivalente y la última', () => {
   it('existe, es la última, no tiene BEGIN/COMMIT y es aditiva (solo CREATE TABLE about_content)', () => {
-    expect(postgresMigrationFiles().at(-1)).toBe(PG_MIGRATION);
+    expect(postgresMigrationFiles().at(-4)).toBe(PG_MIGRATION); // 011: la 0026 (saneado del snapshot de escena), la 0027 (admin_delegates) y la 0028 (user_avatar, T1556) son posteriores
     const sql = readFileSync(new URL(PG_MIGRATION, PG_DIR), 'utf8').replace(/--[^\n]*/g, '');
     expect(sql).not.toMatch(/\b(BEGIN|COMMIT|DROP|UPDATE|DELETE|ALTER)\b/i);
     expect(sql.split(';').map((s) => s.trim()).filter(Boolean)).toHaveLength(1);

@@ -26,7 +26,7 @@ describe('componentes de la SPA (render estático)', () => {
 
   it('[REQ-UI-001] cada tarjeta muestra especie, nombre, edad, dueño y contador de alertas', () => {
     const markup = html(h(PetCardList, { cards: [card('p1', 'Argos')], activePetId: 'p1', onSelect: noop }));
-    expect(['Argos', 'Perro · 6 años, 6 meses', '32.40 kg', 'Alertas: 1 vencidas · 2 próximas', 'Dueño: Andrés'].map((t) => markup.includes(t))).toEqual([true, true, true, true, true]);
+    expect(['Argos', 'Perro · 6 años, 6 meses', '32.40 kg', 'Alertas: 1 vencida · 2 próximas', 'Dueño: Andrés'].map((t) => markup.includes(t))).toEqual([true, true, true, true, true]);
   });
 
   it('[REQ-UI-001] el selector de contexto es un tablist con "Mis mascotas" y los hogares, y solo la pestaña activa es enfocable', () => {

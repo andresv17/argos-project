@@ -8,20 +8,26 @@
  *
  * Vincular Google (T1131, REQ-VIN8-002): con contraseña y sin Google se pide la contraseña actual y la SPA navega a la URL de autorización; con Google vinculado se muestra el estado (de `authMethods`).
  *
- * @implements REQ-DEL9-001, REQ-DEL9-002, INV-DEL9-001, EDGE-009-049, REQ-VIN8-001, REQ-VIN8-002, NFR-008-002, REQ-UI2-004, REQ-ACC-001, REQ-ACC-002, REQ-AUTH2-003, REQ-AUTH2-001, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, ERR-ACCOUNT-OWNS-SHARED-PETS, ERR-ACCOUNT-CONFIRMATION-MISMATCH
+ * Foto de perfil (011, #78, T1556): panel «Foto de perfil» con el recortador de avatar reutilizado; solo subida propia, sin leer fotos de fuentes externas.
+ *
+ * @implements REQ-PRF11-001, REQ-PRF11-002, INV-PRF11-001, REQ-DEL9-001, REQ-DEL9-002, INV-DEL9-001, EDGE-009-049, REQ-VIN8-001, REQ-VIN8-002, NFR-008-002, REQ-UI2-004, REQ-ACC-001, REQ-ACC-002, REQ-AUTH2-003, REQ-AUTH2-001, ERR-ACCOUNT-OWNS-SHARED-HOUSEHOLD, ERR-ACCOUNT-OWNS-SHARED-PETS, ERR-ACCOUNT-CONFIRMATION-MISMATCH
  */
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { UserAvatarEditor } from '../components/AvatarCropper.tsx';
 import { Button, FormError, PasswordField, SelectField, TextField } from '../components/Field.tsx';
+import { UserAvatar } from '../components/UserAvatar.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
 import { DeletionApiError, createAccountDeletionApi, deletionFeedback, type AffectedHousehold, type DeletionFeedback } from '../account-deletion-google.ts';
 import { humanSchemaMessage } from '../schema-messages.ts';
+import { createUserAvatarApi } from '../user-avatar-api.ts';
 import { GOOGLE_LINK_FIELD, googleLinkFeedback, startGoogleLink } from '../google-login.ts';
 import { useSession } from '../session.tsx';
 import { useContractForm } from '../use-contract-form.ts';
 import { formValues, validateInput, type FieldErrors } from '../validation.ts';
 import type { Schemas } from '../view-model.ts';
 import { downloadBlob, requestBackupExport } from './BackupPage.tsx';
+import { useUserAvatar } from './AppShell.tsx';
 
 const LANGUAGES = [
   { value: 'es', label: 'Español' },
@@ -40,6 +46,26 @@ function SavedNotice({ text }: { readonly text: string | null }): JSX.Element | 
     <p role="status" className="rounded-2xl border border-emerald-700 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
       {text}
     </p>
+  );
+}
+
+/** Panel «Foto de perfil»: la foto actual (o iniciales), elegir y recortar una foto nueva, reemplazar y quitar. Quitar la foto devuelve las iniciales; no hay fotos de fuentes externas. */
+function AvatarSection(): JSX.Element {
+  const { user } = useSession();
+  const { avatarVersion, setAvatarVersion } = useUserAvatar();
+  const api = useMemo(() => createUserAvatarApi(), []);
+  return (
+    <section aria-labelledby="avatar-title" className={`${CARD} min-w-0 grid-cols-[minmax(0,1fr)]`}>
+      <h2 id="avatar-title" tabIndex={-1} className="text-lg font-semibold focus-visible:outline-none">
+        Foto de perfil
+      </h2>
+      <div className="flex items-center gap-4">
+        <UserAvatar displayName={user?.displayName ?? ''} avatarVersion={avatarVersion} size={96} />
+        <span className="sr-only">{avatarVersion === null ? 'Sin foto: se muestran tus iniciales.' : 'Tienes una foto de perfil.'}</span>
+        <p className="max-w-prose text-sm text-text-muted">Solo tú ves esta foto. Sube una imagen y recórtala; con «Quitar foto» vuelven tus iniciales.</p>
+      </div>
+      <UserAvatarEditor api={api} avatarVersion={avatarVersion} onChanged={setAvatarVersion} />
+    </section>
   );
 }
 
@@ -461,8 +487,9 @@ export function AccountPage(): JSX.Element {
   const hasPassword = user?.authMethods?.password !== false;
   const hasGoogle = user?.authMethods?.google === true;
   return (
-    <div className="mx-auto grid max-w-3xl gap-4">
+    <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-4">
       <h1 className="text-2xl font-bold">Perfil</h1>
+      <AvatarSection />
       <ProfileSection />
       {hasGoogle ? <GoogleLinkedStatus /> : hasPassword ? <GoogleLinkSection /> : null}
       {hasPassword ? (

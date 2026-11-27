@@ -10,6 +10,8 @@
 import type { AboutContentRecord, AboutContentRepositoryPort } from '../../../application/ports/about.port.ts';
 import type {
   AdminAuditRepositoryPort,
+  AdminDelegateRecord,
+  AdminDelegateRepositoryPort,
   AdminFlowStateRecord,
   AdminFlowStateRepositoryPort,
   AdminIdentityRecord,
@@ -56,6 +58,11 @@ export function adminIdentityRepository(client: PoolClientLike): AdminIdentityRe
       ]);
       return (result.rowCount ?? 0) === 1;
     },
+    async deleteById(adminId) {
+      // `admin_sessions.admin_id` tiene ON DELETE CASCADE: las sesiones de la identidad retirada se borran con ella.
+      const result = await client.query('DELETE FROM admin_identities WHERE admin_id = $1', [adminId]);
+      return (result.rowCount ?? 0) === 1;
+    },
   };
 }
 
@@ -82,6 +89,10 @@ export function adminSessionRepository(client: PoolClientLike): AdminSessionRepo
     },
     async purgeCreatedBefore(cutoff) {
       const result = await client.query('DELETE FROM admin_sessions WHERE created_at <= $1', [cutoff]);
+      return result.rowCount ?? 0;
+    },
+    async deleteByAdminId(adminId) {
+      const result = await client.query('DELETE FROM admin_sessions WHERE admin_id = $1', [adminId]);
       return result.rowCount ?? 0;
     },
   };
@@ -271,6 +282,113 @@ export function aboutContentRepository(client: PoolClientLike): AboutContentRepo
           ? await client.query(`INSERT INTO about_content (id, ${columns}) VALUES (1, $1, $2, $3, 1, $4, $5) ON CONFLICT (id) DO NOTHING RETURNING ${columns}`, [next.bodyMarkdown, next.photoObjectKey, next.photoAlt, next.updatedAt, next.updatedBy])
           : await client.query(`UPDATE about_content SET body_markdown = $1, photo_object_key = $2, photo_alt = $3, version = version + 1, updated_at = $4, updated_by = $5 WHERE id = 1 AND version = $6 RETURNING ${columns}`, [next.bodyMarkdown, next.photoObjectKey, next.photoAlt, next.updatedAt, next.updatedBy, expectedVersion]);
       return rows[0] === undefined ? null : toRecord(rows[0]);
+    },
+  };
+}
+
+const DELEGATE_COLUMNS = 'admin_id, email, role, status, provider, provider_subject, invited_at, invited_expires_at, anchored_at, disabled_at, created_by_admin_id, created_at, updated_at';
+const toDelegateRecord = (row: Row): AdminDelegateRecord => ({
+  adminId: String(row['admin_id']),
+  email: String(row['email']),
+  role: String(row['role']),
+  status: String(row['status']),
+  provider: nullable(row['provider']) as AdminProvider | null,
+  providerSubject: nullable(row['provider_subject']),
+  invitedAt: nullable(row['invited_at']),
+  invitedExpiresAt: nullable(row['invited_expires_at']),
+  anchoredAt: nullable(row['anchored_at']),
+  disabledAt: nullable(row['disabled_at']),
+  createdByAdminId: String(row['created_by_admin_id']),
+  createdAt: String(row['created_at']),
+  updatedAt: String(row['updated_at']),
+});
+
+/**
+ * `admin_delegates` (feature 011, T1527; migración 0027), con paridad con SQLite. SQL parametrizado `$n`. Serialización (H-2a): la unidad de trabajo ya toma `pg_advisory_xact_lock`; además
+ * `lockForGuard` hace `SELECT ... FOR UPDATE` sobre las filas vivas, de modo que ninguna otra transacción cambie el conjunto que cuentan el tope y la guarda del último SUPER_ADMIN hasta el
+ * `COMMIT`. `insert` usa `ON CONFLICT DO NOTHING` (cubre el índice único parcial por correo vivo); `replace` y `anchor` van dentro de un SAVEPOINT para que una violación de índice devuelva
+ * `false` sin abortar la transacción.
+ *
+ * @implements REQ-ADM11-001, REQ-ADM11-005, REQ-ADM11-006, STATE-ADM11-001, EDGE-011-009, EDGE-011-010, EDGE-011-019
+ */
+export function adminDelegateRepository(client: PoolClientLike): AdminDelegateRepositoryPort {
+  const one = async (where: string, values: unknown[]): Promise<AdminDelegateRecord | null> => {
+    const { rows } = await client.query(`SELECT ${DELEGATE_COLUMNS} FROM admin_delegates WHERE ${where}`, values);
+    return rows[0] === undefined ? null : toDelegateRecord(rows[0]);
+  };
+  const count = async (sql: string, values: unknown[]): Promise<number> => Number((await client.query(sql, values)).rows[0]?.['n'] ?? 0);
+  /** Ejecuta una escritura dentro de un SAVEPOINT: una violación de índice único o CHECK (SQLSTATE 23xxx) devuelve `false`; cualquier otro error se propaga. */
+  const guarded = async (sql: string, values: unknown[]): Promise<boolean> => {
+    await client.query('SAVEPOINT admin_delegate_write');
+    try {
+      const result = await client.query(sql, values);
+      await client.query('RELEASE SAVEPOINT admin_delegate_write');
+      return (result.rowCount ?? 0) === 1;
+    } catch (error) {
+      const code = String((error as { code?: unknown }).code ?? '');
+      await client.query('ROLLBACK TO SAVEPOINT admin_delegate_write');
+      await client.query('RELEASE SAVEPOINT admin_delegate_write');
+      if (code.startsWith('23')) return false;
+      throw error;
+    }
+  };
+  return {
+    async lockForGuard() {
+      await client.query("SELECT admin_id FROM admin_delegates WHERE status IN ('INVITED', 'ACTIVE') ORDER BY admin_id FOR UPDATE", []);
+    },
+    findById: (adminId) => one('admin_id = $1', [adminId]),
+    findLiveByEmail: (email) => one("email = $1 AND status IN ('ACTIVE', 'INVITED')", [email]),
+    async list(limit) {
+      const { rows } = await client.query(`SELECT ${DELEGATE_COLUMNS} FROM admin_delegates ORDER BY created_at, admin_id LIMIT $1`, [limit]);
+      return rows.map(toDelegateRecord);
+    },
+    countRows: () => count('SELECT COUNT(*) AS n FROM admin_delegates', []),
+    countOccupied: (now, excludeAdminId) =>
+      count("SELECT COUNT(*) AS n FROM admin_delegates WHERE admin_id <> $1 AND (status = 'ACTIVE' OR (status = 'INVITED' AND invited_expires_at >= $2))", [excludeAdminId ?? '', now]),
+    countActiveSuperAdmins: (excludeEmails, excludeAdminId) =>
+      count("SELECT COUNT(*) AS n FROM admin_delegates WHERE admin_id <> $1 AND status = 'ACTIVE' AND role = 'SUPER_ADMIN' AND email <> ALL($2::text[])", [excludeAdminId ?? '', [...excludeEmails]]),
+    async insert(r) {
+      const result = await client.query(`INSERT INTO admin_delegates (${DELEGATE_COLUMNS}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) ON CONFLICT DO NOTHING`, [
+        r.adminId,
+        r.email,
+        r.role,
+        r.status,
+        r.provider,
+        r.providerSubject,
+        r.invitedAt,
+        r.invitedExpiresAt,
+        r.anchoredAt,
+        r.disabledAt,
+        r.createdByAdminId,
+        r.createdAt,
+        r.updatedAt,
+      ]);
+      return (result.rowCount ?? 0) === 1;
+    },
+    replace: (next, expected) =>
+      guarded(
+        `UPDATE admin_delegates SET role = $1, status = $2, provider = $3, provider_subject = $4, invited_at = $5, invited_expires_at = $6, anchored_at = $7, disabled_at = $8, updated_at = $9
+         WHERE admin_id = $10 AND status = $11 AND role = $12 AND updated_at = $13 AND provider_subject IS NOT DISTINCT FROM $14`,
+        [next.role, next.status, next.provider, next.providerSubject, next.invitedAt, next.invitedExpiresAt, next.anchoredAt, next.disabledAt, next.updatedAt, expected.adminId, expected.status, expected.role, expected.updatedAt, expected.providerSubject],
+      ),
+    anchor: (adminId, provider, providerSubject, now) =>
+      guarded(
+        `UPDATE admin_delegates SET status = 'ACTIVE', provider = $1, provider_subject = $2, anchored_at = $3, invited_expires_at = NULL, updated_at = $3
+         WHERE admin_id = $4 AND status = 'INVITED' AND provider_subject IS NULL AND invited_expires_at >= $3`,
+        [provider, providerSubject, now, adminId],
+      ),
+    async purgeExpiredInvitations(invitedBefore) {
+      const result = await client.query("DELETE FROM admin_delegates WHERE status = 'INVITED' AND invited_at IS NOT NULL AND invited_at < $1", [invitedBefore]);
+      return result.rowCount ?? 0;
+    },
+    async anonymizeDisabledBefore(disabledBefore) {
+      const { rows } = await client.query(
+        `UPDATE admin_delegates SET email = 'anon-' || admin_id || '@anonimizado.invalid', provider = NULL, provider_subject = NULL
+         WHERE status = 'DISABLED' AND disabled_at < $1 AND (provider_subject IS NOT NULL OR email <> 'anon-' || admin_id || '@anonimizado.invalid')
+         RETURNING admin_id`,
+        [disabledBefore],
+      );
+      return rows.map((row) => String(row['admin_id']));
     },
   };
 }

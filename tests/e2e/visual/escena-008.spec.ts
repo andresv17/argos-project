@@ -64,6 +64,7 @@ test.describe('escena del hogar en «Hogar» (Feature 008)', () => {
       const expected = `Generaciones restantes este mes: ${scene.body.quota.remaining} de ${scene.body.quota.max}. Se renuevan el ${renewal}.`;
 
       await page.goto('/households');
+      await page.getByRole('tab', { name: 'Escena' }).click(); // 011 (#64, D11-05 = A): la escena vive en la pestaña «Escena» del detalle del hogar
       for (const width of VIEWPORT_WIDTHS) {
         await page.setViewportSize({ width, height: 900 });
         await expect(sceneBlock(page).getByText(expected, { exact: true })).toBeVisible();
@@ -83,6 +84,7 @@ test.describe('escena del hogar en «Hogar» (Feature 008)', () => {
     try {
       await setup(context, `escena.sinimg.${randomUUID().slice(0, 6)}`, false);
       await page.goto('/households');
+      await page.getByRole('tab', { name: 'Escena' }).click(); // 011 (#64, D11-05 = A): la escena vive en la pestaña «Escena» del detalle del hogar
       await expect(sceneBlock(page).getByRole('button', { name: 'Crear imagen del hogar' })).toBeVisible();
       await expect(page.getByRole('link', { name: 'Descargar imagen del hogar' })).toHaveCount(0);
     } finally {
@@ -96,6 +98,7 @@ test.describe('escena del hogar en «Hogar» (Feature 008)', () => {
     try {
       await setup(context, `escena.desc.${randomUUID().slice(0, 6)}`, true);
       await page.goto('/households');
+      await page.getByRole('tab', { name: 'Escena' }).click(); // 011 (#64, D11-05 = A): la escena vive en la pestaña «Escena» del detalle del hogar
       const link = sceneBlock(page).getByRole('link', { name: 'Descargar imagen del hogar' });
       await expect(link).toBeVisible();
       await expect(link).toHaveText('Descargar imagen');

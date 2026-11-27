@@ -28,12 +28,13 @@ import {
 } from '../../generated/index.ts';
 import { isConfirmationTokenShape, planHouseholdsForDeletion, planPetAssignmentsForDeletion } from '../../domain/account/account-deletion-guards.ts';
 import type { LegacyHouseholdMember } from '../../domain/households/household-policies.ts';
+import { userAvatarObjectKey } from '../../domain/media/media-keys.ts';
 import { assertIanaTimeZone } from '../../domain/account/profile-policy.ts';
 import { assertNotLockedOut, evaluateLoginAttempt, invalidCredentialsError, normalizeLoginIdentifier } from '../../domain/auth/auth-policies.ts';
 import { sessionStateAt } from '../../domain/auth/session-policy.ts';
 import type { RepositorySet, UserAccount } from '../ports/repositories.port.ts';
 import { recordAudit } from './audit-support.ts';
-import { purgeObjects, reinforcePrefix } from './media-use-cases.ts';
+import { purgeObjects, reinforcePrefix, reinforceUserPrefix } from './media-use-cases.ts';
 import { assertMatchesAnnotatedSchema, assertMatchesSchema, toSelfProfile, type ApplicationDeps } from './use-case-support.ts';
 
 async function requireAccount(repositories: RepositorySet, userId: string): Promise<UserAccount> {
@@ -149,6 +150,7 @@ export class DeleteAccountUseCase {
     // Tras el commit: borrado inmediato de los objetos y refuerzo por `list` (REQ-GCS-004); lo que falle lo reintenta el mantenimiento.
     await purgeObjects(this.deps, objectKeys);
     await reinforcePrefix(this.deps, ownedPetIdsForCleanup);
+    await reinforceUserPrefix(this.deps, userId); // 011 (INV-PRF11-001): la foto de perfil y lo que sobre bajo `users/<userId>/`
     // Checkpoint del WAL con truncado (ADR-002-13). Un fallo no revierte la eliminación.
     await this.deps.uow.checkpointAfterCommit?.();
     return 204;
@@ -231,6 +233,15 @@ export async function eraseAccountInTransaction(
   // Feature 005 (REQ-VET-008, REQ-VET-010): los enlaces del creador caen por cascada con `users.delete`; la auditoría no tiene clave foránea y pasa a actor nulo en esta misma transacción.
   await repositories.shareAudit.clearActor(userId);
   await repositories.loginAttempts.deleteFailures(normalizeLoginIdentifier(account.username));
+  // 011 (#78, INV-PRF11-001, SC-011-060, Trinity H-8/H-9): la foto de perfil entra en la cola con `DELETE` en ESTA transacción, con el candado del usuario tomado (un `PUT` en vuelo ya no
+  // puede publicar una foto nueva: su transacción final ve la fila ausente y descarta su objeto). Mismo camino para la vía con contraseña y la de Google.
+  await repositories.users.findByIdForUpdate(userId);
+  const avatar = await repositories.users.findAvatar(userId);
+  if (avatar !== null && avatar.objectId !== null) {
+    const avatarKey = userAvatarObjectKey(userId, avatar.objectId);
+    await repositories.mediaQueue.enqueue(avatarKey, 'DELETE', now);
+    objectKeys.push(avatarKey);
+  }
   await repositories.users.delete(userId);
   // B10: poscondición: ninguna fila referencia al usuario (la cascada de la clave foránea elimina también `auth_identities` y los estados de flujo).
   if ((await repositories.users.countReferences(userId)) !== 0) {

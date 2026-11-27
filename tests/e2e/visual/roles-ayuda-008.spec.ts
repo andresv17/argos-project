@@ -23,13 +23,14 @@ async function openLuna(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Luna', level: 2 })).toBeVisible();
 }
 
-/** El panel «Compartir con mi veterinario» vive en la pestaña «Historial / Archivos» (`mediaSlot`): se abre siempre, para que la ausencia no sea trivial. */
+/** REQ-PET11-001: el panel «Compartir con mi veterinario» vive en la pestaña «Compartir» (solo OWNER/ADMIN); «Historial / Archivos» ya no lo trae. Se abre siempre «Historial / Archivos» para que la ausencia no sea trivial. */
 async function openHistoryTab(page: Page): Promise<void> {
   const tab = page.getByRole('tab', { name: 'Historial / Archivos' });
   await expect(tab).toBeVisible();
   await tab.click();
   await expect(tab).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('link', { name: 'Ver el álbum de fotos' })).toBeVisible(); // el resto de la pestaña sí se renderizó
+  await expect(page.locator('#clinical-files-title')).toBeVisible(); // el resto de la pestaña sí se renderizó (REQ-PET11-002: el álbum ya no está aquí)
+  await expect(page.getByRole('link', { name: 'Ver el álbum de fotos' })).toHaveCount(0);
 }
 
 test.describe.serial('ayuda de rol y aviso de enlaces (Feature 008, #25)', () => {
@@ -96,6 +97,8 @@ test.describe.serial('ayuda de rol y aviso de enlaces (Feature 008, #25)', () =>
   test('[REQ-ROL8-002][SC-008-057] la propietaria ve el aviso de hogar en «Compartir con mi veterinario», ligado al grupo de alcance', async () => {
     await openLuna(ownerPage);
     await openHistoryTab(ownerPage);
+    await expect(ownerPage.getByRole('region', { name: 'Compartir con mi veterinario' })).toHaveCount(0); // REQ-PET11-001: no está en Historial
+    await ownerPage.getByRole('tab', { name: 'Compartir', exact: true }).click();
     const panel = ownerPage.getByRole('region', { name: 'Compartir con mi veterinario' });
     await expect(panel).toBeVisible();
     const hint = panel.locator('[data-share-household-hint]');
@@ -114,6 +117,7 @@ test.describe.serial('ayuda de rol y aviso de enlaces (Feature 008, #25)', () =>
 
       await openLuna(c.page);
       await openHistoryTab(c.page);
+      await expect(c.page.getByRole('tab', { name: 'Compartir', exact: true }), `${c.name}: pestaña Compartir`).toHaveCount(0);
       await expect(c.page.getByRole('region', { name: 'Compartir con mi veterinario' }), `${c.name}: panel de enlaces`).toHaveCount(0);
       await expect(c.page.getByText('Compartir con mi veterinario'), `${c.name}: título del panel`).toHaveCount(0);
       await expect(c.page.locator('[data-share-household-hint]'), `${c.name}: aviso de hogar (marcador)`).toHaveCount(0);

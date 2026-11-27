@@ -734,3 +734,13 @@ Sin commit; pendiente re-firma /merovingian.
 ## 2026-11-25 — 010 decisiones de Neo tras dictamen rama T1432
 - spec.md: `DEUDA-010-ABOUT-DELETE-PHOTO` (foto = REEMPLAZO, retirada futura, contrato 1.8.0 intacto), `DEC-010-ABOUT-LEGAL-REVIEW` (abogado externo antes de T1437, pendiente legal, sin redactar), `DEC-010-E2E-SCHEMAVERSION` (3.2.0→3.3.0 autorizado), `NOTA-010-TIPI-FUENTE` (pendiente /sati,/keymaker antes de T1434).
 - Sin src/tests, sin [x], sin push, sin stash.
+
+## 2026-11-25 — 011 paquete SDD (spec, plan, tasks, contracts/README) desde claude/inbox-feature-011.md
+- Creado specs/011-pulido-portal-hogares-admin/ (DRAFT): 9 bloques con [GH:#64,#72,#73,#63,#31,#59,#62,#74,#78], T1501..T1561; cada bloque con tarea [LOCAL] de prueba manual antes de compuertas y cierre con gh-project-sync; T1560 asocia Linked PR (Closes #N).
+- spec.md: 13 decisiones pendientes para Neo (D11-01..13, 2FA = D11-02 sin decidir). Hallazgos: no existe tope de hogares; no hay avatar de usuario; vista publica excluye foto de mascota (invariante 005, contradice #31); no hay LLM de texto hoy; canal por el que se ve el prompt sin confirmar (echo del fake incrusta tEXt; T1520 lo audita).
+- verify-traceability --feature 011 rc 2: el script no soporta 011 (exige contracts/errors/error-catalog.json y patrones de IDs; es script N2, no tocado). sync --dry-run reconoce los 9 Issues. Sin src/tests, sin [x], sin push, sin stash.
+
+## 2026-11-25 — 011 enmienda documental por acta oracle db8eb75 (OBS-1..4)
+- OBS-1: columna «Bloquea» de spec corregida (D11-01 T1524..T1531; D11-03/04 T1524,T1527; D11-06 T1507,T1508; D11-09 T1534,T1535). OBS-2: marcados «condicionado a D11-xx» STATE-ADM11-001, REQ-HOG11-001/004, US1, REQ-ALB11-001/002, SC-011-045, REQ-IA11-002, EDGE-011-008 (spec, plan, tasks, contracts/README).
+- OBS-3: «Vertex AI» -> proveedor `vertex` o `gemini-api` (D9-30). OBS-4: nota en spec: SC individuales explícitos antes de T1511; trazabilidad 1:1 depende de error-catalog 011 y soporte del script (Nivel 2, Neo).
+- Sin cambio de decisiones ni IDs, sin [x], sin src/tests, sin push.

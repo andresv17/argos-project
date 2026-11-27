@@ -20,7 +20,7 @@ import type { RecordModule, RecordOf } from '../../domain/records/record-invaria
 import type { SceneConsentRepository, SceneRepository } from './scene-repositories.port.ts';
 import type { AuthIdentityRepositoryPort, OAuthFlowStateRepositoryPort } from './auth-identity.port.ts';
 import type { AboutContentRepositoryPort } from './about.port.ts';
-import type { AdminAuditRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
+import type { AdminAuditRepositoryPort, AdminDelegateRepositoryPort, AdminFlowStateRepositoryPort, AdminIdentityRepositoryPort, AdminParameterRepositoryPort, AdminSessionRepositoryPort, RegistrationDecisionRepositoryPort } from './admin.port.ts';
 
 /** Usuario persistido: perfil propio (con correo, idioma y zona horaria) más el hash de su contraseña (INV-AUTH-003: nunca en claro). */
 export interface UserAccount extends UserSelfProfile {
@@ -82,6 +82,15 @@ export interface UserRepositoryPort {
   update(user: UserAccount): Promise<void>;
   /** Borra la fila del usuario (B9 (j) de STATE-ACCOUNT-DELETE-001). */
   delete(userId: string): Promise<void>;
+  /**
+   * Estado de la foto de perfil (`avatar_version`, `avatar_object_id`; feature 011, #78, REQ-PRF11-001); null si el usuario no existe. Sin tabla ni puerto nuevo (MIF-011-02): son columnas de `users`
+   * y NO viven en `users.data`, de modo que `update` (perfil) no puede revertirlas.
+   */
+  findAvatar(userId: string): Promise<AvatarState | null>;
+  /** Cambia la foto: `avatar_version = avatar_version + 1` y `avatar_object_id = :objectId` en una sola sentencia y devuelve el estado nuevo (la versión solo crece). Falla si el usuario no existe. */
+  replaceAvatar(userId: string, objectId: string): Promise<AvatarState>;
+  /** Quita la foto: `avatar_object_id = NULL`; `avatar_version` NO cambia ni se reinicia. */
+  clearAvatar(userId: string): Promise<void>;
   /**
    * Filas de cualquier tabla que referencian al usuario por id (mascotas, hogares, membresías, sesiones, invitaciones,
    * token, eventos de frecuencia) más su propia fila. Postcondición B10: 0 tras eliminar la cuenta.
@@ -366,6 +375,8 @@ export interface RepositorySet {
   readonly adminSessions: AdminSessionRepositoryPort;
   readonly adminFlows: AdminFlowStateRepositoryPort;
   readonly adminAudit: AdminAuditRepositoryPort;
+  /** Administradores delegados y sus roles de plataforma (feature 011, REQ-ADM11-001..007). */
+  readonly adminDelegates: AdminDelegateRepositoryPort;
   /** Decisión atómica de aprobación de cuentas (feature 009, T1247, REQ-APR9-003). */
   readonly registrations: RegistrationDecisionRepositoryPort;
   /** Edición de parámetros de plataforma desde `/admin` (feature 009, Fase 5a, T1264, REQ-CFG9-007). */

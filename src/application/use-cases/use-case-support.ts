@@ -168,6 +168,16 @@ export interface AdminServices {
 }
 
 export interface ApplicationDeps {
+  /**
+   * Tope de hogares ACTIVOS por persona (feature 011, REQ-HOG11-004, INV-HOG11-001): lo inyecta la composición desde `MAX_HOUSEHOLDS_PER_USER` (`app-config.ts`, única fuente).
+   * Lo leen crear hogar y aceptar invitación; ausente = la guarda no se evalúa (deps de pruebas ajenas a la feature).
+   */
+  readonly maxHouseholdsPerUser?: number;
+  /**
+   * Retención de delegados de `/admin` (feature 011, DEUDA-011-PURGA-DELEGADOS): la composición inyecta `ADMIN_DELEGATE_INVITATION_TTL_HOURS`, `ADMIN_DELEGATE_EXPIRED_INVITATION_RETENTION_DAYS` y
+   * `ADMIN_DELEGATE_DISABLED_RETENTION_DAYS` de `app-config.ts` (única fuente, INV-ARCH-006). Ausente = el mantenimiento no purga delegados (falla cerrada).
+   */
+  readonly adminDelegateRetention?: { readonly invitationTtlHours: number; readonly expiredInvitationRetentionDays: number; readonly disabledRetentionDays: number };
   readonly uow: UnitOfWorkPort;
   readonly clock: ClockPort;
   readonly ids: IdGeneratorPort;

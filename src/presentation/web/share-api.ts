@@ -79,6 +79,8 @@ export interface SharedSummaryViewModel {
   };
   readonly fileLabels: ReadonlyArray<{ readonly fileId: string; readonly displayName: string }>;
   readonly validUntil: string | null;
+  /** 1.2.0 (ENM-005-3.5.0): ids de las mascotas del alcance, en el orden de `summary.pets`; en la vista pública por token y, por autorización de Neo, también en la vista previa autenticada. */
+  readonly petIds?: readonly string[];
 }
 
 export const UNEXPECTED_SHARE_CODE = 'ERR-INTERNAL-UNEXPECTED';
@@ -105,7 +107,18 @@ export interface ShareApi {
   preview(ref: ShareRef, options: { readonly includeMicrochip: boolean; readonly includeClinicalFiles: boolean; readonly includeDeceasedAt?: boolean }): Promise<SharedSummaryViewModel>;
   /** Lectura pública por token: sin cookie, sin CSRF, solo GET. */
   getShared(token: string): Promise<SharedSummaryViewModel>;
+  /** Avatar de una mascota del enlace (ENM-005-3.5.0): sin cookie, sin referente, sin caché. 404 uniforme si no aplica. */
+  getSharedAvatar(token: string, petId: string): Promise<Blob>;
 }
+
+/** Ruta de la imagen del avatar de una mascota del enlace; el token y el id solo viajan en la ruta y la respuesta nunca los refleja. */
+export const sharedAvatarPath = (token: string, petId: string): string => `/api/shared/${encodeURIComponent(token)}/pets/${encodeURIComponent(petId)}/avatar`;
+
+/**
+ * Ruta de la imagen del avatar en la vista previa AUTENTICADA (D5-15, REQ-SUM-004): proxy de la misma origen `/api/pets/{petId}/avatar` con la sesión del propietario.
+ * La vista previa lleva `petIds` (ENM-005-3.5.0, autorizado por Neo): el avatar de cada mascota sale de `petIds[i]`; con alcance de una mascota sin `petIds`, se usa el id de la ruta.
+ */
+export const previewAvatarPath = (petId: string | undefined): string | null => (petId === undefined || petId === '' ? null : `/api/pets/${encodeURIComponent(petId)}/avatar`);
 
 export function createShareApi(fetchImpl: typeof fetch = (...args) => fetch(...args), baseUrl = '/api'): ShareApi {
   /** `authenticated`: toda petición de la sesión notifica la actividad (INV-AUTH2-002); la lectura pública por token no tiene sesión y no la notifica. */
@@ -151,6 +164,9 @@ export function createShareApi(fetchImpl: typeof fetch = (...args) => fetch(...a
     },
     async getShared(token) {
       return json<SharedSummaryViewModel>(await send(`/shared/${encodeURIComponent(token)}/summary`, { method: 'GET', credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer' }, false));
+    },
+    async getSharedAvatar(token, petId) {
+      return (await send(`/shared/${encodeURIComponent(token)}/pets/${encodeURIComponent(petId)}/avatar`, { method: 'GET', credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer' }, false)).blob();
     },
   };
 }

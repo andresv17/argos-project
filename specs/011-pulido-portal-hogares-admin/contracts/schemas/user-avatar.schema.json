@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://argos.local/contracts/schemas/user-avatar.schema.json",
+  "title": "UserAvatarSchema",
+  "description": "Foto de perfil de la propia cuenta [REQ-PRF11-001, REQ-PRF11-002, INV-PRF11-001]. Esquemas INCREMENTALES de la feature 011 (D11-13 = C: solo subida propia con recorte). Objetos cerrados. NUNCA expone la clave del objeto ni avatar_object_id.",
+  "x-sdd-metadata": {
+    "version": "1.0.0",
+    "status": "APPROVED",
+    "supersedes": null,
+    "change_type": "MAJOR",
+    "change_note": "1.0.0 (feature 011, T1553, Architect 2026-11-25; D11-13 = C aprobada por Neo en Logos iter 244; estado DRAFT, lo fija solo Neo): +UserAvatarMeta (avatarVersion entero >= 1 o null sin foto) y +UserAvatarVersionResult (respuesta del PUT). Sin campo de clave, de objeto, de URL, de usuario ni de origen externo (no se lee ni descarga la foto de Google).",
+    "traceability": ["REQ-PRF11-001", "REQ-PRF11-002", "INV-PRF11-001", "EDGE-011-007", "SC-011-057", "SC-011-058", "SC-011-059", "SC-011-060", "SC-011-061", "SC-011-062"]
+  },
+  "x-sdd-constants": {
+    "USER_AVATAR_MAX_BYTES": { "value": 524288, "where": "app-config.ts (INV-ARCH-006); lo anade /keymaker, no esta tarea", "rule": "tamano maximo del cuerpo crudo (512 KiB, igual que el avatar de mascota de 004); se comprueba por Content-Length y por conteo en streaming ANTES de decodificar" },
+    "USER_AVATAR_MIN_SIDE": { "value": 64, "where": "app-config.ts", "rule": "lado minimo en pixeles; la imagen debe ser CUADRADA (ancho = alto)" },
+    "USER_AVATAR_MAX_SIDE": { "value": 1024, "where": "app-config.ts", "rule": "lado maximo en pixeles (el cliente exporta 512x512); mas estricto que MAX_IMAGE_SIDE = 8192 del dominio" },
+    "USER_AVATAR_PUT_MAX_PER_WINDOW": { "value": 10, "where": "app-config.ts", "rule": "subidas por usuario por ventana; excedido = 429 ERR-RATE-LIMITED (heredado)" },
+    "USER_AVATAR_PUT_WINDOW_MINUTES": { "value": 60, "where": "app-config.ts", "rule": "ventana de la limitacion de subidas" }
+  },
+  "$defs": {
+    "UserAvatarMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["avatarVersion"],
+      "properties": {
+        "avatarVersion": {
+          "description": "Version actual de la foto de la propia cuenta si avatar_object_id no es nulo; null si no hay foto (la interfaz muestra iniciales). Nunca se reinicia al quitar la foto (avatar_version solo crece).",
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      }
+    },
+    "UserAvatarVersionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["avatarVersion"],
+      "properties": {
+        "avatarVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+      }
+    }
+  }
+}

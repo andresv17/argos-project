@@ -10,6 +10,9 @@
  *   `ERR-ADMIN-REGISTRATION-NOT-FOUND` si la perdio). Orden: `X-Argos-Request` (403, hook global) -> sesion (404 uniforme) -> validacion (422) -> decision. Solo las decisiones renuevan la inactividad.
  * - `GET /api/admin/parameters` y `PUT /api/admin/parameters/{key}` (T1264, contrato 1.4.0): catalogo cerrado de seis claves y edicion con `If-Match` (412) sin valores en la auditoria.
  * - Cualquier otra ruta bajo `/api/admin` recorre la MISMA autenticación y responde el 404 uniforme (secuencia de puertos idéntica a la de las rutas ocultas, EDGE-009-008).
+ * - Feature 011 (T1527): la sesión y el rol efectivo (leído de la base en cada petición, H-7) los resuelve la puerta única `admin-gate.ts` contra el registro central `admin-role-registry.ts` ANTES de
+ *   estos manejadores y de leer el cuerpo (404 uniforme sin acceso; 403 `ERR-ADM11-ROLE-NOT-AUTHORIZED` con un rol fuera de la ruta). Aquí se añaden `GET /api/admin/me` y la gestión de delegados
+ *   (`/api/admin/administrators*`, escrituras con `If-Match`; sin DELETE: la baja es solo `DISABLED`, H-9).
  * - El 404 uniforme se delega al manejador de rutas inexistentes (`reply.callNotFound()`): el mismo cuerpo y las mismas cabeceras que una ruta inexistente de `/api/`, sin código `ERR-*`.
  * `argos_session` y `argos_oauth` no se leen ni se tocan (INV-ADM9-002).
  *
@@ -21,6 +24,7 @@ import { ADMIN_SESSION_MAX_AGE_SECONDS } from '../../../domain/auth/admin-sessio
 import { ONE_TIME_TOKEN_TTL_SECONDS } from '../../../domain/auth/one-time-token.ts';
 import { DomainError } from '../../../generated/index.ts';
 import type { AdminAccessLimiter } from '../admin-rate-limit.ts';
+import { adminSessionOfRequest } from '../admin-session-context.ts';
 import { warnPendingBacklog } from '../pending-backlog-notice.ts';
 import { jsonBody } from '../request-input.ts';
 import type { RouteContext } from './use-cases.ts';
@@ -117,9 +121,9 @@ export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecu
   });
 
   app.get('/api/admin/session', async (request, reply) => {
-    // Sin keep-alive: leer el estado NO renueva la inactividad (REQ-ADM9-002; Neo, T1225).
-    const session = await useCases.adminAuthenticate.execute(adminSessionTokenOf(request), { renew: false });
-    if (session === null) return uniformNotFound(reply);
+    // Sin keep-alive: leer el estado NO renueva la inactividad (REQ-ADM9-002; Neo, T1225). La sesión ya la resolvió la puerta única (`admin-gate.ts`).
+    const session = adminSessionOfRequest(request);
+    if (session === undefined) return uniformNotFound(reply);
     return reply
       .header('cache-control', 'no-store')
       .header('content-security-policy', ADMIN_API_CONTENT_SECURITY_POLICY)
@@ -129,17 +133,17 @@ export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecu
 
   app.delete('/api/admin/session', async (request, reply) => {
     const token = adminSessionTokenOf(request);
-    // Sin sesión: 404 uniforme. Con sesión pero origen ajeno o ausente: 403 sin revocar ni auditar (REQ-ADM9-005, EDGE-009-011).
-    if ((await useCases.adminAuthenticate.execute(token, { renew: false })) === null) return uniformNotFound(reply);
+    // Sin sesión: 404 uniforme (la puerta única ya lo resolvió). Con sesión pero origen ajeno o ausente: 403 sin revocar ni auditar (REQ-ADM9-005, EDGE-009-011).
+    if (adminSessionOfRequest(request) === undefined) return uniformNotFound(reply);
     if (!isOwnOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
     if (!(await useCases.adminEnd.execute(token))) return uniformNotFound(reply);
     clearAdminSessionCookie(reply, cookieSecure);
     return reply.status(204).send();
   });
 
-  /** Sesion de administracion o `null` tras haber respondido el 404 uniforme (la misma lectura de sesion que el resto de rutas reales). */
-  const requireAdminSession = async (request: FastifyRequest, reply: FastifyReply, renew: boolean) => {
-    const session = await useCases.adminAuthenticate.execute(adminSessionTokenOf(request), { renew });
+  /** Sesion de administracion que resolvio la puerta unica (`admin-gate.ts`, con la renovacion de inactividad que corresponde al metodo) o `null` tras responder el 404 uniforme. */
+  const requireAdminSession = async (request: FastifyRequest, reply: FastifyReply, _renew: boolean) => {
+    const session = adminSessionOfRequest(request) ?? null;
     if (session === null) uniformNotFound(reply);
     return session;
   };
@@ -191,6 +195,62 @@ export function registerAdminRoutes(app: FastifyInstance, { useCases, cookieSecu
     // 5.º límite (D9-31): el cupo GENERATE en RAM de las cuentas del administrador se reinicia solo tras confirmar la transacción.
     onQuotaReset?.(userIds);
     return noStore(reply).status(200).send({ accountsReset, resetAt });
+  });
+
+  // Rol efectivo del administrador (011, DERIVADA (f)): solo para que la interfaz oculte lo no autorizado; no es un control (el servidor autoriza con el registro central). Lectura: no renueva ni audita.
+  app.get('/api/admin/me', async (request, reply) => {
+    const session = adminSessionOfRequest(request);
+    if (session === undefined) return uniformNotFound(reply);
+    return noStore(reply).status(200).send({ adminId: session.adminId, role: session.role, isRoot: session.isRoot });
+  });
+
+  // Administradores delegados (011, REQ-ADM11-001..007). Orden: X-Argos-Request (403, hook global) -> sesion (404) -> rol (403, puerta unica, antes del cuerpo) -> origen -> esquema (422) -> efecto.
+  // Sin DELETE: la baja es solo `DISABLED` (H-9). Las escrituras con `If-Match` devuelven el delegado y su `ETag`.
+  app.get('/api/admin/administrators', async (request, reply) => {
+    const session = adminSessionOfRequest(request);
+    if (session === undefined) return uniformNotFound(reply);
+    return noStore(reply).status(200).send(await useCases.adminListDelegates.execute({ actorAdminId: session.adminId }));
+  });
+
+  app.post<{ Body: unknown }>('/api/admin/administrators', async (request, reply) => {
+    const session = adminSessionOfRequest(request);
+    if (session === undefined) return uniformNotFound(reply);
+    if (hasForeignOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
+    // Respuesta UNIFORME (H-4): el mismo 202 y cuerpo para alta nueva, duplicado, correo raiz y correo de un usuario; sin adminId.
+    await useCases.adminInviteDelegate.execute({ actorAdminId: session.adminId, body: jsonBody(request.body) });
+    return noStore(reply).status(202).send({ accepted: true });
+  });
+
+  app.put<{ Params: { adminId: string }; Body: unknown }>('/api/admin/administrators/:adminId/role', async (request, reply) => {
+    const session = adminSessionOfRequest(request);
+    if (session === undefined) return uniformNotFound(reply);
+    if (hasForeignOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
+    const view = await useCases.adminChangeDelegateRole.execute({ actorAdminId: session.adminId, adminId: request.params.adminId, ifMatch: request.headers['if-match'], body: jsonBody(request.body) });
+    return noStore(reply).header('etag', view.etag).status(200).send(view);
+  });
+
+  app.post<{ Params: { adminId: string } }>('/api/admin/administrators/:adminId/disable', async (request, reply) => {
+    const session = adminSessionOfRequest(request);
+    if (session === undefined) return uniformNotFound(reply);
+    if (hasForeignOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
+    const view = await useCases.adminDisableDelegate.execute({ actorAdminId: session.adminId, adminId: request.params.adminId, ifMatch: request.headers['if-match'] });
+    return noStore(reply).header('etag', view.etag).status(200).send(view);
+  });
+
+  app.post<{ Params: { adminId: string }; Body: unknown }>('/api/admin/administrators/:adminId/reactivate', async (request, reply) => {
+    const session = adminSessionOfRequest(request);
+    if (session === undefined) return uniformNotFound(reply);
+    if (hasForeignOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
+    const view = await useCases.adminReactivateDelegate.execute({ actorAdminId: session.adminId, adminId: request.params.adminId, ifMatch: request.headers['if-match'], body: jsonBody(request.body) });
+    return noStore(reply).header('etag', view.etag).status(200).send(view);
+  });
+
+  app.post<{ Params: { adminId: string } }>('/api/admin/administrators/:adminId/reinvite', async (request, reply) => {
+    const session = adminSessionOfRequest(request);
+    if (session === undefined) return uniformNotFound(reply);
+    if (hasForeignOrigin(request)) throw new DomainError('ERR-AUTH-CSRF-REJECTED', undefined, 'Origin');
+    const view = await useCases.adminReinviteDelegate.execute({ actorAdminId: session.adminId, adminId: request.params.adminId, ifMatch: request.headers['if-match'] });
+    return noStore(reply).header('etag', view.etag).status(200).send(view);
   });
 
   // Todo lo demás bajo /api/admin: la misma lectura de sesión que las rutas reales y el 404 uniforme (con o sin sesión, la ruta no existe). Mantiene idéntica la secuencia de puertos.

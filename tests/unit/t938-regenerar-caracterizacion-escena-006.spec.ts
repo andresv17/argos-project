@@ -81,7 +81,7 @@ async function published(t: T): Promise<string> {
 const changePet = async (t: T): Promise<void> => {
   await t.h.uow.runInTransaction(async (r) => {
     const pet = (await r.pets.findById(ARGOS.id))!;
-    await r.pets.save({ ...pet, breed: 'Mestizo cambiado', breedCode: null });
+    await r.pets.save({ ...pet, sex: pet.sex === 'MALE' ? 'FEMALE' : 'MALE' });
   });
 };
 
@@ -99,8 +99,9 @@ async function expectCleanRun(t: T, previousImageId: string | null, expectedRefs
   expect(sceneOf(t)?.consumedGenerations).toBe(consumedBefore + 1); // 1 unidad solo al publicar
   expect(t.fixture.generator.calls).toHaveLength(callsBefore + 1);
   const call = t.fixture.generator.calls.at(-1);
+  const callPrompt = t.fixture.generator.prompts.at(-1) ?? '';
   expect(call?.references.map((r) => r.ref)).toEqual(expectedRefs);
-  const prompt = call?.prompt ?? '';
+  const prompt = callPrompt;
   expect(prompt).not.toContain('as the exact base scene');
   // Todas RENDER (desde cero): ninguna línea de cambio incremental ni de retirada y el conteo exacto cubre todas las visibles.
   for (const marker of ['Apply only these changes', '- Add: ', '- Replace only: ', '- Remove only: ']) expect(prompt.includes(marker)).toBe(false);
@@ -139,7 +140,7 @@ describe('T938 REGENERATE desde cero en cuatro estados (SC-ESC6-134)', () => {
     await giveAvatar(t, ARGOS.id, AVATAR);
     expect(sceneOf(t)?.image ?? null).toBeNull();
     await expectCleanRun(t, null, ['IMG_1', 'IMG_2']);
-    const prompt = t.fixture.generator.calls.at(-1)?.prompt ?? '';
+    const prompt = t.fixture.generator.prompts.at(-1) ?? '';
     expect(photoRefsOf(prompt)).toEqual(['IMG_2']);
   });
 
@@ -150,7 +151,7 @@ describe('T938 REGENERATE desde cero en cuatro estados (SC-ESC6-134)', () => {
     await giveAvatar(t, LUNA.id, LUNA_AVATAR);
     expect(await t.get.execute(ANDRES, HOUSE)).toMatchObject({ status: 'outdated', stale: true });
     await expectCleanRun(t, previous, ['IMG_1', 'IMG_2']);
-    expect(photoRefsOf(t.fixture.generator.calls.at(-1)?.prompt ?? '')).toEqual(['IMG_1', 'IMG_2']);
+    expect(photoRefsOf(t.fixture.generator.prompts.at(-1) ?? '')).toEqual(['IMG_1', 'IMG_2']);
   });
 
   it('[SC-ESC6-134][STATE-SCENE-001] el intento sigue el ciclo PENDING → DONE: ninguna fase ni resultado nuevos y la escena vuelve a runState null', async () => {
@@ -206,6 +207,6 @@ describe('T938 enfriamiento, idempotencia y UPDATE directo (SC-ESC6-134, SC-ESC6
     await t.request.execute(ANDRES, HOUSE, { action: 'UPDATE' }, key(2));
     expect(attempts(t).at(-1)?.mode).toBe('INCREMENTAL_REPLACE');
     expect(await t.run.execute(lastJob(t), signal())).toBe('PUBLISHED');
-    expect(t.fixture.generator.calls.at(-1)?.prompt).toContain('as the exact base scene');
+    expect(t.fixture.generator.prompts.at(-1)).toContain('as the exact base scene');
   });
 });

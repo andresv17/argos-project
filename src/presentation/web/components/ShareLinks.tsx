@@ -8,7 +8,7 @@
  * `ShareLinksView` es presentacional; `ShareLinksPanel` es el contenedor con estado y peticiones. La clave `Idempotency-Key` se genera una vez por intento de
  * creación y se reutiliza en cada reintento hasta que la creación tiene éxito o cambia el formulario (EDGE-005-16/17).
  *
- * @implements REQ-VET-001, REQ-VET-004, REQ-VET-005, SC-005-015, SC-005-019, SC-005-040, SC-005-046, SC-005-051, EDGE-005-22
+ * @implements REQ-VET-001, REQ-VET-004, REQ-VET-005, SC-005-015, SC-005-019, SC-005-040, SC-005-046, SC-005-051, EDGE-005-22, REQ-HOG11-005, REQ-HOG11-006, EDGE-011-014
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -41,6 +41,11 @@ export interface ShareLinksViewProps {
   readonly household: { readonly petCount: number } | null;
   /** Quien puede crear enlaces (propietario legal o ADMIN, REQ-VET-001): solo a él se le muestra el aviso de hogar (REQ-ROL8-002, EDGE-008-049). Por omisión `false`. */
   readonly canCreateLinks?: boolean;
+  /**
+   * `REQ-HOG11-006` / `REQ-HOG11-005` (011, MIF-011-08): sin elección real de alcance no se pinta «¿Qué quieres compartir?» ni los radios. Con `household` y alcance
+   * `HOUSEHOLD` se comparten todas las mascotas elegibles del hogar (sin subconjunto) y se avisa del alcance dinámico (EDGE-011-014); si no, se muestra el nombre de la mascota.
+   */
+  readonly hideScopeChoice?: boolean;
   /** Instante actual del servidor para el texto «Vence el…» (la presentación no lee el reloj). */
   readonly now: string;
   readonly scope: ShareScopeName;
@@ -72,6 +77,8 @@ export interface ShareLinksViewProps {
 }
 
 const CARD = 'grid min-w-0 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
+/** EDGE-011-014 (lock F-05, D11-06 = A): texto aprobado por Neo para el enlace de hogar. */
+export const HOUSEHOLD_SCOPE_DYNAMIC_NOTICE = 'Incluye todas las mascotas asignadas a este hogar mientras esté activo';
 const LEGEND = 'text-sm font-semibold text-slate-900';
 const CHOICE = 'flex min-h-11 items-center gap-2 text-sm text-slate-900';
 const INPUT = 'h-5 w-5 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2';
@@ -83,7 +90,7 @@ const BADGE: Readonly<Record<ShareLinkView['status'], string>> = {
 const BADGE_ICON: Readonly<Record<ShareLinkView['status'], string>> = { ACTIVE: '●', REVOKED: '■', EXPIRED: '○' };
 
 function scopeText(link: ShareLinkView, props: ShareLinksViewProps): string {
-  return link.scope === 'PET' ? props.petName : `Hogar compartido · ${props.household?.petCount ?? 0} mascotas`;
+  return link.scope === 'PET' ? props.petName : 'Hogar compartido';
 }
 
 function LinkRow({ link, props }: { readonly link: ShareLinkView; readonly props: ShareLinksViewProps }): JSX.Element {
@@ -131,7 +138,7 @@ function LinkRow({ link, props }: { readonly link: ShareLinkView; readonly props
 }
 
 export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
-  const { petName, household, canCreateLinks = false, now, scope, expiresInDays, includeMicrochip, includeClinicalFiles, includeDeceasedAt, busy, error, created, copyStatus, list, notice } = props;
+  const { petName, household, canCreateLinks = false, hideScopeChoice = false, now, scope, expiresInDays, includeMicrochip, includeClinicalFiles, includeDeceasedAt, busy, error, created, copyStatus, list, notice } = props;
   return (
     <section aria-labelledby="share-links-title" className={CARD}>
       <h3 id="share-links-title" className="text-base font-semibold text-slate-900">
@@ -180,6 +187,20 @@ export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
             props.onCreate();
           }}
         >
+          {hideScopeChoice ? (
+            <div className="grid gap-1">
+              {scope === 'HOUSEHOLD' && household !== null ? (
+                <>
+                  <p className={LEGEND}>{`Se comparten todas las mascotas elegibles del hogar (${household.petCount})`}</p>
+                  <p id="share-household-dynamic" className="text-sm text-text-muted">
+                    {HOUSEHOLD_SCOPE_DYNAMIC_NOTICE}
+                  </p>
+                </>
+              ) : (
+                <p className={LEGEND}>{`Mascota: ${petName}`}</p>
+              )}
+            </div>
+          ) : (
           <fieldset className="grid gap-1" {...(canCreateLinks ? { 'aria-describedby': 'share-household-hint' } : {})}>
             <legend className={LEGEND}>¿Qué quieres compartir?</legend>
             {canCreateLinks ? (
@@ -205,6 +226,7 @@ export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
               </p>
             ) : null}
           </fieldset>
+          )}
           <fieldset className="grid gap-1">
             <legend className={LEGEND}>¿Cuánto tiempo estará disponible?</legend>
             {EXPIRY_CHOICES.map((choice) => (
@@ -240,7 +262,7 @@ export function ShareLinksView(props: ShareLinksViewProps): JSX.Element {
           </div>
           <p className="text-sm font-semibold text-slate-900">Quien tenga el enlace puede ver el resumen sin iniciar sesión, hasta que venza o lo revoques.</p>
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy} {...(hideScopeChoice && scope === 'HOUSEHOLD' && household !== null ? { describedBy: 'share-household-dynamic' } : {})}>
               Crear enlace
             </Button>
             <Button variant="secondary" onClick={props.onCancel}>
@@ -279,13 +301,16 @@ export interface ShareLinksPanelProps {
   readonly household: { readonly id: string; readonly petCount: number } | null;
   /** Quien puede crear enlaces (propietario legal o ADMIN): habilita el aviso de hogar (REQ-ROL8-002). */
   readonly canCreateLinks?: boolean;
+  /** Ver `ShareLinksViewProps.hideScopeChoice`: con `household` el panel crea siempre el enlace de hogar; sin él, el de la mascota. */
+  readonly hideScopeChoice?: boolean;
   readonly api?: ShareApi;
 }
 
 /** Contenedor con estado de S4. @implements REQ-VET-001, REQ-VET-005, SC-005-015, SC-005-019, SC-005-040, SC-005-046, SC-005-051 */
-export function ShareLinksPanel({ petId, petName, household, canCreateLinks = false, api = createShareApi() }: ShareLinksPanelProps): JSX.Element {
+export function ShareLinksPanel({ petId, petName, household, canCreateLinks = false, hideScopeChoice = false, api = createShareApi() }: ShareLinksPanelProps): JSX.Element {
   const navigate = useNavigate();
-  const [scope, setScope] = useState<ShareScopeName>('PET');
+  const defaultScope: ShareScopeName = hideScopeChoice && household !== null ? 'HOUSEHOLD' : 'PET';
+  const [scope, setScope] = useState<ShareScopeName>(defaultScope);
   const [expiresInDays, setExpiresInDays] = useState<1 | 7 | 30>(7);
   const [includeMicrochip, setIncludeMicrochip] = useState(false);
   const [includeClinicalFiles, setIncludeClinicalFiles] = useState(false);
@@ -382,6 +407,7 @@ export function ShareLinksPanel({ petId, petName, household, canCreateLinks = fa
       petName={petName}
       household={household === null ? null : { petCount: household.petCount }}
       canCreateLinks={canCreateLinks}
+      hideScopeChoice={hideScopeChoice}
       now={now}
       scope={scope}
       expiresInDays={expiresInDays}
@@ -407,7 +433,7 @@ export function ShareLinksPanel({ petId, petName, household, canCreateLinks = fa
         setIncludeMicrochip(false);
         setIncludeClinicalFiles(false);
         setIncludeDeceasedAt(false);
-        setScope('PET');
+        setScope(defaultScope);
         setError(null);
       }}
       onCopy={() => void copy()}

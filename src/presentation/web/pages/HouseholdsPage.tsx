@@ -3,29 +3,46 @@
  * invitaciones (con contador de pendientes), retirar miembros o cancelar invitaciones, abandonar y eliminar.
  * Las acciones visibles dependen de `myRole` de la API; la API aplica INV-HOUSE-002.
  *
- * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, REQ-UI2-005, REQ-HOUSE2-001, REQ-HOUSE2-002, ERR-HOUSE-OWNER-CANNOT-LEAVE
+ * @implements REQ-UI-006, REQ-UI-007, REQ-UI-004, REQ-UI2-005, REQ-HOUSE2-001, REQ-HOUSE2-002, ERR-HOUSE-OWNER-CANNOT-LEAVE, REQ-HOG11-001, REQ-HOG11-002, REQ-HOG11-005, REQ-HOG11-004, INV-HOG11-001, SC-011-053, SC-011-054, SC-011-055, SC-011-056, EDGE-011-008, EDGE-011-016
+ *
+ * Feature 011 (#64, D11-05 = A): página única con la lista de hogares y el detalle del hogar elegido con pestañas internas Resumen, Miembros, Mascotas, Compartir, Álbum
+ * y Escena. Reutiliza los componentes y endpoints existentes (sin ruta ni contrato nuevos, D11-06 = A).
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Button, FormError, SelectField, TextField } from '../components/Field.tsx';
 import { InviteeCombobox } from '../components/InviteeCombobox.tsx';
 import { HomeScene } from '../components/HomeScene.tsx';
+import { ShareLinksPanel } from '../components/ShareLinks.tsx';
 import { ApiProblem, CSRF_PARAMS, catalogProblem, problemMessage, unwrap } from '../api.ts';
+import { HouseholdAlbum } from '../components/HouseholdAlbum.tsx';
 import { useSession } from '../session.tsx';
 import { roleHelpText } from '../role-help.ts';
 import { ownerSceneVisible } from '../scene-view.ts';
 import { useContractForm } from '../use-contract-form.ts';
 import type { FieldErrors } from '../validation.ts';
 import { useInvitations } from './AppShell.tsx';
+import { HOUSEHOLD_LIMIT_NOTICE, householdLimitReached, limitFocusTarget, type LimitFocusAction } from '../household-limit.ts';
 import {
+  alertsLine,
+  alertTone,
   canChangeRole,
   canDeleteHousehold,
   canTransferHousehold,
+  deceasedBadgeText,
+  formatIsoDateEs,
+  householdAlertsText,
   HOUSEHOLD_ROLE_LABEL,
   invitationsLabel,
+  membersByRoleText,
   MEMBER_ACTION_LABEL,
   MEMBERSHIP_LABEL,
   memberActions,
+  nextFocusIndex,
   ownerBadge,
+  petAgeWeightLine,
+  petIdentityLine,
+  petsBySpeciesText,
+  type PetCardView,
   type HouseholdView,
   type HouseholdRole,
   type MemberAction,
@@ -44,16 +61,26 @@ export function transferHouseholdText(view: HouseholdView, targetUserId: string)
   return `¿Transferir la propiedad del hogar ${view.household.name} a ${target}? Conservarás el rol de Administrador.`;
 }
 
-export function InvitationList({ invitations, onAccept, onDecline }: {
+export function InvitationList({ invitations, onAccept, onDecline, atLimit = false, noticeRef, headingRef }: {
   readonly invitations: readonly InvitationView[];
+  /** REQ-HOG11-004: la lista de hogares ya alcanza el tope; se avisa y «Aceptar» no se ofrece (la invitación sigue abierta, EDGE-011-016). */
+  readonly atLimit?: boolean;
+  /** S-2 (2.4.3): destinos de foco al alcanzar el tope (aviso y encabezado, `tabIndex=-1`). */
+  readonly noticeRef?: React.RefObject<HTMLParagraphElement>;
+  readonly headingRef?: React.RefObject<HTMLHeadingElement>;
   readonly onAccept: (householdId: string) => void;
   readonly onDecline: (householdId: string) => void;
 }): JSX.Element {
   return (
     <section aria-labelledby="invitations-title" className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 id="invitations-title" className="text-lg font-semibold">
+      <h2 id="invitations-title" ref={headingRef} tabIndex={-1} className="text-lg font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
         Invitaciones <span className="text-sm font-normal text-text-muted">({invitationsLabel(invitations.length)})</span>
       </h2>
+      {atLimit && invitations.length > 0 ? (
+        <p id="invitations-limit-notice" ref={noticeRef} tabIndex={-1} className="text-sm font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
+          {HOUSEHOLD_LIMIT_NOTICE}
+        </p>
+      ) : null}
       {invitations.length === 0 ? (
         <p className="text-sm text-text-muted">No tienes invitaciones pendientes.</p>
       ) : (
@@ -64,7 +91,9 @@ export function InvitationList({ invitations, onAccept, onDecline }: {
                 <strong>{inv.household.name}</strong> · invita {inv.invitedBy.displayName} (@{inv.invitedBy.username})
               </span>
               <span className="flex gap-2">
-                <Button onClick={() => onAccept(inv.household.id)}>Aceptar</Button>
+                <Button disabled={atLimit} {...(atLimit ? { describedBy: 'invitations-limit-notice' } : {})} onClick={() => onAccept(inv.household.id)}>
+                  Aceptar
+                </Button>
                 <Button variant="secondary" onClick={() => onDecline(inv.household.id)}>
                   Rechazar
                 </Button>
@@ -227,6 +256,210 @@ function InviteForm({ householdId, onInvited }: { readonly householdId: string; 
   );
 }
 
+/** REQ-HOG11-008: el servidor ya entrega la tarjeta completa en `GET /households/{id}/pets`; la fila declara los campos que usa. */
+type PetRow = Pick<PetCardView, 'profile' | 'computedAge' | 'latestWeightKg' | 'alertsSummary'>;
+
+export const HOUSEHOLD_TABS = [
+  { key: 'resumen', label: 'Resumen' },
+  { key: 'miembros', label: 'Miembros' },
+  { key: 'mascotas', label: 'Mascotas' },
+  { key: 'compartir', label: 'Compartir' },
+  { key: 'album', label: 'Álbum' },
+  { key: 'escena', label: 'Escena' },
+] as const;
+export type HouseholdTabKey = (typeof HOUSEHOLD_TABS)[number]['key'];
+/** Pestaña inicial: «Miembros» conserva lo que la pantalla de hogares ya mostraba primero (REQ-HOG11-002); el orden de las pestañas sigue la spec. */
+const DEFAULT_TAB: HouseholdTabKey = 'miembros';
+
+const tabId = (householdId: string, key: string): string => `household-${householdId}-tab-${key}`;
+const panelId = (householdId: string): string => `household-${householdId}-panel`;
+
+/** Pestañas internas del detalle del hogar (TECHDEBT-011-ALB-TAB320: la barra se parte en filas en vez de hacer scroll interno, así ninguna pestaña —«Álbum»— queda recortada a 320 px): `tablist` WAI-ARIA con foco itinerante (flechas, Inicio, Fin) y activación automática, como `ContextSelector`. */
+export function HouseholdTabs({ householdId, active, onSelect }: { readonly householdId: string; readonly active: HouseholdTabKey; readonly onSelect: (key: HouseholdTabKey) => void }): JSX.Element {
+  const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number): void => {
+    const next = nextFocusIndex(event.key, index, HOUSEHOLD_TABS.length);
+    if (next === null) return;
+    event.preventDefault();
+    refs.current[next]?.focus();
+    const tab = HOUSEHOLD_TABS[next];
+    if (tab !== undefined) onSelect(tab.key);
+  };
+  return (
+    <div role="tablist" aria-label="Secciones del hogar" className="flex flex-wrap gap-1 p-1">
+      {HOUSEHOLD_TABS.map((tab, index) => {
+        const selected = tab.key === active;
+        return (
+          <button
+            key={tab.key}
+            ref={(el) => {
+              refs.current[index] = el;
+            }}
+            id={tabId(householdId, tab.key)}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            aria-controls={panelId(householdId)}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onSelect(tab.key)}
+            onKeyDown={(e) => onKeyDown(e, index)}
+            className={`relative min-h-12 shrink-0 whitespace-nowrap rounded-full px-3 text-sm sm:px-4 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+              selected ? 'bg-accent font-semibold after:absolute after:inset-x-3 after:bottom-1.5 sm:after:inset-x-4 after:h-0.5 after:bg-primary' : 'font-medium hover:bg-white'
+            }`}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Mascotas asignadas al hogar (endpoint existente de 004/005); `null` mientras carga. */
+function useHouseholdPets(householdId: string): { readonly pets: readonly PetRow[] | null; readonly failed: boolean } {
+  const { api } = useSession();
+  const [pets, setPets] = useState<readonly PetRow[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setPets(null);
+    setFailed(false);
+    unwrap(api.GET('/households/{householdId}/pets', { params: { path: { householdId }, query: {} } }))
+      .then((result) => {
+        if (alive) setPets(result.pets);
+      })
+      .catch(() => {
+        if (alive) {
+          setPets([]);
+          setFailed(true);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [api, householdId]);
+  return { pets, failed };
+}
+
+const PET_TONE_CLASS = { DANGER: 'bg-red-100 text-red-900', WARNING: 'bg-amber-100 text-amber-900', NEUTRAL: 'bg-slate-100 text-slate-800' } as const;
+const PANEL = 'grid min-w-0 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
+
+function HouseholdDetail(props: {
+  readonly view: HouseholdView;
+  readonly tab: HouseholdTabKey;
+  readonly onTab: (key: HouseholdTabKey) => void;
+  readonly myUserId: string;
+  readonly children: JSX.Element | null;
+}): JSX.Element {
+  const { pets, failed } = useHouseholdPets(props.view.household.id);
+  return <HouseholdDetailView {...props} pets={pets} failed={failed} />;
+}
+
+/** Vista pura del detalle (exportada para pruebas de presentación; sin cambios en la lógica de permisos). */
+export function HouseholdDetailView({ view, tab, onTab, myUserId, pets, failed, children }: {
+  readonly view: HouseholdView;
+  readonly tab: HouseholdTabKey;
+  readonly onTab: (key: HouseholdTabKey) => void;
+  readonly myUserId: string;
+  readonly pets: readonly PetRow[] | null;
+  readonly failed: boolean;
+  readonly children: JSX.Element | null;
+}): JSX.Element {
+  const id = view.household.id;
+  const mine = pets === null ? [] : pets.filter((p) => p.profile.ownerUserId === myUserId);
+  const activeMembers = view.members.filter((m) => m.membership.status === 'ACTIVE').length;
+  const ownerName = view.members.find((m) => m.membership.isHouseholdOwner)?.membership.displayName ?? null;
+  const createdAt = (view.household as { readonly createdAt?: string }).createdAt;
+  const createdText = typeof createdAt === 'string' ? formatIsoDateEs(createdAt.slice(0, 10)) : null;
+  const canShare = view.isHouseholdOwner || view.myRole === 'ADMIN';
+  const label = HOUSEHOLD_TABS.find((t) => t.key === tab)?.label ?? '';
+  return (
+    <section aria-labelledby={`household-${id}-title`} data-household-id={id} className="grid min-w-0 gap-3">
+      <h2 id={`household-${id}-title`} className="text-xl font-semibold">
+        {view.household.name}
+      </h2>
+      <HouseholdTabs householdId={id} active={tab} onSelect={onTab} />
+      <div role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id, tab)} tabIndex={0} className="grid min-w-0 gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
+        <h3 className="sr-only">{label}</h3>
+        {tab === 'resumen' ? (
+          <div className={PANEL}>
+            <section aria-label="Hogar" className="grid gap-1 text-sm">
+              <h4 className="font-semibold">Hogar</h4>
+              {createdText === null ? null : <p>Creado el {createdText}</p>}
+              {ownerName === null ? null : <p>Propietario: {ownerName}</p>}
+              <p>
+                Tu rol: {HOUSEHOLD_ROLE_LABEL[view.myRole]}
+                {view.isHouseholdOwner ? ' (Propietario)' : ''}
+              </p>
+              <p>{activeMembers === 1 ? '1 miembro activo' : `${activeMembers} miembros activos`}</p>
+              {membersByRoleText(view.members) === '' ? null : <p>{membersByRoleText(view.members)}</p>}
+            </section>
+            <section aria-labelledby="hogar-resumen-mascotas" className="grid gap-1 text-sm">
+              <h4 id="hogar-resumen-mascotas" className="font-semibold">
+                Mascotas
+              </h4>
+              {pets === null ? (
+                <p>Cargando mascotas…</p>
+              ) : (
+                <>
+                  <p>{pets.length === 1 ? '1 mascota asignada' : `${pets.length} mascotas asignadas`}{pets.length > 0 ? ` · ${mine.length} ${mine.length === 1 ? 'tuya' : 'tuyas'}` : ''}</p>
+                  {pets.length > 0 ? <p>{petsBySpeciesText(pets)}</p> : null}
+                  {pets.length > 0 ? <p>{householdAlertsText(pets)}</p> : null}
+                </>
+              )}
+            </section>
+          </div>
+        ) : null}
+        {tab === 'miembros' ? children : null}
+        {tab === 'mascotas' || tab === 'album' ? (
+          <div className={PANEL}>
+            {pets === null ? (
+              <p role="status" className="text-sm text-slate-800">Cargando mascotas…</p>
+            ) : failed ? (
+              <p role="alert" className="text-sm font-semibold text-red-900">No pudimos cargar las mascotas del hogar. Recarga la página para intentarlo de nuevo.</p>
+            ) : pets.length === 0 ? (
+              <p className="text-sm text-slate-800">Este hogar aún no tiene mascotas asignadas. Quien sea dueño puede asignarlas desde «Editar» en la ficha de la mascota.</p>
+            ) : tab === 'album' ? (
+              <HouseholdAlbum householdName={view.household.name} pets={pets.map((pet) => ({ id: pet.profile.id, name: pet.profile.name }))} />
+            ) : (
+              <ul aria-label={`Mascotas de ${view.household.name}`} className="divide-y divide-slate-200">
+                {pets.map((pet) => (
+                  <li key={pet.profile.id} data-pet-id={pet.profile.id} className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <span className="grid min-w-0 gap-0.5">
+                      <span className="break-words font-semibold">{pet.profile.name}</span>
+                      <span className="break-words text-text-muted">{petIdentityLine(pet.profile)}</span>
+                      <span className="break-words tabular-nums text-text-muted">{petAgeWeightLine(pet)}</span>
+                    </span>
+                    {deceasedBadgeText(pet.profile) === null ? (
+                      <span className={`rounded-[10px] px-2 text-xs font-bold ${PET_TONE_CLASS[alertTone(pet.alertsSummary)]}`}>{alertsLine(pet.alertsSummary)}</span>
+                    ) : (
+                      <span className="whitespace-nowrap rounded-[10px] border border-slate-500 bg-slate-100 px-2 text-xs font-bold text-slate-900">{deceasedBadgeText(pet.profile)}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+        {tab === 'compartir' ? (
+          canShare && pets !== null && mine.length > 0 ? (
+            <ShareLinksPanel hideScopeChoice petId="" petName={view.household.name} household={{ id, petCount: mine.length }} canCreateLinks />
+          ) : (
+            <p className={`${PANEL} text-sm text-slate-800`}>
+              {pets === null
+                ? 'Cargando…'
+                : !canShare
+                  ? 'Solo el propietario o un Administrador del hogar puede crear enlaces para el veterinario.'
+                  : 'Para compartir con tu veterinario, asigna al hogar al menos una mascota tuya.'}
+            </p>
+          )
+        ) : null}
+        {tab === 'escena' ? <HomeScene scope={{ kind: 'HOUSEHOLD', householdId: id }} idPrefix={`escena-${view.household.id}`} headingLevel={4} /> : null}
+      </div>
+    </section>
+  );
+}
+
 export function HouseholdsPage(): JSX.Element {
   const { api, user } = useSession();
   const invitationsState = useInvitations();
@@ -237,6 +470,15 @@ export function HouseholdsPage(): JSX.Element {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [pendingTransfer, setPendingTransfer] = useState<{ householdId: string; userId: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tab, setTab] = useState<HouseholdTabKey>(DEFAULT_TAB);
+
+  // S-2 (2.4.3): al alcanzar el tope por una acción propia el botón activado queda deshabilitado; el foco pasa al aviso (o al encabezado) en vez de caer en `body`.
+  const lastLimitAction = useRef<LimitFocusAction | null>(null);
+  const wasLimitReached = useRef(false);
+  const createNoticeRef = useRef<HTMLParagraphElement>(null);
+  const invitationsNoticeRef = useRef<HTMLParagraphElement>(null);
+  const invitationsHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -253,6 +495,15 @@ export function HouseholdsPage(): JSX.Element {
   useEffect(() => {
     void load();
   }, [api]);
+
+  const limitReached = householdLimitReached(households.length);
+  useEffect(() => {
+    const target = limitFocusTarget(wasLimitReached.current, limitReached, lastLimitAction.current, invitations.length);
+    wasLimitReached.current = limitReached;
+    if (target === null) return;
+    lastLimitAction.current = null;
+    (target === 'CREATE_NOTICE' ? createNoticeRef : target === 'INVITATIONS_NOTICE' ? invitationsNoticeRef : invitationsHeadingRef).current?.focus();
+  }, [limitReached, invitations.length]);
 
   const run = async (action: () => Promise<unknown>): Promise<void> => {
     setError(null);
@@ -295,6 +546,7 @@ export function HouseholdsPage(): JSX.Element {
     });
   };
 
+  const current = households.find((h) => h.household.id === selectedId) ?? households[0];
   return (
     <div className="grid min-w-0 gap-4">
       <h1 className="text-2xl font-bold">Hogares</h1>
@@ -308,7 +560,13 @@ export function HouseholdsPage(): JSX.Element {
         <div className="grid min-w-0 content-start gap-4 lg:col-span-1">
           <InvitationList
             invitations={invitations}
-            onAccept={(householdId) => void run(() => unwrap(api.POST('/invitations/{householdId}/accept', { params: { ...CSRF_PARAMS, path: { householdId } } })))}
+            atLimit={householdLimitReached(households.length)}
+            noticeRef={invitationsNoticeRef}
+            headingRef={invitationsHeadingRef}
+            onAccept={(householdId) => {
+              lastLimitAction.current = 'ACCEPT';
+              void run(() => unwrap(api.POST('/invitations/{householdId}/accept', { params: { ...CSRF_PARAMS, path: { householdId } } })));
+            }}
             onDecline={(householdId) => void run(() => unwrap(api.POST('/invitations/{householdId}/decline', { params: { ...CSRF_PARAMS, path: { householdId } } })))}
           />
           <form
@@ -316,13 +574,19 @@ export function HouseholdsPage(): JSX.Element {
             aria-label="Crear hogar"
             onSubmit={(e) => {
               setNotice(null);
+              lastLimitAction.current = 'CREATE';
               void createForm.onSubmit(e);
             }}
             className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
           >
             <TextField id="household-name" label="Nombre del nuevo hogar" name="name" required value={createForm.values.name ?? ''} onChange={createForm.onChange} errors={createForm.errors} />
+            {householdLimitReached(households.length) ? (
+              <p id="household-limit-notice" ref={createNoticeRef} tabIndex={-1} role="status" className="text-sm font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracota">
+                {HOUSEHOLD_LIMIT_NOTICE}
+              </p>
+            ) : null}
             <div>
-              <Button type="submit" disabled={createForm.busy}>
+              <Button type="submit" disabled={createForm.busy || householdLimitReached(households.length)} {...(householdLimitReached(households.length) ? { describedBy: 'household-limit-notice' } : {})}>
                 Crear hogar
               </Button>
             </div>
@@ -333,22 +597,44 @@ export function HouseholdsPage(): JSX.Element {
           {households.length === 0 ? <p className="text-sm font-semibold text-slate-800">Aún no perteneces a ningún hogar.</p> : null}
           {/* Sin hogares (N2-15 = B): la escena del propietario se gestiona aquí, con el retiro de consentimiento; se oculta sola si está vacía (SC-ESC6-109). */}
           {ownerSceneVisible(loaded, households.length) ? <HomeScene scope={{ kind: 'OWNER' }} idPrefix="escena-mine" headingLevel={2} /> : null}
-          {households.map((view) => (
-            <div key={view.household.id} className="grid gap-2">
-              <HouseholdCard
-                view={view}
-                myUserId={user?.id ?? ''}
-                onMemberAction={onMemberAction(view.household.id)}
-                onDelete={() => setPendingDelete(view.household.id)}
-                onChangeRole={onChangeRole(view.household.id)}
-                onTransferOwnership={(userId) => setPendingTransfer({ householdId: view.household.id, userId })}
-                inviteForm={view.isHouseholdOwner ? <InviteForm householdId={view.household.id} onInvited={load} /> : null}
-                sceneSlot={<HomeScene scope={{ kind: 'HOUSEHOLD', householdId: view.household.id }} idPrefix={`escena-${view.household.id}`} headingLevel={4} />}
-              />
-              {pendingTransfer?.householdId === view.household.id ? (
-                <div role="alertdialog" aria-labelledby={`transfer-${view.household.id}`} className="rounded-2xl border-2 border-slate-400 bg-white p-4">
-                  <p id={`transfer-${view.household.id}`} className="text-sm text-slate-900">
-                    {transferHouseholdText(view, pendingTransfer.userId)}
+          {households.length > 1 ? (
+            <nav aria-label="Mis hogares">
+              <ul className="flex flex-wrap gap-2">
+                {households.map((h) => (
+                  <li key={h.household.id}>
+                    <button
+                      type="button"
+                      aria-current={h.household.id === current?.household.id ? 'true' : undefined}
+                      onClick={() => {
+                        setSelectedId(h.household.id);
+                        setTab(DEFAULT_TAB);
+                      }}
+                      className={`min-h-12 rounded-full border px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota ${h.household.id === current?.household.id ? 'border-primary bg-accent font-semibold text-primary' : 'border-border-strong bg-white text-text-primary'}`}
+                    >
+                      {h.household.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ) : null}
+          {current === undefined ? null : (
+            <div key={current.household.id} className="grid gap-2">
+              <HouseholdDetail view={current} tab={tab} onTab={setTab} myUserId={user?.id ?? ''}>
+                <HouseholdCard
+                  view={current}
+                  myUserId={user?.id ?? ''}
+                  onMemberAction={onMemberAction(current.household.id)}
+                  onDelete={() => setPendingDelete(current.household.id)}
+                  onChangeRole={onChangeRole(current.household.id)}
+                  onTransferOwnership={(userId) => setPendingTransfer({ householdId: current.household.id, userId })}
+                  inviteForm={current.isHouseholdOwner ? <InviteForm householdId={current.household.id} onInvited={load} /> : null}
+                />
+              </HouseholdDetail>
+              {pendingTransfer?.householdId === current.household.id ? (
+                <div role="alertdialog" aria-labelledby={`transfer-${current.household.id}`} className="rounded-2xl border-2 border-slate-400 bg-white p-4">
+                  <p id={`transfer-${current.household.id}`} className="text-sm text-slate-900">
+                    {transferHouseholdText(current, pendingTransfer.userId)}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button variant="danger" onClick={confirmTransfer}>
@@ -360,17 +646,17 @@ export function HouseholdsPage(): JSX.Element {
                   </div>
                 </div>
               ) : null}
-              {pendingDelete === view.household.id ? (
-                <div role="alertdialog" aria-labelledby={`delete-${view.household.id}`} className="rounded-2xl border-2 border-danger bg-red-50 p-4">
-                  <p id={`delete-${view.household.id}`} className="text-sm text-red-900">
-                    ¿Eliminar el hogar {view.household.name}? Las mascotas no se borran; dejan de compartirse.
+              {pendingDelete === current.household.id ? (
+                <div role="alertdialog" aria-labelledby={`delete-${current.household.id}`} className="rounded-2xl border-2 border-danger bg-red-50 p-4">
+                  <p id={`delete-${current.household.id}`} className="text-sm text-red-900">
+                    ¿Eliminar el hogar {current.household.name}? Las mascotas no se borran; dejan de compartirse.
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button
                       variant="danger"
                       onClick={() => {
                         setPendingDelete(null);
-                        void run(() => unwrap(api.DELETE('/households/{householdId}', { params: { ...CSRF_PARAMS, path: { householdId: view.household.id } } })));
+                        void run(() => unwrap(api.DELETE('/households/{householdId}', { params: { ...CSRF_PARAMS, path: { householdId: current.household.id } } })));
                       }}
                     >
                       Confirmar eliminación
@@ -382,7 +668,7 @@ export function HouseholdsPage(): JSX.Element {
                 </div>
               ) : null}
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>

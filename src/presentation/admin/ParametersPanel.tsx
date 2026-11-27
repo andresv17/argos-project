@@ -378,7 +378,14 @@ export function ParametersPanel({ viewerId, onSessionLost: onSessionLostProp }: 
         {state === 'ready' && driver !== undefined ? <DriverEditor {...editorProps(driver, 'driver')} /> : null}
         {state === 'ready' && model !== undefined ? <ModelEditor {...editorProps(model, 'model')} imagesFit={imagesFit} driver={params.find((x) => x.key === 'scene.provider_driver')?.value} /> : null}
         {state === 'ready' && quota !== undefined ? <QuotaEditor {...editorProps(quota, 'quota')} /> : null}
-        {state === 'ready' && blocks !== undefined ? <BlocksEditor {...editorProps(blocks, 'blocks')} /> : null}
+        {state === 'ready' && blocks !== undefined ? (
+          <div className="grid gap-2">
+            <p data-testid="blocks-personal-data-warning" className="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm font-medium text-text-primary">
+              No escribas datos de personas ni de mascotas en este texto
+            </p>
+            <BlocksEditor {...editorProps(blocks, 'blocks')} />
+          </div>
+        ) : null}
 
         {state === 'ready' && others.length > 0 ? (
           <div className={CARD}>

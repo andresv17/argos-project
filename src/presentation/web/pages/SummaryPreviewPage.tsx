@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { SharedSummaryDocument } from '../components/SharedSummary.tsx';
-import { createShareApi, ShareApiError, type ShareApi, type SharedSummaryViewModel } from '../share-api.ts';
+import { createShareApi, previewAvatarPath, ShareApiError, type ShareApi, type SharedSummaryViewModel } from '../share-api.ts';
 import { shareProblemMessage } from '../share-view.ts';
 
 export function SummaryPreviewPage({ api }: { readonly api?: ShareApi }): JSX.Element {
@@ -42,7 +42,7 @@ export function SummaryPreviewPage({ api }: { readonly api?: ShareApi }): JSX.El
           Cargando…
         </p>
       ) : (
-        <SharedSummaryDocument view={view} mode="PREVIEW" downloadHref={null} onPrint={() => window.print()} />
+        <SharedSummaryDocument view={view} mode="PREVIEW" downloadHref={null} onPrint={() => window.print()} avatarHref={(i) => previewAvatarPath(view.petIds?.[i] ?? (householdId === undefined ? petId : undefined))} />
       )}
     </div>
   );

@@ -2,7 +2,7 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Argos Pet Health & Biometric Tracker API - delta de la feature 005
-  version: 3.4.0
+  version: 3.5.0
   description: >
     Documento INCREMENTAL de la feature 005 (Fase 4B): contiene solo las 10 operaciones nuevas; el OpenAPI de la 004
     (3.3.0) esta en REVIEW (no LOCKED) y se hereda sin cambio. Operaciones autenticadas (cookie + CSRF como el resto): limite del
@@ -11,14 +11,14 @@ info:
     de capacidad. Todas las respuestas de error usan application/problem+json (RFC 9457); los codigos nuevos viven en
     contracts/errors/error-catalog.json (incremental) y el resto en el catalogo de la 004. Un usuario sin permiso de lectura
     recibe 404 (INV-ACC2-001).
-  x-sdd-status: DRAFT
+  x-sdd-status: APPROVED
   x-sdd-metadata:
-    version: 3.4.0
-    status: DRAFT
-    supersedes: 3.3.0
+    version: 3.5.0
+    status: APPROVED
+    supersedes: 3.4.0
     change_type: MINOR
-    change_note: "3.4.0 (feature 007, T1026, C1, MINOR aditiva): query opcional includeDeceasedAt (boolean, default false) en las dos vistas previas del resumen; el cuerpo CreateShareLinkInput de las dos creaciones gana includeDeceasedAt opcional (schema share-link 1.1.0); ninguna operacion, codigo ni parametro existente cambia y los clientes que no lo envian reciben el comportamiento previo. Historial: 3.3.0 (feature 005, T706, MINOR aditiva): 10 operaciones nuevas, ninguna operacion existente cambia. El token viaja en la ruta (D5-16, firmado por Neo) con las mitigaciones obligatorias: instance constante, Referrer-Policy no-referrer, Cache-Control no-store, serializer de registros sin URL y filtro de Cloud Logging para /shared/ (lo ejecuta /link). CREATE_SHARE_LINK se anota solo como x-sdd-rbac-action (no entra en RbacAction de la 002). T707 (aditiva, sin cambiar las 10 operaciones): cabecera Idempotency-Key obligatoria en las dos creaciones y respuesta 200 CreateShareLinkReplay sin URL en el reintento (EDGE-005-16/17); el 404 uniforme absorbe el 404 de parametro largo y el 400 de URL mal codificada de Fastify (EDGE-005-25); X-Goog-Expires con minimo de 1 s (EDGE-005-23); lectura publica en una transaccion de solo lectura con un unico now (EDGE-005-14/24); revocar un enlace vencido es un no-op idempotente (MIF-005-08)."
-    traceability: [REQ-ALB5-002, REQ-ALB5-005, REQ-VET-001, REQ-VET-002, REQ-VET-004, REQ-VET-005, REQ-VET-006, REQ-VET-007, REQ-VET-009, REQ-VET-011, REQ-VET-012, REQ-SUM-004, REQ-SUM-005, EDGE-005-14, EDGE-005-16, EDGE-005-23, EDGE-005-25, INV-005-001, INV-005-002, INV-005-005, INV-005-007, INV-005-008, REQ-RBAC-001]
+    change_note: "3.5.0 (feature 011, T1534, D11-09 = A, MER-11-01 aprobado, MINOR aditiva): una operacion publica nueva getSharedPetAvatar (GET /shared/{token}/pets/{petId}/avatar) que sirve solo el avatar de la mascota en el encabezado de su seccion de la vista compartida; ninguna operacion, parametro ni codigo existente cambia (clinical-summary intacto; SharedSummaryView solo gana el campo opcional petIds; getSharedSummary y getSharedFile sin cambio); REQ-VET-006 e INV-005-002 enmendados por Neo (Nivel 2, Logos iter 232, opcion A) para admitir solo esta ruta (ENM-005-3.5.0); SharedSummaryView gana petIds opcional (share-link 1.2.0, opcion C) y la lectura publica del avatar pasa siempre por stripImageMetadata con 404 uniforme fail-closed (TR-1). Historial: 3.4.0 (feature 007, T1026, C1, MINOR aditiva): query opcional includeDeceasedAt (boolean, default false) en las dos vistas previas del resumen; el cuerpo CreateShareLinkInput de las dos creaciones gana includeDeceasedAt opcional (schema share-link 1.1.0); ninguna operacion, codigo ni parametro existente cambia y los clientes que no lo envian reciben el comportamiento previo. Historial: 3.3.0 (feature 005, T706, MINOR aditiva): 10 operaciones nuevas, ninguna operacion existente cambia. El token viaja en la ruta (D5-16, firmado por Neo) con las mitigaciones obligatorias: instance constante, Referrer-Policy no-referrer, Cache-Control no-store, serializer de registros sin URL y filtro de Cloud Logging para /shared/ (lo ejecuta /link). CREATE_SHARE_LINK se anota solo como x-sdd-rbac-action (no entra en RbacAction de la 002). T707 (aditiva, sin cambiar las 10 operaciones): cabecera Idempotency-Key obligatoria en las dos creaciones y respuesta 200 CreateShareLinkReplay sin URL en el reintento (EDGE-005-16/17); el 404 uniforme absorbe el 404 de parametro largo y el 400 de URL mal codificada de Fastify (EDGE-005-25); X-Goog-Expires con minimo de 1 s (EDGE-005-23); lectura publica en una transaccion de solo lectura con un unico now (EDGE-005-14/24); revocar un enlace vencido es un no-op idempotente (MIF-005-08)."
+    traceability: [REQ-ALB5-002, REQ-ALB5-005, REQ-VET-001, REQ-VET-002, REQ-VET-004, REQ-VET-005, REQ-VET-006, REQ-VET-007, REQ-VET-009, REQ-VET-011, REQ-VET-012, ENM-005-3.5.0, REQ-SUM-004, REQ-SUM-005, EDGE-005-14, EDGE-005-16, EDGE-005-23, EDGE-005-25, INV-005-001, INV-005-002, INV-005-005, INV-005-007, INV-005-008, REQ-RBAC-001]
 servers:
   - url: http://127.0.0.1:3100/api
     description: Servidor local (prefijo /api). La pagina publica del navegador es /shared/{token} (HTML de la SPA sin datos, mismas cabeceras, no resuelve el token); los datos salen de /api/shared/{token}/summary.
@@ -296,11 +296,13 @@ paths:
         '404': { $ref: '#/components/responses/SharedNotFound' }
         '429': { $ref: '#/components/responses/SharedRateLimited' }
         '500':
-          description: "ERR-INTERNAL-UNEXPECTED generico sin detalle (tambien cuando la auditoria de un acceso valido falla: fail-closed). Mismas cabeceras y `instance` constante."
+          description: "ERR-INTERNAL-UNEXPECTED generico sin detalle, SOLO para errores no relacionados con la lectura del avatar (p. ej. la auditoria de un acceso valido falla: fail-closed). Un fallo de lectura del almacenamiento, un objeto ausente o un saneado fallido NO llegan aqui: son el 404 uniforme (TR-1). Sin Set-Cookie. Mismas cabeceras (incluidas X-Content-Type-Options y Content-Security-Policy) e `instance` constante."
           headers:
             Cache-Control: { $ref: '#/components/headers/NoStore' }
             Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
             X-Robots-Tag: { $ref: '#/components/headers/NoIndex' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            Content-Security-Policy: { $ref: '#/components/headers/ApiCsp' }
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetails' }
@@ -344,6 +346,77 @@ paths:
           headers:
             Cache-Control: { $ref: '#/components/headers/NoStore' }
             Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+
+  /shared/{token}/pets/{petId}/avatar:
+    parameters:
+      - $ref: '#/components/parameters/SharedToken'
+      - name: petId
+        in: path
+        required: true
+        description: "Sin validar el formato en el borde: un petId mal formado responde el mismo 404"
+        schema: { type: string, maxLength: 64 }
+    get:
+      tags: [shared-public]
+      operationId: getSharedPetAvatar
+      summary: "Avatar de una mascota del alcance del token, para el encabezado de su seccion en la vista compartida [ENM-005-3.5.0, INV-005-001, INV-005-007]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [ENM-005-3.5.0, REQ-VET-006, REQ-VET-007, REQ-VET-008, INV-005-001, INV-005-002, INV-005-007]
+      x-sdd-public: true
+      x-sdd-rate-limit: "comparte el contador de fallos de getSharedSummary"
+      description: >
+        Tercera ruta publica con token (REQ-VET-006 e INV-005-002 enmendados por Neo para admitir exclusivamente esta ruta; D11-09 = A,
+        MER-11-01): sirve unicamente el avatar de la mascota, nunca una foto del album (kind PHOTO), un archivo clinico ni otra
+        imagen. Re-resuelve el token con las mismas reglas que getSharedSummary (hash, vigencia, revocacion, autoridad vigente del
+        creador, conjunto vigente de mascotas del alcance, un unico ClockPort.now() en una transaccion de solo lectura). En la UI la
+        imagen se pide con <img src> de mismo origen, con referrerPolicy no-referrer y sin srcset (la cookie HttpOnly puede viajar, pero la
+        respuesta no depende de ella: el servidor ignora Cookie y Authorization y no emite Set-Cookie); credentials 'omit' (sin cookie ni
+        cabecera de sesion) aplica solo al cliente fetch (createShareApi().getSharedAvatar) cuando exista, no a la pagina. El servidor valida estrictamente que petId este en el
+        alcance vigente del token (la clave de objeto se construye solo con el id ya resuelto, nunca con el texto de la ruta).
+        CONDICION TR-1 (obligatoria): no existe un derivado de avatar ya saneado almacenado; toda lectura publica del avatar pasa
+        por stripImageMetadata antes de servirse y se responden los bytes y el mime del RESULTADO saneado, nunca los bytes
+        originales ni el contentType almacenado. Excepcion acotada a REQ-AVA-002 de la spec 004 (LOCKED, no se edita; aprobada por Neo, Nivel 2, Logos iter 234, RES-2): en la ruta publica de avatar el servidor procesa la imagen unicamente para eliminar metadatos con stripImageMetadata, sin redimensionar, sin recodificar con perdida y sin almacenar el resultado (la carga y el almacenamiento del avatar siguen sin procesamiento en servidor). Si el objeto falta o el saneado falla (ok false,
+        ilegible, animado, objeto ausente) y ante CUALQUIER fallo de lectura del almacenamiento (incluido MediaStorageUnavailableError)
+        responde el 404 uniforme (mismo cuerpo ERR-SHARE-NOT-FOUND, mismas cabeceras y mismo contador de fallos que getSharedSummary);
+        no existe un 500 por fallo de lectura o de saneado del avatar, de modo que ni el 404 distingue tiene avatar de no tiene.
+        Revocar o caducar el enlace no altera el avatar de la mascota; el avatar solo cambia o se retira por sus propios eventos
+        (reemplazo, retirada o eliminacion de la mascota o de la cuenta). TR-4: la lectura del estado
+        del avatar se hace siempre con el petId del alcance vigente ya resuelto o con NIL, nunca con el texto de la ruta, y
+        storage.get solo se invoca con token valido, mascota en el alcance y avatar presente. El servidor ignora las cabeceras
+        Cookie y Authorization (no las lee) y no emite Set-Cookie en ninguna respuesta de la ruta. La respuesta lleva Content-Type de imagen fijado por el servidor, sin clave de objeto, sin URL firmada, sin identificadores internos en el
+        cuerpo ni en las cabeceras y sin Content-Disposition con nombre original. Cualquier fallo responde el mismo 404 uniforme
+        (cuerpo identico al del enlace, REQ-VET-006): token inexistente, mal formado, vencido, revocado, creador sin autoridad,
+        mascota fuera del alcance del enlace, mascota inexistente, o mascota sin avatar. Cualquier verbo distinto de GET (incluidos HEAD y
+        OPTIONS) responde el mismo 404 sin resolver el token. Cada acceso exitoso o fallido se audita como el resto de la
+        superficie publica (REQ-VET-008). No modifica clinical-summary; SharedSummaryView solo gana el campo opcional petIds; el JSON del resumen
+        no recibe referencia alguna al avatar; el cliente arma la URL por mascota con SharedSummaryView.petIds (opcional, mismo orden
+        que summary.pets) y decide pedir la imagen. Sin ETag, Last-Modified ni Content-Disposition.
+      security: []
+      responses:
+        '200':
+          description: "Imagen del avatar. Todas las cabeceras de la ruta son obligatorias tambien en 404, 429 y 5xx"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
+            X-Robots-Tag: { $ref: '#/components/headers/NoIndex' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            Content-Security-Policy: { $ref: '#/components/headers/ApiCsp' }
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        '404': { $ref: '#/components/responses/SharedNotFound' }
+        '429': { $ref: '#/components/responses/SharedRateLimited' }
+        '500':
+          description: "ERR-INTERNAL-UNEXPECTED generico sin detalle (solo para errores no relacionados con el avatar, por ejemplo cuando la auditoria de un acceso valido falla: fail-closed; un objeto ausente, un saneado fallido o un fallo de lectura del almacenamiento NO llegan aqui: son el 404 uniforme). Sin Set-Cookie. Mismas cabeceras y `instance` constante."
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            Referrer-Policy: { $ref: '#/components/headers/NoReferrer' }
+            X-Robots-Tag: { $ref: '#/components/headers/NoIndex' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            Content-Security-Policy: { $ref: '#/components/headers/ApiCsp' }
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetails' }

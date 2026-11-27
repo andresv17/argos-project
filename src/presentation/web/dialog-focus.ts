@@ -15,6 +15,29 @@ export function dialogFocusTransition(wasOpen: boolean, isOpen: boolean): Dialog
   return 'NONE';
 }
 
+export interface MaybeDisabledTarget extends FocusTarget {
+  readonly disabled?: boolean;
+}
+
+/** Primer destino enfocable y habilitado (S-1, 2.4.3): un `button` disabled ignora `.focus()`, así que se salta; si no hay ninguno devuelve `null` (se usa el encabezado). */
+export function firstEnabledTarget(candidates: ReadonlyArray<MaybeDisabledTarget>): FocusTarget | null {
+  return candidates.find((c) => c.disabled !== true) ?? null;
+}
+
+/** S-2 (2.4.3): el foco pasa al botón «Ampliar» solo al terminar la carga de la miniatura (LOADING -> READY). */
+export function shouldFocusAfterThumbLoad(prev: 'IDLE' | 'LOADING' | 'READY', next: 'IDLE' | 'LOADING' | 'READY'): boolean {
+  return prev === 'LOADING' && next === 'READY';
+}
+
+/**
+ * T1544 OBS-1 (2.4.3): tras «Ver más fotos» el foco no puede caer en `body`. Devuelve el índice de la primera foto nueva si llegaron fotos, o `'HEADING'` (encabezado de la mascota)
+ * si no llegó ninguna. Reutiliza `shouldFocusAfterThumbLoad` para la transición LOADING -> READY; `null` si no hay que mover el foco.
+ */
+export function loadMoreFocusTarget(wasLoadingMore: boolean, isLoadingMore: boolean, prevCount: number, nextCount: number): number | 'HEADING' | null {
+  if (!shouldFocusAfterThumbLoad(wasLoadingMore ? 'LOADING' : 'IDLE', isLoadingMore ? 'LOADING' : 'READY')) return null;
+  return nextCount > prevCount ? prevCount : 'HEADING';
+}
+
 export function applyDialogFocus(transition: DialogFocusTransition, targets: { readonly dialog: FocusTarget | null; readonly trigger: FocusTarget | null; readonly fallback: FocusTarget | null }): void {
   if (transition === 'ENTER') targets.dialog?.focus();
   else if (transition === 'RETURN') (targets.trigger ?? targets.fallback)?.focus();
@@ -29,7 +52,7 @@ export function useDialogFocus(open: boolean): { readonly dialogRef: React.RefOb
   useEffect(() => {
     applyDialogFocus(dialogFocusTransition(wasOpen.current, open), {
       dialog: dialogRef.current,
-      trigger: triggerRef.current?.querySelector('button') ?? null,
+      trigger: firstEnabledTarget(Array.from(triggerRef.current?.querySelectorAll('button') ?? [])),
       fallback: fallbackRef.current,
     });
     wasOpen.current = open;

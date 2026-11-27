@@ -30,7 +30,7 @@ import {
 import { validateUserPublicProfile, type AuditEntry } from '../../../generated/v31/index.ts';
 import { isStoredPetProfile, type LifeStatus, type PetProfile } from '../../../domain/pet/pet-invariants.ts';
 import { sqliteSceneConsentRepository, sqliteSceneRepository } from './sqlite-scene-repositories.ts';
-import { aboutContentRepository, adminAuditRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './sqlite-admin-repositories.ts';
+import { aboutContentRepository, adminAuditRepository, adminDelegateRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './sqlite-admin-repositories.ts';
 import type {
   AuditLogRepositoryPort,
   ConfirmationTokenRepositoryPort,
@@ -258,6 +258,11 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
   const insert = db.prepare('INSERT INTO users (id, username, password_hash, data, email, preferred_language, timezone, email_verified_at, account_status, adult_declared_at, adult_notice_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
   const update = db.prepare('UPDATE users SET password_hash = ?, data = ?, email = ?, preferred_language = ?, timezone = ? WHERE id = ? AND username = ?');
   const remove = db.prepare('DELETE FROM users WHERE id = ?');
+  // Foto de perfil (011, #78): columnas propias de `users`, fuera de `data`.
+  type UserAvatarRow = { readonly avatar_version: number; readonly avatar_object_id: string | null };
+  const avatarOf = db.prepare<[string], UserAvatarRow>('SELECT avatar_version, avatar_object_id FROM users WHERE id = ?');
+  const bumpAvatar = db.prepare<[string, string], UserAvatarRow>('UPDATE users SET avatar_version = avatar_version + 1, avatar_object_id = ? WHERE id = ? RETURNING avatar_version, avatar_object_id');
+  const dropAvatar = db.prepare('UPDATE users SET avatar_object_id = NULL WHERE id = ?');
   const references = db.prepare<[string, string, string, string, string, string, string, string, string, string, string], { readonly n: number }>(
     `SELECT (SELECT COUNT(*) FROM users WHERE id = ?)
           + (SELECT COUNT(*) FROM pets WHERE owner_user_id = ?)
@@ -334,6 +339,19 @@ function userRepository(db: SqliteDatabase): UserRepositoryPort {
     },
     async delete(userId) {
       remove.run(userId);
+    },
+    async findAvatar(userId) {
+      const row = avatarOf.get(userId);
+      return row === undefined ? null : { version: row.avatar_version, objectId: row.avatar_object_id };
+    },
+    async replaceAvatar(userId, objectId) {
+      // Una sola sentencia: la versión solo crece. Sin fila afectada, el usuario no existe.
+      const row = bumpAvatar.get(objectId, userId);
+      if (row === undefined) throw new Error('FOREIGN KEY constraint failed: users');
+      return { version: row.avatar_version, objectId: row.avatar_object_id };
+    },
+    async clearAvatar(userId) {
+      dropAvatar.run(userId);
     },
     async countReferences(userId) {
       return references.get(userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId)!.n;
@@ -1216,6 +1234,7 @@ export function createSqliteRepositories(db: SqliteDatabase): RepositorySet {
     adminSessions: adminSessionRepository(db),
     adminFlows: adminFlowRepository(db),
     adminAudit: adminAuditRepository(db),
+    adminDelegates: adminDelegateRepository(db),
     registrations: registrationRepository(db),
     adminParameters: adminParameterRepository(db),
     aboutContent: aboutContentRepository(db),

@@ -95,6 +95,21 @@ export async function reinforcePrefix(deps: ApplicationDeps, petIds: readonly st
   }
 }
 
+/**
+ * Refuerzo tras eliminar la cuenta (011, INV-PRF11-001, SC-011-060): lista el prefijo `users/{userId}/` y borra lo que quede (una subida a medias, un objeto sin fila). Si algo falla lo
+ * cubre la conciliación (`users/`, 15 min). Nunca lanza.
+ * @implements INV-PRF11-001, REQ-GCS-006, INV-GCS-002
+ */
+export async function reinforceUserPrefix(deps: ApplicationDeps, userId: string): Promise<void> {
+  const media = deps.media;
+  if (media === undefined) return;
+  try {
+    for (const entry of await media.storage.list(`users/${userId}/`)) await media.storage.delete(entry.key);
+  } catch {
+    // la conciliación lo recoge (REQ-GCS-006)
+  }
+}
+
 function parseKind(value: unknown): MediaKind {
   if (value === 'FILE' || value === 'PHOTO') return value;
   throw new DomainErrorV31('ERR-SCHEMA-VALIDATION-FAILED', 'kind debe ser FILE o PHOTO.', 'kind');

@@ -145,7 +145,7 @@ describe('ARGOS_AUDIT_HMAC_SECRET (REQ-SEC-002)', () => {
     async (secret) => {
       let appAccepts = true;
       try {
-        loadAppConfig({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: secret, ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE });
+        loadAppConfig({ NODE_ENV: 'production', ARGOS_ADMIN_EMAILS: 'admin.raiz@example.test', ARGOS_AUDIT_HMAC_SECRET: secret, ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE });
       } catch (e) {
         if (!(e instanceof AppConfigError)) throw e;
         appAccepts = false;

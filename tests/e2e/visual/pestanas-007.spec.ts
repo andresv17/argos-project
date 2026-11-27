@@ -6,7 +6,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { createPetViaApi, registerViaApi, VIEWPORT_WIDTHS } from './e2e-support.ts';
 
-const TABS = ['Peso', 'Medidas', 'Vacunas', 'Desparasitación', 'Consultas', 'Parámetros', 'Historial / Archivos'];
+const TABS = ['Peso', 'Medidas', 'Vacunas', 'Desparasitación', 'Consultas', 'Parámetros', 'Historial / Archivos', 'Compartir', 'Álbum'];
 
 test.describe.configure({ mode: 'serial' });
 
@@ -27,27 +27,30 @@ test.describe('siete pestañas de la ficha (007, T1040)', () => {
     await context.close();
   });
 
-  test('[SC-007-005][REQ-PES7-001] el tablist tiene 7 pestañas en orden y Peso está activa por defecto', async () => {
+  test('[SC-007-005][REQ-PES7-001] el tablist tiene 9 pestañas en orden (REQ-PET11-002: «Compartir» antes de «Álbum», que queda al final) y Peso está activa por defecto', async () => {
     const list = page.getByRole('tablist', { name: 'Módulos de la ficha' });
     await expect(list.getByRole('tab')).toHaveText(TABS);
     await expect(tab('Peso')).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('[SC-007-007][REQ-PES7-003] End, Home y flechas recorren las 7 pestañas con vuelta circular y enfoque itinerante', async () => {
+  test('[SC-007-007][REQ-PES7-003] End, Home y flechas recorren las 9 pestañas con vuelta circular y enfoque itinerante', async () => {
     await tab('Peso').focus();
     await page.keyboard.press('End');
-    await expect(tab('Historial / Archivos')).toHaveAttribute('aria-selected', 'true');
-    await expect(tab('Historial / Archivos')).toBeFocused();
+    await expect(tab('Álbum')).toHaveAttribute('aria-selected', 'true');
+    await expect(tab('Álbum')).toBeFocused();
     await page.keyboard.press('ArrowRight');
     await expect(tab('Peso')).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowLeft');
-    await expect(tab('Historial / Archivos')).toHaveAttribute('aria-selected', 'true');
+    await expect(tab('Álbum')).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowLeft');
-    await expect(tab('Parámetros')).toHaveAttribute('aria-selected', 'true');
+    await expect(tab('Compartir')).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('ArrowLeft');
+    await expect(tab('Historial / Archivos')).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('Home');
     await expect(tab('Peso')).toHaveAttribute('aria-selected', 'true');
-    expect(await page.getByRole('tablist', { name: 'Módulos de la ficha' }).getByRole('tab').evaluateAll((els) => els.map((el) => el.getAttribute('tabindex')))).toEqual(['0', '-1', '-1', '-1', '-1', '-1', '-1']);
+    expect(await page.getByRole('tablist', { name: 'Módulos de la ficha' }).getByRole('tab').evaluateAll((els) => els.map((el) => el.getAttribute('tabindex')))).toEqual(['0', '-1', '-1', '-1', '-1', '-1', '-1', '-1', '-1']);
   });
 
   test('[SC-007-006][REQ-PES7-002] «Historial / Archivos» muestra solo el panel de archivos: sin «Registrar», sin formulario de alta y sin h3 duplicado', async () => {
@@ -72,7 +75,7 @@ test.describe('siete pestañas de la ficha (007, T1040)', () => {
       await page.waitForTimeout(1000);
       await expect
         .poll(() =>
-          tab('Historial / Archivos').evaluate((el) => {
+          tab('Álbum').evaluate((el) => {
             const list = el.parentElement!.getBoundingClientRect();
             const box = el.getBoundingClientRect();
             return box.left >= list.left - 1 && box.right <= list.right + 1 && box.left >= 0 && box.right <= window.innerWidth;

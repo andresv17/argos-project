@@ -31,7 +31,7 @@ const runWith = async (promptBlocks: unknown): Promise<string> => {
   await new RequestSceneGenerationUseCase(deps).execute(ANDRES, HOUSE, { action: 'UPDATE' }, 'b0000000-0000-4000-8000-000000000001');
   const attempt = h.uow.snapshot().sceneAttempts?.[0];
   await new RunSceneGenerationUseCase(deps).execute({ sceneId: attempt?.sceneId ?? '', attemptId: attempt?.id ?? '' }, new AbortController().signal);
-  return fixture.generator.calls[0]?.prompt ?? '';
+  return fixture.generator.prompts[0] ?? '';
 };
 
 describe('T1306 prompt editable en la generacion', () => {

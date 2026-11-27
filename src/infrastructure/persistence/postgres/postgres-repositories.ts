@@ -30,7 +30,7 @@ import {
 // 3.1.0 (feature 004): el `username` admite mayúsculas (REQ-LOG-002); el top-level generado sigue en 3.0.0.
 import { validateUserPublicProfile } from '../../../generated/v31/index.ts';
 import { authIdentityRepository, oauthFlowRepository } from './postgres-auth-repositories.ts';
-import { aboutContentRepository, adminAuditRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './postgres-admin-repositories.ts';
+import { aboutContentRepository, adminAuditRepository, adminDelegateRepository, adminFlowRepository, adminIdentityRepository, adminParameterRepository, adminSessionRepository, registrationRepository } from './postgres-admin-repositories.ts';
 import { isStoredPetProfile, type LifeStatus, type PetProfile, type PetRecordCollections } from '../../../domain/pet/pet-invariants.ts';
 import type {
   AuditLogRepositoryPort,
@@ -185,6 +185,19 @@ function userRepository(client: PoolClientLike): UserRepositoryPort {
     },
     async delete(userId) {
       await client.query('DELETE FROM users WHERE id = $1', [userId]);
+    },
+    async findAvatar(userId) {
+      const { rows } = await client.query('SELECT avatar_version, avatar_object_id FROM users WHERE id = $1', [userId]);
+      return rows[0] === undefined ? null : { version: Number(rows[0]['avatar_version']), objectId: (rows[0]['avatar_object_id'] as string | null) ?? null };
+    },
+    async replaceAvatar(userId, objectId) {
+      // Una sola sentencia: la versión solo crece. Sin fila afectada, el usuario no existe.
+      const { rows } = await client.query('UPDATE users SET avatar_version = avatar_version + 1, avatar_object_id = $1 WHERE id = $2 RETURNING avatar_version, avatar_object_id', [objectId, userId]);
+      if (rows[0] === undefined) throw new Error('FOREIGN KEY constraint failed: users');
+      return { version: Number(rows[0]['avatar_version']), objectId: rows[0]['avatar_object_id'] as string };
+    },
+    async clearAvatar(userId) {
+      await client.query('UPDATE users SET avatar_object_id = NULL WHERE id = $1', [userId]);
     },
     async countReferences(userId) {
       const { rows } = await client.query(COUNT_REFERENCES, [userId]);
@@ -852,6 +865,7 @@ export function createPostgresRepositories(client: PoolClientLike): RepositorySe
     adminSessions: adminSessionRepository(client),
     adminFlows: adminFlowRepository(client),
     adminAudit: adminAuditRepository(client),
+    adminDelegates: adminDelegateRepository(client),
     registrations: registrationRepository(client),
     adminParameters: adminParameterRepository(client),
     aboutContent: aboutContentRepository(client),

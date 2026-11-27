@@ -9,6 +9,7 @@
 import cookie from '@fastify/cookie';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { ApplicationDeps } from '../../application/use-cases/use-case-support.ts';
+import { registerAdminGate } from './admin-gate.ts';
 import { registerCsrfGuard } from './plugins/csrf-guard.ts';
 import { registerProblemDetails } from './plugins/problem-details.ts';
 import { registerDevMediaRoutes, type DevMediaOptions } from './routes/dev-media.routes.ts';
@@ -29,6 +30,7 @@ import { registerHouseholdRoutes } from './routes/households.routes.ts';
 import { registerOpsRoutes } from './routes/ops-routes.ts';
 import { registerPetRoutes } from './routes/pets.routes.ts';
 import { registerMediaRoutes } from './routes/media.routes.ts';
+import { registerUserAvatarRoutes } from './routes/user-avatar.routes.ts';
 import { registerShareLinkRoutes } from './routes/share-links.routes.ts';
 import { applySharedHeaders, createSharedFailure, isSharedPagePath, registerSharedRoutes, sharedFrameworkErrors } from './routes/shared.routes.ts';
 import { registerHouseholdPhotoRoutes } from './routes/household-photo.routes.ts';
@@ -89,6 +91,8 @@ export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = fal
   // Portal de administración (feature 009, Fase 3): solo si la composición conectó Google de administración; sin él `/api/admin/*` no existe (404).
   const sceneLimiter = deps.scene !== undefined && deps.media !== undefined ? new SceneRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())) : undefined;
   if (deps.admin !== undefined) {
+    // Puerta unica por peticion de /api/admin/* (011, H-7): antes de montar cualquier ruta de administracion (un hook global solo alcanza a las rutas posteriores).
+    registerAdminGate(app, context.useCases);
     registerAdminRoutes(app, context, new AdminAccessLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())), (userIds) => {
       for (const userId of userIds) sceneLimiter?.clearUser(userId);
     });
@@ -102,6 +106,8 @@ export async function buildApp({ deps, cookieSecure, publicBaseUrl, logger = fal
   registerRecordEditRoutes(app, context);
   // Medios (feature 004): solo si la composición conectó el almacenamiento (REQ-GCS-003); sin él las rutas no existen (404).
   if (deps.media !== undefined) registerMediaRoutes(app, context, deps.media);
+  // Foto de perfil de la cuenta (feature 011, #78): solo con medios conectados; su limitador (ámbito USER_AVATAR) es propio de la instancia.
+  if (deps.media !== undefined) registerUserAvatarRoutes(app, context, deps.media, new SceneRateLimiter(() => Date.parse(deps.clock.nowIsoTimestamp())));
   // Escena del hogar (feature 006): solo si la composición conectó la escena y los medios; sin ellos las rutas no existen (404).
   if (deps.scene !== undefined && deps.media !== undefined && sceneLimiter !== undefined) {
     const limiter = sceneLimiter;

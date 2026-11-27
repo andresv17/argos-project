@@ -38,10 +38,12 @@ export interface BuildScenePayloadInput {
   readonly totalPets: number;
   /** Biografía CRUDA por id de mascota (leída del repositorio en el worker); `buildScenePayload` la sanea y nunca la registra. Ausente = sin biografías. */
   readonly biographies?: ReadonlyMap<string, string | null | undefined>;
+  /** `speciesOther` CRUDO por id de mascota (leído del repositorio en el worker; el snapshot ya no lo guarda, REQ-IA11-004); se sanea aquí y nunca se persiste. Ausente = «animal». */
+  readonly speciesOthers?: ReadonlyMap<string, string | null | undefined>;
 }
 
-function petBlock(pet: SnapshotPet, action: PetBlock['action'], ref: PetBlock['photoRef'], rawBiography: string | null | undefined): PetBlock {
-  const speciesOther = pet.species === 'OTHER' ? (sanitizeFreeText(pet.speciesOther) ?? 'animal') : null;
+function petBlock(pet: SnapshotPet, action: PetBlock['action'], ref: PetBlock['photoRef'], rawBiography: string | null | undefined, rawSpeciesOther: string | null | undefined): PetBlock {
+  const speciesOther = pet.species === 'OTHER' ? (sanitizeFreeText(rawSpeciesOther) ?? 'animal') : null;
   const hasPhoto = ref !== null;
   return {
     id: pet.id,
@@ -58,11 +60,11 @@ function petBlock(pet: SnapshotPet, action: PetBlock['action'], ref: PetBlock['p
 }
 
 export function buildScenePayload(input: BuildScenePayloadInput): ScenePayload {
-  const { plan, last, now, householdId, maxPets, totalPets, biographies } = input;
+  const { plan, last, now, householdId, maxPets, totalPets, biographies, speciesOthers } = input;
   const byId = new Map([...(last?.pets ?? []), ...now.pets].map((p) => [p.id, p]));
   const pets = plan.pets.flatMap((entry) => {
     const pet = byId.get(entry.petId);
-    return pet === undefined ? [] : [petBlock(pet, entry.action, entry.ref, biographies?.get(pet.id))];
+    return pet === undefined ? [] : [petBlock(pet, entry.action, entry.ref, biographies?.get(pet.id), speciesOthers?.get(pet.id))];
   });
   return {
     schemaVersion: SCENE_PAYLOAD_SCHEMA_VERSION,

@@ -5,7 +5,7 @@ import { FakeSceneImageGenerator } from '../../src/infrastructure/adapters/fake-
 import { InProcessSceneDispatcher } from '../../src/infrastructure/adapters/in-process-scene-dispatcher.adapter.ts';
 
 /**
- * T849 (006, Fase 5): `FakeSceneImageGenerator` e `InProcessSceneDispatcher`. Determinista, modos fallo/lento/respuesta inválida/eco de prompt, registro de llamadas,
+ * T849 (006, Fase 5): `FakeSceneImageGenerator` e `InProcessSceneDispatcher`. Determinista, modos fallo/lento/respuesta inválida, registro de llamadas (sin texto del prompt) y espía en memoria de prompts (011, MIF-011-04),
  * jamás red ni proveedor; ejecución con `setImmediate` solo en desarrollo y CI. REQ-ESC6-013, REQ-ESC6-017, REQ-ESC6-031; INV-ESC6-002, INV-ESC6-005, INV-ESC6-016;
  * EDGE-ESC6-004, EDGE-ESC6-017; NFR-ESC6-001; SC-ESC6-017, SC-ESC6-018, SC-ESC6-025, SC-ESC6-046, SC-ESC6-050, SC-ESC6-061, SC-ESC6-062.
  */
@@ -44,15 +44,23 @@ describe('FakeSceneImageGenerator (T849)', () => {
     expect(inflateSync(pngChunks(a.image.bytes)[1]!.data).length).toBeGreaterThan(0);
   });
 
-  it('[SC-ESC6-046][NFR-ESC6-001] registra cada llamada con prompt y referencias (solo ranura, tipo y tamaño: nunca los bytes) y cuenta las llamadas', async () => {
+  it('[SC-ESC6-046][NFR-ESC6-001][INV-IA11-002] registra cada llamada con semilla, longitud del prompt y referencias (solo ranura, tipo y tamaño: nunca los bytes ni el texto) y cuenta las llamadas', async () => {
     const fake = new FakeSceneImageGenerator();
     await fake.generate(request('a'));
-    await fake.generate(request('b'));
+    await fake.generate(request('bcd'));
     expect(fake.calls).toEqual([
-      { prompt: 'a', seed: 0, references: [{ ref: 'IMG_1', mime: 'image/png', byteLength: 3 }] },
-      { prompt: 'b', seed: 0, references: [{ ref: 'IMG_1', mime: 'image/png', byteLength: 3 }] },
+      { promptLength: 1, seed: 0, references: [{ ref: 'IMG_1', mime: 'image/png', byteLength: 3 }] },
+      { promptLength: 3, seed: 0, references: [{ ref: 'IMG_1', mime: 'image/png', byteLength: 3 }] },
     ]);
     expect(JSON.stringify(fake.calls).includes('"bytes"')).toBe(false);
+    expect(fake.prompts).toEqual([]);
+  });
+
+  it('[INV-IA11-002][MIF-011-04] con el espía opt-in `capturePrompts` el prompt se lee EN MEMORIA (sin tocar el PNG) y en el orden de las llamadas', async () => {
+    const fake = new FakeSceneImageGenerator({ capturePrompts: true });
+    await fake.generate(request('Place all 2 pets'));
+    await fake.generate(request('otro'));
+    expect(fake.prompts).toEqual(['Place all 2 pets', 'otro']);
   });
 
   it('[EDGE-ESC6-004][SC-ESC6-062] el modo fallo devuelve un SceneErrorCode (nunca cuerpo ni mensaje del proveedor) y el modo respuesta inválida devuelve un JPEG declarado PNG', async () => {
@@ -78,12 +86,14 @@ describe('FakeSceneImageGenerator (T849)', () => {
     expect(await slow.generate(request('y', already.signal))).toEqual({ ok: false, code: 'ERR-SCENE-GENERATION-TIMEOUT' });
   });
 
-  it('[SC-ESC6-018][EDGE-ESC6-017] el modo eco incrusta el prompt recibido en un trozo tEXt del PNG para verificarlo sin red', async () => {
-    const out = await new FakeSceneImageGenerator({ mode: 'echo' }).generate(request('Place all 2 pets'));
+  it('[SC-ESC6-018][EDGE-ESC6-017][MIF-011-04] el PNG nunca incrusta el prompt: sin trozo tEXt y sin el texto en los bytes (el prompt se verifica con el espía en memoria)', async () => {
+    const fake = new FakeSceneImageGenerator({ capturePrompts: true });
+    const out = await fake.generate(request('Place all 2 pets'));
     expect(out.ok).toBe(true);
     if (!out.ok) return;
-    const text = pngChunks(out.image.bytes).find((c) => c.type === 'tEXt');
-    expect(new TextDecoder().decode(text?.data)).toBe('prompt\0Place all 2 pets');
+    expect(pngChunks(out.image.bytes).map((c) => c.type)).toEqual(['IHDR', 'IDAT', 'IEND']);
+    expect(Buffer.from(out.image.bytes).toString('latin1').includes('Place all 2 pets')).toBe(false);
+    expect(fake.prompts).toEqual(['Place all 2 pets']);
   });
 
   it('[SC-ESC6-050][SC-ESC6-061] no usa red ni proveedor: el módulo no referencia fetch, sockets, SDK ni process.env', async () => {

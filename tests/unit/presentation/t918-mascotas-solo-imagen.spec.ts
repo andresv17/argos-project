@@ -25,7 +25,7 @@ describe('T918 vista de solo lectura (SC-ESC6-110)', () => {
     expect(html).not.toMatch(/<(button|a|input|select|textarea|form)\b/);
     // Enmienda 008 (T1171, [GH:#55], REQ-UX8-003): D6-19 «sin textos» admite únicamente el rótulo «Mi hogar»; siguen prohibidos los textos de estado, cuota y consentimiento.
     expect(html).not.toMatch(/role="(status|alert)"|aria-live|cambios pendientes|generaciones|consentimiento|Actualizar|Regenerar|Reintentar/i);
-    expect(html.match(/>[^<>]+</g)).toEqual(['>Mi hogar<']);
+    expect(html.match(/>[^<>]+</g)).toEqual(['>Mi hogar<', '>Imagen generada con inteligencia artificial<']); // 011 (T1514, D11-07): se suma la etiqueta de IA
     expect(html).not.toMatch(/googleapis|X-Goog|Signature/);
   });
 

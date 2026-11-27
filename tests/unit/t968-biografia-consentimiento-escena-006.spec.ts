@@ -30,7 +30,7 @@ async function prompt(realDriver: boolean, consenting: readonly string[]): Promi
   await new RequestSceneGenerationUseCase(deps).execute(ANDRES, HOUSE, { action: 'REGENERATE' }, 'b0000000-0000-4000-8000-000000000001');
   const attempt = h.uow.snapshot().sceneAttempts?.[0];
   await new RunSceneGenerationUseCase(deps).execute({ sceneId: attempt?.sceneId ?? '', attemptId: attempt?.id ?? '' }, new AbortController().signal);
-  return fixture.generator.calls[0]?.prompt ?? '';
+  return fixture.generator.prompts[0] ?? '';
 }
 
 describe('T968 [C-1][R-1][INV-ESC6-010][REQ-ESC6-036] biografía y consentimiento PET_PHOTOS del propietario', () => {

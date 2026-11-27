@@ -110,7 +110,7 @@ test.describe('flujo de un usuario (tests/e2e/visual)', () => {
     const tab = (name: string) => page.getByRole('tab', { name });
     await tab('Vacunas').focus();
     await page.keyboard.press('End');
-    await expect(tab('Historial / Archivos')).toHaveAttribute('aria-selected', 'true');
+    await expect(tab('Álbum')).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Home');
     await expect(tab('Peso')).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowRight');

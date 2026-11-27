@@ -259,13 +259,13 @@ describe('XSS y prompt injection en nombres y textos libres (T874, INV-ESC6-011,
     const r = await gen(c, lucia, 1, '/api/me/scene');
     expect(r.status).toBe(202);
     expect(await c.runLastJob()).toBe('PUBLISHED');
-    const sent = c.fixture.generator.calls.map((call) => call.prompt).join('\n');
+    const sent = c.fixture.generator.prompts.join('\n');
     for (const text of HOSTILE) {
       for (const fragment of [text, text.slice(0, 50)]) expect([fragment, sent.includes(fragment)]).toEqual([fragment, false]);
     }
     // Desde T921 el prompt lleva la especificación JSON saneada (plan §5.3.1): sus llaves son estructura propia y válida (JSON.parse); fuera de ese bloque y dentro de él
     // sigue sin haber ningún carácter hostil de los textos libres.
-    for (const prompt of c.fixture.generator.calls.map((call) => call.prompt)) {
+    for (const prompt of c.fixture.generator.prompts) {
       const start = prompt.indexOf(`${SCENE_SPEC_HEADER}\n`) + SCENE_SPEC_HEADER.length + 1;
       // Enmienda 009 (REQ-PRO9-001): el JSON es una sola línea y puede ir seguido de `Place all N pets…` (N >= 2), de la frase de conteo o de la regla de conteo: el fin del
       // JSON es el primer salto de bloque tras él (el aserto de caracteres hostiles no se relaja).
@@ -394,7 +394,7 @@ describe('DoS económico de intentos iniciados (T874, REQ-ESC6-034, SC-ESC6-078)
 
 describe('eco del prompt y del proveedor en errores (T874, INV-ESC6-016, SC-ESC6-046, SC-ESC6-094)', () => {
   it('[INV-ESC6-016][SC-ESC6-046] un generador que repite el prompt o responde basura NO deja el prompt, los identificadores internos ni el proveedor en ninguna respuesta: solo códigos estables', async () => {
-    for (const mode of ['echo', 'invalid', 'fail', 'slow'] as const) {
+    for (const mode of ['ok', 'invalid', 'fail', 'slow'] as const) {
       const c = await setup({ mode });
       const cookie = await api.login('andres');
       const base = `/api/households/${H1}/scene`;
@@ -403,14 +403,14 @@ describe('eco del prompt y del proveedor en errores (T874, INV-ESC6-016, SC-ESC6
       const run = new RunSceneGenerationUseCase(api.deps).execute(c.fixture.dispatcher.jobs[0]!, controller.signal);
       if (mode === 'slow') controller.abort();
       await run;
-      const prompt = c.fixture.generator.calls[0]?.prompt ?? '';
+      const prompt = c.fixture.generator.prompts[0] ?? '';
       const view = await c.call('GET', base, { cookie });
       const text = view.text;
       const forbidden = [prompt.slice(0, 40), 'pixel art', 'IMG_1', 'googleapis', 'stack', 'at /'];
       for (const fragment of forbidden) expect([mode, fragment, fragment.length > 0 && prompt !== '' ? text.toLowerCase().includes(fragment.toLowerCase()) : false]).toEqual([mode, fragment, false]);
       const error = (view.json as { lastError: string | null }).lastError;
-      // El eco publica un PNG válido (sin error visible); los demás modos solo exponen su código estable de la lista cerrada.
-      expect([mode, error]).toEqual([mode, { echo: null, invalid: 'ERR-SCENE-INVALID-IMAGE', fail: 'ERR-SCENE-GENERATION-FAILED', slow: 'ERR-SCENE-GENERATION-TIMEOUT' }[mode]]);
+      // El modo normal publica un PNG válido (sin error visible); los demás modos solo exponen su código estable de la lista cerrada.
+      expect([mode, error]).toEqual([mode, { ok: null, invalid: 'ERR-SCENE-INVALID-IMAGE', fail: 'ERR-SCENE-GENERATION-FAILED', slow: 'ERR-SCENE-GENERATION-TIMEOUT' }[mode]]);
       await api.close();
     }
   });
@@ -424,7 +424,7 @@ describe('eco del prompt y del proveedor en errores (T874, INV-ESC6-016, SC-ESC6
     const dump = api.dump();
     // La clave del cliente jamás se guarda (solo su SHA-256 con actor, escena y acción).
     expect(dump.includes(clientKey)).toBe(false);
-    const prompt = c.fixture.generator.calls[0]?.prompt ?? '';
+    const prompt = c.fixture.generator.prompts[0] ?? '';
     expect(prompt.length).toBeGreaterThan(0);
     expect(dump.includes(prompt.slice(0, 60))).toBe(false);
   });

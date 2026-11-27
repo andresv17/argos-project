@@ -8,3 +8,4 @@ export * from './media-names.ts';
 export * from './media-keys.ts';
 export * from './media-limits.ts';
 export * from './album-limit.ts';
+export * from './user-avatar-limits.ts';

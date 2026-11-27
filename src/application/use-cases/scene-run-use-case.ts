@@ -143,18 +143,21 @@ export class RunSceneGenerationUseCase {
       // T1306: bloques editados en /admin leidos en caliente; si la lectura falla rige el prompt de codigo (INV-CFG9-003).
       const blocks = svc.promptBlocks === undefined ? undefined : await svc.promptBlocks().catch(() => undefined);
       // Enmienda 2026-11-24 (INV-ESC6-010/017): la biografía cruda se lee del repositorio (única fuente: el servidor) y `buildScenePayload` la sanea; nunca se registra ni se guarda en el snapshot.
-      const biographies = await deps.uow.runInTransaction(async (r) => {
+      const { biographies, speciesOthers } = await deps.uow.runInTransaction(async (r) => {
         const found = new Map<string, string | null>();
+        // REQ-IA11-004: el texto libre `speciesOther` ya no vive en el snapshot; viaja solo en memoria, leído del repositorio con la biografía.
+        const others = new Map<string, string | null>();
         for (const entry of adjusted.pets) {
-          if (entry.action === 'REMOVE') continue;
           const pet = await r.pets.findById(entry.petId);
+          others.set(entry.petId, pet?.speciesOther ?? null);
+          if (entry.action === 'REMOVE') continue;
           // T968 (C-1, R-1 de `/rama`, decisión de Neo): misma compuerta que la foto de la mascota (`loadLiveInputs`): con el driver real, sin consentimiento `PET_PHOTOS` vigente del propietario no sale su biografía.
           const consented = pet !== null && (!svc.realDriver || (await hasActiveConsent(r, svc, pet.ownerUserId, 'PET_PHOTOS')));
           found.set(entry.petId, consented ? (pet.biography ?? null) : null);
         }
-        return found;
+        return { biographies: found, speciesOthers: others };
       });
-      prompt = buildImagePrompt(buildScenePayload({ plan: adjusted, last, now: snapshot, householdId: scene.householdId, maxPets: svc.maxPets, totalPets: claim.totalPets, biographies }), blocks);
+      prompt = buildImagePrompt(buildScenePayload({ plan: adjusted, last, now: snapshot, householdId: scene.householdId, maxPets: svc.maxPets, totalPets: claim.totalPets, biographies, speciesOthers }), blocks);
     } catch {
       return this.close(scene.id, attempt, 'FAILED', 'ERR-SCENE-GENERATION-FAILED', degraded);
     }

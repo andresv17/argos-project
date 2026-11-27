@@ -311,7 +311,7 @@ describe('T1314 [REQ-ESC6-026] el aviso y el proveedor del consentimiento siguen
 });
 
 describe('T1314 [D9-30] composicion: proveedores con credenciales, defecto y lectura en caliente', () => {
-  const REAL = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE };
+  const REAL = { NODE_ENV: 'production', ARGOS_ADMIN_EMAILS: 'admin.raiz@example.test', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE };
   let png = '';
   beforeAll(async () => {
     const fake = await new FakeSceneImageGenerator().generate(req());

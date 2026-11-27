@@ -18,6 +18,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import pg from 'pg';
+import { sanitizeStoredSnapshot } from '../src/domain/scene/inputs-snapshot.ts';
 import { loadMigratorConfig } from '../src/infrastructure/config/migrator-config.ts';
 
 /** Clave del candado de migración (distinta de la de transacciones de la aplicación, 0x4152474f53). */
@@ -104,11 +105,31 @@ async function appliedVersions(client: MigratorClient): Promise<Set<string>> {
   return new Set(rows.rows.map((row) => String(row['version'])));
 }
 
+/**
+ * Pasos de datos de migraciones que no se pueden expresar en SQL (corren en la MISMA transaccion, tras el SQL). 0026 (011, T1519, REQ-IA11-004): reescribe cada snapshot de escena a v2 sin
+ * texto libre y recalcula la huella con el codigo de la aplicacion. Idempotente; una fila ilegible no se toca. Sin salida de datos.
+ */
+export const MIGRATION_STEPS: Readonly<Record<string, (client: MigratorClient) => Promise<void>>> = {
+  '0026_scene_snapshot_v2': async (client) => {
+    const scenes = await client.query('SELECT id, image_inputs_snapshot AS snapshot FROM home_scenes WHERE image_inputs_snapshot IS NOT NULL');
+    for (const row of scenes.rows) {
+      const clean = sanitizeStoredSnapshot(String(row['snapshot']));
+      if (clean !== null) await client.query('UPDATE home_scenes SET image_inputs_snapshot = $1, image_fingerprint = $2 WHERE id = $3', [clean.text, clean.fingerprint, row['id']]);
+    }
+    const attempts = await client.query('SELECT id, inputs_snapshot AS snapshot FROM scene_attempts');
+    for (const row of attempts.rows) {
+      const clean = sanitizeStoredSnapshot(String(row['snapshot']));
+      if (clean !== null) await client.query('UPDATE scene_attempts SET inputs_snapshot = $1, fingerprint = $2 WHERE id = $3', [clean.text, clean.fingerprint, row['id']]);
+    }
+  },
+};
+
 async function applyOne(client: MigratorClient, migration: Migration, options: MigratorOptions): Promise<void> {
   for (let attempt = 0; ; attempt += 1) {
     try {
       await client.query('BEGIN');
       await client.query(migration.sql);
+      await MIGRATION_STEPS[migration.version]?.(client);
       await client.query('INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT DO NOTHING', [migration.version]);
       await client.query('COMMIT');
       return;

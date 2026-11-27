@@ -131,7 +131,7 @@ export async function loadLiveInputs(deps: ApplicationDeps, r: RepositorySet, ac
     if (pet === null) continue;
     const objectId = (await r.pets.findAvatar(pet.id))?.objectId ?? null;
     const photo = objectId !== null && (!svc.realDriver || (await hasActiveConsent(r, svc, pet.ownerUserId, 'PET_PHOTOS'))) ? objectId : null;
-    pets.push({ id: pet.id, species: pet.species, speciesOther: pet.speciesOther ?? null, breed: pet.breed, breedCode: pet.breedCode ?? null, sex: pet.sex, photo });
+    pets.push({ id: pet.id, species: pet.species, breedCode: pet.breedCode ?? null, sex: pet.sex, photo });
   }
   let householdPhoto: string | null = null;
   if (access.householdId !== null) {

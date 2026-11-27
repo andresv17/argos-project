@@ -62,7 +62,7 @@ function classify(last: InputsSnapshot, now: InputsSnapshot): { added: SnapshotP
 
 export function decideMode(input: DecideModeInput): ModePlan | null {
   const { last, now, hasImage, action } = input;
-  const base = last ?? { v: 1 as const, household: null, pets: [] };
+  const base = last ?? { v: 2 as const, household: null, pets: [] };
   const { added, removed, replaced } = classify(base, now);
   const householdChanged = base.household !== now.household;
   const counts: ChangeCounts = {

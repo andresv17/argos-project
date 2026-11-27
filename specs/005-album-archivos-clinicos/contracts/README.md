@@ -29,6 +29,7 @@ Versión de la API: `3.3.0` (MINOR: 10 operaciones nuevas, ninguna existente cam
 | `GET /households/{householdId}/clinical-summary?...` | `previewHouseholdClinicalSummary` | ídem (rol en el hogar) | 200; 401, 403, 404, 422 | REQ-SUM-004, REQ-VET-002 |
 | `GET /shared/{token}/summary` (pública) | `getSharedSummary` | token; sin cookie, sin CSRF | 200 `SharedSummaryView`; **404 uniforme**; 429 | REQ-VET-006, 007, SUM-004 |
 | `GET /shared/{token}/files/{mediaId}` (pública) | `getSharedFile` | token + `mediaId` ∈ alcance, `kind FILE`, enlace con archivos | 302 a URL firmada V4 (TTL ≤ min(300 s, restante)); **404 uniforme**; 429; 502 | REQ-VET-009, INV-005-001, 002 |
+| `GET /shared/{token}/pets/{petId}/avatar` (pública, **3.5.0**, feature 011 `T1534`) | `getSharedPetAvatar` | token + `petId` ∈ alcance; `credentials: 'omit'`; sin cookie ni CSRF | 200 imagen del avatar **saneada en cada lectura con `stripImageMetadata`** (TR-1; sin clave de objeto, sin EXIF, `no-store`); **404 uniforme** (también si no hay avatar o falla la lectura o el saneado); 429; 500 | ENM-005-3.5.0 (REQ-VET-006 e INV-005-002 enmendados por Neo, opción A; `SharedSummaryView.petIds` opcional, `share-link` 1.2.0, opción C; `clinical-summary` intacto) |
 
 Notas normativas de la superficie pública:
 

@@ -1,14 +1,15 @@
 /**
- * Superficie PÚBLICA del enlace veterinario (OpenAPI 3.3.0, feature 005; REQ-VET-006, REQ-VET-007, INV-005-002, INV-005-007): solo dos rutas `GET`, sin cookie, sin
+ * Superficie PÚBLICA del enlace veterinario (OpenAPI 3.5.0, feature 005; REQ-VET-006, REQ-VET-007, INV-005-002, INV-005-007): solo tres rutas `GET`, sin cookie, sin
  * CSRF y sin escritura salvo la auditoría de acceso, bajo `/api/shared/`:
  * - `GET /api/shared/{token}/summary`  -> `SharedSummaryView`.
  * - `GET /api/shared/{token}/files/{mediaId}` -> 302 a una URL firmada V4 nueva (TTL <= min(300 s, restante)).
+ * - `GET /api/shared/{token}/pets/{petId}/avatar` -> 200 con el avatar saneado (ENM-005-3.5.0, D11-09 = A, REQ-VET11-002).
  * Todo lo demás bajo el prefijo (otro verbo, incluidos HEAD y OPTIONS; ruta no definida; barra final; parámetro de más de 100 caracteres; URL mal codificada) es el
  * MISMO 404 `ERR-SHARE-NOT-FOUND`: cuerpo constante, `instance` constante `"/shared"`, cabeceras de REQ-VET-006, y CUENTA para el límite de tasa (EDGE-005-25, SC-005-050).
  * Prohibido devolver el token, la URL o la plantilla de ruta de Fastify en cuerpo, cabeceras o registros; ningún fallo responde 400.
  * Un mecanismo único (`setNotFoundHandler` del prefijo, `setErrorHandler` del prefijo y `frameworkErrors` de la instancia) resuelve en el mismo manejador.
  *
- * @implements REQ-VET-006, REQ-VET-007, REQ-VET-008, INV-005-002, INV-005-007, INV-005-009, SC-005-020, SC-005-021, SC-005-026, SC-005-041, SC-005-050, NFR-005-002, EDGE-005-25
+ * @implements REQ-VET11-002, ENM-005-3.5.0, REQ-VET-006, REQ-VET-007, REQ-VET-008, INV-005-002, INV-005-007, INV-005-009, SC-005-020, SC-005-021, SC-005-026, SC-005-041, SC-005-050, NFR-005-002, EDGE-005-25
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { SharedAccessLimiter } from '../../../application/sharing/shared-access-limiter.ts';
@@ -130,6 +131,13 @@ export function registerSharedRoutes(app: FastifyInstance, { useCases }: RouteCo
         const { url } = await useCases.sharedFile.execute(request.params.token, request.params.mediaId, request.ip);
         applySharedHeaders(reply);
         return reply.redirect(url, 302);
+      });
+
+      // ENM-005-3.5.0 (D11-09 = A, T1535): avatar de una mascota del alcance. Sin sesión (no lee Cookie ni Authorization, no emite Set-Cookie); el 404 uniforme sale del manejador común.
+      shared.get<{ Params: { token: string; petId: string } }>('/:token/pets/:petId/avatar', { exposeHeadRoute: false }, async (request, reply) => {
+        const image = await useCases.sharedAvatar.execute(request.params.token, request.params.petId, request.ip);
+        applySharedHeaders(reply);
+        return reply.type(image.mime).send(Buffer.from(image.bytes));
       });
     },
     { prefix: SHARED_API_PREFIX },

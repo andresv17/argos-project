@@ -20,13 +20,17 @@ function render(overrides: Partial<HouseholdPhotoViewProps> = {}): string {
     idPrefix: 'escena-h1',
     photoState: 'ABSENT',
     photoSrc: householdPhotoPath(HOUSEHOLD_ID, 'd1000000-0000-4000-8000-000000000009'),
+    thumbState: 'IDLE',
+    thumbSrc: null,
+    enlarged: false,
     canUpload: true,
     chosenName: null,
     uploading: false,
     confirmDelete: false,
     error: null,
-    onPhotoLoad: noop,
     onPhotoError: noop,
+    onShowPhoto: noop,
+    onToggleEnlarge: noop,
     onChoose: noop,
     onUpload: noop,
     onAskDelete: noop,
@@ -50,8 +54,8 @@ describe('T878 foto del hogar (REQ-ESC6-001)', () => {
     expect(textOf(html)).toMatch(/Aún no hay foto del hogar/);
   });
 
-  it('[SC-ESC6-004] con foto: la muestra por ruta propia (sin URL firmada), con texto alternativo; permite «Reemplazar foto» y «Quitar foto»', () => {
-    const html = render({ photoState: 'PRESENT' });
+  it('[SC-ESC6-004] con foto: al ampliar la muestra por ruta propia (sin URL firmada), con texto alternativo; permite «Reemplazar foto» y «Quitar foto» (T1539: la carga inicial no la descarga)', () => {
+    const html = render({ photoState: 'PRESENT', thumbState: 'READY', thumbSrc: 'blob:x', enlarged: true });
     expect(html).toContain(`src="/api/households/${HOUSEHOLD_ID}/photo?v=`);
     expect(html).toMatch(/alt="Foto de referencia del hogar"/);
     expect(html).not.toMatch(/googleapis|X-Goog|Signature/i);
@@ -82,7 +86,7 @@ describe('T878 foto del hogar (REQ-ESC6-001)', () => {
 
   it('[REQ-ESC6-001] sin permiso (canUploadHouseholdPhoto falso) no hay controles de carga ni de borrado y se explica por qué', () => {
     const html = render({ canUpload: false, photoState: 'PRESENT' });
-    expect(html).not.toMatch(/<button|type="file"/);
+    expect(html).not.toMatch(/type="file"|Reemplazar foto|Quitar foto|Subir foto/);
     expect(textOf(html)).toMatch(/Solo el propietario del hogar o un administrador/);
   });
 
@@ -94,9 +98,8 @@ describe('T878 foto del hogar (REQ-ESC6-001)', () => {
     for (const button of html.match(/<button[^>]*>/g) ?? []) expect(button).toContain('focus-visible:ring-2');
   });
 
-  it('[REQ-ESC6-001] mientras se comprueba si hay foto no se muestra imagen rota: una sonda oculta carga la ruta propia', () => {
-    const html = render({ photoState: 'CHECKING' });
-    expect(html).toMatch(/<img[^>]*aria-hidden="true"[^>]*class="hidden"|<img[^>]*class="hidden"[^>]*aria-hidden="true"/);
+  it('[REQ-ESC6-001] mientras se comprueba si hay foto no se muestra imagen rota ni se descarga el objeto (T1539: la comprobación es por la API)', () => {
+    expect(render({ photoState: 'CHECKING' })).not.toContain('<img');
   });
 });
 

@@ -8,7 +8,7 @@
  *
  * Con `view.disabled` (feature 009, T1266, REQ-CFG9-003) muestra la caja gris «Función deshabilitada» sin revelar la causa, conserva la imagen vigente y deshabilita el botón.
  *
- * @implements REQ-ESC6-039, REQ-CFG9-003, EDGE-009-019, REQ-UX8-002, EDGE-008-021, REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, SC-ESC6-131, SC-ESC6-132, SC-ESC6-133, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
+ * @implements REQ-IA11-001, REQ-IA11-002, INV-IA11-001, REQ-ESC6-039, REQ-CFG9-003, EDGE-009-019, REQ-UX8-002, EDGE-008-021, REQ-ESC6-005, REQ-ESC6-007, REQ-ESC6-019, SC-ESC6-131, SC-ESC6-132, SC-ESC6-133, REQ-ESC6-021, NFR-ESC6-003, NFR-ESC6-004, SC-ESC6-014, SC-ESC6-015, SC-ESC6-029, SC-ESC6-030, SC-ESC6-108, SC-ESC6-109
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { browserRenewal, browserScheduler } from '../browser-scheduler.ts';
@@ -31,6 +31,7 @@ import {
   sceneGenerateState,
   sceneRefreshingState,
   startCooldownCountdown,
+  SCENE_AI_LABEL,
 } from '../scene-view.ts';
 import { Button } from './Field.tsx';
 
@@ -59,6 +60,7 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
   const titleId = `${idPrefix}-title`;
   const Title = `h${headingLevel}` as 'h2' | 'h4';
   const statusId = `${idPrefix}-status`;
+  const aiLabelId = `${idPrefix}-ia`;
   const reasonId = `${idPrefix}-reason`;
   const disabledId = `${idPrefix}-disabled`;
   const src = view === null ? null : sceneImagePath(scope, view.imageTag);
@@ -76,7 +78,10 @@ export function SceneBlockView({ idPrefix, scope, view, status, error, busy, onR
       </Title>
       <div className={`grid min-w-0 gap-3 lg:items-start ${view === null || src === null ? '' : 'lg:grid-cols-[28rem_minmax(0,1fr)]'}`}>
         {view === null || src === null ? null : (
-          <img src={src} alt={sceneAltText(view.pets.shown)} width={512} height={512} decoding="async" {...(generating ? { 'aria-busy': true } : {})} {...(onImageError === undefined ? {} : { onError: onImageError })} className={`aspect-square h-auto w-full max-w-full rounded-2xl border border-slate-200 bg-meadow object-contain sm:max-w-md ${generating ? 'opacity-70' : ''}`} style={{ imageRendering: 'pixelated' }} />
+          <figure className="m-0 grid min-w-0 max-w-full gap-1">
+            <img src={src} alt={sceneAltText(view.pets.shown)} aria-describedby={aiLabelId} width={512} height={512} decoding="async" {...(generating ? { 'aria-busy': true } : {})} {...(onImageError === undefined ? {} : { onError: onImageError })} className={`aspect-square h-auto w-full max-w-full rounded-2xl border border-slate-200 bg-meadow object-contain sm:max-w-md ${generating ? 'opacity-70' : ''}`} style={{ imageRendering: 'pixelated' }} />
+            <figcaption id={aiLabelId} className="text-sm text-slate-900">{SCENE_AI_LABEL}</figcaption>
+          </figure>
         )}
         <div className="grid min-w-0 gap-3">
           <div id={statusId} role="status" aria-live="polite" aria-atomic="true" className="text-sm text-slate-900">

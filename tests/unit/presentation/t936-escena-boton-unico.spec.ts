@@ -203,7 +203,8 @@ describe('T936 accesibilidad y responsivo (SC-ESC6-133)', () => {
     const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]!);
     expect(new Set(ids).size).toBe(ids.length);
     const refs = [...html.matchAll(/aria-describedby="([^"]*)"/g)].flatMap((m) => m[1]!.split(' '));
-    expect(refs).toEqual(['escena-h1-reason', 'escena-h2-reason']);
+    // 011 (T1514, D11-07): cada imagen referencia además su etiqueta de IA (`-ia`).
+    expect(refs).toEqual(['escena-h1-ia', 'escena-h1-reason', 'escena-h2-ia', 'escena-h2-reason']);
     for (const ref of refs) expect(ids).toContain(ref);
   });
 

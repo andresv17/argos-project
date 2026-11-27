@@ -60,7 +60,7 @@ describe('modelo de presentación puro', () => {
   it('[REQ-UI-001] la tarjeta muestra el contador de alertas OVERDUE y DUE_SOON y la edad de la API', () => {
     const c = card('p1', 'Argos');
     expect([alertCounters(c.alertsSummary), formatAge(c.computedAge), formatAge({ years: 1, months: 1, totalDays: 400 })]).toEqual([
-      '1 vencidas · 2 próximas',
+      '1 vencida · 2 próximas',
       '6 años, 6 meses',
       '1 año, 1 mes',
     ]);

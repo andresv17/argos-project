@@ -1,0 +1,181 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Argos Pet Health & Biometric Tracker API - delta de la feature 011 (foto de perfil de usuario, #78)
+  version: 3.2.0
+  description: >
+    Documento INCREMENTAL de la feature 011 (T1553, #78; D11-13 = C): MINOR sobre la API de usuarios (004 3.1.0 ... 010). Archivo NUEVO para no alterar lo compilado de 004 ni de 010.
+    Solo la PROPIA cuenta sube, ve y quita su foto: ninguna ruta lleva el id de usuario (sale de la sesion), no hay lectura por otra cuenta ni por la vista publica de veterinario (REQ-PRF11-002), y no se
+    lee ni se descarga la foto `picture` de Google (cero superficie SSRF externa). Cuerpo crudo JPEG, PNG o WebP (sin multipart). Errores en application/problem+json (RFC 9457).
+  x-sdd-status: APPROVED
+  x-sdd-metadata:
+    version: 3.2.0
+    status: APPROVED
+    supersedes: null
+    change_type: MINOR
+    change_note: "3.2.0 (feature 011, T1553, Architect 2026-11-25; D11-13 = C aprobada por Neo, Logos iter 244; estado DRAFT, lo fija solo Neo): +3 rutas /account/avatar (putUserAvatar, getUserAvatar, deleteUserAvatar) y +1 /account/avatar/meta (getUserAvatarMeta). Misma sesion y cabecera CSRF que el resto de /account/*. Numeracion: continua 3.1.0 de 004 como MINOR aditiva."
+    traceability: [REQ-PRF11-001, REQ-PRF11-002, INV-PRF11-001, EDGE-011-007, SC-011-057, SC-011-058, SC-011-059, SC-011-060, SC-011-061, SC-011-062]
+servers:
+  - url: http://127.0.0.1:3100/api
+    description: Servidor local (prefijo /api)
+security:
+  - sessionCookie: []
+tags:
+  - name: account-avatar
+
+paths:
+  /account/avatar:
+    put:
+      tags: [account-avatar]
+      operationId: putUserAvatar
+      summary: "Sube o reemplaza la foto de la propia cuenta (cuerpo crudo JPEG, PNG o WebP, hasta 524 288 bytes, cuadrada 64..1024 px) [REQ-PRF11-001, SC-011-061, SC-011-062]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-PRF11-001, REQ-PRF11-002]
+      description: >
+        El recorte lo hace el cliente (AvatarCropper, 512x512). El servidor: (1) exige CSRF y sesion; (2) rechaza Content-Length o conteo en streaming > 524 288 con 413 antes de decodificar; (3) exige Content-Type
+        image/jpeg, image/png o image/webp Y que la FIRMA (magic bytes) coincida con ese tipo; si no, 415 (no se confia en la extension ni en el nombre); (4) lee dimensiones sin decodificar el cuerpo completo:
+        cuadrada y cada lado en 64..1024, si no 422; (5) SANEA por lista blanca con stripImageMetadata, sin reencodificar pixeles (EXIF, XMP, ICC, GPS y comentarios fuera; decision de Neo 2A) y guarda SOLO la version saneada (el original nunca se persiste); (6) clave
+        users/{userId}/avatar/{avatarObjectId} (UUID v4 nuevo en cada subida); protocolo T1/T2 de 004 (INTENT -> put -> UPDATE users SET avatar_version = avatar_version + 1, avatar_object_id = :nuevo con la clave
+        anterior a la cola de borrado). Fallo tras el put: la clave pasa a DELETE. Sin tabla ni puerto nuevo.
+        Precisiones de T1555 (Trinity H-2/H-3/H-6): el Content-Type declarado debe coincidir con la firma, si no 415. Las dimensiones (cuadrada, 64..1024) se validan sobre la SALIDA saneada y sobre TODAS las
+        cabeceras declaradas (canvas VP8X, frames VP8/VP8L internos, los dos SOF de un JPEG); si cualquiera queda fuera, 422. El limite de 10 subidas por hora se consume en onRequest, tras autenticar y
+        antes de leer el cuerpo, y cuenta todo intento autenticado con CSRF valido (exitos y fallos 413/415/422); el intento 11 devuelve 429. DELETE y GET no consumen. Respuestas con Cache-Control: no-store.
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+          image/webp:
+            schema: { type: string, format: binary }
+      responses:
+        '200':
+          description: "Foto guardada; devuelve la version nueva (Cache-Control: no-store)"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/user-avatar.schema.json#/$defs/UserAvatarVersionResult' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '413':
+          description: "ERR-MEDIA-TOO-LARGE (> 524 288 bytes)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '415':
+          description: "ERR-MEDIA-TYPE-NOT-ALLOWED (no es JPEG, PNG ni WebP, o la firma no coincide con el Content-Type)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '422':
+          description: "ERR-PRF11-AVATAR-INVALID-IMAGE (corrupta, no cuadrada, lado fuera de 64..1024 en la salida saneada o en cualquier cabecera declarada: VP8X canvas, frames VP8/VP8L, dos SOF de JPEG; o rechazada por el saneado). No guarda nada"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '429':
+          description: "Intento 11 en 60 minutos (limite 10 por usuario; consumido en onRequest, cuenta intentos fallidos autenticados con CSRF valido)"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '502':
+          description: "ERR-MEDIA-STORAGE-UNAVAILABLE (Cache-Control: no-store); la version no cambia"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+    get:
+      tags: [account-avatar]
+      operationId: getUserAvatar
+      summary: "Descarga la foto de la PROPIA cuenta; con v actual es inmutable y privada [REQ-PRF11-001, REQ-PRF11-002]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-PRF11-001, REQ-PRF11-002, EDGE-011-007]
+      description: >
+        Sin parametro de usuario: el id sale de la sesion. No hay variante publica, compartida ni por token. El cuerpo es la imagen saneada; la respuesta nunca incluye la clave del objeto, la URL del
+        almacen ni un redireccionamiento a una URL firmada (el servidor la sirve por proxy). X-Content-Type-Options: nosniff.
+      parameters:
+        - { $ref: '#/components/parameters/AvatarVersionQuery' }
+      responses:
+        '200':
+          description: "Imagen de la foto"
+          headers:
+            Cache-Control:
+              description: "Con v igual a la version actual: private, max-age=300 y Vary: Cookie (decision de Neo 1A, Logos iter 248); con v ausente o distinto: private, no-cache. Content-Type derivado de la FIRMA de los bytes saneados, nunca del tipo almacenado (Trinity H-5)"
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Problem' }
+        '404':
+          description: "ERR-PRF11-AVATAR-NOT-FOUND (sin foto u objeto ausente); Cache-Control: no-store. La interfaz cae a iniciales"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '502':
+          description: "ERR-MEDIA-STORAGE-UNAVAILABLE (Cache-Control: no-store); la interfaz cae a iniciales"
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+    delete:
+      tags: [account-avatar]
+      operationId: deleteUserAvatar
+      summary: "Quita la foto de la propia cuenta (idempotente) [REQ-PRF11-001, INV-PRF11-001]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-PRF11-001, INV-PRF11-001]
+      description: "Con candado: INSERT de la clave actual en media_deletion_queue con DELETE y UPDATE users SET avatar_object_id = NULL (avatar_version NO cambia ni se reinicia). Sin foto = 204 igualmente. Borrado inmediato post-COMMIT y refuerzo por list(users/{userId}/avatar/)."
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      responses:
+        '204':
+          description: "Foto eliminada o inexistente (no declara 502: el borrado fisico queda en la cola)"
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /account/avatar/meta:
+    get:
+      tags: [account-avatar]
+      operationId: getUserAvatarMeta
+      summary: "Metadatos de la foto de la propia cuenta: solo la version, nunca la clave [REQ-PRF11-001, REQ-PRF11-002]"
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-PRF11-001, REQ-PRF11-002, EDGE-011-007]
+      description: "avatarVersion es null si no hay foto (la interfaz muestra iniciales). Cache-Control: private, no-store."
+      responses:
+        '200':
+          description: "Version vigente o null"
+          content:
+            application/json:
+              schema: { $ref: '../schemas/user-avatar.schema.json#/$defs/UserAvatarMeta' }
+        '401': { $ref: '#/components/responses/Problem' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_session
+      description: Cookie de sesion de usuario de 001/002 (nunca la de /admin).
+  parameters:
+    CsrfHeader:
+      name: X-Argos-Request
+      in: header
+      required: true
+      description: Obligatoria en toda peticion que modifica estado; si falta, ERR-AUTH-CSRF-REJECTED (INV-AUTH-007)
+      schema: { type: string, const: '1' }
+    AvatarVersionQuery:
+      name: v
+      in: query
+      required: false
+      description: "Version de la foto; la actual se sirve inmutable [REQ-PRF11-001]"
+      schema: { type: integer, minimum: 1, maximum: 2147483647 }
+  responses:
+    Problem:
+      description: Error tipado del catalogo contracts/errors/error-catalog.json (RFC 9457)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails'

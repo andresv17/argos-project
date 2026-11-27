@@ -2,20 +2,22 @@
  * Generador de imágenes SIMULADO de la escena (feature 006, T850; REQ-ESC6-017, REQ-ESC6-031; NFR-ESC6-001). Es el ÚNICO adaptador activo en esta fase: no existe
  * `VertexSceneImageGenerator` como código seleccionable. Nunca usa red, SDK ni variables de entorno. Determinista: el PNG (1x1, un cuadro) deriva del SHA-256 del
  * prompt, así que mismo prompt = mismos bytes. Modos: `ok`, `fail` (SceneErrorCode, jamás cuerpo del proveedor, INV-ESC6-016), `slow` (espera la señal de aborto y
- * responde TIMEOUT), `invalid` (JPEG declarado PNG: la validación por firma de REQ-ESC6-035 lo rechaza) y `echo` (el prompt viaja en un trozo `tEXt`). Registra
- * cada llamada con prompt y referencias (ranura, tipo y tamaño; nunca los bytes ni el contenido).
+ * responde TIMEOUT), `invalid` (JPEG declarado PNG: la validación por firma de REQ-ESC6-035 lo rechaza). Ya NO existe el modo `echo`: el prompt nunca viaja en los bytes del PNG
+ * (011, T1521, MIF-011-04, INV-IA11-002; D11-08 = A). Registra cada llamada con semilla, longitud del prompt y referencias (ranura, tipo y tamaño; nunca los bytes ni
+ * el texto). El texto del prompt solo se puede leer en memoria con el espía OPT-IN `capturePrompts` (pruebas): `composition` no lo activa.
  *
- * @implements REQ-ESC6-017, REQ-ESC6-031, INV-ESC6-002, INV-ESC6-016, EDGE-ESC6-004, NFR-ESC6-001, SC-ESC6-025, SC-ESC6-050, SC-ESC6-061
+ * @implements REQ-IA11-003, INV-IA11-002, REQ-ESC6-017, REQ-ESC6-031, INV-ESC6-002, INV-ESC6-016, EDGE-ESC6-004, NFR-ESC6-001, SC-ESC6-025, SC-ESC6-050, SC-ESC6-061
  */
 
 import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import type { SceneGenerationRequest, SceneGenerationResult, SceneImageGeneratorPort } from '../../application/ports/scene-image-generator.port.ts';
 
-export type FakeSceneMode = 'ok' | 'fail' | 'slow' | 'invalid' | 'echo';
+export type FakeSceneMode = 'ok' | 'fail' | 'slow' | 'invalid';
 
 export interface FakeSceneCall {
-  readonly prompt: string;
+  /** Solo la longitud: el texto del prompt no se retiene en `calls` (INV-IA11-002, OBS-4). */
+  readonly promptLength: number;
   readonly seed: number;
   readonly references: ReadonlyArray<{ readonly ref: string; readonly mime: string; readonly byteLength: number }>;
 }
@@ -46,15 +48,15 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
 
 const SIGNATURE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-/** PNG 1x1 RGB determinista a partir del texto; `text` opcional va en un trozo `tEXt` (modo eco). */
-function pngOf(seed: string, text: string | null): Uint8Array {
+/** PNG 1x1 RGB determinista a partir de la semilla textual; nunca incrusta texto (sin `tEXt`). */
+function pngOf(seed: string): Uint8Array {
   const color = createHash('sha256').update(seed).digest().subarray(0, 3);
   const ihdr = new Uint8Array(13);
   const view = new DataView(ihdr.buffer);
   view.setUint32(0, 1);
   view.setUint32(4, 1);
   ihdr.set([8, 2, 0, 0, 0], 8);
-  const parts = [SIGNATURE, chunk('IHDR', ihdr), ...(text === null ? [] : [chunk('tEXt', new TextEncoder().encode(`prompt\0${text}`))]), chunk('IDAT', deflateSync(Uint8Array.from([0, color[0]!, color[1]!, color[2]!]))), chunk('IEND', new Uint8Array(0))];
+  const parts = [SIGNATURE, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(Uint8Array.from([0, color[0]!, color[1]!, color[2]!]))), chunk('IEND', new Uint8Array(0))];
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
   let at = 0;
   for (const part of parts) {
@@ -66,10 +68,14 @@ function pngOf(seed: string, text: string | null): Uint8Array {
 
 export class FakeSceneImageGenerator implements SceneImageGeneratorPort {
   readonly calls: FakeSceneCall[] = [];
+  /** Espía en memoria del texto del prompt (D11-08 = A): vacío salvo con `capturePrompts`; no sale del proceso. */
+  readonly prompts: string[] = [];
   private mode: FakeSceneMode;
+  private readonly capturePrompts: boolean;
 
-  constructor(options: { readonly mode?: FakeSceneMode } = {}) {
+  constructor(options: { readonly mode?: FakeSceneMode; readonly capturePrompts?: boolean } = {}) {
     this.mode = options.mode ?? 'ok';
+    this.capturePrompts = options.capturePrompts === true;
   }
 
   setMode(mode: FakeSceneMode): void {
@@ -77,7 +83,8 @@ export class FakeSceneImageGenerator implements SceneImageGeneratorPort {
   }
 
   async generate(request: SceneGenerationRequest): Promise<SceneGenerationResult> {
-    this.calls.push({ prompt: request.prompt, seed: request.seed, references: request.references.map((r) => ({ ref: r.ref, mime: r.mime, byteLength: r.bytes.length })) });
+    if (this.capturePrompts) this.prompts.push(request.prompt);
+    this.calls.push({ promptLength: request.prompt.length, seed: request.seed, references: request.references.map((r) => ({ ref: r.ref, mime: r.mime, byteLength: r.bytes.length })) });
     switch (this.mode) {
       case 'fail':
         return { ok: false, code: 'ERR-SCENE-GENERATION-FAILED' };
@@ -89,10 +96,8 @@ export class FakeSceneImageGenerator implements SceneImageGeneratorPort {
           else request.signal.addEventListener('abort', () => resolve(), { once: true });
         });
         return { ok: false, code: 'ERR-SCENE-GENERATION-TIMEOUT' };
-      case 'echo':
-        return { ok: true, image: { mime: 'image/png', bytes: pngOf(request.prompt, request.prompt) } };
       default:
-        return { ok: true, image: { mime: 'image/png', bytes: pngOf(request.prompt, null) } };
+        return { ok: true, image: { mime: 'image/png', bytes: pngOf(request.prompt) } };
     }
   }
 }

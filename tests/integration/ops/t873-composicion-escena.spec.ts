@@ -69,7 +69,7 @@ describe('composición de la escena en desarrollo y CI (T873, REQ-ESC6-017, REQ-
   });
 
   it('[INV-ESC6-018][SC-ESC6-087] con el driver real el despachador es el de Cloud Tasks con destino y cuenta de la configuración validada y se prueba con dobles (sin llamadas)', async () => {
-    const config = loadAppConfigActivated({ NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE });
+    const config = loadAppConfigActivated({ NODE_ENV: 'production', ARGOS_ADMIN_EMAILS: 'admin.raiz@example.test', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE });
     const calls: string[] = [];
     const dispatcher = selectSceneDispatcher(config.scene, {
       run: async () => 'NOOP',
@@ -85,7 +85,7 @@ describe('composición de la escena en desarrollo y CI (T873, REQ-ESC6-017, REQ-
   });
 
   it('[REQ-ESC6-028][REQ-ESC6-031] el driver real está activado por T885: con la constante del código arranca; con sceneRealDriverActivated: false no, y la composición del real sin tope global se niega', () => {
-    const env = { NODE_ENV: 'production', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE };
+    const env = { NODE_ENV: 'production', ARGOS_ADMIN_EMAILS: 'admin.raiz@example.test', ARGOS_AUDIT_HMAC_SECRET: '1f'.repeat(32), ARGOS_MEDIA_DRIVER: 'gcs', ARGOS_MEDIA_BUCKET: 'argos-test-media', ...PROD_SCENE };
     expect(loadAppConfig(env).scene.driver).toBe('real');
     expect(() => loadAppConfig(env, { sceneRealDriverActivated: false })).toThrow('ARGOS_SCENE_DRIVER');
     const config = loadAppConfigActivated(env);

@@ -2,7 +2,7 @@
  * Puerto de almacenamiento de objetos de medios (REQ-GCS-003). Adaptadores: GCS (producción) y memoria (desarrollo, E2E y pruebas).
  * Sin `deletePrefix` ni `exists` (la cola de borrado es por clave y la conciliación usa `list`, ADR-004-01, K-03).
  *
- * - Las claves son solo `pets/<uuid>/(files|photos|avatar)/<uuid>`, `scenes/<uuid>/images/<uuid>`, `households/<uuid>/photo/<uuid>` y `about/photo/<uuid>` (INV-ARC-003; la última, excepción de la 010, H-ARCH-ACE-KEY): un adaptador rechaza cualquier otra.
+ * - Las claves son solo `pets/<uuid>/(files|photos|avatar)/<uuid>`, `scenes/<uuid>/images/<uuid>`, `households/<uuid>/photo/<uuid>`, `users/<uuid>/avatar/<uuid>` (ENM-004-MINOR, 011 #78) y `about/photo/<uuid>` (INV-ARC-003; la última, excepción de la 010, H-ARCH-ACE-KEY): un adaptador rechaza cualquier otra.
  * - `put` reemplaza el objeto; `get` devuelve `null` si no existe; `delete` es idempotente (inexistente = éxito).
  * - `list(prefix)` devuelve clave y fecha de creación (UTC canónico) ordenadas por clave.
  * - `createReadUrl` produce una URL de lectura `inline` con tipo fijado y nombre neutro (INV-ARC-004, D-14 A); `ttlSeconds` en 30–900.

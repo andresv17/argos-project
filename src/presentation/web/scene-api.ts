@@ -77,6 +77,10 @@ export interface SceneApi {
   notice(): Promise<SceneNoticeData>;
   grantConsent(body: GrantSceneConsentBody): Promise<void>;
   revokeConsent(): Promise<void>;
+  /** ¿Hay foto del hogar? Sin descargar el objeto: `redirect: 'manual'` lee la 302 sin seguirla (REQ-HOG11-003). */
+  householdPhotoExists(householdId: string): Promise<boolean>;
+  /** Descarga el objeto (sigue la 302): solo bajo demanda, para generar la miniatura. */
+  getHouseholdPhotoBlob(householdId: string): Promise<Blob>;
   putHouseholdPhoto(householdId: string, blob: Blob): Promise<HouseholdPhotoData>;
   deleteHouseholdPhoto(householdId: string): Promise<void>;
 }
@@ -120,6 +124,27 @@ export function createSceneApi(fetchImpl: typeof fetch = (...args) => fetch(...a
     },
     async revokeConsent() {
       await send('/scene-consent', 'DELETE');
+    },
+    async householdPhotoExists(householdId) {
+      let response: Response;
+      try {
+        response = await fetchImpl(`${baseUrl}/households/${householdId}/photo`, { method: 'GET', redirect: 'manual', headers: { 'X-Argos-Request': '1' } });
+      } catch {
+        throw new SceneApiError(SCENE_UNEXPECTED_CODE, 0);
+      }
+      if (response.type === 'opaqueredirect' || response.ok || (response.status >= 300 && response.status < 400)) return true;
+      if (response.status === 404) return false;
+      let code = SCENE_UNEXPECTED_CODE;
+      try {
+        const problem = (await response.json()) as { code?: unknown };
+        if (typeof problem.code === 'string') code = problem.code;
+      } catch {
+        // Cuerpo no JSON: se informa como inesperado con el estado HTTP real.
+      }
+      throw new SceneApiError(code, response.status);
+    },
+    async getHouseholdPhotoBlob(householdId) {
+      return (await send(`/households/${householdId}/photo`, 'GET')).blob();
     },
     async putHouseholdPhoto(householdId, blob) {
       return json<HouseholdPhotoData>(await send(`/households/${householdId}/photo`, 'PUT', { 'Content-Type': blob.type }, blob));

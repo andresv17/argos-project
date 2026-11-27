@@ -17,7 +17,7 @@ import { HomeSceneImage } from '../components/HomeSceneImage.tsx';
 import { PetReferenceNote } from '../components/HouseholdPhoto.tsx';
 import { ClinicalFilesPanel } from '../components/ClinicalFilesPanel.tsx';
 import { ShareLinksPanel } from '../components/ShareLinks.tsx';
-import { Link } from 'react-router-dom';
+import { PhotoAlbum } from '../components/PhotoAlbum.tsx';
 import { principalHouseholdId } from '../scene-view.ts';
 import { ApiProblem, CSRF_PARAMS, RECORD_CONFLICT_CODE, catalogProblem, isPetVersionConflict, problemMessage, unwrap } from '../api.ts';
 import { addRecord, deleteRecord, updateRecord, type RecordModule } from '../records.ts';
@@ -270,24 +270,30 @@ export function PetsPage(): JSX.Element {
                     }
                   : {})}
                 mediaSlot={
-                  <>
-                    <ClinicalFilesPanel
-                      key={`media-${dashboard.profile.id}`}
-                      petId={dashboard.profile.id}
-                      canUpload={dashboard.permissions.writeHealthEvents}
-                      canDelete={dashboard.permissions.deleteHealthEvents}
-                    />
-                    {dashboard.myRole === 'OWNER' || dashboard.myRole === 'ADMIN' ? (
-                      <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} canCreateLinks />
-                    ) : null}
-                    <Link
-                      to={`/mascotas/${dashboard.profile.id}/album`}
-                      className="text-sm font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracota"
-                    >
-                      Ver el álbum de fotos
-                    </Link>
-                  </>
+                  <ClinicalFilesPanel
+                    key={`media-${dashboard.profile.id}`}
+                    petId={dashboard.profile.id}
+                    canUpload={dashboard.permissions.writeHealthEvents}
+                    canDelete={dashboard.permissions.deleteHealthEvents}
+                  />
                 }
+                albumSlot={
+                  <PhotoAlbum
+                    key={`album-${dashboard.profile.id}`}
+                    petId={dashboard.profile.id}
+                    petName={dashboard.profile.name}
+                    canUpload={dashboard.permissions.writeHealthEvents}
+                    canDelete={dashboard.permissions.deleteHealthEvents}
+                    embedded
+                  />
+                }
+                {...(dashboard.myRole === 'OWNER' || dashboard.myRole === 'ADMIN'
+                  ? {
+                      shareSlot: (
+                        <ShareLinksPanel key={`share-${dashboard.profile.id}`} petId={dashboard.profile.id} petName={dashboard.profile.name} household={shareHousehold} canCreateLinks hideScopeChoice={shareHousehold === null} />
+                      ),
+                    }
+                  : {})}
                 {...(mode === 'TRANSFER' && dashboard.permissions.transferPetOwnership
                   ? {
                       transferSlot: (

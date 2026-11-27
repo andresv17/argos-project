@@ -23,6 +23,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { DomainError } from '../../../generated/index.ts';
+import { sanitizeStoredSnapshot } from '../../../domain/scene/inputs-snapshot.ts';
 
 export type SqliteDatabase = Database.Database;
 
@@ -57,6 +58,27 @@ export const MIGRATION_PRECHECKS: Readonly<Record<string, (db: SqliteDatabase) =
 };
 
 /**
+ * Pasos de datos de migraciones que no se pueden expresar en SQL (corren en la MISMA transaccion, tras el SQL). 0030 (011, T1519, REQ-IA11-004): reescribe cada snapshot de escena a v2 sin
+ * texto libre y recalcula la huella con el codigo de la aplicacion (SQLite no calcula SHA-256). Idempotente; una fila ilegible no se toca; no escribe nada fuera de esas columnas.
+ */
+export const MIGRATION_STEPS: Readonly<Record<string, (db: SqliteDatabase) => void>> = {
+  '0030_scene_snapshot_v2.sql': (db) => {
+    const scenes = db.prepare('SELECT id, image_inputs_snapshot AS snapshot FROM home_scenes WHERE image_inputs_snapshot IS NOT NULL').all() as Array<{ id: string; snapshot: string }>;
+    const updateScene = db.prepare('UPDATE home_scenes SET image_inputs_snapshot = ?, image_fingerprint = ? WHERE id = ?');
+    for (const row of scenes) {
+      const clean = sanitizeStoredSnapshot(row.snapshot);
+      if (clean !== null) updateScene.run(clean.text, clean.fingerprint, row.id);
+    }
+    const attempts = db.prepare('SELECT id, inputs_snapshot AS snapshot FROM scene_attempts').all() as Array<{ id: string; snapshot: string }>;
+    const updateAttempt = db.prepare('UPDATE scene_attempts SET inputs_snapshot = ?, fingerprint = ? WHERE id = ?');
+    for (const row of attempts) {
+      const clean = sanitizeStoredSnapshot(row.snapshot);
+      if (clean !== null) updateAttempt.run(clean.text, clean.fingerprint, row.id);
+    }
+  },
+};
+
+/**
  * Aplica, en orden, las migraciones de `migrationsDir` que no estén en `schema_migrations`. Devuelve las aplicadas.
  * @implements INV-ARCH-004
  */
@@ -74,6 +96,7 @@ export function runMigrations(db: SqliteDatabase, migrationsDir: string = DEFAUL
     db.transaction(() => {
       MIGRATION_PRECHECKS[name]?.(db);
       db.exec(sql);
+      MIGRATION_STEPS[name]?.(db);
       record.run(name);
     })();
   }

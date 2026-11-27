@@ -76,7 +76,10 @@ describe('T811 assertListPrefix con scenes/ y households/ (sin RangeError)', () 
 describe('T811 conciliación: prefijos y antigüedad (H-LCK-006-11, EDGE-ESC6-021)', () => {
   it('REQ-ESC6-029: la rutina existente concilia pets/ (24 h) y añade scenes/ y households/ (15 min); no hay una segunda rutina', () => {
     // T1430 (H-ARCH-ACE-KEY): la 010 añade `about/` a la MISMA rutina; las demás reglas no cambian.
-    expect(RECONCILED_PREFIXES).toEqual(['pets/', 'scenes/', 'households/', 'about/']);
+    expect(RECONCILED_PREFIXES).toEqual(['pets/', 'scenes/', 'households/', 'about/', 'users/']); // ENM-004-MINOR (011, T1556): el prefijo users/ se concilia a los 15 min
+    expect(reconciliationAgeMinutes(`users/${SCENE}/avatar/${OBJ}`)).toBe(15);
+    expect(isMediaObjectKey(`users/${SCENE}/avatar/${OBJ}`)).toBe(true);
+    expect(isMediaObjectKey(`users/${SCENE}/otra/${OBJ}`)).toBe(false);
     expect(reconciliationAgeMinutes(mediaObjectKey(SCENE, 'FILE', OBJ))).toBe(24 * 60);
     expect(reconciliationAgeMinutes(`pets/${SCENE}/avatar/${OBJ}`)).toBe(24 * 60);
     expect(reconciliationAgeMinutes(sceneImageObjectKey(SCENE, OBJ))).toBe(15);

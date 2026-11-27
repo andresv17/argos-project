@@ -5,6 +5,15 @@
  */
 
 import { GetAdminAboutUseCase, GetPublicAboutPhotoUseCase, GetPublicAboutUseCase, PutAboutPhotoUseCase, UpdateAboutTextUseCase } from '../../../application/use-cases/about-use-cases.ts';
+import {
+  ChangeAdminDelegateRoleUseCase,
+  DisableAdminDelegateUseCase,
+  InviteAdminDelegateUseCase,
+  ListAdminDelegatesUseCase,
+  ReactivateAdminDelegateUseCase,
+  ReinviteAdminDelegateUseCase,
+  type AdminDelegateLimits,
+} from '../../../application/use-cases/admin-delegate-use-cases.ts';
 import { AuthenticateAdminUseCase, CompleteAdminGoogleLoginUseCase, EndAdminSessionUseCase, StartAdminGoogleLoginUseCase } from '../../../application/use-cases/admin-use-cases.ts';
 import { ListAdminParametersUseCase, ResetAdminSceneQuotaUseCase, UpdateAdminParameterUseCase } from '../../../application/use-cases/admin-parameter-use-cases.ts';
 import { CountPendingRegistrationsUseCase, DecideRegistrationUseCase, ListPendingRegistrationsUseCase } from '../../../application/use-cases/admin-registration-use-cases.ts';
@@ -31,12 +40,13 @@ import {
   SearchInviteesUseCase,
   TransferHouseholdOwnershipUseCase,
 } from '../../../application/use-cases/household-use-cases.ts';
+import { DeleteUserAvatarUseCase, GetUserAvatarMetaUseCase, GetUserAvatarUseCase, PutUserAvatarUseCase } from '../../../application/use-cases/user-avatar-use-cases.ts';
 import { DeleteMediaUseCase, GetAlbumLimitsUseCase, GetMediaAccessUseCase, ListMediaUseCase, UploadMediaUseCase } from '../../../application/use-cases/media-use-cases.ts';
 import { GetSceneNoticeUseCase, GrantSceneConsentUseCase, RevokeSceneConsentUseCase } from '../../../application/use-cases/scene-consent-use-cases.ts';
 import { DeleteHouseholdPhotoUseCase, GetHouseholdPhotoUseCase, PutHouseholdPhotoUseCase } from '../../../application/use-cases/scene-photo-use-cases.ts';
 import { GetSceneImageUseCase, GetSceneUseCase, RequestSceneGenerationUseCase } from '../../../application/use-cases/scene-use-cases.ts';
 import { CreateShareLinkUseCase, ListShareLinksUseCase, RevokeShareLinkUseCase } from '../../../application/use-cases/share-link-use-cases.ts';
-import { GetSharedFileUseCase, GetSharedSummaryUseCase, PreviewClinicalSummaryUseCase } from '../../../application/use-cases/shared-view-use-cases.ts';
+import { GetSharedFileUseCase, GetSharedPetAvatarUseCase, GetSharedSummaryUseCase, PreviewClinicalSummaryUseCase } from '../../../application/use-cases/shared-view-use-cases.ts';
 import { TransferPetOwnershipUseCase } from '../../../application/use-cases/ownership-use-cases.ts';
 import { DeletePetUseCase, GetPetDashboardUseCase, ListMyPetsUseCase, RegisterPetUseCase, UpdatePetUseCase } from '../../../application/use-cases/pet-use-cases.ts';
 import {
@@ -49,11 +59,22 @@ import {
   DeleteRecordUseCase,
   UpdateRecordUseCase,
 } from '../../../application/use-cases/record-use-cases.ts';
+import { ADMIN_DELEGATE_ACTIVE_LIMIT, ADMIN_DELEGATE_INVITATION_TTL_HOURS, ADMIN_DELEGATE_ROW_LIMIT, MAX_HOUSEHOLDS_PER_USER } from '../../config/app-config.ts';
 import { INVITEE_SEARCH_LIMITS } from '../../config/invitee-search-config.ts';
 import { InviteeSearchRateLimiter } from '../invitee-search-rate-limit.ts';
 import type { ApplicationDeps } from '../../../application/use-cases/use-case-support.ts';
 
-export function createUseCases(deps: ApplicationDeps) {
+/** Cifras de los delegados de `/admin` (feature 011, INV-ARCH-006): viven solo en `app-config.ts` y la composición las inyecta a la capa de aplicación. */
+const ADMIN_DELEGATE_LIMITS: AdminDelegateLimits = {
+  activeLimit: ADMIN_DELEGATE_ACTIVE_LIMIT,
+  invitationTtlHours: ADMIN_DELEGATE_INVITATION_TTL_HOURS,
+  rowLimit: ADMIN_DELEGATE_ROW_LIMIT,
+};
+
+export function createUseCases(baseDeps: ApplicationDeps) {
+  // Composición del tope de hogares (REQ-HOG11-004, INV-HOG11-001): la cifra viene solo de `app-config.ts` y se inyecta a la capa de aplicación.
+  // Se delega por prototipo (no se copia): las lecturas de `uow` y demás siguen siendo en vivo sobre `baseDeps`.
+  const deps: ApplicationDeps = Object.create(baseDeps, { maxHouseholdsPerUser: { value: baseDeps.maxHouseholdsPerUser ?? MAX_HOUSEHOLDS_PER_USER, enumerable: true } }) as ApplicationDeps;
   return {
     register: new RegisterUserUseCase(deps),
     login: new LoginUseCase(deps),
@@ -68,6 +89,12 @@ export function createUseCases(deps: ApplicationDeps) {
     adminComplete: new CompleteAdminGoogleLoginUseCase(deps),
     adminAuthenticate: new AuthenticateAdminUseCase(deps),
     adminEnd: new EndAdminSessionUseCase(deps),
+    adminListDelegates: new ListAdminDelegatesUseCase(deps, ADMIN_DELEGATE_LIMITS),
+    adminInviteDelegate: new InviteAdminDelegateUseCase(deps, ADMIN_DELEGATE_LIMITS),
+    adminChangeDelegateRole: new ChangeAdminDelegateRoleUseCase(deps, ADMIN_DELEGATE_LIMITS),
+    adminDisableDelegate: new DisableAdminDelegateUseCase(deps, ADMIN_DELEGATE_LIMITS),
+    adminReactivateDelegate: new ReactivateAdminDelegateUseCase(deps, ADMIN_DELEGATE_LIMITS),
+    adminReinviteDelegate: new ReinviteAdminDelegateUseCase(deps, ADMIN_DELEGATE_LIMITS),
     adminPendingCount: new CountPendingRegistrationsUseCase(deps),
     adminListRegistrations: new ListPendingRegistrationsUseCase(deps),
     adminDecideRegistration: new DecideRegistrationUseCase(deps),
@@ -126,12 +153,17 @@ export function createUseCases(deps: ApplicationDeps) {
     putAvatar: new PutAvatarUseCase(deps),
     getAvatar: new GetAvatarUseCase(deps),
     deleteAvatar: new DeleteAvatarUseCase(deps),
+    putUserAvatar: new PutUserAvatarUseCase(deps),
+    getUserAvatar: new GetUserAvatarUseCase(deps),
+    getUserAvatarMeta: new GetUserAvatarMetaUseCase(deps),
+    deleteUserAvatar: new DeleteUserAvatarUseCase(deps),
     createShareLink: new CreateShareLinkUseCase(deps),
     listShareLinks: new ListShareLinksUseCase(deps),
     revokeShareLink: new RevokeShareLinkUseCase(deps),
     previewSummary: new PreviewClinicalSummaryUseCase(deps),
     sharedSummary: new GetSharedSummaryUseCase(deps),
     sharedFile: new GetSharedFileUseCase(deps),
+    sharedAvatar: new GetSharedPetAvatarUseCase(deps),
     getScene: new GetSceneUseCase(deps),
     requestScene: new RequestSceneGenerationUseCase(deps),
     getSceneImage: new GetSceneImageUseCase(deps),

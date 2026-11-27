@@ -1,0 +1,408 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Argos Pet Health & Biometric Tracker API - delta de la feature 011 (administradores delegados y roles de plataforma de /admin)
+  version: 1.8.0
+  description: >
+    Documento INCREMENTAL de la feature 011 (T1524, #63): MINOR sobre admin.openapi.yaml de 009 (1.7.1). Es un archivo NUEVO para no alterar lo ya compilado de 009 (src/generated/v35) ni su estado
+    (mismo criterio que about.openapi.yaml de 010). Declara la gestion de administradores delegados (/api/admin/administrators*) y el rol efectivo del administrador (/api/admin/me), y fija en
+    x-sdd-role-matrix la matriz operacion -> roles de TODAS las operaciones vigentes de /api/admin/* (009 y 010) con politica deny-by-default (H-7). Las operaciones de 009 y 010 no se editan.
+    Sesion: la misma cookie argos_admin_session de 009 (HttpOnly, SameSite=Strict, 30 min absolutos y 10 de inactividad); el rol NO viaja en ella: se resuelve desde BD en cada peticion (REQ-ADM11-003).
+    Errores en application/problem+json (RFC 9457) del catalogo incremental de 011 y de los heredados.
+  x-sdd-status: APPROVED
+  x-sdd-metadata:
+    version: 1.8.0
+    status: APPROVED
+    supersedes: null
+    change_type: MINOR
+    change_note: "1.8.0 (feature 011, T1524, Architect 2026-11-25; D11-01 = A + H-6 = B, D11-03 = B+A, D11-04 = A, H-1, H-4, H-5, H-7 aprobadas por Neo; estado DRAFT, lo fija solo Neo): +7 operaciones (getAdminSelf, listAdminDelegates, inviteAdminDelegate, changeAdminDelegateRole, disableAdminDelegate, reactivateAdminDelegate, reinviteAdminDelegate) y x-sdd-role-matrix. No hay operacion de eliminar (H-9). DERIVADAS para revision de Neo (ORA-1): (f) getAdminSelf, (e) reinviteAdminDelegate, (b) INVITED -> DISABLED al cancelar, (d) ADMIN_DELEGATE_ROW_LIMIT = 100, (a) el conteo ACTIVE + INVITED vigentes, (g) el mismo admin_id en admin_delegates y admin_identities y (h) el tope evaluado antes de resolver el correo. La numeracion 1.8.0 continua la de 009 (1.7.1) como MINOR aditiva, aunque el archivo sea separado."
+    traceability: [REQ-ADM11-001, REQ-ADM11-002, REQ-ADM11-003, REQ-ADM11-004, REQ-ADM11-005, REQ-ADM11-006, REQ-ADM11-007, INV-ADM11-001, INV-ADM11-002, INV-ADM9-002, STATE-ADM11-001, EDGE-011-001, EDGE-011-002, EDGE-011-003, EDGE-011-009, EDGE-011-010, EDGE-011-011, EDGE-011-015, EDGE-011-019]
+  x-sdd-roles: [SUPER_ADMIN, OPERATOR, SUPPORT]
+  x-sdd-role-policy: >
+    DENY-BY-DEFAULT (H-7, REQ-ADM11-003). Cada ruta /api/admin/* declara en un REGISTRO CENTRAL unico (un modulo de infrastructure/http/ que exporta el conjunto de roles por metodo y ruta) el conjunto de roles
+    que la autorizan, o el marcador PUBLIC_PRE_SESSION (solo el inicio y el callback de Google). Una ruta /api/admin/* montada que no figura en el registro se RECHAZA (la prueba meta enumera las rutas montadas y falla
+    si alguna no figura; por defecto el servidor responde el 404 uniforme). El rol efectivo se resuelve desde BD en cada peticion y dentro de la transaccion de escritura (EDGE-011-015): SUPER_ADMIN si el correo esta en
+    ARGOS_ADMIN_EMAILS (la raiz); si no, el rol del delegado ACTIVE con correo exacto y sub anclado; cualquier otro caso (sin fila, INVITED, INVITED caducada, DISABLED, sin sub, correo distinto, rol desconocido) = sin acceso
+    = 404 uniforme del callback / de la ruta. Un rol valido pero no incluido en la ruta responde 403 ERR-ADM11-ROLE-NOT-AUTHORIZED antes de leer el cuerpo.
+  x-sdd-role-matrix:
+    SUPER_ADMIN_ONLY_NOTE: "SUPER_ADMIN esta incluido en TODAS las operaciones. La columna 'roles' lista el conjunto completo autorizado."
+    operations:
+      - { method: GET,    path: /api/admin/auth/google/start,                 operationId: startAdminGoogleLogin,        roles: [PUBLIC_PRE_SESSION], source: "009" }
+      - { method: GET,    path: /api/admin/auth/google/callback,              operationId: completeAdminGoogleLogin,     roles: [PUBLIC_PRE_SESSION], source: "009", note: "resuelve el acceso: raiz, o delegado ACTIVE/INVITED vigente con correo exacto; todo lo demas = 404 uniforme (DENIED)" }
+      - { method: GET,    path: /api/admin/session,                           operationId: getAdminSession,              roles: [SUPER_ADMIN, OPERATOR, SUPPORT], source: "009" }
+      - { method: DELETE, path: /api/admin/session,                           operationId: endAdminSession,              roles: [SUPER_ADMIN, OPERATOR, SUPPORT], source: "009" }
+      - { method: GET,    path: /api/admin/me,                                operationId: getAdminSelf,                 roles: [SUPER_ADMIN, OPERATOR, SUPPORT], source: "011" }
+      - { method: GET,    path: /api/admin/pending-count,                     operationId: getAdminPendingCount,         roles: [SUPER_ADMIN, OPERATOR, SUPPORT], source: "009", note: "aprobaciones" }
+      - { method: GET,    path: /api/admin/registrations,                     operationId: listAdminRegistrations,       roles: [SUPER_ADMIN, OPERATOR, SUPPORT], source: "009", note: "aprobaciones" }
+      - { method: POST,   path: "/api/admin/registrations/{registrationId}/approve", operationId: approveAdminRegistration, roles: [SUPER_ADMIN, OPERATOR, SUPPORT], source: "009", note: "aprobaciones" }
+      - { method: POST,   path: "/api/admin/registrations/{registrationId}/reject",  operationId: rejectAdminRegistration,  roles: [SUPER_ADMIN, OPERATOR, SUPPORT], source: "009", note: "aprobaciones" }
+      - { method: GET,    path: /api/admin/parameters,                        operationId: listAdminParameters,          roles: [SUPER_ADMIN, OPERATOR], source: "009", note: "parametros y escenas" }
+      - { method: PUT,    path: "/api/admin/parameters/{key}",                  operationId: updateAdminParameter,         roles: [SUPER_ADMIN, OPERATOR], source: "009", note: "parametros y escenas (las claves de escena viven en el catalogo cerrado de parametros)" }
+      - { method: POST,   path: /api/admin/parameters/scene-quota/reset,      operationId: resetAdminSceneQuota,         roles: [SUPER_ADMIN, OPERATOR], source: "009", note: "cuotas" }
+      - { method: GET,    path: /api/admin/about,                             operationId: getAdminAbout,               roles: [SUPER_ADMIN, OPERATOR], source: "010", note: "Acerca de" }
+      - { method: PUT,    path: /api/admin/about,                             operationId: updateAboutText,              roles: [SUPER_ADMIN, OPERATOR], source: "010", note: "Acerca de" }
+      - { method: PUT,    path: /api/admin/about/photo,                       operationId: putAboutPhoto,                roles: [SUPER_ADMIN, OPERATOR], source: "010", note: "Acerca de" }
+      - { method: GET,    path: /api/admin/administrators,                    operationId: listAdminDelegates,           roles: [SUPER_ADMIN], source: "011" }
+      - { method: POST,   path: /api/admin/administrators,                    operationId: inviteAdminDelegate,          roles: [SUPER_ADMIN], source: "011", note: "asignar SUPER_ADMIN solo la raiz (H-6)" }
+      - { method: PUT,    path: "/api/admin/administrators/{adminId}/role",     operationId: changeAdminDelegateRole,      roles: [SUPER_ADMIN], source: "011", note: "SUPER_ADMIN delegado: solo OPERATOR <-> SUPPORT (H-6)" }
+      - { method: POST,   path: "/api/admin/administrators/{adminId}/disable",  operationId: disableAdminDelegate,         roles: [SUPER_ADMIN], source: "011" }
+      - { method: POST,   path: "/api/admin/administrators/{adminId}/reactivate", operationId: reactivateAdminDelegate,    roles: [SUPER_ADMIN], source: "011" }
+      - { method: POST,   path: "/api/admin/administrators/{adminId}/reinvite", operationId: reinviteAdminDelegate,        roles: [SUPER_ADMIN], source: "011" }
+    grant_rules_H6: "Solo la raiz (ARGOS_ADMIN_EMAILS) concede o revoca SUPER_ADMIN; un SUPER_ADMIN delegado gestiona solo OPERATOR y SUPPORT (alta, cambio de rol entre ambos, desactivacion, reactivacion, re-invitacion), no toca a otro SUPER_ADMIN ni a la raiz; ningun rol se autopromueve ni se autoafecta (rol o estado). Se aplica por actor y rol destino/objetivo, nunca por correo."
+    unknown_operation: "Una operacion /api/admin/* ausente de esta matriz y del registro de codigo = rechazada (deny-by-default). Una nueva operacion exige enmienda de esta matriz."
+  x-sdd-admin-mutation-csrf-order: "Se hereda la regla de 009 1.2.0: toda operacion mutante de /api/admin/* sin X-Argos-Request responde 403 ERR-AUTH-CSRF-REJECTED ANTES de resolver la sesion de administracion; el origen ajeno se valida despues de la sesion."
+  x-sdd-constants:
+    ADMIN_DELEGATE_ACTIVE_LIMIT: 20
+    ADMIN_DELEGATE_INVITATION_TTL_HOURS: 72
+    ADMIN_DELEGATE_ROW_LIMIT: 100
+    note: "Solo viven en app-config.ts (INV-ARCH-006); aqui se fijan sus valores aprobados (20, 72 h) y el derivado (d) (100) para revision de Neo. Ni el detalle de errores ni el contrato los repiten fuera de este bloque y del esquema."
+servers:
+  - url: http://127.0.0.1:3100/api
+    description: Servidor local (prefijo /api)
+security:
+  - adminSessionCookie: []
+tags:
+  - name: admin-delegates
+
+paths:
+  /admin/me:
+    get:
+      tags: [admin-delegates]
+      operationId: getAdminSelf
+      security:
+        - adminSessionCookie: []
+      summary: "Rol efectivo del administrador autenticado [REQ-ADM11-003]"
+      description: >
+        Solo con argos_admin_session valida; sin ella, el 404 uniforme. Devuelve el rol efectivo resuelto desde BD en esta peticion (SUPER_ADMIN si el correo esta en ARGOS_ADMIN_EMAILS; si no, el rol del delegado ACTIVE) y si es raiz. Lo usa la interfaz para ocultar lo no autorizado; NO es un control: el servidor autoriza con el registro central de roles por ruta, nunca con esta respuesta. Es lectura: no renueva la inactividad ni se audita. DERIVADA (f) para revision de Neo (ORA-1).
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM11-003, REQ-ADM11-004, INV-ADM11-002]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_SELF_READ"
+      x-sdd-roles: [SUPER_ADMIN, OPERATOR, SUPPORT]
+      x-sdd-rbac-scope: "plataforma; PlatformRole nunca entra en can(rol, accion) de hogar ni al reves (REQ-ADM11-002)"
+      x-sdd-error-order: [ERR-INTERNAL-UNEXPECTED]
+      parameters:
+      responses:
+        '200':
+          description: "Rol efectivo"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminSelfView' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/administrators:
+    get:
+      tags: [admin-delegates]
+      operationId: listAdminDelegates
+      security:
+        - adminSessionCookie: []
+      summary: "Lista de administradores delegados con su estado y rol [REQ-ADM11-001, REQ-ADM11-005]"
+      description: >
+        Solo SUPER_ADMIN (raiz o delegado). Devuelve todas las filas (a lo sumo ADMIN_DELEGATE_ROW_LIMIT), incluidas DISABLED y las INVITED caducadas (marcadas por invitedExpiresAt pasado), mas el conteo que consume el tope de 20. El correo solo se devuelve aqui, a un SUPER_ADMIN, nunca en errores ni logs. Es lectura: no renueva la inactividad ni se audita.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM11-001, REQ-ADM11-003, REQ-ADM11-005]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_DELEGATE_LIST"
+      x-sdd-roles: [SUPER_ADMIN]
+      x-sdd-rbac-scope: "plataforma; PlatformRole nunca entra en can(rol, accion) de hogar ni al reves (REQ-ADM11-002)"
+      x-sdd-error-order: [ERR-ADM11-ROLE-NOT-AUTHORIZED, ERR-INTERNAL-UNEXPECTED]
+      parameters:
+      responses:
+        '200':
+          description: "Lista completa de delegados"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDelegatePage' }
+        '403': { $ref: '#/components/responses/RoleNotAuthorized' }
+        '404': { $ref: '#/components/responses/NotFoundUniform' }
+        '500': { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [admin-delegates]
+      operationId: inviteAdminDelegate
+      security:
+        - adminSessionCookie: []
+      summary: "Da de alta un delegado por correo en estado INVITED [REQ-ADM11-001, REQ-ADM11-005, H-1, H-4]"
+      description: >
+        Orden: X-Argos-Request (403 ERR-AUTH-CSRF-REJECTED antes de la sesion, regla transversal de 009 1.2.0), sesion de administracion (404 uniforme), rol efectivo resuelto desde BD en ESTA peticion contra el registro central de roles por ruta (403 ERR-ADM11-ROLE-NOT-AUTHORIZED, antes de leer el cuerpo y de cualquier efecto, H-7), confirmacion del correo (422 ERR-ADM11-EMAIL-CONFIRMATION-MISMATCH), esquema (422), tope (409 ERR-ADM11-DELEGATE-LIMIT-REACHED, evaluado ANTES de resolver el correo y por tanto independiente de el; DERIVADA (h) para revision de Neo, ORA-1), regla de concesion (403 ERR-ADM11-GRANT-FORBIDDEN: asignar SUPER_ADMIN solo la raiz) y efecto.
+        Respuesta UNIFORME 202 {accepted: true} para alta nueva, duplicado, correo raiz (EDGE-011-001), correo de un usuario de ARGOS y re-alta de una invitacion vigente: mismo codigo, cuerpo y forma; no consulta la tabla users y no devuelve adminId (H-4, INV-ADM9-002). Solo si el correo es nuevo se crea la fila INVITED con admin_id nuevo y caducidad de 72 h (ADMIN_DELEGATE_INVITATION_TTL_HOURS) y se audita ADMIN_DELEGATE_INVITED. Un duplicado NO renueva ni reactiva nada (la re-invitacion es la operacion explicita reinviteAdminDelegate). El administrador raiz (ARGOS_ADMIN_EMAILS) no figura en la tabla. Sin 'eliminar' en toda la API (H-9). No se envia correo: el delegado entra por /admin con Google.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM11-001, REQ-ADM11-003, REQ-ADM11-005, REQ-ADM11-007, INV-ADM9-002, EDGE-011-001, EDGE-011-009, EDGE-011-010]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_DELEGATE_INVITE"
+      x-sdd-roles: [SUPER_ADMIN]
+      x-sdd-rbac-scope: "plataforma; PlatformRole nunca entra en can(rol, accion) de hogar ni al reves (REQ-ADM11-002)"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-ADM11-ROLE-NOT-AUTHORIZED, ERR-ADM11-EMAIL-CONFIRMATION-MISMATCH, ERR-SCHEMA-VALIDATION-FAILED, ERR-ADM11-DELEGATE-LIMIT-REACHED, ERR-ADM11-GRANT-FORBIDDEN, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
+      x-sdd-audit: admin_audit_entries
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/InviteAdminDelegateInput' }
+      responses:
+        '202':
+          description: "Alta aceptada (respuesta uniforme)"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/AdminDelegateAccepted' }
+        '403': { $ref: '#/components/responses/CsrfOrRoleOrGrant' }
+        '409': { $ref: '#/components/responses/DelegateLimit' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/administrators/{adminId}/role:
+    put:
+      tags: [admin-delegates]
+      operationId: changeAdminDelegateRole
+      security:
+        - adminSessionCookie: []
+      summary: "Cambia el rol de un delegado INVITED o ACTIVE con If-Match [REQ-ADM11-005, REQ-ADM11-004]"
+      description: >
+        Orden: X-Argos-Request (403 ERR-AUTH-CSRF-REJECTED antes de la sesion, regla transversal de 009 1.2.0), sesion de administracion (404 uniforme), rol efectivo resuelto desde BD en ESTA peticion contra el registro central de roles por ruta (403 ERR-ADM11-ROLE-NOT-AUTHORIZED, antes de leer el cuerpo y de cualquier efecto, H-7), validacion de adminId y If-Match (422), existencia (404 ERR-ADM11-DELEGATE-NOT-FOUND), auto-modificacion (403 ERR-ADM11-SELF-MODIFICATION-FORBIDDEN), regla de concesion (403 ERR-ADM11-GRANT-FORBIDDEN: solo la raiz concede o retira SUPER_ADMIN; un SUPER_ADMIN delegado alterna OPERATOR <-> SUPPORT y no toca a otro SUPER_ADMIN), raiz protegida (409 ERR-ADM11-ROOT-PROTECTED), estado (409 ERR-ADM11-INVALID-TRANSITION), precondicion (412) y guarda del ultimo SUPER_ADMIN (409 ERR-ADM11-LAST-SUPER-ADMIN) bajo la transaccion serializada del servicio de dominio unico (H-2a). El rol del actor se relee dentro de la transaccion de escritura (EDGE-011-015). El rol nuevo rige desde la peticion siguiente del afectado (REQ-ADM11-004). Audita ADMIN_DELEGATE_ROLE_CHANGED con el admin_id objetivo, nunca el correo.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM11-003, REQ-ADM11-004, REQ-ADM11-005, REQ-ADM11-007, EDGE-011-002, EDGE-011-011, EDGE-011-015]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_DELEGATE_ROLE_CHANGE"
+      x-sdd-roles: [SUPER_ADMIN]
+      x-sdd-rbac-scope: "plataforma; PlatformRole nunca entra en can(rol, accion) de hogar ni al reves (REQ-ADM11-002)"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-ADM11-ROLE-NOT-AUTHORIZED, ERR-SCHEMA-VALIDATION-FAILED, ERR-ADM11-DELEGATE-NOT-FOUND, ERR-ADM11-SELF-MODIFICATION-FORBIDDEN, ERR-ADM11-GRANT-FORBIDDEN, ERR-ADM11-ROOT-PROTECTED, ERR-ADM11-INVALID-TRANSITION, ERR-ADM11-PRECONDITION-FAILED, ERR-ADM11-LAST-SUPER-ADMIN, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
+      x-sdd-audit: admin_audit_entries
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/AdminIdPath' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/ChangeAdminDelegateRoleInput' }
+      responses:
+        '200':
+          description: "Delegado con el rol nuevo y etag nuevo"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            ETag: { $ref: '#/components/headers/DelegateETag' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/AdminDelegateView' }
+        '403': { $ref: '#/components/responses/CsrfOrRoleOrGrant' }
+        '404': { $ref: '#/components/responses/DelegateNotFound' }
+        '409': { $ref: '#/components/responses/StateConflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/administrators/{adminId}/disable:
+    post:
+      tags: [admin-delegates]
+      operationId: disableAdminDelegate
+      security:
+        - adminSessionCookie: []
+      summary: "Desactiva un delegado (ACTIVE | INVITED -> DISABLED) [REQ-ADM11-004, REQ-ADM11-005, H-9]"
+      description: >
+        Orden: X-Argos-Request (403 ERR-AUTH-CSRF-REJECTED antes de la sesion, regla transversal de 009 1.2.0), sesion de administracion (404 uniforme), rol efectivo resuelto desde BD en ESTA peticion contra el registro central de roles por ruta (403 ERR-ADM11-ROLE-NOT-AUTHORIZED, antes de leer el cuerpo y de cualquier efecto, H-7), validacion (422), existencia (404), auto-modificacion (403), concesion (403: desactivar a un SUPER_ADMIN delegado solo lo hace la raiz), raiz protegida (409), estado (409), precondicion (412) y guarda del ultimo SUPER_ADMIN (409). ACTIVE -> DISABLED revoca de inmediato TODAS las sesiones de administracion del delegado (admin_sessions) y audita ADMIN_DELEGATE_DISABLED; INVITED -> DISABLED cancela la invitacion pendiente (DERIVADA (b) para revision de Neo, ORA-1) y audita ADMIN_DELEGATE_INVITATION_CANCELLED. Es la UNICA baja: no existe 'eliminar' (H-9). Conserva admin_id y sub.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM11-001, REQ-ADM11-004, REQ-ADM11-005, REQ-ADM11-007, EDGE-011-002, EDGE-011-011]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_DELEGATE_DISABLE"
+      x-sdd-roles: [SUPER_ADMIN]
+      x-sdd-rbac-scope: "plataforma; PlatformRole nunca entra en can(rol, accion) de hogar ni al reves (REQ-ADM11-002)"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-ADM11-ROLE-NOT-AUTHORIZED, ERR-SCHEMA-VALIDATION-FAILED, ERR-ADM11-DELEGATE-NOT-FOUND, ERR-ADM11-SELF-MODIFICATION-FORBIDDEN, ERR-ADM11-GRANT-FORBIDDEN, ERR-ADM11-ROOT-PROTECTED, ERR-ADM11-INVALID-TRANSITION, ERR-ADM11-PRECONDITION-FAILED, ERR-ADM11-LAST-SUPER-ADMIN, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
+      x-sdd-audit: admin_audit_entries
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/AdminIdPath' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      responses:
+        '200':
+          description: "Delegado en DISABLED y etag nuevo"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            ETag: { $ref: '#/components/headers/DelegateETag' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/AdminDelegateView' }
+        '403': { $ref: '#/components/responses/CsrfOrRoleOrGrant' }
+        '404': { $ref: '#/components/responses/DelegateNotFound' }
+        '409': { $ref: '#/components/responses/StateConflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/administrators/{adminId}/reactivate:
+    post:
+      tags: [admin-delegates]
+      operationId: reactivateAdminDelegate
+      security:
+        - adminSessionCookie: []
+      summary: "Reactiva un delegado DISABLED -> ACTIVE con rol explicito [D11-04 = A, H-5]"
+      description: >
+        Orden: X-Argos-Request (403 ERR-AUTH-CSRF-REJECTED antes de la sesion, regla transversal de 009 1.2.0), sesion de administracion (404 uniforme), rol efectivo resuelto desde BD en ESTA peticion contra el registro central de roles por ruta (403 ERR-ADM11-ROLE-NOT-AUTHORIZED, antes de leer el cuerpo y de cualquier efecto, H-7), validacion (422: rol obligatorio, no se restaura el anterior), existencia (404), auto-modificacion (403), concesion (403: reactivar con rol SUPER_ADMIN solo lo hace la raiz), estado (409: el delegado debe estar DISABLED con sub anclado; sin sub usar reinviteAdminDelegate), precondicion (412) y tope (409 ERR-ADM11-DELEGATE-LIMIT-REACHED: la reactivacion cuenta contra los 20, EDGE-011-009, conteo y escritura en la misma transaccion, EDGE-011-010). Conserva admin_id y sub; el delegado debe volver a entrar con el mismo correo exacto y el mismo sub. Audita ADMIN_DELEGATE_REACTIVATED.
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM11-001, REQ-ADM11-005, REQ-ADM11-007, EDGE-011-009, EDGE-011-010]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_DELEGATE_REACTIVATE"
+      x-sdd-roles: [SUPER_ADMIN]
+      x-sdd-rbac-scope: "plataforma; PlatformRole nunca entra en can(rol, accion) de hogar ni al reves (REQ-ADM11-002)"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-ADM11-ROLE-NOT-AUTHORIZED, ERR-SCHEMA-VALIDATION-FAILED, ERR-ADM11-DELEGATE-NOT-FOUND, ERR-ADM11-SELF-MODIFICATION-FORBIDDEN, ERR-ADM11-GRANT-FORBIDDEN, ERR-ADM11-INVALID-TRANSITION, ERR-ADM11-PRECONDITION-FAILED, ERR-ADM11-DELEGATE-LIMIT-REACHED, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
+      x-sdd-audit: admin_audit_entries
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/AdminIdPath' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/ReactivateAdminDelegateInput' }
+      responses:
+        '200':
+          description: "Delegado ACTIVE con el rol indicado y etag nuevo"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            ETag: { $ref: '#/components/headers/DelegateETag' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/AdminDelegateView' }
+        '403': { $ref: '#/components/responses/CsrfOrRoleOrGrant' }
+        '404': { $ref: '#/components/responses/DelegateNotFound' }
+        '409': { $ref: '#/components/responses/StateConflictOrLimit' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+
+  /admin/administrators/{adminId}/reinvite:
+    post:
+      tags: [admin-delegates]
+      operationId: reinviteAdminDelegate
+      security:
+        - adminSessionCookie: []
+      summary: "Re-invita de forma explicita (INVITED caducada o vigente | DISABLED sin sub -> INVITED) [H-1]"
+      description: >
+        Orden: X-Argos-Request (403 ERR-AUTH-CSRF-REJECTED antes de la sesion, regla transversal de 009 1.2.0), sesion de administracion (404 uniforme), rol efectivo resuelto desde BD en ESTA peticion contra el registro central de roles por ruta (403 ERR-ADM11-ROLE-NOT-AUTHORIZED, antes de leer el cuerpo y de cualquier efecto, H-7), validacion (422), existencia (404), auto-modificacion (403), concesion (403: re-invitar a un SUPER_ADMIN delegado solo lo hace la raiz), estado (409: no aplica a ACTIVE ni a DISABLED con sub anclado), precondicion (412) y tope (409 ERR-ADM11-DELEGATE-LIMIT-REACHED, misma transaccion). Renueva invitedExpiresAt a now + 72 h con el MISMO admin_id y rol. Es la unica via para recuperar una invitacion caducada: no hay reactivacion implicita ni por el alta duplicada. Audita ADMIN_DELEGATE_REINVITED. DERIVADA (e) para revision de Neo (ORA-1).
+      x-sdd-change: NEW
+      x-sdd-requirements: [REQ-ADM11-001, REQ-ADM11-005, REQ-ADM11-007, EDGE-011-009, EDGE-011-010]
+      x-sdd-rbac-action: "PLATFORM_ADMIN_DELEGATE_REINVITE"
+      x-sdd-roles: [SUPER_ADMIN]
+      x-sdd-rbac-scope: "plataforma; PlatformRole nunca entra en can(rol, accion) de hogar ni al reves (REQ-ADM11-002)"
+      x-sdd-error-order: [ERR-AUTH-CSRF-REJECTED, ERR-ADM11-ROLE-NOT-AUTHORIZED, ERR-SCHEMA-VALIDATION-FAILED, ERR-ADM11-DELEGATE-NOT-FOUND, ERR-ADM11-SELF-MODIFICATION-FORBIDDEN, ERR-ADM11-GRANT-FORBIDDEN, ERR-ADM11-INVALID-TRANSITION, ERR-ADM11-PRECONDITION-FAILED, ERR-ADM11-DELEGATE-LIMIT-REACHED, ERR-INTERNAL-UNEXPECTED]
+      x-sdd-csrf-before-session: true
+      x-sdd-audit: admin_audit_entries
+      parameters:
+        - { $ref: '#/components/parameters/CsrfHeader' }
+        - { $ref: '#/components/parameters/AdminIdPath' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      responses:
+        '200':
+          description: "Delegado en INVITED con caducidad renovada y etag nuevo"
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            ETag: { $ref: '#/components/headers/DelegateETag' }
+          content:
+            application/json:
+              schema: { $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/AdminDelegateView' }
+        '403': { $ref: '#/components/responses/CsrfOrRoleOrGrant' }
+        '404': { $ref: '#/components/responses/DelegateNotFound' }
+        '409': { $ref: '#/components/responses/StateConflictOrLimit' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    adminSessionCookie:
+      type: apiKey
+      in: cookie
+      name: argos_admin_session
+      description: Cookie de sesion de ADMINISTRACION de 009 (HttpOnly, SameSite=Strict, Path=/api/admin). No lleva el rol; nunca autoriza la API de usuarios y argos_session nunca autoriza /admin/* (INV-ADM9-002).
+  headers:
+    NoStore:
+      description: "Cache-Control: no-store"
+      schema: { type: string, const: 'no-store' }
+    DelegateETag:
+      description: "ETag del delegado tras la escritura, igual al campo etag de AdminDelegateView (comillas dobles incluidas); es el valor que la siguiente escritura envia en If-Match"
+      schema: { type: string, pattern: '^"[A-Za-z0-9_-]{8,64}"$' }
+  parameters:
+    CsrfHeader:
+      name: X-Argos-Request
+      in: header
+      required: true
+      description: "Cabecera global anti-CSRF; si falta, 403 ERR-AUTH-CSRF-REJECTED antes de resolver la sesion de administracion (regla de 009 1.2.0)."
+      schema: { type: string, const: '1' }
+    AdminIdPath:
+      name: adminId
+      in: path
+      required: true
+      description: "admin_id del delegado (UUID); uno invalido responde 422 ERR-SCHEMA-VALIDATION-FAILED despues de la sesion y del rol; uno inexistente, 404 ERR-ADM11-DELEGATE-NOT-FOUND"
+      schema: { $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/AdminId' }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: "etag vigente del delegado, tal como lo devolvio listAdminDelegates o la ultima escritura (comillas dobles incluidas). Ausente o con otra forma: 422 ERR-SCHEMA-VALIDATION-FAILED; correcto pero ya no vigente: 412 ERR-ADM11-PRECONDITION-FAILED."
+      schema: { type: string, pattern: '^"[A-Za-z0-9_-]{8,64}"$' }
+  responses:
+    NotFoundUniform:
+      description: >
+        404 UNIFORME de 009 (EDGE-009-008, INV-ADM9-001): mismo estado, cuerpo (text/plain 'Not Found'), cabeceras y tiempo que una ruta inexistente de /api/. Cubre sin sesion, sesion vencida o revocada,
+        cookie de usuario y todo acceso DENIED (delegado INVITED caducado, DISABLED, sin rol, sin sub anclado, correo distinto, rol desconocido en BD). No es application/problem+json ni lleva codigo ERR-*.
+      content:
+        text/plain:
+          schema: { type: string, const: 'Not Found' }
+    Problem:
+      description: Error tipado del catalogo incremental de 011 o de los catalogos heredados (RFC 9457)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    RoleNotAuthorized:
+      description: "403 ERR-ADM11-ROLE-NOT-AUTHORIZED: sesion valida y rol efectivo (leido de BD en esta peticion) fuera del conjunto de la ruta; se responde antes de leer el cuerpo y sin efectos."
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    CsrfOrRole:
+      description: "403: ERR-AUTH-CSRF-REJECTED (falta X-Argos-Request; antes de la sesion) o ERR-ADM11-ROLE-NOT-AUTHORIZED (rol fuera del conjunto de la ruta)."
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    CsrfOrRoleOrGrant:
+      description: "403: ERR-AUTH-CSRF-REJECTED, ERR-ADM11-ROLE-NOT-AUTHORIZED, ERR-ADM11-GRANT-FORBIDDEN (H-6: solo la raiz concede o toca SUPER_ADMIN) o ERR-ADM11-SELF-MODIFICATION-FORBIDDEN (el actor es el objetivo); sin efectos."
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    DelegateNotFound:
+      description: "404 ERR-ADM11-DELEGATE-NOT-FOUND, SOLO con sesion valida y rol SUPER_ADMIN: el adminId no existe en la tabla de delegados (la raiz no tiene fila)."
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    DelegateLimit:
+      description: "409 ERR-ADM11-DELEGATE-LIMIT-REACHED: tope de delegados vigentes o de filas alcanzado; unico rechazo diferenciable del alta (H-4), independiente del correo."
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    StateConflict:
+      description: "409: ERR-ADM11-INVALID-TRANSITION (transicion no declarada en STATE-ADM11-001), ERR-ADM11-ROOT-PROTECTED (objetivo en ARGOS_ADMIN_EMAILS) o ERR-ADM11-LAST-SUPER-ADMIN (dejaria cero SUPER_ADMIN efectivos); sin efectos."
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    StateConflictOrLimit:
+      description: "409: ERR-ADM11-INVALID-TRANSITION o ERR-ADM11-DELEGATE-LIMIT-REACHED (la transicion ocupa plaza y el tope esta completo, EDGE-011-009); sin efectos."
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    PreconditionFailed:
+      description: "412 ERR-ADM11-PRECONDITION-FAILED: If-Match correcto en forma pero ya no vigente; no muta nada."
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      $ref: 'https://argos.local/contracts/schemas/common.schema.json#/$defs/ProblemDetails'
+    AdminSelfView:
+      $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/AdminSelfView'
+    AdminDelegatePage:
+      $ref: 'https://argos.local/contracts/schemas/admin-delegate.schema.json#/$defs/AdminDelegatePage'
